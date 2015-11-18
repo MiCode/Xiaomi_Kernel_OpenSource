@@ -2433,7 +2433,7 @@ int mmc_send_pon(struct mmc_card *card)
 	if (!mmc_can_poweroff_notify(card))
 		goto out;
 
-	mmc_claim_host(host);
+	mmc_get_card(card);
 	if (card->pon_type & MMC_LONG_PON)
 		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_LONG);
 	else if (card->pon_type & MMC_SHRT_PON)
@@ -2441,7 +2441,7 @@ int mmc_send_pon(struct mmc_card *card)
 	if (err)
 		pr_warn("%s: error %d sending PON type %u",
 			mmc_hostname(host), err, card->pon_type);
-	mmc_release_host(host);
+	mmc_put_card(card);
 out:
 	return err;
 }
