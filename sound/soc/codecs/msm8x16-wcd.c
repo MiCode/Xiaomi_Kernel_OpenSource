@@ -5154,7 +5154,9 @@ static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 		pr_debug("%s: Update ASOC cache", __func__);
 		kfree(codec->reg_cache);
 		codec->reg_cache = kmemdup(codec_drv->reg_cache_default,
-					codec_drv->reg_word_size, GFP_KERNEL);
+					   (codec_drv->reg_cache_size
+					    * codec_drv->reg_word_size),
+					   GFP_KERNEL);
 		if (!codec->reg_cache) {
 			pr_err("%s: Cache update failed!\n", __func__);
 			mutex_unlock(&codec->mutex);
