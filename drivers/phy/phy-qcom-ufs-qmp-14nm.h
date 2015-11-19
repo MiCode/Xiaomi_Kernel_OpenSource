@@ -88,6 +88,7 @@
 #define UFS_PHY_POWER_DOWN_CONTROL		PHY_OFF(0x04)
 #define UFS_PHY_TX_LARGE_AMP_DRV_LVL		PHY_OFF(0x34)
 #define UFS_PHY_TX_SMALL_AMP_DRV_LVL		PHY_OFF(0x3C)
+#define UFS_PHY_RX_MIN_STALL_NOCONFIG_TIME_CAP	PHY_OFF(0xCC)
 #define UFS_PHY_LINECFG_DISABLE			PHY_OFF(0x138)
 #define UFS_PHY_RX_SIGDET_CTRL2			PHY_OFF(0x148)
 #define UFS_PHY_RX_PWM_GEAR_BAND		PHY_OFF(0x154)
@@ -202,6 +203,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_2_0_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_SIGDET_CTRL2, 0x6c),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_LARGE_AMP_DRV_LVL, 0x12),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_SMALL_AMP_DRV_LVL, 0x06),
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_MIN_STALL_NOCONFIG_TIME_CAP, 0x28),
 
 	/*
 	 * UFS_PHY_RX_PWM_GEAR_BAND configuration is changed after the power up
@@ -293,6 +295,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_2_1_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_SIGDET_CTRL2, 0x6c),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_LARGE_AMP_DRV_LVL, 0x12),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_SMALL_AMP_DRV_LVL, 0x06),
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_MIN_STALL_NOCONFIG_TIME_CAP, 0x28),
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_2_2_0[] = {
@@ -373,6 +376,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_2_2_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_SIGDET_CTRL2, 0x6c),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_LARGE_AMP_DRV_LVL, 0x0A),
 	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_TX_SMALL_AMP_DRV_LVL, 0x02),
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_MIN_STALL_NOCONFIG_TIME_CAP, 0x28),
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_B[] = {
