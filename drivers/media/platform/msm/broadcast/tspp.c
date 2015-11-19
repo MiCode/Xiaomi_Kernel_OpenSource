@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -571,7 +571,12 @@ static irqreturn_t tsif_isr(int irq, void *dev)
 /*** callbacks ***/
 static void tspp_sps_complete_cb(struct sps_event_notify *notify)
 {
-	struct tspp_device *pdev = notify->user;
+	struct tspp_device *pdev;
+
+	if (!notify || !notify->user)
+		return;
+
+	pdev = notify->user;
 	tasklet_schedule(&pdev->tlet);
 }
 
