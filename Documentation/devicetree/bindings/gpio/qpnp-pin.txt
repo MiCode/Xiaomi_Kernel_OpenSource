@@ -96,6 +96,12 @@ Optional configuration properties :
 			QPNP_PIN_OUT_STRENGTH_MED  = 2, (GPIO)
 			QPNP_PIN_OUT_STRENGTH_HIGH = 3, (GPIO)
 
+  - qcom,dtest-sel	Route the pin internally to a DTEST line.
+			QPNP_PIN_DIG_IN_CTL_DTEST1 = 1	(GPIO/MPP)
+			QPNP_PIN_DIG_IN_CTL_DTEST2 = 2,	(GPIO/MPP)
+			QPNP_PIN_DIG_IN_CTL_DTEST3 = 3,	(GPIO/MPP)
+			QPNP_PIN_DIG_IN_CTL_DTEST4 = 4,	(GPIO/MPP)
+
   - qcom,src-sel:	select a function for the pin. Certain pins
 			can be paired (shorted) with each other. Some gpio pins
 			can act as alternate functions.
