@@ -1289,6 +1289,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
 		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */

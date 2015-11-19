@@ -1047,7 +1047,8 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 			}
 			if (!data->skip_detach) {
 				dma_buf_unmap_attachment(data->srcp_attachment,
-					data->srcp_table, dir);
+					data->srcp_table,
+					mdss_smmu_dma_data_direction(dir));
 				dma_buf_detach(data->srcp_dma_buf,
 						data->srcp_attachment);
 				dma_buf_put(data->srcp_dma_buf);
@@ -1121,7 +1122,8 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 		}
 
 		data->srcp_table =
-			dma_buf_map_attachment(data->srcp_attachment, dir);
+			dma_buf_map_attachment(data->srcp_attachment,
+			mdss_smmu_dma_data_direction(dir));
 		if (IS_ERR(data->srcp_table)) {
 			ret = PTR_ERR(data->srcp_table);
 			goto err_detach;
@@ -1252,7 +1254,8 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 	return ret;
 
 err_unmap:
-	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table, dir);
+	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
+		mdss_smmu_dma_data_direction(dir));
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
 	dma_buf_put(data->srcp_dma_buf);
 	return ret;
