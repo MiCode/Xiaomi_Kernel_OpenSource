@@ -1683,7 +1683,8 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 	}
 	hw_cwrite(CAP_PORTSC, PORTSC_FPR, PORTSC_FPR);
 
-	pm_runtime_put(&_gadget->dev);
+	pm_runtime_mark_last_busy(&_gadget->dev);
+	pm_runtime_put_autosuspend(&_gadget->dev);
 out:
 	spin_unlock_irqrestore(udc->lock, flags);
 	return ret;
@@ -3369,6 +3370,7 @@ static int ep_set_wedge(struct usb_ep *ep)
  */
 static void ep_fifo_flush(struct usb_ep *ep)
 {
+	struct ci13xxx *udc = _udc;
 	struct ci13xxx_ep *mEp = container_of(ep, struct ci13xxx_ep, ep);
 	unsigned long flags;
 
@@ -3376,6 +3378,13 @@ static void ep_fifo_flush(struct usb_ep *ep)
 
 	if (ep == NULL) {
 		err("%02X: -EINVAL", _usb_addr(mEp));
+		return;
+	}
+
+	if (udc->udc_driver->in_lpm && udc->udc_driver->in_lpm(udc)) {
+		dev_err(udc->transceiver->dev,
+				"%s: Unable to fifo_flush while in LPM\n",
+				__func__);
 		return;
 	}
 
@@ -3504,7 +3513,8 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 	}
 	spin_unlock_irqrestore(udc->lock, flags);
 
-	pm_runtime_put_sync(&_gadget->dev);
+	pm_runtime_mark_last_busy(&_gadget->dev);
+	pm_runtime_put_autosuspend(&_gadget->dev);
 
 	return 0;
 }
@@ -3898,6 +3908,10 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	pm_runtime_no_callbacks(&udc->gadget.dev);
 	pm_runtime_set_active(&udc->gadget.dev);
 	pm_runtime_enable(&udc->gadget.dev);
+
+	/* Use delayed LPM especially for composition-switch in LPM (suspend) */
+	pm_runtime_set_autosuspend_delay(&udc->gadget.dev, 2000);
+	pm_runtime_use_autosuspend(&udc->gadget.dev);
 
 	_udc = udc;
 	return retval;
