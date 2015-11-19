@@ -22,13 +22,15 @@
 		ranges;
 
 		interrupt-parent = <&usb3>;
-		interrupts = <0 1 2>;
+		interrupts = <0 1 2 3>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0x0 0xffffffff>;
 		interrupt-map = <0x0 0 &intc 0 202 0
 				 0x0 1 &intc 0 203 0
-				 0x0 2 &intc 0 180 0>;
-		interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq";
+				 0x0 2 &intc 0 180 0
+				 0x0 3 &spmi_bus 0x0 0x0 0xc4 0x0>;
+		interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq",
+				"pmic_id_irq";
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		vdda33-supply = <&pmdcalifornium_l10>;
 		vdda18-supply = <&pmdcalifornium_l5>;
