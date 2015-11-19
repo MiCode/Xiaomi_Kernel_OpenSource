@@ -61,6 +61,10 @@
 #define MDSS_DSI_HW_REV_104_1           0x10040001      /* 8996   */
 #define MDSS_DSI_HW_REV_104_2           0x10040002      /* 8937   */
 
+#define MDSS_DSI_HW_REV_STEP_0		0x0
+#define MDSS_DSI_HW_REV_STEP_1		0x1
+#define MDSS_DSI_HW_REV_STEP_2		0x2
+
 #define NONE_PANEL "none"
 
 enum {		/* mipi dsi panel */

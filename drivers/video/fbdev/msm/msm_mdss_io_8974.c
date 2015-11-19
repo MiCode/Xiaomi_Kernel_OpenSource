@@ -81,7 +81,9 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104)) {
+		MDSS_DSI_HW_REV_104) &&
+		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
+		MDSS_DSI_HW_REV_STEP_2)) {
 		if (mdss_dsi_is_ctrl_clk_master(ctrl))
 			sctrl = mdss_dsi_get_ctrl_clk_slave();
 		else
@@ -119,7 +121,9 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104))
+		MDSS_DSI_HW_REV_104) &&
+		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
+		MDSS_DSI_HW_REV_STEP_2))
 		return;
 
 	MIPI_OUTP(ctrl->phy_regulator_io.base + 0x018, 0x000);
@@ -133,7 +137,9 @@ static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104)) {
+		MDSS_DSI_HW_REV_104) &&
+		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
+		MDSS_DSI_HW_REV_STEP_2)) {
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_PLL_CLKBUFLR_EN, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_GLBL_TEST_CTRL, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0);
@@ -159,7 +165,9 @@ void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104))
+		MDSS_DSI_HW_REV_104) &&
+		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
+		MDSS_DSI_HW_REV_STEP_2))
 		return;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
@@ -1278,7 +1286,9 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		 * out of power collapse
 		 */
 		if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-			MDSS_DSI_HW_REV_104)) {
+			MDSS_DSI_HW_REV_104) &&
+			(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
+			MDSS_DSI_HW_REV_STEP_2)) {
 
 			regval = MIPI_INP(ctrl->mmss_misc_io.base +
 				clamp_reg_off);
@@ -1293,7 +1303,9 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		ctrl->mmss_clamp = true;
 	} else if (!enable && ctrl->mmss_clamp) {
 		if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-			MDSS_DSI_HW_REV_104)) {
+			MDSS_DSI_HW_REV_104) &&
+			(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
+			MDSS_DSI_HW_REV_STEP_2)) {
 
 			regval = MIPI_INP(ctrl->mmss_misc_io.base +
 				clamp_reg_off);
