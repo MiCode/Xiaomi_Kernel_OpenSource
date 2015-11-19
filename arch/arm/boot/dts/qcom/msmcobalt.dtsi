@@ -308,7 +308,10 @@
 	};
 
 	clock_gcc: qcom,gcc@100000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gcc-cobalt";
+		reg = <0x100000 0xb0000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pmcobalt_s1_level>;
 		#clock-cells = <1>;
 	};
 
@@ -323,7 +326,9 @@
 	};
 
 	clock_debug: qcom,debugcc@162000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,cc-debug-cobalt";
+		reg = <0x162000 0x4>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 	};
 

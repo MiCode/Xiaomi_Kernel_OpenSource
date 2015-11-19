@@ -63,6 +63,8 @@ Required properties:
 			"qcom,cc-debug-californium"
 			"qcom,gcc-mdmfermium"
 			"qcom,cc-debug-mdmfermium"
+			"qcom,gcc-cobalt"
+			"qcom,cc-debug-cobalt"
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
