@@ -2541,9 +2541,9 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				goto err_no_mem;
 			}
 			entry->vb = vb;
-			mutex_lock(&inst->sync_lock);
-			list_add_tail(&entry->list, &inst->pendingq);
-			mutex_unlock(&inst->sync_lock);
+			mutex_lock(&inst->pendingq.lock);
+			list_add_tail(&entry->list, &inst->pendingq.list);
+			mutex_unlock(&inst->pendingq.lock);
 	} else {
 		int64_t time_usec = timeval_to_ns(&vb->v4l2_buf.timestamp);
 		do_div(time_usec, NSEC_PER_USEC);
@@ -3110,7 +3110,8 @@ void msm_comm_flush_pending_dynamic_buffers(struct msm_vidc_inst *inst)
 	if (inst->buffer_mode_set[CAPTURE_PORT] != HAL_BUFFER_MODE_DYNAMIC)
 		return;
 
-	if (list_empty(&inst->pendingq) || list_empty(&inst->registered_bufs))
+	if (list_empty(&inst->pendingq.list) ||
+		list_empty(&inst->registered_bufs))
 		return;
 
 	list = &inst->registered_bufs;
@@ -3180,9 +3181,9 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
-	mutex_lock(&inst->sync_lock);
 	if (inst->in_reconfig && !ip_flush && op_flush) {
-		if (!list_empty(&inst->pendingq)) {
+		mutex_lock(&inst->pendingq.lock);
+		if (!list_empty(&inst->pendingq.list)) {
 			/*Execution can never reach here since port reconfig
 			 * wont happen unless pendingq is emptied out
 			 * (both pendingq and flush being secured with same
@@ -3190,6 +3191,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 			dprintk(VIDC_WARN,
 			"FLUSH BUG: Pending q not empty! It should be empty\n");
 		}
+		mutex_unlock(&inst->pendingq.lock);
 		rc = call_hfi_op(hdev, session_flush, inst->session,
 				HAL_FLUSH_OUTPUT);
 		if (!rc && (msm_comm_get_stream_output_mode(inst) ==
@@ -3198,35 +3200,33 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				HAL_FLUSH_OUTPUT2);
 
 	} else {
-		if (!list_empty(&inst->pendingq)) {
-			msm_comm_flush_pending_dynamic_buffers(inst);
+		msm_comm_flush_pending_dynamic_buffers(inst);
 
-			/*If flush is called after queueing buffers but before
-			 * streamon driver should flush the pending queue*/
-			list_for_each_safe(ptr, next, &inst->pendingq) {
-				temp =
-				list_entry(ptr, struct vb2_buf_entry, list);
-				if (temp->vb->v4l2_buf.type ==
-					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-					lock = &inst->bufq[CAPTURE_PORT].lock;
-				else
-					lock = &inst->bufq[OUTPUT_PORT].lock;
-				temp->vb->v4l2_planes[0].bytesused = 0;
-				mutex_lock(lock);
-				vb2_buffer_done(temp->vb, VB2_BUF_STATE_DONE);
-				mutex_unlock(lock);
-				list_del(&temp->list);
-				kfree(temp);
-			}
+		/*If flush is called after queueing buffers but before
+		 * streamon driver should flush the pending queue*/
+		mutex_lock(&inst->pendingq.lock);
+		list_for_each_safe(ptr, next, &inst->pendingq.list) {
+			temp =
+			list_entry(ptr, struct vb2_buf_entry, list);
+			if (temp->vb->v4l2_buf.type ==
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+				lock = &inst->bufq[CAPTURE_PORT].lock;
+			else
+				lock = &inst->bufq[OUTPUT_PORT].lock;
+			temp->vb->v4l2_planes[0].bytesused = 0;
+			mutex_lock(lock);
+			vb2_buffer_done(temp->vb, VB2_BUF_STATE_DONE);
+			mutex_unlock(lock);
+			list_del(&temp->list);
+			kfree(temp);
 		}
-
+		mutex_unlock(&inst->pendingq.lock);
 		/*Do not send flush in case of session_error */
 		if (!(inst->state == MSM_VIDC_CORE_INVALID &&
 			  core->state != VIDC_CORE_INVALID))
 			rc = call_hfi_op(hdev, session_flush, inst->session,
 				HAL_FLUSH_ALL);
 	}
-	mutex_unlock(&inst->sync_lock);
 	return rc;
 }
 
