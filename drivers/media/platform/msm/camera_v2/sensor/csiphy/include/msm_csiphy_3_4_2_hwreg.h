@@ -10,21 +10,21 @@
  * GNU General Public License for more details.
  */
 
-#ifndef MSM_CSIPHY_3_5_HWREG_H
-#define MSM_CSIPHY_3_5_HWREG_H
+#ifndef MSM_CSIPHY_3_4_2_HWREG_H
+#define MSM_CSIPHY_3_4_2_HWREG_H
 
 #define ULPM_WAKE_UP_TIMER_MODE                   2
 #define GLITCH_ELIMINATION_NUM                    0x12 /* bit [6:4] */
 
 #include <sensor/csiphy/msm_csiphy.h>
 
-struct csiphy_reg_parms_t csiphy_v3_5 = {
+struct csiphy_reg_parms_t csiphy_v3_4_2 = {
 	.mipi_csiphy_interrupt_status0_addr = 0x8B0,
 	.mipi_csiphy_interrupt_clear0_addr = 0x858,
 	.mipi_csiphy_glbl_irq_cmd_addr = 0x828,
 };
 
-struct csiphy_reg_3ph_parms_t csiphy_v3_5_3ph = {
+struct csiphy_reg_3ph_parms_t csiphy_v3_4_2_3ph = {
 	/*MIPI CSI PHY registers*/
 	{0x814, 0x0},
 	{0x818, 0x1},
@@ -75,19 +75,19 @@ struct csiphy_reg_3ph_parms_t csiphy_v3_5_3ph = {
 	{0x850, 0xFF},
 	{0x854, 0xFF},
 	{0x28, 0x0},
-	{0x800, 0x0},
-	{0x0, 0xCF},
+	{0x800, 0x2},
+	{0x0, 0x8E},
 	{0x4, 0x8},
 	{0x8, 0x0},
-	{0xC, 0xA5},
-	{0x10, 0x52},
+	{0xC, 0xFF},
+	{0x10, 0x56},
 	{0x2C, 0x1},
-	{0x30, 0x2},
+	{0x30, 0x0},
 	{0x34, 0x3},
-	{0x38, 0x1},
+	{0x38, 0xfe},
 	{0x3C, 0xB8},
-	{0x1C, 0xA},
+	{0x1C, 0xE7},
 	{0x14, 0x0},
-	{0x0, 0x0},
+	{0x14, 0x60}
 };
 #endif
