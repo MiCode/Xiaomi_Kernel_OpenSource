@@ -3281,7 +3281,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &snoc_clk.c, 0x0000 },
 		{ &sysmmnoc_clk.c, 0x0001 },
 		{ &pcnoc_clk.c, 0x0008 },
-		{ &bimc_clk.c, 0x154 },
+		{ &bimc_clk.c, 0x15A },
 		{ &gcc_dcc_clk.c, 0x000d },
 		{ &gcc_pcnoc_usb3_axi_clk.c, 0x000e },
 		{ &gcc_gp1_clk.c, 0x0010 },
