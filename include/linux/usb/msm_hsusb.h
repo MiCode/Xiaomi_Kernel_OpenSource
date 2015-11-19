@@ -268,6 +268,8 @@ enum usb_id_state {
  * @bool enable_streaming: Indicates whether streaming to be enabled by default.
  * @bool enable_axi_prefetch: Indicates whether AXI Prefetch interface is used
 		for improving data performance.
+ * @bool enable_sdp_typec_current_limit: Indicates whether type-c current for
+		sdp charger to be limited.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -308,6 +310,7 @@ struct msm_otg_platform_data {
 	bool emulation;
 	bool enable_streaming;
 	bool enable_axi_prefetch;
+	bool enable_sdp_typec_current_limit;
 	struct clk *system_clk;
 };
 
