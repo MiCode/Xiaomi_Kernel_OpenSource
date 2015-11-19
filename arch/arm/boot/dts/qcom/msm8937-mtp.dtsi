@@ -80,8 +80,8 @@
 };
 
 &spi_3 { /* BLSP1 QUP3 */
-	status = "ok";
 	maxim_sti@0 {
+		status = "disabled";
 		compatible = "maxim,maxim_sti";
 		reg = <0>;
 		interrupt-parent = <&tlmm>;
