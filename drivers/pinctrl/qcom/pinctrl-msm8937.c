@@ -530,6 +530,7 @@ enum msm8937_functions {
 	msm_mux_us_emitter,
 	msm_mux_wsa_irq,
 	msm_mux_wsa_io,
+	msm_mux_wsa_reset,
 	msm_mux_blsp_spi8,
 	msm_mux_blsp_uart8,
 	msm_mux_blsp_i2c8,
@@ -998,6 +999,9 @@ static const char * const wsa_irq_groups[] = {
 static const char * const wsa_io_groups[] = {
 	"gpio94", "gpio95",
 };
+static const char * const wsa_reset_groups[] = {
+	"gpio96",
+};
 static const char * const blsp_spi8_groups[] = {
 	"gpio96", "gpio97", "gpio98", "gpio99",
 };
@@ -1208,6 +1212,7 @@ static const struct msm_function msm8937_functions[] = {
 	FUNCTION(us_emitter),
 	FUNCTION(wsa_irq),
 	FUNCTION(wsa_io),
+	FUNCTION(wsa_reset),
 	FUNCTION(blsp_spi8),
 	FUNCTION(blsp_uart8),
 	FUNCTION(blsp_i2c8),
