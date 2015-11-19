@@ -223,22 +223,6 @@ enum msm_vidc_modes {
 	VIDC_LOW_POWER = BIT(3),
 };
 
-struct msm_vidc_core_capability {
-	struct hal_capability_supported width;
-	struct hal_capability_supported height;
-	struct hal_capability_supported frame_rate;
-	u32 pixelprocess_capabilities;
-	struct hal_capability_supported scale_x;
-	struct hal_capability_supported scale_y;
-	struct hal_capability_supported hier_p;
-	struct hal_capability_supported ltr_count;
-	struct hal_capability_supported mbs_per_frame;
-	struct hal_capability_supported secure_output2_threshold;
-	u32 capability_set;
-	enum buffer_mode_type buffer_mode[MAX_PORT_NUM];
-	u32 buffer_size_limit;
-};
-
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex lock;
@@ -254,6 +238,8 @@ struct msm_vidc_core {
 	struct msm_vidc_platform_resources resources;
 	u32 enc_codec_supported;
 	u32 dec_codec_supported;
+	u32 codec_count;
+	struct msm_vidc_capability *capabilities;
 	struct delayed_work fw_unload_work;
 	bool smmu_fault_handled;
 };
@@ -290,7 +276,8 @@ struct msm_vidc_inst {
 	struct buf_count count;
 	struct dcvs_stats dcvs;
 	enum msm_vidc_modes flags;
-	struct msm_vidc_core_capability capability;
+	struct msm_vidc_capability capability;
+	u32 buffer_size_limit;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	atomic_t seq_hdr_reqs;
 	struct v4l2_ctrl **ctrls;
