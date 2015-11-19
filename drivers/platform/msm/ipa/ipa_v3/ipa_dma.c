@@ -105,6 +105,7 @@ static struct ipa3_dma_ctx *ipa3_dma_ctx;
  *
  * Return codes: 0: success
  *		-EFAULT: IPADMA is already initialized
+ *		-EINVAL: IPA driver is not initialized
  *		-ENOMEM: allocating memory error
  *		-EPERM: pipe connection failed
  */
@@ -120,6 +121,12 @@ int ipa3_dma_init(void)
 		IPADMA_ERR("Already initialized.\n");
 		return -EFAULT;
 	}
+
+	if (!ipa3_is_ready()) {
+		IPADMA_ERR("IPA is not ready yet\n");
+		return -EINVAL;
+	}
+
 	ipa_dma_ctx_t = kzalloc(sizeof(*(ipa3_dma_ctx)), GFP_KERNEL);
 
 	if (!ipa_dma_ctx_t) {

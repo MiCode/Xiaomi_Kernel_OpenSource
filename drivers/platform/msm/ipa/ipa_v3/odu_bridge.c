@@ -1093,6 +1093,10 @@ int ipa3_odu_bridge_init(struct odu_bridge_params *params)
 		ODU_BRIDGE_ERR("Already initialized\n");
 		return -EFAULT;
 	}
+	if (!ipa3_is_ready()) {
+		ODU_BRIDGE_ERR("IPA is not ready\n");
+		return -EFAULT;
+	}
 
 	ODU_BRIDGE_DBG("device_ethaddr=%pM\n", params->device_ethaddr);
 

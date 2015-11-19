@@ -290,4 +290,10 @@
 #define IPA_ENDP_INIT_SEQ_n_HPS_SEQ_TYPE_BMSK 0xf
 #define IPA_ENDP_INIT_SEQ_n_HPS_SEQ_TYPE_SHFT 0x0
 
+#define IPA_ENDP_GSI_CFG_TLV_n_OFST(n) (0x850 + 0x70 * (n))
+#define IPA_ENDP_GSI_CFG_AOS_n_OFST(n) (0x854 + 0x70 * (n))
+#define IPA_ENDP_GSI_CFG2_n_OFST(n) (0x858 + 0x70 * (n))
+#define IPA_ENDP_GSI_CFG1_n_OFST(n) (0x5504 + 0x4 * (n))
+#define IPA_ENABLE_GSI_OFST 0x5500
+
 #endif
