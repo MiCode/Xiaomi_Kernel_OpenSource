@@ -573,7 +573,7 @@ static void armv8pmu_reset(void *info)
 	}
 
 	/* Initialize & Reset PMNC: C and P bits. */
-	armv8pmu_pmcr_write(ARMV8_PMCR_P | ARMV8_PMCR_C);
+	armv8pmu_pmcr_write(armv8pmu_pmcr_read() | ARMV8_PMCR_P | ARMV8_PMCR_C);
 
 	/* Disable access from userspace. */
 	asm volatile("msr pmuserenr_el0, %0" :: "r" (0));
