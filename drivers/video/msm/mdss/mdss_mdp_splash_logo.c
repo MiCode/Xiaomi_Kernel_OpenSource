@@ -88,7 +88,7 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 	}
 	sinfo->size = buf_size;
 
-	dma_buf_begin_cpu_access(sinfo->dma_buf, 0, size, DMA_FROM_DEVICE);
+	dma_buf_begin_cpu_access(sinfo->dma_buf, 0, size, DMA_BIDIRECTIONAL);
 	sinfo->splash_buffer = dma_buf_kmap(sinfo->dma_buf, 0);
 	if (IS_ERR(sinfo->splash_buffer)) {
 		pr_err("ion kernel memory mapping failed\n");
@@ -132,7 +132,8 @@ static void mdss_mdp_splash_free_memory(struct msm_fb_data_type *mfd)
 	if (!mdata || !mdata->iclient || !sinfo->dma_buf)
 		return;
 
-	dma_buf_end_cpu_access(sinfo->dma_buf, 0, sinfo->size, DMA_FROM_DEVICE);
+	dma_buf_end_cpu_access(sinfo->dma_buf, 0, sinfo->size,
+			       DMA_BIDIRECTIONAL);
 	dma_buf_kunmap(sinfo->dma_buf, 0, sinfo->splash_buffer);
 
 	mdss_smmu_unmap_dma_buf(sinfo->table, MDSS_IOMMU_DOMAIN_UNSECURE, 0,
