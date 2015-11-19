@@ -866,8 +866,13 @@ static int f2fs_readdir(struct file *file, void *dirent, filldir_t filldir)
 
 	for (; n < npages; n++) {
 		dentry_page = get_lock_data_page(inode, n, false);
-		if (IS_ERR(dentry_page))
-			continue;
+		if (IS_ERR(dentry_page)) {
+			err = PTR_ERR(dentry_page);
+			if (err == -ENOENT)
+				continue;
+			else
+				goto out;
+		}
 
 		dentry_blk = kmap(dentry_page);
 
