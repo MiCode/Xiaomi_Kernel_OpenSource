@@ -12,6 +12,7 @@
  */
 
 #include "msm8937-pinctrl.dtsi"
+#include "msm8937-camera-sensor-cdp.dtsi"
 
 &flash_led {
 	compatible = "qcom,qpnp-flash-led";
