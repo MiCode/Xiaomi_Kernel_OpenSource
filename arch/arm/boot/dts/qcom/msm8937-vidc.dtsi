@@ -82,7 +82,7 @@
 			label = "venus-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,bus-governor = "venus-ddr-gov";
 			qcom,bus-range-kbps = <1000 917000>;
 		};
 
@@ -95,4 +95,37 @@
 			qcom,bus-range-kbps = <1 1>;
 		};
 	};
+
+	venus-ddr-gov {
+			compatible = "qcom,msm-vidc,governor,table";
+			name = "venus-ddr-gov";
+			status = "ok";
+			qcom,bus-table =
+				/* Encoders */
+				<244800 698000 0x55555555>,   /* 1080p30E   */
+				<216000 624000 0x55555555>,   /* 720p60E    */
+				<194400 556000 0x55555555>,   /* FWVGA120E  */
+				<144000 412000 0x55555555>,   /* VGA120E    */
+				<108000 353000 0x55555555>,   /* 720p30E    */
+				<97200  316000 0x55555555>,   /* FWVGA60E   */
+				<48600  158000 0x55555555>,   /* FWVGA30E   */
+				<72000  234000 0x55555555>,   /* VGA60E     */
+				<36000  117000 0x55555555>,   /* VGA30E     */
+				<18000  60000  0x55555555>,   /* QVGA60E    */
+				<9000   30000  0x55555555>,   /* QVGA30E    */
+				<0      0      0x55555555>,
+				/* Decoders */
+				<244800 605000 0xffffffff>,   /* 1080p30D   */
+				<216000 540000 0xffffffff>,   /* 720p60D    */
+				<194400 484000 0xffffffff>,   /* FWVGA120D  */
+				<144000 360000 0xffffffff>,   /* VGA120D    */
+				<108000 270000 0xffffffff>,   /* 720p30D    */
+				<97200  242000 0xffffffff>,   /* FWVGA60D   */
+				<48600  121000 0xffffffff>,   /* FWVGA30D   */
+				<72000  180000 0xffffffff>,   /* VGA60D     */
+				<36000  90000  0xffffffff>,   /* VGA30D     */
+				<18000  45000  0xffffffff>,   /* HVGA30D    */
+				<0      0      0xffffffff>;
+	};
+
 };
