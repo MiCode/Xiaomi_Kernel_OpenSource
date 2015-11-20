@@ -58,7 +58,7 @@ TRACE_EVENT(cpu_frequency_switch_start,
 	TP_STRUCT__entry(
 		__field(	u32,		start_freq	)
 		__field(	u32,		end_freq	)
-		__field(	u32,		cpu_id		)
+		__field(        u32,            cpu_id          )
 	),
 
 	TP_fast_assign(
@@ -70,6 +70,31 @@ TRACE_EVENT(cpu_frequency_switch_start,
 	TP_printk("start=%lu end=%lu cpu_id=%lu",
 		  (unsigned long)__entry->start_freq,
 		  (unsigned long)__entry->end_freq,
+		  (unsigned long)__entry->cpu_id)
+);
+
+TRACE_EVENT(cpu_frequency_limits,
+
+	TP_PROTO(unsigned int max_freq, unsigned int min_freq,
+		unsigned int cpu_id),
+
+	TP_ARGS(max_freq, min_freq, cpu_id),
+
+	TP_STRUCT__entry(
+		__field(	u32,		min_freq	)
+		__field(	u32,		max_freq	)
+		__field(	u32,		cpu_id		)
+	),
+
+	TP_fast_assign(
+		__entry->min_freq = min_freq;
+		__entry->max_freq = min_freq;
+		__entry->cpu_id = cpu_id;
+	),
+
+	TP_printk("min=%lu max=%lu cpu_id=%lu",
+		  (unsigned long)__entry->min_freq,
+		  (unsigned long)__entry->max_freq,
 		  (unsigned long)__entry->cpu_id)
 );
 
