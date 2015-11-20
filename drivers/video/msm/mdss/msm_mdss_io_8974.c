@@ -1357,6 +1357,15 @@ error:
 	return rc;
 }
 
+bool is_diff_frame_rate(struct mdss_panel_info *panel_info,
+	u32 frame_rate)
+{
+	if (panel_info->dynamic_fps && panel_info->current_fps)
+		return (frame_rate != panel_info->current_fps);
+	else
+		return (frame_rate != panel_info->mipi.frame_rate);
+}
+
 int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 			    int frame_rate)
 {
@@ -1395,9 +1404,8 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	h_period = mdss_panel_get_htotal(panel_info, true);
 	v_period = mdss_panel_get_vtotal(panel_info);
 
-	if (ctrl_pdata->refresh_clk_rate || (frame_rate !=
-	     panel_info->mipi.frame_rate) ||
-	    (!panel_info->clk_rate)) {
+	if (ctrl_pdata->refresh_clk_rate || is_diff_frame_rate(panel_info,
+			frame_rate) || (!panel_info->clk_rate)) {
 		if (lanes > 0) {
 			panel_info->clk_rate = h_period * v_period * frame_rate
 				* bpp * 8;

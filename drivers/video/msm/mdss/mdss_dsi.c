@@ -1940,10 +1940,9 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 	clk_disable_unprepare(ctrl_pdata->pll_byte_clk);
 	clk_disable_unprepare(ctrl_pdata->pll_pixel_clk);
 
-	pinfo->mipi.frame_rate = new_fps;
+	/* update new fps that at this point is already updated in hw */
 	pinfo->current_fps = new_fps;
 	if (sctrl_pdata) {
-		spinfo->mipi.frame_rate = new_fps;
 		spinfo->current_fps = new_fps;
 	}
 
@@ -2003,8 +2002,10 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 	phy_rev = mdss_dsi_get_phy_revision(ctrl_pdata);
 	pinfo = &pdata->panel_info;
 
-	frame_rate_bkp = mdss_panel_get_framerate(pinfo);
-	if (new_fps == pinfo->mipi.frame_rate) {
+	/* get the fps configured in HW */
+	frame_rate_bkp = pinfo->current_fps;
+
+	if (new_fps == pinfo->current_fps) {
 		/*
 		 * This is unlikely as mdss driver checks for previously
 		 * configured frame rate.
