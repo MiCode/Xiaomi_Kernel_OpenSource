@@ -386,6 +386,8 @@
 			pinctrl-0 = <&codec_reset_active>;
 			pinctrl-1 = <&codec_reset_sleep>;
 
+			qcom,cdc-micbias1-ext-cap;
+
 			interrupt-parent = <&wcd9xxx_intc>;
 			interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
 				16 17 18 19 20 21 22 23 24 25 26 27 28>;
@@ -686,14 +688,16 @@
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
-			"AMIC1", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
 			"AMIC3", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCRight Headset Mic",
 			"AMIC4", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCLeft Headset Mic",
+			"AMIC5", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
+			"AMIC6", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
 			"DMIC1", "MIC BIAS1 External",
 			"MIC BIAS1 External", "Digital Mic1",
 			"DMIC3", "MIC BIAS3 External",
