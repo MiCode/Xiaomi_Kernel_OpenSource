@@ -340,10 +340,10 @@ int msm895x_wsa881x_init(struct snd_soc_dapm_context *dapm)
 	struct snd_soc_card *card = dapm->codec->card;
 	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm895x_auxcodec_prefix_map codec_prefix_map[MAX_AUX_CODECS] = {
-	{ "wsa881x.20170211", "SpkrRight" },
-	{ "wsa881x.20170212", "SpkrLeft" },
-	{ "wsa881x.21170213", "SpkrRight" },
-	{ "wsa881x.21170214", "SpkrLeft" } };
+	{ "wsa881x.20170211", "SpkrLeft" },
+	{ "wsa881x.20170212", "SpkrRight" },
+	{ "wsa881x.21170213", "SpkrLeft" },
+	{ "wsa881x.21170214", "SpkrRight" } };
 	u8 i;
 
 	if (!dapm->codec->name) {
