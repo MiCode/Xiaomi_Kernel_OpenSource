@@ -171,6 +171,14 @@
 			reg = <0 0x8ea00000 0 0x2b00000>;
 		};
 
+		adsp_mem: adsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x100000>;
+			size = <0 0x400000>;
+		};
+
 		qseecom_mem: qseecom_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
@@ -3394,6 +3402,11 @@
 
 	qcom,msm-pacman {
 		compatible = "qcom,msm-pacman";
+	};
+
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
 	};
 
 	qcom,msm_fastrpc {
