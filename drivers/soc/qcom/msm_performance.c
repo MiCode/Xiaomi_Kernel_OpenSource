@@ -1589,11 +1589,13 @@ static int __ref rm_high_pwr_cost_cpus(struct cluster *cl)
 		pr_debug("msm_perf: Offlining CPU%d Power:%d\n", max_cost_cpu,
 								max_cost);
 		cpumask_set_cpu(max_cost_cpu, cl->offlined_cpus);
-		if (cpu_down(max_cost_cpu)) {
+		lock_device_hotplug();
+		if (device_offline(get_cpu_device(max_cost_cpu))) {
 			cpumask_clear_cpu(max_cost_cpu, cl->offlined_cpus);
 			pr_debug("msm_perf: Offlining CPU%d failed\n",
 								max_cost_cpu);
 		}
+		unlock_device_hotplug();
 
 end:
 		pcpu_pwr = &per_cpu(cpu_power_cost, max_cost_cpu);
@@ -1641,12 +1643,15 @@ static void __ref try_hotplug(struct cluster *data)
 
 			pr_debug("msm_perf: Offlining CPU%d\n", i);
 			cpumask_set_cpu(i, data->offlined_cpus);
-			if (cpu_down(i)) {
+			lock_device_hotplug();
+			if (device_offline(get_cpu_device(i))) {
 				cpumask_clear_cpu(i, data->offlined_cpus);
 				pr_debug("msm_perf: Offlining CPU%d failed\n",
 									i);
+				unlock_device_hotplug();
 				continue;
 			}
+			unlock_device_hotplug();
 			if (num_online_managed(data->cpus) <=
 							data->max_cpu_request)
 				break;
@@ -1656,11 +1661,14 @@ static void __ref try_hotplug(struct cluster *data)
 			if (cpu_online(i))
 				continue;
 			pr_debug("msm_perf: Onlining CPU%d\n", i);
-			if (cpu_up(i)) {
+			lock_device_hotplug();
+			if (device_online(get_cpu_device(i))) {
 				pr_debug("msm_perf: Onlining CPU%d failed\n",
 									i);
+				unlock_device_hotplug();
 				continue;
 			}
+			unlock_device_hotplug();
 			cpumask_clear_cpu(i, data->offlined_cpus);
 			if (num_online_managed(data->cpus) >=
 							data->max_cpu_request)
@@ -1676,8 +1684,10 @@ static void __ref release_cluster_control(struct cpumask *off_cpus)
 
 	for_each_cpu(cpu, off_cpus) {
 		pr_debug("msm_perf: Release CPU %d\n", cpu);
-		if (!cpu_up(cpu))
+		lock_device_hotplug();
+		if (!device_online(get_cpu_device(cpu)))
 			cpumask_clear_cpu(cpu, off_cpus);
+		unlock_device_hotplug();
 	}
 }
 
