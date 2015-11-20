@@ -724,6 +724,8 @@ static void process_data_event(struct work_struct *work)
 
 		liid = einfo->intentless ? 0 : ch->cur_intent->liid;
 		read_avail = smd_read_avail(ch->smd_ch);
+		if (ch->streaming_ch && read_avail > pkt_remaining)
+			read_avail = pkt_remaining;
 		intent = einfo->xprt_if.glink_core_if_ptr->rx_get_pkt_ctx(
 							&einfo->xprt_if,
 							ch->rcid,
