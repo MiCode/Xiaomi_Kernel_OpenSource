@@ -100,3 +100,11 @@
 &clock_gcc_gfx {
 	compatible = "qcom,dummycc";
 };
+
+&pmtitanium_vadc {
+	status = "disabled";
+};
+
+&pmtitanium_adc_tm {
+	status = "disabled";
+};
