@@ -1890,6 +1890,13 @@ static int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 			sctx->current_pp_num);
 	}
 
+	mdss_mdp_ctl_perf_set_transaction_status(ctl,
+		PERF_SW_COMMIT_STATE, PERF_STATUS_DONE);
+	if (sctl) {
+		mdss_mdp_ctl_perf_set_transaction_status(sctl,
+			PERF_SW_COMMIT_STATE, PERF_STATUS_DONE);
+	}
+
 	if (!ctx->autorefresh_pending_frame_cnt && !ctl->cmd_autorefresh_en) {
 		/* Kickoff */
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
@@ -1897,14 +1904,6 @@ static int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		pr_debug("Enabling autorefresh in hardware.\n");
 		mdss_mdp_cmd_enable_cmd_autorefresh(ctl,
 				ctx->autorefresh_pending_frame_cnt);
-	}
-
-	mdss_mdp_ctl_perf_set_transaction_status(ctl,
-		PERF_SW_COMMIT_STATE, PERF_STATUS_DONE);
-
-	if (sctl) {
-		mdss_mdp_ctl_perf_set_transaction_status(sctl,
-			PERF_SW_COMMIT_STATE, PERF_STATUS_DONE);
 	}
 
 	mb();
