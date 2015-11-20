@@ -557,6 +557,19 @@
 		dma-names = "tx", "rx";
 	};
 
+	slim_msm: slim@c140000{
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc140000 0x2c000>,
+		      <0xc104000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 180 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x600000>;
+		qcom,ea-pc = <0x200>;
+		status = "disabled";
+	};
+
 	dcc: dcc@b3000 {
 		compatible = "qcom,dcc";
 		reg = <0xb3000 0x1000>,
