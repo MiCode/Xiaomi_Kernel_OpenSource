@@ -135,6 +135,7 @@ struct mmc_blk_data {
 #define MMC_BLK_DISCARD		BIT(2)
 #define MMC_BLK_SECDISCARD	BIT(3)
 #define MMC_BLK_FLUSH		BIT(4)
+#define MMC_BLK_PARTSWITCH	BIT(5)
 
 	/*
 	 * Only set in main mmc_blk_data associated
@@ -1076,8 +1077,13 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 		ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				 EXT_CSD_PART_CONFIG, part_config,
 				 card->ext_csd.part_time);
-		if (ret)
+
+		if (ret) {
+			pr_err("%s: mmc_blk_part_switch failure, %d -> %d\n",
+				mmc_hostname(card->host), main_md->part_curr,
+					md->part_type);
 			return ret;
+		}
 
 		card->ext_csd.part_config = part_config;
 		card->part_curr = md->part_type;
@@ -3553,6 +3559,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_host *host = card->host;
 	unsigned long flags;
 	unsigned int cmd_flags = req ? req->cmd_flags : 0;
+	int err;
 
 	if (req && !mq->mqrq_prev->req) {
 		/* claim host only for the first request */
@@ -3570,7 +3577,17 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	}
 
 	ret = mmc_blk_part_switch(card, md);
+
 	if (ret) {
+		err = mmc_blk_reset(md, card->host, MMC_BLK_PARTSWITCH);
+		if (!err) {
+			pr_err("%s: mmc_blk_reset(MMC_BLK_PARTSWITCH) succeeded.\n",
+					mmc_hostname(host));
+			mmc_blk_reset_success(md, MMC_BLK_PARTSWITCH);
+		} else
+			pr_err("%s: mmc_blk_reset(MMC_BLK_PARTSWITCH) failed.\n",
+				mmc_hostname(host));
+
 		if (req) {
 			blk_end_request_all(req, -EIO);
 		}
