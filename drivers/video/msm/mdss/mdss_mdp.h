@@ -1084,15 +1084,15 @@ static inline uint8_t pp_vig_csc_pipe_val(struct mdss_mdp_pipe *pipe)
 }
 
 /*
- * when DUAL_LM_SINGLE_DISPLAY is used with 2 DSC encoders, DSC_MERGE is
- * used during full frame updates. Now when we go from full frame update
- * to right-only update, we need to disable DSC_MERGE. However, DSC_MERGE
- * is controlled through DSC0_COMMON_MODE register which is double buffered,
- * and this double buffer update is tied to LM0. Now for right-only update,
- * LM0 will not get double buffer update signal. So DSC_MERGE is not disabled
- * for right-only update which is wrong HW state and leads ping-pong timeout.
- * Workaround for this is to use LM0->DSC0 pair for right-only update
- * and disable DSC_MERGE.
+ * when split_lm topology is used without 3D_Mux, either DSC_MERGE or
+ * split_panel is used during full frame updates. Now when we go from
+ * full frame update to right-only update, we need to disable DSC_MERGE or
+ * split_panel. However, those are controlled through DSC0_COMMON_MODE
+ * register which is double buffered, and this double buffer update is tied to
+ * LM0. Now for right-only update, LM0 will not get double buffer update signal.
+ * So DSC_MERGE or split_panel is not disabled for right-only update which is
+ * a wrong HW state and leads ping-pong timeout. Workaround for this is to use
+ * LM0->DSC0 pair for right-only update and disable DSC_MERGE or split_panel.
  *
  * However using LM0->DSC0 pair for right-only update requires many changes
  * at various levels of SW. To lower the SW impact and still support
@@ -1108,11 +1108,12 @@ static inline bool mdss_mdp_is_lm_swap_needed(struct mdss_data_type *mdata,
 	    !mctl->panel_data || !mctl->mfd)
 		return false;
 
-	return (is_dual_lm_single_display(mctl->mfd)) &&
+	return (is_dsc_compression(&mctl->panel_data->panel_info)) &&
 	       (mctl->panel_data->panel_info.partial_update_enabled) &&
 	       (mdss_has_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU)) &&
-	       (is_dsc_compression(&mctl->panel_data->panel_info)) &&
-	       (mctl->panel_data->panel_info.dsc_enc_total == 2) &&
+	       ((mctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) ||
+		((mctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) &&
+		 (mctl->panel_data->panel_info.dsc_enc_total == 2))) &&
 	       (!mctl->mixer_left->valid_roi) &&
 	       (mctl->mixer_right->valid_roi);
 }
@@ -1127,6 +1128,8 @@ int mdss_mdp_hist_irq_enable(u32 irq);
 void mdss_mdp_hist_irq_disable(u32 irq);
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num);
 int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
+			       void (*fnc_ptr)(void *), void *arg);
+int mdss_mdp_set_intr_callback_nosync(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);
 
 void mdss_mdp_footswitch_ctrl_splash(int on);
@@ -1445,7 +1448,6 @@ struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 id, u32 reg_index);
 struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index);
 void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
 
-void mdss_dsc_parameters_calc(struct dsc_desc *dsc, int width, int height);
 void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_info *pinfo);
 
