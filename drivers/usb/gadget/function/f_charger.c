@@ -70,10 +70,19 @@ static struct usb_endpoint_descriptor charger_ss_in_ep_desc = {
 	.bInterval		= 16,
 };
 
+static struct usb_ss_ep_comp_descriptor charger_ss_intr_comp_desc = {
+	.bLength		= sizeof(charger_ss_intr_comp_desc),
+	.bDescriptorType	= USB_DT_SS_ENDPOINT_COMP,
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst		= 0, */
+	/* .bmAttributes	= 0, */
+};
+
 static struct usb_descriptor_header *charger_ss_descriptors[] = {
 	(struct usb_descriptor_header *)&charger_interface_desc,
 	(struct usb_descriptor_header *)&charger_hid_desc,
 	(struct usb_descriptor_header *)&charger_ss_in_ep_desc,
+	(struct usb_descriptor_header *)&charger_ss_intr_comp_desc,
 	NULL,
 };
 
