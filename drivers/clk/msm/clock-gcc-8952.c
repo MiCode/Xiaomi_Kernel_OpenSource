@@ -3910,9 +3910,11 @@ static void override_for_8937(void)
 	OVERRIDE_FMAX2(gp3, LOWER, 100000000, NOMINAL, 200000000);
 	OVERRIDE_FMAX2(byte0, LOWER, 125000000, NOMINAL, 187500000);
 	OVERRIDE_FTABLE(byte0, ftbl_gcc_mdss_byte0_clk, 8937);
-	byte0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_8937;
+	OVERRIDE_FMAX2(byte1, LOWER, 125000000, NOMINAL, 187500000);
+	byte0_clk_src.current_freq = ftbl_gcc_mdss_byte0_clk_8937;
 	OVERRIDE_FMAX2(pclk0, LOWER, 166670000, NOMINAL, 250000000);
 	OVERRIDE_FTABLE(pclk0, ftbl_gcc_mdss_pclk0_clk, 8937);
+	OVERRIDE_FMAX2(pclk1, LOWER, 166670000, NOMINAL, 250000000);
 	pclk0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_8937;
 	OVERRIDE_FTABLE(vcodec0, ftbl_gcc_venus0_vcodec0_clk, 8937);
 	OVERRIDE_FMAX5(vcodec0,
@@ -4256,6 +4258,8 @@ static struct clk_lookup msm_clocks_gcc_mdss_common[] = {
 static struct clk_lookup msm_clocks_gcc_mdss_8937[] = {
 	CLK_LIST(ext_pclk1_clk_src),
 	CLK_LIST(ext_byte1_clk_src),
+	CLK_LIST(byte1_clk_src),
+	CLK_LIST(pclk1_clk_src),
 	CLK_LIST(gcc_mdss_pclk1_clk),
 	CLK_LIST(gcc_mdss_byte1_clk),
 };
