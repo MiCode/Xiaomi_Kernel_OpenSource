@@ -65,7 +65,6 @@ Optional properties:
 					the default value for single DSI is set as PLL0.
 - qcom,mmss-ulp-clamp-ctrl-offset:	Specifies the offset for dsi ulps clamp control register.
 - qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
-- qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
 - qcom,dsi-clk-ln-recovery:		Boolean which enables the clk lane recovery
 
 mdss-dsi-ctrl is a dsi controller device which is treated as a subnode of the mdss-dsi device.
@@ -123,6 +122,7 @@ Optional properties:
 					"lane_map_2103" = <2 1 0 3>
 					"lane_map_3210" = <3 2 1 0>
 - qcom,pluggable			Boolean to enable hotplug feature.
+- qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
 
 Example:
 	mdss_dsi: qcom,mdss_dsi@0 {
@@ -138,7 +138,6 @@ Example:
 		      0x1a98780 0x1a98780 0x30
 		      0x193e000 0x193e000 0x30>;
 
-		qcom,timing-db-mode;
 		qcom,dsi-clk-ln-recovery;
 
 		qcom,core-supply-entries {
@@ -226,6 +225,7 @@ Example:
 			qcom,mmss-phyreset-ctrl-offset = <0x24>;
 			qcom,regulator-ldo-mode;
 			qcom,null-insertion-enabled;
+			qcom,timing-db-mode;
 
 			pinctrl-names = "mdss_default", "mdss_sleep";
 			pinctrl-0 = <&mdss_dsi_active>;

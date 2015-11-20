@@ -1203,7 +1203,7 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 		vsync_period = vspw + vbp + height + dummy_yres + vfp;
 		hsync_period = hspw + hbp + width + dummy_xres + hfp;
 
-		if (ctrl_pdata->shared_data->timing_db_mode)
+		if (ctrl_pdata->timing_db_mode)
 			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e8, 0x1);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x24,
 			((hspw + hbp + width + dummy_xres) << 16 |
@@ -1218,7 +1218,7 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x30, (hspw << 16));
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x34, 0);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x38, (vspw << 16));
-		if (ctrl_pdata->shared_data->timing_db_mode)
+		if (ctrl_pdata->timing_db_mode)
 			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
 	} else {		/* command mode */
 		if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
