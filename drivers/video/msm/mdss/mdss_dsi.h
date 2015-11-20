@@ -240,7 +240,6 @@ struct dsi_shared_data {
 	u32 ulps_clamp_ctrl_off;
 	u32 ulps_phyrst_ctrl_off;
 
-	bool timing_db_mode;
 	bool cmd_clk_ln_recovery_en;
 	bool dsi0_active;
 	bool dsi1_active;
@@ -533,6 +532,7 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct workqueue_struct *workq;
 	struct delayed_work dba_work;
+	bool timing_db_mode;
 };
 
 struct dsi_status_data {

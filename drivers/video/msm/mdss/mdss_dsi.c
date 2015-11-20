@@ -1629,7 +1629,7 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 				(new_dsi_v_total & 0x7ffffff));
 	}
 
-	if (ctrl_pdata->shared_data->timing_db_mode)
+	if (ctrl_pdata->timing_db_mode)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
 
 	pr_debug("%s new_fps:%d vsync:%d hsync:%d frame_rate:%d\n",
@@ -1638,7 +1638,7 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 
 	ctrl_pdata->panel_data.panel_info.current_fps = new_fps;
 	MDSS_XLOG(current_dsi_v_total, new_dsi_v_total, new_fps,
-		ctrl_pdata->shared_data->timing_db_mode);
+		ctrl_pdata->timing_db_mode);
 
 }
 
@@ -2913,9 +2913,6 @@ static int mdss_dsi_parse_dt_params(struct platform_device *pdev,
 				&sdata->ulps_phyrst_ctrl_off);
 	}
 
-	sdata->timing_db_mode = of_property_read_bool(
-		pdev->dev.of_node, "qcom,timing-db-mode");
-
 	sdata->cmd_clk_ln_recovery_en =
 		of_property_read_bool(pdev->dev.of_node,
 		"qcom,dsi-clk-ln-recovery");
@@ -3505,6 +3502,9 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 		for (i = 0; i < len; i++)
 			pinfo->mipi.dsi_phy_db.lanecfg[i] = data[i];
 	}
+
+	ctrl_pdata->timing_db_mode = of_property_read_bool(
+		ctrl_pdev->dev.of_node, "qcom,timing-db-mode");
 
 	ctrl_pdata->cmd_sync_wait_broadcast = of_property_read_bool(
 		pan_node, "qcom,cmd-sync-wait-broadcast");
