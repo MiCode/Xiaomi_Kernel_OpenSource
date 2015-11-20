@@ -48,6 +48,12 @@ Optional properties:
     supports hevc decoder = 0x0c000000
     supports hevc_hybrid encoder = 0x10000000
     supports hevc_hybrid decoder = 0x30000000
+- qcom,dcvs-tbl : specifies the parameter to configure DCVS algorithm. Video
+  instance load (in mbs/sec) and corresponding low and high threshold DCVS
+  load for supported codec formats.
+- qcom,dcvs-limit : specifies the minimum specifications required to kick in
+  DCVS algorithm. Min MBs per frame and the fps for encoder and decoder to
+  kick in DCVS.
 - qcom,imem-ab-tbl : video core frequency in Hz and corresponding imem ab value
   in kbps. The imem ab value corresponds to the clock frequency at which imem
   should operate for a particular video core frequency.
@@ -177,7 +183,14 @@ Example:
 			<72000 133330000 0x0c000000>, /* HEVC decoder VGA 60fps   */
 			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
 			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
-
+		qcom,dcvs-tbl =
+			<972000 972000 19944000 0xffffffff>, /* Legacy decoder UHD 30fps */
+			<489600 489600   972000 0xffffffff>, /* Legacy decoder 1080p 60fps */
+			<244800 244800   489600 0xffffffff>, /* Legacy decoder 1080p 30fps */
+			<829440 489600   972000 0x55555555>; /* Legacy encoder DCI 24fps
+		qcom,dcvs-limit =
+			<32400 30>, /* Encoder UHD */
+			<14400 30>; /* Decoder WQHD */
 		qcom,imem-ab-tbl =
 			<75000000  1500000>, /* imem clk @ 75 Mhz  */
 			<150000000 1500000>, /* imem clk @ 75 Mhz  */
