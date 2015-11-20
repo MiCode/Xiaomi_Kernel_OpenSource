@@ -1733,6 +1733,7 @@ static void mdss_dsi_parse_dfps_config(struct device_node *pan_node,
 		pr_debug("dfps update mode not configured: disable\n");
 	}
 	pinfo->new_fps = pinfo->mipi.frame_rate;
+	pinfo->current_fps = pinfo->mipi.frame_rate;
 
 	return;
 }

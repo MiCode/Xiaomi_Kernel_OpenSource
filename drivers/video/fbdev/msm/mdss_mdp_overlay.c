@@ -2768,8 +2768,7 @@ static void mdss_mdp_dfps_update_params(struct mdss_panel_data *pdata,
 			pdata->panel_info.saved_fporch + add_h_pixels;
 		pdata->panel_info.mipi.frame_rate = new_fps;
 	} else {
-		/* in clock method we are not updating panel data here */
-		pdata->panel_info.new_fps = new_fps;
+		pdata->panel_info.mipi.frame_rate = new_fps;
 	}
 }
 
