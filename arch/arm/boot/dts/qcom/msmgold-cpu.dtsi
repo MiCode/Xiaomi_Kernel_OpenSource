@@ -1,0 +1,109 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu-map {
+
+			cluster0 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+				core1 {
+					cpu = <&CPU1>;
+				};
+				core2 {
+					cpu = <&CPU2>;
+				};
+				core3 {
+					cpu = <&CPU3>;
+				};
+			};
+		};
+
+		CPU0: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x100>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			qcom,acc = <&acc0>;
+			next-level-cache = <&L2_1>;
+			L2_1: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      power-domain = <&l2ccc_0>;
+			};
+		};
+
+		CPU1: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x101>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			qcom,acc = <&acc1>;
+			next-level-cache = <&L2_1>;
+		};
+
+		CPU2: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x102>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			qcom,acc = <&acc2>;
+			next-level-cache = <&L2_1>;
+		};
+
+		CPU3: cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x103>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			qcom,acc = <&acc3>;
+			next-level-cache = <&L2_1>;
+		};
+
+	};
+};
+
+&soc {
+	l2ccc_0: clock-controller@b011000 {
+		compatible = "qcom,8937-l2ccc";
+		reg = <0x0b011000 0x1000>;
+	};
+
+	acc0:clock-controller@b088000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b088000 0x1000>;
+	};
+
+	acc1:clock-controller@b098000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b098000 0x1000>;
+	};
+
+	acc2:clock-controller@b0a8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0a8000 0x1000>;
+	};
+
+	acc3:clock-controller@b0b8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0b8000 0x1000>;
+	};
+};

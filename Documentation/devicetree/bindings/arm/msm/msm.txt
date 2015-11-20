@@ -62,6 +62,9 @@ SoCs:
 - MSM8916
   compatible = "qcom,msm8916"
 
+- MSMGOLD
+  compatible = "qcom,msmgold"
+
 - MSM8936
   compatible = "qcom,msm8936"
 
@@ -193,6 +196,7 @@ compatible = "qcom,msm8916-qrd-skuid"
 compatible = "qcom,msm8916-qrd-skut1"
 compatible = "qcom,msm8916-rumi"
 compatible = "qcom,msm8916-sim"
+compatible = "qcom,msmgold-rumi"
 compatible = "qcom,msm8926-cdp"
 compatible = "qcom,msm8926-mtp"
 compatible = "qcom,msm8926-qrd"

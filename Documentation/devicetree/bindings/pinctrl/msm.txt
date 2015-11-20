@@ -4,6 +4,7 @@ Required properties:
 - compatible: "qcom,msm8996-pinctrl"
 	      "qcom,mdm9640-pinctrl"
 	      "qcom,mdmfermium-pinctrl"
+	      "qcom,msmgold-pinctrl"
 	       "qcom,mdmcalifornium-pinctrl"
 	      "qcom,msm8952-pinctrl"
 	      "qcom,msmtitanium-pinctrl"
