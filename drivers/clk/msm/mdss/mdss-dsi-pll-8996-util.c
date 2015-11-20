@@ -48,6 +48,52 @@ int get_mdss_pixel_mux_sel_8996(struct mux_clk *clk)
 	return 0;
 }
 
+static int mdss_pll_read_stored_trim_codes(
+		struct mdss_pll_resources *dsi_pll_res, s64 vco_clk_rate)
+{
+	int i;
+	int rc = 0;
+	bool found = false;
+
+	if (!dsi_pll_res->dfps) {
+		rc = -EINVAL;
+		goto end_read;
+	}
+
+	for (i = 0; i < dsi_pll_res->dfps->panel_dfps.frame_rate_cnt; i++) {
+		struct dfps_codes_info *codes_info =
+			&dsi_pll_res->dfps->codes_dfps[i];
+
+		pr_debug("valid=%d frame_rate=%d, vco_rate=%d, code %d %d\n",
+			codes_info->is_valid, codes_info->frame_rate,
+			codes_info->clk_rate, codes_info->pll_codes.pll_codes_1,
+			codes_info->pll_codes.pll_codes_2);
+
+		if (vco_clk_rate != codes_info->clk_rate &&
+				codes_info->is_valid)
+			continue;
+
+		dsi_pll_res->cache_pll_trim_codes[0] =
+			codes_info->pll_codes.pll_codes_1;
+		dsi_pll_res->cache_pll_trim_codes[1] =
+			codes_info->pll_codes.pll_codes_2;
+		found = true;
+		break;
+	}
+
+	if (!found) {
+		rc = -EINVAL;
+		goto end_read;
+	}
+
+	pr_debug("core_kvco_code=0x%x core_vco_tune=0x%x\n",
+			dsi_pll_res->cache_pll_trim_codes[0],
+			dsi_pll_res->cache_pll_trim_codes[1]);
+
+end_read:
+	return rc;
+}
+
 int post_n1_div_set_div(struct div_clk *clk, int div)
 {
 	struct mdss_pll_resources *pll = clk->priv;
@@ -146,6 +192,26 @@ int n2_div_set_div(struct div_clk *clk, int div)
 	mdss_pll_resource_enable(pll, false);
 
 	return rc;
+}
+
+int shadow_n2_div_set_div(struct div_clk *clk, int div)
+{
+	struct mdss_pll_resources *pll = clk->priv;
+	struct dsi_pll_db *pdb;
+	struct dsi_pll_output *pout;
+	u32 data;
+
+	pdb = pll->priv;
+	pout = &pdb->out;
+
+	pout->pll_n2div = div;
+
+	data = (pout->pll_n1div | (pout->pll_n2div << 4));
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+			DSI_DYNAMIC_REFRESH_PLL_CTRL19,
+			DSIPHY_CMN_CLK_CFG0, DSIPHY_CMN_CLK_CFG1,
+			data, 1);
+	return 0;
 }
 
 int n2_div_get_div(struct div_clk *clk)
@@ -792,6 +858,121 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 	return rc;
 }
 
+static void shadow_pll_dynamic_refresh_8996(struct mdss_pll_resources *pll,
+							struct dsi_pll_db *pdb)
+{
+	struct dsi_pll_output *pout = &pdb->out;
+
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL20,
+		DSIPHY_CMN_CTRL_0, DSIPHY_PLL_SYSCLK_EN_RESET,
+		0xFF, 0x0);
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL21,
+		DSIPHY_PLL_DEC_START, DSIPHY_PLL_DIV_FRAC_START1,
+		pout->dec_start, (pout->div_frac_start & 0x0FF));
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL22,
+		DSIPHY_PLL_DIV_FRAC_START2, DSIPHY_PLL_DIV_FRAC_START3,
+		((pout->div_frac_start >> 8) & 0x0FF),
+		((pout->div_frac_start >> 16) & 0x0F));
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL23,
+		DSIPHY_PLL_PLLLOCK_CMP1, DSIPHY_PLL_PLLLOCK_CMP2,
+		(pout->plllock_cmp & 0x0FF),
+		((pout->plllock_cmp >> 8) & 0x0FF));
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL24,
+		DSIPHY_PLL_PLLLOCK_CMP3, DSIPHY_PLL_PLL_VCO_TUNE,
+		((pout->plllock_cmp >> 16) & 0x03),
+		(pll->cache_pll_trim_codes[1] | BIT(7))); /* VCO tune*/
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL25,
+		DSIPHY_PLL_KVCO_CODE, DSIPHY_PLL_RESETSM_CNTRL,
+		(pll->cache_pll_trim_codes[0] | BIT(5)), 0x38);
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL26,
+		DSIPHY_PLL_PLL_LPF2_POSTDIV, DSIPHY_CMN_PLL_CNTRL,
+		(((pout->pll_postdiv - 1) << 4) | pdb->in.pll_lpf_res1), 0x01);
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL27,
+		DSIPHY_CMN_PLL_CNTRL, DSIPHY_CMN_PLL_CNTRL,
+		0x01, 0x01);
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL28,
+		DSIPHY_CMN_PLL_CNTRL, DSIPHY_CMN_PLL_CNTRL,
+		0x01, 0x01);
+	MDSS_DYN_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_CTRL29,
+		DSIPHY_CMN_PLL_CNTRL, DSIPHY_CMN_PLL_CNTRL,
+		0x01, 0x01);
+	MDSS_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_UPPER_ADDR, 0x0000001E);
+	MDSS_PLL_REG_W(pll->dyn_pll_base,
+		DSI_DYNAMIC_REFRESH_PLL_UPPER_ADDR2, 0x003FFE00);
+
+	/*
+	 * Ensure all the dynamic refresh registers are written before
+	 * dynamic refresh to change the fps is triggered
+	 */
+	wmb();
+}
+
+int shadow_pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
+{
+	int rc;
+	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct mdss_pll_resources *pll = vco->priv;
+	struct dsi_pll_db *pdb;
+	s64 vco_clk_rate = (s64)rate;
+
+	if (!pll) {
+		pr_err("PLL data not found\n");
+		return -EINVAL;
+	}
+
+	pdb = pll->priv;
+	if (!pdb) {
+		pr_err("No priv data found\n");
+		return -EINVAL;
+	}
+
+	rc = mdss_pll_read_stored_trim_codes(pll, vco_clk_rate);
+	if (rc) {
+		pr_err("cannot find pll codes rate=%lld\n", vco_clk_rate);
+		return -EINVAL;
+	}
+
+	rc = mdss_pll_resource_enable(pll, true);
+	if (rc) {
+		pr_err("Failed to enable mdss dsi plla=%d\n", pll->index);
+		return rc;
+	}
+
+	pr_debug("%s: ndx=%d base=%p rate=%lu\n", __func__,
+			pll->index, pll->pll_base, rate);
+
+	pll->vco_current_rate = rate;
+	pll->vco_ref_clk_rate = vco->ref_clk_rate;
+
+	mdss_dsi_pll_8996_input_init(pll, pdb);
+
+	pll_8996_dec_frac_calc(pll, pdb);
+
+	pll_8996_calc_vco_count(pdb, pll->vco_current_rate,
+			pll->vco_ref_clk_rate);
+
+	shadow_pll_dynamic_refresh_8996(pll, pdb);
+
+	rc = mdss_pll_resource_enable(pll, false);
+	if (rc) {
+		pr_err("Failed to enable mdss dsi plla=%d\n", pll->index);
+		return rc;
+	}
+
+	return rc;
+}
+
 unsigned long pll_vco_get_rate_8996(struct clk *c)
 {
 	u64 vco_rate, multiplier = BIT(20);
@@ -881,6 +1062,11 @@ enum handoff pll_vco_handoff_8996(struct clk *c)
 	}
 
 	return ret;
+}
+
+enum handoff shadow_pll_vco_handoff_8996(struct clk *c)
+{
+	return HANDOFF_DISABLED_CLK;
 }
 
 int pll_vco_prepare_8996(struct clk *c)

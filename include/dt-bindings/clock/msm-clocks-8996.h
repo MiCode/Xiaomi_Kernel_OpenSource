@@ -504,6 +504,17 @@
 #define clk_mdss_dsi1_vco_clk_src	0xfcd15658
 #define clk_hdmi_vco_clk		0x66003284
 
+#define clk_dsi0pll_shadow_byte_clk_src	0x177c029c
+#define clk_dsi0pll_shadow_pixel_clk_src	0x98ae3c92
+#define clk_dsi0pll_shadow_n2_div_clk	0xd5f0dad9
+#define clk_dsi0pll_shadow_post_n1_div_clk	0x1f7c8cf8
+#define clk_dsi0pll_shadow_vco_clk	0xb100ca83
+#define clk_dsi1pll_shadow_byte_clk_src	0xfc021ce5
+#define clk_dsi1pll_shadow_pixel_clk_src	0xdcca3ffc
+#define clk_dsi1pll_shadow_n2_div_clk		0x189541bf
+#define clk_dsi1pll_shadow_post_n1_div_clk	0x1637020e
+#define clk_dsi1pll_shadow_vco_clk		0x68d8b6f7
+
 /* CPU clocks */
 #define clk_pwrcl_clk 0xc554130e
 #define clk_pwrcl_pll 0x25454ca1
