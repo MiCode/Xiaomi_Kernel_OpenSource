@@ -980,6 +980,18 @@ static void cpufreq_init_policy(struct cpufreq_policy *policy)
 	struct cpufreq_policy new_policy;
 	int ret = 0;
 
+	/* Restore policy->min/max for hotplug */
+	if (per_cpu(cpufreq_policy_save, policy->cpu).min) {
+		policy->min = per_cpu(cpufreq_policy_save, policy->cpu).min;
+		policy->user_policy.min = policy->min;
+	}
+	if (per_cpu(cpufreq_policy_save, policy->cpu).max) {
+		policy->max = per_cpu(cpufreq_policy_save, policy->cpu).max;
+		policy->user_policy.max = policy->max;
+	}
+	pr_debug("Restoring CPU%d user policy min %d and max %d\n",
+		 policy->cpu, policy->min, policy->max);
+
 	memcpy(&new_policy, policy, sizeof(*policy));
 
 	/* Update governor of new_policy to the governor used before hotplug */
@@ -991,17 +1003,6 @@ static void cpufreq_init_policy(struct cpufreq_policy *policy)
 		gov = CPUFREQ_DEFAULT_GOVERNOR;
 
 	new_policy.governor = gov;
-
-	if (per_cpu(cpufreq_policy_save, policy->cpu).min) {
-		policy->min = per_cpu(cpufreq_policy_save, policy->cpu).min;
-		policy->user_policy.min = policy->min;
-	}
-	if (per_cpu(cpufreq_policy_save, policy->cpu).max) {
-		policy->max = per_cpu(cpufreq_policy_save, policy->cpu).max;
-		policy->user_policy.max = policy->max;
-	}
-	pr_debug("Restoring CPU%d user policy min %d and max %d\n",
-		 policy->cpu, policy->min, policy->max);
 
 	/* Use the default policy if its valid. */
 	if (cpufreq_driver->setpolicy)
