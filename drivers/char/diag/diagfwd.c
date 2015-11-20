@@ -463,9 +463,10 @@ void diag_update_md_clients(unsigned int type)
 			for (j = 0; j < driver->num_clients; j++) {
 				if (driver->client_map[j].pid != 0 &&
 					driver->client_map[j].pid ==
-					driver->md_session_map[i]->pid)
+					driver->md_session_map[i]->pid) {
 					driver->data_ready[j] |= type;
-				break;
+					break;
+				}
 			}
 	}
 	wake_up_interruptible(&driver->wait_q);
