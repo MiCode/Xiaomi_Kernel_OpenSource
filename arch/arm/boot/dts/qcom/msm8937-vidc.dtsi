@@ -25,6 +25,7 @@
 		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
+		qcom,slave-side-cp;
 		qcom,load-freq-tbl =
 			/* Decoders */
 			<244800 308571428 0x0c000000>, /* 1080p@30 HEVC */
