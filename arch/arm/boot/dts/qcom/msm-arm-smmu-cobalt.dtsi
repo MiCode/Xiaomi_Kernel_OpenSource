@@ -145,6 +145,12 @@
 			<&clock_mmss clk_bimc_smmu_axi_clk>;
 		clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
 		#clock-cells = <1>;
+		/*
+		 * The iommu test framework requires at least one iommu
+		 * client to populate debugfs. The presence of a device
+		 * "qcom,smmu-v2" alone is not sufficient.
+		 */
+		iommus = <&mmss_smmu 1>;
 	};
 
 	kgsl_smmu: arm,smmu-kgsl@5040000 {
