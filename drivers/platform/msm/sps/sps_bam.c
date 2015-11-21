@@ -2212,10 +2212,37 @@ int sps_bam_pipe_is_empty(struct sps_bam *dev, u32 pipe_index,
 
 
 	/* Determine descriptor FIFO state */
-	if (end_offset == acked_offset)
+	if (end_offset == acked_offset) {
 		*empty = true;
-	else
-		*empty = false;
+	} else {
+		if ((pipe->state & BAM_STATE_BAM2BAM) == 0) {
+			*empty = false;
+			return 0;
+		}
+		if (bam_pipe_check_zlt(&dev->base, pipe_index)) {
+			bool p_idc;
+			u32 next_write;
+
+			p_idc = bam_pipe_check_pipe_empty(&dev->base,
+								pipe_index);
+
+			next_write = acked_offset + sizeof(struct sps_iovec);
+			if (next_write >= pipe->desc_size)
+				next_write = 0;
+
+			if (next_write == end_offset) {
+				*empty = true;
+				if (!p_idc)
+					SPS_DBG3(dev,
+						"sps:BAM %pa pipe %d pipe empty checking for ZLT.\n",
+						BAM_ID(dev), pipe_index);
+			} else {
+				*empty = false;
+			}
+		} else {
+			*empty = false;
+		}
+	}
 
 	return 0;
 }
