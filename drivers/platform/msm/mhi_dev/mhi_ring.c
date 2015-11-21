@@ -254,7 +254,7 @@ int mhi_dev_process_ring(struct mhi_dev_ring *ring)
 		mhi_dev_ring_inc_index(ring, ring->rd_offset);
 	}
 
-	if !(ring->rd_offset == ring->wr_offset) {
+	if (!(ring->rd_offset == ring->wr_offset)) {
 		mhi_log(MHI_MSG_ERROR,
 				"Error with the rd offset/wr offset\n");
 		return -EINVAL;

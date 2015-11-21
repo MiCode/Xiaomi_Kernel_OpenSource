@@ -259,7 +259,7 @@ static int mhi_hwc_init(struct mhi_dev *mhi)
 	ipa_init_params.msi.mask = ((1 << cfg.msg_num) - 1);
 	ipa_init_params.first_er_idx = erdb_cfg.base;
 	ipa_init_params.first_ch_idx = HW_CHANNEL_BASE;
-	ipa_init_params.mmio_addr = ((uint32_t) mhi_ctx->mmio_base_pa_addr)
+	ipa_init_params.mmio_addr = ((uint32_t) mhi_ctx->mmio_base_pa_addr);
 	ipa_init_params.assert_bit40 = true;
 
 	mhi_log(MHI_MSG_ERROR,
@@ -470,14 +470,14 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 				sizeof(union mhi_dev_ring_element_type)) +
 				ring->ring_ctx->generic.rbase;
 
-	mhi_log(MHI_MSG_ERROR, ("ev.rp = %llx for %lld\n",
-				ring->ring_ctx_shadow->ev.rp, evnt_ring_idx));
+	mhi_log(MHI_MSG_ERROR, "ev.rp = %llx for %lld\n",
+				ring->ring_ctx_shadow->ev.rp, evnt_ring_idx);
 
-	host_rp_update.host_pa = (mhi->ev_ctx_shadow.host_pa +
+	host_rp_addr.host_pa = (mhi->ev_ctx_shadow.host_pa +
 			sizeof(struct mhi_dev_ev_ctx) *
 			evnt_ring) + (uint32_t) &ring->ring_ctx->ev.rp -
 			(uint32_t) ring->ring_ctx;
-	mhi_dev_write_to_host(&host_rp_update, &ring->ring_ctx_shadow->ev.rp,
+	mhi_dev_write_to_host(&host_rp_addr, &ring->ring_ctx_shadow->ev.rp,
 						sizeof(uint64_t),
 						mhi);
 
@@ -497,7 +497,6 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 
 	msi_addr.host_pa = (uint64_t)((uint64_t)cfg.upper << 32) |
 						(uint64_t)cfg.lower;
-	msi_addr.host_pa = 0xfee0f00c;
 	msi = cfg.data + mhi_ctx->mhi_ep_msi_num;
 	mhi_log(MHI_MSG_ERROR, "Sending MSI %d to 0x%llx as data = 0x%x\n",
 			mhi_ctx->mhi_ep_msi_num, msi_addr.host_pa, msi);
@@ -1177,12 +1176,7 @@ EXPORT_SYMBOL(mhi_dev_resume);
 
 static int mhi_dev_ring_init(struct mhi_dev *dev)
 {
-	int rc = 0, i = 0;
-	enum mhi_dev_state state;
-	uint32_t max_cnt = 0;
-	struct ep_pcie_msi_config cfg;
-	struct mhi_addr msi_addr;
-	uint32_t msi = 0;
+	int i = 0;
 
 	mhi_log(MHI_MSG_INFO, "initializing all rings");
 	dev->cmd_ring_idx = 0;
@@ -1208,60 +1202,6 @@ static int mhi_dev_ring_init(struct mhi_dev *dev)
 		mhi_ring_set_cb(&dev->ring[i], mhi_dev_process_tre_ring);
 	}
 
-	rc = mhi_dev_mmio_get_mhi_state(dev, &state);
-	if (rc) {
-		pr_err("%s: get mhi state failed\n", __func__);
-		return rc;
-	}
-
-	rc = ep_pcie_get_msi_config(mhi_ctx->phandle, &cfg);
-	if (rc) {
-		pr_err("MHI: error geting msi configs\n");
-		return rc;
-	}
-
-	msi_addr.host_pa = 0xfee0f00c;
-	msi = cfg.data + mhi_ctx->mhi_ep_msi_num;
-	mhi_log(MHI_MSG_ERROR("Sending MSI %d to 0x%llx  as data = 0x%X\n",
-			mhi_ctx->mhi_ep_msi_num, msi_addr.host_pa, msi));
-
-	mhi_dev_write_to_host(&msi_addr, &msi, 4, dev);
-
-	while (state != MHI_DEV_M0_STATE && max_cnt < MHI_DEV_M0_MAX_CNT) {
-		/* Wait for Host to set the M0 state */
-		usleep_range(MHI_M0_WAIT_MIN_USLEEP, MHI_M0_WAIT_MAX_USLEEP);
-		rc = mhi_dev_mmio_get_mhi_state(dev, &state);
-		if (rc) {
-			pr_err("%s: get mhi state failed\n", __func__);
-			return rc;
-		}
-		max_cnt++;
-	}
-
-	mhi_log(MHI_MSG_INFO, "state:%d\n", state);
-
-	if (state == MHI_DEV_M0_STATE) {
-		rc = mhi_dev_cache_host_cfg(dev);
-		if (rc) {
-			pr_err("Failed to cache the host config\n");
-			return rc;
-		}
-
-		rc = mhi_dev_mmio_set_env(dev, MHI_ENV_VALUE);
-		if (rc) {
-			pr_err("%s: env setting failed\n", __func__);
-			return rc;
-		}
-	} else {
-		pr_err("MHI device failed to enter M0\n");
-		return -EINVAL;
-	}
-
-	rc = mhi_hwc_init(dev);
-	if (rc) {
-		pr_err("error during hwc_init\n");
-		return rc;
-	}
 
 	return 0;
 }
@@ -1641,11 +1581,16 @@ exit:
 }
 EXPORT_SYMBOL(mhi_dev_write_channel);
 
-static void mhi_dev_process_ring_init(struct work_struct *work)
+static void mhi_dev_enable(struct work_struct *work)
 {
+	int rc = 0;
+	struct ep_pcie_msi_config msi_cfg;
 	struct mhi_dev *mhi = container_of(work,
 				struct mhi_dev, ring_init_cb_work);
-	int rc = 0;
+
+	enum mhi_dev_state state;
+	uint32_t max_cnt = 0;
+
 
 	rc = ipa_dma_init();
 	if (rc) {
@@ -1665,7 +1610,71 @@ static void mhi_dev_process_ring_init(struct work_struct *work)
 		return;
 	}
 
+	/* Invoke MHI SM when device is in RESET state */
+	mhi_dev_sm_init(mhi);
+
+	/* set the env before setting the ready bit */
+	rc = mhi_dev_mmio_set_env(mhi, MHI_ENV_VALUE);
+	if (rc) {
+		pr_err("%s: env setting failed\n", __func__);
+		return;
+	}
 	mhi_uci_init();
+
+	/* All set...let's notify the host */
+	mhi_dev_sm_set_ready();
+
+	rc = ep_pcie_get_msi_config(mhi->phandle, &msi_cfg);
+	if (rc) {
+		pr_err("MHI: error geting msi configs\n");
+		return;
+	}
+
+	rc = ep_pcie_trigger_msi(mhi->phandle, mhi->mhi_ep_msi_num);
+	if (rc)
+		return;
+
+	rc = mhi_dev_mmio_get_mhi_state(mhi, &state);
+	if (rc) {
+		pr_err("%s: get mhi state failed\n", __func__);
+		return;
+	}
+
+	while (state != MHI_DEV_M0_STATE && max_cnt < MHI_DEV_M0_MAX_CNT) {
+		/* Wait for Host to set the M0 state */
+		usleep_range(MHI_M0_WAIT_MIN_USLEEP, MHI_M0_WAIT_MAX_USLEEP);
+		rc = mhi_dev_mmio_get_mhi_state(mhi, &state);
+		if (rc) {
+			pr_err("%s: get mhi state failed\n", __func__);
+			return;
+		}
+		max_cnt++;
+	}
+
+	mhi_log(MHI_MSG_INFO, "state:%d\n", state);
+
+	if (state == MHI_DEV_M0_STATE) {
+		rc = mhi_dev_cache_host_cfg(mhi);
+		if (rc) {
+			pr_err("Failed to cache the host config\n");
+			return;
+		}
+
+		rc = mhi_dev_mmio_set_env(mhi, MHI_ENV_VALUE);
+		if (rc) {
+			pr_err("%s: env setting failed\n", __func__);
+			return;
+		}
+	} else {
+		pr_err("MHI device failed to enter M0\n");
+		return;
+	}
+
+	rc = mhi_hwc_init(mhi_ctx);
+	if (rc) {
+		pr_err("error during hwc_init\n");
+		return;
+	}
 }
 
 static void mhi_ring_init_cb(void *data)
@@ -1685,7 +1694,6 @@ static int get_device_tree_data(struct platform_device *pdev)
 	struct mhi_dev *mhi;
 	int rc = 0;
 	struct resource *res_mem = NULL;
-	struct ep_pcie_msi_config msi_cfg;
 
 	mhi = devm_kzalloc(&pdev->dev,
 			sizeof(struct mhi_dev), GFP_KERNEL);
@@ -1757,88 +1765,21 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return rc;
 	}
 
-	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
-	if (!mhi_ctx->phandle) {
-		pr_err("PCIe driver is not ready yet.\n");
-		return -EPROBE_DEFER;
-	}
-
-	rc = mhi_dev_mmio_init(mhi_ctx);
-	if (rc) {
-		pr_err("Failed to update the MMIO init\n");
-		return rc;
-	}
-
-	/* Invoke MHI SM when device is in RESET state */
-	mhi_dev_sm_init(mhi_ctx);
-
-	/* set the env before setting the ready bit */
-	rc = mhi_dev_mmio_set_env(mhi, MHI_ENV_VALUE);
-	if (rc) {
-		pr_err("%s: env setting failed\n", __func__);
-		return rc;
-	}
-
-	mhi_dev_sm_set_ready();
-	rc = mhi_dev_mmio_write(mhi, MHIVER, mhi->mhi_version);
-	if (rc) {
-		pr_err("Failed to update the MHI version\n");
-		return rc;
-	}
-
-	mhi->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
-			EP_PCIE_EVENT_PM_D3_COLD |
-			EP_PCIE_EVENT_PM_D0 |
-			EP_PCIE_EVENT_PM_RST_DEAST |
-			EP_PCIE_EVENT_MHI_A7 |
-			EP_PCIE_EVENT_LINKDOWN;
-	mhi->event_reg.user = mhi;
-	mhi->event_reg.mode = EP_PCIE_TRIGGER_CALLBACK;
-	mhi->event_reg.callback = mhi_dev_sm_pcie_handler;
-
-	rc = ep_pcie_register_event(mhi_ctx->phandle, &mhi_ctx->event_reg);
-	if (rc) {
-		pr_err("PCIe register for MHI SM cb failed\n");
-		return rc;
-	}
-
-	rc = ep_pcie_get_msi_config(mhi_ctx->phandle, &msi_cfg);
-	if (rc) {
-		pr_err("MHI: error geting msi configs\n");
-		return rc;
-	}
-
-	rc = ep_pcie_trigger_msi(mhi_ctx->phandle, mhi_ctx->mhi_ep_msi_num);
-	if (rc)
-		return rc;
-
-	INIT_WORK(&mhi->chdb_ctrl_work, mhi_dev_scheduler);
-
-	mhi->pending_ring_wq = alloc_workqueue("mhi_pending_wq",
-							WQ_HIGHPRI, 0);
-	if (!mhi->pending_ring_wq) {
-		rc = -ENOMEM;
-		return rc;
-	}
-
-	INIT_WORK(&mhi->pending_work, mhi_dev_process_ring_pending);
-
-	INIT_WORK(&mhi->ring_init_cb_work, mhi_dev_process_ring_init);
-
-	mhi->ring_init_wq = alloc_workqueue("mhi_ring_init_cb_wq",
-							WQ_HIGHPRI, 0);
-	if (!mhi->ring_init_wq) {
-		rc = -ENOMEM;
-		return rc;
-	}
-
 	return 0;
 }
 
 static int mhi_init(struct mhi_dev *mhi)
 {
-	int i = 0;
+	int rc = 0, i = 0;
 	struct platform_device *pdev = mhi->pdev;
+
+
+	rc = mhi_dev_mmio_init(mhi);
+	if (rc) {
+		pr_err("Failed to update the MMIO init\n");
+		return rc;
+	}
+
 
 	mhi->ring = devm_kzalloc(&pdev->dev,
 			(sizeof(struct mhi_dev_ring) *
@@ -1882,9 +1823,35 @@ static int mhi_dev_probe(struct platform_device *pdev)
 		}
 	}
 
+	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
+	if (!mhi_ctx->phandle) {
+		pr_err("PCIe driver is not ready yet.\n");
+		return -EPROBE_DEFER;
+	}
+
 	if (ep_pcie_get_linkstatus(mhi_ctx->phandle) != EP_PCIE_LINK_ENABLED) {
 		pr_err("PCIe link is not ready to use.\n");
 		return -EPROBE_DEFER;
+	}
+
+	INIT_WORK(&mhi_ctx->chdb_ctrl_work, mhi_dev_scheduler);
+
+	mhi_ctx->pending_ring_wq = alloc_workqueue("mhi_pending_wq",
+							WQ_HIGHPRI, 0);
+	if (!mhi_ctx->pending_ring_wq) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	INIT_WORK(&mhi_ctx->pending_work, mhi_dev_process_ring_pending);
+
+	INIT_WORK(&mhi_ctx->ring_init_cb_work, mhi_dev_enable);
+
+	mhi_ctx->ring_init_wq = alloc_workqueue("mhi_ring_init_cb_wq",
+							WQ_HIGHPRI, 0);
+	if (!mhi_ctx->ring_init_wq) {
+		rc = -ENOMEM;
+		return rc;
 	}
 
 	INIT_LIST_HEAD(&mhi_ctx->event_ring_list);
@@ -1917,26 +1884,34 @@ static int mhi_dev_probe(struct platform_device *pdev)
 	if (!mhi_ctx->write_handle)
 		return -ENOMEM;
 
+	rc = mhi_dev_mmio_write(mhi_ctx, MHIVER, mhi_ctx->mhi_version);
+	if (rc) {
+		pr_err("Failed to update the MHI version\n");
+		return rc;
+	}
+
+	mhi_ctx->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
+		EP_PCIE_EVENT_PM_D3_COLD |
+		EP_PCIE_EVENT_PM_D0 |
+		EP_PCIE_EVENT_PM_RST_DEAST |
+		EP_PCIE_EVENT_MHI_A7 |
+		EP_PCIE_EVENT_LINKDOWN;
+	mhi_ctx->event_reg.user = mhi_ctx;
+	mhi_ctx->event_reg.mode = EP_PCIE_TRIGGER_CALLBACK;
+	mhi_ctx->event_reg.callback = mhi_dev_sm_pcie_handler;
+
+	rc = ep_pcie_register_event(mhi_ctx->phandle, &mhi_ctx->event_reg);
+	if (rc) {
+		pr_err("Failed to register for events from PCIe\n");
+		return rc;
+	}
+
+	pr_err("Registering with IPA\n");
+
 	rc = ipa_register_ipa_ready_cb(mhi_ring_init_cb, mhi_ctx);
 	if (rc < 0) {
 		if (rc == -EEXIST) {
-			rc = ipa_dma_init();
-			if (rc) {
-				pr_err("ipa dma init failed\n");
-				return rc;
-			}
-
-			rc = ipa_dma_enable();
-			if (rc) {
-				pr_err("ipa enable failed\n");
-				return rc;
-			}
-
-			rc = mhi_dev_ring_init(mhi_ctx);
-			if (rc)
-				return rc;
-
-			mhi_uci_init();
+			mhi_ring_init_cb(mhi_ctx);
 		} else {
 			pr_err("Error calling IPA cb with %d\n", rc);
 			return rc;
