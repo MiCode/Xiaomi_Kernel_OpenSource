@@ -25,6 +25,7 @@
 struct sync_timeline;
 struct sync_pt;
 struct sync_fence;
+struct seq_file;
 
 /**
  * struct sync_timeline_ops - sync object implementation ops
