@@ -361,6 +361,7 @@ static inline void iommu_debug_destroy_tracking(void) { }
 
 static LIST_HEAD(iommu_debug_devices);
 static struct dentry *debugfs_tests_dir;
+static u32 iters_per_op = 1;
 
 struct iommu_debug_device {
 	struct device *dev;
@@ -424,7 +425,24 @@ static const char * const _size_to_string(unsigned long size)
 	return "unknown size, please add to _size_to_string";
 }
 
-#define ITERS_PER_OP 100
+static int nr_iters_set(void *data, u64 val)
+{
+	if (!val)
+		val = 1;
+	if (val > 10000)
+		val = 10000;
+	*(u32 *)data = val;
+	return 0;
+}
+
+static int nr_iters_get(void *data, u64 *val)
+{
+	*val = *(u32 *)data;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(iommu_debug_nr_iters_ops,
+			nr_iters_get, nr_iters_set, "%llu\n");
 
 static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 					 bool secure)
@@ -478,7 +496,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 		goto out_domain_free;
 	}
 
-	seq_printf(s, "(average over %d iterations)\n", ITERS_PER_OP);
+	seq_printf(s, "(average over %d iterations)\n", iters_per_op);
 	seq_printf(s, "%8s %15s %12s\n", "size", "iommu_map", "iommu_unmap");
 	for (sz = sizes; *sz; ++sz) {
 		unsigned long size = *sz;
@@ -487,7 +505,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 		struct timespec tbefore, tafter, diff;
 		int i;
 
-		for (i = 0; i < ITERS_PER_OP; ++i) {
+		for (i = 0; i < iters_per_op; ++i) {
 			getnstimeofday(&tbefore);
 			if (iommu_map(domain, iova, paddr, size,
 				      IOMMU_READ | IOMMU_WRITE)) {
@@ -512,8 +530,8 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 						    1000);
 		}
 
-		map_elapsed_us /= ITERS_PER_OP;
-		unmap_elapsed_us /= ITERS_PER_OP;
+		map_elapsed_us /= iters_per_op;
+		unmap_elapsed_us /= iters_per_op;
 
 		seq_printf(s, "%8s %12lld us %9lld us\n", _size_to_string(size),
 			map_elapsed_us, unmap_elapsed_us);
@@ -537,7 +555,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 			goto out_detach;
 		}
 
-		for (i = 0; i < ITERS_PER_OP; ++i) {
+		for (i = 0; i < iters_per_op; ++i) {
 			getnstimeofday(&tbefore);
 			if (iommu_map_sg(domain, iova, table.sgl, table.nents,
 					 IOMMU_READ | IOMMU_WRITE) != size) {
@@ -562,8 +580,8 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 						    1000);
 		}
 
-		map_elapsed_us /= ITERS_PER_OP;
-		unmap_elapsed_us /= ITERS_PER_OP;
+		map_elapsed_us /= iters_per_op;
+		unmap_elapsed_us /= iters_per_op;
 
 		seq_printf(s, "%8s %12lld us %9lld us\n", _size_to_string(size),
 			map_elapsed_us, unmap_elapsed_us);
@@ -991,6 +1009,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 		pr_err("Couldn't create iommu/devices/%s debugfs dir\n",
 		       name);
 		goto err;
+	}
+
+	if (!debugfs_create_file("nr_iters", S_IRUSR, dir, &iters_per_op,
+				&iommu_debug_nr_iters_ops)) {
+		pr_err("Couldn't create iommu/devices/%s/nr_iters debugfs file\n",
+		       name);
+		goto err_rmdir;
 	}
 
 	if (!debugfs_create_file("profiling", S_IRUSR, dir, ddev,
