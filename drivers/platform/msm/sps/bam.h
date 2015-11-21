@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -422,4 +422,26 @@ void bam_pipe_timer_reset(void *base, u32 pipe);
  */
 u32 bam_pipe_timer_get_count(void *base, u32 pipe);
 
+/*
+ * bam_pipe_check_zlt - Check if the last desc is ZLT.
+ * @base:	BAM virtual address
+ * @pipe:	pipe index
+ *
+ * This function checks if the last desc in the desc FIFO is a ZLT desc.
+ *
+ * @return true if the last desc in the desc FIFO is a ZLT desc. Otherwise
+ *  return false.
+ */
+bool bam_pipe_check_zlt(void *base, u32 pipe);
+
+/*
+ * bam_pipe_check_pipe_empty - Check if desc FIFO is empty.
+ * @base:	BAM virtual address
+ * @pipe:	pipe index
+ *
+ * This function checks if the desc FIFO of this pipe is empty.
+ *
+ * @return true if desc FIFO is empty. Otherwise return false.
+ */
+bool bam_pipe_check_pipe_empty(void *base, u32 pipe);
 #endif				/* _BAM_H_ */
