@@ -177,6 +177,8 @@
 #define P_RST_P_SW_RST                             0x1
 
 /* P_HALTn */
+#define P_HALT_P_PIPE_EMPTY			   0x8
+#define P_HALT_P_LAST_DESC_ZLT                     0x4
 #define P_HALT_P_PROD_HALTED                       0x2
 #define P_HALT_P_HALT                              0x1
 
@@ -1269,6 +1271,58 @@ void bam_disable_pipe(void *base, u32 pipe)
 	SPS_DBG2(dev, "sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 0);
 	wmb(); /* ensure pipe is disabled */
+}
+
+/*
+ * Check if the last desc is ZLT
+ */
+bool bam_pipe_check_zlt(void *base, u32 pipe)
+{
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return false;
+	}
+
+	if (bam_read_reg_field(base, P_HALT, pipe, P_HALT_P_LAST_DESC_ZLT)) {
+		SPS_DBG(dev,
+			"sps:%s:bam=0x%p(va).pipe=%d: the last desc is ZLT.",
+			__func__, base, pipe);
+		return true;
+	}
+
+	SPS_DBG(dev,
+		"sps:%s:bam=0x%p(va).pipe=%d: the last desc is not ZLT.",
+		__func__, base, pipe);
+	return false;
+}
+
+/*
+ * Check if desc FIFO is empty
+ */
+bool bam_pipe_check_pipe_empty(void *base, u32 pipe)
+{
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return false;
+	}
+
+	if (bam_read_reg_field(base, P_HALT, pipe, P_HALT_P_PIPE_EMPTY)) {
+		SPS_DBG(dev,
+			"sps:%s:bam=0x%p(va).pipe=%d: desc FIFO is empty.",
+			__func__, base, pipe);
+		return true;
+	}
+
+	SPS_DBG(dev,
+		"sps:%s:bam=0x%p(va).pipe=%d: desc FIFO is not empty.",
+		__func__, base, pipe);
+	return false;
 }
 
 /**
