@@ -433,7 +433,10 @@ struct hdmi_tx_hdcp2p2_ddc_data {
 	bool ddc_done;
 	bool ddc_read_req;
 	bool ddc_timeout;
+	bool wait;
 	int irq_wait_count;
+	void (*link_cb)(void *data);
+	void *link_data;
 };
 
 struct hdmi_tx_ddc_ctrl {
@@ -500,8 +503,8 @@ int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
 			  u32 type, u32 to_in_num_lines);
 void hdmi_scrambler_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
 void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
-int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl, bool wait);
 int hdmi_hdcp2p2_ddc_check_status(struct hdmi_tx_ddc_ctrl *ctrl);
+int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl);
 int hdmi_utils_get_timeout_in_hysnc(struct msm_hdmi_mode_timing_info *timing,
 	u32 timeout_ms);
 
