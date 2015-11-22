@@ -317,9 +317,7 @@ camss_vdd_regulator_failed:
 	vfe_dev->fs_vfe = NULL;
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 bus_scale_register_failed:
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_VFE, CAMERA_AHB_SUSPEND_VOTE);
-	if (rc < 0)
-		pr_err("%s: failed to vote for AHB\n", __func__);
+	cam_config_ahb_clk(CAM_AHB_CLIENT_VFE, CAMERA_AHB_SUSPEND_VOTE);
 ahb_vote_fail:
 	return rc;
 }
