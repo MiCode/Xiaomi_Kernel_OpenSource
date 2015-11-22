@@ -919,6 +919,7 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	struct hdmi_tx_hdcp2p2_ddc_data *data;
 	u32 intr0, intr2, intr5;
 	u32 msg_size;
+	int rc = 0;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
 		pr_err("invalid input\n");
@@ -1041,10 +1042,18 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	}
 	DSS_REG_W_ND(io, HDMI_DDC_INT_CTRL5, intr5);
 
-	if (data->message_size || data->ready || data->reauth_req)
-		atomic_set(&ddc_ctrl->rxstatus_busy_wait_done, 1);
+	if (data->message_size || data->ready || data->reauth_req) {
+		if (data->wait) {
+			atomic_set(&ddc_ctrl->rxstatus_busy_wait_done, 1);
+		} else if (data->link_cb && data->link_data) {
+			data->link_cb(data->link_data);
+		} else {
+			pr_err("new msg/reauth not handled\n");
+			rc = -EINVAL;
+		}
+	}
 
-	return 0;
+	return rc;
 }
 
 static int hdmi_ddc_scrambling_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
@@ -1605,7 +1614,7 @@ void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl)
 	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
 }
 
-int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl, bool wait)
+int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 {
 	u32 reg_val;
 	u32 intr_en_mask;
@@ -1704,7 +1713,7 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl, bool wait)
 	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
 	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_SW_TRIGGER, 1);
 
-	if (wait) {
+	if (data->wait) {
 		while (busy_wait_us > 0 &&
 			!atomic_read(&ctrl->rxstatus_busy_wait_done)) {
 			udelay(HDMI_BUSY_WAIT_DELAY_US);

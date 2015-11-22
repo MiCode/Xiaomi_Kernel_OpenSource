@@ -74,8 +74,6 @@ struct hdmi_hdcp2p2_ctrl {
 	struct kthread_work send_msg;
 	struct kthread_work recv_msg;
 	struct kthread_work link;
-
-	struct delayed_work link_check_work;
 };
 
 static int hdmi_hdcp2p2_auth(struct hdmi_hdcp2p2_ctrl *ctrl);
@@ -777,8 +775,9 @@ static void hdmi_hdcp2p2_recv_msg(struct hdmi_hdcp2p2_ctrl *ctrl)
 	ddc_data->timeout_hsync = timeout_hsync;
 	ddc_data->periodic_timer_hsync = timeout_hsync / 20;
 	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
+	ddc_data->wait = true;
 
-	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl, true);
+	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl);
 	if (rc) {
 		pr_err("error reading rxstatus %d\n", rc);
 		goto exit;
@@ -831,6 +830,19 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 	hdmi_hdcp2p2_recv_msg(ctrl);
 }
 
+static void hdmi_hdcp2p2_link_cb(void *data)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl = data;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+		queue_kthread_work(&ctrl->worker, &ctrl->link);
+}
+
 static int hdmi_hdcp2p2_link_check(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
@@ -862,8 +874,10 @@ static int hdmi_hdcp2p2_link_check(struct hdmi_hdcp2p2_ctrl *ctrl)
 	ddc_data->timeout_hsync = timeout_hsync;
 	ddc_data->periodic_timer_hsync = timeout_hsync;
 	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
+	ddc_data->link_cb = hdmi_hdcp2p2_link_cb;
+	ddc_data->link_data = ctrl;
 
-	return hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl, false);
+	return hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl);
 }
 
 static void hdmi_hdcp2p2_auth_status(struct hdmi_hdcp2p2_ctrl *ctrl)
@@ -884,8 +898,7 @@ static void hdmi_hdcp2p2_auth_status(struct hdmi_hdcp2p2_ctrl *ctrl)
 		ctrl->init_data.notify_status(ctrl->init_data.cb_data,
 			HDCP_STATE_AUTHENTICATED);
 
-		if (!hdmi_hdcp2p2_link_check(ctrl))
-			queue_kthread_work(&ctrl->worker, &ctrl->link);
+		hdmi_hdcp2p2_link_check(ctrl);
 	}
 }
 
@@ -895,16 +908,6 @@ static void hdmi_hdcp2p2_auth_status_work(struct kthread_work *work)
 		struct hdmi_hdcp2p2_ctrl, status);
 
 	hdmi_hdcp2p2_auth_status(ctrl);
-}
-
-
-static void hdmi_hdcp2p2_link_schedule_work(struct work_struct *work)
-{
-	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(to_delayed_work(work),
-		struct hdmi_hdcp2p2_ctrl, link_check_work);
-
-	if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
-		queue_kthread_work(&ctrl->worker, &ctrl->link);
 }
 
 static void hdmi_hdcp2p2_link_work(struct kthread_work *work)
@@ -980,10 +983,6 @@ exit:
 		hdmi_hdcp2p2_auth_failed(ctrl);
 		return;
 	}
-
-	/* recheck within 1sec as per hdcp 2.2 standard */
-	schedule_delayed_work(&ctrl->link_check_work,
-		msecs_to_jiffies(HDCP2P2_LINK_CHECK_TIME_MS));
 }
 
 static int hdmi_hdcp2p2_auth(struct hdmi_hdcp2p2_ctrl *ctrl)
@@ -1121,9 +1120,6 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 
 	ctrl->thread = kthread_run(kthread_worker_fn,
 		&ctrl->worker, "hdmi_hdcp2p2");
-
-	INIT_DELAYED_WORK(&ctrl->link_check_work,
-		hdmi_hdcp2p2_link_schedule_work);
 
 	if (IS_ERR(ctrl->thread)) {
 		pr_err("unable to start hdcp2p2 thread\n");
