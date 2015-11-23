@@ -50,6 +50,11 @@
 		clock-frequency = <19200000>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,pipe-attr-ee;
+	};
+
 	timer@b120000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
