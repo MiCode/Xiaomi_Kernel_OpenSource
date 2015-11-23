@@ -104,6 +104,8 @@ static inline void mmc_cmdq_ready_wait(struct mmc_host *host,
 		  && test_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx->curr_state))
 		&& !(!host->card->part_curr && !mmc_card_suspended(host->card)
 		     && mmc_host_halt(host))
+		&& !(!host->card->part_curr && mmc_host_cq_disable(host) &&
+			!mmc_card_suspended(host->card))
 		&& !test_bit(CMDQ_STATE_ERR, &ctx->curr_state)
 		&& !mmc_check_blk_queue_start_tag(q, mq->cmdq_req_peeked));
 }
