@@ -3361,11 +3361,11 @@ static void mmc_blk_cmdq_reset_all(struct mmc_host *host, int err)
 		if (!ret) {
 			WARN_ON(!test_and_clear_bit(itag,
 				 &ctx_info->data_active_reqs));
+			mmc_cmdq_post_req(host, itag, err);
 		} else {
 			clear_bit(CMDQ_STATE_DCMD_ACTIVE,
 					&ctx_info->curr_state);
 		}
-		mmc_cmdq_post_req(host, itag, err);
 		WARN_ON(!test_and_clear_bit(itag,
 					&ctx_info->active_reqs));
 		mmc_host_clk_release(host);
@@ -3577,8 +3577,8 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	else
 		BUG_ON(!test_and_clear_bit(cmdq_req->tag,
 					 &ctx_info->data_active_reqs));
-
-	mmc_cmdq_post_req(host, cmdq_req->tag, err);
+	if (!is_dcmd)
+		mmc_cmdq_post_req(host, cmdq_req->tag, err);
 	if (cmdq_req->cmdq_req_flags & DCMD) {
 		clear_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
 		blk_end_request_all(rq, err);
