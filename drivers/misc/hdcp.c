@@ -64,6 +64,7 @@
 #define REPEATER_AUTH_STREAM_MANAGE_MESSAGE_ID 16
 #define REPEATER_AUTH_STREAM_READY_MESSAGE_ID  17
 #define HDCP1_SET_KEY_MESSAGE_ID       202
+#define HDCP1_SET_ENC_MESSAGE_ID       205
 
 #define BITS_8_IN_BYTES       1
 #define BITS_16_IN_BYTES      2
@@ -314,6 +315,16 @@ struct __attribute__ ((__packed__)) repeater_info_struct {
 	bool seq_num_V_Rollover_flag;
 	uint8_t ReceiverIDList[MAX_RCVR_ID_LIST_SIZE];
 	uint32_t ReceiverIDListLen;
+};
+
+struct __attribute__ ((__packed__)) hdcp1_set_enc_req {
+	uint32_t commandid;
+	uint32_t enable;
+};
+
+struct __attribute__ ((__packed__)) hdcp1_set_enc_rsp {
+	uint32_t commandid;
+	uint32_t ret;
 };
 
 /*
@@ -1359,6 +1370,41 @@ int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb)
 	*aksv_lsb |= key_set_rsp->ksv[6] << 8;
 	*aksv_lsb |= key_set_rsp->ksv[7];
 
+	return 0;
+}
+
+int hdcp1_set_enc(bool enable)
+{
+	int rc = 0;
+	struct hdcp1_set_enc_req *set_enc_req;
+	struct hdcp1_set_enc_rsp *set_enc_rsp;
+
+	if (!hdcp1_supported || !hdcp1_handle)
+		return -EINVAL;
+
+	/* set keys and request aksv */
+	set_enc_req = (struct hdcp1_set_enc_req *)hdcp1_handle->sbuf;
+	set_enc_req->commandid = HDCP1_SET_ENC_MESSAGE_ID;
+	set_enc_req->enable = enable;
+	set_enc_rsp = (struct hdcp1_set_enc_rsp *)(hdcp1_handle->sbuf +
+			QSEECOM_ALIGN(sizeof(struct hdcp1_set_enc_req)));
+	rc = qseecom_send_command(hdcp1_handle,
+		set_enc_req, QSEECOM_ALIGN(sizeof(struct hdcp1_set_enc_req)),
+		set_enc_rsp, QSEECOM_ALIGN(sizeof(struct hdcp1_set_enc_rsp)));
+
+	if (rc < 0) {
+		pr_err("qseecom cmd failed err=%d\n", rc);
+		return -EINVAL;
+	}
+
+	rc = set_enc_rsp->ret;
+	if (rc) {
+		pr_err("enc cmd failed, rsp=%d\n",
+			set_enc_rsp->ret);
+		return -EINVAL;
+	}
+
+	pr_debug("success\n");
 	return 0;
 }
 

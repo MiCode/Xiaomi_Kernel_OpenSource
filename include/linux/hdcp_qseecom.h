@@ -117,5 +117,6 @@ int hdcp_library_register(struct hdcp_register_data *data);
 void hdcp_library_deregister(void *phdcpcontext);
 bool hdcp1_check_if_supported_load_app(void);
 int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb);
+int hdcp1_set_enc(bool enable);
 
 #endif /* __HDCP_QSEECOM_H */
