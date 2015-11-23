@@ -4804,9 +4804,10 @@ static void hdmi_tx_put_dt_data(struct device *dev,
 static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 	struct hdmi_tx_platform_data *pdata)
 {
-	int i, rc = 0;
+	int i, rc = 0, len = 0;
 	struct device_node *of_node = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	const char *data;
 
 	if (!pdev || !pdata) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -4870,6 +4871,14 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 
 	pdata->pluggable = of_property_read_bool(pdev->dev.of_node,
 		"qcom,pluggable");
+
+	data = of_get_property(pdev->dev.of_node, "qcom,display-id", &len);
+	if (!data || len <= 0)
+		pr_err("%s:%d Unable to read qcom,display-id, data=%p,len=%d\n",
+			__func__, __LINE__, data, len);
+	else
+		snprintf(hdmi_ctrl->panel_data.panel_info.display_id,
+			MDSS_DISPLAY_ID_MAX_LEN, "%s", data);
 
 	return rc;
 

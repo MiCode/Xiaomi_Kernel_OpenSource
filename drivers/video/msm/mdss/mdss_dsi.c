@@ -3555,6 +3555,15 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	pinfo->is_pluggable = of_property_read_bool(ctrl_pdev->dev.of_node,
 		"qcom,pluggable");
 
+	data = of_get_property(ctrl_pdev->dev.of_node,
+		"qcom,display-id", &len);
+	if (!data || len <= 0)
+		pr_err("%s:%d Unable to read qcom,display-id, data=%p,len=%d\n",
+			__func__, __LINE__, data, len);
+	else
+		snprintf(ctrl_pdata->panel_data.panel_info.display_id,
+			MDSS_DISPLAY_ID_MAX_LEN, "%s", data);
+
 	return 0;
 
 
