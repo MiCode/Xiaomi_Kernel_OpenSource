@@ -2438,6 +2438,9 @@ static int mmc_partial_init(struct mmc_host *host)
 	pr_debug("%s: %s: reading and comparing ext_csd successful\n",
 		mmc_hostname(host), __func__);
 
+	if (mmc_card_support_auto_bkops(host->card))
+		(void)mmc_set_auto_bkops(host->card, true);
+
 	if (card->ext_csd.cmdq_support && (card->host->caps2 &
 					   MMC_CAP2_CMD_QUEUE)) {
 		err = mmc_select_cmdq(card);
