@@ -476,6 +476,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		      bool impedance_det_en);
 int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			   uint32_t *zr);
+void wcd_mbhc_deinit(struct wcd_mbhc *mbhc);
 #else
 static inline void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 {
@@ -503,6 +504,9 @@ static inline int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc,
 	*zr = 0;
 	return -EINVAL;
 }
+static inline void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
+{
+}
 #endif
-void wcd_mbhc_deinit(struct wcd_mbhc *mbhc);
+
 #endif /* __WCD_MBHC_V2_H__ */

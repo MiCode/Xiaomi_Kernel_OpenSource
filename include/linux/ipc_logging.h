@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,6 +69,13 @@ void msg_encode_start(struct encode_context *ectxt, uint32_t type);
  * @ectxt: Context initialized by calling msg_encode_start()
  */
 int tsv_timestamp_write(struct encode_context *ectxt);
+
+/*
+ * tsv_qtimer_write: Writes the current QTimer timestamp count
+ *
+ * @ectxt: Context initialized by calling msg_encode_start()
+ */
+int tsv_qtimer_write(struct encode_context *ectxt);
 
 /*
  * tsv_pointer_write: Writes a data pointer
@@ -155,6 +162,16 @@ void tsv_timestamp_read(struct encode_context *ectxt,
 			struct decode_context *dctxt, const char *format);
 
 /*
+ * tsv_qtimer_read: Reads a QTimer timestamp
+ *
+ * @ectxt:  Context retrieved by reading from log space
+ * @dctxt:  Temporary storage to hold the decoded message
+ * @format: Output format while dumping through DEBUGFS
+ */
+void tsv_qtimer_read(struct encode_context *ectxt,
+		     struct decode_context *dctxt, const char *format);
+
+/*
  * tsv_pointer_read: Reads a data pointer
  *
  * @ectxt:  Context retrieved by reading from log space
@@ -219,6 +236,9 @@ static inline void msg_encode_start(struct encode_context *ectxt,
 static inline int tsv_timestamp_write(struct encode_context *ectxt)
 { return -EINVAL; }
 
+static inline int tsv_qtimer_write(struct encode_context *ectxt)
+{ return -EINVAL; }
+
 static inline int tsv_pointer_write(struct encode_context *ectxt, void *pointer)
 { return -EINVAL; }
 
@@ -242,6 +262,9 @@ static inline int ipc_log_extract(void *ilctxt, char *buff, int size)
 #define IPC_SPRINTF_DECODE(dctxt, args...) do { } while (0)
 
 static inline void tsv_timestamp_read(struct encode_context *ectxt,
+			struct decode_context *dctxt, const char *format) { }
+
+static inline void tsv_qtimer_read(struct encode_context *ectxt,
 			struct decode_context *dctxt, const char *format) { }
 
 static inline void tsv_pointer_read(struct encode_context *ectxt,

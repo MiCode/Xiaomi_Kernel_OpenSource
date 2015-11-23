@@ -34,10 +34,18 @@ static DEFINE_MUTEX(cmd_clk_mtx);
 
 struct mdss_mdp_cmd_ctx {
 	struct mdss_mdp_ctl *ctl;
-	u32 pp_num;
 
-	bool right_only_update; /* set only if DUAL_LM_SINGLE_DISPLAY + PU */
-	u32 right_only_pp_num; /* used only if DUAL_LM_SINGLE_DISPLAY + PU */
+	u32 default_pp_num;
+	u32 current_pp_num;
+	/*
+	 * aux_pp_num will be set only when topology is using split-lm.
+	 * aux_pp_num will be used only when MDSS_QUIRK_DSC_RIGHT_ONLY_PU
+	 * quirk is set and on following partial updates.
+	 *
+	 * right-only update on DUAL_LM_SINGLE_DISPLAY with DSC_MERGE
+	 * right-only update on DUAL_LM_DUAL_DISPLAY with DSC
+	 */
+	u32 aux_pp_num;
 
 	u8 ref_cnt;
 	struct completion stop_comp;
@@ -76,6 +84,19 @@ static int mdss_mdp_cmd_do_notifier(struct mdss_mdp_cmd_ctx *ctx);
 static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx);
 static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx);
 static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg);
+
+static bool __mdss_mdp_cmd_is_aux_pp_needed(struct mdss_data_type *mdata,
+	struct mdss_mdp_ctl *mctl)
+{
+	return (mdata && mctl && mctl->is_master &&
+		mdss_has_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU) &&
+		is_dsc_compression(&mctl->panel_data->panel_info) &&
+		((mctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) ||
+		 ((mctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) &&
+		  (mctl->panel_data->panel_info.dsc_enc_total == 1))) &&
+		!mctl->mixer_left->valid_roi &&
+		mctl->mixer_right->valid_roi);
+}
 
 static bool __mdss_mdp_cmd_is_panel_power_off(struct mdss_mdp_cmd_ctx *ctx)
 {
@@ -822,10 +843,11 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	pr_debug("%pS-->%s: task:%s ctx%d\n", __builtin_return_address(0),
-		__func__, current->group_leader->comm, ctx->pp_num);
+		__func__, current->group_leader->comm, ctx->current_pp_num);
 
 	mutex_lock(&ctx->clk_mtx);
-	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt), mdata->bus_ref_cnt);
+	MDSS_XLOG(ctx->current_pp_num, atomic_read(&ctx->koff_cnt),
+		mdata->bus_ref_cnt);
 
 	mdss_bus_bandwidth_ctrl(true);
 
@@ -845,10 +867,11 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 	}
 
 	pr_debug("%pS-->%s: task:%s ctx%d\n", __builtin_return_address(0),
-		__func__, current->group_leader->comm, ctx->pp_num);
+		__func__, current->group_leader->comm, ctx->current_pp_num);
 
 	mutex_lock(&ctx->clk_mtx);
-	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt), mdata->bus_ref_cnt);
+	MDSS_XLOG(ctx->current_pp_num, atomic_read(&ctx->koff_cnt),
+		mdata->bus_ref_cnt);
 
 	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
 
@@ -910,7 +933,7 @@ static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 {
 	struct mdss_mdp_cmd_ctx *ctx = data;
 	unsigned long flags;
-	bool reset_done = false;
+	bool reset_done = false, notify_frame_timeout = false;
 
 	if (!data) {
 		pr_err("%s: invalid ctx\n", __func__);
@@ -937,17 +960,18 @@ static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 	}
 
 	spin_lock_irqsave(&ctx->koff_lock, flags);
-	if (reset_done && atomic_read(&ctx->koff_cnt)) {
-		u32 pp_num = ctx->right_only_update ? ctx->right_only_pp_num :
-						      ctx->pp_num;
-
+	if (reset_done && atomic_add_unless(&ctx->koff_cnt, -1, 0)) {
 		pr_debug("%s: intf_num=%d\n", __func__, ctx->ctl->intf_num);
-		atomic_dec(&ctx->koff_cnt);
-
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
-			pp_num);
+			ctx->current_pp_num);
+		if (mdss_mdp_cmd_do_notifier(ctx))
+			notify_frame_timeout = true;
 	}
 	spin_unlock_irqrestore(&ctx->koff_lock, flags);
+
+	if (notify_frame_timeout)
+		mdss_mdp_ctl_notify(ctx->ctl, MDP_NOTIFY_FRAME_TIMEOUT);
+
 }
 
 static void mdss_mdp_cmd_pingpong_done(void *arg)
@@ -956,7 +980,6 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 	struct mdss_mdp_cmd_ctx *ctx = ctl->intf_ctx[MASTER_CTX];
 	struct mdss_mdp_vsync_handler *tmp;
 	ktime_t vsync_time;
-	u32 pp_num;
 
 	if (!ctx) {
 		pr_err("%s: invalid ctx\n", __func__);
@@ -975,11 +998,12 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 
 	spin_lock(&ctx->koff_lock);
 
-	pp_num = ctx->right_only_update ? ctx->right_only_pp_num :
-						      ctx->pp_num;
-	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP, pp_num);
+	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
+		ctx->current_pp_num);
+	mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
+		ctx->current_pp_num, NULL, NULL);
 
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), pp_num);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->current_pp_num);
 
 	if (atomic_add_unless(&ctx->koff_cnt, -1, 0)) {
 		if (atomic_read(&ctx->koff_cnt))
@@ -998,10 +1022,11 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 	}
 
 	pr_debug("%s: ctl_num=%d intf_num=%d ctx=%d cnt=%d\n", __func__,
-			ctl->num, ctl->intf_num, pp_num,
+			ctl->num, ctl->intf_num, ctx->current_pp_num,
 			atomic_read(&ctx->koff_cnt));
 
-	trace_mdp_cmd_pingpong_done(ctl, pp_num, atomic_read(&ctx->koff_cnt));
+	trace_mdp_cmd_pingpong_done(ctl, ctx->current_pp_num,
+		atomic_read(&ctx->koff_cnt));
 
 	spin_unlock(&ctx->koff_lock);
 }
@@ -1272,24 +1297,25 @@ static int mdss_mdp_setup_vsync(struct mdss_mdp_cmd_ctx *ctx,
 	pr_debug("%pS->%s: vsync_cnt=%d changed=%d enable=%d ctl:%d pp:%d\n",
 			__builtin_return_address(0), __func__,
 			ctx->vsync_irq_cnt, changed, enable,
-			ctx->ctl->num, ctx->pp_num);
+			ctx->ctl->num, ctx->default_pp_num);
 
 	if (changed) {
 		if (enable) {
 			/* enable clocks and irq */
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
-				ctx->pp_num);
+				ctx->default_pp_num);
 		} else {
 			/* disable clocks and irq */
 			mdss_mdp_irq_disable(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
-				ctx->pp_num);
+				ctx->default_pp_num);
 			/*
 			 * check the intr status and clear the irq before
 			 * disabling the clocks
 			 */
 			mdss_mdp_intr_check_and_clear(
-				MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num);
+				MDSS_MDP_IRQ_PING_PONG_RD_PTR,
+				ctx->default_pp_num);
 
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 		}
@@ -1452,19 +1478,16 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 				atomic_read(&ctx->koff_cnt));
 
 	if (rc <= 0) {
-		u32 status, mask, pp_num;
+		u32 status, mask;
 
-		pp_num = ctx->right_only_update ?
-			ctx->right_only_pp_num : ctx->pp_num;
-
-		mask = BIT(MDSS_MDP_IRQ_PING_PONG_COMP + pp_num);
+		mask = BIT(MDSS_MDP_IRQ_PING_PONG_COMP + ctx->current_pp_num);
 		status = mask & readl_relaxed(ctl->mdata->mdp_base +
 				MDSS_MDP_REG_INTR_STATUS);
-
 		if (status) {
 			pr_warn("pp done but irq not triggered\n");
 			mdss_mdp_irq_clear(ctl->mdata,
-					MDSS_MDP_IRQ_PING_PONG_COMP, pp_num);
+				MDSS_MDP_IRQ_PING_PONG_COMP,
+				ctx->current_pp_num);
 			local_irq_save(flags);
 			mdss_mdp_cmd_pingpong_done(ctl);
 			local_irq_restore(flags);
@@ -1492,8 +1515,10 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 		}
 		ctx->pp_timeout_report_cnt++;
 		rc = -EPERM;
-		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
-		atomic_add_unless(&ctx->koff_cnt, -1, 0);
+		if (atomic_add_unless(&ctx->koff_cnt, -1, 0)
+			&& mdss_mdp_cmd_do_notifier(ctx))
+			mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
+
 	} else {
 		rc = 0;
 		ctx->pp_timeout_report_cnt = 0;
@@ -1549,8 +1574,7 @@ static void mdss_mdp_cmd_set_sync_ctx(
 /* only master ctl is valid and pingpong split with DSC is pending */
 static void mdss_mdp_cmd_dsc_reconfig(struct mdss_mdp_ctl *ctl)
 {
-	struct mdss_panel_info *pinfo, *spinfo;
-	struct mdss_mdp_ctl *sctl = NULL;
+	struct mdss_panel_info *pinfo;
 	bool changed = false;
 
 	if (!ctl || !ctl->is_master)
@@ -1560,19 +1584,12 @@ static void mdss_mdp_cmd_dsc_reconfig(struct mdss_mdp_ctl *ctl)
 	if (pinfo->compression_mode != COMPRESSION_DSC)
 		return;
 
-	sctl = mdss_mdp_get_split_ctl(ctl);
-
 	changed = ctl->mixer_left->roi_changed;
-	if (is_dual_lm_single_display(ctl->mfd))
+	if (is_split_lm(ctl->mfd))
 		changed |= ctl->mixer_right->roi_changed;
 
 	if (changed)
 		mdss_mdp_ctl_dsc_setup(ctl, pinfo);
-
-	if (sctl && sctl->mixer_left->roi_changed) {
-		spinfo = &sctl->panel_data->panel_info;
-		mdss_mdp_ctl_dsc_setup(sctl, spinfo);
-	}
 }
 
 static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
@@ -1765,11 +1782,10 @@ static int mdss_mdp_cmd_enable_cmd_autorefresh(struct mdss_mdp_ctl *ctl,
  * for left+right case, pingpong_done is enabled for both and
  * only the last pingpong_done should trigger the notification
  */
-int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
+static int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 {
-	struct mdss_mdp_ctl *sctl = NULL;
+	struct mdss_mdp_ctl *sctl = NULL, *mctl = ctl;
 	struct mdss_mdp_cmd_ctx *ctx, *sctx = NULL;
-	u32 pp_num;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
@@ -1779,19 +1795,21 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	if (ctx->intf_stopped) {
-		pr_err("ctx=%d stopped already\n", ctx->pp_num);
+		pr_err("ctx=%d stopped already\n", ctx->current_pp_num);
 		return -EPERM;
 	}
 
-	reinit_completion(&ctx->readptr_done);
-	/* sctl will be null for right only in the case of Partial update */
-	sctl = mdss_mdp_get_split_ctl(ctl);
-
-	if (sctl && (sctl->roi.w == 0 || sctl->roi.h == 0)) {
-		/* left update only */
-		sctl = NULL;
+	if (!ctl->is_master) {
+		mctl = mdss_mdp_get_main_ctl(ctl);
+	} else {
+		sctl = mdss_mdp_get_split_ctl(ctl);
+		if (sctl && (sctl->roi.w == 0 || sctl->roi.h == 0)) {
+			/* left update only */
+			sctl = NULL;
+		}
 	}
 
+	reinit_completion(&ctx->readptr_done);
 	mdss_mdp_ctl_perf_set_transaction_status(ctl,
 		PERF_HW_MDP_STATE, PERF_STATUS_BUSY);
 
@@ -1809,17 +1827,14 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	if (__mdss_mdp_cmd_is_panel_power_off(ctx))
 		mdss_mdp_cmd_panel_on(ctl, sctl);
 
-	pp_num = ctx->pp_num;
-	if (is_dual_lm_single_display(ctl->mfd) &&
-	    !ctl->mixer_left->valid_roi &&
-	    !mdss_mdp_is_lm_swap_needed(mdata, ctl)) {
-		ctx->right_only_update = true;
-		pp_num = ctx->right_only_pp_num;
-	} else {
-		ctx->right_only_update = false;
-	}
+	ctx->current_pp_num = ctx->default_pp_num;
+	if (sctx)
+		sctx->current_pp_num = sctx->default_pp_num;
 
-	MDSS_XLOG(ctl->num, pp_num,
+	if (__mdss_mdp_cmd_is_aux_pp_needed(mdata, mctl))
+		ctx->current_pp_num = ctx->aux_pp_num;
+
+	MDSS_XLOG(ctl->num, ctx->current_pp_num,
 		ctl->roi.x, ctl->roi.y, ctl->roi.w, ctl->roi.h);
 
 	atomic_inc(&ctx->koff_cnt);
@@ -1836,7 +1851,9 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	 */
 	mdss_mdp_resource_control(ctl, MDP_RSRC_CTL_EVENT_KICKOFF);
 
-	mdss_mdp_cmd_dsc_reconfig(ctl);
+	if (!ctl->is_master)
+		mctl = mdss_mdp_get_main_ctl(ctl);
+	mdss_mdp_cmd_dsc_reconfig(mctl);
 
 	mdss_mdp_cmd_set_partial_roi(ctl);
 
@@ -1863,9 +1880,15 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		wait_for_completion(&ctx->readptr_done);
 	}
 
-	mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, pp_num);
-	if (sctx)
-		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, sctx->pp_num);
+	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP,
+		ctx->current_pp_num, mdss_mdp_cmd_pingpong_done, ctl);
+	mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->current_pp_num);
+	if (sctx) {
+		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP,
+			sctx->current_pp_num, mdss_mdp_cmd_pingpong_done, sctl);
+		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP,
+			sctx->current_pp_num);
+	}
 
 	if (!ctx->autorefresh_pending_frame_cnt && !ctl->cmd_autorefresh_en) {
 		/* Kickoff */
@@ -1885,7 +1908,8 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	mb();
-	MDSS_XLOG(ctl->num, pp_num, atomic_read(&ctx->koff_cnt));
+	MDSS_XLOG(ctl->num, ctx->current_pp_num,
+		sctx ? sctx->current_pp_num : -1, atomic_read(&ctx->koff_cnt));
 	return 0;
 }
 
@@ -1911,11 +1935,11 @@ int mdss_mdp_cmd_restore(struct mdss_mdp_ctl *ctl, bool locked)
 
 	if (mdss_mdp_cmd_tearcheck_setup(ctx, locked)) {
 		pr_warn("%s: ctx%d tearcheck setup failed\n", __func__,
-			ctx->pp_num);
+			ctx->current_pp_num);
 	} else {
 		if (sctx && mdss_mdp_cmd_tearcheck_setup(sctx, locked))
 			pr_warn("%s: ctx%d tearcheck setup failed\n", __func__,
-				sctx->pp_num);
+				sctx->current_pp_num);
 		else
 			mdss_mdp_tearcheck_enable(ctl, true);
 	}
@@ -1967,19 +1991,7 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 	}
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
-		ctx->pp_num, NULL, NULL);
-	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP,
-		ctx->pp_num, NULL, NULL);
-
-	/*
-	 * In case of DUAL_LM_SINGLE_DISPLAY, right PP is always enabled
-	 * if partial update is enabled. So disable interrupt callback
-	 * when not needed.
-	 */
-	if (ctl->panel_data->panel_info.partial_update_enabled &&
-	    is_dual_lm_single_display(ctl->mfd))
-		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP,
-			ctx->right_only_pp_num, NULL, NULL);
+		ctx->default_pp_num, NULL, NULL);
 
 	memset(ctx, 0, sizeof(*ctx));
 
@@ -2125,6 +2137,10 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 			 * get turned on when the first update comes.
 			 */
 			pr_debug("%s: reset intf_stopped flag.\n", __func__);
+			mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
+				(void *)&ctx->intf_recovery,
+				CTL_INTF_EVENT_FLAG_DEFAULT);
 			ctx->intf_stopped = 0;
 			goto end;
 		}
@@ -2257,13 +2273,14 @@ static int mdss_mdp_cmd_early_wake_up(struct mdss_mdp_ctl *ctl)
 }
 
 static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
-	struct mdss_mdp_cmd_ctx *ctx, int pp_num,
+	struct mdss_mdp_cmd_ctx *ctx, int default_pp_num, int aux_pp_num,
 	bool pingpong_split_slave)
 {
 	int ret = 0;
 
 	ctx->ctl = ctl;
-	ctx->pp_num = pp_num;
+	ctx->default_pp_num = default_pp_num;
+	ctx->aux_pp_num = aux_pp_num;
 	ctx->pingpong_split_slave = pingpong_split_slave;
 	ctx->pp_timeout_report_cnt = 0;
 	init_waitqueue_head(&ctx->pp_waitq);
@@ -2290,32 +2307,12 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 
 	ctx->intf_stopped = 0;
 
-	pr_debug("%s: ctx=%p num=%d\n", __func__, ctx, ctx->pp_num);
+	pr_debug("%s: ctx=%p num=%d aux=%d\n", __func__, ctx,
+		default_pp_num, aux_pp_num);
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
-		ctx->pp_num, mdss_mdp_cmd_readptr_done, ctl);
-
-	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
-				   mdss_mdp_cmd_pingpong_done, ctl);
-
-	/*
-	 * In case of DUAL_LM_SINGLE_DISPLAY with partial update enabled, right
-	 * PP is used when right-only update is committed. For such use-case,
-	 * separate corresponding interrupt callback needs to be registered.
-	 */
-	if (ctl->panel_data->panel_info.partial_update_enabled &&
-	    is_dual_lm_single_display(ctl->mfd)) {
-
-		ctx->right_only_pp_num = ctl->mixer_right->num;
-
-		pr_debug("%s: left_pp=%d right_pp=%d\n", __func__,
-			ctx->pp_num, ctx->right_only_pp_num);
-
-		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP,
-			ctx->right_only_pp_num,
-			mdss_mdp_cmd_pingpong_done, ctl);
-	}
+		ctx->default_pp_num, mdss_mdp_cmd_readptr_done, ctl);
 
 	ret = mdss_mdp_cmd_tearcheck_setup(ctx, false);
 	if (ret)
@@ -2331,6 +2328,7 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_ctl *sctl = NULL;
 	struct mdss_mdp_mixer *mixer;
 	int ret;
+	u32 default_pp_num, aux_pp_num;
 
 	if (session >= MAX_SESSIONS)
 		return 0;
@@ -2361,23 +2359,59 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 		}
 	}
 	ctx->ref_cnt++;
+	ctl->intf_ctx[MASTER_CTX] = ctx;
+
 
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	if (!mixer) {
 		pr_err("mixer not setup correctly\n");
 		return -ENODEV;
 	}
+	default_pp_num = mixer->num;
 
-	ctl->intf_ctx[MASTER_CTX] = ctx;
+	if (is_split_lm(ctl->mfd)) {
+		if (is_dual_lm_single_display(ctl->mfd)) {
+			mixer = mdss_mdp_mixer_get(ctl,
+				MDSS_MDP_MIXER_MUX_RIGHT);
+			if (!mixer) {
+				pr_err("right mixer not setup correctly for dual_lm_single_display\n");
+				return -ENODEV;
+			}
+			aux_pp_num = mixer->num;
+		} else { /* DUAL_LM_DUAL_DISPLAY */
+			struct mdss_mdp_ctl *mctl = ctl;
 
-	/*
-	 * pp_num for master ctx is same as mixer num independent
-	 * of pingpong split enabled/disabled
-	 */
-	ret = mdss_mdp_cmd_ctx_setup(ctl, ctx, mixer->num, false);
+			if (!mctl->is_master) {
+				mctl = mdss_mdp_get_main_ctl(ctl);
+				if (!mctl) {
+					pr_err("%s master ctl cannot be NULL\n",
+						__func__);
+					return -EINVAL;
+				}
+			}
+
+			if (ctl->is_master) /* setup is called for master */
+				mixer = mdss_mdp_mixer_get(mctl,
+					MDSS_MDP_MIXER_MUX_RIGHT);
+			else
+				mixer = mdss_mdp_mixer_get(mctl,
+					MDSS_MDP_MIXER_MUX_LEFT);
+
+			if (!mixer) {
+				pr_err("right mixer not setup correctly for dual_lm_dual_display\n");
+				return -ENODEV;
+			}
+			aux_pp_num = mixer->num;
+		}
+	} else {
+		aux_pp_num = default_pp_num;
+	}
+
+	ret = mdss_mdp_cmd_ctx_setup(ctl, ctx,
+		default_pp_num, aux_pp_num, false);
 	if (ret) {
-		pr_err("mdss_mdp_cmd_ctx_setup failed for ping ping: %d\n",
-				mixer->num);
+		pr_err("mdss_mdp_cmd_ctx_setup failed for default_pp:%d aux_pp:%d\n",
+			default_pp_num, aux_pp_num);
 		ctx->ref_cnt--;
 		return -ENODEV;
 	}
@@ -2404,7 +2438,7 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 
 		ctl->intf_ctx[SLAVE_CTX] = ctx;
 
-		ret = mdss_mdp_cmd_ctx_setup(ctl, ctx, session, true);
+		ret = mdss_mdp_cmd_ctx_setup(ctl, ctx, session, session, true);
 		if (ret) {
 			pr_err("mdss_mdp_cmd_ctx_setup failed for slave ping pong block");
 			ctx->ref_cnt--;
@@ -2416,6 +2450,7 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 
 void mdss_mdp_switch_roi_reset(struct mdss_mdp_ctl *ctl)
 {
+	struct mdss_mdp_ctl *mctl = ctl;
 	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
 
 	if (!ctl->panel_data ||
@@ -2426,7 +2461,9 @@ void mdss_mdp_switch_roi_reset(struct mdss_mdp_ctl *ctl)
 	if (sctl && sctl->panel_data)
 		sctl->panel_data->panel_info.roi = sctl->roi;
 
-	mdss_mdp_cmd_dsc_reconfig(ctl);
+	if (!ctl->is_master)
+		mctl = mdss_mdp_get_main_ctl(ctl);
+	mdss_mdp_cmd_dsc_reconfig(mctl);
 
 	mdss_mdp_cmd_set_partial_roi(ctl);
 }

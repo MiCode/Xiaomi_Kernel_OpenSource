@@ -806,9 +806,11 @@ static int hdcp_lib_check_valid_state(struct hdcp_lib_handle *handle)
 {
 	int rc = 0;
 
+	if (!list_empty(&handle->worker.work_list))
+		hdcp_lib_check_worker_status(handle);
+
 	if (handle->wakeup_cmd == HDCP_LIB_WKUP_CMD_START) {
 		if (!list_empty(&handle->worker.work_list)) {
-			hdcp_lib_check_worker_status(handle);
 			rc = -EBUSY;
 			goto exit;
 		}
@@ -819,8 +821,7 @@ static int hdcp_lib_check_valid_state(struct hdcp_lib_handle *handle)
 		}
 
 		if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
-			pr_err("hdcp 2.2 app not loaded\n");
-			rc = -EINVAL;
+			pr_warn("hdcp 2.2 app not loaded\n");
 			goto exit;
 		}
 	}

@@ -518,6 +518,9 @@ static void f_audio_playback_work(struct work_struct *data)
 	struct f_audio *audio = container_of(data, struct f_audio,
 					playback_work);
 	struct f_audio_buf *play_buf;
+	struct f_uac1_opts *opts = container_of(audio->card.func.fi,
+						struct f_uac1_opts, func_inst);
+	int audio_playback_buf_size = opts->audio_playback_buf_size;
 	unsigned long flags;
 	int res = 0;
 
@@ -548,7 +551,8 @@ static void f_audio_playback_work(struct work_struct *data)
 
 	pr_debug("play_buf->actual = %d", play_buf->actual);
 
-	res = u_audio_playback(&audio->card, play_buf->buf, play_buf->actual);
+	res = u_audio_playback(&audio->card, play_buf->buf,
+					audio_playback_buf_size);
 	if (res)
 		pr_err("copying failed");
 

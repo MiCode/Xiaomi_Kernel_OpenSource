@@ -103,6 +103,14 @@ config PINCTRL_MSMCOBALT
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  QTI TLMM block found in the QTI MSMCOBALT platform.
 
+config PINCTRL_MSMGOLD
+	tristate "QTI MSMGOLD pin controller driver"
+	depends on GPIOLIB && OF && (ARCH_MSMGOLD || COMPILE_TEST)
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  QTI TLMM block found in the QTI MSMGOLD platform.
+
 config PINCTRL_MSMTITANIUM
 	tristate "Qualcomm MSMTITANIUM pin controller driver"
 	depends on GPIOLIB && OF && (ARCH_MSMTITANIUM || COMPILE_TEST)

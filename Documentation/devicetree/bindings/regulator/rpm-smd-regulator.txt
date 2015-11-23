@@ -23,6 +23,7 @@ Required properties:
 				1 = SMPS
 				2 = VS
 				3 = NCP
+				4 = Buck or Boost (BoB)
 
 Optional properties:
 - qcom,allow-atomic:   Flag specifying if atomic access is allowed for this
@@ -90,6 +91,21 @@ Optional properties:
 				qcom,use-voltage-floor-level are mutually
 				exclusive.  Only one may be specified for a
 				given regulator.
+- qcom,use-pin-ctrl-voltage1:  Flag which indicates that updates to voltage
+				should be sent to the pin control voltage 1
+				parameter. Only one pin may be specified per
+				regulator. This property only applies to BoB
+				type regulators.
+- qcom,use-pin-ctrl-voltage2:  Flag which indicates that updates to voltage
+				should be sent to the pin control voltage 2
+				parameter. Only one pin may be specified per
+				regulator. This property only applies to BoB
+				type regulators.
+- qcom,use-pin-ctrl-voltage3:  Flag which indicates that updates to voltage
+				should be sent to the pin control voltage 3
+				parameter. Only one pin may be specified per
+				regulator. This property only applies to BoB
+				type regulators.
 - qcom,always-send-voltage:    Flag which indicates that updates to the
 				voltage, voltage corner or voltage level set
 				point should always be sent immediately to the
@@ -134,6 +150,12 @@ RPM in regulator requests.
 					0 = auto; hardware determines mode
 					1 = mode determined by current requests
 					2 = force HPM (PWM)
+- qcom,init-bob-mode:          Operating mode to be used with BoB regulators
+				Supported values are:
+					0 = pass; use priority order
+					1 = force PFM
+					2 = auto; hardware determines mode
+					3 = force PWM
 - qcom,init-pin-ctrl-enable:   Bit mask specifying which hardware pins should be
 				used to enable the regulator, if any; supported
 				bits are:
@@ -151,6 +173,15 @@ RPM in regulator requests.
 					BIT(2) = follow HW2_EN signal
 					BIT(3) = follow HW3_EN signal
 					BIT(4) = follow PMIC awake state
+- qcom,init-pin-ctrl-voltage1: Minimum voltage in micro-volts to use while pin
+				control 1 is enabled. This property only
+				applies to BoB type regulators.
+- qcom,init-pin-ctrl-voltage2: Minimum voltage in micro-volts to use while pin
+				control 2 is enabled. This property only
+				applies to BoB type regulators.
+- qcom,init-pin-ctrl-voltage3: Minimum voltage in micro-volts to use while pin
+				control 3 is enabled. This property only
+				applies to BoB type regulators.
 - qcom,init-frequency:         Switching frequency divisor for SMPS regulators.
 				Supported values are n = 0 to 31 where
 				freq = 19.2 MHz / (n + 1).

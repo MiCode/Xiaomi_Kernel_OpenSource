@@ -43,6 +43,9 @@ Optional properties:
 			Ex. "base", "domain_addr".
  - qcom,no-status-check-on-disable: Do not poll the status bit when GDSC
 			is disabled.
+ - qcom,disallow-clear: Presence denotes the periph & core memory will not be
+			cleared, unless the required subsystem does not invoke
+			the api which will allow clearing the bits.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

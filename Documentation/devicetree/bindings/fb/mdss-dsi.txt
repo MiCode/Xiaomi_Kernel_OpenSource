@@ -122,6 +122,7 @@ Optional properties:
 					"lane_map_1032" = <1 0 3 2>
 					"lane_map_2103" = <2 1 0 3>
 					"lane_map_3210" = <3 2 1 0>
+- qcom,pluggable			Boolean to enable hotplug feature.
 
 Example:
 	mdss_dsi: qcom,mdss_dsi@0 {

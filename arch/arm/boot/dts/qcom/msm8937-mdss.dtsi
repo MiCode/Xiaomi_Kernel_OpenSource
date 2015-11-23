@@ -89,7 +89,7 @@
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
 			 <&clock_gcc clk_gcc_mdss_axi_clk>,
 			 <&clock_gcc clk_mdp_clk_src>,
-			 <&clock_gcc clk_gcc_mdss_mdp_clk>,
+			 <&clock_gcc_mdss clk_mdss_mdp_vote_clk>,
 			 <&clock_gcc clk_gcc_mdss_vsync_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
@@ -205,7 +205,7 @@
 			0x1a96b80 0x1a96b80 0x30
 			0x193e000 0x193e000 0x30>;
 
-		clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
+		clocks = <&clock_gcc_mdss clk_mdss_mdp_vote_clk>,
 			<&clock_gcc clk_gcc_mdss_ahb_clk>,
 			<&clock_gcc clk_gcc_mdss_axi_clk>,
 			<&clock_gcc_mdss clk_ext_byte0_clk_src>,
@@ -361,7 +361,7 @@
 		qcom,supply-names = "rot-vdd";
 
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
-			<&clock_gcc clk_gcc_mdss_mdp_clk>;
+			<&clock_gcc_mdss clk_mdss_rotator_vote_clk>;
 		clock-names = "iface_clk", "rot_core_clk";
 
 	};

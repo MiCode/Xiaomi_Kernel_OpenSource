@@ -32,8 +32,15 @@
 #define BYTES_PER_FUSE_ROW		8
 
 /* mem-acc config flags */
-#define MEM_ACC_SKIP_L1_CONFIG		BIT(0)
-#define MEM_ACC_OVERRIDE_CONFIG		BIT(1)
+
+enum {
+	MEM_ACC_USE_CORNER_ACC_MAP	= BIT(0),
+	MEM_ACC_USE_ADDR_VAL_MAP	= BIT(1),
+};
+
+#define FUSE_MAP_NO_MATCH		(-1)
+#define FUSE_PARAM_MATCH_ANY		(-1)
+#define PARAM_MATCH_ANY			(-1)
 
 enum {
 	MEMORY_L1,
@@ -42,6 +49,22 @@ enum {
 };
 
 #define MEM_ACC_TYPE_MAX		6
+
+/**
+ * struct acc_reg_value - Acc register configuration structure
+ * @addr_index:	An index in to phys_reg_addr_list and remap_reg_addr_list
+ *		to get the ACC register physical address and remapped address.
+ * @reg_val:	Value to program in to the register mapped by addr_index.
+ */
+struct acc_reg_value {
+	u32		addr_index;
+	u32		reg_val;
+};
+
+struct corner_acc_reg_config {
+	struct acc_reg_value	*reg_config_list;
+	int			max_reg_config_len;
+};
 
 struct mem_acc_regulator {
 	struct device		*dev;
@@ -60,6 +83,10 @@ struct mem_acc_regulator {
 	u32			num_acc_en;
 	u32			*corner_acc_map;
 	u32			num_corners;
+	u32			override_fuse_value;
+	int			override_map_match;
+	int			override_map_count;
+
 
 	void __iomem		*acc_sel_base[MEMORY_MAX];
 	void __iomem		*acc_en_base;
@@ -76,6 +103,11 @@ struct mem_acc_regulator {
 	/* eFuse parameters */
 	phys_addr_t		efuse_addr;
 	void __iomem		*efuse_base;
+
+	u32			num_acc_reg;
+	u32			*phys_reg_addr_list;
+	void __iomem		**remap_reg_addr_list;
+	struct corner_acc_reg_config	*corner_acc_reg_config;
 };
 
 static DEFINE_MUTEX(mem_acc_memory_mutex);
@@ -129,28 +161,6 @@ static u64 mem_acc_read_efuse_row(struct mem_acc_regulator *mem_acc_vreg,
 	return efuse_bits;
 }
 
-static int mem_acc_fuse_is_setting_expected(
-		struct mem_acc_regulator *mem_acc_vreg, u32 sel_array[5])
-{
-	u64 fuse_bits;
-	u32 ret;
-
-	fuse_bits = mem_acc_read_efuse_row(mem_acc_vreg, sel_array[0],
-							sel_array[4]);
-	ret = (fuse_bits >> sel_array[1]) & ((1 << sel_array[2]) - 1);
-	if (ret == sel_array[3])
-		ret = 1;
-	else
-		ret = 0;
-
-	pr_info("[row:%d] = 0x%llx @%d:%d == %d ?: %s\n",
-			sel_array[0], fuse_bits,
-			sel_array[1], sel_array[2],
-			sel_array[3],
-			(ret == 1) ? "yes" : "no");
-	return ret;
-}
-
 static inline u32 apc_to_acc_corner(struct mem_acc_regulator *mem_acc_vreg,
 								int corner)
 {
@@ -165,14 +175,6 @@ static void __update_acc_sel(struct mem_acc_regulator *mem_acc_vreg,
 						int corner, int mem_type)
 {
 	u32 acc_data, acc_data_old, i, bit, acc_corner;
-
-	/*
-	 * Do not configure the L1 ACC corner if the the corresponding flag is
-	 * set.
-	 */
-	if ((mem_type == MEMORY_L1)
-			&& (mem_acc_vreg->flags & MEM_ACC_SKIP_L1_CONFIG))
-		return;
 
 	acc_data = readl_relaxed(mem_acc_vreg->acc_sel_base[mem_type]);
 	acc_data_old = acc_data;
@@ -231,6 +233,41 @@ static void update_acc_sel(struct mem_acc_regulator *mem_acc_vreg, int corner)
 		__update_acc_type(mem_acc_vreg, corner);
 }
 
+static void update_acc_reg(struct mem_acc_regulator *mem_acc_vreg, int corner)
+{
+	struct corner_acc_reg_config *corner_acc_reg_config;
+	struct acc_reg_value *reg_config_list;
+	int i, index;
+	u32 addr_index, reg_val;
+
+	corner_acc_reg_config =
+		&mem_acc_vreg->corner_acc_reg_config[mem_acc_vreg->corner];
+	reg_config_list = corner_acc_reg_config->reg_config_list;
+	for (i = 0; i < corner_acc_reg_config->max_reg_config_len; i++) {
+		/*
+		 * Use (corner - 1) in the below equation as
+		 * the reg_config_list[] stores the values starting from
+		 * index '0' where as the minimum corner value allowed
+		 * in regulator framework is '1'.
+		 */
+		index = (corner - 1) * corner_acc_reg_config->max_reg_config_len
+			+ i;
+		addr_index = reg_config_list[index].addr_index;
+		reg_val = reg_config_list[index].reg_val;
+
+		if (addr_index == PARAM_MATCH_ANY)
+			break;
+
+		writel_relaxed(reg_val,
+				mem_acc_vreg->remap_reg_addr_list[addr_index]);
+		/* make sure write complete */
+		mb();
+
+		pr_debug("corner=%d register:0x%x value:0x%x\n", corner,
+			mem_acc_vreg->phys_reg_addr_list[addr_index], reg_val);
+	}
+}
+
 static int mem_acc_regulator_set_voltage(struct regulator_dev *rdev,
 		int corner, int corner_max, unsigned *selector)
 {
@@ -250,17 +287,23 @@ static int mem_acc_regulator_set_voltage(struct regulator_dev *rdev,
 
 	/* go up or down one level at a time */
 	mutex_lock(&mem_acc_memory_mutex);
-	if (corner > mem_acc_vreg->corner) {
-		for (i = mem_acc_vreg->corner + 1; i <= corner; i++) {
-			pr_debug("UP: to corner %d\n", i);
-			update_acc_sel(mem_acc_vreg, i);
-		}
-	} else {
-		for (i = mem_acc_vreg->corner - 1; i >= corner; i--) {
-			pr_debug("DOWN: to corner %d\n", i);
-			update_acc_sel(mem_acc_vreg, i);
+
+	if (mem_acc_vreg->flags & MEM_ACC_USE_ADDR_VAL_MAP) {
+		update_acc_reg(mem_acc_vreg, corner);
+	} else if (mem_acc_vreg->flags & MEM_ACC_USE_CORNER_ACC_MAP) {
+		if (corner > mem_acc_vreg->corner) {
+			for (i = mem_acc_vreg->corner + 1; i <= corner; i++) {
+				pr_debug("UP: to corner %d\n", i);
+				update_acc_sel(mem_acc_vreg, i);
+			}
+		} else {
+			for (i = mem_acc_vreg->corner - 1; i >= corner; i--) {
+				pr_debug("DOWN: to corner %d\n", i);
+				update_acc_sel(mem_acc_vreg, i);
+			}
 		}
 	}
+
 	mutex_unlock(&mem_acc_memory_mutex);
 
 	pr_debug("new voltage corner set %d\n", corner);
@@ -422,8 +465,7 @@ static int mem_acc_efuse_init(struct platform_device *pdev,
 				 struct mem_acc_regulator *mem_acc_vreg)
 {
 	struct resource *res;
-	int len, rc = 0;
-	u32 l1_config_skip_fuse_sel[5];
+	int len;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse_addr");
 	if (!res || !res->start) {
@@ -443,24 +485,6 @@ static int mem_acc_efuse_init(struct platform_device *pdev,
 		pr_err("Unable to map efuse_addr %pa\n",
 				&mem_acc_vreg->efuse_addr);
 		return -EINVAL;
-	}
-
-	if (of_find_property(mem_acc_vreg->dev->of_node,
-				"qcom,l1-config-skip-fuse-sel", NULL)) {
-		rc = of_property_read_u32_array(mem_acc_vreg->dev->of_node,
-					"qcom,l1-config-skip-fuse-sel",
-					l1_config_skip_fuse_sel, 5);
-		if (rc < 0) {
-			pr_err("Read failed - qcom,l1-config-skip-fuse-sel rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		if (mem_acc_fuse_is_setting_expected(mem_acc_vreg,
-						l1_config_skip_fuse_sel)) {
-			mem_acc_vreg->flags |= MEM_ACC_SKIP_L1_CONFIG;
-			pr_debug("Skip L1 configuration enabled\n");
-		}
 	}
 
 	return 0;
@@ -532,7 +556,9 @@ static int override_mem_acc_custom_data(struct platform_device *pdev,
 				 int mem_type)
 {
 	char *custom_apc_data_str;
-	int len, rc = 0;
+	int len, rc = 0, i;
+	int tuple_count, tuple_match;
+	u32 index = 0, value = 0;
 
 	switch (mem_type) {
 	case MEMORY_L1:
@@ -547,37 +573,494 @@ static int override_mem_acc_custom_data(struct platform_device *pdev,
 	}
 
 	if (!of_find_property(mem_acc_vreg->dev->of_node,
-				custom_apc_data_str, NULL)) {
+				custom_apc_data_str, &len)) {
 		pr_debug("%s not specified\n", custom_apc_data_str);
 		return 0;
 	}
 
-	/* Free old custom data */
-	devm_kfree(&pdev->dev, mem_acc_vreg->acc_custom_data[mem_type]);
-
-	/* Populate override custom data */
-	rc = populate_acc_data(mem_acc_vreg, custom_apc_data_str,
-				&mem_acc_vreg->acc_custom_data[mem_type], &len);
-	if (rc) {
-		pr_err("Unable to find %s rc=%d\n", custom_apc_data_str, rc);
-		return rc;
+	if (mem_acc_vreg->override_map_count) {
+		if (mem_acc_vreg->override_map_match == FUSE_MAP_NO_MATCH)
+			return 0;
+		tuple_count = mem_acc_vreg->override_map_count;
+		tuple_match = mem_acc_vreg->override_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
 	}
 
-	if (mem_acc_vreg->num_corners != len) {
-		pr_err("Override custom data is not present for all the corners\n");
+	if (len != mem_acc_vreg->num_corners * tuple_count * sizeof(u32)) {
+		pr_err("%s length=%d is invalid\n", custom_apc_data_str, len);
 		return -EINVAL;
 	}
 
+	for (i = 0; i < mem_acc_vreg->num_corners; i++) {
+		index = (tuple_match * mem_acc_vreg->num_corners) + i;
+		rc = of_property_read_u32_index(mem_acc_vreg->dev->of_node,
+					custom_apc_data_str, index, &value);
+		if (rc) {
+			pr_err("Unable read %s index %u, rc=%d\n",
+					custom_apc_data_str, index, rc);
+			return rc;
+		}
+		mem_acc_vreg->acc_custom_data[mem_type][i] = value;
+	}
+
 	return 0;
+}
+
+static int mem_acc_override_corner_map(struct mem_acc_regulator *mem_acc_vreg)
+{
+	int len = 0, i, rc;
+	int tuple_count, tuple_match;
+	u32 index = 0, value = 0;
+	char *prop_str = "qcom,override-corner-acc-map";
+
+	if (!of_find_property(mem_acc_vreg->dev->of_node, prop_str, &len))
+		return 0;
+
+	if (mem_acc_vreg->override_map_count) {
+		if (mem_acc_vreg->override_map_match ==	FUSE_MAP_NO_MATCH)
+			return 0;
+		tuple_count = mem_acc_vreg->override_map_count;
+		tuple_match = mem_acc_vreg->override_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != mem_acc_vreg->num_corners * tuple_count * sizeof(u32)) {
+		pr_err("%s length=%d is invalid\n", prop_str, len);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < mem_acc_vreg->num_corners; i++) {
+		index = (tuple_match * mem_acc_vreg->num_corners) + i;
+		rc = of_property_read_u32_index(mem_acc_vreg->dev->of_node,
+						prop_str, index, &value);
+		if (rc) {
+			pr_err("Unable read %s index %u, rc=%d\n",
+						prop_str, index, rc);
+			return rc;
+		}
+		mem_acc_vreg->corner_acc_map[i] = value;
+	}
+
+	return 0;
+
+}
+
+static int mem_acc_find_override_map_match(struct platform_device *pdev,
+				 struct mem_acc_regulator *mem_acc_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int i, rc, tuple_size;
+	int len = 0;
+	u32 *tmp;
+	char *prop_str = "qcom,override-fuse-version-map";
+
+	/* Specify default no match case. */
+	mem_acc_vreg->override_map_match = FUSE_MAP_NO_MATCH;
+	mem_acc_vreg->override_map_count = 0;
+
+	if (!of_find_property(of_node, prop_str, &len)) {
+		/* No mapping present. */
+		return 0;
+	}
+
+	tuple_size = 1;
+	mem_acc_vreg->override_map_count = len / (sizeof(u32) * tuple_size);
+
+	if (len == 0 || len % (sizeof(u32) * tuple_size)) {
+		pr_err("%s length=%d is invalid\n", prop_str, len);
+		return -EINVAL;
+	}
+
+	tmp = kzalloc(len, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(of_node, prop_str, tmp,
+			mem_acc_vreg->override_map_count * tuple_size);
+	if (rc) {
+		pr_err("could not read %s rc=%d\n", prop_str, rc);
+		goto done;
+	}
+
+	for (i = 0; i < mem_acc_vreg->override_map_count; i++) {
+		if (tmp[i * tuple_size] != mem_acc_vreg->override_fuse_value
+		    && tmp[i * tuple_size] != FUSE_PARAM_MATCH_ANY) {
+			continue;
+		} else {
+			mem_acc_vreg->override_map_match = i;
+			break;
+		}
+	}
+
+	if (mem_acc_vreg->override_map_match != FUSE_MAP_NO_MATCH)
+		pr_debug("%s tuple match found: %d\n", prop_str,
+				mem_acc_vreg->override_map_match);
+	else
+		pr_err("%s tuple match not found\n", prop_str);
+
+done:
+	kfree(tmp);
+	return rc;
+}
+
+#define MAX_CHARS_PER_INT	20
+
+static int mem_acc_reg_addr_val_dump(struct mem_acc_regulator *mem_acc_vreg,
+			struct corner_acc_reg_config *corner_acc_reg_config,
+			u32 corner)
+{
+	int i, k, index, pos = 0;
+	u32 addr_index;
+	size_t buflen;
+	char *buf;
+	struct acc_reg_value *reg_config_list =
+					corner_acc_reg_config->reg_config_list;
+	int max_reg_config_len = corner_acc_reg_config->max_reg_config_len;
+	int num_corners = mem_acc_vreg->num_corners;
+
+	/*
+	 * Log register and value mapping since they are useful for
+	 * baseline MEM ACC logging.
+	 */
+	buflen = max_reg_config_len * (MAX_CHARS_PER_INT + 6) * sizeof(*buf);
+	buf = kzalloc(buflen, GFP_KERNEL);
+	if (buf == NULL) {
+		pr_err("Could not allocate memory for acc register and value logging\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < num_corners; i++) {
+		if (corner == i + 1)
+			continue;
+
+		pr_debug("Corner: %d --> %d:\n", corner, i + 1);
+		pos = 0;
+		for (k = 0; k < max_reg_config_len; k++) {
+			index = i * max_reg_config_len + k;
+			addr_index = reg_config_list[index].addr_index;
+			if (addr_index == PARAM_MATCH_ANY)
+				break;
+
+			pos += scnprintf(buf + pos, buflen - pos,
+				"<0x%x 0x%x> ",
+				mem_acc_vreg->phys_reg_addr_list[addr_index],
+				reg_config_list[index].reg_val);
+		}
+		buf[pos] = '\0';
+		pr_debug("%s\n", buf);
+	}
+
+	return 0;
+}
+
+static int mem_acc_get_reg_addr_val(struct device_node *of_node,
+		const char *prop_str, struct acc_reg_value *reg_config_list,
+		int list_offset, int list_size, u32 max_reg_index)
+{
+
+	int i, index, rc  = 0;
+
+	for (i = 0; i < list_size / 2; i++) {
+		index = (list_offset * list_size) + i * 2;
+		rc = of_property_read_u32_index(of_node, prop_str, index,
+					&reg_config_list[i].addr_index);
+		rc |= of_property_read_u32_index(of_node, prop_str, index + 1,
+					&reg_config_list[i].reg_val);
+		if (rc) {
+			pr_err("could not read %s at tuple %u: rc=%d\n",
+				prop_str, index, rc);
+			return rc;
+		}
+
+		if (reg_config_list[i].addr_index == PARAM_MATCH_ANY)
+			continue;
+
+		if ((!reg_config_list[i].addr_index) ||
+			reg_config_list[i].addr_index > max_reg_index) {
+			pr_err("Invalid register index %u in %s at tuple %u\n",
+				reg_config_list[i].addr_index, prop_str, index);
+			return -EINVAL;
+		}
+	}
+
+	return rc;
+}
+
+static int mem_acc_init_reg_config(struct mem_acc_regulator *mem_acc_vreg)
+{
+	struct device_node *of_node = mem_acc_vreg->dev->of_node;
+	int i, size, len = 0, rc = 0;
+	u32 addr_index, reg_val, index;
+	char *prop_str = "qcom,acc-init-reg-config";
+
+	if (!of_find_property(of_node, prop_str, &len)) {
+		/* Initial acc register configuration not specified */
+		return rc;
+	}
+
+	size = len / sizeof(u32);
+	if ((!size) || (size % 2)) {
+		pr_err("%s specified with invalid length: %d\n",
+			prop_str, size);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < size / 2; i++) {
+		index = i * 2;
+		rc = of_property_read_u32_index(of_node, prop_str, index,
+						&addr_index);
+		rc |= of_property_read_u32_index(of_node, prop_str, index + 1,
+						&reg_val);
+		if (rc) {
+			pr_err("could not read %s at tuple %u: rc=%d\n",
+				prop_str, index, rc);
+			return rc;
+		}
+
+		if ((!addr_index) || addr_index > mem_acc_vreg->num_acc_reg) {
+			pr_err("Invalid register index %u in %s at tuple %u\n",
+				addr_index, prop_str, index);
+			return -EINVAL;
+		}
+
+		writel_relaxed(reg_val,
+				mem_acc_vreg->remap_reg_addr_list[addr_index]);
+		/* make sure write complete */
+		mb();
+
+		pr_debug("acc initial config: register:0x%x value:0x%x\n",
+			mem_acc_vreg->phys_reg_addr_list[addr_index], reg_val);
+	}
+
+	return rc;
+}
+
+static int mem_acc_get_reg_addr(struct mem_acc_regulator *mem_acc_vreg)
+{
+	struct device_node *of_node = mem_acc_vreg->dev->of_node;
+	void __iomem **remap_reg_addr_list;
+	u32 *phys_reg_addr_list;
+	int i, num_acc_reg, len = 0, rc = 0;
+
+	if (!of_find_property(of_node, "qcom,acc-reg-addr-list", &len)) {
+		/* acc register address list not specified */
+		return rc;
+	}
+
+	num_acc_reg = len / sizeof(u32);
+	if (!num_acc_reg) {
+		pr_err("qcom,acc-reg-addr-list has invalid len = %d\n", len);
+		return -EINVAL;
+	}
+
+	phys_reg_addr_list = devm_kcalloc(mem_acc_vreg->dev, num_acc_reg + 1,
+				sizeof(*phys_reg_addr_list), GFP_KERNEL);
+	if (!phys_reg_addr_list)
+		return -ENOMEM;
+
+	remap_reg_addr_list = devm_kcalloc(mem_acc_vreg->dev, num_acc_reg + 1,
+				sizeof(*remap_reg_addr_list), GFP_KERNEL);
+	if (!remap_reg_addr_list)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(of_node, "qcom,acc-reg-addr-list",
+					&phys_reg_addr_list[1], num_acc_reg);
+	if (rc) {
+		pr_err("Read- qcom,acc-reg-addr-list failed: rc=%d\n", rc);
+		return rc;
+	}
+
+	for (i = 1; i <= num_acc_reg; i++) {
+		remap_reg_addr_list[i] = devm_ioremap(mem_acc_vreg->dev,
+						phys_reg_addr_list[i], 0x4);
+		if (!remap_reg_addr_list[i]) {
+			pr_err("Unable to map register address 0x%x\n",
+					phys_reg_addr_list[i]);
+			return -EINVAL;
+		}
+	}
+
+	mem_acc_vreg->num_acc_reg = num_acc_reg;
+	mem_acc_vreg->phys_reg_addr_list = phys_reg_addr_list;
+	mem_acc_vreg->remap_reg_addr_list = remap_reg_addr_list;
+
+	return rc;
+}
+
+static int mem_acc_reg_config_init(struct mem_acc_regulator *mem_acc_vreg)
+{
+	struct device_node *of_node = mem_acc_vreg->dev->of_node;
+	struct acc_reg_value *reg_config_list;
+	int len, size, rc, i, num_corners;
+	struct property *prop;
+	char prop_str[30];
+	struct corner_acc_reg_config *corner_acc_reg_config;
+
+	rc = of_property_read_u32(of_node, "qcom,num-acc-corners",
+				&num_corners);
+	if (rc) {
+		pr_err("could not read qcom,num-acc-corners: rc=%d\n", rc);
+		return rc;
+	}
+
+	mem_acc_vreg->num_corners = num_corners;
+
+	rc = of_property_read_u32(of_node, "qcom,boot-acc-corner",
+				&mem_acc_vreg->corner);
+	if (rc) {
+		pr_err("could not read qcom,boot-acc-corner: rc=%d\n", rc);
+		return rc;
+	}
+	pr_debug("boot acc corner = %d\n", mem_acc_vreg->corner);
+
+	corner_acc_reg_config = devm_kcalloc(mem_acc_vreg->dev, num_corners + 1,
+						sizeof(*corner_acc_reg_config),
+						GFP_KERNEL);
+	if (!corner_acc_reg_config)
+		return -ENOMEM;
+
+	for (i = 1; i <= num_corners; i++) {
+		snprintf(prop_str, sizeof(prop_str),
+				"qcom,corner%d-reg-config", i);
+		prop = of_find_property(of_node, prop_str, &len);
+		size = len / sizeof(u32);
+		if ((!prop) || (!size) || size < (num_corners * 2)) {
+			pr_err("%s property is missed or invalid length: len=%d\n",
+				prop_str, len);
+			return -EINVAL;
+		}
+
+		reg_config_list = devm_kcalloc(mem_acc_vreg->dev, size / 2,
+					sizeof(*reg_config_list), GFP_KERNEL);
+		if (!reg_config_list)
+			return -ENOMEM;
+
+		rc = mem_acc_get_reg_addr_val(of_node, prop_str,
+						reg_config_list, 0, size,
+						mem_acc_vreg->num_acc_reg);
+		if (rc) {
+			pr_err("Failed to read %s property: rc=%d\n",
+				prop_str, rc);
+			return rc;
+		}
+
+		corner_acc_reg_config[i].max_reg_config_len =
+						size / (num_corners * 2);
+		corner_acc_reg_config[i].reg_config_list = reg_config_list;
+
+		rc = mem_acc_reg_addr_val_dump(mem_acc_vreg,
+						&corner_acc_reg_config[i], i);
+		if (rc) {
+			pr_err("could not dump acc address-value dump for corner=%d: rc=%d\n",
+				i, rc);
+			return rc;
+		}
+	}
+
+	mem_acc_vreg->corner_acc_reg_config = corner_acc_reg_config;
+	mem_acc_vreg->flags |= MEM_ACC_USE_ADDR_VAL_MAP;
+	return rc;
+}
+
+static int mem_acc_override_reg_addr_val_init(
+			struct mem_acc_regulator *mem_acc_vreg)
+{
+	struct device_node *of_node = mem_acc_vreg->dev->of_node;
+	struct corner_acc_reg_config *corner_acc_reg_config;
+	struct acc_reg_value *override_reg_config_list;
+	int i, tuple_count, tuple_match, len = 0, rc = 0;
+	u32 list_size, override_max_reg_config_len;
+	char prop_str[40];
+	struct property *prop;
+	int num_corners = mem_acc_vreg->num_corners;
+
+	if (!mem_acc_vreg->corner_acc_reg_config)
+		return 0;
+
+	if (mem_acc_vreg->override_map_count) {
+		if (mem_acc_vreg->override_map_match ==	FUSE_MAP_NO_MATCH)
+			return 0;
+		tuple_count = mem_acc_vreg->override_map_count;
+		tuple_match = mem_acc_vreg->override_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	corner_acc_reg_config = mem_acc_vreg->corner_acc_reg_config;
+	for (i = 1; i <= num_corners; i++) {
+		snprintf(prop_str, sizeof(prop_str),
+				"qcom,override-corner%d-addr-val-map", i);
+		prop = of_find_property(of_node, prop_str, &len);
+		list_size = len / (tuple_count * sizeof(u32));
+		if (!prop) {
+			pr_debug("%s property not specified\n", prop_str);
+			continue;
+		}
+
+		if ((!list_size) || list_size < (num_corners * 2)) {
+			pr_err("qcom,override-corner%d-addr-val-map property is missed or invalid length: len=%d\n",
+			i, len);
+			return -EINVAL;
+		}
+
+		override_max_reg_config_len = list_size / (num_corners * 2);
+		override_reg_config_list =
+				corner_acc_reg_config[i].reg_config_list;
+
+		if (corner_acc_reg_config[i].max_reg_config_len
+					!= override_max_reg_config_len) {
+			/* Free already allocate memory */
+			devm_kfree(mem_acc_vreg->dev, override_reg_config_list);
+
+			/* Allocated memory for new requirement */
+			override_reg_config_list =
+				devm_kcalloc(mem_acc_vreg->dev,
+				override_max_reg_config_len * num_corners,
+				sizeof(*override_reg_config_list), GFP_KERNEL);
+			if (!override_reg_config_list)
+				return -ENOMEM;
+
+			corner_acc_reg_config[i].max_reg_config_len =
+						override_max_reg_config_len;
+			corner_acc_reg_config[i].reg_config_list =
+						override_reg_config_list;
+		}
+
+		rc = mem_acc_get_reg_addr_val(of_node, prop_str,
+					override_reg_config_list, tuple_match,
+					list_size, mem_acc_vreg->num_acc_reg);
+		if (rc) {
+			pr_err("Failed to read %s property: rc=%d\n",
+				prop_str, rc);
+			return rc;
+		}
+
+		rc = mem_acc_reg_addr_val_dump(mem_acc_vreg,
+						&corner_acc_reg_config[i], i);
+		if (rc) {
+			pr_err("could not dump acc address-value dump for corner=%d: rc=%d\n",
+				i, rc);
+			return rc;
+		}
+	}
+
+	return rc;
 }
 
 #define MEM_TYPE_STRING_LEN	20
 static int mem_acc_init(struct platform_device *pdev,
 		struct mem_acc_regulator *mem_acc_vreg)
 {
+	struct device_node *of_node = pdev->dev.of_node;
 	struct resource *res;
 	int len, rc, i, j;
-	u32 override_acc_fuse_sel[5];
+	u32 fuse_sel[4];
+	u64 fuse_bits;
 	bool acc_type_present = false;
 	char tmps[MEM_TYPE_STRING_LEN];
 
@@ -651,28 +1134,58 @@ static int mem_acc_init(struct platform_device *pdev,
 		}
 	}
 
-	rc = populate_acc_data(mem_acc_vreg, "qcom,corner-acc-map",
+	rc = mem_acc_get_reg_addr(mem_acc_vreg);
+	if (rc) {
+		pr_err("Unable to get acc register addresses: rc=%d\n", rc);
+		return rc;
+	}
+
+	if (mem_acc_vreg->phys_reg_addr_list) {
+		rc = mem_acc_reg_config_init(mem_acc_vreg);
+		if (rc) {
+			pr_err("acc register address-value map failed: rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (of_find_property(of_node, "qcom,corner-acc-map", NULL)) {
+		rc = populate_acc_data(mem_acc_vreg, "qcom,corner-acc-map",
 			&mem_acc_vreg->corner_acc_map,
 			&mem_acc_vreg->num_corners);
-	if (rc) {
-		pr_err("Unable to find 'qcom,corner-acc-map' rc=%d\n", rc);
-		return rc;
+
+		/* Check if at least one valid mem-acc config. is specified */
+		for (i = 0; i < MEMORY_MAX; i++) {
+			if (mem_acc_vreg->mem_acc_supported[i])
+				break;
+		}
+		if (i == MEMORY_MAX && !acc_type_present) {
+			pr_err("No mem-acc configuration specified\n");
+			return -EINVAL;
+		}
+
+		mem_acc_vreg->flags |= MEM_ACC_USE_CORNER_ACC_MAP;
+	}
+
+	if ((mem_acc_vreg->flags & MEM_ACC_USE_CORNER_ACC_MAP) &&
+		(mem_acc_vreg->flags & MEM_ACC_USE_ADDR_VAL_MAP)) {
+		pr_err("Invalid configuration, both qcom,corner-acc-map and qcom,cornerX-addr-val-map specified\n");
+		return -EINVAL;
 	}
 
 	pr_debug("num_corners = %d\n", mem_acc_vreg->num_corners);
 
-	/* Check if at least one valid mem-acc config. is specified */
-	for (i = 0; i < MEMORY_MAX; i++) {
-		if (mem_acc_vreg->mem_acc_supported[i])
-			break;
-	}
-	if (i == MEMORY_MAX && !acc_type_present) {
-		pr_err("No mem-acc configuration specified\n");
-		return -EINVAL;
-	}
-
 	if (mem_acc_vreg->num_acc_en)
 		mem_acc_en_init(mem_acc_vreg);
+
+	if (mem_acc_vreg->phys_reg_addr_list) {
+		rc = mem_acc_init_reg_config(mem_acc_vreg);
+		if (rc) {
+			pr_err("acc initial register configuration failed: rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
 
 	rc = mem_acc_sel_init(mem_acc_vreg);
 	if (rc) {
@@ -692,37 +1205,43 @@ static int mem_acc_init(struct platform_device *pdev,
 	if (of_find_property(mem_acc_vreg->dev->of_node,
 				"qcom,override-acc-fuse-sel", NULL)) {
 		rc = of_property_read_u32_array(mem_acc_vreg->dev->of_node,
-					"qcom,override-acc-fuse-sel",
-					override_acc_fuse_sel, 5);
+			"qcom,override-acc-fuse-sel", fuse_sel, 4);
 		if (rc < 0) {
 			pr_err("Read failed - qcom,override-acc-fuse-sel rc=%d\n",
 					rc);
 			return rc;
 		}
 
-		if (mem_acc_fuse_is_setting_expected(mem_acc_vreg,
-						override_acc_fuse_sel)) {
-			mem_acc_vreg->flags |= MEM_ACC_OVERRIDE_CONFIG;
-			pr_debug("Apply ACC override configuration\n");
+		fuse_bits = mem_acc_read_efuse_row(mem_acc_vreg, fuse_sel[0],
+								fuse_sel[3]);
+		/*
+		 * fuse_sel[1] = LSB position in row (shift)
+		 * fuse_sel[2] = num of bits (mask)
+		 */
+		mem_acc_vreg->override_fuse_value = (fuse_bits >> fuse_sel[1]) &
+						((1 << fuse_sel[2]) - 1);
+
+		rc = mem_acc_find_override_map_match(pdev, mem_acc_vreg);
+		if (rc) {
+			pr_err("Unable to find fuse map match rc=%d\n", rc);
+			return rc;
 		}
-	}
 
-	if (mem_acc_vreg->flags & MEM_ACC_OVERRIDE_CONFIG) {
-		if (of_find_property(mem_acc_vreg->dev->of_node,
-				"qcom,override-corner-acc-map", NULL)) {
-			/* Free old corner-acc-map */
-			devm_kfree(&pdev->dev, mem_acc_vreg->corner_acc_map);
+		pr_debug("override_fuse_val=%d override_map_match=%d\n",
+					mem_acc_vreg->override_fuse_value,
+					mem_acc_vreg->override_map_match);
 
-			/* Populate override corner acc map */
-			rc = populate_acc_data(mem_acc_vreg,
-						"qcom,override-corner-acc-map",
-						&mem_acc_vreg->corner_acc_map,
-						&mem_acc_vreg->num_corners);
-			if (rc) {
-				pr_err("Unable to find 'qcom,overrie-corner-acc-map' rc=%d\n",
-					rc);
-				return rc;
-			}
+		rc = mem_acc_override_corner_map(mem_acc_vreg);
+		if (rc) {
+			pr_err("Unable to override corner map rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = mem_acc_override_reg_addr_val_init(mem_acc_vreg);
+		if (rc) {
+			pr_err("Unable to override reg_config_list init rc=%d\n",
+				rc);
+			return rc;
 		}
 
 		for (i = 0; i < MEMORY_MAX; i++) {

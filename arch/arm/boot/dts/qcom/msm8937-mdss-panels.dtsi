@@ -14,6 +14,9 @@
 #include "dsi-panel-sim-cmd.dtsi"
 #include "dsi-panel-truly-1080p-video.dtsi"
 #include "dsi-panel-truly-1080p-cmd.dtsi"
+#include "dsi-panel-r69006-1080p-cmd.dtsi"
+#include "dsi-panel-r69006-1080p-video.dtsi"
+#include "dsi-panel-hx8394f-720p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {

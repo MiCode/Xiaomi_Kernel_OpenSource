@@ -1593,6 +1593,7 @@ static int hdmi_tx_init_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	pinfo->lcdc.hsync_skew = 0;
 
 	pinfo->cont_splash_enabled = hdmi_ctrl->pdata.cont_splash_enabled;
+	pinfo->is_pluggable = hdmi_ctrl->pdata.pluggable;
 
 	return 0;
 } /* hdmi_tx_init_panel_info */
@@ -3943,7 +3944,6 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->ddc_ctrl.io = &pdata->io[HDMI_TX_CORE_IO];
 	init_completion(&hdmi_ctrl->ddc_ctrl.ddc_sw_done);
-	init_completion(&hdmi_ctrl->ddc_ctrl.rxstatus_completion);
 
 	hdmi_ctrl->panel_power_on = false;
 	hdmi_ctrl->panel_suspend = false;
@@ -4781,6 +4781,9 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 		pdata->cont_splash_enabled =
 			hdmi_ctrl->mdss_util->panel_intf_status(DISPLAY_2,
 			MDSS_PANEL_INTF_HDMI) ? true : false;
+
+	pdata->pluggable = of_property_read_bool(pdev->dev.of_node,
+		"qcom,pluggable");
 
 	return rc;
 

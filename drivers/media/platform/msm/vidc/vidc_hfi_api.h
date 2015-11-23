@@ -64,8 +64,8 @@
 #define HAL_MAX_LIMIT_COEFFS 6
 #define VENUS_VERSION_LENGTH 128
 
-/* 32 encoder and 32 decoder sessions */
-#define VIDC_MAX_SESSIONS               64
+/* 16 encoder and 16 decoder sessions */
+#define VIDC_MAX_SESSIONS               32
 
 enum vidc_status {
 	VIDC_ERR_NONE = 0x0,
@@ -874,7 +874,7 @@ struct hal_properties_supported {
 };
 
 enum hal_capability {
-	HAL_CAPABILITY_FRAME_WIDTH,
+	HAL_CAPABILITY_FRAME_WIDTH = 0x1,
 	HAL_CAPABILITY_FRAME_HEIGHT,
 	HAL_CAPABILITY_MBS_PER_FRAME,
 	HAL_CAPABILITY_MBS_PER_SECOND,
@@ -882,7 +882,14 @@ enum hal_capability {
 	HAL_CAPABILITY_SCALE_X,
 	HAL_CAPABILITY_SCALE_Y,
 	HAL_CAPABILITY_BITRATE,
+	HAL_CAPABILITY_BFRAME,
+	HAL_CAPABILITY_PEAKBITRATE,
+	HAL_CAPABILITY_HIER_P_NUM_ENH_LAYERS,
+	HAL_CAPABILITY_ENC_LTR_COUNT,
 	HAL_CAPABILITY_SECURE_OUTPUT2_THRESHOLD,
+	HAL_CAPABILITY_HIER_B_NUM_ENH_LAYERS,
+	HAL_CAPABILITY_LCU_SIZE,
+	HAL_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS,
 	HAL_UNUSED_CAPABILITY = 0x10000000,
 };
 
@@ -1254,12 +1261,9 @@ struct vidc_hal_fbd {
 	enum hal_buffer buffer_type;
 };
 
-struct vidc_hal_sys_init_done {
-	u32 enc_codec_supported;
-	u32 dec_codec_supported;
-};
-
-struct vidc_hal_session_init_done {
+struct msm_vidc_capability {
+	enum hal_domain domain;
+	enum hal_video_codec codec;
 	struct hal_capability_supported width;
 	struct hal_capability_supported height;
 	struct hal_capability_supported mbs_per_frame;
@@ -1268,17 +1272,33 @@ struct vidc_hal_session_init_done {
 	struct hal_capability_supported scale_x;
 	struct hal_capability_supported scale_y;
 	struct hal_capability_supported bitrate;
+	struct hal_capability_supported bframe;
+	struct hal_capability_supported peakbitrate;
 	struct hal_capability_supported hier_p;
 	struct hal_capability_supported ltr_count;
 	struct hal_capability_supported secure_output2_threshold;
+	struct hal_capability_supported hier_b;
+	struct hal_capability_supported lcu_size;
+	struct hal_capability_supported hier_p_hybrid;
+	struct hal_profile_level_supported profile_level;
 	struct hal_uncompressed_format_supported uncomp_format;
 	struct hal_interlace_format_supported HAL_format;
 	struct hal_nal_stream_format_supported nal_stream_format;
-	struct hal_profile_level_supported profile_level;
-	/*allocate and released memory for above.*/
 	struct hal_intra_refresh intra_refresh;
-	struct hal_seq_header_info seq_hdr_info;
 	enum buffer_mode_type alloc_mode_out;
+	enum buffer_mode_type alloc_mode_in;
+	u32 pixelprocess_capabilities;
+};
+
+struct vidc_hal_sys_init_done {
+	u32 dec_codec_supported;
+	u32 enc_codec_supported;
+	u32 codec_count;
+	struct msm_vidc_capability *capabilities;
+};
+
+struct vidc_hal_session_init_done {
+	struct msm_vidc_capability capability;
 };
 
 struct msm_vidc_cb_cmd_done {
@@ -1476,6 +1496,9 @@ struct hfi_device *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type,
 		hfi_cmd_response_callback callback);
 void vidc_hfi_deinitialize(enum msm_vidc_hfi_type hfi_type,
 			struct hfi_device *hdev);
-
+u32 vidc_get_hfi_domain(enum hal_domain hal_domain);
+u32 vidc_get_hfi_codec(enum hal_video_codec hal_codec);
+enum hal_domain vidc_get_hal_domain(u32 hfi_domain);
+enum hal_video_codec vidc_get_hal_codec(u32 hfi_codec);
 
 #endif /*__VIDC_HFI_API_H__ */

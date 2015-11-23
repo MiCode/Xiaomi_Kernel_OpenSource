@@ -23,17 +23,17 @@
 
 #include "gadget_chips.h"
 
-#define FILE_PCM_PLAYBACK	"/dev/snd/pcmC0D0p"
-#define FILE_PCM_CAPTURE	"/dev/snd/pcmC0D0c"
+#define FILE_PCM_PLAYBACK	"/dev/snd/pcmC0D5p"
+#define FILE_PCM_CAPTURE	"/dev/snd/pcmC0D6c"
 #define FILE_CONTROL		"/dev/snd/controlC0"
 
 #define UAC1_IN_EP_MAX_PACKET_SIZE	32
 #define UAC1_OUT_EP_MAX_PACKET_SIZE	32
 #define UAC1_OUT_REQ_COUNT		48
 #define UAC1_IN_REQ_COUNT		 4
-#define UAC1_AUDIO_PLAYBACK_BUF_SIZE	(64 * UAC1_OUT_EP_MAX_PACKET_SIZE)
-#define UAC1_AUDIO_CAPTURE_BUF_SIZE	(64 * UAC1_IN_EP_MAX_PACKET_SIZE)
-#define UAC1_SAMPLE_RATE		16000
+#define UAC1_AUDIO_PLAYBACK_BUF_SIZE   256	/* Matches with Audio driver */
+#define UAC1_AUDIO_CAPTURE_BUF_SIZE    256	/* Matches with Audio driver */
+#define UAC1_SAMPLE_RATE	     16000
 
 /*
  * This represents the USB side of an audio card device, managed by a USB

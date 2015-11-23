@@ -2780,6 +2780,18 @@ int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
 }
 EXPORT_SYMBOL(ipa_usb_xdci_resume);
 
+int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
+			      void *user_data)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_register_ipa_ready_cb,
+				ipa_ready_cb, user_data);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_register_ipa_ready_cb);
+
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,

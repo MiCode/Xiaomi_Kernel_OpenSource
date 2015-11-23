@@ -17,6 +17,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/msm_gsi.h>
+#include <linux/elf.h>
 #include "ipa_i.h"
 
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
@@ -4642,7 +4643,14 @@ fail_free_desc:
  */
 bool ipa3_is_ready(void)
 {
-	return (ipa3_ctx != NULL) ? true : false;
+	bool complete;
+
+	if (ipa3_ctx == NULL)
+		return false;
+	mutex_lock(&ipa3_ctx->lock);
+	complete = ipa3_ctx->ipa_initialization_complete;
+	mutex_unlock(&ipa3_ctx->lock);
+	return complete;
 }
 
 /**
@@ -4919,6 +4927,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_usb_deinit_teth_prot = ipa3_usb_deinit_teth_prot;
 	api_ctrl->ipa_usb_xdci_suspend = ipa3_usb_xdci_suspend;
 	api_ctrl->ipa_usb_xdci_resume = ipa3_usb_xdci_resume;
+	api_ctrl->ipa_register_ipa_ready_cb = ipa3_register_ipa_ready_cb;
 
 	return 0;
 }
@@ -5177,7 +5186,7 @@ int ipa3_inject_dma_task_for_gsi(void)
 int ipa3_stop_gsi_channel(u32 clnt_hdl)
 {
 	struct ipa3_mem_buffer mem;
-	int res;
+	int res = 0;
 	int i;
 	struct ipa3_ep_context *ep;
 
@@ -5188,26 +5197,28 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
-	if (!ep->keep_ipa_awake)
-		ipa3_inc_client_enable_clks();
+
+	ipa3_inc_client_enable_clks();
 
 	memset(&mem, 0, sizeof(mem));
 
-	if (IPA_CLIENT_IS_PROD(ep->client))
-		return gsi_stop_channel(ep->gsi_chan_hdl);
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
+		goto end_sequence;
+	}
 
 	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
 		IPADBG("Calling gsi_stop_channel\n");
 		res = gsi_stop_channel(ep->gsi_chan_hdl);
 		IPADBG("gsi_stop_channel returned %d\n", res);
 		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
-			return res;
+			goto end_sequence;
 
 		/* Send a 1B packet DMA_RASK to IPA and try again*/
 		res = ipa3_inject_dma_task_for_gsi();
 		if (res) {
 			IPAERR("ipa3_inject_dma_task_for_gsi failed\n");
-			return res;
+			goto end_sequence;
 		}
 
 		/* sleep for short period to flush IPA */
@@ -5215,7 +5226,11 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
 	}
 
-	return -EFAULT;
+	res = -EFAULT;
+end_sequence:
+	ipa3_dec_client_disable_clks();
+
+	return res;
 }
 
 /**
@@ -5459,5 +5474,79 @@ int ipa3_generate_eq_from_hw_rule(
 	*rule_size = rest - buf;
 	IPADBG("*rule_size=0x%x\n", *rule_size);
 
+	return 0;
+}
+
+/**
+ * ipa3_load_fws() - Load the IPAv3 FWs into IPA&GSI SRAM.
+ *
+ * @firmware: Structure which contains the FW data from the user space.
+ *
+ * Return value: 0 on success, negative otherwise
+ *
+ */
+int ipa3_load_fws(const struct firmware *firmware)
+{
+	/*
+	 * TODO: Do we need to use a generic elf_hdr/elf_phdr
+	 * so we won't have issues with 64bit systems?
+	 */
+	const struct elf32_hdr *ehdr;
+	const struct elf32_phdr *phdr;
+	const uint8_t *elf_phdr_ptr;
+	uint32_t *elf_data_ptr;
+	int phdr_idx, index;
+	uint32_t *fw_mem_base;
+
+	ehdr = (struct elf32_hdr *) firmware->data;
+
+	elf_phdr_ptr = firmware->data + sizeof(*ehdr);
+
+	for (phdr_idx = 0; phdr_idx < ehdr->e_phnum; phdr_idx++) {
+		/*
+		 * The ELF program header will contain the starting
+		 * address to which the firmware needs to copied.
+		 * TODO: Shall we rely on that, or rely on the order
+		 * of which the FWs reside in the ELF, and use
+		 * registers/defines in here?
+		 */
+		phdr = (struct elf32_phdr *)elf_phdr_ptr;
+
+		/*
+		 * p_addr will contain the physical address to which the
+		 * FW needs to be loaded.
+		 * p_memsz will contain the size of the FW image.
+		 */
+		fw_mem_base = ioremap(phdr->p_paddr, phdr->p_memsz);
+		if (!fw_mem_base) {
+			IPAERR("Failed to map 0x%x for the size of %u\n",
+				phdr->p_paddr, phdr->p_memsz);
+				return -ENOMEM;
+		}
+
+		/*
+		 * p_offset will contain and absolute offset from the beginning
+		 * of the ELF file.
+		 */
+		elf_data_ptr = (uint32_t *)
+				((uint8_t *)firmware->data + phdr->p_offset);
+
+		if (phdr->p_memsz % sizeof(uint32_t)) {
+			IPAERR("FW size %u doesn't align to 32bit\n",
+				phdr->p_memsz);
+			return -EFAULT;
+		}
+
+		for (index = 0; index < phdr->p_memsz/sizeof(uint32_t);
+			index++) {
+			writel_relaxed(*elf_data_ptr, &fw_mem_base[index]);
+			elf_data_ptr++;
+		}
+
+		iounmap(fw_mem_base);
+
+		elf_phdr_ptr = elf_phdr_ptr + sizeof(*phdr);
+	}
+	IPADBG("IPA FWs (GSI FW, HPS and DPS) were loaded\n");
 	return 0;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,7 @@
  *
  */
 
+#include <asm/arch_timer.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/module.h>
@@ -420,6 +421,23 @@ int tsv_timestamp_write(struct encode_context *ectxt)
 EXPORT_SYMBOL(tsv_timestamp_write);
 
 /*
+ * Writes the current QTimer timestamp count.
+ *
+ * @ectxt   context initialized by calling msg_encode_start()
+ */
+int tsv_qtimer_write(struct encode_context *ectxt)
+{
+	int ret;
+	uint64_t t_now = arch_counter_get_cntpct();
+
+	ret = tsv_write_header(ectxt, TSV_TYPE_QTIMER, sizeof(t_now));
+	if (ret)
+		return ret;
+	return tsv_write_data(ectxt, &t_now, sizeof(t_now));
+}
+EXPORT_SYMBOL(tsv_qtimer_write);
+
+/*
  * Writes a data pointer.
  *
  * @ectxt   context initialized by calling msg_encode_start()
@@ -486,6 +504,7 @@ int ipc_log_string(void *ilctxt, const char *fmt, ...)
 
 	msg_encode_start(&ectxt, TSV_TYPE_STRING);
 	tsv_timestamp_write(&ectxt);
+	tsv_qtimer_write(&ectxt);
 	avail_size = (MAX_MSG_SIZE - (ectxt.offset + hdr_size));
 	va_start(arg_list, fmt);
 	data_size = vsnprintf((ectxt.buff + ectxt.offset + hdr_size),
@@ -586,7 +605,7 @@ static void tsv_read_header(struct encode_context *ectxt,
  *
  * @ectxt   context initialized by calling msg_read()
  * @dctxt   deserialization context
- * @format output format (appended to %6u.%09u timestamp format)
+ * @format output format (appended to %6u.09u timestamp format)
  */
 void tsv_timestamp_read(struct encode_context *ectxt,
 			struct decode_context *dctxt, const char *format)
@@ -599,10 +618,35 @@ void tsv_timestamp_read(struct encode_context *ectxt,
 	BUG_ON(hdr.type != TSV_TYPE_TIMESTAMP);
 	tsv_read_data(ectxt, &val, sizeof(val));
 	nanosec_rem = do_div(val, 1000000000U);
-	IPC_SPRINTF_DECODE(dctxt, "[%6u.%09lu]%s",
+	IPC_SPRINTF_DECODE(dctxt, "[%6u.%09lu%s/",
 			(unsigned)val, nanosec_rem, format);
 }
 EXPORT_SYMBOL(tsv_timestamp_read);
+
+/*
+ * Reads a QTimer timestamp.
+ *
+ * @ectxt   context initialized by calling msg_read()
+ * @dctxt   deserialization context
+ * @format output format (appended to %#18llx timestamp format)
+ */
+void tsv_qtimer_read(struct encode_context *ectxt,
+		     struct decode_context *dctxt, const char *format)
+{
+	struct tsv_header hdr;
+	uint64_t val;
+
+	tsv_read_header(ectxt, &hdr);
+	BUG_ON(hdr.type != TSV_TYPE_QTIMER);
+	tsv_read_data(ectxt, &val, sizeof(val));
+
+	/*
+	 * This gives 16 hex digits of output. The # prefix prepends
+	 * a 0x, and these characters count as part of the number.
+	 */
+	IPC_SPRINTF_DECODE(dctxt, "%#18llx]%s", val, format);
+}
+EXPORT_SYMBOL(tsv_qtimer_read);
 
 /*
  * Reads a data pointer.

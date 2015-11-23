@@ -400,6 +400,10 @@ static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 		vbif_parms.regs = "vbif-v2-regs";
 		vbif_parms.settings = "vbif-v2-settings";
 		break;
+	case VFE40_8937_VERSION:
+	case VFE40_8953_VERSION:
+		vfe_dev->is_camif_raw_crop_supported = 1;
+		break;
 	default:
 		pr_err("%s: QOS and VBIF is NOT configured for HW Version %x\n",
 			__func__, vfe_dev->vfe_hw_version);
@@ -1399,6 +1403,31 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 		msm_camera_io_w((subsample_cfg->line_skip << 16) |
 			subsample_cfg->pixel_skip,
 			vfe_dev->vfe_base + 0x30C);
+			if (vfe_dev->is_camif_raw_crop_supported) {
+				/* Pdaf output will be sent in PLAIN16 format*/
+				val = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
+				val |= 5 << 9;
+				msm_camera_io_w(val, vfe_dev->vfe_base + 0x54);
+				if (subsample_cfg->first_pixel ||
+					subsample_cfg->last_pixel ||
+					subsample_cfg->first_line ||
+					subsample_cfg->last_line) {
+					msm_camera_io_w(
+					subsample_cfg->first_pixel << 16 |
+						subsample_cfg->last_pixel,
+						vfe_dev->vfe_base + 0x8A4);
+					msm_camera_io_w(
+					subsample_cfg->first_line << 16 |
+						subsample_cfg->last_line,
+						vfe_dev->vfe_base + 0x8A8);
+					val = msm_camera_io_r(
+						vfe_dev->vfe_base + 0x2F8);
+					val |= 1 << 22;
+					msm_camera_io_w(val,
+						vfe_dev->vfe_base + 0x2F8);
+				}
+			}
+
 	}
 }
 
@@ -1526,7 +1555,9 @@ static void msm_vfe40_axi_cfg_wm_reg(
 	} else if (vfe_dev->vfe_hw_version == VFE40_8952_VERSION) {
 		burst_len = VFE40_BURST_LEN_8952_VERSION;
 		wm_bit_shift = VFE40_WM_BIT_SHIFT;
-	} else if (vfe_dev->vfe_hw_version == VFE40_8976_VERSION) {
+	} else if (vfe_dev->vfe_hw_version == VFE40_8976_VERSION ||
+		vfe_dev->vfe_hw_version == VFE40_8937_VERSION ||
+		vfe_dev->vfe_hw_version == VFE40_8953_VERSION) {
 		burst_len = VFE40_BURST_LEN_8952_VERSION;
 		wm_bit_shift = VFE40_WM_BIT_SHIFT_8976_VERSION;
 	} else {
@@ -2034,7 +2065,9 @@ static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 	};
 
 	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION ||
-	    vfe_dev->vfe_hw_version == VFE40_8939_VERSION) {
+		vfe_dev->vfe_hw_version == VFE40_8939_VERSION ||
+		vfe_dev->vfe_hw_version == VFE40_8937_VERSION ||
+		vfe_dev->vfe_hw_version == VFE40_8953_VERSION) {
 		stats_burst_len = VFE40_STATS_BURST_LEN_8916_VERSION;
 		ub_offset = VFE40_UB_SIZE_8916;
 	} else if (vfe_dev->vfe_hw_version == VFE40_8952_VERSION ||

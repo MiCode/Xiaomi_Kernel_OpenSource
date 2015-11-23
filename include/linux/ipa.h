@@ -1740,6 +1740,30 @@ struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx);
 
 int ipa_stop_gsi_channel(u32 clnt_hdl);
 
+typedef void (*ipa_ready_cb)(void *user_data);
+
+/**
+* ipa_register_ipa_ready_cb() - register a callback to be invoked
+* when IPA core driver initialization is complete.
+*
+* @ipa_ready_cb:    CB to be triggered.
+* @user_data:       Data to be sent to the originator of the CB.
+*
+* Note: This function is expected to be utilized when ipa_is_ready
+* function returns false.
+* An IPA client may also use this function directly rather than
+* calling ipa_is_ready beforehand, as if this API returns -EEXIST,
+* this means IPA initialization is complete (and no callback will
+* be triggered).
+* When the callback is triggered, the client MUST perform his
+* operations in a different context.
+*
+* The function will return 0 on success, -ENOMEM on memory issues and
+* -EEXIST if IPA initialization is complete already.
+*/
+int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
+			      void *user_data);
+
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
 /*
@@ -2557,6 +2581,13 @@ static inline struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
 }
 
 static inline int ipa_stop_gsi_channel(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_register_ipa_ready_cb(
+	void (*ipa_ready_cb)(void *user_data),
+	void *user_data)
 {
 	return -EPERM;
 }

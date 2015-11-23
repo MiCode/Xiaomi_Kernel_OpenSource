@@ -64,6 +64,7 @@ IRQCHIP_DECLARE(californium_pinctrl, "qcom,mdmcalifornium-pinctrl",
 		pinctrl_irq_dummy);
 IRQCHIP_DECLARE(qpnp_irq, "qcom,spmi-pmic-arb", qpnpint_of_init);
 IRQCHIP_DECLARE(wcd9xxx_irq, "qcom,wcd9xxx-irq", wcd9xxx_irq_of_init);
+IRQCHIP_DECLARE(gold_pinctrl, "qcom,msmgold-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(8952_pinctrl, "qcom,msm8952-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(8937_pinctrl, "qcom,msm8937-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(titanium_pinctrl, "qcom,msmtitanium-pinctrl",

@@ -36,6 +36,8 @@
 #define VFE40_8939_VERSION 0x10040000
 #define VFE40_8952_VERSION 0x10060000
 #define VFE40_8976_VERSION 0x10050000
+#define VFE40_8937_VERSION 0x10080000
+#define VFE40_8953_VERSION 0x10090000
 #define VFE32_8909_VERSION 0x30600
 
 #define MAX_IOMMU_CTX 2
@@ -710,6 +712,7 @@ struct vfe_device {
 	uint32_t isp_raw0_debug;
 	uint32_t isp_raw1_debug;
 	uint32_t isp_raw2_debug;
+	uint8_t is_camif_raw_crop_supported;
 };
 
 struct vfe_parent_device {
