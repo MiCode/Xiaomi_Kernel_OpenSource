@@ -734,6 +734,13 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		return smb1351_masked_write(chip, VARIOUS_FUNC_2_REG,
 				PRECHG_TO_FASTCHG_BIT, PRECHG_TO_FASTCHG_BIT);
 	} else {
+		if (chip->version == SMB_UNKNOWN)
+			return -EINVAL;
+
+		/* SMB1350 supports FCC upto 2600 mA */
+		if (chip->version == SMB1350 && fastchg_current > 2600)
+			fastchg_current = 2600;
+
 		/* set fastchg current */
 		for (i = ARRAY_SIZE(fast_chg_current) - 1; i >= 0; i--) {
 			if (fast_chg_current[i] <= fastchg_current)
