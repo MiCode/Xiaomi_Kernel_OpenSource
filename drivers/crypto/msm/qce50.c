@@ -2902,9 +2902,8 @@ static inline void qce_free_req_info(struct qce_device *pce_dev, int req_info,
 	unsigned long flags;
 
 	spin_lock_irqsave(&pce_dev->lock, flags);
+	pce_dev->ce_request_info[req_info].xfer_type = QCE_XFER_TYPE_LAST;
 	if (xchg(&pce_dev->ce_request_info[req_info].in_use, false) == true) {
-		pce_dev->ce_request_info[req_info].xfer_type =
-			QCE_XFER_TYPE_LAST;
 		if (req_info < MAX_QCE_BAM_REQ && is_complete)
 			pce_dev->no_of_queued_req--;
 	} else
@@ -2947,6 +2946,7 @@ static void _qce_req_complete(struct qce_device *pce_dev, unsigned int req_info)
 		_f9_complete(pce_dev, req_info);
 		break;
 	default:
+		qce_free_req_info(pce_dev, req_info, true);
 		break;
 	}
 }
