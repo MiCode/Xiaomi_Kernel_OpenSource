@@ -276,6 +276,7 @@ int hyp_assign_table(struct sg_table *table,
 	struct info_list *info_list = NULL;
 	struct dest_info_list *dest_info_list = NULL;
 	struct scm_desc desc = {0};
+	u32 *source_vm_copy;
 
 	info_list = get_info_list_from_table(table);
 	if (!info_list)
@@ -288,10 +289,23 @@ int hyp_assign_table(struct sg_table *table,
 		goto err1;
 	}
 
+	/*
+	 * We can only pass cache-aligned sizes to hypervisor, so we need
+	 * to kmalloc and memcpy the source_vm_list here.
+	 */
+	source_vm_copy = kmalloc_array(
+		source_nelems, sizeof(*source_vm_copy), GFP_KERNEL);
+	if (!source_vm_copy) {
+		ret = -ENOMEM;
+		goto err2;
+	}
+	memcpy(source_vm_copy, source_vm_list,
+	       sizeof(*source_vm_list) * source_nelems);
+
 	desc.args[0] = virt_to_phys(info_list->list_head);
 	desc.args[1] = info_list->list_size;
-	desc.args[2] = virt_to_phys(source_vm_list);
-	desc.args[3] = sizeof(*source_vm_list) * source_nelems;
+	desc.args[2] = virt_to_phys(source_vm_copy);
+	desc.args[3] = sizeof(*source_vm_copy) * source_nelems;
 	desc.args[4] = virt_to_phys(dest_info_list->dest_info);
 	desc.args[5] = dest_info_list->list_size;
 	desc.args[6] = 0;
@@ -299,7 +313,7 @@ int hyp_assign_table(struct sg_table *table,
 	desc.arginfo = SCM_ARGS(7, SCM_RO, SCM_VAL, SCM_RO, SCM_VAL, SCM_RO,
 				SCM_VAL, SCM_VAL);
 
-	dmac_flush_range(source_vm_list, source_vm_list + source_nelems);
+	dmac_flush_range(source_vm_copy, source_vm_copy + source_nelems);
 	dmac_flush_range(info_list->list_head, info_list->list_head +
 		(info_list->list_size / sizeof(*info_list->list_head)));
 	dmac_flush_range(dest_info_list->dest_info, dest_info_list->dest_info +
@@ -312,8 +326,9 @@ int hyp_assign_table(struct sg_table *table,
 		pr_info("%s: Failed to assign memory protection, ret = %d\n",
 			__func__, ret);
 
+	kfree(source_vm_copy);
+err2:
 	destroy_dest_info_list(dest_info_list);
-
 err1:
 	destroy_info_list(info_list);
 	return ret;
