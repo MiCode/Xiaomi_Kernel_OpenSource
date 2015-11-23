@@ -26,6 +26,7 @@
 
 #include "msmgold-pinctrl.dtsi"
 #include "msmgold-cpu.dtsi"
+#include "msmgold-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
