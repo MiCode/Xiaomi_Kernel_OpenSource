@@ -389,3 +389,7 @@
 &dsi_truly_1080_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&qpdi {
+	qcom,pmic-carddetect-gpio = <&pm8937_gpios 0x2 0>;
+};
