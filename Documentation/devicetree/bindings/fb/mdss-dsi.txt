@@ -127,6 +127,11 @@ Optional properties:
 					"lane_map_3210" = <3 2 1 0>
 - qcom,pluggable			Boolean to enable hotplug feature.
 - qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
+- qcom,display-id			A string indicates the display ID for the controller.
+					The possible values are:
+					- "primary"
+					- "secondary"
+					- "tertiary"
 
 Example:
 	mdss_dsi: qcom,mdss_dsi@0 {
@@ -241,5 +246,6 @@ Example:
 			qcom,platform-mode-gpio = <&msmgpio 7 0>;
 			qcom,dsi-irq-line;
 			qcom,lane-map = "lane_map_3012";
+			qcom,display-id = "primary";
 	        };
 	};
