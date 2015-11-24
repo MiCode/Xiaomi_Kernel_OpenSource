@@ -1189,6 +1189,7 @@ struct ecm_function_config {
 	u8      ethaddr[ETH_ALEN];
 	struct usb_function *func;
 	struct usb_function_instance *fi;
+	char	new_host_addr[20];
 };
 
 static int ecm_qc_function_init(struct android_usb_function *f,
@@ -2477,9 +2478,7 @@ static int ecm_function_bind_config(struct android_usb_function *f,
 		return -EINVAL;
 	}
 
-	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
-		ecm->ethaddr[0], ecm->ethaddr[1], ecm->ethaddr[2],
-		ecm->ethaddr[3], ecm->ethaddr[4], ecm->ethaddr[5]);
+	pr_info("%s MAC: %s\n", __func__, ecm->new_host_addr);
 
 	ecm->fi = usb_get_function_instance("ecm");
 	if (IS_ERR(ecm->fi))
@@ -2488,8 +2487,15 @@ static int ecm_function_bind_config(struct android_usb_function *f,
 	ecm_opts = container_of(ecm->fi, struct f_ecm_opts, func_inst);
 	strlcpy(ecm_opts->net->name, "ecm%d", sizeof(ecm_opts->net->name));
 	gether_set_qmult(ecm_opts->net, qmult);
-	if (!gether_set_host_addr(ecm_opts->net, host_addr))
-		pr_info("using host ethernet address: %s", host_addr);
+	/* Reuse previous host_addr if already assigned */
+	if (ecm->ethaddr[0]) {
+		gether_set_host_addr(ecm_opts->net, ecm->new_host_addr);
+		pr_debug("reusing host ethernet address\n");
+	} else {
+		/* first time, use one specified by user else random mac */
+		if (!gether_set_host_addr(ecm_opts->net, host_addr))
+			pr_info("using host ethernet address: %s", host_addr);
+	}
 	if (!gether_set_dev_addr(ecm_opts->net, dev_addr))
 		pr_info("using self ethernet address: %s", dev_addr);
 
@@ -2502,6 +2508,8 @@ static int ecm_function_bind_config(struct android_usb_function *f,
 
 	ecm_opts->bound = true;
 	gether_get_host_addr_u8(ecm_opts->net, ecm->ethaddr);
+	gether_get_host_addr(ecm_opts->net, ecm->new_host_addr,
+					sizeof(ecm->new_host_addr));
 
 	ecm->func = usb_get_function(ecm->fi);
 	if (IS_ERR(ecm->func)) {
