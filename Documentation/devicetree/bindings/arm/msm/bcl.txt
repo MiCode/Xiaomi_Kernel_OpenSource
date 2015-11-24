@@ -1,0 +1,210 @@
+* Battery Current Limit
+
+This Battery Current Limit(BCL) device, provides an interface to detect and notify
+interested applications when the SOC is drawing current in excess of the limits
+specified.
+The BCL driver has another operation mode, where it monitors the battery
+current and voltage via ADC TM hardware called BTM. The newer devices support
+a BTM hardware configuration, which can measure the battery current and voltage.
+This ADC hardware is capable of sampling the sensor every 1 msec and interrupts
+the BCL driver, which in turn mitigates the CPU frequency based on the
+current load thresholds. The BCL drivers operation mode is decided based
+on the parameters given in the device tree. In this BTM operation mode, BCL
+driver provides sysfs entries to configure the thresholds, ADC polling
+timer interval and other operational parameters.
+
+The device tree parameters for bcl are:
+
+Required parameters:
+- compatible: Must be "qcom,bcl"
+
+Optional parameters:
+- qcom,bcl-enable : If this property is defined, BCL functionality will
+		be enabled from boot. The mode of operation, will be based
+		on the properties defined in the device tree.
+- qcom,ibat-vadc = <&vadc_phandle>: A phandle to the VADC device. The BTM mode
+		of operation requires this property to be defined if and only
+		if qcom,ibat-threshold-adc_tm and qcom,ibat-monitor are defined.
+		Error in any of these properties will disable BTM mode of operation
+		and will fall back to the available current monitor mode.
+- qcom,ibat-threshold-adc_tm = <&vadc_tm_phandle>: A phandle to the ADC TM
+		device. BCL registers with the hardware monitor for this TM
+		device to be able to set thresholds and get threshold
+		notifications. The BTM mode of operation requires this property
+		to be defined if and only if qcom,ibat-vadc and qcom,ibat-monitor
+		are defined. Error in any of these properties will disable BTM
+		mode of operation and will fall back to the available current
+		monitor mode.
+- qcom,bcl-framework-interface: If this property is defined, then the BCL uses
+		the BCL framework for monitoring battery voltage and current.
+		When this property is defined, the 'qcom,high-threshold-uamp',
+		'qcom,low-threshold-uamp', 'qcom,mitigation-freq-khz',
+		'qcom,vph-high-threshold-uv', 'qcom,vph-low-threshold-uv' and
+		'qcom,thermal-handle' properties should be defined in the
+		'qcom,ibat-monitor' node.
+- qcom,bcl-hotplug-list = <hotplug-phandle-list>: List of phandles to the cores
+		that are to be hotplugged, when battery current limit condition
+		is reached.
+- qcom,bcl-soc-hotplug-list: List of phandles to the cores that are to be hotplugged,
+		when battery SOC limit condition is reached.
+- qcom,bcl-freq-control-list: List of phandles to the cores that are to be frequency
+                mitigated when BCL condition is reached.
+- qcom,bcl-no-bms: This is an optional node for BCL IAVAIL monitor mode.
+		If this property is defined, BCL IAVAIL monitor gets rbat value
+		from power supply battery module instead of bms module.
+
+Optional nodes:
+- qcom,ibat-monitor: This optional node defines all the parameters for the
+		battery current monitoring. The BTM mode of operation requires
+		all the below properties to be defined with valid values. Also,
+		this node should be defined if and only if qcom,ibat-vadc and
+		qcom,ibat-threshold-adc_tm are defined. Error in any of these
+		properties will disable BTM mode of operation and will fall
+		back to the available current monitor mode.
+	* qcom,high-threshold-uamp: The battery current, in microampere, after
+		which the BCL driver should cap the maximum frequency.
+	* qcom,low-threshold-uamp: The battery current, in microampere, below
+		which the BCL driver should clear the CPU frequency mitigation.
+	* qcom,mitigation-freq-khz: The maximum frequency value the BCL driver
+		should mitigate the CPUS's with. This frequency shouldn't be
+		less than the minimum frequency request that the kernel thermal
+		monitor driver places during vdd restriction.
+	* qcom,ibat-channel: The ADC hardware's Ibat channel number.
+	* qcom,uv-to-ua-numerator: The conversion parameter required for converting
+		the voltage measure from ADC hardware to current value.
+	* qcom,uv-to-ua-denominator: The conversion parameter required for
+		converting the voltage measure from ADC hardware to current.
+		The microvolt to microampere (or vice-versa) conversion uses
+		the below conversion formulae.
+		ua = (uv * uv-to-ua-numerator) / uv-to-ua-denominator
+	* qcom,adc-interval-usec: The polling interval, in microseconds, for the ADC
+		hardware.
+	* qcom,vph-channel: The ADC hardware's Vph channel number.
+	* qcom,vph-high-threshold-uv: The battery voltage threshold above which the
+		BCL driver clears the previously applied mitigation, disables
+		the battery current monitoring, and starts monitoring for low
+		battery voltage.
+	* qcom,vph-low-threshold-uv: The battery voltage threshold below which the
+		BCL driver starts monitoring the battery current thresholds and
+		mitigates the CPU on the event of high load.
+	* qcom,thermal-handle = <&phandle_to_vdd_apps>: phandle to the "qcom,msm_thermal"
+		vdd restriction property, "qcom,vdd-apps-rstr". This phandle is
+		used by BCL driver to get the minimum frequency request that the
+		thermal driver places during vdd restriction. This frequency
+		value will be the lowest max frequency value the BCL driver can
+		request.
+	* qcom,soc-low-threshold: The battery SOC percentage threshold below which
+		mitigation needs to be applied.
+
+
+Example:
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,ibat-vadc = <&pma8084_vadc>;
+		qcom,ibat-threshold-adc_tm = <&pma8084_adc_tm>;
+		qcom,bcl-no-bms;
+		qcom,ibat-monitor {
+			qcom,high-threshold-uamp = <1500>;
+			qcom,low-threshold-uamp = <500>;
+			qcom,mitigation-freq-khz = <1958400>;
+			qcom,ibat-channel = <0x15>;
+			qcom,adc-interval-usec = <3900>;
+			qcom,uv-to-ua-numerator = <2>;
+			qcom,uv-to-ua-denominator = <1>;
+			qcom,vph-channel = <0x07>;
+			qcom,vph-high-threshold-uv = <3700000>;
+			qcom,vph-low-threshold-uv = <3500000>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+For Using BCL peripheral interface:
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,bcl-framework-interface;
+		qcom,bcl-freq-mit-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,bcl-hotplug-list = <&CPU5 &CPU6 &CPU7>;
+		qcom,bcl-soc-hotplug-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,ibat-monitor {
+			qcom,high-threshold-uamp = <1500>;
+			qcom,low-threshold-uamp = <500>;
+			qcom,mitigation-freq-khz = <1958400>;
+			qcom,vph-high-threshold-uv = <3700000>;
+			qcom,vph-low-threshold-uv = <3500000>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+
+===============================================================================
+BCL PMIC Peripheral driver:
+===============================================================================
+In newer targets from MSM8994, the PMIC has BCL monitoring capabilities
+in the hardware. The PMIC exposes this BCL monitoring peripheral as a PMIC
+peripheral. The BCL peripheral driver interacts with the PMIC peripheral using
+the SPMI driver interfaces. The details and the configuration for the BCL
+peripheral can be inputted using the device tree.
+
+The units of the Vbat and Ibat values returned and read depends on the scaling
+factor that is given as input for BCL peripheral driver through device tree. The
+scaling factors should be configured to handle Vbat in micro-volt and Ibat in
+micro-amps.
+
+Required Parameters:
+- compatible: must be qcom,msm-bcl
+- reg: <a b> where 'a' is the starting register address of the PMIC
+	peripheral and 'b' is the size of the peripheral address space.
+	If the BCL inhibit current derating feature is enabled, this must also
+	contain the PON spare registers as well. Example: <a b c d> where
+	c is the first PON spare register that will be written and d is the
+	size of the registers space needed to be written.
+- reg-names: a list of names of the registers corresponding to the reg
+	property. The fuel gauge peripheral should be "fg_user_adc" and the
+	PON spare should be "pon_spare".
+-interrupts: <a b c> Where 'a' is the SLAVE ID of the PMIC, 'b' is
+		the peripheral ID and 'c' is the interrupt number in PMIC.
+- interrupt-names: user defined names for the interrupts. These
+		interrupt names will be used by the drivers to identify the
+		interrupts, instead of specifying the ID's.
+- qcom,vbat-scaling-factor: The scaling factor to be used for converting
+		the raw vbat ADC value to milli-volt.
+- qcom,vbat-gain-numerator: The numerator of the vbat gain correction factor.
+- qcom,vbat-gain-denominator: The denominator of the vbat gain correction
+		factor.
+- qcom,vbat-polling-delay-ms: Software polling interval for monitoring vbat
+		high threshold.
+- qcom,ibat-scaling-factor: The scaling factor to be used for converting
+		the raw ibat ADC value to micro-amps.
+- qcom, ibat-gain-numerator: The numerator of the ibat gain correction factor.
+- qcom, ibat-gain-denominator: The denominator of the ibat gain correction
+		factor.
+- qcom, ibat-offset-numerator: The numerator of the ibat offset correction
+		factor.
+- qcom, ibat-offset-denominator: The denominator of the ibat offset
+		correction factor.
+- qcom,ibat-polling-delay-ms: Software polling interval for monitoring ibat
+		low threshold.
+Optional Parameters:
+- qcom,inhibit-derating-ua: The amount that the bcl current high trip threshold
+		should be lowered by when the bcl peripheral is operating in a
+		dead time.
+
+                bcl@4200 {
+                        compatible = "qcom,msm-bcl";
+                        reg = <0x4200 0xFF 0x88e 0x2>;
+			reg-names = "fg_user_adc", "pon_spare";
+                        interrupts = <0x2 0x42 0x0>,
+                                        <0x2 0x42 0x1>;
+                        interrupt-names = "bcl-high-ibat-int",
+                                        "bcl-low-vbat-int";
+                        qcom,vbat-scaling-factor = <39>;
+                        qcom,vbat-gain-numerator = <1>;
+                        qcom,vbat-gain-denominator = <32>;
+                        qcom,vbat-polling-delay-ms = <50>;
+                        qcom,ibat-scaling-factor = <39>;
+                        qcom,ibat-gain-numerator = <1>;
+                        qcom,ibat-gain-denominator = <32>;
+                        qcom,ibat-offset-numerator = <12>;
+                        qcom,ibat-offset-denominator = <10>;
+                        qcom,ibat-polling-delay-ms = <50>;
+                };
+
+
