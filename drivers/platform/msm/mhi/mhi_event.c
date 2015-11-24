@@ -71,11 +71,16 @@ int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt)
 		if (MHI_HW_RING == GET_EV_PROPS(EV_TYPE,
 			mhi_dev_ctxt->ev_ring_props[i].flags)) {
 			mhi_dev_ctxt->ev_ring_props[i].class = MHI_HW_RING;
-			mhi_dev_ctxt->mmio_info.nr_sw_event_rings++;
+			mhi_dev_ctxt->mmio_info.nr_hw_event_rings++;
 		} else {
 			mhi_dev_ctxt->ev_ring_props[i].class = MHI_SW_RING;
-			mhi_dev_ctxt->mmio_info.nr_hw_event_rings++;
+			mhi_dev_ctxt->mmio_info.nr_sw_event_rings++;
 		}
+		mhi_log(MHI_MSG_INFO,
+		 "Detected %d SW EV rings and %d HW EV rings out of %d EV rings\n",
+		  mhi_dev_ctxt->mmio_info.nr_sw_event_rings,
+		  mhi_dev_ctxt->mmio_info.nr_hw_event_rings,
+		  mhi_dev_ctxt->mmio_info.nr_event_rings);
 	}
 dt_error:
 	return r;
