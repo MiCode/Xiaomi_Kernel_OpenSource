@@ -210,7 +210,6 @@ struct dwc3_msm {
 	enum usb_otg_state	otg_state;
 	enum usb_chg_state	chg_state;
 	int			pmic_id_irq;
-	struct work_struct	id_work;
 	u8			dcd_retries;
 	struct work_struct	bus_vote_w;
 	unsigned int		bus_vote;
@@ -225,7 +224,6 @@ struct dwc3_msm {
 	unsigned int		tx_fifo_size;
 	bool			vbus_active;
 	bool			suspend;
-	bool			ext_inuse;
 	bool			disable_host_mode_pm;
 	enum dwc3_id_state	id_state;
 	unsigned long		lpm_flags;
@@ -259,8 +257,6 @@ struct dwc3_msm {
 
 #define DSTS_CONNECTSPD_SS		0x4
 
-
-static struct usb_ext_notification *usb_ext;
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA);
@@ -1499,33 +1495,6 @@ void msm_dwc3_restart_usb_session(struct usb_gadget *gadget)
 }
 EXPORT_SYMBOL(msm_dwc3_restart_usb_session);
 
-/**
- * msm_register_usb_ext_notification: register for event notification
- * @info: pointer to client usb_ext_notification structure. May be NULL.
- *
- * @return int - 0 on success, negative on error
- */
-int msm_register_usb_ext_notification(struct usb_ext_notification *info)
-{
-	pr_debug("%s usb_ext: %p\n", __func__, info);
-
-	if (info) {
-		if (usb_ext) {
-			pr_err("%s: already registered\n", __func__);
-			return -EEXIST;
-		}
-
-		if (!info->notify) {
-			pr_err("%s: notify is NULL\n", __func__);
-			return -EINVAL;
-		}
-	}
-
-	usb_ext = info;
-	return 0;
-}
-EXPORT_SYMBOL(msm_register_usb_ext_notification);
-
 /*
  * Check whether the DWC3 requires resetting the ep
  * after going to Low Power Mode (lpm)
@@ -2359,7 +2328,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_USB_OTG:
 		/* Let OTG know about ID detection */
 		mdwc->id_state = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
-		if (dwc->is_drd && !mdwc->ext_inuse)
+		if (dwc->is_drd)
 			schedule_delayed_work(&mdwc->resume_work, 12);
 
 		break;
@@ -2392,7 +2361,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 			break;
 
 		mdwc->vbus_active = val->intval;
-		if (dwc->is_drd && !mdwc->ext_inuse && !mdwc->in_restart) {
+		if (dwc->is_drd && !mdwc->in_restart) {
 			/*
 			 * Set debouncing delay to 120ms. Otherwise battery
 			 * charging CDP complaince test fails if delay > 120ms.
@@ -2484,58 +2453,6 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_USB_OTG,
 };
 
-static void dwc3_ext_notify_online(void *ctx, int on)
-{
-	struct dwc3_msm *mdwc = ctx;
-
-	if (!mdwc) {
-		pr_err("%s: DWC3 driver already removed\n", __func__);
-		return;
-	}
-
-	dev_dbg(mdwc->dev, "notify %s%s\n", on ? "" : "dis", "connected");
-
-	mdwc->ext_inuse = on;
-	if (on)
-		/* force OTG to exit B-peripheral state */
-		mdwc->vbus_active = false;
-
-	schedule_delayed_work(&mdwc->resume_work, 0);
-}
-
-static void dwc3_id_work(struct work_struct *w)
-{
-	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, id_work);
-	int ret;
-
-	/* Give external client a chance to handle */
-	if (!mdwc->ext_inuse && usb_ext) {
-		if (mdwc->pmic_id_irq)
-			disable_irq(mdwc->pmic_id_irq);
-
-		ret = usb_ext->notify(usb_ext->ctxt, mdwc->id_state,
-				      dwc3_ext_notify_online, mdwc);
-		dev_dbg(mdwc->dev, "%s: external handler returned %d\n",
-			__func__, ret);
-
-		if (mdwc->pmic_id_irq) {
-			unsigned long flags;
-			local_irq_save(flags);
-			/* ID may have changed while IRQ disabled; update it */
-			mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
-			local_irq_restore(flags);
-			enable_irq(mdwc->pmic_id_irq);
-		}
-
-		mdwc->ext_inuse = (ret == 0);
-	}
-
-	if (!mdwc->ext_inuse)
-		dwc3_resume_work(&mdwc->resume_work.work);
-
-	dbg_event(0xFF, "RW (id)", 0);
-}
-
 static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
@@ -2545,7 +2462,7 @@ static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 	id = !!irq_read_line(irq);
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
-		schedule_work(&mdwc->id_work);
+		schedule_work(&mdwc->resume_work.work);
 	}
 
 	return IRQ_HANDLED;
@@ -2682,7 +2599,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdwc->req_complete_list);
 	INIT_DELAYED_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
-	INIT_WORK(&mdwc->id_work, dwc3_id_work);
 	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
 	init_completion(&mdwc->dwc3_xcvr_vbus_init);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
@@ -3011,7 +2927,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		local_irq_save(flags);
 		mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
 		if (mdwc->id_state == DWC3_ID_GROUND)
-			schedule_work(&mdwc->id_work);
+			schedule_work(&mdwc->resume_work.work);
 		local_irq_restore(flags);
 		enable_irq_wake(mdwc->pmic_id_irq);
 	}
