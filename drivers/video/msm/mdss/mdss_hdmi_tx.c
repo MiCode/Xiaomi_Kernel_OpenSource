@@ -1648,7 +1648,7 @@ static int hdmi_tx_init_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	pinfo->lcdc.v_pulse_width = timing.pulse_width_v;
 
 	pinfo->type = DTV_PANEL;
-	pinfo->pdest = DISPLAY_2;
+	pinfo->pdest = DISPLAY_3;
 	pinfo->wait_cycle = 0;
 	pinfo->bpp = 24;
 	pinfo->fb_num = 1;
@@ -4865,7 +4865,7 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 
 	if (!pdata->cont_splash_enabled)
 		pdata->cont_splash_enabled =
-			hdmi_ctrl->mdss_util->panel_intf_status(DISPLAY_2,
+			hdmi_ctrl->mdss_util->panel_intf_status(DISPLAY_3,
 			MDSS_PANEL_INTF_HDMI) ? true : false;
 
 	pdata->pluggable = of_property_read_bool(pdev->dev.of_node,
