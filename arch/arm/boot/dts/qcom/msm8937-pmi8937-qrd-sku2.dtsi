@@ -13,6 +13,7 @@
 
 #include "msm-pmi8937.dtsi"
 #include "msm8937-qrd.dtsi"
+#include "msm8937-mdss-panels.dtsi"
 
 &spmi_bus {
 	qcom,pmi8937@2 {
@@ -84,4 +85,30 @@
 		qcom,panel-maxy = <1400>;
 		qcom,key-codes = <158 139 172>;
 	};
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394f_720p_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&dsi_hx8394f_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
