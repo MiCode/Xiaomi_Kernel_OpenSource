@@ -429,6 +429,8 @@ int afe_get_port_type(u16 port_id)
 	case SLIMBUS_4_RX:
 	case SLIMBUS_5_RX:
 	case SLIMBUS_6_RX:
+	case SLIMBUS_7_RX:
+	case SLIMBUS_8_RX:
 	case INT_BT_SCO_RX:
 	case INT_BT_A2DP_RX:
 	case INT_FM_RX:
@@ -491,6 +493,8 @@ int afe_get_port_type(u16 port_id)
 	case SLIMBUS_4_TX:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_TX:
+	case SLIMBUS_7_TX:
+	case SLIMBUS_8_TX:
 	case INT_FM_TX:
 	case VOICE_RECORD_RX:
 	case INT_BT_SCO_TX:
@@ -583,6 +587,10 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_RX:
 	case SLIMBUS_6_TX:
+	case SLIMBUS_7_RX:
+	case SLIMBUS_7_TX:
+	case SLIMBUS_8_RX:
+	case SLIMBUS_8_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_slimbus_cfg);
 		break;
 	case VOICE_PLAYBACK_TX:
@@ -2737,6 +2745,10 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_RX:
 	case SLIMBUS_6_TX:
+	case SLIMBUS_7_RX:
+	case SLIMBUS_7_TX:
+	case SLIMBUS_8_RX:
+	case SLIMBUS_8_TX:
 		cfg_type = AFE_PARAM_ID_SLIMBUS_CONFIG;
 		break;
 	case RT_PROXY_PORT_001_RX:
@@ -2854,6 +2866,10 @@ int afe_get_port_index(u16 port_id)
 	case SLIMBUS_5_TX: return IDX_SLIMBUS_5_TX;
 	case SLIMBUS_6_RX: return IDX_SLIMBUS_6_RX;
 	case SLIMBUS_6_TX: return IDX_SLIMBUS_6_TX;
+	case SLIMBUS_7_RX: return IDX_SLIMBUS_7_RX;
+	case SLIMBUS_7_TX: return IDX_SLIMBUS_7_TX;
+	case SLIMBUS_8_RX: return IDX_SLIMBUS_8_RX;
+	case SLIMBUS_8_TX: return IDX_SLIMBUS_8_TX;
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_PRIMARY_MI2S_RX;
 	case AFE_PORT_ID_PRIMARY_MI2S_TX:
@@ -3113,6 +3129,10 @@ int afe_open(u16 port_id,
 	case SLIMBUS_5_RX:
 	case SLIMBUS_6_RX:
 	case SLIMBUS_6_TX:
+	case SLIMBUS_7_RX:
+	case SLIMBUS_7_TX:
+	case SLIMBUS_8_RX:
+	case SLIMBUS_8_TX:
 		cfg_type = AFE_PARAM_ID_SLIMBUS_CONFIG;
 		break;
 	default:
@@ -4574,6 +4594,10 @@ int afe_validate_port(u16 port_id)
 	case SLIMBUS_5_RX:
 	case SLIMBUS_6_RX:
 	case SLIMBUS_6_TX:
+	case SLIMBUS_7_RX:
+	case SLIMBUS_7_TX:
+	case SLIMBUS_8_RX:
+	case SLIMBUS_8_TX:
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_PRIMARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
