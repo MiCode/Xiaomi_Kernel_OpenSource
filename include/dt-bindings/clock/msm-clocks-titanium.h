@@ -244,6 +244,7 @@
 #define clk_gcc_mss_cfg_ahb_clk				 0x111cde81
 #define clk_gcc_mss_q6_bimc_axi_clk			 0x67544d62
 #define clk_gcc_bimc_gfx_clk				 0x3edd69ad
+#define clk_gcc_bimc_gpu_clk				 0x19922503
 #define clk_gcc_oxili_ahb_clk				 0xd15c8a00
 #define clk_gcc_oxili_aon_clk				 0xae18e54d
 #define clk_gcc_oxili_gfx3d_clk				 0x49a51fd9
