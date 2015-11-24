@@ -2798,10 +2798,13 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	if (rc)
 		pr_warn("%s: failed to get pin resources\n", __func__);
 
-	if (index == 0)
+	if (index == 0) {
 		ctrl_pdata->panel_data.panel_info.pdest = DISPLAY_1;
-	else
+		ctrl_pdata->ndx = DSI_CTRL_0;
+	} else {
 		ctrl_pdata->panel_data.panel_info.pdest = DISPLAY_2;
+		ctrl_pdata->ndx = DSI_CTRL_1;
+	}
 
 	if (mdss_dsi_ctrl_clock_init(pdev, ctrl_pdata)) {
 		pr_err("%s: unable to initialize dsi clk manager\n", __func__);
@@ -3781,14 +3784,12 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		if (ctrl_pdata->phy_regulator_io.len)
 			mdss_debug_register_io("dsi0_phy_regulator",
 				&ctrl_pdata->phy_regulator_io, NULL);
-		ctrl_pdata->ndx = 0;
 	} else {
 		mdss_debug_register_io("dsi1_ctrl", &ctrl_pdata->ctrl_io, NULL);
 		mdss_debug_register_io("dsi1_phy", &ctrl_pdata->phy_io, NULL);
 		if (ctrl_pdata->phy_regulator_io.len)
 			mdss_debug_register_io("dsi1_phy_regulator",
 				&ctrl_pdata->phy_regulator_io, NULL);
-		ctrl_pdata->ndx = 1;
 	}
 
 	panel_debug_register_base("panel",
