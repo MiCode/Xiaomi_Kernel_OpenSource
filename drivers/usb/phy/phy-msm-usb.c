@@ -1862,7 +1862,9 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 	}
 	msm_otg_dbg_log_event(&motg->phy, "PM RT: StartHost PUT",
 				     get_pm_runtime_counter(motg->phy.dev), 0);
-	pm_runtime_put_sync(otg->phy->dev);
+
+	pm_runtime_mark_last_busy(otg->phy->dev);
+	pm_runtime_put_autosuspend(otg->phy->dev);
 }
 
 static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on)
@@ -2041,7 +2043,8 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 	}
 	msm_otg_dbg_log_event(&motg->phy, "PM RT: StartPeri PUT",
 				     get_pm_runtime_counter(motg->phy.dev), 0);
-	pm_runtime_put(otg->phy->dev);
+	pm_runtime_mark_last_busy(otg->phy->dev);
+	pm_runtime_put_autosuspend(otg->phy->dev);
 }
 
 static int msm_otg_set_peripheral(struct usb_otg *otg,
