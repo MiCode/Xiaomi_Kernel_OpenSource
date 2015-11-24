@@ -217,7 +217,6 @@ struct dwc3_msm {
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct power_supply	usb_psy;
-	struct power_supply	*ext_vbus_psy;
 	unsigned int		online;
 	bool			in_host_mode;
 	unsigned int		voltage_max;
@@ -2453,31 +2452,6 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	return 0;
 }
 
-static void dwc3_msm_external_power_changed(struct power_supply *psy)
-{
-	struct dwc3_msm *mdwc = container_of(psy, struct dwc3_msm, usb_psy);
-	union power_supply_propval ret = {0,};
-
-	if (!mdwc->ext_vbus_psy)
-		mdwc->ext_vbus_psy = power_supply_get_by_name("ext-vbus");
-
-	if (!mdwc->ext_vbus_psy) {
-		pr_err("%s: Unable to get ext_vbus power_supply\n", __func__);
-		return;
-	}
-
-	mdwc->ext_vbus_psy->get_property(mdwc->ext_vbus_psy,
-					POWER_SUPPLY_PROP_ONLINE, &ret);
-	if (ret.intval) {
-		mdwc->ext_vbus_psy->get_property(mdwc->ext_vbus_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
-		power_supply_set_current_limit(&mdwc->usb_psy, ret.intval);
-	}
-
-	power_supply_set_online(&mdwc->usb_psy, ret.intval);
-	power_supply_changed(&mdwc->usb_psy);
-}
-
 static int
 dwc3_msm_property_is_writeable(struct power_supply *psy,
 				enum power_supply_property psp)
@@ -2521,16 +2495,10 @@ static void dwc3_ext_notify_online(void *ctx, int on)
 
 	dev_dbg(mdwc->dev, "notify %s%s\n", on ? "" : "dis", "connected");
 
-	if (!mdwc->ext_vbus_psy)
-		mdwc->ext_vbus_psy = power_supply_get_by_name("ext-vbus");
-
 	mdwc->ext_inuse = on;
 	if (on)
 		/* force OTG to exit B-peripheral state */
 		mdwc->vbus_active = false;
-
-	if (mdwc->ext_vbus_psy)
-		power_supply_set_present(mdwc->ext_vbus_psy, on);
 
 	schedule_delayed_work(&mdwc->resume_work, 0);
 }
@@ -2962,8 +2930,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 					ARRAY_SIZE(dwc3_msm_pm_power_props_usb);
 		mdwc->usb_psy.get_property = dwc3_msm_power_get_property_usb;
 		mdwc->usb_psy.set_property = dwc3_msm_power_set_property_usb;
-		mdwc->usb_psy.external_power_changed =
-					dwc3_msm_external_power_changed;
 		mdwc->usb_psy.property_is_writeable =
 				dwc3_msm_property_is_writeable;
 
