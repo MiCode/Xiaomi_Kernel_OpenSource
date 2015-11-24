@@ -136,8 +136,6 @@
 			<&clock_gcc clk_gcc_mdss_axi_clk>;
 		clock-names = "mdp_core_clk", "iface_clk", "bus_clk";
 
-		qcom,timing-db-mode;
-
 		qcom,core-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -198,6 +196,7 @@
 			vddio-supply = <&pm8950_l6>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
+			qcom,timing-db-mode;
 
 			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte0_clk>,
 				<&clock_gcc_mdss clk_gcc_mdss_pclk0_clk>,

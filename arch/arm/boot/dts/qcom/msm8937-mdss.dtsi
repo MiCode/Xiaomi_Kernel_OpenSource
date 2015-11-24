@@ -220,7 +220,6 @@
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
 		qcom,mmss-phyreset-ctrl-offset = <0x24>;
-		qcom,timing-db-mode;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -276,6 +275,7 @@
 			reg-names = "dsi_ctrl", "dsi_phy",
 			      "dsi_phy_regulator", "mmss_misc_phys";
 
+			qcom,timing-db-mode;
 			qcom,mdss-mdp = <&mdss_mdp>;
 			vdd-supply = <&pm8937_l17>;
 			vddio-supply = <&pm8937_l6>;
