@@ -87,7 +87,8 @@ enum {
 enum {
 	DISPLAY_1 = 0,		/* attached as first device */
 	DISPLAY_2,		/* attached on second device */
-	DISPLAY_3,              /* attached on third writeback device */
+	DISPLAY_3,		/* attached on third device */
+	DISPLAY_4,		/* attached on fourth device */
 	MAX_PHYS_TARGET_NUM,
 };
 
