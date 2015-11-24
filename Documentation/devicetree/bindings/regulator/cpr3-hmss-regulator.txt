@@ -67,9 +67,10 @@ HMSS specific properties:
 	Usage:      required if qcom,apm-ctrl is specified
 	Value type: <u32>
 	Definition: Specifies the APM threshold voltage in microvolts.  If the
-		    VDD_APCC supply voltage is above this level, then the APM is
-		    switched to use VDD_APCC.  If VDD_APCC is below this level,
-		    then the APM is switched to use VDD_MX.
+		    vdd-supply voltage is greater than or equal to this level,
+		    then the APM is switched to use the vdd-supply. If the
+		    vdd-supply voltage is below this level, then the APM is
+		    switched to use the system-supply.
 
 - qcom,apm-hysteresis-voltage
 	Usage:      optional
@@ -84,6 +85,26 @@ HMSS specific properties:
 		    CPR3 regulator managed by any CPR3 thread of this controller.
 	Value type: <u32>
 	Definition: Maximum voltage setpoint for the system-supply regulator.
+
+- qcom,mem-acc-supply-threshold-voltage
+	Usage:      required if mem-acc-supply or mem-acc-threadN-supply is
+		    specified and the CPR3 controller or any of the CPR3 regulators
+		    it controls needs to manage mem-acc settings.
+	Value type: <u32>
+	Definition: Specifies the mem-acc-supply threshold voltage in microvolts.
+		    If the vdd-supply voltage is greater than or equal to this
+		    level, then the mem-acc-supply regulator is switched to the
+		    high voltage corner setting. Conversely, if the vdd-supply
+		    voltage is below this level, then the mem-acc-supply regulator
+		    is switched to the low voltage corner setting.
+
+- qcom,mem-acc-supply-corner-map
+	Usage:      required if mem-acc-supply or mem-acc-threadN-supply is
+		    specified and the CPR3 controller or any of the CPR3 regulators
+		    it controls needs to manage mem-acc settings.
+	Value type: <prop-encoded-array>
+	Definition: A tuple containing two integers which defines the mem-acc-supply
+		    corner to use for low and high vdd-supply voltages, respectively.
 
 - qcom,cpr-up-down-delay-time
 	Usage:      required
@@ -121,15 +142,22 @@ HMSS specific properties:
 			BIT(6) - Performance cluster core 1
 			BIT(7) - Performance cluster core 0
 
-- qcom,vdd-threadN-ldo-supply
+- mem-acc-threadN-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the regulator device which manages mem-acc
+		    configuration for the clusters per CPR thread. 'N' must
+		    match with the hardware thread ID of the thread it controls.
+
+- vdd-threadN-ldo-supply
 	Usage:      optional
 	Value type: <phandle>
 	Definition: phandle of the regulator device which manages LDO and BHS
 		    modes for the clusters per CPR thread. 'N' must match with
 		    the hardware thread ID of the thread it controls.
 
-- qcom,vdd-threadN-ldo-ret-supply
-	Usage:      required if qcom,vdd-threadN-ldo-supply is specified for
+- vdd-threadN-ldo-ret-supply
+	Usage:      required if vdd-threadN-ldo-supply is specified for
 		    this CPR thread.
 	Value type: <phandle>
 	Definition: phandle of the regulator device which manages LDO retention
@@ -181,7 +209,7 @@ HMSS specific properties:
 		    is 2.
 
 - qcom,ldo-min-headroom-voltage
-	Usage:      required if qcom,vdd-threadN-ldo-supply is specified for the
+	Usage:      required if vdd-threadN-ldo-supply is specified for the
 		    CPR3 thread containing this CPR3 regulator and this CPR3
 		    regulator needs to manage the cluster LDO state.
 	Value type: <u32>
@@ -189,7 +217,7 @@ HMSS specific properties:
 		    and the LDO output in order for the LDO to be operational.
 
 - qcom,ldo-max-headroom-voltage
-	Usage:      required if qcom,vdd-threadN-ldo-supply is specified for the
+	Usage:      required if vdd-threadN-ldo-supply is specified for the
 		    CPR3 thread containing this CPR3 regulator and this CPR3
 		    regulator needs to manage the cluster LDO state.
 	Value type: <u32>
@@ -209,6 +237,14 @@ HMSS specific properties:
 	Value type: <u32>
 	Definition: Voltage in microvolts which represents the maximum
 		    physically supported voltage output of the LDO hardware.
+
+- qcom,uses-mem-acc
+	Usage:      required if mem-acc-threadN-supply is specified for the
+		    CPR3 thread containing this CPR3 regulator and this CPR3
+		    regulator needs to manage mem-acc settings.
+	Value type: <empty>
+	Definition: Boolean flag which indicates that this CPR3 regulator must
+		    manage mem-acc.
 
 - qcom,ldo-disable
 	Usage:      optional
@@ -238,6 +274,25 @@ HMSS specific properties:
 			BIT(6) - Performance cluster core 1
 			BIT(7) - Performance cluster core 0
 
+- qcom,cpr-dynamic-floor-corner
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines for each fuse combination
+		    the CPR corner whose closed-loop voltage should be used as
+		    a CPR floor voltage whenever the power domains for this CPR3
+		    regulator are bypassed.  Supported values are 0 and 1 to N.
+		    A value of 0 means that no dynamic floor is needed.  N is
+		    the number of corners defined for this fuse combination in
+		    the qcom,cpr-corners property.
+
+		    The list must contain qcom,cpr-fuse-combos number of
+		    elements in which case the elements are matched to fuse
+		    combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    elements in which case the elements are matched to
+		    speed bins 1-to-1 or exactly 1 element which is used
+		    regardless of the fuse combination and speed bin found
+		    on a given chip.
+
 =======
 Example
 =======
@@ -264,10 +319,15 @@ apcc_cpr: cpr3-ctrl@99e8000 {
 	qcom,apm-threshold-voltage = <850000>;
 	qcom,apm-hysteresis-voltage = <5000>;
 	qcom,system-supply-max-voltage = <1015000>;
+	qcom,mem-acc-supply-threshold-voltage = <700000>;
+	qcom,mem-acc-supply-corner-map = <1 2>;
 
 	vdd-supply = <&pm8994_s11>;
 	qcom,voltage-step = <5000>;
 	vdd-limit-supply = <&pm8994_s11_limit>;
+	mem-acc-thread0-supply = <&apc0_pwrcl_mem_acc_vreg>;
+	mem-acc-thread1-supply = <&apc1_perfcl_mem_acc_vreg>;
+	mem-acc-supply = <&apcc_l3_mem_acc_vreg>;
 	vdd-thread0-ldo-supply = <&kryo0_vreg>;
 	vdd-thread1-ldo-supply = <&kryo1_vreg>;
 	vdd-thread0-ldo-ret-supply = <&kryo0_retention_vreg>;
@@ -299,6 +359,7 @@ apcc_cpr: cpr3-ctrl@99e8000 {
 			qcom,ldo-min-headroom-voltage = <150000>;
 			qcom,ldo-max-headroom-voltage = <470000>;
 			qcom,ldo-max-voltage = <805000>;
+			qcom,uses-mem-acc;
 
 			qcom,cpr-corner-fmax-map = <1 2 6 11 19>;
 
@@ -428,6 +489,7 @@ apcc_cpr: cpr3-ctrl@99e8000 {
 			qcom,ldo-min-headroom-voltage = <150000>;
 			qcom,ldo-max-headroom-voltage = <470000>;
 			qcom,ldo-max-voltage = <805000>;
+			qcom,uses-mem-acc;
 
 			qcom,cpr-corner-fmax-map = <1 3 5 11 18>;
 

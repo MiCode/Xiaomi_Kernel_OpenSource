@@ -64,6 +64,15 @@ Platform independent properties:
 		    be made before increasing the vdd-supply voltage and after
 		    decreasing the vdd-supply voltage.
 
+- mem-acc-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the mem-acc regulator device which is used to
+		    configure memory array circuitry settings based upon
+		    the performance operating point. Requests for this regulator
+		    must be made before decreasing the vdd-supply voltage and
+		    after increasing the vdd-supply voltage.
+
 - clocks
 	Usage:      required
 	Value type: <prop-encoded-array>
