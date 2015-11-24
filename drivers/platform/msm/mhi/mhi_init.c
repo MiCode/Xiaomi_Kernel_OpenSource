@@ -71,7 +71,6 @@ ev_mutex_free:
 
 size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	int i = 0;
 	size_t mhi_dev_mem = 0;
 
 	/* Calculate size needed for contexts */
@@ -83,12 +82,6 @@ size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 				mhi_dev_mem);
 	/*Calculate size needed for cmd TREs */
 	mhi_dev_mem += (CMD_EL_PER_RING * sizeof(union mhi_cmd_pkt));
-
-	/* Calculate size needed for event TREs */
-	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i)
-		mhi_dev_mem += (sizeof(union mhi_event_pkt) *
-				mhi_dev_ctxt->ev_ring_props[i].nr_desc);
-
 	mhi_log(MHI_MSG_INFO, "Final bytes for MHI device space %zd\n",
 				mhi_dev_mem);
 	return mhi_dev_mem;
@@ -346,22 +339,39 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	/* Initialize both the local and device event contexts */
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
+		dma_addr_t ring_dma_addr = 0;
+		void *ring_addr = NULL;
+
 		ring_len = sizeof(union mhi_event_pkt) *
 					mhi_dev_ctxt->ev_ring_props[i].nr_desc;
+		ring_addr = dma_alloc_coherent(
+				&mhi_dev_ctxt->dev_info->pcie_device->dev,
+				ring_len, &ring_dma_addr, GFP_KERNEL);
+		if (!ring_addr)
+			goto err_ev_alloc;
 		init_dev_ev_ctxt(&mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i],
-				dma_dev_mem_start + mhi_mem_index,
-				ring_len);
+				ring_dma_addr, ring_len);
 		init_local_ev_ctxt(&mhi_dev_ctxt->mhi_local_event_ctxt[i],
-				dev_mem_start + mhi_mem_index,
-				ring_len);
+				ring_addr, ring_len);
 		mhi_log(MHI_MSG_INFO,
 			"Initializing EV_%d TRE list at virt 0x%p dma 0x%llx\n",
-				i, dev_mem_start + mhi_mem_index,
-				(u64)dma_dev_mem_start + mhi_mem_index);
-		mhi_mem_index += ring_len;
+				i, ring_addr, (u64)ring_dma_addr);
 	}
 	return 0;
 
+err_ev_alloc:
+	for (; i >= 0; --i) {
+		struct mhi_event_ctxt *dev_ev_ctxt = NULL;
+		struct mhi_ring *ev_ctxt = NULL;
+
+		dev_ev_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
+		ev_ctxt = &mhi_dev_ctxt->mhi_local_event_ctxt[i];
+
+		dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
+				  ev_ctxt->len,
+				  ev_ctxt->base,
+				  dev_ev_ctxt->mhi_event_ring_base_addr);
+	}
 	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 			   mhi_dev_ctxt->dev_space.dev_mem_len,
 			   mhi_dev_ctxt->dev_space.dev_mem_start,
