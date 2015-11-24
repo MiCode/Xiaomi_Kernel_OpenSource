@@ -137,7 +137,7 @@ int adreno_ringbuffer_submit_spin(struct adreno_ringbuffer *rb,
 {
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 
-	adreno_ringbuffer_submit(rb, NULL);
+	adreno_ringbuffer_submit(rb, time);
 	return adreno_spin_idle(adreno_dev, timeout);
 }
 
@@ -263,70 +263,6 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 }
 
 /**
- * _ringbuffer_setup_common() - Ringbuffer start
- * @adreno_dev: Pointer to an adreno_device
- *
- * Setup ringbuffer for GPU.
- */
-static void _ringbuffer_setup_common(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_ringbuffer *rb;
-	int i;
-
-	/* Initialize all of the ringbuffers */
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		kgsl_sharedmem_set(device, &(rb->buffer_desc), 0,
-			0xAA, KGSL_RB_SIZE);
-		rb->wptr = 0;
-		rb->rptr = 0;
-		rb->wptr_preempt_end = 0xFFFFFFFF;
-		rb->starve_timer_state =
-		ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
-	}
-
-	/* Continue setting up the current ringbuffer */
-	rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-
-	/*
-	 * The size of the ringbuffer in the hardware is the log2
-	 * representation of the size in quadwords (sizedwords / 2).
-	 * Also disable the host RPTR shadow register as it might be unreliable
-	 * in certain circumstances.
-	 */
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
-		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F) |
-		(1 << 27));
-
-	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			  ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc.gpuaddr);
-}
-
-/**
- * _ringbuffer_start_common() - Ringbuffer start
- * @adreno_dev: Pointer to an adreno device
- *
- * Start ringbuffer for GPU.
- */
-static int _ringbuffer_start_common(struct adreno_device *adreno_dev)
-{
-	int status;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-
-	/* clear ME_HALT to start micro engine */
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, 0);
-
-	/* ME init is GPU specific, so jump into the sub-function */
-	status = gpudev->rb_init(adreno_dev, rb);
-	if (status)
-		return status;
-
-	return status;
-}
-
-/**
  * adreno_ringbuffer_start() - Ringbuffer start
  * @adreno_dev: Pointer to adreno device
  * @start_type: Warm or cold start
@@ -334,16 +270,24 @@ static int _ringbuffer_start_common(struct adreno_device *adreno_dev)
 int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
 	unsigned int start_type)
 {
-	int status;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
+	int i;
 
-	_ringbuffer_setup_common(adreno_dev);
+	/* Setup the ringbuffers state before we start */
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		kgsl_sharedmem_set(device, &(rb->buffer_desc),
+				0, 0xAA, KGSL_RB_SIZE);
+		rb->wptr = 0;
+		rb->rptr = 0;
+		rb->wptr_preempt_end = 0xFFFFFFFF;
+		rb->starve_timer_state =
+			ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
+	}
 
-	status = gpudev->microcode_load(adreno_dev, start_type);
-	if (status)
-		return status;
-
-	return _ringbuffer_start_common(adreno_dev);
+	/* start is specific GPU rb */
+	return gpudev->rb_start(adreno_dev, start_type);
 }
 
 void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)
@@ -363,7 +307,7 @@ static int _rb_readtimestamp(struct kgsl_device *device,
 		timestamp);
 }
 
-static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
+static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 		int id)
 {
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[id];
@@ -391,7 +335,7 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0);
 }
 
-int adreno_ringbuffer_init(struct adreno_device *adreno_dev, bool nopreempt)
+int adreno_ringbuffer_probe(struct adreno_device *adreno_dev, bool nopreempt)
 {
 	int status = 0;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -403,7 +347,7 @@ int adreno_ringbuffer_init(struct adreno_device *adreno_dev, bool nopreempt)
 		adreno_dev->num_ringbuffers = 1;
 
 	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
-		status = _adreno_ringbuffer_init(adreno_dev, i);
+		status = _adreno_ringbuffer_probe(adreno_dev, i);
 		if (status != 0)
 			break;
 	}

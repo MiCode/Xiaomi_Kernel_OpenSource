@@ -701,10 +701,8 @@ struct adreno_gpudev {
 	void (*platform_setup)(struct adreno_device *);
 	void (*init)(struct adreno_device *);
 	void (*remove)(struct adreno_device *);
-	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
-	int (*hw_init)(struct adreno_device *);
+	int (*rb_start)(struct adreno_device *, unsigned int start_type);
 	int (*microcode_read)(struct adreno_device *);
-	int (*microcode_load)(struct adreno_device *, unsigned int start_type);
 	void (*perfcounter_init)(struct adreno_device *);
 	void (*perfcounter_close)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
@@ -848,9 +846,6 @@ int adreno_reset(struct kgsl_device *device, int fault);
 void adreno_fault_skipcmd_detached(struct adreno_device *adreno_dev,
 					 struct adreno_context *drawctxt,
 					 struct kgsl_cmdbatch *cmdbatch);
-
-int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev);
-int adreno_a4xx_pwron_fixup_init(struct adreno_device *adreno_dev);
 
 int adreno_coresight_init(struct adreno_device *adreno_dev);
 
