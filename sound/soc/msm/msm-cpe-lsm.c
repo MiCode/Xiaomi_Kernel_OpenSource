@@ -424,6 +424,14 @@ static int msm_cpe_lab_buf_alloc(struct snd_pcm_substream *substream,
 	u32 count = 0;
 	u32 bufsz, bufcnt;
 
+	if (lab_d->pcm_buf &&
+	    lab_d->pcm_buf->mem) {
+		dev_dbg(rtd->dev,
+			"%s: LAB buf already allocated\n",
+			__func__);
+		goto exit;
+	}
+
 	bufsz = hw_params->buf_sz;
 	bufcnt = hw_params->period_count;
 
