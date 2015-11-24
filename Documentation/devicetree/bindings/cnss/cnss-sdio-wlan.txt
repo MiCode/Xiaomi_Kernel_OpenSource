@@ -2,21 +2,23 @@
 
 This platform driver adds support for the CNSS subsystem used for SDIO
 based Wi-Fi devices. It also adds support to manage two 1.8V voltage
-regulators and WLAN power enable 3.3V PMIC GPIO. The main purpose of this
+regulators and WLAN power enable 3.3V regulators. The main purpose of this
 device tree entry below is to invoke the CNSS SDIO platform driver
 and provide handle to the WLAN power enable 3.3V pmic GPIO and two 1.8V
 PMIC voltage regulator resources.
 
 Required properties:
   - compatible: "qcom,cnss_sdio"
-  - wlan-pmic-gpio: 3.3V PMIC GPIO for external power supply.
+  - vdd-wlan-supply: phandle to the WLAN vdd regulator device tree node.
+  - vdd-wlan-dsrc-supply: phandle to the WLAN dsrc vdd regulator device tree node.
   - vdd-wlan-io-supply: phandle to the WLAN IO regulator device tree node.
   - vdd-wlan-xtal-supply: phandle to the WLAM XTAL regulator device tree node.
 
 Example:
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
-		cnss_sdio,wlan-pmic-gpio = <&pm8019_gpios 3 0>;
+		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-dsrc-supply = <&sdcard_ext_vreg>;
 		vdd-wlan-io-supply = <&mdm9607_l11>;
 		vdd-wlan-xtal-supply = <&mdm9607_l2>;
 	};
