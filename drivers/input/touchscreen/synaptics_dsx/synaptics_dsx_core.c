@@ -34,6 +34,13 @@
 #endif
 #if defined(CONFIG_SECURE_TOUCH)
 #include <linux/errno.h>
+#include <soc/qcom/scm.h>
+enum subsystem {
+	TZ = 1,
+	APSS = 3
+};
+
+#define TZ_BLSP_MODIFY_OWNERSHIP_ID 3
 #endif
 
 #define INPUT_PHYS_NAME "synaptics_dsx/input0"
@@ -460,6 +467,28 @@ DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, synaptics_rmi4_debug_suspend_get,
 			synaptics_rmi4_debug_suspend_set, "%lld\n");
 
 #if defined(CONFIG_SECURE_TOUCH)
+static int synaptics_i2c_change_pipe_owner(
+	struct synaptics_rmi4_data *rmi4_data, enum subsystem subsystem)
+{
+	/*scm call descriptor */
+	struct scm_desc desc;
+	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
+	int ret = 0;
+
+	/* number of arguments */
+	desc.arginfo = SCM_ARGS(2);
+	/* BLSPID (1-12) */
+	desc.args[0] = i2c->adapter->nr;
+	 /* Owner if TZ or APSS */
+	desc.args[1] = subsystem;
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_TZ, TZ_BLSP_MODIFY_OWNERSHIP_ID),
+			&desc);
+	if (ret)
+		return ret;
+
+	return desc.ret[0];
+}
+
 static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
 {
 	int ret = 0;
@@ -584,6 +613,7 @@ static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
 		if (atomic_read(&rmi4_data->st_enabled) == 0)
 			break;
 
+		synaptics_i2c_change_pipe_owner(rmi4_data, APSS);
 		synaptics_rmi4_bus_put(rmi4_data);
 		atomic_set(&rmi4_data->st_enabled, 0);
 		synaptics_secure_touch_notify(rmi4_data);
@@ -607,6 +637,7 @@ static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
 			err = -EIO;
 			break;
 		}
+		synaptics_i2c_change_pipe_owner(rmi4_data, TZ);
 		reinit_completion(&rmi4_data->st_powerdown);
 		reinit_completion(&rmi4_data->st_irq_processed);
 		atomic_set(&rmi4_data->st_enabled, 1);
