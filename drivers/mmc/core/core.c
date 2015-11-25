@@ -2255,6 +2255,10 @@ void mmc_set_ungated(struct mmc_host *host)
 void mmc_set_ungated(struct mmc_host *host)
 {
 }
+
+void mmc_gate_clock(struct mmc_host *host)
+{
+}
 #endif
 
 int mmc_execute_tuning(struct mmc_card *card)

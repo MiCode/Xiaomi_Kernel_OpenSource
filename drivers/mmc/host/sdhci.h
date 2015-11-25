@@ -180,6 +180,7 @@
 #define   SDHCI_CTRL_DRV_TYPE_D		0x0030
 #define  SDHCI_CTRL_EXEC_TUNING		0x0040
 #define  SDHCI_CTRL_TUNED_CLK		0x0080
+#define  SDHCI_CTRL_ASYNC_INT_ENABLE	0x4000
 #define  SDHCI_CTRL_PRESET_VAL_ENABLE	0x8000
 
 #define SDHCI_CAPABILITIES	0x40
@@ -200,6 +201,7 @@
 #define  SDHCI_CAN_VDD_300	0x02000000
 #define  SDHCI_CAN_VDD_180	0x04000000
 #define  SDHCI_CAN_64BIT	0x10000000
+#define  SDHCI_CAN_ASYNC_INT	0x20000000
 
 #define  SDHCI_SUPPORT_SDR50	0x00000001
 #define  SDHCI_SUPPORT_SDR104	0x00000002
@@ -531,6 +533,7 @@ struct sdhci_host {
 #define SDHCI_USE_64_BIT_DMA	(1<<12)	/* Use 64-bit DMA */
 #define SDHCI_USE_ADMA_64BIT	(1<<12)	/* Host is 64-bit ADMA capable */
 #define SDHCI_HS400_TUNING	(1<<13)	/* Tuning for HS400 */
+#define SDHCI_HOST_IRQ_STATUS	 (1<<14) /* host->irq status */
 
 	unsigned int version;	/* SDHCI spec. version */
 
@@ -605,6 +608,7 @@ struct sdhci_host {
 
 	bool is_crypto_en;
 	bool crypto_reset_reqd;
+	bool sdio_irq_async_status;
 
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;
@@ -798,4 +802,5 @@ extern int sdhci_runtime_suspend_host(struct sdhci_host *host);
 extern int sdhci_runtime_resume_host(struct sdhci_host *host);
 #endif
 
+void sdhci_cfg_irq(struct sdhci_host *host, bool enable, bool sync);
 #endif /* __SDHCI_HW_H */

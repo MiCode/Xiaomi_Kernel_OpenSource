@@ -65,6 +65,7 @@ static int sdhci_pre_dma_transfer(struct sdhci_host *host,
 					struct mmc_data *data);
 static int sdhci_do_get_cd(struct sdhci_host *host);
 static bool sdhci_check_state(struct sdhci_host *);
+static void sdhci_enable_sdio_irq_nolock(struct sdhci_host *host, int enable);
 
 #ifdef CONFIG_PM
 static int sdhci_runtime_pm_get(struct sdhci_host *host);
@@ -93,9 +94,10 @@ static void sdhci_dump_state(struct sdhci_host *host)
 	struct mmc_host *mmc = host->mmc;
 
 	#ifdef CONFIG_MMC_CLKGATE
-	pr_info("%s: clk: %d clk-gated: %d claimer: %s pwr: %d\n",
+	pr_info("%s: clk: %d clk-gated: %d claimer: %s pwr: %d host->irq = %d\n",
 		mmc_hostname(mmc), host->clock, mmc->clk_gated,
-		mmc->claimer->comm, host->pwr);
+		mmc->claimer->comm, host->pwr,
+		(host->flags & SDHCI_HOST_IRQ_STATUS));
 	#else
 	pr_info("%s: clk: %d claimer: %s pwr: %d\n",
 		mmc_hostname(mmc), host->clock,
@@ -1768,6 +1770,21 @@ void sdhci_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 }
 EXPORT_SYMBOL_GPL(sdhci_set_uhs_signaling);
 
+void sdhci_cfg_irq(struct sdhci_host *host, bool enable, bool sync)
+{
+	if (enable && !(host->flags & SDHCI_HOST_IRQ_STATUS)) {
+		enable_irq(host->irq);
+		host->flags |= SDHCI_HOST_IRQ_STATUS;
+	} else if (!enable && (host->flags & SDHCI_HOST_IRQ_STATUS)) {
+		if (sync)
+			disable_irq(host->irq);
+		else
+			disable_irq_nosync(host->irq);
+		host->flags &= ~SDHCI_HOST_IRQ_STATUS;
+	}
+}
+EXPORT_SYMBOL(sdhci_cfg_irq);
+
 static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 {
 	unsigned long flags;
@@ -1788,6 +1805,10 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		sdhci_enable_preset_value(host, false);
 
 	spin_lock_irqsave(&host->lock, flags);
+	if (host->mmc && host->mmc->card &&
+			mmc_card_sdio(host->mmc->card))
+		sdhci_cfg_irq(host, false, false);
+
 	if (ios->clock &&
 	    ((ios->clock != host->clock) || (ios->timing != host->timing))) {
 		spin_unlock_irqrestore(&host->lock, flags);
@@ -1807,6 +1828,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			host->mmc->max_busy_timeout /= host->timeout_clk;
 		}
 	}
+	if (ios->clock && host->sdio_irq_async_status)
+		sdhci_enable_sdio_irq_nolock(host, false);
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	/*
@@ -1830,6 +1853,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->clock) {
+		if (host->mmc && host->mmc->card &&
+				mmc_card_sdio(host->mmc->card))
+			sdhci_cfg_irq(host, true, false);
 		spin_unlock_irqrestore(&host->lock, flags);
 		return;
 	}
@@ -1968,6 +1994,12 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	if (!ios->clock)
 		host->ops->set_clock(host, ios->clock);
 
+	spin_lock_irqsave(&host->lock, flags);
+	if (host->mmc && host->mmc->card &&
+			mmc_card_sdio(host->mmc->card))
+		sdhci_cfg_irq(host, true, false);
+	spin_unlock_irqrestore(&host->lock, flags);
+
 	mmiowb();
 }
 
@@ -2080,16 +2112,28 @@ static int sdhci_get_ro(struct mmc_host *mmc)
 
 static void sdhci_enable_sdio_irq_nolock(struct sdhci_host *host, int enable)
 {
-	if (!(host->flags & SDHCI_DEVICE_DEAD)) {
-		if (enable)
-			host->ier |= SDHCI_INT_CARD_INT;
-		else
-			host->ier &= ~SDHCI_INT_CARD_INT;
+	u16 ctrl = 0;
 
-		sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
-		sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
-		mmiowb();
+	if (host->flags & SDHCI_DEVICE_DEAD)
+		return;
+
+	if (mmc_card_and_host_support_async_int(host->mmc)) {
+		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		if (enable)
+			ctrl |= SDHCI_CTRL_ASYNC_INT_ENABLE;
+		else
+			ctrl &= ~SDHCI_CTRL_ASYNC_INT_ENABLE;
+		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 	}
+
+	if (enable)
+		host->ier |= SDHCI_INT_CARD_INT;
+	else
+		host->ier &= ~SDHCI_INT_CARD_INT;
+
+	sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+	sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+	mmiowb();
 }
 
 static void sdhci_enable_sdio_irq(struct mmc_host *mmc, int enable)
@@ -3060,6 +3104,29 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
+	if (!host->clock && host->mmc->card &&
+			mmc_card_sdio(host->mmc->card)) {
+		if (!mmc_card_and_host_support_async_int(host->mmc))
+			return IRQ_NONE;
+		/*
+		 * async card interrupt is level sensitive and received
+		 * when clocks are off.
+		 * If sdio card has asserted async interrupt, in that
+		 * case we need to disable host->irq.
+		 * Later we can disable card interrupt and re-enable
+		 * host->irq.
+		 */
+
+		pr_debug("%s: %s: sdio_async intr. received\n",
+				mmc_hostname(host->mmc), __func__);
+		sdhci_cfg_irq(host, false, false);
+		host->sdio_irq_async_status = true;
+		host->thread_isr |= SDHCI_INT_CARD_INT;
+		result = IRQ_WAKE_THREAD;
+		spin_unlock(&host->lock);
+		return result;
+	}
+
 	intmask = sdhci_readl(host, SDHCI_INT_STATUS);
 	if (!intmask || intmask == 0xffffffff) {
 		result = IRQ_NONE;
@@ -3190,8 +3257,11 @@ static irqreturn_t sdhci_thread_irq(int irq, void *dev_id)
 		sdio_run_irqs(host->mmc);
 
 		spin_lock_irqsave(&host->lock, flags);
-		if (host->flags & SDHCI_SDIO_IRQ_ENABLED)
+		if (host->flags & SDHCI_SDIO_IRQ_ENABLED) {
+			if (host->sdio_irq_async_status)
+				host->sdio_irq_async_status = false;
 			sdhci_enable_sdio_irq_nolock(host, true);
+		}
 		spin_unlock_irqrestore(&host->lock, flags);
 	}
 
@@ -3809,6 +3879,9 @@ int sdhci_add_host(struct sdhci_host *host)
 	mmc->caps |= MMC_CAP_SDIO_IRQ | MMC_CAP_ERASE | MMC_CAP_CMD23;
 	mmc->caps2 |= MMC_CAP2_SDIO_IRQ_NOTHREAD;
 
+	if (caps[0] & SDHCI_CAN_ASYNC_INT)
+		mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
+
 	if (host->quirks & SDHCI_QUIRK_MULTIBLOCK_READ_ACMD12)
 		host->flags |= SDHCI_AUTO_CMD12;
 
@@ -4071,6 +4144,8 @@ int sdhci_add_host(struct sdhci_host *host)
 	setup_timer(&host->timer, sdhci_timeout_timer, (unsigned long)host);
 
 	init_waitqueue_head(&host->buf_ready_int);
+
+	host->flags |= SDHCI_HOST_IRQ_STATUS;
 
 	sdhci_init(host, 0);
 
