@@ -1954,6 +1954,17 @@ static struct branch_clk gcc_blsp2_uart2_apps_clk = {
 	},
 };
 
+static struct branch_clk gcc_bimc_gpu_clk = {
+	.cbcr_reg = BIMC_GPU_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_bimc_gpu_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_bimc_gpu_clk.c),
+	},
+};
+
 static struct branch_clk gcc_camss_cci_ahb_clk = {
 	.cbcr_reg = CAMSS_CCI_AHB_CBCR,
 	.has_sibling = 1,
@@ -3131,6 +3142,7 @@ static struct local_vote_clk gcc_crypto_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_crypto_clk",
+		.parent = &crypto_clk_src.c,
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_crypto_clk.c),
 	},
@@ -3383,6 +3395,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_crypto_clk.c, 0x0138 },
 		{ &gcc_crypto_axi_clk.c, 0x0139 },
 		{ &gcc_crypto_ahb_clk.c, 0x013a },
+		{ &gcc_bimc_gpu_clk.c, 0x0157 },
 		{ &gcc_apss_ahb_clk.c, 0x0168 },
 		{ &gcc_apss_axi_clk.c, 0x0169 },
 		{ &gcc_vfe1_tbu_clk.c, 0x0199 },
@@ -3909,6 +3922,7 @@ static struct clk_lookup msm_clocks_gcc_gfx[] = {
 	CLK_LIST(gcc_oxili_gfx3d_clk),
 	CLK_LIST(gcc_oxili_timer_clk),
 	CLK_LIST(gcc_bimc_gfx_clk),
+	CLK_LIST(gcc_bimc_gpu_clk),
 };
 
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
