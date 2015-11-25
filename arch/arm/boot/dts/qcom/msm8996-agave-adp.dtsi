@@ -883,3 +883,15 @@
 &wsa881x_214 {
 	/delete-property/ qcom,spkr-sd-n-gpio;
 };
+
+&spi_9 {
+	status = "ok";
+};
+
+&spi_10 {
+	status = "ok";
+};
+
+&blsp1_uart2 {
+	status = "ok";
+};
