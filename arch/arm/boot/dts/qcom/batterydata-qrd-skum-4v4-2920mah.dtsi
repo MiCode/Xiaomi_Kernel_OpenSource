@@ -16,6 +16,8 @@ qcom,qrd_msm8952_skum_2920mah {
 	qcom,batt-id-kohm = <50 90>;
 	qcom,battery-beta = <0>;
 	qcom,battery-type = "qrd_msm8952_skum_2920mah";
+	qcom,fastchg-current-ma = <3000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
 	qcom,chg-rslow-comp-c1 = <4847657>;
 	qcom,chg-rslow-comp-c2 = <11109950>;
 	qcom,chg-rs-to-rslow = <819081>;
