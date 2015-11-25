@@ -114,10 +114,10 @@ dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	apqtitanium-cdp.dtb \
 	apqtitanium-mtp.dtb
 
-dtb-$(CONFIG_ARCH_MDMFERMIUM) += mdmfermium-rumi.dtb \
-	mdmfermium-cdp.dtb \
-	mdmfermium-mtp.dtb \
-	mdmfermium-rcm.dtb
+dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
+	mdm9607-cdp.dtb \
+	mdm9607-mtp.dtb \
+	mdm9607-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \

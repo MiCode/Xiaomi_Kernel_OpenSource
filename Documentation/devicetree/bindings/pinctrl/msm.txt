@@ -3,7 +3,7 @@ MSM Pinctrl Bindings
 Required properties:
 - compatible: "qcom,msm8996-pinctrl"
 	      "qcom,mdm9640-pinctrl"
-	      "qcom,mdmfermium-pinctrl"
+	      "qcom,mdm9607-pinctrl"
 	      "qcom,msmgold-pinctrl"
 	       "qcom,mdmcalifornium-pinctrl"
 	      "qcom,msm8952-pinctrl"

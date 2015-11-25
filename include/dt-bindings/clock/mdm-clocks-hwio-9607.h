@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MDM_CLOCKS_FERMIUM_HWIO_H
-#define __MDM_CLOCKS_FERMIUM_HWIO_H
+#ifndef __MDM_CLOCKS_9607_HWIO_H
+#define __MDM_CLOCKS_9607_HWIO_H
 
 #define GPLL0_MODE				0x21000
 #define GPLL0_STATUS				0x21024

@@ -61,8 +61,8 @@ Required properties:
 			"qcom,gcc-gfx-titanium"
 			"qcom,gcc-californium"
 			"qcom,cc-debug-californium"
-			"qcom,gcc-mdmfermium"
-			"qcom,cc-debug-mdmfermium"
+			"qcom,gcc-mdm9607"
+			"qcom,cc-debug-mdm9607"
 			"qcom,gcc-cobalt"
 			"qcom,cc-debug-cobalt"
 

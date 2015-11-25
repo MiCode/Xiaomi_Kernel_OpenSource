@@ -376,7 +376,7 @@ static int clock_a7_probe(struct platform_device *pdev)
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,clock-a53-8916");
 	compat_bin2 = of_device_is_compatible(pdev->dev.of_node,
-						"qcom,clock-a7-mdmfermium");
+						"qcom,clock-a7-mdm9607");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rcg-base");
 	if (!res) {
@@ -474,7 +474,7 @@ static struct of_device_id clock_a7_match_table[] = {
 	{.compatible = "qcom,clock-a7-9640"},
 	{.compatible = "qcom,clock-a53-8916"},
 	{.compatible = "qcom,clock-a7-californium"},
-	{.compatible = "qcom,clock-a7-mdmfermium"},
+	{.compatible = "qcom,clock-a7-mdm9607"},
 	{}
 };
 
