@@ -81,6 +81,26 @@ MMSS specific properties:
 		    given regulator type.  For MMSS the maximum supported value
 		    is 1.
 
+- qcom,mem-acc-voltage
+	Usage:      required if mem-acc-supply is specified for the CPR3 controller
+		    containing this CPR3 regulator
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the mem-acc-supply
+		    corner for each voltage corner in order from lowest to highest.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
+
 - qcom,cpr-target-quotients
 	Usage:      required
 	Value type: <prop-encoded-array>
@@ -91,20 +111,10 @@ MMSS specific properties:
 		    RO15 in order.  If a given RO is unused for a corner, then
 		    its target quotient should be specified as 0.
 
-		    The tuple list grouping must contain qcom,cpr-fuse-combos
-		    number of tuple lists in which case the lists are matched to
-		    fuse combinations 1-to-1 or qcom,cpr-speed-bins number of
-		    tuples lists in which case the lists are matched to speed
-		    bins 1-to-1 or exactly 1 list which is used regardless of
-		    the fuse combination and speed bin found on a given chip.
-
-		    Each tuple list must contain the number of tuples defined in
-		    the corresponding element of the qcom,cpr-corners property
-		    or the qcom,cpr-speed-bins property.  A single tuple list
-		    may only be specified if all of the corner counts in
-		    qcom,cpr-corners and are qcom,cpr-speed-bins the same.
-		    The tuples in a given list are ordered from the lowest
-		    corner to the highest corner.
+		    Each tuple list in the grouping must meet the same size
+		    requirements as those specified for qcom,mem-acc-voltage
+		    above. The tuples in a given list are ordered from the
+		    lowest corner to the highest corner.
 
 - qcom,cpr-ro-scaling-factor
 	Usage:      required if qcom,cpr-closed-loop-voltage-adjustment is
@@ -201,6 +211,8 @@ gfx_cpr: cpr3-ctrl@838000 {
 				<670000  745000  905000 1015000>;
 			qcom,cpr-voltage-floor =
 				<545000  625000  755000  855000>;
+
+			qcom,mem-acc-voltage = <1 1 2 2>;
 
 			qcom,corner-frequencies =
 				<120000000 205000000 360000000

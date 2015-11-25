@@ -56,6 +56,20 @@ static struct snd_soc_ops msm8952_slimbus_2_be_ops = {
 };
 
 static struct snd_soc_dai_link msm8952_tasha_fe_dai[] = {
+	/* tasha_vifeedback for speaker protection */
+	{
+		.name = LPASS_BE_SLIMBUS_4_TX,
+		.stream_name = "Slimbus4 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16393",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "tasha_codec",
+		.codec_dai_name = "tasha_vifeedback",
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
+		.be_hw_params_fixup = msm_slim_4_tx_be_hw_params_fixup,
+		.ops = &msm8952_slimbus_be_ops,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+	},
 	/* Ultrasound RX DAI Link */
 	{
 		.name = "SLIMBUS_2 Hostless Playback",

@@ -2793,7 +2793,7 @@ void a5x_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP))
 
 
-static struct adreno_irq_funcs a5xx_irq_funcs[] = {
+static struct adreno_irq_funcs a5xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 2 - RBBM_TRANSFER_TIMEOUT */
@@ -2840,7 +2840,6 @@ static struct adreno_irq_funcs a5xx_irq_funcs[] = {
 
 static struct adreno_irq a5xx_irq = {
 	.funcs = a5xx_irq_funcs,
-	.funcs_count = ARRAY_SIZE(a5xx_irq_funcs),
 	.mask = A5XX_INT_MASK,
 };
 

@@ -575,14 +575,20 @@
 		qcom,apm-threshold-voltage = <850000>;
 		qcom,apm-hysteresis-voltage = <5000>;
 		qcom,system-supply-max-voltage = <1015000>;
+		qcom,mem-acc-supply-threshold-voltage = <700000>;
+		qcom,mem-acc-supply-corner-map = <1 2>;
 
 		vdd-supply = <&pm8994_s11>;
 		qcom,voltage-step = <5000>;
 		vdd-limit-supply = <&pm8994_s11_limit>;
+		mem-acc-thread0-supply = <&apc0_pwrcl_mem_acc_vreg>;
+		mem-acc-thread1-supply = <&apc1_perfcl_mem_acc_vreg>;
+		mem-acc-supply = <&apcc_l3_mem_acc_vreg>;
 		vdd-thread0-ldo-supply = <&kryo0_vreg>;
 		vdd-thread1-ldo-supply = <&kryo1_vreg>;
 		vdd-thread0-ldo-ret-supply = <&kryo0_retention_vreg>;
 		vdd-thread1-ldo-ret-supply = <&kryo1_retention_vreg>;
+		proxy-supply = <&apc0_cbf_vreg>;
 
 		qcom,cpr-enable;
 		qcom,cpr-clock-throttling = <0x20>;
@@ -616,6 +622,7 @@
 				qcom,ldo-min-headroom-voltage = <150000>;
 				qcom,ldo-max-headroom-voltage = <470000>;
 				qcom,ldo-max-voltage = <890000>;
+				qcom,uses-mem-acc;
 
 				qcom,cpr-corner-fmax-map =
 					/* Speed bin 0 */
@@ -690,9 +697,9 @@
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
 					/* Speed bin 0 */
-					<45000     0 50000  20000   15000>,
-					<45000     0 50000  20000   15000>,
-					<45000     0 50000  20000   15000>,
+					<20000     0 25000 (-5000) (-10000)>,
+					<20000     0 25000 (-5000) (-10000)>,
+					<20000     0 25000 (-5000) (-10000)>,
 					<45000     0 50000  20000   15000>,
 					<45000     0 50000  20000   15000>,
 					<45000     0 50000  20000   15000>,
@@ -700,9 +707,9 @@
 					<45000     0 50000  20000   15000>,
 
 					/* Speed bin 1 */
-					<45000     0 50000  20000   15000>,
-					<45000     0 50000  20000   15000>,
-					<45000     0 50000  20000   15000>,
+					<20000     0 25000 (-5000) (-10000)>,
+					<20000     0 25000 (-5000) (-10000)>,
+					<20000     0 25000 (-5000) (-10000)>,
 					<45000     0 50000  20000   15000>,
 					<45000     0 50000  20000   15000>,
 					<45000     0 50000  20000   15000>,
@@ -782,6 +789,9 @@
 				regulator-name = "apc0_cbf_corner";
 				regulator-min-microvolt = <1>;
 				regulator-max-microvolt = <19>;
+
+				qcom,proxy-consumer-enable;
+				qcom,proxy-consumer-voltage = <13 19>;
 
 				qcom,cpr-pd-bypass-mask = <0x18>;
 				qcom,cpr-fuse-corners = <5>;
@@ -869,9 +879,9 @@
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
 					/* Speed bin 0 */
-					<55000    0   15000    15000  (-15000)>,
-					<55000    0   15000    15000  (-15000)>,
-					<55000    0   15000    15000  (-15000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
 					<55000    0   15000    15000  (-15000)>,
 					<55000    0   15000    15000  (-15000)>,
 					<55000    0   15000    15000  (-15000)>,
@@ -879,9 +889,9 @@
 					<55000    0   15000    15000  (-15000)>,
 
 					/* Speed bin 1 */
-					<55000    0   15000    15000  (-15000)>,
-					<55000    0   15000    15000  (-15000)>,
-					<55000    0   15000    15000  (-15000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
 					<55000    0   15000    15000  (-15000)>,
 					<55000    0   15000    15000  (-15000)>,
 					<55000    0   15000    15000  (-15000)>,
@@ -952,6 +962,7 @@
 				qcom,ldo-min-headroom-voltage = <150000>;
 				qcom,ldo-max-headroom-voltage = <470000>;
 				qcom,ldo-max-voltage = <890000>;
+				qcom,uses-mem-acc;
 
 				qcom,cpr-corner-fmax-map =
 					/* Speed bin 0 */
@@ -992,14 +1003,14 @@
 
 				qcom,cpr-floor-to-ceiling-max-range =
 					/* Speed bin 0 */
-					<    0   80000   80000   80000   80000
+					<80000   80000   80000   80000   80000
 					 80000   80000   80000   80000   80000
 					 80000   80000   80000   80000   80000
 					 80000   80000   80000   80000   80000
 					 80000   80000   80000   80000   80000>,
 
 					/* Speed bin 1 */
-					<    0   80000   80000   80000   80000
+					<80000   80000   80000   80000   80000
 					 80000   80000   80000   80000   80000
 					 80000   80000   80000   80000   80000
 					 80000   80000   80000   80000   80000
@@ -1040,9 +1051,9 @@
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
 					/* Speed bin 0 */
-					<35000     0 40000 (-30000) 25000>,
-					<35000     0 40000 (-30000) 25000>,
-					<35000     0 40000   25000  25000>,
+					<20000     0 15000 (-55000)     0>,
+					<20000     0 15000 (-55000)     0>,
+					<20000     0 15000       0      0>,
 					<35000     0 40000   25000  25000>,
 					<35000     0 40000   25000  25000>,
 					<35000     0 40000   25000  25000>,
@@ -1050,9 +1061,9 @@
 					<35000     0 40000   25000  25000>,
 
 					/* Speed bin 1 */
-					<35000     0 40000 (-30000) 25000>,
-					<35000     0 40000 (-30000) 25000>,
-					<35000     0 40000   25000  25000>,
+					<20000     0 15000 (-55000)     0>,
+					<20000     0 15000 (-55000)     0>,
+					<20000     0 15000       0      0>,
 					<35000     0 40000   25000  25000>,
 					<35000     0 40000   25000  25000>,
 					<35000     0 40000   25000  25000>,
@@ -1137,6 +1148,8 @@
 
 					/* Speed bin 1 */
 					<0 0 0 1 1 1 1 1>;
+
+				qcom,cpr-dynamic-floor-corner = <1>;
 			};
 		};
 	};
@@ -1161,6 +1174,8 @@
 		qcom,cpr-count-mode = <2>;		/* Staggered */
 
 		vdd-supply = <&pmi8994_s2>;
+		mem-acc-supply = <&gfx_mem_acc_vreg>;
+
 		qcom,voltage-step = <5000>;
 
 		qcom,cpr-enable;
@@ -1191,6 +1206,8 @@
 				qcom,cpr-voltage-floor =
 					<400000  520000  520000  520000  520000
 					 520000  520000  520000>;
+
+				qcom,mem-acc-voltage = <1 1 1 1 2 2 2 2>;
 
 				qcom,corner-frequencies =
 					<0 133000000 214000000 315000000
@@ -1283,6 +1300,58 @@
 					<0 0 0 1 1 1 1 1>;
 			};
 		};
+	};
+/* Memory accelerator regulators */
+	apc0_pwrcl_mem_acc_vreg: apc0-pwrcl-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apc0_pwrcl_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x3 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <2>;
+	};
+
+	apc1_perfcl_mem_acc_vreg: apc1-perfcl-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apc1_perfcl_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x3 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <2>;
+		qcom,acc-sel-l1-bit-size = <2>;
+	};
+
+	apcc_l3_mem_acc_vreg: apcc-l3-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apcc_l3_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x1 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <4>;
+		qcom,acc-sel-l1-bit-size = <1>;
+	};
+
+	gfx_mem_acc_vreg: regulator@007af004 {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x007af004 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "gfx_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+
+		qcom,corner-acc-map = <0x1 0x0>;
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <1>;
 	};
 
 /* Kryo regulators */

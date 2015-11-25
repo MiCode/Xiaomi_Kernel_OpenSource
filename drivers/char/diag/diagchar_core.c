@@ -1392,7 +1392,8 @@ static int diag_md_session_check(int curr_mode, int req_mode,
 		return -EINVAL;
 	} else if (curr_mode == DIAG_MEMORY_DEVICE_MODE) {
 		if (req_mode == DIAG_USB_MODE) {
-			if (driver->md_session_mask != 0) {
+			if (driver->md_session_mask != 0 &&
+				driver->md_session_mode == DIAG_MD_PERIPHERAL) {
 				/*
 				 * An instance of mdlog is still running, Return
 				 * error.

@@ -279,6 +279,8 @@ static long __div_round_rate(struct div_data *data, unsigned long rate,
 		if (data->skip_odd_div && (div & 1))
 			if (!(data->allow_div_one && (div == 1)))
 				continue;
+		if (data->skip_even_div && !(div & 1))
+			continue;
 		req_prate = mult_frac(rate, div, numer);
 		prate = clk_round_rate(parent, req_prate);
 		if (IS_ERR_VALUE(prate))
@@ -349,7 +351,7 @@ static int div_set_rate(struct clk *c, unsigned long rate)
 	struct div_data *data = &d->data;
 
 	rrate = __div_round_rate(data, rate, c->parent, &div, &new_prate);
-	if (rrate != rate)
+	if (rrate < rate || rrate > rate + data->rate_margin)
 		return -EINVAL;
 
 	/*
@@ -780,7 +782,7 @@ static int mux_div_clk_set_rate(struct clk *c, unsigned long rate)
 
 	rrate = __mux_div_round_rate(c, rate, &new_parent, &new_div,
 							&new_prate);
-	if (rrate != rate)
+	if (rrate < rate || rrate > rate + md->data.rate_margin)
 		return -EINVAL;
 
 	old_parent = c->parent;

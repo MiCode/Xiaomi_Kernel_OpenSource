@@ -738,77 +738,6 @@ done:
 }
 
 /**
- * cpr3_hmss_adjust_voltages_for_apm() - adjust per-corner floor and ceiling
- *		voltages so that they do not overlap the APM threshold voltage
- * @vreg:		Pointer to the CPR3 regulator
- *
- * The HMSS memory array power mux (APM) must be configured for a specific
- * supply based upon where the VDD voltage lies with respect to the APM
- * threshold voltage.  When using CPR hardware closed-loop, the voltage may vary
- * anywhere between the floor and ceiling voltage without software notification.
- * Therefore, it is required that the floor to ceiling range for every corner
- * not intersect the APM threshold voltage.  This function adjusts the floor to
- * ceiling range for each corner which violates this requirement.
- *
- * The following algorithm is applied in the case that
- * floor < threshold < ceiling:
- *	if open_loop >= threshold - adj, then floor = threshold
- *	else ceiling = threshold - step
- * where adj = an adjustment factor to ensure sufficient voltage margin and
- * step = VDD output step size
- *
- * The open-loop voltage is also bounded by the new floor or ceiling value as
- * needed.
- *
- * Return: 0 on success, errno on failure
- */
-static int cpr3_hmss_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
-{
-	struct cpr3_controller *ctrl = vreg->thread->ctrl;
-	struct cpr3_corner *corner;
-	int i, adj, threshold, prev_ceiling, prev_floor, prev_open_loop;
-
-	if (!ctrl->apm || !ctrl->apm_threshold_volt) {
-		/* APM not being used. */
-		return 0;
-	}
-
-	ctrl->apm_threshold_volt = CPR3_ROUND(ctrl->apm_threshold_volt,
-						ctrl->step_volt);
-	ctrl->apm_adj_volt = CPR3_ROUND(ctrl->apm_adj_volt, ctrl->step_volt);
-
-	threshold = ctrl->apm_threshold_volt;
-	adj = ctrl->apm_adj_volt;
-
-	for (i = 0; i < vreg->corner_count; i++) {
-		corner = &vreg->corner[i];
-
-		if (threshold <= corner->floor_volt
-		    || threshold > corner->ceiling_volt)
-			continue;
-
-		prev_floor = corner->floor_volt;
-		prev_ceiling = corner->ceiling_volt;
-		prev_open_loop = corner->open_loop_volt;
-
-		if (corner->open_loop_volt >= threshold - adj) {
-			corner->floor_volt = threshold;
-			if (corner->open_loop_volt < corner->floor_volt)
-				corner->open_loop_volt = corner->floor_volt;
-		} else {
-			corner->ceiling_volt = threshold - ctrl->step_volt;
-		}
-
-		cpr3_debug(vreg, "APM threshold=%d, APM adj=%d changed corner %d voltages; prev: floor=%d, ceiling=%d, open-loop=%d; new: floor=%d, ceiling=%d, open-loop=%d\n",
-			threshold, adj, i, prev_floor, prev_ceiling,
-			prev_open_loop, corner->floor_volt,
-			corner->ceiling_volt, corner->open_loop_volt);
-	}
-
-	return 0;
-}
-
-/**
  * cpr3_hmss_parse_closed_loop_voltage_adjustments() - load per-fuse-corner and
  *		per-corner closed-loop adjustment values from device tree
  * @vreg:		Pointer to the CPR3 regulator
@@ -1251,7 +1180,7 @@ static int cpr3_hmss_init_thread(struct cpr3_thread *thread)
 	return 0;
 }
 
-#define MAX_KVREG_NAME_SIZE 25
+#define MAX_VREG_NAME_SIZE 25
 /**
  * cpr3_hmss_kvreg_init() - initialize HMSS Kryo Regulator data for a CPR3
  *		regulator
@@ -1271,10 +1200,10 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 	struct device_node *node = vreg->of_node;
 	struct cpr3_controller *ctrl = vreg->thread->ctrl;
 	int id = vreg->thread->thread_id;
-	char kvreg_name_buf[MAX_KVREG_NAME_SIZE];
+	char kvreg_name_buf[MAX_VREG_NAME_SIZE];
 	int rc;
 
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE,
+	scnprintf(kvreg_name_buf, MAX_VREG_NAME_SIZE,
 		"vdd-thread%d-ldo-supply", id);
 
 	if (!of_find_property(ctrl->dev->of_node, kvreg_name_buf , NULL))
@@ -1282,7 +1211,7 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 	else if (!of_find_property(node, "qcom,ldo-min-headroom-voltage", NULL))
 		return 0;
 
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo", id);
+	scnprintf(kvreg_name_buf, MAX_VREG_NAME_SIZE, "vdd-thread%d-ldo", id);
 
 	vreg->ldo_regulator = devm_regulator_get(ctrl->dev, kvreg_name_buf);
 	if (IS_ERR(vreg->ldo_regulator)) {
@@ -1295,7 +1224,7 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 
 	vreg->ldo_regulator_bypass = BHS_MODE;
 
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo-ret",
+	scnprintf(kvreg_name_buf, MAX_VREG_NAME_SIZE, "vdd-thread%d-ldo-ret",
 		  id);
 
 	vreg->ldo_ret_regulator = devm_regulator_get(ctrl->dev, kvreg_name_buf);
@@ -1367,6 +1296,51 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 }
 
 /**
+ * cpr3_hmss_mem_acc_init() - initialize mem-acc regulator data for
+ *		a CPR3 regulator
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * This function loads mem-acc data from device tree to enable
+ * the control of mem-acc settings based upon the CPR3 regulator
+ * output voltage.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_hmss_mem_acc_init(struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	int id = vreg->thread->thread_id;
+	char mem_acc_vreg_name_buf[MAX_VREG_NAME_SIZE];
+	int rc;
+
+	scnprintf(mem_acc_vreg_name_buf, MAX_VREG_NAME_SIZE,
+		  "mem-acc-thread%d-supply", id);
+
+	if (!of_find_property(ctrl->dev->of_node, mem_acc_vreg_name_buf,
+			      NULL)) {
+		cpr3_debug(vreg, "not using memory accelerator regulator\n");
+		return 0;
+	} else if (!of_property_read_bool(vreg->of_node, "qcom,uses-mem-acc")) {
+		return 0;
+	}
+
+	scnprintf(mem_acc_vreg_name_buf, MAX_VREG_NAME_SIZE,
+		  "mem-acc-thread%d", id);
+
+	vreg->mem_acc_regulator = devm_regulator_get(ctrl->dev,
+						     mem_acc_vreg_name_buf);
+	if (IS_ERR(vreg->mem_acc_regulator)) {
+		rc = PTR_ERR(vreg->mem_acc_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(vreg, "unable to request %s regulator, rc=%d\n",
+				 mem_acc_vreg_name_buf, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+/**
  * cpr3_hmss_init_regulator() - perform all steps necessary to initialize the
  *		configuration data for a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
@@ -1388,6 +1362,14 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
 			cpr3_err(vreg, "unable to initialize Kryo Regulator settings, rc=%d\n",
+				 rc);
+		return rc;
+	}
+
+	rc = cpr3_hmss_mem_acc_init(vreg);
+	if (rc) {
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(vreg, "unable to initialize mem-acc regulator settings, rc=%d\n",
 				 rc);
 		return rc;
 	}
@@ -1416,6 +1398,32 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
+	if (of_find_property(vreg->of_node, "qcom,cpr-dynamic-floor-corner",
+				NULL)) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,cpr-dynamic-floor-corner",
+			1, &vreg->dynamic_floor_corner);
+		if (rc) {
+			cpr3_err(vreg, "error reading qcom,cpr-dynamic-floor-corner, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		if (vreg->dynamic_floor_corner <= 0) {
+			vreg->uses_dynamic_floor = false;
+		} else if (vreg->dynamic_floor_corner < CPR3_CORNER_OFFSET
+			   || vreg->dynamic_floor_corner
+				> vreg->corner_count - 1 + CPR3_CORNER_OFFSET) {
+			cpr3_err(vreg, "dynamic floor corner=%d not in range [%d, %d]\n",
+				vreg->dynamic_floor_corner, CPR3_CORNER_OFFSET,
+				vreg->corner_count - 1 + CPR3_CORNER_OFFSET);
+			return -EINVAL;
+		}
+
+		vreg->dynamic_floor_corner -= CPR3_CORNER_OFFSET;
+		vreg->uses_dynamic_floor = true;
+	}
+
 	rc = cpr3_msm8996_hmss_calculate_open_loop_voltages(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate open-loop voltages, rc=%d\n",
@@ -1426,13 +1434,6 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 	rc = cpr3_limit_open_loop_voltages(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to limit open-loop voltages, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = cpr3_hmss_adjust_voltages_for_apm(vreg);
-	if (rc) {
-		cpr3_err(vreg, "unable to adjust voltages for APM\n, rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -1499,10 +1500,13 @@ static int cpr3_hmss_apm_init(struct cpr3_controller *ctrl)
 			rc);
 		return rc;
 	}
+	ctrl->apm_threshold_volt
+		= CPR3_ROUND(ctrl->apm_threshold_volt, ctrl->step_volt);
 
 	/* No error check since this is an optional property. */
 	of_property_read_u32(node, "qcom,apm-hysteresis-voltage",
 				&ctrl->apm_adj_volt);
+	ctrl->apm_adj_volt = CPR3_ROUND(ctrl->apm_adj_volt, ctrl->step_volt);
 
 	ctrl->apm_high_supply = MSM_APM_SUPPLY_APCC;
 	ctrl->apm_low_supply = MSM_APM_SUPPLY_MX;
@@ -1612,7 +1616,6 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
-
 	/* No error check since this is an optional property. */
 	of_property_read_u32(ctrl->dev->of_node,
 			     "qcom,system-supply-max-voltage",
@@ -1649,6 +1652,31 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 	ctrl->supports_hw_closed_loop = true;
 	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
 						"qcom,cpr-hw-closed-loop");
+
+	if (ctrl->mem_acc_regulator) {
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					  "qcom,mem-acc-supply-threshold-voltage",
+					  &ctrl->mem_acc_threshold_volt);
+		if (rc) {
+			cpr3_err(ctrl, "error reading property qcom,mem-acc-supply-threshold-voltage, rc=%d\n",
+				 rc);
+			return rc;
+		}
+
+		ctrl->mem_acc_threshold_volt =
+			CPR3_ROUND(ctrl->mem_acc_threshold_volt,
+				   ctrl->step_volt);
+
+		rc = of_property_read_u32_array(ctrl->dev->of_node,
+			"qcom,mem-acc-supply-corner-map",
+			&ctrl->mem_acc_corner_map[CPR3_MEM_ACC_LOW_CORNER],
+			CPR3_MEM_ACC_CORNERS);
+		if (rc) {
+			cpr3_err(ctrl, "error reading qcom,mem-acc-supply-corner-map, rc=%d\n",
+				 rc);
+			return rc;
+		}
+	}
 
 	return 0;
 }
