@@ -24,3 +24,6 @@
 	qcom,board-id = <10 0>;
 };
 
+&spi_9 {
+	status = "ok";
+};
