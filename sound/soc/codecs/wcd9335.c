@@ -3444,6 +3444,11 @@ static int tasha_codec_enable_anc(struct snd_soc_dapm_widget *w,
 		i = 0;
 		anc_cal_size = anc_writes_size;
 
+		if (!strcmp(w->name, "RX INT0 DAC"))
+			tasha_realign_anc_coeff(codec,
+					WCD9335_CDC_ANC0_IIR_COEFF_1_CTL,
+					WCD9335_CDC_ANC0_IIR_COEFF_2_CTL);
+
 		if (!strcmp(w->name, "RX INT1 DAC") ||
 			!strcmp(w->name, "RX INT3 DAC")) {
 			tasha_realign_anc_coeff(codec,
