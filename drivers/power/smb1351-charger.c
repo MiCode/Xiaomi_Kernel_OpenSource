@@ -216,6 +216,9 @@
 #define AFVC_OVERRIDE_BIT			BIT(1)
 #define SYSOK_PIN_CONFIG_BIT			BIT(0)
 
+#define VERSION_REG				0x2E
+#define VERSION_MASK				BIT(1)
+
 /* Command registers */
 #define CMD_I2C_REG				0x30
 #define CMD_RELOAD_BIT				BIT(7)
@@ -408,6 +411,19 @@ struct smb1351_regulator {
 	struct regulator_dev	*rdev;
 };
 
+enum chip_version {
+	SMB_UNKNOWN = 0,
+	SMB1350,
+	SMB1351,
+	SMB_MAX_TYPE,
+};
+
+static const char *smb1351_version_str[SMB_MAX_TYPE] = {
+	[SMB_UNKNOWN] = "Unknown",
+	[SMB1350] = "SMB1350",
+	[SMB1351] = "SMB1351",
+};
+
 struct smb1351_charger {
 	struct i2c_client	*client;
 	struct device		*dev;
@@ -450,6 +466,7 @@ struct smb1351_charger {
 	bool			usbin_ov;
 	bool			chg_remove_work_scheduled;
 	bool			force_hvdcp_2p0;
+	enum chip_version	version;
 
 	/* psy */
 	struct power_supply	*usb_psy;
@@ -877,6 +894,28 @@ static int smb1351_regulator_init(struct smb1351_charger *chip)
 	return rc;
 }
 
+static int smb_chip_get_version(struct smb1351_charger *chip)
+{
+	u8 ver;
+	int rc = 0;
+
+	if (chip->version == SMB_UNKNOWN) {
+		rc = smb1351_read_reg(chip, VERSION_REG, &ver);
+		if (rc) {
+			pr_err("Couldn't read version rc=%d\n", rc);
+			return rc;
+		}
+
+		/* If bit 1 is set, it is SMB1350 */
+		if (ver & VERSION_MASK)
+			chip->version = SMB1350;
+		else
+			chip->version = SMB1351;
+	}
+
+	return rc;
+}
+
 static int smb1351_hw_init(struct smb1351_charger *chip)
 {
 	int rc;
@@ -901,6 +940,12 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 	if (chip->chg_autonomous_mode) {
 		pr_debug("Charger configured for autonomous mode\n");
 		return 0;
+	}
+
+	rc = smb_chip_get_version(chip);
+	if (rc) {
+		pr_err("Couldn't get version rc = %d\n", rc);
+		return rc;
 	}
 
 	rc = smb1351_enable_volatile_writes(chip);
@@ -1393,6 +1438,12 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 		if (rc) {
 			pr_debug("Failed to detect smb1351-parallel-charger, may be absent\n");
 			return -ENODEV;
+		}
+
+		rc = smb_chip_get_version(chip);
+		if (rc) {
+			pr_err("Couldn't get version rc = %d\n", rc);
+			return rc;
 		}
 
 		rc = smb1351_enable_volatile_writes(chip);
@@ -2987,9 +3038,10 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 
 	dump_regs(chip);
 
-	pr_info("smb1351 successfully probed. charger=%d, batt=%d\n",
+	pr_info("smb1351 successfully probed. charger=%d, batt=%d version=%s\n",
 			chip->chg_present,
-			smb1351_get_prop_batt_present(chip));
+			smb1351_get_prop_batt_present(chip),
+			smb1351_version_str[chip->version]);
 	return 0;
 
 fail_smb1351_hw_init:
