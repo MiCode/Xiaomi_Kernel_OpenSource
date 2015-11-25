@@ -389,15 +389,8 @@
 	};
 };
 
-&pmi8994_fg {
-	status = "disabled";
-};
-
-&pmi8994_charger {
-	status = "disabled";
-};
-
 &usb_otg_switch {
+	/delete-property/ vin-supply;
 	gpio = <&pm8994_gpios 11 0>;
 	enable-active-high;
 	status = "ok";
@@ -421,19 +414,6 @@
 
 &usb_nop_phy {
 	status = "ok";
-};
-
-&qusb_phy0 {
-	qcom,qusb-phy-init-seq = <0xF8 0x80
-				0x63 0x84
-				0x83 0x88
-				0xC5 0x8C
-				0x30 0x08
-				0x79 0x0C
-				0x21 0x10
-				0x14 0x9C
-				0x9F 0x1C
-				0x00 0x18>;
 };
 
 &qusb_phy1 {
