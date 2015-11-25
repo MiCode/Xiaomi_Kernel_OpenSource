@@ -560,6 +560,14 @@
 		qcom,fragmented-data;
 	};
 
+	qcom,spcom {
+		compatible = "qcom,spcom";
+
+		/* predefined channels, remote side is server */
+		qcom,spcom-ch-names = "sp_kernel" , "sp_ssr";
+		status = "ok";
+	};
+
 	sdhc_2: sdhci@c0a4900 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0xc0a4900 0x314>, <0xc0a4000 0x800>;
