@@ -28,6 +28,7 @@
 #include "dsi-adv7533-1080p.dtsi"
 #include "dsi-panel-nt35950-dsc-4k-cmd.dtsi"
 #include "dsi-panel-sharp-dualmipi-1080p-120hz.dtsi"
+#include "dsi-panel-sharp-1080p-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -218,6 +219,14 @@
 		23 2e 06 08 05 03 04 a0];
 };
 &dsi_r69007_wqxga_cmd {
+	qcom,mdss-dsi-panel-timings-8996 = [23 1f 07 09 05 03 04 a0
+		23 1f 07 09 05 03 04 a0
+		23 1f 07 09 05 03 04 a0
+		23 1f 07 09 05 03 04 a0
+		23 19 08 08 05 03 04 a0];
+};
+
+&dsi_sharp_1080_cmd {
 	qcom,mdss-dsi-panel-timings-8996 = [23 1f 07 09 05 03 04 a0
 		23 1f 07 09 05 03 04 a0
 		23 1f 07 09 05 03 04 a0
