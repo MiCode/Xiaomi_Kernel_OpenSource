@@ -15,6 +15,7 @@
 
 #include <linux/module.h>
 #include <linux/cpu.h>
+#include <linux/cpu_pm.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -396,6 +397,8 @@ struct cpr_regulator {
 	bool			adj_cpus_open_loop_volt_as_ceiling;
 	struct notifier_block	cpu_notifier;
 	cpumask_t		cpu_mask;
+	bool			cpr_disabled_in_pc;
+	struct notifier_block	pm_notifier;
 
 	bool		is_cpr_suspended;
 	bool		skip_voltage_change_during_suspend;
@@ -4605,6 +4608,56 @@ done:
 	return NOTIFY_OK;
 }
 
+static void cpr_pm_disable(struct cpr_regulator *cpr_vreg, bool disable)
+{
+	u32 reg_val;
+
+	if (cpr_vreg->is_cpr_suspended)
+		return;
+
+	reg_val = cpr_read(cpr_vreg, REG_RBCPR_CTL);
+
+	if (disable) {
+		/* Proceed only if CPR is enabled */
+		if (!(reg_val & RBCPR_CTL_LOOP_EN))
+			return;
+		cpr_ctl_disable(cpr_vreg);
+		cpr_vreg->cpr_disabled_in_pc = true;
+	} else {
+		/* Proceed only if CPR was disabled in PM_ENTER */
+		if (!cpr_vreg->cpr_disabled_in_pc)
+			return;
+		cpr_vreg->cpr_disabled_in_pc = false;
+		cpr_ctl_enable(cpr_vreg, cpr_vreg->corner);
+	}
+
+	/* Make sure register write is complete */
+	mb();
+}
+
+static int cpr_pm_callback(struct notifier_block *nb,
+			    unsigned long action, void *data)
+{
+	struct cpr_regulator *cpr_vreg = container_of(nb,
+			struct cpr_regulator, pm_notifier);
+
+	if (action != CPU_PM_ENTER && action != CPU_PM_ENTER_FAILED &&
+			action != CPU_PM_EXIT)
+		return NOTIFY_OK;
+
+	switch (action) {
+	case CPU_PM_ENTER:
+		cpr_pm_disable(cpr_vreg, true);
+		break;
+	case CPU_PM_ENTER_FAILED:
+	case CPU_PM_EXIT:
+		cpr_pm_disable(cpr_vreg, false);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int cpr_parse_adj_cpus_init_voltage(struct cpr_regulator *cpr_vreg,
 		struct device *dev)
 {
@@ -4911,6 +4964,25 @@ static int cpr_init_per_cpu_adjustments(struct cpr_regulator *cpr_vreg,
 
 	cpr_vreg->cpu_notifier.notifier_call = cpr_regulator_cpu_callback;
 	register_hotcpu_notifier(&cpr_vreg->cpu_notifier);
+
+	return rc;
+}
+
+static int cpr_init_pm_notification(struct cpr_regulator *cpr_vreg)
+{
+	int rc;
+
+	/* enabled only for single-core designs */
+	if (cpr_vreg->num_adj_cpus != 1) {
+		pr_warn("qcom,cpr-cpus not defined or invalid %d\n",
+					cpr_vreg->num_adj_cpus);
+		return 0;
+	}
+
+	cpr_vreg->pm_notifier.notifier_call = cpr_pm_callback;
+	rc = cpu_pm_register_notifier(&cpr_vreg->pm_notifier);
+	if (rc)
+		cpr_err(cpr_vreg, "Unable to register pm notifier rc=%d\n", rc);
 
 	return rc;
 }
@@ -6075,6 +6147,16 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	if (rc) {
 		cpr_err(cpr_vreg, "Thermal intialization failed rc=%d\n", rc);
 		return rc;
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node,
+				"qcom,disable-closed-loop-in-pc")) {
+		rc = cpr_init_pm_notification(cpr_vreg);
+		if (rc) {
+			cpr_err(cpr_vreg,
+				"cpr_init_pm_notification failed rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/* Load per-online CPU adjustment data */
