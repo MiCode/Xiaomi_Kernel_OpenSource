@@ -890,6 +890,7 @@ enum hal_capability {
 	HAL_CAPABILITY_HIER_B_NUM_ENH_LAYERS,
 	HAL_CAPABILITY_LCU_SIZE,
 	HAL_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS,
+	HAL_CAPABILITY_MBS_PER_SECOND_POWER_SAVE,
 	HAL_UNUSED_CAPABILITY = 0x10000000,
 };
 
@@ -1280,6 +1281,7 @@ struct msm_vidc_capability {
 	struct hal_capability_supported hier_b;
 	struct hal_capability_supported lcu_size;
 	struct hal_capability_supported hier_p_hybrid;
+	struct hal_capability_supported mbs_per_sec_power_save;
 	struct hal_profile_level_supported profile_level;
 	struct hal_uncompressed_format_supported uncomp_format;
 	struct hal_interlace_format_supported HAL_format;
