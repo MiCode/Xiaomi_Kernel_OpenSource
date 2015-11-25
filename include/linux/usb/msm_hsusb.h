@@ -258,6 +258,8 @@ enum usb_id_state {
  *		mode with controller in device mode.
  * @bool disable_retention_with_vdd_min: Indicates whether to enable
 		allowing VDDmin without putting PHY into retention.
+ * @bool enable_phy_id_pullup: Indicates whether phy id pullup is
+		enabled or not.
  * @usb_id_gpio: Gpio used for USB ID detection.
  * @hub_reset_gpio: Gpio used for hub reset.
  * @switch_sel_gpio: Gpio used for controlling switch that
@@ -303,6 +305,7 @@ struct msm_otg_platform_data {
 	int vddmin_gpio;
 	bool enable_ahb2ahb_bypass;
 	bool disable_retention_with_vdd_min;
+	bool enable_phy_id_pullup;
 	int usb_id_gpio;
 	int hub_reset_gpio;
 	int switch_sel_gpio;
