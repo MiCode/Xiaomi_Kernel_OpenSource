@@ -456,12 +456,12 @@
 		};
 	};
 
-	blsp1_uart2: serial@78b0000 {
+	blsp1_uart0: serial@78af000 {
 		compatible = "qcom,msm-lsuart-v14";
-		reg = <0x78b0000 0x200>;
-		interrupts = <0 108 0>;
+		reg = <0x78af000 0x200>;
+		interrupts = <0 107 0>;
 		status = "disabled";
-		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
 		<&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
 	};
