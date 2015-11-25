@@ -370,7 +370,7 @@
 		qcom,cpr-timer-cons-up = <0>;
 		qcom,cpr-timer-cons-down = <2>;
 		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <16>;
+		qcom,cpr-step-quotient = <25>;
 		qcom,cpr-up-threshold = <2>;
 		qcom,cpr-down-threshold = <4>;
 		qcom,cpr-idle-clocks = <15>;
@@ -401,8 +401,13 @@
 				<4 1344000000>,
 				<5 1401000000>;
 		qcom,speed-bin-fuse-sel = <37 34 3 0>;
-		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
+		qcom,cpr-speed-bin-max-corners =
+					<0 0 1 2 5>;
 		qcom,cpr-fuse-revision = <69 39 3 0>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
+		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
+		qcom,cpr-scaled-init-voltage-as-ceiling;
+		qcom,cpr-enable;
 	};
 
 	eldo2_pm8937: eldo2 {
