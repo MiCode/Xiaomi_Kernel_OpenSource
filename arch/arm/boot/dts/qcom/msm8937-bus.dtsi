@@ -34,6 +34,13 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
 				<&clock_gcc  clk_bimc_msmbus_a_clk>;
+
+			coresight-id = <203>;
+			coresight-name = "coresight-bimc";
+			coresight-nr-inports = <0>;
+			coresight-outports = <0>;
+			coresight-child-list = <&funnel_in0>;
+			coresight-child-ports = <2>;
 		};
 
 		fab_pcnoc: fab-pcnoc {
@@ -42,11 +49,18 @@
 			qcom,fab-dev;
 			qcom,base-name = "pcnoc-base";
 			qcom,base-offset = <0x7000>;
-			qcom,qos-delta = <0x1000>;
+			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_pnoc_msmbus_clk>,
 				<&clock_gcc  clk_pnoc_msmbus_a_clk>;
+
+			coresight-id = <201>;
+			coresight-name = "coresight-pcnoc";
+			coresight-nr-inports = <0>;
+			coresight-outports = <0>;
+			coresight-child-list = <&funnel_center>;
+			coresight-child-ports = <3>;
 		};
 
 		fab_snoc: fab-snoc {
@@ -60,6 +74,13 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_snoc_msmbus_clk>,
 				<&clock_gcc  clk_snoc_msmbus_a_clk>;
+
+			coresight-id = <200>;
+			coresight-name = "coresight-snoc";
+			coresight-nr-inports = <0>;
+			coresight-outports = <0>;
+			coresight-child-list = <&funnel_center>;
+			coresight-child-ports = <4>;
 		};
 
 		fab_snoc_mm: fab-snoc-mm {
@@ -68,7 +89,6 @@
 			qcom,fab-dev;
 			qcom,base-name = "snoc-mm-base";
 			qcom,base-offset = <0x7000>;
-			qcom,bypass-qos-prg;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
 			qcom,util-fact = <154>;
@@ -200,7 +220,6 @@
 			label = "mas-usb-hs1";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
-			qcom,ap-owned;
 			qcom,qport = <12>;
 			qcom,qos-mode = "fixed";
 			qcom,prio1 = <1>;
