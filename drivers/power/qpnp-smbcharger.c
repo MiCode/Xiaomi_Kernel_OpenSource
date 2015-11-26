@@ -243,6 +243,7 @@ struct smbchg_chip {
 	struct completion		usbin_uv_raised;
 	int				pulse_cnt;
 	struct led_classdev		led_cdev;
+	bool				skip_usb_notification;
 
 	u32				vchg_adc_channel;
 	struct qpnp_vadc_chip		*vchg_vadc_dev;
@@ -3922,10 +3923,12 @@ static void smbchg_hvdcp_det_work(struct work_struct *work)
 				pr_err("could not force 9V HVDCP continuing rc=%d\n",
 						rc);
 		}
-		pr_smb(PR_MISC, "setting usb psy type = %d\n",
-				POWER_SUPPLY_TYPE_USB_HVDCP);
-		power_supply_set_supply_type(chip->usb_psy,
-				POWER_SUPPLY_TYPE_USB_HVDCP);
+		if (!chip->skip_usb_notification) {
+			pr_smb(PR_MISC, "setting usb psy type = %d\n",
+					POWER_SUPPLY_TYPE_USB_HVDCP);
+			power_supply_set_supply_type(chip->usb_psy,
+					POWER_SUPPLY_TYPE_USB_HVDCP);
+		}
 		if (chip->psy_registered)
 			power_supply_changed(&chip->batt_psy);
 		smbchg_aicl_deglitch_wa_check(chip);
@@ -4011,7 +4014,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	/* Clear the OV detected status set before */
 	if (chip->usb_ov_det)
 		chip->usb_ov_det = false;
-	if (chip->usb_psy) {
+	if (!chip->skip_usb_notification) {
 		pr_smb(PR_MISC, "setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_supply_type(chip->usb_psy,
@@ -4019,16 +4022,17 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
-		set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPR_DMR);
-		schedule_work(&chip->usb_set_online_work);
-		pr_smb(PR_MISC, "setting usb psy health UNKNOWN\n");
-		rc = power_supply_set_health_state(chip->usb_psy,
-				POWER_SUPPLY_HEALTH_UNKNOWN);
-		if (rc)
-			pr_smb(PR_STATUS,
-				"usb psy does not allow updating prop %d rc = %d\n",
-				POWER_SUPPLY_HEALTH_UNKNOWN, rc);
 	}
+	set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPR_DMR);
+	schedule_work(&chip->usb_set_online_work);
+	pr_smb(PR_MISC, "setting usb psy health UNKNOWN\n");
+	rc = power_supply_set_health_state(chip->usb_psy,
+			POWER_SUPPLY_HEALTH_UNKNOWN);
+	if (rc < 0)
+		pr_smb(PR_STATUS,
+			"usb psy does not allow updating prop %d rc = %d\n",
+			POWER_SUPPLY_HEALTH_UNKNOWN, rc);
+
 	if (parallel_psy && chip->parallel_charger_detected)
 		power_supply_set_present(parallel_psy, false);
 	if (chip->parallel.avail && chip->aicl_done_irq
@@ -4090,34 +4094,35 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		"inserted type = %d (%s)", usb_supply_type, usb_type_name);
 
 	smbchg_aicl_deglitch_wa_check(chip);
-	if (chip->usb_psy) {
+	if (!chip->skip_usb_notification) {
 		pr_smb(PR_MISC, "setting usb psy type = %d\n",
 				usb_supply_type);
 		power_supply_set_supply_type(chip->usb_psy, usb_supply_type);
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
-		/* Notify the USB psy if OV condition is not present */
-		if (!chip->usb_ov_det) {
-			/*
-			 * Note that this could still be a very weak charger
-			 * if the handle_usb_insertion was triggered from
-			 * the falling edge of an USBIN_OV interrupt
-			 */
-			pr_smb(PR_MISC, "setting usb psy health %s\n",
-					chip->very_weak_charger
-					? "UNSPEC_FAILURE" : "GOOD");
-			rc = power_supply_set_health_state(chip->usb_psy,
-					chip->very_weak_charger
-					? POWER_SUPPLY_HEALTH_UNSPEC_FAILURE
-					: POWER_SUPPLY_HEALTH_GOOD);
-			if (rc)
-				pr_smb(PR_STATUS,
-					"usb psy does not allow updating prop %d rc = %d\n",
-					POWER_SUPPLY_HEALTH_GOOD, rc);
-		}
-		schedule_work(&chip->usb_set_online_work);
 	}
+
+	/* Notify the USB psy if OV condition is not present */
+	if (!chip->usb_ov_det) {
+		/*
+		 * Note that this could still be a very weak charger
+		 * if the handle_usb_insertion was triggered from
+		 * the falling edge of an USBIN_OV interrupt
+		 */
+		pr_smb(PR_MISC, "setting usb psy health %s\n",
+				chip->very_weak_charger
+				? "UNSPEC_FAILURE" : "GOOD");
+		rc = power_supply_set_health_state(chip->usb_psy,
+				chip->very_weak_charger
+				? POWER_SUPPLY_HEALTH_UNSPEC_FAILURE
+				: POWER_SUPPLY_HEALTH_GOOD);
+		if (rc < 0)
+			pr_smb(PR_STATUS,
+				"usb psy does not allow updating prop %d rc = %d\n",
+				POWER_SUPPLY_HEALTH_GOOD, rc);
+	}
+	schedule_work(&chip->usb_set_online_work);
 
 	if (usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP)
 		schedule_delayed_work(&chip->hvdcp_det_work,
@@ -4892,8 +4897,10 @@ static int smbchg_hvdcp3_confirmed(struct smbchg_chip *chip)
 
 	pr_smb(PR_MISC, "setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_USB_HVDCP_3);
-	power_supply_set_supply_type(chip->usb_psy,
+	if (!chip->skip_usb_notification) {
+		power_supply_set_supply_type(chip->usb_psy,
 				POWER_SUPPLY_TYPE_USB_HVDCP_3);
+	}
 	return 0;
 }
 
@@ -6656,6 +6663,9 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 		}
 	}
 
+	chip->skip_usb_notification
+		= of_property_read_bool(node,
+				"qcom,skip-usb-notification");
 	return 0;
 }
 
@@ -7234,8 +7244,11 @@ static int smbchg_probe(struct spmi_device *spmi)
 		goto unregister_led_class;
 	}
 
-	pr_smb(PR_MISC, "setting usb psy present = %d\n", chip->usb_present);
-	power_supply_set_present(chip->usb_psy, chip->usb_present);
+	if (!chip->skip_usb_notification) {
+		pr_smb(PR_MISC, "setting usb psy present = %d\n",
+			chip->usb_present);
+		power_supply_set_present(chip->usb_psy, chip->usb_present);
+	}
 
 	dump_regs(chip);
 	create_debugfs_entries(chip);
