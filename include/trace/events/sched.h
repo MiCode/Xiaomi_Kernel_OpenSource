@@ -188,12 +188,12 @@ TRACE_EVENT(sched_cpu_load,
 		__entry->nr_running		= rq->nr_running;
 		__entry->nr_big_tasks		= rq->hmp_stats.nr_big_tasks;
 		__entry->nr_small_tasks		= rq->hmp_stats.nr_small_tasks;
-		__entry->load_scale_factor	= rq->load_scale_factor;
-		__entry->capacity		= rq->capacity;
+		__entry->load_scale_factor	= rq->cluster->load_scale_factor;
+		__entry->capacity		= rq->cluster->capacity;
 		__entry->cumulative_runnable_avg = rq->hmp_stats.cumulative_runnable_avg;
 		__entry->irqload		= irqload;
-		__entry->cur_freq		= rq->cur_freq;
-		__entry->max_freq		= rq->max_freq;
+		__entry->cur_freq		= rq->cluster->cur_freq;
+		__entry->max_freq		= rq->cluster->max_freq;
 		__entry->power_cost		= power_cost;
 		__entry->cstate			= rq->cstate;
 		__entry->temp			= temp;
@@ -262,7 +262,7 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->evt            = evt;
 		__entry->cpu            = rq->cpu;
 		__entry->cur_pid        = rq->curr->pid;
-		__entry->cur_freq       = rq->cur_freq;
+		__entry->cur_freq       = cpu_cur_freq(rq->cpu);
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->pid            = p->pid;
 		__entry->mark_start     = p->ravg.mark_start;
