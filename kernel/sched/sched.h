@@ -352,6 +352,18 @@ static inline int cluster_first_cpu(struct sched_cluster *cluster)
 	return cpumask_first(&cluster->cpus);
 }
 
+struct related_thread_group {
+	int id;
+	raw_spinlock_t lock;
+	struct list_head tasks;
+	struct list_head list;
+	struct sched_cluster *preferred_cluster;
+	struct rcu_head rcu;
+	u64 last_update;
+};
+
+extern int group_will_fit(struct sched_cluster *cluster,
+		 struct related_thread_group *grp, u64 demand);
 #endif
 
 /* CFS-related fields in a runqueue */
@@ -887,6 +899,9 @@ extern unsigned int sched_init_task_load_pelt;
 extern unsigned int sched_init_task_load_windows;
 extern unsigned int sched_heavy_task;
 extern unsigned int up_down_migrate_scale_factor;
+extern unsigned int sched_grp_task_active_period;
+extern unsigned int sched_grp_min_task_load_delta;
+extern unsigned int sched_grp_min_cluster_update_delta;
 
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern void fixup_nr_big_small_task(int cpu, int reset_stats);
@@ -897,6 +912,14 @@ unsigned int cpu_temp(int cpu);
 extern unsigned int nr_eligible_big_tasks(int cpu);
 extern void update_up_down_migrate(void);
 extern int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost);
+
+static inline unsigned int task_load(struct task_struct *p)
+{
+	if (sched_use_pelt)
+		return p->se.avg.runnable_avg_sum_scaled;
+
+	return p->ravg.demand;
+}
 
 static inline int cpu_capacity(int cpu)
 {
@@ -1026,9 +1049,21 @@ static inline int sched_cpu_high_irqload(int cpu)
 	return sched_irqload(cpu) >= sysctl_sched_cpu_high_irqload;
 }
 
+static inline
+struct related_thread_group *task_related_thread_group(struct task_struct *p)
+{
+	return p->grp;
+}
+
+static inline void task_note_last_sleep(struct task_struct *p, u64 wallclock)
+{
+	p->last_sleep_ts = wallclock;
+}
+
 #else	/* CONFIG_SCHED_HMP */
 
 struct hmp_sched_stats;
+struct related_thread_group;
 
 static inline unsigned int nr_eligible_big_tasks(int cpu)
 {
@@ -1060,6 +1095,26 @@ static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 static inline int sched_cpu_high_irqload(int cpu) { return 0; }
 
 static inline int same_cluster(int src_cpu, int dst_cpu) { return 1; }
+
+static inline void set_preferred_cluster(struct related_thread_group *grp) { }
+
+static inline
+struct related_thread_group *task_related_thread_group(struct task_struct *p)
+{
+	return NULL;
+}
+
+static inline u32 task_load(struct task_struct *p) { return 0; }
+
+static inline int update_preferred_cluster(struct related_thread_group *grp,
+			 struct task_struct *p, u32 old_load)
+{
+	return 0;
+}
+static inline void
+add_new_task_to_grp(struct task_struct *p) {}
+
+static inline void task_note_last_sleep(struct task_struct *p, u64 wallclock) {}
 
 #endif	/* CONFIG_SCHED_HMP */
 
