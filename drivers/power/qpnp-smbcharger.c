@@ -6204,6 +6204,7 @@ static inline int get_bpd(const char *name)
 #define APSD_RERUN_BIT			BIT(0)
 #define OTG_OC_CFG			0xF1
 #define HICCUP_ENABLED_BIT		BIT(6)
+#define AICL_ADC_BIT			BIT(6)
 static void batt_ov_wa_check(struct smbchg_chip *chip)
 {
 	int rc;
@@ -6614,6 +6615,13 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 
 	if (chip->wa_flags & SMBCHG_BATT_OV_WA)
 		batt_ov_wa_check(chip);
+
+	/* turn off AICL adc for improved accuracy */
+	rc = smbchg_sec_masked_write(chip,
+		chip->misc_base + MISC_TRIM_OPT_15_8, AICL_ADC_BIT, 0);
+	if (rc)
+		pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n",
+			rc);
 
 	return rc;
 }
