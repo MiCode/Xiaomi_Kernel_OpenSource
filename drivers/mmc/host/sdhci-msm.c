@@ -3877,7 +3877,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		msm_host->is_sdiowakeup_enabled = true;
 		ret = request_irq(msm_host->pdata->sdiowakeup_irq,
 				  sdhci_msm_sdiowakeup_irq,
-				  IRQF_SHARED | IRQF_TRIGGER_LOW,
+				  IRQF_SHARED | IRQF_TRIGGER_HIGH,
 				  "sdhci-msm sdiowakeup", host);
 		if (ret) {
 			dev_err(&pdev->dev, "%s: request sdiowakeup IRQ %d: failed: %d\n",
