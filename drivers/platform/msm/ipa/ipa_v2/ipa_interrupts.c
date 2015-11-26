@@ -184,9 +184,9 @@ static void ipa_process_interrupts(bool isr_context)
 static void ipa_interrupt_defer(struct work_struct *work)
 {
 	IPADBG("processing interrupts in wq\n");
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
 	ipa_process_interrupts(false);
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG("Done\n");
 }
 

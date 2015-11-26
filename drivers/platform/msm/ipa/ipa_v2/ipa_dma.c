@@ -274,7 +274,7 @@ int ipa2_dma_enable(void)
 		mutex_unlock(&ipa_dma_ctx->enable_lock);
 		return -EPERM;
 	}
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_SPECIAL("DMA");
 	ipa_dma_ctx->is_enabled = true;
 	mutex_unlock(&ipa_dma_ctx->enable_lock);
 
@@ -337,7 +337,7 @@ int ipa2_dma_disable(void)
 	}
 	ipa_dma_ctx->is_enabled = false;
 	spin_unlock_irqrestore(&ipa_dma_ctx->pending_lock, flags);
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_SPECIAL("DMA");
 	mutex_unlock(&ipa_dma_ctx->enable_lock);
 	IPADMA_FUNC_EXIT();
 	return 0;

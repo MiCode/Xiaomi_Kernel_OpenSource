@@ -1240,7 +1240,7 @@ int ipa2_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 	IPA_MHI_DBG("client %d channelHandle %d channelIndex %d\n",
 		channel->client, channel->hdl, channel->id);
 
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_EP(in->sys.client);
 
 	if (ep->valid == 1) {
 		IPA_MHI_ERR("EP already allocated.\n");
@@ -1310,7 +1310,7 @@ int ipa2_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
 	if (!ep->keep_ipa_awake)
-		ipa_dec_client_disable_clks();
+		IPA2_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 
 	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 	IPA_MHI_DBG("client %d (ep: %d) connected\n", in->sys.client,
@@ -1328,7 +1328,7 @@ fail_enable_dp:
 fail_init_channel:
 	memset(ep, 0, offsetof(struct ipa_ep_context, sys));
 fail_ep_exists:
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 	return -EPERM;
 }
 
@@ -1379,7 +1379,7 @@ int ipa2_mhi_disconnect_pipe(u32 clnt_hdl)
 	ep = &ipa_ctx->ep[clnt_hdl];
 
 	if (!ep->keep_ipa_awake)
-		ipa_inc_client_enable_clks();
+		IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	res = ipa_mhi_reset_channel(channel);
 	if (res) {
@@ -1390,7 +1390,7 @@ int ipa2_mhi_disconnect_pipe(u32 clnt_hdl)
 	ep->valid = 0;
 	ipa_delete_dflt_flt_rules(clnt_hdl);
 
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	IPA_MHI_DBG("client (ep: %d) disconnected\n", clnt_hdl);
 	IPA_MHI_FUNC_EXIT();
@@ -1398,7 +1398,7 @@ int ipa2_mhi_disconnect_pipe(u32 clnt_hdl)
 
 fail_reset_channel:
 	if (!ep->keep_ipa_awake)
-		ipa_dec_client_disable_clks();
+		IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 	return res;
 }
 
@@ -1653,7 +1653,7 @@ int ipa2_mhi_suspend(bool force)
 	 * IPA RM resource are released to make sure tag process will not start
 	 */
 	if (!bam_empty)
-		ipa_inc_client_enable_clks();
+		IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	IPA_MHI_DBG("release prod\n");
 	res = ipa_mhi_release_prod();
@@ -1696,7 +1696,7 @@ int ipa2_mhi_suspend(bool force)
 
 	if (!bam_empty) {
 		ipa_ctx->tag_process_before_gating = false;
-		ipa_dec_client_disable_clks();
+		IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 	}
 
 	res = ipa_mhi_set_state(IPA_MHI_STATE_SUSPENDED);

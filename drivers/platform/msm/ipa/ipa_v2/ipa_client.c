@@ -289,7 +289,8 @@ int ipa2_connect(const struct ipa_connect_params *in,
 	}
 
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_EP(in->client);
+
 
 	ep->skip_ep_cfg = in->skip_ep_cfg;
 	ep->valid = 1;
@@ -430,7 +431,7 @@ int ipa2_connect(const struct ipa_connect_params *in,
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
 	if (!ep->keep_ipa_awake)
-		ipa_dec_client_disable_clks();
+		IPA2_ACTIVE_CLIENTS_DEC_EP(in->client);
 
 	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
 
@@ -484,7 +485,7 @@ desc_mem_alloc_fail:
 	sps_free_endpoint(ep->ep_hdl);
 ipa_cfg_ep_fail:
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_EP(in->client);
 fail:
 	return result;
 }
@@ -553,7 +554,8 @@ int ipa2_disconnect(u32 clnt_hdl)
 	ep = &ipa_ctx->ep[clnt_hdl];
 
 	if (!ep->keep_ipa_awake)
-		ipa_inc_client_enable_clks();
+		IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+
 
 	/* Set Disconnect in Progress flag. */
 	spin_lock(&ipa_ctx->disconnect_lock);
@@ -660,7 +662,7 @@ int ipa2_disconnect(u32 clnt_hdl)
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 	spin_unlock(&ipa_ctx->disconnect_lock);
 
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
@@ -691,7 +693,7 @@ int ipa2_reset_endpoint(u32 clnt_hdl)
 	}
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 	res = sps_disconnect(ep->ep_hdl);
 	if (res) {
 		IPAERR("sps_disconnect() failed, res=%d.\n", res);
@@ -706,7 +708,7 @@ int ipa2_reset_endpoint(u32 clnt_hdl)
 	}
 
 bail:
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return res;
 }
@@ -758,8 +760,7 @@ int ipa2_clear_endpoint_delay(u32 clnt_hdl)
 		ep->qmi_request_sent = true;
 	}
 
-
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 	/* Set disconnect in progress flag so further flow control events are
 	 * not honored.
 	 */
@@ -772,7 +773,7 @@ int ipa2_clear_endpoint_delay(u32 clnt_hdl)
 	ep_ctrl.ipa_ep_suspend = false;
 	ipa2_cfg_ep_ctrl(clnt_hdl, &ep_ctrl);
 
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) removed ep delay\n", clnt_hdl);
 
