@@ -164,6 +164,12 @@ static int msm_hsic_phy_clk_reset(struct msm_hsic_per *mhsic)
 {
 	int ret;
 
+	clk_disable_unprepare(mhsic->iface_clk);
+	clk_disable_unprepare(mhsic->core_clk);
+	clk_disable_unprepare(mhsic->phy_clk);
+	clk_disable_unprepare(mhsic->cal_sleep_clk);
+	clk_disable_unprepare(mhsic->cal_clk);
+
 	ret = clk_reset(mhsic->core_clk, CLK_RESET_ASSERT);
 	if (ret) {
 		dev_err(mhsic->dev, "usb phy clk assert failed\n");
@@ -176,6 +182,12 @@ static int msm_hsic_phy_clk_reset(struct msm_hsic_per *mhsic)
 		dev_err(mhsic->dev, "usb phy clk deassert failed\n");
 
 	usleep_range(10000, 12000);
+
+	clk_prepare_enable(mhsic->iface_clk);
+	clk_prepare_enable(mhsic->core_clk);
+	clk_prepare_enable(mhsic->phy_clk);
+	clk_prepare_enable(mhsic->cal_sleep_clk);
+	clk_prepare_enable(mhsic->cal_clk);
 
 	return ret;
 }
