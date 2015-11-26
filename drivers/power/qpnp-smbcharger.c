@@ -112,7 +112,6 @@ struct smbchg_chip {
 	int				usb_max_current_ma;
 	int				dc_max_current_ma;
 	int				usb_target_current_ma;
-	int				usb_tl_current_ma;
 	int				dc_target_current_ma;
 	int				cfg_fastchg_current_ma;
 	int				fastchg_current_ma;
@@ -244,7 +243,7 @@ struct smbchg_chip {
 	struct delayed_work		vfloat_adjust_work;
 	struct delayed_work		hvdcp_det_work;
 	spinlock_t			sec_access_lock;
-	struct mutex			current_change_lock;
+	struct mutex			therm_lvl_lock;
 	struct mutex			usb_set_online_lock;
 	struct mutex			battchg_disabled_lock;
 	struct mutex			usb_en_lock;
@@ -263,6 +262,8 @@ struct smbchg_chip {
 	struct led_classdev		led_cdev;
 	bool				skip_usb_notification;
 	struct votable			*fcc_votable;
+	struct votable			*usb_icl_votable;
+	struct votable			*dc_icl_votable;
 
 	u32				vchg_adc_channel;
 	struct qpnp_vadc_chip		*vchg_vadc_dev;
@@ -315,6 +316,14 @@ enum fcc_voters {
 	BATT_TYPE_FCC_VOTER,
 	USER_FCC_VOTER,
 	NUM_FCC_VOTER,
+};
+
+enum icl_voters {
+	PSY_ICL_VOTER,
+	THERMAL_ICL_VOTER,
+	HVDCP_ICL_VOTER,
+	USER_ICL_VOTER,
+	NUM_ICL_VOTER,
 };
 
 static int smbchg_debug_mask;
@@ -1214,29 +1223,6 @@ static void use_pmi8996_tables(struct smbchg_chip *chip)
 	chip->tables.rchg_thr_mv = 150;
 }
 
-static int calc_thermal_limited_current(struct smbchg_chip *chip,
-						int current_ma)
-{
-	int therm_ma;
-
-	if (chip->therm_lvl_sel > 0
-			&& chip->therm_lvl_sel < (chip->thermal_levels - 1)) {
-		/*
-		 * consider thermal limit only when it is active and not at
-		 * the highest level
-		 */
-		therm_ma = (int)chip->thermal_mitigation[chip->therm_lvl_sel];
-		if (therm_ma < current_ma) {
-			pr_smb(PR_STATUS,
-				"Limiting current due to thermal: %d mA",
-				therm_ma);
-			return therm_ma;
-		}
-	}
-
-	return current_ma;
-}
-
 #define CMD_CHG_REG	0x42
 #define EN_BAT_CHG_BIT		BIT(1)
 static int smbchg_charging_en(struct smbchg_chip *chip, bool en)
@@ -1910,9 +1896,8 @@ static void smbchg_parallel_usb_disable(struct smbchg_chip *chip)
 	power_supply_set_present(parallel_psy, false);
 	smbchg_set_fastchg_current_raw(chip,
 			get_effective_result_locked(chip->fcc_votable));
-	chip->usb_tl_current_ma =
-		calc_thermal_limited_current(chip, chip->usb_target_current_ma);
-	smbchg_set_usb_current_max(chip, chip->usb_tl_current_ma);
+	smbchg_set_usb_current_max(chip,
+			get_effective_result_locked(chip->usb_icl_votable));
 	smbchg_rerun_aicl(chip);
 }
 
@@ -2078,6 +2063,7 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 	ktime_t kt_since_last_disable;
 	u8 reg;
 	int fcc_ma = get_effective_result_locked(chip->fcc_votable);
+	int usb_icl_ma = get_effective_result_locked(chip->usb_icl_votable);
 
 	if (!parallel_psy || !smbchg_parallel_en
 			|| !chip->parallel_charger_detected) {
@@ -2147,9 +2133,9 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 		return false;
 	}
 
-	if (chip->usb_tl_current_ma < min_current_thr_ma) {
+	if (usb_icl_ma < min_current_thr_ma) {
 		pr_smb(PR_STATUS, "Weak USB chg skip enable: %d < %d\n",
-			chip->usb_tl_current_ma, min_current_thr_ma);
+			usb_icl_ma, min_current_thr_ma);
 		return false;
 	}
 
@@ -2549,37 +2535,43 @@ DEFINE_SIMPLE_ATTRIBUTE(force_dcin_icl_ops, NULL,
  * set the dc charge path's maximum allowed current draw
  * that may be limited by the system's thermal level
  */
-static int smbchg_set_thermal_limited_dc_current_max(struct smbchg_chip *chip,
-							int current_ma)
+static int set_dc_current_limit_vote_cb(struct device *dev,
+						int icl_ma,
+						int client,
+						int last_icl_ma,
+						int last_client)
 {
-	current_ma = calc_thermal_limited_current(chip, current_ma);
-	return smbchg_set_dc_current_max(chip, current_ma);
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
+
+	return smbchg_set_dc_current_max(chip, icl_ma);
 }
 
 /*
  * set the usb charge path's maximum allowed current draw
  * that may be limited by the system's thermal level
  */
-static int smbchg_set_thermal_limited_usb_current_max(struct smbchg_chip *chip,
-							int current_ma)
+static int set_usb_current_limit_vote_cb(struct device *dev,
+						int icl_ma,
+						int client,
+						int last_icl_ma,
+						int last_client)
 {
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
 	int rc, aicl_ma;
 
-	aicl_ma = smbchg_get_aicl_level_ma(chip);
-	chip->usb_tl_current_ma =
-		calc_thermal_limited_current(chip, current_ma);
-	rc = smbchg_set_usb_current_max(chip, chip->usb_tl_current_ma);
-	if (rc) {
-		pr_err("Failed to set usb current max: %d\n", rc);
-		return rc;
+	if (chip->parallel.current_max_ma == 0) {
+		rc = smbchg_set_usb_current_max(chip, icl_ma);
+		if (rc) {
+			pr_err("Failed to set usb current max: %d\n", rc);
+			return rc;
+		}
 	}
 
-	pr_smb(PR_STATUS, "AICL = %d, ICL = %d\n",
-			aicl_ma, chip->usb_max_current_ma);
-	if (chip->usb_max_current_ma > aicl_ma && smbchg_is_aicl_complete(chip))
+	aicl_ma = smbchg_get_aicl_level_ma(chip);
+	if (icl_ma > aicl_ma && smbchg_is_aicl_complete(chip))
 		smbchg_rerun_aicl(chip);
 	smbchg_parallel_usb_check_ok(chip);
-	return rc;
+	return 0;
 }
 
 static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
@@ -2587,6 +2579,7 @@ static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
 {
 	int rc = 0;
 	int prev_therm_lvl;
+	int thermal_icl_ma;
 
 	if (!chip->thermal_mitigation) {
 		dev_err(chip->dev, "Thermal mitigation not supported\n");
@@ -2607,7 +2600,7 @@ static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
 	if (lvl_sel == chip->therm_lvl_sel)
 		return 0;
 
-	mutex_lock(&chip->current_change_lock);
+	mutex_lock(&chip->therm_lvl_lock);
 	prev_therm_lvl = chip->therm_lvl_sel;
 	chip->therm_lvl_sel = lvl_sel;
 	if (chip->therm_lvl_sel == (chip->thermal_levels - 1)) {
@@ -2630,10 +2623,29 @@ static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
 		goto out;
 	}
 
-	rc = smbchg_set_thermal_limited_usb_current_max(chip,
-					chip->usb_target_current_ma);
-	rc = smbchg_set_thermal_limited_dc_current_max(chip,
-					chip->dc_target_current_ma);
+	if (chip->therm_lvl_sel == 0) {
+		rc = vote(chip->usb_icl_votable, THERMAL_ICL_VOTER, false, 0);
+		if (rc < 0)
+			pr_err("Couldn't disable USB thermal ICL vote rc=%d\n",
+				rc);
+
+		rc = vote(chip->dc_icl_votable, THERMAL_ICL_VOTER, false, 0);
+		if (rc < 0)
+			pr_err("Couldn't disable DC thermal ICL vote rc=%d\n",
+				rc);
+	} else {
+		thermal_icl_ma =
+			(int)chip->thermal_mitigation[chip->therm_lvl_sel];
+		rc = vote(chip->usb_icl_votable, THERMAL_ICL_VOTER, true,
+					thermal_icl_ma);
+		if (rc < 0)
+			pr_err("Couldn't vote for USB thermal ICL rc=%d\n", rc);
+
+		rc = vote(chip->dc_icl_votable, THERMAL_ICL_VOTER, true,
+					thermal_icl_ma);
+		if (rc < 0)
+			pr_err("Couldn't vote for DC thermal ICL rc=%d\n", rc);
+	}
 
 	if (prev_therm_lvl == chip->thermal_levels - 1) {
 		/*
@@ -2655,7 +2667,7 @@ static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
 		}
 	}
 out:
-	mutex_unlock(&chip->current_change_lock);
+	mutex_unlock(&chip->therm_lvl_lock);
 	return rc;
 }
 
@@ -3416,18 +3428,12 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 
 	pr_smb(PR_MISC, "usb type = %s current_limit = %d\n",
 			usb_type_name, current_limit);
-	mutex_lock(&chip->current_change_lock);
-	if (current_limit != chip->usb_target_current_ma) {
-		pr_smb(PR_STATUS, "changed current_limit = %d\n",
-				current_limit);
-		chip->usb_target_current_ma = current_limit;
-		rc = smbchg_set_thermal_limited_usb_current_max(chip,
-				current_limit);
-		if (rc < 0)
-			dev_err(chip->dev,
-				"Couldn't set usb current rc = %d\n", rc);
-	}
-	mutex_unlock(&chip->current_change_lock);
+
+	chip->usb_target_current_ma = current_limit;
+	rc = vote(chip->usb_icl_votable, PSY_ICL_VOTER, true,
+				chip->usb_target_current_ma);
+	if (rc < 0)
+		pr_err("Couldn't update USB PSY ICL vote rc=%d\n", rc);
 
 skip_current_for_non_sdp:
 	smbchg_vfloat_adjust_check(chip);
@@ -4381,7 +4387,6 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		schedule_delayed_work(&chip->hvdcp_det_work,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
 
-	mutex_lock(&chip->current_change_lock);
 	if (usb_supply_type == POWER_SUPPLY_TYPE_USB)
 		chip->usb_target_current_ma = DEFAULT_SDP_MA;
 	else if (usb_supply_type == POWER_SUPPLY_TYPE_USB_CDP)
@@ -4391,9 +4396,10 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 
 	pr_smb(PR_STATUS, "%s detected setting mA = %d\n",
 		usb_type_name, chip->usb_target_current_ma);
-	rc = smbchg_set_thermal_limited_usb_current_max(chip,
+	rc = vote(chip->usb_icl_votable, PSY_ICL_VOTER, true,
 				chip->usb_target_current_ma);
-	mutex_unlock(&chip->current_change_lock);
+	if (rc < 0)
+		pr_err("Couldn't vote for new USB ICL rc=%d\n", rc);
 
 	if (parallel_psy) {
 		rc = power_supply_set_present(parallel_psy, true);
@@ -4735,13 +4741,10 @@ static int smbchg_prepare_for_pulsing(struct smbchg_chip *chip)
 		goto out;
 	}
 
-	/* reduce input current limit to 300mA */
-	pr_smb(PR_MISC, "Reduce mA = 300\n");
-	mutex_lock(&chip->current_change_lock);
-	rc = smbchg_set_thermal_limited_usb_current_max(chip, 300);
-	mutex_unlock(&chip->current_change_lock);
+	pr_smb(PR_MISC, "HVDCP voting for 300mA ICL\n");
+	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, true, 300);
 	if (rc < 0) {
-		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
+		pr_err("Couldn't vote for 300mA HVDCP ICL rc=%d\n", rc);
 		goto out;
 	}
 
@@ -4890,17 +4893,12 @@ static int smbchg_unprepare_for_pulsing(struct smbchg_chip *chip)
 		return rc;
 	}
 
-	/* Reset the input current limit */
-	pr_smb(PR_MISC, "Reset ICL\n");
-	mutex_lock(&chip->current_change_lock);
-	chip->usb_target_current_ma = DEFAULT_WALL_CHG_MA;
-	rc = smbchg_set_thermal_limited_usb_current_max(chip,
-			chip->usb_target_current_ma);
-	mutex_unlock(&chip->current_change_lock);
-	if (rc < 0)
-		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
-
 out:
+	pr_smb(PR_MISC, "Retracting HVDCP vote for ICL\n");
+	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, false, 0);
+	if (rc < 0)
+		pr_err("Couldn't retract HVDCP ICL vote rc=%d\n", rc);
+
 	chip->hvdcp_3_det_ignore_uv = false;
 	if (!is_src_detect_high(chip)) {
 		pr_smb(PR_MISC, "HVDCP removed\n");
@@ -5021,13 +5019,10 @@ static int smbchg_prepare_for_pulsing_lite(struct smbchg_chip *chip)
 		goto out;
 	}
 
-	/* reduce input current limit to 300mA */
-	pr_smb(PR_MISC, "Reduce mA = 300\n");
-	mutex_lock(&chip->current_change_lock);
-	rc = smbchg_set_thermal_limited_usb_current_max(chip, 300);
-	mutex_unlock(&chip->current_change_lock);
+	pr_smb(PR_MISC, "HVDCP voting for 300mA ICL\n");
+	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, true, 300);
 	if (rc < 0) {
-		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
+		pr_err("Couldn't vote for 300mA HVDCP ICL rc=%d\n", rc);
 		goto out;
 	}
 
@@ -5088,15 +5083,10 @@ static int smbchg_unprepare_for_pulsing_lite(struct smbchg_chip *chip)
 		return rc;
 	}
 
-	/* Reset the input current limit */
-	pr_smb(PR_MISC, "Reset ICL\n");
-	mutex_lock(&chip->current_change_lock);
-	chip->usb_target_current_ma = DEFAULT_WALL_CHG_MA;
-	rc = smbchg_set_thermal_limited_usb_current_max(chip,
-			chip->usb_target_current_ma);
-	mutex_unlock(&chip->current_change_lock);
+	pr_smb(PR_MISC, "Retracting HVDCP vote for ICL\n");
+	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, false, 0);
 	if (rc < 0)
-		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
+		pr_err("Couldn't retract HVDCP ICL vote rc=%d\n", rc);
 
 	return rc;
 }
@@ -5132,17 +5122,12 @@ static int smbchg_dm_pulse_lite(struct smbchg_chip *chip)
 
 static int smbchg_hvdcp3_confirmed(struct smbchg_chip *chip)
 {
-	int rc;
+	int rc = 0;
 
-	/* Reset the input current limit */
-	pr_smb(PR_MISC, "Reset ICL\n");
-	mutex_lock(&chip->current_change_lock);
-	chip->usb_target_current_ma = DEFAULT_WALL_CHG_MA;
-	rc = smbchg_set_thermal_limited_usb_current_max(chip,
-			chip->usb_target_current_ma);
-	mutex_unlock(&chip->current_change_lock);
+	pr_smb(PR_MISC, "Retracting HVDCP vote for ICL\n");
+	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, false, 0);
 	if (rc < 0)
-		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
+		pr_err("Couldn't retract HVDCP ICL vote rc=%d\n", rc);
 
 	pr_smb(PR_MISC, "setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_USB_HVDCP_3);
@@ -5150,7 +5135,7 @@ static int smbchg_hvdcp3_confirmed(struct smbchg_chip *chip)
 		power_supply_set_supply_type(chip->usb_psy,
 				POWER_SUPPLY_TYPE_USB_HVDCP_3);
 	}
-	return 0;
+	return rc;
 }
 
 static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
@@ -5459,7 +5444,8 @@ static int smbchg_dc_set_property(struct power_supply *psy,
 		rc = smbchg_dc_en(chip, val->intval, REASON_POWER_SUPPLY);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		rc = smbchg_set_dc_current_max(chip, val->intval / 1000);
+		rc = vote(chip->dc_icl_votable, USER_ICL_VOTER, true,
+				val->intval / 1000);
 		break;
 	default:
 		return -EINVAL;
@@ -6552,10 +6538,11 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 
 	/* DC path current settings */
 	if (chip->dc_psy_type != -EINVAL) {
-		rc = smbchg_set_thermal_limited_dc_current_max(chip,
-						chip->dc_target_current_ma);
+		rc = vote(chip->dc_icl_votable, PSY_ICL_VOTER, true,
+					chip->dc_target_current_ma);
 		if (rc < 0) {
-			dev_err(chip->dev, "can't set dc current: %d\n", rc);
+			dev_err(chip->dev,
+				"Couldn't vote for initial DC ICL rc=%d\n", rc);
 			return rc;
 		}
 	}
@@ -7360,6 +7347,16 @@ static int smbchg_probe(struct spmi_device *spmi)
 	if (IS_ERR(chip->fcc_votable))
 		return PTR_ERR(chip->fcc_votable);
 
+	chip->usb_icl_votable = create_votable(&spmi->dev, VOTE_MIN,
+			NUM_ICL_VOTER, set_usb_current_limit_vote_cb);
+	if (IS_ERR(chip->usb_icl_votable))
+		return PTR_ERR(chip->usb_icl_votable);
+
+	chip->dc_icl_votable = create_votable(&spmi->dev, VOTE_MIN,
+			NUM_ICL_VOTER, set_dc_current_limit_vote_cb);
+	if (IS_ERR(chip->dc_icl_votable))
+		return PTR_ERR(chip->dc_icl_votable);
+
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
@@ -7379,7 +7376,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, chip);
 
 	spin_lock_init(&chip->sec_access_lock);
-	mutex_init(&chip->current_change_lock);
+	mutex_init(&chip->therm_lvl_lock);
 	mutex_init(&chip->usb_set_online_lock);
 	mutex_init(&chip->battchg_disabled_lock);
 	mutex_init(&chip->usb_en_lock);
