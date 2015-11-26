@@ -166,9 +166,6 @@ struct smbchg_chip {
 	int				n_vbat_samples;
 
 	/* status variables */
-	int				battchg_disabled;
-	int				usb_suspended;
-	int				dc_suspended;
 	int				wake_reasons;
 	int				previous_soc;
 	int				usb_online;
@@ -246,9 +243,6 @@ struct smbchg_chip {
 	spinlock_t			sec_access_lock;
 	struct mutex			therm_lvl_lock;
 	struct mutex			usb_set_online_lock;
-	struct mutex			battchg_disabled_lock;
-	struct mutex			usb_en_lock;
-	struct mutex			dc_en_lock;
 	struct mutex			pm_lock;
 	/* aicl deglitch workaround */
 	unsigned long			first_aicl_seconds;
@@ -262,9 +256,14 @@ struct smbchg_chip {
 	int				pulse_cnt;
 	struct led_classdev		led_cdev;
 	bool				skip_usb_notification;
+
+	/* voters */
 	struct votable			*fcc_votable;
 	struct votable			*usb_icl_votable;
 	struct votable			*dc_icl_votable;
+	struct votable			*usb_suspend_votable;
+	struct votable			*dc_suspend_votable;
+	struct votable			*battchg_suspend_votable;
 
 	u32				vchg_adc_channel;
 	struct qpnp_vadc_chip		*vchg_vadc_dev;
@@ -326,6 +325,49 @@ enum icl_voters {
 	HVDCP_ICL_VOTER,
 	USER_ICL_VOTER,
 	NUM_ICL_VOTER,
+};
+
+enum enable_voters {
+	/* userspace has suspended charging altogether */
+	USER_EN_VOTER,
+	/*
+	 * this specific path has been suspended through the power supply
+	 * framework
+	 */
+	POWER_SUPPLY_EN_VOTER,
+	/*
+	 * the usb driver has suspended this path by setting a current limit
+	 * of < 2MA
+	 */
+	USB_EN_VOTER,
+	/*
+	 * when a wireless charger comes online,
+	 * the dc path is suspended for a second
+	 */
+	WIRELESS_EN_VOTER,
+	/*
+	 * the thermal daemon can suspend a charge path when the system
+	 * temperature levels rise
+	 */
+	THERMAL_EN_VOTER,
+	/*
+	 * an external OTG supply is being used, suspend charge path so the
+	 * charger does not accidentally try to charge from the external supply.
+	 */
+	OTG_EN_VOTER,
+	/*
+	 * the charger is very weak, do not draw any current from it
+	 */
+	WEAK_CHARGER_EN_VOTER,
+	NUM_EN_VOTERS,
+};
+
+enum battchg_enable_voters {
+	/* userspace has disabled battery charging */
+	BATTCHG_USER_EN_VOTER,
+	/* battery charging disabled while loading battery profiles */
+	BATTCHG_UNKNOWN_BATTERY_EN_VOTER,
+	NUM_BATTCHG_EN_VOTERS,
 };
 
 static int smbchg_debug_mask;
@@ -1291,47 +1333,6 @@ static int smbchg_set_dc_current_max(struct smbchg_chip *chip, int current_ma)
 				DCIN_INPUT_MASK, dc_cur_val);
 }
 
-enum enable_reason {
-	/* userspace has suspended charging altogether */
-	REASON_USER = BIT(0),
-	/*
-	 * this specific path has been suspended through the power supply
-	 * framework
-	 */
-	REASON_POWER_SUPPLY = BIT(1),
-	/*
-	 * the usb driver has suspended this path by setting a current limit
-	 * of < 2MA
-	 */
-	REASON_USB = BIT(2),
-	/*
-	 * when a wireless charger comes online,
-	 * the dc path is suspended for a second
-	 */
-	REASON_WIRELESS = BIT(3),
-	/*
-	 * the thermal daemon can suspend a charge path when the system
-	 * temperature levels rise
-	 */
-	REASON_THERMAL = BIT(4),
-	/*
-	 * an external OTG supply is being used, suspend charge path so the
-	 * charger does not accidentally try to charge from the external supply.
-	 */
-	REASON_OTG = BIT(5),
-	/*
-	 * the charger is very weak, do not draw any current from it
-	 */
-	REASON_WEAK_CHARGER = BIT(6),
-};
-
-enum battchg_enable_reason {
-	/* userspace has disabled battery charging */
-	REASON_BATTCHG_USER		= BIT(0),
-	/* battery charging disabled while loading battery profiles */
-	REASON_BATTCHG_UNKNOWN_BATTERY	= BIT(1),
-};
-
 static struct power_supply *get_parallel_psy(struct smbchg_chip *chip)
 {
 	if (!chip->parallel.avail)
@@ -1349,7 +1350,8 @@ static void smbchg_usb_update_online_work(struct work_struct *work)
 	struct smbchg_chip *chip = container_of(work,
 				struct smbchg_chip,
 				usb_set_online_work);
-	bool user_enabled = (chip->usb_suspended & REASON_USER) == 0;
+	bool user_enabled = !get_client_vote(chip->usb_suspend_votable,
+						USER_EN_VOTER);
 	int online;
 
 	online = user_enabled && chip->usb_present && !chip->very_weak_charger;
@@ -1361,144 +1363,6 @@ static void smbchg_usb_update_online_work(struct work_struct *work)
 		chip->usb_online = online;
 	}
 	mutex_unlock(&chip->usb_set_online_lock);
-}
-
-static bool smbchg_primary_usb_is_en(struct smbchg_chip *chip,
-		enum enable_reason reason)
-{
-	bool enabled;
-
-	mutex_lock(&chip->usb_en_lock);
-	enabled = (chip->usb_suspended & reason) == 0;
-	mutex_unlock(&chip->usb_en_lock);
-
-	return enabled;
-}
-
-static bool smcghg_is_battchg_en(struct smbchg_chip *chip,
-		enum battchg_enable_reason reason)
-{
-	bool enabled;
-
-	mutex_lock(&chip->battchg_disabled_lock);
-	enabled = !(chip->battchg_disabled & reason);
-	mutex_unlock(&chip->battchg_disabled_lock);
-
-	return enabled;
-}
-
-static int smbchg_battchg_en(struct smbchg_chip *chip, bool enable,
-		enum battchg_enable_reason reason, bool *changed)
-{
-	int rc = 0, battchg_disabled;
-
-	pr_smb(PR_STATUS, "battchg %s, susp = %02x, en? = %d, reason = %02x\n",
-			chip->battchg_disabled == 0 ? "enabled" : "disabled",
-			chip->battchg_disabled, enable, reason);
-
-	mutex_lock(&chip->battchg_disabled_lock);
-	if (!enable)
-		battchg_disabled = chip->battchg_disabled | reason;
-	else
-		battchg_disabled = chip->battchg_disabled & (~reason);
-
-	/* avoid unnecessary spmi interactions if nothing changed */
-	if (!!battchg_disabled == !!chip->battchg_disabled) {
-		*changed = false;
-		goto out;
-	}
-
-	rc = smbchg_charging_en(chip, !battchg_disabled);
-	if (rc < 0) {
-		dev_err(chip->dev,
-			"Couldn't configure batt chg: 0x%x rc = %d\n",
-			battchg_disabled, rc);
-		goto out;
-	}
-	*changed = true;
-
-	pr_smb(PR_STATUS, "batt charging %s, battchg_disabled = %02x\n",
-			battchg_disabled == 0 ? "enabled" : "disabled",
-			battchg_disabled);
-out:
-	chip->battchg_disabled = battchg_disabled;
-	mutex_unlock(&chip->battchg_disabled_lock);
-	return rc;
-}
-
-static int smbchg_primary_usb_en(struct smbchg_chip *chip, bool enable,
-		enum enable_reason reason, bool *changed)
-{
-	int rc = 0, suspended;
-
-	pr_smb(PR_STATUS, "usb %s, susp = %02x, en? = %d, reason = %02x\n",
-			chip->usb_suspended == 0 ? "enabled"
-			: "suspended", chip->usb_suspended, enable, reason);
-	mutex_lock(&chip->usb_en_lock);
-	if (!enable)
-		suspended = chip->usb_suspended | reason;
-	else
-		suspended = chip->usb_suspended & (~reason);
-
-	/* avoid unnecessary spmi interactions if nothing changed */
-	if (!!suspended == !!chip->usb_suspended) {
-		*changed = false;
-		goto out;
-	}
-
-	*changed = true;
-	rc = smbchg_usb_suspend(chip, suspended != 0);
-	if (rc < 0) {
-		dev_err(chip->dev,
-			"Couldn't set usb suspend: %d rc = %d\n",
-			suspended, rc);
-		goto out;
-	}
-
-	pr_smb(PR_STATUS, "usb charging %s, suspended = %02x\n",
-			suspended == 0 ? "enabled"
-			: "suspended", suspended);
-out:
-	chip->usb_suspended = suspended;
-	mutex_unlock(&chip->usb_en_lock);
-	return rc;
-}
-
-static int smbchg_dc_en(struct smbchg_chip *chip, bool enable,
-		enum enable_reason reason)
-{
-	int rc = 0, suspended;
-
-	pr_smb(PR_STATUS, "dc %s, susp = %02x, en? = %d, reason = %02x\n",
-			chip->dc_suspended == 0 ? "enabled"
-			: "suspended", chip->dc_suspended, enable, reason);
-	mutex_lock(&chip->dc_en_lock);
-	if (!enable)
-		suspended = chip->dc_suspended | reason;
-	else
-		suspended = chip->dc_suspended & ~reason;
-
-	/* avoid unnecessary spmi interactions if nothing changed */
-	if (!!suspended == !!chip->dc_suspended)
-		goto out;
-
-	rc = smbchg_dc_suspend(chip, suspended != 0);
-	if (rc < 0) {
-		dev_err(chip->dev,
-			"Couldn't set dc suspend: %d rc = %d\n",
-			suspended, rc);
-		goto out;
-	}
-
-	if (chip->dc_psy_type != -EINVAL && chip->psy_registered)
-		power_supply_changed(&chip->dc_psy);
-	pr_smb(PR_STATUS, "dc charging %s, suspended = %02x\n",
-			suspended == 0 ? "enabled"
-			: "suspended", suspended);
-out:
-	chip->dc_suspended = suspended;
-	mutex_unlock(&chip->dc_en_lock);
-	return rc;
 }
 
 #define CHGPTH_CFG		0xF4
@@ -1566,7 +1430,6 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 							int current_ma)
 {
 	int rc = 0;
-	bool changed;
 	enum power_supply_type usb_supply_type;
 	char *usb_type_name = "null";
 
@@ -1579,11 +1442,11 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 
 	if (current_ma <= SUSPEND_CURRENT_MA) {
 		/* suspend the usb if current <= 2mA */
-		rc = smbchg_primary_usb_en(chip, false, REASON_USB, &changed);
+		rc = vote(chip->usb_suspend_votable, USB_EN_VOTER, true, 0);
 		chip->usb_max_current_ma = 0;
 		goto out;
 	} else {
-		rc = smbchg_primary_usb_en(chip, true, REASON_USB, &changed);
+		rc = vote(chip->usb_suspend_votable, USB_EN_VOTER, false, 0);
 	}
 
 	read_usb_type(chip, &usb_type_name, &usb_supply_type);
@@ -2238,6 +2101,58 @@ static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
 	mutex_unlock(&chip->parallel.lock);
 }
 
+static int charging_suspend_vote_cb(struct device *dev, int suspend,
+						int client, int last_suspend,
+						int last_client)
+{
+	int rc;
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
+
+	rc = smbchg_charging_en(chip, !suspend);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't configure batt chg: 0x%x rc = %d\n",
+			!suspend, rc);
+	}
+
+	return rc;
+}
+
+static int usb_suspend_vote_cb(struct device *dev, int suspend,
+						int client, int last_suspend,
+						int last_client)
+{
+	int rc;
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
+
+	rc = smbchg_usb_suspend(chip, suspend);
+	if (rc < 0)
+		return rc;
+
+	if (client == THERMAL_EN_VOTER || client == POWER_SUPPLY_EN_VOTER ||
+				client == USER_EN_VOTER)
+		smbchg_parallel_usb_check_ok(chip);
+
+	return rc;
+}
+
+static int dc_suspend_vote_cb(struct device *dev, int suspend,
+						int client, int last_suspend,
+						int last_client)
+{
+	int rc;
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
+
+	rc = smbchg_dc_suspend(chip, suspend);
+	if (rc < 0)
+		return rc;
+
+	if (chip->dc_psy_type != -EINVAL && chip->psy_registered)
+		power_supply_changed(&chip->dc_psy);
+
+	return rc;
+}
+
 static int set_fastchg_current_vote_cb(struct device *dev,
 						int fcc_ma,
 						int client,
@@ -2260,17 +2175,6 @@ static int set_fastchg_current_vote_cb(struct device *dev,
 	 */
 	smbchg_parallel_usb_check_ok(chip);
 	return 0;
-}
-
-static int smbchg_usb_en(struct smbchg_chip *chip, bool enable,
-		enum enable_reason reason)
-{
-	bool changed = false;
-	int rc = smbchg_primary_usb_en(chip, enable, reason, &changed);
-
-	if (changed)
-		smbchg_parallel_usb_check_ok(chip);
-	return rc;
 }
 
 static int smbchg_set_fastchg_current_user(struct smbchg_chip *chip,
@@ -2610,13 +2514,13 @@ static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
 		 * Disable charging if highest value selected by
 		 * setting the DC and USB path in suspend
 		 */
-		rc = smbchg_dc_en(chip, false, REASON_THERMAL);
+		rc = vote(chip->dc_suspend_votable, THERMAL_EN_VOTER, true, 0);
 		if (rc < 0) {
 			dev_err(chip->dev,
 				"Couldn't set dc suspend rc %d\n", rc);
 			goto out;
 		}
-		rc = smbchg_usb_en(chip, false, REASON_THERMAL);
+		rc = vote(chip->usb_suspend_votable, THERMAL_EN_VOTER, true, 0);
 		if (rc < 0) {
 			dev_err(chip->dev,
 				"Couldn't set usb suspend rc %d\n", rc);
@@ -2655,13 +2559,14 @@ static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
 		 * been disabed. Enable charging by taking the DC and USB path
 		 * out of suspend.
 		 */
-		rc = smbchg_dc_en(chip, true, REASON_THERMAL);
+		rc = vote(chip->dc_suspend_votable, THERMAL_EN_VOTER, false, 0);
 		if (rc < 0) {
 			dev_err(chip->dev,
 				"Couldn't set dc suspend rc %d\n", rc);
 			goto out;
 		}
-		rc = smbchg_usb_en(chip, true, REASON_THERMAL);
+		rc = vote(chip->usb_suspend_votable, THERMAL_EN_VOTER,
+								false, 0);
 		if (rc < 0) {
 			dev_err(chip->dev,
 				"Couldn't set usb suspend rc %d\n", rc);
@@ -3369,7 +3274,6 @@ static void check_battery_type(struct smbchg_chip *chip)
 {
 	union power_supply_propval prop = {0,};
 	bool en;
-	bool unused;
 
 	if (!chip->bms_psy && chip->bms_psy_name)
 		chip->bms_psy =
@@ -3380,8 +3284,8 @@ static void check_battery_type(struct smbchg_chip *chip)
 		en = (strcmp(prop.strval, UNKNOWN_BATT_TYPE) != 0
 				|| chip->charge_unknown_battery)
 			&& (strcmp(prop.strval, LOADING_BATT_TYPE) != 0);
-		smbchg_battchg_en(chip, en, REASON_BATTCHG_UNKNOWN_BATTERY,
-				&unused);
+		vote(chip->battchg_suspend_votable,
+				BATTCHG_UNKNOWN_BATTERY_EN_VOTER, !en, 0);
 	}
 }
 
@@ -3417,7 +3321,8 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
 	if (rc == 0)
-		smbchg_usb_en(chip, prop.intval, REASON_POWER_SUPPLY);
+		vote(chip->usb_suspend_votable, POWER_SUPPLY_EN_VOTER,
+				!prop.intval, 0);
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
@@ -3509,11 +3414,10 @@ struct regulator_ops smbchg_otg_reg_ops = {
 #define HVDCP_EN_BIT			BIT(3)
 static int smbchg_external_otg_regulator_enable(struct regulator_dev *rdev)
 {
-	bool changed;
 	int rc = 0;
 	struct smbchg_chip *chip = rdev_get_drvdata(rdev);
 
-	rc = smbchg_primary_usb_en(chip, false, REASON_OTG, &changed);
+	rc = vote(chip->usb_suspend_votable, OTG_EN_VOTER, true, 0);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't suspend charger rc=%d\n", rc);
 		return rc;
@@ -3553,11 +3457,10 @@ static int smbchg_external_otg_regulator_enable(struct regulator_dev *rdev)
 
 static int smbchg_external_otg_regulator_disable(struct regulator_dev *rdev)
 {
-	bool changed;
 	int rc = 0;
 	struct smbchg_chip *chip = rdev_get_drvdata(rdev);
 
-	rc = smbchg_primary_usb_en(chip, true, REASON_OTG, &changed);
+	rc = vote(chip->usb_suspend_votable, OTG_EN_VOTER, false, 0);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't unsuspend charger rc=%d\n", rc);
 		return rc;
@@ -3592,7 +3495,7 @@ static int smbchg_external_otg_regulator_is_enable(struct regulator_dev *rdev)
 {
 	struct smbchg_chip *chip = rdev_get_drvdata(rdev);
 
-	return !smbchg_primary_usb_is_en(chip, REASON_OTG);
+	return get_client_vote(chip->usb_suspend_votable, OTG_EN_VOTER);
 }
 
 struct regulator_ops smbchg_external_otg_reg_ops = {
@@ -5279,18 +5182,19 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 				       const union power_supply_propval *val)
 {
 	int rc = 0;
-	bool unused;
 	struct smbchg_chip *chip = container_of(psy,
 				struct smbchg_chip, batt_psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
-		smbchg_battchg_en(chip, val->intval,
-				REASON_BATTCHG_USER, &unused);
+		vote(chip->battchg_suspend_votable, BATTCHG_USER_EN_VOTER,
+				!val->intval, 0);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		smbchg_usb_en(chip, val->intval, REASON_USER);
-		smbchg_dc_en(chip, val->intval, REASON_USER);
+		rc = vote(chip->usb_suspend_votable, USER_EN_VOTER,
+				!val->intval, 0);
+		rc = vote(chip->dc_suspend_votable, USER_EN_VOTER,
+				!val->intval, 0);
 		chip->chg_enabled = val->intval;
 		schedule_work(&chip->usb_set_online_work);
 		break;
@@ -5377,7 +5281,8 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		val->intval = get_prop_batt_present(chip);
 		break;
 	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
-		val->intval = smcghg_is_battchg_en(chip, REASON_BATTCHG_USER);
+		val->intval =
+			!get_effective_result(chip->battchg_suspend_votable);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = chip->chg_enabled;
@@ -5476,7 +5381,8 @@ static int smbchg_dc_set_property(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		rc = smbchg_dc_en(chip, val->intval, REASON_POWER_SUPPLY);
+		rc = vote(chip->dc_suspend_votable, POWER_SUPPLY_EN_VOTER,
+					!val->intval, 0);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = vote(chip->dc_icl_votable, USER_ICL_VOTER, true,
@@ -5501,7 +5407,7 @@ static int smbchg_dc_get_property(struct power_supply *psy,
 		val->intval = is_dc_present(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = chip->dc_suspended == 0;
+		val->intval = !get_effective_result(chip->dc_suspend_votable);
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		/* return if dc is charging the battery */
@@ -5877,7 +5783,6 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 	int aicl_level = smbchg_get_aicl_level_ma(chip);
 	int rc;
-	bool unused;
 	u8 reg;
 
 	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
@@ -5926,8 +5831,8 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 			 * SDP or a grossly out of spec charger. Do not
 			 * draw any current from it.
 			 */
-			rc = smbchg_primary_usb_en(chip, false,
-					REASON_WEAK_CHARGER, &unused);
+			rc = vote(chip->usb_suspend_votable,
+					WEAK_CHARGER_EN_VOTER, true, 0);
 			if (rc)
 				pr_err("could not disable charger: %d", rc);
 		} else if ((chip->aicl_deglitch_short || chip->force_aicl_rerun)
@@ -5960,7 +5865,7 @@ out:
 static irqreturn_t src_detect_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
-	bool usb_present = is_usb_present(chip), unused;
+	bool usb_present = is_usb_present(chip);
 	bool src_detect = is_src_detect_high(chip);
 	int rc;
 
@@ -5988,7 +5893,7 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 	 * when the battery voltage is high.
 	 */
 	chip->very_weak_charger = false;
-	rc = smbchg_primary_usb_en(chip, true, REASON_WEAK_CHARGER, &unused);
+	rc = vote(chip->usb_suspend_votable, WEAK_CHARGER_EN_VOTER, false, 0);
 	if (rc < 0)
 		pr_err("could not enable charger: %d\n", rc);
 
@@ -6355,7 +6260,6 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		dev_err(chip->dev, "Couldn't enable battery charging=%d\n", rc);
 		return rc;
 	}
-	chip->battchg_disabled = 0;
 
 	/*
 	 * Based on the configuration, use the analog sensors or the fuelgauge
@@ -6527,9 +6431,8 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	}
 
 	smbchg_charging_status_change(chip);
-
-	smbchg_usb_en(chip, chip->chg_enabled, REASON_USER);
-	smbchg_dc_en(chip, chip->chg_enabled, REASON_USER);
+	vote(chip->usb_suspend_votable, USER_EN_VOTER, !chip->chg_enabled, 0);
+	vote(chip->dc_suspend_votable, USER_EN_VOTER, !chip->chg_enabled, 0);
 
 	/* resume threshold */
 	if (chip->resume_delta_mv != -EINVAL) {
@@ -6624,7 +6527,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	/* unsuspend dc path, it could be suspended by the bootloader */
 	rc = smbchg_dc_suspend(chip, 0);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't unspended dc path= %d\n", rc);
+		dev_err(chip->dev, "Couldn't unsuspend dc path= %d\n", rc);
 		return rc;
 	}
 
@@ -7392,6 +7295,22 @@ static int smbchg_probe(struct spmi_device *spmi)
 	if (IS_ERR(chip->dc_icl_votable))
 		return PTR_ERR(chip->dc_icl_votable);
 
+	chip->usb_suspend_votable = create_votable(&spmi->dev, VOTE_SET_ANY,
+					NUM_EN_VOTERS, usb_suspend_vote_cb);
+	if (IS_ERR(chip->usb_suspend_votable))
+		return PTR_ERR(chip->usb_suspend_votable);
+
+	chip->dc_suspend_votable = create_votable(&spmi->dev, VOTE_SET_ANY,
+					NUM_EN_VOTERS, dc_suspend_vote_cb);
+	if (IS_ERR(chip->dc_suspend_votable))
+		return PTR_ERR(chip->dc_suspend_votable);
+
+	chip->battchg_suspend_votable = create_votable(&spmi->dev, VOTE_SET_ANY,
+					NUM_BATTCHG_EN_VOTERS,
+					charging_suspend_vote_cb);
+	if (IS_ERR(chip->dc_suspend_votable))
+		return PTR_ERR(chip->battchg_suspend_votable);
+
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
@@ -7413,9 +7332,6 @@ static int smbchg_probe(struct spmi_device *spmi)
 	spin_lock_init(&chip->sec_access_lock);
 	mutex_init(&chip->therm_lvl_lock);
 	mutex_init(&chip->usb_set_online_lock);
-	mutex_init(&chip->battchg_disabled_lock);
-	mutex_init(&chip->usb_en_lock);
-	mutex_init(&chip->dc_en_lock);
 	mutex_init(&chip->parallel.lock);
 	mutex_init(&chip->taper_irq_lock);
 	mutex_init(&chip->pm_lock);
