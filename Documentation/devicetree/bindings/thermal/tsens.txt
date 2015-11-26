@@ -28,6 +28,7 @@ Required properties:
 	       should be "qcom,mdm9607-tsens" for 9607 TSENS driver.
 	       should be "qcom,msmtitanium-tsens" for titanium TSENS driver.
 	       should be "qcom,msm8937-tsens" for 8937 TSENS driver.
+	       should be "qcom,msmgold-tsens" for gold TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers.
@@ -70,6 +71,10 @@ Optional properties:
 		total number of supported sensors with each controller instance.
 - qcom,valid-status-check: If property is present, check the VALID bit is set
 		before reporting the temperature data.
+- qcom,temp1-offset: If property is present, Use these offset values
+		to be added for 30 deg calib points.
+- qcom,temp2-offset: If property is present, Use these offset values
+		to be added for 120 deg calib points.
 
 Example:
 
