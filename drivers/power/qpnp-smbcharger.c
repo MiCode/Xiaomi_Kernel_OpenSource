@@ -186,6 +186,9 @@ struct smbchg_chip {
 	const char			*battery_type;
 	bool				very_weak_charger;
 	bool				parallel_charger_detected;
+	bool				chg_otg_enabled;
+	bool				flash_triggered;
+	bool				icl_disabled;
 	u32				wa_flags;
 
 	/* jeita and temperature */
@@ -287,6 +290,7 @@ enum smbchg_wa {
 	SMBCHG_USB100_WA = BIT(2),
 	SMBCHG_BATT_OV_WA = BIT(3),
 	SMBCHG_CC_ESR_WA = BIT(4),
+	SMBCHG_FLASH_ICL_DISABLE_WA = BIT(5),
 };
 
 enum print_reason {
@@ -3203,6 +3207,25 @@ static void smbchg_aicl_deglitch_wa_check(struct smbchg_chip *chip)
 	smbchg_aicl_deglitch_wa_en(chip, chip->vbat_above_headroom);
 }
 
+#define MISC_TEST_REG		0xE2
+#define BB_LOOP_DISABLE_ICL	BIT(2)
+static int smbchg_icl_loop_disable_check(struct smbchg_chip *chip)
+{
+	bool icl_disabled = !chip->chg_otg_enabled && chip->flash_triggered;
+	int rc = 0;
+
+	if ((chip->wa_flags & SMBCHG_FLASH_ICL_DISABLE_WA)
+			&& icl_disabled != chip->icl_disabled) {
+		rc = smbchg_sec_masked_write(chip,
+				chip->misc_base + MISC_TEST_REG,
+				BB_LOOP_DISABLE_ICL,
+				icl_disabled ? BB_LOOP_DISABLE_ICL : 0);
+		chip->icl_disabled = icl_disabled;
+	}
+
+	return rc;
+}
+
 #define UNKNOWN_BATT_TYPE	"Unknown Battery"
 #define LOADING_BATT_TYPE	"Loading Battery Data"
 static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
@@ -3405,6 +3428,8 @@ static int smbchg_otg_regulator_enable(struct regulator_dev *rdev)
 	struct smbchg_chip *chip = rdev_get_drvdata(rdev);
 
 	chip->otg_retries = 0;
+	chip->chg_otg_enabled = true;
+	smbchg_icl_loop_disable_check(chip);
 	smbchg_otg_pulse_skip_disable(chip, REASON_OTG_ENABLED, true);
 	/* sleep to make sure the pulse skip is actually disabled */
 	msleep(20);
@@ -3427,7 +3452,9 @@ static int smbchg_otg_regulator_disable(struct regulator_dev *rdev)
 			OTG_EN_BIT, 0);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't disable OTG mode rc=%d\n", rc);
+	chip->chg_otg_enabled = false;
 	smbchg_otg_pulse_skip_disable(chip, REASON_OTG_ENABLED, false);
+	smbchg_icl_loop_disable_check(chip);
 	pr_smb(PR_STATUS, "Disabling OTG Boost\n");
 	return rc;
 }
@@ -5219,6 +5246,7 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
 	POWER_SUPPLY_PROP_FLASH_ACTIVE,
+	POWER_SUPPLY_PROP_FLASH_TRIGGER,
 	POWER_SUPPLY_PROP_DP_DM,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_RERUN_AICL,
@@ -5263,6 +5291,10 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
 		rc = smbchg_otg_pulse_skip_disable(chip,
 				REASON_FLASH_ENABLED, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
+		chip->flash_triggered = !!val->intval;
+		smbchg_icl_loop_disable_check(chip);
 		break;
 	case POWER_SUPPLY_PROP_FORCE_TLIM:
 		rc = smbchg_force_tlim_en(chip, val->intval);
@@ -5372,6 +5404,9 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
 		val->intval = chip->otg_pulse_skip_dis;
+		break;
+	case POWER_SUPPLY_PROP_FLASH_TRIGGER:
+		val->intval = chip->flash_triggered;
 		break;
 	case POWER_SUPPLY_PROP_DP_DM:
 		val->intval = chip->pulse_cnt;
@@ -7254,7 +7289,8 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 		chip->schg_version = QPNP_SCHG_LITE;
 		break;
 	case PMI8996:
-		chip->wa_flags |= SMBCHG_CC_ESR_WA;
+		chip->wa_flags |= SMBCHG_CC_ESR_WA
+				| SMBCHG_FLASH_ICL_DISABLE_WA;
 		use_pmi8996_tables(chip);
 		chip->schg_version = QPNP_SCHG;
 		break;
