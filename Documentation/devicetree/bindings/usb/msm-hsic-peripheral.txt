@@ -19,6 +19,8 @@ Optional properties :
   reg, value pairs.
 - reg : offset and length of the register set in the memory map.
   This is required if 'qcom,hsic-tlmm-init-seq' is specified.
+- qcom,hsic-disable-on-boot: If present then HSIC is suspended on bootup
+  and user can enable this using sysfs if HSIC host is present.
 Example USB HSIC device node :
 	hsic: hsic@f9a15000 {
 		compatible = "qcom,hsic-peripheral";
@@ -31,4 +33,5 @@ Example USB HSIC device node :
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
 		qcom,hsic-tlmm-init-seq =
 			<0x8 0x5 0x4 0x5 0x0 0x1>;
+		qcom,hsic-disable-on-boot;
 	};

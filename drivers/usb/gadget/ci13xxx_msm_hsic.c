@@ -67,6 +67,7 @@ struct msm_hsic_per {
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	enum usb_vdd_type		vdd_type;
 	bool				connected;
+	bool				disable_on_boot;
 };
 
 #define NONE 0
@@ -418,7 +419,7 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 	disable_irq(mhsic->irq);
 
 	/* Don't try to put PHY into suspend if it is not in CONNECT state. */
-	if (the_mhsic->connected) {
+	if (the_mhsic->connected || mhsic->disable_on_boot) {
 		/*
 		 * PHY may take some time or even fail to enter into low power
 		 * mode (LPM). Hence poll for 500 msec and reset the PHY and
@@ -759,6 +760,8 @@ static void ci13xxx_msm_hsic_notify_event(struct ci13xxx *udc, unsigned event)
 		break;
 	case CI13XXX_CONTROLLER_CONNECT_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_CONNECT_EVENT received\n");
+		if (mhsic->disable_on_boot)
+			mhsic->disable_on_boot = false;
 		/* bring HSIC core out of LPM */
 		pm_runtime_get_sync(the_mhsic->dev);
 		msm_hsic_start();
@@ -868,6 +871,9 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, mhsic);
 	mhsic->dev = &pdev->dev;
 	mhsic->pdata = pdata;
+
+	mhsic->disable_on_boot = of_property_read_bool(pdev->dev.of_node,
+					"qcom,hsic-disable-on-boot");
 
 	mhsic->irq = platform_get_irq(pdev, 0);
 	if (mhsic->irq < 0) {
