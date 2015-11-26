@@ -78,6 +78,9 @@ static int sockev_client_cb(struct notifier_block *nb,
 	if (sock->sk->sk_family != AF_INET && sock->sk->sk_family != AF_INET6)
 		goto done;
 
+	if (event != SOCKEV_BIND && event != SOCKEV_LISTEN)
+		goto done;
+
 	skb = nlmsg_new(sizeof(struct sknlsockevmsg), GFP_KERNEL);
 	if (skb == NULL)
 		goto done;
