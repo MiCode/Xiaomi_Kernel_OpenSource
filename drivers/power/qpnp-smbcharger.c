@@ -7018,6 +7018,7 @@ static int smbchg_wa_config(struct smbchg_chip *chip)
 	case PMI8994:
 		chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA
 				| SMBCHG_BATT_OV_WA;
+		break;
 	case PMI8950:
 		chip->wa_flags |= SMBCHG_BATT_OV_WA;
 		if (pmic_rev_id->rev4 < 2) /* PMI8950 1.0 */ {
