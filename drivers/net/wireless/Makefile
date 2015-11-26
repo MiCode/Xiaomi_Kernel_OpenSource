@@ -60,5 +60,6 @@ obj-$(CONFIG_BRCMSMAC)	+= brcm80211/
 
 obj-$(CONFIG_LIBRA_SDIOIF)	+= libra/
 obj-$(CONFIG_WCNSS_CORE)	+= wcnss/
+obj-$(CONFIG_CNSS_SDIO)		+= cnss/cnss_sdio.o
 obj-$(CONFIG_CNSS)		+= cnss/
 obj-$(CONFIG_WCNSS_MEM_PRE_ALLOC) += cnss_prealloc/
