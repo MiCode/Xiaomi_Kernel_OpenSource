@@ -106,6 +106,7 @@ static struct dentry *dfile_msg;
 static struct dentry *dfile_ip4_nat;
 static struct dentry *dfile_rm_stats;
 static struct dentry *dfile_status_stats;
+static struct dentry *dfile_active_clients;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static s8 ep_reg_idx;
 
@@ -153,9 +154,9 @@ static ssize_t ipa_read_gen_reg(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
 	nbytes = ipa_ctx->ctrl->ipa_read_gen_reg(dbg_buff, IPA_MAX_MSG_LEN);
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -323,7 +324,7 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 		end_idx = start_idx + 1;
 	}
 	pos = *ppos;
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
 	for (i = start_idx; i < end_idx; i++) {
 
 		nbytes = ipa_ctx->ctrl->ipa_read_ep_reg(dbg_buff,
@@ -333,7 +334,7 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 		ret = simple_read_from_buffer(ubuf, count, ppos, dbg_buff,
 					      nbytes);
 		if (ret < 0) {
-			ipa_dec_client_disable_clks();
+			IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return ret;
 		}
 
@@ -341,7 +342,7 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 		ubuf += nbytes;
 		count -= nbytes;
 	}
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	*ppos = pos + size;
 	return size;
@@ -365,9 +366,9 @@ static ssize_t ipa_write_keep_awake(struct file *file, const char __user *buf,
 		return -EFAULT;
 
 	if (option == 1)
-		ipa_inc_client_enable_clks();
+		IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
 	else if (option == 0)
-		ipa_dec_client_disable_clks();
+		IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 	else
 		return -EFAULT;
 
@@ -1223,9 +1224,9 @@ static ssize_t ipa_write_dbg_cnt(struct file *file, const char __user *buf,
 	if (kstrtou32(dbg_buff, 0, &option))
 		return -EFAULT;
 
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
 	ipa_ctx->ctrl->ipa_write_dbg_cnt(option);
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return count;
 }
@@ -1257,9 +1258,9 @@ static ssize_t ipa_read_dbg_cnt(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
-	ipa_inc_client_enable_clks();
+	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
 	nbytes = ipa_ctx->ctrl->ipa_read_dbg_cnt(dbg_buff, IPA_MAX_MSG_LEN);
-	ipa_dec_client_disable_clks();
+	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -1546,6 +1547,35 @@ static ssize_t ipa_status_stats_read(struct file *file, char __user *ubuf,
 	return 0;
 }
 
+static ssize_t ipa2_print_active_clients_log(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	ipa2_active_clients_log_print_buffer();
+
+	return 0;
+}
+
+static ssize_t ipa2_clear_active_clients_log(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+	s8 option = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtos8(dbg_buff, 0, &option))
+		return -EFAULT;
+
+	ipa2_active_clients_log_clear();
+
+	return count;
+}
 
 const struct file_operations ipa_gen_reg_ops = {
 	.read = ipa_read_gen_reg,
@@ -1616,6 +1646,11 @@ const struct file_operations ipa_status_stats_ops = {
 	.read = ipa_status_stats_read,
 };
 
+const struct file_operations ipa2_active_clients = {
+	.read = ipa2_print_active_clients_log,
+	.write = ipa2_clear_active_clients_log,
+};
+
 void ipa_debugfs_init(void)
 {
 	const mode_t read_only_mode = S_IRUSR | S_IRGRP | S_IROTH;
@@ -1642,6 +1677,13 @@ void ipa_debugfs_init(void)
 			&ipa_gen_reg_ops);
 	if (!dfile_gen_reg || IS_ERR(dfile_gen_reg)) {
 		IPAERR("fail to create file for debug_fs gen_reg\n");
+		goto fail;
+	}
+
+	dfile_ep_reg = debugfs_create_file("active_clients",
+			read_write_mode, dent, 0, &ipa2_active_clients);
+	if (!dfile_ep_reg || IS_ERR(dfile_active_clients)) {
+		IPAERR("fail to create file for debug_fs ep_reg\n");
 		goto fail;
 	}
 

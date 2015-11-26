@@ -150,6 +150,117 @@
 #define IPA_SMMU_UC_VA_SIZE 0x20000000
 #define IPA_SMMU_UC_VA_END (IPA_SMMU_UC_VA_START +  IPA_SMMU_UC_VA_SIZE)
 
+#define __FILENAME__ \
+	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+
+
+#define IPA2_ACTIVE_CLIENTS_PREP_EP(log_info, client) \
+		log_info.file = __FILENAME__; \
+		log_info.line = __LINE__; \
+		log_info.type = EP; \
+		log_info.id_string = ipa2_clients_strings[client]
+
+#define IPA2_ACTIVE_CLIENTS_PREP_SIMPLE(log_info) \
+		log_info.file = __FILENAME__; \
+		log_info.line = __LINE__; \
+		log_info.type = SIMPLE; \
+		log_info.id_string = __func__
+
+#define IPA2_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name) \
+		log_info.file = __FILENAME__; \
+		log_info.line = __LINE__; \
+		log_info.type = RESOURCE; \
+		log_info.id_string = resource_name
+
+#define IPA2_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str) \
+		log_info.file = __FILENAME__; \
+		log_info.line = __LINE__; \
+		log_info.type = SPECIAL; \
+		log_info.id_string = id_str
+
+#define IPA2_ACTIVE_CLIENTS_INC_EP(client) \
+	do { \
+		struct ipa2_active_client_logging_info log_info; \
+		IPA2_ACTIVE_CLIENTS_PREP_EP(log_info, client); \
+		ipa2_inc_client_enable_clks(&log_info); \
+	} while (0)
+
+#define IPA2_ACTIVE_CLIENTS_DEC_EP(client) \
+	do { \
+		struct ipa2_active_client_logging_info log_info; \
+		IPA2_ACTIVE_CLIENTS_PREP_EP(log_info, client); \
+		ipa2_dec_client_disable_clks(&log_info); \
+	} while (0)
+
+#define IPA2_ACTIVE_CLIENTS_INC_SIMPLE() \
+	do { \
+		struct ipa2_active_client_logging_info log_info; \
+		IPA2_ACTIVE_CLIENTS_PREP_SIMPLE(log_info); \
+		ipa2_inc_client_enable_clks(&log_info); \
+	} while (0)
+
+#define IPA2_ACTIVE_CLIENTS_DEC_SIMPLE() \
+	do { \
+		struct ipa2_active_client_logging_info log_info; \
+		IPA2_ACTIVE_CLIENTS_PREP_SIMPLE(log_info); \
+		ipa2_dec_client_disable_clks(&log_info); \
+	} while (0)
+
+#define IPA2_ACTIVE_CLIENTS_INC_RESOURCE(resource_name) \
+	do { \
+		struct ipa2_active_client_logging_info log_info; \
+		IPA2_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name); \
+		ipa2_inc_client_enable_clks(&log_info); \
+	} while (0)
+
+#define IPA2_ACTIVE_CLIENTS_DEC_RESOURCE(resource_name) \
+	do { \
+		struct ipa2_active_client_logging_info log_info; \
+		IPA2_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name); \
+		ipa2_dec_client_disable_clks(&log_info); \
+	} while (0)
+
+#define IPA2_ACTIVE_CLIENTS_INC_SPECIAL(id_str) \
+	do { \
+		struct ipa2_active_client_logging_info log_info; \
+		IPA2_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str); \
+		ipa2_inc_client_enable_clks(&log_info); \
+	} while (0)
+
+#define IPA2_ACTIVE_CLIENTS_DEC_SPECIAL(id_str) \
+	do { \
+		struct ipa2_active_client_logging_info log_info; \
+		IPA2_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str); \
+		ipa2_dec_client_disable_clks(&log_info); \
+	} while (0)
+
+#define IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES 120
+#define IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN 100
+
+extern const char *ipa2_clients_strings[];
+
+enum ipa2_active_client_log_type {
+	EP,
+	SIMPLE,
+	RESOURCE,
+	SPECIAL,
+	INVALID
+};
+
+struct ipa2_active_client_logging_info {
+	const char *id_string;
+	char *file;
+	int line;
+	enum ipa2_active_client_log_type type;
+};
+
+struct ipa2_active_clients_log_ctx {
+	char *log_buffer[IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES];
+	int log_head;
+	int log_tail;
+	bool log_rdy;
+};
+
 
 struct ipa_client_names {
 	enum ipa_client_type names[MAX_RESOURCE_TO_CLIENTS];
@@ -1220,6 +1331,7 @@ struct ipa_context {
 	struct gen_pool *pipe_mem_pool;
 	struct dma_pool *dma_pool;
 	struct ipa_active_clients ipa_active_clients;
+	struct ipa2_active_clients_log_ctx ipa2_active_clients_logging;
 	struct workqueue_struct *power_mgmt_wq;
 	struct workqueue_struct *sps_power_mgmt_wq;
 	bool tag_process_before_gating;
@@ -1825,9 +1937,12 @@ int ipa_straddle_boundary(u32 start, u32 end, u32 boundary);
 struct ipa_context *ipa_get_ctx(void);
 void ipa_enable_clks(void);
 void ipa_disable_clks(void);
-void ipa_inc_client_enable_clks(void);
-int ipa_inc_client_enable_clks_no_block(void);
-void ipa_dec_client_disable_clks(void);
+void ipa2_inc_client_enable_clks(struct ipa2_active_client_logging_info *id);
+int ipa2_inc_client_enable_clks_no_block(struct ipa2_active_client_logging_info
+		*id);
+void ipa2_dec_client_disable_clks(struct ipa2_active_client_logging_info *id);
+void ipa2_active_clients_log_print_buffer(void);
+void ipa2_active_clients_log_clear(void);
 int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa_del_rt_rule(u32 rule_hdl);
 int __ipa_del_hdr(u32 hdr_hdl);
@@ -2001,4 +2116,5 @@ int ipa2_restore_suspend_handler(void);
 void ipa_sps_irq_control_all(bool enable);
 void ipa_inc_acquire_wakelock(void);
 void ipa_dec_release_wakelock(void);
+const char *ipa_rm_resource_str(enum ipa_rm_resource_name resource_name);
 #endif /* _IPA_I_H_ */
