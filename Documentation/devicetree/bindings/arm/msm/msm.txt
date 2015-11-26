@@ -124,6 +124,9 @@ Generic board variants:
 - Dragonboard device:
   compatible = "qcom,dragonboard"
 
+- SBC device:
+  compatible = "qcom,sbc"
+
 - SURF device:
   compatible = "qcom,surf"
 
@@ -162,6 +165,7 @@ compatible = "qcom,apq8094-dragonboard"
 compatible = "qcom,apq8096-cdp"
 compatible = "qcom,apq8096-mtp"
 compatible = "qcom,apq8096-dragonboard"
+compatible = "qcom,apq8096-sbc"
 compatible = "qcom,apq8096-liquid"
 compatible = "qcom,apq8037-cdp"
 compatible = "qcom,apq8037-mtp"
