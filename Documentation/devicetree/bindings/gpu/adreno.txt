@@ -17,16 +17,6 @@ Required properties:
 - interrupt-names:	String property to describe the name of the interrupt.
 - qcom,id:		An integer used as an identification number for the device.
 
-- qcom,clk-map:		A bit map value for clocks controlled by kgsl.
-				KGSL_CLK_SRC    0x00000001
-				KGSL_CLK_CORE   0x00000002
-				KGSL_CLK_IFACE  0x00000004
-				KGSL_CLK_MEM    0x00000008
-				KGSL_CLK_MEM_IFACE 0x00000010
-				KGSL_CLK_AXI    0x00000020
-				KGSL_CLK_RBBMTIMER 0x00000080
-				KGSL_CLK_ALWAYSON 0x00000800
-
 - clocks:		List of phandle and clock specifier pairs, one pair
 			for each clock input to the device.
 - clock-names:		List of clock input name strings sorted in the same
@@ -155,11 +145,6 @@ Example of A330 GPU in MSM8916:
 		qcom,idle-timeout = <8>;
 		qcom,strtstp-sleepwake;
 
-		/*
-		 * Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM |
-		 * KGSL_CLK_MEM_IFACE | KGSL_CLK_ALT_MEM_IFACE
-		 */
-		qcom,clk-map = <0x0000005E>;
 		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
 			<&clock_gcc clk_gcc_oxili_ahb_clk>,
 			<&clock_gcc clk_gcc_oxili_gmem_clk>,

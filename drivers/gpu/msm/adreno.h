@@ -108,8 +108,6 @@
 #define ADRENO_LM BIT(8)
 /* The core uses 64 bit GPU addresses */
 #define ADRENO_64BIT BIT(9)
-/* Sync between SMMU operations and power collapse */
-#define ADRENO_SYNC_SMMU_PC BIT(10)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
@@ -117,6 +115,8 @@
 
 /* Set TWOPASSUSEWFI in PC_DBG_ECO_CNTL (5XX) */
 #define ADRENO_QUIRK_TWO_PASS_USE_WFI BIT(0)
+/* Lock/unlock mutex to sync with the IOMMU */
+#define ADRENO_QUIRK_IOMMU_SYNC BIT(1)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -308,6 +308,7 @@ struct adreno_gpu_core {
  * @lm_threshold_count: register value for counter for lm threshold breakin
  * @lm_threshold_cross: number of current peaks exceeding threshold
  * @speed_bin: Indicate which power level set to use
+ * @csdev: Pointer to a coresight device (if applicable)
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -365,6 +366,8 @@ struct adreno_device {
 
 	unsigned int speed_bin;
 	unsigned int quirks;
+
+	struct coresight_device *csdev;
 };
 
 /**

@@ -291,12 +291,8 @@ static const struct coresight_ops adreno_coresight_ops = {
 
 void adreno_coresight_remove(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
-	struct kgsl_device_platform_data *pdata =
-		dev_get_platdata(&device->pdev->dev);
-
-	coresight_unregister(pdata->csdev);
-	pdata->csdev = NULL;
+	coresight_unregister(adreno_dev->csdev);
+	adreno_dev->csdev = NULL;
 }
 
 int adreno_coresight_init(struct adreno_device *adreno_dev)
@@ -304,36 +300,32 @@ int adreno_coresight_init(struct adreno_device *adreno_dev)
 	int ret = 0;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = &adreno_dev->dev;
-	struct kgsl_device_platform_data *pdata =
-		dev_get_platdata(&device->pdev->dev);
 	struct coresight_desc desc;
-
-	if (pdata == NULL)
-		return -ENODEV;
 
 	if (gpudev->coresight == NULL)
 		return -ENODEV;
 
-	if (IS_ERR_OR_NULL(pdata->coresight_pdata))
-		return -ENODEV;
-
-	if (pdata->csdev != NULL)
+	if (adreno_dev->csdev != NULL)
 		return 0;
 
 	memset(&desc, 0, sizeof(desc));
 
+	desc.pdata = of_get_coresight_platform_data(&device->pdev->dev,
+			device->pdev->dev.of_node);
+	if (desc.pdata == NULL)
+		return -ENODEV;
+
 	desc.type = CORESIGHT_DEV_TYPE_SOURCE;
 	desc.subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_BUS;
 	desc.ops = &adreno_coresight_ops;
-	desc.pdata = pdata->coresight_pdata;
 	desc.dev = &device->pdev->dev;
 	desc.owner = THIS_MODULE;
 	desc.groups = gpudev->coresight->groups;
 
-	pdata->csdev = coresight_register(&desc);
+	adreno_dev->csdev = coresight_register(&desc);
 
-	if (IS_ERR(pdata->csdev))
-		ret = PTR_ERR(pdata->csdev);
+	if (IS_ERR(adreno_dev->csdev))
+		ret = PTR_ERR(adreno_dev->csdev);
 
 	return ret;
 }
