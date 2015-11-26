@@ -2723,7 +2723,7 @@ static void cache_initial_timings(struct mdss_panel_data *pdata)
 	}
 }
 
-static void mdss_mdp_dfps_update_params(struct mdss_panel_data *pdata,
+static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 	u32 new_fps)
 {
 	/* Keep initial values before any dfps update */
@@ -2759,6 +2759,45 @@ static void mdss_mdp_dfps_update_params(struct mdss_panel_data *pdata,
 	}
 }
 
+int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
+	struct mdss_panel_data *pdata, int dfps)
+{
+	struct fb_var_screeninfo *var = &mfd->fbi->var;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+
+	mutex_lock(&mdp5_data->dfps_lock);
+
+	pr_debug("new_fps:%d\n", dfps);
+
+	if (dfps < pdata->panel_info.min_fps) {
+		pr_err("Unsupported FPS. min_fps = %d\n",
+				pdata->panel_info.min_fps);
+		mutex_unlock(&mdp5_data->dfps_lock);
+		return -EINVAL;
+	} else if (dfps > pdata->panel_info.max_fps) {
+		pr_warn("Unsupported FPS. Configuring to max_fps = %d\n",
+				pdata->panel_info.max_fps);
+		dfps = pdata->panel_info.max_fps;
+	}
+
+	dfps_update_panel_params(pdata, dfps);
+	if (pdata->next)
+		dfps_update_panel_params(pdata->next, dfps);
+
+	/*
+	 * Update the panel info in the upstream
+	 * data, so any further call to get the screen
+	 * info has the updated timings.
+	 */
+	mdss_panelinfo_to_fb_var(&pdata->panel_info, var);
+
+	MDSS_XLOG(dfps);
+	mutex_unlock(&mdp5_data->dfps_lock);
+
+	return 0;
+}
+
+
 static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -2767,7 +2806,6 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct fb_var_screeninfo *var = &mfd->fbi->var;
 
 	rc = kstrtoint(buf, 10, &dfps);
 	if (rc) {
@@ -2798,33 +2836,12 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		return count;
 	}
 
-	mutex_lock(&mdp5_data->dfps_lock);
-	if (dfps < pdata->panel_info.min_fps) {
-		pr_err("Unsupported FPS. min_fps = %d\n",
-				pdata->panel_info.min_fps);
-		mutex_unlock(&mdp5_data->dfps_lock);
-		return -EINVAL;
-	} else if (dfps > pdata->panel_info.max_fps) {
-		pr_warn("Unsupported FPS. Configuring to max_fps = %d\n",
-				pdata->panel_info.max_fps);
-		dfps = pdata->panel_info.max_fps;
+	rc = mdss_mdp_dfps_update_params(mfd, pdata, dfps);
+	if (rc) {
+		pr_err("failed to set dfps params\n");
+		return rc;
 	}
 
-	pr_debug("new_fps:%d\n", dfps);
-
-	mdss_mdp_dfps_update_params(pdata, dfps);
-	if (pdata->next)
-		mdss_mdp_dfps_update_params(pdata->next, dfps);
-
-	/*
-	 * Update the panel info in the upstream
-	 * data, so any further call to get the screen
-	 * info has the updated timings.
-	 */
-	mdss_panelinfo_to_fb_var(&pdata->panel_info, var);
-
-	MDSS_XLOG(dfps);
-	mutex_unlock(&mdp5_data->dfps_lock);
 	return count;
 } /* dynamic_fps_sysfs_wta_dfps */
 

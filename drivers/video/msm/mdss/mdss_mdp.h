@@ -1195,6 +1195,8 @@ struct mdss_data_type *mdss_mdp_get_mdata(void);
 int mdss_mdp_secure_display_ctrl(unsigned int enable);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
+int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
+	struct mdss_panel_data *pdata, int dfps);
 int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *ov_commit);
 int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
