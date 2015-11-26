@@ -15,13 +15,20 @@ Required properties:
 
 Optional properties :
 - qcom,usb-id-core: USB Core Index to be used to bind with gadget driver.
+- qcom,hsic-tlmm-init-seq: HSIC TLMM PADS initialization sequence with
+  reg, value pairs.
+- reg : offset and length of the register set in the memory map.
+  This is required if 'qcom,hsic-tlmm-init-seq' is specified.
 Example USB HSIC device node :
 	hsic: hsic@f9a15000 {
 		compatible = "qcom,hsic-peripheral";
-		reg = <0xf9a15000 0x352>;
+		reg = <0xf9a15000 0x352>,
+		      <0x01112000 0xc>;
 		interrupts = <0 136 0>;
 		qcom,usb-id-core = <1>;
 		vdd-supply = <&pmd9635_l2>;
 		GDSC-supply = <&gdsc_usb_hsic>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
+		qcom,hsic-tlmm-init-seq =
+			<0x8 0x5 0x4 0x5 0x0 0x1>;
 	};
