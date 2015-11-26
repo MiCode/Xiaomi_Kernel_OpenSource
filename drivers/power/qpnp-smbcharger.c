@@ -88,6 +88,8 @@ struct smbchg_version_tables {
 	int				iterm_ma_len;
 	const int			*fcc_comp_table;
 	int				fcc_comp_len;
+	const int			*aicl_rerun_period_table;
+	int				aicl_rerun_period_len;
 	int				rchg_thr_mv;
 };
 
@@ -124,6 +126,7 @@ struct smbchg_chip {
 	int				bmd_pin_src;
 	int				jeita_temp_hard_limit;
 	int				sw_esr_pulse_current_ma;
+	int				aicl_rerun_period_s;
 	bool				use_vfloat_adjustments;
 	bool				iterm_disabled;
 	bool				bmd_algo_disabled;
@@ -1242,6 +1245,13 @@ static const int fcc_comp_table_8996[] = {
 	1500,
 };
 
+static const int aicl_rerun_period[] = {
+	45,
+	90,
+	180,
+	360,
+};
+
 static void use_pmi8994_tables(struct smbchg_chip *chip)
 {
 	chip->tables.usb_ilim_ma_table = usb_ilim_ma_table_8994;
@@ -1253,6 +1263,8 @@ static void use_pmi8994_tables(struct smbchg_chip *chip)
 	chip->tables.fcc_comp_table = fcc_comp_table_8994;
 	chip->tables.fcc_comp_len = ARRAY_SIZE(fcc_comp_table_8994);
 	chip->tables.rchg_thr_mv = 200;
+	chip->tables.aicl_rerun_period_table = aicl_rerun_period;
+	chip->tables.aicl_rerun_period_len = ARRAY_SIZE(aicl_rerun_period);
 }
 
 static void use_pmi8996_tables(struct smbchg_chip *chip)
@@ -1266,6 +1278,8 @@ static void use_pmi8996_tables(struct smbchg_chip *chip)
 	chip->tables.fcc_comp_table = fcc_comp_table_8996;
 	chip->tables.fcc_comp_len = ARRAY_SIZE(fcc_comp_table_8996);
 	chip->tables.rchg_thr_mv = 150;
+	chip->tables.aicl_rerun_period_table = aicl_rerun_period;
+	chip->tables.aicl_rerun_period_len = ARRAY_SIZE(aicl_rerun_period);
 }
 
 #define CMD_CHG_REG	0x42
@@ -1332,6 +1346,32 @@ static int smbchg_set_dc_current_max(struct smbchg_chip *chip, int current_ma)
 			chip->dc_max_current_ma);
 	return smbchg_sec_masked_write(chip, chip->dc_chgpth_base + IL_CFG,
 				DCIN_INPUT_MASK, dc_cur_val);
+}
+
+#define AICL_WL_SEL_CFG			0xF5
+#define AICL_WL_SEL_MASK		SMB_MASK(1, 0)
+static int smbchg_set_aicl_rerun_period_s(struct smbchg_chip *chip,
+								int period_s)
+{
+	int i;
+	u8 reg;
+
+	i = find_smaller_in_array(chip->tables.aicl_rerun_period_table,
+			period_s, chip->tables.aicl_rerun_period_len);
+
+	if (i < 0) {
+		dev_err(chip->dev, "Cannot find %ds in aicl rerun period\n",
+				period_s);
+		return -EINVAL;
+	}
+
+	reg = i & AICL_WL_SEL_MASK;
+
+	pr_smb(PR_STATUS, "aicl rerun period set to %ds\n",
+			chip->tables.aicl_rerun_period_table[i]);
+	return smbchg_sec_masked_write(chip,
+			chip->dc_chgpth_base + AICL_WL_SEL_CFG,
+			AICL_WL_SEL_CFG, reg);
 }
 
 static struct power_supply *get_parallel_psy(struct smbchg_chip *chip)
@@ -6194,9 +6234,6 @@ static inline int get_bpd(const char *name)
 #define FG_INPUT_FET_DELAY_BIT		BIT(3)
 #define TRIM_OPTIONS_7_0		0xF6
 #define INPUT_MISSING_POLLER_EN_BIT	BIT(3)
-#define AICL_WL_SEL_CFG			0xF5
-#define AICL_WL_SEL_MASK		SMB_MASK(1, 0)
-#define AICL_WL_SEL_45S		0
 #define CHGR_CCMP_CFG			0xFA
 #define JEITA_TEMP_HARD_LIMIT_BIT	BIT(5)
 #define HVDCP_ADAPTER_SEL_MASK		SMB_MASK(5, 4)
@@ -6267,13 +6304,14 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 			chip->revision[DIG_MAJOR], chip->revision[DIG_MINOR],
 			chip->revision[ANA_MAJOR], chip->revision[ANA_MINOR]);
 
-	rc = smbchg_sec_masked_write(chip,
-			chip->dc_chgpth_base + AICL_WL_SEL_CFG,
-			AICL_WL_SEL_MASK, AICL_WL_SEL_45S);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't set AICL rerun timer rc=%d\n",
-				rc);
-		return rc;
+	if (chip->aicl_rerun_period_s > 0) {
+		rc = smbchg_set_aicl_rerun_period_s(chip,
+				chip->aicl_rerun_period_s);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set AICL rerun timer rc=%d\n",
+					rc);
+			return rc;
+		}
 	}
 
 	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + TR_RID_REG,
@@ -6820,6 +6858,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			chip->parallel.min_9v_current_thr_ma);
 	OF_PROP_READ(chip, chip->jeita_temp_hard_limit,
 			"jeita-temp-hard-limit", rc, 1);
+	OF_PROP_READ(chip, chip->aicl_rerun_period_s,
+			"aicl-rerun-period-s", rc, 1);
 	OF_PROP_READ(chip, chip->vchg_adc_channel,
 				"vchg-adc-channel-id", rc, 1);
 

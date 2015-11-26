@@ -237,6 +237,9 @@ Optional Properties:
 				this property will not adjust the AICL deglitch time
 				dynamically for handling the battery over-voltage
 				oscillations when the charger is headroom limited.
+- qcom,aicl-rerun-period-s	If force-aicl-rerun is on, this property dictates
+				how often aicl is reran in seconds. Possible values
+				are 45, 90, 180, and 360.
 - qcom,ibat-ocp-threshold-ua	Maximum current before the battery will trigger
 				overcurrent protection. Use the recommended
 				battery pack value minus some margin.
