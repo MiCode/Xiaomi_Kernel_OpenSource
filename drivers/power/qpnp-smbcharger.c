@@ -38,6 +38,7 @@
 #include <linux/of_batterydata.h>
 #include <linux/msm_bcl.h>
 #include <linux/ktime.h>
+#include "pmic-voter.h"
 
 /* Mask/Bit helpers */
 #define _SMB_MASK(BITS, POS) \
@@ -113,7 +114,6 @@ struct smbchg_chip {
 	int				usb_target_current_ma;
 	int				usb_tl_current_ma;
 	int				dc_target_current_ma;
-	int				target_fastchg_current_ma;
 	int				cfg_fastchg_current_ma;
 	int				fastchg_current_ma;
 	int				vfloat_mv;
@@ -249,7 +249,6 @@ struct smbchg_chip {
 	struct mutex			battchg_disabled_lock;
 	struct mutex			usb_en_lock;
 	struct mutex			dc_en_lock;
-	struct mutex			fcc_lock;
 	struct mutex			pm_lock;
 	/* aicl deglitch workaround */
 	unsigned long			first_aicl_seconds;
@@ -263,6 +262,7 @@ struct smbchg_chip {
 	int				pulse_cnt;
 	struct led_classdev		led_cdev;
 	bool				skip_usb_notification;
+	struct votable			*fcc_votable;
 
 	u32				vchg_adc_channel;
 	struct qpnp_vadc_chip		*vchg_vadc_dev;
@@ -308,6 +308,13 @@ enum wake_reason {
 	PM_REASON_VFLOAT_ADJUST = BIT(1),
 	PM_ESR_PULSE = BIT(2),
 	PM_PARALLEL_TAPER = BIT(3),
+};
+
+enum fcc_voters {
+	ESR_PULSE_FCC_VOTER,
+	BATT_TYPE_FCC_VOTER,
+	USER_FCC_VOTER,
+	NUM_FCC_VOTER,
 };
 
 static int smbchg_debug_mask;
@@ -1774,20 +1781,6 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 	return rc;
 }
 
-#define ESR_PULSE_CURRENT_DELTA_MA	200
-static int smbchg_set_fastchg_current(struct smbchg_chip *chip,
-							int current_ma)
-{
-	int rc = 0;
-
-	if (chip->sw_esr_pulse_current_ma > 0)
-		current_ma = chip->sw_esr_pulse_current_ma;
-	mutex_lock(&chip->fcc_lock);
-	rc = smbchg_set_fastchg_current_raw(chip, current_ma);
-	mutex_unlock(&chip->fcc_lock);
-	return rc;
-}
-
 #define ICL_STS_1_REG			0x7
 #define ICL_STS_2_REG			0x9
 #define ICL_STS_MASK			0x1F
@@ -1812,26 +1805,25 @@ static int smbchg_parallel_usb_charging_en(struct smbchg_chip *chip, bool en)
 		POWER_SUPPLY_PROP_CHARGING_ENABLED, &pval);
 }
 
+#define ESR_PULSE_CURRENT_DELTA_MA	200
 static int smbchg_sw_esr_pulse_en(struct smbchg_chip *chip, bool en)
 {
-	int rc;
-	int ibat_ua;
+	int rc, fg_current_now, icl_ma;
 
-	rc = get_property_from_fg(chip,
-			POWER_SUPPLY_PROP_CURRENT_NOW, &ibat_ua);
+	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_CURRENT_NOW,
+						&fg_current_now);
 	if (rc) {
-		pr_smb(PR_STATUS,
-			"bms psy does not support current_now rc = %d\n", rc);
+		pr_smb(PR_STATUS, "bms psy does not support OCV\n");
+		return 0;
+	}
+
+	icl_ma = max(chip->iterm_ma + ESR_PULSE_CURRENT_DELTA_MA,
+				fg_current_now - ESR_PULSE_CURRENT_DELTA_MA);
+	rc = vote(chip->fcc_votable, ESR_PULSE_FCC_VOTER, en, icl_ma);
+	if (rc < 0) {
+		pr_err("Couldn't Vote FCC en = %d rc = %d\n", en, rc);
 		return rc;
 	}
-	chip->sw_esr_pulse_current_ma = max((ibat_ua / 1000)
-			- ESR_PULSE_CURRENT_DELTA_MA,
-			chip->iterm_ma + ESR_PULSE_CURRENT_DELTA_MA);
-	pr_smb(PR_STATUS, "setting sw esr pulse fcc = %d\n",
-			chip->sw_esr_pulse_current_ma);
-	rc = smbchg_set_fastchg_current(chip, chip->target_fastchg_current_ma);
-	if (rc)
-		return rc;
 	rc = smbchg_parallel_usb_charging_en(chip, !en);
 	return rc;
 }
@@ -1916,8 +1908,8 @@ static void smbchg_parallel_usb_disable(struct smbchg_chip *chip)
 	power_supply_set_current_limit(parallel_psy,
 				SUSPEND_CURRENT_MA * 1000);
 	power_supply_set_present(parallel_psy, false);
-	chip->target_fastchg_current_ma = chip->cfg_fastchg_current_ma;
-	smbchg_set_fastchg_current(chip, chip->target_fastchg_current_ma);
+	smbchg_set_fastchg_current_raw(chip,
+			get_effective_result_locked(chip->fcc_votable));
 	chip->usb_tl_current_ma =
 		calc_thermal_limited_current(chip, chip->usb_target_current_ma);
 	smbchg_set_usb_current_max(chip, chip->usb_tl_current_ma);
@@ -1995,6 +1987,8 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 	union power_supply_propval pval = {0, };
 	int new_parallel_cl_ma, rc;
 	int current_table_index;
+	int fcc_ma;
+	int main_fastchg_current_ma;
 
 	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
@@ -2011,31 +2005,27 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 	 * set the primary charger to the set point closest to 40% of the fcc
 	 * while remaining below it
 	 */
+	fcc_ma = get_effective_result_locked(chip->fcc_votable);
 	current_table_index = find_smaller_in_array(
 			chip->tables.usb_ilim_ma_table,
-			chip->cfg_fastchg_current_ma
-				* chip->parallel.main_chg_fcc_percent / 100,
+			fcc_ma * chip->parallel.main_chg_fcc_percent / 100,
 			chip->tables.usb_ilim_ma_len);
-	chip->target_fastchg_current_ma =
+	main_fastchg_current_ma =
 		chip->tables.usb_ilim_ma_table[current_table_index];
-	smbchg_set_fastchg_current(chip, chip->target_fastchg_current_ma);
+	smbchg_set_fastchg_current_raw(chip, main_fastchg_current_ma);
 	pr_smb(PR_STATUS, "main chg %%=%d, requested=%d, found=%d\n",
 			chip->parallel.main_chg_fcc_percent,
-			chip->cfg_fastchg_current_ma
+			fcc_ma
 				* chip->parallel.main_chg_fcc_percent / 100,
-			chip->target_fastchg_current_ma);
+			main_fastchg_current_ma);
 
 	/* allow the parallel charger to use the remaining available fcc */
-	pval.intval = (chip->cfg_fastchg_current_ma
-			- chip->target_fastchg_current_ma) * 1000;
+	pval.intval = (fcc_ma - main_fastchg_current_ma) * 1000;
 	parallel_psy->set_property(parallel_psy,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
 
-	pr_smb(PR_STATUS, "FCC = %d[%d, %d]\n",
-			chip->cfg_fastchg_current_ma,
-			chip->target_fastchg_current_ma,
-			chip->cfg_fastchg_current_ma
-			- chip->target_fastchg_current_ma);
+	pr_smb(PR_STATUS, "FCC = %d[%d, %d]\n", fcc_ma, main_fastchg_current_ma,
+					fcc_ma - main_fastchg_current_ma);
 
 	chip->parallel.enabled_once = true;
 
@@ -2087,6 +2077,7 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 	int total_current_ma, current_limit_ma, parallel_cl_ma;
 	ktime_t kt_since_last_disable;
 	u8 reg;
+	int fcc_ma = get_effective_result_locked(chip->fcc_votable);
 
 	if (!parallel_psy || !smbchg_parallel_en
 			|| !chip->parallel_charger_detected) {
@@ -2163,9 +2154,9 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 	}
 
 	/* Suspend the parallel charger if the charging current is < 1800 mA */
-	if (chip->cfg_fastchg_current_ma < PARALLEL_CHG_THRESHOLD_CURRENT) {
+	if (fcc_ma < PARALLEL_CHG_THRESHOLD_CURRENT) {
 		pr_smb(PR_STATUS, "FCC %d lower than %d\n",
-			chip->cfg_fastchg_current_ma,
+			fcc_ma,
 			PARALLEL_CHG_THRESHOLD_CURRENT);
 		return false;
 	}
@@ -2259,6 +2250,30 @@ static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
 	mutex_unlock(&chip->parallel.lock);
 }
 
+static int set_fastchg_current_vote_cb(struct device *dev,
+						int fcc_ma,
+						int client,
+						int last_fcc_ma,
+						int last_client)
+{
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	int rc;
+
+	if (chip->parallel.current_max_ma == 0) {
+		rc = smbchg_set_fastchg_current_raw(chip, fcc_ma);
+		if (rc < 0) {
+			pr_err("Can't set FCC fcc_ma=%d rc=%d\n", fcc_ma, rc);
+			return rc;
+		}
+	}
+	/*
+	 * check if parallel charging can be enabled, and if enabled,
+	 * distribute the fcc
+	 */
+	smbchg_parallel_usb_check_ok(chip);
+	return 0;
+}
+
 static int smbchg_usb_en(struct smbchg_chip *chip, bool enable,
 		enum enable_reason reason)
 {
@@ -2276,20 +2291,10 @@ static int smbchg_set_fastchg_current_user(struct smbchg_chip *chip,
 	int rc = 0;
 
 	pr_smb(PR_STATUS, "User setting FCC to %d\n", current_ma);
-	chip->cfg_fastchg_current_ma = current_ma;
 
-	if (chip->parallel.current_max_ma == 0) {
-		rc = smbchg_set_fastchg_current(chip,
-				chip->cfg_fastchg_current_ma);
-		if (rc < 0)
-			pr_err("Couldn't set fastchg current rc: %d\n", rc);
-	}
-	/*
-	 * check if parallel charging can be enabled, and if enabled,
-	 * distribute the fcc
-	 */
-	smbchg_parallel_usb_check_ok(chip);
-
+	rc = vote(chip->fcc_votable, USER_FCC_VOTER, true, current_ma);
+	if (rc < 0)
+		pr_err("Couldn't vote en rc %d\n", rc);
 	return rc;
 }
 
@@ -3330,15 +3335,13 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 			ret = rc;
 		} else {
 			pr_smb(PR_MISC,
-				"fastchg-ma changed from %dma to %dma for battery-type %s\n",
-				chip->target_fastchg_current_ma, fastchg_ma,
-				chip->battery_type);
-			chip->target_fastchg_current_ma = fastchg_ma;
-			chip->cfg_fastchg_current_ma = fastchg_ma;
-			rc = smbchg_set_fastchg_current(chip, fastchg_ma);
+				"fastchg-ma changed from to %dma for battery-type %s\n",
+				fastchg_ma, chip->battery_type);
+			rc = vote(chip->fcc_votable, BATT_TYPE_FCC_VOTER, true,
+							fastchg_ma);
 			if (rc < 0) {
 				dev_err(chip->dev,
-					"Couldn't set fastchg current rc=%d\n",
+					"Couldn't vote for fastchg current rc=%d\n",
 					rc);
 				return rc;
 			}
@@ -4735,9 +4738,7 @@ static int smbchg_prepare_for_pulsing(struct smbchg_chip *chip)
 	/* reduce input current limit to 300mA */
 	pr_smb(PR_MISC, "Reduce mA = 300\n");
 	mutex_lock(&chip->current_change_lock);
-	chip->target_fastchg_current_ma = 300;
-	rc = smbchg_set_thermal_limited_usb_current_max(chip,
-			chip->target_fastchg_current_ma);
+	rc = smbchg_set_thermal_limited_usb_current_max(chip, 300);
 	mutex_unlock(&chip->current_change_lock);
 	if (rc < 0) {
 		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
@@ -5023,9 +5024,7 @@ static int smbchg_prepare_for_pulsing_lite(struct smbchg_chip *chip)
 	/* reduce input current limit to 300mA */
 	pr_smb(PR_MISC, "Reduce mA = 300\n");
 	mutex_lock(&chip->current_change_lock);
-	chip->target_fastchg_current_ma = 300;
-	rc = smbchg_set_thermal_limited_usb_current_max(chip,
-			chip->target_fastchg_current_ma);
+	rc = smbchg_set_thermal_limited_usb_current_max(chip, 300);
 	mutex_unlock(&chip->current_change_lock);
 	if (rc < 0) {
 		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
@@ -6579,9 +6578,10 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		}
 	}
 
-	rc = smbchg_set_fastchg_current(chip, chip->target_fastchg_current_ma);
+	rc = vote(chip->fcc_votable, BATT_TYPE_FCC_VOTER, true,
+			chip->cfg_fastchg_current_ma);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't set fastchg current = %d\n", rc);
+		dev_err(chip->dev, "Couldn't vote fastchg ma rc = %d\n", rc);
 		return rc;
 	}
 
@@ -6766,10 +6766,10 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	if (ocp_thresh >= 0)
 		smbchg_ibat_ocp_threshold_ua = ocp_thresh;
 	OF_PROP_READ(chip, chip->iterm_ma, "iterm-ma", rc, 1);
-	OF_PROP_READ(chip, chip->target_fastchg_current_ma,
+	OF_PROP_READ(chip, chip->cfg_fastchg_current_ma,
 			"fastchg-current-ma", rc, 1);
-	if (chip->target_fastchg_current_ma == -EINVAL)
-		chip->target_fastchg_current_ma = DEFAULT_FCC_MA;
+	if (chip->cfg_fastchg_current_ma == -EINVAL)
+		chip->cfg_fastchg_current_ma = DEFAULT_FCC_MA;
 	OF_PROP_READ(chip, chip->vfloat_mv, "float-voltage-mv", rc, 1);
 	OF_PROP_READ(chip, chip->safety_time, "charging-timeout-mins", rc, 1);
 	OF_PROP_READ(chip, chip->vled_max_uv, "vled-max-uv", rc, 1);
@@ -6808,7 +6808,6 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			"parallel-main-chg-fcc-percent", rc, 1);
 	if (chip->parallel.main_chg_fcc_percent == -EINVAL)
 		chip->parallel.main_chg_fcc_percent = DEFAULT_MAIN_CHG_PERCENT;
-	chip->cfg_fastchg_current_ma = chip->target_fastchg_current_ma;
 	if (chip->parallel.min_current_thr_ma != -EINVAL
 			&& chip->parallel.min_9v_current_thr_ma != -EINVAL)
 		chip->parallel.avail = true;
@@ -7356,6 +7355,11 @@ static int smbchg_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 
+	chip->fcc_votable = create_votable(&spmi->dev, VOTE_MIN,
+			NUM_FCC_VOTER, set_fastchg_current_vote_cb);
+	if (IS_ERR(chip->fcc_votable))
+		return PTR_ERR(chip->fcc_votable);
+
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
@@ -7375,7 +7379,6 @@ static int smbchg_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, chip);
 
 	spin_lock_init(&chip->sec_access_lock);
-	mutex_init(&chip->fcc_lock);
 	mutex_init(&chip->current_change_lock);
 	mutex_init(&chip->usb_set_online_lock);
 	mutex_init(&chip->battchg_disabled_lock);
