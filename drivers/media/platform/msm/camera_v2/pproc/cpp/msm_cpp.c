@@ -79,6 +79,7 @@
 #define MMU_PF_MASK 0x80
 #define POP_FRONT 1
 #define POP_BACK 0
+#define BATCH_DUP_MASK 0x100
 
 #define CPP_DT_READ_U32_ERR(_dev, _key, _str, _ret, _out) { \
 		_key = _str; \
@@ -2215,7 +2216,7 @@ exit:
 	return;
 }
 
-static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
+static int32_t msm_cpp_set_group_buffer_duplicate(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *new_frame, unsigned long out_phyaddr,
 	uint32_t num_output_bufs)
 {
@@ -2228,18 +2229,6 @@ static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
 		dup_frame_off, ubwc_enabled, j, i = 0;
 
 	do {
-		if (new_frame->batch_info.batch_mode != BATCH_MODE_VIDEO) {
-			pr_debug("%s: batch mode not set %d\n", __func__,
-				new_frame->batch_info.batch_mode);
-			break;
-		}
-
-		if (new_frame->batch_info.batch_size <= 1) {
-			pr_debug("%s: batch size is invalid %d\n", __func__,
-				new_frame->batch_info.batch_size);
-			break;
-		}
-
 		set_group_buffer_len =
 			cpp_dev->payload_params.set_group_buffer_len;
 		if (!set_group_buffer_len) {
@@ -2250,10 +2239,10 @@ static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
 		}
 
 		/*
-		 * Length of  MSM_CPP_CMD_GROUP_BUFFER command +
+		 * Length of  MSM_CPP_CMD_GROUP_BUFFER_DUP command +
 		 * 4 byte for header + 4 byte for the length field +
 		 * 4 byte for the trailer + 4 byte for
-		 * MSM_CPP_CMD_GROUP_BUFFER prefix before the payload
+		 * MSM_CPP_CMD_GROUP_BUFFER_DUP prefix before the payload
 		 */
 		set_group_buffer_len += 4;
 		set_group_buffer_len_bytes = set_group_buffer_len *
@@ -2276,14 +2265,14 @@ static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
 		ubwc_enabled = ((new_frame->feature_mask & UBWC_MASK) >> 5);
 		ptr = set_group_buffer_w_duplication;
 		/*create and send Set Group Buffer with Duplicate command*/
-		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
+		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER_DUP;
 		*ptr++ = MSM_CPP_MSG_ID_CMD;
 		/*
 		 * This field is the value read from dt and stands for length of
 		 * actual data in payload
 		 */
 		*ptr++ = cpp_dev->payload_params.set_group_buffer_len;
-		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
+		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER_DUP;
 		*ptr++ = 0;
 		out_phyaddr0 = out_phyaddr;
 
@@ -2334,6 +2323,114 @@ static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
 	} while (0);
 
 	kfree(set_group_buffer_w_duplication);
+	return rc;
+}
+
+static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
+	struct msm_cpp_frame_info_t *new_frame, unsigned long out_phyaddr,
+	uint32_t num_output_bufs)
+{
+	uint32_t set_group_buffer_len;
+	uint32_t *set_group_buffer = NULL;
+	uint32_t *ptr;
+	unsigned long out_phyaddr0, out_phyaddr1, distance;
+	int32_t rc = 0;
+	uint32_t set_group_buffer_len_bytes, i = 0;
+
+	if (new_frame->batch_info.batch_mode != BATCH_MODE_VIDEO) {
+		pr_debug("%s: batch mode not set %d\n", __func__,
+			new_frame->batch_info.batch_mode);
+		return rc;
+	}
+
+	if (new_frame->batch_info.batch_size <= 1) {
+		pr_debug("%s: batch size is invalid %d\n", __func__,
+			new_frame->batch_info.batch_size);
+		return rc;
+	}
+
+	if ((new_frame->feature_mask & BATCH_DUP_MASK) >> 8) {
+		return msm_cpp_set_group_buffer_duplicate(cpp_dev, new_frame,
+		out_phyaddr, num_output_bufs);
+	}
+
+	if (new_frame->duplicate_output) {
+		pr_err("cannot support duplication enable\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	set_group_buffer_len =
+		2 + 3 * (num_output_bufs - 1);
+	/*
+	 * Length of  MSM_CPP_CMD_GROUP_BUFFER command +
+	 * 4 byte for header + 4 byte for the length field +
+	 * 4 byte for the trailer + 4 byte for
+	 * MSM_CPP_CMD_GROUP_BUFFER prefix before the payload
+	 */
+	set_group_buffer_len += 4;
+	set_group_buffer_len_bytes = set_group_buffer_len *
+		sizeof(uint32_t);
+	set_group_buffer =
+		kzalloc(set_group_buffer_len_bytes, GFP_KERNEL);
+	if (!set_group_buffer) {
+		pr_err("%s: set group buffer data alloc failed\n",
+			__func__);
+		rc = -ENOMEM;
+		goto exit;
+	}
+
+	memset(set_group_buffer, 0x0,
+		set_group_buffer_len_bytes);
+	ptr = set_group_buffer;
+	/*Create and send Set Group Buffer*/
+	*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
+	*ptr++ = MSM_CPP_MSG_ID_CMD;
+	/*
+	 * This field is the value read from dt and stands
+	 * for length of actual data in payload
+	 */
+	*ptr++ = set_group_buffer_len - 4;
+	*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
+	*ptr++ = 0;
+	out_phyaddr0 = out_phyaddr;
+
+	for (i = 1; i < num_output_bufs; i++) {
+		out_phyaddr1 =
+			msm_cpp_fetch_buffer_info(cpp_dev,
+			&new_frame->output_buffer_info[i],
+			((new_frame->identity >> 16) & 0xFFFF),
+			(new_frame->identity & 0xFFFF),
+			&new_frame->output_buffer_info[i].fd);
+		if (!out_phyaddr1) {
+			pr_err("%s: error getting o/p phy addr\n",
+				__func__);
+			rc = -EINVAL;
+			goto free_and_exit;
+		}
+		distance = out_phyaddr1 - out_phyaddr0;
+		out_phyaddr0 = out_phyaddr1;
+		*ptr++ = distance;
+		*ptr++ = distance;
+		*ptr++ = distance;
+	}
+	if (rc)
+		goto free_and_exit;
+
+	/*
+	 * Index for cpp message id trailer is length of
+	 * payload for set group buffer minus 1
+	 */
+	set_group_buffer[set_group_buffer_len - 1] =
+		MSM_CPP_MSG_ID_TRAILER;
+	rc = msm_cpp_send_command_to_hardware(cpp_dev,
+		set_group_buffer, set_group_buffer_len);
+	if (rc < 0)
+		pr_err("Send Command Error rc %d\n", rc);
+
+free_and_exit:
+	kfree(set_group_buffer);
+exit:
 	return rc;
 }
 
@@ -2597,8 +2694,6 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 				k_frame_info.output_buffer_info[i] =
 					frame->output_buffer_info[i];
 			}
-			k_frame_info.duplicate_buffer_info =
-				frame->duplicate_buffer_info;
 		}
 	}
 
@@ -3626,8 +3721,6 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 					cpp_frame->output_buffer_info[0];
 				k32_frame_info.output_buffer_info[1] =
 					cpp_frame->output_buffer_info[1];
-				k32_frame_info.duplicate_buffer_info =
-					cpp_frame->duplicate_buffer_info;
 			}
 		} else {
 			pr_err("%s: Error getting frame\n", __func__);
