@@ -2665,6 +2665,16 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 		gsi->d_port.in_request.dma);
 }
 
+static void ipa_ready_callback(void *user_data)
+{
+	struct f_gsi *gsi = user_data;
+
+	pr_info("%s: ipa is ready\n", __func__);
+
+	gsi->d_port.ipa_ready = true;
+	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
+}
+
 int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 {
 	struct f_gsi	*gsi;
@@ -2731,6 +2741,18 @@ int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 	if (status)
 		return status;
 
+	status = ipa_register_ipa_ready_cb(ipa_ready_callback, gsi);
+	if (!status) {
+		pr_info("%s: ipa is not ready\n", __func__);
+		status = wait_event_interruptible_timeout(
+			gsi->d_port.wait_for_ipa_ready, gsi->d_port.ipa_ready,
+			msecs_to_jiffies(GSI_IPA_READY_TIMEOUT));
+		if (!status) {
+			pr_err("%s: ipa ready timeout\n", __func__);
+			return -ETIMEDOUT;
+		}
+	}
+
 	gsi->d_port.ipa_usb_notify_cb = ipa_usb_notify_cb;
 	status = ipa_usb_init_teth_prot(prot_id,
 		&gsi->d_port.ipa_init_params, gsi->d_port.ipa_usb_notify_cb,
@@ -2761,6 +2783,8 @@ static int gsi_function_init(enum ipa_usb_teth_prot prot_id)
 	}
 
 	spin_lock_init(&gsi->d_port.lock);
+
+	init_waitqueue_head(&gsi->d_port.wait_for_ipa_ready);
 
 	gsi->d_port.in_channel_handle = -EINVAL;
 	gsi->d_port.out_channel_handle = -EINVAL;
