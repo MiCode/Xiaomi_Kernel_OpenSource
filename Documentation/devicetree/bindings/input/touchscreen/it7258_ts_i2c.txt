@@ -45,6 +45,7 @@ Optional properties:
  - ite,low-reset	: boolean, if the controller needs low-state of the reset gpio while
 			  initializing, and reset gpio should be made as high-state to reset the
 			  controller. It means the controller needs "active-high" reset gpio.
+ - ite,avdd-lpm-cur	: avdd lpm current value(mA) in suspend state.
 
 Required properties palm-detect-en feature:
  - ite,palm-detect-keycode	: The keycode that is required to be sent when
@@ -76,5 +77,6 @@ Example:
 			ite,num-fingers = <2>;
 			ite,reset-delay = <20>;
 			ite,low-reset;
+			ite,vdd-lpm-cur = <3000>;
 		};
 	};
