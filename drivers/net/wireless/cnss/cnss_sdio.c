@@ -298,7 +298,7 @@ static void cnss_sdio_release_resource(void)
 	if (cnss_pdata->regulator.wlan_xtal)
 		regulator_put(cnss_pdata->regulator.wlan_xtal);
 	if (cnss_pdata->regulator.wlan_vreg)
-		regulator_put(cnss_pdata->regulator.wlan_xtal);
+		regulator_put(cnss_pdata->regulator.wlan_vreg);
 	if (cnss_pdata->regulator.wlan_io)
 		regulator_put(cnss_pdata->regulator.wlan_io);
 }
