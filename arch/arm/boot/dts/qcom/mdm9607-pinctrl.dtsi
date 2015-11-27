@@ -181,11 +181,11 @@
 	sdc1_wlan_gpio {
 		sdc1_wlan_gpio_active: sdc1_wlan_gpio_active {
 			mux {
-				pins = "gpio38";
+				pins = "gpio38", "gpio25";
 				function  = "gpio";
 			};
 			config {
-				pins  = "gpio38";
+				pins  = "gpio38", "gpio25";
 				output-high;
 				drive-strength = <8>;
 				bias-pull-up;
