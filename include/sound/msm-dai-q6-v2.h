@@ -62,9 +62,6 @@ struct msm_dai_tdm_group_config {
 	u16 group_id;
 	u16 num_ports;
 	u16 *port_id;
-	u16 nslots_per_frame;
-	u16 slot_width;
-	u32 slot_mask;
 	u32 clk_rate;
 };
 
@@ -74,19 +71,15 @@ struct msm_dai_tdm_config {
 	u16 data_out;
 	u16 invert_sync;
 	u16 data_delay;
-	u32 offset_data_align;
-	u16 num_offset;
-	u16 *offset;
-	u16  header_start_offset;
-	u16  header_width;
-	u16  header_num_frame_repeat;
+	u32 data_align;
+	u16 header_start_offset;
+	u16 header_width;
+	u16 header_num_frame_repeat;
 };
-
-#define MSM_DAI_TDM_MAX_CH	8
 
 struct msm_dai_tdm_pdata {
 	struct msm_dai_tdm_group_config group_config;
-	struct msm_dai_tdm_config config[MSM_DAI_TDM_MAX_CH];
+	struct msm_dai_tdm_config config;
 };
 
 #endif

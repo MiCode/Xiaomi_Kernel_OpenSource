@@ -1123,20 +1123,6 @@ Required properties:
 				Quaternary TX:	36913, 36915, 36917, 36919,
 								36921, 36923, 36925, 36927
 
- - qcom,msm-cpudai-tdm-group-nslots-per-frame: Number of slots per TDM frame.
-				Supported value: 1 to 32.
-
- - qcom,msm-cpudai-tdm-group-slot-width: Slot width of the slot in a TDM frame.
-				Supported value: 16, 24, 32.
-
- - qcom,msm-cpudai-tdm-group-slot-mask: Position of active slots.
-				When that bit is set, that paricular slot is active.
-				Number of active slots can be inferred by
-				number of bits set in the mask.
-				Only 8 individual bits can be enabled.
-				Bits 0 to 31 corresponding to slot 0 to 31.
-				Supported: 1 to 2^32 - 1.
-
  - qcom,msm-cpudai-tdm-clk-rate: Clock rate for tdm - 12288000.
 				When clock rate is set to zero,
 				then external clock is assumed.
@@ -1171,28 +1157,13 @@ Required properties:
 				1 - 1 bit clock cycle
 				2 - 2 bit clock cycle
 
-Optional properties:
-
- - qcom,msm-cpudai-tdm-num-offset: Number of slot mapping start offsets in
-				qcom,msm-cpudai-tdm-offset array. The number of array
-				corresponds to the channel number configuration.
-				For example, the first array is for 1 channel configuration.
-				Offset setting is per channel based.
-				This is board specific configuration.
-				The max num of channel supported is 8.
-
- - qcom,msm-cpudai-tdm-offset: Array of the slot mapping start offset in bytes
-				for this frame. The bytes is counted from 0.
-				0 is mapped to the 1st byte in or out of
-				the digital serial data line this sub-frame belongs to.
-				This is board specific configuration.
-				Max number of offsets supported by DSP is 8.
-
- - qcom,msm-cpudai-tdm-offset-data-align: Indicate how data is packed
+ - qcom,msm-cpudai-tdm-data-align: Indicate how data is packed
 				within the slot. For example, 32 slot width in case of
 				sample bit width is 24.
 				0 - MSB
 				1 - LSB
+
+Optional properties:
 
  - qcom,msm-cpudai-tdm-header-start-offset: TDM Custom header start offset
 				in bytes from this sub-frame. The bytes is counted from 0.
@@ -1209,6 +1180,7 @@ Optional properties:
 
  - pinctrl-names: Pinctrl state names for each pin group
 				configuration.
+
  - pinctrl-x: Defines pinctrl state for each pin group.
 
 Example:
@@ -1218,13 +1190,10 @@ Example:
 		qcom,msm-cpudai-tdm-group-id = <37168>;
 		qcom,msm-cpudai-tdm-group-num-ports = <1>;
 		qcom,msm-cpudai-tdm-group-port-id = <36912>;
-		qcom,msm-cpudai-tdm-group-nslots-per-frame = <8>;
-		qcom,msm-cpudai-tdm-group-slot-width = <32>;
-		qcom,msm-cpudai-tdm-group-slot-mask = <255>;
 		qcom,msm-cpudai-tdm-clk-rate = <12288000>;
 		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&quat_tdm_active &quat_tdm_dio_active>;
-		pinctrl-1 = <&quat_tdm_sleep &quat_tdm_dio_sleep>;
+		pinctrl-0 = <&quat_tdm_active &quat_tdm_dout_active>;
+		pinctrl-1 = <&quat_tdm_sleep &quat_tdm_dout_sleep>;
 		dai_quat_tdm_rx_0: qcom,msm-dai-q6-tdm-quat-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36912>;
@@ -1233,11 +1202,7 @@ Example:
 			qcom,msm-cpudai-tdm-data-out = <0>;
 			qcom,msm-cpudai-tdm-invert-sync = <0>;
 			qcom,msm-cpudai-tdm-data-delay = <0>;
-			qcom,msm-cpudai-tdm-num-offset = <1>, <2>, <3>,
-					<4>, <5>, <6>;
-			qcom,msm-cpudai-tdm-offset = <0>, <0 4>, <0 4 8>,
-					<0 4 8 12>, <0 4 8 12 16>, <0 4 8 12 16 20>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
 			qcom,msm-cpudai-tdm-header-start-offset = <0>;
 			qcom,msm-cpudai-tdm-header-width = <2>;
 			qcom,msm-cpudai-tdm-header-num-frame-repeat = <8>;
@@ -1872,7 +1837,11 @@ Example:
 
 Required properties:
 - compatible : "qcom,apq8096-asoc-snd-auto" for auto codec and
-		node is "sound-auto"
+		node is "sound-auto",
+		"qcom,apq8096-asoc-snd-adp-agave" for adp agave codec and
+		node is "sound-adp-agave",
+		"qcom,apq8096-asoc-snd-adp-mmxf" for adp mmxf codec and
+		node is "sound-adp-mmxf".
 - qcom,model : The user-visible name of this sound card.
 - asoc-platform: This is phandle list containing the references to platform device
 		nodes that are used as part of the sound card dai-links.
