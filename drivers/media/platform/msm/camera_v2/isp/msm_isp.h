@@ -362,7 +362,7 @@ struct msm_vfe_axi_stream {
 	enum msm_vfe_axi_stream_type stream_type;
 	uint32_t frame_based;
 	enum msm_vfe_frame_skip_pattern frame_skip_pattern;
-	uint32_t framedrop_period;
+	uint32_t current_framedrop_period;
 	uint32_t prev_framedrop_period;
 	uint32_t num_burst_capture;/*number of frame to capture*/
 	uint32_t init_frame_drop;
