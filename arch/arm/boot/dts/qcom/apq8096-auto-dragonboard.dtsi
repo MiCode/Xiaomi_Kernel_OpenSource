@@ -758,104 +758,17 @@
 	};
 
 	qcom,msm-dai-mi2s {
-		compatible = "qcom,msm-dai-mi2s";
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
-			compatible = "qcom,msm-dai-q6-mi2s";
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active>;
 			pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep>;
 		};
 	};
 
-	qcom,msm-dai-tdm-tert-tx {
-		compatible = "qcom,msm-dai-tdm";
-		dai_tert_tdm_tx_0: qcom,msm-dai-q6-tdm-tert-tx-0 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>, <2>,
-					<3>, <4>;
-			qcom,msm-cpudai-tdm-offset = <0>, <0 4>,
-					<0 4 8>, <0 4 8 12>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-		};
-
-		dai_tert_tdm_tx_1: qcom,msm-dai-q6-tdm-tert-tx-1 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>, <2>;
-			qcom,msm-cpudai-tdm-offset = <16>, <16 20>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-		};
-
-		dai_tert_tdm_tx_2: qcom,msm-dai-q6-tdm-tert-tx-2 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>, <2>;
-			qcom,msm-cpudai-tdm-offset = <24>, <24 28>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-		};
-	};
-
 	qcom,msm-dai-tdm-quat-rx {
-		compatible = "qcom,msm-dai-tdm";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&quat_tdm_dout_active>;
 		pinctrl-1 = <&quat_tdm_dout_sleep>;
-		dai_quat_tdm_rx_0: qcom,msm-dai-q6-tdm-quat-rx-0 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>, <2>, <3>,
-					<4>, <5>, <6>;
-			qcom,msm-cpudai-tdm-offset = <0>, <0 4>, <0 4 8>,
-					<0 4 8 12>, <0 4 8 12 16>,
-					<0 4 8 12 16 20>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-			qcom,msm-cpudai-tdm-header-start-offset = <0>;
-			qcom,msm-cpudai-tdm-header-width = <2>;
-			qcom,msm-cpudai-tdm-header-num-frame-repeat = <8>;
-		};
-
-		dai_quat_tdm_rx_1: qcom,msm-dai-q6-tdm-quat-rx-1 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>;
-			qcom,msm-cpudai-tdm-offset = <24>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-			qcom,msm-cpudai-tdm-header-start-offset = <0>;
-			qcom,msm-cpudai-tdm-header-width = <2>;
-			qcom,msm-cpudai-tdm-header-num-frame-repeat = <8>;
-		};
-
-		dai_quat_tdm_rx_2: qcom,msm-dai-q6-tdm-quat-rx-2 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>;
-			qcom,msm-cpudai-tdm-offset = <28>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-			qcom,msm-cpudai-tdm-header-start-offset = <0>;
-			qcom,msm-cpudai-tdm-header-width = <2>;
-			qcom,msm-cpudai-tdm-header-num-frame-repeat = <8>;
-		};
-	};
-
-	qcom,msm-dai-tdm-quat-tx {
-		compatible = "qcom,msm-dai-tdm";
-		dai_quat_tdm_tx_0: qcom,msm-dai-q6-tdm-quat-tx-0 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>, <2>,
-					<3>, <4>;
-			qcom,msm-cpudai-tdm-offset = <0>, <0 4>,
-					<0 4 8>, <0 4 8 12>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-		};
-
-		dai_quat_tdm_tx_1: qcom,msm-dai-q6-tdm-quat-tx-1 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>, <2>;
-			qcom,msm-cpudai-tdm-offset = <16>, <16 20>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-		};
-
-		dai_quat_tdm_tx_2: qcom,msm-dai-q6-tdm-quat-tx-2 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-num-offset = <1>, <2>;
-			qcom,msm-cpudai-tdm-offset = <24>, <24 28>;
-			qcom,msm-cpudai-tdm-offset-data-align = <0>;
-		};
 	};
 };
 
