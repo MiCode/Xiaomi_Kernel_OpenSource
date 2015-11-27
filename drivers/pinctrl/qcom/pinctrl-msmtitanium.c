@@ -716,6 +716,9 @@ static const char * const pwr_nav_enabled_b_groups[] = {
 static const char * const dac_calib1_groups[] = {
 	"gpio12",
 };
+static const char * const wsa_en_groups[] = {
+	"gpio12",
+};
 static const char * const cap_int_groups[] = {
 	"gpio13",
 };
@@ -1132,9 +1135,6 @@ static const char * const pri_mi2s_ws_groups[] = {
 };
 static const char * const wsa_io_groups[] = {
 	"gpio94", "gpio95",
-};
-static const char * const wsa_en_groups[] = {
-	"gpio96",
 };
 static const char * const blsp_spi8_groups[] = {
 	"gpio96", "gpio97", "gpio98", "gpio99",
