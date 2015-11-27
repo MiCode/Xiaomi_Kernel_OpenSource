@@ -98,7 +98,7 @@ struct msm_fd_mem_pool {
 struct msm_fd_buf_handle {
 	int fd;
 	struct msm_fd_mem_pool *pool;
-	unsigned long size;
+	size_t size;
 	ion_phys_addr_t addr;
 };
 

@@ -57,7 +57,7 @@ enum msm_isp_buf_mgr_state {
 };
 
 struct msm_isp_buffer_mapped_info {
-	unsigned long len;
+	size_t len;
 	dma_addr_t paddr;
 	int buf_fd;
 };
