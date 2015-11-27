@@ -592,6 +592,41 @@
 		qcom,pm-qos-latency = <2 1001 12701>;
 	};
 
+	hsic: hsic@7c00000 {
+		compatible = "qcom,hsic-peripheral";
+		reg = <0x7c00000 0x352>,
+		      <0x1112000 0xc>;
+		interrupts = <0 141 0>, <0 142 0>;
+		qcom,hsic-usb-core-id = <1>;
+		vdd-supply = <&mdm9607_l9>;
+		qcom,vdd-voltage-level = <0 1225000 1225000>;
+		qcom,hsic-tlmm-init-seq =
+			<0x8 0x5 0x4 0x5 0x0 0x1>;
+		qcom,hsic-disable-on-boot;
+
+		clocks = <&clock_gcc clk_gcc_usb_hsic_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_hsic_system_clk>,
+			 <&clock_gcc clk_gcc_usb_hsic_clk>,
+			 <&clock_gcc clk_gcc_usb_hsic_io_cal_clk>,
+			 <&clock_gcc clk_gcc_usb_hsic_io_cal_sleep_clk>;
+		clock-names = "iface_clk", "core_clk", "phy_clk",
+				"cal_clk", "cal_sleep_clk";
+
+		qcom,msm-bus,name = "hsic";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<85 512 0 0>,
+				<85 512 6000  6000>;
+		status = "disabled";
+	};
+
+	android_usb_hsic: android_usb-hsic {
+		compatible = "qcom,android-usb";
+		qcom,usb-core-id = <1>;
+		status = "disabled";
+	};
+
 	qnand_1: nand@7980000 {
 		compatible = "qcom,msm-nand";
 		reg = <0x07980000 0x1000>,
