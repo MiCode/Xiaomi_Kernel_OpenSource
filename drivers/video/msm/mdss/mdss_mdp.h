@@ -935,7 +935,9 @@ static inline int mdss_mdp_panic_signal_support_mode(
 				MDSS_MDP_HW_REV_110))
 		signal_mode = MDSS_MDP_PANIC_COMMON_REG_CFG;
 	else if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-				MDSS_MDP_HW_REV_107))
+				MDSS_MDP_HW_REV_107) ||
+		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_114))
 		signal_mode = MDSS_MDP_PANIC_PER_PIPE_CFG;
 
 	return signal_mode;
