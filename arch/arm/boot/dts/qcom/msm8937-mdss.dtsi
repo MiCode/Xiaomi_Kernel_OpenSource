@@ -41,7 +41,9 @@
 		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
 
 		qcom,mdss-has-panic-ctrl;
-		qcom,mdss-per-pipe-panic-luts = <0xffff>,
+		qcom,mdss-per-pipe-panic-luts = <0x000f>,
+						<0xffff>,
+						<0xfffc>,
 						<0xff00>;
 
 		qcom,mdss-mdp-reg-offset = <0x00001000>;
@@ -85,6 +87,7 @@
 		qcom,mdss-has-non-scalar-rgb;
 		qcom,mdss-has-rotator-downscale;
 		qcom,mdss-idle-power-collapse-enabled;
+		qcom,mdss-rot-block-size = <64>;
 
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
 			 <&clock_gcc clk_gcc_mdss_axi_clk>,
@@ -95,10 +98,6 @@
 				"core_clk", "vsync_clk";
 
 		qcom,mdp-settings = <0x01190 0x00000000>,
-				    <0x012ac 0x00000404>,
-				    <0x012b4 0x00000444>,
-				    <0x012bc 0x40444444>,
-				    <0x012c4 0x00000044>,
 				    <0x0506c 0x00000000>,
 				    <0x1506c 0x00000000>,
 				    <0x1706c 0x00000000>,
@@ -157,10 +156,10 @@
 		};
 
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
-			compatible = "qcom,smmu_arm_mdp_unsec";
+			compatible = "qcom,smmu_mdp_unsec";
 		};
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
-			compatible = "qcom,smmu_arm_mdp_sec";
+			compatible = "qcom,smmu_mdp_sec";
 		};
 
 		mdss_fb0: qcom,mdss_fb_primary {
