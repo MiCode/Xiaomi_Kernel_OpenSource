@@ -939,9 +939,11 @@ static void mdss_fb_videomode_from_panel_timing(struct fb_videomode *videomode,
 		v_total = videomode->yres + videomode->lower_margin
 			+ videomode->upper_margin + videomode->vsync_len;
 		clk_rate = h_total * v_total * videomode->refresh;
-		videomode->pixclock = KHZ2PICOS(clk_rate / 1000);
+		videomode->pixclock =
+			KHZ2PICOS(clk_rate / 1000);
 	} else {
-		videomode->pixclock = KHZ2PICOS(pt->clk_rate / 1000);
+		videomode->pixclock =
+			KHZ2PICOS((unsigned long)pt->clk_rate / 1000);
 	}
 }
 
@@ -3277,7 +3279,7 @@ void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 	var->right_margin = pinfo->lcdc.h_front_porch;
 	var->left_margin = pinfo->lcdc.h_back_porch;
 	var->hsync_len = pinfo->lcdc.h_pulse_width;
-	var->pixclock = KHZ2PICOS(pinfo->clk_rate / 1000);
+	var->pixclock = KHZ2PICOS((unsigned long int)pinfo->clk_rate/1000);
 
 	if (pinfo->physical_width)
 		var->width = pinfo->physical_width;
