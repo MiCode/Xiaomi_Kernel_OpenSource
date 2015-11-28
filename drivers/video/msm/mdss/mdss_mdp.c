@@ -3651,14 +3651,26 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 	if (false == test_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map))
 		return;
 
+	/* Dynamic OT setting done only for rotator and WFD */
+	if (!((params->is_rot && params->is_yuv) || params->is_wb))
+		return;
+
 	res = params->width * params->height;
 
 	pr_debug("w:%d h:%d rot:%d yuv:%d wb:%d res:%d\n",
 		params->width, params->height, params->is_rot,
 		params->is_yuv, params->is_wb, res);
 
-	if ((params->is_rot && params->is_yuv) ||
-		params->is_wb) {
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_114:
+		if ((res <= RES_1080p) && (params->frame_rate <= 30))
+			*ot_lim = 2;
+		else if (params->is_rot && params->is_yuv)
+			*ot_lim = 4;
+		else
+			*ot_lim = 6;
+		break;
+	default:
 		if (res <= RES_1080p) {
 			*ot_lim = 2;
 		} else if (res <= RES_UHD) {
@@ -3667,6 +3679,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 			else
 				*ot_lim = 16;
 		}
+		break;
 	}
 }
 
