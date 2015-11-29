@@ -1079,7 +1079,7 @@ static int adreno_probe(struct platform_device *pdev)
 	* that we cannot use 64 bit virtual addresses on a 32 bit kernel even
 	* though the hardware and the rest of the KGSL driver supports it.
 	*/
-	if ((BITS_PER_LONG == 64) && ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
+	if (adreno_support_64bit(adreno_dev))
 		device->mmu.features |= KGSL_MMU_64BIT;
 
 	status = kgsl_device_platform_probe(device);
@@ -1447,7 +1447,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	/* Enable 64 bit gpu addr if feature is set */
 	if (gpudev->enable_64bit &&
-			ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
+			adreno_support_64bit(adreno_dev))
 		gpudev->enable_64bit(adreno_dev);
 
 	if (adreno_dev->perfctr_pwr_lo == 0) {
@@ -2140,7 +2140,7 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 	/* Enable 64 bit gpu addr if feature is set */
 	if (gpudev->enable_64bit &&
-			ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
+			adreno_support_64bit(adreno_dev))
 		gpudev->enable_64bit(adreno_dev);
 
 	/* Restore physical performance counter values after soft reset */
