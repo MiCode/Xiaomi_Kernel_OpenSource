@@ -463,7 +463,7 @@ static unsigned long msm_cpp_queue_buffer_info(struct cpp_device *cpp_dev,
 	buff->map_info.buf_fd = buffer_info->fd;
 	rc = cam_smmu_get_phy_addr(cpp_dev->iommu_hdl, buffer_info->fd,
 				CAM_SMMU_MAP_RW, &buff->map_info.phy_addr,
-				&buff->map_info.len);
+				(size_t *)&buff->map_info.len);
 	if (rc < 0) {
 		pr_err("ION mmap failed\n");
 		kzfree(buff);

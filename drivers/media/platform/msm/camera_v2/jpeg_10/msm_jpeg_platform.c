@@ -213,12 +213,12 @@ uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
 	uint32_t len, int iommu_hdl)
 {
 	dma_addr_t paddr;
-	unsigned long size;
+	size_t size;
 	int rc;
 
 	rc = cam_smmu_get_phy_addr(pgmn_dev->iommu_hdl, fd, CAM_SMMU_MAP_RW,
 			&paddr, &size);
-	JPEG_DBG("%s:%d] addr 0x%x size %ld", __func__, __LINE__,
+	JPEG_DBG("%s:%d] addr 0x%x size %zu", __func__, __LINE__,
 		(uint32_t)paddr, size);
 
 	if (rc < 0) {

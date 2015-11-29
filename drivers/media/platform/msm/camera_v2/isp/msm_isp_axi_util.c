@@ -1481,7 +1481,7 @@ int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev,
 					pr_err("%s: buf NULL\n", __func__);
 					continue;
 				}
-				pr_debug("%s: stream_id %x ping-pong %d	plane %d start_addr %lu	addr_offset %x len %lx stride %d scanline %d\n"
+				pr_debug("%s: stream_id %x ping-pong %d	plane %d start_addr %lu	addr_offset %x len %zx stride %d scanline %d\n"
 					, __func__, stream_info->stream_id,
 					pingpong_bit, i, (unsigned long)
 					buf->mapped_info[i].paddr,
