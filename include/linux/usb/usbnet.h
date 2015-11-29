@@ -27,6 +27,7 @@
 #define USBNET_IPA_SYS_PIPE_MAX_PKTS_DESC 200
 #define USBNET_IPA_SYS_PIPE_MIN_PKTS_DESC 5
 #define USBNET_IPA_SYS_PIPE_DNE_PKTS (USBNET_IPA_SYS_PIPE_MAX_PKTS_DESC*2)
+#define USBNET_IPA_READY_TIMEOUT 5000
 
 struct usbnet_ipa_stats {
 	/* RX Side */
@@ -118,6 +119,8 @@ struct usbnet {
 	struct sk_buff_head	ipa_pendq;
 	/* work to send pending packets to ipa */
 	struct work_struct ipa_send_task;
+	bool	ipa_ready;
+	wait_queue_head_t wait_for_ipa_ready;
 };
 
 static inline struct usb_driver *driver_of(struct usb_interface *intf)

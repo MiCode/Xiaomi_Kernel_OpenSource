@@ -47,6 +47,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/debugfs.h>
 #include <linux/types.h>
+#include <linux/ipa.h>
 #define DRIVER_VERSION		"22-Aug-2005"
 
 
@@ -1997,6 +1998,16 @@ static void usbnet_ipa_send_routine(struct work_struct *work)
 	spin_unlock(&dev->ipa_pendq.lock);
 }
 
+static void usbnet_ipa_ready_callback(void *user_data)
+{
+	struct usbnet *dev = user_data;
+
+	pr_info("%s: ipa is ready\n", __func__);
+	dev->ipa_ready = true;
+
+	wake_up_interruptible(&dev->wait_for_ipa_ready);
+}
+
 int
 usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 {
@@ -2049,6 +2060,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	dev->msg_enable = netif_msg_init (msg_level, NETIF_MSG_DRV
 				| NETIF_MSG_PROBE | NETIF_MSG_LINK);
 	init_waitqueue_head(&dev->wait);
+	init_waitqueue_head(&dev->wait_for_ipa_ready);
 	skb_queue_head_init (&dev->rxq);
 	skb_queue_head_init (&dev->txq);
 	skb_queue_head_init (&dev->done);
@@ -2203,6 +2215,20 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		if (status) {
 			pr_err("Couldnt initialize ODU_Bridge Driver\n");
 			goto out4;
+		}
+
+		status = ipa_register_ipa_ready_cb(usbnet_ipa_ready_callback,
+						   dev);
+		if (!status) {
+			pr_info("%s: ipa is not ready\n", __func__);
+			status = wait_event_interruptible_timeout(
+					dev->wait_for_ipa_ready, dev->ipa_ready,
+					msecs_to_jiffies
+						(USBNET_IPA_READY_TIMEOUT));
+			if (!status) {
+				pr_err("%s: ipa ready timeout\n", __func__);
+				return -ETIMEDOUT;
+			}
 		}
 	}
 
