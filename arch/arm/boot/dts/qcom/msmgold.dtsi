@@ -14,6 +14,7 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-8952.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSMGOLD";
@@ -542,6 +543,15 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+	};
+
+	qcom,bam_dmux@4044000 {
+		compatible = "qcom,bam_dmux";
+		reg = <0x4044000 0x19000>;
+		interrupts = <GIC_SPI 162 IRQ_TYPE_EDGE_RISING>;
+		qcom,rx-ring-size = <32>;
+		qcom,max-rx-mtu = <4096>;
+		qcom,fast-shutdown;
 	};
 };
 
