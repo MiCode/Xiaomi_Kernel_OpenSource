@@ -247,31 +247,6 @@
 			};
 		};
 
-		i2s_mclk {
-			i2s_mclk_active: i2s_mclk_active {
-				mux {
-					pins = "gpio24";
-					function = "pri_mi2s_mclk_a";
-				};
-				config {
-					pins = "gpio24";
-					drive-strength = <8>;   /* 8 MA */
-					bias-disable;           /* No PULL */
-					output-high;
-				};
-			};
-			i2s_mclk_sleep: i2s_mclk_sleep {
-				mux {
-					pins = "gpio24";
-					function = "pri_mi2s_mclk_a";
-				};
-				config {
-					pins = "gpio24";
-					drive-strength = <2>;   /* 2 MA */
-					bias-pull-down;	        /* PULL DOWN */
-				};
-			};
-		};
 
 		pmx_pri_mi2s {
 				pri_mi2s_ws_active: pri_mi2s_ws_active {

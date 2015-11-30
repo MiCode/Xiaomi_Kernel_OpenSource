@@ -892,13 +892,11 @@
 			pinctrl-0 = <&pri_mi2s_ws_active
 					&pri_mi2s_sck_active
 					&pri_mi2s_dout_active
-					&pri_mi2s_din_active
-					&i2s_mclk_active>;
+					&pri_mi2s_din_active>;
 			pinctrl-1 = <&pri_mi2s_ws_sleep
 					&pri_mi2s_sck_sleep
 					&pri_mi2s_dout_sleep
-					&pri_mi2s_din_sleep
-					&i2s_mclk_sleep>;
+					&pri_mi2s_din_sleep>;
 		};
 	};
 
