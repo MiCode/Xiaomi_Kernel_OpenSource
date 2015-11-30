@@ -176,6 +176,8 @@
 		23 1e 07 08 05 03 04 a0
 		23 1e 07 08 05 03 04 a0
 		23 18 07 08 04 03 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_dual_nt35597_cmd {
@@ -184,6 +186,8 @@
 		23 1e 07 08 05 03 04 a0
 		23 1e 07 08 05 03 04 a0
 		23 18 07 08 04 03 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_nt35597_dsc_video {
@@ -192,6 +196,8 @@
 		20 1d 05 07 03 03 04 a0
 		20 1d 05 07 03 03 04 a0
 		20 12 05 06 03 13 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_nt35597_dsc_cmd {
@@ -200,6 +206,8 @@
 		20 1d 05 07 03 03 04 a0
 		20 1d 05 07 03 03 04 a0
 		20 12 05 06 03 13 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 };
 
 &dsi_dual_jdi_4k_nofbc_video {
