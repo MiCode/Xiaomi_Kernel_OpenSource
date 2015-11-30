@@ -32,7 +32,7 @@
 		cam_vana-supply = <&pm8937_l22>;
 		cam_vio-supply = <&pm8937_l6>;
 		cam_vaf-supply = <&pm8937_l17>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio",
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
 							"cam_vaf";
 		qcom,cam-vreg-min-voltage = <1200000 0 2800000 2850000>;
 		qcom,cam-vreg-max-voltage = <1200000 0 2800000 2850000>;
