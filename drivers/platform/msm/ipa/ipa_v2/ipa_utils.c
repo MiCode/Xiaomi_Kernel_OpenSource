@@ -569,6 +569,7 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	struct ipa_ep_cfg_ctrl suspend;
 	int ipa_ep_idx;
 	unsigned long flags;
+	struct ipa2_active_client_logging_info log_info;
 
 	if (ipa_active_clients_trylock(&flags) == 0)
 		return -EPERM;
@@ -606,6 +607,9 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	}
 
 	if (res == 0) {
+		IPA2_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
+				ipa_rm_resource_str(resource));
+		ipa2_active_clients_log_dec(&log_info, true);
 		ipa_ctx->ipa_active_clients.cnt--;
 		IPADBG("active clients = %d\n",
 		       ipa_ctx->ipa_active_clients.cnt);

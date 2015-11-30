@@ -551,6 +551,7 @@ int ipa3_disconnect(u32 clnt_hdl)
 	struct iommu_domain *smmu_domain;
 	struct ipa_disable_force_clear_datapath_req_msg_v01 req = {0};
 	int res;
+	enum ipa_client_type client_type;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -559,9 +560,9 @@ int ipa3_disconnect(u32 clnt_hdl)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
-
+	client_type = ipa3_get_client_mapping(clnt_hdl);
 	if (!ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+		IPA_ACTIVE_CLIENTS_INC_EP(client_type);
 
 	/* Set Disconnect in Progress flag. */
 	spin_lock(&ipa3_ctx->disconnect_lock);
@@ -661,7 +662,7 @@ int ipa3_disconnect(u32 clnt_hdl)
 	spin_lock(&ipa3_ctx->disconnect_lock);
 	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
 	spin_unlock(&ipa3_ctx->disconnect_lock);
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(client_type);
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 

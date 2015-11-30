@@ -235,7 +235,9 @@
 	} while (0)
 
 #define IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES 120
-#define IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN 100
+#define IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN 96
+#define IPA2_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE 50
+#define IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN 40
 
 extern const char *ipa2_clients_strings[];
 
@@ -254,11 +256,19 @@ struct ipa2_active_client_logging_info {
 	enum ipa2_active_client_log_type type;
 };
 
+struct ipa2_active_client_htable_entry {
+	struct hlist_node list;
+	char id_string[IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN];
+	int count;
+	enum ipa2_active_client_log_type type;
+};
+
 struct ipa2_active_clients_log_ctx {
 	char *log_buffer[IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES];
 	int log_head;
 	int log_tail;
 	bool log_rdy;
+	struct hlist_head htable[IPA2_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE];
 };
 
 
@@ -1945,7 +1955,12 @@ void ipa2_inc_client_enable_clks(struct ipa2_active_client_logging_info *id);
 int ipa2_inc_client_enable_clks_no_block(struct ipa2_active_client_logging_info
 		*id);
 void ipa2_dec_client_disable_clks(struct ipa2_active_client_logging_info *id);
-void ipa2_active_clients_log_print_buffer(void);
+void ipa2_active_clients_log_dec(struct ipa2_active_client_logging_info *id,
+		bool int_ctx);
+void ipa2_active_clients_log_inc(struct ipa2_active_client_logging_info *id,
+		bool int_ctx);
+int ipa2_active_clients_log_print_buffer(char *buf, int size);
+int ipa2_active_clients_log_print_table(char *buf, int size);
 void ipa2_active_clients_log_clear(void);
 int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa_del_rt_rule(u32 rule_hdl);
