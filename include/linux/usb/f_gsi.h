@@ -25,6 +25,8 @@
 #define GSI_NUM_OUT_BUFFERS 7
 #define GSI_OUT_BUFF_SIZE 24576
 
+#define GSI_IPA_READY_TIMEOUT 5000
+
 #define ETH_ADDR_STR_LEN 14
 
 /* mbin and ecm */
@@ -175,6 +177,7 @@ struct gsi_data_port {
 	u16 in_last_trb_addr;
 	u16 cdc_filter;
 
+	bool ipa_ready;
 	bool net_ready_trigger;
 	struct gsi_ntb_info ntb_info;
 
@@ -184,6 +187,7 @@ struct gsi_data_port {
 	struct workqueue_struct *ipa_usb_wq;
 	enum connection_state sm_state;
 	struct event_queue evt_q;
+	wait_queue_head_t wait_for_ipa_ready;
 
 	/* Track these for debugfs */
 	struct ipa_usb_xdci_chan_params ipa_in_channel_params;

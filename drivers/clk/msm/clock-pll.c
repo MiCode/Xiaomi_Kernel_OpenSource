@@ -952,6 +952,60 @@ struct clk_ops clk_ops_pll_acpu_vote = {
 	.list_registers = pll_vote_clk_list_registers,
 };
 
+
+static int pll_sleep_clk_enable(struct clk *c)
+{
+	u32 ena;
+	unsigned long flags;
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+	ena = readl_relaxed(PLL_EN_REG(pllv));
+	ena &= ~(pllv->en_mask);
+	writel_relaxed(ena, PLL_EN_REG(pllv));
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+	return 0;
+}
+
+static void pll_sleep_clk_disable(struct clk *c)
+{
+	u32 ena;
+	unsigned long flags;
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+	ena = readl_relaxed(PLL_EN_REG(pllv));
+	ena |= pllv->en_mask;
+	writel_relaxed(ena, PLL_EN_REG(pllv));
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+}
+
+static enum handoff pll_sleep_clk_handoff(struct clk *c)
+{
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
+
+	if (!(readl_relaxed(PLL_EN_REG(pllv)) & pllv->en_mask))
+		return HANDOFF_ENABLED_CLK;
+
+	return HANDOFF_DISABLED_CLK;
+}
+
+/*
+ * This .ops is meant to be used by gpll0_sleep_clk_src. The aim is to utilise
+ * the h/w feature of sleep enable bit to denote if the PLL can be turned OFF
+ * once APPS goes to PC. gpll0_sleep_clk_src will be enabled only if there is a
+ * peripheral client using it and disabled if there is none. The current
+ * implementation of enable .ops  clears the h/w bit of sleep enable while the
+ * disable .ops asserts it.
+ */
+
+struct clk_ops clk_ops_pll_sleep_vote = {
+	.enable = pll_sleep_clk_enable,
+	.disable = pll_sleep_clk_disable,
+	.handoff = pll_sleep_clk_handoff,
+	.list_registers = pll_vote_clk_list_registers,
+};
+
 static void __set_fsm_mode(void __iomem *mode_reg,
 					u32 bias_count, u32 lock_count)
 {

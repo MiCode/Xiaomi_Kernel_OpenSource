@@ -4922,11 +4922,10 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 
 	tx_vol_ctl_reg = WCD9335_CDC_TX0_TX_PATH_CTL + 16 * decimator;
 	hpf_gate_reg = WCD9335_CDC_TX0_TX_PATH_SEC2 + 16 * decimator;
+	dec_cfg_reg = WCD9335_CDC_TX0_TX_PATH_CFG0 + 16 * decimator;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		dec_cfg_reg = WCD9335_CDC_TX0_TX_PATH_CFG0 + 16 * decimator;
-
 		amic_n = tasha_codec_find_amic_input(codec, decimator);
 		if (amic_n)
 			pwr_level_reg = tasha_codec_get_amic_pwlvl_reg(codec,
@@ -4966,6 +4965,8 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 					    CF_MIN_3DB_150HZ << 5);
 		/* Enable TX PGA Mute */
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
+		/* Enable APC */
+		snd_soc_update_bits(codec, dec_cfg_reg, 0x08, 0x08);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
@@ -4980,6 +4981,7 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
+		snd_soc_update_bits(codec, dec_cfg_reg, 0x08, 0x00);
 		cancel_delayed_work_sync(&tasha->tx_hpf_work[decimator].dwork);
 		cancel_delayed_work_sync(
 				&tasha->tx_mute_dwork[decimator].dwork);
@@ -10811,6 +10813,7 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val_2_0[] = {
 	{WCD9335_CDC_BOOST1_BOOST_CFG2, 0x1C, 0x08},
 	{WCD9335_CDC_COMPANDER8_CTL7, 0x1E, 0x18},
 	{WCD9335_CDC_TX0_TX_PATH_SEC7, 0xFF, 0x45},
+	{WCD9335_CDC_RX0_RX_PATH_SEC0, 0xFC, 0xF4},
 };
 
 static const struct tasha_reg_mask_val tasha_codec_reg_defaults[] = {
@@ -11714,6 +11717,9 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	wcd_clsh_init(&tasha->clsh_d);
 	/* Default HPH Mode to Class-H HiFi */
 	tasha->hph_mode = CLS_H_HIFI;
+
+	for (i = 0; i < TASHA_MAX_MICBIAS; i++)
+		tasha->micb_ref[i] = 0;
 
 	tasha_update_reg_defaults(tasha);
 

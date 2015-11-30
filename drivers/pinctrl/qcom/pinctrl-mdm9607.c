@@ -90,7 +90,7 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
-static const struct pinctrl_pin_desc mdmfermium_pins[] = {
+static const struct pinctrl_pin_desc mdm9607_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
 	PINCTRL_PIN(2, "GPIO_2"),
@@ -281,7 +281,7 @@ static const unsigned int qdsd_data1_pins[] = { 89 };
 static const unsigned int qdsd_data2_pins[] = { 90 };
 static const unsigned int qdsd_data3_pins[] = { 91 };
 
-enum mdmfermium_functions {
+enum mdm9607_functions {
 	msm_mux_blsp_spi3,
 	msm_mux_gpio,
 	msm_mux_blsp_uart3,
@@ -811,7 +811,7 @@ static const char * const pwr_crypto_enabled_b_groups[] = {
 	"gpio79",
 };
 
-static const struct msm_function mdmfermium_functions[] = {
+static const struct msm_function mdm9607_functions[] = {
 	FUNCTION(blsp_spi3),
 	FUNCTION(gpio),
 	FUNCTION(blsp_uart3),
@@ -941,7 +941,7 @@ static const struct msm_function mdmfermium_functions[] = {
 	FUNCTION(pwr_crypto_enabled_b),
 };
 
-static const struct msm_pingroup mdmfermium_groups[] = {
+static const struct msm_pingroup mdm9607_groups[] = {
 	PINGROUP(0, blsp_uart3, blsp_spi3, NA, NA, NA, NA, NA,
 		 qdss_tracedata_a, NA),
 	PINGROUP(1, blsp_uart3, blsp_spi3, NA, NA, NA, NA, NA,
@@ -1081,48 +1081,48 @@ static const struct msm_pingroup mdmfermium_groups[] = {
 	SDC_QDSD_PINGROUP(qdsd_data3, 0x19c000, 28, 25),
 };
 
-static const struct msm_pinctrl_soc_data mdmfermium_pinctrl = {
-	.pins = mdmfermium_pins,
-	.npins = ARRAY_SIZE(mdmfermium_pins),
-	.functions = mdmfermium_functions,
-	.nfunctions = ARRAY_SIZE(mdmfermium_functions),
-	.groups = mdmfermium_groups,
-	.ngroups = ARRAY_SIZE(mdmfermium_groups),
+static const struct msm_pinctrl_soc_data mdm9607_pinctrl = {
+	.pins = mdm9607_pins,
+	.npins = ARRAY_SIZE(mdm9607_pins),
+	.functions = mdm9607_functions,
+	.nfunctions = ARRAY_SIZE(mdm9607_functions),
+	.groups = mdm9607_groups,
+	.ngroups = ARRAY_SIZE(mdm9607_groups),
 	.ngpios = 80,
 };
 
-static int mdmfermium_pinctrl_probe(struct platform_device *pdev)
+static int mdm9607_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &mdmfermium_pinctrl);
+	return msm_pinctrl_probe(pdev, &mdm9607_pinctrl);
 }
 
-static const struct of_device_id mdmfermium_pinctrl_of_match[] = {
-	{ .compatible = "qcom,mdmfermium-pinctrl", },
+static const struct of_device_id mdm9607_pinctrl_of_match[] = {
+	{ .compatible = "qcom,mdm9607-pinctrl", },
 	{ },
 };
 
-static struct platform_driver mdmfermium_pinctrl_driver = {
+static struct platform_driver mdm9607_pinctrl_driver = {
 	.driver = {
-		.name = "mdmfermium-pinctrl",
+		.name = "mdm9607-pinctrl",
 		.owner = THIS_MODULE,
-		.of_match_table = mdmfermium_pinctrl_of_match,
+		.of_match_table = mdm9607_pinctrl_of_match,
 	},
-	.probe = mdmfermium_pinctrl_probe,
+	.probe = mdm9607_pinctrl_probe,
 	.remove = msm_pinctrl_remove,
 };
 
-static int __init mdmfermium_pinctrl_init(void)
+static int __init mdm9607_pinctrl_init(void)
 {
-	return platform_driver_register(&mdmfermium_pinctrl_driver);
+	return platform_driver_register(&mdm9607_pinctrl_driver);
 }
-arch_initcall(mdmfermium_pinctrl_init);
+arch_initcall(mdm9607_pinctrl_init);
 
-static void __exit mdmfermium_pinctrl_exit(void)
+static void __exit mdm9607_pinctrl_exit(void)
 {
-	platform_driver_unregister(&mdmfermium_pinctrl_driver);
+	platform_driver_unregister(&mdm9607_pinctrl_driver);
 }
-module_exit(mdmfermium_pinctrl_exit);
+module_exit(mdm9607_pinctrl_exit);
 
-MODULE_DESCRIPTION("QTI mdmfermium pinctrl driver");
+MODULE_DESCRIPTION("QTI mdm9607 pinctrl driver");
 MODULE_LICENSE("GPL v2");
-MODULE_DEVICE_TABLE(of, mdmfermium_pinctrl_of_match);
+MODULE_DEVICE_TABLE(of, mdm9607_pinctrl_of_match);

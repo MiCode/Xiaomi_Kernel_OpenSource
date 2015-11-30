@@ -31,8 +31,23 @@ struct mdss_iommu_map_type {
 	unsigned long size;
 };
 
+struct mdss_smmu_domain {
+	char *ctx_name;
+	int domain;
+	unsigned long start;
+	unsigned long size;
+};
+
 void mdss_smmu_register(struct device *dev);
 int mdss_smmu_init(struct mdss_data_type *mdata, struct device *dev);
+
+static inline int mdss_smmu_dma_data_direction(int dir)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	return (mdss_has_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR)) ?
+		DMA_BIDIRECTIONAL : dir;
+}
 
 static inline bool is_mdss_smmu_compatible_device(const char *str)
 {
@@ -170,7 +185,8 @@ static inline int mdss_smmu_map_dma_buf(struct dma_buf *dma_buf,
 		return -ENOSYS;
 
 	return mdata->smmu_ops.smmu_map_dma_buf(dma_buf, table,
-			domain, iova, size, dir);
+			domain, iova, size,
+			mdss_smmu_dma_data_direction(dir));
 }
 
 static inline void mdss_smmu_unmap_dma_buf(struct sg_table *table, int domain,
@@ -178,7 +194,8 @@ static inline void mdss_smmu_unmap_dma_buf(struct sg_table *table, int domain,
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	if (mdata->smmu_ops.smmu_unmap_dma_buf)
-		mdata->smmu_ops.smmu_unmap_dma_buf(table, domain, dir, dma_buf);
+		mdata->smmu_ops.smmu_unmap_dma_buf(table, domain,
+		mdss_smmu_dma_data_direction(dir), dma_buf);
 }
 
 static inline int mdss_smmu_dma_alloc_coherent(struct device *dev, size_t size,
@@ -239,7 +256,8 @@ static inline int mdss_smmu_dsi_map_buffer(phys_addr_t phys,
 		return -ENOSYS;
 
 	return mdata->smmu_ops.smmu_dsi_map_buffer(phys, domain, size,
-			dma_addr, cpu_addr, dir);
+			dma_addr, cpu_addr,
+			mdss_smmu_dma_data_direction(dir));
 }
 
 static inline void mdss_smmu_dsi_unmap_buffer(dma_addr_t dma_addr, int domain,
@@ -248,7 +266,7 @@ static inline void mdss_smmu_dsi_unmap_buffer(dma_addr_t dma_addr, int domain,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	if (mdata->smmu_ops.smmu_dsi_unmap_buffer)
 		mdata->smmu_ops.smmu_dsi_unmap_buffer(dma_addr, domain,
-			size, dir);
+			size, mdss_smmu_dma_data_direction(dir));
 }
 
 static inline void mdss_smmu_deinit(struct mdss_data_type *mdata)

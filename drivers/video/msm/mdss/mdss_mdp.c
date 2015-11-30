@@ -1280,7 +1280,16 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->min_prefill_lines = 12;
 		mdata->has_ubwc = true;
 		mdata->pixel_ram_size = 38 * 1024;
+		mdata->apply_post_scale_bytes = false;
+		mdata->hflip_buffer_reused = false;
+		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map);
+		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
+		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -3650,14 +3659,26 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 	if (false == test_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map))
 		return;
 
+	/* Dynamic OT setting done only for rotator and WFD */
+	if (!((params->is_rot && params->is_yuv) || params->is_wb))
+		return;
+
 	res = params->width * params->height;
 
 	pr_debug("w:%d h:%d rot:%d yuv:%d wb:%d res:%d\n",
 		params->width, params->height, params->is_rot,
 		params->is_yuv, params->is_wb, res);
 
-	if ((params->is_rot && params->is_yuv) ||
-		params->is_wb) {
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_114:
+		if ((res <= RES_1080p) && (params->frame_rate <= 30))
+			*ot_lim = 2;
+		else if (params->is_rot && params->is_yuv)
+			*ot_lim = 4;
+		else
+			*ot_lim = 6;
+		break;
+	default:
 		if (res <= RES_1080p) {
 			*ot_lim = 2;
 		} else if (res <= RES_UHD) {
@@ -3666,6 +3687,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 			else
 				*ot_lim = 16;
 		}
+		break;
 	}
 }
 

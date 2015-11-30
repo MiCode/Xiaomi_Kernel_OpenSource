@@ -371,6 +371,7 @@ struct mdss_mdp_ctl {
 
 	u64 last_input_time;
 	int pending_mode_switch;
+	u16 frame_rate;
 };
 
 struct mdss_mdp_mixer {
@@ -699,6 +700,7 @@ struct mdss_mdp_set_ot_params {
 	u32 num;
 	u32 width;
 	u32 height;
+	u16 frame_rate;
 	bool is_rot;
 	bool is_wb;
 	bool is_yuv;
@@ -933,7 +935,9 @@ static inline int mdss_mdp_panic_signal_support_mode(
 				MDSS_MDP_HW_REV_110))
 		signal_mode = MDSS_MDP_PANIC_COMMON_REG_CFG;
 	else if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-				MDSS_MDP_HW_REV_107))
+				MDSS_MDP_HW_REV_107) ||
+		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_114))
 		signal_mode = MDSS_MDP_PANIC_PER_PIPE_CFG;
 
 	return signal_mode;

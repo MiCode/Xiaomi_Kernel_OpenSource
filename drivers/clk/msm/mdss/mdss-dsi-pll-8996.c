@@ -83,9 +83,9 @@ static struct clk_div_ops shadow_n2_div_ops = {
 };
 
 static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
-	.ref_clk_rate = 19200000,
-	.min_rate = 1300000000,
-	.max_rate = 2600000000,
+	.ref_clk_rate = 19200000UL,
+	.min_rate = 1300000000UL,
+	.max_rate = 2600000000UL,
 	.pll_en_seq_cnt = 1,
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_8996,
 	.c = {
@@ -107,9 +107,9 @@ static struct dsi_pll_vco_clk dsi0pll_shadow_vco_clk = {
 };
 
 static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
-	.ref_clk_rate = 19200000,
-	.min_rate = 1300000000,
-	.max_rate = 2600000000,
+	.ref_clk_rate = 19200000UL,
+	.min_rate = 1300000000UL,
+	.max_rate = 2600000000UL,
 	.pll_en_seq_cnt = 1,
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_8996,
 	.c = {

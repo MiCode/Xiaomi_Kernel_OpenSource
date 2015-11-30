@@ -76,6 +76,11 @@
 			alignment = <0 0x400000>;
 			size = <0 0x400000>;
 		};
+
+		cont_splash_mem: splash_region@83000000 {
+			reg = <0x0 0x83000000 0x0 0x1400000>;
+		};
+
 	};
 
 	aliases {
@@ -1056,7 +1061,7 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
-		status = "disabled";
+		status = "okay";
 	};
 
 	qcom,msm-rtb {
@@ -1084,6 +1089,11 @@
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
+		};
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
 		};
 	};
 
@@ -1379,6 +1389,7 @@
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,support-fde;
+		qcom,appsbl-qseecom-support;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1758,6 +1769,7 @@
 	clock-names = "core_clk", "bus_clk";
 	clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
 		 <&clock_gcc clk_gcc_mdss_axi_clk>;
+	qcom,disallow-clear;
 	status = "okay";
 };
 

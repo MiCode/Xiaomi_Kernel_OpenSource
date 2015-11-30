@@ -79,7 +79,7 @@
 		qcom,vdd-voltage-level = <2850000 2850000>;
 		qcom,vdd-current-level = <15 400000>;
 
-		vdd-io-supply = <&mdmfermium_l13>;
+		vdd-io-supply = <&mdm9607_l13>;
 		qcom,vdd-io-voltage-level = <1800000 2950000>;
 		qcom,vdd-io-current-level = <200 300000>;
 

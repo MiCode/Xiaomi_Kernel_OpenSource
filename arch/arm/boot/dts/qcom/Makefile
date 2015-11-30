@@ -54,6 +54,7 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	apq8096-v3-pmi8996-mtp.dtb \
 	apq8096-v3-liquid.dtb \
 	apq8096-v3-dragonboard.dtb \
+	apq8096-v3-sbc.dtb \
 	apq8096-v3-auto-dragonboard.dtb \
 	apq8096-v3.0-pmi8994-cdp.dtb \
 	apq8096-v3.0-pmi8994-mtp.dtb \
@@ -114,10 +115,10 @@ dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	apqtitanium-cdp.dtb \
 	apqtitanium-mtp.dtb
 
-dtb-$(CONFIG_ARCH_MDMFERMIUM) += mdmfermium-rumi.dtb \
-	mdmfermium-cdp.dtb \
-	mdmfermium-mtp.dtb \
-	mdmfermium-rcm.dtb
+dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
+	mdm9607-cdp.dtb \
+	mdm9607-mtp.dtb \
+	mdm9607-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \

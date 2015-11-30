@@ -611,56 +611,65 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	pr_debug("%s: prtd->out_count = %d\n",
 				__func__, atomic_read(&prtd->out_count));
 
-	if (prtd->reset_event) {
-		pr_err("%s: In SSR return ENETRESET before wait\n", __func__);
-		return -ENETRESET;
-	}
+	while (fbytes > 0) {
+		if (prtd->reset_event) {
+			pr_err("%s: In SSR return ENETRESET before wait\n",
+				__func__);
+			return -ENETRESET;
+		}
 
-	ret = wait_event_timeout(the_locks.write_wait,
-			(atomic_read(&prtd->out_count)), 5 * HZ);
-	if (!ret) {
-		pr_err("%s: wait_event_timeout failed\n", __func__);
-		goto fail;
-	}
-
-	if (prtd->reset_event) {
-		pr_err("%s: In SSR return ENETRESET after wait\n", __func__);
-		return -ENETRESET;
-	}
-
-	if (!atomic_read(&prtd->out_count)) {
-		pr_err("%s: pcm stopped out_count 0\n", __func__);
-		return 0;
-	}
-
-	data = q6asm_is_cpu_buf_avail(IN, prtd->audio_client, &size, &idx);
-	if (size < fbytes) {
-		fbytes = size;
-	}
-	bufptr = data;
-	if (bufptr) {
-		pr_debug("%s:fbytes =%d: xfer=%d size=%d\n",
-					__func__, fbytes, xfer, size);
-		xfer = fbytes;
-		if (copy_from_user(bufptr, buf, xfer)) {
-			ret = -EFAULT;
+		ret = wait_event_timeout(the_locks.write_wait,
+				(atomic_read(&prtd->out_count)), 5 * HZ);
+		if (!ret) {
+			pr_err("%s: wait_event_timeout failed\n", __func__);
+			ret = -ETIMEDOUT;
 			goto fail;
 		}
-		buf += xfer;
-		fbytes -= xfer;
-		pr_debug("%s:fbytes = %d: xfer=%d\n", __func__, fbytes, xfer);
-		if (atomic_read(&prtd->start)) {
-			pr_debug("%s:writing %d bytes of buffer to dsp\n",
-					__func__, xfer);
-			ret = q6asm_write(prtd->audio_client, xfer,
-						0, 0, NO_TIMESTAMP);
-			if (ret < 0) {
+		ret = 0;
+
+		if (prtd->reset_event) {
+			pr_err("%s: In SSR return ENETRESET after wait\n",
+				__func__);
+			return -ENETRESET;
+		}
+
+		if (!atomic_read(&prtd->out_count)) {
+			pr_err("%s: pcm stopped out_count 0\n", __func__);
+			return 0;
+		}
+
+		data = q6asm_is_cpu_buf_avail(IN, prtd->audio_client, &size,
+			&idx);
+		if (fbytes > size)
+			xfer = size;
+		else
+			xfer = fbytes;
+
+		bufptr = data;
+		if (bufptr) {
+			pr_debug("%s:fbytes =%d: xfer=%d size=%d\n",
+						__func__, fbytes, xfer, size);
+			if (copy_from_user(bufptr, buf, xfer)) {
 				ret = -EFAULT;
 				goto fail;
 			}
-		} else
-			atomic_inc(&prtd->out_needed);
-		atomic_dec(&prtd->out_count);
+			buf += xfer;
+			fbytes -= xfer;
+			pr_debug("%s:fbytes = %d: xfer=%d\n", __func__, fbytes,
+				xfer);
+			if (atomic_read(&prtd->start)) {
+				pr_debug("%s:writing %d bytes of buffer to dsp\n",
+						__func__, xfer);
+				ret = q6asm_write(prtd->audio_client, xfer,
+							0, 0, NO_TIMESTAMP);
+				if (ret < 0) {
+					ret = -EFAULT;
+					goto fail;
+				}
+			} else
+				atomic_inc(&prtd->out_needed);
+			atomic_dec(&prtd->out_count);
+		}
 	}
 fail:
 	return  ret;

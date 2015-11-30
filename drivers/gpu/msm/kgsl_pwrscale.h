@@ -16,6 +16,7 @@
 
 #include <linux/devfreq.h>
 #include <linux/msm_adreno_devfreq.h>
+#include "kgsl_pwrctrl.h"
 
 /* devfreq governor call window in usec */
 #define KGSL_GOVERNOR_CALL_INTERVAL 10000

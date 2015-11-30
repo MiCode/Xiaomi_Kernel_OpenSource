@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,16 +10,17 @@
  * GNU General Public License for more details.
  */
 
-#include "msm-pmi8937.dtsi"
-#include "msm8937-cdp.dtsi"
 
-&soc {
-	led_flash0: qcom,camera-flash {
-		cell-index = <0>;
-		compatible = "qcom,camera-flash";
-		qcom,flash-type = <1>;
-		qcom,flash-source = <&pmi8937_flash0 &pmi8937_flash1>;
-		qcom,torch-source = <&pmi8937_torch0 &pmi8937_torch1>;
-		qcom,switch-source = <&pmi8937_switch>;
-	};
+/dts-v1/;
+
+#include "apq8096-v3.dtsi"
+#include "msm-pmi8996.dtsi"
+#include "apq8096-sbc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8096v3";
+	compatible = "qcom,apq8096-sbc", "qcom,msm8996",
+			"qcom,apq8096", "qcom,sbc";
+	qcom,board-id = <24 0>;
 };
+

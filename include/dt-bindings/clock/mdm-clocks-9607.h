@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MDM_CLOCKS_FERMIUM_H
-#define __MDM_CLOCKS_FERMIUM_H
+#ifndef __MDM_CLOCKS_9607_H
+#define __MDM_CLOCKS_9607_H
 
 /*PLL Sources */
 #define clk_gpll0_clk_src					 0x5933b69f

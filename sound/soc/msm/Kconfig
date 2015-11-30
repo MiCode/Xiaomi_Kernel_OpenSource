@@ -203,9 +203,9 @@ config SND_SOC_MDMCALIFORNIUM
          the machine driver and the corresponding
          DAI-links
 
-config SND_SOC_MDMFERMIUM
-	tristate "SoC Machine driver for MDMFERMIUM boards"
-	depends on ARCH_MDMFERMIUM
+config SND_SOC_MDM9607
+	tristate "SoC Machine driver for MDM9607 boards"
+	depends on ARCH_MDM9607
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
 	select SND_SOC_WCD9330
@@ -215,7 +215,7 @@ config SND_SOC_MDMFERMIUM
 	select MSM_QDSP6V2_CODECS
 	select SND_HWDEP
 	help
-	 To add support for SoC audio on MDMFERMIUM boards.
+	 To add support for SoC audio on MDM9607 boards.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable
 	 the machine drivers and the corresponding

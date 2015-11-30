@@ -400,6 +400,7 @@
 
 	/* Quirks */
 	qcom,gpu-quirk-two-pass-use-wfi;
+	qcom,gpu-quirk-iommu-sync;
 
 	/* Power levels */
 	qcom,gpu-pwrlevels {

@@ -50,6 +50,11 @@
 		clock-frequency = <19200000>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,pipe-attr-ee;
+	};
+
 	timer@b120000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -120,6 +125,19 @@
 		compatible = "qcom,mpm2-sleep-counter";
 		reg = <0x4a3000 0x1000>;
 		clock-frequency = <32768>;
+	};
+
+	tsens: tsens@4a8000 {
+		compatible = "qcom,msmgold-tsens";
+		reg = <0x4a8000 0x2000>,
+		      <0xa4000  0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
+		qcom,sensors = <10>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
+								3200>;
+		qcom,valid-status-check;
 	};
 
 	blsp1_uart2: serial@78b0000 {

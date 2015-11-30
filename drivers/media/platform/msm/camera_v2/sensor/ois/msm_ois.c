@@ -39,7 +39,7 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 {
 	int32_t rc = -EFAULT;
 	int32_t i = 0;
-	struct msm_camera_i2c_seq_reg_array reg_setting;
+	struct msm_camera_i2c_seq_reg_array *reg_setting;
 	CDBG("Enter\n");
 
 	for (i = 0; i < size; i++) {
@@ -55,24 +55,32 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 					settings[i].data_type);
 				break;
 			case MSM_CAMERA_I2C_DWORD_DATA:
-				reg_setting.reg_addr = settings[i].reg_addr;
-				reg_setting.reg_data[0] = (uint8_t)
+			reg_setting =
+			kzalloc(sizeof(struct msm_camera_i2c_seq_reg_array),
+				GFP_KERNEL);
+				if (!reg_setting)
+					return -ENOMEM;
+
+				reg_setting->reg_addr = settings[i].reg_addr;
+				reg_setting->reg_data[0] = (uint8_t)
 					((settings[i].reg_data &
 					0xFF000000) >> 24);
-				reg_setting.reg_data[1] = (uint8_t)
+				reg_setting->reg_data[1] = (uint8_t)
 					((settings[i].reg_data &
 					0x00FF0000) >> 16);
-				reg_setting.reg_data[2] = (uint8_t)
+				reg_setting->reg_data[2] = (uint8_t)
 					((settings[i].reg_data &
 					0x0000FF00) >> 8);
-				reg_setting.reg_data[3] = (uint8_t)
+				reg_setting->reg_data[3] = (uint8_t)
 					(settings[i].reg_data & 0x000000FF);
-				reg_setting.reg_data_size = 4;
+				reg_setting->reg_data_size = 4;
 				rc = o_ctrl->i2c_client.i2c_func_tbl->
 					i2c_write_seq(&o_ctrl->i2c_client,
-					reg_setting.reg_addr,
-					reg_setting.reg_data,
-					reg_setting.reg_data_size);
+					reg_setting->reg_addr,
+					reg_setting->reg_data,
+					reg_setting->reg_data_size);
+				kfree(reg_setting);
+				reg_setting = NULL;
 				if (rc < 0)
 					return rc;
 				break;

@@ -520,12 +520,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Titanium ID */
 	[293] = {MSM_CPU_TITANIUM, "MSMTITANIUM"},
 
-	/* FERMIUM ID */
-	[290] = {MSM_CPU_FERMIUM, "MDMFERMIUM"},
-	[296] = {MSM_CPU_FERMIUM, "MDMFERMIUM"},
-	[297] = {MSM_CPU_FERMIUM, "MDMFERMIUM"},
-	[298] = {MSM_CPU_FERMIUM, "MDMFERMIUM"},
-	[299] = {MSM_CPU_FERMIUM, "MDMFERMIUM"},
+	/* 9607 IDs */
+	[290] = {MSM_CPU_9607, "MDM9607"},
+	[296] = {MSM_CPU_9607, "MDM8207"},
+	[297] = {MSM_CPU_9607, "MDM9207"},
+	[298] = {MSM_CPU_9607, "MDM9307"},
+	[299] = {MSM_CPU_9607, "MDM9628"},
 
 	/* Californium IDs */
 	[279] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
@@ -1134,9 +1134,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 293;
 		strlcpy(dummy_socinfo.build_id, "msmtitanium - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_mdmfermium()) {
+	} else if (early_machine_is_mdm9607()) {
 		dummy_socinfo.id = 290;
-		strlcpy(dummy_socinfo.build_id, "mdmfermium - ",
+		strlcpy(dummy_socinfo.build_id, "mdm9607 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msmcobalt()) {
 		dummy_socinfo.id = 292;

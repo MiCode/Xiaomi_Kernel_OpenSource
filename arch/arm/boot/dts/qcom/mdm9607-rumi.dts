@@ -13,12 +13,12 @@
 
 /dts-v1/;
 
-#include "mdmfermium.dtsi"
-#include "mdmfermium-pinctrl.dtsi"
+#include "mdm9607.dtsi"
+#include "mdm9607-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MDM FERMIUM RUMI";
-	compatible = "qcom,mdmfermium-rumi", "qcom,mdmfermium", "qcom,rumi";
+	model = "Qualcomm Technologies, Inc. MDM 9607 RUMI";
+	compatible = "qcom,mdm9607-rumi", "qcom,mdm9607", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };
 

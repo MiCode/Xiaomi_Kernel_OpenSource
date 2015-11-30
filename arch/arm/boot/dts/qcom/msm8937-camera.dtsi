@@ -142,10 +142,10 @@
 		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0>;
 	};
 
-	qcom,ispif@1b0a000 {
+	qcom,ispif@1b31000 {
 		cell-index = <0>;
 		compatible = "qcom,ispif-v3.0", "qcom,ispif";
-		reg = <0x1b0a000 0x500>,
+		reg = <0x1b31000 0x500>,
 			<0x1b00020 0x10>;
 		reg-names = "ispif", "csi_clk_mux";
 		interrupts = <0 55 0>;
@@ -307,7 +307,7 @@
 		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
 			compatible = "qcom,qsmmu-cam-cb";
 			iommus = <&apps_iommu 0x400>,
-				<&apps_iommu 0x2800>;
+				<&apps_iommu 0x2400>;
 			label = "vfe";
 			qcom,scratch-buf-support;
 		};
@@ -349,7 +349,7 @@
 			<&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0>;
-		qos-reg-settings = <0x28 0x0000550e>,
+		qos-reg-settings = <0x28 0x0000555e>,
 			<0xc8 0x00005555>;
 		vbif-reg-settings = <0xc0 0x10101000>,
 			<0xb0 0x10100010>;
@@ -386,7 +386,7 @@
 			"camss_vfe_cpp_ahb_clk", "camss_vfe_cpp_axi_clk",
 			"camss_vfe_cpp_clk","micro_iface_clk", "camss_ahb_clk";
 		qcom,clock-rates = <0 180000000 0 0 180000000 0 0>;
-		qcom,min-clock-rate = <160000000>;
+		qcom,min-clock-rate = <133000000>;
 		bus_master = <1>;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <156>;

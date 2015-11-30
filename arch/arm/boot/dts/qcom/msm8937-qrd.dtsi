@@ -30,6 +30,21 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	sound {
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-gpios =
+			"pri_i2s";
+		qcom,pinctrl-names =
+			"all_off",
+			"pri_i2s_act";
+		pinctrl-names =
+			"all_off",
+			"pri_i2s_act";
+		pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus>;
+		pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act>;
+		qcom,cdc-us-euro-gpios;
+	};
 };
 
 &blsp1_uart2 {

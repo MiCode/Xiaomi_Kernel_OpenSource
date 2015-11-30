@@ -21,7 +21,7 @@
 		status = "disabled";
 
 		regulator-s1 {
-			regulator-name = "mdmfermium_s1";
+			regulator-name = "mdm9607_s1";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -37,7 +37,7 @@
 		status = "disabled";
 
 		regulator-s2 {
-			regulator-name = "mdmfermium_s2";
+			regulator-name = "mdm9607_s2";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -53,7 +53,7 @@
 		status = "disabled";
 
 		regulator-s3 {
-			regulator-name = "mdmfermium_s3";
+			regulator-name = "mdm9607_s3";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -69,7 +69,7 @@
 		status = "disabled";
 
 		regulator-s4 {
-			regulator-name = "mdmfermium_s4";
+			regulator-name = "mdm9607_s4";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -85,7 +85,7 @@
 		status = "disabled";
 
 		regulator-l1 {
-			regulator-name = "mdmfermium_l1";
+			regulator-name = "mdm9607_l1";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -101,7 +101,7 @@
 		status = "disabled";
 
 		regulator-l2 {
-			regulator-name = "mdmfermium_l2";
+			regulator-name = "mdm9607_l2";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -117,7 +117,7 @@
 		status = "disabled";
 
 		regulator-l3 {
-			regulator-name = "mdmfermium_l3";
+			regulator-name = "mdm9607_l3";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -133,7 +133,7 @@
 		status = "disabled";
 
 		regulator-l4 {
-			regulator-name = "mdmfermium_l4";
+			regulator-name = "mdm9607_l4";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -149,7 +149,7 @@
 		status = "disabled";
 
 		regulator-l5 {
-			regulator-name = "mdmfermium_l5";
+			regulator-name = "mdm9607_l5";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -165,7 +165,7 @@
 		status = "disabled";
 
 		regulator-l6 {
-			regulator-name = "mdmfermium_l6";
+			regulator-name = "mdm9607_l6";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -181,7 +181,7 @@
 		status = "disabled";
 
 		regulator-l7 {
-			regulator-name = "mdmfermium_l7";
+			regulator-name = "mdm9607_l7";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -197,7 +197,7 @@
 		status = "disabled";
 
 		regulator-l8 {
-			regulator-name = "mdmfermium_l8";
+			regulator-name = "mdm9607_l8";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -213,7 +213,7 @@
 		status = "disabled";
 
 		regulator-l9 {
-			regulator-name = "mdmfermium_l9";
+			regulator-name = "mdm9607_l9";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -229,7 +229,7 @@
 		status = "disabled";
 
 		regulator-l10 {
-			regulator-name = "mdmfermium_l10";
+			regulator-name = "mdm9607_l10";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -245,7 +245,7 @@
 		status = "disabled";
 
 		regulator-l11 {
-			regulator-name = "mdmfermium_l11";
+			regulator-name = "mdm9607_l11";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -261,7 +261,7 @@
 		status = "disabled";
 
 		regulator-l12 {
-			regulator-name = "mdmfermium_l12";
+			regulator-name = "mdm9607_l12";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -277,7 +277,7 @@
 		status = "disabled";
 
 		regulator-l13 {
-			regulator-name = "mdmfermium_l13";
+			regulator-name = "mdm9607_l13";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";
@@ -293,7 +293,7 @@
 		status = "disabled";
 
 		regulator-l14 {
-			regulator-name = "mdmfermium_l14";
+			regulator-name = "mdm9607_l14";
 			qcom,set = <3>;
 			status = "disabled";
 			compatible = "qcom,rpm-smd-regulator";

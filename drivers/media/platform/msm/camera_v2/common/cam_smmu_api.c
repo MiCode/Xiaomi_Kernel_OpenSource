@@ -18,6 +18,7 @@
 #include <linux/dma-attrs.h>
 #include <linux/of_platform.h>
 #include <linux/iommu.h>
+#include <linux/slab.h>
 #include <linux/qcom_iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_dma_iommu_mapping.h>
@@ -611,13 +612,14 @@ static struct cam_dma_buff_info *cam_smmu_find_mapping_by_virt_address(int idx,
 	list_for_each_entry(mapping, &iommu_cb_set.cb_info[idx].smmu_buf_list,
 			list) {
 		if (mapping->paddr == virt_addr) {
-			CDBG("Found virtual address %llx\n", virt_addr);
+			CDBG("Found virtual address %lx\n",
+				 (unsigned long)virt_addr);
 			return mapping;
 		}
 	}
 
-	pr_err("Error: Cannot find virtual address %llx by index %d\n",
-		virt_addr, idx);
+	pr_err("Error: Cannot find virtual address %lx by index %d\n",
+		(unsigned long)virt_addr, idx);
 	return NULL;
 }
 
@@ -662,8 +664,8 @@ static void cam_smmu_clean_buffer_list(int idx)
 
 		if (ret < 0) {
 			pr_err("Buffer delete failed: idx = %d\n", idx);
-			pr_err("Buffer delete failed: addr = %llx, fd = %d\n",
-					mapping_info->paddr,
+			pr_err("Buffer delete failed: addr = %lx, fd = %d\n",
+					(unsigned long)mapping_info->paddr,
 					mapping_info->ion_fd);
 			/*
 			 * Ignore this error and continue to delete other
@@ -998,7 +1000,8 @@ static int cam_smmu_alloc_scratch_buffer_add_to_list(int idx,
 
 	*virt_addr = (dma_addr_t)iova;
 
-	CDBG("%s: mapped virtual address = %llX\n", __func__, *virt_addr);
+	CDBG("%s: mapped virtual address = %lx\n", __func__,
+		(unsigned long)*virt_addr);
 	return 0;
 
 err_mapping_info:

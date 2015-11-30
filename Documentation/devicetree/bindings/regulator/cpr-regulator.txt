@@ -719,7 +719,9 @@ Optional properties:
 				closed-loop is enabled. CPR closed-loop will stay enabled above this
 				temperature threshold. This property is required only if
 				'qcom,cpr-thermal-sensor-id' is present.
-
+- qcom,disable-closed-loop-in-pc:	Bool property to disable closed-loop CPR during
+				power-collapse. This can be enabled only for single core
+				designs. The property 'qcom,cpr-cpus' is required to enable this logic.
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";

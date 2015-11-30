@@ -47,35 +47,22 @@ void mdss_iommu_unlock(void)
 	mutex_unlock(&mdp_iommu_lock);
 }
 
-static struct mdss_iommu_map_type mdss_iommu_map[MDSS_IOMMU_MAX_DOMAIN] = {
-	[MDSS_IOMMU_DOMAIN_UNSECURE] = {
-		.client_name = "mdp_ns",
-		.ctx_name = "mdp_0",
-		.start = SZ_128K,
-		.size = SZ_1G - SZ_128K,
-	},
-	[MDSS_IOMMU_DOMAIN_SECURE] = {
-		.client_name = "mdp_secure",
-		.ctx_name = "mdp_1",
-		.start = SZ_1G,
-		.size = SZ_2G,
-	},
-};
-
 static int mdss_smmu_util_parse_dt_clock(struct platform_device *pdev,
 		struct dss_module_power *mp)
 {
 	u32 i = 0, rc = 0;
 	const char *clock_name;
 	u32 clock_rate;
+	int num_clk;
 
-	mp->num_clk = of_property_count_strings(pdev->dev.of_node,
+	num_clk = of_property_count_strings(pdev->dev.of_node,
 			"clock-names");
-	if (mp->num_clk <= 0) {
+	if (num_clk <= 0) {
 		pr_err("clocks are not defined\n");
 		goto clk_err;
 	}
 
+	mp->num_clk = num_clk;
 	mp->clk_config = devm_kzalloc(&pdev->dev,
 			sizeof(struct dss_clk) * mp->num_clk, GFP_KERNEL);
 	if (!mp->clk_config) {
@@ -139,10 +126,10 @@ static int mdss_smmu_enable_power(struct mdss_smmu_client *mdss_smmu,
 	if (!mdss_smmu)
 		return -EINVAL;
 
-	if (mdss_smmu->smmu_type == MDSS_SMMU_ARM)
-		return 0;
-
 	mp = &mdss_smmu->mp;
+
+	if (!mp->num_vreg && !mp->num_clk)
+		return 0;
 
 	if (enable) {
 		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, true);
@@ -511,67 +498,23 @@ int mdss_smmu_init(struct mdss_data_type *mdata, struct device *dev)
 	return 0;
 }
 
-static int mdss_mdp_unsec = MDSS_IOMMU_DOMAIN_UNSECURE;
-static int mdss_rot_unsec = MDSS_IOMMU_DOMAIN_ROT_UNSECURE;
-static int mdss_mdp_sec = MDSS_IOMMU_DOMAIN_SECURE;
-static int mdss_rot_sec = MDSS_IOMMU_DOMAIN_ROT_SECURE;
+static struct mdss_smmu_domain mdss_mdp_unsec = {
+	"mdp_0", MDSS_IOMMU_DOMAIN_UNSECURE, SZ_128K, (SZ_1G - SZ_128K)};
+static struct mdss_smmu_domain mdss_rot_unsec = {
+	NULL, MDSS_IOMMU_DOMAIN_ROT_UNSECURE, SZ_128K, (SZ_1G - SZ_128K)};
+static struct mdss_smmu_domain mdss_mdp_sec = {
+	"mdp_1", MDSS_IOMMU_DOMAIN_SECURE, SZ_1G, SZ_2G};
+static struct mdss_smmu_domain mdss_rot_sec = {
+	NULL, MDSS_IOMMU_DOMAIN_ROT_SECURE, SZ_1G, SZ_2G};
 
 static const struct of_device_id mdss_smmu_dt_match[] = {
 	{ .compatible = "qcom,smmu_mdp_unsec", .data = &mdss_mdp_unsec},
 	{ .compatible = "qcom,smmu_rot_unsec", .data = &mdss_rot_unsec},
 	{ .compatible = "qcom,smmu_mdp_sec", .data = &mdss_mdp_sec},
 	{ .compatible = "qcom,smmu_rot_sec", .data = &mdss_rot_sec},
-	{ .compatible = "qcom,smmu_arm_mdp_sec", .data = &mdss_mdp_sec},
-	{ .compatible = "qcom,smmu_arm_mdp_unsec", .data = &mdss_mdp_unsec},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mdss_smmu_dt_match);
-
-
-/*
- * mdss_smmu_arm_probe()
- * @domain: iommu domain
- *
- * Each arm smmu context acts as a separate device and the context banks are
- * configured with a VA range.
- */
-static int mdss_smmu_arm_probe(u32 domain)
-{
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	struct mdss_smmu_client *mdss_smmu;
-	struct device *dev;
-	struct mdss_iommu_map_type *iomap;
-	int rc = 0;
-
-	if ((domain == MDSS_IOMMU_DOMAIN_SECURE) ||
-			(domain == MDSS_IOMMU_DOMAIN_UNSECURE)) {
-		iomap = &mdss_iommu_map[domain];
-		dev = msm_iommu_get_ctx(iomap->ctx_name);
-		if (!dev) {
-			pr_err("Invalid SMMU ctx for domain:%d\n", domain);
-			return -EINVAL;
-		}
-
-		mdss_smmu = &mdata->mdss_smmu[domain];
-		mdss_smmu->mmu_mapping = arm_iommu_create_mapping(
-			msm_iommu_get_bus(dev), iomap->start, iomap->size);
-		if (IS_ERR(mdss_smmu->mmu_mapping)) {
-			pr_err("iommu create mapping failed for domain[%d]\n",
-									domain);
-			rc = PTR_ERR(mdss_smmu->mmu_mapping);
-			return rc;
-		}
-
-		if (mdata->handoff_pending)
-			mdss_smmu->handoff_pending = true;
-		mdss_smmu->dev = dev;
-		mdss_smmu->smmu_type = MDSS_SMMU_ARM;
-	} else {
-		pr_err("Invalid MDSS domain:%d\n", domain);
-		return -EINVAL;
-	}
-	return rc;
-}
 
 /*
  * mdss_smmu_probe()
@@ -584,12 +527,11 @@ static int mdss_smmu_arm_probe(u32 domain)
  */
 int mdss_smmu_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
+	struct device *dev;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_smmu_client *mdss_smmu;
 	int rc = 0;
-	u32 domain;
-	size_t va_start, va_size;
+	struct mdss_smmu_domain smmu_domain;
 	const struct of_device_id *match;
 	struct dss_module_power *mp;
 	int disable_htw = 1;
@@ -606,51 +548,43 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	domain = *(int *) (match->data);
-	if (domain >= MDSS_IOMMU_MAX_DOMAIN) {
+	smmu_domain = *(struct mdss_smmu_domain *) (match->data);
+	if (smmu_domain.domain >= MDSS_IOMMU_MAX_DOMAIN) {
 		pr_err("no matching device found\n");
 		return -EINVAL;
 	}
 
-	if (of_device_is_compatible(dev->of_node, "qcom,smmu_arm_mdp_sec") ||
-			of_device_is_compatible(dev->of_node,
-					"qcom,smmu_arm_mdp_unsec")) {
-		pr_debug("initializing mdss for arm smmu\n");
-		rc  = mdss_smmu_arm_probe(domain);
-		if (rc)
-			pr_err("arm smmu probe failed\n");
-		return rc;
-	}
-
-	mdss_smmu = &mdata->mdss_smmu[domain];
-
-	if (domain == MDSS_IOMMU_DOMAIN_UNSECURE ||
-		domain == MDSS_IOMMU_DOMAIN_ROT_UNSECURE) {
-		va_start = SZ_128K;
-		va_size = SZ_1G - SZ_128K;
-	} else if (domain == MDSS_IOMMU_DOMAIN_SECURE ||
-		domain == MDSS_IOMMU_DOMAIN_ROT_SECURE) {
-		va_start = SZ_1G;
-		va_size = SZ_2G;
+	if (of_find_property(pdev->dev.of_node, "iommus", NULL)) {
+		dev = &pdev->dev;
 	} else {
-		pr_err("invalid smmu domain type\n");
-		return -EINVAL;
+		/*
+		 * For old iommu driver we query the context bank device
+		 * rather than getting it from dt.
+		 */
+		dev = msm_iommu_get_ctx(smmu_domain.ctx_name);
+		if (!dev) {
+			pr_err("Invalid SMMU ctx for domain:%d\n",
+				smmu_domain.domain);
+			return -EINVAL;
+		}
 	}
 
-	mdss_smmu->smmu_type = MDSS_SMMU_V2;
+	mdss_smmu = &mdata->mdss_smmu[smmu_domain.domain];
 	mp = &mdss_smmu->mp;
+	memset(mp, 0, sizeof(struct dss_module_power));
 
-	mp->vreg_config = devm_kzalloc(&pdev->dev,
-		sizeof(struct dss_vreg), GFP_KERNEL);
-	if (!mp->vreg_config) {
-		pr_err("can't alloc vreg mem\n");
-		return -ENOMEM;
+	if (of_find_property(pdev->dev.of_node,
+		"gdsc-mmagic-mdss-supply", NULL)) {
+
+		mp->vreg_config = devm_kzalloc(&pdev->dev,
+			sizeof(struct dss_vreg), GFP_KERNEL);
+		if (!mp->vreg_config)
+			return -ENOMEM;
+
+		strlcpy(mp->vreg_config->vreg_name, "gdsc-mmagic-mdss",
+				sizeof(mp->vreg_config->vreg_name));
+		mp->num_vreg = 1;
 	}
-
-	strlcpy(mp->vreg_config->vreg_name, "gdsc-mmagic-mdss",
-		sizeof(mp->vreg_config->vreg_name));
-
-	mp->num_vreg = 1;
 
 	rc = msm_dss_config_vreg(&pdev->dev, mp->vreg_config,
 		mp->num_vreg, true);
@@ -662,13 +596,13 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	rc = mdss_smmu_clk_register(pdev, mp);
 	if (rc) {
 		pr_err("smmu clk register failed for domain[%d] with err:%d\n",
-			domain, rc);
+			smmu_domain.domain, rc);
 		msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
 			false);
 		return rc;
 	}
 
-	snprintf(name, MAX_CLIENT_NAME_LEN, "smmu:%u", domain);
+	snprintf(name, MAX_CLIENT_NAME_LEN, "smmu:%u", smmu_domain.domain);
 	mdss_smmu->reg_bus_clt = mdss_reg_bus_vote_client_create(name);
 	if (IS_ERR_OR_NULL(mdss_smmu->reg_bus_clt)) {
 		pr_err("mdss bus client register failed\n");
@@ -679,14 +613,16 @@ int mdss_smmu_probe(struct platform_device *pdev)
 
 	rc = mdss_smmu_enable_power(mdss_smmu, true);
 	if (rc) {
-		pr_err("power enable failed - domain:[%d] rc:%d\n", domain, rc);
+		pr_err("power enable failed - domain:[%d] rc:%d\n",
+			smmu_domain.domain, rc);
 		goto bus_client_destroy;
 	}
 
 	mdss_smmu->mmu_mapping = arm_iommu_create_mapping(
-		msm_iommu_get_bus(dev), va_start, va_size);
+		msm_iommu_get_bus(dev), smmu_domain.start, smmu_domain.size);
 	if (IS_ERR(mdss_smmu->mmu_mapping)) {
-		pr_err("iommu create mapping failed for domain[%d]\n", domain);
+		pr_err("iommu create mapping failed for domain[%d]\n",
+			smmu_domain.domain);
 		rc = PTR_ERR(mdss_smmu->mmu_mapping);
 		goto disable_power;
 	}
@@ -698,8 +634,8 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		goto release_mapping;
 	}
 
-	if (domain == MDSS_IOMMU_DOMAIN_SECURE ||
-		domain == MDSS_IOMMU_DOMAIN_ROT_SECURE) {
+	if (smmu_domain.domain == MDSS_IOMMU_DOMAIN_SECURE ||
+		smmu_domain.domain == MDSS_IOMMU_DOMAIN_ROT_SECURE) {
 		int secure_vmid = VMID_CP_PIXEL;
 		rc = iommu_domain_set_attr(mdss_smmu->mmu_mapping->domain,
 			DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
@@ -716,7 +652,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 
 	mdss_smmu->dev = dev;
 	pr_info("iommu v2 domain[%d] mapping and clk register successful!\n",
-			domain);
+			smmu_domain.domain);
 	return 0;
 
 release_mapping:

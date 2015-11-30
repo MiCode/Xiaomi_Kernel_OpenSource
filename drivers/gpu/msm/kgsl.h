@@ -109,6 +109,7 @@ struct kgsl_driver {
 };
 
 extern struct kgsl_driver kgsl_driver;
+extern struct mutex kgsl_mmu_sync;
 
 struct kgsl_pagetable;
 struct kgsl_memdesc;

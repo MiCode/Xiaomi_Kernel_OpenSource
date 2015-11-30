@@ -13,10 +13,10 @@
 
 /dts-v1/;
 
-#include "mdmfermium-cdp.dtsi"
+#include "mdm9607-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MDM FERMIUM RCM";
-	compatible = "qcom,mdmfermium-cdp", "qcom,mdmfermium", "qcom,cdp";
-	qcom,board-id = <21 0>;
+	model = "Qualcomm Technologies, Inc. MDM 9607 CDP";
+	compatible = "qcom,mdm9607-cdp", "qcom,mdm9607", "qcom,cdp";
+	qcom,board-id = <1 0>;
 };
