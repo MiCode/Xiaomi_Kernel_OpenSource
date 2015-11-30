@@ -91,6 +91,7 @@
 #include "msmgold-ion.dtsi"
 #include "msmgold-iommu.dtsi"
 #include "msmgold-iommu-domains.dtsi"
+#include "msmgold-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
