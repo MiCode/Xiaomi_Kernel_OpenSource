@@ -20,3 +20,7 @@
 	compatible = "qcom,mdm9607-cdp", "qcom,mdm9607", "qcom,cdp";
 	qcom,board-id = <21 0>;
 };
+
+&emac0 {
+	status = "disabled";
+};
