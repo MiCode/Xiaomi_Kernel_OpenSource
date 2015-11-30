@@ -1029,7 +1029,7 @@
 		reg = <0x5c00000 0x4000>;
 		interrupts = <0 390 1>;
 
-		vdd_cx-supply = <&pmcobalt_l26>;
+		vdd_cx-supply = <&pmcobalt_l27_level>;
 		vdd_px-supply = <&pmcobalt_lvs2>;
 		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 0>;
 		qcom,proxy-reg-names = "vdd_cx", "vdd_px";
