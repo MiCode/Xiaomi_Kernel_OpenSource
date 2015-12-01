@@ -4654,8 +4654,9 @@ wait:
 			goto done;
 		}
 	} else {
-		pr_info("Battery profile not same, clearing cycle counters\n");
+		pr_info("Battery profile not same, clearing data\n");
 		clear_cycle_counter(chip);
+		chip->learning_data.learned_cc_uah = 0;
 	}
 	if (fg_est_dump)
 		dump_sram(&chip->dump_sram);
