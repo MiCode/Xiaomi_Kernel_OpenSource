@@ -2426,7 +2426,8 @@ static inline int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 	return -EPERM;
 }
 
-static int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
+static inline int ipa_usb_xdci_connect(
+			 struct ipa_usb_xdci_chan_params *ul_chan_params,
 			 struct ipa_usb_xdci_chan_params *dl_chan_params,
 			 struct ipa_req_chan_out_params *ul_out_params,
 			 struct ipa_req_chan_out_params *dl_out_params,
