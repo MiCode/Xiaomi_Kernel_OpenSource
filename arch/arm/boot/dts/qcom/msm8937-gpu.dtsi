@@ -111,6 +111,14 @@
 		/* Quirks */
 		qcom,gpu-quirk-two-pass-use-wfi;
 
+		/* Trace bus */
+		coresight-id = <67>;
+		coresight-name = "coresight-gfx";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_mm>;
+		coresight-child-ports = <6>;
+
 		/* Power levels */
 		qcom,gpu-pwrlevels {
 			#address-cells = <1>;
