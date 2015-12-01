@@ -497,11 +497,13 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 	}
 
 	seq_printf(s, "(average over %d iterations)\n", iters_per_op);
-	seq_printf(s, "%8s %15s %12s\n", "size", "iommu_map", "iommu_unmap");
+	seq_printf(s, "%8s %19s %16s\n", "size", "iommu_map", "iommu_unmap");
 	for (sz = sizes; *sz; ++sz) {
 		unsigned long size = *sz;
 		size_t unmapped;
+		u64 map_elapsed_ns = 0, unmap_elapsed_ns = 0;
 		u64 map_elapsed_us = 0, unmap_elapsed_us = 0;
+		u32 map_elapsed_rem = 0, unmap_elapsed_rem = 0;
 		struct timespec tbefore, tafter, diff;
 		int i;
 
@@ -514,7 +516,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 			}
 			getnstimeofday(&tafter);
 			diff = timespec_sub(tafter, tbefore);
-			map_elapsed_us += div_s64(timespec_to_ns(&diff), 1000);
+			map_elapsed_ns += timespec_to_ns(&diff);
 
 			getnstimeofday(&tbefore);
 			unmapped = iommu_unmap(domain, iova, size);
@@ -526,23 +528,31 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 			}
 			getnstimeofday(&tafter);
 			diff = timespec_sub(tafter, tbefore);
-			unmap_elapsed_us += div_s64(timespec_to_ns(&diff),
-						    1000);
+			unmap_elapsed_ns += timespec_to_ns(&diff);
 		}
 
-		map_elapsed_us /= iters_per_op;
-		unmap_elapsed_us /= iters_per_op;
+		map_elapsed_ns /= iters_per_op;
+		unmap_elapsed_ns /= iters_per_op;
 
-		seq_printf(s, "%8s %12lld us %9lld us\n", _size_to_string(size),
-			map_elapsed_us, unmap_elapsed_us);
+		map_elapsed_us = div_u64_rem(map_elapsed_ns, 1000,
+						&map_elapsed_rem);
+		unmap_elapsed_us = div_u64_rem(unmap_elapsed_ns, 1000,
+						&unmap_elapsed_rem);
+
+		seq_printf(s, "%8s %12lld.%03d us %9lld.%03d us\n",
+			_size_to_string(size),
+			map_elapsed_us, map_elapsed_rem,
+			unmap_elapsed_us, unmap_elapsed_rem);
 	}
 
 	seq_putc(s, '\n');
-	seq_printf(s, "%8s %15s %12s\n", "size", "iommu_map_sg", "iommu_unmap");
+	seq_printf(s, "%8s %19s %16s\n", "size", "iommu_map_sg", "iommu_unmap");
 	for (sz = sizes; *sz; ++sz) {
 		unsigned long size = *sz;
 		size_t unmapped;
+		u64 map_elapsed_ns = 0, unmap_elapsed_ns = 0;
 		u64 map_elapsed_us = 0, unmap_elapsed_us = 0;
+		u32 map_elapsed_rem = 0, unmap_elapsed_rem = 0;
 		struct timespec tbefore, tafter, diff;
 		struct sg_table table;
 		unsigned long chunk_size = SZ_4K;
@@ -564,7 +574,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 			}
 			getnstimeofday(&tafter);
 			diff = timespec_sub(tafter, tbefore);
-			map_elapsed_us += div_s64(timespec_to_ns(&diff), 1000);
+			map_elapsed_ns += timespec_to_ns(&diff);
 
 			getnstimeofday(&tbefore);
 			unmapped = iommu_unmap(domain, iova, size);
@@ -576,15 +586,21 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 			}
 			getnstimeofday(&tafter);
 			diff = timespec_sub(tafter, tbefore);
-			unmap_elapsed_us += div_s64(timespec_to_ns(&diff),
-						    1000);
+			unmap_elapsed_ns += timespec_to_ns(&diff);
 		}
 
-		map_elapsed_us /= iters_per_op;
-		unmap_elapsed_us /= iters_per_op;
+		map_elapsed_ns /= iters_per_op;
+		unmap_elapsed_ns /= iters_per_op;
 
-		seq_printf(s, "%8s %12lld us %9lld us\n", _size_to_string(size),
-			map_elapsed_us, unmap_elapsed_us);
+		map_elapsed_us = div_u64_rem(map_elapsed_ns, 1000,
+						&map_elapsed_rem);
+		unmap_elapsed_us = div_u64_rem(unmap_elapsed_ns, 1000,
+						&unmap_elapsed_rem);
+
+		seq_printf(s, "%8s %12lld.%03d us %9lld.%03d us\n",
+			_size_to_string(size),
+			map_elapsed_us, map_elapsed_rem,
+			unmap_elapsed_us, unmap_elapsed_rem);
 
 next:
 		iommu_debug_destroy_phoney_sg_table(dev, &table, chunk_size);
