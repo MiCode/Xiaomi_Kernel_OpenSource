@@ -1276,10 +1276,10 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		break;
 	case MDSS_MDP_HW_REV_114:
 		mdata->max_target_zorder = 4; /* excluding base layer */
-		mdata->max_cursor_size = 64;
-		mdata->min_prefill_lines = 12;
+		mdata->max_cursor_size = 128;
+		mdata->min_prefill_lines = 14;
 		mdata->has_ubwc = true;
-		mdata->pixel_ram_size = 38 * 1024;
+		mdata->pixel_ram_size = 40 * 1024;
 		mdata->apply_post_scale_bytes = false;
 		mdata->hflip_buffer_reused = false;
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
