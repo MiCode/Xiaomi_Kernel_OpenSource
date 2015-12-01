@@ -1807,20 +1807,6 @@ static void taper_irq_en(struct smbchg_chip *chip, bool en)
 	mutex_unlock(&chip->taper_irq_lock);
 }
 
-static bool smbchg_is_aicl_complete(struct smbchg_chip *chip)
-{
-	int rc;
-	u8 reg;
-
-	rc = smbchg_read(chip, &reg,
-			chip->usb_chgpth_base + ICL_STS_1_REG, 1);
-	if (rc < 0) {
-		dev_err(chip->dev, "Could not read usb icl sts 1: %d\n", rc);
-		return true;
-	}
-	return (reg & AICL_STS_BIT) != 0;
-}
-
 static int smbchg_get_aicl_level_ma(struct smbchg_chip *chip)
 {
 	int rc;
@@ -2585,7 +2571,7 @@ static int set_usb_current_limit_vote_cb(struct device *dev,
 		return 0;
 
 	aicl_ma = smbchg_get_aicl_level_ma(chip);
-	if (icl_ma > aicl_ma && smbchg_is_aicl_complete(chip))
+	if (icl_ma > aicl_ma)
 		smbchg_rerun_aicl(chip);
 	smbchg_parallel_usb_check_ok(chip);
 	return 0;
