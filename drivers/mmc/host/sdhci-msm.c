@@ -43,6 +43,7 @@
 #include "sdhci-msm-ice.h"
 #include "cmdq_hci.h"
 
+#define QOS_REMOVE_DELAY_MS	10
 #define CORE_POWER		0x0
 #define CORE_SW_RST		(1 << 7)
 
@@ -3226,7 +3227,8 @@ void sdhci_msm_reset_workaround(struct sdhci_host *host, u32 enable)
 static void sdhci_msm_pm_qos_irq_unvote_work(struct work_struct *work)
 {
 	struct sdhci_msm_pm_qos_irq *pm_qos_irq =
-		container_of(work, struct sdhci_msm_pm_qos_irq, unvote_work);
+		container_of(work, struct sdhci_msm_pm_qos_irq,
+			     unvote_work.work);
 
 	if (atomic_read(&pm_qos_irq->counter))
 		return;
@@ -3252,7 +3254,7 @@ void sdhci_msm_pm_qos_irq_vote(struct sdhci_host *host)
 		&& counter > 1)
 		return;
 
-	cancel_work_sync(&msm_host->pm_qos_irq.unvote_work);
+	cancel_delayed_work_sync(&msm_host->pm_qos_irq.unvote_work);
 	msm_host->pm_qos_irq.latency = latency->latency[host->power_policy];
 	pm_qos_update_request(&msm_host->pm_qos_irq.req,
 				msm_host->pm_qos_irq.latency);
@@ -3278,7 +3280,8 @@ void sdhci_msm_pm_qos_irq_unvote(struct sdhci_host *host, bool async)
 		return;
 
 	if (async) {
-		schedule_work(&msm_host->pm_qos_irq.unvote_work);
+		schedule_delayed_work(&msm_host->pm_qos_irq.unvote_work,
+				      msecs_to_jiffies(QOS_REMOVE_DELAY_MS));
 		return;
 	}
 
@@ -3333,7 +3336,7 @@ sdhci_msm_pm_qos_irq_enable_store(struct device *dev,
 
 	msm_host->pm_qos_irq.enabled = enable;
 	if (!enable) {
-		cancel_work_sync(&msm_host->pm_qos_irq.unvote_work);
+		cancel_delayed_work_sync(&msm_host->pm_qos_irq.unvote_work);
 		atomic_set(&msm_host->pm_qos_irq.counter, 0);
 		msm_host->pm_qos_irq.latency = PM_QOS_DEFAULT_VALUE;
 		pm_qos_update_request(&msm_host->pm_qos_irq.req,
@@ -3379,7 +3382,7 @@ void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host)
 		cpumask_copy(&msm_host->pm_qos_irq.req.cpus_affine,
 			cpumask_of(msm_host->pdata->pm_qos_data.irq_cpu));
 
-	INIT_WORK(&msm_host->pm_qos_irq.unvote_work,
+	INIT_DELAYED_WORK(&msm_host->pm_qos_irq.unvote_work,
 		sdhci_msm_pm_qos_irq_unvote_work);
 	/* For initialization phase, set the performance latency */
 	irq_latency = &msm_host->pdata->pm_qos_data.irq_latency;
@@ -3473,7 +3476,8 @@ static ssize_t sdhci_msm_pm_qos_group_enable_store(struct device *dev,
 	msm_host->pm_qos_group_enable = enable;
 	if (!enable) {
 		for (i = 0; i < nr_groups; i++) {
-			cancel_work_sync(&msm_host->pm_qos[i].unvote_work);
+			cancel_delayed_work_sync(
+				&msm_host->pm_qos[i].unvote_work);
 			atomic_set(&msm_host->pm_qos[i].counter, 0);
 			msm_host->pm_qos[i].latency = PM_QOS_DEFAULT_VALUE;
 			pm_qos_update_request(&msm_host->pm_qos[i].req,
@@ -3522,7 +3526,7 @@ void sdhci_msm_pm_qos_cpu_vote(struct sdhci_host *host,
 		&& counter > 1)
 		return;
 
-	cancel_work_sync(&pm_qos_group->unvote_work);
+	cancel_delayed_work_sync(&pm_qos_group->unvote_work);
 
 	pm_qos_group->latency = latency->latency[host->power_policy];
 	pm_qos_update_request(&pm_qos_group->req, pm_qos_group->latency);
@@ -3531,7 +3535,8 @@ void sdhci_msm_pm_qos_cpu_vote(struct sdhci_host *host,
 static void sdhci_msm_pm_qos_cpu_unvote_work(struct work_struct *work)
 {
 	struct sdhci_msm_pm_qos_group *group =
-		container_of(work, struct sdhci_msm_pm_qos_group, unvote_work);
+		container_of(work, struct sdhci_msm_pm_qos_group,
+			     unvote_work.work);
 
 	if (atomic_read(&group->counter))
 		return;
@@ -3551,7 +3556,8 @@ bool sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async)
 		return false;
 
 	if (async) {
-		schedule_work(&msm_host->pm_qos[group].unvote_work);
+		schedule_delayed_work(&msm_host->pm_qos[group].unvote_work,
+				      msecs_to_jiffies(QOS_REMOVE_DELAY_MS));
 		return true;
 	}
 
@@ -3581,7 +3587,7 @@ void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
 
 	for (i = 0; i < nr_groups; i++) {
 		group = &msm_host->pm_qos[i];
-		INIT_WORK(&group->unvote_work,
+		INIT_DELAYED_WORK(&group->unvote_work,
 			sdhci_msm_pm_qos_cpu_unvote_work);
 		atomic_set(&group->counter, 0);
 		group->req.type = PM_QOS_REQ_AFFINE_CORES;
