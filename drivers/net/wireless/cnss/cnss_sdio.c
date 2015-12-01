@@ -16,8 +16,6 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <linux/of_gpio.h>
-#include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/slab.h>
@@ -44,11 +42,6 @@ struct cnss_dfs_nol_info {
 	u16 dfs_nol_info_len;
 };
 
-struct cnss_sdio_wlan_gpio_info {
-	u32 num;
-	u32 flags;
-};
-
 struct cnss_sdio_regulator {
 	struct regulator *wlan_io;
 	struct regulator *wlan_xtal;
@@ -58,7 +51,6 @@ struct cnss_sdio_regulator {
 static struct cnss_sdio_data {
 	struct cnss_sdio_regulator regulator;
 	struct platform_device *pdev;
-	struct cnss_sdio_wlan_gpio_info pmic_gpio;
 	struct cnss_dfs_nol_info dfs_info;
 	struct cnss_unsafe_channel_list unsafe_list;
 } *cnss_pdata;
@@ -158,36 +150,6 @@ int cnss_wlan_get_dfs_nol(void *info, u16 info_len)
 	return len;
 }
 EXPORT_SYMBOL(cnss_wlan_get_dfs_nol);
-
-static int cnss_sdio_configure_gpio(void)
-{
-	int error;
-	struct device *dev = &cnss_pdata->pdev->dev;
-
-	if (gpio_is_valid(cnss_pdata->pmic_gpio.num)) {
-		error = gpio_request(
-			cnss_pdata->pmic_gpio.num, "wlan_pmic_gpio");
-		if (error) {
-			dev_err(dev, "PMIC gpio request failed\n");
-			return error;
-		}
-
-		error = gpio_direction_output(cnss_pdata->pmic_gpio.num, 0);
-		if (error) {
-			dev_err(dev, "PMIC gpio set direction failed\n");
-			goto err_pmic_gpio;
-		} else {
-			gpio_set_value_cansleep(cnss_pdata->pmic_gpio.num, 1);
-			msleep(POWER_ON_DELAY);
-		}
-	}
-
-	return 0;
-
-err_pmic_gpio:
-	gpio_free(cnss_pdata->pmic_gpio.num);
-	return error;
-}
 
 static int cnss_sdio_configure_wlan_enable_regulator(void)
 {
@@ -291,10 +253,6 @@ err_vdd_io_regulator:
 
 static void cnss_sdio_release_resource(void)
 {
-	if (gpio_is_valid(cnss_pdata->pmic_gpio.num)) {
-		gpio_set_value_cansleep(cnss_pdata->pmic_gpio.num, 0);
-		gpio_free(cnss_pdata->pmic_gpio.num);
-	}
 	if (cnss_pdata->regulator.wlan_xtal)
 		regulator_put(cnss_pdata->regulator.wlan_xtal);
 	if (cnss_pdata->regulator.wlan_vreg)
@@ -326,17 +284,6 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 		return error;
 	}
 
-	cnss_pdata->pmic_gpio.num = of_get_named_gpio_flags(pdev->dev.of_node,
-		"cnss_sdio,wlan-pmic-gpio", 0, &cnss_pdata->pmic_gpio.flags);
-	if (cnss_pdata->pmic_gpio.num) {
-		error = cnss_sdio_configure_gpio();
-		if (error) {
-			dev_err(&pdev->dev,
-				"Failed to enable wlan enable gpio\n");
-			goto err_wlan_enable_gpio;
-		}
-	}
-
 	if (of_get_property(
 		cnss_pdata->pdev->dev.of_node,
 			WLAN_VREG_NAME "-supply", NULL)) {
@@ -352,8 +299,6 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 	return 0;
 
 err_wlan_enable_regulator:
-	regulator_put(cnss_pdata->regulator.wlan_vreg);
-err_wlan_enable_gpio:
 	regulator_put(cnss_pdata->regulator.wlan_xtal);
 	regulator_put(cnss_pdata->regulator.wlan_io);
 	return error;
