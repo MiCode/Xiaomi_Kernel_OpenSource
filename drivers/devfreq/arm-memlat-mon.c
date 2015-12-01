@@ -45,12 +45,12 @@ enum ev_index {
 struct event_data {
 	struct perf_event *pevent;
 	unsigned long prev_count;
-	bool overflow;
 };
 
 struct memlat_hwmon_data {
 	struct event_data events[NUM_EVENTS];
 	ktime_t prev_ts;
+	bool init_pending;
 };
 static DEFINE_PER_CPU(struct memlat_hwmon_data, pm_data);
 
@@ -58,6 +58,12 @@ struct cpu_grp_info {
 	cpumask_t cpus;
 	struct memlat_hwmon hw;
 };
+
+static DEFINE_MUTEX(notif_mutex);
+static unsigned int notif_refcount;
+static void notif_unregister_work_fn(struct work_struct *work);
+static void hotplug_notif_unregister(void);
+static DECLARE_WORK(notif_unregister_work, notif_unregister_work_fn);
 
 static unsigned long compute_freq(struct memlat_hwmon_data *hw_data,
 						unsigned long cyc_cnt)
@@ -101,6 +107,9 @@ static void read_perf_counters(int cpu, struct cpu_grp_info *cpu_grp)
 	struct memlat_hwmon *hw = &cpu_grp->hw;
 	unsigned long cyc_cnt;
 
+	if (hw_data->init_pending)
+		return;
+
 	cpu_idx = cpu - cpumask_first(&cpu_grp->cpus);
 
 	hw->core_stats[cpu_idx].inst_count =
@@ -127,14 +136,17 @@ static unsigned long get_cnt(struct memlat_hwmon *hw)
 
 static void delete_events(struct memlat_hwmon_data *hw_data)
 {
-	perf_event_release_kernel(hw_data->events[INST_IDX].pevent);
-	perf_event_release_kernel(hw_data->events[L2DM_IDX].pevent);
-	perf_event_release_kernel(hw_data->events[CYC_IDX].pevent);
+	int i;
+
+	for (i = 0; i < NUM_EVENTS; i++) {
+		hw_data->events[i].prev_count = 0;
+		perf_event_release_kernel(hw_data->events[i].pevent);
+	}
 }
 
 static void stop_hwmon(struct memlat_hwmon *hw)
 {
-	int cpu;
+	int cpu, idx;
 	struct memlat_hwmon_data *hw_data;
 	struct cpu_grp_info *cpu_grp = container_of(hw,
 					struct cpu_grp_info, hw);
@@ -142,7 +154,16 @@ static void stop_hwmon(struct memlat_hwmon *hw)
 	get_online_cpus();
 	for_each_cpu(cpu, &cpu_grp->cpus) {
 		hw_data = &per_cpu(pm_data, cpu);
-		delete_events(hw_data);
+		if (hw_data->init_pending)
+			hotplug_notif_unregister();
+		else
+			delete_events(hw_data);
+
+		/* Clear governor data */
+		idx = cpu - cpumask_first(&cpu_grp->cpus);
+		hw->core_stats[idx].inst_count = 0;
+		hw->core_stats[idx].mem_count = 0;
+		hw->core_stats[idx].freq = 0;
 	}
 	put_online_cpus();
 
@@ -198,6 +219,53 @@ err_out:
 	return err;
 }
 
+static int arm_memlat_cpu_callback(struct notifier_block *nb,
+		unsigned long action, void *hcpu)
+{
+	unsigned long cpu = (unsigned long)hcpu;
+	struct memlat_hwmon_data *hw_data = &per_cpu(pm_data, cpu);
+
+	if ((action != CPU_ONLINE) || !hw_data->init_pending)
+		return NOTIFY_OK;
+
+	if (set_events(hw_data, cpu))
+		pr_warn("Failed to create perf event for CPU%lu\n", cpu);
+
+	hw_data->init_pending = false;
+	hotplug_notif_unregister();
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block arm_memlat_cpu_notifier = {
+	.notifier_call = arm_memlat_cpu_callback,
+};
+
+static void notif_unregister_work_fn(struct work_struct *work)
+{
+	unregister_cpu_notifier(&arm_memlat_cpu_notifier);
+}
+
+static void hotplug_notif_register(void)
+{
+	mutex_lock(&notif_mutex);
+	if (!notif_refcount) {
+		flush_work(&notif_unregister_work);
+		register_cpu_notifier(&arm_memlat_cpu_notifier);
+	}
+	notif_refcount++;
+	mutex_unlock(&notif_mutex);
+}
+
+static void hotplug_notif_unregister(void)
+{
+	mutex_lock(&notif_mutex);
+	notif_refcount--;
+	if (!notif_refcount)
+		schedule_work(&notif_unregister_work);
+	mutex_unlock(&notif_mutex);
+}
+
 static int start_hwmon(struct memlat_hwmon *hw)
 {
 	int cpu, ret = 0;
@@ -209,12 +277,19 @@ static int start_hwmon(struct memlat_hwmon *hw)
 	for_each_cpu(cpu, &cpu_grp->cpus) {
 		hw_data = &per_cpu(pm_data, cpu);
 		ret = set_events(hw_data, cpu);
-		if (ret)
-			goto err;
+		if (ret) {
+			if (!cpu_online(cpu)) {
+				hotplug_notif_register();
+				hw_data->init_pending = true;
+				ret = 0;
+			} else {
+				pr_warn("Perf event init failed on CPU%d\n",
+					cpu);
+				break;
+			}
+		}
 	}
-	pr_info("Group %d events created\n", cpumask_first(&cpu_grp->cpus));
 
-err:
 	put_online_cpus();
 	return ret;
 }
