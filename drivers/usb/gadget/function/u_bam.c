@@ -1121,16 +1121,29 @@ static void gbam_start_io(struct gbam_port *port)
 static void gbam_notify(void *p, int event, unsigned long data)
 {
 	struct gbam_port	*port = p;
-	struct bam_ch_info *d = &port->data_ch;
+	struct bam_ch_info *d;
+	struct sk_buff *skb;
+
+	if (port == NULL)
+		pr_err("BAM DMUX notifying after channel close\n");
 
 	switch (event) {
 	case BAM_DMUX_RECEIVE:
-		gbam_data_recv_cb(p, (struct sk_buff *)(data));
+		skb = (struct sk_buff *)data;
+		if (port)
+			gbam_data_recv_cb(p, skb);
+		else
+			dev_kfree_skb_any(skb);
 		break;
 	case BAM_DMUX_WRITE_DONE:
-		gbam_data_write_done(p, (struct sk_buff *)(data));
+		skb = (struct sk_buff *)data;
+		if (port)
+			gbam_data_write_done(p, skb);
+		else
+			dev_kfree_skb_any(skb);
 		break;
 	case BAM_DMUX_TRANSMIT_SIZE:
+		d = &port->data_ch;
 		if (test_bit(BAM_CH_OPENED, &d->flags))
 			pr_warn("%s, BAM channel opened already", __func__);
 		bam_mux_rx_req_size = data;
