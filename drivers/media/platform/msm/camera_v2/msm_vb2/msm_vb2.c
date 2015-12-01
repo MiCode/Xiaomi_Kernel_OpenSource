@@ -127,7 +127,7 @@ static void msm_vb2_buf_cleanup(struct vb2_buffer *vb)
 
 	stream = msm_get_stream_from_vb2q(vb->vb2_queue);
 	if (!stream) {
-		pr_err("%s:%d] NULL stream", __func__, __LINE__);
+		pr_err_ratelimited("%s:%d] NULL stream", __func__, __LINE__);
 		return;
 	}
 
