@@ -1333,6 +1333,7 @@ config WCD9330_CODEC
 	tristate "WCD9330 Codec"
 	select SLIMBUS
 	select MFD_CORE
+	select REGMAP_ALLOW_WRITE_DEBUGFS
 	help
 	  Enables the WCD9xxx codec core driver. The core driver provides
 	  read/write capability to registers which are part of the
