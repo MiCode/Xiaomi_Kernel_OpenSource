@@ -751,7 +751,6 @@ int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable)
 	union IpaHwmonitorHolbCmdData_t cmd;
 	int ep_idx;
 	int ret;
-	struct ipa_ep_context *ep;
 
 	/* HOLB monitoring is applicable only to 2.6L. */
 	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_6L) {
@@ -764,14 +763,6 @@ int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable)
 		IPAERR("Invalid IPA client\n");
 		return 0;
 	}
-
-	ep = &ipa_ctx->ep[ep_idx];
-
-	if (!ep->valid) {
-		IPAERR("EP not valid.\n");
-		return 0;
-	}
-
 
 	/*
 	 * If the uC interface has not been initialized yet,
@@ -794,7 +785,7 @@ int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable)
 	cmd.params.monitorPipe = (u8)(enable ? 1 : 0);
 	cmd.params.pipeNum = (u8)ep_idx;
 
-	IPADBG("uC holb monitoring on IPA pipe %d\n, Enable: %d",
+	IPADBG("uC holb monitoring on IPA pipe %d, Enable: %d\n",
 	       ep_idx, enable);
 
 	ret = ipa_uc_send_cmd(cmd.raw32b,
