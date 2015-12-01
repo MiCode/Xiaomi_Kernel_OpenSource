@@ -443,6 +443,13 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		}
 		mutex_lock(&inst->registeredbufs.lock);
 		temp = get_registered_buf(inst, b, i, &plane);
+		if (temp && !is_dynamic_output_buffer_mode(b, inst)) {
+			dprintk(VIDC_DBG,
+				"This memory region has already been prepared\n");
+			rc = 0;
+			mutex_unlock(&inst->registeredbufs.lock);
+			goto exit;
+		}
 
 		if (temp && is_dynamic_output_buffer_mode(b, inst) && !i) {
 			/*
