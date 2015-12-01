@@ -41,6 +41,14 @@
 		qcom,master-en = <1>;
 		qcom,out-strength = <2>;
 	};
+
+	gpio@c100 {
+		qcom,mode = <0>;
+		qcom,vin-sel = <3>;
+		qcom,dtest-sel = <1>;
+		status = "okay";
+	};
+
 	gpio@c600 {
 		status = "ok";
 		qcom,mode = <1>;
