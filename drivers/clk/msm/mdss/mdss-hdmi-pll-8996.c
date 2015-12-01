@@ -1882,7 +1882,7 @@ static int hdmi_8996_phy_ready_status(struct mdss_pll_resources *io)
 
 	if (read_count == HDMI_PLL_POLL_MAX_READS) {
 		phy_ready = 0;
-		DEV_ERR("%s: PHY READY TIMEOUT\n", __func__);
+		DEV_DBG("%s: PHY READY TIMEOUT\n", __func__);
 	}
 
 	mdss_pll_resource_enable(io, false);
@@ -1919,7 +1919,7 @@ static int hdmi_8996_pll_lock_status(struct mdss_pll_resources *io)
 
 	if (read_count == HDMI_PLL_POLL_MAX_READS) {
 		pll_locked = 0;
-		DEV_ERR("%s: C READY TIMEOUT\n", __func__);
+		DEV_DBG("%s: C READY TIMEOUT\n", __func__);
 	}
 
 	mdss_pll_resource_enable(io, false);
