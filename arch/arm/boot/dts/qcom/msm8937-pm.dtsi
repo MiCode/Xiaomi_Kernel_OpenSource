@@ -114,7 +114,7 @@
 				qcom,pm-cluster-level@1{
 					reg = <1>;
 					label = "perf-l2-gdhs";
-					qcom,psci-mode = <2>;
+					qcom,psci-mode = <4>;
 					qcom,latency-us = <267>;
 					qcom,ss-power = <435>;
 					qcom,energy-overhead = <388012>;
@@ -125,7 +125,7 @@
 				qcom,pm-cluster-level@2{
 					reg = <2>;
 					label = "perf-l2-pc";
-					qcom,psci-mode = <3>;
+					qcom,psci-mode = <5>;
 					qcom,latency-us = <305>;
 					qcom,ss-power = <405>;
 					qcom,energy-overhead = <564794>;
@@ -152,7 +152,7 @@
 
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
-						qcom,psci-cpu-mode = <2>;
+						qcom,psci-cpu-mode = <3>;
 						qcom,spm-cpu-mode = "pc";
 						qcom,latency-us = <190>;
 						qcom,ss-power = <472>;
@@ -188,7 +188,7 @@
 				qcom,pm-cluster-level@1{
 					reg = <1>;
 					label = "pwr-l2-gdhs";
-					qcom,psci-mode = <2>;
+					qcom,psci-mode = <4>;
 					qcom,latency-us = <337>;
 					qcom,ss-power = <433>;
 					qcom,energy-overhead = <372429>;
@@ -199,7 +199,7 @@
 				qcom,pm-cluster-level@2{
 					reg = <2>;
 					label = "pwr-l2-pc";
-					qcom,psci-mode = <3>;
+					qcom,psci-mode = <5>;
 					qcom,latency-us = <415>;
 					qcom,ss-power = <405>;
 					qcom,energy-overhead = <558549>;
@@ -226,7 +226,7 @@
 
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
-						qcom,psci-cpu-mode = <2>;
+						qcom,psci-cpu-mode = <3>;
 						qcom,spm-cpu-mode = "pc";
 						qcom,latency-us = <221>;
 						qcom,ss-power = <460>;
