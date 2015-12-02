@@ -35,10 +35,10 @@
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
-					<61 512 0 0>,
-					<61 512 0 960000>;
+					<61 512 0 0>, <61 676 0 0>,
+					<61 512 0 960000>, <61 676 0 2400>;
 		qcom,power-collapse-on-cable-disconnect;
 		qcom,por-after-power-collapse;
 		qcom,lpm-to-suspend-delay-ms = <2000>;
