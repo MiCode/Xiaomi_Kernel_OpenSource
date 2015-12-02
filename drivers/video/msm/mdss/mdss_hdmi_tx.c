@@ -3842,7 +3842,9 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		 * waits for hpd interrupt to finish. Suspend thread will
 		 * eventually reset the HPD module.
 		 */
-		if (!hdmi_ctrl->panel_suspend)
+		if (hdmi_ctrl->panel_suspend)
+			hdmi_ctrl->hpd_state = 0;
+		else
 			queue_work(hdmi_ctrl->workq, &hdmi_ctrl->hpd_int_work);
 	}
 
@@ -4142,13 +4144,14 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 	case MDSS_EVENT_SUSPEND:
 		mutex_lock(&hdmi_ctrl->power_mutex);
 		if (!hdmi_ctrl->panel_power_on &&
-			!hdmi_ctrl->hpd_off_pending) {
+			!hdmi_ctrl->hpd_off_pending && !hdmi_ctrl->hpd_state) {
 			mutex_unlock(&hdmi_ctrl->power_mutex);
 			if (hdmi_ctrl->hpd_feature_on)
 				hdmi_tx_hpd_off(hdmi_ctrl);
 
 			hdmi_ctrl->panel_suspend = false;
 		} else {
+			hdmi_ctrl->hpd_state = 0;
 			mutex_unlock(&hdmi_ctrl->power_mutex);
 			hdmi_ctrl->hpd_off_pending = true;
 			hdmi_ctrl->panel_suspend = true;
