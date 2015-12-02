@@ -45,7 +45,7 @@ static inline int msm_dcvs_count_active_instances(struct msm_vidc_core *core)
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
-		if (inst->state >= MSM_VIDC_START_DONE &&
+		if (inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_STOP_DONE)
 			active_instances++;
 	}
