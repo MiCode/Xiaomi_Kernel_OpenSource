@@ -658,7 +658,7 @@
 			interrupt-map-mask = <0xffffffff>;
 			interrupt-map = <0 &intc 0 123 0
 				1 &intc 0 138 0
-				2 &tlmm_pinmux 14 0x8>;
+				2 &tlmm_pinmux 59 0x4>;
 			interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
 
 			qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50",
