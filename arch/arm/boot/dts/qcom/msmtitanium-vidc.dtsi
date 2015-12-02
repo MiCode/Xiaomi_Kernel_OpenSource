@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,8 +50,8 @@
 			<32640 30>; /* Decoder UHD */
 		qcom,allowed-clock-rates = <465000000 400000000
 			360000000 310000000 228570000 114290000>;
-			qcom,clock-freq-tbl {
-				qcom,profile-enc {
+		qcom,clock-freq-tbl {
+			qcom,profile-enc {
 				qcom,codec-mask = <0x55555555>;
 				qcom,cycles-per-mb = <863>;
 				qcom,low-power-mode-factor = <35616>;
@@ -96,7 +96,7 @@
 			label = "venus-ddr";
 			qcom,bus-master = <63>;
 			qcom,bus-slave = <512>;
-			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,bus-governor = "venus-ddr-gov";
 			qcom,bus-range-kbps = <1000 1205248>;
 		};
 
@@ -109,4 +109,52 @@
 			qcom,bus-range-kbps = <1 1>;
 		};
 	};
+
+	venus-ddr-gov {
+		compatible = "qcom,msm-vidc,governor,table";
+		name = "venus-ddr-gov";
+		status = "ok";
+		qcom,bus-freq-table {
+			qcom,profile-enc {
+				qcom,codec-mask = <0x55555555>;
+				qcom,load-busfreq-tbl =
+					<979200 1044000>,  /* UHD30E     */
+					<864000 887000>,   /* 720p240LPE */
+					<489600 666000>,   /* 1080p60E   */
+					<432000 578000>,   /* 720p120E   */
+					<244800 346000>,   /* 1080p30E   */
+					<216000 293000>,   /* 720p60E    */
+					<108000 151000>,   /* 720p30E    */
+					<0 0>;
+			};
+			qcom,profile-dec {
+				qcom,codec-mask = <0xffffffff>;
+				qcom,load-busfreq-tbl =
+					<979200 2365000>,  /* UHD30D     */
+					<979200 2241000>,  /* 1080p120D  */
+					<864000 1978000>,  /* 720p240D   */
+					<489600 1133000>,  /* 1080p60D   */
+					<432000 994000>,   /* 720p120D   */
+					<244800 580000>,   /* 1080p30D   */
+					<216000 501000>,   /* 720p60E    */
+					<108000 255000>,   /* 720p30D    */
+					<0 0>;
+			};
+			qcom,profile-dec-ubwc {
+				qcom,codec-mask = <0xffffffff>;
+				qcom,ubwc-mode;
+				qcom,load-busfreq-tbl =
+					<979200 1892000>,  /* UHD30D     */
+					<979200 1763000>,  /* 1080p120D  */
+					<864000 1554000>,  /* 720p240D   */
+					<489600 895000>,   /* 1080p60D   */
+					<432000 781000>,   /* 720p120D   */
+					<244800 460000>,   /* 1080p30D   */
+					<216000 301000>,   /* 720p60E    */
+					<108000 202000>,   /* 720p30D    */
+					<0 0>;
+			};
+		};
+	};
+
 };
