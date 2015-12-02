@@ -1589,10 +1589,13 @@ int32_t qpnp_adc_scale_pmi_chg_temp(struct qpnp_vadc_chip *vadc,
 
 	pr_debug("raw_code:%x, v_adc:%lld\n", adc_code,
 						adc_chan_result->physical);
-	adc_chan_result->physical = ((PMI_CHG_SCALE_1) *
+	adc_chan_result->physical = (int64_t) ((PMI_CHG_SCALE_1) *
 					(adc_chan_result->physical * 2));
-	adc_chan_result->physical += PMI_CHG_SCALE_2;
-	do_div(adc_chan_result->physical, 1000000);
+	adc_chan_result->physical = (int64_t) (adc_chan_result->physical +
+							PMI_CHG_SCALE_2);
+	adc_chan_result->physical = (int64_t) adc_chan_result->physical;
+	adc_chan_result->physical = div64_s64(adc_chan_result->physical,
+								1000000);
 
 	return 0;
 }
