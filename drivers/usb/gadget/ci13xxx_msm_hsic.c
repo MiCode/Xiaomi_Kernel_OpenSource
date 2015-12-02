@@ -48,7 +48,7 @@ struct msm_hsic_per {
 	struct device		*dev;
 	struct clk			*iface_clk;
 	struct clk			*core_clk;
-	struct clk			*alt_core_clk;
+	struct clk			*cal_sleep_clk;
 	struct clk			*phy_clk;
 	struct clk			*cal_clk;
 	struct regulator	*hsic_vdd;
@@ -164,22 +164,18 @@ static int msm_hsic_phy_clk_reset(struct msm_hsic_per *mhsic)
 {
 	int ret;
 
-	clk_enable(mhsic->alt_core_clk);
 	ret = clk_reset(mhsic->core_clk, CLK_RESET_ASSERT);
 	if (ret) {
-		clk_disable(mhsic->alt_core_clk);
 		dev_err(mhsic->dev, "usb phy clk assert failed\n");
 		return ret;
 	}
 	usleep_range(10000, 12000);
-	clk_disable(mhsic->alt_core_clk);
 
 	ret = clk_reset(mhsic->core_clk, CLK_RESET_DEASSERT);
 	if (ret)
 		dev_err(mhsic->dev, "usb phy clk deassert failed\n");
 
 	usleep_range(10000, 12000);
-	clk_enable(mhsic->alt_core_clk);
 
 	return ret;
 }
@@ -269,23 +265,22 @@ static int msm_hsic_enable_clocks(struct platform_device *pdev,
 	if (ret)
 		dev_err(mhsic->dev, "failed to set phy_clk rate\n");
 
-	mhsic->alt_core_clk = clk_get(&pdev->dev, "alt_core_clk");
-	if (IS_ERR(mhsic->alt_core_clk)) {
-		dev_err(mhsic->dev, "failed to get alt_core_clk\n");
-		ret = PTR_ERR(mhsic->alt_core_clk);
+	mhsic->cal_sleep_clk = clk_get(&pdev->dev, "cal_sleep_clk");
+	if (IS_ERR(mhsic->cal_sleep_clk)) {
+		dev_err(mhsic->dev, "!!!!failed to get cal_sleep_clk\n");
+		ret = PTR_ERR(mhsic->cal_sleep_clk);
 		goto put_phy_clk;
 	}
 
-	ret = clk_set_rate(mhsic->alt_core_clk,
-			clk_round_rate(mhsic->alt_core_clk, LONG_MAX));
+	ret = clk_set_rate(mhsic->cal_sleep_clk, 32000);
 	if (ret)
-		dev_err(mhsic->dev, "failed to set alt_core_clk rate\n");
+		dev_err(mhsic->dev, "failed to set cal_sleep_clk rate\n");
 
 	mhsic->cal_clk = clk_get(&pdev->dev, "cal_clk");
 	if (IS_ERR(mhsic->cal_clk)) {
 		dev_err(mhsic->dev, "failed to get cal_clk\n");
 		ret = PTR_ERR(mhsic->cal_clk);
-		goto put_alt_core_clk;
+		goto put_cal_sleep_clk;
 	}
 
 	ret = clk_set_rate(mhsic->cal_clk,
@@ -296,7 +291,7 @@ static int msm_hsic_enable_clocks(struct platform_device *pdev,
 	clk_prepare_enable(mhsic->iface_clk);
 	clk_prepare_enable(mhsic->core_clk);
 	clk_prepare_enable(mhsic->phy_clk);
-	clk_prepare_enable(mhsic->alt_core_clk);
+	clk_prepare_enable(mhsic->cal_sleep_clk);
 	clk_prepare_enable(mhsic->cal_clk);
 
 	return 0;
@@ -305,12 +300,12 @@ put_clocks:
 	clk_disable_unprepare(mhsic->iface_clk);
 	clk_disable_unprepare(mhsic->core_clk);
 	clk_disable_unprepare(mhsic->phy_clk);
-	clk_disable_unprepare(mhsic->alt_core_clk);
+	clk_disable_unprepare(mhsic->cal_sleep_clk);
 	clk_disable_unprepare(mhsic->cal_clk);
 
 	clk_put(mhsic->cal_clk);
-put_alt_core_clk:
-	clk_put(mhsic->alt_core_clk);
+put_cal_sleep_clk:
+	clk_put(mhsic->cal_sleep_clk);
 put_phy_clk:
 	clk_put(mhsic->phy_clk);
 put_core_clk:
@@ -440,7 +435,6 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 
 	clk_disable_unprepare(mhsic->phy_clk);
 	clk_disable_unprepare(mhsic->cal_clk);
-	clk_disable_unprepare(mhsic->alt_core_clk);
 
 	ret = regulator_set_voltage(mhsic->hsic_vdd, mhsic->vdd_val[NONE],
 							mhsic->vdd_val[MAX]);
@@ -501,7 +495,6 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 
 	clk_prepare_enable(mhsic->phy_clk);
 	clk_prepare_enable(mhsic->cal_clk);
-	clk_prepare_enable(mhsic->alt_core_clk);
 
 	temp = readl_relaxed(USB_USBCMD);
 	temp &= ~ASYNC_INTR_CTRL;
