@@ -118,6 +118,9 @@ struct cpr3_corner {
  * @rdesc:		Regulator description for this CPR3 regulator
  * @rdev:		Regulator device pointer for the regulator registered
  *			for this CPR3 regulator
+ * @mem_acc_regulator:	Pointer to the optional mem-acc supply regulator used
+ *			to manage memory circuitry settings based upon CPR3
+ *			regulator output voltage.
  * @ldo_regulator:	Pointer to the LDO supply regulator used to manage
  *			per-cluster LDO voltage and bypass state
  * @ldo_regulator_bypass: Cached copy of the LDO regulator bypass state
@@ -146,6 +149,12 @@ struct cpr3_corner {
  *			speed bin
  * @pd_bypass_mask:	Bit mask of power domains associated with this CPR3
  *			regulator
+ * @dynamic_floor_corner: Index identifying the voltage corner for the CPR3
+ *			regulator whose last_volt value should be used as the
+ *			global CPR floor voltage if all of the power domains
+ *			associated with this CPR3 regulator are bypassed
+ * @uses_dynamic_floor: Boolean flag indicating that dynamic_floor_corner should
+ *			be utilized for the CPR3 regulator
  * @current_corner:	Index identifying the currently selected voltage corner
  *			for the CPR3 regulator or less than 0 if no corner has
  *			been requested
@@ -195,6 +204,7 @@ struct cpr3_regulator {
 	const char		*name;
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
+	struct regulator	*mem_acc_regulator;
 	struct regulator	*ldo_regulator;
 	bool			ldo_regulator_bypass;
 	struct regulator	*ldo_ret_regulator;
@@ -213,6 +223,8 @@ struct cpr3_regulator {
 	int			speed_bin_corner_sum;
 	int			speed_bin_offset;
 	u32			pd_bypass_mask;
+	int			dynamic_floor_corner;
+	bool			uses_dynamic_floor;
 
 	int			current_corner;
 	int			last_closed_loop_corner;
@@ -273,6 +285,24 @@ struct cpr3_thread {
 };
 
 /* Per CPR controller data */
+/**
+ * enum cpr3_mem_acc_corners - Constants which define the number of mem-acc
+ *		regulator corners available in the mem-acc corner map array.
+ * %CPR3_MEM_ACC_LOW_CORNER:	Index in mem-acc corner map array mapping to the
+ *				mem-acc regulator corner
+ *				to be used for low voltage vdd supply
+ * %CPR3_MEM_ACC_HIGH_CORNER:	Index in mem-acc corner map array mapping to the
+ *				mem-acc regulator corner to be used for high
+ *				voltage vdd supply
+ * %CPR3_MEM_ACC_CORNERS:	Number of elements in the mem-acc corner map
+ *				array
+ */
+enum cpr3_mem_acc_corners {
+	CPR3_MEM_ACC_LOW_CORNER		= 0,
+	CPR3_MEM_ACC_HIGH_CORNER	= 1,
+	CPR3_MEM_ACC_CORNERS		= 2,
+};
+
 /**
  * enum cpr3_count_mode - CPR3 controller count mode which defines the
  *		method that CPR sensor data is acquired
@@ -342,13 +372,17 @@ struct cpr3_aging_sensor_info {
  * @system_regulator:	Pointer to the optional system-supply regulator upon
  *			which the VDD supply regulator depends.
  * @mem_acc_regulator:	Pointer to the optional mem-acc supply regulator used
- *			to manage memory circuitry settings based upon CPR3
- *			regulator corner selection.
+ *			to manage memory circuitry settings based upon the
+ *			VDD supply output voltage.
  * @vdd_limit_regulator: Pointer to the VDD supply limit regulator which is used
  *			for hardware closed-loop in order specify ceiling and
  *			floor voltage limits (platform specific)
  * @system_supply_max_volt: Voltage in microvolts which corresponds to the
  *			absolute ceiling voltage of the system-supply
+ * @mem_acc_threshold_volt: mem-acc threshold voltage in microvolts
+ * @mem_acc_corner_map: mem-acc regulator corners mapping to low and high
+ *			voltage mem-acc settings for the memories powered by
+ *			this CPR3 controller and its associated CPR3 regulators
  * @core_clk:		Pointer to the CPR3 controller core clock
  * @iface_clk:		Pointer to the CPR3 interface clock (platform specific)
  * @bus_clk:		Pointer to the CPR3 bus clock (platform specific)
@@ -458,6 +492,8 @@ struct cpr3_controller {
 	struct regulator	*mem_acc_regulator;
 	struct regulator	*vdd_limit_regulator;
 	int			system_supply_max_volt;
+	int			mem_acc_threshold_volt;
+	int			mem_acc_corner_map[CPR3_MEM_ACC_CORNERS];
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
 	struct clk		*bus_clk;
