@@ -22,6 +22,14 @@ config CP_ACCESS64
 
           If unsure, say N.
 
+config MSM_INRUSH_CURRENT_MITIGATION
+        bool "Inrush-current mitigation Driver"
+        help
+         This driver helps in mitigating in-rush current on MSM
+         chipsets which has voltage droop issues due to sudden
+         huge load on a rail. This driver introduces an intermediate
+         load to mitigate the in-rush current.
+
 config MSM_QDSP6_APRV2
         bool "Audio QDSP6 APRv2 support"
         depends on MSM_SMD
