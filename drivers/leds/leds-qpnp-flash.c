@@ -25,6 +25,7 @@
 #include <linux/workqueue.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/qpnp/qpnp-revid.h>
 #include "leds.h"
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
@@ -115,6 +116,7 @@
 #define	FLASH_LED_MODULE_CTRL_DEFAULT				0x60
 #define	FLASH_LED_CURRENT_READING_DELAY_MIN			5000
 #define	FLASH_LED_CURRENT_READING_DELAY_MAX			5001
+#define PMI8996_SUBTYPE						19
 
 #define FLASH_UNLOCK_SECURE					0xA5
 #define FLASH_LED_TORCH_ENABLE					0x00
@@ -230,6 +232,7 @@ struct qpnp_flash_led_buffer {
  * Flash LED data structure containing flash LED attributes
  */
 struct qpnp_flash_led {
+	struct pmic_revid_data		*revid_data;
 	struct spmi_device		*spmi_dev;
 	struct flash_led_platform_data	*pdata;
 	struct pinctrl			*pinctrl;
@@ -569,6 +572,28 @@ static int64_t qpnp_flash_led_get_die_temp(struct qpnp_flash_led *led)
 	}
 
 	return die_temp_result.physical;
+}
+
+static int qpnp_get_pmic_revid(struct qpnp_flash_led *led)
+{
+	struct device_node *revid_dev_node;
+
+	revid_dev_node = of_parse_phandle(led->spmi_dev->dev.of_node,
+				"qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		dev_err(&led->spmi_dev->dev,
+			"qcom,pmic-revid property missing\n");
+		return -EINVAL;
+	}
+
+	led->revid_data = get_revid_data(revid_dev_node);
+	if (IS_ERR(led->revid_data)) {
+		pr_err("Couldn't get revid data rc = %ld\n",
+				PTR_ERR(led->revid_data));
+		return PTR_ERR(led->revid_data);
+	}
+
+	return 0;
 }
 
 static int
@@ -934,6 +959,20 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
 					"Torch reg write failed\n");
+				return -EINVAL;
+			}
+		}
+
+		if (led->battery_psy &&
+			led->revid_data->pmic_subtype == PMI8996_SUBTYPE &&
+						!led->revid_data->rev3) {
+			psy_prop.intval = false;
+			rc = led->battery_psy->set_property(led->battery_psy,
+					POWER_SUPPLY_PROP_FLASH_TRIGGER,
+							&psy_prop);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+				"Failed to enble charger i/p current limit\n");
 				return -EINVAL;
 			}
 		}
@@ -1504,6 +1543,18 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 			usleep_range(FLASH_RAMP_UP_DELAY_US_MIN,
 						FLASH_RAMP_UP_DELAY_US_MAX);
+		}
+
+		if (led->revid_data->pmic_subtype == PMI8996_SUBTYPE &&
+						!led->revid_data->rev3) {
+			rc = led->battery_psy->set_property(led->battery_psy,
+						POWER_SUPPLY_PROP_FLASH_TRIGGER,
+							&psy_prop);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+				"Failed to disable charger i/p curr limit\n");
+				goto exit_flash_led_work;
+			}
 		}
 
 		if (led->pdata->hdrm_sns_ch0_en ||
@@ -2356,6 +2407,10 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "Failed to initialize flash LED\n");
 		return rc;
 	}
+
+	rc = qpnp_get_pmic_revid(led);
+	if (rc)
+		return rc;
 
 	temp = NULL;
 	while ((temp = of_get_next_child(node, temp)))
