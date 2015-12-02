@@ -1219,6 +1219,8 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 			!(data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
 			domain = mdss_smmu_get_domain_type(data->flags,
 					rotator);
+			data->dir = dir;
+			data->domain = domain;
 			ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
 					data->srcp_table, domain,
 					&data->addr, &data->len, dir);
