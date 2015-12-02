@@ -380,7 +380,13 @@ static void mdss_smmu_unmap_v2(int domain, unsigned long iova, int gfp_order)
 static char *mdss_smmu_dsi_alloc_buf_v2(struct device *dev, int size,
 		dma_addr_t *dmap, gfp_t gfp)
 {
-	return kzalloc(size, GFP_KERNEL);
+	char *data;
+
+	data = kzalloc(size, GFP_KERNEL | GFP_DMA);
+	if (data)
+		*dmap = (dma_addr_t) virt_to_phys(data);
+
+	return data;
 }
 
 /*
