@@ -260,40 +260,46 @@ err:
 	return -EPERM;
 }
 
-static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip,
-	enum ipa_rule_type rlt)
+static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 {
 	struct ipa3_rt_tbl *tbl;
 	struct ipa3_rt_tbl *next;
 	struct ipa3_rt_tbl_set *set;
+	int i;
 
 	set = &ipa3_ctx->rt_tbl_set[ip];
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
-		if (tbl->prev_mem[rlt].phys_base) {
-			IPADBG("reaping sys rt tbl name=%s ip=%d rlt=%d\n",
-				tbl->name, ip, rlt);
-			dma_free_coherent(ipa3_ctx->pdev,
-				tbl->prev_mem[rlt].size,
-				tbl->prev_mem[rlt].base,
-				tbl->prev_mem[rlt].phys_base);
-			memset(&tbl->prev_mem[rlt], 0,
-				sizeof(tbl->prev_mem[rlt]));
+		for (i = 0; i < IPA_RULE_TYPE_MAX; i++) {
+			if (tbl->prev_mem[i].phys_base) {
+				IPADBG(
+				"reaping sys rt tbl name=%s ip=%d rlt=%d\n",
+				tbl->name, ip, i);
+				dma_free_coherent(ipa3_ctx->pdev,
+					tbl->prev_mem[i].size,
+					tbl->prev_mem[i].base,
+					tbl->prev_mem[i].phys_base);
+				memset(&tbl->prev_mem[i], 0,
+					sizeof(tbl->prev_mem[i]));
+			}
 		}
 	}
 
 	set = &ipa3_ctx->reap_rt_tbl_set[ip];
 	list_for_each_entry_safe(tbl, next, &set->head_rt_tbl_list, link) {
-		list_del(&tbl->link);
-		WARN_ON(tbl->prev_mem[rlt].phys_base != 0);
-		if (tbl->curr_mem[rlt].phys_base) {
-			IPADBG("reaping sys rt tbl name=%s ip=%d rlt=%d\n",
-				tbl->name, ip, rlt);
-			dma_free_coherent(ipa3_ctx->pdev,
-				tbl->curr_mem[rlt].size,
-				tbl->curr_mem[rlt].base,
-				tbl->curr_mem[rlt].phys_base);
-			kmem_cache_free(ipa3_ctx->rt_tbl_cache, tbl);
+		for (i = 0; i < IPA_RULE_TYPE_MAX; i++) {
+			WARN_ON(tbl->prev_mem[i].phys_base != 0);
+			if (tbl->curr_mem[i].phys_base) {
+				IPADBG(
+				"reaping sys rt tbl name=%s ip=%d rlt=%d\n",
+				tbl->name, ip, i);
+				dma_free_coherent(ipa3_ctx->pdev,
+					tbl->curr_mem[i].size,
+					tbl->curr_mem[i].base,
+					tbl->curr_mem[i].phys_base);
+			}
 		}
+		list_del(&tbl->link);
+		kmem_cache_free(ipa3_ctx->rt_tbl_cache, tbl);
 	}
 }
 
@@ -780,8 +786,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 			nhash_bdy.phys_base, nhash_bdy.size);
 	}
 
-	__ipa_reap_sys_rt_tbls(ip, IPA_RULE_HASHABLE);
-	__ipa_reap_sys_rt_tbls(ip, IPA_RULE_NON_HASHABLE);
+	__ipa_reap_sys_rt_tbls(ip);
 
 fail_size_valid:
 	dma_free_coherent(ipa3_ctx->pdev, hash_hdr.size,
