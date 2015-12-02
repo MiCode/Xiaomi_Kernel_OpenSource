@@ -727,36 +727,6 @@
 				};
 			};
 
-			emac0_irq_active: emac0_irq_active {
-				/* active state */
-				mux {
-					/* ETH IRQ */
-					pins = "gpio30";
-					function = "gpio";
-				};
-
-				config {
-					pins = "gpio30";
-					drive-strength = <16>; /* 16 MA */
-					bias-pull-up;
-				};
-			};
-
-			emac0_irq_sleep: emac0_irq_sleep {
-				/* suspended state */
-				mux {
-					/* ETH IRQ */
-					pins = "gpio30";
-					function = "gpio";
-				};
-
-				config {
-					pins = "gpio30";
-					drive-strength = <2>; /* 2 MA */
-					bias-pull-down;
-				};
-			};
-
 			emac0_rst_active: emac0_rst_active {
 				/* active state */
 				mux {
