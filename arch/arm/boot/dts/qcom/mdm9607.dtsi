@@ -1231,6 +1231,8 @@
 
 		qcom,bus-width = <4>;
 
+		qcom,devfreq,freq-table = <50000000 200000000>;
+
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
