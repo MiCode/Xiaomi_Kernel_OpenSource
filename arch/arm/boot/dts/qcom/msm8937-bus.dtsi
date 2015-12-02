@@ -220,6 +220,7 @@
 			label = "mas-usb-hs1";
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
+			qcom,ap-owned;
 			qcom,qport = <12>;
 			qcom,qos-mode = "fixed";
 			qcom,prio1 = <1>;
