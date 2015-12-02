@@ -99,7 +99,7 @@
 #define FW_WRITE_CHUNK_SIZE		128
 #define FW_WRITE_RETRY_COUNT		4
 #define CHIP_FLASH_SIZE			0x8000
-#define DEVICE_READY_MAX_WAIT		10
+#define DEVICE_READY_MAX_WAIT		500
 
 /* result of reading with BUF_QUERY bits */
 #define CMD_STATUS_BITS			0x07
