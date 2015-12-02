@@ -1,0 +1,138 @@
+Qualcomm Technologies, Inc. GFX LDO for Graphics
+
+The GPU core on MSM TITANIUM can be powered by an internal (on-die)
+MSM LDO or BHS based on its operating corner.
+
+This document describes the bindings that apply for the GFX LDO regulator.
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "qcom,msmtitanium-gfx-ldo" for MSMTITANIUM.
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Addresses and sizes for the memory of the GFX ldo
+
+- reg-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Address names. "ldo_addr", "efuse_addr". Must be
+		    specified in the same order as the corresponding addresses
+		    are specified in the reg property.
+
+- regulator-name
+	Usage:      required
+	Value type: <string>
+	Definition: A string used to describe the regulator.
+
+- regulator-min-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Minimum corner value which should be 1 to represent the
+		    lowest supported corner.
+
+- regulator-max-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Maximum corner value which should be equal to qcom,num-corners.
+
+- qcom,num-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Number of voltage corners present. Many other
+		    properties are sized based upon this value.
+
+- qcom,num-ldo-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Number of voltage corners defined for the ldo. It is a
+		    subset of qcom,num-corners (i.e. 1 to qcom,num-ldo-corners
+		    are the corners for ldo operation)
+
+- qcom,init-corner
+	Usage:      required
+	Value type: <u32>
+	Definition: The initial-corner at which the GFX rail is powered on.
+
+- qcom,ldo-enable-corner-map
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Integer values ( / 0) which indicate the GFX corners in which
+		    ldo is to enabled. The length of this property
+		    should be equal to qcom,num-corners.
+
+- qcom,ldo-voltage-ceiling
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of ceiling voltages in microvolts for voltage corners
+		    ordered from lowest voltage corner to highest voltage corner.
+		    This property must be of length defined by qcom,num-ldo-corners.
+
+- qcom,ldo-voltage-floor
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of floor voltages in microvolts for voltage corners
+		    ordered from lowest voltage corner to highest voltage corner.
+		    This property must be of length defined by qcom,num-ldo-corners.
+
+- vdd-cx-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: Parent regulator supply to the ldo.
+
+- qcom,vdd-cx-corner-map
+	Usage:      required if vdd-cx-supply is specified.
+	Value type: <prop-encoded-array>
+	Definition: Array of integers which define the mapping of the VDD_CX corner
+		    to the corresponding GFX voltage corner. The elements in
+		    the array are ordered from lowest voltage corner to highest
+		    voltage corner.  The length of this property must be equal to
+		    the value defined by qcom,num-corners.
+- mem-acc-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: Regulator to vote for the memory accelerator configuration.
+		    Not Present: memory accelerator configuration not supported.
+
+- qcom,mem-acc-corner-map:
+	Usage:      optional
+	Value type: <prop-encoded-aray>
+	Definition: Array of integer which defines the mapping from mem-acc
+		    corner value for each gfx corner. The elements in the array
+		    are ordered from lowest voltage corner to highest voltage corner.
+
+=======
+Example
+=======
+
+	gfx_vreg_corner: ldo@0185f000 {
+		compatible = "qcom,msmtitanium-gfx-ldo";
+		reg = <0x0185f000 0x30>, <0xa0000 0x1000>;
+		reg-names = "ldo_addr", "efuse_addr";
+
+		regulator-name = "msm_gfx_ldo";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+
+		qcom,ldo-voltage-ceiling = <500000 700000 900000>;
+		qcom,ldo-voltage-floor = <400000 600000 800000>;
+
+		qcom,num-corners = <7>;
+		qcom,num-ldo-corners = <3>;
+		qcom,ldo-enable-corner-map = <1 1 1 0 0 0 0>;
+		qcom,init-corner = <5>;
+
+		vdd-cx-supply = <&pmtitanium_s2_level>;
+		qcom,vdd-cx-corner-map = <RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
+					<RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
+					<RPM_SMD_REGULATOR_LEVEL_LOW_SVS>,
+					<RPM_SMD_REGULATOR_LEVEL_SVS>,
+					<RPM_SMD_REGULATOR_LEVEL_NOM>,
+					<RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+
+		mem-acc-supply = <&gfx_mem_acc>;
+		qcom,mem-acc-corner-map = <1 1 2 2 2 2 2>;
+	};
