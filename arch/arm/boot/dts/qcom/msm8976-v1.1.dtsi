@@ -204,6 +204,20 @@
 	/delete-property/ qcom,split-dsi-independent-pll;
 };
 
+&mdss_dsi0_pll {
+	qcom,ssc-enable;
+	qcom,ssc-frequency-hz = <30000>;
+	qcom,ssc-ppm = <5000>;
+	qcom,ssc-spread-mode = "down";
+};
+
+&mdss_dsi1_pll {
+	qcom,ssc-enable;
+	qcom,ssc-frequency-hz = <30000>;
+	qcom,ssc-ppm = <5000>;
+	qcom,ssc-spread-mode = "down";
+};
+
 &sdhc_1 {
 	qcom,clk-rates = <400000 25000000 50000000 100000000
 					186400000 372800000>;
