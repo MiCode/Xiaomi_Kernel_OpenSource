@@ -19,7 +19,6 @@
 		qcom,name = "core0";
 		qcom,cpu = <&CPU0>;
 		qcom,supports-rpm-hs;
-		qcom,slp_cmd_mode;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x101>;
 		qcom,saw2-spm-dly= <0x401004>;
@@ -36,6 +35,7 @@
 				54 44 14 24 3e 0f];
 			qcom,spm_en;
 			qcom,pc_mode;
+			qcom,slp_cmd_mode;
 		};
 	};
 
