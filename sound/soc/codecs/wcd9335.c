@@ -760,6 +760,8 @@ struct tasha_priv {
 	struct tx_mute_work tx_mute_dwork[TASHA_NUM_DECIMATORS];
 	int hph_l_gain;
 	int hph_r_gain;
+	int rx_7_count;
+	int rx_8_count;
 };
 
 static int tasha_codec_vote_max_bw(struct snd_soc_codec *codec,
@@ -4478,16 +4480,43 @@ static int tasha_codec_enable_swr(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct tasha_priv *tasha;
-	int i;
+	int i, ch_cnt;
 
 	tasha = snd_soc_codec_get_drvdata(codec);
+
+	if (!tasha->nr)
+		return 0;
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		for (i = 0; i < tasha->nr; i++)
+		if ((strnstr(w->name, "INT7_", sizeof("RX INT7_"))) &&
+		    !tasha->rx_7_count)
+			tasha->rx_7_count++;
+		if ((strnstr(w->name, "INT8_", sizeof("RX INT8_"))) &&
+		    !tasha->rx_8_count)
+			tasha->rx_8_count++;
+		ch_cnt = tasha->rx_7_count + tasha->rx_8_count;
+
+		for (i = 0; i < tasha->nr; i++) {
 			swrm_wcd_notify(tasha->swr_ctrl_data[i].swr_pdev,
 					SWR_DEVICE_UP, NULL);
+			swrm_wcd_notify(tasha->swr_ctrl_data[i].swr_pdev,
+					SWR_SET_NUM_RX_CH, &ch_cnt);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if ((strnstr(w->name, "INT7_", sizeof("RX INT7_"))) &&
+		    tasha->rx_7_count)
+			tasha->rx_7_count--;
+		if ((strnstr(w->name, "INT8_", sizeof("RX INT8_"))) &&
+		    tasha->rx_8_count)
+			tasha->rx_8_count--;
+
 		break;
 	}
+	dev_dbg(tasha->dev, "%s: current swr ch cnt: %d\n",
+		__func__, tasha->rx_7_count + tasha->rx_8_count);
+
 	return 0;
 }
 
@@ -9380,22 +9409,22 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		&rx_int6_1_mix_inp2_mux),
 	SND_SOC_DAPM_MUX_E("RX INT7_1 MIX1 INP0", SND_SOC_NOPM, 0, 0,
 		&rx_int7_1_mix_inp0_mux, tasha_codec_enable_swr,
-		SND_SOC_DAPM_PRE_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT7_1 MIX1 INP1", SND_SOC_NOPM, 0, 0,
 		&rx_int7_1_mix_inp1_mux, tasha_codec_enable_swr,
-		SND_SOC_DAPM_PRE_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT7_1 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx_int7_1_mix_inp2_mux, tasha_codec_enable_swr,
-		SND_SOC_DAPM_PRE_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT8_1 MIX1 INP0", SND_SOC_NOPM, 0, 0,
 		&rx_int8_1_mix_inp0_mux, tasha_codec_enable_swr,
-		SND_SOC_DAPM_PRE_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT8_1 MIX1 INP1", SND_SOC_NOPM, 0, 0,
 		&rx_int8_1_mix_inp1_mux, tasha_codec_enable_swr,
-		SND_SOC_DAPM_PRE_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT8_1 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx_int8_1_mix_inp2_mux, tasha_codec_enable_swr,
-		SND_SOC_DAPM_PRE_PMU),
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MIXER("RX INT0_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT0 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
