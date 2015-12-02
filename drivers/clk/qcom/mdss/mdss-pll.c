@@ -214,7 +214,7 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 static int mdss_pll_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-	const char *label;
+	const char *label, *spread_mode;
 	struct resource *pll_base_reg;
 	struct resource *phy_base_reg;
 	struct resource *dynamic_pll_base_reg;
@@ -321,6 +321,32 @@ static int mdss_pll_probe(struct platform_device *pdev)
 						"qcom,mdss-en-pll-90-phase");
 	if (pll_res->pll_en_90_phase)
 		pr_debug("%s: PLL configured to enable 90-Phase", __func__);
+
+	pll_res->ssc_en = of_property_read_bool(pdev->dev.of_node,
+						"qcom,ssc-enable");
+
+	if (pll_res->ssc_en) {
+		pr_info("%s: label=%s PLL SSC enabled\n", __func__, label);
+
+		rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,ssc-frequency-hz", &pll_res->ssc_freq);
+
+		rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,ssc-ppm", &pll_res->ssc_ppm);
+
+		pll_res->spread_mode = SSC_DOWN_SPREAD;
+		rc = of_property_read_string(pdev->dev.of_node,
+				"qcom,ssc-spread-mode", &spread_mode);
+		if (!rc) {
+			if (!strcmp(spread_mode, "centre"))
+				pll_res->spread_mode = SSC_CENTRE_SPREAD;
+			else if (strcmp(spread_mode, "down"))
+				pr_err("invalid spread mode - %s. Set to default=down\n",
+					spread_mode);
+		} else {
+			pr_err("SSC spread mode not found. Set to default=down\n");
+		}
+	}
 
 	rc = mdss_pll_resource_init(pdev, pll_res);
 	if (rc) {

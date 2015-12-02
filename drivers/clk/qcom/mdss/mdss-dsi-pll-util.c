@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,10 @@
 #define DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG2		(0x0040)
 #define DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG3		(0x0044)
 #define DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG4		(0x0048)
+#define DSI_PHY_PLL_UNIPHY_PLL_SSC_CFG0		(0x004C)
+#define DSI_PHY_PLL_UNIPHY_PLL_SSC_CFG1		(0x0050)
+#define DSI_PHY_PLL_UNIPHY_PLL_SSC_CFG2		(0x0054)
+#define DSI_PHY_PLL_UNIPHY_PLL_SSC_CFG3		(0x0058)
 #define DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG0		(0x006C)
 #define DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG2		(0x0074)
 #define DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG3		(0x0078)
@@ -266,132 +270,196 @@ int dsi_pll_lock_status(struct mdss_pll_resources *dsi_pll_res)
 	return pll_locked;
 }
 
-int vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate)
+static int pll_28nm_vco_rate_calc(struct dsi_pll_vco_clk *vco,
+		struct mdss_dsi_vco_calc *vco_calc, unsigned long vco_clk_rate)
 {
-	s64 vco_clk_rate = rate;
 	s32 rem;
-	s64 refclk_cfg, frac_n_mode, ref_doubler_en_b;
+	s64 frac_n_mode, ref_doubler_en_b;
 	s64 ref_clk_to_pll, div_fbx1000, frac_n_value;
-	s64 sdm_cfg0, sdm_cfg1, sdm_cfg2, sdm_cfg3;
-	s64 gen_vco_clk, cal_cfg10, cal_cfg11;
-	u32 res;
 	int i;
-	struct mdss_pll_resources *dsi_pll_res = vco->priv;
 
 	/* Configure the Loop filter resistance */
 	for (i = 0; i < vco->lpfr_lut_size; i++)
 		if (vco_clk_rate <= vco->lpfr_lut[i].vco_rate)
 			break;
 	if (i == vco->lpfr_lut_size) {
-		pr_err("unable to get loop filter resistance. vco=%ld\n", rate);
+		pr_err("unable to get loop filter resistance. vco=%ld\n",
+			vco_clk_rate);
 		return -EINVAL;
 	}
-	res = vco->lpfr_lut[i].r;
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				DSI_PHY_PLL_UNIPHY_PLL_LPFR_CFG, res);
-
-	/* Loop filter capacitance values : c1 and c2 */
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				DSI_PHY_PLL_UNIPHY_PLL_LPFC1_CFG, 0x70);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				DSI_PHY_PLL_UNIPHY_PLL_LPFC2_CFG, 0x15);
+	vco_calc->lpfr_lut_res = vco->lpfr_lut[i].r;
 
 	div_s64_rem(vco_clk_rate, vco->ref_clk_rate, &rem);
 	if (rem) {
-		refclk_cfg = 0x1;
+		vco_calc->refclk_cfg = 0x1;
 		frac_n_mode = 1;
 		ref_doubler_en_b = 0;
 	} else {
-		refclk_cfg = 0x0;
+		vco_calc->refclk_cfg = 0x0;
 		frac_n_mode = 0;
 		ref_doubler_en_b = 1;
 	}
 
-	pr_debug("refclk_cfg = %lld\n", refclk_cfg);
+	pr_debug("refclk_cfg = %lld\n", vco_calc->refclk_cfg);
 
-	ref_clk_to_pll = ((vco->ref_clk_rate * 2 * (refclk_cfg))
+	ref_clk_to_pll = ((vco->ref_clk_rate * 2 * (vco_calc->refclk_cfg))
 			  + (ref_doubler_en_b * vco->ref_clk_rate));
 	div_fbx1000 = div_s64((vco_clk_rate * 1000), ref_clk_to_pll);
 
 	div_s64_rem(div_fbx1000, 1000, &rem);
 	frac_n_value = div_s64((rem * (1 << 16)), 1000);
-	gen_vco_clk = div_s64(div_fbx1000 * ref_clk_to_pll, 1000);
+	vco_calc->gen_vco_clk = div_s64(div_fbx1000 * ref_clk_to_pll, 1000);
 
 	pr_debug("ref_clk_to_pll = %lld\n", ref_clk_to_pll);
 	pr_debug("div_fb = %lld\n", div_fbx1000);
 	pr_debug("frac_n_value = %lld\n", frac_n_value);
 
-	pr_debug("Generated VCO Clock: %lld\n", gen_vco_clk);
+	pr_debug("Generated VCO Clock: %lld\n", vco_calc->gen_vco_clk);
 	rem = 0;
 	if (frac_n_mode) {
-		sdm_cfg0 = (0x0 << 5);
-		sdm_cfg0 |= (0x0 & 0x3f);
-		sdm_cfg1 = (div_s64(div_fbx1000, 1000) & 0x3f) - 1;
-		sdm_cfg3 = div_s64_rem(frac_n_value, 256, &rem);
-		sdm_cfg2 = rem;
+		vco_calc->sdm_cfg0 = 0;
+		vco_calc->sdm_cfg1 = (div_s64(div_fbx1000, 1000) & 0x3f) - 1;
+		vco_calc->sdm_cfg3 = div_s64_rem(frac_n_value, 256, &rem);
+		vco_calc->sdm_cfg2 = rem;
 	} else {
-		sdm_cfg0 = (0x1 << 5);
-		sdm_cfg0 |= (div_s64(div_fbx1000, 1000) & 0x3f) - 1;
-		sdm_cfg1 = (0x0 & 0x3f);
-		sdm_cfg2 = 0;
-		sdm_cfg3 = 0;
+		vco_calc->sdm_cfg0 = (0x1 << 5);
+		vco_calc->sdm_cfg0 |= (div_s64(div_fbx1000, 1000) & 0x3f) - 1;
+		vco_calc->sdm_cfg1 = 0;
+		vco_calc->sdm_cfg2 = 0;
+		vco_calc->sdm_cfg3 = 0;
 	}
 
-	pr_debug("sdm_cfg0=%lld\n", sdm_cfg0);
-	pr_debug("sdm_cfg1=%lld\n", sdm_cfg1);
-	pr_debug("sdm_cfg2=%lld\n", sdm_cfg2);
-	pr_debug("sdm_cfg3=%lld\n", sdm_cfg3);
+	pr_debug("sdm_cfg0=%lld\n", vco_calc->sdm_cfg0);
+	pr_debug("sdm_cfg1=%lld\n", vco_calc->sdm_cfg1);
+	pr_debug("sdm_cfg2=%lld\n", vco_calc->sdm_cfg2);
+	pr_debug("sdm_cfg3=%lld\n", vco_calc->sdm_cfg3);
 
-	cal_cfg11 = div_s64_rem(gen_vco_clk, 256 * 1000000, &rem);
-	cal_cfg10 = rem / 1000000;
-	pr_debug("cal_cfg10=%lld, cal_cfg11=%lld\n", cal_cfg10, cal_cfg11);
+	vco_calc->cal_cfg11 = div_s64_rem(vco_calc->gen_vco_clk,
+			256 * 1000000, &rem);
+	vco_calc->cal_cfg10 = rem / 1000000;
+	pr_debug("cal_cfg10=%lld, cal_cfg11=%lld\n",
+		vco_calc->cal_cfg10, vco_calc->cal_cfg11);
 
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CHGPUMP_CFG, 0x02);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG3, 0x2b);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG4, 0x66);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x0d);
+	return 0;
+}
 
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-		DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG1, (u32)(sdm_cfg1 & 0xff));
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-		DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG2, (u32)(sdm_cfg2 & 0xff));
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-		DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG3, (u32)(sdm_cfg3 & 0xff));
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG4, 0x00);
+static void pll_28nm_ssc_param_calc(struct dsi_pll_vco_clk *vco,
+		struct mdss_dsi_vco_calc *vco_calc)
+{
+	struct mdss_pll_resources *dsi_pll_res = vco->priv;
+	s64 ppm_freq, incr, spread_freq, div_rf, frac_n_value;
+	s32 rem;
+
+	if (!dsi_pll_res->ssc_en) {
+		pr_debug("DSI PLL SSC not enabled\n");
+		return;
+	}
+
+	vco_calc->ssc.kdiv = DIV_ROUND_CLOSEST(vco->ref_clk_rate,
+			1000000) - 1;
+	vco_calc->ssc.triang_steps = DIV_ROUND_CLOSEST(vco->ref_clk_rate,
+			dsi_pll_res->ssc_freq * (vco_calc->ssc.kdiv + 1));
+	ppm_freq = div_s64(vco_calc->gen_vco_clk * dsi_pll_res->ssc_ppm,
+			1000000);
+	incr = div64_s64(ppm_freq * 65536, vco->ref_clk_rate * 2 *
+			vco_calc->ssc.triang_steps);
+
+	vco_calc->ssc.triang_inc_7_0 = incr & 0xff;
+	vco_calc->ssc.triang_inc_9_8 = (incr >> 8) & 0x3;
+
+	if (dsi_pll_res->spread_mode == SSC_DOWN_SPREAD)
+		spread_freq = vco_calc->gen_vco_clk - ppm_freq;
+	else if (dsi_pll_res->spread_mode == SSC_CENTRE_SPREAD)
+		spread_freq = vco_calc->gen_vco_clk - (ppm_freq / 2);
+
+	div_rf = div_s64(spread_freq, 2 * vco->ref_clk_rate);
+	vco_calc->ssc.dc_offset = (div_rf - 1);
+
+	div_s64_rem(spread_freq, 2 * vco->ref_clk_rate, &rem);
+	frac_n_value = div_s64((s64)rem * 65536, 2 * vco->ref_clk_rate);
+
+	vco_calc->ssc.freq_seed_7_0 = frac_n_value & 0xff;
+	vco_calc->ssc.freq_seed_15_8 = (frac_n_value >> 8) & 0xff;
+}
+
+static void pll_28nm_vco_config(void __iomem *pll_base,
+		struct mdss_dsi_vco_calc *vco_calc,
+		u32 vco_delay_us, bool ssc_en)
+{
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_LPFR_CFG,
+		vco_calc->lpfr_lut_res);
+
+	/* Loop filter capacitance values : c1 and c2 */
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_LPFC1_CFG, 0x70);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_LPFC2_CFG, 0x15);
+
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CHGPUMP_CFG, 0x02);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG3, 0x2b);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG4, 0x66);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x0d);
+
+	if (!ssc_en) {
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG1,
+			(u32)(vco_calc->sdm_cfg1 & 0xff));
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG2,
+			(u32)(vco_calc->sdm_cfg2 & 0xff));
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG3,
+			(u32)(vco_calc->sdm_cfg3 & 0xff));
+	} else {
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG1,
+			(u32)vco_calc->ssc.dc_offset);
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG2,
+			(u32)vco_calc->ssc.freq_seed_7_0);
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG3,
+			(u32)vco_calc->ssc.freq_seed_15_8);
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SSC_CFG0,
+			(u32)vco_calc->ssc.kdiv);
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SSC_CFG1,
+			(u32)vco_calc->ssc.triang_inc_7_0);
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SSC_CFG2,
+			(u32)vco_calc->ssc.triang_inc_9_8);
+		MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SSC_CFG3,
+			(u32)vco_calc->ssc.triang_steps);
+	}
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG4, 0x00);
 
 	/* Add hardware recommended delay for correct PLL configuration */
-	if (dsi_pll_res->vco_delay)
-		udelay(dsi_pll_res->vco_delay);
+	if (vco_delay_us)
+		udelay(vco_delay_us);
 
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_REFCLK_CFG, (u32)refclk_cfg);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_PWRGEN_CFG, 0x00);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_VCOLPF_CFG, 0x71);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG0, (u32)sdm_cfg0);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG0, 0x12);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG6, 0x30);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG7, 0x00);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG8, 0x60);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG9, 0x00);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-		DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG10, (u32)(cal_cfg10 & 0xff));
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-		DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG11, (u32)(cal_cfg11 & 0xff));
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-			DSI_PHY_PLL_UNIPHY_PLL_EFUSE_CFG, 0x20);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_REFCLK_CFG,
+		(u32)vco_calc->refclk_cfg);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_PWRGEN_CFG, 0x00);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_VCOLPF_CFG, 0x71);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_SDM_CFG0,
+		(u32)vco_calc->sdm_cfg0);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG0, 0x12);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG6, 0x30);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG7, 0x00);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG8, 0x60);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG9, 0x00);
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG10,
+		(u32)(vco_calc->cal_cfg10 & 0xff));
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG11,
+		(u32)(vco_calc->cal_cfg11 & 0xff));
+	MDSS_PLL_REG_W(pll_base, DSI_PHY_PLL_UNIPHY_PLL_EFUSE_CFG, 0x20);
+}
+
+int vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate)
+{
+	struct mdss_dsi_vco_calc vco_calc;
+	struct mdss_pll_resources *dsi_pll_res = vco->priv;
+	int rc = 0;
+
+	rc = pll_28nm_vco_rate_calc(vco, &vco_calc, rate);
+	if (rc) {
+		pr_err("vco rate calculation failed\n");
+		return rc;
+	}
+
+	pll_28nm_ssc_param_calc(vco, &vco_calc);
+	pll_28nm_vco_config(dsi_pll_res->pll_base, &vco_calc,
+		dsi_pll_res->vco_delay, dsi_pll_res->ssc_en);
 
 	return 0;
 }
