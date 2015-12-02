@@ -4052,7 +4052,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 			return rc;
 		}
 
-		if (hdmi_ctrl->pdata.primary) {
+		if (hdmi_ctrl->pdata.primary || !hdmi_ctrl->pdata.pluggable) {
 			reinit_completion(&hdmi_ctrl->hpd_int_done);
 			rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
 			if (rc) {
