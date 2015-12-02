@@ -275,7 +275,7 @@ static int pll_28nm_vco_rate_calc(struct dsi_pll_vco_clk *vco,
 {
 	s32 rem;
 	s64 frac_n_mode, ref_doubler_en_b;
-	s64 ref_clk_to_pll, div_fbx1000, frac_n_value;
+	s64 ref_clk_to_pll, div_fb, frac_n_value;
 	int i;
 
 	/* Configure the Loop filter resistance */
@@ -304,26 +304,25 @@ static int pll_28nm_vco_rate_calc(struct dsi_pll_vco_clk *vco,
 
 	ref_clk_to_pll = ((vco->ref_clk_rate * 2 * (vco_calc->refclk_cfg))
 			  + (ref_doubler_en_b * vco->ref_clk_rate));
-	div_fbx1000 = div_s64((vco_clk_rate * 1000), ref_clk_to_pll);
 
-	div_s64_rem(div_fbx1000, 1000, &rem);
-	frac_n_value = div_s64((rem * (1 << 16)), 1000);
-	vco_calc->gen_vco_clk = div_s64(div_fbx1000 * ref_clk_to_pll, 1000);
+	div_fb = div_s64_rem(vco_clk_rate, ref_clk_to_pll, &rem);
+	frac_n_value = div_s64(((s64)rem * (1 << 16)), ref_clk_to_pll);
+	vco_calc->gen_vco_clk = vco_clk_rate;
 
 	pr_debug("ref_clk_to_pll = %lld\n", ref_clk_to_pll);
-	pr_debug("div_fb = %lld\n", div_fbx1000);
+	pr_debug("div_fb = %lld\n", div_fb);
 	pr_debug("frac_n_value = %lld\n", frac_n_value);
 
 	pr_debug("Generated VCO Clock: %lld\n", vco_calc->gen_vco_clk);
 	rem = 0;
 	if (frac_n_mode) {
 		vco_calc->sdm_cfg0 = 0;
-		vco_calc->sdm_cfg1 = (div_s64(div_fbx1000, 1000) & 0x3f) - 1;
+		vco_calc->sdm_cfg1 = (div_fb & 0x3f) - 1;
 		vco_calc->sdm_cfg3 = div_s64_rem(frac_n_value, 256, &rem);
 		vco_calc->sdm_cfg2 = rem;
 	} else {
 		vco_calc->sdm_cfg0 = (0x1 << 5);
-		vco_calc->sdm_cfg0 |= (div_s64(div_fbx1000, 1000) & 0x3f) - 1;
+		vco_calc->sdm_cfg0 |= (div_fb & 0x3f) - 1;
 		vco_calc->sdm_cfg1 = 0;
 		vco_calc->sdm_cfg2 = 0;
 		vco_calc->sdm_cfg3 = 0;
