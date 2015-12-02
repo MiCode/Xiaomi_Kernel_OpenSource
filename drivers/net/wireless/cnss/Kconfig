@@ -24,7 +24,6 @@ config CNSS_PCI
 
 config CNSS_SDIO
 	tristate "Flag to enable platform driver for SIDO based wifi device"
-	select CNSS
 	depends on MMC_SDHCI
 	depends on MMC_SDHCI_MSM
 	---help---
