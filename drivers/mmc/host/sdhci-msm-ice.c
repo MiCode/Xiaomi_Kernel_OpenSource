@@ -13,12 +13,12 @@
 
 #include "sdhci-msm-ice.h"
 
-static void sdhci_msm_ice_error_cb(void *host_ctrl, enum ice_error_code evt)
+static void sdhci_msm_ice_error_cb(void *host_ctrl, u32 error)
 {
 	struct sdhci_msm_host *msm_host = (struct sdhci_msm_host *)host_ctrl;
 
-	dev_err(&msm_host->pdev->dev, "%s: Error in ice operation %d",
-		__func__, evt);
+	dev_err(&msm_host->pdev->dev, "%s: Error in ice operation 0x%x",
+		__func__, error);
 
 	if (msm_host->ice.state == SDHCI_MSM_ICE_STATE_ACTIVE)
 		msm_host->ice.state = SDHCI_MSM_ICE_STATE_DISABLED;

@@ -737,6 +737,9 @@ static inline u32 ufshcd_get_intr_mask(struct ufs_hba *hba)
 		intr_mask = INTERRUPT_MASK_ALL_VER_21;
 	}
 
+	if (!ufshcd_is_crypto_supported(hba))
+		intr_mask &= ~CRYPTO_ENGINE_FATAL_ERROR;
+
 	return intr_mask;
 }
 
@@ -1000,7 +1003,11 @@ static void ufshcd_enable_run_stop_reg(struct ufs_hba *hba)
  */
 static inline void ufshcd_hba_start(struct ufs_hba *hba)
 {
-	ufshcd_writel(hba, CONTROLLER_ENABLE, REG_CONTROLLER_ENABLE);
+	u32 val = CONTROLLER_ENABLE;
+
+	if (ufshcd_is_crypto_supported(hba))
+		val |= CRYPTO_GENERAL_ENABLE;
+	ufshcd_writel(hba, val, REG_CONTROLLER_ENABLE);
 }
 
 /**
@@ -2265,15 +2272,52 @@ static void ufshcd_disable_intr(struct ufs_hba *hba, u32 intrs)
 	ufshcd_writel(hba, set, REG_INTERRUPT_ENABLE);
 }
 
+static int ufshcd_prepare_crypto_utrd(struct ufs_hba *hba,
+		struct ufshcd_lrb *lrbp)
+{
+	struct utp_transfer_req_desc *req_desc = lrbp->utr_descriptor_ptr;
+	u8 cc_index = 0;
+	bool enable = false;
+	u64 dun = 0;
+	int ret;
+
+	/*
+	 * Call vendor specific code to get crypto info for this request:
+	 * enable, crypto config. index, DUN.
+	 * If bypass is set, don't bother setting the other fields.
+	 */
+	ret = ufshcd_vops_crypto_req_setup(hba, lrbp, &cc_index, &enable, &dun);
+	if (ret) {
+		dev_err(hba->dev,
+			"%s: failed to setup crypto request (%d)\n",
+			__func__, ret);
+		return ret;
+	}
+
+	if (!enable)
+		goto out;
+
+	req_desc->header.dword_0 |= cc_index | UTRD_CRYPTO_ENABLE;
+	if (lrbp->cmd->request && lrbp->cmd->request->bio)
+		dun = lrbp->cmd->request->bio->bi_iter.bi_sector;
+
+	req_desc->header.dword_1 = (u32)(dun & 0xFFFFFFFF);
+	req_desc->header.dword_3 = (u32)((dun >> 32) & 0xFFFFFFFF);
+out:
+	return 0;
+}
+
 /**
  * ufshcd_prepare_req_desc_hdr() - Fills the requests header
  * descriptor according to request
+ * @hba: per adapter instance
  * @lrbp: pointer to local reference block
  * @upiu_flags: flags required in the header
  * @cmd_dir: requests data direction
  */
-static void ufshcd_prepare_req_desc_hdr(struct ufshcd_lrb *lrbp,
-		u32 *upiu_flags, enum dma_data_direction cmd_dir)
+static void ufshcd_prepare_req_desc_hdr(struct ufs_hba *hba,
+	struct ufshcd_lrb *lrbp, u32 *upiu_flags,
+	enum dma_data_direction cmd_dir)
 {
 	struct utp_transfer_req_desc *req_desc = lrbp->utr_descriptor_ptr;
 	u32 data_direction;
@@ -2310,6 +2354,9 @@ static void ufshcd_prepare_req_desc_hdr(struct ufshcd_lrb *lrbp,
 	req_desc->header.dword_3 = 0;
 
 	req_desc->prd_table_length = 0;
+
+	if (ufshcd_is_crypto_supported(hba))
+		ufshcd_prepare_crypto_utrd(hba, lrbp);
 }
 
 /**
@@ -2412,7 +2459,7 @@ static int ufshcd_compose_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	switch (lrbp->command_type) {
 	case UTP_CMD_TYPE_SCSI:
 		if (likely(lrbp->cmd)) {
-			ufshcd_prepare_req_desc_hdr(lrbp, &upiu_flags,
+			ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags,
 					lrbp->cmd->sc_data_direction);
 			ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
 		} else {
@@ -2420,7 +2467,7 @@ static int ufshcd_compose_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		}
 		break;
 	case UTP_CMD_TYPE_DEV_MANAGE:
-		ufshcd_prepare_req_desc_hdr(lrbp, &upiu_flags, DMA_NONE);
+		ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags, DMA_NONE);
 		if (hba->dev_cmd.type == DEV_CMD_TYPE_QUERY)
 			ufshcd_prepare_utp_query_req_upiu(
 					hba, lrbp, upiu_flags);
@@ -4832,6 +4879,9 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	case OCS_MISMATCH_RESP_UPIU_SIZE:
 	case OCS_PEER_COMM_FAILURE:
 	case OCS_FATAL_ERROR:
+	case OCS_DEVICE_FATAL_ERROR:
+	case OCS_INVALID_CRYPTO_CONFIG:
+	case OCS_GENERAL_CRYPTO_ERROR:
 	default:
 		result |= DID_ERROR << 16;
 		dev_err(hba->dev,

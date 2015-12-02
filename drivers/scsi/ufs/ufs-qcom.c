@@ -374,7 +374,6 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
 		ufs_qcom_enable_hw_clk_gating(hba);
-
 		break;
 	default:
 		dev_err(hba->dev, "%s: invalid status %d\n", __func__, status);
@@ -674,6 +673,30 @@ static int ufs_qcom_full_reset(struct ufs_hba *hba)
 		}
 	}
 out:
+	return ret;
+}
+
+static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
+	struct ufshcd_lrb *lrbp, u8 *cc_index, bool *enable, u64 *dun)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct request *req;
+	int ret;
+
+	if (lrbp->cmd && lrbp->cmd->request)
+		req = lrbp->cmd->request;
+	else
+		return 0;
+
+	/* Use request LBA as the DUN value */
+	if (req->bio)
+		*dun = req->bio->bi_iter.bi_sector;
+
+	ret = ufs_qcom_ice_req_setup(host, lrbp->cmd, cc_index, enable);
+	if (ret)
+		dev_err(hba->dev, "%s: ufs_qcom_ice_req_setup failed (%d)\n",
+			__func__, ret);
+
 	return ret;
 }
 
@@ -2245,6 +2268,7 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 };
 
 static struct ufs_hba_crypto_variant_ops ufs_hba_crypto_variant_ops = {
+	.crypto_req_setup	= ufs_qcom_crypto_req_setup,
 	.crypto_engine_cfg	  = ufs_qcom_crytpo_engine_cfg,
 	.crypto_engine_reset	  = ufs_qcom_crytpo_engine_reset,
 	.crypto_engine_get_status = ufs_qcom_crypto_engine_get_status,
