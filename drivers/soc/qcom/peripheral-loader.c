@@ -558,16 +558,7 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	if (ret)
 		return ret;
 
-	if (desc->subsys_vmid > 0) {
-		ret = pil_assign_mem_to_subsys_and_linux(desc,
-				priv->region_start,
-				(priv->region_end - priv->region_start));
-		if (ret) {
-			pil_err(desc, "Failed to assign memory, ret - %d\n",
-								ret);
-			return ret;
-		}
-	}
+
 	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
 
@@ -816,6 +807,26 @@ int pil_boot(struct pil_desc *desc)
 	if (ret) {
 		pil_err(desc, "Memory setup error\n");
 		goto err_deinit_image;
+	}
+
+	if (desc->subsys_vmid > 0) {
+		/* Make sure the memory is actually assigned to Linux. In the
+		 * case where the shutdown sequence is not able to immediately
+		 * assign the memory back to Linux, we need to do this here. */
+		ret = pil_assign_mem_to_linux(desc, priv->region_start,
+				(priv->region_end - priv->region_start));
+		if (ret)
+			pil_err(desc, "Failed to assign to linux, ret - %d\n",
+								ret);
+
+		ret = pil_assign_mem_to_subsys_and_linux(desc,
+				priv->region_start,
+				(priv->region_end - priv->region_start));
+		if (ret) {
+			pil_err(desc, "Failed to assign memory, ret - %d\n",
+								ret);
+			goto err_deinit_image;
+		}
 	}
 
 	list_for_each_entry(seg, &desc->priv->segs, list) {
