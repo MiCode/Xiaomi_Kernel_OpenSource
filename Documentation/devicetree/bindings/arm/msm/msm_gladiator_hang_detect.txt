@@ -1,0 +1,40 @@
+Gladiator Hang Detection provides sysfs entries for configuring
+thresholds and enable on ACE_port, IO_port, M1_port, M2_port,
+and PCIO_port
+
+If gladiator is hung for threshold time (value * 5ns) and no
+heart beat event from gladiator port to gladiator hang monitor
+detection, gladiator hang interrupt would be generated to reset
+the SOC to collect all cores context.
+
+Gladiator hang detection can be enabled on different ports.
+
+Writing 1 into ace_enabled sysfs entry, enables gladiator hang
+detection on ACE port
+Writing 1 into io_enabled sysfs entry, enables gladiator hang
+detection on IO port
+Writing 1 into ace_enabled sysfs entry, enables gladiator hang
+detection on M1 port
+Writing 1 into ace_enabled sysfs entry, enables gladiator hang
+detection on M2 port
+Writing 1 into pcio_enabled sysfs entry, enables gladiator hang
+detection on PCIO port
+
+Required properties:
+- compatible : "qcom,gladiator-hang-detect"
+- qcom, threshold-arr:
+		Array of APCS_COMMON_GLADIATOR_HANG_THRESHOLD_n register
+		address
+- qcom, config-reg:
+		APCS_COMMON_GLADIATOR_HANG_CONFIG register address
+
+Optional properties:
+
+Example:
+	For msmcobalt:
+		qcom,ghd {
+				compatible = "qcom,gladiator-hang-detect";
+				qcom,threshold-arr = <0x179d141c 0x179d1420
+					0x179d1424 0x179d1428 0x179d1420 0x179d1430>;
+				qcom,config-reg = <0x179d1434>;
+		};
