@@ -1301,7 +1301,6 @@ static struct usb_gadget_string_container *find_gadget_strings(
 	list_for_each_entry(uc, &cdev->gstrings, list) {
 		struct usb_gadget_strings **org_gs;
 		struct usb_string *org_s, *s;
-		int i;
 
 		org_gs = get_containers_gs(uc);
 
@@ -1315,15 +1314,11 @@ static struct usb_gadget_string_container *find_gadget_strings(
 		org_s = org_gs[0]->strings;
 		s = sp[0]->strings;
 
-		for (i = 0; i < n_strings; i++) {
-			if ((s->s != org_s->s) && !(!s->s && *org_s->s == '\0'))
-				break;
-
-			org_s++;
-			s++;
-		}
-
-		if (i == n_strings)
+		/*
+		 * only check the first string of the function since it's not
+		 * likely that a set of strings matches but not other
+		 */
+		if (s->s == org_s->s)
 			return uc;
 	}
 
