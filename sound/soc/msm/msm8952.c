@@ -1839,11 +1839,12 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.codec_name = "snd-soc-dummy",
 	},
 	{/* hw:x,18 */
-		.name = "MSM8916 HFP TX",
+		.name = "MSM8916 HFP",
 		.stream_name = "MultiMedia6",
 		.cpu_dai_name = "MultiMedia6",
 		.platform_name  = "msm-pcm-loopback",
 		.dynamic = 1,
+		.dpcm_playback = 1,
 		.dpcm_capture = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
