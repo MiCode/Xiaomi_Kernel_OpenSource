@@ -362,13 +362,6 @@ static struct msm_smem *map_buffer(struct msm_vidc_inst *inst,
 			"%s: Failed to get device buffer address\n", __func__);
 		return NULL;
 	}
-	if (msm_comm_smem_cache_operations(inst, handle,
-			SMEM_CACHE_CLEAN))
-		dprintk(VIDC_WARN,
-			"CACHE Clean failed: %d, %d, %d\n",
-				p->reserved[0],
-				p->reserved[1],
-				p->length);
 	return handle;
 }
 
