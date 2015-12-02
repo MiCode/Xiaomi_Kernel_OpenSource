@@ -52,6 +52,144 @@ static void set_capacity_scale(unsigned int cpu, unsigned long capacity)
 	per_cpu(cpu_scale, cpu) = capacity;
 }
 
+static int __init get_cpu_for_node(struct device_node *node)
+{
+	struct device_node *cpu_node;
+	int cpu;
+
+	cpu_node = of_parse_phandle(node, "cpu", 0);
+	if (!cpu_node)
+		return -EINVAL;
+
+	for_each_possible_cpu(cpu) {
+		if (of_get_cpu_node(cpu, NULL) == cpu_node) {
+			of_node_put(cpu_node);
+			return cpu;
+		}
+	}
+
+	pr_crit("Unable to find CPU node for %s\n", cpu_node->full_name);
+
+	of_node_put(cpu_node);
+	return -EINVAL;
+}
+
+static int __init parse_core(struct device_node *core, int cluster_id,
+			     int core_id)
+{
+	char name[10];
+	bool leaf = true;
+	int i = 0;
+	int cpu;
+	struct device_node *t;
+
+	do {
+		snprintf(name, sizeof(name), "thread%d", i);
+		t = of_get_child_by_name(core, name);
+		if (t) {
+			leaf = false;
+			cpu = get_cpu_for_node(t);
+			if (cpu >= 0) {
+				cpu_topology[cpu].cluster_id = cluster_id;
+				cpu_topology[cpu].core_id = core_id;
+				cpu_topology[cpu].thread_id = i;
+			} else {
+				pr_err("%s: Can't get CPU for thread\n",
+					t->full_name);
+				of_node_put(t);
+				return -EINVAL;
+			}
+			of_node_put(t);
+		}
+		i++;
+	} while (t);
+
+	cpu = get_cpu_for_node(core);
+	if (cpu >= 0) {
+		if (!leaf) {
+			pr_err("%s: Core has both threads and CPU\n",
+				core->full_name);
+			return -EINVAL;
+		}
+
+		cpu_topology[cpu].cluster_id = cluster_id;
+		cpu_topology[cpu].core_id = core_id;
+	} else if (leaf) {
+		pr_err("%s: Can't get CPU for leaf core\n", core->full_name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int __init parse_cluster(struct device_node *cluster, int depth)
+{
+	char name[10];
+	bool leaf = true;
+	bool has_cores = false;
+	struct device_node *c;
+	int core_id = 0;
+	int i, ret;
+	static int cluster_id __initdata;
+
+	/*
+	* First check for child clusters; we currently ignore any
+	* information about the nesting of clusters and present the
+	* scheduler with a flat list of them.
+	*/
+	i = 0;
+	do {
+		snprintf(name, sizeof(name), "cluster%d", i);
+		c = of_get_child_by_name(cluster, name);
+		if (c) {
+			leaf = false;
+			ret = parse_cluster(c, depth + 1);
+			of_node_put(c);
+			if (ret != 0)
+				return ret;
+		}
+		i++;
+	} while (c);
+
+	/* Now check for cores */
+	i = 0;
+	do {
+		snprintf(name, sizeof(name), "core%d", i);
+		c = of_get_child_by_name(cluster, name);
+		if (c) {
+			has_cores = true;
+
+			if (depth == 0) {
+				pr_err("%s: cpu-map children should be clusters\n",
+					c->full_name);
+				of_node_put(c);
+				return -EINVAL;
+		}
+
+		if (leaf) {
+			ret = parse_core(c, cluster_id, core_id++);
+		} else {
+			pr_err("%s: Non-leaf cluster with core %s\n",
+				cluster->full_name, name);
+			ret = -EINVAL;
+		}
+
+		of_node_put(c);
+		if (ret != 0)
+			return ret;
+		}
+		i++;
+	} while (c);
+
+	if (leaf && !has_cores)
+		pr_warn("%s: empty cluster\n", cluster->full_name);
+
+	if (leaf)
+		cluster_id++;
+
+	return 0;
+}
+
 #ifdef CONFIG_OF
 struct cpu_efficiency {
 	const char *compatible;
@@ -87,14 +225,40 @@ static unsigned long middle_capacity = 1;
  * 'average' CPU is of middle capacity. Also see the comments near
  * table_efficiency[] and update_cpu_capacity().
  */
-static void __init parse_dt_topology(void)
+static int __init parse_dt_topology(void)
 {
 	const struct cpu_efficiency *cpu_eff;
-	struct device_node *cn = NULL;
+	struct device_node *cn = NULL, *map;
 	unsigned long min_capacity = ULONG_MAX;
 	unsigned long max_capacity = 0;
 	unsigned long capacity = 0;
-	int cpu = 0;
+	int cpu = 0, ret = 0;
+
+	cn = of_find_node_by_path("/cpus");
+	if (!cn) {
+		pr_err("No CPU information found in DT\n");
+		return 0;
+	}
+
+	/*
+	* When topology is provided cpu-map is essentially a root
+	* cluster with restricted subnodes.
+	*/
+	map = of_get_child_by_name(cn, "cpu-map");
+	if (!map)
+		goto out;
+
+	ret = parse_cluster(map, 0);
+	if (ret != 0)
+		goto out_map;
+
+	/*
+	* Check that all cores are in the topology; the SMP code will
+	* only mark cores described in the DT as possible.
+	*/
+	for_each_possible_cpu(cpu)
+		if (cpu_topology[cpu].cluster_id == -1)
+			ret = -EINVAL;
 
 	__cpu_capacity = kcalloc(nr_cpu_ids, sizeof(*__cpu_capacity),
 				 GFP_NOWAIT);
@@ -150,7 +314,11 @@ static void __init parse_dt_topology(void)
 	else
 		middle_capacity = ((max_capacity / 3)
 				>> (SCHED_CAPACITY_SHIFT-1)) + 1;
-
+out_map:
+	of_node_put(map);
+out:
+	of_node_put(cn);
+	return ret;
 }
 
 /*
@@ -170,7 +338,7 @@ static void update_cpu_capacity(unsigned int cpu)
 }
 
 #else
-static inline void parse_dt_topology(void) {}
+static inline int parse_dt_topology(void) {}
 static inline void update_cpu_capacity(unsigned int cpuid) {}
 #endif
 
@@ -203,7 +371,7 @@ static void update_siblings_masks(unsigned int cpuid)
 	for_each_possible_cpu(cpu) {
 		cpu_topo = &cpu_topology[cpu];
 
-		if (cpuid_topo->socket_id != cpu_topo->socket_id)
+		if (cpuid_topo->cluster_id != cpu_topo->cluster_id)
 			continue;
 
 		cpumask_set_cpu(cpuid, &cpu_topo->core_sibling);
@@ -230,9 +398,8 @@ void store_cpu_topology(unsigned int cpuid)
 	struct cputopo_arm *cpuid_topo = &cpu_topology[cpuid];
 	unsigned int mpidr;
 
-	/* If the cpu topology has been already set, just return */
 	if (cpuid_topo->core_id != -1)
-		return;
+		goto topology_populated;
 
 	mpidr = read_cpuid_mpidr();
 
@@ -247,12 +414,12 @@ void store_cpu_topology(unsigned int cpuid)
 			/* core performance interdependency */
 			cpuid_topo->thread_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
 			cpuid_topo->core_id = MPIDR_AFFINITY_LEVEL(mpidr, 1);
-			cpuid_topo->socket_id = MPIDR_AFFINITY_LEVEL(mpidr, 2);
+			cpuid_topo->cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 2);
 		} else {
 			/* largely independent cores */
 			cpuid_topo->thread_id = -1;
 			cpuid_topo->core_id = MPIDR_AFFINITY_LEVEL(mpidr, 0);
-			cpuid_topo->socket_id = MPIDR_AFFINITY_LEVEL(mpidr, 1);
+			cpuid_topo->cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 1);
 		}
 	} else {
 		/*
@@ -262,17 +429,17 @@ void store_cpu_topology(unsigned int cpuid)
 		 */
 		cpuid_topo->thread_id = -1;
 		cpuid_topo->core_id = 0;
-		cpuid_topo->socket_id = -1;
+		cpuid_topo->cluster_id = -1;
 	}
 
-	update_siblings_masks(cpuid);
-
-	update_cpu_capacity(cpuid);
-
-	printk(KERN_INFO "CPU%u: thread %d, cpu %d, socket %d, mpidr %x\n",
+	pr_info("CPU%u: thread %d, cpu %d, cluster %d, mpidr %x\n",
 		cpuid, cpu_topology[cpuid].thread_id,
 		cpu_topology[cpuid].core_id,
-		cpu_topology[cpuid].socket_id, mpidr);
+		cpu_topology[cpuid].cluster_id, mpidr);
+
+topology_populated:
+	update_siblings_masks(cpuid);
+	update_cpu_capacity(cpuid);
 }
 
 static inline int cpu_corepower_flags(void)
@@ -303,7 +470,7 @@ void __init init_cpu_topology(void)
 
 		cpu_topo->thread_id = -1;
 		cpu_topo->core_id =  -1;
-		cpu_topo->socket_id = -1;
+		cpu_topo->cluster_id = -1;
 		cpumask_clear(&cpu_topo->core_sibling);
 		cpumask_clear(&cpu_topo->thread_sibling);
 
@@ -311,7 +478,17 @@ void __init init_cpu_topology(void)
 	}
 	smp_wmb();
 
-	parse_dt_topology();
+	if (parse_dt_topology()) {
+		struct cputopo_arm *cpu_topo = &(cpu_topology[cpu]);
+
+		cpu_topo->thread_id = -1;
+		cpu_topo->core_id =  -1;
+		cpu_topo->cluster_id = -1;
+		cpumask_clear(&cpu_topo->core_sibling);
+		cpumask_clear(&cpu_topo->thread_sibling);
+
+		set_capacity_scale(cpu, SCHED_CAPACITY_SCALE);
+	}
 
 	/* Set scheduler topology descriptor */
 	set_sched_topology(arm_topology);
