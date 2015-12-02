@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 
 #define WLAN_VREG_NAME		"vdd-wlan"
+#define WLAN_VREG_DSRC_NAME	"vdd-wlan-dsrc"
 #define WLAN_VREG_IO_NAME	"vdd-wlan-io"
 #define WLAN_VREG_XTAL_NAME	"vdd-wlan-xtal"
 
@@ -53,6 +54,7 @@ struct cnss_sdio_regulator {
 	struct regulator *wlan_io;
 	struct regulator *wlan_xtal;
 	struct regulator *wlan_vreg;
+	struct regulator *wlan_vreg_dsrc;
 };
 
 static struct cnss_sdio_data {
@@ -217,6 +219,40 @@ static int cnss_sdio_configure_wlan_enable_regulator(void)
 
 err_vdd_vreg_regulator:
 	regulator_put(cnss_pdata->regulator.wlan_vreg);
+
+	return error;
+}
+
+static int cnss_sdio_configure_wlan_enable_dsrc_regulator(void)
+{
+	int error;
+	struct device *dev = &cnss_pdata->pdev->dev;
+
+	if (of_get_property(
+		cnss_pdata->pdev->dev.of_node,
+		WLAN_VREG_DSRC_NAME "-supply", NULL)) {
+		cnss_pdata->regulator.wlan_vreg_dsrc = regulator_get(
+			&cnss_pdata->pdev->dev, WLAN_VREG_DSRC_NAME);
+		if (IS_ERR(cnss_pdata->regulator.wlan_vreg_dsrc)) {
+			error = PTR_ERR(cnss_pdata->regulator.wlan_vreg_dsrc);
+			dev_err(dev, "VDD-VREG-DSRC get failed error=%d\n",
+				error);
+			return error;
+		}
+
+		error = regulator_enable(cnss_pdata->regulator.wlan_vreg_dsrc);
+		if (error) {
+			dev_err(dev, "VDD-VREG-DSRC enable failed error=%d\n",
+				error);
+			goto err_vdd_vreg_dsrc_regulator;
+		}
+	}
+
+	return 0;
+
+err_vdd_vreg_dsrc_regulator:
+	regulator_put(cnss_pdata->regulator.wlan_vreg_dsrc);
+
 	return error;
 }
 
@@ -298,9 +334,11 @@ static void cnss_sdio_release_resource(void)
 	if (cnss_pdata->regulator.wlan_xtal)
 		regulator_put(cnss_pdata->regulator.wlan_xtal);
 	if (cnss_pdata->regulator.wlan_vreg)
-		regulator_put(cnss_pdata->regulator.wlan_xtal);
+		regulator_put(cnss_pdata->regulator.wlan_vreg);
 	if (cnss_pdata->regulator.wlan_io)
 		regulator_put(cnss_pdata->regulator.wlan_io);
+	if (cnss_pdata->regulator.wlan_vreg_dsrc)
+		regulator_put(cnss_pdata->regulator.wlan_vreg_dsrc);
 }
 
 static int cnss_sdio_probe(struct platform_device *pdev)
@@ -348,9 +386,22 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (of_get_property(
+		cnss_pdata->pdev->dev.of_node,
+			WLAN_VREG_DSRC_NAME "-supply", NULL)) {
+		error = cnss_sdio_configure_wlan_enable_dsrc_regulator();
+		if (error) {
+			dev_err(&pdev->dev,
+				"Failed to enable wlan dsrc enable regulator\n");
+			goto err_wlan_dsrc_enable_regulator;
+		}
+	}
+
 	dev_info(&pdev->dev, "CNSS SDIO Driver registered");
 	return 0;
 
+err_wlan_dsrc_enable_regulator:
+	regulator_put(cnss_pdata->regulator.wlan_vreg_dsrc);
 err_wlan_enable_regulator:
 	regulator_put(cnss_pdata->regulator.wlan_vreg);
 err_wlan_enable_gpio:

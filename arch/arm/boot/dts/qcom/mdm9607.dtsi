@@ -500,6 +500,7 @@
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
 		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-dsrc-supply = <&sdcard_ext_vreg>;
 		vdd-wlan-io-supply = <&mdm9607_l11>;
 		vdd-wlan-xtal-supply = <&mdm9607_l2>;
 	};
