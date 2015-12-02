@@ -753,10 +753,6 @@
 		vin-supply = <&vph_pwr_vreg>;
 	};
 
-	spi@7575000 { /* BLSP1 QUP1 */
-		status = "disabled";
-	};
-
 	qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
@@ -1056,5 +1052,13 @@
 &cam_sensor_mclk2_suspend { /* MCLK2 */
 	config {
 		drive-strength = <8>; /* 8 MA */
+	};
+};
+
+&spi_0 {
+	spi_codec@2 {
+		compatible = "qcom,spi-msm-codec-slave";
+		reg = <2>;
+		spi-max-frequency = <19200000>;
 	};
 };
