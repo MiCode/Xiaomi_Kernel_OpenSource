@@ -50,6 +50,32 @@
 
 		};
 
+		hsuart_active: default {
+			mux {
+				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				function = "blsp_uart4";
+			};
+
+			config {
+				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		hsuart_sleep: sleep {
+			mux {
+				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* SDC pin type */
 		sdc1_clk_on: sdc1_clk_on {
 			config {
