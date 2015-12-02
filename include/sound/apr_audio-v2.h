@@ -444,6 +444,29 @@ struct audproc_softvolume_params {
 	u32 rampingcurve;
 } __packed;
 
+/*
+ * ID of the Media Format Converter (MFC) module.
+ * This module supports the following parameter IDs:
+ * #AUDPROC_PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT
+ * #AUDPROC_CHMIXER_PARAM_ID_COEFF
+ */
+#define AUDPROC_MODULE_ID_MFC                               0x00010912
+
+/* ID of the Output Media Format parameters used by AUDPROC_MODULE_ID_MFC.
+ *
+ */
+#define AUDPROC_PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT            0x00010913
+
+
+struct audproc_mfc_output_media_fmt {
+	struct adm_cmd_set_pp_params_v5 params;
+	struct adm_param_data_v5 data;
+	uint32_t sampling_rate;
+	uint16_t bits_per_sample;
+	uint16_t num_channels;
+	uint16_t channel_type[8];
+} __packed;
+
 struct audproc_volume_ctrl_master_gain {
 	struct adm_cmd_set_pp_params_v5 params;
 	struct adm_param_data_v5 data;

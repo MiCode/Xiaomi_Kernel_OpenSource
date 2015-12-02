@@ -74,6 +74,8 @@ int adm_dts_eagle_set(int port_id, int copp_idx, int param_id,
 int adm_dts_eagle_get(int port_id, int copp_idx, int param_id,
 		      void *data, uint32_t size);
 
+void adm_copp_mfc_cfg(int port_id, int copp_idx, int dst_sample_rate);
+
 int adm_get_params(int port_id, int copp_idx, uint32_t module_id,
 		   uint32_t param_id, uint32_t params_length, char *params);
 
