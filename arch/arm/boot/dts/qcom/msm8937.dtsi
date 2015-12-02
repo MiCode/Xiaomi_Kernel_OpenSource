@@ -16,7 +16,7 @@
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM Thorium";
+	model = "Qualcomm Technologies, Inc. MSM8937";
 	compatible = "qcom,msm8937";
 	qcom,msm-id = <294 0x0>;
 	interrupt-parent = <&intc>;

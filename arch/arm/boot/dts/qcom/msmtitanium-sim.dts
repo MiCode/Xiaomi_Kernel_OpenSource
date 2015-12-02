@@ -13,8 +13,6 @@
 
 /dts-v1/;
 
-/memreserve/ 0x90000000 0x00000200;
-
 #include "msmtitanium.dtsi"
 
 / {
@@ -23,7 +21,7 @@
 	qcom,board-id= <16 0>;
 };
 
-&blsp1_uart2 {
+&blsp1_uart0 {
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;

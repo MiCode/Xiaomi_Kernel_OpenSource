@@ -2179,7 +2179,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 		if (SUBSYS_BEFORE_SHUTDOWN == code) {
 			pr_info("IPA received MPSS BEFORE_SHUTDOWN\n");
 			atomic_set(&is_ssr, 1);
-			ipa_q6_cleanup();
+			ipa_q6_pre_shutdown_cleanup();
 			if (ipa_netdevs[0])
 				netif_stop_queue(ipa_netdevs[0]);
 			ipa_qmi_stop_workqueues();
@@ -2193,7 +2193,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 		if (SUBSYS_AFTER_SHUTDOWN == code) {
 			pr_info("IPA received MPSS AFTER_SHUTDOWN\n");
 			if (atomic_read(&is_ssr))
-				ipa_q6_pipe_reset();
+				ipa_q6_post_shutdown_cleanup();
 			pr_info("IPA AFTER_SHUTDOWN handling is complete\n");
 			return NOTIFY_DONE;
 		}
@@ -2689,6 +2689,9 @@ void ipa_q6_handshake_complete(bool ssr_bootup)
 		 * SSR recovery
 		 */
 		rmnet_ipa_get_network_stats_and_update();
+
+		/* Enable holb monitoring on Q6 pipes. */
+		ipa_q6_monitor_holb_mitigation(true);
 	}
 }
 

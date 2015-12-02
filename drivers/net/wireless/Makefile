@@ -63,6 +63,5 @@ obj-$(CONFIG_RSI_91X)	+= rsi/
 
 obj-$(CONFIG_WCNSS_CORE)	+= wcnss/
 
-obj-$(CONFIG_CNSS_SDIO)		+= cnss/cnss_sdio.o
 obj-$(CONFIG_CNSS)		+= cnss/
 obj-$(CONFIG_WCNSS_MEM_PRE_ALLOC) += cnss_prealloc/

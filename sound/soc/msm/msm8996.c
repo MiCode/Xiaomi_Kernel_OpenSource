@@ -126,15 +126,6 @@ static struct afe_clk_set mi2s_tx_clk = {
 	0,
 };
 
-static struct afe_clk_set mi2s_rx_clk = {
-	AFE_API_VERSION_I2S_CONFIG,
-	Q6AFE_LPASS_CLK_ID_QUAD_MI2S_IBIT,
-	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
-	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
-	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	0,
-};
-
 struct msm8996_wsa881x_dev_info {
 	struct device_node *of_node;
 	u32 index;
@@ -173,8 +164,6 @@ static void *def_tasha_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
 static int msm8996_wsa881x_init(struct snd_soc_component *component);
-static bool msm8996_check_auto_snd_card(struct platform_device *pdev);
-static int msm8996_init_auto_snd_card(struct platform_device *pdev);
 
 /*
  * Need to report LINEIN
@@ -1232,112 +1221,6 @@ static struct snd_soc_ops msm8996_mi2s_be_ops = {
 	.startup = msm8996_mi2s_snd_startup,
 	.shutdown = msm8996_mi2s_snd_shutdown,
 };
-
-static int msm8996_mi2s_snd_auto_startup(struct snd_pcm_substream *substream)
-{
-	int ret = 0;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-
-	pr_debug("%s: substream = %s  stream = %d\n", __func__,
-		 substream->name, substream->stream);
-
-	switch (cpu_dai->id) {
-	case 0:	/*MSM_PRIM_MI2S*/
-		break;
-	case 1:	/*MSM_SEC_MI2S*/
-		break;
-	case 2:	/*MSM_TERT_MI2S*/
-		mi2s_tx_clk.enable = 1;
-		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_TERTIARY_MI2S_TX,
-					&mi2s_tx_clk);
-		if (ret < 0) {
-			pr_err("%s: afe lpass clock failed, err:%d\n",
-				__func__, ret);
-			goto err;
-		}
-		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBM_CFM);
-		if (ret < 0)
-			pr_err("%s: set fmt cpu dai failed, err:%d\n",
-				__func__, ret);
-		break;
-	case 3:	/*MSM_QUAT_MI2S*/
-		mi2s_rx_clk.enable = 1;
-		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_QUATERNARY_MI2S_RX,
-					&mi2s_rx_clk);
-		if (ret < 0) {
-			pr_err("%s: afe lpass clock failed, err:%d\n",
-				__func__, ret);
-			goto err;
-		}
-		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
-		if (ret < 0)
-			pr_err("%s: set fmt cpu dai failed, err:%d\n",
-				__func__, ret);
-		break;
-	default:
-		pr_err("%s: invalid cpu_dai id 0x%x\n", __func__, cpu_dai->id);
-		break;
-	}
-
-err:
-	return ret;
-}
-
-static void msm8996_mi2s_snd_auto_shutdown(struct snd_pcm_substream *substream)
-{
-	int ret = 0;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-
-	pr_debug("%s: substream = %s  stream = %d\n", __func__,
-		substream->name, substream->stream);
-
-	switch (cpu_dai->id) {
-	case 0:	/*MSM_PRIM_MI2S*/
-		break;
-	case 1:	/*MSM_SEC_MI2S*/
-		break;
-	case 2:	/*MSM_TERT_MI2S*/
-		mi2s_tx_clk.enable = 0;
-		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_TERTIARY_MI2S_TX,
-					&mi2s_tx_clk);
-		if (ret < 0)
-			pr_err("%s: afe lpass clock failed, err:%d\n",
-				__func__, ret);
-		break;
-	case 3:	/*MSM_QUAT_MI2S*/
-		mi2s_rx_clk.enable = 0;
-		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_QUATERNARY_MI2S_RX,
-					&mi2s_rx_clk);
-		if (ret < 0)
-			pr_err("%s: afe lpass clock failed, err:%d\n",
-				__func__, ret);
-		break;
-	default:
-		pr_err("%s: invalid cpu_dai id 0x%x\n", __func__, cpu_dai->id);
-		break;
-	}
-}
-
-static struct snd_soc_ops msm8996_mi2s_auto_be_ops = {
-	.startup = msm8996_mi2s_snd_auto_startup,
-	.shutdown = msm8996_mi2s_snd_auto_shutdown,
-};
-
-static int msm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-				     struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	pr_debug("%s: channel:%d\n", __func__, msm_tert_mi2s_tx_ch);
-	rate->min = rate->max = SAMPLING_RATE_48KHZ;
-	channels->min = channels->max = msm_tert_mi2s_tx_ch;
-	return 0;
-}
 
 static int msm_slim_5_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					    struct snd_pcm_hw_params *params)
@@ -3013,11 +2896,7 @@ static struct snd_soc_dai_link msm8996_common_be_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_VOICE2_PLAYBACK_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
-	}
-};
-
-static struct snd_soc_dai_link msm8996_tasha_be_dai_links[] = {
-	/* Backend DAI Links */
+	},
 	{
 		.name = LPASS_BE_TERT_MI2S_TX,
 		.stream_name = "Tertiary MI2S Capture",
@@ -3031,7 +2910,11 @@ static struct snd_soc_dai_link msm8996_tasha_be_dai_links[] = {
 		.be_hw_params_fixup = msm_tx_be_hw_params_fixup,
 		.ops = &msm8996_mi2s_be_ops,
 		.ignore_suspend = 1,
-	},
+	}
+};
+
+static struct snd_soc_dai_link msm8996_tasha_be_dai_links[] = {
+	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
 		.stream_name = "Slimbus Playback",
@@ -3172,38 +3055,6 @@ static struct snd_soc_dai_link msm8996_tasha_be_dai_links[] = {
 	},
 };
 
-static struct snd_soc_dai_link msm8996_auto_be_dai_links[] = {
-	/* Backend DAI Links */
-	{
-		.name = LPASS_BE_TERT_MI2S_TX,
-		.stream_name = "Tertiary MI2S Capture",
-		.cpu_dai_name = "msm-dai-q6-mi2s.2",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.be_id = MSM_BACKEND_DAI_TERTIARY_MI2S_TX,
-		.be_hw_params_fixup = msm_tx_be_hw_params_fixup,
-		.ops = &msm8996_mi2s_auto_be_ops,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_QUAT_MI2S_RX,
-		.stream_name = "Quaternary MI2S Playback",
-		.cpu_dai_name = "msm-dai-q6-mi2s.3",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
-		.be_hw_params_fixup = msm_mi2s_rx_be_hw_params_fixup,
-		.ops = &msm8996_mi2s_auto_be_ops,
-		.ignore_suspend = 1,
-	},
-};
-
 static struct snd_soc_dai_link msm8996_hdmi_dai_link[] = {
 	/* HDMI BACK END DAI Link */
 	{
@@ -3227,12 +3078,6 @@ static struct snd_soc_dai_link msm8996_tasha_dai_links[
 			 ARRAY_SIZE(msm8996_tasha_fe_dai_links) +
 			 ARRAY_SIZE(msm8996_common_be_dai_links) +
 			 ARRAY_SIZE(msm8996_tasha_be_dai_links) +
-			 ARRAY_SIZE(msm8996_hdmi_dai_link)];
-
-static struct snd_soc_dai_link msm8996_auto_dai_links[
-			 ARRAY_SIZE(msm8996_common_dai_links) +
-			 ARRAY_SIZE(msm8996_common_be_dai_links) +
-			 ARRAY_SIZE(msm8996_auto_be_dai_links) +
 			 ARRAY_SIZE(msm8996_hdmi_dai_link)];
 
 static int msm8996_wsa881x_init(struct snd_soc_component *component)
@@ -3287,10 +3132,6 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 
 struct snd_soc_card snd_soc_card_tasha_msm8996 = {
 	.name		= "msm8996-tasha-snd-card",
-};
-
-struct snd_soc_card snd_soc_card_auto_msm8996 = {
-	.name		= "msm8996-auto-snd-card",
 };
 
 static int msm8996_populate_dai_link_component_of_node(
@@ -3433,8 +3274,6 @@ static int msm8996_prepare_hifi(struct snd_soc_card *card)
 static const struct of_device_id msm8996_asoc_machine_of_match[]  = {
 	{ .compatible = "qcom,msm8996-asoc-snd-tasha",
 	  .data = "tasha_codec"},
-	{ .compatible = "qcom,msm8996-asoc-snd-auto",
-	  .data = "auto_codec"},
 	{},
 };
 
@@ -3473,23 +3312,6 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 
 		dailink = msm8996_tasha_dai_links;
 		len_4 = len_3 + ARRAY_SIZE(msm8996_tasha_be_dai_links);
-	} else if (!strcmp(match->data, "auto_codec")) {
-		card = &snd_soc_card_auto_msm8996;
-		len_1 = ARRAY_SIZE(msm8996_common_dai_links);
-		len_2 = len_1 + ARRAY_SIZE(msm8996_common_be_dai_links);
-
-		memcpy(msm8996_auto_dai_links,
-		       msm8996_common_dai_links,
-		       sizeof(msm8996_common_dai_links));
-		memcpy(msm8996_auto_dai_links + len_1,
-		       msm8996_common_be_dai_links,
-		       sizeof(msm8996_common_be_dai_links));
-		memcpy(msm8996_auto_dai_links + len_2,
-		       msm8996_auto_be_dai_links,
-		       sizeof(msm8996_auto_be_dai_links));
-
-		dailink = msm8996_auto_dai_links;
-		len_4 = len_2 + ARRAY_SIZE(msm8996_auto_be_dai_links);
 	}
 
 	if (of_property_read_bool(dev->of_node, "qcom,hdmi-audio-rx")) {
@@ -3672,84 +3494,6 @@ static int msm8996_init_wsa_dev(struct platform_device *pdev,
 	return 0;
 }
 
-static bool msm8996_check_auto_snd_card(struct platform_device *pdev)
-{
-	const struct of_device_id *match;
-	bool ret = false;
-
-	match = of_match_node(msm8996_asoc_machine_of_match,
-			pdev->dev.of_node);
-	if (!match) {
-		dev_err(&pdev->dev, "%s: no matched codec is found.\n",
-			__func__);
-		goto end;
-	}
-
-	if (!strcmp(match->data, "auto_codec"))
-		ret = true;
-end:
-	return ret;
-}
-
-static int msm8996_init_auto_snd_card(struct platform_device *pdev)
-{
-	struct snd_soc_card *card = NULL;
-	struct msm8996_asoc_mach_data *pdata = NULL;
-	int ret = 0;
-
-	pdata = devm_kzalloc(&pdev->dev,
-			sizeof(struct msm8996_asoc_mach_data), GFP_KERNEL);
-	if (!pdata) {
-		ret = -ENOMEM;
-		dev_err(&pdev->dev, "Can't allocate msm8996_asoc_mach_data\n");
-		return ret;
-	}
-
-	card = populate_snd_card_dailinks(&pdev->dev);
-	if (!card) {
-		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);
-		ret = -EINVAL;
-		goto err;
-	}
-	card->dev = &pdev->dev;
-	platform_set_drvdata(pdev, card);
-	snd_soc_card_set_drvdata(card, pdata);
-
-	ret = snd_soc_of_parse_card_name(card, "qcom,model");
-	if (ret) {
-		dev_err(&pdev->dev, "parse card name failed, err:%d\n",
-			ret);
-		goto err;
-	}
-
-	spdev = pdev;
-
-	/* populate controls of snd card */
-	card->controls = msm_snd_controls;
-	card->num_controls = ARRAY_SIZE(msm_snd_controls);
-
-	ret = msm8996_populate_dai_link_component_of_node(card);
-	if (ret) {
-		ret = -EPROBE_DEFER;
-		goto err;
-	}
-
-	ret = snd_soc_register_card(card);
-	if (ret == -EPROBE_DEFER) {
-		goto err;
-	} else if (ret) {
-		dev_err(&pdev->dev, "snd_soc_register_card failed, err:%d\n",
-			ret);
-		goto err;
-	}
-	dev_info(&pdev->dev, "Sound card %s registered\n", card->name);
-
-	return 0;
-err:
-	devm_kfree(&pdev->dev, pdata);
-	return ret;
-}
-
 static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card;
@@ -3763,9 +3507,6 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
 		return -EINVAL;
 	}
-
-	if (msm8996_check_auto_snd_card(pdev))
-		return msm8996_init_auto_snd_card(pdev);
 
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm8996_asoc_mach_data), GFP_KERNEL);

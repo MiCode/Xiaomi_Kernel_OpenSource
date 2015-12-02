@@ -87,8 +87,8 @@
 /* Resource Group index*/
 #define IPA_GROUP_UL		(0)
 #define IPA_GROUP_DL		(1)
+#define IPA_GROUP_DPL		IPA_GROUP_DL
 #define IPA_GROUP_DIAG		(2)
-#define IPA_GROUP_DPL		IPA_GROUP_DIAG
 #define IPA_GROUP_DMA		(3)
 #define IPA_GROUP_IMM_CMD	IPA_GROUP_DMA
 #define IPA_GROUP_Q6ZIP		(4)
@@ -142,9 +142,9 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 };
 static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 			[IPA_RSRC_GRP_TYPE_DST_MAX][IPA_GROUP_MAX] = {
-		/*UL	DL	DIAG	DMA  Q6zip_gen Q6zip_eng*/
+		/*UL	DL/DPL	DIAG	DMA  Q6zip_gen Q6zip_eng*/
 	[IPA_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
-		{2, 2}, {3, 3}, {1, 1}, {1, 1}, {3, 3}, {3, 3} },
+		{2, 2}, {3, 3}, {0, 0}, {2, 2}, {3, 3}, {3, 3} },
 	[IPA_RSRC_GRP_TYPE_DST_DATA_SECTOR_LISTS] = {
 		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
 	[IPA_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
