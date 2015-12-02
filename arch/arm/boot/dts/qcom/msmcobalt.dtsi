@@ -291,6 +291,11 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,pipe-attr-ee;
+	};
+
 	uartblsp1dm1: serial@0c170000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xc170000 0x1000>;
