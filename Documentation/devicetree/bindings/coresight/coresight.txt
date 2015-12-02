@@ -205,6 +205,7 @@ Optional properties:
 - qcom,dbgui-addr-offset : indicates the offset of dbgui address registers
 - qcom,dbgui-data-offset : indicates the offset of dbgui data registers
 - qcom,dbgui-size : indicates the size of dbgui address and data registers
+- qcom,pmic-carddetect-gpio : indicates the hotplug capabilities of the qpdi driver
 
 coresight-outports, coresight-child-list and coresight-child-ports lists will
 be of the same length and will have a one to one correspondence among the
