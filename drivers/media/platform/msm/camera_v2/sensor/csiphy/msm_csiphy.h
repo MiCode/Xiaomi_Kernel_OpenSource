@@ -56,6 +56,7 @@ struct csiphy_reg_parms_t {
 	uint32_t mipi_csiphy_glbl_t_init_cfg0_addr;
 	uint32_t mipi_csiphy_t_wakeup_cfg0_addr;
 	uint32_t csiphy_version;
+	uint32_t combo_clk_mask;
 };
 
 struct csiphy_reg_3ph_parms_t {
