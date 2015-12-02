@@ -174,7 +174,7 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
 	BUG_ON(irq_num == -1);
 
 	/* make sure ipa hw is clocked on*/
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	en = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
 	suspend_bmask = 1 << irq_num;
@@ -185,7 +185,7 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
 	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
 		IPA_IRQ_EN_EE_n_ADDR(ipa_ee), en);
 	ipa3_process_interrupts(false);
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	IPADBG("Exit\n");
 }
@@ -263,9 +263,9 @@ static void ipa3_process_interrupts(bool isr_context)
 static void ipa3_interrupt_defer(struct work_struct *work)
 {
 	IPADBG("processing interrupts in wq\n");
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	ipa3_process_interrupts(false);
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG("Done\n");
 }
 

@@ -552,7 +552,7 @@ int ipa3_suspend_resource_sync(enum ipa_rm_resource_name resource)
 
 	/* before gating IPA clocks do TAG process */
 	ipa3_ctx->tag_process_before_gating = true;
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_RESOURCE(ipa3_rm_resource_str(resource));
 
 	return 0;
 }
@@ -775,11 +775,11 @@ int ipa3_cfg_route(struct ipa3_route *route)
 		return -EPERM;
 	}
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	ipa3_ctx->ctrl->ipa3_cfg_route(route);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -2564,8 +2564,7 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl)
 			IPAERR("Configuring non-DMA SEQ type to DMA pipe\n");
 			BUG();
 		}
-
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 		/* Configure sequencers type*/
 
 		IPADBG("set sequencers to sequence 0x%x, ep = %d\n", type,
@@ -2573,7 +2572,7 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl)
 		ipa_write_reg(ipa3_ctx->mmio,
 				IPA_ENDP_INIT_SEQ_n_OFST(clnt_hdl), type);
 
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	} else {
 		IPADBG("should not set sequencer type of ep = %d\n", clnt_hdl);
 	}
@@ -2708,11 +2707,11 @@ int ipa3_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.nat = *ep_nat;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_nat(clnt_hdl, ep_nat);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2767,11 +2766,11 @@ int ipa3_cfg_ep_status(u32 clnt_hdl, const struct ipa3_ep_cfg_status *ep_status)
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].status = *ep_status;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_status(clnt_hdl, ep_status);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2823,11 +2822,11 @@ int ipa3_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *cfg)
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.cfg = *cfg;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_cfg(clnt_hdl, cfg);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2874,11 +2873,11 @@ int ipa3_cfg_ep_metadata_mask(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.metadata_mask = *metadata_mask;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_metadata_mask(clnt_hdl, metadata_mask);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2976,11 +2975,11 @@ int ipa3_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 	/* copy over EP cfg */
 	ep->cfg.hdr = *ep_hdr;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_hdr(clnt_hdl, &ep->cfg.hdr);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3069,11 +3068,11 @@ int ipa3_cfg_ep_hdr_ext(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ep->cfg.hdr_ext = *ep_hdr_ext;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_hdr_ext(clnt_hdl, &ep->cfg.hdr_ext);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3272,7 +3271,7 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 	ipa3_ctx->ep[clnt_hdl].cfg.mode = *ep_mode;
 	ipa3_ctx->ep[clnt_hdl].dst_pipe_index = ep;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_mode(clnt_hdl,
 			ipa3_ctx->ep[clnt_hdl].dst_pipe_index,
@@ -3290,7 +3289,7 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 		ipa_write_reg(ipa3_ctx->mmio,
 				IPA_ENDP_INIT_SEQ_n_OFST(clnt_hdl), type);
 	}
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3404,11 +3403,11 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.aggr = *ep_aggr;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_aggr(clnt_hdl, ep_aggr);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3480,12 +3479,12 @@ int ipa3_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 	ipa3_ctx->ep[clnt_hdl].rt_tbl_idx =
 		IPA_MEM_PART(v4_apps_rt_index_lo);
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_route(clnt_hdl,
 			ipa3_ctx->ep[clnt_hdl].rt_tbl_idx);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3552,11 +3551,11 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	ipa3_ctx->ep[clnt_hdl].holb = *ep_holb;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_holb(clnt_hdl, ep_holb);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("cfg holb %u ep=%d tmr=%d\n", ep_holb->en, clnt_hdl,
 				ep_holb->tmr_val);
@@ -3646,11 +3645,11 @@ int ipa3_cfg_ep_deaggr(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ep->cfg.deaggr = *ep_deaggr;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_deaggr(clnt_hdl, &ep->cfg.deaggr);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3692,14 +3691,14 @@ int ipa3_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.meta = *ep_md;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipa3_ctx->ctrl->ipa3_cfg_ep_metadata(clnt_hdl, ep_md);
 	ipa3_ctx->ep[clnt_hdl].cfg.hdr.hdr_metadata_reg_valid = 1;
 	ipa3_ctx->ctrl->ipa3_cfg_ep_hdr(clnt_hdl,
 			&ipa3_ctx->ep[clnt_hdl].cfg.hdr);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3875,11 +3874,11 @@ int ipa3_set_aggr_mode(enum ipa_aggr_mode mode)
 {
 	u32 reg_val;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	reg_val = ipa_read_reg(ipa3_ctx->mmio, IPA_QCNCM_OFST);
 	ipa_write_reg(ipa3_ctx->mmio, IPA_QCNCM_OFST, (mode & 0x1) |
 			(reg_val & 0xfffffffe));
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3903,12 +3902,12 @@ int ipa3_set_qcncm_ndp_sig(char sig[3])
 		IPAERR("bad argument for ipa3_set_qcncm_ndp_sig/n");
 		return -EINVAL;
 	}
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	reg_val = ipa_read_reg(ipa3_ctx->mmio, IPA_QCNCM_OFST);
 	ipa_write_reg(ipa3_ctx->mmio, IPA_QCNCM_OFST, sig[0] << 20 |
 			(sig[1] << 12) | (sig[2] << 4) |
 			(reg_val & 0xf000000f));
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3924,11 +3923,11 @@ int ipa3_set_single_ndp_per_mbim(bool enable)
 {
 	u32 reg_val;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	reg_val = ipa_read_reg(ipa3_ctx->mmio, IPA_SINGLE_NDP_MODE_OFST);
 	ipa_write_reg(ipa3_ctx->mmio, IPA_SINGLE_NDP_MODE_OFST,
 			(enable & 0x1) | (reg_val & 0xfffffffe));
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3973,14 +3972,14 @@ void ipa3_bam_reg_dump(void)
 	static DEFINE_RATELIMIT_STATE(_rs, 500*HZ, 1);
 
 	if (__ratelimit(&_rs)) {
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 		pr_err("IPA BAM START\n");
 		sps_get_bam_debug_info(ipa3_ctx->bam_handle, 93,
 			(SPS_BAM_PIPE(ipa3_get_ep_mapping(IPA_CLIENT_USB_CONS))
 			|
 			SPS_BAM_PIPE(ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD))),
 			0, 2);
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	}
 }
 
@@ -4673,7 +4672,7 @@ bool ipa3_is_client_handle_valid(u32 clnt_hdl)
 void ipa3_proxy_clk_unvote(void)
 {
 	if (ipa3_is_ready() && ipa3_ctx->q6_proxy_clk_vote_valid) {
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PROXY_CLK_VOTE");
 		ipa3_ctx->q6_proxy_clk_vote_valid = false;
 	}
 }
@@ -4686,7 +4685,7 @@ void ipa3_proxy_clk_unvote(void)
 void ipa3_proxy_clk_vote(void)
 {
 	if (ipa3_is_ready() && !ipa3_ctx->q6_proxy_clk_vote_valid) {
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_SPECIAL("PROXY_CLK_VOTE");
 		ipa3_ctx->q6_proxy_clk_vote_valid = true;
 	}
 }
@@ -5198,7 +5197,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	memset(&mem, 0, sizeof(mem));
 
@@ -5228,7 +5227,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 	res = -EFAULT;
 end_sequence:
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return res;
 }
