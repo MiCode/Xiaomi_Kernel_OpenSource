@@ -567,7 +567,7 @@
 			synaptics,reset-gpio = <&tlmm 89 0x00>;
 			synaptics,irq-gpio = <&tlmm 125 0x2008>;
 			synaptics,disable-gpios;
-			synaptics,button-map = <102 139 158>;
+			synaptics,button-map = <139 158 102>;
 		};
 	};
 
