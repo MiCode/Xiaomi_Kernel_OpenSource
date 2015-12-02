@@ -117,7 +117,6 @@ struct kgsl_mmu_pt_ops {
 
 struct kgsl_mmu {
 	uint32_t      flags;
-	struct kgsl_device     *device;
 	struct kgsl_memdesc    setstate_memory;
 	/* current page table object being used by device mmu */
 	struct kgsl_pagetable  *defaultpagetable;
