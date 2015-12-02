@@ -2125,6 +2125,10 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 			 * get turned on when the first update comes.
 			 */
 			pr_debug("%s: reset intf_stopped flag.\n", __func__);
+			mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
+				(void *)&ctx->intf_recovery,
+				CTL_INTF_EVENT_FLAG_DEFAULT);
 			ctx->intf_stopped = 0;
 			goto end;
 		}
