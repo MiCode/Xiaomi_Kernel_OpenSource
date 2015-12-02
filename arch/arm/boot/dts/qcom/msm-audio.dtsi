@@ -479,7 +479,7 @@
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
-	i2c@7af8000 {
+	i2c@78b6000 {
 		wsa881x_i2c_e: wsa881x-i2c-codec@e {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0e>;
