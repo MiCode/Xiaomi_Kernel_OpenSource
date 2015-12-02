@@ -435,10 +435,9 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 		dev_dbg(mhsic->dev, "%s SKIP PHY suspend\n", __func__);
 	}
 
-	if (!mhsic->connected) {
-		clk_disable_unprepare(mhsic->iface_clk);
-		clk_disable_unprepare(mhsic->core_clk);
-	}
+	clk_disable_unprepare(mhsic->iface_clk);
+	clk_disable_unprepare(mhsic->core_clk);
+
 	clk_disable_unprepare(mhsic->phy_clk);
 	clk_disable_unprepare(mhsic->cal_clk);
 	clk_disable_unprepare(mhsic->alt_core_clk);
@@ -497,10 +496,8 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 		dev_err(mhsic->dev,
 			"unable to set nominal vddcx voltage (no VDD MIN)\n");
 
-	if (!mhsic->connected) {
-		clk_prepare_enable(mhsic->iface_clk);
-		clk_prepare_enable(mhsic->core_clk);
-	}
+	clk_prepare_enable(mhsic->iface_clk);
+	clk_prepare_enable(mhsic->core_clk);
 
 	clk_prepare_enable(mhsic->phy_clk);
 	clk_prepare_enable(mhsic->cal_clk);

@@ -604,16 +604,6 @@ struct msm_usb_host_platform_data {
 };
 
 /**
- * struct msm_hsic_peripheral_platform_data: HSIC peripheral
- * platform data.
- * @core_clk_always_on_workaround: Don't disable core_clk when
- *                                 HSIC enters LPM.
- */
-struct msm_hsic_peripheral_platform_data {
-	bool core_clk_always_on_workaround;
-};
-
-/**
  * struct usb_ext_notification: event notification structure
  * @notify: pointer to client function to call when ID event is detected.
  *          The function parameter is provided by driver to be called back when
