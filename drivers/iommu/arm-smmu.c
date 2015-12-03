@@ -1016,6 +1016,11 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 	}
 }
 
+static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
+{
+	arm_smmu_tlb_inv_context(domain->priv);
+}
+
 struct arm_smmu_secure_pool_chunk {
 	void *addr;
 	size_t size;
@@ -3079,6 +3084,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.trigger_fault		= arm_smmu_trigger_fault,
 	.reg_read		= arm_smmu_reg_read,
 	.reg_write		= arm_smmu_reg_write,
+	.tlbi_domain		= arm_smmu_tlbi_domain,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
