@@ -362,11 +362,18 @@ Optional properties:
 					"reg_read_nt35596" = Reads panel status register to check the panel
 							     status for NT35596 panel.
 					"te_signal_check" = Uses TE signal behaviour to check the panel status
-- qcom,mdss-dsi-panel-status-read-length: Integer value that specifies the expected read-back length of the
-					  panel register.
-- qcom,mdss-dsi-panel-status-value:	An integer array that specifies the values of the panel status register
-					which is used to check the panel status. The size of this array
-					is specified by	qcom,mdss-dsi-panel-status-read-length.
+- qcom,mdss-dsi-panel-status-read-length: Integer array that specify the expected read-back length of values
+					  for each of panel registers. Each length is corresponding to number of
+					  returned parameters of register introduced in specification.
+- qcom,mdss-dsi-panel-status-valid-params: Integer array that specify the valid returned values which need to check
+					   for each of register.
+					   Some panel need only check the first few values returned from panel.
+					   So: if this property is the same to qcom,mdss-dsi-panel-status-read-length,
+					   then just ignore this one.
+- qcom,mdss-dsi-panel-status-value:	Multiple integer arrays, each specifies the values of the panel status register
+					which is used to check the panel status. The size of each array is the sum of
+					length specified in qcom,mdss-dsi-panel-status-read-length, and must be equal.
+					This can cover that Some panel may return several alternative values.
 - qcom,mdss-dsi-panel-max-error-count:  Integer value that specifies the maximum number of errors from register
 					read that can be ignored before treating that the panel has gone bad.
 - qcom,dynamic-mode-switch-enabled:		Boolean used to mention whether panel supports

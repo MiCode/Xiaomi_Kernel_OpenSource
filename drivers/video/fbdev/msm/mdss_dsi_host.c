@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1018,22 +1018,39 @@ void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata)
 
 static int mdss_dsi_read_status(struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	int i, rc, *lenp;
+	int start = 0;
 	struct dcs_cmd_req cmdreq;
 
-	memset(&cmdreq, 0, sizeof(cmdreq));
-	cmdreq.cmds = ctrl->status_cmds.cmds;
-	cmdreq.cmds_cnt = ctrl->status_cmds.cmd_cnt;
-	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL | CMD_REQ_RX;
-	cmdreq.rlen = ctrl->status_cmds_rlen;
-	cmdreq.cb = NULL;
-	cmdreq.rbuf = ctrl->status_buf.data;
+	rc = 1;
+	lenp = ctrl->status_valid_params ?: ctrl->status_cmds_rlen;
 
-	if (ctrl->status_cmds.link_state == DSI_LP_MODE)
-		cmdreq.flags  |= CMD_REQ_LP_MODE;
-	else if (ctrl->status_cmds.link_state == DSI_HS_MODE)
-		cmdreq.flags |= CMD_REQ_HS_MODE;
+	for (i = 0; i < ctrl->status_cmds.cmd_cnt; ++i) {
+		memset(&cmdreq, 0, sizeof(cmdreq));
+		cmdreq.cmds = ctrl->status_cmds.cmds + i;
+		cmdreq.cmds_cnt = 1;
+		cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL | CMD_REQ_RX;
+		cmdreq.rlen = ctrl->status_cmds_rlen[i];
+		cmdreq.cb = NULL;
+		cmdreq.rbuf = ctrl->status_buf.data;
 
-	return mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+		if (ctrl->status_cmds.link_state == DSI_LP_MODE)
+			cmdreq.flags  |= CMD_REQ_LP_MODE;
+		else if (ctrl->status_cmds.link_state == DSI_HS_MODE)
+			cmdreq.flags |= CMD_REQ_HS_MODE;
+
+		rc = mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+		if (rc <= 0) {
+			pr_err("%s: get status: fail\n", __func__);
+			return rc;
+		}
+
+		memcpy(ctrl->return_buf + start,
+			ctrl->status_buf.data, lenp[i]);
+		start += lenp[i];
+	}
+
+	return rc;
 }
 
 
