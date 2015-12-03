@@ -152,6 +152,8 @@ enum tasha_sido_voltage {
 	SIDO_VOLTAGE_NOMINAL_MV = 1100,
 };
 
+static enum codec_variant codec_ver;
+
 static int dig_core_collapse_enable = 1;
 module_param(dig_core_collapse_enable, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
@@ -12467,6 +12469,65 @@ err:
 	return;
 }
 
+/*
+ * tasha_codec_ver: to get tasha codec version
+ * @codec: handle to snd_soc_codec *
+ * return enum codec_variant - version
+ */
+enum codec_variant tasha_codec_ver(void)
+{
+	return codec_ver;
+}
+EXPORT_SYMBOL(tasha_codec_ver);
+
+static int __tasha_enable_efuse_sensing(struct tasha_priv *tasha)
+{
+	__tasha_cdc_mclk_enable(tasha, true);
+
+	wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
+			WCD9335_CHIP_TIER_CTRL_EFUSE_CTL, 0x1E, 0x20);
+	wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
+			WCD9335_CHIP_TIER_CTRL_EFUSE_CTL, 0x01, 0x01);
+
+	/*
+	 * 5ms sleep required after enabling efuse control
+	 * before checking the status.
+	 */
+	usleep_range(5000, 5500);
+	if (!(wcd9xxx_reg_read(&tasha->wcd9xxx->core_res,
+				WCD9335_CHIP_TIER_CTRL_EFUSE_STATUS) & 0x01))
+		WARN(1, "%s: Efuse sense is not complete\n", __func__);
+
+	__tasha_cdc_mclk_enable(tasha, false);
+
+	return 0;
+}
+
+void tasha_get_codec_ver(struct tasha_priv *tasha)
+{
+	int i;
+	u8 val;
+	struct tasha_reg_mask_val codec_reg[] = {
+		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT10, 0xFF, 0xFF},
+		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT11, 0xFF, 0x83},
+		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT12, 0xFF, 0x0A},
+	};
+
+	__tasha_enable_efuse_sensing(tasha);
+	for (i = 0; i < ARRAY_SIZE(codec_reg); i++) {
+		val = wcd9xxx_reg_read(&tasha->wcd9xxx->core_res,
+				codec_reg[i].reg);
+		if (!(val && codec_reg[i].val)) {
+			codec_ver = WCD9335;
+			goto ret;
+		}
+	}
+	codec_ver = WCD9326;
+ret:
+	pr_debug("%s: codec is %d\n", __func__, codec_ver);
+}
+EXPORT_SYMBOL(tasha_get_codec_ver);
+
 static int tasha_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -12559,6 +12620,9 @@ static int tasha_probe(struct platform_device *pdev)
 	/* Update codec register default values */
 	tasha_update_reg_defaults(tasha);
 	schedule_work(&tasha->swr_add_devices_work);
+
+	tasha_get_codec_ver(tasha);
+
 	return ret;
 
 resmgr_remove:
