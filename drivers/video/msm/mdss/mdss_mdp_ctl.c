@@ -5062,6 +5062,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	 */
 	if (ret == NOTIFY_BAD) {
 		mdss_mdp_force_border_color(ctl);
+		ctl_flush_bits |= (ctl->flush_bits | BIT(17));
+		if (sctl && (!ctl->split_flush_en))
+			sctl_flush_bits |= (sctl->flush_bits | BIT(17));
 		ret = 0;
 	}
 
