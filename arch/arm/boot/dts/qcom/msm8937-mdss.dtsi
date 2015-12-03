@@ -77,7 +77,7 @@
 		qcom,mdss-mixer-wb-off = <0x00048000>;
 		qcom,mdss-dspp-off = <0x00055000>;
 		qcom,mdss-wb-off = <0x00065000 0x00066000>;
-		qcom,mdss-intf-off = <0x0006B000 0x0006B800 0x0006C000>;
+		qcom,mdss-intf-off = <0x00000000 0x0006B800 0x0006C000>;
 		qcom,mdss-pingpong-off = <0x00071000 0x00071800>;
 		qcom,mdss-slave-pingpong-off = <0x00073000>;
 		qcom,mdss-cdm-off = <0x0007a200>;
@@ -110,9 +110,7 @@
 				     <0x05000 0x05150>,
 				     <0x05200 0x05230>,
 				     <0x15000 0x15150>,
-				     <0x15200 0x15230>,
 				     <0x17000 0x17150>,
-				     <0x17200 0x17230>,
 				     <0x25000 0x25150>,
 				     <0x35000 0x35150>,
 				     <0x45000 0x452bc>,
@@ -128,7 +126,7 @@
 		qcom,regs-dump-names-mdp = "MDP",
 			"CTL_0",    "CTL_1", "CTL_2",
 			"VIG0_SSPP", "VIG0",
-			"RGB0_SSPP", "RGB0",  "RGB1_SSPP", "RGB1",
+			"RGB0_SSPP", "RGB1_SSPP",
 			"DMA0_SSPP",
 			"CURSOR0_SSPP",
 			"LAYER_0", "LAYER_1",
