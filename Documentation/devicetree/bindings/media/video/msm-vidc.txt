@@ -77,6 +77,15 @@ Optional properties:
 
   The bitmap is defined as:
   scalable = 0x1 (if the driver should vary the clock's frequency based on load)
+- qcom,allowed-clock-rates = an array of supported clock rates by the chipset.
+- qcom,clock-freq-tbl = node containing individual domain nodes, each with:
+     - qcom,codec-mask: a bitmap of supported codec types, every two bits
+       represents a codec type.
+     - qcom,cycles-per-mb: number of cycles required to process each macro
+       block.
+     - qcom,low-power-mode-factor: the factor which needs to be multiple with
+       the required frequency to get the final frequency, the factor is
+       represented in Q16 format.
 - qcom,sw-power-collapse = A bool indicating if video hardware core can be
   power collapsed in idle state.
 - qcom,slave-side-cp = A bool indicating the content protection mode for an
