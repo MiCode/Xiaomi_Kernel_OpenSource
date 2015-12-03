@@ -181,6 +181,7 @@ extern struct dentry *iommu_debugfs_top;
  * @trigger_fault: trigger a fault on the device attached to an iommu domain
  * @reg_read: read an IOMMU register
  * @reg_write: write an IOMMU register
+ * @tlbi_domain: Invalidate all TLBs covering an iommu domain
  */
 struct iommu_ops {
 	bool (*capable)(enum iommu_cap);
@@ -227,6 +228,7 @@ struct iommu_ops {
 				  unsigned long offset);
 	void (*reg_write)(struct iommu_domain *domain, unsigned long val,
 			  unsigned long offset);
+	void (*tlbi_domain)(struct iommu_domain *domain);
 
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
 
@@ -375,6 +377,12 @@ extern void iommu_reg_write(struct iommu_domain *domain, unsigned long offset,
 extern struct iommu_group *pci_device_group(struct device *dev);
 /* Generic device grouping function */
 extern struct iommu_group *generic_device_group(struct device *dev);
+
+static inline void iommu_tlbiall(struct iommu_domain *domain)
+{
+	if (domain->ops->tlbi_domain)
+		domain->ops->tlbi_domain(domain);
+}
 
 #else /* CONFIG_IOMMU_API */
 
@@ -605,6 +613,10 @@ static inline unsigned long iommu_reg_read(struct iommu_domain *domain,
 
 static inline void iommu_reg_write(struct iommu_domain *domain,
 				   unsigned long val, unsigned long offset)
+{
+}
+
+static inline void iommu_tlbiall(struct iommu_domain *domain)
 {
 }
 
