@@ -173,6 +173,7 @@ struct iommu_dm_region {
  * @trigger_fault: trigger a fault on the device attached to an iommu domain
  * @reg_read: read an IOMMU register
  * @reg_write: write an IOMMU register
+ * @tlbi_domain: Invalidate all TLBs covering an iommu domain
  * @priv: per-instance data private to the iommu driver
  */
 struct iommu_ops {
@@ -220,6 +221,7 @@ struct iommu_ops {
 				  unsigned long offset);
 	void (*reg_write)(struct iommu_domain *domain, unsigned long val,
 			  unsigned long offset);
+	void (*tlbi_domain)(struct iommu_domain *domain);
 
 #ifdef CONFIG_OF_IOMMU
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
@@ -381,6 +383,12 @@ extern int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
 extern struct iommu_group *pci_device_group(struct device *dev);
 /* Generic device grouping function */
 extern struct iommu_group *generic_device_group(struct device *dev);
+
+static inline void iommu_tlbiall(struct iommu_domain *domain)
+{
+	if (domain->ops->tlbi_domain)
+		domain->ops->tlbi_domain(domain);
+}
 
 #else /* CONFIG_IOMMU_API */
 
@@ -624,6 +632,10 @@ static int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
 			       u64 mask)
 {
 	return -EINVAL;
+}
+
+static inline void iommu_tlbiall(struct iommu_domain *domain)
+{
 }
 
 #endif /* CONFIG_IOMMU_API */
