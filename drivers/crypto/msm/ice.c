@@ -336,27 +336,42 @@ static void qcom_ice_optimization_enable(struct ice_device *ice_dev)
 	}
 }
 
-static void qcom_ice_enable(struct ice_device *ice_dev)
+static int qcom_ice_wait_bist_status(struct ice_device *ice_dev)
+{
+	int count;
+	u32 reg;
+
+	/* Poll until all BIST bits are reset */
+	for (count = 0; count < QCOM_ICE_MAX_BIST_CHECK_COUNT; count++) {
+		reg = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BIST_STATUS);
+		if (!(reg & ICE_BIST_STATUS_MASK))
+			break;
+		udelay(50);
+	}
+
+	if (reg)
+		return -ETIMEDOUT;
+
+	return 0;
+}
+
+static int qcom_ice_enable(struct ice_device *ice_dev)
 {
 	unsigned int reg;
-	int count;
+	int ret = 0;
 
 	if ((ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) ||
 		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
-		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
-		for (count = 0; count < QCOM_ICE_MAX_BIST_CHECK_COUNT;
-						count++) {
-			reg = qcom_ice_readl(ice_dev,
-						QCOM_ICE_REGS_BIST_STATUS);
-			if ((reg & 0xF0000000) != 0x0)
-				udelay(50);
-		}
-		if ((reg & 0xF0000000) != 0x0) {
-			pr_err("%s: BIST validation failed for ice = %p",
-					__func__, (void *)ice_dev);
-			BUG();
-		}
+		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1)))
+		ret = qcom_ice_wait_bist_status(ice_dev);
+	if (ret) {
+		dev_err(ice_dev->pdev, "BIST status error (%d)\n", ret);
+		return ret;
 	}
+
+	/* Starting ICE v3 enabling is done at storage controller (UFS/SDCC) */
+	if (ICE_REV(ice_dev->ice_hw_version, MAJOR) >= 3)
+		return 0;
 
 	/*
 	 * To enable ICE, perform following
@@ -402,6 +417,7 @@ static void qcom_ice_enable(struct ice_device *ice_dev)
 			BUG();
 		}
 	}
+	return 0;
 }
 
 static int qcom_ice_verify_ice(struct ice_device *ice_dev)
@@ -557,7 +573,8 @@ static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 		struct ice_device *ice_dev)
 {
 	struct device *dev = &pdev->dev;
-	int irq, rc = -1;
+	int rc = -1;
+	int irq;
 
 	ice_dev->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!ice_dev->res) {
@@ -585,23 +602,31 @@ static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 
 	if (ice_dev->is_ice_clk_available) {
 		rc = qcom_ice_parse_clock_info(pdev, ice_dev);
-		if (rc)
-			goto err_dev;
-
-		irq = platform_get_irq(pdev, 0);
-		if (irq < 0) {
-			dev_err(dev, "IRQ resource not available\n");
-			rc = -ENODEV;
+		if (rc) {
+			pr_err("%s: qcom_ice_parse_clock_info failed (%d)\n",
+				__func__, rc);
 			goto err_dev;
 		}
-		rc = devm_request_irq(dev, irq, qcom_ice_isr, 0,
-				dev_name(dev), ice_dev);
-		if (rc)
+	}
+
+	/* ICE interrupts is only relevant for v2.x */
+	irq = platform_get_irq(pdev, 0);
+	if (irq >= 0) {
+		rc = devm_request_irq(dev, irq, qcom_ice_isr, 0, dev_name(dev),
+				ice_dev);
+		if (rc) {
+			pr_err("%s: devm_request_irq irq=%d failed (%d)\n",
+				__func__, irq, rc);
 			goto err_dev;
+		}
 		ice_dev->irq = irq;
 		pr_info("ICE IRQ = %d\n", ice_dev->irq);
-		qcom_ice_parse_ice_instance_type(pdev, ice_dev);
+	} else {
+		dev_info(dev, "IRQ resource not available\n");
 	}
+
+	qcom_ice_parse_ice_instance_type(pdev, ice_dev);
+
 	return 0;
 err_dev:
 	if (rc && ice_dev->mmio)
@@ -958,7 +983,7 @@ static int qcom_ice_finish_init(struct ice_device *ice_dev)
 	/*
 	 * It is possible that ICE device is not probed when host is probed
 	 * This would cause host probe to be deferred. When probe for host is
-	 * defered, it can cause power collapse for host and that can wipe
+	 * deferred, it can cause power collapse for host and that can wipe
 	 * configurations of host & ice. It is prudent to restore the config
 	 */
 	err = qcom_ice_update_sec_cfg(ice_dev);

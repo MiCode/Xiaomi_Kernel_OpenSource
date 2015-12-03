@@ -14,7 +14,7 @@
 #define _QCOM_INLINE_CRYPTO_ENGINE_REGS_H_
 
 /* Register bits for ICE version */
-#define ICE_CORE_CURRENT_MAJOR_VERSION 0x02
+#define ICE_CORE_CURRENT_MAJOR_VERSION 0x03
 
 #define ICE_CORE_STEP_REV_MASK		0xFFFF
 #define ICE_CORE_STEP_REV		0 /* bit 15-0 */
@@ -23,6 +23,7 @@
 #define ICE_CORE_MINOR_REV_MASK		0xFF0000
 #define ICE_CORE_MINOR_REV		16 /* bit 23-16 */
 
+#define ICE_BIST_STATUS_MASK		(0xF0000000)	/* bits 28-31 */
 
 #define ICE_FUSE_SETTING_MASK			0x1
 #define ICE_FORCE_HW_KEY0_SETTING_MASK		0x2
