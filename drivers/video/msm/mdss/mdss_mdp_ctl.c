@@ -4697,7 +4697,8 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 	mutex_lock(&mdp5_data->dfps_lock);
 
 	if ((pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) ||
-		(pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP)) {
+		(pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) ||
+		pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
 		new_fps = mdss_panel_get_framerate(pinfo);
 	} else {
 		new_fps = pinfo->new_fps;

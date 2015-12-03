@@ -28,6 +28,7 @@
 #include "mdss_panel.h"
 #include "mdss_debug.h"
 #include "mdss_smmu.h"
+#include "mdss_dsi_phy.h"
 
 #define VSYNC_PERIOD 17
 #define DMA_TX_TIMEOUT 200
@@ -288,6 +289,23 @@ void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	pr_debug("%s: ndx=%d hw_rev=%x\n", __func__,
 				ctrl->ndx, ctrl->shared_data->hw_rev);
+}
+
+void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	u32 reg_val;
+
+	if (ctrl->shared_data->phy_rev > DSI_PHY_REV_UNKNOWN)
+		return;
+
+	reg_val = MIPI_INP(ctrl->phy_io.base);
+
+	if (reg_val == DSI_PHY_REV_20)
+		ctrl->shared_data->phy_rev = DSI_PHY_REV_20;
+	else if (reg_val == DSI_PHY_REV_10)
+		ctrl->shared_data->phy_rev = DSI_PHY_REV_10;
+	else
+		ctrl->shared_data->phy_rev = DSI_PHY_REV_UNKNOWN;
 }
 
 void mdss_dsi_host_init(struct mdss_panel_data *pdata)
@@ -2119,6 +2137,7 @@ int mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	unsigned long flag;
 	u32 data;
 	int rc = 0;
+	struct mdss_dsi_ctrl_pdata *sctrl_pdata;
 
 	/* DSI_INTL_CTRL */
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
@@ -2130,8 +2149,21 @@ int mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	reinit_completion(&ctrl->dynamic_comp);
 	mdss_dsi_enable_irq(ctrl, DSI_DYNAMIC_TERM);
 	spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
+
+	/*
+	 * Ensure that registers are updated before triggering
+	 * dynamic refresh
+	 */
+	wmb();
+
 	MIPI_OUTP((ctrl->ctrl_base) + DSI_DYNAMIC_REFRESH_CTRL,
-			(BIT(8) | BIT(0)));
+		(BIT(13) | BIT(8) | BIT(0)));
+
+	sctrl_pdata = mdss_dsi_get_ctrl_clk_slave();
+
+	if (sctrl_pdata)
+		MIPI_OUTP((sctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_CTRL,
+				(BIT(13) | BIT(8) | BIT(0)));
 
 	if (!wait_for_completion_timeout(&ctrl->dynamic_comp,
 			msecs_to_jiffies(VSYNC_PERIOD * 4))) {
@@ -2814,6 +2846,7 @@ void mdss_dsi_error(struct mdss_dsi_ctrl_pdata *ctrl)
 irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 {
 	u32 isr;
+	u32 intr;
 	struct mdss_dsi_ctrl_pdata *ctrl =
 			(struct mdss_dsi_ctrl_pdata *)ptr;
 
@@ -2890,6 +2923,12 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 	if (isr & DSI_INTR_DYNAMIC_REFRESH_DONE) {
 		spin_lock(&ctrl->mdp_lock);
 		mdss_dsi_disable_irq_nosync(ctrl, DSI_DYNAMIC_TERM);
+
+		/* clear dfps interrupt */
+		intr = MIPI_INP(ctrl->ctrl_base + 0x0110);
+		intr |= DSI_INTR_DYNAMIC_REFRESH_DONE;
+		MIPI_OUTP(ctrl->ctrl_base + 0x0110, intr);
+
 		complete(&ctrl->dynamic_comp);
 		spin_unlock(&ctrl->mdp_lock);
 	}
