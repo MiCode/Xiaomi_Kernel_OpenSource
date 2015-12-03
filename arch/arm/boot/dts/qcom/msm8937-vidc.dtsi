@@ -26,18 +26,6 @@
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
 		qcom,slave-side-cp;
-		qcom,load-freq-tbl =
-			/* Decoders */
-			<244800 308571428 0x0c000000>, /* 1080p@30 HEVC */
-			<244800 240000000 0x0300000c>, /* 1080p@30 H264 VP8 */
-			<216000 240000000 0x0c000000>, /* 720p@60 HEVC */
-			<216000 166150000 0x0300000c>, /* 720p60 H264 VP8 */
-			<108000 166150000 0x0f00000c>, /* 720p@30 ALL */
-
-			/* Encoders */
-			<244800 308571428 0x00000004>, /* 1080p@30 720p@30 */
-			<97200 240000000 0x00000004>,  /* FWVGA@60 */
-			<48600 166150000 0x00000004>;  /* FWVGA@30 VGA@30 */
 		qcom,dcvs-tbl =
 			<108000 10800 244800 0x00000004>, /* Encoder */
 			<108000 10800 244800 0x0f00000c>; /* Decoder */
@@ -56,6 +44,23 @@
 			<0x9181000 0x1000>;
 		qcom,max-hw-load = <244800>; /* 1080p@30 */
 		qcom,firmware-name = "venus";
+		qcom,allowed-clock-rates = <360000000 320000000
+			308571428 240000000 166150000>;
+		qcom,clock-freq-tbl {
+			qcom,profile-enc {
+				qcom,codec-mask = <0x55555555>;
+				qcom,cycles-per-mb = <2316>;
+				qcom,low-power-mode-factor = <32768>;
+			};
+			qcom,profile-dec {
+				qcom,codec-mask = <0xf3ffffff>;
+				qcom,cycles-per-mb = <684>;
+			};
+			qcom,profile-hevcdec {
+				qcom,codec-mask = <0x0c000000>;
+				qcom,cycles-per-mb = <1015>;
+			};
+		};
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
