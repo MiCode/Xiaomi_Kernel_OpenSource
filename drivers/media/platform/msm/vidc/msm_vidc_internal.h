@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include <linux/workqueue.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <linux/pm_qos.h>
 #include <soc/qcom/ocmem.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
@@ -299,6 +300,7 @@ struct msm_vidc_inst {
 	atomic_t seq_hdr_reqs;
 	struct v4l2_ctrl **ctrls;
 	bool dcvs_mode;
+	struct pm_qos_request pm_qos;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
