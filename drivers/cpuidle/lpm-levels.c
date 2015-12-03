@@ -540,7 +540,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 
 	if (level->notify_rpm) {
 		struct cpumask nextcpu, *cpumask;
-		uint32_t us;
+		uint64_t us;
 
 		us = get_cluster_sleep_time(cluster, &nextcpu, from_idle);
 		cpumask = level->disable_dynamic_routing ? NULL : &nextcpu;
@@ -552,7 +552,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		}
 
 		do_div(us, USEC_PER_SEC/SCLK_HZ);
-		msm_mpm_enter_sleep((uint32_t)us, from_idle, cpumask);
+		msm_mpm_enter_sleep(us, from_idle, cpumask);
 	}
 
 	/* Notify cluster enter event after successfully config completion */
