@@ -618,7 +618,7 @@ static int afe_send_cal_block(u16 port_id, struct cal_block_data *cal_block)
 	afe_cal.param.payload_address_lsw =
 		lower_32_bits(cal_block->cal_data.paddr);
 	afe_cal.param.payload_address_msw =
-		populate_upper_32_bits(cal_block->cal_data.paddr);
+		msm_audio_populate_upper_32_bits(cal_block->cal_data.paddr);
 	afe_cal.param.mem_map_handle = cal_block->map_data.q6map_handle;
 
 	pr_debug("%s: AFE cal sent for device port = 0x%x, cal size = %zd, cal addr = 0x%pa\n",
@@ -663,7 +663,7 @@ static int afe_send_custom_topology_block(struct cal_block_data *cal_block)
 	afe_cal.payload_addr_lsw =
 		lower_32_bits(cal_block->cal_data.paddr);
 	afe_cal.payload_addr_msw =
-		populate_upper_32_bits(cal_block->cal_data.paddr);
+		msm_audio_populate_upper_32_bits(cal_block->cal_data.paddr);
 	afe_cal.mem_map_handle = cal_block->map_data.q6map_handle;
 
 	pr_debug("%s:cmd_id:0x%x calsize:%zd memmap_hdl:0x%x caladdr:0x%pa",
@@ -3500,7 +3500,7 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 	mregion_pl = (struct afe_service_shared_map_region_payload *)payload;
 
 	mregion_pl->shm_addr_lsw = lower_32_bits(dma_addr_p);
-	mregion_pl->shm_addr_msw = populate_upper_32_bits(dma_addr_p);
+	mregion_pl->shm_addr_msw = msm_audio_populate_upper_32_bits(dma_addr_p);
 	mregion_pl->mem_size_bytes = dma_buf_sz;
 
 	pr_debug("%s: dma_addr_p 0x%pa , size %d\n", __func__,
@@ -3599,7 +3599,7 @@ int afe_cmd_memory_map_nowait(int port_id, phys_addr_t dma_addr_p,
 	mregion_pl = (struct afe_service_shared_map_region_payload *)payload;
 
 	mregion_pl->shm_addr_lsw = lower_32_bits(dma_addr_p);
-	mregion_pl->shm_addr_msw = populate_upper_32_bits(dma_addr_p);
+	mregion_pl->shm_addr_msw = msm_audio_populate_upper_32_bits(dma_addr_p);
 	mregion_pl->mem_size_bytes = dma_buf_sz;
 
 	ret = afe_apr_send_pkt(mmap_region_cmd, NULL);
@@ -3881,7 +3881,8 @@ int afe_rt_proxy_port_write(phys_addr_t buf_addr_p,
 	afecmd_wr.hdr.opcode = AFE_PORT_DATA_CMD_RT_PROXY_PORT_WRITE_V2;
 	afecmd_wr.port_id = RT_PROXY_PORT_001_TX;
 	afecmd_wr.buffer_address_lsw = lower_32_bits(buf_addr_p);
-	afecmd_wr.buffer_address_msw = populate_upper_32_bits(buf_addr_p);
+	afecmd_wr.buffer_address_msw =
+			msm_audio_populate_upper_32_bits(buf_addr_p);
 	afecmd_wr.mem_map_handle = mem_map_handle;
 	afecmd_wr.available_bytes = bytes;
 	afecmd_wr.reserved = 0;
@@ -3917,7 +3918,8 @@ int afe_rt_proxy_port_read(phys_addr_t buf_addr_p,
 	afecmd_rd.hdr.opcode = AFE_PORT_DATA_CMD_RT_PROXY_PORT_READ_V2;
 	afecmd_rd.port_id = RT_PROXY_PORT_001_RX;
 	afecmd_rd.buffer_address_lsw = lower_32_bits(buf_addr_p);
-	afecmd_rd.buffer_address_msw = populate_upper_32_bits(buf_addr_p);
+	afecmd_rd.buffer_address_msw =
+				msm_audio_populate_upper_32_bits(buf_addr_p);
 	afecmd_rd.available_bytes = bytes;
 	afecmd_rd.mem_map_handle = mem_map_handle;
 

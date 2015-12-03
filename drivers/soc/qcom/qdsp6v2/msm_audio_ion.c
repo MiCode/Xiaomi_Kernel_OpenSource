@@ -785,7 +785,7 @@ u32 msm_audio_ion_get_smmu_sid_mode32(void)
 		return 0;
 }
 
-u32 populate_upper_32_bits(ion_phys_addr_t pa)
+u32 msm_audio_populate_upper_32_bits(ion_phys_addr_t pa)
 {
 	if (sizeof(ion_phys_addr_t) == sizeof(u32))
 		return msm_audio_ion_get_smmu_sid_mode32();
