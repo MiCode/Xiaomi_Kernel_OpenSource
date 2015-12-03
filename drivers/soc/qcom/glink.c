@@ -157,14 +157,16 @@ struct glink_core_xprt_ctx {
  * @notify_rx_tracer_pkt:	Receive notification for tracer packet
  * @notify_remote_rx_intent:	Receive notification for remote-queued RX intent
  *
- * @transport_ptr:	Transport this channel uses
- * @lcid:		Local channel ID
- * @rcid:		Remote channel ID
- * @local_open_state:	Local channel state
- * @remote_opened:	Remote channel state (opened or closed)
- * @int_req_ack:	Remote side intent request ACK state
- * @int_req_ack_complete: Intent tracking completion - received remote ACK
- * @int_req_complete:	Intent tracking completion - received intent
+ * @transport_ptr:		Transport this channel uses
+ * @lcid:			Local channel ID
+ * @rcid:			Remote channel ID
+ * @local_open_state:		Local channel state
+ * @remote_opened:		Remote channel state (opened or closed)
+ * @int_req_ack:		Remote side intent request ACK state
+ * @int_req_ack_complete:	Intent tracking completion - received remote ACK
+ * @int_req_complete:		Intent tracking completion - received intent
+ * @rx_intent_req_timeout_jiffies:	Timeout for requesting an RX intent, in
+ *			jiffies; if set to 0, timeout is infinite
  *
  * @local_rx_intent_lst_lock_lhc1:	RX intent list lock
  * @local_rx_intent_list:		Active RX Intents queued by client
@@ -242,6 +244,7 @@ struct channel_ctx {
 	bool int_req_ack;
 	struct completion int_req_ack_complete;
 	struct completion int_req_complete;
+	unsigned long rx_intent_req_timeout_jiffies;
 
 	spinlock_t local_rx_intent_lst_lock_lhc1;
 	struct list_head local_rx_intent_list;
@@ -2399,6 +2402,8 @@ void *glink_open(const struct glink_open_config *cfg)
 
 	/* initialize port structure */
 	ctx->user_priv = cfg->priv;
+	ctx->rx_intent_req_timeout_jiffies =
+		msecs_to_jiffies(cfg->rx_intent_req_timeout_ms);
 	ctx->notify_rx = cfg->notify_rx;
 	ctx->notify_tx_done = cfg->notify_tx_done;
 	ctx->notify_state = cfg->notify_state;
@@ -2418,6 +2423,9 @@ void *glink_open(const struct glink_open_config *cfg)
 		ctx->notify_rx_abort = glink_dummy_notify_rx_abort;
 	if (!ctx->notify_tx_abort)
 		ctx->notify_tx_abort = glink_dummy_notify_tx_abort;
+
+	if (!ctx->rx_intent_req_timeout_jiffies)
+		ctx->rx_intent_req_timeout_jiffies = MAX_SCHEDULE_TIMEOUT;
 
 	ctx->local_xprt_req = best_id;
 	ctx->no_migrate = cfg->transport &&
@@ -2710,7 +2718,16 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			}
 
 			/* wait for the remote intent req ack */
-			wait_for_completion(&ctx->int_req_ack_complete);
+			if (!wait_for_completion_timeout(
+					&ctx->int_req_ack_complete,
+					ctx->rx_intent_req_timeout_jiffies)) {
+				GLINK_ERR_CH(ctx,
+					"%s: Intent request ack with size: %zu not granted for lcid\n",
+					__func__, size);
+				rwref_put(&ctx->ch_state_lhc0);
+				return -ETIMEDOUT;
+			}
+
 			if (!ctx->int_req_ack) {
 				GLINK_ERR_CH(ctx,
 				    "%s: Intent Request with size: %zu %s",
@@ -2721,7 +2738,16 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			}
 
 			/* wait for the rx_intent from remote side */
-			wait_for_completion(&ctx->int_req_complete);
+			if (!wait_for_completion_timeout(
+					&ctx->int_req_complete,
+					ctx->rx_intent_req_timeout_jiffies)) {
+				GLINK_ERR_CH(ctx,
+					"%s: Intent request with size: %zu not granted for lcid\n",
+					__func__, size);
+				rwref_put(&ctx->ch_state_lhc0);
+				return -ETIMEDOUT;
+			}
+
 			reinit_completion(&ctx->int_req_complete);
 			ch_st = ctx->local_open_state;
 			if (ch_st == GLINK_CHANNEL_CLOSING ||
