@@ -2345,9 +2345,6 @@ static int tmc_probe(struct platform_device *pdev)
 	struct coresight_cti_data *ctidata;
 	struct coresight_desc *desc;
 
-	if (coresight_fuse_access_disabled())
-		return -EPERM;
-
 	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
@@ -2386,6 +2383,11 @@ static int tmc_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
+
+	if (!coresight_authstatus_enabled(drvdata->base)) {
+		clk_disable_unprepare(drvdata->clk);
+		return -EPERM;
+	}
 
 	drvdata->force_reg_dump = of_property_read_bool
 				  (pdev->dev.of_node,

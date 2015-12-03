@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@
 #define BMVAL(val, lsb, msb)	((val & BM(lsb, msb)) >> lsb)
 #define BVAL(val, n)		((val & BIT(n)) >> n)
 
+extern bool coresight_authstatus_enabled(void *addr);
 #ifdef CONFIG_CORESIGHT_FUSE
 extern bool coresight_fuse_access_disabled(void);
 extern bool coresight_fuse_apps_access_disabled(void);
