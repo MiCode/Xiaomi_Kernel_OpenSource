@@ -547,8 +547,10 @@ static int msm_cpe_lab_thread(void *data)
 	pr_debug("%s: Lab thread start\n", __func__);
 	init_completion(&lab_d->comp);
 
-	if (PCM_RUNTIME_CHECK(substream))
-		return -EINVAL;
+	if (PCM_RUNTIME_CHECK(substream)) {
+		rc = -EINVAL;
+		goto done;
+	}
 
 	if (!cpe || !cpe->core_handle) {
 		pr_err("%s: Handle to %s is invalid\n",
@@ -571,76 +573,68 @@ static int msm_cpe_lab_thread(void *data)
 	lsm_ops = &cpe->lsm_ops;
 	afe_ops = &cpe->afe_ops;
 
-	if (!kthread_should_stop()) {
-		rc = lsm_ops->lab_ch_setup(cpe->core_handle,
-					   session,
-					   WCD_CPE_PRE_ENABLE);
-		if (rc) {
-			dev_err(rtd->dev,
-				"%s: PRE ch setup failed, err = %d\n",
-				__func__, rc);
-			goto done;
-		}
+	rc = lsm_ops->lab_ch_setup(cpe->core_handle,
+				   session,
+				   WCD_CPE_PRE_ENABLE);
+	if (rc) {
+		dev_err(rtd->dev,
+			"%s: PRE ch setup failed, err = %d\n",
+			__func__, rc);
+		goto done;
+	}
 
-		rc = dma_data->dai_channel_ctl(dma_data, rtd->cpu_dai, true);
-		if (rc) {
-			dev_err(rtd->dev,
-				"%s: open data failed %d\n", __func__, rc);
-			goto done;
-		}
+	rc = dma_data->dai_channel_ctl(dma_data, rtd->cpu_dai, true);
+	if (rc) {
+		dev_err(rtd->dev,
+			"%s: open data failed %d\n", __func__, rc);
+		goto done;
+	}
 
-		dev_dbg(rtd->dev, "%s: Established data channel\n",
-			__func__);
+	dev_dbg(rtd->dev, "%s: Established data channel\n",
+		__func__);
 
-		init_waitqueue_head(&lab_d->period_wait);
-		memset(lab_d->pcm_buf[0].mem, 0, lab_d->pcm_size);
+	init_waitqueue_head(&lab_d->period_wait);
+	memset(lab_d->pcm_buf[0].mem, 0, lab_d->pcm_size);
 
-		rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
-				    lab_d->pcm_buf[0].phys,
-				    hw_params->buf_sz, &lab_d->comp);
-		if (rc) {
-			dev_err(rtd->dev,
-				"%s: buf[0] slim_port_xfer failed, err = %d\n",
-				__func__, rc);
-			goto done;
-		}
+	rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
+			    lab_d->pcm_buf[0].phys,
+			    hw_params->buf_sz, &lab_d->comp);
+	if (rc) {
+		dev_err(rtd->dev,
+			"%s: buf[0] slim_port_xfer failed, err = %d\n",
+			__func__, rc);
+		goto done;
+	}
 
-		rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
-				    lab_d->pcm_buf[1].phys,
-				    hw_params->buf_sz, &lab_d->comp);
-		if (rc) {
-			dev_err(rtd->dev,
-				"%s: buf[0] slim_port_xfer failed, err = %d\n",
-				__func__, rc);
-			goto done;
-		}
+	rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
+			    lab_d->pcm_buf[1].phys,
+			    hw_params->buf_sz, &lab_d->comp);
+	if (rc) {
+		dev_err(rtd->dev,
+			"%s: buf[0] slim_port_xfer failed, err = %d\n",
+			__func__, rc);
+		goto done;
+	}
 
-		cur_buf = &lab_d->pcm_buf[0];
-		next_buf = &lab_d->pcm_buf[2];
-		prd_cnt = hw_params->period_count;
-		rc = lsm_ops->lab_ch_setup(cpe->core_handle,
-					   session,
-					   WCD_CPE_POST_ENABLE);
-		if (rc) {
-			dev_err(rtd->dev,
-				"%s: POST ch setup failed, err = %d\n",
-				__func__, rc);
-			goto done;
-		}
+	cur_buf = &lab_d->pcm_buf[0];
+	next_buf = &lab_d->pcm_buf[2];
+	prd_cnt = hw_params->period_count;
+	rc = lsm_ops->lab_ch_setup(cpe->core_handle,
+				   session,
+				   WCD_CPE_POST_ENABLE);
+	if (rc) {
+		dev_err(rtd->dev,
+			"%s: POST ch setup failed, err = %d\n",
+			__func__, rc);
+		goto done;
+	}
 
-		rc = afe_ops->afe_port_start(cpe->core_handle,
-				&session->afe_out_port_cfg);
-		if (rc) {
-			dev_err(rtd->dev,
-				"%s: AFE out port start failed, err = %d\n",
-				__func__, rc);
-			goto done;
-		}
-
-	} else {
-		dev_dbg(rtd->dev,
-			"%s: LAB stopped before starting read\n",
-			 __func__);
+	rc = afe_ops->afe_port_start(cpe->core_handle,
+			&session->afe_out_port_cfg);
+	if (rc) {
+		dev_err(rtd->dev,
+			"%s: AFE out port start failed, err = %d\n",
+			__func__, rc);
 		goto done;
 	}
 
@@ -703,7 +697,10 @@ static int msm_cpe_lab_thread(void *data)
 	}
 
 done:
-	pr_debug("%s: Exiting LAB thread\n", __func__);
+	if (rc)
+		lab_d->thread_status = MSM_LSM_LAB_THREAD_ERROR;
+	pr_debug("%s: Exit lab_thread, exit_status=%d, thread_status=%d\n",
+		 __func__, rc, lab_d->thread_status);
 	complete(&lab_d->thread_complete);
 
 	return 0;
