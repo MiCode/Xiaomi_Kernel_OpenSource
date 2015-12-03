@@ -18,7 +18,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSMGOLD";
 	compatible = "qcom,msmgold";
-	qcom,msm-id = <303 0x0>;
+	qcom,msm-id = <303 0x0>, <308 0x0>, <309 0x0>;
 	interrupt-parent = <&intc>;
 
 	soc: soc { };
