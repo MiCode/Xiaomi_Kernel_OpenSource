@@ -549,7 +549,8 @@ static int adv7533_gpio_configure(struct adv7533_platform_data *pdata,
 				goto err_switch_gpio;
 			}
 
-			gpio_set_value(pdata->switch_gpio, 1);
+			gpio_set_value(pdata->switch_gpio,
+				!pdata->switch_flags);
 			msleep(ADV7533_RESET_DELAY);
 		}
 
@@ -1003,9 +1004,10 @@ static int adv7533_probe(struct i2c_client *client_,
 		}
 
 		if (pdata->adv_output) {
-			gpio_set_value(pdata->switch_gpio, 0);
+			gpio_set_value(pdata->switch_gpio, pdata->switch_flags);
 		} else {
-			gpio_set_value(pdata->switch_gpio, 1);
+			gpio_set_value(pdata->switch_gpio,
+				!pdata->switch_flags);
 			goto err_gpio_cfg;
 		}
 	}
