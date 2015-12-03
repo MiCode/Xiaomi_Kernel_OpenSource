@@ -1268,6 +1268,18 @@ CPU across all clusters. When this tunable is enabled, the RT tasks are
 restricted to the lowest possible power cluster.
 
 
+*** 7.25 sched_downmigrate
+
+Appears at: /proc/sys/kernel/sched_downmigrate
+
+Default value: 60
+
+This tunable is a percentage. It exists to control hysteresis. Lets say a task
+migrated to a high-performance cpu when it crossed 80% demand on a
+power-efficient cpu. We don't let it come back to a power-efficient cpu until
+its demand *in reference to the power-efficient cpu* drops less than 60%
+(sched_downmigrate).
+
 =========================
 8. HMP SCHEDULER TRACE POINTS
 =========================
