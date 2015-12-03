@@ -51,31 +51,21 @@
 		qcom,id = <0>;
 		qcom,chipid = <0x05000600>;
 
-		qcom,initial-pwrlevel = <2>;
+		qcom,initial-pwrlevel = <4>;
 
 		qcom,idle-timeout = <8>; //<HZ/12>
-		/*
-		 * Timeout to enter deeper power saving state
-		 * from NAP.
-		 */
-		qcom,deep-nap-timeout = <2>; //<HZ/50>
 		qcom,strtstp-sleepwake;
 
-		/*
-		* Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE |
-		* KGSL_CLK_MEM_IFACE | KGSL_CLK_RBBMTIMER |
-		* KGSL_CLK_ALWAYSON
-		*/
-		qcom,clk-map = <0x00000896>;
-
-		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
-			<&clock_gcc clk_gcc_oxili_ahb_clk>,
-			<&clock_gcc clk_gcc_bimc_gfx_clk>,
-			<&clock_gcc clk_gcc_oxili_timer_clk>,
-			<&clock_gcc clk_gcc_oxili_aon_clk>;
+		clocks = <&clock_gcc_gfx clk_gcc_oxili_gfx3d_clk>,
+			<&clock_gcc_gfx clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc_gfx clk_gcc_bimc_gfx_clk>,
+			<&clock_gcc_gfx clk_gcc_bimc_gpu_clk>,
+			<&clock_gcc_gfx clk_gcc_oxili_timer_clk>,
+			<&clock_gcc_gfx clk_gcc_oxili_aon_clk>;
 
 		clock-names = "core_clk", "iface_clk",
-			      "mem_iface_clk", "rbbmtimer_clk", "alwayson_clk";
+			      "mem_iface_clk", "alt_mem_iface_clk",
+			      "rbbmtimer_clk", "alwayson_clk";
 
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
@@ -106,6 +96,17 @@
 		/* CPU latency parameter */
 		qcom,pm-qos-active-latency = <360>;
 		qcom,pm-qos-wakeup-latency = <360>;
+
+		/* Quirks */
+		qcom,gpu-quirk-two-pass-use-wfi;
+
+		/* Trace bus */
+		coresight-id = <67>;
+		coresight-name = "coresight-gfx";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_mm>;
+		coresight-child-ports = <6>;
 
 		/* Power levels */
 		qcom,gpu-pwrlevels {
@@ -168,18 +169,9 @@
 				qcom,bus-max = <5>;
 			};
 
-		       /* Min SVS */
+			/* XO */
 			qcom,gpu-pwrlevel@6 {
 				reg = <6>;
-				qcom,gpu-freq = <133330000>;
-				qcom,bus-freq = <4>;
-				qcom,bus-min = <2>;
-				qcom,bus-max = <5>;
-			};
-
-			/* XO */
-			qcom,gpu-pwrlevel@7 {
-				reg = <7>;
 				qcom,gpu-freq = <19200000>;
 				qcom,bus-freq = <0>;
 				qcom,bus-min = <0>;
@@ -195,8 +187,8 @@
 		qcom,protect = <0x40000 0x10000>;
 		qcom,micro-mmu-control = <0x6000>;
 
-		clocks = <&clock_gcc clk_gcc_oxili_ahb_clk>,
-			 <&clock_gcc clk_gcc_bimc_gfx_clk>;
+		clocks = <&clock_gcc_gfx clk_gcc_oxili_ahb_clk>,
+			 <&clock_gcc_gfx clk_gcc_bimc_gfx_clk>;
 
 		clock-names = "gpu_ahb_clk", "gcc_bimc_gfx_clk";
 
