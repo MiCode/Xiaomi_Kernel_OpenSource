@@ -231,6 +231,19 @@ static inline void parse_ib(struct kgsl_device *device,
 
 }
 
+static inline bool iommu_is_setstate_addr(struct kgsl_device *device,
+		uint64_t gpuaddr, uint64_t size)
+{
+	struct kgsl_iommu *iommu = device->mmu.priv;
+
+	if (kgsl_mmu_get_mmutype() != KGSL_MMU_TYPE_IOMMU ||
+		iommu == NULL)
+		return false;
+
+	return kgsl_gpuaddr_in_memdesc(&iommu->setstate, gpuaddr,
+			size);
+}
+
 /**
  * snapshot_rb_ibs() - Dump rb data and capture the IB's in the RB as well
  * @rb: The RB to dump
@@ -352,14 +365,16 @@ static void snapshot_rb_ibs(struct adreno_ringbuffer *rb,
 				ibsize = rbptr[index + 3];
 			}
 
-			/*
-			 * Sometimes the kernel generates IBs in global
-			 * memory. We dump the interesting global buffers,
-			 * so there's no need to parse these IBs.
-			 */
-			if (!kgsl_search_global_pt_entries(ibaddr, ibsize))
-				parse_ib(device, snapshot, snapshot->process,
-					ibaddr, ibsize);
+			/* Don't parse known global IBs */
+			if (iommu_is_setstate_addr(device, ibaddr, ibsize))
+				continue;
+
+			if (kgsl_gpuaddr_in_memdesc(&adreno_dev->pwron_fixup,
+				ibaddr, ibsize))
+				continue;
+
+			parse_ib(device, snapshot, snapshot->process,
+				ibaddr, ibsize);
 		}
 
 		index = index + 1;

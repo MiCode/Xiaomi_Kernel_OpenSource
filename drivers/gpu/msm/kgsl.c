@@ -3970,7 +3970,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 	idr_destroy(&device->context_idr);
 
-	kgsl_free_global(&device->memstore);
+	kgsl_free_global(device, &device->memstore);
 
 	kgsl_mmu_close(device);
 

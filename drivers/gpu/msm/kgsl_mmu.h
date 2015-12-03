@@ -14,12 +14,6 @@
 #define __KGSL_MMU_H
 
 #include "kgsl_iommu.h"
-/*
- * These defines control the address range for allocations that
- * are mapped into all pagetables.
- */
-#define KGSL_MMU_GLOBAL_MEM_SIZE	SZ_8M
-#define KGSL_MMU_GLOBAL_MEM_BASE	0xf8000000
 
 /* Identifier for the global page table */
 /* Per process page tables will probably pass in the thread group
@@ -50,7 +44,6 @@ struct kgsl_pagetable {
 	unsigned int fault_addr;
 	void *priv;
 	struct kgsl_mmu *mmu;
-	bool globals_mapped;
 };
 
 struct kgsl_mmu;
@@ -73,6 +66,10 @@ struct kgsl_mmu_ops {
 	struct kgsl_protected_registers *(*mmu_get_prot_regs)
 			(struct kgsl_mmu *mmu);
 	int (*mmu_init_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *);
+	void (*mmu_add_global)(struct kgsl_mmu *mmu,
+			struct kgsl_memdesc *memdesc);
+	void (*mmu_remove_global)(struct kgsl_mmu *mmu,
+			struct kgsl_memdesc *memdesc);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -166,13 +163,11 @@ int kgsl_mmu_find_region(struct kgsl_pagetable *pagetable,
 		uint64_t region_start, uint64_t region_end,
 		uint64_t *gpuaddr, uint64_t size, unsigned int align);
 
-int kgsl_add_global_pt_entry(struct kgsl_device *device,
+void kgsl_mmu_add_global(struct kgsl_device *device,
 	struct kgsl_memdesc *memdesc);
-void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc);
-void kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable);
+void kgsl_mmu_remove_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc);
 
-struct kgsl_memdesc *kgsl_search_global_pt_entries(unsigned int gpuaddr,
-		unsigned int size);
 struct kgsl_pagetable *kgsl_mmu_get_pt_from_ptname(struct kgsl_mmu *mmu,
 							int ptname);
 

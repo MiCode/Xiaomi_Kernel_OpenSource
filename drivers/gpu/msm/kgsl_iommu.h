@@ -19,10 +19,17 @@
 #include <linux/of.h>
 #include "kgsl.h"
 
+/*
+ * These defines control the address range for allocations that
+ * are mapped into all pagetables.
+ */
+#define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_8M
+#define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
+
 #define KGSL_IOMMU_SECURE_SIZE SZ_256M
-#define KGSL_IOMMU_SECURE_END KGSL_MMU_GLOBAL_MEM_BASE
+#define KGSL_IOMMU_SECURE_END KGSL_IOMMU_GLOBAL_MEM_BASE
 #define KGSL_IOMMU_SECURE_BASE	\
-	(KGSL_MMU_GLOBAL_MEM_BASE - KGSL_IOMMU_SECURE_SIZE)
+	(KGSL_IOMMU_GLOBAL_MEM_BASE - KGSL_IOMMU_SECURE_SIZE)
 
 #define KGSL_IOMMU_SVM_BASE32		0x300000
 #define KGSL_IOMMU_SVM_END32		(0xC0000000 - SZ_16M)
