@@ -57,7 +57,7 @@ struct kgsl_mmu;
 
 struct kgsl_mmu_ops {
 	int (*mmu_init) (struct kgsl_mmu *mmu);
-	int (*mmu_close) (struct kgsl_mmu *mmu);
+	void (*mmu_close)(struct kgsl_mmu *mmu);
 	int (*mmu_start) (struct kgsl_mmu *mmu);
 	void (*mmu_stop) (struct kgsl_mmu *mmu);
 	int (*mmu_set_pt) (struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
@@ -117,7 +117,6 @@ struct kgsl_mmu_pt_ops {
 
 struct kgsl_mmu {
 	uint32_t      flags;
-	struct kgsl_memdesc    setstate_memory;
 	/* current page table object being used by device mmu */
 	struct kgsl_pagetable  *defaultpagetable;
 	/* secure global pagetable device mmu */
@@ -140,7 +139,7 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *,
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 int kgsl_mmu_init(struct kgsl_device *device, char *mmutype);
 int kgsl_mmu_start(struct kgsl_device *device);
-int kgsl_mmu_close(struct kgsl_device *device);
+void kgsl_mmu_close(struct kgsl_device *device);
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
