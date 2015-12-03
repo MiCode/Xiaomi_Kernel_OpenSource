@@ -90,7 +90,8 @@ static int q6usm_memory_map(phys_addr_t buf_add, int dir, uint32_t bufsz,
 	mem_region_map.flags = 0;
 
 	mem_region_map.shm_addr_lsw = lower_32_bits(buf_add);
-	mem_region_map.shm_addr_msw = populate_upper_32_bits(buf_add);
+	mem_region_map.shm_addr_msw =
+			msm_audio_populate_upper_32_bits(buf_add);
 	mem_region_map.mem_size_bytes = bufsz * bufcnt;
 
 	rc = apr_send_pkt(this_mmap.apr, (uint32_t *) &mem_region_map);
@@ -1154,7 +1155,7 @@ int q6usm_read(struct us_client *usc, uint32_t read_ind)
 	read.buf_size = port->buf_size;
 	buf_addr = (u64)(port->phys) + port->buf_size * (port->cpu_buf);
 	read.buf_addr_lsw = lower_32_bits(buf_addr);
-	read.buf_addr_msw = populate_upper_32_bits(buf_addr);
+	read.buf_addr_msw = msm_audio_populate_upper_32_bits(buf_addr);
 	read.mem_map_handle = *((uint32_t *)(port->ext));
 
 	for (loop_ind = 0; loop_ind < read_counter; ++loop_ind) {
@@ -1163,7 +1164,7 @@ int q6usm_read(struct us_client *usc, uint32_t read_ind)
 		buf_addr = (u64)(port->phys) +
 				port->buf_size * (port->cpu_buf);
 		read.buf_addr_lsw = lower_32_bits(buf_addr);
-		read.buf_addr_msw = populate_upper_32_bits(buf_addr);
+		read.buf_addr_msw = msm_audio_populate_upper_32_bits(buf_addr);
 		read.seq_id = port->cpu_buf;
 		read.hdr.token = port->cpu_buf;
 		read.counter = 1;
@@ -1230,7 +1231,7 @@ int q6usm_write(struct us_client *usc, uint32_t write_ind)
 	cmd_write.buf_size = port->buf_size;
 	buf_addr = (u64)(port->phys) + port->buf_size * (port->cpu_buf);
 	cmd_write.buf_addr_lsw = lower_32_bits(buf_addr);
-	cmd_write.buf_addr_msw = populate_upper_32_bits(buf_addr);
+	cmd_write.buf_addr_msw = msm_audio_populate_upper_32_bits(buf_addr);
 	cmd_write.mem_map_handle = *((uint32_t *)(port->ext));
 	cmd_write.res0 = 0;
 	cmd_write.res1 = 0;
@@ -1242,7 +1243,8 @@ int q6usm_write(struct us_client *usc, uint32_t write_ind)
 		buf_addr = (u64)(port->phys) +
 				port->buf_size * (port->cpu_buf);
 		cmd_write.buf_addr_lsw = lower_32_bits(buf_addr);
-		cmd_write.buf_addr_msw = populate_upper_32_bits(buf_addr);
+		cmd_write.buf_addr_msw =
+				msm_audio_populate_upper_32_bits(buf_addr);
 		cmd_write.seq_id = port->cpu_buf;
 		cmd_write.hdr.token = port->cpu_buf;
 
@@ -1380,7 +1382,8 @@ int q6usm_set_us_stream_param(int dir, struct us_client *usc,
 
 	cmd_set_param.hdr.opcode = USM_STREAM_CMD_SET_PARAM;
 	cmd_set_param.buf_size = buf_size;
-	cmd_set_param.buf_addr_msw = populate_upper_32_bits(port->param_phys);
+	cmd_set_param.buf_addr_msw =
+			msm_audio_populate_upper_32_bits(port->param_phys);
 	cmd_set_param.buf_addr_lsw = lower_32_bits(port->param_phys);
 	cmd_set_param.mem_map_handle =
 			*((uint32_t *)(port->param_buf_mem_handle));
@@ -1425,7 +1428,8 @@ int q6usm_get_us_stream_param(int dir, struct us_client *usc,
 
 	cmd_get_param.hdr.opcode = USM_STREAM_CMD_GET_PARAM;
 	cmd_get_param.buf_size = buf_size;
-	cmd_get_param.buf_addr_msw = populate_upper_32_bits(port->param_phys);
+	cmd_get_param.buf_addr_msw =
+			msm_audio_populate_upper_32_bits(port->param_phys);
 	cmd_get_param.buf_addr_lsw = lower_32_bits(port->param_phys);
 	cmd_get_param.mem_map_handle =
 			*((uint32_t *)(port->param_buf_mem_handle));

@@ -488,7 +488,8 @@ static int q6lsm_send_custom_topologies(struct lsm_client *client)
 	cstm_top.data_payload_addr_lsw =
 			lower_32_bits(cal_block->cal_data.paddr);
 	cstm_top.data_payload_addr_msw =
-			populate_upper_32_bits(cal_block->cal_data.paddr);
+			msm_audio_populate_upper_32_bits(
+					cal_block->cal_data.paddr);
 	cstm_top.mem_map_handle = cal_block->map_data.q6map_handle;
 	cstm_top.buffer_size = cal_block->cal_data.size;
 
@@ -854,7 +855,8 @@ int q6lsm_register_sound_model(struct lsm_client *client,
 	q6lsm_add_hdr(client, &cmd.hdr, sizeof(cmd), true);
 	cmd.hdr.opcode = LSM_SESSION_CMD_REGISTER_SOUND_MODEL;
 	cmd.model_addr_lsw = lower_32_bits(client->sound_model.phys);
-	cmd.model_addr_msw = populate_upper_32_bits(client->sound_model.phys);
+	cmd.model_addr_msw = msm_audio_populate_upper_32_bits(
+						client->sound_model.phys);
 	cmd.model_size = client->sound_model.size;
 	/* read updated mem_map_handle by q6lsm_mmapcallback */
 	rmb();
@@ -963,7 +965,7 @@ static int q6lsm_memory_map_regions(struct lsm_client *client,
 	mregions = (struct avs_shared_map_region_payload *)payload;
 
 	mregions->shm_addr_lsw = lower_32_bits(dma_addr_p);
-	mregions->shm_addr_msw = populate_upper_32_bits(dma_addr_p);
+	mregions->shm_addr_msw = msm_audio_populate_upper_32_bits(dma_addr_p);
 	mregions->mem_size_bytes = dma_buf_sz;
 
 	rc = q6lsm_apr_send_pkt(client, client->mmap_apr, mmap_region_cmd,
@@ -1046,7 +1048,8 @@ static int q6lsm_send_cal(struct lsm_client *client,
 	q6lsm_set_param_hdr_info(params_hdr,
 			cal_block->cal_data.size,
 			lower_32_bits(client->lsm_cal_phy_addr),
-			populate_upper_32_bits(client->lsm_cal_phy_addr),
+			msm_audio_populate_upper_32_bits(
+				client->lsm_cal_phy_addr),
 			client->sound_model.mem_map_handle);
 
 	pr_debug("%s: Cal Size = %zd", __func__,
@@ -1467,7 +1470,7 @@ int q6lsm_set_one_param(struct lsm_client *client,
 		q6lsm_set_param_hdr_info(&model_param.param_hdr,
 				payload_size,
 				lower_32_bits(client->sound_model.phys),
-				populate_upper_32_bits(
+				msm_audio_populate_upper_32_bits(
 					client->sound_model.phys),
 				client->sound_model.mem_map_handle);
 
