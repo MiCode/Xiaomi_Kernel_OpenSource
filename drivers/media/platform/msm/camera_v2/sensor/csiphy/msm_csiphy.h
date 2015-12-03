@@ -154,6 +154,8 @@ struct csiphy_device {
 	uint32_t num_clk;
 	struct clk *csiphy_clk[CSIPHY_NUM_CLK_MAX];
 	struct msm_cam_clk_info csiphy_clk_info[CSIPHY_NUM_CLK_MAX];
+	struct clk *csiphy_3p_clk[2];
+	struct msm_cam_clk_info csiphy_3p_clk_info[2];
 	int32_t ref_count;
 	uint16_t lane_mask[MAX_CSIPHY];
 	uint32_t is_3_1_20nm_hw;

@@ -517,6 +517,9 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 
 	if (csiphy_dev->csiphy_3phase == CSI_3PHASE_HW) {
 		if (csiphy_params->csi_3phase == 1) {
+			msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+				csiphy_dev->csiphy_3p_clk_info,
+				csiphy_dev->csiphy_3p_clk, 2, 1);
 			rc = msm_csiphy_3phase_lane_config(csiphy_dev,
 				csiphy_params);
 			csiphy_dev->num_irq_registers = 20;
@@ -1009,7 +1012,11 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_dev->csiphy_clk_info, csiphy_dev->csiphy_clk,
 			csiphy_dev->num_clk, 0);
-			iounmap(csiphy_dev->clk_mux_base);
+		if (csiphy_dev->csiphy_3phase == CSI_3PHASE_HW)
+			msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+				csiphy_dev->csiphy_3p_clk_info,
+				csiphy_dev->csiphy_3p_clk, 2, 0);
+		iounmap(csiphy_dev->clk_mux_base);
 	}
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
@@ -1116,7 +1123,11 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_dev->csiphy_clk_info, csiphy_dev->csiphy_clk,
 			csiphy_dev->num_clk, 0);
-			iounmap(csiphy_dev->clk_mux_base);
+		if (csiphy_dev->csiphy_3phase == CSI_3PHASE_HW)
+			msm_cam_clk_enable(&csiphy_dev->pdev->dev,
+				csiphy_dev->csiphy_3p_clk_info,
+				csiphy_dev->csiphy_3p_clk, 2, 0);
+		iounmap(csiphy_dev->clk_mux_base);
 	}
 
 	iounmap(csiphy_dev->base);
@@ -1266,12 +1277,15 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 	uint32_t count;
 	int i, rc;
 	uint32_t rates[CSIPHY_NUM_CLK_MAX];
+	const char *clk_name[CSIPHY_NUM_CLK_MAX];
+	char *csi_3p_clk_name = "csi_phy_3p_clk";
+	char *csi_3p_clk_src_name = "csiphy_3p_clk_src";
+	uint32_t clk_cnt = 0;
 
 	struct device_node *of_node;
 	of_node = pdev->dev.of_node;
 
 	count = of_property_count_strings(of_node, "clock-names");
-	csiphy_dev->num_clk = count;
 
 	CDBG("%s: count = %d\n", __func__, count);
 	if (count == 0) {
@@ -1288,9 +1302,8 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node, "clock-names",
-				i, &(csiphy_dev->csiphy_clk_info[i].clk_name));
-		CDBG("%s: clock-names[%d] = %s\n", __func__,
-			i, csiphy_dev->csiphy_clk_info[i].clk_name);
+			i, &clk_name[i]);
+		CDBG("%s: clock-names[%d] = %s\n", __func__, i, clk_name[i]);
 		if (rc < 0) {
 			pr_err("%s:%d, failed\n", __func__, __LINE__);
 			return rc;
@@ -1303,18 +1316,37 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 		return rc;
 	}
 	for (i = 0; i < count; i++) {
-		csiphy_dev->csiphy_clk_info[i].clk_rate = (rates[i] == 0) ?
-				(long)-1 : rates[i];
-		if (!strcmp(csiphy_dev->csiphy_clk_info[i].clk_name,
+		if (!strcmp(clk_name[i], csi_3p_clk_src_name)) {
+			csiphy_dev->csiphy_3p_clk_info[0].clk_name =
+				clk_name[i];
+			csiphy_dev->csiphy_3p_clk_info[0].clk_rate =
+				(rates[i] == 0) ? (long)-1 : rates[i];
+			continue;
+		} else if (!strcmp(clk_name[i], csi_3p_clk_name)) {
+			csiphy_dev->csiphy_3p_clk_info[1].clk_name =
+				clk_name[i];
+			csiphy_dev->csiphy_3p_clk_info[1].clk_rate =
+				(rates[i] == 0) ? (long)-1 : rates[i];
+			continue;
+		}
+		csiphy_dev->csiphy_clk_info[clk_cnt].clk_name =
+			clk_name[i];
+		csiphy_dev->csiphy_clk_info[clk_cnt].clk_rate =
+			(rates[i] == 0) ? (long)-1 : rates[i];
+		if (!strcmp(csiphy_dev->csiphy_clk_info[clk_cnt].clk_name,
 				"csiphy_timer_src_clk")) {
 			CDBG("%s:%d, copy csiphy_timer_src_clk",
 				__func__, __LINE__);
 			csiphy_dev->csiphy_max_clk = rates[i];
-			csiphy_dev->csiphy_clk_index = i;
+			csiphy_dev->csiphy_clk_index = clk_cnt;
 		}
-		CDBG("%s: clk_rate[%d] = %ld\n", __func__, i,
-			csiphy_dev->csiphy_clk_info[i].clk_rate);
+		CDBG("%s: clk_rate[%d] = %ld\n", __func__, clk_cnt,
+			csiphy_dev->csiphy_clk_info[clk_cnt].clk_rate);
+		clk_cnt++;
 	}
+
+	csiphy_dev->num_clk = clk_cnt;
+
 	return 0;
 }
 
@@ -1348,7 +1380,6 @@ static int csiphy_probe(struct platform_device *pdev)
 		CDBG("%s: device id = %d\n", __func__, pdev->id);
 	}
 
-	/* ToDo: Enable 3phase clock for dynamic clock enable/disable */
 	rc = msm_csiphy_get_clk_info(new_csiphy_dev, pdev);
 	if (rc < 0) {
 		pr_err("%s: msm_csiphy_get_clk_info() failed", __func__);
