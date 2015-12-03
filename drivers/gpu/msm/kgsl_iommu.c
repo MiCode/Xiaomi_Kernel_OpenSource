@@ -67,6 +67,89 @@ struct kgsl_iommu_addr_entry {
 
 static struct kmem_cache *addr_entry_cache;
 
+/*
+ * There are certain memory allocations (ringbuffer, memstore, etc) that need to
+ * be present at the same address in every pagetable. We call these "global"
+ * pagetable entries. There are relatively few of these and they are mostly
+ * stable (defined at init time) but the actual number of globals can differ
+ * slight depending on the target and implementation.
+ *
+ * Here we define an array and a simple allocator to keep track of the currently
+ * active global entries. Each entry is assigned a unique address inside of a
+ * MMU implementation specific "global" region. The addresses are assigned
+ * sequentially and never re-used to avoid having to go back and reprogram
+ * existing pagetables. The entire list of active entries are mapped and
+ * unmapped into every new pagetable as it is created and destroyed.
+ *
+ * Because there are relatively few entries and they are defined at boot time we
+ * don't need to go over the top to define a dynamic allocation scheme. It will
+ * be less wasteful to pick a static number with a little bit of growth
+ * potential.
+ */
+
+#define GLOBAL_PT_ENTRIES 32
+
+static struct kgsl_memdesc *global_pt_entries[GLOBAL_PT_ENTRIES];
+static int global_pt_count;
+uint64_t global_pt_alloc;
+
+static void kgsl_iommu_unmap_globals(struct kgsl_pagetable *pagetable)
+{
+	unsigned int i;
+
+	for (i = 0; i < global_pt_count; i++) {
+		if (global_pt_entries[i] != NULL)
+			kgsl_mmu_unmap(pagetable, global_pt_entries[i]);
+	}
+}
+
+static void kgsl_iommu_map_globals(struct kgsl_pagetable *pagetable)
+{
+	unsigned int i;
+
+	for (i = 0; i < global_pt_count; i++) {
+		if (global_pt_entries[i] != NULL) {
+			int ret = kgsl_mmu_map(pagetable, global_pt_entries[i]);
+
+			BUG_ON(ret);
+		}
+	}
+}
+
+static void kgsl_iommu_remove_global(struct kgsl_mmu *mmu,
+		struct kgsl_memdesc *memdesc)
+{
+	int i;
+
+	if (memdesc->gpuaddr == 0 || !(memdesc->priv & KGSL_MEMDESC_GLOBAL))
+		return;
+
+	for (i = 0; i < global_pt_count; i++) {
+		if (global_pt_entries[i] == memdesc) {
+			memdesc->gpuaddr = 0;
+			memdesc->priv &= ~KGSL_MEMDESC_GLOBAL;
+			global_pt_entries[i] = NULL;
+			return;
+		}
+	}
+}
+
+static void kgsl_iommu_add_global(struct kgsl_mmu *mmu,
+		struct kgsl_memdesc *memdesc)
+{
+	if (memdesc->gpuaddr != 0)
+		return;
+
+	BUG_ON(global_pt_count >= GLOBAL_PT_ENTRIES);
+	BUG_ON((global_pt_alloc + memdesc->size) >= KGSL_IOMMU_GLOBAL_MEM_SIZE);
+
+	memdesc->gpuaddr = KGSL_IOMMU_GLOBAL_MEM_BASE + global_pt_alloc;
+	memdesc->priv |= KGSL_MEMDESC_GLOBAL;
+	global_pt_alloc += memdesc->size;
+
+	global_pt_entries[global_pt_count++] = memdesc;
+}
+
 static inline void _iommu_sync_mmu_pc(bool lock)
 {
 	if (need_iommu_sync == false)
@@ -609,8 +692,10 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 
 	if (KGSL_MMU_SECURE_PT == pt->name)
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
-	else
+	else {
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+		kgsl_iommu_unmap_globals(pt);
+	}
 
 	if (iommu_pt->domain) {
 		trace_kgsl_pagetable_destroy(iommu_pt->ttbr0, pt->name);
@@ -669,7 +754,7 @@ static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
 		}
 	} else {
 		pt->va_start = KGSL_IOMMU_SVM_BASE32;
-		pt->va_end = KGSL_MMU_GLOBAL_MEM_BASE;
+		pt->va_end = KGSL_IOMMU_GLOBAL_MEM_BASE;
 		pt->compat_va_start = pt->va_start;
 		pt->compat_va_end = pt->va_end;
 	}
@@ -792,6 +877,8 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
+	kgsl_iommu_map_globals(pt);
+
 done:
 	if (ret)
 		_free_pt(ctx, pt);
@@ -912,6 +999,8 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		KGSL_CORE_ERR("get DOMAIN_ATTR_CONTEXTIDR failed: %d\n", ret);
 		goto done;
 	}
+
+	kgsl_iommu_map_globals(pt);
 
 done:
 	if (ret)
@@ -1037,7 +1126,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		}
 	}
 
-	kgsl_add_global_pt_entry(KGSL_MMU_DEVICE(mmu), &iommu->setstate);
+	kgsl_iommu_add_global(mmu, &iommu->setstate);
 
 done:
 	if (status)
@@ -1364,7 +1453,8 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 		kgsl_guard_page = NULL;
 	}
 
-	kgsl_free_global(&iommu->setstate);
+	kgsl_iommu_remove_global(mmu, &iommu->setstate);
+	kgsl_sharedmem_free(&iommu->setstate);
 }
 
 static u64
@@ -1735,8 +1825,8 @@ static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
 }
 
 #define ADDR_IN_GLOBAL(_a) \
-	(((_a) >= KGSL_MMU_GLOBAL_MEM_BASE) && \
-	 ((_a) < (KGSL_MMU_GLOBAL_MEM_BASE + KGSL_MMU_GLOBAL_MEM_SIZE)))
+	(((_a) >= KGSL_IOMMU_GLOBAL_MEM_BASE) && \
+	 ((_a) < (KGSL_IOMMU_GLOBAL_MEM_BASE + KGSL_IOMMU_GLOBAL_MEM_SIZE)))
 
 static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t gpuaddr, uint64_t size)
@@ -1881,6 +1971,8 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_get_prot_regs = kgsl_iommu_get_prot_regs,
 	.mmu_init_pt = kgsl_iommu_init_pt,
+	.mmu_add_global = kgsl_iommu_add_global,
+	.mmu_remove_global = kgsl_iommu_remove_global,
 };
 
 static struct kgsl_mmu_pt_ops iommu_pt_ops = {

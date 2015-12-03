@@ -905,8 +905,10 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 	count = count_registers();
 
 	if (kgsl_allocate_global(device, &registers,
-		count * sizeof(unsigned int), 0, 0))
+		count * sizeof(unsigned int), 0, 0)) {
+		kgsl_free_global(device, &capturescript);
 		return;
+	}
 
 	/* Build the crash script */
 

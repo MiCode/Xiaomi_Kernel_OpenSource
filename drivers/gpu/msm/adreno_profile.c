@@ -1108,7 +1108,7 @@ void adreno_profile_close(struct adreno_device *adreno_dev)
 	profile->log_tail = NULL;
 	profile->shared_head = 0;
 	profile->shared_tail = 0;
-	kgsl_free_global(&profile->shared_buffer);
+	kgsl_free_global(&adreno_dev->dev, &profile->shared_buffer);
 	profile->shared_size = 0;
 
 	profile->assignment_count = 0;
