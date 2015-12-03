@@ -191,6 +191,11 @@
 		};
 	};
 
+	qcom,ipc-spinlock@1905000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0x1905000 0x8000>;
+		qcom,num-locks = <8>;
+	};
 };
 
 #include "msm-gdsc-8916.dtsi"
