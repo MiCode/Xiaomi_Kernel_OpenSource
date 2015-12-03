@@ -1003,6 +1003,11 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	arm_smmu_disable_clocks_atomic(smmu);
 }
 
+static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
+{
+	arm_smmu_tlb_inv_context(to_smmu_domain(domain));
+}
+
 struct arm_smmu_secure_pool_chunk {
 	void *addr;
 	size_t size;
@@ -3103,6 +3108,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.trigger_fault		= arm_smmu_trigger_fault,
 	.reg_read		= arm_smmu_reg_read,
 	.reg_write		= arm_smmu_reg_write,
+	.tlbi_domain		= arm_smmu_tlbi_domain,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
