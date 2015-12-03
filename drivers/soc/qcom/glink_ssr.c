@@ -26,6 +26,7 @@
 #include "glink_private.h"
 
 #define GLINK_SSR_REPLY_TIMEOUT	HZ
+#define GLINK_SSR_INTENT_REQ_TIMEOUT_MS 500
 #define GLINK_SSR_EVENT_INIT ~0
 #define NUM_LOG_PAGES 3
 
@@ -642,6 +643,7 @@ static int configure_and_open_channel(struct subsys_info *ss_info)
 	open_cfg.notify_state = glink_ssr_notify_state;
 	open_cfg.notify_rx_intent_req = glink_ssr_notify_rx_intent_req;
 	open_cfg.priv = ss_info->cb_data;
+	open_cfg.rx_intent_req_timeout_ms = GLINK_SSR_INTENT_REQ_TIMEOUT_MS;
 
 	handle = glink_open(&open_cfg);
 	if (IS_ERR_OR_NULL(handle)) {
