@@ -74,7 +74,6 @@
 
 		qcom,mdss-ctl-off = <0x00002000 0x00002200 0x00002400>;
 		qcom,mdss-mixer-intf-off = <0x00045000 0x00046000>;
-		qcom,mdss-mixer-wb-off = <0x00048000>;
 		qcom,mdss-dspp-off = <0x00055000>;
 		qcom,mdss-wb-off = <0x00065000 0x00066000>;
 		qcom,mdss-intf-off = <0x0006B000 0x0006B800 0x0006C000>;
