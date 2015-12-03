@@ -258,6 +258,8 @@ struct smbchg_chip {
 	int				pulse_cnt;
 	struct led_classdev		led_cdev;
 	bool				skip_usb_notification;
+	u32				vchg_adc_channel;
+	struct qpnp_vadc_chip		*vchg_vadc_dev;
 
 	/* voters */
 	struct votable			*fcc_votable;
@@ -5343,6 +5345,31 @@ static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
 	return rc;
 }
 
+#define CHARGE_OUTPUT_VTG_RATIO		840
+static int smbchg_get_iusb(struct smbchg_chip *chip)
+{
+	int rc, iusb_ua = -EINVAL;
+	struct qpnp_vadc_result adc_result;
+
+	if (!is_usb_present(chip) && !is_dc_present(chip))
+		return 0;
+
+	if (chip->vchg_vadc_dev && chip->vchg_adc_channel != -EINVAL) {
+		rc = qpnp_vadc_read(chip->vchg_vadc_dev,
+				chip->vchg_adc_channel, &adc_result);
+		if (rc) {
+			pr_smb(PR_STATUS,
+				"error in VCHG (channel-%d) read rc = %d\n",
+						chip->vchg_adc_channel, rc);
+			return 0;
+		}
+		iusb_ua = div_s64(adc_result.physical * 1000,
+						CHARGE_OUTPUT_VTG_RATIO);
+	}
+
+	return iusb_ua;
+}
+
 static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -5363,6 +5390,7 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
 	POWER_SUPPLY_PROP_FLASH_ACTIVE,
 	POWER_SUPPLY_PROP_FLASH_TRIGGER,
 	POWER_SUPPLY_PROP_DP_DM,
@@ -5544,6 +5572,9 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_RERUN_AICL:
 		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
+		val->intval = smbchg_get_iusb(chip);
 		break;
 	default:
 		return -EINVAL;
@@ -6289,6 +6320,8 @@ static inline int get_bpd(const char *name)
 #define PIN_SRC_SHIFT			0
 #define CHGR_CFG			0xFF
 #define RCHG_LVL_BIT			BIT(0)
+#define VCHG_EN_BIT			BIT(1)
+#define VCHG_INPUT_CURRENT_BIT		BIT(3)
 #define CFG_AFVC			0xF6
 #define VFLOAT_COMP_ENABLE_MASK		SMB_MASK(2, 0)
 #define TR_RID_REG			0xFA
@@ -6599,6 +6632,18 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		dev_err(chip->dev, "Couldn't set batt_missing config = %d\n",
 									rc);
 		return rc;
+	}
+
+	if (chip->vchg_adc_channel != -EINVAL) {
+		/* configure and enable VCHG */
+		rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG,
+				VCHG_INPUT_CURRENT_BIT | VCHG_EN_BIT,
+				VCHG_INPUT_CURRENT_BIT | VCHG_EN_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set recharge rc = %d\n",
+					rc);
+			return rc;
+		}
 	}
 
 	smbchg_charging_status_change(chip);
@@ -6925,6 +6970,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			"jeita-temp-hard-limit", rc, 1);
 	OF_PROP_READ(chip, chip->aicl_rerun_period_s,
 			"aicl-rerun-period-s", rc, 1);
+	OF_PROP_READ(chip, chip->vchg_adc_channel,
+			"vchg-adc-channel-id", rc, 1);
 
 	/* read boolean configuration properties */
 	chip->use_vfloat_adjustments = of_property_read_bool(node,
@@ -7480,7 +7527,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	int rc;
 	struct smbchg_chip *chip;
 	struct power_supply *usb_psy;
-	struct qpnp_vadc_chip *vadc_dev;
+	struct qpnp_vadc_chip *vadc_dev, *vchg_vadc_dev;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -7494,6 +7541,17 @@ static int smbchg_probe(struct spmi_device *spmi)
 			rc = PTR_ERR(vadc_dev);
 			if (rc != -EPROBE_DEFER)
 				dev_err(&spmi->dev, "Couldn't get vadc rc=%d\n",
+						rc);
+			return rc;
+		}
+	}
+
+	if (of_find_property(spmi->dev.of_node, "qcom,vchg_sns-vadc", NULL)) {
+		vchg_vadc_dev = qpnp_get_vadc(&spmi->dev, "vchg_sns");
+		if (IS_ERR(vchg_vadc_dev)) {
+			rc = PTR_ERR(vchg_vadc_dev);
+			if (rc != -EPROBE_DEFER)
+				dev_err(&spmi->dev, "Couldn't get vadc 'vchg' rc=%d\n",
 						rc);
 			return rc;
 		}
@@ -7557,6 +7615,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	init_completion(&chip->usbin_uv_lowered);
 	init_completion(&chip->usbin_uv_raised);
 	chip->vadc_dev = vadc_dev;
+	chip->vchg_vadc_dev = vchg_vadc_dev;
 	chip->spmi = spmi;
 	chip->dev = &spmi->dev;
 	chip->usb_psy = usb_psy;
