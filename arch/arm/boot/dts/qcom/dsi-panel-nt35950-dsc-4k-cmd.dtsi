@@ -1,0 +1,284 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_nt35950_4k_dsc_cmd: qcom,mdss_dsi_nt35950_4k_dsc_cmd {
+		qcom,mdss-dsi-panel-name = "NT35950 4k cmd mode dsc dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-panel-width = <1080>;
+		qcom,mdss-dsi-panel-height = <3840>;
+		qcom,mdss-dsi-h-front-porch = <30>;
+		qcom,mdss-dsi-h-back-porch = <100>;
+		qcom,mdss-dsi-h-pulse-width = <4>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <7>;
+		qcom,mdss-dsi-v-front-porch = <8>;
+		qcom,mdss-dsi-v-pulse-width = <1>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-h-sync-pulse = <0>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-panel-timings = [d9 6a 48 00 b0 b0 52 6c 57 03 04
+			00];
+		qcom,mdss-dsi-t-clk-post = <0xc>;
+		qcom,mdss-dsi-t-clk-pre = <0x28>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 20>;
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-te-pin;
+		qcom,ulps-enabled;
+		qcom,dcs-cmd-by-left;
+		qcom,mdss-dsi-tx-eot-append;
+
+		qcom,adjust-timer-wakeup-ms = <1>;
+		qcom,mdss-dsi-on-command = [
+			/* cmd3 */
+			39 01 00 00 00 00 05 ff aa 55 a5 80
+			15 01 00 00 00 00 02 6f 18
+			15 01 00 00 00 00 02 f7 06
+			/* cmd2 page 0 */
+			39 01 00 00 00 00 06 f0 55 aa 52 08 00
+			39 01 00 00 00 00 04 b1 01 12 0d
+			39 01 00 00 00 00 07 b9 00 00 38 00 d0 00
+			15 01 00 00 00 00 02 b4 01 /* 11 : mipi video mode with
+						      sram , 01 : command mode
+						    */
+			15 01 00 00 00 00 02 c9 00
+			15 01 00 00 00 00 02 c8 84
+			39 01 00 00 00 00 04 c0 0e 02 11
+			/* cmd2 page 1 */
+			39 01 00 00 00 00 06 f0 55 aa 52 08 01 /* vgmp voltage =
+								  b4h 5.3v */
+			39 01 00 00 00 00 03 bc b4 b4
+			39 01 00 00 00 00 05 be 01 2d 01 2d
+			39 01 00 00 00 00 03 bd b4 b4 /* vgmn voltage = b4h
+							 -5.3v */
+			39 01 00 00 00 00 04 b3 19 19 19 /* vgh */
+			39 01 00 00 00 00 04 c2 32 32 32 /* vrgh */
+			39 01 00 00 00 00 04 b4 0f 0f 0f /* vglx */
+			39 01 00 00 00 00 04 c3 1a 1a 1a /* vgl_reg */
+			/* cmd2 page 2 */
+			39 01 00 00 00 00 06 f0 55 aa 52 08 02
+			/* red positive */
+			39 01 00 00 00 00 11 b0 00 00 00 11 00 33 00 51 00 6b 00
+			81 00 95 00 a7
+			39 01 00 00 00 00 11 b1 00 b8 00 ee 01 18 01 58 01 88 01
+			d0 02 09 02 0b
+			39 01 00 00 00 00 11 b2 02 40 02 7f 02 aa 02 ec 03 22 03
+			5e 03 6a 03 77
+			39 01 00 00 00 00 0d b3 03 86 03 9a 03 b1 03 d0 03 ef 03
+			fe
+			/* green positive */
+			39 01 00 00 00 00 11 b4 00 00 00 11 00 33 00 51 00 6b 00
+			81 00 95 00 a7
+			39 01 00 00 00 00 11 b5 00 b8 00 ee 01 18 01 58 01 88 01
+			d0 02 09 02 0b
+			39 01 00 00 00 00 11 b6 02 40 02 7f 02 aa 02 ec 03 22 03
+			5e 03 6a 03 77
+			39 01 00 00 00 00 0d b7 03 86 03 9a 03 b1 03 d0 03 ef 03
+			fe
+			/* blue positive */
+			39 01 00 00 00 00 11 b8 00 00 00 11 00 33 00 51 00 6b 00
+			81 00 95 00 a7
+			39 01 00 00 00 00 11 b9 00 b8 00 ee 01 18 01 58 01 88 01
+			d0 02 09 02 0b
+			39 01 00 00 00 00 11 ba 02 40 02 7f 02 aa 02 ec 03 22 03
+			5e 03 6a 03 77
+			39 01 00 00 00 00 0d bb 03 86 03 9a 03 b1 03 d0 03 ef 03
+			fe
+			/* red negative */
+			39 01 00 00 00 00 11 bc 00 00 00 11 00 33 00 51 00 6b 00
+			81 00 95 00 a7
+			39 01 00 00 00 00 11 bd 00 b8 00 ee 01 18 01 58 01 88 01
+			d0 02 09 02 0b
+			39 01 00 00 00 00 11 be 02 40 02 7f 02 aa 02 ec 03 22 03
+			5e 03 6a 03 77
+			39 01 00 00 00 00 0d bf 03 86 03 9a 03 b1 03 d0 03 ef 03
+			fe
+			/* green negative */
+			39 01 00 00 00 00 11 c0 00 00 00 11 00 33 00 51 00 6b 00
+			81 00 95 00 a7
+			39 01 00 00 00 00 11 c1 00 b8 00 ee 01 18 01 58 01 88 01
+			d0 02 09 02 0b
+			39 01 00 00 00 00 11 c2 02 40 02 7f 02 aa 02 ec 03 22 03
+			5e 03 6a 03 77
+			39 01 00 00 00 00 0d c3 03 86 03 9a 03 b1 03 d0 03 ef 03
+			fe
+			/* blue negative */
+			39 01 00 00 00 00 11 c4 00 00 00 11 00 33 00 51 00 6b 00
+			81 00 95 00 a7
+			39 01 00 00 00 00 11 c5 00 b8 00 ee 01 18 01 58 01 88 01
+			d0 02 09 02 0b
+			39 01 00 00 00 00 11 c6 02 40 02 7f 02 aa 02 ec 03 22 03
+			5e 03 6a 03 77
+			39 01 00 00 00 00 0d c7 03 86 03 9a 03 b1 03 d0 03 ef 03
+			fe
+			/* white positive */
+			39 01 00 00 00 00 11 c8 00 00 00 11 00 33 00 51 00 6b 00
+			81 00 95 00 a7
+			39 01 00 00 00 00 11 c9 00 b8 00 ee 01 18 01 58 01 88 01
+			d0 02 09 02 0b
+			39 01 00 00 00 00 11 ca 02 40 02 7f 02 aa 02 ec 03 22 03
+			5e 03 6a 03 77
+			39 01 00 00 00 00 0d cb 03 86 03 9a 03 b1 03 d0 03 ef 03
+			fe
+			/* white negative */
+			39 01 00 00 00 00 11 cc 00 00 00 11 00 33 00 51 00 6b 00
+			81 00 95 00 a7
+			39 01 00 00 00 00 11 cd 00 b8 00 ee 01 18 01 58 01 88 01
+			d0 02 09 02 0b
+			39 01 00 00 00 00 11 ce 02 40 02 7f 02 aa 02 ec 03 22 03
+			5e 03 6a 03 77
+			39 01 00 00 00 00 0d cf 03 86 03 9a 03 b1 03 d0 03 ef 03
+			fe
+			/* cmd2 page 3 _overlap 2h */
+			39 01 00 00 00 00 06 f0 55 aa 52 08 03
+			39 01 00 00 00 00 08 b2 00 00 00 00 00 03 01 /* gvst
+									stv01
+									modify
+								      */
+			39 01 00 00 00 00 06 ba 35 10 00 00 00 /* clk clk01
+								  modify */
+			39 01 00 00 00 00 06 bb 35 10 00 00 00 /* clk clk02
+								  modify */
+			39 01 00 00 00 00 06 b5 25 35 35 07 07 /* mux muxtimectr
+								  */
+			/* cmd2 page 5 */
+			39 01 00 00 00 00 06 f0 55 aa 52 08 05
+			39 01 00 00 00 00 03 b2 05 00 /* mux */
+			39 01 00 00 00 00 04 b3 00 20 00 /* vcom */
+			15 01 00 00 00 00 02 b4 05 /* gvst stv01 */
+			39 01 00 00 00 00 04 b5 05 00 00 /* clk clk01 */
+			39 01 00 00 00 00 04 b6 05 00 00 /* clk clk02 */
+			39 01 00 00 00 00 08 ba 06 00 00 10 00 00 00 /* d2u
+									vdc01 */
+			39 01 00 00 00 00 08 bb 8e 00 00 10 00 00 00 /* d2u
+									vdc02 */
+			39 01 00 00 00 00 08 bc 06 00 00 10 00 00 00 /* d2u
+									vdc03 */
+			39 01 00 00 00 00 07 cd ff ff aa ff ff ff /* abnormal
+								     aboffvdclv
+								     */
+			39 01 00 00 00 00 03 c5 22 22 /* abnormal aboffmuxlv */
+			15 01 00 00 00 00 02 c6 00 /* abnormal aboffstvlv */
+			39 01 00 00 00 00 07 c7 00 00 00 00 00 00 /* abnormal
+								     abnormal
+								     aboffclklv
+								     */
+			39 01 00 00 00 00 03 c8 02 20 /* clk01 clk01timectr2
+							 modify    _overlap 2h
+						       */
+			39 01 00 00 00 00 03 c9 03 20 /* clk02 clk02timectr2
+							 modify    _overlap 2h
+						       */
+			39 01 00 00 00 00 06 d0 00 1f 08 00 00 /* clk01 porch
+								  mode */
+			39 01 00 00 00 00 06 d1 00 1f 09 00 00 /* clk02 porch
+								  mode */
+			15 01 00 00 00 00 02 ec 00 /* discharge */
+			39 01 00 00 00 00 03 ee 03 01 /* on/off clear frame
+							 2f,1f */
+			/* cmd2 page 6 */
+			39 01 00 00 00 00 06 f0 55 aa 52 08 06
+			/* forward scan */
+			39 01 00 00 00 00 06 b0 24 24 24 24 24 /* l 1~5 */
+			39 01 00 00 00 00 06 b1 24 24 24 24 24 /* l 6~10 */
+			39 01 00 00 00 00 06 b2 24 24 12 13 1b /* l 11~15 */
+			39 01 00 00 00 00 06 b3 19 13 11 12 04 /* l 16~20 */
+			39 01 00 00 00 00 06 b4 07 06 05 00 24 /* l 21~25 */
+			39 01 00 00 00 00 04 b5 24 24 24 /* l 26~28 */
+			39 01 00 00 00 00 06 b6 24 24 24 24 24 /* r 1~5 */
+			39 01 00 00 00 00 06 b7 24 24 24 24 24 /* r 6~10 */
+			39 01 00 00 00 00 06 b8 24 24 12 13 1b /* r 11~15 */
+			39 01 00 00 00 00 06 b9 19 13 11 12 08 /* r 16~20 */
+			39 01 00 00 00 00 06 ba 0b 0a 09 01 24 /* r 21~25 */
+			39 01 00 00 00 00 04 bb 24 24 24 /* r 26~28 */
+			/* backward scan */
+			39 01 00 00 00 00 06 c0 24 24 24 24 24 /* l 1~5 */
+			39 01 00 00 00 00 06 c1 24 24 24 24 24 /* l 6~10 */
+			39 01 00 00 00 00 06 c2 24 24 12 13 1b /* l 11~15 */
+			39 01 00 00 00 00 06 c3 19 13 12 11 09 /* l 16~20 */
+			39 01 00 00 00 00 06 c4 0a 0b 08 01 24 /* l 21~25 */
+			39 01 00 00 00 00 04 c5 24 24 24 /* l 26~28 */
+			39 01 00 00 00 00 06 c6 24 24 24 24 24 /* r 1~5 */
+			39 01 00 00 00 00 06 c7 24 24 24 24 24 /* r 6~10 */
+			39 01 00 00 00 00 06 c8 24 24 12 13 1b /* r 11~15 */
+			39 01 00 00 00 00 06 c9 19 13 12 11 05 /* r 16~20 */
+			39 01 00 00 00 00 06 ca 06 07 04 00 24 /* r 21~25 */
+			39 01 00 00 00 00 04 cb 24 24 24 /* r 26~28 */
+			/* cmd2 page 4 */
+			39 01 00 00 00 00 06 f0 55 aa 52 08 04
+			15 01 00 00 00 00 02 c0 03
+			39 01 00 00 00 00 0a b0 0e a4 2c 86 dd dd 34 12 65
+			/* cmd2 page 7 - mplus part */
+			39 01 00 00 00 00 06 f0 55 aa 52 08 07
+			15 01 00 00 00 00 02 ef 03
+			39 01 00 00 00 00 03 ea 1b 12 /* u2d color order and
+							 mode (2nd 2para) */
+			15 01 00 00 00 00 02 6f 00
+			39 01 00 00 00 00 09 eb e2 13 0e 45 0e 45 0e 45
+			15 01 00 00 00 00 02 6f 08
+			39 01 00 00 00 00 09 eb 11 bb 11 f0 11 f0 11 f0
+			15 01 00 00 00 00 02 6f 00
+			39 01 00 00 00 00 09 ec 0e 71 13 d9 13 d9 00 00
+			15 01 00 00 00 00 02 6f 08
+			39 01 00 00 00 00 09 ec 13 d9 03 00 26 80 40 13
+			15 01 00 00 00 00 02 6f 00
+			39 01 00 00 00 00 09 ed ae 13 ae 13 ae 13 ae 10
+			15 01 00 00 00 00 02 6f 08
+			39 01 00 00 00 00 09 ed 00 07 25 40 10 00 10 00
+			15 01 00 00 00 00 02 6f 00
+			39 01 00 00 00 00 04 ee 22 08 08
+			/* data compression method selection: dsc */
+			15 01 00 00 00 00 02 90 03
+			15 01 00 00 00 00 02 03 01 /* dsc enable */
+			/* enable pwm function */
+			15 01 00 00 00 00 02 53 2c
+			15 01 00 00 78 00 02 51 ff
+			05 01 00 00 78 00 01 11 /* sleep out + delay 120ms */
+			05 01 00 00 78 00 01 29 /* display on + delay 120ms */
+			];
+
+		qcom,mdss-dsi-off-command = [05 01 00 00 78 00 02 28 00
+				 05 01 00 00 78 00 02 10 00];
+
+		qcom,compression-mode = "dsc";
+		qcom,config-select = <&dsi_nt35950_dsc_cmd_config0>;
+
+		dsi_nt35950_dsc_cmd_config0: config0 {
+			qcom,mdss-dsc-encoders = <1>;
+			qcom,mdss-dsc-slice-height = <32>;
+			qcom,mdss-dsc-slice-width = <1080>;
+			qcom,mdss-dsc-slice-per-pkt = <1>;
+
+			qcom,mdss-dsc-bit-per-component = <8>;
+			qcom,mdss-dsc-bit-per-pixel = <8>;
+			qcom,mdss-dsc-block-prediction-enable;
+		};
+	};
+};
