@@ -523,45 +523,24 @@ EXPORT_SYMBOL(kgsl_mmu_log_fault_addr);
 
 int kgsl_mmu_init(struct kgsl_device *device, char *mmutype)
 {
-	int status = 0;
 	struct kgsl_mmu *mmu = &device->mmu;
+	int ret = 0;
 
 	if (mmutype && !strcmp(mmutype, "nommu"))
 		kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
 
-	/*
-	 * Don't use kgsl_allocate_global here because we need to get the MMU
-	 * set up before we can add the global entry but the MMU init needs the
-	 * setstate block. Allocate the memory here and map it later
-	 */
-
-	status = kgsl_sharedmem_alloc_contig(device, &mmu->setstate_memory,
-					NULL, PAGE_SIZE);
-	if (status)
-		return status;
-
-	/* Mark the setstate memory as read only */
-	mmu->setstate_memory.flags |= KGSL_MEMFLAGS_GPUREADONLY;
-
-	kgsl_sharedmem_set(device, &mmu->setstate_memory, 0, 0,
-				mmu->setstate_memory.size);
-
-	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) {
+	switch (kgsl_mmu_type) {
+	case KGSL_MMU_TYPE_IOMMU:
 		mmu->mmu_ops = &kgsl_iommu_ops;
-		status =  mmu->mmu_ops->mmu_init(mmu);
+		break;
+	case KGSL_MMU_TYPE_NONE:
+		break;
 	}
 
-	if (status)
-		goto done;
+	if (MMU_OP_VALID(mmu, mmu_init))
+		ret = mmu->mmu_ops->mmu_init(mmu);
 
-	/* Add the setstate memory to the global PT entry list */
-	status = kgsl_add_global_pt_entry(device, &mmu->setstate_memory);
-
-done:
-	if (status)
-		kgsl_sharedmem_free(&mmu->setstate_memory);
-
-	return status;
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_mmu_init);
 
@@ -845,17 +824,12 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 }
 EXPORT_SYMBOL(kgsl_mmu_unmap);
 
-int kgsl_mmu_close(struct kgsl_device *device)
+void kgsl_mmu_close(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
-	int ret = 0;
-
-	kgsl_free_global(&mmu->setstate_memory);
 
 	if (MMU_OP_VALID(mmu, mmu_close))
-		ret = mmu->mmu_ops->mmu_close(mmu);
-
-	return ret;
+		mmu->mmu_ops->mmu_close(mmu);
 }
 EXPORT_SYMBOL(kgsl_mmu_close);
 

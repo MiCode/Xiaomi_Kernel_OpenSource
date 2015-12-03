@@ -88,7 +88,7 @@ enum kgsl_iommu_context_id {
 	KGSL_IOMMU_CONTEXT_MAX,
 };
 
-/* offset at which a nop command is placed in setstate_memory */
+/* offset at which a nop command is placed in setstate */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
 
 /*
@@ -124,6 +124,7 @@ struct kgsl_iommu_context {
  * @regbase: Virtual address of the IOMMU register base
  * @regstart: Physical address of the iommu registers
  * @regsize: Length of the iommu register region.
+ * @setstate: Scratch GPU memory for IOMMU operations
  * @clk_enable_count: The ref count of clock enable calls
  * @clks: Array of pointers to IOMMU clocks
  * @micro_mmu_ctrl: GPU register offset of this glob al register
@@ -135,6 +136,7 @@ struct kgsl_iommu {
 	void __iomem *regbase;
 	unsigned long regstart;
 	unsigned int regsize;
+	struct kgsl_memdesc setstate;
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 	unsigned int micro_mmu_ctrl;

@@ -957,6 +957,24 @@ static unsigned int kgsl_iommu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
 	return result;
 }
 
+static int _setstate_alloc(struct kgsl_device *device,
+		struct kgsl_iommu *iommu)
+{
+	int ret;
+
+	ret = kgsl_sharedmem_alloc_contig(device, &iommu->setstate, NULL,
+		PAGE_SIZE);
+	if (ret)
+		return ret;
+
+	/* Mark the setstate memory as read only */
+	iommu->setstate.flags |= KGSL_MEMFLAGS_GPUREADONLY;
+
+	kgsl_sharedmem_set(device, &iommu->setstate, 0, 0, PAGE_SIZE);
+
+	return 0;
+}
+
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 {
 	/*
@@ -973,6 +991,10 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		KGSL_CORE_ERR("dt: gfx3d0_user context bank not found\n");
 		return -EINVAL;
 	}
+
+	status = _setstate_alloc(KGSL_MMU_DEVICE(mmu), iommu);
+	if (status)
+		return status;
 
 	/* check requirements for per process pagetables */
 	if (ctx->gpu_offset == UINT_MAX) {
@@ -994,7 +1016,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (iommu->regbase == NULL) {
 		KGSL_CORE_ERR("Could not map IOMMU registers 0x%lx:0x%x\n",
 			iommu->regstart, iommu->regsize);
-		return -ENOMEM;
+		status = -ENOMEM;
+		goto done;
 	}
 
 	if (addr_entry_cache == NULL) {
@@ -1014,7 +1037,12 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		}
 	}
 
+	kgsl_add_global_pt_entry(KGSL_MMU_DEVICE(mmu), &iommu->setstate);
+
 done:
+	if (status)
+		kgsl_sharedmem_free(&iommu->setstate);
+
 	return status;
 }
 
@@ -1311,7 +1339,7 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 	}
 }
 
-static int kgsl_iommu_close(struct kgsl_mmu *mmu)
+static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i;
@@ -1336,7 +1364,7 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 		kgsl_guard_page = NULL;
 	}
 
-	return 0;
+	kgsl_free_global(&iommu->setstate);
 }
 
 static u64
