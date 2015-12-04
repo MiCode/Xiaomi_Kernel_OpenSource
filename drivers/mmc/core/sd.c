@@ -1212,12 +1212,6 @@ static int mmc_sd_suspend(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
-	/*
-	 * Disable clock scaling before suspend and enable it after resume so
-	 * as to avoid clock scaling decisions kicking in during this window.
-	 */
-	mmc_disable_clk_scaling(host);
-
 	mmc_claim_host(host);
 	if (!mmc_host_is_spi(host))
 		err = mmc_deselect_cards(host);
