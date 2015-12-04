@@ -279,7 +279,7 @@ static int set_device_mode(struct lpm_cluster *cluster, int ndevice,
 }
 
 static int cpu_power_select(struct cpuidle_device *dev,
-		struct lpm_cpu *cpu, int *index)
+		struct lpm_cpu *cpu)
 {
 	int best_level = -1;
 	uint32_t best_level_pwr = ~0U;
@@ -842,33 +842,44 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 }
 #endif
 
-static int lpm_cpuidle_enter(struct cpuidle_device *dev,
-		struct cpuidle_driver *drv, int index)
+static int lpm_cpuidle_select(struct cpuidle_driver *drv,
+		struct cpuidle_device *dev)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_cluster, dev->cpu);
-	int64_t time = ktime_to_ns(ktime_get());
-	bool success = true;
-	int idx = cpu_power_select(dev, cluster->cpu, &index);
-	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
-	struct power_params *pwr_params;
+	int idx;
+
+	if (!cluster)
+		return 0;
+
+	idx = cpu_power_select(dev, cluster->cpu);
 
 	if (idx < 0)
 		return -EPERM;
 
 	trace_cpu_idle_rcuidle(idx, dev->cpu);
+	return idx;
+}
+
+static int lpm_cpuidle_enter(struct cpuidle_device *dev,
+		struct cpuidle_driver *drv, int idx)
+{
+	struct lpm_cluster *cluster = per_cpu(cpu_cluster, dev->cpu);
+	bool success = true;
+	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
+	int64_t start_time = ktime_to_ns(ktime_get()), end_time;
+	struct power_params *pwr_params;
 
 	pwr_params = &cluster->cpu->levels[idx].pwr;
 
-	trace_cpu_idle_enter(idx);
-
 	cpu_prepare(cluster, idx, true);
 	cluster_prepare(cluster, cpumask, idx, true);
-	lpm_stats_cpu_enter(idx);
 
 	if (need_resched() || (idx < 0))
 		goto exit;
 
 	BUG_ON(!use_psci);
+	trace_cpu_idle_enter(idx);
+	lpm_stats_cpu_enter(idx);
 	success = psci_enter_sleep(cluster, idx, true);
 
 exit:
@@ -876,13 +887,12 @@ exit:
 	cluster_unprepare(cluster, cpumask, idx, true);
 	cpu_unprepare(cluster, idx, true);
 
-
-	time = ktime_to_ns(ktime_get()) - time;
-	do_div(time, 1000);
-	dev->last_residency = (int)time;
 	trace_cpu_idle_exit(idx, success);
 	trace_cpu_idle_rcuidle(PWR_EVENT_EXIT, dev->cpu);
+	end_time = ktime_to_ns(ktime_get()) - start_time;
+	dev->last_residency = do_div(end_time, 1000);
 	local_irq_enable();
+
 	return idx;
 }
 
@@ -928,6 +938,13 @@ static int cpuidle_register_cpu(struct cpuidle_driver *drv,
 	return cpuidle_register(drv, NULL);
 }
 #endif
+
+static struct cpuidle_governor lpm_governor = {
+	.name =		"qcom",
+	.rating =	30,
+	.select =	lpm_cpuidle_select,
+	.owner =	THIS_MODULE,
+};
 
 static int cluster_cpuidle_register(struct lpm_cluster *cl)
 {
@@ -990,9 +1007,18 @@ static int cluster_cpuidle_register(struct lpm_cluster *cl)
 		kfree(cl->drv);
 		return -ENOMEM;
 	}
-
 	return 0;
 }
+
+/**
+ * init_lpm - initializes the governor
+ */
+static int __init init_lpm(void)
+{
+	return cpuidle_register_governor(&lpm_governor);
+}
+
+postcore_initcall(init_lpm);
 
 static void register_cpu_lpm_stats(struct lpm_cpu *cpu,
 		struct lpm_cluster *parent)
