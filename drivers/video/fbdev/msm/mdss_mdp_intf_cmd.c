@@ -303,11 +303,35 @@ static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_cmd_ctx *ctx,
 		bool locked)
 {
 	int rc = 0;
-	struct mdss_mdp_mixer *mixer;
+	struct mdss_mdp_mixer *mixer = NULL, *mixer_right = NULL;
 	struct mdss_mdp_ctl *ctl = ctx->ctl;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 offset = 0;
 
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	if (mixer) {
+		/*
+		 * Disable auto refresh mode, if enabled in splash to
+		 * avoid corruption.
+		 */
+		if (mdss_mdp_pingpong_read(mixer->pingpong_base,
+			MDSS_MDP_REG_PP_AUTOREFRESH_CONFIG) & BIT(31)) {
+			offset = MDSS_MDP_REG_PP_AUTOREFRESH_CONFIG;
+			if (is_pingpong_split(ctl->mfd))
+				writel_relaxed(0x0,
+					(mdata->slave_pingpong_base + offset));
+			if (is_split_lm(ctl->mfd)) {
+				mixer_right =
+					mdss_mdp_mixer_get(ctl,
+						MDSS_MDP_MIXER_MUX_RIGHT);
+				if (mixer_right)
+					writel_relaxed(0x0,
+					(mixer_right->pingpong_base + offset));
+			}
+			mdss_mdp_pingpong_write(mixer->pingpong_base,
+				MDSS_MDP_REG_PP_AUTOREFRESH_CONFIG, 0x0);
+			pr_debug("%s: disabling auto refresh\n", __func__);
+		}
 		rc = mdss_mdp_cmd_tearcheck_cfg(mixer, ctx, locked);
 		if (rc)
 			goto err;
