@@ -2154,6 +2154,7 @@ static int wcd_cpe_cmi_send_lsm_msg(
 	if (CMI_HDR_GET_OBM_FLAG(hdr))
 		wcd_cpe_bus_vote_max_bw(core, true);
 
+	reinit_completion(&session->cmd_comp);
 	ret = cmi_send_msg(message);
 	if (ret) {
 		pr_err("%s: msg opcode (0x%x) send failed (%d)\n",
@@ -2183,8 +2184,6 @@ static int wcd_cpe_cmi_send_lsm_msg(
 
 
 rel_bus_vote:
-
-	reinit_completion(&session->cmd_comp);
 
 	if (CMI_HDR_GET_OBM_FLAG(hdr))
 		wcd_cpe_bus_vote_max_bw(core, false);
@@ -3525,13 +3524,13 @@ static int wcd_cpe_lsm_config_lab_latency(
 		 lab_lat->param.param_id, PARAM_SIZE_LSM_LATENCY_SIZE,
 		 pld_size);
 
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &cpe_lab_latency);
-	if (ret != 0) {
+	if (ret != 0)
 		pr_err("%s: lsm_set_params failed, error = %d\n",
 		       __func__, ret);
-		return -EINVAL;
-	}
-	return 0;
+	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+	return ret;
 }
 
 /*
@@ -3574,16 +3573,22 @@ static int wcd_cpe_lsm_lab_control(
 		 __func__, lab_enable->param.module_id,
 		 lab_enable->param.param_id, PARAM_SIZE_LSM_CONTROL_SIZE,
 		 pld_size);
+
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &cpe_lab_enable);
 	if (ret != 0) {
 		pr_err("%s: lsm_set_params failed, error = %d\n",
 			__func__, ret);
-		return -EINVAL;
+		WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+		goto done;
 	}
+	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+
 	if (lab_enable->enable)
-		wcd_cpe_lsm_config_lab_latency(core, session,
+		ret = wcd_cpe_lsm_config_lab_latency(core, session,
 					       WCD_CPE_LAB_MAX_LATENCY);
-	return 0;
+done:
+	return ret;
 }
 
 /*
@@ -3602,12 +3607,14 @@ static int wcd_cpe_lsm_eob(
 		0, CPE_LSM_SESSION_CMD_EOB)) {
 		return -EINVAL;
 	}
+
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &lab_eob);
-	if (ret != 0) {
+	if (ret != 0)
 		pr_err("%s: lsm_set_params failed\n", __func__);
-		return -EINVAL;
-	}
-	return 0;
+	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+
+	return ret;
 }
 
 /*
