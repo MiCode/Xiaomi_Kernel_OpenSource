@@ -2,6 +2,7 @@
 #define __IO_PGTABLE_H
 
 #include <linux/scatterlist.h>
+#include <soc/qcom/msm_tz_smmu.h>
 
 /*
  * Public API for use by IOMMU drivers
@@ -11,6 +12,7 @@ enum io_pgtable_fmt {
 	ARM_32_LPAE_S2,
 	ARM_64_LPAE_S1,
 	ARM_64_LPAE_S2,
+	ARM_MSM_SECURE,
 	IO_PGTABLE_NUM_FMTS,
 };
 
@@ -70,6 +72,11 @@ struct io_pgtable_cfg {
 			u64	vttbr;
 			u64	vtcr;
 		} arm_lpae_s2_cfg;
+
+		struct {
+			enum tz_smmu_device_id sec_id;
+			int cbndx;
+		} arm_msm_secure_cfg;
 	};
 };
 
