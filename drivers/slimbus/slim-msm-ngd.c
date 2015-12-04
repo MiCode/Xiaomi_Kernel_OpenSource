@@ -395,7 +395,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		 * It also makes HW status cosistent with what SW has it here
 		 */
 		if ((pm_runtime_enabled(dev->dev) && ret < 0) ||
-				dev->state == MSM_CTRL_DOWN) {
+				dev->state >= MSM_CTRL_ASLEEP) {
 			SLIM_ERR(dev, "slim ctrl vote failed ret:%d, state:%d",
 					ret, dev->state);
 			pm_runtime_set_suspended(dev->dev);
@@ -716,7 +716,7 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 	mutex_lock(&dev->tx_lock);
 
 	if ((pm_runtime_enabled(dev->dev) && ret < 0) ||
-			dev->state == MSM_CTRL_DOWN) {
+			dev->state >= MSM_CTRL_ASLEEP) {
 		SLIM_WARN(dev, "vote failed/SSR in-progress ret:%d, state:%d",
 				ret, dev->state);
 		pm_runtime_set_suspended(dev->dev);
