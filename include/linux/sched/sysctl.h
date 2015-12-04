@@ -72,10 +72,9 @@ extern unsigned int sysctl_early_detection_duration;
 extern unsigned int sysctl_sched_min_runtime;
 extern unsigned int sysctl_sched_small_task_pct;
 #else
-extern unsigned int sysctl_sched_lowspill_freq;
-extern unsigned int sysctl_sched_pack_freq;
 extern unsigned int sysctl_sched_select_prev_cpu_us;
 extern unsigned int sysctl_sched_enable_colocation;
+extern unsigned int sysctl_sched_restrict_cluster_spill;
 #if defined(CONFIG_SCHED_FREQ_INPUT)
 extern unsigned int sysctl_sched_new_task_windows;
 #endif

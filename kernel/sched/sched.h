@@ -946,6 +946,7 @@ extern unsigned int max_capacity;
 extern unsigned int min_capacity;
 extern unsigned int max_load_scale_factor;
 extern unsigned int max_possible_capacity;
+extern unsigned int min_max_possible_capacity;
 extern unsigned int sched_upmigrate;
 extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_pelt;
@@ -1009,6 +1010,16 @@ static inline unsigned int cpu_max_possible_freq(int cpu)
 static inline int same_cluster(int src_cpu, int dst_cpu)
 {
 	return cpu_rq(src_cpu)->cluster == cpu_rq(dst_cpu)->cluster;
+}
+
+static inline int cpu_max_power_cost(int cpu)
+{
+	return cpu_rq(cpu)->cluster->max_power_cost;
+}
+
+static inline bool hmp_capable(void)
+{
+	return max_possible_capacity != min_max_possible_capacity;
 }
 
 /*
@@ -2013,6 +2024,9 @@ enum rq_nohz_flag_bits {
 	NOHZ_TICK_STOPPED,
 	NOHZ_BALANCE_KICK,
 };
+
+#define NOHZ_KICK_ANY 0
+#define NOHZ_KICK_RESTRICT 1
 
 #define nohz_flags(cpu)	(&cpu_rq(cpu)->nohz_flags)
 #endif

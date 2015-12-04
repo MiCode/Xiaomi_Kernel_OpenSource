@@ -2469,9 +2469,6 @@ unsigned int __read_mostly sysctl_sched_spill_nr_run = 10;
  */
 unsigned int __read_mostly sysctl_sched_enable_power_aware = 0;
 
-unsigned int __read_mostly sysctl_sched_lowspill_freq;
-unsigned int __read_mostly sysctl_sched_pack_freq = UINT_MAX;
-
 /*
  * CPUs with load greater than the sched_spill_load_threshold are not
  * eligible for task placement. When all CPUs in a cluster achieve a
@@ -2540,6 +2537,8 @@ unsigned int sysctl_sched_boost;
 static unsigned int __read_mostly
 sched_short_sleep_task_threshold = 2000 * NSEC_PER_USEC;
 unsigned int __read_mostly sysctl_sched_select_prev_cpu_us = 2000;
+
+unsigned int __read_mostly sysctl_sched_restrict_cluster_spill;
 
 void update_up_down_migrate(void)
 {
@@ -7716,9 +7715,10 @@ bail_inter_cluster_balance(struct lb_env *env, struct sd_lb_stats *sds)
 {
 	int local_cpu, busiest_cpu;
 	int local_capacity, busiest_capacity;
-	unsigned int local_freq, busiest_freq, busiest_max_freq;
+	int local_pwr_cost, busiest_pwr_cost;
+	int nr_cpus;
 
-	if (sched_boost())
+	if (!sysctl_sched_restrict_cluster_spill || sched_boost())
 		return 0;
 
 	local_cpu = group_first_cpu(sds->local);
@@ -7726,21 +7726,24 @@ bail_inter_cluster_balance(struct lb_env *env, struct sd_lb_stats *sds)
 
 	local_capacity = cpu_max_possible_capacity(local_cpu);
 	busiest_capacity = cpu_max_possible_capacity(busiest_cpu);
-	local_freq = cpu_cur_freq(local_cpu);
-	busiest_freq = cpu_cur_freq(busiest_cpu);
-	busiest_max_freq = cpu_max_freq(busiest_cpu);
 
-	if (local_capacity < busiest_capacity) {
-		if (local_freq >= sysctl_sched_pack_freq &&
-					busiest_freq < busiest_max_freq)
-			return 1;
-	} else if (local_capacity > busiest_capacity) {
-		if (sds->busiest_stat.sum_nr_big_tasks)
-			return 0;
+	local_pwr_cost = cpu_max_power_cost(local_cpu);
+	busiest_pwr_cost = cpu_max_power_cost(busiest_cpu);
 
-		if (busiest_freq <= sysctl_sched_lowspill_freq)
-			return 1;
-	}
+	if (local_capacity < busiest_capacity ||
+			(local_capacity == busiest_capacity &&
+			local_pwr_cost <= busiest_pwr_cost))
+		return 0;
+
+	if (local_capacity > busiest_capacity &&
+			sds->busiest_stat.sum_nr_big_tasks)
+		return 0;
+
+	nr_cpus = cpumask_weight(sched_group_cpus(sds->busiest));
+	if ((sds->busiest_stat.group_cpu_load < nr_cpus * sched_spill_load) &&
+		(sds->busiest_stat.sum_nr_running <
+			nr_cpus * sysctl_sched_spill_nr_run))
+		return 1;
 
 	return 0;
 }
@@ -9383,7 +9386,7 @@ static struct {
 } nohz ____cacheline_aligned;
 
 #ifdef CONFIG_SCHED_HMP
-static inline int find_new_hmp_ilb(void)
+static inline int find_new_hmp_ilb(int type)
 {
 	int call_cpu = raw_smp_processor_id();
 	struct sched_domain *sd;
@@ -9395,7 +9398,12 @@ static inline int find_new_hmp_ilb(void)
 	for_each_domain(call_cpu, sd) {
 		for_each_cpu_and(ilb, nohz.idle_cpus_mask,
 						sched_domain_span(sd)) {
-			if (idle_cpu(ilb)) {
+			if (idle_cpu(ilb) && (type != NOHZ_KICK_RESTRICT ||
+					(hmp_capable() &&
+					 cpu_max_possible_capacity(ilb) <=
+					cpu_max_possible_capacity(call_cpu)) ||
+					cpu_max_power_cost(ilb) <=
+					cpu_max_power_cost(call_cpu))) {
 				rcu_read_unlock();
 				reset_balance_interval(ilb);
 				return ilb;
@@ -9413,12 +9421,12 @@ static inline int find_new_hmp_ilb(void)
 }
 #endif	/* CONFIG_SCHED_HMP */
 
-static inline int find_new_ilb(void)
+static inline int find_new_ilb(int type)
 {
 	int ilb;
 
 	if (sched_enable_hmp)
-		return find_new_hmp_ilb();
+		return find_new_hmp_ilb(type);
 
 	ilb = cpumask_first(nohz.idle_cpus_mask);
 
@@ -9433,13 +9441,13 @@ static inline int find_new_ilb(void)
  * nohz_load_balancer CPU (if there is one) otherwise fallback to any idle
  * CPU (if there is one).
  */
-static void nohz_balancer_kick(void)
+static void nohz_balancer_kick(int type)
 {
 	int ilb_cpu;
 
 	nohz.next_balance++;
 
-	ilb_cpu = find_new_ilb();
+	ilb_cpu = find_new_ilb(type);
 
 	if (ilb_cpu >= nr_cpu_ids)
 		return;
@@ -9698,7 +9706,51 @@ end:
 	clear_bit(NOHZ_BALANCE_KICK, nohz_flags(this_cpu));
 }
 
-static inline int _nohz_kick_needed(struct rq *rq, int cpu)
+#ifdef CONFIG_SCHED_HMP
+static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
+{
+	struct sched_domain *sd;
+	int i;
+
+	if (rq->nr_running < 2)
+		return 0;
+
+	if (!sysctl_sched_restrict_cluster_spill)
+		return 1;
+
+	if (hmp_capable() && cpu_max_possible_capacity(cpu) ==
+			max_possible_capacity)
+		return 1;
+
+	rcu_read_lock();
+	sd = rcu_dereference_check_sched_domain(rq->sd);
+	if (!sd) {
+		rcu_read_unlock();
+		return 0;
+	}
+
+	for_each_cpu(i, sched_domain_span(sd)) {
+		if (cpu_load(i) < sched_spill_load &&
+				cpu_rq(i)->nr_running <
+				sysctl_sched_spill_nr_run) {
+			/* Change the kick type to limit to CPUs that
+			 * are of equal or lower capacity.
+			 */
+			*type = NOHZ_KICK_RESTRICT;
+			break;
+		}
+	}
+	rcu_read_unlock();
+	return 1;
+}
+#else
+static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
+{
+	return 0;
+}
+#endif
+
+static inline int _nohz_kick_needed(struct rq *rq, int cpu, int *type)
 {
 	unsigned long now = jiffies;
 
@@ -9708,6 +9760,9 @@ static inline int _nohz_kick_needed(struct rq *rq, int cpu)
 	 */
 	if (likely(!atomic_read(&nohz.nr_cpus)))
 		return 0;
+
+	if (sched_enable_hmp)
+		return _nohz_kick_needed_hmp(rq, cpu, type);
 
 	if (time_before(now, nohz.next_balance))
 		return 0;
@@ -9724,7 +9779,7 @@ static inline int _nohz_kick_needed(struct rq *rq, int cpu)
  *   - For SD_ASYM_PACKING, if the lower numbered cpu's in the scheduler
  *     domain span are idle.
  */
-static inline int nohz_kick_needed(struct rq *rq)
+static inline int nohz_kick_needed(struct rq *rq, int *type)
 {
 	int cpu = rq->cpu;
 #ifndef CONFIG_SCHED_HMP
@@ -9743,7 +9798,7 @@ static inline int nohz_kick_needed(struct rq *rq)
 	set_cpu_sd_state_busy();
 	nohz_balance_exit_idle(cpu);
 
-	if (_nohz_kick_needed(rq, cpu))
+	if (_nohz_kick_needed(rq, cpu, type))
 		goto need_kick;
 
 #ifndef CONFIG_SCHED_HMP
@@ -9805,6 +9860,8 @@ static void run_rebalance_domains(struct softirq_action *h)
  */
 void trigger_load_balance(struct rq *rq)
 {
+	int type = NOHZ_KICK_ANY;
+
 	/* Don't need to rebalance while attached to NULL domain */
 	if (unlikely(on_null_domain(rq)))
 		return;
@@ -9812,8 +9869,8 @@ void trigger_load_balance(struct rq *rq)
 	if (time_after_eq(jiffies, rq->next_balance))
 		raise_softirq(SCHED_SOFTIRQ);
 #ifdef CONFIG_NO_HZ_COMMON
-	if (nohz_kick_needed(rq))
-		nohz_balancer_kick();
+	if (nohz_kick_needed(rq, &type))
+		nohz_balancer_kick(type);
 #endif
 }
 
