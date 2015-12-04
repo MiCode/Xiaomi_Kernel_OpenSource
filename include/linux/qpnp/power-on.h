@@ -37,14 +37,17 @@ enum pon_trigger_source {
 
 /**
  * enum pon_power_off_type: Possible power off actions to perform
- * %PON_POWER_OFF_WARM_RESET:	Reset the MSM but not all PMIC peripherals
- * %PON_POWER_OFF_SHUTDOWN:	Shutdown the MSM and PMIC completely
- * %PON_POWER_OFF_HARD_RESET:	Reset the MSM and all PMIC peripherals
+ * %PON_POWER_OFF_RESERVED:          Reserved, not used
+ * %PON_POWER_OFF_WARM_RESET:        Reset the MSM but not all PMIC peripherals
+ * %PON_POWER_OFF_SHUTDOWN:          Shutdown the MSM and PMIC completely
+ * %PON_POWER_OFF_HARD_RESET:        Reset the MSM and all PMIC peripherals
  */
 enum pon_power_off_type {
+	PON_POWER_OFF_RESERVED		= 0x00,
 	PON_POWER_OFF_WARM_RESET	= 0x01,
 	PON_POWER_OFF_SHUTDOWN		= 0x04,
 	PON_POWER_OFF_HARD_RESET	= 0x07,
+	PON_POWER_OFF_MAX_TYPE		= 0x10,
 };
 
 enum pon_restart_reason {

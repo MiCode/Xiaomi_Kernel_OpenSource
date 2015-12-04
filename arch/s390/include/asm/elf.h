@@ -161,10 +161,11 @@ extern unsigned int vdso_enabled;
 /* This is the location that an ET_DYN program is loaded if exec'ed.  Typical
    use of this is to invoke "./ld.so someprog" to test out a new version of
    the loader.  We need to make sure that it is out of the way of the program
-   that it will "exec", and that there is sufficient room for the brk.  */
-
-extern unsigned long randomize_et_dyn(unsigned long base);
-#define ELF_ET_DYN_BASE		(randomize_et_dyn(STACK_TOP / 3 * 2))
+   that it will "exec", and that there is sufficient room for the brk. 64-bit
+   tasks are aligned to 4GB. */
+#define ELF_ET_DYN_BASE (is_32bit_task() ? \
+				(STACK_TOP / 3 * 2) : \
+				(STACK_TOP / 3 * 2) & ~((1UL << 32) - 1))
 
 /* This yields a mask that user programs can use to figure out what
    instruction set this CPU supports. */
@@ -209,7 +210,9 @@ do {								\
 } while (0)
 #endif /* CONFIG_COMPAT */
 
-#define STACK_RND_MASK	0x7ffUL
+extern unsigned long mmap_rnd_mask;
+
+#define STACK_RND_MASK	(mmap_rnd_mask)
 
 #define ARCH_DLINFO							    \
 do {									    \

@@ -340,4 +340,5 @@
 #define WCD9XXX_CDC_RX1_RX_PATH_CTL			(0xB55)
 #define WCD9XXX_CDC_RX2_RX_PATH_CTL			(0xB69)
 #define WCD9XXX_CDC_CLK_RST_CTRL_MCLK_CONTROL		(0xD41)
+#define WCD9XXX_CLASSH_CTRL_CCL_1                       (0x69C)
 #endif

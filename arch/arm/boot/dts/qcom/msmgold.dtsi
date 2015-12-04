@@ -26,6 +26,7 @@
 
 #include "msmgold-pinctrl.dtsi"
 #include "msmgold-cpu.dtsi"
+#include "msmgold-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -190,4 +191,69 @@
 		};
 	};
 
+};
+
+#include "msm-gdsc-8916.dtsi"
+
+&gdsc_venus {
+	clock-names = "bus_clk", "core_clk";
+	clocks = <&clock_gcc clk_gcc_venus0_axi_clk>,
+		 <&clock_gcc clk_gcc_venus0_vcodec0_clk>;
+	status = "okay";
+};
+
+&gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+	clock-names ="core0_clk";
+	clocks = <&clock_gcc clk_gcc_venus0_core0_vcodec0_clk>;
+	status = "okay";
+};
+
+&gdsc_mdss {
+	clock-names = "core_clk", "bus_clk";
+	clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
+		 <&clock_gcc clk_gcc_mdss_axi_clk>;
+	status = "okay";
+};
+
+&gdsc_jpeg {
+	clock-names = "core_clk", "bus_clk";
+	clocks = <&clock_gcc clk_gcc_camss_jpeg0_clk>,
+		 <&clock_gcc clk_gcc_camss_jpeg_axi_clk>;
+	status = "okay";
+};
+
+&gdsc_vfe {
+	clock-names = "core_clk", "bus_clk", "micro_clk",
+			"csi_clk";
+	clocks = <&clock_gcc clk_gcc_camss_vfe0_clk>,
+		 <&clock_gcc clk_gcc_camss_vfe_axi_clk>,
+		 <&clock_gcc clk_gcc_camss_micro_ahb_clk>,
+		 <&clock_gcc clk_gcc_camss_csi_vfe0_clk>;
+	status = "okay";
+};
+
+&gdsc_vfe1 {
+	clock-names = "core_clk", "bus_clk", "micro_clk",
+			"csi_clk";
+	clocks = <&clock_gcc clk_gcc_camss_vfe1_clk>,
+		 <&clock_gcc clk_gcc_camss_vfe1_axi_clk>,
+		 <&clock_gcc clk_gcc_camss_micro_ahb_clk>,
+		 <&clock_gcc clk_gcc_camss_csi_vfe1_clk>;
+	status = "okay";
+};
+
+&gdsc_cpp {
+	clock-names = "core_clk", "bus_clk";
+	clocks = <&clock_gcc clk_gcc_camss_cpp_clk>,
+		 <&clock_gcc clk_gcc_camss_cpp_axi_clk>;
+	status = "okay";
+};
+
+&gdsc_oxili_gx {
+	clock-names = "core_root_clk";
+	clocks =<&clock_gcc clk_gfx3d_clk_src>;
+	qcom,enable-root-clk;
+	qcom,clk-dis-wait-val = <0x5>;
+	status = "okay";
 };

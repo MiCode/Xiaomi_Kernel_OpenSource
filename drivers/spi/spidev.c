@@ -707,7 +707,8 @@ static int spidev_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id spidev_dt_ids[] = {
-	{ .compatible = "rohm,dh2228fv" },
+	{ .compatible = "rohm,dh2228fv", },
+	{ .compatible = "qcom,spi-msm-codec-slave", },
 	{},
 };
 

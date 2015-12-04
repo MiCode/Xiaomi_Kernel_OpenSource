@@ -281,7 +281,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 
 	iommu = mmu->priv;
 	ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	device = mmu->device;
+	device = KGSL_MMU_DEVICE(mmu);
 	adreno_dev = ADRENO_DEVICE(device);
 
 	if (pt->name == KGSL_MMU_SECURE_PT)
@@ -848,7 +848,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	int status = 0;
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	struct platform_device *pdev = mmu->device->pdev;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 
 	if (ctx->name == NULL) {
 		KGSL_CORE_ERR("dt: gfx3d0_user context bank not found\n");
@@ -868,7 +868,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	}
 
 	/* Check to see if we need to do the IOMMU sync dance */
-	need_iommu_sync = of_property_read_bool(pdev->dev.of_node,
+	need_iommu_sync = of_property_read_bool(device->pdev->dev.of_node,
 		"qcom,gpu-quirk-iommu-sync");
 
 	iommu->regbase = ioremap(iommu->regstart, iommu->regsize);
@@ -918,7 +918,8 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 	int ret = 0;
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(mmu->device);
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_iommu_pt *iommu_pt = NULL;
 	unsigned int  sctlr_val;
 
@@ -1040,7 +1041,7 @@ static int
 kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc)
 {
-	struct kgsl_device *device = pt->mmu->device;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(pt->mmu);
 	int ret = 0;
 	uint64_t range = memdesc->size;
 	size_t unmapped = 0;
@@ -1118,7 +1119,7 @@ static int _iommu_add_guard_page(struct kgsl_pagetable *pt,
 			struct scatterlist *sg;
 			unsigned int sgp_size = pt->mmu->secure_align_mask + 1;
 			if (!kgsl_secure_guard_page_memdesc.sgt) {
-				if (kgsl_allocate_user(pt->mmu->device,
+				if (kgsl_allocate_user(KGSL_MMU_DEVICE(pt->mmu),
 					&kgsl_secure_guard_page_memdesc, pt,
 					sgp_size, sgp_size,
 					KGSL_MEMFLAGS_SECURE)) {
@@ -1158,7 +1159,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	uint64_t size = memdesc->size;
 	unsigned int flags = 0;
-	struct kgsl_device *device = pt->mmu->device;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(pt->mmu);
 	size_t mapped = 0;
 
 	BUG_ON(NULL == iommu_pt);
@@ -1360,7 +1361,7 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 	 * Taking the liberty to spin idle since this codepath
 	 * is invoked when we can spin safely for it to be idle
 	 */
-	ret = adreno_spin_idle(mmu->device, ADRENO_IDLE_TIMEOUT);
+	ret = adreno_spin_idle(KGSL_MMU_DEVICE(mmu), ADRENO_IDLE_TIMEOUT);
 	if (ret)
 		return ret;
 
@@ -1385,7 +1386,7 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 	while (KGSL_IOMMU_GET_CTX_REG(ctx, TLBSTATUS) &
 		(KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE)) {
 		if (time_after(jiffies, wait_for_flush)) {
-			KGSL_DRV_WARN(mmu->device,
+			KGSL_DRV_WARN(KGSL_MMU_DEVICE(mmu),
 			"Wait limit reached for IOMMU tlb flush\n");
 			break;
 		}
@@ -1411,7 +1412,8 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(mmu->device);
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret = 0;
 	unsigned int sctlr_val;
 
@@ -1423,7 +1425,7 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	/* If not attached, policy will be updated during the next attach */
 	if (ctx->default_pt != NULL) {
 		/* Need to idle device before changing options */
-		ret = mmu->device->ftbl->idle(mmu->device);
+		ret = device->ftbl->idle(device);
 		if (ret)
 			return ret;
 

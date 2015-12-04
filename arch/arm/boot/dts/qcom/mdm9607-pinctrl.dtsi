@@ -181,11 +181,11 @@
 	sdc1_wlan_gpio {
 		sdc1_wlan_gpio_active: sdc1_wlan_gpio_active {
 			mux {
-				pins = "gpio38";
+				pins = "gpio38", "gpio25";
 				function  = "gpio";
 			};
 			config {
-				pins  = "gpio38";
+				pins  = "gpio38", "gpio25";
 				output-high;
 				drive-strength = <8>;
 				bias-pull-up;
@@ -722,36 +722,6 @@
 
 				config {
 					pins = "gpio27", "gpio28";
-					drive-strength = <2>; /* 2 MA */
-					bias-pull-down;
-				};
-			};
-
-			emac0_irq_active: emac0_irq_active {
-				/* active state */
-				mux {
-					/* ETH IRQ */
-					pins = "gpio30";
-					function = "gpio";
-				};
-
-				config {
-					pins = "gpio30";
-					drive-strength = <16>; /* 16 MA */
-					bias-pull-up;
-				};
-			};
-
-			emac0_irq_sleep: emac0_irq_sleep {
-				/* suspended state */
-				mux {
-					/* ETH IRQ */
-					pins = "gpio30";
-					function = "gpio";
-				};
-
-				config {
-					pins = "gpio30";
 					drive-strength = <2>; /* 2 MA */
 					bias-pull-down;
 				};

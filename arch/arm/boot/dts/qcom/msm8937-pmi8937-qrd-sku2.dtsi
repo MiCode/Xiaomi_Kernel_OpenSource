@@ -87,12 +87,13 @@
 
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
-		label = "ft5x06";
+		label = "ft5x06_ts";
 		qcom,disp-maxx = <720>;
 		qcom,disp-maxy = <1280>;
 		qcom,panel-maxx = <720>;
 		qcom,panel-maxy = <1400>;
-		qcom,key-codes = <158 139 172>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
 	};
 };
 

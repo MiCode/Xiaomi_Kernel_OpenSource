@@ -21,6 +21,8 @@ qcom,itech-3000mah {
 	qcom,chg-rslow-comp-c2 = <8609000>;
 	qcom,chg-rslow-comp-thr = <0xBE>;
 	qcom,chg-rs-to-rslow = <761000>;
+	qcom,fastchg-current-ma = <2000>;
+	qcom,fg-cc-cv-threshold-mv = <4340>;
 	qcom,checksum = <0x0B7C>;
 	qcom,fg-profile-data = [
 		F0 83 6B 7D

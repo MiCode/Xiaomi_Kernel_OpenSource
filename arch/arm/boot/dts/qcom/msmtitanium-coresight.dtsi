@@ -22,6 +22,7 @@
 
 		qcom,memory-size = <0x100000>;
 		qcom,sg-enable;
+		qcom,force-reg-dump;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
@@ -63,6 +64,7 @@
 		coresight-child-ports = <0>;
 		coresight-default-sink;
 		coresight-ctis = <&cti0 &cti8>;
+		qcom,force-reg-dump;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;

@@ -48,6 +48,8 @@
 #define IPA_GENERIC_RX_POOL_SZ 192
 
 #define IPA_MAX_STATUS_STAT_NUM 30
+#define __FILENAME__ \
+	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 #define IPADBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
@@ -183,6 +185,113 @@
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)
 
 #define IPA_SLEEP_CLK_RATE_KHZ (32)
+
+#define IPA_ACTIVE_CLIENTS_PREP_EP(log_info, client) \
+		log_info.file = __FILENAME__; \
+		log_info.line = __LINE__; \
+		log_info.type = EP; \
+		log_info.id_string = ipa3_clients_strings[client]
+
+#define IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info) \
+		log_info.file = __FILENAME__; \
+		log_info.line = __LINE__; \
+		log_info.type = SIMPLE; \
+		log_info.id_string = __func__
+
+#define IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name) \
+		log_info.file = __FILENAME__; \
+		log_info.line = __LINE__; \
+		log_info.type = RESOURCE; \
+		log_info.id_string = resource_name
+
+#define IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str) \
+		log_info.file = __FILENAME__; \
+		log_info.line = __LINE__; \
+		log_info.type = SPECIAL; \
+		log_info.id_string = id_str
+
+#define IPA_ACTIVE_CLIENTS_INC_EP(client) \
+	do { \
+		struct ipa3_active_client_logging_info log_info; \
+		IPA_ACTIVE_CLIENTS_PREP_EP(log_info, client); \
+		ipa3_inc_client_enable_clks(&log_info); \
+	} while (0)
+
+#define IPA_ACTIVE_CLIENTS_DEC_EP(client) \
+	do { \
+		struct ipa3_active_client_logging_info log_info; \
+		IPA_ACTIVE_CLIENTS_PREP_EP(log_info, client); \
+		ipa3_dec_client_disable_clks(&log_info); \
+	} while (0)
+
+#define IPA_ACTIVE_CLIENTS_INC_SIMPLE() \
+	do { \
+		struct ipa3_active_client_logging_info log_info; \
+		IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info); \
+		ipa3_inc_client_enable_clks(&log_info); \
+	} while (0)
+
+#define IPA_ACTIVE_CLIENTS_DEC_SIMPLE() \
+	do { \
+		struct ipa3_active_client_logging_info log_info; \
+		IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info); \
+		ipa3_dec_client_disable_clks(&log_info); \
+	} while (0)
+
+#define IPA_ACTIVE_CLIENTS_INC_RESOURCE(resource_name) \
+	do { \
+		struct ipa3_active_client_logging_info log_info; \
+		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name); \
+		ipa3_inc_client_enable_clks(&log_info); \
+	} while (0)
+
+#define IPA_ACTIVE_CLIENTS_DEC_RESOURCE(resource_name) \
+	do { \
+		struct ipa3_active_client_logging_info log_info; \
+		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name); \
+		ipa3_dec_client_disable_clks(&log_info); \
+	} while (0)
+
+#define IPA_ACTIVE_CLIENTS_INC_SPECIAL(id_str) \
+	do { \
+		struct ipa3_active_client_logging_info log_info; \
+		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str); \
+		ipa3_inc_client_enable_clks(&log_info); \
+	} while (0)
+
+#define IPA_ACTIVE_CLIENTS_DEC_SPECIAL(id_str) \
+	do { \
+		struct ipa3_active_client_logging_info log_info; \
+		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str); \
+		ipa3_dec_client_disable_clks(&log_info); \
+	} while (0)
+
+#define IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES 120
+#define IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN 100
+
+extern const char *ipa3_clients_strings[];
+
+enum ipa3_active_client_log_type {
+	EP,
+	SIMPLE,
+	RESOURCE,
+	SPECIAL,
+	INVALID
+};
+
+struct ipa3_active_client_logging_info {
+	const char *id_string;
+	char *file;
+	int line;
+	enum ipa3_active_client_log_type type;
+};
+
+struct ipa3_active_clients_log_ctx {
+	char *log_buffer[IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES];
+	int log_head;
+	int log_tail;
+	bool log_rdy;
+};
 
 struct ipa3_client_names {
 	enum ipa_client_type names[MAX_RESOURCE_TO_CLIENTS];
@@ -1417,6 +1526,7 @@ struct ipa3_context {
 	struct gen_pool *pipe_mem_pool;
 	struct dma_pool *dma_pool;
 	struct ipa3_active_clients ipa3_active_clients;
+	struct ipa3_active_clients_log_ctx ipa3_active_clients_logging;
 	struct workqueue_struct *power_mgmt_wq;
 	struct workqueue_struct *transport_power_mgmt_wq;
 	bool tag_process_before_gating;
@@ -2120,9 +2230,10 @@ int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary);
 struct ipa3_context *ipa3_get_ctx(void);
 void ipa3_enable_clks(void);
 void ipa3_disable_clks(void);
-void ipa3_inc_client_enable_clks(void);
-int ipa3_inc_client_enable_clks_no_block(void);
-void ipa3_dec_client_disable_clks(void);
+void ipa3_inc_client_enable_clks(struct ipa3_active_client_logging_info *id);
+int ipa3_inc_client_enable_clks_no_block(struct ipa3_active_client_logging_info
+		*id);
+void ipa3_dec_client_disable_clks(struct ipa3_active_client_logging_info *id);
 int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa3_del_rt_rule(u32 rule_hdl);
 int __ipa3_del_hdr(u32 hdr_hdl);
@@ -2135,6 +2246,8 @@ int _ipa_read_dbg_cnt_v3_0(char *buf, int max_len);
 void _ipa_enable_clks_v3_0(void);
 void _ipa_disable_clks_v3_0(void);
 struct device *ipa3_get_dma_dev(void);
+void ipa3_active_clients_log_print_buffer(void);
+void ipa3_active_clients_log_clear(void);
 void ipa3_suspend_active_aggr_wa(u32 clnt_hdl);
 void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				void *private_data,
@@ -2298,6 +2411,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	struct ipa3_debugfs_rt_entry entry[],
 	int *num_entry);
 int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
+const char *ipa3_rm_resource_str(enum ipa_rm_resource_name resource_name);
 int ipa3_restore_suspend_handler(void);
 int ipa3_inject_dma_task_for_gsi(void);
 void ipa3_inc_acquire_wakelock(void);

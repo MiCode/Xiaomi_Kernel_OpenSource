@@ -117,7 +117,6 @@ struct kgsl_mmu_pt_ops {
 
 struct kgsl_mmu {
 	uint32_t      flags;
-	struct kgsl_device     *device;
 	struct kgsl_memdesc    setstate_memory;
 	/* current page table object being used by device mmu */
 	struct kgsl_pagetable  *defaultpagetable;
@@ -196,18 +195,28 @@ int kgsl_mmu_svm_range(struct kgsl_pagetable *pagetable,
  * of as wrappers around the actual function
  */
 
+#define MMU_OP_VALID(_mmu, _field) \
+	(((_mmu) != NULL) && \
+	 ((_mmu)->mmu_ops != NULL) && \
+	 ((_mmu)->mmu_ops->_field != NULL))
+
+#define PT_OP_VALID(_pt, _field) \
+	(((_pt) != NULL) && \
+	 ((_pt)->pt_ops != NULL) && \
+	 ((_pt)->pt_ops->_field != NULL))
+
 static inline u64 kgsl_mmu_get_current_ttbr0(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_current_ttbr0)
+	if (MMU_OP_VALID(mmu, mmu_get_current_ttbr0))
 		return mmu->mmu_ops->mmu_get_current_ttbr0(mmu);
-	else
-		return 0;
+
+	return 0;
 }
 
 static inline int kgsl_mmu_set_pt(struct kgsl_mmu *mmu,
 					struct kgsl_pagetable *pagetable)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_set_pt)
+	if (MMU_OP_VALID(mmu, mmu_set_pt))
 		return mmu->mmu_ops->mmu_set_pt(mmu, pagetable);
 
 	return 0;
@@ -215,21 +224,19 @@ static inline int kgsl_mmu_set_pt(struct kgsl_mmu *mmu,
 
 static inline void kgsl_mmu_stop(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_stop)
+	if (MMU_OP_VALID(mmu, mmu_stop))
 		mmu->mmu_ops->mmu_stop(mmu);
 }
 
 static inline void kgsl_mmu_enable_clk(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_enable_clk)
+	if (MMU_OP_VALID(mmu, mmu_enable_clk))
 		mmu->mmu_ops->mmu_enable_clk(mmu);
-	else
-		return;
 }
 
 static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk)
+	if (MMU_OP_VALID(mmu, mmu_disable_clk))
 		mmu->mmu_ops->mmu_disable_clk(mmu);
 }
 
@@ -246,10 +253,10 @@ static inline unsigned int kgsl_mmu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
 				enum kgsl_iommu_context_id ctx_id,
 				enum kgsl_iommu_reg_map reg)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_reg_ahbaddr)
+	if (MMU_OP_VALID(mmu, mmu_get_reg_ahbaddr))
 		return mmu->mmu_ops->mmu_get_reg_ahbaddr(mmu, ctx_id, reg);
-	else
-		return 0;
+
+	return 0;
 }
 
 /*
@@ -281,31 +288,31 @@ static inline int kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
 static inline int kgsl_mmu_set_pagefault_policy(struct kgsl_mmu *mmu,
 						unsigned long pf_policy)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_set_pf_policy)
+	if (MMU_OP_VALID(mmu, mmu_set_pf_policy))
 		return mmu->mmu_ops->mmu_set_pf_policy(mmu, pf_policy);
-	else
-		return 0;
+
+	return 0;
 }
 
 static inline void kgsl_mmu_pagefault_resume(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_pagefault_resume)
+	if (MMU_OP_VALID(mmu, mmu_pagefault_resume))
 		return mmu->mmu_ops->mmu_pagefault_resume(mmu);
 }
 
 static inline void kgsl_mmu_clear_fsr(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_clear_fsr)
+	if (MMU_OP_VALID(mmu, mmu_clear_fsr))
 		return mmu->mmu_ops->mmu_clear_fsr(mmu);
 }
 
 static inline struct kgsl_protected_registers *kgsl_mmu_get_prot_regs
 						(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_prot_regs)
+	if (MMU_OP_VALID(mmu, mmu_get_prot_regs))
 		return mmu->mmu_ops->mmu_get_prot_regs(mmu);
-	else
-		return NULL;
+
+	return NULL;
 }
 
 static inline int kgsl_mmu_is_secured(struct kgsl_mmu *mmu)
@@ -316,16 +323,18 @@ static inline int kgsl_mmu_is_secured(struct kgsl_mmu *mmu)
 static inline u64
 kgsl_mmu_pagetable_get_ttbr0(struct kgsl_pagetable *pagetable)
 {
-	if (pagetable && pagetable->pt_ops->get_ttbr0)
+	if (PT_OP_VALID(pagetable, get_ttbr0))
 		return pagetable->pt_ops->get_ttbr0(pagetable);
+
 	return 0;
 }
 
 static inline u32
 kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
 {
-	if (pagetable && pagetable->pt_ops->get_contextidr)
+	if (PT_OP_VALID(pagetable, get_contextidr))
 		return pagetable->pt_ops->get_contextidr(pagetable);
+
 	return 0;
 }
 

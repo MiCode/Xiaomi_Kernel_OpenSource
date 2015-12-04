@@ -662,14 +662,16 @@ static void ipa3_rm_wq_resume_handler(struct work_struct *work)
 		IPA_RM_ERR("resource is not CONS\n");
 		return;
 	}
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_RESOURCE(ipa3_rm_resource_str(
+			ipa_rm_work->resource_name));
 	spin_lock_irqsave(&ipa3_rm_ctx->ipa_rm_lock, flags);
 	if (ipa3_rm_dep_graph_get_resource(ipa3_rm_ctx->dep_graph,
 					ipa_rm_work->resource_name,
 					&resource) != 0){
 		IPA_RM_ERR("resource does not exists\n");
 		spin_unlock_irqrestore(&ipa3_rm_ctx->ipa_rm_lock, flags);
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_RESOURCE(ipa3_rm_resource_str(
+				ipa_rm_work->resource_name));
 		goto bail;
 	}
 	ipa3_rm_resource_consumer_request_work(

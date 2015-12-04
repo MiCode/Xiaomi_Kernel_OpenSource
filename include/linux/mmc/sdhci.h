@@ -213,6 +213,7 @@ struct sdhci_host {
 #define SDHCI_SDR104_NEEDS_TUNING (1<<10)	/* SDR104/HS200 needs tuning */
 #define SDHCI_USING_RETUNING_TIMER (1<<11)	/* Host is using a retuning timer for the card */
 #define SDHCI_USE_ADMA_64BIT	 (1<<12)/* Host is 64-bit ADMA capable */
+#define SDHCI_HOST_IRQ_STATUS	 (1<<13) /* host->irq status */
 
 	unsigned int version;	/* SDHCI spec. version */
 
@@ -283,6 +284,7 @@ struct sdhci_host {
 
 	bool is_crypto_en;
 	bool crypto_reset_reqd;
+	bool sdio_irq_async_status;
 
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;

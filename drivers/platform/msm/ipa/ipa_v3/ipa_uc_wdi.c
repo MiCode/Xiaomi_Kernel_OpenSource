@@ -401,8 +401,7 @@ int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 			ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_mmio);
 		return -EINVAL;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	TX_STATS(num_pkts_processed);
 	TX_STATS(copy_engine_doorbell_value);
@@ -444,7 +443,7 @@ int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	RX_STATS(reserved1);
 	RX_STATS(reserved2);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -737,7 +736,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	}
 
 	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(in->sys.client);
 
 	IPADBG("client=%d ep=%d\n", in->sys.client, ipa_ep_idx);
 	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
@@ -921,7 +920,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		ipa3_install_dflt_flt_rules(ipa_ep_idx);
 
 	if (!ep->keep_ipa_awake)
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 	ep->wdi_state |= IPA_WDI_CONNECTED;
@@ -935,7 +934,7 @@ uc_timeout:
 	ipa_release_uc_smmu_mappings(in->sys.client);
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 dma_alloc_fail:
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 fail:
 	return result;
 }
@@ -974,7 +973,7 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 	}
 
 	if (!ep->keep_ipa_awake)
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	tear.params.ipa_pipe_number = clnt_hdl;
 
@@ -992,7 +991,7 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 	ipa_release_uc_smmu_mappings(ep->client);
 
 	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
@@ -1033,8 +1032,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
 		return -EFAULT;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 	enable.params.ipa_pipe_number = clnt_hdl;
 
 	result = ipa3_uc_send_cmd(enable.raw32b,
@@ -1053,8 +1051,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		holb_cfg.tmr_val = 0;
 		result = ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->wdi_state |= IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) enabled\n", clnt_hdl);
 
@@ -1096,8 +1093,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
 		return -EFAULT;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	result = ipa3_disable_data_path(clnt_hdl);
 	if (result) {
@@ -1149,8 +1145,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->wdi_state &= ~IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
 
@@ -1191,8 +1186,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
 		return -EFAULT;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 	resume.params.ipa_pipe_number = clnt_hdl;
 
 	result = ipa3_uc_send_cmd(resume.raw32b,
@@ -1303,7 +1297,7 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 	}
 
 	ipa3_ctx->tag_process_before_gating = true;
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->wdi_state &= ~IPA_WDI_RESUMED;
 	IPADBG("client (ep: %d) suspended\n", clnt_hdl);
 
@@ -1335,8 +1329,7 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
 		return -EFAULT;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 	qmap.params.ipa_pipe_number = clnt_hdl;
 	qmap.params.qmap_id = qmap_id;
 
@@ -1349,8 +1342,7 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		result = -EFAULT;
 		goto uc_timeout;
 	}
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) qmap_id %d updated\n", clnt_hdl, qmap_id);
 

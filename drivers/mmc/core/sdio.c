@@ -1047,6 +1047,8 @@ static int mmc_sdio_suspend(struct mmc_host *host)
 
 	if (!mmc_card_keep_power(host))
 		mmc_power_off(host);
+	else if (host->ios.clock)
+		mmc_gate_clock(host);
 
 	return 0;
 }

@@ -12,6 +12,11 @@
  */
 
 / {
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -37,7 +42,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x100>;
-			enable-method = "spin-table";
+			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_1>;
@@ -52,7 +57,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x101>;
-			enable-method = "spin-table";
+			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_1>;
@@ -62,7 +67,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x102>;
-			enable-method = "spin-table";
+			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_1>;
@@ -72,7 +77,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x103>;
-			enable-method = "spin-table";
+			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_1>;

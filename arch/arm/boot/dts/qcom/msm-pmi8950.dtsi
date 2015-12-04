@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/msm/power-on.h>
+
 &spmi_bus {
 
 	qcom,pmi8950@2 {
@@ -27,7 +29,8 @@
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 			qcom,secondary-pon-reset;
-			qcom,cfg-shutdown-for-hard-reset;
+			qcom,hard-reset-poweroff-type =
+				<PON_POWER_OFF_SHUTDOWN>;
 		};
 
 		pmi8950_vadc: vadc@3100 {
@@ -194,7 +197,6 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <100>;
-			qcom,fastchg-current-ma = <2000>;
 			qcom,float-voltage-mv = <4200>;
 			qcom,resume-delta-mv = <200>;
 			qcom,chg-inhibit-fg;
@@ -204,8 +206,10 @@
 			qcom,parallel-usb-min-current-ma = <1400>;
 			qcom,parallel-usb-9v-min-current-ma = <900>;
 			qcom,parallel-allowed-lowering-ma = <500>;
-			qcom,enable-hvdcp-9v;
 			qcom,pmic-revid = <&pmi8950_revid>;
+			qcom,force-aicl-rerun;
+			qcom,aicl-rerun-period-s = <180>;
+			qcom,autoadjust-vfloat;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -311,10 +315,12 @@
 			status = "okay";
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
-			qcom,fg-iterm-ma = <100>;
+			qcom,fg-iterm-ma = <150>;
 			qcom,fg-chg-iterm-ma = <100>;
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,fg-cutoff-voltage-mv = <3500>;
+			qcom,cycle-counter-en;
+			qcom,capacity-learning-on;
 
 			qcom,fg-soc@4000 {
 			status = "okay";

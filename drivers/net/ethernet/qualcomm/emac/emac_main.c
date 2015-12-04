@@ -2314,122 +2314,6 @@ static void emac_init_adapter(struct emac_adapter *adpt)
 	adpt->wol = EMAC_WOL_MAGIC | EMAC_WOL_PHY;
 }
 
-#ifdef CONFIG_PM_RUNTIME
-static int emac_runtime_suspend(struct device *device)
-{
-	struct platform_device *pdev = to_platform_device(device);
-	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_hw *hw = &adpt->hw;
-	u32 wufc = adpt->wol;
-
-	emac_hw_config_pow_save(hw, adpt->hw.link_speed, !!wufc,
-				!!(wufc & EMAC_WOL_MAGIC));
-	return 0;
-}
-
-static int emac_runtime_idle(struct device *device)
-{
-	struct platform_device *pdev = to_platform_device(device);
-	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-
-	/* schedule to enter runtime suspend state if the link does
-	 * not come back up within the specified time
-	 */
-	pm_schedule_suspend(netdev->dev.parent,
-			    jiffies_to_msecs(EMAC_TRY_LINK_TIMEOUT));
-	return -EBUSY;
-}
-#endif /* CONFIG_PM_RUNTIME */
-
-#ifdef CONFIG_PM_SLEEP
-static int emac_suspend(struct device *device)
-{
-	struct platform_device *pdev = to_platform_device(device);
-	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_hw *hw = &adpt->hw;
-	u32 wufc = adpt->wol;
-	u16 i;
-	u32 speed, adv_speed;
-	bool link_up = false;
-	int retval = 0;
-
-	/* cannot suspend if WOL is disabled */
-	if (!adpt->irq[EMAC_WOL_IRQ].irq)
-		return -EPERM;
-
-	netif_device_detach(netdev);
-	if (netif_running(netdev)) {
-		/* ensure no task is running and no reset is in progress */
-		while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
-			msleep(20); /* Reset might take few 10s of ms */
-
-		emac_down(adpt, 0);
-
-		CLR_FLAG(adpt, ADPT_STATE_RESETTING);
-	}
-
-	emac_check_phy_link(hw, &speed, &link_up);
-
-	if (link_up) {
-		adv_speed = EMAC_LINK_SPEED_10_HALF;
-		emac_hw_get_lpa_speed(hw, &adv_speed);
-
-		retval = emac_setup_phy_link(hw, adv_speed, true,
-					     !hw->disable_fc_autoneg);
-		if (retval)
-			return retval;
-
-		link_up = false;
-		for (i = 0; i < EMAC_MAX_SETUP_LNK_CYCLE; i++) {
-			retval = emac_check_phy_link(hw, &speed, &link_up);
-			if ((!retval) && link_up)
-				break;
-
-			/* link can take upto few seconds to come up */
-			msleep(100);
-		}
-	}
-
-	if (!link_up)
-		speed = EMAC_LINK_SPEED_10_HALF;
-
-	hw->link_speed = speed;
-	hw->link_up = link_up;
-
-	emac_hw_config_wol(hw, wufc);
-	emac_hw_config_pow_save(hw, adpt->hw.link_speed, !!wufc,
-				!!(wufc & EMAC_WOL_MAGIC));
-	return 0;
-}
-
-static int emac_resume(struct device *device)
-{
-	struct platform_device *pdev = to_platform_device(device);
-	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
-	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_hw *hw = &adpt->hw;
-	u32 retval;
-
-	emac_hw_reset_mac(hw);
-	retval = emac_setup_phy_link(hw, hw->autoneg_advertised, true,
-				     !hw->disable_fc_autoneg);
-	if (retval)
-		return retval;
-
-	emac_hw_config_wol(hw, 0);
-	if (netif_running(netdev)) {
-		retval = emac_up(adpt);
-		if (retval)
-			return retval;
-	}
-
-	netif_device_attach(netdev);
-	return 0;
-}
-#endif
-
 /* Get the clock */
 static int emac_get_clk(struct platform_device *pdev,
 			struct emac_adapter *adpt)
@@ -2690,9 +2574,9 @@ static int emac_get_regulator(struct platform_device *pdev,
 
 /* Set the Voltage */
 static int emac_set_voltage(struct emac_adapter *adpt, enum emac_vreg_id id,
-			    int votage)
+			    int min_uV, int max_uV)
 {
-	int retval = regulator_set_voltage(adpt->vreg[id].vreg, votage, votage);
+	int retval = regulator_set_voltage(adpt->vreg[id].vreg, min_uV, max_uV);
 
 	if (retval)
 		emac_err(adpt,
@@ -2708,7 +2592,8 @@ static int emac_enable_regulator(struct emac_adapter *adpt)
 {
 	int retval;
 
-	retval = emac_set_voltage(adpt, EMAC_VREG1, EMAC_VREG1_VOLTAGE);
+	retval = emac_set_voltage(adpt, EMAC_VREG1, EMAC_VREG1_VOLTAGE,
+				  EMAC_VREG1_VOLTAGE);
 	if (retval)
 		goto err;
 
@@ -2721,7 +2606,8 @@ static int emac_enable_regulator(struct emac_adapter *adpt)
 		adpt->vreg[EMAC_VREG1].enabled = true;
 	}
 
-	retval = emac_set_voltage(adpt, EMAC_VREG2, EMAC_VREG2_VOLTAGE);
+	retval = emac_set_voltage(adpt, EMAC_VREG2, EMAC_VREG2_VOLTAGE,
+				  EMAC_VREG2_VOLTAGE);
 	if (retval)
 		goto err;
 
@@ -2761,7 +2647,14 @@ static void emac_disable_regulator(struct emac_adapter *adpt)
 		}
 
 		if (vreg->set_voltage) {
-			emac_set_voltage(adpt, i, EMAC_VREG_RESET_VOLTAGE);
+			if (i == EMAC_VREG1)
+				emac_set_voltage(adpt, i,
+						 EMAC_VREG_RESET_VOLTAGE,
+						 EMAC_VREG1_VOLTAGE);
+			else
+				emac_set_voltage(adpt, i,
+						 EMAC_VREG_RESET_VOLTAGE,
+						 EMAC_VREG2_VOLTAGE);
 			vreg->set_voltage = false;
 		}
 	}
@@ -2782,6 +2675,129 @@ static int msm_emac_ldo_init(struct platform_device *pdev,
 		return retval;
 	return 0;
 }
+
+#ifdef CONFIG_PM_RUNTIME
+static int emac_runtime_suspend(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
+	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_hw *hw = &adpt->hw;
+	u32 wufc = adpt->wol;
+
+	emac_hw_config_pow_save(hw, adpt->hw.link_speed, !!wufc,
+				!!(wufc & EMAC_WOL_MAGIC));
+	return 0;
+}
+
+static int emac_runtime_idle(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
+
+	/* schedule to enter runtime suspend state if the link does
+	 * not come back up within the specified time
+	 */
+	pm_schedule_suspend(netdev->dev.parent,
+			    jiffies_to_msecs(EMAC_TRY_LINK_TIMEOUT));
+	return -EBUSY;
+}
+#endif /* CONFIG_PM_RUNTIME */
+
+#ifdef CONFIG_PM_SLEEP
+static int emac_suspend(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
+	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_hw *hw = &adpt->hw;
+	u32 wufc = adpt->wol;
+	u16 i;
+	u32 speed, adv_speed;
+	bool link_up = false;
+	int retval = 0;
+
+	/* cannot suspend if WOL is disabled */
+	if (!adpt->irq[EMAC_WOL_IRQ].irq)
+		return -EPERM;
+
+	netif_device_detach(netdev);
+	if (netif_running(netdev)) {
+		/* ensure no task is running and no reset is in progress */
+		while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
+			msleep(20); /* Reset might take few 10s of ms */
+
+		emac_down(adpt, 0);
+
+		CLR_FLAG(adpt, ADPT_STATE_RESETTING);
+	}
+
+	emac_check_phy_link(hw, &speed, &link_up);
+
+	if (link_up) {
+		adv_speed = EMAC_LINK_SPEED_10_HALF;
+		emac_hw_get_lpa_speed(hw, &adv_speed);
+
+		retval = emac_setup_phy_link(hw, adv_speed, true,
+					     !hw->disable_fc_autoneg);
+		if (retval)
+			return retval;
+
+		link_up = false;
+		for (i = 0; i < EMAC_MAX_SETUP_LNK_CYCLE; i++) {
+			retval = emac_check_phy_link(hw, &speed, &link_up);
+			if ((!retval) && link_up)
+				break;
+
+			/* link can take upto few seconds to come up */
+			msleep(100);
+		}
+	}
+
+	if (!link_up)
+		speed = EMAC_LINK_SPEED_10_HALF;
+
+	hw->link_speed = speed;
+	hw->link_up = link_up;
+
+	emac_hw_config_wol(hw, wufc);
+	emac_hw_config_pow_save(hw, adpt->hw.link_speed, !!wufc,
+				!!(wufc & EMAC_WOL_MAGIC));
+
+	emac_disable_clks(adpt);
+	emac_disable_regulator(adpt);
+	return 0;
+}
+
+static int emac_resume(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
+	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct emac_hw *hw = &adpt->hw;
+	u32 retval;
+
+	emac_enable_regulator(adpt);
+	emac_init_clks(adpt);
+	emac_enable_clks(adpt);
+
+	emac_hw_reset_mac(hw);
+	retval = emac_setup_phy_link(hw, hw->autoneg_advertised, true,
+				     !hw->disable_fc_autoneg);
+	if (retval)
+		return retval;
+
+	emac_hw_config_wol(hw, 0);
+	if (netif_running(netdev)) {
+		retval = emac_up(adpt);
+		if (retval)
+			return retval;
+	}
+
+	netif_device_attach(netdev);
+	return 0;
+}
+#endif
 
 /* Probe function */
 static int emac_probe(struct platform_device *pdev)

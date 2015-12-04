@@ -2128,6 +2128,19 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_CONFIG_VENC_INTRA_PERIOD;
 		intra_period.pframes = num_p;
 		intra_period.bframes = num_b;
+
+		/*
+		 *Incase firmware does not have B-Frame support,
+		 *offload the b-frame count to p-frame to make up
+		 *for the requested Intraperiod
+		 */
+		if (!inst->capability.bframe.max) {
+			intra_period.pframes = num_p + num_b;
+			intra_period.bframes = 0;
+			dprintk(VIDC_DBG,
+				"No bframe support, changing pframe from %d to %d\n",
+				num_p, intra_period.pframes);
+		}
 		pdata = &intra_period;
 		break;
 	}

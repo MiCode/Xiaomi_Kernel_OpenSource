@@ -302,6 +302,40 @@ boostpulse_duration: Length of time to hold CPU speed at hispeed_freq
 on a write to boostpulse, before allowing speed to drop according to
 load as usual.  Default is 80000 uS.
 
+align_windows: If non-zero, align governor timer window to fire at
+multiples of number of jiffies timer_rate converts to.
+
+use_sched_load: If non-zero, query scheduler for CPU busy time,
+instead of collecting it directly in governor. This would allow
+scheduler to adjust the busy time of each CPU to account for known
+information such as migration. If non-zero, this also implies governor
+sampling windows are aligned across CPUs, with same timer_rate,
+regardless what align_windows is set to. Default is zero.
+
+use_migration_notif: If non-zero, reevaluate CPU's frequency
+immediately after receiving notification from scheduler. If zero,
+ignore scheduler notification. Default is zero.
+
+max_freq_hysteresis: Each time freq evaluation chooses policy->max,
+next max_freq_hysteresis is considered as hysteresis period. During
+this period, frequency target will not drop below hispeed_freq, no
+matter how light actual workload is. If CPU load of any sampling
+window exceeds go_hispeed_load during this period, governor will
+directly increase frequency back to policy->max. Default is 0 uS.
+
+ignore_hispeed_on_notif: If non-zero, do not apply hispeed related
+logic if frequency evaluation is triggered by scheduler notification.
+This includes ignoring go_hispeed_load, hispeed_freq in frequency
+selection, and ignoring above_hispeed_delay that prevents frequency
+ramp up. For evaluation triggered by timer, hispeed logic is still
+always applied. ignore_hispeed_on_notif has no effect if
+use_migration_notif is set to zero. Default is zero.
+
+fast_ramp_down: If non-zero, do not apply min_sample_time if
+frequency evaluation is triggered by scheduler notification. For
+evaluation triggered by timer, min_sample_time is still always
+enforced. fast_ramp_down has no effect if use_migration_notif is
+set to zero. Default is zero.
 
 3. The Governor Interface in the CPUfreq Core
 =============================================

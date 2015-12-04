@@ -466,6 +466,41 @@
 		clock-names = "core_clk", "iface_clk";
 	};
 
+	blsp1_uart1: uart@78b0000 {
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x78b0000 0x200>,
+			<0x7884000 0x1f000>;
+		reg-names = "core_mem", "bam_mem";
+
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart1>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 108 0
+				1 &intc 0 238 0
+				2 &tlmm 13 0>;
+
+		qcom,inject-rx-on-wakeup;
+		qcom,rx-char-to-inject = <0xFD>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&hsuart_sleep>;
+		pinctrl-1 = <&hsuart_active>;
+		qcom,bam-tx-ep-pipe-index = <2>;
+		qcom,bam-rx-ep-pipe-index = <3>;
+		qcom,msm-bus,name = "blsp1_uart1";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<86 512 0 0>,
+				<86 512 500 800>;
+	};
+
 	dma_blsp1: qcom,sps-dma@7884000 { /* BLSP1 */
 		#dma-cells = <4>;
 		compatible = "qcom,sps-dma";
@@ -555,6 +590,19 @@
 		dmas = <&dma_blsp2 4 64 0x20000020 0x20>,
 			<&dma_blsp2 5 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
+	};
+
+	slim_msm: slim@c140000{
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc140000 0x2c000>,
+		      <0xc104000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 180 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x600000>;
+		qcom,ea-pc = <0x200>;
+		status = "disabled";
 	};
 
 	dcc: dcc@b3000 {
@@ -703,6 +751,11 @@
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		status = "disabled";
+	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
 	};
 
 	qcom,msm-imem@8600000 {

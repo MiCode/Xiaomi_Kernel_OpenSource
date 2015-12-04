@@ -149,6 +149,7 @@ int ipa3_rm_resource_consumer_request(
 {
 	int result = 0;
 	enum ipa3_rm_resource_state prev_state;
+	struct ipa3_active_client_logging_info log_info;
 
 	IPA_RM_DBG("%s state: %d\n",
 			ipa3_rm_resource_str(consumer->resource.name),
@@ -161,8 +162,10 @@ int ipa3_rm_resource_consumer_request(
 	case IPA_RM_RELEASE_IN_PROGRESS:
 		reinit_completion(&consumer->request_consumer_in_progress);
 		consumer->resource.state = IPA_RM_REQUEST_IN_PROGRESS;
+		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
+				ipa3_rm_resource_str(consumer->resource.name));
 		if (prev_state == IPA_RM_RELEASE_IN_PROGRESS ||
-				ipa3_inc_client_enable_clks_no_block() != 0) {
+			ipa3_inc_client_enable_clks_no_block(&log_info) != 0) {
 			IPA_RM_DBG("async resume work for %s\n",
 				ipa3_rm_resource_str(consumer->resource.name));
 			ipa3_rm_wq_send_resume_cmd(consumer->resource.name,
