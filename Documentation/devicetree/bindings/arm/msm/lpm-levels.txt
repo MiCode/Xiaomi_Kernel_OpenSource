@@ -90,6 +90,8 @@ Required properties:
 	- qcom,is-reset: This boolean property will tell whether
 	cluster level need power management notifications to be sent out
 	or not for the drivers to prepare for cluster collapse.
+	- qcom,hyp-psci: This property is used to determine if the cpu
+        enters the low power mode within hypervisor.
 
 [Node bindings for qcom,pm-cpu]
 qcom,pm-cpu contains the low power modes that a cpu could enter. Currently it
