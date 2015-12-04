@@ -7,7 +7,7 @@ SRAM minimum operating voltage, the APM controller can be used to request a
 switch to a power supply that will guarantee logic state retention.
 
 Required properties
-- compatible:	"qcom,msm-apm"
+- compatible:	"qcom,msm-apm", "qcom,msmtitanium-apm"
 - reg:		Specifies physical base address and size of memory mapped regions
 		containing the APM controller, APCS CSR, APC PLL controller, and
 		SPM event registers.
@@ -21,6 +21,18 @@ Optional properties
 				clock sources to GPLL0 before the APM switch begins and to
 				switch back to the original clock source after the APM switch
 				completes.
+- qcom,apm-post-halt-delay:	The APM controller post halt delay counter value that SW needs
+				to program one time before starting the APM HW controller for
+				msmtitanium target.
+- qcom,apm-halt-clk-delay:	The APM controller halt clock delay counter value that SW
+				needs to program one time before starting the APM HW controller
+				for msmtitanium target.
+- qcom,apm-resume-clk-delay:	The APM controller resume clock delay counter value that SW
+				needs to program one time before starting the APM HW controller
+				for msmtitanium target.
+- qcom,apm-sel-switch-delay:	The APM controller switch selection delay counter value that SW
+				needs to program one time before starting the APM HW controller
+				for msmtitanium target.
 
 MSM APM Users
 
@@ -50,6 +62,10 @@ Example:
 				"apc1-cpu1-spm",
 				"apc0-l2-spm",
 				"apc1-l2-spm";
+		qcom,apm-post-halt-delay = <0x2>;
+		qcom,apm-halt-clk-delay = <0x11>;
+		qcom,apm-resume-clk-delay = <0x10>;
+		qcom,apm-sel-switch-delay = <0x01>;
 
 	foo_user {
 		...
