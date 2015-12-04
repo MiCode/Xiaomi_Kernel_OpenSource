@@ -169,53 +169,60 @@ static void stop_hwmon(struct memlat_hwmon *hw)
 
 }
 
-struct perf_event *create_event(int cpu, unsigned long event)
+static struct perf_event_attr *alloc_attr(void)
 {
-	struct perf_event *pevent;
 	struct perf_event_attr *attr;
 
 	attr = kzalloc(sizeof(struct perf_event_attr), GFP_KERNEL);
 	if (!attr)
 		return ERR_PTR(-ENOMEM);
 
-	attr->config = event;
 	attr->type = PERF_TYPE_RAW;
 	attr->size = sizeof(struct perf_event_attr);
 	attr->pinned = 1;
 	attr->exclude_idle = 1;
 
-	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
-
-	return pevent;
+	return attr;
 }
 
 static int set_events(struct memlat_hwmon_data *hw_data, int cpu)
 {
 	struct perf_event *pevent;
+	struct perf_event_attr *attr;
 	int err;
 
-	pevent = create_event(cpu, INST_EV);
+	/* Allocate an attribute for event initialization */
+	attr = alloc_attr();
+	if (IS_ERR(attr))
+		return PTR_ERR(attr);
+
+	attr->config = INST_EV;
+	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
 	if (IS_ERR(pevent))
 		goto err_out;
 	hw_data->events[INST_IDX].pevent = pevent;
 	perf_event_enable(hw_data->events[INST_IDX].pevent);
 
-	pevent = create_event(cpu, L2DM_EV);
+	attr->config = L2DM_EV;
+	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
 	if (IS_ERR(pevent))
 		goto err_out;
 	hw_data->events[L2DM_IDX].pevent = pevent;
 	perf_event_enable(hw_data->events[L2DM_IDX].pevent);
 
-	pevent = create_event(cpu, CYC_EV);
+	attr->config = CYC_EV;
+	pevent = perf_event_create_kernel_counter(attr, cpu, NULL, NULL, NULL);
 	if (IS_ERR(pevent))
 		goto err_out;
 	hw_data->events[CYC_IDX].pevent = pevent;
 	perf_event_enable(hw_data->events[CYC_IDX].pevent);
 
+	kfree(attr);
 	return 0;
 
 err_out:
 	err = PTR_ERR(pevent);
+	kfree(attr);
 	return err;
 }
 
