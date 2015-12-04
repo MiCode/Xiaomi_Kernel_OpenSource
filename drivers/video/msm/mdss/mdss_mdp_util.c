@@ -1320,6 +1320,7 @@ void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir)
 	mdss_iommu_ctrl(1);
 	for (i = 0; i < data->num_planes && data->p[i].len; i++)
 		mdss_mdp_put_img(&data->p[i], rotator, dir);
+	memset(&data->p, 0, sizeof(struct mdss_mdp_img_data) * MAX_PLANES);
 	mdss_iommu_ctrl(0);
 
 	data->num_planes = 0;
