@@ -2241,6 +2241,93 @@ static int a5xx_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static int _me_init_ucode_workarounds(struct adreno_device *adreno_dev)
+{
+	switch (ADRENO_GPUREV(adreno_dev)) {
+	case ADRENO_REV_A505:
+	case ADRENO_REV_A506:
+	case ADRENO_REV_A510:
+		return 0x00000001; /* Ucode workaround for token end syncs */
+	case ADRENO_REV_A530:
+		return 0x00000003; /* Ucode default workarounds */
+	default:
+		return 0x00000000; /* No ucode workarounds enabled */
+	}
+}
+
+/*
+ * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
+ * be used at once of if they should be serialized
+ */
+#define CP_INIT_MAX_CONTEXT BIT(0)
+
+/* Enables register protection mode */
+#define CP_INIT_ERROR_DETECTION_CONTROL BIT(1)
+
+/* Header dump information */
+#define CP_INIT_HEADER_DUMP BIT(2) /* Reserved */
+
+/* Default Reset states enabled for PFP and ME */
+#define CP_INIT_DEFAULT_RESET_STATE BIT(3)
+
+/* Drawcall filter range */
+#define CP_INIT_DRAWCALL_FILTER_RANGE BIT(4)
+
+/* Ucode workaround masks */
+#define CP_INIT_UCODE_WORKAROUND_MASK BIT(5)
+
+#define CP_INIT_MASK (CP_INIT_MAX_CONTEXT | \
+		CP_INIT_ERROR_DETECTION_CONTROL | \
+		CP_INIT_HEADER_DUMP | \
+		CP_INIT_DEFAULT_RESET_STATE | \
+		CP_INIT_UCODE_WORKAROUND_MASK)
+
+static void _set_ordinals(struct adreno_device *adreno_dev,
+		unsigned int *cmds, unsigned int count)
+{
+	unsigned int *start = cmds;
+
+	/* Enabled ordinal mask */
+	*cmds++ = CP_INIT_MASK;
+
+	if (CP_INIT_MASK & CP_INIT_MAX_CONTEXT) {
+		/*
+		 * Multiple HW ctxs are unreliable on a530v1,
+		 * use single hw context.
+		 * Use multiple contexts if bit set, otherwise serialize:
+		 *      3D (bit 0) 2D (bit 1)
+		 */
+		if (adreno_is_a530v1(adreno_dev))
+			*cmds++ = 0x00000000;
+		else
+			*cmds++ = 0x00000003;
+	}
+
+	if (CP_INIT_MASK & CP_INIT_ERROR_DETECTION_CONTROL)
+		*cmds++ = 0x20000000;
+
+	if (CP_INIT_MASK & CP_INIT_HEADER_DUMP) {
+		/* Header dump address */
+		*cmds++ = 0x00000000;
+		/* Header dump enable and dump size */
+		*cmds++ = 0x00000000;
+	}
+
+	if (CP_INIT_MASK & CP_INIT_DRAWCALL_FILTER_RANGE) {
+		/* Start range */
+		*cmds++ = 0x00000000;
+		/* End range (inclusive) */
+		*cmds++ = 0x00000000;
+	}
+
+	if (CP_INIT_MASK & CP_INIT_UCODE_WORKAROUND_MASK)
+		*cmds++ = _me_init_ucode_workarounds(adreno_dev);
+
+	/* Pad rest of the cmds with 0's */
+	while ((unsigned int)(cmds - start) < count)
+		*cmds++ = 0x0;
+}
+
 /*
  * a5xx_rb_init() - Initialize ringbuffer
  * @adreno_dev: Pointer to adreno device
@@ -2254,33 +2341,15 @@ static int a5xx_rb_init(struct adreno_device *adreno_dev,
 	unsigned int *cmds;
 	int ret;
 
-	cmds = adreno_ringbuffer_allocspace(rb, 8);
+	cmds = adreno_ringbuffer_allocspace(rb, 9);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
 	if (cmds == NULL)
 		return -ENOSPC;
 
-	*cmds++ = cp_type7_packet(CP_ME_INIT, 7);
-	/*
-	 *  Mask -- look for all ordinals but drawcall
-	 *  range and reset ucode scratch memory.
-	 */
-	*cmds++ = 0x0000000f;
-	/* Multiple HW ctxs are unreliable on a530v1, use single hw context */
-	if (adreno_is_a530v1(adreno_dev))
-		*cmds++ = 0x00000000;
-	else
-		/* Use both contexts for 3D (bit0) 2D (bit1) */
-		*cmds++ = 0x00000003;
-	/* Enable register protection */
-	*cmds++ = 0x20000000;
-	/* Header dump address */
-	*cmds++ = 0x00000000;
-	/* Header dump enable and dump size */
-	*cmds++ = 0x00000000;
-	/* Below will be ignored by the CP unless bit4 in Mask is set */
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
+	*cmds++ = cp_type7_packet(CP_ME_INIT, 8);
+
+	_set_ordinals(adreno_dev, cmds, 8);
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret != 0) {
