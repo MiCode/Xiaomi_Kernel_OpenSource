@@ -174,6 +174,9 @@ ENTRY(cpu_resume)
 	/* load physical address of identity map page table in x1 */
 	ldr	x1, [x1, #:lo12:sleep_idmap_phys]
 	mov	sp, x2
+	/* save thread_info */
+	and	x2, x2, #~(THREAD_SIZE - 1)
+	msr	sp_el0, x2
 	/*
 	 * cpu_do_resume expects x0 to contain context physical address
 	 * pointer and x1 to contain physical address of 1:1 page tables
