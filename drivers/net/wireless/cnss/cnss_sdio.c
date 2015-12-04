@@ -282,7 +282,7 @@ static const struct dev_pm_ops cnss_ar6k_device_pm_ops = {
 };
 #endif /* CONFIG_PM */
 
-static const struct sdio_driver cnss_ar6k_driver = {
+static struct sdio_driver cnss_ar6k_driver = {
 	.name = "cnss_ar6k_wlan",
 	.id_table = ar6k_id_table,
 	.probe = cnss_sdio_wlan_inserted,
