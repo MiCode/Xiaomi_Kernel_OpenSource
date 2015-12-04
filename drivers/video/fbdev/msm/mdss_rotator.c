@@ -508,6 +508,8 @@ static int mdss_rotator_import_buffer(struct mdp_layer_buffer *buffer,
 
 	ret =  mdss_mdp_data_get_and_validate_size(data, planes,
 			buffer->plane_count, flags, dev, true, dir, buffer);
+	data->state = MDP_BUF_STATE_READY;
+	data->last_alloc = local_clock();
 
 	return ret;
 }
@@ -534,12 +536,14 @@ static int mdss_rotator_map_and_check_data(struct mdss_rot_entry *entry)
 	}
 
 	/* if error during map, the caller will release the data */
+	entry->src_buf.state = MDP_BUF_STATE_ACTIVE;
 	ret = mdss_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE);
 	if (ret) {
 		pr_err("source buffer mapping failed ret:%d\n", ret);
 		goto end;
 	}
 
+	entry->dst_buf.state = MDP_BUF_STATE_ACTIVE;
 	ret = mdss_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE);
 	if (ret) {
 		pr_err("destination buffer mapping failed ret:%d\n", ret);
@@ -624,8 +628,16 @@ static struct mdss_rot_perf *mdss_rotator_find_session(
 
 static void mdss_rotator_release_data(struct mdss_rot_entry *entry)
 {
-	mdss_mdp_data_free(&entry->src_buf, true, DMA_TO_DEVICE);
-	mdss_mdp_data_free(&entry->dst_buf, true, DMA_FROM_DEVICE);
+	struct mdss_mdp_data *src_buf = &entry->src_buf;
+	struct mdss_mdp_data *dst_buf = &entry->dst_buf;
+
+	mdss_mdp_data_free(src_buf, true, DMA_TO_DEVICE);
+	src_buf->last_freed = local_clock();
+	src_buf->state = MDP_BUF_STATE_UNUSED;
+
+	mdss_mdp_data_free(dst_buf, true, DMA_FROM_DEVICE);
+	dst_buf->last_freed = local_clock();
+	dst_buf->state = MDP_BUF_STATE_UNUSED;
 }
 
 static int mdss_rotator_import_data(struct mdss_rot_mgr *mgr,
