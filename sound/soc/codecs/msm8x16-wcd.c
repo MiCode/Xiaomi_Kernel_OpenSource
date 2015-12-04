@@ -405,7 +405,7 @@ static void msm8x16_set_ref_current(struct snd_soc_codec *codec,
 static bool msm8x16_adj_ref_current(struct snd_soc_codec *codec,
 					s16 *impedance_l, s16 *impedance_r)
 {
-	int i = 3;
+	int i = 2;
 	s16 compare_imp = 0;
 
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
@@ -722,7 +722,7 @@ static void msm8x16_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			0x02, 0x02);
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_BTN2_ZDETH_CTL,
-			0x20, 0x00);
+			0x02, 0x00);
 
 	pr_debug("%s: Start performing impedance detection\n",
 		 __func__);
@@ -878,10 +878,17 @@ static void msm8x16_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 			0x08, 0x00);
 	/*
-	 * impedance_l is equal to impedance_l_fixed then headset is stereo
-	 * otherwise headset is mono
+	 * Assume impedance_l is L1, impedance_l_fixed is L2.
+	 * If the following condition is met, we can take this
+	 * headset as mono one with impedance of L2.
+	 * Otherwise, take it as stereo with impedance of L1.
+	 * Condition:
+	 * abs[(L2-0.5L1)/(L2+0.5L1)] < abs [(L2-L1)/(L2+L1)]
 	 */
-	if (impedance_l == impedance_l_fixed) {
+	if ((abs(impedance_l_fixed - impedance_l/2) *
+		(impedance_l_fixed + impedance_l)) >=
+		(abs(impedance_l_fixed - impedance_l) *
+		(impedance_l_fixed + impedance_l/2))) {
 		pr_debug("%s: STEREO plug type detected\n",
 			 __func__);
 		mbhc->hph_type = WCD_MBHC_HPH_STEREO;
@@ -889,6 +896,7 @@ static void msm8x16_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 		pr_debug("%s: MONO plug type detected\n",
 			__func__);
 		mbhc->hph_type = WCD_MBHC_HPH_MONO;
+		impedance_l = impedance_l_fixed;
 	}
 	/* Enable ZDET_CHG  */
 	snd_soc_update_bits(codec,
