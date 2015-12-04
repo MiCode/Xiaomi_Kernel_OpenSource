@@ -1761,6 +1761,7 @@
 
 		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
 
+		qcom,pc-disable-latency = <80>;
 		qcom,has-autodetect-xo;
 		qcom,is-pronto-v3;
 		qcom,has-pronto-hw;
