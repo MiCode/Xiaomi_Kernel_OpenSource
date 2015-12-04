@@ -108,7 +108,7 @@
 					qcom,ss-power = <180>;
 					qcom,energy-overhead = <89070>;
 					qcom,time-overhead = <180>;
-					qcom,min-child-idx = <1>;
+					qcom,min-child-idx = <2>;
 				};
 
 				qcom,pm-cluster-level@2{ /* D4 */
@@ -119,7 +119,7 @@
 					qcom,ss-power = <160>;
 					qcom,energy-overhead = <441000>;
 					qcom,time-overhead = <1000>;
-					qcom,min-child-idx = <1>;
+					qcom,min-child-idx = <2>;
 					qcom,is-reset;
 				};
 
@@ -135,18 +135,29 @@
 						qcom,spm-cpu-mode = "wfi";
 						qcom,latency-us = <20>;
 						qcom,ss-power = <200>;
-						qcom,energy-overhead = <15000>;
+						qcom,energy-overhead = <9000>;
 						qcom,time-overhead = <60>;
 					};
 
 					qcom,pm-cpu-level@1 {  /* C4 */
 						reg = <1>;
+						qcom,spm-cpu-mode = "fpc-def";
+						qcom,psci-cpu-mode = <4>;
+						qcom,latency-us = <40>;
+						qcom,ss-power = <198>;
+						qcom,energy-overhead = <21850>;
+						qcom,time-overhead = <120>;
+						qcom,hyp-psci;
+					};
+
+					qcom,pm-cpu-level@2 {  /* C4 */
+						reg = <2>;
 						qcom,spm-cpu-mode = "fpc";
 						qcom,psci-cpu-mode = <4>;
 						qcom,latency-us = <80>;
-						qcom,ss-power = <198>;
-						qcom,energy-overhead = <39740>;
-						qcom,time-overhead = <180>;
+						qcom,ss-power = <196>;
+						qcom,energy-overhead = <45300>;
+						qcom,time-overhead = <210>;
 					};
 				};
 			};
@@ -180,7 +191,7 @@
 					qcom,ss-power = <180>;
 					qcom,energy-overhead = <83500>;
 					qcom,time-overhead = <180>;
-					qcom,min-child-idx = <1>;
+					qcom,min-child-idx = <2>;
 				};
 
 				qcom,pm-cluster-level@2{ /* D4 */
@@ -191,7 +202,7 @@
 					qcom,ss-power = <160>;
 					qcom,energy-overhead = <441000>;
 					qcom,time-overhead = <1000>;
-					qcom,min-child-idx = <1>;
+					qcom,min-child-idx = <2>;
 					qcom,is-reset;
 				};
 
@@ -207,18 +218,29 @@
 						qcom,spm-cpu-mode = "wfi";
 						qcom,latency-us = <25>;
 						qcom,ss-power = <200>;
-						qcom,energy-overhead = <15000>;
+						qcom,energy-overhead = <9000>;
 						qcom,time-overhead = <60>;
 					};
 
-					qcom,pm-cpu-level@1 { /* C4 */
+					qcom,pm-cpu-level@1 {  /* C4 */
 						reg = <1>;
+						qcom,spm-cpu-mode = "fpc-def";
+						qcom,psci-cpu-mode = <4>;
+						qcom,latency-us = <40>;
+						qcom,ss-power = <198>;
+						qcom,energy-overhead = <21850>;
+						qcom,time-overhead = <120>;
+						qcom,hyp-psci;
+					};
+
+					qcom,pm-cpu-level@2 {  /* C4 */
+						reg = <2>;
 						qcom,spm-cpu-mode = "fpc";
 						qcom,psci-cpu-mode = <4>;
 						qcom,latency-us = <80>;
-						qcom,ss-power = <198>;
-						qcom,energy-overhead = <39740>;
-						qcom,time-overhead = <180>;
+						qcom,ss-power = <196>;
+						qcom,energy-overhead = <45300>;
+						qcom,time-overhead = <210>;
 					};
 				};
 			};
