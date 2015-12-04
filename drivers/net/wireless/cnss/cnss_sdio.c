@@ -19,6 +19,9 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/mmc/sdio_func.h>
+#include <linux/mmc/sdio_ids.h>
+#include <net/cnss.h>
 
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_DSRC_NAME	"vdd-wlan-dsrc"
@@ -30,8 +33,6 @@
 #define WLAN_VREG_XTAL_MAX	1800000
 #define WLAN_VREG_XTAL_MIN	1800000
 #define POWER_ON_DELAY		4
-
-#define CNSS_MAX_CH_NUM 100
 
 struct cnss_unsafe_channel_list {
 	u16 unsafe_ch_count;
@@ -50,12 +51,61 @@ struct cnss_sdio_regulator {
 	struct regulator *wlan_vreg_dsrc;
 };
 
+struct cnss_sdio_info {
+	struct cnss_sdio_wlan_driver *wdrv;
+	struct sdio_func *func;
+	const struct sdio_device_id *id;
+};
+
 static struct cnss_sdio_data {
 	struct cnss_sdio_regulator regulator;
 	struct platform_device *pdev;
 	struct cnss_dfs_nol_info dfs_info;
 	struct cnss_unsafe_channel_list unsafe_list;
+	struct cnss_sdio_info cnss_sdio_info;
 } *cnss_pdata;
+
+/* SDIO manufacturer ID and Codes */
+#define MANUFACTURER_ID_AR6320_BASE        0x500
+#define MANUFACTURER_ID_QCA9377_BASE       0x700
+#define MANUFACTURER_CODE                  0x271
+
+static const struct sdio_device_id ar6k_id_table[] = {
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x0))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x1))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x2))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x3))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x4))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x5))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x6))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x7))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x8))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0x9))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0xA))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0xB))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0xC))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0xD))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0xE))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6320_BASE | 0xF))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x0))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x1))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x2))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x3))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x4))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x5))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x6))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x7))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x8))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0x9))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xA))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xB))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xC))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xD))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xE))},
+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_QCA9377_BASE | 0xF))},
+	{},
+};
+MODULE_DEVICE_TABLE(sdio, ar6k_id_table);
 
 int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count)
 {
@@ -103,7 +153,7 @@ int cnss_get_wlan_unsafe_channel(
 }
 EXPORT_SYMBOL(cnss_get_wlan_unsafe_channel);
 
-int cnss_wlan_set_dfs_nol(void *info, u16 info_len)
+int cnss_wlan_set_dfs_nol(const void *info, u16 info_len)
 {
 	void *temp;
 	struct cnss_dfs_nol_info *dfs_info;
@@ -152,6 +202,176 @@ int cnss_wlan_get_dfs_nol(void *info, u16 info_len)
 	return len;
 }
 EXPORT_SYMBOL(cnss_wlan_get_dfs_nol);
+
+static int cnss_sdio_wlan_inserted(
+				struct sdio_func *func,
+				const struct sdio_device_id *id)
+{
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	cnss_pdata->cnss_sdio_info.func = func;
+	cnss_pdata->cnss_sdio_info.id = id;
+	return 0;
+}
+
+static void cnss_sdio_wlan_removed(struct sdio_func *func)
+{
+	if (!cnss_pdata)
+		return;
+
+	cnss_pdata->cnss_sdio_info.func = NULL;
+	cnss_pdata->cnss_sdio_info.id = NULL;
+}
+
+#if defined(CONFIG_PM)
+static int cnss_sdio_wlan_suspend(struct device *dev)
+{
+	struct cnss_sdio_wlan_driver *wdrv;
+	int error = 0;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	wdrv = cnss_pdata->cnss_sdio_info.wdrv;
+	if (!wdrv) {
+		/* This can happen when no wlan driver loaded (no register to
+		 * platform driver).
+		 */
+		pr_debug("wlan driver not registered\n");
+		return 0;
+	}
+	if (wdrv->suspend) {
+		error = wdrv->suspend(dev);
+		if (error)
+			pr_err("wlan suspend failed error=%d\n", error);
+	}
+
+	return error;
+}
+
+static int cnss_sdio_wlan_resume(struct device *dev)
+{
+	struct cnss_sdio_wlan_driver *wdrv;
+	int error = 0;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	wdrv = cnss_pdata->cnss_sdio_info.wdrv;
+	if (!wdrv) {
+		/* This can happen when no wlan driver loaded (no register to
+		 * platform driver).
+		 */
+		pr_debug("wlan driver not registered\n");
+		return 0;
+	}
+	if (wdrv->resume) {
+		error = wdrv->resume(dev);
+		if (error)
+			pr_err("wlan resume failed error=%d\n", error);
+	}
+	return error;
+}
+#endif
+
+#if defined(CONFIG_PM)
+static const struct dev_pm_ops cnss_ar6k_device_pm_ops = {
+	.suspend = cnss_sdio_wlan_suspend,
+	.resume = cnss_sdio_wlan_resume,
+};
+#endif /* CONFIG_PM */
+
+static const struct sdio_driver cnss_ar6k_driver = {
+	.name = "cnss_ar6k_wlan",
+	.id_table = ar6k_id_table,
+	.probe = cnss_sdio_wlan_inserted,
+	.remove = cnss_sdio_wlan_removed,
+#if defined(CONFIG_PM)
+	.drv = {
+		.pm = &cnss_ar6k_device_pm_ops,
+	}
+#endif
+};
+
+/**
+ * cnss_sdio_wlan_register_driver() - cnss wlan register API
+ * @driver: sdio wlan driver interface from wlan driver.
+ *
+ * wlan sdio function driver uses this API to register callback
+ * functions to cnss_sido platform driver. The callback will
+ * be invoked by corresponding wrapper function of this cnss
+ * platform driver.
+ */
+int cnss_sdio_wlan_register_driver(struct cnss_sdio_wlan_driver *driver)
+{
+	struct cnss_sdio_info *cnss_info;
+	int error = 0;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	cnss_info = &cnss_pdata->cnss_sdio_info;
+	if (cnss_info->wdrv)
+		pr_debug("%s:wdrv already exists wdrv(%p)\n", __func__,
+			 cnss_info->wdrv);
+
+	cnss_info->wdrv = driver;
+	if (driver->probe) {
+		error = driver->probe(cnss_info->func, cnss_info->id);
+		if (error)
+			pr_err("%s: wlan probe failed error=%d\n", __func__,
+			       error);
+	}
+	return error;
+}
+EXPORT_SYMBOL(cnss_sdio_wlan_register_driver);
+
+/**
+ * cnss_sdio_wlan_unregister_driver() - cnss wlan unregister API
+ * @driver: sdio wlan driver interface from wlan driver.
+ *
+ * wlan sdio function driver uses this API to detach it from cnss_sido
+ * platform driver.
+ */
+void
+cnss_sdio_wlan_unregister_driver(struct cnss_sdio_wlan_driver *driver)
+{
+	struct cnss_sdio_info *cnss_info;
+
+	if (!cnss_pdata)
+		return;
+
+	cnss_info = &cnss_pdata->cnss_sdio_info;
+	if (!cnss_info->wdrv) {
+		pr_err("%s: driver not registered\n", __func__);
+		return;
+	}
+	if (cnss_info->wdrv->remove)
+		cnss_info->wdrv->remove(cnss_info->func);
+	cnss_info->wdrv = NULL;
+}
+EXPORT_SYMBOL(cnss_sdio_wlan_unregister_driver);
+
+static int cnss_sdio_wlan_init(void)
+{
+	int error = 0;
+
+	error = sdio_register_driver(&cnss_ar6k_driver);
+	if (error)
+		pr_err("%s: registered fail error=%d\n", __func__, error);
+	else
+		pr_debug("%s: registered succ\n", __func__);
+	return error;
+}
+
+static void cnss_sdio_wlan_exit(void)
+{
+	if (!cnss_pdata)
+		return;
+
+	sdio_unregister_driver(&cnss_ar6k_driver);
+}
 
 static int cnss_sdio_configure_wlan_enable_regulator(void)
 {
@@ -318,7 +538,8 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 	cnss_pdata->pdev = pdev;
 	error = cnss_sdio_configure_regulator();
 	if (error) {
-		dev_err(&pdev->dev, "Failed to config voltage regulator\n");
+		dev_err(&pdev->dev, "Failed to configure voltage regulator error=%d\n",
+			error);
 		return error;
 	}
 
@@ -328,7 +549,8 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 		error = cnss_sdio_configure_wlan_enable_regulator();
 		if (error) {
 			dev_err(&pdev->dev,
-				"Failed to enable wlan enable regulator\n");
+				"Failed to enable wlan enable regulator error=%d\n",
+				error);
 			goto err_wlan_enable_regulator;
 		}
 	}
@@ -344,6 +566,12 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 		}
 	}
 
+	error = cnss_sdio_wlan_init();
+	if (error) {
+		dev_err(&pdev->dev, "cnss wlan init failed error=%d\n", error);
+		goto err_wlan_dsrc_enable_regulator;
+	}
+
 	dev_info(&pdev->dev, "CNSS SDIO Driver registered");
 	return 0;
 
@@ -352,6 +580,7 @@ err_wlan_dsrc_enable_regulator:
 err_wlan_enable_regulator:
 	regulator_put(cnss_pdata->regulator.wlan_xtal);
 	regulator_put(cnss_pdata->regulator.wlan_io);
+	cnss_pdata = NULL;
 	return error;
 }
 
@@ -361,6 +590,8 @@ static int cnss_sdio_remove(struct platform_device *pdev)
 
 	if (!cnss_pdata)
 		return -ENODEV;
+
+	cnss_sdio_wlan_exit();
 
 	dfs_info = &cnss_pdata->dfs_info;
 	kfree(dfs_info->dfs_nol_info);
