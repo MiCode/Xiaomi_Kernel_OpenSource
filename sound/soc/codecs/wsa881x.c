@@ -43,6 +43,7 @@ struct wsa_pinctrl_info {
 	struct pinctrl_state *wsa_spkr_sus;
 	struct pinctrl_state *wsa_spkr_act;
 };
+#define WSA881X_NUM_RETRY	5
 
 enum {
 	G_18DB = 0,
@@ -1318,6 +1319,8 @@ static int wsa881x_swr_down(struct swr_device *pdev)
 static int wsa881x_swr_reset(struct swr_device *pdev)
 {
 	struct wsa881x_priv *wsa881x;
+	u8 retry = WSA881X_NUM_RETRY;
+	u8 devnum = 0;
 
 	wsa881x = swr_get_dev_data(pdev);
 	if (!wsa881x) {
@@ -1325,6 +1328,11 @@ static int wsa881x_swr_reset(struct swr_device *pdev)
 		return -EINVAL;
 	}
 	wsa881x->bg_cnt = 0;
+	wsa881x->clk_cnt = 0;
+	while (swr_get_logical_dev_num(pdev, pdev->addr, &devnum) && retry--) {
+		/* Retry after 1 msec delay */
+		usleep_range(1000, 1100);
+	}
 	regcache_mark_dirty(wsa881x->regmap);
 	regcache_sync(wsa881x->regmap);
 	return 0;

@@ -1997,8 +1997,11 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		 */
 		if (aux_dev)
 			if (!strcmp(aux_dev->codec_name, WSA8810_NAME_1) ||
-				!strcmp(aux_dev->codec_name, WSA8810_NAME_2))
+				!strcmp(aux_dev->codec_name, WSA8810_NAME_2)) {
 				tasha_set_spkr_mode(codec, SPKR_MODE_1);
+				tasha_set_spkr_gain_offset(rtd->codec,
+							RX_GAIN_OFFSET_M1P5_DB);
+			}
 	}
 
 	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
