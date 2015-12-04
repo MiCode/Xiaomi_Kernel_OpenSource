@@ -2937,6 +2937,15 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	mc_rq = mmc_blk_cmdq_rw_prep(active_mqrq, mq);
 
 	ret = mmc_blk_cmdq_start_req(card->host, mc_rq);
+
+	if (!ret && (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD)) {
+		unsigned int sectors = blk_rq_sectors(req);
+
+		if (((sectors > 0) && (sectors < 8))
+		    && (rq_data_dir(req) == READ))
+			host->cmdq_ctx.active_small_sector_read_reqs++;
+	}
+
 	return ret;
 }
 
@@ -3620,6 +3629,8 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_blk_data *md = mq->data;
 	struct mmc_card *card = md->queue.card;
 	unsigned int cmd_flags = req ? req->cmd_flags : 0;
+	struct mmc_host *host = card->host;
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 
 	mmc_rpm_hold(card->host, &card->dev);
 	mmc_claim_host(card->host);
@@ -3631,6 +3642,29 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 		mmc_release_host(card->host);
 		mmc_rpm_release(card->host, &card->dev);
 		goto switch_failure;
+	}
+
+	if ((cmd_flags & (REQ_FLUSH | REQ_DISCARD)) &&
+	    (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) &&
+	    ctx->active_small_sector_read_reqs) {
+		ret = wait_event_interruptible(ctx->queue_empty_wq,
+					      !ctx->active_reqs);
+		if (ret) {
+			pr_err("%s: failed while waiting for the CMDQ to be empty %s err (%d)\n",
+				mmc_hostname(host),
+				__func__, ret);
+			BUG_ON(1);
+		}
+		/* clear the counter now */
+		ctx->active_small_sector_read_reqs = 0;
+		/*
+		 * If there were small sector (less than 8 sectors) read
+		 * operations in progress then we have to wait for the
+		 * outstanding requests to finish and should also have
+		 * atleast 6 microseconds delay before queuing the DCMD
+		 * request.
+		 */
+		udelay(MMC_QUIRK_CMDQ_DELAY_BEFORE_DCMD);
 	}
 
 	if (cmd_flags & REQ_DISCARD) {
@@ -4116,6 +4150,8 @@ static const struct mmc_fixup blk_fixups[] =
 		  MMC_QUIRK_BLK_NO_CMD23),
 	MMC_FIXUP("MMC32G", CID_MANFID_TOSHIBA, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_BLK_NO_CMD23),
+	MMC_FIXUP(CID_NAME_ANY, CID_MANFID_TOSHIBA, CID_OEMID_ANY,
+		  add_quirk_mmc, MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD),
 
 	/*
 	 * Some Micron MMC cards needs longer data read timeout than
