@@ -1996,18 +1996,18 @@ static int mmc_resume(struct mmc_host *host)
 	return err;
 }
 
+/*
+ * mmc_power_restore: Must be called with claim_host
+ * acquired by the caller.
+ */
 static int mmc_power_restore(struct mmc_host *host)
 {
 	int ret;
 
 	/* Disable clk scaling to avoid switching frequencies intermittently */
 	mmc_disable_clk_scaling(host);
-
 	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
-	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->ocr, host->card);
-	mmc_release_host(host);
-
 	if (mmc_can_scale_clk(host))
 		mmc_init_clk_scaling(host);
 
