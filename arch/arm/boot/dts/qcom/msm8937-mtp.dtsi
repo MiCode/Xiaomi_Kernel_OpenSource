@@ -202,6 +202,7 @@
 
 &dsi_truly_1080_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,ulps-enabled;
 };
 
 /* PM8937 GPIO configuration */
