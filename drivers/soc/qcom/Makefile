@@ -1,3 +1,5 @@
+KASAN_SANITIZE_scm.o := n
+
 obj-$(CONFIG_MSM_SMEM)	+=	msm_smem.o smem_debug.o
 obj-$(CONFIG_MSM_SMD)	+= 	msm_smd.o smd_debug.o smd_private.o smd_init_dt.o smsm_debug.o
 obj-$(CONFIG_MSM_GLINK)	+=	glink.o glink_debugfs.o glink_ssr.o
