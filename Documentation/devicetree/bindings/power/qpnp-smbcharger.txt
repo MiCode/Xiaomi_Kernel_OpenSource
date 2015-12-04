@@ -18,7 +18,7 @@ end of this file.
 			limiting configuration.
 - qcom,dc-chgpth:	DC charge path detection and input current
 			limiting configuration.
-- qcom,chg-misc:	Miscellaneous features such as safety timers
+- qcom,chg-misc:	Miscellaneous features such as watchdog timers
 			and SYSOK pin control
 - qcom,chg-otg:		OTG configuration control.
 
@@ -86,7 +86,7 @@ Sub node required properties:
 						valid threshold.
 
 			qcom,chgr-misc:
-			 - safety-timeout-mins:	Charger watchdog timer
+			 - wdog-timeout-mins:	Charger watchdog timer
 						interrupt.
 			 - temp-shutdown:	Triggers when charger goes
 						overtemp and causes a shutdown.
@@ -237,6 +237,9 @@ Optional Properties:
 				this property will not adjust the AICL deglitch time
 				dynamically for handling the battery over-voltage
 				oscillations when the charger is headroom limited.
+- qcom,aicl-rerun-period-s	If force-aicl-rerun is on, this property dictates
+				how often aicl is reran in seconds. Possible values
+				are 45, 90, 180, and 360.
 - qcom,ibat-ocp-threshold-ua	Maximum current before the battery will trigger
 				overcurrent protection. Use the recommended
 				battery pack value minus some margin.
@@ -257,12 +260,26 @@ Optional Properties:
 					charger current reduces beyond this threshold
 					parallel charger is disabled. Must be specified
 					if parallel charger is used.
+- qcom,parallel-main-chg-fcc-percent	Percentage of the fast charge current allotted to the
+					main charger when parallel charging is enabled and
+					operational. If this property is not defined, the
+					driver defaults to a 50%/50% split between the main
+					and parallel charger.
+- qcom,parallel-main-chg-icl-percent	Percentage of the input current allotted to the
+					main charger when parallel charging is enabled and
+					operational. If this property is not defined, the
+					driver defaults to a 60%/40% split between the main
+					and parallel charger.
 - qcom,battery-data			Points to the phandle of node which
 					contains the battery-profiles supported
 					by the charger/FG.
 - qcom,chg-led-support		A bool property to support the charger led feature.
 - qcom,chg-led-sw-controls		A bool property to allow the software to control
 					the charger led without a valid charger.
+- qcom,skip-usb-notification	A boolean property to be used when usb gets
+				present and type from other means. Especially
+				true on liquid hardware, where usb presence is
+				detected based on GPIO.
 - qcom,vchg_sns-adc			Phandle of the VADC node.
 - qcom,vchg-adc-channel-id		The ADC channel to which the VCHG is routed.
 
@@ -370,7 +387,7 @@ Example:
 
 			interrupt-names =	"power-ok",
 						"temp-shutdown",
-						"safety-timeout",
+						"wdog-timeout",
 						"flash-fail",
 						"otst2",
 						"otst3";
