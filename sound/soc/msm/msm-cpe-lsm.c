@@ -31,8 +31,8 @@
 #define LSM_VOICE_WAKEUP_APP_V2 2
 #define AFE_OUT_PORT_2 2
 #define LISTEN_MIN_NUM_PERIODS     2
-#define LISTEN_MAX_NUM_PERIODS     8
-#define LISTEN_MAX_PERIOD_SIZE     4096
+#define LISTEN_MAX_NUM_PERIODS     12
+#define LISTEN_MAX_PERIOD_SIZE     61440
 #define LISTEN_MIN_PERIOD_SIZE     320
 #define LISTEN_MAX_STATUS_PAYLOAD_SIZE 256
 #define MSM_CPE_MAX_CUSTOM_PARAM_SIZE 2048
@@ -55,7 +55,7 @@
 
 /* Conventional and unconventional sample rate supported */
 static unsigned int supported_sample_rates[] = {
-	8000, 16000
+	8000, 16000, 48000, 192000, 384000
 };
 
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
@@ -72,10 +72,12 @@ static struct snd_pcm_hardware msm_pcm_hardware_listen = {
 		 SNDRV_PCM_INFO_PAUSE |
 		 SNDRV_PCM_INFO_RESUME),
 	.formats = (SNDRV_PCM_FMTBIT_S16_LE |
-		    SNDRV_PCM_FMTBIT_S24_LE),
-	.rates = SNDRV_PCM_RATE_16000,
+		    SNDRV_PCM_FMTBIT_S24_LE |
+		    SNDRV_PCM_FMTBIT_S32_LE),
+	.rates = (SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000 |
+		  SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000),
 	.rate_min = 16000,
-	.rate_max = 16000,
+	.rate_max = 384000,
 	.channels_min =	1,
 	.channels_max =	1,
 	.buffer_bytes_max = LISTEN_MAX_NUM_PERIODS *
@@ -102,7 +104,7 @@ enum cpe_lab_thread_status {
 };
 
 struct cpe_hw_params {
-	u16 sample_rate;
+	u32 sample_rate;
 	u16 sample_size;
 	u32 buf_sz;
 	u32 period_count;
@@ -682,9 +684,9 @@ static int msm_cpe_lab_thread(void *data)
 				buf_count++;
 			}
 			dev_dbg(rtd->dev,
-				"%s: Cur buf = %p Next Buf = %p\n"
-				" buf count = 0x%x\n",
-				 __func__, cur_buf, next_buf, buf_count);
+				"%s: Cur buf.mem = %p Next Buf.mem = %p\n"
+				" buf count = 0x%x\n", __func__,
+				cur_buf->mem, next_buf->mem, buf_count);
 		} else {
 			dev_err(rtd->dev,
 				"%s: SB get status, invalid len = 0x%x\n",
@@ -1352,6 +1354,14 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		dev_dbg(rtd->dev,
 			"%s: %s\n",
 			__func__, "SNDRV_LSM_START");
+		rc = lsm_ops->lsm_get_afe_out_port_id(cpe->core_handle,
+						      session);
+		if (rc != 0) {
+			dev_err(rtd->dev,
+				"%s: failed to get port id, err = %d\n",
+				__func__, rc);
+			return rc;
+		}
 		rc = lsm_ops->lsm_start(cpe->core_handle, session);
 		if (rc != 0) {
 			dev_err(rtd->dev,
@@ -1554,12 +1564,14 @@ static int msm_cpe_lsm_lab_start(struct snd_pcm_substream *substream,
 	if (session->lab_enable &&
 	    event_status->status ==
 	    LSM_VOICE_WAKEUP_STATUS_DETECTED) {
-
 		out_port = &session->afe_out_port_cfg;
-		out_port->port_id = AFE_OUT_PORT_2;
+		out_port->port_id = session->afe_out_port_id;
 		out_port->bit_width = hw_params->sample_size;
 		out_port->num_channels = hw_params->channels;
 		out_port->sample_rate = hw_params->sample_rate;
+		dev_dbg(rtd->dev, "%s: port_id= %u, bit_width= %u, rate= %u\n",
+			 __func__, out_port->port_id, out_port->bit_width,
+			out_port->sample_rate);
 
 		rc = afe_ops->afe_port_cmd_cfg(cpe->core_handle,
 					       out_port);
@@ -2825,12 +2837,15 @@ static int msm_cpe_lsm_hwparams(struct snd_pcm_substream *substream,
 	hw_params->period_count = params_periods(params);
 	hw_params->channels = params_channels(params);
 	hw_params->sample_rate = params_rate(params);
-	if (params_format(params) == SNDRV_PCM_FORMAT_S16_LE) {
+	if (params_format(params) == SNDRV_PCM_FORMAT_S16_LE)
 		hw_params->sample_size = 16;
-	} else if (params_format(params) ==
-		 SNDRV_PCM_FORMAT_S24_LE) {
+	else if (params_format(params) ==
+		 SNDRV_PCM_FORMAT_S24_LE)
 		hw_params->sample_size = 24;
-	} else {
+	else if (params_format(params) ==
+		 SNDRV_PCM_FORMAT_S32_LE)
+		hw_params->sample_size = 32;
+	else {
 		dev_err(rtd->dev,
 			"%s: Invalid Format 0x%x\n",
 			__func__, params_format(params));
@@ -2839,10 +2854,12 @@ static int msm_cpe_lsm_hwparams(struct snd_pcm_substream *substream,
 
 	dev_dbg(rtd->dev,
 		"%s: Format %d buffer size(bytes) %d period count %d\n"
-		" Channel %d period in bytes 0x%x Period Size 0x%x\n",
+		" Channel %d period in bytes 0x%x Period Size 0x%x rate = %d\n",
 		__func__, params_format(params), params_buffer_bytes(params),
 		params_periods(params), params_channels(params),
-		params_period_bytes(params), params_period_size(params));
+		params_period_bytes(params), params_period_size(params),
+		params_rate(params));
+
 	return 0;
 }
 
@@ -2926,10 +2943,8 @@ static int msm_cpe_lsm_copy(struct snd_pcm_substream *substream, int a,
 	if (lab_d->buf_idx >= (lsm_d->hw_params.period_count))
 		lab_d->buf_idx = 0;
 	pcm_buf = (lab_d->pcm_buf[lab_d->buf_idx].mem);
-	pr_debug("%s: Buf IDX = 0x%x pcm_buf %pa\n",
-			__func__,
-			lab_d->buf_idx,
-			&(lab_d->pcm_buf[lab_d->buf_idx]));
+	pr_debug("%s: Buf IDX = 0x%x pcm_buf %p\n",
+		 __func__,  lab_d->buf_idx, pcm_buf);
 	if (pcm_buf) {
 		if (copy_to_user(buf, pcm_buf, fbytes)) {
 			pr_err("Failed to copy buf to user\n");

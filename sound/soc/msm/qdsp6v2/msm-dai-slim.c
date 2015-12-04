@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,10 +27,12 @@
 			SNDRV_PCM_RATE_8000 | \
 			SNDRV_PCM_RATE_16000 | \
 			SNDRV_PCM_RATE_96000 | \
-			SNDRV_PCM_RATE_192000)
+			SNDRV_PCM_RATE_192000 | \
+			SNDRV_PCM_RATE_384000)
 
 #define SLIM_DAI_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | \
-			  SNDRV_PCM_FMTBIT_S24_LE)
+			  SNDRV_PCM_FMTBIT_S24_LE | \
+			  SNDRV_PCM_FMTBIT_S32_LE)
 
 #define DAI_STATE_INITIALIZED (0x01 << 0)
 #define DAI_STATE_PREPARED (0x01 << 1)
@@ -52,7 +54,7 @@ struct msm_slim_dai_data {
 	u16 *chan_h;
 	u16 *sh_ch;
 	u16 grph;
-	u16 rate;
+	u32 rate;
 	u16 bits;
 	u16 ch_cnt;
 	u8 status;
@@ -234,6 +236,9 @@ static int msm_dai_slim_hw_params(
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		dai_data->bits = 24;
+		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		dai_data->bits = 32;
 		break;
 	default:
 		dev_err(dai->dev, "%s: invalid format %d\n", __func__,
@@ -423,7 +428,7 @@ static struct snd_soc_dai_driver msm_slim_dais[] = {
 			 */
 			.channels_max = 1,
 			.rate_min = 8000,
-			.rate_max = 192000,
+			.rate_max = 384000,
 			.stream_name = "SLIM_DAI0 Capture",
 		},
 		.ops = &msm_dai_slim_ops,
