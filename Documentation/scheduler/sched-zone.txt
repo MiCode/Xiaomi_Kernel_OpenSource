@@ -1238,35 +1238,6 @@ power mode. It ignores the actual D-state that a cluster may be in and assumes
 the worst case power cost of the highest D-state. It is means of biasing task
 placement away from idle clusters when necessary.
 
-
-*** 7.21 sched_lowspill_freq
-
-Default value: 0
-
-Appears at /proc/sys/kernel/sched_lowspill_freq
-
-This is the first of two tunables designed to govern the load balancer behavior
-at various frequency levels. This tunable defines the frequency of the little
-cluster below which the big cluster is not permitted to pull tasks from the
-little cluster as part of load balance. The idea is that below a certain
-frequency, a cluster has enough remaining capacity that may not necessitate
-migration of tasks. This helps in achieving consolidation of workload within
-the little cluster when needed.
-
-*** 7.22 sched_pack_freq
-
-Default value: INT_MAX
-
-Appears at /proc/sys/kernel/sched_pack_freq
-
-This is the second of two tunables designed to govern the load balancer behavior
-at various frequency levels. This tunable defines the frequency of the little
-cluster beyond which the little cluster is now allowed to pull tasks from the
-big cluster as part of load balance. The idea is that above a certain frequency
-threshold the little cluster may not want to pull additional work from another
-cluster. This helps in achieving consolidation of workload within the big
-cluster when needed.
-
 ***7.23 sched_early_detection_duration
 
 Default value: 9500000
@@ -1277,6 +1248,18 @@ This governs the time in microseconds that a task has to runnable within one
 tick for it to be eligible for the scheduler's early detection feature
 under scheduler boost. For more information on the feature itself please
 refer to section 5.2.1.
+
+*** 7.24 sched_restrict_cluster_spill
+
+Default value: 0
+
+Appears at /proc/sys/kernel/sched_restrict_cluster_spill
+
+This tunable can be used to restrict the higher capacity cluster pulling tasks
+from the lower capacity cluster in the load balance path. The restriction is
+lifted if all of the CPUS in the lower capacity cluster are above spill.
+The power cost is used to break the ties if the capacity of clusters are same
+for applying this restriction.
 
 =========================
 8. HMP SCHEDULER TRACE POINTS

@@ -1314,7 +1314,7 @@ static struct sched_cluster init_cluster = {
 void update_all_clusters_stats(void)
 {
 	struct sched_cluster *cluster;
-	u64 highest_mpc = 0;
+	u64 highest_mpc = 0, lowest_mpc = U64_MAX;
 
 	pre_big_task_count_change(cpu_possible_mask);
 
@@ -1328,9 +1328,13 @@ void update_all_clusters_stats(void)
 
 		if (mpc > highest_mpc)
 			highest_mpc = mpc;
+
+		if (mpc < lowest_mpc)
+			lowest_mpc = mpc;
 	}
 
 	max_possible_capacity = highest_mpc;
+	min_max_possible_capacity = lowest_mpc;
 
 	__update_min_max_capacity();
 	sched_update_freq_max_load(cpu_possible_mask);
@@ -1696,6 +1700,8 @@ unsigned int min_max_freq = 1;
 unsigned int max_capacity = 1024; /* max(rq->capacity) */
 unsigned int min_capacity = 1024; /* min(rq->capacity) */
 unsigned int max_possible_capacity = 1024; /* max(rq->max_possible_capacity) */
+unsigned int
+min_max_possible_capacity = 1024; /* min(rq->max_possible_capacity) */
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = 10000000;
