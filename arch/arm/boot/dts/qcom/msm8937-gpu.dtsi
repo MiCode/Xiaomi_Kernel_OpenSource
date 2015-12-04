@@ -53,19 +53,7 @@
 		qcom,initial-pwrlevel = <2>;
 
 		qcom,idle-timeout = <8>; //<HZ/12>
-		/*
-		 * Timeout to enter deeper power saving state
-		 * from NAP.
-		 */
-		qcom,deep-nap-timeout = <2>; //<HZ/50>
 		qcom,strtstp-sleepwake;
-
-		/*
-		* Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE |
-		* KGSL_CLK_MEM_IFACE | KGSL_CLK_ALT_MEM_IFACE |
-		* KGSL_CLK_RBBMTIMER | KGSL_CLK_ALWAYSON
-		*/
-		qcom,clk-map = <0x000008D6>;
 
 		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
 			<&clock_gcc clk_gcc_oxili_ahb_clk>,
