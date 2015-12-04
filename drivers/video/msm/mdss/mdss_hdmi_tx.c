@@ -1121,6 +1121,44 @@ static ssize_t hdmi_tx_sysfs_rda_s3d_mode(struct device *dev,
 	return ret;
 }
 
+static ssize_t hdmi_tx_sysfs_wta_5v(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int read, rc = 0;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	struct dss_module_power *pd = NULL;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pd = &hdmi_ctrl->pdata.power_data[HDMI_TX_HPD_PM];
+	if (!pd) {
+		DEV_ERR("%s: Error: invalid power data\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	rc = kstrtoint(buf, 10, &read);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		goto error;
+	}
+
+	read = ~(!!read ^ pd->gpio_config->value) & BIT(0);
+
+	DEV_DBG("%s: writing %d to 5v gpio\n", __func__, read);
+	gpio_set_value(pd->gpio_config->gpio, read);
+
+	return ret;
+error:
+	return rc;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(hdmi_audio_cb, S_IWUSR, NULL, hdmi_tx_sysfs_wta_audio_cb);
 static DEVICE_ATTR(video_mode, S_IRUGO, hdmi_tx_sysfs_rda_video_mode, NULL);
@@ -1135,6 +1173,7 @@ static DEVICE_ATTR(avi_itc, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_itc);
 static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn_bits);
 static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_s3d_mode,
 	hdmi_tx_sysfs_wta_s3d_mode);
+static DEVICE_ATTR(5v, S_IWUSR, NULL, hdmi_tx_sysfs_wta_5v);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
@@ -1146,6 +1185,7 @@ static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_avi_itc.attr,
 	&dev_attr_avi_cn0_1.attr,
 	&dev_attr_s3d_mode.attr,
+	&dev_attr_5v.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
