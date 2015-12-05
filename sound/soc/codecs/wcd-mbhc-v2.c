@@ -992,8 +992,9 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 
 	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
-	if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
-	    plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
+	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
+	     plug_type == MBHC_PLUG_TYPE_HEADPHONE) &&
+	    (!wcd_swch_level_remove(mbhc))) {
 		WCD_MBHC_RSC_LOCK(mbhc);
 		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 		WCD_MBHC_RSC_UNLOCK(mbhc);
