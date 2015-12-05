@@ -45,27 +45,29 @@ struct msm_hsic_per *the_mhsic;
 static u64 msm_hsic_peripheral_dma_mask = DMA_BIT_MASK(32);
 
 struct msm_hsic_per {
-	struct device		*dev;
+	struct device			*dev;
 	struct clk			*iface_clk;
 	struct clk			*core_clk;
 	struct clk			*cal_sleep_clk;
 	struct clk			*phy_clk;
 	struct clk			*cal_clk;
-	struct regulator	*hsic_vdd;
-	int			async_int;
-	int			vdd_val[3];
-	struct regulator        *hsic_gdsc;
-	void __iomem		*regs;
-	int			irq;
-	int			async_irq_no;
-	atomic_t		in_lpm;
-	struct workqueue_struct *wq;
-	struct work_struct	suspend_w;
-	struct msm_hsic_peripheral_platform_data *pdata;
-	u32			bus_perf_client;
+	struct regulator		*hsic_vdd;
+	int				async_int;
+	int				vdd_val[3];
+	struct regulator		*hsic_gdsc;
+	void __iomem			*regs;
+	void __iomem			*tlmm_regs;
+	int				irq;
+	int				async_irq_no;
+	atomic_t			in_lpm;
+	struct workqueue_struct		*wq;
+	struct work_struct		suspend_w;
+	struct ci13xxx_platform_data	*pdata;
+	u32				bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
-	enum usb_vdd_type	vdd_type;
-	bool connected;
+	enum usb_vdd_type		vdd_type;
+	bool				connected;
+	bool				disable_on_boot;
 };
 
 #define NONE 0
@@ -363,7 +365,22 @@ static void msm_hsic_wakeup(void)
 
 static void msm_hsic_start(void)
 {
-	int ret;
+	struct msm_hsic_per *mhsic = the_mhsic;
+	int ret, *seq, seq_count;
+
+	/* Program TLMM pad configuration for HSIC */
+	seq = mhsic->pdata->tlmm_init_seq;
+	seq_count = mhsic->pdata->tlmm_seq_count;
+	if (seq && seq_count) {
+		while (seq[0] >= 0 && seq_count > 0) {
+			writel_relaxed(seq[1],
+					mhsic->tlmm_regs + seq[0]);
+			seq += 2;
+			seq_count -= 2;
+		}
+	}
+	/* ensure above writes are completed before programming PHY */
+	wmb();
 
 	/* programmable length of connect signaling (33.2ns) */
 	ret = ulpi_write(the_mhsic, 3, HSIC_DBG1_REG);
@@ -402,7 +419,7 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 	disable_irq(mhsic->irq);
 
 	/* Don't try to put PHY into suspend if it is not in CONNECT state. */
-	if (the_mhsic->connected) {
+	if (the_mhsic->connected || mhsic->disable_on_boot) {
 		/*
 		 * PHY may take some time or even fail to enter into low power
 		 * mode (LPM). Hence poll for 500 msec and reset the PHY and
@@ -743,6 +760,8 @@ static void ci13xxx_msm_hsic_notify_event(struct ci13xxx *udc, unsigned event)
 		break;
 	case CI13XXX_CONTROLLER_CONNECT_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_CONNECT_EVENT received\n");
+		if (mhsic->disable_on_boot)
+			mhsic->disable_on_boot = false;
 		/* bring HSIC core out of LPM */
 		pm_runtime_get_sync(the_mhsic->dev);
 		msm_hsic_start();
@@ -787,7 +806,7 @@ struct ci13xxx_platform_data *msm_hsic_peripheral_dt_to_pdata(
 	struct device_node *node = pdev->dev.of_node;
 	struct ci13xxx_platform_data *pdata;
 	u32 core_id;
-	int ret;
+	int ret, len;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -798,6 +817,23 @@ struct ci13xxx_platform_data *msm_hsic_peripheral_dt_to_pdata(
 		dev_err(&pdev->dev, "hsic usb core id is not provided.\n");
 	else
 		pdata->usb_core_id = (u8)core_id;
+
+	of_get_property(node, "qcom,hsic-tlmm-init-seq", &len);
+	if (len) {
+		pdata->tlmm_init_seq = devm_kzalloc(&pdev->dev, len,
+						    GFP_KERNEL);
+		if (!pdata->tlmm_init_seq)
+			return NULL;
+
+		pdata->tlmm_seq_count = len / sizeof(*pdata->tlmm_init_seq);
+		ret = of_property_read_u32_array(node,
+				"qcom,hsic-tlmm-init-seq",
+				pdata->tlmm_init_seq, pdata->tlmm_seq_count);
+		if (ret) {
+			dev_err(&pdev->dev, "hsic init-seq failed:%d\n", ret);
+			pdata->tlmm_seq_count = 0;
+		}
+	}
 
 	return pdata;
 }
@@ -834,8 +870,10 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	the_mhsic = mhsic;
 	platform_set_drvdata(pdev, mhsic);
 	mhsic->dev = &pdev->dev;
-	mhsic->pdata =
-		(struct msm_hsic_peripheral_platform_data *)pdata->prv_data;
+	mhsic->pdata = pdata;
+
+	mhsic->disable_on_boot = of_property_read_bool(pdev->dev.of_node,
+					"qcom,hsic-disable-on-boot");
 
 	mhsic->irq = platform_get_irq(pdev, 0);
 	if (mhsic->irq < 0) {
@@ -873,6 +911,20 @@ static int msm_hsic_probe(struct platform_device *pdev)
 		goto error;
 	}
 	dev_info(&pdev->dev, "HSIC Peripheral regs = %p\n", mhsic->regs);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res && pdata->tlmm_init_seq) {
+		dev_err(&pdev->dev, "Unable to get TLMM memory resource\n");
+		ret = -ENODEV;
+		goto unmap;
+	} else if (res) {
+		mhsic->tlmm_regs =  devm_ioremap(&pdev->dev, res->start,
+						 resource_size(res));
+		if (IS_ERR(mhsic->tlmm_regs)) {
+			ret = PTR_ERR(mhsic->tlmm_regs);
+			goto unmap;
+		}
+	}
 
 	ret = msm_hsic_config_gdsc(pdev, mhsic, true);
 	if (ret) {

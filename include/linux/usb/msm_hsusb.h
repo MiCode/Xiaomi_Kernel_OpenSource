@@ -532,6 +532,8 @@ struct msm_otg {
 
 struct ci13xxx_platform_data {
 	u8 usb_core_id;
+	int *tlmm_init_seq;
+	int tlmm_seq_count;
 	/*
 	 * value of 2^(log2_itc-1) will be used as the interrupt threshold
 	 * (ITC), when log2_itc is between 1 to 7.
