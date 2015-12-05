@@ -141,7 +141,8 @@ TRACE_EVENT(sched_task_load,
 		__entry->need_idle	= need_idle;
 		__entry->best_cpu	= best_cpu;
 		__entry->latency	= p->state == TASK_WAKING ?
-					 sched_clock() - p->ravg.mark_start : 0;
+						      sched_ktime_clock() -
+						      p->ravg.mark_start : 0;
 	),
 
 	TP_printk("%d (%s): demand=%u boost=%d reason=%d sync=%d need_idle=%d best_cpu=%d latency=%llu",
