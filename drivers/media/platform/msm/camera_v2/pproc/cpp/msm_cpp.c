@@ -1911,9 +1911,8 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 		queue_len = cpp_dev->processing_q.len;
 		spin_unlock_irqrestore(&cpp_timer.data.processed_frame_lock,
 			flags);
-		if (queue_len == 1) {
-			atomic_set(&cpp_timer.used, 1);
-		}
+		atomic_set(&cpp_timer.used, 1);
+
 		CPP_DBG("Starting timer to fire in %d ms. (jiffies=%lu)\n",
 			CPP_CMD_TIMEOUT_MS, jiffies);
 		ret = mod_timer(&cpp_timer.cpp_timer,
