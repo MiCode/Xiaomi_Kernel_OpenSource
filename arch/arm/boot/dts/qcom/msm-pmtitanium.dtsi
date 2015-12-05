@@ -72,7 +72,6 @@
 			mpp@a100 {
 				reg = <0xa100 0x100>;
 				qcom,pin-num = <2>;
-				status = "disabled";
 			};
 
 			mpp@a200 {
@@ -84,7 +83,6 @@
 			mpp@a300 {
 				reg = <0xa300 0x100>;
 				qcom,pin-num = <4>;
-				status = "disabled";
 			};
 		};
 
