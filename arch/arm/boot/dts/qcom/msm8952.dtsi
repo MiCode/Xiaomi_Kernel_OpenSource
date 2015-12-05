@@ -81,7 +81,7 @@
 		};
 
 		cont_splash_mem: splash_region@83000000 {
-			reg = <0x0 0x83000000 0x0 0x1400000>;
+			reg = <0x0 0x8dd00000 0x0 0x1400000>;
 		};
 
 		adsp_mem: adsp_region@0 {
