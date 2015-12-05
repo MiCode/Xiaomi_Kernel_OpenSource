@@ -138,6 +138,14 @@
 	vbus_otg-supply = <&smb358_otg_vreg>;
 };
 
+&hsic {
+	status = "ok";
+};
+
+&android_usb_hsic {
+	status = "ok";
+};
+
 &sdhc_2 {
 	vdd-supply = <&sdcard_ext_vreg>;
 	qcom,vdd-voltage-level = <2850000 2850000>;
