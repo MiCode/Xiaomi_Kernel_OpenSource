@@ -1768,8 +1768,13 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg)
 					msi->start, 0, msi->end,
 					lower, upper);
 
-		cfg->lower = msi->start + (lower & 0xfff);
-		cfg->upper = 0;
+		if (ep_pcie_dev.active_config) {
+			cfg->lower = lower;
+			cfg->upper = upper;
+		} else {
+			cfg->lower = msi->start + (lower & 0xfff);
+			cfg->upper = 0;
+		}
 		cfg->data = data;
 		cfg->msg_num = (cap >> 20) & 0x7;
 		if ((lower != ep_pcie_dev.msi_cfg.lower)
