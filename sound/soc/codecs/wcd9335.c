@@ -11251,6 +11251,7 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_common_val[] = {
 	{WCD9335_CDC_RX6_RX_PATH_MIX_CFG, 0x01, 0x01},
 	{WCD9335_CDC_RX7_RX_PATH_MIX_CFG, 0x01, 0x01},
 	{WCD9335_CDC_RX8_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_VBADC_IBIAS_FE, 0x0C, 0x08},
 };
 
 static const struct tasha_reg_mask_val tasha_codec_reg_init_1_x_val[] = {
