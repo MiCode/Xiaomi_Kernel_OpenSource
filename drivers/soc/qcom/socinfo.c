@@ -541,6 +541,8 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* MSMGOLD IDs */
 	[303] = {MSM_CPU_GOLD, "MSMGOLD"},
 	[307] = {MSM_CPU_GOLD, "APQGOLD"},
+	[308] = {MSM_CPU_GOLD, "MSMGOLD"},
+	[309] = {MSM_CPU_GOLD, "MSMGOLD"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
