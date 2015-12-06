@@ -111,6 +111,9 @@
 
 			qcom,cdc-reset-gpio = <&tlmm_pinmux 90 0>;
 
+			clock-names = "wcd_clk";
+			clocks = <&clock_audio clk_audio_lpass_mclk>;
+
 			qcom,msm-mbhc-hphl-swh = <0>;
 			qcom,msm-mbhc-gnd-swh = <0>;
 
