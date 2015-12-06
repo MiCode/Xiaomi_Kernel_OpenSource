@@ -14,7 +14,9 @@
 #define _UAPI_SPCOM_H_
 
 #include <linux/types.h>	/* uint32_t, bool */
-#include <linux/bitops.h>	/* BIT() */
+#ifndef BIT
+	#define BIT(x) (1 << x)
+#endif
 
 /**
  * @brief - Secure Processor Communication interface to user space spcomlib.
