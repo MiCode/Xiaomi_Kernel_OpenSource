@@ -922,11 +922,19 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			int num = buf_num_pages(buf, len);
 			int idx = list[i].pgidx;
 
+			down_read(&current->mm->mmap_sem);
 			VERIFY(err, NULL != (vma = find_vma(current->mm,
 								map->va)));
+			if (err) {
+				up_read(&current->mm->mmap_sem);
+				goto bail;
+			}
+			offset = buf_page_start(buf) - vma->vm_start;
+			up_read(&current->mm->mmap_sem);
+
+			VERIFY(err, offset < (uintptr_t)map->size);
 			if (err)
 				goto bail;
-			offset = buf_page_start(buf) - vma->vm_start;
 			pages[idx].addr = map->phys + offset;
 			pages[idx].size = num << PAGE_SHIFT;
 		}
@@ -1246,9 +1254,8 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			goto bail;
 	} else if (init->flags == FASTRPC_INIT_CREATE) {
 		remote_arg_t ra[4];
-		int fds[4], i, len = 0;
+		int fds[4];
 		int mflags = 0;
-		struct scatterlist *sg;
 		struct {
 			int pgid;
 			int namelen;
@@ -1267,19 +1274,6 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 					init->memlen, mflags, &mem));
 		if (err)
 			goto bail;
-		for_each_sg(mem->table->sgl, sg, mem->table->nents, i) {
-			unsigned long pfn;
-			struct vm_area_struct *vma = find_vma(current->mm,
-							init->mem + len);
-			if (vma && !follow_pfn(vma, init->mem + len, &pfn))
-				dev_dbg(fl->apps->channel[fl->cid].dev,
-					"%s: VA=0x%p, PA=0x%p, len=0x%x\n",
-					__func__,
-					(void *)(uintptr_t)(mem->phys + len),
-					(void *)(uintptr_t)(__pfn_to_phys(pfn)),
-					(unsigned int)sg->length);
-			len += sg->length;
-		}
 		inbuf.pageslen = 1;
 		ra[0].buf.pv = (void *)&inbuf;
 		ra[0].buf.len = sizeof(inbuf);
