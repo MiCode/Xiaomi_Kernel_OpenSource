@@ -147,4 +147,7 @@
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux 0x8121ac15
 
+/* Audio External Clocks */
+#define clk_audio_lpass_mclk 0x575ec22b
+
 #endif
