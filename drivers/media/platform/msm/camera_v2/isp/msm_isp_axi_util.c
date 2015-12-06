@@ -2857,7 +2857,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 	if ((frame_src == VFE_PIX_0) && !stream_info->undelivered_request_cnt &&
 		MSM_VFE_STREAM_STOP_PERIOD !=
-		stream_info->prev_framedrop_period) {
+		stream_info->current_framedrop_period) {
 		pr_debug("%s:%d vfe %d frame_id %d prev_pattern %x stream_id %x\n",
 			__func__, __LINE__, vfe_dev->pdev->id, frame_id,
 			stream_info->prev_framedrop_period,
