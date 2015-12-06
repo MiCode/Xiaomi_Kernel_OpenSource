@@ -1203,7 +1203,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 		mutex_lock(&inst->scratchbufs.lock);
 		dprintk(VIDC_ERR, "scratch buffer list:\n");
 		list_for_each_entry(buf, &inst->scratchbufs.list, list)
-			dprintk(VIDC_ERR, "type: %d addr: %pa size: %lu\n",
+			dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
 				buf->buffer_type, &buf->handle->device_addr,
 				buf->handle->size);
 		mutex_unlock(&inst->scratchbufs.lock);
@@ -1211,7 +1211,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 		mutex_lock(&inst->persistbufs.lock);
 		dprintk(VIDC_ERR, "persist buffer list:\n");
 		list_for_each_entry(buf, &inst->persistbufs.list, list)
-			dprintk(VIDC_ERR, "type: %d addr: %pa size: %lu\n",
+			dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
 				buf->buffer_type, &buf->handle->device_addr,
 				buf->handle->size);
 		mutex_unlock(&inst->persistbufs.lock);
@@ -1219,7 +1219,7 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 		mutex_lock(&inst->outputbufs.lock);
 		dprintk(VIDC_ERR, "dpb buffer list:\n");
 		list_for_each_entry(buf, &inst->outputbufs.list, list)
-			dprintk(VIDC_ERR, "type: %d addr: %pa size: %lu\n",
+			dprintk(VIDC_ERR, "type: %d addr: %pa size: %zu\n",
 				buf->buffer_type, &buf->handle->device_addr,
 				buf->handle->size);
 		mutex_unlock(&inst->outputbufs.lock);
