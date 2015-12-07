@@ -346,6 +346,7 @@ struct wcd_mbhc_cb {
 				    enum mbhc_hs_pullup_iref);
 	int (*mbhc_micbias_control)(struct snd_soc_codec *, int req);
 	void (*mbhc_micb_ramp_control)(struct snd_soc_codec *, bool);
+	void (*skip_imped_detect)(struct snd_soc_codec *);
 	bool (*extn_use_mb)(struct snd_soc_codec *);
 	int (*mbhc_micb_ctrl_thr_mic)(struct snd_soc_codec *, int, bool);
 	void (*mbhc_gnd_det_ctrl)(struct snd_soc_codec *, bool);
@@ -376,6 +377,8 @@ struct wcd_mbhc {
 	bool btn_press_intr;
 	bool is_hs_recording;
 	bool is_extn_cable;
+	bool skip_imped_detection;
+	bool is_btn_already_regd;
 
 	struct snd_soc_codec *codec;
 	/* Work to perform MBHC Firmware Read */
@@ -407,10 +410,10 @@ struct wcd_mbhc {
 	struct notifier_block nblock;
 
 	struct wcd_mbhc_register *wcd_mbhc_regs;
-	struct mutex hphl_pa_lock;
-	struct mutex hphr_pa_lock;
 
 	struct completion btn_press_compl;
+	struct mutex hphl_pa_lock;
+	struct mutex hphr_pa_lock;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \

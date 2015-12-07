@@ -2740,8 +2740,9 @@ void tcp_get_info(const struct sock *sk, struct tcp_info *info)
 	*/
 	if (NULL != sk->sk_socket) {
 		struct file *filep = sk->sk_socket->file;
-		if (NULL != filep)
-			info->tcpi_count = atomic_read(&filep->f_count);
+
+		if (filep)
+			info->tcpi_count = file_count(filep);
 	}
 }
 EXPORT_SYMBOL_GPL(tcp_get_info);
@@ -3190,7 +3191,7 @@ int tcp_nuke_addr(struct net *net, struct sockaddr *addr)
 	int family = addr->sa_family;
 	unsigned int bucket;
 
-	struct in_addr *in;
+	struct in_addr *in = NULL;
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
 	struct in6_addr *in6 = NULL;
 #endif
@@ -3227,7 +3228,7 @@ restart:
 				if (s4 == LOOPBACK4_IPV6)
 					continue;
 
-				if (in->s_addr != s4 &&
+				if (in && in->s_addr != s4 &&
 				    !(in->s_addr == INADDR_ANY &&
 				      !tcp_is_local(net, s4)))
 					continue;

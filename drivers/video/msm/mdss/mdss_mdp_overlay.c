@@ -1953,6 +1953,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
+	mdss_mdp_check_ctl_reset_status(ctl);
 	__vsync_set_vsync_handler(mfd);
 	__validate_and_set_roi(mfd, data);
 
@@ -2639,7 +2640,8 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 	if (!ctl->ops.add_vsync_handler || !ctl->ops.remove_vsync_handler)
 		return -EOPNOTSUPP;
 	if (!ctl->panel_data->panel_info.cont_splash_enabled
-			&& !mdss_mdp_ctl_is_power_on(ctl)) {
+		&& (!mdss_mdp_ctl_is_power_on(ctl) ||
+		mdss_panel_is_power_on_ulp(ctl->power_state))) {
 		pr_debug("fb%d vsync pending first update en=%d\n",
 				mfd->index, en);
 		return -EPERM;
@@ -2767,8 +2769,7 @@ static void mdss_mdp_dfps_update_params(struct mdss_panel_data *pdata,
 			pdata->panel_info.saved_fporch + add_h_pixels;
 		pdata->panel_info.mipi.frame_rate = new_fps;
 	} else {
-		/* in clock method we are not updating panel data here */
-		pdata->panel_info.new_fps = new_fps;
+		pdata->panel_info.mipi.frame_rate = new_fps;
 	}
 }
 

@@ -1405,15 +1405,13 @@ static int mdss_mdp_set_threshold_max_bandwidth(struct mdss_mdp_ctl *ctl)
 	pr_debug("final mode = %d, bw_mode_bitmap = %d\n", mode,
 			ctl->mdata->bw_mode_bitmap);
 
-	/* Select BW mode with smallest limit */
-	while (mode) {
-		if (mode & BIT(0)) {
+	/* Return minimum bandwidth limit */
+	for (i = 0; i < ctl->mdata->max_bw_settings_cnt; i++) {
+		if (max_bw_settings[i].mdss_max_bw_mode & mode) {
 			threshold = max_bw_settings[i].mdss_max_bw_val;
 			if (threshold < max)
 				max = threshold;
 		}
-		mode >>= 1;
-		i++;
 	}
 
 	return max;
@@ -1475,29 +1473,20 @@ int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 	return 0;
 }
 
-static u32 mdss_mdp_get_bw_by_mode(struct mdss_max_bw_settings *settings,
-					int count, int key)
-{
-	u32 value = 0, i = 0;
-
-	while (i < count) {
-		if (settings[i].mdss_max_bw_mode == key) {
-			value = settings[i].mdss_max_bw_val;
-			break;
-		}
-		++i;
-	}
-	return value;
-}
-
 static u32 mdss_mdp_get_max_pipe_bw(struct mdss_mdp_pipe *pipe)
 {
 
-	struct mdss_data_type *mdata = pipe->mixer_left->ctl->mdata;
 	struct mdss_mdp_ctl *ctl = pipe->mixer_left->ctl;
+	struct mdss_max_bw_settings *max_per_pipe_bw_settings;
 	u32 flags = 0, threshold = 0, panel_orientation;
+	u32 i, max = INT_MAX;
+
+	if (!ctl->mdata->mdss_per_pipe_bw_cnt
+			&& !ctl->mdata->max_per_pipe_bw_settings)
+		return 0;
 
 	panel_orientation = ctl->mfd->panel_orientation;
+	max_per_pipe_bw_settings = ctl->mdata->max_per_pipe_bw_settings;
 
 	/* Check for panel orienatation */
 	panel_orientation = ctl->mfd->panel_orientation;
@@ -1512,22 +1501,17 @@ static u32 mdss_mdp_get_max_pipe_bw(struct mdss_mdp_pipe *pipe)
 	if (pipe->flags & MDP_FLIP_UD)
 		flags |= MDSS_MAX_BW_LIMIT_VFLIP;
 
-	if ((flags & MDSS_MAX_BW_LIMIT_HFLIP) &&
-			(flags &  MDSS_MAX_BW_LIMIT_VFLIP)) {
-		threshold = mdata->min_bw_per_pipe;
-	} else if (flags & MDSS_MAX_BW_LIMIT_HFLIP) {
-		threshold = mdss_mdp_get_bw_by_mode(
-					mdata->max_per_pipe_bw_settings,
-					mdata->mdss_per_pipe_bw_cnt,
-					MDSS_MAX_BW_LIMIT_HFLIP);
-	} else if (flags & MDSS_MAX_BW_LIMIT_VFLIP) {
-		threshold = mdss_mdp_get_bw_by_mode(
-					mdata->max_per_pipe_bw_settings,
-					mdata->mdss_per_pipe_bw_cnt,
-					MDSS_MAX_BW_LIMIT_VFLIP);
+	flags |= ctl->mdata->bw_mode_bitmap;
+
+	for (i = 0; i < ctl->mdata->mdss_per_pipe_bw_cnt; i++) {
+		if (max_per_pipe_bw_settings[i].mdss_max_bw_mode & flags) {
+			threshold = max_per_pipe_bw_settings[i].mdss_max_bw_val;
+			if (threshold < max)
+				max = threshold;
+		}
 	}
 
-	return threshold ? threshold : mdata->max_bw_per_pipe;
+	return max;
 }
 
 int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
@@ -1536,7 +1520,7 @@ int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 	struct mdss_data_type *mdata = pipe->mixer_left->ctl->mdata;
 	struct mdss_mdp_ctl *ctl = pipe->mixer_left->ctl;
 	u32 vbp_fac, threshold;
-	u64 prefill_bw, pipe_bw;
+	u64 prefill_bw, pipe_bw, max_pipe_bw;
 
 	/* we only need bandwidth check on real-time clients (interfaces) */
 	if (ctl->intf_type == MDSS_MDP_NO_INTF)
@@ -1555,11 +1539,11 @@ int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 	/* convert bandwidth to kb */
 	pipe_bw = DIV_ROUND_UP_ULL(pipe_bw, 1000);
 
+	threshold = mdata->max_bw_per_pipe;
+	max_pipe_bw = mdss_mdp_get_max_pipe_bw(pipe);
 
-	if (!mdata->max_per_pipe_bw_settings)
-		threshold = mdata->max_bw_per_pipe;
-	else
-		threshold = mdss_mdp_get_max_pipe_bw(pipe);
+	if (max_pipe_bw && (max_pipe_bw < threshold))
+		threshold = max_pipe_bw;
 
 	pr_debug("bw=%llu threshold=%u\n", pipe_bw, threshold);
 
@@ -3857,6 +3841,54 @@ static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer, bool is_recovery)
 	}
 }
 
+static u32 mdss_mdp_poll_ctl_reset_status(struct mdss_mdp_ctl *ctl, u32 cnt)
+{
+	u32 status;
+	/*
+	 * it takes around 30us to have mdp finish resetting its ctl path
+	 * poll every 50us so that reset should be completed at 1st poll
+	 */
+	do {
+		udelay(50);
+		status = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_SW_RESET);
+		status &= 0x01;
+		pr_debug("status=%x, count=%d\n", status, cnt);
+		cnt--;
+	} while (cnt > 0 && status);
+
+	return status;
+}
+
+/*
+ * mdss_mdp_check_ctl_reset_status() - checks ctl reset status
+ * @ctl: mdp controller
+ *
+ * This function checks the ctl reset status before every frame update.
+ * If the reset bit is set, it keeps polling the status till the hw
+ * reset is complete. And does a panic if hw fails to complet the reset
+ * with in the max poll interval.
+ */
+void mdss_mdp_check_ctl_reset_status(struct mdss_mdp_ctl *ctl)
+{
+	u32 status;
+
+	if (!ctl)
+		return;
+
+	status = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_SW_RESET);
+	status &= 0x01;
+	if (!status)
+		return;
+
+	pr_debug("hw ctl reset is set for ctl:%d\n", ctl->num);
+	status = mdss_mdp_poll_ctl_reset_status(ctl, 5);
+	if (status) {
+		pr_err("hw recovery is not complete for ctl:%d\n", ctl->num);
+		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt", "dbg_bus",
+			"vbif_dbg_bus", "panic");
+	}
+}
+
 /*
  * mdss_mdp_ctl_reset() - reset mdp ctl path.
  * @ctl: mdp controller.
@@ -3867,8 +3899,7 @@ static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer, bool is_recovery)
  */
 int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery)
 {
-	u32 status = 1;
-	int cnt = 20;
+	u32 status;
 	struct mdss_mdp_mixer *mixer;
 
 	if (!ctl) {
@@ -3879,17 +3910,9 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery)
 	mixer = ctl->mixer_left;
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_SW_RESET, 1);
 
-	/*
-	 * it takes around 30us to have mdp finish resetting its ctl path
-	 * poll every 50us so that reset should be completed at 1st poll
-	 */
-	do {
-		udelay(50);
-		status = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_SW_RESET);
-		status &= 0x01;
-		pr_debug("status=%x\n", status);
-		cnt--;
-	} while (cnt > 0 && status);
+	status = mdss_mdp_poll_ctl_reset_status(ctl, 20);
+	if (status)
+		pr_err("sw ctl:%d reset timedout\n", ctl->num);
 
 	if (mixer) {
 		mdss_mdp_pipe_reset(mixer, is_recovery);
@@ -3898,10 +3921,7 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery)
 			mdss_mdp_pipe_reset(ctl->mixer_right, is_recovery);
 	}
 
-	if (!cnt)
-		pr_err("ctl%d reset timedout\n", ctl->num);
-
-	return (!cnt) ? -EAGAIN : 0;
+	return (status) ? -EAGAIN : 0;
 }
 
 /*
@@ -4677,7 +4697,8 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 	mutex_lock(&mdp5_data->dfps_lock);
 
 	if ((pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) ||
-		(pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP)) {
+		(pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) ||
+		pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
 		new_fps = mdss_panel_get_framerate(pinfo);
 	} else {
 		new_fps = pinfo->new_fps;
@@ -5042,6 +5063,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	 */
 	if (ret == NOTIFY_BAD) {
 		mdss_mdp_force_border_color(ctl);
+		ctl_flush_bits |= (ctl->flush_bits | BIT(17));
+		if (sctl && (!ctl->split_flush_en))
+			sctl_flush_bits |= (sctl->flush_bits | BIT(17));
 		ret = 0;
 	}
 

@@ -15,11 +15,11 @@
 #include <linux/device.h>
 #include <linux/skbuff.h>
 #include <linux/pci.h>
+#ifdef CONFIG_CNSS_SDIO
+#include <linux/mmc/sdio_func.h>
+#endif
 
 #ifdef CONFIG_CNSS
-/* max 20mhz channel count */
-#define CNSS_MAX_CH_NUM       45
-
 #define CNSS_MAX_FILE_NAME	  20
 
 #define MAX_FIRMWARE_SIZE (1 * 1024 * 1024)
@@ -165,6 +165,9 @@ extern int cnss_is_auto_suspend_allowed(const char *caller_func);
 extern int cnss_pm_runtime_request(struct device *dev, enum
 		cnss_runtime_request request);
 #endif
+/* max 20mhz channel count */
+#define CNSS_MAX_CH_NUM       45
+
 extern void cnss_init_work(struct work_struct *work, work_func_t func);
 extern void cnss_flush_work(void *work);
 extern void cnss_flush_delayed_work(void *dwork);
@@ -185,4 +188,20 @@ extern int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
 		u16 *ch_count, u16 buf_len);
 extern int cnss_wlan_set_dfs_nol(const void *info, u16 info_len);
 extern int cnss_wlan_get_dfs_nol(void *info, u16 info_len);
+
+#ifdef CONFIG_CNSS_SDIO
+struct cnss_sdio_wlan_driver {
+	const char *name;
+	const struct sdio_device_id *id_table;
+	int (*probe)(struct sdio_func *, const struct sdio_device_id *);
+	void (*remove)(struct sdio_func *);
+	int (*suspend)(struct device *);
+	int (*resume)(struct device *);
+};
+
+extern int cnss_sdio_wlan_register_driver(
+	struct cnss_sdio_wlan_driver *driver);
+extern void cnss_sdio_wlan_unregister_driver(
+	struct cnss_sdio_wlan_driver *driver);
+#endif
 #endif /* _NET_CNSS_H_ */

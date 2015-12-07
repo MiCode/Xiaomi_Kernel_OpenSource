@@ -3395,17 +3395,17 @@
 		qcom,msm_fastrpc_compute_cb6 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
-			iommus = <&lpass_q6_smmu 13>;
+			iommus = <&lpass_q6_smmu 5>;
 		};
 		qcom,msm_fastrpc_compute_cb7 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
-			iommus = <&lpass_q6_smmu 14>;
+			iommus = <&lpass_q6_smmu 6>;
 		};
 		qcom,msm_fastrpc_compute_cb8 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
-			iommus = <&lpass_q6_smmu 15>;
+			iommus = <&lpass_q6_smmu 7>;
 		};
 	};
 

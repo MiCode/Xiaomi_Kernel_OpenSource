@@ -25,7 +25,10 @@
 #include <linux/posix-timers.h>
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
+
+#ifdef CONFIG_MSM_PM
 #include "lpm-levels.h"
+#endif
 #include <linux/workqueue.h>
 
 /**

@@ -153,9 +153,9 @@ static int pfk_get_page_index(const struct bio *bio, pgoff_t *page_index)
 	if (!bio || !page_index)
 		return -EPERM;
 
-	/* check bio bi_size > 0 before using the bio->bi_io_vec[] array */
-	if (!(bio->bi_iter).bi_size)
+	if (!bio_has_data((struct bio *)bio))
 		return -EINVAL;
+
 	if (!bio->bi_io_vec)
 		return -EINVAL;
 	if (!bio->bi_io_vec->bv_page)
@@ -183,9 +183,10 @@ static struct inode *pfk_bio_get_inode(const struct bio *bio)
 {
 	if (!bio)
 		return NULL;
-	/* check bio bi_size > 0 before using the bio->bi_io_vec[] array */
-	if (!(bio->bi_iter).bi_size)
+
+	if (!bio_has_data((struct bio *)bio))
 		return NULL;
+
 	if (!bio->bi_io_vec)
 		return NULL;
 	if (!bio->bi_io_vec->bv_page)
@@ -498,17 +499,13 @@ bool pfk_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 	void *ecryptfs_data2 = NULL;
 	pgoff_t offset1, offset2;
 	bool res = false;
-	struct inode *inode1 = NULL;
-	struct inode *inode2 = NULL;
 
+	/* if there is no pfk, don't disallow merging blocks */
 	if (!pfk_is_ready())
-		return -ENODEV;
+		return true;
 
 	if (!bio1 || !bio2)
-		return -EPERM;
-
-	inode1 = pfk_bio_get_inode(bio1);
-	inode2 = pfk_bio_get_inode(bio2);
+		return false;
 
 	ecryptfs_data1 = pfk_get_ecryptfs_data(pfk_bio_get_inode(bio1));
 	ecryptfs_data2 = pfk_get_ecryptfs_data(pfk_bio_get_inode(bio2));

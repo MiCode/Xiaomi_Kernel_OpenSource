@@ -365,6 +365,19 @@ static const int msm8996_v3_hmss_fuse_ref_volt[MSM8996_HMSS_FUSE_CORNERS] = {
 	1140000,
 };
 
+/*
+ * Open loop voltage fuse reference voltages in microvolts for MSM8996 v3 with
+ * speed_bin == 1 and cpr_fusing_rev >= 5.
+ */
+static const int msm8996_v3_speed_bin1_rev5_hmss_fuse_ref_volt[
+						MSM8996_HMSS_FUSE_CORNERS] = {
+	605000,
+	745000, /* Place holder entry for LowSVS */
+	745000,
+	905000,
+	1040000,
+};
+
 /* Defines mapping from retention fuse values to voltages in microvolts */
 static const int msm8996_vdd_apcc_fuse_ret_volt[] = {
 	600000, 550000, 500000, 450000, 400000, 350000, 300000, 600000,
@@ -618,9 +631,12 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 	}
 
 	soc_revision = vreg->thread->ctrl->soc_revision;
-	ref_volt = soc_revision == 1 || soc_revision == 2
-			? msm8996_v1_v2_hmss_fuse_ref_volt
-			: msm8996_v3_hmss_fuse_ref_volt;
+	if (soc_revision == 1 || soc_revision == 2)
+		ref_volt = msm8996_v1_v2_hmss_fuse_ref_volt;
+	else if (fuse->speed_bin == 1 && fuse->cpr_fusing_rev >= 5)
+		ref_volt = msm8996_v3_speed_bin1_rev5_hmss_fuse_ref_volt;
+	else
+		ref_volt = msm8996_v3_hmss_fuse_ref_volt;
 
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(

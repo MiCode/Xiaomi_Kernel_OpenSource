@@ -131,11 +131,29 @@ enum imem_type {
 	IMEM_MAX,
 };
 
+struct allowed_clock_rates_table {
+	u32 clock_rate;
+};
+
+struct clock_profile_entry {
+	u32 codec_mask;
+	u32 cycles;
+	u32 low_power_factor;
+};
+
+struct clock_freq_table {
+	struct clock_profile_entry *clk_prof_entries;
+	u32 count;
+};
+
 struct msm_vidc_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
 	uint32_t register_size;
 	uint32_t irq;
+	struct allowed_clock_rates_table *allowed_clks_tbl;
+	u32 allowed_clks_tbl_size;
+	struct clock_freq_table clock_freq_tbl;
 	struct load_freq_table *load_freq_tbl;
 	uint32_t load_freq_tbl_size;
 	struct dcvs_table *dcvs_tbl;

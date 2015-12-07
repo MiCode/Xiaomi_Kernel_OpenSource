@@ -277,6 +277,7 @@
 						&mdss_hdmi_cec_active>;
 	pinctrl-4 = <&mdss_hdmi_hpd_suspend &mdss_hdmi_ddc_suspend
 						&mdss_hdmi_cec_suspend>;
+	/delete-property/ qcom,pluggable;
 };
 
 &pmi8994_vadc {

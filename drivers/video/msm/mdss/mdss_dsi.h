@@ -234,6 +234,7 @@ struct dsi_shared_data {
 	u32 hw_config; /* DSI setup configuration i.e. single/dual/split */
 	u32 pll_src_config; /* PLL source selection for DSI link clocks */
 	u32 hw_rev; /* DSI h/w revision */
+	u32 phy_rev; /* DSI PHY revision*/
 
 	/* DSI ULPS clamp register offsets */
 	u32 ulps_clamp_ctrl_off;
@@ -440,6 +441,8 @@ struct mdss_dsi_ctrl_pdata {
 	struct pwm_device *pwm_bl;
 	u32 pclk_rate;
 	u32 byte_clk_rate;
+	u32 pclk_rate_bkp;
+	u32 byte_clk_rate_bkp;
 	bool refresh_clk_rate; /* flag to recalculate clk_rate */
 	struct dss_module_power panel_power_data;
 	struct dss_module_power power_data[DSI_MAX_PM]; /* for 8x10 */
@@ -620,6 +623,7 @@ void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl, bool print_en);
 void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl);
 u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len);
 int mdss_dsi_panel_init(struct device_node *node,
@@ -640,6 +644,7 @@ void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct mdss_panel_info *pinfo);
 void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dsc_desc *dsc);
+void mdss_dsi_dfps_config_8996(struct mdss_dsi_ctrl_pdata *ctrl);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {
@@ -734,6 +739,11 @@ static inline bool mdss_dsi_is_dsi0_active(struct dsi_shared_data *sdata)
 static inline bool mdss_dsi_is_dsi1_active(struct dsi_shared_data *sdata)
 {
 	return sdata->dsi1_active;
+}
+
+static inline u32 mdss_dsi_get_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	return ctrl->shared_data->phy_rev;
 }
 
 static inline bool mdss_dsi_sync_wait_enable(struct mdss_dsi_ctrl_pdata *ctrl)

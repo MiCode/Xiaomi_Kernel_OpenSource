@@ -2249,10 +2249,6 @@ static int etm_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device_node *cpu_node;
 
-	if (coresight_fuse_access_disabled() ||
-	    coresight_fuse_apps_access_disabled())
-		return -EPERM;
-
 	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
@@ -2299,9 +2295,6 @@ static int etm_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	if (count++ == 0)
-		register_hotcpu_notifier(&etm_cpu_notifier);
-
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk)) {
 		ret = PTR_ERR(drvdata->clk);
@@ -2315,6 +2308,15 @@ static int etm_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		goto err0;
+
+	if (!coresight_authstatus_enabled(drvdata->base)) {
+		clk_disable_unprepare(drvdata->clk);
+		wakeup_source_trash(&drvdata->ws);
+		return -EPERM;
+	}
+
+	if (count++ == 0)
+		register_hotcpu_notifier(&etm_cpu_notifier);
 
 	get_online_cpus();
 

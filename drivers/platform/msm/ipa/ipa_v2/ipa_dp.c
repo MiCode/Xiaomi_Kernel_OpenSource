@@ -94,11 +94,19 @@ static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 		list_del(&tx_pkt_expected->link);
 		sys->len--;
 		spin_unlock_bh(&sys->spinlock);
-		if (!tx_pkt_expected->no_unmap_dma)
-			dma_unmap_single(ipa_ctx->pdev,
+		if (!tx_pkt_expected->no_unmap_dma) {
+			if (tx_pkt_expected->type != IPA_DATA_DESC_SKB_PAGED) {
+				dma_unmap_single(ipa_ctx->pdev,
 					tx_pkt_expected->mem.phys_base,
 					tx_pkt_expected->mem.size,
 					DMA_TO_DEVICE);
+			} else {
+				dma_unmap_page(ipa_ctx->pdev,
+					tx_pkt_expected->mem.phys_base,
+					tx_pkt_expected->mem.size,
+					DMA_TO_DEVICE);
+			}
+		}
 		if (tx_pkt_expected->callback)
 			tx_pkt_expected->callback(tx_pkt_expected->user1,
 					tx_pkt_expected->user2);
@@ -473,18 +481,34 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		INIT_LIST_HEAD(&tx_pkt->link);
 		tx_pkt->type = desc[i].type;
 
-		tx_pkt->mem.base = desc[i].pyld;
-		tx_pkt->mem.size = desc[i].len;
+		if (desc[i].type != IPA_DATA_DESC_SKB_PAGED) {
+			tx_pkt->mem.base = desc[i].pyld;
+			tx_pkt->mem.size = desc[i].len;
 
-		if (!desc->dma_address_valid) {
-			tx_pkt->mem.phys_base =
-				dma_map_single(ipa_ctx->pdev,
-				tx_pkt->mem.base,
-				tx_pkt->mem.size,
-				DMA_TO_DEVICE);
+			if (!desc[i].dma_address_valid) {
+				tx_pkt->mem.phys_base =
+					dma_map_single(ipa_ctx->pdev,
+					tx_pkt->mem.base,
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
+			} else {
+				tx_pkt->mem.phys_base = desc[i].dma_address;
+				tx_pkt->no_unmap_dma = true;
+			}
 		} else {
-			tx_pkt->mem.phys_base = desc->dma_address;
-			tx_pkt->no_unmap_dma = true;
+			tx_pkt->mem.base = desc[i].frag;
+			tx_pkt->mem.size = skb_frag_size(desc[i].frag);
+
+			if (!desc[i].dma_address_valid) {
+				tx_pkt->mem.phys_base =
+					skb_frag_dma_map(ipa_ctx->pdev,
+					desc[i].frag,
+					0, tx_pkt->mem.size,
+					DMA_TO_DEVICE);
+			} else {
+				tx_pkt->mem.phys_base = desc[i].dma_address;
+				tx_pkt->no_unmap_dma = true;
+			}
 		}
 
 		if (!tx_pkt->mem.phys_base) {
@@ -550,9 +574,15 @@ failure:
 	for (j = 0; j < i; j++) {
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
-		dma_unmap_single(ipa_ctx->pdev, tx_pkt->mem.phys_base,
+		if (desc[i].type != IPA_DATA_DESC_SKB_PAGED) {
+			dma_unmap_single(ipa_ctx->pdev, tx_pkt->mem.phys_base,
 				tx_pkt->mem.size,
 				DMA_TO_DEVICE);
+		} else {
+			dma_unmap_page(ipa_ctx->pdev, tx_pkt->mem.phys_base,
+				tx_pkt->mem.size,
+				DMA_TO_DEVICE);
+		}
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}
@@ -1479,22 +1509,38 @@ static void ipa_tx_cmd_comp(void *user1, int user2)
 int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *meta)
 {
-	struct ipa_desc desc[2];
+	struct ipa_desc *desc;
+	struct ipa_desc _desc[2];
 	int dst_ep_idx;
 	struct ipa_ip_packet_init *cmd;
 	struct ipa_sys_context *sys;
 	int src_ep_idx;
+	int num_frags, f;
 
 	if (unlikely(!ipa_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
 		return -EINVAL;
 	}
 
-	memset(desc, 0, 2 * sizeof(struct ipa_desc));
-
 	if (skb->len == 0) {
 		IPAERR("packet size is 0\n");
 		return -EINVAL;
+	}
+
+	num_frags = skb_shinfo(skb)->nr_frags;
+	if (num_frags) {
+		/* 1 desc is needed for the linear portion of skb;
+		 * 1 desc may be needed for the PACKET_INIT;
+		 * 1 desc for each frag
+		 */
+		desc = kzalloc(sizeof(*desc) * (num_frags + 2), GFP_ATOMIC);
+		if (!desc) {
+			IPAERR("failed to alloc desc array\n");
+			goto fail_mem;
+		}
+	} else {
+		memset(_desc, 0, 2 * sizeof(struct ipa_desc));
+		desc = &_desc[0];
 	}
 
 	/*
@@ -1549,7 +1595,7 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		desc[0].callback = ipa_tx_cmd_comp;
 		desc[0].user1 = cmd;
 		desc[1].pyld = skb->data;
-		desc[1].len = skb->len;
+		desc[1].len = skb_headlen(skb);
 		desc[1].type = IPA_DATA_DESC_SKB;
 		desc[1].callback = ipa_tx_comp_usr_notify_release;
 		desc[1].user1 = skb;
@@ -1562,15 +1608,29 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			desc[1].dma_address = meta->dma_address;
 		}
 
-		if (ipa_send(sys, 2, desc, true)) {
-			IPAERR("fail to send immediate command\n");
+		for (f = 0; f < num_frags; f++) {
+			desc[2+f].frag = &skb_shinfo(skb)->frags[f];
+			desc[2+f].type = IPA_DATA_DESC_SKB_PAGED;
+		}
+
+		/* don't free skb till frag mappings are released */
+		if (num_frags) {
+			desc[2+f-1].callback = desc[1].callback;
+			desc[2+f-1].user1 = desc[1].user1;
+			desc[2+f-1].user2 = desc[1].user2;
+			desc[1].callback = NULL;
+		}
+
+		if (ipa_send(sys, num_frags + 2, desc, true)) {
+			IPAERR("fail to send skb %p num_frags %u SWP\n",
+					skb, num_frags);
 			goto fail_send;
 		}
 		IPA_STATS_INC_CNT(ipa_ctx->stats.tx_sw_pkts);
 	} else {
 		/* HW data path */
 		desc[0].pyld = skb->data;
-		desc[0].len = skb->len;
+		desc[0].len = skb_headlen(skb);
 		desc[0].type = IPA_DATA_DESC_SKB;
 		desc[0].callback = ipa_tx_comp_usr_notify_release;
 		desc[0].user1 = skb;
@@ -1581,11 +1641,36 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			desc[0].dma_address = meta->dma_address;
 		}
 
-		if (ipa_send_one(sys, &desc[0], true)) {
-			IPAERR("fail to send skb\n");
-			goto fail_gen;
+		if (num_frags == 0) {
+			if (ipa_send_one(sys, desc, true)) {
+				IPAERR("fail to send skb %p HWP\n", skb);
+				goto fail_gen;
+			}
+		} else {
+			for (f = 0; f < num_frags; f++) {
+				desc[1+f].frag = &skb_shinfo(skb)->frags[f];
+				desc[1+f].type = IPA_DATA_DESC_SKB_PAGED;
+			}
+
+			/* don't free skb till frag mappings are released */
+			desc[1+f-1].callback = desc[0].callback;
+			desc[1+f-1].user1 = desc[0].user1;
+			desc[1+f-1].user2 = desc[0].user2;
+			desc[0].callback = NULL;
+
+			if (ipa_send(sys, num_frags + 1, desc, true)) {
+				IPAERR("fail to send skb %p num_frags %u HWP\n",
+						skb, num_frags);
+				goto fail_gen;
+			}
 		}
+
 		IPA_STATS_INC_CNT(ipa_ctx->stats.tx_hw_pkts);
+	}
+
+	if (num_frags) {
+		kfree(desc);
+		IPA_STATS_INC_CNT(ipa_ctx->stats.tx_non_linear);
 	}
 
 	return 0;
@@ -1593,6 +1678,9 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 fail_send:
 	kfree(cmd);
 fail_gen:
+	if (num_frags)
+		kfree(desc);
+fail_mem:
 	return -EFAULT;
 }
 

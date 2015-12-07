@@ -25,7 +25,12 @@
 #include <linux/coresight.h>
 #include "coresight-qmi.h"
 
+#ifdef CONFIG_CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
+static int boot_enable = CONFIG_CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE;
+#else
 static int boot_enable;
+#endif
+
 module_param_named(
 	boot_enable, boot_enable, int, S_IRUGO
 );
@@ -41,6 +46,8 @@ struct remote_etm_drvdata {
 	struct work_struct		work_rcv_msg;
 	struct notifier_block		nb;
 	uint32_t			inst_id;
+	struct delayed_work		work_delay_enable;
+	bool				enable;
 };
 
 static int remote_etm_enable(struct coresight_device *csdev)
@@ -66,9 +73,9 @@ static int remote_etm_enable(struct coresight_device *csdev)
 	 */
 	if (!drvdata->handle) {
 		dev_info(drvdata->dev,
-			 "%s: QMI service unavailable. Skipping QMI requests\n",
-			 __func__);
-		goto out;
+			 "%s: QMI service unavailable\n",  __func__);
+		ret = -EINVAL;
+		goto err;
 	}
 
 	req.state = CORESIGHT_ETM_STATE_ENABLED_V01;
@@ -96,7 +103,7 @@ static int remote_etm_enable(struct coresight_device *csdev)
 		ret = -EREMOTEIO;
 		goto err;
 	}
-out:
+	drvdata->enable = true;
 	mutex_unlock(&drvdata->mutex);
 
 	dev_info(drvdata->dev, "Remote ETM tracing enabled\n");
@@ -119,9 +126,8 @@ static void remote_etm_disable(struct coresight_device *csdev)
 
 	if (!drvdata->handle) {
 		dev_info(drvdata->dev,
-			 "%s: QMI service unavailable. Skipping QMI requests\n",
-			 __func__);
-		goto out;
+			 "%s: QMI service unavailable\n",  __func__);
+		goto err;
 	}
 
 	req.state = CORESIGHT_ETM_STATE_DISABLED_V01;
@@ -147,7 +153,7 @@ static void remote_etm_disable(struct coresight_device *csdev)
 			__func__, resp.resp.result, resp.resp.error);
 		goto err;
 	}
-out:
+	drvdata->enable = false;
 	mutex_unlock(&drvdata->mutex);
 
 	dev_info(drvdata->dev, "Remote ETM tracing disabled\n");
@@ -190,6 +196,14 @@ static void remote_etm_notify(struct qmi_handle *handle,
 	}
 }
 
+static void remote_delay_enable_handler(struct work_struct *work)
+{
+	struct remote_etm_drvdata *drvdata = container_of(work,
+						struct remote_etm_drvdata,
+						work_delay_enable.work);
+	coresight_enable(drvdata->csdev);
+}
+
 static void remote_etm_svc_arrive(struct work_struct *work)
 {
 	struct remote_etm_drvdata *drvdata = container_of(work,
@@ -211,6 +225,15 @@ static void remote_etm_svc_arrive(struct work_struct *work)
 		qmi_handle_destroy(drvdata->handle);
 		drvdata->handle = NULL;
 	}
+
+	mutex_lock(&drvdata->mutex);
+	if (drvdata->inst_id < sizeof(int)*BITS_PER_BYTE
+	    && (boot_enable & BIT(drvdata->inst_id))) {
+		if (!drvdata->enable)
+			schedule_delayed_work(&drvdata->work_delay_enable,
+					      msecs_to_jiffies(TIMEOUT_MS));
+	}
+	mutex_unlock(&drvdata->mutex);
 }
 
 static void remote_etm_svc_exit(struct work_struct *work)
@@ -283,6 +306,8 @@ static int remote_etm_probe(struct platform_device *pdev)
 	INIT_WORK(&drvdata->work_svc_arrive, remote_etm_svc_arrive);
 	INIT_WORK(&drvdata->work_svc_exit, remote_etm_svc_exit);
 	INIT_WORK(&drvdata->work_rcv_msg, remote_etm_rcv_msg);
+	INIT_DELAYED_WORK(&drvdata->work_delay_enable,
+			  remote_delay_enable_handler);
 	ret = qmi_svc_event_notifier_register(CORESIGHT_QMI_SVC_ID,
 					      CORESIGHT_QMI_VERSION,
 					      drvdata->inst_id,

@@ -241,6 +241,14 @@ config CORESIGHT_REMOTE_ETM
 	  tracing on remote processor via sysfs by configuring the required
 	  CoreSight components.
 
+config CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
+	int "default enable bits for Remote processor ETM"
+	depends on CORESIGHT_REMOTE_ETM
+	default 0
+	help
+	  Support for enabling separated Remote processor ETM tracing. Depends
+	  on if instance id bit is set.
+
 endif
 
 config CORESIGHT_QPDI

@@ -3368,8 +3368,8 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 	}
 
 	ep->gsi_evt_ring_hdl = ~0;
-	if (ep->client != IPA_CLIENT_APPS_LAN_WAN_PROD
-			&& !IPA_CLIENT_IS_MEMCPY_DMA_PROD(ep->client)) {
+	/* allocate event ring for all interrupt-policy pipes */
+	if (ep->sys->policy != IPA_POLICY_NOINTR_MODE) {
 		memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 		gsi_evt_ring_props.intf = GSI_EVT_CHTYPE_GPI_EV;
 		gsi_evt_ring_props.intr = GSI_INTR_IRQ;

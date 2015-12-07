@@ -54,11 +54,24 @@
 
 #define LPASS_CSR_GP_IO_MUX_SPKR_CTL (LPAIF_OFFSET + 0x2004)
 
+/* SW workaround for MCLK routing issue at HW level in MDM9607
+  * Set below registers to route
+  * MCLK source (gcc_ultaudio_ext_mclk2)
+  * to PLL test pad
+*/
+#define GCC_CLK_CTL_REG 0x01800000
+#define GCC_GCC_DEBUG_CLK_CTL (GCC_CLK_CTL_REG + 0x74000)
+#define GCC_PLLTEST_PAD_CFG (GCC_CLK_CTL_REG + 0x7400C)
+
+#define GCC_DEBUG_CLK_CTL_EN_VALUE 0x100ec
+#define GCC_PLLTEST_PAD_CFG_EN_VALUE 0x1200
+
 #define I2S_SEL 0
 #define I2S_PCM_SEL 1
 #define I2S_PCM_SEL_OFFSET 1
 
-#define TLMM_SCLK_MCLK_EN 0x6
+/* Currently enabling only SCLK because of HW issue*/
+#define TLMM_SCLK_MCLK_EN 0x4
 #define CLOCK_ON  1
 #define CLOCK_OFF 0
 
@@ -87,6 +100,9 @@ static const struct afe_clk_cfg lpass_default = {
 static int mdm_auxpcm_rate = 8000;
 static void *lpaif_pri_muxsel_virt_addr;
 static void *lpass_gpio_mux_spkr_ctl_virt_addr;
+static void *gcc_gcc_debug_clk_ctl_virt_addr;
+static void *gcc_plltest_pad_cfg_virt_addr;
+
 
 static struct mutex cdc_mclk_mutex;
 static int mdm_mi2s_rx_ch = 1;
@@ -261,6 +277,22 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 				ret = -EINVAL;
 				goto done;
 			}
+
+			if (gcc_gcc_debug_clk_ctl_virt_addr != NULL) {
+				iowrite32(GCC_DEBUG_CLK_CTL_EN_VALUE,
+					  gcc_gcc_debug_clk_ctl_virt_addr);
+				} else {
+				pr_err("%s:gcc_gcc_debug_clk_ctl_virt_addr is NULL\n",
+				       __func__);
+					}
+
+			if (gcc_plltest_pad_cfg_virt_addr != NULL) {
+				iowrite32(GCC_PLLTEST_PAD_CFG_EN_VALUE,
+					  gcc_plltest_pad_cfg_virt_addr);
+				} else {
+				pr_err("%s:gcc_plltest_pad_cfg_virt_addr is NULL\n",
+				       __func__);
+					}
 
 		} else {
 			pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
@@ -1512,10 +1544,35 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		pr_err("%s lpass spkr ctl virt addr is null\n", __func__);
 
 		ret = -EINVAL;
-		goto err2;
-	}
+		goto err3;
+		}
+
+	gcc_gcc_debug_clk_ctl_virt_addr =
+				ioremap(GCC_GCC_DEBUG_CLK_CTL, 4);
+	if (gcc_gcc_debug_clk_ctl_virt_addr == NULL) {
+		pr_err("%s gcc_gcc_debug_clk_ctl_virt_addr is null\n",
+			__func__);
+
+		ret = -EINVAL;
+		goto err4;
+		}
+
+	gcc_plltest_pad_cfg_virt_addr =
+				ioremap(GCC_PLLTEST_PAD_CFG, 4);
+	if (gcc_plltest_pad_cfg_virt_addr == NULL) {
+		pr_err("%s gcc_plltest_pad_cfg_virt_addr is null\n", __func__);
+
+		ret = -EINVAL;
+		goto err5;
+		}
 
 	return 0;
+err5:
+	iounmap(gcc_plltest_pad_cfg_virt_addr);
+err4:
+	iounmap(gcc_gcc_debug_clk_ctl_virt_addr);
+err3:
+	iounmap(lpass_gpio_mux_spkr_ctl_virt_addr);
 err2:
 	iounmap(lpaif_pri_muxsel_virt_addr);
 err:
@@ -1531,6 +1588,8 @@ static int mdm_asoc_machine_remove(struct platform_device *pdev)
 	pdata->mclk_freq = 0;
 	iounmap(lpaif_pri_muxsel_virt_addr);
 	iounmap(lpass_gpio_mux_spkr_ctl_virt_addr);
+	iounmap(gcc_gcc_debug_clk_ctl_virt_addr);
+	iounmap(gcc_plltest_pad_cfg_virt_addr);
 	snd_soc_unregister_card(card);
 
 	return 0;

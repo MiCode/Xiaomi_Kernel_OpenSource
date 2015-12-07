@@ -171,9 +171,9 @@ asmlinkage void secondary_start_kernel(void)
 	/*
 	 * Enable GIC and timers.
 	 */
-	notify_cpu_starting(cpu);
-
 	smp_store_cpu_info(cpu);
+
+	notify_cpu_starting(cpu);
 
 	/*
 	 * OK, now it's safe to let the boot CPU continue.  Wait for

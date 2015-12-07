@@ -387,7 +387,7 @@
 			"camss_vfe_cpp_clk","micro_iface_clk", "camss_ahb_clk";
 		qcom,clock-rates = <0 180000000 0 0 180000000 0 0>;
 		qcom,min-clock-rate = <133000000>;
-		bus_master = <1>;
+		qcom,bus-master = <1>;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <156>;
 			qcom,plane-base = <141>;
