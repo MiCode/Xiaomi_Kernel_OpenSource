@@ -31,6 +31,10 @@
 	status = "ok";
 };
 
+&ufs_ice {
+	status = "ok";
+};
+
 &qusb_phy0 {
 	compatible =  "usb-nop-xceiv";
 };
