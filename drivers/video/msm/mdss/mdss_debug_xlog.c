@@ -396,7 +396,8 @@ static void mdss_dump_vbif_debug_bus(u32 bus_dump_flag,
 		wmb();
 
 		__vbif_debug_bus(head, vbif_base, dump_addr, in_log);
-		dump_addr += (head->block_cnt * head->test_pnt_cnt * 4);
+		if (dump_addr)
+			dump_addr += (head->block_cnt * head->test_pnt_cnt * 4);
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
