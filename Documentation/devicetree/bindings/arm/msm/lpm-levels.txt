@@ -92,6 +92,15 @@ Required properties:
 	or not for the drivers to prepare for cluster collapse.
 	- qcom,hyp-psci: This property is used to determine if the cpu
         enters the low power mode within hypervisor.
+	- qcom,reset-level: This property is used to determine in this
+	low power mode only control logic power collapse happens or memory
+	logic power collapse aswell happens or retention state.
+	The accepted values for this property are:
+		"LPM_RESET_LVL_NONE" - No power collapse
+		"LPM_RESET_LVL_RET"  - Retention state
+		"LPM_RESET_LVL_GDHS" - Only control logic power collapse (GDHS)
+		"LPM_RESET_LVL_PC" - Control logic and memory logic
+					power collapse (PC)
 
 [Node bindings for qcom,pm-cpu]
 qcom,pm-cpu contains the low power modes that a cpu could enter. Currently it

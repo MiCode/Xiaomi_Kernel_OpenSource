@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -21,6 +21,7 @@
 #include <linux/cpuidle.h>
 #include <asm/smp_plat.h>
 #include <asm/barrier.h>
+#include <dt-bindings/msm/pm.h>
 
 #if !defined(CONFIG_SMP)
 #define msm_secondary_startup NULL
@@ -60,6 +61,12 @@ struct msm_pm_time_params {
 struct msm_pm_sleep_status_data {
 	void *base_addr;
 	uint32_t mask;
+};
+
+struct latency_level {
+	int affinity_level;
+	int reset_level;
+	const char *level_name;
 };
 
 /**
@@ -115,12 +122,41 @@ static inline void msm_arch_idle(void)
 }
 
 #ifdef CONFIG_MSM_PM
+
 void msm_pm_set_rpm_wakeup_irq(unsigned int irq);
 int msm_pm_wait_cpu_shutdown(unsigned int cpu);
 int __init msm_pm_sleep_status_init(void);
 void lpm_cpu_hotplug_enter(unsigned int cpu);
 s32 msm_cpuidle_get_deep_idle_latency(void);
 int msm_pm_collapse(unsigned long unused);
+
+/**
+ * lpm_get_latency() - API to get latency for a low power mode
+ * @latency_level:	pointer to structure with below elements
+ * affinity_level: The level (CPU/L2/CCI etc.) for which the
+ *	latency is required.
+ *	LPM_AFF_LVL_CPU : CPU level
+ *	LPM_AFF_LVL_L2  : L2 level
+ *	LPM_AFF_LVL_CCI : CCI level
+ * reset_level: Can be passed "LPM_RESET_LVL_GDHS" for
+ *	low power mode with control logic power collapse or
+ *	"LPM_RESET_LVL_PC" for low power mode with control and
+ *	memory logic power collapse or "LPM_RESET_LVL_RET" for
+ *	retention mode.
+ * level_name: Pointer to the cluster name for which the latency
+ *	is required or NULL if the minimum value out of all the
+ *	clusters is to be returned. For CPU level, the name of the
+ *	L2 cluster to be passed. For CCI it has no effect.
+ * @latency:	address to get the latency value.
+ *
+ * latency value will be for the particular cluster or the minimum
+ * value out of all the clusters at the particular affinity_level
+ * and reset_level.
+ *
+ * Return: 0 for success; Error number for failure.
+ */
+int lpm_get_latency(struct latency_level *level, uint32_t *latency);
+
 #else
 static inline void msm_pm_set_rpm_wakeup_irq(unsigned int irq) {}
 static inline int msm_pm_wait_cpu_shutdown(unsigned int cpu) { return 0; }
@@ -133,6 +169,12 @@ static inline void lpm_cpu_hotplug_enter(unsigned int cpu)
 
 static inline s32 msm_cpuidle_get_deep_idle_latency(void) { return 0; }
 #define msm_pm_collapse NULL
+
+static inline int lpm_get_latency(struct latency_level *level,
+						uint32_t *latency)
+{
+	return 0;
+}
 #endif
 
 #ifdef CONFIG_HOTPLUG_CPU

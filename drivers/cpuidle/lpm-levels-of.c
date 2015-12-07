@@ -507,6 +507,13 @@ static int parse_cluster_level(struct device_node *node,
 	if (ret)
 		goto failed;
 
+	key = "qcom,reset-level";
+	ret = of_property_read_u32(node, key, &level->reset_level);
+	if (ret == -EINVAL)
+		level->reset_level = LPM_RESET_LVL_NONE;
+	else if (ret)
+		goto failed;
+
 	cluster->nlevels++;
 	return 0;
 failed:
@@ -661,6 +668,13 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 
 		key = "qcom,jtag-save-restore";
 		l->jtag_save_restore = of_property_read_bool(n, key);
+
+		key = "qcom,reset-level";
+		ret = of_property_read_u32(n, key, &l->reset_level);
+		if (ret == -EINVAL)
+			l->reset_level = LPM_RESET_LVL_NONE;
+		else if (ret)
+			goto failed;
 	}
 	return 0;
 failed:

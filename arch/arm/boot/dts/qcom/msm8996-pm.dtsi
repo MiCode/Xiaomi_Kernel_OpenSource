@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/msm/pm.h>
 
 &soc {
 	qcom,spm@9A10000 {
@@ -63,6 +64,7 @@
 				qcom,energy-overhead = <69000>;
 				qcom,time-overhead = <150>;
 				qcom,min-child-idx = <1>;
+				qcom,reset-level = <LPM_RESET_LVL_RET>;
 			};
 			qcom,pm-cluster-level@2{ /* E4-M3 */
 				reg = <1>;
@@ -77,6 +79,7 @@
 				qcom,min-child-idx = <2>;
 				qcom,notify-rpm;
 				qcom,is-reset;
+				qcom,reset-level = <LPM_RESET_LVL_PC>;
 			};
 
 			qcom,pm-cluster@0{
@@ -109,6 +112,7 @@
 					qcom,energy-overhead = <89070>;
 					qcom,time-overhead = <180>;
 					qcom,min-child-idx = <2>;
+					qcom,reset-level = <LPM_RESET_LVL_GDHS>;
 				};
 
 				qcom,pm-cluster-level@2{ /* D4 */
@@ -121,6 +125,7 @@
 					qcom,time-overhead = <1000>;
 					qcom,min-child-idx = <2>;
 					qcom,is-reset;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
 				};
 
 				qcom,pm-cpu {
@@ -158,6 +163,8 @@
 						qcom,ss-power = <196>;
 						qcom,energy-overhead = <45300>;
 						qcom,time-overhead = <210>;
+						qcom,reset-level =
+							<LPM_RESET_LVL_PC>;
 					};
 				};
 			};
@@ -192,6 +199,8 @@
 					qcom,energy-overhead = <83500>;
 					qcom,time-overhead = <180>;
 					qcom,min-child-idx = <2>;
+					qcom,reset-level =
+						<LPM_RESET_LVL_GDHS>;
 				};
 
 				qcom,pm-cluster-level@2{ /* D4 */
@@ -204,6 +213,8 @@
 					qcom,time-overhead = <1000>;
 					qcom,min-child-idx = <2>;
 					qcom,is-reset;
+					qcom,reset-level =
+						<LPM_RESET_LVL_PC>;
 				};
 
 				qcom,pm-cpu {
@@ -241,6 +252,8 @@
 						qcom,ss-power = <196>;
 						qcom,energy-overhead = <45300>;
 						qcom,time-overhead = <210>;
+						qcom,reset-level =
+							<LPM_RESET_LVL_PC>;
 					};
 				};
 			};
