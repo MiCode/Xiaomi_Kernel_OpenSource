@@ -566,11 +566,11 @@
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,gcc-8937";
 		reg = <0x1800000 0x80000>,
-			<0xb116000 0x00040>,
 			<0xb016000 0x00040>,
+			<0xb116000 0x00040>,
 			<0xb1d0000 0x00040>;
-		reg-names = "cc_base", "apcs_c0_base",
-			"apcs_c1_base", "apcs_cci_base";
+		reg-names = "cc_base", "apcs_c1_base",
+			"apcs_c0_base", "apcs_cci_base";
 		vdd_dig-supply = <&pm8937_s2_level>;
 		vdd_sr2_dig-supply = <&pm8937_s2_level_ao>;
 		vdd_sr2_pll-supply = <&pm8937_l7_ao>;
@@ -607,11 +607,11 @@
 
 	clock_cpu: qcom,cpu-clock-8939@b111050 {
 		compatible = "qcom,cpu-clock-8939";
-		reg =   <0xb111050 0x8>,
-			<0xb011050 0x8>,
+		reg =   <0xb011050 0x8>,
+			<0xb111050 0x8>,
 			<0xb1d1050 0x8>,
 			<0x00a412c 0x8>;
-		reg-names = "apcs-c0-rcg-base", "apcs-c1-rcg-base",
+		reg-names = "apcs-c1-rcg-base", "apcs-c0-rcg-base",
 			    "apcs-cci-rcg-base", "efuse";
 		vdd-c0-supply = <&apc_vreg_corner>;
 		vdd-c1-supply = <&apc_vreg_corner>;

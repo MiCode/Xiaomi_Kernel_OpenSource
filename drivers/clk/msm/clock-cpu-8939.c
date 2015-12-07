@@ -203,6 +203,12 @@ static struct clk_lookup cpu_clocks_8939[] = {
 	CLK_LIST(cci_clk),
 };
 
+static struct clk_lookup cpu_clocks_8939_single_cluster[] = {
+	CLK_LIST(a53ssmux_bc),
+	CLK_LIST(a53_bc_clk),
+};
+
+
 static struct mux_div_clk *a53ssmux[] = {&a53ssmux_bc,
 						&a53ssmux_lc, &a53ssmux_cci};
 
@@ -516,30 +522,33 @@ static int add_opp(struct clk *c, struct device *cpudev, struct device *vregdev,
 	return 0;
 }
 
-static void print_opp_table(int a53_c0_cpu, int a53_c1_cpu)
+static void print_opp_table(int a53_c0_cpu, int a53_c1_cpu, bool single_cluster)
 {
 	struct dev_pm_opp *oppfmax, *oppfmin;
 	unsigned long apc0_fmax, apc1_fmax, apc0_fmin, apc1_fmin;
-
-	apc0_fmax = a53_lc_clk.c.fmax[a53_lc_clk.c.num_fmax - 1];
+	if (!single_cluster) {
+		apc0_fmax = a53_lc_clk.c.fmax[a53_lc_clk.c.num_fmax - 1];
+		apc0_fmin = a53_lc_clk.c.fmax[1];
+	}
 	apc1_fmax = a53_bc_clk.c.fmax[a53_bc_clk.c.num_fmax - 1];
-	apc0_fmin = a53_lc_clk.c.fmax[1];
 	apc1_fmin = a53_bc_clk.c.fmax[1];
 
 	rcu_read_lock();
-	oppfmax = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c0_cpu),
+	if (!single_cluster) {
+		oppfmax = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c0_cpu),
 						apc0_fmax, true);
-	oppfmin = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c0_cpu),
+		oppfmin = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c0_cpu),
 						apc0_fmin, true);
-	/*
-	 * One time information during boot. Important to know that this looks
-	 * sane since it can eventually make its way to the scheduler.
-	 */
-	pr_info("clock_cpu: a53_c0: OPP voltage for %lu: %ld\n", apc0_fmin,
-		dev_pm_opp_get_voltage(oppfmin));
-	pr_info("clock_cpu: a53_c0: OPP voltage for %lu: %ld\n", apc0_fmax,
-		dev_pm_opp_get_voltage(oppfmax));
-
+		/*
+		* One time information during boot. Important to know that this
+		* looks sane since it can eventually make its way to the
+		* scheduler.
+		*/
+		pr_info("clock_cpu: a53_c0: OPP voltage for %lu: %ld\n",
+			apc0_fmin, dev_pm_opp_get_voltage(oppfmin));
+		pr_info("clock_cpu: a53_c0: OPP voltage for %lu: %ld\n",
+			apc0_fmax, dev_pm_opp_get_voltage(oppfmax));
+	}
 	oppfmax = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c1_cpu),
 						apc1_fmax, true);
 	oppfmin = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c1_cpu),
@@ -551,16 +560,19 @@ static void print_opp_table(int a53_c0_cpu, int a53_c1_cpu)
 	rcu_read_unlock();
 }
 
-static void populate_opp_table(struct platform_device *pdev)
+static void populate_opp_table(struct platform_device *pdev,
+					bool single_cluster)
 {
 	struct platform_device *apc0_dev, *apc1_dev;
 	struct device_node *apc0_node, *apc1_node;
 	unsigned long apc0_fmax, apc1_fmax;
 	int cpu, a53_c0_cpu, a53_c1_cpu;
 
-	apc0_node = of_parse_phandle(pdev->dev.of_node, "vdd-c0-supply", 0);
+	if (!single_cluster)
+		apc0_node = of_parse_phandle(pdev->dev.of_node,
+						"vdd-c0-supply", 0);
 	apc1_node = of_parse_phandle(pdev->dev.of_node, "vdd-c1-supply", 0);
-	if (!apc0_node) {
+	if (!apc0_node && !single_cluster) {
 		pr_err("can't find the apc0 dt node.\n");
 		return;
 	}
@@ -568,10 +580,11 @@ static void populate_opp_table(struct platform_device *pdev)
 		pr_err("can't find the apc1 dt node.\n");
 		return;
 	}
+	if (!single_cluster)
+		apc0_dev = of_find_device_by_node(apc0_node);
 
-	apc0_dev = of_find_device_by_node(apc0_node);
 	apc1_dev = of_find_device_by_node(apc1_node);
-	if (!apc0_dev) {
+	if (!apc1_dev && !single_cluster) {
 		pr_err("can't find the apc0 device node.\n");
 		return;
 	}
@@ -580,7 +593,9 @@ static void populate_opp_table(struct platform_device *pdev)
 		return;
 	}
 
-	apc0_fmax = a53_lc_clk.c.fmax[a53_lc_clk.c.num_fmax - 1];
+	if (!single_cluster)
+		apc0_fmax = a53_lc_clk.c.fmax[a53_lc_clk.c.num_fmax - 1];
+
 	apc1_fmax = a53_bc_clk.c.fmax[a53_bc_clk.c.num_fmax - 1];
 
 	for_each_possible_cpu(cpu) {
@@ -590,7 +605,7 @@ static void populate_opp_table(struct platform_device *pdev)
 			WARN(add_opp(&a53_bc_clk.c, get_cpu_device(cpu),
 				     &apc1_dev->dev, apc1_fmax),
 				     "Failed to add OPP levels for A53 big cluster\n");
-		} else if (cpu/4 == 1) {
+		} else if (cpu/4 == 1 && !single_cluster) {
 			a53_c0_cpu = cpu;
 			WARN(add_opp(&a53_lc_clk.c, get_cpu_device(cpu),
 				     &apc0_dev->dev, apc0_fmax),
@@ -602,7 +617,8 @@ static void populate_opp_table(struct platform_device *pdev)
 	pr_info("clock-cpu-8939: OPP tables populated (cpu %d and %d)",
 		a53_c0_cpu, a53_c1_cpu);
 
-	print_opp_table(a53_c0_cpu, a53_c1_cpu);
+	print_opp_table(a53_c0_cpu, a53_c1_cpu, single_cluster);
+
 }
 
 static void config_pll(int mux_id)
@@ -644,18 +660,47 @@ static int clock_8939_pm_event(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
+static int clock_8939_pm_event_single_cluster(struct notifier_block *this,
+						unsigned long event, void *ptr)
+{
+	switch (event) {
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+		clk_unprepare(&a53_bc_clk.c);
+		break;
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		clk_prepare(&a53_bc_clk.c);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
 static struct notifier_block clock_8939_pm_notifier = {
 	.notifier_call = clock_8939_pm_event,
+};
+
+static struct notifier_block clock_8939_pm_notifier_single_cluster = {
+	.notifier_call = clock_8939_pm_event_single_cluster,
 };
 
 static int clock_a53_probe(struct platform_device *pdev)
 {
 	int speed_bin, version, rc, cpu, mux_id, rate;
 	char prop_name[] = "qcom,speedX-bin-vX-XXX";
+	int mux_num;
+	bool single_cluster;
+
+	single_cluster = of_property_read_bool(pdev->dev.of_node,
+						"qcom,num-cluster");
 
 	get_speed_bin(pdev, &speed_bin, &version);
 
-	for (mux_id = 0; mux_id < A53SS_MUX_NUM; mux_id++) {
+	mux_num = single_cluster ? A53SS_MUX_LC:A53SS_MUX_NUM;
+
+	for (mux_id = 0; mux_id < mux_num; mux_id++) {
 		rc = cpu_parse_devicetree(pdev, mux_id);
 		if (rc)
 			return rc;
@@ -683,16 +728,23 @@ static int clock_a53_probe(struct platform_device *pdev)
 			dev_info(&pdev->dev, "Safe voltage plan loaded.\n");
 		}
 	}
-
-	rc = of_msm_clock_register(pdev->dev.of_node,
+	if (single_cluster)
+		rc = of_msm_clock_register(pdev->dev.of_node,
+				cpu_clocks_8939_single_cluster,
+				ARRAY_SIZE(cpu_clocks_8939_single_cluster));
+	else
+		rc = of_msm_clock_register(pdev->dev.of_node,
 				cpu_clocks_8939, ARRAY_SIZE(cpu_clocks_8939));
+
 	if (rc) {
 		dev_err(&pdev->dev, "msm_clock_register failed\n");
 		return rc;
 	}
 
-	rate = clk_get_rate(&cci_clk.c);
-	clk_set_rate(&cci_clk.c, rate);
+	if (!single_cluster) {
+		rate = clk_get_rate(&cci_clk.c);
+		clk_set_rate(&cci_clk.c, rate);
+	}
 
 	for (mux_id = 0; mux_id < A53SS_MUX_CCI; mux_id++) {
 		/* Force a PLL reconfiguration */
@@ -724,15 +776,19 @@ static int clock_a53_probe(struct platform_device *pdev)
 	a53_lc_clk.hw_low_power_ctrl = true;
 	a53_bc_clk.hw_low_power_ctrl = true;
 
-	register_pm_notifier(&clock_8939_pm_notifier);
+	if (single_cluster)
+		register_pm_notifier(&clock_8939_pm_notifier_single_cluster);
+	else
+		register_pm_notifier(&clock_8939_pm_notifier);
 
-	populate_opp_table(pdev);
+	populate_opp_table(pdev, single_cluster);
 
 	return 0;
 }
 
 static struct of_device_id clock_a53_match_table[] = {
 	{.compatible = "qcom,cpu-clock-8939"},
+	{.compatible = "qcom,cpu-clock-gold"},
 	{}
 };
 
