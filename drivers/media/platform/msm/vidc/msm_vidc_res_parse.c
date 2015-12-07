@@ -1057,6 +1057,9 @@ int read_platform_resources_from_dt(
 	dprintk(VIDC_DBG, "Slave side cp = %s\n",
 				res->slave_side_cp ? "yes" : "no");
 
+	of_property_read_u32(pdev->dev.of_node,
+			"qcom,max-secure-instances",
+			&res->max_secure_inst_count);
 	return rc;
 
 err_setup_legacy_cb:

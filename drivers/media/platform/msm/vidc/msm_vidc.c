@@ -1099,6 +1099,30 @@ int msm_vidc_dqevent(void *inst, struct v4l2_event *event)
 }
 EXPORT_SYMBOL(msm_vidc_dqevent);
 
+static bool msm_vidc_check_for_inst_overload(struct msm_vidc_core *core)
+{
+	u32 instance_count = 0;
+	u32 secure_instance_count = 0;
+	struct msm_vidc_inst *inst = NULL;
+	bool overload = false;
+
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		instance_count++;
+		/* This flag is not updated yet for the current instance */
+		if (inst->flags & VIDC_SECURE)
+			secure_instance_count++;
+	}
+	mutex_unlock(&core->lock);
+
+	/* Instance count includes current instance as well. */
+
+	if ((instance_count > core->resources.max_inst_count) ||
+		(secure_instance_count > core->resources.max_secure_inst_count))
+		overload = true;
+	return overload;
+}
+
 void *msm_vidc_open(int core_id, int session_type)
 {
 	struct msm_vidc_inst *inst = NULL;
@@ -1190,12 +1214,19 @@ void *msm_vidc_open(int core_id, int session_type)
 	list_add_tail(&inst->list, &core->instances);
 	mutex_unlock(&core->lock);
 
-	rc = msm_comm_try_state(inst, MSM_VIDC_CORE_INIT);
+	rc = msm_comm_try_state(inst, MSM_VIDC_CORE_INIT_DONE);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to move video instance to init state\n");
 		goto fail_init;
 	}
+
+	if (msm_vidc_check_for_inst_overload(core)) {
+		dprintk(VIDC_ERR,
+			"Instance count reached Max limit, rejecting session");
+		goto fail_init;
+	}
+
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
 

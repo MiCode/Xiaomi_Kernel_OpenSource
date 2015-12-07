@@ -36,6 +36,7 @@
 		qcom,imem-size = <524288>; /* 512 kB */
 		qcom,never-unload-fw;
 		qcom,sw-power-collapse;
+		qcom,max-secure-instances = <5>;
 		qcom,load-freq-tbl =
 			/* Encoders */
 			<972000 490000000 0x55555555>, /* 4k UHD @ 30 */
