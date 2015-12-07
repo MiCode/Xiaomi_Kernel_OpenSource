@@ -619,6 +619,41 @@
 		status = "disabled";
 	};
 
+	ufs_ice: ufsice@1db0000 {
+		compatible = "qcom,ice";
+		reg = <0x1db0000 0x8000>;
+		qcom,enable-ice-clk;
+		clock-names =   "ufs_core_clk_src",
+				"ufs_core_clk",
+				"bus_clk",
+				"iface_clk",
+				"ice_core_clk_src",
+				"ice_core_clk";
+		clocks = <&clock_gcc clk_ufs_axi_clk_src>,
+			 <&clock_gcc clk_gcc_ufs_axi_clk>,
+			 <&clock_gcc clk_gcc_aggre1_ufs_axi_clk>,
+			 <&clock_gcc clk_gcc_ufs_ahb_clk>,
+			 <&clock_gcc clk_ufs_ice_core_clk_src>,
+			 <&clock_gcc clk_gcc_ufs_ice_core_clk>;
+		qcom,op-freq-hz =	<0>,
+					<0>,
+					<0>,
+					<0>,
+					<300000000>,
+					<0>;
+		vdd-hba-supply = <&gdsc_ufs>;
+		qcom,msm-bus,name = "ufs_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 650 0 0>,    /* No vote */
+				<1 650 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+					"MAX";
+		qcom,instance-type = "ufs";
+		status = "disabled";
+	};
+
 	ufs1: ufshc@1da4000 {
 		compatible = "jedec,ufs-1.1";
 		reg = <0x1da4000 0x2500>;
@@ -630,6 +665,7 @@
 		vcc-max-microamp = <750000>;
 		vccq-max-microamp = <450000>;
 		vccq2-max-microamp = <750000>;
+		ufs-qcom-crypto = <&ufs_ice>;
 
 		clock-names =
 			"core_clk_src",
