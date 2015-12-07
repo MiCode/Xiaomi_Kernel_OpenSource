@@ -38,3 +38,15 @@
 &clock_gcc {
 	compatible = "qcom,dummycc";
 };
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+};
+
+&clock_gcc_mdss {
+	compatible = "qcom,dummycc";
+};
+
+&clock_cpu {
+	compatible = "qcom,dummycc";
+};

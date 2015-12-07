@@ -215,9 +215,90 @@
 		clock-names = "core_clk", "iface_clk";
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	};
+
+	spmi_bus: qcom,spmi@200f000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0x200f000 0x1000>,
+			<0x2400000 0x800000>,
+			<0x2c00000 0x800000>,
+			<0x3800000 0x200000>,
+			<0x200a000 0x2100>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupts = <0 190 0>;
+		qcom,pmic-arb-channel = <0>;
+		qcom,pmic-arb-max-peripherals = <256>;
+		qcom,pmic-arb-max-periph-interrupts = <256>;
+		qcom,pmic-arb-ee = <0>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cell-index = <0>;
+	};
+
+	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,gcc-gold";
+		reg = <0x1800000 0x80000>,
+			<0xb016000 0x00040>;
+		reg-names = "cc_base", "apcs_c1_base";
+		vdd_dig-supply = <&pm8937_s2_level>;
+		vdd_hf_dig-supply = <&pm8937_s2_level_ao>;
+		vdd_hf_pll-supply = <&pm8937_l7_ao>;
 		#clock-cells = <1>;
+	};
+
+	clock_debug: qcom,cc-debug@1874000 {
+		compatible = "qcom,cc-debug-gold";
+		reg = <0x1874000 0x4>,
+		      <0xb11101c 0x8>;
+		reg-names = "cc_base", "meas";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,gcc-mdss-gold";
+		#clock-cells = <1>;
+	};
+
+	clock_cpu: qcom,cpu-clock-8939@b111050 {
+		compatible = "qcom,cpu-clock-8939";
+		reg =	<0xb011050 0x8>,
+			<0x00a412c 0x8>;
+		reg-names = "apcs-c1-rcg-base", "efuse";
+		qcom,num-cluster;
+		vdd-c1-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
+			 <&clock_gcc clk_a53ss_c1_pll>;
+		clock-names = "clk-c0-4", "clk-c0-5";
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  998400000 1>,
+			< 1094400000 2>,
+			< 1248000000 3>,
+			< 1401000000 4>;
+
+		#clock-cells = <1>;
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk";
+		clocks = <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>;
+
+		qcom,cpufreq-table-0 =
+			 <  998400 >,
+			 < 1094400 >,
+			 < 1248000 >,
+			 < 1401000 >;
 	};
 
 	qcom,wdt@b017000 {
@@ -430,6 +511,9 @@
 	};
 };
 
+#include "msm-pm8937-rpm-regulator.dtsi"
+#include "msm8937-regulator.dtsi"
+#include "msm-pm8937.dtsi"
 #include "msm-gdsc-8916.dtsi"
 
 &gdsc_venus {
