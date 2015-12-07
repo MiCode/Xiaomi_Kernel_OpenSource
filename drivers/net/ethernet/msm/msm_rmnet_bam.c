@@ -45,6 +45,11 @@ module_param(msm_rmnet_bam_headroom_check_failure, ulong, S_IRUGO);
 MODULE_PARM_DESC(msm_rmnet_bam_headroom_check_failure,
 		 "Number of packets with insufficient headroom");
 
+/* Packet threshold. */
+static unsigned int pkt_threshold = 1;
+module_param(pkt_threshold,
+	     uint, S_IRUGO | S_IWUSR | S_IWGRP);
+
 #define DEBUG_MASK_LVL0 (1U << 0)
 #define DEBUG_MASK_LVL1 (1U << 1)
 #define DEBUG_MASK_LVL2 (1U << 2)
@@ -226,7 +231,15 @@ static void bam_recv_notify(void *dev, struct sk_buff *skb)
 			p->stats.rx_packets, skb->len);
 
 		/* Deliver to network stack */
-		netif_rx_ni(skb);
+		if (pkt_threshold == 1) {
+			netif_rx_ni(skb);
+		} else {
+			/* For every nth packet, use netif_rx_ni(). */
+			if (p->stats.rx_packets % pkt_threshold == 0)
+				netif_rx_ni(skb);
+			else
+				netif_rx(skb);
+		}
 	} else
 		pr_err("[%s] %s: No skb received",
 			((struct net_device *)dev)->name, __func__);
