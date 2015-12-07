@@ -335,6 +335,57 @@ int verity_hash_for_block(struct dm_verity *v, struct dm_verity_io *io,
 }
 
 /*
+ * Calls function process for 1 << v->data_dev_block_bits bytes in io->io_vec
+ * starting from (vector, offset).
+ */
+int verity_for_bv_block(struct dm_verity *v, struct dm_verity_io *io,
+			unsigned *vector, unsigned *offset,
+			int (*process)(struct dm_verity *v,
+				       struct dm_verity_io *io,
+				       u8 *data, size_t len))
+{
+	unsigned todo = 1 << v->data_dev_block_bits;
+
+	do {
+		int r;
+		struct bio_vec *bv;
+		u8 *page;
+		unsigned len;
+
+		BUG_ON(*vector >= io->io_vec_size);
+		bv = &io->io_vec[*vector];
+		page = kmap_atomic(bv->bv_page);
+		len = bv->bv_len - *offset;
+
+		if (likely(len >= todo))
+			len = todo;
+
+		r = process(v, io, page + bv->bv_offset + *offset, len);
+		kunmap_atomic(page);
+
+		if (r < 0)
+			return r;
+
+		*offset += len;
+
+		if (likely(*offset == bv->bv_len)) {
+			*offset = 0;
+			(*vector)++;
+		}
+
+		todo -= len;
+	} while (todo);
+
+	return 0;
+}
+
+static int verity_bv_hash_update(struct dm_verity *v, struct dm_verity_io *io,
+				 u8 *data, size_t len)
+{
+	return verity_hash_update(v, verity_io_hash_desc(v, io), data, len);
+}
+
+/*
  * Verify one "dm_verity_io" structure.
  */
 static int verity_verify_io(struct dm_verity_io *io)
@@ -342,10 +393,10 @@ static int verity_verify_io(struct dm_verity_io *io)
 	struct dm_verity *v = io->v;
 	unsigned b;
 	unsigned vector = 0, offset = 0;
+	unsigned start_vector, start_offset;
 
 	for (b = 0; b < io->n_blocks; b++) {
 		int r;
-		unsigned todo;
 		struct shash_desc *desc = verity_io_hash_desc(v, io);
 
 		r = verity_hash_for_block(v, io, io->block + b,
@@ -357,33 +408,13 @@ static int verity_verify_io(struct dm_verity_io *io)
 		if (unlikely(r < 0))
 			return r;
 
-		todo = 1 << v->data_dev_block_bits;
-		do {
-			struct bio_vec *bv;
-			u8 *page;
-			unsigned len;
+		start_vector = vector;
+		start_offset = offset;
 
-			BUG_ON(vector >= io->io_vec_size);
-			bv = &io->io_vec[vector];
-			page = kmap_atomic(bv->bv_page);
-			len = bv->bv_len - offset;
-			if (likely(len >= todo))
-				len = todo;
-			r = verity_hash_update(v, desc,
-					page + bv->bv_offset + offset, len);
-			kunmap_atomic(page);
-
-			if (unlikely(r < 0))
-				return r;
-
-			offset += len;
-			if (likely(offset == bv->bv_len)) {
-				offset = 0;
-				vector++;
-			}
-			todo -= len;
-		} while (todo);
-
+		r = verity_for_bv_block(v, io, &vector, &offset,
+					verity_bv_hash_update);
+		if (unlikely(r < 0))
+			return r;
 		r = verity_hash_final(v, desc, verity_io_real_digest(v, io));
 		if (unlikely(r < 0))
 			return r;
