@@ -36,12 +36,59 @@
 		smd36 = &smdtty_loopback;
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		other_ext_mem: other_ext_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85e00000 0x0 0xa00000>;
+		};
+
+		modem_mem: modem_region@0 {
+			compatible = "removed-dma-pool";
+			no-map-fixup;
+			reg = <0x0 0x86800000 0x0 0x5a00000>;
+		};
+
+		reloc_mem: reloc_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x8c200000 0x0 0x1b00000>;
+		};
+
+		venus_mem: venus_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alloc-ranges = <0x0 0x80000000 0x0 0x10000000>;
+			alignment = <0 0x400000>;
+			size = <0 0x0800000>;
+		};
+
+		secure_mem: secure_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x7000000>;
+		};
+
+		qseecom_mem: qseecom_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1000000>;
+		};
+	};
+
 	soc: soc { };
 };
 
 #include "msmgold-pinctrl.dtsi"
 #include "msmgold-cpu.dtsi"
 #include "msmgold-pm.dtsi"
+#include "msmgold-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
