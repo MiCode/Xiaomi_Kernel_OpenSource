@@ -107,6 +107,7 @@
 #include "msmtitanium-smp2p.dtsi"
 #include "msm-arm-smmu-titanium.dtsi"
 #include "msmtitanium-coresight.dtsi"
+#include "msmtitanium-bus.dtsi"
 #include "msmtitanium-iommu-domains.dtsi"
 #include "msmtitanium-vidc.dtsi"
 
