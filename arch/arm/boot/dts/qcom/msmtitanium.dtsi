@@ -116,6 +116,16 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
+	apc_apm: apm@b111000 {
+		compatible = "qcom,msmtitanium-apm";
+		reg = <0xb111000 0x1000>;
+		reg-names = "pm-apcc-glb";
+		qcom,apm-post-halt-delay = <0x2>;
+		qcom,apm-halt-clk-delay = <0x11>;
+		qcom,apm-resume-clk-delay = <0x10>;
+		qcom,apm-sel-switch-delay = <0x01>;
+	};
+
 	intc: interrupt-controller@b000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
