@@ -3136,6 +3136,42 @@ static DEVICE_ATTR(inactivity_timer, S_IWUSR | S_IRUSR,
 		   usb_bam_show_inactivity_timer,
 		   usb_bam_store_inactivity_timer);
 
+static int usb_bam_panic_notifier(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	int i;
+	struct usb_bam_ctx_type *ctx;
+
+	for (i = 0; i < MAX_BAMS; i++) {
+		ctx = &msm_usb_bam[i];
+		if (ctx->h_bam)
+			break;
+	}
+
+	if (i == MAX_BAMS)
+		goto fail;
+
+	if (!ctx->pipes_enabled_per_bam || info[i].pipes_suspended)
+		goto fail;
+
+	pr_err("%s: dump usb bam registers here in call back!\n",
+								__func__);
+	sps_get_bam_debug_info(ctx->h_bam, 93,
+			(SPS_BAM_PIPE(0) | SPS_BAM_PIPE(1)), 0, 2);
+
+fail:
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block usb_bam_panic_blk = {
+	.notifier_call  = usb_bam_panic_notifier,
+};
+
+void usb_bam_register_panic_hdlr(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&usb_bam_panic_blk);
+}
 
 static int usb_bam_probe(struct platform_device *pdev)
 {
@@ -3226,6 +3262,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 		usb_bam_ipa_create_resources(bam_type);
 	spin_lock_init(&ctx->usb_bam_lock);
 
+	usb_bam_register_panic_hdlr();
 	return ret;
 }
 
