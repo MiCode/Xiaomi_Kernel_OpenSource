@@ -197,6 +197,7 @@ struct dwc3_msm {
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	int			hs_phy_irq;
+	int			ss_phy_irq;
 	struct delayed_work	resume_work;
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
@@ -1572,8 +1573,7 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 	int ret = 0;
 
 	if (assert) {
-		if (mdwc->pwr_event_irq)
-			disable_irq(mdwc->pwr_event_irq);
+		disable_irq(mdwc->pwr_event_irq);
 		/* Using asynchronous block reset to the hardware */
 		dev_dbg(mdwc->dev, "block_reset ASSERT\n");
 		clk_disable_unprepare(mdwc->utmi_clk);
@@ -1593,8 +1593,7 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 		clk_prepare_enable(mdwc->utmi_clk);
 		if (ret)
 			dev_err(mdwc->dev, "dwc3 core_clk deassert failed\n");
-		if (mdwc->pwr_event_irq)
-			enable_irq(mdwc->pwr_event_irq);
+		enable_irq(mdwc->pwr_event_irq);
 	}
 
 	return ret;
@@ -1863,27 +1862,6 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 	return 0;
 }
 
-static void dwc3_msm_wake_interrupt_enable(struct dwc3_msm *mdwc, bool on)
-{
-	u32 irq_mask, irq_stat;
-	u32 wakeup_events = PWR_EVNT_POWERDOWN_OUT_P3_MASK |
-		PWR_EVNT_LPM_OUT_L2_MASK;
-
-	irq_stat = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
-
-	/* clear pending interrupts */
-	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG, irq_stat);
-
-	irq_mask = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG);
-
-	if (on) /* Enable P3 and L2 OUT events */
-		irq_mask |= wakeup_events;
-	else /* Disable P3 and L2 OUT events */
-		irq_mask &= ~wakeup_events;
-
-	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG, irq_mask);
-}
-
 static void dwc3_msm_bus_vote_w(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, bus_vote_w);
@@ -1965,12 +1943,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (dwc->irq)
 		disable_irq(dwc->irq);
 
-	/* Enable wakeup from LPM */
-	if (mdwc->pwr_event_irq) {
-		disable_irq(mdwc->pwr_event_irq);
-		dwc3_msm_wake_interrupt_enable(mdwc, true);
-		enable_irq_wake(mdwc->pwr_event_irq);
-	}
+	/* disable power event irq, hs and ss phy irq is used as wake up src */
+	disable_irq(mdwc->pwr_event_irq);
 
 	/* Suspend HS PHY */
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
@@ -2027,20 +2001,22 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		pm_relax(mdwc->dev);
 	}
 
-	/*
-	 * with DCP or during cable disconnect, we dont require wakeup
-	 * using HS_PHY_IRQ. Hence enable wakeup only in case of host
-	 * bus suspend and device bus suspend.
-	 */
-	if (mdwc->hs_phy_irq && (mdwc->vbus_active || mdwc->in_host_mode)) {
-		enable_irq_wake(mdwc->hs_phy_irq);
-		mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
-	}
-
 	atomic_set(&dwc->in_lpm, 1);
 
-	if (mdwc->pwr_event_irq)
-		enable_irq(mdwc->pwr_event_irq);
+	/*
+	 * with DCP or during cable disconnect, we dont require wakeup
+	 * using HS_PHY_IRQ or SS_PHY_IRQ. Hence enable wakeup only in
+	 * case of host bus suspend and device bus suspend.
+	 */
+	if (mdwc->vbus_active || mdwc->in_host_mode) {
+		enable_irq_wake(mdwc->hs_phy_irq);
+		enable_irq(mdwc->hs_phy_irq);
+		if (mdwc->ss_phy_irq) {
+			enable_irq_wake(mdwc->ss_phy_irq);
+			enable_irq(mdwc->ss_phy_irq);
+		}
+		mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
+	}
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 	return 0;
@@ -2121,11 +2097,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	atomic_set(&dwc->in_lpm, 0);
 
-	/* disable wakeup from LPM */
-	if (mdwc->pwr_event_irq) {
-		disable_irq_wake(mdwc->pwr_event_irq);
-		dwc3_msm_wake_interrupt_enable(mdwc, false);
-	}
+	/* enable power evt irq for IN P3 detection */
+	enable_irq(mdwc->pwr_event_irq);
 
 	/* Disable HSPHY auto suspend */
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
@@ -2133,10 +2106,14 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 				~(DWC3_GUSB2PHYCFG_ENBLSLPM |
 					DWC3_GUSB2PHYCFG_SUSPHY));
 
-	/* Disable wakeup capable for HS_PHY IRQ, if enabled */
-	if (mdwc->hs_phy_irq &&
-			(mdwc->lpm_flags & MDWC3_ASYNC_IRQ_WAKE_CAPABILITY)) {
+	/* Disable wakeup capable for HS_PHY IRQ & SS_PHY_IRQ if enabled */
+	if (mdwc->lpm_flags & MDWC3_ASYNC_IRQ_WAKE_CAPABILITY) {
 		disable_irq_wake(mdwc->hs_phy_irq);
+		disable_irq_nosync(mdwc->hs_phy_irq);
+		if (mdwc->ss_phy_irq) {
+			disable_irq_wake(mdwc->ss_phy_irq);
+			disable_irq_nosync(mdwc->ss_phy_irq);
+		}
 		mdwc->lpm_flags &= ~MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 	}
 
@@ -2308,14 +2285,6 @@ static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t msm_dwc3_hs_phy_irq(int irq, void *data)
-{
-	struct dwc3_msm *mdwc = data;
-
-	dev_dbg(mdwc->dev, "%s HS PHY IRQ handled\n", __func__);
-
-	return IRQ_HANDLED;
-}
 static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
@@ -2784,11 +2753,31 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto err;
 	} else {
 		irq_set_status_flags(mdwc->hs_phy_irq, IRQ_NOAUTOEN);
-		ret = devm_request_irq(&pdev->dev, mdwc->hs_phy_irq,
-				msm_dwc3_hs_phy_irq, IRQF_TRIGGER_RISING,
-			       "msm_hs_phy_irq", mdwc);
+		ret = devm_request_threaded_irq(&pdev->dev, mdwc->hs_phy_irq,
+					msm_dwc3_pwr_irq,
+					msm_dwc3_pwr_irq_thread,
+					IRQF_TRIGGER_RISING | IRQF_EARLY_RESUME
+					| IRQF_ONESHOT, "hs_phy_irq", mdwc);
 		if (ret) {
-			dev_err(&pdev->dev, "irqreq HSPHYINT failed\n");
+			dev_err(&pdev->dev, "irqreq hs_phy_irq failed: %d\n",
+					ret);
+			goto err;
+		}
+	}
+
+	mdwc->ss_phy_irq = platform_get_irq_byname(pdev, "ss_phy_irq");
+	if (mdwc->ss_phy_irq < 0) {
+		dev_dbg(&pdev->dev, "pget_irq for ss_phy_irq failed\n");
+	} else {
+		irq_set_status_flags(mdwc->ss_phy_irq, IRQ_NOAUTOEN);
+		ret = devm_request_threaded_irq(&pdev->dev, mdwc->ss_phy_irq,
+					msm_dwc3_pwr_irq,
+					msm_dwc3_pwr_irq_thread,
+					IRQF_TRIGGER_RISING | IRQF_EARLY_RESUME
+					| IRQF_ONESHOT, "ss_phy_irq", mdwc);
+		if (ret) {
+			dev_err(&pdev->dev, "irqreq ss_phy_irq failed: %d\n",
+					ret);
 			goto err;
 		}
 	}
@@ -3133,10 +3122,10 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
 		regulator_disable(mdwc->vbus_reg);
 
-	if (mdwc->hs_phy_irq)
-		disable_irq(mdwc->hs_phy_irq);
-	if (mdwc->pwr_event_irq)
-		disable_irq(mdwc->pwr_event_irq);
+	disable_irq(mdwc->hs_phy_irq);
+	if (mdwc->ss_phy_irq)
+		disable_irq(mdwc->ss_phy_irq);
+	disable_irq(mdwc->pwr_event_irq);
 
 	clk_disable_unprepare(mdwc->utmi_clk);
 	clk_set_rate(mdwc->core_clk, 19200000);
@@ -3466,7 +3455,6 @@ static void dwc3_initialize(struct dwc3_msm *mdwc)
 	atomic_set(&mdwc->in_p3, tmp == DWC3_LINK_STATE_U3);
 	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
 			PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
-	enable_irq(mdwc->hs_phy_irq);
 }
 
 /**

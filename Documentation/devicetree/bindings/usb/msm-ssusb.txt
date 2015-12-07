@@ -26,6 +26,7 @@ Optional properties :
     - qcom,msm_bus,vectors
 - interrupt-names : Optional interrupt resource entries are:
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
+    "ss_phy_irq"  : Interrupt from super speed phy for wake up notification.
 - qcom,charging-disabled: If present then battery charging using USB
   is disabled.
 - vbus_dwc3-supply: phandle to the 5V VBUS supply regulator used for host mode.
