@@ -2544,11 +2544,7 @@ int glink_close(void *handle)
 		return -EBUSY;
 	}
 
-	spin_lock_irqsave(&ctx->transport_ptr->tx_ready_lock_lhb2, flags);
-	if (!list_empty(&ctx->tx_ready_list_node))
-		list_del_init(&ctx->tx_ready_list_node);
-	spin_unlock_irqrestore(&ctx->transport_ptr->tx_ready_lock_lhb2, flags);
-
+	/* Set the channel state before removing it from xprt's list(s) */
 	GLINK_INFO_PERF_CH(ctx,
 		"%s: local:%u->GLINK_CHANNEL_CLOSING\n",
 		__func__, ctx->local_open_state);
@@ -2556,6 +2552,11 @@ int glink_close(void *handle)
 
 	ctx->pending_delete = true;
 	complete_all(&ctx->int_req_complete);
+
+	spin_lock_irqsave(&ctx->transport_ptr->tx_ready_lock_lhb2, flags);
+	if (!list_empty(&ctx->tx_ready_list_node))
+		list_del_init(&ctx->tx_ready_list_node);
+	spin_unlock_irqrestore(&ctx->transport_ptr->tx_ready_lock_lhb2, flags);
 
 	if (ctx->transport_ptr->local_state != GLINK_XPRT_DOWN) {
 		glink_qos_reset_priority(ctx);
@@ -2638,7 +2639,6 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	size_t intent_size;
 	bool is_atomic =
 		tx_flags & (GLINK_TX_SINGLE_THREADED | GLINK_TX_ATOMIC);
-	enum local_channel_state_e ch_st;
 	unsigned long flags;
 
 	if (!size)
@@ -2725,9 +2725,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			/* wait for the rx_intent from remote side */
 			wait_for_completion(&ctx->int_req_complete);
 			reinit_completion(&ctx->int_req_complete);
-			ch_st = ctx->local_open_state;
-			if (ch_st == GLINK_CHANNEL_CLOSING ||
-					ch_st == GLINK_CHANNEL_CLOSED) {
+			if (!ch_is_fully_opened(ctx)) {
 				GLINK_ERR_CH(ctx,
 					"%s: Channel closed while waiting for intent\n",
 					__func__);
@@ -4875,7 +4873,20 @@ static void xprt_schedule_tx(struct glink_core_xprt_ctx *xprt_ptr,
 {
 	unsigned long flags;
 
+	if (unlikely(xprt_ptr->local_state == GLINK_XPRT_DOWN)) {
+		GLINK_ERR_CH(ch_ptr, "%s: Error XPRT is down\n", __func__);
+		kfree(tx_info);
+		return;
+	}
+
 	spin_lock_irqsave(&xprt_ptr->tx_ready_lock_lhb2, flags);
+	if (unlikely(!ch_is_fully_opened(ch_ptr))) {
+		spin_unlock_irqrestore(&xprt_ptr->tx_ready_lock_lhb2, flags);
+		GLINK_ERR_CH(ch_ptr, "%s: Channel closed before tx\n",
+			     __func__);
+		kfree(tx_info);
+		return;
+	}
 	if (list_empty(&ch_ptr->tx_ready_list_node))
 		list_add_tail(&ch_ptr->tx_ready_list_node,
 			&xprt_ptr->prio_bin[ch_ptr->curr_priority].tx_ready);
