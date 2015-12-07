@@ -1025,6 +1025,9 @@ static int mdss_iommu_tlb_timeout_notify(struct notifier_block *self,
 {
 	char *client_name = dev;
 
+	if (!client_name)
+		return 0;
+
 	if (strcmp(client_name, "mdp_ns") && strcmp(client_name, "mdp_secure"))
 		return 0;
 
