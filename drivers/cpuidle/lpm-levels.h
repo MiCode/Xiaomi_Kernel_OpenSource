@@ -38,6 +38,7 @@ struct lpm_cpu_level {
 	bool is_reset;
 	bool jtag_save_restore;
 	bool hyp_psci;
+	int reset_level;
 };
 
 struct lpm_cpu {
@@ -69,6 +70,7 @@ struct lpm_cluster_level {
 	struct lpm_level_avail available;
 	unsigned int psci_id;
 	bool is_reset;
+	int reset_level;
 };
 
 struct low_power_ops {

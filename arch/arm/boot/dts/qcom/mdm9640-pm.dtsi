@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <dt-bindings/msm/pm.h>
 
 &soc {
 	qcom,spm@b009000 {
@@ -68,6 +70,7 @@
 				qcom,time-overhead = <7300>;
 				qcom,min-child-idx = <2>;
 				qcom,notify-rpm;
+				qcom,reset-level = <LPM_RESET_LVL_PC>;
 			};
 
 			qcom,pm-cpu {
@@ -90,6 +93,7 @@
 					qcom,ss-power = <5000>;
 					qcom,energy-overhead = <60100000>;
 					qcom,time-overhead = <3000>;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
 				};
 
 				qcom,pm-cpu-level@2 {
@@ -99,6 +103,7 @@
 					qcom,ss-power = <5000>;
 					qcom,energy-overhead = <60350000>;
 					qcom,time-overhead = <7300>;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
 				};
 			};
 		};
