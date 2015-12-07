@@ -1510,7 +1510,7 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 
 	/* initialize csc matrix default value */
 	for (i = 0; i < mdata->nvig_pipes; i++)
-		vig[i].csc_coeff_set = MDSS_MDP_CSC_YUV2RGB_709L;
+		vig[i].csc_coeff_set = MDP_CSC_ITU_R_709;
 
 	mdata->nmax_concurrent_ad_hw =
 		(mdata->mdp_rev < MDSS_MDP_HW_REV_103) ? 1 : 2;
