@@ -27,8 +27,8 @@
 		qcom,sw-power-collapse;
 		qcom,slave-side-cp;
 		qcom,dcvs-tbl =
-			<108000 10800 244800 0x00000004>, /* Encoder */
-			<108000 10800 244800 0x0f00000c>; /* Decoder */
+			<108000 108000 244800 0x00000004>, /* Encoder */
+			<108000 108000 244800 0x0f00000c>; /* Decoder */
 		qcom,dcvs-limit =
 			<8160 30>, /* Encoder */
 			<8160 30>; /* Decoder */
