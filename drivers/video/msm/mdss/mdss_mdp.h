@@ -790,6 +790,34 @@ static inline bool mdss_mdp_is_both_lm_valid(struct mdss_mdp_ctl *main_ctl)
 		main_ctl->mixer_right && main_ctl->mixer_right->valid_roi);
 }
 
+enum mdss_mdp_pu_type {
+	MDSS_MDP_INVALID_UPDATE = -1,
+	MDSS_MDP_DEFAULT_UPDATE,
+	MDSS_MDP_LEFT_ONLY_UPDATE,	/* only valid for split_lm */
+	MDSS_MDP_RIGHT_ONLY_UPDATE,	/* only valid for split_lm */
+};
+
+/* only call from master ctl */
+static inline enum mdss_mdp_pu_type mdss_mdp_get_pu_type(
+	struct mdss_mdp_ctl *mctl)
+{
+	enum mdss_mdp_pu_type pu_type = MDSS_MDP_INVALID_UPDATE;
+
+	if (!mctl || !mctl->is_master)
+		return pu_type;
+
+	if (!is_split_lm(mctl->mfd) || mdss_mdp_is_both_lm_valid(mctl))
+		pu_type = MDSS_MDP_DEFAULT_UPDATE;
+	else if (mctl->mixer_left->valid_roi)
+		pu_type = MDSS_MDP_LEFT_ONLY_UPDATE;
+	else if (mctl->mixer_right->valid_roi)
+		pu_type = MDSS_MDP_RIGHT_ONLY_UPDATE;
+	else
+		pr_err("%s: invalid pu_type\n", __func__);
+
+	return pu_type;
+}
+
 static inline struct mdss_mdp_ctl *mdss_mdp_get_split_ctl(
 	struct mdss_mdp_ctl *ctl)
 {
