@@ -1446,6 +1446,14 @@
 		enable-active-high;
 		gpio = <&pm8994_gpios 9 0>;
 	};
+
+	hl7509_en_vreg: hl7509_en_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "hl7509_en_vreg";
+		gpio = <&pm8994_mpps 6 0>;
+		enable-active-high;
+		status = "disabled";
+	};
 };
 
 &pmi8994_charger {
@@ -1459,3 +1467,17 @@
 	};
 };
 
+/* Halo HL7509 external buck that powers VDD_GFX supply on 8996AU boards */
+&i2c_7 {
+	hl7509_vreg: hl7509-regulator@68 {
+		compatible = "halo,hl7509";
+		reg = <0x68>;
+		vin-supply = <&hl7509_en_vreg>;
+		fcs,disable-suspend;
+		fcs,suspend-voltage-selector = <1>;
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <1230000>;
+		regulator-ramp-delay = <500>;
+		status = "disabled";
+	};
+};
