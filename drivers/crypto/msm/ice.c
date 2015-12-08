@@ -141,6 +141,8 @@ static int qti_ice_setting_config(struct request *req,
 
 static int qcom_ice_enable_clocks(struct ice_device *, bool);
 
+#ifdef CONFIG_MSM_BUS_SCALING
+
 static int qcom_ice_set_bus_vote(struct ice_device *ice_dev, int vote)
 {
 	int err = 0;
@@ -223,6 +225,25 @@ static int qcom_ice_bus_register(struct ice_device *ice_dev)
 out:
 	return err;
 }
+
+#else
+
+static int qcom_ice_set_bus_vote(struct ice_device *ice_dev, int vote)
+{
+	return 0;
+}
+
+static int qcom_ice_get_bus_vote(struct ice_device *ice_dev,
+		const char *speed_mode)
+{
+	return 0;
+}
+
+static int qcom_ice_bus_register(struct ice_device *ice_dev)
+{
+	return 0;
+}
+#endif /* CONFIG_MSM_BUS_SCALING */
 
 static int qcom_ice_get_vreg(struct ice_device *ice_dev)
 {
