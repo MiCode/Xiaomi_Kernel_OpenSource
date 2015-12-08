@@ -20,7 +20,7 @@
  */
 struct msm_usb_chg_info {
 	uint32_t chg_block_type;
-	off_t page_offset;
+	__kernel_off_t page_offset;
 	size_t length;
 };
 
