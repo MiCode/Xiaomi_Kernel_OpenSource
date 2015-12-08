@@ -217,6 +217,12 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 	char cmd_op = cmd->cmnd[0];
 	int err;
 
+	if (!qcom_host->ice.pdev || !qcom_host->ice.vops) {
+		dev_dbg(qcom_host->hba->dev, "%s: ice device is not enabled\n",
+			__func__);
+		return 0;
+	}
+
 	if (qcom_host->ice.vops->config) {
 		memset(&ice_set, 0, sizeof(ice_set));
 		err = qcom_host->ice.vops->config(qcom_host->ice.pdev,
