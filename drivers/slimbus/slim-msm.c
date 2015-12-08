@@ -1404,9 +1404,12 @@ static void msm_slim_qmi_recv_msg(struct kthread_work *work)
 	struct msm_slim_qmi *qmi =
 			container_of(work, struct msm_slim_qmi, kwork);
 
-	rc = qmi_recv_msg(qmi->handle);
-	if (rc < 0)
-		pr_err("%s: Error receiving QMI message\n", __func__);
+	/* Drain all packets received */
+	do {
+		rc = qmi_recv_msg(qmi->handle);
+	} while (rc == 0);
+	if (rc != -ENOMSG)
+		pr_err("%s: Error receiving QMI message:%d\n", __func__, rc);
 }
 
 static void msm_slim_qmi_notify(struct qmi_handle *handle,
