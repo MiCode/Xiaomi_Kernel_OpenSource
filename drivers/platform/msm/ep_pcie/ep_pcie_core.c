@@ -557,6 +557,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 	/* Configure BARs */
 	ep_pcie_bar_init(dev);
 
+	ep_pcie_write_reg(dev->mmio, PCIE20_MHICFG, 0x02800880);
+	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
+
 	/* Configure IRQ events */
 	if (dev->aggregated_irq) {
 		ep_pcie_write_reg(dev->parf, PCIE20_PARF_INT_ALL_MASK, 0);

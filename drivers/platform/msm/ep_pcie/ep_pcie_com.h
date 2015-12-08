@@ -95,6 +95,9 @@
 #define PCIE20_PLR_IATU_LTAR           0x918
 #define PCIE20_PLR_IATU_UTAR           0x91c
 
+#define PCIE20_MHICFG                  0x110
+#define PCIE20_BHI_EXECENV             0x228
+
 #define PCIE20_AUX_CLK_FREQ_REG        0xB40
 
 #define PERST_TIMEOUT_US_MIN	              1000
