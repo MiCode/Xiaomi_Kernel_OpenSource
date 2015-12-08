@@ -55,6 +55,7 @@
 enum fan53555_vendor {
 	FAN53555_VENDOR_FAIRCHILD = 0,
 	FAN53555_VENDOR_SILERGY,
+	HALO_HL7509,
 };
 
 /* IC Type */
@@ -309,6 +310,9 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
 	case FAN53555_VENDOR_SILERGY:
 		ret = fan53555_voltages_setup_silergy(di);
 		break;
+	case HALO_HL7509:
+		ret = fan53555_voltages_setup_fairchild(di);
+		break;
 	default:
 		dev_err(di->dev, "vendor %d not supported!\n", di->vendor);
 		return -EINVAL;
@@ -377,6 +381,9 @@ static const struct of_device_id fan53555_dt_ids[] = {
 	}, {
 		.compatible = "silergy,syr828",
 		.data = (void *)FAN53555_VENDOR_SILERGY,
+	}, {
+		.compatible = "halo,hl7509",
+		.data = (void *)HALO_HL7509,
 	},
 	{ }
 };
@@ -480,6 +487,9 @@ static const struct i2c_device_id fan53555_id[] = {
 	}, {
 		.name = "syr82x",
 		.driver_data = FAN53555_VENDOR_SILERGY
+	}, {
+		.name = "hl7509",
+		.driver_data = HALO_HL7509
 	},
 	{ },
 };
