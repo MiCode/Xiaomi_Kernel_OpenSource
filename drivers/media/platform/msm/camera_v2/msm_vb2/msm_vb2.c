@@ -246,7 +246,7 @@ static int msm_vb2_put_buf(struct vb2_buffer *vb, int session_id,
 			if (vb2_buf == vb)
 				break;
 		}
-		if (vb2_buf != vb) {
+		if (WARN_ON(vb2_buf != vb)) {
 			pr_err("VB buffer is INVALID vb=%p, ses_id=%d, str_id=%d\n",
 					vb, session_id, stream_id);
 			spin_unlock_irqrestore(&stream->stream_lock, flags);
@@ -287,7 +287,7 @@ static int msm_vb2_buf_done(struct vb2_buffer *vb, int session_id,
 			if (vb2_buf == vb)
 				break;
 		}
-		if (vb2_buf != vb) {
+		if (WARN_ON(vb2_buf != vb)) {
 			pr_err("VB buffer is INVALID ses_id=%d, str_id=%d, vb=%p\n",
 				    session_id, stream_id, vb);
 			spin_unlock_irqrestore(&stream->stream_lock, flags);
