@@ -3970,6 +3970,7 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	struct mdss_rect *l_roi, struct mdss_rect *r_roi)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	enum mdss_mdp_pu_type previous_frame_pu_type, current_frame_pu_type;
 
 	/* Reset ROI when we have (1) invalid ROI (2) feature disabled */
 	if ((!l_roi->w && l_roi->h) || (l_roi->w && !l_roi->h) ||
@@ -3988,6 +3989,7 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 		}
 	}
 
+	previous_frame_pu_type = mdss_mdp_get_pu_type(ctl);
 	mdss_mdp_set_mixer_roi(ctl->mixer_left, l_roi);
 	ctl->roi = ctl->mixer_left->roi;
 
@@ -4011,24 +4013,17 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 		}
 	}
 
+	current_frame_pu_type = mdss_mdp_get_pu_type(ctl);
+
 	/*
-	 * When source split is enabled, dst_x of all pipes staged on right
-	 * layer-mixer (LM) has to be greater than left LM's width.
-	 * Now when partial update is enabled, let's say frame N is updating
-	 * full panel width so both LMs are valid thus source split is enabled
-	 * and dst_x of all pipes is as per above requirement. Now when frame
-	 * N+1 is right-only update without any geomatry changes, pipe's params
-	 * are not changed and right LM's roi is also not changed. So if
-	 * params are not changed then pipe's register programming is skipped.
-	 * So for that right-only update, pipe's dst_x remains same
-	 * as frame N, which not correct and can lead to unknown behaviour.
-	 * Fix this by identifying this condition and forcing roi changed for
-	 * right LM.
+	 * Force HW programming whenever partial update type changes
+	 * between two consecutive frames to avoid incorrect HW programming.
 	 */
 	if (is_split_lm(ctl->mfd) && mdata->has_src_split &&
-	    (!ctl->mixer_left->valid_roi && ctl->mixer_left->roi_changed) &&
-	    (ctl->mixer_right->valid_roi && !ctl->mixer_right->roi_changed))
+	    (previous_frame_pu_type != current_frame_pu_type)) {
+		ctl->mixer_left->roi_changed = true;
 		ctl->mixer_right->roi_changed = true;
+	}
 }
 
 u32 mdss_mdp_get_mixer_mask(u32 pipe_num, u32 stage)
