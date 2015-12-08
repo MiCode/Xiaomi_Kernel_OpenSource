@@ -1121,7 +1121,6 @@ static enum cpe_process_result cpe_boot_complete(
 	}
 
 	pr_debug("%s: boot complete\n", __func__);
-	cpe_create_worker_thread(t_info);
 	return CPE_SVC_SUCCESS;
 }
 
