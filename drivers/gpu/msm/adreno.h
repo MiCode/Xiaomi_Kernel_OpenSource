@@ -186,12 +186,18 @@ enum adreno_gpurev {
 #define ADRENO_PPD_CTRL     1
 #define ADRENO_LM_CTRL      2
 
+/* number of throttle counters for DCVS adjustment */
+#define ADRENO_GPMU_THROTTLE_COUNTERS 4
+/* base for throttle counters */
+#define ADRENO_GPMU_THROTTLE_COUNTERS_BASE_REG 43
+
 struct adreno_gpudev;
 
 struct adreno_busy_data {
 	unsigned int gpu_busy;
 	unsigned int vbif_ram_cycles;
 	unsigned int vbif_starved_ram;
+	unsigned int throttle_cycles[ADRENO_GPMU_THROTTLE_COUNTERS];
 };
 
 /**
@@ -310,6 +316,7 @@ struct adreno_gpu_core {
  * @lm_threshold_cross: number of current peaks exceeding threshold
  * @speed_bin: Indicate which power level set to use
  * @csdev: Pointer to a coresight device (if applicable)
+ * @gpmu_throttle_counters - counteers for number of throttled clocks
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -369,6 +376,7 @@ struct adreno_device {
 	unsigned int quirks;
 
 	struct coresight_device *csdev;
+	uint32_t gpmu_throttle_counters[ADRENO_GPMU_THROTTLE_COUNTERS];
 };
 
 /**

@@ -671,7 +671,14 @@ static void _power_counter_enable_gpmu(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_perfcount_register *reg;
 
-	if (countable > 43)
+	if (adreno_is_a530(adreno_dev)) {
+		if (countable > 43)
+			return;
+	} else if (adreno_is_a540(adreno_dev)) {
+		if (countable > 47)
+			return;
+	} else
+		/* return on platforms that have no GPMU */
 		return;
 
 	reg = &counters->groups[group].regs[counter];

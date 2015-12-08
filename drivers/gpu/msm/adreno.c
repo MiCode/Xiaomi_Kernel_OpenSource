@@ -57,6 +57,8 @@ MODULE_PARM_DESC(nopreempt, "Disable GPU preemption");
 #define KGSL_LOG_LEVEL_DEFAULT 3
 
 static void adreno_input_work(struct work_struct *work);
+static unsigned int counter_delta(struct adreno_device *adreno_dev,
+	unsigned int reg, unsigned int *counter);
 
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 	.bus = {
@@ -1376,6 +1378,77 @@ static bool regulators_left_on(struct kgsl_device *device)
 	return false;
 }
 
+static void _setup_throttling_counters(struct adreno_device *adreno_dev)
+{
+	int i, ret;
+
+	if (!adreno_is_a540(adreno_dev))
+		return;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return;
+
+	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {
+		/* reset throttled cycles ivalue */
+		adreno_dev->busy_data.throttle_cycles[i] = 0;
+
+		if (adreno_dev->gpmu_throttle_counters[i] != 0)
+			continue;
+		ret = adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_GPMU_PWR,
+			ADRENO_GPMU_THROTTLE_COUNTERS_BASE_REG + i,
+			&adreno_dev->gpmu_throttle_counters[i],
+			NULL,
+			PERFCOUNTER_FLAG_KERNEL);
+		WARN_ONCE(ret,  "Unable to get clock throttling counter %x\n",
+			ADRENO_GPMU_THROTTLE_COUNTERS_BASE_REG + i);
+	}
+}
+
+/* FW driven idle 10% throttle */
+#define IDLE_10PCT 0
+/* number of cycles when clock is throttled by 50% (CRC) */
+#define CRC_50PCT  1
+/* number of cycles when clock is throttled by more than 50% (CRC) */
+#define CRC_MORE50PCT 2
+/* number of cycles when clock is throttle by less than 50% (CRC) */
+#define CRC_LESS50PCT 3
+
+static uint64_t _read_throttling_counters(struct adreno_device *adreno_dev)
+{
+	int i;
+	uint32_t th[ADRENO_GPMU_THROTTLE_COUNTERS];
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+
+	if (!adreno_is_a540(adreno_dev))
+		return 0;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return 0;
+
+	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {
+		if (!adreno_dev->gpmu_throttle_counters[i])
+			return 0;
+
+		th[i] = counter_delta(adreno_dev,
+			adreno_dev->gpmu_throttle_counters[i],
+			&busy->throttle_cycles[i]);
+	}
+	return th[CRC_50PCT] + th[CRC_LESS50PCT] / 3 +
+		(th[CRC_MORE50PCT] - th[IDLE_10PCT]) * 3;
+
+}
+
+static void _update_threshold_count(struct adreno_device *adreno_dev,
+	uint64_t adj)
+{
+	if (adreno_is_a530(adreno_dev))
+		kgsl_regread(&adreno_dev->dev, adreno_dev->lm_threshold_count,
+		&adreno_dev->lm_threshold_cross);
+	else if (adreno_is_a540(adreno_dev))
+		adreno_dev->lm_threshold_cross = adj;
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1387,7 +1460,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int status = -EINVAL;
+	int status = -EINVAL, ret;
 	unsigned int state = device->state;
 	bool regulator_left_on;
 	unsigned int pmqos_wakeup_vote = device->pwrctrl.pm_qos_wakeup_latency;
@@ -1451,7 +1524,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		gpudev->enable_64bit(adreno_dev);
 
 	if (adreno_dev->perfctr_pwr_lo == 0) {
-		int ret = adreno_perfcounter_get(adreno_dev,
+		ret = adreno_perfcounter_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_PWR, 1,
 			&adreno_dev->perfctr_pwr_lo, NULL,
 			PERFCOUNTER_FLAG_KERNEL);
@@ -1464,7 +1537,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	}
 
 	if (device->pwrctrl.bus_control) {
-		int ret;
 
 		/* VBIF waiting for RAM */
 		if (adreno_dev->starved_ram_lo == 0) {
@@ -1501,9 +1573,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	adreno_dev->busy_data.vbif_ram_cycles = 0;
 	adreno_dev->busy_data.vbif_starved_ram = 0;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM)
+	if (adreno_is_a530(adreno_dev) && ADRENO_FEATURE(adreno_dev, ADRENO_LM)
 		&& adreno_dev->lm_threshold_count == 0) {
-		int ret;
 
 		ret = adreno_perfcounter_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_GPMU_PWR, 27,
@@ -1513,6 +1584,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		if (ret)
 			adreno_dev->lm_threshold_count = 0;
 	}
+
+	_setup_throttling_counters(adreno_dev);
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -2599,6 +2672,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+	uint64_t adj;
 
 	memset(stats, 0, sizeof(*stats));
 
@@ -2609,6 +2683,8 @@ static void adreno_power_stats(struct kgsl_device *device,
 		gpu_busy = counter_delta(adreno_dev, adreno_dev->perfctr_pwr_lo,
 			&busy->gpu_busy);
 
+		adj = _read_throttling_counters(adreno_dev);
+		gpu_busy += adj;
 		stats->busy_time = adreno_ticks_to_us(gpu_busy,
 			kgsl_pwrctrl_active_freq(pwr));
 	}
@@ -2630,8 +2706,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 		stats->ram_wait = starved_ram;
 	}
 	if (adreno_dev->lm_threshold_count)
-		kgsl_regread(&adreno_dev->dev, adreno_dev->lm_threshold_count,
-			&adreno_dev->lm_threshold_cross);
+		_update_threshold_count(adreno_dev, adj);
 }
 
 static unsigned int adreno_gpuid(struct kgsl_device *device,
