@@ -416,7 +416,7 @@ static void glink_xprt_notify_rxv(void *handle, const void *priv,
 		(struct ipc_router_glink_xprt *)priv;
 	struct read_work *rx_work;
 
-	rx_work = kmalloc(sizeof(struct read_work), GFP_KERNEL);
+	rx_work = kmalloc(sizeof(*rx_work), GFP_ATOMIC);
 	if (!rx_work) {
 		IPC_RTR_ERR("%s: couldn't allocate read_work\n", __func__);
 		glink_rx_done(glink_xprtp->ch_hndl, ptr, true);
