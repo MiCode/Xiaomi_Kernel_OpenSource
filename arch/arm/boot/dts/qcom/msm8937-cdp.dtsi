@@ -392,3 +392,7 @@
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
 };
+
+&qpdi {
+	qcom,pmic-carddetect-gpio = <&pm8937_gpios 0x2 0>;
+};
