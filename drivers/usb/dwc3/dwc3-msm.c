@@ -3501,9 +3501,18 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			pm_runtime_get_noresume(mdwc->dev);
 			dwc3_initialize(mdwc);
 			mdwc->otg_state = OTG_STATE_A_HOST;
-			dwc3_otg_start_host(mdwc, 1);
+			ret = dwc3_otg_start_host(mdwc, 1);
 			pm_runtime_put_noidle(mdwc->dev);
-			return;
+			if (ret != -EPROBE_DEFER)
+				return;
+			/*
+			 * regulator_get for VBUS may fail with -EPROBE_DEFER.
+			 * Set the state as A_IDLE which will re-schedule
+			 * sm_work after 1sec and call start_host again.
+			 */
+			mdwc->otg_state = OTG_STATE_A_IDLE;
+			work = 1;
+			break;
 		}
 
 		if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
