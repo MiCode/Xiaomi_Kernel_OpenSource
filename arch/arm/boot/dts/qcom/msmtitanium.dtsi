@@ -773,6 +773,48 @@
 			 < 2208000 >;
 	};
 
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,     /*Low SVS*/
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  3221 /*  422.4 MHz */ >,	/* SVS */
+			<  4248 /*  556.8 MHz */ >,
+			<  5126 /*  672   MHz */ >,
+			<  5859 /*  768   MHz */ >,     /* SVS+  */
+			<  6152 /*  806.4 MHz */ >,
+			<  6445 /*  844.8 MHz */ >,     /* NOM   */
+			<  7104 /*  931.2 MHz */ >;     /* TURBO */
+	};
+
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon2";
+		reg = <0x408000 0x300>, <0x401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map =
+			 <  652800  1611>,
+			 < 1036800  3221>,
+			 < 1401600  5859>,
+			 < 1689600  6445>,
+			 < 1843200  7104>,
+			 < 1958400  7104>,
+			 < 2208000  7104>;
+		};
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
