@@ -535,8 +535,8 @@ int kgsl_mmu_init(struct kgsl_device *device, char *mmutype)
 	 * setstate block. Allocate the memory here and map it later
 	 */
 
-	status = kgsl_allocate_contiguous(device, &mmu->setstate_memory,
-					PAGE_SIZE);
+	status = kgsl_sharedmem_alloc_contig(device, &mmu->setstate_memory,
+					NULL, PAGE_SIZE);
 	if (status)
 		return status;
 
@@ -807,7 +807,7 @@ int
 kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc)
 {
-	int size;
+	uint64_t size;
 	uint64_t start_addr = 0;
 	uint64_t end_addr = 0;
 
