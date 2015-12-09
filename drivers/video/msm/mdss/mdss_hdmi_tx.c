@@ -22,6 +22,7 @@
 #include <linux/types.h>
 #include <linux/msm_hdmi.h>
 #include <linux/hdcp_qseecom.h>
+#include <linux/clk.h>
 
 #define REG_DUMP 0
 
@@ -2565,6 +2566,53 @@ exit:
 	return rc;
 } /* hdmi_tx_config_power */
 
+static int hdmi_tx_check_clk_state(struct hdmi_tx_ctrl *hdmi_ctrl,
+	enum hdmi_tx_power_module_type module)
+{
+	int i;
+	int rc = 0;
+	struct dss_module_power *pd = NULL;
+
+	if (!hdmi_ctrl || module >= HDMI_TX_MAX_PM) {
+		DEV_ERR("%s: Error: invalid input\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pd = &hdmi_ctrl->pdata.power_data[module];
+	if (!pd) {
+		DEV_ERR("%s: Error: invalid power data\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	for (i = 0; i < pd->num_clk; i++) {
+		struct clk *clk = pd->clk_config[i].clk;
+
+		if (clk) {
+			u32 rate = clk_get_rate(clk);
+
+			DEV_DBG("%s: clk %s: rate %d\n", __func__,
+				pd->clk_config[i].clk_name, rate);
+
+			if (!rate) {
+				rc = -EINVAL;
+				goto error;
+			}
+		} else {
+			DEV_ERR("%s: clk %s: not configured\n", __func__,
+				pd->clk_config[i].clk_name);
+
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+
+	return 0;
+error:
+	return rc;
+}
+
 static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable)
 {
@@ -3606,6 +3654,10 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		DEV_ERR("%s: hpd not initialized\n", __func__);
 		return -EPERM;
 	}
+
+	rc = hdmi_tx_check_clk_state(hdmi_ctrl, HDMI_TX_HPD_PM);
+	if (rc)
+		return rc;
 
 	panel_info = &panel_data->panel_info;
 	hdmi_ctrl->hdcp_feature_on = hdcp_feature_on;
