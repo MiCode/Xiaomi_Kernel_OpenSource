@@ -353,6 +353,8 @@ struct mmc_devfeq_clk_scaling {
 	unsigned long	polling_delay_ms;
 	unsigned int	upthreshold;
 	unsigned int	downthreshold;
+	unsigned int	lower_bus_speed_mode;
+#define MMC_SCALING_LOWER_DDR52_MODE	1
 	bool		need_freq_change;
 	bool		clk_scaling_in_progress;
 	bool		is_busy_started;
