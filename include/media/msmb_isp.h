@@ -683,7 +683,7 @@ struct msm_isp_error_info {
 	enum msm_vfe_error_type err_type;
 	uint32_t session_id;
 	uint32_t stream_id;
-	uint8_t stream_id_mask;
+	uint32_t stream_id_mask;
 };
 
 /* This structure reports delta between master and slave */
