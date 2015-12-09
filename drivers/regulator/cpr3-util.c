@@ -605,9 +605,11 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 			1, temp);
 	if (rc)
 		goto free_temp;
-	for (i = 0; i < vreg->corner_count; i++)
+	for (i = 0; i < vreg->corner_count; i++) {
 		vreg->corner[i].ceiling_volt
 			= CPR3_ROUND(temp[i], ctrl->step_volt);
+		vreg->corner[i].abs_ceiling_volt = vreg->corner[i].ceiling_volt;
+	}
 
 	rc = cpr3_parse_corner_array_property(vreg, "qcom,cpr-voltage-floor",
 			1, temp);
@@ -701,6 +703,17 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 			goto free_temp;
 
 		vreg->aging_allowed = aging_allowed;
+	}
+
+	if (of_find_property(vreg->of_node,
+		       "qcom,allow-aging-open-loop-voltage-adjustment", NULL)) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,allow-aging-open-loop-voltage-adjustment",
+			1, &aging_allowed);
+		if (rc)
+			goto free_temp;
+
+		vreg->aging_allow_open_loop_adj = aging_allowed;
 	}
 
 	if (vreg->aging_allowed) {

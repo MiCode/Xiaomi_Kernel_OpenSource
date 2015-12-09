@@ -2345,7 +2345,8 @@ cleanup:
 }
 
 /**
- * cpr3_regulator_readjust_quotients() - readjust the target quotients for the
+ * cpr3_regulator_readjust_volt_and_quot() - readjust the target quotients as
+ *		well as the floor, ceiling, and open-loop voltages for the
  *		regulator by removing the old adjustment and adding the new one
  * @vreg:		Pointer to the CPR3 regulator
  * @old_adjust_volt:	Old aging adjustment voltage in microvolts
@@ -2353,12 +2354,14 @@ cleanup:
  *
  * Also reset the cached closed loop voltage (last_volt) to equal the open-loop
  * voltage for each corner.
+ *
+ * Return: None
  */
-static void cpr3_regulator_readjust_quotients(struct cpr3_regulator *vreg,
+static void cpr3_regulator_readjust_volt_and_quot(struct cpr3_regulator *vreg,
 		int old_adjust_volt, int new_adjust_volt)
 {
 	unsigned long long temp;
-	int i, j, old_volt, new_volt;
+	int i, j, old_volt, new_volt, rounded_volt;
 
 	if (!vreg->aging_allowed)
 		return;
@@ -2388,13 +2391,33 @@ static void cpr3_regulator_readjust_quotients(struct cpr3_regulator *vreg,
 						old_volt);
 			}
 		}
+
+		rounded_volt = CPR3_ROUND(new_volt,
+					vreg->thread->ctrl->step_volt);
+
+		if (!vreg->aging_allow_open_loop_adj)
+			rounded_volt = 0;
+
+		vreg->corner[i].ceiling_volt
+			= vreg->corner[i].unaged_ceiling_volt + rounded_volt;
+		vreg->corner[i].ceiling_volt = min(vreg->corner[i].ceiling_volt,
+					      vreg->corner[i].abs_ceiling_volt);
+		vreg->corner[i].floor_volt
+			= vreg->corner[i].unaged_floor_volt + rounded_volt;
+		vreg->corner[i].floor_volt = min(vreg->corner[i].floor_volt,
+						vreg->corner[i].ceiling_volt);
+		vreg->corner[i].open_loop_volt
+			= vreg->corner[i].unaged_open_loop_volt + rounded_volt;
+		vreg->corner[i].open_loop_volt
+			= min(vreg->corner[i].open_loop_volt,
+				vreg->corner[i].ceiling_volt);
+
 		vreg->corner[i].last_volt = vreg->corner[i].open_loop_volt;
 
-		cpr3_debug(vreg, "corner %d: applying %d uV closed-loop voltage margin adjustment\n",
-			i, new_volt);
+		cpr3_debug(vreg, "corner %d: applying %d uV closed-loop and %d uV open-loop voltage margin adjustment\n",
+			i, new_volt, rounded_volt);
 	}
 }
-
 
 /**
  * cpr3_regulator_set_aging_ref_adjustment() - adjust target quotients for the
@@ -2414,7 +2437,7 @@ static void cpr3_regulator_set_aging_ref_adjustment(
 
 	for (i = 0; i < ctrl->thread_count; i++) {
 		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
-			cpr3_regulator_readjust_quotients(
+			cpr3_regulator_readjust_volt_and_quot(
 				&ctrl->thread[i].vreg[j],
 				ctrl->aging_ref_adjust_volt,
 				ref_adjust_volt);
@@ -4354,9 +4377,12 @@ static int cpr3_regulator_init_ctrl_data(struct cpr3_controller *ctrl)
 static int cpr3_regulator_init_vreg_data(struct cpr3_regulator *vreg)
 {
 	int i, j;
+	bool init_aging;
 
 	vreg->current_corner = CPR3_REGULATOR_CORNER_INVALID;
 	vreg->last_closed_loop_corner = CPR3_REGULATOR_CORNER_INVALID;
+
+	init_aging = vreg->aging_allowed && vreg->thread->ctrl->aging_required;
 
 	for (i = 0; i < vreg->corner_count; i++) {
 		vreg->corner[i].last_volt = vreg->corner[i].open_loop_volt;
@@ -4366,6 +4392,33 @@ static int cpr3_regulator_init_vreg_data(struct cpr3_regulator *vreg)
 		for (j = 0; j < CPR3_RO_COUNT; j++) {
 			if (vreg->corner[i].target_quot[j] == 0)
 				vreg->corner[i].ro_mask |= BIT(j);
+		}
+
+		if (init_aging) {
+			vreg->corner[i].unaged_floor_volt
+				= vreg->corner[i].floor_volt;
+			vreg->corner[i].unaged_ceiling_volt
+				= vreg->corner[i].ceiling_volt;
+			vreg->corner[i].unaged_open_loop_volt
+				= vreg->corner[i].open_loop_volt;
+		}
+
+		if (vreg->aging_allowed) {
+			if (vreg->corner[i].unaged_floor_volt <= 0) {
+				cpr3_err(vreg, "invalid unaged_floor_volt[%d] = %d\n",
+					i, vreg->corner[i].unaged_floor_volt);
+				return -EINVAL;
+			}
+			if (vreg->corner[i].unaged_ceiling_volt <= 0) {
+				cpr3_err(vreg, "invalid unaged_ceiling_volt[%d] = %d\n",
+					i, vreg->corner[i].unaged_ceiling_volt);
+				return -EINVAL;
+			}
+			if (vreg->corner[i].unaged_open_loop_volt <= 0) {
+				cpr3_err(vreg, "invalid unaged_open_loop_volt[%d] = %d\n",
+				      i, vreg->corner[i].unaged_open_loop_volt);
+				return -EINVAL;
+			}
 		}
 	}
 

@@ -58,6 +58,16 @@ struct cpr3_fuse_param {
  *			microvolts
  * @last_volt:		Last known settled CPR closed-loop voltage which is used
  *			when switching to a new corner
+ * @abs_ceiling_volt:	The absolute CPR closed-loop ceiling voltage in
+ *			microvolts.  This is used to limit the ceiling_volt
+ *			value when it is increased as a result of aging
+ *			adjustment.
+ * @unaged_floor_volt:	The CPR closed-loop floor voltage in microvolts before
+ *			any aging adjustment is performed
+ * @unaged_ceiling_volt: The CPR closed-loop ceiling voltage in microvolts
+ *			before any aging adjustment is performed
+ * @unaged_open_loop_volt: The CPR open-loop voltage (i.e. initial voltage) in
+ *			microvolts before any aging adjusment is performed
  * @system_volt:	The system-supply voltage in microvolts or corners or
  *			levels
  * @mem_acc_volt:	The mem-acc-supply voltage in corners
@@ -86,7 +96,11 @@ struct cpr3_fuse_param {
  *
  * The value of last_volt is initialized inside of the cpr3_regulator_register()
  * call with the open_loop_volt value.  It can later be updated to the settled
- * VDD supply voltage.
+ * VDD supply voltage.  The values for unaged_floor_volt, unaged_ceiling_volt,
+ * and unaged_open_loop_volt are initialized inside of cpr3_regulator_register()
+ * if ctrl->aging_required == true.  These three values must be pre-initialized
+ * if cpr3_regulator_register() is called with ctrl->aging_required == false and
+ * ctrl->aging_succeeded == true.
  *
  * The values of ro_mask and irq_en are initialized inside of the
  * cpr3_regulator_register() call.
@@ -96,6 +110,10 @@ struct cpr3_corner {
 	int			ceiling_volt;
 	int			open_loop_volt;
 	int			last_volt;
+	int			abs_ceiling_volt;
+	int			unaged_floor_volt;
+	int			unaged_ceiling_volt;
+	int			unaged_open_loop_volt;
 	int			system_volt;
 	int			mem_acc_volt;
 	u32			proc_freq;
@@ -188,6 +206,13 @@ struct cpr3_corner {
  * @aging_allowed:	Boolean defining if CPR aging adjustments are allowed
  *			for this CPR3 regulator given the fuse combo of the
  *			device
+ * @aging_allow_open_loop_adj: Boolean defining if the open-loop voltage of each
+ *			corner of this regulator should be adjusted as a result
+ *			of an aging measurement.  This flag can be set to false
+ *			when the open-loop voltage adjustments have been
+ *			specified such that they include the maximum possible
+ *			aging adjustment.  This flag is only used if
+ *			aging_allowed == true.
  * @aging_corner:	The corner that should be configured for this regulator
  *			when an aging measurement is performed.
  * @aging_max_adjust_volt: The maximum aging voltage margin in microvolts that
@@ -240,6 +265,7 @@ struct cpr3_regulator {
 	bool			vreg_enabled;
 
 	bool			aging_allowed;
+	bool			aging_allow_open_loop_adj;
 	int			aging_corner;
 	int			aging_max_adjust_volt;
 };
