@@ -517,6 +517,21 @@ Platform independent properties:
 		    regardless of the fuse combination and speed bin found
 		    on a given chip.
 
+- qcom,allow-aging-open-loop-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which specifies if CPR aging adjustment
+		    should be applied to open-loop voltages for each fuse
+		    combination.  Note that aging adjustment must be allowed via
+		    qcom,allow-aging-voltage-adjustment in order for this
+		    property to have an effect.
+		    Supported per-combo element values:
+			0 - do not perform CPR aging adjustment
+			1 - perform CPR aging adjustment
+
+		    The list must meet the same size requirements as those
+		    specified for qcom,allow-aging-voltage-adjustment above.
+
 - qcom,cpr-aging-max-voltage-adjustment
 	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
 	Value type: <prop-encoded-array>
