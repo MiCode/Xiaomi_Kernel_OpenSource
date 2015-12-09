@@ -113,7 +113,6 @@ SECTIONS
 		*(.got)			/* Global offset table		*/
 	}
 
-	ALIGN_DEBUG_RO
 	_etext = .;			/* End of text section */
 
 	RO_DATA(PAGE_SIZE)
@@ -129,7 +128,6 @@ SECTIONS
 		ARM_EXIT_KEEP(EXIT_TEXT)
 	}
 
-	ALIGN_DEBUG_RO_MIN(16)
 	.init.data : {
 		INIT_DATA
 		INIT_SETUP(16)
