@@ -4029,39 +4029,6 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 		tdm_group_cfg.port_id[i] =
 			AFE_PORT_INVALID;
 
-	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,msm-cpudai-tdm-group-nslots-per-frame",
-		(u32 *)&tdm_group_cfg.nslots_per_frame);
-	if (rc) {
-		dev_err(&pdev->dev, "%s: Group Nslots Per Frame from DT file %s\n",
-			__func__, "qcom,msm-cpudai-tdm-group-nslots-per-frame");
-		goto rtn;
-	}
-	dev_dbg(&pdev->dev, "%s: Group Nslots Per Frame from DT file 0x%x\n",
-		__func__, tdm_group_cfg.nslots_per_frame);
-
-	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,msm-cpudai-tdm-group-slot-width",
-		(u32 *)&tdm_group_cfg.slot_width);
-	if (rc) {
-		dev_err(&pdev->dev, "%s: Group Slot Width from DT file %s\n",
-			__func__, "qcom,msm-cpudai-tdm-group-slot-width");
-		goto rtn;
-	}
-	dev_dbg(&pdev->dev, "%s: Group Slot Width from DT file 0x%x\n",
-		__func__, tdm_group_cfg.slot_width);
-
-	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,msm-cpudai-tdm-group-slot-mask",
-		&tdm_group_cfg.slot_mask);
-	if (rc) {
-		dev_err(&pdev->dev, "%s: Group Slot Mask from DT file %s\n",
-			__func__, "qcom,msm-cpudai-tdm-group-slot-mask");
-		goto rtn;
-	}
-	dev_dbg(&pdev->dev, "%s: Group Slot Mask from DT file 0x%x\n",
-		__func__, tdm_group_cfg.slot_mask);
-
 	/* extract tdm clk info into static */
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,msm-cpudai-tdm-clk-rate",
@@ -5033,15 +5000,252 @@ static int msm_dai_q6_dai_tdm_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 
+static int msm_dai_q6_tdm_set_tdm_slot(struct snd_soc_dai *dai,
+				unsigned int tx_mask,
+				unsigned int rx_mask,
+				int slots, int slot_width)
+{
+	int rc = 0;
+	struct msm_dai_q6_tdm_dai_data *dai_data =
+		dev_get_drvdata(dai->dev);
+	struct afe_param_id_group_device_tdm_cfg *tdm_group =
+		&dai_data->group_cfg.tdm_cfg;
+	unsigned int cap_mask;
+
+	dev_dbg(dai->dev, "%s: dai id = 0x%x\n", __func__, dai->id);
+
+	/* HW only supports 16 and 32 bit slot width configuration */
+	if ((slot_width != 16) && (slot_width != 32)) {
+		dev_err(dai->dev, "%s: invalid slot_width %d\n",
+			__func__, slot_width);
+		return -EINVAL;
+	}
+
+	/* HW only supports 16 and 8 slots configuration */
+	switch (slots) {
+	case 8:
+		cap_mask = 0xFF;
+		break;
+	case 16:
+		cap_mask = 0xFFFF;
+		break;
+	default:
+		dev_err(dai->dev, "%s: invalid slots %d\n",
+			__func__, slots);
+		return -EINVAL;
+	}
+
+	switch (dai->id) {
+	case AFE_PORT_ID_PRIMARY_TDM_RX:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_7:
+	case AFE_PORT_ID_SECONDARY_TDM_RX:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_1:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_2:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_3:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_4:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_5:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_6:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_7:
+	case AFE_PORT_ID_TERTIARY_TDM_RX:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_1:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_2:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_3:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_4:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_5:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_6:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_7:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_1:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_2:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_3:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_4:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_5:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_6:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_7:
+		tdm_group->nslots_per_frame = slots;
+		tdm_group->slot_width = slot_width;
+		tdm_group->slot_mask = rx_mask & cap_mask;
+		break;
+	case AFE_PORT_ID_PRIMARY_TDM_TX:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
+	case AFE_PORT_ID_SECONDARY_TDM_TX:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_1:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_2:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_3:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_4:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_5:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_6:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_7:
+	case AFE_PORT_ID_TERTIARY_TDM_TX:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_1:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_2:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_3:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_4:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_5:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_6:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_7:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_1:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_2:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_3:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_4:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_5:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_6:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_7:
+		tdm_group->nslots_per_frame = slots;
+		tdm_group->slot_width = slot_width;
+		tdm_group->slot_mask = tx_mask & cap_mask;
+		break;
+	default:
+		dev_err(dai->dev, "%s: invalid dai id 0x%x\n",
+			__func__, dai->id);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int msm_dai_q6_tdm_set_channel_map(struct snd_soc_dai *dai,
+				unsigned int tx_num, unsigned int *tx_slot,
+				unsigned int rx_num, unsigned int *rx_slot)
+{
+	int rc = 0;
+	struct msm_dai_q6_tdm_dai_data *dai_data =
+		dev_get_drvdata(dai->dev);
+	struct afe_param_id_slot_mapping_cfg *slot_mapping =
+		&dai_data->port_cfg.slot_mapping;
+	int i = 0;
+
+	dev_dbg(dai->dev, "%s: dai id = 0x%x\n", __func__, dai->id);
+
+	switch (dai->id) {
+	case AFE_PORT_ID_PRIMARY_TDM_RX:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_7:
+	case AFE_PORT_ID_SECONDARY_TDM_RX:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_1:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_2:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_3:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_4:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_5:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_6:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_7:
+	case AFE_PORT_ID_TERTIARY_TDM_RX:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_1:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_2:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_3:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_4:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_5:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_6:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_7:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_1:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_2:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_3:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_4:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_5:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_6:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_7:
+		if (!rx_slot) {
+			dev_err(dai->dev, "%s: rx slot not found\n", __func__);
+			return -EINVAL;
+		}
+		if (rx_num > AFE_PORT_MAX_AUDIO_CHAN_CNT) {
+			dev_err(dai->dev, "%s: invalid rx num %d\n", __func__,
+				rx_num);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < rx_num; i++)
+			slot_mapping->offset[i] = rx_slot[i];
+		for (i = rx_num; i < AFE_PORT_MAX_AUDIO_CHAN_CNT; i++)
+			slot_mapping->offset[i] =
+				AFE_SLOT_MAPPING_OFFSET_INVALID;
+
+		slot_mapping->num_channel = rx_num;
+		break;
+	case AFE_PORT_ID_PRIMARY_TDM_TX:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
+	case AFE_PORT_ID_SECONDARY_TDM_TX:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_1:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_2:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_3:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_4:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_5:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_6:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_7:
+	case AFE_PORT_ID_TERTIARY_TDM_TX:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_1:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_2:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_3:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_4:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_5:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_6:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_7:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_1:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_2:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_3:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_4:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_5:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_6:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_7:
+		if (!tx_slot) {
+			dev_err(dai->dev, "%s: tx slot not found\n", __func__);
+			return -EINVAL;
+		}
+		if (tx_num > AFE_PORT_MAX_AUDIO_CHAN_CNT) {
+			dev_err(dai->dev, "%s: invalid tx num %d\n", __func__,
+				tx_num);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < tx_num; i++)
+			slot_mapping->offset[i] = tx_slot[i];
+		for (i = tx_num; i < AFE_PORT_MAX_AUDIO_CHAN_CNT; i++)
+			slot_mapping->offset[i] =
+				AFE_SLOT_MAPPING_OFFSET_INVALID;
+
+		slot_mapping->num_channel = tx_num;
+		break;
+	default:
+		dev_err(dai->dev, "%s: invalid dai id 0x%x\n",
+			__func__, dai->id);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
 static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params,
 				struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_tdm_dai_data *dai_data =
 		dev_get_drvdata(dai->dev);
-	struct msm_dai_tdm_pdata *tdm_pdata =
-		(struct msm_dai_tdm_pdata *) dai->dev->platform_data;
-	struct msm_dai_tdm_config *config = NULL;
 
 	struct afe_param_id_group_device_tdm_cfg *tdm_group =
 		&dai_data->group_cfg.tdm_cfg;
@@ -5051,7 +5255,6 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 		&dai_data->port_cfg.slot_mapping;
 	struct afe_param_id_custom_tdm_header_cfg *custom_tdm_header =
 		&dai_data->port_cfg.custom_tdm_header;
-	int i = 0;
 
 	pr_debug("%s: dev_name: %s\n",
 		__func__, dev_name(dai->dev));
@@ -5061,7 +5264,7 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 			__func__, params_rate(params));
 		return -EINVAL;
 	}
-	if ((params_channels(params) <= 0) ||
+	if ((params_channels(params) == 0) ||
 		(params_channels(params) > 8)) {
 		dev_err(dai->dev, "%s: invalid param channels %d\n",
 			__func__, params_channels(params));
@@ -5074,17 +5277,21 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_FORMAT_S24_LE:
 		dai_data->bitwidth = 24;
 		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		dai_data->bitwidth = 32;
+		break;
 	default:
-		dev_err(dai->dev, "%s: invalid param format %d\n",
+		dev_err(dai->dev, "%s: invalid param format 0x%x\n",
 			__func__, params_format(params));
 		return -EINVAL;
 	}
 	dai_data->channels = params_channels(params);
 	dai_data->rate = params_rate(params);
 
-	/* update tdm group config param */
-	/* NOTE: Hardcoded group config to 8 channel, 48KHz and 32 bit width
-			for TDM HW capibility needed for 12.288MHZ TDM clk. */
+	/*
+	 * update tdm group config param
+	 * NOTE: group config is set to the same as slot config.
+	 */
 	tdm_group->bit_width = tdm_group->slot_width;
 	tdm_group->num_channels = tdm_group->nslots_per_frame;
 	tdm_group->sample_rate = dai_data->rate;
@@ -5112,12 +5319,17 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 		tdm_group->port_id[6],
 		tdm_group->port_id[7]);
 
-	/* update tdm config param */
-	/* NOTE: channels/rate/bitwidth are per stream property */
+	/*
+	 * update tdm config param
+	 * NOTE: channels/rate/bitwidth are per stream property
+	 */
 	tdm->num_channels = dai_data->channels;
 	tdm->sample_rate = dai_data->rate;
 	tdm->bit_width = dai_data->bitwidth;
-	/* port slot config is the same as group slot config */
+	/*
+	 * port slot config is the same as group slot config
+	 * port slot mask should be set according to offset
+	 */
 	tdm->nslots_per_frame = tdm_group->nslots_per_frame;
 	tdm->slot_width = tdm_group->slot_width;
 	tdm->slot_mask = tdm_group->slot_mask;
@@ -5141,23 +5353,11 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 		tdm->ctrl_invert_sync_pulse,
 		tdm->ctrl_sync_data_delay);
 
-	/* update slot mapping config param */
-	/* NOTE: channels/rate/bitwidth are per stream property.
-		slot mapping will be set according to channels. */
-	config = &tdm_pdata->config[dai_data->channels - 1];
-	if ((dai_data->channels != config->num_offset) ||
-		(NULL == config->offset)) {
-		dev_err(dai->dev, "%s invalid platform data num_offset %d offset 0x%p\n",
-			__func__, config->num_offset, config->offset);
-		return -EINVAL;
-	}
-
-	slot_mapping->num_channel = dai_data->channels;
+	/*
+	 * update slot mapping config param
+	 * NOTE: channels/rate/bitwidth are per stream property
+	 */
 	slot_mapping->bitwidth = dai_data->bitwidth;
-	for (i = 0; i < config->num_offset; i++)
-		slot_mapping->offset[i] = config->offset[i];
-	for (i = config->num_offset; i < AFE_PORT_MAX_AUDIO_CHAN_CNT; i++)
-		slot_mapping->offset[i] = AFE_SLOT_MAPPING_OFFSET_INVALID;
 
 	pr_debug("%s: SLOT MAPPING:\n"
 		"num_channel=%d bitwidth=%d data_align=0x%x\n",
@@ -5178,9 +5378,11 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 		slot_mapping->offset[6],
 		slot_mapping->offset[7]);
 
-	/* update custom header config param */
-	/* NOTE: channels/rate/bitwidth are per playback stream property.
-			custom tdm header only applicable to playback stream. */
+	/*
+	 * update custom header config param
+	 * NOTE: channels/rate/bitwidth are per playback stream property.
+	 * custom tdm header only applicable to playback stream.
+	 */
 	if (custom_tdm_header->header_type !=
 		AFE_CUSTOM_TDM_HEADER_TYPE_INVALID) {
 		pr_debug("%s: CUSTOM TDM HEADER:\n"
@@ -5334,9 +5536,11 @@ static void msm_dai_q6_tdm_shutdown(struct snd_pcm_substream *substream,
 }
 
 static struct snd_soc_dai_ops msm_dai_q6_tdm_ops = {
-	.prepare			= msm_dai_q6_tdm_prepare,
-	.hw_params		= msm_dai_q6_tdm_hw_params,
-	.shutdown		= msm_dai_q6_tdm_shutdown,
+	.prepare          = msm_dai_q6_tdm_prepare,
+	.hw_params        = msm_dai_q6_tdm_hw_params,
+	.set_tdm_slot     = msm_dai_q6_tdm_set_tdm_slot,
+	.set_channel_map  = msm_dai_q6_tdm_set_channel_map,
+	.shutdown         = msm_dai_q6_tdm_shutdown,
 };
 
 static struct snd_soc_dai_driver msm_dai_q6_tdm_dai[] = {
@@ -6501,18 +6705,9 @@ static const struct snd_soc_component_driver msm_q6_tdm_dai_component = {
 static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 {
 	struct msm_dai_q6_tdm_dai_data *dai_data = NULL;
-	struct msm_dai_tdm_pdata *tdm_pdata = NULL;
 	struct afe_param_id_custom_tdm_header_cfg *custom_tdm_header = NULL;
-	struct afe_param_id_slot_mapping_cfg *slot_mapping = NULL;
 	int rc = 0;
 	u32 tdm_dev_id = 0;
-	int num_ch = 0;
-	const uint32_t *offset_array = NULL;
-	uint32_t array_len = 0;
-	u32 num_offset_len = 0;
-	u32 val_array[MSM_DAI_TDM_MAX_CH] = {0};
-	int i = 0, j = 0;
-	u32 offset = 0;
 	int port_idx = 0;
 
 	/* retrieve device/afe id */
@@ -6608,6 +6803,23 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	dai_data->port_cfg.tdm.tdm_cfg_minor_version =
 		AFE_API_VERSION_TDM_CONFIG;
 
+	/* TDM SLOT MAPPING CFG */
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,msm-cpudai-tdm-data-align",
+		&dai_data->port_cfg.slot_mapping.data_align_type);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: Data Align from DT file %s\n",
+			__func__,
+			"qcom,msm-cpudai-tdm-data-align");
+		goto free_dai_data;
+	}
+	dev_dbg(&pdev->dev, "%s: Data Align from DT file 0x%x\n",
+		__func__, dai_data->port_cfg.slot_mapping.data_align_type);
+
+	/* TDM SLOT MAPPING CFG -- set default */
+	dai_data->port_cfg.slot_mapping.minor_version =
+		AFE_API_VERSION_SLOT_MAPPING_CONFIG;
+
 	/* CUSTOM TDM HEADER CFG */
 	custom_tdm_header = &dai_data->port_cfg.custom_tdm_header;
 	if (of_find_property(pdev->dev.of_node,
@@ -6659,118 +6871,11 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 			AFE_CUSTOM_TDM_HEADER_TYPE_INVALID;
 	} else {
 		dev_info(&pdev->dev,
-			"%s: Custom tdm header cfg missing\n", __func__);
+			"%s: Custom tdm header not supported\n", __func__);
 		/* CUSTOM TDM HEADER CFG -- set default */
 		custom_tdm_header->header_type =
 			AFE_CUSTOM_TDM_HEADER_TYPE_INVALID;
 		/* proceed with probe */
-	}
-
-	/* allocate platform data */
-	tdm_pdata = kzalloc(sizeof(struct msm_dai_tdm_pdata),
-				GFP_KERNEL);
-	if (!tdm_pdata) {
-		rc = -ENOMEM;
-		dev_err(&pdev->dev, "%s: Fail to allocate memory for tdm_pdata\n",
-			__func__);
-		goto free_dai_data;
-	}
-	memset(tdm_pdata, 0, sizeof(*tdm_pdata));
-
-	/* TDM SLOT MAPPING CFG */
-	/* retrieve the number of channel provided in DT */
-	slot_mapping = &dai_data->port_cfg.slot_mapping;
-	num_ch = of_property_count_elems_of_size(pdev->dev.of_node,
-		"qcom,msm-cpudai-tdm-num-offset",
-		sizeof(uint32_t));
-	if (num_ch > 0 &&
-		of_find_property(pdev->dev.of_node,
-			"qcom,msm-cpudai-tdm-offset", NULL) &&
-		of_find_property(pdev->dev.of_node,
-			"qcom,msm-cpudai-tdm-offset-data-align", NULL)) {
-		dev_info(&pdev->dev, "%s: Number of channels %d\n",
-			__func__, num_ch);
-		/* retrieve the number of offset and
-		offset array according to num_ch */
-		rc = of_property_read_u32_array(pdev->dev.of_node,
-			"qcom,msm-cpudai-tdm-num-offset",
-			val_array, num_ch);
-		if (rc) {
-			dev_err(&pdev->dev, "%s: Num Offset from DT file %s\n",
-				__func__, "qcom,msm-cpudai-tdm-num-offset");
-			goto free_pdata;
-		}
-		for (i = 0; i < num_ch; i++) {
-			if (val_array[i] > AFE_PORT_MAX_AUDIO_CHAN_CNT) {
-				dev_err(&pdev->dev, "%s Num Offset %d greater than Max %d\n",
-					__func__, val_array[i],
-					AFE_PORT_MAX_AUDIO_CHAN_CNT);
-				rc = -EINVAL;
-				goto free_pdata;
-			}
-			tdm_pdata->config[i].num_offset = (u16)val_array[i];
-			num_offset_len += tdm_pdata->config[i].num_offset;
-		}
-
-		offset_array = of_get_property(pdev->dev.of_node,
-			"qcom,msm-cpudai-tdm-offset",
-			&array_len);
-		if (!offset_array) {
-			dev_err(&pdev->dev, "%s Invalid Offset Array from DT file 0x%p\n",
-				__func__, offset_array);
-			rc = -EINVAL;
-			goto free_pdata;
-		}
-		if (array_len != sizeof(uint32_t) * num_offset_len) {
-			dev_err(&pdev->dev, "%s array_length is %d, expected is %zd\n",
-				__func__, array_len,
-				sizeof(uint32_t) * num_offset_len);
-			rc = -EINVAL;
-			goto free_pdata;
-		}
-
-		for (i = 0; i < num_ch; i++) {
-			tdm_pdata->config[i].offset =
-				kzalloc(sizeof(uint16_t) *
-					tdm_pdata->config[i].num_offset,
-					GFP_KERNEL);
-			if (!tdm_pdata->config[i].offset) {
-				rc = -ENOMEM;
-				dev_err(&pdev->dev,
-					"%s Failed to allocate memory for %d channel config offset\n",
-					__func__, i + 1);
-				goto err_config;
-			}
-
-			for (j = 0; j < tdm_pdata->config[i].num_offset; j++)
-				tdm_pdata->config[i].offset[j] =
-					(u16)be32_to_cpu(
-						offset_array[j + offset]);
-
-			offset += tdm_pdata->config[i].num_offset;
-		}
-
-		rc = of_property_read_u32(pdev->dev.of_node,
-			"qcom,msm-cpudai-tdm-offset-data-align",
-			&slot_mapping->data_align_type);
-		if (rc) {
-			dev_err(&pdev->dev, "%s: Offset Data Align from DT file %s\n",
-				__func__,
-				"qcom,msm-cpudai-tdm-offset-data-align");
-			goto err_config;
-		}
-		dev_dbg(&pdev->dev, "%s: Offset Data Align from DT file 0x%x\n",
-			__func__, slot_mapping->data_align_type);
-
-		/* TDM SLOT MAPPING CFG -- set default */
-		slot_mapping->minor_version =
-			AFE_API_VERSION_SLOT_MAPPING_CONFIG;
-	} else {
-		dev_info(&pdev->dev,
-			"%s: Slot mapping cfg missing\n", __func__);
-		/* proceed with probe */
-		/* CPU DAI is not supported if slot mapping not provided
-		in board specified DT. HW PARAMS will error out. */
 	}
 
 	/* copy static clk per parent node */
@@ -6779,25 +6884,13 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	dai_data->group_cfg.tdm_cfg = tdm_group_cfg;
 
 	dev_set_drvdata(&pdev->dev, dai_data);
-	pdev->dev.platform_data = (void *)tdm_pdata;
-
-	/* TODO: Validate DAI table and DT data */
-	/*
-	rc = msm_dai_q6_tdm_platform_data_validation(pdev,
-		&msm_dai_q6_tdm_dai[]);
-	if (rc) {
-		dev_err(&pdev->dev, "%s: TDM dai 0x%x validation failed, %d\n",
-			__func__, tdm_dev_id, rc);
-		goto err_config;
-	}
-	*/
 
 	port_idx = msm_dai_q6_get_port_idx(tdm_dev_id);
 	if (port_idx < 0) {
 		dev_err(&pdev->dev, "%s Port id 0x%x not supported\n",
 			__func__, tdm_dev_id);
 		rc = -EINVAL;
-		goto err_config;
+		goto free_dai_data;
 	}
 
 	rc = snd_soc_register_component(&pdev->dev,
@@ -6813,11 +6906,6 @@ static int msm_dai_q6_tdm_dev_probe(struct platform_device *pdev)
 	return 0;
 
 err_register:
-err_config:
-	for (i = 0; i < num_ch; i++)
-		kfree(tdm_pdata->config[i].offset);
-free_pdata:
-	kfree(tdm_pdata);
 free_dai_data:
 	kfree(dai_data);
 rtn:
@@ -6826,18 +6914,10 @@ rtn:
 
 static int msm_dai_q6_tdm_dev_remove(struct platform_device *pdev)
 {
-	int i = 0;
 	struct msm_dai_q6_tdm_dai_data *dai_data =
 		dev_get_drvdata(&pdev->dev);
-	struct msm_dai_tdm_pdata *tdm_pdata =
-		(struct msm_dai_tdm_pdata *) pdev->dev.platform_data;
 
 	snd_soc_unregister_component(&pdev->dev);
-
-	for (i = 0; i < MSM_DAI_TDM_MAX_CH; i++)
-		kfree(tdm_pdata->config[i].offset);
-
-	kfree(tdm_pdata);
 
 	kfree(dai_data);
 
