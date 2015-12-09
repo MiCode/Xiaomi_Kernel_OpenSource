@@ -34,8 +34,8 @@
 /* xfer_rsc_idx should be 7 bits */
 #define IPA_XFER_RSC_IDX_MAX 127
 
-static bool ipa3_is_xdci_channel_empty(struct ipa3_ep_context *ep,
-	struct gsi_chan_info *chan_info);
+static int ipa3_is_xdci_channel_empty(struct ipa3_ep_context *ep,
+	bool *is_empty);
 
 int ipa3_enable_data_path(u32 clnt_hdl)
 {
@@ -1270,8 +1270,27 @@ write_chan_scratch_fail:
 	return result;
 }
 
-static bool ipa3_is_xdci_channel_empty(struct ipa3_ep_context *ep,
-	struct gsi_chan_info *chan_info)
+static int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
+	unsigned long chan_hdl)
+{
+	enum gsi_status gsi_res;
+
+	memset(gsi_chan_info, 0, sizeof(struct gsi_chan_info));
+	gsi_res = gsi_query_channel_info(chan_hdl, gsi_chan_info);
+	if (gsi_res != GSI_STATUS_SUCCESS) {
+		IPAERR("Error querying channel info: %d\n", gsi_res);
+		return -EFAULT;
+	}
+	if (!gsi_chan_info->evt_valid) {
+		IPAERR("Event info invalid\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+static bool ipa3_is_xdci_channel_with_given_info_empty(
+	struct ipa3_ep_context *ep, struct gsi_chan_info *chan_info)
 {
 	bool is_empty = false;
 
@@ -1297,6 +1316,28 @@ static bool ipa3_is_xdci_channel_empty(struct ipa3_ep_context *ep,
 	}
 
 	return is_empty;
+}
+
+static int ipa3_is_xdci_channel_empty(struct ipa3_ep_context *ep,
+	bool *is_empty)
+{
+	struct gsi_chan_info chan_info;
+	int res;
+
+	if (!ep || !is_empty || !ep->valid) {
+		IPAERR("Input Error\n");
+		return -EFAULT;
+	}
+
+	res = ipa3_get_gsi_chan_info(&chan_info, ep->gsi_chan_hdl);
+	if (res) {
+		IPAERR("Failed to get GSI channel info\n");
+		return -EFAULT;
+	}
+
+	*is_empty = ipa3_is_xdci_channel_with_given_info_empty(ep, &chan_info);
+
+	return 0;
 }
 
 static int ipa3_enable_force_clear(u32 request_id, bool throttle_source,
@@ -1339,25 +1380,6 @@ static int ipa3_disable_force_clear(u32 request_id)
 	return 0;
 }
 
-static int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
-	unsigned long chan_hdl)
-{
-	enum gsi_status gsi_res;
-
-	memset(gsi_chan_info, 0, sizeof(struct gsi_chan_info));
-	gsi_res = gsi_query_channel_info(chan_hdl, gsi_chan_info);
-	if (gsi_res != GSI_STATUS_SUCCESS) {
-		IPAERR("Error querying channel info: %d\n", gsi_res);
-		return -EFAULT;
-	}
-	if (!gsi_chan_info->evt_valid) {
-		IPAERR("Event info invalid\n");
-		return -EFAULT;
-	}
-
-	return 0;
-}
-
 /* Clocks should be voted for before invoking this function */
 static int ipa3_drain_ul_chan_data(struct ipa3_ep_context *ep, u32 qmi_req_id,
 	u32 source_pipe_bitmask, bool should_force_clear)
@@ -1365,47 +1387,46 @@ static int ipa3_drain_ul_chan_data(struct ipa3_ep_context *ep, u32 qmi_req_id,
 	int i;
 	bool is_empty = false;
 	int result;
-	struct gsi_chan_info gsi_chan_info;
 
-	result = ipa3_get_gsi_chan_info(&gsi_chan_info, ep->gsi_chan_hdl);
-	if (result)
-		return -EFAULT;
+	for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
+		result = ipa3_is_xdci_channel_empty(ep, &is_empty);
+		if (result)
+			return -EFAULT;
+		if (is_empty)
+			return 0;
+		udelay(IPA_POLL_FOR_EMPTINESS_SLEEP_USEC);
+	}
+	if (should_force_clear) {
+		result = ipa3_enable_force_clear(qmi_req_id, true,
+			source_pipe_bitmask);
+		if (result)
+			return -EFAULT;
+	}
+	for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
+		result = ipa3_is_xdci_channel_empty(ep, &is_empty);
+		if (result) {
+			result = -EFAULT;
+			goto disable_force_clear_and_exit;
+		}
+		if (is_empty) {
+			result = 0;
+			goto disable_force_clear_and_exit;
+		}
+		udelay(IPA_POLL_FOR_EMPTINESS_SLEEP_USEC);
+	}
 
-	do {
-		for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
-			is_empty = ipa3_is_xdci_channel_empty(ep,
-				&gsi_chan_info);
-			if (is_empty)
-				break;
-			udelay(IPA_POLL_FOR_EMPTINESS_SLEEP_USEC);
-		}
-		if (is_empty)
-			break;
-		if (should_force_clear) {
-			result = ipa3_enable_force_clear(qmi_req_id, true,
-				source_pipe_bitmask);
-			if (result)
-				return -EFAULT;
-		}
-		for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
-			is_empty = ipa3_is_xdci_channel_empty(ep,
-				&gsi_chan_info);
-			if (is_empty)
-				break;
-			udelay(IPA_POLL_FOR_EMPTINESS_SLEEP_USEC);
-		}
-		if (should_force_clear) {
-			result = ipa3_disable_force_clear(qmi_req_id);
-			if (result)
-				return -EFAULT;
-		}
-		if (is_empty)
-			break;
+disable_force_clear_and_exit:
+	if (should_force_clear) {
+		result = ipa3_disable_force_clear(qmi_req_id);
+		if (result)
+			return -EFAULT;
+	}
+	if (!result && !is_empty) {
+		/* Not error and not not empty */
 		IPAERR("UL channel is not empty after draining it!\n");
 		BUG();
-	} while (0);
-
-	return 0;
+	}
+	return result;
 }
 
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
@@ -1533,28 +1554,30 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	result = ipa3_get_gsi_chan_info(&dl_gsi_chan_info,
 		dl_ep->gsi_chan_hdl);
 	if (result)
-		goto query_chan_info_fail;
+		goto disable_clk_and_exit;
 
 	if (!is_dpl) {
 		result = ipa3_get_gsi_chan_info(&ul_gsi_chan_info,
 			ul_ep->gsi_chan_hdl);
 		if (result)
-			goto query_chan_info_fail;
+			goto disable_clk_and_exit;
 	}
 
 	for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
 		if (!dl_data_pending && !ul_data_pending)
 			break;
-		is_empty = ipa3_is_xdci_channel_empty(dl_ep,
-			&dl_gsi_chan_info);
+		result = ipa3_is_xdci_channel_empty(dl_ep, &is_empty);
+		if (result)
+			goto disable_clk_and_exit;
 		if (!is_empty) {
 			dl_data_pending = true;
 			break;
 		}
 		dl_data_pending = false;
 		if (!is_dpl) {
-			is_empty = ipa3_is_xdci_channel_empty(ul_ep,
-				&ul_gsi_chan_info);
+			result = ipa3_is_xdci_channel_empty(ul_ep, &is_empty);
+			if (result)
+				goto disable_clk_and_exit;
 			ul_data_pending = !is_empty;
 		} else {
 			ul_data_pending = false;
@@ -1574,7 +1597,7 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	if (dl_data_pending) {
 		IPAERR("DL/DPL data pending, can't suspend\n");
 		result = -EFAULT;
-		goto query_chan_info_fail;
+		goto disable_clk_and_exit;
 	}
 
 	/* Drain UL channel before stopping it */
@@ -1595,22 +1618,20 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	 * Check if DL/DPL channel is empty again, data could enter the channel
 	 * before its IPA EP was suspended
 	 */
-	is_empty = ipa3_is_xdci_channel_empty(dl_ep, &dl_gsi_chan_info);
+	result = ipa3_is_xdci_channel_empty(dl_ep, &is_empty);
+	if (result)
+		goto unsuspend_dl_and_exit;
 	if (!is_empty) {
 		IPAERR("DL/DPL data pending, can't suspend\n");
-		/* Unsuspend the DL/DPL EP */
-		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
-		ep_cfg_ctrl.ipa_ep_suspend = false;
-		ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
 		result = -EFAULT;
-		goto query_chan_info_fail;
+		goto unsuspend_dl_and_exit;
 	}
 
 	if (!is_dpl) {
 		result = ipa3_stop_gsi_channel(ul_clnt_hdl);
 		if (result) {
 			IPAERR("Error stopping UL channel: %d\n", result);
-			goto query_chan_info_fail;
+			goto unsuspend_dl_and_exit;
 		}
 	}
 
@@ -1619,9 +1640,13 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	IPADBG("exit\n");
 	return 0;
 
-query_chan_info_fail:
+unsuspend_dl_and_exit:
+	/* Unsuspend the DL EP */
+	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
+	ep_cfg_ctrl.ipa_ep_suspend = false;
+	ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
+disable_clk_and_exit:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
-
 	return result;
 }
 
