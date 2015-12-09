@@ -26,6 +26,11 @@
 #define WCD_MONO_HS_MIN_THR	2
 #define WCD_MBHC_STRINGIFY(s)  __stringify(s)
 
+enum {
+	WCD_MBHC_ELEC_HS_INS,
+	WCD_MBHC_ELEC_HS_REM,
+};
+
 struct wcd_mbhc;
 enum wcd_mbhc_register_function {
 	WCD_MBHC_L_DET_EN,
@@ -414,6 +419,8 @@ struct wcd_mbhc {
 	struct completion btn_press_compl;
 	struct mutex hphl_pa_lock;
 	struct mutex hphr_pa_lock;
+
+	unsigned long intr_status;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \
