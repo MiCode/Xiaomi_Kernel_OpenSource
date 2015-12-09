@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,7 +70,7 @@ void ecm_ipa_cleanup(void *priv);
 
 #else /* CONFIG_ECM_IPA*/
 
-int ecm_ipa_init(struct ecm_ipa_params *params)
+static inline int ecm_ipa_init(struct ecm_ipa_params *params)
 {
 	return 0;
 }

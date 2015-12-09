@@ -443,6 +443,7 @@ enum ipa_hw_type {
 	IPA_HW_v2_6 = IPA_HW_v2_5,
 	IPA_HW_v2_6L = 6,
 	IPA_HW_v3_0 = 10,
+	IPA_HW_v3_1 = 11,
 	IPA_HW_MAX
 };
 

@@ -79,6 +79,8 @@ static int ipa_handle_rx_core_gsi(struct ipa3_sys_context *sys,
 	bool process_all, bool in_poll_state);
 static int ipa_handle_rx_core_sps(struct ipa3_sys_context *sys,
 	bool process_all, bool in_poll_state);
+static unsigned long tag_to_pointer_wa(uint64_t tag);
+static uint64_t pointer_to_tag_wa(struct ipa3_tx_pkt_wrapper *tx_pkt);
 
 static void ipa3_wq_write_done_common(struct ipa3_sys_context *sys,
 				struct ipa3_tx_pkt_wrapper *tx_pkt)
@@ -2079,7 +2081,7 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 	unsigned int used_align = ALIGN(used, 32);
 	unsigned long unused = IPA_GENERIC_RX_BUFF_BASE_SZ - used;
 	struct ipa3_tx_pkt_wrapper *tx_pkt = NULL;
-	u32 ptr;
+	unsigned long ptr;
 
 	IPA_DUMP_BUFF(skb->data, 0, skb->len);
 
@@ -2207,9 +2209,9 @@ begin:
 					kfree(comp);
 				continue;
 			} else {
-				ptr = (u32)status->tag;
+				ptr = tag_to_pointer_wa(status->tag);
 				tx_pkt = (struct ipa3_tx_pkt_wrapper *)ptr;
-				IPADBG("tx_pkt recv = %08x\n", (u32)tx_pkt);
+				IPADBG("tx_pkt recv = %p\n", tx_pkt);
 			}
 		}
 		if (status->pkt_len == 0) {
@@ -3501,9 +3503,8 @@ static int ipa_populate_tag_field(struct ipa3_desc *desc,
 		 * This is for 32-bit pointer, will need special
 		 * handling if 64-bit pointer is used
 		 */
-		tag->tag = (u32)tx_pkt;
-		IPADBG("tx_pkt sent in tag: 0x%08x\n",
-			(u32)tx_pkt);
+		tag->tag = pointer_to_tag_wa(tx_pkt);
+		IPADBG("tx_pkt sent in tag: 0x%p\n", tx_pkt);
 		desc->pyld = tag;
 		desc->len = sizeof(*tag);
 		desc->user1 = tag;
@@ -3605,4 +3606,25 @@ static int ipa_handle_rx_core_sps(struct ipa3_sys_context *sys,
 		cnt++;
 	}
 	return cnt;
+}
+
+static unsigned long tag_to_pointer_wa(uint64_t tag)
+{
+	return 0xFFFF000000000000 | (unsigned long) tag;
+}
+
+static uint64_t pointer_to_tag_wa(struct ipa3_tx_pkt_wrapper *tx_pkt)
+{
+	u16 temp;
+	/* Add the check but it might have throughput issue */
+	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1) {
+		temp = (u16) (~((unsigned long) tx_pkt &
+			0xFFFF000000000000) >> 48);
+		if (temp) {
+			IPAERR("The 16 prefix is not all 1s (%p)\n",
+			tx_pkt);
+			BUG();
+		}
+	}
+	return (unsigned long)tx_pkt & 0x0000FFFFFFFFFFFF;
 }
