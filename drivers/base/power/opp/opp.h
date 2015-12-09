@@ -118,6 +118,7 @@ struct device_list_opp {
  * @suspend_opp: Pointer to OPP to be used during device suspend.
  * @supported_hw: Array of version number to support.
  * @supported_hw_count: Number of elements in supported_hw array.
+ * @prop_name: A name to postfix to many DT properties, while parsing them.
  * @dentry:	debugfs dentry pointer of the real device directory (not links).
  * @dentry_name: Name of the real dentry.
  *
@@ -144,6 +145,8 @@ struct device_opp {
 
 	unsigned int *supported_hw;
 	unsigned int supported_hw_count;
+	const char *prop_name;
+
 };
 
 /* Routines internal to opp core */
