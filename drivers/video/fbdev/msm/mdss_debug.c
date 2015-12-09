@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1264,6 +1264,18 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 						MDSS_MDP_INTF_CMD_MISR_CTRL;
 					value_reg = intf_base +
 					    MDSS_MDP_INTF_CMD_MISR_SIGNATURE;
+
+					/*
+					 * extra offset required for
+					 * cmd misr in 8996
+					 */
+					if (IS_MDSS_MAJOR_MINOR_SAME(
+						  mdata->mdp_rev,
+						  MDSS_MDP_HW_REV_107)) {
+						ctrl_reg += 0x8;
+						value_reg += 0x8;
+					}
+
 				} else {
 					ctrl_reg = intf_base +
 						MDSS_MDP_INTF_MISR_CTRL;
@@ -1335,6 +1347,9 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 	u32 mixer_num = 0;
 	bool is_valid_wb_mixer = true;
 	bool use_mdp_up_misr = false;
+
+	pr_debug("req[block:%d frame:%d op_mode:%d]\n",
+		req->block_id, req->frame_count, req->crc_op_mode);
 
 	map = mdss_misr_get_map(req->block_id, ctl, mdata);
 
@@ -1409,8 +1424,9 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 
 		writel_relaxed(config,
 				mdata->mdp_base + map->ctrl_reg);
-		pr_debug("MISR_CTRL = 0x%x",
-				readl_relaxed(mdata->mdp_base + map->ctrl_reg));
+		pr_debug("MISR_CTRL=0x%x [base:0x%p reg:0x%x config:0x%x]\n",
+				readl_relaxed(mdata->mdp_base + map->ctrl_reg),
+				mdata->mdp_base, map->ctrl_reg, config);
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return 0;
@@ -1438,6 +1454,9 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 	u32 status;
 	int ret = -1;
 	int i;
+
+	pr_debug("req[block:%d frame:%d op_mode:%d]\n",
+		resp->block_id, resp->frame_count, resp->crc_op_mode);
 
 	map = mdss_misr_get_map(resp->block_id, ctl, mdata);
 	if (!map) {
