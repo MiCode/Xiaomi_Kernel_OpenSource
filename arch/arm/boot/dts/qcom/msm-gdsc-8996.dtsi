@@ -26,6 +26,7 @@
 		      <0x8c120c 0x4>;
 		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
@@ -36,6 +37,7 @@
 		      <0x8c2480 0x4>;
 		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
@@ -46,6 +48,7 @@
 		      <0x8c3c50 0x4>;
 		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
@@ -161,6 +164,7 @@
 		      <0x8c4038 0x4>;
 		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
@@ -204,6 +208,7 @@
 		      <0x381028 0x4>;
 		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 };

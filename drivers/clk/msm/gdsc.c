@@ -41,8 +41,6 @@
 #define CLK_DIS_WAIT_VAL	(0x2 << 12)
 
 #define TIMEOUT_US		100
-#define MAX_GDSCR_READS		100
-#define MAX_VOTABLE_GDSCR_READS	200
 
 struct gdsc {
 	struct regulator_dev	*rdev;
@@ -63,6 +61,7 @@ struct gdsc {
 	void __iomem		*domain_addr;
 	void __iomem		*hw_ctrl_addr;
 	void __iomem		*sw_reset_addr;
+	u32			gds_timeout;
 };
 
 enum gdscr_status {
@@ -83,16 +82,13 @@ void gdsc_allow_clear_retention(struct regulator *regulator)
 static int poll_gdsc_status(struct gdsc *sc, enum gdscr_status status)
 {
 	void __iomem *gdscr;
-	int count;
+	int count = sc->gds_timeout;
 	u32 val;
 
-	if (sc->hw_ctrl_addr) {
+	if (sc->hw_ctrl_addr)
 		gdscr = sc->hw_ctrl_addr;
-		count = MAX_VOTABLE_GDSCR_READS;
-	} else {
+	else
 		gdscr = sc->gdscr;
-		count = MAX_GDSCR_READS;
-	}
 
 	for (; count > 0; count--) {
 		val = readl_relaxed(gdscr);
@@ -197,21 +193,36 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 		ret = poll_gdsc_status(sc, ENABLED);
 		if (ret) {
-			dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
-				sc->rdesc.name, regval);
-			udelay(TIMEOUT_US);
 			regval = readl_relaxed(sc->gdscr);
 			if (sc->hw_ctrl_addr) {
 				hw_ctrl_regval =
 					readl_relaxed(sc->hw_ctrl_addr);
-				dev_err(&rdev->dev, "%s final state (%d us after timeout): 0x%x, GDS_HW_CTRL: 0x%x\n",
-					sc->rdesc.name, TIMEOUT_US, regval,
-					hw_ctrl_regval);
-			} else
+				dev_warn(&rdev->dev, "%s state (after %d us timeout): 0x%x, GDS_HW_CTRL: 0x%x. Re-polling.\n",
+					sc->rdesc.name, sc->gds_timeout,
+					regval, hw_ctrl_regval);
+
+				ret = poll_gdsc_status(sc, ENABLED);
+				if (ret) {
+					dev_err(&rdev->dev, "%s final state (after additional %d us timeout): 0x%x, GDS_HW_CTRL: 0x%x\n",
+					sc->rdesc.name, sc->gds_timeout,
+					readl_relaxed(sc->gdscr),
+					readl_relaxed(sc->hw_ctrl_addr));
+
+					mutex_unlock(&gdsc_seq_lock);
+					return ret;
+				}
+			} else {
+				dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
+					sc->rdesc.name,
+					regval);
+				udelay(sc->gds_timeout);
+				regval = readl_relaxed(sc->gdscr);
 				dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
-					sc->rdesc.name, regval, TIMEOUT_US);
-			mutex_unlock(&gdsc_seq_lock);
-			return ret;
+					sc->rdesc.name, regval,
+					sc->gds_timeout);
+				mutex_unlock(&gdsc_seq_lock);
+				return ret;
+			}
 		}
 	} else {
 		for (i = 0; i < sc->clock_count; i++)
@@ -424,6 +435,7 @@ static int gdsc_probe(struct platform_device *pdev)
 	uint32_t regval, clk_dis_wait_val = CLK_DIS_WAIT_VAL;
 	bool retain_mem, retain_periph, support_hw_trigger;
 	int i, ret;
+	u32 timeout;
 
 	sc = devm_kzalloc(&pdev->dev, sizeof(struct gdsc), GFP_KERNEL);
 	if (sc == NULL)
@@ -474,6 +486,12 @@ static int gdsc_probe(struct platform_device *pdev)
 		if (sc->hw_ctrl_addr == NULL)
 			return -ENOMEM;
 	}
+
+	sc->gds_timeout = TIMEOUT_US;
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,gds-timeout",
+							&timeout);
+	if (!ret)
+		sc->gds_timeout = timeout;
 
 	sc->clock_count = of_property_count_strings(pdev->dev.of_node,
 					    "clock-names");
