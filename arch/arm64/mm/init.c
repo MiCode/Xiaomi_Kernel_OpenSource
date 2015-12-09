@@ -362,7 +362,6 @@ void free_initmem(void)
 {
 	fixup_init();
 	free_initmem_default(0);
-	free_alternatives_memory();
 }
 
 #ifdef CONFIG_BLK_DEV_INITRD
