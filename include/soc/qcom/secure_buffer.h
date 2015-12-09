@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,22 +17,27 @@
 
 #include <linux/scatterlist.h>
 
-#define VMID_HLOS 0x3
-#define VMID_CP_TOUCH 0x8
-#define VMID_CP_BITSTREAM 0x9
-#define VMID_CP_PIXEL 0xA
-#define VMID_CP_NON_PIXEL 0xB
-#define VMID_CP_CAMERA 0xD
-#define VMID_HLOS_FREE 0xE
-#define VMID_MSS_MSA 0xF
-#define VMID_MSS_NONMSA 0x10
-#define VMID_CP_SEC_DISPLAY 0x11
-#define VMID_CP_APP 0x12
-#define VMID_INVAL -1
 /*
  * if you add a secure VMID here make sure you update
- * msm_secure_vmid_to_string
+ * msm_secure_vmid_to_string.
+ * Make sure to keep the VMID_LAST as the last entry in the enum.
+ * This is needed in ion to create a list and it's sized using VMID_LAST.
  */
+enum vmid {
+	VMID_HLOS = 0x3,
+	VMID_CP_TOUCH = 0x8,
+	VMID_CP_BITSTREAM = 0x9,
+	VMID_CP_PIXEL = 0xA,
+	VMID_CP_NON_PIXEL = 0xB,
+	VMID_CP_CAMERA = 0xD,
+	VMID_HLOS_FREE = 0xE,
+	VMID_MSS_MSA = 0xF,
+	VMID_MSS_NONMSA = 0x10,
+	VMID_CP_SEC_DISPLAY = 0x11,
+	VMID_CP_APP = 0x12,
+	VMID_LAST,
+	VMID_INVAL = -1
+};
 
 #define PERM_READ                       0x4
 #define PERM_WRITE                      0x2
