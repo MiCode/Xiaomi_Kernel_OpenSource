@@ -1413,6 +1413,24 @@ out:
 	return ret;
 }
 
+static int mmc_select_hs_ddr52(struct mmc_host *host)
+{
+	int err;
+
+	mmc_select_hs(host->card);
+	mmc_set_clock(host, MMC_HIGH_52_MAX_DTR);
+	err = mmc_select_bus_width(host->card);
+	if (err < 0) {
+		pr_err("%s: %s: select_bus_width failed(%d)\n",
+			mmc_hostname(host), __func__, err);
+		return err;
+	}
+
+	err = mmc_select_hs_ddr(host->card);
+
+	return err;
+}
+
 /*
  * Scale down from HS400 to HS in order to allow frequency change.
  * This is needed for cards that doesn't support changing frequency in HS400
@@ -1424,10 +1442,20 @@ static int mmc_scale_low(struct mmc_host *host, unsigned long freq)
 	mmc_set_timing(host, MMC_TIMING_LEGACY);
 	mmc_set_clock(host, MMC_HIGH_26_MAX_DTR);
 
+	if (host->clk_scaling.lower_bus_speed_mode &
+	    MMC_SCALING_LOWER_DDR52_MODE) {
+		err = mmc_select_hs_ddr52(host);
+		if (err)
+			pr_err("%s: %s: failed to switch to DDR52: err: %d\n",
+			       mmc_hostname(host), __func__, err);
+		else
+			return err;
+	}
+
 	err = mmc_select_hs(host->card);
 	if (err) {
-		pr_err("%s: %s: selecting HS (52Mhz) failed (%d)\n",
-			mmc_hostname(host), __func__, err);
+		pr_err("%s: %s: scaling low: failed (%d)\n",
+		       mmc_hostname(host), __func__, err);
 		return err;
 	}
 
