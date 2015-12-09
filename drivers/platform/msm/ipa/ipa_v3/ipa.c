@@ -36,6 +36,9 @@
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
 
+#define CREATE_TRACE_POINTS
+#include "ipa_trace.h"
+
 #define IPA_SUMMING_THRESHOLD (0x10)
 #define IPA_PIPE_MEM_START_OFST (0x0)
 #define IPA_PIPE_MEM_SIZE (0x0)

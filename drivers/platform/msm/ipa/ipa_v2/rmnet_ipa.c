@@ -34,6 +34,8 @@
 #include <linux/rmnet_ipa_fd_ioctl.h>
 #include <linux/ipa.h>
 
+#include "ipa_trace.h"
+
 #define WWAN_METADATA_SHFT 24
 #define WWAN_METADATA_MASK 0xFF000000
 #define WWAN_DATA_LEN 2000
@@ -1148,10 +1150,13 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	skb->dev = ipa_netdevs[0];
 	skb->protocol = htons(ETH_P_MAP);
 
-	if (dev->stats.rx_packets % IPA_WWAN_RX_SOFTIRQ_THRESH == 0)
+	if (dev->stats.rx_packets % IPA_WWAN_RX_SOFTIRQ_THRESH == 0) {
+		trace_rmnet_ipa_netifni(dev->stats.rx_packets);
 		result = netif_rx_ni(skb);
-	else
+	} else {
+		trace_rmnet_ipa_netifrx(dev->stats.rx_packets);
 		result = netif_rx(skb);
+	}
 
 	if (result)	{
 		pr_err_ratelimited(DEV_NAME " %s:%d fail on netif_rx\n",
