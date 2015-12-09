@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,40 +33,52 @@ static bool is_cp_flag_present(unsigned long flags)
 			ION_FLAG_CP_CAMERA);
 }
 
+int ion_system_secure_heap_unassign_sg(struct sg_table *sgt, int source_vmid)
+{
+	u32 dest_vmid = VMID_HLOS;
+	u32 dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
+	struct scatterlist *sg;
+	int ret, i;
+
+	ret = hyp_assign_table(sgt, &source_vmid, 1,
+				&dest_vmid, &dest_perms, 1);
+	if (ret) {
+		pr_err("%s: Not freeing memory since assign call failed. VMID %d\n",
+						__func__, source_vmid);
+		return -ENXIO;
+	}
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		ClearPagePrivate(sg_page(sg));
+	return 0;
+}
+
+int ion_system_secure_heap_assign_sg(struct sg_table *sgt, int dest_vmid)
+{
+	u32 source_vmid = VMID_HLOS;
+	u32 dest_perms = PERM_READ | PERM_WRITE;
+	struct scatterlist *sg;
+	int ret, i;
+
+	ret = hyp_assign_table(sgt, &source_vmid, 1,
+				&dest_vmid, &dest_perms, 1);
+	if (ret) {
+		pr_err("%s: Assign call failed. VMID %d\n",
+						__func__, dest_vmid);
+		return -EINVAL;
+	}
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		SetPagePrivate(sg_page(sg));
+	return 0;
+}
+
 static void ion_system_secure_heap_free(struct ion_buffer *buffer)
 {
-	int ret = 0;
-	int i;
-	u32 source_vm;
-	int dest_vmid;
-	int dest_perms;
-	struct sg_table *sgt;
-	struct scatterlist *sg;
 	struct ion_heap *heap = buffer->heap;
 	struct ion_system_secure_heap *secure_heap = container_of(heap,
 						struct ion_system_secure_heap,
 						heap);
-
-	source_vm = get_secure_vmid(buffer->flags);
-	if (source_vm < 0) {
-		pr_info("%s: Unable to get secure VMID\n", __func__);
-		return;
-	}
-	dest_vmid = VMID_HLOS;
-	dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
-
-	ret = hyp_assign_table(buffer->priv_virt, &source_vm, 1,
-					&dest_vmid, &dest_perms, 1);
-	if (ret) {
-		pr_err("%s: Not freeing memory since assign call failed\n",
-								__func__);
-		return;
-	}
-
-	sgt = buffer->priv_virt;
-	for_each_sg(sgt->sgl, sg, sgt->nents, i)
-		ClearPagePrivate(sg_page(sg));
-
 	buffer->heap = secure_heap->sys_heap;
 	secure_heap->sys_heap->ops->free(buffer);
 }
@@ -77,12 +89,6 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 					unsigned long flags)
 {
 	int ret = 0;
-	int i;
-	u32 source_vm;
-	int dest_vmid;
-	int dest_perms;
-	struct sg_table *sgt;
-	struct scatterlist *sg;
 	struct ion_system_secure_heap *secure_heap = container_of(heap,
 						struct ion_system_secure_heap,
 						heap);
@@ -101,38 +107,6 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 			__func__, heap->name, ret);
 		return ret;
 	}
-
-	source_vm = VMID_HLOS;
-	dest_vmid = get_secure_vmid(flags);
-	if (dest_vmid < 0) {
-		pr_info("%s: Unable to get secure VMID\n", __func__);
-		ret = -EINVAL;
-		goto err;
-	}
-	dest_perms = PERM_READ | PERM_WRITE;
-
-	ret = hyp_assign_table(buffer->priv_virt, &source_vm, 1,
-					&dest_vmid, &dest_perms, 1);
-	if (ret) {
-		pr_err("%s: Assign call failed\n", __func__);
-		goto err;
-	}
-
-	sgt = buffer->priv_virt;
-	for_each_sg(sgt->sgl, sg, sgt->nents, i)
-		SetPagePrivate(sg_page(sg));
-
-	return ret;
-
-err:
-	/*
-	 * the buffer->size field is populated in the caller of this function
-	 * and hence uninitialized when ops->free is called. Populating the
-	 * field here to handle the error condition correctly.
-	 */
-	buffer->size = size;
-	buffer->heap = secure_heap->sys_heap;
-	secure_heap->sys_heap->ops->free(buffer);
 	return ret;
 }
 
