@@ -25,6 +25,7 @@
 
 const struct of_device_id of_default_bus_match_table[] = {
 	{ .compatible = "simple-bus", },
+	{ .compatible = "simple-mfd", },
 #ifdef CONFIG_ARM_AMBA
 	{ .compatible = "arm,amba-bus", },
 #endif /* CONFIG_ARM_AMBA */
@@ -149,57 +150,9 @@ struct platform_device *of_device_alloc(struct device_node *np,
 }
 EXPORT_SYMBOL(of_device_alloc);
 
-/**
- * of_dma_configure - Setup DMA configuration
- * @dev:	Device to apply DMA configuration
- *
- * Try to get devices's DMA configuration from DT and update it
- * accordingly.
- *
- * In case if platform code need to use own special DMA configuration,it
- * can use Platform bus notifier and handle BUS_NOTIFY_ADD_DEVICE event
- * to fix up DMA configuration.
- */
-static void of_dma_configure(struct device *dev)
+static void of_dma_deconfigure(struct device *dev)
 {
-	u64 dma_addr, paddr, size;
-	int ret;
-
-	/*
-	 * Set default dma-mask to 32 bit. Drivers are expected to setup
-	 * the correct supported dma_mask.
-	 */
-	dev->coherent_dma_mask = DMA_BIT_MASK(32);
-
-	/*
-	 * Set it to coherent_dma_mask by default if the architecture
-	 * code has not set it.
-	 */
-	if (!dev->dma_mask)
-		dev->dma_mask = &dev->coherent_dma_mask;
-
-	/*
-	 * if dma-coherent property exist, call arch hook to setup
-	 * dma coherent operations.
-	 */
-	if (of_dma_is_coherent(dev->of_node)) {
-		set_arch_dma_coherent_ops(dev);
-		dev_dbg(dev, "device is dma coherent\n");
-	}
-
-	/*
-	 * if dma-ranges property doesn't exist - just return else
-	 * setup the dma offset
-	 */
-	ret = of_dma_get_range(dev->of_node, &dma_addr, &paddr, &size);
-	if (ret < 0) {
-		dev_dbg(dev, "no dma range information to setup\n");
-		return;
-	}
-
-	/* DMA ranges found. Calculate and set dma_pfn_offset */
-	dev->dma_pfn_offset = PFN_DOWN(paddr - dma_addr);
-	dev_dbg(dev, "dma_pfn_offset(%#08lx)\n", dev->dma_pfn_offset);
+	arch_teardown_dma_ops(dev);
 }
 
 /**
@@ -228,16 +181,13 @@ static struct platform_device *of_platform_device_create_pdata(
 	if (!dev)
 		goto err_clear_flag;
 
-	of_dma_configure(&dev->dev);
 	dev->dev.bus = &platform_bus_type;
 	dev->dev.platform_data = platform_data;
-
-	/* We do not fill the DMA ops for platform devices by default.
-	 * This is currently the responsibility of the platform code
-	 * to do such, possibly using a device notifier
-	 */
+	of_dma_configure(&dev->dev, dev->dev.of_node);
+	of_msi_configure(&dev->dev, dev->dev.of_node);
 
 	if (of_device_add(dev) != 0) {
+		of_dma_deconfigure(&dev->dev);
 		platform_device_put(dev);
 		goto err_clear_flag;
 	}
@@ -297,7 +247,7 @@ static struct amba_device *of_amba_device_create(struct device_node *node,
 		dev_set_name(&dev->dev, "%s", bus_id);
 	else
 		of_device_make_bus_id(&dev->dev);
-	of_dma_configure(&dev->dev);
+	of_dma_configure(&dev->dev, dev->dev.of_node);
 
 	/* Allow the HW Peripheral ID to be overridden */
 	prop = of_get_property(node, "arm,primecell-periphid", NULL);
@@ -523,6 +473,7 @@ static int of_platform_device_destroy(struct device *dev, void *data)
 		amba_device_unregister(to_amba_device(dev));
 #endif
 
+	of_dma_deconfigure(dev);
 	of_node_clear_flag(dev->of_node, OF_POPULATED);
 	of_node_clear_flag(dev->of_node, OF_POPULATED_BUS);
 	return 0;
