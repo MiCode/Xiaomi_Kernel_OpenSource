@@ -126,6 +126,20 @@
 			};
 		};
 
+		sdc1_rclk_on: sdc1_rclk_on {
+			config {
+				pins = "sdc1_rclk";
+				bias-pull-down; /* pull down */
+			};
+		};
+
+		sdc1_rclk_off: sdc1_rclk_off {
+			config {
+				pins = "sdc1_rclk";
+				bias-pull-down; /* pull down */
+			};
+		};
+
 		i2c_2 {
 			i2c_2_active: i2c_2_active {
 				/* active state */

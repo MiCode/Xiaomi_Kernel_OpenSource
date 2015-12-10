@@ -1025,17 +1025,23 @@
 
 	sdhc_1: sdhci@7824900 {
 		compatible = "qcom,sdhci-msm";
-		reg = <0x7824900 0x500>, <0x7824000 0x800>;
-		reg-names = "hc_mem", "core_mem";
+		reg = <0x7824900 0x500>, <0x7824000 0x800>, <0x7824e00 0x200>;
+		reg-names = "hc_mem", "core_mem", "cmdq_mem";
 
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <8>;
 
-		qcom,devfreq,freq-table = <52000000 200000000>;
+		qcom,devfreq,freq-table = <50000000 200000000>;
 
-		qcom,cpu-dma-latency-us = <60 340 900>;
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 200>;
+
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-cmdq-latency-us = <2 200>, <2 200>;
+
+		qcom,pm-qos-legacy-latency-us = <2 200>, <2 200>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -1053,8 +1059,13 @@
 			100000000 200000000 400000000 4294967295>;
 
 		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
-			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
-		clock-names = "iface_clk", "core_clk";
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>;
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
+		qcom,ice-clk-rates = <270000000 160000000>;
+		qcom,large-address-bus;
+
+		status = "disabled";
 	};
 
 	spmi_bus: qcom,spmi@200f000 {
