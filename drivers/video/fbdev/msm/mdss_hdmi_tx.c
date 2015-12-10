@@ -5241,6 +5241,13 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 		goto failed_no_mem;
 	}
 
+	hdmi_ctrl->mdss_util = mdss_get_util_intf();
+	if (hdmi_ctrl->mdss_util == NULL) {
+		pr_err("Failed to get mdss utility functions\n");
+		rc = -ENODEV;
+		goto failed_dt_data;
+	}
+
 	platform_set_drvdata(pdev, hdmi_ctrl);
 	hdmi_ctrl->pdev = pdev;
 	hdmi_ctrl->enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
@@ -5258,13 +5265,9 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 		hdmi_ctrl->pdata.primary = true;
 		hdmi_ctrl->vid_cfg.vic = vic;
 		hdmi_ctrl->panel_data.panel_info.is_prim_panel = true;
-	}
-
-	hdmi_ctrl->mdss_util = mdss_get_util_intf();
-	if (hdmi_ctrl->mdss_util == NULL) {
-		pr_err("Failed to get mdss utility functions\n");
-		rc = -ENODEV;
-		goto failed_res_init;
+		hdmi_ctrl->panel_data.panel_info.cont_splash_enabled =
+			hdmi_ctrl->mdss_util->panel_intf_status(DISPLAY_1,
+					MDSS_PANEL_INTF_HDMI) ? true : false;
 	}
 
 	hdmi_tx_hw.irq_info = mdss_intr_line();
@@ -5324,6 +5327,8 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 			msm_dss_enable_vreg(
 				hdmi_ctrl->pdata.power_data[i].vreg_config,
 				hdmi_ctrl->pdata.power_data[i].num_vreg, 1);
+
+			hdmi_tx_pinctrl_set_state(hdmi_ctrl, i, 1);
 
 			msm_dss_enable_gpio(
 				hdmi_ctrl->pdata.power_data[i].gpio_config,
