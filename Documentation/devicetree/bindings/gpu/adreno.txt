@@ -87,7 +87,7 @@ Optional Properties:
 - qcom,bus-control:	   Boolean. Enables an independent bus vote from the gpu frequency
 - qcom,gpubw-dev:	   a phandle to a device representing bus bandwidth requirements
 			   (see devdw.txt)
-- qcom,idle-timeout:	   This property represents the time in microseconds for idle timeout.
+- qcom,idle-timeout:	   This property represents the time in milliseconds for idle timeout.
 - qcom,chipid:		   If it exists this property is used to replace
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
