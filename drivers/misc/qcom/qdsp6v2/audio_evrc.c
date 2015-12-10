@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -17,7 +17,8 @@
 
 #include "audio_utils_aio.h"
 
-
+static struct miscdevice audio_evrc_misc;
+static struct ws_mgr audio_evrc_ws_mgr;
 
 #ifdef CONFIG_DEBUG_FS
 static const struct file_operations audio_evrc_debug_fops = {
@@ -90,6 +91,9 @@ static int audio_open(struct inode *inode, struct file *file)
 	 * but at least we need to have initial config
 	 */
 	audio->pcm_cfg.buffer_size = PCM_BUFSZ_MIN;
+	audio->miscdevice = &audio_evrc_misc;
+	audio->wakelock_voted = false;
+	audio->audio_ws_mgr = &audio_evrc_ws_mgr;
 
 	audio->ac = q6asm_audio_client_alloc((app_cb) q6_audio_cb,
 					     (void *)audio);
@@ -161,7 +165,7 @@ static const struct file_operations audio_evrc_fops = {
 	.fsync = audio_aio_fsync,
 };
 
-struct miscdevice audio_evrc_misc = {
+static struct miscdevice audio_evrc_misc = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "msm_evrc",
 	.fops = &audio_evrc_fops,
@@ -169,7 +173,14 @@ struct miscdevice audio_evrc_misc = {
 
 static int __init audio_evrc_init(void)
 {
-	return misc_register(&audio_evrc_misc);
+	int ret = misc_register(&audio_evrc_misc);
+
+	if (ret == 0)
+		device_init_wakeup(audio_evrc_misc.this_device, true);
+	audio_evrc_ws_mgr.ref_cnt = 0;
+	mutex_init(&audio_evrc_ws_mgr.ws_lock);
+
+	return ret;
 }
 
 device_initcall(audio_evrc_init);

@@ -20,6 +20,7 @@
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
+#include <linux/wakelock.h>
 #include <linux/msm_audio.h>
 #include <linux/debugfs.h>
 #include <linux/list.h>
