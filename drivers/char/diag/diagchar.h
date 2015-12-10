@@ -423,6 +423,7 @@ struct diagchar_dev {
 	uint8_t mask_centralization[NUM_SMD_CONTROL_CHANNELS];
 	uint8_t peripheral_buffering_support[NUM_SMD_CONTROL_CHANNELS];
 	struct diag_buffering_mode_t buffering_mode[NUM_SMD_CONTROL_CHANNELS];
+	uint8_t buffering_flag[NUM_SMD_CONTROL_CHANNELS];
 	struct mutex mode_lock;
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;

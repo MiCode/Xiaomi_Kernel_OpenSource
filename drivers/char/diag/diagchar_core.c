@@ -1158,6 +1158,13 @@ static int diag_ioctl_set_buffering_mode(unsigned long ioarg)
 	if (copy_from_user(&params, (void __user *)ioarg, sizeof(params)))
 		return -EFAULT;
 
+	if (params.peripheral >= NUM_SMD_CONTROL_CHANNELS)
+		return -EINVAL;
+
+	mutex_lock(&driver->mode_lock);
+	driver->buffering_flag[params.peripheral] = 1;
+	mutex_unlock(&driver->mode_lock);
+
 	return diag_send_peripheral_buffering_mode(&params);
 }
 
