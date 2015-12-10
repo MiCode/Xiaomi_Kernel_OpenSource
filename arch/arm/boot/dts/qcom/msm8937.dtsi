@@ -1587,6 +1587,7 @@
 			<&clock_gcc clk_gcc_sdcc2_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
 		status = "disabled";
 	};
 
