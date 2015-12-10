@@ -1661,7 +1661,7 @@ static uint64_t _get_unmapped_area_topdown(struct kgsl_pagetable *pagetable,
 		 * the bottom of the previous one
 		 */
 
-		if (offset < end) {
+		if ((end > size) && (offset < end)) {
 			uint64_t chunk = (end - size) & mask;
 
 			if (chunk >= offset)
