@@ -80,6 +80,9 @@
 
 	qcom,cpr-count-mode = <2>;		/* Staggered */
 	/delete-property/ qcom,cpr-count-repeat;
+	/delete-property/ mem-acc-thread0-supply;
+	/delete-property/ mem-acc-thread1-supply;
+	/delete-property/ mem-acc-supply;
 
 	qcom,apm-ctrl = <&apc_apm>;
 	qcom,apm-threshold-voltage = <850000>;
@@ -110,6 +113,7 @@
 	qcom,cpr-fuse-combos = <4>;
 	/delete-property/ qcom,cpr-speed-bins;
 	/delete-property/ qcom,cpr-speed-bin-corners;
+	/delete-property/ qcom,uses-mem-acc;
 	qcom,cpr-corners = <19>;
 
 	qcom,ldo-max-voltage = <805000>;
@@ -233,6 +237,7 @@
 	qcom,cpr-fuse-combos = <4>;
 	/delete-property/ qcom,cpr-speed-bins;
 	/delete-property/ qcom,cpr-speed-bin-corners;
+	/delete-property/ qcom,uses-mem-acc;
 	qcom,cpr-corners = <18>;
 
 	qcom,ldo-max-voltage = <805000>;
@@ -388,6 +393,18 @@
 &kryo1_retention_vreg {
 	regulator-min-microvolt = <467734>;
 	regulator-max-microvolt = <891624>;
+};
+
+&apc0_pwrcl_mem_acc_vreg {
+	status = "disabled";
+};
+
+&apc1_perfcl_mem_acc_vreg {
+	status = "disabled";
+};
+
+&apcc_l3_mem_acc_vreg {
+	status = "disabled";
 };
 
 /* GPU overrides */
