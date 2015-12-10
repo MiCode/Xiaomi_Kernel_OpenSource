@@ -31,6 +31,20 @@
 			};
 		};
 
+		cdc-reset-line {
+			qcom,pins = <&gp 68>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cdc-reset-line";
+			cdc_reset_line_act: cdc_reset_line_on {
+				drive-strength = <16>;
+			};
+			cdc_reset_line_sus: cdc_reset_line_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		cdc-pdm-lines {
 			qcom,pins = <&gp 69>, <&gp 73>, <&gp 74>;
 			qcom,num-grp-pins = <3>;
