@@ -106,11 +106,16 @@ dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	apq8037-pmi8937-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSMGOLD) += msmgold-rumi.dtb \
-	msmgold-cdp.dtb \
-	msmgold-mtp.dtb \
-	msmgold-rcm.dtb \
-	apqgold-cdp.dtb \
-	apqgold-mtp.dtb
+	apqgold-pmi8937-cdp.dtb \
+	apqgold-pmi8937-mtp.dtb \
+	apqgold-pmi8950-cdp.dtb \
+	apqgold-pmi8950-mtp.dtb \
+	msmgold-pmi8937-cdp.dtb \
+	msmgold-pmi8937-mtp.dtb \
+	msmgold-pmi8950-cdp.dtb \
+	msmgold-pmi8950-mtp.dtb \
+	msmgold-pmi8937-rcm.dtb \
+	msmgold-pmi8950-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	msmtitanium-rumi.dtb \

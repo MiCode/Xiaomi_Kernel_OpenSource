@@ -13,11 +13,12 @@
 
 /dts-v1/;
 
-#include "msmgold.dtsi"
-#include "msmgold-mtp.dtsi"
+#include "apqgold.dtsi"
+#include "msmgold-pmi8950-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMGOLD MTP";
-	compatible = "qcom,msmgold-mtp", "qcom,msmgold", "qcom,mtp";
-	qcom,board-id= <8 0>;
+	model = "Qualcomm Technologies, Inc. APQGOLD-PMI8950 CDP";
+	compatible = "qcom,apqgold-cdp", "qcom,apqgold", "qcom,cdp";
+	qcom,board-id= <1 0>;
+	qcom,pmic-id = <0x10019 0x020011 0x0 0x0>;
 };
