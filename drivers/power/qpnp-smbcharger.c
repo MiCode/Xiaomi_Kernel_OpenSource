@@ -266,6 +266,8 @@ struct smbchg_chip {
 	struct votable			*usb_suspend_votable;
 	struct votable			*dc_suspend_votable;
 	struct votable			*battchg_suspend_votable;
+	struct votable			*hw_aicl_rerun_disable_votable;
+	struct votable			*hw_aicl_rerun_enable_indirect_votable;
 };
 
 enum qpnp_schg {
@@ -375,6 +377,24 @@ enum battchg_enable_voters {
 	/* battery charging disabled while loading battery profiles */
 	BATTCHG_UNKNOWN_BATTERY_EN_VOTER,
 	NUM_BATTCHG_EN_VOTERS,
+};
+
+enum hw_aicl_rerun_enable_indirect_voters {
+	/* enabled via device tree */
+	DEFAULT_CONFIG_HW_AICL_VOTER,
+	/* Varb workaround voter */
+	VARB_WORKAROUND_VOTER,
+	/* SHUTDOWN workaround voter */
+	SHUTDOWN_WORKAROUND_VOTER,
+	NUM_HW_AICL_RERUN_ENABLE_INDIRECT_VOTERS,
+};
+
+enum hw_aicl_rerun_disable_voters {
+	/* the results from enabling clients */
+	HW_AICL_RERUN_ENABLE_INDIRECT_VOTER,
+	/* Weak charger voter */
+	WEAK_CHARGER_HW_AICL_VOTER,
+	NUM_HW_AICL_DISABLE_VOTERS,
 };
 
 static int smbchg_debug_mask;
@@ -3137,16 +3157,41 @@ static void smbchg_soc_changed(struct smbchg_chip *chip)
 #define AICL_RERUN_ON			(BIT(5) | BIT(4))
 #define AICL_RERUN_OFF			0
 
-static int smbchg_hw_aicl_rerun_en(struct smbchg_chip *chip, bool en)
+static int smbchg_hw_aicl_rerun_enable_indirect_cb(struct device *dev,
+						int enable,
+						int client, int last_enable,
+						int last_client)
 {
 	int rc = 0;
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
+
+	/*
+	 * If the indirect voting result of all the clients is to enable hw aicl
+	 * rerun, then remove our vote to disable hw aicl rerun
+	 */
+	rc = vote(chip->hw_aicl_rerun_disable_votable,
+		HW_AICL_RERUN_ENABLE_INDIRECT_VOTER, !enable, 0);
+	if (rc < 0) {
+		pr_err("Couldn't vote for hw rerun rc= %d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int smbchg_hw_aicl_rerun_disable_cb(struct device *dev, int disable,
+						int client, int last_disable,
+						int last_client)
+{
+	int rc = 0;
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
 
 	rc = smbchg_sec_masked_write(chip,
 		chip->misc_base + MISC_TRIM_OPT_15_8,
-		AICL_RERUN_MASK, en ? AICL_RERUN_ON : AICL_RERUN_OFF);
-	if (rc)
-		pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n",
-			rc);
+		AICL_RERUN_MASK, disable ? AICL_RERUN_OFF : AICL_RERUN_ON);
+	if (rc < 0)
+		pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n", rc);
+
 	return rc;
 }
 
@@ -3177,8 +3222,6 @@ static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 {
 	int rc;
 
-	if (chip->force_aicl_rerun)
-		return;
 	if (en && !chip->aicl_deglitch_short) {
 		/* set to short deglitch */
 		rc = smbchg_aicl_deglitch_config(chip, false);
@@ -3186,13 +3229,12 @@ static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 			pr_err("Couldn't config short deglitch rc=%d\n", rc);
 			return;
 		}
-		if (!chip->very_weak_charger) {
-			rc = smbchg_hw_aicl_rerun_en(chip, true);
-			if (rc) {
-				pr_err("Couldn't enable AICL rerun rc= %d\n",
-						rc);
-				return;
-			}
+		/* vote to enable hw aicl */
+		rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
+			VARB_WORKAROUND_VOTER, true, 0);
+		if (rc < 0) {
+			pr_err("Couldn't enable hw aicl rerun rc= %d\n", rc);
+			return;
 		}
 		pr_smb(PR_STATUS, "AICL deglitch set to short\n");
 	} else if (!en && chip->aicl_deglitch_short) {
@@ -3202,9 +3244,11 @@ static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 			pr_err("Couldn't config long deglitch rc=%d\n", rc);
 			return;
 		}
-		rc = smbchg_hw_aicl_rerun_en(chip, false);
+		/* vote to disable hw aicl */
+		rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
+			VARB_WORKAROUND_VOTER, false, 0);
 		if (rc < 0) {
-			pr_err("Couldn't disable AICL rerun rc= %d\n", rc);
+			pr_err("Couldn't disable hw aicl rerun rc=%d\n", rc);
 			return;
 		}
 		pr_smb(PR_STATUS, "AICL deglitch set to normal\n");
@@ -4390,12 +4434,6 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 
 	pr_smb(PR_STATUS, "triggered\n");
 	smbchg_aicl_deglitch_wa_check(chip);
-	if (chip->force_aicl_rerun && !chip->very_weak_charger) {
-		rc = smbchg_hw_aicl_rerun_en(chip, true);
-		if (rc)
-			pr_err("Error enabling AICL rerun rc= %d\n",
-				rc);
-	}
 	/* Clear the OV detected status set before */
 	if (chip->usb_ov_det)
 		chip->usb_ov_det = false;
@@ -4671,10 +4709,14 @@ static void increment_aicl_count(struct smbchg_chip *chip)
 			 * Disable AICL rerun since many interrupts were
 			 * triggered in a short time
 			 */
-			rc = smbchg_hw_aicl_rerun_en(chip, false);
-			if (rc)
-				pr_err("Couldn't disable AICL reruns rc=%d\n",
+			/* disable hw aicl */
+			rc = vote(chip->hw_aicl_rerun_disable_votable,
+				WEAK_CHARGER_HW_AICL_VOTER, true, 0);
+			if (rc < 0) {
+				pr_err("Couldn't disable hw aicl rerun rc=%d\n",
 					rc);
+				return;
+			}
 
 			/* Vote 100mA current limit */
 			rc = vote(chip->usb_icl_votable, WEAK_CHARGER_ICL_VOTER,
@@ -5877,7 +5919,6 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 	bool dc_present = is_dc_present(chip);
-	int rc;
 
 	pr_smb(PR_STATUS, "chip->dc_present = %d dc_present = %d\n",
 			chip->dc_present, dc_present);
@@ -5889,12 +5930,6 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 			power_supply_changed(&chip->dc_psy);
 		smbchg_charging_status_change(chip);
 		smbchg_aicl_deglitch_wa_check(chip);
-		if (chip->force_aicl_rerun && !dc_present) {
-			rc = smbchg_hw_aicl_rerun_en(chip, true);
-			if (rc)
-				pr_err("Error enabling AICL rerun rc= %d\n",
-					rc);
-		}
 		chip->vbat_above_headroom = false;
 	}
 
@@ -6004,13 +6039,19 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 			 */
 			rc = vote(chip->usb_suspend_votable,
 					WEAK_CHARGER_EN_VOTER, true, 0);
-			if (rc)
+			if (rc < 0)
 				pr_err("could not disable charger: %d", rc);
-		} else if ((chip->aicl_deglitch_short || chip->force_aicl_rerun)
-			&& aicl_level == chip->tables.usb_ilim_ma_table[0]) {
-			rc = smbchg_hw_aicl_rerun_en(chip, false);
-			if (rc)
-				pr_err("could not enable aicl reruns: %d", rc);
+		} else if (aicl_level == chip->tables.usb_ilim_ma_table[0]) {
+			/*
+			 * we are in a situation where the adapter is not able
+			 * to supply even 300mA. Disable hw aicl reruns else it
+			 * is only a matter of time when we get back here again
+			 */
+			rc = vote(chip->hw_aicl_rerun_disable_votable,
+				WEAK_CHARGER_HW_AICL_VOTER, true, 0);
+			if (rc < 0)
+				pr_err("Couldn't disable hw aicl rerun rc=%d\n",
+						rc);
 		}
 		pr_smb(PR_MISC, "setting usb psy health UNSPEC_FAILURE\n");
 		rc = power_supply_set_health_state(chip->usb_psy,
@@ -6064,6 +6105,15 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 	 * when the battery voltage is high.
 	 */
 	chip->very_weak_charger = false;
+	/*
+	 * a src detect marks a new insertion or a real removal,
+	 * vote for enable aicl hw reruns
+	 */
+	rc = vote(chip->hw_aicl_rerun_disable_votable,
+		WEAK_CHARGER_HW_AICL_VOTER, false, 0);
+	if (rc < 0)
+		pr_err("Couldn't enable hw aicl rerun rc=%d\n", rc);
+
 	rc = vote(chip->usb_suspend_votable, WEAK_CHARGER_EN_VOTER, false, 0);
 	if (rc < 0)
 		pr_err("could not enable charger: %d\n", rc);
@@ -6702,10 +6752,12 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	rc = smbchg_aicl_deglitch_config(chip, true);
 
 	if (chip->force_aicl_rerun) {
-		rc = smbchg_hw_aicl_rerun_en(chip, true);
+		/* vote to enable hw aicl */
+		rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
+			DEFAULT_CONFIG_HW_AICL_VOTER, true, 0);
 		if (rc < 0) {
-			dev_err(chip->dev, "Couldn't set hw aicl rerun rc = %d\n",
-					rc);
+			pr_err("Couldn't vote enable hw aicl rerun rc=%d\n",
+				rc);
 			return rc;
 		}
 	}
@@ -7552,6 +7604,20 @@ static int smbchg_probe(struct spmi_device *spmi)
 	if (IS_ERR(chip->battchg_suspend_votable))
 		return PTR_ERR(chip->battchg_suspend_votable);
 
+	chip->hw_aicl_rerun_disable_votable = create_votable(&spmi->dev,
+			"SMBCHG: hwaicl_disable",
+			VOTE_SET_ANY, NUM_HW_AICL_DISABLE_VOTERS, 0,
+			smbchg_hw_aicl_rerun_disable_cb);
+	if (IS_ERR(chip->hw_aicl_rerun_disable_votable))
+		return PTR_ERR(chip->hw_aicl_rerun_disable_votable);
+
+	chip->hw_aicl_rerun_enable_indirect_votable = create_votable(&spmi->dev,
+			"SMBCHG: hwaicl_enable_indirect",
+			VOTE_SET_ANY, NUM_HW_AICL_RERUN_ENABLE_INDIRECT_VOTERS,
+			0, smbchg_hw_aicl_rerun_enable_indirect_cb);
+	if (IS_ERR(chip->hw_aicl_rerun_enable_indirect_votable))
+		return PTR_ERR(chip->hw_aicl_rerun_enable_indirect_votable);
+
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
@@ -7764,6 +7830,16 @@ static void smbchg_shutdown(struct spmi_device *spmi)
 	disable_irq(chip->usbin_uv_irq);
 	disable_irq(chip->vbat_low_irq);
 	disable_irq(chip->wdog_timeout_irq);
+
+	/* vote to ensure AICL rerun is enabled */
+	rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
+			SHUTDOWN_WORKAROUND_VOTER, true, 0);
+	if (rc < 0)
+		pr_err("Couldn't vote to enable indirect AICL rerun\n");
+	rc = vote(chip->hw_aicl_rerun_disable_votable,
+		WEAK_CHARGER_HW_AICL_VOTER, false, 0);
+	if (rc < 0)
+		pr_err("Couldn't vote to enable AICL rerun\n");
 
 	/* switch to 5V HVDCP */
 	pr_smb(PR_MISC, "Switch to 5V HVDCP\n");
