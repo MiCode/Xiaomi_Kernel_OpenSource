@@ -471,7 +471,7 @@
 		compatible = "qcom,jpeg";
 		reg = <0xa1c000 0x4000>,
 			<0xa60000 0x3000>;
-		reg-names = "jpeg";
+		reg-names = "jpeg_hw", "jpeg_vbif";
 		interrupts = <0 316 0>;
 		interrupt-names = "jpeg";
 		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
@@ -497,6 +497,11 @@
 			<0x324 0x31>,
 			<0x330 0x31>,
 			<0x33c 0x0>;
+		qcom,msm-bus,name = "msm_camera_jpeg0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
 		status = "ok";
 	};
 
@@ -505,7 +510,7 @@
 		compatible = "qcom,jpeg";
 		reg = <0xa24000 0x4000>,
 			<0xa60000 0x3000>;
-		reg-names = "jpeg";
+		reg-names = "jpeg_hw", "jpeg_vbif";
 		interrupts = <0 318 0>;
 		interrupt-names = "jpeg";
 		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
@@ -531,6 +536,11 @@
 			<0x324 0x31>,
 			<0x330 0x31>,
 			<0x33c 0x31>;
+		qcom,msm-bus,name = "msm_camera_jpeg2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
 		status = "ok";
 	};
 
@@ -539,7 +549,7 @@
 		compatible = "qcom,jpeg_dma";
 		reg = <0xaa0000 0x4000>,
 			<0xa60000 0x3000>;
-		reg-names = "jpeg";
+		reg-names = "jpeg_hw", "jpeg_vbif";
 		interrupts = <0 304 0>;
 		interrupt-names = "jpeg";
 		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
@@ -563,6 +573,11 @@
 		qcom,prefetch-reg-settings = <0x18c 0x11>,
 			<0x1a0 0x31>,
 			<0x1b0 0x31>;
+		qcom,msm-bus,name = "msm_camera_jpeg_dma";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
 		status = "ok";
 	};
 
@@ -671,11 +686,18 @@
 			"smmu_cpp_axi_clk", "camss_ahb_clk",
 			"camss_cpp_axi_clk", "cpp_vbif_ahb_clk",
 			"smmu_cpp_ahb_clk";
-		clock-rates = <0 0 0 400000000 400000000>,
-			<400000000 80000000 0 0 0 0 0>;
-		qcom,bus-bandwidth-vectors = <13000000 13000000>,
-			<45000000 45000000>,
-			<90000000 90000000>;
+		qcom,clock-rates =
+			<0 0 0 400000000 400000000 0 0 0 0 0 0 0>,
+			<0 0 0 400000000 400000000 0 0 0 0 0 0 0>,
+			<0 0 0 200000000 200000000 0 0 0 0 0 0 0>,
+			<0 0 0 100000000 100000000 0 0 0 0 0 0 0>;
+		qcom,msm-bus,name = "msm_camera_fd";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <106 512 0 0>,
+			<106 512 13000 13000>,
+			<106 512 13000 13000>,
+			<106 512 13000 13000>;
 		qcom,fd-vbif-reg-settings = <0x20 0x10000000 0x30000000>,
 			<0x24 0x10000000 0x30000000>,
 			<0x28 0x10000000 0x30000000>,
