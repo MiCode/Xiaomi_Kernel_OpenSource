@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -233,10 +233,11 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	CDBG("%s: read id: 0x%x expected id 0x%x:\n", __func__, chipid,
-		slave_info->sensor_id);
+	pr_debug("%s: read id: 0x%x expected id 0x%x:\n",
+			__func__, chipid, slave_info->sensor_id);
 	if (msm_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
-		pr_err("msm_sensor_match_id chip id doesnot match\n");
+		pr_err("%s chip id %x does not match %x\n",
+				__func__, chipid, slave_info->sensor_id);
 		return -ENODEV;
 	}
 	return rc;
@@ -482,6 +483,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		struct msm_camera_i2c_read_config *read_config_ptr = NULL;
 		uint16_t local_data = 0;
 		uint16_t orig_slave_addr = 0, read_slave_addr = 0;
+		uint16_t orig_addr_type = 0, read_addr_type = 0;
 
 		if (s_ctrl->is_csid_tg_mode)
 			goto DONE;
@@ -497,6 +499,8 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 		read_slave_addr = read_config.slave_addr;
+		read_addr_type = read_config.addr_type;
+
 		CDBG("%s:CFG_SLAVE_READ_I2C:", __func__);
 		CDBG("%s:slave_addr=0x%x reg_addr=0x%x, data_type=%d\n",
 			__func__, read_config.slave_addr,
@@ -519,6 +523,10 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		CDBG("%s:orig_slave_addr=0x%x, new_slave_addr=0x%x",
 				__func__, orig_slave_addr,
 				read_slave_addr >> 1);
+
+		orig_addr_type = s_ctrl->sensor_i2c_client->addr_type;
+		s_ctrl->sensor_i2c_client->addr_type = read_addr_type;
+
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
 				s_ctrl->sensor_i2c_client,
 				read_config.reg_addr,
@@ -530,11 +538,124 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			s_ctrl->sensor_i2c_client->client->addr =
 				orig_slave_addr;
 		}
+		s_ctrl->sensor_i2c_client->addr_type = orig_addr_type;
+
+		pr_debug("slave_read %x %x %x\n", read_slave_addr,
+			read_config.reg_addr, local_data);
+
 		if (rc < 0) {
 			pr_err("%s:%d: i2c_read failed\n", __func__, __LINE__);
 			break;
 		}
 		read_config_ptr->data = local_data;
+		break;
+	}
+	case CFG_SLAVE_WRITE_I2C_ARRAY: {
+		struct msm_camera_i2c_array_write_config32 write_config32;
+		struct msm_camera_i2c_array_write_config write_config;
+		struct msm_camera_i2c_reg_array *reg_setting = NULL;
+		uint16_t orig_slave_addr = 0, write_slave_addr = 0;
+		uint16_t orig_addr_type = 0, write_addr_type = 0;
+
+		if (s_ctrl->is_csid_tg_mode)
+			goto DONE;
+
+		if (copy_from_user(&write_config32,
+				(void *)compat_ptr(cdata->cfg.setting),
+				sizeof(
+				struct msm_camera_i2c_array_write_config32))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		write_config.slave_addr = write_config32.slave_addr;
+		write_config.conf_array.addr_type =
+			write_config32.conf_array.addr_type;
+		write_config.conf_array.data_type =
+			write_config32.conf_array.data_type;
+		write_config.conf_array.delay =
+			write_config32.conf_array.delay;
+		write_config.conf_array.size =
+			write_config32.conf_array.size;
+		write_config.conf_array.reg_setting =
+			compat_ptr(write_config32.conf_array.reg_setting);
+
+		pr_debug("%s:CFG_SLAVE_WRITE_I2C_ARRAY:\n", __func__);
+		pr_debug("%s:slave_addr=0x%x, array_size=%d addr_type=%d data_type=%d\n",
+			__func__,
+			write_config.slave_addr,
+			write_config.conf_array.size,
+			write_config.conf_array.addr_type,
+			write_config.conf_array.data_type);
+
+		if (!write_config.conf_array.size ||
+			write_config.conf_array.size > I2C_REG_DATA_MAX) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		reg_setting = kzalloc(write_config.conf_array.size *
+			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
+		if (!reg_setting) {
+			rc = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(reg_setting,
+				(void *)(write_config.conf_array.reg_setting),
+				write_config.conf_array.size *
+				sizeof(struct msm_camera_i2c_reg_array))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			kfree(reg_setting);
+			rc = -EFAULT;
+			break;
+		}
+		write_config.conf_array.reg_setting = reg_setting;
+		write_slave_addr = write_config.slave_addr;
+		write_addr_type = write_config.conf_array.addr_type;
+
+		if (s_ctrl->sensor_i2c_client->cci_client) {
+			orig_slave_addr =
+				s_ctrl->sensor_i2c_client->cci_client->sid;
+			s_ctrl->sensor_i2c_client->cci_client->sid =
+				write_slave_addr >> 1;
+		} else if (s_ctrl->sensor_i2c_client->client) {
+			orig_slave_addr =
+				s_ctrl->sensor_i2c_client->client->addr;
+			s_ctrl->sensor_i2c_client->client->addr =
+				write_slave_addr >> 1;
+		} else {
+			pr_err("%s: error: no i2c/cci client found.",
+				__func__);
+			kfree(reg_setting);
+			rc = -EFAULT;
+			break;
+		}
+
+		pr_debug("%s:orig_slave_addr=0x%x, new_slave_addr=0x%x\n",
+				__func__, orig_slave_addr,
+				write_slave_addr >> 1);
+		orig_addr_type = s_ctrl->sensor_i2c_client->addr_type;
+		s_ctrl->sensor_i2c_client->addr_type = write_addr_type;
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(
+			s_ctrl->sensor_i2c_client, &(write_config.conf_array));
+
+		s_ctrl->sensor_i2c_client->addr_type = orig_addr_type;
+		if (s_ctrl->sensor_i2c_client->cci_client) {
+			s_ctrl->sensor_i2c_client->cci_client->sid =
+				orig_slave_addr;
+		} else if (s_ctrl->sensor_i2c_client->client) {
+			s_ctrl->sensor_i2c_client->client->addr =
+				orig_slave_addr;
+		} else {
+			pr_err("%s: error: no i2c/cci client found.\n",
+				__func__);
+			kfree(reg_setting);
+			rc = -EFAULT;
+			break;
+		}
+		kfree(reg_setting);
 		break;
 	}
 	case CFG_WRITE_I2C_SEQ_ARRAY: {
@@ -882,6 +1003,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		struct msm_camera_i2c_read_config *read_config_ptr = NULL;
 		uint16_t local_data = 0;
 		uint16_t orig_slave_addr = 0, read_slave_addr = 0;
+		uint16_t orig_addr_type = 0, read_addr_type = 0;
 
 		if (s_ctrl->is_csid_tg_mode)
 			goto DONE;
@@ -895,6 +1017,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 		}
 		read_slave_addr = read_config.slave_addr;
+		read_addr_type = read_config.addr_type;
 		CDBG("%s:CFG_SLAVE_READ_I2C:", __func__);
 		CDBG("%s:slave_addr=0x%x reg_addr=0x%x, data_type=%d\n",
 			__func__, read_config.slave_addr,
@@ -917,6 +1040,10 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		CDBG("%s:orig_slave_addr=0x%x, new_slave_addr=0x%x",
 				__func__, orig_slave_addr,
 				read_slave_addr >> 1);
+
+		orig_addr_type = s_ctrl->sensor_i2c_client->addr_type;
+		s_ctrl->sensor_i2c_client->addr_type = read_addr_type;
+
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
 				s_ctrl->sensor_i2c_client,
 				read_config.reg_addr,
@@ -928,6 +1055,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			s_ctrl->sensor_i2c_client->client->addr =
 				orig_slave_addr;
 		}
+		s_ctrl->sensor_i2c_client->addr_type = orig_addr_type;
+
 		if (rc < 0) {
 			pr_err("%s:%d: i2c_read failed\n", __func__, __LINE__);
 			break;
@@ -938,8 +1067,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 	case CFG_SLAVE_WRITE_I2C_ARRAY: {
 		struct msm_camera_i2c_array_write_config write_config;
 		struct msm_camera_i2c_reg_array *reg_setting = NULL;
-		uint16_t write_slave_addr = 0;
-		uint16_t orig_slave_addr = 0;
+		uint16_t orig_slave_addr = 0,  write_slave_addr = 0;
+		uint16_t orig_addr_type = 0, write_addr_type = 0;
 
 		if (s_ctrl->is_csid_tg_mode)
 			goto DONE;
@@ -981,6 +1110,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		}
 		write_config.conf_array.reg_setting = reg_setting;
 		write_slave_addr = write_config.slave_addr;
+		write_addr_type = write_config.conf_array.addr_type;
 		if (s_ctrl->sensor_i2c_client->cci_client) {
 			orig_slave_addr =
 				s_ctrl->sensor_i2c_client->cci_client->sid;
@@ -1000,8 +1130,11 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		CDBG("%s:orig_slave_addr=0x%x, new_slave_addr=0x%x",
 				__func__, orig_slave_addr,
 				write_slave_addr >> 1);
+		orig_addr_type = s_ctrl->sensor_i2c_client->addr_type;
+		s_ctrl->sensor_i2c_client->addr_type = write_addr_type;
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(
 			s_ctrl->sensor_i2c_client, &(write_config.conf_array));
+		s_ctrl->sensor_i2c_client->addr_type = orig_addr_type;
 		if (s_ctrl->sensor_i2c_client->cci_client) {
 			s_ctrl->sensor_i2c_client->cci_client->sid =
 				orig_slave_addr;
