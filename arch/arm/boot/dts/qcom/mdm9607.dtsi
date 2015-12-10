@@ -702,6 +702,10 @@
 
 			qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50",
 					"DDR50","SDR104";
+
+			qcom,pm-qos-irq-type = "affine_irq";
+			qcom,pm-qos-irq-latency = <2 250>;
+
 			status = "disabled";
 	};
 
@@ -1291,6 +1295,9 @@
 		clock-names = "iface_clk", "core_clk";
 
 		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 250>;
 
 		status = "disabled";
 	};
