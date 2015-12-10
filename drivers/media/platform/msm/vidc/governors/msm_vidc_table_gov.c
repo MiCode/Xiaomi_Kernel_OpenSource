@@ -34,7 +34,8 @@ int msm_vidc_table_get_target_freq(struct devfreq *dev, unsigned long *freq,
 	struct msm_vidc_gov_data *vidc_data = NULL;
 	struct msm_vidc_bus_table_gov *gov = NULL;
 	enum vidc_vote_data_session sess_type = 0;
-	u32 load = 0, i = 0, j = 0;
+	u32 load = 0, i = 0;
+	int j = 0;
 
 	if (!dev || !freq || !flag) {
 		dprintk(VIDC_ERR, "%s: Invalid params %p, %p, %p\n",
