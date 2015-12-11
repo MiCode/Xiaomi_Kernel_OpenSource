@@ -1978,11 +1978,10 @@
 			 <&clock_gcc clk_gcc_periph_noc_usb20_ahb_clk>,
 			 <&clock_gcc clk_gcc_usb20_mock_utmi_clk>,
 			 <&clock_gcc clk_gcc_usb20_sleep_clk>,
-			 <&clock_gcc clk_ln_bb_clk>,
 			 <&clock_gcc clk_cxo_dwc3_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>;
 		clock-names = "core_clk", "iface_clk", "utmi_clk", "sleep_clk",
-			      "ref_clk", "xo", "cfg_ahb_clk";
+				"xo", "cfg_ahb_clk";
 
 		dwc3@7600000 {
 			compatible = "snps,dwc3";
