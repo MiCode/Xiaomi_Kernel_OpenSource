@@ -1370,13 +1370,13 @@ static struct branch_clk gcc_emac_0_tx_clk = {
 	},
 };
 
-static struct branch_clk gcc_emac_0_rx_clk = {
-	.cbcr_reg = EMAC_0_RX_CBCR,
-	.has_sibling = 0,
+static struct gate_clk gcc_emac_0_rx_clk = {
+	.en_reg = EMAC_0_RX_CBCR,
+	.en_mask = BIT(0),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_emac_0_rx_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_gate,
 		CLK_INIT(gcc_emac_0_rx_clk.c),
 	},
 };
