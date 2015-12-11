@@ -138,6 +138,7 @@
 #define REG_IBB_PWRUP_PWRDN_CTL_1	0x58
 #define REG_IBB_PWRUP_PWRDN_CTL_2	0x59
 #define REG_IBB_SOFT_START_CTL		0x5F
+#define REG_IBB_SWIRE_CTL		0x5A
 #define REG_IBB_SPARE_CTL		0x60
 #define REG_IBB_NLIMIT_DAC		0x61
 
@@ -194,6 +195,14 @@
 /* REG_IBB_SPARE_CTL */
 #define IBB_BYPASS_PWRDN_DLY2_BIT	BIT(5)
 #define IBB_FAST_STARTUP		BIT(3)
+
+/* REG_IBB_SWIRE_CTL */
+#define IBB_OUTPUT_VOLTAGE_AT_ONE_PULSE_BITS	6
+#define IBB_OUTPUT_VOLTAGE_AT_ONE_PULSE_MASK \
+		((1 << IBB_OUTPUT_VOLTAGE_AT_ONE_PULSE_BITS) - 1)
+#define MAX_OUTPUT_PULSE_VOLTAGE_MV	7700
+#define MIN_OUTPUT_PULSE_VOLTAGE_MV	1400
+#define OUTPUT_VOLTAGE_STEP_MV		100
 
 /* REG_IBB_NLIMIT_DAC */
 #define IBB_NLIMIT_DAC_EN		0x0
@@ -2156,6 +2165,41 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	if (val < 1 && labibb->ttw_en) {
 		pr_err("TTW feature cannot be enabled for revision %d\n", val);
 		labibb->ttw_en = false;
+	}
+
+	if (of_find_property(of_node, "qcom,output-voltage-one-pulse", NULL)) {
+		if (!labibb->swire_control) {
+			pr_err("Invalid property 'qcom,output-voltage-one-pulse', valid only in SWIRE config\n");
+			return -EINVAL;
+		}
+		rc = of_property_read_u32(of_node,
+				"qcom,output-voltage-one-pulse", &tmp);
+		if (rc) {
+			pr_err("failed to read qcom,output-voltage-one-pulse rc=%d\n",
+									rc);
+			return rc;
+		}
+		if (tmp > MAX_OUTPUT_PULSE_VOLTAGE_MV ||
+					tmp < MIN_OUTPUT_PULSE_VOLTAGE_MV) {
+			pr_err("Invalid one-pulse voltage range %d\n", tmp);
+			return -EINVAL;
+		}
+
+		/*
+		 * Set the output voltage 100mV lower as the IBB HW module
+		 * counts one pulse less in SWIRE mode.
+		 */
+		val = DIV_ROUND_UP((tmp - MIN_OUTPUT_PULSE_VOLTAGE_MV),
+						OUTPUT_VOLTAGE_STEP_MV) - 1;
+		rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
+					REG_IBB_SWIRE_CTL,
+					IBB_OUTPUT_VOLTAGE_AT_ONE_PULSE_MASK,
+					val);
+		if (rc) {
+			pr_err("qpnp_labiibb_write register %x failed rc = %d\n",
+				REG_IBB_SWIRE_CTL, rc);
+			return rc;
+		}
 	}
 
 	rc = qpnp_labibb_read(labibb, &ibb_enable_ctl,
