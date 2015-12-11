@@ -202,6 +202,44 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 	return NOTIFY_OK;
 }
 
+void lpm_cluster_mode_disable(void)
+{
+	struct list_head *list;
+	int i;
+
+	 list_for_each(list, &lpm_root_node->child) {
+		struct lpm_cluster *n;
+
+		n = list_entry(list, typeof(*n), list);
+		if (!n)
+			return;
+		for (i = 0; i < n->nlevels; i++) {
+			struct lpm_level_avail *l = &n->levels[i].available;
+
+			l->idle_enabled = 0;
+		}
+	}
+}
+
+void lpm_cluster_mode_enable(void)
+{
+	struct list_head *list;
+	int i;
+
+	 list_for_each(list, &lpm_root_node->child) {
+		struct lpm_cluster *n;
+
+		n = list_entry(list, typeof(*n), list);
+		if (!n)
+			return;
+		for (i = 0; i < n->nlevels; i++) {
+			struct lpm_level_avail *l = &n->levels[i].available;
+
+			l->idle_enabled = 1;
+		}
+	}
+}
+
 static enum hrtimer_restart lpm_hrtimer_cb(struct hrtimer *h)
 {
 	return HRTIMER_NORESTART;
