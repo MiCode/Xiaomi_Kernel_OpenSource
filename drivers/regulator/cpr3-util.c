@@ -942,13 +942,15 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
-	ctrl->core_clk = devm_clk_get(ctrl->dev, "core_clk");
-	if (IS_ERR(ctrl->core_clk)) {
-		rc = PTR_ERR(ctrl->core_clk);
-		if (rc != -EPROBE_DEFER)
-			cpr3_err(ctrl, "unable request core clock, rc=%d\n",
+	if (of_find_property(ctrl->dev->of_node, "clock-names", NULL)) {
+		ctrl->core_clk = devm_clk_get(ctrl->dev, "core_clk");
+		if (IS_ERR(ctrl->core_clk)) {
+			rc = PTR_ERR(ctrl->core_clk);
+			if (rc != -EPROBE_DEFER)
+				cpr3_err(ctrl, "unable request core clock, rc=%d\n",
 				rc);
-		return rc;
+			return rc;
+		}
 	}
 
 	ctrl->system_regulator = devm_regulator_get_optional(ctrl->dev,

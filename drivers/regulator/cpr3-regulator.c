@@ -473,11 +473,13 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 	u64 temp;
 	char *mode;
 
-	rc = clk_set_rate(ctrl->core_clk, ctrl->cpr_clock_rate);
-	if (rc) {
-		cpr3_err(ctrl, "clk_set_rate(core_clk, %u) failed, rc=%d\n",
-			ctrl->cpr_clock_rate, rc);
-		return rc;
+	if (ctrl->core_clk) {
+		rc = clk_set_rate(ctrl->core_clk, ctrl->cpr_clock_rate);
+		if (rc) {
+			cpr3_err(ctrl, "clk_set_rate(core_clk, %u) failed, rc=%d\n",
+				ctrl->cpr_clock_rate, rc);
+			return rc;
+		}
 	}
 
 	rc = cpr3_clock_enable(ctrl);
@@ -4331,9 +4333,6 @@ static int cpr3_regulator_validate_controller(struct cpr3_controller *ctrl)
 
 	if (!ctrl->vdd_regulator) {
 		cpr3_err(ctrl, "vdd regulator missing\n");
-		return -EINVAL;
-	} else if (!ctrl->core_clk) {
-		cpr3_err(ctrl, "core clock missing\n");
 		return -EINVAL;
 	} else if (ctrl->sensor_count <= 0
 		   || ctrl->sensor_count > CPR3_MAX_SENSOR_COUNT) {
