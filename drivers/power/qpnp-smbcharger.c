@@ -268,6 +268,7 @@ struct smbchg_chip {
 	struct votable			*battchg_suspend_votable;
 	struct votable			*hw_aicl_rerun_disable_votable;
 	struct votable			*hw_aicl_rerun_enable_indirect_votable;
+	struct votable			*aicl_deglitch_short_votable;
 };
 
 enum qpnp_schg {
@@ -397,6 +398,13 @@ enum hw_aicl_rerun_disable_voters {
 	NUM_HW_AICL_DISABLE_VOTERS,
 };
 
+enum aicl_short_deglitch_voters {
+	/* Varb workaround voter */
+	VARB_WORKAROUND_SHORT_DEGLITCH_VOTER,
+	/* QC 2.0 */
+	HVDCP_SHORT_DEGLITCH_VOTER,
+	NUM_HW_SHORT_DEGLITCH_VOTERS,
+};
 static int smbchg_debug_mask;
 module_param_named(
 	debug_mask, smbchg_debug_mask, int, S_IRUSR | S_IWUSR
@@ -3195,14 +3203,17 @@ static int smbchg_hw_aicl_rerun_disable_cb(struct device *dev, int disable,
 	return rc;
 }
 
-static int smbchg_aicl_deglitch_config(struct smbchg_chip *chip, bool longer)
+static int smbchg_aicl_deglitch_config_cb(struct device *dev, int shorter,
+						int client, int last_result,
+						int last_client)
 {
 	int rc = 0;
+	struct smbchg_chip *chip = dev_get_drvdata(dev);
 
 	rc = smbchg_sec_masked_write(chip,
 		chip->usb_chgpth_base + USB_AICL_CFG,
 		USB_AICL_DEGLITCH_MASK,
-		longer ? USB_AICL_DEGLITCH_LONG : USB_AICL_DEGLITCH_SHORT);
+		shorter ? USB_AICL_DEGLITCH_SHORT : USB_AICL_DEGLITCH_LONG);
 	if (rc < 0) {
 		pr_err("Couldn't write to USB_AICL_CFG rc=%d\n", rc);
 		return rc;
@@ -3210,7 +3221,7 @@ static int smbchg_aicl_deglitch_config(struct smbchg_chip *chip, bool longer)
 	rc = smbchg_sec_masked_write(chip,
 		chip->dc_chgpth_base + DC_AICL_CFG,
 		DC_AICL_DEGLITCH_MASK,
-		longer ? DC_AICL_DEGLITCH_LONG : DC_AICL_DEGLITCH_SHORT);
+		shorter ? DC_AICL_DEGLITCH_SHORT : DC_AICL_DEGLITCH_LONG);
 	if (rc < 0) {
 		pr_err("Couldn't write to DC_AICL_CFG rc=%d\n", rc);
 		return rc;
@@ -3222,36 +3233,20 @@ static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 {
 	int rc;
 
-	if (en && !chip->aicl_deglitch_short) {
-		/* set to short deglitch */
-		rc = smbchg_aicl_deglitch_config(chip, false);
-		if (rc < 0) {
-			pr_err("Couldn't config short deglitch rc=%d\n", rc);
-			return;
-		}
-		/* vote to enable hw aicl */
-		rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
-			VARB_WORKAROUND_VOTER, true, 0);
-		if (rc < 0) {
-			pr_err("Couldn't enable hw aicl rerun rc= %d\n", rc);
-			return;
-		}
-		pr_smb(PR_STATUS, "AICL deglitch set to short\n");
-	} else if (!en && chip->aicl_deglitch_short) {
-		/* set to long deglitch */
-		rc = smbchg_aicl_deglitch_config(chip, true);
-		if (rc < 0) {
-			pr_err("Couldn't config long deglitch rc=%d\n", rc);
-			return;
-		}
-		/* vote to disable hw aicl */
-		rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
-			VARB_WORKAROUND_VOTER, false, 0);
-		if (rc < 0) {
-			pr_err("Couldn't disable hw aicl rerun rc=%d\n", rc);
-			return;
-		}
-		pr_smb(PR_STATUS, "AICL deglitch set to normal\n");
+	rc = vote(chip->aicl_deglitch_short_votable,
+		VARB_WORKAROUND_VOTER, en, 0);
+	if (rc < 0) {
+		pr_err("Couldn't vote %s deglitch rc=%d\n",
+				en ? "short" : "long", rc);
+		return;
+	}
+	pr_smb(PR_STATUS, "AICL deglitch set to %s\n", en ? "short" : "long");
+
+	rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
+			VARB_WORKAROUND_VOTER, en, 0);
+	if (rc < 0) {
+		pr_err("Couldn't vote hw aicl rerun rc= %d\n", rc);
+		return;
 	}
 	chip->aicl_deglitch_short = en;
 }
@@ -4470,6 +4465,8 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	vote(chip->usb_icl_votable, WEAK_CHARGER_ICL_VOTER, false, 0);
 	chip->usb_icl_delta = 0;
 	vote(chip->usb_icl_votable, SW_AICL_ICL_VOTER, false, 0);
+	vote(chip->aicl_deglitch_short_votable,
+		HVDCP_SHORT_DEGLITCH_VOTER, false, 0);
 	if (!chip->hvdcp_not_supported)
 		restore_from_hvdcp_detection(chip);
 }
@@ -5065,6 +5062,17 @@ static int smbchg_unprepare_for_pulsing(struct smbchg_chip *chip)
 	}
 
 out:
+	/*
+	 * There are many QC 2.0 chargers that collapse before the aicl deglitch
+	 * timer can mitigate. Hence set the aicl deglitch time to a shorter
+	 * period.
+	 */
+
+	rc = vote(chip->aicl_deglitch_short_votable,
+		HVDCP_SHORT_DEGLITCH_VOTER, true, 0);
+	if (rc < 0)
+		pr_err("Couldn't reduce aicl deglitch rc=%d\n", rc);
+
 	pr_smb(PR_MISC, "Retracting HVDCP vote for ICL\n");
 	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, false, 0);
 	if (rc < 0)
@@ -6748,9 +6756,6 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		return rc;
 	}
 
-	/* set to long aicl deglitch */
-	rc = smbchg_aicl_deglitch_config(chip, true);
-
 	if (chip->force_aicl_rerun) {
 		/* vote to enable hw aicl */
 		rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
@@ -7618,6 +7623,13 @@ static int smbchg_probe(struct spmi_device *spmi)
 	if (IS_ERR(chip->hw_aicl_rerun_enable_indirect_votable))
 		return PTR_ERR(chip->hw_aicl_rerun_enable_indirect_votable);
 
+	chip->aicl_deglitch_short_votable = create_votable(&spmi->dev,
+			"SMBCHG: hwaicl_short_deglitch",
+			VOTE_SET_ANY, NUM_HW_SHORT_DEGLITCH_VOTERS, 0,
+			smbchg_aicl_deglitch_config_cb);
+	if (IS_ERR(chip->aicl_deglitch_short_votable))
+		return PTR_ERR(chip->aicl_deglitch_short_votable);
+
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
@@ -7793,7 +7805,7 @@ static int smbchg_remove(struct spmi_device *spmi)
 static void smbchg_shutdown(struct spmi_device *spmi)
 {
 	struct smbchg_chip *chip = dev_get_drvdata(&spmi->dev);
-	int rc;
+	int i, rc;
 
 	if (!(chip->wa_flags & SMBCHG_RESTART_WA))
 		return;
@@ -7830,6 +7842,10 @@ static void smbchg_shutdown(struct spmi_device *spmi)
 	disable_irq(chip->usbin_uv_irq);
 	disable_irq(chip->vbat_low_irq);
 	disable_irq(chip->wdog_timeout_irq);
+
+	/* remove all votes for short deglitch */
+	for (i = 0; i < NUM_HW_SHORT_DEGLITCH_VOTERS; i++)
+		vote(chip->aicl_deglitch_short_votable, i, false, 0);
 
 	/* vote to ensure AICL rerun is enabled */
 	rc = vote(chip->hw_aicl_rerun_enable_indirect_votable,
