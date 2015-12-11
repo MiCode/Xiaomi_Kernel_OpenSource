@@ -370,6 +370,16 @@
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
 	};
 
+	qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		qcom,threshold-arr = <0x179880b0 0x179980b0
+		0x179a80b0 0x179b80b0 0x178880b0 0x178980b0
+		0x178a80b0 0x178b80b0>;
+		qcom,config-arr = <0x179880b8 0x179980b8
+		0x179a80b8 0x179b80b8 0x178880b8 0x178980b8
+		0x178a80b8 0x178b80b8>;
+	};
+
 	qcom,ipc-spinlock@1f40000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1f40000 0x8000>;
