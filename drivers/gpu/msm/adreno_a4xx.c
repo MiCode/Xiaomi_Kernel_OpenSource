@@ -2233,7 +2233,7 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.irq = &a4xx_irq,
 	.irq_trace = trace_kgsl_a4xx_irq_status,
 	.snapshot_data = &a4xx_snapshot_data,
-	.num_prio_levels = ADRENO_PRIORITY_MAX_RB_LEVELS,
+	.num_prio_levels = KGSL_PRIORITY_MAX_RB_LEVELS,
 	.vbif_xin_halt_ctrl0_mask = A4XX_VBIF_XIN_HALT_CTRL0_MASK,
 
 	.perfcounter_init = a4xx_perfcounter_init,
