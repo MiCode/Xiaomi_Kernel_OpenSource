@@ -12,6 +12,7 @@
  */
 
 #include "msmtitanium-pinctrl.dtsi"
+#include "msmtitanium-camera-sensor-mtp.dtsi"
 
 &soc {
 };
