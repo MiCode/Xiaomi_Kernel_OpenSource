@@ -650,7 +650,7 @@
 &spmi_bus {
 	qcom,pm8994@1 {
 		pwm@b100 {
-			qcom,lpg-dtest-line = <4>;
+			qcom,dtest-line = <4>;
 			qcom,dtest-output = <1>;
 			status = "okay";
 		};

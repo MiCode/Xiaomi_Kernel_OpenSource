@@ -33,14 +33,21 @@ Optional device bindings:
 - qcom,channel-owner:	A string value to supply owner information.
 - qcom,mode-select:	0 = PWM mode
 			1 = LPG mode
-- qcom,lpg-dtest-line:  indicates which DTEST line to be configured for LPG
-			output. Possible values are 1, 2, 3 and 4.
+- qcom,dtest-line:  	indicates which DTEST line to be configured for LPG
+			or PWM output. For LPG subtypes, possible values are 1,
+			2, 3 and 4. For PWM subtype, possibe values are 1 and 2.
 - qcom,dtest-output:	indicates the output configuration for DTEST line.
-			0 = Disabled
-			1 = LPG output low
-			2 = LPG output high
-			3,4,5 = DTEST line specific configuration
-			6,7 = Not used
+			For LPG subtypes, possible output values are:
+				0 = Disabled
+				1 = LPG output low
+				2 = LPG output high
+				3,4,5 = DTEST line specific configuration
+				6,7 = Not used
+			For PWM subtype, possible output values are:
+				0 = Disabled
+				1 = pwm_out for DTEST1 or reserved
+				2 = pwm_out for DTEST2 or reserved
+				3 = Not used
 If this binding is specified along with the required bindings of PWM/LPG then
 in addition to configure PWM/LPG the qpnp-pwm driver also enables the feature
 at the probe time. In the case where the binding is not specified the qpnp-pwm
@@ -181,7 +188,7 @@ Example:
 				qcom,ramp-index = <1>;
 				qcom,force-pwm-size = <9>;
 				qcom,period = <6000000>;
-				qcom,lpg-dtest-line = <3>;
+				qcom,dtest-line = <3>;
 				qcom,dtest-output = <1>;
 				status = "okay";
 
