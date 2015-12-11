@@ -341,7 +341,7 @@
 	qcom,smem@86000000 {
 		compatible = "qcom,smem";
 		reg = <0x86000000 0x200000>,
-			<0x17820010 0x4>,
+			<0x17911008 0x4>,
 			<0x778000 0x7000>,
 			<0x1fd4000 0x8>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1",
@@ -448,7 +448,7 @@
 	qcom,glink-smem-native-xprt-modem@86000000 {
 		compatible = "qcom,glink-smem-native-xprt";
 		reg = <0x86000000 0x200000>,
-			<0x17820010 0x4>;
+			<0x17911008 0x4>;
 		reg-names = "smem", "irq-reg-base";
 		qcom,irq-mask = <0x8000>;
 		interrupts = <0 452 1>;
@@ -458,7 +458,7 @@
 	qcom,glink-smem-native-xprt-adsp@86000000 {
 		compatible = "qcom,glink-smem-native-xprt";
 		reg = <0x86000000 0x200000>,
-			<0x17820010 0x4>;
+			<0x17911008 0x4>;
 		reg-names = "smem", "irq-reg-base";
 		qcom,irq-mask = <0x200>;
 		interrupts = <0 157 1>;
@@ -468,7 +468,7 @@
 	qcom,glink-smem-native-xprt-dsps@86000000 {
 		compatible = "qcom,glink-smem-native-xprt";
 		reg = <0x86000000 0x200000>,
-			<0x17820010 0x4>;
+			<0x17911008 0x4>;
 		reg-names = "smem", "irq-reg-base";
 		qcom,irq-mask = <0x8000000>;
 		interrupts = <0 179 1>;
@@ -478,7 +478,7 @@
 	qcom,glink-smem-native-xprt-rpm@778000 {
 		compatible = "qcom,glink-rpm-native-xprt";
 		reg = <0x778000 0x7000>,
-			<0x17820010 0x4>;
+			<0x17911008 0x4>;
 		reg-names = "msgram", "irq-reg-base";
 		qcom,irq-mask = <0x1>;
 		interrupts = <0 168 1>;
