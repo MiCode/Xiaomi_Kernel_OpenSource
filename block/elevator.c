@@ -538,7 +538,7 @@ void elv_bio_merged(struct request_queue *q, struct request *rq,
 #ifdef CONFIG_PM_RUNTIME
 static void blk_pm_requeue_request(struct request *rq)
 {
-	if (rq->q->dev && !(rq->cmd_flags & REQ_PM))
+	if (rq->q->dev && !(rq->cmd_flags & REQ_PM) && rq->q->nr_pending)
 		rq->q->nr_pending--;
 }
 
