@@ -1001,7 +1001,6 @@
 		#size-cells = <0>;
 		cell-index = <0>;
 		qcom,not-wakeup; /* Needed until MPM is fully configured. */
-		status = "disabled";
 	};
 
 	qcom,lpass@c200000 {
