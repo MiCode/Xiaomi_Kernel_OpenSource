@@ -64,7 +64,10 @@
 #define CPR3_CPR_STATUS_BUSY_MASK		BIT(0)
 #define CPR3_CPR_STATUS_AGING_MEASUREMENT_MASK	BIT(1)
 
-/* This register is not present on controllers that support HW closed-loop. */
+/*
+ * This register is not present on controllers that support HW closed-loop
+ * except CPR4 APSS controller.
+ */
 #define CPR3_REG_CPR_TIMER_AUTO_CONT		0xC
 
 #define CPR3_REG_CPR_STEP_QUOT			0x14
@@ -165,6 +168,20 @@
 #define CPR3_LAST_MEASUREMENT_SAW_ERROR		BIT(12)
 #define CPR3_LAST_MEASUREMENT_PD_BYPASS_MASK	GENMASK(23, 16)
 #define CPR3_LAST_MEASUREMENT_PD_BYPASS_SHIFT	16
+
+/* CPR4 controller specific registers and bit definitions */
+#define CPR4_REG_SAW_ERROR_STEP_LIMIT		0x7A4
+#define CPR4_SAW_ERROR_STEP_LIMIT_UP_MASK	GENMASK(4, 0)
+#define CPR4_SAW_ERROR_STEP_LIMIT_UP_SHIFT	0
+#define CPR4_SAW_ERROR_STEP_LIMIT_DN_MASK	GENMASK(9, 5)
+#define CPR4_SAW_ERROR_STEP_LIMIT_DN_SHIFT	5
+
+#define CPR4_REG_MARGIN_ADJ_CTL				0x7F8
+#define CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK	BIT(4)
+#define CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE	BIT(4)
+#define CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE	0
+#define CPR4_MARGIN_ADJ_CTL_PMIC_STEP_SIZE_MASK		GENMASK(16, 12)
+#define CPR4_MARGIN_ADJ_CTL_PMIC_STEP_SIZE_SHIFT	12
 
 /*
  * The amount of time to wait for the CPR controller to become idle when
@@ -459,6 +476,38 @@ static int cpr3_regulator_init_thread(struct cpr3_thread *thread)
 }
 
 /**
+ * cpr3_regulator_init_cpr4() - performs hardware initialization at the
+ *		controller and thread level required for CPR4 operation.
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * CPR interface/bus clocks must be enabled before calling this function.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
+{
+	u32 pmic_step_size = 1;
+
+	if (ctrl->saw_use_unit_mV)
+		pmic_step_size = ctrl->step_volt / 1000;
+	cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+				CPR4_MARGIN_ADJ_CTL_PMIC_STEP_SIZE_MASK,
+				(pmic_step_size
+				<< CPR4_MARGIN_ADJ_CTL_PMIC_STEP_SIZE_SHIFT));
+
+	cpr3_masked_write(ctrl, CPR4_REG_SAW_ERROR_STEP_LIMIT,
+				CPR4_SAW_ERROR_STEP_LIMIT_DN_MASK,
+				(ctrl->down_error_step_limit
+				<< CPR4_SAW_ERROR_STEP_LIMIT_DN_SHIFT));
+
+	cpr3_masked_write(ctrl, CPR4_REG_SAW_ERROR_STEP_LIMIT,
+				CPR4_SAW_ERROR_STEP_LIMIT_UP_MASK,
+				(ctrl->up_error_step_limit
+				<< CPR4_SAW_ERROR_STEP_LIMIT_UP_SHIFT));
+	return 0;
+}
+
+/**
  * cpr3_regulator_init_ctrl() - performs hardware initialization of CPR
  *		controller registers
  * @ctrl:		Pointer to the CPR3 controller
@@ -509,22 +558,27 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 	temp = (u64)ctrl->cpr_clock_rate * (u64)ctrl->loop_time;
 	do_div(temp, 1000000000);
 	cont_dly = temp;
-	if (ctrl->supports_hw_closed_loop)
+	if (ctrl->supports_hw_closed_loop
+		&& ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3)
 		cpr3_write(ctrl, CPR3_REG_CPR_TIMER_MID_CONT, cont_dly);
 	else
 		cpr3_write(ctrl, CPR3_REG_CPR_TIMER_AUTO_CONT, cont_dly);
 
-	temp = (u64)ctrl->cpr_clock_rate * (u64)ctrl->up_down_delay_time;
-	do_div(temp, 1000000000);
-	up_down_dly = temp;
-	if (ctrl->supports_hw_closed_loop)
-		cpr3_write(ctrl, CPR3_REG_CPR_TIMER_UP_DN_CONT, up_down_dly);
+	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
+		temp = (u64)ctrl->cpr_clock_rate *
+				(u64)ctrl->up_down_delay_time;
+		do_div(temp, 1000000000);
+		up_down_dly = temp;
+		if (ctrl->supports_hw_closed_loop)
+			cpr3_write(ctrl, CPR3_REG_CPR_TIMER_UP_DN_CONT,
+				up_down_dly);
+		cpr3_debug(ctrl, "up_down_dly=%u, up_down_delay_time=%u ns\n",
+			up_down_dly, ctrl->up_down_delay_time);
+	}
 
-	cpr3_debug(ctrl, "cpr_clock_rate=%u HZ, sensor_time=%u ns, loop_time=%u ns, up_down_delay_time=%u ns\n",
+	cpr3_debug(ctrl, "cpr_clock_rate=%u HZ, sensor_time=%u ns, loop_time=%u ns, gcnt=%u, cont_dly=%u\n",
 		ctrl->cpr_clock_rate, ctrl->sensor_time, ctrl->loop_time,
-		ctrl->up_down_delay_time);
-	cpr3_debug(ctrl, "gcnt=%u, cont_dly=%u, up_down_dly=%u\n",
-		gcnt, cont_dly, up_down_dly);
+		gcnt, cont_dly);
 
 	/* Configure CPR sensor operation */
 	val = (ctrl->idle_clocks << CPR3_CPR_CTL_IDLE_CLOCKS_SHIFT)
@@ -564,13 +618,21 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 	}
 
 	if (ctrl->supports_hw_closed_loop) {
-		cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
-			ctrl->use_hw_closed_loop
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+			cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+				CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
+				ctrl->use_hw_closed_loop
+				? CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE
+				: CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE);
+		} else if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
+			cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
+				ctrl->use_hw_closed_loop
 				? CPR3_HW_CLOSED_LOOP_ENABLE
 				: CPR3_HW_CLOSED_LOOP_DISABLE);
 
-		cpr3_debug(ctrl, "PD_THROTTLE=0x%08X\n",
-			ctrl->proc_clock_throttle);
+			cpr3_debug(ctrl, "PD_THROTTLE=0x%08X\n",
+				ctrl->proc_clock_throttle);
+		}
 	}
 
 	if (ctrl->use_hw_closed_loop) {
@@ -584,6 +646,15 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 		rc = msm_spm_avs_enable_irq(0, MSM_SPM_AVS_IRQ_MAX);
 		if (rc) {
 			cpr3_err(ctrl, "could not enable max IRQ, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+		rc = cpr3_regulator_init_cpr4(ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "CPR4-specific controller initialization failed, rc=%d\n",
+				rc);
 			return rc;
 		}
 	}
@@ -693,6 +764,15 @@ static void cpr3_update_vreg_closed_loop_volt(struct cpr3_regulator *vreg,
 			   corner->floor_volt);
 		return;
 	} else if (!ctrl->supports_hw_closed_loop) {
+		return;
+	} else if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPR3) {
+		corner->last_volt = vdd_volt;
+		cpr3_debug(vreg, "last_volt updated: last_volt[%d]=%d, ceiling_volt[%d]=%d, floor_volt[%d]=%d\n",
+			   vreg->last_closed_loop_corner, corner->last_volt,
+			   vreg->last_closed_loop_corner,
+			   corner->ceiling_volt,
+			   vreg->last_closed_loop_corner,
+			   corner->floor_volt);
 		return;
 	}
 
@@ -2069,9 +2149,16 @@ static int cpr3_regulator_measure_aging(struct cpr3_controller *ctrl,
 	cpr3_write(ctrl, CPR3_REG_SENSOR_OWNER(aging_sensor->sensor_id), 0);
 
 	/* Switch from HW to SW closed-loop if necessary */
-	if (ctrl->supports_hw_closed_loop)
-		cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
+	if (ctrl->supports_hw_closed_loop) {
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+			cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+				CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
+				CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE);
+		} else if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
+			cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
 				CPR3_HW_CLOSED_LOOP_DISABLE);
+		}
+	}
 
 	/* Configure the GCNT for RO0 and RO1 that are used for aging */
 	gcnt0_restore = cpr3_read(ctrl, CPR3_REG_GCNT(0));
@@ -2096,7 +2183,8 @@ static int cpr3_regulator_measure_aging(struct cpr3_controller *ctrl,
 	}
 
 	/* Set CPR loop delays to 0 us */
-	if (ctrl->supports_hw_closed_loop) {
+	if (ctrl->supports_hw_closed_loop
+		&& ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
 		cont_dly_restore = cpr3_read(ctrl, CPR3_REG_CPR_TIMER_MID_CONT);
 		up_down_dly_restore = cpr3_read(ctrl,
 						CPR3_REG_CPR_TIMER_UP_DN_CONT);
@@ -2212,7 +2300,8 @@ cleanup:
 	cpr3_write(ctrl, CPR3_REG_GCNT(0), gcnt0_restore);
 	cpr3_write(ctrl, CPR3_REG_GCNT(1), gcnt1_restore);
 
-	if (ctrl->supports_hw_closed_loop) {
+	if (ctrl->supports_hw_closed_loop
+		&& ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
 		cpr3_write(ctrl, CPR3_REG_CPR_TIMER_MID_CONT, cont_dly_restore);
 		cpr3_write(ctrl, CPR3_REG_CPR_TIMER_UP_DN_CONT,
 				up_down_dly_restore);
@@ -2237,11 +2326,20 @@ cleanup:
 	cpr3_write(ctrl, CPR3_REG_IRQ_CLEAR,
 			CPR3_IRQ_UP | CPR3_IRQ_DOWN | CPR3_IRQ_MID);
 
-	if (ctrl->supports_hw_closed_loop)
-		cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
-			ctrl->use_hw_closed_loop
+	if (ctrl->supports_hw_closed_loop) {
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+			cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+				CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
+				ctrl->use_hw_closed_loop
+				? CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE
+				: CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE);
+		} else if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
+			cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
+				ctrl->use_hw_closed_loop
 				? CPR3_HW_CLOSED_LOOP_ENABLE
 				: CPR3_HW_CLOSED_LOOP_DISABLE);
+		}
+	}
 
 	return rc;
 }
@@ -3133,13 +3231,16 @@ static irqreturn_t cpr3_ceiling_irq_handler(int irq, void *data)
 		goto done;
 	}
 
-	/*
-	 * Since the ceiling voltage has been reached, disable processor clock
-	 * throttling as well as CPR closed-loop operation.
-	 */
-	cpr3_write(ctrl, CPR3_REG_PD_THROTTLE, CPR3_PD_THROTTLE_DISABLE);
-	cpr3_ctrl_loop_disable(ctrl);
-	cpr3_debug(ctrl, "CPR closed-loop and throttling disabled\n");
+	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
+		/*
+		 * Since the ceiling voltage has been reached, disable processor
+		 * clock throttling as well as CPR closed-loop operation.
+		 */
+		cpr3_write(ctrl, CPR3_REG_PD_THROTTLE,
+				CPR3_PD_THROTTLE_DISABLE);
+		cpr3_ctrl_loop_disable(ctrl);
+		cpr3_debug(ctrl, "CPR closed-loop and throttling disabled\n");
+	}
 
 done:
 	rc = msm_spm_avs_clear_irq(0, MSM_SPM_AVS_IRQ_MAX);
@@ -3923,10 +4024,18 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 	if (ctrl->use_hw_closed_loop)
 		cpr3_write(ctrl, CPR3_REG_IRQ_EN, 0);
 
-	cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
-		ctrl->use_hw_closed_loop
+	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+		cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+			CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
+			ctrl->use_hw_closed_loop
+			? CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE
+			: CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE);
+	} else if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
+		cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
+			ctrl->use_hw_closed_loop
 			? CPR3_HW_CLOSED_LOOP_ENABLE
 			: CPR3_HW_CLOSED_LOOP_DISABLE);
+	}
 
 	/* Turn off CPR clocks if they were off before this function call. */
 	if (!cpr_enabled) {
