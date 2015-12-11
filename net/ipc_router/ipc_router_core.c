@@ -217,6 +217,40 @@ static void init_routing_table(void)
 }
 
 /**
+ * ipc_router_calc_checksum() - compute the checksum for extended HELLO message
+ * @msg:	Reference to the IPC Router HELLO message.
+ *
+ * Return: Computed checksum value, 0 if msg is NULL.
+ */
+static uint32_t ipc_router_calc_checksum(union rr_control_msg *msg)
+{
+	uint32_t checksum = 0;
+	int i, len;
+	uint16_t upper_nb;
+	uint16_t lower_nb;
+	void *hello;
+
+	if (!msg)
+		return checksum;
+	hello = msg;
+	len = sizeof(*msg);
+
+	for (i = 0; i < len/IPCR_WORD_SIZE; i++) {
+		lower_nb = (*((uint32_t *)hello)) & IPC_ROUTER_CHECKSUM_MASK;
+		upper_nb = ((*((uint32_t *)hello)) >> 16) &
+				IPC_ROUTER_CHECKSUM_MASK;
+		checksum = checksum + upper_nb + lower_nb;
+		hello = ((uint32_t *)hello) + 1;
+	}
+	while (checksum > 0xFFFF)
+		checksum = (checksum & IPC_ROUTER_CHECKSUM_MASK) +
+				((checksum >> 16) & IPC_ROUTER_CHECKSUM_MASK);
+
+	checksum = ~checksum & IPC_ROUTER_CHECKSUM_MASK;
+	return checksum;
+}
+
+/**
  * skb_copy_to_log_buf() - copies the required number bytes from the skb_queue
  * @skb_head:	skb_queue head that contains the data.
  * @pl_len:	length of payload need to be copied.
@@ -2379,8 +2413,37 @@ int ipc_router_set_conn(struct msm_ipc_port *port_ptr,
 	return 0;
 }
 
+/**
+ * do_version_negotiation() - perform a version negotiation and set the version
+ * @xprt_info:	Pointer to the IPC Router transport info structure.
+ * @msg:	Pointer to the IPC Router HELLO message.
+ *
+ * This function performs the version negotiation by verifying the computed
+ * checksum first. If the checksum matches with the magic number, it sets the
+ * negotiated IPC Router version in transport.
+ */
+static void do_version_negotiation(struct msm_ipc_router_xprt_info *xprt_info,
+				   union rr_control_msg *msg)
+{
+	uint32_t magic;
+	unsigned version;
+
+	if (!xprt_info)
+		return;
+	magic = ipc_router_calc_checksum(msg);
+	if (magic == IPC_ROUTER_HELLO_MAGIC) {
+		version = fls(msg->hello.versions & IPC_ROUTER_VER_BITMASK) - 1;
+		/*Bit 0 & 31 are reserved for future usage*/
+		if ((version > 0) &&
+		    (version != (sizeof(version) * BITS_PER_BYTE - 1)) &&
+			xprt_info->xprt->set_version)
+			xprt_info->xprt->set_version(xprt_info->xprt, version);
+	}
+}
+
 static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
-			     struct rr_header_v1 *hdr)
+				union rr_control_msg *msg,
+				struct rr_header_v1 *hdr)
 {
 	int i, rc = 0;
 	union rr_control_msg ctl;
@@ -2397,9 +2460,13 @@ static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	}
 	kref_put(&rt_entry->ref, ipc_router_release_rtentry);
 
+	do_version_negotiation(xprt_info, msg);
 	/* Send a reply HELLO message */
 	memset(&ctl, 0, sizeof(ctl));
 	ctl.hello.cmd = IPC_ROUTER_CTRL_CMD_HELLO;
+	ctl.hello.checksum = IPC_ROUTER_HELLO_MAGIC;
+	ctl.hello.versions = (uint32_t)IPC_ROUTER_VER_BITMASK;
+	ctl.hello.checksum = ipc_router_calc_checksum(&ctl);
 	rc = ipc_router_send_ctl_msg(xprt_info, &ctl,
 				     IPC_ROUTER_DUMMY_DEST_NODE);
 	if (rc < 0) {
@@ -2599,7 +2666,7 @@ static int process_control_msg(struct msm_ipc_router_xprt_info *xprt_info,
 
 	switch (msg->cmd) {
 	case IPC_ROUTER_CTRL_CMD_HELLO:
-		rc = process_hello_msg(xprt_info, hdr);
+		rc = process_hello_msg(xprt_info, msg, hdr);
 		break;
 	case IPC_ROUTER_CTRL_CMD_RESUME_TX:
 		rc = process_resume_tx_msg(msg, pkt);
