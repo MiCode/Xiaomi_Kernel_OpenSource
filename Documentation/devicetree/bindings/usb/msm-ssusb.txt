@@ -35,10 +35,6 @@ Optional properties :
 - qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
 		TX fifo allocation in bytes
 - qcom,usb-dbm : phandle for the DBM device
-- qcom,power-collapse-on-cable-disconnect: If present, USB core will perform
-	power collapse when cable is disconencted.
-- qcom,por-after-power-collapse: If present, a partial POR sequence will be performed
-  when recovering from power collapse.
 - qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
   after USB is kept into LPM.
 - qcom,vbus-present: Indicates that there is no VBUS indication from PMIC. Assume VBUS is
