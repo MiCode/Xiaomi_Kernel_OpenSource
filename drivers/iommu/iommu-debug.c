@@ -926,6 +926,517 @@ static const struct file_operations iommu_debug_profiling_fast_dma_api_fops = {
 	.release = single_release,
 };
 
+static int __tlb_stress_sweep(struct device *dev, struct seq_file *s)
+{
+	int i, ret = 0;
+	unsigned long iova;
+	const unsigned long max = SZ_1G * 4UL;
+	void *virt;
+	phys_addr_t phys;
+	dma_addr_t dma_addr;
+
+	/*
+	 * we'll be doing 4K and 8K mappings.  Need to own an entire 8K
+	 * chunk that we can work with.
+	 */
+	virt = (void *)__get_free_pages(GFP_KERNEL, get_order(SZ_8K));
+	phys = virt_to_phys(virt);
+
+	/* fill the whole 4GB space */
+	for (iova = 0, i = 0; iova < max; iova += SZ_8K, ++i) {
+		dma_addr = dma_map_single(dev, virt, SZ_8K, DMA_TO_DEVICE);
+		if (dma_addr == DMA_ERROR_CODE) {
+			dev_err(dev, "Failed map on iter %d\n", i);
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	if (dma_map_single(dev, virt, SZ_4K, DMA_TO_DEVICE) != DMA_ERROR_CODE) {
+		dev_err(dev,
+			"dma_map_single unexpectedly (VA should have been exhausted)\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/*
+	 * free up 4K at the very beginning, then leave one 4K mapping,
+	 * then free up 8K.  This will result in the next 8K map to skip
+	 * over the 4K hole and take the 8K one.
+	 */
+	dma_unmap_single(dev, 0, SZ_4K, DMA_TO_DEVICE);
+	dma_unmap_single(dev, SZ_8K, SZ_4K, DMA_TO_DEVICE);
+	dma_unmap_single(dev, SZ_8K + SZ_4K, SZ_4K, DMA_TO_DEVICE);
+
+	/* remap 8K */
+	dma_addr = dma_map_single(dev, virt, SZ_8K, DMA_TO_DEVICE);
+	if (dma_addr != SZ_8K) {
+		dma_addr_t expected = SZ_8K;
+
+		dev_err(dev, "Unexpected dma_addr. got: %pa expected: %pa\n",
+			&dma_addr, &expected);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/*
+	 * now remap 4K.  We should get the first 4K chunk that was skipped
+	 * over during the previous 8K map.  If we missed a TLB invalidate
+	 * at that point this should explode.
+	 */
+	dma_addr = dma_map_single(dev, virt, SZ_4K, DMA_TO_DEVICE);
+	if (dma_addr != 0) {
+		dma_addr_t expected = 0;
+
+		dev_err(dev, "Unexpected dma_addr. got: %pa expected: %pa\n",
+			&dma_addr, &expected);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (dma_map_single(dev, virt, SZ_4K, DMA_TO_DEVICE) != DMA_ERROR_CODE) {
+		dev_err(dev,
+			"dma_map_single unexpectedly after remaps (VA should have been exhausted)\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* we're all full again. unmap everything. */
+	for (dma_addr = 0; dma_addr < max; dma_addr += SZ_8K)
+		dma_unmap_single(dev, dma_addr, SZ_8K, DMA_TO_DEVICE);
+
+out:
+	free_pages((unsigned long)virt, get_order(SZ_8K));
+	return ret;
+}
+
+struct fib_state {
+	unsigned long cur;
+	unsigned long prev;
+};
+
+static void fib_init(struct fib_state *f)
+{
+	f->cur = f->prev = 1;
+}
+
+static unsigned long get_next_fib(struct fib_state *f)
+{
+	int next = f->cur + f->prev;
+
+	f->prev = f->cur;
+	f->cur = next;
+	return next;
+}
+
+/*
+ * Not actually random.  Just testing the fibs (and max - the fibs).
+ */
+static int __rand_va_sweep(struct device *dev, struct seq_file *s,
+			   const size_t size)
+{
+	u64 iova;
+	const unsigned long max = SZ_1G * 4UL;
+	int i, remapped, unmapped, ret = 0;
+	void *virt;
+	dma_addr_t dma_addr, dma_addr2;
+	struct fib_state fib;
+
+	virt = (void *)__get_free_pages(GFP_KERNEL, get_order(size));
+	if (!virt) {
+		if (size > SZ_8K) {
+			dev_err(dev,
+				"Failed to allocate %s of memory, which is a lot. Skipping test for this size\n",
+				_size_to_string(size));
+			return 0;
+		}
+		return -ENOMEM;
+	}
+
+	/* fill the whole 4GB space */
+	for (iova = 0, i = 0; iova < max; iova += size, ++i) {
+		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
+		if (dma_addr == DMA_ERROR_CODE) {
+			dev_err(dev, "Failed map on iter %d\n", i);
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	/* now unmap "random" iovas */
+	unmapped = 0;
+	fib_init(&fib);
+	for (iova = get_next_fib(&fib) * size;
+	     iova < max - size;
+	     iova = get_next_fib(&fib) * size) {
+		dma_addr = iova;
+		dma_addr2 = max - size - iova;
+		if (dma_addr == dma_addr2) {
+			WARN(1,
+			"%s test needs update! The random number sequence is folding in on itself and should be changed.\n",
+			__func__);
+			return -EINVAL;
+		}
+		dma_unmap_single(dev, dma_addr, size, DMA_TO_DEVICE);
+		dma_unmap_single(dev, dma_addr2, size, DMA_TO_DEVICE);
+		unmapped += 2;
+	}
+
+	/* and map until everything fills back up */
+	for (remapped = 0; ; ++remapped) {
+		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
+		if (dma_addr == DMA_ERROR_CODE)
+			break;
+	}
+
+	if (unmapped != remapped) {
+		dev_err(dev,
+			"Unexpected random remap count! Unmapped %d but remapped %d\n",
+			unmapped, remapped);
+		ret = -EINVAL;
+	}
+
+	for (dma_addr = 0; dma_addr < max; dma_addr += size)
+		dma_unmap_single(dev, dma_addr, size, DMA_TO_DEVICE);
+
+out:
+	free_pages((unsigned long)virt, get_order(size));
+	return ret;
+}
+
+static int __check_mapping(struct device *dev, struct iommu_domain *domain,
+			   dma_addr_t iova, phys_addr_t expected)
+{
+	phys_addr_t res = iommu_iova_to_phys_hard(domain, iova);
+	phys_addr_t res2 = iommu_iova_to_phys(domain, iova);
+
+	BUG_ON(res != res2);
+
+	if (res != expected) {
+		dev_err_ratelimited(dev,
+				    "Bad translation for %pa! Expected: %pa Got: %pa\n",
+				    &iova, &expected, &res);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int __full_va_sweep(struct device *dev, struct seq_file *s,
+			   const size_t size, struct iommu_domain *domain)
+{
+	unsigned long iova;
+	dma_addr_t dma_addr;
+	void *virt;
+	phys_addr_t phys;
+	int ret = 0, i;
+
+	virt = (void *)__get_free_pages(GFP_KERNEL, get_order(size));
+	if (!virt) {
+		if (size > SZ_8K) {
+			dev_err(dev,
+				"Failed to allocate %s of memory, which is a lot. Skipping test for this size\n",
+				_size_to_string(size));
+			return 0;
+		}
+		return -ENOMEM;
+	}
+	phys = virt_to_phys(virt);
+
+	for (iova = 0, i = 0; iova < SZ_1G * 4UL; iova += size, ++i) {
+		unsigned long expected = iova;
+
+		dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
+		if (dma_addr != expected) {
+			dev_err_ratelimited(dev,
+					    "Unexpected iova on iter %d (expected: 0x%lx got: 0x%lx)\n",
+					    i, expected,
+					    (unsigned long)dma_addr);
+			ret = -EINVAL;
+			goto out;
+		}
+	}
+
+	if (domain) {
+		/* check every mapping from 0..6M */
+		for (iova = 0, i = 0; iova < SZ_2M * 3; iova += size, ++i) {
+			phys_addr_t expected = phys;
+
+			if (__check_mapping(dev, domain, iova, expected)) {
+				dev_err(dev, "iter: %d\n", i);
+				ret = -EINVAL;
+				goto out;
+			}
+		}
+		/* and from 4G..4G-6M */
+		for (iova = 0, i = 0; iova < SZ_2M * 3; iova += size, ++i) {
+			phys_addr_t expected = phys;
+			unsigned long theiova = ((SZ_1G * 4ULL) - size) - iova;
+
+			if (__check_mapping(dev, domain, theiova, expected)) {
+				dev_err(dev, "iter: %d\n", i);
+				ret = -EINVAL;
+				goto out;
+			}
+		}
+	}
+
+	/* at this point, our VA space should be full */
+	dma_addr = dma_map_single(dev, virt, size, DMA_TO_DEVICE);
+	if (dma_addr != DMA_ERROR_CODE) {
+		dev_err_ratelimited(dev,
+				    "dma_map_single succeeded when it should have failed. Got iova: 0x%lx\n",
+				    (unsigned long)dma_addr);
+		ret = -EINVAL;
+	}
+
+out:
+	for (dma_addr = 0; dma_addr < SZ_1G * 4UL; dma_addr += size)
+		dma_unmap_single(dev, dma_addr, size, DMA_TO_DEVICE);
+
+	free_pages((unsigned long)virt, get_order(size));
+	return ret;
+}
+
+#define ds_printf(d, s, fmt, ...) ({				\
+			dev_err(d, fmt, ##__VA_ARGS__);		\
+			seq_printf(s, fmt, ##__VA_ARGS__);	\
+		})
+
+static int __functional_dma_api_va_test(struct device *dev, struct seq_file *s,
+				     struct iommu_domain *domain, void *priv)
+{
+	int i, j, ret = 0;
+	size_t *sz, *sizes = priv;
+
+	for (j = 0; j < 1; ++j) {
+		for (sz = sizes; *sz; ++sz) {
+			for (i = 0; i < 2; ++i) {
+				ds_printf(dev, s, "Full VA sweep @%s %d",
+					       _size_to_string(*sz), i);
+				if (__full_va_sweep(dev, s, *sz, domain)) {
+					ds_printf(dev, s, "  -> FAILED\n");
+					ret = -EINVAL;
+				} else {
+					ds_printf(dev, s, "  -> SUCCEEDED\n");
+				}
+			}
+		}
+	}
+
+	ds_printf(dev, s, "bonus map:");
+	if (__full_va_sweep(dev, s, SZ_4K, domain)) {
+		ds_printf(dev, s, "  -> FAILED\n");
+		ret = -EINVAL;
+	} else {
+		ds_printf(dev, s, "  -> SUCCEEDED\n");
+	}
+
+	for (sz = sizes; *sz; ++sz) {
+		for (i = 0; i < 2; ++i) {
+			ds_printf(dev, s, "Rand VA sweep @%s %d",
+				   _size_to_string(*sz), i);
+			if (__rand_va_sweep(dev, s, *sz)) {
+				ds_printf(dev, s, "  -> FAILED\n");
+				ret = -EINVAL;
+			} else {
+				ds_printf(dev, s, "  -> SUCCEEDED\n");
+			}
+		}
+	}
+
+	ds_printf(dev, s, "TLB stress sweep");
+	if (__tlb_stress_sweep(dev, s)) {
+		ds_printf(dev, s, "  -> FAILED\n");
+		ret = -EINVAL;
+	} else {
+		ds_printf(dev, s, "  -> SUCCEEDED\n");
+	}
+
+	ds_printf(dev, s, "second bonus map:");
+	if (__full_va_sweep(dev, s, SZ_4K, domain)) {
+		ds_printf(dev, s, "  -> FAILED\n");
+		ret = -EINVAL;
+	} else {
+		ds_printf(dev, s, "  -> SUCCEEDED\n");
+	}
+
+	return ret;
+}
+
+static int __functional_dma_api_alloc_test(struct device *dev,
+					   struct seq_file *s,
+					   struct iommu_domain *domain,
+					   void *ignored)
+{
+	size_t size = SZ_1K * 742;
+	int ret = 0;
+	u8 *data;
+	dma_addr_t iova;
+
+	/* Make sure we can allocate and use a buffer */
+	ds_printf(dev, s, "Allocating coherent buffer");
+	data = dma_alloc_coherent(dev, size, &iova, GFP_KERNEL);
+	if (!data) {
+		ds_printf(dev, s, "  -> FAILED\n");
+		ret = -EINVAL;
+	} else {
+		int i;
+
+		ds_printf(dev, s, "  -> SUCCEEDED\n");
+		ds_printf(dev, s, "Using coherent buffer");
+		for (i = 0; i < 742; ++i) {
+			int ind = SZ_1K * i;
+			u8 *p = data + ind;
+			u8 val = i % 255;
+
+			memset(data, 0xa5, size);
+			*p = val;
+			(*p)++;
+			if ((*p) != val + 1) {
+				ds_printf(dev, s,
+					  "  -> FAILED on iter %d since %d != %d\n",
+					  i, *p, val + 1);
+				ret = -EINVAL;
+			}
+		}
+		if (!ret)
+			ds_printf(dev, s, "  -> SUCCEEDED\n");
+		dma_free_coherent(dev, size, data, iova);
+	}
+
+	return ret;
+}
+
+static int __functional_dma_api_basic_test(struct device *dev,
+					   struct seq_file *s,
+					   struct iommu_domain *domain,
+					   void *ignored)
+{
+	size_t size = 1518;
+	int i, j, ret = 0;
+	u8 *data;
+	dma_addr_t iova;
+	phys_addr_t pa, pa2;
+
+	ds_printf(dev, s, "Basic DMA API test");
+	/* Make sure we can allocate and use a buffer */
+	for (i = 0; i < 1000; ++i) {
+		data = kmalloc(size, GFP_KERNEL);
+		if (!data) {
+			ds_printf(dev, s, "  -> FAILED\n");
+			ret = -EINVAL;
+			goto out;
+		}
+		memset(data, 0xa5, size);
+		iova = dma_map_single(dev, data, size, DMA_TO_DEVICE);
+		pa = iommu_iova_to_phys(domain, iova);
+		pa2 = iommu_iova_to_phys_hard(domain, iova);
+		if (pa != pa2) {
+			dev_err(dev,
+				"iova_to_phys doesn't match iova_to_phys_hard: %pa != %pa\n",
+				&pa, &pa2);
+			ret = -EINVAL;
+			goto out;
+		}
+		pa2 = virt_to_phys(data);
+		if (pa != pa2) {
+			dev_err(dev,
+				"iova_to_phys doesn't match virt_to_phys: %pa != %pa\n",
+				&pa, &pa2);
+			ret = -EINVAL;
+			goto out;
+		}
+		dma_unmap_single(dev, iova, size, DMA_TO_DEVICE);
+		for (j = 0; j < size; ++j) {
+			if (data[j] != 0xa5) {
+				dev_err(dev, "data[%d] != 0xa5\n", data[j]);
+				ret = -EINVAL;
+				goto out;
+			}
+		}
+		kfree(data);
+	}
+
+out:
+	if (ret)
+		ds_printf(dev, s, "  -> FAILED\n");
+	else
+		ds_printf(dev, s, "  -> SUCCEEDED\n");
+
+	return ret;
+}
+
+/* Creates a fresh fast mapping and applies @fn to it */
+static int __apply_to_new_mapping(struct seq_file *s,
+				    int (*fn)(struct device *dev,
+					      struct seq_file *s,
+					      struct iommu_domain *domain,
+					      void *priv),
+				    void *priv)
+{
+	struct dma_iommu_mapping *mapping;
+	struct iommu_debug_device *ddev = s->private;
+	struct device *dev = ddev->dev;
+	int ret, fast = 1;
+	phys_addr_t pt_phys;
+
+	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4ULL);
+	if (!mapping)
+		goto out;
+
+	if (iommu_domain_set_attr(mapping->domain, DOMAIN_ATTR_FAST, &fast)) {
+		seq_puts(s, "iommu_domain_set_attr failed\n");
+		goto out_release_mapping;
+	}
+
+	if (arm_iommu_attach_device(dev, mapping))
+		goto out_release_mapping;
+
+	BUG_ON(iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_PT_BASE_ADDR,
+				     &pt_phys));
+	dev_err(dev, "testing with pgtables at %pa\n", &pt_phys);
+	if (iommu_enable_config_clocks(mapping->domain)) {
+		ds_printf(dev, s, "Couldn't enable clocks");
+		goto out_release_mapping;
+	}
+	ret = fn(dev, s, mapping->domain, priv);
+	iommu_disable_config_clocks(mapping->domain);
+
+	arm_iommu_detach_device(dev);
+out_release_mapping:
+	arm_iommu_release_mapping(mapping);
+out:
+	seq_printf(s, "%s\n", ret ? "FAIL" : "SUCCESS");
+	return 0;
+}
+
+static int iommu_debug_functional_fast_dma_api_show(struct seq_file *s,
+						    void *ignored)
+{
+	size_t sizes[] = {SZ_4K, SZ_8K, SZ_16K, SZ_64K, 0};
+	int ret = 0;
+
+	ret |= __apply_to_new_mapping(s, __functional_dma_api_alloc_test, NULL);
+	ret |= __apply_to_new_mapping(s, __functional_dma_api_basic_test, NULL);
+	ret |= __apply_to_new_mapping(s, __functional_dma_api_va_test, sizes);
+	return ret;
+}
+
+static int iommu_debug_functional_fast_dma_api_open(struct inode *inode,
+						    struct file *file)
+{
+	return single_open(file, iommu_debug_functional_fast_dma_api_show,
+			   inode->i_private);
+}
+
+static const struct file_operations iommu_debug_functional_fast_dma_api_fops = {
+	.open	 = iommu_debug_functional_fast_dma_api_open,
+	.read	 = seq_read,
+	.llseek	 = seq_lseek,
+	.release = single_release,
+};
+
 static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 					int val, bool is_secure)
 {
@@ -1328,6 +1839,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 	if (!debugfs_create_file("profiling_fast_dma_api", S_IRUSR, dir, ddev,
 				 &iommu_debug_profiling_fast_dma_api_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/profiling_fast_dma_api debugfs file\n",
+		       name);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("functional_fast_dma_api", S_IRUSR, dir, ddev,
+				 &iommu_debug_functional_fast_dma_api_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/functional_fast_dma_api debugfs file\n",
 		       name);
 		goto err_rmdir;
 	}
