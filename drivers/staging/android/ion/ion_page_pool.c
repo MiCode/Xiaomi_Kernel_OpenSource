@@ -107,6 +107,26 @@ void *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 	return page;
 }
 
+/*
+ * Tries to allocate from only the specified Pool and returns NULL otherwise
+ */
+void *ion_page_pool_alloc_pool_only(struct ion_page_pool *pool)
+{
+	struct page *page = NULL;
+
+	BUG_ON(!pool);
+
+	if (mutex_trylock(&pool->mutex)) {
+		if (pool->high_count)
+			page = ion_page_pool_remove(pool, true);
+		else if (pool->low_count)
+			page = ion_page_pool_remove(pool, false);
+		mutex_unlock(&pool->mutex);
+	}
+
+	return page;
+}
+
 void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)
 {
 	int ret;
