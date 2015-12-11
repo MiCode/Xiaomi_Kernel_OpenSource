@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,9 +161,14 @@ do { \
 #define QPNP_LO_INDEX_MASK			0x3F
 
 /* LPG DTEST */
-#define QPNP_LPG_DTEST_LINE_MAX		4
+#define QPNP_LPG_DTEST_LINE_MAX			4
 #define QPNP_LPG_DTEST_OUTPUT_MAX		5
-#define QPNP_DTEST_OUTPUT_MASK			0x07
+#define QPNP_LPG_DTEST_OUTPUT_MASK		0x07
+
+/* PWM DTEST */
+#define QPNP_PWM_DTEST_LINE_MAX			2
+#define QPNP_PWM_DTEST_OUTPUT_MAX		2
+#define QPNP_PWM_DTEST_OUTPUT_MASK		0x03
 
 #define NUM_CLOCKS				3
 #define QPNP_PWM_M_MAX				7
@@ -197,6 +202,13 @@ do { \
 #define QPNP_PWM_SIZE_6_9_BIT		0x9
 #define QPNP_PWM_SIZE_7_8_BIT		0x6
 #define QPNP_PWM_SIZE_6_7_9_BIT		0xB
+
+/*
+ * Registers that don't need to be cached are defined below from an offset
+ * of SPMI_LPG_REG_BASE_OFFSET.
+ */
+#define QPNP_LPG_SEC_ACCESS		0x90
+#define QPNP_LPG_DTEST			0xA2
 
 /* Supported time levels */
 enum time_level {
@@ -240,8 +252,6 @@ enum qpnp_lpg_registers_list {
 	QPNP_PAUSE_LO_MULTIPLIER_MSB,
 	QPNP_HI_INDEX,
 	QPNP_LO_INDEX,
-	QPNP_LPG_SEC_ACCESS = QPNP_LO_INDEX + 121,
-	QPNP_LPG_DTEST = QPNP_LO_INDEX + 139,
 	QPNP_TOTAL_LPG_SPMI_REGISTERS
 };
 
@@ -993,21 +1003,9 @@ static int qpnp_dtest_config(struct qpnp_pwm_chip *chip, bool enable)
 {
 	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
 	u8			value;
+	u8			mask;
 	u16			addr;
 	int			rc = 0;
-
-	if (!chip->dtest_output) {
-		pr_err("DTEST output not configured for channel %d\n",
-			chip->channel_id);
-		return -EPERM;
-	}
-
-	if (chip->dtest_line > QPNP_LPG_DTEST_LINE_MAX ||
-		chip->dtest_output > QPNP_LPG_DTEST_OUTPUT_MAX) {
-		pr_err("DTEST line/output values are improper for channel %d\n",
-			chip->channel_id);
-		return -EINVAL;
-	}
 
 	value = 0xA5;
 
@@ -1024,8 +1022,13 @@ static int qpnp_dtest_config(struct qpnp_pwm_chip *chip, bool enable)
 	addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 			QPNP_LPG_DTEST + chip->dtest_line - 1);
 
+	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE)
+		mask = QPNP_PWM_DTEST_OUTPUT_MASK;
+	else
+		mask = QPNP_LPG_DTEST_OUTPUT_MASK;
+
 	if (enable)
-		value = chip->dtest_output & QPNP_DTEST_OUTPUT_MASK;
+		value = chip->dtest_output & mask;
 	else
 		value = 0;
 
@@ -1947,17 +1950,32 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 		}
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,lpg-dtest-line",
+	rc = of_property_read_u32(of_node, "qcom,dtest-line",
 		&chip->dtest_line);
 	if (rc) {
 		chip->in_test_mode = 0;
 	} else {
-		chip->in_test_mode = 1;
 		rc = of_property_read_u32(of_node, "qcom,dtest-output",
 			&chip->dtest_output);
 		if (rc) {
 			pr_err("Missing DTEST output configuration\n");
-			chip->dtest_output = 0;
+			return rc;
+		}
+		chip->in_test_mode = 1;
+	}
+
+	if (chip->in_test_mode) {
+		if ((chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE) &&
+			(chip->dtest_line > QPNP_PWM_DTEST_LINE_MAX ||
+			chip->dtest_output > QPNP_PWM_DTEST_OUTPUT_MAX)) {
+			pr_err("DTEST line/output values are improper for PWM channel %d\n",
+				chip->channel_id);
+			return -EINVAL;
+		} else if (chip->dtest_line > QPNP_LPG_DTEST_LINE_MAX ||
+			chip->dtest_output > QPNP_LPG_DTEST_OUTPUT_MAX) {
+			pr_err("DTEST line/output values are improper for LPG channel %d\n",
+				chip->channel_id);
+			return -EINVAL;
 		}
 	}
 
