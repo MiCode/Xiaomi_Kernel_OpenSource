@@ -1863,8 +1863,6 @@
 					<61 512 240000 960000>;
 
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
-		qcom,power-collapse-on-cable-disconnect;
-		qcom,por-after-power-collapse;
 
 		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
 			<&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>,
