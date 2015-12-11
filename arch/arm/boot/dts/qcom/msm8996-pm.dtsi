@@ -240,6 +240,7 @@
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
 			<79 379>,   /* qusb2phy_dmse_hv_prim */
+			<80 384>,   /* qusb2phy_dmse_hv_sec */
 			<52 275>,   /* qmp_usb3_lfps_rxterm_irq */
 			<87 358>,   /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 16>,  /* APCj_qgicdrCpu0HwFaultIrptReq */

@@ -1964,7 +1964,7 @@
 		ranges;
 		status = "disabled";
 
-		interrupts = <0 139 0>, <0 140 0>;
+		interrupts = <0 352 0>, <0 140 0>;
 		interrupt-names = "hs_phy_irq", "pwr_event_irq";
 
 		qcom,msm-bus,name = "usb-hs";
