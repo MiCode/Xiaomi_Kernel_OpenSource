@@ -2766,6 +2766,7 @@ static struct gate_clk gcc_usb3_phy_pipe_clk = {
 
 static struct branch_clk gcc_usb20_master_clk = {
 	.cbcr_reg = GCC_USB20_MASTER_CBCR,
+	.bcr_reg = GCC_USB_20_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
