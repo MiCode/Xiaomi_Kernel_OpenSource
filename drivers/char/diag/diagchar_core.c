@@ -2387,12 +2387,8 @@ static int diag_user_process_dci_apps_data(const char __user *buf, int len,
 		return -EBADMSG;
 	}
 
-	switch (pkt_type) {
-	case DCI_PKT_TYPE:
-	case DATA_TYPE_DCI_LOG:
-	case DATA_TYPE_DCI_EVENT:
-		break;
-	default:
+	pkt_type &= (DCI_PKT_TYPE | DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT);
+	if (!pkt_type) {
 		pr_err_ratelimited("diag: In %s, invalid pkt_type: %d\n",
 				   __func__, pkt_type);
 		return -EBADMSG;
