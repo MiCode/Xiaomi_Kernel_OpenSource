@@ -857,6 +857,8 @@ int ipc_log_context_destroy(void *ctxt)
 	list_del(&ilctxt->list);
 	write_unlock_irqrestore(&context_list_lock_lha1, flags);
 
+	debugfs_remove_recursive(ilctxt->dent);
+
 	kfree(ilctxt);
 	return 0;
 }
