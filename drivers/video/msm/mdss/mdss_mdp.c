@@ -3847,7 +3847,7 @@ int mdss_mdp_secure_display_ctrl(unsigned int enable)
 			&request, sizeof(request), &resp, sizeof(resp));
 	} else {
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
-				MEM_PROTECT_SD_CTRL_FLAT), &desc);
+				MEM_PROTECT_SD_CTRL), &desc);
 		resp = desc.ret[0];
 	}
 
