@@ -20,6 +20,7 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		qcom,tlmm-emmc-boot-select = <0x1>;
 
 		uart_console_sleep: uart_console_sleep {
 			mux {

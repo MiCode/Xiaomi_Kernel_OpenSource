@@ -1295,6 +1295,7 @@ struct vidc_hal_sys_init_done {
 	u32 enc_codec_supported;
 	u32 codec_count;
 	struct msm_vidc_capability *capabilities;
+	u32 max_sessions_supported;
 };
 
 struct vidc_hal_session_init_done {

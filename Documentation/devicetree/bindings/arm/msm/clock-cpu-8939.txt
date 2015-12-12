@@ -7,7 +7,7 @@ fmax tables, avs settings table, etc.
 
 Required properties:
 - compatible:		Must be one of "qcom,clock-cpu-8939" or
-			"qcom,cpu-clock-8952"
+			"qcom,cpu-clock-8952", "qcom,cpu-clock-gold".
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected
@@ -33,6 +33,8 @@ Required properties:
 Optional properties:
 - qcom,cpu-pcnoc-vote:  Boolean to indicate cpu clocks would need to keep
 			active pcnoc vote.
+- qcom,num-cluster:     Boolean to indicate cpu clock code is used for single
+			cluster.
 Example:
 	clock_cpu: qcom,cpu-clock-8939@f9015000 {
 		compatible = "qcom,cpu-clock-8939";

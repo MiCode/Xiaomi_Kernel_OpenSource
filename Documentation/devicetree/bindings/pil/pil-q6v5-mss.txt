@@ -76,6 +76,7 @@ Optional properties:
 - qcom,qdsp6v56-1-8-inrush-current: Boolean- Present if the qdsp version is V56 1.8 and has in-rush
 				    current issue.
 - qcom,qdsp6v61-1-1: Boolean- Present if the qdsp version is v61 1.1
+- qcom,qdsp6v62-1-2: Boolean- Present if the qdsp version is v62 1.2
 
 Example:
 	qcom,mss@fc880000 {

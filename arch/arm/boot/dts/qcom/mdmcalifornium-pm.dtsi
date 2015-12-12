@@ -128,8 +128,9 @@
 
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
-			<88 172>, /* usb1_hs_async_wakeup_irq */
 			<88 222>,   /* ee0_krait_hlos_spmi_periph_irq */
+			<54 235>,   /* qmp_usb3_lfps_rxterm_irq */
+			<49 234>,   /* qusb2_phy_dpse_hv qusb2phy_intr */
 			<0xff 18>,  /* WDT_biteInt */
 			<0xff 19>,  /* WDT_barkInt */
 			<0xff 38>,  /* qtmr_virt_irq[0] */
@@ -179,7 +180,6 @@
 			<0xff 206>, /* rpm_ipc(26)   */
 			<0xff 207>, /* rpm_ipc(27)   */
 			<0xff 212>, /* usb30_power_event_irq */
-			<0xff 234>, /* qusb2phy_intr   */
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 270>; /* bam_irq[0] */
 		qcom,gpio-parent = <&tlmm_pinmux>;

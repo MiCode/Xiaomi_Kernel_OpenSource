@@ -424,6 +424,25 @@
 		};
 	};
 
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,bcl-enable;
+		qcom,bcl-framework-interface;
+		qcom,bcl-freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
+						&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,bcl-hotplug-list = <&CPU2 &CPU3>;
+		qcom,bcl-soc-hotplug-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,ibat-monitor {
+			qcom,low-threshold-uamp = <3400000>;
+			qcom,high-threshold-uamp = <4200000>;
+			qcom,mitigation-freq-khz = <998400>;
+			qcom,vph-high-threshold-uv = <3500000>;
+			qcom,vph-low-threshold-uv = <3200000>;
+			qcom,soc-low-threshold = <10>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+
 	blsp1_uart2: serial@78b0000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
@@ -566,11 +585,11 @@
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,gcc-8937";
 		reg = <0x1800000 0x80000>,
-			<0xb116000 0x00040>,
 			<0xb016000 0x00040>,
+			<0xb116000 0x00040>,
 			<0xb1d0000 0x00040>;
-		reg-names = "cc_base", "apcs_c0_base",
-			"apcs_c1_base", "apcs_cci_base";
+		reg-names = "cc_base", "apcs_c1_base",
+			"apcs_c0_base", "apcs_cci_base";
 		vdd_dig-supply = <&pm8937_s2_level>;
 		vdd_sr2_dig-supply = <&pm8937_s2_level_ao>;
 		vdd_sr2_pll-supply = <&pm8937_l7_ao>;
@@ -607,11 +626,11 @@
 
 	clock_cpu: qcom,cpu-clock-8939@b111050 {
 		compatible = "qcom,cpu-clock-8939";
-		reg =   <0xb111050 0x8>,
-			<0xb011050 0x8>,
+		reg =   <0xb011050 0x8>,
+			<0xb111050 0x8>,
 			<0xb1d1050 0x8>,
 			<0x00a412c 0x8>;
-		reg-names = "apcs-c0-rcg-base", "apcs-c1-rcg-base",
+		reg-names = "apcs-c1-rcg-base", "apcs-c0-rcg-base",
 			    "apcs-cci-rcg-base", "efuse";
 		vdd-c0-supply = <&apc_vreg_corner>;
 		vdd-c1-supply = <&apc_vreg_corner>;
@@ -1465,6 +1484,30 @@
 		qcom,fast-shutdown;
 	};
 
+	sdcc1_ice: sdcc1ice@7803000 {
+		compatible = "qcom,ice";
+		reg = <0x7803000 0x8000>;
+		interrupt-names = "sdcc_ice_nonsec_level_irq",
+				  "sdcc_ice_sec_level_irq";
+		interrupts = <0 312 0>, <0 313 0>;
+		qcom,enable-ice-clk;
+		clock-names = "ice_core_clk_src", "ice_core_clk",
+				"bus_clk", "iface_clk";
+		clocks = <&clock_gcc clk_sdcc1_ice_core_clk_src>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ahb_clk>;
+		qcom,op-freq-hz = <200000000>, <0>, <0>, <0>;
+		qcom,msm-bus,name = "sdcc_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<78 512 0 0>,    /* No vote */
+			<78 512 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN", "MAX";
+		qcom,instance-type = "sdcc";
+	};
+
 	sdhc_1: sdhci@7824900 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0x7824900 0x500>, <0x7824000 0x800>, <0x7824e00 0x200>;
@@ -1473,6 +1516,7 @@
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
 
+		sdhc-msm-crypto = <&sdcc1_ice>;
 		qcom,bus-width = <8>;
 
 		qcom,devfreq,freq-table = <52000000 200000000>;
@@ -1501,8 +1545,10 @@
 			50000000 100000000 200000000 400000000 4294967295>;
 
 		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
-		       <&clock_gcc clk_gcc_sdcc1_apps_clk>;
-		clock-names = "iface_clk", "core_clk";
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>;
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
+		qcom,ice-clk-rates = <200000000 100000000>;
 
 		status = "disabled";
 	};

@@ -1015,7 +1015,7 @@ static int msm_isp_request_bufq(struct msm_isp_buf_mgr *buf_mgr,
 		msm_isp_free_bufq_handle(buf_mgr, buf_request->handle);
 		return rc;
 	}
-
+	spin_lock_init(&bufq->bufq_lock);
 	bufq->bufq_handle = buf_request->handle;
 	bufq->session_id = buf_request->session_id;
 	bufq->stream_id = buf_request->stream_id;

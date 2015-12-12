@@ -186,6 +186,11 @@ IBB subnode optional properties:
 						already. If it it not specified, then
 						output voltage can be configured to
 						any value in the allowed limit.
+- qcom,output-voltage-one-pulse			The expected voltage (in mV) of VDISN signal
+						on the first SWIRE pulse. This property
+						can be specified only if 'qpnp,swire-control'
+						is defined. The minimum and maximum values
+						are 1400mV and 7700mV.
 
 Example:
 	qcom,pmi8994@3 {

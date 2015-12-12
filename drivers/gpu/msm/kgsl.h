@@ -147,7 +147,6 @@ struct kgsl_memdesc_ops {
  * @gpuaddr: GPU virtual address
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
- * @mmapsize: Total size of the object in VM (including guard)
  * @priv: Internal flags and settings
  * @sgt: Scatter gather table for allocated pages
  * @ops: Function hooks for the memdesc memory type
@@ -164,7 +163,6 @@ struct kgsl_memdesc {
 	uint64_t gpuaddr;
 	phys_addr_t physaddr;
 	uint64_t size;
-	uint64_t mmapsize;
 	unsigned int priv;
 	struct sg_table *sgt;
 	struct kgsl_memdesc_ops *ops;
@@ -354,8 +352,6 @@ kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr);
 struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find_id(struct kgsl_process_private *process, unsigned int id);
 
-void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
-
 extern const struct dev_pm_ops kgsl_pm_ops;
 
 int kgsl_suspend_driver(struct platform_device *pdev, pm_message_t state);
@@ -437,13 +433,16 @@ static inline void kgsl_schedule_work(struct work_struct *work)
 static inline int
 kgsl_mem_entry_get(struct kgsl_mem_entry *entry)
 {
-	return kref_get_unless_zero(&entry->refcount);
+	if (entry)
+		return kref_get_unless_zero(&entry->refcount);
+	return 0;
 }
 
 static inline void
 kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 {
-	kref_put(&entry->refcount, kgsl_mem_entry_destroy);
+	if (entry)
+		kref_put(&entry->refcount, kgsl_mem_entry_destroy);
 }
 
 /**

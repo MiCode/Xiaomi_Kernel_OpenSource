@@ -357,6 +357,26 @@
 		};
 	};
 
+	bcl@4200 {
+		compatible = "qcom,msm-bcl";
+		reg = <0x4200 0xFF>;
+		reg-names = "fg_user_adc";
+		interrupts = <0x2 0x42 0x0>,
+				<0x2 0x42 0x1>;
+		interrupt-names = "bcl-high-ibat-int",
+				"bcl-low-vbat-int";
+		qcom,vbat-scaling-factor = <39000>;
+		qcom,vbat-gain-numerator = <1>;
+		qcom,vbat-gain-denominator = <128>;
+		qcom,vbat-polling-delay-ms = <100>;
+		qcom,ibat-scaling-factor = <39000>;
+		qcom,ibat-gain-numerator = <1>;
+		qcom,ibat-gain-denominator = <128>;
+		qcom,ibat-offset-numerator = <1200>;
+		qcom,ibat-offset-denominator = <1>;
+		qcom,ibat-polling-delay-ms = <100>;
+	};
+
 	qcom,pmi8937@3 {
 		spmi-slave-container;
 		reg = <0x3>;

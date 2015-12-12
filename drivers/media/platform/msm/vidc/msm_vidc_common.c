@@ -47,6 +47,8 @@
 #define V4L2_EVENT_SEQ_BITDEPTH_CHANGED_INSUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_BITDEPTH_CHANGED_INSUFFICIENT
 
+#define MAX_SUPPORTED_INSTANCES 16
+
 struct getprop_buf {
 	struct list_head list;
 	void *data;
@@ -628,6 +630,16 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 
 	core->enc_codec_supported = sys_init_msg->enc_codec_supported;
 	core->dec_codec_supported = sys_init_msg->dec_codec_supported;
+
+	/* This should come from sys_init_done */
+	core->resources.max_inst_count =
+		sys_init_msg->max_sessions_supported ? :
+		MAX_SUPPORTED_INSTANCES;
+
+	core->resources.max_secure_inst_count =
+		core->resources.max_secure_inst_count ? :
+		core->resources.max_inst_count;
+
 	if (core->id == MSM_VIDC_CORE_VENUS &&
 		(core->dec_codec_supported & HAL_VIDEO_CODEC_H264))
 			core->dec_codec_supported |=

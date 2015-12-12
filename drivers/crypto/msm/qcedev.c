@@ -35,10 +35,8 @@
 #include "qcedevi.h"
 #include "qce.h"
 
-#ifdef CONFIG_COMPAT
 #include <linux/compat.h>
-#include <linux/compat_qcedev.h>
-#endif
+#include "compat_qcedev.h"
 
 #define CACHE_LINE_SIZE 32
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE

@@ -1243,9 +1243,6 @@ kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr)
 
 	spin_lock(&private->mem_lock);
 	idr_for_each_entry(&private->mem_idr, entry, id) {
-		if (entry == NULL)
-			continue;
-
 		if (GPUADDR_IN_MEMDESC(gpuaddr, &entry->memdesc)) {
 			ret = kgsl_mem_entry_get(entry);
 			break;
@@ -1270,18 +1267,17 @@ EXPORT_SYMBOL(kgsl_sharedmem_find);
 struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find_id(struct kgsl_process_private *process, unsigned int id)
 {
-	int result = 0;
+	int result;
 	struct kgsl_mem_entry *entry;
 
 	drain_workqueue(kgsl_driver.mem_workqueue);
 
 	spin_lock(&process->mem_lock);
 	entry = idr_find(&process->mem_idr, id);
-	if (entry)
-		result = kgsl_mem_entry_get(entry);
+	result = kgsl_mem_entry_get(entry);
 	spin_unlock(&process->mem_lock);
 
-	if (!result)
+	if (result == 0)
 		return NULL;
 	return entry;
 }
@@ -2049,7 +2045,6 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = (uint64_t) size;
-	entry->memdesc.mmapsize = (uint64_t) size;
 	entry->memdesc.useraddr = hostptr;
 	if (kgsl_memdesc_use_cpu_map(&entry->memdesc))
 		entry->memdesc.gpuaddr = (uint64_t)  entry->memdesc.useraddr;
@@ -2414,7 +2409,6 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	entry->priv_data = meta;
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = 0;
-	entry->memdesc.mmapsize = 0;
 	/* USE_CPU_MAP is not impemented for ION. */
 	entry->memdesc.flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 	entry->memdesc.flags |= KGSL_MEMFLAGS_USERMEM_ION;
@@ -2448,7 +2442,6 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	}
 
 	entry->memdesc.size = PAGE_ALIGN(entry->memdesc.size);
-	entry->memdesc.mmapsize = PAGE_ALIGN(entry->memdesc.size);
 
 out:
 	if (ret) {
@@ -2914,7 +2907,7 @@ static uint64_t kgsl_filter_cachemode(uint64_t flags)
 
 static struct kgsl_mem_entry *gpumem_alloc_entry(
 		struct kgsl_device_private *dev_priv,
-		uint64_t size, uint64_t mmapsize, uint64_t flags)
+		uint64_t size, uint64_t flags)
 {
 	int ret;
 	struct kgsl_process_private *private = dev_priv->process_priv;
@@ -2956,15 +2949,8 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 			KGSL_MEMALIGN_MASK;
 	}
 
-	if (mmapsize < size)
-		mmapsize = size;
-
 	/* For now only allow allocations up to 4G */
-	if (size > UINT_MAX)
-		return ERR_PTR(-EINVAL);
-
-	/* Only allow a mmap size that we can actually mmap */
-	if (mmapsize > UINT_MAX)
+	if (size == 0 || size > UINT_MAX)
 		return ERR_PTR(-EINVAL);
 
 	flags = kgsl_filter_cachemode(flags);
@@ -2980,7 +2966,7 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
-				private->pagetable, size, mmapsize, flags);
+				private->pagetable, size, flags);
 	if (ret != 0)
 		goto err;
 
@@ -3029,8 +3015,7 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpuobj_alloc *param = data;
 	struct kgsl_mem_entry *entry;
 
-	entry = gpumem_alloc_entry(dev_priv, param->size,
-		param->va_len, param->flags);
+	entry = gpumem_alloc_entry(dev_priv, param->size, param->flags);
 
 	if (IS_ERR(entry))
 		return PTR_ERR(entry);
@@ -3039,7 +3024,7 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 
 	param->size = entry->memdesc.size;
 	param->flags = entry->memdesc.flags;
-	param->mmapsize = kgsl_memdesc_mmapsize(&entry->memdesc);
+	param->mmapsize = kgsl_memdesc_footprint(&entry->memdesc);
 	param->id = entry->id;
 
 	return 0;
@@ -3056,8 +3041,7 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 	flags |= KGSL_MEMFLAGS_FORCE_32BIT;
 
-	entry = gpumem_alloc_entry(dev_priv, (uint64_t) param->size,
-		(uint64_t) param->size, flags);
+	entry = gpumem_alloc_entry(dev_priv, (uint64_t) param->size, flags);
 
 	if (IS_ERR(entry))
 		return PTR_ERR(entry);
@@ -3078,8 +3062,7 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 
 	flags |= KGSL_MEMFLAGS_FORCE_32BIT;
 
-	entry = gpumem_alloc_entry(dev_priv, (uint64_t) param->size,
-		(uint64_t) param->mmapsize, flags);
+	entry = gpumem_alloc_entry(dev_priv, (uint64_t) param->size, flags);
 
 	if (IS_ERR(entry))
 		return PTR_ERR(entry);
@@ -3087,8 +3070,7 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 	param->id = entry->id;
 	param->flags = (unsigned int) entry->memdesc.flags;
 	param->size = (size_t) entry->memdesc.size;
-	param->mmapsize = (size_t)
-		kgsl_memdesc_mmapsize(&entry->memdesc);
+	param->mmapsize = (size_t) kgsl_memdesc_footprint(&entry->memdesc);
 	param->gpuaddr = (unsigned long) entry->memdesc.gpuaddr;
 
 	return 0;
@@ -3125,7 +3107,7 @@ long kgsl_ioctl_gpumem_get_info(struct kgsl_device_private *dev_priv,
 	param->id = entry->id;
 	param->flags = (unsigned int) entry->memdesc.flags;
 	param->size = (size_t) entry->memdesc.size;
-	param->mmapsize = (size_t) kgsl_memdesc_mmapsize(&entry->memdesc);
+	param->mmapsize = (size_t) kgsl_memdesc_footprint(&entry->memdesc);
 	param->useraddr = entry->memdesc.useraddr;
 
 	kgsl_mem_entry_put(entry);
@@ -3150,7 +3132,7 @@ long kgsl_ioctl_gpuobj_info(struct kgsl_device_private *dev_priv,
 	param->gpuaddr = entry->memdesc.gpuaddr;
 	param->flags = entry->memdesc.flags;
 	param->size = entry->memdesc.size;
-	param->va_len = kgsl_memdesc_mmapsize(&entry->memdesc);
+	param->va_len = kgsl_memdesc_footprint(&entry->memdesc);
 	param->va_addr = (uint64_t) entry->memdesc.useraddr;
 
 	kgsl_mem_entry_put(entry);
@@ -3309,7 +3291,8 @@ kgsl_mmap_memstore(struct kgsl_device *device, struct vm_area_struct *vma)
 static void kgsl_gpumem_vm_open(struct vm_area_struct *vma)
 {
 	struct kgsl_mem_entry *entry = vma->vm_private_data;
-	if (!kgsl_mem_entry_get(entry))
+
+	if (kgsl_mem_entry_get(entry) == 0)
 		vma->vm_private_data = NULL;
 }
 
@@ -3372,15 +3355,15 @@ get_mmap_entry(struct kgsl_process_private *private,
 	}
 
 	if (kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
-		if (len != kgsl_memdesc_mmapsize(&entry->memdesc)) {
+		if (len != kgsl_memdesc_footprint(&entry->memdesc)) {
 			ret = -ERANGE;
 			goto err_put;
 		}
-	} else if (len != kgsl_memdesc_mmapsize(&entry->memdesc) &&
+	} else if (len != kgsl_memdesc_footprint(&entry->memdesc) &&
 		len != entry->memdesc.size) {
 		/*
 		 * If cpu_map != gpumap then user can map either the
-		 * mmapsize or the entry size
+		 * footprint or the entry size
 		 */
 		ret = -ERANGE;
 		goto err_put;

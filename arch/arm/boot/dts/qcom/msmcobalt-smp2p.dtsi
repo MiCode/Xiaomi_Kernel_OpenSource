@@ -10,25 +10,25 @@
  * GNU General Public License for more details.
  */
 &soc {
-	qcom,smp2p-modem@17820010 {
+	qcom,smp2p-modem@17911008 {
 		compatible = "qcom,smp2p";
-		reg = <0x17820010 0x4>;
+		reg = <0x17911008 0x4>;
 		qcom,remote-pid = <1>;
 		qcom,irq-bitmask = <0x4000>;
 		interrupts = <0 451 1>;
 	};
 
-	qcom,smp2p-adsp@17820010 {
+	qcom,smp2p-adsp@17911008 {
 		compatible = "qcom,smp2p";
-		reg = <0x17820010 0x4>;
+		reg = <0x17911008 0x4>;
 		qcom,remote-pid = <2>;
 		qcom,irq-bitmask = <0x400>;
 		interrupts = <0 158 1>;
 	};
 
-	qcom,smp2p-dsps@17820010 {
+	qcom,smp2p-dsps@17911008 {
 		compatible = "qcom,smp2p";
-		reg = <0x17820010 0x4>;
+		reg = <0x17911008 0x4>;
 		qcom,remote-pid = <3>;
 		qcom,irq-bitmask = <0x4000000>;
 		interrupts = <0 178 1>;

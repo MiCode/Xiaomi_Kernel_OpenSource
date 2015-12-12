@@ -1759,8 +1759,6 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
 			DEV_ERR("%s: Failed to disable ddc power\n", __func__);
 
-		hdmi_tx_update_hdcp_info(hdmi_ctrl);
-
 		hdmi_tx_send_cable_notification(hdmi_ctrl, true);
 	} else {
 		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
@@ -4214,6 +4212,8 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_PANEL_ON:
+		hdmi_tx_update_hdcp_info(hdmi_ctrl);
+
 		rc = hdmi_tx_start_hdcp(hdmi_ctrl);
 		if (rc)
 			DEV_ERR("%s: hdcp start failed rc=%d\n", __func__, rc);

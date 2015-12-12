@@ -1,17 +1,7 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
-#ifndef __LINUX_USB_CTRL_QTI_H
-#define __LINUX_USB_CTRL_QTI_H
+#ifndef __UAPI_LINUX_USB_CTRL_QTI_H
+#define __UAPI_LINUX_USB_CTRL_QTI_H
 
+#include <linux/types.h>
 #include <linux/ioctl.h>
 
 #define MAX_QTI_PKT_SIZE 2048
@@ -33,13 +23,12 @@ enum peripheral_ep_type {
 
 struct peripheral_ep_info {
 	enum peripheral_ep_type		ep_type;
-	u32				peripheral_iface_id;
+	__u32				peripheral_iface_id;
 };
 
-
 struct ipa_ep_pair {
-	u32 cons_pipe_num;
-	u32 prod_pipe_num;
+	__u32 cons_pipe_num;
+	__u32 prod_pipe_num;
 };
 
 struct ep_info {
@@ -48,5 +37,5 @@ struct ep_info {
 
 };
 
+#endif
 
-#endif /* __LINUX_USB_CTRL_QTI_H */

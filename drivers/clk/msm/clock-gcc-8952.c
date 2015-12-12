@@ -1111,6 +1111,7 @@ static struct clk_freq_tbl ftbl_gcc_camss_cpp_clk[] = {
 
 static struct clk_freq_tbl ftbl_gcc_camss_cpp_clk_8937[] = {
 	F( 133333333,          gpll0,    6,    0,     0),
+	F( 160000000,          gpll0,    5,    0,     0),
 	F( 200000000,          gpll0,    4,    0,     0),
 	F( 266666667,          gpll0,    3,    0,     0),
 	F( 308570000,          gpll6,  3.5,    0,     0),

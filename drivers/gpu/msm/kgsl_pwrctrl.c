@@ -1935,11 +1935,14 @@ static int _init(struct kgsl_device *device)
 {
 	int status = 0;
 	switch (device->state) {
-	case KGSL_STATE_NAP:
 	case KGSL_STATE_DEEP_NAP:
-	case KGSL_STATE_SLEEP:
+		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
+			device->pwrctrl.pm_qos_active_latency);
 		/* Get the device out of retention */
 		kgsl_pwrctrl_retention_clk(device, KGSL_PWRFLAGS_ON);
+		/* fall through */
+	case KGSL_STATE_NAP:
+	case KGSL_STATE_SLEEP:
 		/* Force power on to do the stop */
 		status = kgsl_pwrctrl_enable(device);
 	case KGSL_STATE_ACTIVE:

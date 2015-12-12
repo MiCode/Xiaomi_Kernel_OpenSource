@@ -125,6 +125,9 @@ Optional properties:
            internal cmd queue = 0x800
 - qcom,pm-qos-latency-us = The latency used to vote for QOS power manager. This
 value is typically max(latencies of every cluster at all power levels) + 1
+- qcom,max-secure-instances = An int containing max number of concurrent secure
+  instances supported, accounting for venus and system wide limitations like
+  memory, performance etc.
 
 [Second level nodes]
 Context Banks

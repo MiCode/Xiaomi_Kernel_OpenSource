@@ -659,12 +659,12 @@ int sysmon_notifier_register(struct subsys_desc *desc)
 	data->clnt_handle = NULL;
 	data->legacy_version = false;
 
+	mutex_lock(&sysmon_list_lock);
 	if (data->instance_id <= 0) {
 		pr_debug("SSCTL instance id not defined\n");
 		goto add_list;
 	}
 
-	mutex_lock(&sysmon_list_lock);
 	if (sysmon_wq)
 		goto notif_register;
 

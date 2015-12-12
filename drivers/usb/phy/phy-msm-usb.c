@@ -1389,7 +1389,7 @@ phcd_retry:
 	/* Ensure that above operation is completed before turning off clocks */
 	mb();
 	/* Consider clocks on workaround flag only in case of bus suspend */
-	if ((!phy->state == OTG_STATE_B_PERIPHERAL &&
+	if (!(phy->state == OTG_STATE_B_PERIPHERAL &&
 			test_bit(A_BUS_SUSPEND, &motg->inputs)) ||
 			!motg->pdata->core_clk_always_on_workaround) {
 		clk_disable_unprepare(motg->pclk);

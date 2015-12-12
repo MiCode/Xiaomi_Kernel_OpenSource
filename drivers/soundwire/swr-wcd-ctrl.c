@@ -761,7 +761,13 @@ static int swrm_connect_port(struct swr_master *master,
 
 	swrm_get_port_config(master);
 	swr_port_response(master, portinfo->tid);
-	swrm_apply_port_config(master);
+	if (swrm->num_rx_chs > 1) {
+		swrm->num_cfg_devs += 1;
+		if (swrm->num_rx_chs == swrm->num_cfg_devs)
+			swrm_apply_port_config(master);
+	} else {
+		swrm_apply_port_config(master);
+	}
 	mutex_unlock(&swrm->mlock);
 	return 0;
 
@@ -838,6 +844,8 @@ static int swrm_disconnect_port(struct swr_master *master,
 
 	master->num_port -= portinfo->num_port;
 	swr_port_response(master, portinfo->tid);
+	if (swrm->num_rx_chs > 1)
+		swrm->num_cfg_devs -= 1;
 	mutex_unlock(&swrm->mlock);
 
 	dev_dbg(&master->dev, "%s: master active ports: %d\n",
@@ -1157,6 +1165,7 @@ static int swrm_probe(struct platform_device *pdev)
 	swrm->rcmd_id = 0;
 	swrm->wcmd_id = 0;
 	swrm->slave_status = 0;
+	swrm->num_rx_chs = 0;
 	swrm->state = SWR_MSTR_RESUME;
 	init_completion(&swrm->reset);
 	init_completion(&swrm->broadcast);
@@ -1441,6 +1450,27 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 			pm_runtime_put_autosuspend(&pdev->dev);
 		}
 		mutex_unlock(&swrm->mlock);
+		break;
+	case SWR_SET_NUM_RX_CH:
+		if (!data) {
+			dev_err(swrm->dev, "%s: data is NULL\n", __func__);
+			ret = -EINVAL;
+		} else {
+			mutex_lock(&swrm->mlock);
+			swrm->num_rx_chs = *(int *)data;
+			if (swrm->num_rx_chs > 1) {
+				list_for_each_entry(swr_dev, &mstr->devices,
+						    dev_list) {
+					ret = swr_set_device_group(swr_dev,
+								SWR_BROADCAST);
+					if (ret)
+						dev_err(swrm->dev,
+							"%s: set num ch failed\n",
+							__func__);
+				}
+			}
+			mutex_unlock(&swrm->mlock);
+		}
 		break;
 	default:
 		dev_err(swrm->dev, "%s: swr master unknown id %d\n",

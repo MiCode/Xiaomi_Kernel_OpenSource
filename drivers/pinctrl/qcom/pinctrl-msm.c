@@ -36,6 +36,7 @@
 
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
+#define TLMM_EBI2_EMMC_GPIO_CFG 0x111000
 
 /**
  * struct msm_pinctrl - state for a pinctrl-msm device
@@ -906,12 +907,23 @@ static void msm_pinctrl_setup_pm_reset(struct msm_pinctrl *pctrl)
 		}
 }
 
+static void msm_pinctrl_ebi2_emmc_enable(struct msm_pinctrl *pctrl,
+					unsigned int tlmm_emmc_boot_select)
+{
+	u32 val;
+
+	val = readl_relaxed(pctrl->regs + TLMM_EBI2_EMMC_GPIO_CFG);
+	val |= BIT(tlmm_emmc_boot_select);
+	writel_relaxed(val, pctrl->regs + TLMM_EBI2_EMMC_GPIO_CFG);
+}
+
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data)
 {
 	struct msm_pinctrl *pctrl;
 	struct resource *res;
 	int ret;
+	u32 tlmm_emmc_boot_select;
 
 	pctrl = devm_kzalloc(&pdev->dev, sizeof(*pctrl), GFP_KERNEL);
 	if (!pctrl) {
@@ -930,6 +942,11 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 		return PTR_ERR(pctrl->regs);
 
 	msm_pinctrl_setup_pm_reset(pctrl);
+	if (!of_property_read_u32(pctrl->dev->of_node,
+					"qcom,tlmm-emmc-boot-select",
+						&tlmm_emmc_boot_select)) {
+		msm_pinctrl_ebi2_emmc_enable(pctrl, tlmm_emmc_boot_select);
+	}
 
 	pctrl->irq = platform_get_irq(pdev, 0);
 	if (pctrl->irq < 0) {

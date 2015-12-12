@@ -135,6 +135,23 @@ static LIST_HEAD(smd_remote_xprt_list);
 
 static bool is_pil_loading_disabled(uint32_t edge);
 
+/**
+ * ipc_router_smd_set_xprt_version() - Set IPC Router header version
+ *                                          in the transport
+ * @xprt: Reference to the transport structure.
+ * @version: The version to be set in transport.
+ */
+static void ipc_router_smd_set_xprt_version(
+	struct msm_ipc_router_xprt *xprt, unsigned version)
+{
+	struct msm_ipc_router_smd_xprt *smd_xprtp;
+
+	if (!xprt)
+		return;
+	smd_xprtp = container_of(xprt, struct msm_ipc_router_smd_xprt, xprt);
+	smd_xprtp->xprt_version = version;
+}
+
 static int msm_ipc_router_smd_get_xprt_version(
 	struct msm_ipc_router_xprt *xprt)
 {
@@ -652,6 +669,8 @@ static int msm_ipc_router_smd_config_init(
 						XPRT_NAME_LEN);
 	smd_xprtp->xprt.name = smd_xprtp->xprt_name;
 
+	smd_xprtp->xprt.set_version =
+		ipc_router_smd_set_xprt_version;
 	smd_xprtp->xprt.get_version =
 		msm_ipc_router_smd_get_xprt_version;
 	smd_xprtp->xprt.get_option =

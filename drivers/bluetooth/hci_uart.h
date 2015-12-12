@@ -75,6 +75,7 @@ struct hci_uart {
 	struct work_struct	write_work;
 
 	struct hci_uart_proto	*proto;
+	struct mutex		proto_lock;
 	void			*priv;
 
 	struct sk_buff		*tx_skb;

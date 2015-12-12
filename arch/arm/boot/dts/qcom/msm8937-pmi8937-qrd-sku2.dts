@@ -39,3 +39,9 @@
 			"AMIC3", "MIC BIAS External";
 	};
 };
+
+&i2c_2 {
+	pericom-type-c@1d {
+		status="disabled";
+	};
+};

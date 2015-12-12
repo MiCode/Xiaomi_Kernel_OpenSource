@@ -34,6 +34,7 @@
 #define QDSP6SS_BHS_STATUS		0x078
 #define QDSP6SS_MEM_PWR_CTL		0x0B0
 #define QDSP6SS_STRAP_ACC		0x110
+#define QDSP6V62SS_BHS_STATUS		0x0C4
 
 /* AXI Halt Register Offsets */
 #define AXI_HALTREQ			0x0
@@ -359,6 +360,19 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 	mb();
 	udelay(1);
 
+	if (drv->qdsp6v62_1_2) {
+		for (i = BHS_CHECK_MAX_LOOPS; i > 0; i--) {
+			if (readl_relaxed(drv->reg_base + QDSP6V62SS_BHS_STATUS)
+			    & QDSP6v55_BHS_EN_REST_ACK)
+				break;
+			udelay(1);
+		}
+		if (!i) {
+			pr_err("%s: BHS_EN_REST_ACK not set!\n", __func__);
+			return -ETIMEDOUT;
+		}
+	}
+
 	if (drv->qdsp6v61_1_1) {
 		for (i = BHS_CHECK_MAX_LOOPS; i > 0; i--) {
 			if (readl_relaxed(drv->reg_base + QDSP6SS_BHS_STATUS)
@@ -443,7 +457,7 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 			 */
 			udelay(1);
 		}
-	} else if (drv->qdsp6v61_1_1) {
+	} else if (drv->qdsp6v61_1_1 || drv->qdsp6v62_1_2) {
 		/* Deassert QDSP6 compiler memory clamp */
 		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
 		val &= ~QDSP6v55_CLAMP_QMC_MEM;
@@ -609,8 +623,13 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	drv->qdsp6v56_1_8_inrush_current = of_property_read_bool(
 						pdev->dev.of_node,
 						"qcom,qdsp6v56-1-8-inrush-current");
+
 	drv->qdsp6v61_1_1 = of_property_read_bool(pdev->dev.of_node,
 						"qcom,qdsp6v61-1-1");
+
+	drv->qdsp6v62_1_2 = of_property_read_bool(pdev->dev.of_node,
+						"qcom,qdsp6v62-1-2");
+
 	drv->non_elf_image = of_property_read_bool(pdev->dev.of_node,
 						"qcom,mba-image-is-not-elf");
 
