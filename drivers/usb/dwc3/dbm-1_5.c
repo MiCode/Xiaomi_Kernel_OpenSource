@@ -52,6 +52,7 @@ struct dbm_reg_data {
 	unsigned int ep_mult;
 };
 
+#define DBM_1_4_NUM_EP		4
 #define DBM_1_5_NUM_EP		8
 
 struct dbm_data {
@@ -61,9 +62,32 @@ struct dbm_data {
 	int dbm_num_eps;
 	u8 ep_num_mapping[DBM_1_5_NUM_EP];
 	bool dbm_reset_ep_after_lpm;
+
+	bool is_1p4;
 };
 
 static struct dbm_data *dbm_data;
+
+static const struct dbm_reg_data dbm_1_4_regtable[] = {
+	[DBM_EP_CFG]		= { 0x0000, 0x4 },
+	[DBM_DATA_FIFO]		= { 0x0010, 0x4 },
+	[DBM_DATA_FIFO_SIZE]	= { 0x0020, 0x4 },
+	[DBM_DATA_FIFO_EN]	= { 0x0030, 0x0 },
+	[DBM_GEVNTADR]		= { 0x0034, 0x0 },
+	[DBM_GEVNTSIZ]		= { 0x0038, 0x0 },
+	[DBM_DBG_CNFG]		= { 0x003C, 0x0 },
+	[DBM_HW_TRB0_EP]	= { 0x0040, 0x4 },
+	[DBM_HW_TRB1_EP]	= { 0x0050, 0x4 },
+	[DBM_HW_TRB2_EP]	= { 0x0060, 0x4 },
+	[DBM_HW_TRB3_EP]	= { 0x0070, 0x4 },
+	[DBM_PIPE_CFG]		= { 0x0080, 0x0 },
+	[DBM_SOFT_RESET]	= { 0x0084, 0x0 },
+	[DBM_GEN_CFG]		= { 0x0088, 0x0 },
+	[DBM_GEVNTADR_LSB]	= { 0x0098, 0x0 },
+	[DBM_GEVNTADR_MSB]	= { 0x009C, 0x0 },
+	[DBM_DATA_FIFO_LSB]	= { 0x00A0, 0x8 },
+	[DBM_DATA_FIFO_MSB]	= { 0x00A4, 0x8 },
+};
 
 static const struct dbm_reg_data dbm_1_5_regtable[] = {
 	[DBM_EP_CFG]		= { 0x0000, 0x4 },
@@ -265,7 +289,7 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 	}
 
 	/* Due to HW issue, EP 7 can be set as IN EP only */
-	if (dbm_ep == 7 && producer) {
+	if (!dbm_data->is_1p4 && dbm_ep == 7 && producer) {
 		pr_err("last DBM EP can't be OUT EP\n");
 		return -ENODEV;
 	}
@@ -286,6 +310,13 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 
 	msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep, USB3_EPNUM,
 		usb_ep);
+
+	if (dbm_data->is_1p4) {
+		msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep,
+				DBM_BAM_PIPE_NUM, bam_pipe);
+		msm_dbm_write_reg_field(dbm_data, DBM_PIPE_CFG,
+				0x000000ff, 0xe4);
+	}
 
 	msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep, DBM_EN_EP, 1);
 
@@ -374,8 +405,13 @@ static int event_buffer_config(u32 addr_lo, u32 addr_hi, int size)
 	if (msm_dbm_read_reg(dbm_data, DBM_GEVNTSIZ))
 		return 0;
 
-	msm_dbm_write_reg(dbm_data, DBM_GEVNTADR_LSB, addr_lo);
-	msm_dbm_write_reg(dbm_data, DBM_GEVNTADR_MSB, addr_hi);
+	if (!dbm_data->is_1p4 || sizeof(phys_addr_t) > sizeof(u32)) {
+		msm_dbm_write_reg(dbm_data, DBM_GEVNTADR_LSB, addr_lo);
+		msm_dbm_write_reg(dbm_data, DBM_GEVNTADR_MSB, addr_hi);
+	} else {
+		msm_dbm_write_reg(dbm_data, DBM_GEVNTADR, addr_lo);
+	}
+
 	msm_dbm_write_reg_field(dbm_data, DBM_GEVNTSIZ,
 		DBM_GEVNTSIZ_MASK, size);
 
@@ -392,8 +428,12 @@ static int data_fifo_config(u8 dep_num, phys_addr_t addr,
 
 	dbm_data->ep_num_mapping[dbm_ep] = dep_num;
 
-	msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO_LSB, dbm_ep, lo);
-	msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO_MSB, dbm_ep, hi);
+	if (!dbm_data->is_1p4 || sizeof(addr) > sizeof(u32)) {
+		msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO_LSB, dbm_ep, lo);
+		msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO_MSB, dbm_ep, hi);
+	} else {
+		msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO, dbm_ep, addr);
+	}
 
 	msm_dbm_write_ep_reg_field(dbm_data, DBM_DATA_FIFO_SIZE, dbm_ep,
 		DBM_DATA_FIFO_SIZE_MASK, size);
@@ -409,6 +449,9 @@ static void set_speed(bool speed)
 
 static void enable(void)
 {
+	if (dbm_data->is_1p4) /* no-op */
+		return;
+
 	msm_dbm_write_reg(dbm_data, DBM_DATA_FIFO_ADDR_EN, 0x000000FF);
 	msm_dbm_write_reg(dbm_data, DBM_DATA_FIFO_SIZE_EN, 0x000000FF);
 }
@@ -420,10 +463,11 @@ static bool reset_ep_after_lpm(void)
 
 static bool l1_lpm_interrupt(void)
 {
-	return true;
+	return !dbm_data->is_1p4;
 }
 
 static const struct of_device_id msm_dbm_id_table[] = {
+	{ .compatible = "qcom,usb-dbm-1p4", .data = &dbm_1_4_regtable },
 	{ .compatible = "qcom,usb-dbm-1p5", .data = &dbm_1_5_regtable },
 	{ },
 };
@@ -441,7 +485,6 @@ static int msm_dbm_probe(struct platform_device *pdev)
 	dbm_data = devm_kzalloc(dev, sizeof(*dbm_data), GFP_KERNEL);
 	if (!dbm_data)
 		return -ENOMEM;
-	dbm_data->dbm_num_eps = DBM_1_5_NUM_EP;
 
 	match = of_match_node(msm_dbm_id_table, node);
 	if (!match) {
@@ -449,6 +492,13 @@ static int msm_dbm_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	dbm_data->reg_table = match->data;
+
+	if (!strcmp(match->compatible, "qcom,usb-dbm-1p4")) {
+		dbm_data->dbm_num_eps = DBM_1_4_NUM_EP;
+		dbm_data->is_1p4 = true;
+	} else {
+		dbm_data->dbm_num_eps = DBM_1_5_NUM_EP;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -513,14 +563,14 @@ static struct platform_driver msm_dbm_driver = {
 	.probe		= msm_dbm_probe,
 	.remove		= msm_dbm_remove,
 	.driver = {
-		.name	= "msm-usb-dbm-1-5",
+		.name	= "msm-usb-dbm",
 		.of_match_table = of_match_ptr(msm_dbm_id_table),
 	},
 };
 
 module_platform_driver(msm_dbm_driver);
 
-MODULE_DESCRIPTION("MSM USB DBM 1.5 driver");
+MODULE_DESCRIPTION("MSM USB DBM driver");
 MODULE_LICENSE("GPL v2");
 
 
