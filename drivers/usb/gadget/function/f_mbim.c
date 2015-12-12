@@ -830,6 +830,7 @@ fmbim_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_mbim		*dev = req->context;
 	struct ctrl_pkt		*cpkt = NULL;
 	int			len = req->actual;
+	static bool		first_command_sent;
 
 	if (!dev) {
 		pr_err("mbim dev is null\n");
@@ -840,6 +841,18 @@ fmbim_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 		pr_err("mbim command error %d\n", req->status);
 		return;
 	}
+
+	/*
+	 * Wait for user to process prev MBIM_OPEN cmd before handling new one.
+	 * However don't drop first command during bootup as file may not be
+	 * opened by now. Queue the command in this case.
+	 */
+	if (!atomic_read(&dev->open_excl) && first_command_sent) {
+		pr_err("mbim not opened yet, dropping cmd pkt = %d\n", len);
+		return;
+	}
+	if (!first_command_sent)
+		first_command_sent = true;
 
 	pr_debug("dev:%p port#%d\n", dev, dev->port_num);
 
