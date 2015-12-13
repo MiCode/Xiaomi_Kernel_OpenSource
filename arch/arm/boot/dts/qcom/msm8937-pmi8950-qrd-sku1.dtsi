@@ -126,8 +126,10 @@
 
 &dsi_r69006_1080p_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,esd-check-enabled;
 };
 
 &dsi_r69006_1080p_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,esd-check-enabled;
 };

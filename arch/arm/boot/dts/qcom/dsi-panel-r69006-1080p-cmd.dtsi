@@ -131,5 +131,11 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 2>, <1 20>;
+		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 01 0A];
+		qcom,mdss-dsi-panel-status-command-mode = "dsi_lp_mode";
+		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+		qcom,mdss-dsi-panel-status-read-length = <1>;
+		qcom,mdss-dsi-panel-status-value = <0x1C>;
+		qcom,mdss-dsi-panel-max-error-count = <3>;
 	};
 };
