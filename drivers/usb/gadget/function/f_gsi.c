@@ -2109,7 +2109,13 @@ static void gsi_resume(struct usb_function *f)
 
 	pr_debug("%s: gsi resumed\n", __func__);
 
-	/* Nothing to do if DATA interface wasn't initialized */
+	/*
+	 * If the function is in USB3 Function Suspend state, resume is
+	 * canceled. In this case resume is done by a Function Resume request.
+	 */
+	if ((cdev->gadget->speed == USB_SPEED_SUPER) &&
+		f->func_is_suspended)
+		return;
 
 	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
@@ -2146,6 +2152,33 @@ static void gsi_resume(struct usb_function *f)
 
 	atomic_set(&gsi->c_port.notify_count, 0);
 	pr_debug("%s: gsi resume completed\n", __func__);
+}
+
+static int gsi_func_suspend(struct usb_function *f, u8 options)
+{
+	bool func_wakeup_allowed;
+
+	pr_debug("Got Function Suspend(%u) command for %s function\n",
+		options, f->name ? f->name : "");
+
+	func_wakeup_allowed =
+		((options & FUNC_SUSPEND_OPT_RW_EN_MASK) != 0);
+
+	if (options & FUNC_SUSPEND_OPT_SUSP_MASK) {
+		f->func_wakeup_allowed = func_wakeup_allowed;
+		if (!f->func_is_suspended) {
+			gsi_suspend(f);
+			f->func_is_suspended = true;
+		}
+	} else {
+		if (f->func_is_suspended) {
+			f->func_is_suspended = false;
+			gsi_resume(f);
+		}
+		f->func_wakeup_allowed = func_wakeup_allowed;
+	}
+
+	return 0;
 }
 
 static int gsi_update_function_bind_params(struct f_gsi *gsi,
@@ -2733,6 +2766,7 @@ int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 	gsi->function.setup = gsi_setup;
 	gsi->function.disable = gsi_disable;
 	gsi->function.suspend = gsi_suspend;
+	gsi->function.func_suspend = gsi_func_suspend;
 	gsi->function.resume = gsi_resume;
 
 	INIT_WORK(&gsi->d_port.usb_ipa_w, ipa_work_handler);
