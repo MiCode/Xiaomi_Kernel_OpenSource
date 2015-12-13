@@ -11963,6 +11963,10 @@ static int tasha_codec_vote_max_bw(struct snd_soc_codec *codec,
 			bool vote)
 {
 	u32 bw_ops;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C)
+		return 0;
 
 	if (vote)
 		bw_ops = SLIM_BW_CLK_GEAR_9;
