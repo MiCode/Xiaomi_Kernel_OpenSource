@@ -138,9 +138,19 @@ enum dsi_pm_type {
 	DSI_MAX_PM
 };
 
+/*
+ * DSI controller states.
+ *	CTRL_STATE_UNKNOWN - Unknown state of DSI controller.
+ *	CTRL_STATE_PANEL_INIT - State specifies that the panel is initialized.
+ *	CTRL_STATE_MDP_ACTIVE - State specifies that MDP is ready to send
+ *				data to DSI.
+ *	CTRL_STATE_DSI_ACTIVE - State specifies that DSI controller/PHY is
+ *				initialized.
+ */
 #define CTRL_STATE_UNKNOWN		0x00
 #define CTRL_STATE_PANEL_INIT		BIT(0)
 #define CTRL_STATE_MDP_ACTIVE		BIT(1)
+#define CTRL_STATE_DSI_ACTIVE		BIT(2)
 
 #define DSI_NON_BURST_SYNCH_PULSE	0
 #define DSI_NON_BURST_SYNCH_EVENT	1

@@ -1837,8 +1837,7 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 		 * However, when blanking the panel, we should enter ULPS
 		 * only if ULPS during suspend feature is enabled.
 		 */
-		if (pdata->panel_info.blank_state ==
-			MDSS_PANEL_BLANK_BLANK) {
+		if (!(ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE)) {
 			if (pdata->panel_info.ulps_suspend_enabled)
 				mdss_dsi_ulps_config(ctrl, 1);
 		} else if (mdss_dsi_ulps_feature_enabled(pdata)) {
@@ -1856,7 +1855,7 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 		 * Enable DSI clamps only if entering idle power collapse or
 		 * when ULPS during suspend is enabled.
 		 */
-		if ((pdata->panel_info.blank_state != MDSS_PANEL_BLANK_BLANK) ||
+		if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) ||
 			pdata->panel_info.ulps_suspend_enabled) {
 			rc = mdss_dsi_clamp_ctrl(ctrl, 1);
 			if (rc)
@@ -1958,8 +1957,7 @@ int mdss_dsi_post_clkoff_cb(void *priv,
 
 		for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
 			if ((i != DSI_CORE_PM) &&
-			    (pdata->panel_info.blank_state !=
-			     MDSS_PANEL_BLANK_BLANK))
+			    (ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE))
 				continue;
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,
@@ -2008,8 +2006,7 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 		pr_debug("%s: Enable DSI core power\n", __func__);
 		for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
 			if ((i != DSI_CORE_PM) &&
-			    (pdata->panel_info.blank_state !=
-				MDSS_PANEL_BLANK_BLANK) &&
+			    (ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
 				!pdata->panel_info.cont_splash_enabled)
 				continue;
 			rc = msm_dss_enable_vreg(
