@@ -1533,12 +1533,16 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 	struct hdmi_edid_init_data edid_init_data = {0};
 	struct hdmi_hdcp_init_data hdcp_init_data = {0};
 	struct hdmi_cec_init_data cec_init_data = {0};
+	struct cec_abstract_init_data cec_abst_init_data = {0};
 	struct resource *res = NULL;
 	void *fd = NULL;
+	int ret = 0;
+	void *cec_hw_data, *cec_abst_data;
 
 	if (!hdmi_ctrl || !fbi) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto end;
 	}
 
 	/* Initialize EDID feature */
@@ -1549,10 +1553,12 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 	fd = hdmi_edid_init(&edid_init_data);
 	if (!fd) {
 		DEV_ERR("%s: hdmi_edid_init failed\n", __func__);
-		return -EPERM;
+		ret = -ENODEV;
+		goto end;
 	}
 
 	hdmi_ctrl->panel_data.panel_info.edid_data = fd;
+	hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] = fd;
 
 	/* get edid buffer from edid parser */
 	hdmi_ctrl->edid_buf = edid_init_data.buf;
@@ -1562,15 +1568,16 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 	hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] = fd;
 
-	/* Initialize HDCP features */
 	res = platform_get_resource_byname(hdmi_ctrl->pdev,
 		IORESOURCE_MEM, hdmi_tx_io_name(HDMI_TX_CORE_IO));
 	if (!res) {
 		DEV_ERR("%s: Error getting HDMI tx core resource\n",
 			__func__);
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err_res;
 	}
 
+	/* Initialize HDCP features */
 	hdcp_init_data.phy_addr      = res->start;
 	hdcp_init_data.core_io       = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	hdcp_init_data.qfprom_io     = &hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
@@ -1589,6 +1596,8 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 		if (IS_ERR_OR_NULL(fd)) {
 			DEV_WARN("%s: hdmi_hdcp_init failed\n", __func__);
+			ret = -ENODEV;
+			goto err_res;
 		} else {
 			hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP] = fd;
 			DEV_DBG("%s: HDCP 1.4 configured\n", __func__);
@@ -1599,23 +1608,61 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 	if (IS_ERR_OR_NULL(fd)) {
 		DEV_WARN("%s: hdmi_hdcp2p2_init failed\n", __func__);
+		ret = -ENODEV;
+		goto err_hdcp;
 	} else {
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2] = fd;
 		DEV_DBG("%s: HDCP 2.2 configured\n", __func__);
 	}
 
-	/* Initialize CEC feature */
+	/* initialize cec hw feature and get ops */
 	cec_init_data.io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
-	cec_init_data.sysfs_kobj = hdmi_ctrl->kobj;
 	cec_init_data.workq = hdmi_ctrl->workq;
+	cec_init_data.ops = &hdmi_ctrl->hdmi_cec_ops;
+	cec_init_data.cbs = &hdmi_ctrl->hdmi_cec_cbs;
 
-	fd = hdmi_cec_init(&cec_init_data);
-	if (!fd)
-		DEV_WARN("%s: hdmi_cec_init failed\n", __func__);
-	else
-		hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC] = fd;
+	cec_hw_data = hdmi_cec_init(&cec_init_data);
+	if (IS_ERR_OR_NULL(cec_hw_data)) {
+		DEV_ERR("%s: error cec init\n", __func__);
+		goto err_cec_hw;
+	}
+
+	hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW] = cec_hw_data;
+
+	/* initialize cec abstract layer and get callbacks */
+	cec_abst_init_data.kobj  = hdmi_ctrl->kobj;
+	cec_abst_init_data.ops   = &hdmi_ctrl->hdmi_cec_ops;
+	cec_abst_init_data.cbs   = &hdmi_ctrl->hdmi_cec_cbs;
+
+	cec_abst_data = cec_abstract_init(&cec_abst_init_data);
+	if (IS_ERR_OR_NULL(cec_abst_data)) {
+		DEV_ERR("%s: error cec init\n", __func__);
+		goto err_cec_abst;
+	}
+
+	/* keep cec abstract data */
+	hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_ABST] = cec_abst_data;
+	hdmi_ctrl->panel_data.panel_info.cec_data = cec_abst_data;
 
 	return 0;
+
+err_cec_abst:
+	hdmi_cec_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW]);
+err_cec_hw:
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2]) {
+		hdmi_hdcp2p2_deinit(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2]);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2] = NULL;
+	}
+err_hdcp:
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) {
+		hdmi_hdcp_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP] = NULL;
+	}
+err_res:
+	hdmi_edid_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
+end:
+	return ret;
 } /* hdmi_tx_init_features */
 
 static inline u32 hdmi_tx_is_controller_on(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -3562,8 +3609,6 @@ static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
 		hdmi_tx_audio_off(hdmi_ctrl);
 
-	hdmi_cec_deconfig(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
-
 	hdmi_tx_core_off(hdmi_ctrl);
 
 	mutex_lock(&hdmi_ctrl->power_mutex);
@@ -3631,9 +3676,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			hdmi_ctrl->panel_power_on = true;
 			mutex_unlock(&hdmi_ctrl->power_mutex);
 
-			hdmi_cec_config(
-				hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
-
 			hdmi_tx_set_vendor_specific_infoframe(hdmi_ctrl);
 			hdmi_tx_set_spd_infoframe(hdmi_ctrl);
 
@@ -3649,8 +3691,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		DEV_ERR("%s: hdmi_msm_core_on failed\n", __func__);
 		return rc;
 	}
-
-	hdmi_cec_config(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
 	if (hdmi_ctrl->hpd_state) {
 		rc = hdmi_tx_start(hdmi_ctrl);
@@ -3939,8 +3979,8 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		hdmi_ctrl->hdmi_tx_ver))
 		DEV_ERR("%s: hdmi_ddc_isr failed\n", __func__);
 
-	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC])
-		if (hdmi_cec_isr(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]))
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW])
+		if (hdmi_cec_isr(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW]))
 			DEV_ERR("%s: hdmi_cec_isr failed\n", __func__);
 
 	if (hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp_data) {
@@ -3962,9 +4002,15 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
-	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]) {
-		hdmi_cec_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
-		hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC] = NULL;
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_ABST]) {
+		cec_abstract_deinit(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_ABST]);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_ABST] = NULL;
+	}
+
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW]) {
+		hdmi_cec_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW]);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW] = NULL;
 	}
 
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) {
