@@ -1383,7 +1383,20 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 			if (vfe_dev->is_camif_raw_crop_supported) {
 				/* Pdaf output will be sent in PLAIN16 format*/
 				val = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
-				val |= 5 << 9;
+				switch (subsample_cfg->output_format) {
+				case CAMIF_PLAIN_8:
+					val |= 4 << 9;
+					break;
+				case CAMIF_PLAIN_16:
+					val |= 5 << 9;
+					break;
+				case CAMIF_MIPI_RAW:
+					val |= 1 << 9;
+					break;
+				case CAMIF_QCOM_RAW:
+				default:
+					break;
+				}
 				msm_camera_io_w(val, vfe_dev->vfe_base + 0x54);
 				if (subsample_cfg->first_pixel ||
 					subsample_cfg->last_pixel ||
