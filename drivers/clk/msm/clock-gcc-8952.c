@@ -4456,6 +4456,8 @@ static struct clk_lookup msm_clocks_gcc_mdss_common[] = {
 	CLK_LIST(pclk0_clk_src),
 	CLK_LIST(gcc_mdss_pclk0_clk),
 	CLK_LIST(gcc_mdss_byte0_clk),
+	CLK_LIST(mdss_mdp_vote_clk),
+	CLK_LIST(mdss_rotator_vote_clk),
 };
 
 static struct clk_lookup msm_clocks_gcc_mdss_8937[] = {
@@ -4465,8 +4467,6 @@ static struct clk_lookup msm_clocks_gcc_mdss_8937[] = {
 	CLK_LIST(pclk1_clk_src),
 	CLK_LIST(gcc_mdss_pclk1_clk),
 	CLK_LIST(gcc_mdss_byte1_clk),
-	CLK_LIST(mdss_mdp_vote_clk),
-	CLK_LIST(mdss_rotator_vote_clk),
 };
 
 static int msm_gcc_mdss_probe(struct platform_device *pdev)
