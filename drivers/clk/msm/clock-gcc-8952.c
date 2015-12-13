@@ -424,6 +424,12 @@ static struct alpha_pll_vco_tbl p_vco[] = {
 	VCO(0,  700000000, 1400000000),
 };
 
+/* Slewing plls won't allow to change vco_sel.
+ * Hence will have only one vco table entry */
+static struct alpha_pll_vco_tbl p_vco_8937[] = {
+	VCO(1,  525000000, 1066000000),
+};
+
 static struct alpha_pll_clk gpll3_clk_src = {
 	.masks = &pll_masks_p,
 	.base = &virt_bases[GCC_BASE],
@@ -722,6 +728,7 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8937[] = {
 	F_SLEW( 228570000, FIXED_CLK_SRC, gpll0,	3.5,	0,	0),
 	F_SLEW( 240000000, FIXED_CLK_SRC, gpll6_aux,	4.5,	0,	0),
 	F_SLEW( 266670000, FIXED_CLK_SRC, gpll0,	3,	0,	0),
+	F_SLEW( 300000000, 600000000,	  gpll3,	1,	0,      0),
 	F_SLEW( 320000000, FIXED_CLK_SRC, gpll0,	2.5,	0,	0),
 	F_SLEW( 375000000, 750000000,	  gpll3,	1,	0,	0),
 	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
@@ -4058,6 +4065,9 @@ static void override_for_gold(void)
 static void override_for_8937(void)
 {
 	gpll3_clk_src.c.rate = 900000000;
+	gpll3_clk_src.vco_tbl = p_vco_8937;
+	gpll3_clk_src.num_vco = ARRAY_SIZE(p_vco_8937),
+
 	OVERRIDE_FMAX1(cci, LOWER, 37500000);
 	OVERRIDE_FMAX3(csi0,
 		LOWER, 100000000, LOW, 200000000, NOMINAL, 266670000);
