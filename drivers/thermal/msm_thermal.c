@@ -5103,6 +5103,7 @@ static void msm_thermal_init_cpu_mit(enum cpu_mit_type cpu_mit)
 			cpus[cpu].user_max_freq = UINT_MAX;
 			cpus[cpu].shutdown_max_freq = UINT_MAX;
 			cpus[cpu].suspend_max_freq = UINT_MAX;
+			cpus[cpu].vdd_max_freq = UINT_MAX;
 			cpus[cpu].user_min_freq = 0;
 			cpus[cpu].limited_max_freq = UINT_MAX;
 			cpus[cpu].limited_min_freq = 0;
