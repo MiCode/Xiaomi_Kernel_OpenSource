@@ -1458,4 +1458,20 @@ void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
 void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_info *pinfo);
 
+#ifdef CONFIG_FB_MSM_MDP_NONE
+struct mdss_data_type *mdss_mdp_get_mdata(void)
+{
+	return NULL;
+}
+
+int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
+{
+	return -EFAULT;
+}
+
+void mdss_mdp_free_layer_pp_info(struct mdp_input_layer *layer)
+{
+}
+
+#endif /* CONFIG_FB_MSM_MDP_NONE */
 #endif /* MDSS_MDP_H */

@@ -1006,11 +1006,12 @@ struct mdss_panel_timing *mdss_panel_get_timing_by_name(
 		const char *name);
 #else
 static inline int mdss_panel_debugfs_init(
-			struct mdss_panel_info *panel_info) { return 0; };
+		struct mdss_panel_info *panel_info,
+		char const *panel_name) { return 0; };
 static inline void mdss_panel_debugfs_cleanup(
-			struct mdss_panel_info *panel_info) { };
+		struct mdss_panel_info *panel_info) { };
 static inline void mdss_panel_debugfsinfo_to_panelinfo(
-			struct mdss_panel_info *panel_info) { };
+		struct mdss_panel_info *panel_info) { };
 static inline void mdss_panel_info_from_timing(struct mdss_panel_timing *pt,
 		struct mdss_panel_info *pinfo) { };
 static inline struct mdss_panel_timing *mdss_panel_get_timing_by_name(
