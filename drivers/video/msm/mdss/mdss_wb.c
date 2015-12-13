@@ -152,7 +152,7 @@ static int mdss_wb_probe(struct platform_device *pdev)
 
 	pdata->panel_info.type = WRITEBACK_PANEL;
 	pdata->panel_info.clk_rate = 74250000;
-	pdata->panel_info.pdest = DISPLAY_3;
+	pdata->panel_info.pdest = DISPLAY_4;
 	pdata->panel_info.out_format = MDP_Y_CBCR_H2V2_VENUS;
 
 	pdata->event_handler = mdss_wb_event_handler;

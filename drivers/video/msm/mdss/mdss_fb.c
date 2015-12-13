@@ -540,14 +540,14 @@ static ssize_t mdss_fb_get_panel_info(struct device *dev,
 			"pu_en=%d\nxstart=%d\nwalign=%d\nystart=%d\nhalign=%d\n"
 			"min_w=%d\nmin_h=%d\nroi_merge=%d\ndyn_fps_en=%d\n"
 			"min_fps=%d\nmax_fps=%d\npanel_name=%s\n"
-			"primary_panel=%d\nis_pluggable=%d\n",
+			"primary_panel=%d\nis_pluggable=%d\ndisplay_id=%s\n",
 			pinfo->partial_update_enabled, pinfo->xstart_pix_align,
 			pinfo->width_pix_align, pinfo->ystart_pix_align,
 			pinfo->height_pix_align, pinfo->min_width,
 			pinfo->min_height, pinfo->partial_update_roi_merge,
 			pinfo->dynamic_fps, pinfo->min_fps, pinfo->max_fps,
 			pinfo->panel_name, pinfo->is_prim_panel,
-			pinfo->is_pluggable);
+			pinfo->is_pluggable, pinfo->display_id);
 
 	return ret;
 }
@@ -4461,7 +4461,7 @@ int mdss_register_panel(struct platform_device *pdev,
 	struct mdss_panel_data *pdata)
 {
 	struct platform_device *fb_pdev, *mdss_pdev;
-	struct device_node *node;
+	struct device_node *node = NULL;
 	int rc = 0;
 	bool master_panel = true;
 
@@ -4475,11 +4475,17 @@ int mdss_register_panel(struct platform_device *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	node = of_parse_phandle(pdev->dev.of_node, "qcom,mdss-fb-map", 0);
+	if (pdata->get_fb_node)
+		node = pdata->get_fb_node(pdev);
+
 	if (!node) {
-		pr_err("Unable to find fb node for device: %s\n",
-				pdev->name);
-		return -ENODEV;
+		node = of_parse_phandle(pdev->dev.of_node,
+			"qcom,mdss-fb-map", 0);
+		if (!node) {
+			pr_err("Unable to find fb node for device: %s\n",
+					pdev->name);
+			return -ENODEV;
+		}
 	}
 	mdss_pdev = of_find_device_by_node(node->parent);
 	if (!mdss_pdev) {

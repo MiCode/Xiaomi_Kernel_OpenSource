@@ -250,7 +250,6 @@ struct dsi_shared_data {
 	u32 ulps_clamp_ctrl_off;
 	u32 ulps_phyrst_ctrl_off;
 
-	bool timing_db_mode;
 	bool cmd_clk_ln_recovery_en;
 	bool dsi0_active;
 	bool dsi1_active;
@@ -543,6 +542,7 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct workqueue_struct *workq;
 	struct delayed_work dba_work;
+	bool timing_db_mode;
 };
 
 struct dsi_status_data {
@@ -754,6 +754,20 @@ static inline bool mdss_dsi_is_dsi1_active(struct dsi_shared_data *sdata)
 static inline u32 mdss_dsi_get_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	return ctrl->shared_data->phy_rev;
+}
+
+static inline const char *mdss_dsi_get_fb_name(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_panel_info *pinfo = &(ctrl->panel_data.panel_info);
+
+	if (mdss_dsi_is_hw_config_dual(ctrl->shared_data)) {
+		if (pinfo->is_prim_panel)
+			return "qcom,mdss-fb-map-prim";
+		else
+			return "qcom,mdss-fb-map-sec";
+	} else {
+		return "qcom,mdss-fb-map-prim";
+	}
 }
 
 static inline bool mdss_dsi_sync_wait_enable(struct mdss_dsi_ctrl_pdata *ctrl)

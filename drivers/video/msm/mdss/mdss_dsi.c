@@ -548,7 +548,6 @@ static int mdss_dsi_get_panel_cfg(char *panel_cfg,
 
 	pr_debug("%s:%d: cfg:[%s]\n", __func__, __LINE__,
 		 pan_cfg->arg_cfg);
-	ctrl->panel_data.panel_info.is_prim_panel = true;
 	rc = strlcpy(panel_cfg, pan_cfg->arg_cfg,
 		     sizeof(pan_cfg->arg_cfg));
 	return rc;
@@ -1632,7 +1631,7 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 				(new_dsi_v_total & 0x7ffffff));
 	}
 
-	if (ctrl_pdata->shared_data->timing_db_mode)
+	if (ctrl_pdata->timing_db_mode)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
 
 	pr_debug("%s new_fps:%d vsync:%d hsync:%d frame_rate:%d\n",
@@ -1641,7 +1640,7 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 
 	ctrl_pdata->panel_data.panel_info.current_fps = new_fps;
 	MDSS_XLOG(current_dsi_v_total, new_dsi_v_total, new_fps,
-		ctrl_pdata->shared_data->timing_db_mode);
+		ctrl_pdata->timing_db_mode);
 
 }
 
@@ -2216,6 +2215,35 @@ int mdss_dsi_register_recovery_handler(struct mdss_dsi_ctrl_pdata *ctrl,
 	return 0;
 }
 
+static struct device_node *mdss_dsi_get_fb_node_cb(struct platform_device *pdev)
+{
+	struct device_node *fb_node;
+	struct platform_device *dsi_dev;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
+
+	if (pdev == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return NULL;
+	}
+
+	ctrl_pdata = platform_get_drvdata(pdev);
+	dsi_dev = of_find_device_by_node(pdev->dev.of_node->parent);
+	if (!dsi_dev) {
+		pr_err("Unable to find dsi master device: %s\n",
+			pdev->dev.of_node->full_name);
+		return NULL;
+	}
+
+	fb_node = of_parse_phandle(dsi_dev->dev.of_node,
+			mdss_dsi_get_fb_name(ctrl_pdata), 0);
+	if (!fb_node) {
+		pr_err("Unable to find fb node for device: %s\n", pdev->name);
+		return NULL;
+	}
+
+	return fb_node;
+}
+
 static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -2772,10 +2800,13 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	if (rc)
 		pr_warn("%s: failed to get pin resources\n", __func__);
 
-	if (index == 0)
+	if (index == 0) {
 		ctrl_pdata->panel_data.panel_info.pdest = DISPLAY_1;
-	else
+		ctrl_pdata->ndx = DSI_CTRL_0;
+	} else {
 		ctrl_pdata->panel_data.panel_info.pdest = DISPLAY_2;
+		ctrl_pdata->ndx = DSI_CTRL_1;
+	}
 
 	if (mdss_dsi_ctrl_clock_init(pdev, ctrl_pdata)) {
 		pr_err("%s: unable to initialize dsi clk manager\n", __func__);
@@ -2914,9 +2945,6 @@ static int mdss_dsi_parse_dt_params(struct platform_device *pdev,
 				"qcom,mmss-phyreset-ctrl-offset",
 				&sdata->ulps_phyrst_ctrl_off);
 	}
-
-	sdata->timing_db_mode = of_property_read_bool(
-		pdev->dev.of_node, "qcom,timing-db-mode");
 
 	sdata->cmd_clk_ln_recovery_en =
 		of_property_read_bool(pdev->dev.of_node,
@@ -3508,6 +3536,9 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 			pinfo->mipi.dsi_phy_db.lanecfg[i] = data[i];
 	}
 
+	ctrl_pdata->timing_db_mode = of_property_read_bool(
+		ctrl_pdev->dev.of_node, "qcom,timing-db-mode");
+
 	ctrl_pdata->cmd_sync_wait_broadcast = of_property_read_bool(
 		pan_node, "qcom,cmd-sync-wait-broadcast");
 
@@ -3525,6 +3556,15 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 
 	pinfo->is_pluggable = of_property_read_bool(ctrl_pdev->dev.of_node,
 		"qcom,pluggable");
+
+	data = of_get_property(ctrl_pdev->dev.of_node,
+		"qcom,display-id", &len);
+	if (!data || len <= 0)
+		pr_err("%s:%d Unable to read qcom,display-id, data=%p,len=%d\n",
+			__func__, __LINE__, data, len);
+	else
+		snprintf(ctrl_pdata->panel_data.panel_info.display_id,
+			MDSS_DISPLAY_ID_MAX_LEN, "%s", data);
 
 	return 0;
 
@@ -3581,6 +3621,31 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	}
 
 	return 0;
+}
+
+static void mdss_dsi_set_prim_panel(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	struct mdss_dsi_ctrl_pdata *octrl = NULL;
+	struct mdss_panel_info *pinfo;
+
+	pinfo = &ctrl_pdata->panel_data.panel_info;
+
+	/*
+	 * for Split and Single DSI case default is always primary
+	 * and for Dual dsi case below assumptions are made.
+	 *	1. DSI controller with bridge chip is always secondary
+	 *	2. When there is no brigde chip, DSI1 is secondary
+	 */
+	pinfo->is_prim_panel = true;
+	if (mdss_dsi_is_hw_config_dual(ctrl_pdata->shared_data)) {
+		if (mdss_dsi_is_right_ctrl(ctrl_pdata)) {
+			octrl = mdss_dsi_get_other_ctrl(ctrl_pdata);
+			if (octrl && octrl->panel_data.panel_info.is_prim_panel)
+				pinfo->is_prim_panel = false;
+			else
+				pinfo->is_prim_panel = true;
+		}
+	}
 }
 
 int dsi_panel_device_register(struct platform_device *ctrl_pdev,
@@ -3654,6 +3719,7 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	}
 
 	ctrl_pdata->panel_data.event_handler = mdss_dsi_event_handler;
+	ctrl_pdata->panel_data.get_fb_node = mdss_dsi_get_fb_node_cb;
 
 	if (ctrl_pdata->status_mode == ESD_REG ||
 			ctrl_pdata->status_mode == ESD_REG_NT35596)
@@ -3669,6 +3735,7 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		mdss_dsi_panel_pwm_cfg(ctrl_pdata);
 
 	mdss_dsi_ctrl_init(&ctrl_pdev->dev, ctrl_pdata);
+	mdss_dsi_set_prim_panel(ctrl_pdata);
 
 	ctrl_pdata->dsi_irq_line = of_property_read_bool(
 				ctrl_pdev->dev.of_node, "qcom,dsi-irq-line");
@@ -3728,14 +3795,12 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		if (ctrl_pdata->phy_regulator_io.len)
 			mdss_debug_register_io("dsi0_phy_regulator",
 				&ctrl_pdata->phy_regulator_io, NULL);
-		ctrl_pdata->ndx = 0;
 	} else {
 		mdss_debug_register_io("dsi1_ctrl", &ctrl_pdata->ctrl_io, NULL);
 		mdss_debug_register_io("dsi1_phy", &ctrl_pdata->phy_io, NULL);
 		if (ctrl_pdata->phy_regulator_io.len)
 			mdss_debug_register_io("dsi1_phy_regulator",
 				&ctrl_pdata->phy_regulator_io, NULL);
-		ctrl_pdata->ndx = 1;
 	}
 
 	panel_debug_register_base("panel",

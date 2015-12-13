@@ -123,6 +123,7 @@
 		hw-config = "single_dsi";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		qcom,mdss-fb-map-prim = <&mdss_fb0>;
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8950_l2>;
 		vddio-supply = <&pm8950_l6>;
@@ -135,8 +136,6 @@
 			<&clock_gcc clk_gcc_mdss_ahb_clk>,
 			<&clock_gcc clk_gcc_mdss_axi_clk>;
 		clock-names = "mdp_core_clk", "iface_clk", "bus_clk";
-
-		qcom,timing-db-mode;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -192,12 +191,12 @@
 			reg-names = "dsi_ctrl", "dsi_phy",
 			      "dsi_phy_regulator", "mmss_misc_phys";
 
-			qcom,mdss-fb-map = <&mdss_fb0>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 			vdd-supply = <&pm8950_l17>;
 			vddio-supply = <&pm8950_l6>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
+			qcom,timing-db-mode;
 
 			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte0_clk>,
 				<&clock_gcc_mdss clk_gcc_mdss_pclk0_clk>,
