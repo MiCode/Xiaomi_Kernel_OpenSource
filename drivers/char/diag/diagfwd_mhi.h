@@ -47,7 +47,6 @@
 struct diag_mhi_buf_tbl_t {
 	struct list_head link;
 	unsigned char *buf;
-	dma_addr_t dma_addr;
 	int len;
 };
 
