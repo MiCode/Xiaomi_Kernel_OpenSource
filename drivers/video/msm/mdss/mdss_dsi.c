@@ -1457,12 +1457,14 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 
 	if (!(ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT)) {
 		if (!pdata->panel_info.dynamic_switch_pending) {
+			ATRACE_BEGIN("dsi_panel_on");
 			ret = ctrl_pdata->on(pdata);
 			if (ret) {
 				pr_err("%s: unable to initialize the panel\n",
 							__func__);
 				goto error;
 			}
+			ATRACE_END("dsi_panel_on");
 		}
 		ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
 	}
@@ -1547,11 +1549,13 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 
 	if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
 		if (!pdata->panel_info.dynamic_switch_pending) {
+			ATRACE_BEGIN("dsi_panel_off");
 			ret = ctrl_pdata->off(pdata);
 			if (ret) {
 				pr_err("%s: Panel OFF failed\n", __func__);
 				goto error;
 			}
+			ATRACE_END("dsi_panel_off");
 		}
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_PANEL_INIT;
 	}
