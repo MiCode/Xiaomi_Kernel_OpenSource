@@ -1644,7 +1644,46 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" src_split");
 	if (mdata->has_rot_dwnscale)
 		SPRINT(" rotator_downscale");
+	if (mdata->max_bw_settings_cnt)
+		SPRINT(" dynamic_bw_limit");
 	SPRINT("\n");
+
+	return cnt;
+}
+
+static ssize_t mdss_mdp_read_max_limit_bw(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mdss_data_type *mdata = dev_get_drvdata(dev);
+	size_t len = PAGE_SIZE;
+	u32 cnt = 0;
+	int i;
+
+	char bw_names[4][8] = {"default", "camera", "hflip", "vflip"};
+	char pipe_bw_names[4][16] = {"default_pipe", "camera_pipe",
+				"hflip_pipe", "vflip_pipe"};
+	struct mdss_max_bw_settings *bw_settings;
+	struct mdss_max_bw_settings *pipe_bw_settings;
+
+	bw_settings = mdata->max_bw_settings;
+	pipe_bw_settings = mdata->max_per_pipe_bw_settings;
+
+#define SPRINT(fmt, ...) \
+		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
+
+	SPRINT("bw_mode_bitmap=%d\n", mdata->bw_mode_bitmap);
+	SPRINT("bw_limit_pending=%d\n", mdata->bw_limit_pending);
+
+	for (i = 0; i < mdata->max_bw_settings_cnt; i++) {
+		SPRINT("%s=%d\n", bw_names[i], bw_settings->mdss_max_bw_val);
+		bw_settings++;
+	}
+
+	for (i = 0; i < mdata->mdss_per_pipe_bw_cnt; i++) {
+		SPRINT("%s=%d\n", pipe_bw_names[i],
+					pipe_bw_settings->mdss_max_bw_val);
+		pipe_bw_settings++;
+	}
 
 	return cnt;
 }
@@ -1659,6 +1698,7 @@ static ssize_t mdss_mdp_store_max_limit_bw(struct device *dev,
 		pr_info("Not able scan to bw_mode_bitmap\n");
 	} else {
 		mdata->bw_mode_bitmap = data;
+		mdata->bw_limit_pending = true;
 		pr_debug("limit use case, bw_mode_bitmap = %d\n", data);
 	}
 
@@ -1666,8 +1706,8 @@ static ssize_t mdss_mdp_store_max_limit_bw(struct device *dev,
 }
 
 static DEVICE_ATTR(caps, S_IRUGO, mdss_mdp_show_capabilities, NULL);
-static DEVICE_ATTR(bw_mode_bitmap, S_IRUGO | S_IWUSR | S_IWGRP, NULL,
-		mdss_mdp_store_max_limit_bw);
+static DEVICE_ATTR(bw_mode_bitmap, S_IRUGO | S_IWUSR | S_IWGRP,
+		mdss_mdp_read_max_limit_bw, mdss_mdp_store_max_limit_bw);
 
 static struct attribute *mdp_fs_attrs[] = {
 	&dev_attr_caps.attr,
