@@ -114,7 +114,10 @@ enum ipa_rsrc_grp_type_dst {
 	IPA_RSRC_GRP_TYPE_DST_DPS_DMARS,
 	IPA_RSRC_GRP_TYPE_DST_MAX,
 };
-
+enum ipa_rsrc_grp_type_rx {
+	IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ,
+	IPA_RSRC_GRP_TYPE_RX_MAX
+};
 struct rsrc_min_max {
 	u32 min;
 	u32 max;
@@ -122,7 +125,7 @@ struct rsrc_min_max {
 
 static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 			[IPA_RSRC_GRP_TYPE_SRC_MAX][IPA_GROUP_MAX] = {
-		/*UL	DL	DIAG	DMA	Q6zip	uC Rx*/
+		/*UL	DL	DIAG	DMA	Not Used	uC Rx*/
 	[IPA_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
 		{3, 255}, {3, 255}, {1, 255}, {1, 255}, {1, 255}, {2, 255} },
 	[IPA_RSRC_GRP_TYPE_SRC_HDR_SECTORS] = {
@@ -149,6 +152,12 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
 	[IPA_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
 		{1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1}, {0, 0} },
+};
+static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
+			[IPA_RSRC_GRP_TYPE_RX_MAX][IPA_GROUP_MAX] = {
+		/*UL	DL	DIAG	DMA	Not Used	uC Rx*/
+	[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
+		{16, 16}, {24, 24}, {8, 8}, {8, 8}, {0, 0}, {8, 8} },
 };
 
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
@@ -3244,8 +3253,9 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_mode == NULL) {
-		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
-					clnt_hdl, ipa3_ctx->ep[clnt_hdl].valid);
+		IPAERR("bad params clnt_hdl=%d , ep_valid=%d ep_mode=%p\n",
+				clnt_hdl, ipa3_ctx->ep[clnt_hdl].valid,
+				ep_mode);
 		return -EINVAL;
 	}
 
@@ -3256,7 +3266,7 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 
 	ep = ipa3_get_ep_mapping(ep_mode->dst);
 	if (ep == -1 && ep_mode->mode == IPA_DMA) {
-		IPAERR("dst %d does not exist\n", ep_mode->dst);
+		IPAERR("dst %d does not exist in DMA mode\n", ep_mode->dst);
 		return -EINVAL;
 	}
 
@@ -5013,6 +5023,43 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 	}
 }
 
+static void ipa3_configure_rx_hps_clients(int depth, bool min)
+{
+	int i;
+	int val;
+	u32 reg;
+
+	/*
+	 * depth 0 contains 4 first clients out of 6
+	 * depth 1 contains 2 last clients out of 6
+	 */
+	for (i = 0 ; i < (depth ? 2 : 4) ; i++) {
+		if (min)
+			val = ipa3_rsrc_rx_grp_config
+				[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ]
+				[!depth ? i : 4 + i].min;
+		else
+			val = ipa3_rsrc_rx_grp_config
+				[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ]
+				[!depth ? i : 4 + i].max;
+
+		IPA_SETFIELD_IN_REG(reg, val,
+			IPA_RX_HPS_CLIENTS_MINMAX_DEPTH_X_CLIENT_n_SHFT(i),
+			IPA_RX_HPS_CLIENTS_MINMAX_DEPTH_X_CLIENT_n_BMSK(i));
+	}
+	if (depth) {
+		ipa_write_reg(ipa3_ctx->mmio,
+			min ? IPA_RX_HPS_CLIENTS_MIN_DEPTH_1 :
+			IPA_RX_HPS_CLIENTS_MAX_DEPTH_1,
+			reg);
+	} else {
+		ipa_write_reg(ipa3_ctx->mmio,
+			min ? IPA_RX_HPS_CLIENTS_MIN_DEPTH_0 :
+			IPA_RX_HPS_CLIENTS_MAX_DEPTH_0,
+			reg);
+	}
+}
+
 void ipa3_set_resorce_groups_min_max_limits(void)
 {
 	int i;
@@ -5069,6 +5116,13 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 			ipa3_write_rsrc_grp_type_reg(j, i, false, reg);
 		}
 	}
+
+	IPADBG("Assign RX_HPS CMDQ rsrc groups min-max limits\n");
+
+	ipa3_configure_rx_hps_clients(0, true);
+	ipa3_configure_rx_hps_clients(1, true);
+	ipa3_configure_rx_hps_clients(0, false);
+	ipa3_configure_rx_hps_clients(1, false);
 
 	IPADBG("EXIT\n");
 }
@@ -5133,7 +5187,7 @@ void ipa3_suspend_apps_pipes(bool suspend)
 }
 
 /**
- * ipa3_inject_dma_task_for_gsi()- Send TMA_TASK to IPA for GSI stop channel
+ * ipa3_inject_dma_task_for_gsi()- Send DMA_TASK to IPA for GSI stop channel
  *
  * Send a DMA_TASK of 1B to IPA to unblock GSI channel in STOP_IN_PROG.
  * Return value: 0 on success, negative otherwise
@@ -5217,10 +5271,11 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
 			goto end_sequence;
 
+		IPADBG("Inject a DMA_TASK with 1B packet to IPA and retry\n");
 		/* Send a 1B packet DMA_RASK to IPA and try again*/
 		res = ipa3_inject_dma_task_for_gsi();
 		if (res) {
-			IPAERR("ipa3_inject_dma_task_for_gsi failed\n");
+			IPAERR("Failed to inject DMA TASk for GSI\n");
 			goto end_sequence;
 		}
 
@@ -5229,6 +5284,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
 	}
 
+	IPAERR("Failed  to stop GSI channel with retries\n");
 	res = -EFAULT;
 end_sequence:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
