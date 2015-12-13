@@ -40,6 +40,7 @@ struct hdmi_hdcp_init_data {
 	u32 phy_addr;
 	u32 hdmi_tx_ver;
 	struct msm_hdmi_mode_timing_info *timing;
+	bool tethered;
 };
 
 struct hdmi_hdcp_ops {

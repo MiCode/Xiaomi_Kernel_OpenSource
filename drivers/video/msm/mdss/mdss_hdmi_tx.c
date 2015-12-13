@@ -1318,8 +1318,16 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 			rc = hdmi_tx_config_avmute(hdmi_ctrl, false);
 			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1);
 		}
+
+		if (hdmi_ctrl->hdcp1_use_sw_keys && hdmi_ctrl->hdcp14_present)
+			hdcp1_set_enc(true);
 		break;
 	case HDCP_STATE_AUTH_FAIL:
+		if (hdmi_ctrl->hdcp1_use_sw_keys && hdmi_ctrl->hdcp14_present) {
+			if (hdmi_ctrl->auth_state)
+				hdcp1_set_enc(false);
+		}
+
 		hdmi_ctrl->auth_state = false;
 
 		if (hdmi_tx_is_encryption_set(hdmi_ctrl) ||
@@ -1394,7 +1402,7 @@ static u32 hdmi_tx_ddc_read(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 			ddc_data.request_len = block_size;
 			ddc_data.retry       = 1;
 			ddc_data.what        = "EDID";
-			ddc_data.no_align    = false;
+			ddc_data.retry_align = true;
 
 			ddc_ctrl->ddc_data = ddc_data;
 
@@ -1522,9 +1530,9 @@ end:
 static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 	struct fb_info *fbi)
 {
-	struct hdmi_edid_init_data edid_init_data;
-	struct hdmi_hdcp_init_data hdcp_init_data;
-	struct hdmi_cec_init_data cec_init_data;
+	struct hdmi_edid_init_data edid_init_data = {0};
+	struct hdmi_hdcp_init_data hdcp_init_data = {0};
+	struct hdmi_cec_init_data cec_init_data = {0};
 	struct resource *res = NULL;
 	void *fd = NULL;
 
@@ -4240,6 +4248,8 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 
 	case MDSS_EVENT_BLANK:
 		if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl)) {
+			flush_delayed_work(&hdmi_ctrl->hdcp_cb_work);
+
 			DEV_DBG("%s: Turning off HDCP\n", __func__);
 			hdmi_ctrl->hdcp_ops->hdmi_hdcp_off(
 				hdmi_ctrl->hdcp_data);
