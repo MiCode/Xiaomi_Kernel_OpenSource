@@ -3157,7 +3157,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	struct usb_hcd *hcd;
 	int ret = 0;
 
 	if (!dwc->xhci)
@@ -3228,9 +3227,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		if (mdwc->disable_host_mode_pm)
 			pm_runtime_disable(&dwc->xhci->dev);
 
-		hcd = platform_get_drvdata(dwc->xhci);
-
 		mdwc->in_host_mode = true;
+		dwc3_gadget_usb3_phy_suspend(dwc, true);
 
 		/* xHCI should have incremented child count as necessary */
 		pm_runtime_put_sync(dwc->dev);
