@@ -1780,6 +1780,7 @@ do_map:
 
 		if (!(map.m_flags & F2FS_MAP_FLAGS)) {
 			map.m_lblk++;
+			map.m_len--;
 			continue;
 		}
 
