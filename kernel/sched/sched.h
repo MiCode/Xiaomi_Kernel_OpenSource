@@ -345,6 +345,7 @@ struct sched_cluster {
 	struct cpumask cpus;
 	int id;
 	int max_power_cost;
+	int min_power_cost;
 	int max_possible_capacity;
 	int capacity;
 	int efficiency; /* Differentiate cpus with different IPC capability */

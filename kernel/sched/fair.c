@@ -3063,7 +3063,8 @@ struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 }
 
 struct sched_cluster *
-next_best_cluster(struct sched_cluster *cluster, struct cpu_select_env *env)
+next_best_cluster(struct sched_cluster *cluster, struct cpu_select_env *env,
+					struct cluster_cpu_stats *stats)
 {
 	struct sched_cluster *next = NULL;
 
@@ -3077,9 +3078,16 @@ next_best_cluster(struct sched_cluster *cluster, struct cpu_select_env *env)
 			return NULL;
 
 		next = next_candidate(env->candidate_list, 0, num_clusters);
-		if (next)
+		if (next) {
+			if (next->min_power_cost > stats->min_cost) {
+				clear_bit(next->id, env->candidate_list);
+				next = NULL;
+				continue;
+			}
+
 			if (skip_cluster(next, env))
 				next = NULL;
+		}
 	} while (!next);
 
 	env->task_load = scale_load_to_cpu(task_load(env->p),
@@ -3296,7 +3304,7 @@ retry:
 	do {
 		find_best_cpu_in_cluster(cluster, &env, &stats);
 
-	} while ((cluster = next_best_cluster(cluster, &env)));
+	} while ((cluster = next_best_cluster(cluster, &env, &stats)));
 
 	if (stats.best_idle_cpu >= 0) {
 		target = stats.best_idle_cpu;
