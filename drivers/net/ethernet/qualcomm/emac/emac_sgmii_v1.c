@@ -158,16 +158,16 @@ static int emac_sgmii_v1_config(struct platform_device *pdev,
 		return -ENOMEM;
 	}
 
-	adpt->hw.private = sgmii;
+	adpt->phy.private = sgmii;
 
 	return 0;
 }
 
 /* LINK */
-static int emac_sgmii_v1_init_link(struct emac_hw *hw, u32 speed,
+static int emac_sgmii_v1_init_link(struct emac_adapter *adpt, u32 speed,
 				   bool autoneg, bool fc)
 {
-	struct emac_sgmii_v1 *sgmii = hw->private;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 	u32 val;
 	u32 speed_cfg = 0;
 
@@ -208,9 +208,10 @@ static int emac_sgmii_v1_init_link(struct emac_hw *hw, u32 speed,
 	return 0;
 }
 
-static int emac_hw_clear_sgmii_intr_status(struct emac_hw *hw, u32 irq_bits)
+static int emac_hw_clear_sgmii_intr_status(struct emac_adapter *adpt,
+					   u32 irq_bits)
 {
-	struct emac_sgmii_v1 *sgmii = hw->private;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 	u32 status;
 	int i;
 
@@ -231,7 +232,7 @@ static int emac_hw_clear_sgmii_intr_status(struct emac_hw *hw, u32 irq_bits)
 			break;
 	}
 	if (status & irq_bits) {
-		emac_err(emac_hw_get_adap(hw),
+		emac_err(adpt,
 			 "failed to clear SGMII irq: status 0x%x bits 0x%x\n",
 			 status, irq_bits);
 		return -EIO;
@@ -331,11 +332,11 @@ static void emac_reg_write_all(struct emac_sgmii_v1 *sgmii,
 static int emac_sgmii_v1_init(struct emac_adapter *adpt)
 {
 	int i;
-	struct emac_hw *hw = &adpt->hw;
-	struct emac_sgmii_v1 *sgmii = hw->private;
+	struct emac_phy *phy = &adpt->phy;
+	struct emac_sgmii_v1 *sgmii = phy->private;
 
-	emac_sgmii_v1_init_link(hw, hw->autoneg_advertised,
-				hw->autoneg, !hw->disable_fc_autoneg);
+	emac_sgmii_v1_init_link(adpt, phy->autoneg_advertised,
+				phy->autoneg, !phy->disable_fc_autoneg);
 
 	emac_reg_write_all(sgmii, physical_coding_sublayer_programming);
 
@@ -375,14 +376,14 @@ static int emac_sgmii_v1_init(struct emac_adapter *adpt)
 	/* Ensure SGMII interrupts are masked out before clearing them */
 	wmb();
 
-	emac_hw_clear_sgmii_intr_status(hw, SGMII_PHY_INTERRUPT_ERR);
+	emac_hw_clear_sgmii_intr_status(adpt, SGMII_PHY_INTERRUPT_ERR);
 
 	return 0;
 }
 
 static int emac_sgmii_v1_reset_impl(struct emac_adapter *adpt)
 {
-	struct emac_sgmii_v1 *sgmii = adpt->hw.private;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 	u32 val;
 
 	val = readl_relaxed(sgmii->base + EMAC_EMAC_WRAPPER_CSR2);
@@ -409,7 +410,7 @@ static void emac_sgmii_v1_reset(struct emac_adapter *adpt)
 	emac_clk_set_rate(adpt, EMAC_CLK_125M, EMC_CLK_RATE_125MHZ);
 }
 
-static int emac_sgmii_v1_init_ephy_nop(struct emac_hw *hw)
+static int emac_sgmii_v1_init_ephy_nop(struct emac_adapter *adpt)
 {
 	return 0;
 }
@@ -417,18 +418,20 @@ static int emac_sgmii_v1_init_ephy_nop(struct emac_hw *hw)
 int emac_sgmii_v1_link_setup_no_ephy(struct emac_adapter *adpt, u32 speed,
 				     bool autoneg)
 {
-	adpt->hw.autoneg = autoneg;
-	adpt->hw.autoneg_advertised = speed;
+	struct emac_phy *phy = &adpt->phy;
+
+	phy->autoneg		= autoneg;
+	phy->autoneg_advertised	= speed;
 	/* The AN_ENABLE and SPEED_CFG can't change on fly. The SGMII_PHY has
 	 * to be re-initialized.
 	 */
 	return emac_sgmii_v1_reset_impl(adpt);
 }
 
-static int emac_sgmii_v1_autoneg_check(struct emac_hw *hw, u32 *speed,
+static int emac_sgmii_v1_autoneg_check(struct emac_adapter *adpt, u32 *speed,
 				       bool *link_up)
 {
-	struct emac_sgmii_v1 *sgmii = hw->private;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 	u32 autoneg0, autoneg1, status;
 
 	autoneg0 = readl_relaxed(sgmii->base + EMAC_SGMII_PHY_AUTONEG0_STATUS);
@@ -469,13 +472,12 @@ static int emac_sgmii_v1_autoneg_check(struct emac_hw *hw, u32 *speed,
 static  int emac_sgmii_v1_link_check_no_ephy(struct emac_adapter *adpt,
 					     u32 *speed, bool *link_up)
 {
-	struct emac_sgmii_v1 *sgmii = adpt->hw.private;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 	u32 val;
-	struct emac_hw *hw = &adpt->hw;
 
 	val = readl_relaxed(sgmii->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
 	if (val & AN_ENABLE)
-		return emac_sgmii_v1_autoneg_check(hw, speed, link_up);
+		return emac_sgmii_v1_autoneg_check(adpt, speed, link_up);
 
 	val = readl_relaxed(sgmii->base + EMAC_SGMII_PHY_SPEED_CFG1);
 	val &= DUPLEX_MODE | SPDMODE_BMSK;
@@ -506,8 +508,7 @@ static  int emac_sgmii_v1_link_check_no_ephy(struct emac_adapter *adpt,
 static irqreturn_t emac_sgmii_v1_isr(int _irq, void *data)
 {
 	struct emac_adapter *adpt = data;
-	struct emac_sgmii_v1 *sgmii = adpt->hw.private;
-	struct emac_hw *hw = &adpt->hw;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 	u32 status;
 
 	emac_dbg(adpt, intr, "receive sgmii interrupt\n");
@@ -528,7 +529,7 @@ static irqreturn_t emac_sgmii_v1_isr(int _irq, void *data)
 		if (status & SGMII_ISR_AN_MASK)
 			emac_check_lsc(adpt);
 
-		if (emac_hw_clear_sgmii_intr_status(hw, status) != 0) {
+		if (emac_hw_clear_sgmii_intr_status(adpt, status) != 0) {
 			/* reset */
 			SET_FLAG(adpt, ADPT_TASK_REINIT_REQ);
 			emac_task_schedule(adpt);
@@ -541,7 +542,7 @@ static irqreturn_t emac_sgmii_v1_isr(int _irq, void *data)
 
 static int emac_sgmii_v1_up(struct emac_adapter *adpt)
 {
-	struct emac_sgmii_v1 *sgmii = adpt->hw.private;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 	int ret;
 
 	ret = request_irq(sgmii->irq, emac_sgmii_v1_isr, IRQF_TRIGGER_RISING,
@@ -560,7 +561,7 @@ static int emac_sgmii_v1_up(struct emac_adapter *adpt)
 
 static void emac_sgmii_v1_down(struct emac_adapter *adpt)
 {
-	struct emac_sgmii_v1 *sgmii = adpt->hw.private;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 
 	writel_relaxed(0, sgmii->base + EMAC_SGMII_PHY_INTERRUPT_MASK);
 	synchronize_irq(sgmii->irq);
@@ -574,7 +575,7 @@ static void emac_sgmii_v1_tx_clk_set_rate_nop(struct emac_adapter *adpt)
 /* Check SGMII for error */
 static void emac_sgmii_v1_periodic_check(struct emac_adapter *adpt)
 {
-	struct emac_sgmii_v1 *sgmii = adpt->hw.private;
+	struct emac_sgmii_v1 *sgmii = adpt->phy.private;
 
 	if (!TEST_FLAG(adpt, ADPT_TASK_CHK_SGMII_REQ))
 		return;

@@ -26,7 +26,7 @@ static int emac_rgmii_config(struct platform_device *pdev,
 			     struct emac_adapter *adpt)
 {
 	/* For rgmii phy, the mdio lines are dedicated pins */
-	adpt->no_mdio_gpio = true;
+	adpt->phy.uses_gpios = false;
 	return 0;
 }
 
@@ -103,7 +103,7 @@ static int emac_rgmii_init(struct emac_adapter *adpt)
 	} while (time_after_eq(timeout, jiffies));
 
 	if (time_after(jiffies, timeout)) {
-		emac_err(emac_hw_get_adap(hw), "PHY PLL lock failed\n");
+		emac_err(adpt, "PHY PLL lock failed\n");
 		return -EIO;
 	}
 
@@ -114,24 +114,23 @@ static void emac_rgmii_reset_nop(struct emac_adapter *adpt)
 {
 }
 
-static int emac_rgmii_init_ephy(struct emac_hw *hw)
+static int emac_rgmii_init_ephy(struct emac_adapter *adpt)
 {
 	u16 val;
+	struct emac_phy *phy = &adpt->phy;
 
 	/* disable hibernation in case of rgmii phy */
-	int retval = emac_write_phy_reg(hw, hw->phy_addr,
-				    MII_DBG_ADDR, HIBERNATE_CTRL_REG);
+	int retval = emac_phy_write(adpt, phy->addr, MII_DBG_ADDR,
+				    HIBERNATE_CTRL_REG);
 	if (retval)
 		return retval;
 
-	retval = emac_read_phy_reg(hw, hw->phy_addr,
-				   MII_DBG_DATA, &val);
+	retval = emac_phy_read(adpt, phy->addr, MII_DBG_DATA, &val);
 	if (retval)
 		return retval;
 
 	val &= ~HIBERNATE_EN;
-	retval = emac_write_phy_reg(hw, hw->phy_addr,
-				    MII_DBG_DATA, val);
+	retval = emac_phy_write(adpt, phy->addr, MII_DBG_DATA, val);
 
 	return retval;
 }
@@ -161,7 +160,7 @@ static void emac_rgmii_down_nop(struct emac_adapter *adpt)
 
 static void emac_rgmii_tx_clk_set_rate(struct emac_adapter *adpt)
 {
-	switch (adpt->hw.link_speed) {
+	switch (adpt->phy.link_speed) {
 	case EMAC_LINK_SPEED_1GB_FULL:
 		clk_set_rate(adpt->clk[EMAC_CLK_TX].clk, EMC_CLK_RATE_125MHZ);
 		break;
