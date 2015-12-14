@@ -695,18 +695,24 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 	pr_debug("Enter");
 	/* Close control device */
 	snd = &gau->control;
-	if (snd->filp)
+	if (snd->filp) {
 		filp_close(snd->filp, NULL);
+		snd->filp = NULL;
+	}
 
 	/* Close PCM playback device and setup substream */
 	snd = &gau->playback;
-	if (snd->filp)
+	if (snd->filp) {
 		filp_close(snd->filp, NULL);
+		snd->filp = NULL;
+	}
 
 	/* Close PCM capture device and setup substream */
 	snd = &gau->capture;
-	if (snd->filp)
+	if (snd->filp) {
 		filp_close(snd->filp, NULL);
+		snd->filp = NULL;
+	}
 
 	return 0;
 }
