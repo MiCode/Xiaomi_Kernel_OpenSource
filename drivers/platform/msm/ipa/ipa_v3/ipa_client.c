@@ -29,7 +29,8 @@
 
 #define IPA_POLL_FOR_EMPTINESS_NUM 50
 #define IPA_POLL_FOR_EMPTINESS_SLEEP_USEC 20
-#define IPA_POLL_FOR_CHANNEL_STOP_NUM 10
+#define IPA_CHANNEL_STOP_IN_PROC_TO_MSEC 5
+#define IPA_CHANNEL_STOP_IN_PROC_SLEEP_USEC 200
 
 /* xfer_rsc_idx should be 7 bits */
 #define IPA_XFER_RSC_IDX_MAX 127
@@ -928,6 +929,12 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 		goto start_chan_fail;
 	}
 
+	/*
+	 * Need to sleep for 1ms as required by H/W verified
+	 * sequence for resetting GSI channel
+	 */
+	msleep(IPA_POLL_AGGR_STATE_SLEEP_MSEC);
+
 	/* Restore channels properties */
 	result = ipa3_restore_channel_properties(ep, &orig_chan_props,
 		&orig_chan_scratch);
@@ -957,7 +964,7 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 	enum gsi_status gsi_res;
 	int aggr_active_bitmap = 0;
 
-	IPADBG("ipa3_reset_gsi_channel: entry\n");
+	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("Bad parameter.\n");
@@ -984,7 +991,11 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 		}
 	}
 
-	/* Reset channel */
+	/*
+	 * Reset channel
+	 * If the reset called after stop, need to wait 1ms
+	 */
+	msleep(IPA_POLL_AGGR_STATE_SLEEP_MSEC);
 	gsi_res = gsi_reset_channel(ep->gsi_chan_hdl);
 	if (gsi_res != GSI_STATUS_SUCCESS) {
 		IPAERR("Error resetting channel: %d\n", gsi_res);
@@ -996,7 +1007,7 @@ finish_reset:
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	IPADBG("ipa3_reset_gsi_channel: exit\n");
+	IPADBG("exit\n");
 	return 0;
 
 reset_chan_fail:
@@ -1011,7 +1022,7 @@ int ipa3_reset_gsi_event_ring(u32 clnt_hdl)
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
 
-	IPADBG("ipa3_reset_gsi_event_ring: entry\n");
+	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("Bad parameter.\n");
@@ -1033,7 +1044,7 @@ int ipa3_reset_gsi_event_ring(u32 clnt_hdl)
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	IPADBG("ipa3_reset_gsi_event_ring: exit\n");
+	IPADBG("exit\n");
 	return 0;
 
 reset_evt_fail:
@@ -1380,52 +1391,160 @@ static int ipa3_disable_force_clear(u32 request_id)
 	return 0;
 }
 
-/* Clocks should be voted for before invoking this function */
-static int ipa3_drain_ul_chan_data(struct ipa3_ep_context *ep, u32 qmi_req_id,
-	u32 source_pipe_bitmask, bool should_force_clear)
+/* Clocks should be voted before invoking this function */
+static int ipa3_xdci_stop_gsi_channel(u32 clnt_hdl, bool *stop_in_proc)
 {
-	int i;
-	bool is_empty = false;
-	int result;
+	int res;
 
+	IPADBG("entry\n");
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0 ||
+		!stop_in_proc) {
+		IPAERR("Bad parameter.\n");
+		return -EINVAL;
+	}
+
+	res = ipa3_stop_gsi_channel(clnt_hdl);
+	if (res != 0 && res != -GSI_STATUS_AGAIN &&
+		res != -GSI_STATUS_TIMED_OUT) {
+		IPAERR("xDCI stop channel failed res=%d\n", res);
+		return -EFAULT;
+	}
+
+	*stop_in_proc = res;
+
+	IPADBG("xDCI channel is %s (result=%d)\n",
+		res ? "STOP_IN_PROC/TimeOut" : "STOP", res);
+
+	IPADBG("exit\n");
+	return 0;
+}
+
+/* Clocks should be voted before invoking this function */
+static int ipa3_xdci_stop_gsi_ch_brute_force(u32 clnt_hdl,
+	bool *stop_in_proc)
+{
+	unsigned long jiffies_start;
+	unsigned long jiffies_timeout =
+		msecs_to_jiffies(IPA_CHANNEL_STOP_IN_PROC_TO_MSEC);
+	int res;
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0 ||
+		!stop_in_proc) {
+		IPAERR("Bad parameter.\n");
+		return -EINVAL;
+	}
+
+	jiffies_start = jiffies;
+	while (1) {
+		res = ipa3_xdci_stop_gsi_channel(clnt_hdl,
+			stop_in_proc);
+		if (res) {
+			IPAERR("failed to stop xDCI channel hdl=%d\n",
+				clnt_hdl);
+			return res;
+		}
+
+		if (!*stop_in_proc) {
+			IPADBG("xDCI channel STOP hdl=%d\n", clnt_hdl);
+			return res;
+		}
+
+		/*
+		 * Give chance to the previous stop request to be accomplished
+		 * before the retry
+		 */
+		udelay(IPA_CHANNEL_STOP_IN_PROC_SLEEP_USEC);
+
+		if (time_after(jiffies, jiffies_start + jiffies_timeout)) {
+			IPADBG("timeout waiting for xDCI channel emptiness\n");
+			return res;
+		}
+	}
+}
+
+/* Clocks should be voted for before invoking this function */
+static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
+		u32 source_pipe_bitmask, bool should_force_clear, u32 clnt_hdl)
+{
+	int result;
+	bool is_empty = false;
+	int i;
+	bool stop_in_proc;
+	struct ipa3_ep_context *ep;
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("Bad parameter.\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+
+	/* first try to stop the channel */
+	result = ipa3_xdci_stop_gsi_ch_brute_force(clnt_hdl,
+			&stop_in_proc);
+	if (result) {
+		IPAERR("fail to stop UL channel - hdl=%d clnt=%d\n",
+			clnt_hdl, ep->client);
+		goto exit;
+	}
+	if (!stop_in_proc)
+			goto exit;
+
+	/* if stop_in_proc, lets wait for emptiness */
 	for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
 		result = ipa3_is_xdci_channel_empty(ep, &is_empty);
 		if (result)
-			return -EFAULT;
+			goto exit;
 		if (is_empty)
-			return 0;
+			break;
 		udelay(IPA_POLL_FOR_EMPTINESS_SLEEP_USEC);
 	}
+	/* In case of empty, lets try to stop the channel again */
+	if (is_empty) {
+		result = ipa3_xdci_stop_gsi_ch_brute_force(clnt_hdl,
+			&stop_in_proc);
+		if (result) {
+			IPAERR("fail to stop UL channel - hdl=%d clnt=%d\n",
+				clnt_hdl, ep->client);
+			goto exit;
+		}
+		if (!stop_in_proc)
+			goto exit;
+	}
+	/* if still stop_in_proc or not empty, activate force clear */
 	if (should_force_clear) {
 		result = ipa3_enable_force_clear(qmi_req_id, true,
 			source_pipe_bitmask);
 		if (result)
-			return -EFAULT;
+			goto exit;
 	}
+	/* with force clear, wait for emptiness */
 	for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
 		result = ipa3_is_xdci_channel_empty(ep, &is_empty);
-		if (result) {
-			result = -EFAULT;
+		if (result)
 			goto disable_force_clear_and_exit;
-		}
-		if (is_empty) {
-			result = 0;
-			goto disable_force_clear_and_exit;
-		}
+		if (is_empty)
+			break;
+
 		udelay(IPA_POLL_FOR_EMPTINESS_SLEEP_USEC);
 	}
+	/* try to stop for the last time */
+	result = ipa3_xdci_stop_gsi_ch_brute_force(clnt_hdl,
+		&stop_in_proc);
+	if (result) {
+		IPAERR("fail to stop UL channel - hdl=%d clnt=%d\n",
+			clnt_hdl, ep->client);
+		goto disable_force_clear_and_exit;
+	}
+	result = stop_in_proc ? -EFAULT : 0;
 
 disable_force_clear_and_exit:
-	if (should_force_clear) {
+	if (should_force_clear)
 		result = ipa3_disable_force_clear(qmi_req_id);
-		if (result)
-			return -EFAULT;
-	}
-	if (!result && !is_empty) {
-		/* Not error and not not empty */
-		IPAERR("UL channel is not empty after draining it!\n");
-		BUG();
-	}
+exit:
 	return result;
 }
 
@@ -1449,19 +1568,27 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 
 	ipa3_disable_data_path(clnt_hdl);
 
-	/* Drain UL channel before stopping it */
 	if (!IPA_CLIENT_IS_CONS(ep->client)) {
-		source_pipe_bitmask = 1 << ipa3_get_ep_mapping(ep->client);
-		result = ipa3_drain_ul_chan_data(ep, qmi_req_id,
-			source_pipe_bitmask, should_force_clear);
-		if (result)
-			IPAERR("Error draining UL channel data: %d\n", result);
-	}
-
-	result = ipa3_stop_gsi_channel(clnt_hdl);
-	if (result) {
-		IPAERR("Error stopping channel: %d\n", result);
-		goto stop_chan_fail;
+		IPADBG("Stopping PROD channel - hdl=%d clnt=%d\n",
+			clnt_hdl, ep->client);
+		source_pipe_bitmask = 1 <<
+			ipa3_get_ep_mapping(ep->client);
+		result = ipa3_stop_ul_chan_with_data_drain(qmi_req_id,
+			source_pipe_bitmask, should_force_clear, clnt_hdl);
+		if (result) {
+			IPAERR("Fail to stop UL channel with data drain\n");
+			BUG();
+			goto stop_chan_fail;
+		}
+	} else {
+		IPADBG("Stopping CONS channel - hdl=%d clnt=%d\n",
+			clnt_hdl, ep->client);
+		result = ipa3_stop_gsi_channel(clnt_hdl);
+		if (result) {
+			IPAERR("Error stopping channel (CONS client): %d\n",
+				result);
+			goto stop_chan_fail;
+		}
 	}
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
@@ -1600,15 +1727,6 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		goto disable_clk_and_exit;
 	}
 
-	/* Drain UL channel before stopping it */
-	if (!is_dpl && ul_data_pending) {
-		source_pipe_bitmask = 1 << ipa3_get_ep_mapping(ul_ep->client);
-		result = ipa3_drain_ul_chan_data(ul_ep, qmi_req_id,
-			source_pipe_bitmask, should_force_clear);
-		if (result)
-			IPAERR("Error draining UL channel data: %d\n", result);
-	}
-
 	/* Suspend the DL/DPL EP */
 	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 	ep_cfg_ctrl.ipa_ep_suspend = true;
@@ -1627,10 +1745,14 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		goto unsuspend_dl_and_exit;
 	}
 
+	/* STOP UL channel */
 	if (!is_dpl) {
-		result = ipa3_stop_gsi_channel(ul_clnt_hdl);
+		source_pipe_bitmask = 1 << ipa3_get_ep_mapping(ul_ep->client);
+		result = ipa3_stop_ul_chan_with_data_drain(qmi_req_id,
+			source_pipe_bitmask, should_force_clear, ul_clnt_hdl);
 		if (result) {
-			IPAERR("Error stopping UL channel: %d\n", result);
+			IPAERR("Error stopping UL channel: result = %d\n",
+				result);
 			goto unsuspend_dl_and_exit;
 		}
 	}

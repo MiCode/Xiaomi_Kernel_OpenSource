@@ -1891,6 +1891,23 @@ int ipa3_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	}
 
 	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
+	if (ipa3_usb_ctx->ttype_ctx[ttype].state != IPA_USB_SUSPENDED) {
+		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
+		/* Stop DL/DPL channel */
+		result = ipa3_xdci_disconnect(dl_clnt_hdl, false, -1);
+		if (result) {
+			IPA_USB_ERR("failed to disconnect DL/DPL channel.\n");
+			goto bad_params;
+		}
+	} else {
+		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
+		memset(&holb_cfg, 0, sizeof(holb_cfg));
+		holb_cfg.en = IPA_HOLB_TMR_EN;
+		holb_cfg.tmr_val = 0;
+		ipa3_cfg_ep_holb(dl_clnt_hdl, &holb_cfg);
+	}
+
+	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
 	orig_state = ipa3_usb_ctx->ttype_ctx[ttype].state;
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
 		if (orig_state != IPA_USB_SUSPEND_IN_PROGRESS &&
@@ -1915,21 +1932,18 @@ int ipa3_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	} else
 		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
 
-	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
-	if (ipa3_usb_ctx->ttype_ctx[ttype].state != IPA_USB_SUSPENDED) {
-		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
-		/* Stop DL/DPL channel */
-		result = ipa3_xdci_disconnect(dl_clnt_hdl, false, -1);
-		if (result) {
-			IPA_USB_ERR("failed to disconnect DL/DPL channel.\n");
-			goto bad_params;
-		}
-	} else {
-		spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
-		memset(&holb_cfg, 0, sizeof(holb_cfg));
-		holb_cfg.en = IPA_HOLB_TMR_EN;
-		holb_cfg.tmr_val = 0;
-		ipa3_cfg_ep_holb(dl_clnt_hdl, &holb_cfg);
+	/* Reset DL channel */
+	result = ipa3_reset_gsi_channel(dl_clnt_hdl);
+	if (result) {
+		IPA_USB_ERR("failed to reset DL channel.\n");
+		goto bad_params;
+	}
+
+	/* Reset DL event ring */
+	result = ipa3_reset_gsi_event_ring(dl_clnt_hdl);
+	if (result) {
+		IPA_USB_ERR("failed to reset DL event ring.\n");
+		goto bad_params;
 	}
 
 	if (!IPA3_USB_IS_TTYPE_DPL(ttype)) {
@@ -1946,20 +1960,6 @@ int ipa3_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			IPA_USB_ERR("failed to reset UL event ring.\n");
 			goto bad_params;
 		}
-	}
-
-	/* Reset DL channel */
-	result = ipa3_reset_gsi_channel(dl_clnt_hdl);
-	if (result) {
-		IPA_USB_ERR("failed to reset DL channel.\n");
-		goto bad_params;
-	}
-
-	/* Reset DL event ring */
-	result = ipa3_reset_gsi_event_ring(dl_clnt_hdl);
-	if (result) {
-		IPA_USB_ERR("failed to reset DL event ring.\n");
-		goto bad_params;
 	}
 
 	/* Change state to STOPPED */
