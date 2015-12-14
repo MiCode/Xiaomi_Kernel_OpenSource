@@ -277,6 +277,7 @@
 };
 
 &mdss_hdmi_tx {
+	qcom,display-id = "secondary";
 	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active", "hdmi_cec_active",
 				"hdmi_active", "hdmi_sleep";
 	pinctrl-0 = <&mdss_hdmi_hpd_active &mdss_hdmi_ddc_suspend
@@ -298,7 +299,7 @@
 };
 
 &mdss_dsi {
-	hw-config = "single_dsi";
+	hw-config = "dual_dsi";
 };
 
 &mdss_dsi0 {
@@ -306,6 +307,7 @@
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,display-id = "primary";
 
 	qcom,panel-supply-entries {
 			#address-cells = <1>;
@@ -332,7 +334,34 @@
 };
 
 &mdss_dsi1 {
-	status = "disabled";
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_720p>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,display-id = "tertiary";
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <3300000>;
+				qcom,supply-max-voltage = <3300000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+
+			qcom,panel-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+	};
 };
 
 &dsi_dual_sharp_video {
