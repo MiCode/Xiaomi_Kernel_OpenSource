@@ -247,9 +247,9 @@
 		reg = <0x1800000 0x80000>,
 			<0xb016000 0x00040>;
 		reg-names = "cc_base", "apcs_c1_base";
-		vdd_dig-supply = <&pm8937_s2_level>;
-		vdd_hf_dig-supply = <&pm8937_s2_level_ao>;
-		vdd_hf_pll-supply = <&pm8937_l7_ao>;
+		vdd_dig-supply = <&pmgold_s2_level>;
+		vdd_hf_dig-supply = <&pmgold_s2_level_ao>;
+		vdd_hf_pll-supply = <&pmgold_l7_ao>;
 		#clock-cells = <1>;
 	};
 
@@ -513,7 +513,7 @@
 };
 
 #include "msm-pm8937-rpm-regulator.dtsi"
-#include "msm8937-regulator.dtsi"
+#include "msmgold-regulator.dtsi"
 #include "msm-pm8937.dtsi"
 #include "msm-gdsc-8916.dtsi"
 
