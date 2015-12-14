@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/* Qualcomm Technologies Inc EMAC RGMII Controller driver.
+/* Qualcomm Technologies, Inc. EMAC RGMII Controller driver.
  */
 
 #include "emac.h"

@@ -13,6 +13,9 @@
 #ifndef __EMAC_REGS_H__
 #define __EMAC_REGS_H__
 
+#define SGMII_PHY_VERSION_1 1
+#define SGMII_PHY_VERSION_2 2
+
 /* EMAC register offsets */
 #define EMAC_DMA_MAS_CTRL                        0x001400
 #define EMAC_TIMER_INIT_VALUE                    0x001404

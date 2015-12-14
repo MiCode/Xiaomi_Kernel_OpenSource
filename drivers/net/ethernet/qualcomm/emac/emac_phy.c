@@ -454,6 +454,7 @@ int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
 		return ret;
 
 	phy->phy_mode = ret;
+	/* sgmii v2 is always using ACPI */
 	phy->ops = (phy->phy_mode == PHY_INTERFACE_MODE_RGMII) ?
 		    emac_rgmii_ops : emac_sgmii_v1_ops;
 
@@ -563,4 +564,13 @@ int emac_phy_config_fc(struct emac_adapter *adpt)
 	/* ensure flow control config is slushed to hw */
 	wmb();
 	return 0;
+}
+
+void emac_reg_write_all(void __iomem *base, const struct emac_reg_write *itr,
+			size_t size)
+{
+	size_t i;
+
+	for (i = 0; i < size; ++itr, ++i)
+		writel_relaxed(itr->val, base + itr->offset);
 }

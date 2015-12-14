@@ -49,6 +49,7 @@ enum emac_flow_ctrl {
  */
 struct emac_phy {
 	int				phy_mode;
+	u32				phy_version;
 	bool				external;
 	bool				uses_gpios;
 	u32				addr;
@@ -81,5 +82,14 @@ int emac_phy_setup_link_speed(struct emac_adapter *adpt, u32 speed,
 int emac_phy_check_link(struct emac_adapter *adpt, u32 *speed, bool *link_up);
 int emac_phy_get_lpa_speed(struct emac_adapter *adpt, u32 *speed);
 int emac_phy_config_fc(struct emac_adapter *adpt);
+
+struct emac_reg_write {
+	ulong		offset;
+#define END_MARKER	0xffffffff
+	u32		val;
+};
+
+void emac_reg_write_all(void __iomem *base, const struct emac_reg_write *itr,
+			size_t size);
 
 #endif /* __EMAC_PHY_H__ */

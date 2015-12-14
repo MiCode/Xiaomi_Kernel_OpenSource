@@ -45,7 +45,7 @@
 
 char emac_drv_name[] = "qcom_emac";
 const char emac_drv_description[] =
-			      "Qualcomm Technologies Inc EMAC Ethernet Driver";
+			     "Qualcomm Technologies, Inc. EMAC Ethernet Driver";
 const char emac_drv_version[] = DRV_VERSION;
 
 #define EMAC_MSG_DEFAULT (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK |  \
@@ -271,8 +271,13 @@ static int emac_acpi_get_properties(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	adpt->no_ephy = emac_device_property_read_bool(dev, "no-ephy");
-	adpt->tstamp_en = emac_device_property_read_bool(dev, "tstamp-eble");
+	ret = emac_device_property_read_u32(dev, "phy-version",
+					    &adpt->hw.phy_version);
+	if (ret < 0)
+		adpt->hw.phy_version = 0;
+
+	adpt->phy.external = !emac_device_property_read_bool(dev, "no-ephy");
+	adpt->tstamp_en = device_property_read_bool(dev, "tstamp-eble");
 	ether_addr_copy(adpt->hw.mac_perm_addr, maddr);
 	return 0;
 }
@@ -285,6 +290,7 @@ static int emac_acpi_get_resources(struct platform_device *pdev,
 	struct emac_irq_info *irq_info;
 	union acpi_object *obj;
 	struct resource *res;
+	void __iomem *regmap;
 	int i, retval;
 	const char duuid[16];
 	u16 irq_map[EMAC_NUM_IRQ] = {EMAC_CORE0_IRQ, EMAC_CORE3_IRQ,
@@ -308,10 +314,10 @@ static int emac_acpi_get_resources(struct platform_device *pdev,
 	}
 	ACPI_FREE(obj);
 
-	emac_dbg(adpt, probe, "MAC Address %pM\n", adpt->hw.mac_perm_addr);
+	dev_info(&pdev->dev, "MAC address %pM\n", adpt->hw.mac_perm_addr);
 
 	/* set phy address to zero for internal phy */
-	if (adpt->no_ephy)
+	if (!adpt->phy.external)
 		adpt->hw.phy_addr = 0;
 
 	/* check phy mode */
@@ -321,7 +327,7 @@ static int emac_acpi_get_resources(struct platform_device *pdev,
 	}
 
 	/* Assume GPIOs required for MDC/MDIO are enabled in firmware */
-	adpt->no_mdio_gpio = true;
+	adpt->phy.uses_gpios = true;
 
 	/* get irqs */
 	for (i = 0; i < EMAC_NUM_IRQ; i++) {
@@ -360,14 +366,22 @@ static int emac_acpi_get_resources(struct platform_device *pdev,
 			return -ENOMEM;
 		}
 
-		if (!devm_request_mem_region(&pdev->dev, res->start,
-					     resource_size(res), pdev->name)) {
-			emac_err(adpt, "can't claim region %pR\n", res);
-			return -EBUSY;
+		regmap = devm_ioremap(&pdev->dev, res->start,
+				      resource_size(res));
+		/**
+		 * SGMII-v2 controller has two CSRs one per lane digital part
+		 * and second one for per lane analog part. The PHY regmap is
+		 * compatible to SGMII-v1 controller and will be used in PHY
+		 * common code and sgmii_laned regmap referenced in SGMII-v2
+		 * specific initialization code.
+		 */
+		if ((i == EMAC_SGMII_PHY) &&
+		    (adpt->hw.phy_version == SGMII_PHY_VERSION_2)) {
+			adpt->hw.sgmii_laned = regmap;
+			regmap += SGMII_PHY_LN_OFFSET;
 		}
+		adpt->hw.reg_addr[i] = regmap;
 
-		adpt->hw.reg_addr[i] = devm_ioremap(&pdev->dev, res->start,
-						    resource_size(res));
 		if (!adpt->hw.reg_addr[i]) {
 			emac_err(adpt, "can't ioremap %pR\n", res);
 			return -EFAULT;
