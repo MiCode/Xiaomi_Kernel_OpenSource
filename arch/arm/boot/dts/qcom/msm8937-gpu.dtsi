@@ -144,7 +144,7 @@
 			/* SVS+ */
 			qcom,gpu-pwrlevel@3 {
 				reg = <3>;
-				qcom,gpu-freq = <320000000>;
+				qcom,gpu-freq = <300000000>;
 				qcom,bus-freq = <5>;
 				qcom,bus-min = <4>;
 				qcom,bus-max = <7>;
