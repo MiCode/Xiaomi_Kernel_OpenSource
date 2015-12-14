@@ -1119,6 +1119,14 @@ enum v4l2_mpeg_vidc_video_venc_bitrate_type_enable {
 #define V4L2_CID_MPEG_VIDC_VIDEO_H264_PIC_ORDER_CNT \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 86)
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 87)
+
+enum v4l2_cid_mpeg_vidc_video_vpe_csc_type_enable {
+	V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_DISABLE  = 0,
+	V4L2_CID_MPEG_VIDC_VIDEO_VPE_CSC_ENABLE   = 1
+};
+
 /*  Camera class control IDs */
 
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
