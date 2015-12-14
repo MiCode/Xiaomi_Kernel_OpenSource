@@ -1,0 +1,25 @@
+Qualcomm Technologies, Inc. mdss-qpic-panel
+
+mdss-qpic-panel is a panel device which can be driven by qpic.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-qpic-panel"
+- qcom,mdss-pan-res:		A two dimensional array that specifies the panel
+							resolution.
+- qcom,mdss-pan-bpp:		Specifies the panel bits per pixel.
+- qcom,refresh_rate:		Panel refresh rate
+
+Optional properties:
+- label:					A string used as a descriptive name of the panel
+
+
+Example:
+/ {
+	qcom,mdss_lcdc_ili9341_qvga {
+		compatible = "qcom,mdss-qpic-panel";
+		label = "ili qvga lcdc panel";
+		qcom,mdss-pan-res = <240 320>;
+		qcom,mdss-pan-bpp = <18>;
+		qcom,refresh_rate = <60>;
+	};
+};
