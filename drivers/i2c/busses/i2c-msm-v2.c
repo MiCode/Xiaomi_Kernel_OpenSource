@@ -2748,7 +2748,7 @@ static int i2c_msm_pm_sys_resume_noirq(struct device *dev)
 static void i2c_msm_pm_rt_init(struct device *dev)
 {
 	pm_runtime_set_suspended(dev);
-	pm_runtime_set_autosuspend_delay(dev, MSEC_PER_SEC);
+	pm_runtime_set_autosuspend_delay(dev, (MSEC_PER_SEC >> 2));
 	pm_runtime_use_autosuspend(dev);
 	pm_runtime_enable(dev);
 }
