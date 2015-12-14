@@ -775,6 +775,54 @@
 			<  7031 /*  921.6 MHz */ >;     /* TURBO */
 	};
 
+	memlat_cpu0: qcom,memlat-cpu0 {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,	/* SVS	*/
+			<  4101 /*  537.6 MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  5053 /*  662.4 MHz */ >,	/* SVS+	 */
+			<  5712 /*  748.8 MHz */ >,     /* NOM   */
+			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
+			<  7031 /*  921.6 MHz */ >;     /* TURBO */
+	};
+
+	memlat_cpu4: qcom,memlat-cpu4 {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,	/* SVS	*/
+			<  4101 /*  537.6 MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  5053 /*  662.4 MHz */ >,	/* SVS+	 */
+			<  5712 /*  748.8 MHz */ >,     /* NOM   */
+			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
+			<  7031 /*  921.6 MHz */ >;     /* TURBO */
+	};
+
+	qcom,arm-memlat-mon-0 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,target-dev = <&memlat_cpu0>;
+	};
+
+	qcom,arm-memlat-mon-4 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,target-dev = <&memlat_cpu4>;
+	};
+
 	devfreq-cpufreq {
 		cpubw-cpufreq {
 		target-dev = <&cpubw>;
