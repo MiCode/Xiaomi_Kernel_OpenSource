@@ -1255,11 +1255,18 @@ Default value: 0
 
 Appears at /proc/sys/kernel/sched_restrict_cluster_spill
 
-This tunable can be used to restrict the higher capacity cluster pulling tasks
-from the lower capacity cluster in the load balance path. The restriction is
-lifted if all of the CPUS in the lower capacity cluster are above spill.
-The power cost is used to break the ties if the capacity of clusters are same
-for applying this restriction.
+This tunable can be used to restrict tasks spilling to the higher capacity
+(higher power) cluster. When this tunable is enabled,
+
+- Restrict the higher capacity cluster pulling tasks from the lower capacity
+cluster in the load balance path. The restriction is lifted if all of the CPUS
+in the lower capacity cluster are above spill. The power cost is used to break
+the ties if the capacity of clusters are same for applying this restriction.
+
+- The current CPU selection algorithm for RT tasks looks for the least loaded
+CPU across all clusters. When this tunable is enabled, the RT tasks are
+restricted to the lowest possible power cluster.
+
 
 =========================
 8. HMP SCHEDULER TRACE POINTS

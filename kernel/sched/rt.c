@@ -1671,6 +1671,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	int prev_cpu = task_cpu(task);
 	u64 cpu_load, min_load = ULLONG_MAX;
 	int i;
+	int restrict_cluster = sysctl_sched_restrict_cluster_spill;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1698,8 +1699,9 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 			if (sched_cpu_high_irqload(i))
 				continue;
 
-			cpu_load = scale_load_to_cpu(
-			  cpu_rq(i)->hmp_stats.cumulative_runnable_avg, i);
+			cpu_load = cpu_rq(i)->hmp_stats.cumulative_runnable_avg;
+			if (!restrict_cluster)
+				cpu_load = scale_load_to_cpu(cpu_load, i);
 
 			if (cpu_load < min_load ||
 				(cpu_load == min_load &&
@@ -1709,6 +1711,8 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 				best_cpu = i;
 			}
 		}
+		if (restrict_cluster && best_cpu != -1)
+			break;
 	}
 
 	return best_cpu;
