@@ -1,3 +1,4 @@
+obj-$(CONFIG_MSM_BA_V4L2) += msm/ba/
 obj-$(CONFIG_VGASTATE)            += vgastate.o
 obj-$(CONFIG_HDMI)                += hdmi.o
 
