@@ -1298,6 +1298,7 @@ static struct sched_cluster init_cluster = {
 	.list			=	LIST_HEAD_INIT(init_cluster.list),
 	.id			=	0,
 	.max_power_cost		=	1,
+	.min_power_cost		=	1,
 	.capacity		=	1024,
 	.max_possible_capacity	=	1024,
 	.efficiency		=	1,
@@ -1398,9 +1399,12 @@ static void sort_clusters(void)
 
 	INIT_LIST_HEAD(&new_head);
 
-	for_each_sched_cluster(cluster)
+	for_each_sched_cluster(cluster) {
 		cluster->max_power_cost = power_cost(cluster_first_cpu(cluster),
 							       max_task_load());
+		cluster->min_power_cost = power_cost(cluster_first_cpu(cluster),
+							       0);
+	}
 
 	move_list(&new_head, &cluster_head, true);
 
@@ -1442,6 +1446,7 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 
 	INIT_LIST_HEAD(&cluster->list);
 	cluster->max_power_cost		=	1;
+	cluster->min_power_cost		=	1;
 	cluster->capacity		=	1024;
 	cluster->max_possible_capacity	=	1024;
 	cluster->efficiency		=	1;
