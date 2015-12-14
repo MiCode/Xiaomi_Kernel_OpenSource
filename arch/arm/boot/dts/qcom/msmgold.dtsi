@@ -267,7 +267,7 @@
 	};
 
 	clock_cpu: qcom,cpu-clock-8939@b111050 {
-		compatible = "qcom,cpu-clock-8939";
+		compatible = "qcom,cpu-clock-gold";
 		reg =	<0xb011050 0x8>,
 			<0x00a412c 0x8>;
 		reg-names = "apcs-c1-rcg-base", "efuse";
