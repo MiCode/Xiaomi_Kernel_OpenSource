@@ -2237,13 +2237,6 @@ void mmc_set_ios(struct mmc_host *host)
 {
 	struct mmc_ios *ios = &host->ios;
 
-	if (unlikely(ios->power_mode == MMC_POWER_OFF &&
-		     host->card && mmc_card_doing_auto_bkops(host->card))) {
-		pr_err("%s: %s: illegal to disable power to card when running auto bkops\n",
-				mmc_hostname(host), __func__);
-		return;
-	}
-
 	pr_debug("%s: clock %uHz busmode %u powermode %u cs %u Vdd %u "
 		"width %u timing %u\n",
 		 mmc_hostname(host), ios->clock, ios->bus_mode,
