@@ -488,13 +488,18 @@ static int __msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt,
 				ops->get_length(cookie, len), chunk_size);
 
 			if (chunk_size == SZ_4K) {
-				sl_4k(&sl_table[sl_offset], pa, pgprot4k);
+				ret = sl_4k(&sl_table[sl_offset], pa, pgprot4k);
+				if (ret)
+					goto fail;
 				sl_offset++;
 				/* Increment map count */
 				(*fl_pte_shadow)++;
 			} else {
 				BUG_ON(sl_offset + 16 > NUM_SL_PTE);
-				sl_64k(&sl_table[sl_offset], pa, pgprot64k);
+				ret = sl_64k(&sl_table[sl_offset], pa,
+						pgprot64k);
+				if (ret)
+					goto fail;
 				sl_offset += 16;
 				/* Increment map count */
 				*fl_pte_shadow += 16;
@@ -537,6 +542,7 @@ void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned long va,
 	u32 fl_offset;
 	u32 *sl_table;
 	u32 sl_start, sl_end;
+	u32 *temp;
 	int used;
 
 	BUG_ON(len & (SZ_4K - 1));
@@ -556,6 +562,10 @@ void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned long va,
 			if (sl_end > NUM_SL_PTE)
 				sl_end = NUM_SL_PTE;
 			n_entries = sl_end - sl_start;
+
+			for (temp = sl_table + sl_start;
+					temp < sl_table + sl_end; temp++)
+				BUG_ON(!*temp);
 
 			memset(sl_table + sl_start, 0, n_entries * 4);
 			clean_pte(sl_table + sl_start, sl_table + sl_end,

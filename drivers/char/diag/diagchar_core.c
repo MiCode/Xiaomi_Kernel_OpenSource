@@ -372,6 +372,7 @@ fail:
 static void diag_close_logging_process(const int pid)
 {
 	int i;
+	int session_peripheral_mask;
 	struct diag_md_session_t *session_info = NULL;
 	struct diag_logging_mode_param_t params;
 
@@ -379,9 +380,10 @@ static void diag_close_logging_process(const int pid)
 	if (!session_info)
 		return;
 
+	session_peripheral_mask = session_info->peripheral_mask;
 	diag_md_session_close(session_info);
 	for (i = 0; i < NUM_MD_SESSIONS; i++)
-		if (MD_PERIPHERAL_MASK(i) & session_info->peripheral_mask)
+		if (MD_PERIPHERAL_MASK(i) & session_peripheral_mask)
 			diag_mux_close_peripheral(DIAG_LOCAL_PROC, i);
 
 	params.req_mode = USB_MODE;
@@ -3142,7 +3144,8 @@ static void diag_debug_init(void)
 	 * Set the bit mask here as per diag_ipc_logging.h to enable debug logs
 	 * to be logged to IPC
 	 */
-	diag_debug_mask = DIAG_DEBUG_PERIPHERALS | DIAG_DEBUG_DCI;
+	diag_debug_mask = DIAG_DEBUG_PERIPHERALS | DIAG_DEBUG_DCI |
+				DIAG_DEBUG_BRIDGE;
 }
 #else
 static void diag_debug_init(void)

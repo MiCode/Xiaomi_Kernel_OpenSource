@@ -2523,10 +2523,10 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 				pr_err("swapon: discard_swap(%p): %d\n",
 					p, err);
 		}
-
-		if (blk_queue_fast(bdev_get_queue(p->bdev)))
-			p->flags |= SWP_FAST;
 	}
+
+	if (p->bdev && blk_queue_fast(bdev_get_queue(p->bdev)))
+		p->flags |= SWP_FAST;
 
 	mutex_lock(&swapon_mutex);
 	prio = -1;

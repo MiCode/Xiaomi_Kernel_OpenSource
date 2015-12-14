@@ -4829,6 +4829,7 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 	trace_mdp_commit(ctl);
 
 	mdss_mdp_ctl_perf_update(ctl, 0, false);
+	mdata->bw_limit_pending = false;
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103)) {
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
@@ -4883,6 +4884,7 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 			recovery_needed = true;
 	}
 
+	ctl->mdata->bw_limit_pending = false;
 	if (recovery_needed) {
 		mdss_mdp_ctl_reset(ctl, true);
 		if (sctl)

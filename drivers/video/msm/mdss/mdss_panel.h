@@ -87,7 +87,8 @@ enum {
 enum {
 	DISPLAY_1 = 0,		/* attached as first device */
 	DISPLAY_2,		/* attached on second device */
-	DISPLAY_3,              /* attached on third writeback device */
+	DISPLAY_3,		/* attached on third device */
+	DISPLAY_4,		/* attached on fourth device */
 	MAX_PHYS_TARGET_NUM,
 };
 
@@ -141,6 +142,7 @@ struct mdss_rect {
 
 #define MDSS_MAX_PANEL_LEN      256
 #define MDSS_INTF_MAX_NAME_LEN 5
+#define MDSS_DISPLAY_ID_MAX_LEN 16
 struct mdss_panel_intf {
 	char name[MDSS_INTF_MAX_NAME_LEN];
 	int  type;
@@ -597,7 +599,6 @@ struct mdss_panel_info {
 	u32 partial_update_roi_merge;
 	struct ion_handle *splash_ihdl;
 	int panel_power_state;
-	int blank_state;
 	int compression_mode;
 
 	uint32_t panel_dead;
@@ -627,11 +628,13 @@ struct mdss_panel_info {
 
 	bool is_prim_panel;
 	bool is_pluggable;
+	char display_id[MDSS_DISPLAY_ID_MAX_LEN];
 
 	/* refer sim_panel_modes enum for different modes */
 	u8 sim_panel_mode;
 
 	void *edid_data;
+	void *cec_data;
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
@@ -711,6 +714,7 @@ struct mdss_panel_data {
 	 * and teardown.
 	 */
 	int (*event_handler) (struct mdss_panel_data *pdata, int e, void *arg);
+	struct device_node *(*get_fb_node)(struct platform_device *pdev);
 
 	struct list_head timings_list;
 	struct mdss_panel_timing *current_timing;
@@ -1002,11 +1006,12 @@ struct mdss_panel_timing *mdss_panel_get_timing_by_name(
 		const char *name);
 #else
 static inline int mdss_panel_debugfs_init(
-			struct mdss_panel_info *panel_info) { return 0; };
+		struct mdss_panel_info *panel_info,
+		char const *panel_name) { return 0; };
 static inline void mdss_panel_debugfs_cleanup(
-			struct mdss_panel_info *panel_info) { };
+		struct mdss_panel_info *panel_info) { };
 static inline void mdss_panel_debugfsinfo_to_panelinfo(
-			struct mdss_panel_info *panel_info) { };
+		struct mdss_panel_info *panel_info) { };
 static inline void mdss_panel_info_from_timing(struct mdss_panel_timing *pt,
 		struct mdss_panel_info *pinfo) { };
 static inline struct mdss_panel_timing *mdss_panel_get_timing_by_name(

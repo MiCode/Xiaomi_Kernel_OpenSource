@@ -1518,6 +1518,7 @@
 
 		sdhc-msm-crypto = <&sdcc1_ice>;
 		qcom,bus-width = <8>;
+		qcom,large-address-bus;
 
 		qcom,devfreq,freq-table = <52000000 200000000>;
 
@@ -1562,6 +1563,7 @@
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <4>;
+		qcom,large-address-bus;
 
 		qcom,pm-qos-irq-type = "affine_irq";
 		qcom,pm-qos-irq-latency = <2 200>;
