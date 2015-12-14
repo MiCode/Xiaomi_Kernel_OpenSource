@@ -91,6 +91,7 @@
 		smd21 = &smdtty_data21;
 		smd36 = &smdtty_loopback;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 for SD card */
 		i2c2 = &i2c_2;
 		i2c5 = &i2c_5;
 		spi3 = &spi_3;
@@ -1065,6 +1066,46 @@
 		qcom,ice-clk-rates = <270000000 160000000>;
 		qcom,large-address-bus;
 
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@7864900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0x7864900 0x500>, <0x7864000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 125 0>, <0 221 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 200>;
+
+		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
+		qcom,pm-qos-legacy-latency-us = <2 200>, <2 200>;
+
+		qcom,devfreq,freq-table = <50000000 200000000>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+			<81 512 1046 3200>,    /* 400 KB/s*/
+			<81 512 52286 160000>, /* 20 MB/s */
+			<81 512 65360 200000>, /* 25 MB/s */
+			<81 512 130718 400000>, /* 50 MB/s */
+			<81 512 261438 800000>, /* 100 MB/s */
+			<81 512 261438 800000>, /* 200 MB/s */
+			<81 512 1338562 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100000000 200000000 400000000 4294967295>;
+
+		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
+			<&clock_gcc clk_gcc_sdcc2_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+
+		qcom,large-address-bus;
 		status = "disabled";
 	};
 
