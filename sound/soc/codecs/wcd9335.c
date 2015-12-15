@@ -2741,7 +2741,8 @@ static int tasha_codec_enable_slim_chmask(struct wcd9xxx_codec_dai_data *dai,
 					 msecs_to_jiffies(
 						TASHA_SLIM_CLOSE_TIMEOUT));
 		if (!ret) {
-			pr_err("%s: Slim close tx/rx wait timeout\n", __func__);
+			pr_err("%s: Slim close tx/rx wait timeout, ch_mask:0x%lx\n",
+				__func__, dai->ch_mask);
 			ret = -ETIMEDOUT;
 		} else {
 			ret = 0;
@@ -2785,18 +2786,21 @@ static int tasha_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 					      &dai->grph);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		tasha_codec_vote_max_bw(codec, true);
 		ret = wcd9xxx_disconnect_port(core, &dai->wcd9xxx_ch_list,
 					      dai->grph);
 		dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
 			__func__, ret);
-		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
-						dai->grph);
+
 		if (!dai->bus_down_in_recovery)
 			ret = tasha_codec_enable_slim_chmask(dai, false);
 		else
 			dev_dbg(codec->dev,
 				"%s: bus in recovery skip enable slim_chmask",
 				__func__);
+		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
+						dai->grph);
+		tasha_codec_vote_max_bw(codec, false);
 		break;
 	}
 	return ret;
