@@ -1191,7 +1191,7 @@
 
 			gfx_vreg: regulator {
 				regulator-name = "gfx_corner";
-				regulator-min-microvolt = <1>;
+				regulator-min-microvolt = <2>;
 				regulator-max-microvolt = <8>;
 
 				qcom,cpr-fuse-corners = <4>;
