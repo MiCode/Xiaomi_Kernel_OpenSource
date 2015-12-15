@@ -1008,6 +1008,20 @@ static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
 	arm_smmu_tlb_inv_context(to_smmu_domain(domain));
 }
 
+static int arm_smmu_enable_config_clocks(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+
+	return arm_smmu_enable_clocks(smmu_domain->smmu);
+}
+
+static void arm_smmu_disable_config_clocks(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+
+	arm_smmu_disable_clocks(smmu_domain->smmu);
+}
+
 struct arm_smmu_secure_pool_chunk {
 	void *addr;
 	size_t size;
@@ -3109,6 +3123,8 @@ static struct iommu_ops arm_smmu_ops = {
 	.reg_read		= arm_smmu_reg_read,
 	.reg_write		= arm_smmu_reg_write,
 	.tlbi_domain		= arm_smmu_tlbi_domain,
+	.enable_config_clocks	= arm_smmu_enable_config_clocks,
+	.disable_config_clocks	= arm_smmu_disable_config_clocks,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
