@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -956,6 +956,31 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+	};
+
+	tsens0: tsens@10aa000 {
+		compatible = "qcom,msm8996-tsens";
+		reg = <0x10aa000 0x2000>,
+			<0x74230 0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 458 0>, <0 445 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		qcom,sensors = <14>;
+		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200
+						3200 3200 3200 3200 3200>;
+	};
+
+	tsens1: tsens@10ad000 {
+		compatible = "qcom,msm8996-tsens";
+		reg = <0x10ad000 0x2000>,
+			<0x75230 0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>, <0 430 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		qcom,client-id = <14 15 16 17 18 19 20 21>;
+		qcom,sensor-id = <0 1 3 4 5 6 7 2>;
+		qcom,sensors = <8>;
+		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200>;
 	};
 
 	qcom,sensor-information {
