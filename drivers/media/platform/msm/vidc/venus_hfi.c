@@ -2241,7 +2241,8 @@ static int venus_hfi_core_release(void *dev)
 
 	mutex_lock(&device->lock);
 
-	pm_qos_remove_request(&device->qos);
+	if (device->res->pm_qos_latency_us)
+		pm_qos_remove_request(&device->qos);
 	__set_state(device, VENUS_STATE_DEINIT);
 	__unload_fw(device);
 
@@ -4253,7 +4254,8 @@ static inline int __suspend(struct venus_hfi_device *device)
 
 	dprintk(VIDC_DBG, "Entering power collapse\n");
 
-	pm_qos_remove_request(&device->qos);
+	if (device->res->pm_qos_latency_us)
+		pm_qos_remove_request(&device->qos);
 
 	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 	if (rc) {
@@ -4399,7 +4401,6 @@ static void __unload_fw(struct venus_hfi_device *device)
 	cancel_delayed_work(&venus_hfi_pm_work);
 	if (device->state != VENUS_STATE_DEINIT)
 		flush_workqueue(device->venus_pm_workq);
-	__halt_axi(device);
 
 	/*
 	 * If the core_clk is asserted, then PIL cannot enable
