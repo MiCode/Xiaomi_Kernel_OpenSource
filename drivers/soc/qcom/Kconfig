@@ -195,6 +195,13 @@ config MSM_FORCE_WDOG_BITE_ON_PANIC
 	  kernel panic. On certain MSM SoCs, this provides us
 	  additional debugging information.
 
+config MSM_CORE_HANG_DETECT
+	tristate "MSM Core Hang Detection Support"
+	help
+	  This enables the core hang detection module. It causes SoC
+	  reset on core hang detection and collects the core context
+	  for hang.
+
 config MSM_CPU_PWR_CTL
 	bool "Cpu subsystem power control"
 	depends on SMP && (ARM || ARM64)
