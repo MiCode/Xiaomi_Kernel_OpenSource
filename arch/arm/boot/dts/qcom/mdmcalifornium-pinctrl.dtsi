@@ -337,6 +337,18 @@
 					bias-pull-down;
 				};
 			};
+
+			pcie0_mdm2apstatus_default: pcie0_mdm2apstatus_default {
+				mux {
+					pins = "gpio16";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio16";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
 		};
 
 		/* UART HS CONFIGURATION */
