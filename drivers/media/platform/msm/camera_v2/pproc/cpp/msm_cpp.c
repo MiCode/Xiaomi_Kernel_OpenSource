@@ -2332,10 +2332,8 @@ static int32_t msm_cpp_set_group_buffer_duplicate(struct cpp_device *cpp_dev,
 			for (j = 0; j < PAYLOAD_NUM_PLANES; j++)
 				*ptr++ = distance;
 
-			if (ubwc_enabled) {
-				for (j = 0; j < PAYLOAD_NUM_PLANES; j++)
-					*ptr++ = distance;
-			}
+			for (j = 0; j < PAYLOAD_NUM_PLANES; j++)
+				*ptr++ = ubwc_enabled ? distance : 0;
 		}
 		if (rc)
 			break;
