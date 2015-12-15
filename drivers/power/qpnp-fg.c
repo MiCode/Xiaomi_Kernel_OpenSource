@@ -5948,6 +5948,10 @@ reschedule:
 	schedule_delayed_work(
 		&chip->batt_profile_init,
 		msecs_to_jiffies(BATTERY_PSY_WAIT_MS));
+	cancel_delayed_work(&chip->update_sram_data);
+	schedule_delayed_work(
+		&chip->update_sram_data,
+		msecs_to_jiffies(0));
 	fg_relax(&chip->profile_wakeup_source);
 	return 0;
 }
