@@ -1244,10 +1244,13 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 			if (ctl) {
 				mixer = mdss_mdp_mixer_get(ctl,
 					MDSS_MDP_MIXER_MUX_DEFAULT);
-				ctrl_reg = mixer->base +
-					MDSS_MDP_LAYER_MIXER_MISR_CTRL;
-				value_reg = mixer->base +
+
+				if (mixer) {
+					ctrl_reg = mixer->base +
+						MDSS_MDP_LAYER_MIXER_MISR_CTRL;
+					value_reg = mixer->base +
 					MDSS_MDP_LAYER_MIXER_MISR_SIGNATURE;
+				}
 			}
 		} else {
 			if (block_id <= DISPLAY_MISR_HDMI) {
