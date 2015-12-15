@@ -467,6 +467,46 @@
 		};
 	};
 
+	qcom,msm-core@a0000 {
+		compatible = "qcom,apss-core-ea";
+		reg = <0xa0000 0x1000>;
+		qcom,low-hyst-temp = <10>;
+		qcom,high-hyst-temp = <5>;
+		qcom,polling-interval = <50>;
+
+		ea0: ea0 {
+			sensor = <&sensor_information9>;
+		};
+
+		ea1: ea1 {
+			sensor = <&sensor_information10>;
+		};
+
+		ea2: ea2 {
+			sensor = <&sensor_information11>;
+		};
+
+		ea3: ea3 {
+			sensor = <&sensor_information12>;
+		};
+
+		ea4: ea4 {
+			sensor = <&sensor_information4>;
+		};
+
+		ea5: ea5 {
+			sensor = <&sensor_information5>;
+		};
+
+		ea6: ea6 {
+			sensor = <&sensor_information6>;
+		};
+
+		ea7: ea7 {
+			sensor = <&sensor_information7>;
+		};
+	};
+
 	blsp1_uart0: serial@78af000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78af000 0x200>;
