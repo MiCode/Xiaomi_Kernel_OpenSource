@@ -125,6 +125,15 @@
 	qcom,wave-play-rate-us = <4165>;
 };
 
+&flash_led {
+	compatible = "qcom,qpnp-flash-led";
+	reg = <0xd300 0x100>;
+	pinctrl-names = "flash_led_enable","flash_led_disable";
+	pinctrl-0 = <&rear_flash_led_enable>;
+	pinctrl-1 = <&rear_flash_led_disable>;
+	qcom,follow-otst2-rb-disabled;
+};
+
 &blsp1_uart0 {
 	status = "ok";
 	pinctrl-names = "default";
