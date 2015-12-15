@@ -66,6 +66,9 @@ Optional properties:
 - qcom,qdsp6v56-1-8: Boolean- Present if the qdsp version is v56 1.8
 - qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
                            on behalf of the subsystem driver.
+- qcom,pil-mss-memsetup: Boolean - True if TZ need to be informed of modem start address and size.
+- qcom,pas-id:	      pas_id of the subsystem.
+
 
 Example:
 	qcom,mss@fc880000 {

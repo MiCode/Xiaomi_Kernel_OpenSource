@@ -25,6 +25,7 @@ struct modem_data {
 	struct subsys_desc subsys_desc;
 	void *ramdump_dev;
 	bool crash_shutdown;
+	u32 pas_id;
 	struct completion stop_ack;
 	void __iomem *rmb_base;
 	struct clk *xo;
