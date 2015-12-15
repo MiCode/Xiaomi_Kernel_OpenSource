@@ -235,6 +235,7 @@ config CORESIGHT_ETMV4_DEFAULT_ENABLE
 
 config CORESIGHT_REMOTE_ETM
 	bool "Remote processor ETM trace support"
+	depends on MSM_QMI_INTERFACE
 	help
 	  Enables support for ETM trace collection on remote processor using
 	  CoreSight framework. Enabling this will allow turning on ETM
