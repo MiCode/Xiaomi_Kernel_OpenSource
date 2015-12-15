@@ -328,6 +328,84 @@
 			};
 		};
 
+		wcnss_pmux_5wire {
+			/* Active configuration of bus pins */
+			wcnss_default: wcnss_default {
+				wcss_wlan2 {
+					pins = "gpio76";
+					function = "wcss_wlan2";
+				};
+				wcss_wlan1 {
+					pins = "gpio77";
+					function = "wcss_wlan1";
+				};
+				wcss_wlan0 {
+					pins = "gpio78";
+					function = "wcss_wlan0";
+				};
+				wcss_wlan {
+					pins = "gpio79", "gpio80";
+					function = "wcss_wlan";
+				};
+
+				config {
+					pins = "gpio76", "gpio77",
+						"gpio78", "gpio79",
+						"gpio80";
+					drive-strength = <6>; /* 6 MA */
+					bias-pull-up; /* PULL UP */
+				};
+			};
+
+			wcnss_sleep: wcnss_sleep {
+				wcss_wlan2 {
+					pins = "gpio76";
+					function = "wcss_wlan2";
+				};
+				wcss_wlan1 {
+					pins = "gpio77";
+					function = "wcss_wlan1";
+				};
+				wcss_wlan0 {
+					pins = "gpio78";
+					function = "wcss_wlan0";
+				};
+				wcss_wlan {
+					pins = "gpio79", "gpio80";
+					function = "wcss_wlan";
+				};
+
+				config {
+					pins = "gpio76", "gpio77",
+						"gpio78", "gpio79",
+						"gpio80";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down; /* PULL Down */
+				};
+			};
+		};
+
+		wcnss_pmux_gpio: wcnss_pmux_gpio {
+			wcnss_gpio_default: wcnss_gpio_default {
+				/* Active configuration of bus pins */
+				mux {
+					/* Uses general purpose pins */
+					pins = "gpio76", "gpio77",
+					"gpio78", "gpio79",
+					"gpio80";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio76", "gpio77",
+						"gpio78", "gpio79",
+						"gpio80";
+					drive-strength = <6>; /* 6 MA */
+					bias-pull-up; /* PULL UP */
+				};
+			};
+		};
+
 		spi3 {
 			spi3_default: spi3_default {
 				/* active state */
