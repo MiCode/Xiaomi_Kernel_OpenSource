@@ -11,6 +11,10 @@ Optional properties:
 		voltage. The other one is used for the runtime voltage setting
 		Possible values are either <0> or <1>
   - vin-supply: regulator supplying the vin pin
+  - fcs,disable-suspend: Boolean flag which specifies if suspend voltage
+		configuration should be avoided. If this property is present,
+		then the voltage selector register defined by
+		fcs,suspend-voltage-selector should not be modified at runtime.
 
 Example:
 
@@ -29,4 +33,5 @@ Example:
 		regulator-min-microvolt = <600000>;
 		regulator-max-microvolt = <1230000>;
 		fcs,suspend-voltage-selector = <1>;
+		fcs,disable-suspend;
 	};
