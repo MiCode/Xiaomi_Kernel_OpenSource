@@ -203,6 +203,11 @@
 		clock-frequency = <32768>;
 	};
 
+	cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <1 7 0xff00>;
+	};
+
 	tsens: tsens@4a8000 {
 		compatible = "qcom,msmgold-tsens";
 		reg = <0x4a8000 0x2000>,
