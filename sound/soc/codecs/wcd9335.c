@@ -9613,19 +9613,19 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MUX_E("ADC MUX10", SND_SOC_NOPM, 0, 10,
+	SND_SOC_DAPM_MUX_E("ADC MUX10", SND_SOC_NOPM, 10, 0,
 			 &tx_adc_mux10, tasha_codec_tx_adc_cfg,
 			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX_E("ADC MUX11", SND_SOC_NOPM, 0, 11,
+	SND_SOC_DAPM_MUX_E("ADC MUX11", SND_SOC_NOPM, 11, 0,
 			 &tx_adc_mux11, tasha_codec_tx_adc_cfg,
 			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX_E("ADC MUX12", SND_SOC_NOPM, 0, 12,
+	SND_SOC_DAPM_MUX_E("ADC MUX12", SND_SOC_NOPM, 12, 0,
 			 &tx_adc_mux12, tasha_codec_tx_adc_cfg,
 			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX_E("ADC MUX13", SND_SOC_NOPM, 0, 13,
+	SND_SOC_DAPM_MUX_E("ADC MUX13", SND_SOC_NOPM, 13, 0,
 			 &tx_adc_mux13, tasha_codec_tx_adc_cfg,
 			 SND_SOC_DAPM_POST_PMU),
 
