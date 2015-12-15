@@ -821,6 +821,8 @@
 		#interrupt-cells = <1>;
 		interrupt-parent = <&tlmm>;
 		qcom,gpio-connect = <&tlmm 54 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_intr_default>;
 	};
 
 	clock_audio: audio_ext_clk {
@@ -911,6 +913,9 @@
 				      30>;
 
 			qcom,cdc-reset-gpio = <&tlmm 64 0>;
+			pinctrl-names = "default", "idle";
+			pinctrl-0 = <&cdc_reset_active>;
+			pinctrl-1 = <&cdc_reset_sleep>;
 
 			clock-names = "wcd_clk", "wcd_native_clk";
 			clocks = <&clock_audio clk_audio_pmi_clk>,
