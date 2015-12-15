@@ -1251,7 +1251,7 @@
 &gdsc_gpu_gx {
 	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
 	clocks = <&clock_gcc clk_gcc_gpu_bimc_gfx_clk>,
-		 <&clock_gpu clk_gfx3d_clk>,
+		 <&clock_gpu clk_gpucc_gfx3d_clk>,
 		 <&clock_gpu clk_gfx3d_clk_src>;
 	qcom,force-enable-root-clk;
 	parent-supply = <&pm8005_s1>;
