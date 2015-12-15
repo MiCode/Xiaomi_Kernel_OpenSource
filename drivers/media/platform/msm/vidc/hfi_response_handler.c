@@ -453,7 +453,9 @@ enum hal_capability get_hal_cap_type(u32 capability_type)
 	case HFI_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS:
 		hal_cap = HAL_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS;
 		break;
-
+	case HFI_CAPABILITY_MBS_PER_SECOND_POWERSAVE:
+		hal_cap = HAL_CAPABILITY_MBS_PER_SECOND_POWER_SAVE;
+		break;
 	default:
 		dprintk(VIDC_DBG, "%s: unknown capablity %#x\n",
 			__func__, capability_type);
@@ -523,6 +525,9 @@ static inline void copy_cap_prop(
 		break;
 	case HFI_CAPABILITY_HIER_P_HYBRID_NUM_ENH_LAYERS:
 		out = &capability->hier_p_hybrid;
+		break;
+	case HFI_CAPABILITY_MBS_PER_SECOND_POWERSAVE:
+		out = &capability->mbs_per_sec_power_save;
 		break;
 	default:
 		dprintk(VIDC_DBG, "%s: unknown capablity %#x\n",

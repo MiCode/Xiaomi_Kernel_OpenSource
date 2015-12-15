@@ -897,7 +897,7 @@ static void print_cap(const char *type,
 		struct hal_capability_supported *cap)
 {
 	dprintk(VIDC_DBG,
-		"%-16s: %-8d %-8d %-8d\n",
+		"%-24s: %-8d %-8d %-8d\n",
 		type, cap->min, cap->max, cap->step_size);
 }
 
@@ -998,6 +998,8 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("scale_y", &inst->capability.scale_y);
 	print_cap("hier_p", &inst->capability.hier_p);
 	print_cap("ltr_count", &inst->capability.ltr_count);
+	print_cap("mbs_per_sec_low_power",
+		&inst->capability.mbs_per_sec_power_save);
 
 	signal_session_msg_receipt(cmd, inst);
 	put_inst(inst);
