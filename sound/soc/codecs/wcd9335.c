@@ -2741,7 +2741,8 @@ static int tasha_codec_enable_slim_chmask(struct wcd9xxx_codec_dai_data *dai,
 					 msecs_to_jiffies(
 						TASHA_SLIM_CLOSE_TIMEOUT));
 		if (!ret) {
-			pr_err("%s: Slim close tx/rx wait timeout\n", __func__);
+			pr_err("%s: Slim close tx/rx wait timeout, ch_mask:0x%lx\n",
+				__func__, dai->ch_mask);
 			ret = -ETIMEDOUT;
 		} else {
 			ret = 0;
@@ -2785,18 +2786,21 @@ static int tasha_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 					      &dai->grph);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		tasha_codec_vote_max_bw(codec, true);
 		ret = wcd9xxx_disconnect_port(core, &dai->wcd9xxx_ch_list,
 					      dai->grph);
 		dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
 			__func__, ret);
-		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
-						dai->grph);
+
 		if (!dai->bus_down_in_recovery)
 			ret = tasha_codec_enable_slim_chmask(dai, false);
 		else
 			dev_dbg(codec->dev,
 				"%s: bus in recovery skip enable slim_chmask",
 				__func__);
+		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
+						dai->grph);
+		tasha_codec_vote_max_bw(codec, false);
 		break;
 	}
 	return ret;
@@ -9613,19 +9617,19 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MUX_E("ADC MUX10", SND_SOC_NOPM, 0, 10,
+	SND_SOC_DAPM_MUX_E("ADC MUX10", SND_SOC_NOPM, 10, 0,
 			 &tx_adc_mux10, tasha_codec_tx_adc_cfg,
 			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX_E("ADC MUX11", SND_SOC_NOPM, 0, 11,
+	SND_SOC_DAPM_MUX_E("ADC MUX11", SND_SOC_NOPM, 11, 0,
 			 &tx_adc_mux11, tasha_codec_tx_adc_cfg,
 			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX_E("ADC MUX12", SND_SOC_NOPM, 0, 12,
+	SND_SOC_DAPM_MUX_E("ADC MUX12", SND_SOC_NOPM, 12, 0,
 			 &tx_adc_mux12, tasha_codec_tx_adc_cfg,
 			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX_E("ADC MUX13", SND_SOC_NOPM, 0, 13,
+	SND_SOC_DAPM_MUX_E("ADC MUX13", SND_SOC_NOPM, 13, 0,
 			 &tx_adc_mux13, tasha_codec_tx_adc_cfg,
 			 SND_SOC_DAPM_POST_PMU),
 
@@ -11262,6 +11266,7 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_common_val[] = {
 	{WCD9335_CDC_RX6_RX_PATH_MIX_CFG, 0x01, 0x01},
 	{WCD9335_CDC_RX7_RX_PATH_MIX_CFG, 0x01, 0x01},
 	{WCD9335_CDC_RX8_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_VBADC_IBIAS_FE, 0x0C, 0x08},
 };
 
 static const struct tasha_reg_mask_val tasha_codec_reg_init_1_x_val[] = {

@@ -1,0 +1,35 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	mdss_qpic: qcom,msm_qpic@7980000 {
+		compatible = "qcom,mdss_qpic";
+		reg = <0x7980000 0x24000>;
+		reg-names = "qpic_base";
+		interrupts = <0 251 0>;
+
+		qcom,msm-bus,name = "mdss_qpic";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+
+		qcom,msm-bus,vectors-KBps =
+			<91 512 0 0>,
+			/* Voting for max b/w on PNOC bus for now */
+			<91 512 400000 800000>;
+
+		vdd-supply = <&mdm9607_l11>;
+
+		clock-names = "core_a_clk";
+		clocks = <&clock_gcc clk_qpic_a_clk>;
+
+	};
+};

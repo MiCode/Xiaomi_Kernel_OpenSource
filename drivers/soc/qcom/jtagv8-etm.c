@@ -1556,7 +1556,6 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 	if (!etmdata)
 		return -ENOMEM;
 
-	etm[cpu] = etmdata;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "etm-base");
 	if (!res)
@@ -1585,12 +1584,18 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 	if (cnt++ == 0)
 		register_hotcpu_notifier(&jtag_mm_etm_notifier);
 
+	get_online_cpus();
+
 	if (!smp_call_function_single(cpu, etm_init_arch_data, etmdata,
 				      1))
 		etmdata->init = true;
 
-	if (etmdata->init) {
-		mutex_lock(&etmdata->mutex);
+	etm[cpu] = etmdata;
+
+	put_online_cpus();
+
+	mutex_lock(&etmdata->mutex);
+	if (etmdata->init && !etmdata->enable) {
 		if (etm_arch_supported(etmdata->arch)) {
 			if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) <
 			    TZ_DBG_ETM_VER)
@@ -1600,8 +1605,8 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 		} else
 			pr_info("etm arch %u not supported\n", etmdata->arch);
 		etmdata->enable = true;
-		mutex_unlock(&etmdata->mutex);
 	}
+	mutex_unlock(&etmdata->mutex);
 	return 0;
 }
 

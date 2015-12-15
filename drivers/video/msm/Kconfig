@@ -1,3 +1,4 @@
+source "drivers/video/msm/ba/Kconfig"
 source "drivers/video/msm/msm_dba/Kconfig"
 
 if FB_MSM

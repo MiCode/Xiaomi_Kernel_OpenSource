@@ -15,6 +15,7 @@ config ARM_GIC_V3
 	bool
 	select IRQ_DOMAIN
 	select MULTI_IRQ_HANDLER
+	select IRQ_DOMAIN_HIERARCHY
 
 config ARM_GIC_PANIC_HANDLER
 	bool "GIC Panic Handler"
@@ -25,6 +26,17 @@ config ARM_GIC_PANIC_HANDLER
 	  Mainly for debugging purposes.
 
 	  For production kernels, you should say 'N' here.
+
+config ARM_GIC_V3_ITS
+	bool
+	select PCI_MSI_IRQ_DOMAIN
+
+config ARM_GIC_V3_ACL
+	bool "GICv3 Access control"
+	depends on ARM_GIC_V3
+	help
+	  Access to GIC ITS address space is controlled by EL2.
+	  Kernel has no permission to access ITS
 
 config ARM_NVIC
 	bool

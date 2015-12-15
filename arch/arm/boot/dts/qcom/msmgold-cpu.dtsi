@@ -45,6 +45,7 @@
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc0>;
+			qcom,limits-info = <&mitigation_profile0>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -60,6 +61,7 @@
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc1>;
+			qcom,limits-info = <&mitigation_profile1>;
 			next-level-cache = <&L2_1>;
 		};
 
@@ -70,6 +72,7 @@
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc2>;
+			qcom,limits-info = <&mitigation_profile2>;
 			next-level-cache = <&L2_1>;
 		};
 
@@ -80,6 +83,7 @@
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc3>;
+			qcom,limits-info = <&mitigation_profile3>;
 			next-level-cache = <&L2_1>;
 		};
 

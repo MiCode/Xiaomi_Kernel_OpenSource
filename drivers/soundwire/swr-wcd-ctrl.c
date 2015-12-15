@@ -785,11 +785,14 @@ static int swrm_disconnect_port(struct swr_master *master,
 	struct swr_port_info *port;
 	struct swrm_mports *mport;
 	struct list_head *ptr, *next;
-	u8 bank;
+	u8 bank, active_bank;
 	int ret = 0;
 	u8 mport_id = 0;
 	int port_type = 0;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
+	u32 reg[SWRM_MAX_PORT_REG];
+	u32 val[SWRM_MAX_PORT_REG];
+	int len = 0;
 
 	if (!swrm) {
 		dev_err(&master->dev,
@@ -804,6 +807,7 @@ static int swrm_disconnect_port(struct swr_master *master,
 	}
 	mutex_lock(&swrm->mlock);
 	bank = get_inactive_bank_num(swrm);
+	active_bank = bank ? 0 : 1;
 	for (i = 0; i < portinfo->num_port; i++) {
 		ret = swrm_get_master_port(&mport_id,
 						portinfo->port_id[i]);
@@ -830,6 +834,12 @@ static int swrm_disconnect_port(struct swr_master *master,
 			    0);
 		swrm_cmd_fifo_wr_cmd(swrm, 0x00, port->dev_id, 0x00,
 				SWRS_DP_CHANNEL_ENABLE_BANK(port_type, bank));
+		reg[len] = SWRM_DP_PORT_CTRL_BANK((mport_id+1), active_bank);
+		val[len++] = 0;
+		reg[len] = SWRM_CMD_FIFO_WR_CMD;
+		val[len++] = SWR_REG_VAL_PACK(0x00, port->dev_id, 0x00,
+				SWRS_DP_CHANNEL_ENABLE_BANK(port_type,
+							    active_bank));
 		list_for_each_safe(ptr, next, &swrm->mport_list) {
 			mport = list_entry(ptr, struct swrm_mports, list);
 			if (mport->id == mport_id) {
@@ -839,6 +849,7 @@ static int swrm_disconnect_port(struct swr_master *master,
 		}
 	}
 	enable_bank_switch(swrm, bank, SWR_MAX_ROW, SWR_MAX_COL);
+	swrm->bulk_write(swrm->handle, reg, val, len);
 	if (master->num_port >= SWR_MSTR_PORT_LEN)
 		master->num_port = SWR_MSTR_PORT_LEN;
 

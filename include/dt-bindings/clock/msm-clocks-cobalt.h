@@ -96,6 +96,7 @@
 #define clk_debug_mmss_clk			0x977c99b6
 #define clk_debug_rpm_clk			0x8e2b07ca
 #define clk_debug_cpu_clk			0x0e696b2b
+#define clk_gpu_gcc_debug_clk			0x3eb88190
 #define clk_gpll0				0x1ebe3bc4
 #define clk_gpll0_out_main			0xe9374de7
 #define clk_gpll0_ao				0xa1368304
@@ -454,28 +455,27 @@
 #define clk_mmss_debug_mux			0xe646ffda
 
 /* clock_gpu controlled clocks*/
+#define clk_gpucc_xo				0xc4e1a890
+#define clk_gpucc_gpll0				0x0db0e37f
 #define clk_gfx3d_clk_src			0x917f76ef
 #define clk_rbbmtimer_clk_src			0x17649ecc
 #define clk_gfx3d_isense_clk_src		0xecc3eafa
 #define clk_rbcpr_clk_src			0x2c2e9af2
-#define clk_spdm_gfx3d_div_clk			0xbd0d9759
 #define clk_gpu_debug_div_clk			0x75d6f53f
-#define clk_gpu_pll0_pll_out_test_div		0x4b9f78fb
-#define clk_gpu_pll1_pll_out_test_div		0x4659fcfd
-#define clk_gfx3d_clk				0x95f01bd5
-#define clk_rbbmtimer_clk			0x58a0a7ca
-#define clk_gfx3d_isense_clk			0xb2678e80
-#define clk_cxo_clk				0x6532dcae
-#define clk_rbcpr_clk				0x7bd750e8
-#define clk_spdm_gfx3d_clk			0x32fef83d
-#define clk_gpu_pll0				0x0e61ab4d
+#define clk_gpucc_gfx3d_clk			0x95f01bd5
+#define clk_gpucc_rbbmtimer_clk			0x58a0a7ca
+#define clk_gpucc_gfx3d_isense_clk		0xb2678e80
+#define clk_gpucc_cxo_clk			0x6532dcae
+#define clk_gpucc_rbcpr_clk			0x7bd750e8
+#define clk_gpu_pll0_pll			0x0e61ab4d
 #define clk_gpu_pll0_pll_out_even		0xb0ed5009
-#define clk_gpu_pll0_pll_out_main		0xb4606700
 #define clk_gpu_pll0_pll_out_odd		0x08c5a8a5
-#define clk_gpu_pll1				0x09ac81ef
+#define clk_gpu_pll0_postdiv_clk		0x76c19f3c
+#define clk_gpu_pll1_pll			0x09ac81ef
 #define clk_gpu_pll1_pll_out_even		0xa503de04
-#define clk_gpu_pll1_pll_out_main		0x718319a6
 #define clk_gpu_pll1_pll_out_odd		0x1c205dfb
-#define clk_ahb_clk				0x6d0226a2
+#define clk_gpu_pll1_postdiv_clk		0xdf546700
+#define clk_gpucc_mx_clk			0x1edbb879
+#define clk_gpucc_gcc_dbg_clk			0x9ae8cd3c
 
 #endif

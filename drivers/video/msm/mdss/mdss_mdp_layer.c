@@ -1056,9 +1056,10 @@ static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
 	pr_debug("pipe count:: secure display:%d non-secure:%d\n",
 		sd_pipes, nonsd_pipes);
 
-	if (sd_pipes && nonsd_pipes) {
-		pr_err("pipe count:: secure display:%d non-secure:%d\n",
-			sd_pipes, nonsd_pipes);
+	if ((sd_pipes || mdss_get_sd_client_cnt()) && nonsd_pipes) {
+		pr_err("non-secure layer validation request during secure display session\n");
+		pr_err(" secure client cnt:%d secure pipe cnt:%d non-secure pipe cnt:%d\n",
+			mdss_get_sd_client_cnt(), sd_pipes, nonsd_pipes);
 		return -EINVAL;
 	} else {
 		return 0;

@@ -119,43 +119,17 @@ static struct pll_vote_clk gpll0_clk_src = {
 	},
 };
 
-static struct alpha_pll_masks pll_masks_p = {
-	.lock_mask = BIT(31),
-	.active_mask = BIT(30),
-	.vco_mask = BM(21, 20) >> 20,
-	.vco_shift = 20,
-	.alpha_en_mask = BIT(24),
-	.output_mask = 0xf,
-	.post_div_mask = BM(11, 8),
-	.test_ctl_lo_mask = BM(31, 0),
-	.test_ctl_hi_mask = BM(31, 0),
-};
-
-/* Slewing plls won't allow to change vco_sel.
- * Hence will have only one vco table entry */
-static struct alpha_pll_vco_tbl p_vco[] = {
-	VCO(2,  500000000, 1000000000),
-};
-
-static struct alpha_pll_clk gpll2_clk_src = {
-	.masks = &pll_masks_p,
+static struct pll_vote_clk gpll2_clk_src = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
+	.en_mask = BIT(2),
+	.status_reg = (void __iomem *)GPLL2_MODE,
+	.status_mask = BIT(30),
 	.base = &virt_bases[GCC_BASE],
-	.offset = GPLL2_MODE,
-	.vco_tbl = p_vco,
-	.num_vco = ARRAY_SIZE(p_vco),
-	.enable_config = 0x1,
-	/*
-	 * Latch Interface needs to be unset,
-	 * though no slewing required.
-	 */
-	.slew =  true,
-	.config_ctl_val = 0x4001051b,
 	.c = {
 		.rate = 930000000,
 		.parent = &xo_clk_src.c,
 		.dbg_name = "gpll2_clk_src",
-		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_DIG_FMAX_MAP1(LOW_SVS, 1000000000),
+		.ops = &clk_ops_pll_vote,
 		CLK_INIT(gpll2_clk_src.c),
 	},
 };
