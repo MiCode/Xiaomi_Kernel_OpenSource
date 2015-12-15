@@ -1893,6 +1893,8 @@
 #include "msm-pmtitanium.dtsi"
 #include "msmtitanium-regulator.dtsi"
 #include "msm-pmi8950.dtsi"
+#include "msm-audio.dtsi"
+#include "msmtitanium-audio.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msmtitanium-camera.dtsi"
 

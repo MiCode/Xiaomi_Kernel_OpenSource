@@ -13,6 +13,7 @@
 
 #include "msmtitanium-pinctrl.dtsi"
 #include "msmtitanium-camera-sensor-mtp.dtsi"
+#include "msmtitanium-audio-mtp.dtsi"
 
 &spi_3 { /* BLSP1 QUP3 */
 	spi-max-frequency = <16000000>;
