@@ -131,7 +131,7 @@ static void armada_370_xp_free_msi(int hwirq)
 	mutex_unlock(&msi_used_lock);
 }
 
-static int armada_370_xp_setup_msi_irq(struct msi_chip *chip,
+static int armada_370_xp_setup_msi_irq(struct msi_controller *chip,
 				       struct pci_dev *pdev,
 				       struct msi_desc *desc)
 {
@@ -158,11 +158,11 @@ static int armada_370_xp_setup_msi_irq(struct msi_chip *chip,
 	msg.address_hi = 0;
 	msg.data = 0xf00 | (hwirq + 16);
 
-	write_msi_msg(virq, &msg);
+	pci_write_msi_msg(virq, &msg);
 	return 0;
 }
 
-static void armada_370_xp_teardown_msi_irq(struct msi_chip *chip,
+static void armada_370_xp_teardown_msi_irq(struct msi_controller *chip,
 					   unsigned int irq)
 {
 	struct irq_data *d = irq_get_irq_data(irq);
@@ -197,7 +197,7 @@ static const struct irq_domain_ops armada_370_xp_msi_irq_ops = {
 static int armada_370_xp_msi_init(struct device_node *node,
 				  phys_addr_t main_int_phys_base)
 {
-	struct msi_chip *msi_chip;
+	struct msi_controller *msi_chip;
 	u32 reg;
 	int ret;
 

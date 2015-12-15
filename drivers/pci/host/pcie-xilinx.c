@@ -335,7 +335,8 @@ static int xilinx_pcie_assign_msi(struct xilinx_pcie_port *port)
  * @chip: MSI Chip descriptor
  * @irq: MSI IRQ to destroy
  */
-static void xilinx_msi_teardown_irq(struct msi_chip *chip, unsigned int irq)
+static void xilinx_msi_teardown_irq(struct msi_controller *chip,
+				    unsigned int irq)
 {
 	xilinx_pcie_destroy_msi(irq);
 }
@@ -348,7 +349,7 @@ static void xilinx_msi_teardown_irq(struct msi_chip *chip, unsigned int irq)
  *
  * Return: '0' on success and error value on failure
  */
-static int xilinx_pcie_msi_setup_irq(struct msi_chip *chip,
+static int xilinx_pcie_msi_setup_irq(struct msi_controller *chip,
 				     struct pci_dev *pdev,
 				     struct msi_desc *desc)
 {
@@ -374,13 +375,13 @@ static int xilinx_pcie_msi_setup_irq(struct msi_chip *chip,
 	msg.address_lo = msg_addr;
 	msg.data = irq;
 
-	write_msi_msg(irq, &msg);
+	pci_write_msi_msg(irq, &msg);
 
 	return 0;
 }
 
 /* MSI Chip Descriptor */
-static struct msi_chip xilinx_pcie_msi_chip = {
+static struct msi_controller xilinx_pcie_msi_chip = {
 	.setup_irq = xilinx_pcie_msi_setup_irq,
 	.teardown_irq = xilinx_msi_teardown_irq,
 };
