@@ -951,6 +951,7 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct device_node *node = pdev->dev.of_node;
 	int i, init_level;
+	unsigned int timeout;
 
 	if (of_property_read_string(node, "label", &pdev->name)) {
 		KGSL_CORE_ERR("Unable to read 'label'\n");
@@ -988,9 +989,10 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 		&device->pwrctrl.pm_qos_wakeup_latency))
 		device->pwrctrl.pm_qos_wakeup_latency = 101;
 
-	if (of_property_read_u32(node, "qcom,idle-timeout",
-		(unsigned int *) &device->pwrctrl.interval_timeout))
-		device->pwrctrl.interval_timeout = HZ/12;
+	if (of_property_read_u32(node, "qcom,idle-timeout", &timeout))
+		timeout = 80;
+
+	device->pwrctrl.interval_timeout = msecs_to_jiffies(timeout);
 
 	device->pwrctrl.strtstp_sleepwake =
 		of_property_read_bool(node, "qcom,strtstp-sleepwake");

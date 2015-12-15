@@ -67,12 +67,12 @@
 
 		qcom,initial-pwrlevel = <2>;
 
-		qcom,idle-timeout = <8>; //<HZ/12>
+		qcom,idle-timeout = <80>; //msecs
 		/*
 		 * Timeout to enter deeper power saving state
 		 * from NAP.
 		 */
-		qcom,deep-nap-timeout = <2>; //<HZ/50>
+		qcom,deep-nap-timeout = <20>; //msecs
 		qcom,strtstp-sleepwake;
 
 		/* Trace bus */
