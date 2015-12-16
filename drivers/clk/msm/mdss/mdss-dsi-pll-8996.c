@@ -465,6 +465,8 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc, ndx;
+	int const ssc_freq_default = 31500; /* default h/w recommended value */
+	int const ssc_ppm_default = 5000; /* default h/w recommended value */
 	struct dsi_pll_db *pdb;
 
 	if (!pdev || !pdev->dev.of_node) {
@@ -510,6 +512,13 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 	clk_ops_gen_mux_dsi = clk_ops_gen_mux;
 	clk_ops_gen_mux_dsi.round_rate = parent_round_rate;
 	clk_ops_gen_mux_dsi.set_rate = parent_set_rate;
+
+	if (pll_res->ssc_en) {
+		if (!pll_res->ssc_freq)
+			pll_res->ssc_freq = ssc_freq_default;
+		if (!pll_res->ssc_ppm)
+			pll_res->ssc_ppm = ssc_ppm_default;
+	}
 
 	/* Set client data to mux, div and vco clocks.  */
 	if (pll_res->index == DSI_PLL_1) {
