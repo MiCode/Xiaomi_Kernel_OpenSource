@@ -211,7 +211,7 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
 {
 	struct msm_compr_audio *prtd;
-	int rc = 0, i;
+	int rc = 0;
 	uint32_t avg_vol, gain_list[VOLUME_CONTROL_MAX_CHANNELS];
 	uint32_t num_channels;
 	struct snd_soc_pcm_runtime *rtd;
@@ -255,9 +255,7 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 		 *
 		 */
 		avg_vol = (volume_l + volume_r) / 2;
-		for (i = 0; i < prtd->num_channels; i++)
-			gain_list[i] = avg_vol;
-
+		rc = q6asm_set_volume(prtd->audio_client, avg_vol);
 	} else {
 		gain_list[0] = volume_l;
 		gain_list[1] = volume_r;
@@ -267,10 +265,9 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 			num_channels = 3;
 			use_default = true;
 		}
+		rc = q6asm_set_multich_gain(prtd->audio_client, num_channels,
+					gain_list, chmap, use_default);
 	}
-
-	rc = q6asm_set_multich_gain(prtd->audio_client, num_channels,
-				    gain_list, chmap, use_default);
 
 	if (rc < 0)
 		pr_err("%s: Send vol gain command failed rc=%d\n",
