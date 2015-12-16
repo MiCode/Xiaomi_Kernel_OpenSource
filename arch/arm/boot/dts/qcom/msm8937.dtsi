@@ -1469,9 +1469,10 @@
 	qcom,adsprpc_domains {
 		compatible = "qcom,msm-fastrpc-legacy-compute-cb";
 		qcom,msm_fastrpc_compute_cb {
-			qcom,adsp-shared-domain-phandle = <&adsp_shared_domain>;
+			qcom,adsp-shared-phandle = <&adsp_shared>;
 			qcom,adsp-shared-sids =
 					<0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf>;
+			qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
 		};
 	};
 
