@@ -41,8 +41,6 @@ Optional properties :
   when recovering from power collapse.
 - qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
   after USB is kept into LPM.
-- qcom,vbus-present: Indicates that there is no VBUS indication from PMIC. Assume VBUS is
-  present if this property is defined.
 - qcom,ext-hub-reset-gpio: This corresponds to gpio which is used for HUB reset.
 - qcom,disable-dev-mode-pm: If present, it disables PM runtime functionality for device mode.
 - qcom,disable-host-mode-pm: If present, it disables XHCI PM runtime functionality when USB
@@ -70,7 +68,6 @@ Example MSM USB3.0 controller device node :
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,usb-dbm = <&dbm_1p4>;
 		qcom,lpm-to-suspend-delay-ms = <2>;
-		qcom,vbus-present;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;
