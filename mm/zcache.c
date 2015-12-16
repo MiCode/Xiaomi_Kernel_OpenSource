@@ -74,7 +74,8 @@ static u64 zcache_pool_shrink_pages;
 static atomic_t zcache_stored_pages = ATOMIC_INIT(0);
 
 #define GFP_ZCACHE \
-	(__GFP_FS | __GFP_NORETRY | __GFP_NOWARN | __GFP_NOMEMALLOC)
+	(__GFP_FS | __GFP_NORETRY | __GFP_NOWARN | \
+		__GFP_NOMEMALLOC | __GFP_NO_KSWAPD)
 /*
  * Zcache receives pages for compression through the Cleancache API and is able
  * to evict pages from its own compressed pool on an LRU basis in the case that
