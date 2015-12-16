@@ -515,13 +515,13 @@ static int ibs_close(struct hci_uart *hu)
 
 	BT_DBG("hu %p", hu);
 
-	ibs_msm_serial_clock_vote(HCI_IBS_VOTE_STATS_UPDATE, hu);
-	ibs_log_local_stats(ibs);
-
 	skb_queue_purge(&ibs->tx_wait_q);
 	skb_queue_purge(&ibs->txq);
 	del_timer(&ibs->tx_idle_timer);
 	del_timer(&ibs->wake_retrans_timer);
+	__ibs_msm_serial_clock_request_off(hu->tty);
+	ibs_msm_serial_clock_vote(HCI_IBS_VOTE_STATS_UPDATE, hu);
+	ibs_log_local_stats(ibs);
 	destroy_workqueue(ibs->workqueue);
 	ibs->ibs_hu = NULL;
 
