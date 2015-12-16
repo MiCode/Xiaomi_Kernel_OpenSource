@@ -114,6 +114,35 @@ active_logs=%u         Support configuring the number of active logs. In the
                        Default number is 6.
 disable_ext_identify   Disable the extension list configured by mkfs, so f2fs
                        does not aware of cold files such as media files.
+inline_xattr           Enable the inline xattrs feature.
+inline_data            Enable the inline data feature: New created small(<~3.4k)
+                       files can be written into inode block.
+inline_dentry          Enable the inline dir feature: data in new created
+                       directory entries can be written into inode block. The
+                       space of inode block which is used to store inline
+                       dentries is limited to ~3.4k.
+flush_merge	       Merge concurrent cache_flush commands as much as possible
+                       to eliminate redundant command issues. If the underlying
+		       device handles the cache_flush command relatively slowly,
+		       recommend to enable this option.
+nobarrier              This option can be used if underlying storage guarantees
+                       its cached data should be written to the novolatile area.
+		       If this option is set, no cache_flush commands are issued
+		       but f2fs still guarantees the write ordering of all the
+		       data writes.
+fastboot               This option is used when a system wants to reduce mount
+                       time as much as possible, even though normal performance
+		       can be sacrificed.
+extent_cache           Enable an extent cache based on rb-tree, it can cache
+                       as many as extent which map between contiguous logical
+                       address and physical address per inode, resulting in
+                       increasing the cache hit ratio. Set by default.
+noextent_cache         Disable an extent cache based on rb-tree explicitly, see
+                       the above extent_cache mount option.
+noinline_data          Disable the inline data feature, inline data feature is
+                       enabled by default.
+data_flush             Enable data flushing before checkpoint in order to
+                       persist data of regular and symlink.
 
 ================================================================================
 DEBUGFS ENTRIES
