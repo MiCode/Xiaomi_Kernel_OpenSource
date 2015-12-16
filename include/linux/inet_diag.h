@@ -3,6 +3,7 @@
 
 #include <uapi/linux/inet_diag.h>
 
+struct net;
 struct sock;
 struct inet_hashinfo;
 struct nlattr;
@@ -38,6 +39,10 @@ void inet_diag_dump_icsk(struct inet_hashinfo *h, struct sk_buff *skb,
 int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
 		struct sk_buff *in_skb, const struct nlmsghdr *nlh,
 		struct inet_diag_req_v2 *req);
+
+struct sock *inet_diag_find_one_icsk(struct net *net,
+				     struct inet_hashinfo *hashinfo,
+				     struct inet_diag_req_v2 *req);
 
 int inet_diag_bc_sk(const struct nlattr *_bc, struct sock *sk);
 
