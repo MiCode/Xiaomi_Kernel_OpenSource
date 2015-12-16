@@ -1399,3 +1399,4 @@
 #include "msm-pmcobalt-rpm-regulator.dtsi"
 #include "msmcobalt-regulator.dtsi"
 #include "msmcobalt-camera.dtsi"
+#include "msmcobalt-vidc.dtsi"
