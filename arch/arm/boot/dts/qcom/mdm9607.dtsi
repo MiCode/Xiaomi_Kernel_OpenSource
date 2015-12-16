@@ -1293,7 +1293,7 @@
 
 	emac0: qcom,emac@7c40000 {
 		cell-index = <0>;
-		compatible = "qcom,emac";
+		compatible = "qcom,mdm9607-emac";
 		reg-names = "emac", "emac_csr", "emac_1588", "emac_sgmii";
 		reg = <0x7c40000 0x10000>,
 			<0x7c56000 0x1000>,
