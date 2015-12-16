@@ -131,6 +131,19 @@ nobarrier              This option can be used if underlying storage guarantees
 		       If this option is set, no cache_flush commands are issued
 		       but f2fs still guarantees the write ordering of all the
 		       data writes.
+fastboot               This option is used when a system wants to reduce mount
+                       time as much as possible, even though normal performance
+		       can be sacrificed.
+extent_cache           Enable an extent cache based on rb-tree, it can cache
+                       as many as extent which map between contiguous logical
+                       address and physical address per inode, resulting in
+                       increasing the cache hit ratio. Set by default.
+noextent_cache         Disable an extent cache based on rb-tree explicitly, see
+                       the above extent_cache mount option.
+noinline_data          Disable the inline data feature, inline data feature is
+                       enabled by default.
+data_flush             Enable data flushing before checkpoint in order to
+                       persist data of regular and symlink.
 
 ================================================================================
 DEBUGFS ENTRIES
