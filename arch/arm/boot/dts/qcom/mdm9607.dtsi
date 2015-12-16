@@ -711,6 +711,8 @@
 		qcom,sensors = <5>;
 		qcom,slope = <3000 3000 3000 3000 3000>;
 		qcom,sensor-id = <0 1 2 3 4>;
+		qcom,temp1-offset = <1 (-4) 4 (-3) (-4)>;
+		qcom,temp2-offset = <1 (-4) 4 (-3) (-4)>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
