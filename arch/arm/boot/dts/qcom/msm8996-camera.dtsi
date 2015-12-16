@@ -341,7 +341,7 @@
 			0xcccc0011
 			0x40000103>;
 		max-clk-svs = <300000000>;
-		max-clk-nominal = <465000000>;
+		max-clk-nominal = <480000000>;
 		max-clk-turbo = <600000000>;
 	};
 
@@ -413,7 +413,7 @@
 			0xcccc0011
 			0x40000103>;
 		max-clk-svs = <300000000>;
-		max-clk-nominal = <465000000>;
+		max-clk-nominal = <480000000>;
 		max-clk-turbo = <600000000>;
 	};
 
@@ -619,7 +619,7 @@
 			"camss_cpp_axi_clk", "camss_cpp_clk",
 			"micro_iface_clk", "camss_ahb_clk",
 			"smmu_cpp_axi_clk", "cpp_vbif_ahb_clk";
-		qcom,clock-rates = <0 0 0 465000000 0 0 465000000 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 480000000 0 0 480000000 0 0 0 0>;
 		qcom,min-clock-rate = <200000000>;
 		qcom,bus-master = <1>;
 		qcom,vbif-qos-setting = <0x20 0x10000000>,
