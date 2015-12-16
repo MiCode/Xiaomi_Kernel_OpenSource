@@ -138,6 +138,11 @@ struct zcache_ra_handle {
 	struct zcache_pool *zpool;	/* Finding zcache_pool during evict */
 };
 
+u64 zcache_pages(void)
+{
+	return zcache_pool_pages;
+}
+
 static struct kmem_cache *zcache_rbnode_cache;
 static int zcache_rbnode_cache_create(void)
 {
