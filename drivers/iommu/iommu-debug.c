@@ -1437,6 +1437,47 @@ static const struct file_operations iommu_debug_functional_fast_dma_api_fops = {
 	.release = single_release,
 };
 
+static int iommu_debug_functional_arm_dma_api_show(struct seq_file *s,
+						   void *ignored)
+{
+	struct dma_iommu_mapping *mapping;
+	struct iommu_debug_device *ddev = s->private;
+	struct device *dev = ddev->dev;
+	size_t sizes[] = {SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12, 0};
+	int ret = -EINVAL;
+
+	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4UL);
+	if (!mapping)
+		goto out;
+
+	if (arm_iommu_attach_device(dev, mapping))
+		goto out_release_mapping;
+
+	ret = __functional_dma_api_alloc_test(dev, s, mapping->domain, sizes);
+	ret |= __functional_dma_api_basic_test(dev, s, mapping->domain, sizes);
+
+	arm_iommu_detach_device(dev);
+out_release_mapping:
+	arm_iommu_release_mapping(mapping);
+out:
+	seq_printf(s, "%s\n", ret ? "FAIL" : "SUCCESS");
+	return 0;
+}
+
+static int iommu_debug_functional_arm_dma_api_open(struct inode *inode,
+						   struct file *file)
+{
+	return single_open(file, iommu_debug_functional_arm_dma_api_show,
+			   inode->i_private);
+}
+
+static const struct file_operations iommu_debug_functional_arm_dma_api_fops = {
+	.open	 = iommu_debug_functional_arm_dma_api_open,
+	.read	 = seq_read,
+	.llseek	 = seq_lseek,
+	.release = single_release,
+};
+
 static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 					int val, bool is_secure)
 {
@@ -1846,6 +1887,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 	if (!debugfs_create_file("functional_fast_dma_api", S_IRUSR, dir, ddev,
 				 &iommu_debug_functional_fast_dma_api_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/functional_fast_dma_api debugfs file\n",
+		       name);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("functional_arm_dma_api", S_IRUSR, dir, ddev,
+				 &iommu_debug_functional_arm_dma_api_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/functional_arm_dma_api debugfs file\n",
 		       name);
 		goto err_rmdir;
 	}
