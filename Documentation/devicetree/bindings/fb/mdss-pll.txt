@@ -33,6 +33,10 @@ Optional properties:
 - qcom,dsi-pll-ssc-en:	Boolean property to indicate that ssc is enabled.
 - qcom,dsi-pll-ssc-mode: Spread-spectrum clocking. It can be either "down-spread"
 			or "center-spread". Default is "down-spread" if it is not specified.
+- qcom,ssc-frequency-hz:	Integer property to specify the spread frequency
+			to be programmed for the SSC.
+- qcom,ssc-ppm:		Integer property to specify the Parts per Million
+			value of SSC.
 
 - qcom,platform-supply-entries:	A node that lists the elements of the supply. There
 				can be more than one instance of this binding,
@@ -71,8 +75,10 @@ Example:
 		clock-rate = <0>, <0>, <0>;
 
 		qcom,dsi-pll-slave;
-		qcom,dsi-pll-ssc-en:
+		qcom,dsi-pll-ssc-en;
 		qcom,dsi-pll-ssc-mode = "down-spread";
+		qcom,ssc-frequency-hz = <30000>;
+		qcom,ssc-ppm = <5000>;
 
 		qcom,platform-supply-entries {
 			#address-cells = <1>;

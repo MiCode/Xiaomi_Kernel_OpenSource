@@ -245,12 +245,23 @@ static int mdss_pll_probe(struct platform_device *pdev)
 	pll_res->ssc_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,dsi-pll-ssc-en");
 
-	pll_res->ssc_center = false;
+	if (pll_res->ssc_en) {
+		pr_info("%s: label=%s PLL SSC enabled\n", __func__, label);
 
-	label = of_get_property(pdev->dev.of_node,
-				"qcom,dsi-pll-ssc-mode", NULL);
-	if (label && !strcmp(label, "center-spread"))
-		pll_res->ssc_center = true;
+		rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,ssc-frequency-hz", &pll_res->ssc_freq);
+
+		rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,ssc-ppm", &pll_res->ssc_ppm);
+
+		pll_res->ssc_center = false;
+
+		label = of_get_property(pdev->dev.of_node,
+			"qcom,dsi-pll-ssc-mode", NULL);
+
+		if (label && !strcmp(label, "center-spread"))
+			pll_res->ssc_center = true;
+	}
 
 	pll_base_reg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "pll_base");

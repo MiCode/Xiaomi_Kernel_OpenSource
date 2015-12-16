@@ -382,8 +382,8 @@ static void mdss_dsi_pll_8996_input_init(struct mdss_pll_resources *pll,
 	pdb->in.plllock_rng = 0;	/* 0, reg: 0x0488, bit 3 - 4 */
 	pdb->in.ssc_center = pll->ssc_center;/* 0, reg: 0x0494, bit 1 */
 	pdb->in.ssc_adj_period = 37;	/* 37, reg: 0x498, bit 0 - 9 */
-	pdb->in.ssc_spread = 5;		/* 0.005, 5kppm */
-	pdb->in.ssc_freq = 31500;	/* 31.5 khz */
+	pdb->in.ssc_spread = pll->ssc_ppm / 1000;
+	pdb->in.ssc_freq = pll->ssc_freq;
 
 	pdb->in.pll_ie_trim = 4;	/* 4, reg: 0x0400 */
 	pdb->in.pll_ip_trim = 4;	/* 4, reg: 0x0404 */
