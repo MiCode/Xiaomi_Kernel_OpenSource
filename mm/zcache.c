@@ -58,6 +58,8 @@ module_param_named(compressor, zcache_compressor, charp, 0);
 static unsigned int zcache_max_pool_percent = 10;
 module_param_named(max_pool_percent, zcache_max_pool_percent, uint, 0644);
 
+static unsigned int zcache_clear_percent = 4;
+module_param_named(clear_percent, zcache_clear_percent, uint, 0644);
 /*
  * zcache statistics
  */
@@ -188,36 +190,53 @@ static unsigned long zcache_count(struct shrinker *s,
 static unsigned long zcache_scan(struct shrinker *s, struct shrink_control *sc)
 {
 	unsigned long active_file;
+	unsigned long file;
 	long file_gap;
 	unsigned long freed = 0;
+	unsigned long pool;
 	static bool running;
 	int i = 0;
+	int retries;
 
 	if (running)
 		goto end;
 
 	running = true;
 	active_file = global_page_state(NR_ACTIVE_FILE);
+	file = global_page_state(NR_FILE_PAGES);
+	pool = zcache_pages();
+
+	file_gap = pool - file;
+
+	if ((file_gap >= 0) &&
+		(totalram_pages * zcache_clear_percent / 100 > file)) {
+		file_gap = pool;
+		zcache_pool_shrink++;
+		goto reclaim;
+	}
 
 	/*
 	 * file_gap == 0 means that the number of pages
 	 * stored by zcache is around twice as many as the
 	 * number of active file pages.
 	 */
-	file_gap = zcache_pages() - active_file;
+	file_gap = pool - active_file;
 	if (file_gap < 0)
 		file_gap = 0;
 	else
 		zcache_pool_shrink++;
 
-	while (file_gap > 0) {
+reclaim:
+	retries = file_gap;
+	while ((file_gap > 0) && retries) {
 		struct zcache_pool *zpool =
 			zcache.pools[i++ % MAX_ZCACHE_POOLS];
 		if (!zpool || !zpool->size)
 			continue;
 		if (zbud_reclaim_page(zpool->pool, 8)) {
 			zcache_pool_shrink_fail++;
-			break;
+			retries--;
+			continue;
 		}
 		freed++;
 		file_gap--;
@@ -379,8 +398,12 @@ cleanup:
  */
 static bool zcache_is_full(void)
 {
-	return totalram_pages * zcache_max_pool_percent / 100 <
-			zcache_pages();
+	long file = global_page_state(NR_FILE_PAGES);
+
+	return ((totalram_pages * zcache_max_pool_percent / 100 <
+			zcache_pages()) ||
+			(totalram_pages * zcache_clear_percent / 100 >
+			file));
 }
 
 /*
