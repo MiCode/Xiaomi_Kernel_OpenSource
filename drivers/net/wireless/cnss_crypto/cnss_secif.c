@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,7 +91,6 @@ static inline void leftshift_onebit(const u8 *input, u8 *output)
 		output[i] |= overflow;
 		overflow = (input[i] & 0x80) ? 1 : 0;
 	}
-	return;
 }
 
 static void generate_subkey(struct crypto_cipher *tfm, u8 *k1, u8 *k2)
@@ -136,7 +135,6 @@ static inline void padding(u8 *lastb, u8 *pad, u16 length)
 	}
 }
 
-
 void wcnss_wlan_cmac_calc_mic(struct crypto_cipher *tfm, u8 *m,
 				u16 length, u8 *mac)
 {
@@ -144,21 +142,21 @@ void wcnss_wlan_cmac_calc_mic(struct crypto_cipher *tfm, u8 *m,
 	u8 m_last[AES_BLOCK_SIZE], padded[AES_BLOCK_SIZE];
 	u8 k1[AES_KEYSIZE_128], k2[AES_KEYSIZE_128];
 	int cmpBlk;
-	int i, nBlocks = (length + 15)/AES_BLOCK_SIZE;
+	int i, nblocks = (length + 15) / AES_BLOCK_SIZE;
 
 	generate_subkey(tfm, k1, k2);
 
-	if (nBlocks == 0) {
-		nBlocks = 1;
+	if (nblocks == 0) {
+		nblocks = 1;
 		cmpBlk = 0;
 	} else {
 		cmpBlk = ((length % AES_BLOCK_SIZE) == 0) ? 1 : 0;
 	}
 
 	if (cmpBlk) { /* Last block is complete block */
-		xor_128(&m[AES_BLOCK_SIZE * (nBlocks - 1)], k1, m_last);
+		xor_128(&m[AES_BLOCK_SIZE * (nblocks - 1)], k1, m_last);
 	} else { /* Last block is not complete block */
-		padding(&m[AES_BLOCK_SIZE * (nBlocks - 1)], padded,
+		padding(&m[AES_BLOCK_SIZE * (nblocks - 1)], padded,
 			length % AES_BLOCK_SIZE);
 		xor_128(padded, k2, m_last);
 	}
@@ -166,7 +164,7 @@ void wcnss_wlan_cmac_calc_mic(struct crypto_cipher *tfm, u8 *m,
 	for (i = 0; i < AES_BLOCK_SIZE; i++)
 		x[i] = 0;
 
-	for (i = 0; i < (nBlocks - 1); i++) {
+	for (i = 0; i < (nblocks - 1); i++) {
 		xor_128(x, &m[AES_BLOCK_SIZE * i], y); /* y = Mi (+) x */
 		crypto_cipher_encrypt_one(tfm, x, y); /* x = AES-128(KEY, y) */
 	}
