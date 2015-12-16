@@ -58,6 +58,15 @@
 		qcom,master-en = <1>;
 		qcom,out-strength = <2>;
 	};
+
+	gpio@c700 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
 };
 
 &soc {
@@ -354,7 +363,7 @@
 };
 
 &mdss_dsi {
-	hw-config = "single_dsi";
+	hw-config = "dual_dsi";
 };
 
 &mdss_dsi0 {
@@ -370,12 +379,12 @@
 };
 
 &mdss_dsi1 {
-	status = "disabled";
-	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
+	qcom,pluggable;
 	qcom,platform-te-gpio = <&tlmm 24 0>;
 	qcom,platform-enable-gpio = <&tlmm 99 0>;
 	qcom,platform-reset-gpio = <&tlmm 60 0>;

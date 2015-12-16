@@ -395,6 +395,35 @@
 			};
 		};
 
+		pmx_adv7533_int: pmx_adv7533_int {
+			adv7533_int_active: adv7533_int_active {
+				mux {
+					pins = "gpio126";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio126";
+					drive-strength = <16>;
+					bias-disable;
+				};
+			};
+
+			adv7533_int_suspend: adv7533_int_suspend {
+				mux {
+					pins = "gpio126";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio126";
+					drive-strength = <16>;
+					bias-disable;
+				};
+			};
+
+		};
+
 		pmx_mdss: pmx_mdss {
 			mdss_dsi_active: mdss_dsi_active {
 				mux {
