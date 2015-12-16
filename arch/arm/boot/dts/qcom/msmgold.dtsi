@@ -81,6 +81,14 @@
 			alignment = <0 0x400000>;
 			size = <0 0x1000000>;
 		};
+
+		adsp_mem: adsp_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x400000>;
+		};
+
 	};
 
 	soc: soc { };
@@ -799,6 +807,22 @@
 		qcom,max-rx-mtu = <4096>;
 		qcom,fast-shutdown;
 	};
+
+	qcom,adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
+	qcom,adsprpc_domains {
+		compatible = "qcom,msm-fastrpc-legacy-compute-cb";
+		qcom,msm_fastrpc_compute_cb {
+			qcom,adsp-shared-phandle = <&adsp_shared>;
+			qcom,adsp-shared-sids =
+					<0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf>;
+			qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
+		};
+	};
+
 };
 
 #include "msm-pm8937-rpm-regulator.dtsi"
