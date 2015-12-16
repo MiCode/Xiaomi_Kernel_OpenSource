@@ -2771,11 +2771,13 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 }
 EXPORT_SYMBOL(ipa_usb_xdci_suspend);
 
-int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
+int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+	enum ipa_usb_teth_prot teth_prot)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_resume, ul_clnt_hdl, dl_clnt_hdl);
+	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_resume, ul_clnt_hdl,
+		dl_clnt_hdl, teth_prot);
 
 	return ret;
 }

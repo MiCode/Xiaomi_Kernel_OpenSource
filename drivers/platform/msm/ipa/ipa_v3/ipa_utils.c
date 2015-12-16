@@ -445,6 +445,9 @@ int ipa3_get_clients_from_rm_resource(
 	case IPA_RM_RESOURCE_USB_CONS:
 		clients->names[i++] = IPA_CLIENT_USB_CONS;
 		break;
+	case IPA_RM_RESOURCE_USB_DPL_CONS:
+		clients->names[i++] = IPA_CLIENT_USB_DPL_CONS;
+		break;
 	case IPA_RM_RESOURCE_HSIC_CONS:
 		clients->names[i++] = IPA_CLIENT_HSIC1_CONS;
 		break;
@@ -497,12 +500,13 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 	if (ep->keep_ipa_awake)
 		return false;
 
-	if (client == IPA_CLIENT_USB_CONS   ||
-	    client == IPA_CLIENT_MHI_CONS   ||
-	    client == IPA_CLIENT_HSIC1_CONS ||
-	    client == IPA_CLIENT_WLAN1_CONS ||
-	    client == IPA_CLIENT_WLAN2_CONS ||
-	    client == IPA_CLIENT_WLAN3_CONS ||
+	if (client == IPA_CLIENT_USB_CONS     ||
+	    client == IPA_CLIENT_USB_DPL_CONS ||
+	    client == IPA_CLIENT_MHI_CONS     ||
+	    client == IPA_CLIENT_HSIC1_CONS   ||
+	    client == IPA_CLIENT_WLAN1_CONS   ||
+	    client == IPA_CLIENT_WLAN2_CONS   ||
+	    client == IPA_CLIENT_WLAN3_CONS   ||
 	    client == IPA_CLIENT_WLAN4_CONS)
 		return true;
 

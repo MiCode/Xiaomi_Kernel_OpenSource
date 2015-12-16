@@ -44,6 +44,7 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	int res = 0;
 	u32 reg_val = 0;
+	int ep_grp;
 
 	IPADBG("Enabling data path\n");
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
@@ -64,15 +65,16 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 	}
 
 	/* Assign the resource group for pipe*/
-	if (ipa_get_ep_group(ep->client) == -1) {
+	ep_grp = ipa_get_ep_group(ep->client);
+	if (ep_grp == -1) {
 		IPAERR("invalid group for client %d\n", ep->client);
 		WARN_ON(1);
 		return -EFAULT;
 	}
 
 	IPADBG("Setting group %d for pipe %d\n",
-		ipa_get_ep_group(ep->client), clnt_hdl);
-	IPA_SETFIELD_IN_REG(reg_val, ipa_get_ep_group(ep->client),
+		ep_grp, clnt_hdl);
+	IPA_SETFIELD_IN_REG(reg_val, ep_grp,
 		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_SHFT,
 		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_BMSK);
 	ipa_write_reg(ipa3_ctx->mmio,
@@ -1412,7 +1414,7 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 	int result;
 	u32 source_pipe_bitmask = 0;
 
-	IPADBG("ipa3_xdci_disconnect: entry\n");
+	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("Bad parameter.\n");
@@ -1442,7 +1444,7 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 	}
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	IPADBG("ipa3_xdci_disconnect: exit\n");
+	IPADBG("exit\n");
 	return 0;
 
 stop_chan_fail:
@@ -1457,7 +1459,7 @@ int ipa3_release_gsi_channel(u32 clnt_hdl)
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
 
-	IPADBG("ipa3_release_gsi_channel: entry\n");
+	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("Bad parameter.\n");
@@ -1489,7 +1491,7 @@ int ipa3_release_gsi_channel(u32 clnt_hdl)
 
 	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
 
-	IPADBG("ipa3_release_gsi_channel: exit\n");
+	IPADBG("exit\n");
 	return 0;
 
 dealloc_chan_fail:
@@ -1499,7 +1501,7 @@ dealloc_chan_fail:
 }
 
 int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-	bool should_force_clear, u32 qmi_req_id)
+	bool should_force_clear, u32 qmi_req_id, bool is_dpl)
 {
 	struct ipa3_ep_context *ul_ep, *dl_ep;
 	int result = -EFAULT;
@@ -1512,30 +1514,33 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	int aggr_active_bitmap = 0;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
-	IPADBG("ipa3_xdci_suspend: entry\n");
-	if (ul_clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
-		ipa3_ctx->ep[ul_clnt_hdl].valid == 0 ||
-		dl_clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
-		ipa3_ctx->ep[dl_clnt_hdl].valid == 0) {
+	/* In case of DPL, dl is the DPL channel/client */
+
+	IPADBG("entry\n");
+	if (dl_clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[dl_clnt_hdl].valid == 0 ||
+		(!is_dpl && (ul_clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[ul_clnt_hdl].valid == 0))) {
 		IPAERR("Bad parameter.\n");
 		return -EINVAL;
 	}
 
-	ul_ep = &ipa3_ctx->ep[ul_clnt_hdl];
 	dl_ep = &ipa3_ctx->ep[dl_clnt_hdl];
-
-	if (!ul_ep->keep_ipa_awake && !dl_ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(ul_clnt_hdl));
-
-	result = ipa3_get_gsi_chan_info(&ul_gsi_chan_info,
-		ul_ep->gsi_chan_hdl);
-	if (result)
-		goto query_chan_info_fail;
+	if (!is_dpl)
+		ul_ep = &ipa3_ctx->ep[ul_clnt_hdl];
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
 
 	result = ipa3_get_gsi_chan_info(&dl_gsi_chan_info,
 		dl_ep->gsi_chan_hdl);
 	if (result)
 		goto query_chan_info_fail;
+
+	if (!is_dpl) {
+		result = ipa3_get_gsi_chan_info(&ul_gsi_chan_info,
+			ul_ep->gsi_chan_hdl);
+		if (result)
+			goto query_chan_info_fail;
+	}
 
 	for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {
 		if (!dl_data_pending && !ul_data_pending)
@@ -1547,9 +1552,14 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			break;
 		}
 		dl_data_pending = false;
-		is_empty = ipa3_is_xdci_channel_empty(ul_ep,
-			&ul_gsi_chan_info);
-		ul_data_pending = is_empty ? false : true;
+		if (!is_dpl) {
+			is_empty = ipa3_is_xdci_channel_empty(ul_ep,
+				&ul_gsi_chan_info);
+			ul_data_pending = !is_empty;
+		} else {
+			ul_data_pending = false;
+		}
+
 		udelay(IPA_POLL_FOR_EMPTINESS_SLEEP_USEC);
 	}
 
@@ -1557,18 +1567,18 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		aggr_active_bitmap = ipa_read_reg(ipa3_ctx->mmio,
 				IPA_STATE_AGGR_ACTIVE_OFST);
 		if (aggr_active_bitmap & (1 << dl_clnt_hdl)) {
-			IPADBG("DL data pending due to open aggr. frame\n");
+			IPADBG("DL/DPL data pending due to open aggr. frame\n");
 			dl_data_pending = true;
 		}
 	}
 	if (dl_data_pending) {
-		IPAERR("DL data pending, can't suspend\n");
+		IPAERR("DL/DPL data pending, can't suspend\n");
 		result = -EFAULT;
 		goto query_chan_info_fail;
 	}
 
 	/* Drain UL channel before stopping it */
-	if (ul_data_pending) {
+	if (!is_dpl && ul_data_pending) {
 		source_pipe_bitmask = 1 << ipa3_get_ep_mapping(ul_ep->client);
 		result = ipa3_drain_ul_chan_data(ul_ep, qmi_req_id,
 			source_pipe_bitmask, should_force_clear);
@@ -1576,19 +1586,19 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			IPAERR("Error draining UL channel data: %d\n", result);
 	}
 
-	/* Suspend the DL EP */
+	/* Suspend the DL/DPL EP */
 	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 	ep_cfg_ctrl.ipa_ep_suspend = true;
 	ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
 
 	/*
-	 * Check if DL channel is empty again, data could enter the channel
+	 * Check if DL/DPL channel is empty again, data could enter the channel
 	 * before its IPA EP was suspended
 	 */
 	is_empty = ipa3_is_xdci_channel_empty(dl_ep, &dl_gsi_chan_info);
 	if (!is_empty) {
-		IPAERR("DL data pending, can't suspend\n");
-		/* Unsuspend the DL EP */
+		IPAERR("DL/DPL data pending, can't suspend\n");
+		/* Unsuspend the DL/DPL EP */
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_suspend = false;
 		ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
@@ -1596,23 +1606,22 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		goto query_chan_info_fail;
 	}
 
-	result = ipa3_stop_gsi_channel(ul_clnt_hdl);
-	if (result) {
-		IPAERR("Error stopping UL channel: %d\n", result);
-		goto query_chan_info_fail;
+	if (!is_dpl) {
+		result = ipa3_stop_gsi_channel(ul_clnt_hdl);
+		if (result) {
+			IPAERR("Error stopping UL channel: %d\n", result);
+			goto query_chan_info_fail;
+		}
 	}
 
-	if (!ul_ep->keep_ipa_awake && !dl_ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(
-				ul_clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
 
-	IPADBG("ipa3_xdci_suspend: exit\n");
+	IPADBG("exit\n");
 	return 0;
 
 query_chan_info_fail:
-	if (!ul_ep->keep_ipa_awake && !dl_ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(
-				ul_clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
+
 	return result;
 }
 
@@ -1622,7 +1631,7 @@ int ipa3_start_gsi_channel(u32 clnt_hdl)
 	int result = -EFAULT;
 	enum gsi_status gsi_res;
 
-	IPADBG("ipa3_start_gsi_channel: entry\n");
+	IPADBG("entry\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes  ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("Bad parameters.\n");
@@ -1643,7 +1652,7 @@ int ipa3_start_gsi_channel(u32 clnt_hdl)
 	if (!ep->keep_ipa_awake)
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	IPADBG("ipa3_start_gsi_channel: exit\n");
+	IPADBG("exit\n");
 	return 0;
 
 start_chan_fail:
@@ -1652,41 +1661,43 @@ start_chan_fail:
 	return result;
 }
 
-int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
+int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl, bool is_dpl)
 {
 	struct ipa3_ep_context *ul_ep, *dl_ep;
 	enum gsi_status gsi_res;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
-	IPADBG("ipa3_xdci_resume: entry\n");
-	if (ul_clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
-		ipa3_ctx->ep[ul_clnt_hdl].valid == 0 ||
-		dl_clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
-		ipa3_ctx->ep[dl_clnt_hdl].valid == 0) {
+	/* In case of DPL, dl is the DPL channel/client */
+
+	IPADBG("entry\n");
+	if (dl_clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[dl_clnt_hdl].valid == 0 ||
+		(!is_dpl && (ul_clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[ul_clnt_hdl].valid == 0))) {
 		IPAERR("Bad parameter.\n");
 		return -EINVAL;
 	}
 
-	ul_ep = &ipa3_ctx->ep[ul_clnt_hdl];
 	dl_ep = &ipa3_ctx->ep[dl_clnt_hdl];
+	if (!is_dpl)
+		ul_ep = &ipa3_ctx->ep[ul_clnt_hdl];
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
 
-	if (!ul_ep->keep_ipa_awake && !dl_ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(ul_clnt_hdl));
-
-	/* Unsuspend the DL EP */
+	/* Unsuspend the DL/DPL EP */
 	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
-	ep_cfg_ctrl.ipa_ep_suspend = true;
+	ep_cfg_ctrl.ipa_ep_suspend = false;
 	ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
 
 	/* Start UL channel */
-	gsi_res = gsi_start_channel(ul_ep->gsi_chan_hdl);
-	if (gsi_res != GSI_STATUS_SUCCESS)
-		IPAERR("Error starting UL channel: %d\n", gsi_res);
+	if (!is_dpl) {
+		gsi_res = gsi_start_channel(ul_ep->gsi_chan_hdl);
+		if (gsi_res != GSI_STATUS_SUCCESS)
+			IPAERR("Error starting UL channel: %d\n", gsi_res);
+	}
 
-	if (!ul_ep->keep_ipa_awake && !dl_ep->keep_ipa_awake)
-		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(ul_clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
 
-	IPADBG("ipa3_xdci_resume: exit\n");
+	IPADBG("exit\n");
 	return 0;
 }
 /**
