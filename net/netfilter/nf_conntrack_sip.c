@@ -1741,7 +1741,8 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
 				    SIP_HDR_VIA_UDP, NULL, &matchoff,
 				    &matchlen, &addr, &port) > 0 &&
 	    port != ct->tuplehash[dir].tuple.src.u.udp.port &&
-	    nf_inet_addr_cmp(&addr, &ct->tuplehash[dir].tuple.src.u3))
+	    nf_inet_addr_cmp(&addr, &ct->tuplehash[dir].tuple.src.u3) &&
+		(dir == IP_CT_DIR_ORIGINAL))
 		ct_sip_info->forced_dport = port;
 
 	for (i = 0; i < ARRAY_SIZE(sip_handlers); i++) {
