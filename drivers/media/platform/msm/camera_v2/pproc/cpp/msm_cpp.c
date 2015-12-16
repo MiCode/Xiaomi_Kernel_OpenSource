@@ -92,6 +92,14 @@
 		of_property_read_u32(_dev, _str, &_out); \
 	}
 
+#define IS_BATCH_BUFFER_ON_PREVIEW(new_frame) \
+	(((new_frame->batch_info.batch_mode == BATCH_MODE_PREVIEW) && \
+	new_frame->duplicate_output) ? 1 : 0)
+
+#define SWAP_IDENTITY_FOR_BATCH_ON_PREVIEW(new_frame, iden, swap_iden) { \
+	if (IS_BATCH_BUFFER_ON_PREVIEW(new_frame)) \
+		iden = swap_iden; \
+}
 static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 	uint32_t buff_mgr_ops, struct msm_buf_mngr_info *buff_mgr_info);
 static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
@@ -1601,12 +1609,16 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 		if (!processed_frame->output_buffer_info[0].processed_divert &&
 			!processed_frame->output_buffer_info[0].native_buff &&
 			!processed_frame->we_disable) {
+
+			int32_t iden = processed_frame->identity;
+
+			SWAP_IDENTITY_FOR_BATCH_ON_PREVIEW(processed_frame,
+				iden, processed_frame->duplicate_identity);
+
 			memset(&buff_mgr_info, 0 ,
 				sizeof(struct msm_buf_mngr_info));
-			buff_mgr_info.session_id =
-				((processed_frame->identity >> 16) & 0xFFFF);
-			buff_mgr_info.stream_id =
-				(processed_frame->identity & 0xFFFF);
+			buff_mgr_info.session_id = ((iden >> 16) & 0xFFFF);
+			buff_mgr_info.stream_id = (iden & 0xFFFF);
 			buff_mgr_info.frame_id = processed_frame->frame_id;
 			buff_mgr_info.timestamp = processed_frame->timestamp;
 			/*
@@ -1615,7 +1627,9 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 			 */
 			buff_mgr_info.reserved = processed_frame->reserved;
 			if (processed_frame->batch_info.batch_mode ==
-				BATCH_MODE_VIDEO) {
+				BATCH_MODE_VIDEO ||
+				(IS_BATCH_BUFFER_ON_PREVIEW(
+				processed_frame))) {
 				buff_mgr_info.index =
 					processed_frame->batch_info.cont_idx;
 			} else {
@@ -1645,12 +1659,15 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 			!processed_frame->
 				duplicate_buffer_info.processed_divert &&
 			!processed_frame->we_disable) {
+			int32_t iden = processed_frame->duplicate_identity;
+
+			SWAP_IDENTITY_FOR_BATCH_ON_PREVIEW(processed_frame,
+				iden, processed_frame->identity);
+
 			memset(&buff_mgr_info, 0 ,
 				sizeof(struct msm_buf_mngr_info));
-			buff_mgr_info.session_id =
-			((processed_frame->duplicate_identity >> 16) & 0xFFFF);
-			buff_mgr_info.stream_id =
-				(processed_frame->duplicate_identity & 0xFFFF);
+			buff_mgr_info.session_id = ((iden >> 16) & 0xFFFF);
+			buff_mgr_info.stream_id = (iden & 0xFFFF);
 			buff_mgr_info.frame_id = processed_frame->frame_id;
 			buff_mgr_info.timestamp = processed_frame->timestamp;
 			buff_mgr_info.index =
@@ -2292,6 +2309,8 @@ static int32_t msm_cpp_set_group_buffer_duplicate(struct cpp_device *cpp_dev,
 		dup_frame_off, ubwc_enabled, j, i = 0;
 
 	do {
+		int iden = new_frame->identity;
+
 		set_group_buffer_len =
 			cpp_dev->payload_params.set_group_buffer_len;
 		if (!set_group_buffer_len) {
@@ -2339,11 +2358,14 @@ static int32_t msm_cpp_set_group_buffer_duplicate(struct cpp_device *cpp_dev,
 		*ptr++ = 0;
 		out_phyaddr0 = out_phyaddr;
 
+		SWAP_IDENTITY_FOR_BATCH_ON_PREVIEW(new_frame,
+				iden, new_frame->duplicate_identity);
+
 		for (i = 1; i < num_output_bufs; i++) {
 			out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
 				&new_frame->output_buffer_info[i],
-				((new_frame->identity >> 16) & 0xFFFF),
-				(new_frame->identity & 0xFFFF),
+				((iden >> 16) & 0xFFFF),
+				(iden & 0xFFFF),
 				&new_frame->output_buffer_info[i].fd);
 			if (!out_phyaddr1) {
 				pr_err("%s: error getting o/p phy addr\n",
@@ -2397,10 +2419,16 @@ static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
 	unsigned long out_phyaddr0, out_phyaddr1, distance;
 	int32_t rc = 0;
 	uint32_t set_group_buffer_len_bytes, i = 0;
+	bool batching_valid = false;
 
-	if (new_frame->batch_info.batch_mode != BATCH_MODE_VIDEO) {
-		pr_debug("%s: batch mode not set %d\n", __func__,
-			new_frame->batch_info.batch_mode);
+	if ((IS_BATCH_BUFFER_ON_PREVIEW(new_frame)) ||
+		new_frame->batch_info.batch_mode == BATCH_MODE_VIDEO)
+		batching_valid = true;
+
+	if (!batching_valid) {
+		pr_debug("%s: batch mode %d, batching valid %d\n",
+			__func__, new_frame->batch_info.batch_mode,
+			batching_valid);
 		return rc;
 	}
 
@@ -2568,18 +2596,21 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	}
 
 	if (new_frame->we_disable == 0) {
+		int32_t iden = new_frame->identity;
 		if ((new_frame->output_buffer_info[0].native_buff == 0) &&
 			(new_frame->first_payload)) {
 			memset(&buff_mgr_info, 0,
 				sizeof(struct msm_buf_mngr_info));
-			if (new_frame->batch_info.batch_mode ==
-				BATCH_MODE_VIDEO)
+			if ((new_frame->batch_info.batch_mode ==
+				BATCH_MODE_VIDEO) ||
+				(IS_BATCH_BUFFER_ON_PREVIEW(new_frame)))
 				buf_type = MSM_CAMERA_BUF_MNGR_BUF_USER;
 
-			buff_mgr_info.session_id =
-				((new_frame->identity >> 16) & 0xFFFF);
-			buff_mgr_info.stream_id =
-				(new_frame->identity & 0xFFFF);
+			SWAP_IDENTITY_FOR_BATCH_ON_PREVIEW(new_frame,
+				iden, new_frame->duplicate_identity);
+
+			buff_mgr_info.session_id = ((iden >> 16) & 0xFFFF);
+			buff_mgr_info.stream_id = (iden & 0xFFFF);
 			buff_mgr_info.type = buf_type;
 			rc = msm_cpp_buffer_ops(cpp_dev,
 				VIDIOC_MSM_BUF_MNGR_GET_BUF,
@@ -2603,8 +2634,8 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 
 		out_phyaddr0 = msm_cpp_fetch_buffer_info(cpp_dev,
 			&new_frame->output_buffer_info[0],
-			((new_frame->identity >> 16) & 0xFFFF),
-			(new_frame->identity & 0xFFFF),
+			((iden >> 16) & 0xFFFF),
+			(iden & 0xFFFF),
 			&new_frame->output_buffer_info[0].fd);
 		if (!out_phyaddr0) {
 			pr_err("%s: error gettting output physical address\n",
@@ -2617,13 +2648,16 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 
 	/* get buffer for duplicate output */
 	if (new_frame->duplicate_output) {
+		int32_t iden = new_frame->duplicate_identity;
 		CPP_DBG("duplication enabled, dup_id=0x%x",
 			new_frame->duplicate_identity);
+
+		SWAP_IDENTITY_FOR_BATCH_ON_PREVIEW(new_frame,
+			iden, new_frame->identity);
+
 		memset(&dup_buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
-		dup_buff_mgr_info.session_id =
-			((new_frame->duplicate_identity >> 16) & 0xFFFF);
-		dup_buff_mgr_info.stream_id =
-			(new_frame->duplicate_identity & 0xFFFF);
+		dup_buff_mgr_info.session_id = ((iden >> 16) & 0xFFFF);
+		dup_buff_mgr_info.stream_id = (iden & 0xFFFF);
 		dup_buff_mgr_info.type =
 			MSM_CAMERA_BUF_MNGR_BUF_PLANAR;
 		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
@@ -2638,8 +2672,8 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 			dup_buff_mgr_info.index;
 		out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
 			&new_frame->duplicate_buffer_info,
-			((new_frame->duplicate_identity >> 16) & 0xFFFF),
-			(new_frame->duplicate_identity & 0xFFFF),
+			((iden >> 16) & 0xFFFF),
+			(iden & 0xFFFF),
 			&new_frame->duplicate_buffer_info.fd);
 		if (!out_phyaddr1) {
 			pr_err("error gettting output physical address\n");
