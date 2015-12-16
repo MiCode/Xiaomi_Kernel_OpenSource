@@ -65,6 +65,10 @@ static u64 zcache_pool_limit_hit;
 static u64 zcache_dup_entry;
 static u64 zcache_zbud_alloc_fail;
 static u64 zcache_pool_pages;
+static u64 zcache_evict_zpages;
+static u64 zcache_evict_filepages;
+static u64 zcache_inactive_pages_refused;
+static u64 zcache_reclaim_fail;
 static atomic_t zcache_stored_pages = ATOMIC_INIT(0);
 
 /*
@@ -129,6 +133,7 @@ struct zcache_ra_handle {
 	int rb_index;			/* Redblack tree index */
 	int ra_index;			/* Radix tree index */
 	int zlen;			/* Compressed page size */
+	struct zcache_pool *zpool;	/* Finding zcache_pool during evict */
 };
 
 static struct kmem_cache *zcache_rbnode_cache;
@@ -492,9 +497,28 @@ static void zcache_store_page(int pool_id, struct cleancache_filekey key,
 
 	struct zcache_pool *zpool = zcache.pools[pool_id];
 
+	/*
+	 * Zcache will be ineffective if the compressed memory pool is full with
+	 * compressed inactive file pages and most of them will never be used
+	 * again.
+	 * So we refuse to compress pages that are not from active file list.
+	 */
+	if (!PageWasActive(page)) {
+		zcache_inactive_pages_refused++;
+		return;
+	}
+
 	if (zcache_is_full()) {
 		zcache_pool_limit_hit++;
-		return;
+		if (zbud_reclaim_page(zpool->pool, 8)) {
+			zcache_reclaim_fail++;
+			return;
+		}
+		/*
+		 * Continue if reclaimed a page frame succ.
+		 */
+		zcache_evict_filepages++;
+		zcache_pool_pages = zbud_get_pool_size(zpool->pool);
 	}
 
 	/* compress */
@@ -522,6 +546,8 @@ static void zcache_store_page(int pool_id, struct cleancache_filekey key,
 	zhandle->ra_index = index;
 	zhandle->rb_index = key.u.ino;
 	zhandle->zlen = zlen;
+	zhandle->zpool = zpool;
+
 	/* Compressed page data stored at the end of zcache_ra_handle */
 	zpage = (u8 *)(zhandle + 1);
 	memcpy(zpage, dst, zlen);
@@ -573,6 +599,7 @@ static int zcache_load_page(int pool_id, struct cleancache_filekey key,
 	/* update stats */
 	atomic_dec(&zcache_stored_pages);
 	zcache_pool_pages = zbud_get_pool_size(zpool->pool);
+	SetPageWasActive(page);
 	return ret;
 }
 
@@ -692,16 +719,36 @@ static void zcache_flush_fs(int pool_id)
 }
 
 /*
- * Evict pages from zcache pool on an LRU basis after the compressed pool is
- * full.
+ * Evict compressed pages from zcache pool on an LRU basis after the compressed
+ * pool is full.
  */
-static int zcache_evict_entry(struct zbud_pool *pool, unsigned long zaddr)
+static int zcache_evict_zpage(struct zbud_pool *pool, unsigned long zaddr)
 {
-	return -EINVAL;
+	struct zcache_pool *zpool;
+	struct zcache_ra_handle *zhandle;
+	void *zaddr_intree;
+
+	zhandle = (struct zcache_ra_handle *)zbud_map(pool, zaddr);
+
+	zpool = zhandle->zpool;
+	BUG_ON(!zpool);
+	BUG_ON(pool != zpool->pool);
+
+	zaddr_intree = zcache_load_delete_zaddr(zpool, zhandle->rb_index,
+			zhandle->ra_index);
+	if (zaddr_intree) {
+		BUG_ON((unsigned long)zaddr_intree != zaddr);
+		zbud_unmap(pool, zaddr);
+		zbud_free(pool, zaddr);
+		atomic_dec(&zcache_stored_pages);
+		zcache_pool_pages = zbud_get_pool_size(pool);
+		zcache_evict_zpages++;
+	}
+	return 0;
 }
 
 static struct zbud_ops zcache_zbud_ops = {
-	.evict = zcache_evict_entry
+	.evict = zcache_evict_zpage
 };
 
 /* Return pool id */
@@ -832,6 +879,14 @@ static int __init zcache_debugfs_init(void)
 			&zcache_pool_pages);
 	debugfs_create_atomic_t("stored_pages", S_IRUGO, zcache_debugfs_root,
 			&zcache_stored_pages);
+	debugfs_create_u64("evicted_zpages", S_IRUGO, zcache_debugfs_root,
+			&zcache_evict_zpages);
+	debugfs_create_u64("evicted_filepages", S_IRUGO, zcache_debugfs_root,
+			&zcache_evict_filepages);
+	debugfs_create_u64("reclaim_fail", S_IRUGO, zcache_debugfs_root,
+			&zcache_reclaim_fail);
+	debugfs_create_u64("inactive_pages_refused", S_IRUGO,
+			zcache_debugfs_root, &zcache_inactive_pages_refused);
 	return 0;
 }
 
