@@ -1,5 +1,5 @@
 /*
-*Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+*Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
 *
 *This program is free software; you can redistribute it and/or modify
 *it under the terms of the GNU General Public License version 2 and
@@ -84,6 +84,10 @@ static irqreturn_t threaded_isr(int irq, void *dev_id)
 			(int)desc.arg[0], ext_status);
 	mutex_lock(&devfreqs_lock);
 	list_for_each_entry(data, &devfreqs, list) {
+		if (data == NULL || data->devfreq == NULL) {
+			pr_err("Spurious interrupts\n");
+			break;
+		}
 		if (data->spdm_client == desc.ret[0]) {
 			devfreq_monitor_suspend(data->devfreq);
 			mutex_lock(&data->devfreq->lock);
