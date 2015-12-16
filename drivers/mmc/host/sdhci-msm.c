@@ -146,10 +146,12 @@ enum sdc_mpm_pin_state {
 
 #define CORE_DDR_200_CFG		0x184
 #define CORE_CDC_T4_DLY_SEL		(1 << 0)
+#define CORE_CMDIN_RCLK_EN		(1 << 1)
 #define CORE_START_CDC_TRAFFIC		(1 << 6)
 
 #define CORE_VENDOR_SPEC3	0x1B0
 #define CORE_PWRSAVE_DLL	(1 << 3)
+#define CORE_CMDEN_HS400_INPUT_MASK_CNT (1 << 13)
 
 #define CORE_DLL_CONFIG_2	0x1B4
 #define CORE_DDR_CAL_EN		(1 << 0)
@@ -797,6 +799,8 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 {
 	u32 dll_status, ddr_config;
 	int ret = 0;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
 
@@ -807,6 +811,11 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	ddr_config = DDR_CONFIG_POR_VAL & ~DDR_CONFIG_PRG_RCLK_DLY_MASK;
 	ddr_config |= DDR_CONFIG_PRG_RCLK_DLY;
 	writel_relaxed(ddr_config, host->ioaddr + CORE_DDR_CONFIG);
+
+	if (msm_host->enhanced_strobe && mmc_card_strobe(msm_host->mmc->card))
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
+				| CORE_CMDIN_RCLK_EN),
+				host->ioaddr + CORE_DDR_200_CFG);
 
 	/* Write 1 to DDR_CAL_EN field in CORE_DLL_CONFIG_2 */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG_2)
@@ -829,6 +838,42 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 			host->ioaddr + CORE_VENDOR_SPEC3);
 	mb();
 out:
+	pr_debug("%s: Exit %s, ret:%d\n", mmc_hostname(host->mmc),
+			__func__, ret);
+	return ret;
+}
+
+static int sdhci_msm_enhanced_strobe(struct sdhci_host *host)
+{
+	int ret = 0;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct mmc_host *mmc = host->mmc;
+
+	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
+
+	if (!msm_host->enhanced_strobe || !mmc_card_strobe(mmc->card)) {
+		pr_debug("%s: host/card does not support hs400 enhanced strobe\n",
+				mmc_hostname(mmc));
+		return -EINVAL;
+	}
+
+	if (msm_host->calibration_done ||
+		!(mmc->ios.timing == MMC_TIMING_MMC_HS400)) {
+		return 0;
+	}
+
+	/*
+	 * Reset the tuning block.
+	 */
+	ret = msm_init_cm_dll(host);
+	if (ret)
+		goto out;
+
+	ret = sdhci_msm_cm_dll_sdc4_calibration(host);
+out:
+	if (!ret)
+		msm_host->calibration_done = true;
 	pr_debug("%s: Exit %s, ret:%d\n", mmc_hostname(host->mmc),
 			__func__, ret);
 	return ret;
@@ -2849,7 +2894,10 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 		 * Select HS400 mode using the HC_SELECT_IN from VENDOR SPEC
 		 * register
 		 */
-		if (msm_host->tuning_done && !msm_host->calibration_done) {
+		if ((msm_host->tuning_done ||
+				(mmc_card_strobe(msm_host->mmc->card) &&
+				 msm_host->enhanced_strobe)) &&
+				!msm_host->calibration_done) {
 			/*
 			 * Write 0x6 to HC_SELECT_IN and 1 to HC_SELECT_IN_EN
 			 * field in VENDOR_SPEC_FUNC
@@ -3189,6 +3237,36 @@ static void sdhci_msm_notify_pm_status(struct sdhci_host *host,
 	msm_host->mmc_dev_state = state;
 }
 
+/*
+ * sdhci_msm_enhanced_strobe_mask :-
+ * Before running CMDQ transfers in HS400 Enhanced Strobe mode,
+ * SW should write 3 to
+ * HC_VENDOR_SPECIFIC_FUNC3.CMDEN_HS400_INPUT_MASK_CNT register.
+ * The default reset value of this register is 2.
+ */
+static void sdhci_msm_enhanced_strobe_mask(struct sdhci_host *host, bool set)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	if (!msm_host->enhanced_strobe ||
+			!mmc_card_strobe(msm_host->mmc->card)) {
+		pr_debug("%s: host/card does not support hs400 enhanced strobe\n",
+				mmc_hostname(host->mmc));
+		return;
+	}
+
+	if (set) {
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC3)
+				| CORE_CMDEN_HS400_INPUT_MASK_CNT),
+				host->ioaddr + CORE_VENDOR_SPEC3);
+	} else {
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC3)
+				& ~CORE_CMDEN_HS400_INPUT_MASK_CNT),
+				host->ioaddr + CORE_VENDOR_SPEC3);
+	}
+}
+
 static void sdhci_msm_clear_set_dumpregs(struct sdhci_host *host, bool set)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3239,6 +3317,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.check_power_status = sdhci_msm_check_power_status,
 	.execute_tuning = sdhci_msm_execute_tuning,
+	.enhanced_strobe = sdhci_msm_enhanced_strobe,
 	.toggle_cdr = sdhci_msm_toggle_cdr,
 	.get_max_segments = sdhci_msm_max_segs,
 	.set_clock = sdhci_msm_set_clock,
@@ -3252,6 +3331,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.clear_set_dumpregs = sdhci_msm_clear_set_dumpregs,
 	.notify_load = sdhci_msm_notify_load,
 	.notify_pm_status = sdhci_msm_notify_pm_status,
+	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
 };
 
 static int sdhci_msm_cfg_mpm_pin_wakeup(struct sdhci_host *host, unsigned mode)
@@ -3343,9 +3423,12 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	/*
 	 * SDCC 5 controller with major version 1, minor version 0x42 and later
 	 * will require additional steps when resetting DLL.
+	 * It also supports HS400 enhanced strobe mode.
 	 */
-	if ((major == 1) && (minor >= 0x42))
+	if ((major == 1) && (minor >= 0x42)) {
 		msm_host->use_updated_dll_reset = true;
+		msm_host->enhanced_strobe = true;
+	}
 
 	/*
 	 * Mask 64-bit support for controller with 32-bit address bus so that

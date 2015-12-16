@@ -313,6 +313,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		}
 	}
 
+	card->ext_csd.raw_strobe_support = ext_csd[EXT_CSD_STROBE_SUPPORT];
 	/*
 	 * The EXT_CSD format is meant to be forward compatible. As long
 	 * as CSD_STRUCTURE does not change, all values for EXT_CSD_REV
@@ -1117,6 +1118,98 @@ out:
 	return err;
 }
 
+static int mmc_select_hs400_strobe(struct mmc_card *card, u8 *ext_csd)
+{
+	int err = 0, ret = 0;
+	struct mmc_host *host = card->host;
+
+	if (!(host->caps2 & MMC_CAP2_HS400) || !host->ops->enhanced_strobe ||
+		!(card->ext_csd.card_type & EXT_CSD_CARD_TYPE_HS400) ||
+		!mmc_card_strobe(card)) {
+		err = -EOPNOTSUPP;
+		goto err;
+	}
+
+	if ((card->ext_csd.card_type & EXT_CSD_CARD_TYPE_HS400_1_2V)
+	    && (host->caps2 & MMC_CAP2_HS400_1_2V))
+		if (__mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_120))
+				err = __mmc_set_signal_voltage(host,
+						MMC_SIGNAL_VOLTAGE_180);
+	/* If fails try again during next card power cycle */
+	if (err) {
+		pr_err("%s: err in __mmc_set_signal_voltage failed\n",
+			mmc_hostname(host));
+		goto err;
+	}
+
+	/*
+	 * For HS400 enhanced strobe mode following sequence is being followed:
+	 * - switch to HS mode.
+	 * - select DDR bus width along with enhanced strobe mode enabled.
+	 * - switch to HS400 mode and set clock to max.
+	 * - call for host specific ops to enable enhanced strobe at host side.
+	 */
+	err = mmc_select_hs(card, ext_csd);
+	if (err) {
+		pr_warn("%s: switch to high-speed failed, err:%d\n",
+			mmc_hostname(host), err);
+		goto err;
+	}
+	mmc_card_clr_highspeed(card);
+
+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			 EXT_CSD_BUS_WIDTH,
+			 0x86,
+			 card->ext_csd.generic_cmd6_time);
+	if (err) {
+		pr_warn("%s: switch to DDR bus width with enhanced strobe for hs400 failed, err:%d\n",
+			mmc_hostname(host), err);
+		goto err;
+	}
+
+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			   EXT_CSD_HS_TIMING,
+			   0x3,
+			   card->ext_csd.generic_cmd6_time);
+	if (err) {
+		pr_warn("%s: switch to hs400 failed, err:%d\n",
+			 mmc_hostname(host), err);
+		goto err;
+	}
+
+	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
+	mmc_set_clock(host, MMC_HS400_MAX_DTR);
+	mmc_card_set_hs400(card);
+
+	mmc_host_clk_hold(host);
+	err = host->ops->enhanced_strobe(host);
+	mmc_host_clk_release(host);
+
+	/*
+	 * Fall back to HS mode if hs400 enhanced
+	 * strobe is unsuccessful.
+	 * Lower the clock and adjust the timing
+	 * to be able to switch to HighSpeed mode
+	 */
+	if (err) {
+		pr_debug("%s: strobe execution failed %d\n",
+				mmc_hostname(host), err);
+		mmc_card_clr_hs400(card);
+
+		mmc_set_timing(host, MMC_TIMING_LEGACY);
+		mmc_set_clock(host, MMC_HIGH_26_MAX_DTR);
+
+		ret = mmc_select_hs(card, ext_csd);
+		if (ret)
+			pr_warn("%s: select highspeed mode failed %d\n",
+					__func__, ret);
+		goto err;
+	}
+	mmc_card_set_hs400_strobe(card);
+err:
+	return err;
+}
+
 static int mmc_select_hs400(struct mmc_card *card, u8 *ext_csd)
 {
 	int err = 0;
@@ -1236,7 +1329,11 @@ int mmc_set_clock_bus_speed(struct mmc_card *card, unsigned long freq)
 			mmc_set_timing(card->host, MMC_TIMING_LEGACY);
 			mmc_set_clock(card->host, MMC_HIGH_26_MAX_DTR);
 		}
-		err = mmc_select_hs400(card, card->cached_ext_csd);
+		if (mmc_card_hs400_strobe(card))
+			err = mmc_select_hs400_strobe(card,
+					card->cached_ext_csd);
+		else
+			err = mmc_select_hs400(card, card->cached_ext_csd);
 	}
 
 	return err;
@@ -1335,7 +1432,8 @@ static int mmc_select_bus_speed(struct mmc_card *card, u8 *ext_csd)
 	int err = 0;
 
 	BUG_ON(!card);
-
+	if (!mmc_select_hs400_strobe(card, ext_csd))
+		goto out;
 	if (!mmc_select_hs400(card, ext_csd))
 		goto out;
 	if (!mmc_select_hs200(card, ext_csd))

@@ -95,6 +95,8 @@ struct mmc_ext_csd {
 	u8			raw_partition_support;	/* 160 */
 	u8			raw_rpmb_size_mult;	/* 168 */
 	u8			raw_erased_mem_count;	/* 181 */
+	u8			raw_strobe_support;	/* 184 */
+#define MMC_STROBE_SUPPORT	(1 << 0)
 	u8			raw_ext_csd_structure;	/* 194 */
 	u8			raw_card_type;		/* 196 */
 	u8			raw_drive_strength;	/* 197 */
@@ -351,6 +353,7 @@ struct mmc_card {
 #define MMC_STATE_NEED_BKOPS	(1<<11)		/* card needs to do BKOPS */
 #define MMC_STATE_CMDQ		(1<<12)         /* card is in cmd queue mode */
 #define MMC_STATE_SUSPENDED     (1<<13)         /* card is suspended */
+#define MMC_STATE_HS400_STROBE	(1<<14)         /* card is in strobe mode */
 	unsigned int		quirks; 	/* card quirks */
 #define MMC_QUIRK_LENIENT_FN0	(1<<0)		/* allow SDIO FN0 writes outside of the VS CCCR range */
 #define MMC_QUIRK_BLKSZ_FOR_BYTE_MODE (1<<1)	/* use func->cur_blksize */
@@ -546,6 +549,9 @@ struct mmc_fixup {
 		    card->cid.year,	  \
 		    card->cid.month)
 
+#define mmc_card_strobe(c) (((c)->ext_csd).raw_strobe_support & \
+				MMC_STROBE_SUPPORT)
+
 /*
  * Unconditionally quirk add/remove.
  */
@@ -569,6 +575,7 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 #define mmc_card_highspeed(c)	((c)->state & MMC_STATE_HIGHSPEED)
 #define mmc_card_hs200(c)	((c)->state & MMC_STATE_HIGHSPEED_200)
 #define mmc_card_hs400(c)	((c)->state & MMC_STATE_HIGHSPEED_400)
+#define mmc_card_hs400_strobe(c)	((c)->state & MMC_STATE_HS400_STROBE)
 #define mmc_card_blockaddr(c)	((c)->state & MMC_STATE_BLOCKADDR)
 #define mmc_card_ddr_mode(c)	((c)->state & MMC_STATE_HIGHSPEED_DDR)
 #define mmc_card_uhs(c)		((c)->state & MMC_STATE_ULTRAHIGHSPEED)
@@ -588,6 +595,8 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 #define mmc_card_clr_hs200(c)	((c)->state &= ~MMC_STATE_HIGHSPEED_200)
 #define mmc_card_set_hs400(c)	((c)->state |= MMC_STATE_HIGHSPEED_400)
 #define mmc_card_clr_hs400(c)	((c)->state &= ~MMC_STATE_HIGHSPEED_400)
+#define mmc_card_set_hs400_strobe(c)	((c)->state |= MMC_STATE_HS400_STROBE)
+#define mmc_card_clr_hs400_strobe(c)	((c)->state &= ~MMC_STATE_HS400_STROBE)
 #define mmc_card_set_blockaddr(c) ((c)->state |= MMC_STATE_BLOCKADDR)
 #define mmc_card_set_ddr_mode(c) ((c)->state |= MMC_STATE_HIGHSPEED_DDR)
 #define mmc_card_clr_ddr_mode(c) ((c)->state &= ~MMC_STATE_HIGHSPEED_DDR)

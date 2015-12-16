@@ -320,6 +320,7 @@ struct sdhci_ops {
 	int	(*execute_tuning)(struct sdhci_host *host, u32 opcode);
 	void	(*toggle_cdr)(struct sdhci_host *host, bool enable);
 	unsigned int	(*get_max_segments)(void);
+	int	(*enhanced_strobe)(struct sdhci_host *host);
 	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
 	void    (*disable_data_xfer)(struct sdhci_host *host);
 	void	(*dump_vendor_regs)(struct sdhci_host *host);
@@ -332,6 +333,7 @@ struct sdhci_ops {
 	int	(*notify_load)(struct sdhci_host *host, enum mmc_load state);
 	void	(*notify_pm_status)(struct sdhci_host *host,
 					enum dev_state state);
+	void	(*enhanced_strobe_mask)(struct sdhci_host *host, bool set);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
