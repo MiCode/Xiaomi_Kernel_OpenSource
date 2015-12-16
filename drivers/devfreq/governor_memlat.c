@@ -70,8 +70,8 @@ static ssize_t store_##name(struct device *dev,				\
 	int ret;							\
 	unsigned int val;						\
 	ret = kstrtouint(buf, 10, &val);				\
-	if (ret != 1)							\
-		return -EINVAL;						\
+	if (ret)							\
+		return ret;						\
 	val = max(val, _min);						\
 	val = min(val, _max);						\
 	hw->name = val;							\
