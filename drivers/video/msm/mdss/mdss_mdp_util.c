@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,10 @@ enum {
 	MDP_INTR_WB_0,
 	MDP_INTR_WB_1,
 	MDP_INTR_WB_2,
+	MDP_INTR_PING_PONG_0_AUTO_REF,
+	MDP_INTR_PING_PONG_1_AUTO_REF,
+	MDP_INTR_PING_PONG_2_AUTO_REF,
+	MDP_INTR_PING_PONG_3_AUTO_REF,
 	MDP_INTR_MAX,
 };
 
@@ -84,6 +88,9 @@ static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 		break;
 	case MDSS_MDP_IRQ_WB_WFD:
 		index = MDP_INTR_WB_2 + intf_num;
+		break;
+	case MDSS_MDP_IRQ_PING_PONG_AUTO_REF:
+		index = MDP_INTR_PING_PONG_0_AUTO_REF + intf_num;
 		break;
 	}
 
@@ -240,6 +247,18 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 		mdss_mdp_intr_done(MDP_INTR_WB_2);
 		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
 	}
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_0_AUTOREFRESH_DONE)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0_AUTO_REF);
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_1_AUTOREFRESH_DONE)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_1_AUTO_REF);
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_2_AUTOREFRESH_DONE)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2_AUTO_REF);
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_3_AUTOREFRESH_DONE)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_3_AUTO_REF);
 
 mdp_isr_done:
 	hist_isr = readl_relaxed(mdata->mdp_base +
