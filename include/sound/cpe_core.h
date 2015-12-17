@@ -81,7 +81,8 @@ struct cpe_lsm_session {
 
 struct wcd_cpe_afe_ops {
 	int (*afe_set_params) (void *core_handle,
-			       struct wcd_cpe_afe_port_cfg *cfg);
+			       struct wcd_cpe_afe_port_cfg *cfg,
+			       bool afe_mad_ctl);
 
 	int (*afe_port_start) (void *core_handle,
 			       struct wcd_cpe_afe_port_cfg *cfg);
