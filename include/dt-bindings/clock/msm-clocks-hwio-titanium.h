@@ -669,6 +669,7 @@ static DEFINE_VDD_REGS_INIT(vdd_gfx, 1);
 #define RF_CLK2_ID              0x5
 #define RF_CLK3_ID              0x8
 #define DIV_CLK1_ID             0xB
+#define DIV_CLK2_ID		0xC
 
 #endif
 
