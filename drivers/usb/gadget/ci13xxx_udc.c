@@ -3234,6 +3234,13 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 				__func__);
 		return -EAGAIN;
 	}
+
+	if (udc->suspended) {
+		dev_err(udc->transceiver->dev,
+			"%s: Unable to dequeue while suspended\n", __func__);
+		return -EAGAIN;
+	}
+
 	spin_lock_irqsave(mEp->lock, flags);
 	/*
 	 * Only ep0 IN is exposed to composite.  When a req is dequeued
@@ -3300,6 +3307,7 @@ static int is_sps_req(struct ci13xxx_req *mReq)
 static int ep_set_halt(struct usb_ep *ep, int value)
 {
 	struct ci13xxx_ep *mEp = container_of(ep, struct ci13xxx_ep, ep);
+	struct ci13xxx *udc = _udc;
 	int direction, retval = 0;
 	unsigned long flags;
 
@@ -3307,6 +3315,12 @@ static int ep_set_halt(struct usb_ep *ep, int value)
 
 	if (ep == NULL || mEp->desc == NULL)
 		return -EINVAL;
+
+	if (udc->suspended) {
+		dev_err(udc->transceiver->dev,
+			"%s: Unable to halt EP while suspended\n", __func__);
+		return -EINVAL;
+	}
 
 	spin_lock_irqsave(mEp->lock, flags);
 
