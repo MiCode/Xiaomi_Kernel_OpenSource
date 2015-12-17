@@ -68,5 +68,6 @@ dsi_adv7533_720p: qcom,mdss_dsi_adv7533_720p {
 			1c 19 02 03 01 03 04 a0
 			1c 19 02 03 01 03 04 a0
 			1c 08 02 03 01 03 04 a0];
+		qcom,dba-panel;
 	};
 };
