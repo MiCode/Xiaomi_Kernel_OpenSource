@@ -203,5 +203,11 @@ extern int cnss_sdio_wlan_register_driver(
 	struct cnss_sdio_wlan_driver *driver);
 extern void cnss_sdio_wlan_unregister_driver(
 	struct cnss_sdio_wlan_driver *driver);
+
+typedef void (*oob_irq_handler_t)(void *dev_para);
+extern int cnss_wlan_query_oob_status(void);
+extern int cnss_wlan_register_oob_irq_handler(oob_irq_handler_t handler,
+	    void *pm_oob);
+extern int cnss_wlan_unregister_oob_irq_handler(void *pm_oob);
 #endif
 #endif /* _NET_CNSS_H_ */

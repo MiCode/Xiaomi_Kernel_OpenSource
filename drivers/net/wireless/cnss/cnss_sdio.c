@@ -353,6 +353,51 @@ cnss_sdio_wlan_unregister_driver(struct cnss_sdio_wlan_driver *driver)
 }
 EXPORT_SYMBOL(cnss_sdio_wlan_unregister_driver);
 
+/**
+ * cnss_wlan_query_oob_status() - cnss wlan query oob status API
+ *
+ * Wlan sdio function driver uses this API to check whether oob is
+ * supported in platform driver.
+ *
+ * Return: 0 means oob is supported, others means unsupported.
+ */
+int cnss_wlan_query_oob_status(void)
+{
+	return -ENOSYS;
+}
+EXPORT_SYMBOL(cnss_wlan_query_oob_status);
+
+/**
+ * cnss_wlan_register_oob_irq_handler() - cnss wlan register oob callback API
+ * @handler: oob callback function pointer which registered to platform driver.
+ * @pm_oob : parameter which registered to platform driver.
+ *
+ * Wlan sdio function driver uses this API to register oob callback
+ * function to platform driver.
+ *
+ * Return: 0 means register successfully, others means failure.
+ */
+int cnss_wlan_register_oob_irq_handler(oob_irq_handler_t handler, void *pm_oob)
+{
+	return -ENOSYS;
+}
+EXPORT_SYMBOL(cnss_wlan_register_oob_irq_handler);
+
+/**
+ * cnss_wlan_unregister_oob_irq_handler() - cnss wlan unregister oob callback API
+ * @pm_oob: parameter which unregistered from platform driver.
+ *
+ * Wlan sdio function driver uses this API to unregister oob callback
+ * function from platform driver.
+ *
+ * Return: 0 means unregister successfully, others means failure.
+ */
+int cnss_wlan_unregister_oob_irq_handler(void *pm_oob)
+{
+	return -ENOSYS;
+}
+EXPORT_SYMBOL(cnss_wlan_unregister_oob_irq_handler);
+
 static int cnss_sdio_wlan_init(void)
 {
 	int error = 0;
