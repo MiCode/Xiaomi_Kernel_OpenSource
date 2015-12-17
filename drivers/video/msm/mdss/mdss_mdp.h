@@ -265,6 +265,8 @@ struct mdss_mdp_ctl_intfs_ops {
 	 */
 	int (*reconfigure)(struct mdss_mdp_ctl *ctl,
 			enum dynamic_switch_modes mode, bool pre);
+	/* called before do any register programming  from commit thread */
+	void (*pre_programming)(struct mdss_mdp_ctl *ctl);
 };
 
 struct mdss_mdp_ctl {
@@ -354,9 +356,6 @@ struct mdss_mdp_ctl {
 	 */
 	struct mdss_rect roi;
 	struct mdss_rect roi_bkup;
-
-	bool cmd_autorefresh_en;
-	int autorefresh_frame_cnt;
 
 	struct blocking_notifier_head notifier_head;
 
@@ -1483,10 +1482,10 @@ void mdss_mdp_ctl_restore(bool locked);
 int  mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery);
 int mdss_mdp_wait_for_xin_halt(u32 xin_id, bool is_vbif_nrt);
 void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params);
-int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl,
-		int frame_cnt);
-int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
-		int frame_cnt);
+int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl, int frame_cnt);
+int mdss_mdp_cmd_get_autorefresh_mode(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_ctl_cmd_set_autorefresh(struct mdss_mdp_ctl *ctl, int frame_cnt);
+int mdss_mdp_ctl_cmd_get_autorefresh(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version);
 
 struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
