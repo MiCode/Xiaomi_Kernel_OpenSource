@@ -27,6 +27,10 @@
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>;
 		clock-names = "iface_clk";
 		clock-rate = <0>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
+		qcom,ssc-frequency-hz = <30000>;
+		qcom,ssc-ppm = <5000>;
 
 		qcom,platform-supply-entries {
 			#address-cells = <1>;
@@ -68,6 +72,10 @@
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>;
 		clock-names = "iface_clk";
 		clock-rate = <0>;
+		qcom,dsi-pll-ssc-en;
+		qcom,dsi-pll-ssc-mode = "down-spread";
+		qcom,ssc-frequency-hz = <30000>;
+		qcom,ssc-ppm = <5000>;
 
 		qcom,platform-supply-entries {
 			#address-cells = <1>;
