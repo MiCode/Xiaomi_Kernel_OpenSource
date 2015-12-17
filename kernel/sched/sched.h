@@ -1137,6 +1137,8 @@ static inline int sched_cpu_high_irqload(int cpu)
 
 #else	/* CONFIG_SCHED_HMP */
 
+#define sched_use_pelt 0
+
 struct hmp_sched_stats;
 
 static inline u64 scale_load_to_cpu(u64 load, int cpu)
@@ -1288,8 +1290,6 @@ static inline void post_big_task_count_change(void) { }
 static inline void set_hmp_defaults(void) { }
 
 static inline void clear_reserved(int cpu) { }
-
-#define power_cost(...) 0
 
 #define trace_sched_cpu_load(...)
 #define trace_sched_cpu_load_lb(...)
