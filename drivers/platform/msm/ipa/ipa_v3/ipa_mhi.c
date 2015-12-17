@@ -1606,7 +1606,7 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	ch_props.ring_len = channel->ch_ctx_host.rlen;
 	ch_props.ring_base_addr = IPA_MHI_HOST_ADDR_COND(
 			channel->ch_ctx_host.rbase);
-	ch_props.use_db_eng = GSI_CHAN_DB_MODE;
+	ch_props.use_db_eng = GSI_CHAN_DIRECT_MODE;
 	ch_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	ch_props.low_weight = 1;
 	ch_props.err_cb = ipa_mhi_gsi_ch_err_cb;
