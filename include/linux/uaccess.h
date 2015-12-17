@@ -107,4 +107,11 @@ extern long __probe_kernel_read(void *dst, const void *src, size_t size);
 extern long notrace probe_kernel_write(void *dst, const void *src, size_t size);
 extern long notrace __probe_kernel_write(void *dst, const void *src, size_t size);
 
+#ifndef user_access_begin
+#define user_access_begin() do { } while (0)
+#define user_access_end() do { } while (0)
+#define unsafe_get_user(x, ptr) __get_user(x, ptr)
+#define unsafe_put_user(x, ptr) __put_user(x, ptr)
+#endif
+
 #endif		/* __LINUX_UACCESS_H__ */
