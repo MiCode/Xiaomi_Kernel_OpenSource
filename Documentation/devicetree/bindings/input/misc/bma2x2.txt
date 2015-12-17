@@ -1,0 +1,61 @@
+BOSCH bma2x2 3-axis accelerometer sensor driver.
+
+Required properties:
+
+ - compatible		: Should be "bosch,bma2x2".
+ - reg			: i2c slave address of the device.
+ - pinctrl-names	: Pinctrl configuration names of this sensor driver.
+				Should be "default".
+ - pinctrl-0		: The pinctrl node corresponding to "default",
+				should be <&bma2x2_int1_default &bma2x2_int2_default>.
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: Accelerometer interrupts to indicate new data ready or events.
+ - vdd-supply		: Analog power supply needed to power device.
+ - vio-supply		: Digital IO power supply needed for IO and I2C.
+ - bosch,init-interval	: Initial data polling interval in millisecond.
+ - bosch,place		: The placing of the accelerometer on board. There are 8
+				patterns of placing described as below:
+				0: 1st pin is right down
+				1: 1st pin is left down
+				2: 1st pin is left top
+				3: 1st pin is right top
+				4: 1st pin is left down (from top view)
+				5: 1st pin is left top (from top view)
+				6: 1st pin is right top (from top view)
+				7: 1st pin is right down (from top view)
+
+Optional properties:
+
+ - bosch,gpio-int1	: 1st irq gpio which is to provide interrupts
+				to host, interrupt events can be route to any of
+				these two irq pins according device configuration.
+ - bosch,gpio-int2	: 2nd irq gpio which is to provide interrupts
+				to host.
+ - bosch,use-interrupt	: Use device interrupt to trigger data acquisition
+				instead of polling data.
+ - bosch,use-int2	: Map interrupt signal to 2nd interrupt pin of device.
+				If this property is defined, data ready, fifo full and
+				other event will trigger level change on interrupt pin2
+				instead of interrupt pin1.
+ - bosch,use-smd	: enable signification motion detection(SMD). Enable this
+				will create a new sensor which triggers an event each time
+				significant motion is detected.
+ - bosch,use-hrtimer	: Use hrtimer to report data. Hrtimer can report data more timely.
+
+Example:
+&i2c_0 { /* BLSP1 QUP2 */
+	 bosch@18 { /* Accelerometer sensor */
+		compatible = "bosch,bma2x2";
+		reg = <0x18>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bma2x2_int1_default &bma2x2_int2_default>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <112 0x2002>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		bosch,init-interval = <200>;
+		bosch,place = <1>;
+		bosch,gpio-int1 = <&msm_gpio 112 0x2002>;
+		bosch,gpio-int2 = <&msm_gpio 114 0x2002>;
+	};
+};

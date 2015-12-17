@@ -1,0 +1,56 @@
+Qualcomm QCA199x NFC NCI device
+
+Near Field Communication (NFC) device is based on NFC Controller Interface (NCI)
+
+Required properties:
+
+- compatible: "qcom,nfc-nci"
+- reg: NCI i2c slave address.
+- qcom,dis-gpio: specific gpio for hardware reset.
+- qcom,irq-gpio: specific gpio for read interrupt.
+- qcom,clk-src: nfc clock source ("BBCLK2", "RFCLK3", "GPCLK", "GPCLK2", ...)
+- interrupt-parent: Should be phandle for the interrupt controller
+                    that services interrupts for this device.
+- interrupts: Nfc read interrupt,gpio-clk-req interrupt
+
+
+Recommended properties:
+
+- interrupt-names: names of interupts, should include "nfc_irq", used for reference
+
+
+Optional properties:
+
+- qcom,pwr-req-gpio: pmic gpio to vote for power to be supplied to the uicc
+- qcom,clk-src-gpio: msm gpio clock,used only if clock source is msm gpio
+- qcom,clk-req-gpio: clk-req input gpio for MSM based clocks.
+                     not used for pmic implementation
+- qcom,clk-gpio: pmic or msm gpio on which bbclk2 signal is coming.
+- pinctrl-names, pinctrl-0, pincntrl-1: references to our pincntrl settings
+- clocks, clock-names: must contain the QCA1990's core clock.
+
+note:
+nfc with msm type clock sources (GPCLK and GPCLK 2) require qcom,clk-src-gpio and qcom,clk-req-gpio entries to work propperly.
+nfc with pmic type clock sources (BBCLK2 RFCLK3) require the qcom,clk-gpio entry to function properly.
+The nfcc needs a core clock supplied in order to respond to nci messages.
+The driver currently votes for ref_clk if clock source is set to BBCLK2.  Please ensure the clock indicated by clk-src is defined.
+
+
+Example:
+
+	nfc-nci@e {
+		compatible = "qcom,nfc-nci";
+		reg = <0x0e>;
+		qcom,irq-gpio = <&msm_gpio 21 0x00>;
+		qcom,dis-gpio = <&msm_gpio 20 0x00>;
+		qcom,clk-src = "BBCLK2";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <21 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active","nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
+		qcom,clk-gpio = <&pm8916_gpios 2 0>;
+		clocks = <&clock_rpm clk_bb_clk2_pin>;
+		clock-names = "ref_clk";
+	};

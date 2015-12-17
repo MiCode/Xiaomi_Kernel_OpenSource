@@ -6,6 +6,7 @@ MDSS which manage all data paths to different panel interfaces.
 
 Required properties
 - compatible :		Must be "qcom,mdss_mdp"
+			- "qcom,mdss_mdp3" for mdp3
 - reg :			offset and length of the register set for the device.
 - reg-names :		names to refer to register sets related to this device
 - interrupts :		Interrupt associated with MDSS.

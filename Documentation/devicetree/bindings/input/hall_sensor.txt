@@ -1,0 +1,36 @@
+Hall sensor driver
+
+Hall sensor is a switch. It senses magnetic field change and trigger interrupts to cpu.
+
+Required properties:
+
+ - compatible		: Should be "hall-switch".
+ - pinctrl-names	: Pinctrl configuration names of this sensor driver.
+				Should be "default".
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: Hall Sensor interrupts to indicate new data ready or events.
+ - vddio-supply		: Analog power supply needed to power device.
+ - linux,gpio-int	: Irq gpio which is to provide interrupts to host.
+ - linux,min-uv		: Device required minimum voltage.
+ - linux,max-uv		: Device required max voltage.
+
+Optional properties:
+
+ - linux,wakeup		: Boolean to select interrupt wakeup or not, if this property is defined
+				device will wakeup system.
+
+Example:
+ &soc {
+	hall {
+		compatible = "hall-switch";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hall_sensor_int_default>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <36 0x2003>;
+		vddio-supply = <&pm8909_l6>;
+		linux,gpio-int = <&msm_gpio 36 0x1>;
+		linux,wakeup;
+		linux,min-uv = <1650000>;
+		linux,max-uv = <3300000>;
+	};
+ };
