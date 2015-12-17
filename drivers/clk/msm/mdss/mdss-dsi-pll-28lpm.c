@@ -435,6 +435,9 @@ int dsi_pll_clock_register_lpm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc;
+	int const ssc_freq_min = 30000; /* min. recommended freq. value */
+	int const ssc_freq_max = 33000; /* max. recommended freq. value */
+	int const ssc_ppm_max = 5000; /* max. recommended ppm */
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("Invalid input parameters\n");
@@ -477,6 +480,21 @@ int dsi_pll_clock_register_lpm(struct platform_device *pdev,
 
 	byte_mux_clk_ops = clk_ops_gen_mux;
 	byte_mux_clk_ops.prepare = dsi_pll_mux_prepare;
+
+	if (pll_res->ssc_en) {
+		if (!pll_res->ssc_freq || (pll_res->ssc_freq < ssc_freq_min) ||
+			(pll_res->ssc_freq > ssc_freq_max)) {
+			pll_res->ssc_freq = ssc_freq_min;
+			pr_debug("SSC frequency out of recommended range. Set to default=%d\n",
+				pll_res->ssc_freq);
+		}
+
+		if (!pll_res->ssc_ppm || (pll_res->ssc_ppm > ssc_ppm_max)) {
+			pll_res->ssc_ppm = ssc_ppm_max;
+			pr_debug("SSC PPM out of recommended range. Set to default=%d\n",
+				pll_res->ssc_ppm);
+		}
+	}
 
 	if ((pll_res->target_id == MDSS_PLL_TARGET_8952) ||
 		(pll_res->target_id == MDSS_PLL_TARGET_8937)) {
