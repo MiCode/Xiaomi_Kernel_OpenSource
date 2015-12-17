@@ -431,6 +431,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
+#if defined(CONFIG_SCHED_FREQ_INPUT) && defined(CONFIG_SCHED_HMP)
 	{
 		.procname       = "sched_new_task_windows",
 		.data           = &sysctl_sched_new_task_windows,
@@ -438,6 +439,7 @@ static struct ctl_table kern_table[] = {
 		.mode           = 0644,
 		.proc_handler   = sched_window_update_handler,
 	},
+#endif
 	{
 		.procname       = "sched_early_detection_duration",
 		.data           = &sysctl_early_detection_duration,
