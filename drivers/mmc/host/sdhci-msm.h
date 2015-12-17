@@ -196,6 +196,7 @@ struct sdhci_msm_host {
 	bool en_auto_cmd21;
 	struct device_attribute auto_cmd21_attr;
 	bool is_sdiowakeup_enabled;
+	bool sdio_pending_processing;
 	atomic_t controller_clock;
 	bool use_cdclp533;
 	bool use_updated_dll_reset;

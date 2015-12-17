@@ -2259,6 +2259,9 @@ static void sdhci_msm_cfg_sdiowakeup_gpio_irq(struct sdhci_host *host,
 static irqreturn_t sdhci_msm_sdiowakeup_irq(int irq, void *data)
 {
 	struct sdhci_host *host = (struct sdhci_host *)data;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
 	unsigned long flags;
 
 	pr_debug("%s: irq (%d) received\n", __func__, irq);
@@ -2266,6 +2269,7 @@ static irqreturn_t sdhci_msm_sdiowakeup_irq(int irq, void *data)
 	spin_lock_irqsave(&host->lock, flags);
 	sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
 	spin_unlock_irqrestore(&host->lock, flags);
+	msm_host->sdio_pending_processing = true;
 
 	return IRQ_HANDLED;
 }
@@ -4108,9 +4112,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	msm_host->pdata->sdiowakeup_irq = platform_get_irq_byname(pdev,
 							  "sdiowakeup_irq");
-	dev_info(&pdev->dev, "%s: sdiowakeup_irq = %d\n", __func__,
-			msm_host->pdata->sdiowakeup_irq);
 	if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
+		dev_info(&pdev->dev, "%s: sdiowakeup_irq = %d\n", __func__,
+				msm_host->pdata->sdiowakeup_irq);
 		msm_host->is_sdiowakeup_enabled = true;
 		ret = request_irq(msm_host->pdata->sdiowakeup_irq,
 				  sdhci_msm_sdiowakeup_irq,
@@ -4257,6 +4261,7 @@ static int sdhci_msm_cfg_sdio_wakeup(struct sdhci_host *host, bool enable)
 	if (enable) {
 		/* configure DAT1 gpio if applicable */
 		if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
+			msm_host->sdio_pending_processing = false;
 			ret = enable_irq_wake(msm_host->pdata->sdiowakeup_irq);
 			if (!ret)
 				sdhci_msm_cfg_sdiowakeup_gpio_irq(host, true);
@@ -4269,6 +4274,7 @@ static int sdhci_msm_cfg_sdio_wakeup(struct sdhci_host *host, bool enable)
 		if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
 			ret = disable_irq_wake(msm_host->pdata->sdiowakeup_irq);
 			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
+			msm_host->sdio_pending_processing = false;
 		} else {
 			pr_err("%s: sdiowakeup_irq(%d)invalid\n",
 					mmc_hostname(host->mmc), enable);
@@ -4415,6 +4421,10 @@ static int sdhci_msm_suspend_noirq(struct device *dev)
 			mmc_hostname(host->mmc), __func__);
 		ret = -EAGAIN;
 	}
+
+	if (host->mmc->card && mmc_card_sdio(host->mmc->card))
+		if (msm_host->sdio_pending_processing)
+			ret = -EBUSY;
 
 	return ret;
 }
