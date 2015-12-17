@@ -502,11 +502,18 @@ struct fg_chip {
 	u16			*offset;
 	bool			ima_supported;
 	bool			init_done;
+	/* jeita hysteresis */
 	bool			jeita_hysteresis_support;
 	bool			batt_hot;
 	bool			batt_cold;
 	int			cold_hysteresis;
 	int			hot_hysteresis;
+	/* ESR pulse tuning */
+	struct fg_wakeup_source	esr_extract_wakeup_source;
+	struct work_struct	esr_extract_config_work;
+	bool			esr_extract_disabled;
+	bool			imptr_pulse_slow_en;
+	bool			esr_pulse_tune_en;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -3329,6 +3336,11 @@ static void status_change_work(struct work_struct *work)
 	unsigned long current_time = 0;
 	int cc_soc, rc, capacity = get_prop_capacity(chip);
 
+	if (chip->esr_pulse_tune_en) {
+		fg_stay_awake(&chip->esr_extract_wakeup_source);
+		schedule_work(&chip->esr_extract_config_work);
+	}
+
 	if (chip->status == POWER_SUPPLY_STATUS_FULL) {
 		if (capacity >= 99 && chip->hold_soc_while_full
 				&& chip->health == POWER_SUPPLY_HEALTH_GOOD) {
@@ -3981,6 +3993,11 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 		schedule_work(&chip->fg_cap_learning_work);
 	}
 
+	if (chip->esr_pulse_tune_en) {
+		fg_stay_awake(&chip->esr_extract_wakeup_source);
+		schedule_work(&chip->esr_extract_config_work);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -4362,6 +4379,150 @@ static void update_cc_cv_setpoint(struct fg_chip *chip)
 			tmp[0], tmp[1], CC_CV_SETPOINT_REG);
 }
 
+#define CBITS_INPUT_FILTER_REG		0x4B4
+#define CBITS_RMEAS1_OFFSET		1
+#define CBITS_RMEAS2_OFFSET		2
+#define CBITS_RMEAS1_DEFAULT_VAL	0x65
+#define CBITS_RMEAS2_DEFAULT_VAL	0x65
+#define IMPTR_FAST_TIME_SHIFT		1
+#define IMPTR_LONG_TIME_SHIFT		(1 << 4)
+#define IMPTR_PULSE_CTR_CHG		1
+#define IMPTR_PULSE_CTR_DISCHG		(1 << 4)
+static int fg_config_imptr_pulse(struct fg_chip *chip, bool slow)
+{
+	int rc;
+	u8 cntr[2] = {0, 0};
+	u8 val;
+
+	if (slow == chip->imptr_pulse_slow_en) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("imptr_pulse_slow is %sabled already\n",
+				slow ? "en" : "dis");
+		return 0;
+	}
+
+	fg_mem_lock(chip);
+
+	val = slow ? (IMPTR_FAST_TIME_SHIFT | IMPTR_LONG_TIME_SHIFT) :
+		CBITS_RMEAS1_DEFAULT_VAL;
+	rc = fg_mem_write(chip, &val, CBITS_INPUT_FILTER_REG, 1,
+			CBITS_RMEAS1_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write cbits_rmeas1_offset rc=%d\n", rc);
+		goto done;
+	}
+
+	val = slow ? (IMPTR_PULSE_CTR_CHG | IMPTR_PULSE_CTR_DISCHG) :
+		CBITS_RMEAS2_DEFAULT_VAL;
+	rc = fg_mem_write(chip, &val, CBITS_INPUT_FILTER_REG, 1,
+			CBITS_RMEAS2_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write cbits_rmeas2_offset rc=%d\n", rc);
+		goto done;
+	}
+
+	if (slow) {
+		rc = fg_mem_write(chip, cntr, COUNTER_IMPTR_REG, 4,
+				COUNTER_IMPTR_OFFSET, 0);
+		if (rc) {
+			pr_err("failed to write COUNTER_IMPTR rc=%d\n", rc);
+			goto done;
+		}
+
+		rc = fg_mem_write(chip, cntr, COUNTER_PULSE_REG, 2,
+				COUNTER_PULSE_OFFSET, 0);
+		if (rc) {
+			pr_err("failed to write COUNTER_IMPTR rc=%d\n", rc);
+			goto done;
+		}
+	}
+
+	chip->imptr_pulse_slow_en = slow;
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("imptr_pulse_slow is %sabled\n", slow ? "en" : "dis");
+done:
+	fg_mem_release(chip);
+	return rc;
+}
+
+#define CURRENT_DELTA_MIN_REG		0x42C
+#define CURRENT_DELTA_MIN_OFFSET	1
+#define SYS_CFG_1_REG			0x4AC
+#define SYS_CFG_1_OFFSET		0
+#define CURRENT_DELTA_MIN_DEFAULT	0x16
+#define CURRENT_DELTA_MIN_500MA		0xCD
+#define RSLOW_CFG_USE_FIX_RSER_VAL	BIT(7)
+#define ENABLE_ESR_PULSE_VAL		BIT(3)
+static int fg_config_esr_extract(struct fg_chip *chip, bool disable)
+{
+	int rc;
+	u8 val;
+
+	if (disable == chip->esr_extract_disabled) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("ESR extract already %sabled\n",
+				disable ? "dis" : "en");
+		return 0;
+	}
+
+	fg_mem_lock(chip);
+
+	val = disable ? CURRENT_DELTA_MIN_500MA :
+				CURRENT_DELTA_MIN_DEFAULT;
+	rc = fg_mem_write(chip, &val, CURRENT_DELTA_MIN_REG, 1,
+			CURRENT_DELTA_MIN_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write curr_delta_min rc=%d\n", rc);
+		goto done;
+	}
+
+	val = disable ? RSLOW_CFG_USE_FIX_RSER_VAL : 0;
+	rc = fg_mem_masked_write(chip, RSLOW_CFG_REG,
+			RSLOW_CFG_USE_FIX_RSER_VAL, val, RSLOW_CFG_OFFSET);
+	if (rc) {
+		pr_err("unable to write rslow cfg rc= %d\n", rc);
+		goto done;
+	}
+
+	val = disable ? 0 : ENABLE_ESR_PULSE_VAL;
+	rc = fg_mem_masked_write(chip, SYS_CFG_1_REG,
+			ENABLE_ESR_PULSE_VAL, val, SYS_CFG_1_OFFSET);
+	if (rc) {
+		pr_err("unable to write sys_cfg_1 rc= %d\n", rc);
+		goto done;
+	}
+
+	chip->esr_extract_disabled = disable;
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("ESR extract is %sabled\n", disable ? "dis" : "en");
+done:
+	fg_mem_release(chip);
+	return rc;
+}
+
+#define ESR_EXTRACT_STOP_SOC		2
+#define IMPTR_PULSE_CONFIG_SOC		5
+static void esr_extract_config_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+						esr_extract_config_work);
+	bool input_present = is_input_present(chip);
+	int capacity = get_prop_capacity(chip);
+
+	if (input_present && capacity <= ESR_EXTRACT_STOP_SOC) {
+		fg_config_esr_extract(chip, true);
+	} else if (capacity > ESR_EXTRACT_STOP_SOC) {
+		fg_config_esr_extract(chip, false);
+
+		if (capacity <= IMPTR_PULSE_CONFIG_SOC)
+			fg_config_imptr_pulse(chip, true);
+		else
+			fg_config_imptr_pulse(chip, false);
+	}
+
+	fg_relax(&chip->esr_extract_wakeup_source);
+}
+
 #define LOW_LATENCY			BIT(6)
 #define BATT_PROFILE_OFFSET		0x4C0
 #define PROFILE_INTEGRITY_REG		0x53C
@@ -4517,6 +4678,11 @@ try_again:
 	 * finishes
 	 */
 	reinit_completion(&chip->first_soc_done);
+
+	if (chip->esr_pulse_tune_en) {
+		fg_stay_awake(&chip->esr_extract_wakeup_source);
+		schedule_work(&chip->esr_extract_config_work);
+	}
 
 	/*
 	 * set the restart bits so that the next fg cycle will not reload
@@ -5295,6 +5461,9 @@ static int fg_of_init(struct fg_chip *chip)
 	if (chip->cyc_ctr.en)
 		chip->cyc_ctr.id = 1;
 
+	chip->esr_pulse_tune_en = of_property_read_bool(node,
+					"qcom,esr-pulse-tuning-en");
+
 	return rc;
 }
 
@@ -5494,6 +5663,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->gain_comp_work);
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
+	cancel_work_sync(&chip->esr_extract_config_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -5508,6 +5678,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->update_sram_wakeup_source.source);
 	wakeup_source_trash(&chip->gain_comp_wakeup_source.source);
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
+	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
 }
 
 static int fg_remove(struct spmi_device *spmi)
@@ -5986,6 +6157,7 @@ static int fg_common_hw_init(struct fg_chip *chip)
 {
 	int rc;
 	int resume_soc_raw;
+	u8 val;
 
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
@@ -6057,6 +6229,37 @@ static int fg_common_hw_init(struct fg_chip *chip)
 	/* Read the cycle counter back from FG SRAM */
 	if (chip->cyc_ctr.en)
 		restore_cycle_counter(chip);
+
+	if (chip->esr_pulse_tune_en) {
+		rc = fg_mem_read(chip, &val, SYS_CFG_1_REG, 1, SYS_CFG_1_OFFSET,
+				0);
+		if (rc) {
+			pr_err("unable to read sys_cfg_1: %d\n", rc);
+			return rc;
+		}
+
+		if (!(val & ENABLE_ESR_PULSE_VAL))
+			chip->esr_extract_disabled = true;
+
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("ESR extract is %sabled\n",
+				chip->esr_extract_disabled ? "dis" : "en");
+
+		rc = fg_mem_read(chip, &val, CBITS_INPUT_FILTER_REG, 1,
+				CBITS_RMEAS1_OFFSET, 0);
+		if (rc) {
+			pr_err("unable to read cbits_input_filter_reg: %d\n",
+				rc);
+			return rc;
+		}
+
+		if (val & (IMPTR_FAST_TIME_SHIFT | IMPTR_LONG_TIME_SHIFT))
+			chip->imptr_pulse_slow_en = true;
+
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("imptr_pulse_slow is %sabled\n",
+				chip->imptr_pulse_slow_en ? "en" : "dis");
+	}
 
 	return 0;
 }
@@ -6436,6 +6639,8 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_gain_comp");
 	wakeup_source_init(&chip->capacity_learning_wakeup_source.source,
 			"qpnp_fg_cap_learning");
+	wakeup_source_init(&chip->esr_extract_wakeup_source.source,
+			"qpnp_fg_esr_extract");
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
 	mutex_init(&chip->learning_data.learning_lock);
@@ -6459,6 +6664,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->charge_full_work, charge_full_work);
 	INIT_WORK(&chip->gain_comp_work, iadc_gain_comp_work);
 	INIT_WORK(&chip->bcl_hi_power_work, bcl_hi_power_work);
+	INIT_WORK(&chip->esr_extract_config_work, esr_extract_config_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -6627,6 +6833,7 @@ cancel_work:
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
 	cancel_work_sync(&chip->bcl_hi_power_work);
+	cancel_work_sync(&chip->esr_extract_config_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -6641,6 +6848,7 @@ of_init_fail:
 	wakeup_source_trash(&chip->update_sram_wakeup_source.source);
 	wakeup_source_trash(&chip->gain_comp_wakeup_source.source);
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
+	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
 	return rc;
 }
 
