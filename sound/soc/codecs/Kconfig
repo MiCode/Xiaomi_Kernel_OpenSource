@@ -859,4 +859,8 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 	help
 	HDMI audio drivers should be built only if the platform
         supports hdmi panel.
+
+config SND_SOC_MSM_HDMI_DBA_CODEC_RX
+	bool "HDMI DBA Audio Playback"
+	depends on MSM_DBA
 endmenu
