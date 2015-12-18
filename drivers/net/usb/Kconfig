@@ -572,4 +572,12 @@ config USB_VL600
 
 	  http://ubuntuforums.org/showpost.php?p=10589647&postcount=17
 
+config USBNET_IPA_BRIDGE
+	tristate "USB to IPA bridge"
+	depends on USB_USBNET && IPA
+	help
+	  Select this if you want to enable USB to IPA bridge.
+	  This will pass IP traffic directly to IPA and bypass the network stack.
+
 endif # USB_NET_DRIVERS
+

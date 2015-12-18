@@ -22,10 +22,33 @@
 #ifndef	__LINUX_USB_USBNET_H
 #define	__LINUX_USB_USBNET_H
 
+#include <linux/ipa.h>
+
+#define USBNET_IPA_SYS_PIPE_MAX_PKTS_DESC 160
+#define USBNET_IPA_SYS_PIPE_MIN_PKTS_DESC 5
+#define USBNET_IPA_SYS_PIPE_DNE_PKTS (USBNET_IPA_SYS_PIPE_MAX_PKTS_DESC*2)
+
+struct usbnet_ipa_stats {
+	/* RX Side */
+	uint64_t rx_ipa_excep;
+	uint64_t rx_ipa_write_done;
+	uint64_t rx_ipa_send;
+	uint64_t rx_ipa_send_fail;
+
+	/* TX Side*/
+	uint64_t tx_ipa_send;
+	uint64_t tx_ipa_send_err;
+};
+
+struct usbnet_ipa_ctx {
+	struct usbnet_ipa_stats stats;
+};
+
 /* interface from usbnet core to each USB networking link we handle */
 struct usbnet {
 	/* housekeeping */
 	struct usb_device	*udev;
+	struct usbnet_ipa_ctx	*pusbnet_ipa;
 	struct usb_interface	*intf;
 	struct driver_info	*driver_info;
 	const char		*driver_name;
@@ -79,6 +102,10 @@ struct usbnet {
 #		define EVENT_RX_KILL	10
 #		define EVENT_LINK_CHANGE	11
 #		define EVENT_SET_RX_MODE	12
+
+	u16 ipa_free_desc_cnt;
+	u16 ipa_high_watermark;
+	u16 ipa_low_watermark;
 };
 
 static inline struct usb_driver *driver_of(struct usb_interface *intf)
