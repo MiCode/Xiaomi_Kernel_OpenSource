@@ -585,6 +585,8 @@ struct ipa_sys_context {
 	struct work_struct repl_work;
 	void (*repl_hdlr)(struct ipa_sys_context *sys);
 	struct ipa_repl_ctx repl;
+	unsigned int repl_trig_cnt;
+	unsigned int repl_trig_thresh;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa_ep_context *ep;
