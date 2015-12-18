@@ -98,8 +98,8 @@ struct clock_info {
 	const char *name;
 	struct clk *clk;
 	struct load_freq_table *load_freq_tbl;
-	u32 count; /* == has_scaling iff count != 0 */
-	bool has_gating;
+	u32 count;
+	bool has_scaling;
 };
 
 struct clock_set {
