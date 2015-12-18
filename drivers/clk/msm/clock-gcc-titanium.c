@@ -97,7 +97,7 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk2, rf_clk2_a, RF_CLK2_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk3, rf_clk3_a, RF_CLK3_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk1, bb_clk1_a, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk2, bb_clk2_a, BB_CLK2_ID);
-DEFINE_CLK_RPM_SMD_XO_BUFFER(div_clk1, div_clk1_a, DIV_CLK1_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(div_clk2, div_clk2_a, DIV_CLK2_ID);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk1_pin, bb_clk1_a_pin, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk2_pin, bb_clk2_a_pin, BB_CLK2_ID);
@@ -3456,8 +3456,8 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(bb_clk2_a),
 	CLK_LIST(bb_clk2_pin),
 	CLK_LIST(bb_clk2_a_pin),
-	CLK_LIST(div_clk1),
-	CLK_LIST(div_clk1_a),
+	CLK_LIST(div_clk2),
+	CLK_LIST(div_clk2_a),
 	CLK_LIST(gpll0_clk_src),
 	CLK_LIST(gpll6_clk_src),
 	CLK_LIST(gpll2_clk_src),

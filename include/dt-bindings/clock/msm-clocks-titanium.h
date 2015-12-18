@@ -285,8 +285,8 @@
 #define clk_rf_clk2_a					 0x944d8bbd
 #define clk_rf_clk3					 0xb673936b
 #define clk_rf_clk3_a					 0xf7975f21
-#define clk_div_clk1					 0xaa1157a6
-#define clk_div_clk1_a					 0x6b943d68
+#define clk_div_clk2					 0xd454019f
+#define clk_div_clk2_a					 0x4bd7bfa8
 
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux				 0x8121ac15
