@@ -417,10 +417,12 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 			pr_err("failed to free remote heap allocation\n");
 			return;
 		}
-		dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
-		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
-		dma_free_attrs(me->adsp_mem_device, map->size,
-				&(map->va), map->phys,	&attrs);
+		if (map->phys) {
+			dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
+			dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
+			dma_free_attrs(me->adsp_mem_device, map->size,
+					&(map->va), map->phys,	&attrs);
+		}
 	} else {
 		if (!IS_ERR_OR_NULL(map->handle))
 			ion_free(fl->apps->client, map->handle);
