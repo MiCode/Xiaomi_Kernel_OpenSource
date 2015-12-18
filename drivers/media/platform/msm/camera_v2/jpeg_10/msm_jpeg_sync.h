@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include "msm_camera_io_util.h"
 #include "msm_jpeg_hw.h"
 #include "cam_smmu_api.h"
+#include "cam_soc_api.h"
 
 #define JPEG_8974_V1 0x10000000
 #define JPEG_8974_V2 0x10010000
@@ -59,14 +60,14 @@ struct msm_jpeg_q_entry {
 
 struct msm_jpeg_device {
 	struct platform_device *pdev;
-	struct resource        *mem;
-	int                     irq;
+	struct resource        *jpeg_irq_res;
 	void                   *base;
-	struct clk *jpeg_clk[JPEG_CLK_MAX];
-	struct msm_cam_clk_info jpeg_clk_info[JPEG_CLK_MAX];
-
-	struct regulator *jpeg_fs[JPEG_REGULATOR_MAX];
-	const char *regulator_names[JPEG_REGULATOR_MAX];
+	void                   *vbif_base;
+	struct clk **jpeg_clk;
+	struct msm_cam_clk_info *jpeg_clk_info;
+	size_t num_clk;
+	int num_reg;
+	struct regulator **jpeg_vdd;
 	uint32_t hw_version;
 
 	struct device *device;
@@ -118,11 +119,9 @@ struct msm_jpeg_device {
 	spinlock_t reset_lock;
 	wait_queue_head_t reset_wait;
 	uint32_t res_size;
-	uint32_t jpeg_bus_client;
-	uint32_t num_clk;
-	uint32_t num_regulator;
 	enum msm_jpeg_state state;
 	enum msm_jpeg_core_type core_type;
+	enum cam_bus_client bus_client;
 };
 
 int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev);
