@@ -586,6 +586,13 @@ static int cbcr_set_flags(void * __iomem regaddr, unsigned flags)
 	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
 	cbcr_val = readl_relaxed(regaddr);
 	switch (flags) {
+	case CLKFLAG_PERIPH_OFF_SET:
+		cbcr_val |= BIT(12);
+		delay_us = 1;
+		break;
+	case CLKFLAG_PERIPH_OFF_CLEAR:
+		cbcr_val &= ~BIT(12);
+		break;
 	case CLKFLAG_RETAIN_PERIPH:
 		cbcr_val |= BIT(13);
 		delay_us = 1;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, 2012-2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009, 2012-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,8 @@
 #define CLKFLAG_NO_RATE_CACHE		0x00004000
 #define CLKFLAG_MEASURE			0x00008000
 #define CLKFLAG_EPROBE_DEFER		0x00010000
+#define CLKFLAG_PERIPH_OFF_SET		0x00020000
+#define CLKFLAG_PERIPH_OFF_CLEAR	0x00040000
 
 struct clk_lookup;
 struct clk;
