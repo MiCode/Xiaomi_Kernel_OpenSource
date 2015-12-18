@@ -448,7 +448,8 @@ static int mhi_sm_change_to_M0(void)
 		MHI_SM_DBG("Nothing to do, already in M0 state\n");
 		res = 0;
 		goto exit;
-	} else if (old_state == MHI_DEV_M3_STATE) {
+	} else if (old_state == MHI_DEV_M3_STATE ||
+				old_state == MHI_DEV_READY_STATE) {
 		/*  Retrieve MHI configuration*/
 		res = mhi_dev_config_outbound_iatu(mhi_sm_ctx->mhi_dev);
 		if (res) {
