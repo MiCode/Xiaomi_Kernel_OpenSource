@@ -1622,15 +1622,14 @@ static ssize_t print_dtds(struct device *dev,
 		mEp = &udc->ci13xxx_ep[ep_num];
 
 	n = hw_ep_bit(mEp->num, mEp->dir);
-	pr_info("%s: prime:%08x stat:%08x ep#%d dir:%s"
-			"dTD_update_fail_count: %lu "
-			"mEp->dTD_update_fail_count: %lu"
-			"mEp->prime_fail_count: %lu\n", __func__,
+	pr_info("%s: prime:%08x stat:%08x ep#%d dir:%s dTD_update_fail_count: %lu mEp->dTD_update_fail_count: %lu mEp->dTD_active_re_q_count: %lu mEp->prime_fail_count: %lu\n",
+			__func__,
 			hw_cread(CAP_ENDPTPRIME, ~0),
 			hw_cread(CAP_ENDPTSTAT, ~0),
 			mEp->num, mEp->dir ? "IN" : "OUT",
 			udc->dTD_update_fail_count,
 			mEp->dTD_update_fail_count,
+			mEp->dTD_active_re_q_count,
 			mEp->prime_fail_count);
 
 	pr_info("QH: cap:%08x cur:%08x next:%08x token:%08x\n",
@@ -2027,19 +2026,33 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 			goto done;
 	}
 
-	/*  QH configuration */
+	/* Hardware may leave few TDs unprocessed, check and reprime with 1st */
 	if (!list_empty(&mEp->qh.queue)) {
-		struct ci13xxx_req *mReq = \
-			list_entry(mEp->qh.queue.next,
-				   struct ci13xxx_req, queue);
+		struct ci13xxx_req *mReq_active, *mReq_next;
+		u32 i = 0;
 
-		if (TD_STATUS_ACTIVE & mReq->ptr->token) {
-			mEp->qh.ptr->td.next   = mReq->dma;
-			mEp->qh.ptr->td.token &= ~TD_STATUS;
-			goto prime;
+		/* Iterate forward to find first TD with ACTIVE bit set */
+		mReq_active = mReq;
+		list_for_each_entry(mReq_next, &mEp->qh.queue, queue) {
+			i++;
+			mEp->dTD_active_re_q_count++;
+			if (TD_STATUS_ACTIVE & mReq_next->ptr->token) {
+				mReq_active = mReq_next;
+				dbg_event(_usb_addr(mEp), "ReQUE",
+					  mReq_next->ptr->token);
+				pr_debug("!!ReQ(%u-%u-%x)-%u!!\n", mEp->num,
+					 mEp->dir, mReq_next->ptr->token, i);
+				break;
+			}
 		}
+
+		/*  QH configuration */
+		mEp->qh.ptr->td.next = mReq_active->dma;
+		mEp->qh.ptr->td.token &= ~TD_STATUS;
+		goto prime;
 	}
 
+	/*  QH configuration */
 	mEp->qh.ptr->td.next   = mReq->dma;    /* TERMINATE = 0 */
 
 	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
