@@ -456,7 +456,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 
 	/* enable debug IRQ */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_DEBUG_INT_EN,
-			0, BIT(3) | BIT(1));
+			0, BIT(3) | BIT(2) | BIT(1));
 
 	/* Configure PCIe to endpoint mode */
 	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
