@@ -100,6 +100,7 @@
 #define FW_WRITE_RETRY_COUNT		4
 #define CHIP_FLASH_SIZE			0x8000
 #define DEVICE_READY_MAX_WAIT		500
+#define DEVICE_READY_WAIT_10		10
 
 /* result of reading with BUF_QUERY bits */
 #define CMD_STATUS_BITS			0x07
@@ -284,7 +285,10 @@ static bool IT7260_i2cWriteNoReadyCheck(uint8_t buf_index,
 static bool IT7260_waitDeviceReady(bool forever, bool slowly)
 {
 	uint8_t query;
-	uint32_t count = DEVICE_READY_MAX_WAIT;
+	uint32_t count = DEVICE_READY_WAIT_10;
+
+	if (gl_ts->fw_cfg_uploading || forever)
+		count = DEVICE_READY_MAX_WAIT;
 
 	do {
 		if (!IT7260_i2cReadNoReadyCheck(BUF_QUERY, &query,
@@ -293,10 +297,7 @@ static bool IT7260_waitDeviceReady(bool forever, bool slowly)
 
 		if (slowly)
 			msleep(IT_I2C_WAIT);
-		if (!forever)
-			count--;
-
-	} while ((query & CMD_STATUS_BUSY) && count);
+	} while ((query & CMD_STATUS_BUSY) && --count);
 
 	return !query;
 }
