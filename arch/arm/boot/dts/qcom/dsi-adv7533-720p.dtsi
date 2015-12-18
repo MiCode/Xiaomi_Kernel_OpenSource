@@ -58,7 +58,6 @@ dsi_adv7533_720p: qcom,mdss_dsi_adv7533_720p {
 		qcom,mdss-dsi-bl-max-level = <4095>;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
-		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 1>, <1 20>;
 		qcom,mdss-pan-physical-width-dimension = <160>;
 		qcom,mdss-pan-physical-height-dimension = <90>;
@@ -69,5 +68,6 @@ dsi_adv7533_720p: qcom,mdss_dsi_adv7533_720p {
 			1c 19 02 03 01 03 04 a0
 			1c 19 02 03 01 03 04 a0
 			1c 08 02 03 01 03 04 a0];
+		qcom,dba-panel;
 	};
 };
