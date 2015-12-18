@@ -4067,7 +4067,8 @@ static void override_for_8937(void)
 {
 	gpll3_clk_src.c.rate = 900000000;
 	gpll3_clk_src.vco_tbl = p_vco_8937;
-	gpll3_clk_src.num_vco = ARRAY_SIZE(p_vco_8937),
+	gpll3_clk_src.num_vco = ARRAY_SIZE(p_vco_8937);
+	OVERRIDE_FMAX2(gpll3, LOW, 800000000, NOMINAL, 1066000000);
 
 	OVERRIDE_FMAX1(cci, LOWER, 37500000);
 	OVERRIDE_FMAX3(csi0,
