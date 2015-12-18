@@ -53,7 +53,7 @@
 
 		qcom,initial-pwrlevel = <4>;
 
-		qcom,idle-timeout = <8>; //<HZ/12>
+		qcom,idle-timeout = <80>; //msecs
 		qcom,strtstp-sleepwake;
 
 		clocks = <&clock_gcc_gfx clk_gcc_oxili_gfx3d_clk>,

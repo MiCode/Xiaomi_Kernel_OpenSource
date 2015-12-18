@@ -47,7 +47,7 @@
 #define MAX_UDELAY		2000
 
 /* Number of jiffies for a full thermal cycle */
-#define TH_HZ			20
+#define TH_HZ			(HZ/5)
 
 #define KGSL_MAX_BUSLEVELS	20
 
@@ -1613,7 +1613,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,deep-nap-timeout",
 		&pwr->deep_nap_timeout))
-		pwr->deep_nap_timeout = HZ/50;
+		pwr->deep_nap_timeout = 20;
 
 	pwr->gx_retention = of_property_read_bool(pdev->dev.of_node,
 						"qcom,gx-retention");
@@ -2102,7 +2102,7 @@ _nap(struct kgsl_device *device)
 		kgsl_pwrscale_update_stats(device);
 
 		mod_timer(&device->pwrctrl.deep_nap_timer, jiffies +
-					device->pwrctrl.deep_nap_timeout);
+			msecs_to_jiffies(device->pwrctrl.deep_nap_timeout));
 
 		kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_OFF, KGSL_STATE_NAP);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_NAP);
