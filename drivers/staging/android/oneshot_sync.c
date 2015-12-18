@@ -129,7 +129,7 @@ static struct sync_pt *oneshot_pt_dup(struct sync_pt *sync_pt)
 		return NULL;
 
 	out_pt = (struct oneshot_sync_pt *)
-		sync_pt_create(sync_pt_parent(sync_pt), sizeof(*out_pt));
+		sync_pt_create(sync_pt->parent, sizeof(*out_pt));
 
 	if (out_pt == NULL) {
 		oneshot_state_put(pt->state);
@@ -164,8 +164,8 @@ static void oneshot_pt_free(struct sync_pt *sync_pt)
 {
 	struct oneshot_sync_pt *pt = to_oneshot_pt(sync_pt);
 
-	struct oneshot_sync_timeline *timeline = sync_pt_parent(sync_pt) ?
-		to_oneshot_timeline(sync_pt_parent(sync_pt)) : NULL;
+	struct oneshot_sync_timeline *timeline = sync_pt->parent ?
+		to_oneshot_timeline(sync_pt->parent) : NULL;
 
 	if (timeline != NULL) {
 		spin_lock(&timeline->lock);
