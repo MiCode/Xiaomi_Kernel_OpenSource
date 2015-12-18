@@ -2640,7 +2640,7 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_address_lsw =
 		lower_32_bits(cal_block->cal_data.paddr);
 	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_address_msw =
-		populate_upper_32_bits(cal_block->cal_data.paddr);
+		msm_audio_populate_upper_32_bits(cal_block->cal_data.paddr);
 	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_size =
 		cal_block->cal_data.size;
 
@@ -2892,7 +2892,7 @@ static int voice_send_cvp_register_dev_cfg_cmd(struct voice_data *v)
 	cvp_reg_dev_cfg_cmd.cvp_dev_cfg_data.mem_address_lsw =
 		lower_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_dev_cfg_cmd.cvp_dev_cfg_data.mem_address_msw =
-		populate_upper_32_bits(cal_block->cal_data.paddr);
+		msm_audio_populate_upper_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_dev_cfg_cmd.cvp_dev_cfg_data.mem_size =
 		cal_block->cal_data.size;
 
@@ -3058,7 +3058,7 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_address_lsw =
 		lower_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_address_msw =
-		populate_upper_32_bits(cal_block->cal_data.paddr);
+		msm_audio_populate_upper_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_size =
 		cal_block->cal_data.size;
 
@@ -3216,7 +3216,7 @@ static int voice_send_cvp_register_vol_cal_cmd(struct voice_data *v)
 	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_address_lsw =
 		lower_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_address_msw =
-		populate_upper_32_bits(cal_block->cal_data.paddr);
+		msm_audio_populate_upper_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_size =
 		cal_block->cal_data.size;
 
@@ -3361,7 +3361,7 @@ static int voice_map_memory_physical_cmd(struct voice_data *v,
 
 	/* Store shared mem adddress (64 bit) */
 	memtable[3] = lower_32_bits(phys);
-	memtable[4] = populate_upper_32_bits(phys);
+	memtable[4] = msm_audio_populate_upper_32_bits(phys);
 
 	/* Store shared memory size */
 	memtable[5] = size;
@@ -3379,7 +3379,7 @@ static int voice_map_memory_physical_cmd(struct voice_data *v,
 	mvm_map_phys_cmd.table_descriptor.mem_address_lsw =
 			lower_32_bits(table_info->phys);
 	mvm_map_phys_cmd.table_descriptor.mem_address_msw =
-			populate_upper_32_bits(table_info->phys);
+			msm_audio_populate_upper_32_bits(table_info->phys);
 	mvm_map_phys_cmd.table_descriptor.mem_size =
 			sizeof(struct vss_imemory_block_t) +
 			sizeof(struct vss_imemory_table_descriptor_t);
@@ -4660,13 +4660,15 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 	packet_exchange_config_pkt.dec_buf_addr_lsw =
 		lower_32_bits(v->shmem_info.sh_buf.buf[0].phys);
 	packet_exchange_config_pkt.dec_buf_addr_msw =
-		populate_upper_32_bits(v->shmem_info.sh_buf.buf[0].phys);
+		msm_audio_populate_upper_32_bits(
+					v->shmem_info.sh_buf.buf[0].phys);
 	packet_exchange_config_pkt.dec_buf_size = 4096;
 	/* enc buffer address */
 	packet_exchange_config_pkt.enc_buf_addr_lsw =
 		lower_32_bits(v->shmem_info.sh_buf.buf[1].phys);
 	packet_exchange_config_pkt.enc_buf_addr_msw =
-		populate_upper_32_bits(v->shmem_info.sh_buf.buf[1].phys);
+		msm_audio_populate_upper_32_bits(
+					v->shmem_info.sh_buf.buf[1].phys);
 	packet_exchange_config_pkt.enc_buf_size = 4096;
 
 	pr_debug("%s: dec buf add: lsw %0x msw %0x, size %d, enc buf add: lsw %0x msw %0x, size %d\n",
@@ -8266,7 +8268,7 @@ static int voice_send_get_source_tracking_cmd(struct voice_data *v,
 	st_cmd.cvp_get_source_tracking_param.mem_address_lsw =
 		lower_32_bits(common.source_tracking_sh_mem.sh_mem_block.phys);
 	st_cmd.cvp_get_source_tracking_param.mem_address_msw =
-		populate_upper_32_bits(common.source_tracking_sh_mem.
+		msm_audio_populate_upper_32_bits(common.source_tracking_sh_mem.
 					sh_mem_block.phys);
 	st_cmd.cvp_get_source_tracking_param.mem_size =
 		(uint32_t)common.source_tracking_sh_mem.sh_mem_block.size;
