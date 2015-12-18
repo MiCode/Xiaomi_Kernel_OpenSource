@@ -550,17 +550,6 @@
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x45>;
 		};
-
-		wcd9xxx_intc: wcd9xxx-irq {
-			compatible = "qcom,wcd9xxx-irq";
-			status = "disabled";
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			interrupt-parent = <&tlmm>;
-			interrupts = <73 0>;
-			inteerupt-names = "cdc-int";
-			qcom,gpio-connect = <&tlmm 73 0>;
-		};
 	};
 };
 
