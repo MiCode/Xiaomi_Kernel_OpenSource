@@ -2944,9 +2944,8 @@ static const struct snd_kcontrol_new hphr_mux[] = {
 	SOC_DAPM_ENUM("HPHR", hph_enum)
 };
 
-static const struct snd_kcontrol_new spkr_switch[] = {
-	SOC_DAPM_SINGLE("Switch",
-		MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 7, 1, 0)
+static const struct snd_kcontrol_new spkr_mux[] = {
+	SOC_DAPM_ENUM("SPK", hph_enum)
 };
 
 static const char * const lo_text[] = {
@@ -4168,8 +4167,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"SPK_OUT", NULL, "SPK PA"},
 	{"SPK PA", NULL, "SPK_RX_BIAS"},
-	{"SPK PA", NULL, "SPK DAC"},
-	{"SPK DAC", "Switch", "RX3 CHAIN"},
+	{"SPK PA", NULL, "SPK"},
+	{"SPK", "Switch", "SPK DAC"},
+	{"SPK DAC", NULL, "RX3 CHAIN"},
 	{"LINE_OUT", "Switch", "LINEOUT DAC"},
 	{"LINEOUT DAC", NULL, "RX3 CHAIN"},
 	{"LINEOUT PA", NULL, "LINEOUT DAC"},
@@ -4729,8 +4729,11 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MIXER("SPK DAC", SND_SOC_NOPM, 0, 0,
-		spkr_switch, ARRAY_SIZE(spkr_switch)),
+	SND_SOC_DAPM_MUX("SPK", SND_SOC_NOPM, 0, 0,
+		spkr_mux),
+
+	SND_SOC_DAPM_DAC("SPK DAC", NULL,
+		MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 7, 0),
 
 	SND_SOC_DAPM_MUX("LINE_OUT",
 		SND_SOC_NOPM, 0, 0, lo_mux),
