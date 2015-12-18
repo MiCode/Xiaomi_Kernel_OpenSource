@@ -1622,6 +1622,7 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	int ice_clk_table_len;
 	u32 *ice_clk_table = NULL;
 	enum of_gpio_flags flags = OF_GPIO_ACTIVE_LOW;
+	const char *lower_bus_speed = NULL;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -1651,6 +1652,19 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	else if (!msm_host->mmc->clk_scaling.freq_table ||
 			!msm_host->mmc->clk_scaling.freq_table_sz)
 			dev_err(dev, "bad dts clock scaling frequencies\n");
+
+	/*
+	 * Few hosts can support DDR52 mode at the same lower
+	 * system voltage corner as high-speed mode. In such cases,
+	 * it is always better to put it in DDR mode which will
+	 * improve the performance without any power impact.
+	 */
+	if (!of_property_read_string(np, "qcom,scaling-lower-bus-speed-mode",
+				&lower_bus_speed)) {
+		if (!strcmp(lower_bus_speed, "DDR52"))
+			msm_host->mmc->clk_scaling.lower_bus_speed_mode |=
+				MMC_SCALING_LOWER_DDR52_MODE;
+	}
 
 	if (sdhci_msm_dt_get_array(dev, "qcom,clk-rates",
 			&clk_table, &clk_table_len, 0)) {

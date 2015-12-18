@@ -413,4 +413,13 @@
 		gpio = <&pm8937_gpios 7 0>;
 		regulator-always-on;
 	};
+
+	adv_vreg: adv_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "adv_vreg";
+		startup-delay-us = <400>;
+		enable-avtive-high;
+		gpio = <&pm8937_gpios 8 0>;
+	};
+
 };

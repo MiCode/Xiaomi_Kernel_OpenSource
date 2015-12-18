@@ -22,6 +22,7 @@
 #include <linux/types.h>
 #include <linux/msm_hdmi.h>
 #include <linux/hdcp_qseecom.h>
+#include <linux/clk.h>
 
 #define REG_DUMP 0
 
@@ -674,6 +675,77 @@ static ssize_t hdmi_tx_sysfs_rda_connected(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_rda_connected */
 
+static ssize_t hdmi_tx_sysfs_wta_edid(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	int i = 0;
+	const char *buf_t = buf;
+	const int char_to_nib = 2;
+	int edid_size = count / char_to_nib;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl || !hdmi_ctrl->edid_buf) {
+		DEV_ERR("%s: invalid data\n", __func__);
+		return -EINVAL;
+	}
+
+	memset(hdmi_ctrl->edid_buf, 0, hdmi_ctrl->edid_buf_size);
+
+	while (edid_size--) {
+		char t[char_to_nib + 1];
+		int d, rc;
+
+		memcpy(t, buf_t, sizeof(char) * char_to_nib);
+		t[char_to_nib] = '\0';
+
+		rc = kstrtoint(t, 16, &d);
+		if (rc) {
+			pr_err("kstrtoint error %d\n", rc);
+			return rc;
+		}
+
+		memcpy(hdmi_ctrl->edid_buf + i++, &d,
+			sizeof(*hdmi_ctrl->edid_buf));
+
+		buf_t += char_to_nib;
+	}
+
+	hdmi_ctrl->custom_edid = true;
+
+	return ret;
+}
+
+static ssize_t hdmi_tx_sysfs_rda_edid(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	u32 size;
+	u32 cea_blks;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl || !hdmi_ctrl->edid_buf) {
+		DEV_ERR("%s: invalid data\n", __func__);
+		return -EINVAL;
+	}
+
+	cea_blks = hdmi_ctrl->edid_buf[EDID_BLOCK_SIZE - 2];
+	size = (cea_blks + 1) * EDID_BLOCK_SIZE;
+	size = min_t(u32, size, PAGE_SIZE);
+
+	DEV_DBG("%s: edid size %d\n", __func__, size);
+
+	memcpy(buf, hdmi_ctrl->edid_buf, size);
+
+	print_hex_dump(KERN_DEBUG, "HDMI EDID: ", DUMP_PREFIX_NONE,
+		16, 1, buf, size, false);
+
+	return size;
+}
+
 static ssize_t hdmi_tx_sysfs_wta_audio_cb(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1121,8 +1193,48 @@ static ssize_t hdmi_tx_sysfs_rda_s3d_mode(struct device *dev,
 	return ret;
 }
 
+static ssize_t hdmi_tx_sysfs_wta_5v(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int read, rc = 0;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	struct dss_module_power *pd = NULL;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pd = &hdmi_ctrl->pdata.power_data[HDMI_TX_HPD_PM];
+	if (!pd) {
+		DEV_ERR("%s: Error: invalid power data\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	rc = kstrtoint(buf, 10, &read);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		goto error;
+	}
+
+	read = ~(!!read ^ pd->gpio_config->value) & BIT(0);
+
+	DEV_DBG("%s: writing %d to 5v gpio\n", __func__, read);
+	gpio_set_value(pd->gpio_config->gpio, read);
+
+	return ret;
+error:
+	return rc;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(hdmi_audio_cb, S_IWUSR, NULL, hdmi_tx_sysfs_wta_audio_cb);
+static DEVICE_ATTR(edid, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_edid,
+	hdmi_tx_sysfs_wta_edid);
 static DEVICE_ATTR(video_mode, S_IRUGO, hdmi_tx_sysfs_rda_video_mode, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_hpd,
 	hdmi_tx_sysfs_wta_hpd);
@@ -1135,10 +1247,12 @@ static DEVICE_ATTR(avi_itc, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_itc);
 static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn_bits);
 static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_s3d_mode,
 	hdmi_tx_sysfs_wta_s3d_mode);
+static DEVICE_ATTR(5v, S_IWUSR, NULL, hdmi_tx_sysfs_wta_5v);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
 	&dev_attr_hdmi_audio_cb.attr,
+	&dev_attr_edid.attr,
 	&dev_attr_video_mode.attr,
 	&dev_attr_hpd.attr,
 	&dev_attr_vendor_name.attr,
@@ -1146,6 +1260,7 @@ static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_avi_itc.attr,
 	&dev_attr_avi_cn0_1.attr,
 	&dev_attr_s3d_mode.attr,
+	&dev_attr_5v.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
@@ -1733,12 +1848,16 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 		goto error;
 	}
 
-	hdmi_ddc_config(&hdmi_ctrl->ddc_ctrl);
+	if (!hdmi_ctrl->custom_edid) {
+		hdmi_ddc_config(&hdmi_ctrl->ddc_ctrl);
 
-	status = hdmi_tx_read_edid(hdmi_ctrl);
-	if (status) {
-		DEV_ERR("%s: error reading edid\n", __func__);
-		goto error;
+		status = hdmi_tx_read_edid(hdmi_ctrl);
+		if (status) {
+			DEV_ERR("%s: error reading edid\n", __func__);
+			goto error;
+		}
+	} else {
+		hdmi_ctrl->custom_edid = false;
 	}
 
 	status = hdmi_edid_parser(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
@@ -2617,6 +2736,53 @@ static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 exit:
 	return rc;
 } /* hdmi_tx_config_power */
+
+static int hdmi_tx_check_clk_state(struct hdmi_tx_ctrl *hdmi_ctrl,
+	enum hdmi_tx_power_module_type module)
+{
+	int i;
+	int rc = 0;
+	struct dss_module_power *pd = NULL;
+
+	if (!hdmi_ctrl || module >= HDMI_TX_MAX_PM) {
+		DEV_ERR("%s: Error: invalid input\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pd = &hdmi_ctrl->pdata.power_data[module];
+	if (!pd) {
+		DEV_ERR("%s: Error: invalid power data\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	for (i = 0; i < pd->num_clk; i++) {
+		struct clk *clk = pd->clk_config[i].clk;
+
+		if (clk) {
+			u32 rate = clk_get_rate(clk);
+
+			DEV_DBG("%s: clk %s: rate %d\n", __func__,
+				pd->clk_config[i].clk_name, rate);
+
+			if (!rate) {
+				rc = -EINVAL;
+				goto error;
+			}
+		} else {
+			DEV_ERR("%s: clk %s: not configured\n", __func__,
+				pd->clk_config[i].clk_name);
+
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+
+	return 0;
+error:
+	return rc;
+}
 
 static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable)
@@ -3657,6 +3823,10 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		DEV_ERR("%s: hpd not initialized\n", __func__);
 		return -EPERM;
 	}
+
+	rc = hdmi_tx_check_clk_state(hdmi_ctrl, HDMI_TX_HPD_PM);
+	if (rc)
+		return rc;
 
 	panel_info = &panel_data->panel_info;
 	hdmi_ctrl->hdcp_feature_on = hdcp_feature_on;

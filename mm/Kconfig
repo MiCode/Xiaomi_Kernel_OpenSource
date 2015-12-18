@@ -625,6 +625,21 @@ config MAX_STACK_SIZE_MB
 
 	  A sane initial value is 80 MB.
 
+config ZCACHE
+       bool "Compressed cache for file pages (EXPERIMENTAL)"
+       depends on CRYPTO && CLEANCACHE
+       select CRYPTO_LZO
+       select ZBUD
+       default n
+       help
+         A compressed cache for file pages.
+         It takes active file pages that are in the process of being reclaimed
+         and attempts to compress them into a dynamically allocated RAM-based
+         memory pool.
+
+         If this process is successful, when those file pages needed again, the
+         I/O reading operation was avoided. This results in a significant performance
+         gains under memory pressure for systems full with file pages.
 
 config BALANCE_ANON_FILE_RECLAIM
 	bool "During reclaim treat anon and file backed pages equally"

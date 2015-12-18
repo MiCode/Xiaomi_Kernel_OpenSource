@@ -557,7 +557,8 @@ static int q6core_map_memory_regions(phys_addr_t *buf_add, uint32_t mempool_id,
 
 	for (i = 0; i < bufcnt; i++) {
 		mregions->shm_addr_lsw = lower_32_bits(buf_add[i]);
-		mregions->shm_addr_msw = populate_upper_32_bits(buf_add[i]);
+		mregions->shm_addr_msw =
+				msm_audio_populate_upper_32_bits(buf_add[i]);
 		mregions->mem_size_bytes = bufsz[i];
 		++mregions;
 	}
@@ -737,7 +738,7 @@ static int q6core_send_custom_topologies(void)
 	reg_top.payload_addr_lsw =
 		lower_32_bits(cal_block->cal_data.paddr);
 	reg_top.payload_addr_msw =
-		populate_upper_32_bits(cal_block->cal_data.paddr);
+		msm_audio_populate_upper_32_bits(cal_block->cal_data.paddr);
 	reg_top.mem_map_handle = cal_block->map_data.q6map_handle;
 	reg_top.payload_size = cal_block->cal_data.size;
 

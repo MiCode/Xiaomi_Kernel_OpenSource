@@ -7,4 +7,9 @@ config CAN_MCP251X
 	---help---
 	  Driver for the Microchip MCP251x SPI CAN controllers.
 
+config CAN_RH850
+	tristate "Renesas RH850 SPI CAN controller"
+	depends on HAS_DMA
+	---help---
+	  Driver for the Renesas RH850 SPI CAN controller.
 endmenu

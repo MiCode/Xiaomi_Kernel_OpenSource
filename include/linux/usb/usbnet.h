@@ -22,10 +22,39 @@
 #ifndef	__LINUX_USB_USBNET_H
 #define	__LINUX_USB_USBNET_H
 
+#include <linux/ipa.h>
+
+#define USBNET_IPA_SYS_PIPE_MAX_PKTS_DESC 200
+#define USBNET_IPA_SYS_PIPE_MIN_PKTS_DESC 5
+#define USBNET_IPA_SYS_PIPE_DNE_PKTS (USBNET_IPA_SYS_PIPE_MAX_PKTS_DESC*2)
+#define USBNET_IPA_READY_TIMEOUT 5000
+
+struct usbnet_ipa_stats {
+	/* RX Side */
+	uint64_t rx_ipa_excep;
+	uint64_t rx_ipa_write_done;
+	uint64_t rx_ipa_send;
+	uint64_t rx_ipa_send_fail;
+
+	/* TX Side*/
+	uint64_t tx_ipa_send;
+	uint64_t tx_ipa_send_err;
+
+	/* Flow Control stats */
+	uint64_t flow_control_pkt_drop;
+	uint64_t ipa_low_watermark_cnt;
+};
+
+struct usbnet_ipa_ctx {
+	struct usbnet_ipa_stats stats;
+	struct dentry *debugfs_dir;
+};
+
 /* interface from usbnet core to each USB networking link we handle */
 struct usbnet {
 	/* housekeeping */
 	struct usb_device	*udev;
+	struct usbnet_ipa_ctx	*pusbnet_ipa;
 	struct usb_interface	*intf;
 	struct driver_info	*driver_info;
 	const char		*driver_name;
@@ -62,7 +91,7 @@ struct usbnet {
 	unsigned		interrupt_count;
 	struct mutex		interrupt_mutex;
 	struct usb_anchor	deferred;
-	struct tasklet_struct	bh;
+	struct work_struct	bh_w;
 
 	struct work_struct	kevent;
 	unsigned long		flags;
@@ -79,6 +108,19 @@ struct usbnet {
 #		define EVENT_RX_KILL	10
 #		define EVENT_LINK_CHANGE	11
 #		define EVENT_SET_RX_MODE	12
+
+	struct completion rm_prod_granted_comp;
+	struct completion rm_prod_release_comp;
+
+	u16 ipa_free_desc_cnt;
+	u16 ipa_high_watermark;
+	u16 ipa_low_watermark;
+
+	struct sk_buff_head	ipa_pendq;
+	/* work to send pending packets to ipa */
+	struct work_struct ipa_send_task;
+	bool	ipa_ready;
+	wait_queue_head_t wait_for_ipa_ready;
 };
 
 static inline struct usb_driver *driver_of(struct usb_interface *intf)
