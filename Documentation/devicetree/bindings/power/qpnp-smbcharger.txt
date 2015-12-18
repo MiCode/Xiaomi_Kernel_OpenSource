@@ -282,6 +282,8 @@ Optional Properties:
 - qcom,skip-usb-suspend-for-fake-battery	A boolean property to skip
 						suspending USB path for fake
 						battery.
+- qcom,vchg_sns-vadc		Phandle of the VADC node.
+- qcom,vchg-adc-channel-id	The ADC channel to which the VCHG is routed.
 
 Example:
 	qcom,qpnp-smbcharger {
@@ -299,6 +301,8 @@ Example:
 		qcom,bms-psy-name = "bms";
 		qcom,battery-psy-name = "battery";
 		qcom,thermal-mitigation = <1500 700 600 325>;
+		qcom,vchg_sns-vadc = <&pmi8950_vadc>;
+		qcom,vchg-adc-channel-id = <3>;
 
 		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
