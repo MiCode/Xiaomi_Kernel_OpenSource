@@ -306,7 +306,7 @@
 };
 
 &gfx_vreg {
-	regulator-min-microvolt = <1>;
+	regulator-min-microvolt = <2>;
 	regulator-max-microvolt = <5>;
 
 	qcom,cpr-fuse-corners = <4>;
