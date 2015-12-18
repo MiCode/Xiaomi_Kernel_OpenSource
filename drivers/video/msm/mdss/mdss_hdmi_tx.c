@@ -474,7 +474,7 @@ static int hdmi_tx_get_vic_from_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl,
 			timing.active_v, timing.back_porch_v,
 			timing.front_porch_v, timing.pulse_width_v, v_total);
 
-		timing.pixel_freq = pinfo->clk_rate / 1000;
+		timing.pixel_freq = ((unsigned long int)pinfo->clk_rate / 1000);
 		if (h_total && v_total) {
 			timing.refresh_rate = ((timing.pixel_freq * 1000) /
 				(h_total * v_total)) * 1000;
