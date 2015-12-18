@@ -349,9 +349,9 @@
 			<&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0>;
-		qos-reg-settings = <0x28 0x0000555e>,
+		qcom,qos-reg-settings = <0x28 0x0000555e>,
 			<0xc8 0x00005555>;
-		vbif-reg-settings = <0xc0 0x10101000>,
+		qcom,vbif-reg-settings = <0xc0 0x10101000>,
 			<0xb0 0x10100010>;
 	};
 
