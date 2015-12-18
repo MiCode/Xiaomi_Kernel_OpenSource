@@ -354,6 +354,7 @@ struct msmfb_writeback_data {
 #define MDP_PP_OPS_DISABLE 0x8
 #define MDP_PP_IGC_FLAG_ROM0	0x10
 #define MDP_PP_IGC_FLAG_ROM1	0x20
+#define MDP_PP_OPS_DEFER_ENABLE 0x40
 
 /* PA Write/Read extension flags */
 #define MDP_PP_PA_HUE_ENABLE		0x10
@@ -1005,6 +1006,11 @@ struct mdss_calib_cfg {
 	uint32_t calib_mask;
 };
 
+struct mdp_dirty_flag_cfg {
+	uint32_t block;
+	uint32_t dirty_flag_mask;
+};
+
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
@@ -1021,6 +1027,7 @@ enum {
 	mdp_op_calib_mode,
 	mdp_op_calib_buffer,
 	mdp_op_calib_dcm_state,
+	mdp_op_dirty_flag_cfg,
 	mdp_op_max,
 };
 
@@ -1053,6 +1060,7 @@ struct msmfb_mdp_pp {
 		struct mdss_ad_input ad_input;
 		struct mdp_calib_config_buffer calib_buffer;
 		struct mdp_calib_dcm_state calib_dcm;
+		struct mdp_dirty_flag_cfg dirty_flag_cfg;
 	} data;
 };
 
