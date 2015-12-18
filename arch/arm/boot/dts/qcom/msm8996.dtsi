@@ -2207,6 +2207,7 @@
 		vdd-wlan-io-supply = <&pm8994_s4>;
 		vdd-wlan-xtal-supply = <&pm8994_l30>;
 		vdd-wlan-core-supply = <&pm8994_s3>;
+		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
 		qcom,notify-modem-status;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cnss_default>;
