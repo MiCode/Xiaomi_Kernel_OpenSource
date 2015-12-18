@@ -3832,6 +3832,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_116:
 		if ((res <= RES_1080p) && (params->frame_rate <= 30))
 			*ot_lim = 2;
 		else if (params->is_rot && params->is_yuv)
