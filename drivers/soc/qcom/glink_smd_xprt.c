@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,6 +113,7 @@ struct edge_info {
  * @name:		The name of this channel.
  * @lcid:		The local channel id the core uses for this channel.
  * @rcid:		The true remote channel id for this channel.
+ * @ch_probe_lock:	Lock to protect channel probe status.
  * @wait_for_probe:	This channel is waiting for a probe from SMD.
  * @had_probed:		This channel probed in the past and may skip probe.
  * @edge:		Handle to the edge_info this channel is associated with.
@@ -138,6 +139,7 @@ struct channel {
 	char name[GLINK_NAME_SIZE];
 	uint32_t lcid;
 	uint32_t rcid;
+	struct mutex ch_probe_lock;
 	bool wait_for_probe;
 	bool had_probed;
 	struct edge_info *edge;
@@ -320,6 +322,7 @@ static void process_ctl_event(struct work_struct *work)
 				}
 				strlcpy(ch->name, name, GLINK_NAME_SIZE);
 				ch->edge = einfo;
+				mutex_init(&ch->ch_probe_lock);
 				INIT_LIST_HEAD(&ch->intents);
 				INIT_LIST_HEAD(&ch->used_intents);
 				spin_lock_init(&ch->intents_lock);
@@ -882,10 +885,11 @@ static void smd_data_ch_close(struct channel *ch)
 			__func__, ch->lcid);
 
 	ch->is_closing = true;
-	ch->wait_for_probe = false;
 	ch->tx_resume_needed = false;
 	flush_workqueue(ch->wq);
 
+	mutex_lock(&ch->ch_probe_lock);
+	ch->wait_for_probe = false;
 	if (ch->smd_ch) {
 		smd_close(ch->smd_ch);
 		ch->smd_ch = NULL;
@@ -896,6 +900,7 @@ static void smd_data_ch_close(struct channel *ch)
 							ch->lcid);
 		mutex_unlock(&ch->edge->rx_cmd_lock);
 	}
+	mutex_unlock(&ch->ch_probe_lock);
 
 	ch->local_legacy = false;
 
@@ -968,13 +973,17 @@ static int channel_probe(struct platform_device *pdev)
 	if (!found)
 		return -EPROBE_DEFER;
 
-	if (!ch->wait_for_probe)
+	mutex_lock(&ch->ch_probe_lock);
+	if (!ch->wait_for_probe) {
+		mutex_unlock(&ch->ch_probe_lock);
 		return -EPROBE_DEFER;
+	}
 
 	ch->wait_for_probe = false;
 	ch->had_probed = true;
 
 	data_ch_probe_body(ch);
+	mutex_unlock(&ch->ch_probe_lock);
 
 	return 0;
 }
@@ -1015,6 +1024,7 @@ static int add_platform_driver(struct channel *ch)
 	static bool first = true;
 
 	mutex_lock(&pdrv_list_mutex);
+	mutex_lock(&ch->ch_probe_lock);
 	ch->wait_for_probe = true;
 	list_for_each_entry(pdrv, &pdrv_list, node) {
 		if (!strcmp(ch->name, pdrv->pdrv.driver.name)) {
@@ -1024,10 +1034,13 @@ static int add_platform_driver(struct channel *ch)
 	}
 
 	if (!found) {
+		mutex_unlock(&ch->ch_probe_lock);
 		pdrv = kzalloc(sizeof(*pdrv), GFP_KERNEL);
 		if (!pdrv) {
 			ret = -ENOMEM;
+			mutex_lock(&ch->ch_probe_lock);
 			ch->wait_for_probe = false;
+			mutex_unlock(&ch->ch_probe_lock);
 			goto out;
 		}
 		pdrv->pdrv.driver.name = ch->name;
@@ -1038,12 +1051,14 @@ static int add_platform_driver(struct channel *ch)
 		if (ret) {
 			list_del(&pdrv->node);
 			kfree(pdrv);
+			mutex_lock(&ch->ch_probe_lock);
 			ch->wait_for_probe = false;
+			mutex_unlock(&ch->ch_probe_lock);
 		}
 	} else {
 		if (ch->had_probed)
 			data_ch_probe_body(ch);
-
+		mutex_unlock(&ch->ch_probe_lock);
 		/*
 		 * channel_probe might have seen the device we want, but
 		 * returned EPROBE_DEFER so we need to kick the deferred list
@@ -1175,6 +1190,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		}
 		strlcpy(ch->name, name, GLINK_NAME_SIZE);
 		ch->edge = einfo;
+		mutex_init(&ch->ch_probe_lock);
 		INIT_LIST_HEAD(&ch->intents);
 		INIT_LIST_HEAD(&ch->used_intents);
 		spin_lock_init(&ch->intents_lock);
@@ -1450,14 +1466,16 @@ static int ssr(struct glink_transport_if *if_ptr)
 
 	spin_lock_irqsave(&einfo->channels_lock, flags);
 	list_for_each_entry(ch, &einfo->channels, node) {
-		if (!ch->smd_ch)
-			continue;
 		spin_unlock_irqrestore(&einfo->channels_lock, flags);
 		ch->is_closing = true;
-		ch->wait_for_probe = false;
 		flush_workqueue(ch->wq);
-		smd_close(ch->smd_ch);
-		ch->smd_ch = NULL;
+		mutex_lock(&ch->ch_probe_lock);
+		ch->wait_for_probe = false;
+		if (ch->smd_ch) {
+			smd_close(ch->smd_ch);
+			ch->smd_ch = NULL;
+		}
+		mutex_unlock(&ch->ch_probe_lock);
 		ch->local_legacy = false;
 		ch->remote_legacy = false;
 		ch->rcid = 0;
