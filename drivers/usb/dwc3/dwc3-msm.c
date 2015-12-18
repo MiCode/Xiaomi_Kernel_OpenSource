@@ -222,6 +222,8 @@ struct dwc3_msm {
 	bool			in_host_mode;
 	unsigned int		voltage_max;
 	unsigned int		current_max;
+	unsigned int		bc1p2_current_max;
+	unsigned int		typec_current_max;
 	unsigned int		health_status;
 	unsigned int		tx_fifo_size;
 	bool			vbus_active;
@@ -2326,6 +2328,9 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		val->intval = mdwc->current_max;
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+		val->intval = mdwc->typec_current_max;
+		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = mdwc->vbus_active;
 		break;
@@ -2411,6 +2416,16 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		mdwc->current_max = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+		mdwc->typec_current_max = val->intval;
+
+		dbg_event(0xFF, "TYPE C CURMAX)", val->intval);
+		/* Update chg_current as per type-c charger detection on VBUS */
+		if (mdwc->chg_type != DWC3_INVALID_CHARGER) {
+			dev_dbg(mdwc->dev, "update type-c charger\n");
+			dwc3_msm_gadget_vbus_draw(mdwc,
+						mdwc->bc1p2_current_max);
+		}
 	case POWER_SUPPLY_PROP_TYPE:
 		psy->type = val->intval;
 
@@ -2486,6 +2501,8 @@ dwc3_msm_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_USB_OTG:
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_TYPE:
 		return 1;
 	default:
 		break;
@@ -2505,6 +2522,7 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_USB_OTG,
@@ -3333,6 +3351,9 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 		goto skip_psy_type;
 	}
 
+	dev_dbg(mdwc->dev, "Requested curr from USB = %u, max-type-c:%u\n",
+					mA, mdwc->typec_current_max);
+
 	if (mdwc->chg_type == DWC3_SDP_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB;
 	else if (mdwc->chg_type == DWC3_CDP_CHARGER)
@@ -3349,6 +3370,13 @@ skip_psy_type:
 
 	if (mdwc->chg_type == DWC3_CDP_CHARGER)
 		mA = DWC3_IDEV_CHG_MAX;
+
+	/* Save bc1.2 max_curr if type-c charger later moves to diff mode */
+	mdwc->bc1p2_current_max = mA;
+
+	/* Override mA if type-c charger used (use hvdcp/bc1.2 if it is 500) */
+	if (mdwc->typec_current_max > 500 && mA < mdwc->typec_current_max)
+		mA = mdwc->typec_current_max;
 
 	if (mdwc->max_power == mA)
 		return 0;
