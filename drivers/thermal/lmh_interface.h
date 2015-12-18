@@ -15,7 +15,6 @@
 #define __LMH_INTERFACE_H
 
 #define LMH_NAME_MAX			20
-#define LMH_POLLING_MSEC		30
 #define LMH_READ_LINE_LENGTH		10
 
 enum lmh_trip_type {
@@ -51,7 +50,6 @@ struct lmh_debug_ops {
 	int (*debug_get_types)(struct lmh_debug_ops *, bool, uint32_t **);
 };
 
-static int lmh_poll_interval = LMH_POLLING_MSEC;
 #ifdef CONFIG_LIMITS_MONITOR
 int lmh_get_all_dev_levels(char *, int *);
 int lmh_set_dev_level(char *, int);
@@ -62,6 +60,7 @@ int lmh_device_register(char *, struct lmh_device_ops *);
 void lmh_device_deregister(struct lmh_device_ops *);
 int lmh_debug_register(struct lmh_debug_ops *);
 void lmh_debug_deregister(struct lmh_debug_ops *ops);
+int lmh_get_poll_interval(void);
 #else
 static inline int lmh_get_all_dev_levels(char *device_name, int *level)
 {
@@ -107,6 +106,11 @@ static inline int lmh_debug_register(struct lmh_debug_ops *)
 
 static inline void lmh_debug_deregister(struct lmh_debug_ops *ops)
 { }
+
+static inline int lmh_get_poll_interval(void)
+{
+	return -ENOSYS;
+}
 #endif
 
 #endif /*__LMH_INTERFACE_H*/
