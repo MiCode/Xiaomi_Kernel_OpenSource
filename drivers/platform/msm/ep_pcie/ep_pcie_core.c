@@ -53,7 +53,8 @@ static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
 static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
 	{"perst-gpio",      0, 0, 0, 1},
 	{"wake-gpio",       0, 1, 0, 1},
-	{"clkreq-gpio",     0, 1, 0, 0}
+	{"clkreq-gpio",     0, 1, 0, 0},
+	{"mdm2apstatus-gpio",    0, 1, 1, 0}
 };
 
 static struct ep_pcie_clk_info_t
@@ -775,7 +776,9 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 			EP_PCIE_DBG(dev, "GPIO num for %s is %d\n",
 				gpio_info->name, gpio_info->num);
 		} else {
-			goto out;
+			EP_PCIE_DBG(dev,
+				"GPIO %s is not supported in this configuration.\n",
+				gpio_info->name);
 		}
 	}
 
@@ -1135,6 +1138,24 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			"PCIe V%d: PCIe link is up and BME is enabled after %d checkings (%d ms).\n",
 			dev->rev, retries,
 			BME_TIMEOUT_US_MIN * retries / 1000);
+
+		if (dev->gpio[EP_PCIE_GPIO_MDM2AP].num) {
+			/* assert MDM2AP Status GPIO */
+			EP_PCIE_DBG2(dev, "PCIe V%d: assert MDM2AP Status .\n",
+				dev->rev);
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: MDM2APStatus GPIO initial:%d.\n",
+				dev->rev,
+				gpio_get_value(
+					dev->gpio[EP_PCIE_GPIO_MDM2AP].num));
+			gpio_set_value(dev->gpio[EP_PCIE_GPIO_MDM2AP].num,
+					dev->gpio[EP_PCIE_GPIO_MDM2AP].on);
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: MDM2APStatus GPIO after assertion:%d.\n",
+				dev->rev,
+				gpio_get_value(
+					dev->gpio[EP_PCIE_GPIO_MDM2AP].num));
+		}
 	} else {
 		EP_PCIE_ERR(dev,
 			"PCIe V%d: PCIe link is up but BME is still disabled after max waiting time.\n",
