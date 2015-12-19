@@ -452,11 +452,12 @@
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default
-				&pcie0_wake_default>;
+			&pcie0_wake_default &pcie0_mdm2apstatus_default>;
 
 		perst-gpio = <&tlmm_pinmux 65 0>;
 		wake-gpio = <&tlmm_pinmux 61 0>;
 		clkreq-gpio = <&tlmm_pinmux 64 0>;
+		mdm2apstatus-gpio = <&tlmm_pinmux 16 0>;
 
 		gdsc-vdd-supply = <&gdsc_pcie>;
 		vreg-1.8-supply = <&pmdcalifornium_l5>;
