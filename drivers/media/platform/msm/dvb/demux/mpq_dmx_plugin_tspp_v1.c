@@ -457,8 +457,17 @@ static int mpq_dmx_tspp_thread(void *arg)
 			 * Go through all filled descriptors
 			 * and perform demuxing on them
 			 */
-			while ((tspp_data_desc = tspp_get_buffer(0, channel_id))
-					!= NULL) {
+			do {
+				if (atomic_read(&mpq_dmx_tspp_info.tsif[tsif].
+						control_op)) {
+					/* restore for next iteration */
+					atomic_inc(data_cnt);
+					break;
+				}
+				tspp_data_desc = tspp_get_buffer(0, channel_id);
+				if (!tspp_data_desc)
+					break;
+
 				notif_size = tspp_data_desc->size /
 					TSPP_RAW_TTS_SIZE;
 				mpq_demux->hw_notification_size += notif_size;
@@ -471,7 +480,7 @@ static int mpq_dmx_tspp_thread(void *arg)
 				 */
 				tspp_release_buffer(0, channel_id,
 					tspp_data_desc->id);
-			}
+			} while (1);
 		}
 
 		if (mpq_demux->hw_notification_size &&
