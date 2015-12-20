@@ -744,6 +744,7 @@ int mmc_suspend_clk_scaling(struct mmc_host *host)
 	}
 
 	atomic_inc(&host->clk_scaling.devfreq_abort);
+	wake_up(&host->wq);
 	err = devfreq_suspend_device(host->clk_scaling.devfreq);
 	if (err) {
 		pr_err("%s: %s: failed to suspend devfreq\n",
