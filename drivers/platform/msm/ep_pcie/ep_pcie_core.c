@@ -457,7 +457,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 
 	/* enable debug IRQ */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_DEBUG_INT_EN,
-			0, BIT(3) | BIT(1));
+			0, BIT(3) | BIT(2) | BIT(1));
 
 	/* Configure PCIe to endpoint mode */
 	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
@@ -557,6 +557,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 
 	/* Configure BARs */
 	ep_pcie_bar_init(dev);
+
+	ep_pcie_write_reg(dev->mmio, PCIE20_MHICFG, 0x02800880);
+	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
 
 	/* Configure IRQ events */
 	if (dev->aggregated_irq) {
@@ -1789,8 +1792,13 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg)
 					msi->start, 0, msi->end,
 					lower, upper);
 
-		cfg->lower = msi->start + (lower & 0xfff);
-		cfg->upper = 0;
+		if (ep_pcie_dev.active_config) {
+			cfg->lower = lower;
+			cfg->upper = upper;
+		} else {
+			cfg->lower = msi->start + (lower & 0xfff);
+			cfg->upper = 0;
+		}
 		cfg->data = data;
 		cfg->msg_num = (cap >> 20) & 0x7;
 		if ((lower != ep_pcie_dev.msi_cfg.lower)
