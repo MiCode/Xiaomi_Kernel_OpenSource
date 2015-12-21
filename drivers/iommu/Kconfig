@@ -58,6 +58,21 @@ config IOMMU_IO_PGTABLE_FAST_SELFTEST
 
 	  If unsure, say N here.
 
+config IOMMU_IO_PGTABLE_FAST_PROVE_TLB
+	bool "Prove correctness of TLB maintenance in the Fast DMA mapper"
+	depends on IOMMU_IO_PGTABLE_FAST
+	help
+          Enables some debug features that help prove correctness of TLB
+          maintenance routines in the Fast DMA mapper.  This option will
+          slow things down considerably, so should only be used in a debug
+          configuration.  This relies on the ability to set bits in an
+          invalid page table entry, which is disallowed on some hardware
+          due to errata.  If you're running on such a platform then this
+          option can only be used with unit tests.  It will break real use
+          cases.
+
+	  If unsure, say N here.
+
 endmenu
 
 config OF_IOMMU

@@ -139,6 +139,54 @@ struct av8l_fast_io_pgtable {
 #define AV8L_FAST_PAGE_SHIFT		12
 
 
+#ifdef CONFIG_IOMMU_IO_PGTABLE_FAST_PROVE_TLB
+
+#include <asm/cacheflush.h>
+#include <linux/notifier.h>
+
+static ATOMIC_NOTIFIER_HEAD(av8l_notifier_list);
+
+void av8l_register_notify(struct notifier_block *nb)
+{
+	atomic_notifier_chain_register(&av8l_notifier_list, nb);
+}
+EXPORT_SYMBOL(av8l_register_notify);
+
+static void __av8l_check_for_stale_tlb(av8l_fast_iopte *ptep)
+{
+	if (unlikely(*ptep)) {
+		atomic_notifier_call_chain(
+			&av8l_notifier_list, MAPPED_OVER_STALE_TLB,
+			(void *) ptep);
+		pr_err("Tried to map over a non-vacant pte: 0x%llx @ %p\n",
+		       *ptep, ptep);
+		pr_err("Nearby memory:\n");
+		print_hex_dump(KERN_ERR, "pgtbl: ", DUMP_PREFIX_ADDRESS,
+			       32, 8, ptep - 16, 32 * sizeof(*ptep), false);
+		BUG();
+	}
+}
+
+void av8l_fast_clear_stale_ptes(av8l_fast_iopte *pmds, bool skip_sync)
+{
+	int i;
+	av8l_fast_iopte *pmdp = pmds;
+
+	for (i = 0; i < ((SZ_1G * 4UL) >> AV8L_FAST_PAGE_SHIFT); ++i) {
+		if (!(*pmdp & AV8L_FAST_PTE_VALID)) {
+			*pmdp = 0;
+			if (!skip_sync)
+				dmac_clean_range(pmdp, pmdp + 1);
+		}
+		pmdp++;
+	}
+}
+#else
+static void __av8l_check_for_stale_tlb(av8l_fast_iopte *ptep)
+{
+}
+#endif
+
 /* caller must take care of cache maintenance on *ptep */
 int av8l_fast_map_public(av8l_fast_iopte *ptep, phys_addr_t paddr, size_t size,
 			 int prot)
@@ -163,8 +211,10 @@ int av8l_fast_map_public(av8l_fast_iopte *ptep, phys_addr_t paddr, size_t size,
 		pte |= AV8L_FAST_PTE_AP_RW;
 
 	paddr &= AV8L_FAST_PTE_ADDR_MASK;
-	for (i = 0; i < nptes; i++, paddr += SZ_4K)
+	for (i = 0; i < nptes; i++, paddr += SZ_4K) {
+		__av8l_check_for_stale_tlb(ptep + i);
 		*(ptep + i) = pte | paddr;
+	}
 
 	return 0;
 }
@@ -184,12 +234,21 @@ static int av8l_fast_map(struct io_pgtable_ops *ops, unsigned long iova,
 	return 0;
 }
 
+static void __av8l_fast_unmap(av8l_fast_iopte *ptep, size_t size,
+			      bool need_stale_tlb_tracking)
+{
+	unsigned long nptes = size >> AV8L_FAST_PAGE_SHIFT;
+	int val = need_stale_tlb_tracking
+		? AV8L_FAST_PTE_UNMAPPED_NEED_TLBI
+		: 0;
+
+	memset(ptep, val, sizeof(*ptep) * nptes);
+}
+
 /* caller must take care of cache maintenance on *ptep */
 void av8l_fast_unmap_public(av8l_fast_iopte *ptep, size_t size)
 {
-	unsigned long nptes = size >> AV8L_FAST_PAGE_SHIFT;
-
-	memset(ptep, 0, sizeof(*ptep) * nptes);
+	__av8l_fast_unmap(ptep, size, true);
 }
 
 /* upper layer must take care of TLB invalidation */
@@ -200,7 +259,7 @@ static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, iova);
 	unsigned long nptes = size >> AV8L_FAST_PAGE_SHIFT;
 
-	av8l_fast_unmap_public(ptep, size);
+	__av8l_fast_unmap(ptep, size, false);
 
 	data->iop.cfg.tlb->flush_pgtable(
 		ptep, sizeof(*ptep) * nptes,
@@ -548,6 +607,9 @@ static int __init av8l_fast_positive_testing(void)
 			failed++;
 	}
 
+	/* sweep up TLB proving PTEs */
+	av8l_fast_clear_stale_ptes(pmds, false);
+
 	/* map the entire 4GB VA space with 8K map calls */
 	for (iova = 0; iova < SZ_1G * 4UL; iova += SZ_8K) {
 		if (WARN_ON(ops->map(ops, iova, iova, SZ_8K, IOMMU_READ))) {
@@ -566,6 +628,9 @@ static int __init av8l_fast_positive_testing(void)
 			failed++;
 	}
 
+	/* sweep up TLB proving PTEs */
+	av8l_fast_clear_stale_ptes(pmds, false);
+
 	/* map the entire 4GB VA space with 16K map calls */
 	for (iova = 0; iova < SZ_1G * 4UL; iova += SZ_16K) {
 		if (WARN_ON(ops->map(ops, iova, iova, SZ_16K, IOMMU_READ))) {
@@ -583,6 +648,9 @@ static int __init av8l_fast_positive_testing(void)
 		if (WARN_ON(ops->unmap(ops, iova, SZ_16K) != SZ_16K))
 			failed++;
 	}
+
+	/* sweep up TLB proving PTEs */
+	av8l_fast_clear_stale_ptes(pmds, false);
 
 	/* map the entire 4GB VA space with 64K map calls */
 	for (iova = 0; iova < SZ_1G * 4UL; iova += SZ_64K) {

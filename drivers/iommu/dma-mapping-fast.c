@@ -79,6 +79,7 @@ static bool __bit_covered_stale(unsigned long upcoming_stale,
 }
 
 static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
+					 struct dma_attrs *attrs,
 					 size_t size)
 {
 	unsigned long bit, prev_search_start, nbits = size >> FAST_PAGE_SHIFT;
@@ -113,8 +114,11 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 	    __bit_covered_stale(mapping->upcoming_stale_bit,
 				prev_search_start,
 				bit + nbits - 1)) {
+		bool skip_sync = dma_get_attr(DMA_ATTR_SKIP_CPU_SYNC, attrs);
+
 		iommu_tlbiall(mapping->domain);
 		mapping->have_stale_tlbs = false;
+		av8l_fast_clear_stale_ptes(mapping->pgtbl_pmds, skip_sync);
 	}
 
 	return (bit << FAST_PAGE_SHIFT) + mapping->base;
@@ -286,7 +290,7 @@ static dma_addr_t fast_smmu_map_page(struct device *dev, struct page *page,
 
 	spin_lock_irqsave(&mapping->lock, flags);
 
-	iova = __fast_smmu_alloc_iova(mapping, len);
+	iova = __fast_smmu_alloc_iova(mapping, attrs, len);
 
 	if (unlikely(iova == DMA_ERROR_CODE))
 		goto fail;
@@ -426,7 +430,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	}
 
 	spin_lock_irqsave(&mapping->lock, flags);
-	dma_addr = __fast_smmu_alloc_iova(mapping, size);
+	dma_addr = __fast_smmu_alloc_iova(mapping, attrs, size);
 	if (dma_addr == DMA_ERROR_CODE) {
 		dev_err(dev, "no iova\n");
 		spin_unlock_irqrestore(&mapping->lock, flags);
@@ -516,6 +520,39 @@ static int fast_smmu_mapping_error(struct device *dev,
 				   dma_addr_t dma_addr)
 {
 	return dma_addr == DMA_ERROR_CODE;
+}
+
+static void __fast_smmu_mapped_over_stale(struct dma_fast_smmu_mapping *fast,
+					  void *data)
+{
+	av8l_fast_iopte *ptep = data;
+	dma_addr_t iova;
+	unsigned long bitmap_idx;
+
+	bitmap_idx = (unsigned long)(ptep - fast->pgtbl_pmds);
+	iova = bitmap_idx << FAST_PAGE_SHIFT;
+	dev_err(fast->dev, "Mapped over stale tlb at %pa\n", &iova);
+	dev_err(fast->dev, "bitmap (failure at idx %lu):\n", bitmap_idx);
+	dev_err(fast->dev, "ptep: %p pmds: %p diff: %lu\n", ptep,
+		fast->pgtbl_pmds, ptep - fast->pgtbl_pmds);
+	print_hex_dump(KERN_ERR, "bmap: ", DUMP_PREFIX_ADDRESS,
+		       32, 8, fast->bitmap, fast->bitmap_size, false);
+}
+
+static int fast_smmu_notify(struct notifier_block *self,
+			    unsigned long action, void *data)
+{
+	struct dma_fast_smmu_mapping *fast = container_of(
+		self, struct dma_fast_smmu_mapping, notifier);
+
+	switch (action) {
+	case MAPPED_OVER_STALE_TLB:
+		__fast_smmu_mapped_over_stale(fast, data);
+		return NOTIFY_OK;
+	default:
+		WARN(1, "Unhandled notifier action");
+		return NOTIFY_DONE;
+	}
 }
 
 static const struct dma_map_ops fast_smmu_dma_ops = {
@@ -618,6 +655,9 @@ int fast_smmu_attach_device(struct device *dev,
 		return -EINVAL;
 	}
 	mapping->fast->pgtbl_pmds = info.pmds;
+
+	mapping->fast->notifier.notifier_call = fast_smmu_notify;
+	av8l_register_notify(&mapping->fast->notifier);
 
 	dev->archdata.mapping = mapping;
 	set_dma_ops(dev, &fast_smmu_dma_ops);
