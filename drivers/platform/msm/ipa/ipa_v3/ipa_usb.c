@@ -127,7 +127,6 @@ struct ipa3_usb_context {
 	struct ipa3_usb_teth_prot_context
 		teth_prot_ctx[IPA_USB_MAX_TETH_PROT_SIZE];
 	int num_init_prot; /* without dpl */
-	enum ipa3_usb_teth_prot_state teth_bridge_state;
 	struct teth_bridge_init_params teth_bridge_params;
 	struct completion dev_ready_comp;
 	u32 qmi_req_id;
@@ -435,7 +434,6 @@ int ipa3_usb_init(void)
 		ipa3_usb_ctx->teth_prot_ctx[i].state =
 			IPA_USB_TETH_PROT_INVALID;
 	ipa3_usb_ctx->num_init_prot = 0;
-	ipa3_usb_ctx->teth_bridge_state = IPA_USB_TETH_PROT_INVALID;
 	init_completion(&ipa3_usb_ctx->dev_ready_comp);
 	ipa3_usb_ctx->qmi_req_id = 0;
 	spin_lock_init(&ipa3_usb_ctx->state_lock);
@@ -776,15 +774,11 @@ static int ipa3_usb_init_teth_bridge(void)
 {
 	int result;
 
-	if (ipa3_usb_ctx->teth_bridge_state != IPA_USB_TETH_PROT_INVALID)
-		return 0;
-
 	result = teth_bridge_init(&ipa3_usb_ctx->teth_bridge_params);
 	if (result) {
 		IPA_USB_ERR("Failed to initialize teth_bridge.\n");
 		return result;
 	}
-	ipa3_usb_ctx->teth_bridge_state = IPA_USB_TETH_PROT_INITIALIZED;
 
 	return 0;
 }
@@ -1375,9 +1369,6 @@ static int ipa3_usb_connect_teth_bridge(
 {
 	int result;
 
-	if (ipa3_usb_ctx->teth_bridge_state != IPA_USB_TETH_PROT_INITIALIZED)
-		return 0;
-
 	result = teth_bridge_connect(params);
 	if (result) {
 		IPA_USB_ERR("failed to connect teth_bridge (%s)\n",
@@ -1385,7 +1376,6 @@ static int ipa3_usb_connect_teth_bridge(
 			"rmnet" : "mbim");
 		return result;
 	}
-	ipa3_usb_ctx->teth_bridge_state = IPA_USB_TETH_PROT_CONNECTED;
 
 	return 0;
 }
@@ -1394,19 +1384,29 @@ static int ipa3_usb_connect_dpl(void)
 {
 	int res = 0;
 
-	/* Add DPL dependency to RM dependency graph */
+	/*
+	 * Add DPL dependency to RM dependency graph, first add_dependency call
+	 * is sync in order to make sure the IPA clocks are up before we
+	 * continue and notify the USB driver it may continue.
+	 */
+	res = ipa3_rm_add_dependency_sync(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
+				    IPA_RM_RESOURCE_Q6_CONS);
+	if (res < 0) {
+		IPA_USB_ERR("ipa3_rm_add_dependency_sync() failed.\n");
+		return res;
+	}
+
+	/*
+	 * this add_dependency call can't be sync since it will block until DPL
+	 * status is connected (which can happen only later in the flow),
+	 * the clocks are already up so the call doesn't need to block.
+	 */
 	res = ipa3_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
 				    IPA_RM_RESOURCE_USB_DPL_CONS);
 	if (res < 0 && res != -EINPROGRESS) {
 		IPA_USB_ERR("ipa3_rm_add_dependency() failed.\n");
-		return res;
-	}
-	res = ipa3_rm_add_dependency(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
-				    IPA_RM_RESOURCE_Q6_CONS);
-	if (res < 0 && res != -EINPROGRESS) {
-		IPA_USB_ERR("ipa3_rm_add_dependency() failed.\n");
-		ipa3_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
-			IPA_RM_RESOURCE_USB_DPL_CONS);
+		ipa3_rm_delete_dependency(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
+				IPA_RM_RESOURCE_Q6_CONS);
 		return res;
 	}
 
@@ -1557,15 +1557,11 @@ static int ipa3_usb_disconnect_teth_bridge(void)
 {
 	int result;
 
-	if (ipa3_usb_ctx->teth_bridge_state != IPA_USB_TETH_PROT_CONNECTED)
-		return 0;
-
 	result = teth_bridge_disconnect(IPA_CLIENT_USB_PROD);
 	if (result) {
 		IPA_USB_ERR("failed to disconnect teth_bridge.\n");
 		return result;
 	}
-	ipa3_usb_ctx->teth_bridge_state = IPA_USB_TETH_PROT_INVALID;
 
 	return 0;
 }
@@ -2061,9 +2057,6 @@ int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 			result = -EINVAL;
 			goto bad_params;
 		}
-		result = ipa3_usb_disconnect_teth_bridge();
-		if (result)
-			goto bad_params;
 
 		ipa3_usb_ctx->teth_prot_ctx[teth_prot].user_data =
 			NULL;
