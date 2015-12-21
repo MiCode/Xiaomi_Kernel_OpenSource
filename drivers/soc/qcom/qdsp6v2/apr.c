@@ -325,6 +325,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	int temp_port = 0;
 	struct apr_svc *svc = NULL;
 	int rc = 0;
+	bool can_open_channel = true;
 
 	if (!dest || !svc_name || !svc_fn)
 		return NULL;
@@ -332,9 +333,11 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	if (!strcmp(dest, "ADSP"))
 		domain_id = APR_DOMAIN_ADSP;
 	else if (!strcmp(dest, "MODEM")) {
-		/* Register voice services if destination permits */
-		if (!apr_register_voice_svc())
-			goto done;
+		/* Don't request for SMD channels if destination is MODEM,
+		 * as these channels are no longer used and these clients
+		 * are to listen only for MODEM SSR events
+		 */
+		can_open_channel = false;
 		domain_id = APR_DOMAIN_MODEM;
 	} else {
 		pr_err("APR: wrong destination\n");
@@ -373,7 +376,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 
 	clnt = &client[dest_id][client_id];
 	mutex_lock(&clnt->m_lock);
-	if (!clnt->handle) {
+	if (!clnt->handle && can_open_channel) {
 		clnt->handle = apr_tal_open(client_id, dest_id,
 				APR_DL_SMD, apr_cb_func, NULL);
 		if (!clnt->handle) {
