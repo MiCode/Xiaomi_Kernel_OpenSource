@@ -523,6 +523,8 @@ static bool glink_core_remote_close_common(struct channel_ctx *ctx)
 			"Did not send GLINK_REMOTE_DISCONNECTED",
 			"local state is already CLOSED");
 
+	ctx->int_req_ack = false;
+	complete_all(&ctx->int_req_ack_complete);
 	complete_all(&ctx->int_req_complete);
 	ch_purge_intent_lists(ctx);
 
@@ -2559,6 +2561,8 @@ int glink_close(void *handle)
 	ctx->local_open_state = GLINK_CHANNEL_CLOSING;
 
 	ctx->pending_delete = true;
+	ctx->int_req_ack = false;
+	complete_all(&ctx->int_req_ack_complete);
 	complete_all(&ctx->int_req_complete);
 
 	spin_lock_irqsave(&ctx->transport_ptr->tx_ready_lock_lhb2, flags);
@@ -2719,6 +2723,15 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 				return -EAGAIN;
 			}
 
+			if (ctx->transport_ptr->local_state == GLINK_XPRT_DOWN
+			    || !ch_is_fully_opened(ctx)) {
+				GLINK_ERR_CH(ctx,
+					"%s: Channel closed while waiting for intent\n",
+					__func__);
+				rwref_put(&ctx->ch_state_lhc0);
+				return -EBUSY;
+			}
+
 			/* wait for the remote intent req ack */
 			if (!wait_for_completion_timeout(
 					&ctx->int_req_ack_complete,
@@ -2751,13 +2764,6 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			}
 
 			reinit_completion(&ctx->int_req_complete);
-			if (!ch_is_fully_opened(ctx)) {
-				GLINK_ERR_CH(ctx,
-					"%s: Channel closed while waiting for intent\n",
-					__func__);
-				rwref_put(&ctx->ch_state_lhc0);
-				return -EBUSY;
-			}
 		}
 	}
 
