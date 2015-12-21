@@ -577,8 +577,7 @@ static inline void pr_cont_cgroup_path(struct cgroup *cgrp)
  * running as root.
  * Returns 0 if this is allowed, or -EACCES otherwise.
  */
-int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css,
-			       struct cgroup_taskset *tset);
+int subsys_cgroup_allow_attach(struct cgroup_taskset *tset);
 
 
 #else /* !CONFIG_CGROUPS */
@@ -606,9 +605,9 @@ static inline bool task_under_cgroup_hierarchy(struct task_struct *task,
 					       struct cgroup *ancestor)
 {
 	return true;
+}
 
-static inline int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css,
-					     void *tset)
+static inline int subsys_cgroup_allow_attach(void *tset)
 {
 	return -EINVAL;
 }
