@@ -1011,7 +1011,6 @@
 		reg = <0x7a24900 0x11c>, <0x7a24000 0x800>;
 		reg-names = "hc_mem", "core_mem";
 
-		qcom,cpu-dma-latency-us = <701>;
 		qcom,bus-width = <4>;
 		gpios = <&msm_gpio 44 0>, /* CLK */
 			<&msm_gpio 43 0>, /* CMD */
@@ -1023,12 +1022,16 @@
 
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
+		qcom,cpu-dma-latency-us = <60>;
+		qcom,cpu-affinity = "affine_cores";
+		qcom,cpu-affinity-mask = <0x0f>;
 
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_sdcc3_ahb_clk>,
 			<&clock_gcc clk_gcc_sdcc3_apps_clk>;
 
 		qcom,core_3_0v_support;
+		qcom,nonremovable;
 		qcom,msm-bus,name = "sdhc3";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
