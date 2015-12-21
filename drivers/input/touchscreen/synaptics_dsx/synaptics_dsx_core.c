@@ -3132,8 +3132,10 @@ static int synaptics_dsx_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 					bool on)
 {
 	int retval = 0;
+	struct synaptics_rmi4_device_info *rmi;
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
+	rmi = &(rmi4_data->rmi4_mod_info);
 
 	if (on) {
 		if (gpio_is_valid(bdata->irq_gpio)) {
@@ -3194,12 +3196,22 @@ static int synaptics_dsx_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 				 * fails, only leakage current will be more but
 				 * functionality will not be affected.
 				 */
-				retval = gpio_direction_input(
-							bdata->reset_gpio);
-				if (retval) {
-					dev_err(rmi4_data->pdev->dev.parent,
-					"unable to set direction for gpio "
-					"[%d]\n", bdata->irq_gpio);
+				if (rmi->package_id ==
+						SYNA_S332U_PACKAGE_ID &&
+					rmi->package_id_rev ==
+						SYNA_S332U_PACKAGE_ID_REV) {
+					gpio_set_value(bdata->
+						reset_gpio,
+						0);
+				} else {
+					retval = gpio_direction_input(
+						bdata->reset_gpio);
+					if (retval) {
+						dev_err(rmi4_data->pdev->
+						dev.parent,
+						"unable to set direction for gpio [%d]\n",
+						bdata->irq_gpio);
+					}
 				}
 				gpio_free(bdata->reset_gpio);
 			}
