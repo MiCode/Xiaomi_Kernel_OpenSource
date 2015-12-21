@@ -1853,32 +1853,39 @@ int ep_pcie_core_trigger_msi(u32 idx)
 			ep_pcie_dev.rev, ep_pcie_dev.msi_counter,
 			data + idx, idx,
 			ep_pcie_dev.active_config ? "" : "not");
+
 		if (ep_pcie_dev.active_config) {
 			u32 status;
 
-			ep_pcie_write_reg(ep_pcie_dev.dm_core,
-				PCIE20_MSI_MASK, idx);
-			status = readl_relaxed(ep_pcie_dev.parf +
-					PCIE20_PARF_LTR_MSI_EXIT_L1SS);
-			while ((status & BIT(1)) && (max_poll-- > 0)) {
-				udelay(MSI_EXIT_L1SS_WAIT);
+			if (ep_pcie_dev.msi_counter % 2) {
+				EP_PCIE_DBG2(&ep_pcie_dev,
+					"PCIe V%d: try to trigger MSI by PARF_MSI_GEN.\n",
+					ep_pcie_dev.rev);
+				ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MSI_GEN, idx);
 				status = readl_relaxed(ep_pcie_dev.parf +
 					PCIE20_PARF_LTR_MSI_EXIT_L1SS);
+				while ((status & BIT(1)) && (max_poll-- > 0)) {
+					udelay(MSI_EXIT_L1SS_WAIT);
+					status = readl_relaxed(ep_pcie_dev.parf
+						+
+						PCIE20_PARF_LTR_MSI_EXIT_L1SS);
+				}
+				if (max_poll == 0)
+					EP_PCIE_DBG2(&ep_pcie_dev,
+						"PCIe V%d: MSI_EXIT_L1SS is not cleared yet.\n",
+						ep_pcie_dev.rev);
+				else
+					EP_PCIE_DBG2(&ep_pcie_dev,
+						"PCIe V%d: MSI_EXIT_L1SS has been cleared.\n",
+						ep_pcie_dev.rev);
+			} else {
+				EP_PCIE_DBG2(&ep_pcie_dev,
+						"PCIe V%d: try to trigger MSI by direct address write as well.\n",
+						ep_pcie_dev.rev);
+				ep_pcie_write_reg(ep_pcie_dev.msi, addr & 0xfff,
+							data + idx);
 			}
-			if (max_poll == 0)
-				EP_PCIE_DBG2(&ep_pcie_dev,
-					"PCIe V%d: MSI_EXIT_L1SS is not cleared yet.\n",
-					ep_pcie_dev.rev);
-			else
-				EP_PCIE_DBG2(&ep_pcie_dev,
-					"PCIe V%d: MSI_EXIT_L1SS has been cleared.\n",
-					ep_pcie_dev.rev);
-
-			EP_PCIE_DBG2(&ep_pcie_dev,
-					"PCIe V%d: try to trigger MSI by direct address write as well.\n",
-					ep_pcie_dev.rev);
-			ep_pcie_write_reg(ep_pcie_dev.msi, addr & 0xfff, data
-						+ idx);
 		} else {
 			ep_pcie_write_reg(ep_pcie_dev.msi, addr & 0xfff, data
 						+ idx);
