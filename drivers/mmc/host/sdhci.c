@@ -1617,16 +1617,6 @@ EXPORT_SYMBOL_GPL(sdhci_set_power_noreg);
 void sdhci_set_power(struct sdhci_host *host, unsigned char mode,
 		     unsigned short vdd)
 {
-	/*
-	 * Don't disable/re-enable power to the card when running a
-	 * suspend/resume sequence and the pm_flags are configured to preserve
-	 * card power during suspend.
-	 */
-	if (mmc_card_keep_power(host->mmc) &&
-	    ((host->mmc->dev_status == DEV_SUSPENDED && mode == MMC_POWER_UP) ||
-	     (host->mmc->dev_status == DEV_SUSPENDING && mode == MMC_POWER_OFF)))
-		return;
-
 	if (IS_ERR(host->mmc->supply.vmmc))
 		sdhci_set_power_noreg(host, mode, vdd);
 	else
@@ -2679,14 +2669,6 @@ static void sdhci_card_event(struct mmc_host *mmc)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
-static void sdhci_detect(struct mmc_host *mmc, bool detected)
-{
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (host->ops->detect)
-		host->ops->detect(host, detected);
-}
-
 static int sdhci_late_init(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -2729,7 +2711,6 @@ static const struct mmc_host_ops sdhci_ops = {
 	.disable	= sdhci_disable,
 	.notify_load	= sdhci_notify_load,
 	.notify_halt	= sdhci_notify_halt,
-	.detect		= sdhci_detect,
 	.force_err_irq	= sdhci_force_err_irq,
 };
 
