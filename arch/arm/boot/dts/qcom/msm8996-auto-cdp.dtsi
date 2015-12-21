@@ -423,6 +423,15 @@
 		qcom,invert = <0>;
 		status = "okay";
 	};
+
+	mpp@a500 { /* MPP 6 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
 };
 
 &soc {
@@ -867,4 +876,29 @@
 
 &wsa881x_214 {
 	/delete-property/ qcom,spkr-sd-n-gpio;
+};
+
+&hl7509_en_vreg {
+	status = "ok";
+};
+
+&hl7509_vreg {
+	status = "ok";
+};
+
+&gfx_cpr {
+	vdd-supply = <&hl7509_vreg>;
+	qcom,cpr-step-quot-init-min = <20>;
+	qcom,cpr-step-quot-init-max = <26>;
+	qcom,voltage-step = <10000>;
+	/delete-property/ qcom,cpr-enable;
+};
+
+&gfx_vreg {
+	qcom,cpr-voltage-ceiling =
+		<600000  670000  670000  750000  830000
+		 910000  960000 1020000>;
+	qcom,cpr-voltage-floor =
+		<600000  600000  600000  600000  600000
+		 600000  600000  600000>;
 };
