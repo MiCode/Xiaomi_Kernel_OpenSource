@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
 &rpm_bus {
 	rpm-regulator-smpa1 {
 		status = "okay";
@@ -311,17 +313,101 @@
 			reg = <0x2000 0x100>;
 			regulator-name = "pmtitanium_s5";
 			regulator-min-microvolt = <400000>;
-			regulator-max-microvolt = <1350000>;
+			regulator-max-microvolt = <1140000>;
+
+			pmtitanium_s5_limit: avs-limit-regulator {
+				regulator-name = "pmtitanium_s5_avs_limit";
+				regulator-min-microvolt = <400000>;
+				regulator-max-microvolt = <1140000>;
+			};
 		};
 	};
 };
 
 &soc {
-	apc_vreg_corner: regulator-apc-corner {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "apc_corner";
+	apc_mem_acc_vreg: regulator@019461d4 {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x019461d4 0x4>, <0x019461d8 0x4>;
+		reg-names = "acc-sel-l1", "acc-sel-l2";
+		regulator-name = "apc_mem_acc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <3>;
+		regulator-max-microvolt = <2>;
+
+		qcom,corner-acc-map = <0x1 0x0>;
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <1>;
+		qcom,acc-sel-l2-bit-pos = <0>;
+		qcom,acc-sel-l2-bit-size = <1>;
+	};
+
+	apc_cpr: cpr4-ctrl@b018000 {
+		compatible = "qcom,cpr4-msmtitanium-apss-regulator";
+		reg = <0xb018000 0x4000>, <0xa4000 0x1000>;
+		reg-names = "cpr_ctrl", "fuse_base";
+		interrupts = <GIC_SPI 15 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 282 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "cpr", "ceiling";
+
+		qcom,cpr-ctrl-name = "apc";
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-step-quot-init-min = <13>;
+		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-down-error-step-limit = <1>;
+		qcom,cpr-up-error-step-limit = <1>;
+
+		qcom,apm-ctrl = <&apc_apm>;
+		qcom,apm-threshold-voltage = <850000>;
+		qcom,apm-hysteresis-voltage = <5000>;
+
+		vdd-supply = <&pmtitanium_s5>;
+		qcom,voltage-step = <5000>;
+		vdd-limit-supply = <&pmtitanium_s5_limit>;
+		mem-acc-supply = <&apc_mem_acc_vreg>;
+
+		thread@0 {
+			qcom,cpr-thread-id = <0>;
+			qcom,cpr-consecutive-up = <1>;
+			qcom,cpr-consecutive-down = <1>;
+			qcom,cpr-up-threshold = <1>;
+			qcom,cpr-down-threshold = <1>;
+
+			apc_vreg: regulator {
+				regulator-name = "apc_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <8>;
+
+				qcom,cpr-fuse-corners = <4>;
+				qcom,cpr-fuse-combos = <8>;
+				qcom,cpr-speed-bins = <1>;
+				qcom,cpr-speed-bin-corners = <8>;
+				qcom,cpr-corners = <8>;
+
+				qcom,cpr-corner-fmax-map = <1 2 4 8>;
+
+				qcom,cpr-voltage-ceiling =
+					<645000  720000 790000 865000 920000
+					 990000 1065000 1065000>;
+
+				qcom,cpr-voltage-floor =
+					<590000  625000  690000 755000 800000
+					 855000  920000  920000>;
+
+				qcom,mem-acc-voltage = <1 1 2 2 2 2 2 2>;
+
+				qcom,corner-frequencies =
+					<652800000 1036800000 1401600000
+					1689600000 1843200000 1958400000
+					2150400000 2208000000>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,allow-quotient-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+			};
+		};
 	};
 
 	/* GFX Supply */
