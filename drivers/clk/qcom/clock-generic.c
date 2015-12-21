@@ -880,8 +880,6 @@ static enum handoff mux_div_clk_handoff(struct clk *c)
 	unsigned int numer;
 
 	parent_rate = clk_get_rate(c->parent);
-	if (!parent_rate)
-		return HANDOFF_DISABLED_CLK;
 	/*
 	 * div values are doubled for half dividers.
 	 * Adjust for that by picking a numer of 2.
@@ -895,10 +893,20 @@ static enum handoff mux_div_clk_handoff(struct clk *c)
 		return HANDOFF_DISABLED_CLK;
 	}
 
-	if (!md->ops->is_enabled)
-		return HANDOFF_DISABLED_CLK;
-	if (md->ops->is_enabled(md))
-		return HANDOFF_ENABLED_CLK;
+	if (md->en_mask && md->ops && md->ops->is_enabled)
+		return md->ops->is_enabled(md)
+			? HANDOFF_ENABLED_CLK
+			: HANDOFF_DISABLED_CLK;
+
+	/*
+	 * If this function returns 'enabled' even when the clock downstream
+	 * of this clock is disabled, then handoff code will unnecessarily
+	 * enable the current parent of this clock. If this function always
+	 * returns 'disabled' and a clock downstream is on, the clock handoff
+	 * code will bump up the ref count for this clock and its current
+	 * parent as necessary. So, clocks without an actual HW gate can
+	 * always return disabled.
+	 */
 	return HANDOFF_DISABLED_CLK;
 }
 
