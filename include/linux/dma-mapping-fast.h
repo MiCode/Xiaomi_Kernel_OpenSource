@@ -33,6 +33,7 @@ struct dma_fast_smmu_mapping {
 	av8l_fast_iopte	*pgtbl_pmds;
 
 	spinlock_t	lock;
+	struct notifier_block notifier;
 };
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
