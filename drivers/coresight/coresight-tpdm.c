@@ -3409,6 +3409,9 @@ static int tpdm_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct coresight_desc *desc;
 
+	if (coresight_fuse_access_disabled())
+		return -EPERM;
+
 	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
@@ -3444,11 +3447,6 @@ static int tpdm_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
-
-	if (!coresight_authstatus_enabled(drvdata->base)) {
-		clk_disable_unprepare(drvdata->clk);
-		return -EPERM;
-	}
 
 	pidr = tpdm_readl(drvdata, CORESIGHT_PERIPHIDR0);
 	for (i = 0; i < TPDM_DATASETS; i++) {
