@@ -292,6 +292,7 @@
 	};
 
 	int_codec: sound {
+		status = "disabled";
 		compatible = "qcom,msm8952-audio-codec";
 		qcom,model = "msm8952-snd-card-mtp";
 		reg = <0xc051000 0x4>,
@@ -342,7 +343,6 @@
 				&cdc_pdm_lines_2_sus &cross_conn_det_act>;
 		pinctrl-3 = <&cdc_pdm_lines_act
 				&cdc_pdm_lines_2_act &cross_conn_det_act>;
-		qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>;
@@ -378,14 +378,12 @@
 				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
 				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
 				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
-		asoc-codec = <&stub_codec>, <&pm8937_cajon_dig>;
-		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 	};
 
 	ext_codec: sound-9335 {
+		status = "disabled";
 		compatible = "qcom,msm8952-audio-slim-codec";
 		qcom,model = "msm8952-tasha-snd-card";
-		status = "disabled";
 		reg = <0xc051000 0x4>,
 		    <0xc051004 0x4>,
 		    <0xc055000 0x4>,
@@ -434,7 +432,6 @@
 			"us_eu_gpio_act";
 		pinctrl-0 = <&cross_conn_det_sus>;
 		pinctrl-1 = <&cross_conn_det_act>;
-		qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
 
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -481,6 +478,7 @@
 
 	i2c@78b6000 {
 		wsa881x_i2c_e: wsa881x-i2c-codec@e {
+			status = "disabled";
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0e>;
 			qcom,msm-gpios = "wsa_clk",
@@ -512,10 +510,14 @@
 			pinctrl-7 = <&wsa_clk_on &wsa_reset_on &wsa_vi_on>;
 		};
 		wsa881x_i2c_44: wsa881x-i2c-codec@44 {
+			status = "disabled";
+
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x44>;
 		};
 		wsa881x_i2c_f: wsa881x-i2c-codec@f {
+			status = "disabled";
+
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0f>;
 			qcom,msm-gpios = "wsa_clk",
@@ -547,76 +549,67 @@
 			pinctrl-7 = <&wsa_clk_on &wsa_reset_on &wsa_vi_on>;
 		};
 		wsa881x_i2c_45: wsa881x-i2c-codec@45 {
+			status = "disabled";
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x45>;
 		};
 	};
-};
 
-&pm8937_1 {
-	pm8937_cajon_dig: 8952_wcd_codec@f000 {
-		compatible = "qcom,msm8x16_wcd_codec";
-		reg = <0xf000 0x100>;
-		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x1 0xf0 0x0>,
-			     <0x1 0xf0 0x1>,
-			     <0x1 0xf0 0x2>,
-			     <0x1 0xf0 0x3>,
-			     <0x1 0xf0 0x4>,
-			     <0x1 0xf0 0x5>,
-			     <0x1 0xf0 0x6>,
-			     <0x1 0xf0 0x7>;
-		interrupt-names = "spk_cnp_int",
-				  "spk_clip_int",
-				  "spk_ocp_int",
-				  "ins_rem_det1",
-				  "but_rel_det",
-				  "but_press_det",
-				  "ins_rem_det",
-				  "mbhc_int";
-
-		cdc-vdda-cp-supply = <&pm8937_s4>;
-		qcom,cdc-vdda-cp-voltage = <2050000 2050000>;
-		qcom,cdc-vdda-cp-current = <210000>;
-
-		cdc-vdd-io-supply = <&pm8937_l5>;
-		qcom,cdc-vdd-io-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-io-current = <10000>;
-
-		cdc-vdd-pa-supply = <&pm8937_s4>;
-		qcom,cdc-vdd-pa-voltage = <2050000 2050000>;
-		qcom,cdc-vdd-pa-current = <260000>;
-
-		cdc-vdd-mic-bias-supply = <&pm8937_l13>;
-		qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
-		qcom,cdc-vdd-mic-bias-current = <5000>;
-
-		qcom,cdc-mclk-clk-rate = <9600000>;
-
-		qcom,cdc-static-supplies =  "cdc-vdd-io",
-					   "cdc-vdd-pa",
-					   "cdc-vdda-cp";
-
-		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
-		qcom,dig-cdc-base-addr = <0xc0f0000>;
+	wcd9xxx_intc: wcd9xxx-irq {
+		status = "disabled";
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-names = "cdc-int";
 	};
 
-	pm8937_cajon_analog: 8952_wcd_codec@f100 {
-		compatible = "qcom,msm8x16_wcd_codec";
-		reg = <0xf100 0x100>;
-		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x1 0xf1 0x0>,
-			     <0x1 0xf1 0x1>,
-			     <0x1 0xf1 0x2>,
-			     <0x1 0xf1 0x3>,
-			     <0x1 0xf1 0x4>,
-			     <0x1 0xf1 0x5>;
-		interrupt-names = "ear_ocp_int",
-				  "hphr_ocp_int",
-				  "hphl_ocp_det",
-				  "ear_cnp_int",
-				  "hphr_cnp_int",
-				  "hphl_cnp_int";
-		qcom,dig-cdc-base-addr = <0xc0f0000>;
+	clock_audio: audio_ext_clk {
+		status = "disabled";
+		compatible = "qcom,audio-ref-clk";
+		clock-names = "osr_clk";
+		qcom,node_has_rpm_clock;
+		#clock-cells = <1>;
+	};
+};
+
+&slim_msm {
+	status = "disabled";
+	dai_slim: msm_dai_slim {
+		status = "disabled";
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+
+	wcd9335: tasha_codec {
+		status = "disabled";
+		compatible = "qcom,tasha-slim-pgd";
+		elemental-addr = [00 01 A0 01 17 02];
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+			17 18 19 20 21 22 23 24 25 26 27 28 29
+			30>;
+
+		qcom,cdc-reset-gpio = <&tlmm 68 0>;
+
+		clock-names = "wcd_clk";
+		clocks = <&clock_audio clk_audio_pmi_clk>;
+
+		qcom,cdc-static-supplies =
+			"cdc-vdd-buck",
+			"cdc-buck-sido",
+			"cdc-vdd-tx-h",
+			"cdc-vdd-rx-h",
+			"cdc-vdd-px";
+
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias4-mv = <1800>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+		qcom,cdc-slim-ifd = "tasha-slim-ifd";
+		qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 01 17 02];
+		qcom,cdc-dmic-sample-rate = <4800000>;
 	};
 };

@@ -24,40 +24,11 @@
 };
 
 &pm8937_gpios {
-	gpio@c000 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,pull = <5>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <2>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
-	};
-
 	gpio@c100 {
 		qcom,mode = <0>;
 		qcom,vin-sel = <3>;
 		qcom,dtest-sel = <1>;
 		status = "okay";
-	};
-
-	gpio@c600 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,pull = <5>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
-	};
-
-	gpio@c700 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
 	};
 };
 
@@ -113,26 +84,7 @@
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
 	};
-
-	clock_audio: audio_ext_clk {
-		compatible = "qcom,audio-ref-clk";
-		qcom,audio-ref-clk-gpio = <&pm8937_gpios 1 0>;
-		clock-names = "osr_clk";
-		clocks = <&clock_gcc clk_div_clk2>;
-		qcom,node_has_rpm_clock;
-		#clock-cells = <1>;
-	};
 };
-
-&int_codec {
-		asoc-wsa-codec-names = "wsa881x-i2c-codec.2-000f";
-		asoc-wsa-codec-prefixes = "SpkrMono";
-
-		msm-vdd-wsa-switch-supply = <&pm8937_l13>;
-		qcom,msm-vdd-wsa-switch-voltage = <3075000>;
-		qcom,msm-vdd-wsa-switch-current = <5000>;
-		qcom,msm-hs-micbias-type = "internal";
-	};
 
 &tlmm {
 	tlmm_gpio_key {
