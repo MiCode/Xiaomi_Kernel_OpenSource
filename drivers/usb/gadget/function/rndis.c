@@ -1007,11 +1007,11 @@ int rndis_set_param_medium(struct rndis_params *params, u32 medium, u32 speed)
 }
 EXPORT_SYMBOL_GPL(rndis_set_param_medium);
 
-void rndis_set_max_pkt_xfer(u8 configNr, u8 max_pkt_per_xfer)
+void rndis_set_max_pkt_xfer(struct rndis_params *params, u8 max_pkt_per_xfer)
 {
 	pr_debug("%s:\n", __func__);
 
-	rndis_per_dev_params[configNr].max_pkt_per_xfer = max_pkt_per_xfer;
+	params->max_pkt_per_xfer = max_pkt_per_xfer;
 }
 
 void rndis_add_hdr(struct sk_buff *skb)
