@@ -115,6 +115,7 @@ static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
 #if defined(CONFIG_FB)
+static void fb_notify_resume_work(struct work_struct *work);
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -3669,6 +3670,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_FB
+	INIT_WORK(&rmi4_data->fb_notify_work, fb_notify_resume_work);
 	rmi4_data->fb_notif.notifier_call = fb_notifier_callback;
 
 	retval = fb_register_client(&rmi4_data->fb_notif);
@@ -3911,6 +3913,13 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 }
 
 #if defined(CONFIG_FB)
+static void fb_notify_resume_work(struct work_struct *work)
+{
+	struct synaptics_rmi4_data *rmi4_data =
+		container_of(work, struct synaptics_rmi4_data, fb_notify_work);
+	synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
+}
+
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data)
 {
@@ -3920,16 +3929,31 @@ static int fb_notifier_callback(struct notifier_block *self,
 		container_of(self, struct synaptics_rmi4_data, fb_notif);
 
 	if (evdata && evdata->data && rmi4_data) {
-		if (event == FB_EARLY_EVENT_BLANK)
-			synaptics_secure_touch_stop(rmi4_data, 0);
-		else if (event == FB_EVENT_BLANK) {
-			blank = evdata->data;
-			if (*blank == FB_BLANK_UNBLANK)
-				synaptics_rmi4_resume(
-					&(rmi4_data->input_dev->dev));
-			else if (*blank == FB_BLANK_POWERDOWN)
-				synaptics_rmi4_suspend(
-					&(rmi4_data->input_dev->dev));
+		blank = evdata->data;
+		if (rmi4_data->hw_if->board_data->resume_in_workqueue) {
+			if (event == FB_EARLY_EVENT_BLANK) {
+				synaptics_secure_touch_stop(rmi4_data, 0);
+				if (*blank == FB_BLANK_UNBLANK)
+					schedule_work(
+						&(rmi4_data->fb_notify_work));
+			} else if (event == FB_EVENT_BLANK &&
+					*blank == FB_BLANK_POWERDOWN) {
+					flush_work(
+						&(rmi4_data->fb_notify_work));
+					synaptics_rmi4_suspend(
+						&(rmi4_data->input_dev->dev));
+			}
+		} else {
+			if (event == FB_EARLY_EVENT_BLANK) {
+				synaptics_secure_touch_stop(rmi4_data, 0);
+			} else if (event == FB_EVENT_BLANK) {
+				if (*blank == FB_BLANK_UNBLANK)
+					synaptics_rmi4_resume(
+						&(rmi4_data->input_dev->dev));
+				else if (*blank == FB_BLANK_POWERDOWN)
+					synaptics_rmi4_suspend(
+						&(rmi4_data->input_dev->dev));
+			}
 		}
 	}
 
