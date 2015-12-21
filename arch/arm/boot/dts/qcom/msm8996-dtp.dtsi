@@ -568,6 +568,7 @@
 			synaptics,irq-gpio = <&tlmm 125 0x2008>;
 			synaptics,disable-gpios;
 			synaptics,button-map = <139 158 102>;
+			synaptics,resume-in-workqueue;
 		};
 	};
 
