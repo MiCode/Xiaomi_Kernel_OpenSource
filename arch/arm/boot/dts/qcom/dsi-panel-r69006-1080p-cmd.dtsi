@@ -147,5 +147,7 @@
 		qcom,mdss-dsi-panel-status-read-length = <1>;
 		qcom,mdss-dsi-panel-status-value = <0x1C>;
 		qcom,mdss-dsi-panel-max-error-count = <3>;
+		qcom,mdss-dsi-rx-eot-ignore;
+		qcom,mdss-dsi-tx-eot-append;
 	};
 };
