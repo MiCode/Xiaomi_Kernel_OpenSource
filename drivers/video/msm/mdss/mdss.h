@@ -496,6 +496,7 @@ struct mdss_util_intf {
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);
+bool mdss_get_irq_enable_state(struct mdss_hw *hw);
 
 static inline int mdss_get_sd_client_cnt(void)
 {
