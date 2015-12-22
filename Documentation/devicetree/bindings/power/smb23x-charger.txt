@@ -1,0 +1,118 @@
+SMB23x battery charger
+
+SMB23x is a single-cell linear battery charger which could draw 1.5 ampere
+current at max from USB adapter to power the system and charge the battery,
+and support 1 amper charging current at max.
+
+The SMB23x interface is via I2C bus.
+
+Required Properties:
+- compatible:			Must be "qcom,smb231-lbc", "qcom,smb232-lbc" or
+				"qcom,smb233-lbc".
+- reg:				The device 7-bit I2C address.
+
+Optional Properties:
+
+- interrupts			This indicates the IRQ number of the GPIO connected to
+				the STAT pin.
+- qcom,bms-psy-name		The power supply name which used for getting the battery
+				capacity. If left unspecified a pre-defined default value
+				will be used for capacity value.
+- pinctrl-names			The pinctrl state name of the pin which connects to the
+				STAT line for interrupt notification.
+				Only support: "default".
+- pinctrl-0			The phandle to specify the configuration of the pin which
+				connects to the STAT line for interrupt notification.
+- qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range from 3480mV
+				to 4720mV.
+- qcom,charging-timeout		Maximum duration in minutes that a single charge cycle
+				may last.  Supported values are: 0, 180, 270, 360.
+				A value of 0 means that no charge cycle timeout is used
+				and charging can continue indefinitely.
+- qcom,recharge-thresh-mv	Specifies the minimum voltage drop in millivolts below
+				the float voltage that is required in order to initiate
+				a new charging cycle.
+				Supported values are: 150, 80mV.
+- qcom,iterm-ma			Specifies the termination current to indicate
+				end-of-charge. Possible values in mA: 20, 30, 50, 75.
+- qcom,fastchg-ma		Specifies the maximum fast charge current. The possible
+				value for fast charge current in mA: 100, 250, 300, 370,
+				500, 600, 700, 1000.
+- qcom,chg-inhibit-thresh-mv	Specifies the maximum voltage drop in millivolts below
+				the float voltage for charging inhibit. The possible
+				value for the threshold in mV: 265, 385, 512.
+- qcom,hot-bat-decidegc		Hot battery temperature in decidegC. Charging will be
+				stopped if battery temperature higher than it.
+				The possible value: 500, 550, 600, 650.
+- qcom,cold-bat-decidegc	Cold battery temperature in decidegC. Charging will be
+				stopped if battery temperature lower than it.
+				The possible value: (-50), 0, 50, 100.
+- qcom,warm-bat-decidegc	Warm battery temperature in decidegC. The float voltage
+				and fastchg current compensation(reduction) will be
+				applied when the battery temperature higher than it but
+				lower than "qcom,hot-bat-decidegc".
+				The possible value: 400, 450, 500, 550.
+- qcom,cool-bat-decidegc	Cool battery temperature in decidegC. The float voltage
+				and fastchg current compensation(reduction) will be
+				applied when the battery temperature lower than it but
+				higher than "qcom,cold-bat-decidegc".
+				The possible value: 0, 50, 100, 150.
+- qcom,soft-temp-vfloat-comp-mv
+				Specifies the float voltage compensation(reduction)
+				in mV used for battery charging in warm/cool status.
+				The possible value in mV: 80, 120, 160, 200.
+- qcom,soft-temp-current-comp-ma
+				Specifies the fastchg current compensation(reduction)
+				in mA used for battery charging in warm/cool status.
+				The possible value in mA should range from 0 to the
+				value set in "qcom,fastchg-ma".
+- qcom,thermal-mitigation	Array of input current limit values for different
+				system thermal mitigation level.
+- qcom,charging-disabled	A boolean property to specify if charging should be
+				disabled in the build by default.
+- qcom,recharge-disabled	A boolean property to specify if recharging depends
+				on the voltage drop should be disabled. If yes, the
+				battery won't be recharging whatever the battery
+				voltage drops below the float voltage.
+- qcom,aicl-disabled		A boolean property used to disable AICL function.
+- qcom,apsd-disabled		A boolean property used to disable APSD function.
+- qcom,chg-inhibit-disabled:	A boolean property used to disable the charger-inhibit
+				function.
+- qcom,iterm-disabled		A boolean property used to disable the current
+				termination current feature.
+- qcom,bms-controlled-charging  A boolean property to indicate if the charging
+				termination and the recharging behavior will be
+				controlled by BMS power supply according to the
+				battery SoC (state of charge). If this property
+				is specified, charging termination based on
+				current and recharging based on voltage drop will
+				be disabled automatically.
+				"qcom,bms-psy-name" is need if it's been specified.
+
+Example:
+&i2c_4 {
+	smb23x-lbc@1b {
+		compatible = "qcom,smb231-lbc";
+		reg = <0x12>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <58 2>;
+		qcom,bms-psy-name = "bms";
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <360>;
+		qcom,recharge-thresh-mv = <150>;
+		qcom,iterm-ma = <50>;
+		qcom,fastchg-ma = <1000>;
+		qcom,hot-bat-decidegc = <550>;
+		qcom,warm-bat-decidegc = <450>;
+		qcom,cool-bat-decidegc = <50>;
+		qcom,cold-bat-decidegc = <(-50)>;
+		qcom,soft-temp-vfloat-comp-mv = <200>;
+		qcom,soft-temp-current-comp-ma = <400>;
+		qcom,chg-inhibit-disabled;
+		qcom,apsd-disabled;
+		qcom,thermal-mitigation = <1500 900 500 100>;
+	};
+};
