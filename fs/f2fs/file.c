@@ -419,19 +419,18 @@ static loff_t f2fs_llseek(struct file *file, loff_t offset, int whence)
 static int f2fs_file_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct inode *inode = file_inode(file);
+	int err;
 
 	if (f2fs_encrypted_inode(inode)) {
-		int err = f2fs_get_encryption_info(inode);
+		err = f2fs_get_encryption_info(inode);
 		if (err)
 			return 0;
 	}
 
 	/* we don't need to use inline_data strictly */
-	if (f2fs_has_inline_data(inode)) {
-		int err = f2fs_convert_inline_inode(inode);
-		if (err)
-			return err;
-	}
+	err = f2fs_convert_inline_inode(inode);
+	if (err)
+		return err;
 
 	file_accessed(file);
 	vma->vm_ops = &f2fs_file_vm_ops;
@@ -605,7 +604,7 @@ int f2fs_truncate(struct inode *inode, bool lock)
 	trace_f2fs_truncate(inode);
 
 	/* we should check inline_data size */
-	if (f2fs_has_inline_data(inode) && !f2fs_may_inline_data(inode)) {
+	if (!f2fs_may_inline_data(inode)) {
 		err = f2fs_convert_inline_inode(inode);
 		if (err)
 			return err;
@@ -689,8 +688,7 @@ int f2fs_setattr(struct dentry *dentry, struct iattr *attr)
 			truncate_setsize(inode, attr->ia_size);
 
 			/* should convert inline inode here */
-			if (f2fs_has_inline_data(inode) &&
-					!f2fs_may_inline_data(inode)) {
+			if (!f2fs_may_inline_data(inode)) {
 				err = f2fs_convert_inline_inode(inode);
 				if (err)
 					return err;
@@ -787,13 +785,11 @@ static int punch_hole(struct inode *inode, loff_t offset, loff_t len)
 {
 	pgoff_t pg_start, pg_end;
 	loff_t off_start, off_end;
-	int ret = 0;
+	int ret;
 
-	if (f2fs_has_inline_data(inode)) {
-		ret = f2fs_convert_inline_inode(inode);
-		if (ret)
-			return ret;
-	}
+	ret = f2fs_convert_inline_inode(inode);
+	if (ret)
+		return ret;
 
 	pg_start = ((unsigned long long) offset) >> PAGE_CACHE_SHIFT;
 	pg_end = ((unsigned long long) offset + len) >> PAGE_CACHE_SHIFT;
@@ -952,11 +948,9 @@ static int f2fs_collapse_range(struct inode *inode, loff_t offset, loff_t len)
 
 	f2fs_balance_fs(F2FS_I_SB(inode));
 
-	if (f2fs_has_inline_data(inode)) {
-		ret = f2fs_convert_inline_inode(inode);
-		if (ret)
-			return ret;
-	}
+	ret = f2fs_convert_inline_inode(inode);
+	if (ret)
+		return ret;
 
 	pg_start = offset >> PAGE_CACHE_SHIFT;
 	pg_end = (offset + len) >> PAGE_CACHE_SHIFT;
@@ -1002,11 +996,9 @@ static int f2fs_zero_range(struct inode *inode, loff_t offset, loff_t len,
 
 	f2fs_balance_fs(sbi);
 
-	if (f2fs_has_inline_data(inode)) {
-		ret = f2fs_convert_inline_inode(inode);
-		if (ret)
-			return ret;
-	}
+	ret = f2fs_convert_inline_inode(inode);
+	if (ret)
+		return ret;
 
 	ret = filemap_write_and_wait_range(mapping, offset, offset + len - 1);
 	if (ret)
@@ -1115,11 +1107,9 @@ static int f2fs_insert_range(struct inode *inode, loff_t offset, loff_t len)
 
 	f2fs_balance_fs(sbi);
 
-	if (f2fs_has_inline_data(inode)) {
-		ret = f2fs_convert_inline_inode(inode);
-		if (ret)
-			return ret;
-	}
+	ret = f2fs_convert_inline_inode(inode);
+	if (ret)
+		return ret;
 
 	ret = truncate_blocks(inode, i_size_read(inode), true);
 	if (ret)
@@ -1169,11 +1159,9 @@ static int expand_inode_data(struct inode *inode, loff_t offset,
 	if (ret)
 		return ret;
 
-	if (f2fs_has_inline_data(inode)) {
-		ret = f2fs_convert_inline_inode(inode);
-		if (ret)
-			return ret;
-	}
+	ret = f2fs_convert_inline_inode(inode);
+	if (ret)
+		return ret;
 
 	pg_start = ((unsigned long long) offset) >> PAGE_CACHE_SHIFT;
 	pg_end = ((unsigned long long) offset + len) >> PAGE_CACHE_SHIFT;
