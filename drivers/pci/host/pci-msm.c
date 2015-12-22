@@ -569,6 +569,7 @@ struct msm_pcie_dev_t {
 	bool				 ext_ref_clk;
 	bool				common_phy;
 	uint32_t			   ep_latency;
+	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	short				current_short_bdf;
 	uint32_t			tlp_rd_size;
@@ -1778,6 +1779,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->common_phy);
 	PCIE_DBG_FS(dev, "ep_latency: %dms\n",
 		dev->ep_latency);
+	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
+		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
 		dev->current_bdf);
 	PCIE_DBG_FS(dev, "tlp_rd_size: 0x%x\n",
@@ -3343,6 +3346,12 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 	else
 		msm_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x01);
 
+	/* configure the completion timeout value for PCIe core */
+	if (dev->cpl_timeout && dev->bridge_found)
+		msm_pcie_write_reg_field(dev->dm_core,
+					PCIE20_DEVICE_CONTROL2_STATUS2,
+					0xf, dev->cpl_timeout);
+
 	/* Enable AER on RC */
 	msm_pcie_write_mask(dev->dm_core + PCIE20_BRIDGE_CTRL, 0,
 					BIT(16)|BIT(17));
@@ -4481,6 +4490,11 @@ int msm_pcie_enumerate(u32 rc_idx)
 			msm_pcie_write_mask(dev->dm_core +
 				PCIE20_COMMAND_STATUS, 0, BIT(2)|BIT(1));
 
+			if (dev->cpl_timeout && dev->bridge_found)
+				msm_pcie_write_reg_field(dev->dm_core,
+					PCIE20_DEVICE_CONTROL2_STATUS2,
+					0xf, dev->cpl_timeout);
+
 			if (dev->shadow_en) {
 				u32 val = readl_relaxed(dev->dm_core +
 						PCIE20_COMMAND_STATUS);
@@ -5517,6 +5531,18 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: ep-latency: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].ep_latency);
+
+	msm_pcie_dev[rc_idx].cpl_timeout = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,cpl-timeout",
+				&msm_pcie_dev[rc_idx].cpl_timeout);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: Using default cpl-timeout.\n",
+			rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: cpl-timeout: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].cpl_timeout);
 
 	msm_pcie_dev[rc_idx].tlp_rd_size = PCIE_TLP_RD_SIZE;
 	ret = of_property_read_u32(pdev->dev.of_node,
