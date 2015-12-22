@@ -545,4 +545,13 @@
 		qcom,offset-log-len-mask = <44>;
 		qcom,offset-page-indices = <56>;
 	};
+
+	qcom,rpm-master-stats@60150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x68150 0x5000>;
+		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
+	};
+
 };
