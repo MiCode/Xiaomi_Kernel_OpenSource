@@ -389,6 +389,10 @@
 		qcom,cdc-dmic-sample-rate = <4800000>;
 		qcom,cdc-mad-dmic-rate = <600000>;
 
+		pinctrl-names = "suspend", "active";
+		pinctrl-0 = <&cdc_reset_line_sus>;
+		pinctrl-1 = <&cdc_reset_line_act>;
+
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;
 
