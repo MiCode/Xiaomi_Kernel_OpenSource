@@ -37,6 +37,10 @@
 	};
 };
 
+&pmtitanium_l10 {
+	regulator-max-microvolt = <2850000>;
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
