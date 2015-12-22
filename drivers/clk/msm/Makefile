@@ -34,7 +34,7 @@ obj-$(CONFIG_ARCH_MSM8916)	+= clock-cpu-8939.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8952.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-titanium.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-rcgwr.o
-
+obj-$(CONFIG_ARCH_MSM8916)      += clock-cpu-titanium.o
 
 obj-y				+= gdsc.o
 obj-y				+= mdss/
