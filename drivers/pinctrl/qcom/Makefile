@@ -14,3 +14,4 @@ obj-$(CONFIG_PINCTRL_MSMCOBALT)	+= pinctrl-msmcobalt.o
 obj-$(CONFIG_PINCTRL_MSMTITANIUM)	+= pinctrl-msmtitanium.o
 obj-$(CONFIG_PINCTRL_MDM9607)	+= pinctrl-mdm9607.o
 obj-$(CONFIG_PINCTRL_MDMCALIFORNIUM)   += pinctrl-mdmcalifornium.o
+obj-$(CONFIG_PINCTRL_MSM8909)	+= pinctrl-msm8909.o

@@ -119,4 +119,11 @@ config PINCTRL_MSMTITANIUM
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm TLMM block found in the Qualcomm MSMTITANIUM platform.
 
+config PINCTRL_MSM8909
+	tristate "QTI MSM8909 pin controller driver"
+	depends on GPIOLIB && OF && (ARCH_MSM8909 || COMPILE_TEST)
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  QTI TLMM block found in the QTI MSM8909 platform.
 endif
