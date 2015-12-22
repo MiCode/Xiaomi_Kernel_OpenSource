@@ -235,6 +235,7 @@ struct qseecom_control {
 	uint32_t app_block_ref_cnt;
 	wait_queue_head_t app_block_wq;
 	atomic_t qseecom_state;
+	int is_apps_region_protected;
 };
 
 struct qseecom_sec_buf_fd_info {
@@ -331,6 +332,13 @@ static int qseecom_free_ce_info(struct qseecom_dev_handle *data,
 						void __user *argp);
 static int qseecom_query_ce_info(struct qseecom_dev_handle *data,
 						void __user *argp);
+
+static int get_qseecom_keymaster_status(char *str)
+{
+	get_option(&str, &qseecom.is_apps_region_protected);
+	return 1;
+}
+__setup("androidboot.keymaster=", get_qseecom_keymaster_status);
 
 static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			const void *req_buf, void *resp_buf)
@@ -7773,7 +7781,8 @@ static int qseecom_probe(struct platform_device *pdev)
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
 						msm_bus_cl_get_pdata(pdev);
 		if (qseecom.qsee_version >= (QSEE_VERSION_02) &&
-			!qseecom.appsbl_qseecom_support) {
+			(!qseecom.is_apps_region_protected &&
+			!qseecom.appsbl_qseecom_support)) {
 			struct resource *resource = NULL;
 			struct qsee_apps_region_info_ireq req;
 			struct qsee_apps_region_info_64bit_ireq req_64bit;
@@ -7828,7 +7837,8 @@ static int qseecom_probe(struct platform_device *pdev)
 	 * load cmnlib64 too, while cmnlib64 img is not present in non_hlos.bin,
 	 * Pls add "qseecom.commonlib64_loaded = true" here too.
 	 */
-		if (qseecom.appsbl_qseecom_support)
+		if (qseecom.is_apps_region_protected ||
+					qseecom.appsbl_qseecom_support)
 			qseecom.commonlib_loaded = true;
 	} else {
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
