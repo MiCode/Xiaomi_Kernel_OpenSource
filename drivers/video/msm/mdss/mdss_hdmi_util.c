@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,8 +65,6 @@ static int hdmi_ddc_clear_irq(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 	u32 ddc_int_ctrl, ddc_status, in_use, timeout;
 	u32 sw_done_mask = BIT(2);
 	u32 sw_done_ack  = BIT(1);
-	u32 hw_done_mask = BIT(6);
-	u32 hw_done_ack  = BIT(5);
 	u32 in_use_by_sw = BIT(0);
 	u32 in_use_by_hw = BIT(1);
 
@@ -76,7 +74,7 @@ static int hdmi_ddc_clear_irq(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 	}
 
 	/* clear and enable interrutps */
-	ddc_int_ctrl = sw_done_mask | sw_done_ack | hw_done_mask | hw_done_ack;
+	ddc_int_ctrl = sw_done_mask | sw_done_ack;
 
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, ddc_int_ctrl);
 
@@ -871,46 +869,39 @@ void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_REF, (1 << 16) | (19 << 0));
 } /* hdmi_ddc_config */
 
-int hdmi_hdcp2p2_ddc_check_status(struct hdmi_tx_ddc_ctrl *ctrl)
+static void hdmi_hdcp2p2_ddc_clear_status(struct hdmi_tx_ddc_ctrl *ctrl)
 {
-	int rc = 0;
 	u32 reg_val;
 
 	if (!ctrl) {
 		pr_err("invalid ddc ctrl\n");
-		return -EINVAL;
+		return;
 	}
 
 	/* check for errors and clear status */
 	reg_val = DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_STATUS);
 
 	if (reg_val & BIT(4)) {
-		pr_err("ddc aborted\n");
+		pr_debug("ddc aborted\n");
 		reg_val |= BIT(5);
-		rc = -ECONNABORTED;
 	}
 
 	if (reg_val & BIT(8)) {
-		pr_err("timed out\n");
+		pr_debug("timed out\n");
 		reg_val |= BIT(9);
-		rc = -ETIMEDOUT;
 	}
 
 	if (reg_val & BIT(12)) {
-		pr_err("NACK0\n");
+		pr_debug("NACK0\n");
 		reg_val |= BIT(13);
-		rc = -EIO;
 	}
 
 	if (reg_val & BIT(14)) {
-		pr_err("NACK1\n");
+		pr_debug("NACK1\n");
 		reg_val |= BIT(15);
-		rc = -EIO;
 	}
 
 	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_STATUS, reg_val);
-
-	return rc;
 }
 
 static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
@@ -987,15 +978,6 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 		data->ready = true;
 	}
 
-	/* check and disable not ready interrupt */
-	if (intr0 & BIT(15)) {
-		/* ack ready/not ready interrupt */
-		intr0 |= BIT(17);
-
-		intr0 &= ~BIT(19);
-		data->ready = false;
-	}
-
 	/* check for reauth req interrupt */
 	if (intr0 & BIT(12)) {
 		/* ack and disable reauth req interrupt */
@@ -1052,6 +1034,8 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 			rc = -EINVAL;
 		}
 	}
+
+	hdmi_hdcp2p2_ddc_clear_status(ddc_ctrl);
 
 	return rc;
 }
@@ -1641,7 +1625,6 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 
 	intr_en_mask = data->intr_mask;
 	intr_en_mask |= BIT(HDCP2P2_RXSTATUS_DDC_FAILED_INTR_MASK);
-	intr_en_mask |= BIT(HDCP2P2_RXSTATUS_DDC_DONE);
 
 	/* Disable short read for now, sinks don't support it */
 	reg_val = DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_CTRL);
@@ -1675,7 +1658,7 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 	/* Clear interrupt status bits */
 	reg_val |= intr_en_mask >> 1;
 
-	pr_debug("writng HDMI_DDC_INT_CTRL0 0x%x\n", reg_val);
+	pr_debug("writing HDMI_DDC_INT_CTRL0 0x%x\n", reg_val);
 	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL0, reg_val);
 
 	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL5);
@@ -1730,7 +1713,6 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 			rc = -ETIMEDOUT;
 		}
 
-		rc = hdmi_hdcp2p2_ddc_check_status(ctrl);
 		hdmi_hdcp2p2_ddc_disable(ctrl);
 	}
 
