@@ -9,6 +9,9 @@ PMIC voltage regulator resources.
 
 Required properties:
   - compatible: "qcom,cnss_sdio"
+  - reg: memory resource to save firmware dump, optional.
+  - reg-names: memory resource name.
+  - subsys-name: cnss sdio subsytem device name, required.
   - vdd-wlan-supply: phandle to the WLAN vdd regulator device tree node.
   - vdd-wlan-dsrc-supply: phandle to the WLAN dsrc vdd regulator device tree node.
   - vdd-wlan-io-supply: phandle to the WLAN IO regulator device tree node.
@@ -17,6 +20,9 @@ Required properties:
 Example:
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
+		reg = <0x87a00000, 0x200000>;
+		reg-names = "ramdump";
+		subsys-name = "AR6320";
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-dsrc-supply = <&sdcard_ext_vreg>;
 		vdd-wlan-io-supply = <&mdm9607_l11>;
