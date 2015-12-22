@@ -689,12 +689,12 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		 * 1. no kickoff has been scheduled
 		 * 2. no stop command has been started
 		 * 3. no autorefresh is enabled
-		 * 4. no validate is pending
+		 * 4. no commit is pending
 		 */
 		if ((PERF_STATUS_DONE == status) &&
 			!ctx->intf_stopped &&
 			(ctx->autorefresh_state == MDP_AUTOREFRESH_OFF) &&
-			!ctl->mfd->validate_pending) {
+			!ctl->mfd->atomic_commit_pending) {
 			pr_debug("schedule release after:%d ms\n",
 				jiffies_to_msecs
 				(CMD_MODE_IDLE_TIMEOUT));
@@ -865,7 +865,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		 * Driver will not allow off work under one condition:
 		 * 1. Kickoff is pending.
 		 */
-		if (schedule_off && !ctl->mfd->validate_pending) {
+		if (schedule_off && !ctl->mfd->atomic_commit_pending) {
 			/*
 			 * Schedule off work after cmd mode idle timeout is
 			 * reached. This is to prevent the case where early wake
@@ -1134,6 +1134,11 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 	ctl = ctx->ctl;
 	if (!ctl || !ctl->panel_data) {
 		pr_err("NULL ctl||panel_data\n");
+		return;
+	}
+
+	if (ctl->mfd->atomic_commit_pending) {
+		pr_debug("leave clocks on for queued kickoff\n");
 		return;
 	}
 
