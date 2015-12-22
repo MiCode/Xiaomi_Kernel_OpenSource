@@ -917,6 +917,8 @@
 		qcom,bus-width = <8>;
 
 		qcom,cpu-dma-latency-us = <60 340 900>;
+		qcom,cpu-affinity = "affine_cores";
+		qcom,cpu-affinity-mask = <0x0f>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
