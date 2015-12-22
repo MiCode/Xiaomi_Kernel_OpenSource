@@ -41,8 +41,6 @@ static int f2fs_vm_page_mkwrite(struct vm_area_struct *vma,
 	struct dnode_of_data dn;
 	int err;
 
-	f2fs_balance_fs(sbi);
-
 	sb_start_pagefault(inode->i_sb);
 
 	f2fs_bug_on(sbi, f2fs_has_inline_data(inode));
@@ -57,6 +55,9 @@ static int f2fs_vm_page_mkwrite(struct vm_area_struct *vma,
 	}
 	f2fs_put_dnode(&dn);
 	f2fs_unlock_op(sbi);
+
+	if (dn.node_changed)
+		f2fs_balance_fs(sbi);
 
 	file_update_time(vma->vm_file);
 	lock_page(page);
@@ -234,9 +235,6 @@ int f2fs_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 		goto out;
 	}
 go_write:
-	/* guarantee free sections for fsync */
-	f2fs_balance_fs(sbi);
-
 	/*
 	 * Both of fdatasync() and fsync() are able to be recovered from
 	 * sudden-power-off.
@@ -268,6 +266,8 @@ sync_nodes:
 	if (need_inode_block_update(sbi, ino)) {
 		mark_inode_dirty_sync(inode);
 		f2fs_write_inode(inode, NULL);
+
+		f2fs_balance_fs(sbi);
 		goto sync_nodes;
 	}
 
@@ -946,8 +946,6 @@ static int f2fs_collapse_range(struct inode *inode, loff_t offset, loff_t len)
 	if (offset & (F2FS_BLKSIZE - 1) || len & (F2FS_BLKSIZE - 1))
 		return -EINVAL;
 
-	f2fs_balance_fs(F2FS_I_SB(inode));
-
 	ret = f2fs_convert_inline_inode(inode);
 	if (ret)
 		return ret;
@@ -993,8 +991,6 @@ static int f2fs_zero_range(struct inode *inode, loff_t offset, loff_t len,
 	ret = inode_newsize_ok(inode, (len + offset));
 	if (ret)
 		return ret;
-
-	f2fs_balance_fs(sbi);
 
 	ret = f2fs_convert_inline_inode(inode);
 	if (ret)
@@ -1105,11 +1101,11 @@ static int f2fs_insert_range(struct inode *inode, loff_t offset, loff_t len)
 	if (offset & (F2FS_BLKSIZE - 1) || len & (F2FS_BLKSIZE - 1))
 		return -EINVAL;
 
-	f2fs_balance_fs(sbi);
-
 	ret = f2fs_convert_inline_inode(inode);
 	if (ret)
 		return ret;
+
+	f2fs_balance_fs(sbi);
 
 	ret = truncate_blocks(inode, i_size_read(inode), true);
 	if (ret)
@@ -1153,8 +1149,6 @@ static int expand_inode_data(struct inode *inode, loff_t offset,
 	loff_t off_start, off_end;
 	int ret = 0;
 
-	f2fs_balance_fs(sbi);
-
 	ret = inode_newsize_ok(inode, (len + offset));
 	if (ret)
 		return ret;
@@ -1162,6 +1156,8 @@ static int expand_inode_data(struct inode *inode, loff_t offset,
 	ret = f2fs_convert_inline_inode(inode);
 	if (ret)
 		return ret;
+
+	f2fs_balance_fs(sbi);
 
 	pg_start = ((unsigned long long) offset) >> PAGE_CACHE_SHIFT;
 	pg_end = ((unsigned long long) offset + len) >> PAGE_CACHE_SHIFT;
@@ -1352,8 +1348,6 @@ static int f2fs_ioc_start_atomic_write(struct file *filp)
 	if (!inode_owner_or_capable(inode))
 		return -EACCES;
 
-	f2fs_balance_fs(F2FS_I_SB(inode));
-
 	if (f2fs_is_atomic_file(inode))
 		return 0;
 
@@ -1439,8 +1433,6 @@ static int f2fs_ioc_abort_volatile_write(struct file *filp)
 	ret = mnt_want_write_file(filp);
 	if (ret)
 		return ret;
-
-	f2fs_balance_fs(F2FS_I_SB(inode));
 
 	clear_inode_flag(F2FS_I(inode), FI_ATOMIC_FILE);
 	clear_inode_flag(F2FS_I(inode), FI_VOLATILE_FILE);
