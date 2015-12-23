@@ -103,6 +103,8 @@
 #define clk_ext_pclk0_clk_src				 0x087c1612
 #define clk_pclk1_clk_src				 0x090f68ac
 #define clk_ext_pclk1_clk_src				 0x8067c5a3
+#define clk_mdss_mdp_vote_clk				 0x588460a4
+#define clk_mdss_rotator_vote_clk			 0x5b1f675e
 #define clk_usb30_master_clk_src			 0xc6262f89
 #define clk_vfe1_clk_src				 0x4e357366
 #define clk_apc0_droop_detector_clk_src			 0x824a5cb7
