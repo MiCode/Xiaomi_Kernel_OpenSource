@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,27 @@ static inline void CS_UNLOCK(void __iomem *addr)
 		/* Make sure everyone has seen this */
 		mb();
 	} while (0);
+}
+
+static inline bool coresight_authstatus_enabled(void __iomem *addr)
+{
+	int ret;
+	unsigned auth_val;
+
+	if (!addr)
+		return false;
+
+	auth_val = readl_relaxed(addr + CORESIGHT_AUTHSTATUS);
+
+	if ((0x2 == BMVAL(auth_val, 0, 1)) ||
+	    (0x2 == BMVAL(auth_val, 2, 3)) ||
+	    (0x2 == BMVAL(auth_val, 4, 5)) ||
+	    (0x2 == BMVAL(auth_val, 6, 7)))
+		ret = false;
+	else
+		ret = true;
+
+	return ret;
 }
 
 #ifdef CONFIG_CORESIGHT_SOURCE_ETM3X
