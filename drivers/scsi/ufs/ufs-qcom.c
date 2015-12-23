@@ -25,6 +25,7 @@
 #include "unipro.h"
 #include "ufs-qcom.h"
 #include "ufshci.h"
+#include "ufs_quirks.h"
 #include "ufs-qcom-ice.h"
 #include "ufs-qcom-debugfs.h"
 #include <linux/clk/msm-clk.h>
@@ -1160,6 +1161,34 @@ out:
 	return ret;
 }
 
+static int ufs_qcom_quirk_host_pa_saveconfigtime(struct ufs_hba *hba)
+{
+	int err;
+	u32 pa_vs_config_reg1;
+
+	err = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_VS_CONFIG_REG1),
+			     &pa_vs_config_reg1);
+	if (err)
+		goto out;
+
+	/* Allow extension of MSB bits of PA_SaveConfigTime attribute */
+	err = ufshcd_dme_set(hba, UIC_ARG_MIB(PA_VS_CONFIG_REG1),
+			    (pa_vs_config_reg1 | (1 << 12)));
+
+out:
+	return err;
+}
+
+static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
+{
+	int err = 0;
+
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME)
+		err = ufs_qcom_quirk_host_pa_saveconfigtime(hba);
+
+	return err;
+}
+
 static u32 ufs_qcom_get_ufs_hci_version(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -2257,6 +2286,7 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.hce_enable_notify	= ufs_qcom_hce_enable_notify,
 	.link_startup_notify	= ufs_qcom_link_startup_notify,
 	.pwr_change_notify	= ufs_qcom_pwr_change_notify,
+	.apply_dev_quirks	= ufs_qcom_apply_dev_quirks,
 	.suspend		= ufs_qcom_suspend,
 	.resume			= ufs_qcom_resume,
 	.full_reset		= ufs_qcom_full_reset,
