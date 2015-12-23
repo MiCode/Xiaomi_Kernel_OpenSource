@@ -3114,13 +3114,60 @@ static int __ioctl_transition_dyn_mode_state(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
+static inline bool mdss_fb_is_wb_config_same(struct msm_fb_data_type *mfd,
+		struct mdp_output_layer *output_layer)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct msm_mdp_interface *mdp5_interface = &mfd->mdp;
+
+	if (!mdp5_data->wfd
+		|| (mdp5_interface->is_config_same
+		&& !mdp5_interface->is_config_same(mfd, output_layer)))
+		return false;
+	return true;
+}
+
+/* update pinfo and var for WB on config change */
+static void mdss_fb_update_resolution(struct msm_fb_data_type *mfd,
+		u32 xres, u32 yres, u32 format)
+{
+	struct mdss_panel_info *pinfo = mfd->panel_info;
+	struct fb_var_screeninfo *var = &mfd->fbi->var;
+	struct fb_fix_screeninfo *fix = &mfd->fbi->fix;
+	struct mdss_mdp_format_params *fmt = NULL;
+
+	pinfo->xres = xres;
+	pinfo->yres = yres;
+	mfd->fb_imgType = format;
+	if (mfd->mdp.get_format_params) {
+		fmt = mfd->mdp.get_format_params(format);
+		if (fmt) {
+			pinfo->bpp = fmt->bpp;
+			var->bits_per_pixel = fmt->bpp * 8;
+		}
+		if (mfd->mdp.fb_stride)
+			fix->line_length = mfd->mdp.fb_stride(mfd->index,
+						var->xres,
+						var->bits_per_pixel / 8);
+		else
+			fix->line_length = var->xres * var->bits_per_pixel / 8;
+
+	}
+	var->xres_virtual = var->xres;
+	var->yres_virtual = pinfo->yres * mfd->fb_page;
+	mdss_panelinfo_to_fb_var(pinfo, var);
+}
+
 int mdss_fb_atomic_commit(struct fb_info *info,
 	struct mdp_layer_commit  *commit, struct file *file)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp_layer_commit_v1 *commit_v1;
-	bool wait_for_finish;
+	struct mdp_output_layer *output_layer;
+	struct mdss_panel_info *pinfo;
+	bool wait_for_finish, wb_change = false;
 	int ret = -EPERM;
+	u32 old_xres, old_yres, old_format;
 
 	if (!mfd || (!mfd->op_enable)) {
 		pr_err("mfd is NULL or operation not permitted\n");
@@ -3133,6 +3180,7 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 		pr_err("commit is not supported when interface is in off state\n");
 		goto end;
 	}
+	pinfo = mfd->panel_info;
 
 	/* only supports version 1.0 */
 	if (commit->version != MDP_COMMIT_VERSION_1_0) {
@@ -3153,6 +3201,20 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 		} else {
 			__ioctl_transition_dyn_mode_state(mfd,
 				MSMFB_ATOMIC_COMMIT, 1);
+			if (mfd->panel.type == WRITEBACK_PANEL) {
+				output_layer = commit_v1->output_layer;
+				wb_change = !mdss_fb_is_wb_config_same(mfd,
+						commit_v1->output_layer);
+				if (wb_change) {
+					old_xres = pinfo->xres;
+					old_yres = pinfo->yres;
+					old_format = mfd->fb_imgType;
+					mdss_fb_update_resolution(mfd,
+						output_layer->buffer.width,
+						output_layer->buffer.height,
+						output_layer->buffer.format);
+				}
+			}
 			ret = mfd->mdp.atomic_validate(mfd, file, commit_v1);
 			if (!ret)
 				mfd->atomic_commit_pending = true;
@@ -3188,6 +3250,8 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 		ret = mdss_fb_pan_idle(mfd);
 
 end:
+	if (ret && (mfd->panel.type == WRITEBACK_PANEL) && wb_change)
+		mdss_fb_update_resolution(mfd, old_xres, old_yres, old_format);
 	return ret;
 }
 

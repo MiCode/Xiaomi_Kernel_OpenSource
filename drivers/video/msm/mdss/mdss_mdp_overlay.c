@@ -5123,6 +5123,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		mdp5_interface->atomic_validate =
 			mdss_mdp_layer_atomic_validate_wfd;
 		mdp5_interface->pre_commit = mdss_mdp_layer_pre_commit_wfd;
+		mdp5_interface->is_config_same = mdss_mdp_wfd_is_config_same;
 	} else {
 		mdp5_interface->atomic_validate =
 			mdss_mdp_layer_atomic_validate;
