@@ -209,6 +209,8 @@ struct msm_mdp_interface {
 					struct mdp_display_commit *data);
 	int (*atomic_validate)(struct msm_fb_data_type *mfd, struct file *file,
 				struct mdp_layer_commit_v1 *commit);
+	bool (*is_config_same)(struct msm_fb_data_type *mfd,
+				struct mdp_output_layer *layer);
 	int (*pre_commit)(struct msm_fb_data_type *mfd, struct file *file,
 				struct mdp_layer_commit_v1 *commit);
 	int (*pre_commit_fnc)(struct msm_fb_data_type *mfd);
@@ -225,6 +227,7 @@ struct msm_mdp_interface {
 		int *bl_out, bool *bl_out_notify);
 	int (*panel_register_done)(struct mdss_panel_data *pdata);
 	u32 (*fb_stride)(u32 fb_index, u32 xres, int bpp);
+	struct mdss_mdp_format_params *(*get_format_params)(u32 format);
 	int (*splash_init_fnc)(struct msm_fb_data_type *mfd);
 	struct msm_sync_pt_data *(*get_sync_fnc)(struct msm_fb_data_type *mfd,
 				const struct mdp_buf_sync *buf_sync);
