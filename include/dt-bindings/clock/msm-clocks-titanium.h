@@ -15,6 +15,7 @@
 #define __MSM_CLOCKS_TITANIUM_H
 
 #define clk_gpll0_clk_src				 0x5933b69f
+#define clk_gpll0_ao_clk_src                             0x6b2fb034
 #define clk_gpll2_clk_src				 0x7c34503b
 #define clk_gpll3_clk_src				 0x5b1eccd5
 #define clk_gpll4_clk_src				 0x10525d57
@@ -285,11 +286,26 @@
 #define clk_rf_clk2_a					 0x944d8bbd
 #define clk_rf_clk3					 0xb673936b
 #define clk_rf_clk3_a					 0xf7975f21
-#define clk_div_clk1					 0xaa1157a6
-#define clk_div_clk1_a					 0x6b943d68
+#define clk_div_clk2					 0xd454019f
+#define clk_div_clk2_a					 0x4bd7bfa8
 
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux				 0x8121ac15
 #define clk_wcnss_m_clk					 0x709f430b
+
+#define clk_apcs_hf_pll					 0x8fef0444
+#define clk_apcs_hf_pll_main				 0xef871ccf
+#define clk_ccissmux					 0x839fb2ef
+#define clk_a53_perf_clk				 0xa0a0dc7f
+#define clk_a53_pwr_clk					 0x2e6af930
+#define clk_a53ssmux_pwr				 0x48a50c99
+#define clk_a53ssmux_perf				 0x154acbc9
+
+#define clk_cci_clk					 0x96854074
+#define clk_apc0_m_clk					 0xce1e9473
+#define clk_apc1_m_clk					 0x990fbaf7
+#define clk_cci_m_clk					 0xec7e8afc
+#define clk_apss_debug_pri_mux				 0xc691ff55
+#define clk_cpu_debug_pri_mux				 0x61a2945f
 
 #endif

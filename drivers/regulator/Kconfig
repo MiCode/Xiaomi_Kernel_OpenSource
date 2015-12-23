@@ -853,6 +853,20 @@ config REGULATOR_CPR3_MMSS
 	  initial voltage values out of hardware fuses and CPR target quotient
 	  values out of device tree.
 
+config REGULATOR_CPR4_APSS
+	bool "CPR4 regulator for APSS"
+	depends on OF
+	select REGULATOR_CPR3
+	help
+	  This driver supports Qualcomm Technologies, Inc. APSS application
+	  processor specific features including memory array power mux (APM)
+	  switching, one CPR4 thread which monitor the two APSS clusters that
+	  are both powered by a shared supply, hardware closed-loop auto
+	  voltage stepping, voltage adjustments based on online core count,
+	  voltage adjustments based on temperature readings, and voltage
+	  adjustments for performance boost mode. This driver reads both initial
+	  voltage and CPR target quotient values out of hardware fuses.
+
 config REGULATOR_KRYO
 	bool "Kryo regulator driver"
 	depends on OF

@@ -41,6 +41,10 @@ val;									     \
 asm volatile("msr S"#op0"_"#op1"_"#crn"_"#crm"_"#op2", %0" : : "r" (val));   \
 })
 
+/* Clock and Power Management Register */
+#define RSYSL_CPMR_EL1()		MRSL(3, 7, c15, c0, 5)
+#define WSYS_CPMR_EL1(val)		MSR(val, 3, 7, c15, c0, 5)
+
 /*
  * ETMv4 Registers
  *

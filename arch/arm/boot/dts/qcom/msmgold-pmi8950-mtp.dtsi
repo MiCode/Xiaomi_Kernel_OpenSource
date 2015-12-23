@@ -11,13 +11,5 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "msmgold.dtsi"
-#include "msmgold-cdp.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. MSMGOLD CDP";
-	compatible = "qcom,msmgold-cdp", "qcom,msmgold", "qcom,cdp";
-	qcom,board-id= <1 0>;
-};
+#include "msm-pmi8950.dtsi"
+#include "msmgold-mtp.dtsi"

@@ -46,7 +46,9 @@
 #define BMVAL(val, lsb, msb)	((val & BM(lsb, msb)) >> lsb)
 #define BVAL(val, n)		((val & BIT(n)) >> n)
 
+#ifdef CONFIG_ARM64
 #define ARM_DEBUG_ARCH_V8	(0x6)
+#endif
 
 #define MAX_DBG_REGS		(66)
 #define MAX_DBG_STATE_SIZE	(MAX_DBG_REGS * num_possible_cpus())

@@ -20,5 +20,5 @@
 	model = "Qualcomm Technologies, Inc. MSM8937-PMI8950 CDP";
 	compatible = "qcom,msm8937-cdp", "qcom,msm8937", "qcom,cdp";
 	qcom,board-id= <1 0>;
-	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
+	qcom,pmic-id = <0x10019 0x020011 0x0 0x0>;
 };

@@ -488,18 +488,18 @@ static inline void etm_clk_disable(void)
 	uint32_t cpmr;
 
 	isb();
-	asm volatile("mrs %0, S3_7_c15_c0_5" : "=r" (cpmr));
+	cpmr = trc_readl(CPMR_EL1);
 	cpmr  &= ~ETM_CPMR_CLKEN;
-	asm volatile("msr S3_7_c15_c0_5, %0" : : "r" (cpmr));
+	trc_write(cpmr, CPMR_EL1);
 }
 
 static inline void etm_clk_enable(void)
 {
 	uint32_t cpmr;
 
-	asm volatile("mrs %0, S3_7_c15_c0_5" : "=r" (cpmr));
+	cpmr = trc_readl(CPMR_EL1);
 	cpmr  |= ETM_CPMR_CLKEN;
-	asm volatile("msr S3_7_c15_c0_5, %0" : : "r" (cpmr));
+	trc_write(cpmr, CPMR_EL1);
 	isb();
 }
 

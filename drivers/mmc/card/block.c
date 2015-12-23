@@ -2807,6 +2807,7 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_queue_req *active_mqrq;
 	struct mmc_card *card = mq->card;
 	struct mmc_host *host = card->host;
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 	struct mmc_cmdq_req *mc_rq;
 	int ret = 0;
 
@@ -2831,6 +2832,20 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 		    && (rq_data_dir(req) == READ))
 			host->cmdq_ctx.active_small_sector_read_reqs++;
 	}
+	/*
+	 * When in SVS2 on low load scenario and there are lots of requests
+	 * queued for CMDQ we need to wait till the queue is empty to scale
+	 * back up to Nominal even if there is a sudden increase in load.
+	 * This impacts performance where lots of IO get executed in SVS2
+	 * frequency since the queue is full. As SVS2 is a low load use case
+	 * we can serialize the requests and not queue them in parallel
+	 * without impacting other use cases. This makes sure the queue gets
+	 * empty faster and we will be able to scale up to Nominal frequency
+	 * when needed.
+	 */
+	if (!ret && (host->clk_scaling.state == MMC_LOAD_LOW))
+		wait_event_interruptible(ctx->queue_empty_wq,
+					(!ctx->active_reqs));
 
 	return ret;
 }
@@ -2913,18 +2928,19 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 	}
 
 	/* disable CQ mode in card */
-	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-			 EXT_CSD_CMDQ, 0,
-			 card->ext_csd.generic_cmd6_time);
-	if (err) {
-		pr_err("%s: failed to switch card to legacy mode: %d\n",
-		       __func__, err);
-		goto out;
-	} else {
+	if (mmc_card_cmdq(card)) {
+		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+				 EXT_CSD_CMDQ, 0,
+				 card->ext_csd.generic_cmd6_time);
+		if (err) {
+			pr_err("%s: failed to switch card to legacy mode: %d\n",
+			       __func__, err);
+			goto out;
+		}
 		mmc_card_clr_cmdq(card);
-		host->cmdq_ops->disable(host, false);
-		host->card->cmdq_init = false;
 	}
+	host->cmdq_ops->disable(host, false);
+	host->card->cmdq_init = false;
 out:
 	mmc_host_clk_release(host);
 	mmc_put_card(card);
@@ -2980,6 +2996,8 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	struct mmc_request *mrq = host->err_mrq;
 	struct mmc_card *card = mq->card;
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
+	struct request_queue *q = mrq->req->q;
+	int tag = mrq->req->tag;
 
 	pm_runtime_get_sync(&card->dev);
 	mmc_host_clk_hold(host);
@@ -3020,13 +3038,13 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 					 mrq->req, &gen_err, &status);
 			if (err) {
 				pr_err("%s: error %d sending stop (%d) command\n",
-					mrq->req->rq_disk->disk_name,
+					mmc_hostname(host),
 					err, status);
 				goto reset;
 			}
 		}
 
-		if (mmc_cmdq_discard_queue(host, mrq->req->tag))
+		if (mmc_cmdq_discard_queue(host, tag))
 			goto reset;
 		else
 			goto unhalt;
@@ -3048,7 +3066,7 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 
 reset:
 	spin_lock_irq(mq->queue->queue_lock);
-	blk_queue_invalidate_tags(mrq->req->q);
+	blk_queue_invalidate_tags(q);
 	spin_unlock_irq(mq->queue->queue_lock);
 	mmc_blk_cmdq_reset(host, true);
 	goto out;

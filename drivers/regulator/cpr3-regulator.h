@@ -61,8 +61,9 @@ struct cpr3_fuse_param {
  * @system_volt:	The system-supply voltage in microvolts or corners or
  *			levels
  * @mem_acc_volt:	The mem-acc-supply voltage in corners
- * @proc_freq:		Processor frequency in Hertz (only used by platform
- *			specific CPR3 driver for interpolation)
+ * @proc_freq:		Processor frequency in Hertz. For CPR rev. 3 and 4
+ *			conrollers, this field is only used by platform specific
+ *			CPR3 driver for interpolation.
  * @cpr_fuse_corner:	Fused corner index associated with this virtual corner
  *			(only used by platform specific CPR3 driver for
  *			mapping purposes)
@@ -325,6 +326,16 @@ enum cpr3_count_mode {
 };
 
 /**
+ * enum cpr_controller_type - supported CPR controller hardware types
+ * %CPR_CTRL_TYPE_CPR3:	HW has CPR3 controller
+ * %CPR_CTRL_TYPE_CPR4:	HW has CPR4 controller
+ */
+enum cpr_controller_type {
+	CPR_CTRL_TYPE_CPR3,
+	CPR_CTRL_TYPE_CPR4,
+};
+
+/**
  * struct cpr3_aging_sensor_info - CPR3 aging sensor information
  * @sensor_id		The index of the CPR3 sensor to be used in the aging
  *			measurement.
@@ -417,6 +428,14 @@ struct cpr3_aging_sensor_info {
  * @step_quot_init_max:	The default maximum CPR step quotient value.
  * @step_volt:		Step size in microvolts between available set points
  *			of the VDD supply
+ * @down_error_step_limit: CPR4 hardware closed-loop down error step limit which
+ *			defines the maximum number of VDD supply regulator steps
+ *			that the voltage may be reduced as the result of a
+ *			single CPR measurement.
+ * @up_error_step_limit: CPR4 hardware closed-loop up error step limit which
+ *			defines the maximum number of VDD supply regulator steps
+ *			that the voltage may be increased as the result of a
+ *			single CPR measurement.
  * @count_mode:		CPR controller count mode
  * @count_repeat:	Number of times to perform consecutive sensor
  *			measurements when using all-at-once count modes.
@@ -430,11 +449,14 @@ struct cpr3_aging_sensor_info {
  *			values
  * @cpr_allowed_sw:	Boolean which indicates if closed-loop CPR operation is
  *			permitted based upon software policies
- * @supports_hw_closed_loop: Boolean which indicates if this CPR3 controller
+ * @supports_hw_closed_loop: Boolean which indicates if this CPR3/4 controller
  *			physically supports hardware closed-loop CPR operation
  * @use_hw_closed_loop:	Boolean which indicates that this controller will be
  *			using hardware closed-loop operation in place of
  *			software closed-loop operation.
+ * @ctrl_type:		CPR controller type
+ * @saw_use_unit_mV:	Boolean which indicates the unit used in SAW PVC
+ *			interface is mV.
  * @aggr_corner:	CPR corner containing the most recently aggregated
  *			voltage configurations which are being used currently
  * @cpr_enabled:	Boolean which indicates that the CPR controller is
@@ -512,6 +534,8 @@ struct cpr3_controller {
 	u32			step_quot_init_min;
 	u32			step_quot_init_max;
 	int			step_volt;
+	u32			down_error_step_limit;
+	u32			up_error_step_limit;
 	enum cpr3_count_mode	count_mode;
 	u32			count_repeat;
 	u32			proc_clock_throttle;
@@ -519,6 +543,8 @@ struct cpr3_controller {
 	bool			cpr_allowed_sw;
 	bool			supports_hw_closed_loop;
 	bool			use_hw_closed_loop;
+	enum cpr_controller_type ctrl_type;
+	bool			saw_use_unit_mV;
 	struct cpr3_corner	aggr_corner;
 	bool			cpr_enabled;
 	bool			last_corner_was_closed_loop;
@@ -591,6 +617,11 @@ int cpr3_adjust_fused_open_loop_voltages(struct cpr3_regulator *vreg,
 int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg);
 int cpr3_quot_adjustment(int ro_scale, int volt_adjust);
 int cpr3_voltage_adjustment(int ro_scale, int quot_adjust);
+int cpr3_parse_closed_loop_voltage_adjustments(struct cpr3_regulator *vreg,
+			u64 *ro_sel, int *volt_adjust,
+			int *volt_adjust_fuse, int *ro_scale);
+int cpr3_apm_init(struct cpr3_controller *ctrl);
+int cpr3_mem_acc_init(struct cpr3_regulator *vreg);
 
 #else
 
@@ -729,6 +760,23 @@ static inline int cpr3_quot_adjustment(int ro_scale, int volt_adjust)
 }
 
 static inline int cpr3_voltage_adjustment(int ro_scale, int quot_adjust)
+{
+	return 0;
+}
+
+static inline int cpr3_parse_closed_loop_voltage_adjustments(
+			struct cpr3_regulator *vreg, u64 *ro_sel,
+			int *volt_adjust, int *volt_adjust_fuse, int *ro_scale)
+{
+	return 0;
+}
+
+static inline int cpr3_apm_init(struct cpr3_controller *ctrl)
+{
+	return 0;
+}
+
+static inline int cpr3_mem_acc_init(struct cpr3_regulator *vreg)
 {
 	return 0;
 }

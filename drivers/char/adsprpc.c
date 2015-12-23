@@ -417,10 +417,12 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 			pr_err("failed to free remote heap allocation\n");
 			return;
 		}
-		dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
-		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
-		dma_free_attrs(me->adsp_mem_device, map->size,
-				&(map->va), map->phys,	&attrs);
+		if (map->phys) {
+			dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
+			dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
+			dma_free_attrs(me->adsp_mem_device, map->size,
+					&(map->va), map->phys,	&attrs);
+		}
 	} else {
 		if (!IS_ERR_OR_NULL(map->handle))
 			ion_free(fl->apps->client, map->handle);
@@ -1917,7 +1919,7 @@ static int fastrpc_cb_legacy_probe(struct device *dev)
 		goto bail;
 	VERIFY(err, 0 != (ctx_node = of_parse_phandle(
 			domains_child_node,
-			"qcom,adsp-shared-domain-phandle", 0)));
+			"qcom,adsp-shared-phandle", 0)));
 	if (err)
 		goto bail;
 	VERIFY(err, 0 != of_get_property(domains_child_node,
@@ -1936,14 +1938,14 @@ static int fastrpc_cb_legacy_probe(struct device *dev)
 	VERIFY(err, 0 != (name = of_get_property(ctx_node, "label", NULL)));
 	if (err)
 		goto bail;
-	VERIFY(err, 0 != of_get_property(ctx_node,
+	VERIFY(err, 0 != of_get_property(domains_child_node,
 					"qcom,virtual-addr-pool", &range_size));
 	if (err)
 		goto bail;
 	VERIFY(err, range = kzalloc(range_size, GFP_KERNEL));
 	if (err)
 		goto bail;
-	ret = of_property_read_u32_array(ctx_node,
+	ret = of_property_read_u32_array(domains_child_node,
 					"qcom,virtual-addr-pool",
 					range,
 					range_size/sizeof(unsigned int));

@@ -791,7 +791,7 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 				vfe_dev->common_data->dual_vfe_res->
 					axi_data[1]->
 					src_info[VFE_PIX_0].frame_id) {
-				pr_err_ratelimited("%s: Error! 2 VFE out of sync vfe0 frame_id %u vfe1 %u\n",
+				pr_debug("%s: Error! 2 VFE out of sync vfe0 frame_id %u vfe1 %u\n",
 					__func__,
 					vfe_dev->common_data->dual_vfe_res->
 						axi_data[0]->
@@ -1547,7 +1547,11 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
 		vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt);
 
-	if (rc < 0) {
+	if (rc == -EFAULT) {
+		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_BUF_FATAL_ERROR);
+		return rc;
+	}
+	if (rc < 0 || buf == NULL) {
 		ISP_DBG("%s vfe %d get_buf fail bufq %x\n", __func__,
 			vfe_dev->pdev->id, bufq_handle);
 		vfe_dev->error_info.
@@ -1660,8 +1664,6 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 
 	return 0;
 buf_error:
-	vfe_dev->buf_mgr->ops->put_buf(vfe_dev->buf_mgr,
-		buf->bufq_handle, buf->buf_idx);
 	return rc;
 }
 
@@ -1732,15 +1734,9 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 		return;
 	}
 
-	if (stream_info->buf_divert && rc == 0 &&
-			buf_src != MSM_ISP_BUFFER_SRC_SCRATCH) {
-		rc = vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
-			buf->bufq_handle, buf->buf_idx,
-			time_stamp, frame_id);
-	} else {
-		rc = vfe_dev->buf_mgr->ops->update_put_buf_cnt(vfe_dev->buf_mgr,
-			buf->bufq_handle, buf->buf_idx, frame_id);
-	}
+	rc = vfe_dev->buf_mgr->ops->update_put_buf_cnt(vfe_dev->buf_mgr,
+		vfe_dev->pdev->id, buf->bufq_handle, buf->buf_idx,
+		time_stamp, frame_id);
 
 	/* Buf divert return value represent whether the buf
 	 * can be diverted. A positive return value means
@@ -1759,8 +1755,15 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 			error_event.u.error_info.err_type =
 				ISP_ERROR_FRAME_ID_MISMATCH;
-			rc = vfe_dev->buf_mgr->ops->put_buf(vfe_dev->buf_mgr,
-				buf->bufq_handle, buf->buf_idx);
+			rc = vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
+				buf->bufq_handle, buf->buf_idx, time_stamp,
+				frame_id,
+				stream_info->runtime_output_format);
+			if (rc == -EFAULT) {
+				msm_isp_halt_send_error(vfe_dev,
+						ISP_EVENT_BUF_FATAL_ERROR);
+				return;
+			}
 			msm_isp_send_event(vfe_dev, ISP_EVENT_ERROR,
 				&error_event);
 			pr_err("%s: Error! frame id mismatch!! 1st buf frame %d,curr frame %d\n",
@@ -1772,10 +1775,22 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			/* Put but if dual vfe usecase and
 			 * both vfe have done using buf
 			 */
-			rc = vfe_dev->buf_mgr->ops->put_buf(
+			buf->buf_debug.put_state[
+				buf->buf_debug.put_state_last] =
+				MSM_ISP_BUFFER_STATE_DROP_SKIP;
+			buf->buf_debug.put_state_last ^= 1;
+			rc = vfe_dev->buf_mgr->ops->buf_done(
 				vfe_dev->buf_mgr,
-				buf->bufq_handle, buf->buf_idx);
-			if (!rc) {
+				buf->bufq_handle, buf->buf_idx,
+				time_stamp, frame_id,
+				stream_info->runtime_output_format);
+
+			if (rc == -EFAULT) {
+				msm_isp_halt_send_error(vfe_dev,
+					ISP_EVENT_BUF_FATAL_ERROR);
+				return;
+			}
+		if (!rc) {
 				ISP_DBG("%s:%d vfe_id %d Buffer dropped %d\n",
 					__func__, __LINE__, vfe_dev->pdev->id,
 					frame_id);
@@ -1818,9 +1833,18 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				buf->bufq_handle);
 			msm_isp_send_event(vfe_dev, ISP_EVENT_BUF_DONE,
 				&buf_event);
-			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
+			buf->buf_debug.put_state[
+				buf->buf_debug.put_state_last] =
+				MSM_ISP_BUFFER_STATE_PUT_BUF;
+			buf->buf_debug.put_state_last ^= 1;
+			rc = vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
 				buf->bufq_handle, buf->buf_idx, time_stamp,
 				frame_id, stream_info->runtime_output_format);
+			if (rc == -EFAULT) {
+				msm_isp_halt_send_error(vfe_dev,
+					ISP_EVENT_BUF_FATAL_ERROR);
+				return;
+			}
 		}
 	} else {
 		pr_err_ratelimited("%s: Warning! Unexpected return value rc = %d\n",
@@ -1875,12 +1899,22 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 
 	if (done_buf) {
 		rc = vfe_dev->buf_mgr->ops->update_put_buf_cnt(vfe_dev->buf_mgr,
-			done_buf->bufq_handle, done_buf->buf_idx, frame_id);
+			vfe_dev->pdev->id, done_buf->bufq_handle,
+			done_buf->buf_idx, 0, frame_id);
 		if (rc == 0) {
-			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
+			done_buf->buf_debug.put_state[
+				done_buf->buf_debug.put_state_last] =
+				MSM_ISP_BUFFER_STATE_DROP_REG;
+			done_buf->buf_debug.put_state_last ^= 1;
+			rc = vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
 				done_buf->bufq_handle, done_buf->buf_idx,
 				&ts->buf_time, frame_id,
 				stream_info->runtime_output_format);
+			if (rc == -EFAULT) {
+				msm_isp_halt_send_error(vfe_dev,
+					ISP_EVENT_BUF_FATAL_ERROR);
+				return rc;
+			}
 		}
 
 		bufq = vfe_dev->buf_mgr->ops->get_bufq(vfe_dev->buf_mgr,
@@ -2140,8 +2174,8 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 	int rc = 0, i, j;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	struct msm_isp_bufq *bufq = NULL;
 	uint32_t bufq_handle = 0, bufq_id = 0;
+	struct msm_isp_timestamp timestamp;
 
 	if (!reset_cmd) {
 		pr_err("%s: NULL pointer reset cmd %p\n", __func__, reset_cmd);
@@ -2151,6 +2185,8 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
 		0, reset_cmd->blocking);
+
+	msm_isp_get_timestamp(&timestamp);
 
 	for (i = 0, j = 0; j < axi_data->num_active_stream &&
 		i < VFE_AXI_SRC_MAX; i++, j++) {
@@ -2171,21 +2207,19 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 			if (!bufq_handle)
 				continue;
 
-			bufq = vfe_dev->buf_mgr->ops->get_bufq(vfe_dev->buf_mgr,
-				bufq_handle);
-			if (!bufq) {
-				pr_err("%s: bufq null %p by handle %x\n",
-					__func__, bufq, bufq_handle);
-				continue;
+			rc = vfe_dev->buf_mgr->ops->flush_buf(
+				vfe_dev->buf_mgr, vfe_dev->pdev->id,
+				bufq_handle, MSM_ISP_BUFFER_FLUSH_ALL,
+				&timestamp.buf_time, reset_cmd->frame_id);
+			if (rc == -EFAULT) {
+				msm_isp_halt_send_error(vfe_dev,
+					ISP_EVENT_BUF_FATAL_ERROR);
+				return rc;
 			}
-
-			vfe_dev->buf_mgr->ops->flush_buf(
-				vfe_dev->buf_mgr, bufq_handle,
-				MSM_ISP_BUFFER_FLUSH_ALL);
 			memset(&stream_info->buf, 0, sizeof(stream_info->buf));
 
 			axi_data->src_info[SRC_TO_INTF(stream_info->
-				stream_src)]. frame_id = reset_cmd->frame_id;
+				stream_src)].frame_id = reset_cmd->frame_id;
 			msm_isp_reset_burst_count_and_frame_drop(vfe_dev,
 				stream_info);
 		}
@@ -2525,10 +2559,13 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		(axi_data->src_info[VFE_PIX_0].input_mux == EXTERNAL_READ);
 	uint32_t src_mask = 0, intf, bufq_id = 0, bufq_handle = 0;
 	unsigned long flags;
+	struct msm_isp_timestamp timestamp;
 
 	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM ||
 		stream_cfg_cmd->num_streams == 0)
 		return -EINVAL;
+
+	msm_isp_get_timestamp(&timestamp);
 
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i]) >=
@@ -2671,9 +2708,15 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			if (!bufq_handle)
 				continue;
 
-			vfe_dev->buf_mgr->ops->flush_buf(
-				vfe_dev->buf_mgr, bufq_handle,
-				MSM_ISP_BUFFER_FLUSH_ALL);
+			rc = vfe_dev->buf_mgr->ops->flush_buf(
+				vfe_dev->buf_mgr, vfe_dev->pdev->id,
+				bufq_handle, MSM_ISP_BUFFER_FLUSH_ALL,
+				&timestamp.buf_time, 0);
+			if (rc == -EFAULT) {
+				msm_isp_halt_send_error(vfe_dev,
+					ISP_EVENT_BUF_FATAL_ERROR);
+				return rc;
+			}
 		}
 		memset(&stream_info->buf, 0, sizeof(stream_info->buf));
 		vfe_dev->reg_update_requested &=
@@ -2777,6 +2820,10 @@ static int msm_isp_return_empty_buffer(struct vfe_device *vfe_dev,
 
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
 		vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt);
+	if (rc == -EFAULT) {
+		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_BUF_FATAL_ERROR);
+		return rc;
+	}
 	if (rc < 0) {
 		vfe_dev->error_info.
 			stream_framedrop_count[bufq_handle & 0xFF]++;
@@ -2785,12 +2832,20 @@ static int msm_isp_return_empty_buffer(struct vfe_device *vfe_dev,
 
 	msm_isp_get_timestamp(&timestamp);
 	rc = vfe_dev->buf_mgr->ops->update_put_buf_cnt(vfe_dev->buf_mgr,
-		buf->bufq_handle, buf->buf_idx, frame_id);
+		vfe_dev->pdev->id, buf->bufq_handle, buf->buf_idx, 0, frame_id);
 	if (rc == 0) {
-		vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
+		buf->buf_debug.put_state[buf->buf_debug.put_state_last] =
+			MSM_ISP_BUFFER_STATE_DROP_REG;
+		buf->buf_debug.put_state_last ^= 1;
+		rc = vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
 			buf->bufq_handle, buf->buf_idx,
 			&timestamp.buf_time, frame_id,
 			stream_info->runtime_output_format);
+		if (rc == -EFAULT) {
+			msm_isp_halt_send_error(vfe_dev,
+				ISP_EVENT_BUF_FATAL_ERROR);
+			return rc;
+		}
 	}
 
 	error_event.frame_id = frame_id;
@@ -3021,6 +3076,8 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	struct msm_vfe_axi_stream_cfg_update_info *update_info;
 	struct msm_isp_sw_framskip *sw_skip_info = NULL;
 	unsigned long flags;
+	struct msm_isp_timestamp timestamp;
+	uint32_t frame_id;
 
 	/*num_stream is uint32 and update_info[] bound by MAX_NUM_STREAM*/
 	if (update_cmd->num_streams > MAX_NUM_STREAM)
@@ -3069,9 +3126,19 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			break;
 		case DISABLE_STREAM_BUF_DIVERT:
 			stream_info->buf_divert = 0;
-			vfe_dev->buf_mgr->ops->flush_buf(vfe_dev->buf_mgr,
+			msm_isp_get_timestamp(&timestamp);
+			frame_id = vfe_dev->axi_data.src_info[
+				SRC_TO_INTF(stream_info->stream_src)].frame_id;
+			rc = vfe_dev->buf_mgr->ops->flush_buf(vfe_dev->buf_mgr,
+				vfe_dev->pdev->id,
 				stream_info->bufq_handle[VFE_BUF_QUEUE_DEFAULT],
-				MSM_ISP_BUFFER_FLUSH_DIVERTED);
+				MSM_ISP_BUFFER_FLUSH_DIVERTED,
+				&timestamp.buf_time, frame_id);
+			if (rc == -EFAULT) {
+				msm_isp_halt_send_error(vfe_dev,
+					ISP_EVENT_BUF_FATAL_ERROR);
+				return rc;
+			}
 			break;
 		case UPDATE_STREAM_FRAMEDROP_PATTERN: {
 			uint32_t framedrop_period =

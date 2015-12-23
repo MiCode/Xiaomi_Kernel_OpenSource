@@ -754,91 +754,6 @@ done:
 }
 
 /**
- * cpr3_hmss_parse_closed_loop_voltage_adjustments() - load per-fuse-corner and
- *		per-corner closed-loop adjustment values from device tree
- * @vreg:		Pointer to the CPR3 regulator
- * @volt_adjust:	Pointer to array which will be filled with the
- *			per-corner closed-loop adjustment voltages
- * @volt_adjust_fuse:	Pointer to array which will be filled with the
- *			per-fuse-corner closed-loop adjustment voltages
- * @ro_scale:		Pointer to array which will be filled with the
- *			per-fuse-corner RO scaling factor values with units of
- *			QUOT/V
- *
- * Return: 0 on success, errno on failure
- */
-static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
-			struct cpr3_regulator *vreg, int *volt_adjust,
-			int *volt_adjust_fuse, int *ro_scale)
-{
-	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
-	int i, rc;
-	u32 *ro_all_scale;
-
-	if (!of_find_property(vreg->of_node,
-			"qcom,cpr-closed-loop-voltage-adjustment", NULL)
-	    && !of_find_property(vreg->of_node,
-			"qcom,cpr-closed-loop-voltage-fuse-adjustment", NULL)
-	    && !vreg->aging_allowed) {
-		/* No adjustment required. */
-		return 0;
-	} else if (!of_find_property(vreg->of_node,
-			"qcom,cpr-ro-scaling-factor", NULL)) {
-		cpr3_err(vreg, "qcom,cpr-ro-scaling-factor is required for closed-loop voltage adjustment, but is missing\n");
-		return -EINVAL;
-	}
-
-	ro_all_scale = kcalloc(vreg->fuse_corner_count * CPR3_RO_COUNT,
-				sizeof(*ro_all_scale), GFP_KERNEL);
-	if (!ro_all_scale)
-		return -ENOMEM;
-
-	rc = cpr3_parse_array_property(vreg, "qcom,cpr-ro-scaling-factor",
-		vreg->fuse_corner_count * CPR3_RO_COUNT, ro_all_scale);
-	if (rc) {
-		cpr3_err(vreg, "could not load RO scaling factors, rc=%d\n",
-			rc);
-		goto done;
-	}
-
-	for (i = 0; i < vreg->fuse_corner_count; i++)
-		ro_scale[i] = ro_all_scale[i * CPR3_RO_COUNT + fuse->ro_sel[i]];
-
-	for (i = 0; i < vreg->corner_count; i++)
-		memcpy(vreg->corner[i].ro_scale,
-		 &ro_all_scale[vreg->corner[i].cpr_fuse_corner * CPR3_RO_COUNT],
-		 sizeof(*ro_all_scale) * CPR3_RO_COUNT);
-
-	if (of_find_property(vreg->of_node,
-			"qcom,cpr-closed-loop-voltage-fuse-adjustment", NULL)) {
-		rc = cpr3_parse_array_property(vreg,
-			"qcom,cpr-closed-loop-voltage-fuse-adjustment",
-			vreg->fuse_corner_count, volt_adjust_fuse);
-		if (rc) {
-			cpr3_err(vreg, "could not load closed-loop fused voltage adjustments, rc=%d\n",
-				rc);
-			goto done;
-		}
-	}
-
-	if (of_find_property(vreg->of_node,
-			"qcom,cpr-closed-loop-voltage-adjustment", NULL)) {
-		rc = cpr3_parse_corner_array_property(vreg,
-			"qcom,cpr-closed-loop-voltage-adjustment",
-			1, volt_adjust);
-		if (rc) {
-			cpr3_err(vreg, "could not load closed-loop voltage adjustments, rc=%d\n",
-				rc);
-			goto done;
-		}
-	}
-
-done:
-	kfree(ro_all_scale);
-	return rc;
-}
-
-/**
  * cpr3_msm8996_hmss_set_no_interpolation_quotients() - use the fused target
  *		quotient values for lower frequencies.
  * @vreg:		Pointer to the CPR3 regulator
@@ -942,8 +857,8 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 		goto done;
 	}
 
-	rc = cpr3_hmss_parse_closed_loop_voltage_adjustments(vreg, volt_adjust,
-			volt_adjust_fuse, ro_scale);
+	rc = cpr3_parse_closed_loop_voltage_adjustments(vreg, &fuse->ro_sel[0],
+				volt_adjust, volt_adjust_fuse, ro_scale);
 	if (rc) {
 		cpr3_err(vreg, "could not load closed-loop voltage adjustments, rc=%d\n",
 			rc);
@@ -1482,55 +1397,6 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 }
 
 /**
- * cpr3_hmss_apm_init() - initialize HMSS APM data for a CPR3 controller
- * @ctrl:		Pointer to the CPR3 controller
- *
- * This function loads HMSS memory array power mux (APM) data from device tree
- * if it is present and requests a handle to the appropriate APM controller
- * device.
- *
- * Return: 0 on success, errno on failure
- */
-static int cpr3_hmss_apm_init(struct cpr3_controller *ctrl)
-{
-	struct device_node *node = ctrl->dev->of_node;
-	int rc;
-
-	if (!of_find_property(node, "qcom,apm-ctrl", NULL)) {
-		/* No APM used */
-		return 0;
-	}
-
-	ctrl->apm = msm_apm_ctrl_dev_get(ctrl->dev);
-	if (IS_ERR(ctrl->apm)) {
-		rc = PTR_ERR(ctrl->apm);
-		if (rc != -EPROBE_DEFER)
-			cpr3_err(ctrl, "APM get failed, rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = of_property_read_u32(node, "qcom,apm-threshold-voltage",
-				&ctrl->apm_threshold_volt);
-	if (rc) {
-		cpr3_err(ctrl, "error reading qcom,apm-threshold-voltage, rc=%d\n",
-			rc);
-		return rc;
-	}
-	ctrl->apm_threshold_volt
-		= CPR3_ROUND(ctrl->apm_threshold_volt, ctrl->step_volt);
-
-	/* No error check since this is an optional property. */
-	of_property_read_u32(node, "qcom,apm-hysteresis-voltage",
-				&ctrl->apm_adj_volt);
-	ctrl->apm_adj_volt = CPR3_ROUND(ctrl->apm_adj_volt, ctrl->step_volt);
-
-	ctrl->apm_high_supply = MSM_APM_SUPPLY_APCC;
-	ctrl->apm_low_supply = MSM_APM_SUPPLY_MX;
-
-	return 0;
-}
-
-/**
  * cpr3_hmss_init_aging() - perform HMSS CPR3 controller specific
  *		aging initializations
  * @ctrl:		Pointer to the CPR3 controller
@@ -1641,7 +1507,7 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-clock-throttling",
 			&ctrl->proc_clock_throttle);
 
-	rc = cpr3_hmss_apm_init(ctrl);
+	rc = cpr3_apm_init(ctrl);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
 			cpr3_err(ctrl, "unable to initialize APM settings, rc=%d\n",
@@ -1665,6 +1531,7 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 		ctrl->sensor_owner[i] = 1;
 
 	ctrl->cpr_clock_rate = MSM8996_HMSS_CPR_CLOCK_RATE;
+	ctrl->ctrl_type = CPR_CTRL_TYPE_CPR3;
 	ctrl->supports_hw_closed_loop = true;
 	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
 						"qcom,cpr-hw-closed-loop");

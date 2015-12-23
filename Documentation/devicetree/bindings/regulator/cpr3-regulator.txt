@@ -74,20 +74,21 @@ Platform independent properties:
 		    after increasing the vdd-supply voltage.
 
 - clocks
-	Usage:      required
+	Usage:      optional
 	Value type: <prop-encoded-array>
 	Definition: Array of clock tuples in which each tuple consists of a
-		    phandle to a clock device and a clock ID number.  The CPR3
-		    core clock must be specified.  See platform specific
-		    cpr3-regulator binding documentation for additional clocks
-		    that may also need to be specified.
+		    phandle to a clock device and a clock ID number. The CPR3
+		    core clock must be specified for some targets. See platform
+		    specific cpr3-regulator binding documentation for additional
+		    clocks that may also need to be specified.
 
 - clock-names
-	Usage:      required
+	Usage:      optional
 	Value type: <stringlist>
 	Definition: Clock names.  This list must match up 1-to-1 with the clocks
 		    specified in the 'clocks' property. "core_clk" must be
-		    specified.  Other clocks may be required for some platforms.
+		    specified for some platforms. Other clocks may be required
+		    for some platforms.
 
 - interrupts
 	Usage:      required

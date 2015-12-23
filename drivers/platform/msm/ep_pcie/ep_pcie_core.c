@@ -53,7 +53,8 @@ static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
 static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
 	{"perst-gpio",      0, 0, 0, 1},
 	{"wake-gpio",       0, 1, 0, 1},
-	{"clkreq-gpio",     0, 1, 0, 0}
+	{"clkreq-gpio",     0, 1, 0, 0},
+	{"mdm2apstatus-gpio",    0, 1, 1, 0}
 };
 
 static struct ep_pcie_clk_info_t
@@ -456,7 +457,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 
 	/* enable debug IRQ */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_DEBUG_INT_EN,
-			0, BIT(3) | BIT(1));
+			0, BIT(3) | BIT(2) | BIT(1));
 
 	/* Configure PCIe to endpoint mode */
 	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
@@ -556,6 +557,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 
 	/* Configure BARs */
 	ep_pcie_bar_init(dev);
+
+	ep_pcie_write_reg(dev->mmio, PCIE20_MHICFG, 0x02800880);
+	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
 
 	/* Configure IRQ events */
 	if (dev->aggregated_irq) {
@@ -775,7 +779,9 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 			EP_PCIE_DBG(dev, "GPIO num for %s is %d\n",
 				gpio_info->name, gpio_info->num);
 		} else {
-			goto out;
+			EP_PCIE_DBG(dev,
+				"GPIO %s is not supported in this configuration.\n",
+				gpio_info->name);
 		}
 	}
 
@@ -1135,6 +1141,24 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			"PCIe V%d: PCIe link is up and BME is enabled after %d checkings (%d ms).\n",
 			dev->rev, retries,
 			BME_TIMEOUT_US_MIN * retries / 1000);
+
+		if (dev->gpio[EP_PCIE_GPIO_MDM2AP].num) {
+			/* assert MDM2AP Status GPIO */
+			EP_PCIE_DBG2(dev, "PCIe V%d: assert MDM2AP Status .\n",
+				dev->rev);
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: MDM2APStatus GPIO initial:%d.\n",
+				dev->rev,
+				gpio_get_value(
+					dev->gpio[EP_PCIE_GPIO_MDM2AP].num));
+			gpio_set_value(dev->gpio[EP_PCIE_GPIO_MDM2AP].num,
+					dev->gpio[EP_PCIE_GPIO_MDM2AP].on);
+			EP_PCIE_DBG(dev,
+				"PCIe V%d: MDM2APStatus GPIO after assertion:%d.\n",
+				dev->rev,
+				gpio_get_value(
+					dev->gpio[EP_PCIE_GPIO_MDM2AP].num));
+		}
 	} else {
 		EP_PCIE_ERR(dev,
 			"PCIe V%d: PCIe link is up but BME is still disabled after max waiting time.\n",
@@ -1768,8 +1792,13 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg)
 					msi->start, 0, msi->end,
 					lower, upper);
 
-		cfg->lower = msi->start + (lower & 0xfff);
-		cfg->upper = 0;
+		if (ep_pcie_dev.active_config) {
+			cfg->lower = lower;
+			cfg->upper = upper;
+		} else {
+			cfg->lower = msi->start + (lower & 0xfff);
+			cfg->upper = 0;
+		}
 		cfg->data = data;
 		cfg->msg_num = (cap >> 20) & 0x7;
 		if ((lower != ep_pcie_dev.msi_cfg.lower)
@@ -1824,32 +1853,39 @@ int ep_pcie_core_trigger_msi(u32 idx)
 			ep_pcie_dev.rev, ep_pcie_dev.msi_counter,
 			data + idx, idx,
 			ep_pcie_dev.active_config ? "" : "not");
+
 		if (ep_pcie_dev.active_config) {
 			u32 status;
 
-			ep_pcie_write_reg(ep_pcie_dev.dm_core,
-				PCIE20_MSI_MASK, idx);
-			status = readl_relaxed(ep_pcie_dev.parf +
-					PCIE20_PARF_LTR_MSI_EXIT_L1SS);
-			while ((status & BIT(1)) && (max_poll-- > 0)) {
-				udelay(MSI_EXIT_L1SS_WAIT);
+			if (ep_pcie_dev.msi_counter % 2) {
+				EP_PCIE_DBG2(&ep_pcie_dev,
+					"PCIe V%d: try to trigger MSI by PARF_MSI_GEN.\n",
+					ep_pcie_dev.rev);
+				ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MSI_GEN, idx);
 				status = readl_relaxed(ep_pcie_dev.parf +
 					PCIE20_PARF_LTR_MSI_EXIT_L1SS);
+				while ((status & BIT(1)) && (max_poll-- > 0)) {
+					udelay(MSI_EXIT_L1SS_WAIT);
+					status = readl_relaxed(ep_pcie_dev.parf
+						+
+						PCIE20_PARF_LTR_MSI_EXIT_L1SS);
+				}
+				if (max_poll == 0)
+					EP_PCIE_DBG2(&ep_pcie_dev,
+						"PCIe V%d: MSI_EXIT_L1SS is not cleared yet.\n",
+						ep_pcie_dev.rev);
+				else
+					EP_PCIE_DBG2(&ep_pcie_dev,
+						"PCIe V%d: MSI_EXIT_L1SS has been cleared.\n",
+						ep_pcie_dev.rev);
+			} else {
+				EP_PCIE_DBG2(&ep_pcie_dev,
+						"PCIe V%d: try to trigger MSI by direct address write as well.\n",
+						ep_pcie_dev.rev);
+				ep_pcie_write_reg(ep_pcie_dev.msi, addr & 0xfff,
+							data + idx);
 			}
-			if (max_poll == 0)
-				EP_PCIE_DBG2(&ep_pcie_dev,
-					"PCIe V%d: MSI_EXIT_L1SS is not cleared yet.\n",
-					ep_pcie_dev.rev);
-			else
-				EP_PCIE_DBG2(&ep_pcie_dev,
-					"PCIe V%d: MSI_EXIT_L1SS has been cleared.\n",
-					ep_pcie_dev.rev);
-
-			EP_PCIE_DBG2(&ep_pcie_dev,
-					"PCIe V%d: try to trigger MSI by direct address write as well.\n",
-					ep_pcie_dev.rev);
-			ep_pcie_write_reg(ep_pcie_dev.msi, addr & 0xfff, data
-						+ idx);
 		} else {
 			ep_pcie_write_reg(ep_pcie_dev.msi, addr & 0xfff, data
 						+ idx);

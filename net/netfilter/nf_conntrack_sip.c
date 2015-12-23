@@ -371,8 +371,11 @@ int proc_sip_segment(struct ctl_table *ctl, int write,
 		     void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
-
+	unsigned sip_segmentation_status = nf_ct_enable_sip_segmentation;
 	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
+	/* If there is no change in value just return. */
+	if (sip_segmentation_status == nf_ct_enable_sip_segmentation)
+		return ret;
 	if (nf_ct_enable_sip_segmentation) {
 		pr_debug("registering queue handler\n");
 		nf_register_queue_handler(&nf_sip_qh);
@@ -1779,8 +1782,6 @@ static int process_sip_msg(struct sk_buff *skb, struct nf_conn *ct,
 	const struct nf_nat_sip_hooks *hooks;
 	int ret;
 
-	if (nf_ct_disable_sip_alg)
-		return NF_ACCEPT;
 	if (strncasecmp(*dptr, "SIP/2.0 ", strlen("SIP/2.0 ")) != 0)
 		ret = process_sip_request(skb, protoff, dataoff, dptr, datalen);
 	else
@@ -1819,6 +1820,7 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	enum ip_conntrack_dir dir = IP_CT_DIR_MAX;
 	struct sk_buff *combined_skb = NULL;
 	bool content_len_exists = 1;
+	unsigned int len_skb = 0;
 
 	packet_count++;
 	pr_debug("packet count %d\n", packet_count);
@@ -1953,6 +1955,15 @@ destination:
 		splitlen = (dir == IP_CT_DIR_ORIGINAL) ?
 				ct->segment.skb_len[0] : ct->segment.skb_len[1];
 		oldlen = combined_skb->len - protoff;
+		if (unlikely(skb_linearize(combined_skb))) {
+			pr_debug("Dropping SKB:\n");
+			return NF_DROP;
+		}
+		len_skb = combined_skb->len - splitlen;
+		pr_debug("len to copy is %d\n", len_skb);
+		skb_copy_from_linear_data_offset(combined_skb,
+						 splitlen, skb->data,
+						 len_skb);
 		skb_split(combined_skb, skb, splitlen);
 		/* Headers need to be recalculated since during SIP processing
 		 * headers are calculated based on the change in length of the
@@ -2003,6 +2014,9 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
 {
 	unsigned int dataoff, datalen;
 	const char *dptr;
+
+	if (nf_ct_disable_sip_alg)
+		return NF_ACCEPT;
 
 	/* No Data ? */
 	dataoff = protoff + sizeof(struct udphdr);

@@ -2966,7 +2966,7 @@ void ipa3_inc_client_enable_clks(struct ipa3_active_client_logging_info *id)
 	ipa3_active_clients_lock();
 
 	if (id->type != SIMPLE) {
-		t = cpu_clock(smp_processor_id());
+		t = local_clock();
 		nanosec_rem = do_div(t, 1000000000) / 1000;
 		snprintf(temp_str, IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN,
 					"[%5lu.%06lu] ^ %s, %s: %d",
@@ -3007,7 +3007,7 @@ int ipa3_inc_client_enable_clks_no_block(struct ipa3_active_client_logging_info
 	}
 
 	if (id->type != SIMPLE) {
-		t = cpu_clock(smp_processor_id());
+		t = local_clock();
 		nanosec_rem = do_div(t, 1000000000) / 1000;
 		snprintf(temp_str, IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN,
 				"[%5lu.%06lu] ^ %s, %s: %d",
@@ -3043,7 +3043,7 @@ void ipa3_dec_client_disable_clks(struct ipa3_active_client_logging_info *id)
 
 	ipa3_active_clients_lock();
 	if (id->type != SIMPLE) {
-		t = cpu_clock(smp_processor_id());
+		t = local_clock();
 		nanosec_rem = do_div(t, 1000000000) / 1000;
 		snprintf(temp_str, IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN,
 				"[%5lu.%06lu] v %s, %s: %d",

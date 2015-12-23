@@ -33,6 +33,7 @@
 #define PCIE20_PARF_TEST_BUS           0xE4
 #define PCIE20_PARF_MHI_BASE_ADDR_LOWER 0x178
 #define PCIE20_PARF_MHI_BASE_ADDR_UPPER 0x17c
+#define PCIE20_PARF_MSI_GEN             0x188
 #define PCIE20_PARF_DEBUG_INT_EN        0x190
 #define PCIE20_PARF_MHI_IPA_DBS                0x198
 #define PCIE20_PARF_MHI_IPA_CDB_TARGET_LOWER   0x19C
@@ -94,6 +95,9 @@
 #define PCIE20_PLR_IATU_LAR            0x914
 #define PCIE20_PLR_IATU_LTAR           0x918
 #define PCIE20_PLR_IATU_UTAR           0x91c
+
+#define PCIE20_MHICFG                  0x110
+#define PCIE20_BHI_EXECENV             0x228
 
 #define PCIE20_AUX_CLK_FREQ_REG        0xB40
 
@@ -212,6 +216,7 @@ enum ep_pcie_gpio {
 	EP_PCIE_GPIO_PERST,
 	EP_PCIE_GPIO_WAKE,
 	EP_PCIE_GPIO_CLKREQ,
+	EP_PCIE_GPIO_MDM2AP,
 	EP_PCIE_MAX_GPIO,
 };
 
