@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,12 @@
 #define _MSM_SLIMBUS_DMA_H
 
 #include <linux/slimbus/slimbus.h>
+
+enum msm_dai_slim_event {
+	MSM_DAI_SLIM_ENABLE = 1,
+	MSM_DAI_SLIM_PRE_DISABLE,
+	MSM_DAI_SLIM_DISABLE,
+};
 
 /*
  * struct msm_slim_dma_data - DMA data for slimbus data transfer
@@ -38,7 +44,8 @@ struct msm_slim_dma_data {
 
 	/* Callback for data channel control */
 	int (*dai_channel_ctl) (struct msm_slim_dma_data *dma_data,
-				struct snd_soc_dai *dai, bool enable);
+				struct snd_soc_dai *dai,
+				enum msm_dai_slim_event event);
 };
 
 #endif
