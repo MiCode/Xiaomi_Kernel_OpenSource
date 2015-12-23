@@ -912,8 +912,10 @@ static void msm_rpm_process_ack(uint32_t msg_id, int errno)
 			elem->errno = errno;
 			elem->ack_recd = true;
 			complete(&elem->ack);
-			if (elem->delete_on_ack)
+			if (elem->delete_on_ack) {
 				list_del(&elem->list);
+				kfree(elem);
+			}
 			break;
 		}
 		elem = NULL;
