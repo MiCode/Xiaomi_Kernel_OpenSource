@@ -284,6 +284,13 @@ Optional Properties:
 						battery.
 - qcom,vchg_sns-vadc		Phandle of the VADC node.
 - qcom,vchg-adc-channel-id	The ADC channel to which the VCHG is routed.
+- qcom,external-typec		A boolean property to be used when an external
+				USB TypeC module is used with charger.
+- qcom,typec-psy-name		The psy name to use for external typec. If
+				'qcom,external-typec' is present then this is
+				a required property.
+- qcom,otg-pinctrl:		A boolean property to be used when OTG enable
+				control is configured in pin control mode.
 
 Example:
 	qcom,qpnp-smbcharger {
