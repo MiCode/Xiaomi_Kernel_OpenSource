@@ -115,6 +115,8 @@
 #define SPS_BAM_RES_CONFIRM         (1UL << 7)
 /* Hold memory for BAM DMUX */
 #define SPS_BAM_HOLD_MEM            (1UL << 8)
+/* Use cached write pointer */
+#define SPS_BAM_CACHED_WP           (1UL << 10)
 
 /* BAM device management flags */
 
