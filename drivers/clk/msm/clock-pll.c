@@ -338,16 +338,18 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 		writel_relaxed(pll->vals.test_ctl_lo_val,
 				PLL_TEST_CTL_LO_REG(pll));
 
-	/* Enable test_ctl debug */
-	mode |= BIT(3);
-	writel_relaxed(mode, PLL_MODE_REG(pll));
+	if (!pll->test_ctl_dbg) {
+		/* Enable test_ctl debug */
+		mode |= BIT(3);
+		writel_relaxed(mode, PLL_MODE_REG(pll));
 
-	testlo = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
-	testlo &= ~BM(7, 6);
-	testlo |= 0xC0;
-	writel_relaxed(testlo, PLL_TEST_CTL_LO_REG(pll));
-	/* Wait for the write to complete */
-	mb();
+		testlo = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
+		testlo &= ~BM(7, 6);
+		testlo |= 0xC0;
+		writel_relaxed(testlo, PLL_TEST_CTL_LO_REG(pll));
+		/* Wait for the write to complete */
+		mb();
+	}
 
 	/* Disable PLL bypass mode. */
 	mode |= PLL_BYPASSNL;

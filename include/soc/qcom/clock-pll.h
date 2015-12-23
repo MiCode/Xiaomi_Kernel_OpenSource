@@ -128,6 +128,7 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
  * @status_reg: status register, contains the lock detection bit
  * @init_test_ctl: initialize the test control register
  * @pgm_test_ctl_enable: program the test_ctl register in the enable sequence
+ * @test_ctl_dbg: if false will configure the test control registers.
  * @masks: masks used for settings in config_reg
  * @vals: configuration values to be written to PLL registers
  * @freq_tbl: pll freq table
@@ -151,6 +152,7 @@ struct pll_clk {
 
 	bool init_test_ctl;
 	bool pgm_test_ctl_enable;
+	bool test_ctl_dbg;
 
 	struct pll_config_masks masks;
 	struct pll_config_vals vals;
