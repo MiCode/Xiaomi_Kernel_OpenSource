@@ -170,6 +170,8 @@ Optional properties :
        to/from DDR by controller.
 - qcom,enable-sdp-typec-current-limit: Indicates whether type-c current for SDP CHARGER to
 	be limited.
+- qcom,enable-phy-id-pullup: If present, PHY can keep D+ pull-up resistor on USB ID line
+	during cable disconnect.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
