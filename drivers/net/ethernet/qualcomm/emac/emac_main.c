@@ -246,7 +246,7 @@ static int emac_acpi_get_properties(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	const char *phy_mode;
 	u8 maddr[ETH_ALEN];
-	acpi_status ret;
+	int ret;
 
 	ret = emac_device_property_read_string(dev, "phy-mode", &phy_mode);
 	if (ret < 0)
@@ -260,8 +260,15 @@ static int emac_acpi_get_properties(struct platform_device *pdev,
 
 	ret = emac_device_property_read_u8_array(dev, "mac-address", maddr,
 						 ETH_ALEN);
-	if (ret < 0)
-		eth_random_addr(maddr);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "no MAC address found\n");
+		return ret;
+	}
+
+	if (!is_valid_ether_addr(maddr)) {
+		dev_err(&pdev->dev, "invalid MAC address %pM\n", maddr);
+		return -EINVAL;
+	}
 
 	adpt->no_ephy = emac_device_property_read_bool(dev, "no-ephy");
 	adpt->tstamp_en = emac_device_property_read_bool(dev, "tstamp-eble");
