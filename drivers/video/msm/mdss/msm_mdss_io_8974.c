@@ -19,6 +19,7 @@
 
 #include "mdss_dsi.h"
 #include "mdss_edp.h"
+#include "mdss_dsi_phy.h"
 
 #define MDSS_DSI_DSIPHY_REGULATOR_CTRL_0	0x00
 #define MDSS_DSI_DSIPHY_REGULATOR_CTRL_1	0x04
@@ -440,10 +441,7 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104) &&
-		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-		MDSS_DSI_HW_REV_STEP_2)) {
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 		if (mdss_dsi_is_ctrl_clk_master(ctrl))
 			sctrl = mdss_dsi_get_ctrl_clk_slave();
 		else
@@ -480,10 +478,7 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104) &&
-		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-		MDSS_DSI_HW_REV_STEP_2))
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20)
 		return;
 
 	MIPI_OUTP(ctrl->phy_regulator_io.base + 0x018, 0x000);
@@ -496,10 +491,7 @@ static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104) &&
-		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-		MDSS_DSI_HW_REV_STEP_2)) {
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_PLL_CLKBUFLR_EN, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_GLBL_TEST_CTRL, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0);
@@ -524,10 +516,7 @@ void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104) &&
-		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-		MDSS_DSI_HW_REV_STEP_2))
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20)
 		return;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
@@ -964,17 +953,17 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	mutex_lock(&sdata->phy_reg_lock);
 	if (enable) {
-		switch (ctrl->shared_data->hw_rev) {
-		case MDSS_DSI_HW_REV_104:
-		case MDSS_DSI_HW_REV_104_1:
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_regulator_enable(ctrl);
-			break;
-		case MDSS_DSI_HW_REV_103:
-			mdss_dsi_20nm_phy_regulator_enable(ctrl);
-			break;
-		default:
-			mdss_dsi_28nm_phy_regulator_enable(ctrl);
-			break;
+		} else {
+			switch (ctrl->shared_data->hw_rev) {
+			case MDSS_DSI_HW_REV_103:
+				mdss_dsi_20nm_phy_regulator_enable(ctrl);
+				break;
+			default:
+				mdss_dsi_28nm_phy_regulator_enable(ctrl);
+				break;
+			}
 		}
 		ctrl->is_phyreg_enabled = 1;
 	} else {
@@ -1005,17 +994,18 @@ static void mdss_dsi_phy_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 	}
 
 	if (enable) {
-		switch (ctrl->shared_data->hw_rev) {
-		case MDSS_DSI_HW_REV_104:
-		case MDSS_DSI_HW_REV_104_1:
+
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_config(ctrl);
-			break;
-		case MDSS_DSI_HW_REV_103:
-			mdss_dsi_20nm_phy_config(ctrl);
-			break;
-		default:
-			mdss_dsi_28nm_phy_config(ctrl);
-			break;
+		} else {
+			switch (ctrl->shared_data->hw_rev) {
+			case MDSS_DSI_HW_REV_103:
+				mdss_dsi_20nm_phy_config(ctrl);
+				break;
+			default:
+				mdss_dsi_28nm_phy_config(ctrl);
+				break;
+			}
 		}
 	} else {
 		/*
