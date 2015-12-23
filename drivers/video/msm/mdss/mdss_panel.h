@@ -629,11 +629,13 @@ struct mdss_panel_info {
 	bool is_prim_panel;
 	bool is_pluggable;
 	char display_id[MDSS_DISPLAY_ID_MAX_LEN];
+	bool is_cec_supported;
 
 	/* refer sim_panel_modes enum for different modes */
 	u8 sim_panel_mode;
 
 	void *edid_data;
+	void *dba_data;
 	void *cec_data;
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
@@ -652,6 +654,8 @@ struct mdss_panel_info {
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
 	struct edp_panel_info edp;
+
+	bool is_dba_panel;
 
 	/*
 	 * Delay(in ms) to accommodate s/w delay while

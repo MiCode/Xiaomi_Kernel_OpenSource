@@ -1662,7 +1662,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 	/* Initialize EDID feature */
 	edid_init_data.kobj = hdmi_ctrl->kobj;
-	edid_init_data.ds_data = &hdmi_ctrl->ds_data;
+	edid_init_data.ds_data = hdmi_ctrl->ds_data;
 	edid_init_data.max_pclk_khz = hdmi_ctrl->max_pclk_khz;
 
 	fd = hdmi_edid_init(&edid_init_data);
@@ -1733,6 +1733,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 	/* initialize cec hw feature and get ops */
 	cec_init_data.io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	cec_init_data.workq = hdmi_ctrl->workq;
+	cec_init_data.pinfo = &hdmi_ctrl->panel_data.panel_info;
 	cec_init_data.ops = &hdmi_ctrl->hdmi_cec_ops;
 	cec_init_data.cbs = &hdmi_ctrl->hdmi_cec_cbs;
 
@@ -1742,6 +1743,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 		goto err_cec_hw;
 	}
 
+	hdmi_ctrl->panel_data.panel_info.is_cec_supported = true;
 	hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW] = cec_hw_data;
 
 	/* initialize cec abstract layer and get callbacks */
@@ -1763,6 +1765,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 err_cec_abst:
 	hdmi_cec_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW]);
+	hdmi_ctrl->panel_data.panel_info.is_cec_supported = false;
 err_cec_hw:
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2]) {
 		hdmi_hdcp2p2_deinit(
@@ -4181,6 +4184,7 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW]) {
 		hdmi_cec_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW]);
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW] = NULL;
+		hdmi_ctrl->panel_data.panel_info.is_cec_supported = false;
 	}
 
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) {
@@ -4270,25 +4274,8 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->audio_data.sample_rate_hz = AUDIO_SAMPLE_RATE_48KHZ;
 	hdmi_ctrl->audio_data.num_of_channels = MSM_HDMI_AUDIO_CHANNEL_2;
 
-	hdmi_ctrl->sdev.name = "hdmi";
-	if (switch_dev_register(&hdmi_ctrl->sdev) < 0) {
-		DEV_ERR("%s: Hdmi switch registration failed\n", __func__);
-		rc = -ENODEV;
-		goto fail_create_workq;
-	}
-
-	hdmi_ctrl->audio_sdev.name = "hdmi_audio";
-	if (switch_dev_register(&hdmi_ctrl->audio_sdev) < 0) {
-		DEV_ERR("%s: hdmi_audio switch registration failed\n",
-			__func__);
-		rc = -ENODEV;
-		goto fail_audio_switch_dev;
-	}
-
 	return 0;
 
-fail_audio_switch_dev:
-	switch_dev_unregister(&hdmi_ctrl->sdev);
 fail_create_workq:
 	if (hdmi_ctrl->workq)
 		destroy_workqueue(hdmi_ctrl->workq);
@@ -4326,6 +4313,31 @@ static int hdmi_tx_start_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return rc;
 }
 
+static int hdmi_tx_init_switch_dev(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int rc = -EINVAL;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		goto end;
+	}
+
+	hdmi_ctrl->sdev.name = "hdmi";
+	rc = switch_dev_register(&hdmi_ctrl->sdev);
+	if (rc) {
+		DEV_ERR("%s: display switch registration failed\n", __func__);
+		goto end;
+	}
+
+	hdmi_ctrl->audio_sdev.name = "hdmi_audio";
+	rc = switch_dev_register(&hdmi_ctrl->audio_sdev);
+	if (rc)
+		DEV_ERR("%s: audio switch registration failed\n", __func__);
+
+end:
+	return rc;
+}
+
 static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 	int event, void *arg)
 {
@@ -4353,6 +4365,14 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		if (rc) {
 			DEV_ERR("%s: init_features failed.rc=%d\n",
 					__func__, rc);
+			hdmi_tx_sysfs_remove(hdmi_ctrl);
+			return rc;
+		}
+
+		rc = hdmi_tx_init_switch_dev(hdmi_ctrl);
+		if (rc) {
+			DEV_ERR("%s: init switch dev failed.rc=%d\n",
+				__func__, rc);
 			hdmi_tx_sysfs_remove(hdmi_ctrl);
 			return rc;
 		}
