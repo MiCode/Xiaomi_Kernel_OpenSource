@@ -108,6 +108,7 @@
 #define MDSS_MDP_HW_REV_200	MDSS_MDP_REV(2, 0, 0) /* 8092 v1.0 */
 #define MDSS_MDP_HW_REV_112	MDSS_MDP_REV(1, 12, 0) /* 8952 v1.0 */
 #define MDSS_MDP_HW_REV_114	MDSS_MDP_REV(1, 14, 0) /* 8937 v1.0 */
+#define MDSS_MDP_HW_REV_116	MDSS_MDP_REV(1, 16, 0) /* msmtitanium */
 
 enum {
 	NOTIFY_UPDATE_INIT,
