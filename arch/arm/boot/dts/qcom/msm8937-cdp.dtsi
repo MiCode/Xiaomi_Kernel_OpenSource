@@ -301,6 +301,12 @@
 	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
 };
 
+&dsi_truly_720_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+
 &qpdi {
 	qcom,pmic-carddetect-gpio = <&pm8937_gpios 0x2 0>;
 };
