@@ -1936,7 +1936,7 @@ static void msm_isp_process_overflow_irq(
 {
 	uint32_t overflow_mask, vfe_id;
 	struct dual_vfe_resource *dual_vfe_res = NULL;
-
+	enum msm_vfe_input_src input_src = 0;
 	/* if there are no active streams - do not start recovery */
 	if (!vfe_dev->axi_data.num_active_stream)
 		return;
@@ -1970,8 +1970,20 @@ static void msm_isp_process_overflow_irq(
 			return;
 		}
 
-		ISP_DBG("%s: Bus overflow detected: 0x%x, start recovery!\n",
-				__func__, overflow_mask);
+		overflow_mask &= 0xFE00;
+		overflow_mask >>= 9;
+
+		if (overflow_mask & vfe_dev->axi_data.rdi_wm_mask)
+			input_src = VFE_RAW_0;
+		else if ((overflow_mask << 8) & vfe_dev->axi_data.rdi_wm_mask)
+			input_src = VFE_RAW_1;
+		else if ((overflow_mask << 16) & vfe_dev->axi_data.rdi_wm_mask)
+			input_src = VFE_RAW_2;
+		else
+			input_src = VFE_PIX_0;
+
+		ISP_DBG("%s: intf %d Bus overflow detected: 0x%x, start recovery!\n",
+				__func__, input_src, overflow_mask);
 
 		halt_cmd.overflow_detected = 1;
 		halt_cmd.stop_camif = 1;
@@ -1990,8 +2002,9 @@ static void msm_isp_process_overflow_irq(
 		*irq_status1 = 0;
 
 		error_event.frame_id =
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+			vfe_dev->axi_data.src_info[input_src].frame_id;
 		error_event.u.error_info.err_type = ISP_ERROR_BUS_OVERFLOW;
+		error_event.u.error_info.stream_id_mask= input_src;
 		msm_isp_send_event(vfe_dev, ISP_EVENT_ERROR, &error_event);
 	}
 }
