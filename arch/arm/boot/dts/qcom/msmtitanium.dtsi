@@ -1813,6 +1813,7 @@
 #include "msmtitanium-regulator.dtsi"
 #include "msm-pmi8950.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msmtitanium-camera.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";
