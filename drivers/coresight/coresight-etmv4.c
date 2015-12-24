@@ -29,8 +29,10 @@
 #include <linux/clk.h>
 #include <linux/cpu.h>
 #include <linux/of_coresight.h>
+#include <linux/of_address.h>
 #include <linux/coresight.h>
 #include <linux/pm_wakeup.h>
+#include <linux/cpumask.h>
 #include <asm/sections.h>
 #include <asm/etmv4x.h>
 #include <soc/qcom/socinfo.h>
@@ -396,7 +398,24 @@ struct etm_drvdata {
 	uint8_t				ns_ex_level;
 	uint32_t			ext_inp;
 	struct msm_dump_data		reg_data;
+	struct etm_cgc_data		*cgc_data;
 };
+
+/* support max 2 clusters now */
+#define MAX_CLUSTER_NUM		2
+#define NTS_CGC_OVERRIDE	BIT(9)
+#define CNT_CGC_OVERRIDE	BIT(8)
+#define APB_CGC_OVERRIDE	BIT(7)
+#define ATB_CGC_OVERRIDE	BIT(6)
+
+struct etm_cgc_data {
+	void __iomem		*base;
+	uint32_t		phy_addr;
+	uint32_t		len;
+	cpumask_t		control_mask;
+};
+
+static struct etm_cgc_data *etm_cgc_data[MAX_CLUSTER_NUM];
 
 static int count;
 static struct etm_drvdata *etmdrvdata[NR_CPUS];
@@ -3447,6 +3466,62 @@ static struct notifier_block etm_cpu_dying_notifier = {
 	.priority = 1,
 };
 
+static int etm_parse_cgc_data(struct platform_device *pdev,
+			      struct etm_drvdata *drvdata)
+{
+	struct device_node *cgc_node = NULL;
+	struct etm_cgc_data *cgc_data = NULL;
+	int cluster, val, regs[2], ret, start, len;
+
+	cgc_node = of_parse_phandle(pdev->dev.of_node,
+				    "qcom,cpuss-debug-cgc", 0);
+	if (!cgc_node)
+		return 0;
+
+	ret = of_property_read_u32(cgc_node, "cluster", &cluster);
+	if (ret || cluster >= MAX_CLUSTER_NUM)
+		return -EINVAL;
+
+	ret = of_property_read_u32_array(cgc_node, "reg",
+					 (u32 *)&regs, 2);
+	if (ret)
+		return ret;
+
+	start = regs[0];
+	len = regs[1];
+
+	if (!etm_cgc_data[cluster]) {
+		cgc_data = devm_kzalloc(&pdev->dev, sizeof(*cgc_data),
+					GFP_KERNEL);
+		if (!cgc_data)
+			return -ENOMEM;
+
+		cgc_data->phy_addr = (uint32_t)start;
+		cgc_data->len = (uint32_t)len;
+		cgc_data->base = devm_ioremap(&pdev->dev, start, len);
+		if (!cgc_data->base)
+			return -ENOMEM;
+
+		val = __raw_readl(cgc_data->base);
+		/* disable ATB and NTS clock gating */
+		val |= (ATB_CGC_OVERRIDE | NTS_CGC_OVERRIDE);
+		__raw_writel(val, cgc_data->base);
+		etm_cgc_data[cluster] = cgc_data;
+	} else {
+		if (etm_cgc_data[cluster]->phy_addr != start
+		    || etm_cgc_data[cluster]->len != len) {
+			dev_err(&pdev->dev, "duplicated cluster %d setting\n",
+				cluster);
+			etm_cgc_data[cluster]->base = 0x0;
+			return -EINVAL;
+		}
+	}
+	cpumask_set_cpu(drvdata->cpu, &etm_cgc_data[cluster]->control_mask);
+	drvdata->cgc_data = etm_cgc_data[cluster];
+
+	return 0;
+}
+
 static int etm_probe(struct platform_device *pdev)
 {
 	int ret, cpu;
@@ -3507,6 +3582,9 @@ static int etm_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err0;
 	}
+
+	/* parse clock gating control DT and disable clock gating */
+	etm_parse_cgc_data(pdev, drvdata);
 
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
