@@ -115,6 +115,11 @@
 	qcom,platform-reset-gpio = <&tlmm 60 0>;
 };
 
+&pmi_haptic {
+	status = "okay";
+	qcom,actuator-type = "erm";
+};
+
 &mdss_dsi1 {
 	status = "disabled";
 };
