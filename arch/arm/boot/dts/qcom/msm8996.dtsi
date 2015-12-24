@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -957,6 +957,7 @@
 			qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 01 17 02];
 			qcom,cdc-dmic-sample-rate = <4800000>;
 			qcom,cdc-mad-dmic-rate = <600000>;
+			qcom,cdc-dmic-clk-drv-strength = <2>;
 		};
 	};
 
