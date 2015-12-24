@@ -159,6 +159,8 @@ struct mdss_pll_resources {
 
 	bool ssc_en;	/* share pll with master */
 	bool ssc_center;	/* default is down spread */
+	u32 ssc_freq;
+	u32 ssc_ppm;
 
 	struct mdss_pll_resources *slave;
 
