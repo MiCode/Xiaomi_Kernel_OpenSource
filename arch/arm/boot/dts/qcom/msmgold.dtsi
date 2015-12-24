@@ -105,6 +105,7 @@
 #include "msmgold-iommu-domains.dtsi"
 #include "msmgold-smp2p.dtsi"
 #include "msmgold-coresight.dtsi"
+#include "msm8937-bus.dtsi"
 #include "msmgold-mdss.dtsi"
 #include "msmgold-mdss-pll.dtsi"
 
