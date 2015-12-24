@@ -345,6 +345,7 @@ struct sched_cluster {
 	struct cpumask cpus;
 	int id;
 	int max_power_cost;
+	int min_power_cost;
 	int max_possible_capacity;
 	int capacity;
 	int efficiency; /* Differentiate cpus with different IPC capability */
@@ -946,12 +947,14 @@ extern unsigned int max_capacity;
 extern unsigned int min_capacity;
 extern unsigned int max_load_scale_factor;
 extern unsigned int max_possible_capacity;
+extern unsigned int min_max_possible_capacity;
 extern unsigned int sched_upmigrate;
 extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_pelt;
 extern unsigned int sched_init_task_load_windows;
 extern unsigned int sched_heavy_task;
 extern unsigned int up_down_migrate_scale_factor;
+extern unsigned int sysctl_sched_restrict_cluster_spill;
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
@@ -1009,6 +1012,16 @@ static inline unsigned int cpu_max_possible_freq(int cpu)
 static inline int same_cluster(int src_cpu, int dst_cpu)
 {
 	return cpu_rq(src_cpu)->cluster == cpu_rq(dst_cpu)->cluster;
+}
+
+static inline int cpu_max_power_cost(int cpu)
+{
+	return cpu_rq(cpu)->cluster->max_power_cost;
+}
+
+static inline bool hmp_capable(void)
+{
+	return max_possible_capacity != min_max_possible_capacity;
 }
 
 /*
@@ -2013,6 +2026,9 @@ enum rq_nohz_flag_bits {
 	NOHZ_TICK_STOPPED,
 	NOHZ_BALANCE_KICK,
 };
+
+#define NOHZ_KICK_ANY 0
+#define NOHZ_KICK_RESTRICT 1
 
 #define nohz_flags(cpu)	(&cpu_rq(cpu)->nohz_flags)
 #endif
