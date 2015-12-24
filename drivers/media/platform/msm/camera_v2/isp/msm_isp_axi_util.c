@@ -780,26 +780,6 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	switch (event_type) {
 	case ISP_EVENT_SOF:
 		if (frame_src == VFE_PIX_0) {
-			/* Frame id is incremented in CAMIF SOF. Event is sent
-			 * in EPOCH. If by this time, both VFE dont have same
-			 * frame_id, then we have scheduling issues or some
-			 * other s/w issue */
-			if (vfe_dev->is_split &&
-				vfe_dev->common_data->dual_vfe_res->
-					axi_data[0]->
-					src_info[VFE_PIX_0].frame_id !=
-				vfe_dev->common_data->dual_vfe_res->
-					axi_data[1]->
-					src_info[VFE_PIX_0].frame_id) {
-				pr_debug("%s: Error! 2 VFE out of sync vfe0 frame_id %u vfe1 %u\n",
-					__func__,
-					vfe_dev->common_data->dual_vfe_res->
-						axi_data[0]->
-						src_info[VFE_PIX_0].frame_id,
-					vfe_dev->common_data->dual_vfe_res->
-						axi_data[1]->
-						src_info[VFE_PIX_0].frame_id);
-			}
 			if (vfe_dev->isp_sof_debug < ISP_SOF_DEBUG_COUNT)
 				pr_err("%s: PIX0 frame id: %u\n", __func__,
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
@@ -2484,9 +2464,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 
 		stream_info->state = START_PENDING;
-		ISP_DBG("start axi Stream 0x%x src_state %d src type %d\n",
-			stream_info->stream_id, src_state,
-			stream_info->stream_type);
+		ISP_DBG("%s, Stream 0x%x src_state %d on vfe %d\n", __func__,
+			stream_info->stream_id, src_state, vfe_dev->pdev->id);
 		if (src_state) {
 			src_mask |= (1 << SRC_TO_INTF(stream_info->stream_src));
 			wait_for_complete = 1;
@@ -2945,7 +2924,9 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 
 	if (!stream_info->bufq_handle[queue_req->buff_queue_id]) {
 		spin_unlock_irqrestore(&stream_info->lock, flags);
-		pr_err("%s:%d stream is stoped\n", __func__, __LINE__);
+		pr_err("%s:%d request frame failed on hw stream 0x%x, request stream %d due to no bufq idx: %d\n",
+			__func__, __LINE__, stream_info->stream_handle,
+			user_stream_id, queue_req->buff_queue_id);
 		return 0;
 	}
 	queue_req->cmd_used = 1;
@@ -3038,6 +3019,7 @@ static int msm_isp_add_buf_queue(struct vfe_device *vfe_dev,
 	else
 		bufq_id = VFE_BUF_QUEUE_SHARED;
 
+
 	stream_info->bufq_handle[bufq_id] =
 		vfe_dev->buf_mgr->ops->get_bufq_handle(vfe_dev->buf_mgr,
 			stream_info->session_id, stream_id);
@@ -3046,6 +3028,10 @@ static int msm_isp_add_buf_queue(struct vfe_device *vfe_dev,
 			__func__, stream_id);
 		rc = -EINVAL;
 	}
+
+	ISP_DBG("%d: Add bufq handle:0x%x, idx:%d, for stream %d on VFE %d\n",
+		__LINE__, stream_info->bufq_handle[bufq_id],
+		bufq_id, stream_info->stream_handle, vfe_dev->pdev->id);
 
 	return rc;
 }
