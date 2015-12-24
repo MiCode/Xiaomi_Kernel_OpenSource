@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,9 +62,4 @@ void subsys_notif_register(struct notifier_block *mod_notif,
 uint16_t apr_get_reset_domain(uint16_t proc)
 {
 	return proc;
-}
-
-bool apr_register_voice_svc()
-{
-	return true;
 }
