@@ -78,7 +78,7 @@ static int emac_get_settings(struct net_device *netdev,
 			     struct ethtool_cmd *ecmd)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_hw *hw = &adpt->hw;
+	struct emac_phy *phy = &adpt->phy;
 
 	ecmd->supported = (SUPPORTED_10baseT_Half   |
 			   SUPPORTED_10baseT_Full   |
@@ -89,20 +89,20 @@ static int emac_get_settings(struct net_device *netdev,
 			   SUPPORTED_TP);
 
 	ecmd->advertising = ADVERTISED_TP;
-	if (hw->autoneg) {
+	if (phy->autoneg) {
 		ecmd->advertising |= ADVERTISED_Autoneg;
-		ecmd->advertising |= hw->autoneg_advertised;
+		ecmd->advertising |= phy->autoneg_advertised;
 		ecmd->autoneg = AUTONEG_ENABLE;
 	} else {
 		ecmd->autoneg = AUTONEG_DISABLE;
 	}
 
 	ecmd->port = PORT_TP;
-	ecmd->phy_address = hw->phy_addr;
+	ecmd->phy_address = phy->addr;
 	ecmd->transceiver = XCVR_INTERNAL;
 
-	if (hw->link_up) {
-		switch (hw->link_speed) {
+	if (phy->link_up) {
+		switch (phy->link_speed) {
 		case EMAC_LINK_SPEED_10_HALF:
 			ecmd->speed = SPEED_10;
 			ecmd->duplex = DUPLEX_HALF;
@@ -140,7 +140,7 @@ static int emac_set_settings(struct net_device *netdev,
 			     struct ethtool_cmd *ecmd)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_hw *hw = &adpt->hw;
+	struct emac_phy *phy = &adpt->phy;
 	u32 advertised, old;
 	int retval = 0;
 	bool autoneg;
@@ -152,7 +152,7 @@ static int emac_set_settings(struct net_device *netdev,
 	while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
 		msleep(20); /* Reset might take few 10s of ms */
 
-	old = hw->autoneg_advertised;
+	old = phy->autoneg_advertised;
 	advertised = 0;
 	if (ecmd->autoneg == AUTONEG_ENABLE) {
 		advertised = EMAC_LINK_SPEED_DEFAULT;
@@ -182,26 +182,27 @@ static int emac_set_settings(struct net_device *netdev,
 		}
 	}
 
-	if ((hw->autoneg == autoneg) && (hw->autoneg_advertised == advertised))
+	if ((phy->autoneg == autoneg) &&
+	    (phy->autoneg_advertised == advertised))
 		goto done;
 
 	/* If there is no EPHY, the EMAC internal PHY may get reset in
-	 * emac_setup_phy_link_speed. Reset the MAC to avoid the memory
+	 * emac_phy_setup_link_speed. Reset the MAC to avoid the memory
 	 * corruption.
 	 */
-	if (adpt->no_ephy && if_running)
+	if (!phy->external && if_running)
 		emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
 
-	retval = emac_setup_phy_link_speed(hw, advertised, autoneg,
-					   !hw->disable_fc_autoneg);
+	retval = emac_phy_setup_link_speed(adpt, advertised, autoneg,
+					   !phy->disable_fc_autoneg);
 	if (retval) {
-		emac_setup_phy_link_speed(hw, old, autoneg,
-					  !hw->disable_fc_autoneg);
+		emac_phy_setup_link_speed(adpt, old, autoneg,
+					  !phy->disable_fc_autoneg);
 	}
 
 	if (if_running) {
 		/* If there is no EPHY, bring up the interface */
-		if (adpt->no_ephy)
+		if (!phy->external)
 			emac_up(adpt);
 	}
 
@@ -214,18 +215,18 @@ static void emac_get_pauseparam(struct net_device *netdev,
 				struct ethtool_pauseparam *pause)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_hw *hw = &adpt->hw;
+	struct emac_phy *phy = &adpt->phy;
 
-	if (hw->disable_fc_autoneg)
+	if (phy->disable_fc_autoneg)
 		pause->autoneg = 0;
 	else
 		pause->autoneg = 1;
 
-	if (hw->cur_fc_mode == emac_fc_rx_pause) {
+	if (phy->cur_fc_mode == EMAC_FC_RX_PAUSE) {
 		pause->rx_pause = 1;
-	} else if (hw->cur_fc_mode == emac_fc_tx_pause) {
+	} else if (phy->cur_fc_mode == EMAC_FC_TX_PAUSE) {
 		pause->tx_pause = 1;
-	} else if (hw->cur_fc_mode == emac_fc_full) {
+	} else if (phy->cur_fc_mode == EMAC_FC_FULL) {
 		pause->rx_pause = 1;
 		pause->tx_pause = 1;
 	}
@@ -235,16 +236,16 @@ static int emac_set_pauseparam(struct net_device *netdev,
 			       struct ethtool_pauseparam *pause)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_hw *hw = &adpt->hw;
-	enum emac_fc_mode req_fc_mode;
+	struct emac_phy *phy = &adpt->phy;
+	enum emac_flow_ctrl req_fc_mode;
 	bool disable_fc_autoneg;
 	int retval = 0;
 
 	while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
 		msleep(20); /* Reset might take few 10s of ms */
 
-	req_fc_mode        = hw->req_fc_mode;
-	disable_fc_autoneg = hw->disable_fc_autoneg;
+	req_fc_mode        = phy->req_fc_mode;
+	disable_fc_autoneg = phy->disable_fc_autoneg;
 
 	if (pause->autoneg != AUTONEG_ENABLE)
 		disable_fc_autoneg = true;
@@ -252,29 +253,29 @@ static int emac_set_pauseparam(struct net_device *netdev,
 		disable_fc_autoneg = false;
 
 	if (pause->rx_pause && pause->tx_pause) {
-		req_fc_mode = emac_fc_full;
+		req_fc_mode = EMAC_FC_FULL;
 	} else if (pause->rx_pause && !pause->tx_pause) {
-		req_fc_mode = emac_fc_rx_pause;
+		req_fc_mode = EMAC_FC_RX_PAUSE;
 	} else if (!pause->rx_pause && pause->tx_pause) {
-		req_fc_mode = emac_fc_tx_pause;
+		req_fc_mode = EMAC_FC_TX_PAUSE;
 	} else if (!pause->rx_pause && !pause->tx_pause) {
-		req_fc_mode = emac_fc_none;
+		req_fc_mode = EMAC_FC_NONE;
 	} else {
 		CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 		return -EINVAL;
 	}
 
-	if ((hw->req_fc_mode != req_fc_mode) ||
-	    (hw->disable_fc_autoneg != disable_fc_autoneg)) {
-		hw->req_fc_mode = req_fc_mode;
-		hw->disable_fc_autoneg = disable_fc_autoneg;
-		if (!adpt->no_ephy)
-			retval = emac_setup_phy_link(hw,
-						     hw->autoneg_advertised,
-						     hw->autoneg,
+	if ((phy->req_fc_mode != req_fc_mode) ||
+	    (phy->disable_fc_autoneg != disable_fc_autoneg)) {
+		phy->req_fc_mode	= req_fc_mode;
+		phy->disable_fc_autoneg	= disable_fc_autoneg;
+		if (phy->external)
+			retval = emac_phy_setup_link(adpt,
+						     phy->autoneg_advertised,
+						     phy->autoneg,
 						     !disable_fc_autoneg);
 		if (!retval)
-			emac_hw_config_fc(hw);
+			emac_phy_config_fc(adpt);
 	}
 
 	CLR_FLAG(adpt, ADPT_STATE_RESETTING);

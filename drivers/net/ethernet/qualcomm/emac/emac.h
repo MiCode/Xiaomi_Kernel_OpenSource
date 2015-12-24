@@ -18,6 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#include "emac_phy.h"
 
 /* Device IDs */
 #define EMAC_DEV_ID                0x0040
@@ -119,15 +120,6 @@ enum emac_dma_req_block {
 	emac_dma_req_4096 = 5
 };
 
-/* Flow Control Settings */
-enum emac_fc_mode {
-	emac_fc_none = 0,
-	emac_fc_rx_pause,
-	emac_fc_tx_pause,
-	emac_fc_full,
-	emac_fc_default
-};
-
 /* IEEE1588 */
 enum emac_ptp_clk_mode {
 	emac_ptp_clk_mode_oc_two_step,
@@ -223,31 +215,11 @@ enum emac_adapter_flags {
 #define TEST_N_SET_FLAG(OBJ, FLAG) \
 			test_and_set_bit(EMAC_FLAG_ ## FLAG,  &((OBJ)->flags))
 
-struct emac_adapter;
-struct emac_hw;
-
-struct emac_phy_ops {
-	int  (*config)(struct platform_device *pdev, struct emac_adapter *adpt);
-	int  (*up)(struct emac_adapter *adpt);
-	void (*down)(struct emac_adapter *adpt);
-	int  (*init)(struct emac_adapter *adpt);
-	void (*reset)(struct emac_adapter *adpt);
-	int  (*init_ephy)(struct emac_hw *hw);
-	int  (*link_setup_no_ephy)(struct emac_adapter *adpt, u32 speed,
-				   bool autoneg);
-	int  (*link_check_no_ephy)(struct emac_adapter *adpt, u32 *speed,
-				   bool *link_up);
-	void (*tx_clk_set_rate)(struct emac_adapter *adpt);
-	void (*periodic_task)(struct emac_adapter *adpt);
-};
-
 struct emac_hw {
 	void __iomem *reg_addr[NUM_EMAC_REG_BASES];
 
 	u16     devid;
 	u16     revid;
-	struct emac_phy_ops	ops;
-	void			*private;
 
 	/* ring parameter */
 	u8      tpd_burst;
@@ -258,24 +230,10 @@ struct emac_hw {
 	enum emac_dma_req_block   dmaw_block;
 	enum emac_dma_order       dma_order;
 
-	/* PHY parameter */
-	u32             phy_addr;
-	u16             phy_id[2];
-	bool            autoneg;
-	u32             autoneg_advertised;
-	u32             link_speed;
-	bool            link_up;
-	spinlock_t      mdio_lock; /* sync access to mdio bus */
-
 	/* MAC parameter */
 	u8      mac_addr[ETH_ALEN];
 	u8      mac_perm_addr[ETH_ALEN];
 	u32     mtu;
-
-	/* flow control parameter */
-	enum emac_fc_mode   cur_fc_mode; /* FC mode in effect */
-	enum emac_fc_mode   req_fc_mode; /* FC mode requested by caller */
-	bool                disable_fc_autoneg; /* Do not autonegotiate FC */
 
 	/* RSS parameter */
 	u8      rss_hstype;
@@ -742,6 +700,7 @@ struct emac_adapter {
 
 	u32 rxbuf_size;
 
+	struct emac_phy phy;
 	struct emac_hw hw;
 	struct emac_hw_stats hw_stats;
 
@@ -757,9 +716,6 @@ struct emac_adapter {
 	unsigned long	link_jiffies;
 
 	bool            tstamp_en;
-	int             phy_mode;
-	bool            no_ephy;
-	bool            no_mdio_gpio;
 	u32             wol;
 	u16             msg_enable;
 	unsigned long   flags;
