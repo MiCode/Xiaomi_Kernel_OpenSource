@@ -45,6 +45,29 @@ struct dsi_pll_vco_clk {
 			(struct mdss_pll_resources *dsi_pll_Res);
 };
 
+struct ssc_params {
+	s32 kdiv;
+	s64 triang_inc_7_0;
+	s64 triang_inc_9_8;
+	s64 triang_steps;
+	s64 dc_offset;
+	s64 freq_seed_7_0;
+	s64 freq_seed_15_8;
+};
+
+struct mdss_dsi_vco_calc {
+	s64 sdm_cfg0;
+	s64 sdm_cfg1;
+	s64 sdm_cfg2;
+	s64 sdm_cfg3;
+	s64 cal_cfg10;
+	s64 cal_cfg11;
+	s64 refclk_cfg;
+	s64 gen_vco_clk;
+	u32 lpfr_lut_res;
+	struct ssc_params ssc;
+};
+
 static inline struct dsi_pll_vco_clk *to_vco_clk(struct clk *clk)
 {
 	return container_of(clk, struct dsi_pll_vco_clk, c);
