@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,6 @@
 #include "msm-pm8916-rpm-regulator.dtsi"
 #include "msm-pm8916.dtsi"
 #include "msm8916-regulator.dtsi"
-#include "msm8909-pm8916-camera.dtsi"
 
 / {
 	qcom,pmic-id = <0x1000B 0x0 0x0 0x0>;
@@ -172,14 +171,6 @@
 	qpdi@1941000 {
 		vdd-supply = <&pm8916_l11>;
 		vdd-io-supply = <&pm8916_l12>;
-	};
-
-	qcom,csid@1b08000  {
-		qcom,mipi-csi-vdd-supply = <&pm8916_l2>;
-	};
-
-	qcom,csid@1b08400 {
-		qcom,mipi-csi-vdd-supply = <&pm8916_l2>;
 	};
 
 	qcom,mdss_dsi@0 {

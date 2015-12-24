@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,19 +19,6 @@
 		};
 	};
 
-	i2c@78b6000 {
-		nfc-nci@e {
-			qcom,clk-gpio = <&pm8916_gpios 2 0>;
-		};
-	};
-
-};
-
-&audio_codec_mtp {
-	status = "ok";
-	qcom,model = "msm8909-pm8916-snd-card";
-	asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
-	asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 };
 
 &sdhc_1 {
@@ -42,54 +29,6 @@
 &sdhc_2 {
 	vdd-supply = <&pm8916_l11>;
 	vdd-io-supply = <&pm8916_l12>;
-};
-
-&i2c_1 {
-	mpu6050@68 {
-		vdd-supply = <&pm8916_l17>;
-		vlogic-supply = <&pm8916_l6>;
-	};
-
-	avago@39 {
-		vdd-supply = <&pm8916_l17>;
-		vio-supply = <&pm8916_l6>;
-	};
-
-	memsic@30 {
-		vdd-supply = <&pm8916_l17>;
-		vio-supply = <&pm8916_l6>;
-	};
-
-	akm@c {
-		vdd-supply = <&pm8916_l17>;
-		vio-supply = <&pm8916_l6>;
-	};
-};
-
-&i2c_3 {
-	qcom,actuator@0 {
-		cam_vaf-supply = <&pm8916_l8>;
-	};
-
-
-	qcom,eeprom@6c{
-		cam_vdig-supply = <&pm8916_l2>;
-		cam_vana-supply = <&pm8916_l10>;
-		cam_vio-supply = <&pm8916_l6>;
-		cam_vaf-supply = <&pm8916_l8>;
-	};
-
-	qcom,camera@0 {
-		cam_vdig-supply = <&pm8916_l2>;
-		cam_vana-supply = <&pm8916_l10>;
-		cam_vio-supply = <&pm8916_l6>;
-		cam_vaf-supply = <&pm8916_l8>;
-	};
-
-	qcom,camera@1 {
-		cam_vana-supply = <&pm8916_l10>;
-		cam_vio-supply = <&pm8916_l6>;
-	};
 };
 
 &dsi_hx8394d_720_vid {
