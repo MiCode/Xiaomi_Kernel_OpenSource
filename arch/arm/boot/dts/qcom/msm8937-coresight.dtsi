@@ -240,10 +240,18 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <4>;
 		coresight-etm-cpu = <&CPU0>;
+		qcom,cpuss-debug-cgc = <&CGC_0>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		CGC_0: cluster-cgc {
+			reg = <0xb011088 0x4>;
+			cluster = <1>;
+		};
 	};
 
 	etm1: etm@61bd000 {
@@ -258,6 +266,7 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <5>;
 		coresight-etm-cpu = <&CPU1>;
+		qcom,cpuss-debug-cgc = <&CGC_0>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -276,6 +285,7 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <6>;
 		coresight-etm-cpu = <&CPU2>;
+		qcom,cpuss-debug-cgc = <&CGC_0>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -294,6 +304,7 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <7>;
 		coresight-etm-cpu = <&CPU3>;
+		qcom,cpuss-debug-cgc = <&CGC_0>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -312,10 +323,18 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <0>;
 		coresight-etm-cpu = <&CPU4>;
+		qcom,cpuss-debug-cgc = <&CGC_1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		CGC_1: cluster-cgc {
+			reg = <0xb111088 0x4>;
+			cluster = <0>;
+		};
 	};
 
 	etm5: etm@61b9d000 {
@@ -330,6 +349,7 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <1>;
 		coresight-etm-cpu = <&CPU5>;
+		qcom,cpuss-debug-cgc = <&CGC_1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -348,6 +368,7 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <2>;
 		coresight-etm-cpu = <&CPU6>;
+		qcom,cpuss-debug-cgc = <&CGC_1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -366,6 +387,7 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <3>;
 		coresight-etm-cpu = <&CPU7>;
+		qcom,cpuss-debug-cgc = <&CGC_1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
