@@ -1936,8 +1936,10 @@ int mdss_dsi_post_clkon_cb(void *priv,
 	pdata = &ctrl->panel_data;
 
 	if (clk & MDSS_DSI_CORE_CLK) {
-		if (!pdata->panel_info.cont_splash_enabled)
+		if (!pdata->panel_info.cont_splash_enabled) {
 			mdss_dsi_read_hw_revision(ctrl);
+			mdss_dsi_read_phy_revision(ctrl);
+		}
 
 		/*
 		 * Phy and controller setup is needed if coming out of idle

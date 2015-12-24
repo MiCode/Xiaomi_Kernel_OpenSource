@@ -1306,6 +1306,10 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
 			  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_ON);
 
+	/* Populate DSI Controller and PHY revision */
+	mdss_dsi_read_hw_revision(ctrl_pdata);
+	mdss_dsi_read_phy_revision(ctrl_pdata);
+
 	/*
 	 * If ULPS during suspend feature is enabled, then DSI PHY was
 	 * left on during suspend. In this case, we do not need to reset/init
@@ -1324,8 +1328,6 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
 			  MDSS_DSI_LINK_CLK, MDSS_DSI_CLK_ON);
 	mdss_dsi_sw_reset(ctrl_pdata, true);
-	mdss_dsi_read_hw_revision(ctrl_pdata);
-	mdss_dsi_read_phy_revision(ctrl_pdata);
 
 	/*
 	 * Issue hardware reset line after enabling the DSI clocks and data
