@@ -1888,7 +1888,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) + tbl_entry_in_hdr_ofst;
 
 	/* for tables which reside in DDR access it from the virtual memory */
-	if (*tbl_entry_in_hdr & 0x0) {
+	if (!(*tbl_entry_in_hdr & 0x1)) {
 		/* system */
 		struct ipa3_rt_tbl_set *set;
 		struct ipa3_rt_tbl *tbl;
