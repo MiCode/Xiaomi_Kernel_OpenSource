@@ -112,6 +112,8 @@ static struct pll_clk apcs_hf_pll = {
 	.test_ctl_lo_reg = (void __iomem *)APCS_PLL_TEST_CTL_LO,
 	.test_ctl_hi_reg = (void __iomem *)APCS_PLL_TEST_CTL_HI,
 	.status_reg = (void __iomem *)APCS_PLL_MODE,
+	.init_test_ctl = true,
+	.test_ctl_dbg = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -937,6 +939,7 @@ static int __init cpu_clock_pwr_init(void)
 
 	__variable_rate_pll_init(&apcs_hf_pll.c);
 	apcs_hf_pll.c.ops->set_rate(&apcs_hf_pll.c, pwrcl_early_boot_rate);
+	clk_ops_variable_rate_pll.enable(&apcs_hf_pll.c);
 
 	base = ioremap_nocache(APCS_ALIAS1_CMD_RCGR, SZ_8);
 	regval = readl_relaxed(base);
