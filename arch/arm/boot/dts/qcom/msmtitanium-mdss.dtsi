@@ -1,0 +1,367 @@
+/* Copyright (c) 2015 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdss_mdp: qcom,mdss_mdp@1a00000 {
+		compatible = "qcom,mdss_mdp";
+		reg = <0x01a00000 0x90000>,
+		      <0x01ab0000 0x1040>;
+		reg-names = "mdp_phys", "vbif_phys";
+		interrupts = <0 72 0>;
+		vdd-supply = <&gdsc_mdss>;
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_mdp";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>,
+			<22 512 0 6400000>,
+			<22 512 0 6400000>;
+
+		/* Fudge factors */
+		qcom,mdss-ab-factor = <1 1>;		/* 1 time  */
+		qcom,mdss-ib-factor = <1 1>;		/* 1 time  */
+		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
+
+		qcom,max-mixer-width = <2048>;
+		qcom,max-pipe-width = <2048>;
+
+		/* VBIF QoS remapper settings*/
+		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
+		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
+
+		qcom,mdss-has-panic-ctrl;
+		qcom,mdss-per-pipe-panic-luts = <0x000f>,
+						<0xffff>,
+						<0xfffc>,
+						<0xff00>;
+
+		qcom,mdss-mdp-reg-offset = <0x00001000>;
+		qcom,max-bandwidth-low-kbps = <2300000>;
+		qcom,max-bandwidth-high-kbps = <2300000>;
+		qcom,max-bandwidth-per-pipe-kbps = <2300000>;
+		qcom,max-clk-rate = <320000000>;
+		qcom,mdss-default-ot-rd-limit = <32>;
+		qcom,mdss-default-ot-wr-limit = <16>;
+
+		qcom,mdss-pipe-vig-off = <0x00005000>;
+		qcom,mdss-pipe-rgb-off = <0x00015000 0x00017000>;
+		qcom,mdss-pipe-dma-off = <0x00025000>;
+		qcom,mdss-pipe-cursor-off = <0x00035000>;
+
+		qcom,mdss-pipe-vig-xin-id = <0>;
+		qcom,mdss-pipe-rgb-xin-id = <1 5>;
+		qcom,mdss-pipe-dma-xin-id = <2>;
+		qcom,mdss-pipe-cursor-xin-id = <7>;
+
+		/* Offsets relative to "mdp_phys + mdp-reg-offset" address */
+		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x2aC 0 0>;
+		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x2aC 4 8>,
+						      <0x2b4 4 8>;
+		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2ac 8 12>;
+		qcom,mdss-pipe-cursor-clk-ctrl-offsets = <0x3a8 16 15>;
+
+
+		qcom,mdss-ctl-off = <0x00002000 0x00002200 0x00002400>;
+		qcom,mdss-mixer-intf-off = <0x00045000 0x00046000>;
+		qcom,mdss-dspp-off = <0x00055000>;
+		qcom,mdss-wb-off = <0x00065000 0x00066000>;
+		qcom,mdss-intf-off = <0x0006b000 0x0006b800 0x0006c000>;
+		qcom,mdss-pingpong-off = <0x00071000 0x00071800>;
+		qcom,mdss-slave-pingpong-off = <0x00073000>;
+		qcom,mdss-cdm-off = <0x0007a200>;
+		qcom,mdss-wfd-mode = "intf";
+		qcom,mdss-highest-bank-bit = <0x1>;
+		qcom,mdss-has-decimation;
+		qcom,mdss-has-non-scalar-rgb;
+		qcom,mdss-has-rotator-downscale;
+		qcom,mdss-idle-power-collapse-enabled;
+		qcom,mdss-rot-block-size = <64>;
+		qcom,mdss-has-dst-split;
+
+		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
+			 <&clock_gcc clk_gcc_mdss_axi_clk>,
+			 <&clock_gcc clk_mdp_clk_src>,
+			 <&clock_gcc_mdss clk_mdss_mdp_vote_clk>,
+			 <&clock_gcc clk_gcc_mdss_vsync_clk>;
+		clock-names = "iface_clk", "bus_clk", "core_clk_src",
+				"core_clk", "vsync_clk";
+
+		qcom,mdp-settings = <0x01190 0x00000000>,
+				    <0x0506c 0x00000000>,
+				    <0x1506c 0x00000000>,
+				    <0x1706c 0x00000000>,
+				    <0x2506c 0x00000000>;
+
+		qcom,regs-dump-mdp = <0x01000 0x01454>,
+				     <0x02000 0x02064>,
+				     <0x02200 0x02264>,
+				     <0x02400 0x02464>,
+				     <0x05000 0x05150>,
+				     <0x05200 0x05230>,
+				     <0x15000 0x15150>,
+				     <0x17000 0x17150>,
+				     <0x25000 0x25150>,
+				     <0x35000 0x35150>,
+				     <0x45000 0x452bc>,
+				     <0x46000 0x462bc>,
+				     <0x55000 0x5522c>,
+				     <0x65000 0x652c0>,
+				     <0x66000 0x662c0>,
+				     <0x6b800 0x6ba68>,
+				     <0x6c000 0x6c268>,
+				     <0x71000 0x710d4>,
+				     <0x71800 0x718d4>;
+
+		qcom,regs-dump-names-mdp = "MDP",
+			"CTL_0",    "CTL_1", "CTL_2",
+			"VIG0_SSPP", "VIG0",
+			"RGB0_SSPP", "RGB1_SSPP",
+			"DMA0_SSPP",
+			"CURSOR0_SSPP",
+			"LAYER_0", "LAYER_1",
+			"DSPP_0",
+			"WB_0",    "WB_2",
+			"INTF_1",  "INTF_2",
+			"PP_0",    "PP_1";
+
+		/* buffer parameters to calculate prefill bandwidth */
+		qcom,mdss-prefill-outstanding-buffer-bytes = <0>;
+		qcom,mdss-prefill-y-buffer-bytes = <0>;
+		qcom,mdss-prefill-scaler-buffer-lines-bilinear = <2>;
+		qcom,mdss-prefill-scaler-buffer-lines-caf = <4>;
+		qcom,mdss-prefill-post-scaler-buffer-pixels = <2048>;
+		qcom,mdss-prefill-pingpong-buffer-pixels = <4096>;
+
+		qcom,mdss-pp-offsets {
+			qcom,mdss-sspp-mdss-igc-lut-off = <0x2000>;
+			qcom,mdss-sspp-vig-pcc-off = <0x1780>;
+			qcom,mdss-sspp-rgb-pcc-off = <0x380>;
+			qcom,mdss-sspp-dma-pcc-off = <0x380>;
+			qcom,mdss-lm-pgc-off = <0x3c0>;
+			qcom,mdss-dspp-pcc-off = <0x1700>;
+			qcom,mdss-dspp-pgc-off = <0x17c0>;
+		};
+
+		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
+			compatible = "qcom,smmu_mdp_unsec";
+		};
+		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
+			compatible = "qcom,smmu_mdp_sec";
+		};
+
+		mdss_fb0: qcom,mdss_fb_primary {
+			cell-index = <0>;
+			compatible = "qcom,mdss-fb";
+		};
+
+		mdss_fb1: qcom,mdss_fb_wfd {
+			cell-index = <1>;
+			compatible = "qcom,mdss-fb";
+		};
+
+		mdss_fb2: qcom,mdss_fb_secondary {
+			cell-index = <2>;
+			compatible = "qcom,mdss-fb";
+		};
+	};
+
+	mdss_dsi: qcom,mdss_dsi@0 {
+		compatible = "qcom,mdss-dsi";
+		hw-config = "single_dsi";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		gdsc-supply = <&gdsc_mdss>;
+		vdda-supply = <&pmtitanium_s3>;
+		vcca-supply = <&pmtitanium_l3>;
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_dsi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>,
+			<22 512 0 1000>;
+
+		ranges = <0x1a94000 0x1a94000 0x400
+			0x1a94400 0x1a94400 0x588
+			0x193e000 0x193e000 0x30
+			0x1a96000 0x1a96000 0x400
+			0x1a96400 0x1a96400 0x588
+			0x193e000 0x193e000 0x30>;
+
+		clocks = <&clock_gcc_mdss clk_mdss_mdp_vote_clk>,
+			<&clock_gcc clk_gcc_mdss_ahb_clk>,
+			<&clock_gcc clk_gcc_mdss_axi_clk>,
+			<&clock_gcc_mdss clk_ext_byte0_clk_src>,
+			<&clock_gcc_mdss clk_ext_byte1_clk_src>,
+			<&clock_gcc_mdss clk_ext_pclk0_clk_src>,
+			<&clock_gcc_mdss clk_ext_pclk1_clk_src>;
+		clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
+			"ext_byte0_clk", "ext_byte1_clk", "ext_pixel0_clk",
+			"ext_pixel1_clk";
+
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
+		qcom,mmss-phyreset-ctrl-offset = <0x24>;
+
+		qcom,mdss-fb-map-prim = <&mdss_fb0>;
+		qcom,mdss-fb-map-sec = <&mdss_fb2>;
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda";
+				qcom,supply-min-voltage = <1225000>;
+				qcom,supply-max-voltage = <1300000>;
+				qcom,supply-enable-load = <18160>;
+				qcom,supply-disable-load = <1>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vcca";
+				qcom,supply-min-voltage = <925000>;
+				qcom,supply-max-voltage = <925000>;
+				qcom,supply-enable-load = <17000>;
+				qcom,supply-disable-load = <32>;
+			};
+		};
+
+		mdss_dsi0: qcom,mdss_dsi_ctrl0@1a94000 {
+			compatible = "qcom,mdss-dsi-ctrl";
+			label = "MDSS DSI CTRL->0";
+			cell-index = <0>;
+			reg = <0x1a94000 0x400>,
+				<0x1a94400 0x580>,
+				<0x193e000 0x30>;
+			reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+
+			qcom,timing-db-mode;
+			qcom,mdss-mdp = <&mdss_mdp>;
+			vdd-supply = <&pmtitanium_l17>;
+			vddio-supply = <&pmtitanium_l6>;
+			lab-supply = <&lab_regulator>;
+			ibb-supply = <&ibb_regulator>;
+
+			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte0_clk>,
+				<&clock_gcc_mdss clk_gcc_mdss_pclk0_clk>,
+				<&clock_gcc clk_gcc_mdss_esc0_clk>,
+				<&clock_gcc_mdss clk_byte0_clk_src>,
+				<&clock_gcc_mdss clk_pclk0_clk_src>;
+			clock-names = "byte_clk", "pixel_clk", "core_clk",
+				"byte_clk_rcg", "pixel_clk_rcg";
+
+			qcom,platform-strength-ctrl = [ff 06
+							ff 06
+							ff 06
+							ff 06
+							ff 00];
+			qcom,platform-regulator-settings = [1d
+							1d 1d 1d 1d];
+			qcom,platform-lane-config = [00 00 10 0f
+						00 00 10 0f
+						00 00 10 0f
+						00 00 10 0f
+						00 00 10 8f];
+		};
+
+		mdss_dsi1: qcom,mdss_dsi_ctrl1@1a96000 {
+			compatible = "qcom,mdss-dsi-ctrl";
+			label = "MDSS DSI CTRL->1";
+			cell-index = <1>;
+			reg = <0x1a96000 0x400>,
+			      <0x1a96400 0x588>,
+			      <0x193e000 0x30>;
+			reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+
+			qcom,mdss-mdp = <&mdss_mdp>;
+			vdd-supply = <&pmtitanium_l17>;
+			vddio-supply = <&pmtitanium_l6>;
+			lab-supply = <&lab_regulator>;
+			ibb-supply = <&ibb_regulator>;
+
+			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte1_clk>,
+				<&clock_gcc_mdss clk_gcc_mdss_pclk1_clk>,
+				<&clock_gcc clk_gcc_mdss_esc1_clk>,
+				<&clock_gcc_mdss clk_byte1_clk_src>,
+				<&clock_gcc_mdss clk_pclk1_clk_src>;
+			clock-names = "byte_clk", "pixel_clk", "core_clk",
+				"byte_clk_rcg", "pixel_clk_rcg";
+
+			qcom,timing-db-mode;
+			qcom,platform-strength-ctrl = [ff 06
+							ff 06
+							ff 06
+							ff 06
+							ff 00];
+			qcom,platform-regulator-settings = [1d
+							1d 1d 1d 1d];
+			qcom,platform-lane-config = [00 00 10 0f
+						00 00 10 0f
+						00 00 10 0f
+						00 00 10 0f
+						00 00 10 8f];
+		};
+	};
+
+	qcom,mdss_wb_panel {
+		compatible = "qcom,mdss_wb";
+		qcom,mdss_pan_res = <640 640>;
+		qcom,mdss_pan_bpp = <24>;
+		qcom,mdss-fb-map = <&mdss_fb1>;
+	};
+
+	mdss_rotator: qcom,mdss_rotator {
+		compatible = "qcom,mdss_rotator";
+		qcom,mdss-wb-count = <1>;
+		qcom,mdss-has-downscale;
+		qcom,mdss-has-ubwc;
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_rotator";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>,
+			<22 512 0 6400000>,
+			<22 512 0 6400000>;
+
+		rot-vdd-supply = <&gdsc_mdss>;
+		qcom,supply-names = "rot-vdd";
+
+		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
+			<&clock_gcc_mdss clk_mdss_rotator_vote_clk>;
+		clock-names = "iface_clk", "rot_core_clk";
+	};
+};

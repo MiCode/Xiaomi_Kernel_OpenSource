@@ -526,9 +526,12 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 		dsi1pll_shadow_vco_clk.priv = pll_res;
 
 		pll_res->vco_delay = VCO_DELAY_USEC;
-		rc = of_msm_clock_register(pdev->dev.of_node,
+		if ((pll_res->target_id == MDSS_PLL_TARGET_8996) ||
+			(pll_res->target_id == MDSS_PLL_TARGET_TITANIUM)) {
+			rc = of_msm_clock_register(pdev->dev.of_node,
 				mdss_dsi_pllcc_8996_1,
 				ARRAY_SIZE(mdss_dsi_pllcc_8996_1));
+		}
 	} else {
 		dsi0pll_byte_clk_src.priv = pll_res;
 		dsi0pll_pixel_clk_src.priv = pll_res;
@@ -543,9 +546,12 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 		dsi0pll_shadow_vco_clk.priv = pll_res;
 
 		pll_res->vco_delay = VCO_DELAY_USEC;
-		rc = of_msm_clock_register(pdev->dev.of_node,
+		if ((pll_res->target_id == MDSS_PLL_TARGET_8996) ||
+			(pll_res->target_id == MDSS_PLL_TARGET_TITANIUM)) {
+			rc = of_msm_clock_register(pdev->dev.of_node,
 				mdss_dsi_pllcc_8996,
 				ARRAY_SIZE(mdss_dsi_pllcc_8996));
+		}
 	}
 
 	if (!rc) {
