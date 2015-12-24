@@ -17,8 +17,8 @@
 	rpm-regulator-smpa1 {
 		status = "okay";
 		pmtitanium_s1: regulator-s1 {
-			regulator-min-microvolt = <600000>;
-			regulator-max-microvolt = <1225000>;
+			regulator-min-microvolt = <870000>;
+			regulator-max-microvolt = <1156000>;
 			qcom,init-voltage = <1000000>;
 			status = "okay";
 		};
@@ -66,7 +66,7 @@
 		status = "okay";
 		pmtitanium_s3: regulator-s3 {
 			regulator-min-microvolt = <1225000>;
-			regulator-max-microvolt = <1300000>;
+			regulator-max-microvolt = <1225000>;
 			qcom,init-voltage = <1225000>;
 			status = "okay";
 		};
@@ -75,9 +75,9 @@
 	rpm-regulator-smpa4 {
 		status = "okay";
 		pmtitanium_s4: regulator-s4 {
-			regulator-min-microvolt = <2050000>;
+			regulator-min-microvolt = <1900000>;
 			regulator-max-microvolt = <2050000>;
-			qcom,init-voltage = <2050000>;
+			qcom,init-voltage = <1900000>;
 			status = "okay";
 		};
 	};
@@ -138,9 +138,9 @@
 	rpm-regulator-ldoa2 {
 		status = "okay";
 		pmtitanium_l2: regulator-l2 {
-			regulator-min-microvolt = <1100000>;
+			regulator-min-microvolt = <975000>;
 			regulator-max-microvolt = <1225000>;
-			qcom,init-voltage = <1100000>;
+			qcom,init-voltage = <975000>;
 			status = "okay";
 		};
 	};
@@ -148,9 +148,9 @@
 	rpm-regulator-ldoa3 {
 		status = "okay";
 		pmtitanium_l3: regulator-l3 {
-			regulator-min-microvolt = <900000>;
+			regulator-min-microvolt = <925000>;
 			regulator-max-microvolt = <925000>;
-			qcom,init-voltage = <900000>;
+			qcom,init-voltage = <925000>;
 			status = "okay";
 		};
 	};
@@ -179,7 +179,7 @@
 		status = "okay";
 		pmtitanium_l7: regulator-l7 {
 			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
+			regulator-max-microvolt = <1900000>;
 			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
@@ -189,7 +189,7 @@
 			regulator-name = "pmtitanium_l7_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
+			regulator-max-microvolt = <1900000>;
 			qcom,init-voltage = <1800000>;
 		};
 	};
@@ -197,9 +197,9 @@
 	rpm-regulator-ldoa8 {
 		status = "okay";
 		pmtitanium_l8: regulator-l8 {
-			regulator-min-microvolt = <2850000>;
+			regulator-min-microvolt = <2900000>;
 			regulator-max-microvolt = <2900000>;
-			qcom,init-voltage = <2850000>;
+			qcom,init-voltage = <2900000>;
 			status = "okay";
 		};
 	};
@@ -217,9 +217,9 @@
 	rpm-regulator-ldoa10 {
 		status = "okay";
 		pmtitanium_l10: regulator-l10 {
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			qcom,init-voltage = <2800000>;
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,init-voltage = <2850000>;
 			status = "okay";
 		};
 	};
@@ -247,9 +247,9 @@
 	rpm-regulator-ldoa13 {
 		status = "okay";
 		pmtitanium_l13: regulator-l13 {
-			regulator-min-microvolt = <3100000>;
+			regulator-min-microvolt = <3125000>;
 			regulator-max-microvolt = <3125000>;
-			qcom,init-voltage = <3100000>;
+			qcom,init-voltage = <3125000>;
 			status = "okay";
 		};
 	};
@@ -277,9 +277,9 @@
 	rpm-regulator-ldoa19 {
 		status = "okay";
 		pmtitanium_l19: regulator-l19 {
-			regulator-min-microvolt = <1300000>;
+			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1350000>;
-			qcom,init-voltage = <1300000>;
+			qcom,init-voltage = <1200000>;
 			status = "okay";
 		};
 	};
@@ -297,9 +297,9 @@
 	rpm-regulator-ldoa23 {
 		status = "okay";
 		pmtitanium_l23: regulator-l23 {
-			regulator-min-microvolt = <1000000>;
-			regulator-max-microvolt = <1000000>;
-			qcom,init-voltage = <1000000>;
+			regulator-min-microvolt = <975000>;
+			regulator-max-microvolt = <1225000>;
+			qcom,init-voltage = <975000>;
 			status = "okay";
 		};
 	};
