@@ -438,6 +438,7 @@ static int nfcc_hw_check(struct i2c_client *client, unsigned int enable_gpio)
 		"%s: - i2c_master_recv Error\n", __func__);
 		goto err_nfcc_hw_check;
 	}
+	gpio_set_value(enable_gpio, 0);/* ULPM: Disable */
 	ret = 0;
 	goto done;
 
@@ -775,6 +776,7 @@ err_misc_register:
 err_clkreq_gpio:
 	gpio_free(platform_data->clkreq_gpio);
 err_irq:
+	free_irq(client->irq, nqx_dev);
 	gpio_free(platform_data->irq_gpio);
 err_en_gpio:
 	gpio_free(platform_data->en_gpio);
@@ -804,8 +806,9 @@ static int nqx_remove(struct i2c_client *client)
 static int nqx_suspend(struct device *device)
 {
 	struct i2c_client *client = to_i2c_client(device);
+	struct nqx_dev *nqx_dev = i2c_get_clientdata(client);
 
-	if (device_may_wakeup(&client->dev))
+	if (device_may_wakeup(&client->dev) && nqx_dev->irq_enabled)
 		enable_irq_wake(client->irq);
 	return 0;
 }
