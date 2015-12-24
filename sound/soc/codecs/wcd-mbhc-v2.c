@@ -785,7 +785,7 @@ exit:
 static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 					 enum wcd_mbhc_plug_type plug_type)
 {
-	bool anc_mic_found;
+	bool anc_mic_found = false;
 	enum snd_jack_types jack_type;
 
 	pr_debug("%s: enter current_plug(%d) new_plug(%d)\n",
