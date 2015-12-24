@@ -964,6 +964,8 @@ static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 		pr_debug("%s: intf_num=%d\n", __func__, ctx->ctl->intf_num);
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
 			ctx->current_pp_num);
+		mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
+			ctx->current_pp_num, NULL, NULL);
 		if (mdss_mdp_cmd_do_notifier(ctx))
 			notify_frame_timeout = true;
 	}
@@ -1515,6 +1517,11 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 		}
 		ctx->pp_timeout_report_cnt++;
 		rc = -EPERM;
+
+		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
+			ctx->current_pp_num);
+		mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
+			ctx->current_pp_num, NULL, NULL);
 		if (atomic_add_unless(&ctx->koff_cnt, -1, 0)
 			&& mdss_mdp_cmd_do_notifier(ctx))
 			mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
@@ -1990,6 +1997,8 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 	}
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
+		ctx->default_pp_num, NULL, NULL);
+	mdss_mdp_set_intr_callback_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
 		ctx->default_pp_num, NULL, NULL);
 
 	memset(ctx, 0, sizeof(*ctx));
