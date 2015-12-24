@@ -109,11 +109,11 @@ void diag_md_close_all()
 		 * internal buffers in the table so that there are no stale
 		 * entries.
 		 */
+		spin_lock_irqsave(&ch->lock, flags);
 		for (j = 0; j < ch->num_tbl_entries; j++) {
 			entry = &ch->tbl[j];
 			if (entry->len <= 0)
 				continue;
-			spin_lock_irqsave(&ch->lock, flags);
 			if (ch->ops && ch->ops->write_done)
 				ch->ops->write_done(entry->buf, entry->len,
 						    entry->ctx,
@@ -121,8 +121,8 @@ void diag_md_close_all()
 			entry->buf = NULL;
 			entry->len = 0;
 			entry->ctx = 0;
-			spin_unlock_irqrestore(&ch->lock, flags);
 		}
+		spin_unlock_irqrestore(&ch->lock, flags);
 	}
 
 	diag_ws_reset(DIAG_WS_MUX);
@@ -329,6 +329,9 @@ int diag_md_close_peripheral(int id, uint8_t peripheral)
 			ch->ops->write_done(entry->buf, entry->len,
 					    entry->ctx,
 					    DIAG_MEMORY_DEVICE_MODE);
+			entry->buf = NULL;
+			entry->len = 0;
+			entry->ctx = 0;
 		}
 	}
 	spin_unlock_irqrestore(&ch->lock, flags);
