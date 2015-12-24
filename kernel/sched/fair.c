@@ -2759,6 +2759,30 @@ static int task_will_fit(struct task_struct *p, int cpu)
 	return task_load_will_fit(p, tload, cpu);
 }
 
+int group_will_fit(struct sched_cluster *cluster,
+		 struct related_thread_group *grp, u64 demand)
+{
+	int cpu = cluster_first_cpu(cluster);
+	int prev_capacity = 0;
+	unsigned int threshold = sched_upmigrate;
+	u64 load;
+
+	if (cluster->capacity == max_capacity)
+		return 1;
+
+	if (grp->preferred_cluster)
+		prev_capacity = grp->preferred_cluster->capacity;
+
+	if (cluster->capacity < prev_capacity)
+		threshold = sched_downmigrate;
+
+	load = scale_load_to_cpu(demand, cpu);
+	if (load < threshold)
+		return 1;
+
+	return 0;
+}
+
 struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
 {
 	return NULL;
@@ -2837,6 +2861,7 @@ unlock:
 
 struct cpu_select_env {
 	struct task_struct *p;
+	struct related_thread_group *rtg;
 	u8 reason;
 	u8 need_idle:1;
 	u8 boost:1;
@@ -2859,6 +2884,34 @@ struct cluster_cpu_stats {
 #define UP_MIGRATION		1
 #define DOWN_MIGRATION		2
 #define IRQLOAD_MIGRATION	3
+
+/*
+ * Invoked from three places:
+ *	1) try_to_wake_up() -> ... -> select_best_cpu()
+ *	2) scheduler_tick() -> ... -> migration_needed() -> select_best_cpu()
+ *	3) can_migrate_task()
+ *
+ * Its safe to de-reference p->grp in first case (since p->pi_lock is held)
+ * but not in other cases. p->grp is hence freed after a RCU grace period and
+ * accessed under rcu_read_lock()
+ */
+static inline int
+preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
+{
+	struct related_thread_group *grp;
+	int rc = 0;
+
+	rcu_read_lock();
+
+	grp = p->grp;
+	if (!grp || !sysctl_sched_enable_colocation)
+		rc = 1;
+	else
+		rc = (grp->preferred_cluster == cluster);
+
+	rcu_read_unlock();
+	return rc;
+}
 
 static int
 spill_threshold_crossed(struct cpu_select_env *env, struct rq *rq)
@@ -2925,6 +2978,9 @@ acceptable_capacity(struct sched_cluster *cluster, struct cpu_select_env *env)
 static int
 skip_cluster(struct sched_cluster *cluster, struct cpu_select_env *env)
 {
+	if (!test_bit(cluster->id, env->candidate_list))
+		return 1;
+
 	if (!acceptable_capacity(cluster, env)) {
 		__clear_bit(cluster->id, env->candidate_list);
 		return 1;
@@ -2937,6 +2993,12 @@ static struct sched_cluster *
 select_least_power_cluster(struct cpu_select_env *env)
 {
 	struct sched_cluster *cluster;
+
+	if (env->rtg) {
+		env->task_load = scale_load_to_cpu(task_load(env->p),
+			cluster_first_cpu(env->rtg->preferred_cluster));
+		return env->rtg->preferred_cluster;
+	}
 
 	for_each_sched_cluster(cluster) {
 		if (!skip_cluster(cluster, env)) {
@@ -3007,6 +3069,9 @@ next_best_cluster(struct sched_cluster *cluster, struct cpu_select_env *env)
 	struct sched_cluster *next = NULL;
 
 	__clear_bit(cluster->id, env->candidate_list);
+
+	if (env->rtg && preferred_cluster(cluster, env->p))
+		return NULL;
 
 	do {
 		if (bitmap_empty(env->candidate_list, num_clusters))
@@ -3164,13 +3229,26 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 	return true;
 }
 
+static inline int
+cluster_allowed(struct task_struct *p, struct sched_cluster *cluster)
+{
+	cpumask_t tmp_mask;
+
+	cpumask_and(&tmp_mask, &cluster->cpus, cpu_active_mask);
+	cpumask_and(&tmp_mask, &tmp_mask, &p->cpus_allowed);
+
+	return !cpumask_empty(&tmp_mask);
+}
+
+
 /* return cheapest cpu that can fit this task */
 static int select_best_cpu(struct task_struct *p, int target, int reason,
 			   int sync)
 {
-	struct sched_cluster *cluster;
+	struct sched_cluster *cluster, *pref_cluster = NULL;
 	struct cluster_cpu_stats stats;
 	bool fast_path = false;
+	struct related_thread_group *grp;
 
 	struct cpu_select_env env = {
 		.p			= p,
@@ -3180,6 +3258,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		.sync			= sync,
 		.prev_cpu		= target,
 		.ignore_prev_cpu	= 0,
+		.rtg			= NULL,
 	};
 
 	bitmap_copy(env.candidate_list, all_cluster_ids, NR_CPUS);
@@ -3187,25 +3266,38 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 
 	init_cluster_cpu_stats(&stats);
 
-	if (bias_to_prev_cpu(&env, &stats)) {
+	rcu_read_lock();
+
+	grp = p->grp;
+
+	if (grp && grp->preferred_cluster) {
+		pref_cluster = grp->preferred_cluster;
+		if (!cluster_allowed(p, pref_cluster))
+			clear_bit(pref_cluster->id, env.candidate_list);
+		else
+			env.rtg = grp;
+	} else if (bias_to_prev_cpu(&env, &stats)) {
 		fast_path = true;
 		goto out;
 	}
 
-	rcu_read_lock();
+retry:
 	cluster = select_least_power_cluster(&env);
 
-	if (!cluster) {
-		rcu_read_unlock();
+	if (!cluster)
 		goto out;
-	}
+
+	/*
+	 * 'cluster' now points to the minimum power cluster which can satisfy
+	 * task's perf goals. Walk down the cluster list starting with that
+	 * cluster. For non-small tasks, skip clusters that don't have
+	 * mostly_idle/idle cpus
+	 */
 
 	do {
 		find_best_cpu_in_cluster(cluster, &env, &stats);
 
 	} while ((cluster = next_best_cluster(cluster, &env)));
-
-	rcu_read_unlock();
 
 	if (stats.best_idle_cpu >= 0) {
 		target = stats.best_idle_cpu;
@@ -3216,12 +3308,18 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 
 		target = stats.best_cpu;
 	} else {
+		if (env.rtg) {
+			env.rtg = NULL;
+			goto retry;
+		}
+
 		find_backup_cluster(&env, &stats);
 		if (stats.best_capacity_cpu >= 0)
 			target = stats.best_capacity_cpu;
 	}
 
 out:
+	rcu_read_unlock();
 	trace_sched_task_load(p, sched_boost(), env.reason, env.sync,
 					env.need_idle, fast_path, target);
 	return target;
@@ -3716,11 +3814,11 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 		return IRQLOAD_MIGRATION;
 
 	nice = task_nice(p);
-	if ((nice > sched_upmigrate_min_nice || upmigrate_discouraged(p)) &&
-			 cpu_capacity(cpu) > min_capacity)
+	if (!p->grp && (nice > sched_upmigrate_min_nice ||
+		 upmigrate_discouraged(p)) && cpu_capacity(cpu) > min_capacity)
 		return DOWN_MIGRATION;
 
-	if (!task_will_fit(p, cpu))
+	if (!p->grp && !task_will_fit(p, cpu))
 		return UP_MIGRATION;
 
 	return 0;
@@ -3859,6 +3957,12 @@ inc_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p) { }
 static inline void
 dec_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p) { }
 
+static inline int
+preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
+{
+	return 1;
+}
+
 #endif	/* CONFIG_SCHED_HMP */
 
 #ifdef CONFIG_SCHED_HMP
@@ -3873,6 +3977,8 @@ void init_new_task_load(struct task_struct *p)
 	p->init_load_pct = 0;
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->se.avg.decay_count	= 0;
+	p->grp = NULL;
+	INIT_LIST_HEAD(&p->grp_list);
 
 	if (init_load_pct) {
 		init_load_pelt = div64_u64((u64)init_load_pct *
@@ -6958,6 +7064,7 @@ enum fbq_type { regular, remote, all };
 #define LBF_HMP_ACTIVE_BALANCE (LBF_SCHED_BOOST_ACTIVE_BALANCE | \
 				LBF_BIG_TASK_ACTIVE_BALANCE)
 #define LBF_IGNORE_BIG_TASKS 0x100
+#define LBF_IGNORE_PREFERRED_CLUSTER_TASKS 0x200
 
 struct lb_env {
 	struct sched_domain	*sd;
@@ -7178,6 +7285,10 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	if (env->flags & LBF_IGNORE_BIG_TASKS && !twf)
 		return 0;
 
+	if (env->flags & LBF_IGNORE_PREFERRED_CLUSTER_TASKS &&
+			!preferred_cluster(cpu_rq(env->dst_cpu)->cluster, p))
+		return 0;
+
 	/*
 	 * Group imbalance can sometimes cause work to be pulled across groups
 	 * even though the group could have managed the imbalance on its own.
@@ -7289,6 +7400,8 @@ static int detach_tasks(struct lb_env *env)
 	if (cpu_capacity(env->dst_cpu) < cpu_capacity(env->src_cpu) &&
 							!sched_boost())
 		env->flags |= LBF_IGNORE_BIG_TASKS;
+	else if (!same_cluster(env->dst_cpu, env->src_cpu))
+		env->flags |= LBF_IGNORE_PREFERRED_CLUSTER_TASKS;
 
 redo:
 	while (!list_empty(tasks)) {
@@ -7346,9 +7459,11 @@ next:
 		list_move_tail(&p->se.group_node, tasks);
 	}
 
-	if (env->flags & LBF_IGNORE_BIG_TASKS && !detached) {
+	if (env->flags & (LBF_IGNORE_BIG_TASKS |
+			LBF_IGNORE_PREFERRED_CLUSTER_TASKS) && !detached) {
 		tasks = &env->src_rq->cfs_tasks;
-		env->flags &= ~LBF_IGNORE_BIG_TASKS;
+		env->flags &= ~(LBF_IGNORE_BIG_TASKS |
+				LBF_IGNORE_PREFERRED_CLUSTER_TASKS);
 		env->loop = orig_loop;
 		goto redo;
 	}

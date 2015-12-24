@@ -366,9 +366,21 @@ static inline int cluster_first_cpu(struct sched_cluster *cluster)
 	return cpumask_first(&cluster->cpus);
 }
 
+struct related_thread_group {
+	int id;
+	raw_spinlock_t lock;
+	struct list_head tasks;
+	struct list_head list;
+	struct sched_cluster *preferred_cluster;
+	struct rcu_head rcu;
+	u64 last_update;
+};
+
 extern struct list_head cluster_head;
 extern int num_clusters;
 extern struct sched_cluster *sched_cluster[NR_CPUS];
+extern int group_will_fit(struct sched_cluster *cluster,
+		 struct related_thread_group *grp, u64 demand);
 
 #define for_each_sched_cluster(cluster) \
 	list_for_each_entry_rcu(cluster, &cluster_head, list)
@@ -945,6 +957,7 @@ extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
 unsigned int cpu_temp(int cpu);
+int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int nr_eligible_big_tasks(int cpu);
 extern void update_up_down_migrate(void);
 
@@ -1098,9 +1111,16 @@ static inline int sched_cpu_high_irqload(int cpu)
 	return sched_irqload(cpu) >= sysctl_sched_cpu_high_irqload;
 }
 
+static inline
+struct related_thread_group *task_related_thread_group(struct task_struct *p)
+{
+	return p->grp;
+}
+
 #else	/* CONFIG_SCHED_HMP */
 
 struct hmp_sched_stats;
+struct related_thread_group;
 
 static inline u64 scale_load_to_cpu(u64 load, int cpu)
 {
@@ -1138,6 +1158,22 @@ static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 
 static inline int sched_cpu_high_irqload(int cpu) { return 0; }
 
+static inline void set_preferred_cluster(struct related_thread_group *grp) { }
+
+static inline
+struct related_thread_group *task_related_thread_group(struct task_struct *p)
+{
+	return NULL;
+}
+
+static inline u32 task_load(struct task_struct *p) { return 0; }
+
+static inline int update_preferred_cluster(struct related_thread_group *grp,
+			 struct task_struct *p, u32 old_load)
+{
+	return 0;
+}
+
 #endif	/* CONFIG_SCHED_HMP */
 
 /*
@@ -1147,6 +1183,7 @@ static inline int sched_cpu_high_irqload(int cpu) { return 0; }
 #define group_rq_capacity(group) cpu_capacity(group_first_cpu(group))
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
+
 extern void check_for_freq_change(struct rq *rq);
 
 /* Is frequency of two cpus synchronized with each other? */
