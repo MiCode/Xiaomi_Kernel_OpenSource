@@ -267,7 +267,9 @@
 	} while (0)
 
 #define IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES 120
-#define IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN 100
+#define IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN 96
+#define IPA3_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE 50
+#define IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN 40
 
 extern const char *ipa3_clients_strings[];
 
@@ -286,11 +288,19 @@ struct ipa3_active_client_logging_info {
 	enum ipa3_active_client_log_type type;
 };
 
+struct ipa3_active_client_htable_entry {
+	struct hlist_node list;
+	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
+	int count;
+	enum ipa3_active_client_log_type type;
+};
+
 struct ipa3_active_clients_log_ctx {
 	char *log_buffer[IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES];
 	int log_head;
 	int log_tail;
 	bool log_rdy;
+	struct hlist_head htable[IPA3_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE];
 };
 
 struct ipa3_client_names {
@@ -2234,6 +2244,13 @@ void ipa3_inc_client_enable_clks(struct ipa3_active_client_logging_info *id);
 int ipa3_inc_client_enable_clks_no_block(struct ipa3_active_client_logging_info
 		*id);
 void ipa3_dec_client_disable_clks(struct ipa3_active_client_logging_info *id);
+void ipa3_active_clients_log_dec(struct ipa3_active_client_logging_info *id,
+		bool int_ctx);
+void ipa3_active_clients_log_inc(struct ipa3_active_client_logging_info *id,
+		bool int_ctx);
+int ipa3_active_clients_log_print_buffer(char *buf, int size);
+int ipa3_active_clients_log_print_table(char *buf, int size);
+void ipa3_active_clients_log_clear(void);
 int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa3_del_rt_rule(u32 rule_hdl);
 int __ipa3_del_hdr(u32 hdr_hdl);
@@ -2246,8 +2263,6 @@ int _ipa_read_dbg_cnt_v3_0(char *buf, int max_len);
 void _ipa_enable_clks_v3_0(void);
 void _ipa_disable_clks_v3_0(void);
 struct device *ipa3_get_dma_dev(void);
-void ipa3_active_clients_log_print_buffer(void);
-void ipa3_active_clients_log_clear(void);
 void ipa3_suspend_active_aggr_wa(u32 clnt_hdl);
 void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				void *private_data,

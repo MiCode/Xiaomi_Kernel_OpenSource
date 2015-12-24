@@ -539,6 +539,7 @@ int ipa2_disconnect(u32 clnt_hdl)
 	struct iommu_domain *smmu_domain;
 	struct ipa_disable_force_clear_datapath_req_msg_v01 req = {0};
 	int res;
+	enum ipa_client_type client_type;
 
 	if (unlikely(!ipa_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
@@ -552,10 +553,9 @@ int ipa2_disconnect(u32 clnt_hdl)
 	}
 
 	ep = &ipa_ctx->ep[clnt_hdl];
-
+	client_type = ipa2_get_client_mapping(clnt_hdl);
 	if (!ep->keep_ipa_awake)
-		IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
-
+		IPA2_ACTIVE_CLIENTS_INC_EP(client_type);
 
 	/* Set Disconnect in Progress flag. */
 	spin_lock(&ipa_ctx->disconnect_lock);
@@ -662,7 +662,7 @@ int ipa2_disconnect(u32 clnt_hdl)
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 	spin_unlock(&ipa_ctx->disconnect_lock);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA2_ACTIVE_CLIENTS_DEC_EP(client_type);
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 

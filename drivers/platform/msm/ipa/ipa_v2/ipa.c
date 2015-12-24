@@ -32,6 +32,8 @@
 #include <linux/delay.h>
 #include <linux/qcom_iommu.h>
 #include <linux/time.h>
+#include <linux/hashtable.h>
+#include <linux/hash.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
 
@@ -55,6 +57,13 @@
 #define IPA_AGGR_MAX_STR_LENGTH (10)
 
 #define CLEANUP_TAG_PROCESS_TIMEOUT 150
+
+#define IPA2_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
+
+#define IPA2_ACTIVE_CLIENT_LOG_TYPE_EP 0
+#define IPA2_ACTIVE_CLIENT_LOG_TYPE_SIMPLE 1
+#define IPA2_ACTIVE_CLIENT_LOG_TYPE_RESOURCE 2
+#define IPA2_ACTIVE_CLIENT_LOG_TYPE_SPECIAL 3
 
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
@@ -195,6 +204,8 @@ static bool smmu_present;
 static bool arm_smmu;
 static bool smmu_disable_htw;
 
+static char *active_clients_table_buf;
+
 const char *ipa2_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_HSIC1_PROD),
 	__stringify(IPA_CLIENT_WLAN1_PROD),
@@ -267,23 +278,107 @@ const char *ipa2_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_TEST4_CONS),
 };
 
+int ipa2_active_clients_log_print_buffer(char *buf, int size)
+{
+	int i;
+	int nbytes;
+	int cnt = 0;
+	int start_idx;
+	int end_idx;
+
+	start_idx = (ipa_ctx->ipa2_active_clients_logging.log_tail + 1) %
+			IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
+	end_idx = ipa_ctx->ipa2_active_clients_logging.log_head;
+	for (i = start_idx; i != end_idx;
+		i = (i + 1) % IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES) {
+		nbytes = scnprintf(buf + cnt, size - cnt, "%s\n",
+				ipa_ctx->ipa2_active_clients_logging
+				.log_buffer[i]);
+		cnt += nbytes;
+	}
+
+	return cnt;
+}
+
+int ipa2_active_clients_log_print_table(char *buf, int size)
+{
+	int i;
+	struct ipa2_active_client_htable_entry *iterator;
+	int cnt = 0;
+
+	cnt = scnprintf(buf, size, "\n---- Active Clients Table ----\n");
+	hash_for_each(ipa_ctx->ipa2_active_clients_logging.htable, i,
+			iterator, list) {
+		switch (iterator->type) {
+		case IPA2_ACTIVE_CLIENT_LOG_TYPE_EP:
+			cnt += scnprintf(buf + cnt, size - cnt,
+					"%-40s %-3d ENDPOINT\n",
+					iterator->id_string, iterator->count);
+			break;
+		case IPA2_ACTIVE_CLIENT_LOG_TYPE_SIMPLE:
+			cnt += scnprintf(buf + cnt, size - cnt,
+					"%-40s %-3d SIMPLE\n",
+					iterator->id_string, iterator->count);
+			break;
+		case IPA2_ACTIVE_CLIENT_LOG_TYPE_RESOURCE:
+			cnt += scnprintf(buf + cnt, size - cnt,
+					"%-40s %-3d RESOURCE\n",
+					iterator->id_string, iterator->count);
+			break;
+		case IPA2_ACTIVE_CLIENT_LOG_TYPE_SPECIAL:
+			cnt += scnprintf(buf + cnt, size - cnt,
+					"%-40s %-3d SPECIAL\n",
+					iterator->id_string, iterator->count);
+			break;
+		default:
+			IPAERR("Trying to print illegal active_clients type");
+			break;
+		}
+	}
+	cnt += scnprintf(buf + cnt, size - cnt,
+			"\nTotal active clients count: %d\n",
+			ipa_ctx->ipa_active_clients.cnt);
+
+	return cnt;
+}
+
+static int ipa2_active_clients_panic_notifier(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	ipa_active_clients_lock();
+	ipa2_active_clients_log_print_table(active_clients_table_buf,
+			IPA2_ACTIVE_CLIENTS_TABLE_BUF_SIZE);
+	IPAERR("%s", active_clients_table_buf);
+	ipa_active_clients_unlock();
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ipa2_active_clients_panic_blk = {
+	.notifier_call  = ipa2_active_clients_panic_notifier,
+};
+
 static int ipa2_active_clients_log_insert(const char *string)
 {
+	int head;
+	int tail;
+
+	head = ipa_ctx->ipa2_active_clients_logging.log_head;
+	tail = ipa_ctx->ipa2_active_clients_logging.log_tail;
+
 	if (!ipa_ctx->ipa2_active_clients_logging.log_rdy)
 		return -EPERM;
-	strlcpy(ipa_ctx->ipa2_active_clients_logging.log_buffer
-			[ipa_ctx->ipa2_active_clients_logging.log_head],
-			string,
+	memset(ipa_ctx->ipa2_active_clients_logging.log_buffer[head], '_',
+			IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN);
+	strlcpy(ipa_ctx->ipa2_active_clients_logging.log_buffer[head], string,
 			(size_t)IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN);
-	ipa_ctx->ipa2_active_clients_logging.log_head =
-			(ipa_ctx->ipa2_active_clients_logging.log_head + 1) %
-			IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
-	if (ipa_ctx->ipa2_active_clients_logging.log_tail ==
-			ipa_ctx->ipa2_active_clients_logging.log_head) {
-		ipa_ctx->ipa2_active_clients_logging.log_tail =
-			(ipa_ctx->ipa2_active_clients_logging.log_tail + 1) %
-			IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
-	}
+	head = (head + 1) % IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
+	if (tail == head)
+		tail = (tail + 1) % IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
+
+	ipa_ctx->ipa2_active_clients_logging.log_tail = tail;
+	ipa_ctx->ipa2_active_clients_logging.log_head = head;
+
 	return 0;
 }
 
@@ -295,6 +390,8 @@ static int ipa2_active_clients_log_init(void)
 			IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES *
 			sizeof(char[IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN]),
 			GFP_KERNEL);
+	active_clients_table_buf = kzalloc(sizeof(
+			char[IPA2_ACTIVE_CLIENTS_TABLE_BUF_SIZE]), GFP_KERNEL);
 	if (ipa_ctx->ipa2_active_clients_logging.log_buffer == NULL) {
 		IPAERR("Active Clients Logging memory allocation failed");
 		goto bail;
@@ -307,6 +404,9 @@ static int ipa2_active_clients_log_init(void)
 	ipa_ctx->ipa2_active_clients_logging.log_head = 0;
 	ipa_ctx->ipa2_active_clients_logging.log_tail =
 			IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES - 1;
+	hash_init(ipa_ctx->ipa2_active_clients_logging.htable);
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&ipa2_active_clients_panic_blk);
 	ipa_ctx->ipa2_active_clients_logging.log_rdy = 1;
 
 	return 0;
@@ -332,22 +432,6 @@ static void ipa2_active_clients_log_destroy(void)
 	ipa_ctx->ipa2_active_clients_logging.log_tail =
 			IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES - 1;
 }
-
-void ipa2_active_clients_log_print_buffer(void)
-{
-	int i;
-
-	ipa_active_clients_lock();
-	for (i = (ipa_ctx->ipa2_active_clients_logging.log_tail + 1) %
-			IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
-		i != ipa_ctx->ipa2_active_clients_logging.log_head;
-		i = (i + 1) % IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES) {
-		pr_err("%s\n", ipa_ctx->ipa2_active_clients_logging
-				.log_buffer[i]);
-	}
-	ipa_active_clients_unlock();
-}
-
 
 enum ipa_smmu_cb_type {
 	IPA_SMMU_CB_AP,
@@ -2922,9 +3006,100 @@ static void ipa_start_tag_process(struct work_struct *work)
 	if (res)
 		IPAERR("ipa_tag_aggr_force_close failed %d\n", res);
 
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA2_ACTIVE_CLIENTS_DEC_SPECIAL("TAG_PROCESS");
 
 	IPADBG("TAG process done\n");
+}
+
+/**
+* ipa2_active_clients_log_mod() - Log a modification in the active clients
+* reference count
+*
+* This method logs any modification in the active clients reference count:
+* It logs the modification in the circular history buffer
+* It logs the modification in the hash table - looking for an entry,
+* creating one if needed and deleting one if needed.
+*
+* @id: ipa2_active client logging info struct to hold the log information
+* @inc: a boolean variable to indicate whether the modification is an increase
+* or decrease
+* @int_ctx: a boolean variable to indicate whether this call is being made from
+* an interrupt context and therefore should allocate GFP_ATOMIC memory
+*
+* Method process:
+* - Hash the unique identifier string
+* - Find the hash in the table
+*    1)If found, increase or decrease the reference count
+*    2)If not found, allocate a new hash table entry struct and initialize it
+* - Remove and deallocate unneeded data structure
+* - Log the call in the circular history buffer (unless it is a simple call)
+*/
+void ipa2_active_clients_log_mod(struct ipa2_active_client_logging_info *id,
+		bool inc, bool int_ctx)
+{
+	char temp_str[IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN];
+	unsigned long long t;
+	unsigned long nanosec_rem;
+	struct ipa2_active_client_htable_entry *hentry;
+	struct ipa2_active_client_htable_entry *hfound;
+	u32 hkey;
+	char str_to_hash[IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN];
+
+	hfound = NULL;
+	memset(str_to_hash, 0, IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN);
+	strlcpy(str_to_hash, id->id_string, IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN);
+	hkey = arch_fast_hash(str_to_hash, IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN,
+			0);
+	hash_for_each_possible(ipa_ctx->ipa2_active_clients_logging.htable,
+			hentry, list, hkey) {
+		if (!strcmp(hentry->id_string, id->id_string)) {
+			hentry->count = hentry->count + (inc ? 1 : -1);
+			hfound = hentry;
+		}
+	}
+	if (hfound == NULL) {
+		hentry = NULL;
+		hentry = kzalloc(sizeof(
+				struct ipa2_active_client_htable_entry),
+				int_ctx ? GFP_ATOMIC : GFP_KERNEL);
+		if (hentry == NULL) {
+			IPAERR("failed allocating active clients hash entry");
+			return;
+		}
+		hentry->type = id->type;
+		strlcpy(hentry->id_string, id->id_string,
+				IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN);
+		INIT_HLIST_NODE(&hentry->list);
+		hentry->count = inc ? 1 : -1;
+		hash_add(ipa_ctx->ipa2_active_clients_logging.htable,
+				&hentry->list, hkey);
+	} else if (hfound->count == 0) {
+		hash_del(&hfound->list);
+		kfree(hfound);
+	}
+
+	if (id->type != SIMPLE) {
+		t = local_clock();
+		nanosec_rem = do_div(t, 1000000000) / 1000;
+		snprintf(temp_str, IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN,
+				inc ? "[%5lu.%06lu] ^ %s, %s: %d" :
+						"[%5lu.%06lu] v %s, %s: %d",
+				(unsigned long)t, nanosec_rem,
+				id->id_string, id->file, id->line);
+		ipa2_active_clients_log_insert(temp_str);
+	}
+}
+
+void ipa2_active_clients_log_dec(struct ipa2_active_client_logging_info *id,
+		bool int_ctx)
+{
+	ipa2_active_clients_log_mod(id, false, int_ctx);
+}
+
+void ipa2_active_clients_log_inc(struct ipa2_active_client_logging_info *id,
+		bool int_ctx)
+{
+	ipa2_active_clients_log_mod(id, true, int_ctx);
 }
 
 /**
@@ -2939,20 +3114,8 @@ static void ipa_start_tag_process(struct work_struct *work)
 */
 void ipa2_inc_client_enable_clks(struct ipa2_active_client_logging_info *id)
 {
-	char temp_str[IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN];
-	unsigned long long t;
-	unsigned long nanosec_rem;
-
 	ipa_active_clients_lock();
-	if (id->type != SIMPLE) {
-		t = local_clock();
-		nanosec_rem = do_div(t, 1000000000) / 1000;
-		snprintf(temp_str, IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN,
-					"[%5lu.%06lu] ^ %s, %s: %d",
-					(unsigned long)t, nanosec_rem,
-					id->id_string, id->file, id->line);
-		ipa2_active_clients_log_insert(temp_str);
-	}
+	ipa2_active_clients_log_inc(id, false);
 	ipa_ctx->ipa_active_clients.cnt++;
 	if (ipa_ctx->ipa_active_clients.cnt == 1)
 		ipa_enable_clks();
@@ -2976,9 +3139,6 @@ int ipa2_inc_client_enable_clks_no_block(struct ipa2_active_client_logging_info
 {
 	int res = 0;
 	unsigned long flags;
-	char temp_str[IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN];
-	unsigned long long t;
-	unsigned long nanosec_rem;
 
 	if (ipa_active_clients_trylock(&flags) == 0)
 		return -EPERM;
@@ -2988,15 +3148,7 @@ int ipa2_inc_client_enable_clks_no_block(struct ipa2_active_client_logging_info
 		goto bail;
 	}
 
-	if (id->type != SIMPLE) {
-		t = local_clock();
-		nanosec_rem = do_div(t, 1000000000) / 1000;
-		snprintf(temp_str, IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN,
-					"[%5lu.%06lu] ^ %s, %s: %d",
-					(unsigned long)t, nanosec_rem,
-					id->id_string, id->file, id->line);
-		ipa2_active_clients_log_insert(temp_str);
-	}
+	ipa2_active_clients_log_inc(id, true);
 
 	ipa_ctx->ipa_active_clients.cnt++;
 	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
@@ -3022,24 +3174,17 @@ bail:
  */
 void ipa2_dec_client_disable_clks(struct ipa2_active_client_logging_info *id)
 {
-	char temp_str[IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN];
-	unsigned long long t;
-	unsigned long nanosec_rem;
+	struct ipa2_active_client_logging_info log_info;
 
 	ipa_active_clients_lock();
-	if (id->type != SIMPLE) {
-		t = local_clock();
-		nanosec_rem = do_div(t, 1000000000) / 1000;
-		snprintf(temp_str, IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN,
-					"[%5lu.%06lu] v %s, %s: %d",
-					(unsigned long)t, nanosec_rem,
-					id->id_string, id->file, id->line);
-		ipa2_active_clients_log_insert(temp_str);
-	}
+	ipa2_active_clients_log_dec(id, false);
 	ipa_ctx->ipa_active_clients.cnt--;
 	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
 	if (ipa_ctx->ipa_active_clients.cnt == 0) {
 		if (ipa_ctx->tag_process_before_gating) {
+			IPA2_ACTIVE_CLIENTS_PREP_SPECIAL(log_info,
+					"TAG_PROCESS");
+			ipa2_active_clients_log_inc(&log_info, false);
 			ipa_ctx->tag_process_before_gating = false;
 			/*
 			 * When TAG process ends, active clients will be
@@ -3464,6 +3609,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	struct sps_bam_props bam_props = { 0 };
 	struct ipa_flt_tbl *flt_tbl;
 	struct ipa_rt_tbl_set *rset;
+	struct ipa2_active_client_logging_info log_info;
 
 	IPADBG("IPA Driver initialization started\n");
 
@@ -3587,6 +3733,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	mutex_init(&ipa_ctx->ipa_active_clients.mutex);
 	spin_lock_init(&ipa_ctx->ipa_active_clients.spinlock);
+	IPA2_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, "PROXY_CLK_VOTE");
+	ipa2_active_clients_log_inc(&log_info, false);
 	ipa_ctx->ipa_active_clients.cnt = 1;
 
 	/* Create workqueues for power management */
