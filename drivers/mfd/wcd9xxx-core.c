@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2584,6 +2584,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	u32 mclk_rate = 0;
 	u32 dmic_sample_rate = 0;
 	u32 mad_dmic_sample_rate = 0;
+	u32 dmic_clk_drive;
 	const char *static_prop_name = "qcom,cdc-static-supplies";
 	const char *ond_prop_name = "qcom,cdc-on-demand-supplies";
 	const char *cp_supplies_name = "qcom,cdc-cp-supplies";
@@ -2702,6 +2703,21 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 						  mad_dmic_sample_rate,
 						  pdata->mclk_rate,
 						  "mad_dmic_rate");
+
+	pdata->dmic_clk_drv = WCD9XXX_DMIC_CLK_DRIVE_UNDEFINED;
+	ret = of_property_read_u32(dev->of_node,
+				   "qcom,cdc-dmic-clk-drv-strength",
+				   &dmic_clk_drive);
+	if (ret)
+		dev_err(dev, "Looking up %s property in node %s failed, err = %d",
+			"qcom,cdc-dmic-clk-drv-strength",
+			dev->of_node->full_name, ret);
+	else if (dmic_clk_drive != 2 && dmic_clk_drive != 4 &&
+		 dmic_clk_drive != 8 && dmic_clk_drive != 16)
+		dev_err(dev, "Invalid cdc-dmic-clk-drv-strength %d\n",
+			dmic_clk_drive);
+	else
+		pdata->dmic_clk_drv = dmic_clk_drive;
 
 	ret = of_property_read_string(dev->of_node,
 				"qcom,cdc-variant",

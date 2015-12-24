@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,6 +86,8 @@
 #define WCD9XXX_DMIC_SAMPLE_RATE_6P144MHZ 6144000
 
 #define WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED 0
+
+#define WCD9XXX_DMIC_CLK_DRIVE_UNDEFINED 0
 
 struct wcd9xxx_amic {
 	/*legacy mode, txfe_enable and txfe_buff take 7 input
@@ -184,6 +186,7 @@ struct wcd9xxx_pdata {
 	u32 mclk_rate;
 	u32 dmic_sample_rate;
 	u32 mad_dmic_sample_rate;
+	u32 dmic_clk_drv;
 	enum codec_variant cdc_variant;
 	u16 use_pinctrl;
 };
