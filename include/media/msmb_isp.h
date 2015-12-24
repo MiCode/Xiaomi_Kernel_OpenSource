@@ -162,6 +162,14 @@ struct msm_vfe_fetch_engine_cfg {
 	uint32_t buf_stride;
 };
 
+enum msm_vfe_camif_output_format {
+	CAMIF_QCOM_RAW,
+	CAMIF_MIPI_RAW,
+	CAMIF_PLAIN_8,
+	CAMIF_PLAIN_16,
+	CAMIF_MAX_FORMAT,
+};
+
 /*
  * Camif output general configuration
  */
@@ -175,6 +183,7 @@ struct msm_vfe_camif_subsample_cfg {
 	uint32_t last_line;
 	uint32_t first_pixel;
 	uint32_t last_pixel;
+	enum msm_vfe_camif_output_format output_format;
 };
 
 /*
