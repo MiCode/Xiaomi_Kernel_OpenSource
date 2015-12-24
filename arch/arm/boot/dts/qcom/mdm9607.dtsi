@@ -499,6 +499,9 @@
 
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
+		reg = <0x87a00000 0x200000>;
+		reg-names = "ramdump";
+		subsys-name = "AR6320";
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-dsrc-supply = <&sdcard_ext_vreg>;
 		vdd-wlan-io-supply = <&mdm9607_l11>;
