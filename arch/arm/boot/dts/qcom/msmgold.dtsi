@@ -885,6 +885,8 @@
 #include "msm-pm8937-rpm-regulator.dtsi"
 #include "msmgold-regulator.dtsi"
 #include "msm-pm8937.dtsi"
+#include "msm-audio.dtsi"
+#include "msmgold-audio.dtsi"
 #include "msm-gdsc-8916.dtsi"
 
 &gdsc_venus {
