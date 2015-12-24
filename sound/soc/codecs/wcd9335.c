@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11694,7 +11694,7 @@ static int tasha_handle_pdata(struct tasha_priv *tasha,
 	struct snd_soc_codec *codec = tasha->codec;
 	u8 dmic_ctl_val, mad_dmic_ctl_val;
 	u8 anc_ctl_value;
-	u32 def_dmic_rate;
+	u32 def_dmic_rate, dmic_clk_drv;
 	int vout_ctl_1, vout_ctl_2, vout_ctl_3, vout_ctl_4;
 	int rc = 0;
 
@@ -11751,6 +11751,38 @@ static int tasha_handle_pdata(struct tasha_priv *tasha,
 		 */
 		pdata->mad_dmic_sample_rate = pdata->dmic_sample_rate;
 	}
+
+	if (pdata->dmic_clk_drv ==
+	    WCD9XXX_DMIC_CLK_DRIVE_UNDEFINED) {
+		pdata->dmic_clk_drv = WCD9335_DMIC_CLK_DRIVE_DEFAULT;
+		dev_info(codec->dev,
+			 "%s: dmic_clk_strength invalid, default = %d\n",
+			 __func__, pdata->dmic_clk_drv);
+	}
+
+	switch (pdata->dmic_clk_drv) {
+	case 2:
+		dmic_clk_drv = 0;
+		break;
+	case 4:
+		dmic_clk_drv = 1;
+		break;
+	case 8:
+		dmic_clk_drv = 2;
+		break;
+	case 16:
+		dmic_clk_drv = 3;
+		break;
+	default:
+		dev_err(codec->dev,
+			"%s: invalid dmic_clk_drv %d, using default\n",
+			__func__, pdata->dmic_clk_drv);
+		dmic_clk_drv = 0;
+		break;
+	}
+
+	snd_soc_update_bits(codec, WCD9335_TEST_DEBUG_PAD_DRVCTL,
+			    0x0C, dmic_clk_drv << 2);
 
 	/*
 	 * Default the DMIC clk rates to mad_dmic_sample_rate,
