@@ -195,6 +195,24 @@
 	status = "ok";
 };
 
+&sdhc_3 {
+	vdd-supply = <&pm8950_l5>;
+	qcom,vdd-voltage-level = <1800000 1800000>;
+	qcom,vdd-current-level = <200 639000>;
+
+	vdd-io-supply = <&pm8950_l5>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 639000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc3_clk_on &sdc3_cmd_on &sdc3_dat_on>;
+	pinctrl-1 = <&sdc3_clk_off &sdc3_cmd_off &sdc3_dat_off>;
+
+	status = "disabled";
+};
+
+
 /* CoreSight */
 &tpiu {
 	pinctrl-names = "sdcard", "trace", "swduart",
