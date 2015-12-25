@@ -30,21 +30,42 @@
 			debounce-interval = <15>;
 		};
 	};
+};
 
-	sound {
-		qcom,msm-mbhc-hphl-swh = <1>;
-		qcom,msm-gpios =
-			"pri_i2s";
-		qcom,pinctrl-names =
-			"all_off",
-			"pri_i2s_act";
-		pinctrl-names =
-			"all_off",
-			"pri_i2s_act";
-		pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus>;
-		pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act>;
-		qcom,cdc-us-euro-gpios;
-	};
+&int_codec {
+	status = "okay";
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-gpios =
+		"pri_i2s";
+	qcom,pinctrl-names =
+		"all_off",
+		"pri_i2s_act";
+	pinctrl-names =
+		"all_off",
+		"pri_i2s_act";
+	pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus>;
+	pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act>;
+	qcom,cdc-us-euro-gpios;
+	qcom,msm-hs-micbias-type = "internal";
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"SPK_RX_BIAS", "MCLK",
+		"INT_LDO_H", "MCLK",
+		"MIC BIAS External", "Handset Mic",
+		"MIC BIAS Internal2", "Headset Mic",
+		"MIC BIAS External", "Secondary Mic",
+		"AMIC1", "MIC BIAS External",
+		"AMIC2", "MIC BIAS Internal2",
+		"AMIC3", "MIC BIAS External";
+};
+
+
+&pm8937_cajon_dig {
+	status = "okay";
+};
+
+&pm8937_cajon_analog {
+	status = "okay";
 };
 
 &blsp1_uart2 {
