@@ -947,7 +947,7 @@ static void *f2fs_encrypted_follow_link(struct dentry *dentry,
 {
 	struct page *cpage = NULL;
 	char *caddr, *paddr = NULL;
-	struct f2fs_str cstr;
+	struct f2fs_str cstr = FSTR_INIT(NULL, 0);
 	struct f2fs_str pstr = FSTR_INIT(NULL, 0);
 	struct inode *inode = dentry->d_inode;
 	struct f2fs_encrypted_symlink_data *sd;
@@ -968,6 +968,12 @@ static void *f2fs_encrypted_follow_link(struct dentry *dentry,
 	/* Symlink is encrypted */
 	sd = (struct f2fs_encrypted_symlink_data *)caddr;
 	cstr.len = le16_to_cpu(sd->len);
+
+	/* this is broken symlink case */
+	if (unlikely(cstr.len == 0)) {
+		res = -ENOENT;
+		goto errout;
+	}
 	cstr.name = kmalloc(cstr.len, GFP_NOFS);
 	if (!cstr.name) {
 		res = -ENOMEM;
@@ -976,7 +982,7 @@ static void *f2fs_encrypted_follow_link(struct dentry *dentry,
 	memcpy(cstr.name, sd->encrypted_path, cstr.len);
 
 	/* this is broken symlink case */
-	if (cstr.name[0] == 0 && cstr.len == 0) {
+	if (unlikely(cstr.name[0] == 0)) {
 		res = -ENOENT;
 		goto errout;
 	}
