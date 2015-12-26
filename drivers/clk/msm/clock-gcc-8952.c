@@ -917,7 +917,7 @@ static struct clk_freq_tbl ftbl_gcc_blsp1_2_uart1_2_apps_clk[] = {
 	F( 56000000,	gpll0,	1,	7,	100),
 	F( 58982400,	gpll0,	1,	1152,	15625),
 	F( 60000000,	gpll0,	1,	3,	40),
-	F( 64000000,	gpll0, 12,	1,	 2),
+	F( 64000000,	gpll0,  1,	2,	25),
 	F_END
 };
 
