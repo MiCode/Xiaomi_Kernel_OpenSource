@@ -137,6 +137,19 @@
 		      <0x0b002000 0x1000>;
 	};
 
+	arm64-cpu-erp {
+		compatible = "arm,arm64-cpu-erp";
+		interrupts = <0 275 0>,
+			     <0 276 0>,
+			     <0 273 0>,
+			     <0 274 0>;
+		interrupt-names = "pri-dbe-irq",
+				  "sec-dbe-irq",
+				  "pri-ext-irq",
+				  "sec-ext-irq";
+		poll-delay-ms = <5000>;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <1 2 0xff08>,
