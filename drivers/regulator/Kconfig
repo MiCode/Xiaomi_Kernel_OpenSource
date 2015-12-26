@@ -252,6 +252,16 @@ config REGULATOR_FAN53555
 	  input voltage supply of 2.5V to 5.5V. The output voltage is
 	  programmed through an I2C interface.
 
+config REGULATOR_MSM_GFX_LDO
+	tristate "MSM GFX LDO Regulator"
+	depends on OF
+	help
+	  This driver supports the MSM GFX (Graphics) LDO regulator. The
+	  GFU core is either powered by an internal MSM LDO or by BHS.
+	  Typically the lower voltage corners are powered by LDO and
+	  the higher ones by BHS. This driver allows for configuration of
+	  the rail between the LDO/BHS as well as the LDO voltage.
+
 config REGULATOR_GPIO
 	tristate "GPIO regulator support"
 	depends on GPIOLIB
