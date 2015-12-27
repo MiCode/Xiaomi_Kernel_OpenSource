@@ -365,9 +365,11 @@ static int msm_gfx_ldo_enable(struct regulator_dev *rdev)
 	ldo_vreg->vreg_enabled = true;
 
 disable_cx:
-	rc = regulator_disable(ldo_vreg->vdd_cx);
-	if (rc)
-		pr_err("regulator_enable: vdd_cx: failed rc=%d\n", rc);
+	if (rc && ldo_vreg->vdd_cx) {
+		rc = regulator_disable(ldo_vreg->vdd_cx);
+		if (rc)
+			pr_err("regulator_enable: vdd_cx: failed rc=%d\n", rc);
+	}
 fail:
 	mutex_unlock(&ldo_vreg->ldo_mutex);
 	return rc;
