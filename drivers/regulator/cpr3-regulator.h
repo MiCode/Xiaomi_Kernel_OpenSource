@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,37 @@ struct cpr3_fuse_param {
 #define MAX_CHARS_PER_INT	10
 
 /**
+ * struct cpr4_sdelta - CPR4 controller specific data structure for the sdelta
+ *			adjustment table which is used to adjust the VDD supply
+ *			voltage automatically based upon the temperature and/or
+ *			the number of online CPU cores.
+ * @allow_core_count_adj: Core count adjustments are allowed.
+ * @allow_temp_adj:	Temperature based adjustments are allowed.
+ * @max_core_count:	Maximum number of cores considered for core count
+ *			adjustment logic.
+ * @temp_band_count:	Number of temperature bands considered for temperature
+ *			based adjustment logic.
+ * @cap_volt:		CAP in uV to apply to SDELTA margins with multiple
+ *			cpr3-regulators defined for single controller.
+ * @table:		SDELTA table with per-online-core and temperature based
+ *			adjustments of size (max_core_count * temp_band_count)
+ *			Outer: core count
+ *			Inner: temperature band
+ *			Each element has units of VDD supply steps. Positive
+ *			values correspond to a reduction in voltage and negative
+ *			value correspond to an increase (this follows the SDELTA
+ *			register semantics).
+ */
+struct cpr4_sdelta {
+	bool	allow_core_count_adj;
+	bool	allow_temp_adj;
+	int	max_core_count;
+	int	temp_band_count;
+	int	cap_volt;
+	int	*table;
+};
+
+/**
  * struct cpr3_corner - CPR3 virtual voltage corner data structure
  * @floor_volt:		CPR closed-loop floor voltage in microvolts
  * @ceiling_volt:	CPR closed-loop ceiling voltage in microvolts
@@ -83,6 +114,8 @@ struct cpr3_fuse_param {
  *			E.g. a value of 900 would imply that the adjustment for
  *			this corner should be 90% (900/1000) of that for the
  *			reference corner.
+ * @sdelta:		The CPR4 controller specific data for this corner. This
+ *			field is applicable for CPR4 controllers.
  *
  * The value of last_volt is initialized inside of the cpr3_regulator_register()
  * call with the open_loop_volt value.  It can later be updated to the settled
@@ -105,6 +138,7 @@ struct cpr3_corner {
 	u32			ro_mask;
 	u32			irq_en;
 	int			aging_derate;
+	struct cpr4_sdelta	*sdelta;
 };
 
 /**
@@ -202,6 +236,11 @@ struct cpr3_corner {
  *			may be added to the target quotients of this regulator.
  *			A value of 0 may be specified if this regulator does not
  *			require any aging adjustment.
+ * @allow_core_count_adj: Core count adjustments are allowed for this regulator.
+ * @allow_temp_adj:	Temperature based adjustments are allowed for this
+ *			regulator.
+ * @max_core_count:	Maximum number of cores considered for core count
+ *			adjustment logic.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements current_corner, last_closed_loop_corner, aggregated, debug_corner,
@@ -251,6 +290,10 @@ struct cpr3_regulator {
 	bool			aging_allowed;
 	int			aging_corner;
 	int			aging_max_adjust_volt;
+
+	bool			allow_core_count_adj;
+	bool			allow_temp_adj;
+	int			max_core_count;
 };
 
 /**
@@ -497,6 +540,33 @@ struct cpr3_aging_sensor_info {
  * @aging_sensor:	Array of CPR3 aging sensors which are used to perform
  *			aging measurements at a runtime.
  * @aging_sensor_count:	Number of elements in the aging_sensor array
+ * @step_quot_fixed:	Fixed step quotient value used for target quotient
+ *			adjustment if use_dynamic_step_quot is not set.
+ *			This parameter is only relevant for CPR4 controllers
+ *			when using the per-online-core or per-temperature
+ *			adjustments.
+ * @initial_temp_band:	Temperature band used for calculation of base-line
+ *			target quotients (fused).
+ * @use_dynamic_step_quot: Boolean value which indicates that margin adjustment
+ *			of target quotient will be based on the step quotient
+ *			calculated dynamically in hardware for each RO.
+ * @allow_core_count_adj: Core count adjustments are allowed for this controller
+ * @allow_temp_adj:	Temperature based adjustments are allowed for
+ *			this controller
+ * @temp_band_count:	Number of temperature bands used for temperature based
+ *			adjustment logic
+ * @temp_points:	Array of temperature points in decidegrees Celsius used
+ *			to specify the ranges for selected temperature bands.
+ *			The array must have (temp_band_count - 1) elements
+ *			allocated.
+ * @temp_sensor_id_start: Start ID of temperature sensors used for temperature
+ *			based adjustments.
+ * @temp_sensor_id_end:	End ID of temperature sensors used for temperature
+ *			based adjustments.
+ * @voltage_settling_time: The time in nanoseconds that it takes for the
+ *			VDD supply voltage to settle after being increased or
+ *			decreased by step_volt microvolts which is used when
+ *			SDELTA voltage margin adjustments are applied.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
@@ -505,6 +575,10 @@ struct cpr3_aging_sensor_info {
  *
  * The apm* elements do not need to be initialized if the VDD supply managed by
  * the CPR3 controller does not utilize an APM.
+ *
+ * The elements step_quot_fixed, initial_temp_band, allow_core_count_adj,
+ * allow_temp_adj and temp* need to be initialized for CPR4 controllers which
+ * are using per-online-core or per-temperature adjustments.
  */
 struct cpr3_controller {
 	struct device		*dev;
@@ -569,6 +643,17 @@ struct cpr3_controller {
 	bool			aging_failed;
 	struct cpr3_aging_sensor_info *aging_sensor;
 	int			aging_sensor_count;
+
+	u32			step_quot_fixed;
+	u32			initial_temp_band;
+	bool			use_dynamic_step_quot;
+	bool			allow_core_count_adj;
+	bool			allow_temp_adj;
+	int			temp_band_count;
+	int			*temp_points;
+	u32			temp_sensor_id_start;
+	u32			temp_sensor_id_end;
+	u32			voltage_settling_time;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */

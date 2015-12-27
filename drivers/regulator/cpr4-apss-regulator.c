@@ -159,6 +159,10 @@ static const int msmtitanium_apss_fuse_ref_volt
 
 #define MSMTITANIUM_APSS_CPR_CLOCK_RATE		19200000
 
+#define MSMTITANIUM_APSS_MAX_TEMP_POINTS	3
+#define MSMTITANIUM_APSS_TEMP_SENSOR_ID_START	4
+#define MSMTITANIUM_APSS_TEMP_SENSOR_ID_END	13
+
 /**
  * cpr4_msmtitanium_apss_read_fuse_data() - load APSS specific fuse parameter values
  * @vreg:		Pointer to the CPR3 regulator
@@ -692,6 +696,255 @@ static int cpr4_apss_init_thread(struct cpr3_thread *thread)
 }
 
 /**
+ * cpr4_apss_parse_temp_adj_properties() - parse temperature based
+ *		adjustment properties from device tree.
+ * @ctrl:	Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_parse_temp_adj_properties(struct cpr3_controller *ctrl)
+{
+	struct device_node *of_node = ctrl->dev->of_node;
+	int rc, i, len, temp_point_count;
+
+	if (!of_find_property(of_node, "qcom,cpr-temp-point-map", &len)) {
+		/*
+		 * Temperature based adjustments are not defined. Single
+		 * temperature band is still valid for per-online-core
+		 * adjustments.
+		 */
+		ctrl->temp_band_count = 1;
+		return 0;
+	}
+
+	temp_point_count = len / sizeof(u32);
+	if (temp_point_count <= 0
+		|| temp_point_count > MSMTITANIUM_APSS_MAX_TEMP_POINTS) {
+		cpr3_err(ctrl, "invalid number of temperature points %d > %d (max)\n",
+			 temp_point_count, MSMTITANIUM_APSS_MAX_TEMP_POINTS);
+		return -EINVAL;
+	}
+
+	ctrl->temp_points = devm_kcalloc(ctrl->dev, temp_point_count,
+					sizeof(*ctrl->temp_points), GFP_KERNEL);
+	if (!ctrl->temp_points)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-temp-point-map",
+					ctrl->temp_points, temp_point_count);
+	if (rc) {
+		cpr3_err(ctrl, "error reading property qcom,cpr-temp-point-map, rc=%d\n",
+			 rc);
+		return rc;
+	}
+
+	for (i = 0; i < temp_point_count; i++)
+		cpr3_debug(ctrl, "Temperature Point %d=%d\n", i,
+				   ctrl->temp_points[i]);
+
+	/*
+	 * If t1, t2, and t3 are the temperature points, then the temperature
+	 * bands are: (-inf, t1], (t1, t2], (t2, t3], and (t3, inf).
+	 */
+	ctrl->temp_band_count = temp_point_count + 1;
+	cpr3_debug(ctrl, "Number of temp bands =%d\n", ctrl->temp_band_count);
+
+	rc = of_property_read_u32(of_node, "qcom,cpr-initial-temp-band",
+				  &ctrl->initial_temp_band);
+	if (rc) {
+		cpr3_err(ctrl, "error reading qcom,cpr-initial-temp-band, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	if (ctrl->initial_temp_band >= ctrl->temp_band_count) {
+		cpr3_err(ctrl, "Initial temperature band value %d should be in range [0 - %d]\n",
+			ctrl->initial_temp_band, ctrl->temp_band_count - 1);
+		return -EINVAL;
+	}
+
+	ctrl->temp_sensor_id_start = MSMTITANIUM_APSS_TEMP_SENSOR_ID_START;
+	ctrl->temp_sensor_id_end = MSMTITANIUM_APSS_TEMP_SENSOR_ID_END;
+	ctrl->allow_temp_adj = true;
+	return rc;
+}
+
+/**
+ * cpr4_load_corner_core_and_temp_adj() - parse amount of voltage adjustment for
+ *		per-online-core and per-temperature voltage adjustment for a
+ *		given corner from device tree.
+ * @vreg:	Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_load_corner_core_and_temp_adj(struct cpr3_regulator *vreg,
+					int corner_num)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr3_corner *corner = &vreg->corner[corner_num];
+	struct cpr4_sdelta *sdelta = corner->sdelta;
+	int sdelta_size, i, rc = 0;
+	char prop_str[60];
+
+	if (!sdelta->allow_core_count_adj && !sdelta->allow_temp_adj) {
+		/* corner doesn't need sdelta table */
+		sdelta->max_core_count = 0;
+		sdelta->temp_band_count = 0;
+		return rc;
+	}
+
+	sdelta_size = sdelta->max_core_count * sdelta->temp_band_count;
+	cpr3_debug(vreg, "corner=%d core_config_count=%d temp_band_count=%d sdelta_size=%d\n",
+			corner_num, sdelta->max_core_count,
+			sdelta->temp_band_count, sdelta_size);
+
+	sdelta->table = devm_kcalloc(ctrl->dev, sdelta_size,
+				sizeof(*sdelta->table), GFP_KERNEL);
+	if (!sdelta->table)
+		return -ENOMEM;
+
+	snprintf(prop_str, sizeof(prop_str),
+		"qcom,cpr-corner%d-temp-core-voltage-adjustment",
+		corner_num + CPR3_CORNER_OFFSET);
+
+	rc = cpr3_parse_array_property(vreg, prop_str, sdelta_size,
+				sdelta->table);
+	if (rc) {
+		cpr3_err(vreg, "could not load %s, rc=%d\n", prop_str, rc);
+		return rc;
+	}
+
+	/*
+	 * Convert sdelta margins from uV to PMIC steps and apply negation to
+	 * follow the SDELTA register semantics.
+	 */
+	for (i = 0; i < sdelta_size; i++)
+		sdelta->table[i] = -(sdelta->table[i] / ctrl->step_volt);
+
+	return rc;
+}
+
+/**
+ * cpr4_apss_parse_core_count_temp_voltage_adj() - parse configuration data for
+ *		per-online-core and per-temperature voltage adjustment for CPR3
+ *		regulator from device tree.
+ * @vreg:	Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_parse_core_count_temp_voltage_adj(
+			struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct device_node *node = vreg->of_node;
+	struct cpr3_corner *corner;
+	struct cpr4_sdelta *sdelta;
+	int i, rc = 0;
+	int *allow_core_count_adj = NULL, *allow_temp_adj = NULL;
+
+	if (of_find_property(node, "qcom,corner-allow-temp-adjustment", NULL)) {
+		if (!ctrl->allow_temp_adj) {
+			cpr3_err(ctrl, "Temperature adjustment configurations missing\n");
+			return -EINVAL;
+		}
+
+		vreg->allow_temp_adj = true;
+	}
+
+	if (of_find_property(node, "qcom,corner-allow-core-count-adjustment",
+				NULL)) {
+		rc = of_property_read_u32(node, "qcom,max-core-count",
+				&vreg->max_core_count);
+		if (rc) {
+			cpr3_err(vreg, "error reading qcom,max-num-cpus, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		vreg->allow_core_count_adj = true;
+		ctrl->allow_core_count_adj = true;
+	}
+
+	if (!vreg->allow_temp_adj && !vreg->allow_core_count_adj) {
+		/*
+		 * Both per-online-core and temperature based adjustments are
+		 * disabled for this regualtor.
+		 */
+		return 0;
+	} else if (!vreg->allow_core_count_adj) {
+		/*
+		 * Only per-temperature voltage adjusments are allowed.
+		 * Keep max core count value as 1 to allocate SDELTA.
+		 */
+		vreg->max_core_count = 1;
+	}
+
+	if (vreg->allow_core_count_adj) {
+		allow_core_count_adj = kcalloc(vreg->corner_count,
+					sizeof(*allow_core_count_adj),
+					GFP_KERNEL);
+		if (!allow_core_count_adj)
+			return -ENOMEM;
+
+		rc = cpr3_parse_corner_array_property(vreg,
+				"qcom,corner-allow-core-count-adjustment",
+				1, allow_core_count_adj);
+		if (rc) {
+			cpr3_err(vreg, "qcom,corner-allow-core-count-adjustment reading failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
+	if (vreg->allow_temp_adj) {
+		allow_temp_adj = kcalloc(vreg->corner_count,
+					sizeof(*allow_temp_adj), GFP_KERNEL);
+		if (!allow_temp_adj) {
+			rc = -ENOMEM;
+			goto done;
+		}
+
+		rc = cpr3_parse_corner_array_property(vreg,
+					"qcom,corner-allow-temp-adjustment",
+					1, allow_temp_adj);
+		if (rc) {
+			cpr3_err(vreg, "qcom,corner-allow-temp-adjustment reading failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
+	for (i = 0; i < vreg->corner_count; i++) {
+		corner = &vreg->corner[i];
+		sdelta = devm_kzalloc(ctrl->dev, sizeof(*corner->sdelta),
+					GFP_KERNEL);
+		if (!sdelta) {
+			rc = -ENOMEM;
+			goto done;
+		}
+
+		if (allow_core_count_adj)
+			sdelta->allow_core_count_adj = allow_core_count_adj[i];
+		if (allow_temp_adj)
+			sdelta->allow_temp_adj = allow_temp_adj[i];
+		sdelta->max_core_count = vreg->max_core_count;
+		sdelta->temp_band_count = ctrl->temp_band_count;
+		corner->sdelta = sdelta;
+		rc = cpr4_load_corner_core_and_temp_adj(vreg, i);
+		if (rc) {
+			cpr3_err(vreg, "corner %d core and temp adjustment loading failed: rc=%d\n",
+				i, rc);
+			goto done;
+		}
+	}
+
+done:
+	kfree(allow_core_count_adj);
+	kfree(allow_temp_adj);
+	return rc;
+}
+
+/**
  * cpr4_apss_init_regulator() - perform all steps necessary to initialize the
  *		configuration data for a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
@@ -755,9 +1008,15 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
+	rc = cpr4_apss_parse_core_count_temp_voltage_adj(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to parse temperature and core count voltage adjustments, rc=%d\n",
+			 rc);
+		return rc;
+	}
 	cpr4_apss_print_settings(vreg);
 
-	return 0;
+	return rc;
 }
 
 /**
@@ -797,8 +1056,20 @@ static int cpr4_apss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
+	/*
+	 * Use fixed step quotient if specified otherwise use dynamic
+	 * calculated per RO step quotient
+	 */
+	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-step-quot-fixed",
+			&ctrl->step_quot_fixed);
+	ctrl->use_dynamic_step_quot = ctrl->step_quot_fixed ? false : true;
+
 	ctrl->saw_use_unit_mV = of_property_read_bool(ctrl->dev->of_node,
 					"qcom,cpr-saw-use-unit-mV");
+
+	of_property_read_u32(ctrl->dev->of_node,
+			"qcom,cpr-voltage-settling-time",
+			&ctrl->voltage_settling_time);
 
 	ctrl->vdd_limit_regulator = devm_regulator_get(ctrl->dev, "vdd-limit");
 	if (IS_ERR(ctrl->vdd_limit_regulator)) {
@@ -814,6 +1085,13 @@ static int cpr4_apss_init_controller(struct cpr3_controller *ctrl)
 		if (rc != -EPROBE_DEFER)
 			cpr3_err(ctrl, "unable to initialize APM settings, rc=%d\n",
 				rc);
+		return rc;
+	}
+
+	rc = cpr4_apss_parse_temp_adj_properties(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "unable to parse temperature adjustment properties, rc=%d\n",
+			 rc);
 		return rc;
 	}
 
