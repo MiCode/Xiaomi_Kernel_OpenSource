@@ -73,6 +73,8 @@ Optional Properties:
 				specified in micro-volts.
 - qcom,batt-id-rpullup-kohm	The pull-up resistor connected on the battery-ID
 				(vref) line.
+- qcom,using-vbat-sns		Bool property to indicate that VBAT sense can be
+				done by PMIC.
 
 Example:
 	i2c@f9967000 {

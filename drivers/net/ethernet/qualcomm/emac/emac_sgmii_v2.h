@@ -10,13 +10,11 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#ifndef _EMAC_SGMII_V2_H_
+#define _EMAC_SGMII_V2_H_
 
-#include "mdmcalifornium-mtp.dtsi"
+#include "emac_sgmii.h"
 
-/ {
-	model = "Qualcomm Technologies, Inc. MDM CALIFORNIUM MTP";
-	compatible = "qcom,mdmcalifornium-mtp", "qcom,mdmcalifornium",
-		     "qcom,mtp";
-	qcom,board-id = <8 0>;
-};
+extern struct emac_phy_ops emac_sgmii_v2_ops;
+
+#endif /*_EMAC_SGMII_V2_H_*/

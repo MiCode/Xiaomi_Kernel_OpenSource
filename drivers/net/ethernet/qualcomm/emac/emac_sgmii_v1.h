@@ -10,11 +10,11 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _EMAC_SGMII_H_
-#define _EMAC_SGMII_H_
+#ifndef _EMAC_SGMII_V1_H_
+#define _EMAC_SGMII_V1_H_
 
-#include "emac.h"
+#include "emac_sgmii.h"
 
 extern struct emac_phy_ops emac_sgmii_v1_ops;
 
-#endif /*_EMAC_SGMII_H_*/
+#endif /*_EMAC_SGMII_V1_H_*/

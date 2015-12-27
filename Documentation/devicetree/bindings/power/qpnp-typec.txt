@@ -1,0 +1,59 @@
+QPNP USB Type-C module
+
+QPNP USB Type-C module supports USB type-c ports and detection of
+USB Type-C chargers that can supply upto 3A Vbus current for charging.
+
+The QPNP USB Type-C interfaces via the SPMI bus.
+
+Required properties :
+- compatible : Must be "qcom,qpnp-typec"
+- reg:			The SPMI address for this peripheral
+- interrupts:		Specifies the interrupt associated with the peripheral.
+- interrupt-names:	Specifies the interrupt names for the peripheral. Every
+			available interrupt needs to have an associated name
+			with it to indentify its purpose.
+
+			- vrd-change:		Triggers on change in current
+						capability of charger.
+			- ufp-detach:		Triggers on cable detach in
+						UFP mode.
+			- ufp-detect:		Triggers on charger insertion.
+			- dfp-detach:		Triggers on cable detach in
+						DFP mode.
+			- dfp-detect:		Triggers on OTG cable insertion.
+			- vbus-err:		Triggers if VBUS is not
+						detected within 275 msec after
+						CC detection in UFP mode.
+			- vconn-oc:		Triggers on VCONN overcurrent
+						in DFP mode with active cable.
+
+Optional properties:
+- pinctrl-names : This should be defined if a target uses pinctrl framework
+  for SSMUX control pin. See "pinctrl" in
+  Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt.
+  It should specify the names of the configs that pinctrl can install in driver.
+  Following are the pinctrl config that can be installed:
+      "typec_ssmux_config" : Default configuration of pins.
+- <supply-name>-supply: handle to the regulator device tree node.
+        "supply-name" is "ss-mux" regulator to drive super-speed MUX chip.
+
+Example:
+	qcom,qpnp-typec@bf00 {
+		compatible = "qcom,qpnp-typec";
+		reg = <0xbf00 0x100>;
+		interrupts =	<0x0 0xbf 0x0>,
+				<0x0 0xbf 0x1>,
+				<0x0 0xbf 0x2>,
+				<0x0 0xbf 0x3>,
+				<0x0 0xbf 0x4>,
+				<0x0 0xbf 0x6>,
+				<0x0 0xbf 0x7>;
+
+		interrupt-names =	"vrd-change",
+					"ufp-detach",
+					"ufp-detect",
+					"dfp-detach",
+					"dfp-detect",
+					"vbus-err",
+					"vconn-oc";
+	};

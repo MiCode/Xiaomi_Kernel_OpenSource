@@ -886,11 +886,13 @@ static int msm_vidc_load_clock_table(
 				"clock-names", c, &vc->name);
 
 		if (clock_props[c] & CLOCK_PROP_HAS_SCALING) {
+			vc->has_scaling = true;
 			vc->count = res->load_freq_tbl_size;
 			vc->load_freq_tbl = res->load_freq_tbl;
 		} else {
 			vc->count = 0;
 			vc->load_freq_tbl = NULL;
+			vc->has_scaling = false;
 		}
 
 		dprintk(VIDC_DBG, "Found clock %s: scale-able = %s\n", vc->name,

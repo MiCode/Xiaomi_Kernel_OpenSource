@@ -516,7 +516,7 @@ void ipa3_suspend_active_aggr_wa(u32 clnt_hdl)
 		}
 		suspend_interrupt_data = kzalloc(
 				sizeof(*suspend_interrupt_data),
-				GFP_KERNEL);
+				GFP_ATOMIC);
 		if (!suspend_interrupt_data) {
 			IPAERR("failed allocating suspend_interrupt_data\n");
 			return;
@@ -524,7 +524,7 @@ void ipa3_suspend_active_aggr_wa(u32 clnt_hdl)
 		suspend_interrupt_data->endpoints = 1 << clnt_hdl;
 
 		work_data = kzalloc(sizeof(struct ipa3_interrupt_work_wrap),
-				GFP_KERNEL);
+				GFP_ATOMIC);
 		if (!work_data) {
 			IPAERR("failed allocating ipa3_interrupt_work_wrap\n");
 			goto fail_alloc_work;

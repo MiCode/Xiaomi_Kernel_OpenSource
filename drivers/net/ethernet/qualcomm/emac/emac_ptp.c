@@ -151,9 +151,9 @@ static int emac_hw_adjust_tstamp_offset(struct emac_hw *hw,
 					u32 link_speed)
 {
 	const struct emac_tstamp_hw_delay *delay_info;
+	struct emac_phy *phy = &emac_hw_get_adap(hw)->phy;
 
-	delay_info = emac_get_ptp_hw_delay(link_speed,
-					   emac_hw_get_adap(hw)->phy_mode);
+	delay_info = emac_get_ptp_hw_delay(link_speed, phy->phy_mode);
 
 	if (clk_mode == emac_ptp_clk_mode_oc_one_step) {
 		u32 latency = (delay_info) ? delay_info->tx : 0;
@@ -739,6 +739,7 @@ static ssize_t emac_ptp_sysfs_mode_set(struct device *dev,
 				       const char *buf, size_t count)
 {
 	struct emac_adapter *adpt = netdev_priv(to_net_dev(dev));
+	struct emac_phy *phy = &adpt->phy;
 	struct emac_hw *hw = &adpt->hw;
 	enum emac_ptp_mode mode;
 
@@ -758,7 +759,7 @@ static ssize_t emac_ptp_sysfs_mode_set(struct device *dev,
 
 		emac_hw_1588_core_disable(hw);
 		emac_hw_1588_core_enable(hw, mode, hw->ptp_clk_mode,
-					 hw->link_speed, hw->frac_ns_adj);
+					 phy->link_speed, hw->frac_ns_adj);
 		if (rx_tstamp_enable)
 			emac_hw_config_rx_tstamp(hw, true);
 		if (tx_tstamp_enable)

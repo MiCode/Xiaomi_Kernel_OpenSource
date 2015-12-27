@@ -15,8 +15,8 @@
 
 #include <linux/ipc_logging.h>
 
-#define IPC_LOG_VERSION 0x0002
-#define IPC_LOG_MAX_CONTEXT_NAME_LEN 20
+#define IPC_LOG_VERSION 0x0003
+#define IPC_LOG_MAX_CONTEXT_NAME_LEN 32
 
 /**
  * struct ipc_log_page_header - Individual log page header

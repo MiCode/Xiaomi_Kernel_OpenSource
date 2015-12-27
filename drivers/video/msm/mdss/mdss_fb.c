@@ -540,14 +540,16 @@ static ssize_t mdss_fb_get_panel_info(struct device *dev,
 			"pu_en=%d\nxstart=%d\nwalign=%d\nystart=%d\nhalign=%d\n"
 			"min_w=%d\nmin_h=%d\nroi_merge=%d\ndyn_fps_en=%d\n"
 			"min_fps=%d\nmax_fps=%d\npanel_name=%s\n"
-			"primary_panel=%d\nis_pluggable=%d\ndisplay_id=%s\n",
+			"primary_panel=%d\nis_pluggable=%d\ndisplay_id=%s\n"
+			"is_cec_supported=%d\n",
 			pinfo->partial_update_enabled, pinfo->xstart_pix_align,
 			pinfo->width_pix_align, pinfo->ystart_pix_align,
 			pinfo->height_pix_align, pinfo->min_width,
 			pinfo->min_height, pinfo->partial_update_roi_merge,
 			pinfo->dynamic_fps, pinfo->min_fps, pinfo->max_fps,
 			pinfo->panel_name, pinfo->is_prim_panel,
-			pinfo->is_pluggable, pinfo->display_id);
+			pinfo->is_pluggable, pinfo->display_id,
+			pinfo->is_cec_supported);
 
 	return ret;
 }
@@ -560,10 +562,14 @@ static ssize_t mdss_fb_get_panel_status(struct device *dev,
 	int ret;
 	int panel_status;
 
-	panel_status = mdss_fb_send_panel_event(mfd,
-			MDSS_EVENT_DSI_PANEL_STATUS, NULL);
-	ret = scnprintf(buf, PAGE_SIZE, "panel_status=%s\n",
-		panel_status > 0 ? "alive" : "dead");
+	if (mdss_panel_is_power_off(mfd->panel_power_state)) {
+		ret = scnprintf(buf, PAGE_SIZE, "panel_status=%s\n", "suspend");
+	} else {
+		panel_status = mdss_fb_send_panel_event(mfd,
+				MDSS_EVENT_DSI_PANEL_STATUS, NULL);
+		ret = scnprintf(buf, PAGE_SIZE, "panel_status=%s\n",
+			panel_status > 0 ? "alive" : "dead");
+	}
 
 	return ret;
 }

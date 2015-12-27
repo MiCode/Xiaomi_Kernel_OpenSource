@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "CAM-VB2 %s:%d " fmt, __func__, __LINE__
 #include "msm_vb2.h"
 
 static int msm_vb2_queue_setup(struct vb2_queue *q,
@@ -269,7 +270,8 @@ static int msm_vb2_put_buf(struct vb2_buffer *vb, int session_id,
 }
 
 static int msm_vb2_buf_done(struct vb2_buffer *vb, int session_id,
-				unsigned int stream_id)
+				unsigned int stream_id, uint32_t sequence,
+				struct timeval *ts, uint32_t reserved)
 {
 	unsigned long flags;
 	struct msm_vb2_buffer *msm_vb2;
@@ -297,6 +299,9 @@ static int msm_vb2_buf_done(struct vb2_buffer *vb, int session_id,
 			container_of(vb, struct msm_vb2_buffer, vb2_buf);
 		/* put buf before buf done */
 		if (msm_vb2->in_freeq) {
+			vb->v4l2_buf.sequence = sequence;
+			vb->v4l2_buf.timestamp = *ts;
+			vb->v4l2_buf.reserved = reserved;
 			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 			msm_vb2->in_freeq = 0;
 			rc = 0;

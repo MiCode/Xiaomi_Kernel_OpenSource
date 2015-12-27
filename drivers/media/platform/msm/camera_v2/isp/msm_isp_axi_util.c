@@ -774,32 +774,13 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	struct msm_vfe_sof_info *sof_info = NULL, *self_sof = NULL;
 	enum msm_vfe_dual_hw_ms_type ms_type;
 	int i, j;
+	unsigned long flags;
 
 	memset(&event_data, 0, sizeof(event_data));
 
 	switch (event_type) {
 	case ISP_EVENT_SOF:
 		if (frame_src == VFE_PIX_0) {
-			/* Frame id is incremented in CAMIF SOF. Event is sent
-			 * in EPOCH. If by this time, both VFE dont have same
-			 * frame_id, then we have scheduling issues or some
-			 * other s/w issue */
-			if (vfe_dev->is_split &&
-				vfe_dev->common_data->dual_vfe_res->
-					axi_data[0]->
-					src_info[VFE_PIX_0].frame_id !=
-				vfe_dev->common_data->dual_vfe_res->
-					axi_data[1]->
-					src_info[VFE_PIX_0].frame_id) {
-				pr_debug("%s: Error! 2 VFE out of sync vfe0 frame_id %u vfe1 %u\n",
-					__func__,
-					vfe_dev->common_data->dual_vfe_res->
-						axi_data[0]->
-						src_info[VFE_PIX_0].frame_id,
-					vfe_dev->common_data->dual_vfe_res->
-						axi_data[1]->
-						src_info[VFE_PIX_0].frame_id);
-			}
 			if (vfe_dev->isp_sof_debug < ISP_SOF_DEBUG_COUNT)
 				pr_err("%s: PIX0 frame id: %u\n", __func__,
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
@@ -832,12 +813,14 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		 */
 		if (vfe_dev->axi_data.src_info[frame_src].dual_hw_type ==
 			DUAL_HW_MASTER_SLAVE) {
-			spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+			spin_lock_irqsave(
+				&vfe_dev->common_data->common_dev_data_lock,
+				flags);
 			self_sof = vfe_dev->axi_data.src_info[frame_src].
 				dual_hw_ms_info.sof_info;
 			if (!self_sof) {
-				spin_unlock(&vfe_dev->common_data->
-					common_dev_data_lock);
+				spin_unlock_irqrestore(&vfe_dev->common_data->
+					common_dev_data_lock, flags);
 				break;
 			}
 			ms_type = vfe_dev->axi_data.src_info[frame_src].
@@ -870,8 +853,8 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 					self_sof->mono_timestamp_ms -
 					sof_info->mono_timestamp_ms;
 			}
-			spin_unlock(&vfe_dev->common_data->
-				common_dev_data_lock);
+			spin_unlock_irqrestore(&vfe_dev->common_data->
+				common_dev_data_lock, flags);
 		} else
 			if (frame_src == VFE_PIX_0) {
 				msm_isp_check_for_output_error(vfe_dev, ts,
@@ -2388,6 +2371,7 @@ static int msm_isp_update_dual_HW_ms_info_at_stop(
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	enum msm_vfe_input_src stream_src = VFE_SRC_MAX;
 	struct msm_vfe_src_info *src_info = NULL;
+	unsigned long flags;
 
 	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM ||
 		stream_cfg_cmd->num_streams == 0)
@@ -2411,7 +2395,9 @@ static int msm_isp_update_dual_HW_ms_info_at_stop(
 		if (src_info->dual_hw_type != DUAL_HW_MASTER_SLAVE)
 			continue;
 
-		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+		spin_lock_irqsave(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
 		if (src_info->dual_hw_ms_info.dual_hw_ms_type ==
 			MS_TYPE_MASTER) {
 			/*
@@ -2428,7 +2414,9 @@ static int msm_isp_update_dual_HW_ms_info_at_stop(
 			vfe_dev->common_data->ms_resource.num_slave--;
 		}
 		src_info->dual_hw_ms_info.sof_info = NULL;
-		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
+		spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
 		vfe_dev->vfe_ub_policy = 0;
 	}
 
@@ -2484,9 +2472,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 
 		stream_info->state = START_PENDING;
-		ISP_DBG("start axi Stream 0x%x src_state %d src type %d\n",
-			stream_info->stream_id, src_state,
-			stream_info->stream_type);
+		ISP_DBG("%s, Stream 0x%x src_state %d on vfe %d\n", __func__,
+			stream_info->stream_id, src_state, vfe_dev->pdev->id);
 		if (src_state) {
 			src_mask |= (1 << SRC_TO_INTF(stream_info->stream_src));
 			wait_for_complete = 1;
@@ -2945,7 +2932,9 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 
 	if (!stream_info->bufq_handle[queue_req->buff_queue_id]) {
 		spin_unlock_irqrestore(&stream_info->lock, flags);
-		pr_err("%s:%d stream is stoped\n", __func__, __LINE__);
+		pr_err("%s:%d request frame failed on hw stream 0x%x, request stream %d due to no bufq idx: %d\n",
+			__func__, __LINE__, stream_info->stream_handle,
+			user_stream_id, queue_req->buff_queue_id);
 		return 0;
 	}
 	queue_req->cmd_used = 1;
@@ -3038,6 +3027,7 @@ static int msm_isp_add_buf_queue(struct vfe_device *vfe_dev,
 	else
 		bufq_id = VFE_BUF_QUEUE_SHARED;
 
+
 	stream_info->bufq_handle[bufq_id] =
 		vfe_dev->buf_mgr->ops->get_bufq_handle(vfe_dev->buf_mgr,
 			stream_info->session_id, stream_id);
@@ -3046,6 +3036,10 @@ static int msm_isp_add_buf_queue(struct vfe_device *vfe_dev,
 			__func__, stream_id);
 		rc = -EINVAL;
 	}
+
+	ISP_DBG("%d: Add bufq handle:0x%x, idx:%d, for stream %d on VFE %d\n",
+		__LINE__, stream_info->bufq_handle[bufq_id],
+		bufq_id, stream_info->stream_handle, vfe_dev->pdev->id);
 
 	return rc;
 }

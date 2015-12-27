@@ -4085,6 +4085,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				"qcom,ahb-async-bridge-bypass");
 	pdata->disable_retention_with_vdd_min = of_property_read_bool(node,
 				"qcom,disable-retention-with-vdd-min");
+	pdata->enable_phy_id_pullup = of_property_read_bool(node,
+				"qcom,enable-phy-id-pullup");
 	pdata->phy_dvdd_always_on = of_property_read_bool(node,
 				"qcom,phy-dvdd-always-on");
 
@@ -4684,7 +4686,8 @@ static int msm_otg_probe(struct platform_device *pdev)
 								!motg->phy_irq))
 		motg->caps = ALLOW_PHY_POWER_COLLAPSE | ALLOW_PHY_RETENTION;
 
-	if (motg->pdata->otg_control == OTG_PHY_CONTROL || motg->phy_irq)
+	if (motg->pdata->otg_control == OTG_PHY_CONTROL || motg->phy_irq ||
+				motg->pdata->enable_phy_id_pullup)
 		motg->caps = ALLOW_PHY_RETENTION | ALLOW_PHY_REGULATORS_LPM;
 
 	if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)

@@ -11082,18 +11082,12 @@ int tasha_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 }
 EXPORT_SYMBOL(tasha_codec_info_create_codec_entry);
 
-/*
- * tasha_codec_internal_rco_ctrl()
- * Make sure that the caller does not acquire
- * BG_CLK_LOCK.
- */
-static int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
-				  bool enable)
+static int __tasha_codec_internal_rco_ctrl(
+	struct snd_soc_codec *codec, bool enable)
 {
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	WCD9XXX_V2_BG_CLK_LOCK(tasha->resmgr);
 	if (enable) {
 		tasha_cdc_sido_ccl_enable(tasha, true);
 		if (wcd_resmgr_get_clk_type(tasha->resmgr) ==
@@ -11118,6 +11112,23 @@ static int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 			__func__, (enable ? "enabling" : "disabling"));
 		ret = -EINVAL;
 	}
+
+	return ret;
+}
+
+/*
+ * tasha_codec_internal_rco_ctrl()
+ * Make sure that the caller does not acquire
+ * BG_CLK_LOCK.
+ */
+static int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+				  bool enable)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	WCD9XXX_V2_BG_CLK_LOCK(tasha->resmgr);
+	ret = __tasha_codec_internal_rco_ctrl(codec, enable);
 	WCD9XXX_V2_BG_CLK_UNLOCK(tasha->resmgr);
 	return ret;
 }
@@ -12076,7 +12087,7 @@ static int tasha_cpe_initialize(struct snd_soc_codec *codec)
 }
 
 static const struct wcd_resmgr_cb tasha_resmgr_cb = {
-	.cdc_rco_ctrl = tasha_codec_internal_rco_ctrl,
+	.cdc_rco_ctrl = __tasha_codec_internal_rco_ctrl,
 };
 
 static int tasha_device_down(struct wcd9xxx *wcd9xxx)

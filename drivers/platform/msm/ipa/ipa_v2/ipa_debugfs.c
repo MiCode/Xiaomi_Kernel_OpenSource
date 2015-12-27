@@ -21,6 +21,9 @@
 #define IPA_MAX_MSG_LEN 4096
 #define IPA_DBG_CNTR_ON 127265
 #define IPA_DBG_CNTR_OFF 127264
+#define IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE ((IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN \
+			* IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES) \
+			+ IPA_MAX_MSG_LEN)
 
 #define IPA_DUMP_STATUS_FIELD(f) \
 	pr_err(#f "=0x%x\n", status->f)
@@ -108,6 +111,7 @@ static struct dentry *dfile_rm_stats;
 static struct dentry *dfile_status_stats;
 static struct dentry *dfile_active_clients;
 static char dbg_buff[IPA_MAX_MSG_LEN];
+static char *active_clients_buf;
 static s8 ep_reg_idx;
 
 int _ipa_read_gen_reg_v1_1(char *buff, int max_len)
@@ -1552,9 +1556,23 @@ static ssize_t ipa_status_stats_read(struct file *file, char __user *ubuf,
 static ssize_t ipa2_print_active_clients_log(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos)
 {
-	ipa2_active_clients_log_print_buffer();
+	int cnt;
+	int table_size;
 
-	return 0;
+	if (active_clients_buf == NULL) {
+		IPAERR("Active Clients buffer is not allocated");
+		return 0;
+	}
+	memset(active_clients_buf, 0, IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE);
+	ipa_active_clients_lock();
+	cnt = ipa2_active_clients_log_print_buffer(active_clients_buf,
+			IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE - IPA_MAX_MSG_LEN);
+	table_size = ipa2_active_clients_log_print_table(active_clients_buf
+			+ cnt, IPA_MAX_MSG_LEN);
+	ipa_active_clients_unlock();
+
+	return simple_read_from_buffer(ubuf, count, ppos, active_clients_buf,
+			cnt + table_size);
 }
 
 static ssize_t ipa2_clear_active_clients_log(struct file *file,
@@ -1682,12 +1700,18 @@ void ipa_debugfs_init(void)
 		goto fail;
 	}
 
-	dfile_ep_reg = debugfs_create_file("active_clients",
+	dfile_active_clients = debugfs_create_file("active_clients",
 			read_write_mode, dent, 0, &ipa2_active_clients);
-	if (!dfile_ep_reg || IS_ERR(dfile_active_clients)) {
-		IPAERR("fail to create file for debug_fs ep_reg\n");
+	if (!dfile_active_clients || IS_ERR(dfile_active_clients)) {
+		IPAERR("fail to create file for debug_fs active_clients\n");
 		goto fail;
 	}
+
+	active_clients_buf = NULL;
+	active_clients_buf = kzalloc(IPA_DBG_ACTIVE_CLIENTS_BUF_SIZE,
+			GFP_KERNEL);
+	if (active_clients_buf == NULL)
+		IPAERR("fail to allocate active clients memory buffer");
 
 	dfile_ep_reg = debugfs_create_file("ep_reg", read_write_mode, dent, 0,
 			&ipa_ep_reg_ops);
@@ -1842,6 +1866,10 @@ void ipa_debugfs_remove(void)
 	if (IS_ERR(dent)) {
 		IPAERR("ipa_debugfs_remove: folder was not created.\n");
 		return;
+	}
+	if (active_clients_buf != NULL) {
+		kfree(active_clients_buf);
+		active_clients_buf = NULL;
 	}
 	debugfs_remove_recursive(dent);
 }

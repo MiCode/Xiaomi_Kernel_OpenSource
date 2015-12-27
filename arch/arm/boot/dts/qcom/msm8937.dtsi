@@ -775,6 +775,54 @@
 			<  7031 /*  921.6 MHz */ >;     /* TURBO */
 	};
 
+	memlat_cpu0: qcom,memlat-cpu0 {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,	/* SVS	*/
+			<  4101 /*  537.6 MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  5053 /*  662.4 MHz */ >,	/* SVS+	 */
+			<  5712 /*  748.8 MHz */ >,     /* NOM   */
+			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
+			<  7031 /*  921.6 MHz */ >;     /* TURBO */
+	};
+
+	memlat_cpu4: qcom,memlat-cpu4 {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,	/* SVS	*/
+			<  4101 /*  537.6 MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  5053 /*  662.4 MHz */ >,	/* SVS+	 */
+			<  5712 /*  748.8 MHz */ >,     /* NOM   */
+			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
+			<  7031 /*  921.6 MHz */ >;     /* TURBO */
+	};
+
+	qcom,arm-memlat-mon-0 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,target-dev = <&memlat_cpu0>;
+	};
+
+	qcom,arm-memlat-mon-4 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,target-dev = <&memlat_cpu4>;
+	};
+
 	devfreq-cpufreq {
 		cpubw-cpufreq {
 		target-dev = <&cpubw>;
@@ -1579,7 +1627,7 @@
 		qcom,bus-width = <8>;
 		qcom,large-address-bus;
 
-		qcom,devfreq,freq-table = <52000000 200000000>;
+		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		qcom,pm-qos-irq-type = "affine_irq";
 		qcom,pm-qos-irq-latency = <2 200>;
@@ -1642,8 +1690,9 @@
 			<81 512 261438 800000>, /* 200 MB/s */
 			<81 512 1338562 4096000>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
-			100000000 200000000 400000000 4294967295>;
+			100000000 200000000 4294967295>;
 
+		qcom,devfreq,freq-table = <50000000 200000000>;
 		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
 			<&clock_gcc clk_gcc_sdcc2_apps_clk>;
 		clock-names = "iface_clk", "core_clk";

@@ -629,11 +629,13 @@ struct mdss_panel_info {
 	bool is_prim_panel;
 	bool is_pluggable;
 	char display_id[MDSS_DISPLAY_ID_MAX_LEN];
+	bool is_cec_supported;
 
 	/* refer sim_panel_modes enum for different modes */
 	u8 sim_panel_mode;
 
 	void *edid_data;
+	void *dba_data;
 	void *cec_data;
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
@@ -652,6 +654,8 @@ struct mdss_panel_info {
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
 	struct edp_panel_info edp;
+
+	bool is_dba_panel;
 
 	/*
 	 * Delay(in ms) to accommodate s/w delay while
@@ -896,6 +900,35 @@ static inline bool mdss_panel_is_power_on_lp(int panel_power_state)
 static inline bool mdss_panel_is_power_on_ulp(int panel_power_state)
 {
 	return panel_power_state == MDSS_PANEL_POWER_LP2;
+}
+
+/**
+ * mdss_panel_calc_frame_rate() - calculate panel frame rate based on panel timing
+ *				information.
+ * @panel_info:	Pointer to panel info containing all panel information
+ */
+static inline u8 mdss_panel_calc_frame_rate(struct mdss_panel_info *pinfo)
+{
+		u32 pixel_total = 0;
+		u8 frame_rate = 0;
+		unsigned long pclk_rate = pinfo->clk_rate;
+
+		pixel_total = (pinfo->lcdc.h_back_porch +
+			  pinfo->lcdc.h_front_porch +
+			  pinfo->lcdc.h_pulse_width +
+			  pinfo->xres) *
+			 (pinfo->lcdc.v_back_porch +
+			  pinfo->lcdc.v_front_porch +
+			  pinfo->lcdc.v_pulse_width +
+			  pinfo->yres);
+
+		if (pclk_rate && pixel_total)
+			frame_rate =
+				DIV_ROUND_CLOSEST(pclk_rate, pixel_total);
+		else
+			frame_rate = DEFAULT_FRAME_RATE;
+
+		return frame_rate;
 }
 
 /**

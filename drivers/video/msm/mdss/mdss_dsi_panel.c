@@ -24,6 +24,7 @@
 #include <linux/string.h>
 
 #include "mdss_dsi.h"
+#include "mdss_dba_utils.h"
 
 #define DT_CMD_HDR 6
 #define MIN_REFRESH_RATE 48
@@ -284,8 +285,10 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	if (mdss_dsi_is_right_ctrl(ctrl_pdata) &&
-		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) {
+	pinfo = &(ctrl_pdata->panel_data.panel_info);
+	if ((mdss_dsi_is_right_ctrl(ctrl_pdata) &&
+		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) ||
+			pinfo->is_dba_panel) {
 		pr_debug("%s:%d, right ctrl gpio configuration not needed\n",
 			__func__, __LINE__);
 		return rc;
@@ -303,7 +306,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	}
 
 	pr_debug("%s: enable = %d\n", __func__, enable);
-	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
 		rc = mdss_dsi_request_gpios(ctrl_pdata);
@@ -695,17 +697,8 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if (pinfo->compression_mode == COMPRESSION_DSC)
 		mdss_dsi_panel_dsc_pps_send(ctrl, pinfo);
 
-	if (ctrl->ds_registered) {
-		if (ctrl->dba_ops.video_on)
-			ret = ctrl->dba_ops.video_on(
-				ctrl->dba_data, true,
-				&ctrl->dba_video_cfg, 0);
-			if (ret) {
-				pr_err("%s: video on failed for chip %s\n",
-					__func__, ctrl->dba_info.chip_name);
-			}
-	}
-
+	if (ctrl->ds_registered && pinfo->is_pluggable)
+		mdss_dba_utils_video_on(pinfo->dba_data, pinfo);
 end:
 	pr_debug("%s:-\n", __func__);
 	return ret;
@@ -716,6 +709,7 @@ static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
 	struct dsi_panel_cmds *cmds;
+	u32 vsync_period = 0;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -735,6 +729,13 @@ static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 	if (cmds->cmd_cnt) {
 		msleep(VSYNC_DELAY);	/* wait for a vsync passed */
 		mdss_dsi_panel_cmds_send(ctrl, cmds, CMD_REQ_COMMIT);
+	}
+
+	if (pinfo->is_dba_panel && pinfo->is_pluggable) {
+		/* ensure at least 1 frame transfers to down stream device */
+		vsync_period = (MSEC_PER_SEC / pinfo->mipi.frame_rate) + 1;
+		msleep(vsync_period);
+		mdss_dba_utils_hdcp_enable(pinfo->dba_data, true);
 	}
 
 end:
@@ -765,6 +766,11 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 
 	if (ctrl->off_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds, CMD_REQ_COMMIT);
+
+	if (ctrl->ds_registered && pinfo->is_pluggable) {
+		mdss_dba_utils_video_off(pinfo->dba_data);
+		mdss_dba_utils_hdcp_enable(pinfo->dba_data, false);
+	}
 
 end:
 	pr_debug("%s:-\n", __func__);
@@ -1847,7 +1853,7 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 {
 	u32 tmp;
 	u64 tmp64;
-	int rc, i, len, num_lanes;
+	int rc, i, len;
 	const char *data;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
 	struct mdss_panel_info *pinfo;
@@ -1913,35 +1919,6 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 		rc = of_property_read_u32(np,
 			"qcom,mdss-dsi-panel-clockrate", (u32 *)&tmp64);
 	pt->timing.clk_rate = !rc ? tmp64 : 0;
-
-	/* Update timing parameter to DBA structure*/
-	ctrl_pdata->dba_video_cfg.h_active      =
-		pt->timing.xres;
-	ctrl_pdata->dba_video_cfg.h_front_porch =
-		pt->timing.h_front_porch;
-	ctrl_pdata->dba_video_cfg.h_back_porch  =
-		pt->timing.h_back_porch;
-	ctrl_pdata->dba_video_cfg.h_pulse_width =
-		pt->timing.h_pulse_width;
-	ctrl_pdata->dba_video_cfg.v_active      =
-		pt->timing.yres;
-	ctrl_pdata->dba_video_cfg.v_front_porch =
-		pt->timing.v_front_porch;
-	ctrl_pdata->dba_video_cfg.v_back_porch  =
-		pt->timing.v_back_porch;
-	ctrl_pdata->dba_video_cfg.v_pulse_width =
-		pt->timing.v_pulse_width;
-
-	num_lanes = 0;
-	if (pinfo->mipi.data_lane0)
-		num_lanes++;
-	if (pinfo->mipi.data_lane1)
-		num_lanes++;
-	if (pinfo->mipi.data_lane2)
-		num_lanes++;
-	if (pinfo->mipi.data_lane3)
-		num_lanes++;
-	ctrl_pdata->dba_video_cfg.num_of_input_lanes = num_lanes;
 
 	data = of_get_property(np, "qcom,mdss-dsi-panel-timings", &len);
 	if ((!data) || (len != 12)) {
@@ -2291,122 +2268,13 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	mdss_dsi_parse_dfps_config(np, ctrl_pdata);
 
+	pinfo->is_dba_panel = of_property_read_bool(np,
+			"qcom,dba-panel");
+
 	return 0;
 
 error:
 	return -EINVAL;
-}
-
-static inline void mdss_dsi_send_cable_notification(
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata, int val)
-{
-	int state = 0;
-
-	if (!ctrl_pdata) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return;
-	}
-	state = ctrl_pdata->sdev.state;
-
-	switch_set_state(&ctrl_pdata->sdev, val);
-
-	DEV_INFO("%s: cable state %s %d\n", __func__,
-		ctrl_pdata->sdev.state == state ?
-			"is same" : "switched to",
-		ctrl_pdata->sdev.state);
-}
-
-static void mdss_dsi_dba_cb(void *data, enum msm_dba_callback_event event)
-{
-	int ret = -EINVAL;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata =
-		(struct mdss_dsi_ctrl_pdata *) data;
-
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid data\n", __func__);
-		return;
-	}
-
-	switch (event) {
-	case MSM_DBA_CB_HPD_CONNECT:
-		ctrl_pdata->hpd_state = true;
-
-		if (ctrl_pdata->dba_ops.get_raw_edid)
-			ret = ctrl_pdata->dba_ops.get_raw_edid(
-				ctrl_pdata->dba_data,
-				sizeof(ctrl_pdata->edid_buf),
-				ctrl_pdata->edid_buf, 0);
-
-		if (!ret)
-			hdmi_edid_parser(ctrl_pdata->edid_data);
-
-		mdss_dsi_send_cable_notification(ctrl_pdata, 1);
-		break;
-
-	case MSM_DBA_CB_HPD_DISCONNECT:
-		mdss_dsi_send_cable_notification(ctrl_pdata, 0);
-		ctrl_pdata->hpd_state = false;
-		break;
-
-	default:
-		break;
-	}
-}
-
-static void mdss_dsi_ctrl_init_dba(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
-	int ndx)
-{
-	struct hdmi_edid_init_data edid_init_data;
-	msm_dba_cb dba_cb = mdss_dsi_dba_cb;
-
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid ctrl data\n", __func__);
-		goto end;
-	}
-
-	snprintf(ctrl_pdata->dba_info.client_name, MSM_DBA_CLIENT_NAME_LEN,
-		"dsi-%d", ndx);
-
-	strlcpy(ctrl_pdata->dba_info.chip_name, "adv7533",
-		MSM_DBA_CHIP_NAME_MAX_LEN);
-
-	ctrl_pdata->dba_info.instance_id = ndx;
-	ctrl_pdata->dba_info.cb = dba_cb;
-	ctrl_pdata->dba_info.cb_data = ctrl_pdata;
-
-	ctrl_pdata->dba_data = msm_dba_register_client(
-		&ctrl_pdata->dba_info,
-		&ctrl_pdata->dba_ops);
-
-	if (IS_ERR_OR_NULL(ctrl_pdata->dba_data)) {
-		pr_err("%s: ds not configured, %p\n", __func__,
-			ctrl_pdata->dba_data);
-		goto end;
-	}
-
-	ctrl_pdata->sdev.name = ctrl_pdata->dba_info.client_name;
-	if (switch_dev_register(&ctrl_pdata->sdev) < 0) {
-		pr_err("%s: DSI switch registration failed\n",
-			__func__);
-		goto end;
-	}
-
-	memset(&edid_init_data, 0x00, sizeof(edid_init_data));
-	ctrl_pdata->edid_data = hdmi_edid_init(&edid_init_data);
-	if (!ctrl_pdata->edid_data) {
-		pr_err("%s: edid parser init failed\n", __func__);
-		goto end;
-	}
-
-	if (ctrl_pdata->dba_ops.power_on)
-		ctrl_pdata->dba_ops.power_on(ctrl_pdata->dba_data,
-			true, 0);
-
-	ctrl_pdata->ds_registered = true;
-	ctrl_pdata->hpd_state = true;
-	mdss_dsi_send_cable_notification(ctrl_pdata, 1);
-end:
-	return;
 }
 
 int mdss_dsi_panel_init(struct device_node *node,
@@ -2450,8 +2318,6 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->low_power_config = mdss_dsi_panel_low_power_config;
 	ctrl_pdata->panel_data.set_backlight = mdss_dsi_panel_bl_ctrl;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
-
-	mdss_dsi_ctrl_init_dba(ctrl_pdata, ndx);
 
 	return 0;
 }

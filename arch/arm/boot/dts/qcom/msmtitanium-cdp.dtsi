@@ -12,6 +12,7 @@
  */
 
 #include "msmtitanium-pinctrl.dtsi"
+#include "msmtitanium-camera-sensor-cdp.dtsi"
 
 &spi_3 { /* BLSP1 QUP3 */
 	spi-max-frequency = <8000000>;
@@ -35,6 +36,10 @@
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&ts_release>;
 	};
+};
+
+&pmtitanium_l10 {
+	regulator-max-microvolt = <2850000>;
 };
 
 &soc {

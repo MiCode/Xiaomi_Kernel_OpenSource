@@ -465,6 +465,8 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc, ndx;
+	int const ssc_freq_default = 31500; /* default h/w recommended value */
+	int const ssc_ppm_default = 5000; /* default h/w recommended value */
 	struct dsi_pll_db *pdb;
 
 	if (!pdev || !pdev->dev.of_node) {
@@ -511,6 +513,13 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 	clk_ops_gen_mux_dsi.round_rate = parent_round_rate;
 	clk_ops_gen_mux_dsi.set_rate = parent_set_rate;
 
+	if (pll_res->ssc_en) {
+		if (!pll_res->ssc_freq)
+			pll_res->ssc_freq = ssc_freq_default;
+		if (!pll_res->ssc_ppm)
+			pll_res->ssc_ppm = ssc_ppm_default;
+	}
+
 	/* Set client data to mux, div and vco clocks.  */
 	if (pll_res->index == DSI_PLL_1) {
 		dsi1pll_byte_clk_src.priv = pll_res;
@@ -526,9 +535,12 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 		dsi1pll_shadow_vco_clk.priv = pll_res;
 
 		pll_res->vco_delay = VCO_DELAY_USEC;
-		rc = of_msm_clock_register(pdev->dev.of_node,
+		if ((pll_res->target_id == MDSS_PLL_TARGET_8996) ||
+			(pll_res->target_id == MDSS_PLL_TARGET_TITANIUM)) {
+			rc = of_msm_clock_register(pdev->dev.of_node,
 				mdss_dsi_pllcc_8996_1,
 				ARRAY_SIZE(mdss_dsi_pllcc_8996_1));
+		}
 	} else {
 		dsi0pll_byte_clk_src.priv = pll_res;
 		dsi0pll_pixel_clk_src.priv = pll_res;
@@ -543,9 +555,12 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 		dsi0pll_shadow_vco_clk.priv = pll_res;
 
 		pll_res->vco_delay = VCO_DELAY_USEC;
-		rc = of_msm_clock_register(pdev->dev.of_node,
+		if ((pll_res->target_id == MDSS_PLL_TARGET_8996) ||
+			(pll_res->target_id == MDSS_PLL_TARGET_TITANIUM)) {
+			rc = of_msm_clock_register(pdev->dev.of_node,
 				mdss_dsi_pllcc_8996,
 				ARRAY_SIZE(mdss_dsi_pllcc_8996));
+		}
 	}
 
 	if (!rc) {

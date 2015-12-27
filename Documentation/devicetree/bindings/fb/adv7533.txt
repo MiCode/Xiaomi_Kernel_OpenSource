@@ -15,9 +15,14 @@ Required properties:
 Optional properties:
 - adi,enable-audio:
 - adi,disable-gpios:
-- adi,irq-gpio:			Main IRQ gpio mapping
+- adi,irq-gpio:				Main IRQ gpio mapping
 - adi,hpd-irq-gpio:			HPD IRQ gpio mapping
 - adi,switch-gpio:			DSI switch gpio mapping
+- qcom,supply-names:			Regulator names that supply 5v to bridge chip
+- qcom,min-voltage-level		Minimum voltage level to be supplied to bridge chip
+- qcom,max-voltage-level		Maximum voltage level to be supplied to bridge chip
+- qcom,enable-load			Load current to bridge chip when enabled
+- qcom,disable-load			Load current to bridge chip when disabled
 
 Example:
 &soc {
@@ -35,6 +40,12 @@ Example:
 			adi,irq-gpio = <&msm_gpio 31 0x2002>;
 			adi,hpd-irq-gpio = <&msm_gpio 20 0x2003>;
 			adi,switch-gpio = <&msm_gpio 32 0x0>;
+			hpd-5v-en-supply = <&adv_vreg>;
+			qcom,supply-names = "hpd-5v-en";
+			qcom,min-voltage-level = <0>;
+			qcom,max-voltage-level = <0>;
+			qcom,enable-load = <0>;
+			qcom,disable-load = <0>;
 		};
 	};
 };

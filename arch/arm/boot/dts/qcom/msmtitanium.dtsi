@@ -137,6 +137,19 @@
 		      <0x0b002000 0x1000>;
 	};
 
+	arm64-cpu-erp {
+		compatible = "arm,arm64-cpu-erp";
+		interrupts = <0 275 0>,
+			     <0 276 0>,
+			     <0 273 0>,
+			     <0 274 0>;
+		interrupt-names = "pri-dbe-irq",
+				  "sec-dbe-irq",
+				  "pri-ext-irq",
+				  "sec-ext-irq";
+		poll-delay-ms = <5000>;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <1 2 0xff08>,
@@ -708,6 +721,46 @@
 		#clock-cells = <1>;
 	};
 
+	clock_cpu: qcom,cpu-clock-titanium@b116000 {
+		compatible = "qcom,cpu-clock-titanium";
+		reg =   <0xb114000  0x68>,
+			<0xb014000  0x68>,
+			<0xb116000  0x400>,
+			<0xb111050  0x08>,
+			<0xb011050  0x08>,
+			<0xb1d1050  0x08>,
+			<0x00a4124  0x08>;
+		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
+			    "c0-pll", "c0-mux", "c1-mux",
+			    "cci-mux", "efuse";
+		vdd-mx-supply = <&pmtitanium_s7_level_ao>;
+		vdd-cl-supply = <&apc_vreg>;
+		clocks = <&clock_gcc clk_xo_a_clk_src>;
+		clock-names = "xo_a";
+		qcom,num-clusters = <2>;
+		qcom,speed0-bin-v0-cl =
+			<          0 0>,
+			<  652800000 1>,
+			< 1036800000 2>,
+			< 1401600000 3>,
+			< 1689600000 4>,
+			< 1843200000 5>,
+			< 1958400000 6>,
+			< 2150400000 7>,
+			< 2208000000 8>;
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  307200000 1>,
+			<  414720000 2>,
+			<  560640000 3>,
+			<  675840000 4>,
+			<  737280000 5>,
+			<  783360000 6>,
+			<  860160000 7>,
+			<  883200000 8>;
+		#clock-cells = <1>;
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
@@ -1100,6 +1153,87 @@
 		};
 	};
 
+	qcom,wcnss-wlan@0a000000 {
+		compatible = "qcom,wcnss_wlan";
+		reg = <0x0a000000 0x280000>,
+		      <0x0b011008 0x04>,
+		      <0x0a21b000 0x3000>,
+		      <0x03204000 0x00000100>,
+		      <0x03200800 0x00000200>,
+		      <0x0a100400 0x00000200>,
+		      <0x0a205050 0x00000200>,
+		      <0x0a219000 0x00000020>,
+		      <0x0a080488 0x00000008>,
+		      <0x0a080fb0 0x00000008>,
+		      <0x0a08040c 0x00000008>,
+		      <0x0a0120a8 0x00000008>,
+		      <0x0a012448 0x00000008>,
+		      <0x0a080c00 0x00000001>;
+
+		reg-names = "wcnss_mmio", "wcnss_fiq",
+			    "pronto_phy_base", "riva_phy_base",
+			    "riva_ccu_base", "pronto_a2xb_base",
+			    "pronto_ccpu_base", "pronto_saw2_base",
+			    "wlan_tx_phy_aborts","wlan_brdg_err_source",
+			    "wlan_tx_status", "alarms_txctl",
+			    "alarms_tactl", "pronto_mcu_base";
+
+		interrupts = <0 145 0 0 146 0>;
+		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+
+		qcom,pronto-vddmx-supply = <&pmtitanium_s7_level_ao>;
+		qcom,pronto-vddcx-supply = <&pmtitanium_s2_level>;
+		qcom,pronto-vddpx-supply = <&pmtitanium_l5>;
+		qcom,iris-vddxo-supply   = <&pmtitanium_l7>;
+		qcom,iris-vddrfa-supply  = <&pmtitanium_l19>;
+		qcom,iris-vddpa-supply   = <&pmtitanium_l9>;
+		qcom,iris-vdddig-supply  = <&pmtitanium_l5>;
+
+		qcom,iris-vddxo-voltage-level = <1800000 0 1800000>;
+		qcom,iris-vddrfa-voltage-level = <1300000 0 1300000>;
+		qcom,iris-vddpa-voltage-level = <3300000 0 3300000>;
+		qcom,iris-vdddig-voltage-level = <1800000 0 1800000>;
+
+		qcom,vddmx-voltage-level = <RPM_SMD_REGULATOR_LEVEL_TURBO
+					RPM_SMD_REGULATOR_LEVEL_NONE
+					RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vddcx-voltage-level = <RPM_SMD_REGULATOR_LEVEL_NOM
+					RPM_SMD_REGULATOR_LEVEL_NONE
+					RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vddpx-voltage-level = <1800000 0 1800000>;
+
+		qcom,iris-vddxo-current = <10000>;
+		qcom,iris-vddrfa-current = <100000>;
+		qcom,iris-vddpa-current = <515000>;
+		qcom,iris-vdddig-current = <10000>;
+
+		qcom,pronto-vddmx-current = <0>;
+		qcom,pronto-vddcx-current = <0>;
+		qcom,pronto-vddpx-current = <0>;
+
+		pinctrl-names = "wcnss_default", "wcnss_sleep",
+				"wcnss_gpio_default";
+		pinctrl-0 = <&wcnss_default>;
+		pinctrl-1 = <&wcnss_sleep>;
+		pinctrl-2 = <&wcnss_gpio_default>;
+
+		gpios = <&tlmm 76 0>, <&tlmm 77 0>, <&tlmm 78 0>,
+			<&tlmm 79 0>, <&tlmm 80 0>;
+
+		clocks = <&clock_gcc clk_xo_wlan_clk>,
+			 <&clock_gcc clk_rf_clk2>,
+			 <&clock_debug clk_gcc_debug_mux>,
+			 <&clock_gcc clk_wcnss_m_clk>;
+
+		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
+
+		qcom,has-autodetect-xo;
+		qcom,is-pronto-v3;
+		qcom,has-pronto-hw;
+		qcom,has-vsys-adc-channel;
+		qcom,wcnss-adc_tm = <&pmtitanium_adc_tm>;
+	};
+
 	qcom_rng: qrng@e3000 {
 		compatible = "qcom,msm-rng";
 		reg = <0xe3000 0x1000>;
@@ -1243,9 +1377,10 @@
 	qcom,adsprpc_domains {
 		compatible = "qcom,msm-fastrpc-legacy-compute-cb";
 		qcom,msm_fastrpc_compute_cb {
-			qcom,adsp-shared-domain-phandle = <&adsp_shared_domain>;
+			qcom,adsp-shared-phandle = <&adsp_shared>;
 			qcom,adsp-shared-sids =
 					<0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf>;
+			qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
 		};
 	};
 
@@ -1324,7 +1459,7 @@
 			<81 512 261438 800000>, /* 200 MB/s */
 			<81 512 1338562 4096000>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
-			100000000 200000000 400000000 4294967295>;
+			100000000 200000000 4294967295>;
 
 		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
 			<&clock_gcc clk_gcc_sdcc2_apps_clk>;
@@ -1353,6 +1488,32 @@
 		#size-cells = <0>;
 		cell-index = <0>;
 		qcom,not-wakeup; /* Needed until MPM is fully configured. */
+	};
+
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x200000>;
+			qcom,client-id = <0>;
+			qcom,allocate-boot-time;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x300000>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <1>;
+			label = "modem";
+		};
 	};
 
 	qcom,lpass@c200000 {
@@ -1746,6 +1907,7 @@
 #include "msmtitanium-regulator.dtsi"
 #include "msm-pmi8950.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msmtitanium-camera.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";

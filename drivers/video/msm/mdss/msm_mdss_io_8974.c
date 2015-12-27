@@ -19,6 +19,7 @@
 
 #include "mdss_dsi.h"
 #include "mdss_edp.h"
+#include "mdss_dsi_phy.h"
 
 #define MDSS_DSI_DSIPHY_REGULATOR_CTRL_0	0x00
 #define MDSS_DSI_DSIPHY_REGULATOR_CTRL_1	0x04
@@ -427,6 +428,8 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
 	struct dsi_shared_data *sdata;
+	struct mdss_dsi_ctrl_pdata *octrl;
+	u32 reg_val = 0;
 
 	if (ctrl == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -434,26 +437,50 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 
 	sdata = ctrl->shared_data;
+	octrl = mdss_dsi_get_other_ctrl(ctrl);
 
-	if (ctrl == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104) &&
-		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-		MDSS_DSI_HW_REV_STEP_2)) {
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 		if (mdss_dsi_is_ctrl_clk_master(ctrl))
 			sctrl = mdss_dsi_get_ctrl_clk_slave();
 		else
 			return;
 	}
 
-	/* start phy sw reset */
-	mdss_dsi_ctrl_phy_reset(ctrl);
-	if (sctrl)
-		mdss_dsi_ctrl_phy_reset(sctrl);
+	/*
+	 * For dual dsi case if we do DSI PHY sw reset,
+	 * this will reset DSI PHY regulators also.
+	 * Since DSI PHY regulator is shared among both
+	 * the DSI controllers, we should not do DSI PHY
+	 * sw reset when the other DSI controller is still
+	 * active.
+	 */
+	mutex_lock(&sdata->phy_reg_lock);
+	if ((mdss_dsi_is_hw_config_dual(sdata) &&
+		(octrl && octrl->is_phyreg_enabled))) {
+		/* start phy lane and HW reset */
+		reg_val = MIPI_INP(ctrl->ctrl_base + 0x12c);
+		reg_val |= (BIT(16) | BIT(8));
+		MIPI_OUTP(ctrl->ctrl_base + 0x12c, reg_val);
+		/* wait for 1ms as per HW design */
+		usleep_range(1000, 2000);
+		/* ensure phy lane and HW reset starts */
+		wmb();
+		/* end phy lane and HW reset */
+		reg_val = MIPI_INP(ctrl->ctrl_base + 0x12c);
+		reg_val &= ~(BIT(16) | BIT(8));
+		MIPI_OUTP(ctrl->ctrl_base + 0x12c, reg_val);
+		/* wait for 100us as per HW design */
+		usleep_range(100, 200);
+		/* ensure phy lane and HW reset ends */
+		wmb();
+	} else {
+		/* start phy sw reset */
+		mdss_dsi_ctrl_phy_reset(ctrl);
+		if (sctrl)
+			mdss_dsi_ctrl_phy_reset(sctrl);
+
+	}
+	mutex_unlock(&sdata->phy_reg_lock);
 
 	if ((sdata->hw_rev == MDSS_DSI_HW_REV_103) &&
 		!mdss_dsi_is_hw_config_dual(sdata) &&
@@ -480,10 +507,7 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104) &&
-		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-		MDSS_DSI_HW_REV_STEP_2))
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20)
 		return;
 
 	MIPI_OUTP(ctrl->phy_regulator_io.base + 0x018, 0x000);
@@ -496,10 +520,7 @@ static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104) &&
-		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-		MDSS_DSI_HW_REV_STEP_2)) {
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_PLL_CLKBUFLR_EN, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_GLBL_TEST_CTRL, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0);
@@ -524,10 +545,7 @@ void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104) &&
-		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-		MDSS_DSI_HW_REV_STEP_2))
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20)
 		return;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
@@ -961,20 +979,29 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 	sdata = ctrl->shared_data;
+	other_ctrl = mdss_dsi_get_other_ctrl(ctrl);
 
 	mutex_lock(&sdata->phy_reg_lock);
 	if (enable) {
-		switch (ctrl->shared_data->hw_rev) {
-		case MDSS_DSI_HW_REV_104:
-		case MDSS_DSI_HW_REV_104_1:
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_regulator_enable(ctrl);
-			break;
-		case MDSS_DSI_HW_REV_103:
-			mdss_dsi_20nm_phy_regulator_enable(ctrl);
-			break;
-		default:
-			mdss_dsi_28nm_phy_regulator_enable(ctrl);
-			break;
+		} else {
+			switch (ctrl->shared_data->hw_rev) {
+			case MDSS_DSI_HW_REV_103:
+				mdss_dsi_20nm_phy_regulator_enable(ctrl);
+				break;
+			default:
+			/*
+			 * For dual dsi case, do not reconfigure dsi phy
+			 * regulator if the other dsi controller is still
+			 * active.
+			 */
+			if (!mdss_dsi_is_hw_config_dual(sdata) ||
+				(other_ctrl && (!other_ctrl->is_phyreg_enabled
+						|| other_ctrl->mmss_clamp)))
+				mdss_dsi_28nm_phy_regulator_enable(ctrl);
+				break;
+			}
 		}
 		ctrl->is_phyreg_enabled = 1;
 	} else {
@@ -985,7 +1012,6 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		if (mdss_dsi_is_hw_config_split(ctrl->shared_data) ||
 			mdss_dsi_is_hw_config_dual(ctrl->shared_data)) {
-			other_ctrl = mdss_dsi_get_other_ctrl(ctrl);
 			if (other_ctrl && !other_ctrl->is_phyreg_enabled)
 				mdss_dsi_phy_regulator_disable(ctrl);
 		} else {
@@ -1005,17 +1031,18 @@ static void mdss_dsi_phy_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 	}
 
 	if (enable) {
-		switch (ctrl->shared_data->hw_rev) {
-		case MDSS_DSI_HW_REV_104:
-		case MDSS_DSI_HW_REV_104_1:
+
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_config(ctrl);
-			break;
-		case MDSS_DSI_HW_REV_103:
-			mdss_dsi_20nm_phy_config(ctrl);
-			break;
-		default:
-			mdss_dsi_28nm_phy_config(ctrl);
-			break;
+		} else {
+			switch (ctrl->shared_data->hw_rev) {
+			case MDSS_DSI_HW_REV_103:
+				mdss_dsi_20nm_phy_config(ctrl);
+				break;
+			default:
+				mdss_dsi_28nm_phy_config(ctrl);
+				break;
+			}
 		}
 	} else {
 		/*
@@ -1081,10 +1108,27 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo = NULL;
 	int rc = 0;
+
+	if (!pdata) {
+		pr_err("%s: invalid panel data\n", __func__);
+		return -EINVAL;
+	}
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 							panel_data);
+	pinfo = &pdata->panel_info;
+
+	if (!ctrl_pdata || !pinfo) {
+		pr_err("%s: invalid ctrl data\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Re-calculate frame rate before clk config */
+	pinfo->mipi.frame_rate = mdss_panel_calc_frame_rate(pinfo);
+	pr_debug("%s: new frame rate %d\n", __func__, pinfo->mipi.frame_rate);
+
 	rc = mdss_dsi_clk_div_config(&pdata->panel_info,
 			pdata->panel_info.mipi.frame_rate);
 	if (rc) {
@@ -1115,6 +1159,15 @@ int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata)
 				__func__);
 		return rc;
 	}
+
+	/* phy panel timing calaculation */
+	rc = mdss_dsi_phy_calc_timing_param(pinfo,
+		ctrl_pdata->shared_data->phy_rev, pinfo->mipi.frame_rate);
+	if (rc) {
+		pr_err("%s: unable to calculate phy timings\n", __func__);
+		return rc;
+	}
+
 	return rc;
 }
 
@@ -1883,8 +1936,10 @@ int mdss_dsi_post_clkon_cb(void *priv,
 	pdata = &ctrl->panel_data;
 
 	if (clk & MDSS_DSI_CORE_CLK) {
-		if (!pdata->panel_info.cont_splash_enabled)
+		if (!pdata->panel_info.cont_splash_enabled) {
 			mdss_dsi_read_hw_revision(ctrl);
+			mdss_dsi_read_phy_revision(ctrl);
+		}
 
 		/*
 		 * Phy and controller setup is needed if coming out of idle

@@ -2402,7 +2402,16 @@ int sps_bam_pipe_get_unused_desc_num(struct sps_bam *dev, u32 pipe_index,
 	fifo_size = pipe->desc_size;
 
 	sw_offset = bam_pipe_get_desc_read_offset(&dev->base, pipe_index);
-	peer_offset = bam_pipe_get_desc_write_offset(&dev->base, pipe_index);
+	if ((dev->props.options & SPS_BAM_CACHED_WP) &&
+		!(pipe->state & BAM_STATE_BAM2BAM)) {
+		peer_offset = pipe->sys.desc_offset;
+		SPS_DBG(dev,
+			"sps:BAM %pa pipe %d: peer offset in cache:0x%x\n",
+			BAM_ID(dev), pipe_index, peer_offset);
+	} else {
+		peer_offset = bam_pipe_get_desc_write_offset(&dev->base,
+				pipe_index);
+	}
 
 	if (sw_offset <= peer_offset)
 		*desc_num = (peer_offset - sw_offset) / desc_size;

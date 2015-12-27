@@ -12,13 +12,13 @@ CFLAGS_core.o := $(PROFILING) -fno-omit-frame-pointer
 endif
 
 ifdef CONFIG_SCHED_QHMP
-obj-y += qhmp_core.o qhmp_fair.o
+obj-y += qhmp_core.o qhmp_fair.o qhmp_rt.o
 else
-obj-y += core.o fair.o
+obj-y += core.o fair.o rt.o
 endif
 
 obj-y += proc.o clock.o cputime.o
-obj-y += idle_task.o rt.o deadline.o stop_task.o
+obj-y += idle_task.o deadline.o stop_task.o
 obj-y += wait.o completion.o idle.o sched_avg.o
 obj-$(CONFIG_SMP) += cpupri.o cpudeadline.o
 obj-$(CONFIG_SCHED_AUTOGROUP) += auto_group.o

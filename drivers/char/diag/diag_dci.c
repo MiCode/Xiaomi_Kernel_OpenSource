@@ -1368,7 +1368,7 @@ void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 	if (data == DIAG_STATUS_OPEN)
 		dci_ops_tbl[proc].peripheral_status |= peripheral_mask;
 	else
-		dci_ops_tbl[proc].peripheral_status &= !peripheral_mask;
+		dci_ops_tbl[proc].peripheral_status &= ~peripheral_mask;
 
 	/* Notify the DCI process that the peripheral DCI Channel is up */
 	list_for_each_safe(start, temp, &driver->dci_client_list) {

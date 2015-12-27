@@ -22,7 +22,7 @@
 
 struct hdmi_edid_init_data {
 	struct kobject *kobj;
-	struct hdmi_util_ds_data *ds_data;
+	struct hdmi_util_ds_data ds_data;
 	u32 max_pclk_khz;
 	u8 *buf;
 	u32 buf_size;
