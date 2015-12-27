@@ -526,8 +526,13 @@ static int __calibrate_alpha_pll(struct alpha_pll_clk *pll)
 		pr_err("alpha pll: not in a valid vco range\n");
 		return -EINVAL;
 	}
-	calibration_freq = (vco_tbl[vco_val].min_freq +
-			    vco_tbl[vco_val].max_freq)/2;
+	/*
+	 * As during slewing plls vco_sel won't be allowed to change, vco table
+	 * should have only one entry table, i.e. index = 0, find the
+	 * calibration frequency.
+	 */
+	calibration_freq = (vco_tbl[0].min_freq +
+					vco_tbl[0].max_freq)/2;
 
 	freq_hz = round_rate_up(pll, calibration_freq, &l_val, &a_val);
 	if (freq_hz != calibration_freq) {
