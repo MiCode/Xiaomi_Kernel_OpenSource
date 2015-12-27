@@ -15,6 +15,7 @@
 
 #include "msm8937.dtsi"
 #include "msm8937-pmi8937-mtp.dtsi"
+#include "msm8937-audio-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8937-PMI8937 MTP";

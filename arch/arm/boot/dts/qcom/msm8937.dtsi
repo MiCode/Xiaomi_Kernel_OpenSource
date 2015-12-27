@@ -1926,6 +1926,7 @@
 #include "msm-gdsc-8916.dtsi"
 #include "msm8937-camera.dtsi"
 #include "msm-audio.dtsi"
+#include "msm8937-audio.dtsi"
 #include "msm8937-mdss.dtsi"
 #include "msm8937-mdss-pll.dtsi"
 

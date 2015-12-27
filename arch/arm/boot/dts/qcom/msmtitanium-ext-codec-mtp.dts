@@ -13,45 +13,13 @@
 
 /dts-v1/;
 
-#include "msm8937.dtsi"
-#include "msm8937-pmi8950-cdp.dtsi"
+#include "msmtitanium.dtsi"
+#include "msmtitanium-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8937 External Audio Codec CDP";
-	compatible = "qcom,msm8937-cdp", "qcom,msm8937", "qcom,cdp";
+	model = "Qualcomm Technologies, Inc. MSMTITANIUM External Codec MTP";
+	compatible = "qcom,msmtitanium-mtp", "qcom,msmtitanium", "qcom,mtp";
 	qcom,board-id= <1 1>;
-	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
-};
-
-&pm8937_gpios {
-	gpio@c000 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,pull = <5>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <2>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
-	};
-
-	gpio@c600 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,pull = <5>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
-	};
-
-	gpio@c700 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
-	};
 };
 
 &slim_msm {
@@ -75,5 +43,6 @@
 };
 
 &ext_codec {
+	qcom,model = "msm8953-tasha-mtp-snd-card";
 	status = "okay";
 };
