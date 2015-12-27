@@ -53,6 +53,7 @@ struct adm_copp {
 	atomic_t stat[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t rate[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t bit_width[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+	atomic_t channels[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t app_type[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t acdb_id[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	wait_queue_head_t wait[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
@@ -1256,6 +1257,9 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 					atomic_set(&this_adm.copp.rate[i][j],
 						   0);
 					atomic_set(
+					&this_adm.copp.channels[i][j],
+						   0);
+					atomic_set(
 					    &this_adm.copp.bit_width[i][j], 0);
 					atomic_set(
 					    &this_adm.copp.app_type[i][j], 0);
@@ -2319,6 +2323,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 				   perf_mode);
 			atomic_set(&this_adm.copp.rate[port_idx][copp_idx],
 				   rate);
+			atomic_set(&this_adm.copp.channels[port_idx][copp_idx],
+				   channel_mode);
 			atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx],
 				   bit_width);
 			atomic_set(&this_adm.copp.app_type[port_idx][copp_idx],
@@ -2442,6 +2448,112 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	atomic_inc(&this_adm.copp.cnt[port_idx][copp_idx]);
 	return copp_idx;
 }
+
+
+void adm_copp_mfc_cfg(int port_id, int copp_idx, int dst_sample_rate)
+{
+	struct audproc_mfc_output_media_fmt mfc_cfg;
+	struct adm_cmd_device_open_v5 open;
+	int port_idx;
+	int sz = 0;
+	int rc  = 0;
+	int i  = 0;
+
+	port_id = q6audio_convert_virtual_to_portid(port_id);
+	port_idx = adm_validate_and_get_port_index(port_id);
+
+	if (port_idx < 0) {
+		pr_err("%s: Invalid port_id %#x\n", __func__, port_id);
+		goto fail_cmd;
+	}
+
+	if (copp_idx < 0 || copp_idx >= MAX_COPPS_PER_PORT) {
+		pr_err("%s: Invalid copp_num: %d\n", __func__, copp_idx);
+		goto fail_cmd;
+	}
+
+	sz = sizeof(struct audproc_mfc_output_media_fmt);
+
+	mfc_cfg.params.hdr.hdr_field =
+				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	mfc_cfg.params.hdr.pkt_size = sz;
+	mfc_cfg.params.hdr.src_svc = APR_SVC_ADM;
+	mfc_cfg.params.hdr.src_domain = APR_DOMAIN_APPS;
+	mfc_cfg.params.hdr.src_port = port_id;
+	mfc_cfg.params.hdr.dest_svc = APR_SVC_ADM;
+	mfc_cfg.params.hdr.dest_domain = APR_DOMAIN_ADSP;
+	mfc_cfg.params.hdr.dest_port =
+			atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
+	mfc_cfg.params.hdr.token = port_idx << 16 | copp_idx;
+	mfc_cfg.params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+	mfc_cfg.params.payload_addr_lsw = 0;
+	mfc_cfg.params.payload_addr_msw = 0;
+	mfc_cfg.params.mem_map_handle = 0;
+	mfc_cfg.params.payload_size = sizeof(mfc_cfg) -
+				sizeof(mfc_cfg.params);
+	mfc_cfg.data.module_id = AUDPROC_MODULE_ID_MFC;
+	mfc_cfg.data.param_id =
+			AUDPROC_PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT;
+	mfc_cfg.data.param_size = mfc_cfg.params.payload_size -
+				sizeof(mfc_cfg.data);
+	mfc_cfg.data.reserved = 0;
+	mfc_cfg.sampling_rate = dst_sample_rate;
+	mfc_cfg.bits_per_sample =
+		atomic_read(&this_adm.copp.bit_width[port_idx][copp_idx]);
+	if (24 == mfc_cfg.bits_per_sample)
+		mfc_cfg.bits_per_sample = 32;
+	open.dev_num_channel = mfc_cfg.num_channels =
+		atomic_read(&this_adm.copp.channels[port_idx][copp_idx]);
+
+	rc = adm_arrange_mch_map(&open, ADM_PATH_PLAYBACK,
+		mfc_cfg.num_channels);
+	if (rc < 0) {
+		pr_err("%s: unable to get channal map\n", __func__);
+		goto fail_cmd;
+	}
+
+	for (i = 0; i < mfc_cfg.num_channels; i++)
+		mfc_cfg.channel_type[i] =
+			(uint16_t) open.dev_channel_mapping[i];
+
+	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], -1);
+
+	pr_debug("%s: mfc config: port_idx %d copp_idx  %d copp SR %d copp BW %d copp chan %d o/p SR %d\n",
+			__func__, port_idx, copp_idx,
+			atomic_read(&this_adm.copp.rate[port_idx][copp_idx]),
+			mfc_cfg.bits_per_sample, mfc_cfg.num_channels,
+			mfc_cfg.sampling_rate);
+
+	rc = apr_send_pkt(this_adm.apr, (uint32_t *)&mfc_cfg);
+
+	if (rc < 0) {
+		pr_err("%s: port_id: for[0x%x] failed %d\n",
+		__func__, port_id, rc);
+		goto fail_cmd;
+	}
+	/* Wait for the callback with copp id */
+	rc = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
+		atomic_read(&this_adm.copp.stat
+		[port_idx][copp_idx]) >= 0,
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!rc) {
+		pr_err("%s: mfc_cfg Set params timed out for port_id: for [0x%x]\n",
+					__func__, port_id);
+		goto fail_cmd;
+	} else if (atomic_read(&this_adm.copp.stat
+				[port_idx][copp_idx]) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_adm.copp.stat
+			[port_idx][copp_idx])));
+		goto fail_cmd;
+	}
+	rc = 0;
+fail_cmd:
+	return;
+}
+
 
 int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 {
@@ -2707,6 +2819,7 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		atomic_set(&this_adm.copp.mode[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.stat[port_idx][copp_idx], -1);
 		atomic_set(&this_adm.copp.rate[port_idx][copp_idx], 0);
+		atomic_set(&this_adm.copp.channels[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.app_type[port_idx][copp_idx], 0);
 
@@ -3331,7 +3444,7 @@ int adm_param_enable(int port_id, int copp_idx, int module_id,  int enable)
 	int rc  = 0;
 	int port_idx;
 
-	pr_debug("%s port_id %d, enable 0x%x, enable %d\n",
+	pr_debug("%s port_id %d, module_id 0x%x, enable %d\n",
 		 __func__, port_id,  module_id,  enable);
 	port_id = afe_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);
@@ -4211,6 +4324,7 @@ static int __init adm_init(void)
 			atomic_set(&this_adm.copp.mode[i][j], 0);
 			atomic_set(&this_adm.copp.stat[i][j], 0);
 			atomic_set(&this_adm.copp.rate[i][j], 0);
+			atomic_set(&this_adm.copp.channels[i][j], 0);
 			atomic_set(&this_adm.copp.bit_width[i][j], 0);
 			atomic_set(&this_adm.copp.app_type[i][j], 0);
 			atomic_set(&this_adm.copp.acdb_id[i][j], 0);
