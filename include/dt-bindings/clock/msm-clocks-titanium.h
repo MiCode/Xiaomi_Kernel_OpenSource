@@ -309,6 +309,7 @@
 #define clk_cci_m_clk					 0xec7e8afc
 #define clk_apss_debug_pri_mux				 0xc691ff55
 #define clk_cpu_debug_pri_mux				 0x61a2945f
+#define clk_debug_cpu_clk                                0x0e696b2b
 
 #define clk_audio_ap_clk				 0x312ac429
 #define clk_audio_pmi_clk				 0xb7ba2274

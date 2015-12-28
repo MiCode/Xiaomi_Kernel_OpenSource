@@ -707,6 +707,8 @@
 		compatible = "qcom,cc-debug-titanium";
 		reg = <0x1874000 0x4>;
 		reg-names = "cc_base";
+		clocks = <&clock_cpu clk_cpu_debug_pri_mux>;
+		clock-names = "debug_cpu_clk";
 		#clock-cells = <1>;
 	};
 
