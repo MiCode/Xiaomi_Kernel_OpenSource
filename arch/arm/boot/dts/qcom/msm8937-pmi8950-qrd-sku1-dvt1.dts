@@ -63,6 +63,12 @@
 			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External";
 	};
+
+	i2c@78b7000 {
+		synaptics@20 {
+			vdd-supply = <&pm8937_l6>;
+		};
+	};
 };
 
 &i2c_2 {
