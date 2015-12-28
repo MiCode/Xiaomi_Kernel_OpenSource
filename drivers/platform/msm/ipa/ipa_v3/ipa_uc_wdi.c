@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1381,6 +1381,20 @@ int ipa3_uc_reg_rdyCB(
 	return 0;
 }
 
+/**
+ * ipa3_uc_dereg_rdyCB() - To de-register uC ready CB
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ */
+int ipa3_uc_dereg_rdyCB(void)
+{
+	ipa3_ctx->uc_wdi_ctx.uc_ready_cb = NULL;
+	ipa3_ctx->uc_wdi_ctx.priv = NULL;
+
+	return 0;
+}
+
 
 /**
  * ipa3_uc_wdi_get_dbpa() - To retrieve
@@ -1425,9 +1439,16 @@ static void ipa3_uc_wdi_loaded_handler(void)
 		return;
 	}
 
-	if (ipa3_ctx->uc_wdi_ctx.uc_ready_cb)
+	if (ipa3_ctx->uc_wdi_ctx.uc_ready_cb) {
 		ipa3_ctx->uc_wdi_ctx.uc_ready_cb(
 			ipa3_ctx->uc_wdi_ctx.priv);
+
+		ipa3_ctx->uc_wdi_ctx.uc_ready_cb =
+			NULL;
+		ipa3_ctx->uc_wdi_ctx.priv = NULL;
+	}
+
+	return;
 }
 
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)

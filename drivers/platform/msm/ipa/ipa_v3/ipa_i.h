@@ -2055,6 +2055,10 @@ int ipa3_uc_wdi_get_dbpa(struct ipa_wdi_db_params *out);
  * if uC not ready only, register callback
  */
 int ipa3_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
+/*
+ * To de-register uC ready callback
+ */
+int ipa3_uc_dereg_rdyCB(void);
 
 /*
  * Resource manager
