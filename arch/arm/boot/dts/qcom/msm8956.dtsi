@@ -2628,10 +2628,6 @@
 #include "msm-gdsc-8916.dtsi"
 #include "msm8976-camera.dtsi"
 
-&apc1_vreg_corner {
-	qcom,cpr-cpus = <&CPU4 &CPU5>;
-};
-
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";
 	clocks = <&clock_gcc clk_gcc_venus0_axi_clk>,
