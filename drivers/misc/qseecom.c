@@ -1,6 +1,6 @@
 /*Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4980,7 +4980,12 @@ static int qseecom_mdtp_cipher_dip(void __user *argp)
 		desc.args[3] = req.out_buf_size;
 		desc.args[4] = req.direction;
 
+		__qseecom_enable_clk(CLK_QSEE);
+
 		ret = scm_call2(TZ_MDTP_CIPHER_DIP_ID, &desc);
+
+		__qseecom_disable_clk(CLK_QSEE);
+
 		if (ret) {
 			pr_err("scm_call2 failed for SCM_SVC_MDTP, ret=%d\n",
 				ret);
