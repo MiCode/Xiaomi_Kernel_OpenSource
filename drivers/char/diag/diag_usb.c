@@ -313,21 +313,20 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 		diag_ws_on_copy_complete(DIAG_WS_MUX);
 		diagmem_free(driver, req, ch->mempool);
 		return;
-	} else {
-		DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %d\n",
-			 ctxt);
-		spin_lock_irqsave(&ch->write_lock, flags);
-		list_del(&entry->track);
-		spin_unlock_irqrestore(&ch->write_lock, flags);
 	}
+	DIAG_LOG(DIAG_DEBUG_MUX, "full write_done, ctxt: %d\n",
+		 ctxt);
+	spin_lock_irqsave(&ch->write_lock, flags);
+	list_del(&entry->track);
 	ctxt = entry->ctxt;
 	buf = entry->buf;
 	len = entry->len;
 	kfree(entry);
+	diag_ws_on_copy_complete(DIAG_WS_MUX);
+	spin_unlock_irqrestore(&ch->write_lock, flags);
 
 	if (ch->ops && ch->ops->write_done)
 		ch->ops->write_done(buf, len, ctxt, DIAG_USB_MODE);
-	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	diagmem_free(driver, req, ch->mempool);
 }
 
