@@ -134,8 +134,7 @@ struct mmc_cmdq_req;
 extern int mmc_cmdq_discard_queue(struct mmc_host *host, u32 tasks);
 extern int mmc_cmdq_halt(struct mmc_host *host, bool enable);
 extern int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host);
-extern void mmc_cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
-			      int err);
+extern void mmc_cmdq_post_req(struct mmc_host *host, int tag, int err);
 extern int mmc_cmdq_start_req(struct mmc_host *host,
 			      struct mmc_cmdq_req *cmdq_req);
 extern int mmc_cmdq_prepare_flush(struct mmc_command *cmd);
@@ -191,6 +190,7 @@ extern int mmc_set_blocklen(struct mmc_card *card, unsigned int blocklen);
 extern int mmc_set_blockcount(struct mmc_card *card, unsigned int blockcount,
 			      bool is_rel_write);
 extern int mmc_hw_reset(struct mmc_host *host);
+extern int mmc_cmdq_hw_reset(struct mmc_host *host);
 extern int mmc_hw_reset_check(struct mmc_host *host);
 extern int mmc_can_reset(struct mmc_card *card);
 
