@@ -698,8 +698,14 @@
 	};
 
 	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gcc-mdss-titanium";
 		reg = <0x1800000 0x80000>;
+		clock-names = "pclk0_src", "pclk1_src",
+				"byte0_src", "byte1_src";
+		clocks = <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_mux>,
+			<&mdss_dsi1_pll clk_dsi1pll_pixel_clk_mux>,
+			<&mdss_dsi0_pll clk_dsi0pll_byte_clk_mux>,
+			<&mdss_dsi1_pll clk_dsi1pll_byte_clk_mux>;
 		#clock-cells = <1>;
 	};
 
@@ -2084,6 +2090,8 @@
 #include "msmtitanium-audio.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msmtitanium-camera.dtsi"
+#include "msmtitanium-mdss.dtsi"
+#include "msmtitanium-mdss-pll.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";
