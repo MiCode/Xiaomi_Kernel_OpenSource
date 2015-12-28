@@ -107,16 +107,14 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u32 i;
 	u64 db_value = 0;
 	struct mhi_event_ctxt *event_ctxt = NULL;
-	struct mhi_control_seg *mhi_ctrl = NULL;
 	spinlock_t *lock = NULL;
 	unsigned long flags;
-	mhi_ctrl = mhi_dev_ctxt->mhi_ctrl_seg;
 
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
 		lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[i];
 		mhi_dev_ctxt->mhi_ev_db_order[i] = 0;
 		spin_lock_irqsave(lock, flags);
-		event_ctxt = &mhi_ctrl->mhi_ec_list[i];
+		event_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
 		db_value =
 		 mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_EVENT_RING,
 			i,
@@ -137,6 +135,7 @@ static enum MHI_STATUS process_m0_transition(
 {
 	unsigned long flags;
 	int ret_val;
+
 	mhi_log(MHI_MSG_INFO, "Entered\n");
 
 	if (mhi_dev_ctxt->mhi_state == MHI_STATE_M2) {
@@ -196,6 +195,7 @@ static enum MHI_STATUS process_m1_transition(
 	unsigned long flags = 0;
 	int ret_val = 0;
 	int r = 0;
+
 	mhi_log(MHI_MSG_INFO,
 			"Processing M1 state transition from state %d\n",
 			mhi_dev_ctxt->mhi_state);
@@ -248,6 +248,7 @@ static enum MHI_STATUS process_m3_transition(
 		enum STATE_TRANSITION cur_work_item)
 {
 	unsigned long flags;
+
 	mhi_log(MHI_MSG_INFO,
 			"Processing M3 state transition\n");
 	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
@@ -264,6 +265,7 @@ static enum MHI_STATUS mhi_process_link_down(
 {
 	unsigned long flags;
 	int r;
+
 	mhi_log(MHI_MSG_INFO, "Entered.\n");
 	if (NULL == mhi_dev_ctxt)
 		return MHI_STATUS_ERROR;
@@ -366,6 +368,7 @@ static enum MHI_STATUS process_ready_transition(
 			enum STATE_TRANSITION cur_work_item)
 {
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+
 	mhi_log(MHI_MSG_INFO, "Processing READY state transition\n");
 	mhi_dev_ctxt->mhi_state = MHI_STATE_READY;
 
@@ -404,7 +407,7 @@ static void mhi_reset_chan_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 				int chan)
 {
 	struct mhi_chan_ctxt *chan_ctxt =
-			&mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan];
+			&mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[chan];
 	struct mhi_ring *local_chan_ctxt =
 			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 	chan_ctxt->mhi_trb_read_ptr = chan_ctxt->mhi_trb_ring_base_addr;
@@ -454,9 +457,10 @@ static enum MHI_STATUS process_reset_transition(
 				mhi_dev_ctxt->mhi_local_cmd_ctxt[i].base;
 		mhi_dev_ctxt->mhi_local_cmd_ctxt[i].wp =
 				mhi_dev_ctxt->mhi_local_cmd_ctxt[i].base;
-		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cmd_ctxt_list[i].
+		mhi_dev_ctxt->dev_space.ring_ctxt.cmd_ctxt[i].
 						mhi_cmd_ring_read_ptr =
-		   mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_CMD_RING,
+		mhi_v2p_addr(mhi_dev_ctxt,
+			MHI_RING_TYPE_CMD_RING,
 			i,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[i].rp);
 	}
@@ -481,6 +485,7 @@ static enum MHI_STATUS process_syserr_transition(
 			enum STATE_TRANSITION cur_work_item)
 {
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+
 	mhi_log(MHI_MSG_CRITICAL, "Received SYS ERROR. Resetting MHI\n");
 	if (MHI_STATUS_SUCCESS != ret_val) {
 		mhi_log(MHI_MSG_CRITICAL, "Failed to reset mhi\n");
@@ -554,8 +559,8 @@ static enum MHI_STATUS process_sbl_transition(
 				enum STATE_TRANSITION cur_work_item)
 {
 	int r;
-	mhi_log(MHI_MSG_INFO, "Processing SBL state transition\n");
 
+	mhi_log(MHI_MSG_INFO, "Processing SBL state transition\n");
 	pm_runtime_set_autosuspend_delay(&mhi_dev_ctxt->dev_info->plat_dev->dev,
 					 MHI_RPM_AUTOSUSPEND_TMR_VAL_MS);
 	pm_runtime_use_autosuspend(&mhi_dev_ctxt->dev_info->plat_dev->dev);
@@ -567,7 +572,6 @@ static enum MHI_STATUS process_sbl_transition(
 	pm_runtime_enable(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	mhi_log(MHI_MSG_INFO, "Enabled runtime pm\n");
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_SBL;
-	wmb();
 	enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
 	return MHI_STATUS_SUCCESS;
 }
@@ -774,7 +778,6 @@ enum MHI_STATUS mhi_init_state_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
 		new_state);
 	*(enum STATE_TRANSITION *)stt_ring->wp = new_state;
 	ret_val = ctxt_add_element(stt_ring, (void **)&cur_work_item);
-	wmb();
 	MHI_ASSERT(MHI_STATUS_SUCCESS == ret_val,
 			"Failed to add selement to STT workqueue\n");
 	spin_unlock_irqrestore(work_q->q_lock, flags);
@@ -810,12 +813,10 @@ int mhi_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_dev_ctxt->counters.m0_event_timeouts++;
 		r = -ETIME;
 		goto exit;
-		break;
 	case -ERESTARTSYS:
 		mhi_log(MHI_MSG_CRITICAL,
 			"Going Down...\n");
 		goto exit;
-		break;
 	default:
 		mhi_log(MHI_MSG_INFO,
 			"Wait complete state: %d\n", mhi_dev_ctxt->mhi_state);
@@ -891,7 +892,6 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 			mhi_log(MHI_MSG_INFO,
 					"Failed to set bus freq ret %d\n", r);
 		goto exit;
-		break;
 	case MHI_STATE_M0:
 	case MHI_STATE_M1:
 	case MHI_STATE_M2:
@@ -974,8 +974,6 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_dev_ctxt->counters.m3_event_timeouts++;
 		mhi_dev_ctxt->flags.pending_M3 = 0;
 		goto exit;
-		break;
-
 	default:
 		mhi_log(MHI_MSG_INFO,
 			"M3 completion received\n");

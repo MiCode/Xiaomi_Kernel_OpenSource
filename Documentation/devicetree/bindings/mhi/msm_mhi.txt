@@ -11,7 +11,6 @@ Required properties:
     below properties:
 	- esoc-names
 	- esoc-0
-  - wakeup-gpios: gpio used to wake device from low power mode.
   - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
     below optional properties:
 	- qcom,msm-bus,name
@@ -28,8 +27,6 @@ Example:
 		compatible = "qcom,mhi";
 		esoc-names = "mdm";
 		esoc-0 = <&mdm1>;
-		mhi-device-wake-gpio =
-			<&msmgpio 108 0>;
 		qcom,msm-bus,name = "mhi";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;

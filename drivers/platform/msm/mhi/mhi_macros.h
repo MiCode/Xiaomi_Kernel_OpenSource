@@ -13,6 +13,7 @@
 #define _H_MHI_MACROS
 
 #define MHI_IPC_LOG_PAGES (100)
+#define MAX_BOUNCE_BUF_SIZE 0x2000
 #define MHI_LOG_SIZE 0x1000
 #define MHI_LINK_STABILITY_WAIT_MS 100
 #define MHI_DEVICE_WAKE_DBOUNCE_TIMEOUT_MS 10
@@ -51,7 +52,7 @@
 
 #define MHI_M2_DEBOUNCE_TMR_MS 10
 #define MHI_XFER_DB_INTERVAL 8
-#define MHI_EV_DB_INTERVAL 32
+#define MHI_EV_DB_INTERVAL 1
 
 #define MHI_DEV_WAKE_DB 127
 
@@ -79,10 +80,11 @@
 #define VALID_CHAN_NR(_CHAN_NR) (IS_HARDWARE_CHANNEL(_CHAN_NR) || \
 		IS_SOFTWARE_CHANNEL(_CHAN_NR))
 
-#define VALID_BUF(_BUF_ADDR, _BUF_LEN) \
-	(((uintptr_t)(_BUF_ADDR) >=  MHI_DATA_SEG_WINDOW_START_ADDR) && \
+#define VALID_BUF(_BUF_ADDR, _BUF_LEN, _MHI_DEV_CTXT) \
+	(((uintptr_t)(_BUF_ADDR) >=  \
+		mhi_dev_ctxt->dev_space.start_win_addr) && \
 		(((uintptr_t)(_BUF_ADDR) + (uintptr_t)(_BUF_LEN) < \
-		MHI_DATA_SEG_WINDOW_END_ADDR)))
+		mhi_dev_ctxt->dev_space.end_win_addr)))
 
 #define MHI_HW_INTMOD_VAL_MS 2
 /* Timeout Values */
@@ -108,7 +110,7 @@
 }
 #define MHI_TX_TRB_GET_LEN(_FIELD, _PKT) \
 	(((_PKT)->data_tx_pkt).buf_len & (((MHI_##_FIELD ## __MASK) << \
-			MHI_##_FIELD ## __SHIFT))); \
+			MHI_##_FIELD ## __SHIFT))) \
 
 /* MHI Event Ring Elements 7.4.1*/
 #define EV_TRB_CODE
@@ -216,7 +218,7 @@
 	(_CTXT)->mhi_intmodt &= (~((MHI_##_FIELD ## __MASK) << \
 				MHI_##_FIELD ## __SHIFT)); \
 	(_CTXT)->mhi_intmodt |= new_val; \
-};
+}
 
 #define MHI_GET_EV_CTXT(_FIELD, _CTXT) \
 	(((_CTXT)->mhi_intmodt >> MHI_##_FIELD ## __SHIFT) & \
