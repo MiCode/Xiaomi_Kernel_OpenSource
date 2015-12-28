@@ -2907,7 +2907,7 @@
 				<&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
 				<&incall_record_rx>, <&incall_record_tx>,
 				<&incall_music_rx>, <&incall_music2_rx>,
-				<&sb_5_rx>;
+				<&sb_5_rx>, <&sb_6_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
 				"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.2",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
@@ -2919,7 +2919,8 @@
 				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
 				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
 				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
-				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394";
+				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
+				"msm-dai-q6-dev.16396";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
 	};
@@ -3116,6 +3117,11 @@
 		sb_5_rx: qcom,msm-dai-q6-sb-5-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16394>;
+		};
+
+		sb_6_rx: qcom,msm-dai-q6-sb-6-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16396>;
 		};
 
 	};
