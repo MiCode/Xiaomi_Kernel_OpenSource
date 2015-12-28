@@ -69,6 +69,8 @@ Optional properties:
 - qcom,pil-mss-memsetup: Boolean - True if TZ need to be informed of modem start address and size.
 - qcom,pas-id:	      pas_id of the subsystem.
 
+- qcom,mx-spike-wa: Boolean- Present if we need to assert QDSP6 I/O clamp, memory
+		    wordline clamp, and compiler memory clamp during MSS restart.
 
 Example:
 	qcom,mss@fc880000 {
