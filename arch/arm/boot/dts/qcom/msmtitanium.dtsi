@@ -767,6 +767,149 @@
 		#clock-cells = <1>;
 	};
 
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>,
+			 <&clock_cpu clk_a53_pwr_clk>;
+
+		qcom,cpufreq-table =
+			 <  652800 >,
+			 < 1036800 >,
+			 < 1401600 >,
+			 < 1689600 >,
+			 < 1843200 >,
+			 < 1958400 >,
+			 < 2208000 >;
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,     /*Low SVS*/
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  3221 /*  422.4 MHz */ >,	/* SVS */
+			<  4248 /*  556.8 MHz */ >,
+			<  5126 /*  672   MHz */ >,
+			<  5859 /*  768   MHz */ >,     /* SVS+  */
+			<  6152 /*  806.4 MHz */ >,
+			<  6445 /*  844.8 MHz */ >,     /* NOM   */
+			<  7104 /*  931.2 MHz */ >;     /* TURBO */
+	};
+
+	mincpubw: qcom,mincpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,     /*Low SVS*/
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  3221 /*  422.4 MHz */ >,	/* SVS */
+			<  4248 /*  556.8 MHz */ >,
+			<  5126 /*  672   MHz */ >,
+			<  5859 /*  768   MHz */ >,     /* SVS+  */
+			<  6152 /*  806.4 MHz */ >,
+			<  6445 /*  844.8 MHz */ >,     /* NOM   */
+			<  7104 /*  931.2 MHz */ >;     /* TURBO */
+	};
+
+	memlat_cpu0: qcom,memlat-cpu0 {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,     /*Low SVS*/
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  3221 /*  422.4 MHz */ >,	/* SVS */
+			<  4248 /*  556.8 MHz */ >,
+			<  5126 /*  672   MHz */ >,
+			<  5859 /*  768   MHz */ >,     /* SVS+  */
+			<  6152 /*  806.4 MHz */ >,
+			<  6445 /*  844.8 MHz */ >,     /* NOM   */
+			<  7104 /*  931.2 MHz */ >;     /* TURBO */
+	};
+
+	memlat_cpu4: qcom,memlat-cpu4 {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,     /*Low SVS*/
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  3221 /*  422.4 MHz */ >,	/* SVS */
+			<  4248 /*  556.8 MHz */ >,
+			<  5126 /*  672   MHz */ >,
+			<  5859 /*  768   MHz */ >,     /* SVS+  */
+			<  6152 /*  806.4 MHz */ >,
+			<  6445 /*  844.8 MHz */ >,     /* NOM   */
+			<  7104 /*  931.2 MHz */ >;     /* TURBO */
+	};
+
+	qcom,arm-memlat-mon-0 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,target-dev = <&memlat_cpu0>;
+	};
+
+	qcom,arm-memlat-mon-4 {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,target-dev = <&memlat_cpu4>;
+	};
+
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon2";
+		reg = <0x408000 0x300>, <0x401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map =
+			 <  652800  1611>,
+			 < 1036800  3221>,
+			 < 1401600  5859>,
+			 < 1689600  6445>,
+			 < 1843200  7104>,
+			 < 1958400  7104>,
+			 < 2208000  7104>;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map =
+				< 1401600 2929 >,
+				< 2208000 5859 >;
+		};
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
