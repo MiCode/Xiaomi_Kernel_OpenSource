@@ -962,11 +962,6 @@ static int msm_ispif_restart_frame_boundary(struct ispif_device *ispif,
 		msm_camera_io_w(0x00001FF9,
 				ispif->base + ISPIF_RST_CMD_ADDR);
 	}
-	if (ispif->hw_num_isps > 1 && (vfe_mask & (1 << VFE1))) {
-		init_completion(&ispif->reset_complete[VFE1]);
-		msm_camera_io_w(0x00001FF9,
-			ispif->base + ISPIF_RST_CMD_1_ADDR);
-	}
 
 	if (vfe_mask & (1 << VFE0)) {
 		timeout = wait_for_completion_timeout(
@@ -976,6 +971,12 @@ static int msm_ispif_restart_frame_boundary(struct ispif_device *ispif,
 			rc = -ETIMEDOUT;
 			goto disable_clk;
 		}
+	}
+
+	if (ispif->hw_num_isps > 1 && (vfe_mask & (1 << VFE1))) {
+			init_completion(&ispif->reset_complete[VFE1]);
+			msm_camera_io_w(0x00001FF9,
+				ispif->base + ISPIF_RST_CMD_1_ADDR);
 	}
 
 	if (ispif->hw_num_isps > 1  && (vfe_mask & (1 << VFE1))) {
