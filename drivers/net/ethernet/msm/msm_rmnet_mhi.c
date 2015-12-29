@@ -234,7 +234,7 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 	struct net_device *dev = napi->dev;
 	struct rmnet_mhi_private *rmnet_mhi_ptr =
 			*(struct rmnet_mhi_private **)netdev_priv(dev);
-	enum MHI_STATUS res = MHI_STATUS_reserved;
+	int res = 0;
 	bool should_reschedule = true;
 	struct sk_buff *skb;
 	struct mhi_skb_priv *skb_priv;
@@ -245,12 +245,12 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 	while (received_packets < budget) {
 		struct mhi_result *result =
 		      mhi_poll(rmnet_mhi_ptr->rx_client_handle);
-		if (result->transaction_status == MHI_STATUS_DEVICE_NOT_READY) {
+		if (result->transaction_status == -ENOTCONN) {
 			rmnet_log(MSG_INFO,
 				  "Transaction status not ready, continuing\n");
 			break;
-		} else if (result->transaction_status != MHI_STATUS_SUCCESS &&
-			   result->transaction_status != MHI_STATUS_OVERFLOW) {
+		} else if (result->transaction_status != 0 &&
+			   result->transaction_status != -EOVERFLOW) {
 			rmnet_log(MSG_CRITICAL,
 				  "mhi_poll failed, error %d\n",
 				  result->transaction_status);
@@ -280,7 +280,7 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 		skb->dev = dev;
 		skb->protocol = rmnet_mhi_ip_type_trans(skb);
 
-		if (result->transaction_status == MHI_STATUS_OVERFLOW)
+		if (result->transaction_status == -EOVERFLOW)
 			r = rmnet_mhi_process_fragment(rmnet_mhi_ptr, skb, 1);
 		else
 			r = rmnet_mhi_process_fragment(rmnet_mhi_ptr, skb, 0);
@@ -326,7 +326,7 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 			rmnet_mhi_ptr->rx_client_handle,
 			skb->data, skb_priv->dma_size, MHI_EOT);
 
-		if (unlikely(MHI_STATUS_SUCCESS != res)) {
+		if (unlikely(0 != res)) {
 			rmnet_log(MSG_CRITICAL,
 				"mhi_queue_xfer failed, error %d", res);
 			dev_kfree_skb_irq(skb);
@@ -395,7 +395,7 @@ static int rmnet_mhi_disable_channels(struct rmnet_mhi_private *rmnet_mhi_ptr)
 static int rmnet_mhi_init_inbound(struct rmnet_mhi_private *rmnet_mhi_ptr)
 {
 	u32 i;
-	enum MHI_STATUS res;
+	int res;
 	struct mhi_skb_priv *rx_priv;
 	u32 cur_mru = rmnet_mhi_ptr->mru;
 	struct sk_buff *skb;
@@ -431,7 +431,7 @@ static int rmnet_mhi_init_inbound(struct rmnet_mhi_private *rmnet_mhi_ptr)
 						    skb->data,
 						    rx_priv->dma_size,
 						    MHI_EOT);
-		if (MHI_STATUS_SUCCESS != res) {
+		if (0 != res) {
 			rmnet_log(MSG_CRITICAL,
 					"mhi_queue_xfer failed, error %d", res);
 			return -EIO;
@@ -599,7 +599,7 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct rmnet_mhi_private *rmnet_mhi_ptr =
 			*(struct rmnet_mhi_private **)netdev_priv(dev);
-	enum MHI_STATUS res = MHI_STATUS_reserved;
+	int res = 0;
 	unsigned long flags;
 	int retry = 0;
 	struct mhi_skb_priv *tx_priv;
@@ -635,7 +635,7 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 		}
 	} while (retry);
 
-	if (MHI_STATUS_SUCCESS != res) {
+	if (0 != res) {
 		netif_stop_queue(dev);
 		rmnet_log(MSG_CRITICAL,
 			  "mhi_queue_xfer failed, error %d\n", res);
@@ -797,7 +797,7 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 {
 	int ret = 0;
 	struct rmnet_mhi_private **rmnet_mhi_ctxt = NULL;
-	enum MHI_STATUS r = MHI_STATUS_SUCCESS;
+	int r = 0;
 
 	memset(tx_interrupts_count, 0, sizeof(tx_interrupts_count));
 	memset(rx_interrupts_count, 0, sizeof(rx_interrupts_count));
@@ -828,7 +828,7 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		rmnet_log(MSG_INFO,
 			"Opening TX channel\n");
 		r = mhi_open_channel(rmnet_mhi_ptr->tx_client_handle);
-		if (r != MHI_STATUS_SUCCESS) {
+		if (r != 0) {
 			rmnet_log(MSG_CRITICAL,
 				"Failed to start TX chan ret %d\n", r);
 			goto mhi_tx_chan_start_fail;
@@ -840,7 +840,7 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		rmnet_log(MSG_INFO,
 			"Opening RX channel\n");
 		r = mhi_open_channel(rmnet_mhi_ptr->rx_client_handle);
-		if (r != MHI_STATUS_SUCCESS) {
+		if (r != 0) {
 			rmnet_log(MSG_CRITICAL,
 				"Failed to start RX chan ret %d\n", r);
 			goto mhi_rx_chan_start_fail;
@@ -907,7 +907,7 @@ static void rmnet_mhi_cb(struct mhi_cb_info *cb_info)
 {
 	struct rmnet_mhi_private *rmnet_mhi_ptr;
 	struct mhi_result *result;
-	enum MHI_STATUS r = MHI_STATUS_SUCCESS;
+	int r = 0;
 
 	if (NULL != cb_info && NULL != cb_info->result) {
 		result = cb_info->result;
@@ -978,7 +978,7 @@ static struct mhi_client_info_t rmnet_mhi_info = {rmnet_mhi_cb};
 static int __init rmnet_mhi_init(void)
 {
 	int i;
-	enum MHI_STATUS res = MHI_STATUS_SUCCESS;
+	int res = 0;
 	struct rmnet_mhi_private *rmnet_mhi_ptr = 0;
 	rmnet_ipc_log = ipc_log_context_create(RMNET_IPC_LOG_PAGES,
 						"mhi_rmnet", 0);
@@ -1003,7 +1003,7 @@ static int __init rmnet_mhi_init(void)
 			rmnet_mhi_ptr->tx_channel, 0,
 			&rmnet_mhi_info, rmnet_mhi_ptr);
 
-		if (MHI_STATUS_SUCCESS != res) {
+		if (0 != res) {
 			rmnet_mhi_ptr->tx_client_handle = 0;
 			rmnet_log(MSG_CRITICAL,
 				"mhi_register_channel failed chan %d ret %d\n",
@@ -1014,7 +1014,7 @@ static int __init rmnet_mhi_init(void)
 			rmnet_mhi_ptr->rx_channel, 0,
 			&rmnet_mhi_info, rmnet_mhi_ptr);
 
-		if (MHI_STATUS_SUCCESS != res) {
+		if (0 != res) {
 			rmnet_mhi_ptr->rx_client_handle = 0;
 			rmnet_log(MSG_CRITICAL,
 				"mhi_register_channel failed chan %d, ret %d\n",

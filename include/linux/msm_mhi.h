@@ -18,28 +18,6 @@ struct mhi_client_handle;
 #define MHI_DMA_MASK       0x3FFFFFFF
 #define MHI_MAX_MTU        0xFFFF
 
-enum MHI_STATUS {
-	MHI_STATUS_SUCCESS = 0,
-	MHI_STATUS_ERROR = 1,
-	MHI_STATUS_DEV_NOT_FOUND = 2,
-	MHI_STATUS_RING_FULL = 3,
-	MHI_STATUS_RING_EMPTY = 4,
-	MHI_STATUS_ALLOC_ERROR = 5,
-	MHI_STATUS_OBJ_BUSY = 6,
-	MHI_STATUS_DEVICE_NOT_READY = 7,
-	MHI_STATUS_INACTIVE = 8,
-	MHI_STATUS_BAD_STATE = 9,
-	MHI_STATUS_CHAN_NOT_READY = 10,
-	MHI_STATUS_CMD_PENDING = 11,
-	MHI_STATUS_LINK_DOWN = 12,
-	MHI_STATUS_ALREADY_REGISTERED = 13,
-	MHI_STATUS_USERSPACE_MEM_ERR = 14,
-	MHI_STATUS_BAD_HANDLE = 15,
-	MHI_STATUS_INVALID_CHAN_ERR = 16,
-	MHI_STATUS_OVERFLOW = 17,
-	MHI_STATUS_reserved = 0x80000000
-};
-
 enum MHI_CLIENT_CHANNEL {
 	MHI_CLIENT_LOOPBACK_OUT = 0,
 	MHI_CLIENT_LOOPBACK_IN = 1,
@@ -109,7 +87,7 @@ struct mhi_result {
 	void *user_data;
 	void *buf_addr;
 	size_t bytes_xferd;
-	enum MHI_STATUS transaction_status;
+	int transaction_status;
 	enum MHI_FLAGS flags;
 };
 
@@ -128,9 +106,9 @@ struct mhi_client_info_t {
  *
  * @client_handle: Handle populated by MHI, opaque to client
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
-enum MHI_STATUS mhi_deregister_channel(struct mhi_client_handle *client_handle);
+int mhi_deregister_channel(struct mhi_client_handle *client_handle);
 
 /**
  * mhi_register_channel - Client must call this function to obtain a handle for
@@ -147,9 +125,9 @@ enum MHI_STATUS mhi_deregister_channel(struct mhi_client_handle *client_handle);
  *                   callback invocation.
  *  Not thread safe, caller must ensure concurrency protection.
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
-enum MHI_STATUS mhi_register_channel(struct mhi_client_handle **client_handle,
+int mhi_register_channel(struct mhi_client_handle **client_handle,
 		enum MHI_CLIENT_CHANNEL chan, s32 device_index,
 		struct mhi_client_info_t *client_info, void *user_data);
 
@@ -160,9 +138,9 @@ enum MHI_STATUS mhi_register_channel(struct mhi_client_handle **client_handle,
  *
  *  Not thread safe, caller must ensure concurrency protection.
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
-enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle);
+int mhi_open_channel(struct mhi_client_handle *client_handle);
 
 /**
  * mhi_queue_xfer - Client called function to add a buffer to MHI channel
@@ -178,7 +156,7 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle);
  *  Not thread safe, caller must ensure concurrency protection.
  *  User buffer must be physically contiguous.
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
 int mhi_queue_xfer(struct mhi_client_handle *client_handle,
 		void *buf, size_t buf_len, enum MHI_FLAGS mhi_flags);
