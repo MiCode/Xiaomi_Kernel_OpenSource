@@ -212,6 +212,8 @@
 #define RID_B_BIT			BIT(1)
 #define RID_C_BIT			BIT(0)
 
+#define STATUS_7_REG			0x4D
+
 #define STATUS_8_REG			0x4E
 #define USBIN_9V			BIT(5)
 #define USBIN_UNREG			BIT(4)
@@ -360,6 +362,7 @@ struct smb135x_chg {
 	int				otg_oc_count;
 	struct delayed_work		reset_otg_oc_count_work;
 	struct mutex			otg_oc_count_lock;
+	struct delayed_work		hvdcp_det_work;
 
 	bool				parallel_charger;
 	bool				parallel_charger_present;
@@ -2640,6 +2643,8 @@ static int dcin_ov_handler(struct smb135x_chg *chip, u8 rt_stat)
 static int handle_usb_removal(struct smb135x_chg *chip)
 {
 	if (chip->usb_psy) {
+		cancel_delayed_work_sync(&chip->hvdcp_det_work);
+		pm_relax(chip->dev);
 		pr_debug("setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_supply_type(chip->usb_psy,
@@ -2680,6 +2685,30 @@ static int rerun_apsd(struct smb135x_chg *chip)
 	return rc;
 }
 
+static void smb135x_hvdcp_det_work(struct work_struct *work)
+{
+	int rc;
+	u8 reg;
+	struct smb135x_chg *chip = container_of(work, struct smb135x_chg,
+							hvdcp_det_work.work);
+
+	rc = smb135x_read(chip, STATUS_7_REG, &reg);
+	if (rc) {
+		pr_err("Couldn't read STATUS_7_REG rc == %d\n", rc);
+		goto end;
+	}
+	pr_debug("STATUS_7_REG = 0x%02X\n", reg);
+
+	if (reg) {
+		pr_debug("HVDCP detected; notifying USB PSY\n");
+		power_supply_set_supply_type(chip->usb_psy,
+			POWER_SUPPLY_TYPE_USB_HVDCP);
+	}
+end:
+	pm_relax(chip->dev);
+}
+
+#define HVDCP_NOTIFY_MS 2500
 static int handle_usb_insertion(struct smb135x_chg *chip)
 {
 	u8 reg;
@@ -2720,6 +2749,13 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 			power_supply_set_dp_dm(chip->usb_psy,
 					POWER_SUPPLY_DP_DM_DPF_DMF);
 		}
+	}
+
+	if (usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP) {
+		pr_debug("schedule hvdcp detection worker\n");
+		pm_stay_awake(chip->dev);
+		schedule_delayed_work(&chip->hvdcp_det_work,
+					msecs_to_jiffies(HVDCP_NOTIFY_MS));
 	}
 
 	if (chip->usb_psy) {
@@ -4128,6 +4164,7 @@ static int smb135x_main_charger_probe(struct i2c_client *client,
 
 	INIT_DELAYED_WORK(&chip->reset_otg_oc_count_work,
 					reset_otg_oc_count_work);
+	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smb135x_hvdcp_det_work);
 	mutex_init(&chip->path_suspend_lock);
 	mutex_init(&chip->current_change_lock);
 	mutex_init(&chip->read_write_lock);
