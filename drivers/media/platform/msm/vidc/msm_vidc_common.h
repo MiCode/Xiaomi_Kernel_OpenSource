@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
 int msm_comm_scale_clocks(struct msm_vidc_core *core);
 int msm_comm_scale_clocks_load(struct msm_vidc_core *core,
 		int num_mbs_per_sec, enum load_calc_quirks quirks);
+void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst);
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 					bool check_for_reuse);

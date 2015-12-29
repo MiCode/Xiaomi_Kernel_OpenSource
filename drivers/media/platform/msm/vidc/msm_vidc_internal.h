@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -287,6 +287,7 @@ struct msm_vidc_inst {
 	struct kref kref;
 	unsigned long instant_bitrate;
 	u32 buffers_held_in_driver;
+	atomic_t in_flush;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
