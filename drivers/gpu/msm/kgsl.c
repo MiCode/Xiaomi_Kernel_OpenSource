@@ -185,7 +185,7 @@ static void kgsl_memfree_purge(pid_t ptname, uint64_t gpuaddr,
 		if (gpuaddr > entry->gpuaddr &&
 			gpuaddr < entry->gpuaddr + entry->size) {
 			/* truncate the end of the entry */
-			entry->size = entry->gpuaddr - gpuaddr;
+			entry->size = gpuaddr - entry->gpuaddr;
 		} else if (gpuaddr <= entry->gpuaddr &&
 			gpuaddr + size < entry->gpuaddr + entry->size)
 			/* Truncate the beginning of the entry */
