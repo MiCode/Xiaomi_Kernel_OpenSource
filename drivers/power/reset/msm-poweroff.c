@@ -52,6 +52,13 @@ static bool scm_deassert_ps_hold_supported;
 /* Download mode master kill-switch */
 static void __iomem *msm_ps_hold;
 static phys_addr_t tcsr_boot_misc_detect;
+static void scm_disable_sdi(void);
+
+/* Runtime could be only changed value once.
+ * There is no API from TZ to re-enable the registers.
+ * So the SDI cannot be re-enabled when it already by-passed.
+*/
+static int download_mode = 1;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
@@ -64,7 +71,6 @@ static void *emergency_dload_mode_addr;
 static bool scm_dload_supported;
 
 static int dload_set(const char *val, struct kernel_param *kp);
-static int download_mode = 1;
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 static int panic_prep_restart(struct notifier_block *this,
@@ -115,6 +121,9 @@ static void set_dload_mode(int on)
 	ret = scm_set_dload_mode(on ? SCM_DLOAD_MODE : 0, 0);
 	if (ret)
 		pr_err("Failed to set secure DLOAD mode: %d\n", ret);
+
+	if (!on)
+		scm_disable_sdi();
 
 	dload_mode_enabled = on;
 }
@@ -170,7 +179,10 @@ static int dload_set(const char *val, struct kernel_param *kp)
 	return 0;
 }
 #else
-#define set_dload_mode(x) do {} while (0)
+static void set_dload_mode(int on)
+{
+	scm_disable_sdi();
+}
 
 static void enable_emergency_dload_mode(void)
 {
@@ -182,6 +194,26 @@ static bool get_dload_mode(void)
 	return false;
 }
 #endif
+
+static void scm_disable_sdi(void)
+{
+	int ret;
+	struct scm_desc desc = {
+		.args[0] = 1,
+		.args[1] = 0,
+		.arginfo = SCM_ARGS(2),
+	};
+
+	/* Needed to bypass debug image on some chips */
+	if (!is_scm_armv8())
+		ret = scm_call_atomic2(SCM_SVC_BOOT,
+			       SCM_WDOG_DEBUG_BOOT_PART, 1, 0);
+	else
+		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
+			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
+	if (ret)
+		pr_err("Failed to disable secure wdog debug: %d\n", ret);
+}
 
 void msm_set_restart_mode(int mode)
 {
@@ -318,13 +350,6 @@ static void deassert_ps_hold(void)
 
 static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
-	int ret;
-	struct scm_desc desc = {
-		.args[0] = 1,
-		.args[1] = 0,
-		.arginfo = SCM_ARGS(2),
-	};
-
 	pr_notice("Going down for restart now\n");
 
 	msm_restart_prepare(cmd);
@@ -339,16 +364,6 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 		msm_trigger_wdog_bite();
 #endif
 
-	/* Needed to bypass debug image on some chips */
-	if (!is_scm_armv8())
-		ret = scm_call_atomic2(SCM_SVC_BOOT,
-			       SCM_WDOG_DEBUG_BOOT_PART, 1, 0);
-	else
-		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
-			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
-	if (ret)
-		pr_err("Failed to disable secure wdog debug: %d\n", ret);
-
 	halt_spmi_pmic_arbiter();
 	deassert_ps_hold();
 
@@ -357,27 +372,10 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 
 static void do_msm_poweroff(void)
 {
-	int ret;
-	struct scm_desc desc = {
-		.args[0] = 1,
-		.args[1] = 0,
-		.arginfo = SCM_ARGS(2),
-	};
-
 	pr_notice("Powering off the SoC\n");
-#ifdef CONFIG_MSM_DLOAD_MODE
+
 	set_dload_mode(0);
-#endif
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
-	/* Needed to bypass debug image on some chips */
-	if (!is_scm_armv8())
-		ret = scm_call_atomic2(SCM_SVC_BOOT,
-			       SCM_WDOG_DEBUG_BOOT_PART, 1, 0);
-	else
-		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
-			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
-	if (ret)
-		pr_err("Failed to disable wdog debug: %d\n", ret);
 
 	halt_spmi_pmic_arbiter();
 	deassert_ps_hold();
