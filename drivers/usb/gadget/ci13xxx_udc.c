@@ -3247,13 +3247,6 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 				__func__);
 		return -EAGAIN;
 	}
-
-	if (udc->suspended) {
-		dev_err(udc->transceiver->dev,
-			"%s: Unable to dequeue while suspended\n", __func__);
-		return -EAGAIN;
-	}
-
 	spin_lock_irqsave(mEp->lock, flags);
 	/*
 	 * Only ep0 IN is exposed to composite.  When a req is dequeued
