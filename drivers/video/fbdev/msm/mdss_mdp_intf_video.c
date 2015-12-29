@@ -396,8 +396,10 @@ static int mdss_mdp_video_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 		irq_en = true;
 	}
 	spin_unlock_irqrestore(&ctx->vsync_lock, flags);
-	if (irq_en)
+	if (irq_en) {
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 		video_vsync_irq_enable(ctl, false);
+	}
 exit:
 	return ret;
 }
@@ -424,8 +426,10 @@ static int mdss_mdp_video_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
 		irq_dis = true;
 	}
 	spin_unlock_irqrestore(&ctx->vsync_lock, flags);
-	if (irq_dis)
+	if (irq_dis) {
 		video_vsync_irq_disable(ctl);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	}
 	return 0;
 }
 
