@@ -21,6 +21,14 @@ config SND_SOC_QDSP6V2
 	 audio drivers. This includes q6asm, q6adm,
 	 q6afe interfaces to DSP using apr.
 
+config SND_SOC_QDSP_DEBUG
+	bool "QDSP Audio Driver Debug Feature"
+	help
+	 Configuration to enable debugging utilities for
+	 QDSP6 based audio drivers. One debugging utility
+	 is inducing kernel panic upon encountering critical
+	 errors from DSP audio modules
+
 config DOLBY_DAP
 	bool "Enable Dolby DAP"
 	depends on SND_SOC_MSM_QDSP6V2_INTF
