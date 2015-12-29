@@ -127,3 +127,15 @@
 &dsi_hx8394f_720p_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&sdc2_cmd_on {
+	config {
+		drive-strength = <12>;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength = <12>;
+	};
+};
