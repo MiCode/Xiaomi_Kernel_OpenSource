@@ -163,7 +163,7 @@ int populate_bb_list(struct list_head *bb_list, int num_bb)
  * @ring_size:			Ring size
  * @ring:			Pointer to the shadow command context
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
 static int mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 				void *trb_list_virt_addr,
@@ -377,7 +377,7 @@ static int mhi_init_events(struct mhi_device_ctxt *mhi_dev_ctxt)
 						GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq) {
 		mhi_log(MHI_MSG_ERROR, "Failed to init event");
-		return MHI_STATUS_ERROR;
+		return -ENOMEM;
 	}
 	mhi_dev_ctxt->mhi_ev_wq.state_change_event =
 				kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
@@ -467,12 +467,12 @@ static int mhi_spawn_threads(struct mhi_device_ctxt *mhi_dev_ctxt)
 							mhi_dev_ctxt,
 							"mhi_ev_thrd");
 	if (IS_ERR(mhi_dev_ctxt->event_thread_handle))
-		return MHI_STATUS_ERROR;
+		return PTR_ERR(mhi_dev_ctxt->event_thread_handle);
 	mhi_dev_ctxt->st_thread_handle = kthread_run(mhi_state_change_thread,
 							mhi_dev_ctxt,
 							"mhi_st_thrd");
 	if (IS_ERR(mhi_dev_ctxt->event_thread_handle))
-		return MHI_STATUS_ERROR;
+		return PTR_ERR(mhi_dev_ctxt->event_thread_handle);
 	return 0;
 }
 
@@ -485,7 +485,7 @@ static int mhi_spawn_threads(struct mhi_device_ctxt *mhi_dev_ctxt)
  which this mhi context belongs
  * @param mhi_struct device [IN/OUT] reference to a mhi context to be populated
  *
- * @return MHI_STATUS
+ * @return errno
  */
 int mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
 		struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -583,7 +583,7 @@ error_during_props:
  * @event_ring:	 Event ring to be mapped to this channel context
  * @ring:		 Shadow context to be initialized alongside
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
 int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 		uintptr_t trb_list_phy, uintptr_t trb_list_virt,
@@ -629,11 +629,8 @@ int mhi_reg_notifiers(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u32 ret_val;
 
 	if (NULL == mhi_dev_ctxt)
-		return MHI_STATUS_ERROR;
+		return -EINVAL;
 	mhi_dev_ctxt->mhi_cpu_notifier.notifier_call = mhi_cpu_notifier_cb;
 	ret_val = register_cpu_notifier(&mhi_dev_ctxt->mhi_cpu_notifier);
-	if (ret_val)
-		return MHI_STATUS_ERROR;
-	else
-		return 0;
+	return ret_val;
 }

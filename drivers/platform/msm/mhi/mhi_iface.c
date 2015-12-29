@@ -154,8 +154,9 @@ int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 		"Setting IRQ Base to 0x%x\n", mhi_pcie_dev->core.irq_base);
 	mhi_pcie_dev->core.max_nr_msis = requested_msi_number;
 	ret_val = mhi_init_pm_sysfs(&pcie_device->dev);
-	if (ret_val != 0) {
-		mhi_log(MHI_MSG_ERROR, "Failed to setup sysfs.\n");
+	if (ret_val) {
+		mhi_log(MHI_MSG_ERROR, "Failed to setup sysfs ret %d\n",
+								ret_val);
 		goto sysfs_config_err;
 	}
 	if (!mhi_init_debugfs(&mhi_pcie_dev->mhi_ctxt))
@@ -173,9 +174,10 @@ int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 			goto mhi_state_transition_error;
 		}
 	}
-	if (MHI_STATUS_SUCCESS != mhi_reg_notifiers(&mhi_pcie_dev->mhi_ctxt)) {
+	ret_val = mhi_reg_notifiers(&mhi_pcie_dev->mhi_ctxt);
+	if (ret_val) {
 		mhi_log(MHI_MSG_ERROR, "Failed to register for notifiers\n");
-		return MHI_STATUS_ERROR;
+		return ret_val;
 	}
 	mhi_log(MHI_MSG_INFO,
 			"Finished all driver probing returning ret_val %d.\n",

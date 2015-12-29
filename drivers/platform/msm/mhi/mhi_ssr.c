@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,7 @@ static int mhi_ssr_notify_cb(struct notifier_block *nb,
 			"Received Subsystem event BEFORE_POWERUP\n");
 		atomic_set(&mhi_dev_ctxt->flags.pending_powerup, 1);
 		ret_val = init_mhi_base_state(mhi_dev_ctxt);
-		if (MHI_STATUS_SUCCESS != ret_val)
+		if (0 != ret_val)
 			mhi_log(MHI_MSG_CRITICAL,
 				"Failed to transition to base state %d.\n",
 				ret_val);
@@ -164,7 +164,7 @@ void mhi_notify_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 void mhi_link_state_cb(struct msm_pcie_notify *notify)
 {
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int ret_val = 0;
 	struct mhi_pcie_dev_info *mhi_pcie_dev = notify->data;
 	struct mhi_device_ctxt *mhi_dev_ctxt = NULL;
 	int r = 0;
@@ -219,7 +219,7 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 		}
 		ret_val = mhi_init_state_transition(mhi_dev_ctxt,
 				STATE_TRANSITION_WAKE);
-		if (MHI_STATUS_SUCCESS != ret_val) {
+		if (0 != ret_val) {
 			mhi_log(MHI_MSG_CRITICAL,
 				"Failed to init state transition, to %d\n",
 				STATE_TRANSITION_WAKE);
@@ -232,24 +232,22 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 		}
 }
 
-enum MHI_STATUS init_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
+int init_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
 
 	mhi_assert_device_wake(mhi_dev_ctxt);
 	mhi_dev_ctxt->flags.link_up = 1;
-	r =
-	mhi_set_bus_request(mhi_dev_ctxt, 1);
+	r = mhi_set_bus_request(mhi_dev_ctxt, 1);
 	if (r)
 		mhi_log(MHI_MSG_INFO,
 			"Failed to scale bus request to active set.\n");
-	ret_val = mhi_init_state_transition(mhi_dev_ctxt,
+	r = mhi_init_state_transition(mhi_dev_ctxt,
 			mhi_dev_ctxt->base_state);
-	if (MHI_STATUS_SUCCESS != ret_val) {
+	if (r) {
 		mhi_log(MHI_MSG_CRITICAL,
 		"Failed to start state change event, to %d\n",
 		mhi_dev_ctxt->base_state);
 	}
-	return ret_val;
+	return r;
 }
