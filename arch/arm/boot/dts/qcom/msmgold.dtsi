@@ -99,6 +99,7 @@
 
 #include "msmgold-pinctrl.dtsi"
 #include "msmgold-cpu.dtsi"
+#include "msmgold-gpu.dtsi"
 #include "msmgold-pm.dtsi"
 #include "msmgold-ion.dtsi"
 #include "msmgold-iommu.dtsi"
