@@ -12,6 +12,7 @@
  */
 
 #include "msmtitanium-pinctrl.dtsi"
+#include "msmtitanium-camera-sensor-qrd.dtsi"
 
 &blsp1_uart0 {
 	status = "ok";
