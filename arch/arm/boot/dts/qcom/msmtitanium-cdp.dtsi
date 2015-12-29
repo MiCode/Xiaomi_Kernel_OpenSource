@@ -251,3 +251,16 @@
 
 	status = "ok";
 };
+
+&pmtitanium_typec {
+	ss-mux-supply = <&pmtitanium_l13>;
+	qcom,ssmux-gpio = <&tlmm 139 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&typec_ssmux_config>;
+};
+
+&pmi8950_charger {
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
+	qcom,otg-pinctrl;
+};
