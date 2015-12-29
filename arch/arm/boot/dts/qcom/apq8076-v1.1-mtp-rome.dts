@@ -22,3 +22,7 @@
 	compatible = "qcom,apq8076-mtp", "qcom,apq8076", "qcom,mtp";
 	qcom,board-id = <8 1>;
 };
+
+&sdhc_3 {
+	status = "ok";
+};
