@@ -507,7 +507,7 @@ config PCI_ENDPOINT_TEST
            for PCI Endpoint.
 
 config UID_CPUTIME
-	tristate "Per-UID cpu time statistics"
+	bool "Per-UID cpu time statistics"
 	depends on PROFILING
 	help
 	  Per UID based cpu time statistics exported to /proc/uid_cputime
