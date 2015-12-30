@@ -39,6 +39,11 @@
 #define WLAN_VREG_XTAL_MIN	1800000
 #define POWER_ON_DELAY		4
 
+/* Values for Dynamic Ramdump Collection*/
+#define CNSS_DUMP_FORMAT_VER	0x11
+#define CNSS_DUMP_MAGIC_VER_V2	0x42445953
+#define CNSS_DUMP_NAME		"CNSS_WLAN"
+
 struct cnss_unsafe_channel_list {
 	u16 unsafe_ch_count;
 	u16 unsafe_ch_list[CNSS_MAX_CH_NUM];
@@ -70,6 +75,8 @@ struct cnss_ssr_info {
 	unsigned long ramdump_size;
 	void *ramdump_addr;
 	phys_addr_t ramdump_phys;
+	struct msm_dump_data dump_data;
+	bool ramdump_dynamic;
 	char subsys_name[10];
 };
 
@@ -354,19 +361,45 @@ static void cnss_subsys_exit(void)
 	ssr_info->subsys = NULL;
 }
 
+static int cnss_configure_dump_table(struct cnss_ssr_info *ssr_info)
+{
+	struct msm_dump_entry dump_entry;
+	int ret;
+
+	ssr_info->dump_data.addr = ssr_info->ramdump_phys;
+	ssr_info->dump_data.len = ssr_info->ramdump_size;
+	ssr_info->dump_data.version = CNSS_DUMP_FORMAT_VER;
+	ssr_info->dump_data.magic = CNSS_DUMP_MAGIC_VER_V2;
+	strlcpy(ssr_info->dump_data.name, CNSS_DUMP_NAME,
+		sizeof(ssr_info->dump_data.name));
+
+	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
+	dump_entry.addr = virt_to_phys(&ssr_info->dump_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret)
+		pr_err("%s: Dump table setup failed: %d\n", __func__, ret);
+
+	return ret;
+}
+
 static int cnss_configure_ramdump(void)
 {
 	struct cnss_ssr_info *ssr_info;
 	int ret = 0;
 	struct resource *res;
 	const char *name;
+	u32 ramdump_size = 0;
+	struct device *dev;
 
 	if (!cnss_pdata)
 		return -ENODEV;
+
+	dev = &cnss_pdata->pdev->dev;
+
 	ssr_info = &cnss_pdata->ssr_info;
 
-	ret = of_property_read_string(cnss_pdata->pdev->dev.of_node,
-				      CNSS_SUBSYS_NAME_KEY,
+	ret = of_property_read_string(dev->of_node, CNSS_SUBSYS_NAME_KEY,
 				      &name);
 	if (ret) {
 		pr_err("%s: cnss missing DT key '%s'\n", __func__,
@@ -374,44 +407,65 @@ static int cnss_configure_ramdump(void)
 		ret = -ENODEV;
 		goto err_subsys_name_query;
 	}
+
 	strlcpy(ssr_info->subsys_name, name, sizeof(ssr_info->subsys_name));
 
-	res = platform_get_resource_byname(cnss_pdata->pdev,
-					   IORESOURCE_MEM, "ramdump");
-	if (res) {
-		ssr_info->ramdump_phys = res->start;
-		ssr_info->ramdump_size = resource_size(res);
+	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
+				 &ramdump_size) == 0) {
+		ssr_info->ramdump_addr = dma_alloc_coherent(dev, ramdump_size,
+							&ssr_info->ramdump_phys,
+							GFP_KERNEL);
+		if (ssr_info->ramdump_addr)
+			ssr_info->ramdump_size = ramdump_size;
+		ssr_info->ramdump_dynamic = true;
 	} else {
-		pr_err("%s: CNSS ramdump mem not available\n", __func__);
-		return 0;
-	}
-
-	ssr_info->ramdump_addr = ioremap(ssr_info->ramdump_phys,
-		ssr_info->ramdump_size);
-
-	if (!ssr_info->ramdump_addr || ssr_info->ramdump_size == 0) {
-		ssr_info->ramdump_size = 0;
-		ssr_info->ramdump_addr = NULL;
-		pr_err("%s: CNSS ramdump will not be collected\n", __func__);
-		return 0;
+		res = platform_get_resource_byname(cnss_pdata->pdev,
+						   IORESOURCE_MEM, "ramdump");
+		if (res) {
+			ssr_info->ramdump_phys = res->start;
+			ramdump_size = resource_size(res);
+			ssr_info->ramdump_addr = ioremap(ssr_info->ramdump_phys,
+								ramdump_size);
+			if (ssr_info->ramdump_addr)
+				ssr_info->ramdump_size = ramdump_size;
+			ssr_info->ramdump_dynamic = false;
+		}
 	}
 
 	pr_info("%s: ramdump addr: %p, phys: %pa subsys:'%s'\n", __func__,
-		ssr_info->ramdump_addr,
-		&ssr_info->ramdump_phys,
+		ssr_info->ramdump_addr, &ssr_info->ramdump_phys,
 		ssr_info->subsys_name);
 
+	if (ssr_info->ramdump_size == 0) {
+		pr_info("%s: CNSS ramdump will not be collected", __func__);
+		return 0;
+	}
+
+	if (ssr_info->ramdump_dynamic) {
+		ret = cnss_configure_dump_table(ssr_info);
+		if (ret)
+			goto err_configure_dump_table;
+	}
+
 	ssr_info->ramdump_dev = create_ramdump_device(ssr_info->subsys_name,
-		&cnss_pdata->pdev->dev);
+									dev);
 	if (!ssr_info->ramdump_dev) {
 		ret = -ENOMEM;
 		pr_err("%s: ramdump dev create failed: error=%d\n",
 		       __func__, ret);
-		goto err_create_ramdump;
+		goto err_configure_dump_table;
 	}
+
 	return 0;
-err_create_ramdump:
-	iounmap(ssr_info->ramdump_addr);
+
+err_configure_dump_table:
+	if (ssr_info->ramdump_dynamic)
+		dma_free_coherent(dev, ssr_info->ramdump_size,
+				  ssr_info->ramdump_addr,
+				  ssr_info->ramdump_phys);
+	else
+		iounmap(ssr_info->ramdump_addr);
+
 	ssr_info->ramdump_addr = NULL;
 	ssr_info->ramdump_size = 0;
 err_subsys_name_query:
@@ -421,13 +475,22 @@ err_subsys_name_query:
 static void cnss_ramdump_cleanup(void)
 {
 	struct cnss_ssr_info *ssr_info;
+	struct device *dev;
 
 	if (!cnss_pdata)
 		return;
 
+	dev = &cnss_pdata->pdev->dev;
 	ssr_info = &cnss_pdata->ssr_info;
-	if (ssr_info->ramdump_addr)
-		iounmap(ssr_info->ramdump_addr);
+	if (ssr_info->ramdump_addr) {
+		if (ssr_info->ramdump_dynamic)
+			dma_free_coherent(dev, ssr_info->ramdump_size,
+					  ssr_info->ramdump_addr,
+					  ssr_info->ramdump_phys);
+		else
+			iounmap(ssr_info->ramdump_addr);
+	}
+
 	ssr_info->ramdump_addr = NULL;
 	if (ssr_info->ramdump_dev)
 		destroy_ramdump_device(ssr_info->ramdump_dev);
