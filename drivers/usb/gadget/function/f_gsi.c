@@ -2266,7 +2266,6 @@ skip_string_id_alloc:
 		ep = usb_ep_autoconfig(cdev->gadget, info->fs_in_desc);
 		if (!ep)
 			goto fail;
-		ep->ep_type = EP_TYPE_GSI;
 		gsi->d_port.in_ep = ep;
 		ep->driver_data = cdev;	/* claim */
 	}
@@ -2275,7 +2274,6 @@ skip_string_id_alloc:
 		ep = usb_ep_autoconfig(cdev->gadget, info->fs_out_desc);
 		if (!ep)
 			goto fail;
-		ep->ep_type = EP_TYPE_GSI;
 		gsi->d_port.out_ep = ep;
 		ep->driver_data = cdev;	/* claim */
 	}
