@@ -763,7 +763,7 @@ static void ci13xxx_msm_hsic_notify_event(struct ci13xxx *udc, unsigned event)
 		if (mhsic->disable_on_boot)
 			mhsic->disable_on_boot = false;
 		/* bring HSIC core out of LPM */
-		pm_runtime_get_sync(the_mhsic->dev);
+		pm_runtime_resume(the_mhsic->dev);
 		msm_hsic_start();
 		the_mhsic->connected = true;
 		break;
@@ -998,6 +998,9 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	}
 
 	disable_irq(mhsic->async_irq_no);
+
+	/* Driver manages its own runtime PM state. Ignore any chidren votes */
+	pm_suspend_ignore_children(&pdev->dev, true);
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
