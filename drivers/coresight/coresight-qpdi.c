@@ -120,21 +120,13 @@ err0:
 static int qpdi_enable(struct qpdi_drvdata *drvdata)
 {
 	int ret;
-	int gpio_vote = drvdata->pmic_gpio_vote;
 
 	mutex_lock(&drvdata->mutex);
 
 	if (drvdata->enable)
 		goto out;
 
-	if (gpio_vote > -1) {
-		ret = gpio_direction_input(gpio_vote);
-		if (ret) {
-			gpio_free(gpio_vote);
-			drvdata->pmic_gpio_vote = -1;
-			return ret;
-		}
-	} else {
+	if (drvdata->pmic_gpio_vote < 0) {
 		ret = __qpdi_enable(drvdata);
 		if (ret)
 			goto err;
@@ -165,8 +157,6 @@ static void __qpdi_disable(struct qpdi_drvdata *drvdata)
 
 static void qpdi_disable(struct qpdi_drvdata *drvdata)
 {
-	int ret;
-
 	mutex_lock(&drvdata->mutex);
 
 	if (!drvdata->enable) {
@@ -176,13 +166,7 @@ static void qpdi_disable(struct qpdi_drvdata *drvdata)
 
 	qpdi_writel(drvdata, 0x3, QPDI_DISABLE_CFG);
 
-	if (drvdata->pmic_gpio_vote > -1) {
-		ret = gpio_direction_output(drvdata->pmic_gpio_vote, 0);
-		if (ret) {
-			gpio_free(drvdata->pmic_gpio_vote);
-			drvdata->pmic_gpio_vote = -1;
-		}
-	} else
+	if (drvdata->pmic_gpio_vote < 0)
 		__qpdi_disable(drvdata);
 
 	drvdata->enable = false;
@@ -309,9 +293,9 @@ static int qpdi_parse_of_data(struct platform_device *pdev,
 			return ret;
 		}
 
-		ret = gpio_direction_output(drvdata->pmic_gpio_vote, 0);
+		ret = gpio_direction_input(drvdata->pmic_gpio_vote);
 		if (ret) {
-			dev_err(dev, "failed to set the gpio to output\n");
+			dev_err(dev, "failed to set the gpio to input\n");
 			gpio_free(drvdata->pmic_gpio_vote);
 			return ret;
 		}
