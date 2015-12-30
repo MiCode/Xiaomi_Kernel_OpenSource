@@ -284,6 +284,18 @@ int pil_mss_shutdown(struct pil_desc *pil)
 	if (drv->axi_halt_nc)
 		pil_q6v5_halt_axi_port(pil, drv->axi_halt_nc);
 
+	/*
+	 * Software workaround to avoid high MX current during LPASS/MSS
+	 * restart.
+	 */
+	if (drv->mx_spike_wa && drv->ahb_clk_vote) {
+		ret = clk_prepare_enable(drv->ahb_clk);
+		if (!ret)
+			assert_clamps(pil);
+		else
+			dev_err(pil->dev, "error turning ON AHB clock\n");
+	}
+
 	ret = pil_mss_restart_reg(drv, 1);
 
 	if (drv->is_booted) {
