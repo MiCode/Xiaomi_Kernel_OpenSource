@@ -665,7 +665,8 @@ static void ipa_resume_work_handler(struct gsi_data_port *d_port)
 	int ret;
 
 	ret = ipa_usb_xdci_resume(gsi->d_port.out_channel_handle,
-					gsi->d_port.in_channel_handle);
+					gsi->d_port.in_channel_handle,
+					gsi->prot_id);
 	if (ret)
 		pr_debug("%s:ipa_usb_xdci_resume returns %d\n", __func__, ret);
 
