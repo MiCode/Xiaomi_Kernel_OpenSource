@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,32 +24,39 @@
 *  USB DBM Hardware registers.
 *
 */
-#define DBM_EP_CFG(n)		(0x00 + 4 * (n))
-#define DBM_DATA_FIFO(n)	(0x280 + 4 * (n))
-#define DBM_DATA_FIFO_SIZE(n)	(0x80 + 4 * (n))
-#define DBM_DATA_FIFO_EN	(0x26C)
-#define DBM_GEVNTADR		(0x270)
-#define DBM_GEVNTSIZ		(0x268)
-#define DBM_DBG_CNFG		(0x208)
-#define DBM_HW_TRB0_EP(n)	(0x220 + 4 * (n))
-#define DBM_HW_TRB1_EP(n)	(0x230 + 4 * (n))
-#define DBM_HW_TRB2_EP(n)	(0x240 + 4 * (n))
-#define DBM_HW_TRB3_EP(n)	(0x250 + 4 * (n))
-#define DBM_PIPE_CFG		(0x274)
-#define DBM_SOFT_RESET		(0x20C)
-#define DBM_GEN_CFG		(0x210)
-#define DBM_GEVNTADR_LSB	(0x260)
-#define DBM_GEVNTADR_MSB	(0x264)
-#define DBM_DATA_FIFO_LSB(n)	(0x100 + 8 * (n))
-#define DBM_DATA_FIFO_MSB(n)	(0x104 + 8 * (n))
+enum dbm_reg {
+	DBM_EP_CFG,
+	DBM_DATA_FIFO,
+	DBM_DATA_FIFO_SIZE,
+	DBM_DATA_FIFO_EN,
+	DBM_GEVNTADR,
+	DBM_GEVNTSIZ,
+	DBM_DBG_CNFG,
+	DBM_HW_TRB0_EP,
+	DBM_HW_TRB1_EP,
+	DBM_HW_TRB2_EP,
+	DBM_HW_TRB3_EP,
+	DBM_PIPE_CFG,
+	DBM_SOFT_RESET,
+	DBM_GEN_CFG,
+	DBM_GEVNTADR_LSB,
+	DBM_GEVNTADR_MSB,
+	DBM_DATA_FIFO_LSB,
+	DBM_DATA_FIFO_MSB,
+	DBM_DATA_FIFO_ADDR_EN,
+	DBM_DATA_FIFO_SIZE_EN,
+};
 
-#define DBM_DATA_FIFO_ADDR_EN	(0x200)
-#define DBM_DATA_FIFO_SIZE_EN	(0x204)
+struct dbm_reg_data {
+	u32 offset;
+	unsigned int ep_mult;
+};
 
 #define DBM_1_5_NUM_EP		8
 
 struct dbm_data {
 	void __iomem *base;
+	const struct dbm_reg_data *reg_table;
 
 	int dbm_num_eps;
 	u8 ep_num_mapping[DBM_1_5_NUM_EP];
@@ -58,55 +65,94 @@ struct dbm_data {
 
 static struct dbm_data *dbm_data;
 
+static const struct dbm_reg_data dbm_1_5_regtable[] = {
+	[DBM_EP_CFG]		= { 0x0000, 0x4 },
+	[DBM_DATA_FIFO]		= { 0x0280, 0x4 },
+	[DBM_DATA_FIFO_SIZE]	= { 0x0080, 0x4 },
+	[DBM_DATA_FIFO_EN]	= { 0x026C, 0x0 },
+	[DBM_GEVNTADR]		= { 0x0270, 0x0 },
+	[DBM_GEVNTSIZ]		= { 0x0268, 0x0 },
+	[DBM_DBG_CNFG]		= { 0x0208, 0x0 },
+	[DBM_HW_TRB0_EP]	= { 0x0220, 0x4 },
+	[DBM_HW_TRB1_EP]	= { 0x0230, 0x4 },
+	[DBM_HW_TRB2_EP]	= { 0x0240, 0x4 },
+	[DBM_HW_TRB3_EP]	= { 0x0250, 0x4 },
+	[DBM_PIPE_CFG]		= { 0x0274, 0x0 },
+	[DBM_SOFT_RESET]	= { 0x020C, 0x0 },
+	[DBM_GEN_CFG]		= { 0x0210, 0x0 },
+	[DBM_GEVNTADR_LSB]	= { 0x0260, 0x0 },
+	[DBM_GEVNTADR_MSB]	= { 0x0264, 0x0 },
+	[DBM_DATA_FIFO_LSB]	= { 0x0100, 0x8 },
+	[DBM_DATA_FIFO_MSB]	= { 0x0104, 0x8 },
+	[DBM_DATA_FIFO_ADDR_EN]	= { 0x0200, 0x0 },
+	[DBM_DATA_FIFO_SIZE_EN]	= { 0x0204, 0x0 },
+};
+
 /**
  * Write register masked field with debug info.
  *
- * @base - DWC3 base virtual address.
- * @offset - register offset.
+ * @dbm - DBM specific data
+ * @reg - DBM register, used to look up the offset value
+ * @ep - endpoint number
  * @mask - register bitmask.
  * @val - value to write.
  *
  */
-static inline void msm_dbm_write_reg_field(void *base, u32 offset,
-					    const u32 mask, u32 val)
+static inline void msm_dbm_write_ep_reg_field(struct dbm_data *dbm,
+					      enum dbm_reg reg, int ep,
+					      const u32 mask, u32 val)
 {
 	u32 shift = find_first_bit((void *)&mask, 32);
-	u32 tmp = ioread32(base + offset);
+	u32 offset = dbm->reg_table[reg].offset +
+			(dbm->reg_table[reg].ep_mult * ep);
+	u32 tmp = ioread32(dbm->base + offset);
 
 	tmp &= ~mask;		/* clear written bits */
 	val = tmp | (val << shift);
-	iowrite32(val, base + offset);
+	iowrite32(val, dbm->base + offset);
 }
+
+#define msm_dbm_write_reg_field(d, r, m, v) \
+	msm_dbm_write_ep_reg_field(d, r, 0, m, v)
 
 /**
  *
  * Read register with debug info.
  *
- * @base - DWC3 base virtual address.
- * @offset - register offset.
+ * @dbm - DBM specific data
+ * @reg - DBM register, used to look up the offset value
+ * @ep - endpoint number
  *
  * @return u32
  */
-static inline u32 msm_dbm_read_reg(void *base, u32 offset)
+static inline u32 msm_dbm_read_ep_reg(struct dbm_data *dbm, enum dbm_reg reg,
+				      int ep)
 {
-	u32 val = ioread32(base + offset);
-	return val;
+	u32 offset = dbm->reg_table[reg].offset +
+			(dbm->reg_table[reg].ep_mult * ep);
+	return ioread32(dbm->base + offset);
 }
+
+#define msm_dbm_read_reg(d, r) msm_dbm_read_ep_reg(d, r, 0)
 
 /**
  *
  * Write register with debug info.
  *
- * @base - DWC3 base virtual address.
- * @offset - register offset.
- * @val - value to write.
+ * @dbm - DBM specific data
+ * @reg - DBM register, used to look up the offset value
+ * @ep - endpoint number
  *
  */
-static inline void msm_dbm_write_reg(void *base, u32 offset, u32 val)
+static inline void msm_dbm_write_ep_reg(struct dbm_data *dbm, enum dbm_reg reg,
+					int ep, u32 val)
 {
-	iowrite32(val, base + offset);
+	u32 offset = dbm->reg_table[reg].offset +
+			(dbm->reg_table[reg].ep_mult * ep);
+	iowrite32(val, dbm->base + offset);
 }
 
+#define msm_dbm_write_reg(d, r, v) msm_dbm_write_ep_reg(d, r, 0, v)
 
 /**
  * Return DBM EP number according to usb endpoint number.
@@ -133,7 +179,7 @@ static int soft_reset(bool reset)
 {
 	pr_debug("%s DBM reset\n", (reset ? "Enter" : "Exit"));
 
-	msm_dbm_write_reg_field(dbm_data->base, DBM_SOFT_RESET,
+	msm_dbm_write_reg_field(dbm_data, DBM_SOFT_RESET,
 		DBM_SFT_RST_MASK, reset);
 
 	return 0;
@@ -159,10 +205,10 @@ static int ep_soft_reset(u8 dbm_ep, bool enter_reset)
 	}
 
 	if (enter_reset) {
-		msm_dbm_write_reg_field(dbm_data->base, DBM_SOFT_RESET,
+		msm_dbm_write_reg_field(dbm_data, DBM_SOFT_RESET,
 			DBM_SFT_RST_EPS_MASK & 1 << dbm_ep, 1);
 	} else {
-		msm_dbm_write_reg_field(dbm_data->base, DBM_SOFT_RESET,
+		msm_dbm_write_reg_field(dbm_data, DBM_SOFT_RESET,
 			DBM_SFT_RST_EPS_MASK & 1 << dbm_ep, 0);
 	}
 
@@ -228,21 +274,20 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 	ep_soft_reset(dbm_ep, 0);
 
 	/* Set ioc bit for dbm_ep if needed */
-	msm_dbm_write_reg_field(dbm_data->base, DBM_DBG_CNFG,
+	msm_dbm_write_reg_field(dbm_data, DBM_DBG_CNFG,
 		DBM_ENABLE_IOC_MASK & 1 << dbm_ep, ioc ? 1 : 0);
 
 	ep_cfg = (producer ? DBM_PRODUCER : 0) |
 		(disable_wb ? DBM_DISABLE_WB : 0) |
 		(internal_mem ? DBM_INT_RAM_ACC : 0);
 
-	msm_dbm_write_reg_field(dbm_data->base, DBM_EP_CFG(dbm_ep),
+	msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep,
 		DBM_PRODUCER | DBM_DISABLE_WB | DBM_INT_RAM_ACC, ep_cfg >> 8);
 
-	msm_dbm_write_reg_field(dbm_data->base, DBM_EP_CFG(dbm_ep), USB3_EPNUM,
+	msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep, USB3_EPNUM,
 		usb_ep);
 
-	msm_dbm_write_reg_field(dbm_data->base, DBM_EP_CFG(dbm_ep), DBM_EN_EP,
-		1);
+	msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep, DBM_EN_EP, 1);
 
 	return dbm_ep;
 }
@@ -284,9 +329,9 @@ static int ep_unconfig(u8 usb_ep)
 
 	dbm_data->ep_num_mapping[dbm_ep] = 0;
 
-	data = msm_dbm_read_reg(dbm_data->base, DBM_EP_CFG(dbm_ep));
+	data = msm_dbm_read_ep_reg(dbm_data, DBM_EP_CFG, dbm_ep);
 	data &= (~0x1);
-	msm_dbm_write_reg(dbm_data->base, DBM_EP_CFG(dbm_ep), data);
+	msm_dbm_write_ep_reg(dbm_data, DBM_EP_CFG, dbm_ep, data);
 
 	/* Reset the dbm endpoint */
 	ep_soft_reset(dbm_ep, true);
@@ -326,12 +371,12 @@ static int event_buffer_config(u32 addr_lo, u32 addr_hi, int size)
 	}
 
 	/* In case event buffer is already configured, Do nothing. */
-	if (msm_dbm_read_reg(dbm_data->base, DBM_GEVNTSIZ))
+	if (msm_dbm_read_reg(dbm_data, DBM_GEVNTSIZ))
 		return 0;
 
-	msm_dbm_write_reg(dbm_data->base, DBM_GEVNTADR_LSB, addr_lo);
-	msm_dbm_write_reg(dbm_data->base, DBM_GEVNTADR_MSB, addr_hi);
-	msm_dbm_write_reg_field(dbm_data->base, DBM_GEVNTSIZ,
+	msm_dbm_write_reg(dbm_data, DBM_GEVNTADR_LSB, addr_lo);
+	msm_dbm_write_reg(dbm_data, DBM_GEVNTADR_MSB, addr_hi);
+	msm_dbm_write_reg_field(dbm_data, DBM_GEVNTSIZ,
 		DBM_GEVNTSIZ_MASK, size);
 
 	return 0;
@@ -347,12 +392,10 @@ static int data_fifo_config(u8 dep_num, phys_addr_t addr,
 
 	dbm_data->ep_num_mapping[dbm_ep] = dep_num;
 
-	msm_dbm_write_reg(dbm_data->base,
-				DBM_DATA_FIFO_LSB(dbm_ep), lo);
-	msm_dbm_write_reg(dbm_data->base,
-				DBM_DATA_FIFO_MSB(dbm_ep), hi);
+	msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO_LSB, dbm_ep, lo);
+	msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO_MSB, dbm_ep, hi);
 
-	msm_dbm_write_reg_field(dbm_data->base, DBM_DATA_FIFO_SIZE(dbm_ep),
+	msm_dbm_write_ep_reg_field(dbm_data, DBM_DATA_FIFO_SIZE, dbm_ep,
 		DBM_DATA_FIFO_SIZE_MASK, size);
 
 	return 0;
@@ -361,13 +404,13 @@ static int data_fifo_config(u8 dep_num, phys_addr_t addr,
 
 static void set_speed(bool speed)
 {
-	msm_dbm_write_reg(dbm_data->base, DBM_GEN_CFG, speed);
+	msm_dbm_write_reg(dbm_data, DBM_GEN_CFG, speed);
 }
 
 static void enable(void)
 {
-	msm_dbm_write_reg(dbm_data->base, DBM_DATA_FIFO_ADDR_EN, 0x000000FF);
-	msm_dbm_write_reg(dbm_data->base, DBM_DATA_FIFO_SIZE_EN, 0x000000FF);
+	msm_dbm_write_reg(dbm_data, DBM_DATA_FIFO_ADDR_EN, 0x000000FF);
+	msm_dbm_write_reg(dbm_data, DBM_DATA_FIFO_SIZE_EN, 0x000000FF);
 }
 
 static bool reset_ep_after_lpm(void)
@@ -380,11 +423,17 @@ static bool l1_lpm_interrupt(void)
 	return true;
 }
 
+static const struct of_device_id msm_dbm_id_table[] = {
+	{ .compatible = "qcom,usb-dbm-1p5", .data = &dbm_1_5_regtable },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, msm_dbm_id_table);
 
 static int msm_dbm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
+	const struct of_device_id *match;
 	struct dbm *dbm;
 	struct resource *res;
 	int ret = 0;
@@ -393,6 +442,13 @@ static int msm_dbm_probe(struct platform_device *pdev)
 	if (!dbm_data)
 		return -ENOMEM;
 	dbm_data->dbm_num_eps = DBM_1_5_NUM_EP;
+
+	match = of_match_node(msm_dbm_id_table, node);
+	if (!match) {
+		dev_err(&pdev->dev, "Unsupported DBM module\n");
+		return -ENODEV;
+	}
+	dbm_data->reg_table = match->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -453,20 +509,12 @@ static int msm_dbm_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id msm_dbm_1_5_id_table[] = {
-	{
-		.compatible = "qcom,usb-dbm-1p5",
-	},
-	{ },
-};
-MODULE_DEVICE_TABLE(of, msm_dbm_1_5_id_table);
-
 static struct platform_driver msm_dbm_driver = {
 	.probe		= msm_dbm_probe,
 	.remove		= msm_dbm_remove,
 	.driver = {
 		.name	= "msm-usb-dbm-1-5",
-		.of_match_table = of_match_ptr(msm_dbm_1_5_id_table),
+		.of_match_table = of_match_ptr(msm_dbm_id_table),
 	},
 };
 
