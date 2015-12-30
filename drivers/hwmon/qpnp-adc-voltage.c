@@ -748,6 +748,8 @@ static int32_t
 #define QPNP_VBAT_COEFF_48	2190
 #define QPNP_VBAT_COEFF_49	4180
 #define QPNP_VBAT_COEFF_50	27800000
+#define QPNP_VBAT_COEFF_51	5110
+#define QPNP_VBAT_COEFF_52	34444000
 
 static int32_t qpnp_ocv_comp(int64_t *result,
 			struct qpnp_vadc_chip *vadc, int64_t die_temp)
@@ -917,6 +919,13 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 		switch (vadc->id) {
 		case COMP_ID_SMIC:
 			temp_var = (-QPNP_VBAT_COEFF_50);
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8909_1_1:
+		switch (vadc->id) {
+		case COMP_ID_SMIC:
+			temp_var = (QPNP_VBAT_COEFF_52);
 			break;
 		}
 		break;
@@ -1100,6 +1109,18 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 				temp_var = (((die_temp - 30000) *
 					(-QPNP_VBAT_COEFF_49)) +
 					(-QPNP_VBAT_COEFF_50));
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8909_1_1:
+		switch (vadc->id) {
+		case COMP_ID_SMIC:
+			if (die_temp < 30000)
+				temp_var = (QPNP_VBAT_COEFF_52);
+			else if (die_temp > 30000)
+				temp_var = (((die_temp - 30000) *
+					(-QPNP_VBAT_COEFF_51)) +
+					(QPNP_VBAT_COEFF_52));
 			break;
 		}
 		break;
