@@ -106,6 +106,20 @@ static struct msm_pcm_route_bdai_pp_params
 
 static int msm_routing_send_device_pp_params(int port_id,  int copp_idx);
 
+static bool msm_is_fractional_resample_needed(int input_sr, int output_sr)
+{
+	bool rc = false;
+
+	if ((input_sr % output_sr != 0) && (output_sr % input_sr != 0))
+		rc = true;
+
+	pr_debug("performing fractional resample (%s) for copp rate (%d)afe rate (%d)",
+		(rc ? "oh yes" : "not really"),
+		input_sr, output_sr);
+
+	return rc;
+}
+
 static void msm_pcm_routing_cfg_pp(int port_id, int copp_idx, int topology,
 				   int channels)
 {
@@ -790,6 +804,14 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 				 __func__, fe_id, session_type, i);
 			set_bit(copp_idx,
 				&session_copp_map[fe_id][session_type][i]);
+
+			if (msm_is_fractional_resample_needed(
+				sample_rate,
+				msm_bedais[i].sample_rate))
+				adm_copp_mfc_cfg(
+					msm_bedais[i].port_id, copp_idx,
+					msm_bedais[i].sample_rate);
+
 			for (j = 0; j < MAX_COPPS_PER_PORT; j++) {
 				unsigned long copp =
 				session_copp_map[fe_id][session_type][i];
@@ -930,6 +952,13 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 				 __func__, fedai_id, session_type, i);
 			set_bit(copp_idx,
 				&session_copp_map[fedai_id][session_type][i]);
+
+			if (msm_is_fractional_resample_needed(
+				sample_rate,
+				msm_bedais[i].sample_rate))
+				adm_copp_mfc_cfg(
+					msm_bedais[i].port_id, copp_idx,
+					msm_bedais[i].sample_rate);
 
 			for (j = 0; j < MAX_COPPS_PER_PORT; j++) {
 				unsigned long copp =
@@ -1142,6 +1171,13 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				 __func__, val, session_type, reg);
 			set_bit(copp_idx,
 				&session_copp_map[val][session_type][reg]);
+
+			if (msm_is_fractional_resample_needed(
+				sample_rate,
+				msm_bedais[reg].sample_rate))
+				adm_copp_mfc_cfg(
+					msm_bedais[reg].port_id, copp_idx,
+					msm_bedais[reg].sample_rate);
 
 			if (session_type == SESSION_TYPE_RX &&
 			    fdai->event_info.event_func)
@@ -8198,6 +8234,9 @@ static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
 	msm_bedais[be_id].sample_rate = params_rate(params);
 	msm_bedais[be_id].channel = params_channels(params);
 	msm_bedais[be_id].format = params_format(params);
+	pr_debug("%s: BE Sample Rate (%d) format (%d) be_id %d\n",
+		__func__, msm_bedais[be_id].sample_rate,
+		msm_bedais[be_id].format, be_id);
 	mutex_unlock(&routing_lock);
 	return 0;
 }
@@ -8357,6 +8396,13 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 				 __func__, i, session_type, be_id);
 			set_bit(copp_idx,
 				&session_copp_map[i][session_type][be_id]);
+
+			if (msm_is_fractional_resample_needed(
+				sample_rate,
+				bedai->sample_rate))
+				adm_copp_mfc_cfg(
+					bedai->port_id, copp_idx,
+					bedai->sample_rate);
 
 			msm_pcm_routing_build_matrix(i, session_type, path_type,
 						     fdai->perf_mode);

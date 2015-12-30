@@ -1442,13 +1442,13 @@ EXPORT_SYMBOL(mmc_cmdq_discard_queue);
 /**
  *	mmc_cmdq_post_req - post process of a completed request
  *	@host: host instance
- *	@mrq: the request to be processed
+ *	@tag: the request tag.
  *	@err: non-zero is error, success otherwise
  */
-void mmc_cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq, int err)
+void mmc_cmdq_post_req(struct mmc_host *host, int tag, int err)
 {
 	if (likely(host->cmdq_ops->post_req))
-		host->cmdq_ops->post_req(host, mrq, err);
+		host->cmdq_ops->post_req(host, tag, err);
 }
 EXPORT_SYMBOL(mmc_cmdq_post_req);
 
@@ -3530,6 +3530,7 @@ EXPORT_SYMBOL(mmc_can_reset);
 static int mmc_do_hw_reset(struct mmc_host *host, int check)
 {
 	struct mmc_card *card = host->card;
+	int ret;
 
 	if (!host->bus_ops->power_restore)
 		return -EOPNOTSUPP;
@@ -3576,9 +3577,28 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	mmc_set_ios(host);
 
 	mmc_host_clk_release(host);
+	mmc_claim_host(host);
+	ret = host->bus_ops->power_restore(host);
+	mmc_release_host(host);
+	return ret;
+}
 
+/*
+ * mmc_cmdq_hw_reset: Helper API for doing
+ * reset_all of host and reinitializing card.
+ * This must be called with mmc_claim_host
+ * acquired by the caller.
+ */
+int mmc_cmdq_hw_reset(struct mmc_host *host)
+{
+	if (!host->bus_ops->power_restore)
+		return -EOPNOTSUPP;
+
+	mmc_power_cycle(host, host->ocr_avail);
+	mmc_select_voltage(host, host->card->ocr);
 	return host->bus_ops->power_restore(host);
 }
+EXPORT_SYMBOL(mmc_cmdq_hw_reset);
 
 int mmc_hw_reset(struct mmc_host *host)
 {
@@ -3856,7 +3876,9 @@ int mmc_power_restore_host(struct mmc_host *host)
 	}
 
 	mmc_power_up(host, host->card->ocr);
+	mmc_claim_host(host);
 	ret = host->bus_ops->power_restore(host);
+	mmc_release_host(host);
 
 	mmc_bus_put(host);
 

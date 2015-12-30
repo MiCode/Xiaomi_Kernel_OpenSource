@@ -393,8 +393,8 @@
 					 990000 1065000 1065000>;
 
 				qcom,cpr-voltage-floor =
-					<590000  625000  690000 755000 800000
-					 855000  920000  920000>;
+					<565000  595000 650000 710000 745000
+					 785000  845000 845000>;
 
 				qcom,mem-acc-voltage = <1 1 2 2 2 2 2 2>;
 
@@ -451,5 +451,13 @@
 
 		mem-acc-supply = <&gfx_mem_acc>;
 		qcom,mem-acc-corner-map = <1 1 1 2 2 2 2>;
+	};
+
+	eldo2_titanium: eldo2 {
+		compatible = "regulator-fixed";
+		regulator-name = "eldo2_titanium";
+		startup-delay-us = <0>;
+		enable-active-high;
+		gpio = <&tlmm 50 0>;
 	};
 };

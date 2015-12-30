@@ -1025,6 +1025,12 @@ static int msm_iommu_domain_set_attr(struct iommu_domain *domain,
 		 * any domain.
 		 */
 		break;
+	case DOMAIN_ATTR_ATOMIC:
+		/*
+		 * Map / unmap in legacy driver are by default atomic. So
+		 * we don't need to do anything here.
+		 */
+		break;
 	default:
 		return -EINVAL;
 	}

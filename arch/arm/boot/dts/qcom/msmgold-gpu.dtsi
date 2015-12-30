@@ -1,0 +1,188 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	msm_bus: qcom,kgsl-busmon {
+		label = "kgsl-busmon";
+		compatible = "qcom,kgsl-busmon";
+	};
+
+	/* Bus governor */
+	gpubw: qcom,gpubw {
+		compatible = "qcom,devbw";
+		governor = "bw_vbif";
+		qcom,src-dst-ports = <26 512>;
+		/*
+		 * Need to configure 2x Clock as BIMC
+		 * Internally Divides by 2 for Gen1 DDR PHY.
+		 */
+		qcom,active-only;
+		qcom,bw-tbl =
+			< 0 >,    /* Off */
+			< 1538 >, /* 1. DDR:100.80 MHz BIMC: 201.60 MHz */
+			< 3222 >, /* 2. DDR:211.20 MHz BIMC: 422.40 MHz */
+			< 4541 >, /* 3. DDR:297.60 MHz BIMC: 595.20 MHz */
+			< 5859 >, /* 4. DDR:384.00 MHz BIMC: 768.00 MHz */
+			< 8496 >, /* 5. DDR:556.80 MHz BIMC: 1113.60 MHz */
+			< 9082 >, /* 6. DDR:595.20 MHz BIMC: 1190.40 MHz */
+			< 10253>; /* 7. DDR:672.00 MHz BIMC: 1344.00 MHz */
+	};
+
+	msm_gpu: qcom,kgsl-3d0@1c00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0x1c00000 0x10000
+		       0x1c10000 0x10000>;
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,chipid = <0x03000620>;
+
+		qcom,initial-pwrlevel = <3>;
+
+		/* Idle Timeout = HZ/12 */
+		qcom,idle-timeout = <8>;
+		qcom,strtstp-sleepwake;
+
+		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
+			<&clock_gcc clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>,
+			<&clock_gcc clk_gcc_bimc_gpu_clk>,
+			<&clock_gcc clk_gcc_gtcu_ahb_clk>,
+			<&clock_gcc clk_gcc_gfx_tcu_clk>;
+
+		clock-names = "core_clk", "iface_clk", "mem_iface_clk",
+				"alt_mem_iface_clk", "gtcu_iface_clk",
+				"gtcu_clk";
+
+		/* Bus Scale Settings */
+		qcom,gpubw-dev = <&gpubw>;
+		qcom,bus-control;
+		qcom,bus-width = <16>;
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>,	    /*    off        */
+				<26 512 0  1612800>, /* 1. 100.80 MHz */
+				<26 512 0  3379200>, /* 2. 211.20 MHz */
+				<26 512 0  4454400>, /* 3. 278.40 MHz */
+				<26 512 0  6144000>, /* 4. 384.00 MHz */
+				<26 512 0  8601600>, /* 5. 537.60 MHz */
+				<26 512 0  8908800>, /* 6. 556.80 MHz */
+				<26 512 0 10598400>; /* 7. 662.40 MHz */
+
+		/* GDSC regulator names */
+		regulator-names = "vdd";
+		/* GDSC oxili regulators */
+		vdd-supply = <&gdsc_oxili_gx>;
+
+		/* IOMMU Data */
+		iommu = <&gfx_iommu>;
+
+		/* CPU latency parameter */
+		qcom,pm-qos-active-latency = <360>;
+		qcom,pm-qos-wakeup-latency = <360>;
+
+		/* Trace bus */
+		coresight-id = <67>;
+		coresight-name = "coresight-gfx";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_mm>;
+		coresight-child-ports = <6>;
+
+		/* Power levels */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			/* TURBO */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <598000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <6>;
+				qcom,bus-max = <7>;
+			};
+
+			/* NOM+ */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <523200000>;
+				qcom,bus-freq = <6>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <7>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <484800000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <6>;
+			};
+
+			/* SVS+ */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <400000000>;
+				qcom,bus-freq = <4>;
+				qcom,bus-min = <3>;
+				qcom,bus-max = <5>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <270000000>;
+				qcom,bus-freq = <3>;
+				qcom,bus-min = <1>;
+				qcom,bus-max = <3>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <19200000>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+		};
+	};
+};
+
+	kgsl_msm_iommu: qcom,kgsl-iommu@1f00000 {
+		compatible = "qcom,kgsl-smmu-v2";
+		reg = <0x1f00000 0x10000>;
+		/*
+		 * The gpu can only program a single context bank
+		 * at this fixed offset.
+		 */
+		qcom,protect = <0xa000 0x1000>;
+		clocks = <&clock_gcc clk_gcc_smmu_cfg_clk>,
+			<&clock_gcc clk_gcc_gfx_tcu_clk>,
+			<&clock_gcc clk_gcc_gtcu_ahb_clk>,
+			<&clock_gcc clk_gcc_gfx_tbu_clk>;
+		clock-names = "iface_clk", "core_clk", "gtcu_iface_clk",
+				"gtbu_clk";
+		gfx3d_user: gfx3d_user {
+			compatible = "qcom,smmu-kgsl-cb";
+			qcom,gpu-offset = <0xa000>;
+		};
+	};
+};

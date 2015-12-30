@@ -172,6 +172,8 @@
 			qcom,iommu-ctx-sids = <0x2001>;
 			qcom,iommu-sid-mask = <0x3f0>;
 			label = "adsp_io";
+			qcom,virtual-addr-pool = <0x10000000 0x0fffffff>;
+			#iommu-cells = <1>;
 		};
 
 		adsp_opendsp: qcom,iommu-ctx@1e30000 {

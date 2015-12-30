@@ -15,6 +15,7 @@
 
 #include "msm8937.dtsi"
 #include "msm8937-pmi8950-cdp.dtsi"
+#include "msm8937-audio-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8937-PMI8950 CDP";

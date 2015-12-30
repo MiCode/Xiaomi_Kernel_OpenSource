@@ -118,7 +118,8 @@ struct ci13xxx_ep {
 	struct dma_pool                       *td_pool;
 	struct ci13xxx_td                     *last_zptr;
 	dma_addr_t                            last_zdma;
-	unsigned long dTD_update_fail_count;
+	unsigned long                         dTD_update_fail_count;
+	unsigned long                         dTD_active_re_q_count;
 	unsigned long			      prime_fail_count;
 	int				      prime_timer_count;
 	struct timer_list		      prime_timer;

@@ -103,6 +103,7 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk1_pin, bb_clk1_a_pin, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk2_pin, bb_clk2_a_pin, BB_CLK2_ID);
 
 DEFINE_CLK_DUMMY(wcnss_m_clk, 0);
+DEFINE_EXT_CLK(debug_cpu_clk, NULL);
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
@@ -3266,7 +3267,11 @@ static struct mux_clk gcc_debug_mux = {
 	.en_offset = GCC_DEBUG_CLK_CTL,
 	.en_mask = BIT(16),
 	.base = &virt_bases[GCC_BASE],
+	MUX_REC_SRC_LIST(
+		&debug_cpu_clk.c,
+	),
 	MUX_SRC_LIST(
+		{ &debug_cpu_clk.c, 0x016A },
 		{ &snoc_clk.c, 0x0000 },
 		{ &sysmmnoc_clk.c, 0x0001 },
 		{ &pcnoc_clk.c, 0x0008 },
@@ -3741,6 +3746,7 @@ arch_initcall(msm_gcc_init);
 
 static struct clk_lookup msm_clocks_measure[] = {
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
+	CLK_LIST(debug_cpu_clk),
 };
 
 static int msm_clock_debug_probe(struct platform_device *pdev)
@@ -3749,6 +3755,12 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 
 	clk_ops_debug_mux = clk_ops_gen_mux;
 	clk_ops_debug_mux.get_rate = measure_get_rate;
+
+	debug_cpu_clk.c.parent = devm_clk_get(&pdev->dev, "debug_cpu_clk");
+	if (IS_ERR(debug_cpu_clk.c.parent)) {
+		dev_err(&pdev->dev, "Failed to get CPU debug Mux\n");
+		return PTR_ERR(debug_cpu_clk.c.parent);
+	}
 
 	ret =  of_msm_clock_register(pdev->dev.of_node, msm_clocks_measure,
 					ARRAY_SIZE(msm_clocks_measure));

@@ -73,30 +73,17 @@ dt_error:
 	return r;
 }
 
-int create_ev_rings(struct mhi_device_ctxt *mhi_dev_ctxt)
+int create_local_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	int r = 0, i;
-	struct mhi_event_ctxt *ev_ctxt = NULL;
+	int r = 0;
 
-	size_t ctxt_size = sizeof(struct mhi_event_ctxt) *
-				    mhi_dev_ctxt->mmio_info.nr_event_rings;
-	/* Allocate the event contexts in uncached memory */
-	mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list =
-				dma_alloc_coherent(
-				&mhi_dev_ctxt->dev_info->plat_dev->dev,
-				ctxt_size,
-				&mhi_dev_ctxt->mmio_info.dma_ev_ctxt,
-				GFP_KERNEL);
-	if (!mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list)
+	mhi_dev_ctxt->mhi_local_event_ctxt = kzalloc(sizeof(struct mhi_ring)*
+					mhi_dev_ctxt->mmio_info.nr_event_rings,
+					GFP_KERNEL);
+
+	if (!mhi_dev_ctxt->mhi_local_event_ctxt)
 		return -ENOMEM;
 
-	mhi_dev_ctxt->mhi_local_event_ctxt = kzalloc(sizeof(struct mhi_ring) *
-				     mhi_dev_ctxt->mmio_info.nr_event_rings,
-				     GFP_KERNEL);
-	if (!mhi_dev_ctxt->mhi_local_event_ctxt) {
-		r = -ENOMEM;
-		goto free_ec_list;
-	}
 	mhi_dev_ctxt->counters.ev_counter = kzalloc(sizeof(u32) *
 				     mhi_dev_ctxt->mmio_info.nr_event_rings,
 				     GFP_KERNEL);
@@ -111,73 +98,19 @@ int create_ev_rings(struct mhi_device_ctxt *mhi_dev_ctxt)
 		r = -ENOMEM;
 		goto free_ev_counter;
 	}
-
-	mhi_dev_ctxt->mmio_info.dma_ev_rings = kzalloc(sizeof(void *) *
-				     mhi_dev_ctxt->mmio_info.nr_event_rings,
-				     GFP_KERNEL);
-	if (!mhi_dev_ctxt->mmio_info.dma_ev_rings) {
-		r = -ENOMEM;
-		goto free_msi_counter;
-	}
-	mhi_log(MHI_MSG_INFO, "Allocated ECABAP at Virt: 0x%p, Phys 0x%lx\n",
-			mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list,
-			(uintptr_t)mhi_dev_ctxt->mmio_info.dma_ev_ctxt);
-
-	/* Allocate event ring elements for each ring */
-	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
-		dma_addr_t ring_base_addr;
-		ev_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[i];
-		mhi_dev_ctxt->mhi_local_event_ctxt[i].base =
-			dma_alloc_coherent(
-				&mhi_dev_ctxt->dev_info->plat_dev->dev,
-				sizeof(union mhi_event_pkt) *
-				mhi_dev_ctxt->ev_ring_props[i].nr_desc,
-				&ring_base_addr,
-				GFP_KERNEL);
-		if (!mhi_dev_ctxt->mhi_local_event_ctxt[i].base) {
-			r = -ENOMEM;
-			goto free_event_ring;
-		}
-
-		ev_ctxt->mhi_event_ring_base_addr = ring_base_addr;
-		ev_ctxt->mhi_event_read_ptr = ring_base_addr;
-		ev_ctxt->mhi_event_write_ptr = ring_base_addr;
-
-		mhi_dev_ctxt->mhi_local_event_ctxt[i].wp =
-				mhi_dev_ctxt->mhi_local_event_ctxt[i].base;
-		mhi_dev_ctxt->mhi_local_event_ctxt[i].rp =
-				mhi_dev_ctxt->mhi_local_event_ctxt[i].base;
-		mhi_log(MHI_MSG_INFO, "Allocated Event Ring %d\n", i);
-	}
 	return r;
 
-free_event_ring:
-	for (; i > 0; --i) {
-		ev_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[i];
-		dma_free_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
-				  sizeof(union mhi_event_pkt *) *
-				  mhi_dev_ctxt->ev_ring_props[i].nr_desc,
-				  mhi_dev_ctxt->mhi_local_event_ctxt[i].base,
-				  ev_ctxt->mhi_event_ring_base_addr);
-	}
-	kfree(mhi_dev_ctxt->mmio_info.dma_ev_rings);
-free_msi_counter:
-	kfree(mhi_dev_ctxt->counters.msi_counter);
 free_ev_counter:
 	kfree(mhi_dev_ctxt->counters.ev_counter);
 free_local_ec_list:
 	kfree(mhi_dev_ctxt->mhi_local_event_ctxt);
-free_ec_list:
-	dma_free_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
-				ctxt_size,
-				mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list,
-				mhi_dev_ctxt->mmio_info.dma_ev_ctxt);
 	return r;
 }
 void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 {
 	struct mhi_ring *event_ctxt = NULL;
 	u64 db_value = 0;
+
 	event_ctxt =
 		&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index];
 	db_value = mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_EVENT_RING,
@@ -203,22 +136,20 @@ static enum MHI_STATUS mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
 	return MHI_STATUS_SUCCESS;
 }
 
-int init_event_ctxt_array(struct mhi_device_ctxt *mhi_dev_ctxt)
+void init_event_ctxt_array(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int i;
 	struct mhi_ring *mhi_local_event_ctxt = NULL;
 	struct mhi_event_ctxt *event_ctxt;
-	struct mhi_control_seg *mhi_ctrl = mhi_dev_ctxt->mhi_ctrl_seg;
 
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
-		event_ctxt = &mhi_ctrl->mhi_ec_list[i];
+		event_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
 		mhi_local_event_ctxt = &mhi_dev_ctxt->mhi_local_event_ctxt[i];
 		mhi_event_ring_init(event_ctxt, mhi_local_event_ctxt,
 			mhi_dev_ctxt->ev_ring_props[i].nr_desc,
 			mhi_dev_ctxt->ev_ring_props[i].intmod,
 			mhi_dev_ctxt->ev_ring_props[i].msi_vec);
 	}
-	return 0;
 }
 
 int init_local_ev_ring_by_type(struct mhi_device_ctxt *mhi_dev_ctxt,
@@ -291,7 +222,8 @@ enum MHI_STATUS mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 	mhi_log(MHI_MSG_INFO, "mmio_addr = 0x%p, mmio_len = 0x%llx\n",
 			mhi_dev_ctxt->mmio_info.mmio_addr,
 			mhi_dev_ctxt->mmio_info.mmio_len);
-	mhi_log(MHI_MSG_INFO, "Initializing event ring %d\n", ring_index);
+	mhi_log(MHI_MSG_INFO, "Initializing event ring %d with %d desc\n",
+			ring_index, nr_ev_el);
 
 	for (i = 0; i < nr_ev_el - 1; ++i) {
 		ret_val = ctxt_add_element(event_ctxt, (void *)&ev_pkt);
@@ -312,16 +244,20 @@ void mhi_reset_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 {
 	struct mhi_event_ctxt *ev_ctxt;
 	struct mhi_ring *local_ev_ctxt;
+
 	mhi_log(MHI_MSG_VERBOSE, "Resetting event index %d\n", index);
 	ev_ctxt =
-	    &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[index];
+	    &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[index];
 	local_ev_ctxt =
 	    &mhi_dev_ctxt->mhi_local_event_ctxt[index];
 	ev_ctxt->mhi_event_read_ptr = ev_ctxt->mhi_event_ring_base_addr;
 	ev_ctxt->mhi_event_write_ptr = ev_ctxt->mhi_event_ring_base_addr;
 	local_ev_ctxt->rp = local_ev_ctxt->base;
 	local_ev_ctxt->wp = local_ev_ctxt->base;
+
+	ev_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[index];
+	ev_ctxt->mhi_event_read_ptr = ev_ctxt->mhi_event_ring_base_addr;
+	ev_ctxt->mhi_event_write_ptr = ev_ctxt->mhi_event_ring_base_addr;
 	/* Flush writes to MMIO */
 	wmb();
 }
-

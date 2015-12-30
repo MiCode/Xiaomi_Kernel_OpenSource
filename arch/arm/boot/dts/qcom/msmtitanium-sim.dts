@@ -65,3 +65,231 @@
 &qusb_phy {
 	compatible =  "usb-nop-xceiv";
 };
+
+&dcc {
+	status = "disabled";
+};
+
+&tmc_etr {
+	status = "disabled";
+};
+
+&replicator {
+	status = "disabled";
+};
+
+&tmc_etf {
+	status = "disabled";
+};
+
+&funnel_in0 {
+	status = "disabled";
+};
+
+&funnel_center {
+	status = "disabled";
+};
+
+&funnel_right {
+	status = "disabled";
+};
+
+&funnel_mm {
+	status = "disabled";
+};
+
+&funnel_cam {
+	status = "disabled";
+};
+
+&funnel_apss1 {
+	status = "disabled";
+};
+
+&funnel_apss0 {
+	status = "disabled";
+};
+
+&etm0 {
+	status = "disabled";
+};
+
+&etm1 {
+	status = "disabled";
+};
+
+&etm2 {
+	status = "disabled";
+};
+
+&etm3 {
+	status = "disabled";
+};
+
+&etm4 {
+	status = "disabled";
+};
+
+&etm5 {
+	status = "disabled";
+};
+
+&etm6 {
+	status = "disabled";
+};
+
+&etm7 {
+	status = "disabled";
+};
+
+&stm {
+	status = "disabled";
+};
+
+&csr {
+	status = "disabled";
+};
+
+&dbgui {
+	status = "disabled";
+};
+
+&cti0 {
+	status = "disabled";
+};
+
+&cti1 {
+	status = "disabled";
+};
+
+&cti2 {
+	status = "disabled";
+};
+
+&cti3 {
+	status = "disabled";
+};
+
+&cti4 {
+	status = "disabled";
+};
+
+&cti5 {
+	status = "disabled";
+};
+
+&cti6 {
+	status = "disabled";
+};
+
+&cti7 {
+	status = "disabled";
+};
+
+&cti8 {
+	status = "disabled";
+};
+
+&cti9 {
+	status = "disabled";
+};
+
+&cti10 {
+	status = "disabled";
+};
+
+&cti11 {
+	status = "disabled";
+};
+
+&cti12 {
+	status = "disabled";
+};
+
+&cti13 {
+	status = "disabled";
+};
+
+&cti14 {
+	status = "disabled";
+};
+
+&cti15 {
+	status = "disabled";
+};
+
+&cti_cpu0 {
+	status = "disabled";
+};
+
+&cti_cpu1 {
+	status = "disabled";
+};
+
+&cti_cpu2 {
+	status = "disabled";
+};
+
+&cti_cpu3 {
+	status = "disabled";
+};
+
+&cti_cpu4 {
+	status = "disabled";
+};
+
+&cti_cpu5 {
+	status = "disabled";
+};
+
+&cti_cpu6 {
+	status = "disabled";
+};
+
+&cti_cpu7 {
+	status = "disabled";
+};
+
+&cti_modem_cpu0 {
+	status = "disabled";
+};
+
+&cti_modem_cpu1 {
+	status = "disabled";
+};
+
+&cti_video_cpu0 {
+	status = "disabled";
+};
+
+&cti_wcn_cpu0 {
+	status = "disabled";
+};
+
+&cti_audio_cpu0 {
+	status = "disabled";
+};
+
+&tpda {
+	status = "disabled";
+};
+
+&tpdm_dcc {
+	status = "disabled";
+};
+
+&hwevent {
+	status = "disabled";
+};
+
+&fuse {
+	status = "disabled";
+};
+
+&qpdi {
+	status = "disabled";
+};
+
+&tpiu {
+	status = "disabled";
+};

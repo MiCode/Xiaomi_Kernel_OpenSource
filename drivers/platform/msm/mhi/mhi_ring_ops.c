@@ -13,25 +13,26 @@
 #include "mhi_sys.h"
 #include "mhi.h"
 
-static enum MHI_STATUS add_element(struct mhi_ring *ring, void **rp,
+static int add_element(struct mhi_ring *ring, void **rp,
 			void **wp, void **assigned_addr)
 {
 	uintptr_t d_wp = 0, d_rp = 0, ring_size = 0;
+	int r;
 
 	if (0 == ring->el_size || NULL == ring
 		|| NULL == ring->base || 0 == ring->len) {
 		mhi_log(MHI_MSG_ERROR, "Bad input parameters, quitting.\n");
-		return MHI_STATUS_ERROR;
+		return -EINVAL;
 	}
 
-	if (MHI_STATUS_SUCCESS != get_element_index(ring, *rp, &d_rp)) {
-		mhi_log(MHI_MSG_CRITICAL, "Bad element index.\n");
-		return MHI_STATUS_ERROR;
-	}
-	if (MHI_STATUS_SUCCESS != get_element_index(ring, *wp, &d_wp)) {
-		mhi_log(MHI_MSG_CRITICAL, "Bad element index.\n");
-		return MHI_STATUS_ERROR;
-	}
+	r = get_element_index(ring, *rp, &d_rp);
+	if (r)
+		return r;
+	r = get_element_index(ring, *wp, &d_wp);
+
+	if (r)
+		return r;
+
 	ring_size = ring->len / ring->el_size;
 
 	if ((d_wp + 1) % ring_size == d_rp) {
@@ -40,22 +41,22 @@ static enum MHI_STATUS add_element(struct mhi_ring *ring, void **rp,
 		} else {
 			mhi_log(MHI_MSG_INFO, "Ring 0x%lX is full\n",
 					(uintptr_t)ring->base);
-			return MHI_STATUS_RING_FULL;
+			return -ENOSPC;
 		}
 	}
 	if (NULL != assigned_addr)
 		*assigned_addr = (char *)ring->wp;
 	*wp = (void *)(((d_wp + 1) % ring_size) * ring->el_size +
 						(uintptr_t)ring->base);
-	return MHI_STATUS_SUCCESS;
+	return 0;
 }
 
-inline enum MHI_STATUS ctxt_add_element(struct mhi_ring *ring,
+inline int ctxt_add_element(struct mhi_ring *ring,
 						void **assigned_addr)
 {
 	return add_element(ring, &ring->rp, &ring->wp, assigned_addr);
 }
-inline enum MHI_STATUS ctxt_del_element(struct mhi_ring *ring,
+inline int ctxt_del_element(struct mhi_ring *ring,
 						void **assigned_addr)
 {
 	return delete_element(ring, &ring->rp, &ring->wp, assigned_addr);
@@ -70,32 +71,29 @@ inline enum MHI_STATUS ctxt_del_element(struct mhi_ring *ring,
  * @wp ring write pointer
  * @assigned_addr location of the element just deleted
  */
-enum MHI_STATUS delete_element(struct mhi_ring *ring, void **rp,
+int delete_element(struct mhi_ring *ring, void **rp,
 			void **wp, void **assigned_addr)
 {
 	uintptr_t d_wp = 0, d_rp = 0, ring_size = 0;
+	int r;
 
 	if (0 == ring->el_size || NULL == ring ||
-		NULL == ring->base || 0 == ring->len) {
-		mhi_log(MHI_MSG_ERROR, "Bad input parameters, quitting.\n");
-		return MHI_STATUS_ERROR;
-	}
-	ring_size = ring->len / ring->el_size;
+		NULL == ring->base || 0 == ring->len)
+		return -EINVAL;
 
-	if (MHI_STATUS_SUCCESS != get_element_index(ring, *rp, &d_rp)) {
-		mhi_log(MHI_MSG_CRITICAL, "Bad element index.\n");
-		return MHI_STATUS_ERROR;
-	}
-	if (MHI_STATUS_SUCCESS != get_element_index(ring, *wp, &d_wp)) {
-		mhi_log(MHI_MSG_CRITICAL, "Bad element index.\n");
-		return MHI_STATUS_ERROR;
-	}
+	ring_size = ring->len / ring->el_size;
+	r = get_element_index(ring, *rp, &d_rp);
+	if (r)
+		return r;
+	r = get_element_index(ring, *wp, &d_wp);
+	if (r)
+		return r;
 	if (d_wp == d_rp) {
-		mhi_log(MHI_MSG_VERBOSE, "Ring 0x%lX is empty\n",
+		mhi_log(MHI_MSG_VERBOSE, "Ring 0x%lx is empty\n",
 				(uintptr_t)ring->base);
 		if (NULL != assigned_addr)
 			*assigned_addr = NULL;
-		return MHI_STATUS_RING_EMPTY;
+		return -ENODATA;
 	}
 
 	if (NULL != assigned_addr)
@@ -103,14 +101,14 @@ enum MHI_STATUS delete_element(struct mhi_ring *ring, void **rp,
 
 	*rp = (void *)(((d_rp + 1) % ring_size) * ring->el_size +
 						(uintptr_t)ring->base);
-
-	return MHI_STATUS_SUCCESS;
+	return 0;
 }
 
 int mhi_get_free_desc(struct mhi_client_handle *client_handle)
 {
 	u32 chan;
 	struct mhi_device_ctxt *ctxt;
+
 	if (!client_handle || MHI_HANDLE_MAGIC != client_handle->magic ||
 	    !client_handle->mhi_dev_ctxt)
 		return -EINVAL;
@@ -126,6 +124,7 @@ int get_nr_avail_ring_elements(struct mhi_ring *ring)
 	u32 nr_el = 0;
 	uintptr_t ring_size = 0;
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+
 	ring_size = ring->len / ring->el_size;
 	ret_val = get_nr_enclosed_el(ring, ring->rp, ring->wp, &nr_el);
 	if (ret_val != MHI_STATUS_SUCCESS) {
@@ -142,6 +141,7 @@ enum MHI_STATUS get_nr_enclosed_el(struct mhi_ring *ring, void *rp,
 	uintptr_t index_rp = 0;
 	uintptr_t index_wp = 0;
 	uintptr_t ring_size = 0;
+
 	if (0 == ring->el_size || NULL == ring ||
 		NULL == ring->base || 0 == ring->len) {
 		mhi_log(MHI_MSG_ERROR, "Bad input parameters, quitting.\n");
@@ -167,20 +167,22 @@ enum MHI_STATUS get_nr_enclosed_el(struct mhi_ring *ring, void *rp,
 	return MHI_STATUS_SUCCESS;
 }
 
-enum MHI_STATUS get_element_index(struct mhi_ring *ring,
+int get_element_index(struct mhi_ring *ring,
 				void *address, uintptr_t *index)
 {
-	if (MHI_STATUS_SUCCESS != validate_ring_el_addr(ring,
-							(uintptr_t)address))
-		return MHI_STATUS_ERROR;
+	int r = validate_ring_el_addr(ring, (uintptr_t)address);
+
+	if (r)
+		return r;
 	*index = ((uintptr_t)address - (uintptr_t)ring->base) / ring->el_size;
-	return MHI_STATUS_SUCCESS;
+	return r;
 }
 
 enum MHI_STATUS get_element_addr(struct mhi_ring *ring,
 				uintptr_t index, void **address)
 {
 	uintptr_t ring_size = 0;
+
 	if (NULL == ring || NULL == address)
 		return MHI_STATUS_ERROR;
 	ring_size = ring->len / ring->el_size;

@@ -94,8 +94,7 @@ struct mmc_cmdq_host_ops {
 	int (*enable)(struct mmc_host *host);
 	void (*disable)(struct mmc_host *host, bool soft);
 	int (*request)(struct mmc_host *host, struct mmc_request *mrq);
-	void (*post_req)(struct mmc_host *host, struct mmc_request *mrq,
-			 int err);
+	void (*post_req)(struct mmc_host *host, int tag, int err);
 	int (*halt)(struct mmc_host *host, bool halt);
 	void (*reset)(struct mmc_host *host, bool soft);
 	void (*dumpstate)(struct mmc_host *host);
@@ -257,6 +256,7 @@ struct mmc_cmdq_context_info {
 #define	CMDQ_STATE_DCMD_ACTIVE 1
 #define	CMDQ_STATE_HALT 2
 #define	CMDQ_STATE_CQ_DISABLE 3
+#define	CMDQ_STATE_REQ_TIMED_OUT 4
 	wait_queue_head_t	queue_empty_wq;
 	wait_queue_head_t	wait;
 	int active_small_sector_read_reqs;

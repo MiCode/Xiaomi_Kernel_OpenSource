@@ -99,12 +99,14 @@
 
 #include "msmgold-pinctrl.dtsi"
 #include "msmgold-cpu.dtsi"
+#include "msmgold-gpu.dtsi"
 #include "msmgold-pm.dtsi"
 #include "msmgold-ion.dtsi"
 #include "msmgold-iommu.dtsi"
 #include "msmgold-iommu-domains.dtsi"
 #include "msmgold-smp2p.dtsi"
 #include "msmgold-coresight.dtsi"
+#include "msm8937-bus.dtsi"
 #include "msmgold-mdss.dtsi"
 #include "msmgold-mdss-pll.dtsi"
 
@@ -208,6 +210,11 @@
 		clock-frequency = <32768>;
 	};
 
+	cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <1 7 0xff00>;
+	};
+
 	tsens: tsens@4a8000 {
 		compatible = "qcom,msmgold-tsens";
 		reg = <0x4a8000 0x2000>,
@@ -219,6 +226,19 @@
 		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
 								3200>;
 		qcom,valid-status-check;
+	};
+
+	slim_msm: slim@c140000{
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc140000 0x2c000>,
+		      <0xc104000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 180 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x600000>;
+		qcom,ea-pc = <0x230>;
+		status = "disabled";
 	};
 
 	qcom,sensor-information {

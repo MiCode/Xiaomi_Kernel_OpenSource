@@ -3768,6 +3768,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
 	if (ipa_ctx->smmu_present)
 		bam_props.options |= SPS_BAM_SMMU_EN;
+	bam_props.options |= SPS_BAM_CACHED_WP;
 	bam_props.ee = resource_p->ee;
 	bam_props.ipc_loglevel = 3;
 
