@@ -202,6 +202,14 @@ config MSM_CORE_HANG_DETECT
 	  reset on core hang detection and collects the core context
 	  for hang.
 
+config MSM_GLADIATOR_HANG_DETECT
+	tristate "MSM Gladiator Hang Detection Support"
+	help
+	  This enables the gladiator hang detection module.
+	  If the configured threshold is reached, it causes SoC reset on
+	  gladiator hang detection and collects the context for the
+	  gladiator hang.
+
 config MSM_CPU_PWR_CTL
 	bool "Cpu subsystem power control"
 	depends on SMP && (ARM || ARM64)
