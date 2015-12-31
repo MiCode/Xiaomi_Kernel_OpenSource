@@ -1778,6 +1778,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	if (of_property_read_bool(np, "qcom,wakeup-on-idle"))
 		host->mmc->wakeup_on_idle = true;
 
+	if (of_get_property(np, "qcom,core_3_0v_support", NULL))
+		pdata->core_3_0v_support = true;
+
 	return pdata;
 out:
 	return NULL;
@@ -3420,6 +3423,14 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	if ((major == 1) && (minor < 0x34))
 		msm_host->use_cdclp533 = true;
 
+	/* Fake 3.0V support for SDIO devices which requires such voltage */
+	if (msm_host->pdata->core_3_0v_support) {
+		caps |= CORE_3_0V_SUPPORT;
+		writel_relaxed(
+			(readl_relaxed(host->ioaddr + SDHCI_CAPABILITIES) |
+			caps), host->ioaddr + CORE_VENDOR_SPEC_CAPABILITIES0);
+	}
+
 	/*
 	 * SDCC 5 controller with major version 1, minor version 0x42 and later
 	 * will require additional steps when resetting DLL.
@@ -3866,7 +3877,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		msm_host->is_sdiowakeup_enabled = true;
 		ret = request_irq(msm_host->pdata->sdiowakeup_irq,
 				  sdhci_msm_sdiowakeup_irq,
-				  IRQF_SHARED | IRQF_TRIGGER_LOW,
+				  IRQF_SHARED | IRQF_TRIGGER_HIGH,
 				  "sdhci-msm sdiowakeup", host);
 		if (ret) {
 			dev_err(&pdev->dev, "%s: request sdiowakeup IRQ %d: failed: %d\n",

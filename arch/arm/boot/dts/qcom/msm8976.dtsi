@@ -1028,6 +1028,7 @@
 		clocks = <&clock_gcc clk_gcc_sdcc3_ahb_clk>,
 			<&clock_gcc clk_gcc_sdcc3_apps_clk>;
 
+		qcom,core_3_0v_support;
 		qcom,msm-bus,name = "sdhc3";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1049,12 +1050,11 @@
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 295 0
 			1 &intc 0 297 0
-			2 &msm_gpio 41 0x8>;
+			2 &msm_gpio 45 0x4>;
 		interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
 
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
 						"SDR104";
-		qcom,dat1-mpm-int = <41>;
 		status = "disabled";
 	};
 
