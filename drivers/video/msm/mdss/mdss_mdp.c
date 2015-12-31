@@ -1279,12 +1279,17 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		break;
 	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_115:
 	case MDSS_MDP_HW_REV_116:
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 128;
 		mdata->min_prefill_lines = 14;
-		mdata->has_ubwc = true;
-		mdata->pixel_ram_size = 40 * 1024;
+		mdata->has_ubwc =
+			(mdata->mdp_rev == MDSS_MDP_HW_REV_115) ?
+			false : true;
+		mdata->pixel_ram_size =
+			(mdata->mdp_rev == MDSS_MDP_HW_REV_115) ?
+			(16 * 1024) : (40 * 1024);
 		mdata->apply_post_scale_bytes = false;
 		mdata->hflip_buffer_reused = false;
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
@@ -3779,6 +3784,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_115:
 	case MDSS_MDP_HW_REV_116:
 		if ((res <= RES_1080p) && (params->frame_rate <= 30))
 			*ot_lim = 2;
