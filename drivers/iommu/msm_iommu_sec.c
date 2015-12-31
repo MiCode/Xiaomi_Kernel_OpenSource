@@ -745,6 +745,9 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 	}
 
+	if (!(priv->client_name))
+		priv->client_name = dev_name(dev);
+
 	iommu_drvdata = dev_get_drvdata(dev->parent);
 	ctx_drvdata = dev_get_drvdata(dev);
 	if (!iommu_drvdata || !ctx_drvdata) {
