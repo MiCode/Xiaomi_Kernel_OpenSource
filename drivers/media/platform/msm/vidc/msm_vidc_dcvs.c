@@ -1,4 +1,4 @@
-/* Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,7 +95,6 @@ static void msm_dcvs_update_dcvs_params(int idx, struct msm_vidc_inst *inst)
 	res = &inst->core->resources;
 	table = res->dcvs_tbl;
 
-	dcvs->load = table[idx].load;
 	dcvs->load_low = table[idx].load_low;
 	dcvs->load_high = table[idx].load_high;
 	dcvs->supported_codecs = table[idx].supported_codecs;
