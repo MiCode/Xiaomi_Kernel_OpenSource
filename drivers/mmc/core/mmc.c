@@ -2630,69 +2630,6 @@ static int mmc_power_restore(struct mmc_host *host)
 	return ret;
 }
 
-#define NO_AUTOSUSPEND	(-1)
-static int mmc_runtime_idle(struct mmc_host *host)
-{
-	int err = 0;
-	bool halt_cmdq;
-
-	BUG_ON(!host->card);
-
-	mmc_claim_host(host);
-
-	halt_cmdq = mmc_card_cmdq(host->card) &&
-			(host->card->bkops.needs_check ||
-			 host->card->bkops.needs_manual);
-
-	/*
-	 * If there are active requests, can't check for bkops. Postpone
-	 * until the next time that runtime_idle is scheduled.
-	 */
-	if (host->cmdq_ctx.active_reqs)
-		goto no_suspend;
-
-	if (halt_cmdq) {
-		err = mmc_cmdq_halt(host, true);
-		if (err) {
-			pr_err("%s: %s failed to halt cmdq (%d)\n",
-					mmc_hostname(host), __func__, err);
-			goto out;
-		}
-	}
-
-	if (host->card->bkops.needs_manual)
-		host->card->bkops.needs_check = false;
-
-	if (host->card->bkops.needs_check) {
-		mmc_check_bkops(host->card);
-		host->card->bkops.needs_check = false;
-
-	}
-
-	if (host->card->bkops.needs_manual)
-		mmc_start_manual_bkops(host->card);
-
-	if (halt_cmdq) {
-		err = mmc_cmdq_halt(host, false);
-		if (err)
-			pr_err("%s: %s failed to unhalt cmdq (%d)\n",
-					mmc_hostname(host), __func__, err);
-	}
-
-out:
-	/*
-	 * TODO: consider prolonging suspend when bkops
-	 * is running in order to allow a longer time for
-	 * bkops to complete
-	 * */
-	pm_schedule_suspend(&host->card->dev, MMC_AUTOSUSPEND_DELAY_MS);
-no_suspend:
-	mmc_release_host(host);
-	pm_runtime_mark_last_busy(&host->card->dev);
-	/* return negative value in order to avoid autosuspend */
-	return (err) ? err : NO_AUTOSUSPEND;
-}
-
 static const struct mmc_bus_ops mmc_ops = {
 	.remove = mmc_remove,
 	.detect = mmc_detect,
@@ -2700,7 +2637,6 @@ static const struct mmc_bus_ops mmc_ops = {
 	.resume = mmc_resume,
 	.runtime_suspend = mmc_runtime_suspend,
 	.runtime_resume = mmc_runtime_resume,
-	.runtime_idle = mmc_runtime_idle,
 	.power_restore = mmc_power_restore,
 	.alive = mmc_alive,
 	.change_bus_speed = mmc_change_bus_speed,
