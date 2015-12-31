@@ -14,6 +14,7 @@
 #include <linux/mmc/core.h>
 #include <linux/mod_devicetable.h>
 #include <linux/notifier.h>
+#include <linux/errno.h>
 
 #define MMC_CARD_CMDQ_BLK_SIZE 512
 
@@ -615,6 +616,23 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 #define mmc_card_clr_cmdq(c)           ((c)->state &= ~MMC_STATE_CMDQ)
 #define mmc_card_set_suspended(c) ((c)->state |= MMC_STATE_SUSPENDED)
 #define mmc_card_clr_suspended(c) ((c)->state &= ~MMC_STATE_SUSPENDED)
+
+static inline int get_mmc_fw_version(struct mmc_card *card)
+{
+	if (card)
+		return card->ext_csd.fw_version;
+	else
+		return -EINVAL;
+}
+
+static inline int get_mmc_manfid(struct mmc_card *card)
+{
+	if (card)
+		return card->cid.manfid;
+	else
+		return -EINVAL;
+}
+
 /*
  * Quirk add/remove for MMC products.
  */
