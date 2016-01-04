@@ -5971,6 +5971,10 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		}
 	}
 
+	/* Read the cycle counter back from FG SRAM */
+	if (chip->cyc_ctr.en)
+		restore_cycle_counter(chip);
+
 	return 0;
 }
 
@@ -6018,9 +6022,6 @@ static int fg_8994_hw_init(struct fg_chip *chip)
 	data[0] = KI_COEFF_PRED_FULL_4_0_LSB;
 	data[1] = KI_COEFF_PRED_FULL_4_0_MSB;
 	fg_mem_write(chip, data, KI_COEFF_PRED_FULL_ADDR, 2, 2, 0);
-	/* Read the cycle counter back from FG SRAM */
-	if (chip->cyc_ctr.en)
-		restore_cycle_counter(chip);
 
 	esr_value = ESR_DEFAULT_VALUE;
 	rc = fg_mem_write(chip, (u8 *)&esr_value, MAXRSCHANGE_REG, 8,
