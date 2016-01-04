@@ -256,23 +256,21 @@ static void *def_codec_mbhc_cal(void)
 	return codec_cal;
 }
 
-static struct afe_clk_cfg mi2s_rx_clk = {
+static struct afe_clk_set mi2s_tx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_CLK_ID_TER_MI2S_IBIT,
 	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
-	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
-	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	Q6AFE_LPASS_MODE_BOTH_VALID,
 	0,
 };
 
-static struct afe_clk_cfg mi2s_tx_clk = {
+static struct afe_clk_set mi2s_rx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT,
 	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
-	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
-	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_NO,
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	Q6AFE_LPASS_MODE_BOTH_VALID,
 	0,
 };
 
@@ -1453,18 +1451,25 @@ static int quat_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 
 	if (enable) {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			mi2s_rx_clk.enable = enable;
+			mi2s_rx_clk.clk_id =
+				Q6AFE_LPASS_CLK_ID_QUAD_MI2S_IBIT;
 			if (mi2s_rx_bit_format == SNDRV_PCM_FORMAT_S24_LE)
-				mi2s_rx_clk.clk_val1 =
+				mi2s_rx_clk.clk_freq_in_hz =
 					Q6AFE_LPASS_IBIT_CLK_3_P072_MHZ;
 			else
-				mi2s_rx_clk.clk_val1 =
+				mi2s_rx_clk.clk_freq_in_hz =
 					Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-			ret = afe_set_lpass_clock(
+			ret = afe_set_lpass_clock_v2(
 					AFE_PORT_ID_QUATERNARY_MI2S_RX,
 					&mi2s_rx_clk);
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-			ret = afe_set_lpass_clock(
+			mi2s_tx_clk.enable = enable;
+			mi2s_tx_clk.clk_id =
+				Q6AFE_LPASS_CLK_ID_QUAD_MI2S_IBIT;
+			mi2s_tx_clk.clk_freq_in_hz =
+					Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+			ret = afe_set_lpass_clock_v2(
 					AFE_PORT_ID_QUATERNARY_MI2S_TX,
 					&mi2s_tx_clk);
 		} else {
@@ -1476,15 +1481,19 @@ static int quat_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 					__func__, ret);
 	} else {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-			ret = afe_set_lpass_clock(
-				AFE_PORT_ID_QUATERNARY_MI2S_RX,
-				&mi2s_rx_clk);
+			mi2s_rx_clk.enable = enable;
+			mi2s_rx_clk.clk_id =
+				Q6AFE_LPASS_CLK_ID_QUAD_MI2S_IBIT;
+			ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_QUATERNARY_MI2S_RX,
+					&mi2s_rx_clk);
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-			ret = afe_set_lpass_clock(
-				AFE_PORT_ID_QUATERNARY_MI2S_TX,
-				&mi2s_tx_clk);
+			mi2s_tx_clk.enable = enable;
+			mi2s_tx_clk.clk_id =
+				Q6AFE_LPASS_CLK_ID_QUAD_MI2S_IBIT;
+			ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_QUATERNARY_MI2S_TX,
+					&mi2s_tx_clk);
 		} else
 			pr_err("%s:Not valid substream %d\n", __func__,
 					substream->stream);
@@ -1502,18 +1511,25 @@ static int quin_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 
 	if (enable) {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			mi2s_rx_clk.enable = enable;
+			mi2s_rx_clk.clk_id =
+				Q6AFE_LPASS_CLK_ID_QUI_MI2S_IBIT;
 			if (mi2s_rx_bit_format == SNDRV_PCM_FORMAT_S24_LE)
-				mi2s_rx_clk.clk_val1 =
+				mi2s_rx_clk.clk_freq_in_hz =
 					Q6AFE_LPASS_IBIT_CLK_3_P072_MHZ;
 			else
-				mi2s_rx_clk.clk_val1 =
+				mi2s_rx_clk.clk_freq_in_hz =
 					Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-			ret = afe_set_lpass_clock(
+			ret = afe_set_lpass_clock_v2(
 					AFE_PORT_ID_QUINARY_MI2S_RX,
 					&mi2s_rx_clk);
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
-			ret = afe_set_lpass_clock(
+			mi2s_tx_clk.enable = enable;
+			mi2s_tx_clk.clk_id =
+				Q6AFE_LPASS_CLK_ID_QUI_MI2S_IBIT;
+			mi2s_tx_clk.clk_freq_in_hz =
+				Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+			ret = afe_set_lpass_clock_v2(
 					AFE_PORT_ID_QUINARY_MI2S_TX,
 					&mi2s_tx_clk);
 		} else {
@@ -1522,16 +1538,19 @@ static int quin_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
 
 		if (ret < 0)
 			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
-
 	} else {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-			ret = afe_set_lpass_clock(
+			mi2s_rx_clk.enable = enable;
+			mi2s_rx_clk.clk_id =
+				Q6AFE_LPASS_CLK_ID_QUI_MI2S_IBIT;
+			ret = afe_set_lpass_clock_v2(
 					AFE_PORT_ID_QUINARY_MI2S_RX,
 					&mi2s_rx_clk);
 		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
-			ret = afe_set_lpass_clock(
+			mi2s_tx_clk.enable = enable;
+			mi2s_tx_clk.clk_id =
+				Q6AFE_LPASS_CLK_ID_QUI_MI2S_IBIT;
+			ret = afe_set_lpass_clock_v2(
 					AFE_PORT_ID_QUINARY_MI2S_TX,
 					&mi2s_tx_clk);
 		} else
