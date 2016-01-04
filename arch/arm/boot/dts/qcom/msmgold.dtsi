@@ -98,6 +98,7 @@
 };
 
 #include "msmgold-pinctrl.dtsi"
+#include "msmgold-camera.dtsi"
 #include "msmgold-cpu.dtsi"
 #include "msmgold-gpu.dtsi"
 #include "msmgold-pm.dtsi"

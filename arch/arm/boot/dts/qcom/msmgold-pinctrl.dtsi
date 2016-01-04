@@ -21,6 +21,8 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 
+#include "msmgold-camera-pinctrl.dtsi"
+
 		pmx-uartconsole {
 			uart_console_active: uart_console_active {
 				mux {
