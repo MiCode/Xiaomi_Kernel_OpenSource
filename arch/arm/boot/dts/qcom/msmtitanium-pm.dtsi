@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +58,7 @@
 
 			qcom,pm-cluster-level@1{
 				reg = <1>;
-				label = "system-retention";
+				label = "system-wfi";
 				qcom,psci-mode = <1>;
 				qcom,latency-us = <820>;
 				qcom,ss-power = <560>;
@@ -178,7 +178,7 @@
 
 				qcom,pm-cluster-level@0{
 					reg = <0>;
-					label = "perf-l2-active";
+					label = "perf-l2-wfi";
 					qcom,psci-mode = <1>;
 					qcom,latency-us = <320>;
 					qcom,ss-power = <655>;
@@ -190,6 +190,7 @@
 					reg = <1>;
 					label = "perf-l2-retention";
 					qcom,psci-mode = <3>;
+					qcom,latency-us = <400>;
 					qcom,ss-power = <595>;
 					qcom,energy-overhead = <550000>;
 					qcom,time-overhead = <700>;
