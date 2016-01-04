@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,10 +98,7 @@ struct dbm {
 
 };
 
-struct dbm *usb_get_dbm_by_phandle(struct device *dev,
-	const char *phandle, u8 index);
-int usb_add_dbm(struct dbm *x);
-
+struct dbm *usb_get_dbm_by_phandle(struct device *dev, const char *phandle);
 
 
 #define CHECK_DBM_PTR_INT(dbm, func) do {				   \
