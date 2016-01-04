@@ -13,12 +13,13 @@
 
 /dts-v1/;
 
-#include "msm8937.dtsi"
-#include "msm8937-pmi8950-cdp.dtsi"
+#include "msmtitanium.dtsi"
+#include "msmtitanium-qrd-sku3.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8937-PMI8950 RCM";
-	compatible = "qcom,msm8937-cdp", "qcom,msm8937", "qcom,cdp";
-	qcom,board-id= <21 0>;
-	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
+	model = "Qualcomm Technologies, Inc. MSMTITANIUM QRD SKU3";
+	compatible = "qcom,msmtitanium-qrd-sku3",
+		   "qcom,msmtitanium-qrd", "qcom,msmtitanium", "qcom,qrd";
+	qcom,board-id= <0x2000b 0>;
 };
+

@@ -598,7 +598,8 @@ static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk_8937[] = {
 
 static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk_gold[] = {
 	F( 160000000,          gpll0,    5,    0,     0),
-	F( 200000000,          gpll0,    5,    0,     0),
+	F( 200000000,          gpll0,    4,    0,     0),
+	F( 270000000,          gpll6,    4,    0,     0),
 	F( 308570000,          gpll6,  3.5,    0,     0),
 	F( 329140000,          gpll4,  3.5,    0,     0),
 	F( 360000000,          gpll6,    3,    0,     0),
@@ -4020,9 +4021,9 @@ static void override_for_gold(void)
 		NOM_PLUS, 329140000, HIGH, 360000000);
 	OVERRIDE_FTABLE(vfe1, ftbl_gcc_camss_vfe0_1_clk, gold);
 	OVERRIDE_FTABLE(vcodec0, ftbl_gcc_venus0_vcodec0_clk, gold);
-	OVERRIDE_FMAX4(vcodec0,
-		LOWER, 200000000, LOW, 270000000, NOMINAL, 329140000,
-		HIGH, 360000000);
+	OVERRIDE_FMAX5(vcodec0,
+		LOWER, 200000000, LOW, 270000000, NOMINAL, 308570000,
+		NOM_PLUS, 329140000, HIGH, 360000000);
 	OVERRIDE_FMAX4(cpp,
 		LOWER, 160000000, LOW, 266670000, NOMINAL, 320000000,
 		NOM_PLUS, 360000000);

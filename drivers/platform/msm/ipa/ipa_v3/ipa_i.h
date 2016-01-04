@@ -1817,9 +1817,9 @@ int ipa3_xdci_connect(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid);
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
 
 int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-	bool should_force_clear, u32 qmi_req_id);
+	bool should_force_clear, u32 qmi_req_id, bool is_dpl);
 
-int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
+int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl, bool is_dpl);
 
 /*
  * USB
@@ -1846,7 +1846,8 @@ int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot);
 int ipa3_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			  enum ipa_usb_teth_prot teth_prot);
 
-int ipa3_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
+int ipa3_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+			enum ipa_usb_teth_prot teth_prot);
 
 /*
  * Resume / Suspend

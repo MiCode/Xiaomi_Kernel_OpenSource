@@ -28,8 +28,8 @@
 		qcom,dynamic;
 		qcom,enable-smmu-halt;
 		vdd-supply = <&gdsc_oxili_cx>;
-		clocks = <&clock_gcc clk_gcc_oxili_ahb_clk>,
-			<&clock_gcc clk_gcc_bimc_gfx_clk>;
+		clocks = <&clock_gcc_gfx clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc_gfx clk_gcc_bimc_gfx_clk>;
 		clock-names = "gpu_ahb_clk", "gcc_bimc_gfx_clk";
 		#clock-cells = <1>;
 	};

@@ -219,6 +219,7 @@ DEFINE_EXT_CLK(gpll6_main_clk_src, &gpll6_clk_src.c);
 DEFINE_EXT_CLK(gpll6_main_div2_clk_src, &gpll6_clk_src.c);
 DEFINE_EXT_CLK(gpll6_main_div2_gfx_clk_src, &gpll6_clk_src.c);
 DEFINE_EXT_CLK(gpll6_main_gfx_clk_src, &gpll6_clk_src.c);
+DEFINE_EXT_CLK(gpll6_main_div2_mock_clk_src, &gpll6_clk_src.c);
 DEFINE_EXT_CLK(gpll6_out_aux_clk_src, &gpll6_clk_src.c);
 
 DEFINE_EXT_CLK(ext_pclk0_clk_src, NULL);
@@ -1627,8 +1628,8 @@ static struct rcg_clk sdcc2_apps_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_usb30_mock_utmi_clk_src[] = {
-	F(  19200000,             xo,    1,    0,     0),
-	F(  60000000,     gpll6_main,    6,    1,     3),
+	F(  19200000,                       xo,    1,    0,     0),
+	F(  60000000,     gpll6_main_div2_mock,    9,    1,     1),
 	F_END
 };
 

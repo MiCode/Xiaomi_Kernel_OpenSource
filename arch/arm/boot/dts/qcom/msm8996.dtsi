@@ -428,8 +428,8 @@
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 108 0
-			    1 &intc 0 238 0
+		interrupt-map = <0 &intc 0 0 108 0
+			    1 &intc 0 0 238 0
 			    2 &tlmm 42 0>;
 
 		qcom,inject-rx-on-wakeup;

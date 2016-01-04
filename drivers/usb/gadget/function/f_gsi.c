@@ -618,6 +618,25 @@ static void ipa_disconnect_work_handler(struct gsi_data_port *d_port)
 
 	if (gsi->d_port.out_ep)
 		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_FREE_TRBS);
+
+	/*
+	 * Unconfig the gsi eps after freeing the trbs. If done in
+	 * gsi_disable() then since gsi_disable() is called in interrupt context
+	 * and the usb_gsi_ep_op() for GSI_EP_OP_FREE_TRBS which is called from
+	 * ipa_disconnect_work_handler() a worker thread, can get delayed. So
+	 * when gsi_disable() unconfigures the eps, usb_gsi_ep_op() will not be
+	 * executed which leads to a memory leak.
+	 * Also if this is done in gsi_unbind() then again this is executed in
+	 * interrupt context and ipa_disconnect_work_handler() is a worker
+	 * thread which can get delayed.
+	 */
+	if (gadget_is_dwc3(d_port->gadget)) {
+		if (gsi->d_port.in_ep)
+			msm_ep_unconfig(gsi->d_port.in_ep);
+		if (gsi->d_port.out_ep)
+			msm_ep_unconfig(gsi->d_port.out_ep);
+	}
+
 }
 
 static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
@@ -665,7 +684,8 @@ static void ipa_resume_work_handler(struct gsi_data_port *d_port)
 	int ret;
 
 	ret = ipa_usb_xdci_resume(gsi->d_port.out_channel_handle,
-					gsi->d_port.in_channel_handle);
+					gsi->d_port.in_channel_handle,
+					gsi->prot_id);
 	if (ret)
 		pr_debug("%s:ipa_usb_xdci_resume returns %d\n", __func__, ret);
 
@@ -2014,7 +2034,6 @@ fail:
 static void gsi_disable(struct usb_function *f)
 {
 	struct f_gsi *gsi = func_to_gsi(f);
-	struct usb_composite_dev *cdev = f->config->cdev;
 
 	atomic_set(&gsi->connected, 0);
 
@@ -2039,13 +2058,6 @@ static void gsi_disable(struct usb_function *f)
 	if (!gsi->data_interface_up) {
 		pr_debug("data interface is not opened. Returning\n");
 		return;
-	}
-
-	if (gadget_is_dwc3(cdev->gadget)) {
-		if (gsi->d_port.in_ep)
-			msm_ep_unconfig(gsi->d_port.in_ep);
-		if (gsi->d_port.out_ep)
-			msm_ep_unconfig(gsi->d_port.out_ep);
 	}
 
 	gsi->data_interface_up = false;
@@ -2254,7 +2266,6 @@ skip_string_id_alloc:
 		ep = usb_ep_autoconfig(cdev->gadget, info->fs_in_desc);
 		if (!ep)
 			goto fail;
-		ep->ep_type = EP_TYPE_GSI;
 		gsi->d_port.in_ep = ep;
 		ep->driver_data = cdev;	/* claim */
 	}
@@ -2263,7 +2274,6 @@ skip_string_id_alloc:
 		ep = usb_ep_autoconfig(cdev->gadget, info->fs_out_desc);
 		if (!ep)
 			goto fail;
-		ep->ep_type = EP_TYPE_GSI;
 		gsi->d_port.out_ep = ep;
 		ep->driver_data = cdev;	/* claim */
 	}
