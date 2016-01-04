@@ -707,7 +707,7 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 		 * this explicit calls to bridge chip driver.
 		 */
 		if (!uid->pinfo->is_pluggable) {
-			if (udata->ops.power_on)
+			if (udata->ops.power_on && !(uid->cont_splash_enabled))
 				udata->ops.power_on(udata->dba_data, true, 0);
 			if (udata->ops.check_hpd)
 				udata->ops.check_hpd(udata->dba_data, 0);
