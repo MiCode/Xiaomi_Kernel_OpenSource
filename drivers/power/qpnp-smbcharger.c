@@ -1272,6 +1272,17 @@ static const int aicl_rerun_period[] = {
 	360,
 };
 
+static const int aicl_rerun_period_schg_lite[] = {
+	3,	/* 2.8s  */
+	6,	/* 5.6s  */
+	11,	/* 11.3s */
+	23,	/* 22.5s */
+	45,
+	90,
+	180,
+	360,
+};
+
 static void use_pmi8994_tables(struct smbchg_chip *chip)
 {
 	chip->tables.usb_ilim_ma_table = usb_ilim_ma_table_8994;
@@ -1370,11 +1381,12 @@ static int smbchg_set_dc_current_max(struct smbchg_chip *chip, int current_ma)
 
 #define AICL_WL_SEL_CFG			0xF5
 #define AICL_WL_SEL_MASK		SMB_MASK(1, 0)
+#define AICL_WL_SEL_SCHG_LITE_MASK	SMB_MASK(2, 0)
 static int smbchg_set_aicl_rerun_period_s(struct smbchg_chip *chip,
 								int period_s)
 {
 	int i;
-	u8 reg;
+	u8 reg, mask;
 
 	i = find_smaller_in_array(chip->tables.aicl_rerun_period_table,
 			period_s, chip->tables.aicl_rerun_period_len);
@@ -1385,13 +1397,18 @@ static int smbchg_set_aicl_rerun_period_s(struct smbchg_chip *chip,
 		return -EINVAL;
 	}
 
-	reg = i & AICL_WL_SEL_MASK;
+	if (chip->schg_version == QPNP_SCHG_LITE)
+		mask = AICL_WL_SEL_SCHG_LITE_MASK;
+	else
+		mask = AICL_WL_SEL_MASK;
+
+	reg = i & mask;
 
 	pr_smb(PR_STATUS, "aicl rerun period set to %ds\n",
 			chip->tables.aicl_rerun_period_table[i]);
 	return smbchg_sec_masked_write(chip,
 			chip->dc_chgpth_base + AICL_WL_SEL_CFG,
-			AICL_WL_SEL_CFG, reg);
+			mask, reg);
 }
 
 static struct power_supply *get_parallel_psy(struct smbchg_chip *chip)
@@ -7419,6 +7436,11 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 					| SMBCHG_USB100_WA;
 		}
 		use_pmi8994_tables(chip);
+		chip->tables.aicl_rerun_period_table =
+				aicl_rerun_period_schg_lite;
+		chip->tables.aicl_rerun_period_len =
+			ARRAY_SIZE(aicl_rerun_period_schg_lite);
+
 		chip->schg_version = QPNP_SCHG_LITE;
 		break;
 	case PMI8996:
