@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -519,7 +519,6 @@
 				&adv7533_0_hpd_int_suspend
 				&adv7533_0_switch_suspend>;
 			adi,irq-gpio = <&tlmm 106 0x2002>;
-			adi,hpd-irq-gpio = <&tlmm 106 0x2003>;
 			adi,switch-gpio = <&tlmm 105 0x1>;
 		};
 
@@ -540,7 +539,6 @@
 				&adv7533_1_hpd_int_suspend
 				&adv7533_1_switch_suspend>;
 			adi,irq-gpio = <&tlmm 108 0x2002>;
-			adi,hpd-irq-gpio = <&tlmm 106 0x2003>;
 			adi,switch-gpio = <&tlmm 107 0x0>;
 		};
 	};
