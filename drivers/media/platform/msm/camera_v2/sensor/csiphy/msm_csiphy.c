@@ -331,8 +331,8 @@ static int msm_csiphy_2phase_lane_config(
 
 		if (csiphy_params->combo_mode == 1) {
 			val |= 0xA;
-			if (mask == 0x8) {
-				/* lane 6 is second clock lane for combo mode */
+			if (mask == csiphy_dev->ctrl_reg->
+				csiphy_reg.combo_clk_mask) {
 				val |= 0x4;
 				clk_lane = 1;
 			}
@@ -421,7 +421,8 @@ static int msm_csiphy_2phase_lane_config(
 		}
 		mask <<= 1;
 	}
-	if (csiphy_dev->hw_version == CSIPHY_VERSION_V342) {
+	if (csiphy_dev->hw_version == CSIPHY_VERSION_V342 &&
+		csiphy_params->combo_mode != 1) {
 		msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_cmn_ctrl0.data,
 			csiphy_dev->base + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
