@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,14 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include <uapi/linux/batterydata-interface.h>
 
-#include "msm8937.dtsi"
-#include "msm8937-pmi8950-cdp.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. MSM8937-PMI8950 RCM";
-	compatible = "qcom,msm8937-cdp", "qcom,msm8937", "qcom,cdp";
-	qcom,board-id= <21 0>;
-	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
-};
+int config_battery_data(struct bms_battery_data *profile);

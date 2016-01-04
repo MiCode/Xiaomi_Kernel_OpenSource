@@ -31,6 +31,7 @@ int ipa3_rm_prod_index(enum ipa_rm_resource_name resource_name)
 	switch (resource_name) {
 	case IPA_RM_RESOURCE_Q6_PROD:
 	case IPA_RM_RESOURCE_USB_PROD:
+	case IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD:
 	case IPA_RM_RESOURCE_HSIC_PROD:
 	case IPA_RM_RESOURCE_STD_ECM_PROD:
 	case IPA_RM_RESOURCE_RNDIS_PROD:
@@ -68,6 +69,7 @@ int ipa3_rm_cons_index(enum ipa_rm_resource_name resource_name)
 	case IPA_RM_RESOURCE_APPS_CONS:
 	case IPA_RM_RESOURCE_ODU_ADAPT_CONS:
 	case IPA_RM_RESOURCE_MHI_CONS:
+	case IPA_RM_RESOURCE_USB_DPL_CONS:
 		break;
 	default:
 		result = IPA_RM_INDEX_INVALID;

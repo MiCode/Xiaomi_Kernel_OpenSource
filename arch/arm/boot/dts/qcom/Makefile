@@ -126,6 +126,7 @@ dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	msmtitanium-cdp.dtb \
 	msmtitanium-mtp.dtb \
 	msmtitanium-ext-codec-mtp.dtb \
+	msmtitanium-qrd-sku3.dtb \
 	msmtitanium-rcm.dtb \
 	msmtitanium-ext-codec-rcm.dtb \
 	apqtitanium-cdp.dtb \

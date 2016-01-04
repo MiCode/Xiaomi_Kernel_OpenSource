@@ -1585,7 +1585,7 @@ void ipa_mhi_destroy(void);
 
 /**
  * ipa_usb_init_teth_prot - Peripheral should call this function to initialize
- * RNDIS/ECM/teth_bridge, prior to calling ipa_usb_xdci_connect()
+ * RNDIS/ECM/teth_bridge/DPL, prior to calling ipa_usb_xdci_connect()
  *
  * @usb_teth_type: tethering protocol type
  * @teth_params:   pointer to tethering protocol parameters.
@@ -1605,7 +1605,7 @@ int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 /**
  * ipa_usb_xdci_connect - Peripheral should call this function to start IN &
  * OUT xDCI channels, and connect RNDIS/ECM/MBIM/RMNET.
- * For DIAG, only starts IN channel.
+ * For DPL, only starts IN channel.
  *
  * @ul_chan_params: parameters for allocating UL xDCI channel. containing
  *              required info on event and transfer rings, and IPA EP
@@ -1633,7 +1633,7 @@ int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 /**
  * ipa_usb_xdci_disconnect - Peripheral should call this function to stop
  * IN & OUT xDCI channels
- * For DIAG, only stops IN channel.
+ * For DPL, only stops IN channel.
  *
  * @ul_clnt_hdl:    client handle received from ipa_usb_xdci_connect()
  *                  for OUT channel
@@ -1660,7 +1660,7 @@ int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot);
 
 /**
  * ipa_usb_xdci_suspend - Peripheral should call this function to suspend
- * IN & OUT xDCI channels
+ * IN & OUT or DPL xDCI channels
  *
  * @ul_clnt_hdl: client handle previously obtained from
  *               ipa_usb_xdci_connect() for OUT channel
@@ -1669,6 +1669,7 @@ int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot);
  * @teth_prot:   tethering protocol
  *
  * Note: Should not be called from atomic context
+ * Note: for DPL, the ul will be ignored as irrelevant
  *
  * @Return 0 on success, negative on failure
  */
@@ -1677,18 +1678,21 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 
 /**
  * ipa_usb_xdci_resume - Peripheral should call this function to resume
- * IN & OUT xDCI channels
+ * IN & OUT or DPL xDCI channels
  *
  * @ul_clnt_hdl:   client handle received from ipa_usb_xdci_connect()
  *                 for OUT channel
  * @dl_clnt_hdl:   client handle received from ipa_usb_xdci_connect()
  *                 for IN channel
+ * @teth_prot:   tethering protocol
  *
  * Note: Should not be called from atomic context
+ * Note: for DPL, the ul will be ignored as irrelevant
  *
  * @Return 0 on success, negative on failure
  */
-int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
+int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+			enum ipa_usb_teth_prot teth_prot);
 
 /*
  * mux id
@@ -2453,7 +2457,8 @@ static inline int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	return -EPERM;
 }
 
-static inline int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
+static inline int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+			enum ipa_usb_teth_prot teth_prot)
 {
 	return -EPERM;
 }
