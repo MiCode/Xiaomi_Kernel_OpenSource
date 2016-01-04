@@ -55,9 +55,12 @@ struct dbm_reg_data {
 #define DBM_1_4_NUM_EP		4
 #define DBM_1_5_NUM_EP		8
 
-struct dbm_data {
+struct dbm {
 	void __iomem *base;
 	const struct dbm_reg_data *reg_table;
+
+	struct device		*dev;
+	struct list_head	head;
 
 	int dbm_num_eps;
 	u8 ep_num_mapping[DBM_1_5_NUM_EP];
@@ -65,8 +68,6 @@ struct dbm_data {
 
 	bool is_1p4;
 };
-
-static struct dbm_data *dbm_data;
 
 static const struct dbm_reg_data dbm_1_4_regtable[] = {
 	[DBM_EP_CFG]		= { 0x0000, 0x4 },
@@ -124,7 +125,7 @@ static LIST_HEAD(dbm_list);
  * @val - value to write.
  *
  */
-static inline void msm_dbm_write_ep_reg_field(struct dbm_data *dbm,
+static inline void msm_dbm_write_ep_reg_field(struct dbm *dbm,
 					      enum dbm_reg reg, int ep,
 					      const u32 mask, u32 val)
 {
@@ -151,8 +152,7 @@ static inline void msm_dbm_write_ep_reg_field(struct dbm_data *dbm,
  *
  * @return u32
  */
-static inline u32 msm_dbm_read_ep_reg(struct dbm_data *dbm, enum dbm_reg reg,
-				      int ep)
+static inline u32 msm_dbm_read_ep_reg(struct dbm *dbm, enum dbm_reg reg, int ep)
 {
 	u32 offset = dbm->reg_table[reg].offset +
 			(dbm->reg_table[reg].ep_mult * ep);
@@ -170,7 +170,7 @@ static inline u32 msm_dbm_read_ep_reg(struct dbm_data *dbm, enum dbm_reg reg,
  * @ep - endpoint number
  *
  */
-static inline void msm_dbm_write_ep_reg(struct dbm_data *dbm, enum dbm_reg reg,
+static inline void msm_dbm_write_ep_reg(struct dbm *dbm, enum dbm_reg reg,
 					int ep, u32 val)
 {
 	u32 offset = dbm->reg_table[reg].offset +
@@ -184,12 +184,12 @@ static inline void msm_dbm_write_ep_reg(struct dbm_data *dbm, enum dbm_reg reg,
  * Return DBM EP number according to usb endpoint number.
  *
  */
-static int msm_dbm_find_matching_dbm_ep(u8 usb_ep)
+static int find_matching_dbm_ep(struct dbm *dbm, u8 usb_ep)
 {
 	int i;
 
-	for (i = 0; i < dbm_data->dbm_num_eps; i++)
-		if (dbm_data->ep_num_mapping[i] == usb_ep)
+	for (i = 0; i < dbm->dbm_num_eps; i++)
+		if (dbm->ep_num_mapping[i] == usb_ep)
 			return i;
 
 	pr_err("%s: No DBM EP matches USB EP %d", __func__, usb_ep);
@@ -201,12 +201,16 @@ static int msm_dbm_find_matching_dbm_ep(u8 usb_ep)
  * Reset the DBM registers upon initialization.
  *
  */
-static int soft_reset(bool reset)
+int dbm_soft_reset(struct dbm *dbm, bool reset)
 {
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return -EPERM;
+	}
+
 	pr_debug("%s DBM reset\n", (reset ? "Enter" : "Exit"));
 
-	msm_dbm_write_reg_field(dbm_data, DBM_SOFT_RESET,
-		DBM_SFT_RST_MASK, reset);
+	msm_dbm_write_reg_field(dbm, DBM_SOFT_RESET, DBM_SFT_RST_MASK, reset);
 
 	return 0;
 }
@@ -221,20 +225,20 @@ static int soft_reset(bool reset)
  * @enter_reset - should we enter a reset state or get out of it.
  *
  */
-static int ep_soft_reset(u8 dbm_ep, bool enter_reset)
+static int ep_soft_reset(struct dbm *dbm, u8 dbm_ep, bool enter_reset)
 {
 	pr_debug("Setting DBM ep %d reset to %d\n", dbm_ep, enter_reset);
 
-	if (dbm_ep >= dbm_data->dbm_num_eps) {
+	if (dbm_ep >= dbm->dbm_num_eps) {
 		pr_err("Invalid DBM ep index %d\n", dbm_ep);
 		return -ENODEV;
 	}
 
 	if (enter_reset) {
-		msm_dbm_write_reg_field(dbm_data, DBM_SOFT_RESET,
+		msm_dbm_write_reg_field(dbm, DBM_SOFT_RESET,
 			DBM_SFT_RST_EPS_MASK & 1 << dbm_ep, 1);
 	} else {
-		msm_dbm_write_reg_field(dbm_data, DBM_SOFT_RESET,
+		msm_dbm_write_reg_field(dbm, DBM_SOFT_RESET,
 			DBM_SFT_RST_EPS_MASK & 1 << dbm_ep, 0);
 	}
 
@@ -255,12 +259,19 @@ static int ep_soft_reset(u8 dbm_ep, bool enter_reset)
  * @enter_reset - should we enter a reset state or get out of it.
  *
  */
-static int usb_ep_soft_reset(u8 usb_ep, bool enter_reset)
+int dbm_ep_soft_reset(struct dbm *dbm, u8 usb_ep, bool enter_reset)
 {
-	int dbm_ep = msm_dbm_find_matching_dbm_ep(usb_ep);
+	int dbm_ep;
+
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return -EPERM;
+	}
+
+	dbm_ep = find_matching_dbm_ep(dbm, usb_ep);
 
 	pr_debug("Setting USB ep %d reset to %d\n", usb_ep, enter_reset);
-	return ep_soft_reset(dbm_ep, enter_reset);
+	return ep_soft_reset(dbm, dbm_ep, enter_reset);
 }
 
 /**
@@ -275,15 +286,20 @@ static int usb_ep_soft_reset(u8 usb_ep, bool enter_reset)
  *
  * @return int - DBM ep number.
  */
-static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
-		bool internal_mem, bool ioc)
+int dbm_ep_config(struct dbm *dbm, u8 usb_ep, u8 bam_pipe, bool producer,
+		  bool disable_wb, bool internal_mem, bool ioc)
 {
 	int dbm_ep;
 	u32 ep_cfg;
 
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return -EPERM;
+	}
+
 	pr_debug("Configuring DBM ep\n");
 
-	dbm_ep = msm_dbm_find_matching_dbm_ep(usb_ep);
+	dbm_ep = find_matching_dbm_ep(dbm, usb_ep);
 
 	if (dbm_ep < 0) {
 		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
@@ -291,36 +307,35 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 	}
 
 	/* Due to HW issue, EP 7 can be set as IN EP only */
-	if (!dbm_data->is_1p4 && dbm_ep == 7 && producer) {
+	if (!dbm->is_1p4 && dbm_ep == 7 && producer) {
 		pr_err("last DBM EP can't be OUT EP\n");
 		return -ENODEV;
 	}
 
 	/* First, reset the dbm endpoint */
-	ep_soft_reset(dbm_ep, 0);
+	ep_soft_reset(dbm, dbm_ep, 0);
 
 	/* Set ioc bit for dbm_ep if needed */
-	msm_dbm_write_reg_field(dbm_data, DBM_DBG_CNFG,
+	msm_dbm_write_reg_field(dbm, DBM_DBG_CNFG,
 		DBM_ENABLE_IOC_MASK & 1 << dbm_ep, ioc ? 1 : 0);
 
 	ep_cfg = (producer ? DBM_PRODUCER : 0) |
 		(disable_wb ? DBM_DISABLE_WB : 0) |
 		(internal_mem ? DBM_INT_RAM_ACC : 0);
 
-	msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep,
+	msm_dbm_write_ep_reg_field(dbm, DBM_EP_CFG, dbm_ep,
 		DBM_PRODUCER | DBM_DISABLE_WB | DBM_INT_RAM_ACC, ep_cfg >> 8);
 
-	msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep, USB3_EPNUM,
+	msm_dbm_write_ep_reg_field(dbm, DBM_EP_CFG, dbm_ep, USB3_EPNUM,
 		usb_ep);
 
-	if (dbm_data->is_1p4) {
-		msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep,
+	if (dbm->is_1p4) {
+		msm_dbm_write_ep_reg_field(dbm, DBM_EP_CFG, dbm_ep,
 				DBM_BAM_PIPE_NUM, bam_pipe);
-		msm_dbm_write_reg_field(dbm_data, DBM_PIPE_CFG,
-				0x000000ff, 0xe4);
+		msm_dbm_write_reg_field(dbm, DBM_PIPE_CFG, 0x000000ff, 0xe4);
 	}
 
-	msm_dbm_write_ep_reg_field(dbm_data, DBM_EP_CFG, dbm_ep, DBM_EN_EP, 1);
+	msm_dbm_write_ep_reg_field(dbm, DBM_EP_CFG, dbm_ep, DBM_EN_EP, 1);
 
 	return dbm_ep;
 }
@@ -328,13 +343,18 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 /**
  * Return number of configured DBM endpoints.
  */
-static int get_num_of_eps_configured(void)
+int dbm_get_num_of_eps_configured(struct dbm *dbm)
 {
 	int i;
 	int count = 0;
 
-	for (i = 0; i < dbm_data->dbm_num_eps; i++)
-		if (dbm_data->ep_num_mapping[i])
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return -EPERM;
+	}
+
+	for (i = 0; i < dbm->dbm_num_eps; i++)
+		if (dbm->ep_num_mapping[i])
 			count++;
 
 	return count;
@@ -346,28 +366,33 @@ static int get_num_of_eps_configured(void)
  * @usb_ep - USB ep number.
  *
  */
-static int ep_unconfig(u8 usb_ep)
+int dbm_ep_unconfig(struct dbm *dbm, u8 usb_ep)
 {
 	int dbm_ep;
 	u32 data;
 
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return -EPERM;
+	}
+
 	pr_debug("Unconfiguring DB ep\n");
 
-	dbm_ep = msm_dbm_find_matching_dbm_ep(usb_ep);
+	dbm_ep = find_matching_dbm_ep(dbm, usb_ep);
 
 	if (dbm_ep < 0) {
 		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
 		return -ENODEV;
 	}
 
-	dbm_data->ep_num_mapping[dbm_ep] = 0;
+	dbm->ep_num_mapping[dbm_ep] = 0;
 
-	data = msm_dbm_read_ep_reg(dbm_data, DBM_EP_CFG, dbm_ep);
+	data = msm_dbm_read_ep_reg(dbm, DBM_EP_CFG, dbm_ep);
 	data &= (~0x1);
-	msm_dbm_write_ep_reg(dbm_data, DBM_EP_CFG, dbm_ep, data);
+	msm_dbm_write_ep_reg(dbm, DBM_EP_CFG, dbm_ep, data);
 
 	/* Reset the dbm endpoint */
-	ep_soft_reset(dbm_ep, true);
+	ep_soft_reset(dbm, dbm_ep, true);
 	/*
 	 * The necessary delay between asserting and deasserting the dbm ep
 	 * reset is based on the number of active endpoints. If there is more
@@ -377,11 +402,11 @@ static int ep_unconfig(u8 usb_ep)
 	 * As this function can be called in atomic context, sleeping variants
 	 * for delay are not possible - albeit a 1ms delay.
 	 */
-	if (get_num_of_eps_configured() > 1)
+	if (dbm_get_num_of_eps_configured(dbm) > 1)
 		udelay(1000);
 	else
 		udelay(10);
-	ep_soft_reset(dbm_ep, false);
+	ep_soft_reset(dbm, dbm_ep, false);
 
 	return 0;
 }
@@ -394,8 +419,13 @@ static int ep_unconfig(u8 usb_ep)
  * @size - size of the event buffer.
  *
  */
-static int event_buffer_config(u32 addr_lo, u32 addr_hi, int size)
+int dbm_event_buffer_config(struct dbm *dbm, u32 addr_lo, u32 addr_hi, int size)
 {
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return -EPERM;
+	}
+
 	pr_debug("Configuring event buffer\n");
 
 	if (size < 0) {
@@ -404,68 +434,91 @@ static int event_buffer_config(u32 addr_lo, u32 addr_hi, int size)
 	}
 
 	/* In case event buffer is already configured, Do nothing. */
-	if (msm_dbm_read_reg(dbm_data, DBM_GEVNTSIZ))
+	if (msm_dbm_read_reg(dbm, DBM_GEVNTSIZ))
 		return 0;
 
-	if (!dbm_data->is_1p4 || sizeof(phys_addr_t) > sizeof(u32)) {
-		msm_dbm_write_reg(dbm_data, DBM_GEVNTADR_LSB, addr_lo);
-		msm_dbm_write_reg(dbm_data, DBM_GEVNTADR_MSB, addr_hi);
+	if (!dbm->is_1p4 || sizeof(phys_addr_t) > sizeof(u32)) {
+		msm_dbm_write_reg(dbm, DBM_GEVNTADR_LSB, addr_lo);
+		msm_dbm_write_reg(dbm, DBM_GEVNTADR_MSB, addr_hi);
 	} else {
-		msm_dbm_write_reg(dbm_data, DBM_GEVNTADR, addr_lo);
+		msm_dbm_write_reg(dbm, DBM_GEVNTADR, addr_lo);
 	}
 
-	msm_dbm_write_reg_field(dbm_data, DBM_GEVNTSIZ,
-		DBM_GEVNTSIZ_MASK, size);
+	msm_dbm_write_reg_field(dbm, DBM_GEVNTSIZ, DBM_GEVNTSIZ_MASK, size);
 
 	return 0;
 }
 
 
-static int data_fifo_config(u8 dep_num, phys_addr_t addr,
-		 u32 size, u8 dst_pipe_idx)
+int dbm_data_fifo_config(struct dbm *dbm, u8 dep_num, phys_addr_t addr,
+				u32 size, u8 dst_pipe_idx)
 {
 	u8 dbm_ep = dst_pipe_idx;
 	u32 lo = lower_32_bits(addr);
 	u32 hi = upper_32_bits(addr);
 
-	dbm_data->ep_num_mapping[dbm_ep] = dep_num;
-
-	if (!dbm_data->is_1p4 || sizeof(addr) > sizeof(u32)) {
-		msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO_LSB, dbm_ep, lo);
-		msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO_MSB, dbm_ep, hi);
-	} else {
-		msm_dbm_write_ep_reg(dbm_data, DBM_DATA_FIFO, dbm_ep, addr);
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return -EPERM;
 	}
 
-	msm_dbm_write_ep_reg_field(dbm_data, DBM_DATA_FIFO_SIZE, dbm_ep,
+	dbm->ep_num_mapping[dbm_ep] = dep_num;
+
+	if (!dbm->is_1p4 || sizeof(addr) > sizeof(u32)) {
+		msm_dbm_write_ep_reg(dbm, DBM_DATA_FIFO_LSB, dbm_ep, lo);
+		msm_dbm_write_ep_reg(dbm, DBM_DATA_FIFO_MSB, dbm_ep, hi);
+	} else {
+		msm_dbm_write_ep_reg(dbm, DBM_DATA_FIFO, dbm_ep, addr);
+	}
+
+	msm_dbm_write_ep_reg_field(dbm, DBM_DATA_FIFO_SIZE, dbm_ep,
 		DBM_DATA_FIFO_SIZE_MASK, size);
 
 	return 0;
-
 }
 
-static void set_speed(bool speed)
+void dbm_set_speed(struct dbm *dbm, bool speed)
 {
-	msm_dbm_write_reg(dbm_data, DBM_GEN_CFG, speed);
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return;
+	}
+
+	msm_dbm_write_reg(dbm, DBM_GEN_CFG, speed);
 }
 
-static void enable(void)
+void dbm_enable(struct dbm *dbm)
 {
-	if (dbm_data->is_1p4) /* no-op */
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return;
+	}
+
+	if (dbm->is_1p4) /* no-op */
 		return;
 
-	msm_dbm_write_reg(dbm_data, DBM_DATA_FIFO_ADDR_EN, 0x000000FF);
-	msm_dbm_write_reg(dbm_data, DBM_DATA_FIFO_SIZE_EN, 0x000000FF);
+	msm_dbm_write_reg(dbm, DBM_DATA_FIFO_ADDR_EN, 0x000000FF);
+	msm_dbm_write_reg(dbm, DBM_DATA_FIFO_SIZE_EN, 0x000000FF);
 }
 
-static bool reset_ep_after_lpm(void)
+bool dbm_reset_ep_after_lpm(struct dbm *dbm)
 {
-	return dbm_data->dbm_reset_ep_after_lpm;
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return false;
+	}
+
+	return dbm->dbm_reset_ep_after_lpm;
 }
 
-static bool l1_lpm_interrupt(void)
+bool dbm_l1_lpm_interrupt(struct dbm *dbm)
 {
-	return !dbm_data->is_1p4;
+	if (!dbm) {
+		pr_err("%s: dbm pointer is NULL!\n", __func__);
+		return false;
+	}
+
+	return !dbm->is_1p4;
 }
 
 static const struct of_device_id msm_dbm_id_table[] = {
@@ -477,15 +530,13 @@ MODULE_DEVICE_TABLE(of, msm_dbm_id_table);
 
 static int msm_dbm_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
 	const struct of_device_id *match;
 	struct dbm *dbm;
 	struct resource *res;
-	int ret = 0;
 
-	dbm_data = devm_kzalloc(dev, sizeof(*dbm_data), GFP_KERNEL);
-	if (!dbm_data)
+	dbm = devm_kzalloc(&pdev->dev, sizeof(*dbm), GFP_KERNEL);
+	if (!dbm)
 		return -ENOMEM;
 
 	match = of_match_node(msm_dbm_id_table, node);
@@ -493,78 +544,42 @@ static int msm_dbm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unsupported DBM module\n");
 		return -ENODEV;
 	}
-	dbm_data->reg_table = match->data;
+	dbm->reg_table = match->data;
 
 	if (!strcmp(match->compatible, "qcom,usb-dbm-1p4")) {
-		dbm_data->dbm_num_eps = DBM_1_4_NUM_EP;
-		dbm_data->is_1p4 = true;
+		dbm->dbm_num_eps = DBM_1_4_NUM_EP;
+		dbm->is_1p4 = true;
 	} else {
-		dbm_data->dbm_num_eps = DBM_1_5_NUM_EP;
+		dbm->dbm_num_eps = DBM_1_5_NUM_EP;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
-		ret = -ENODEV;
-		goto free_dbm_data;
+		return -ENODEV;
 	}
 
-	dbm_data->base = devm_ioremap_nocache(&pdev->dev, res->start,
+	dbm->base = devm_ioremap_nocache(&pdev->dev, res->start,
 		resource_size(res));
-	if (!dbm_data->base) {
+	if (!dbm->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
-		ret = -ENOMEM;
-		goto free_dbm_data;
+		return -ENOMEM;
 	}
 
-
-	dbm = devm_kzalloc(dev, sizeof(*dbm), GFP_KERNEL);
-	if (!dbm) {
-		ret = -ENOMEM;
-		goto free_dbm_data;
-	}
-
-	dbm_data->dbm_reset_ep_after_lpm = of_property_read_bool(node,
+	dbm->dbm_reset_ep_after_lpm = of_property_read_bool(node,
 			"qcom,reset-ep-after-lpm-resume");
 
-	dbm->dev = dev;
-
-	dbm->soft_reset = soft_reset;
-	dbm->ep_config = ep_config;
-	dbm->ep_unconfig = ep_unconfig;
-	dbm->get_num_of_eps_configured = get_num_of_eps_configured;
-	dbm->event_buffer_config = event_buffer_config;
-	dbm->data_fifo_config = data_fifo_config;
-	dbm->set_speed = set_speed;
-	dbm->enable = enable;
-	dbm->ep_soft_reset = usb_ep_soft_reset;
-	dbm->reset_ep_after_lpm = reset_ep_after_lpm;
-	dbm->l1_lpm_interrupt = l1_lpm_interrupt;
+	dbm->dev = &pdev->dev;
 
 	platform_set_drvdata(pdev, dbm);
 
 	list_add_tail(&dbm->head, &dbm_list);
 
 	return 0;
-
-free_dbm_data:
-	kfree(dbm_data);
-	return ret;
-}
-
-static int msm_dbm_remove(struct platform_device *pdev)
-{
-	struct dbm *dbm = platform_get_drvdata(pdev);
-
-	kfree(dbm);
-	kfree(dbm_data);
-
-	return 0;
 }
 
 static struct platform_driver msm_dbm_driver = {
 	.probe		= msm_dbm_probe,
-	.remove		= msm_dbm_remove,
 	.driver = {
 		.name	= "msm-usb-dbm",
 		.of_match_table = of_match_ptr(msm_dbm_id_table),
