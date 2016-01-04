@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2068,6 +2068,8 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 	.num_iommu_secure_ctx = 1,
 	.vfe_clk_idx = VFE46_CLK_IDX,
 	.runtime_axi_update = 0,
+	.min_ab = 100000000,
+	.min_ib = 100000000,
 	.vfe_ops = {
 		.irq_ops = {
 			.read_irq_status = msm_vfe46_read_irq_status,
