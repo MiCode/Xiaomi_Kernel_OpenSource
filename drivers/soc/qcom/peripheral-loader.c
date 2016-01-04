@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -741,6 +741,7 @@ int pil_boot(struct pil_desc *desc)
 	const struct firmware *fw;
 	struct pil_priv *priv = desc->priv;
 	bool mem_protect = false;
+	bool hyp_assign = false;
 
 	if (desc->shutdown_fail)
 		pil_err(desc, "Subsystem shutdown failed previously!\n");
@@ -827,6 +828,7 @@ int pil_boot(struct pil_desc *desc)
 								ret);
 			goto err_deinit_image;
 		}
+		hyp_assign = true;
 	}
 
 	list_for_each_entry(seg, &desc->priv->segs, list) {
@@ -844,6 +846,7 @@ int pil_boot(struct pil_desc *desc)
 							desc->name, ret);
 			goto err_deinit_image;
 		}
+		hyp_assign = false;
 	}
 
 	ret = desc->ops->auth_and_reset(desc);
@@ -871,7 +874,8 @@ out:
 	up_read(&pil_pm_rwsem);
 	if (ret) {
 		if (priv->region) {
-			if (desc->subsys_vmid > 0 && !mem_protect) {
+			if (desc->subsys_vmid > 0 && !mem_protect &&
+					hyp_assign) {
 				pil_reclaim_mem(desc, priv->region_start,
 					(priv->region_end -
 						priv->region_start),
