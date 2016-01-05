@@ -1,4 +1,4 @@
-/* Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,8 +28,14 @@ static inline int msm_dcvs_get_mbs_per_frame(struct msm_vidc_inst *inst)
 {
 	int height, width;
 
-	height = inst->prop.height[CAPTURE_PORT];
-	width = inst->prop.width[CAPTURE_PORT];
+	if (!inst->in_reconfig) {
+		height = inst->prop.height[CAPTURE_PORT];
+		width = inst->prop.width[CAPTURE_PORT];
+	} else {
+		height = inst->reconfig_height;
+		width = inst->reconfig_width;
+	}
+
 	return NUM_MBS_PER_FRAME(height, width);
 }
 
