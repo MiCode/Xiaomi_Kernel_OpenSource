@@ -271,6 +271,11 @@
 		qcom,msm-auxpcm-interface = "primary";
 	};
 
+	hdmi_dba: qcom,msm-hdmi-dba-codec-rx {
+		compatible = "qcom,msm-hdmi-dba-codec-rx";
+		qcom,dba-bridge-chip = "adv7533";
+	};
+
 	qcom,msm-audio-ion {
 		compatible = "qcom,msm-audio-ion";
 		qcom,smmu-version = <1>;

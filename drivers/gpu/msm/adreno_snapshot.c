@@ -231,6 +231,19 @@ static inline void parse_ib(struct kgsl_device *device,
 
 }
 
+static inline bool iommu_is_setstate_addr(struct kgsl_device *device,
+		uint64_t gpuaddr, uint64_t size)
+{
+	struct kgsl_iommu *iommu = device->mmu.priv;
+
+	if (kgsl_mmu_get_mmutype() != KGSL_MMU_TYPE_IOMMU ||
+		iommu == NULL)
+		return false;
+
+	return kgsl_gpuaddr_in_memdesc(&iommu->setstate, gpuaddr,
+			size);
+}
+
 /**
  * snapshot_rb_ibs() - Dump rb data and capture the IB's in the RB as well
  * @rb: The RB to dump
@@ -352,14 +365,16 @@ static void snapshot_rb_ibs(struct adreno_ringbuffer *rb,
 				ibsize = rbptr[index + 3];
 			}
 
-			/*
-			 * Sometimes the kernel generates IBs in global
-			 * memory. We dump the interesting global buffers,
-			 * so there's no need to parse these IBs.
-			 */
-			if (!kgsl_search_global_pt_entries(ibaddr, ibsize))
-				parse_ib(device, snapshot, snapshot->process,
-					ibaddr, ibsize);
+			/* Don't parse known global IBs */
+			if (iommu_is_setstate_addr(device, ibaddr, ibsize))
+				continue;
+
+			if (kgsl_gpuaddr_in_memdesc(&adreno_dev->pwron_fixup,
+				ibaddr, ibsize))
+				continue;
+
+			parse_ib(device, snapshot, snapshot->process,
+				ibaddr, ibsize);
 		}
 
 		index = index + 1;
@@ -719,6 +734,26 @@ static size_t snapshot_preemption_record(struct kgsl_device *device, u8 *buf,
 	return size + sizeof(*header);
 }
 
+/* Snapshot IOMMU specific buffers */
+static void adreno_snapshot_iommu(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_mmu *mmu = &device->mmu;
+	struct kgsl_iommu *iommu = mmu->priv;
+
+	if (iommu == NULL)
+		return;
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+		snapshot, snapshot_global, &iommu->setstate);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+			snapshot, snapshot_global, &iommu->smmu_info);
+}
+
 /* adreno_snapshot - Snapshot the Adreno GPU state
  * @device - KGSL device to snapshot
  * @snapshot - Pointer to the snapshot instance
@@ -737,7 +772,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	struct snapshot_rb_params snap_rb_params;
-	struct kgsl_iommu *iommu = device->mmu.priv;
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
@@ -785,23 +819,18 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 			snapshot, snapshot_global,
-			&adreno_dev->dev.mmu.setstate_memory);
-
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global,
 			&adreno_dev->pwron_fixup);
 
-	if (test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv)) {
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU)
+		adreno_snapshot_iommu(device, snapshot);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
 		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, snapshot_preemption_record,
 				&rb->preemption_desc);
 		}
-
-		kgsl_snapshot_add_section(device,
-				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-				snapshot, snapshot_global, &iommu->smmu_info);
 	}
 
 	/*

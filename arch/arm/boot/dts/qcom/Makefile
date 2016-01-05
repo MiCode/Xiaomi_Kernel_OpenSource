@@ -117,6 +117,7 @@ dtb-$(CONFIG_ARCH_MSMGOLD) += msmgold-rumi.dtb \
 	msmgold-pmi8937-cdp.dtb \
 	msmgold-pmi8937-mtp.dtb \
 	msmgold-pmi8950-cdp.dtb \
+	msmgold-pmi8950-ext-codec-cdp.dtb \
 	msmgold-pmi8950-mtp.dtb \
 	msmgold-pmi8937-rcm.dtb \
 	msmgold-pmi8950-rcm.dtb

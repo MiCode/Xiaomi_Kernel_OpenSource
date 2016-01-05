@@ -15,6 +15,7 @@
 
 #include "msmgold.dtsi"
 #include "msmgold-pmi8950-mtp.dtsi"
+#include "msmgold-audio-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSMGOLD-PMI8950 MTP";

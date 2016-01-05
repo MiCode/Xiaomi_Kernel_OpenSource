@@ -22,58 +22,8 @@
 	qcom,msm-hs-micbias-type = "external";
 	qcom,msm-micbias1-ext-cap;
 
-	qcom,hdmi-dba-codec-rx;
-
-	qcom,msm-gpios =
-		"pri_i2s",
-		"us_eu_gpio",
-		"quin_i2s";
-	qcom,pinctrl-names =
-		"all_off",
-		"pri_i2s_act",
-		"us_eu_gpio_act",
-		"pri_i2s_us_eu_gpio_act",
-		"quin_act",
-		"quin_pri_i2s_act",
-		"quin_us_eu_gpio_act",
-		"quin_us_eu_gpio_pri_i2s_act";
-	pinctrl-names =
-		"all_off",
-		"pri_i2s_act",
-		"us_eu_gpio_act",
-		"pri_i2s_us_eu_gpio_act",
-		"quin_act",
-		"quin_pri_i2s_act",
-		"quin_us_eu_gpio_act",
-		"quin_us_eu_gpio_pri_i2s_act";
-	pinctrl-0 = <&cdc_pdm_lines_sus
-			&cdc_pdm_lines_2_sus &cross_conn_det_sus
-			&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-1 = <&cdc_pdm_lines_act
-			&cdc_pdm_lines_2_act &cross_conn_det_sus
-			&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-2 = <&cdc_pdm_lines_sus
-			&cdc_pdm_lines_2_sus &cross_conn_det_act
-			&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-3 = <&cdc_pdm_lines_act
-			&cdc_pdm_lines_2_act &cross_conn_det_act
-			&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
-	pinctrl-4 = <&cdc_pdm_lines_sus
-			&cdc_pdm_lines_2_sus &cross_conn_det_sus
-			&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-5 = <&cdc_pdm_lines_act
-			&cdc_pdm_lines_2_act &cross_conn_det_sus
-			&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-6 = <&cdc_pdm_lines_sus
-			&cdc_pdm_lines_2_sus &cross_conn_det_act
-			&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-	pinctrl-7 = <&cdc_pdm_lines_act
-			&cdc_pdm_lines_2_act &cross_conn_det_act
-			&pri_tlmm_lines_act &pri_tlmm_ws_act>;
-
-	asoc-codec = <&stub_codec>, <&pm8937_cajon_dig>, <&hdmi_dba>;
-	asoc-codec-names = "msm-stub-codec.1", "cajon_codec",
-						"msm-hdmi-dba-codec-rx";
+	asoc-codec = <&stub_codec>, <&pm8937_cajon_dig>;
+	asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 };
 
 &ext_codec {
@@ -83,38 +33,11 @@
 	qcom,msm-mbhc-hphl-swh = <0>;
 	qcom,msm-mbhc-gnd-swh = <0>;
 
-	qcom,hdmi-dba-codec-rx;
-
-	qcom,msm-gpios =
-		"quin_i2s",
-		"us_eu_gpio";
-	qcom,pinctrl-names =
-		"all_off",
-		"quin_act",
-		"us_eu_gpio_act",
-		"quin_us_eu_gpio_act";
-	pinctrl-names =
-		"all_off",
-		"quin_act",
-		"us_eu_gpio_act",
-		"quin_us_eu_gpio_act";
-	pinctrl-0 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus
-						&cross_conn_det_sus>;
-	pinctrl-1 = <&pri_tlmm_lines_act &pri_tlmm_ws_act
-						&cross_conn_det_sus>;
-	pinctrl-2 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus
-						&cross_conn_det_act>;
-	pinctrl-3 = <&pri_tlmm_lines_act &pri_tlmm_ws_act
-						&cross_conn_det_act>;
-
 	qcom,wsa-max-devs = <2>;
 	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
 			<&wsa881x_213>, <&wsa881x_214>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 				"SpkrLeft", "SpkrRight";
-
-	asoc-codec = <&stub_codec>, <&hdmi_dba>;
-	asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-dba-codec-rx";
 };
 
 &wcd9xxx_intc {
@@ -150,19 +73,19 @@
 				  "ins_rem_det",
 				  "mbhc_int";
 
-		cdc-vdda-cp-supply = <&pm8937_s4>;
+		cdc-vdda-cp-supply = <&pmgold_s4>;
 		qcom,cdc-vdda-cp-voltage = <2050000 2050000>;
 		qcom,cdc-vdda-cp-current = <210000>;
 
-		cdc-vdd-io-supply = <&pm8937_l5>;
+		cdc-vdd-io-supply = <&pmgold_l5>;
 		qcom,cdc-vdd-io-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-io-current = <10000>;
 
-		cdc-vdd-pa-supply = <&pm8937_s4>;
+		cdc-vdd-pa-supply = <&pmgold_s4>;
 		qcom,cdc-vdd-pa-voltage = <2050000 2050000>;
 		qcom,cdc-vdd-pa-current = <260000>;
 
-		cdc-vdd-mic-bias-supply = <&pm8937_l13>;
+		cdc-vdd-mic-bias-supply = <&pmgold_l13>;
 		qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
 		qcom,cdc-vdd-mic-bias-current = <5000>;
 
@@ -199,27 +122,27 @@
 &wcd9335 {
 	qcom,cdc-reset-gpio = <&tlmm 68 0>;
 
-	cdc-vdd-buck-supply = <&eldo2_pm8937>;
+	cdc-vdd-buck-supply = <&eldo2_pmgold>;
 	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
 	qcom,cdc-vdd-buck-current = <650000>;
 
-	cdc-buck-sido-supply = <&eldo2_pm8937>;
+	cdc-buck-sido-supply = <&eldo2_pmgold>;
 	qcom,cdc-buck-sido-voltage = <1800000 1800000>;
 	qcom,cdc-buck-sido-current = <250000>;
 
-	cdc-vdd-tx-h-supply = <&pm8937_l5>;
+	cdc-vdd-tx-h-supply = <&pmgold_l5>;
 	qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
 	qcom,cdc-vdd-tx-h-current = <25000>;
 
-	cdc-vdd-rx-h-supply = <&pm8937_l5>;
+	cdc-vdd-rx-h-supply = <&pmgold_l5>;
 	qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
 	qcom,cdc-vdd-rx-h-current = <25000>;
 
-	cdc-vdd-px-supply = <&pm8937_l5>;
+	cdc-vdd-px-supply = <&pmgold_l5>;
 	qcom,cdc-vdd-px-voltage = <1800000 1800000>;
 	qcom,cdc-vdd-px-current = <10000>;
 
-	cdc-vdd-mic-bias-supply = <&pm8937_l13>;
+	cdc-vdd-mic-bias-supply = <&pmgold_l13>;
 	qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
 	qcom,cdc-vdd-mic-bias-current = <15000>;
 };

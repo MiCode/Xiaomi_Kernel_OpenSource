@@ -61,7 +61,7 @@ ssize_t adreno_coresight_show_register(struct device *dev,
 	}
 	mutex_unlock(&device->mutex);
 
-	return snprintf(buf, PAGE_SIZE, "0x%X", val);
+	return snprintf(buf, PAGE_SIZE, "0x%X\n", val);
 }
 
 ssize_t adreno_coresight_store_register(struct device *dev,
@@ -243,10 +243,12 @@ static int adreno_coresight_enable(struct coresight_device *csdev)
 			coresight->registers[i].value =
 				coresight->registers[i].initial;
 
-		ret = kgsl_active_count_get(device);
-		if (!ret) {
-			ret = _adreno_coresight_set(adreno_dev);
-			kgsl_active_count_put(device);
+		if (kgsl_state_is_awake(device)) {
+			ret = kgsl_active_count_get(device);
+			if (!ret) {
+				ret = _adreno_coresight_set(adreno_dev);
+				kgsl_active_count_put(device);
+			}
 		}
 	}
 
@@ -305,7 +307,7 @@ int adreno_coresight_init(struct adreno_device *adreno_dev)
 	if (gpudev->coresight == NULL)
 		return -ENODEV;
 
-	if (adreno_dev->csdev != NULL)
+	if (!IS_ERR_OR_NULL(adreno_dev->csdev))
 		return 0;
 
 	memset(&desc, 0, sizeof(desc));

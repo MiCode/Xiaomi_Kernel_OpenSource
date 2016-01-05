@@ -11,15 +11,32 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+&int_codec {
+	status = "okay";
+	qcom,model = "msm8952-snd-card-mtp";
+	qcom,msm-hs-micbias-type = "external";
+};
 
-#include "msmgold.dtsi"
-#include "msmgold-pmi8937-mtp.dtsi"
-#include "msmgold-audio-mtp.dtsi"
+&pm8937_cajon_dig {
+	status = "okay";
+};
 
-/ {
-	model = "Qualcomm Technologies, Inc. MSMGOLD-PMI8937 MTP";
-	compatible = "qcom,msmgold-mtp", "qcom,msmgold", "qcom,mtp";
-	qcom,board-id= <8 0>;
-	qcom,pmic-id = <0x10019 0x020037 0x0 0x0>;
+&pm8937_cajon_analog {
+	status = "okay";
+};
+
+&wsa881x_i2c_e {
+	status = "okay";
+};
+
+&wsa881x_i2c_44 {
+	status = "okay";
+};
+
+&wsa881x_i2c_f {
+	status = "okay";
+};
+
+&wsa881x_i2c_45 {
+	status = "okay";
 };
