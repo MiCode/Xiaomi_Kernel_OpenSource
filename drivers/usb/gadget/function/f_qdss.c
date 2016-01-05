@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1137,8 +1137,7 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 		if (status)
 			pr_err("%s:qdss_disconnect error\n", __func__);
 	}
-	if (gadget_is_dwc3(gadget))
-		msm_dwc3_restart_usb_session(gadget);
+	usb_gadget_restart(gadget);
 }
 EXPORT_SYMBOL(usb_qdss_close);
 
