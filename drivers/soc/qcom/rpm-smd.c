@@ -92,7 +92,6 @@ static ATOMIC_NOTIFIER_HEAD(msm_rpm_sleep_notifier);
 static bool standalone;
 static int probe_status = -EPROBE_DEFER;
 static int msm_rpm_read_smd_data(char *buf);
-static void msm_rpm_process_ack(uint32_t msg_id, int errno);
 
 int msm_rpm_register_notifier(struct notifier_block *nb)
 {
@@ -352,7 +351,6 @@ struct msm_rpm_wait_data {
 	bool ack_recd;
 	int errno;
 	struct completion ack;
-	bool delete_on_ack;
 };
 DEFINE_SPINLOCK(msm_rpm_list_lock);
 
@@ -523,7 +521,6 @@ static int msm_rpm_read_sleep_ack(void)
 {
 	int ret;
 	char buf[MAX_ERR_BUFFER_SIZE] = {0};
-	uint32_t msg_id;
 
 	if (glink_enabled)
 		ret = msm_rpm_glink_rx_poll(glink_data->glink_handle);
@@ -531,23 +528,8 @@ static int msm_rpm_read_sleep_ack(void)
 		ret = msm_rpm_read_smd_data(buf);
 		if (!ret)
 			ret = smd_is_pkt_avail(msm_rpm_data.ch_info);
-		/* Mimic Glink behavior to ensure that the data is read
-		 * and the msg is removed from the wait list. We should
-		 * have gotten here only when there are no drivers waiting
-		 * on ACKs. msm_rpm_get_entry_from_msg_id() return non-NULL
-		 * only then. So BUG_ON to ensure that we didn't accidentally
-		 * get here.
-		 */
-		msg_id = msm_rpm_get_msg_id_from_ack(buf);
-		msm_rpm_process_ack(msg_id, 0);
 	}
 	return ret;
-}
-
-static void msm_rpm_flush_noack_messages(void)
-{
-	while (!list_empty(&msm_rpm_wait_list))
-		msm_rpm_read_sleep_ack();
 }
 
 static int msm_rpm_flush_requests(bool print)
@@ -555,8 +537,6 @@ static int msm_rpm_flush_requests(bool print)
 	struct rb_node *t;
 	int ret;
 	int count = 0;
-
-	msm_rpm_flush_noack_messages();
 
 	for (t = rb_first(&tr_root); t; t = rb_next(t)) {
 
@@ -595,7 +575,7 @@ static int msm_rpm_flush_requests(bool print)
 		if (count >= MAX_WAIT_ON_ACK) {
 			int ret = msm_rpm_read_sleep_ack();
 
-			if (ret > 0)
+			if (ret >= 0)
 				count--;
 			else
 				return ret;
@@ -814,18 +794,14 @@ static void msm_rpm_notify(void *data, unsigned event)
 
 bool msm_rpm_waiting_for_ack(void)
 {
-	bool ret = false;
+	bool ret;
 	unsigned long flags;
-	struct msm_rpm_wait_data *elem = NULL;
 
 	spin_lock_irqsave(&msm_rpm_list_lock, flags);
-	elem = list_first_entry_or_null(&msm_rpm_wait_list,
-				struct msm_rpm_wait_data, list);
-	if (elem)
-		ret = !elem->delete_on_ack;
+	ret = list_empty(&msm_rpm_wait_list);
 	spin_unlock_irqrestore(&msm_rpm_list_lock, flags);
 
-	return ret;
+	return !ret;
 }
 
 static struct msm_rpm_wait_data *msm_rpm_get_entry_from_msg_id(uint32_t msg_id)
@@ -864,7 +840,7 @@ static uint32_t msm_rpm_get_next_msg_id(void)
 	return id;
 }
 
-static int msm_rpm_add_wait_list(uint32_t msg_id, bool delete_on_ack)
+static int msm_rpm_add_wait_list(uint32_t msg_id)
 {
 	unsigned long flags;
 	struct msm_rpm_wait_data *data =
@@ -877,12 +853,8 @@ static int msm_rpm_add_wait_list(uint32_t msg_id, bool delete_on_ack)
 	data->ack_recd = false;
 	data->msg_id = msg_id;
 	data->errno = INIT_ERROR;
-	data->delete_on_ack = delete_on_ack;
 	spin_lock_irqsave(&msm_rpm_list_lock, flags);
-	if (delete_on_ack)
-		list_add_tail(&data->list, &msm_rpm_wait_list);
-	else
-		list_add(&data->list, &msm_rpm_wait_list);
+	list_add(&data->list, &msm_rpm_wait_list);
 	spin_unlock_irqrestore(&msm_rpm_list_lock, flags);
 
 	return 0;
@@ -900,20 +872,18 @@ static void msm_rpm_free_list_entry(struct msm_rpm_wait_data *elem)
 
 static void msm_rpm_process_ack(uint32_t msg_id, int errno)
 {
-	struct list_head *ptr, *next;
+	struct list_head *ptr;
 	struct msm_rpm_wait_data *elem = NULL;
 	unsigned long flags;
 
 	spin_lock_irqsave(&msm_rpm_list_lock, flags);
 
-	list_for_each_safe(ptr, next, &msm_rpm_wait_list) {
+	list_for_each(ptr, &msm_rpm_wait_list) {
 		elem = list_entry(ptr, struct msm_rpm_wait_data, list);
 		if (elem && (elem->msg_id == msg_id)) {
 			elem->errno = errno;
 			elem->ack_recd = true;
 			complete(&elem->ack);
-			if (elem->delete_on_ack)
-				list_del(&elem->list);
 			break;
 		}
 		elem = NULL;
@@ -1274,7 +1244,8 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 		return ret;
 	}
 
-	msm_rpm_add_wait_list(cdata->msg_hdr.msg_id, noack);
+	if (!noack)
+		msm_rpm_add_wait_list(cdata->msg_hdr.msg_id);
 
 	ret = msm_rpm_send_buffer(&cdata->buf[0], msg_size, noirq);
 
