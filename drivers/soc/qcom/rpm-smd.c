@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -912,10 +912,8 @@ static void msm_rpm_process_ack(uint32_t msg_id, int errno)
 			elem->errno = errno;
 			elem->ack_recd = true;
 			complete(&elem->ack);
-			if (elem->delete_on_ack) {
+			if (elem->delete_on_ack)
 				list_del(&elem->list);
-				kfree(elem);
-			}
 			break;
 		}
 		elem = NULL;
