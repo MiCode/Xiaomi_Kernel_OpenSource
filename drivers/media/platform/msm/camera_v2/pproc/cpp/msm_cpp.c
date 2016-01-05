@@ -1306,6 +1306,12 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	msm_camera_io_w(0xFFFFFFFF, cpp_dev->base +
 		MSM_CPP_MICRO_IRQGEN_CLR);
 
+	rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+	if (rc) {
+		pr_err("%s:%d] poll rx empty failed %d",
+			__func__, __LINE__, rc);
+		goto end;
+	}
 	/*Start firmware loading*/
 	msm_cpp_write(MSM_CPP_CMD_FW_LOAD, cpp_dev->base);
 	msm_cpp_write(cpp_dev->fw->size, cpp_dev->base);
@@ -1343,6 +1349,12 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		goto end;
 	}
 
+	rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+	if (rc) {
+		pr_err("%s:%d] poll rx empty failed %d",
+			__func__, __LINE__, rc);
+		goto end;
+	}
 	/*Trigger MC to jump to start address*/
 	msm_cpp_write(MSM_CPP_CMD_EXEC_JUMP, cpp_dev->base);
 	msm_cpp_write(MSM_CPP_JUMP_ADDRESS, cpp_dev->base);
@@ -2027,12 +2039,28 @@ static int msm_cpp_send_command_to_hardware(struct cpp_device *cpp_dev,
 	uint32_t *cmd_msg, uint32_t payload_size)
 {
 	uint32_t i;
+	int rc = 0;
+
+	rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+	if (rc) {
+		pr_err("%s:%d] poll rx empty failed %d",
+			__func__, __LINE__, rc);
+		goto end;
+	}
 
 	for (i = 0; i < payload_size; i++) {
-		msm_cpp_write(cmd_msg[i],
-			cpp_dev->base);
+		msm_cpp_write(cmd_msg[i], cpp_dev->base);
+		if (i % MSM_CPP_RX_FIFO_LEVEL == 0) {
+			rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+			if (rc) {
+				pr_err("%s:%d] poll rx empty failed %d",
+					__func__, __LINE__, rc);
+				goto end;
+			}
+		}
 	}
-	return 0;
+end:
+	return rc;
 }
 
 static int msm_cpp_flush_frames(struct cpp_device *cpp_dev)
@@ -2815,6 +2843,12 @@ static int32_t msm_cpp_fw_version(struct cpp_device *cpp_dev)
 {
 	int32_t rc = 0;
 
+	rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+	if (rc) {
+		pr_err("%s:%d] poll rx empty failed %d",
+			__func__, __LINE__, rc);
+		goto end;
+	}
 	/*Get Firmware Version*/
 	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
 	msm_cpp_write(MSM_CPP_MSG_ID_CMD, cpp_dev->base);
