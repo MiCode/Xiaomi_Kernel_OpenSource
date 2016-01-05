@@ -600,8 +600,7 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 1);
 
 	cmds += _adreno_iommu_add_idle_indirect_cmds(adreno_dev, cmds,
-		device->mmu.setstate_memory.gpuaddr +
-		KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+		iommu->setstate.gpuaddr + KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
 	if (iommu->version >= 2) {
 		if (adreno_is_a5xx(adreno_dev))
@@ -873,15 +872,19 @@ done:
 int adreno_iommu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_iommu *iommu = device->mmu.priv;
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
 		return 0;
+
+	if (iommu == NULL)
+		return -ENODEV;
 
 	/*
 	 * A nop is required in an indirect buffer when switching
 	 * pagetables in-stream
 	 */
-	kgsl_sharedmem_writel(device, &device->mmu.setstate_memory,
+	kgsl_sharedmem_writel(device, &iommu->setstate,
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 				cp_packet(adreno_dev, CP_NOP, 1));
 

@@ -1138,8 +1138,9 @@ out:
 
 static void _adreno_free_memories(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	if (test_bit(ADRENO_DEVICE_CMDBATCH_PROFILE, &adreno_dev->priv))
-		kgsl_free_global(&adreno_dev->cmdbatch_profile_buffer);
+		kgsl_free_global(device, &adreno_dev->cmdbatch_profile_buffer);
 
 	/* Free local copies of firmware and other command streams */
 	kfree(adreno_dev->pfp_fw);
@@ -1151,8 +1152,8 @@ static void _adreno_free_memories(struct adreno_device *adreno_dev)
 	kfree(adreno_dev->gpmu_cmds);
 	adreno_dev->gpmu_cmds = NULL;
 
-	kgsl_free_global(&adreno_dev->pm4);
-	kgsl_free_global(&adreno_dev->pfp);
+	kgsl_free_global(device, &adreno_dev->pm4);
+	kgsl_free_global(device, &adreno_dev->pfp);
 }
 
 static int adreno_remove(struct platform_device *pdev)
@@ -1196,7 +1197,7 @@ static int adreno_remove(struct platform_device *pdev)
 	kgsl_device_platform_remove(device);
 
 	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv)) {
-		kgsl_free_global(&adreno_dev->pwron_fixup);
+		kgsl_free_global(device, &adreno_dev->pwron_fixup);
 		clear_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
 	}
 	clear_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);

@@ -19,10 +19,17 @@
 #include <linux/of.h>
 #include "kgsl.h"
 
+/*
+ * These defines control the address range for allocations that
+ * are mapped into all pagetables.
+ */
+#define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_8M
+#define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
+
 #define KGSL_IOMMU_SECURE_SIZE SZ_256M
-#define KGSL_IOMMU_SECURE_END KGSL_MMU_GLOBAL_MEM_BASE
+#define KGSL_IOMMU_SECURE_END KGSL_IOMMU_GLOBAL_MEM_BASE
 #define KGSL_IOMMU_SECURE_BASE	\
-	(KGSL_MMU_GLOBAL_MEM_BASE - KGSL_IOMMU_SECURE_SIZE)
+	(KGSL_IOMMU_GLOBAL_MEM_BASE - KGSL_IOMMU_SECURE_SIZE)
 
 #define KGSL_IOMMU_SVM_BASE32		0x300000
 #define KGSL_IOMMU_SVM_END32		(0xC0000000 - SZ_16M)
@@ -88,7 +95,7 @@ enum kgsl_iommu_context_id {
 	KGSL_IOMMU_CONTEXT_MAX,
 };
 
-/* offset at which a nop command is placed in setstate_memory */
+/* offset at which a nop command is placed in setstate */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
 
 /*
@@ -124,6 +131,7 @@ struct kgsl_iommu_context {
  * @regbase: Virtual address of the IOMMU register base
  * @regstart: Physical address of the iommu registers
  * @regsize: Length of the iommu register region.
+ * @setstate: Scratch GPU memory for IOMMU operations
  * @clk_enable_count: The ref count of clock enable calls
  * @clks: Array of pointers to IOMMU clocks
  * @micro_mmu_ctrl: GPU register offset of this glob al register
@@ -135,6 +143,7 @@ struct kgsl_iommu {
 	void __iomem *regbase;
 	unsigned long regstart;
 	unsigned int regsize;
+	struct kgsl_memdesc setstate;
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 	unsigned int micro_mmu_ctrl;
