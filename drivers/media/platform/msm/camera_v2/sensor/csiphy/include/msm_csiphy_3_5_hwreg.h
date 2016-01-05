@@ -22,6 +22,7 @@ struct csiphy_reg_parms_t csiphy_v3_5 = {
 	.mipi_csiphy_interrupt_status0_addr = 0x8B0,
 	.mipi_csiphy_interrupt_clear0_addr = 0x858,
 	.mipi_csiphy_glbl_irq_cmd_addr = 0x828,
+	.combo_clk_mask = 0x8,
 };
 
 struct csiphy_reg_3ph_parms_t csiphy_v3_5_3ph = {

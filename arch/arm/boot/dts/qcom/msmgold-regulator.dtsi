@@ -348,6 +348,15 @@
 			<(-1) (-1)>;
 	};
 
+	eldo2_pmgold: eldo2 {
+		compatible = "regulator-fixed";
+		regulator-name = "eldo2_pmgold";
+		startup-delay-us = <0>;
+		enable-active-high;
+		gpio = <&pm8937_gpios 7 0>;
+		regulator-always-on;
+	};
+
 	apc_vreg_corner: regulator@b018000 {
 		compatible = "qcom,cpr-regulator";
 		reg = <0xb018000 0x1000>, <0xb011064 4>, <0xa4000 0x1000>;

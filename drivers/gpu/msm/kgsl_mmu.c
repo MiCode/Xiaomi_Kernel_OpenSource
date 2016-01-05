@@ -29,241 +29,12 @@ static enum kgsl_mmutype kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
 
 static void pagetable_remove_sysfs_objects(struct kgsl_pagetable *pagetable);
 
-/*
- * There are certain memory allocations (ringbuffer, memstore, etc) that need to
- * be present at the same address in every pagetable. We call these "global"
- * pagetable entries. There are relatively few of these and they are mostly
- * stable (defined at init time) but the actual number of globals can differ
- * slight depending on the target and implementation.
- *
- * Here we define an array and a simple allocator to keep track of the currently
- * active global entries. Each entry is assigned a unique address inside of a
- * MMU implementation specific "global" region. The addresses are assigned
- * sequentially and never re-used to avoid having to go back and reprogram
- * existing pagetables. The entire list of active entries are mapped and
- * unmapped into every new pagetable as it is created and destroyed.
- *
- * Because there are relatively few entries and they are defined at boot time we
- * don't need to go over the top to define a dynamic allocation scheme. It will
- * be less wasteful to pick a static number with a little bit of growth
- * potential.
- */
-
-#define KGSL_MAX_GLOBAL_PT_ENTRIES 32
-
-/**
- * struct kgsl_global_pt_entries - Collection of global pagetable entries
- * @offset - offset into the global PT space to be assigned to then next
- * allocation
- * @entries: Array of assigned memdesc entries
- * @count: Number of currently assigned entries
- *
- * Maintain a list of global pagetable entries. Pagetables are shared between
- * devices so the global pt entry list needs to be driver wide too
- */
-static struct kgsl_global_pt_entries {
-	unsigned int offset;
-	struct kgsl_memdesc *entries[KGSL_MAX_GLOBAL_PT_ENTRIES];
-	int count;
-} kgsl_global_pt_entries;
-
-/**
- * kgsl_search_global_pt_entries() - Check to see if the given GPU address
- * belongs to any of the global PT entries
- * @gpuaddr: GPU address to search for
- * @size: Size of the region to search for
- *
- * Search all the global pagetable entries for the GPU address and size and
- * return the memory descriptor
- */
-struct kgsl_memdesc *kgsl_search_global_pt_entries(unsigned int gpuaddr,
-		unsigned int size)
-{
-	int i;
-
-	for (i = 0; i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
-		struct kgsl_memdesc *memdesc =
-			kgsl_global_pt_entries.entries[i];
-
-		if (memdesc && kgsl_gpuaddr_in_memdesc(memdesc, gpuaddr, size))
-			return memdesc;
-	}
-
-	return NULL;
-}
-EXPORT_SYMBOL(kgsl_search_global_pt_entries);
-
-/**
- * kgsl_unmap_global_pt_entries() - Unmap all global entries from the given
- * pagetable
- * @pagetable: Pointer to a kgsl_pagetable structure
- *
- * Unmap all the current active global entries from the specified pagetable
- */
-static void kgsl_unmap_global_pt_entries(struct kgsl_pagetable *pagetable)
-{
-	int i;
-	unsigned long flags;
-
-	BUG_ON(pagetable->name == KGSL_MMU_GLOBAL_PT);
-
-	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
-	if (pagetable->globals_mapped == false) {
-		spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
-		return;
-	}
-	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
-
-	for (i = 0; i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
-		struct kgsl_memdesc *entry = kgsl_global_pt_entries.entries[i];
-		if (entry != NULL)
-			kgsl_mmu_unmap(pagetable, entry);
-	}
-
-	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
-	pagetable->globals_mapped = false;
-	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
-}
-
-/**
- * kgsl_map_global_pt_entries() - Map all active global entries into the given
- * pagetable
- * @pagetable: Pointer to a kgsl_pagetable structure
- *
- * Map all the current global PT entries into the specified pagetable.
- */
-void kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable)
-{
-	int i, ret = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
-	if (pagetable->globals_mapped == true) {
-		spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
-		return;
-	}
-	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
-
-	for (i = 0; !ret && i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
-		struct kgsl_memdesc *entry = kgsl_global_pt_entries.entries[i];
-
-		if (entry != NULL) {
-			ret = kgsl_mmu_map(pagetable, entry);
-			BUG_ON(ret);
-		}
-	}
-
-	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
-	pagetable->globals_mapped = true;
-	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
-}
-EXPORT_SYMBOL(kgsl_map_global_pt_entries);
-
-/**
- * kgsl_remove_global_pt_entry() - Remove a memory descriptor from the global PT
- * entry list
- * @memdesc: Pointer to the kgsl memory descriptor to remove
- *
- * Remove the specified memory descriptor from the current list of global
- * pagetable entries
- */
-void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc)
-{
-	int i, j;
-
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
-		return;
-
-	if (memdesc->gpuaddr == 0)
-		return;
-
-	for (i = 0; i < kgsl_global_pt_entries.count; i++) {
-		if (kgsl_global_pt_entries.entries[i] == memdesc) {
-			memdesc->gpuaddr = 0;
-			memdesc->priv &= ~KGSL_MEMDESC_GLOBAL;
-			for (j = i; j < kgsl_global_pt_entries.count; j++)
-				kgsl_global_pt_entries.entries[j] =
-				kgsl_global_pt_entries.entries[j + 1];
-			kgsl_global_pt_entries.entries[j - 1] = NULL;
-			kgsl_global_pt_entries.count--;
-			break;
-		}
-	}
-}
-EXPORT_SYMBOL(kgsl_remove_global_pt_entry);
-
-/**
- * kgsl_add_global_pt_entry() - Add a new global PT entry to the active list
- * @mmu: Pointer to a kgsl_mmu structure for the active MMU implementation
- * @memdesc: Pointer to the kgsl memory descriptor to add
- *
- * Add a memory descriptor to the list of global pagetable entries.
- */
-int kgsl_add_global_pt_entry(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc)
-{
-	int i;
-	int index = 0;
-	uint64_t gaddr = KGSL_MMU_GLOBAL_MEM_BASE;
-	uint64_t size = ALIGN(memdesc->size, PAGE_SIZE);
-
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
-		memdesc->gpuaddr = (uint64_t) memdesc->physaddr;
-		return 0;
-	}
-
-	/* do we already have a mapping? */
-	if (memdesc->gpuaddr != 0)
-		return 0;
-
-	if (kgsl_global_pt_entries.count == KGSL_MAX_GLOBAL_PT_ENTRIES)
-		return -ENOMEM;
-
-	/*
-	 * search for the first free slot by going through all valid entries
-	 * and checking for overlap. All entries are in increasing order of
-	 * gpuaddr
-	 */
-	for (i = 0; i < kgsl_global_pt_entries.count; i++) {
-		if (kgsl_addr_range_overlap(gaddr, size,
-			kgsl_global_pt_entries.entries[i]->gpuaddr,
-			kgsl_global_pt_entries.entries[i]->size))
-			/* On a clash set gaddr to end of clashing entry */
-			gaddr = kgsl_global_pt_entries.entries[i]->gpuaddr +
-				kgsl_global_pt_entries.entries[i]->size;
-		else
-			break;
-	}
-	index = i;
-	if ((gaddr + size) >=
-		(KGSL_MMU_GLOBAL_MEM_BASE + KGSL_MMU_GLOBAL_MEM_SIZE))
-		return -ENOMEM;
-
-	memdesc->gpuaddr = gaddr;
-
-	memdesc->priv |= KGSL_MEMDESC_GLOBAL;
-	/*
-	 * Move the entries from index till the last entry 1 slot right leaving
-	 * the slot at index empty for the newcomer
-	 */
-	for (i = kgsl_global_pt_entries.count - 1; i >= index; i--)
-		kgsl_global_pt_entries.entries[i + 1] =
-			kgsl_global_pt_entries.entries[i];
-	kgsl_global_pt_entries.entries[index] = memdesc;
-	kgsl_global_pt_entries.count++;
-
-	return 0;
-}
-EXPORT_SYMBOL(kgsl_add_global_pt_entry);
-
 static void kgsl_destroy_pagetable(struct kref *kref)
 {
 	struct kgsl_pagetable *pagetable = container_of(kref,
 		struct kgsl_pagetable, refcount);
 
 	kgsl_mmu_detach_pagetable(pagetable);
-
-	kgsl_unmap_global_pt_entries(pagetable);
 
 	if (PT_OP_VALID(pagetable, mmu_destroy_pagetable))
 		pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
@@ -523,45 +294,24 @@ EXPORT_SYMBOL(kgsl_mmu_log_fault_addr);
 
 int kgsl_mmu_init(struct kgsl_device *device, char *mmutype)
 {
-	int status = 0;
 	struct kgsl_mmu *mmu = &device->mmu;
+	int ret = 0;
 
 	if (mmutype && !strcmp(mmutype, "nommu"))
 		kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
 
-	/*
-	 * Don't use kgsl_allocate_global here because we need to get the MMU
-	 * set up before we can add the global entry but the MMU init needs the
-	 * setstate block. Allocate the memory here and map it later
-	 */
-
-	status = kgsl_sharedmem_alloc_contig(device, &mmu->setstate_memory,
-					NULL, PAGE_SIZE);
-	if (status)
-		return status;
-
-	/* Mark the setstate memory as read only */
-	mmu->setstate_memory.flags |= KGSL_MEMFLAGS_GPUREADONLY;
-
-	kgsl_sharedmem_set(device, &mmu->setstate_memory, 0, 0,
-				mmu->setstate_memory.size);
-
-	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) {
+	switch (kgsl_mmu_type) {
+	case KGSL_MMU_TYPE_IOMMU:
 		mmu->mmu_ops = &kgsl_iommu_ops;
-		status =  mmu->mmu_ops->mmu_init(mmu);
+		break;
+	case KGSL_MMU_TYPE_NONE:
+		break;
 	}
 
-	if (status)
-		goto done;
+	if (MMU_OP_VALID(mmu, mmu_init))
+		ret = mmu->mmu_ops->mmu_init(mmu);
 
-	/* Add the setstate memory to the global PT entry list */
-	status = kgsl_add_global_pt_entry(device, &mmu->setstate_memory);
-
-done:
-	if (status)
-		kgsl_sharedmem_free(&mmu->setstate_memory);
-
-	return status;
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_mmu_init);
 
@@ -606,9 +356,6 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 		if (status)
 			goto err;
 	}
-
-	if (KGSL_MMU_SECURE_PT != name)
-		kgsl_map_global_pt_entries(pagetable);
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
 	list_add(&pagetable->list, &kgsl_driver.pagetable_list);
@@ -845,19 +592,34 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 }
 EXPORT_SYMBOL(kgsl_mmu_unmap);
 
-int kgsl_mmu_close(struct kgsl_device *device)
+void kgsl_mmu_close(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
-	int ret = 0;
-
-	kgsl_free_global(&mmu->setstate_memory);
 
 	if (MMU_OP_VALID(mmu, mmu_close))
-		ret = mmu->mmu_ops->mmu_close(mmu);
-
-	return ret;
+		mmu->mmu_ops->mmu_close(mmu);
 }
 EXPORT_SYMBOL(kgsl_mmu_close);
+
+void kgsl_mmu_remove_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc)
+{
+	struct kgsl_mmu *mmu = &device->mmu;
+
+	if (MMU_OP_VALID(mmu, mmu_remove_global))
+		mmu->mmu_ops->mmu_remove_global(mmu, memdesc);
+}
+EXPORT_SYMBOL(kgsl_mmu_remove_global);
+
+void kgsl_mmu_add_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc)
+{
+	struct kgsl_mmu *mmu = &device->mmu;
+
+	if (MMU_OP_VALID(mmu, mmu_add_global))
+		mmu->mmu_ops->mmu_add_global(mmu, memdesc);
+}
+EXPORT_SYMBOL(kgsl_mmu_add_global);
 
 int kgsl_mmu_enabled(void)
 {

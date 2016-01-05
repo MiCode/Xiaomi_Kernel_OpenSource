@@ -70,13 +70,13 @@
 	qcom,csid@1b30000  {
 		status = "ok";
 		cell-index = <0>;
-		compatible = "qcom,csid-v3.4.2", "qcom,csid";
+		compatible = "qcom,csid-v3.4.3", "qcom,csid";
 		reg = <0x1b30000 0x400>;
 		reg-names = "csid";
 		interrupts = <0 51 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
-		qcom,mipi-csi-vdd-supply = <&pm8937_l2>;
+		qcom,mipi-csi-vdd-supply = <&pmgold_l2>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi0_ahb_clk>,
@@ -95,13 +95,13 @@
 	qcom,csid@1b30400 {
 		status = "ok";
 		cell-index = <1>;
-		compatible = "qcom,csid-v3.4.2", "qcom,csid";
+		compatible = "qcom,csid-v3.4.3", "qcom,csid";
 		reg = <0x1b30400 0x400>;
 		reg-names = "csid";
 		interrupts = <0 52 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
-		qcom,mipi-csi-vdd-supply = <&pm8937_l2>;
+		qcom,mipi-csi-vdd-supply = <&pmgold_l2>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi1_ahb_clk>,
@@ -120,13 +120,13 @@
 	qcom,csid@1b30800 {
 		status = "ok";
 		cell-index = <2>;
-		compatible = "qcom,csid-v3.4.2", "qcom,csid";
+		compatible = "qcom,csid-v3.4.3", "qcom,csid";
 		reg = <0x1b30800 0x400>;
 		reg-names = "csid";
 		interrupts = <0 153 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
-		qcom,mipi-csi-vdd-supply = <&pm8937_l2>;
+		qcom,mipi-csi-vdd-supply = <&pmgold_l2>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi2_ahb_clk>,
@@ -368,8 +368,8 @@
 		cell-index = <0>;
 		compatible = "qcom,cpp";
 		reg = <0x1b04000 0x100>,
-			<0x1b80000 0x200>,
-			<0x1b18000 0x018>,
+			<0x1b80000 0x3000>,
+			<0x1b18000 0x4000>,
 			<0x1858078 0x4>;
 		reg-names = "cpp", "cpp_vbif", "cpp_hw", "camss_cpp";
 		interrupts = <0 49 0>;

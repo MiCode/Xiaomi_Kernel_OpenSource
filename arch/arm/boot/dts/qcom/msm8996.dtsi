@@ -2319,6 +2319,7 @@
 		qcom,ahb-clk-vote;
 		qcom,pnoc-clk-vote;
 		qcom,qdsp6v56-1-5;
+		qcom,mx-spike-wa;
 		memory-region = <&modem_mem>;
 		qcom,mem-protect-id = <0xF>;
 
@@ -3737,9 +3738,8 @@
 };
 
 &gdsc_mdss {
-	clock-names = "bus_clk", "core_clk";
-	clocks = <&clock_mmss clk_mdss_axi_clk>,
-		 <&clock_mmss clk_mdss_mdp_clk>;
+	clock-names = "bus_clk";
+	clocks = <&clock_mmss clk_mdss_axi_clk>;
 	parent-supply = <&gdsc_mmagic_mdss>;
 	proxy-supply = <&gdsc_mdss>;
 	qcom,proxy-consumer-enable;

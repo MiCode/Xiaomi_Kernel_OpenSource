@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +58,7 @@
 
 			qcom,pm-cluster-level@1{
 				reg = <1>;
-				label = "system-retention";
+				label = "system-wfi";
 				qcom,psci-mode = <1>;
 				qcom,latency-us = <820>;
 				qcom,ss-power = <560>;
@@ -178,7 +178,7 @@
 
 				qcom,pm-cluster-level@0{
 					reg = <0>;
-					label = "perf-l2-active";
+					label = "perf-l2-wfi";
 					qcom,psci-mode = <1>;
 					qcom,latency-us = <320>;
 					qcom,ss-power = <655>;
@@ -190,6 +190,7 @@
 					reg = <1>;
 					label = "perf-l2-retention";
 					qcom,psci-mode = <3>;
+					qcom,latency-us = <400>;
 					qcom,ss-power = <595>;
 					qcom,energy-overhead = <550000>;
 					qcom,time-overhead = <700>;
@@ -263,7 +264,8 @@
 		qcom,gic-parent = <&intc>;
 		qcom,num-mpm-irqs = <96>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
-			<50 172>, /* usb1_hs_async_wakeup_irq */
+			<58 168>,   /* qusb2phy_dmse_hv -> hs_phy_irq*/
+			<37 252>,   /* qmp_usb3_lfps_rxterm_irq -> ss_phy_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 18>,  /* APC_qgicQTmrSecPhysIrptReq */
@@ -310,8 +312,10 @@
 			<0xff 153>, /* smmu_bus_intr[58] */
 			<0xff 155>, /* sdc1_irq(0) */
 			<0xff 157>, /* sdc2_irq(0) */
-			<0xff 166>, /* usb_hs_irq */
+			<0xff 166>, /* usb30_power_event_irq */
+			<0xff 167>, /* usb30_bam_irq[0] */
 			<0xff 170>, /* sdc1_pwr_cmd_irq */
+			<0xff 172>, /* usb30_ctrl_irq[0] */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
 			<0xff 175>, /* o_wcss_apss_smd_low */

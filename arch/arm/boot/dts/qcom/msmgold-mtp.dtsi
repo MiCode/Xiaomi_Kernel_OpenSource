@@ -12,6 +12,7 @@
  */
 
 #include "msmgold-pinctrl.dtsi"
+#include "msmgold-camera-sensor-mtp.dtsi"
 
 &soc {
 };
