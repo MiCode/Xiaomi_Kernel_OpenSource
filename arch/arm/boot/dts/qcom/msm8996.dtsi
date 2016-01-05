@@ -2319,6 +2319,7 @@
 		qcom,ahb-clk-vote;
 		qcom,pnoc-clk-vote;
 		qcom,qdsp6v56-1-5;
+		qcom,mx-spike-wa;
 		memory-region = <&modem_mem>;
 		qcom,mem-protect-id = <0xF>;
 
