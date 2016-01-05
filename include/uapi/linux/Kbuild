@@ -30,6 +30,7 @@ ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/a.out.h \
 header-y += a.out.h
 endif
 
+header-y += ashmem.h
 header-y += acct.h
 header-y += adb.h
 header-y += adfs_fs.h
@@ -195,6 +196,8 @@ header-y += input.h
 header-y += input-event-codes.h
 header-y += in_route.h
 header-y += ioctl.h
+header-y += ion.h
+header-y += ion_test.h
 header-y += ip6_tunnel.h
 header-y += ipc.h
 header-y += ip.h
@@ -387,7 +390,9 @@ header-y += stat.h
 header-y += stddef.h
 header-y += string.h
 header-y += suspend_ioctls.h
+header-y += sw_sync.h
 header-y += swab.h
+header-y += sync.h
 header-y += synclink.h
 header-y += sysctl.h
 header-y += sysinfo.h
