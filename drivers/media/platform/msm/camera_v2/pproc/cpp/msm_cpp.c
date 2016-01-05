@@ -1207,8 +1207,7 @@ fs_mmagic_failed:
 	else
 		msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 bus_scale_register_failed:
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CPP, CAMERA_AHB_SUSPEND_VOTE);
-	if (rc < 0)
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CPP, CAMERA_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 ahb_vote_fail:
 	return rc;
@@ -2977,6 +2976,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				pr_err("%s: load firmware failure %d\n",
 					__func__, rc);
 				enable_irq(cpp_dev->irq->start);
+				mutex_unlock(&cpp_dev->mutex);
 				return rc;
 			}
 			rc = msm_cpp_fw_version(cpp_dev);
@@ -2984,6 +2984,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				pr_err("%s: get firmware failure %d\n",
 					__func__, rc);
 				enable_irq(cpp_dev->irq->start);
+				mutex_unlock(&cpp_dev->mutex);
 				return rc;
 			}
 			enable_irq(cpp_dev->irq->start);
@@ -3233,6 +3234,7 @@ STREAM_BUFF_END:
 			msm_cpp_core_clk_idx = get_clock_index("cpp_core_clk");
 			if (msm_cpp_core_clk_idx < 0) {
 				pr_err(" Fail to get clock index\n");
+				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
 			rc = msm_cpp_update_bandwidth_setting(cpp_dev,
@@ -3278,6 +3280,7 @@ STREAM_BUFF_END:
 
 		if (ioctl_ptr->len != sizeof(struct msm_pproc_queue_buf_info)) {
 			pr_err("%s: Not valid ioctl_ptr->len\n", __func__);
+			mutex_unlock(&cpp_dev->mutex);
 			return -EINVAL;
 		}
 		rc = msm_cpp_copy_from_ioctl_ptr(&queue_buf_info, ioctl_ptr);
