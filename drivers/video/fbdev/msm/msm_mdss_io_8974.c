@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1105,7 +1105,7 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 		devm_clk_put(dev, sdata->mdp_core_clk);
 }
 
-int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata)
+int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata, bool update_phy)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo = NULL;
@@ -1125,9 +1125,11 @@ int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
-	/* Re-calculate frame rate before clk config */
-	pinfo->mipi.frame_rate = mdss_panel_calc_frame_rate(pinfo);
-	pr_debug("%s: new frame rate %d\n", __func__, pinfo->mipi.frame_rate);
+	if (update_phy) {
+		pinfo->mipi.frame_rate = mdss_panel_calc_frame_rate(pinfo);
+		pr_debug("%s: new frame rate %d\n",
+				__func__, pinfo->mipi.frame_rate);
+	}
 
 	rc = mdss_dsi_clk_div_config(&pdata->panel_info,
 			pdata->panel_info.mipi.frame_rate);
@@ -1160,12 +1162,15 @@ int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata)
 		return rc;
 	}
 
-	/* phy panel timing calaculation */
-	rc = mdss_dsi_phy_calc_timing_param(pinfo,
-		ctrl_pdata->shared_data->phy_rev, pinfo->mipi.frame_rate);
-	if (rc) {
-		pr_err("%s: unable to calculate phy timings\n", __func__);
-		return rc;
+	if (update_phy) {
+		/* phy panel timing calaculation */
+		rc = mdss_dsi_phy_calc_timing_param(pinfo,
+				ctrl_pdata->shared_data->phy_rev,
+				pinfo->mipi.frame_rate);
+		if (rc) {
+			pr_err("Error in calculating phy timings\n");
+			return rc;
+		}
 	}
 
 	return rc;
