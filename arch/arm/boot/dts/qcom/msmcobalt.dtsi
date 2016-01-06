@@ -1280,6 +1280,12 @@
 		};
 	};
 
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 6 4>;
+	};
+
 };
 
 &gdsc_mmss {
