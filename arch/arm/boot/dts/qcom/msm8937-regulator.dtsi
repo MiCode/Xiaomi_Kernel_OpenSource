@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -370,7 +370,7 @@
 		qcom,cpr-timer-cons-up = <0>;
 		qcom,cpr-timer-cons-down = <2>;
 		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <25>;
+		qcom,cpr-step-quotient = <10>;
 		qcom,cpr-up-threshold = <2>;
 		qcom,cpr-down-threshold = <4>;
 		qcom,cpr-idle-clocks = <15>;
@@ -407,6 +407,12 @@
 		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
 		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
 		qcom,cpr-scaled-init-voltage-as-ceiling;
+		qcom,cpr-fuse-version-map =
+			<0	(-1)	1	(-1)	(-1)	(-1)>,
+			<(-1)	(-1)	(-1)	(-1)	(-1)	(-1)>;
+		qcom,cpr-quotient-adjustment =
+			<(-20)	(-40)	(-20)>,
+			<0	0	0>;
 		qcom,cpr-enable;
 	};
 
