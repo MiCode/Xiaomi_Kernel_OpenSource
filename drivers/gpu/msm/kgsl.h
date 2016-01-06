@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,6 +147,7 @@ struct kgsl_memdesc_ops {
  * @gpuaddr: GPU virtual address
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
+ * @mapsize: Size of memory mapped in userspace
  * @priv: Internal flags and settings
  * @sgt: Scatter gather table for allocated pages
  * @ops: Function hooks for the memdesc memory type
@@ -163,6 +164,7 @@ struct kgsl_memdesc {
 	uint64_t gpuaddr;
 	phys_addr_t physaddr;
 	uint64_t size;
+	uint64_t mapsize;
 	unsigned int priv;
 	struct sg_table *sgt;
 	struct kgsl_memdesc_ops *ops;
