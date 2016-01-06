@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -532,6 +532,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct workqueue_struct *workq;
 	struct delayed_work dba_work;
 	bool timing_db_mode;
+	bool update_phy_timing; /* flag to recalculate PHY timings */
 };
 
 struct dsi_status_data {
@@ -574,7 +575,7 @@ void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);
 int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 			    int frame_rate);
-int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata);
+int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata, bool update_phy);
 int mdss_dsi_link_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_link_clk_deinit(struct device *dev,

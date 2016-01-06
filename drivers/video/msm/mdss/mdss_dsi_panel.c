@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1836,7 +1836,7 @@ int mdss_dsi_panel_timing_switch(struct mdss_dsi_ctrl_pdata *ctrl,
 	ctrl->panel_data.current_timing = timing;
 	if (!timing->clk_rate)
 		ctrl->refresh_clk_rate = true;
-	mdss_dsi_clk_refresh(&ctrl->panel_data);
+	mdss_dsi_clk_refresh(&ctrl->panel_data, ctrl->update_phy_timing);
 
 	return 0;
 }
