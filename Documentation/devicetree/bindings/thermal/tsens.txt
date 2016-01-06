@@ -29,6 +29,7 @@ Required properties:
 	       should be "qcom,msmtitanium-tsens" for titanium TSENS driver.
 	       should be "qcom,msm8937-tsens" for 8937 TSENS driver.
 	       should be "qcom,msmgold-tsens" for gold TSENS driver.
+	       should be "qcom,msmcobalt-tsens" for cobalt TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers.
