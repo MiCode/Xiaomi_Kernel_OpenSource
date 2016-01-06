@@ -58,10 +58,10 @@
 
 /* Channel Status fields */
 enum pmic_arb_chnl_status {
-	PMIC_ARB_STATUS_DONE	= (1 << 0),
-	PMIC_ARB_STATUS_FAILURE	= (1 << 1),
-	PMIC_ARB_STATUS_DENIED	= (1 << 2),
-	PMIC_ARB_STATUS_DROPPED	= (1 << 3),
+	PMIC_ARB_STATUS_DONE	= BIT(0),
+	PMIC_ARB_STATUS_FAILURE	= BIT(1),
+	PMIC_ARB_STATUS_DENIED	= BIT(2),
+	PMIC_ARB_STATUS_DROPPED	= BIT(3),
 };
 
 /* Command register fields */
@@ -490,7 +490,7 @@ static void periph_interrupt(struct spmi_pmic_arb_dev *pa, u8 apid)
 	status = readl_relaxed(pa->intr + pa->ver_ops->irq_status(apid));
 	while (status) {
 		id = ffs(status) - 1;
-		status &= ~(1 << id);
+		status &= ~BIT(id);
 		irq = irq_find_mapping(pa->domain,
 				       pa->apid_to_ppid[apid] << 16
 				     | id << 8
@@ -516,7 +516,7 @@ static void pmic_arb_chained_irq(struct irq_desc *desc)
 				      pa->ver_ops->owner_acc_status(pa->ee, i));
 		while (status) {
 			id = ffs(status) - 1;
-			status &= ~(1 << id);
+			status &= ~BIT(id);
 			periph_interrupt(pa, id + i * 32);
 		}
 	}
@@ -533,10 +533,10 @@ static void qpnpint_irq_ack(struct irq_data *d)
 	u8 data;
 
 	raw_spin_lock_irqsave(&pa->lock, flags);
-	writel_relaxed(1 << irq, pa->intr + pa->ver_ops->irq_clear(apid));
+	writel_relaxed(BIT(irq), pa->intr + pa->ver_ops->irq_clear(apid));
 	raw_spin_unlock_irqrestore(&pa->lock, flags);
 
-	data = 1 << irq;
+	data = BIT(irq);
 	qpnpint_spmi_write(d, QPNPINT_REG_LATCHED_CLR, &data, 1);
 }
 
@@ -558,7 +558,7 @@ static void qpnpint_irq_mask(struct irq_data *d)
 	}
 	raw_spin_unlock_irqrestore(&pa->lock, flags);
 
-	data = 1 << irq;
+	data = BIT(irq);
 	qpnpint_spmi_write(d, QPNPINT_REG_EN_CLR, &data, 1);
 }
 
@@ -579,7 +579,7 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 	}
 	raw_spin_unlock_irqrestore(&pa->lock, flags);
 
-	data = 1 << irq;
+	data = BIT(irq);
 	qpnpint_spmi_write(d, QPNPINT_REG_EN_SET, &data, 1);
 }
 
@@ -590,7 +590,7 @@ static void qpnpint_irq_enable(struct irq_data *d)
 
 	qpnpint_irq_unmask(d);
 
-	data = 1 << irq;
+	data = BIT(irq);
 	qpnpint_spmi_write(d, QPNPINT_REG_LATCHED_CLR, &data, 1);
 }
 
@@ -598,25 +598,26 @@ static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 {
 	struct spmi_pmic_arb_qpnpint_type type;
 	u8 irq = d->hwirq >> 8;
+	u8 bit_mask_irq = BIT(irq);
 
 	qpnpint_spmi_read(d, QPNPINT_REG_SET_TYPE, &type, sizeof(type));
 
 	if (flow_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
-		type.type |= 1 << irq;
+		type.type |= bit_mask_irq;
 		if (flow_type & IRQF_TRIGGER_RISING)
-			type.polarity_high |= 1 << irq;
+			type.polarity_high |= bit_mask_irq;
 		if (flow_type & IRQF_TRIGGER_FALLING)
-			type.polarity_low  |= 1 << irq;
+			type.polarity_low  |= bit_mask_irq;
 	} else {
 		if ((flow_type & (IRQF_TRIGGER_HIGH)) &&
 		    (flow_type & (IRQF_TRIGGER_LOW)))
 			return -EINVAL;
 
-		type.type &= ~(1 << irq); /* level trig */
+		type.type &= ~bit_mask_irq; /* level trig */
 		if (flow_type & IRQF_TRIGGER_HIGH)
-			type.polarity_high |= 1 << irq;
+			type.polarity_high |= bit_mask_irq;
 		else
-			type.polarity_low  |= 1 << irq;
+			type.polarity_low  |= bit_mask_irq;
 	}
 
 	qpnpint_spmi_write(d, QPNPINT_REG_SET_TYPE, &type, sizeof(type));
@@ -673,7 +674,7 @@ static int search_mapping_table(struct spmi_pmic_arb_dev *pa,
 
 		data = mapping_table[index];
 
-		if (ppid & (1 << SPMI_MAPPING_BIT_INDEX(data))) {
+		if (ppid & BIT(SPMI_MAPPING_BIT_INDEX(data))) {
 			if (SPMI_MAPPING_BIT_IS_1_FLAG(data)) {
 				index = SPMI_MAPPING_BIT_IS_1_RESULT(data);
 			} else {
