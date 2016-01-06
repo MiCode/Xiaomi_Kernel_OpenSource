@@ -71,6 +71,18 @@ enum codec_versions {
 	UNSUPPORTED,
 };
 
+/* Support different hph modes */
+enum {
+	NORMAL_MODE = 0,
+	HD2_MODE,
+};
+
+/* Codec supports 1 compander */
+enum {
+	COMPANDER_NONE = 0,
+	COMPANDER_1, /* HPHL/R */
+	COMPANDER_MAX,
+};
 
 enum wcd_curr_ref {
 	I_h4_UA = 0,
@@ -287,6 +299,10 @@ struct msm8x16_wcd_priv {
 	bool clock_active;
 	bool config_mode_active;
 	u16 boost_option;
+	/* mode to select hd2 */
+	u32 hph_mode;
+	/* compander used for each rx chain */
+	u32 comp_enabled[MSM8X16_WCD_RX_MAX];
 	bool spk_boost_set;
 	bool ear_pa_boost_set;
 	bool ext_spk_boost_set;
