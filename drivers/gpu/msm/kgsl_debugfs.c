@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,12 +144,12 @@ static int print_mem_entry(int id, void *ptr, void *data)
 
 	kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
 
-	seq_printf(s, "%pK %pK %16llu %5d %8s %10s %16s %5d",
+	seq_printf(s, "%pK %pK %16llu %5d %8s %10s %16s %5d %16llu",
 			(uint64_t *)(uintptr_t) m->gpuaddr,
 			(unsigned long *) m->useraddr,
 			m->size, entry->id, flags,
 			memtype_str(kgsl_memdesc_usermem_type(m)),
-			usage, m->sgt->nents);
+			usage, m->sgt->nents, m->mapsize);
 
 	if (entry->metadata[0] != 0)
 		seq_printf(s, " %s", entry->metadata);
@@ -163,9 +163,9 @@ static int process_mem_print(struct seq_file *s, void *unused)
 {
 	struct kgsl_process_private *private = s->private;
 
-	seq_printf(s, "%8s %8s %8s %5s %8s %10s %16s %5s\n",
+	seq_printf(s, "%16s %16s %16s %5s %8s %10s %16s %5s %16s\n",
 		   "gpuaddr", "useraddr", "size", "id", "flags", "type",
-		   "usage", "sglen");
+		   "usage", "sglen", "mapsize");
 
 	spin_lock(&private->mem_lock);
 	idr_for_each(&private->mem_idr, print_mem_entry, s);
