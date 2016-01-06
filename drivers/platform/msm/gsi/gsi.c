@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -684,13 +684,14 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl)
 	/* only support 16 un-reserved + 7 reserved event virtual IDs */
 	gsi_ctx->evt_bmap = ~0x7E03FF;
 
-	/* enable all interrupts */
+	/* enable all interrupts but GSI_BREAK_POINT */
 	__gsi_config_type_irq(props->ee, ~0, ~0);
 	__gsi_config_ch_irq(props->ee, ~0, ~0);
 	__gsi_config_evt_irq(props->ee, ~0, ~0);
 	__gsi_config_ieob_irq(props->ee, ~0, ~0);
 	__gsi_config_glob_irq(props->ee, ~0, ~0);
-	__gsi_config_gen_irq(props->ee, ~0, ~0);
+	__gsi_config_gen_irq(props->ee, ~0,
+		~GSI_EE_n_CNTXT_GSI_IRQ_CLR_GSI_BREAK_POINT_BMSK);
 	__gsi_config_inter_ee_ch_irq(props->ee, ~0, ~0);
 	__gsi_config_inter_ee_evt_irq(props->ee, ~0, ~0);
 
