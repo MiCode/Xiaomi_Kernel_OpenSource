@@ -18,6 +18,7 @@
 
 #include <linux/spinlock.h>
 #include <linux/ethtool.h>
+#include <linux/mdio.h>
 #include <linux/mii.h>
 #include <linux/module.h>
 #include <linux/timer.h>
@@ -357,6 +358,8 @@ struct phy_c45_device_ids {
  * handling, as well as handling shifts in PHY hardware state
  */
 struct phy_device {
+	struct mdio_device mdio;
+
 	/* Information about the PHY type */
 	/* And management functions */
 	struct phy_driver *drv;
