@@ -1520,9 +1520,9 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 		return 0;
 
 	wcd9xxx->dev_up = false;
-	wcd9xxx_irq_exit(&wcd9xxx->core_res);
 	if (wcd9xxx->dev_down)
 		wcd9xxx->dev_down(wcd9xxx);
+	wcd9xxx_irq_exit(&wcd9xxx->core_res);
 	wcd9xxx_reset_low(wcd9xxx->dev);
 	return 0;
 }
