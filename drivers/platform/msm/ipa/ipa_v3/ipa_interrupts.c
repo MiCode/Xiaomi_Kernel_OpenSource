@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,16 +111,16 @@ static int ipa3_handle_interrupt(int irq_num, bool isr_context)
 
 	switch (interrupt_info.interrupt) {
 	case IPA_TX_SUSPEND_IRQ:
-		IPADBG("processing TX_SUSPEND interrupt work-around\n");
+		IPADBG_LOW("processing TX_SUSPEND interrupt work-around\n");
 		ipa3_tx_suspend_interrupt_wa();
 		if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_0) {
 			suspend_data = ipa_read_reg(ipa3_ctx->mmio,
 				IPA_IRQ_SUSPEND_INFO_EE_n_ADDR_v3_0(ipa_ee));
-			IPADBG("get interrupt %d\n", suspend_data);
+			IPADBG_LOW("get interrupt %d\n", suspend_data);
 		} else {
 			suspend_data = ipa_read_reg(ipa3_ctx->mmio,
 				IPA_IRQ_SUSPEND_INFO_EE_n_ADDR_v3_1(ipa_ee));
-			IPADBG("get interrupt %d\n", suspend_data);
+			IPADBG_LOW("get interrupt %d\n", suspend_data);
 			/* Clearing L2 interrupts status */
 			ipa_write_reg(ipa3_ctx->mmio,
 				IPA_SUSPEND_IRQ_CLR_EE_n_ADDR(ipa_ee),
@@ -179,7 +179,7 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
 	u32 suspend_bmask;
 	int irq_num;
 
-	IPADBG("Enter\n");
+	IPADBG_LOW("Enter\n");
 
 	irq_num = ipa3_irq_mapping[IPA_TX_SUSPEND_IRQ];
 	BUG_ON(irq_num == -1);
@@ -198,7 +198,7 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
 	ipa3_process_interrupts(false);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
-	IPADBG("Exit\n");
+	IPADBG_LOW("Exit\n");
 }
 
 static void ipa3_tx_suspend_interrupt_wa(void)
@@ -207,7 +207,7 @@ static void ipa3_tx_suspend_interrupt_wa(void)
 	u32 suspend_bmask;
 	int irq_num;
 
-	IPADBG("Enter\n");
+	IPADBG_LOW("Enter\n");
 	irq_num = ipa3_irq_mapping[IPA_TX_SUSPEND_IRQ];
 	BUG_ON(irq_num == -1);
 
@@ -220,11 +220,11 @@ static void ipa3_tx_suspend_interrupt_wa(void)
 	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
 		IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
 
-	IPADBG(" processing suspend interrupt work-around, delayed work\n");
+	IPADBG_LOW(" processing suspend interrupt work-around, delayed work\n");
 	queue_delayed_work(ipa_interrupt_wq, &dwork_en_suspend_int,
 			msecs_to_jiffies(DIS_SUSPEND_INTERRUPT_TIMEOUT));
 
-	IPADBG("Exit\n");
+	IPADBG_LOW("Exit\n");
 }
 
 static void ipa3_process_interrupts(bool isr_context)
@@ -235,7 +235,7 @@ static void ipa3_process_interrupts(bool isr_context)
 	u32 en;
 	unsigned long flags;
 
-	IPADBG("Enter\n");
+	IPADBG_LOW("Enter\n");
 
 	spin_lock_irqsave(&suspend_wa_lock, flags);
 	en = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
@@ -268,7 +268,7 @@ static void ipa3_process_interrupts(bool isr_context)
 	}
 
 	spin_unlock_irqrestore(&suspend_wa_lock, flags);
-	IPADBG("Exit\n");
+	IPADBG_LOW("Exit\n");
 }
 
 static void ipa3_interrupt_defer(struct work_struct *work)
@@ -284,7 +284,7 @@ static irqreturn_t ipa3_isr(int irq, void *ctxt)
 {
 	unsigned long flags;
 
-	IPADBG("Enter\n");
+	IPADBG_LOW("Enter\n");
 	/* defer interrupt handling in case IPA is not clocked on */
 	if (ipa3_active_clients_trylock(&flags) == 0) {
 		IPADBG("defer interrupt processing\n");
@@ -299,7 +299,7 @@ static irqreturn_t ipa3_isr(int irq, void *ctxt)
 	}
 
 	ipa3_process_interrupts(true);
-	IPADBG("Exit\n");
+	IPADBG_LOW("Exit\n");
 
 bail:
 	ipa3_active_clients_trylock_unlock(&flags);

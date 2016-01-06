@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,7 @@ static void ipa3_wq_write_done_common(struct ipa3_sys_context *sys,
 	int i, cnt;
 
 	cnt = tx_pkt->cnt;
-	IPADBG("cnt: %d\n", cnt);
+	IPADBG_LOW("cnt: %d\n", cnt);
 	for (i = 0; i < cnt; i++) {
 		spin_lock_bh(&sys->spinlock);
 		if (unlikely(list_empty(&sys->head_desc_list))) {
@@ -359,7 +359,7 @@ int ipa3_send_one(struct ipa3_sys_context *sys, struct ipa3_desc *desc,
 		if (desc->type == IPA_IMM_CMD_DESC) {
 			sps_flags |= SPS_IOVEC_FLAG_IMME;
 			len = desc->opcode;
-			IPADBG("sending cmd=%d pyld_len=%d sps_flags=%x\n",
+			IPADBG_LOW("sending cmd=%d pyld_len=%d sps_flags=%x\n",
 					desc->opcode, desc->len, sps_flags);
 			IPA_DUMP_BUFF(desc->pyld, dma_address, desc->len);
 		} else {
@@ -676,7 +676,7 @@ static void ipa3_transport_irq_cmd_ack(void *user1, int user2)
 		WARN_ON(1);
 		return;
 	}
-	IPADBG("got ack for cmd=%d\n", desc->opcode);
+	IPADBG_LOW("got ack for cmd=%d\n", desc->opcode);
 	complete(&desc->xfer_done);
 }
 
@@ -693,11 +693,12 @@ static void ipa3_transport_irq_cmd_ack(void *user1, int user2)
 int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 {
 	struct ipa3_desc *desc;
-	int result = 0;
+	int i, result = 0;
 	struct ipa3_sys_context *sys;
 	int ep_idx;
 
-	IPADBG("sending command\n");
+	for (i = 0; i < num_desc; i++)
+		IPADBG("sending imm cmd %d\n", descr[i].opcode);
 
 	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
 	if (-1 == ep_idx) {
@@ -757,7 +758,7 @@ static void ipa3_sps_irq_tx_notify(struct sps_event_notify *notify)
 	struct ipa3_sys_context *sys = (struct ipa3_sys_context *)notify->user;
 	int ret;
 
-	IPADBG("event %d notified\n", notify->event_id);
+	IPADBG_LOW("event %d notified\n", notify->event_id);
 
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
@@ -801,7 +802,7 @@ static void ipa3_sps_irq_tx_no_aggr_notify(struct sps_event_notify *notify)
 {
 	struct ipa3_tx_pkt_wrapper *tx_pkt;
 
-	IPADBG("event %d notified\n", notify->event_id);
+	IPADBG_LOW("event %d notified\n", notify->event_id);
 
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
@@ -911,7 +912,7 @@ static void ipa3_sps_irq_rx_notify(struct sps_event_notify *notify)
 	struct ipa3_sys_context *sys = (struct ipa3_sys_context *)notify->user;
 	int ret;
 
-	IPADBG("event %d notified\n", notify->event_id);
+	IPADBG_LOW("event %d notified\n", notify->event_id);
 
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
@@ -1442,7 +1443,7 @@ static void ipa3_tx_comp_usr_notify_release(void *user1, int user2)
 	struct sk_buff *skb = (struct sk_buff *)user1;
 	int ep_idx = user2;
 
-	IPADBG("skb=%p ep=%d\n", skb, ep_idx);
+	IPADBG_LOW("skb=%p ep=%d\n", skb, ep_idx);
 
 	IPA_STATS_INC_CNT(ipa3_ctx->stats.tx_pkts_compl);
 
@@ -1700,7 +1701,7 @@ static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys)
 	struct gsi_xfer_elem gsi_xfer_elem_one;
 	u32 rx_len_cached = 0;
 
-	IPADBG("\n");
+	IPADBG_LOW("\n");
 
 	spin_lock_bh(&ipa3_ctx->wc_memb.wlan_spinlock);
 	rx_len_cached = sys->len;
@@ -2092,7 +2093,7 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 	}
 
 	if (sys->len_partial) {
-		IPADBG("len_partial %d\n", sys->len_partial);
+		IPADBG_LOW("len_partial %d\n", sys->len_partial);
 		buf = skb_push(skb, sys->len_partial);
 		memcpy(buf, sys->prev_skb->data, sys->len_partial);
 		sys->len_partial = 0;
@@ -2103,7 +2104,7 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 	/* this pipe has TX comp (status only) + mux-ed LAN RX data
 	 * (status+data) */
 	if (sys->len_rem) {
-		IPADBG("rem %d skb %d pad %d\n", sys->len_rem, skb->len,
+		IPADBG_LOW("rem %d skb %d pad %d\n", sys->len_rem, skb->len,
 				sys->len_pad);
 		if (sys->len_rem <= skb->len) {
 			if (sys->prev_skb) {
@@ -2150,18 +2151,18 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 begin:
 	while (skb->len) {
 		drop_packet = false;
-		IPADBG("LEN_REM %d\n", skb->len);
+		IPADBG_LOW("LEN_REM %d\n", skb->len);
 
 		if (skb->len < IPA_PKT_STATUS_SIZE) {
 			WARN_ON(sys->prev_skb != NULL);
-			IPADBG("status straddles buffer\n");
+			IPADBG_LOW("status straddles buffer\n");
 			sys->prev_skb = skb;
 			sys->len_partial = skb->len;
 			return rc;
 		}
 
 		status = (struct ipa3_hw_pkt_status *)skb->data;
-		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
+		IPADBG_LOW("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
 		if (sys->status_stat) {
@@ -2194,7 +2195,7 @@ begin:
 		if (status->status_mask & IPA_HW_PKT_STATUS_MASK_TAG_VALID) {
 			struct ipa3_tag_completion *comp;
 
-			IPADBG("TAG packet arrived\n");
+			IPADBG_LOW("TAG packet arrived\n");
 			if (status->tag == IPA_COOKIE) {
 				skb_pull(skb, IPA_PKT_STATUS_SIZE);
 				if (skb->len < sizeof(comp)) {
@@ -2211,11 +2212,11 @@ begin:
 			} else {
 				ptr = tag_to_pointer_wa(status->tag);
 				tx_pkt = (struct ipa3_tx_pkt_wrapper *)ptr;
-				IPADBG("tx_pkt recv = %p\n", tx_pkt);
+				IPADBG_LOW("tx_pkt recv = %p\n", tx_pkt);
 			}
 		}
 		if (status->pkt_len == 0) {
-			IPADBG("Skip aggr close status\n");
+			IPADBG_LOW("Skip aggr close status\n");
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
 			IPA_STATS_INC_CNT(ipa3_ctx->stats.aggr_close);
 			IPA_STATS_DEC_CNT(
@@ -2238,7 +2239,7 @@ begin:
 			if (skb->len == IPA_PKT_STATUS_SIZE &&
 					!status->exception) {
 				WARN_ON(sys->prev_skb != NULL);
-				IPADBG("Ins header in next buffer\n");
+				IPADBG_LOW("Ins header in next buffer\n");
 				sys->prev_skb = skb;
 				sys->len_partial =	 skb->len;
 				return rc;
@@ -2249,12 +2250,13 @@ begin:
 
 			len = status->pkt_len + pad_len_byte +
 				IPA_SIZE_DL_CSUM_META_TRAILER;
-			IPADBG("pad %d pkt_len %d len %d\n", pad_len_byte,
+			IPADBG_LOW("pad %d pkt_len %d len %d\n", pad_len_byte,
 					status->pkt_len, len);
 
 			if (status->exception ==
 					IPA_HW_PKT_STATUS_EXCEPTION_DEAGGR) {
-				IPADBG("Dropping packet on DeAggr Exception\n");
+				IPADBG_LOW(
+					"Dropping packet on DeAggr Exception\n");
 				skb_pull(skb, len + IPA_PKT_STATUS_SIZE);
 				continue;
 			}
@@ -2262,7 +2264,7 @@ begin:
 			skb2 = skb_clone(skb, GFP_KERNEL);
 			if (likely(skb2)) {
 				if (skb->len < len + IPA_PKT_STATUS_SIZE) {
-					IPADBG("SPL skb len %d len %d\n",
+					IPADBG_LOW("SPL skb len %d len %d\n",
 							skb->len, len);
 					sys->prev_skb = skb2;
 					sys->len_rem = len - skb->len +
@@ -2272,7 +2274,7 @@ begin:
 				} else {
 					skb_trim(skb2, status->pkt_len +
 							IPA_PKT_STATUS_SIZE);
-					IPADBG("rx avail for %d\n",
+					IPADBG_LOW("rx avail for %d\n",
 							status->endp_dest_idx);
 					if (drop_packet)
 						dev_kfree_skb_any(skb2);
@@ -2305,11 +2307,12 @@ begin:
 			}
 			/* TX comp */
 			ipa3_wq_write_done_status(src_pipe, tx_pkt);
-			IPADBG("tx comp imp for %d\n", src_pipe);
+			IPADBG_LOW("tx comp imp for %d\n", src_pipe);
 		} else {
 			/* TX comp */
 			ipa3_wq_write_done_status(status->endp_src_idx, tx_pkt);
-			IPADBG("tx comp exp for %d\n", status->endp_src_idx);
+			IPADBG_LOW("tx comp exp for %d\n",
+				status->endp_src_idx);
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
 			IPA_STATS_INC_CNT(ipa3_ctx->stats.stat_compl);
 			IPA_STATS_DEC_CNT(
@@ -2345,13 +2348,13 @@ static void ipa3_wan_rx_handle_splt_pyld(struct sk_buff *skb,
 {
 	struct sk_buff *skb2;
 
-	IPADBG("rem %d skb %d\n", sys->len_rem, skb->len);
+	IPADBG_LOW("rem %d skb %d\n", sys->len_rem, skb->len);
 	if (sys->len_rem <= skb->len) {
 		if (sys->prev_skb) {
 			skb2 = ipa3_join_prev_skb(sys->prev_skb, skb,
 					sys->len_rem);
 			if (likely(skb2)) {
-				IPADBG(
+				IPADBG_LOW(
 					"removing Status element from skb and sending to WAN client");
 				skb_pull(skb2, IPA_PKT_STATUS_SIZE);
 				skb2->truesize = skb2->len +
@@ -2403,14 +2406,14 @@ static int ipa3_wan_rx_pyld_hdlr(struct sk_buff *skb,
 		ipa3_wan_rx_handle_splt_pyld(skb, sys);
 
 	while (skb->len) {
-		IPADBG("LEN_REM %d\n", skb->len);
+		IPADBG_LOW("LEN_REM %d\n", skb->len);
 		if (skb->len < IPA_PKT_STATUS_SIZE) {
 			IPAERR("status straddles buffer\n");
 			WARN_ON(1);
 			goto bail;
 		}
 		status = (struct ipa3_hw_pkt_status *)skb->data;
-		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
+		IPADBG_LOW("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
 
@@ -2439,7 +2442,7 @@ static int ipa3_wan_rx_pyld_hdlr(struct sk_buff *skb,
 			goto bail;
 		}
 		if (status->pkt_len == 0) {
-			IPADBG("Skip aggr close status\n");
+			IPADBG_LOW("Skip aggr close status\n");
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
 			IPA_STATS_DEC_CNT(ipa3_ctx->stats.rx_pkts);
 			IPA_STATS_INC_CNT(ipa3_ctx->stats.wan_aggr_close);
@@ -2466,11 +2469,11 @@ static int ipa3_wan_rx_pyld_hdlr(struct sk_buff *skb,
 
 		/*QMAP is BE: convert the pkt_len field from BE to LE*/
 		pkt_len_with_pad = ntohs((qmap_hdr>>16) & 0xffff);
-		IPADBG("pkt_len with pad %d\n", pkt_len_with_pad);
+		IPADBG_LOW("pkt_len with pad %d\n", pkt_len_with_pad);
 		/*get the CHECKSUM_PROCESS bit*/
 		checksum_trailer_exists = status->status_mask &
 				IPA_HW_PKT_STATUS_MASK_CKSUM_PROCESS;
-		IPADBG("checksum_trailer_exists %d\n",
+		IPADBG_LOW("checksum_trailer_exists %d\n",
 				checksum_trailer_exists);
 
 		frame_len = IPA_PKT_STATUS_SIZE +
@@ -2478,7 +2481,7 @@ static int ipa3_wan_rx_pyld_hdlr(struct sk_buff *skb,
 			    pkt_len_with_pad;
 		if (checksum_trailer_exists)
 			frame_len += IPA_DL_CHECKSUM_LENGTH;
-		IPADBG("frame_len %d\n", frame_len);
+		IPADBG_LOW("frame_len %d\n", frame_len);
 
 		skb2 = skb_clone(skb, GFP_KERNEL);
 		if (likely(skb2)) {
@@ -2487,16 +2490,16 @@ static int ipa3_wan_rx_pyld_hdlr(struct sk_buff *skb,
 			 * payload split across 2 buff
 			 */
 			if (skb->len < frame_len) {
-				IPADBG("SPL skb len %d len %d\n",
+				IPADBG_LOW("SPL skb len %d len %d\n",
 						skb->len, frame_len);
 				sys->prev_skb = skb2;
 				sys->len_rem = frame_len - skb->len;
 				skb_pull(skb, skb->len);
 			} else {
 				skb_trim(skb2, frame_len);
-				IPADBG("rx avail for %d\n",
+				IPADBG_LOW("rx avail for %d\n",
 						status->endp_dest_idx);
-				IPADBG(
+				IPADBG_LOW(
 					"removing Status element from skb and sending to WAN client");
 				skb_pull(skb2, IPA_PKT_STATUS_SIZE);
 				skb2->truesize = skb2->len +
@@ -2566,7 +2569,7 @@ void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 	   ------------------------------------------
 	 */
 	*(u16 *)rx_skb->cb = ((metadata >> 16) & 0xFFFF);
-	IPADBG("meta_data: 0x%x cb: 0x%x\n",
+	IPADBG_LOW("meta_data: 0x%x cb: 0x%x\n",
 			metadata, *(u32 *)rx_skb->cb);
 
 	ep->client_notify(ep->priv, IPA_RECEIVE, (unsigned long)(rx_skb));
@@ -2638,7 +2641,7 @@ static void ipa3_wlan_wq_rx_common(struct ipa3_sys_context *sys, u32 size)
 static void ipa3_dma_memcpy_notify(struct ipa3_sys_context *sys,
 	struct ipa3_mem_buffer *mem_info)
 {
-	IPADBG("ENTER.\n");
+	IPADBG_LOW("ENTER.\n");
 	if (unlikely(list_empty(&sys->head_desc_list))) {
 		IPAERR("descriptor list is empty!\n");
 		WARN_ON(1);
@@ -2646,7 +2649,7 @@ static void ipa3_dma_memcpy_notify(struct ipa3_sys_context *sys,
 	}
 	sys->ep->client_notify(sys->ep->priv, IPA_RECEIVE,
 				(unsigned long)(mem_info));
-	IPADBG("EXIT\n");
+	IPADBG_LOW("EXIT\n");
 }
 
 static void ipa3_wq_rx_avail(struct work_struct *work)
@@ -2679,7 +2682,8 @@ void ipa3_sps_irq_rx_no_aggr_notify(struct sps_event_notify *notify)
 		if (IPA_CLIENT_IS_APPS_CONS(rx_pkt->sys->ep->client))
 			atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
 		rx_pkt->len = notify->data.transfer.iovec.size;
-		IPADBG("event %d notified sys=%p len=%u\n", notify->event_id,
+		IPADBG_LOW("event %d notified sys=%p len=%u\n",
+				notify->event_id,
 				notify->user, rx_pkt->len);
 		queue_work(rx_pkt->sys->wq, &rx_pkt->work);
 		break;
@@ -2872,15 +2876,15 @@ static void ipa3_tx_client_rx_notify_release(void *user1, int user2)
 	struct ipa_tx_data_desc *dd = (struct ipa_tx_data_desc *)user1;
 	int ep_idx = user2;
 
-	IPADBG("Received data desc anchor:%p\n", dd);
+	IPADBG_LOW("Received data desc anchor:%p\n", dd);
 
 	atomic_inc(&ipa3_ctx->ep[ep_idx].avail_fifo_desc);
 	ipa3_ctx->ep[ep_idx].wstats.rx_pkts_status_rcvd++;
 
   /* wlan host driver waits till tx complete before unload */
-	IPADBG("ep=%d fifo_desc_free_count=%d\n",
+	IPADBG_LOW("ep=%d fifo_desc_free_count=%d\n",
 		ep_idx, atomic_read(&ipa3_ctx->ep[ep_idx].avail_fifo_desc));
-	IPADBG("calling client notify callback with priv:%p\n",
+	IPADBG_LOW("calling client notify callback with priv:%p\n",
 		ipa3_ctx->ep[ep_idx].priv);
 
 	if (ipa3_ctx->ep[ep_idx].client_notify) {
@@ -2939,7 +2943,7 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 	u32 num_desc, cnt;
 	int ep_idx;
 
-	IPADBG("Received data desc anchor:%p\n", data_desc);
+	IPADBG_LOW("Received data desc anchor:%p\n", data_desc);
 
 	spin_lock_bh(&ipa3_ctx->wc_memb.ipa_tx_mul_spinlock);
 
@@ -2948,7 +2952,7 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 		IPAERR("dest EP does not exist.\n");
 		goto fail_send;
 	}
-	IPADBG("ep idx:%d\n", ep_idx);
+	IPADBG_LOW("ep idx:%d\n", ep_idx);
 	sys = ipa3_ctx->ep[ep_idx].sys;
 
 	if (unlikely(ipa3_ctx->ep[ep_idx].valid == 0)) {
@@ -2962,7 +2966,7 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 	list_for_each_entry(entry, &data_desc->link, link) {
 		num_desc++;
 	}
-	IPADBG("Number of Data Descriptors:%d", num_desc);
+	IPADBG_LOW("Number of Data Descriptors:%d", num_desc);
 
 	if (atomic_read(&sys->ep->avail_fifo_desc) < num_desc) {
 		IPAERR("Insufficient data descriptors available\n");
@@ -2974,7 +2978,7 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 	list_for_each_entry(entry, &data_desc->link, link) {
 		memset(desc, 0, 2 * sizeof(struct ipa3_desc));
 
-		IPADBG("Parsing data desc :%d\n", cnt);
+		IPADBG_LOW("Parsing data desc :%d\n", cnt);
 		cnt++;
 		((u8 *)entry->pyld_buffer)[IPA_WLAN_HDR_QMAP_ID_OFFSET] =
 			(u8)sys->ep->cfg.meta.qmap_id;
@@ -2988,18 +2992,18 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 		desc[1].type = IPA_DATA_DESC_SKB;
 		desc[1].user1 = data_desc;
 		desc[1].user2 = ep_idx;
-		IPADBG("priv:%p pyld_buf:0x%p pyld_len:%d\n",
+		IPADBG_LOW("priv:%p pyld_buf:0x%p pyld_len:%d\n",
 			entry->priv, desc[1].pyld, desc[1].len);
 
 		/* In case of last descriptor populate callback */
 		if (cnt == num_desc) {
-			IPADBG("data desc:%p\n", data_desc);
+			IPADBG_LOW("data desc:%p\n", data_desc);
 			desc[1].callback = ipa3_tx_client_rx_notify_release;
 		} else {
 			desc[1].callback = ipa3_tx_client_rx_pkt_status;
 		}
 
-		IPADBG("calling ipa3_send_one()\n");
+		IPADBG_LOW("calling ipa3_send_one()\n");
 		if (ipa3_send(sys, 2, desc, true)) {
 			IPAERR("fail to send skb\n");
 			sys->ep->wstats.rx_pkt_leak += (cnt-1);
@@ -3011,7 +3015,7 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 			atomic_dec(&sys->ep->avail_fifo_desc);
 
 		sys->ep->wstats.rx_pkts_rcvd++;
-		IPADBG("ep=%d fifo desc=%d\n",
+		IPADBG_LOW("ep=%d fifo desc=%d\n",
 			ep_idx, atomic_read(&sys->ep->avail_fifo_desc));
 	}
 
@@ -3259,7 +3263,7 @@ static void ipa_gsi_irq_tx_notify_cb(struct gsi_chan_xfer_notify *notify)
 {
 	struct ipa3_tx_pkt_wrapper *tx_pkt;
 
-	IPADBG("event %d notified\n", notify->evt_id);
+	IPADBG_LOW("event %d notified\n", notify->evt_id);
 
 	switch (notify->evt_id) {
 	case GSI_CHAN_EVT_EOT:
@@ -3281,7 +3285,7 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 		IPAERR("gsi notify is NULL.\n");
 		return;
 	}
-	IPADBG("event %d notified\n", notify->evt_id);
+	IPADBG_LOW("event %d notified\n", notify->evt_id);
 
 	sys = (struct ipa3_sys_context *)notify->chan_user_data;
 	rx_pkt_expected = list_first_entry(&sys->head_desc_list,
@@ -3323,7 +3327,7 @@ static void ipa_dma_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 		IPAERR("gsi notify is NULL.\n");
 		return;
 	}
-	IPADBG("event %d notified\n", notify->evt_id);
+	IPADBG_LOW("event %d notified\n", notify->evt_id);
 
 	sys = (struct ipa3_sys_context *)notify->chan_user_data;
 	if (sys->ep->client == IPA_CLIENT_MEMCPY_DMA_SYNC_CONS) {
@@ -3504,7 +3508,7 @@ static int ipa_populate_tag_field(struct ipa3_desc *desc,
 		 * handling if 64-bit pointer is used
 		 */
 		tag->tag = pointer_to_tag_wa(tx_pkt);
-		IPADBG("tx_pkt sent in tag: 0x%p\n", tx_pkt);
+		IPADBG_LOW("tx_pkt sent in tag: 0x%p\n", tx_pkt);
 		desc->pyld = tag;
 		desc->len = sizeof(*tag);
 		desc->user1 = tag;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,7 +110,7 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 		return -EPERM;
 	}
 
-	IPADBG("en_rule 0x%x\n", en_rule);
+	IPADBG_LOW("en_rule 0x%x\n", en_rule);
 
 	rule_hdr->u.hdr.en_rule = en_rule;
 	ipa3_write_64(rule_hdr->u.word, (u8 *)rule_hdr);
@@ -271,7 +271,7 @@ static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
 		for (i = 0; i < IPA_RULE_TYPE_MAX; i++) {
 			if (tbl->prev_mem[i].phys_base) {
-				IPADBG(
+				IPADBG_LOW(
 				"reaping sys rt tbl name=%s ip=%d rlt=%d\n",
 				tbl->name, ip, i);
 				dma_free_coherent(ipa3_ctx->pdev,
@@ -289,7 +289,7 @@ static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 		for (i = 0; i < IPA_RULE_TYPE_MAX; i++) {
 			WARN_ON(tbl->prev_mem[i].phys_base != 0);
 			if (tbl->curr_mem[i].phys_base) {
-				IPADBG(
+				IPADBG_LOW(
 				"reaping sys rt tbl name=%s ip=%d rlt=%d\n",
 				tbl->name, ip, i);
 				dma_free_coherent(ipa3_ctx->pdev,
@@ -399,7 +399,7 @@ static int ipa_prep_rt_tbl_for_cmt(enum ipa_ip_type ip,
 			return -EPERM;
 		}
 
-		IPADBG("RT rule id (handle) %d hw_len %u priority %u\n",
+		IPADBG_LOW("RT rule id (handle) %d hw_len %u priority %u\n",
 			entry->id, entry->hw_len, entry->prio);
 
 		if (entry->rule.hashable)
@@ -419,7 +419,7 @@ static int ipa_prep_rt_tbl_for_cmt(enum ipa_ip_type ip,
 	if (tbl->sz[IPA_RULE_NON_HASHABLE])
 		tbl->sz[IPA_RULE_NON_HASHABLE] += IPA_HW_TBL_HDR_WIDTH;
 
-	IPADBG("RT tbl index %u hash_sz %u non-hash sz %u\n", tbl->idx,
+	IPADBG_LOW("RT tbl index %u hash_sz %u non-hash sz %u\n", tbl->idx,
 		tbl->sz[IPA_RULE_HASHABLE], tbl->sz[IPA_RULE_NON_HASHABLE]);
 
 	return 0;
@@ -528,7 +528,7 @@ static int ipa_generate_rt_hw_tbl_img(enum ipa_ip_type ip,
 	}
 
 	ipa_get_rt_tbl_lcl_bdy_size(ip, &hash_bdy_sz, &nhash_bdy_sz);
-	IPADBG("total rt tbl local body sizes: hash %u nhash %u\n",
+	IPADBG_LOW("total rt tbl local body sizes: hash %u nhash %u\n",
 		hash_bdy_sz, nhash_bdy_sz);
 
 	hash_bdy->size = hash_bdy_sz + IPA_HW_TBL_BLK_SIZE_ALIGNMENT;
@@ -768,10 +768,10 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		goto fail_size_valid;
 	}
 
-	IPADBG("Hashable HEAD\n");
+	IPADBG_LOW("Hashable HEAD\n");
 	IPA_DUMP_BUFF(hash_hdr.base, hash_hdr.phys_base, hash_hdr.size);
 
-	IPADBG("Non-Hashable HEAD\n");
+	IPADBG_LOW("Non-Hashable HEAD\n");
 	IPA_DUMP_BUFF(nhash_hdr.base, nhash_hdr.phys_base, nhash_hdr.size);
 
 	if (hash_bdy.size) {

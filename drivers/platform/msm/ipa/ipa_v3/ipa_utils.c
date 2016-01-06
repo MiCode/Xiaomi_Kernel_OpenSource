@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1880,25 +1880,25 @@ int ipa3_generate_hw_rule(enum ipa_ip_type ip,
 	 * OFFSET_MEQ32_0 with mask of 0 and val of 0 and offset 0
 	 */
 	if (attrib->attrib_mask == 0) {
-		IPADBG("building default rule\n");
+		IPADBG_LOW("building default rule\n");
 		*en_rule |= ipa_ofst_meq32[0];
 		extra_wrd_i = ipa3_write_8(0, extra_wrd_i);  /* offset */
 		rest_wrd_i = ipa3_write_32(0, rest_wrd_i);   /* mask */
 		rest_wrd_i = ipa3_write_32(0, rest_wrd_i);   /* val */
 	}
 
-	IPADBG("extra_word_1 0x%llx\n", *(u64 *)extra_wrd_start);
-	IPADBG("extra_word_2 0x%llx\n",
+	IPADBG_LOW("extra_word_1 0x%llx\n", *(u64 *)extra_wrd_start);
+	IPADBG_LOW("extra_word_2 0x%llx\n",
 		*(u64 *)(extra_wrd_start + IPA_HW_TBL_WIDTH));
 
 	extra_wrd_i = ipa3_pad_to_64(extra_wrd_i);
 	sz = extra_wrd_i - extra_wrd_start;
-	IPADBG("extra words params sz %d\n", sz);
+	IPADBG_LOW("extra words params sz %d\n", sz);
 	*buf = ipa3_copy_mem(extra_wrd_start, *buf, sz);
 
 	rest_wrd_i = ipa3_pad_to_64(rest_wrd_i);
 	sz = rest_wrd_i - rest_wrd_start;
-	IPADBG("non extra words params sz %d\n", sz);
+	IPADBG_LOW("non extra words params sz %d\n", sz);
 	*buf = ipa3_copy_mem(rest_wrd_start, *buf, sz);
 
 fail_err_check:
@@ -5325,7 +5325,7 @@ int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib)
 	if (attrib->ihl_offset_eq_16_present)
 		num++;
 
-	IPADBG("extra bytes number %d\n", num);
+	IPADBG_LOW("extra bytes number %d\n", num);
 
 	return num;
 }

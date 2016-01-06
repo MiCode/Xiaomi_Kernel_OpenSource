@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1926,6 +1926,13 @@ void ipa3_debugfs_init(void)
 		&ipa3_ctx->ctrl->clock_scaling_bw_threshold_turbo);
 	if (!file) {
 		IPAERR("could not create bw_threshold_turbo_mbps\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u32("enable_low_prio_print", read_write_mode,
+		dent, &ipa3_ctx->enable_low_prio_print);
+	if (!file) {
+		IPAERR("could not create enable_low_prio_print file\n");
 		goto fail;
 	}
 
