@@ -122,12 +122,16 @@ static u64 __maybe_unused gic_read_iar(void)
 	u64 irqstat;
 
 	asm volatile("mrs_s %0, " __stringify(ICC_IAR1_EL1) : "=r" (irqstat));
+	/* As per the architecture specification */
+	mb();
 	return irqstat;
 }
 
 static void __maybe_unused gic_write_pmr(u64 val)
 {
 	asm volatile("msr_s " __stringify(ICC_PMR_EL1) ", %0" : : "r" (val));
+	/* As per the architecture specification */
+	mb();
 }
 
 static void __maybe_unused gic_write_ctlr(u64 val)
@@ -145,6 +149,8 @@ static void __maybe_unused gic_write_grpen1(u64 val)
 static void __maybe_unused gic_write_sgi1r(u64 val)
 {
 	asm volatile("msr_s " __stringify(ICC_SGI1R_EL1) ", %0" : : "r" (val));
+	/* As per the architecture specification */
+	mb();
 }
 
 static void gic_enable_sre(void)
