@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,4 +101,38 @@
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
 	status = "ok";
+};
+
+&i2c_5 { /* BLSP2 QUP1 (NFC) */
+	nq@28 {
+		compatible = "qcom,nq-nci";
+		reg = <0x28>;
+		qcom,nq-irq = <&tlmm 17 0x00>;
+		qcom,nq-ven = <&tlmm 16 0x00>;
+		qcom,nq-firm = <&tlmm 62 0x00>;
+		qcom,nq-clkreq = <&pmtitanium_gpios 2 0x00>;
+		interrupt-parent = <&tlmm>;
+		qcom,clk-src = "BBCLK2";
+		interrupts = <17 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
+		clocks = <&clock_gcc clk_bb_clk2_pin>;
+		clock-names = "ref_clk";
+	};
+};
+
+&pmtitanium_gpios {
+	/* GPIO 2 (NFC_CLK_REQ) */
+	gpio@c100 {
+		qcom,mode = <0>;
+		qcom,output-type = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,out-strength = <3>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
 };
