@@ -75,7 +75,7 @@ static struct uid_entry *find_or_register_uid(uid_t uid)
 static int uid_stat_show(struct seq_file *m, void *v)
 {
 	struct uid_entry *uid_entry;
-	struct task_struct *task;
+	struct task_struct *task, *temp;
 	cputime_t utime;
 	cputime_t stime;
 	unsigned long bkt;
@@ -89,7 +89,7 @@ static int uid_stat_show(struct seq_file *m, void *v)
 	}
 
 	read_lock(&tasklist_lock);
-	for_each_process(task) {
+	do_each_thread(temp, task) {
 		uid_entry = find_or_register_uid(from_kuid_munged(
 			current_user_ns(), task_uid(task)));
 		if (!uid_entry) {
@@ -100,11 +100,16 @@ static int uid_stat_show(struct seq_file *m, void *v)
 				task_uid(task)));
 			return -ENOMEM;
 		}
+		/* if this task is exiting, we have already accounted for the
+		 * time and power.
+		 */
+		if (task->cpu_power == ULLONG_MAX)
+			continue;
 		task_cputime_adjusted(task, &utime, &stime);
 		uid_entry->active_utime += utime;
 		uid_entry->active_stime += stime;
 		uid_entry->active_power += task->cpu_power;
-	}
+	} while_each_thread(temp, task);
 	read_unlock(&tasklist_lock);
 
 	hash_for_each(hash_table, bkt, uid_entry, hash) {
@@ -211,6 +216,7 @@ static int process_notifier(struct notifier_block *self,
 	uid_entry->utime += utime;
 	uid_entry->stime += stime;
 	uid_entry->power += task->cpu_power;
+	task->cpu_power = ULLONG_MAX;
 
 exit:
 	mutex_unlock(&uid_lock);
