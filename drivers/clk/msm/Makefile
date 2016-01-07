@@ -11,4 +11,15 @@ obj-$(CONFIG_MSM_CLK_CONTROLLER_V2)	+= msm-clock-controller.o
 
 obj-y		+= clock-debug.o
 
+# MSM 8996
+obj-$(CONFIG_ARCH_QCOM) += clock-gcc-8996.o
+obj-$(CONFIG_ARCH_QCOM) += clock-mmss-8996.o
+obj-$(CONFIG_ARCH_QCOM) += clock-cpu-8996.o
+
+
+# MSM COBALT
+obj-$(CONFIG_ARCH_QCOM) += clock-gcc-cobalt.o
+
+# CPU clocks
+
 obj-y				+= gdsc.o
