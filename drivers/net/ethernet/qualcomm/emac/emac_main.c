@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,7 +74,9 @@ static struct of_device_id emac_dt_match[];
 #define EMAC_PINCTRL_STATE_SLEEP "emac_sleep"
 
 #define EMAC_VREG1_VOLTAGE	1250000
-#define EMAC_VREG2_VOLTAGE	2850000
+#define EMAC_VREG2_VOLTAGE	1800000
+#define EMAC_VREG3_VOLTAGE	2850000
+#define EMAC_VREG4_VOLTAGE	1800000
 #define EMAC_VREG_RESET_VOLTAGE	0
 
 struct emac_skb_cb {
@@ -130,7 +132,7 @@ static const char * const emac_clk_name[] = {
 };
 
 static const char * const emac_regulator_name[] = {
-	"emac_vreg1", "emac_vreg2", "emac_vreg3"
+	"emac_vreg1", "emac_vreg2", "emac_vreg3", "emac_vreg4", "emac_vreg5"
 };
 
 #if IS_ENABLED(CONFIG_ACPI)
@@ -2923,6 +2925,11 @@ static int emac_enable_regulator(struct emac_adapter *adpt)
 		adpt->vreg[EMAC_VREG2].enabled = true;
 	}
 
+	retval = emac_set_voltage(adpt, EMAC_VREG3, EMAC_VREG3_VOLTAGE,
+				  EMAC_VREG3_VOLTAGE);
+	if (retval)
+		goto err;
+
 	retval = regulator_enable(adpt->vreg[EMAC_VREG3].vreg);
 	if (retval) {
 		emac_err(adpt, "error:%d enable regulator %s\n",
@@ -2930,6 +2937,29 @@ static int emac_enable_regulator(struct emac_adapter *adpt)
 		goto err;
 	} else {
 		adpt->vreg[EMAC_VREG3].enabled = true;
+	}
+
+	retval = emac_set_voltage(adpt, EMAC_VREG4, EMAC_VREG4_VOLTAGE,
+				  EMAC_VREG4_VOLTAGE);
+	if (retval)
+		goto err;
+
+	retval = regulator_enable(adpt->vreg[EMAC_VREG4].vreg);
+	if (retval) {
+		emac_err(adpt, "error:%d enable regulator %s\n",
+			 retval, emac_regulator_name[EMAC_VREG4]);
+		goto err;
+	} else {
+		adpt->vreg[EMAC_VREG4].enabled = true;
+	}
+
+	retval = regulator_enable(adpt->vreg[EMAC_VREG5].vreg);
+	if (retval) {
+		emac_err(adpt, "error:%d enable regulator %s\n",
+			 retval, emac_regulator_name[EMAC_VREG5]);
+		goto err;
+	} else {
+		adpt->vreg[EMAC_VREG5].enabled = true;
 	}
 	return 0;
 err:
@@ -2954,10 +2984,18 @@ static void emac_disable_regulator(struct emac_adapter *adpt)
 				emac_set_voltage(adpt, i,
 						 EMAC_VREG_RESET_VOLTAGE,
 						 EMAC_VREG1_VOLTAGE);
-			else
+			else if (i == EMAC_VREG2)
 				emac_set_voltage(adpt, i,
 						 EMAC_VREG_RESET_VOLTAGE,
 						 EMAC_VREG2_VOLTAGE);
+			else if (i == EMAC_VREG3)
+				emac_set_voltage(adpt, i,
+						 EMAC_VREG_RESET_VOLTAGE,
+						 EMAC_VREG3_VOLTAGE);
+			else if (i == EMAC_VREG4)
+				emac_set_voltage(adpt, i,
+						 EMAC_VREG_RESET_VOLTAGE,
+						 EMAC_VREG4_VOLTAGE);
 			vreg->set_voltage = false;
 		}
 	}
