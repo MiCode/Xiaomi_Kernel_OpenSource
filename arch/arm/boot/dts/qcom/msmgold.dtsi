@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -509,10 +509,67 @@
 			 <&clock_cpu clk_a53_bc_clk>,
 			 <&clock_cpu clk_a53_bc_clk>;
 
-		qcom,cpufreq-table-0 =
+		qcom,cpufreq-table =
 			 <  998400 >,
 			 < 1094400 >,
 			 < 1209600 >;
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2270 /*  297.6 MHz */ >,	/*SVS */
+			<  2929 /*  384   MHz */ >,
+			<  4248 /*  556.8 MHz */ >,	/*SVS+*/
+			<  4541 /*  595.2 MHz */ >,	/*NOM*/
+			<  5126 /*  672   MHz */ >;	/*TURBO*/
+	};
+
+	mincpubw: qcom,mincpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2270 /*  297.6 MHz */ >,
+			<  2929 /*  384   MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  4541 /*  595.2 MHz */ >,
+			<  5126 /*  672   MHz */ >;
+	};
+
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon2";
+		reg = <0x408000 0x300>, <0x401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map =
+			<  998400  4248 >,
+			< 1094400  4541 >,
+			< 1209600  5126 >;
+		};
+
+		mincpubw-cpufreq {
+			target-dev = <&mincpubw>;
+			cpu-to-dev-map =
+				<  998400 2270 >,
+				< 1094400 4248 >,
+				< 1209600 4248 >;
+		};
 	};
 
 	qcom,wdt@b017000 {
