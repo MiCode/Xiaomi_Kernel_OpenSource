@@ -49,6 +49,10 @@ config ARCH_MEDIATEK
 config ARCH_QCOM
 	bool "Qualcomm Platforms"
 	select PINCTRL
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
