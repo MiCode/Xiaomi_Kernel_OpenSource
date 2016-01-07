@@ -73,6 +73,7 @@ static u64 zcache_reclaim_fail;
 static u64 zcache_pool_shrink;
 static u64 zcache_pool_shrink_fail;
 static u64 zcache_pool_shrink_pages;
+static u64 zcache_store_failed;
 static atomic_t zcache_stored_pages = ATOMIC_INIT(0);
 static atomic_t zcache_stored_zero_pages = ATOMIC_INIT(0);
 
@@ -699,7 +700,7 @@ zero:
 	/* store zcache handle */
 	ret = zcache_store_zaddr(zpool, index, key.u.ino, zaddr);
 	if (ret) {
-		pr_err("%s: store handle error %d\n", __func__, ret);
+		zcache_store_failed++;
 		if (!zero)
 			zbud_free(zpool->pool, zaddr);
 	}
@@ -1088,6 +1089,8 @@ static int __init zcache_debugfs_init(void)
 			zcache_debugfs_root, &zcache_pool_shrink_fail);
 	debugfs_create_u64("pool_shrink_pages", S_IRUGO,
 			zcache_debugfs_root, &zcache_pool_shrink_pages);
+	debugfs_create_u64("store_fail", S_IRUGO,
+			zcache_debugfs_root, &zcache_store_failed);
 	return 0;
 }
 
