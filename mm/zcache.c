@@ -78,7 +78,7 @@ static atomic_t zcache_stored_zero_pages = ATOMIC_INIT(0);
 
 #define GFP_ZCACHE \
 	(__GFP_FS | __GFP_NORETRY | __GFP_NOWARN | \
-		__GFP_NOMEMALLOC | __GFP_NO_KSWAPD)
+		__GFP_NOMEMALLOC | __GFP_NO_KSWAPD | __GFP_ZERO)
 
 /*
  * Make sure this is different from radix tree
@@ -685,10 +685,6 @@ static void zcache_store_page(int pool_id, struct cleancache_filekey key,
 	}
 
 	zhandle = (struct zcache_ra_handle *)zbud_map(zpool->pool, zaddr);
-	zhandle->ra_index = index;
-	zhandle->rb_index = key.u.ino;
-	zhandle->zlen = zlen;
-	zhandle->zpool = zpool;
 
 	/* Compressed page data stored at the end of zcache_ra_handle */
 	zpage = (u8 *)(zhandle + 1);
@@ -712,6 +708,10 @@ zero:
 	if (zero) {
 		atomic_inc(&zcache_stored_zero_pages);
 	} else {
+		zhandle->ra_index = index;
+		zhandle->rb_index = key.u.ino;
+		zhandle->zlen = zlen;
+		zhandle->zpool = zpool;
 		atomic_inc(&zcache_stored_pages);
 		zpool->size = zbud_get_pool_size(zpool->pool);
 	}
@@ -794,6 +794,7 @@ static void zcache_flush_ratree(struct zcache_pool *zpool,
 	unsigned long index = 0;
 	int count, i;
 	struct zcache_ra_handle *zhandle;
+	void *zaddr = NULL;
 
 	do {
 		void *zaddrs[FREE_BATCH];
@@ -805,14 +806,18 @@ static void zcache_flush_ratree(struct zcache_pool *zpool,
 
 		for (i = 0; i < count; i++) {
 			if (zaddrs[i] == ZERO_HANDLE) {
-				radix_tree_delete(&rbnode->ratree, indices[i]);
-				atomic_dec(&zcache_stored_zero_pages);
+				zaddr = radix_tree_delete(&rbnode->ratree,
+					indices[i]);
+				if (zaddr)
+					atomic_dec(&zcache_stored_zero_pages);
 				continue;
 			}
 			zhandle = (struct zcache_ra_handle *)zbud_map(
 					zpool->pool, (unsigned long)zaddrs[i]);
 			index = zhandle->ra_index;
-			radix_tree_delete(&rbnode->ratree, index);
+			zaddr = radix_tree_delete(&rbnode->ratree, index);
+			if (!zaddr)
+				continue;
 			zbud_unmap(zpool->pool, (unsigned long)zaddrs[i]);
 			zbud_free(zpool->pool, (unsigned long)zaddrs[i]);
 			atomic_dec(&zcache_stored_pages);
@@ -907,7 +912,10 @@ static int zcache_evict_zpage(struct zbud_pool *pool, unsigned long zaddr)
 	zhandle = (struct zcache_ra_handle *)zbud_map(pool, zaddr);
 
 	zpool = zhandle->zpool;
-	BUG_ON(!zpool);
+	/* There can be a race with zcache store */
+	if (!zpool)
+		return -EINVAL;
+
 	BUG_ON(pool != zpool->pool);
 
 	zaddr_intree = zcache_load_delete_zaddr(zpool, zhandle->rb_index,
