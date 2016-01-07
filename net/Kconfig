@@ -48,6 +48,16 @@ config COMPAT_NETLINK_MESSAGES
 config NET_INGRESS
 	bool
 
+config DISABLE_NET_SKB_FRAG_CACHE
+	bool "Disable skb fragment cache"
+	help
+	  Enabling this option ensures that when allocating skbs the network
+	  skb fragment cache is not used.
+	  Disabling use of the fragment cache can be useful on some low end
+	  targets because it reduces memory pressure.
+
+	  If you are unsure how to answer this question, answer N.
+
 menu "Networking options"
 
 source "net/packet/Kconfig"
