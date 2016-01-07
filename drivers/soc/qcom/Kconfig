@@ -1,6 +1,15 @@
 #
 # QCOM Soc drivers
 #
+config MSM_SMEM
+	depends on ARCH_QCOM
+	depends on REMOTE_SPINLOCK_MSM
+	bool "MSM Shared Memory (SMEM)"
+	help
+	  Support for the shared memory interface between the various
+	  processors in the System on a Chip (SoC) which allows basic
+	  inter-processor communication.
+
 config QCOM_GSBI
         tristate "QCOM General Serial Bus Interface"
         depends on ARCH_QCOM

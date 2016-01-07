@@ -1,3 +1,4 @@
+obj-$(CONFIG_MSM_SMEM)	+=	msm_smem.o smem_debug.o
 obj-$(CONFIG_QCOM_GSBI)	+=	qcom_gsbi.o
 obj-$(CONFIG_QCOM_PM)	+=	spm.o
 obj-$(CONFIG_QCOM_SMD) +=	smd.o
