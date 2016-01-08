@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This program is free software; you can redistribute it and/or modify
@@ -166,6 +166,7 @@ struct mdp3_img_data {
 	int p_need;
 	struct file *srcp_file;
 	struct ion_handle *srcp_ihdl;
+	struct fd srcp_f;
 };
 
 extern struct mdp3_hw_resource *mdp3_res;

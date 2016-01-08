@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -40,13 +40,10 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 
-#include <mach/board.h>
-#include <mach/hardware.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
-#include <mach/msm_memtypes.h>
 
 #include "mdp3.h"
 #include "mdss_fb.h"
@@ -54,6 +51,10 @@
 #include "mdp3_ctrl.h"
 #include "mdp3_ppp.h"
 #include "mdss_debug.h"
+
+#ifndef EXPORT_COMPAT
+#define EXPORT_COMPAT(x)
+#endif
 
 #define MISR_POLL_SLEEP                 2000
 #define MISR_POLL_TIMEOUT               32000
