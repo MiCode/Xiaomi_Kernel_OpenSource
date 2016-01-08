@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2360,8 +2360,8 @@ static enum handoff hdmi_8996_vco_handoff(struct clk *c)
 
 	io->handoff_resources = true;
 
-	if (hdmi_8996_pll_lock_status(io)) {
-		if (hdmi_8996_phy_ready_status(io)) {
+	if (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_C_READY_STATUS) & BIT(0)) {
+		if (MDSS_PLL_REG_R(io->phy_base, HDMI_PHY_STATUS) & BIT(0)) {
 			io->pll_on = true;
 			c->rate = hdmi_8996_vco_get_rate(c);
 			ret = HANDOFF_ENABLED_CLK;
