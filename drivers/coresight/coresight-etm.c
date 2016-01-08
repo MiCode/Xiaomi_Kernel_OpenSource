@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2249,6 +2249,10 @@ static int etm_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device_node *cpu_node;
 
+	if (coresight_fuse_access_disabled() ||
+	    coresight_fuse_apps_access_disabled())
+		return -EPERM;
+
 	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
@@ -2308,12 +2312,6 @@ static int etm_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		goto err0;
-
-	if (!coresight_authstatus_enabled(drvdata->base)) {
-		clk_disable_unprepare(drvdata->clk);
-		wakeup_source_trash(&drvdata->ws);
-		return -EPERM;
-	}
 
 	if (count++ == 0)
 		register_hotcpu_notifier(&etm_cpu_notifier);
