@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -333,6 +333,9 @@ static int dsi_update_clk_state(struct dsi_core_clks *c_clks, u32 c_state,
 	} else {
 		mngr = NULL;
 	}
+
+	if (!mngr)
+		return -EINVAL;
 
 	pr_debug("%s: c_state = %d, l_state = %d\n", mngr ? mngr->name : "NA",
 		 c_clks ? c_state : -1, l_clks ? l_state : -1);
