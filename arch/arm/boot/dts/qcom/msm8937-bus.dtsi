@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -960,5 +960,48 @@
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_LPASS>;
 		};
+	};
+
+	devfreq_spdm_cpu {
+		compatible = "qcom,devfreq_spdm";
+		qcom,msm-bus,name = "devfreq_spdm";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<1 512 0 0>,
+				<1 512 0 0>;
+		qcom,msm-bus,active-only;
+		qcom,spdm-client = <0>;
+
+		clock-names = "cci_clk";
+		clocks = <&clock_cpu clk_cci_clk>;
+
+		qcom,bw-upstep = <400>;
+		qcom,bw-dwnstep = <3640>;
+		qcom,max-vote = <3640>;
+		qcom,up-step-multp = <1>;
+		qcom,spdm-interval = <50>;
+
+		qcom,ports = <11>;
+		qcom,alpha-up = <8>;
+		qcom,alpha-down = <15>;
+		qcom,bucket-size = <8>;
+
+		/*max pl1 freq, max pl2 freq*/
+		qcom,pl-freqs = <520000 720000>;
+
+		/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+		qcom,reject-rate = <5000 5000 5000 5000 5000 5000>;
+		/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+		qcom,response-time-us = <5000 5000 5000 5000 5000 5000>;
+		/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+		qcom,cci-response-time-us = <5000 5000 5000 5000 5000 5000>;
+		qcom,max-cci-freq = <500000>;
+	};
+
+	devfreq_spdm_gov {
+		compatible = "qcom,gov_spdm_hyp";
+		interrupt-names = "spdm-irq";
+		interrupts = <0 192 0>;
 	};
 };
