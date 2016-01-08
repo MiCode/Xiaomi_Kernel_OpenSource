@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -788,7 +788,7 @@ void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index)
 {
 	int i;
 
-	if (index > DIAG_NUM_PROC) {
+	if (index >= DIAG_NUM_PROC) {
 		pr_err("diag: In %s, invalid index %d\n", __func__, index);
 		return;
 	}

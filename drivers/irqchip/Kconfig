@@ -38,6 +38,18 @@ config ARM_GIC_V3_ACL
 	  Access to GIC ITS address space is controlled by EL2.
 	  Kernel has no permission to access ITS
 
+config ARM_GIC_V3_NO_ACCESS_CONTROL
+	bool "GICv3 No Access Control Configuration"
+	depends on ARM_GIC_V3
+	help
+	  On some SOCs with the access control configurations it is
+	  not allowed to access certain set of the GIC registers
+	  from non-secure world. Provide a common flag to protect
+	  those functionalities and compile them out for such
+	  configurations, so that specific registers are not touched.
+
+	  For production kernels, you should say 'N' here.
+
 config ARM_NVIC
 	bool
 	select IRQ_DOMAIN

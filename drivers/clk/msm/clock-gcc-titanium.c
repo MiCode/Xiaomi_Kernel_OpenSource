@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1030,8 +1030,8 @@ static struct clk_freq_tbl ftbl_csi0p_clk_src[] = {
 	F(  66670000, gpll0_main_div2_mm,    6,    0,     0),
 	F( 133330000,              gpll0,    6,    0,     0),
 	F( 200000000,              gpll0,    4,    0,     0),
-	F( 310000000,              gpll2,    3,    0,     0),
 	F( 266670000,              gpll0,    3,    0,     0),
+	F( 310000000,              gpll2,    3,    0,     0),
 	F_END
 };
 
@@ -1054,8 +1054,8 @@ static struct clk_freq_tbl ftbl_csi1p_clk_src[] = {
 	F(  66670000, gpll0_main_div2_mm,    6,    0,     0),
 	F( 133330000,              gpll0,    6,    0,     0),
 	F( 200000000,              gpll0,    4,    0,     0),
-	F( 310000000,              gpll2,    3,    0,     0),
 	F( 266670000,              gpll0,    3,    0,     0),
+	F( 310000000,              gpll2,    3,    0,     0),
 	F_END
 };
 
@@ -1078,8 +1078,8 @@ static struct clk_freq_tbl ftbl_csi2p_clk_src[] = {
 	F(  66670000, gpll0_main_div2_mm,    6,    0,     0),
 	F( 133330000,              gpll0,    6,    0,     0),
 	F( 200000000,              gpll0,    4,    0,     0),
-	F( 310000000,              gpll2,    3,    0,     0),
 	F( 266670000,              gpll0,    3,    0,     0),
+	F( 310000000,              gpll2,    3,    0,     0),
 	F_END
 };
 
