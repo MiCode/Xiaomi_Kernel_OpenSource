@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3236,6 +3236,9 @@ static void sdhci_msm_notify_pm_status(struct sdhci_host *host,
 		 * We assume that mmc_host layer will remove
 		 * the msm_bus vote once clk gets gated.
 		 */
+	} else if (state == DEV_ERROR) {
+		if (msm_host->msm_bus_vote.client_handle)
+			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 	}
 	msm_host->mmc_dev_state = state;
 }
