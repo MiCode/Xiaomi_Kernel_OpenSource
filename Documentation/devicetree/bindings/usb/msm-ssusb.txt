@@ -50,6 +50,7 @@ Optional properties :
 - qcom,disable-dev-mode-pm: If present, it disables PM runtime functionality for device mode.
 - qcom,disable-host-mode-pm: If present, it disables XHCI PM runtime functionality when USB
   host mode is used.
+- qcom,core-clk-rate: If present, indicates clock frequency to be set for USB master clock.
 - extcon: phandles to external connector devices. First phandle should point to
 	  external connector, which provide "USB" cable events, the second
 	  should point to external connector device, which provide "USB-HOST"
