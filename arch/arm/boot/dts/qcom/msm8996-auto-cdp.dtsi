@@ -44,6 +44,14 @@
 	status = "ok";
 };
 
+&spi_9 {
+	status = "ok";
+};
+
+&spi_10 {
+	status = "ok";
+};
+
 &uartblsp2dm1 {
 	status = "ok";
 	pinctrl-names = "default";
