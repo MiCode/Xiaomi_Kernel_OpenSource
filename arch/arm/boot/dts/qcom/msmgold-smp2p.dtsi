@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,4 +160,74 @@
 		compatible = "qcom,smp2pgpio_test_smp2p_2_out";
 		gpios = <&smp2pgpio_smp2p_2_out 0 0>;
 	};
+
+	/* ssr - inbound entry from mss. */
+	smp2pgpio_ssr_smp2p_1_in: qcom,smp2pgpio-ssr-smp2p-1-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "slave-kernel";
+		qcom,remote-pid = <1>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - outbound entry to mss */
+	smp2pgpio_ssr_smp2p_1_out: qcom,smp2pgpio-ssr-smp2p-1-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "master-kernel";
+		qcom,remote-pid = <1>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - inbound entry from lpass. */
+	smp2pgpio_ssr_smp2p_2_in: qcom,smp2pgpio-ssr-smp2p-2-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "slave-kernel";
+		qcom,remote-pid = <2>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - outbound entry to lpass */
+	smp2pgpio_ssr_smp2p_2_out: qcom,smp2pgpio-ssr-smp2p-2-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "master-kernel";
+		qcom,remote-pid = <2>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - inbound entry from wcnss. */
+	smp2pgpio_ssr_smp2p_4_in: qcom,smp2pgpio-ssr-smp2p-4-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "slave-kernel";
+		qcom,remote-pid = <4>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	/* ssr - outbound entry to wcnss */
+	smp2pgpio_ssr_smp2p_4_out: qcom,smp2pgpio-ssr-smp2p-4-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "master-kernel";
+		qcom,remote-pid = <4>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
 };
