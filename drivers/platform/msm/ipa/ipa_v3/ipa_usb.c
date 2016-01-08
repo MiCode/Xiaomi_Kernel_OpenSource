@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -163,6 +163,18 @@ static DECLARE_WORK(ipa3_usb_dpl_notify_suspend_completed_work,
 	ipa3_usb_wq_dpl_notify_suspend_completed);
 
 struct ipa3_usb_context *ipa3_usb_ctx;
+
+static char *ipa3_usb_cons_state_to_string(enum ipa3_usb_cons_state state)
+{
+	switch (state) {
+	case IPA_USB_CONS_GRANTED:
+		return "CONS_GRANTED";
+	case IPA_USB_CONS_RELEASED:
+		return "CONS_RELEASED";
+	}
+
+	return "UNSUPPORTED";
+}
 
 static char *ipa3_usb_op_to_string(enum ipa3_usb_op op)
 {
@@ -1767,6 +1779,79 @@ connect_dl_fail:
 connect_ul_fail:
 	ipa3_usb_release_prod(ttype);
 	return result;
+}
+
+int ipa3_usb_get_status_dbg_info(struct ipa3_usb_status_dbg_info *status)
+{
+	int res;
+	int i;
+	unsigned long flags;
+
+	IPA_USB_DBG("entry\n");
+
+	if (ipa3_usb_ctx == NULL) {
+		IPA_USB_ERR("IPA USB was not inited yet\n");
+		return -EFAULT;
+	}
+
+	mutex_lock(&ipa3_usb_ctx->general_mutex);
+
+	if (!status) {
+		IPA_USB_ERR("Invalid input\n");
+		res = -EINVAL;
+		goto bail;
+	}
+
+	memset(status, 0, sizeof(struct ipa3_usb_status_dbg_info));
+
+	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
+	status->teth_state = ipa3_usb_state_to_string(
+		ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].state);
+	status->dpl_state = ipa3_usb_state_to_string(
+		ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_DPL].state);
+	if (ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].rm_ctx.cons_valid)
+		status->teth_cons_state = ipa3_usb_cons_state_to_string(
+			ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_TETH].
+			rm_ctx.cons_state);
+	if (ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_DPL].rm_ctx.cons_valid)
+		status->dpl_cons_state = ipa3_usb_cons_state_to_string(
+			ipa3_usb_ctx->ttype_ctx[IPA_USB_TRANSPORT_DPL].
+			rm_ctx.cons_state);
+	spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock, flags);
+
+	for (i = 0 ; i < IPA_USB_MAX_TETH_PROT_SIZE ; i++) {
+		if (ipa3_usb_ctx->teth_prot_ctx[i].state ==
+			IPA_USB_TETH_PROT_INITIALIZED) {
+			if ((i == IPA_USB_RMNET) || (i == IPA_USB_MBIM))
+				status->inited_prots[status->num_init_prot++] =
+					ipa3_usb_teth_bridge_prot_to_string(i);
+			else
+				status->inited_prots[status->num_init_prot++] =
+					ipa3_usb_teth_prot_to_string(i);
+		} else if (ipa3_usb_ctx->teth_prot_ctx[i].state ==
+			IPA_USB_TETH_PROT_CONNECTED) {
+			switch (i) {
+			case IPA_USB_RMNET:
+			case IPA_USB_MBIM:
+				status->teth_connected_prot =
+					ipa3_usb_teth_bridge_prot_to_string(i);
+				break;
+			case IPA_USB_DIAG:
+				status->dpl_connected_prot =
+					ipa3_usb_teth_prot_to_string(i);
+				break;
+			default:
+				status->teth_connected_prot =
+					ipa3_usb_teth_prot_to_string(i);
+			}
+		}
+	}
+
+	res = 0;
+	IPA_USB_DBG("exit\n");
+bail:
+	mutex_unlock(&ipa3_usb_ctx->general_mutex);
+	return res;
 }
 
 int ipa3_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
