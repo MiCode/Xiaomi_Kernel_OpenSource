@@ -1,0 +1,23 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8996-v2.dtsi"
+#include "msm8996-pm8994-pmi8994-pm8004-pmk8001.dtsi"
+#include "msm8996-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996 v2 + PMI8994 + PM8004 + PMK8001 MTP";
+	compatible = "qcom,msm8996-mtp", "qcom,msm8996", "qcom,mtp";
+	qcom,board-id = <8 0>;
+};

@@ -1,0 +1,1446 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+&rpm_bus {
+	/* PM8994 S1 + S6 = 2 phase VDD_CX supply */
+	rpm-regulator-smpa1 {
+		status = "okay";
+		pm8994_s1_corner: regulator-s1-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8994_s1_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+
+		pm8994_s1_floor_corner: regulator-s1-floor-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8994_s1_floor_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-floor-corner;
+			qcom,always-send-voltage;
+		};
+
+		pm8994_s1_corner_ao: regulator-s1-corner-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8994_s1_corner_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+	};
+
+	/* PM8994 S2 + S12 = 2 phase VDD_MX supply */
+	rpm-regulator-smpa2 {
+		status = "okay";
+		pm8994_s2_corner: regulator-s2-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8994_s2_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+
+		pm8994_s2_corner_ao: regulator-s2-corner-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8994_s2_corner_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+	};
+
+	rpm-regulator-smpa3 {
+		status = "okay";
+		pm8994_s3: regulator-s3 {
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,init-voltage = <1300000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa4 {
+		status = "okay";
+		pm8994_s4: regulator-s4 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa5 {
+		status = "okay";
+		pm8994_s5: regulator-s5 {
+			regulator-min-microvolt = <2150000>;
+			regulator-max-microvolt = <2150000>;
+			qcom,init-voltage = <2150000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa7 {
+		status = "okay";
+		pm8994_s7: regulator-s7 {
+			regulator-min-microvolt = <800000>;
+			regulator-max-microvolt = <800000>;
+			qcom,init-voltage = <800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		pm8994_l1: regulator-l1 {
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		pm8994_l2: regulator-l2 {
+			regulator-min-microvolt = <1250000>;
+			regulator-max-microvolt = <1250000>;
+			qcom,init-voltage = <1250000>;
+			proxy-supply = <&pm8994_l2>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <10000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		pm8994_l3: regulator-l3 {
+			regulator-min-microvolt = <850000>;
+			regulator-max-microvolt = <850000>;
+			qcom,init-voltage = <850000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa4 {
+		status = "okay";
+		pm8994_l4: regulator-l4 {
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1225000>;
+			qcom,init-voltage = <1225000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		pm8994_l6: regulator-l6 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		pm8994_l8: regulator-l8 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		pm8994_l9: regulator-l9 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pm8994_l10: regulator-l10 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		pm8994_l11: regulator-l11 {
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1150000>;
+			qcom,init-voltage = <1150000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		pm8994_l12: regulator-l12 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			proxy-supply = <&pm8994_l12>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <10000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		pm8994_l13: regulator-l13 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <2950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa14 {
+		status = "okay";
+		pm8994_l14: regulator-l14 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			proxy-supply = <&pm8994_l14>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <10000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa15 {
+		status = "okay";
+		pm8994_l15: regulator-l15 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa16 {
+		status = "okay";
+		pm8994_l16: regulator-l16 {
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <2700000>;
+			qcom,init-voltage = <2700000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa17 {
+		status = "okay";
+		pm8994_l17: regulator-l17 {
+			regulator-min-microvolt = <2500000>;
+			regulator-max-microvolt = <2500000>;
+			qcom,init-voltage = <2500000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa18 {
+		status = "okay";
+		pm8994_l18: regulator-l18 {
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,init-voltage = <2850000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa19 {
+		status = "okay";
+		pm8994_l19: regulator-l19 {
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3000000>;
+			qcom,init-voltage = <3000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa20 {
+		status = "okay";
+		pm8994_l20: regulator-l20 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <2950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa21 {
+		status = "okay";
+		pm8994_l21: regulator-l21 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <2950000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa22 {
+		status = "okay";
+		pm8994_l22: regulator-l22 {
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3300000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa23 {
+		status = "okay";
+		pm8994_l23: regulator-l23 {
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa24 {
+		status = "okay";
+		pm8994_l24: regulator-l24 {
+			regulator-min-microvolt = <3075000>;
+			regulator-max-microvolt = <3075000>;
+			qcom,init-voltage = <3075000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa25 {
+		status = "okay";
+		pm8994_l25: regulator-l25 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			proxy-supply = <&pm8994_l25>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <10000>;
+			status = "okay";
+		};
+	};
+
+	/* PM8994 LDO26 = VDD_SS_CX supply */
+	rpm-regulator-ldoa26 {
+		status = "okay";
+		pm8994_l26_corner: regulator-l26-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8994_l26_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+
+		pm8994_l26_floor_corner: regulator-l26-floor-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8994_l26_floor_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-floor-corner;
+			qcom,always-send-voltage;
+		};
+	};
+
+	rpm-regulator-ldoa27 {
+		status = "okay";
+		pm8994_l27: regulator-l27 {
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa28 {
+		status = "okay";
+		pm8994_l28: regulator-l28 {
+			regulator-min-microvolt = <925000>;
+			regulator-max-microvolt = <925000>;
+			qcom,init-voltage = <925000>;
+			proxy-supply = <&pm8994_l28>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <10000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa29 {
+		status = "okay";
+		pm8994_l29: regulator-l29 {
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa30 {
+		status = "okay";
+		pm8994_l30: regulator-l30 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa32 {
+		status = "okay";
+		pm8994_l32: regulator-l32 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-vsa1 {
+		status = "okay";
+		pm8994_lvs1: regulator-lvs1 {
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-vsa2 {
+		status = "okay";
+		pm8994_lvs2: regulator-lvs2 {
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpb1 {
+		status = "okay";
+		pmi8994_s1: regulator-s1 {
+			regulator-min-microvolt = <1025000>;
+			regulator-max-microvolt = <1025000>;
+			qcom,init-voltage = <1025000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-bstb {
+		status = "okay";
+		pmi8994_boost_5v: regulator-bst {
+			/*
+			 * When enabled, the PMI8994 Boost regulator always
+			 * outputs 5V.  This takes precedence over the pin
+			 * control boost regulator request.
+			 */
+			regulator-name = "pmi8994_boost_5v";
+			parent-supply = <&pon_perph_reg>;
+			status = "okay";
+		};
+		pmi8994_boost_pin_ctrl: regulator-bst-pin-ctrl {
+			/*
+			 * When enabled, the output voltage of the PMI8994
+			 * boost regulator is determined by the state of the
+			 * REQ_5V_BST pin.  If the pin signal is high, then the
+			 * regulator outputs 5V.  If the pin signal is low, then
+			 * the regulator outputs VPH_PWR voltage.
+			 */
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmi8994_boost_pin_ctrl";
+			parent-supply = <&pon_perph_reg>;
+			qcom,set = <3>;
+			qcom,enable-with-pin-ctrl = <0 1>;
+		};
+	};
+
+	rpm-regulator-bbyb {
+		status = "okay";
+		pmi8994_boostbypass: regulator-bby {
+			status = "okay";
+			regulator-min-microvolt = <3150000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,init-voltage = <3150000>;
+		};
+	};
+};
+
+/* SPM controlled regulators: */
+&spmi_bus {
+	qcom,pm8994@1 {
+		/*
+		 * PM8994 S8 + S9 + S10 + S11 = 4 phase VDD_APCC supply
+		 * S11 is the gang leader.
+		 */
+		pm8994_s11: spm-regulator@3200 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x3200 0x100>;
+			regulator-name = "pm8994_s11";
+			regulator-min-microvolt = <470000>;
+			regulator-max-microvolt = <1140000>;
+			qcom,max-voltage-step = <150000>;
+			qcom,cpu-num = <0>;
+			qcom,recal-mask = <3>;
+
+			pm8994_s11_limit: avs-limit-regulator {
+				regulator-name = "pm8994_s11_avs_limit";
+				regulator-min-microvolt = <470000>;
+				regulator-max-microvolt = <1140000>;
+			};
+		};
+	};
+};
+
+/* SPMI controlled regulators: */
+&spmi_bus {
+	qcom,pmi8994@3 {
+		/* PMI8994 S2 + S3 = 2 phase VDD_GFX supply */
+		pmi8994_s2: regulator@1700 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1700 0x100>;
+			regulator-name = "pmi8994_s2";
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <1015000>;
+			qcom,enable-time = <500>;
+		};
+	};
+
+	qcom,pm8004@5 {
+		spmi-slave-container;
+		reg = <0x5>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		/*
+		 * PM8004 S2 + S4 = 2 phase VDD_GFX supply when PM8004 is
+		 * present on the board.
+		 */
+		pm8004_s2: regulator@1700 {
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1700 0x100>;
+			regulator-name = "pm8004_s2";
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <1015000>;
+			qcom,enable-time = <500>;
+			status = "disabled";
+		};
+	};
+};
+
+&soc {
+/* CPR controlled regulators */
+	apcc_cpr: cpr3-ctrl@99e8000 {
+		compatible = "qcom,cpr3-msm8996-hmss-regulator";
+		reg = <0x099e8000 0x4000>, <0x00074000 0x1000>;
+		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
+		clock-names = "core_clk";
+		interrupts = <GIC_SPI 48 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 47 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "cpr", "ceiling";
+		qcom,cpr-ctrl-name = "apcc";
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-up-down-delay-time = <3000>;
+		qcom,cpr-step-quot-init-min = <11>;
+		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-count-mode = <0>;		/* All-at-once min */
+		qcom,cpr-count-repeat = <25>;
+
+		qcom,apm-ctrl = <&apc_apm>;
+		qcom,apm-threshold-voltage = <850000>;
+		qcom,apm-hysteresis-voltage = <5000>;
+		qcom,system-supply-max-voltage = <1015000>;
+		qcom,mem-acc-supply-threshold-voltage = <700000>;
+		qcom,mem-acc-supply-corner-map = <1 2>;
+
+		vdd-supply = <&pm8994_s11>;
+		qcom,voltage-step = <5000>;
+		vdd-limit-supply = <&pm8994_s11_limit>;
+		mem-acc-thread0-supply = <&apc0_pwrcl_mem_acc_vreg>;
+		mem-acc-thread1-supply = <&apc1_perfcl_mem_acc_vreg>;
+		mem-acc-supply = <&apcc_l3_mem_acc_vreg>;
+		vdd-thread0-ldo-supply = <&kryo0_vreg>;
+		vdd-thread1-ldo-supply = <&kryo1_vreg>;
+		vdd-thread0-ldo-ret-supply = <&kryo0_retention_vreg>;
+		vdd-thread1-ldo-ret-supply = <&kryo1_retention_vreg>;
+		proxy-supply = <&apc0_cbf_vreg>;
+
+		qcom,cpr-enable;
+		qcom,cpr-clock-throttling = <0x20>;
+
+		qcom,cpr-aging-ref-voltage = <905000>;
+
+		thread@0 {
+			qcom,cpr-thread-id = <0>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <3>;
+			qcom,cpr-up-threshold = <2>;
+			qcom,cpr-down-threshold = <2>;
+
+			apc0_pwrcl_vreg: regulator-pwrcl {
+				regulator-name = "apc0_pwrcl_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <16>;
+
+				qcom,cpr-pd-bypass-mask = <0x07>;
+				qcom,cpr-fuse-corners = <5>;
+				qcom,cpr-fuse-combos = <16>;
+				qcom,cpr-speed-bins = <2>;
+				qcom,cpr-speed-bin-corners = <16 13>;
+				qcom,cpr-corners =
+					/* Speed bin 0 */
+					<16 16 16 16 16 16 16 16>,
+
+					/* Speed bin 1 */
+					<13 13 13 13 13 13 13 13>;
+
+				qcom,ldo-min-headroom-voltage = <150000>;
+				qcom,ldo-max-headroom-voltage = <470000>;
+				qcom,ldo-max-voltage = <890000>;
+				qcom,uses-mem-acc;
+
+				qcom,cpr-corner-fmax-map =
+					/* Speed bin 0 */
+					<1 2 7 12 16>,
+
+					/* Speed bin 1 */
+					<1 2 7 12 13>;
+
+				qcom,cpr-voltage-ceiling =
+					/* Speed bin 0 */
+					<670000  670000  745000  745000  745000
+					 745000  745000  905000  905000  905000
+					 905000  905000 1140000 1140000 1140000
+					1140000>,
+
+					/* Speed bin 1 */
+					<670000  670000  745000  745000  745000
+					 745000  745000  905000  905000  905000
+					 905000  905000 1140000>;
+
+				qcom,cpr-voltage-floor =
+					/* Speed bin 0 */
+					<470000  470000  470000  470000  470000
+					 470000  470000  470000  470000  470000
+					 470000  470000  470000  470000  470000
+					 470000>,
+
+					/* Speed bin 1 */
+					<470000  470000  470000  470000  470000
+					 470000  470000  470000  470000  470000
+					 470000  470000  470000>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					/* Speed bin 0 */
+					 <80000   80000   80000   80000   80000
+					  80000   80000   80000   80000   80000
+					  80000   80000   80000   80000   80000
+					  80000>,
+
+					/* Speed bin 1 */
+					 <80000   80000   80000   80000   80000
+					  80000   80000   80000   80000   80000
+					  80000   80000   80000>;
+
+				qcom,corner-frequencies =
+					/* Speed bin 0 */
+					<307200000  422400000  480000000
+					 556800000  652800000  729600000
+					 844800000  960000000 1036800000
+					1113600000 1190400000 1228800000
+					1324800000 1401600000 1478400000
+					1593600000>,
+
+					/* Speed bin 1 */
+					<307200000  422400000  480000000
+					 556800000  652800000  729600000
+					 844800000  960000000 1036800000
+					1113600000 1190400000 1228800000
+					1363200000>;
+
+				qcom,cpr-ro-scaling-factor =
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 2889 2528 2740 2426 2310 2040
+				       2519 2257 2668 2372    0    0    0    0>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					/* Speed bin 0 */
+					<20000     0 25000 (-5000) (-10000)>,
+					<20000     0 25000 (-5000) (-10000)>,
+					<20000     0 25000 (-5000) (-10000)>,
+					<45000     0 50000  20000   15000>,
+					<45000     0 50000  20000   15000>,
+					<45000     0 50000  20000   15000>,
+					<45000     0 50000  20000   15000>,
+					<45000     0 50000  20000   15000>,
+
+					/* Speed bin 1 */
+					<20000     0 25000 (-5000) (-10000)>,
+					<20000     0 25000 (-5000) (-10000)>,
+					<20000     0 25000 (-5000) (-10000)>,
+					<45000     0 50000  20000   15000>,
+					<45000     0 50000  20000   15000>,
+					<45000     0 50000  20000   15000>,
+					<45000     0 50000  20000   15000>,
+					<45000     0 50000  20000   15000>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					/* Speed bin 0 */
+					<35000 35000 40000  40000   40000>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+
+					/* Speed bin 1 */
+					<35000 35000 40000  40000   40000>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>,
+					<20000 10000  5000 (-5000) (-5000)>;
+
+				qcom,cpr-open-loop-voltage-adjustment =
+					/* Speed bin 0 */
+					<(-15000) (-15000) (-15000) (-15000)
+					 (-13000) (-14000) (-15000) (-18000)
+					 (-20000) (-22000) (-24000) (-25000)
+					 (-26000) (-27000) (-28000) (-30000)>,
+
+					/* Speed bin 1 */
+					<(-15000) (-15000) (-15000) (-15000)
+					 (-13000) (-14000) (-15000) (-18000)
+					 (-20000) (-22000) (-24000) (-25000)
+					 (-26000)>;
+
+				qcom,cpr-open-loop-voltage-min-diff =
+					/* Speed bin 0 */
+				       <0 0 0 0 (-50000) 0 0 0 0 0 0 0 0 0 0 0>,
+
+					/* Speed bin 1 */
+				       <0 0 0 0 (-50000) 0 0 0 0 0 0 0 0>;
+
+				qcom,cpr-closed-loop-voltage-adjustment =
+					/* Speed bin 0 */
+					<(-15000) (-15000) (-15000) (-15000)
+					 (-13000) (-14000) (-15000) (-18000)
+					 (-20000) (-22000) (-24000) (-25000)
+					 (-26000) (-27000) (-28000) (-30000)>,
+
+					/* Speed bin 1 */
+					<(-15000) (-15000) (-15000) (-15000)
+					 (-13000) (-14000) (-15000) (-18000)
+					 (-20000) (-22000) (-24000) (-25000)
+					 (-26000)>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,allow-quotient-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <25000>;
+				qcom,cpr-aging-ref-corner = <12 12>;
+				qcom,cpr-aging-ro-scaling-factor = <3200>;
+				qcom,allow-aging-voltage-adjustment =
+					/* Speed bin 0 */
+					<0 0 0 1 1 1 1 1>,
+
+					/* Speed bin 1 */
+					<0 0 0 1 1 1 1 1>;
+			};
+
+			apc0_cbf_vreg: regulator-cbf {
+				regulator-name = "apc0_cbf_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <19>;
+
+				qcom,proxy-consumer-enable;
+				qcom,proxy-consumer-voltage = <13 19>;
+
+				qcom,cpr-pd-bypass-mask = <0x18>;
+				qcom,cpr-fuse-corners = <5>;
+				qcom,cpr-fuse-combos = <16>;
+				qcom,cpr-speed-bins = <2>;
+				qcom,cpr-speed-bin-corners = <19 15>;
+				qcom,cpr-corners =
+					/* Speed bin 0 */
+					<19 19 19 19 19 19 19 19>,
+
+					/* Speed bin 1 */
+					<15 15 15 15 15 15 15 15>;
+
+				qcom,cpr-corner-fmax-map =
+					/* Speed bin 0 */
+					<1 2 5 13 19>,
+
+					/* Speed bin 1 */
+					<1 2 5 13 15>;
+
+				qcom,cpr-voltage-ceiling =
+				       /* Speed bin 0 */
+				       <670000  670000  745000  745000  745000
+					905000  905000  905000  905000  905000
+					905000  905000  905000 1140000 1140000
+				       1140000 1140000 1140000 1140000>,
+
+				       /* Speed bin 1 */
+				       <670000  670000  745000  745000  745000
+					905000  905000  905000  905000  905000
+					905000  905000  905000 1140000 1140000>;
+
+				qcom,cpr-voltage-floor =
+				       /* Speed bin 0 */
+				       <470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000  470000  470000  470000>,
+
+				       /* Speed bin 1 */
+				       <470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					/* Speed bin 0 */
+					<80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000   80000   80000   80000>,
+
+					/* Speed bin 1 */
+					<80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000>;
+
+				qcom,corner-frequencies =
+					/* Speed bin 0 */
+					<307200000  384000000  460800000
+					 537600000  595200000  672000000
+					 748800000  825600000  902400000
+					 979200000 1056000000 1132800000
+					1190400000 1228800000 1305600000
+					1382400000 1459200000 1536000000
+					1593600000>,
+
+					/* Speed bin 1 */
+					<307200000  384000000  460800000
+					 537600000  595200000  672000000
+					 748800000  825600000  902400000
+					 979200000 1056000000 1132800000
+					1190400000 1228800000 1305600000>;
+
+				qcom,cpr-ro-scaling-factor =
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 2889 2528 2740 2426 2310 2040
+				       2519 2257 2668 2372    0    0    0    0>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					/* Speed bin 0 */
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<55000    0   15000    15000  (-15000)>,
+					<55000    0   15000    15000  (-15000)>,
+					<55000    0   15000    15000  (-15000)>,
+					<55000    0   15000    15000  (-15000)>,
+					<55000    0   15000    15000  (-15000)>,
+
+					/* Speed bin 1 */
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<30000    0 (-10000) (-10000) (-40000)>,
+					<55000    0   15000    15000  (-15000)>,
+					<55000    0   15000    15000  (-15000)>,
+					<55000    0   15000    15000  (-15000)>,
+					<55000    0   15000    15000  (-15000)>,
+					<55000    0   15000    15000  (-15000)>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					/* Speed bin 0 */
+					<10000 5000        0        0        0>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+
+					/* Speed bin 1 */
+					<10000 5000        0        0        0>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>,
+					<10000 5000 (-20000)        0 (-35000)>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,allow-quotient-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <25000>;
+				qcom,cpr-aging-ref-corner = <13 13>;
+				qcom,cpr-aging-ro-scaling-factor = <3200>;
+				qcom,allow-aging-voltage-adjustment =
+					/* Speed bin 0 */
+					<0 0 0 1 1 1 1 1>,
+
+					/* Speed bin 1 */
+					<0 0 0 1 1 1 1 1>;
+			};
+		};
+
+		thread@1 {
+			qcom,cpr-thread-id = <1>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <3>;
+			qcom,cpr-up-threshold = <2>;
+			qcom,cpr-down-threshold = <2>;
+
+			apc1_vreg: regulator {
+				regulator-name = "apc1_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <25>;
+
+				qcom,cpr-pd-bypass-mask = <0xe0>;
+				qcom,cpr-fuse-corners = <5>;
+				qcom,cpr-fuse-combos = <16>;
+				qcom,cpr-speed-bins = <2>;
+				qcom,cpr-speed-bin-corners = <25 21>;
+				qcom,cpr-corners =
+					/* Speed bin 0 */
+					<25 25 25 25 25 25 25 25>,
+
+					/* Speed bin 1 */
+					<21 21 21 21 21 21 21 21>;
+
+				qcom,ldo-min-headroom-voltage = <150000>;
+				qcom,ldo-max-headroom-voltage = <470000>;
+				qcom,ldo-max-voltage = <890000>;
+				qcom,uses-mem-acc;
+
+				qcom,cpr-corner-fmax-map =
+					/* Speed bin 0 */
+					<1 4 9 13 25>,
+
+					/* Speed bin 1 */
+					<1 4 9 13 21>;
+
+				qcom,cpr-voltage-ceiling =
+				       /* Speed bin 0 */
+				       <670000  670000  670000  670000  745000
+					745000  745000  745000  745000  905000
+					905000  905000  905000 1140000 1140000
+				       1140000 1140000 1140000 1140000 1140000
+				       1140000 1140000 1140000 1140000 1140000>,
+
+				       /* Speed bin 1 */
+				       <670000  670000  670000  670000  745000
+					745000  745000  745000  745000  905000
+					905000  905000  905000 1140000 1140000
+				       1140000 1140000 1140000 1140000 1140000
+				       1140000>;
+
+				qcom,cpr-voltage-floor =
+				       /* Speed bin 0 */
+				       <470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000>,
+
+				       /* Speed bin 1 */
+				       <470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000  470000  470000  470000  470000
+					470000>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					/* Speed bin 0 */
+					<80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000>,
+
+					/* Speed bin 1 */
+					<80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000   80000   80000   80000   80000
+					 80000>;
+
+				qcom,corner-frequencies =
+					/* Speed bin 0 */
+					<307200000  403200000  480000000
+					 556800000  652800000  729600000
+					 806400000  883200000  940800000
+					1036800000 1113600000 1190400000
+					1248000000 1324800000 1401600000
+					1478400000 1555200000 1632000000
+					1708800000 1785600000 1824000000
+					1920000000 1996800000 2073600000
+					2150400000>,
+
+					/* Speed bin 1 */
+					<307200000  403200000  480000000
+					 556800000  652800000  729600000
+					 806400000  883200000  940800000
+					1036800000 1113600000 1190400000
+					1248000000 1324800000 1401600000
+					1478400000 1555200000 1632000000
+					1708800000 1785600000 1804800000>;
+
+				qcom,cpr-ro-scaling-factor =
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 3112 2666 2947 2543 2271 1979
+				       2623 2317 2772 2450    0    0    0    0>,
+				      <   0    0 2889 2528 2740 2426 2310 2040
+				       2519 2257 2668 2372    0    0    0    0>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					/* Speed bin 0 */
+					<20000     0 15000 (-55000)     0>,
+					<20000     0 15000 (-55000)     0>,
+					<20000     0 15000       0      0>,
+					<35000     0 40000   25000  25000>,
+					<35000     0 40000   25000  25000>,
+					<35000     0 40000   25000  25000>,
+					<35000     0 40000   25000  25000>,
+					<35000     0 40000   25000  25000>,
+
+					/* Speed bin 1 */
+					<20000     0 15000 (-55000)     0>,
+					<20000     0 15000 (-55000)     0>,
+					<20000     0 15000       0      0>,
+					<35000     0 40000   25000  25000>,
+					<35000     0 40000   25000  25000>,
+					<35000     0 40000   25000  25000>,
+					<35000     0 40000   25000  25000>,
+					<35000     0 40000   25000  25000>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					/* Speed bin 0 */
+					<35000 35000 40000 (-30000) 40000>,
+					<    0     0     0 (-70000)     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+
+					/* Speed bin 1 */
+					<35000 35000 40000 (-30000) 40000>,
+					<    0     0     0 (-70000)     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>,
+					<    0     0     0        0     0>;
+
+				qcom,cpr-open-loop-voltage-adjustment =
+					/* Speed bin 0 */
+					<(-15000) (-15000) (-15000) (-15000)
+					 (-11000) (-12000) (-13000) (-14000)
+					 (-15000) (-18000) (-21000) (-23000)
+					 (-25000) (-25000) (-26000) (-26000)
+					 (-27000) (-27000) (-28000) (-28000)
+					 (-28000) (-29000) (-29000) (-30000)
+					 (-30000)>,
+
+					/* Speed bin 1 */
+					<(-15000) (-15000) (-15000) (-15000)
+					 (-11000) (-12000) (-13000) (-14000)
+					 (-15000) (-18000) (-21000) (-23000)
+					 (-25000) (-25000) (-26000) (-26000)
+					 (-27000) (-27000) (-28000) (-28000)
+					 (-28000)>;
+				qcom,cpr-open-loop-voltage-min-diff =
+					/* Speed bin 0 */
+					<0 0 0 0 (-50000) 0 0 0 0 0 0 0 0 0 0 0
+					 0 0 0 0 0 0 0 0 0>,
+
+					/* Speed bin 1 */
+					<0 0 0 0 (-50000) 0 0 0 0 0 0 0 0 0 0 0
+					 0 0 0 0 0>;
+
+				qcom,cpr-closed-loop-voltage-adjustment =
+					/* Speed bin 0 */
+					<(-15000) (-15000) (-15000) (-15000)
+					 (-11000) (-12000) (-13000) (-14000)
+					 (-15000) (-18000) (-21000) (-23000)
+					 (-25000) (-25000) (-26000) (-26000)
+					 (-27000) (-27000) (-28000) (-28000)
+					 (-28000) (-29000) (-29000) (-30000)
+					 (-30000)>,
+
+					/* Speed bin 1 */
+					<(-15000) (-15000) (-15000) (-15000)
+					 (-11000) (-12000) (-13000) (-14000)
+					 (-15000) (-18000) (-21000) (-23000)
+					 (-25000) (-25000) (-26000) (-26000)
+					 (-27000) (-27000) (-28000) (-28000)
+					 (-28000)>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,allow-quotient-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <25000>;
+				qcom,cpr-aging-ref-corner = <13 13>;
+				qcom,cpr-aging-ro-scaling-factor = <3200>;
+				qcom,allow-aging-voltage-adjustment =
+					/* Speed bin 0 */
+					<0 0 0 1 1 1 1 1>,
+
+					/* Speed bin 1 */
+					<0 0 0 1 1 1 1 1>;
+
+				qcom,cpr-dynamic-floor-corner = <1>;
+			};
+		};
+	};
+
+	gfx_cpr: cpr3-ctrl@838000 {
+		compatible = "qcom,cpr3-msm8996-mmss-regulator";
+		reg = <0x00838000 0x4000>, <0x00074000 0x1000>;
+		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_mmss clk_mmss_rbcpr_clk>,
+			 <&clock_mmss clk_mmss_rbcpr_ahb_clk>,
+			 <&clock_mmss clk_mmss_mmagic_ahb_clk>;
+		clock-names = "core_clk", "iface_clk", "bus_clk";
+		interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "cpr";
+		qcom,cpr-ctrl-name = "gfx";
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-step-quot-init-min = <10>;
+		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-count-mode = <2>;		/* Staggered */
+
+		vdd-supply = <&pmi8994_s2>;
+		mem-acc-supply = <&gfx_mem_acc_vreg>;
+
+		qcom,voltage-step = <5000>;
+
+		qcom,cpr-enable;
+
+		qcom,cpr-aging-ref-voltage = <905000>;
+
+		thread@0 {
+			qcom,cpr-thread-id = <0>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-down-threshold = <2>;
+
+			gfx_vreg: regulator {
+				regulator-name = "gfx_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <8>;
+
+				qcom,cpr-fuse-corners = <4>;
+				qcom,cpr-fuse-combos = <8>;
+				qcom,cpr-corners = <8>;
+
+				qcom,cpr-corner-fmax-map = <2 4 6 8>;
+
+				qcom,cpr-voltage-ceiling =
+					<400000  670000  670000  745000  825000
+					 905000  960000 1015000>;
+				qcom,cpr-voltage-floor =
+					<400000  520000  520000  520000  520000
+					 520000  520000  520000>;
+
+				qcom,mem-acc-voltage = <1 1 1 1 2 2 2 2>;
+
+				qcom,corner-frequencies =
+					<0 133000000 214000000 315000000
+					 401800000 510000000 560000000
+					 624000000>;
+
+				qcom,cpr-target-quotients =
+				      <   0    0    0    0    0    0    0    0
+					  0    0    0    0    0    0    0    0>,
+				      <   0    0    0    0    0    0  185  179
+					291  299  304  319    0    0    0    0>,
+				      <   0    0    0    0    0    0  287  273
+					425  426  443  453    0    0    0    0>,
+				      <   0    0    0    0    0    0  414  392
+					584  576  608  612    0    0    0    0>,
+				      <   0    0    0    0    0    0  459  431
+					684  644  692  679    0    0    0    0>,
+				      <   0    0    0    0    0    0  577  543
+					798  768  823  810    0    0    0    0>,
+				      <   0    0    0    0    0    0  669  629
+					886  864  924  911    0    0    0    0>,
+				      <   0    0    0    0    0    0  771  725
+					984  970 1036 1024    0    0    0    0>;
+
+				qcom,cpr-ro-scaling-factor =
+				      <   0    0    0    0    0    0 2035 1917
+				       1959 2131 2246 2253    0    0    0    0>,
+				      <   0    0    0    0    0    0 2035 1917
+				       1959 2131 2246 2253    0    0    0    0>,
+				      <   0    0    0    0    0    0 2035 1917
+				       1959 2131 2246 2253    0    0    0    0>,
+				      <   0    0    0    0    0    0 2035 1917
+				       1959 2131 2246 2253    0    0    0    0>,
+				      <   0    0    0    0    0    0 2035 1917
+				       1959 2131 2246 2253    0    0    0    0>,
+				      <   0    0    0    0    0    0 2035 1917
+				       1959 2131 2246 2253    0    0    0    0>,
+				      <   0    0    0    0    0    0 2035 1917
+				       1959 2131 2246 2253    0    0    0    0>,
+				      <   0    0    0    0    0    0 2035 1917
+				       1959 2131 2246 2253    0    0    0    0>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<       0        0    30000 (-10000)>,
+					<(-30000) (-30000)        0 (-10000)>,
+					<(-30000) (-30000)        0 (-10000)>,
+					<(-70000)        0        0        0>,
+					<(-70000)        0        0        0>,
+					<(-70000)        0        0        0>,
+					<(-70000)        0        0        0>,
+					<(-70000)        0        0        0>;
+				qcom,cpr-closed-loop-voltage-adjustment =
+					<    0 45000 (-5000) 20000 20000 30000
+					 10000 (-5000)>,
+					<    0 45000 (-5000) 20000 20000 30000
+					 10000 (-5000)>,
+					<    0 30000  60000  40000 40000 45000
+					 25000 35000>,
+					<    0     0  30000  10000 10000 45000
+					 25000 25000>,
+					<    0     0  30000  10000 10000 45000
+					 25000 25000>,
+					<    0     0  30000  10000 10000 45000
+					 25000 25000>,
+					<    0     0  30000  10000 10000 45000
+					 25000 25000>,
+					<    0     0  30000  10000 10000 45000
+					 25000 25000>;
+				qcom,cpr-floor-to-ceiling-max-range =
+				       <0 70000 70000 75000 80000 90000 95000
+					100000>;
+
+			     qcom,cpr-fused-closed-loop-voltage-adjustment-map =
+					<0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0>,
+					<0 2 2 2 2 0 0 4>,
+					<0 2 2 2 2 0 0 4>,
+					<0 2 2 2 2 0 0 4>,
+					<0 2 2 2 2 0 0 4>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <25000>;
+				qcom,cpr-aging-ref-corner = <6>;
+				qcom,cpr-aging-ro-scaling-factor = <2950>;
+				qcom,allow-aging-voltage-adjustment =
+					<0 0 0 1 1 1 1 1>;
+			};
+		};
+	};
+/* Memory accelerator regulators */
+	apc0_pwrcl_mem_acc_vreg: apc0-pwrcl-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apc0_pwrcl_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x3 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <2>;
+	};
+
+	apc1_perfcl_mem_acc_vreg: apc1-perfcl-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apc1_perfcl_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x3 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <2>;
+		qcom,acc-sel-l1-bit-size = <2>;
+	};
+
+	apcc_l3_mem_acc_vreg: apcc-l3-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apcc_l3_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x1 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <4>;
+		qcom,acc-sel-l1-bit-size = <1>;
+	};
+
+	gfx_mem_acc_vreg: regulator@007af004 {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x007af004 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "gfx_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+
+		qcom,corner-acc-map = <0x1 0x0>;
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <1>;
+	};
+
+/* Kryo regulators */
+	kryo0_vreg: regulator@99a2000 {
+		compatible = "qcom,kryo-regulator";
+		regulator-name = "kryo0";
+		reg = <0x99a2000 0x1000>, <0x99e0000 0x1000>,
+		      <0x9820000 0x1000>;
+		reg-names = "pm-apc", "pm-apcc", "apcs-csr";
+		regulator-min-microvolt = <468197>;
+		regulator-max-microvolt = <892467>;
+		qcom,ldo-default-voltage = <750000>;
+		qcom,retention-voltage = <520000>;
+		qcom,ldo-headroom-voltage = <150000>;
+		qcom,vref-functional-step-voltage = <4466>;
+		qcom,vref-functional-min-voltage = <325285>;
+		qcom,vref-retention-step-voltage = <4466>;
+		qcom,vref-retention-min-voltage = <325285>;
+		qcom,ldo-config-init = <0xf1f0e471>;
+		qcom,apm-config-init = <0x0>;
+		qcom,cluster-num = <0>;
+		kryo0_retention_vreg: regulator {
+			regulator-name = "kryo0-retention";
+			regulator-min-microvolt = <468197>;
+			regulator-max-microvolt = <892467>;
+		};
+	};
+
+	kryo1_vreg: regulator@99d2000 {
+		compatible = "qcom,kryo-regulator";
+		regulator-name = "kryo1";
+		reg = <0x99d2000 0x1000>, <0x99e0000 0x1000>,
+		      <0x9820000 0x1000>;
+		reg-names = "pm-apc", "pm-apcc", "apcs-csr";
+		regulator-min-microvolt = <468197>;
+		regulator-max-microvolt = <892467>;
+		qcom,ldo-default-voltage = <750000>;
+		qcom,retention-voltage = <520000>;
+		qcom,ldo-headroom-voltage = <150000>;
+		qcom,vref-functional-step-voltage = <4466>;
+		qcom,vref-functional-min-voltage = <325285>;
+		qcom,vref-retention-step-voltage = <4466>;
+		qcom,vref-retention-min-voltage = <325285>;
+		qcom,cluster-num = <1>;
+		qcom,ldo-config-init = <0xf1f0e471>;
+		qcom,apm-config-init = <0x0>;
+		kryo1_retention_vreg: regulator {
+			regulator-name = "kryo1-retention";
+			regulator-min-microvolt = <468197>;
+			regulator-max-microvolt = <892467>;
+		};
+	};
+
+/* Miscellaneous regulators */
+	spi_eth_vreg: spi_eth_phy_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "ethernet_phy";
+		gpio = <&pm8994_mpps 5 0>;
+		enable-active-high;
+		status = "disabled";
+	};
+
+	usb_otg_switch: usb-otg-switch {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_otg_vreg";
+		vin-supply = <&smbcharger_external_otg>;
+		enable-active-high;
+		gpio = <&pmi8994_gpios 5 0>;
+		status = "disabled";
+	};
+
+	/* Rome 3.3V supply */
+	rome_vreg: rome_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "rome_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm8994_gpios 9 0>;
+	};
+};
+
+&pmi8994_charger {
+	otg-parent-supply = <&pmi8994_boost_5v>;
+	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
+		regulator-name = "smbcharger_charger_otg";
+	};
+
+	smbcharger_external_otg: qcom,smbcharger-external-otg {
+		regulator-name = "smbcharger_external_otg";
+	};
+};
+

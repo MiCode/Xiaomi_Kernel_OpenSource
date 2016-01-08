@@ -1,0 +1,99 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	jpeg_smmu: arm,smmu-jpeg@d80000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "JPEG";
+		reg = <0xd80000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	kgsl_smmu: arm,smmu-kgsl@b40000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "GPU";
+		qcom,dynamic;
+		reg = <0xb40000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	vfe_smmu: arm,smmu-vfe@da0000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "VFE";
+		reg = <0xda0000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	venus_smmu: arm,smmu-venus@d40000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "VIDEO";
+		reg = <0xd40000 0x20000>;
+		#iommu-cells = <1>;
+	};
+
+	mdp_smmu: arm,smmu-mdp@d00000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "MDSS";
+		reg = <0xd00000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	rot_smmu: arm,smmu-rot@d20000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "ROT";
+		reg = <0xd20000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	cpp_fd_smmu: arm,smmu-cpp_fd@d60000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "CPP";
+		reg = <0xd60000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	lpass_q6_smmu: arm,smmu-lpass_q6@1600000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "LPASS";
+		reg = <0x1600000 0x20000>;
+		#iommu-cells = <1>;
+	};
+
+	anoc0_smmu: arm,smmu-anoc0@1640000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		reg = <0x1640000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	anoc1_smmu: arm,smmu-anoc1@1660000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		reg = <0x1660000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	anoc2_smmu: arm,smmu-anoc2@1680000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		reg = <0x1680000 0x20000>;
+		#iommu-cells = <1>;
+	};
+};

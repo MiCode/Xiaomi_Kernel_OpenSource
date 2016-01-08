@@ -1,0 +1,278 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-arm-smmu.dtsi"
+#include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+&anoc0_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 362 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 355 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 356 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 357 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_aggre0_noc>;
+	clocks = <&clock_gcc clk_gcc_smmu_aggre0_axi_clk>,
+		<&clock_gcc clk_gcc_smmu_aggre0_ahb_clk>;
+	clock-names = "smmu_aggre0_axi_clk", "smmu_aggre0_ahb_clk";
+	#clock-cells = <1>;
+	#iommu-cells = <0>;
+};
+
+&anoc1_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 371 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 368 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 370 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 431 IRQ_TYPE_LEVEL_HIGH>;
+	#iommu-cells = <1>;
+	clocks = <&clock_gcc clk_aggre1_noc_clk>;
+	clock-names = "smmu_aggre1_noc_clk";
+	#clock-cells = <1>;
+};
+
+&anoc2_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 381 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 376 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 464 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 465 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 466 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 467 IRQ_TYPE_LEVEL_HIGH>;
+	#iommu-cells = <1>;
+	clocks = <&clock_gcc clk_aggre2_noc_clk>;
+	clock-names = "smmu_aggre2_noc_clk";
+	#clock-cells = <1>;
+};
+
+&lpass_q6_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_hlos1_vote_lpass_adsp>;
+	clocks = <&clock_gcc clk_hlos1_vote_lpass_adsp_smmu_clk>;
+	clock-names = "lpass_q6_smmu_clocks";
+	#clock-cells = <1>;
+};
+
+&jpeg_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	qcom,fatal-asf;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_mmagic_camss>;
+	clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+		<&clock_mmss clk_smmu_jpeg_ahb_clk>,
+		<&clock_mmss clk_smmu_jpeg_axi_clk>,
+		<&clock_mmss clk_mmagic_camss_axi_clk>;
+	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
+		"jpeg_ahb_clk", "jpeg_axi_clk",
+		"mmagic_camss_axi_clk";
+	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_JPEG>;
+};
+
+&vfe_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	qcom,fatal-asf;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_mmagic_camss>;
+	clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+		<&clock_mmss clk_smmu_vfe_ahb_clk>,
+		<&clock_mmss clk_smmu_vfe_axi_clk>,
+		<&clock_mmss clk_mmagic_camss_axi_clk>;
+	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
+		"vfe_ahb_clk", "vfe_axi_clk",
+		"mmagic_camss_axi_clk";
+	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_VFE>;
+};
+
+&cpp_fd_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	qcom,fatal-asf;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 264 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 267 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 268 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_mmagic_camss>;
+	clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+		<&clock_mmss clk_smmu_cpp_ahb_clk>,
+		<&clock_mmss clk_smmu_cpp_axi_clk>,
+		<&clock_mmss clk_mmagic_camss_axi_clk>;
+	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
+		"cpp_ahb_clk", "cpp_axi_clk",
+		"mmagic_camss_axi_clk";
+	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_CPP>;
+};
+
+&venus_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 335 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 290 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_mmagic_video>;
+	clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+		<&clock_mmss clk_smmu_video_ahb_clk>,
+		<&clock_mmss clk_smmu_video_axi_clk>,
+		<&clock_mmss clk_mmagic_video_axi_clk>;
+	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
+		"video_ahb_clk", "video_axi_clk",
+		"mmagic_video_axi_clk";
+	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_VIDEO_P0>;
+};
+
+&mdp_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	qcom,no-smr-check;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 322 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_mmagic_mdss>;
+	clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+		<&clock_mmss clk_smmu_mdp_ahb_clk>,
+		<&clock_mmss clk_smmu_mdp_axi_clk>,
+		<&clock_mmss clk_mmagic_mdss_axi_clk>;
+	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
+		"mdp_ahb_clk", "mdp_axi_clk",
+		"mmagic_mdss_axi_clk";
+	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_MDP_PORT0>;
+};
+
+&rot_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_mmagic_mdss>;
+	clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+		<&clock_mmss clk_smmu_rot_ahb_clk>,
+		<&clock_mmss clk_smmu_rot_axi_clk>,
+		<&clock_mmss clk_mmagic_mdss_axi_clk>;
+	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
+		"rot_ahb_clk", "rot_axi_clk",
+		"mmagic_mdss_axi_clk";
+	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_ROTATOR>;
+};
+
+&kgsl_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	qcom,dynamic;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_gpu>;
+	clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+		<&clock_gpu clk_gpu_ahb_clk>,
+		<&clock_gcc clk_gcc_mmss_bimc_gfx_clk>,
+		<&clock_gcc clk_gcc_bimc_gfx_clk>;
+	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk", "gpu_ahb_clk",
+		"gcc_mmss_bimc_gfx_clk", "gcc_bimc_gfx_clk";
+	#clock-cells = <1>;
+};

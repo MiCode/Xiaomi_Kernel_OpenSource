@@ -1,0 +1,67 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 and
+* only version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+/dts-v1/;
+
+#include "apq8096-v3.dtsi"
+#include "msm8996-pm8994-pmi8994-pmk8001.dtsi"
+#include "msm8996-cdp.dtsi"
+#include "external-soc.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ 8096 v3 + PMI8994 + PMK8001, MDM9x55 I2S CDP";
+	compatible = "qcom,apq8096-cdp", "qcom,apq8096", "qcom,cdp";
+	qcom,board-id = <1 2>;
+};
+
+&pil_modem {
+	status = "disabled";
+};
+
+&pm8994_l9 {
+	regulator-always-on;
+};
+
+&pm8994_l10 {
+	regulator-always-on;
+};
+
+&mdm3 {
+	pinctrl-names = "mdm_active", "mdm_suspend";
+	pinctrl-0 = <&ap2mdm_active &mdm2ap_active>;
+	pinctrl-1 = <&ap2mdm_sleep &mdm2ap_sleep>;
+	interrupt-map = <0 &tlmm 108 0x3
+			1 &tlmm 107 0x3
+			2 &tlmm 112 0x3>;
+	qcom,mdm2ap-errfatal-gpio = <&tlmm 108 0x00>;
+	qcom,ap2mdm-errfatal-gpio = <&tlmm 109 0x00>;
+	qcom,mdm2ap-status-gpio   = <&tlmm 106 0x00>;
+	qcom,ap2mdm-status-gpio   = <&tlmm 107 0x00>;
+	qcom,ap2mdm-soft-reset-gpio = <&pm8994_mpps 2 0>;
+	qcom,ap2mdm-vddmin-gpio = <&tlmm 111 0x00>;
+	qcom,mdm2ap-vddmin-gpio = <&tlmm 112 0x00>;
+	status = "ok";
+};
+
+&pm8994_mpps {
+	mpp@a100 { /* MPP 2*/
+		/* MDM PON conrol*/
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		qcom,invert = <0>;
+		status = "okay";
+	};
+};
+
