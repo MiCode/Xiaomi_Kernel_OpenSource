@@ -111,6 +111,7 @@
 #include "msm8937-bus.dtsi"
 #include "msmgold-mdss.dtsi"
 #include "msmgold-mdss-pll.dtsi"
+#include "msmgold-vidc.dtsi"
 
 &soc {
 	#address-cells = <1>;
