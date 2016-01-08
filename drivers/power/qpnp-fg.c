@@ -482,6 +482,7 @@ struct fg_chip {
 	bool			bcl_lpm_disabled;
 	bool			charging_disabled;
 	bool			use_vbat_low_empty_soc;
+	bool			fg_shutdown;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -1104,39 +1105,86 @@ out:
 #define IMA_RD_ACS_ERR			BIT(5)
 #define IMA_IACS_CLR			BIT(2)
 #define IMA_IACS_RDY			BIT(1)
+static int fg_run_iacs_clear_sequence(struct fg_chip *chip)
+{
+	int rc = 0;
+	u8 temp;
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Running IACS clear sequence\n");
+
+	/* clear the error */
+	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
+				IMA_IACS_CLR, IMA_IACS_CLR, 1);
+	if (rc) {
+		pr_err("Error writing to IMA_CFG, rc=%d\n", rc);
+		return rc;
+	}
+
+	temp = 0x4;
+	rc = fg_write(chip, &temp, MEM_INTF_ADDR_LSB(chip) + 1, 1);
+	if (rc) {
+		pr_err("Error writing to MEM_INTF_ADDR_MSB, rc=%d\n", rc);
+		return rc;
+	}
+
+	temp = 0x0;
+	rc = fg_write(chip, &temp, MEM_INTF_WR_DATA0(chip) + 3, 1);
+	if (rc) {
+		pr_err("Error writing to WR_DATA3, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_read(chip, &temp, MEM_INTF_RD_DATA0(chip) + 3, 1);
+	if (rc) {
+		pr_err("Error writing to RD_DATA3, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
+				IMA_IACS_CLR, 0, 1);
+	if (rc) {
+		pr_err("Error writing to IMA_CFG, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("IACS clear sequence complete!\n");
+	return rc;
+}
+
 static int fg_check_ima_exception(struct fg_chip *chip)
 {
 	int rc = 0, ret = 0;
-	u8 err_sts, exp_sts = 0, hw_sts = 0;
+	u8 err_sts = 0, exp_sts = 0, hw_sts = 0;
 
 	rc = fg_read(chip, &err_sts,
 			chip->mem_base + MEM_INTF_IMA_ERR_STS, 1);
 	if (rc) {
-		pr_err("failed to read beat count rc=%d\n", rc);
+		pr_err("failed to read IMA_ERR_STS, rc=%d\n", rc);
 		return rc;
 	}
 
 	if (err_sts & (IMA_ADDR_STBL_ERR | IMA_WR_ACS_ERR | IMA_RD_ACS_ERR)) {
-		u8 temp;
+		rc = fg_read(chip, &exp_sts,
+				chip->mem_base + MEM_INTF_IMA_EXP_STS, 1);
+		if (rc) {
+			pr_err("Error in reading IMA_EXP_STS, rc=%d\n", rc);
+			return rc;
+		}
 
-		fg_read(chip, &exp_sts,
-			chip->mem_base + MEM_INTF_IMA_EXP_STS, 1);
-		fg_read(chip, &hw_sts,
-			chip->mem_base + MEM_INTF_IMA_HW_STS, 1);
+		rc = fg_read(chip, &hw_sts,
+				chip->mem_base + MEM_INTF_IMA_HW_STS, 1);
+		if (rc) {
+			pr_err("Error in reading IMA_HW_STS, rc=%d\n", rc);
+			return rc;
+		}
+
 		pr_err("IMA access failed ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
 				err_sts, exp_sts, hw_sts);
 		rc = err_sts;
 
-		/* clear the error */
-		ret |= fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
-					IMA_IACS_CLR, IMA_IACS_CLR, 1);
-		temp = 0x4;
-		ret |= fg_write(chip, &temp, MEM_INTF_ADDR_LSB(chip) + 1, 1);
-		temp = 0x0;
-		ret |= fg_write(chip, &temp, MEM_INTF_WR_DATA0(chip) + 3, 1);
-		ret |= fg_read(chip, &temp, MEM_INTF_RD_DATA0(chip) + 3, 1);
-		ret |= fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
-					IMA_IACS_CLR, 0, 1);
+		ret = fg_run_iacs_clear_sequence(chip);
 		if (!ret)
 			return -EAGAIN;
 		else
@@ -1389,6 +1437,9 @@ static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 	u8 start_beat_count, end_beat_count, count = 0;
 	bool retry = false;
 
+	if (chip->fg_shutdown)
+		return -EINVAL;
+
 	if (offset > 3) {
 		pr_err("offset too large %d\n", offset);
 		return -EINVAL;
@@ -1411,6 +1462,9 @@ static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 	}
 
 	mutex_lock(&chip->rw_lock);
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("Read for %d bytes is attempted @ 0x%x[%d]\n",
+			len, address, offset);
 
 retry:
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 0);
@@ -1481,6 +1535,9 @@ static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	int rc = 0, orig_address = address;
 	u8 count = 0;
 
+	if (chip->fg_shutdown)
+		return -EINVAL;
+
 	if (address < RAM_OFFSET)
 		return -EINVAL;
 
@@ -1494,6 +1551,9 @@ static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	offset = (orig_address + offset) % 4;
 
 	mutex_lock(&chip->rw_lock);
+	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
+		pr_info("Write for %d bytes is attempted @ 0x%x[%d]\n",
+			len, address, offset);
 
 retry:
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 1);
@@ -6192,7 +6252,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 	return rc;
 }
 
-static void fg_cleanup(struct fg_chip *chip)
+static void fg_cancel_all_works(struct fg_chip *chip)
 {
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
@@ -6211,9 +6271,15 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->gain_comp_work);
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
+	cancel_work_sync(&chip->bcl_hi_power_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
 	cancel_work_sync(&chip->slope_limiter_work);
 	cancel_work_sync(&chip->dischg_gain_work);
+}
+
+static void fg_cleanup(struct fg_chip *chip)
+{
+	fg_cancel_all_works(chip);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -7407,27 +7473,7 @@ static int fg_probe(struct spmi_device *spmi)
 power_supply_unregister:
 	power_supply_unregister(&chip->bms_psy);
 cancel_work:
-	cancel_delayed_work_sync(&chip->update_jeita_setting);
-	cancel_delayed_work_sync(&chip->update_sram_data);
-	cancel_delayed_work_sync(&chip->update_temp_work);
-	cancel_delayed_work_sync(&chip->check_empty_work);
-	cancel_delayed_work_sync(&chip->batt_profile_init);
-	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
-	cancel_work_sync(&chip->set_resume_soc_work);
-	cancel_work_sync(&chip->fg_cap_learning_work);
-	cancel_work_sync(&chip->dump_sram);
-	cancel_work_sync(&chip->status_change_work);
-	cancel_work_sync(&chip->cycle_count_work);
-	cancel_work_sync(&chip->update_esr_work);
-	cancel_work_sync(&chip->rslow_comp_work);
-	cancel_work_sync(&chip->sysfs_restart_work);
-	cancel_work_sync(&chip->gain_comp_work);
-	cancel_work_sync(&chip->init_work);
-	cancel_work_sync(&chip->charge_full_work);
-	cancel_work_sync(&chip->bcl_hi_power_work);
-	cancel_work_sync(&chip->esr_extract_config_work);
-	cancel_work_sync(&chip->slope_limiter_work);
-	cancel_work_sync(&chip->dischg_gain_work);
+	fg_cancel_all_works(chip);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -7499,6 +7545,47 @@ static int fg_resume(struct device *dev)
 
 	check_and_update_sram_data(chip);
 	return 0;
+}
+
+static void fg_check_ima_idle(struct fg_chip *chip)
+{
+	bool rif_mem_sts = true;
+	int rc, time_count = 0;
+
+	mutex_lock(&chip->rw_lock);
+	/* Make sure IMA is idle */
+	while (1) {
+		rc = fg_check_rif_mem_access(chip, &rif_mem_sts);
+		if (rc)
+			break;
+
+		if (!rif_mem_sts)
+			break;
+
+		if  (time_count > 4) {
+			pr_err("Waited for ~16ms polling RIF_MEM_ACCESS_REQ\n");
+			fg_run_iacs_clear_sequence(chip);
+			break;
+		}
+
+		/* Wait for 4ms before reading RIF_MEM_ACCESS_REQ again */
+		usleep_range(4000, 4100);
+		time_count++;
+	}
+	mutex_unlock(&chip->rw_lock);
+}
+
+static void fg_shutdown(struct spmi_device *spmi)
+{
+	struct fg_chip *chip = dev_get_drvdata(&spmi->dev);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_emerg("FG shutdown started\n");
+	fg_cancel_all_works(chip);
+	fg_check_ima_idle(chip);
+	chip->fg_shutdown = true;
+	if (fg_debug_mask & FG_STATUS)
+		pr_emerg("FG shutdown complete\n");
 }
 
 static const struct dev_pm_ops qpnp_fg_pm_ops = {
@@ -7588,6 +7675,7 @@ static struct spmi_driver fg_driver = {
 	},
 	.probe		= fg_probe,
 	.remove		= fg_remove,
+	.shutdown	= fg_shutdown,
 };
 
 static int __init fg_init(void)
