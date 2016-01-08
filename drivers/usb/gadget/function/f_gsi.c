@@ -551,6 +551,8 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 	struct f_gsi *gsi = d_port_to_gsi(d_port);
 	struct usb_gsi_request req;
 	u64 dbl_register_addr;
+	bool block_db = false;
+
 
 	pr_debug("in_db_reg_phs_addr_lsb = (%x)",
 			gsi->d_port.in_db_reg_phs_addr_lsb);
@@ -568,6 +570,10 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
 				GSI_EP_OP_ENABLE_GSI);
 	}
+
+	/* Unblock doorbell to GSI */
+	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
+				GSI_EP_OP_SET_CLR_BLOCK_DBL);
 
 	dbl_register_addr = gsi->d_port.in_db_reg_phs_addr_msb;
 	dbl_register_addr = dbl_register_addr << 32;
@@ -589,8 +595,15 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 static void ipa_disconnect_handler(struct gsi_data_port *d_port)
 {
 	struct f_gsi *gsi = d_port_to_gsi(d_port);
+	bool block_db = true;
 
 	pr_debug("%s: EP Disable for data", __func__);
+
+	/* Block doorbell to GSI to avoid USB wrapper from
+	 * ringing doorbell in case IPA clocks are OFF
+	 */
+	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
+				GSI_EP_OP_SET_CLR_BLOCK_DBL);
 
 	usb_ep_disable(gsi->d_port.in_ep);
 
