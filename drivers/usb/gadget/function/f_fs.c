@@ -1619,7 +1619,7 @@ static void ffs_epfiles_destroy(struct ffs_epfile *epfiles, unsigned count)
 	kfree(epfiles);
 }
 
-static int functionfs_bind_config(struct usb_composite_dev *cdev,
+static int __maybe_unused functionfs_bind_config(struct usb_composite_dev *cdev,
 				   struct usb_configuration *c,
 				   struct ffs_data *ffs)
 {
