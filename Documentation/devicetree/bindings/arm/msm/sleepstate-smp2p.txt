@@ -1,0 +1,11 @@
+Qualcomm Technologies, Inc. SMSM Point-to-Point (SMP2P) Sleepstate driver
+
+Required properties:
+-compatible : should be "qcom,smp2pgpio_sleepstate_3_out";
+-gpios : the relevant gpio pins of the entry.
+
+Example:
+	qcom,smp2pgpio-sleepstate-3-out {
+		compatible = "qcom,smp2pgpio_sleepstate_3_out";
+		gpios = <&smp2pgpio_sleepstate_3_out 0 0>;
+	};

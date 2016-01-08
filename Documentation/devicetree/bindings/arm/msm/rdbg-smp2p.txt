@@ -1,0 +1,17 @@
+Qualcomm Technologies, Inc. Remote Debugger (RDBG) driver
+
+Required properties:
+-compatible : Should be one of
+	To communicate with modem
+		qcom,smp2pgpio_client_rdbg_2_in (inbound)
+		qcom,smp2pgpio_client_rdbg_2_out (outbound)
+	To communicate with modem
+		qcom,smp2pgpio_client_rdbg_1_in (inbound)
+		qcom,smp2pgpio_client_rdbg_1_out (outbound)
+-gpios : the relevant gpio pins of the entry.
+
+Example:
+	qcom,smp2pgpio_client_rdbg_2_in {
+		compatible = "qcom,smp2pgpio_client_rdbg_2_in";
+		gpios = <&smp2pgpio_rdbg_2_in 0 0>;
+	};

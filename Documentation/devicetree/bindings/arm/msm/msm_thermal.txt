@@ -1,0 +1,436 @@
+MSM thermal driver (MSM_THERMAL)
+
+MSM_THERMAL is a kernel platform driver which regulates thermal conditions
+on the device during kernel boot. The goal of MSM_THERMAL is to prevent the
+temperature of the system from exceeding a thermal limit at which it cannot
+operate. Examples are CPU junction thermal limit, or POP memory thermal limit.
+The MSM_THERMAL driver polls the TSENS sensor hardware during boot, and
+reduces the maximum CPU frequency allowed in steps, to limit power/thermal
+output when a threshold temperature is crossed. It restores the maximum CPU
+frequency allowed in the same stepwise fashion when the threshold temperature
+(with hysteresis gap) is cleared.
+
+The devicetree representation of the MSM_THERMAL block should be:
+
+Required properties
+
+- compatible: "qcom,msm-thermal"
+- qcom,sensor-id: The id of the TSENS sensor polled for temperature.
+			Typically the sensor closest to CPU0.
+- qcom,poll-ms: Sampling interval to read sensor, in ms.
+- qcom,limit-temp: Threshold temperature to start stepping CPU down, in degC.
+- qcom,temp-hysteresis: Degrees C below threshold temperature to step CPU up.
+- qcom,freq-step: Number of frequency steps to take on each CPU mitigation.
+
+Optional properties
+
+- reg:                  Physical address for uio mapping
+- qcom,core-limit-temp: Threshold temperature to start shutting down cores
+			in degC
+- qcom,core-temp-hysteresis: Degrees C below which the cores will be brought
+			online in sequence.
+- qcom,hotplug-temp: Threshold temperature to start shutting down cores
+			in degC. This will be used when polling based
+			core control is disabled. The difference between hotplug-temp
+			and core-limit-temp is that core-limit-temp is used during
+			early boot prior to thermal_sys being available for hotplug.
+- qcom,hotplug-temp-hysteresis: Degrees C below which thermal will not force the
+			cores to be offlined. Cores can be brought online if needed.
+- qcom,freq-mitigation-temp: Threshold temperature to mitigate
+			the CPU max frequency in degC. This will be
+			used when polling based frequency control is disabled.
+			The difference between freq-mitigation-temp
+			and limit-temp is that limit-temp is used during
+			early boot prior to thermal_sys being available for registering
+			temperature thresholds. Also, this emergency frequency
+			mitigation is a single step frequency mitigation to a predefined value
+			as opposed to the step by step frequency mitigation during boot-up.
+- qcom,freq-mitigation-temp-hysteresis: Degrees C below which thermal will not mitigate the
+			cpu max frequency.
+- qcom,freq-mitigation-value: The frequency value (in kHz) to which the thermal
+			should mitigate the CPU, when the freq-mitigation-temp
+			threshold is reached.
+- qcom,vdd-restriction-temp: When temperature is below this threshold, will
+			enable vdd restriction which will set higher voltage on
+			key voltage rails, in degC.
+- qcom,vdd-restriction-temp-hysteresis: When temperature is above this threshold
+			will disable vdd restriction on key rails, in degC.
+- qcom,pmic-sw-mode-temp: Threshold temperature to disable auto mode on the
+			rail, in degC. If this property exists,
+			qcom,pmic-sw-mode-temp-hysteresis and
+			qcom,pmic-sw-mode-regs need to exist, otherwise return error.
+- qcom,pmic-sw-mode-temp-hysteresis: Degree below threshold temperature to
+			enable auto mode on the rail, in degC. If this property exists,
+			qcom,pmic-sw-mode-temp and qcom,pmic-sw-mode-regs need to
+			exist, otherwise return error.
+- qcom,pmic-sw-mode-regs: Array of the regulator names that will want to
+			disable/enable automode based on the threshold. If this
+			property exists, qcom,pmic-sw-mode-temp and
+			qcom,pmic-sw-mode-temp-hysteresis need to exist, otherwise
+			return error. Also, if this property is defined, will have to
+			define <consumer_supply_name>-supply = <&phandle_of_regulator>
+- <consumer_supply_name>-supply = <&phandle_of_regulator>: consumer_supply_name
+			is the name that's defined in thermal driver.
+			phandle_of_regulator is defined by reuglator device tree.
+- qcom,online-hotplug-core: This property should be defined in targets where
+			KTM should online cores, which are hotplugged due to
+			thermal condition.
+- qcom,synchronous-cluster-id: This property specifies an array of synchronous cluster-ID's.
+			This property will be used by KTM to optimize the synchronous
+			cluster frequency update.
+- qcom,synchronous-cluster-map: This property specifies an array of cluster-ID,
+			number of cpus in that cluster and their corresponding cpu
+			phandles. This property should be defined in targets where
+			the kernel topology module is not present.
+			In the older kernel version, where the kernel topology module is
+			not available, KTM gets the mapping information from this property.
+- qcom,disable-vdd-mx:  If this property is defined, the feature VDD MX
+			restriction will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-vdd-rstr: If this property is defined, the feature VDD
+			restriction will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-sensor-info: If this property is defined, the feature sensor
+			alias info will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-ocr:     If this property is defined, the feature optimum current
+			request will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-psm:     If this property is defined, the feature PMIC software
+			mode will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-gfx-phase-ctrl: If this property is defined, the feature graphics
+			phase control will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-cx-phase-ctrl: If this property is defined, the feature
+			cx phase control will be disabled. All other properties
+			corresponding to this feature will be ignored.
+
+Optional child nodes
+- qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
+			dual phase) for rails with PMIC, in degC. If this property exists,
+			then the properties, qcom,pmic-opt-curr-temp-hysteresis and
+			qcom,pmic-opt-curr-regs should also be defined to enable this
+			feature.
+- qcom,pmic-opt-curr-temp-hysteresis: Degree below the threshold to disable the optimum
+			current request for a rail, in degC. If this property exists,
+			then the properties, qcom,pmic-opt-curr-temp and
+			qcom,pmic-opt-curr-regs should also be defined to enable
+			this feature.
+- qcom,pmic-opt-curr-regs: Name of the rails for which the optimum current should be
+			requested. If this property exists, then the properties,
+			qcom,pmic-opt-curr-temp and qcom,pmic-opt-curr-temp-hysteresis
+			should also be defined to enable this feature.
+- qcom,pmic-opt-curr-sensor-id: Sensor, which needs to be monitored for requesting OCR
+			when qcom,pmic-opt-curr-temp threshold is reached.
+			It is an optional property, if it is configured, msm_thermal will
+			monitor only this sensor, otherwise it will monitor all TSENS for
+			this feature. If this property exists, then the properties,
+			qcom,pmic-opt-curr-temp, qcom,pmic-opt-curr-temp-hysteresis and
+			qcom,pmic-opt-curr-regs should also be defined to enable this feature.
+- qcom,<vdd restriction child node name>: Define the name of the child node.
+			If this property exisits, qcom,vdd-rstr-reg, qcom,levels
+			need to exist. qcom,min-level is optional if qcom,freq-req
+			exists, otherwise it's required.
+- qcom,vdd-rstr-reg: Name of the rail
+- qcom,levels: Array of the level values. Unit is corner voltage for voltage request
+			or kHz for frequency request.
+- qcom,min-level: Request this level as minimum level when disabling voltage
+			restriction. Unit is corner voltage for voltage request.
+			This will not be required if qcom,freq-req exists.
+- qcom,freq-req: Flag to determine if we should restrict frequency on this rail
+			instead of voltage.
+- qcom,max-freq-level: Request this frequency as scaling maximum level when
+			enabling vdd restriction feature for a rail. This is
+			an optional property which is only applicable to the rail
+			with "qcom,freq-req" property set.
+- qcom,cx-phase-hot-crit-temp: Threshold temperature for sending the 'HOT_CRITICAL'
+			temperature band to RPM, in degC. This will aid RPM
+			in deciding the number of phases required for CX rail.
+			If this property exists, then the property,
+			qcom,cx-phase-hot-crit-temp-hyst should also be defined to
+			enable this feature.
+- qcom,cx-phase-hot-crit-temp-hyst: Degree below the threshold to send the 'WARM'
+			temperature band to RPM, in degC. This will aid RPM
+			in deciding the number of phases required for CX.
+			If this property exists, then the property,
+			qcom,cx-phase-hot-crit-temp should also be defined to enable
+			this feature.
+- qcom,cx-phase-resource-key: The key name to be used for sending the CX
+			temperature band message to RPM. This property should
+			be defined along with the other properties required for
+			CX phase selection feature.
+- qcom,gfx-phase-hot-crit-temp: Threshold temperature for sending the 'HOT_CRITICAL'
+			temperature band to RPM, in degC. This will aid RPM in
+			deciding the number of phases required for GFX rail.
+			If this property exists, then the properties,
+			qcom,gfx-phase-hot-crit-temp-hyst and qcom,gfx-sensor-id
+			should also be defined to enable this feature.
+- qcom,gfx-phase-hot-crit-temp-hyst: Degree below the threshold to clear the 'HOT_CRITICAL'
+			band and send the 'WARM' temperature band to RPM, in degC.
+			This will aid RPM in deciding the number of phases required
+			for GFX rail. If this property exists, then the properties,
+			qcom,gfx-phase-hot-crit-temp and qcom,gfx-sensor-id
+			should also be defined to enable this feature.
+- qcom,gfx-phase-warm-temp: Threshold temperature for sending the 'WARM' temperature
+			band to RPM, in degC. This will aid RPM in deciding the
+			number of phases required for GFX rail. If this property
+			exists, then the properties, qcom,gfx-sensor-id and
+			qcom,gfx-phase-warm-temp-hyst should also be defined to
+			enable this feature.
+- qcom,gfx-phase-warm-temp-hyst: Degree below the threshold to clear the 'WARM'
+			band and send the 'NORMAL' temperature band to RPM, in degC.
+			This will aid RPM in deciding the number of phases required
+			for GFX rail. If this property exists, then the property,
+			qcom,gfx-sensor-id and qcom,gfx-phase-warm-temp should also
+			be defined to enable this feature.
+-qcom,gfx-sensor-id:     The ID of the TSENS sensor, which is closest to graphics
+			processor, monitoring the GPU temperature. If this property
+			exists, then the property, qcom,gfx-phase-hot-crit-temp and
+			qcom,gfx-phase-hot-crit-temp-hyst or/and qcom,gfx-phase-warm-temp
+			and qcom,gfx-phase-warm-temp-hyst should also be defined to
+			enable this feature.
+- qcom,gfx-phase-resource-key: The key name to be used for sending the GFX temperature
+			band message to RPM. This property should be defined along
+			with the other properties required for GFX phase selection
+			feature.
+- qcom,rpm-phase-resource-type: The RPM resource type name to be used for sending
+			temperature bands for CX and GFX phase selection. This
+			property should be defined along with the other properties
+			required for CX and GFX phase selection feature.
+- qcom,rpm-phase-resource-id: The RPM resource ID to be used for sending temperature
+			bands for CX and GFX phase selection. This property should
+			be defined along with the other properties required for CX
+			and GFX phase selection feature.
+- qcom,mx-restriction-temp: Threshold temperature below which the module votes for
+			higher data retention voltage of MX and CX supply. If and only if this
+			property exists, then the property qcom,mx-restriction-temp-hysteresis,
+			qcom,mx-retention-min should also be present. Also, if this
+			property is defined, will have to define vdd-mx-supply =
+			<&phandle_of_regulator>
+- qcom,mx-restriction-temp-hysteresis: Degree above the threshold to remove MX and CX vote.
+			If this property exists, then the property qcom,mx-restriction-temp,
+			qcom,mx-retention-min should also be present.Also, if this
+			property is defined, will have to define vdd-mx-supply =
+			<&phandle_of_regulator>
+- qcom,mx-retention-min: Minimum data retention voltage to be applied to MX rail if
+			the low threshold is crossed. If this property exists, then the
+			property qcom,mx-restriction-temp and
+			qcom,mx-restriction-temp-hysteresis should also be present.
+			Also, if this property is defined, will have to define
+			vdd-mx-supply = <&phandle_of_regulator>
+- qcom,cx-retention-min: Minimum data retention voltage to be applied to CX rail if the low
+			threshold is crossed. If this property exists, then the property
+			qcom,mx-restriction-temp and qcom,mx-restriction-temp-hysteresis
+			should also be present. Also, if this property is defined, will
+			have to define vdd-cx-supply = <&phandle_of_regulator>.
+- qcom,therm-reset-temp: Degree above which the KTM will initiate a secure watchdog reset.
+			When this property is defined, KTM will monitor all the tsens from
+			boot time and will initiate a secure watchdog reset if any of the
+			tsens temperature reaches this threshold. This reset helps in
+			generating more informative crash dumps opposed to the crash dump
+			generated by the hardware reset.
+
+Example:
+
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		reg = <0x70000 0x1000>;
+		qcom,sensor-id = <0>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,freq-step = <2>;
+		qcom,therm-reset-temp = <115>;
+		qcom,core-limit-temp = <90>;
+		qcom,core-temp-hysteresis = <10>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,freq-mitigation-temp = <110>;
+		qcom,freq-mitigation-temp-hysteresis = <20>;
+		qcom,freq-mitigation-value = <960000>;
+		qcom,rpm-phase-resource-type = "misc";
+		qcom,rpm-phase-resource-id = <0>;
+		qcom,cx-phase-resource-key = "tmpc";
+		qcom,cx-phase-hot-crit-temp = <75>;
+		qcom,cx-phase-hot-crit-temp-hyst = <15>;
+		qcom,gfx-phase-warm-temp = <60>;
+		qcom,gfx-phase-warm-temp-hyst = <10>;
+		qcom,gfx-phase-hot-crit-temp = <85>;
+		qcom,gfx-phase-hot-crit-temp-hyst = <15>;
+		qcom,gfx-sensor-id = <4>;
+		qcom,gfx-phase-resource-key = "tmpg";
+		qcom,pmic-sw-mode-temp = <90>;
+		qcom,pmic-sw-mode-temp-hysteresis = <80>;
+		qcom,pmic-sw-mode-regs = "vdd-dig";
+		qcom,vdd-restriction-temp = <5>;
+		qcom,vdd-restriction-temp-hysteresis = <10>;
+		vdd-dig-supply=<&pm8841_s2_floor_corner>
+		qcom,mx-restriction-temp = <5>;
+		qcom,mx-restriction-temp-hysteresis = <10>;
+		qcom,mx-retention-min = <710000>;
+		vdd-mx-supply = <&pma8084_s1>;
+		qcom,cx-retention-min = <RPM_SMD_REGULATOR_LEVEL_RETENTION_PLUS>;
+		vdd-cx-supply = <&pmd9635_s5_level>;
+		qcom,online-hotplug-core;
+		qcom,synchronous-cluster-id = <0 1>; /* Indicates cluster 0 and 1 are synchronous */
+		qcom,synchronous-cluster-map =  <0 2 &CPU0 &CPU1>,
+						<1 2 &CPU2 &CPU3>;
+		/* <cluster-ID, number of cores in cluster, cpu phandles>.
+		** In the above case, the cluster with ID 0 & 1 has 2 cores
+		** and their phandles are mentioned.
+		*/
+
+		qcom,vdd-dig-rstr{
+			qcom,vdd-rstr-reg = "vdd-dig";
+			qcom,levels = <5 7 7>; /* Nominal, Super Turbo, Super Turbo */
+			qcom,min-level = <1>; /* No Request */
+		};
+
+		qcom,vdd-apps-rstr{
+			qcom,vdd-rstr-reg = "vdd-apps";
+			qcom,levels = <1881600 1958400 2265600>;
+			qcom,freq-req;
+			qcom,max-freq-level = <1958400>;
+		};
+	};
+
+
+
+The sensor information node is an optional node that holds information
+about thermal sensors on a target. The information includes sensor type,
+sensor name, sensor alias and sensor scaling factor. The parent node
+name is qcom,sensor-information. It has a list of optional child
+nodes, each representing a sensor. The child node is named as
+qcom,sensor-information-<id>. The id takes values sequentially
+from 0 to N-1 where N is the number of sensors. This id doesn't
+relate to zone id or sensor id.
+
+The devicetree representation of sensor information node should be:
+
+1.0 Required properties:
+
+- compatible: "qcom,sensor-information"
+
+1.1 Optional nodes:
+
+qcom,sensor-information-<id>
+
+The below properties belong to the child node qcom,sensor-information-<id>.
+Following are the required and optional properties of a child node.
+
+1.1.a Required properties:
+
+- qcom,sensor-type: Type of a sensor. A sensor can be of type tsens,
+			alarm or adc.
+			tsens: 	Sensors that are on MSM die.
+			alarm: 	Sensors that are on PMIC die.
+			adc:   	Sensors that are usually thermistors
+				placed out of the die.
+- qcom,sensor-name: Name of a sensor as defined by low level sensor driver.
+
+1.1.b Optional properties:
+
+- qcom,alias-name: Alias name for a sensor. The alias name corresponds
+			to a device such as gpu/pop-mem whose temperature
+			is relative to the sensor temperature defined in the
+			child node. This node can not be used for providing
+			alias name for cpu devices. Thermal driver assigns the
+			cpu device alias, based on the sensor defined in the
+			cpu mitigation profile.
+- qcom,scaling-factor: The unit that needs to be multiplied to the
+			sensor temperature to get temperature unit in
+			degree centigrade. If this property is not
+			present, a default scaling factor of 1 is assigned
+			to a sensor.
+
+Example:
+
+	qcom,sensor-information {
+		compatible = "qcom,sensor-information";
+		sensor_information0: qcom,sensor-information-0 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor0";
+		};
+
+		sensor_information1: qcom,sensor-information-1 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor1";
+		};
+
+		sensor_information2: qcom,sensor-information-2 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor2";
+		};
+
+		sensor_information3: qcom,sensor-information-3 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor3";
+		};
+
+		sensor_information4: qcom,sensor-information-4 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor4";
+		};
+
+		sensor_information5: qcom,sensor-information-5 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor5";
+		};
+
+		sensor_information6: qcom,sensor-information-6 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor6";
+			qcom,alias-name = "cpu7";
+		}
+
+		sensor_information7: qcom,sensor-information-7 {
+			qcom,sensor-type =  "alarm";
+			qcom,sensor-name = "pm8994_tz";
+			qcom,scaling-factor = <1000>;
+                };
+
+	};
+
+===============================================================================
+Mitigation Profile:
+===============================================================================
+Thermal driver allows users to specify various mitigation profiles and
+associate a profile to a device. The device should have a phandle, to associate
+itself with a mitigation profile, using a "qcom,limits-info" property.
+This profile can specify whether to mitigate the device during various
+limiting conditions.
+
+Required Node:
+- qcom,limit_info-#: This is a mitigation profile node. A profile should
+			normally have a sensor(s) to monitor and a list
+			of properties enabling or disabling a mitigation.
+
+Required properties:
+
+- qcom,temperature-sensor: Array of phandle(s) to the temperature sensor(s) that
+			need(s) to be used for monitoring the device associated
+			with this mitigation profile. Right now the first
+			sensor will be used for KTM CPU monitoring. Alias
+			name of multiple sensors monitoring a same device will
+			be differentiated by appending an index like, "cpu0_0"
+			and "cpu0_1". A single sensor monitoring multiple
+			devices will have an alias name like "cpu0-cpu1-cpu2".
+
+Optional properties:
+
+- qcom,boot-frequency-mitigate: Enable thermal frequency mitigation
+			during boot.
+- qcom,emergency-frequency-mitigate: Enable emergency frequency mitigation.
+- qcom,hotplug-mitigation-enable: Enable hotplug mitigation. This enables
+			hotplug mitigation both during boot and emergency
+			condition.
+
+Example:
+	mitigation_profile7: qcom,limit_info-7 {
+		qcom,temperature-sensor =
+			<&sensor_information6 &sensor_information8>;
+		qcom,boot-frequency-mitigate;
+		qcom,emergency-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};

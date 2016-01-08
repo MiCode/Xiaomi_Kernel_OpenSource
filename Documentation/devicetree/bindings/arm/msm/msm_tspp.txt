@@ -1,0 +1,93 @@
+TSPP Driver
+
+For information on the TSPP driver, please refer to the TSPP driver
+documentation: Documentation/arm/msm/tspp.txt.
+
+The devicetree representation of the TSPP block should be:
+
+Required properties:
+
+- compatible: "qcom,msm_tspp"
+- reg: physical memory base addresses and sizes for the following:
+	TSIF0, TSIF1, TSPP and TSPP_BAM.
+- reg-names: names of the memory regions.
+- interrupts: represents IRQ numbers for the following:
+	TSIF_TSPP_IRQ, TSIF0_IRQ, TSIF1_IRQ, TSIF_BAM_IRQ.
+- interrupt-names: TSPP, TSIF and BAM interrupt names.
+- pinctrl-names: the names of the pinctrl states that are used by the driver to
+	configure the TLMM pins. The allowed states are:
+	disabled - both tsif inputs are not used
+	tsif0-mode1 - only tsif0 is active in mode 1 (no sync signal)
+	tsif0-mode2 - only tsif0 is used in mode 2 (with sync signal)
+	tsif1-mode1 - only tsif1 is active in mode 1 (no sync signal)
+	tsif1-mode2 - only tsif1 is used in mode 2 (with sync signal)
+	dual-tsif-mode1 - both tsif0 and tsif1 are active, in mode 1
+	dual-tsif-mode1 - both tsif0 and tsif1 are active, in mode 2
+- pinctrl-#: a list of pinctrl phandles for the different pinctrl states. Refer
+	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for
+	the pinctrl handles definitions. Each pinctrl-# corresponds to the
+	respective state name that appears under pinctrl-state list.
+	Note that when switching from one state to another, any pins in
+	the old state which do not appear in the new state are automatically
+	disabled by the pinctrl framework.
+
+Optional properties:
+
+- vdd_cx-supply: Reference to the regulator that supplies the CX rail.
+	Some hardware platforms (e.g. 8974-v2) require the voltage of the rail
+	supplying power to the TSIF hardware block to be elevated before
+	enabling the TSIF clocks.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+	the below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+
+Example (for 8974 platform, avaialble at msm8974.dtsi):
+
+	tspp: msm_tspp@f99d8000 {
+		compatible = "qcom,msm_tspp";
+		reg = <0xf99d8000 0x1000>, /* MSM_TSIF0_PHYS */
+		      <0xf99d9000 0x1000>, /* MSM_TSIF1_PHYS */
+		      <0xf99da000 0x1000>, /* MSM_TSPP_PHYS  */
+		      <0xf99c4000 0x14000>; /* MSM_TSPP_BAM_PHYS */
+		reg-names = "MSM_TSIF0_PHYS",
+			"MSM_TSIF1_PHYS",
+			"MSM_TSPP_PHYS",
+			"MSM_TSPP_BAM_PHYS";
+		interrupts = <0 153 0>, /* TSIF_TSPP_IRQ */
+			<0 151 0>, /* TSIF0_IRQ */
+			<0 152 0>, /* TSIF1_IRQ */
+			<0 154 0>; /* TSIF_BAM_IRQ */
+		interrupt-names = "TSIF_TSPP_IRQ",
+			"TSIF0_IRQ",
+			"TSIF1_IRQ",
+			"TSIF_BAM_IRQ";
+
+		pinctrl-names = "disabled",
+			"tsif0-mode1", "tsif0-mode2",
+			"tsif1-mode1", "tsif1-mode2",
+			"dual-tsif-mode1", "dual-tsif-mode2";
+
+		pinctrl-0 = <>;				/* disabled */
+		pinctrl-1 = <&tsif0_signals_active>;	/* tsif0-mode1 */
+		pinctrl-2 = <&tsif0_signals_active
+			&tsif0_sync_active>;		/* tsif0-mode2 */
+		pinctrl-3 = <&tsif1_signals_active>;	/* tsif1-mode1 */
+		pinctrl-4 = <&tsif1_signals_active
+			&tsif1_sync_active>;		/* tsif1-mode2 */
+		pinctrl-5 = <&tsif0_signals_active
+			&tsif1_signals_active>;		/* dual-tsif-mode1 */
+		pinctrl-6 = <&tsif0_signals_active
+			&tsif0_sync_active
+			&tsif1_signals_active
+			&tsif1_sync_active>;		/* dual-tsif-mode2 */
+
+		qcom,msm-bus,name = "tsif";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<82 512 0 0>, /* No vote */
+				<82 512 12288 24576>; /* Max. bandwidth, 2xTSIF, each max of 96Mbps */
+	};

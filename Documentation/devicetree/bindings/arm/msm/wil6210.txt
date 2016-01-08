@@ -1,0 +1,38 @@
+wil6210 - Qualcomm Technologies Inc. 802.11ad Wireless Driver
+
+wil6210 driver is responsible for managing 802.11ad chipset
+connected to MSM over PCIe interface.
+
+The platform data is needed in order to perform proper
+bus-scaling and SMMU initialization by the driver.
+
+Required properties:
+
+- compatible: "qcom,wil6210"
+- qcom,smmu-support: Boolean flag indicating whether PCIe has SMMU support
+- qcom,pcie-parent: phandle for the PCIe root complex to which 11ad card is connected
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+  the below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+
+Optional properties:
+- qcom,sleep-clk-en: GPIO for sleep clock used for low power modes by 11ad card
+- qcom,wigig-en: Enable GPIO connected to 11ad card
+
+Example:
+	wil6210: qcom,wil6210 {
+		compatible = "qcom,wil6210";
+		qcom,smmu-support;
+		qcom,pcie-parent = <&pcie1>;
+		qcom,wigig-en = <&tlmm 94 0>;
+		qcom,msm-bus,name = "wil6210";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<100 512 0 0>,
+			<100 512 600000 800000>; /* ~4.6Gbps (MCS12) */
+	};
+

@@ -1,0 +1,22 @@
+Qualcomm Technologies, Inc. G-link QoS Configuration
+
+Required properties:
+-compatible : should be "qcom,glink-qos-config"
+-qcom,flow-info : A table of MTU transmission time specific for a power state.
+		The total number of entries in the table should be equal to the
+		number of supported flows.
+-qcom,mtu-size : The MTU size for which the qos elements are configured.
+-qcom,tput-stats-cycle: The number of allowable cycles for a packet to be
+			transmitted without its priority being re-evaluated.
+
+Example:
+
+	qcom,glink-qos-config-adsp {
+		compatible = "qcom,glink-qos-config";
+		qcom,flow-info = <0x80 0x0>,
+				 <0x70 0x1>,
+				 <0x60 0x2>,
+				 <0x50 0x3>;
+		qcom,mtu-size = <0x800>;
+		qcom,tput-stats-cycle = <0xa>;
+	};

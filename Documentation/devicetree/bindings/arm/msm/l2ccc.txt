@@ -1,0 +1,20 @@
+L2 Cache Clock Controller
+
+The L2 Cache Clock Controller provides clock, power domain, and
+reset control to a L2-cache for a cluster. There is L2CCC register
+region per CPU Cluster.
+
+Required properties:
+- compatible:	Can be one of:
+		"qcom,8916-l2ccc"
+		"qcom,titanium-l2ccc"
+		"qcom,8937-l2ccc"
+- reg:		This specifies the base address and size of
+		the register region.
+
+Example:
+
+	clock-controller@f900f000 {
+		compatible = "qcom,8916-l2ccc"";
+		reg = <0xf900f000 0x1000>;
+	}

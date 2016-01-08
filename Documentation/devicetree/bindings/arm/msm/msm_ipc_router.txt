@@ -1,0 +1,16 @@
+Qualcomm IPC Router
+
+Required properties:
+-compatible:	should be "qcom,ipc_router"
+-qcom,node-id:	unique ID to identify the node in network
+
+Optional properties:
+-qcom,default-peripheral: String property to indicate the default peripheral
+			  to communicate
+
+Example:
+	qcom,ipc_router {
+		compatible = "qcom,ipc_router";
+		qcom,node-id = <1>;
+		qcom,default-peripheral = "modem";
+	};

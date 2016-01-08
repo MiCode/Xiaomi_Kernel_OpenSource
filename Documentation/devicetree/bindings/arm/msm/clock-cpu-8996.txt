@@ -1,0 +1,78 @@
+Qualcomm MSM 8996 CPU clock tree
+
+clock-cpu-8996 is a device that represents the MSM 8996 CPU subsystem
+clock tree. It lists the various power supplies that need to be scaled when
+the clocks are scaled and also other HW specific parameters like fmax tables,
+PLL FMAXes etc.
+
+Required properties:
+- compatible:		Must be either "qcom,cpu-clock-8996" or
+			"qcom,cpu-clock-8996-v3"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are:
+			"pwrcl_pll", "perfcl_pll", "cbf_pll", "pwrcl_mux",
+			"perfcl_mux", "cbf_mux", "efuse";
+- vdd-perfcl-supply:	The regulator powering the power cluster
+- vdd-pwrcl-supply:	The regulator powering the perf cluster
+- vdd-cbf-supply:	The regulator powering the CBF interconnect
+- vdd-dig-supply:	The regulator powering the cluster PLLs
+- qcom,pwrcl-speedbinY-vZ:
+			A table of CPU frequency (Hz) to voltage (corner)
+			mapping that represents the max frequency possible
+			for each supported voltage level for the power cluster.
+			'Y' is the speed bin into which the device falls into -
+			a bin will have unique frequency-voltage relationships.
+			'Z' is the characterization version, implying that
+			characterization (deciding what speed bin a device
+			falls into) methods and/or encoding may change. The
+			values 'Y' and 'Z' are read from efuse registers, and
+			the right table is picked from multiple possible tables.
+- qcom,perfcl-speedbinY-vZ:
+			Similar to the qcom,pwrcl-speedbinY-vZ property above,
+			except this frequency to voltage table is applied to the
+			clock for the perf cluster.
+- qcom,cbf-speedbinY-vZ:
+			Similar to the qcom,perfcl-speedbinY-vZ property above,
+			except this frequency to voltage table is applied to the
+			clock for the CBF.
+- cbf-dev:		The CBF cache device to which the OPP table for the
+			CBF clock domain will be added.
+Example:
+	clock_cpu: qcom,cpu-clock-8996@ {
+		compatible = "qcom,cpu-clock-8996";
+		reg = <0x06400000 0x1000>,
+		      <0x06480000 0x1000>,
+		      <0x09A20000 0x1000>,
+		      <0x06400000 0x1000>,
+		      <0x06480000 0x1000>,
+		      <0x09A11000 0x1000>,
+		      <0x00070130 0x8>;
+		reg-names = "pwrcl_pll", "perfcl_pll", "cbf_pll", "pwrcl_mux", "perfcl_mux", "cbf_mux", "efuse";
+		vdd-pwrcl-supply = <&apc_vreg_corner>;
+		vdd-perfcl-supply = <&apc_vreg_corner>;
+		vdd-cbf-supply = <&apc_vreg_corner>;
+		vdd-dig-supply = <&pm8994_s1_corner_ao>;
+		qcom,pwrcl-speedbin0-v0 =
+			<          0  0 >,
+			<  300000000  1 >,
+			<  345600000  2 >,
+			<  422400000  3 >,
+			< 1459200000 18 >;
+		qcom,perfcl-speedbin0-v0 =
+			<          0  0 >,
+			<  300000000  1 >,
+			<  345600000  2 >,
+			<  422400000  3 >,
+			< 1593600000 18 >;
+		qcom,cbf-speedbin0-v0 =
+			<	   0  0 >,
+			<  300000000  1 >,
+			<  384000000  3 >,
+			< 1036800000 18 >;
+		clock-names = "xo_ao", "aux_clk";
+		clocks = <&clock_gcc clk_cxo_clk_src_ao>,
+			 <&clock_gcc clk_gpll0_out_main>;
+		#clock-cells = <1>;
+	};

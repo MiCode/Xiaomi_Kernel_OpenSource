@@ -1,0 +1,42 @@
+Qualcomm Technologies, Inc. IPC Router G-Link Transport
+
+Required properties:
+-compatible:		should be "qcom,ipc_router_glink_xprt"
+-qcom,ch-name:		the G-Link channel name used by the G-Link transport
+-qcom,xprt-remote:	string that defines the edge of the transport
+-qcom,glink-xprt:	string that describes the underlying physical transport
+-qcom,xprt-linkid:	unique integer to identify the tier to which the link
+			belongs to in the network and is used to avoid the
+			routing loops while forwarding the broadcast messages
+-qcom,xprt-version:	unique version ID used by G-Link transport header
+
+Optional properties:
+-qcom,fragmented-data:	Boolean property to indicate that G-Link transport
+			supports fragmented data
+-qcom,pil-label: 	string that defines remote subsystem name understood
+			by pil. Absence of this property indicates that
+			subsystem loading through pil voting is disabled for
+			that subsystem.
+
+Example:
+	qcom,ipc_router_modem_xprt {
+		compatible = "qcom,ipc_router_glink_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "mpss";
+		qcom,glink-xprt = "smem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+		qcom,pil-label = "modem";
+	};
+
+	qcom,ipc_router_q6_xprt {
+		compatible = "qcom,ipc_router_glink_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "lpass";
+		qcom,glink-xprt = "smem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+		qcom,pil-label = "adsp";
+	};

@@ -1,0 +1,258 @@
+MSM Bus Devices
+
+The bus devices (fabrics/NoCs) are the interconnects between various
+components on chipsets. These devices form the backbone of the chip
+topology. Entire topology of the chipset is built using the
+device-tree data of these bus devices.
+
+To add the bus devices following properties are required:
+
+compatible:		The bus devices need to be compatible with
+			msm-bus-fabric
+cell-id:		A 32 bit integer unique per bus per chipset. The IDs
+			for buses are in multiples of 1024.
+label:			Bus name
+qcom,fabclk-dual:	Dual set (active/sleep) bus clock name
+qcom,fabclk-active:	Active set bus clock name
+qcom,nfab:		An integer property which specifies the total number
+			of buses on the chipset.
+
+The following properties are optional as a bus might not support
+these features:
+
+qcom,ntieredslaves:	Number of tiered slaves on the bus.
+qcom,qos-freq:		QoS frequency (In KHz)
+qcom,hw-sel:		A string which decides whether QoS data
+			should be sent to RPM, set using BIMC or NoCs.
+			It can be set to "RPM", "NoC" or "BIMC".
+qcom,qos-baseoffset:	Base address offset of QoS registers from the bus device
+			base address.
+qcom,qos-delta:	 	Address delta between QoS registers of different masters.
+qcom,rpm-en:		A boolean flag indicating whether RPM transactions are
+			supported for nodes of the bus.
+qcom,ahb:		A boolean flag indicating whether the bus is ahb type.
+qcom,virt:		A boolean property indicating this is a virtual bus.
+reg:			Register space of the bus device. Not required in case
+			the bus is virtual.
+qom,nr-lim-thresh	The threshold below which to apply throttling of non
+			real time masters.
+qcom,eff-fact		The DDR effeciency factor to be assumed. This only
+			comes into play for buses that connect to the DDR.
+
+
+The following properties are optional as collecting data via coresight might
+not be supported for every bus. The documentation for coresight properties
+can be found in:
+Documentation/devicetree/bindings/coresight/coresight.txt
+
+coreisght-id		Unique integer identifier for the bus.
+coresight-name		Unique descriptive name of the bus.
+coresight-nr-inports	Number of input ports on the bus.
+coresight-outports	List of output port numbers on the bus.
+coresight-child-list	List of phandles pointing to the children of this
+			component.
+coresight-child-ports	List of input port numbers of the children.
+
+
+Any interconnect on the bus is represented as a child node.
+A child node can be of type: master, slave or a gateway.
+A gateway is an interconnect between buses and can be of both
+master and slave type.
+
+The following properties are available to characterize a child node.
+The properties can be chosen depending on the type of child node.
+
+cell-id:		For a master the ID is between 0 - 512
+			For a slave the ID is between 512 - 1024
+label:			Name of the master/slave/gateway
+qcom,masterp:		Hardware master port number(s)
+qcom,tier:		The tier to which a master/slave belongs.
+			Note that tiering might not be supported on
+			all architectures.
+qcom,hw-sel:		A string which decides whether QoS data should be sent
+			to RPM, set using BIMC or NoCs.
+			It can be set to "RPM", "NoC" or "BIMC".
+qcom,mode:		Used for masters on NoC/BIMC. Indicates which of the
+			four modes (Fixed/Limiter/Bypass/Regulator) the master
+			belongs to.
+qcom,perm-mode:		Permissible mode switches. Indicates which of the four
+			modes are supported of the master node. Generally,
+			modes are set at boot-up and not switched at run-time.
+qcom,qport:		QoS port number. This can be different from the
+			master-port number.
+qcom,ws:		Window size (in Hz), used for NoC/BIMC masters to
+			calculate saturation values.
+qcom,mas-hw-id:		A unique hardware ID agreed upon by processors across
+			the system. This ID is assigned to every master. It can
+			be used to send master specific data from
+			Apps/Modem/LPASS to RPM.
+qcom,slv-hw-id:		A unique hardware ID agreed upon by processors across
+			the system. This ID is assigned to every slave. It can
+			be used to send slave specific data from
+qcom,slaveclk-dual:	Dual set (active/sleep) slave clock name
+qcom,slaveclk-active:	Active set slave clock name
+			Apps/Modem/LPASS to RPM.
+qcom,gateway:		Flag indicating whether a particular node is a gateway.
+qcom,slavep:		Hardware slave port number(s).
+qcom,buswidth:		Width of the interconnect between a node and the bus.
+			(In Bytes).
+qcom,prio-rd:		Read priority for a BIMC bus master (Can be 0/1/2)
+qcom,prio-wr:		Write priority for a BIMC bus master (Can be 0/1/2)
+qcom,prio0:		Priority low signal for a NoC bus master
+			(Can be 0/1/2).
+qcom,prio1:		Priority high signal for a NoC bus master
+			(Can be 0/1/2)
+qcom,dual-conf:		Indicates whether a BIMC/NoC master can be configured
+			in multiple modes at run-time. (Boolean)
+qcom,mode-thresh:	Threshold mode for a BIMC/NoC master. Beyond a certain
+			threshold frequency, a threshold mode can be used.
+			(Can be Fixed/Limiter/Bypass/Regulator)
+qcom,bimc,bw:		Bandwidth limit for a BIMC master using dual modes.
+			This bandwidth is used to calculate Grant count and
+			other parameters used in Limiter and Regular mode.
+			for static BKE configuration. It is defined in KBytes/s.
+qcom,bimc,gp:		Grant Period for configuring a master in limiter
+			mode. This is an integer value in nano-seconds.
+qcom,bimc,thmp:		Medium threshold percentage for BIMC masters.
+			This percentage is used to calculate medium threshold
+			value for BIMC Masters in Limiter mode for static
+			configuration. This can be any integer value between
+			1 and 100.
+qcom,thresh:		Beyond this threshold frequency, the mode usage is
+			switched from mode specified by property qcom,mode
+			to the one specified by qcom,mode-thresh. These thresholds
+			can be setup in increasing order of thresholds, so the
+			requested IB is evaluated at each threshold level before
+			making the decision to switch QoS modes and applying the
+			corresponding qcom,bimc,bw limitig bw as needed.
+			This is specified in KBytes/s.
+qcom,rt-mas:		Indicates if a master node is a realtime master with
+			hard deadlines.
+qcom,nr-lim:		Indicates that this is non-real time master which can
+			be throttled in case of concurrent scenarios.
+qcom,floor-bw:		Represents the floor bandwidth below which this master
+			cannot be throttled. This floor bandwidth is specified in
+			KBytes/s.
+qcom,ff:		The fudge factor used by clients when voting for
+			bandwidth from the node.
+
+
+
+Example:
+
+
+	msm-mmss-noc@fc478000 {
+		compatible = "msm-bus-fabric";
+		reg = <0xfc478000 0x00004000>;
+		cell-id = <2048>;
+		label = "msm_mmss_noc";
+		qcom,fabclk-dual = "bus_clk";
+		qcom,fabclk-active = "bus_a_clk";
+		qcom,ntieredslaves = <0>;
+		qcom,qos-freq = <4800>;
+		qcom,hw-sel = "NoC";
+		qcom,rpm-en;
+		qcom,nfab = <6>;
+
+		mas-gfx3d {
+			cell-id = <26>;
+			label = "mas-gfx3d";
+			qcom,masterp = <2 3>;
+			qcom,tier = <2>;
+			qcom,hw-sel = "NoC";
+			qcom,perm-mode = "Bypass";
+			qcom,mode = "Bypass";
+			qcom,ws = <10000>;
+			qcom,qport = <2 3>;
+			qcom,mas-hw-id = <6>;
+		};
+
+		mas-jpeg {
+			cell-id = <62>;
+			label = "mas-jpeg";
+			qcom,masterp = <4>;
+			qcom,tier = <2>;
+			qcom,hw-sel = "NoC";
+			qcom,perm-mode = "Bypass";
+			qcom,mode = "Bypass";
+			qcom,qport = <0>;
+			qcom,ws = <10000>;
+			qcom,mas-hw-id = <7>;
+		};
+	};
+
+	msm-bimc@0xfc380000 {
+		compatible = "msm-bus-fabric";
+		reg = <0xfc380000 0x0006A000>;
+		cell-id = <0>;
+		label = "msm_bimc";
+		qcom,fabclk-dual = "mem_clk";
+		qcom,fabclk-active = "mem_a_clk";
+		qcom,ntieredslaves = <0>;
+		qcom,qos-freq = <19200>;
+		qcom,hw-sel = "BIMC";
+		qcom,rpm-en;
+
+		coresight-id = <55>;
+		coresight-name = "coresight-bimc";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <3>;
+
+		mas-ampss-m0 {
+			cell-id = <1>;
+			label = "mas-ampss-m0";
+			qcom,masterp = <0>;
+			qcom,tier = <2>;
+			qcom,hw-sel = "BIMC";
+			qcom,mode = "Limiter";
+			qcom,qport = <0>;
+			qcom,ws = <10000>;
+			qcom,mas-hw-id = <0>;
+			qcom,prio-rd = <0>;
+			qcom,prio-wr = <0>;
+			qcom,mode-thresh = "Fixed";
+			qcom,thresh = <2000000>;
+			qcom,dual-conf;
+			qcom,bimc,bw = <300000>;
+			qcom,bimc,gp = <5>;
+			qcom,bimc,thmp = <50>;
+		};
+	};
+
+
+
+
+The bus scaling driver also provides the ability to configure
+bus performance parameters across the entire chip-set.
+Various clients use MSM scaling APIs to request bandwidth
+between multiple master-slave pairs. The bus driver then finds
+the optimal path between the master and the slave, and aggregates
+the bandwidth and clock requests for all master-slave pairs on
+that path, and programs hardware accordingly.
+
+The device-tree data required for bus-scaling can be embedded within
+the clients' device nodes. The clients can register with the bus driver
+using the following properties:
+
+- qcom,msm-bus,name:		String representing the client-name
+- qcom,msm-bus,num-cases:	Total number of usecases
+- qcom,msm-bus,active-only:	Boolean context flag for requests in active or
+				dual (active & sleep) contex
+- qcom,msm-bus,num-paths:	Total number of master-slave pairs
+- qcom,msm-bus,vectors-KBps:	Arrays of unsigned integers representing:
+				master-id, slave-id, arbitrated bandwidth
+				in KBps, instantaneous bandwidth in KBps
+
+Example:
+
+	qcom,msm-bus,name = "client-name";
+	qcom,msm-bus,num-cases = <3>;
+	qcom,msm-bus,active-only;
+	qcom,msm-bus,num-paths = <2>;
+	qcom,msm-bus,vectors =
+			<22 512 0 0>, <26 512 0 0>,
+			<22 512 320000 3200000>, <26 512 3200000 3200000>,
+			<22 512 160000 1600000>, <26 512 1600000 1600000>;
+

@@ -1,0 +1,43 @@
+* RPM Sleep Stats
+
+RPM maintains sleep data in the RPM RAM. A device tree node is added
+that will hold the address of the RPM RAM from where sleep stats are read.
+Additionally a version number is added to distinguish the type of data
+structure being read from the RAM.
+
+RPM maintains free heap space availability in the RPM RAM. RPM free heap space
+value is required for debugging purpose.
+
+The required properties for rpm-stats are:
+
+- compatible: "qcom,rpm-stats"
+- reg: The address on the RPM RAM from where stats are read.
+
+	Second register(optional) specifies the offset of the rpm
+	stats start address pointer. If the second register is
+	available, the offset value read is added to the first
+	register address to read the stats.
+
+	Third register(optional) specifies the offset of the rpm
+	free heap space value.
+- reg-names: Name given the register holding address.
+- qcom,sleep-stats-version: Version number.
+
+Example 1:
+
+qcom,rpm-stats@fc19dbd0 {
+		compatible = "qcom,rpm-stats";
+		reg = <0xfc19dbd0 0x1000>;
+		reg-names = "phys_addr_base";
+		qcom,sleep-stats-version = <2>;
+};
+
+Example 2:
+
+qcom,rpm-stats@fc000000 {
+		compatible = "qcom,rpm-stats";
+		reg = <0xfc000000 0x1000>,
+			<0xfc190014 0x4>;
+		reg-names = "phys_addr_base";
+		qcom,sleep-stats-version = <2>;
+};
