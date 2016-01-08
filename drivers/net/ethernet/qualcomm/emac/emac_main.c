@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3020,6 +3020,10 @@ static int emac_suspend(struct device *device)
 	u32 speed, adv_speed;
 	bool link_up = false;
 	int retval = 0;
+
+	/* Check link state. Don't suspend if link is up */
+	if (netif_carrier_ok(adpt->netdev))
+		return -EPERM;
 
 	/* cannot suspend if WOL is disabled */
 	if (!adpt->irq[EMAC_WOL_IRQ].irq)
