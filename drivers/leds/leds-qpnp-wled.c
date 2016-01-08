@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -343,6 +343,31 @@ static int qpnp_wled_sec_access(struct qpnp_wled *wled, u16 base_addr)
 	return 0;
 }
 
+static int qpnp_wled_sync_reg_toggle(struct qpnp_wled *wled)
+{
+	int rc;
+	u8 reg;
+
+	/* sync */
+	reg = QPNP_WLED_SYNC;
+	rc = qpnp_wled_write_reg(wled, &reg,
+		QPNP_WLED_SYNC_REG(wled->sink_base));
+	if (rc < 0)
+		return rc;
+
+	if (wled->cons_sync_write_delay_us)
+		usleep_range(wled->cons_sync_write_delay_us,
+				wled->cons_sync_write_delay_us + 1);
+
+	reg = QPNP_WLED_SYNC_RESET;
+	rc = qpnp_wled_write_reg(wled, &reg,
+		QPNP_WLED_SYNC_REG(wled->sink_base));
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
 /* set wled to a level of brightness */
 static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 {
@@ -367,22 +392,11 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 			return rc;
 	}
 
-	/* sync */
-	reg = QPNP_WLED_SYNC;
-	rc = qpnp_wled_write_reg(wled, &reg,
-		QPNP_WLED_SYNC_REG(wled->sink_base));
-	if (rc < 0)
+	rc = qpnp_wled_sync_reg_toggle(wled);
+	if (rc < 0) {
+		dev_err(&wled->spmi->dev, "Failed to toggle sync reg %d\n", rc);
 		return rc;
-
-	if (wled->cons_sync_write_delay_us)
-		usleep_range(wled->cons_sync_write_delay_us,
-				wled->cons_sync_write_delay_us + 1);
-
-	reg = QPNP_WLED_SYNC_RESET;
-	rc = qpnp_wled_write_reg(wled, &reg,
-		QPNP_WLED_SYNC_REG(wled->sink_base));
-	if (rc < 0)
-		return rc;
+	}
 
 	return 0;
 }
@@ -706,22 +720,11 @@ static ssize_t qpnp_wled_fs_curr_ua_store(struct device *dev,
 
 	wled->fs_curr_ua = data;
 
-	/* sync */
-	reg = QPNP_WLED_SYNC;
-	rc = qpnp_wled_write_reg(wled, &reg,
-		QPNP_WLED_SYNC_REG(wled->sink_base));
-	if (rc < 0)
+	rc = qpnp_wled_sync_reg_toggle(wled);
+	if (rc < 0) {
+		dev_err(&wled->spmi->dev, "Failed to toggle sync reg %d\n", rc);
 		return rc;
-
-	if (wled->cons_sync_write_delay_us)
-		usleep_range(wled->cons_sync_write_delay_us,
-				wled->cons_sync_write_delay_us + 1);
-
-	reg = QPNP_WLED_SYNC_RESET;
-	rc = qpnp_wled_write_reg(wled, &reg,
-		QPNP_WLED_SYNC_REG(wled->sink_base));
-	if (rc < 0)
-		return rc;
+	}
 
 	return count;
 }
@@ -1256,6 +1259,12 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 				QPNP_WLED_CURR_SINK_REG(wled->sink_base));
 		if (rc)
 			return rc;
+	}
+
+	rc = qpnp_wled_sync_reg_toggle(wled);
+	if (rc < 0) {
+		dev_err(&wled->spmi->dev, "Failed to toggle sync reg %d\n", rc);
+		return rc;
 	}
 
 	/* setup ovp and sc irqs */
