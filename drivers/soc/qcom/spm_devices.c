@@ -388,7 +388,7 @@ EXPORT_SYMBOL(msm_spm_reinit);
  */
 bool msm_spm_is_mode_avail(unsigned int mode)
 {
-	struct msm_spm_device *dev = &__get_cpu_var(msm_cpu_spm_device);
+	struct msm_spm_device *dev = this_cpu_ptr(&msm_cpu_spm_device);
 	int i;
 
 	for (i = 0; i < dev->num_modes; i++) {
@@ -536,7 +536,7 @@ EXPORT_SYMBOL(msm_spm_avs_clear_irq);
  */
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
-	struct msm_spm_device *dev = &__get_cpu_var(msm_cpu_spm_device);
+	struct msm_spm_device *dev = this_cpu_ptr(&msm_cpu_spm_device);
 	return msm_spm_dev_set_low_power_mode(dev, mode, notify_rpm);
 }
 EXPORT_SYMBOL(msm_spm_set_low_power_mode);
