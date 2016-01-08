@@ -764,7 +764,7 @@ static void ipa_work_handler(struct work_struct *w)
 				pr_debug("%s: STATE DISCONNECTED", __func__);
 				break;
 			}
-			ipa_suspend_work_handler(d_port);
+			ret = ipa_suspend_work_handler(d_port);
 			if (!ret)
 				usb_gadget_autopm_put_async(d_port->gadget);
 		} else if (event == EVT_CONNECTED) {
