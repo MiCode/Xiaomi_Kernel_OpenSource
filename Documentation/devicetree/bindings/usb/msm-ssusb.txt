@@ -41,6 +41,7 @@ Optional properties :
 - qcom,disable-dev-mode-pm: If present, it disables PM runtime functionality for device mode.
 - qcom,disable-host-mode-pm: If present, it disables XHCI PM runtime functionality when USB
   host mode is used.
+- qcom,core-clk-rate: If present, indicates clock frequency to be set for USB master clock.
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
   This sub node is required property for device node. The properties of this subnode
