@@ -486,6 +486,39 @@ static void qpnpint_spmi_read(struct irq_data *d, u8 reg, void *buf, size_t len)
 				    d->irq);
 }
 
+static void cleanup_irq(struct spmi_pmic_arb *pa, u8 apid, int id)
+{
+	u32 status;
+	u16 ppid = pa->apid_data[apid].ppid;
+	u8 sid = ppid >> 8;
+	u8 per = ppid & 0xFF;
+	unsigned long flags;
+	u8 irq_mask = BIT(id);
+
+	raw_spin_lock_irqsave(&pa->lock, flags);
+	writel_relaxed(irq_mask, pa->intr + pa->ver_ops->irq_clear(apid));
+	if (pa->apid_data[apid].enabled_irq_mask == 0) {
+		status
+		      = readl_relaxed(pa->intr + pa->ver_ops->acc_enable(apid));
+		status = status & ~SPMI_PIC_ACC_ENABLE_BIT;
+		writel_relaxed(status,
+				pa->intr + pa->ver_ops->acc_enable(apid));
+	}
+	raw_spin_unlock_irqrestore(&pa->lock, flags);
+
+	if (pmic_arb_write_cmd(pa->spmic, SPMI_CMD_EXT_WRITEL, sid,
+		       (per << 8) + QPNPINT_REG_LATCHED_CLR, &irq_mask, 1))
+		dev_err_ratelimited(&pa->spmic->dev,
+				"failed to ack irq_mask = 0x%x for ppid = %x\n",
+				irq_mask, ppid);
+
+	if (pmic_arb_write_cmd(pa->spmic, SPMI_CMD_EXT_WRITEL, sid,
+			       (per << 8) + QPNPINT_REG_EN_CLR, &irq_mask, 1))
+		dev_err_ratelimited(&pa->spmic->dev,
+				"failed to ack irq_mask = 0x%x for ppid = %x\n",
+				irq_mask, ppid);
+}
+
 static void periph_interrupt(struct spmi_pmic_arb *pa, u8 apid)
 {
 	unsigned int irq;
@@ -500,6 +533,10 @@ static void periph_interrupt(struct spmi_pmic_arb *pa, u8 apid)
 				       pa->apid_data[apid].ppid << 16
 				     | id << 8
 				     | apid);
+		if (irq == 0) {
+			cleanup_irq(pa, apid, id);
+			continue;
+		}
 		generic_handle_irq(irq);
 	}
 }
