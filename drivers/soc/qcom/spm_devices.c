@@ -238,7 +238,7 @@ static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
 {
 	uint32_t i;
 	int ret = -EINVAL;
-	uint32_t ctl;
+	uint32_t ctl = 0;
 
 	if (!dev) {
 		pr_err("dev is NULL\n");
