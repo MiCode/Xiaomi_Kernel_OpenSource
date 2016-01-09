@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -577,6 +577,20 @@ static void branch_clk_halt_check(struct clk *c, u32 halt_check,
 	}
 }
 
+static unsigned long branch_clk_aggregate_rate(const struct clk *parent)
+{
+	struct clk *clk;
+	unsigned long rate = 0;
+
+	list_for_each_entry(clk, &parent->children, siblings) {
+		struct branch_clk *v = to_branch_clk(clk);
+
+		if (v->is_prepared)
+			rate = max(clk->rate, rate);
+	}
+	return rate;
+}
+
 static int cbcr_set_flags(void * __iomem regaddr, unsigned flags)
 {
 	u32 cbcr_val;
@@ -625,6 +639,30 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 	return cbcr_set_flags(CBCR_REG(to_branch_clk(c)), flags);
 }
 
+static DEFINE_MUTEX(branch_clk_lock);
+
+static int branch_clk_prepare(struct clk *c)
+{
+	struct branch_clk *branch = to_branch_clk(c);
+	unsigned long curr_rate;
+	int ret = 0;
+
+	mutex_lock(&branch_clk_lock);
+	branch->is_prepared = false;
+	if (branch->aggr_sibling_rates) {
+		curr_rate = branch_clk_aggregate_rate(c->parent);
+		if (c->rate > curr_rate) {
+			ret = clk_set_rate(c->parent, c->rate);
+			if (ret)
+				goto exit;
+		}
+	}
+	branch->is_prepared = true;
+exit:
+	mutex_unlock(&branch_clk_lock);
+	return ret;
+}
+
 static int branch_clk_enable(struct clk *c)
 {
 	unsigned long flags;
@@ -654,6 +692,22 @@ static int branch_clk_enable(struct clk *c)
 				BRANCH_ON);
 
 	return 0;
+}
+
+static void branch_clk_unprepare(struct clk *c)
+{
+	struct branch_clk *branch = to_branch_clk(c);
+	unsigned long curr_rate, new_rate;
+
+	mutex_lock(&branch_clk_lock);
+	branch->is_prepared = false;
+	if (branch->aggr_sibling_rates) {
+		new_rate = branch_clk_aggregate_rate(c->parent);
+		curr_rate = max(new_rate, c->rate);
+		if (new_rate < curr_rate)
+			clk_set_rate(c->parent, new_rate);
+	}
+	mutex_unlock(&branch_clk_lock);
 }
 
 static void branch_clk_disable(struct clk *c)
@@ -699,15 +753,45 @@ static int branch_cdiv_set_rate(struct branch_clk *branch, unsigned long rate)
 
 static int branch_clk_set_rate(struct clk *c, unsigned long rate)
 {
-	struct branch_clk *branch = to_branch_clk(c);
+	struct branch_clk *clkh, *branch = to_branch_clk(c);
+	struct clk *clkp, *parent = c->parent;
+	unsigned long curr_rate, new_rate, other_rate = 0;
+	int ret = 0;
 
 	if (branch->max_div)
 		return branch_cdiv_set_rate(branch, rate);
 
-	if (!branch->has_sibling)
-		return clk_set_rate(c->parent, rate);
+	if (branch->has_sibling)
+		return -EPERM;
 
-	return -EPERM;
+	mutex_lock(&branch_clk_lock);
+	if (branch->aggr_sibling_rates) {
+		if (!branch->is_prepared) {
+			c->rate = rate;
+			goto exit;
+		}
+		/*
+		 * Get the aggregate rate without this clock's vote and update
+		 * if the new rate is different than the current rate.
+		 */
+		list_for_each_entry(clkp, &parent->children, siblings) {
+			clkh = to_branch_clk(clkp);
+			if (clkh->is_prepared && clkh != branch)
+				other_rate = max(clkp->rate, other_rate);
+		}
+		curr_rate = max(other_rate, c->rate);
+		new_rate = max(other_rate, rate);
+		if (new_rate != curr_rate) {
+			ret = clk_set_rate(parent, new_rate);
+			if (!ret)
+				c->rate = rate;
+		}
+		goto exit;
+	}
+	ret = clk_set_rate(c->parent, rate);
+exit:
+	mutex_unlock(&branch_clk_lock);
+	return ret;
 }
 
 static long branch_clk_round_rate(struct clk *c, unsigned long rate)
@@ -2019,7 +2103,9 @@ struct clk_ops clk_ops_rcg_edp = {
 
 struct clk_ops clk_ops_branch = {
 	.enable = branch_clk_enable,
+	.prepare = branch_clk_prepare,
 	.disable = branch_clk_disable,
+	.unprepare = branch_clk_unprepare,
 	.set_rate = branch_clk_set_rate,
 	.get_rate = branch_clk_get_rate,
 	.list_rate = branch_clk_list_rate,

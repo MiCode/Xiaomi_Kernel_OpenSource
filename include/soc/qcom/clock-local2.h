@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,9 @@ extern struct clk_freq_tbl rcg_dummy_freq;
  *			      clk_disable().
  * @check_enable_bit: Check the enable bit to determine clock status
 				during handoff.
+ * @aggr_sibling_rates: Set if there are multiple branch clocks with rate
+			setting capability on the common RCG.
+ * @is_prepared: Set if clock's prepare count is greater than 0.
  * @base: pointer to base address of ioremapped registers.
  */
 struct branch_clk {
@@ -111,6 +114,8 @@ struct branch_clk {
 	bool toggle_memory;
 	bool no_halt_check_on_disable;
 	bool check_enable_bit;
+	bool aggr_sibling_rates;
+	bool is_prepared;
 	void *const __iomem *base;
 };
 
