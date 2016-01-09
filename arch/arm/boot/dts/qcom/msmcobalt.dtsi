@@ -195,13 +195,22 @@
 
 	intc: interrupt-controller@17a00000 {
 		compatible = "arm,gic-v3";
+		reg = <0x17a00000 0x10000>,       /* GICD */
+		      <0x17b00000 0x100000>;      /* GICR * 8 */
 		#interrupt-cells = <3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
 		interrupt-controller;
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x20000>;
-		reg = <0x17a00000 0x10000>,       /* GICD */
-		      <0x17b00000 0x100000>;      /* GICR * 8 */
 		interrupts = <1 9 4>;
+
+		gic-its@0x17a20000{
+			compatible = "arm,gic-v3-its";
+			msi-contoller;
+			reg = <0x17a20000 0x20000>;
+		};
 	};
 
 	timer {
