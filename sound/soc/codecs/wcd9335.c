@@ -4435,6 +4435,7 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 	u16 rx_path_cfg_reg;
 	u16 rx_path_ctl_reg;
 	u16 src_clk_reg;
+	u16 src_paired_reg;
 	int *src_users, count, spl_src;
 	struct tasha_priv *tasha;
 
@@ -4444,48 +4445,56 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 	case SRC_IN_HPHL:
 		rx_path_cfg_reg = WCD9335_CDC_RX1_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX1_RX_PATH_CTL;
 		spl_src = SPLINE_SRC0;
 		break;
 	case SRC_IN_LO1:
 		rx_path_cfg_reg = WCD9335_CDC_RX3_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX3_RX_PATH_CTL;
 		spl_src = SPLINE_SRC0;
 		break;
 	case SRC_IN_HPHR:
 		rx_path_cfg_reg = WCD9335_CDC_RX2_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX2_RX_PATH_CTL;
 		spl_src = SPLINE_SRC1;
 		break;
 	case SRC_IN_LO2:
 		rx_path_cfg_reg = WCD9335_CDC_RX4_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX4_RX_PATH_CTL;
 		spl_src = SPLINE_SRC1;
 		break;
 	case SRC_IN_SPKRL:
 		rx_path_cfg_reg = WCD9335_CDC_RX7_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX7_RX_PATH_CTL;
 		spl_src = SPLINE_SRC2;
 		break;
 	case SRC_IN_LO3:
 		rx_path_cfg_reg = WCD9335_CDC_RX5_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX5_RX_PATH_CTL;
 		spl_src = SPLINE_SRC2;
 		break;
 	case SRC_IN_SPKRR:
 		rx_path_cfg_reg = WCD9335_CDC_RX8_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX8_RX_PATH_CTL;
 		spl_src = SPLINE_SRC3;
 		break;
 	case SRC_IN_LO4:
 		rx_path_cfg_reg = WCD9335_CDC_RX6_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX6_RX_PATH_CTL;
 		spl_src = SPLINE_SRC3;
 		break;
@@ -4498,6 +4507,13 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 		count = *src_users;
 		count++;
 		if (count == 1) {
+			if ((snd_soc_read(codec, src_clk_reg) & 0x02) ||
+			    (snd_soc_read(codec, src_paired_reg) & 0x02)) {
+				snd_soc_update_bits(codec, src_clk_reg, 0x02,
+						    0x00);
+				snd_soc_update_bits(codec, src_paired_reg,
+						    0x02, 0x00);
+			}
 			snd_soc_update_bits(codec, src_clk_reg,	0x01, 0x01);
 			snd_soc_update_bits(codec, rx_path_cfg_reg, 0x80,
 					    0x80);
@@ -4510,7 +4526,7 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 		if (count == 0) {
 			snd_soc_update_bits(codec, rx_path_cfg_reg, 0x80,
 					    0x00);
-			snd_soc_update_bits(codec, src_clk_reg, 0x01, 0x00);
+			snd_soc_update_bits(codec, src_clk_reg, 0x03, 0x02);
 			/* default sample rate */
 			snd_soc_update_bits(codec, rx_path_ctl_reg, 0x0f,
 					    0x04);
