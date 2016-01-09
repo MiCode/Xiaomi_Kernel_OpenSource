@@ -379,7 +379,7 @@
 	qcom,ghd {
 		compatible = "qcom,gladiator-hang-detect";
 		qcom,threshold-arr = <0x179d141c 0x179d1420
-		0x179d1424 0x179d1428 0x179d1420 0x179d1430>;
+		0x179d1424 0x179d1428 0x179d142c 0x179d1430>;
 		qcom,config-reg = <0x179d1434>;
 	};
 
