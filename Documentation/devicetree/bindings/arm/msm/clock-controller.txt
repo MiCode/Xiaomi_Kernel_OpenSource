@@ -75,6 +75,13 @@ Optional properties:
 			operate at.
 - <gpu>_handle:		Device node for which the OPP mappings would be added.
 
+- qcom,pll-disable-vote-threshold:	The TSENS temperature threshold in
+					degrees Celsius at which GPLLs(SR)
+					will be voted OFF.
+- qcom,pll-enable-vote-threshold:	The TSENS temperature threshold in
+					degrees Celsius at which GPLLs(SR)
+					will be voted ON.
+
 Example:
 	clock_rpm: qcom,rpmcc@fc4000000 {
 		compatible = "qcom,rpmcc-8974";

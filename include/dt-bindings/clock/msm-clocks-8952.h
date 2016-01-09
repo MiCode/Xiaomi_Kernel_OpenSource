@@ -21,6 +21,7 @@
 #define clk_gpll0_out_main			0x850fecec
 #define clk_gpll0_out_aux			0x64e55d63
 #define clk_gpll0_misc				0xe06ee816
+#define clk_gpll0_thermal_clk_src		0x02840712
 #define clk_gpll3_clk_src			0x5b1eccd5
 #define clk_gpll3_out_main			0xf5fc71ab
 #define clk_gpll3_out_aux			0xe72bea1a
@@ -28,6 +29,7 @@
 #define clk_gpll4_out_main                      0xdca8db2a
 #define clk_gpll6_clk_src			0x17dceaad
 #define clk_gpll6_out_main			0x27b8b7be
+#define clk_gpll6_thermal_clk_src		0x32fbf20f
 #define clk_a53ss_c0_pll			0xf761da94
 #define clk_a53ss_c1_pll			0xfbc57bbd
 #define clk_a53ss_cci_pll			0x17d32f1e

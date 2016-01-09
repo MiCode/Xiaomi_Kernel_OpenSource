@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
+#include <linux/msm_thermal.h>
+#include <linux/msm_tsens.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <soc/qcom/clock-local2.h>
@@ -209,6 +211,20 @@ static DEFINE_CLK_BRANCH_VOTER(xo_wlan_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_pil_lpass_clk, &xo_clk_src.c);
 
 DEFINE_CLK_DUMMY(wcnss_m_clk, 0);
+
+/* Thermal monitor */
+struct pll_thermal_monitor {
+	int			tsens_id;
+	int			disable_pll_vote_thres;
+	int			enable_pll_vote_thres;
+	u32			vsens_status;
+	bool			pll_thermal_disable;
+	bool			pll_state;
+	struct threshold_info	tsens_threshold_config;
+};
+
+static struct pll_thermal_monitor thermal_monitor;
+struct platform_device *gcc_clock_dev;
 
 enum vdd_sr2_pll_levels {
 	VDD_SR2_PLL_OFF,
@@ -440,6 +456,8 @@ static struct pll_vote_clk gpll0_ao_clk_src = {
 	},
 };
 
+DEFINE_EXT_CLK(gpll0_thermal_clk_src, &gpll0_ao_clk_src.c);
+
 static struct pll_vote_clk gpll6_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
 	.en_mask = BIT(7),
@@ -447,7 +465,7 @@ static struct pll_vote_clk gpll6_clk_src = {
 	.status_mask = BIT(17),
 	.base = &virt_bases[GCC_BASE],
 	.c = {
-		.parent = &xo_clk_src.c,
+		.parent = &xo_a_clk_src.c,
 		.rate = 1080000000,
 		.dbg_name = "gpll6_clk_src",
 		.ops = &clk_ops_pll_vote,
@@ -455,6 +473,7 @@ static struct pll_vote_clk gpll6_clk_src = {
 	},
 };
 
+DEFINE_EXT_CLK(gpll6_thermal_clk_src, &gpll6_clk_src.c);
 DEFINE_EXT_CLK(gpll6_aux_clk_src, &gpll6_clk_src.c);
 DEFINE_EXT_CLK(gpll6_out_main_clk_src, &gpll6_clk_src.c);
 
@@ -3445,6 +3464,134 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(wcnss_m_clk),
 };
 
+static struct clk_lookup msm_clocks_lkup_thermal[] = {
+	CLK_LIST(gpll0_thermal_clk_src),
+	CLK_LIST(gpll6_thermal_clk_src),
+};
+
+static int clock_thermal_init(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct device_node *of_node = pdev->dev.of_node;
+
+	thermal_monitor.tsens_id = MONITOR_ALL_TSENS;
+
+	rc = of_property_read_u32(of_node, "qcom,pll-disable-threshold",
+				&thermal_monitor.disable_pll_vote_thres);
+	if (rc < 0)
+		return rc;
+
+	rc = of_property_read_u32(of_node, "qcom,pll-enable-threshold",
+				&thermal_monitor.enable_pll_vote_thres);
+	if (rc < 0)
+		return rc;
+
+	if (thermal_monitor.disable_pll_vote_thres <=
+				thermal_monitor.enable_pll_vote_thres) {
+		dev_err(&pdev->dev, "Invalid temperature threshold disable_pll temp[%d] <= enable_pll temp[%d]\n",
+				thermal_monitor.disable_pll_vote_thres,
+				thermal_monitor.enable_pll_vote_thres);
+		return -EINVAL;
+	}
+
+	thermal_monitor.pll_thermal_disable = true;
+
+	dev_info(&pdev->dev, "%s\n", __func__);
+
+	return rc;
+}
+
+static void thermal_monitor_notify(struct therm_threshold *trig_thres)
+{
+	pr_debug("Sensor%d trigger recevied for type %d\n",
+		trig_thres->sensor_id,
+		trig_thres->trip_triggered);
+
+	switch (trig_thres->trip_triggered) {
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		thermal_monitor.vsens_status |= BIT(trig_thres->sensor_id);
+
+		if (thermal_monitor.vsens_status &&
+				!thermal_monitor.pll_state) {
+			pr_debug("Low temp thermal vote\n");
+			clk_prepare_enable(&gpll0_thermal_clk_src.c);
+			clk_prepare_enable(&gpll6_thermal_clk_src.c);
+			thermal_monitor.pll_state = true;
+		}
+
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		thermal_monitor.vsens_status &= ~BIT(trig_thres->sensor_id);
+
+		if (!thermal_monitor.vsens_status &&
+				thermal_monitor.pll_state) {
+			pr_debug("High temp remove thermal vote\n");
+			clk_disable_unprepare(&gpll0_thermal_clk_src.c);
+			clk_disable_unprepare(&gpll6_thermal_clk_src.c);
+			thermal_monitor.pll_state = false;
+		}
+		break;
+	default:
+		pr_err("Unsupported trip type\n");
+		break;
+	}
+
+	sensor_mgr_set_threshold(trig_thres->sensor_id,
+					trig_thres->threshold);
+}
+
+static int clock_check_tsens(void)
+{
+	struct tsens_device tsens_dev;
+	int i, ret = 0;
+	u32 max_tsens_num = 0;
+	unsigned long temp = 0;
+
+	/* Check for current temperature at boot */
+	if (tsens_is_ready() > 0) {
+		ret = tsens_get_max_sensor_num(&max_tsens_num);
+		if (ret < 0) {
+			dev_err(&gcc_clock_dev->dev,
+				"failed to get max sensor number, err:%d\n",
+				ret);
+			return ret;
+		}
+
+		for (i = 0; i < max_tsens_num; i++) {
+			ret = tsens_get_hw_id_mapping(i, &tsens_dev.sensor_num);
+			if (ret < 0) {
+				dev_err(&gcc_clock_dev->dev,
+				"Failed to get hw id for id:%d.err:%d\n",
+						i, ret);
+				return ret;
+			}
+
+			ret = tsens_get_temp(&tsens_dev, &temp);
+			if (ret < 0) {
+				dev_err(&gcc_clock_dev->dev,
+				"Failed to read tsens (ret = %d)\n", ret);
+				return ret;
+			}
+
+			if ((int)temp <=
+					thermal_monitor.enable_pll_vote_thres) {
+				dev_dbg(&gcc_clock_dev->dev,
+					"Current temp %d, vote for PLLs\n",
+						(int)temp);
+				if (!thermal_monitor.pll_state) {
+					clk_prepare_enable(
+						&gpll0_thermal_clk_src.c);
+					clk_prepare_enable(
+						&gpll6_thermal_clk_src.c);
+					thermal_monitor.pll_state = true;
+				}
+			}
+		}
+	}
+
+	return ret;
+}
+
 /* Please note that the order of reg-names is important */
 static int get_mmio_addr(struct platform_device *pdev)
 {
@@ -3551,6 +3698,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_hf_pll.regulator[1]);
 	}
 
+	ret = clock_thermal_init(pdev);
+	if (ret)
+		dev_err(&pdev->dev, "thermal intialization not available\n");
+
 	/*Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 	regval |= BIT(0);
@@ -3592,6 +3743,19 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	if (thermal_monitor.pll_thermal_disable) {
+		ret = of_msm_clock_register(pdev->dev.of_node,
+				msm_clocks_lkup_thermal,
+				ARRAY_SIZE(msm_clocks_lkup_thermal));
+
+		gcc_clock_dev = pdev;
+
+		ret = clock_check_tsens();
+		if (ret)
+			dev_err(&pdev->dev,
+				"Failed to vote for clock on thermal\n");
+	}
+
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
 	return 0;
@@ -3610,6 +3774,34 @@ static struct platform_driver msm_clock_gcc_driver = {
 		.owner = THIS_MODULE,
 	},
 };
+
+static int __init clock_pll_thermal_init(void)
+{
+	int ret = 0;
+
+	if (thermal_monitor.pll_thermal_disable) {
+		ret = sensor_mgr_init_threshold(&gcc_clock_dev->dev,
+			&thermal_monitor.tsens_threshold_config,
+			thermal_monitor.tsens_id,
+			thermal_monitor.disable_pll_vote_thres, /* High */
+			thermal_monitor.enable_pll_vote_thres,  /* Low */
+			thermal_monitor_notify);
+		if (ret < 0)
+			dev_err(&gcc_clock_dev->dev,
+				"Failed to init tsens (%d)\n", ret);
+
+		ret = sensor_mgr_convert_id_and_set_threshold(
+				&thermal_monitor.tsens_threshold_config);
+		if (ret < 0)
+			dev_err(&gcc_clock_dev->dev,
+				"Failed to set tsens threshold (%d)\n", ret);
+	}
+
+	dev_info(&gcc_clock_dev->dev, "Thermal limit on PLLs Initialized\n");
+
+	return ret;
+}
+late_initcall(clock_pll_thermal_init);
 
 static int msm_gcc_spm_probe(struct platform_device *pdev)
 {
