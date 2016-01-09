@@ -60,6 +60,11 @@
 	#clock-cells = <1>;
 };
 
+&clock_mmss {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
 &soc {
 	qcom,icnss@18800000 {
 	compatible = "qcom,icnss";
