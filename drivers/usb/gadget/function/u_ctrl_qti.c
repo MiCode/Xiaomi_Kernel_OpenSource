@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,7 +95,7 @@ static void qti_ctrl_queue_notify(struct qti_ctrl_port *port)
 	}
 
 	cpkt = alloc_rmnet_ctrl_pkt(0, GFP_ATOMIC);
-	if (!cpkt) {
+	if (IS_ERR(cpkt)) {
 		pr_err("%s: Unable to allocate reset function pkt\n", __func__);
 		spin_unlock_irqrestore(&port->lock, flags);
 		return;
