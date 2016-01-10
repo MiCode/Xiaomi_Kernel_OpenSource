@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,7 +214,7 @@ static int wsa881x_i2c_write_device(struct wsa881x_pdata *wsa881x,
 				return ret;
 			}
 		}
-		pr_err("write success register = %x val = %x\n", reg, data[1]);
+		pr_debug("write success reg = %x val = %x\n", reg, data[1]);
 	}
 	return rc;
 }
@@ -248,7 +248,7 @@ static int wsa881x_i2c_read_device(struct wsa881x_pdata *wsa881x,
 			pr_err("Failed reading reg=%u rc=%d\n", reg, rc);
 			return rc;
 		}
-		pr_err("read success register = %x val = %x\n",
+		pr_debug("read success reg = %x val = %x\n",
 						reg, val);
 	} else {
 		reg_addr = (u8)reg;
