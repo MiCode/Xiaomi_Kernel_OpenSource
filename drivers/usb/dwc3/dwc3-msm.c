@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1484,25 +1484,6 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	flush_delayed_work(&mdwc->sm_work);
 }
 
-/**
- * Reset USB peripheral connection
- * Inform OTG for Vbus LOW followed by Vbus HIGH notification.
- * This performs full hardware reset and re-initialization which
- * might be required by some DBM client driver during uninit/cleanup.
- */
-void msm_dwc3_restart_usb_session(struct usb_gadget *gadget)
-{
-	struct dwc3 *dwc = container_of(gadget, struct dwc3, gadget);
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-
-	if (!mdwc)
-		return;
-
-	dev_dbg(mdwc->dev, "%s\n", __func__);
-	schedule_work(&mdwc->restart_usb_work);
-}
-EXPORT_SYMBOL(msm_dwc3_restart_usb_session);
-
 /*
  * Check whether the DWC3 requires resetting the ep
  * after going to Low Power Mode (lpm)
@@ -2930,7 +2911,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto put_dwc3;
 	}
 
-	dwc->vbus_active = of_property_read_bool(node, "qcom,vbus-present");
 	mdwc->irq_to_affin = platform_get_irq(mdwc->dwc3, 0);
 	mdwc->dwc3_cpu_notifier.notifier_call = dwc3_cpu_notifier_cb;
 
