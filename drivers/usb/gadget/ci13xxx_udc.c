@@ -2031,6 +2031,10 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 		struct ci13xxx_req *mReq_active, *mReq_next;
 		u32 i = 0;
 
+		/* Nothing to be done if hardware already finished this TD */
+		if ((TD_STATUS_ACTIVE & mReq->ptr->token) == 0)
+			goto done;
+
 		/* Iterate forward to find first TD with ACTIVE bit set */
 		mReq_active = mReq;
 		list_for_each_entry(mReq_next, &mEp->qh.queue, queue) {
