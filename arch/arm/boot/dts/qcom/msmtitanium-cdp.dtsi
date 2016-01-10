@@ -262,5 +262,4 @@
 &pmi8950_charger {
 	qcom,external-typec;
 	qcom,typec-psy-name = "typec";
-	qcom,otg-pinctrl;
 };
