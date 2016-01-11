@@ -156,7 +156,6 @@
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
 	qcom,platform-te-gpio = <&tlmm 24 0>;
-	qcom,platform-enable-gpio = <&tlmm 12 0>;
 	qcom,platform-reset-gpio = <&tlmm 61 0>;
 	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
 };
@@ -170,7 +169,6 @@
 
 	qcom,pluggable;
 	qcom,platform-te-gpio = <&tlmm 24 0>;
-	qcom,platform-enable-gpio = <&tlmm 12 0>;
 	qcom,platform-reset-gpio = <&tlmm 61 0>;
 	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
 };
