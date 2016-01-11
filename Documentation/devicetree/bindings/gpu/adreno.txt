@@ -16,7 +16,9 @@ Required properties:
 - interrupts:		Interrupt mapping for GPU IRQ.
 - interrupt-names:	String property to describe the name of the interrupt.
 - qcom,id:		An integer used as an identification number for the device.
-
+- qcom,gpu-bimc-interface-clk-freq:
+			GPU-BIMC interface clock needs to be set to this value for
+			targets where B/W requirements does not meet GPU Turbo use cases.
 - clocks:		List of phandle and clock specifier pairs, one pair
 			for each clock input to the device.
 - clock-names:		List of clock input name strings sorted in the same
