@@ -462,6 +462,7 @@ struct fg_chip {
 	bool			safety_timer_expired;
 	bool			bad_batt_detection_en;
 	bool			bcl_lpm_disabled;
+	bool			charging_disabled;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -3280,21 +3281,41 @@ static bool is_otg_present(struct fg_chip *chip)
 	return prop.intval != 0;
 }
 
+static bool is_charger_available(struct fg_chip *chip)
+{
+	if (!chip->batt_psy_name)
+		return false;
+
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name(chip->batt_psy_name);
+
+	if (!chip->batt_psy)
+		return false;
+
+	return true;
+}
+
 static int set_prop_enable_charging(struct fg_chip *chip, bool enable)
 {
 	int rc = 0;
 	union power_supply_propval ret = {enable, };
 
-	if (!chip->batt_psy)
-		chip->batt_psy = power_supply_get_by_name("battery");
-
-	if (chip->batt_psy) {
-		rc = chip->batt_psy->set_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
-				&ret);
-		if (rc)
-			pr_err("couldn't configure batt chg %d\n", rc);
+	if (!is_charger_available(chip)) {
+		pr_err("Charger not available yet!\n");
+		return -EINVAL;
 	}
+
+	rc = chip->batt_psy->set_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
+			&ret);
+	if (rc) {
+		pr_err("couldn't configure batt chg %d\n", rc);
+		return rc;
+	}
+
+	chip->charging_disabled = !enable;
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("%sabling charging\n", enable ? "en" : "dis");
 
 	return rc;
 }
@@ -3664,14 +3685,11 @@ static void update_esr_value(struct work_struct *work)
 				struct fg_chip,
 				update_esr_work);
 
-	if (!chip->batt_psy && chip->batt_psy_name)
-		chip->batt_psy = power_supply_get_by_name(chip->batt_psy_name);
-
-	if (chip->batt_psy)
-		chip->batt_psy->get_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
-	else
+	if (!is_charger_available(chip))
 		return;
+
+	chip->batt_psy->get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
 
 	if (!chip->esr_strict_filter) {
 		if ((prop.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER &&
@@ -4354,12 +4372,40 @@ static void update_cc_cv_setpoint(struct fg_chip *chip)
 #define PROFILE_LOAD_TIMEOUT_MS		5000
 static int fg_do_restart(struct fg_chip *chip, bool write_profile)
 {
-	int rc;
+	int rc, ibat_ua;
 	u8 reg = 0;
 	u8 buf[2];
+	bool tried_once = false;
 
 	if (fg_debug_mask & FG_STATUS)
 		pr_info("restarting fuel gauge...\n");
+
+try_again:
+	if (write_profile) {
+		if (!chip->charging_disabled) {
+			pr_err("Charging not yet disabled!\n");
+			return -EINVAL;
+		}
+
+		ibat_ua = get_sram_prop_now(chip, FG_DATA_CURRENT);
+		if (ibat_ua == -EINVAL) {
+			pr_err("SRAM not updated yet!\n");
+			return ibat_ua;
+		}
+
+		if (ibat_ua < 0) {
+			pr_warn("Charging enabled?, ibat_ua: %d\n", ibat_ua);
+
+			if (!tried_once) {
+				cancel_delayed_work(&chip->update_sram_data);
+				schedule_delayed_work(&chip->update_sram_data,
+					msecs_to_jiffies(0));
+				msleep(1000);
+				tried_once = true;
+				goto try_again;
+			}
+		}
+	}
 
 	chip->fg_restarting = true;
 	/*
@@ -4537,6 +4583,16 @@ static int fg_do_restart(struct fg_chip *chip, bool write_profile)
 			goto fail;
 		}
 	}
+
+	/* Enable charging now as the first estimate is done now */
+	if (chip->charging_disabled) {
+		rc = set_prop_enable_charging(chip, true);
+		if (rc)
+			pr_err("Failed to enable charging, rc=%d\n", rc);
+		else
+			chip->charging_disabled = false;
+	}
+
 	chip->fg_restarting = false;
 
 	if (fg_debug_mask & FG_STATUS)
@@ -4693,6 +4749,19 @@ wait:
 		goto no_profile;
 	}
 
+	/* Check whether the charger is ready */
+	if (!is_charger_available(chip))
+		goto reschedule;
+
+	/* Disable charging for a FG cycle before calculating vbat_in_range */
+	if (!chip->charging_disabled) {
+		rc = set_prop_enable_charging(chip, false);
+		if (rc)
+			pr_err("Failed to disable charging, rc=%d\n", rc);
+
+		goto reschedule;
+	}
+
 	vbat_in_range = get_vbat_est_diff(chip)
 			< settings[FG_MEM_VBAT_EST_DIFF].value * 1000;
 	profiles_same = memcmp(chip->batt_profile, data,
@@ -4711,30 +4780,28 @@ wait:
 		clear_cycle_counter(chip);
 		chip->learning_data.learned_cc_uah = 0;
 	}
+
 	if (fg_est_dump)
 		dump_sram(&chip->dump_sram);
+
 	if ((fg_debug_mask & FG_STATUS) && !vbat_in_range)
 		pr_info("Vbat out of range: v_current_pred: %d, v:%d\n",
 				fg_data[FG_DATA_CPRED_VOLTAGE].value,
 				fg_data[FG_DATA_VOLTAGE].value);
+
 	if ((fg_debug_mask & FG_STATUS) && fg_is_batt_empty(chip))
 		pr_info("battery empty\n");
+
 	if ((fg_debug_mask & FG_STATUS) && !profiles_same)
 		pr_info("profiles differ\n");
+
 	if (fg_debug_mask & FG_STATUS) {
 		pr_info("Using new profile\n");
 		print_hex_dump(KERN_INFO, "FG: loaded profile: ",
 				DUMP_PREFIX_NONE, 16, 1,
 				chip->batt_profile, len, false);
 	}
-	if (!chip->batt_psy && chip->batt_psy_name)
-		chip->batt_psy = power_supply_get_by_name(chip->batt_psy_name);
 
-	if (!chip->batt_psy) {
-		if (fg_debug_mask & FG_STATUS)
-			pr_info("batt psy not registered\n");
-		goto reschedule;
-	}
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
 
@@ -4775,6 +4842,14 @@ wait:
 	}
 
 done:
+	if (chip->charging_disabled) {
+		rc = set_prop_enable_charging(chip, true);
+		if (rc)
+			pr_err("Failed to enable charging, rc=%d\n", rc);
+		else
+			chip->charging_disabled = false;
+	}
+
 	if (fg_batt_type)
 		chip->batt_type = fg_batt_type;
 	else
@@ -4798,6 +4873,14 @@ done:
 		fg_data[FG_DATA_VOLTAGE].value);
 	return rc;
 no_profile:
+	if (chip->charging_disabled) {
+		rc = set_prop_enable_charging(chip, true);
+		if (rc)
+			pr_err("Failed to enable charging, rc=%d\n", rc);
+		else
+			chip->charging_disabled = false;
+	}
+
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
