@@ -538,7 +538,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 
 	/* Make sure there are no mappings in PKMAP and fixmap */
 	kmap_flush_unused();
-	//kmap_atomic_flush_unused();
+	kmap_atomic_flush_unused();
 
 	drv->mba_dp_phys = mba_dp_phys;
 	drv->mba_dp_virt = mba_dp_virt;
