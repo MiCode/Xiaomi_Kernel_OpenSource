@@ -19,7 +19,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSMTITANIUM External Codec RCM";
 	compatible = "qcom,msmtitanium-cdp", "qcom,msmtitanium", "qcom,cdp";
-	qcom,board-id= <1 1>;
+	qcom,board-id= <21 1>;
 };
 
 &slim_msm {
