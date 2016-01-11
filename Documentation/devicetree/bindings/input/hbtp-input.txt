@@ -18,6 +18,16 @@ Optional properties:
  - qcom,dig-load	: Digital supply load in uA
  - qcom,dig-vtg-min	: Digital supply minimum voltage in uV
  - qcom,dig-vtg-max	: Digital supply maximum voltage in uV
+ - qcom,display-resolution	: Display resolution - maxX, maxY
+ - qcom,use-scale	: boolean, enables the scaling for touch coordinates
+
+Optional properties if qcom,use-scale DT property is defined:
+ - qcom,def-maxx	: default X-resolution of the touch panel.
+ - qcom,def-maxy	: default Y-resolution of the touch panel.
+			(Above two properties should be defined in pairs only)
+ - qcom,des-maxx	: desired X-resolution of the touch panel.
+ - qcom,des-maxy	: desired Y-resolution of the touch panel.
+			(Above two properties should be defined in pairs only)
 
 Example:
 	&soc {
@@ -31,5 +41,11 @@ Example:
 			qcom,dig-load = <15000>;
 			qcom,dig-vtg-min = <1800000>;
 			qcom,dig-vtg-max = <1800000>;
+			qcom,display-resolution = <719 1279>;
+			qcom,use-scale;
+			qcom,default-max-x = <1080>;
+			qcom,default-max-y = <1920>;
+			qcom,desired-max-x = <720>;
+			qcom,desired-max-y = <1280>;
 		};
 	};
