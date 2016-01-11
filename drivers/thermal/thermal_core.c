@@ -271,8 +271,8 @@ static void init_sensor_trip(struct sensor_info *sensor)
 
 static int __update_sensor_thresholds(struct sensor_info *sensor)
 {
-	long max_of_low_thresh = LONG_MIN;
-	long min_of_high_thresh = LONG_MAX;
+	int max_of_low_thresh = INT_MIN;
+	int min_of_high_thresh = INT_MAX;
 	struct sensor_threshold *pos, *var;
 	int ret = 0;
 
@@ -300,7 +300,7 @@ static int __update_sensor_thresholds(struct sensor_info *sensor)
 		}
 	}
 
-	pr_debug("sensor %d: Thresholds: max of low: %ld min of high: %ld\n",
+	pr_debug("sensor %d: Thresholds: max of low: %d min of high: %d\n",
 			sensor->sensor_id, max_of_low_thresh,
 			min_of_high_thresh);
 
@@ -346,7 +346,7 @@ static int __update_sensor_thresholds(struct sensor_info *sensor)
 		goto update_done;
 	}
 
-	pr_debug("sensor %d: low: %ld high: %ld\n",
+	pr_debug("sensor %d: low: %d high: %d\n",
 		sensor->sensor_id,
 		sensor->threshold_min, sensor->threshold_max);
 
@@ -422,7 +422,7 @@ int thermal_sensor_trip(struct thermal_zone_device *tz,
 }
 EXPORT_SYMBOL(thermal_sensor_trip);
 
-int sensor_get_temp(uint32_t sensor_id, long *temp)
+int sensor_get_temp(uint32_t sensor_id, int *temp)
 {
 	struct sensor_info *sensor = get_sensor(sensor_id);
 	int ret = 0;
@@ -565,8 +565,8 @@ int sensor_init(struct thermal_zone_device *tz)
 
 	sensor->sensor_id = tz->id;
 	sensor->tz = tz;
-	sensor->threshold_min = LONG_MIN;
-	sensor->threshold_max = LONG_MAX;
+	sensor->threshold_min = INT_MIN;
+	sensor->threshold_max = INT_MAX;
 	sensor->max_idx = -1;
 	sensor->min_idx = -1;
 	mutex_init(&sensor->lock);
