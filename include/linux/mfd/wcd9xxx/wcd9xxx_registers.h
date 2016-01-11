@@ -335,4 +335,10 @@
 #define WCD9XXX_HPH_R_EN				(0x6D6)
 #define WCD9XXX_HPH_REFBUFF_UHQA_CTL			(0x6DD)
 #define WCD9XXX_CLASSH_CTRL_VCL_2                       (0x69B)
+#define WCD9XXX_CDC_CLSH_HPH_V_PA			(0xC04)
+#define WCD9XXX_CDC_RX0_RX_PATH_SEC0			(0xB49)
+#define WCD9XXX_CDC_RX1_RX_PATH_CTL			(0xB55)
+#define WCD9XXX_CDC_RX2_RX_PATH_CTL			(0xB69)
+#define WCD9XXX_CDC_CLK_RST_CTRL_MCLK_CONTROL		(0xD41)
+#define WCD9XXX_CLASSH_CTRL_CCL_1                       (0x69C)
 #endif
