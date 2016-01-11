@@ -736,7 +736,9 @@ void msm_ba_subdev_event_hndlr(struct v4l2_subdev *sd,
 
 	ba_sd_event->sd_event = *(struct v4l2_event *)arg;
 	((int *)ba_sd_event->sd_event.u.data)[0] = ba_input->ba_ip_idx;
+	mutex_lock(&dev_ctxt->dev_cs);
 	list_add_tail(&ba_sd_event->list, &dev_ctxt->sd_events);
+	mutex_unlock(&dev_ctxt->dev_cs);
 
 	schedule_delayed_work(&dev_ctxt->sd_events_work, 0);
 }
