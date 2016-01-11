@@ -2437,6 +2437,9 @@ __acquires(udc->lock)
 	if (retval)
 		goto done;
 
+	if (udc->rw_pending)
+		purge_rw_queue(udc);
+
 	_udc->skip_flush = false;
 	retval = hw_usb_reset();
 	if (retval)
