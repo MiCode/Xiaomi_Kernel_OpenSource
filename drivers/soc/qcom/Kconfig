@@ -70,6 +70,15 @@ config MSM_GLINK_SMEM_NATIVE_XPRT
 	  transport to only connecting with entities internal to the
 	  System-on-Chip.
 
+config MSM_RPM_SMD
+	bool "RPM driver using SMD protocol"
+	help
+	  RPM is the dedicated hardware engine for managing shared SoC
+	  resources. This config adds driver support for using SMD as a
+	  transport layer communication with RPM hardware. It also selects
+	  the MSM_MPM config that programs the MPM module to monitor interrupts
+	  during sleep modes.
+
 config QCOM_GSBI
         tristate "QCOM General Serial Bus Interface"
         depends on ARCH_QCOM
