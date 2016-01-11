@@ -326,6 +326,14 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	if (IS_ERR(q6->rom_clk))
 		return PTR_ERR(q6->rom_clk);
 
+	ret = of_property_read_u32(pdev->dev.of_node,
+					"qcom,pas-id", &drv->pas_id);
+	if (ret)
+		dev_warn(&pdev->dev, "Failed to find the pas_id.\n");
+
+	drv->subsys_desc.pil_mss_memsetup =
+	of_property_read_bool(pdev->dev.of_node, "qcom,pil-mss-memsetup");
+
 	/* Optional. */
 	if (of_property_match_string(pdev->dev.of_node,
 			"qcom,active-clock-names", "gpll0_mss_clk") >= 0)

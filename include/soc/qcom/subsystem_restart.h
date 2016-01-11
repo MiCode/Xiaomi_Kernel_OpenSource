@@ -76,6 +76,7 @@ struct subsys_desc {
 	int shutdown_ack_gpio;
 	int ramdump_disable;
 	bool no_auth;
+	bool pil_mss_memsetup;
 	int ssctl_instance_id;
 	u32 sysmon_pid;
 	int sysmon_shutdown_ret;
