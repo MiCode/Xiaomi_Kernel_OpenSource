@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,19 +97,16 @@ struct ice_device {
 static int qti_ice_setting_config(struct request *req,
 		struct platform_device *pdev,
 		struct ice_crypto_setting *crypto_data,
-		struct ice_data_setting *setting,
-		bool *configured)
+		struct ice_data_setting *setting)
 {
 	struct ice_device *ice_dev = NULL;
 
-	*configured = false;
 	ice_dev = platform_get_drvdata(pdev);
 
 	if (!ice_dev) {
 		pr_debug("%s no ICE device\n", __func__);
 
 		/* make the caller finish peacfully */
-		*configured = true;
 		return 0;
 	}
 
@@ -119,8 +116,6 @@ static int qti_ice_setting_config(struct request *req,
 	}
 
 	if ((short)(crypto_data->key_index) >= 0) {
-
-		*configured = true;
 
 		memcpy(&setting->crypto_data, crypto_data,
 				sizeof(setting->crypto_data));
@@ -1375,7 +1370,7 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 	struct ice_crypto_setting pfk_crypto_data = {0};
 	union map_info *info;
 	int ret = 0;
-	bool configured = 0;
+	bool is_pfe = false;
 
 	if (!pdev || !req || !setting) {
 		pr_err("%s: Invalid params passed\n", __func__);
@@ -1397,25 +1392,17 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 		return 0;
 	}
 
-	ret = pfk_load_key(req->bio, &pfk_crypto_data);
-	if (0 == ret) {
-		ret = qti_ice_setting_config(req, pdev, &pfk_crypto_data,
-			setting, &configured);
-
-		if (0 == ret) {
-			/**
-			 * if configuration was complete, we are done, no need
-			 * to go further with FDE
-			 */
-			if (configured)
-				return 0;
-		} else {
-			/**
-			 * there was an error with configuring the setting,
-			 * exit with error
-			 */
+	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, false);
+	if (is_pfe) {
+		if (ret) {
+			if (ret != -EBUSY && ret != -EAGAIN)
+				pr_err("%s error %d while configuring ice key for PFE\n",
+						__func__, ret);
 			return ret;
 		}
+
+		return qti_ice_setting_config(req, pdev,
+				&pfk_crypto_data, setting);
 	}
 
 	/*
@@ -1438,8 +1425,8 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 			return -EINVAL;
 		}
 
-		return qti_ice_setting_config(req, pdev, crypto_data,
-			setting, &configured);
+		return qti_ice_setting_config(req, pdev,
+				crypto_data, setting);
 	}
 
 	/*
@@ -1449,6 +1436,35 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 	 */
 	return 0;
 }
+
+static int qcom_ice_config_end(struct request *req)
+{
+	int ret = 0;
+	bool is_pfe = false;
+
+	if (!req) {
+		pr_err("%s: Invalid params passed\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!req->bio) {
+		/* It is not an error to have a request with no  bio */
+		return 0;
+	}
+
+	ret = pfk_load_key_end(req->bio, &is_pfe);
+	if (is_pfe) {
+		if (ret != 0)
+			pr_err("%s error %d while end configuring ice key for PFE\n",
+								__func__, ret);
+		return ret;
+	}
+
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_ice_config_end);
+
 
 static int qcom_ice_status(struct platform_device *pdev)
 {
@@ -1481,7 +1497,8 @@ struct qcom_ice_variant_ops qcom_ice_ops = {
 	.reset            = qcom_ice_reset,
 	.resume           = qcom_ice_resume,
 	.suspend          = qcom_ice_suspend,
-	.config           = qcom_ice_config,
+	.config		  = qcom_ice_config,
+	.config_end       = qcom_ice_config_end,
 	.status           = qcom_ice_status,
 	.debug            = qcom_ice_debug,
 };

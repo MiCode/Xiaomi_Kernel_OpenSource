@@ -174,7 +174,7 @@ static inline bool pfk_is_ready(void)
 static int pfk_get_page_index(const struct bio *bio, pgoff_t *page_index)
 {
 	if (!bio || !page_index)
-		return -EPERM;
+		return -EINVAL;
 
 	if (!bio_has_data((struct bio *)bio))
 		return -EINVAL;
@@ -271,7 +271,7 @@ static int pfk_set_ecryptfs_data(struct inode *inode, void *ecryptfs_data)
 	struct inode_security_struct *isec = NULL;
 
 	if (!inode)
-		return -EPERM;
+		return -EINVAL;
 
 	isec = inode->i_security;
 
@@ -344,54 +344,39 @@ static int pfk_key_size_to_key_type(size_t key_size,
 	return 0;
 }
 
-/**
- * pfk_load_key() - loads the encryption key to the ICE
- * @bio: Pointer to the BIO structure
- * @ice_setting: Pointer to ice setting structure that will be filled with
- * ice configuration values, including the index to which the key was loaded
- *
- * Via bio gets access to ecryptfs key stored in auxiliary structure inside
- * inode and loads it to encryption hw.
- * Returns the index where the key is stored in encryption hw and additional
- * information that will be used later for configuration of the encryption hw.
- *
- */
-int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
+static int pfk_bio_to_key(const struct bio *bio, unsigned char const **key,
+		size_t *key_size, unsigned char const **salt, size_t *salt_size,
+		bool *is_pfe)
 {
 	struct inode *inode = NULL;
 	int ret = 0;
-	const unsigned char *key = NULL;
-	const unsigned char *salt = NULL;
-	const unsigned char *cipher = NULL;
 	void *ecryptfs_data = NULL;
-	u32 key_index = 0;
-	enum ice_cryto_algo_mode algo_mode = 0;
-	enum ice_crpto_key_size key_size_type = 0;
-	size_t key_size = 0;
-	size_t salt_size = 0;
 	pgoff_t offset;
 	bool is_metadata = false;
 
-	if (!pfk_is_ready())
-		return -ENODEV;
+	/* only a few errors below can indicate that
+	 * this function was not invoked within PFE context,
+	 * otherwise we will consider it PFE
+	 */
+	*is_pfe = true;
+
 
 	if (!bio)
-		return -EPERM;
-
-	if (!ice_setting) {
-		pr_err("ice setting is NULL\n");
-		return -EPERM;
-	}
-
-	inode = pfk_bio_get_inode(bio);
-	if (!inode)
 		return -EINVAL;
 
-	ecryptfs_data = pfk_get_ecryptfs_data(inode);
+	if (!key || !salt || !key_size || !salt_size)
+		return -EINVAL;
 
+	inode = pfk_bio_get_inode(bio);
+	if (!inode) {
+		*is_pfe = false;
+		return -EINVAL;
+	}
+
+	ecryptfs_data = pfk_get_ecryptfs_data(inode);
 	if (!ecryptfs_data) {
-		ret = -EINVAL;
-		goto end;
+		*is_pfe = false;
+		return -EPERM;
 	}
 
 	pr_debug("loading key for file %s\n", inode_to_filename(inode));
@@ -399,49 +384,117 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 	ret = pfk_get_page_index(bio, &offset);
 	if (ret != 0) {
 		pr_err("could not get page index from bio, probably bug %d\n",
-			 ret);
-		ret = -EINVAL;
-		goto end;
+				ret);
+		return -EINVAL;
 	}
 
 	is_metadata = ecryptfs_is_page_in_metadata(ecryptfs_data, offset);
 	if (is_metadata == true) {
 		pr_debug("ecryptfs metadata, bypassing ICE\n");
-		ret = -ESPIPE;
-		goto end;
+		*is_pfe = false;
+		return -EPERM;
 	}
 
-	key = ecryptfs_get_key(ecryptfs_data);
+	*key = ecryptfs_get_key(ecryptfs_data);
 	if (!key) {
 		pr_err("could not parse key from ecryptfs\n");
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
-	key_size = ecryptfs_get_key_size(ecryptfs_data);
-	if (!key_size) {
+	*key_size = ecryptfs_get_key_size(ecryptfs_data);
+	if (!(*key_size)) {
 		pr_err("could not parse key size from ecryptfs\n");
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
-	salt = ecryptfs_get_salt(ecryptfs_data);
+	*salt = ecryptfs_get_salt(ecryptfs_data);
 	if (!salt) {
 		pr_err("could not parse salt from ecryptfs\n");
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
-	salt_size = ecryptfs_get_salt_size(ecryptfs_data);
-	if (!salt_size) {
+	*salt_size = ecryptfs_get_salt_size(ecryptfs_data);
+	if (!(*salt_size)) {
 		pr_err("could not parse salt size from ecryptfs\n");
-		ret = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
-	ret = pfk_parse_cipher(cipher, &algo_mode);
+	return 0;
+}
+
+/**
+ * pfk_load_key_start() - loads PFE encryption key to the ICE
+ *						  Can also be invoked from non
+ *						  PFE context, than it is not
+ *						  relevant and is_pfe flag is
+ *						  set to true
+ * @bio: Pointer to the BIO structure
+ * @ice_setting: Pointer to ice setting structure that will be filled with
+ * ice configuration values, including the index to which the key was loaded
+ * @is_pfe: Pointer to is_pfe flag, which will be true if function was invoked
+ *			from PFE context
+ *
+ * Via bio gets access to ecryptfs key stored in auxiliary structure inside
+ * inode and loads it to encryption hw.
+ * Returns the index where the key is stored in encryption hw and additional
+ * information that will be used later for configuration of the encryption hw.
+ *
+ * Must be followed by pfk_load_key_end when key is no longer used by ice
+ *
+ */
+int pfk_load_key_start(const struct bio *bio,
+		struct ice_crypto_setting *ice_setting, bool *is_pfe,
+		bool async)
+{
+	int ret = 0;
+	const unsigned char *key = NULL;
+	const unsigned char *salt = NULL;
+	size_t key_size = 0;
+	size_t salt_size = 0;
+	enum ice_cryto_algo_mode algo_mode = 0;
+	enum ice_crpto_key_size key_size_type = 0;
+	void *ecryptfs_data = NULL;
+	u32 key_index = 0;
+	struct inode *inode = NULL;
+
+	if (!is_pfe) {
+		pr_err("is_pfe is NULL\n");
+		return -EINVAL;
+	}
+
+	/* only a few errors below can indicate that
+	 * this function was not invoked within PFE context,
+	 * otherwise we will consider it PFE
+	 */
+	*is_pfe = true;
+
+	if (!pfk_is_ready())
+		return -ENODEV;
+
+	if (!ice_setting) {
+		pr_err("ice setting is NULL\n");
+		return -EINVAL;
+	}
+
+	ret = pfk_bio_to_key(bio, &key, &key_size, &salt, &salt_size, is_pfe);
+	if (ret != 0)
+		return ret;
+
+	inode = pfk_bio_get_inode(bio);
+	if (!inode) {
+		*is_pfe = false;
+		return -EINVAL;
+	}
+
+	ecryptfs_data = pfk_get_ecryptfs_data(inode);
+	if (!ecryptfs_data) {
+		*is_pfe = false;
+		return -EPERM;
+	}
+
+	ret = pfk_parse_cipher(ecryptfs_data, &algo_mode);
 	if (ret != 0) {
-		pr_debug("not supported cipher\n");
+		pr_err("not supported cipher\n");
 		return ret;
 	}
 
@@ -449,11 +502,14 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 	if (ret != 0)
 		return ret;
 
-	ret = pfk_kc_load_key(key, key_size, salt, salt_size, &key_index);
-	if (ret != 0) {
-		pr_err("could not load key into pfk key cache, error %d\n",
-			 ret);
-		return -EINVAL;
+	ret = pfk_kc_load_key_start(key, key_size, salt, salt_size, &key_index,
+			async);
+	if (ret) {
+		if (ret != -EBUSY && ret != -EAGAIN)
+			pr_err("start: could not load key into pfk key cache, error %d\n",
+					ret);
+
+		return ret;
 	}
 
 	ice_setting->key_size = key_size_type;
@@ -463,10 +519,51 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 	ice_setting->key_index = key_index;
 
 	return 0;
+}
 
-end:
+/**
+ * pfk_load_key_end() - marks the PFE key as no longer used by ICE
+ *						Can also be invoked from non
+ *						PFE context, than it is not
+ *						relevant and is_pfe flag is
+ *						set to true
+ * @bio: Pointer to the BIO structure
+ * @is_pfe: Pointer to is_pfe flag, which will be true if function was invoked
+ *			from PFE context
+ *
+ * Via bio gets access to ecryptfs key stored in auxiliary structure inside
+ * inode and loads it to encryption hw.
+ *
+ */
+int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
+{
+	int ret = 0;
+	const unsigned char *key = NULL;
+	const unsigned char *salt = NULL;
+	size_t key_size = 0;
+	size_t salt_size = 0;
 
-	return ret;
+	if (!is_pfe) {
+		pr_err("is_pfe is NULL\n");
+		return -EINVAL;
+	}
+
+	/* only a few errors below can indicate that
+	 * this function was not invoked within PFE context,
+	 * otherwise we will consider it PFE
+	 */
+	*is_pfe = true;
+
+	if (!pfk_is_ready())
+		return -ENODEV;
+
+	ret = pfk_bio_to_key(bio, &key, &key_size, &salt, &salt_size, is_pfe);
+	if (ret != 0)
+		return ret;
+
+	pfk_kc_load_key_end(key, key_size, salt, salt_size);
+
+	return 0;
 }
 
 /**
@@ -488,7 +585,7 @@ int pfk_remove_key(const unsigned char *key, size_t key_size)
 		return -ENODEV;
 
 	if (!key)
-		return -EPERM;
+		return -EINVAL;
 
 	ret = pfk_kc_remove_key(key, key_size);
 
