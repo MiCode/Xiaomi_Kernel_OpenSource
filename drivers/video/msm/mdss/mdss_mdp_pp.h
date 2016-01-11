@@ -158,11 +158,11 @@ struct mdss_pp_res_type {
 	/* physical info */
 	struct pp_hist_col_info *dspp_hist;
 	/*
-	 * The pp_data_res will be a pointer to newer MDP revisions of the
+	 * The pp_data_v1_7 will be a pointer to newer MDP revisions of the
 	 * pp_res, which will hold the cfg_payloads of each feature in a single
 	 * struct.
 	 */
-	void *pp_data_res;
+	void *pp_data_v1_7;
 };
 
 #if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8937)

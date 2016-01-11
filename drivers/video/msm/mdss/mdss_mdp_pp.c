@@ -2799,7 +2799,7 @@ int mdss_mdp_pp_init(struct device *dev)
 				ret = PTR_ERR(ret_ptr);
 				goto pp_exit;
 			} else {
-				mdss_pp_res->pp_data_res = ret_ptr;
+				mdss_pp_res->pp_data_v1_7 = ret_ptr;
 				pp_ops = pp_driver_ops.pp_ops;
 			}
 
