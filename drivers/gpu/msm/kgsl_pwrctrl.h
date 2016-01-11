@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,6 +158,7 @@ struct kgsl_pwrctrl {
 	int interrupt_num;
 	struct clk *grp_clks[KGSL_MAX_CLKS];
 	struct clk *dummy_mx_clk;
+	struct clk *gpu_bimc_int_clk;
 	unsigned long power_flags;
 	unsigned long ctrl_flags;
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];
@@ -200,6 +201,8 @@ struct kgsl_pwrctrl {
 	struct timer_list deep_nap_timer;
 	uint32_t deep_nap_timeout;
 	bool gx_retention;
+	unsigned int gpu_bimc_int_clk_freq;
+	bool gpu_bimc_interface_enabled;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
