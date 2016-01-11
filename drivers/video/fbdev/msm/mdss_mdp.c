@@ -1897,6 +1897,8 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" bwc");
 	if (mdata->has_ubwc)
 		SPRINT(" ubwc");
+	if (mdata->has_wb_ubwc)
+		SPRINT(" wb_ubwc");
 	if (mdata->has_decimation)
 		SPRINT(" decimation");
 	if (mdata->highest_bank_bit && !mdss_mdp_is_ubwc_supported(mdata))
