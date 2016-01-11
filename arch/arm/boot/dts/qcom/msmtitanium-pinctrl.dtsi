@@ -960,6 +960,60 @@
 			};
 		};
 
+		pri-tlmm-lines {
+			pri_tlmm_lines_act: pri_tlmm_lines_act {
+				mux {
+					pins = "gpio91", "gpio93";
+					function = "pri_mi2s";
+				};
+
+				config {
+					pins = "gpio91", "gpio93";
+					drive-strength = <8>;
+				};
+			};
+
+			pri_tlmm_lines_sus: pri_tlmm_lines_sus {
+				mux {
+					pins = "gpio91", "gpio93";
+					function = "pri_mi2s";
+				};
+
+				config {
+					pins = "gpio91", "gpio93";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
+		pri-tlmm-ws-lines {
+			pri_tlmm_ws_act: pri_tlmm_ws_act {
+				mux {
+					pins = "gpio92";
+					function = "pri_mi2s_ws";
+				};
+
+				config {
+					pins = "gpio92";
+					drive-strength = <8>;
+				};
+			};
+
+			pri_tlmm_ws_sus: pri_tlmm_ws_sus {
+				mux {
+					pins = "gpio92";
+					function = "pri_mi2s_ws";
+				};
+
+				config {
+					pins = "gpio92";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
 		spi3 {
 			spi3_default: spi3_default {
 				/* active state */

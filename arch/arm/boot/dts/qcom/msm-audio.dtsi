@@ -327,27 +327,56 @@
 			"AMIC3", "MIC BIAS External",
 			"WSA_SPK OUT", "VDD_WSA_SWITCH",
 			"SpkrMono WSA_IN", "WSA_SPK OUT";
+
+		qcom,hdmi-dba-codec-rx;
+
 		qcom,msm-gpios =
 			"pri_i2s",
-			"us_eu_gpio";
+			"us_eu_gpio",
+			"quin_i2s";
 		qcom,pinctrl-names =
 			"all_off",
 			"pri_i2s_act",
 			"us_eu_gpio_act",
-			"pri_i2s_us_eu_gpio_act";
+			"pri_i2s_us_eu_gpio_act",
+			"quin_act",
+			"quin_pri_i2s_act",
+			"quin_us_eu_gpio_act",
+			"quin_us_eu_gpio_pri_i2s_act";
 		pinctrl-names =
 			"all_off",
 			"pri_i2s_act",
 			"us_eu_gpio_act",
-			"pri_i2s_us_eu_gpio_act";
+			"pri_i2s_us_eu_gpio_act",
+			"quin_act",
+			"quin_pri_i2s_act",
+			"quin_us_eu_gpio_act",
+			"quin_us_eu_gpio_pri_i2s_act";
 		pinctrl-0 = <&cdc_pdm_lines_sus
-				&cdc_pdm_lines_2_sus &cross_conn_det_sus>;
+				&cdc_pdm_lines_2_sus &cross_conn_det_sus
+				&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
 		pinctrl-1 = <&cdc_pdm_lines_act
-				&cdc_pdm_lines_2_act &cross_conn_det_sus>;
+				&cdc_pdm_lines_2_act &cross_conn_det_sus
+				&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
 		pinctrl-2 = <&cdc_pdm_lines_sus
-				&cdc_pdm_lines_2_sus &cross_conn_det_act>;
+				&cdc_pdm_lines_2_sus &cross_conn_det_act
+				&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
 		pinctrl-3 = <&cdc_pdm_lines_act
-				&cdc_pdm_lines_2_act &cross_conn_det_act>;
+				&cdc_pdm_lines_2_act &cross_conn_det_act
+				&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+		pinctrl-4 = <&cdc_pdm_lines_sus
+				&cdc_pdm_lines_2_sus &cross_conn_det_sus
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+		pinctrl-5 = <&cdc_pdm_lines_act
+				&cdc_pdm_lines_2_act &cross_conn_det_sus
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+		pinctrl-6 = <&cdc_pdm_lines_sus
+				&cdc_pdm_lines_2_sus &cross_conn_det_act
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+		pinctrl-7 = <&cdc_pdm_lines_act
+				&cdc_pdm_lines_2_act &cross_conn_det_act
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>;
@@ -432,16 +461,29 @@
 			"SpkrLeft IN", "SPK1 OUT",
 			"SpkrRight IN", "SPK2 OUT";
 
+		qcom,hdmi-dba-codec-rx;
+
 		qcom,msm-gpios =
+			"quin_i2s",
 			"us_eu_gpio";
 		qcom,pinctrl-names =
 			"all_off",
-			"us_eu_gpio_act";
+			"quin_act",
+			"us_eu_gpio_act",
+			"quin_us_eu_gpio_act";
 		pinctrl-names =
 			"all_off",
-			"us_eu_gpio_act";
-		pinctrl-0 = <&cross_conn_det_sus>;
-		pinctrl-1 = <&cross_conn_det_act>;
+			"quin_act",
+			"us_eu_gpio_act",
+			"quin_us_eu_gpio_act";
+		pinctrl-0 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus
+						&cross_conn_det_sus>;
+		pinctrl-1 = <&pri_tlmm_lines_act &pri_tlmm_ws_act
+						&cross_conn_det_sus>;
+		pinctrl-2 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus
+						&cross_conn_det_act>;
+		pinctrl-3 = <&pri_tlmm_lines_act &pri_tlmm_ws_act
+						&cross_conn_det_act>;
 
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -482,8 +524,8 @@
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
 				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
-		asoc-codec = <&stub_codec>;
-		asoc-codec-names = "msm-stub-codec.1";
+		asoc-codec = <&stub_codec>, <&hdmi_dba>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-dba-codec-rx";
 	};
 
 	i2c@78b6000 {
