@@ -18,6 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
+#include <linux/wakelock.h>
 #include "emac_phy.h"
 
 /* Device IDs */
@@ -726,6 +727,7 @@ struct emac_adapter {
 	struct pinctrl_state	*pins_sleep;
 	int	(*gpio_on)(struct emac_adapter *adpt);
 	int	(*gpio_off)(struct emac_adapter *adpt);
+	struct wakeup_source link_wlock;
 };
 
 static inline struct emac_adapter *emac_hw_get_adap(struct emac_hw *hw)
