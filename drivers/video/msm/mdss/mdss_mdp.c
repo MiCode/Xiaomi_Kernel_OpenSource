@@ -1484,6 +1484,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
+		mdata->has_wb_ubwc = true;
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -1492,6 +1493,10 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DOWNSCALE_HANG);
+
+	if (mdata->mdp_rev < MDSS_MDP_HW_REV_102 ||
+			mdata->mdp_rev == MDSS_MDP_HW_REV_200)
+		mdss_set_quirk(mdata, MDSS_QUIRK_FMT_PACK_PATTERN);
 }
 
 static void mdss_hw_rev_init(struct mdss_data_type *mdata)
@@ -1831,6 +1836,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" bwc");
 	if (mdata->has_ubwc)
 		SPRINT(" ubwc");
+	if (mdata->has_wb_ubwc)
+		SPRINT(" wb_ubwc");
 	if (mdata->has_decimation)
 		SPRINT(" decimation");
 	if (mdata->highest_bank_bit && !mdss_mdp_is_ubwc_supported(mdata))

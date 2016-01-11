@@ -299,15 +299,14 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	if (fmt->is_yuv && test_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map))
 		dst_format |= BIT(15);
 
-	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 &&
-			mdata->mdp_rev < MDSS_MDP_HW_REV_200) {
+	if (mdss_has_quirk(mdata, MDSS_QUIRK_FMT_PACK_PATTERN)) {
 		pattern = (fmt->element[3] << 24) |
-			  (fmt->element[2] << 16) |
+			  (fmt->element[2] << 15) |
 			  (fmt->element[1] << 8)  |
 			  (fmt->element[0] << 0);
 	} else {
 		pattern = (fmt->element[3] << 24) |
-			  (fmt->element[2] << 15) |
+			  (fmt->element[2] << 16) |
 			  (fmt->element[1] << 8)  |
 			  (fmt->element[0] << 0);
 	}
@@ -324,8 +323,7 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	outsize = (ctx->dst_rect.h << 16) | ctx->dst_rect.w;
 
 	if (mdss_mdp_is_ubwc_format(fmt)) {
-		if (!ctl->cdm)
-			opmode |= BIT(0);
+		opmode |= BIT(0);
 		dst_format |= BIT(31);
 		if (mdata->highest_bank_bit)
 			write_config |= (mdata->highest_bank_bit << 8);
@@ -341,8 +339,7 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	}
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_ALPHA_X_VALUE, 0xFF);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_FORMAT, dst_format);
-	if (!ctl->cdm)
-		mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_OP_MODE, opmode);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_OP_MODE, opmode);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_PACK_PATTERN, pattern);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_YSTRIDE0, ystride0);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_YSTRIDE1, ystride1);
