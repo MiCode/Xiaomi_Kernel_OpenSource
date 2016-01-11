@@ -241,7 +241,7 @@
 
         spmi_bus: qcom,spmi@400f000 {
                 compatible = "qcom,spmi-pmic-arb";
-                reg = <0x400f000 0x1000>,
+                reg = <0x400f000 0xc00>,
                       <0x4400000 0x800000>,
                       <0x4c00000 0x800000>,
                       <0x5800000 0x200000>,
@@ -255,6 +255,7 @@
                 #size-cells = <0>;
                 interrupt-controller;
                 #interrupt-cells = <4>;
+		cell-index = <0>;
         };
 
 	apc_apm: apm@099e0000 {
@@ -2141,26 +2142,6 @@
 		qcom,reset-ep-after-lpm-resume;
 	};
 
-/* HACK
-	spmi_bus: qcom,spmi@400f000 {
-		compatible = "qcom,spmi-pmic-arb";
-		reg = <0x400f000 0x1000>,
-			<0x4400000 0x800000>,
-			<0x4c00000 0x800000>,
-			<0x5800000 0x200000>,
-			<0x400a000 0x2100>; /* includes SPMI_CFG and GENI_CFG */
-/*		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
-		interrupts = <0 326 0>;
-		qcom,pmic-arb-channel = <0>;
-		qcom,pmic-arb-ee = <0>;
-		qcom,pmic-arb-max-peripherals = <256>;
-		#interrupt-cells = <3>;
-		interrupt-controller;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		cell-index = <0>;
-	};
-*/
 	qcom,lpass@9300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x9300000 0x00100>;

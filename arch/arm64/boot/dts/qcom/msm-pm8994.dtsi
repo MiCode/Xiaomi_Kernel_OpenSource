@@ -10,17 +10,15 @@
  * GNU General Public License for more details.
  */
 
-&spmi_bus {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	interrupt-controller;
-	#interrupt-cells = <3>;
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
+&spmi_bus {
 	qcom,pm8994@0 {
-		spmi-slave-container;
-		reg = <0x0>;
-		#address-cells = <1>;
-		#size-cells = <1>;
+		compatible ="qcom,spmi-pmic";
+		reg = <0x0 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 
 		pm8994_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
@@ -30,7 +28,7 @@
 		qcom,temp-alarm@2400 {
 			compatible = "qcom,qpnp-temp-alarm";
 			reg = <0x2400 0x100>;
-			interrupts = <0x0 0x24 0x0>;
+			interrupts = <0x0 0x24 0x0 IRQ_TYPE_NONE>;
 			label = "pm8994_tz";
 			qcom,channel-num = <8>;
 			qcom,threshold-set = <0>;
@@ -40,10 +38,10 @@
 		qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
-			interrupts = <0x0 0x8 0x0>,
-				     <0x0 0x8 0x1>,
-				     <0x0 0x8 0x4>,
-				     <0x0 0x8 0x5>;
+			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x1 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x4 IRQ_TYPE_NONE>,
+				     <0x0 0x8 0x5 IRQ_TYPE_NONE>;
 			interrupt-names = "kpdpwr", "resin",
 					"resin-bark", "kpdpwr-resin-bark";
 			qcom,pon-dbc-delay = <15625>;
@@ -78,7 +76,6 @@
 		};
 
 		pm8994_gpios: gpios {
-			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -214,7 +211,6 @@
 		};
 
 		pm8994_mpps: mpps {
-			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -276,7 +272,7 @@
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interrupts = <0x0 0x31 0x0>;
+			interrupts = <0x0 0x31 0x0 IRQ_TYPE_NONE>;
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
@@ -321,9 +317,9 @@
 			reg = <0x3400 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interrupts =	<0x0 0x34 0x0>,
-					<0x0 0x34 0x3>,
-				     <0x0 0x34 0x4>;
+			interrupts =	<0x0 0x34 0x0 IRQ_TYPE_NONE>,
+					<0x0 0x34 0x3 IRQ_TYPE_NONE>,
+				     <0x0 0x34 0x4 IRQ_TYPE_NONE>;
 			interrupt-names =	"eoc-int-en-set",
 						"high-thr-en-set",
 						"low-thr-en-set";
@@ -338,7 +334,6 @@
 		};
 
 		pm8994_rtc: qcom,pm8994_rtc {
-			spmi-dev-container;
 			compatible = "qcom,qpnp-rtc";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -350,16 +345,16 @@
 			};
 			qcom,pm8994_rtc_alarm@6100 {
 				reg = <0x6100 0x100>;
-				interrupts = <0x0 0x61 0x1>;
+				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
 			};
 		};
 	};
 
 	qcom,pm8994@1 {
-		spmi-slave-container;
-		reg = <0x1>;
-		#address-cells = <1>;
-		#size-cells = <1>;
+		compatible ="qcom,spmi-pmic";
+		reg = <0x1 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 
 		pwm@b100 {
 			compatible = "qcom,qpnp-pwm";

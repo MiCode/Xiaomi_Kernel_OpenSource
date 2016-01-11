@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/spmi/spmi.h>
 
 &rpm_bus {
 	/* PM8994 S1 + S6 = 2 phase VDD_CX supply */
@@ -529,10 +530,10 @@
 	};
 
 	qcom,pm8004@5 {
-		spmi-slave-container;
-		reg = <0x5>;
-		#address-cells = <1>;
-		#size-cells = <1>;
+		compatible ="qcom,spmi-pmic";
+		reg = <0x5 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 		/*
 		 * PM8004 S2 + S4 = 2 phase VDD_GFX supply when PM8004 is
 		 * present on the board.

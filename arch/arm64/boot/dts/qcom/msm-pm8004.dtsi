@@ -10,12 +10,15 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
 &spmi_bus {
 	qcom,pm8004@4 {
-		spmi-slave-container;
-		reg = <0x4>;
-		#address-cells = <1>;
-		#size-cells = <1>;
+		compatible = "qcom,spmi-pmic";
+		reg = <0x4 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 
 		pm8004_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
@@ -34,14 +37,13 @@
 		qcom,temp-alarm@2400 {
 			compatible = "qcom,qpnp-temp-alarm";
 			reg = <0x2400 0x100>;
-			interrupts = <0x4 0x24 0x0>;
+			interrupts = <0x4 0x24 0x0 IRQ_TYPE_NONE>;
 			label = "pm8004_tz";
 			qcom,threshold-set = <0>;
 			qcom,default-temp = <37000>;
 		};
 
 		pm8004_mpps: mpps {
-			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -76,9 +78,9 @@
 	};
 
 	qcom,pm8004@5 {
-		spmi-slave-container;
-		reg = <0x5>;
-		#address-cells = <1>;
-		#size-cells = <1>;
+		compatible ="qcom,spmi-pmic";
+		reg = <0x5 SPMI_USID>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 	};
 };
