@@ -119,7 +119,7 @@ struct ecryptfs_auth_tok {
  * such as ecryptfs_get_key_size(), ecryptfs_get_cipher() etc.
  */
 struct ecryptfs_events {
-	bool (*is_cipher_supported_cb)(const char *cipher);
+	bool (*is_cipher_supported_cb)(const void *ecrytpfs_data);
 	void (*open_cb)(struct inode *inode, void *ecrytpfs_data);
 	void (*release_cb)(struct inode *inode);
 	int (*encrypt_cb)(struct page *in_page, struct page *out_page,
@@ -127,26 +127,28 @@ struct ecryptfs_events {
 	int (*decrypt_cb)(struct page *in_page, struct page *out_page,
 		struct inode *inode, unsigned long extent_offset);
 	bool (*is_hw_crypt_cb)(void);
-	size_t (*get_salt_key_size_cb)(const char *cipher);
+	size_t (*get_salt_key_size_cb)(const void *ecrytpfs_data);
 };
 
 
-int ecryptfs_register_to_events(struct ecryptfs_events *ops);
+int ecryptfs_register_to_events(const struct ecryptfs_events *ops);
 
 int ecryptfs_unregister_from_events(int user_handle);
 
-const unsigned char *ecryptfs_get_key(void *ecrytpfs_data);
+const unsigned char *ecryptfs_get_key(const void *ecrytpfs_data);
 
-size_t ecryptfs_get_key_size(void *ecrytpfs_data);
+size_t ecryptfs_get_key_size(const void *ecrytpfs_data);
 
-const unsigned char *ecryptfs_get_salt(void *ecrytpfs_data);
+const unsigned char *ecryptfs_get_salt(const void *ecrytpfs_data);
 
-size_t ecryptfs_get_salt_size(void *ecrytpfs_data);
+size_t ecryptfs_get_salt_size(const void *ecrytpfs_data);
 
-const unsigned char *ecryptfs_get_cipher(void *ecrytpfs_data);
+bool ecryptfs_cipher_match(const void *ecrytpfs_data,
+		const unsigned char *cipher, size_t cipher_size);
 
-bool ecryptfs_is_page_in_metadata(void *ecrytpfs_data, pgoff_t offset);
+bool ecryptfs_is_page_in_metadata(const void *ecrytpfs_data, pgoff_t offset);
 
-bool ecryptfs_is_data_equal(void *ecrytpfs_data1, void *ecrytpfs_data2);
+bool ecryptfs_is_data_equal(const void *ecrytpfs_data1,
+		const void *ecrytpfs_data2);
 
 #endif /* _LINUX_ECRYPTFS_H */
