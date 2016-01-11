@@ -1606,3 +1606,4 @@
 #include "msmcobalt-camera.dtsi"
 #include "msmcobalt-vidc.dtsi"
 #include "msmcobalt-coresight.dtsi"
+#include "msmcobalt-bus.dtsi"
