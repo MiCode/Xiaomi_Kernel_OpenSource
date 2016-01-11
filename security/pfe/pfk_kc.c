@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,14 +15,12 @@
  * PFK Key Cache
  *
  * Key Cache used internally in PFK.
- * The purpose of the cache is to save access time to QSEE
- * when loading the keys.
+ * The purpose of the cache is to save access time to QSEE when loading keys.
  * Currently the cache is the same size as the total number of keys that can
- * be loaded to ICE. Since this number is relatively small, the alghoritms for
+ * be loaded to ICE. Since this number is relatively small, the algorithms for
  * cache eviction are simple, linear and based on last usage timestamp, i.e
  * the node that will be evicted is the one with the oldest timestamp.
  * Empty entries always have the oldest timestamp.
- *
  */
 
 #include <linux/mutex.h>
@@ -54,7 +52,44 @@
 #define PFK_MAX_SALT_SIZE PFK_KC_SALT_SIZE
 
 static DEFINE_SPINLOCK(kc_lock);
+static unsigned long flags;
 static bool kc_ready;
+
+enum pfk_kc_entry_state {
+	/* Entry is free */
+	FREE,
+
+	/*
+	 * Entry is actively used by ICE engine and cannot be used by others.
+	 * SCM call to load key to ICE is pending to be performed
+	 */
+	ACTIVE_ICE_PRELOAD,
+
+	/*
+	 * Entry is actively used by ICE engine and cannot be used by others.
+	 * SCM call to load key to ICE was successfully executed and key is
+	 * now loaded.
+	 */
+	ACTIVE_ICE_LOADED,
+
+	/*
+	 * Entry is being invalidated during file close and cannot be used by
+	 * others until invalidation is complete.
+	 */
+	INACTIVE_INVALIDATING,
+
+	/*
+	 * Entry's key is already loaded, but is not currently being used.
+	 * It can be re-used for optimization and avoid SCM call cost, or,
+	 * it can be taken by another key if there are no FREE entries.
+	 */
+	INACTIVE,
+
+	/*
+	 * Error occurred while scm call was performed to load the key to ICE
+	 */
+	SCM_ERROR
+};
 
 struct kc_entry {
 	 unsigned char key[PFK_MAX_KEY_SIZE];
@@ -65,31 +100,14 @@ struct kc_entry {
 
 	 u64 time_stamp;
 	 u32 key_index;
+
+	 struct task_struct *thread_pending;
+
+	 enum pfk_kc_entry_state state;
+	 int scm_error;
 };
 
-static struct kc_entry kc_table[PFK_KC_TABLE_SIZE] = {{{0}, 0, {0}, 0, 0, 0} };
-
-/**
- * pfk_min_time_entry() - update min time and update min entry
- * @min_time: pointer to current min_time, might be updated with new value
- * @time: time to compare minimum with
- * @min_entry: ptr to ptr to current min_entry, might be updated with
- * ptr to new entry
- * @entry: will be the new min_entry if the time was updated
- *
- *
- * Calculates the minimum between min_time and time. Replaces the min_time
- * if time is less and replaces min_entry with entry
- *
- */
-static inline void pfk_min_time_entry(u64 *min_time, u64 time,
-	struct kc_entry **min_entry, struct kc_entry *entry)
-{
-	if (time_before64(time, *min_time)) {
-		*min_time = time;
-		*min_entry = entry;
-	}
-}
+static struct kc_entry kc_table[PFK_KC_TABLE_SIZE];
 
 /**
  * kc_is_ready() - driver is initialized and ready.
@@ -98,7 +116,137 @@ static inline void pfk_min_time_entry(u64 *min_time, u64 time,
  */
 static inline bool kc_is_ready(void)
 {
-	return kc_ready == true;
+	return kc_ready;
+}
+
+static inline void kc_spin_lock(void)
+{
+	spin_lock_irqsave(&kc_lock, flags);
+}
+
+static inline void kc_spin_unlock(void)
+{
+	spin_unlock_irqrestore(&kc_lock, flags);
+}
+
+/**
+ * kc_entry_is_available() - checks whether the entry is available
+ *
+ * Return true if it is , false otherwise or if invalid
+ * Should be invoked under spinlock
+ */
+static bool kc_entry_is_available(const struct kc_entry *entry)
+{
+	if (!entry)
+		return false;
+
+	return (entry->state == FREE || entry->state == INACTIVE);
+}
+
+/**
+ * kc_entry_wait_till_available() - waits till entry is available
+ *
+ * Returns 0 in case of success or -ERESTARTSYS if the wait was interrupted
+ * by signal
+ *
+ * Should be invoked under spinlock
+ */
+static int kc_entry_wait_till_available(struct kc_entry *entry)
+{
+	int res = 0;
+
+	while (!kc_entry_is_available(entry)) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (signal_pending(current)) {
+			res = -ERESTARTSYS;
+			break;
+		}
+		/* assuming only one thread can try to invalidate
+		 * the same entry
+		 */
+		entry->thread_pending = current;
+		kc_spin_unlock();
+		schedule();
+		kc_spin_lock();
+	}
+	set_current_state(TASK_RUNNING);
+
+	return res;
+}
+
+/**
+ * kc_entry_start_invalidating() - moves entry to state
+ *			           INACTIVE_INVALIDATING
+ *				   If entry is in use, waits till
+ *				   it gets available
+ * @entry: pointer to entry
+ *
+ * Return 0 in case of success, otherwise error
+ * Should be invoked under spinlock
+ */
+static int kc_entry_start_invalidating(struct kc_entry *entry)
+{
+	int res;
+
+	res = kc_entry_wait_till_available(entry);
+	if (res)
+		return res;
+
+	entry->state = INACTIVE_INVALIDATING;
+
+	return 0;
+}
+
+/**
+ * kc_entry_finish_invalidating() - moves entry to state FREE
+ *				    wakes up all the tasks waiting
+ *				    on it
+ *
+ * @entry: pointer to entry
+ *
+ * Return 0 in case of success, otherwise error
+ * Should be invoked under spinlock
+ */
+static void kc_entry_finish_invalidating(struct kc_entry *entry)
+{
+	if (!entry)
+		return;
+
+	if (entry->state != INACTIVE_INVALIDATING)
+		return;
+
+	entry->state = FREE;
+}
+
+/**
+ * kc_min_entry() - compare two entries to find one with minimal time
+ * @a: ptr to the first entry. If NULL the other entry will be returned
+ * @b: pointer to the second entry
+ *
+ * Return the entry which timestamp is the minimal, or b if a is NULL
+ */
+static inline struct kc_entry *kc_min_entry(struct kc_entry *a,
+		struct kc_entry *b)
+{
+	if (!a)
+		return b;
+
+	if (time_before64(b->time_stamp, a->time_stamp))
+		return b;
+
+	return a;
+}
+
+/**
+ * kc_entry_at_index() - return entry at specific index
+ * @index: index of entry to be accessed
+ *
+ * Return entry
+ * Should be invoked under spinlock
+ */
+static struct kc_entry *kc_entry_at_index(int index)
+{
+	return &(kc_table[index]);
 }
 
 /**
@@ -111,7 +259,7 @@ static inline bool kc_is_ready(void)
  * index of that entry
  *
  * Return entry or NULL in case of error
- * Should be invoked under lock
+ * Should be invoked under spinlock
  */
 static struct kc_entry *kc_find_key_at_index(const unsigned char *key,
 	size_t key_size, const unsigned char *salt, size_t salt_size,
@@ -121,7 +269,7 @@ static struct kc_entry *kc_find_key_at_index(const unsigned char *key,
 	int i = 0;
 
 	for (i = *starting_index; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = &(kc_table[i]);
+		entry = kc_entry_at_index(i);
 
 		if (NULL != salt) {
 			if (entry->salt_size != salt_size)
@@ -151,7 +299,7 @@ static struct kc_entry *kc_find_key_at_index(const unsigned char *key,
  * @salt_size: the salt size
  *
  * Return entry or NULL in case of error
- * Should be invoked under lock
+ * Should be invoked under spinlock
  */
 static struct kc_entry *kc_find_key(const unsigned char *key, size_t key_size,
 		const unsigned char *salt, size_t salt_size)
@@ -162,29 +310,28 @@ static struct kc_entry *kc_find_key(const unsigned char *key, size_t key_size,
 }
 
 /**
- * kc_find_oldest_entry() - finds the entry with minimal timestamp
+ * kc_find_oldest_entry_non_locked() - finds the entry with minimal timestamp
+ * that is not locked
  *
  * Returns entry with minimal timestamp. Empty entries have timestamp
  * of 0, therefore they are returned first.
- * Should always succeed, the returned entry should never be NULL
- * Should be invoked under lock
+ * If all the entries are locked, will return NULL
+ * Should be invoked under spin lock
  */
-static struct kc_entry *kc_find_oldest_entry(void)
+static struct kc_entry *kc_find_oldest_entry_non_locked(void)
 {
 	struct kc_entry *curr_min_entry = NULL;
 	struct kc_entry *entry = NULL;
-	u64 min_time = 0;
 	int i = 0;
 
-	min_time = kc_table[0].time_stamp;
-	curr_min_entry = &(kc_table[0]);
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = &(kc_table[i]);
-		if (!entry->time_stamp)
+		entry = kc_entry_at_index(i);
+
+		if (entry->state == FREE)
 			return entry;
 
-		pfk_min_time_entry(&min_time, entry->time_stamp,
-			&curr_min_entry, entry);
+		if (entry->state == INACTIVE)
+			curr_min_entry = kc_min_entry(curr_min_entry, entry);
 	}
 
 	return curr_min_entry;
@@ -195,8 +342,6 @@ static struct kc_entry *kc_find_oldest_entry(void)
  *
  * @entry: entry to update
  *
- * If system time can't be retrieved, timestamp will not be updated
- * Should be invoked under lock
  */
 static void kc_update_timestamp(struct kc_entry *entry)
 {
@@ -207,12 +352,11 @@ static void kc_update_timestamp(struct kc_entry *entry)
 }
 
 /**
- * kc_clear_entry() - clear the key from entry and remove the key from ICE
+ * kc_clear_entry() - clear the key from entry and mark entry not in use
  *
  * @entry: pointer to entry
  *
- * Securely wipe and release the key memory, remove the key from ICE
- * Should be invoked under lock
+ * Should be invoked under spinlock
  */
 static void kc_clear_entry(struct kc_entry *entry)
 {
@@ -222,11 +366,15 @@ static void kc_clear_entry(struct kc_entry *entry)
 	memset(entry->key, 0, entry->key_size);
 	memset(entry->salt, 0, entry->salt_size);
 
+	entry->key_size = 0;
+	entry->salt_size = 0;
+
 	entry->time_stamp = 0;
+	entry->scm_error = 0;
 }
 
 /**
- * kc_replace_entry() - replaces the key in given entry and
+ * kc_update_entry() - replaces the key in given entry and
  *			loads the new key to ICE
  *
  * @entry: entry to replace key in
@@ -237,12 +385,12 @@ static void kc_clear_entry(struct kc_entry *entry)
  *
  * The previous key is securely released and wiped, the new one is loaded
  * to ICE.
- * Should be invoked under lock
+ * Should be invoked under spinlock
  */
-static int kc_replace_entry(struct kc_entry *entry, const unsigned char *key,
+static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	size_t key_size, const unsigned char *salt, size_t salt_size)
 {
-	int ret = 0;
+	int ret;
 
 	kc_clear_entry(entry);
 
@@ -252,23 +400,15 @@ static int kc_replace_entry(struct kc_entry *entry, const unsigned char *key,
 	memcpy(entry->salt, salt, salt_size);
 	entry->salt_size = salt_size;
 
-	ret = qti_pfk_ice_set_key(entry->key_index, (uint8_t *) key,
-		(uint8_t *) salt);
-	if (ret != 0) {
-		ret = -EINVAL;
-		goto err;
-	}
+	/* Mark entry as no longer free before releasing the lock */
+	entry->state = ACTIVE_ICE_PRELOAD;
+	kc_spin_unlock();
 
-	kc_update_timestamp(entry);
+	ret = qti_pfk_ice_set_key(entry->key_index, entry->key,
+			entry->salt);
 
-	return 0;
-
-err:
-
-	kc_clear_entry(entry);
-
+	kc_spin_lock();
 	return ret;
-
 }
 
 /**
@@ -279,18 +419,18 @@ err:
 int pfk_kc_init(void)
 {
 	int i = 0;
+	struct kc_entry *entry = NULL;
 
-	spin_lock(&kc_lock);
-	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
-		kc_table[i].key_index = PFK_KC_STARTING_INDEX + i;
-
-	spin_unlock(&kc_lock);
-
+	kc_spin_lock();
+	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
+		entry = kc_entry_at_index(i);
+		entry->key_index = PFK_KC_STARTING_INDEX + i;
+	}
 	kc_ready = true;
+	kc_spin_unlock();
 
 	return 0;
 }
-
 
 /**
  * pfk_kc_denit() - deinit function
@@ -299,74 +439,172 @@ int pfk_kc_init(void)
  */
 int pfk_kc_deinit(void)
 {
-	pfk_kc_clear();
+	int res = pfk_kc_clear();
 	kc_ready = false;
 
-	return 0;
+	return res;
 }
 
 /**
- * pfk_kc_load_key() - retrieve the key from cache or add it if it's not there
- *                     return the ICE hw key index
+ * pfk_kc_load_key_start() - retrieve the key from cache or add it if it's not there
+ * and return the ICE hw key index in @key_index.
  * @key: pointer to the key
  * @key_size: the size of the key
  * @salt: pointer to the salt
  * @salt_size: the size of the salt
  * @key_index: the pointer to key_index where the output will be stored
+ * @async: whether scm calls are allowed in the caller context
  *
  * If key is present in cache, than the key_index will be retrieved from cache.
  * If it is not present, the oldest entry from kc table will be evicted,
  * the key will be loaded to ICE via QSEE to the index that is the evicted
- * entry number and stored in cache
+ * entry number and stored in cache.
+ * Entry that is going to be used is marked as being used, it will mark
+ * as not being used when ICE finishes using it and pfk_kc_load_key_end
+ * will be invoked.
+ * As QSEE calls can only be done from a non-atomic context, when @async flag
+ * is set to 'false', it specifies that it is ok to make the calls in the
+ * current context. Otherwise, when @async is set, the caller should retry the
+ * call again from a different context, and -EAGAIN error will be returned.
  *
  * Return 0 in case of success, error otherwise
  */
-int pfk_kc_load_key(const unsigned char *key, size_t key_size,
-		const unsigned char *salt, size_t salt_size, u32 *key_index)
+int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size, u32 *key_index,
+		bool async)
 {
 	int ret = 0;
 	struct kc_entry *entry = NULL;
+	bool entry_exists = false;
 
 	if (!kc_is_ready())
 		return -ENODEV;
 
 	if (!key || !salt || !key_index)
-		return -EPERM;
+		return -EINVAL;
 
-	if (key_size != PFK_KC_KEY_SIZE)
-		return -EPERM;
+	if (key_size != PFK_KC_KEY_SIZE) {
+		pr_err("unsupported key size %lu\n", key_size);
+		return -EINVAL;
+	}
 
-	if (salt_size != PFK_KC_SALT_SIZE)
-		return -EPERM;
+	if (salt_size != PFK_KC_SALT_SIZE) {
+		pr_err("unsupported salt size %lu\n", salt_size);
+		return -EINVAL;
+	}
 
-	spin_lock(&kc_lock);
+	kc_spin_lock();
+
 	entry = kc_find_key(key, key_size, salt, salt_size);
 	if (!entry) {
-		entry = kc_find_oldest_entry();
+		if (async) {
+			kc_spin_unlock();
+			return -EAGAIN;
+		}
+
+		entry = kc_find_oldest_entry_non_locked();
 		if (!entry) {
-			pr_err("internal error, there should always be an oldest entry\n");
-			spin_unlock(&kc_lock);
-			return -EINVAL;
+			/* could not find a single non locked entry,
+			 * return EBUSY to upper layers so that the
+			 * request will be rescheduled
+			 */
+			kc_spin_unlock();
+			return -EBUSY;
 		}
-
-		pr_debug("didn't found key in cache, replacing entry with index %d\n",
-				entry->key_index);
-
-		ret = kc_replace_entry(entry, key, key_size, salt, salt_size);
-		if (ret) {
-			spin_unlock(&kc_lock);
-			return -EINVAL;
-		}
-
 	} else {
-		pr_debug("found key in cache, index %d\n", entry->key_index);
+		entry_exists = true;
+	}
+
+	pr_debug("entry with index %d is in state %d\n",
+		entry->key_index, entry->state);
+
+	switch (entry->state) {
+	case (INACTIVE):
+		if (entry_exists) {
+			kc_update_timestamp(entry);
+			entry->state = ACTIVE_ICE_LOADED;
+			break;
+		}
+	case (FREE):
+		ret = kc_update_entry(entry, key, key_size, salt, salt_size);
+		if (ret) {
+			entry->state = SCM_ERROR;
+			entry->scm_error = ret;
+			pr_err("%s: key load error (%d)\n", __func__, ret);
+		} else {
+			entry->state = ACTIVE_ICE_LOADED;
+			kc_update_timestamp(entry);
+		}
+		break;
+	case (ACTIVE_ICE_PRELOAD):
+	case (INACTIVE_INVALIDATING):
+		ret = -EAGAIN;
+		break;
+	case (ACTIVE_ICE_LOADED):
 		kc_update_timestamp(entry);
+		break;
+	case(SCM_ERROR):
+		ret = entry->scm_error;
+		kc_clear_entry(entry);
+		entry->state = FREE;
+		break;
+	default:
+		pr_err("invalid state %d for entry with key index %d\n",
+			entry->state, entry->key_index);
+		ret = -EINVAL;
 	}
 
 	*key_index = entry->key_index;
-	spin_unlock(&kc_lock);
+	kc_spin_unlock();
 
-	return 0;
+	return ret;
+}
+
+/**
+ * pfk_kc_load_key_end() - finish the process of key loading that was started
+ *						   by pfk_kc_load_key_start
+ *						   by marking the entry as not
+ *						   being in use
+ * @key: pointer to the key
+ * @key_size: the size of the key
+ * @salt: pointer to the salt
+ * @salt_size: the size of the salt
+ *
+ */
+void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size)
+{
+	struct kc_entry *entry = NULL;
+
+	if (!kc_is_ready())
+		return;
+
+	if (!key || !salt)
+		return;
+
+	if (key_size != PFK_KC_KEY_SIZE)
+		return;
+
+	if (salt_size != PFK_KC_SALT_SIZE)
+		return;
+
+	kc_spin_lock();
+
+	entry = kc_find_key(key, key_size, salt, salt_size);
+	if (!entry) {
+		kc_spin_unlock();
+		pr_err("internal error, there should an entry to unlock\n");
+		return;
+	}
+	entry->state = INACTIVE;
+
+	/* wake-up invalidation if it's waiting for the entry to be released */
+	if (entry->thread_pending) {
+		wake_up_process(entry->thread_pending);
+		entry->thread_pending = NULL;
+	}
+
+	kc_spin_unlock();
 }
 
 /**
@@ -383,34 +621,46 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 		const unsigned char *salt, size_t salt_size)
 {
 	struct kc_entry *entry = NULL;
+	int res = 0;
 
 	if (!kc_is_ready())
 		return -ENODEV;
 
 	if (!key)
-		return -EPERM;
+		return -EINVAL;
 
 	if (!salt)
-		return -EPERM;
+		return -EINVAL;
 
 	if (key_size != PFK_KC_KEY_SIZE)
-		return -EPERM;
+		return -EINVAL;
 
 	if (salt_size != PFK_KC_SALT_SIZE)
-		return -EPERM;
+		return -EINVAL;
 
-	spin_lock(&kc_lock);
+	kc_spin_lock();
+
 	entry = kc_find_key(key, key_size, salt, salt_size);
 	if (!entry) {
-		pr_err("key does not exist\n");
-		spin_unlock(&kc_lock);
+		pr_debug("%s: key does not exist\n", __func__);
+		kc_spin_unlock();
 		return -EINVAL;
 	}
 
+	res = kc_entry_start_invalidating(entry);
+	if (res != 0) {
+		kc_spin_unlock();
+		return res;
+	}
 	kc_clear_entry(entry);
-	spin_unlock(&kc_lock);
+
+	kc_spin_unlock();
 
 	qti_pfk_ice_invalidate_key(entry->key_index);
+
+	kc_spin_lock();
+	kc_entry_finish_invalidating(entry);
+	kc_spin_unlock();
 
 	return 0;
 }
@@ -423,80 +673,123 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
  * @key: pointer to the key
  * @key_size: the size of the key
  *
- * Return 0 in case of success, error otherwise (also in case of non
- * (existing key)
+ * Return 0 in case of success, error otherwise (also for non-existing key)
  */
 int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 {
 	struct kc_entry *entry = NULL;
 	int index = 0;
 	int temp_indexes[PFK_KC_TABLE_SIZE] = {0};
+	int temp_indexes_size = 0;
 	int i = 0;
+	int res = 0;
 
 	if (!kc_is_ready())
 		return -ENODEV;
 
 	if (!key)
-		return -EPERM;
+		return -EINVAL;
 
 	if (key_size != PFK_KC_KEY_SIZE)
-		return -EPERM;
+		return -EINVAL;
 
 	memset(temp_indexes, -1, sizeof(temp_indexes));
 
-	spin_lock(&kc_lock);
+	kc_spin_lock();
 
 	entry = kc_find_key_at_index(key, key_size, NULL, 0, &index);
 	if (!entry) {
-		pr_debug("key does not exist\n");
-		spin_unlock(&kc_lock);
+		pr_err("%s: key does not exist\n", __func__);
+		kc_spin_unlock();
 		return -EINVAL;
 	}
 
-	temp_indexes[i++] = entry->key_index;
+	res = kc_entry_start_invalidating(entry);
+	if (res != 0) {
+		kc_spin_unlock();
+		return res;
+	}
+
+	temp_indexes[temp_indexes_size++] = index;
 	kc_clear_entry(entry);
 
 	/* let's clean additional entries with the same key if there are any */
 	do {
+		index++;
 		entry = kc_find_key_at_index(key, key_size, NULL, 0, &index);
 		if (!entry)
 			break;
 
-		temp_indexes[i++] = entry->key_index;
+		res = kc_entry_start_invalidating(entry);
+		if (res != 0) {
+			kc_spin_unlock();
+			goto out;
+		}
+
+		temp_indexes[temp_indexes_size++] = index;
 
 		kc_clear_entry(entry);
 
+
 	} while (true);
 
-	spin_unlock(&kc_lock);
+	kc_spin_unlock();
 
-	for (i--; i >= 0 ; i--)
-		qti_pfk_ice_invalidate_key(temp_indexes[i]);
+	temp_indexes_size--;
+	for (i = temp_indexes_size; i >= 0 ; i--)
+		qti_pfk_ice_invalidate_key(
+				kc_entry_at_index(temp_indexes[i])->key_index);
 
-	return 0;
+	/* fall through */
+	res = 0;
+
+out:
+	kc_spin_lock();
+	for (i = temp_indexes_size; i >= 0 ; i--)
+		kc_entry_finish_invalidating(
+				kc_entry_at_index(temp_indexes[i]));
+	kc_spin_unlock();
+
+	return res;
 }
 
 /**
  * pfk_kc_clear() - clear the table and remove all keys from ICE
  *
+ * Return 0 on success, error otherwise
+ *
  */
-void pfk_kc_clear(void)
+int pfk_kc_clear(void)
 {
 	struct kc_entry *entry = NULL;
 	int i = 0;
+	int res = 0;
 
 	if (!kc_is_ready())
-		return;
+		return -ENODEV;
 
-	spin_lock(&kc_lock);
+	kc_spin_lock();
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = &(kc_table[i]);
+		entry = kc_entry_at_index(i);
+		res = kc_entry_start_invalidating(entry);
+		if (res != 0) {
+			kc_spin_unlock();
+			goto out;
+		}
 		kc_clear_entry(entry);
 	}
-	spin_unlock(&kc_lock);
+	kc_spin_unlock();
 
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
-		qti_pfk_ice_invalidate_key(entry->key_index);
+		qti_pfk_ice_invalidate_key(kc_entry_at_index(i)->key_index);
 
+	/* fall through */
+	res = 0;
+out:
+	kc_spin_lock();
+	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
+		kc_entry_finish_invalidating(kc_entry_at_index(i));
+	kc_spin_unlock();
+
+	return res;
 }
-

@@ -364,6 +364,36 @@ out:
 }
 
 /**
+ * ufs_qcom_ice_cfg_end() - finishes configuring UFS's ICE registers
+ *							for an ICE transaction
+ * @qcom_host:	Pointer to a UFS QCom internal host structure.
+ *				qcom_host, qcom_host->hba and
+ *				qcom_host->hba->dev should all
+ *				be valid pointers.
+ * @cmd:	Pointer to a valid scsi command. cmd->request should also be
+ *              a valid pointer.
+ *
+ * Return: -EINVAL in-case of an error
+ *         0 otherwise
+ */
+int ufs_qcom_ice_cfg_end(struct ufs_qcom_host *qcom_host, struct request *req)
+{
+	int err = 0;
+	struct device *dev = qcom_host->hba->dev;
+
+	if (qcom_host->ice.vops->config_end) {
+		err = qcom_host->ice.vops->config_end(req);
+		if (err) {
+			dev_err(dev, "%s: error in ice_vops->config_end %d\n",
+				__func__, err);
+			return err;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * ufs_qcom_ice_reset() - resets UFS-ICE interface and ICE device
  * @qcom_host:	Pointer to a UFS QCom internal host structure.
  *		qcom_host, qcom_host->hba and qcom_host->hba->dev should all
