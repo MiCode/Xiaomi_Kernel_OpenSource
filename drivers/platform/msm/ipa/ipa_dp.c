@@ -2797,7 +2797,18 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						IPA_GENERIC_AGGR_PKT_LIMIT;
 					}
 				}
-				sys->repl_trig_thresh = sys->rx_pool_sz / 8;
+				/*
+				 * When HOLB mitigation is enabled, there is
+				 * a need to replenish the buffers quickly.
+				 * Otherwise we may run into issues with Q6
+				 * ZIP requests.
+				 */
+				if (ipa_ctx->ipa_hw_type == IPA_HW_v2_6L)
+					sys->repl_trig_thresh =
+						 sys->rx_pool_sz / 16;
+				else
+					sys->repl_trig_thresh =
+						 sys->rx_pool_sz / 8;
 				if (nr_cpu_ids > 1)
 					sys->repl_hdlr =
 						ipa_fast_replenish_rx_cache;
