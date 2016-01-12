@@ -89,6 +89,14 @@
 	qcom,follow-otst2-rb-disabled;
 };
 
+&pmi_haptic{
+	qcom,actuator-type = "lra";
+	qcom,wave-play-rate-us = <4165>;
+	qcom,lra-auto-res-mode="qwd";
+	qcom,lra-high-z="opt1";
+	qcom,lra-res-cal-period = <0>;
+};
+
 &blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";
