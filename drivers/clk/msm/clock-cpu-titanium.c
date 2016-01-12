@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -852,6 +852,12 @@ static int clock_cpu_probe(struct platform_device *pdev)
 				"Unable to turn on CPU clock for %d\n", cpu);
 	}
 
+	/* ccirate = HFPLL_rate/(2.5) */
+	ccirate = CCI_RATE(apcs_hf_pll.c.rate);
+	rc = clk_set_rate(&cci_clk.c, ccirate);
+	if (rc)
+		dev_err(&pdev->dev, "Can't set safe rate for CCI\n");
+
 	a53rate = clk_get_rate(&a53_pwr_clk.c);
 	pr_debug("Rate of A53 Pwr %ld, APCS PLL rate %ld\n", a53rate,
 			apcs_hf_pll.c.rate);
@@ -866,12 +872,6 @@ static int clock_cpu_probe(struct platform_device *pdev)
 	rc = clk_set_rate(&a53_perf_clk.c, apcs_hf_pll.c.rate);
 	if (rc)
 		dev_err(&pdev->dev, "Can't set perf safe rate\n");
-
-	/* ccirate = HFPLL_rate/(2.5) */
-	ccirate = CCI_RATE(apcs_hf_pll.c.rate);
-	rc = clk_set_rate(&cci_clk.c, ccirate);
-	if (rc)
-		dev_err(&pdev->dev, "Can't set safe rate for CCI\n");
 
 	put_online_cpus();
 
