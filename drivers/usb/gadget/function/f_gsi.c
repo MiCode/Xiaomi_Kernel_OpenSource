@@ -17,10 +17,10 @@
 #include <linux/usb/f_gsi.h>
 #include "rndis.h"
 
-static unsigned int dl_aggr_size = GSI_IN_BUFF_SIZE;
-module_param(dl_aggr_size, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(dl_aggr_size,
-		"Max size of bus transfer to host");
+static unsigned int gsi_in_aggr_size;
+module_param(gsi_in_aggr_size, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(gsi_in_aggr_size,
+		"Aggr size of bus transfer to host");
 
 static unsigned int ul_aggr_size = GSI_OUT_BUFF_SIZE;
 module_param(ul_aggr_size, uint, S_IRUGO | S_IWUSR);
@@ -495,8 +495,12 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	conn_params->ipa_to_usb_xferrscidx_valid = true;
 	conn_params->teth_prot = gsi->prot_id;
 	conn_params->teth_prot_params.max_xfer_size_bytes_to_dev = 23700;
-	conn_params->teth_prot_params.max_xfer_size_bytes_to_host
-					= GSI_IN_BUFF_SIZE;
+	if (gsi_in_aggr_size)
+		conn_params->teth_prot_params.max_xfer_size_bytes_to_host
+					= gsi_in_aggr_size;
+	else
+		conn_params->teth_prot_params.max_xfer_size_bytes_to_host
+					= d_port->in_aggr_size;
 	conn_params->teth_prot_params.max_packet_number_to_dev =
 		DEFAULT_MAX_PKT_PER_XFER;
 	conn_params->max_supported_bandwidth_mbps =
@@ -2481,7 +2485,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = gsi_eth_fs_function;
 		info.hs_desc_hdr = gsi_eth_hs_function;
 		info.ss_desc_hdr = gsi_eth_ss_function;
-		info.in_req_buf_len = dl_aggr_size;
+		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
+		gsi->d_port.in_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
 		info.in_req_num_buf = num_in_bufs;
 		info.out_req_buf_len = ul_aggr_size;
 		info.out_req_num_buf = num_out_bufs;
@@ -2545,7 +2550,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = mbim_gsi_fs_function;
 		info.hs_desc_hdr = mbim_gsi_hs_function;
 		info.ss_desc_hdr = mbim_gsi_ss_function;
-		info.in_req_buf_len = 0x4000;
+		gsi->d_port.in_aggr_size = GSI_IN_MBIM_AGGR_SIZE;
+		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
 		info.out_req_buf_len = 0x4000;
 		info.out_req_num_buf = num_out_bufs;
@@ -2582,7 +2588,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = rmnet_gsi_fs_function;
 		info.hs_desc_hdr = rmnet_gsi_hs_function;
 		info.ss_desc_hdr = rmnet_gsi_ss_function;
-		info.in_req_buf_len = 16384;
+		gsi->d_port.in_aggr_size = GSI_IN_RMNET_AGGR_SIZE;
+		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
 		info.out_req_buf_len = 16384;
 		info.out_req_num_buf = num_out_bufs;
@@ -2610,7 +2617,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = ecm_gsi_fs_function;
 		info.hs_desc_hdr = ecm_gsi_hs_function;
 		info.ss_desc_hdr = ecm_gsi_ss_function;
-		info.in_req_buf_len = 2048;
+		gsi->d_port.in_aggr_size = GSI_IN_ECM_AGGR_SIZE;
+		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
 		info.out_req_buf_len = 2048;
 		info.out_req_num_buf = num_out_bufs;
