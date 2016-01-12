@@ -1955,7 +1955,7 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
 	int ret = 0;
 
-	ret = ufshcd_vops_crypto_engine_cfg(hba, task_tag);
+	ret = ufshcd_vops_crypto_engine_cfg_start(hba, task_tag);
 	if (ret) {
 		dev_err(hba->dev,
 			"%s: failed to configure crypto engine %d\n",
