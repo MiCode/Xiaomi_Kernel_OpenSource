@@ -336,6 +336,9 @@ struct ufs_qcom_host {
 	/* Bitmask for enabling debug prints */
 	u32 dbg_print_en;
 	struct ufs_qcom_testbus testbus;
+
+	struct work_struct ice_cfg_work;
+	struct request *req_pending;
 };
 
 static inline u32
