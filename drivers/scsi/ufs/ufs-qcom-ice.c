@@ -223,10 +223,10 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 		return 0;
 	}
 
-	if (qcom_host->ice.vops->config) {
+	if (qcom_host->ice.vops->config_start) {
 		memset(&ice_set, 0, sizeof(ice_set));
-		err = qcom_host->ice.vops->config(qcom_host->ice.pdev,
-			cmd->request, &ice_set);
+		err = qcom_host->ice.vops->config_start(qcom_host->ice.pdev,
+			cmd->request, &ice_set, true);
 		if (err) {
 			dev_err(qcom_host->hba->dev,
 				"%s: error in ice_vops->config %d\n",
@@ -246,7 +246,8 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
 }
 
 /**
- * ufs_qcom_ice_cfg() - configures UFS's ICE registers for an ICE transaction
+ * ufs_qcom_ice_cfg_start() - starts configuring UFS's ICE registers
+ *							  for an ICE transaction
  * @qcom_host:	Pointer to a UFS QCom internal host structure.
  *		qcom_host, qcom_host->hba and qcom_host->hba->dev should all
  *		be valid pointers.
@@ -256,7 +257,8 @@ int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
  * Return: -EINVAL in-case of an error
  *         0 otherwise
  */
-int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host, struct scsi_cmnd *cmd)
+int ufs_qcom_ice_cfg_start(struct ufs_qcom_host *qcom_host,
+		struct scsi_cmnd *cmd)
 {
 	struct device *dev = qcom_host->hba->dev;
 	int err = 0;
@@ -291,10 +293,9 @@ int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host, struct scsi_cmnd *cmd)
 	}
 
 	memset(&ice_set, 0, sizeof(ice_set));
-	if (qcom_host->ice.vops->config) {
-		err = qcom_host->ice.vops->config(qcom_host->ice.pdev,
-							req, &ice_set);
-
+	if (qcom_host->ice.vops->config_start) {
+		err = qcom_host->ice.vops->config_start(qcom_host->ice.pdev,
+							req, &ice_set, true);
 		if (err) {
 			dev_err(dev, "%s: error in ice_vops->config %d\n",
 				__func__, err);
