@@ -242,7 +242,7 @@ static int pp_dither_get_version(u32 *version);
 static int pp_hist_lut_get_version(u32 *version);
 static void pp_gamut_clock_gating_en(char __iomem *base_addr);
 
-void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
+void *pp_get_driver_ops_v1_7(struct mdp_pp_driver_ops *ops)
 {
 	if (!ops) {
 		pr_err("PP driver ops invalid %p\n", ops);

@@ -506,6 +506,8 @@ static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 static int pp_mfd_release_all(struct msm_fb_data_type *mfd);
 static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd);
 static int mdss_mdp_ad_ipc_reset(struct msm_fb_data_type *mfd);
+static void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
+
 static u32 last_sts, last_state;
 
 static inline void mdss_mdp_pp_get_dcm_state(struct mdss_mdp_pipe *pipe,
@@ -2027,6 +2029,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 			goto error;
 		}
 	} else if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG &&
+		(pp_driver_ops.is_sspp_hist_supp) &&
 		(pp_driver_ops.is_sspp_hist_supp())) {
 		pipe = mdss_mdp_pipe_get(mdata, BIT(PP_BLOCK(block)));
 		if (IS_ERR_OR_NULL(pipe)) {
@@ -7303,4 +7306,25 @@ static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 	}
 
 	return 0;
+}
+
+static void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	void *pp_cfg = NULL;
+
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_107:
+	case MDSS_MDP_HW_REV_107_1:
+	case MDSS_MDP_HW_REV_107_2:
+	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_115:
+	case MDSS_MDP_HW_REV_116:
+	    pp_cfg = pp_get_driver_ops_v1_7(ops);
+	    break;
+	default:
+	    memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
+	    break;
+	}
+	return pp_cfg;
 }

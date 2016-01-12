@@ -2217,11 +2217,6 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		pr_err("unable to initialize mdss mdp resources\n");
 		goto probe_done;
 	}
-	rc = mdss_mdp_pp_init(&pdev->dev);
-	if (rc) {
-		pr_err("unable to initialize mdss pp resources\n");
-		goto probe_done;
-	}
 	rc = mdss_mdp_bus_scale_register(mdata);
 	if (rc) {
 		pr_err("unable to register bus scaling\n");
@@ -2277,6 +2272,10 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	 */
 	mdss_mdp_footswitch_ctrl_splash(true);
 	mdss_hw_init(mdata);
+
+	rc = mdss_mdp_pp_init(&pdev->dev);
+	if (rc)
+		pr_err("unable to initialize mdss pp resources\n");
 
 	/* Restoring Secure configuration during boot-up */
 	if (mdss_mdp_req_init_restore_cfg(mdata))
