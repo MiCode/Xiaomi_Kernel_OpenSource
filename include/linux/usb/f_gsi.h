@@ -23,12 +23,16 @@
 #define GSI_NUM_IN_BUFFERS 7
 #define GSI_IN_BUFF_SIZE 2048
 #define GSI_NUM_OUT_BUFFERS 7
-#define GSI_OUT_BUFF_SIZE 24576
+#define GSI_OUT_AGGR_SIZE 24576
 
 #define GSI_IN_RNDIS_AGGR_SIZE 9216
 #define GSI_IN_MBIM_AGGR_SIZE 16384
 #define GSI_IN_RMNET_AGGR_SIZE 16384
 #define GSI_IN_ECM_AGGR_SIZE 2048
+
+#define GSI_OUT_MBIM_BUF_LEN 16384
+#define GSI_OUT_RMNET_BUF_LEN 16384
+#define GSI_OUT_ECM_BUF_LEN 2048
 
 #define GSI_IPA_READY_TIMEOUT 5000
 
@@ -182,6 +186,7 @@ struct gsi_data_port {
 	u16 in_last_trb_addr;
 	u16 cdc_filter;
 	u32 in_aggr_size;
+	u32 out_aggr_size;
 
 	bool ipa_ready;
 	bool net_ready_trigger;
