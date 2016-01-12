@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -348,12 +348,8 @@ static void wcd_clsh_set_flyback_current(struct snd_soc_codec *codec, int mode)
 static void wcd_clsh_set_buck_regulator_mode(struct snd_soc_codec *codec,
 					     int mode)
 {
-	if (mode == CLS_AB)
-		snd_soc_update_bits(codec, WCD9XXX_A_ANA_RX_SUPPLIES,
-				    0x02, 0x02);
-	else
-		snd_soc_update_bits(codec, WCD9XXX_A_ANA_RX_SUPPLIES,
-				    0x02, 0x00);
+	snd_soc_update_bits(codec, WCD9XXX_A_ANA_RX_SUPPLIES,
+			    0x02, 0x00);
 }
 
 static void wcd_clsh_state_lo(struct snd_soc_codec *codec,
