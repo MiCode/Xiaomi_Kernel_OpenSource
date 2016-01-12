@@ -980,7 +980,7 @@ static int gsi_ctrl_send_cpkt_tomodem(struct f_gsi *gsi, void *buf, size_t len)
 	}
 
 	cpkt = gsi_ctrl_pkt_alloc(len, GFP_ATOMIC);
-	if (!cpkt) {
+	if (IS_ERR(cpkt)) {
 		log_event_err("%s: Reset func pkt allocation failed", __func__);
 		spin_unlock_irqrestore(&c_port->lock, flags);
 		return -ENOMEM;
@@ -1149,7 +1149,7 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 	}
 
 	cpkt = gsi_ctrl_pkt_alloc(count, GFP_KERNEL);
-	if (!cpkt) {
+	if (IS_ERR(cpkt)) {
 		log_event_err("failed to allocate ctrl pkt");
 		return -ENOMEM;
 	}
