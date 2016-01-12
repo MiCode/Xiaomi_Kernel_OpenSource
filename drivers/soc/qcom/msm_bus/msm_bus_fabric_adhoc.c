@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -302,8 +302,8 @@ static int flush_bw_data(struct msm_bus_node_device_type *node_info, int ctx)
 	int ret = 0;
 
 	if (!node_info) {
-		MSM_BUS_ERR("%s: Unable to find bus device for device %d",
-			__func__, node_info->node_info->id);
+		MSM_BUS_ERR("%s: Unable to find bus device for device",
+			__func__);
 		ret = -ENODEV;
 		goto exit_flush_bw_data;
 	}
