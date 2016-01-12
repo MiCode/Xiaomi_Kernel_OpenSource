@@ -66,11 +66,18 @@ struct bhi_ctxt_t {
 	struct device *dev;
 };
 
-enum MHI_CHAN_TYPE {
+enum MHI_CHAN_DIR {
 	MHI_INVALID = 0x0,
 	MHI_OUT = 0x1,
 	MHI_IN = 0x2,
 	MHI_CHAN_TYPE_reserved = 0x80000000
+};
+
+enum MHI_RING_CLASS {
+	MHI_RING_INVALID = 0x0,
+	MHI_HW_RING = 0x1,
+	MHI_SW_RING = 0x2,
+	MHI_RING_TYPE_reserved = 0x80000000
 };
 
 enum MHI_CHAN_STATE {
@@ -130,7 +137,7 @@ struct __packed mhi_event_ctxt {
 
 struct __packed mhi_chan_ctxt {
 	enum MHI_CHAN_STATE mhi_chan_state;
-	enum MHI_CHAN_TYPE mhi_chan_type;
+	enum MHI_CHAN_DIR mhi_chan_type;
 	u32 mhi_event_ring_index;
 	u64 mhi_trb_ring_base_addr;
 	u64 mhi_trb_ring_len;
@@ -262,7 +269,7 @@ struct mhi_ring {
 	uintptr_t len;
 	uintptr_t el_size;
 	u32 overwrite_en;
-	enum MHI_CHAN_TYPE dir;
+	enum MHI_CHAN_DIR dir;
 };
 
 enum MHI_CMD_STATUS {
@@ -424,6 +431,10 @@ struct dev_mmio_info {
 	void __iomem *cmd_db_addr;
 	u64 mmio_len;
 	u32 nr_event_rings;
+	u32 nr_hw_event_rings;
+	u32 nr_sw_event_rings;
+	u32 nr_sw_xfer_rings;
+	u32 nr_hw_xfer_rings;
 	dma_addr_t dma_ev_ctxt; /* Bus address of ECABAP*/
 };
 
@@ -527,6 +538,7 @@ struct mhi_event_ring_cfg {
 	u32 msi_vec;
 	u32 intmod;
 	u32 flags;
+	enum MHI_RING_CLASS class;
 	enum MHI_EVENT_RING_STATE state;
 	irqreturn_t (*mhi_handler_ptr)(int , void *);
 };
@@ -562,7 +574,7 @@ int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 				   uintptr_t trb_list_phy,
 				   uintptr_t trb_list_virt,
 				   u64 el_per_ring,
-				   enum MHI_CHAN_TYPE chan_type,
+				   enum MHI_CHAN_DIR chan_type,
 				   u32 event_ring,
 				   struct mhi_ring *ring,
 				   enum MHI_CHAN_STATE chan_state);

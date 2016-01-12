@@ -587,7 +587,7 @@ error_during_props:
  */
 int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 		uintptr_t trb_list_phy, uintptr_t trb_list_virt,
-		u64 el_per_ring, enum MHI_CHAN_TYPE chan_type,
+		u64 el_per_ring, enum MHI_CHAN_DIR chan_type,
 		u32 event_ring, struct mhi_ring *ring,
 		enum MHI_CHAN_STATE chan_state)
 {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,14 @@ int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt)
 		else
 			mhi_dev_ctxt->ev_ring_props[i].mhi_handler_ptr =
 							mhi_msi_ipa_handlr;
+		if (MHI_HW_RING == GET_EV_PROPS(EV_TYPE,
+			mhi_dev_ctxt->ev_ring_props[i].flags)) {
+			mhi_dev_ctxt->ev_ring_props[i].class = MHI_HW_RING;
+			mhi_dev_ctxt->mmio_info.nr_sw_event_rings++;
+		} else {
+			mhi_dev_ctxt->ev_ring_props[i].class = MHI_SW_RING;
+			mhi_dev_ctxt->mmio_info.nr_hw_event_rings++;
+		}
 	}
 dt_error:
 	return r;
