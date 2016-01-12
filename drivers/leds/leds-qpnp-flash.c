@@ -516,27 +516,28 @@ static const struct file_operations flash_led_dfs_dbg_feature_fops = {
 };
 
 static int
-qpnp_led_masked_write(struct spmi_device *spmi_dev, u16 addr, u8 mask, u8 val)
+qpnp_led_masked_write(struct qpnp_flash_led *led, u16 addr, u8 mask, u8 val)
 {
 	int rc;
 	u8 reg;
 
-	rc = spmi_ext_register_readl(spmi_dev->ctrl, spmi_dev->sid,
+	rc = spmi_ext_register_readl(led->spmi_dev->ctrl, led->spmi_dev->sid,
 					addr, &reg, 1);
 	if (rc)
-		dev_err(&spmi_dev->dev,
+		dev_err(&led->spmi_dev->dev,
 			"Unable to read from addr=%x, rc(%d)\n", addr, rc);
 
 	reg &= ~mask;
 	reg |= val;
 
-	rc = spmi_ext_register_writel(spmi_dev->ctrl, spmi_dev->sid,
+	rc = spmi_ext_register_writel(led->spmi_dev->ctrl, led->spmi_dev->sid,
 					addr, &reg, 1);
 	if (rc)
-		dev_err(&spmi_dev->dev,
+		dev_err(&led->spmi_dev->dev,
 			"Unable to write to addr=%x, rc(%d)\n", addr, rc);
 
-	dev_dbg(&spmi_dev->dev, "Write 0x%02X to addr 0x%02X\n", val, addr);
+	dev_dbg(&led->spmi_dev->dev, "Write 0x%02X to addr 0x%02X\n",
+			val, addr);
 
 	return rc;
 }
@@ -621,7 +622,7 @@ qpnp_flash_led_get_max_avail_current(struct flash_node_data *flash_node,
 		* resolution reading.
 		*/
 		if (led->charging_enabled) {
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 				FLASH_MODULE_ENABLE_CTRL(led->base),
 				FLASH_MODULE_ENABLE, FLASH_MODULE_ENABLE);
 			if (rc) {
@@ -946,7 +947,7 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 	tmp = (~flash_node->trigger) & val;
 	if (!tmp) {
 		if (flash_node->type == TORCH) {
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 				FLASH_LED_UNLOCK_SECURE(led->base),
 				FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
 			if (rc) {
@@ -955,7 +956,7 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 				return -EINVAL;
 			}
 
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 				FLASH_TORCH(led->base),
 				FLASH_TORCH_MASK, FLASH_LED_TORCH_DISABLE);
 			if (rc) {
@@ -979,7 +980,7 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			}
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 				FLASH_MODULE_ENABLE_CTRL(led->base),
 				FLASH_MODULE_ENABLE_MASK,
 				FLASH_LED_MODULE_CTRL_DEFAULT);
@@ -1014,7 +1015,7 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 	}
 
 	if (flash_node->trigger & FLASH_LED0_TRIGGER) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 				led->current_addr,
 				FLASH_CURRENT_MASK, 0x00);
 		if (rc) {
@@ -1022,11 +1023,10 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 				"current register write failed\n");
 			return -EINVAL;
 		}
-
 	}
 
 	if (flash_node->trigger & FLASH_LED1_TRIGGER) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 				led->current2_addr,
 				FLASH_CURRENT_MASK, 0x00);
 		if (rc) {
@@ -1216,7 +1216,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	}
 
 	if (led->dbg_feature_en) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 						INT_SET_TYPE(led->base),
 						FLASH_STATUS_REG_MASK, 0x1F);
 		if (rc) {
@@ -1225,7 +1225,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto exit_flash_led_work;
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 					IN_POLARITY_HIGH(led->base),
 					FLASH_STATUS_REG_MASK, 0x1F);
 		if (rc) {
@@ -1234,7 +1234,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto exit_flash_led_work;
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 					INT_EN_SET(led->base),
 					FLASH_STATUS_REG_MASK, 0x1F);
 		if (rc) {
@@ -1243,7 +1243,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto exit_flash_led_work;
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 					INT_LATCHED_CLR(led->base),
 					FLASH_STATUS_REG_MASK, 0x1F);
 		if (rc) {
@@ -1254,7 +1254,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	}
 
 	if (flash_node->type == TORCH) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 			FLASH_LED_UNLOCK_SECURE(led->base),
 			FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
 		if (rc) {
@@ -1263,7 +1263,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto exit_flash_led_work;
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 			FLASH_TORCH(led->base),
 			FLASH_TORCH_MASK, FLASH_LED_TORCH_ENABLE);
 		if (rc) {
@@ -1276,7 +1276,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			val = (u8)(flash_node->prgm_current *
 						FLASH_TORCH_MAX_LEVEL
 						/ flash_node->max_current);
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 						led->current_addr,
 						FLASH_CURRENT_MASK, val);
 			if (rc) {
@@ -1288,7 +1288,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			val = (u8)(flash_node->prgm_current2 *
 						FLASH_TORCH_MAX_LEVEL
 						/ flash_node->max_current);
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 					led->current2_addr,
 					FLASH_CURRENT_MASK, val);
 			if (rc) {
@@ -1301,7 +1301,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 						FLASH_TORCH_MAX_LEVEL /
 						flash_node->max_current);
 			if (flash_node->id == FLASH_LED_0) {
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 						led->current_addr,
 						FLASH_CURRENT_MASK, val);
 				if (rc) {
@@ -1310,7 +1310,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					goto exit_flash_led_work;
 				}
 			} else {
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 						led->current2_addr,
 						FLASH_CURRENT_MASK, val);
 				if (rc) {
@@ -1321,7 +1321,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			}
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 			FLASH_MAX_CURRENT(led->base),
 			FLASH_CURRENT_MASK, FLASH_TORCH_MAX_LEVEL);
 		if (rc) {
@@ -1330,7 +1330,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto exit_flash_led_work;
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 			FLASH_MODULE_ENABLE_CTRL(led->base),
 			FLASH_MODULE_ENABLE_MASK, FLASH_MODULE_ENABLE);
 		if (rc) {
@@ -1342,7 +1342,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		if (led->pdata->hdrm_sns_ch0_en ||
 						led->pdata->hdrm_sns_ch1_en) {
 			if (flash_node->id == FLASH_LED_SWITCH) {
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					flash_node->trigger &
@@ -1355,7 +1355,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					goto exit_flash_led_work;
 				}
 
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					flash_node->trigger &
@@ -1368,7 +1368,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					goto exit_flash_led_work;
 				}
 			} else if (flash_node->id == FLASH_LED_0) {
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					FLASH_LED_HDRM_SNS_ENABLE);
@@ -1378,7 +1378,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					goto exit_flash_led_work;
 				}
 			} else if (flash_node->id == FLASH_LED_1) {
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					FLASH_LED_HDRM_SNS_ENABLE);
@@ -1390,7 +1390,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			}
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 			FLASH_LED_STROBE_CTRL(led->base),
 			(flash_node->id == FLASH_LED_SWITCH ? FLASH_STROBE_MASK
 						| FLASH_LED_STROBE_TYPE_HW
@@ -1466,7 +1466,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 			val = (u8)(flash_node->prgm_current *
 				FLASH_MAX_LEVEL / flash_node->max_current);
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 				led->current_addr, FLASH_CURRENT_MASK, val);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
@@ -1476,7 +1476,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 			val = (u8)(flash_node->prgm_current2 *
 				FLASH_MAX_LEVEL / flash_node->max_current);
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 				led->current2_addr, FLASH_CURRENT_MASK, val);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
@@ -1498,7 +1498,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					/ flash_node->max_current);
 			if (flash_node->id == FLASH_LED_0) {
 				rc = qpnp_led_masked_write(
-					led->spmi_dev,
+					led,
 					led->current_addr,
 					FLASH_CURRENT_MASK, val);
 				if (rc) {
@@ -1508,7 +1508,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 				}
 			} else if (flash_node->id == FLASH_LED_1) {
 				rc = qpnp_led_masked_write(
-					led->spmi_dev,
+					led,
 					led->current2_addr,
 					FLASH_CURRENT_MASK, val);
 				if (rc) {
@@ -1521,7 +1521,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 		val = (u8)((flash_node->duration - FLASH_DURATION_DIVIDER)
 						/ FLASH_DURATION_DIVIDER);
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 			FLASH_SAFETY_TIMER(led->base),
 			FLASH_SAFETY_TIMER_MASK, val);
 		if (rc) {
@@ -1530,7 +1530,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto exit_flash_led_work;
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 			FLASH_MAX_CURRENT(led->base),
 			FLASH_CURRENT_MASK, FLASH_MAX_LEVEL);
 		if (rc) {
@@ -1540,7 +1540,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		}
 
 		if (!led->charging_enabled) {
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 				FLASH_MODULE_ENABLE_CTRL(led->base),
 				FLASH_MODULE_ENABLE, FLASH_MODULE_ENABLE);
 			if (rc) {
@@ -1568,7 +1568,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		if (led->pdata->hdrm_sns_ch0_en ||
 					led->pdata->hdrm_sns_ch1_en) {
 			if (flash_node->id == FLASH_LED_SWITCH) {
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					(flash_node->trigger &
@@ -1581,7 +1581,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					goto exit_flash_led_work;
 				}
 
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					(flash_node->trigger &
@@ -1594,7 +1594,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					goto exit_flash_led_work;
 				}
 			} else if (flash_node->id == FLASH_LED_0) {
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					FLASH_LED_HDRM_SNS_ENABLE);
@@ -1604,7 +1604,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 					goto exit_flash_led_work;
 				}
 			} else if (flash_node->id == FLASH_LED_1) {
-				rc = qpnp_led_masked_write(led->spmi_dev,
+				rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					FLASH_LED_HDRM_SNS_ENABLE);
@@ -1616,7 +1616,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			}
 		}
 
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 			FLASH_LED_STROBE_CTRL(led->base),
 			(flash_node->id == FLASH_LED_SWITCH ? FLASH_STROBE_MASK
 						| FLASH_LED_STROBE_TYPE_HW
@@ -1674,7 +1674,7 @@ turn_off:
 		led->open_fault = (val & FLASH_LED_OPEN_FAULT_DETECTED);
 	}
 
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 			FLASH_LED_STROBE_CTRL(led->base),
 			(flash_node->id == FLASH_LED_SWITCH ? FLASH_STROBE_MASK
 						| FLASH_LED_STROBE_TYPE_HW
@@ -1691,7 +1691,7 @@ exit_flash_hdrm_sns:
 	if (led->pdata->hdrm_sns_ch0_en) {
 		if (flash_node->id == FLASH_LED_0 ||
 				flash_node->id == FLASH_LED_SWITCH) {
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					FLASH_LED_HDRM_SNS_DISABLE);
@@ -1706,7 +1706,7 @@ exit_flash_hdrm_sns:
 	if (led->pdata->hdrm_sns_ch1_en) {
 		if (flash_node->id == FLASH_LED_1 ||
 				flash_node->id == FLASH_LED_SWITCH) {
-			rc = qpnp_led_masked_write(led->spmi_dev,
+			rc = qpnp_led_masked_write(led,
 					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
 					FLASH_LED_HDRM_SNS_ENABLE_MASK,
 					FLASH_LED_HDRM_SNS_DISABLE);
@@ -1805,7 +1805,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	int rc;
 	u8 val, temp_val;
 
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 			FLASH_MODULE_ENABLE_CTRL(led->base),
 			FLASH_MODULE_ENABLE_MASK,
 			FLASH_LED_MODULE_CTRL_DEFAULT);
@@ -1814,7 +1814,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		return rc;
 	}
 
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 			FLASH_LED_STROBE_CTRL(led->base),
 			FLASH_STROBE_MASK, FLASH_LED_DISABLE);
 	if (rc) {
@@ -1822,7 +1822,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		return rc;
 	}
 
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 					FLASH_LED_TMR_CTRL(led->base),
 					FLASH_TMR_MASK, FLASH_TMR_SAFETY);
 	if (rc) {
@@ -1833,7 +1833,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 	val = (u8)(led->pdata->headroom / FLASH_LED_HEADROOM_DIVIDER -
 						FLASH_LED_HEADROOM_OFFSET);
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 						FLASH_HEADROOM(led->base),
 						FLASH_HEADROOM_MASK, val);
 	if (rc) {
@@ -1843,7 +1843,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 	val = qpnp_flash_led_get_startup_dly(led->pdata->startup_dly);
 
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 					FLASH_STARTUP_DELAY(led->base),
 						FLASH_STARTUP_DLY_MASK, val);
 	if (rc) {
@@ -1854,7 +1854,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 	val = (u8)(led->pdata->clamp_current * FLASH_MAX_LEVEL /
 						FLASH_LED_MAX_CURRENT_MA);
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 					FLASH_CLAMP_CURRENT(led->base),
 						FLASH_CURRENT_MASK, val);
 	if (rc) {
@@ -1867,7 +1867,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		val = FLASH_LED_FLASH_HW_VREG_OK;
 	else
 		val = FLASH_LED_FLASH_SW_VREG_OK;
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 					FLASH_VREG_OK_FORCE(led->base),
 						FLASH_VREG_OK_FORCE_MASK, val);
 	if (rc) {
@@ -1880,7 +1880,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		val = FLASH_MODULE_ENABLE;
 	else
 		val = FLASH_LED_DISABLE;
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 					FLASH_FAULT_DETECT(led->base),
 						FLASH_FAULT_DETECT_MASK, val);
 	if (rc) {
@@ -1892,7 +1892,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	val = 0x0;
 	val |= led->pdata->mask3_en << FLASH_LED_MASK3_ENABLE_SHIFT;
 	val |= FLASH_LED_MASK_MODULE_MASK2_ENABLE;
-	rc = qpnp_led_masked_write(led->spmi_dev, FLASH_MASK_ENABLE(led->base),
+	rc = qpnp_led_masked_write(led, FLASH_MASK_ENABLE(led->base),
 				FLASH_MASK_MODULE_CONTRL_MASK, val);
 	if (rc) {
 		dev_err(&led->spmi_dev->dev, "Mask module enable failed\n");
@@ -1911,7 +1911,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	}
 
 	if (led->pdata->follow_rb_disable) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 				FLASH_LED_UNLOCK_SECURE(led->base),
 				FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
 		if (rc) {
@@ -1921,7 +1921,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		}
 
 		val |= FLASH_FOLLOW_OTST2_RB_MASK;
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 				FLASH_PERPH_RESET_CTRL(led->base),
 				FLASH_FOLLOW_OTST2_RB_MASK, val);
 		if (rc) {
@@ -1930,7 +1930,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 			return rc;
 		}
 	} else {
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 				FLASH_LED_UNLOCK_SECURE(led->base),
 				FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
 		if (rc) {
@@ -1940,7 +1940,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		}
 
 		val &= ~FLASH_FOLLOW_OTST2_RB_MASK;
-		rc = qpnp_led_masked_write(led->spmi_dev,
+		rc = qpnp_led_masked_write(led,
 				FLASH_PERPH_RESET_CTRL(led->base),
 				FLASH_FOLLOW_OTST2_RB_MASK, val);
 		if (rc) {
@@ -1959,7 +1959,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 				FLASH_LED_THERMAL_THRESHOLD_MIN) /
 				FLASH_LED_THERMAL_DEVIDER;
 	}
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 					FLASH_THERMAL_DRATE(led->base),
 					FLASH_THERMAL_DERATE_MASK, val);
 	if (rc) {
@@ -1974,7 +1974,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		val |= led->pdata->ramp_up_step << 3;
 		val |= led->pdata->ramp_dn_step;
 	}
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 						FLASH_CURRENT_RAMP(led->base),
 						FLASH_CURRENT_RAMP_MASK, val);
 	if (rc) {
@@ -1999,7 +1999,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 		val |= temp_val;
 	}
-	rc = qpnp_led_masked_write(led->spmi_dev,
+	rc = qpnp_led_masked_write(led,
 						FLASH_VPH_PWR_DROOP(led->base),
 						FLASH_VPH_PWR_DROOP_MASK, val);
 	if (rc) {
