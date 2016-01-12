@@ -728,11 +728,21 @@ void pm_qos_remove_request(struct pm_qos_request *req)
 		/* silent return to keep pcm code cleaner */
 
 	if (!pm_qos_request_active(req)) {
-		WARN(1, KERN_ERR "pm_qos_remove_request() called for unknown object\n");
+		WARN(1, "%s called for unknown object\n", __func__);
 		return;
 	}
 
 	cancel_delayed_work_sync(&req->work);
+
+#ifdef CONFIG_SMP
+	if (req->type == PM_QOS_REQ_AFFINE_IRQ) {
+		int ret = 0;
+		/* Get the current affinity */
+		ret = irq_set_affinity_notifier(req->irq, NULL);
+		if (ret)
+			WARN(1, "IRQ affinity notify set failed\n");
+	}
+#endif
 
 	trace_pm_qos_remove_request(req->pm_qos_class, PM_QOS_DEFAULT_VALUE);
 	pm_qos_update_target(pm_qos_array[req->pm_qos_class]->constraints,
