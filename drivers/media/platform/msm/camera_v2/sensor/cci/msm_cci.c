@@ -27,7 +27,9 @@
 
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 64
+#define CCI_I2C_Q0_SIZE_128W 128
 #define CCI_I2C_QUEUE_1_SIZE 16
+#define CCI_I2C_Q1_SIZE_32W 32
 #define CYCLES_PER_MICRO_SEC_DEFAULT 4915
 #define CCI_MAX_DELAY 1000000
 
@@ -1248,7 +1250,7 @@ static int32_t msm_cci_i2c_set_sync_prms(struct v4l2_subdev *sd,
 static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *c_ctrl)
 {
-	uint8_t i = 0;
+	uint8_t i = 0, j = 0;
 	int32_t rc = 0, ret = 0;
 	struct cci_device *cci_dev;
 	enum cci_i2c_master_t master = MASTER_0;
@@ -1369,6 +1371,35 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 			MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_11;
 		cci_dev->support_seq_write = 1;
 	}
+	for (i = 0; i < NUM_MASTERS; i++) {
+		for (j = 0; j < NUM_QUEUES; j++) {
+			if (j == QUEUE_0) {
+				if (cci_dev->hw_version >= 0x10060000)
+					cci_dev->cci_i2c_queue_info[i][j].
+						max_queue_size =
+							CCI_I2C_Q0_SIZE_128W;
+				else
+					cci_dev->cci_i2c_queue_info[i][j].
+						max_queue_size =
+							CCI_I2C_QUEUE_0_SIZE;
+			} else  {
+				if (cci_dev->hw_version >= 0x10060000)
+					cci_dev->cci_i2c_queue_info[i][j].
+						max_queue_size =
+							CCI_I2C_Q1_SIZE_32W;
+				else
+					cci_dev->cci_i2c_queue_info[i][j].
+						max_queue_size =
+							CCI_I2C_QUEUE_1_SIZE;
+			}
+			CDBG("CCI Master[%d] :: Q0 size: %d Q1 size: %d\n", i,
+				cci_dev->cci_i2c_queue_info[i][j].
+				max_queue_size,
+				cci_dev->cci_i2c_queue_info[i][j].
+				max_queue_size);
+		}
+	}
+
 	cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
 	msm_camera_io_w_mb(CCI_RESET_CMD_RMSK, cci_dev->base +
 			CCI_RESET_CMD_ADDR);
@@ -1737,12 +1768,6 @@ static void msm_cci_init_cci_params(struct cci_device *new_cci_dev)
 			mutex_init(&new_cci_dev->cci_master_info[i].mutex_q[j]);
 			init_completion(&new_cci_dev->
 				cci_master_info[i].report_q[j]);
-			if (j == QUEUE_0)
-				new_cci_dev->cci_i2c_queue_info[i][j].
-					max_queue_size = CCI_I2C_QUEUE_0_SIZE;
-			else
-				new_cci_dev->cci_i2c_queue_info[i][j].
-					max_queue_size = CCI_I2C_QUEUE_1_SIZE;
 			}
 	}
 	return;
