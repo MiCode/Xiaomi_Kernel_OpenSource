@@ -296,4 +296,15 @@
 		qcom,master-en = <1>;
 		status = "okay";
 	};
+
+	/* GPIO 5 (ADV7533 DSI2HDMI) */
+	gpio@c400 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
+
 };
