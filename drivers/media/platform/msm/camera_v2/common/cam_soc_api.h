@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,17 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <soc/qcom/camera2.h>
-#include "cam_hw_ops.h"
+
+enum cam_bus_client {
+	CAM_BUS_CLIENT_VFE,
+	CAM_BUS_CLIENT_CPP,
+	CAM_BUS_CLIENT_FD,
+	CAM_BUS_CLIENT_JPEG_ENC0,
+	CAM_BUS_CLIENT_JPEG_ENC1,
+	CAM_BUS_CLIENT_JPEG_DEC,
+	CAM_BUS_CLIENT_JPEG_DMA,
+	CAM_BUS_CLIENT_MAX
+};
 
 /**
  * @brief      : Gets clock information from dtsi
@@ -32,7 +42,7 @@
  *
  * @param pdev   : Platform device to get clocks information
  * @param clk_info   : Pointer to populate clock information array
- * @param clk_info   : Pointer to populate clock resource pointers
+ * @param clk_ptr   : Pointer to populate clock resource pointers
  * @param num_clk: Pointer to populate the number of clocks
  *                 extracted from dtsi
  *
@@ -43,6 +53,30 @@ int msm_camera_get_clk_info(struct platform_device *pdev,
 			struct msm_cam_clk_info **clk_info,
 			struct clk ***clk_ptr,
 			size_t *num_clk);
+/**
+ * @brief      : Gets clock information and rates from dtsi
+ *
+ * This function extracts the clocks information for a specific
+ * platform device
+ *
+ * @param pdev   : Platform device to get clocks information
+ * @param clk_info   : Pointer to populate clock information array
+ * @param clk_ptr   : Pointer to populate clock resource pointers
+ * @param clk_rates   : Pointer to populate clock rates
+ * @param num_set: Pointer to populate the number of sets of rates
+ * @param num_clk: Pointer to populate the number of clocks
+ *                 extracted from dtsi
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int msm_camera_get_clk_info_and_rates(
+			struct platform_device *pdev,
+			struct msm_cam_clk_info **clk_info,
+			struct clk ***clk_ptr,
+			uint32_t ***clk_rates,
+			size_t *num_set,
+			size_t *num_clk);
+
 /**
  * @brief      : Puts clock information
  *
@@ -58,6 +92,25 @@ int msm_camera_get_clk_info(struct platform_device *pdev,
 int msm_camera_put_clk_info(struct platform_device *pdev,
 				struct msm_cam_clk_info **clk_info,
 				struct clk ***clk_ptr, int cnt);
+/**
+ * @brief      : Puts clock information
+ *
+ * This function releases the memory allocated for the clocks
+ *
+ * @param pdev   : Pointer to platform device
+ * @param clk_info   : Pointer to release the allocated memory
+ * @param clk_ptr   : Pointer to release the clock resources
+ * @param clk_ptr   : Pointer to release the clock rates
+ * @param set   : Number of sets of clock rates
+ * @param cnt   : Number of clk resources
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+
+int msm_camera_put_clk_info_and_rates(struct platform_device *pdev,
+		struct msm_cam_clk_info **clk_info,
+		struct clk ***clk_ptr, uint32_t ***clk_rates,
+		size_t set, size_t cnt);
 /**
  * @brief      : Enable clocks
  *
@@ -160,6 +213,7 @@ struct resource *msm_camera_get_irq(struct platform_device *pdev,
  * @param pdev    : Platform device to register IRQ resource
  * @param irq	  : IRQ resource
  * @param handler : IRQ handler
+ * @param irqflags : IRQ flags
  * @param irq_name: Name of the IRQ
  * @param dev	 : Token of the device
  *
@@ -169,6 +223,31 @@ struct resource *msm_camera_get_irq(struct platform_device *pdev,
 int msm_camera_register_irq(struct platform_device *pdev,
 						struct resource *irq,
 						irq_handler_t handler,
+						unsigned long irqflags,
+						char *irq_name,
+						void *dev);
+
+/**
+ * @brief      : Register the threaded IRQ
+ *
+ * This function registers the irq resource for specified hardware
+ *
+ * @param pdev    : Platform device to register IRQ resource
+ * @param irq	  : IRQ resource
+ * @param handler_fn : IRQ handler function
+ * @param thread_fn : thread handler function
+ * @param irqflags : IRQ flags
+ * @param irq_name: Name of the IRQ
+ * @param dev	 : Token of the device
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+
+int msm_camera_register_threaded_irq(struct platform_device *pdev,
+						struct resource *irq,
+						irq_handler_t handler_fn,
+						irq_handler_t thread_fn,
+						unsigned long irqflags,
 						char *irq_name,
 						void *dev);
 
@@ -208,12 +287,14 @@ int msm_camera_unregister_irq(struct platform_device *pdev,
  *
  * @param pdev   : Platform device to get regulator infor
  * @param device_name   : Name of the device to fetch the register base
+ * @param reserve_mem   : Flag to decide whether to reserve memory
+ * region or not.
  *
  * @return Pointer to resource if success else null
  */
 
 void __iomem *msm_camera_get_reg_base(struct platform_device *pdev,
-		char *device_name);
+		char *device_name, int reserve_mem);
 
 /**
  * @brief      :  Puts device register base
@@ -224,27 +305,28 @@ void __iomem *msm_camera_get_reg_base(struct platform_device *pdev,
  * @param pdev   : Pointer to platform device
  * @param base   : Pointer to base to unmap
  * @param device_name : Device name
+ * @param reserve_mem   : Flag to decide whether to release memory
+ * region or not.
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 
 int msm_camera_put_reg_base(struct platform_device *pdev, void __iomem *base,
-		char *device_name);
+		char *device_name, int reserve_mem);
 
 /**
  * @brief      : Register the bus client
  *
  * This function registers the bus client
  *
- * @param client_id : client identifier
  * @param pdev : Pointer to platform device
- * @param vector_index : vector index to register
+ * @param id : client identifier
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 
 uint32_t msm_camera_register_bus_client(struct platform_device *pdev,
-	enum cam_ahb_clk_client id);
+	enum cam_bus_client id);
 
 /**
  * @brief      : Update bus vector
@@ -257,7 +339,7 @@ uint32_t msm_camera_register_bus_client(struct platform_device *pdev,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 
-uint32_t msm_camera_update_bus_vector(enum cam_ahb_clk_client id,
+uint32_t msm_camera_update_bus_vector(enum cam_bus_client id,
 	int vector_index);
 
 /**
@@ -284,6 +366,21 @@ uint32_t msm_camera_update_bus_bw(int id, uint64_t ab, uint64_t ib);
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 
-uint32_t msm_camera_unregister_bus_client(enum cam_ahb_clk_client id);
+uint32_t msm_camera_unregister_bus_client(enum cam_bus_client id);
+
+/**
+ * @brief      : Gets resource size
+ *
+ * This function returns the size of the resource for the
+ * specified platform device
+ *
+ * @param pdev   : Platform device to get regulator infor
+ * @param device_name   : Name of the device to fetch the register base
+ *
+ * @return size of the resource
+ */
+
+uint32_t msm_camera_get_res_size(struct platform_device *pdev,
+	char *device_name);
 
 #endif
