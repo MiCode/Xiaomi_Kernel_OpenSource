@@ -1019,7 +1019,6 @@ static int bcl_probe(struct spmi_device *spmi)
 		pr_err("Memory alloc failed\n");
 		return -ENOMEM;
 	}
-	memset(bcl_perph, 0, sizeof(struct bcl_device));
 	bcl_perph->spmi = spmi;
 	bcl_perph->dev = &(spmi->dev);
 
