@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ctrls.h>
 #include <linux/msm-bus.h>
+#include "cam_soc_api.h"
 
 /* Max number of clocks defined in device tree */
 #define MSM_JPEGDMA_MAX_CLK 10
@@ -330,16 +331,15 @@ struct msm_jpegdma_device {
 	int ref_count;
 
 	int irq_num;
-	struct resource *res_mem[MSM_JPEGDMA_IOMEM_LAST];
 	void __iomem *iomem_base[MSM_JPEGDMA_IOMEM_LAST];
-	struct resource *ioarea[MSM_JPEGDMA_IOMEM_LAST];
 
-	struct regulator *vdd[MSM_JPEGDMA_MAX_REGULATOR_NUM];
-	unsigned int regulator_num;
+	struct resource *irq;
+	struct regulator **vdd;
+	int num_reg;
 
-	unsigned int clk_num;
-	struct clk *clk[MSM_JPEGDMA_MAX_CLK];
-	unsigned int clk_rates[MSM_JPEGDMA_MAX_CLK];
+	struct clk **clk;
+	size_t num_clk;
+	struct msm_cam_clk_info *jpeg_clk_info;
 
 	unsigned int vbif_regs_num;
 	struct jpegdma_reg_cfg *vbif_regs;
@@ -348,7 +348,7 @@ struct msm_jpegdma_device {
 	unsigned int prefetch_regs_num;
 	struct jpegdma_reg_cfg *prefetch_regs;
 
-	uint32_t bus_client;
+	enum cam_bus_client bus_client;
 	struct msm_bus_vectors bus_vectors;
 	struct msm_bus_paths bus_paths;
 	struct msm_bus_scale_pdata bus_scale_data;
@@ -366,6 +366,7 @@ struct msm_jpegdma_device {
 	struct completion hw_reset_completion;
 	struct completion hw_halt_completion;
 	u64 active_clock_rate;
+	struct platform_device *pdev;
 };
 
 void msm_jpegdma_isr_processing_done(struct msm_jpegdma_device *dma);
