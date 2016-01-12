@@ -1407,7 +1407,7 @@ static struct rcg_clk byte0_clk_src = {
 	.base = &virt_bases[MDSS_BASE],
 	.c = {
 		.dbg_name = "byte0_clk_src",
-		.ops = &clk_ops_pixel_multiparent,
+		.ops = &clk_ops_byte_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOW_SVS, 131250000, SVS, 210000000, NOM,
 				262500000),
@@ -1445,7 +1445,7 @@ static struct rcg_clk byte1_clk_src = {
 	.base = &virt_bases[MDSS_BASE],
 	.c = {
 		.dbg_name = "byte1_clk_src",
-		.ops = &clk_ops_pixel_multiparent,
+		.ops = &clk_ops_byte_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOW_SVS, 131250000, SVS, 210000000, NOM,
 				262500000),
@@ -1990,7 +1990,7 @@ static struct branch_clk gcc_camss_cpp_axi_clk = {
 
 static struct branch_clk gcc_camss_cpp_clk = {
 	.cbcr_reg = CAMSS_CPP_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_cpp_clk",
@@ -2266,7 +2266,7 @@ static struct branch_clk gcc_camss_gp1_clk = {
 
 static struct branch_clk gcc_camss_ispif_ahb_clk = {
 	.cbcr_reg = CAMSS_ISPIF_AHB_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_ispif_ahb_clk",
