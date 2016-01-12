@@ -562,12 +562,10 @@ static void process_tx_done(struct work_struct *work)
 	riid = ch_work->iid;
 	einfo = ch->edge;
 	kfree(ch_work);
-	mutex_lock(&einfo->rx_cmd_lock);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_tx_done(&einfo->xprt_if,
 								ch->rcid,
 								riid,
 								false);
-	mutex_unlock(&einfo->rx_cmd_lock);
 }
 
 /**
@@ -660,11 +658,9 @@ static void process_status_event(struct work_struct *work)
 	if (set & TIOCM_RI)
 		sigs |= SMD_RI_SIG;
 
-	mutex_lock(&einfo->rx_cmd_lock);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_remote_sigs(&einfo->xprt_if,
 								ch->rcid,
 								sigs);
-	mutex_unlock(&einfo->rx_cmd_lock);
 }
 
 /**
@@ -750,13 +746,11 @@ static void process_data_event(struct work_struct *work)
 					__func__, ch->name,
 					ch->lcid, ch->rcid);
 				ch->intent_req = true;
-				mutex_lock(&einfo->rx_cmd_lock);
 				einfo->xprt_if.glink_core_if_ptr->
 						rx_cmd_remote_rx_intent_req(
 								&einfo->xprt_if,
 								ch->rcid,
 								pkt_remaining);
-				mutex_unlock(&einfo->rx_cmd_lock);
 				return;
 			}
 		}
@@ -1090,14 +1084,12 @@ static void tx_cmd_version(struct glink_transport_if *if_ptr, uint32_t version,
 	struct edge_info *einfo;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
-	mutex_lock(&einfo->rx_cmd_lock);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_version_ack(&einfo->xprt_if,
 								version,
 								features);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_version(&einfo->xprt_if,
 								version,
 								features);
-	mutex_unlock(&einfo->rx_cmd_lock);
 }
 
 /**
@@ -1776,7 +1768,6 @@ static int tx_cmd_rx_intent_req(struct glink_transport_if *if_ptr,
 			break;
 	}
 	spin_unlock_irqrestore(&einfo->channels_lock, flags);
-	mutex_lock(&einfo->rx_cmd_lock);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_rx_intent_req_ack(
 								&einfo->xprt_if,
 								ch->rcid,
@@ -1786,7 +1777,6 @@ static int tx_cmd_rx_intent_req(struct glink_transport_if *if_ptr,
 							ch->rcid,
 							ch->next_intent_id++,
 							size);
-	mutex_unlock(&einfo->rx_cmd_lock);
 	return 0;
 }
 
