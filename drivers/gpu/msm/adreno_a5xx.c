@@ -339,6 +339,10 @@ static int a5xx_preemption_pre_ibsubmit(
 		*cmds++ = 0;
 	}
 
+	/* Enable CP_CONTEXT_SWITCH_YIELD packets in the IB2s */
+	*cmds++ = cp_type7_packet(CP_YIELD_ENABLE, 1);
+	*cmds++ = 2;
+
 	return cmds - cmds_orig;
 }
 
