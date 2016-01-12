@@ -68,6 +68,8 @@ Optional properties:
 			     the number of adjustment in 2 ^ -26 ns.
 - no-ephy : Specifies in case there is no external phy present in ACPI mode.
 - tstamp-eble : Enables the PTP (1588) timestamping feature in ACPI mode.
+- <supply-name>-supply: phandle to the regulator device tree node
+			Required "supply-name" are "emac_vreg*"
 
 Example1:
 	emac0: qcom,emac@feb20000 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1315,8 +1315,10 @@
 				"emac_sgmii_irq",
 				"emac_wol_irq";
 		emac_vreg1-supply = <&mdm9607_l1>;
-		emac_vreg2-supply = <&mdm9607_l5>;
-		emac_vreg3-supply = <&emac_lan_vreg>;
+		emac_vreg2-supply = <&mdm9607_l3>;
+		emac_vreg3-supply = <&mdm9607_l5>;
+		emac_vreg4-supply = <&mdm9607_l11>;
+		emac_vreg5-supply = <&emac_lan_vreg>;
 		clocks = <&clock_gcc clk_gcc_emac_0_axi_clk>,
 			 <&clock_gcc clk_gcc_emac_0_ahb_clk>,
 			 <&clock_gcc clk_gcc_emac_0_125m_clk>,
