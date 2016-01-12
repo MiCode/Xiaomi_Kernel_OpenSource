@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -367,14 +367,18 @@ static void msm_hsic_start(void)
 {
 	struct msm_hsic_per *mhsic = the_mhsic;
 	int ret, *seq, seq_count;
+	u32 val;
 
 	/* Program TLMM pad configuration for HSIC */
 	seq = mhsic->pdata->tlmm_init_seq;
 	seq_count = mhsic->pdata->tlmm_seq_count;
 	if (seq && seq_count) {
 		while (seq[0] >= 0 && seq_count > 0) {
-			writel_relaxed(seq[1],
-					mhsic->tlmm_regs + seq[0]);
+			val = readl_relaxed(mhsic->tlmm_regs + seq[0]);
+			val |= seq[1];
+			dev_dbg(mhsic->dev, "%s: writing %x to %p\n",
+				__func__, val, mhsic->tlmm_regs + seq[0]);
+			writel_relaxed(val, mhsic->tlmm_regs + seq[0]);
 			seq += 2;
 			seq_count -= 2;
 		}

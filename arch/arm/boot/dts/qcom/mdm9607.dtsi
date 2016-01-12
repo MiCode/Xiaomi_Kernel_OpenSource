@@ -599,13 +599,13 @@
 	hsic: hsic@7c00000 {
 		compatible = "qcom,hsic-peripheral";
 		reg = <0x7c00000 0x352>,
-		      <0x1112000 0xc>;
+		      <0x1100000 0x1200c>;
 		interrupts = <0 141 0>, <0 142 0>;
 		qcom,hsic-usb-core-id = <1>;
 		vdd-supply = <&mdm9607_l9>;
 		qcom,vdd-voltage-level = <0 1225000 1225000>;
 		qcom,hsic-tlmm-init-seq =
-			<0x8 0x5 0x4 0x5 0x0 0x1>;
+			<0x12008 0x5 0x12004 0x5 0x12000 0x1 0x8 0x400000>;
 		qcom,hsic-disable-on-boot;
 
 		clocks = <&clock_gcc clk_gcc_usb_hsic_ahb_clk>,
