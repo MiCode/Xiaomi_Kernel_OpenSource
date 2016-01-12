@@ -3817,7 +3817,7 @@ static void synchronize_sched_expedited_wait(struct rcu_state *rsp)
 					continue;
 				rdp = per_cpu_ptr(rsp->rda, cpu);
 				pr_cont(" %d-%c%c%c", cpu,
-					"O."[cpu_online(cpu)],
+					"O."[!!cpu_online(cpu)],
 					"o."[!!(rdp->grpmask & rnp->expmaskinit)],
 					"N."[!!(rdp->grpmask & rnp->expmaskinitnext)]);
 			}
