@@ -4632,6 +4632,7 @@ static void enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 			}
 
 			trace_sched_stat_blocked(tsk, delta);
+			trace_sched_blocked_reason(tsk);
 
 			/*
 			 * Blocking time is in units of nanosecs, so shift by
@@ -6786,18 +6787,21 @@ again:
 		 * entity, update_curr() will update its vruntime, otherwise
 		 * forget we've ever seen it.
 		 */
-		if (curr && curr->on_rq)
-			update_curr(cfs_rq);
-		else
-			curr = NULL;
+		if (curr) {
+			if (curr->on_rq)
+				update_curr(cfs_rq);
+			else
+				curr = NULL;
 
-		/*
-		 * This call to check_cfs_rq_runtime() will do the throttle and
-		 * dequeue its entity in the parent(s). Therefore the 'simple'
-		 * nr_running test will indeed be correct.
-		 */
-		if (unlikely(check_cfs_rq_runtime(cfs_rq)))
-			goto simple;
+			/*
+			 * This call to check_cfs_rq_runtime() will do the
+			 * throttle and dequeue its entity in the parent(s).
+			 * Therefore the 'simple' nr_running test will indeed
+			 * be correct.
+			 */
+			if (unlikely(check_cfs_rq_runtime(cfs_rq)))
+				goto simple;
+		}
 
 		se = pick_next_entity(cfs_rq, curr);
 		cfs_rq = group_cfs_rq(se);

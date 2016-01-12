@@ -133,6 +133,24 @@ static inline u32 netlink_group_mask(u32 group)
 	return group ? 1 << (group - 1) : 0;
 }
 
+static struct sk_buff *netlink_to_full_skb(const struct sk_buff *skb,
+					   gfp_t gfp_mask)
+{
+	unsigned int len = skb_end_offset(skb);
+	struct sk_buff *new;
+
+	new = alloc_skb(len, gfp_mask);
+	if (new == NULL)
+		return NULL;
+
+	NETLINK_CB(new).portid = NETLINK_CB(skb).portid;
+	NETLINK_CB(new).dst_group = NETLINK_CB(skb).dst_group;
+	NETLINK_CB(new).creds = NETLINK_CB(skb).creds;
+
+	memcpy(skb_put(new, len), skb->data, len);
+	return new;
+}
+
 int netlink_add_tap(struct netlink_tap *nt)
 {
 	if (unlikely(nt->dev->type != ARPHRD_NETLINK))
@@ -215,7 +233,11 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
 	int ret = -ENOMEM;
 
 	dev_hold(dev);
-	nskb = skb_clone(skb, GFP_ATOMIC);
+
+	if (netlink_skb_is_mmaped(skb) || is_vmalloc_addr(skb->head))
+		nskb = netlink_to_full_skb(skb, GFP_ATOMIC);
+	else
+		nskb = skb_clone(skb, GFP_ATOMIC);
 	if (nskb) {
 		nskb->dev = dev;
 		nskb->protocol = htons((u16) sk->sk_protocol);
@@ -287,11 +309,6 @@ static void netlink_rcv_wake(struct sock *sk)
 }
 
 #ifdef CONFIG_NETLINK_MMAP
-static bool netlink_skb_is_mmaped(const struct sk_buff *skb)
-{
-	return NETLINK_CB(skb).flags & NETLINK_SKB_MMAPED;
-}
-
 static bool netlink_rx_is_mmaped(struct sock *sk)
 {
 	return nlk_sk(sk)->rx_ring.pg_vec != NULL;
@@ -366,25 +383,52 @@ err1:
 	return NULL;
 }
 
+
+static void
+__netlink_set_ring(struct sock *sk, struct nl_mmap_req *req, bool tx_ring, void **pg_vec,
+		   unsigned int order)
+{
+	struct netlink_sock *nlk = nlk_sk(sk);
+	struct sk_buff_head *queue;
+	struct netlink_ring *ring;
+
+	queue = tx_ring ? &sk->sk_write_queue : &sk->sk_receive_queue;
+	ring  = tx_ring ? &nlk->tx_ring : &nlk->rx_ring;
+
+	spin_lock_bh(&queue->lock);
+
+	ring->frame_max		= req->nm_frame_nr - 1;
+	ring->head		= 0;
+	ring->frame_size	= req->nm_frame_size;
+	ring->pg_vec_pages	= req->nm_block_size / PAGE_SIZE;
+
+	swap(ring->pg_vec_len, req->nm_block_nr);
+	swap(ring->pg_vec_order, order);
+	swap(ring->pg_vec, pg_vec);
+
+	__skb_queue_purge(queue);
+	spin_unlock_bh(&queue->lock);
+
+	WARN_ON(atomic_read(&nlk->mapped));
+
+	if (pg_vec)
+		free_pg_vec(pg_vec, order, req->nm_block_nr);
+}
+
 static int netlink_set_ring(struct sock *sk, struct nl_mmap_req *req,
-			    bool closing, bool tx_ring)
+			    bool tx_ring)
 {
 	struct netlink_sock *nlk = nlk_sk(sk);
 	struct netlink_ring *ring;
-	struct sk_buff_head *queue;
 	void **pg_vec = NULL;
 	unsigned int order = 0;
-	int err;
 
 	ring  = tx_ring ? &nlk->tx_ring : &nlk->rx_ring;
-	queue = tx_ring ? &sk->sk_write_queue : &sk->sk_receive_queue;
 
-	if (!closing) {
-		if (atomic_read(&nlk->mapped))
-			return -EBUSY;
-		if (atomic_read(&ring->pending))
-			return -EBUSY;
-	}
+	if (atomic_read(&nlk->mapped))
+		return -EBUSY;
+	if (atomic_read(&ring->pending))
+		return -EBUSY;
 
 	if (req->nm_block_nr) {
 		if (ring->pg_vec != NULL)
@@ -416,31 +460,19 @@ static int netlink_set_ring(struct sock *sk, struct nl_mmap_req *req,
 			return -EINVAL;
 	}
 
-	err = -EBUSY;
 	mutex_lock(&nlk->pg_vec_lock);
-	if (closing || atomic_read(&nlk->mapped) == 0) {
-		err = 0;
-		spin_lock_bh(&queue->lock);
-
-		ring->frame_max		= req->nm_frame_nr - 1;
-		ring->head		= 0;
-		ring->frame_size	= req->nm_frame_size;
-		ring->pg_vec_pages	= req->nm_block_size / PAGE_SIZE;
-
-		swap(ring->pg_vec_len, req->nm_block_nr);
-		swap(ring->pg_vec_order, order);
-		swap(ring->pg_vec, pg_vec);
-
-		__skb_queue_purge(queue);
-		spin_unlock_bh(&queue->lock);
-
-		WARN_ON(atomic_read(&nlk->mapped));
+	if (atomic_read(&nlk->mapped) == 0) {
+		__netlink_set_ring(sk, req, tx_ring, pg_vec, order);
+		mutex_unlock(&nlk->pg_vec_lock);
+		return 0;
 	}
+
 	mutex_unlock(&nlk->pg_vec_lock);
 
 	if (pg_vec)
 		free_pg_vec(pg_vec, order, req->nm_block_nr);
-	return err;
+
+	return -EBUSY;
 }
 
 static void netlink_mm_open(struct vm_area_struct *vma)
@@ -828,7 +860,6 @@ static void netlink_ring_set_copied(struct sock *sk, struct sk_buff *skb)
 }
 
 #else /* CONFIG_NETLINK_MMAP */
-#define netlink_skb_is_mmaped(skb)	false
 #define netlink_rx_is_mmaped(sk)	false
 #define netlink_tx_is_mmaped(sk)	false
 #define netlink_mmap			sock_no_mmap
@@ -909,10 +940,10 @@ static void netlink_sock_destruct(struct sock *sk)
 
 		memset(&req, 0, sizeof(req));
 		if (nlk->rx_ring.pg_vec)
-			netlink_set_ring(sk, &req, true, false);
+			__netlink_set_ring(sk, &req, false, NULL, 0);
 		memset(&req, 0, sizeof(req));
 		if (nlk->tx_ring.pg_vec)
-			netlink_set_ring(sk, &req, true, true);
+			__netlink_set_ring(sk, &req, true, NULL, 0);
 	}
 #endif /* CONFIG_NETLINK_MMAP */
 
@@ -2163,7 +2194,7 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
 			return -EINVAL;
 		if (copy_from_user(&req, optval, sizeof(req)))
 			return -EFAULT;
-		err = netlink_set_ring(sk, &req, false,
+		err = netlink_set_ring(sk, &req,
 				       optname == NETLINK_TX_RING);
 		break;
 	}

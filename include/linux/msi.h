@@ -60,6 +60,13 @@ static inline struct pci_dev *msi_desc_to_pci_dev(struct msi_desc *desc)
 {
 	return desc->dev;
 }
+
+void *msi_desc_to_pci_sysdata(struct msi_desc *desc);
+#else /* CONFIG_PCI_MSI */
+static inline void *msi_desc_to_pci_sysdata(struct msi_desc *desc)
+{
+	return NULL;
+}
 #endif /* CONFIG_PCI_MSI */
 
 void __pci_read_msi_msg(struct msi_desc *entry, struct msi_msg *msg);
@@ -102,15 +109,14 @@ void arch_restore_msi_irqs(struct pci_dev *dev);
 
 void default_teardown_msi_irqs(struct pci_dev *dev);
 void default_restore_msi_irqs(struct pci_dev *dev);
+#define default_msi_mask_irq  __msi_mask_irq
+#define default_msix_mask_irq  __msix_mask_irq
 
 struct msi_controller {
 	struct module *owner;
 	struct device *dev;
 	struct device_node *of_node;
 	struct list_head list;
-#ifdef CONFIG_GENERIC_MSI_IRQ_DOMAIN
-	struct irq_domain *domain;
-#endif
 
 	int (*setup_irq)(struct msi_controller *chip, struct pci_dev *dev,
 			 struct msi_desc *desc);
