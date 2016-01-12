@@ -41,20 +41,13 @@
 #define MAX_XFER_WORK_ITEMS 100
 #define MHI_MAX_SUPPORTED_DEVICES 1
 
-#define MAX_NR_TRBS_PER_SOFT_CHAN 10
-#define MAX_NR_TRBS_PER_HARD_CHAN (128 + 16)
 #define MHI_PCIE_VENDOR_ID 0x17CB
 #define MHI_PCIE_DEVICE_ID_9x35 0x0300
 #define MHI_PCIE_DEVICE_ID_ZIRC 0x0301
 #define MHI_PCIE_DEVICE_ID_9x55 0x0302
-#define TRB_MAX_DATA_SIZE 0x1000
-
-#define MHI_DATA_SEG_WINDOW_START_ADDR 0x0ULL
-#define MHI_DATA_SEG_WINDOW_END_ADDR 0x3E800000ULL
 
 #define MHI_M2_DEBOUNCE_TMR_MS 10
 
-#define MHI_XFER_DB_INTERVAL 8
 #define MHI_EV_DB_INTERVAL 1
 
 #define MHI_DEV_WAKE_DB 127
@@ -97,14 +90,12 @@
 
 #define IS_HW_EV_RING(_mhi_dev_ctxt, _EV_INDEX) (_EV_INDEX >= \
 				((_mhi_dev_ctxt)->mmio_info.nr_event_rings - \
-				HW_EVENT_RINGS_ALLOCATED))
+				((_mhi_dev_ctxt)->mmio_info.nr_hw_event_rings)))
 
 #define IS_SW_EV_RING(_mhi_dev_ctxt, _EV_INDEX) (_EV_INDEX < \
 				((_mhi_dev_ctxt)->mmio_info.nr_event_rings - \
-				HW_EVENT_RINGS_ALLOCATED))
+				((_mhi_dev_ctxt)->mmio_info.nr_hw_event_rings)))
 
-/* Debugging Capabilities*/
-#define MHI_DBG_MAX_EVENT_HISTORY 10
 
 /* MHI Transfer Ring Elements 7.4.1*/
 #define TX_TRB_LEN
