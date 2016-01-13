@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1027,7 +1027,7 @@ void kgsl_snapshot_save_frozen_objs(struct work_struct *work)
 		obj->size = ALIGN(obj->size, 4);
 
 		size += ((size_t) obj->size +
-			sizeof(struct kgsl_snapshot_gpu_object) +
+			sizeof(struct kgsl_snapshot_gpu_object_v2) +
 			sizeof(struct kgsl_snapshot_section_header));
 	}
 
