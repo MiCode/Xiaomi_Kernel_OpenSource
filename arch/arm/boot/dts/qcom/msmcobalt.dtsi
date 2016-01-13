@@ -1398,3 +1398,4 @@
 #include "msmcobalt-ion.dtsi"
 #include "msm-pmcobalt-rpm-regulator.dtsi"
 #include "msmcobalt-regulator.dtsi"
+#include "msmcobalt-camera.dtsi"
