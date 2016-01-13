@@ -3872,8 +3872,6 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 		switch (codec_version) {
 		case TOMBAK_1_0:
 		case TOMBAK_2_0:
-			pr_debug("%s: Default gain is set\n", __func__);
-			break;
 		case CONGA:
 			/*
 			 * For 32Ohm load and higher loads, Set 0x19E
