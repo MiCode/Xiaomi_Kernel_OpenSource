@@ -2385,6 +2385,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 			dwc3_msm_gadget_vbus_draw(mdwc,
 						mdwc->bc1p2_current_max);
 		}
+		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		psy->type = val->intval;
 
