@@ -3795,9 +3795,9 @@ static int __init clock_pll_thermal_init(void)
 		if (ret < 0)
 			dev_err(&gcc_clock_dev->dev,
 				"Failed to set tsens threshold (%d)\n", ret);
+		dev_info(&gcc_clock_dev->dev,
+				"Thermal limit on PLLs Initialized\n");
 	}
-
-	dev_info(&gcc_clock_dev->dev, "Thermal limit on PLLs Initialized\n");
 
 	return ret;
 }
