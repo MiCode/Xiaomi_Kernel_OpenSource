@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -742,6 +742,9 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 	if (enable) {
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_19_MHZ);
+		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
+				mdss_bus_scale_set_quota(MDSS_HW_RT,
+					SZ_1M, SZ_1M);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
@@ -749,6 +752,8 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
+		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
+			mdss_bus_scale_set_quota(MDSS_HW_RT, 0, 0);
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_DISABLE);
 	}
@@ -827,14 +832,23 @@ int mdss_iommu_ctrl(int enable)
 		 * delay iommu attach until continous splash screen has
 		 * finished handoff, as it may still be working with phys addr
 		 */
-		if (!mdata->iommu_attached && !mdata->handoff_pending)
+		if (!mdata->iommu_attached && !mdata->handoff_pending) {
+			if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
+				mdss_bus_scale_set_quota(MDSS_HW_RT,
+					 SZ_1M, SZ_1M);
 			rc = mdss_smmu_attach(mdata);
+		}
 		mdata->iommu_ref_cnt++;
 	} else {
 		if (mdata->iommu_ref_cnt) {
 			mdata->iommu_ref_cnt--;
-			if (mdata->iommu_ref_cnt == 0)
+			if (mdata->iommu_ref_cnt == 0) {
 				rc = mdss_smmu_detach(mdata);
+				if (mdss_has_quirk(mdata,
+					MDSS_QUIRK_MIN_BUS_VOTE))
+					mdss_bus_scale_set_quota(MDSS_HW_RT,
+								0, 0);
+			}
 		} else {
 			pr_err("unbalanced iommu ref\n");
 		}
@@ -1300,6 +1314,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
+		mdss_set_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
