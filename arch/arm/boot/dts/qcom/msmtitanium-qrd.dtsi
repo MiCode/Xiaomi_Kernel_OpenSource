@@ -198,3 +198,7 @@
 		status = "okay";
 	};
 };
+
+&i2c_3 {
+	status = "ok";
+};
