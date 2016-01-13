@@ -758,7 +758,7 @@ static int clock_cpu_probe(struct platform_device *pdev)
 {
 	int speed_bin, version, rc, cpu, mux_id;
 	char prop_name[] = "qcom,speedX-bin-vX-XXX";
-	unsigned long a53rate, ccirate;
+	unsigned long ccirate, pwrcl_boot_rate = 883200000;
 
 	get_speed_bin(pdev, &speed_bin, &version);
 
@@ -843,21 +843,19 @@ static int clock_cpu_probe(struct platform_device *pdev)
 	if (rc)
 		dev_err(&pdev->dev, "Can't set safe rate for CCI\n");
 
-	a53rate = clk_get_rate(&a53_pwr_clk.c);
-	pr_debug("Rate of A53 Pwr %ld, APCS PLL rate %ld\n", a53rate,
-			apcs_hf_pll.c.rate);
-	if (!a53rate) {
-		dev_err(&pdev->dev, "Unknown a53 rate. Setting safe rate, rate %ld\n",
-						apcs_hf_pll.c.rate);
-		rc = clk_set_rate(&a53_pwr_clk.c, apcs_hf_pll.c.rate);
-		if (rc)
-			dev_err(&pdev->dev, "Can't set pwr safe rate\n");
-	}
+	rc = clk_set_rate(&a53_pwr_clk.c, apcs_hf_pll.c.rate);
+	if (rc)
+		dev_err(&pdev->dev, "Can't set pwr safe rate\n");
 
 	rc = clk_set_rate(&a53_perf_clk.c, apcs_hf_pll.c.rate);
 	if (rc)
 		dev_err(&pdev->dev, "Can't set perf safe rate\n");
 
+	/* Move to higher boot frequency */
+	rc = clk_set_rate(&a53_pwr_clk.c, pwrcl_boot_rate);
+	if (rc)
+		dev_err(&pdev->dev, "Can't set pwr rate %ld\n",
+					pwrcl_boot_rate);
 	put_online_cpus();
 
 	populate_opp_table(pdev);
@@ -906,7 +904,8 @@ arch_initcall(clock_cpu_init);
 #define SRC_SEL				0x5
 #define SRC_DIV				0x1
 
-unsigned long pwrcl_early_boot_rate = 883200000;
+/* Configure PLL at Low frequency */
+unsigned long pwrcl_early_boot_rate = 652800000;
 
 static int __init cpu_clock_pwr_init(void)
 {
