@@ -4,7 +4,7 @@
  *
  * Copyright (c)2013 Maxim Integrated Products, Inc.
  * Copyright (C) 2013, NVIDIA Corporation.  All Rights Reserved.
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -179,24 +179,15 @@ spi_read_123(struct dev_data *dd, u16 address, u8 *buf, u16 len, bool add_len)
 	u16                  *rx_buf = (u16 *)dd->rx_buf;
 	u16                  words = len / sizeof(u16), header_len = 1;
 	u16                  *ptr2 = rx_buf + 1;
-#ifdef __LITTLE_ENDIAN
-	u16                  *ptr1 = (u16 *)buf, i;
-#endif
 	int                  ret;
 
 	if (tx_buf == NULL || rx_buf == NULL)
 		return -ENOMEM;
 
 	tx_buf[0] = (address << 1) | 0x0001;
-#ifdef __LITTLE_ENDIAN
-	tx_buf[0] = (tx_buf[0] << 8) | (tx_buf[0] >> 8);
-#endif
 
 	if (add_len) {
 		tx_buf[1] = words;
-#ifdef __LITTLE_ENDIAN
-		tx_buf[1] = (tx_buf[1] << 8) | (tx_buf[1] >> 8);
-#endif
 		ptr2++;
 		header_len++;
 	}
@@ -213,12 +204,7 @@ spi_read_123(struct dev_data *dd, u16 address, u8 *buf, u16 len, bool add_len)
 		ret = spi_sync(dd->spi, &message);
 	} while (ret == -EAGAIN);
 
-#ifdef __LITTLE_ENDIAN
-	for (i = 0; i < words; i++)
-		ptr1[i] = (ptr2[i] << 8) | (ptr2[i] >> 8);
-#else
 	memcpy(buf, ptr2, len);
-#endif
 
 	return ret;
 }
@@ -230,9 +216,6 @@ spi_write_123(struct dev_data *dd, u16 address, u8 *buf, u16 len,
 	struct maxim_sti_pdata  *pdata = dd->spi->dev.platform_data;
 	u16                     *tx_buf = (u16 *)dd->tx_buf;
 	u16                     words = len / sizeof(u16), header_len = 1;
-#ifdef __LITTLE_ENDIAN
-	u16                     i;
-#endif
 	int  ret;
 
 	if (tx_buf == NULL)
@@ -244,10 +227,6 @@ spi_write_123(struct dev_data *dd, u16 address, u8 *buf, u16 len,
 		header_len++;
 	}
 	memcpy(tx_buf + header_len, buf, len);
-#ifdef __LITTLE_ENDIAN
-	for (i = 0; i < (words + header_len); i++)
-		tx_buf[i] = (tx_buf[i] << 8) | (tx_buf[i] >> 8);
-#endif
 
 	do {
 		ret = spi_write(dd->spi, tx_buf,
@@ -2490,7 +2469,7 @@ static int probe(struct spi_device *spi)
 
 	/* device context: initialize structure members */
 	spi_set_drvdata(spi, dd);
-	spi->bits_per_word = 8;
+	spi->bits_per_word = 16;
 	spi_setup(spi);
 	dd->spi = spi;
 	dd->nl_seq = 1;
