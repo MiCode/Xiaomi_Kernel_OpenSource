@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,4 +68,54 @@
 
 &dsi_r69006_1080p_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&ext_codec {
+	status = "ok";
+	qcom,model = "msm8952-sku3-tasha-snd-card";
+
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"DMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic1",
+		"MIC BIAS1", "MICBIAS_REGULATOR",
+		"MIC BIAS2", "MICBIAS_REGULATOR",
+		"MIC BIAS3", "MICBIAS_REGULATOR",
+		"SpkrLeft IN", "SPK1 OUT";
+
+	qcom,cdc-us-euro-gpios;
+
+	qcom,msm-mbhc-hphl-swh = <1>;
+
+	asoc-codec = <&stub_codec>;
+	asoc-codec-names = "msm-stub-codec.1";
+
+	qcom,wsa-max-devs = <1>;
+	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_213>;
+	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
+};
+
+&slim_msm {
+	status = "ok";
+};
+
+&dai_slim {
+	status = "ok";
+};
+
+&wcd9xxx_intc {
+	status = "ok";
+};
+
+&clock_audio {
+	status = "ok";
+};
+
+&wcd9335 {
+	status = "ok";
 };

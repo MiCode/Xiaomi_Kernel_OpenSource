@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -367,7 +367,7 @@ static int cpr4_msmtitanium_apss_calculate_open_loop_voltages(
 		vreg->corner[i].open_loop_volt = fuse_volt[0];
 
 	/* Interpolate voltages for the higher fuse corners. */
-	for (i = 1; i < vreg->fuse_corner_count - 1; i++) {
+	for (i = 1; i < vreg->fuse_corner_count; i++) {
 		freq_low = vreg->corner[fmax_corner[i - 1]].proc_freq;
 		volt_low = fuse_volt[i - 1];
 		freq_high = vreg->corner[fmax_corner[i]].proc_freq;

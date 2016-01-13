@@ -2739,13 +2739,19 @@ done:
 
 static int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu)
 {
+	int upmigrate;
+
 	if (cpu_capacity(cpu) == max_capacity)
 		return 1;
 
 	if (task_nice(p) > sched_upmigrate_min_nice || upmigrate_discouraged(p))
 		return 1;
 
-	if (task_load < sched_upmigrate)
+	upmigrate = sched_upmigrate;
+	if (cpu_capacity(task_cpu(p)) > cpu_capacity(cpu))
+		upmigrate = sched_downmigrate;
+
+	if (task_load < upmigrate)
 		return 1;
 
 	return 0;

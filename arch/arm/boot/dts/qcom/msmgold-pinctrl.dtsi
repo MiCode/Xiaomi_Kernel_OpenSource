@@ -822,5 +822,77 @@
 				};
 			};
 		};
+
+		tlmm_gpio_key {
+			gpio_key_active: gpio_key_active {
+				mux {
+					pins = "gpio91", "gpio127", "gpio128";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			gpio_key_suspend: gpio_key_suspend {
+				mux {
+					pins = "gpio91", "gpio127", "gpio128";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		tlmm_pmi_flash_led {
+			rear_flash_led_enable: rear_flash_led_enable {
+				mux {
+					pins = "gpio33";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio33";
+					drive-strength = <16>;
+					output-high;
+				};
+			};
+
+			rear_flash_led_disable: rear_flash_led_disable {
+				mux {
+					pins = "gpio33";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio33";
+					drive-strength = <2>;
+					output-low;
+				};
+			};
+
+			front_flash_led_enable: front_flash_led_enable {
+				mux {
+					pins = "gpio50";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio50";
+					drive-strength = <16>;
+					output-high;
+				};
+			};
+
+			front_flash_led_disable: front_flash_led_disable {
+				mux {
+					pins = "gpio50";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio50";
+					drive-strength = <2>;
+					output-low;
+				};
+			};
+		};
 	};
 };

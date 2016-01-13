@@ -823,16 +823,16 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 	int result;
 
 	link = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (link == NULL) {
-		result = -ENOMEM;
-		goto done;
-	}
+	if (link == NULL)
+		return -ENOMEM;
 
 	cmds = link;
 
 	/* If we are in a fault the MMU will be reset soon */
-	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv))
+	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv)) {
+		kfree(link);
 		return 0;
+	}
 
 	kgsl_mmu_enable_clk(&device->mmu);
 
@@ -860,7 +860,6 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 		adreno_ringbuffer_mmu_disable_clk_on_ts(device, rb,
 						rb->timestamp);
 
-done:
 	kfree(link);
 	return result;
 }

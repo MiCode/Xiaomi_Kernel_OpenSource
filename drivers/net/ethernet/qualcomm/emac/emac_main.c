@@ -2340,6 +2340,10 @@ static void emac_link_task_routine(struct emac_adapter *adpt)
 			goto link_task_done;
 
 		pm_runtime_get_sync(netdev->dev.parent);
+		/* Acquire wake lock if link is detected to avoid device going
+		 * into suspend
+		 */
+		__pm_stay_awake(&adpt->link_wlock);
 		emac_info(adpt, timer, "NIC Link is Up %s\n", link_desc);
 
 		phy->ops.tx_clk_set_rate(adpt);
@@ -2361,6 +2365,8 @@ static void emac_link_task_routine(struct emac_adapter *adpt)
 		netif_carrier_off(netdev);
 
 		emac_hw_stop_mac(hw);
+		/* Release wake lock if link is disconnected */
+		__pm_relax(&adpt->link_wlock);
 		pm_runtime_put_sync(netdev->dev.parent);
 	}
 
@@ -3281,6 +3287,7 @@ static int emac_probe(struct platform_device *pdev)
 	skb_queue_head_init(&adpt->hwtxtstamp_pending_queue);
 	skb_queue_head_init(&adpt->hwtxtstamp_ready_queue);
 	INIT_WORK(&adpt->hwtxtstamp_task, emac_hwtxtstamp_task_routine);
+	wakeup_source_init(&adpt->link_wlock, dev_name(&pdev->dev));
 
 	SET_FLAG(hw, HW_VLANSTRIP_EN);
 	SET_FLAG(adpt, ADPT_STATE_DOWN);
@@ -3328,6 +3335,7 @@ static int emac_remove(struct platform_device *pdev)
 	pr_info("exiting %s\n", emac_drv_name);
 
 	unregister_netdev(netdev);
+	wakeup_source_trash(&adpt->link_wlock);
 	if (TEST_FLAG(hw, HW_PTP_CAP))
 		emac_ptp_remove(netdev);
 

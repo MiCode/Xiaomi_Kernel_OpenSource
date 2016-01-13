@@ -449,10 +449,11 @@ static int _save_mem_entries(int id, void *ptr, void *data)
 {
 	struct kgsl_mem_entry *entry = ptr;
 	struct mem_entry *m = (struct mem_entry *) data;
+	unsigned int index = id - 1;
 
-	m->gpuaddr = entry->memdesc.gpuaddr;
-	m->size = entry->memdesc.size;
-	m->type = kgsl_memdesc_get_memtype(&entry->memdesc);
+	m[index].gpuaddr = entry->memdesc.gpuaddr;
+	m[index].size = entry->memdesc.size;
+	m[index].type = kgsl_memdesc_get_memtype(&entry->memdesc);
 
 	return 0;
 }
