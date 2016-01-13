@@ -563,23 +563,8 @@ static void print_opp_table(int a53_pwr_cpu, int a53_perf_cpu)
 
 static void populate_opp_table(struct platform_device *pdev)
 {
-	struct platform_device *apc0_dev;
-	struct device_node *apc0_node;
 	unsigned long apc0_fmax;
 	int cpu, a53_pwr_cpu, a53_perf_cpu;
-
-	apc0_node = of_parse_phandle(pdev->dev.of_node, "vdd-cl-supply",
-								0);
-	if (!apc0_node) {
-		pr_err("can't find the apc0 dt node.\n");
-		return;
-	}
-
-	apc0_dev = of_find_device_by_node(apc0_node);
-	if (!apc0_dev) {
-		pr_err("can't find the apc0 device node.\n");
-		return;
-	}
 
 	apc0_fmax = a53_pwr_clk.c.fmax[a53_pwr_clk.c.num_fmax - 1];
 
