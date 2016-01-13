@@ -88,6 +88,7 @@ static int msm_v4l2_close(struct file *filp)
 			"%s: Failed to free output buffers\n", __func__);
 
 	rc = msm_vidc_close(vidc_inst);
+
 	trace_msm_v4l2_vidc_close_end("msm_v4l2_close end");
 	return rc;
 }
