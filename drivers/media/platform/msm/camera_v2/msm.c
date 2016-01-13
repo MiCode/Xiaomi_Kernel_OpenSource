@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -614,6 +614,37 @@ static int __msm_close_destry_session_notify_apps(void *d1, void *d2)
 	return 0;
 }
 
+static int __msm_wakeup_all_cmdack_session_stream(void *d1, void *d2)
+{
+	struct msm_stream *stream = d1;
+	struct msm_session *session = d2;
+	struct msm_command_ack *cmd_ack = NULL;
+	unsigned long spin_flags = 0;
+
+	cmd_ack = msm_queue_find(&session->command_ack_q,
+		struct msm_command_ack, list,
+		__msm_queue_find_command_ack_q,
+		&stream->stream_id);
+	if (cmd_ack) {
+		spin_lock_irqsave(&(session->command_ack_q.lock),
+			spin_flags);
+		complete(&cmd_ack->wait_complete);
+		spin_unlock_irqrestore(&(session->command_ack_q.lock),
+			spin_flags);
+	}
+	return 0;
+}
+
+static int __msm_close_wakeup_all_cmdack_session(void *d1, void *d2)
+{
+	struct msm_stream  *stream = NULL;
+	struct msm_session *session = d1;
+
+	stream = msm_queue_find(&session->stream_q, struct msm_stream,
+		list, __msm_wakeup_all_cmdack_session_stream, d1);
+	return 0;
+}
+
 static long msm_private_ioctl(struct file *file, void *fh,
 	bool valid_prio, unsigned int cmd, void *arg)
 {
@@ -881,6 +912,9 @@ static int msm_close(struct file *filep)
 	/* send v4l2_event to HAL next*/
 	msm_queue_traverse_action(msm_session_q, struct msm_session, list,
 		__msm_close_destry_session_notify_apps, NULL);
+
+	msm_queue_traverse_action(msm_session_q, struct msm_session, list,
+		__msm_close_wakeup_all_cmdack_session, NULL);
 
 	spin_lock_irqsave(&msm_eventq_lock, flags);
 	msm_eventq = NULL;
