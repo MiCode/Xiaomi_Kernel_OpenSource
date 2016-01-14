@@ -981,12 +981,6 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	}
 	inst->capability.pixelprocess_capabilities =
 		call_hfi_op(hdev, get_core_capabilities, hdev->hfi_device_data);
-	if (!(inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_VP9)) {
-		dprintk(VIDC_DBG,
-			"Updaing the mbs per frame value from %d to %d\n",
-			inst->capability.mbs_per_frame.max, 32400);
-		inst->capability.mbs_per_frame.max = 32400;
-	}
 
 	dprintk(VIDC_DBG,
 		"Capability type : min      max      step size\n");
