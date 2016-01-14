@@ -1311,7 +1311,6 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 {
 	int rc;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
 
 	if (mdss_mdp_ctl_is_power_on(ctl)) {
@@ -1356,16 +1355,14 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	 * This is not needed when continuous splash screen is enabled since
 	 * we would have called in to TZ to restore security configs from LK.
 	 */
-	if (!mdata->mdss_util->iommu_attached()) {
-		if (!mfd->panel_info->cont_splash_enabled) {
-			rc = mdss_iommu_ctrl(1);
-			if (IS_ERR_VALUE(rc)) {
-				pr_err("iommu attach failed rc=%d\n", rc);
-				goto end;
-			}
-			mdss_hw_init(mdss_res);
-			mdss_iommu_ctrl(0);
+	if (!mfd->panel_info->cont_splash_enabled) {
+		rc = mdss_iommu_ctrl(1);
+		if (IS_ERR_VALUE(rc)) {
+			pr_err("iommu attach failed rc=%d\n", rc);
+			goto end;
 		}
+		mdss_hw_init(mdss_res);
+		mdss_iommu_ctrl(0);
 	}
 
 	/* Restore any previously configured PP features by resetting the dirty
