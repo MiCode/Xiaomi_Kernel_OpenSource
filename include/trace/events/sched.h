@@ -691,6 +691,40 @@ TRACE_EVENT(sched_load_avg_cpu,
 	TP_printk("cpu=%d load_avg=%lu util_avg=%lu",
 		  __entry->cpu, __entry->load_avg, __entry->util_avg)
 );
+
+/*
+ * Tracepoint for sched_tune_config settings
+ */
+TRACE_EVENT(sched_tune_config,
+
+	TP_PROTO(int boost, int pb_nrg_gain, int pb_cap_gain, int pc_nrg_gain, int pc_cap_gain),
+
+	TP_ARGS(boost, pb_nrg_gain, pb_cap_gain, pc_nrg_gain, pc_cap_gain),
+
+	TP_STRUCT__entry(
+		__field( int,	boost		)
+		__field( int,	pb_nrg_gain	)
+		__field( int,	pb_cap_gain	)
+		__field( int,	pc_nrg_gain	)
+		__field( int,	pc_cap_gain	)
+	),
+
+	TP_fast_assign(
+		__entry->boost 	= boost;
+		__entry->pb_nrg_gain	= pb_nrg_gain;
+		__entry->pb_cap_gain	= pb_cap_gain;
+		__entry->pc_nrg_gain	= pc_nrg_gain;
+		__entry->pc_cap_gain	= pc_cap_gain;
+	),
+
+	TP_printk("boost=%d "
+			"pb_nrg_gain=%d pb_cap_gain=%d "
+			"pc_nrg_gain=%d pc_cap_gain=%d",
+		__entry->boost,
+		__entry->pb_nrg_gain, __entry->pb_cap_gain,
+		__entry->pc_nrg_gain, __entry->pc_cap_gain)
+);
+
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */
