@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,6 +188,13 @@ extern void cnss_device_self_recovery(void);
 extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
 extern void *cnss_get_virt_ramdump_mem(unsigned long *size);
 extern void cnss_schedule_recovery_work(void);
+
+enum {
+	CNSS_RESET_SOC = 0,
+	CNSS_RESET_SUBSYS_COUPLED,
+	CNSS_RESET_LEVEL_MAX
+};
+extern int cnss_get_restart_level(void);
 
 #ifdef CONFIG_CNSS_SDIO
 struct cnss_sdio_wlan_driver {
