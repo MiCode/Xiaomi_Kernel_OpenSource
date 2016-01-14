@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -329,7 +329,7 @@ int cpr3_parse_array_property(struct cpr3_regulator *vreg,
 		offset = tuple_size * vreg->speed_bin_fuse;
 	} else {
 		if (vreg->speed_bins_supported > 0)
-			cpr3_err(vreg, "property %s has invalid length=%d, should be %lu, %lu, or %lu\n",
+			cpr3_err(vreg, "property %s has invalid length=%d, should be %zu, %zu, or %zu\n",
 				prop_name, len,
 				tuple_size * sizeof(u32),
 				tuple_size * vreg->speed_bins_supported
@@ -337,7 +337,7 @@ int cpr3_parse_array_property(struct cpr3_regulator *vreg,
 				tuple_size * vreg->fuse_combos_supported
 					   * sizeof(u32));
 		else
-			cpr3_err(vreg, "property %s has invalid length=%d, should be %lu or %lu\n",
+			cpr3_err(vreg, "property %s has invalid length=%d, should be %zu or %zu\n",
 				prop_name, len,
 				tuple_size * sizeof(u32),
 				tuple_size * vreg->fuse_combos_supported
@@ -404,7 +404,7 @@ int cpr3_parse_corner_array_property(struct cpr3_regulator *vreg,
 		offset = tuple_size * vreg->speed_bin_offset;
 	} else {
 		if (vreg->speed_bin_corner_sum > 0)
-			cpr3_err(vreg, "property %s has invalid length=%d, should be %lu, %lu, or %lu\n",
+			cpr3_err(vreg, "property %s has invalid length=%d, should be %zu, %zu, or %zu\n",
 				prop_name, len,
 				tuple_size * vreg->corner_count * sizeof(u32),
 				tuple_size * vreg->speed_bin_corner_sum
@@ -412,7 +412,7 @@ int cpr3_parse_corner_array_property(struct cpr3_regulator *vreg,
 				tuple_size * vreg->fuse_combo_corner_sum
 					   * sizeof(u32));
 		else
-			cpr3_err(vreg, "property %s has invalid length=%d, should be %lu or %lu\n",
+			cpr3_err(vreg, "property %s has invalid length=%d, should be %zu or %zu\n",
 				prop_name, len,
 				tuple_size * vreg->corner_count * sizeof(u32),
 				tuple_size * vreg->fuse_combo_corner_sum
