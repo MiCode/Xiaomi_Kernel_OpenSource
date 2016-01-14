@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,6 +134,7 @@ enum mdss_hw_index {
 enum mdss_bus_clients {
 	MDSS_MDP_RT,
 	MDSS_DSI_RT,
+	MDSS_HW_RT,
 	MDSS_MDP_NRT,
 	MDSS_MAX_BUS_CLIENTS
 };
@@ -156,6 +157,7 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_DSC_RIGHT_ONLY_PU,
 	MDSS_QUIRK_DSC_2SLICE_PU_THRPUT,
 	MDSS_QUIRK_DMA_BI_DIR,
+	MDSS_QUIRK_MIN_BUS_VOTE,
 	MDSS_QUIRK_MAX,
 };
 
