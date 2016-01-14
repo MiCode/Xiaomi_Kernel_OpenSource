@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1644,7 +1644,7 @@ turn_off:
 			goto exit_flash_led_work;
 		}
 
-		led->open_fault = (temp & FLASH_LED_OPEN_FAULT_DETECTED);
+		led->open_fault |= (val & FLASH_LED_OPEN_FAULT_DETECTED);
 	}
 
 	rc = qpnp_led_masked_write(led,
