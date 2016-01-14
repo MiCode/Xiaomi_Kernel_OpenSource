@@ -223,11 +223,7 @@ struct votable *create_votable(struct device *dev, const char *name,
 					)
 {
 	int i;
-	struct votable *votable = devm_kzalloc(dev, sizeof(struct votable),
-							GFP_KERNEL);
-
-	if (!votable)
-		return ERR_PTR(-ENOMEM);
+	struct votable *votable;
 
 	if (!callback) {
 		dev_err(dev, "Invalid callback specified for voter\n");
@@ -243,6 +239,10 @@ struct votable *create_votable(struct device *dev, const char *name,
 		dev_err(dev, "Invalid num_clients specified for voter\n");
 		return ERR_PTR(-EINVAL);
 	}
+
+	votable = devm_kzalloc(dev, sizeof(struct votable), GFP_KERNEL);
+	if (!votable)
+		return ERR_PTR(-ENOMEM);
 
 	votable->dev = dev;
 	votable->name = name;
