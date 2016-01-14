@@ -789,6 +789,31 @@ TRACE_EVENT(sched_tune_tasks_update,
 		__entry->boost, __entry->max_boost)
 );
 
+/*
+ * Tracepoint for schedtune_boostgroup_update
+ */
+TRACE_EVENT(sched_tune_boostgroup_update,
+
+	TP_PROTO(int cpu, int variation, int max_boost),
+
+	TP_ARGS(cpu, variation, max_boost),
+
+	TP_STRUCT__entry(
+		__field( int,	cpu		)
+		__field( int,	variation	)
+		__field( int,	max_boost	)
+	),
+
+	TP_fast_assign(
+		__entry->cpu		= cpu;
+		__entry->variation	= variation;
+		__entry->max_boost	= max_boost;
+	),
+
+	TP_printk("cpu=%d variation=%d max_boost=%d",
+		__entry->cpu, __entry->variation, __entry->max_boost)
+);
+
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */
