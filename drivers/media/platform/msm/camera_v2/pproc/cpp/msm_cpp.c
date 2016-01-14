@@ -1192,11 +1192,15 @@ clk_failed:
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
 fs_failed:
-	regulator_disable(cpp_dev->fs_camss);
-	regulator_put(cpp_dev->fs_camss);
+	if (cpp_dev->fs_camss) {
+		regulator_disable(cpp_dev->fs_camss);
+		regulator_put(cpp_dev->fs_camss);
+	}
 fs_camss_failed:
-	regulator_disable(cpp_dev->fs_mmagic_camss);
-	regulator_put(cpp_dev->fs_mmagic_camss);
+	if (cpp_dev->fs_mmagic_camss) {
+		regulator_disable(cpp_dev->fs_mmagic_camss);
+		regulator_put(cpp_dev->fs_mmagic_camss);
+	}
 fs_mmagic_failed:
 	if (cpp_dev->bus_master_flag)
 		msm_cpp_deinit_bandwidth_mgr(cpp_dev);
