@@ -861,6 +861,36 @@ int mdss_iommu_ctrl(int enable)
 		return mdata->iommu_ref_cnt;
 }
 
+static void mdss_mdp_memory_retention_enter(void)
+{
+	struct clk *mdss_mdp_clk = NULL;
+	struct clk *mdp_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
+
+	if (mdp_vote_clk) {
+		mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
+		if (mdss_mdp_clk) {
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_SET);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_NORETAIN_PERIPH);
+		}
+	}
+}
+
+static void mdss_mdp_memory_retention_exit(void)
+{
+	struct clk *mdss_mdp_clk = NULL;
+	struct clk *mdp_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
+
+	if (mdp_vote_clk) {
+		mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
+		if (mdss_mdp_clk) {
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_PERIPH);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_CLEAR);
+		}
+	}
+}
+
 /**
  * mdss_mdp_idle_pc_restore() - Restore MDSS settings when exiting idle pc
  *
@@ -888,6 +918,14 @@ static int mdss_mdp_idle_pc_restore(void)
 	}
 	mdss_hw_init(mdata);
 	mdss_iommu_ctrl(0);
+
+	/**
+	 * sleep 10 microseconds to make sure AD auto-reinitialization
+	 * is done
+	 */
+	udelay(10);
+	mdss_mdp_memory_retention_exit();
+
 	mdss_mdp_ctl_restore(true);
 	mdata->idle_pc = false;
 
@@ -4065,6 +4103,7 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 				mdata->idle_pc = true;
 				pr_debug("idle pc. active overlays=%d\n",
 					active_cnt);
+				mdss_mdp_memory_retention_enter();
 			} else {
 				mdss_mdp_cx_ctrl(mdata, false);
 				mdss_mdp_batfet_ctrl(mdata, false);
