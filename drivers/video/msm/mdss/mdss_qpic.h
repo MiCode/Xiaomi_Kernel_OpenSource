@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,6 +86,7 @@ struct qpic_data_type {
 	u32 bus_handle;
 	struct completion fifo_eof_comp;
 	u32 qpic_is_on;
+	struct clk *qpic_clk;
 	struct clk *qpic_a_clk;
 };
 
