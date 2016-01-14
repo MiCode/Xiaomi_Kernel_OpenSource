@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -454,8 +454,8 @@
 		interrupt-names = "int_global";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default
-			&pcie0_wake_default &pcie0_mdm2apstatus_default>;
+		pinctrl-0 = <&pcie0_clkreq_default &pcie_ep_perst_default
+			&pcie_ep_wake_default &pcie0_mdm2apstatus_default>;
 
 		perst-gpio = <&tlmm_pinmux 65 0>;
 		wake-gpio = <&tlmm_pinmux 61 0>;
