@@ -293,6 +293,10 @@ schedtune_tasks_update(struct task_struct *p, int cpu, int idx, int task_count)
 	tasks = bg->group[idx].tasks;
 	if (tasks == 1 || tasks == 0)
 		schedtune_cpu_update(cpu);
+
+	trace_sched_tune_tasks_update(p, cpu, tasks, idx,
+			bg->group[idx].boost, bg->boost_max);
+
 }
 
 /*
