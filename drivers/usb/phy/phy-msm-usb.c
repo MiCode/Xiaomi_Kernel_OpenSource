@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2015, Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2016, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4531,7 +4531,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 					"msm_otg", motg);
 	if (ret) {
 		dev_err(&pdev->dev, "request irq failed\n");
-		goto destroy_wlock;
+		goto destroy_wq;
 	}
 
 	motg->phy_irq = platform_get_irq_byname(pdev, "phy_irq");
@@ -4770,11 +4770,12 @@ free_phy_irq:
 		free_irq(motg->phy_irq, motg);
 free_irq:
 	free_irq(motg->irq, motg);
+destroy_wq:
+	destroy_workqueue(motg->otg_wq);
 destroy_wlock:
 	wake_lock_destroy(&motg->wlock);
 	clk_disable_unprepare(motg->core_clk);
 	msm_hsusb_ldo_enable(motg, USB_PHY_REG_OFF);
-	destroy_workqueue(motg->otg_wq);
 free_ldo_init:
 	msm_hsusb_ldo_init(motg, 0);
 free_hsusb_vdd:
