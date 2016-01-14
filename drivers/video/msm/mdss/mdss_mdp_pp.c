@@ -506,7 +506,7 @@ static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 static int pp_mfd_release_all(struct msm_fb_data_type *mfd);
 static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd);
 static int mdss_mdp_ad_ipc_reset(struct msm_fb_data_type *mfd);
-static void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
+static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
 
 static u32 last_sts, last_state;
 
@@ -2773,7 +2773,6 @@ int mdss_mdp_pp_init(struct device *dev)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *vig;
 	struct pp_hist_col_info *hist;
-	void *ret_ptr = NULL;
 	u32 ctl_off = 0;
 
 	if (!mdata)
@@ -2795,17 +2794,13 @@ int mdss_mdp_pp_init(struct device *dev)
 			if (mdss_mdp_pp_dt_parse(dev))
 				pr_info("No PP info in device tree\n");
 
-			ret_ptr = pp_get_driver_ops(&pp_driver_ops);
-			if (IS_ERR(ret_ptr)) {
+			ret = pp_get_driver_ops(&pp_driver_ops);
+			if (ret) {
 				pr_err("pp_get_driver_ops failed, ret=%d\n",
-						(int) PTR_ERR(ret_ptr));
-				ret = PTR_ERR(ret_ptr);
+						ret);
 				goto pp_exit;
-			} else {
-				mdss_pp_res->pp_data_v1_7 = ret_ptr;
-				pp_ops = pp_driver_ops.pp_ops;
 			}
-
+			pp_ops = pp_driver_ops.pp_ops;
 			hist = devm_kzalloc(dev,
 					sizeof(struct pp_hist_col_info) *
 					mdata->ndspp,
@@ -7308,9 +7303,10 @@ static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
-static void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
+static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int ret = 0;
 	void *pp_cfg = NULL;
 
 	switch (mdata->mdp_rev) {
@@ -7320,11 +7316,29 @@ static void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	case MDSS_MDP_HW_REV_114:
 	case MDSS_MDP_HW_REV_115:
 	case MDSS_MDP_HW_REV_116:
-	    pp_cfg = pp_get_driver_ops_v1_7(ops);
-	    break;
+		pp_cfg = pp_get_driver_ops_v1_7(ops);
+		if (IS_ERR_OR_NULL(pp_cfg))
+			ret = -EINVAL;
+		else
+			mdss_pp_res->pp_data_v1_7 = pp_cfg;
+		break;
+	case MDSS_MDP_HW_REV_300:
+	case MDSS_MDP_HW_REV_301:
+		pp_cfg = pp_get_driver_ops_v3(ops);
+		if (IS_ERR_OR_NULL(pp_cfg)) {
+			ret = -EINVAL;
+		} else {
+			mdss_pp_res->pp_data_v1_7 = pp_cfg;
+			/* Currently all caching data is used from v17 for V3
+			 * hence setting the pointer to NULL. Will be used if we
+			 * have to add any caching specific to V3.
+			 */
+			mdss_pp_res->pp_data_v3 = NULL;
+		}
+		break;
 	default:
-	    memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
-	    break;
+		memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
+		break;
 	}
-	return pp_cfg;
+	return ret;
 }

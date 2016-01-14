@@ -163,9 +163,11 @@ struct mdss_pp_res_type {
 	 * struct.
 	 */
 	void *pp_data_v1_7;
+	void *pp_data_v3;
 };
 
 void *pp_get_driver_ops_v1_7(struct mdp_pp_driver_ops *ops);
+void *pp_get_driver_ops_v3(struct mdp_pp_driver_ops *ops);
 
 
 static inline void pp_sts_set_split_bits(u32 *sts, u32 bits)
