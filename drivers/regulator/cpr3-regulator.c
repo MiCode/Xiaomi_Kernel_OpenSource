@@ -170,6 +170,9 @@
 #define CPR3_LAST_MEASUREMENT_PD_BYPASS_SHIFT	16
 
 /* CPR4 controller specific registers and bit definitions */
+#define CPR4_REG_CPR_TIMER_CLAMP			0x10
+#define CPR4_CPR_TIMER_CLAMP_THREAD_AGGREGATION_EN	BIT(27)
+
 #define CPR4_REG_SAW_ERROR_STEP_LIMIT		0x7A4
 #define CPR4_SAW_ERROR_STEP_LIMIT_UP_MASK	GENMASK(4, 0)
 #define CPR4_SAW_ERROR_STEP_LIMIT_UP_SHIFT	0
@@ -182,6 +185,10 @@
 #define CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_DISABLE	0
 #define CPR4_MARGIN_ADJ_CTL_PMIC_STEP_SIZE_MASK		GENMASK(16, 12)
 #define CPR4_MARGIN_ADJ_CTL_PMIC_STEP_SIZE_SHIFT	12
+
+#define CPR4_REG_CPR_MASK_THREAD(thread)	(0x80C + 0x440 * (thread))
+#define CPR4_CPR_MASK_THREAD_DISABLE_THREAD		BIT(31)
+#define CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK	GENMASK(15, 0)
 
 /*
  * The amount of time to wait for the CPR controller to become idle when
@@ -487,6 +494,7 @@ static int cpr3_regulator_init_thread(struct cpr3_thread *thread)
 static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 {
 	u32 pmic_step_size = 1;
+	int thread_id = 0;
 
 	if (ctrl->saw_use_unit_mV)
 		pmic_step_size = ctrl->step_volt / 1000;
@@ -504,6 +512,41 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 				CPR4_SAW_ERROR_STEP_LIMIT_UP_MASK,
 				(ctrl->up_error_step_limit
 				<< CPR4_SAW_ERROR_STEP_LIMIT_UP_SHIFT));
+
+	/*
+	 * Enable thread aggregation regardless of which threads are enabled
+	 * or disabled.
+	 */
+	cpr3_masked_write(ctrl, CPR4_REG_CPR_TIMER_CLAMP,
+				CPR4_CPR_TIMER_CLAMP_THREAD_AGGREGATION_EN,
+				CPR4_CPR_TIMER_CLAMP_THREAD_AGGREGATION_EN);
+
+	switch (ctrl->thread_count) {
+	case 0:
+		/* Disable both threads */
+		cpr3_masked_write(ctrl, CPR4_REG_CPR_MASK_THREAD(0),
+				CPR4_CPR_MASK_THREAD_DISABLE_THREAD
+				| CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK,
+				CPR4_CPR_MASK_THREAD_DISABLE_THREAD
+				| CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK);
+
+		cpr3_masked_write(ctrl, CPR4_REG_CPR_MASK_THREAD(1),
+				CPR4_CPR_MASK_THREAD_DISABLE_THREAD
+				| CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK,
+				CPR4_CPR_MASK_THREAD_DISABLE_THREAD
+				| CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK);
+		break;
+	case 1:
+		/* Disable unused thread */
+		thread_id = ctrl->thread[0].thread_id ? 0 : 1;
+		cpr3_masked_write(ctrl, CPR4_REG_CPR_MASK_THREAD(thread_id),
+				CPR4_CPR_MASK_THREAD_DISABLE_THREAD
+				| CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK,
+				CPR4_CPR_MASK_THREAD_DISABLE_THREAD
+				| CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK);
+		break;
+	}
+
 	return 0;
 }
 
@@ -1846,7 +1889,8 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 		return vdd_volt;
 	}
 
-	if (ctrl->cpr_enabled && ctrl->use_hw_closed_loop)
+	if (ctrl->cpr_enabled && ctrl->use_hw_closed_loop &&
+		ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3)
 		reg_last_measurement
 			= cpr3_read(ctrl, CPR3_REG_LAST_MEASUREMENT);
 
