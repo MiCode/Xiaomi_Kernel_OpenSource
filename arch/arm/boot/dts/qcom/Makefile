@@ -144,6 +144,10 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-ext-codec-cdp.dtb \
        msm8952-mtp.dtb
 
+dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
+	msm8909w-wtp.dtb \
+	apq8009w-wtp.dtb
+
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
 subdir-y        := $(dts-dirs)

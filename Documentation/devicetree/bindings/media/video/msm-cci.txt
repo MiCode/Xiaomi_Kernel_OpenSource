@@ -63,6 +63,7 @@ MSM sensor node contains properties of camera sensor
 Required properties:
 - compatible : should be manufacturer name followed by sensor name
     - "qcom,camera"
+    - "shinetech,gc0310"
 - reg : should contain i2c slave address of the device
 - qcom,csiphy-sd-index : should contain csiphy instance that will used to
     receive sensor data

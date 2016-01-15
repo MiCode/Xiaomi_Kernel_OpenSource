@@ -1,0 +1,61 @@
+Avago apds993x and apds990x ambient light + proximity combo driver.
+
+Required properties:
+
+ - compatible					: Should be "avago,apds9930" or "avago,apds9900".
+ - reg							: i2c slave address of the device.
+ - pinctrl-names				: The pinctrl configration names of this sensor driver. Should be
+					"default" and "sleep".
+ - pinctrl-0					: Should specify pin control groups used for this controller.
+ - pinctrl-1					: Should specify pin control groups used for this controller.
+ - interrupt-parent				: Parent of interrupt.
+ - interupts					: L/P sample interrupt to indicate new data ready.
+ - vdd-supply					: Power supply needed to power up the device.
+ - vio-supply					: IO power supply needed for IO and I2C.
+ - avago,irq-gpio				: The gpio pin for the interrupt.
+ - avago,ps-threshold			: The threshold adc value for proximity sensor
+				to trigger away interrupt.
+ - avago,ps-hysteresis-threshold: The hysteresis threshold adc value for
+				proximity sensor to trigger  close interrupt.
+ - avago,ps-pulse				: The proximity pulse that the LDR will generate.
+ - avago,ps-gain				: The proximity gain of the sensor.
+ - avago,als-B					: Tuning value of COE_B parameter.
+ - avago,als-C					: Tuning value of COE_C parameter.
+ - avago,als-D					: Tuning value of COE_D parameter.
+ - avago,ga-value				: Tuning value of the gain for light sensor.
+
+ Optional properties:
+
+ - avago,cross-talk                             : Calibrate the threshold of proximity sensor.
+					the cross-talk value is raw data of proximity.
+
+ - avago,default-cal				: Boolean to select calibration,if this property is defined
+						sensor will be use default calibration, otherwise the sensor
+						will be use factroy calibration.
+
+ Example:
+
+&i2c_0 { /* BLSP1 QUP2 */
+	 avago@39 {
+		 compatible = "avago,apds9930";
+		 reg = <0x39>;
+		 pinctrl-names = "default","sleep";
+		 pinctrl-0 = <&apds99xx_default>;
+		 pinctrl-1 = <&apds99xx_sleep>;
+		 interrupt-parent = <&msmgpio>;
+		 interrupts = <80 0x2>;
+		 vdd-supply = <&pm8110_l19>;
+		 vio-supply = <&pm8110_l14>;
+		 avago,irq-gpio = <&msmgpio 80 0x2>;
+		 avago,ps_threshold = <600>;
+		 avago,ps_hysteresis_threshold = <500>;
+		 avago,cross-talk = <0>;
+		 avago,ps_pulse = <8>;
+		 avago,ps_pgain = <0>;
+		 avago,als_B = <223>;
+		 avago,als_C = <70>;
+		 avago,als_D = <142>;
+		 avago,ga_value = <48>;
+		 avago,default-cal;
+	 };
+};
