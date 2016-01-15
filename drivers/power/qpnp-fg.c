@@ -6166,7 +6166,7 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 	}
 
 	pmic_rev_id = get_revid_data(revid_dev_node);
-	if (IS_ERR(pmic_rev_id)) {
+	if (IS_ERR_OR_NULL(pmic_rev_id)) {
 		pr_err("Unable to get pmic_revid rc=%ld\n",
 				PTR_ERR(pmic_rev_id));
 		/*
