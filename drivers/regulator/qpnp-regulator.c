@@ -1935,7 +1935,8 @@ static int qpnp_regulator_probe(struct platform_device *pdev)
 	/* Check if device tree is in use. */
 	if (is_dt) {
 		init_data = of_get_regulator_init_data(&pdev->dev,
-						       pdev->dev.of_node);
+						       pdev->dev.of_node,
+						       &vreg->rdesc);
 		if (!init_data) {
 			dev_err(&pdev->dev, "%s: unable to allocate memory\n",
 					__func__);

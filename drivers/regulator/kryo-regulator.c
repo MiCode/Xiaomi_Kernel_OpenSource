@@ -813,7 +813,8 @@ static int kryo_regulator_retention_init(struct kryo_regulator *kvreg,
 	struct regulator_config reg_config = {};
 	int rc;
 
-	init_data = of_get_regulator_init_data(dev, ret_node);
+	init_data = of_get_regulator_init_data(dev, ret_node,
+			&kvreg->retention_desc);
 	if (!init_data) {
 		kvreg_err(kvreg, "regulator init data is missing\n");
 		return -EINVAL;
@@ -971,7 +972,7 @@ static int kryo_regulator_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	init_data = of_get_regulator_init_data(dev, dev->of_node);
+	init_data = of_get_regulator_init_data(dev, dev->of_node, NULL);
 
 	if (!init_data) {
 		dev_err(dev, "regulator init data is missing\n");

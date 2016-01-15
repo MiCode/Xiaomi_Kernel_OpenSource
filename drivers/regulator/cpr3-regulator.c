@@ -3269,7 +3269,7 @@ static int cpr3_regulator_vreg_register(struct cpr3_regulator *vreg)
 	int rc;
 
 	init_data = of_get_regulator_init_data(vreg->thread->ctrl->dev,
-						vreg->of_node);
+						vreg->of_node, &vreg->rdesc);
 	if (!init_data) {
 		cpr3_err(vreg, "regulator init data is missing\n");
 		return -EINVAL;
