@@ -3763,8 +3763,11 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 			goto done;
 		}
 		update_min_nice = 1;
-	} else {
-		/* all tunables other than min_nice are in percentage */
+	} else if (data != &sysctl_sched_select_prev_cpu_us) {
+		/*
+		 * all tunables other than min_nice and prev_cpu_us are
+		 * in percentage.
+		 */
 		if (sysctl_sched_downmigrate_pct >
 		    sysctl_sched_upmigrate_pct || *data > 100) {
 			*data = old_val;
