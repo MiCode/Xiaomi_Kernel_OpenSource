@@ -4465,7 +4465,8 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_RESET:
-		if (hdmi_ctrl->hpd_initialized) {
+		if (!hdmi_ctrl->pdata.cont_splash_enabled &&
+				hdmi_ctrl->hpd_initialized) {
 			hdmi_tx_set_mode(hdmi_ctrl, false);
 			hdmi_tx_phy_reset(hdmi_ctrl);
 			hdmi_tx_set_mode(hdmi_ctrl, true);
