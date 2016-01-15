@@ -278,6 +278,7 @@
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,bridge-index = <0>;
 
 	qcom,pluggable;
 	qcom,platform-te-gpio = <&tlmm 24 0>;

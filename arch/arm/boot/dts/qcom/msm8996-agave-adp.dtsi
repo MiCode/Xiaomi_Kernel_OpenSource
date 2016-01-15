@@ -308,6 +308,7 @@
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,display-id = "primary";
+	qcom,bridge-index = <0>;
 
 	qcom,panel-supply-entries {
 			#address-cells = <1>;
@@ -339,6 +340,7 @@
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,display-id = "tertiary";
+	qcom,bridge-index = <1>;
 
 	qcom,panel-supply-entries {
 		#address-cells = <1>;
