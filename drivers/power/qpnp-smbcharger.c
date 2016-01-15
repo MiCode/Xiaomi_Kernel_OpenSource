@@ -3769,44 +3769,27 @@ struct regulator_ops smbchg_external_otg_reg_ops = {
 static int smbchg_regulator_init(struct smbchg_chip *chip)
 {
 	int rc = 0;
-	struct regulator_init_data *init_data;
 	struct regulator_config cfg = {};
 	struct device_node *regulator_node;
 
-	regulator_node = of_get_child_by_name(chip->dev->of_node,
-			"qcom,smbcharger-boost-otg");
+	cfg.dev = chip->dev;
+	cfg.driver_data = chip;
 
-	init_data = of_get_regulator_init_data(chip->dev, regulator_node);
-	if (!init_data) {
-		dev_err(chip->dev, "Unable to allocate memory\n");
-		return -ENOMEM;
+	chip->otg_vreg.rdesc.owner = THIS_MODULE;
+	chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
+	chip->otg_vreg.rdesc.ops = &smbchg_otg_reg_ops;
+	chip->otg_vreg.rdesc.of_match = "qcom,smbcharger-boost-otg";
+	chip->otg_vreg.rdesc.name = "qcom,smbcharger-boost-otg";
+
+	chip->otg_vreg.rdev = devm_regulator_register(chip->dev,
+					&chip->otg_vreg.rdesc, &cfg);
+	if (IS_ERR(chip->otg_vreg.rdev)) {
+		rc = PTR_ERR(chip->otg_vreg.rdev);
+		chip->otg_vreg.rdev = NULL;
+		if (rc != -EPROBE_DEFER)
+			dev_err(chip->dev,
+				"OTG reg failed, rc=%d\n", rc);
 	}
-
-	if (init_data->constraints.name) {
-		chip->otg_vreg.rdesc.owner = THIS_MODULE;
-		chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
-		chip->otg_vreg.rdesc.ops = &smbchg_otg_reg_ops;
-		chip->otg_vreg.rdesc.name = init_data->constraints.name;
-
-		cfg.dev = chip->dev;
-		cfg.init_data = init_data;
-		cfg.driver_data = chip;
-		cfg.of_node = regulator_node;
-
-		init_data->constraints.valid_ops_mask
-			|= REGULATOR_CHANGE_STATUS;
-
-		chip->otg_vreg.rdev = devm_regulator_register(chip->dev,
-						&chip->otg_vreg.rdesc, &cfg);
-		if (IS_ERR(chip->otg_vreg.rdev)) {
-			rc = PTR_ERR(chip->otg_vreg.rdev);
-			chip->otg_vreg.rdev = NULL;
-			if (rc != -EPROBE_DEFER)
-				dev_err(chip->dev,
-					"OTG reg failed, rc=%d\n", rc);
-		}
-	}
-
 	if (rc)
 		return rc;
 
@@ -3816,39 +3799,26 @@ static int smbchg_regulator_init(struct smbchg_chip *chip)
 		dev_dbg(chip->dev, "external-otg node absent\n");
 		return 0;
 	}
-	init_data = of_get_regulator_init_data(chip->dev, regulator_node);
-	if (!init_data) {
-		dev_err(chip->dev, "Unable to allocate memory\n");
-		return -ENOMEM;
-	}
 
-	if (init_data->constraints.name) {
-		if (of_get_property(chip->dev->of_node,
-					"otg-parent-supply", NULL))
-			init_data->supply_regulator = "otg-parent";
-		chip->ext_otg_vreg.rdesc.owner = THIS_MODULE;
-		chip->ext_otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
-		chip->ext_otg_vreg.rdesc.ops = &smbchg_external_otg_reg_ops;
-		chip->ext_otg_vreg.rdesc.name = init_data->constraints.name;
+	chip->ext_otg_vreg.rdesc.owner = THIS_MODULE;
+	chip->ext_otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
+	chip->ext_otg_vreg.rdesc.ops = &smbchg_external_otg_reg_ops;
+	chip->ext_otg_vreg.rdesc.of_match =  "qcom,smbcharger-external-otg";
+	chip->ext_otg_vreg.rdesc.name = "qcom,smbcharger-external-otg";
+	if (of_get_property(chip->dev->of_node, "otg-parent-supply", NULL))
+		chip->ext_otg_vreg.rdesc.supply_name = "otg-parent";
+	cfg.dev = chip->dev;
+	cfg.driver_data = chip;
 
-		cfg.dev = chip->dev;
-		cfg.init_data = init_data;
-		cfg.driver_data = chip;
-		cfg.of_node = regulator_node;
-
-		init_data->constraints.valid_ops_mask
-			|= REGULATOR_CHANGE_STATUS;
-
-		chip->ext_otg_vreg.rdev = devm_regulator_register(chip->dev,
-						&chip->ext_otg_vreg.rdesc,
-						&cfg);
-		if (IS_ERR(chip->ext_otg_vreg.rdev)) {
-			rc = PTR_ERR(chip->ext_otg_vreg.rdev);
-			chip->ext_otg_vreg.rdev = NULL;
-			if (rc != -EPROBE_DEFER)
-				dev_err(chip->dev,
-					"external OTG reg failed, rc=%d\n", rc);
-		}
+	chip->ext_otg_vreg.rdev = devm_regulator_register(chip->dev,
+					&chip->ext_otg_vreg.rdesc,
+					&cfg);
+	if (IS_ERR(chip->ext_otg_vreg.rdev)) {
+		rc = PTR_ERR(chip->ext_otg_vreg.rdev);
+		chip->ext_otg_vreg.rdev = NULL;
+		if (rc != -EPROBE_DEFER)
+			dev_err(chip->dev,
+				"external OTG reg failed, rc=%d\n", rc);
 	}
 
 	return rc;
