@@ -1301,7 +1301,8 @@ static int mem_acc_regulator_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	init_data = of_get_regulator_init_data(&pdev->dev, pdev->dev.of_node);
+	init_data = of_get_regulator_init_data(&pdev->dev, pdev->dev.of_node,
+					NULL);
 	if (!init_data) {
 		pr_err("regulator init data is missing\n");
 		return -EINVAL;
