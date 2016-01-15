@@ -4242,9 +4242,11 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		}
 	}
 
+	ATRACE_BEGIN("ATOMIC_COMMIT");
 	ret = mdss_fb_atomic_commit(info, &commit, file);
 	if (ret)
 		pr_err("atomic commit failed ret:%d\n", ret);
+	ATRACE_END("ATOMIC_COMMIT");
 
 	if (layer_count) {
 		for (j = 0; j < layer_count; j++) {
