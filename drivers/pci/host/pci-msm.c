@@ -4963,7 +4963,9 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 
 	spin_lock_irqsave(&dev->global_irq_lock, irqsave_flags);
 
-	status = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_STATUS);
+	status = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_STATUS) &
+			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK);
+
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_CLEAR, 0, status);
 
 	for (i = 0; i <= MSM_PCIE_INT_EVT_MAX; i++) {
