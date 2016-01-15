@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -557,6 +557,37 @@ void cnss_device_crashed(void)
 	}
 }
 EXPORT_SYMBOL(cnss_device_crashed);
+
+/**
+ * cnss_get_restart_level() - cnss get restart level API
+ *
+ * Wlan sdio function driver uses this API to get the current
+ * subsystem restart level.
+ *
+ * Return: CNSS_RESET_SOC - "SYSTEM", restart system
+ *         CNSS_RESET_SUBSYS_COUPLED - "RELATED",restart subsystem
+ */
+int cnss_get_restart_level(void)
+{
+	struct cnss_ssr_info *ssr_info;
+	int level;
+
+	if (!cnss_pdata)
+		return CNSS_RESET_SOC;
+	ssr_info = &cnss_pdata->ssr_info;
+	if (!ssr_info->subsys)
+		return CNSS_RESET_SOC;
+	level = subsys_get_restart_level(ssr_info->subsys);
+	switch (level) {
+	case RESET_SOC:
+		return CNSS_RESET_SOC;
+	case RESET_SUBSYS_COUPLED:
+		return CNSS_RESET_SUBSYS_COUPLED;
+	default:
+		return CNSS_RESET_SOC;
+	}
+}
+EXPORT_SYMBOL(cnss_get_restart_level);
 
 static int cnss_sdio_wlan_inserted(
 				struct sdio_func *func,
