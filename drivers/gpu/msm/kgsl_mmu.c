@@ -217,28 +217,6 @@ kgsl_mmu_detach_pagetable(struct kgsl_pagetable *pagetable)
 	pagetable_remove_sysfs_objects(pagetable);
 }
 
-int
-kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu, u64 pt_base)
-{
-	struct kgsl_pagetable *pt;
-	int ptid = -1;
-
-	if (!MMU_OP_VALID(mmu, mmu_pt_equal))
-		return KGSL_MMU_GLOBAL_PT;
-
-	spin_lock(&kgsl_driver.ptlock);
-	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (mmu->mmu_ops->mmu_pt_equal(mmu, pt, pt_base)) {
-			ptid = (int) pt->name;
-			break;
-		}
-	}
-	spin_unlock(&kgsl_driver.ptlock);
-
-	return ptid;
-}
-EXPORT_SYMBOL(kgsl_mmu_get_ptname_from_ptbase);
-
 struct kgsl_pagetable *kgsl_mmu_get_pt_from_ptname(struct kgsl_mmu *mmu,
 						int ptname)
 {
