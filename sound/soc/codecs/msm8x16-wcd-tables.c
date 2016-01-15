@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -311,7 +311,7 @@ const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE] = {
 		[MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL] = 1,
 		/* To detect cajon codec */
 		[MSM8X16_WCD_A_ANALOG_NCP_FBCTRL] = 1,
-
+		[MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1] = 1,
 };
 
 const u8 cajon_digital_reg[MSM8X16_WCD_CACHE_SIZE] = {
