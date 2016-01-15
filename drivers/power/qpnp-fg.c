@@ -3191,13 +3191,8 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 				pr_info("cap learning started, soc = %d cc_uah = %lld\n",
 					battery_soc * 100 / FULL_PERCENT_3B,
 					chip->learning_data.cc_uah);
-			rc = alarm_start_relative(&chip->fg_cap_learning_alarm,
+			alarm_start_relative(&chip->fg_cap_learning_alarm,
 				ns_to_ktime(FG_CAP_LEARNING_INTERVAL_NS));
-			if (rc) {
-				pr_err("Failed to start alarm: %d\n", rc);
-				fg_cap_learning_stop(chip);
-				goto fail;
-			}
 		}
 	} else if ((chip->status != POWER_SUPPLY_STATUS_CHARGING)
 				&& chip->learning_data.active) {
