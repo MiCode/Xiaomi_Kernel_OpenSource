@@ -2348,38 +2348,23 @@ wrkarnd_and_input_current_values:
 static int smb135x_regulator_init(struct smb135x_chg *chip)
 {
 	int rc = 0;
-	struct regulator_init_data *init_data;
 	struct regulator_config cfg = {};
 
-	init_data = of_get_regulator_init_data(chip->dev, chip->dev->of_node);
-	if (!init_data) {
-		dev_err(chip->dev, "Unable to allocate memory\n");
-		return -ENOMEM;
-	}
+	chip->otg_vreg.rdesc.owner = THIS_MODULE;
+	chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
+	chip->otg_vreg.rdesc.ops = &smb135x_chg_otg_reg_ops;
+	chip->otg_vreg.rdesc.name = chip->dev->of_node->name;
+	chip->otg_vreg.rdesc.of_match = chip->dev->of_node->name;
+	cfg.dev = chip->dev;
+	cfg.driver_data = chip;
 
-	if (init_data->constraints.name) {
-		chip->otg_vreg.rdesc.owner = THIS_MODULE;
-		chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
-		chip->otg_vreg.rdesc.ops = &smb135x_chg_otg_reg_ops;
-		chip->otg_vreg.rdesc.name = init_data->constraints.name;
-
-		cfg.dev = chip->dev;
-		cfg.init_data = init_data;
-		cfg.driver_data = chip;
-		cfg.of_node = chip->dev->of_node;
-
-		init_data->constraints.valid_ops_mask
-			|= REGULATOR_CHANGE_STATUS;
-
-		chip->otg_vreg.rdev = regulator_register(
-						&chip->otg_vreg.rdesc, &cfg);
-		if (IS_ERR(chip->otg_vreg.rdev)) {
-			rc = PTR_ERR(chip->otg_vreg.rdev);
-			chip->otg_vreg.rdev = NULL;
-			if (rc != -EPROBE_DEFER)
-				dev_err(chip->dev,
-					"OTG reg failed, rc=%d\n", rc);
-		}
+	chip->otg_vreg.rdev = regulator_register(&chip->otg_vreg.rdesc, &cfg);
+	if (IS_ERR(chip->otg_vreg.rdev)) {
+		rc = PTR_ERR(chip->otg_vreg.rdev);
+		chip->otg_vreg.rdev = NULL;
+		if (rc != -EPROBE_DEFER)
+			dev_err(chip->dev,
+				"OTG reg failed, rc=%d\n", rc);
 	}
 
 	return rc;
