@@ -23,6 +23,10 @@
 	qcom,follow-otst2-rb-disabled;
 };
 
+&wled {
+	qcom,cons-sync-write-delay-us = <1000>;
+};
+
 &pm8937_gpios {
 	gpio@c100 {
 		qcom,mode = <0>;
