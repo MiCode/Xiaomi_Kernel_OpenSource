@@ -840,7 +840,7 @@ static int spm_regulator_avs_register(struct spm_vreg *vreg,
 	if (!avs_node)
 		return 0;
 
-	init_data = of_get_regulator_init_data(dev, avs_node);
+	init_data = of_get_regulator_init_data(dev, avs_node, &vreg->avs_rdesc);
 	if (!init_data) {
 		dev_err(dev, "%s: unable to allocate memory\n", __func__);
 		return -ENOMEM;
@@ -972,7 +972,7 @@ static int spm_regulator_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	init_data = of_get_regulator_init_data(&pdev->dev, node);
+	init_data = of_get_regulator_init_data(&pdev->dev, node, &vreg->rdesc);
 	if (!init_data) {
 		dev_err(&pdev->dev, "%s: unable to allocate memory\n",
 				__func__);
