@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,8 +71,6 @@ struct cff_op_poll_reg {
 struct cff_op_wait_irq {
 	unsigned char op;
 } __packed;
-
-#define CFF_OP_RMW              0x0000000a
 
 struct cff_op_write_mem {
 	unsigned char op;

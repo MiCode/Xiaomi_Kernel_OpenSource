@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,20 +44,6 @@
  */
 #define KGSL_IOMMU_SVM_BASE64		0x700000000ULL
 #define KGSL_IOMMU_SVM_END64		0x800000000ULL
-
-/* Pagetable virtual base */
-#define KGSL_IOMMU_CTX_OFFSET_V1	0x8000
-#define KGSL_IOMMU_CTX_OFFSET_V2	0x9000
-#define KGSL_IOMMU_CTX_OFFSET_V2_A530	0x8000
-#define KGSL_IOMMU_CTX_OFFSET_A405V2	0x8000
-#define KGSL_IOMMU_CTX_SHIFT		12
-
-/* FSYNR1 V0 fields */
-#define KGSL_IOMMU_FSYNR1_AWRITE_MASK		0x00000001
-#define KGSL_IOMMU_FSYNR1_AWRITE_SHIFT		8
-/* FSYNR0 V1 fields */
-#define KGSL_IOMMU_V1_FSYNR0_WNR_MASK		0x00000001
-#define KGSL_IOMMU_V1_FSYNR0_WNR_SHIFT		4
 
 /* TLBSTATUS register fields */
 #define KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE BIT(0)
