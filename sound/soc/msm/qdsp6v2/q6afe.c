@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -983,8 +983,14 @@ static int afe_send_hw_delay(u16 port_id, u32 rate)
 	else if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_RX)
 		ret = afe_get_cal_hw_delay(RX_DEVICE, &delay_entry);
 
+	/*
+	 * HW delay is only used for IMS calls to sync audio with video
+	 * It is only needed for devices & sample rates used for IMS video
+	 * calls. Values are received from ACDB calbration files
+	 */
 	if (ret != 0) {
-		pr_debug("%s: Failed to get hw delay info %d\n", __func__, ret);
+		pr_debug("%s: debug: HW delay info not available %d\n",
+			__func__, ret);
 		goto fail_cmd;
 	}
 
