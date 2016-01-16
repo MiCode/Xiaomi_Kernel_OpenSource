@@ -21,3 +21,11 @@
 	model = "Qualcomm Technologies, Inc. MSM 8996pro";
 	qcom,msm-id = <305 0x20000>;
 };
+
+&apc_apm {
+	/delete-property/ qcom,clock-source-override;
+};
+
+&pm8994_s11 {
+	/delete-property/ qcom,recal-mask;
+};
