@@ -524,6 +524,9 @@
 		HSUSB_3p3-supply = <&mdm9607_l4>;
 		qcom,vdd-voltage-level = <0 1225000 1225000>;
 
+		qcom,hsusb-otg-phy-init-seq =
+			<0x44 0x80 0x38 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <3>; /* OTG mode */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC control */
