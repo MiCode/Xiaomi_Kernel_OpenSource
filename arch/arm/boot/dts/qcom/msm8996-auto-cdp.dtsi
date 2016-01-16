@@ -83,14 +83,16 @@
 	qcom,vdd-io-current-level = <200 22000>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
-	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on
+		     &sdc2_cd_on_sbc>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+		     &sdc2_cd_on_sbc>;
 
 	qcom,clk-rates = <400000 20000000 25000000
 				50000000 100000000 200000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
-	cd-gpios = <&tlmm 95 0x1>;
+	cd-gpios = <&tlmm 38 0x1>;
 
 	status = "ok";
 };
@@ -761,7 +763,7 @@
 
 &i2c_7 {
 	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
-		status = "ok";
+		status = "disabled";
 		compatible = "silabs,si4705";
 		reg = <0x11>;
 		vdd-supply = <&pm8994_s4>;
