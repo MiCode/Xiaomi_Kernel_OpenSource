@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -382,14 +382,17 @@ static int msm_fd_open(struct file *file)
 		goto error_stats_vmalloc;
 	}
 
-	ret = cam_config_ahb_clk(CAM_AHB_CLIENT_FD, CAMERA_AHB_SVS_VOTE);
+	ret = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_FD,
+			CAM_AHB_SVS_VOTE);
 	if (ret < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
-		return ret;
+		goto error_ahb_config;
 	}
 
 	return 0;
 
+error_ahb_config:
+	vfree(ctx->stats);
 error_stats_vmalloc:
 	vb2_queue_release(&ctx->vb2_q);
 error_vb2_queue_init:
@@ -419,8 +422,8 @@ static int msm_fd_release(struct file *file)
 
 	kfree(ctx);
 
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_FD,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_FD,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 
 	return 0;

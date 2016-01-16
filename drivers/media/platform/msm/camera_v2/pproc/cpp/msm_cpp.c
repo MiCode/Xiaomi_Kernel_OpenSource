@@ -947,7 +947,8 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	uint32_t msm_micro_iface_idx;
 	uint32_t vbif_version;
 
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CPP, CAMERA_AHB_SVS_VOTE);
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
+			CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
 		goto ahb_vote_fail;
@@ -1207,7 +1208,8 @@ fs_mmagic_failed:
 	else
 		msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 bus_scale_register_failed:
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CPP, CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 ahb_vote_fail:
 	return rc;
@@ -1260,9 +1262,8 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	else
 		msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CPP,
-		CAMERA_AHB_SUSPEND_VOTE);
-	if (rc < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CPP,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 }
 
