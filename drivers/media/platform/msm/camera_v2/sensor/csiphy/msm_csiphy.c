@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -707,8 +707,10 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY, CAMERA_AHB_SVS_VOTE);
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
+			CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
+		csiphy_dev->ref_count--;
 		pr_err("%s: failed to vote for AHB\n", __func__);
 		return rc;
 	}
@@ -792,8 +794,9 @@ csiphy_base_fail:
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
 ioremap_fail:
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	csiphy_dev->ref_count--;
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to vote for AHB\n", __func__);
 	return rc;
 }
@@ -822,8 +825,10 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		return rc;
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY, CAMERA_AHB_SVS_VOTE);
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
+			CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
+		csiphy_dev->ref_count--;
 		pr_err("%s: failed to vote for AHB\n", __func__);
 		return rc;
 	}
@@ -904,8 +909,9 @@ csiphy_base_fail:
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
 ioremap_fail:
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	csiphy_dev->ref_count--;
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to vote for AHB\n", __func__);
 	return rc;
 }
@@ -1014,11 +1020,9 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	csiphy_dev->base = NULL;
 	csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
 
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY, CAMERA_AHB_SUSPEND_VOTE);
-	if (rc < 0) {
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
+		 CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
-		return rc;
-	}
 	return 0;
 }
 #else
@@ -1121,8 +1125,9 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
 	csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY,
-		 CAMERA_AHB_SUSPEND_VOTE) < 0)
+
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSIPHY,
+		 CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 	return 0;
 }

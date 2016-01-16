@@ -1262,7 +1262,8 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		return rc;
 	}
 
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CCI, CAMERA_AHB_SVS_VOTE);
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CCI,
+			CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
 		return rc;
@@ -1422,8 +1423,8 @@ clk_enable_failed:
 		cci_dev->cci_gpio_tbl_size, 0);
 request_gpio_failed:
 	cci_dev->ref_count--;
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CCI,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CCI,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 	return rc;
 }
@@ -1480,8 +1481,8 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	cci_dev->cci_clk_src = 0;
 
 ahb_vote_suspend:
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CCI,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CCI,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 	return rc;
 }
