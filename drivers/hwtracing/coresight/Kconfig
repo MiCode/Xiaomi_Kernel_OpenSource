@@ -12,6 +12,15 @@ menuconfig CORESIGHT
 	  trace source gets enabled.
 
 if CORESIGHT
+
+config CORESIGHT_CSR
+	bool "CoreSight Slave Register driver"
+	help
+	  This driver provides support for CoreSight Slave Register block
+	  that hosts miscellaneous configuration registers.
+	  Those configuration registers can be used to control, various
+	  coresight configurations.
+
 config CORESIGHT_LINKS_AND_SINKS
 	bool "CoreSight Link and Sink drivers"
 	help
@@ -23,6 +32,7 @@ config CORESIGHT_LINKS_AND_SINKS
 config CORESIGHT_LINK_AND_SINK_TMC
 	bool "Coresight generic TMC driver"
 	depends on CORESIGHT_LINKS_AND_SINKS
+	select CORESIGHT_CSR
 	help
 	  This enables support for the Trace Memory Controller driver.
 	  Depending on its configuration the device can act as a link (embedded
