@@ -77,4 +77,12 @@ config CORESIGHT_QCOM_REPLICATOR
 	  programmable ATB replicator sends the ATB trace stream from the
 	  ETB/ETF to the TPIUi and ETR.
 
+config CORESIGHT_STM
+	bool "CoreSight System Trace Macrocell driver"
+	depends on CORESIGHT_LINKS_AND_SINKS
+	help
+	  This driver provides support for hardware assisted software
+	  instrumentation based tracing. This is primarily useful for
+	  logging useful software events or data.
+
 endif
