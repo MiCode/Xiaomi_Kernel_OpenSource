@@ -7,7 +7,7 @@ SRAM minimum operating voltage, the APM controller can be used to request a
 switch to a power supply that will guarantee logic state retention.
 
 Required properties
-- compatible:	"qcom,msm-apm", "qcom,msmtitanium-apm"
+- compatible:	"qcom,msm-apm", "qcom,msm8996pro-apm", "qcom,msmtitanium-apm"
 - reg:		Specifies physical base address and size of memory mapped regions
 		containing the APM controller, APCS CSR, APC PLL controller, and
 		SPM event registers.
