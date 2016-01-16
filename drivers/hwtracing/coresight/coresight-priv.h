@@ -33,6 +33,7 @@
 
 #define TIMEOUT_US		100
 #define BMVAL(val, lsb, msb)	((val & GENMASK(msb, lsb)) >> lsb)
+#define BVAL(val, n)		((val & BIT(n)) >> n)
 
 static inline void CS_LOCK(void __iomem *addr)
 {
