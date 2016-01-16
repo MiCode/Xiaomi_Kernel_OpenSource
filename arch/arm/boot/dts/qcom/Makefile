@@ -91,7 +91,11 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-rumi.dtb \
 	msmcobalt-cdp.dtb \
-	msmcobalt-mtp.dtb
+	msmcobalt-mtp.dtb \
+	msmcobalt-v2-sim.dtb \
+	msmcobalt-v2-rumi.dtb \
+	msmcobalt-v2-mtp.dtb \
+	msmcobalt-v2-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-rumi.dtb \
