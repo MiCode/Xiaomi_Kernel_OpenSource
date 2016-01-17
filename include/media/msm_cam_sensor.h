@@ -185,6 +185,7 @@ struct msm_camera_i2c_array_write_config {
 struct msm_camera_i2c_read_config {
 	uint16_t slave_addr;
 	uint16_t reg_addr;
+	enum msm_camera_i2c_reg_addr_type addr_type;
 	enum msm_camera_i2c_data_type data_type;
 	uint16_t data;
 };
@@ -675,6 +676,11 @@ struct msm_camera_i2c_reg_setting32 {
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	enum msm_camera_i2c_data_type data_type;
 	uint16_t delay;
+};
+
+struct msm_camera_i2c_array_write_config32 {
+	struct msm_camera_i2c_reg_setting32 conf_array;
+	uint16_t slave_addr;
 };
 
 struct msm_actuator_tuning_params_t32 {
