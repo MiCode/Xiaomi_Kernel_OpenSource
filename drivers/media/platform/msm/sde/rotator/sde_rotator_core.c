@@ -33,6 +33,7 @@
 #include "sde_rotator_io_util.h"
 #include "sde_rotator_smmu.h"
 #include "sde_rotator_r1.h"
+#include "sde_rotator_r3.h"
 #include "sde_rotator_trace.h"
 
 /* waiting for hw time out, 3 vsync for 30fps*/
@@ -2278,6 +2279,8 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 
 	if ((mdata->mdss_version & 0xFFFF0000) == 0x10070000) {
 		mgr->ops_hw_init = sde_rotator_r1_init;
+	} else if ((mdata->mdss_version & 0xFFFF0000) == 0x30000000) {
+		mgr->ops_hw_init = sde_rotator_r3_init;
 	} else {
 		SDEROT_ERR("unsupported sde version %x\n",
 				mdata->mdss_version);

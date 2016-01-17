@@ -15,9 +15,13 @@ obj-y += \
 		sde_rotator_r1_ctl.o \
 		sde_rotator_r1.o
 
+obj-y += \
+		sde_rotator_r3.o
+
 obj-$(CONFIG_SYNC) += \
 		sde_rotator_sync.o
 
 obj-$(CONFIG_DEBUG_FS) += \
 		sde_rotator_debug.o \
-		sde_rotator_r1_debug.o
+		sde_rotator_r1_debug.o \
+		sde_rotator_r3_debug.o
