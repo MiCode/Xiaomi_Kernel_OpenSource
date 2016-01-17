@@ -22,10 +22,10 @@ module_param(gsi_in_aggr_size, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(gsi_in_aggr_size,
 		"Aggr size of bus transfer to host");
 
-static unsigned int ul_aggr_size = GSI_OUT_BUFF_SIZE;
-module_param(ul_aggr_size, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(ul_aggr_size,
-		"Max size of bus transfer to device");
+static unsigned int gsi_out_aggr_size;
+module_param(gsi_out_aggr_size, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(gsi_out_aggr_size,
+		"Aggr size of bus transfer to device");
 
 static unsigned int num_in_bufs = GSI_NUM_IN_BUFFERS;
 module_param(num_in_bufs, uint, S_IRUGO | S_IWUSR);
@@ -495,6 +495,12 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	conn_params->ipa_to_usb_xferrscidx_valid = true;
 	conn_params->teth_prot = gsi->prot_id;
 	conn_params->teth_prot_params.max_xfer_size_bytes_to_dev = 23700;
+	if (gsi_out_aggr_size)
+		conn_params->teth_prot_params.max_xfer_size_bytes_to_dev
+				= gsi_out_aggr_size;
+	else
+		conn_params->teth_prot_params.max_xfer_size_bytes_to_dev
+				= d_port->out_aggr_size;
 	if (gsi_in_aggr_size)
 		conn_params->teth_prot_params.max_xfer_size_bytes_to_host
 					= gsi_in_aggr_size;
@@ -2488,7 +2494,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		gsi->d_port.in_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
 		info.in_req_num_buf = num_in_bufs;
-		info.out_req_buf_len = ul_aggr_size;
+		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
+		info.out_req_buf_len = GSI_OUT_AGGR_SIZE;
 		info.out_req_num_buf = num_out_bufs;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 
@@ -2553,7 +2560,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		gsi->d_port.in_aggr_size = GSI_IN_MBIM_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
-		info.out_req_buf_len = 0x4000;
+		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
+		info.out_req_buf_len = GSI_OUT_MBIM_BUF_LEN;
 		info.out_req_num_buf = num_out_bufs;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 		mbim_gsi_desc.wMaxSegmentSize = cpu_to_le16(0x800);
@@ -2591,7 +2599,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		gsi->d_port.in_aggr_size = GSI_IN_RMNET_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
-		info.out_req_buf_len = 16384;
+		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
+		info.out_req_buf_len = GSI_OUT_RMNET_BUF_LEN;
 		info.out_req_num_buf = num_out_bufs;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 		break;
@@ -2620,7 +2629,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		gsi->d_port.in_aggr_size = GSI_IN_ECM_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
-		info.out_req_buf_len = 2048;
+		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
+		info.out_req_buf_len = GSI_OUT_ECM_BUF_LEN;
 		info.out_req_num_buf = num_out_bufs;
 		info.notify_buf_len = GSI_CTRL_NOTIFY_BUFF_LEN;
 
