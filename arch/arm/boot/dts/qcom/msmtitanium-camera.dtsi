@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,7 +98,7 @@
 		reg-names = "csid";
 		interrupts = <0 51 0>;
 		interrupt-names = "csid";
-		qcom,csi-vdd-voltage = <1200000>;
+		qcom,csi-vdd-voltage = <1225000>;
 		qcom,mipi-csi-vdd-supply = <&pmtitanium_s3>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
@@ -123,7 +123,7 @@
 		reg-names = "csid";
 		interrupts = <0 52 0>;
 		interrupt-names = "csid";
-		qcom,csi-vdd-voltage = <1200000>;
+		qcom,csi-vdd-voltage = <1225000>;
 		qcom,mipi-csi-vdd-supply = <&pmtitanium_s3>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
@@ -148,7 +148,7 @@
 		reg-names = "csid";
 		interrupts = <0 153 0>;
 		interrupt-names = "csid";
-		qcom,csi-vdd-voltage = <1200000>;
+		qcom,csi-vdd-voltage = <1225000>;
 		qcom,mipi-csi-vdd-supply = <&pmtitanium_s3>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
@@ -335,11 +335,6 @@
 			qcom,scratch-buf-support;
 		};
 
-		msm_cam_smmu_cb2: msm_cam_smmu_cb2 {
-			compatible = "qcom,qsmmu-cam-cb";
-			label = "vfe_secure";
-			qcom,secure-context;
-		};
 
 		msm_cam_smmu_cb3: msm_cam_smmu_cb3 {
 			compatible = "qcom,qsmmu-cam-cb";
