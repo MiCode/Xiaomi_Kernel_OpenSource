@@ -1118,6 +1118,7 @@
 		      <0x6190000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1131,6 +1132,7 @@
 		      <0x6192000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1144,6 +1146,7 @@
 		      <0x6194000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU2>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1157,6 +1160,7 @@
 		      <0x6196000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1170,6 +1174,7 @@
 		      <0x61b0000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU4>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1183,6 +1188,7 @@
 		      <0x61b2000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU5>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1196,6 +1202,7 @@
 		      <0x61b4000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU6>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1209,6 +1216,7 @@
 		      <0x61b6000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
