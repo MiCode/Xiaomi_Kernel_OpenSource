@@ -59,9 +59,9 @@
 /* use client provided dma buf instead of ion fd */
 #define SDE_ROTATION_EXT_DMA_BUF	0x20000
 
-/*********************************************************************
- *configuration structures
- *********************************************************************/
+/**********************************************************************
+ * configuration structures
+ **********************************************************************/
 
 struct sde_rotation_buf_info {
 	uint32_t width;
@@ -108,37 +108,37 @@ struct sde_rotation_item {
 	/* The output buffer for the request */
 	struct sde_layer_buffer	output;
 
-	 /*
-	  * DMA pipe selection for this request by client:
-	  * 0: DMA pipe 0
-	  * 1: DMA pipe 1
-	  * or SDE_ROTATION_HW_ANY if client wants
-	  * driver to allocate any that is available
-	  *
-	  * OR
-	  *
-	  * Reserved
-	  */
+	/*
+	 * DMA pipe selection for this request by client:
+	 * 0: DMA pipe 0
+	 * 1: DMA pipe 1
+	 * or SDE_ROTATION_HW_ANY if client wants
+	 * driver to allocate any that is available
+	 *
+	 * OR
+	 *
+	 * Reserved
+	 */
 	uint32_t	pipe_idx;
 
-	 /*
-	  * Write-back block selection for this request by client:
-	  * 0: Write-back block 0
-	  * 1: Write-back block 1
-	  * or SDE_ROTATION_HW_ANY if client wants
-	  * driver to allocate any that is available
-	  *
-	  * OR
-	  *
-	  * Priority selection for this request by client:
-	  * 0: Highest
-	  * 1..n: Limited by the lowest available priority
-	  */
+	/*
+	 * Write-back block selection for this request by client:
+	 * 0: Write-back block 0
+	 * 1: Write-back block 1
+	 * or SDE_ROTATION_HW_ANY if client wants
+	 * driver to allocate any that is available
+	 *
+	 * OR
+	 *
+	 * Priority selection for this request by client:
+	 * 0: Highest
+	 * 1..n: Limited by the lowest available priority
+	 */
 	uint32_t	wb_idx;
 
-	 /*
-	  * Sequence ID of this request within the session
-	  */
+	/*
+	 * Sequence ID of this request within the session
+	 */
 	uint32_t	sequence_id;
 
 	/* Which session ID is this request scheduled on */
