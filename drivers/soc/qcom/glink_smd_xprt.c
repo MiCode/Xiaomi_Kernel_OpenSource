@@ -155,6 +155,7 @@ struct channel {
 	bool is_closing;
 	bool local_legacy;
 	bool remote_legacy;
+	size_t intent_req_size;
 	spinlock_t rx_data_lock;
 	bool streaming_ch;
 	bool tx_resume_needed;
@@ -729,10 +730,13 @@ static void process_data_event(struct work_struct *work)
 				ch->rcid);
 		if (!ch->cur_intent && !einfo->intentless) {
 			spin_lock_irqsave(&ch->intents_lock, intents_flags);
+			ch->intent_req = true;
+			ch->intent_req_size = pkt_remaining;
 			list_for_each_entry(i, &ch->intents, node) {
 				if (i->size >= pkt_remaining) {
 					list_del(&i->node);
 					ch->cur_intent = i;
+					ch->intent_req = false;
 					break;
 				}
 			}
@@ -745,7 +749,6 @@ static void process_data_event(struct work_struct *work)
 					"%s Reqesting intent '%s' %u:%u\n",
 					__func__, ch->name,
 					ch->lcid, ch->rcid);
-				ch->intent_req = true;
 				einfo->xprt_if.glink_core_if_ptr->
 						rx_cmd_remote_rx_intent_req(
 								&einfo->xprt_if,
@@ -1552,6 +1555,24 @@ static int deallocate_rx_intent(struct glink_transport_if *if_ptr,
 }
 
 /**
+ * check_and_resume_rx() - Check the RX state and resume it
+ * @ch:		Channel which needs to be checked.
+ * @intent_size:	Intent size being queued.
+ *
+ * This function checks if a receive intent is requested in the
+ * channel and resumes the RX if the queued receive intent satisifes
+ * the requested receive intent. This function must be called with
+ * ch->intents_lock locked.
+ */
+static void check_and_resume_rx(struct channel *ch, size_t intent_size)
+{
+	if (ch->intent_req && ch->intent_req_size <= intent_size) {
+		ch->intent_req = false;
+		queue_work(ch->wq, &ch->work);
+	}
+}
+
+/**
  * tx_cmd_local_rx_intent() - convert an rx intent cmd to wire format and
  *			      transmit
  * @if_ptr:	The transport to transmit on.
@@ -1596,12 +1617,8 @@ static int tx_cmd_local_rx_intent(struct glink_transport_if *if_ptr,
 	intent->size = size;
 	spin_lock_irqsave(&ch->intents_lock, flags);
 	list_add_tail(&intent->node, &ch->intents);
+	check_and_resume_rx(ch, size);
 	spin_unlock_irqrestore(&ch->intents_lock, flags);
-
-	if (ch->intent_req) {
-		ch->intent_req = false;
-		queue_work(ch->wq, &ch->work);
-	}
 
 	srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 	return 0;
@@ -1633,10 +1650,12 @@ static void tx_cmd_local_rx_done(struct glink_transport_if *if_ptr,
 	list_for_each_entry(i, &ch->used_intents, node) {
 		if (i->liid == liid) {
 			list_del(&i->node);
-			if (reuse)
+			if (reuse) {
 				list_add_tail(&i->node, &ch->intents);
-			else
+				check_and_resume_rx(ch, i->size);
+			} else {
 				kfree(i);
+			}
 			break;
 		}
 	}
