@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,6 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
 			qcom,util-fact = <154>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
@@ -43,7 +42,6 @@
 			label = "fab-pcnoc";
 			qcom,fab-dev;
 			qcom,base-name = "pcnoc-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
@@ -57,7 +55,6 @@
 			label = "fab-snoc";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
@@ -71,7 +68,6 @@
 			label = "fab-snoc-mm";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-mm-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
@@ -164,7 +160,6 @@
 			qcom,connections = <&slv_ebi &slv_bimc_snoc>;
 			qcom,prio-lvl = <2>;
 			qcom,prio-rd = <2>;
-			qcom,prio-wr = <2>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_TCU_0>;
 		};
