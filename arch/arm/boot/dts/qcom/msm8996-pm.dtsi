@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -333,6 +333,7 @@
 			<0xff 208>,
 			<0xff 210>,
 			<0xff 211>, /* usb_dwc3_otg */
+			<0xff 212>, /* usb_dwc3_otg */
 			<0xff 215>, /* o_bimc_intr(0) */
 			<0xff 224>, /* spdm_realtime_irq[1] */
 			<0xff 238>, /* crypto_bam_irq[0] */
