@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,28 +49,39 @@
 
 	eeprom0: qcom,eeprom@0 {
 		cell-index = <0>;
-		reg = <0x0>;
-		qcom,eeprom-name = "le2464c";
 		compatible = "qcom,eeprom";
-		qcom,slave-addr = <0xa0>;
 		qcom,cci-master = <0>;
-		qcom,num-blocks = <1>;
-
-		qcom,page0 = <0 0 0 0 0 0>;
-		qcom,poll0 = <0 0 0 0 0 0>;
-		qcom,saddr0 = <0xa0>;
-		qcom,mem0 = <8192 0x0000 2 0 1 0>;
-
+		reg = <0x0>;
 		cam_vio-supply = <&pmtitanium_l6>;
-		qcom,cam-vreg-name = "cam_vio";
-		qcom,cam-vreg-min-voltage = <0>;
-		qcom,cam-vreg-max-voltage = <0>;
-		qcom,cam-vreg-op-mode = <0>;
-		qcom,cam-power-seq-type = "sensor_vreg";
-		qcom,cam-power-seq-val = "cam_vio";
-		qcom,cam-power-seq-cfg-val = <1>;
-		qcom,cam-power-seq-delay = <1>;
+		cam_vdig-supply = <&pmtitanium_l2>;
+		cam_vaf-supply = <&pmtitanium_l17>;
+		qcom,cam-vreg-name = "cam_vio", "cam_vdig", "cam_vaf";
+		qcom,cam-vreg-min-voltage = <0 1100000 2850000>;
+		qcom,cam-vreg-max-voltage = <0 1100000 2850000>;
+		qcom,cam-vreg-op-mode = <0 105000 100000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_rear_default
+				&cam_sensor_rear_vana>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep
+				&cam_sensor_rear_vana_sleep>;
+		gpios = <&tlmm 26 0>,
+			<&tlmm 40 0>,
+			<&tlmm 39 0>,
+			<&tlmm 134 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-vana = <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+			"CAM_RESET0",
+			"CAM_STANDBY0",
+			"CAM_VANA";
 		status = "ok";
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+				<&clock_gcc clk_gcc_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
 	};
 
 	eeprom1: qcom,eeprom@1 {
@@ -129,8 +140,8 @@
 			&cam_sensor_front1_default>;
 		pinctrl-1 = <&cam_sensor_mclk1_sleep &cam_sensor_front1_sleep>;
 		gpios = <&tlmm 27 0>,
-			<&tlmm 132 0>,
-			<&tlmm 37 0>;
+			<&tlmm 129 0>,
+			<&tlmm 130 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-req-tbl-num = <0 1 2>;
@@ -241,8 +252,8 @@
 		cell-index = <2>;
 		compatible = "qcom,camera";
 		reg = <0x02>;
-		qcom,csiphy-sd-index = <1>;
-		qcom,csid-sd-index = <1>;
+		qcom,csiphy-sd-index = <2>;
+		qcom,csid-sd-index = <2>;
 		qcom,mount-angle = <90>;
 		qcom,eeprom-src = <&eeprom1>;
 		qcom,actuator-src = <&actuator1>;

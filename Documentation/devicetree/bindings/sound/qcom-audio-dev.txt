@@ -1,5 +1,12 @@
 Qualcomm audio devices for ALSA sound SoC
 
+* msmapr-audio
+
+Required properties:
+
+ - compatible : "qcom,msmapr-audio"
+
+
 * msm-pcm
 
 Required properties:

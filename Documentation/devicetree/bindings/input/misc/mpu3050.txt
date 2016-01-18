@@ -1,0 +1,31 @@
+InvenSense MPU30X0-series gyrometer driver
+
+Required properties:
+
+ - compatible		: Should be "invn,mpu3050".
+ - reg				: i2c slave address of the device.
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: Gyrometer sample interrupt to indicate new data ready.
+ - vdd-supply		: Analog power supply needed to power device.
+ - vlogic-supply	: Digital IO power supply needed for IO and I2C.
+ - invn,gpio-int	: GPIO used for interrupt.
+ - invn,gpio-en		: GPIO used for power enabling.
+ - invn,poll-interval	: Initial data polling interval in milliseconds.
+
+Example:
+	i2c@f9925000 {
+		mpu3050@68 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			reg = <0x68>;
+			compatible = "invn,mpu3050";
+			interrupt-parent = <&msmgpio>;
+			interrupts = <84 0x2>;
+			vlogic-supply = <&pm8110_l14>;
+			vdd-supply = <&pm8110_l19>;
+			invn,gpio-int = <&msmgpio 84 0x2>;
+			invn,gpio-en = <&pm8110_gpios 2 0x2>;
+			invn,poll-interval = <200>;
+		};
+	};

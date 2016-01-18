@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #endif
 
 #define HBTP_INPUT_NAME			"hbtp_input"
+#define DISP_COORDS_SIZE		2
 
 struct hbtp_data {
 	struct platform_device *pdev;
@@ -48,6 +49,14 @@ struct hbtp_data {
 	int dig_load_ua;
 	int dig_vtg_min_uv;
 	int dig_vtg_max_uv;
+	int disp_maxx;		/* Display Max X */
+	int disp_maxy;		/* Display Max Y */
+	int def_maxx;		/* Default Max X */
+	int def_maxy;		/* Default Max Y */
+	int des_maxx;		/* Desired Max X */
+	int des_maxy;		/* Desired Max Y */
+	bool use_scaling;
+	bool override_disp_coords;
 	bool manage_afe_power_ana;
 	bool manage_power_dig;
 };
@@ -140,6 +149,13 @@ static int hbtp_input_create_input_dev(struct hbtp_input_absinfo *absinfo)
 					abs->minimum, abs->maximum, 0, 0);
 	}
 
+	if (hbtp->override_disp_coords) {
+		input_set_abs_params(input_dev, ABS_MT_POSITION_X,
+					0, hbtp->disp_maxx, 0, 0);
+		input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
+					0, hbtp->disp_maxy, 0, 0);
+	}
+
 	error = input_register_device(input_dev);
 	if (error) {
 		pr_err("%s: input_register_device failed\n", __func__);
@@ -184,9 +200,29 @@ static int hbtp_input_report_events(struct hbtp_data *hbtp_data,
 				input_report_abs(hbtp_data->input_dev,
 						ABS_MT_PRESSURE,
 						tch->pressure);
+				/*
+				 * Scale up/down the X-coordinate as per
+				 * DT property
+				 */
+				if (hbtp_data->use_scaling &&
+						hbtp_data->def_maxx > 0 &&
+						hbtp_data->des_maxx > 0)
+					tch->x = (tch->x * hbtp_data->des_maxx)
+							/ hbtp_data->def_maxx;
+
 				input_report_abs(hbtp_data->input_dev,
 						ABS_MT_POSITION_X,
 						tch->x);
+				/*
+				 * Scale up/down the Y-coordinate as per
+				 * DT property
+				 */
+				if (hbtp_data->use_scaling &&
+						hbtp_data->def_maxy > 0 &&
+						hbtp_data->des_maxy > 0)
+					tch->y = (tch->y * hbtp_data->des_maxy)
+							/ hbtp_data->def_maxy;
+
 				input_report_abs(hbtp_data->input_dev,
 						ABS_MT_POSITION_Y,
 						tch->y);
@@ -416,9 +452,11 @@ MODULE_ALIAS("devname:" HBTP_INPUT_NAME);
 #ifdef CONFIG_OF
 static int hbtp_parse_dt(struct device *dev)
 {
-	int rc;
+	int rc, size;
 	struct device_node *np = dev->of_node;
+	struct property *prop;
 	u32 temp_val;
+	u32 disp_reso[DISP_COORDS_SIZE];
 
 	if (of_find_property(np, "vcc_ana-supply", NULL))
 		hbtp->manage_afe_power_ana = true;
@@ -474,6 +512,88 @@ static int hbtp_parse_dt(struct device *dev)
 			dev_err(dev, "Unable to read digital max voltage\n");
 			return rc;
 		}
+	}
+
+	prop = of_find_property(np, "qcom,display-resolution", NULL);
+	if (prop != NULL) {
+		if (!prop->value)
+			return -ENODATA;
+
+		size = prop->length / sizeof(u32);
+		if (size != DISP_COORDS_SIZE) {
+			dev_err(dev, "invalid qcom,display-resolution DT property\n");
+			return -EINVAL;
+		}
+
+		rc = of_property_read_u32_array(np, "qcom,display-resolution",
+							disp_reso, size);
+		if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read DT property qcom,display-resolution\n");
+			return rc;
+		}
+
+		hbtp->disp_maxx = disp_reso[0];
+		hbtp->disp_maxy = disp_reso[1];
+
+		hbtp->override_disp_coords = true;
+	}
+
+	hbtp->use_scaling = of_property_read_bool(np, "qcom,use-scale");
+	if (hbtp->use_scaling) {
+		rc = of_property_read_u32(np, "qcom,default-max-x", &temp_val);
+		if (!rc) {
+			hbtp->def_maxx = (int) temp_val;
+		} else if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read default max x\n");
+			return rc;
+		}
+
+		rc = of_property_read_u32(np, "qcom,desired-max-x", &temp_val);
+		if (!rc) {
+			hbtp->des_maxx = (int) temp_val;
+		} else if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read desired max x\n");
+			return rc;
+		}
+
+		/*
+		 * Either both DT properties i.e. Default max X and
+		 * Desired max X should be defined simultaneously, or none
+		 * of them should be defined.
+		 */
+		if ((hbtp->def_maxx == 0 && hbtp->des_maxx != 0) ||
+				(hbtp->def_maxx != 0 && hbtp->des_maxx == 0)) {
+			dev_err(dev, "default or desired max-X properties are incorrect\n");
+			return -EINVAL;
+		}
+
+		rc = of_property_read_u32(np, "qcom,default-max-y", &temp_val);
+		if (!rc) {
+			hbtp->def_maxy = (int) temp_val;
+		} else if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read default max y\n");
+			return rc;
+		}
+
+		rc = of_property_read_u32(np, "qcom,desired-max-y", &temp_val);
+		if (!rc) {
+			hbtp->des_maxy = (int) temp_val;
+		} else if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read desired max y\n");
+			return rc;
+		}
+
+		/*
+		 * Either both DT properties i.e. Default max X and
+		 * Desired max X should be defined simultaneously, or none
+		 * of them should be defined.
+		 */
+		if (!((hbtp->def_maxy == 0 && hbtp->des_maxy != 0) ||
+				(hbtp->def_maxy != 0 && hbtp->des_maxy == 0))) {
+			dev_err(dev, "default or desired max-Y properties are incorrect\n");
+			return -EINVAL;
+		}
+
 	}
 
 	return 0;

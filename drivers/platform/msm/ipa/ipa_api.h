@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,6 +180,8 @@ struct ipa_api_controller {
 	int (*ipa_uc_wdi_get_dbpa)(struct ipa_wdi_db_params *out);
 
 	int (*ipa_uc_reg_rdyCB)(struct ipa_wdi_uc_ready_params *param);
+
+	int (*ipa_uc_dereg_rdyCB)(void);
 
 	int (*ipa_rm_create_resource)(
 		struct ipa_rm_create_params *create_params);

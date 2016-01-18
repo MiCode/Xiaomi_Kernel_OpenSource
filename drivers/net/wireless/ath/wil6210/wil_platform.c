@@ -35,7 +35,8 @@ void wil_platform_modexit(void)
  * It returns a handle which is used with the rest of the API
  *
  */
-void *wil_platform_init(struct device *dev, struct wil_platform_ops *ops)
+void *wil_platform_init(struct device *dev, struct wil_platform_ops *ops,
+			const struct wil_platform_rops *rops, void *wil_handle)
 {
 	void *handle;
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -727,11 +727,13 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 	    !atomic_read(&smd_info->opened))
 		return -EIO;
 
+	/*
+	 * Always try to read the data if notification is received from smd
+	 * In case if packet size is 0 release the wake source hold earlier
+	 */
 	err = wait_event_interruptible(smd_info->read_wait_q,
-				       (smd_info->hdl == NULL) ||
-				       (atomic_read(&smd_info->opened) == 0) ||
-				       (smd_cur_packet_size(smd_info->hdl)) ||
-				       (!atomic_read(&smd_info->diag_state)));
+				       (smd_info->hdl != NULL) &&
+				       (atomic_read(&smd_info->opened) == 1));
 	if (err) {
 		diagfwd_channel_read_done(smd_info->fwd_ctxt, buf, 0);
 		return -ERESTARTSYS;

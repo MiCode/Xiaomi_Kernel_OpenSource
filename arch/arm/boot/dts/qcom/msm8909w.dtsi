@@ -1,0 +1,82 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	chosen {
+		bootargs="sched_enable_hmp=0";
+	};
+};
+
+&soc {
+	/delete-node/ qcom,clock-a7@0b011050;
+	clock_cpu: qcom,clock-a7@0b011050 {
+		compatible = "qcom,clock-a53-8916";
+		reg = <0x0b011050 0x8>,
+		      <0x0005c00c 0x8>;
+		reg-names = "rcg-base", "efuse";
+		qcom,safe-freq = < 400000000 >;
+		cpu-vdd-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
+			 <&clock_gcc clk_a7sspll>;
+		clock-names = "clk-4", "clk-5";
+		qcom,enable-opp;
+		qcom,speed0-bin-v0 =
+			<          0 0>,
+			<  800000000 4>,
+			< 1267200000 9>;
+
+		qcom,speed2-bin-v0 =
+			<          0 0>,
+			<  800000000 4>,
+			< 1094400000 6>;
+		#clock-cells = <1>;
+	};
+
+	/delete-node/ qcom,msm-cpufreq;
+	qcom,msm-cpufreq {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		clocks = <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>;
+		clock-names = "cpu0_clk", "cpu1_clk",
+				"cpu2_clk", "cpu3_clk";
+		qcom,cpufreq-table =
+			 <  800000 >,
+			 < 1094400 >,
+			 < 1267200 >;
+	};
+
+	/delete-node/ qcom,cpubw;
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  732 /*  96 MHz */>,
+			< 1464 /* 192 MHz */>,
+			< 2929 /* 384 MHz */>;
+	};
+
+	/delete-node/ devfreq-cpufreq;
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				 <  800000  2929>,
+				 < 1094400  2929>,
+				 < 1267200  2929>;
+		};
+	};
+};

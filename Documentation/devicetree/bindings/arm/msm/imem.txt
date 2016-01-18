@@ -46,6 +46,12 @@ Required properties:
 -compatible: "qcom,msm-imem-restart_reason
 -reg: start address and size of restart_reason region in imem
 
+Download Mode Type:
+-------------------
+Required properties:
+-compatible: "qcom,msm-imem-dload-type"
+-reg: start address and size of dload type region in imem
+
 Download Mode:
 --------------
 Required properties:

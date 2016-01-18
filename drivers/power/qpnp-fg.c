@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1141,7 +1141,7 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 	return 0;
 }
 
-#define IACL_SCLT			BIT(5)
+#define IACS_SLCT			BIT(5)
 static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
 				u16 address, int offset, int len)
 {
@@ -1271,7 +1271,7 @@ static int __fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 	return rc;
 }
 
-#define IMA_REQ_ACCESS		(IACL_SCLT | RIF_MEM_ACCESS_REQ)
+#define IMA_REQ_ACCESS		(IACS_SLCT | RIF_MEM_ACCESS_REQ)
 static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 		u16 address, int len, int offset, int op)
 {
@@ -5971,6 +5971,10 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		}
 	}
 
+	/* Read the cycle counter back from FG SRAM */
+	if (chip->cyc_ctr.en)
+		restore_cycle_counter(chip);
+
 	return 0;
 }
 
@@ -6018,9 +6022,6 @@ static int fg_8994_hw_init(struct fg_chip *chip)
 	data[0] = KI_COEFF_PRED_FULL_4_0_LSB;
 	data[1] = KI_COEFF_PRED_FULL_4_0_MSB;
 	fg_mem_write(chip, data, KI_COEFF_PRED_FULL_ADDR, 2, 2, 0);
-	/* Read the cycle counter back from FG SRAM */
-	if (chip->cyc_ctr.en)
-		restore_cycle_counter(chip);
 
 	esr_value = ESR_DEFAULT_VALUE;
 	rc = fg_mem_write(chip, (u8 *)&esr_value, MAXRSCHANGE_REG, 8,
@@ -6155,12 +6156,12 @@ static int fg_setup_memif_offset(struct fg_chip *chip)
 	if (chip->ima_supported) {
 		/*
 		 * Change the FG_MEM_INT interrupt to track IACS_READY
-		 * condition instead of end-of-transation. This makes sure
+		 * condition instead of end-of-transaction. This makes sure
 		 * that the next transaction starts only after the hw is ready.
 		 */
 		rc = fg_masked_write(chip,
-			chip->mem_base + chip->offset[MEM_INTF_CFG],
-				IACS_INTR_SRC_SLCT, IACS_INTR_SRC_SLCT, 1);
+			chip->mem_base + MEM_INTF_IMA_CFG, IACS_INTR_SRC_SLCT,
+			IACS_INTR_SRC_SLCT, 1);
 		if (rc) {
 			pr_err("failed to configure interrupt source %d\n", rc);
 			return rc;
