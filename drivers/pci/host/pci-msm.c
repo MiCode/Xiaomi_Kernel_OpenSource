@@ -1275,10 +1275,10 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 
 		if (readl_relaxed(dev->tcsr) & (BIT(1) | BIT(0)))
 			msm_pcie_write_reg(dev->phy,
-					QSERDES_COM_SYSCLK_EN_SEL, 0x1A);
+					QSERDES_COM_SYSCLK_EN_SEL, 0x0A);
 		else
 			msm_pcie_write_reg(dev->phy,
-					QSERDES_COM_SYSCLK_EN_SEL, 0x14);
+					QSERDES_COM_SYSCLK_EN_SEL, 0x04);
 	}
 
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_DEC_START_MODE0, 0x82);
