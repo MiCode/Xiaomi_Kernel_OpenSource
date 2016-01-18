@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2561,7 +2561,7 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 				str1 = strnchr(str2, strlen(str2), ':');
 				if (str1) {
 					for (i = 0; ((str2 + i) < str1) &&
-					     i < MDSS_MAX_PANEL_LEN; i++)
+					     i < (MDSS_MAX_PANEL_LEN - 1); i++)
 						cfg_np_name[i] = *(str2 + i);
 					cfg_np_name[i] = 0;
 				} else {
