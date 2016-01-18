@@ -833,7 +833,7 @@ static int clock_cpu_probe(struct platform_device *pdev)
 	for_each_online_cpu(cpu) {
 		WARN(clk_prepare_enable(&cci_clk.c),
 				"Unable to Turn on CCI clock");
-		WARN(clk_prepare_enable(logical_cpu_to_clk(cpu)),
+		WARN(clk_prepare_enable(&a53_pwr_clk.c),
 				"Unable to turn on CPU clock for %d\n", cpu);
 	}
 
