@@ -280,6 +280,7 @@ struct mdss_data_type {
 	bool en_svs_high;
 	u32 max_mdp_clk_rate;
 	struct mdss_util_intf *mdss_util;
+	struct mdss_panel_data *pdata;
 
 	struct platform_device *pdev;
 	struct dss_io_data mdss_io;
