@@ -23,6 +23,7 @@
 };
 
 &apc_apm {
+	compatible = "qcom,msm8996pro-apm";
 	/delete-property/ qcom,clock-source-override;
 };
 
