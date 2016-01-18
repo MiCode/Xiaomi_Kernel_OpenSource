@@ -51,6 +51,9 @@
  * @speed_bin:		Application processor speed bin fuse parameter value for
  *			the given chip
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
+ * @boost_cfg:		CPR boost configuration fuse parameter value
+ * @boost_voltage:	CPR boost voltage fuse parameter value (raw, not
+ *			converted to a voltage)
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -61,6 +64,8 @@ struct cpr4_msmtitanium_apss_fuses {
 	u64	quot_offset[MSMTITANIUM_APSS_FUSE_CORNERS];
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
+	u64	boost_cfg;
+	u64	boost_voltage;
 };
 
 /*
@@ -140,6 +145,16 @@ static const struct cpr3_fuse_param msmtitanium_apss_speed_bin_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param msmtitanium_cpr_boost_fuse_cfg_param[] = {
+	{36, 43, 45},
+	{},
+};
+
+static const struct cpr3_fuse_param msmtitanium_apss_boost_fuse_volt_param[] = {
+	{71, 0, 5},
+	{},
+};
+
 /*
  * Open loop voltage fuse reference voltages in microvolts for MSMTITANIUM
  */
@@ -162,6 +177,22 @@ static const int msmtitanium_apss_fuse_ref_volt
 #define MSMTITANIUM_APSS_MAX_TEMP_POINTS	3
 #define MSMTITANIUM_APSS_TEMP_SENSOR_ID_START	4
 #define MSMTITANIUM_APSS_TEMP_SENSOR_ID_END	13
+/*
+ * Boost voltage fuse reference and ceiling voltages in microvolts for
+ * MSMTITANIUM.
+ */
+#define MSMTITANIUM_APSS_BOOST_FUSE_REF_VOLT	1140000
+#define MSMTITANIUM_APSS_BOOST_CEILING_VOLT	1140000
+#define MSMTITANIUM_APSS_BOOST_FLOOR_VOLT	900000
+#define MAX_BOOST_CONFIG_FUSE_VALUE		8
+
+#define MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT	15
+
+/*
+ * Array of integer values mapped to each of the boost config fuse values to
+ * indicate boost enable/disable status.
+ */
+static bool boost_fuse[MAX_BOOST_CONFIG_FUSE_VALUE] = {0, 1, 1, 1, 1, 1, 1, 1};
 
 /**
  * cpr4_msmtitanium_apss_read_fuse_data() - load APSS specific fuse parameter values
@@ -236,6 +267,26 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 				i, rc);
 			return rc;
 		}
+	}
+
+	rc = cpr3_read_fuse_param(base, msmtitanium_cpr_boost_fuse_cfg_param,
+				&fuse->boost_cfg);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read CPR boost config fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+	cpr3_info(vreg, "Voltage boost fuse config = %llu boost = %s\n",
+			fuse->boost_cfg, boost_fuse[fuse->boost_cfg]
+			? "enable" : "disable");
+
+	rc = cpr3_read_fuse_param(base,
+				msmtitanium_apss_boost_fuse_volt_param,
+				&fuse->boost_voltage);
+	if (rc) {
+		cpr3_err(vreg, "failed to read boost fuse voltage, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
@@ -861,6 +912,13 @@ static int cpr4_apss_parse_core_count_temp_voltage_adj(
 			return -EINVAL;
 		}
 
+		if (vreg->max_core_count <= 0 || vreg->max_core_count
+				> MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT) {
+			cpr3_err(vreg, "qcom,max-core-count has invalid value = %d\n",
+				vreg->max_core_count);
+			return -EINVAL;
+		}
+
 		vreg->allow_core_count_adj = true;
 		ctrl->allow_core_count_adj = true;
 	}
@@ -945,6 +1003,157 @@ done:
 }
 
 /**
+ * cpr4_apss_parse_boost_properties() - parse configuration data for boost
+ *		voltage adjustment for CPR3 regulator from device tree.
+ * @vreg:	Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_parse_boost_properties(struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr4_msmtitanium_apss_fuses *fuse = vreg->platform_fuses;
+	struct cpr3_corner *corner;
+	int i, boost_voltage, final_boost_volt, rc = 0;
+	int *boost_table = NULL, *boost_temp_adj = NULL;
+	int boost_voltage_adjust = 0, boost_num_cores = 0;
+	u32 boost_allowed = 0;
+
+	if (!boost_fuse[fuse->boost_cfg])
+		/* Voltage boost is disabled in fuse */
+		return 0;
+
+	if (of_find_property(vreg->of_node, "qcom,allow-boost", NULL)) {
+		rc = cpr3_parse_array_property(vreg, "qcom,allow-boost", 1,
+				&boost_allowed);
+		if (rc)
+			return rc;
+	}
+
+	if (!boost_allowed) {
+		/* Voltage boost is not enabled for this regulator */
+		return 0;
+	}
+
+	boost_voltage = cpr3_convert_open_loop_voltage_fuse(
+				MSMTITANIUM_APSS_BOOST_FUSE_REF_VOLT,
+				MSMTITANIUM_APSS_FUSE_STEP_VOLT,
+				fuse->boost_voltage,
+				MSMTITANIUM_APSS_VOLTAGE_FUSE_SIZE);
+
+	/* Log boost voltage value for debugging purposes. */
+	cpr3_info(vreg, "Boost open-loop=%7d uV\n", boost_voltage);
+
+	if (of_find_property(vreg->of_node,
+			"qcom,cpr-boost-voltage-fuse-adjustment", NULL)) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,cpr-boost-voltage-fuse-adjustment",
+			1, &boost_voltage_adjust);
+		if (rc) {
+			cpr3_err(vreg, "qcom,cpr-boost-voltage-fuse-adjustment reading failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		boost_voltage += boost_voltage_adjust;
+		/* Log boost voltage value for debugging purposes. */
+		cpr3_info(vreg, "Adjusted boost open-loop=%7d uV\n",
+			boost_voltage);
+	}
+
+	/* Limit boost voltage value between ceiling and floor voltage limits */
+	boost_voltage = min(boost_voltage, MSMTITANIUM_APSS_BOOST_CEILING_VOLT);
+	boost_voltage = max(boost_voltage, MSMTITANIUM_APSS_BOOST_FLOOR_VOLT);
+
+	/*
+	 * The boost feature can only be used for the highest voltage corner.
+	 * Also, keep core-count adjustments disabled when the boost feature
+	 * is enabled.
+	 */
+	corner = &vreg->corner[vreg->corner_count - 1];
+	if (!corner->sdelta) {
+		/*
+		 * If core-count/temp adjustments are not defined, the cpr4
+		 * sdelta for this corner will not be allocated. Allocate it
+		 * here for boost configuration.
+		 */
+		corner->sdelta = devm_kzalloc(ctrl->dev,
+					sizeof(*corner->sdelta), GFP_KERNEL);
+		if (!corner->sdelta)
+			return -ENOMEM;
+	}
+	corner->sdelta->temp_band_count = ctrl->temp_band_count;
+
+	rc = of_property_read_u32(vreg->of_node, "qcom,cpr-num-boost-cores",
+				&boost_num_cores);
+	if (rc) {
+		cpr3_err(vreg, "qcom,cpr-num-boost-cores reading failed, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	if (boost_num_cores <= 0
+		|| boost_num_cores > MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT) {
+		cpr3_err(vreg, "Invalid boost number of cores = %d\n",
+			boost_num_cores);
+		return -EINVAL;
+	}
+	corner->sdelta->boost_num_cores = boost_num_cores;
+
+	boost_table = devm_kcalloc(ctrl->dev, corner->sdelta->temp_band_count,
+					sizeof(*boost_table), GFP_KERNEL);
+	if (!boost_table)
+		return -ENOMEM;
+
+	if (of_find_property(vreg->of_node,
+				"qcom,cpr-boost-temp-adjustment", NULL)) {
+		boost_temp_adj = kcalloc(corner->sdelta->temp_band_count,
+					sizeof(*boost_temp_adj), GFP_KERNEL);
+		if (!boost_temp_adj)
+			return -ENOMEM;
+
+		rc = cpr3_parse_array_property(vreg,
+				"qcom,cpr-boost-temp-adjustment",
+				corner->sdelta->temp_band_count,
+				boost_temp_adj);
+		if (rc) {
+			cpr3_err(vreg, "qcom,cpr-boost-temp-adjustment reading failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
+	for (i = 0; i < corner->sdelta->temp_band_count; i++) {
+		/* Apply static adjustments to boost voltage */
+		final_boost_volt = boost_voltage + (boost_temp_adj == NULL
+						? 0 : boost_temp_adj[i]);
+		/*
+		 * Limit final adjusted boost voltage value between ceiling
+		 * and floor voltage limits
+		 */
+		final_boost_volt = min(final_boost_volt,
+					MSMTITANIUM_APSS_BOOST_CEILING_VOLT);
+		final_boost_volt = max(final_boost_volt,
+					MSMTITANIUM_APSS_BOOST_FLOOR_VOLT);
+
+		boost_table[i] = (corner->open_loop_volt - final_boost_volt)
+					/ ctrl->step_volt;
+		cpr3_debug(vreg, "Adjusted boost voltage margin for temp band %d = %d steps\n",
+			i, boost_table[i]);
+	}
+
+	corner->ceiling_volt = MSMTITANIUM_APSS_BOOST_CEILING_VOLT;
+	corner->sdelta->boost_table = boost_table;
+	corner->sdelta->allow_boost = true;
+	corner->sdelta->allow_core_count_adj = false;
+	vreg->allow_boost = true;
+	ctrl->allow_boost = true;
+done:
+	kfree(boost_temp_adj);
+	return rc;
+}
+
+/**
  * cpr4_apss_init_regulator() - perform all steps necessary to initialize the
  *		configuration data for a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
@@ -1014,6 +1223,14 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 			 rc);
 		return rc;
 	}
+
+	rc = cpr4_apss_parse_boost_properties(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to parse boost adjustments, rc=%d\n",
+			 rc);
+		return rc;
+	}
+
 	cpr4_apss_print_settings(vreg);
 
 	return rc;

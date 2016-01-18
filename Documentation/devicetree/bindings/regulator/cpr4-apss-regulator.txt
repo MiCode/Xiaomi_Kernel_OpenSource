@@ -291,6 +291,63 @@ APSS specific properties:
 		    speed bins 1-to-1 or exactly 1 list which is used regardless
 		    of the fuse combination and speed bin found on a given chip.
 
+- qcom,cpr-num-boost-cores
+	Usage:      required if qcom,allow-boost specified for this CPR3
+		    regulator.
+	Value type: <u32>
+	Definition: Integer value indicates that voltage boost will be applied
+		    when the number of online cores become this value.
+
+- qcom,cpr-boost-temp-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the temperature
+		    based voltage adjustment to boost voltage in microvolts
+		    for each temperature band in order from lowest to highest.
+
+		    The number of elements in each tuple should be equal to either
+		    (the number of elements in qcom,cpr-ctrl-temp-point-map
+		    + 1), if qcom,cpr-ctrl-temp-point-map is specified, or 1.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+- qcom,allow-boost
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which specifies if the voltage boost
+		    feature should be enabled for each fuse combination.
+		    Supported per-combo element values:
+			0 - voltage boost feature disabled
+			1 - voltage boost feature enabled
+
+		    The list must contain qcom,cpr-fuse-combos number of
+		    elements in which case the elements are matched to fuse
+		    combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    elements in which case the elements are matched to
+		    speed bins 1-to-1 or exactly 1 element which is used
+		    regardless of the fuse combination and speed bin found
+		    on a given chip.
+
+- qcom,cpr-boost-voltage-fuse-adjustment
+	Usage:      optional
+	Value type: <u32>
+	Definition: A list of integers which defines the voltage adjustment
+		    in microvolts for the fused boost voltage. This adjustment
+		    is applied to the values read from boost fuses.
+
+		    The list must contain qcom,cpr-fuse-combos number of
+		    elements in which case the elements are matched to fuse
+		    combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    elements in which case the elements are matched to
+		    speed bins 1-to-1 or exactly 1 element which is used
+		    regardless of the fuse combination and speed bin found
+		    on a given chip.
+
 =======
 Example
 =======
@@ -420,6 +477,13 @@ apc_cpr: cpr4-ctrl@b018000 {
 				<(-30000) (-20000) (-10000)  (-5000)>,
 				<(-20000) (-10000)  (-5000)       0 >,
 				<(-20000) (-10000)  (-5000)       0 >;
+
+			qcom,cpr-num-boost-cores = <4>;
+			qcom,cpr-boost-voltage-fuse-adjustment = <(-10000)>;
+			qcom,cpr-boost-temp-adjustment =
+				<(-20000) (-15000) (-10000) 0>;
+			qcom,allow-boost =
+				<1>;
 		};
 	};
 };
