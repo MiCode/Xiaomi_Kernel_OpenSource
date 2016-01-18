@@ -18,6 +18,7 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_pp.h"
+#include "mdss_mdp_pp_common.h"
 
 
 /* MDP v1.7 specific macros */
@@ -1267,74 +1268,6 @@ static void pp_pa_set_six_zone(char __iomem *base_addr,
 	mem_col_hold = (sat_hold | val_hold) << PA_HOLD_SIX_ZONE_SHIFT;
 	*pa_hold |= mem_col_hold;
 	*pa_hold_mask |= PA_HOLD_SIX_ZONE_MASK;
-}
-
-static void pp_pa_set_sts(struct pp_sts_type *pp_sts,
-				struct mdp_pa_data_v1_7 *pa_data,
-				int enable_flag,
-				int block_type)
-{
-	pp_sts->pa_sts = 0;
-
-	if (enable_flag & MDP_PP_OPS_ENABLE)
-		pp_sts->pa_sts |= PP_STS_ENABLE;
-	/* Disable takes priority over all flags */
-	if (enable_flag & MDP_PP_OPS_DISABLE) {
-		pp_sts->pa_sts &= ~PP_STS_ENABLE;
-		return;
-	}
-
-	if (!pa_data) {
-		pr_err("PA cfg payload is null, enable flag %d\n", enable_flag);
-		return;
-	}
-
-	/* Global HSV STS update */
-	if (pa_data->mode & MDP_PP_PA_HUE_MASK)
-		pp_sts->pa_sts |= PP_STS_PA_HUE_MASK;
-	if (pa_data->mode & MDP_PP_PA_SAT_MASK)
-		pp_sts->pa_sts |= PP_STS_PA_SAT_MASK;
-	if (pa_data->mode & MDP_PP_PA_VAL_MASK)
-		pp_sts->pa_sts |= PP_STS_PA_VAL_MASK;
-	if (pa_data->mode & MDP_PP_PA_CONT_MASK)
-		pp_sts->pa_sts |= PP_STS_PA_CONT_MASK;
-	if (pa_data->mode & MDP_PP_PA_SAT_ZERO_EXP_EN)
-		pp_sts->pa_sts |= PP_STS_PA_SAT_ZERO_EXP_EN;
-
-	/* Memory Protect STS update */
-	if (pa_data->mode & MDP_PP_PA_MEM_PROT_HUE_EN)
-		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_HUE_EN;
-	if (pa_data->mode & MDP_PP_PA_MEM_PROT_SAT_EN)
-		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_SAT_EN;
-	if (pa_data->mode & MDP_PP_PA_MEM_PROT_VAL_EN)
-		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_VAL_EN;
-	if (pa_data->mode & MDP_PP_PA_MEM_PROT_CONT_EN)
-		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_CONT_EN;
-	if (pa_data->mode & MDP_PP_PA_MEM_PROT_BLEND_EN)
-		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_BLEND_EN;
-	if ((block_type == DSPP) &&
-			(pa_data->mode & MDP_PP_PA_MEM_PROT_SIX_EN))
-		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_SIX_EN;
-
-	/* Memory Color STS update */
-	if (pa_data->mode & MDP_PP_PA_MEM_COL_SKIN_MASK)
-		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_SKIN_MASK;
-	if (pa_data->mode & MDP_PP_PA_MEM_COL_SKY_MASK)
-		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_SKY_MASK;
-	if (pa_data->mode & MDP_PP_PA_MEM_COL_FOL_MASK)
-		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_FOL_MASK;
-
-	/* Six Zone STS update */
-	if (block_type == DSPP) {
-		if (pa_data->mode & MDP_PP_PA_SIX_ZONE_HUE_MASK)
-			pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_HUE_MASK;
-		if (pa_data->mode & MDP_PP_PA_SIX_ZONE_SAT_MASK)
-			pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_SAT_MASK;
-		if (pa_data->mode & MDP_PP_PA_SIX_ZONE_VAL_MASK)
-			pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_VAL_MASK;
-
-		pp_sts_set_split_bits(&pp_sts->pa_sts, enable_flag);
-	}
 }
 
 static int pp_pa_set_config(char __iomem *base_addr,
