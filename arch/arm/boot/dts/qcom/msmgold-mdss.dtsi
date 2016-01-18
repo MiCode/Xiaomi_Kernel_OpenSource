@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,7 +43,9 @@
 &mdss_mdp {
 	qcom,mdss-intf-off = <0x00000000 0x0006B800>;
 	qcom,mdss-pingpong-off = <0x00071000>;
-
+	qcom,mdss-mixer-intf-off = <0x00045000>;
+	qcom,mdss-mixer-wb-off = <0x00046000>;
+	qcom,mdss-wfd-mode = "dedicated";
 	qcom,mdss-per-pipe-panic-luts = <0x000f>,
 					<0x0>,
 					<0xfffc>,
