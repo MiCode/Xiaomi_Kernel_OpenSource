@@ -113,3 +113,14 @@
 	status = "okay";
 	qcom,actuator-type = "erm";
 };
+
+&soc {
+	led_flash0: qcom,camera-flash {
+		cell-index = <0>;
+		compatible = "qcom,camera-flash";
+		qcom,flash-type = <1>;
+		qcom,flash-source = <&pmi8937_flash0>;
+		qcom,torch-source = <&pmi8937_torch0>;
+		qcom,switch-source = <&pmi8937_switch>;
+	};
+};

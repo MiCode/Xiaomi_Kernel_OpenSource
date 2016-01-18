@@ -12,6 +12,7 @@
  */
 
 #include "msmgold-pinctrl.dtsi"
+#include "msmgold-camera-sensor-qrd.dtsi"
 
 &blsp1_uart2 {
 	status = "ok";
