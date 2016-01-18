@@ -82,7 +82,7 @@ config DEVFREQ_GOV_CPUFREQ
 
 config MSM_BIMC_BWMON
 	tristate "MSM BIMC Bandwidth monitor hardware"
-	depends on ARCH_MSM
+	depends on ARCH_QCOM
 	help
 	  The BIMC Bandwidth monitor hardware allows for monitoring the
 	  traffic coming from each master port connected to the BIMC. It also
@@ -91,7 +91,7 @@ config MSM_BIMC_BWMON
 
 config ARMBW_HWMON
 	tristate "ARM PMU Bandwidth monitor hardware"
-	depends on ARCH_MSM8916 || ARCH_MSM8226 || ARCH_MSM8610
+	depends on ARCH_QCOM
 	help
 	  The PMU present on these ARM cores allow for the use of counters to
 	  monitor the traffic coming from each core to the bus. It also has the
@@ -100,7 +100,7 @@ config ARMBW_HWMON
 
 config ARM_MEMLAT_MON
 	tristate "ARM CPU Memory Latency monitor hardware"
-	depends on ARCH_MSM
+	depends on ARCH_QCOM
 	help
 	  The PMU present on these ARM cores allow for the use of counters to
 	  monitor the memory latency characteristics of an ARM CPU workload.
@@ -109,7 +109,7 @@ config ARM_MEMLAT_MON
 
 config MSMCCI_HWMON
 	tristate "MSM CCI Cache monitor hardware"
-	depends on ARCH_MSM
+	depends on ARCH_QCOM
 	help
 	  MSM CCI has additional PMU counters that can be used to monitor
 	  cache requests. MSM CCI hardware monitor device configures these
@@ -118,7 +118,7 @@ config MSMCCI_HWMON
 
 config MSM_M4M_HWMON
 	tristate "MSM M4M cache monitor hardware"
-	depends on ARCH_MSM
+	depends on ARCH_QCOM
 	help
 	  MSM M4M has counters that can be used to monitor requests coming to
 	  M4M. MSM M4M hardware monitor device programs corresponding registers
@@ -146,7 +146,7 @@ config DEVFREQ_GOV_MSM_CACHE_HWMON
 
 config DEVFREQ_GOV_SPDM_HYP
 	bool "MSM SPDM Hypervisor Governor"
-	depends on ARCH_MSM
+	depends on ARCH_QCOM
 	help
 	  Hypervisor based governor for CPU bandwidth voting
 	  for MSM chipsets.
@@ -209,7 +209,7 @@ config DEVFREQ_SIMPLE_DEV
 
 config MSM_DEVFREQ_DEVBW
 	bool "MSM DEVFREQ device for device master <-> slave IB/AB BW voting"
-	depends on ARCH_MSM
+	depends on ARCH_QCOM
 	select DEVFREQ_GOV_PERFORMANCE
 	select DEVFREQ_GOV_POWERSAVE
 	select DEVFREQ_GOV_USERSPACE
@@ -232,7 +232,7 @@ config SPDM_SCM
 
 config DEVFREQ_SPDM
 	bool "MSM SPDM based bandwidth voting"
-	depends on ARCH_MSM
+	depends on ARCH_QCOM
 	select DEVFREQ_GOV_SPDM_HYP
 	help
 	  This adds the support for SPDM based bandwidth voting on MSM chipsets.
