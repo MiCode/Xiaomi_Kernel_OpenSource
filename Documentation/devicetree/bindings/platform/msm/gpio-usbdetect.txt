@@ -9,6 +9,7 @@ subsytem using the power_supply framework.
 
 Required Properties:
  - compatible: must be "qcom,gpio-usbdetect"
+ - qcom,vbus-det-gpio: GPIO from which VBUS detection can be read from.
  - interrupts: an interrupt triggered by the output of the detection circuit
  - interrupt-names: must be "vbus_det_irq"
 
@@ -19,8 +20,6 @@ Example:
 
 	usb_detect {
 		compatible = "qcom,gpio-usbdetect";
-                interrupt-parent = <&spmi_bus>;
-                interrupts = <0x0 0xCA 0x0>;  /* PMA8084 GPIO 11 */
-                interrupt-names = "vbus_det_irq";
+		qcom,vbus-det-gpio = <&pm8084 2 0>;
                 vin-supply = <&vbus_det_reg>;
 	};

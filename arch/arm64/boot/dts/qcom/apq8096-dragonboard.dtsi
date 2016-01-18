@@ -656,9 +656,7 @@
 
 	usb_detect {
 		compatible = "qcom,gpio-usbdetect";
-		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0xd5 0x0>;  /* PM8994 GPIO22 */
-		interrupt-names = "vbus_det_irq";
+		gpio,vbus-det-gpio = <&pm8994_gpios 22 0>;
 		vin-supply = <&vph_pwr_vreg>;
 	};
 
