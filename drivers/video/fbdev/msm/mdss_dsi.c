@@ -2666,7 +2666,7 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 				str1 = strnchr(str2, strlen(str2), ':');
 				if (str1) {
 					for (i = 0; ((str2 + i) < str1) &&
-					     i < MDSS_MAX_PANEL_LEN; i++)
+					     i < (MDSS_MAX_PANEL_LEN - 1); i++)
 						cfg_np_name[i] = *(str2 + i);
 					if ((i >= 0)
 						&& (i < MDSS_MAX_PANEL_LEN))
