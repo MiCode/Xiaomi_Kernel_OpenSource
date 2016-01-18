@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/msm/power-on.h>
+
 &spmi_bus {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -31,6 +33,8 @@
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 			qcom,secondary-pon-reset;
+			qcom,hard-reset-poweroff-type =
+				<PON_POWER_OFF_SHUTDOWN>;
 			pon_perph_reg: qcom,pon_perph_reg {
 				regulator-name = "pon_spare_reg";
 				qcom,pon-spare-reg-addr = <0x8c>;

@@ -160,9 +160,9 @@ enum msm_dba_audio_sampling_rates_type {
  * @MSM_DBA_AUDIO_WORD_32BIT: 32 bits per word
  */
 enum msm_dba_audio_word_bit_depth {
-	MSM_DBA_AUDIO_WORD_16BIT = BIT(0),
-	MSM_DBA_AUDIO_WORD_24BIT = BIT(1),
-	MSM_DBA_AUDIO_WORD_32BIT = BIT(2),
+	MSM_DBA_AUDIO_WORD_16BIT = BIT(1),
+	MSM_DBA_AUDIO_WORD_24BIT = BIT(2),
+	MSM_DBA_AUDIO_WORD_32BIT = BIT(3),
 };
 
 /**

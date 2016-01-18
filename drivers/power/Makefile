@@ -64,6 +64,7 @@ obj-$(CONFIG_SMB350_CHARGER)   += smb350_charger.o
 obj-$(CONFIG_SMB135X_CHARGER)   += smb135x-charger.o
 obj-$(CONFIG_SMB1360_CHARGER_FG) += smb1360-charger-fg.o
 obj-$(CONFIG_SMB358_CHARGER)	+= smb358-charger.o
+obj-$(CONFIG_SMB23X_CHARGER)	+= smb23x-charger.o
 obj-$(CONFIG_BATTERY_BQ28400)	+= bq28400_battery.o
 obj-$(CONFIG_QPNP_BMS)		+= qpnp-bms.o batterydata-lib.o
 obj-$(CONFIG_QPNP_VM_BMS)	+= qpnp-vm-bms.o batterydata-lib.o batterydata-interface.o

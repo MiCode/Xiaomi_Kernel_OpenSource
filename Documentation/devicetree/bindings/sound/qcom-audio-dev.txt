@@ -79,6 +79,14 @@ Required properties:
 
  - compatible : "qcom,msm-stub-codec"
 
+* msm-hdmi-dba-codec-rx
+
+Required properties:
+
+ - compatible : "qcom,msm-hdmi-dba-codec-rx"
+ - qcom,dba-bridge-chip: String info to indicate which bridge-chip
+                         is used for HDMI using DBA.
+
 * msm-dai-fe
 
 Required properties:
@@ -379,6 +387,11 @@ Example:
 
         qcom,msm-stub-codec {
                 compatible = "qcom,msm-stub-codec";
+        };
+
+        qcom,msm-hdmi-dba-codec-rx {
+                compatible = "qcom,msm-hdmi-dba-codec-rx";
+                qcom,dba-bridge-chip = "adv7533";
         };
 
         qcom,msm-dai-fe {
@@ -1370,6 +1383,7 @@ the flavor.
 - pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
 
 Optional properties:
+- qcom,hdmi-dba-codec-rx: Boolean. specifies if HDMI DBA audio support is enabled or not.
 - qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
 - qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
 - qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
@@ -1433,6 +1447,7 @@ Example:
 			    "csr_gp_io_mux_spkr_ctl",
 			    "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
 		qcom,msm-ext-pa = "primary";
+		qcom,hdmi-dba-codec-rx;
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;

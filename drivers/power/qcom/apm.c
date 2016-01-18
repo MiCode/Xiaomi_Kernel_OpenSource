@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -564,7 +564,7 @@ static int msm8996_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 #define MSMTITANIUM_APM_MX_MODE_VAL            0x00
 #define MSMTITANIUM_APM_APCC_MODE_VAL          0x02
 #define MSMTITANIUM_APM_MX_DONE_VAL            0x00
-#define MSMTITANIUM_APM_APCC_DONE_VAL          0x02
+#define MSMTITANIUM_APM_APCC_DONE_VAL          0x03
 
 /* Titanium register offset definitions */
 #define MSMTITANIUM_APCC_APM_MODE              0x000002a8

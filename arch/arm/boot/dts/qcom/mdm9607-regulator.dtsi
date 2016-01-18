@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -334,7 +334,7 @@
 		qcom,cpr-timer-cons-up = <0>;
 		qcom,cpr-timer-cons-down = <2>;
 		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <26>;
+		qcom,cpr-step-quotient = <22 0 24 0 0 0 0 0>;
 		qcom,cpr-up-threshold = <2>;
 		qcom,cpr-down-threshold = <3>;
 		qcom,cpr-idle-clocks = <15>;

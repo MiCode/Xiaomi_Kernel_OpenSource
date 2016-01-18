@@ -420,7 +420,8 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 			writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
 			udelay(1);
 		}
-	} else if (drv->qdsp6v56_1_5 || drv->qdsp6v56_1_8) {
+	} else if (drv->qdsp6v56_1_5 || drv->qdsp6v56_1_8
+					|| drv->qdsp6v56_1_10) {
 		/* Deassert QDSP6 compiler memory clamp */
 		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
 		val &= ~QDSP6v55_CLAMP_QMC_MEM;
@@ -637,6 +638,8 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 
 	drv->qdsp6v56_1_8 = of_property_read_bool(pdev->dev.of_node,
 						"qcom,qdsp6v56-1-8");
+	drv->qdsp6v56_1_10 = of_property_read_bool(pdev->dev.of_node,
+						"qcom,qdsp6v56-1-10");
 
 	drv->qdsp6v56_1_8_inrush_current = of_property_read_bool(
 						pdev->dev.of_node,

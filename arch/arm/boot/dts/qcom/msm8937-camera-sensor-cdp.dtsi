@@ -217,7 +217,7 @@
 				&cam_sensor_front_sleep>;
 		gpios = <&tlmm 27 0>,
 			<&tlmm 38 0>,
-			<&tlmm 37 0>;
+			<&tlmm 50 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-req-tbl-num = <0 1 2>;
@@ -225,10 +225,9 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK1",
 			"CAM_RESET1",
 			"CAM_STANDBY1";
-		qcom,sensor-position = <1>;
-		qcom,sensor-mode = <0>;
-		qcom,cci-master = <0>;
-		status = "disabled";
+		qcom,sensor-position = <0x100>;
+		qcom,sensor-mode = <1>;
+		qcom,cci-master = <1>;
 		clocks = <&clock_gcc clk_mclk1_clk_src>,
 				<&clock_gcc clk_gcc_camss_mclk1_clk>;
 		clock-names = "cam_src_clk", "cam_clk";

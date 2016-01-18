@@ -424,12 +424,14 @@ int adreno_ringbuffer_init(struct adreno_device *adreno_dev, bool nopreempt)
 
 static void _adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 {
-	kgsl_free_global(&rb->pagetable_desc);
-	kgsl_free_global(&rb->preemption_desc);
+	struct kgsl_device *device = rb->device;
+
+	kgsl_free_global(device, &rb->pagetable_desc);
+	kgsl_free_global(device, &rb->preemption_desc);
 
 	memset(&rb->pt_update_desc, 0, sizeof(struct kgsl_memdesc));
 
-	kgsl_free_global(&rb->buffer_desc);
+	kgsl_free_global(device, &rb->buffer_desc);
 	kgsl_del_event_group(&rb->events);
 	memset(rb, 0, sizeof(struct adreno_ringbuffer));
 }

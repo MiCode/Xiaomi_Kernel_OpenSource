@@ -22,26 +22,22 @@
 #define DEBUG_RH850	0
 #if DEBUG_RH850 == 1
 #define LOGDI(...) dev_info(&priv_data->spidev->dev, __VA_ARGS__)
-#define LOGDE(...) dev_err(&priv_data->spidev->dev, __VA_ARGS__)
-#define LOGNI(...) netdev_info(priv_data->netdev, __VA_ARGS__)
-#define LOGNNI(...) netdev_info(netdev, __VA_ARGS__)
-#define LOGNE(...) netdev_err(priv_data->netdev, __VA_ARGS__)
+#define LOGNI(...) netdev_info(netdev, __VA_ARGS__)
 #else
 #define LOGDI(...)
-#define LOGDE(...)
 #define LOGNI(...)
-#define LOGNNI(...)
-#define LOGNE(...)
 #endif
+#define LOGDE(...) dev_err(&priv_data->spidev->dev, __VA_ARGS__)
+#define LOGNE(...) netdev_err(netdev, __VA_ARGS__)
 
 #define MAX_TX_BUFFERS		1
 #define XFER_BUFFER_SIZE	64
 #define RX_ASSEMBLY_BUFFER_SIZE	128
 #define RH850_CLOCK	80000000
+#define RH850_MAX_CHANNELS	4
 
 struct rh850_can {
-	struct can_priv		can;
-	struct net_device	*netdev;
+	struct net_device	*netdev[RH850_MAX_CHANNELS];
 	struct spi_device	*spidev;
 
 	struct mutex spi_lock; /* SPI device lock */
@@ -56,9 +52,14 @@ struct rh850_can {
 	atomic_t netif_queue_stop;
 };
 
+struct rh850_netdev_privdata {
+	struct can_priv can;
+	struct rh850_can *rh850_can;
+	u8 netdev_index;
+};
+
 struct rh850_tx_work {
 	struct work_struct work;
-	struct rh850_can *priv_data;
 	struct sk_buff *skb;
 	struct net_device *netdev;
 };
@@ -158,16 +159,19 @@ static void rh850_receive_frame(struct rh850_can *priv_data,
 	static int msec;
 	struct net_device *netdev;
 	int i;
-
-	netdev = priv_data->netdev;
-	skb = alloc_can_skb(priv_data->netdev, &cf);
+	if (frame->can_if >= RH850_MAX_CHANNELS) {
+		LOGDE("rh850 rcv error. Channel is %d\n", frame->can_if);
+		return;
+	}
+	netdev = priv_data->netdev[frame->can_if];
+	skb = alloc_can_skb(netdev, &cf);
 	if (skb == NULL) {
-		pr_err("skb failed..frame->can %d", 0);/*(frame->can);*/
+		LOGDE("skb alloc failed. frame->can_if %d\n", frame->can_if);
 		return;
 	}
 
-	LOGDI("rcv frame %d %x %d %x %x %x %x %x %x %x %x\n",
-	      frame->ts, frame->mid, frame->dlc, frame->data[0],
+	LOGDI("rcv frame %d %d %x %d %x %x %x %x %x %x %x %x\n",
+	      frame->can_if, frame->ts, frame->mid, frame->dlc, frame->data[0],
 	      frame->data[1], frame->data[2], frame->data[3], frame->data[4],
 	      frame->data[5], frame->data[6], frame->data[7]);
 	cf->can_id = le32_to_cpu(frame->mid);
@@ -184,18 +188,18 @@ static void rh850_receive_frame(struct rh850_can *priv_data,
 	LOGDI("  hwtstamp %lld\n", ktime_to_ms(skt->hwtstamp));
 	skb->tstamp = timeval_to_ktime(tv);
 	netif_rx(skb);
-	priv_data->netdev->stats.rx_packets++;
+	netdev->stats.rx_packets++;
 }
 
 static void rh850_process_response(struct rh850_can *priv_data,
 				   struct spi_miso *resp, int length)
 {
-	LOGDE("<%x %2d [%d]\n", resp->cmd, resp->len, resp->seq);
+	LOGDI("<%x %2d [%d]\n", resp->cmd, resp->len, resp->seq);
 	if (resp->cmd == CMD_CAN_RECEIVE_FRAME) {
 		struct can_receive_frame *frame =
 				(struct can_receive_frame *)&resp->data;
 		if (resp->len > length) {
-			LOGDE("This should never happen");
+			LOGDE("Error. This should never happen\n");
 			LOGDE("process_response: Saving %d bytes\n",
 			      length);
 			memcpy(priv_data->assembly_buffer, (char *)resp,
@@ -206,8 +210,6 @@ static void rh850_process_response(struct rh850_can *priv_data,
 		}
 	} else if (resp->cmd  == CMD_GET_FW_VERSION) {
 		struct can_fw_resp *fw_resp = (struct can_fw_resp *)resp->data;
-			LOGDI("data %x %d %d\n",
-			      resp->cmd, resp->len, resp->seq);
 		dev_info(&priv_data->spidev->dev, "fw %d.%d",
 			 fw_resp->maj, fw_resp->min);
 		dev_info(&priv_data->spidev->dev, "fw string %s",
@@ -345,12 +347,19 @@ static int rh850_query_firmware_version(struct rh850_can *priv_data)
 	return ret;
 }
 
-static int rh850_can_write(struct rh850_can *priv_data, struct can_frame *cf)
+static int rh850_can_write(struct rh850_can *priv_data,
+			   int can_channel, struct can_frame *cf)
 {
 	char *tx_buf, *rx_buf;
 	int ret, i;
 	struct spi_mosi *req;
 	struct can_write_req *req_d;
+	struct net_device *netdev;
+
+	if (can_channel < 0 || can_channel >= RH850_MAX_CHANNELS) {
+		LOGDE("rh850_can_write error. Channel is %d\n", can_channel);
+		return -EINVAL;
+	}
 
 	mutex_lock(&priv_data->spi_lock);
 	tx_buf = priv_data->tx_buf;
@@ -365,14 +374,15 @@ static int rh850_can_write(struct rh850_can *priv_data, struct can_frame *cf)
 	req->seq = atomic_inc_return(&priv_data->msg_seq);
 
 	req_d = (struct can_write_req *)req->data;
-	req_d->can_if = 0;
+	req_d->can_if = can_channel;
 	req_d->mid = cf->can_id;
 	req_d->dlc = cf->can_dlc;
 	for (i = 0; i < cf->can_dlc; i++)
 		req_d->data[i] = cf->data[i];
 
 	ret = rh850_do_spi_transaction(priv_data);
-	priv_data->netdev->stats.tx_packets++;
+	netdev = priv_data->netdev[can_channel];
+	netdev->stats.tx_packets++;
 	mutex_unlock(&priv_data->spi_lock);
 
 	return ret;
@@ -382,7 +392,7 @@ static int rh850_netdev_open(struct net_device *netdev)
 {
 	int err;
 
-	LOGNNI("Open");
+	LOGNI("Open");
 	err = open_candev(netdev);
 	if (err)
 		return err;
@@ -394,7 +404,7 @@ static int rh850_netdev_open(struct net_device *netdev)
 
 static int rh850_netdev_close(struct net_device *netdev)
 {
-	LOGNNI("Close");
+	LOGNI("Close");
 
 	netif_stop_queue(netdev);
 	close_candev(netdev);
@@ -406,14 +416,20 @@ static void rh850_send_can_frame(struct work_struct *ws)
 	struct rh850_tx_work *tx_work;
 	struct can_frame *cf;
 	struct rh850_can *priv_data;
+	struct net_device *netdev;
+	struct rh850_netdev_privdata *netdev_priv_data;
+	int can_channel;
 
 	tx_work = container_of(ws, struct rh850_tx_work, work);
-	priv_data = tx_work->priv_data;
+	netdev = tx_work->netdev;
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+	can_channel = netdev_priv_data->netdev_index;
 	LOGDI("send_can_frame ws %p\n", ws);
 	LOGDI("send_can_frame tx %p\n", tx_work);
 
 	cf = (struct can_frame *)tx_work->skb->data;
-	rh850_can_write(priv_data, cf);
+	rh850_can_write(priv_data, can_channel, cf);
 
 	dev_kfree_skb(tx_work->skb);
 	kfree(tx_work);
@@ -422,12 +438,13 @@ static void rh850_send_can_frame(struct work_struct *ws)
 static netdev_tx_t rh850_netdev_start_xmit(
 		struct sk_buff *skb, struct net_device *netdev)
 {
-	struct rh850_can *priv_data = netdev_priv(netdev);
+	struct rh850_netdev_privdata *netdev_priv_data = netdev_priv(netdev);
+	struct rh850_can *priv_data = netdev_priv_data->rh850_can;
 	struct rh850_tx_work *tx_work;
 
 	LOGNI("netdev_start_xmit");
 	if (can_dropped_invalid_skb(netdev, skb)) {
-		pr_err("Dropping invalid can frame");
+		LOGNE("Dropping invalid can frame\n");
 		return NETDEV_TX_OK;
 	}
 	tx_work = kzalloc(sizeof(*tx_work), GFP_ATOMIC);
@@ -436,7 +453,6 @@ static netdev_tx_t rh850_netdev_start_xmit(
 	INIT_WORK(&tx_work->work, rh850_send_can_frame);
 	tx_work->netdev = netdev;
 	tx_work->skb = skb;
-	tx_work->priv_data = priv_data;
 	queue_work(priv_data->tx_wq, &tx_work->work);
 
 	return NETDEV_TX_OK;
@@ -448,45 +464,72 @@ static const struct net_device_ops rh850_netdev_ops = {
 		.ndo_start_xmit = rh850_netdev_start_xmit,
 };
 
-static int rh850_probe(struct spi_device *spi)
+static int rh850_create_netdev(struct spi_device *spi,
+			       struct rh850_can *priv_data, int index)
 {
-	int err;
 	struct net_device *netdev;
-	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
 
-	err = spi_setup(spi);
-	dev_info(&spi->dev, "rh850_probe");
-
-	netdev = alloc_candev(sizeof(struct rh850_can), MAX_TX_BUFFERS);
+	LOGDI("rh850_create_netdev %d\n", index);
+	if (index < 0 || index >= RH850_MAX_CHANNELS) {
+		LOGDE("rh850_create_netdev wrong index %d\n", index);
+		return -EINVAL;
+	}
+	netdev = alloc_candev(sizeof(*netdev_priv_data), MAX_TX_BUFFERS);
 	if (!netdev) {
-		dev_err(&spi->dev, "Couldn't alloc candev\n");
-		err = -ENOMEM;
-		goto cleanup_candev;
+		LOGDE("Couldn't alloc candev\n");
+		return -ENOMEM;
 	}
 
-	priv_data = netdev_priv(netdev);
+	netdev_priv_data = netdev_priv(netdev);
+	netdev_priv_data->rh850_can = priv_data;
+	netdev_priv_data->netdev_index = index;
+
+	priv_data->netdev[index] = netdev;
+
+	netdev->netdev_ops = &rh850_netdev_ops;
+	SET_NETDEV_DEV(netdev, &spi->dev);
+	netdev_priv_data->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
+						   CAN_CTRLMODE_LISTENONLY;
+	netdev_priv_data->can.bittiming_const = &rh850_bittiming_const;
+	netdev_priv_data->can.clock.freq = RH850_CLOCK;
+
+	return 0;
+}
+
+static struct rh850_can *rh850_create_priv_data(struct spi_device *spi)
+{
+	struct rh850_can *priv_data;
+	int err;
+	struct device *dev;
+
+	dev = &spi->dev;
+	priv_data = kzalloc(sizeof(*priv_data), GFP_KERNEL);
+	if (!priv_data) {
+		dev_err(dev, "Couldn't alloc rh850_can\n");
+		return 0;
+	}
+	spi_set_drvdata(spi, priv_data);
+	atomic_set(&priv_data->netif_queue_stop, 0);
 	priv_data->spidev = spi;
-	priv_data->netdev = netdev;
 	priv_data->assembly_buffer = kzalloc(RX_ASSEMBLY_BUFFER_SIZE,
 			GFP_KERNEL);
 	if (!priv_data->assembly_buffer) {
 		err = -ENOMEM;
-		goto cleanup_candev;
+		goto cleanup_privdata;
 	}
 
-	spi_set_drvdata(spi, priv_data);
-
-	netdev->netdev_ops = &rh850_netdev_ops;
-
-	priv_data->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
-				      CAN_CTRLMODE_LISTENONLY;
-	priv_data->can.bittiming_const = &rh850_bittiming_const;
-	priv_data->can.clock.freq = RH850_CLOCK;
+	priv_data->tx_wq = alloc_workqueue("rh850_tx_wq", 0, 0);
+	if (!priv_data->tx_wq) {
+		dev_err(dev, "Couldn't alloc workqueue\n");
+		err = -ENOMEM;
+		goto cleanup_privdata;
+	}
 
 	priv_data->tx_buf = kzalloc(XFER_BUFFER_SIZE, GFP_KERNEL);
 	priv_data->rx_buf = kzalloc(XFER_BUFFER_SIZE, GFP_KERNEL);
 	if (!priv_data->tx_buf || !priv_data->rx_buf) {
-		dev_err(&spi->dev, "Couldn't alloc tx or rx buffers\n");
+		dev_err(dev, "Couldn't alloc tx or rx buffers\n");
 		err = -ENOMEM;
 		goto cleanup_privdata;
 	}
@@ -494,46 +537,82 @@ static int rh850_probe(struct spi_device *spi)
 
 	mutex_init(&priv_data->spi_lock);
 	atomic_set(&priv_data->msg_seq, 0);
+	return priv_data;
 
-	SET_NETDEV_DEV(netdev, &spi->dev);
+cleanup_privdata:
+	if (priv_data) {
+		if (priv_data->tx_wq)
+			destroy_workqueue(priv_data->tx_wq);
+		kfree(priv_data->rx_buf);
+		kfree(priv_data->tx_buf);
+		kfree(priv_data->assembly_buffer);
+		kfree(priv_data);
+	}
+	return 0;
+}
 
-	priv_data->tx_wq = alloc_workqueue("rh850_tx_wq", 0, 0);
-	if (!priv_data->tx_wq) {
-		dev_err(&spi->dev, "Couldn't alloc workqueue\n");
-		err = -ENOMEM;
-		goto cleanup_privdata;
+static int rh850_probe(struct spi_device *spi)
+{
+	int err, i;
+	struct rh850_can *priv_data;
+	struct device *dev;
+
+	dev = &spi->dev;
+	dev_info(dev, "rh850_probe");
+
+	err = spi_setup(spi);
+	if (err) {
+		dev_err(dev, "spi_setup failed: %d", err);
+		return err;
 	}
 
-	err = register_candev(netdev);
-	if (err) {
-		dev_err(&spi->dev, "Failed to reg.CAN device: %d", err);
-		goto cleanup_privdata;
+	priv_data = rh850_create_priv_data(spi);
+	if (!priv_data) {
+		dev_err(dev, "Failed to create rh850_can priv_data\n");
+		err = -ENOMEM;
+		return err;
+	}
+	dev_info(dev, "rh850_probe created priv_data");
+	for (i = 0; i < RH850_MAX_CHANNELS; i++) {
+		err = rh850_create_netdev(spi, priv_data, i);
+		if (err) {
+			dev_err(dev, "Failed to create CAN device: %d", err);
+			goto cleanup_candev;
+		}
+
+		err = register_candev(priv_data->netdev[i]);
+		if (err) {
+			dev_err(dev, "Failed to register CAN device: %d", err);
+			goto unregister_candev;
+		}
 	}
 
 	err = request_threaded_irq(spi->irq, NULL, rh850_irq,
 				   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				   "rh850", priv_data);
 	if (err) {
-		dev_err(&spi->dev, "Failed to request irq: %d", err);
+		dev_err(dev, "Failed to request irq: %d", err);
 		goto unregister_candev;
 	}
-	dev_info(&spi->dev, "Request irq %d ret %d\n", spi->irq, err);
+	dev_info(dev, "Request irq %d ret %d\n", spi->irq, err);
 
 	rh850_query_firmware_version(priv_data);
 	return 0;
 
 unregister_candev:
-	unregister_candev(priv_data->netdev);
-cleanup_privdata:
-	if (priv_data->tx_wq)
-		destroy_workqueue(priv_data->tx_wq);
-	kfree(priv_data->rx_buf);
-	kfree(priv_data->tx_buf);
-	kfree(priv_data->assembly_buffer);
+	for (i = 0; i < RH850_MAX_CHANNELS; i++)
+		unregister_candev(priv_data->netdev[i]);
 cleanup_candev:
 	if (priv_data) {
-		if (priv_data->netdev)
-			free_candev(priv_data->netdev);
+		for (i = 0; i < RH850_MAX_CHANNELS; i++) {
+			if (priv_data->netdev[i])
+				free_candev(priv_data->netdev[i]);
+		}
+		if (priv_data->tx_wq)
+			destroy_workqueue(priv_data->tx_wq);
+		kfree(priv_data->rx_buf);
+		kfree(priv_data->tx_buf);
+		kfree(priv_data->assembly_buffer);
 		kfree(priv_data);
 	}
 	return err;
@@ -542,9 +621,13 @@ cleanup_candev:
 static int rh850_remove(struct spi_device *spi)
 {
 	struct rh850_can *priv_data = spi_get_drvdata(spi);
+	int i;
 
 	LOGDI("rh850_remove\n");
-	unregister_candev(priv_data->netdev);
+	for (i = 0; i < RH850_MAX_CHANNELS; i++) {
+		unregister_candev(priv_data->netdev[i]);
+		free_candev(priv_data->netdev[i]);
+	}
 	destroy_workqueue(priv_data->tx_wq);
 	kfree(priv_data->assembly_buffer);
 	kfree(priv_data->rx_buf);

@@ -15,6 +15,7 @@
 
 #include "msmgold.dtsi"
 #include "msmgold-pmi8937-cdp.dtsi"
+#include "msmgold-audio-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSMGOLD-PMI8937 CDP";

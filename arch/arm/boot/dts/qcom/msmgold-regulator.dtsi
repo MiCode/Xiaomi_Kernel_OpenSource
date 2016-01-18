@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 	rpm-regulator-smpa1 {
 		status = "okay";
 		pmgold_s1: regulator-s1 {
+			regulator-name = "pmgold_s1";
 			regulator-min-microvolt = <1000000>;
 			regulator-max-microvolt = <1225000>;
 			qcom,init-voltage = <1000000>;
@@ -63,6 +64,7 @@
 	rpm-regulator-smpa3 {
 		status = "okay";
 		pmgold_s3: regulator-s3 {
+			regulator-name = "pmgold_s3";
 			regulator-min-microvolt = <1300000>;
 			regulator-max-microvolt = <1300000>;
 			qcom,init-voltage = <1300000>;
@@ -73,6 +75,7 @@
 	rpm-regulator-smpa4 {
 		status = "okay";
 		pmgold_s4: regulator-s4 {
+			regulator-name = "pmgold_s4";
 			regulator-min-microvolt = <2050000>;
 			regulator-max-microvolt = <2050000>;
 			qcom,init-voltage = <2050000>;
@@ -83,6 +86,7 @@
 	rpm-regulator-ldoa2 {
 		status = "okay";
 		pmgold_l2: regulator-l2 {
+			regulator-name = "pmgold_l2";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			qcom,init-voltage = <1200000>;
@@ -122,6 +126,7 @@
 	rpm-regulator-ldoa5 {
 		status = "okay";
 		pmgold_l5: regulator-l5 {
+			regulator-name = "pmgold_l5";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -132,6 +137,7 @@
 	rpm-regulator-ldoa6 {
 		status = "okay";
 		pmgold_l6: regulator-l6 {
+			regulator-name = "pmgold_l6";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -142,6 +148,7 @@
 	rpm-regulator-ldoa7 {
 		status = "okay";
 		pmgold_l7: regulator-l7 {
+			regulator-name = "pmgold_l7";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -161,6 +168,7 @@
 	rpm-regulator-ldoa8 {
 		status = "okay";
 		pmgold_l8: regulator-l8 {
+			regulator-name = "pmgold_l8";
 			regulator-min-microvolt = <2850000>;
 			regulator-max-microvolt = <2900000>;
 			qcom,init-voltage = <2900000>;
@@ -171,6 +179,7 @@
 	rpm-regulator-ldoa9 {
 		status = "okay";
 		pmgold_l9: regulator-l9 {
+			regulator-name = "pmgold_l9";
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3300000>;
 			qcom,init-voltage = <3000000>;
@@ -181,6 +190,7 @@
 	rpm-regulator-ldoa10 {
 		status = "okay";
 		pmgold_l10: regulator-l10 {
+			regulator-name = "pmgold_l10";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <3000000>;
 			qcom,init-voltage = <2800000>;
@@ -191,6 +201,7 @@
 	rpm-regulator-ldoa11 {
 		status = "okay";
 		pmgold_l11: regulator-l11 {
+			regulator-name = "pmgold_l11";
 			regulator-min-microvolt = <2950000>;
 			regulator-max-microvolt = <2950000>;
 			qcom,init-voltage = <2950000>;
@@ -201,6 +212,7 @@
 	rpm-regulator-ldoa12 {
 		status = "okay";
 		pmgold_l12: regulator-l12 {
+			regulator-name = "pmgold_l12";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;
 			qcom,init-voltage = <1800000>;
@@ -211,6 +223,7 @@
 	rpm-regulator-ldoa13 {
 		status = "okay";
 		pmgold_l13: regulator-l13 {
+			regulator-name = "pmgold_l13";
 			regulator-min-microvolt = <3075000>;
 			regulator-max-microvolt = <3075000>;
 			qcom,init-voltage = <3075000>;
@@ -221,6 +234,7 @@
 	rpm-regulator-ldoa14 {
 		status = "okay";
 		pmgold_l14: regulator-l14 {
+			regulator-name = "pmgold_l14";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3300000>;
 			qcom,init-voltage = <1800000>;
@@ -231,6 +245,7 @@
 	rpm-regulator-ldoa15 {
 		status = "okay";
 		pmgold_l15: regulator-l15 {
+			regulator-name = "pmgold_l15";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3300000>;
 			qcom,init-voltage = <1800000>;
@@ -241,6 +256,7 @@
 	rpm-regulator-ldoa16 {
 		status = "okay";
 		pmgold_l16: regulator-l16 {
+			regulator-name = "pmgold_l16";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -251,6 +267,7 @@
 	rpm-regulator-ldoa17 {
 		status = "okay";
 		pmgold_l17: regulator-l17 {
+			regulator-name = "pmgold_l17";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2900000>;
 			qcom,init-voltage = <2800000>;
@@ -261,6 +278,7 @@
 	rpm-regulator-ldoa19 {
 		status = "okay";
 		pmgold_l19: regulator-l19 {
+			regulator-name = "pmgold_l19";
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1350000>;
 			qcom,init-voltage = <1225000>;
@@ -271,6 +289,7 @@
 	rpm-regulator-ldoa22 {
 		status = "okay";
 		pmgold_l22: regulator-l22 {
+			regulator-name = "pmgold_l22";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
 			qcom,init-voltage = <2800000>;
@@ -281,6 +300,7 @@
 	rpm-regulator-ldoa23 {
 		status = "okay";
 		pmgold_l23: regulator-l23 {
+			regulator-name = "pmgold_l23";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			qcom,init-voltage = <1200000>;
@@ -291,7 +311,7 @@
 
 /* SPM controlled regulators */
 &spmi_bus {
-	qcom,pmgold@1 {
+	qcom,pm8937@1 {
 		/* pmgold S5 + S6 = VDD_APC supply */
 		pmgold_s5: spm-regulator@2000 {
 			compatible = "qcom,spm-regulator";
@@ -346,6 +366,15 @@
 			/* TURBO/NOM+ => TURBO/NOM+ */
 			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
 			<(-1) (-1)>;
+	};
+
+	eldo2_pmgold: eldo2 {
+		compatible = "regulator-fixed";
+		regulator-name = "eldo2_pmgold";
+		startup-delay-us = <0>;
+		enable-active-high;
+		gpio = <&pm8937_gpios 7 0>;
+		regulator-always-on;
 	};
 
 	apc_vreg_corner: regulator@b018000 {

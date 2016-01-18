@@ -3048,14 +3048,23 @@ static int ffs_func_set_alt(struct usb_function *f,
 
 	ffs->func = func;
 	ret = ffs_func_eps_enable(func);
-	if (likely(ret >= 0))
+	if (likely(ret >= 0)) {
 		ffs_event_add(ffs, FUNCTIONFS_ENABLE);
+		/* Disable USB LPM later on bus_suspend */
+		usb_gadget_autopm_get_async(ffs->gadget);
+	}
+
 	return ret;
 }
 
 static void ffs_func_disable(struct usb_function *f)
 {
+	struct ffs_function *func = ffs_func_from_usb(f);
+	struct ffs_data *ffs = func->ffs;
+
 	ffs_func_set_alt(f, 0, (unsigned)-1);
+	/* matching put to allow LPM on disconnect */
+	usb_gadget_autopm_put_async(ffs->gadget);
 }
 
 static int ffs_func_setup(struct usb_function *f,

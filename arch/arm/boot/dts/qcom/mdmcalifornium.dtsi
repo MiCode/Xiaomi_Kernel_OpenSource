@@ -380,6 +380,8 @@
 
 		qcom,ep-latency = <10>;
 
+		qcom,cpl-timeout = <0x2>;
+
 		qcom,ep-wakeirq;
 
 		linux,pci-domain = <0>;

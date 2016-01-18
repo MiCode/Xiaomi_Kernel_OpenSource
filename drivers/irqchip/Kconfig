@@ -38,6 +38,18 @@ config ARM_GIC_V3_ACL
 	  Access to GIC ITS address space is controlled by EL2.
 	  Kernel has no permission to access ITS
 
+config ARM_GIC_V3_NO_ACCESS_CONTROL
+	bool "GICv3 No Access Control Configuration"
+	depends on ARM_GIC_V3
+	help
+	  On some SOCs with the access control configurations it is
+	  not allowed to access certain set of the GIC registers
+	  from non-secure world. Provide a common flag to protect
+	  those functionalities and compile them out for such
+	  configurations, so that specific registers are not touched.
+
+	  For production kernels, you should say 'N' here.
+
 config ARM_NVIC
 	bool
 	select IRQ_DOMAIN
@@ -76,18 +88,6 @@ config BRCMSTB_L2_IRQ
 	depends on ARM
 	select GENERIC_IRQ_CHIP
 	select IRQ_DOMAIN
-
-config MSM_GIC_SGI_NEEDS_BARRIER
-	bool "SGI operations require explicit barriers"
-	depends on ARM_GIC_V3
-	def_bool ARCH_MSMTHULIUM
-	help
-	  Some early samples of the MSMTHULIUM SoCs require that an explicit
-	  barrier be executed between two sucessive writes to the ICC_SGI1R_EL1
-	  register. If you are building the kernel to work on one of these early
-	  designs, select 'Y' here.
-
-	  For production kernels, you should say 'N' here.
 
 config MSM_SHOW_RESUME_IRQ
 	bool "Enable logging of interrupts that could have caused resume"

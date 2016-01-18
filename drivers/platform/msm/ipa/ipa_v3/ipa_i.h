@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -769,6 +769,16 @@ struct ipa_request_gsi_channel_params {
 	union __packed gsi_channel_scratch chan_scratch;
 };
 
+struct ipa3_usb_status_dbg_info {
+	const char *teth_state;
+	const char *dpl_state;
+	int num_init_prot;
+	const char *inited_prots[IPA_USB_MAX_TETH_PROT_SIZE];
+	const char *teth_connected_prot;
+	const char *dpl_connected_prot;
+	const char *teth_cons_state;
+	const char *dpl_cons_state;
+};
 
 enum ipa3_sys_pipe_policy {
 	IPA_POLICY_INTR_MODE,
@@ -1848,6 +1858,8 @@ int ipa3_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 
 int ipa3_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			enum ipa_usb_teth_prot teth_prot);
+
+int ipa3_usb_get_status_dbg_info(struct ipa3_usb_status_dbg_info *status);
 
 /*
  * Resume / Suspend

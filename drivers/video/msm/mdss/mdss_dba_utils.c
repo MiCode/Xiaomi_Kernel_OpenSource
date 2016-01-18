@@ -25,6 +25,7 @@
 #define CEC_BUF_SIZE    (MAX_CEC_FRAME_SIZE + 1)
 #define MAX_SWITCH_NAME_SIZE        5
 #define MSM_DBA_MAX_PCLK 148500
+#define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
 
 struct mdss_dba_utils_data {
 	struct msm_dba_ops ops;
@@ -673,8 +674,12 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	}
 
 	/* update edid data to retrieve it back in edid parser */
-	if (uid->pinfo)
+	if (uid->pinfo) {
 		uid->pinfo->edid_data = udata->edid_data;
+		/* Initialize to default resolution */
+		hdmi_edid_set_video_resolution(uid->pinfo->edid_data,
+					DEFAULT_VIDEO_RESOLUTION, true);
+	}
 
 	/* get edid buffer from edid parser */
 	udata->edid_buf = edid_init_data.buf;

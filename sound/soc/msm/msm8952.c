@@ -2379,21 +2379,7 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
-	{
-		.name = LPASS_BE_QUIN_MI2S_RX,
-		.stream_name = "Quinary MI2S Playback",
-		.cpu_dai_name = "msm-dai-q6-mi2s.5",
-		.platform_name = "msm-pcm-routing",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ops = &msm8952_quin_mi2s_be_ops,
-		.ignore_pmdown_time = 1, /* dai link has playback support */
-		.ignore_suspend = 1,
-	},
+
 	{
 		.name = LPASS_BE_QUIN_MI2S_TX,
 		.stream_name = "Quinary MI2S Capture",
@@ -2409,6 +2395,45 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.ignore_suspend = 1,
 	},
 };
+static struct snd_soc_dai_link msm8952_hdmi_dba_dai_link[] = {
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "msm_hdmi_dba_codec_rx_dai",
+		.codec_name = "msm-hdmi-dba-codec-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+};
+
+static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+};
+
+static struct snd_soc_dai_link msm8952_dai_links[
+ARRAY_SIZE(msm8952_dai) +
+ARRAY_SIZE(msm8952_hdmi_dba_dai_link)];
 
 static int msm8952_wsa881x_init(struct snd_soc_component *component)
 {
@@ -2677,6 +2702,36 @@ int msm8952_init_wsa_switch_supply(struct platform_device *pdev,
 	return ret;
 }
 
+static struct snd_soc_card *msm8952_populate_sndcard_dailinks(
+						struct device *dev)
+{
+	struct snd_soc_card *card = &bear_card;
+	struct snd_soc_dai_link *dailink;
+	int len1;
+
+	card->name = dev_name(dev);
+	len1 = ARRAY_SIZE(msm8952_dai);
+	memcpy(msm8952_dai_links, msm8952_dai, sizeof(msm8952_dai));
+	dailink = msm8952_dai_links;
+	if (of_property_read_bool(dev->of_node,
+				"qcom,hdmi-dba-codec-rx")) {
+		dev_dbg(dev, "%s(): hdmi audio support present\n",
+				__func__);
+		memcpy(dailink + len1, msm8952_hdmi_dba_dai_link,
+				sizeof(msm8952_hdmi_dba_dai_link));
+		len1 += ARRAY_SIZE(msm8952_hdmi_dba_dai_link);
+	} else {
+		dev_dbg(dev, "%s(): No hdmi dba present, add quin dai\n",
+				__func__);
+		memcpy(dailink + len1, msm8952_quin_dai_link,
+				sizeof(msm8952_quin_dai_link));
+		len1 += ARRAY_SIZE(msm8952_quin_dai_link);
+	}
+	card->dai_link = dailink;
+	card->num_links = len1;
+	return card;
+}
+
 static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card;
@@ -2852,9 +2907,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 		}
 	}
 
-	card = &bear_card;
-	bear_card.name = dev_name(&pdev->dev);
-	card = &bear_card;
+	card = msm8952_populate_sndcard_dailinks(&pdev->dev);
 	dev_info(&pdev->dev, "default codec configured\n");
 	num_strings = of_property_count_strings(pdev->dev.of_node,
 			ext_pa);

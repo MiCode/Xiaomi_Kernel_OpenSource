@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -520,6 +520,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* Titanium ID */
 	[293] = {MSM_CPU_TITANIUM, "MSMTITANIUM"},
+	[304] = {MSM_CPU_TITANIUM, "APQTITANIUM"},
 
 	/* 9607 IDs */
 	[290] = {MSM_CPU_9607, "MDM9607"},

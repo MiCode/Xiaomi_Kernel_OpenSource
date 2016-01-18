@@ -1233,6 +1233,26 @@ static struct snd_soc_dai_link msm8952_common_be_dai[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
+};
+
+static struct snd_soc_dai_link msm8952_hdmi_dba_dai_link[] = {
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "msm_hdmi_dba_codec_rx_dai",
+		.codec_name = "msm-hdmi-dba-codec-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_quin_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+};
+static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 	{
 		.name = LPASS_BE_QUIN_MI2S_RX,
 		.stream_name = "Quinary MI2S Playback",
@@ -1262,13 +1282,15 @@ static struct snd_soc_dai_link msm8952_tomtom_dai_links[
 ARRAY_SIZE(msm8952_common_fe_dai) +
 ARRAY_SIZE(msm8952_tomtom_fe_dai) +
 ARRAY_SIZE(msm8952_common_be_dai) +
-ARRAY_SIZE(msm8952_tomtom_be_dai)];
+ARRAY_SIZE(msm8952_tomtom_be_dai) +
+ARRAY_SIZE(msm8952_quin_dai_link)];
 
 static struct snd_soc_dai_link msm8952_tasha_dai_links[
 ARRAY_SIZE(msm8952_common_fe_dai) +
 ARRAY_SIZE(msm8952_tasha_fe_dai) +
 ARRAY_SIZE(msm8952_common_be_dai) +
-ARRAY_SIZE(msm8952_tasha_be_dai)];
+ARRAY_SIZE(msm8952_tasha_be_dai) +
+ARRAY_SIZE(msm8952_hdmi_dba_dai_link)];
 
 int msm8952_init_wsa_dev(struct platform_device *pdev,
 			struct snd_soc_card *card)
@@ -1437,7 +1459,7 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = &snd_soc_card_msm_card;
 	struct snd_soc_dai_link *msm8952_dai_links = NULL;
-	int num_links, ret, len1, len2, len3;
+	int num_links, ret, len1, len2, len3, len4;
 	enum codec_variant codec_ver = 0;
 	const char *tasha_lite = "msm8952-tashalite-snd-card";
 
@@ -1485,9 +1507,23 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(msm8952_tasha_dai_links + len3,
 			msm8952_tasha_be_dai, sizeof(msm8952_tasha_be_dai));
 		msm8952_dai_links = msm8952_tasha_dai_links;
+		len4 = len3 + ARRAY_SIZE(msm8952_tasha_be_dai);
+	}
+	if (of_property_read_bool(dev->of_node, "qcom,hdmi-dba-codec-rx")) {
+		dev_dbg(dev, "%s(): hdmi dba audio support present\n",
+				__func__);
+		memcpy(msm8952_dai_links + len4, msm8952_hdmi_dba_dai_link,
+			sizeof(msm8952_hdmi_dba_dai_link));
+		len4 += ARRAY_SIZE(msm8952_hdmi_dba_dai_link);
+	} else {
+		dev_dbg(dev, "%s(): No hdmi dba present, add quin dai\n",
+				__func__);
+		memcpy(msm8952_dai_links + len4, msm8952_quin_dai_link,
+			sizeof(msm8952_quin_dai_link));
+		len4 += ARRAY_SIZE(msm8952_quin_dai_link);
 	}
 	card->dai_link = msm8952_dai_links;
-	card->num_links = num_links;
+	card->num_links = len4;
 	card->dev = dev;
 
 	return card;

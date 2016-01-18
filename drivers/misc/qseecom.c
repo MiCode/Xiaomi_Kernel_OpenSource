@@ -1,6 +1,6 @@
 /*Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,7 +66,10 @@
 #define QSEE_CE_CLK_100MHZ		100000000
 #define CE_CLK_DIV			1000000
 
-#define QSEECOM_MAX_SG_ENTRY	512
+#define QSEECOM_MAX_SG_ENTRY			512
+#define QSEECOM_SG_ENTRY_MSG_BUF_SZ_64BIT	\
+			(QSEECOM_MAX_SG_ENTRY * SG_ENTRY_SZ_64BIT)
+
 #define QSEECOM_INVALID_KEY_ID  0xff
 
 /* Save partition image hash for authentication check */
@@ -1762,9 +1765,7 @@ static int __qseecom_check_app_exists(struct qseecom_check_app_ireq req)
 	spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 	list_for_each_entry(entry,
 			&qseecom.registered_app_list_head, list) {
-		if (!memcmp(entry->app_name,
-				req.app_name,
-				strlen(req.app_name))) {
+		if (!strcmp(entry->app_name, req.app_name)) {
 			found_app = true;
 			break;
 		}
@@ -1984,7 +1985,17 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		entry->app_id = app_id;
 		entry->ref_cnt = 1;
 		entry->app_arch = load_img_req.app_arch;
-		strlcpy(entry->app_name, load_img_req.img_name,
+		/*
+		* keymaster app may be first loaded as "keymaste" by qseecomd,
+		* and then used as "keymaster" on some targets. To avoid app
+		* name checking error, register "keymaster" into app_list and
+		* thread private data.
+		*/
+		if (!strcmp(load_img_req.img_name, "keymaste"))
+			strlcpy(entry->app_name, "keymaster",
+					MAX_APP_NAME_SIZE);
+		else
+			strlcpy(entry->app_name, load_img_req.img_name,
 					MAX_APP_NAME_SIZE);
 		entry->app_blocked = false;
 		entry->blocked_on_listener_id = 0;
@@ -2003,7 +2014,10 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	}
 	data->client.app_id = app_id;
 	data->client.app_arch = load_img_req.app_arch;
-	strlcpy(data->client.app_name, load_img_req.img_name,
+	if (!strcmp(load_img_req.img_name, "keymaste"))
+		strlcpy(data->client.app_name, "keymaster", MAX_APP_NAME_SIZE);
+	else
+		strlcpy(data->client.app_name, load_img_req.img_name,
 					MAX_APP_NAME_SIZE);
 	load_img_req.app_id = app_id;
 	if (copy_to_user(argp, &load_img_req, sizeof(load_img_req))) {
@@ -2075,9 +2089,8 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
 									list) {
 			if (ptr_app->app_id == data->client.app_id) {
-				if (!memcmp((void *)ptr_app->app_name,
-					(void *)data->client.app_name,
-					strlen(data->client.app_name))) {
+				if (!strcmp((void *)ptr_app->app_name,
+					(void *)data->client.app_name)) {
 					found_app = true;
 					if (app_crash || ptr_app->ref_cnt == 1)
 						unload = true;
@@ -2603,7 +2616,6 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	unsigned long flags;
 	struct qseecom_registered_app_list *ptr_app;
 	bool found_app = false;
-	int name_len = 0;
 	void *cmd_buf = NULL;
 	size_t cmd_len;
 
@@ -2612,11 +2624,8 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
 							list) {
-		name_len = min(strlen(data->client.app_name),
-				strlen(ptr_app->app_name));
 		if ((ptr_app->app_id == data->client.app_id) &&
-			 (!memcmp(ptr_app->app_name,
-				data->client.app_name, name_len))) {
+			 (!strcmp(ptr_app->app_name, data->client.app_name))) {
 			found_app = true;
 			break;
 		}
@@ -2940,6 +2949,53 @@ err:
 	return -ENOMEM;
 }
 
+static int __qseecom_allocate_sg_list_buffer(struct qseecom_dev_handle *data,
+		char *field, uint32_t fd_idx, struct sg_table *sg_ptr)
+{
+	struct scatterlist *sg = sg_ptr->sgl;
+	struct qseecom_sg_entry_64bit *sg_entry;
+	struct qseecom_sg_list_buf_hdr_64bit *buf_hdr;
+	void *buf;
+	uint i;
+	size_t size;
+	dma_addr_t coh_pmem;
+
+	if (fd_idx >= MAX_ION_FD) {
+		pr_err("fd_idx [%d] is invalid\n", fd_idx);
+		return -ENOMEM;
+	}
+	buf_hdr = (struct qseecom_sg_list_buf_hdr_64bit *)field;
+	memset((void *)buf_hdr, 0, QSEECOM_SG_LIST_BUF_HDR_SZ_64BIT);
+	/* Allocate a contiguous kernel buffer */
+	size = sg_ptr->nents * SG_ENTRY_SZ_64BIT;
+	size = (size + PAGE_SIZE) & PAGE_MASK;
+	buf = dma_alloc_coherent(qseecom.pdev,
+			size, &coh_pmem, GFP_KERNEL);
+	if (buf == NULL) {
+		pr_err("failed to alloc memory for sg buf\n");
+		return -ENOMEM;
+	}
+	/* update qseecom_sg_list_buf_hdr_64bit */
+	buf_hdr->version = QSEECOM_SG_LIST_BUF_FORMAT_VERSION_2;
+	buf_hdr->new_buf_phys_addr = coh_pmem;
+	buf_hdr->nents_total = sg_ptr->nents;
+	/* save the left sg entries into new allocated buf */
+	sg_entry = (struct qseecom_sg_entry_64bit *)buf;
+	for (i = 0; i < sg_ptr->nents; i++) {
+		sg_entry->phys_addr = (uint64_t)sg_dma_address(sg);
+		sg_entry->len = sg->length;
+		sg_entry++;
+		sg = sg_next(sg);
+	}
+
+	data->client.sec_buf_fd[fd_idx].is_sec_buf_fd = true;
+	data->client.sec_buf_fd[fd_idx].vbase = buf;
+	data->client.sec_buf_fd[fd_idx].pbase = coh_pmem;
+	data->client.sec_buf_fd[fd_idx].size = size;
+
+	return 0;
+}
+
 static int __qseecom_update_cmd_buf_64(void *msg, bool cleanup,
 			struct qseecom_dev_handle *data)
 {
@@ -3008,10 +3064,26 @@ static int __qseecom_update_cmd_buf_64(void *msg, bool cleanup,
 			goto err;
 		}
 		if (sg_ptr->nents > QSEECOM_MAX_SG_ENTRY) {
-			pr_err("Num of scattered entries");
-			pr_err(" (%d) is greater than max supported %d\n",
+			pr_warn("Num of scattered entries");
+			pr_warn(" (%d) is greater than %d\n",
 				sg_ptr->nents, QSEECOM_MAX_SG_ENTRY);
-			goto err;
+			if (cleanup) {
+				if (data->client.sec_buf_fd[i].is_sec_buf_fd &&
+					data->client.sec_buf_fd[i].vbase)
+					dma_free_coherent(qseecom.pdev,
+					data->client.sec_buf_fd[i].size,
+					data->client.sec_buf_fd[i].vbase,
+					data->client.sec_buf_fd[i].pbase);
+			} else {
+				ret = __qseecom_allocate_sg_list_buffer(data,
+						field, i, sg_ptr);
+				if (ret) {
+					pr_err("Failed to allocate sg list buffer\n");
+					goto err;
+				}
+			}
+			len = QSEECOM_SG_LIST_BUF_HDR_SZ_64BIT;
+			goto cleanup;
 		}
 		sg = sg_ptr->sgl;
 		if (sg_ptr->nents == 1) {
@@ -3031,10 +3103,10 @@ static int __qseecom_update_cmd_buf_64(void *msg, bool cleanup,
 					(req->ifd_data[i].fd > 0)) {
 
 				if ((req->cmd_req_len <
-					 SG_ENTRY_SZ * sg_ptr->nents) ||
+					 SG_ENTRY_SZ_64BIT * sg_ptr->nents) ||
 					(req->ifd_data[i].cmd_buf_offset >
-						(req->cmd_req_len -
-						SG_ENTRY_SZ * sg_ptr->nents))) {
+					(req->cmd_req_len -
+					SG_ENTRY_SZ_64BIT * sg_ptr->nents))) {
 					pr_err("Invalid offset = 0x%x\n",
 					req->ifd_data[i].cmd_buf_offset);
 					goto err;
@@ -3044,10 +3116,10 @@ static int __qseecom_update_cmd_buf_64(void *msg, bool cleanup,
 					(lstnr_resp->ifd_data[i].fd > 0)) {
 
 				if ((lstnr_resp->resp_len <
-						SG_ENTRY_SZ * sg_ptr->nents) ||
+					SG_ENTRY_SZ_64BIT * sg_ptr->nents) ||
 				(lstnr_resp->ifd_data[i].cmd_buf_offset >
 						(lstnr_resp->resp_len -
-						SG_ENTRY_SZ * sg_ptr->nents))) {
+					SG_ENTRY_SZ_64BIT * sg_ptr->nents))) {
 					goto err;
 				}
 			}
@@ -3063,6 +3135,7 @@ static int __qseecom_update_cmd_buf_64(void *msg, bool cleanup,
 				sg = sg_next(sg);
 			}
 		}
+cleanup:
 		if (cleanup)
 			msm_ion_do_cache_op(qseecom.ion_clnt,
 					ihandle, NULL, len,
@@ -5744,9 +5817,7 @@ static int __qseecom_qteec_issue_cmd(struct qseecom_dev_handle *data,
 	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
 							list) {
 		if ((ptr_app->app_id == data->client.app_id) &&
-			 (!memcmp(ptr_app->app_name,
-				data->client.app_name,
-				strlen(ptr_app->app_name)))) {
+			 (!strcmp(ptr_app->app_name, data->client.app_name))) {
 			found_app = true;
 			break;
 		}
@@ -5915,9 +5986,7 @@ static int qseecom_qteec_invoke_modfd_cmd(struct qseecom_dev_handle *data,
 	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
 							list) {
 		if ((ptr_app->app_id == data->client.app_id) &&
-			 (!memcmp(ptr_app->app_name,
-				data->client.app_name,
-				strlen(ptr_app->app_name)))) {
+			 (!strcmp(ptr_app->app_name, data->client.app_name))) {
 			found_app = true;
 			break;
 		}

@@ -600,8 +600,7 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 1);
 
 	cmds += _adreno_iommu_add_idle_indirect_cmds(adreno_dev, cmds,
-		device->mmu.setstate_memory.gpuaddr +
-		KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+		iommu->setstate.gpuaddr + KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
 	if (iommu->version >= 2) {
 		if (adreno_is_a5xx(adreno_dev))
@@ -824,16 +823,16 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 	int result;
 
 	link = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (link == NULL) {
-		result = -ENOMEM;
-		goto done;
-	}
+	if (link == NULL)
+		return -ENOMEM;
 
 	cmds = link;
 
 	/* If we are in a fault the MMU will be reset soon */
-	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv))
+	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv)) {
+		kfree(link);
 		return 0;
+	}
 
 	kgsl_mmu_enable_clk(&device->mmu);
 
@@ -861,7 +860,6 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 		adreno_ringbuffer_mmu_disable_clk_on_ts(device, rb,
 						rb->timestamp);
 
-done:
 	kfree(link);
 	return result;
 }
@@ -873,15 +871,19 @@ done:
 int adreno_iommu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_iommu *iommu = device->mmu.priv;
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
 		return 0;
+
+	if (iommu == NULL)
+		return -ENODEV;
 
 	/*
 	 * A nop is required in an indirect buffer when switching
 	 * pagetables in-stream
 	 */
-	kgsl_sharedmem_writel(device, &device->mmu.setstate_memory,
+	kgsl_sharedmem_writel(device, &iommu->setstate,
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 				cp_packet(adreno_dev, CP_NOP, 1));
 

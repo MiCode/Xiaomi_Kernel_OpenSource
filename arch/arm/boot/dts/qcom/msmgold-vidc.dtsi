@@ -1,0 +1,135 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,vidc@1d00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0x01d00000 0xff000>;
+		interrupts = <0 44 0>;
+		qcom,hfi-version = "3xx";
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_core0_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_ahb_clk>,
+			<&clock_gcc clk_gcc_venus0_axi_clk>;
+		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
+		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
+		qcom,sw-power-collapse;
+		qcom,slave-side-cp;
+		qcom,dcvs-tbl =
+			<108000 108000 244800 0x00000004>, /* Encoder */
+			<108000 108000 244800 0x0c000000>; /* Decoder */
+		qcom,dcvs-limit =
+			<8160 30>, /* Encoder */
+			<8160 30>; /* Decoder */
+		qcom,hfi = "venus";
+		qcom,reg-presets = <0xe0020 0x05555556>,
+			<0xe0024 0x05555556>,
+			<0x80124 0x00000003>;
+		qcom,qdss-presets = <0x826000 0x1000>,
+			<0x827000 0x1000>,
+			<0x822000 0x1000>,
+			<0x803000 0x1000>,
+			<0x9180000 0x1000>,
+			<0x9181000 0x1000>;
+		qcom,max-hw-load = <244800>; /* 1080p@30 */
+		qcom,firmware-name = "venus";
+		qcom,allowed-clock-rates = <360000000 329140000
+			308570000 270000000 200000000>;
+		qcom,clock-freq-tbl {
+			qcom,profile-enc {
+				qcom,codec-mask = <0x55555555>;
+				qcom,cycles-per-mb = <2316>;
+				qcom,low-power-mode-factor = <32768>;
+			};
+			qcom,profile-dec {
+				qcom,codec-mask = <0xf3ffffff>;
+				qcom,cycles-per-mb = <684>;
+			};
+			qcom,profile-hevcdec {
+				qcom,codec-mask = <0x0c000000>;
+				qcom,cycles-per-mb = <1015>;
+			};
+		};
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-buffer-types = <0xfff>;
+			};
+			qcom,domain-sec-bs {
+				qcom,vidc-domain-phandle =
+						<&venus_domain_sec_bitstream>;
+				qcom,vidc-buffer-types = <0x241>;
+			};
+			qcom,domain-sec-px {
+				qcom,vidc-domain-phandle =
+						<&venus_domain_sec_pixel>;
+				qcom,vidc-buffer-types = <0x106>;
+			};
+			qcom,domain-sec-np {
+				qcom,vidc-domain-phandle =
+						<&venus_domain_sec_non_pixel>;
+				qcom,vidc-buffer-types = <0x480>;
+			};
+		};
+		venus_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "venus-ddr-gov";
+			qcom,bus-range-kbps = <1000 917000>;
+		};
+
+		arm9_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-arm9-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+	};
+
+	venus-ddr-gov {
+			compatible = "qcom,msm-vidc,governor,table";
+			name = "venus-ddr-gov";
+			status = "ok";
+			qcom,bus-table =
+				/* Encoders */
+				<244800 698000 0x55555555>,   /* 1080p30E   */
+				<216000 624000 0x55555555>,   /* 720p60E    */
+				<194400 556000 0x55555555>,   /* FWVGA120E  */
+				<144000 412000 0x55555555>,   /* VGA120E    */
+				<108000 353000 0x55555555>,   /* 720p30E    */
+				<97200  316000 0x55555555>,   /* FWVGA60E   */
+				<48600  158000 0x55555555>,   /* FWVGA30E   */
+				<72000  234000 0x55555555>,   /* VGA60E     */
+				<36000  117000 0x55555555>,   /* VGA30E     */
+				<18000  60000  0x55555555>,   /* QVGA60E    */
+				<9000   30000  0x55555555>,   /* QVGA30E    */
+				<0      0      0x55555555>,
+				/* Decoders */
+				<244800 605000 0xffffffff>,   /* 1080p30D   */
+				<216000 540000 0xffffffff>,   /* 720p60D    */
+				<194400 484000 0xffffffff>,   /* FWVGA120D  */
+				<144000 360000 0xffffffff>,   /* VGA120D    */
+				<108000 270000 0xffffffff>,   /* 720p30D    */
+				<97200  242000 0xffffffff>,   /* FWVGA60D   */
+				<48600  121000 0xffffffff>,   /* FWVGA30D   */
+				<72000  180000 0xffffffff>,   /* VGA60D     */
+				<36000  90000  0xffffffff>,   /* VGA30D     */
+				<18000  45000  0xffffffff>,   /* HVGA30D    */
+				<0      0      0xffffffff>;
+	};
+};

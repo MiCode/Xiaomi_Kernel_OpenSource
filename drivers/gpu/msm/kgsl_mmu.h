@@ -14,12 +14,6 @@
 #define __KGSL_MMU_H
 
 #include "kgsl_iommu.h"
-/*
- * These defines control the address range for allocations that
- * are mapped into all pagetables.
- */
-#define KGSL_MMU_GLOBAL_MEM_SIZE	SZ_8M
-#define KGSL_MMU_GLOBAL_MEM_BASE	0xf8000000
 
 /* Identifier for the global page table */
 /* Per process page tables will probably pass in the thread group
@@ -50,14 +44,13 @@ struct kgsl_pagetable {
 	unsigned int fault_addr;
 	void *priv;
 	struct kgsl_mmu *mmu;
-	bool globals_mapped;
 };
 
 struct kgsl_mmu;
 
 struct kgsl_mmu_ops {
 	int (*mmu_init) (struct kgsl_mmu *mmu);
-	int (*mmu_close) (struct kgsl_mmu *mmu);
+	void (*mmu_close)(struct kgsl_mmu *mmu);
 	int (*mmu_start) (struct kgsl_mmu *mmu);
 	void (*mmu_stop) (struct kgsl_mmu *mmu);
 	int (*mmu_set_pt) (struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
@@ -73,6 +66,10 @@ struct kgsl_mmu_ops {
 	struct kgsl_protected_registers *(*mmu_get_prot_regs)
 			(struct kgsl_mmu *mmu);
 	int (*mmu_init_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *);
+	void (*mmu_add_global)(struct kgsl_mmu *mmu,
+			struct kgsl_memdesc *memdesc);
+	void (*mmu_remove_global)(struct kgsl_mmu *mmu,
+			struct kgsl_memdesc *memdesc);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -117,7 +114,6 @@ struct kgsl_mmu_pt_ops {
 
 struct kgsl_mmu {
 	uint32_t      flags;
-	struct kgsl_memdesc    setstate_memory;
 	/* current page table object being used by device mmu */
 	struct kgsl_pagetable  *defaultpagetable;
 	/* secure global pagetable device mmu */
@@ -140,7 +136,7 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *,
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 int kgsl_mmu_init(struct kgsl_device *device, char *mmutype);
 int kgsl_mmu_start(struct kgsl_device *device);
-int kgsl_mmu_close(struct kgsl_device *device);
+void kgsl_mmu_close(struct kgsl_device *device);
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
@@ -167,13 +163,11 @@ int kgsl_mmu_find_region(struct kgsl_pagetable *pagetable,
 		uint64_t region_start, uint64_t region_end,
 		uint64_t *gpuaddr, uint64_t size, unsigned int align);
 
-int kgsl_add_global_pt_entry(struct kgsl_device *device,
+void kgsl_mmu_add_global(struct kgsl_device *device,
 	struct kgsl_memdesc *memdesc);
-void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc);
-void kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable);
+void kgsl_mmu_remove_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc);
 
-struct kgsl_memdesc *kgsl_search_global_pt_entries(unsigned int gpuaddr,
-		unsigned int size);
 struct kgsl_pagetable *kgsl_mmu_get_pt_from_ptname(struct kgsl_mmu *mmu,
 							int ptname);
 

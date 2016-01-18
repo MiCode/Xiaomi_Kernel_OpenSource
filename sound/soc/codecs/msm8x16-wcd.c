@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -312,7 +312,9 @@ static struct snd_soc_codec *registered_codec;
 
 static int get_codec_version(struct msm8x16_wcd_priv *msm8x16_wcd)
 {
-	if (msm8x16_wcd->codec_version == CAJON_2_0)
+	if (msm8x16_wcd->codec_version == DIANGU)
+		return DIANGU;
+	else if (msm8x16_wcd->codec_version == CAJON_2_0)
 		return CAJON_2_0;
 	else if (msm8x16_wcd->codec_version == CAJON)
 		return CAJON;
@@ -475,6 +477,7 @@ static void msm8x16_wcd_compute_impedance(struct snd_soc_codec *codec, s16 l,
 		break;
 	case CAJON:
 	case CAJON_2_0:
+	case DIANGU:
 		if (msm8x16_wcd->imped_det_pin == WCD_MBHC_DET_HPHL) {
 			rr = (uint32_t)(((DEFAULT_MULTIPLIER * (10 * r - 5)) -
 			   (DEFAULT_OFFSET * DEFAULT_GAIN))/DEFAULT_GAIN);
@@ -1882,6 +1885,10 @@ static int msm8x16_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
 					0x80, 0x80);
 			msm8x16_wcd_boost_mode_sequence(codec, EAR_PMU);
+		} else if (get_codec_version(msm8x16_wcd) == DIANGU) {
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0x80, 0x80);
 		} else {
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
@@ -1911,7 +1918,8 @@ static int msm8x16_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_EAR_CTL, 0x80, 0x00);
 		} else {
-			snd_soc_update_bits(codec,
+			if (get_codec_version(msm8x16_wcd) < DIANGU)
+				snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
 					0x40, 0x00);
 			if (msm8x16_wcd->rx_bias_count == 0)
@@ -3864,8 +3872,6 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 		switch (codec_version) {
 		case TOMBAK_1_0:
 		case TOMBAK_2_0:
-			pr_debug("%s: Default gain is set\n", __func__);
-			break;
 		case CONGA:
 			/*
 			 * For 32Ohm load and higher loads, Set 0x19E
@@ -3884,6 +3890,7 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 			break;
 		case CAJON:
 		case CAJON_2_0:
+		case DIANGU:
 			if (value >= 13) {
 				snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
@@ -3931,7 +3938,8 @@ static int msm8x16_wcd_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
 				0x08, 0x08);
-		if (get_codec_version(msm8x16_wcd) >= CAJON) {
+		if (get_codec_version(msm8x16_wcd) == CAJON ||
+			get_codec_version(msm8x16_wcd) == CAJON_2_0) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST,
 				0x80, 0x80);
@@ -4016,6 +4024,8 @@ static int msm8x16_wcd_lo_dac_event(struct snd_soc_dapm_widget *w,
 			MSM8X16_WCD_A_ANALOG_RX_LO_EN_CTL, 0x40, 0x00);
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_RX_LO_EN_CTL, 0x20, 0x00);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_DIGITAL_CDC_ANA_CLK_CTL, 0x10, 0x00);
 		break;
 	}
 	return 0;
@@ -4125,10 +4135,8 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 					WCD_EVENT_POST_HPHR_PA_OFF);
 		}
 		usleep_range(4000, 4100);
-
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL, 0x40, 0x40);
+
 		dev_dbg(codec->dev,
 			"%s: sleep 10 ms after %s PA disable.\n", __func__,
 			w->name);
@@ -5109,7 +5117,7 @@ static void msm8x16_wcd_update_reg_defaults(struct snd_soc_codec *codec)
 			snd_soc_write(codec,
 				cajon_wcd_reg_defaults[i].reg,
 				cajon_wcd_reg_defaults[i].val);
-	} else if (version == CAJON_2_0) {
+	} else if (version == CAJON_2_0 || version == DIANGU) {
 		for (i = 0; i < ARRAY_SIZE(cajon2p0_wcd_reg_defaults); i++)
 			snd_soc_write(codec,
 				cajon2p0_wcd_reg_defaults[i].reg,
@@ -5490,6 +5498,11 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		dev_dbg(codec->dev, "%s :PMIC REV: %d\n", __func__,
 					msm8x16_wcd_priv->pmic_rev);
 		if (msm8x16_wcd_priv->pmic_rev == TOMBAK_1_0 &&
+			msm8x16_wcd_priv->codec_version == CAJON_2_0) {
+			msm8x16_wcd_priv->codec_version = DIANGU;
+			dev_dbg(codec->dev, "%s : Diangu detected\n",
+						__func__);
+		} else if (msm8x16_wcd_priv->pmic_rev == TOMBAK_1_0 &&
 			(snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_NCP_FBCTRL)
 			 & 0x80)) {
 			msm8x16_wcd_priv->codec_version = CAJON;

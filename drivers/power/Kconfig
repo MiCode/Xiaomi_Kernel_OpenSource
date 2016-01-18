@@ -451,6 +451,17 @@ config SMB358_CHARGER
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
 
+config SMB23X_CHARGER
+	tristate "SMB23X Battery Charger"
+	depends on I2C
+	help
+	  Say Y to include support for SMB23X Battery Charger.
+	  SMB23X is a single path linear charger capable of charging
+	  the battery with 1Amps of current.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+
 config BATTERY_BQ28400
 	tristate "BQ28400 battery driver"
 	depends on I2C

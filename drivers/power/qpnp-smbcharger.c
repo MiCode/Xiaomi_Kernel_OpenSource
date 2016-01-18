@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,6 +189,7 @@ struct smbchg_chip {
 	bool				parallel_charger_detected;
 	bool				chg_otg_enabled;
 	bool				flash_triggered;
+	bool				flash_active;
 	bool				icl_disabled;
 	u32				wa_flags;
 	int				usb_icl_delta;
@@ -302,6 +303,7 @@ enum smbchg_wa {
 	SMBCHG_CC_ESR_WA = BIT(4),
 	SMBCHG_FLASH_ICL_DISABLE_WA = BIT(5),
 	SMBCHG_RESTART_WA = BIT(6),
+	SMBCHG_FLASH_BUCK_SWITCH_FREQ_WA = BIT(7),
 };
 
 enum print_reason {
@@ -3064,6 +3066,50 @@ enum skip_reason {
 	REASON_FLASH_ENABLED	= BIT(1)
 };
 
+#define BAT_IF_TRIM7_REG	0xF7
+#define CFG_750KHZ_BIT		BIT(1)
+#define MISC_CFG_NTC_VOUT_REG	0xF3
+#define CFG_NTC_VOUT_FSW_BIT	BIT(0)
+static int smbchg_switch_buck_frequency(struct smbchg_chip *chip,
+				bool flash_active)
+{
+	int rc;
+
+	if (!(chip->wa_flags & SMBCHG_FLASH_BUCK_SWITCH_FREQ_WA))
+		return 0;
+
+	if (chip->flash_active == flash_active) {
+		pr_smb(PR_STATUS, "Fsw not changed, flash_active: %d\n",
+			flash_active);
+		return 0;
+	}
+
+	/*
+	 * As per the systems team recommendation, before the flash fires,
+	 * buck switching frequency(Fsw) needs to be increased to 1MHz. Once the
+	 * flash is disabled, Fsw needs to be set back to 750KHz.
+	 */
+	rc = smbchg_sec_masked_write(chip, chip->misc_base +
+				MISC_CFG_NTC_VOUT_REG, CFG_NTC_VOUT_FSW_BIT,
+				flash_active ? CFG_NTC_VOUT_FSW_BIT : 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set switching frequency multiplier rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = smbchg_sec_masked_write(chip, chip->bat_if_base + BAT_IF_TRIM7_REG,
+			CFG_750KHZ_BIT, flash_active ? 0 : CFG_750KHZ_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev, "Cannot set switching freq: %d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_STATUS, "Fsw @ %sHz\n", flash_active ? "1M" : "750K");
+	chip->flash_active = flash_active;
+	return 0;
+}
+
 #define OTG_TRIM6		0xF6
 #define TR_ENB_SKIP_BIT		BIT(2)
 #define OTG_EN_BIT		BIT(0)
@@ -4240,8 +4286,6 @@ static int smbchg_charging_status_change(struct smbchg_chip *chip)
 	return 0;
 }
 
-#define BAT_IF_TRIM7_REG	0xF7
-#define CFG_750KHZ_BIT		BIT(1)
 #define BB_CLMP_SEL		0xF8
 #define BB_CLMP_MASK		SMB_MASK(1, 0)
 #define BB_CLMP_VFIX_3338MV	0x1
@@ -5604,6 +5648,16 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 		rc = smbchg_safety_timer_enable(chip, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
+		rc = smbchg_switch_buck_frequency(chip, val->intval);
+		if (rc) {
+			pr_err("Couldn't switch buck frequency, rc=%d\n", rc);
+			/*
+			 * Trigger a panic if there is an error while switching
+			 * buck frequency. This will prevent LS FET damage.
+			 */
+			BUG_ON(1);
+		}
+
 		rc = smbchg_otg_pulse_skip_disable(chip,
 				REASON_FLASH_ENABLED, val->intval);
 		break;
@@ -7672,7 +7726,8 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 	case PMI8996:
 		chip->wa_flags |= SMBCHG_CC_ESR_WA
 				| SMBCHG_FLASH_ICL_DISABLE_WA
-				| SMBCHG_RESTART_WA;
+				| SMBCHG_RESTART_WA
+				| SMBCHG_FLASH_BUCK_SWITCH_FREQ_WA;
 		use_pmi8996_tables(chip);
 		chip->schg_version = QPNP_SCHG;
 		break;

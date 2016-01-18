@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,4 +29,9 @@
 			qcom,inhibit-derating-ua = <0>;
 		};
 	};
+};
+
+&flash_led {
+	qcom,ramp_up_step = "27_US";
+	qcom,ramp_dn_step = "27_US";
 };

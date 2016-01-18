@@ -86,6 +86,9 @@ Optional Properties:
   - qcom,smmu-exist: PCIe uses a SMMU.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
+  - qcom,cpl-timeout: Completion timeout value. This value specifies the time range
+    which the root complex will send out a completion packet if there is no response
+    from the endpoint.
   - linux,pci-domain: For details of pci-domains properties, please refer to:
     "Documentation/devicetree/bindings/pci/pci.txt"
   - qcom,tlp-rd-size: The max TLP read size (Calculation: 128 times 2 to the
@@ -228,6 +231,7 @@ Example:
 		qcom,common-phy;
 		qcom,smmu-exist;
 		qcom,ep-latency = <100>;
+		qcom,cpl-timeout = <0x2>;
 
 		iommus = <&anoc0_smmu>;
 

@@ -711,8 +711,21 @@ static ssize_t mdss_fb_change_dfps_mode(struct device *dev,
 		return len;
 	}
 
+	if (mfd->idle_time != 0) {
+		pr_err("ERROR: Idle time is not disabled.\n");
+		return len;
+	}
+
+	if (pinfo->current_fps != pinfo->default_fps) {
+		pr_err("ERROR: panel not configured to default fps\n");
+		return len;
+	}
+
 	pinfo->dynamic_fps = true;
 	pinfo->dfps_update = dfps_mode;
+
+	if (pdata->next)
+		pdata->next->panel_info.dfps_update = dfps_mode;
 
 	return len;
 }
@@ -1658,6 +1671,7 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 			mdss_fb_stop_disp_thread(mfd);
 		mutex_lock(&mfd->bl_lock);
 		current_bl = mfd->bl_level;
+		mfd->allow_bl_update = true;
 		mdss_fb_set_backlight(mfd, 0);
 		mfd->allow_bl_update = false;
 		mfd->unset_bl_level = current_bl;

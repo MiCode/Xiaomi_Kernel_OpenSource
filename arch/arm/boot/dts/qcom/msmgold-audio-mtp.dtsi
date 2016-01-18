@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&int_codec {
+	status = "okay";
+	qcom,model = "msm8952-snd-card-mtp";
+	qcom,msm-hs-micbias-type = "external";
+};
+
+&pm8937_cajon_dig {
+	status = "okay";
+};
+
+&pm8937_cajon_analog {
+	status = "okay";
+};
+
+&wsa881x_i2c_e {
+	status = "okay";
+};
+
+&wsa881x_i2c_44 {
+	status = "okay";
+};
+
+&wsa881x_i2c_f {
+	status = "okay";
+};
+
+&wsa881x_i2c_45 {
+	status = "okay";
+};

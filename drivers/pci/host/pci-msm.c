@@ -418,7 +418,22 @@ enum msm_pcie_irq_event {
 	MSM_PCIE_INT_EVT_LINK_UP,
 	MSM_PCIE_INT_EVT_AER_LEGACY,
 	MSM_PCIE_INT_EVT_AER_ERR,
-	MSM_PCIE_INT_EVT_MAX = 15,
+	MSM_PCIE_INT_EVT_PME_LEGACY,
+	MSM_PCIE_INT_EVT_PLS_PME,
+	MSM_PCIE_INT_EVT_INTD,
+	MSM_PCIE_INT_EVT_INTC,
+	MSM_PCIE_INT_EVT_INTB,
+	MSM_PCIE_INT_EVT_INTA,
+	MSM_PCIE_INT_EVT_EDMA,
+	MSM_PCIE_INT_EVT_MSI_0,
+	MSM_PCIE_INT_EVT_MSI_1,
+	MSM_PCIE_INT_EVT_MSI_2,
+	MSM_PCIE_INT_EVT_MSI_3,
+	MSM_PCIE_INT_EVT_MSI_4,
+	MSM_PCIE_INT_EVT_MSI_5,
+	MSM_PCIE_INT_EVT_MSI_6,
+	MSM_PCIE_INT_EVT_MSI_7,
+	MSM_PCIE_INT_EVT_MAX = 30,
 };
 
 enum msm_pcie_gpio {
@@ -554,6 +569,7 @@ struct msm_pcie_dev_t {
 	bool				 ext_ref_clk;
 	bool				common_phy;
 	uint32_t			   ep_latency;
+	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	short				current_short_bdf;
 	uint32_t			tlp_rd_size;
@@ -1763,6 +1779,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->common_phy);
 	PCIE_DBG_FS(dev, "ep_latency: %dms\n",
 		dev->ep_latency);
+	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
+		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
 		dev->current_bdf);
 	PCIE_DBG_FS(dev, "tlp_rd_size: 0x%x\n",
@@ -3328,6 +3346,12 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 	else
 		msm_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x01);
 
+	/* configure the completion timeout value for PCIe core */
+	if (dev->cpl_timeout && dev->bridge_found)
+		msm_pcie_write_reg_field(dev->dm_core,
+					PCIE20_DEVICE_CONTROL2_STATUS2,
+					0xf, dev->cpl_timeout);
+
 	/* Enable AER on RC */
 	msm_pcie_write_mask(dev->dm_core + PCIE20_BRIDGE_CTRL, 0,
 					BIT(16)|BIT(17));
@@ -3920,9 +3944,17 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		msm_pcie_write_reg(dev->parf, PCIE20_PARF_INT_ALL_MASK, 0);
 
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_MASK, 0,
-					MSM_PCIE_INT_EVT_LINK_DOWN |
-					MSM_PCIE_INT_EVT_AER_LEGACY |
-					MSM_PCIE_INT_EVT_AER_ERR);
+					BIT(MSM_PCIE_INT_EVT_LINK_DOWN) |
+					BIT(MSM_PCIE_INT_EVT_AER_LEGACY) |
+					BIT(MSM_PCIE_INT_EVT_AER_ERR) |
+					BIT(MSM_PCIE_INT_EVT_MSI_0) |
+					BIT(MSM_PCIE_INT_EVT_MSI_1) |
+					BIT(MSM_PCIE_INT_EVT_MSI_2) |
+					BIT(MSM_PCIE_INT_EVT_MSI_3) |
+					BIT(MSM_PCIE_INT_EVT_MSI_4) |
+					BIT(MSM_PCIE_INT_EVT_MSI_5) |
+					BIT(MSM_PCIE_INT_EVT_MSI_6) |
+					BIT(MSM_PCIE_INT_EVT_MSI_7));
 
 		PCIE_DBG(dev, "PCIe: RC%d: PCIE20_PARF_INT_ALL_MASK: 0x%x\n",
 			dev->rc_idx,
@@ -4457,6 +4489,11 @@ int msm_pcie_enumerate(u32 rc_idx)
 
 			msm_pcie_write_mask(dev->dm_core +
 				PCIE20_COMMAND_STATUS, 0, BIT(2)|BIT(1));
+
+			if (dev->cpl_timeout && dev->bridge_found)
+				msm_pcie_write_reg_field(dev->dm_core,
+					PCIE20_DEVICE_CONTROL2_STATUS2,
+					0xf, dev->cpl_timeout);
 
 			if (dev->shadow_en) {
 				u32 val = readl_relaxed(dev->dm_core +
@@ -5494,6 +5531,18 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: ep-latency: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].ep_latency);
+
+	msm_pcie_dev[rc_idx].cpl_timeout = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,cpl-timeout",
+				&msm_pcie_dev[rc_idx].cpl_timeout);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: Using default cpl-timeout.\n",
+			rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: cpl-timeout: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].cpl_timeout);
 
 	msm_pcie_dev[rc_idx].tlp_rd_size = PCIE_TLP_RD_SIZE;
 	ret = of_property_read_u32(pdev->dev.of_node,

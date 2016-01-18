@@ -2031,6 +2031,10 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 		struct ci13xxx_req *mReq_active, *mReq_next;
 		u32 i = 0;
 
+		/* Nothing to be done if hardware already finished this TD */
+		if ((TD_STATUS_ACTIVE & mReq->ptr->token) == 0)
+			goto done;
+
 		/* Iterate forward to find first TD with ACTIVE bit set */
 		mReq_active = mReq;
 		list_for_each_entry(mReq_next, &mEp->qh.queue, queue) {
@@ -2432,6 +2436,9 @@ __acquires(udc->lock)
 	retval = _gadget_stop_activity(&udc->gadget);
 	if (retval)
 		goto done;
+
+	if (udc->rw_pending)
+		purge_rw_queue(udc);
 
 	_udc->skip_flush = false;
 	retval = hw_usb_reset();
@@ -3247,13 +3254,6 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 				__func__);
 		return -EAGAIN;
 	}
-
-	if (udc->suspended) {
-		dev_err(udc->transceiver->dev,
-			"%s: Unable to dequeue while suspended\n", __func__);
-		return -EAGAIN;
-	}
-
 	spin_lock_irqsave(mEp->lock, flags);
 	/*
 	 * Only ep0 IN is exposed to composite.  When a req is dequeued
@@ -3531,9 +3531,11 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 		return 0;
 	}
 	if (is_active) {
+		spin_unlock(udc->lock);
 		if (udc->udc_driver->notify_event)
 			udc->udc_driver->notify_event(udc,
 				CI13XXX_CONTROLLER_CONNECT_EVENT);
+		spin_lock(udc->lock);
 		hw_device_state(udc->ep0out.qh.dma);
 	} else {
 		hw_device_state(0);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,8 +51,7 @@
 
 		qcom,initial-pwrlevel = <3>;
 
-		/* Idle Timeout = HZ/12 */
-		qcom,idle-timeout = <8>;
+		qcom,idle-timeout = <80>; //msecs
 		qcom,strtstp-sleepwake;
 
 		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
@@ -178,7 +177,7 @@
 			<&clock_gcc clk_gcc_gfx_tcu_clk>,
 			<&clock_gcc clk_gcc_gtcu_ahb_clk>,
 			<&clock_gcc clk_gcc_gfx_tbu_clk>;
-		clock-names = "iface_clk", "core_clk", "gtcu_iface_clk",
+		clock-names = "scfg_clk", "gtcu_clk", "gtcu_iface_clk",
 				"gtbu_clk";
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";

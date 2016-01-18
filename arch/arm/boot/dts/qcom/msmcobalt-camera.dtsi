@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,msm-cam@8c0000 {
+		compatible = "qcom,msm-cam";
+		reg = <0x8c0000 0x40000>;
+		reg-names = "msm-cam";
+		status = "ok";
+		bus-vectors = "suspend", "svs", "nominal", "turbo";
+		qcom,bus-votes = <0 300000000 640000000 640000000>;
+	};
+
+	qcom,cam_smmu {
+		compatible = "qcom,msm-cam-smmu";
+
+		msm_cam_smmu_cb1 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_smmu 0xc00>,
+					<&mmss_smmu 0xc01>,
+					<&mmss_smmu 0xc02>,
+					<&mmss_smmu 0xc03>;
+			label = "vfe";
+			qcom,scratch-buf-support;
+		};
+
+		msm_cam_smmu_cb2 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_smmu 0xa00>;
+			label = "cpp";
+		};
+
+		msm_cam_smmu_cb3 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_smmu 0xa01>;
+			label = "camera_fd";
+		};
+
+		msm_cam_smmu_cb4 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_smmu 0x800>;
+			label = "jpeg_enc0";
+		};
+
+		msm_cam_smmu_cb5 {
+			compatible = "qcom,msm-cam-smmu-cb";
+			iommus = <&mmss_smmu 0x801>;
+			label = "jpeg_dma";
+		};
+	};
+
+	qcom,fd@caa4000 {
+		cell-index = <0>;
+		compatible = "qcom,face-detection";
+		reg = <0xcaa4000 0x800>,
+			<0xcaa5000 0x400>,
+			<0xca80000 0x3000>;
+		reg-names = "fd_core", "fd_misc", "fd_vbif";
+		interrupts = <0 293 0>;
+		interrupt-names = "fd";
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		qcom,vdd-names = "smmu-vdd", "camss-vdd";
+		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
+			<&clock_mmss clk_fd_core_clk_src>,
+			<&clock_mmss clk_fd_core_clk>,
+			<&clock_mmss clk_fd_core_uar_clk>,
+			<&clock_mmss clk_fd_ahb_clk>,
+			<&clock_mmss clk_camss_ahb_clk>,
+			<&clock_mmss clk_camss_cpp_axi_clk>,
+			<&clock_mmss clk_camss_cpp_vbif_ahb_clk>;
+		clock-names = "camss_top_ahb_clk",
+			"fd_core_clk_src", "fd_core_clk",
+			"fd_core_uar_clk", "fd_ahb_clk",
+			"camss_ahb_clk", "camss_cpp_axi_clk",
+			"cpp_vbif_ahb_clk";
+		qcom,clock-rates = <0 400000000 400000000>,
+			<0 0 0 0 0>;
+		qcom,msm-bus,name = "msm_camera_fd";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <106 512 0 0>,
+			<106 512 13000000 13000000>,
+			<106 512 45000000 45000000>,
+			<106 512 90000000 90000000>;
+		qcom,fd-vbif-reg-settings = <0x20 0x10000000 0x30000000>,
+			<0x24 0x10000000 0x30000000>,
+			<0x28 0x10000000 0x30000000>,
+			<0x2c 0x10000000 0x30000000>;
+		qcom,fd-misc-reg-settings = <0x20 0x2 0x3>,
+			<0x24 0x2 0x3>;
+		status = "ok";
+	};
+};

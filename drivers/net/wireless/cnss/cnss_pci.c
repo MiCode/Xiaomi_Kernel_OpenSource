@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,6 +114,7 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_VREG_CORE_NAME	"vdd-wlan-core"
 #define WLAN_VREG_SP2T_NAME	"vdd-wlan-sp2t"
 #define WLAN_SWREG_NAME		"wlan-soc-swreg"
+#define WLAN_ANT_SWITCH_NAME	"wlan-ant-switch"
 #define WLAN_EN_GPIO_NAME	"wlan-en-gpio"
 #define WLAN_BOOTSTRAP_GPIO_NAME "wlan-bootstrap-gpio"
 #define PM_OPTIONS		0
@@ -124,6 +125,9 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 
 #define SOC_SWREG_VOLT_MAX	1200000
 #define SOC_SWREG_VOLT_MIN	1200000
+#define WLAN_ANT_SWITCH_VOLT_MAX	2700000
+#define WLAN_ANT_SWITCH_VOLT_MIN	2700000
+#define WLAN_ANT_SWITCH_CURR	20000
 #define WLAN_VREG_IO_MAX	1800000
 #define WLAN_VREG_IO_MIN	1800000
 #define WLAN_VREG_XTAL_MAX	1800000
@@ -176,6 +180,7 @@ struct cnss_wlan_gpio_info {
 struct cnss_wlan_vreg_info {
 	struct regulator *wlan_reg;
 	struct regulator *soc_swreg;
+	struct regulator *ant_switch;
 	struct regulator *wlan_reg_io;
 	struct regulator *wlan_reg_xtal;
 	struct regulator *wlan_reg_core;
@@ -341,6 +346,15 @@ static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 		}
 	}
 
+	if (vreg_info->ant_switch) {
+		ret = regulator_enable(vreg_info->ant_switch);
+		if (ret) {
+			pr_err("%s: regulator enable failed for ant_switch\n",
+			       __func__);
+			goto error_enable_ant_switch;
+		}
+	}
+
 	if (vreg_info->soc_swreg) {
 		ret = regulator_enable(vreg_info->soc_swreg);
 		if (ret) {
@@ -353,6 +367,9 @@ static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 	return ret;
 
 error_enable_soc_swreg:
+	if (vreg_info->ant_switch)
+		regulator_disable(vreg_info->ant_switch);
+error_enable_ant_switch:
 	if (vreg_info->wlan_reg_sp2t)
 		regulator_disable(vreg_info->wlan_reg_sp2t);
 error_enable_reg_sp2t:
@@ -379,6 +396,15 @@ static int cnss_wlan_vreg_off(struct cnss_wlan_vreg_info *vreg_info)
 		if (ret) {
 			pr_err("%s: regulator disable failed for external soc-swreg\n",
 					__func__);
+			goto error_disable;
+		}
+	}
+
+	if (vreg_info->ant_switch) {
+		ret = regulator_disable(vreg_info->ant_switch);
+		if (ret) {
+			pr_err("%s: regulator disable failed for ant_switch\n",
+			       __func__);
 			goto error_disable;
 		}
 	}
@@ -672,6 +698,37 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 		}
 	}
 
+	if (of_get_property(pdev->dev.of_node,
+			    WLAN_ANT_SWITCH_NAME "-supply", NULL)) {
+		vreg_info->ant_switch =
+			regulator_get(&pdev->dev, WLAN_ANT_SWITCH_NAME);
+		if (!IS_ERR(vreg_info->ant_switch)) {
+			ret = regulator_set_voltage(vreg_info->ant_switch,
+						    WLAN_ANT_SWITCH_VOLT_MIN,
+						    WLAN_ANT_SWITCH_VOLT_MAX);
+			if (ret < 0) {
+				pr_err("%s: Set ant_switch voltage failed!\n",
+				       __func__);
+				goto err_ant_switch_set;
+			}
+
+			ret = regulator_set_optimum_mode(vreg_info->ant_switch,
+							 WLAN_ANT_SWITCH_CURR);
+			if (ret < 0) {
+				pr_err("%s: Set ant_switch current failed!\n",
+				       __func__);
+				goto err_ant_switch_set;
+			}
+
+			ret = regulator_enable(vreg_info->ant_switch);
+			if (ret < 0) {
+				pr_err("%s: Enable ant_switch failed!\n",
+				       __func__);
+				goto err_ant_switch_enable;
+			}
+		}
+	}
+
 	if (of_find_property((&pdev->dev)->of_node,
 				"qcom,wlan-uart-access", NULL))
 		penv->cap.cap_flag |= CNSS_HAS_UART_ACCESS;
@@ -773,30 +830,34 @@ err_reg_set:
 		regulator_put(vreg_info->soc_swreg);
 
 err_reg_get2:
+	if (vreg_info->ant_switch)
+		regulator_disable(vreg_info->ant_switch);
+
+err_ant_switch_enable:
+err_ant_switch_set:
+	if (vreg_info->ant_switch)
+		regulator_put(vreg_info->ant_switch);
 	if (vreg_info->wlan_reg_sp2t)
 		regulator_disable(vreg_info->wlan_reg_sp2t);
 
 err_reg_sp2t_enable:
+err_reg_sp2t_set:
 	if (vreg_info->wlan_reg_sp2t)
 		regulator_put(vreg_info->wlan_reg_sp2t);
-
-err_reg_sp2t_set:
 	if (vreg_info->wlan_reg_xtal)
 		regulator_disable(vreg_info->wlan_reg_xtal);
 
 err_reg_xtal_enable:
+err_reg_xtal_set:
 	if (vreg_info->wlan_reg_xtal)
 		regulator_put(vreg_info->wlan_reg_xtal);
-
-err_reg_xtal_set:
 	if (vreg_info->wlan_reg_io)
 		regulator_disable(vreg_info->wlan_reg_io);
 
 err_reg_io_enable:
+err_reg_io_set:
 	if (vreg_info->wlan_reg_io)
 		regulator_put(vreg_info->wlan_reg_io);
-
-err_reg_io_set:
 	regulator_disable(vreg_info->wlan_reg);
 
 err_reg_enable:
@@ -828,6 +889,8 @@ static void cnss_wlan_release_resources(void)
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
 	if (vreg_info->soc_swreg)
 		regulator_put(vreg_info->soc_swreg);
+	if (vreg_info->ant_switch)
+		regulator_put(vreg_info->ant_switch);
 	if (vreg_info->wlan_reg_sp2t)
 		regulator_put(vreg_info->wlan_reg_sp2t);
 	if (vreg_info->wlan_reg_xtal)

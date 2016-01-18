@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3164,19 +3164,6 @@ static void sdhci_msm_clear_set_dumpregs(struct sdhci_host *host, bool set)
 	}
 }
 
-static void sdhci_msm_detect(struct sdhci_host *host, bool detected)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	struct mmc_host *mmc = msm_host->mmc;
-	struct mmc_card *card = mmc->card;
-
-	if (detected && mmc_card_sdio(card))
-		mmc->pm_caps |= MMC_PM_KEEP_POWER;
-	else
-		mmc->pm_caps &= ~MMC_PM_KEEP_POWER;
-}
-
 int sdhci_msm_notify_load(struct sdhci_host *host, enum mmc_load state)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3729,7 +3716,6 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.reset = sdhci_msm_reset,
 	.clear_set_dumpregs = sdhci_msm_clear_set_dumpregs,
 	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
-	.detect = sdhci_msm_detect,
 	.notify_load = sdhci_msm_notify_load,
 	.reset_workaround = sdhci_msm_reset_workaround,
 	.init = sdhci_msm_init,
@@ -4303,6 +4289,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		} else {
 			spin_lock_irqsave(&host->lock, flags);
 			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
+			msm_host->sdio_pending_processing = false;
 			spin_unlock_irqrestore(&host->lock, flags);
 		}
 	}
@@ -4436,6 +4423,7 @@ static int sdhci_msm_cfg_sdio_wakeup(struct sdhci_host *host, bool enable)
 	if (!(host->mmc->card && mmc_card_sdio(host->mmc->card) &&
 	      sdhci_is_valid_gpio_wakeup_int(msm_host) &&
 	      mmc_card_wake_sdio_irq(host->mmc))) {
+		msm_host->sdio_pending_processing = false;
 		return 1;
 	}
 

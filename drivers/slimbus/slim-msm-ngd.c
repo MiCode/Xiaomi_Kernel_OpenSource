@@ -839,8 +839,26 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
 	unsigned long flags;
+	int ret;
 
-	int ret = ngd_xfer_msg(ctrl, txn);
+	if (dev->state == MSM_CTRL_DOWN) {
+		/*
+		 * no need to send anything to the bus due to SSR
+		 * transactions related to channel removal marked as success
+		 * since HW is down
+		 */
+		if ((txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER) &&
+			((txn->mc >= SLIM_USR_MC_CHAN_CTRL &&
+			  txn->mc <= SLIM_USR_MC_REQ_BW) ||
+			txn->mc == SLIM_USR_MC_DISCONNECT_PORT)) {
+			spin_lock_irqsave(&ctrl->txn_lock, flags);
+			ctrl->txnt[txn->tid] = NULL;
+			spin_unlock_irqrestore(&ctrl->txn_lock, flags);
+			return 0;
+		}
+	}
+
+	ret = ngd_xfer_msg(ctrl, txn);
 	if (!ret) {
 		int timeout;
 		timeout = wait_for_completion_timeout(txn->comp, HZ);
@@ -1798,13 +1816,10 @@ static int ngd_slim_runtime_suspend(struct device *device)
 	int ret = 0;
 	mutex_lock(&dev->tx_lock);
 	ret = ngd_slim_power_down(dev);
-	if (ret) {
-		if (ret != -EBUSY)
-			SLIM_INFO(dev, "slim resource not idle:%d\n", ret);
-		dev->state = MSM_CTRL_AWAKE;
-	} else {
+	if (ret && ret != -EBUSY)
+		SLIM_INFO(dev, "slim resource not idle:%d\n", ret);
+	if (!ret || ret == -ETIMEDOUT)
 		dev->state = MSM_CTRL_ASLEEP;
-	}
 	mutex_unlock(&dev->tx_lock);
 	SLIM_INFO(dev, "Slim runtime suspend: ret %d\n", ret);
 	return ret;

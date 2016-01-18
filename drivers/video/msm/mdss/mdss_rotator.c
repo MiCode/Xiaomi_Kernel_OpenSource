@@ -1841,7 +1841,6 @@ static void mdss_rotator_wq_handler(struct work_struct *work)
 		return;
 	}
 
-	mdss_rotator_clk_ctrl(rot_mgr, true);
 	hw = mdss_rotator_get_hw_resource(entry->queue, entry);
 	if (!hw) {
 		pr_err("no hw for the queue\n");
@@ -1865,7 +1864,6 @@ static void mdss_rotator_wq_handler(struct work_struct *work)
 
 get_hw_res_err:
 	mdss_rotator_signal_output(entry);
-	mdss_rotator_clk_ctrl(rot_mgr, false);
 	mdss_rotator_release_entry(rot_mgr, entry);
 	atomic_dec(&request->pending_count);
 }
@@ -1962,6 +1960,7 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 		goto resource_err;
 	}
 
+	mdss_rotator_clk_ctrl(rot_mgr, true);
 	ret = mdss_rotator_update_perf(mgr);
 	if (ret) {
 		pr_err("fail to open session, not enough clk/bw\n");
@@ -1974,6 +1973,7 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 
 	goto done;
 perf_err:
+	mdss_rotator_clk_ctrl(rot_mgr, false);
 	mdss_rotator_resource_ctrl(mgr, false);
 resource_err:
 	mutex_lock(&private->perf_lock);
@@ -2027,6 +2027,7 @@ static int mdss_rotator_close_session(struct mdss_rot_mgr *mgr,
 	devm_kfree(&mgr->pdev->dev, perf->work_distribution);
 	devm_kfree(&mgr->pdev->dev, perf);
 	mdss_rotator_update_perf(mgr);
+	mdss_rotator_clk_ctrl(rot_mgr, false);
 done:
 	pr_debug("Closed session id:%u", id);
 	ATRACE_END(__func__);

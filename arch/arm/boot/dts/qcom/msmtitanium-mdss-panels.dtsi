@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,8 @@
 #include "dsi-panel-truly-1080p-cmd.dtsi"
 #include "dsi-adv7533-1080p.dtsi"
 #include "dsi-adv7533-720p.dtsi"
+#include "dsi-panel-r69006-1080p-video.dtsi"
+#include "dsi-panel-r69006-1080p-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -75,4 +77,36 @@
 		23 1e 08 09 05 03 04 a0
 		23 1e 08 09 05 03 04 a0
 		23 1a 08 09 05 03 04 a0];
+};
+
+&dsi_r69006_1080p_video {
+	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1b 08 09 05 03 04 a0];
+};
+
+&dsi_r69006_1080p_cmd{
+	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1b 08 09 05 03 04 a0];
+};
+
+&dsi_adv7533_1080p {
+	qcom,mdss-dsi-panel-timings-8996 = [24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1f 08 09 05 03 04 a0
+		24 1b 08 09 05 03 04 a0];
+};
+
+&dsi_adv7533_720p {
+	qcom,mdss-dsi-panel-timings-8996 = [1e 1b 04 06 02 03 04 a0
+		1e 1b 04 06 02 03 04 a0
+		1e 1b 04 06 02 03 04 a0
+		1e 1b 04 06 02 03 04 a0
+		1e 0e 04 05 02 03 04 a0];
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -852,8 +852,8 @@ static int __vote_buses(struct venus_hfi_device *device,
 	struct vidc_bus_vote_data *new_data = NULL;
 
 	if (!num_data) {
-		/* Meh nothing to do */
-		return 0;
+		dprintk(VIDC_DBG, "No vote data available\n");
+		goto no_data_count;
 	} else if (!data) {
 		dprintk(VIDC_ERR, "Invalid voting data\n");
 		return -EINVAL;
@@ -866,6 +866,7 @@ static int __vote_buses(struct venus_hfi_device *device,
 		goto err_no_mem;
 	}
 
+no_data_count:
 	kfree(device->bus_vote.data);
 	device->bus_vote.data = new_data;
 	device->bus_vote.data_count = num_data;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3961,7 +3961,7 @@ static struct clk_lookup msm_clocks_lookup_gold[] = {
 };
 
 /* Please note that the order of reg-names is important */
-static int get_mmio_addr(struct platform_device *pdev)
+static int get_mmio_addr(struct platform_device *pdev, u32 nbases)
 {
 	int i, count;
 	const char *str;
@@ -3969,9 +3969,9 @@ static int get_mmio_addr(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	count = of_property_count_strings(dev->of_node, "reg-names");
-	if (count != N_BASES) {
+	if (count != nbases) {
 		dev_err(dev, "missing reg-names property, expected %d strings\n",
-				N_BASES);
+				nbases);
 		return -EINVAL;
 	}
 
@@ -4127,7 +4127,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret;
-	u32 regval;
+	u32 regval, nbases = N_BASES;
 	bool compat_bin = false;
 	bool compat_bin2 = false;
 
@@ -4140,7 +4140,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	ret = get_mmio_addr(pdev);
+	if (compat_bin2)
+		nbases = APCS_C0_PLL_BASE;
+
+	ret = get_mmio_addr(pdev, nbases);
 	if (ret)
 		return ret;
 

@@ -39,6 +39,8 @@
 
 &pmi8950_charger {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
 };
 
 &mdss_dsi0 {

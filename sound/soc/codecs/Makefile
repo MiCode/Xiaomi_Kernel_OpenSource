@@ -181,6 +181,7 @@ snd-soc-wm-hubs-objs := wm_hubs.o
 
 snd-soc-msm-stub-objs := msm_stub.o
 obj-$(CONFIG_SND_SOC_MSM_HDMI_CODEC_RX) := msm_hdmi_codec_rx.o
+obj-$(CONFIG_SND_SOC_MSM_HDMI_DBA_CODEC_RX) := msm_hdmi_dba_codec_rx.o
 
 # Amp
 snd-soc-max9877-objs := max9877.o

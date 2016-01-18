@@ -332,7 +332,6 @@ struct sdhci_ops {
 	int	(*enable_controller_clock)(struct sdhci_host *host);
 	void	(*clear_set_dumpregs)(struct sdhci_host *host, bool set);
 	void	(*enhanced_strobe_mask)(struct sdhci_host *host, bool set);
-	void	(*detect)(struct sdhci_host *host, bool detected);
 	int	(*notify_load)(struct sdhci_host *host, enum mmc_load state);
 	void	(*reset_workaround)(struct sdhci_host *host, u32 enable);
 	void	(*init)(struct sdhci_host *host);

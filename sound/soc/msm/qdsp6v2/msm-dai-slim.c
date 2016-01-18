@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,8 @@ struct msm_slim_dai_data *msm_slim_get_dai_data(
 }
 
 static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
-	struct snd_soc_dai *dai, bool enable)
+	struct snd_soc_dai *dai,
+	enum msm_dai_slim_event event)
 {
 	struct slim_device *sdev;
 	struct msm_dai_slim_drv_data *drv_data;
@@ -114,11 +115,12 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 	}
 
 	dev_dbg(&sdev->dev,
-		"%s: enable = %s, rate = %u\n", __func__,
-		enable ? "true" : "false",
-		dai_data->rate);
+		"%s: event = 0x%x, rate = %u\n", __func__,
+		event, dai_data->rate);
 
-	if (enable) {
+	switch (event) {
+	case MSM_DAI_SLIM_ENABLE:
+
 		if (!(dai_data->status & DAI_STATE_PREPARED)) {
 			dev_err(&sdev->dev,
 				"%s: dai id (%d) has invalid state 0x%x\n",
@@ -171,7 +173,9 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 		}
 		/* Mark dai status as running */
 		SET_DAI_STATE(dai_data->status, DAI_STATE_RUNNING);
-	} else {
+		break;
+
+	case MSM_DAI_SLIM_PRE_DISABLE:
 		if (!(dai_data->status & DAI_STATE_RUNNING)) {
 			dev_err(&sdev->dev,
 				"%s: dai id (%d) has invalid state 0x%x\n",
@@ -188,6 +192,9 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 				__func__, rc);
 			goto done;
 		}
+		break;
+
+	case MSM_DAI_SLIM_DISABLE:
 
 		rc = slim_dealloc_mgrports(sdev,
 					   &dma_data->ph, 1);
@@ -199,6 +206,14 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 		}
 		/* clear running state for dai*/
 		CLR_DAI_STATE(dai_data->status, DAI_STATE_RUNNING);
+		break;
+
+	default:
+		dev_err(&sdev->dev,
+			"%s: Unhandled event 0x%x\n",
+			__func__, event);
+		rc = -EINVAL;
+		goto done;
 	}
 
 	return rc;

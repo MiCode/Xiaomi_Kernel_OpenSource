@@ -29,9 +29,12 @@ Required properties:
 			   Required if WOL is supported.
 - qcom,emac-gpio-mdc  : GPIO pin number of the MDC line of MDIO bus.
 - qcom,emac-gpio-mdio : GPIO pin number of the MDIO line of MDIO bus.
+- phy-mode: String, operation mode of the PHY interface. See ethernet.txt in the
+	same directory.
 - phy-addr : Specifies phy address on MDIO bus.
 	      Required if the optional property "qcom,no-external-phy"
 	      is not specified.
+- phy-channel : Phy address for internal phy in ACPI mode.
 - phy-mode : Specifies PHY type being used (eg., "sgmii", "rgmii", "gmii" etc).
 	     For "sgmii", the "emac_sgmii" register base and
 	     "emac_sgmii_irq" interrupt must be specified.
@@ -46,6 +49,10 @@ Optional properties:
 		      placeholder for the MAC address. The correct MAC
 		      address is populated in device tree during platform
 		      initialization.
+- mac-address : 6- bytes MAC address in ACPI mode.
+		This field is optional. If present, it is only a placeholder
+		for the MAC address. The correct MAC address is populated in
+		device tree during platform initialization.
 - qcom,no-external-phy : Indicates there is no external PHY connected to EMAC.
 			 Include this only if the EMAC is directly connected to
 			 the peer end without EPHY.
@@ -59,6 +66,10 @@ Optional properties:
 			     table entry, the first field indicates the RTC
 			     reference clock rate. The second field indicates
 			     the number of adjustment in 2 ^ -26 ns.
+- no-ephy : Specifies in case there is no external phy present in ACPI mode.
+- tstamp-eble : Enables the PTP (1588) timestamping feature in ACPI mode.
+- <supply-name>-supply: phandle to the regulator device tree node
+			Required "supply-name" are "emac_vreg*"
 
 Example1:
 	emac0: qcom,emac@feb20000 {
