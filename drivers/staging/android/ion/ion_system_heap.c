@@ -119,8 +119,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 	bool prefetch = buffer->flags & ION_FLAG_POOL_PREFETCH;
 	int vmid = get_secure_vmid(buffer->flags);
 
-	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) &&
-	    !(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)) {
+	if (!(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)) {
 		struct ion_page_pool *pool;
 		if (vmid > 0)
 			pool = heap->secure_pools[vmid][order_to_index(order)];
