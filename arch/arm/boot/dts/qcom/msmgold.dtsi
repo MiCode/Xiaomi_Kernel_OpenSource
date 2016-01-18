@@ -1514,6 +1514,10 @@
 		memory-region = <&venus_mem>;
 	};
 
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
+
 };
 
 #include "msm-pm8937-rpm-regulator.dtsi"
