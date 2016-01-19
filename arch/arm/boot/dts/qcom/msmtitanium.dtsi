@@ -1078,6 +1078,12 @@
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
 		};
+
+		 pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+
+		};
 	};
 
 	qcom,memshare {
