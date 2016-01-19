@@ -577,6 +577,11 @@
 	};
 };
 
+&adsp_io {
+	qcom,virtual-addr-pool = <0x10000000 0x0fffffff>;
+	#iommu-cells = <1>;
+};
+
 &slim_msm {
 	status = "disabled";
 	dai_slim: msm_dai_slim {
