@@ -60,6 +60,7 @@ show up in /proc/sys/kernel:
 - panic_on_stackoverflow
 - panic_on_unrecovered_nmi
 - panic_on_warn
+- perf_event_paranoid
 - pid_max
 - powersave-nap               [ PPC only ]
 - printk
@@ -599,19 +600,6 @@ This file shows up if CONFIG_DEBUG_STACKOVERFLOW is enabled.
 
 ==============================================================
 
-panic_on_unrecovered_nmi:
-
-The default Linux behaviour on an NMI of either memory or unknown is
-to continue operation. For many environments such as scientific
-computing it is preferable that the box is taken out and the error
-dealt with than an uncorrected parity/ECC error get propagated.
-
-A small number of systems do generate NMI's for bizarre random reasons
-such as power management so the default is off. That sysctl works like
-the existing panic controls already in that directory.
-
-==============================================================
-
 panic_on_warn:
 
 Calls panic() in the WARN() path when set to 1.  This is useful to avoid
@@ -649,6 +637,30 @@ allowed to execute.
 
 ==============================================================
 
+panic_on_unrecovered_nmi:
+
+The default Linux behaviour on an NMI of either memory or unknown is
+to continue operation. For many environments such as scientific
+computing it is preferable that the box is taken out and the error
+dealt with than an uncorrected parity/ECC error get propagated.
+
+A small number of systems do generate NMI's for bizarre random reasons
+such as power management so the default is off. That sysctl works like
+the existing panic controls already in that directory.
+
+==============================================================
+
+perf_event_paranoid:
+
+Controls use of the performance events system by unprivileged
+users (without CAP_SYS_ADMIN).  The default value is 1.
+
+ -1: Allow use of (almost) all events by all users
+>=0: Disallow raw tracepoint access by users without CAP_IOC_LOCK
+>=1: Disallow CPU event access by users without CAP_SYS_ADMIN
+>=2: Disallow kernel profiling by users without CAP_SYS_ADMIN
+
+==============================================================
 
 pid_max:
 
