@@ -75,6 +75,11 @@
 			reusable;
 			size = <0 0x400000>;
 		};
+
+		cont_splash_mem: splash_region@0x90000000 {
+			reg = <0x0 0x90000000 0x0 0x1400000>;
+			label = "cont_splash_mem";
+		};
 	};
 
 	aliases {
