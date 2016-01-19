@@ -80,9 +80,8 @@ static void mdss_dsi_config_clk_src(struct platform_device *pdev)
 	struct mdss_dsi_data *dsi_res = platform_get_drvdata(pdev);
 	struct dsi_shared_data *sdata = dsi_res->shared_data;
 
-	if (!sdata->ext_byte0_clk || !sdata->ext_byte1_clk ||
-		!sdata->ext_pixel0_clk || !sdata->ext_pixel1_clk) {
-		pr_debug("%s: config_clk_src not needed\n", __func__);
+	if (!sdata->ext_byte0_clk || !sdata->ext_pixel0_clk) {
+		pr_debug("%s: DSI-0 ext. clocks not present\n", __func__);
 		return;
 	}
 
@@ -102,10 +101,15 @@ static void mdss_dsi_config_clk_src(struct platform_device *pdev)
 		if (mdss_dsi_is_hw_config_split(sdata)) {
 			sdata->byte1_parent = sdata->byte0_parent;
 			sdata->pixel1_parent = sdata->pixel0_parent;
-		} else {
+		} else if (sdata->ext_byte1_clk && sdata->ext_pixel1_clk) {
 			sdata->byte1_parent = sdata->ext_byte1_clk;
 			sdata->pixel1_parent = sdata->ext_pixel1_clk;
+		} else {
+			pr_debug("%s: DSI-1 external clocks not present\n",
+				__func__);
+			return;
 		}
+
 		pr_debug("%s: default: DSI0 <--> PLL0, DSI1 <--> %s", __func__,
 			mdss_dsi_is_hw_config_split(sdata) ? "PLL0" : "PLL1");
 	} else {
@@ -122,9 +126,15 @@ static void mdss_dsi_config_clk_src(struct platform_device *pdev)
 			sdata->byte0_parent = sdata->ext_byte0_clk;
 			sdata->pixel0_parent = sdata->ext_pixel0_clk;
 		} else if (mdss_dsi_is_pll_src_pll1(sdata)) {
-			pr_debug("%s: single source: PLL1", __func__);
-			sdata->byte0_parent = sdata->ext_byte1_clk;
-			sdata->pixel0_parent = sdata->ext_pixel1_clk;
+			if (sdata->ext_byte1_clk && sdata->ext_pixel1_clk) {
+				pr_debug("%s: single source: PLL1", __func__);
+				sdata->byte0_parent = sdata->ext_byte1_clk;
+				sdata->pixel0_parent = sdata->ext_pixel1_clk;
+			} else {
+				pr_err("%s: DSI-1 external clocks not present\n",
+					__func__);
+				return;
+			}
 		}
 		sdata->byte1_parent = sdata->byte0_parent;
 		sdata->pixel1_parent = sdata->pixel0_parent;
