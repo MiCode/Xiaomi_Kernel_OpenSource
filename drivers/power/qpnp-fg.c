@@ -2713,6 +2713,9 @@ static int fg_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		val->intval = get_sram_prop_now(chip, FG_DATA_CC_CHARGE);
 		break;
+	case POWER_SUPPLY_PROP_HI_POWER:
+		val->intval = !!chip->bcl_lpm_disabled;
+		break;
 	default:
 		return -EINVAL;
 	}
