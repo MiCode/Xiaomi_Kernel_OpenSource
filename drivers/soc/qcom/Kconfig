@@ -128,6 +128,14 @@ config QCOM_SMD_RPM
 	  Say M here if you want to include support for the Qualcomm RPM as a
 	  module. This will build a module called "qcom-smd-rpm".
 
+config MSM_SPM
+	bool "Driver support for SPM and AVS wrapper hardware"
+	help
+	  Enables the support SAW and AVS wrapper hardware on MSMs SPM
+	  hardware is used to manage the processor power during sleep. The
+	  driver allows configuring SPM to allow different low power modes for
+	  both core and L2.
+
 config QCOM_SCM
        bool "Secure Channel Manager (SCM) support"
        default n
