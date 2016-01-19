@@ -473,6 +473,7 @@ static struct pll_vote_clk gpll4_clk_src = {
 		CLK_INIT(gpll4_clk_src.c),
 	},
 };
+DEFINE_EXT_CLK(gpll4_out_clk_src, &gpll4_clk_src.c);
 
 static struct clk_freq_tbl ftbl_gcc_camss_top_ahb_clk[] = {
 	F( 40000000,	gpll0,	10,	1,	2),
@@ -601,7 +602,7 @@ static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk_gold[] = {
 	F( 200000000,          gpll0,    4,    0,     0),
 	F( 270000000,          gpll6,    4,    0,     0),
 	F( 308570000,          gpll6,  3.5,    0,     0),
-	F( 329140000,          gpll4,  3.5,    0,     0),
+	F( 329140000,          gpll4_out,  3.5,    0,     0),
 	F( 360000000,          gpll6,    3,    0,     0),
 	F_END
 };
@@ -665,7 +666,7 @@ static struct clk_freq_tbl ftbl_gcc_camss_vfe0_1_clk_gold[] = {
 	F( 266670000,          gpll0,    3,    0,     0),
 	F( 308570000,          gpll6,  3.5,    0,     0),
 	F( 320000000,          gpll0,  2.5,    0,     0),
-	F( 329140000,          gpll4,  3.5,    0,     0),
+	F( 329140000,          gpll4_out,  3.5,    0,     0),
 	F( 360000000,          gpll6,    3,    0,     0),
 	F_END
 };
