@@ -1,15 +1,6 @@
-/*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved. */
+
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/idr.h>
@@ -70,7 +61,7 @@ int spmi_device_add(struct spmi_device *sdev)
 	struct spmi_controller *ctrl = sdev->ctrl;
 	int err;
 
-	dev_set_name(&sdev->dev, "%d-%02x", ctrl->nr, sdev->usid);
+	dev_set_name(&sdev->dev, "spmi%d-%02x", ctrl->nr, sdev->usid);
 
 	err = device_add(&sdev->dev);
 	if (err < 0) {
