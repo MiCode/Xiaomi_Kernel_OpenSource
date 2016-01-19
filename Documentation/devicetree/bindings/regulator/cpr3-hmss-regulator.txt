@@ -40,9 +40,10 @@ HMSS specific properties:
 		    "qcom,cpr3-msm8996-v1-hmss-regulator",
 		    "qcom,cpr3-msm8996-v2-hmss-regulator",
 		    "qcom,cpr3-msm8996-v3-hmss-regulator",
-		    "qcom,cpr3-msm8996-hmss-regulator".
+		    "qcom,cpr3-msm8996-hmss-regulator",
+		    "qcom,cpr3-msm8996pro-hmss-regulator".
 		    If the SoC revision is not specified, then it is assumed to
-		    be the most recent revision, i.e. v3.
+		    be the most recent revision of MSM8996, i.e. v3.
 
 - interrupts
 	Usage:      required
