@@ -588,8 +588,8 @@ static int hbtp_parse_dt(struct device *dev)
 		 * Desired max X should be defined simultaneously, or none
 		 * of them should be defined.
 		 */
-		if (!((hbtp->def_maxy == 0 && hbtp->des_maxy != 0) ||
-				(hbtp->def_maxy != 0 && hbtp->des_maxy == 0))) {
+		if ((hbtp->def_maxy == 0 && hbtp->des_maxy != 0) ||
+				(hbtp->def_maxy != 0 && hbtp->des_maxy == 0)) {
 			dev_err(dev, "default or desired max-Y properties are incorrect\n");
 			return -EINVAL;
 		}
