@@ -28,6 +28,14 @@ MMSS specific properties:
 	Usage:      required
 	Value type: <string>
 	Definition: should be "qcom,cpr3-msm8996-mmss-regulator"
+	Definition: should be one of the following:
+		    "qcom,cpr3-msm8996-v1-mmss-regulator",
+		    "qcom,cpr3-msm8996-v2-mmss-regulator",
+		    "qcom,cpr3-msm8996-v3-mmss-regulator",
+		    "qcom,cpr3-msm8996-mmss-regulator",
+		    "qcom,cpr3-msm8996pro-mmss-regulator".
+		    If the SoC revision is not specified, then it is assumed to
+		    be the most recent revision of MSM8996, i.e. v3.
 
 - clocks
 	Usage:      required
