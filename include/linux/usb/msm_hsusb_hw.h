@@ -84,6 +84,7 @@
 
 #define GENCONFIG_BAM_DISABLE (1 << 13)
 #define GENCONFIG_TXFIFO_IDLE_FORCE_DISABLE (1 << 4)
+#define GENCONFIG_ULPI_SERIAL_EN (1 << 5)
 
 /* synopsys 28nm phy registers */
 #define ULPI_PWR_CLK_MNG_REG	0x88
