@@ -22,6 +22,7 @@
 		qcom,saw2-cfg = <0x14>;
 		qcom,saw2-spm-dly= <0x3C102800>;
 		qcom,saw2-spm-ctl = <0xe>;
+		qcom,saw2-avs-ctl = <0x10>;
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3
 					&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,vctl-timeout-us = <50>;
@@ -252,7 +253,7 @@
 		};
 	};
 
-	qcom,mpm@601d0 {
+	qcom,mpm@601d4 {
 		compatible = "qcom,mpm-v2";
 		reg = <0x601d4 0x1000>, /* MSM_RPM_MPM_BASE 4K */
 		    <0xb011008 0x4>;
@@ -267,7 +268,7 @@
 			<58 168>,   /* qusb2phy_dmse_hv -> hs_phy_irq*/
 			<37 252>,   /* qmp_usb3_lfps_rxterm_irq -> ss_phy_irq */
 			<53 104>, /* mdss_irq */
-			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
+			<88 222>, /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 18>,  /* APC_qgicQTmrSecPhysIrptReq */
 			<0xff 19>,  /* APC_qgicQTmrNonSecPhysIrptReq */
 			<0xff 20>,  /* qgicQTmrVirtIrptReq */
