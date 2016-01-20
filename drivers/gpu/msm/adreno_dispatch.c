@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -649,7 +649,8 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	 * we just submitted something, readjust ringbuffer
 	 * execution level
 	 */
-	gpudev->preemption_schedule(adreno_dev);
+	if (gpudev->preemption_schedule)
+		gpudev->preemption_schedule(adreno_dev);
 	return 0;
 }
 
@@ -2116,7 +2117,8 @@ static void adreno_dispatcher_work(struct work_struct *work)
 	if (dispatcher_do_fault(device))
 		goto done;
 
-	gpudev->preemption_schedule(adreno_dev);
+	if (gpudev->preemption_schedule)
+		gpudev->preemption_schedule(adreno_dev);
 
 	if (cur_rb_id != adreno_dev->cur_rb->id) {
 		struct adreno_dispatcher_cmdqueue *dispatch_q =
