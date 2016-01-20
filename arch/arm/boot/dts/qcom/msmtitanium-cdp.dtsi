@@ -292,6 +292,7 @@
 		qcom,out-strength = <3>;
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
+		qcom,dtest-sel = <1>;
 		status = "okay";
 	};
 
@@ -305,4 +306,8 @@
 		qcom,out-strength = <2>;
 	};
 
+};
+
+&qpdi {
+	qcom,pmic-carddetect-gpio = <&pmtitanium_gpios 0x2 0>;
 };
