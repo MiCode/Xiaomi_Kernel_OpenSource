@@ -3909,8 +3909,9 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		goto end;
 	}
 
-	hdmi_ctrl->panel_power_on = true;
 end:
+	hdmi_ctrl->panel_power_on = true;
+
 	dss_reg_dump(io->base, io->len, "HDMI-ON: ", REG_DUMP);
 
 	DEV_DBG("%s: Tx: %s (%s mode)\n", __func__,
