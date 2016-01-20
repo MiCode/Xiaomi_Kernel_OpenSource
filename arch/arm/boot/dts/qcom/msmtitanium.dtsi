@@ -156,6 +156,13 @@
 		poll-delay-ms = <5000>;
 	};
 
+	qcom,msm-gladiator@b1c0000 {
+		compatible = "qcom,msm-gladiator";
+		reg = <0x0b1c0000 0x4000>;
+		reg-names = "gladiator_base";
+		interrupts = <0 22 0>;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <1 2 0xff08>,
