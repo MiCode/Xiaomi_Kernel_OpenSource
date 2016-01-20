@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1972,7 +1972,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->capability.secure_output2_threshold.max = 0;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
-	inst->prop.fps = 30;
+	inst->prop.fps = DEFAULT_FPS;
 	return rc;
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -814,8 +814,15 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	}
 
 	rc = map_and_register_buf(inst, b);
-	if (rc == -EEXIST)
+	if (rc == -EEXIST) {
+		if (atomic_read(&inst->in_flush) &&
+			is_dynamic_output_buffer_mode(b, inst)) {
+			dprintk(VIDC_ERR,
+				"Flush in progress, do not hold any buffers in driver\n");
+			msm_comm_flush_dynamic_buffers(inst);
+		}
 		return 0;
+	}
 	if (rc)
 		return rc;
 

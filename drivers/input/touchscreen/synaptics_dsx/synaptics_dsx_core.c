@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -478,7 +478,7 @@ static int synaptics_i2c_change_pipe_owner(
 	/* number of arguments */
 	desc.arginfo = SCM_ARGS(2);
 	/* BLSPID (1-12) */
-	desc.args[0] = i2c->adapter->nr;
+	desc.args[0] = i2c->adapter->nr - 1;
 	 /* Owner if TZ or APSS */
 	desc.args[1] = subsystem;
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_TZ, TZ_BLSP_MODIFY_OWNERSHIP_ID),

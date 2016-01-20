@@ -1151,7 +1151,7 @@ static int  msm_isp_axi_stream_enable_cfg(
 	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
 	struct dual_vfe_resource *dual_vfe_res = NULL;
 
-	if (stream_idx >= MAX_NUM_STREAM) {
+	if (stream_idx >= VFE_AXI_SRC_MAX) {
 		pr_err("%s: Invalid stream_idx", __func__);
 		goto error;
 	}
