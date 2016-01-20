@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -732,7 +732,7 @@ int ipa_uc_reset_pipe(enum ipa_client_type ipa_client)
 	       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD", ep_idx);
 
 	ret = ipa_uc_send_cmd(cmd.raw32b, IPA_CPU_2_HW_CMD_RESET_PIPE, 0,
-			      true, 10*HZ);
+			      false, 10*HZ);
 
 	return ret;
 }
