@@ -555,14 +555,23 @@ static int process_sbl_transition(
 				struct mhi_device_ctxt *mhi_dev_ctxt,
 				enum STATE_TRANSITION cur_work_item)
 {
+	int r = 0;
 	pm_runtime_set_autosuspend_delay(
 				 &mhi_dev_ctxt->dev_info->pcie_device->dev,
 				 MHI_RPM_AUTOSUSPEND_TMR_VAL_MS);
 	pm_runtime_use_autosuspend(&mhi_dev_ctxt->dev_info->pcie_device->dev);
+	r = pm_runtime_set_active(&mhi_dev_ctxt->dev_info->pcie_device->dev);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+		"Failed to activate runtime pm ret %d\n", r);
+	}
+	pm_runtime_enable(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	mhi_log(MHI_MSG_INFO, "Enabled runtime pm autosuspend\n");
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_SBL;
 	enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
+	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	return 0;
+
 }
 
 static int process_amss_transition(
