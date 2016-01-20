@@ -2364,6 +2364,7 @@ static enum handoff hdmi_8996_vco_handoff(struct clk *c)
 		if (MDSS_PLL_REG_R(io->phy_base, HDMI_PHY_STATUS) & BIT(0)) {
 			io->pll_on = true;
 			c->rate = hdmi_8996_vco_get_rate(c);
+			vco->rate = c->rate;
 			ret = HANDOFF_ENABLED_CLK;
 		} else {
 			io->handoff_resources = false;
