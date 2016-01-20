@@ -649,7 +649,7 @@
 	clock_debug: qcom,cc-debug@1874000 {
 		compatible = "qcom,cc-debug-gold";
 		reg = <0x1874000 0x4>,
-		      <0xb11101c 0x8>;
+		      <0xb01101c 0x8>;
 		reg-names = "cc_base", "meas";
 		#clock-cells = <1>;
 	};
@@ -671,7 +671,7 @@
 		vdd-c1-supply = <&apc_vreg_corner>;
 		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
 			 <&clock_gcc clk_a53ss_c1_pll>;
-		clock-names = "clk-c0-4", "clk-c0-5";
+		clock-names = "clk-c1-4", "clk-c1-5";
 		qcom,speed0-bin-v0-c1 =
 			<          0 0>,
 			<  998400000 1>,
