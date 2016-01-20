@@ -1897,3 +1897,5 @@ source "samples/Kconfig"
 
 source "lib/Kconfig.kgdb"
 
+source "lib/Kconfig.ubsan"
+

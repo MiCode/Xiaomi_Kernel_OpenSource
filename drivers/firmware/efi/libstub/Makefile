@@ -22,6 +22,7 @@ KBUILD_CFLAGS			:= $(cflags-y) \
 
 GCOV_PROFILE			:= n
 KASAN_SANITIZE			:= n
+UBSAN_SANITIZE			:= n
 
 lib-y				:= efi-stub-helper.o
 
