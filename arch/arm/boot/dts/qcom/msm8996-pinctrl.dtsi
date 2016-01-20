@@ -696,7 +696,7 @@
 				config {
 					pins = "gpio87", "gpio88";
 					drive-strength = <2>;
-					bias-pull-up;
+					bias-pull-down;
 				};
 			};
 		};
