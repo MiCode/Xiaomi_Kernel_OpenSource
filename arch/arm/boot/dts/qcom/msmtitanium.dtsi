@@ -576,6 +576,7 @@
 		qcom,msm-bus,vectors-KBps =
 				<86 512 0 0>,
 				<86 512 500 800>;
+		status = "disabled";
 	};
 
 	dma_blsp1: qcom,sps-dma@7884000 { /* BLSP1 */
