@@ -16,9 +16,7 @@
  * msm8996.dtsi file.
  */
 
-#include "msm8996.dtsi"
-#include "msm8996-coresight-v3.dtsi"
-#include "msm-arm-smmu-impl-defs-8996-v3.dtsi"
+#include "msm8996-v3.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996pro";
 	qcom,msm-id = <305 0x20000>;
