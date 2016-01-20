@@ -209,6 +209,13 @@
 		};
 	};
 
+	qcom,rmtfs_sharedmem@00000000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x00000000 0x00e0000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+	};
+
 	restart@4ab000 {
 		compatible = "qcom,pshold";
 		reg = <0x4ab000 0x4>,
