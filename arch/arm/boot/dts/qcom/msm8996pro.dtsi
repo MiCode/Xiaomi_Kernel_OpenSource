@@ -845,3 +845,11 @@
 			< 2150400 5195 >;
 	};
 };
+
+&soc {
+	qcom,msm-thermal {
+		qcom,vdd-gfx-rstr{
+			qcom,levels = <6 8 9>; /* Nominal, Turbo, Turbo_L1 */
+		};
+	};
+};
