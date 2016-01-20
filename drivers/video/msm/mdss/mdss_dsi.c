@@ -915,9 +915,16 @@ static int mdss_dsi_debugfs_setup(struct mdss_panel_data *pdata,
 static int mdss_dsi_debugfs_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc;
-	struct mdss_panel_data *pdata = &ctrl_pdata->panel_data;
-	struct mdss_panel_info panel_info = pdata->panel_info;
+	struct mdss_panel_data *pdata;
+	struct mdss_panel_info panel_info;
 
+	if (!ctrl_pdata) {
+		pr_warn_once("%s: Invalid pdata!\n", __func__);
+		return -EINVAL;
+	}
+
+	pdata = &ctrl_pdata->panel_data;
+	panel_info = pdata->panel_info;
 	rc = mdss_dsi_debugfs_setup(pdata, panel_info.debugfs_info->root);
 	if (rc) {
 		pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
@@ -2664,7 +2671,9 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 					for (i = 0; ((str2 + i) < str1) &&
 					     i < MDSS_MAX_PANEL_LEN; i++)
 						cfg_np_name[i] = *(str2 + i);
-					cfg_np_name[i] = 0;
+					if ((i >= 0)
+						&& (i < MDSS_MAX_PANEL_LEN))
+						cfg_np_name[i] = 0;
 				} else {
 					strlcpy(cfg_np_name, str2,
 						MDSS_MAX_PANEL_LEN);

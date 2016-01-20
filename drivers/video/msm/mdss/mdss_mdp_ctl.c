@@ -2987,9 +2987,11 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 		break;
 	case MDP_DUAL_LM_DUAL_DISPLAY:
 		sctl = mdss_mdp_get_split_ctl(ctl);
-		spinfo = &sctl->panel_data->panel_info;
-
-		__dsc_setup_dual_lm_dual_display(ctl, pinfo, sctl, spinfo);
+		if (sctl) {
+			spinfo = &sctl->panel_data->panel_info;
+			__dsc_setup_dual_lm_dual_display(ctl, pinfo, sctl,
+					spinfo);
+		}
 		break;
 	default:
 		/* pp_split is not supported yet */
@@ -3997,9 +3999,11 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
 
-		mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
-		sctl->roi = sctl->mixer_left->roi;
-	} else if (is_dual_lm_single_display(ctl->mfd)) {
+		if (sctl) {
+			mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
+			sctl->roi = sctl->mixer_left->roi;
+		}
+	} else if (is_dual_lm_single_display(ctl->mfd) && ctl->mixer_right) {
 
 		mdss_mdp_set_mixer_roi(ctl->mixer_right, r_roi);
 
@@ -4022,8 +4026,10 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	 */
 	if (is_split_lm(ctl->mfd) && mdata->has_src_split &&
 	    (previous_frame_pu_type != current_frame_pu_type)) {
-		ctl->mixer_left->roi_changed = true;
-		ctl->mixer_right->roi_changed = true;
+		if (ctl->mixer_left)
+			ctl->mixer_left->roi_changed = true;
+		if (ctl->mixer_right)
+			ctl->mixer_right->roi_changed = true;
 	}
 }
 
