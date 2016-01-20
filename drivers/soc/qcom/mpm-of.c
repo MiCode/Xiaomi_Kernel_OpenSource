@@ -556,6 +556,8 @@ void msm_mpm_enter_sleep(uint64_t sclk_count, bool from_idle,
 		wakeup = (~0ULL);
 	}
 
+	msm_mpm_gpio_irqs_detectable(from_idle);
+	msm_mpm_irqs_detectable(from_idle);
 	msm_mpm_set(wakeup, !from_idle);
 	if (cpumask)
 		irq_set_affinity(msm_mpm_dev_data.mpm_ipc_irq, cpumask);
