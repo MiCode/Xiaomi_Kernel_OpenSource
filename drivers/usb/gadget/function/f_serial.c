@@ -619,6 +619,48 @@ static void gser_disable(struct usb_function *f)
 	gser->online = 0;
 }
 
+static void gser_suspend(struct usb_function *f)
+{
+	struct f_gser	*gser = func_to_gser(f);
+	unsigned port_num;
+
+	port_num = gserial_ports[gser->port_num].client_port_num;
+
+	pr_debug("%s: transport: %s f_gser: %p gserial: %p port_num: %d\n",
+			__func__, xport_to_str(gser->transport),
+			gser, &gser->port, gser->port_num);
+
+	switch (gser->transport) {
+	case USB_GADGET_XPORT_SMD:
+		gsmd_suspend(&gser->port, port_num);
+		break;
+	default:
+		pr_err("%s: Un-supported transport: %s\n", __func__,
+			xport_to_str(gser->transport));
+	}
+}
+
+static void gser_resume(struct usb_function *f)
+{
+	struct f_gser	*gser = func_to_gser(f);
+	unsigned port_num;
+
+	port_num = gserial_ports[gser->port_num].client_port_num;
+
+	pr_debug("%s: transport: %s f_gser: %p gserial: %p port_num: %d\n",
+			__func__, xport_to_str(gser->transport),
+			gser, &gser->port, gser->port_num);
+
+	switch (gser->transport) {
+	case USB_GADGET_XPORT_SMD:
+		gsmd_resume(&gser->port, port_num);
+		break;
+	default:
+		pr_err("%s: Un-supported transport: %s\n", __func__,
+			xport_to_str(gser->transport));
+	}
+}
+
 static int gser_notify(struct f_gser *gser, u8 type, u16 value,
 		void *data, unsigned length)
 {
@@ -1056,6 +1098,8 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	else
 		gser->port.func.name = "modem2";
 	gser->port.func.setup = gser_setup;
+	gser->port.func.suspend = gser_suspend;
+	gser->port.func.resume = gser_resume;
 	gser->port.connect = gser_connect;
 	gser->port.get_dtr = gser_get_dtr;
 	gser->port.get_rts = gser_get_rts;
