@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,10 +15,10 @@
 #ifndef __DEBUG_H_
 #define __DEBUG_H_
 
-#define DBG_MAX_MSG   512UL
-#define DBG_MSG_LEN   160UL
+#define DBG_MAX_MSG   1024UL
+#define DBG_MSG_LEN   80UL
 #define TIME_BUF_LEN  17
-#define DBG_EVENT_LEN  143
+#define DBG_EVENT_LEN  (DBG_MSG_LEN - TIME_BUF_LEN)
 
 extern unsigned int enable_event_log;
 extern void put_timestamp(char *tbuf);
@@ -28,15 +28,18 @@ extern void debug_debugfs_exit(void);
 
 #define LOGLEVEL_NONE 8
 #define LOGLEVEL_DEBUG 7
+#define LOGLEVEL_INFO 6
 #define LOGLEVEL_ERR 3
 
 #define log_event(log_level, x...)					\
 do {									\
-	char buf[160];							\
+	char buf[DBG_MSG_LEN];						\
 	if (log_level == LOGLEVEL_DEBUG)				\
 		pr_debug(x);						\
 	else if (log_level == LOGLEVEL_ERR)				\
 		pr_err(x);						\
+	else if (log_level == LOGLEVEL_INFO)				\
+		pr_info(x);						\
 	if (enable_event_log) {						\
 		put_timestamp(buf);					\
 		snprintf(&buf[TIME_BUF_LEN - 1], DBG_EVENT_LEN, x);	\
@@ -47,5 +50,6 @@ do {									\
 #define log_event_none(x, ...) log_event(LOGLEVEL_NONE, x, ##__VA_ARGS__)
 #define log_event_dbg(x, ...) log_event(LOGLEVEL_DEBUG, x, ##__VA_ARGS__)
 #define log_event_err(x, ...) log_event(LOGLEVEL_ERR, x, ##__VA_ARGS__)
+#define log_event_info(x, ...) log_event(LOGLEVEL_INFO, x, ##__VA_ARGS__)
 
 #endif	/* __DEBUG_H_ */

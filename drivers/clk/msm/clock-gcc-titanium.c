@@ -398,7 +398,6 @@ static struct rcg_clk gfx3d_clk_src = {
 	.c = {
 		.dbg_name = "gfx3d_clk_src",
 		.ops = &clk_ops_rcg,
-		.vdd_class = &vdd_gfx,
 		CLK_INIT(gfx3d_clk_src.c),
 	},
 };
@@ -2736,6 +2735,7 @@ static struct branch_clk gcc_oxili_gfx3d_clk = {
 	.c = {
 		.dbg_name = "gcc_oxili_gfx3d_clk",
 		.parent = &gfx3d_clk_src.c,
+		.vdd_class = &vdd_gfx,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_oxili_gfx3d_clk.c),
 	},
@@ -3998,7 +3998,7 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_gfx.regulator[0]);
 	}
 
-	ret = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
+	ret = of_get_fmax_vdd_class(pdev, &gcc_oxili_gfx3d_clk.c,
 					"qcom,gfxfreq-corner");
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to get gfx freq-corner mapping info\n");

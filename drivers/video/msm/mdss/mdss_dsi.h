@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -461,8 +461,11 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds post_panel_on_cmds;
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds status_cmds;
-	u32 status_cmds_rlen;
+	u32 *status_valid_params;
+	u32 *status_cmds_rlen;
 	u32 *status_value;
+	unsigned char *return_buf;
+	u32 groups; /* several alternative values to compare */
 	u32 status_error_count;
 	u32 max_status_error_count;
 
