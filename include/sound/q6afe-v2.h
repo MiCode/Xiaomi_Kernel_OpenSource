@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,9 @@
 #define RT_PROXY_DAI_002_RX	0xF1
 #define RT_PROXY_DAI_002_TX	0xE1
 #define VIRTUAL_ID_TO_PORTID(val) ((val & 0xF) | 0x2000)
+
+#define AFE_CLK_VERSION_V1    1
+#define AFE_CLK_VERSION_V2    2
 
 enum {
 	/* IDX 0->4 */
