@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -122,7 +122,7 @@ DEFINE_CLK_DUMMY(gcc_ce1_ahb_m_clk, 0);
 DEFINE_CLK_DUMMY(gcc_ce1_axi_m_clk, 0);
 
 DEFINE_EXT_CLK(debug_mmss_clk, NULL);
-DEFINE_EXT_CLK(debug_rpm_clk, NULL);
+DEFINE_EXT_CLK(gpu_gcc_debug_clk, NULL);
 DEFINE_EXT_CLK(debug_cpu_clk, NULL);
 
 static unsigned int soft_vote_gpll0;
@@ -2312,8 +2312,10 @@ static struct mux_clk gcc_debug_mux = {
 	.mask = 0x3FF,
 	.base = &virt_dbgbase,
 	MUX_REC_SRC_LIST(
+		&gpu_gcc_debug_clk.c,
 	),
 	MUX_SRC_LIST(
+		{ &gpu_gcc_debug_clk.c, 0x013d},
 		{ &snoc_clk.c, 0x0000 },
 		{ &cnoc_clk.c, 0x000e },
 		{ &bimc_clk.c, 0x00a9 },
@@ -2748,6 +2750,7 @@ arch_initcall(msm_gcc_cobalt_init);
 
 /* ======== Clock Debug Controller ======== */
 static struct clk_lookup msm_clocks_measure_cobalt[] = {
+	CLK_LIST(gpu_gcc_debug_clk),
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
 };
 
@@ -2774,6 +2777,9 @@ static int msm_clock_debug_cobalt_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to map in CC registers\n");
 		return -ENOMEM;
 	}
+
+	gpu_gcc_debug_clk.dev = &pdev->dev;
+	gpu_gcc_debug_clk.clk_id = "debug_gpu_clk";
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				    msm_clocks_measure_cobalt,
