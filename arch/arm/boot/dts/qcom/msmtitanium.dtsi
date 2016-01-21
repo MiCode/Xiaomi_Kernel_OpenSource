@@ -1924,8 +1924,7 @@
 			reg = <0x07000000 0xc8d0>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 140 0>;
-			usb-phy = <&qusb_phy>, <&usb_nop_phy>;
-			maximum-speed = "high-speed";
+			usb-phy = <&qusb_phy>, <&ssphy>;
 			tx-fifo-resize;
 			snps,usb3-u1u2-disable;
 			snps,nominal-elastic-buffer;
@@ -2038,12 +2037,12 @@
 	};
 
 	usb_nop_phy: usb_nop_phy {
+		status = "disabled";
 		compatible = "usb-nop-xceiv";
 	};
 
 
 	ssphy: ssphy@78000 {
-		status = "disabled";
 		compatible = "qcom,usb-ssphy-qmp";
 		reg = <0x78000 0x45c>,
 		      <0x0193f244 0x4>,
