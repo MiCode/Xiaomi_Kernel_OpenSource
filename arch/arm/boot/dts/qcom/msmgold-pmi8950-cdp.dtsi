@@ -13,6 +13,7 @@
 
 #include "msm-pmi8950.dtsi"
 #include "msmgold-cdp.dtsi"
+#include "msmgold-audio-cdp.dtsi"
 
 &soc {
 	led_flash0: qcom,camera-flash {
