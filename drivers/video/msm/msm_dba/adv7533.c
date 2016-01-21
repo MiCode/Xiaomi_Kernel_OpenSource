@@ -399,7 +399,7 @@ w_regs_fail:
 	return ret;
 }
 
-static void adv7533_read_device_rev(struct adv7533 *pdata)
+static int adv7533_read_device_rev(struct adv7533 *pdata)
 {
 	u8 rev = 0;
 	int ret;
@@ -407,10 +407,7 @@ static void adv7533_read_device_rev(struct adv7533 *pdata)
 	ret = adv7533_read(pdata, I2C_ADDR_MAIN, ADV7533_REG_CHIP_REVISION,
 							&rev, 1);
 
-	if (!ret)
-		pr_debug("%s: adv7533 revision 0x%X\n", __func__, rev);
-	else
-		pr_err("%s: adv7533 rev error\n", __func__);
+	return ret;
 }
 
 static int adv7533_program_i2c_addr(struct adv7533 *pdata)
@@ -1901,12 +1898,16 @@ static int adv7533_probe(struct i2c_client *client,
 
 	mutex_init(&pdata->ops_mutex);
 
-	adv7533_read_device_rev(pdata);
+	ret = adv7533_read_device_rev(pdata);
+	if (ret) {
+		pr_err("%s: Failed to read chip rev\n", __func__);
+		goto err_i2c_prog;
+	}
 
 	ret = adv7533_program_i2c_addr(pdata);
 	if (ret != 0) {
 		pr_err("%s: Failed to program i2c addr\n", __func__);
-		goto err_dt_parse;
+		goto err_i2c_prog;
 	}
 
 	ret = adv7533_register_dba(pdata);
@@ -1980,6 +1981,8 @@ err_irq:
 err_gpio_cfg:
 	adv7533_unregister_dba(pdata);
 err_dba_reg:
+err_i2c_prog:
+	adv7533_config_vreg(pdata, 0);
 err_dt_parse:
 	devm_kfree(&client->dev, pdata);
 	return ret;
