@@ -1058,6 +1058,8 @@ static int msm_fd_hw_enable(struct msm_fd_device *fd,
 	msm_fd_hw_set_direction_angle(fd, buffer->settings.direction_index,
 		buffer->settings.angle_index);
 	msm_fd_hw_run(fd);
+	if (fd->recovery_mode)
+		dev_err(fd->dev, "Scheduled buffer in recovery mode\n");
 	return 1;
 }
 
@@ -1259,6 +1261,8 @@ int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd)
 		}
 	} else {
 		fd->state = MSM_FD_DEVICE_IDLE;
+		if (fd->recovery_mode)
+			dev_err(fd->dev, "No Buffer in recovery mode.Device Idle\n");
 	}
 	spin_unlock(&fd->slock);
 

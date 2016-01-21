@@ -264,8 +264,10 @@ static void msm_fd_stop_streaming(struct vb2_queue *q)
 {
 	struct fd_ctx *ctx = vb2_get_drv_priv(q);
 
+	mutex_lock(&ctx->fd_device->recovery_lock);
 	msm_fd_hw_remove_buffers_from_queue(ctx->fd_device, q);
 	msm_fd_hw_put(ctx->fd_device);
+	mutex_unlock(&ctx->fd_device->recovery_lock);
 }
 
 /* Videobuf2 queue callbacks. */
@@ -324,6 +326,69 @@ static struct vb2_mem_ops msm_fd_vb2_mem_ops = {
 	.get_userptr = msm_fd_get_userptr,
 	.put_userptr = msm_fd_put_userptr,
 };
+
+/*
+ * msm_fd_vbif_error_handler - FD VBIF Error handler
+ * @handle: FD Device handle
+ * @error: CPP-VBIF Error code
+ */
+static int msm_fd_vbif_error_handler(void *handle, uint32_t error)
+{
+	struct fd_ctx *ctx;
+	struct msm_fd_device *fd;
+	struct msm_fd_buffer *active_buf;
+	int ret;
+
+	if (NULL == handle) {
+		dev_err(fd->dev, "FD Ctx is null, Cannot recover\n");
+		return 0;
+	}
+	ctx = (struct fd_ctx *)handle;
+	fd = (struct msm_fd_device *)ctx->fd_device;
+
+	if (error == CPP_VBIF_ERROR_HANG) {
+		mutex_lock(&fd->recovery_lock);
+		dev_err(fd->dev, "Handling FD VBIF Hang\n");
+		if (fd->state != MSM_FD_DEVICE_RUNNING) {
+			dev_err(fd->dev, "FD is not FD_DEVICE_RUNNING, %d\n",
+				fd->state);
+			mutex_unlock(&fd->recovery_lock);
+			return 0;
+		}
+		fd->recovery_mode = 1;
+
+		/* Halt and reset */
+		msm_fd_hw_put(fd);
+		msm_fd_hw_get(fd, ctx->settings.speed);
+
+		/* Get active buffer */
+		active_buf = msm_fd_hw_get_active_buffer(fd);
+
+		if (active_buf == NULL) {
+			dev_dbg(fd->dev, "no active buffer, return\n");
+			fd->recovery_mode = 0;
+			mutex_unlock(&fd->recovery_lock);
+			return 0;
+		}
+
+		dev_dbg(fd->dev, "Active Buffer present.. Start re-schedule\n");
+
+		/* Queue the buffer again */
+		msm_fd_hw_add_buffer(fd, active_buf);
+
+		/* Schedule and restart */
+		ret = msm_fd_hw_schedule_next_buffer(fd);
+		if (ret) {
+			dev_err(fd->dev, "Cannot reschedule buffer, recovery failed\n");
+			fd->recovery_mode = 0;
+			mutex_unlock(&fd->recovery_lock);
+			return ret;
+		}
+		dev_dbg(fd->dev, "Restarted FD after VBIF HAng\n");
+		mutex_unlock(&fd->recovery_lock);
+	}
+	return 0;
+}
 
 /*
  * msm_fd_open - Fd device open method.
@@ -388,6 +453,10 @@ static int msm_fd_open(struct file *file)
 		goto error_ahb_config;
 	}
 
+	/* Register with CPP VBIF error handler */
+	msm_cpp_vbif_register_error_handler((void *)ctx,
+		VBIF_CLIENT_FD, msm_fd_vbif_error_handler);
+
 	return 0;
 
 error_ahb_config:
@@ -408,6 +477,10 @@ error_vb2_queue_init:
 static int msm_fd_release(struct file *file)
 {
 	struct fd_ctx *ctx = msm_fd_ctx_from_fh(file->private_data);
+
+	/* Un-register with CPP VBIF error handler */
+	msm_cpp_vbif_register_error_handler((void *)ctx,
+		VBIF_CLIENT_FD, NULL);
 
 	vb2_queue_release(&ctx->vb2_q);
 
@@ -1173,6 +1246,12 @@ static void msm_fd_wq_handler(struct work_struct *work)
 	/* Stats are ready, set correct frame id */
 	atomic_set(&stats->frame_id, ctx->sequence);
 
+	/* If Recovery mode is on, we got IRQ after recovery, reset it */
+	if (fd->recovery_mode) {
+		fd->recovery_mode = 0;
+		dev_dbg(fd->dev, "Got IRQ after Recovery\n");
+	}
+
 	/* We have the data from fd hw, we can start next processing */
 	msm_fd_hw_schedule_next_buffer(fd);
 
@@ -1209,6 +1288,7 @@ static int fd_probe(struct platform_device *pdev)
 
 	mutex_init(&fd->lock);
 	spin_lock_init(&fd->slock);
+	mutex_init(&fd->recovery_lock);
 	init_completion(&fd->hw_halt_completion);
 	INIT_LIST_HEAD(&fd->buf_queue);
 	fd->pdev = pdev;
