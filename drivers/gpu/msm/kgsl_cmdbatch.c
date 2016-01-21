@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -625,7 +625,8 @@ struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 				| KGSL_CMDBATCH_SYNC
 				| KGSL_CMDBATCH_PWR_CONSTRAINT
 				| KGSL_CMDBATCH_MEMLIST
-				| KGSL_CMDBATCH_PROFILING);
+				| KGSL_CMDBATCH_PROFILING
+				| KGSL_CMDBATCH_PROFILING_KTIME);
 
 	/* Add a timer to help debug sync deadlocks */
 	setup_timer(&cmdbatch->timer, _kgsl_cmdbatch_timer,
