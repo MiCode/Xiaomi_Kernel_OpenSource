@@ -1081,7 +1081,6 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
-		status = "disabled";
 	};
 
 	qcom,chd {
