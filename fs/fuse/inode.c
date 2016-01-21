@@ -860,6 +860,7 @@ static void process_init_reply(struct fuse_conn *fc, struct fuse_req *req)
 		fc->conn_error = 1;
 	else {
 		unsigned long ra_pages;
+		struct super_block *sb = fc->sb;
 
 		process_init_limits(fc, arg);
 
@@ -898,6 +899,13 @@ static void process_init_reply(struct fuse_conn *fc, struct fuse_req *req)
 				fc->async_dio = 1;
 			if (arg->flags & FUSE_WRITEBACK_CACHE)
 				fc->writeback_cache = 1;
+			if (arg->flags & FUSE_PASSTHROUGH) {
+				fc->passthrough = 1;
+				/* Prevent further stacking */
+				sb->s_stack_depth = FILESYSTEM_MAX_STACK_DEPTH;
+				pr_info("FUSE: Pass through is enabled [%s : %d]!\n",
+					current->comm, current->pid);
+			}
 			if (arg->time_gran && arg->time_gran <= 1000000000)
 				fc->sb->s_time_gran = arg->time_gran;
 		} else {
