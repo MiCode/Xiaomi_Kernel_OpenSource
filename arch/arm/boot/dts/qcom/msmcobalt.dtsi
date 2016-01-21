@@ -327,7 +327,32 @@
 	};
 
 	clock_gpu: qcom,gpucc@5065000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gpucc-cobalt";
+		reg = <0x5065000 0x9000>;
+		reg-names = "cc_base";
+		vdd_gpucc-supply = <&pm8005_s1>;
+		vdd_dig-supply = <&pmcobalt_s1_level>;
+		vdd_mx-supply = <&pmcobalt_s9_level>;
+		vdd_gpu_mx-supply = <&pmcobalt_s9_level>;
+		clock-names = "xo", "gpll0";
+		clocks = <&clock_gcc clk_cxo_clk_src>,
+			<&clock_gcc clk_gpll0_out_main>;
+		qcom,gfxfreq-speedbin0 =
+			<	  0	 0			     0 >,
+			< 171000000 520000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 251000000 570000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 332000000 630000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 403000000 680000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 504000000 745000 RPM_SMD_REGULATOR_LEVEL_NOM >,
+			< 650000000 855000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
+		qcom,gfxfreq-mx-speedbin0 =
+			<         0			      0 >,
+			< 171000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 251000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 332000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 403000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 504000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
+			< 650000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 		#clock-cells = <1>;
 	};
 
@@ -335,6 +360,8 @@
 		compatible = "qcom,cc-debug-cobalt";
 		reg = <0x162000 0x4>;
 		reg-names = "cc_base";
+		clock-names = "debug_gpu_clk";
+		clocks = <&clock_gpu clk_gpucc_gcc_dbg_clk>;
 		#clock-cells = <1>;
 	};
 
