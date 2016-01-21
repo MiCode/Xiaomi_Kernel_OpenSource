@@ -38,7 +38,7 @@
 /* Face detection bus client name */
 #define MSM_FD_BUS_CLIENT_NAME "msm_face_detect"
 /* Face detection processing timeout in ms */
-#define MSM_FD_PROCESSING_TIMEOUT_MS 500
+#define MSM_FD_PROCESSING_TIMEOUT_MS 150
 /* Face detection halt timeout in ms */
 #define MSM_FD_HALT_TIMEOUT_MS 100
 /* Smmu callback name */
@@ -1152,6 +1152,8 @@ void msm_fd_hw_remove_buffers_from_queue(struct msm_fd_device *fd,
 		time = wait_for_completion_timeout(&active_buffer->completion,
 			msecs_to_jiffies(MSM_FD_PROCESSING_TIMEOUT_MS));
 		if (!time) {
+			/* Do a vb2 buffer done since it timed out */
+			vb2_buffer_done(&active_buffer->vb, VB2_BUF_STATE_DONE);
 			/* Remove active buffer */
 			msm_fd_hw_get_active_buffer(fd);
 			/* Schedule if other buffers are present in device */
