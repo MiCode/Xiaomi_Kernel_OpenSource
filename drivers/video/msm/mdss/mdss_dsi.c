@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -915,9 +915,16 @@ static int mdss_dsi_debugfs_setup(struct mdss_panel_data *pdata,
 static int mdss_dsi_debugfs_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc;
-	struct mdss_panel_data *pdata = &ctrl_pdata->panel_data;
-	struct mdss_panel_info panel_info = pdata->panel_info;
+	struct mdss_panel_data *pdata;
+	struct mdss_panel_info panel_info;
 
+	if (!ctrl_pdata) {
+		pr_warn_once("%s: Invalid pdata!\n", __func__);
+		return -EINVAL;
+	}
+
+	pdata = &ctrl_pdata->panel_data;
+	panel_info = pdata->panel_info;
 	rc = mdss_dsi_debugfs_setup(pdata, panel_info.debugfs_info->root);
 	if (rc) {
 		pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
@@ -2379,13 +2386,20 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_CHECK_PARAMS:
 		pr_debug("%s:Entered Case MDSS_EVENT_CHECK_PARAMS\n", __func__);
 		if (mdss_dsi_check_params(ctrl_pdata, arg)) {
-			ctrl_pdata->refresh_clk_rate = true;
+			ctrl_pdata->update_phy_timing = true;
+			/*
+			 * Call to MDSS_EVENT_CHECK_PARAMS expects
+			 * the return value of 1, if there is a change
+			 * in panel timing parameters.
+			 */
 			rc = 1;
 		}
+		ctrl_pdata->refresh_clk_rate = true;
 		break;
 	case MDSS_EVENT_LINK_READY:
 		if (ctrl_pdata->refresh_clk_rate)
-			rc = mdss_dsi_clk_refresh(pdata);
+			rc = mdss_dsi_clk_refresh(pdata,
+				ctrl_pdata->update_phy_timing);
 
 		mdss_dsi_get_hw_revision(ctrl_pdata);
 		mdss_dsi_get_phy_revision(ctrl_pdata);
@@ -2657,7 +2671,9 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 					for (i = 0; ((str2 + i) < str1) &&
 					     i < MDSS_MAX_PANEL_LEN; i++)
 						cfg_np_name[i] = *(str2 + i);
-					cfg_np_name[i] = 0;
+					if ((i >= 0)
+						&& (i < MDSS_MAX_PANEL_LEN))
+						cfg_np_name[i] = 0;
 				} else {
 					strlcpy(cfg_np_name, str2,
 						MDSS_MAX_PANEL_LEN);

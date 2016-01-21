@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +27,14 @@
 #include <soc/qcom/lpm-stats.h>
 
 #define MAX_STR_LEN 256
+#define MAX_TIME_LEN 20
 const char *lpm_stats_reset = "reset";
 const char *lpm_stats_suspend = "suspend";
+
+struct lpm_sleep_time {
+	struct kobj_attribute ts_attr;
+	unsigned int cpu;
+};
 
 struct level_stats {
 	const char *name;
@@ -46,6 +52,18 @@ struct level_stats {
 static struct level_stats suspend_time_stats;
 
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct lpm_stats, cpu_stats);
+
+static uint64_t get_total_sleep_time(unsigned int cpu_id)
+{
+	struct lpm_stats *stats = &per_cpu(cpu_stats, cpu_id);
+	int i;
+	uint64_t ret = 0;
+
+	for (i = 0; i < stats->num_levels; i++)
+		ret += stats->time_stats[i].total_time;
+
+	return ret;
+}
 
 static void update_level_stats(struct level_stats *stats, uint64_t t,
 				bool success)
@@ -478,6 +496,94 @@ static int config_level(const char *name, const char **levels,
 	return 0;
 }
 
+static ssize_t total_sleep_time_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct lpm_sleep_time *cpu_sleep_time = container_of(attr,
+			struct lpm_sleep_time, ts_attr);
+	unsigned int cpu = cpu_sleep_time->cpu;
+	uint64_t total_time = get_total_sleep_time(cpu);
+
+	return snprintf(buf, MAX_TIME_LEN, "%llu.%09u\n", total_time,
+			do_div(total_time, NSEC_PER_SEC));
+}
+
+static struct kobject *local_module_kobject(void)
+{
+	struct kobject *kobj;
+
+	kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+
+	if (!kobj) {
+		int err;
+		struct module_kobject *mk;
+
+		mk = kzalloc(sizeof(*mk), GFP_KERNEL);
+		if (!mk)
+			return ERR_PTR(-ENOMEM);
+
+		mk->mod = THIS_MODULE;
+		mk->kobj.kset = module_kset;
+
+		err = kobject_init_and_add(&mk->kobj, &module_ktype, NULL,
+				"%s", KBUILD_MODNAME);
+
+		if (err) {
+			kobject_put(&mk->kobj);
+			kfree(mk);
+			pr_err("%s: cannot create kobject for %s\n",
+					__func__, KBUILD_MODNAME);
+			return ERR_PTR(err);
+		}
+
+		kobject_get(&mk->kobj);
+		kobj = &mk->kobj;
+	}
+
+	return kobj;
+}
+
+static int create_sysfs_node(unsigned int cpu, struct lpm_stats *stats)
+{
+	struct kobject *cpu_kobj = NULL;
+	struct lpm_sleep_time *ts = NULL;
+	struct kobject *stats_kobj;
+	char cpu_name[] = "cpuXX";
+	int ret = -ENOMEM;
+
+	stats_kobj = local_module_kobject();
+
+	if (IS_ERR_OR_NULL(stats_kobj))
+		return PTR_ERR(stats_kobj);
+
+	snprintf(cpu_name, sizeof(cpu_name), "cpu%u", cpu);
+	cpu_kobj = kobject_create_and_add(cpu_name, stats_kobj);
+	if (!cpu_kobj)
+		return -ENOMEM;
+
+	ts = kzalloc(sizeof(*ts), GFP_KERNEL);
+	if (!ts)
+		goto failed;
+
+	sysfs_attr_init(&ts->ts_attr.attr);
+	ts->ts_attr.attr.name = "total_sleep_time_secs";
+	ts->ts_attr.attr.mode = 0444;
+	ts->ts_attr.show = total_sleep_time_show;
+	ts->ts_attr.store = NULL;
+	ts->cpu = cpu;
+
+	ret = sysfs_create_file(cpu_kobj, &ts->ts_attr.attr);
+	if (ret)
+		goto failed;
+
+	return 0;
+
+failed:
+	kfree(ts);
+	kobject_put(cpu_kobj);
+	return ret;
+}
+
 static struct lpm_stats *config_cpu_level(const char *name,
 	const char **levels, int num_levels, struct lpm_stats *parent,
 	struct cpumask *mask)
@@ -504,6 +610,13 @@ static struct lpm_stats *config_cpu_level(const char *name,
 		if (ret) {
 			pr_err("%s: Unable to create %s stats\n",
 				__func__, cpu_name);
+			return ERR_PTR(ret);
+		}
+
+		ret = create_sysfs_node(cpu, stats);
+
+		if (ret) {
+			pr_err("Could not create the sysfs node\n");
 			return ERR_PTR(ret);
 		}
 	}

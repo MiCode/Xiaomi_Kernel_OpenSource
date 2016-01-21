@@ -106,7 +106,7 @@
 /* Convert from vout ctl to micbias voltage in mV */
 #define WCD_VOUT_CTL_TO_MICB(v) (1000 + v * 50)
 
-#define TASHA_ZDET_NUM_MEASUREMENTS 60
+#define TASHA_ZDET_NUM_MEASUREMENTS 150
 #define TASHA_MBHC_GET_C1(c)  ((c & 0xC000) >> 14)
 #define TASHA_MBHC_GET_X1(x)  (x & 0x3FFF)
 /* z value compared in milliOhm */
@@ -1608,11 +1608,15 @@ static inline void tasha_mbhc_get_result_params(struct wcd9xxx *wcd9xxx,
 				WCD9335_ANA_MBHC_ZDET, 0x20, 0x00);
 	x1 = TASHA_MBHC_GET_X1(val);
 	c1 = TASHA_MBHC_GET_C1(val);
+	/* If ramp is not complete, give additional 5ms */
+	if ((c1 < 2) && x1)
+		usleep_range(5000, 5050);
+
 	if (!c1 || !x1) {
 		dev_dbg(wcd9xxx->dev,
 			"%s: Impedance detect ramp error, c1=%d, x1=0x%x\n",
 			__func__, c1, x1);
-		return;
+		goto ramp_down;
 	}
 	d1 = d1_a[c1];
 	denom = (x1 * d1) - (1 << (14 - noff));
@@ -1623,6 +1627,7 @@ static inline void tasha_mbhc_get_result_params(struct wcd9xxx *wcd9xxx,
 
 	dev_dbg(wcd9xxx->dev, "%s: d1=%d, c1=%d, x1=0x%x, z_val=%d(milliOhm)\n",
 		__func__, d1, c1, x1, *zdet);
+ramp_down:
 	i = 0;
 	while (x1) {
 		wcd9xxx_bulk_read(&wcd9xxx->core_res,
@@ -1737,7 +1742,7 @@ static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	bool is_change = false;
 	struct tasha_mbhc_zdet_param zdet_param[] = {
 		{4, 0, 4, 0x08, 0x14, 0x18}, /* < 32ohm */
-		{1, 0, 2, 0x18, 0x7C, 0x90}, /* 32ohm < Z < 400ohm */
+		{2, 0, 3, 0x18, 0x7C, 0x90}, /* 32ohm < Z < 400ohm */
 		{1, 4, 5, 0x18, 0x7C, 0x90}, /* 400ohm < Z < 1200ohm */
 		{1, 6, 7, 0x18, 0x7C, 0x90}, /* >1200ohm */
 	};
@@ -4435,6 +4440,7 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 	u16 rx_path_cfg_reg;
 	u16 rx_path_ctl_reg;
 	u16 src_clk_reg;
+	u16 src_paired_reg;
 	int *src_users, count, spl_src;
 	struct tasha_priv *tasha;
 
@@ -4444,48 +4450,56 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 	case SRC_IN_HPHL:
 		rx_path_cfg_reg = WCD9335_CDC_RX1_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX1_RX_PATH_CTL;
 		spl_src = SPLINE_SRC0;
 		break;
 	case SRC_IN_LO1:
 		rx_path_cfg_reg = WCD9335_CDC_RX3_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX3_RX_PATH_CTL;
 		spl_src = SPLINE_SRC0;
 		break;
 	case SRC_IN_HPHR:
 		rx_path_cfg_reg = WCD9335_CDC_RX2_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX2_RX_PATH_CTL;
 		spl_src = SPLINE_SRC1;
 		break;
 	case SRC_IN_LO2:
 		rx_path_cfg_reg = WCD9335_CDC_RX4_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX4_RX_PATH_CTL;
 		spl_src = SPLINE_SRC1;
 		break;
 	case SRC_IN_SPKRL:
 		rx_path_cfg_reg = WCD9335_CDC_RX7_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX7_RX_PATH_CTL;
 		spl_src = SPLINE_SRC2;
 		break;
 	case SRC_IN_LO3:
 		rx_path_cfg_reg = WCD9335_CDC_RX5_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX5_RX_PATH_CTL;
 		spl_src = SPLINE_SRC2;
 		break;
 	case SRC_IN_SPKRR:
 		rx_path_cfg_reg = WCD9335_CDC_RX8_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX8_RX_PATH_CTL;
 		spl_src = SPLINE_SRC3;
 		break;
 	case SRC_IN_LO4:
 		rx_path_cfg_reg = WCD9335_CDC_RX6_RX_PATH_CFG0;
 		src_clk_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
+		src_paired_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
 		rx_path_ctl_reg = WCD9335_CDC_RX6_RX_PATH_CTL;
 		spl_src = SPLINE_SRC3;
 		break;
@@ -4498,6 +4512,13 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 		count = *src_users;
 		count++;
 		if (count == 1) {
+			if ((snd_soc_read(codec, src_clk_reg) & 0x02) ||
+			    (snd_soc_read(codec, src_paired_reg) & 0x02)) {
+				snd_soc_update_bits(codec, src_clk_reg, 0x02,
+						    0x00);
+				snd_soc_update_bits(codec, src_paired_reg,
+						    0x02, 0x00);
+			}
 			snd_soc_update_bits(codec, src_clk_reg,	0x01, 0x01);
 			snd_soc_update_bits(codec, rx_path_cfg_reg, 0x80,
 					    0x80);
@@ -4510,7 +4531,7 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 		if (count == 0) {
 			snd_soc_update_bits(codec, rx_path_cfg_reg, 0x80,
 					    0x00);
-			snd_soc_update_bits(codec, src_clk_reg, 0x01, 0x00);
+			snd_soc_update_bits(codec, src_clk_reg, 0x03, 0x02);
 			/* default sample rate */
 			snd_soc_update_bits(codec, rx_path_ctl_reg, 0x0f,
 					    0x04);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -229,3 +229,18 @@
 #define GCC_MSS_SNOC_AXI_CBCR					0x8A03C
 #define GCC_HLOS1_VOTE_LPASS_CORE_SMMU_CBCR			0x7D010
 #define GCC_HLOS1_VOTE_LPASS_ADSP_SMMU_CBCR			0x7D014
+
+#define GPUCC_GPU_PLL0_PLL_MODE					0x00000
+#define GPUCC_GPU_PLL0_USER_CTL_MODE				0x0000C
+#define GPUCC_GPU_PLL1_PLL_MODE					0x00040
+#define GPUCC_GPU_PLL1_USER_CTL_MODE				0x0004C
+#define GPUCC_GFX3D_CMD_RCGR					0x01070
+#define GPUCC_RBBMTIMER_CMD_RCGR				0x010B0
+#define GPUCC_GFX3D_ISENSE_CMD_RCGR				0x01100
+#define GPUCC_RBCPR_CMD_RCGR					0x01030
+#define GPUCC_GFX3D_CBCR					0x01098
+#define GPUCC_RBBMTIMER_CBCR					0x010D0
+#define GPUCC_GFX3D_ISENSE_CBCR					0x01124
+#define GPUCC_CXO_CBCR						0x01020
+#define GPUCC_RBCPR_CBCR					0x01054
+#define GPUCC_DEBUG_CLK_CTL					0x00120

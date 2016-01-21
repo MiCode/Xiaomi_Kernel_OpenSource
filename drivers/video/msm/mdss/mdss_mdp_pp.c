@@ -2085,7 +2085,7 @@ error:
 
 int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 {
-	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_data_type *mdata;
 	int ret = 0, i;
 	u32 flags, pa_v2_flags;
 	u32 max_bw_needed;
@@ -2094,9 +2094,10 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	u32 disp_num;
 	bool valid_mixers = true;
 	bool valid_ad_panel = true;
-	if ((!ctl) || (!ctl->mfd) || (!mdss_pp_res) || (!mdata))
+	if ((!ctl) || (!ctl->mfd) || (!mdss_pp_res) || (!ctl->mdata))
 		return -EINVAL;
 
+	mdata = ctl->mdata;
 	/* treat fb_num the same as block logical id*/
 	disp_num = ctl->mfd->index;
 

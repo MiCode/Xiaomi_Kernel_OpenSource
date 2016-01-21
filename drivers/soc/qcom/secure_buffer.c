@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
+#include <linux/dma-mapping.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 
@@ -64,6 +65,10 @@ struct dest_info_list {
 	struct dest_vm_and_perm_info *dest_info;
 	u64 list_size;
 };
+
+static void *qcom_secure_mem;
+#define QCOM_SECURE_MEM_SIZE (512*1024)
+#define PADDING 32
 
 static int secure_buffer_change_chunk(u32 chunks,
 				u32 nchunks,
@@ -195,18 +200,14 @@ int msm_unsecure_table(struct sg_table *table)
 
 }
 
-static struct dest_info_list *populate_dest_info(int *dest_vmids, int nelements,
-								int *dest_perms)
+static void populate_dest_info(int *dest_vmids, int nelements,
+			int *dest_perms, struct dest_info_list **list,
+			void *current_qcom_secure_mem)
 {
 	struct dest_vm_and_perm_info *dest_info;
-	struct dest_info_list *list;
 	int i;
 
-	dest_info = kmalloc_array(nelements,
-			(sizeof(struct dest_vm_and_perm_info)),
-				GFP_KERNEL | __GFP_ZERO);
-	if (!dest_info)
-		return NULL;
+	dest_info = (struct dest_vm_and_perm_info *)current_qcom_secure_mem;
 
 	for (i = 0; i < nelements; i++) {
 		dest_info[i].vm = dest_vmids[i];
@@ -214,56 +215,31 @@ static struct dest_info_list *populate_dest_info(int *dest_vmids, int nelements,
 		dest_info[i].ctx = NULL;
 		dest_info[i].ctx_size = 0;
 	}
-	list = kzalloc(sizeof(struct dest_info_list), GFP_KERNEL);
-	if (!list) {
-		kfree(dest_info);
-		return NULL;
-	}
 
-	list->dest_info = dest_info;
-	list->list_size = nelements * sizeof(struct dest_vm_and_perm_info);
+	*list = (struct dest_info_list *)&dest_info[i];
 
-	return list;
+	(*list)->dest_info = dest_info;
+	(*list)->list_size = nelements * sizeof(struct dest_vm_and_perm_info);
 }
 
-static struct info_list *get_info_list_from_table(struct sg_table *table)
+static void get_info_list_from_table(struct sg_table *table,
+					struct info_list **list)
 {
 	int i;
 	struct scatterlist *sg;
 	struct mem_prot_info *info;
-	struct info_list *list;
 
-	info = kmalloc_array(table->nents, (sizeof(struct mem_prot_info)),
-					GFP_KERNEL | __GFP_ZERO);
-	if (!info)
-		return NULL;
+	info = (struct mem_prot_info *)qcom_secure_mem;
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		info[i].addr = page_to_phys(sg_page(sg));
 		info[i].size = sg->length;
 	}
 
-	list = kzalloc(sizeof(struct info_list), GFP_KERNEL);
-	if (!list) {
-		kfree(info);
-		return NULL;
-	}
+	*list = (struct info_list *)&(info[i]);
 
-	list->list_head = info;
-	list->list_size = table->nents * sizeof(struct mem_prot_info);
-	return list;
-}
-
-static void destroy_info_list(struct info_list *info_list)
-{
-	kfree(info_list->list_head);
-	kfree(info_list);
-}
-
-static void destroy_dest_info_list(struct dest_info_list *dest_list)
-{
-	kfree(dest_list->dest_info);
-	kfree(dest_list);
+	(*list)->list_head = info;
+	(*list)->list_size = table->nents * sizeof(struct mem_prot_info);
 }
 
 int hyp_assign_table(struct sg_table *table,
@@ -276,16 +252,22 @@ int hyp_assign_table(struct sg_table *table,
 	struct dest_info_list *dest_info_list = NULL;
 	struct scm_desc desc = {0};
 	u32 *source_vm_copy;
+	void *current_qcom_secure_mem;
 
-	info_list = get_info_list_from_table(table);
-	if (!info_list)
+	size_t reqd_size = dest_nelems * sizeof(struct dest_vm_and_perm_info) +
+			table->nents * sizeof(struct mem_prot_info) +
+			sizeof(dest_info_list) + sizeof(info_list) + PADDING;
+
+	if (!qcom_secure_mem) {
+		pr_err("%s is not functional as qcom_secure_mem is not allocated.\n",
+				__func__);
 		return -ENOMEM;
+	}
 
-	dest_info_list = populate_dest_info(dest_vmids, dest_nelems,
-							dest_perms);
-	if (!dest_info_list) {
-		ret = -ENOMEM;
-		goto err1;
+	if (QCOM_SECURE_MEM_SIZE < reqd_size) {
+		pr_err("%s: Not enough memory allocated. Required size %zd\n",
+				__func__, reqd_size);
+		return -EINVAL;
 	}
 
 	/*
@@ -295,11 +277,19 @@ int hyp_assign_table(struct sg_table *table,
 	source_vm_copy = kmalloc_array(
 		source_nelems, sizeof(*source_vm_copy), GFP_KERNEL);
 	if (!source_vm_copy) {
-		ret = -ENOMEM;
-		goto err2;
+		return -ENOMEM;
 	}
+
 	memcpy(source_vm_copy, source_vm_list,
 	       sizeof(*source_vm_list) * source_nelems);
+
+	mutex_lock(&secure_buffer_mutex);
+
+	get_info_list_from_table(table, &info_list);
+
+	current_qcom_secure_mem = &(info_list[1]);
+	populate_dest_info(dest_vmids, dest_nelems, dest_perms,
+				&dest_info_list, current_qcom_secure_mem);
 
 	desc.args[0] = virt_to_phys(info_list->list_head);
 	desc.args[1] = info_list->list_size;
@@ -325,11 +315,8 @@ int hyp_assign_table(struct sg_table *table,
 		pr_info("%s: Failed to assign memory protection, ret = %d\n",
 			__func__, ret);
 
+	mutex_unlock(&secure_buffer_mutex);
 	kfree(source_vm_copy);
-err2:
-	destroy_dest_info_list(dest_info_list);
-err1:
-	destroy_info_list(info_list);
 	return ret;
 }
 
@@ -407,3 +394,22 @@ bool msm_secure_v2_is_supported(void)
 	 */
 	return version >= MAKE_CP_VERSION(1, 1, 0);
 }
+
+static int __init alloc_secure_shared_memory(void)
+{
+	int ret = 0;
+
+	qcom_secure_mem = kzalloc(QCOM_SECURE_MEM_SIZE, GFP_KERNEL);
+	if (!qcom_secure_mem) {
+		/* Fallback to CMA-DMA memory */
+		qcom_secure_mem = dma_alloc_coherent(NULL, QCOM_SECURE_MEM_SIZE,
+						NULL, GFP_KERNEL);
+		if (!qcom_secure_mem) {
+			pr_err("Couldn't allocate memory for secure use-cases. hyp_assign_table will not work\n");
+			return -ENOMEM;
+		}
+	}
+
+	return ret;
+}
+pure_initcall(alloc_secure_shared_memory);
