@@ -1044,11 +1044,15 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	struct usb_ep		*in = NULL;
 	u16			cdc_filter = 0;
 	bool			multi_pkt_xfer = false;
+	u32			fixed_in_len;
+	bool			is_fixed;
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
 		in = dev->port_usb->in_ep;
 		cdc_filter = dev->port_usb->cdc_filter;
+		is_fixed = dev->port_usb->is_fixed;
+		fixed_in_len = dev->port_usb->fixed_in_len;
 		multi_pkt_xfer = dev->port_usb->multi_pkt_xfer;
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
@@ -1221,8 +1225,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	/* NCM requires no zlp if transfer is dwNtbInMaxSize */
-	if (dev->port_usb->is_fixed &&
-	    length == dev->port_usb->fixed_in_len &&
+	if (is_fixed && length == fixed_in_len &&
 	    (length % in->maxpacket) == 0)
 		req->zero = 0;
 	else
