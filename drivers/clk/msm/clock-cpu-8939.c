@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -746,7 +746,7 @@ static int clock_a53_probe(struct platform_device *pdev)
 		clk_set_rate(&cci_clk.c, rate);
 	}
 
-	for (mux_id = 0; mux_id < A53SS_MUX_CCI; mux_id++) {
+	for (mux_id = 0; mux_id < mux_num; mux_id++) {
 		/* Force a PLL reconfiguration */
 		config_pll(mux_id);
 	}
@@ -762,7 +762,8 @@ static int clock_a53_probe(struct platform_device *pdev)
 	for_each_online_cpu(cpu) {
 		WARN(clk_prepare_enable(&cpuclk[cpu/4]->c),
 				"Unable to turn on CPU clock");
-		clk_prepare_enable(&cci_clk.c);
+		if (!single_cluster)
+			clk_prepare_enable(&cci_clk.c);
 	}
 	put_online_cpus();
 
