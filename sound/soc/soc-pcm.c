@@ -606,7 +606,7 @@ codec_dai_err:
 		platform->driver->ops->close(substream);
 
 platform_err:
-	if (cpu_dai->driver->ops->shutdown)
+	if (cpu_dai->driver->ops && cpu_dai->driver->ops->shutdown)
 		cpu_dai->driver->ops->shutdown(substream, cpu_dai);
 out:
 	mutex_unlock(&rtd->pcm_mutex);
