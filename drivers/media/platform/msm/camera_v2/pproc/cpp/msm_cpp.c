@@ -83,6 +83,7 @@
 	if (IS_BATCH_BUFFER_ON_PREVIEW(new_frame)) \
 		iden = swap_iden; \
 }
+static struct msm_cpp_vbif_data cpp_vbif;
 static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 	uint32_t buff_mgr_ops, struct msm_buf_mngr_info *buff_mgr_info);
 static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
@@ -141,6 +142,26 @@ struct msm_cpp_timer_t {
 struct msm_cpp_timer_t cpp_timer;
 static void msm_cpp_set_vbif_reg_values(struct cpp_device *cpp_dev);
 
+
+void msm_cpp_vbif_register_error_handler(void *dev,
+	enum cpp_vbif_client client,
+	int (*client_vbif_error_handler)(void *, uint32_t))
+{
+	if (dev == NULL || client >= VBIF_CLIENT_MAX) {
+		pr_err("%s: Fail to register handler! dev = %p, client %d\n",
+			__func__, dev, client);
+		return;
+	}
+
+	if (client_vbif_error_handler != NULL) {
+		cpp_vbif.dev[client] = dev;
+		cpp_vbif.err_handler[client] = client_vbif_error_handler;
+	} else {
+		/* if handler = NULL, is unregister case */
+		cpp_vbif.dev[client] = NULL;
+		cpp_vbif.err_handler[client] = NULL;
+	}
+}
 static int msm_cpp_init_bandwidth_mgr(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
@@ -1028,6 +1049,32 @@ end:
 	return rc;
 }
 
+int cpp_vbif_error_handler(void *dev, uint32_t vbif_error)
+{
+	struct cpp_device *cpp_dev = NULL;
+
+	if (dev == NULL || vbif_error >= CPP_VBIF_ERROR_MAX) {
+		pr_err("failed: dev %p, vbif error %d\n", dev, vbif_error);
+		return -EINVAL;
+	}
+
+	cpp_dev = (struct cpp_device *) dev;
+
+	/* MMSS_A_CPP_IRQ_STATUS_0 = 0x10 */
+	pr_err("%s: before reset halt... read MMSS_A_CPP_IRQ_STATUS_0 = 0x%x",
+		__func__, msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10));
+
+	pr_err("%s: start reset bus bridge on FD + CPP!\n", __func__);
+	/* MMSS_A_CPP_RST_CMD_0 = 0x8,  firmware reset = 0x3DF77 */
+	msm_camera_io_w(0x3DF77, cpp_dev->cpp_hw_base + 0x8);
+
+	/* MMSS_A_CPP_IRQ_STATUS_0 = 0x10 */
+	pr_err("%s: after reset halt... read MMSS_A_CPP_IRQ_STATUS_0 = 0x%x",
+		__func__, msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10));
+
+	return 0;
+}
+
 static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int rc;
@@ -1088,6 +1135,10 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		}
 		cpp_dev->state = CPP_STATE_IDLE;
 	}
+
+	msm_cpp_vbif_register_error_handler(cpp_dev,
+		VBIF_CLIENT_CPP, cpp_vbif_error_handler);
+
 	mutex_unlock(&cpp_dev->mutex);
 	return 0;
 }
@@ -1181,6 +1232,9 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		cpp_dev->state = CPP_STATE_OFF;
 	}
 
+	/* unregister vbif error handler */
+	msm_cpp_vbif_register_error_handler(cpp_dev,
+		VBIF_CLIENT_CPP, NULL);
 	mutex_unlock(&cpp_dev->mutex);
 	return 0;
 }
@@ -1424,6 +1478,15 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 			__func__, __LINE__);
 		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
 		goto end;
+	}
+
+	pr_err("%s: handle vbif hang...\n", __func__);
+	for (i = 0; i < VBIF_CLIENT_MAX; i++) {
+		if (cpp_dev->vbif_data->err_handler[i] == NULL)
+			continue;
+
+		cpp_dev->vbif_data->err_handler[i](
+			cpp_dev->vbif_data->dev[i], CPP_VBIF_ERROR_HANG);
 	}
 
 	pr_debug("Reloading firmware %d\n", queue_len);
@@ -3855,6 +3918,8 @@ static int cpp_probe(struct platform_device *pdev)
 	spin_lock_init(&cpp_timer.data.processed_frame_lock);
 
 	cpp_dev->pdev = pdev;
+	memset(&cpp_vbif, 0, sizeof(struct msm_cpp_vbif_data));
+	cpp_dev->vbif_data = &cpp_vbif;
 
 	cpp_dev->camss_cpp_base =
 		msm_camera_get_reg_base(pdev, "camss_cpp", true);
