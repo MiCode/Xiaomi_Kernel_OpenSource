@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -685,6 +685,9 @@ static int msm_audio_smmu_init_legacy(struct device *dev)
 	u32 read_val[2];
 
 	cb = devm_kzalloc(dev, sizeof(struct context_bank_info), GFP_KERNEL);
+	if (!cb)
+		return -ENOMEM;
+
 	ctx_node = of_parse_phandle(dev->of_node, "iommus", 0);
 	if (!ctx_node) {
 		dev_err(dev, "%s Could not find any iommus for audio\n",
