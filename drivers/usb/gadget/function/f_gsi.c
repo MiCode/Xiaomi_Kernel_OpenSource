@@ -2156,6 +2156,12 @@ static void gsi_suspend(struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 	bool remote_wakeup_allowed;
 
+	/* Check if function is already suspended in gsi_func_suspend() */
+	if (f->func_is_suspended) {
+		log_event_dbg("%s: func already suspended, return\n", __func__);
+		return;
+	}
+
 	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
 	else
