@@ -4309,11 +4309,6 @@ static int hdmi_tx_start_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (hdmi_tx_is_encryption_set(hdmi_ctrl))
 		hdmi_tx_config_avmute(hdmi_ctrl, true);
 
-	if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, true)) {
-		DEV_ERR("%s: Failed to enable ddc power\n", __func__);
-		return -ENODEV;
-	}
-
 	rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_authenticate(hdmi_ctrl->hdcp_data);
 	if (rc)
 		DEV_ERR("%s: hdcp auth failed. rc=%d\n", __func__, rc);
@@ -4487,10 +4482,16 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_UNBLANK:
-		rc = hdmi_tx_power_on(panel_data);
-		if (rc)
-			DEV_ERR("%s: hdmi_tx_power_on failed. rc=%d\n",
+		rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, true);
+		if (rc) {
+			DEV_ERR("%s: ddc power on failed. rc=%d\n",
 				__func__, rc);
+		} else {
+			rc = hdmi_tx_power_on(panel_data);
+			if (rc)
+				DEV_ERR("%s: hdmi_tx_power_on failed. rc=%d\n",
+					__func__, rc);
+		}
 		break;
 
 	case MDSS_EVENT_PANEL_ON:
@@ -4528,6 +4529,12 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_PANEL_OFF:
+		rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false);
+		if (rc) {
+			DEV_ERR("%s: Failed to disable ddc power\n", __func__);
+			return rc;
+		}
+
 		if (hdmi_ctrl->panel_power_on) {
 			hdmi_tx_config_avmute(hdmi_ctrl, 1);
 			rc = hdmi_tx_power_off(panel_data);
