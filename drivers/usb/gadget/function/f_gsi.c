@@ -1838,6 +1838,13 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			value);
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
+			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
+		log_event_dbg("%s: USB_CDC_REQ_SET_CONTROL_LINE_STATE DTR:%d\n",
+				__func__, w_value & ACM_CTRL_DTR ? 1 : 0);
+		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
+		value = 0;
+		break;
+	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_SET_ETHERNET_PACKET_FILTER:
 		/* see 6.2.30: no data, wIndex = interface,
 		 * wValue = packet filter bitmap
