@@ -16,10 +16,8 @@
 
 #include "scsi_priv.h"
 
-#ifdef CONFIG_PM_RUNTIME
 static int do_scsi_runtime_resume(struct device *dev,
 				   const struct dev_pm_ops *pm);
-#endif
 
 #ifdef CONFIG_PM_SLEEP
 
