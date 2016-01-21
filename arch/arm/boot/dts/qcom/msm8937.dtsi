@@ -244,6 +244,9 @@
 								3200 3200>;
 		qcom,sensor-id = <0 1 2 3 4 5 6 7 8 9 10>;
 		qcom,valid-status-check;
+		qcom,temp1-offset = <1 (-9) (-6) (-4) 0 (-3) (-2) 0 2 (-2)
+									(-3)>;
+		qcom,temp2-offset = <0 10 (-1) 5 (-2) (-9) (-13) 1 1 0 2>;
 	};
 
 	slim_msm: slim@c140000{
