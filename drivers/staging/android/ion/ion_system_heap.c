@@ -78,6 +78,7 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 				      bool *from_pool)
 {
 	bool cached = ion_buffer_cached(buffer);
+	bool prefetch = buffer->flags & ION_FLAG_POOL_PREFETCH;
 	struct page *page;
 	struct ion_page_pool *pool;
 	int vmid = get_secure_vmid(buffer->flags);
@@ -89,7 +90,11 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 			pool = heap->uncached_pools[order_to_index(order)];
 		else
 			pool = heap->cached_pools[order_to_index(order)];
-		page = ion_page_pool_alloc(pool, from_pool);
+
+		if (prefetch)
+			page = ion_page_pool_prefetch(pool, from_pool);
+		else
+			page = ion_page_pool_alloc(pool, from_pool);
 	} else {
 		gfp_t gfp_mask = low_order_gfp_flags;
 		if (order)
@@ -111,6 +116,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 			     unsigned int order)
 {
 	bool cached = ion_buffer_cached(buffer);
+	bool prefetch = buffer->flags & ION_FLAG_POOL_PREFETCH;
 	int vmid = get_secure_vmid(buffer->flags);
 
 	if (!(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)) {
@@ -125,7 +131,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 		if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE)
 			ion_page_pool_free_immediate(pool, page);
 		else
-			ion_page_pool_free(pool, page);
+			ion_page_pool_free(pool, page, prefetch);
 	} else {
 		__free_pages(page, order);
 	}
@@ -441,7 +447,7 @@ out1:
 	/* Restore pages to secure pool */
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
 		list_del(&page->lru);
-		ion_page_pool_free(pool, page);
+		ion_page_pool_free(pool, page, false);
 	}
 	return 0;
 out2:
