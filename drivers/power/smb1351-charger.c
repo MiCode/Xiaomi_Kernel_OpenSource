@@ -1941,6 +1941,7 @@ static void smb1351_hvdcp_det_work(struct work_struct *work)
 {
 	int rc;
 	u8 reg;
+	union power_supply_propval pval = {0, };
 	struct smb1351_charger *chip = container_of(work,
 						struct smb1351_charger,
 						hvdcp_det_work.work);
@@ -1954,8 +1955,9 @@ static void smb1351_hvdcp_det_work(struct work_struct *work)
 
 	if (reg) {
 		pr_debug("HVDCP detected; notifying USB PSY\n");
-		power_supply_set_supply_type(chip->usb_psy,
-			POWER_SUPPLY_TYPE_USB_HVDCP);
+		pval.intval = POWER_SUPPLY_TYPE_USB_HVDCP;
+		power_supply_set_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_TYPE, &pval);
 	}
 end:
 	pm_relax(chip->dev);
@@ -2020,15 +2022,17 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		if (!chip->battery_missing && !chip->apsd_rerun) {
 			if (type == POWER_SUPPLY_TYPE_USB) {
 				pr_debug("Setting usb psy dp=f dm=f SDP and rerun\n");
-				power_supply_set_dp_dm(chip->usb_psy,
-						POWER_SUPPLY_DP_DM_DPF_DMF);
+				prop.intval = POWER_SUPPLY_DP_DM_DPF_DMF;
+				power_supply_set_property(chip->usb_psy,
+						POWER_SUPPLY_PROP_DP_DM, &prop);
 				chip->apsd_rerun = true;
 				rerun_apsd(chip);
 				return 0;
 			}
 			pr_debug("Set usb psy dp=f dm=f DCP and no rerun\n");
-			power_supply_set_dp_dm(chip->usb_psy,
-					POWER_SUPPLY_DP_DM_DPF_DMF);
+			prop.intval = POWER_SUPPLY_DP_DM_DPF_DMF;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_DP_DM, &prop);
 		}
 		/*
 		 * If defined force hvdcp 2p0 property,
@@ -2049,26 +2053,35 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
 		}
 
-		power_supply_set_supply_type(chip->usb_psy, type);
+		prop.intval = type;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &prop);
 		/*
 		 * SMB is now done sampling the D+/D- lines,
 		 * indicate USB driver
 		 */
 		pr_debug("updating usb_psy present=%d\n", chip->chg_present);
-		power_supply_set_present(chip->usb_psy, chip->chg_present);
+		prop.intval = chip->chg_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT,
+				&prop);
 		chip->apsd_rerun = false;
 	} else if (!chip->apsd_rerun) {
 		/* Handle Charger removal */
-		power_supply_get_property(chip->usb_psy,
-					POWER_SUPPLY_PROP_TYPE, &prop);
+		prop.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &prop);
+
 		chip->chg_present = false;
-		power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_UNKNOWN);
-		power_supply_set_present(chip->usb_psy,
-						chip->chg_present);
+		prop.intval = chip->chg_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT,
+				&prop);
+
 		pr_debug("Set usb psy dm=r df=r\n");
-		power_supply_set_dp_dm(chip->usb_psy,
-				POWER_SUPPLY_DP_DM_DPR_DMR);
+		prop.intval = POWER_SUPPLY_DP_DM_DPR_DMR;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_DP_DM, &prop);
 	}
 
 	return 0;
@@ -2116,6 +2129,8 @@ reschedule:
 
 static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 {
+	union power_supply_propval pval = {0, };
+
 	/* use this to detect USB insertion only if !apsd */
 	if (chip->disable_apsd) {
 		/*
@@ -2126,18 +2141,27 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 			chip->chg_present = true;
 			pr_debug("updating usb_psy present=%d\n",
 						chip->chg_present);
-			power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_USB);
-			power_supply_set_present(chip->usb_psy,
-						chip->chg_present);
+			pval.intval = POWER_SUPPLY_TYPE_USB;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_TYPE, &pval);
+
+			pval.intval = chip->chg_present;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_PRESENT,
+					&pval);
 		} else {
 			chip->chg_present = false;
-			power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_UNKNOWN);
-			power_supply_set_present(chip->usb_psy, chip->
-								chg_present);
+
+			pval.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_TYPE, &pval);
+
 			pr_debug("updating usb_psy present=%d\n",
 							chip->chg_present);
+			pval.intval = chip->chg_present;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_PRESENT,
+					&pval);
 		}
 		return 0;
 	}
@@ -2158,9 +2182,9 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 
 static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 {
-	int health;
 	int rc;
 	u8 reg;
+	union power_supply_propval pval = {0, };
 
 	rc = smb1351_read_reg(chip, IRQ_E_REG, &reg);
 	if (rc)
@@ -2169,9 +2193,15 @@ static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 	if (status != 0) {
 		chip->chg_present = false;
 		chip->usbin_ov = true;
-		power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_UNKNOWN);
-		power_supply_set_present(chip->usb_psy, chip->chg_present);
+
+		pval.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &pval);
+
+		pval.intval = chip->chg_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT,
+				&pval);
 	} else {
 		chip->usbin_ov = false;
 		if (reg & IRQ_USBIN_UV_BIT)
@@ -2181,10 +2211,11 @@ static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 	}
 
 	if (chip->usb_psy) {
-		health = status ? POWER_SUPPLY_HEALTH_OVERVOLTAGE
+		pval.intval = status ? POWER_SUPPLY_HEALTH_OVERVOLTAGE
 					: POWER_SUPPLY_HEALTH_GOOD;
-		power_supply_set_health_state(chip->usb_psy, health);
-		pr_debug("chip ov status is %d\n", health);
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_HEALTH, &pval);
+		pr_debug("chip ov status is %d\n", pval.intval);
 	}
 	pr_debug("chip->chg_present = %d\n", chip->chg_present);
 

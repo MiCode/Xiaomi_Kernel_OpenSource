@@ -2015,11 +2015,17 @@ static void smb135x_external_power_changed(struct power_supply *psy)
 	/* update online property */
 	rc = 0;
 	if (chip->usb_present && chip->chg_enabled && chip->usb_psy_ma != 0) {
-		if (prop.intval == 0)
-			rc = power_supply_set_online(chip->usb_psy, true);
+		if (prop.intval == 0) {
+			prop.intval = 1;
+			rc = power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_ONLINE, &prop);
+		}
 	} else {
-		if (prop.intval == 1)
-			rc = power_supply_set_online(chip->usb_psy, false);
+		if (prop.intval == 1) {
+			prop.intval = 0;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_ONLINE, &prop);
+		}
 	}
 	if (rc < 0)
 		dev_err(chip->dev, "could not set usb online, rc=%d\n", rc);
@@ -2504,6 +2510,7 @@ static int power_ok_handler(struct smb135x_chg *chip, u8 rt_stat)
 static int rid_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	bool usb_slave_present;
+	union power_supply_propval pval = {0, };
 
 	usb_slave_present = is_usb_slave_present(chip);
 
@@ -2512,8 +2519,9 @@ static int rid_handler(struct smb135x_chg *chip, u8 rt_stat)
 		if (chip->usb_psy) {
 			pr_debug("setting usb psy usb_otg = %d\n",
 					chip->usb_slave_present);
-			power_supply_set_usb_otg(chip->usb_psy,
-				chip->usb_slave_present);
+			pval.intval = chip->usb_slave_present;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_USB_OTG, &pval);
 		}
 	}
 	return 0;
@@ -2560,26 +2568,33 @@ static int otg_oc_handler(struct smb135x_chg *chip, u8 rt_stat)
 
 static int handle_dc_removal(struct smb135x_chg *chip)
 {
+	union power_supply_propval prop;
+
 	if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS) {
 		cancel_delayed_work_sync(&chip->wireless_insertion_work);
 		smb135x_path_suspend(chip, DC, CURRENT, true);
 	}
-
-	if (chip->dc_psy_type != -EINVAL)
-		power_supply_set_online(&chip->dc_psy, chip->dc_present);
+	if (chip->dc_psy_type != -EINVAL) {
+		prop.intval = chip->dc_present;
+		power_supply_set_property(&chip->dc_psy,
+				POWER_SUPPLY_PROP_ONLINE, &prop);
+	}
 	return 0;
 }
 
 #define DCIN_UNSUSPEND_DELAY_MS		1000
 static int handle_dc_insertion(struct smb135x_chg *chip)
 {
+	union power_supply_propval prop;
+
 	if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS)
 		schedule_delayed_work(&chip->wireless_insertion_work,
 			msecs_to_jiffies(DCIN_UNSUSPEND_DELAY_MS));
-	if (chip->dc_psy_type != -EINVAL)
-		power_supply_set_online(&chip->dc_psy,
-						chip->dc_present);
-
+	if (chip->dc_psy_type != -EINVAL) {
+		prop.intval = chip->dc_present;
+		power_supply_set_property(&chip->dc_psy,
+				POWER_SUPPLY_PROP_ONLINE, &prop);
+	}
 	return 0;
 }
 /**
@@ -2642,18 +2657,28 @@ static int dcin_ov_handler(struct smb135x_chg *chip, u8 rt_stat)
 
 static int handle_usb_removal(struct smb135x_chg *chip)
 {
+	union power_supply_propval pval = {0,};
+
 	if (chip->usb_psy) {
 		cancel_delayed_work_sync(&chip->hvdcp_det_work);
 		pm_relax(chip->dev);
 		pr_debug("setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
-		power_supply_set_supply_type(chip->usb_psy,
-				POWER_SUPPLY_TYPE_UNKNOWN);
+		pval.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &pval);
+
 		pr_debug("setting usb psy present = %d\n", chip->usb_present);
-		power_supply_set_present(chip->usb_psy, chip->usb_present);
+		pval.intval = chip->usb_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT,
+				&pval);
+
 		pr_debug("Setting usb psy dp=r dm=r\n");
-		power_supply_set_dp_dm(chip->usb_psy,
-				POWER_SUPPLY_DP_DM_DPR_DMR);
+		pval.intval = POWER_SUPPLY_DP_DM_DPR_DMR;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_DP_DM,
+				&pval);
 	}
 	return 0;
 }
@@ -2691,6 +2716,7 @@ static void smb135x_hvdcp_det_work(struct work_struct *work)
 	u8 reg;
 	struct smb135x_chg *chip = container_of(work, struct smb135x_chg,
 							hvdcp_det_work.work);
+	union power_supply_propval pval = {0,};
 
 	rc = smb135x_read(chip, STATUS_7_REG, &reg);
 	if (rc) {
@@ -2701,8 +2727,9 @@ static void smb135x_hvdcp_det_work(struct work_struct *work)
 
 	if (reg) {
 		pr_debug("HVDCP detected; notifying USB PSY\n");
-		power_supply_set_supply_type(chip->usb_psy,
-			POWER_SUPPLY_TYPE_USB_HVDCP);
+		pval.intval = POWER_SUPPLY_TYPE_USB_HVDCP;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &pval);
 	}
 end:
 	pm_relax(chip->dev);
@@ -2715,6 +2742,7 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 	int rc;
 	char *usb_type_name = "null";
 	enum power_supply_type usb_supply_type;
+	union power_supply_propval pval = {0,};
 
 	/* usb inserted */
 	rc = smb135x_read(chip, STATUS_5_REG, &reg);
@@ -2738,16 +2766,20 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 	if (chip->batt_present && !chip->apsd_rerun && chip->usb_psy) {
 		if (usb_supply_type == POWER_SUPPLY_TYPE_USB) {
 			pr_debug("Setting usb psy dp=f dm=f SDP and rerun\n");
-			power_supply_set_dp_dm(chip->usb_psy,
-					POWER_SUPPLY_DP_DM_DPF_DMF);
+			pval.intval = POWER_SUPPLY_DP_DM_DPF_DMF;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_DP_DM,
+					&pval);
 			chip->apsd_rerun = true;
 			rerun_apsd(chip);
 			/* rising edge of src detect will happen in few mS */
 			return 0;
 		} else {
 			pr_debug("Set usb psy dp=f dm=f DCP and no rerun\n");
-			power_supply_set_dp_dm(chip->usb_psy,
-					POWER_SUPPLY_DP_DM_DPF_DMF);
+			pval.intval = POWER_SUPPLY_DP_DM_DPF_DMF;
+			power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_DP_DM,
+					&pval);
 		}
 	}
 
@@ -2767,9 +2799,15 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 						rc);
 		}
 		pr_debug("setting usb psy type = %d\n", usb_supply_type);
-		power_supply_set_supply_type(chip->usb_psy, usb_supply_type);
+		pval.intval = usb_supply_type;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &pval);
+
 		pr_debug("setting usb psy present = %d\n", chip->usb_present);
-		power_supply_set_present(chip->usb_psy, chip->usb_present);
+		pval.intval = chip->usb_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT,
+				&pval);
 	}
 	chip->apsd_rerun = false;
 	return 0;
@@ -2795,12 +2833,12 @@ static int usbin_uv_handler(struct smb135x_chg *chip, u8 rt_stat)
 
 static int usbin_ov_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
+	union power_supply_propval pval = {0, };
 	/*
 	 * rt_stat indicates if usb is overvolted. If so usb_present
 	 * should be marked removed
 	 */
 	bool usb_present = !rt_stat;
-	int health;
 
 	pr_debug("chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);
@@ -2815,9 +2853,10 @@ static int usbin_ov_handler(struct smb135x_chg *chip, u8 rt_stat)
 	}
 
 	if (chip->usb_psy) {
-		health = rt_stat ? POWER_SUPPLY_HEALTH_OVERVOLTAGE
+		pval.intval = rt_stat ? POWER_SUPPLY_HEALTH_OVERVOLTAGE
 					: POWER_SUPPLY_HEALTH_GOOD;
-		power_supply_set_health_state(chip->usb_psy, health);
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_HEALTH, &pval);
 	}
 
 	return 0;
@@ -3377,6 +3416,7 @@ static void dump_regs(struct smb135x_chg *chip)
 #endif
 static int determine_initial_status(struct smb135x_chg *chip)
 {
+	union power_supply_propval pval = {0, };
 	int rc;
 	u8 reg;
 
@@ -3458,8 +3498,9 @@ static int determine_initial_status(struct smb135x_chg *chip)
 	if (chip->usb_psy && !chip->id_line_not_connected) {
 		pr_debug("setting usb psy usb_otg = %d\n",
 				chip->usb_slave_present);
-		power_supply_set_usb_otg(chip->usb_psy,
-			chip->usb_slave_present);
+		pval.intval = chip->usb_slave_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_USB_OTG, &pval);
 	}
 	return 0;
 }

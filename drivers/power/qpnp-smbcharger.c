@@ -1480,6 +1480,7 @@ static void smbchg_usb_update_online_work(struct work_struct *work)
 				usb_set_online_work);
 	bool user_enabled = !get_client_vote(chip->usb_suspend_votable,
 						USER_EN_VOTER);
+	union power_supply_propval ret;
 	int online;
 
 	online = user_enabled && chip->usb_present && !chip->very_weak_charger;
@@ -1487,7 +1488,9 @@ static void smbchg_usb_update_online_work(struct work_struct *work)
 	mutex_lock(&chip->usb_set_online_lock);
 	if (chip->usb_online != online) {
 		pr_smb(PR_MISC, "setting usb psy online = %d\n", online);
-		power_supply_set_online(chip->usb_psy, online);
+		ret.intval = online;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_ONLINE, &ret);
 		chip->usb_online = online;
 	}
 	mutex_unlock(&chip->usb_set_online_lock);
@@ -1928,6 +1931,7 @@ static int smbchg_get_aicl_level_ma(struct smbchg_chip *chip)
 static void smbchg_parallel_usb_disable(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	union power_supply_propval pval = {0, };
 
 	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
@@ -1936,9 +1940,13 @@ static void smbchg_parallel_usb_disable(struct smbchg_chip *chip)
 	taper_irq_en(chip, false);
 	chip->parallel.initial_aicl_ma = 0;
 	chip->parallel.current_max_ma = 0;
-	power_supply_set_current_limit(parallel_psy,
-				SUSPEND_CURRENT_MA * 1000);
-	power_supply_set_present(parallel_psy, false);
+	pval.intval = SUSPEND_CURRENT_MA * 1000;
+	power_supply_set_property(parallel_psy, POWER_SUPPLY_PROP_CURRENT_MAX,
+					&pval);
+
+	pval.intval = false;
+	power_supply_set_property(parallel_psy, POWER_SUPPLY_PROP_PRESENT,
+					&pval);
 	smbchg_set_fastchg_current_raw(chip,
 			get_effective_result_locked(chip->fcc_votable));
 	smbchg_set_usb_current_max(chip,
@@ -2025,8 +2033,9 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 		return;
 
 	pr_smb(PR_STATUS, "Attempting to enable parallel charger\n");
-
-	rc = power_supply_set_voltage_limit(parallel_psy, chip->vfloat_mv + 50);
+	pval.intval = chip->vfloat_mv + 50;
+	rc = power_supply_set_property(parallel_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &pval);
 	if (rc < 0) {
 		dev_err(chip->dev,
 			"Couldn't set Vflt on parallel psy rc: %d\n", rc);
@@ -2037,9 +2046,15 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 	new_parallel_cl_ma = total_current_ma
 			* (100 - smbchg_main_chg_icl_percent) / 100;
 	taper_irq_en(chip, true);
-	power_supply_set_present(parallel_psy, true);
-	power_supply_set_current_limit(parallel_psy,
-				new_parallel_cl_ma * 1000);
+
+	pval.intval = true;
+	power_supply_set_property(parallel_psy, POWER_SUPPLY_PROP_PRESENT,
+			&pval);
+
+	pval.intval = new_parallel_cl_ma * 1000;
+	power_supply_set_property(parallel_psy, POWER_SUPPLY_PROP_CURRENT_MAX,
+			&pval);
+
 	/* read back the real amount of current we are getting */
 	power_supply_get_property(parallel_psy,
 			POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
@@ -2936,6 +2951,7 @@ static int smbchg_float_voltage_comp_set(struct smbchg_chip *chip, int code)
 static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	union power_supply_propval prop;
 	int rc, delta;
 	u8 temp;
 
@@ -2966,8 +2982,9 @@ static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
 	}
 
 	if (parallel_psy) {
-		rc = power_supply_set_voltage_limit(parallel_psy,
-				vfloat_mv + 50);
+		prop.intval = vfloat_mv + 50;
+		rc = power_supply_set_property(parallel_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
 		if (rc)
 			dev_err(chip->dev, "Couldn't set float voltage on parallel psy rc: %d\n",
 				rc);
@@ -3873,17 +3890,15 @@ static void smbchg_chg_led_brightness_set(struct led_classdev *cdev,
 {
 	struct smbchg_chip *chip = container_of(cdev,
 			struct smbchg_chip, led_cdev);
+	union power_supply_propval pval = {0, };
 	u8 reg;
 	int rc;
 
 	reg = (value > LED_OFF) ? CHG_LED_ON << CHG_LED_SHIFT :
 		CHG_LED_OFF << CHG_LED_SHIFT;
-
-	if (value > LED_OFF)
-		power_supply_set_hi_power_state(chip->bms_psy, 1);
-	else
-		power_supply_set_hi_power_state(chip->bms_psy, 0);
-
+	pval.intval = value > LED_OFF ? 1 : 0;
+	power_supply_set_property(chip->bms_psy, POWER_SUPPLY_PROP_HI_POWER,
+			&pval);
 	pr_smb(PR_STATUS,
 			"set the charger led brightness to value=%d\n",
 			value);
@@ -3922,14 +3937,17 @@ led_brightness smbchg_chg_led_brightness_get(struct led_classdev *cdev)
 static void smbchg_chg_led_blink_set(struct smbchg_chip *chip,
 		unsigned long blinking)
 {
+	union power_supply_propval pval = {0, };
 	u8 reg;
 	int rc;
 
+	pval.intval = (blinking == 0) ? 0 : 1;
+	power_supply_set_property(chip->bms_psy, POWER_SUPPLY_PROP_HI_POWER,
+			&pval);
+
 	if (blinking == 0) {
 		reg = CHG_LED_OFF << CHG_LED_SHIFT;
-		power_supply_set_hi_power_state(chip->bms_psy, 0);
 	} else {
-		power_supply_set_hi_power_state(chip->bms_psy, 1);
 		if (blinking == 1)
 			reg = LED_BLINKING_PATTERN1 << CHG_LED_SHIFT;
 		else if (blinking == 2)
@@ -4289,6 +4307,7 @@ static int smbchg_change_usb_supply_type(struct smbchg_chip *chip,
 						enum power_supply_type type)
 {
 	int rc, current_limit_ma;
+	union power_supply_propval pval = {0, };
 
 	/*
 	 * if the type is not unknown, set the type before changing ICL vote
@@ -4327,8 +4346,11 @@ static int smbchg_change_usb_supply_type(struct smbchg_chip *chip,
 		goto out;
 	}
 
-	if (!chip->skip_usb_notification)
-		power_supply_set_supply_type(chip->usb_psy, type);
+	if (!chip->skip_usb_notification) {
+		pval.intval = type;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &pval);
+	}
 
 	/* otherwise if it is unknown, set type after the vote */
 	if (type == POWER_SUPPLY_TYPE_UNKNOWN)
@@ -4415,6 +4437,7 @@ static int set_usb_psy_dp_dm(struct smbchg_chip *chip, int state)
 {
 	int rc;
 	u8 reg;
+	union power_supply_propval pval = {0, };
 
 	/*
 	 * ensure that we are not in the middle of an insertion where usbin_uv
@@ -4428,7 +4451,9 @@ static int set_usb_psy_dp_dm(struct smbchg_chip *chip, int state)
 		state = POWER_SUPPLY_DP_DM_DPF_DMF;
 	}
 	pr_smb(PR_MISC, "setting usb psy dp dm = %d\n", state);
-	return power_supply_set_dp_dm(chip->usb_psy, state);
+	pval.intval = state;
+	return power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_DP_DM, &pval);
 }
 
 #define APSD_CFG		0xF5
@@ -4507,6 +4532,7 @@ static int smbchg_restricted_charging(struct smbchg_chip *chip, bool enable)
 static void handle_usb_removal(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	union power_supply_propval pval = {0, };
 	int rc;
 
 	pr_smb(PR_STATUS, "triggered\n");
@@ -4521,20 +4547,27 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	if (!chip->skip_usb_notification) {
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
-		power_supply_set_present(chip->usb_psy, chip->usb_present);
+		pval.intval = chip->usb_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
 	}
 	set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPR_DMR);
 	schedule_work(&chip->usb_set_online_work);
+
 	pr_smb(PR_MISC, "setting usb psy health UNKNOWN\n");
-	rc = power_supply_set_health_state(chip->usb_psy,
-			POWER_SUPPLY_HEALTH_UNKNOWN);
+	pval.intval = POWER_SUPPLY_HEALTH_UNKNOWN;
+	rc = power_supply_set_property(chip->usb_psy, POWER_SUPPLY_PROP_HEALTH,
+			&pval);
 	if (rc < 0)
 		pr_smb(PR_STATUS,
 			"usb psy does not allow updating prop %d rc = %d\n",
 			POWER_SUPPLY_HEALTH_UNKNOWN, rc);
 
-	if (parallel_psy && chip->parallel_charger_detected)
-		power_supply_set_present(parallel_psy, false);
+	if (parallel_psy && chip->parallel_charger_detected) {
+		pval.intval = false;
+		power_supply_set_property(parallel_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
+	}
 	if (chip->parallel.avail && chip->aicl_done_irq
 			&& chip->enable_aicl_wake) {
 		disable_irq_wake(chip->aicl_done_irq);
@@ -4586,6 +4619,7 @@ static bool is_usbin_uv_high(struct smbchg_chip *chip)
 static void handle_usb_insertion(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	union power_supply_propval pval = {0, };
 	enum power_supply_type usb_supply_type;
 	int rc;
 	char *usb_type_name = "null";
@@ -4603,7 +4637,9 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	if (!chip->skip_usb_notification) {
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
-		power_supply_set_present(chip->usb_psy, chip->usb_present);
+		pval.intval = chip->usb_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
 	}
 
 	/* Notify the USB psy if OV condition is not present */
@@ -4616,10 +4652,12 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		pr_smb(PR_MISC, "setting usb psy health %s\n",
 				chip->very_weak_charger
 				? "UNSPEC_FAILURE" : "GOOD");
-		rc = power_supply_set_health_state(chip->usb_psy,
-				chip->very_weak_charger
+		pval.intval = chip->very_weak_charger
 				? POWER_SUPPLY_HEALTH_UNSPEC_FAILURE
-				: POWER_SUPPLY_HEALTH_GOOD);
+				: POWER_SUPPLY_HEALTH_GOOD;
+		rc = power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_HEALTH,
+				&pval);
 		if (rc < 0)
 			pr_smb(PR_STATUS,
 				"usb psy does not allow updating prop %d rc = %d\n",
@@ -4635,7 +4673,9 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	}
 
 	if (parallel_psy) {
-		rc = power_supply_set_present(parallel_psy, true);
+		pval.intval = true;
+		power_supply_set_property(parallel_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
 		chip->parallel_charger_detected = rc ? false : true;
 		if (rc)
 			pr_debug("parallel-charger absent rc=%d\n", rc);
@@ -4745,6 +4785,7 @@ static void increment_aicl_count(struct smbchg_chip *chip)
 	u8 reg;
 	long elapsed_seconds;
 	unsigned long now_seconds;
+	union power_supply_propval pval = {0, };
 
 	pr_smb(PR_INTERRUPT, "aicl count c:%d dgltch:%d first:%ld\n",
 			chip->aicl_irq_count, chip->aicl_deglitch_short,
@@ -4826,8 +4867,10 @@ static void increment_aicl_count(struct smbchg_chip *chip)
 		if (bad_charger) {
 			pr_smb(PR_MISC,
 				"setting usb psy health UNSPEC_FAILURE\n");
-			rc = power_supply_set_health_state(chip->usb_psy,
-					POWER_SUPPLY_HEALTH_UNSPEC_FAILURE);
+			pval.intval = POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+			rc = power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_HEALTH,
+					&pval);
 			if (rc)
 				pr_err("Couldn't set health on usb psy rc:%d\n",
 					rc);
@@ -5499,17 +5542,22 @@ static void update_typec_capability_status(struct smbchg_chip *chip,
 static void update_typec_otg_status(struct smbchg_chip *chip, int mode,
 					bool force)
 {
+	union power_supply_propval pval = {0, };
 	pr_smb(PR_TYPEC, "typec mode = %d\n", mode);
 
 	if (mode == POWER_SUPPLY_TYPE_DFP) {
 		chip->typec_dfp = true;
-		power_supply_set_usb_otg(chip->usb_psy, chip->typec_dfp);
+		pval.intval = 1;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_USB_OTG, &pval);
 		/* update FG */
 		set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
 				get_prop_batt_status(chip));
 	} else if (force || chip->typec_dfp) {
 		chip->typec_dfp = false;
-		power_supply_set_usb_otg(chip->usb_psy, chip->typec_dfp);
+		pval.intval = 0;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_USB_OTG, &pval);
 		/* update FG */
 		set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
 				get_prop_batt_status(chip));
@@ -6117,6 +6165,7 @@ static irqreturn_t usbin_ov_handler(int irq, void *_chip)
 	int rc;
 	u8 reg;
 	bool usb_present;
+	union power_supply_propval pval = {0, };
 
 	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
 	if (rc < 0) {
@@ -6129,8 +6178,10 @@ static irqreturn_t usbin_ov_handler(int irq, void *_chip)
 		chip->usb_ov_det = true;
 		if (chip->usb_psy) {
 			pr_smb(PR_MISC, "setting usb psy health OV\n");
-			rc = power_supply_set_health_state(chip->usb_psy,
-					POWER_SUPPLY_HEALTH_OVERVOLTAGE);
+			pval.intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+			rc = power_supply_set_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_HEALTH,
+					&pval);
 			if (rc)
 				pr_smb(PR_STATUS,
 					"usb psy does not allow updating prop %d rc = %d\n",
@@ -6158,6 +6209,7 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 	int aicl_level = smbchg_get_aicl_level_ma(chip);
+	union power_supply_propval pval = {0, };
 	int rc;
 	u8 reg;
 
@@ -6179,8 +6231,9 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 	 */
 	if (!(reg & USBIN_UV_BIT) && !(reg & USBIN_SRC_DET_BIT)) {
 		pr_smb(PR_MISC, "setting usb psy dp=f dm=f\n");
-		power_supply_set_dp_dm(chip->usb_psy,
-				POWER_SUPPLY_DP_DM_DPF_DMF);
+		pval.intval = POWER_SUPPLY_DP_DM_DPF_DMF;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_DP_DM, &pval);
 	}
 
 	if (reg & USBIN_UV_BIT)
@@ -6224,8 +6277,9 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 						rc);
 		}
 		pr_smb(PR_MISC, "setting usb psy health UNSPEC_FAILURE\n");
-		rc = power_supply_set_health_state(chip->usb_psy,
-				POWER_SUPPLY_HEALTH_UNSPEC_FAILURE);
+		pval.intval = POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+		rc = power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_HEALTH, &pval);
 		if (rc)
 			pr_err("Couldn't set health on usb psy rc:%d\n", rc);
 		schedule_work(&chip->usb_set_online_work);
@@ -6381,6 +6435,7 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 	bool otg_present;
+	union power_supply_propval pval = {0, };
 
 	pr_smb(PR_INTERRUPT, "triggered\n");
 
@@ -6388,7 +6443,9 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 	if (chip->usb_psy) {
 		pr_smb(PR_MISC, "setting usb psy OTG = %d\n",
 				otg_present ? 1 : 0);
-		power_supply_set_usb_otg(chip->usb_psy, otg_present ? 1 : 0);
+		pval.intval = otg_present ? 1 : 0;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_USB_OTG, &pval);
 	}
 	if (otg_present)
 		pr_smb(PR_STATUS, "OTG detected\n");
@@ -6403,6 +6460,7 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 static int determine_initial_status(struct smbchg_chip *chip)
 {
 	union power_supply_propval type = {0, };
+	union power_supply_propval pval = {0, };
 
 	/*
 	 * It is okay to read the interrupt status here since
@@ -6429,8 +6487,9 @@ static int determine_initial_status(struct smbchg_chip *chip)
 
 	if (chip->usb_present) {
 		pr_smb(PR_MISC, "setting usb psy dp=f dm=f\n");
-		power_supply_set_dp_dm(chip->usb_psy,
-				POWER_SUPPLY_DP_DM_DPF_DMF);
+		pval.intval = POWER_SUPPLY_DP_DM_DPF_DMF;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_DP_DM, &pval);
 		handle_usb_insertion(chip);
 	} else {
 		handle_usb_removal(chip);
@@ -7806,6 +7865,7 @@ static int smbchg_probe(struct platform_device *pdev)
 	struct power_supply *usb_psy, *typec_psy = NULL;
 	struct qpnp_vadc_chip *vadc_dev, *vchg_vadc_dev;
 	const char *typec_psy_name;
+	union power_supply_propval pval = {0, };
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -8061,7 +8121,9 @@ static int smbchg_probe(struct platform_device *pdev)
 	if (!chip->skip_usb_notification) {
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 			chip->usb_present);
-		power_supply_set_present(chip->usb_psy, chip->usb_present);
+		pval.intval = chip->usb_present;
+		power_supply_set_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT, &pval);
 	}
 
 	rerun_hvdcp_det_if_necessary(chip);

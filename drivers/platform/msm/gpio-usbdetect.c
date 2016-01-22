@@ -32,16 +32,20 @@ static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 {
 	struct gpio_usbdetect *usb = data;
 	int vbus;
+	union power_supply_propval pval = {0,};
 
 	vbus = !!irq_read_line(irq);
 	if (vbus)
-		power_supply_set_supply_type(usb->usb_psy,
-				POWER_SUPPLY_TYPE_USB);
+		pval.intval = POWER_SUPPLY_TYPE_USB;
 	else
-		power_supply_set_supply_type(usb->usb_psy,
-				POWER_SUPPLY_TYPE_UNKNOWN);
+		pval.intval = POWER_SUPPLY_TYPE_UNKNOWN;
 
-	power_supply_set_present(usb->usb_psy, vbus);
+	power_supply_set_property(usb->usb_psy,
+			POWER_SUPPLY_PROP_TYPE, &pval);
+
+	pval.intval = vbus;
+	power_supply_set_property(usb->usb_psy, POWER_SUPPLY_PROP_PRESENT,
+			&pval);
 	return IRQ_HANDLED;
 }
 
