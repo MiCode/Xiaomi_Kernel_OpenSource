@@ -28,6 +28,7 @@ endif
 
 KBUILD_CFLAGS	+= -mgeneral-regs-only $(lseinstr)
 KBUILD_CFLAGS	+= -fno-pic
+KBUILD_CFLAGS	+= -fno-asynchronous-unwind-tables
 KBUILD_AFLAGS	+= $(lseinstr)
 
 ifeq ($(CONFIG_CPU_BIG_ENDIAN), y)
