@@ -236,8 +236,10 @@ struct smbchg_chip {
 
 	/* psy */
 	struct power_supply		*usb_psy;
-	struct power_supply		batt_psy;
-	struct power_supply		dc_psy;
+	struct power_supply_desc	batt_psy_d;
+	struct power_supply		*batt_psy;
+	struct power_supply_desc	dc_psy_d;
+	struct power_supply		*dc_psy;
 	struct power_supply		*bms_psy;
 	struct power_supply		*typec_psy;
 	int				dc_psy_type;
@@ -2346,7 +2348,7 @@ static int dc_suspend_vote_cb(struct device *dev, int suspend,
 		return rc;
 
 	if (chip->dc_psy_type != -EINVAL && chip->psy_registered)
-		power_supply_changed(&chip->dc_psy);
+		power_supply_changed(chip->dc_psy);
 
 	return rc;
 }
@@ -3542,8 +3544,7 @@ static void check_battery_type(struct smbchg_chip *chip)
 
 static void smbchg_external_power_changed(struct power_supply *psy)
 {
-	struct smbchg_chip *chip = container_of(psy,
-				struct smbchg_chip, batt_psy);
+	struct smbchg_chip *chip = power_supply_get_drvdata(psy);
 	union power_supply_propval prop = {0,};
 	int rc, current_limit = 0, soc;
 	enum power_supply_type usb_supply_type;
@@ -3596,7 +3597,7 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 skip_current_for_non_sdp:
 	smbchg_vfloat_adjust_check(chip);
 
-	power_supply_changed(&chip->batt_psy);
+	power_supply_changed(chip->batt_psy);
 }
 
 static int smbchg_otg_regulator_enable(struct regulator_dev *rdev)
@@ -4428,7 +4429,7 @@ static void smbchg_hvdcp_det_work(struct work_struct *work)
 		smbchg_change_usb_supply_type(chip,
 				POWER_SUPPLY_TYPE_USB_HVDCP);
 		if (chip->psy_registered)
-			power_supply_changed(&chip->batt_psy);
+			power_supply_changed(chip->batt_psy);
 		smbchg_aicl_deglitch_wa_check(chip);
 	}
 }
@@ -5623,8 +5624,7 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 				       const union power_supply_propval *val)
 {
 	int rc = 0;
-	struct smbchg_chip *chip = container_of(psy,
-				struct smbchg_chip, batt_psy);
+	struct smbchg_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
@@ -5641,7 +5641,7 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		chip->fake_battery_soc = val->intval;
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		smbchg_system_temp_level_set(chip, val->intval);
@@ -5729,8 +5729,7 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       union power_supply_propval *val)
 {
-	struct smbchg_chip *chip = container_of(psy,
-				struct smbchg_chip, batt_psy);
+	struct smbchg_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -5835,8 +5834,7 @@ static int smbchg_dc_set_property(struct power_supply *psy,
 				       const union power_supply_propval *val)
 {
 	int rc = 0;
-	struct smbchg_chip *chip = container_of(psy,
-				struct smbchg_chip, dc_psy);
+	struct smbchg_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
@@ -5858,8 +5856,7 @@ static int smbchg_dc_get_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       union power_supply_propval *val)
 {
-	struct smbchg_chip *chip = container_of(psy,
-				struct smbchg_chip, dc_psy);
+	struct smbchg_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -5919,7 +5916,7 @@ static irqreturn_t batt_hot_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	smbchg_wipower_check(chip);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_HEALTH,
@@ -5937,7 +5934,7 @@ static irqreturn_t batt_cold_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	smbchg_wipower_check(chip);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_HEALTH,
@@ -5955,7 +5952,7 @@ static irqreturn_t batt_warm_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_HEALTH,
 			get_prop_batt_health(chip));
 	return IRQ_HANDLED;
@@ -5971,7 +5968,7 @@ static irqreturn_t batt_cool_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_HEALTH,
 			get_prop_batt_health(chip));
 	return IRQ_HANDLED;
@@ -5986,7 +5983,7 @@ static irqreturn_t batt_pres_handler(int irq, void *_chip)
 	chip->batt_present = !(reg & BAT_MISSING_BIT);
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_HEALTH,
 			get_prop_batt_health(chip));
@@ -6021,7 +6018,7 @@ static irqreturn_t chg_error_handler(int irq, void *_chip)
 
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
@@ -6034,7 +6031,7 @@ static irqreturn_t fastchg_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "p2f triggered\n");
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
@@ -6063,7 +6060,7 @@ static irqreturn_t chg_term_handler(int irq, void *_chip)
 
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 
 	return IRQ_HANDLED;
@@ -6079,7 +6076,7 @@ static irqreturn_t taper_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_parallel_usb_taper(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
@@ -6094,7 +6091,7 @@ static irqreturn_t recharge_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	return IRQ_HANDLED;
 }
@@ -6107,7 +6104,7 @@ static irqreturn_t wdog_timeout_handler(int irq, void *_chip)
 	smbchg_read(chip, &reg, chip->misc_base + RT_STS, 1);
 	pr_warn_ratelimited("wdog timeout rt_stat = 0x%02x\n", reg);
 	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	return IRQ_HANDLED;
 }
@@ -6145,7 +6142,7 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 		/* dc changed */
 		chip->dc_present = dc_present;
 		if (chip->dc_psy_type != -EINVAL && chip->psy_registered)
-			power_supply_changed(&chip->dc_psy);
+			power_supply_changed(chip->dc_psy);
 		smbchg_charging_status_change(chip);
 		smbchg_aicl_deglitch_wa_check(chip);
 		chip->vbat_above_headroom = false;
@@ -6422,7 +6419,7 @@ static irqreturn_t aicl_done_handler(int irq, void *_chip)
 		smbchg_parallel_usb_check_ok(chip);
 
 	if (chip->aicl_complete)
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 
 	return IRQ_HANDLED;
 }
@@ -7866,6 +7863,8 @@ static int smbchg_probe(struct platform_device *pdev)
 	struct qpnp_vadc_chip *vadc_dev, *vchg_vadc_dev;
 	const char *typec_psy_name;
 	union power_supply_propval pval = {0, };
+	struct power_supply_config batt_psy_cfg;
+	struct power_supply_config dc_psy_cfg;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -8058,37 +8057,49 @@ static int smbchg_probe(struct platform_device *pdev)
 	}
 
 	chip->previous_soc = -EINVAL;
-	chip->batt_psy.name		= chip->battery_psy_name;
-	chip->batt_psy.type		= POWER_SUPPLY_TYPE_BATTERY;
-	chip->batt_psy.get_property	= smbchg_battery_get_property;
-	chip->batt_psy.set_property	= smbchg_battery_set_property;
-	chip->batt_psy.properties	= smbchg_battery_properties;
-	chip->batt_psy.num_properties	= ARRAY_SIZE(smbchg_battery_properties);
-	chip->batt_psy.external_power_changed = smbchg_external_power_changed;
-	chip->batt_psy.property_is_writeable = smbchg_battery_is_writeable;
+	chip->batt_psy_d.name		= chip->battery_psy_name;
+	chip->batt_psy_d.type		= POWER_SUPPLY_TYPE_BATTERY;
+	chip->batt_psy_d.get_property	= smbchg_battery_get_property;
+	chip->batt_psy_d.set_property	= smbchg_battery_set_property;
+	chip->batt_psy_d.properties	= smbchg_battery_properties;
+	chip->batt_psy_d.num_properties	= ARRAY_SIZE(smbchg_battery_properties);
+	chip->batt_psy_d.external_power_changed = smbchg_external_power_changed;
+	chip->batt_psy_d.property_is_writeable = smbchg_battery_is_writeable;
 
-	rc = power_supply_register(chip->dev, &chip->batt_psy);
-	if (rc < 0) {
+	batt_psy_cfg.drv_data = chip;
+	batt_psy_cfg.num_supplicants = 0;
+	chip->batt_psy = devm_power_supply_register(chip->dev,
+			&chip->batt_psy_d,
+			&batt_psy_cfg);
+	if (IS_ERR(chip->batt_psy)) {
 		dev_err(&pdev->dev,
-			"Unable to register batt_psy rc = %d\n", rc);
+			"Unable to register batt_psy rc = %ld\n",
+			PTR_ERR(chip->batt_psy));
 		goto out;
 	}
 	if (chip->dc_psy_type != -EINVAL) {
-		chip->dc_psy.name		= "dc";
-		chip->dc_psy.type		= chip->dc_psy_type;
-		chip->dc_psy.get_property	= smbchg_dc_get_property;
-		chip->dc_psy.set_property	= smbchg_dc_set_property;
-		chip->dc_psy.property_is_writeable = smbchg_dc_is_writeable;
-		chip->dc_psy.properties		= smbchg_dc_properties;
-		chip->dc_psy.num_properties = ARRAY_SIZE(smbchg_dc_properties);
-		chip->dc_psy.supplied_to = smbchg_dc_supplicants;
-		chip->dc_psy.num_supplicants
+		chip->dc_psy_d.name = "dc";
+		chip->dc_psy_d.type = chip->dc_psy_type;
+		chip->dc_psy_d.get_property = smbchg_dc_get_property;
+		chip->dc_psy_d.set_property = smbchg_dc_set_property;
+		chip->dc_psy_d.property_is_writeable = smbchg_dc_is_writeable;
+		chip->dc_psy_d.properties = smbchg_dc_properties;
+		chip->dc_psy_d.num_properties
+			= ARRAY_SIZE(smbchg_dc_properties);
+
+		dc_psy_cfg.drv_data = chip;
+		dc_psy_cfg.num_supplicants
 			= ARRAY_SIZE(smbchg_dc_supplicants);
-		rc = power_supply_register(chip->dev, &chip->dc_psy);
-		if (rc < 0) {
+		dc_psy_cfg.supplied_to = smbchg_dc_supplicants;
+
+		chip->dc_psy = devm_power_supply_register(chip->dev,
+				&chip->dc_psy_d,
+				&dc_psy_cfg);
+		if (IS_ERR(chip->dc_psy)) {
 			dev_err(&pdev->dev,
-				"Unable to register dc_psy rc = %d\n", rc);
-			goto unregister_batt_psy;
+				"Unable to register dc_psy rc = %ld\n",
+				PTR_ERR(chip->dc_psy));
+			goto out;
 		}
 	}
 	chip->psy_registered = true;
@@ -8100,7 +8111,7 @@ static int smbchg_probe(struct platform_device *pdev)
 			dev_err(chip->dev,
 					"Unable to register charger led: %d\n",
 					rc);
-			goto unregister_dc_psy;
+			goto out;
 		}
 
 		rc = smbchg_chg_led_controls(chip);
@@ -8142,10 +8153,6 @@ static int smbchg_probe(struct platform_device *pdev)
 unregister_led_class:
 	if (chip->cfg_chg_led_support && chip->schg_version == QPNP_SCHG_LITE)
 		led_classdev_unregister(&chip->led_cdev);
-unregister_dc_psy:
-	power_supply_unregister(&chip->dc_psy);
-unregister_batt_psy:
-	power_supply_unregister(&chip->batt_psy);
 out:
 	handle_usb_removal(chip);
 	return rc;
@@ -8156,11 +8163,6 @@ static int smbchg_remove(struct platform_device *pdev)
 	struct smbchg_chip *chip = dev_get_drvdata(&pdev->dev);
 
 	debugfs_remove_recursive(chip->debug_root);
-
-	if (chip->dc_psy_type != -EINVAL)
-		power_supply_unregister(&chip->dc_psy);
-
-	power_supply_unregister(&chip->batt_psy);
 
 	return 0;
 }

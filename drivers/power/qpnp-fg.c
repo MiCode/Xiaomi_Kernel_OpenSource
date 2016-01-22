@@ -418,7 +418,8 @@ struct fg_chip {
 	struct completion	sram_access_revoked;
 	struct completion	batt_id_avail;
 	struct completion	first_soc_done;
-	struct power_supply	bms_psy;
+	struct power_supply	*bms_psy;
+	struct power_supply_desc	bms_psy_d;
 	struct mutex		rw_lock;
 	struct mutex		sysfs_restart_lock;
 	struct delayed_work	batt_profile_init;
@@ -2619,7 +2620,7 @@ static int fg_power_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
 {
-	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
+	struct fg_chip *chip = power_supply_get_drvdata(psy);
 	bool vbatt_low_sts;
 
 	switch (psp) {
@@ -3513,7 +3514,7 @@ static int fg_power_set_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
 {
-	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
+	struct fg_chip *chip = power_supply_get_drvdata(psy);
 	int rc = 0, unused;
 
 	switch (psp) {
@@ -3840,7 +3841,7 @@ static irqreturn_t fg_vbatt_low_handler(int irq, void *_chip)
 		}
 	}
 	if (chip->power_supply_registered)
-		power_supply_changed(&chip->bms_psy);
+		power_supply_changed(chip->bms_psy);
 out:
 	return IRQ_HANDLED;
 }
@@ -3878,7 +3879,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 				batt_missing ? "missing" : "present");
 
 	if (chip->power_supply_registered)
-		power_supply_changed(&chip->bms_psy);
+		power_supply_changed(chip->bms_psy);
 	return IRQ_HANDLED;
 }
 
@@ -3932,7 +3933,7 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	schedule_work(&chip->battery_age_work);
 
 	if (chip->power_supply_registered)
-		power_supply_changed(&chip->bms_psy);
+		power_supply_changed(chip->bms_psy);
 
 	if (chip->rslow_comp.chg_rs_to_rslow > 0 &&
 			chip->rslow_comp.chg_rslow_comp_c1 > 0 &&
@@ -3997,7 +3998,7 @@ static irqreturn_t fg_first_soc_irq_handler(int irq, void *_chip)
 		schedule_work(&chip->dump_sram);
 
 	if (chip->power_supply_registered)
-		power_supply_changed(&chip->bms_psy);
+		power_supply_changed(chip->bms_psy);
 
 	complete_all(&chip->first_soc_done);
 
@@ -4006,7 +4007,7 @@ static irqreturn_t fg_first_soc_irq_handler(int irq, void *_chip)
 
 static void fg_external_power_changed(struct power_supply *psy)
 {
-	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
+	struct fg_chip *chip = power_supply_get_drvdata(psy);
 
 	if (is_input_present(chip) && chip->rslow_comp.active &&
 			chip->rslow_comp.chg_rs_to_rslow > 0 &&
@@ -4728,7 +4729,7 @@ wait:
 		goto reschedule;
 	}
 	if (chip->power_supply_registered)
-		power_supply_changed(&chip->bms_psy);
+		power_supply_changed(chip->bms_psy);
 
 	memcpy(chip->batt_profile, data, len);
 
@@ -4784,14 +4785,14 @@ done:
 	estimate_battery_age(chip, &chip->actual_cap_uah);
 	schedule_work(&chip->status_change_work);
 	if (chip->power_supply_registered)
-		power_supply_changed(&chip->bms_psy);
+		power_supply_changed(chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
 	pr_info("Battery SOC: %d, V: %duV\n", get_prop_capacity(chip),
 		fg_data[FG_DATA_VOLTAGE].value);
 	return rc;
 no_profile:
 	if (chip->power_supply_registered)
-		power_supply_changed(&chip->bms_psy);
+		power_supply_changed(chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
 	return rc;
 reschedule:
@@ -4813,7 +4814,7 @@ static void check_empty_work(struct work_struct *work)
 			pr_info("EMPTY SOC high\n");
 		chip->soc_empty = true;
 		if (chip->power_supply_registered)
-			power_supply_changed(&chip->bms_psy);
+			power_supply_changed(chip->bms_psy);
 	}
 	fg_relax(&chip->empty_check_wakeup_source);
 }
@@ -5400,7 +5401,6 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->gain_comp_work);
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
-	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
 	mutex_destroy(&chip->cyc_ctr.lock);
@@ -6306,6 +6306,7 @@ static int fg_probe(struct platform_device *pdev)
 	unsigned int base;
 	u8 subtype, reg;
 	int rc = 0;
+	struct power_supply_config bms_psy_cfg;
 
 	if (!pdev) {
 		pr_err("no valid spmi pointer\n");
@@ -6473,20 +6474,25 @@ static int fg_probe(struct platform_device *pdev)
 
 	chip->batt_type = default_batt_type;
 
-	chip->bms_psy.name = "bms";
-	chip->bms_psy.type = POWER_SUPPLY_TYPE_BMS;
-	chip->bms_psy.properties = fg_power_props;
-	chip->bms_psy.num_properties = ARRAY_SIZE(fg_power_props);
-	chip->bms_psy.get_property = fg_power_get_property;
-	chip->bms_psy.set_property = fg_power_set_property;
-	chip->bms_psy.external_power_changed = fg_external_power_changed;
-	chip->bms_psy.supplied_to = fg_supplicants;
-	chip->bms_psy.num_supplicants = ARRAY_SIZE(fg_supplicants);
-	chip->bms_psy.property_is_writeable = fg_property_is_writeable;
+	chip->bms_psy_d.name = "bms";
+	chip->bms_psy_d.type = POWER_SUPPLY_TYPE_BMS;
+	chip->bms_psy_d.properties = fg_power_props;
+	chip->bms_psy_d.num_properties = ARRAY_SIZE(fg_power_props);
+	chip->bms_psy_d.get_property = fg_power_get_property;
+	chip->bms_psy_d.set_property = fg_power_set_property;
+	chip->bms_psy_d.external_power_changed = fg_external_power_changed;
+	chip->bms_psy_d.property_is_writeable = fg_property_is_writeable;
 
-	rc = power_supply_register(chip->dev, &chip->bms_psy);
-	if (rc < 0) {
-		pr_err("batt failed to register rc = %d\n", rc);
+	bms_psy_cfg.drv_data = chip;
+	bms_psy_cfg.supplied_to = fg_supplicants;
+	bms_psy_cfg.num_supplicants =  ARRAY_SIZE(fg_supplicants);
+	bms_psy_cfg.of_node = NULL;
+	chip->bms_psy = devm_power_supply_register(chip->dev,
+			&chip->bms_psy_d,
+			&bms_psy_cfg);
+	if (IS_ERR(chip->bms_psy)) {
+		pr_err("batt failed to register rc = %ld\n",
+				PTR_ERR(chip->bms_psy));
 		goto of_init_fail;
 	}
 	chip->power_supply_registered = true;
@@ -6500,7 +6506,7 @@ static int fg_probe(struct platform_device *pdev)
 		rc = fg_dfs_create(chip);
 		if (rc < 0) {
 			pr_err("failed to create debugfs rc = %d\n", rc);
-			goto power_supply_unregister;
+			goto cancel_work;
 		}
 	}
 
@@ -6513,8 +6519,6 @@ static int fg_probe(struct platform_device *pdev)
 
 	return rc;
 
-power_supply_unregister:
-	power_supply_unregister(&chip->bms_psy);
 cancel_work:
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_delayed_work_sync(&chip->update_sram_data);
@@ -6637,7 +6641,7 @@ static int fg_sense_type_set(const char *val, const struct kernel_param *kp)
 		return 0;
 	}
 
-	chip = container_of(bms_psy, struct fg_chip, bms_psy);
+	chip = power_supply_get_drvdata(bms_psy);
 	rc = set_prop_sense_type(chip, fg_sense_type);
 	return rc;
 }
@@ -6659,7 +6663,7 @@ static int fg_restart_set(const char *val, const struct kernel_param *kp)
 		pr_err("bms psy not found\n");
 		return 0;
 	}
-	chip = container_of(bms_psy, struct fg_chip, bms_psy);
+	chip = power_supply_get_drvdata(bms_psy);
 
 	mutex_lock(&chip->sysfs_restart_lock);
 	if (fg_restart != 0) {

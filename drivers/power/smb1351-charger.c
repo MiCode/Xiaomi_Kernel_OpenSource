@@ -473,8 +473,10 @@ struct smb1351_charger {
 	struct power_supply	*usb_psy;
 	int			usb_psy_ma;
 	struct power_supply	*bms_psy;
-	struct power_supply	batt_psy;
-	struct power_supply	parallel_psy;
+	struct power_supply_desc	batt_psy_d;
+	struct power_supply	*batt_psy;
+	struct power_supply	*parallel_psy;
+	struct power_supply_desc	parallel_psy_d;
 
 	struct smb1351_regulator	otg_vreg;
 	struct mutex		irq_complete;
@@ -1317,8 +1319,7 @@ static int smb1351_battery_set_property(struct power_supply *psy,
 					const union power_supply_propval *val)
 {
 	int rc;
-	struct smb1351_charger *chip = container_of(psy,
-				struct smb1351_charger, batt_psy);
+	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -1338,7 +1339,7 @@ static int smb1351_battery_set_property(struct power_supply *psy,
 			break;
 		case POWER_SUPPLY_STATUS_DISCHARGING:
 			chip->batt_full = false;
-			power_supply_changed(&chip->batt_psy);
+			power_supply_changed(chip->batt_psy);
 			pr_debug("status = DISCHARGING, batt_full = %d\n",
 							chip->batt_full);
 			break;
@@ -1365,7 +1366,7 @@ static int smb1351_battery_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		chip->fake_battery_soc = val->intval;
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 		break;
 	default:
 		return -EINVAL;
@@ -1378,8 +1379,7 @@ static int smb1351_battery_get_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       union power_supply_propval *val)
 {
-	struct smb1351_charger *chip = container_of(psy,
-				struct smb1351_charger, batt_psy);
+	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -1580,8 +1580,7 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 				       const union power_supply_propval *val)
 {
 	int rc = 0, index;
-	struct smb1351_charger *chip = container_of(psy,
-				struct smb1351_charger, parallel_psy);
+	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
@@ -1643,8 +1642,7 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       union power_supply_propval *val)
 {
-	struct smb1351_charger *chip = container_of(psy,
-				struct smb1351_charger, parallel_psy);
+	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
@@ -1778,7 +1776,7 @@ static void smb1351_chg_ctrl_in_jeita(struct smb1351_charger *chip)
 							chip->batt_full);
 			}
 			pr_debug("batt psy changed\n");
-			power_supply_changed(&chip->batt_psy);
+			power_supply_changed(chip->batt_psy);
 		}
 	}
 }
@@ -2478,7 +2476,7 @@ static irqreturn_t smb1351_chg_stat_handler(int irq, void *dev_id)
 	pr_debug("handler count = %d\n", handler_count);
 	if (handler_count) {
 		pr_debug("batt psy changed\n");
-		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->batt_psy);
 	}
 
 	mutex_unlock(&chip->irq_complete);
@@ -2488,8 +2486,7 @@ static irqreturn_t smb1351_chg_stat_handler(int irq, void *dev_id)
 
 static void smb1351_external_power_changed(struct power_supply *psy)
 {
-	struct smb1351_charger *chip = container_of(psy,
-				struct smb1351_charger, batt_psy);
+	struct smb1351_charger *chip = power_supply_get_drvdata(psy);
 	union power_supply_propval prop = {0,};
 	int rc, current_limit = 0, online = 0;
 
@@ -2970,6 +2967,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	int rc;
 	struct smb1351_charger *chip;
 	struct power_supply *usb_psy;
+	struct power_supply_config batt_psy_cfg;
 	u8 reg = 0;
 
 	usb_psy = power_supply_get_by_name("usb");
@@ -3026,26 +3024,30 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, chip);
 
-	chip->batt_psy.name		= "battery";
-	chip->batt_psy.type		= POWER_SUPPLY_TYPE_BATTERY;
-	chip->batt_psy.get_property	= smb1351_battery_get_property;
-	chip->batt_psy.set_property	= smb1351_battery_set_property;
-	chip->batt_psy.property_is_writeable =
+	chip->batt_psy_d.name		= "battery";
+	chip->batt_psy_d.type		= POWER_SUPPLY_TYPE_BATTERY;
+	chip->batt_psy_d.get_property	= smb1351_battery_get_property;
+	chip->batt_psy_d.set_property	= smb1351_battery_set_property;
+	chip->batt_psy_d.property_is_writeable =
 					smb1351_batt_property_is_writeable;
-	chip->batt_psy.properties	= smb1351_battery_properties;
-	chip->batt_psy.num_properties	=
+	chip->batt_psy_d.properties	= smb1351_battery_properties;
+	chip->batt_psy_d.num_properties	=
 				ARRAY_SIZE(smb1351_battery_properties);
-	chip->batt_psy.external_power_changed =
+	chip->batt_psy_d.external_power_changed =
 					smb1351_external_power_changed;
-	chip->batt_psy.supplied_to	= pm_batt_supplied_to;
-	chip->batt_psy.num_supplicants	= ARRAY_SIZE(pm_batt_supplied_to);
 
 	chip->resume_completed = true;
 	mutex_init(&chip->irq_complete);
 
-	rc = power_supply_register(chip->dev, &chip->batt_psy);
-	if (rc) {
-		pr_err("Couldn't register batt psy rc=%d\n", rc);
+	batt_psy_cfg.drv_data = chip;
+	batt_psy_cfg.supplied_to = pm_batt_supplied_to;
+	batt_psy_cfg.num_supplicants = ARRAY_SIZE(pm_batt_supplied_to);
+	chip->batt_psy = devm_power_supply_register(chip->dev,
+			&chip->batt_psy_d,
+			&batt_psy_cfg);
+	if (IS_ERR(chip->batt_psy)) {
+		pr_err("Couldn't register batt psy rc=%ld\n",
+				PTR_ERR(chip->batt_psy));
 		return rc;
 	}
 
@@ -3120,7 +3122,6 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 fail_smb1351_hw_init:
 	regulator_unregister(chip->otg_vreg.rdev);
 fail_smb1351_regulator_init:
-	power_supply_unregister(&chip->batt_psy);
 	return rc;
 }
 
@@ -3130,6 +3131,7 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	int rc;
 	struct smb1351_charger *chip;
 	struct device_node *node = client->dev.of_node;
+	struct power_supply_config parallel_psy_cfg;
 
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip) {
@@ -3163,19 +3165,24 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, chip);
 
-	chip->parallel_psy.name		= "usb-parallel";
-	chip->parallel_psy.type		= POWER_SUPPLY_TYPE_USB_PARALLEL;
-	chip->parallel_psy.get_property	= smb1351_parallel_get_property;
-	chip->parallel_psy.set_property	= smb1351_parallel_set_property;
-	chip->parallel_psy.properties	= smb1351_parallel_properties;
-	chip->parallel_psy.property_is_writeable
+	chip->parallel_psy_d.name = "usb-parallel";
+	chip->parallel_psy_d.type = POWER_SUPPLY_TYPE_USB_PARALLEL;
+	chip->parallel_psy_d.get_property = smb1351_parallel_get_property;
+	chip->parallel_psy_d.set_property = smb1351_parallel_set_property;
+	chip->parallel_psy_d.properties	= smb1351_parallel_properties;
+	chip->parallel_psy_d.property_is_writeable
 				= smb1351_parallel_is_writeable;
-	chip->parallel_psy.num_properties
+	chip->parallel_psy_d.num_properties
 				= ARRAY_SIZE(smb1351_parallel_properties);
 
-	rc = power_supply_register(chip->dev, &chip->parallel_psy);
-	if (rc) {
-		pr_err("Couldn't register parallel psy rc=%d\n", rc);
+	parallel_psy_cfg.drv_data = chip;
+	parallel_psy_cfg.num_supplicants = 0;
+	chip->parallel_psy = devm_power_supply_register(chip->dev,
+			&chip->parallel_psy_d,
+			&parallel_psy_cfg);
+	if (IS_ERR(chip->parallel_psy)) {
+		pr_err("Couldn't register parallel psy rc=%ld\n",
+				PTR_ERR(chip->parallel_psy));
 		return rc;
 	}
 
@@ -3203,7 +3210,6 @@ static int smb1351_charger_remove(struct i2c_client *client)
 	struct smb1351_charger *chip = i2c_get_clientdata(client);
 
 	cancel_delayed_work_sync(&chip->chg_remove_work);
-	power_supply_unregister(&chip->batt_psy);
 
 	mutex_destroy(&chip->irq_complete);
 	debugfs_remove_recursive(chip->debug_root);

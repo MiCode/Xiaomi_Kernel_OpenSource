@@ -127,7 +127,8 @@ struct bcl_device {
 };
 
 static struct bcl_device *bcl_perph;
-static struct power_supply bcl_psy;
+static struct power_supply_desc bcl_psy_d;
+static struct power_supply *bcl_psy;
 static const char bcl_psy_name[] = "fg_adc";
 static bool calibration_done;
 static DEFINE_MUTEX(bcl_access_mutex);
@@ -1000,6 +1001,7 @@ update_data_exit:
 static int bcl_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct power_supply_config bcl_psy_cfg;
 
 	bcl_perph = devm_kzalloc(&pdev->dev, sizeof(struct bcl_device),
 			GFP_KERNEL);
@@ -1025,15 +1027,21 @@ static int bcl_probe(struct platform_device *pdev)
 		pr_debug("Could not read calibration values. err:%d", ret);
 		goto bcl_probe_exit;
 	}
-	bcl_psy.name = bcl_psy_name;
-	bcl_psy.type = POWER_SUPPLY_TYPE_BMS;
-	bcl_psy.get_property     = bcl_psy_get_property;
-	bcl_psy.set_property     = bcl_psy_set_property;
-	bcl_psy.num_properties   = 0;
-	bcl_psy.external_power_changed = power_supply_callback;
-	ret = power_supply_register(&pdev->dev, &bcl_psy);
-	if (ret < 0) {
-		pr_err("Unable to register bcl_psy rc = %d\n", ret);
+	bcl_psy_d.name = bcl_psy_name;
+	bcl_psy_d.type = POWER_SUPPLY_TYPE_BMS;
+	bcl_psy_d.get_property = bcl_psy_get_property;
+	bcl_psy_d.set_property = bcl_psy_set_property;
+	bcl_psy_d.num_properties = 0;
+	bcl_psy_d.external_power_changed = power_supply_callback;
+
+	bcl_psy_cfg.num_supplicants = 0;
+	bcl_psy_cfg.drv_data = bcl_perph;
+
+	bcl_psy = devm_power_supply_register(&pdev->dev, &bcl_psy_d,
+			&bcl_psy_cfg);
+	if (IS_ERR(bcl_psy)) {
+		pr_err("Unable to register bcl_psy rc = %ld\n",
+		PTR_ERR(bcl_psy));
 		return ret;
 	}
 
