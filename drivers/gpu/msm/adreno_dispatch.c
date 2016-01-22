@@ -1178,6 +1178,8 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 
 	spin_unlock(&drawctxt->lock);
 
+	kgsl_pwrctrl_update_l2pc(&adreno_dev->dev);
+
 	/* Add the context to the dispatcher pending list */
 	dispatcher_queue_context(adreno_dev, drawctxt);
 
