@@ -726,6 +726,7 @@
 		qcom,phy-dvdd-always-on;
 		qcom,boost-sysclk-with-streaming;
 		qcom,axi-prefetch-enable;
+		qcom,enable-sdp-typec-current-limit;
 		qcom,hsusb-otg-delay-lpm;
 
 		qcom,msm-bus,name = "usb2";
