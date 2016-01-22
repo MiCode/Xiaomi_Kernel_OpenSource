@@ -2252,6 +2252,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpuobj_import *param = data;
 	struct kgsl_mem_entry *entry;
 	int ret, fd = -1;
+	struct kgsl_mmu *mmu = &dev_priv->device->mmu;
 
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
@@ -2265,6 +2266,9 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMFLAGS_FORCE_32BIT;
 
 	entry->memdesc.flags = param->flags;
+
+	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE))
+		entry->memdesc.priv |= KGSL_MEMDESC_GUARD_PAGE;
 
 	if (param->type == KGSL_USER_MEM_TYPE_ADDR)
 		ret = _gpuobj_map_useraddr(dev_priv->device, private->pagetable,
