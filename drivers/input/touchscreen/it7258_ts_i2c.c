@@ -1,7 +1,7 @@
 /* drivers/input/touchscreen/it7258_ts_i2c.c
  *
  * Copyright (C) 2014 ITE Tech. Inc.
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -627,7 +627,7 @@ static ssize_t sysfs_fw_upgrade_store(struct device *dev,
 	}
 
 	ret = kstrtoint(buf, 10, &mode);
-	if (!ret) {
+	if (ret) {
 		dev_err(dev, "failed to read input for sysfs\n");
 		return -EINVAL;
 	}
@@ -660,7 +660,7 @@ static ssize_t sysfs_cfg_upgrade_store(struct device *dev,
 	}
 
 	ret = kstrtoint(buf, 10, &mode);
-	if (!ret) {
+	if (ret) {
 		dev_err(dev, "failed to read input for sysfs\n");
 		return -EINVAL;
 	}
@@ -707,7 +707,7 @@ static ssize_t sysfs_force_fw_upgrade_store(struct device *dev,
 	}
 
 	ret = kstrtoint(buf, 10, &mode);
-	if (!ret) {
+	if (ret) {
 		dev_err(dev, "failed to read input for sysfs\n");
 		return -EINVAL;
 	}
@@ -740,7 +740,7 @@ static ssize_t sysfs_force_cfg_upgrade_store(struct device *dev,
 	}
 
 	ret = kstrtoint(buf, 10, &mode);
-	if (!ret) {
+	if (ret) {
 		dev_err(dev, "failed to read input for sysfs\n");
 		return -EINVAL;
 	}
@@ -1598,9 +1598,6 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	gl_ts->client = client;
 	i2c_set_clientdata(client, gl_ts);
 
-	if (client->dev.platform_data == NULL)
-		return -ENODEV;
-
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
@@ -1613,8 +1610,10 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		pdata = client->dev.platform_data;
 	}
 
-	if (!pdata)
+	if (!pdata) {
+		dev_err(&client->dev, "No platform data found\n");
 		return -ENOMEM;
+	}
 
 	gl_ts->pdata = pdata;
 
