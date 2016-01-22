@@ -11,7 +11,7 @@
  */
 #define pr_fmt(fmt) "SMBCHG: %s: " fmt, __func__
 
-#include <linux/spmi.h>
+#include <linux/regmap.h>
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
 #include <linux/errno.h>
@@ -23,11 +23,13 @@
 #include <linux/power_supply.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/bitops.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
@@ -94,7 +96,8 @@ struct smbchg_version_tables {
 
 struct smbchg_chip {
 	struct device			*dev;
-	struct spmi_device		*spmi;
+	struct platform_device		*pdev;
+	struct regmap			*regmap;
 	int				schg_version;
 
 	/* peripheral register address bases */
@@ -493,52 +496,21 @@ static int smbchg_read(struct smbchg_chip *chip, u8 *val,
 			u16 addr, int count)
 {
 	int rc = 0;
-	struct spmi_device *spmi = chip->spmi;
+	struct platform_device *pdev = chip->pdev;
 
 	if (addr == 0) {
 		dev_err(chip->dev, "addr cannot be zero addr=0x%02x sid=0x%02x rc=%d\n",
-			addr, spmi->sid, rc);
+			addr, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return -EINVAL;
 	}
 
-	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, addr, val, count);
+	rc = regmap_bulk_read(chip->regmap, addr, val, count);
 	if (rc) {
 		dev_err(chip->dev, "spmi read failed addr=0x%02x sid=0x%02x rc=%d\n",
-				addr, spmi->sid, rc);
+				addr, to_spmi_device(pdev->dev.parent)->usid,
+			rc);
 		return rc;
 	}
-	return 0;
-}
-
-/*
- * Writes an arbitrary number of bytes to a specified register
- *
- * Do not use this function for register writes if possible. Instead use the
- * smbchg_masked_write function.
- *
- * The sec_access_lock must be held for all register writes and this function
- * does not do that. If this function is used, please hold the spinlock or
- * random secure access writes may fail.
- */
-static int smbchg_write(struct smbchg_chip *chip, u8 *val,
-			u16 addr, int count)
-{
-	int rc = 0;
-	struct spmi_device *spmi = chip->spmi;
-
-	if (addr == 0) {
-		dev_err(chip->dev, "addr cannot be zero addr=0x%02x sid=0x%02x rc=%d\n",
-			addr, spmi->sid, rc);
-		return -EINVAL;
-	}
-
-	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, addr, val, count);
-	if (rc) {
-		dev_err(chip->dev, "write failed addr=0x%02x sid=0x%02x rc=%d\n",
-			addr, spmi->sid, rc);
-		return rc;
-	}
-
 	return 0;
 }
 
@@ -556,21 +528,8 @@ static int smbchg_masked_write_raw(struct smbchg_chip *chip, u16 base, u8 mask,
 									u8 val)
 {
 	int rc;
-	u8 reg;
 
-	rc = smbchg_read(chip, &reg, base, 1);
-	if (rc) {
-		dev_err(chip->dev, "spmi read failed: addr=%03X, rc=%d\n",
-				base, rc);
-		return rc;
-	}
-
-	reg &= ~mask;
-	reg |= val & mask;
-
-	pr_smb(PR_REGISTER, "addr = 0x%x writing 0x%x\n", base, reg);
-
-	rc = smbchg_write(chip, &reg, base, 1);
+	rc = regmap_update_bits(chip->regmap, base, mask, val);
 	if (rc) {
 		dev_err(chip->dev, "spmi write failed: addr=%03X, rc=%d\n",
 				base, rc);
@@ -3428,7 +3387,7 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 {
 	int rc = 0, max_voltage_uv = 0, fastchg_ma = 0, ret = 0, iterm_ua = 0;
 	struct device_node *batt_node, *profile_node;
-	struct device_node *node = chip->spmi->dev.of_node;
+	struct device_node *node = chip->pdev->dev.of_node;
 	union power_supply_propval prop = {0,};
 
 	rc = chip->bms_psy->get_property(chip->bms_psy,
@@ -3508,7 +3467,7 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 	 * Only configure from profile if fastchg-ma is not defined in the
 	 * charger device node.
 	 */
-	if (!of_find_property(chip->spmi->dev.of_node,
+	if (!of_find_property(chip->pdev->dev.of_node,
 				"qcom,fastchg-current-ma", NULL)) {
 		rc = of_property_read_u32(profile_node,
 				"qcom,fastchg-current-ma", &fastchg_ma);
@@ -7044,7 +7003,7 @@ do {									\
 	if (optional)							\
 		prop = -EINVAL;						\
 									\
-	retval = of_property_read_u32(chip->spmi->dev.of_node,		\
+	retval = of_property_read_u32(chip->pdev->dev.of_node,		\
 					"qcom," dt_property	,	\
 					&prop);				\
 									\
@@ -7213,11 +7172,9 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	/*
 	 * use the dt values if they exist, otherwise do not touch the params
 	 */
-	of_property_read_u32(chip->spmi->dev.of_node,
-					"qcom,parallel-main-chg-fcc-percent",
+	of_property_read_u32(node, "qcom,parallel-main-chg-fcc-percent",
 					&smbchg_main_chg_fcc_percent);
-	of_property_read_u32(chip->spmi->dev.of_node,
-					"qcom,parallel-main-chg-icl-percent",
+	of_property_read_u32(node, "qcom,parallel-main-chg-icl-percent",
 					&smbchg_main_chg_icl_percent);
 	pr_smb(PR_STATUS, "parallel usb thr: %d, 9v thr: %d\n",
 			chip->parallel.min_current_thr_ma,
@@ -7254,7 +7211,7 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 				"qcom,skip-usb-suspend-for-fake-battery");
 
 	/* parse the battery missing detection pin source */
-	rc = of_property_read_string(chip->spmi->dev.of_node,
+	rc = of_property_read_string(chip->pdev->dev.of_node,
 		"qcom,bmd-pin-src", &bpd);
 	if (rc) {
 		/* Select BAT_THM as default BPD scheme */
@@ -7360,50 +7317,52 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 #define SMBCHG_LITE_USB_CHGPTH_SUBTYPE	0x54
 #define SMBCHG_LITE_DC_CHGPTH_SUBTYPE	0x55
 #define SMBCHG_LITE_MISC_SUBTYPE	0x57
-#define REQUEST_IRQ(chip, resource, irq_num, irq_name, irq_handler, flags, rc)\
-do {									\
-	irq_num = spmi_get_irq_byname(chip->spmi,			\
-					resource, irq_name);		\
-	if (irq_num < 0) {						\
-		dev_err(chip->dev, "Unable to get " irq_name " irq\n");	\
-		return -ENXIO;						\
-	}								\
-	rc = devm_request_threaded_irq(chip->dev,			\
-			irq_num, NULL, irq_handler, flags, irq_name,	\
-			chip);						\
-	if (rc < 0) {							\
-		dev_err(chip->dev, "Unable to request " irq_name " irq: %d\n",\
-				rc);					\
-		return -ENXIO;						\
-	}								\
-} while (0)
+static int smbchg_request_irq(struct smbchg_chip *chip,
+				struct device_node *child,
+				int irq_num, char *irq_name,
+				irqreturn_t (irq_handler)(int irq, void *_chip),
+				int flags)
+{
+	int rc;
+
+	irq_num = of_irq_get_byname(child, irq_name);
+	if (irq_num < 0) {
+		dev_err(chip->dev, "Unable to get %s irqn", irq_name);
+		rc = -ENXIO;
+	}
+	rc = devm_request_threaded_irq(chip->dev,
+			irq_num, NULL, irq_handler, flags, irq_name,
+			chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Unable to request %s irq: %dn",
+				irq_name, rc);
+		rc = -ENXIO;
+	}
+	return 0;
+}
 
 static int smbchg_request_irqs(struct smbchg_chip *chip)
 {
 	int rc = 0;
-	struct resource *resource;
-	struct spmi_resource *spmi_resource;
+	unsigned int base;
+	struct device_node *child;
 	u8 subtype;
-	struct spmi_device *spmi = chip->spmi;
 	unsigned long flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
 							| IRQF_ONESHOT;
 
-	spmi_for_each_container_dev(spmi_resource, chip->spmi) {
-		if (!spmi_resource) {
-				dev_err(chip->dev, "spmi resource absent\n");
-			return rc;
+	if (of_get_available_child_count(chip->pdev->dev.of_node) == 0) {
+		pr_err("no child nodes\n");
+		return -ENXIO;
+	}
+
+	for_each_available_child_of_node(chip->pdev->dev.of_node, child) {
+		rc = of_property_read_u32(child, "reg", &base);
+		if (rc < 0) {
+			rc = 0;
+			continue;
 		}
 
-		resource = spmi_get_resource(spmi, spmi_resource,
-						IORESOURCE_MEM, 0);
-		if (!(resource && resource->start)) {
-			dev_err(chip->dev, "node %s IO resource absent!\n",
-				spmi->dev.of_node->full_name);
-			return rc;
-		}
-
-		rc = smbchg_read(chip, &subtype,
-				resource->start + SUBTYPE_REG, 1);
+		rc = smbchg_read(chip, &subtype, base + SUBTYPE_REG, 1);
 		if (rc) {
 			dev_err(chip->dev, "Peripheral subtype read failed rc=%d\n",
 					rc);
@@ -7413,37 +7372,66 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 		switch (subtype) {
 		case SMBCHG_CHGR_SUBTYPE:
 		case SMBCHG_LITE_CHGR_SUBTYPE:
-			REQUEST_IRQ(chip, spmi_resource, chip->chg_error_irq,
-				"chg-error", chg_error_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->taper_irq,
+			rc = smbchg_request_irq(chip, child,
+				chip->chg_error_irq, "chg-error",
+				chg_error_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child, chip->taper_irq,
 				"chg-taper-thr", taper_handler,
-				(IRQF_TRIGGER_RISING | IRQF_ONESHOT), rc);
+				(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+			if (rc < 0)
+				return rc;
 			disable_irq_nosync(chip->taper_irq);
-			REQUEST_IRQ(chip, spmi_resource, chip->chg_term_irq,
+			rc = smbchg_request_irq(chip, child, chip->chg_term_irq,
 				"chg-tcc-thr", chg_term_handler,
-				(IRQF_TRIGGER_RISING | IRQF_ONESHOT), rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->recharge_irq,
-				"chg-rechg-thr", recharge_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->fastchg_irq,
-				"chg-p2f-thr", fastchg_handler, flags, rc);
+				(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child, chip->recharge_irq,
+				"chg-rechg-thr", recharge_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child, chip->fastchg_irq,
+				"chg-p2f-thr", fastchg_handler, flags);
+			if (rc < 0)
+				return rc;
 			enable_irq_wake(chip->chg_term_irq);
 			enable_irq_wake(chip->chg_error_irq);
 			enable_irq_wake(chip->fastchg_irq);
 			break;
 		case SMBCHG_BAT_IF_SUBTYPE:
 		case SMBCHG_LITE_BAT_IF_SUBTYPE:
-			REQUEST_IRQ(chip, spmi_resource, chip->batt_hot_irq,
-				"batt-hot", batt_hot_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->batt_warm_irq,
-				"batt-warm", batt_warm_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->batt_cool_irq,
-				"batt-cool", batt_cool_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->batt_cold_irq,
-				"batt-cold", batt_cold_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->batt_missing_irq,
-				"batt-missing", batt_pres_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->vbat_low_irq,
-				"batt-low", vbat_low_handler, flags, rc);
+			rc = smbchg_request_irq(chip, child, chip->batt_hot_irq,
+				"batt-hot", batt_hot_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
+				chip->batt_warm_irq,
+				"batt-warm", batt_warm_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
+				chip->batt_cool_irq,
+				"batt-cool", batt_cool_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
+				chip->batt_cold_irq,
+				"batt-cold", batt_cold_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
+				chip->batt_missing_irq,
+				"batt-missing", batt_pres_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
+				chip->vbat_low_irq,
+				"batt-low", vbat_low_handler, flags);
+			if (rc < 0)
+				return rc;
+		
 			enable_irq_wake(chip->batt_hot_irq);
 			enable_irq_wake(chip->batt_warm_irq);
 			enable_irq_wake(chip->batt_cool_irq);
@@ -7453,33 +7441,49 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			break;
 		case SMBCHG_USB_CHGPTH_SUBTYPE:
 		case SMBCHG_LITE_USB_CHGPTH_SUBTYPE:
-			REQUEST_IRQ(chip, spmi_resource, chip->usbin_uv_irq,
+			rc = smbchg_request_irq(chip, child,
+				chip->usbin_uv_irq,
 				"usbin-uv", usbin_uv_handler,
-				flags | IRQF_EARLY_RESUME, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->usbin_ov_irq,
-				"usbin-ov", usbin_ov_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->src_detect_irq,
+				flags | IRQF_EARLY_RESUME);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
+				chip->usbin_ov_irq,
+				"usbin-ov", usbin_ov_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
+				chip->src_detect_irq,
 				"usbin-src-det",
-				src_detect_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->aicl_done_irq,
+				src_detect_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
+				chip->aicl_done_irq,
 				"aicl-done",
 				aicl_done_handler,
-				(IRQF_TRIGGER_RISING | IRQF_ONESHOT),
-				rc);
+				(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+			if (rc < 0)
+				return rc;
+
 			if (chip->schg_version != QPNP_SCHG_LITE) {
-				REQUEST_IRQ(chip, spmi_resource,
+				rc = smbchg_request_irq(chip, child,
 					chip->otg_fail_irq, "otg-fail",
-					otg_fail_handler, flags, rc);
-				REQUEST_IRQ(chip, spmi_resource,
+					otg_fail_handler, flags);
+				if (rc < 0)
+					return rc;
+				rc = smbchg_request_irq(chip, child,
 					chip->otg_oc_irq, "otg-oc",
 					otg_oc_handler,
-					(IRQF_TRIGGER_RISING | IRQF_ONESHOT),
-					rc);
-				REQUEST_IRQ(chip, spmi_resource,
+					(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+				if (rc < 0)
+					return rc;
+				rc = smbchg_request_irq(chip, child,
 					chip->usbid_change_irq, "usbid-change",
 					usbid_change_handler,
-					(IRQF_TRIGGER_FALLING | IRQF_ONESHOT),
-					rc);
+					(IRQF_TRIGGER_FALLING | IRQF_ONESHOT));
+				if (rc < 0)
+					return rc;
 				enable_irq_wake(chip->otg_oc_irq);
 				enable_irq_wake(chip->usbid_change_irq);
 				enable_irq_wake(chip->otg_fail_irq);
@@ -7494,38 +7498,50 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			break;
 		case SMBCHG_DC_CHGPTH_SUBTYPE:
 		case SMBCHG_LITE_DC_CHGPTH_SUBTYPE:
-			REQUEST_IRQ(chip, spmi_resource, chip->dcin_uv_irq,
-				"dcin-uv", dcin_uv_handler, flags, rc);
+			rc = smbchg_request_irq(chip, child, chip->dcin_uv_irq,
+				"dcin-uv", dcin_uv_handler, flags);
+			if (rc < 0)
+				return rc;
 			enable_irq_wake(chip->dcin_uv_irq);
 			break;
 		case SMBCHG_MISC_SUBTYPE:
 		case SMBCHG_LITE_MISC_SUBTYPE:
-			REQUEST_IRQ(chip, spmi_resource, chip->power_ok_irq,
-				"power-ok", power_ok_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->chg_hot_irq,
-				"temp-shutdown", chg_hot_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource,
-				chip->wdog_timeout_irq,
+			rc = smbchg_request_irq(chip, child, chip->power_ok_irq,
+				"power-ok", power_ok_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child, chip->chg_hot_irq,
+				"temp-shutdown", chg_hot_handler, flags);
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child, chip->wdog_timeout_irq,
 				"wdog-timeout",
-				wdog_timeout_handler, flags, rc);
+				wdog_timeout_handler, flags);
+			if (rc < 0)
+				return rc;
 			enable_irq_wake(chip->chg_hot_irq);
 			enable_irq_wake(chip->wdog_timeout_irq);
 			break;
 		case SMBCHG_OTG_SUBTYPE:
 			break;
 		case SMBCHG_LITE_OTG_SUBTYPE:
-			REQUEST_IRQ(chip, spmi_resource,
+			rc = smbchg_request_irq(chip, child,
 				chip->usbid_change_irq, "usbid-change",
 				usbid_change_handler,
-				(IRQF_TRIGGER_FALLING | IRQF_ONESHOT),
-				rc);
-			REQUEST_IRQ(chip, spmi_resource,
+				(IRQF_TRIGGER_FALLING | IRQF_ONESHOT));
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
 				chip->otg_oc_irq, "otg-oc",
 				otg_oc_handler,
-				(IRQF_TRIGGER_RISING | IRQF_ONESHOT), rc);
-			REQUEST_IRQ(chip, spmi_resource,
+				(IRQF_TRIGGER_RISING | IRQF_ONESHOT));
+			if (rc < 0)
+				return rc;
+			rc = smbchg_request_irq(chip, child,
 				chip->otg_fail_irq, "otg-fail",
-				otg_fail_handler, flags, rc);
+				otg_fail_handler, flags);
+			if (rc < 0)
+				return rc;
 			enable_irq_wake(chip->usbid_change_irq);
 			enable_irq_wake(chip->otg_oc_irq);
 			enable_irq_wake(chip->otg_fail_irq);
@@ -7547,27 +7563,23 @@ do {									\
 static int smbchg_parse_peripherals(struct smbchg_chip *chip)
 {
 	int rc = 0;
-	struct resource *resource;
-	struct spmi_resource *spmi_resource;
+	unsigned int base;
+	struct device_node *child;
 	u8 subtype;
-	struct spmi_device *spmi = chip->spmi;
 
-	spmi_for_each_container_dev(spmi_resource, chip->spmi) {
-		if (!spmi_resource) {
-				dev_err(chip->dev, "spmi resource absent\n");
-			return rc;
+	if (of_get_available_child_count(chip->pdev->dev.of_node) == 0) {
+		pr_err("no child nodes\n");
+		return -ENXIO;
+	}
+
+	for_each_available_child_of_node(chip->pdev->dev.of_node, child) {
+		rc = of_property_read_u32(child, "reg", &base);
+		if (rc < 0) {
+			rc = 0;
+			continue;
 		}
 
-		resource = spmi_get_resource(spmi, spmi_resource,
-						IORESOURCE_MEM, 0);
-		if (!(resource && resource->start)) {
-			dev_err(chip->dev, "node %s IO resource absent!\n",
-				spmi->dev.of_node->full_name);
-			return rc;
-		}
-
-		rc = smbchg_read(chip, &subtype,
-				resource->start + SUBTYPE_REG, 1);
+		rc = smbchg_read(chip, &subtype, base + SUBTYPE_REG, 1);
 		if (rc) {
 			dev_err(chip->dev, "Peripheral subtype read failed rc=%d\n",
 					rc);
@@ -7577,27 +7589,27 @@ static int smbchg_parse_peripherals(struct smbchg_chip *chip)
 		switch (subtype) {
 		case SMBCHG_CHGR_SUBTYPE:
 		case SMBCHG_LITE_CHGR_SUBTYPE:
-			chip->chgr_base = resource->start;
+			chip->chgr_base = base;
 			break;
 		case SMBCHG_BAT_IF_SUBTYPE:
 		case SMBCHG_LITE_BAT_IF_SUBTYPE:
-			chip->bat_if_base = resource->start;
+			chip->bat_if_base = base;
 			break;
 		case SMBCHG_USB_CHGPTH_SUBTYPE:
 		case SMBCHG_LITE_USB_CHGPTH_SUBTYPE:
-			chip->usb_chgpth_base = resource->start;
+			chip->usb_chgpth_base = base;
 			break;
 		case SMBCHG_DC_CHGPTH_SUBTYPE:
 		case SMBCHG_LITE_DC_CHGPTH_SUBTYPE:
-			chip->dc_chgpth_base = resource->start;
+			chip->dc_chgpth_base = base;
 			break;
 		case SMBCHG_MISC_SUBTYPE:
 		case SMBCHG_LITE_MISC_SUBTYPE:
-			chip->misc_base = resource->start;
+			chip->misc_base = base;
 			break;
 		case SMBCHG_OTG_SUBTYPE:
 		case SMBCHG_LITE_OTG_SUBTYPE:
-			chip->otg_base = resource->start;
+			chip->otg_base = base;
 			break;
 		}
 	}
@@ -7680,7 +7692,7 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 	struct device_node *revid_dev_node;
 	int rc;
 
-	revid_dev_node = of_parse_phandle(chip->spmi->dev.of_node,
+	revid_dev_node = of_parse_phandle(chip->pdev->dev.of_node,
 					"qcom,pmic-revid", 0);
 	if (!revid_dev_node) {
 		pr_err("Missing qcom,pmic-revid property - driver failed\n");
@@ -7786,7 +7798,7 @@ static void rerun_hvdcp_det_if_necessary(struct smbchg_chip *chip)
 	}
 }
 
-static int smbchg_probe(struct spmi_device *spmi)
+static int smbchg_probe(struct platform_device *pdev)
 {
 	int rc;
 	struct smbchg_chip *chip;
@@ -7800,9 +7812,9 @@ static int smbchg_probe(struct spmi_device *spmi)
 		return -EPROBE_DEFER;
 	}
 
-	if (of_property_read_bool(spmi->dev.of_node, "qcom,external-typec")) {
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,external-typec")) {
 		/* read the type power supply name */
-		rc = of_property_read_string(spmi->dev.of_node,
+		rc = of_property_read_string(pdev->dev.of_node,
 				"qcom,typec-psy-name", &typec_psy_name);
 		if (rc) {
 			pr_err("failed to get prop typec-psy-name rc=%d\n",
@@ -7818,91 +7830,97 @@ static int smbchg_probe(struct spmi_device *spmi)
 		}
 	}
 
-	if (of_find_property(spmi->dev.of_node, "qcom,dcin-vadc", NULL)) {
-		vadc_dev = qpnp_get_vadc(&spmi->dev, "dcin");
+	if (of_find_property(pdev->dev.of_node, "qcom,dcin-vadc", NULL)) {
+		vadc_dev = qpnp_get_vadc(&pdev->dev, "dcin");
 		if (IS_ERR(vadc_dev)) {
 			rc = PTR_ERR(vadc_dev);
 			if (rc != -EPROBE_DEFER)
-				dev_err(&spmi->dev, "Couldn't get vadc rc=%d\n",
+				dev_err(&pdev->dev,
+					"Couldn't get vadc rc=%d\n",
 						rc);
 			return rc;
 		}
 	}
 
-	if (of_find_property(spmi->dev.of_node, "qcom,vchg_sns-vadc", NULL)) {
-		vchg_vadc_dev = qpnp_get_vadc(&spmi->dev, "vchg_sns");
+	if (of_find_property(pdev->dev.of_node, "qcom,vchg_sns-vadc", NULL)) {
+		vchg_vadc_dev = qpnp_get_vadc(&pdev->dev, "vchg_sns");
 		if (IS_ERR(vchg_vadc_dev)) {
 			rc = PTR_ERR(vchg_vadc_dev);
 			if (rc != -EPROBE_DEFER)
-				dev_err(&spmi->dev, "Couldn't get vadc 'vchg' rc=%d\n",
+				dev_err(&pdev->dev, "Couldn't get vadc 'vchg' rc=%d\n",
 						rc);
 			return rc;
 		}
 	}
 
-	chip = devm_kzalloc(&spmi->dev, sizeof(*chip), GFP_KERNEL);
-	if (!chip) {
-		dev_err(&spmi->dev, "Unable to allocate memory\n");
+
+	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
+	if (!chip)
 		return -ENOMEM;
+
+	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!chip->regmap) {
+		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+		return -EINVAL;
 	}
 
-	chip->fcc_votable = create_votable(&spmi->dev,
+	chip->fcc_votable = create_votable(&pdev->dev,
 			"SMBCHG: fcc",
 			VOTE_MIN, NUM_FCC_VOTER, 2000,
 			set_fastchg_current_vote_cb);
 	if (IS_ERR(chip->fcc_votable))
 		return PTR_ERR(chip->fcc_votable);
 
-	chip->usb_icl_votable = create_votable(&spmi->dev,
+	chip->usb_icl_votable = create_votable(&pdev->dev,
 			"SMBCHG: usb_icl",
 			VOTE_MIN, NUM_ICL_VOTER, 3000,
 			set_usb_current_limit_vote_cb);
 	if (IS_ERR(chip->usb_icl_votable))
 		return PTR_ERR(chip->usb_icl_votable);
 
-	chip->dc_icl_votable = create_votable(&spmi->dev,
+	chip->dc_icl_votable = create_votable(&pdev->dev,
 			"SMBCHG: dcl_icl",
 			VOTE_MIN, NUM_ICL_VOTER, 3000,
 			set_dc_current_limit_vote_cb);
 	if (IS_ERR(chip->dc_icl_votable))
 		return PTR_ERR(chip->dc_icl_votable);
 
-	chip->usb_suspend_votable = create_votable(&spmi->dev,
+	chip->usb_suspend_votable = create_votable(&pdev->dev,
 			"SMBCHG: usb_suspend",
 			VOTE_SET_ANY, NUM_EN_VOTERS, 0,
 			usb_suspend_vote_cb);
 	if (IS_ERR(chip->usb_suspend_votable))
 		return PTR_ERR(chip->usb_suspend_votable);
 
-	chip->dc_suspend_votable = create_votable(&spmi->dev,
+	chip->dc_suspend_votable = create_votable(&pdev->dev,
 			"SMBCHG: dc_suspend",
 			VOTE_SET_ANY, NUM_EN_VOTERS, 0,
 			dc_suspend_vote_cb);
 	if (IS_ERR(chip->dc_suspend_votable))
 		return PTR_ERR(chip->dc_suspend_votable);
 
-	chip->battchg_suspend_votable = create_votable(&spmi->dev,
+	chip->battchg_suspend_votable = create_votable(&pdev->dev,
 			"SMBCHG: battchg_suspend",
 			VOTE_SET_ANY, NUM_BATTCHG_EN_VOTERS, 0,
 			charging_suspend_vote_cb);
 	if (IS_ERR(chip->battchg_suspend_votable))
 		return PTR_ERR(chip->battchg_suspend_votable);
 
-	chip->hw_aicl_rerun_disable_votable = create_votable(&spmi->dev,
+	chip->hw_aicl_rerun_disable_votable = create_votable(&pdev->dev,
 			"SMBCHG: hwaicl_disable",
 			VOTE_SET_ANY, NUM_HW_AICL_DISABLE_VOTERS, 0,
 			smbchg_hw_aicl_rerun_disable_cb);
 	if (IS_ERR(chip->hw_aicl_rerun_disable_votable))
 		return PTR_ERR(chip->hw_aicl_rerun_disable_votable);
 
-	chip->hw_aicl_rerun_enable_indirect_votable = create_votable(&spmi->dev,
+	chip->hw_aicl_rerun_enable_indirect_votable = create_votable(&pdev->dev,
 			"SMBCHG: hwaicl_enable_indirect",
 			VOTE_SET_ANY, NUM_HW_AICL_RERUN_ENABLE_INDIRECT_VOTERS,
 			0, smbchg_hw_aicl_rerun_enable_indirect_cb);
 	if (IS_ERR(chip->hw_aicl_rerun_enable_indirect_votable))
 		return PTR_ERR(chip->hw_aicl_rerun_enable_indirect_votable);
 
-	chip->aicl_deglitch_short_votable = create_votable(&spmi->dev,
+	chip->aicl_deglitch_short_votable = create_votable(&pdev->dev,
 			"SMBCHG: hwaicl_short_deglitch",
 			VOTE_SET_ANY, NUM_HW_SHORT_DEGLITCH_VOTERS, 0,
 			smbchg_aicl_deglitch_config_cb);
@@ -7920,13 +7938,14 @@ static int smbchg_probe(struct spmi_device *spmi)
 	init_completion(&chip->usbin_uv_raised);
 	chip->vadc_dev = vadc_dev;
 	chip->vchg_vadc_dev = vchg_vadc_dev;
-	chip->spmi = spmi;
-	chip->dev = &spmi->dev;
+	chip->pdev = pdev;
+	chip->dev = &pdev->dev;
+
 	chip->usb_psy = usb_psy;
 	chip->typec_psy = typec_psy;
 	chip->fake_battery_soc = -EINVAL;
 	chip->usb_online = -EINVAL;
-	dev_set_drvdata(&spmi->dev, chip);
+	dev_set_drvdata(&pdev->dev, chip);
 
 	spin_lock_init(&chip->sec_access_lock);
 	mutex_init(&chip->therm_lvl_lock);
@@ -7952,27 +7971,27 @@ static int smbchg_probe(struct spmi_device *spmi)
 
 	rc = smb_parse_dt(chip);
 	if (rc < 0) {
-		dev_err(&spmi->dev, "Unable to parse DT nodes: %d\n", rc);
+		dev_err(&pdev->dev, "Unable to parse DT nodes: %d\n", rc);
 		return rc;
 	}
 
 	rc = smbchg_regulator_init(chip);
 	if (rc) {
-		dev_err(&spmi->dev,
+		dev_err(&pdev->dev,
 			"Couldn't initialize regulator rc=%d\n", rc);
 		return rc;
 	}
 
 	rc = smbchg_hw_init(chip);
 	if (rc < 0) {
-		dev_err(&spmi->dev,
+		dev_err(&pdev->dev,
 			"Unable to intialize hardware rc = %d\n", rc);
 		goto out;
 	}
 
 	rc = determine_initial_status(chip);
 	if (rc < 0) {
-		dev_err(&spmi->dev,
+		dev_err(&pdev->dev,
 			"Unable to determine init status rc = %d\n", rc);
 		goto out;
 	}
@@ -7989,7 +8008,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 
 	rc = power_supply_register(chip->dev, &chip->batt_psy);
 	if (rc < 0) {
-		dev_err(&spmi->dev,
+		dev_err(&pdev->dev,
 			"Unable to register batt_psy rc = %d\n", rc);
 		goto out;
 	}
@@ -8006,7 +8025,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 			= ARRAY_SIZE(smbchg_dc_supplicants);
 		rc = power_supply_register(chip->dev, &chip->dc_psy);
 		if (rc < 0) {
-			dev_err(&spmi->dev,
+			dev_err(&pdev->dev,
 				"Unable to register dc_psy rc = %d\n", rc);
 			goto unregister_batt_psy;
 		}
@@ -8034,7 +8053,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 
 	rc = smbchg_request_irqs(chip);
 	if (rc < 0) {
-		dev_err(&spmi->dev, "Unable to request irqs rc = %d\n", rc);
+		dev_err(&pdev->dev, "Unable to request irqs rc = %d\n", rc);
 		goto unregister_led_class;
 	}
 
@@ -8069,9 +8088,9 @@ out:
 	return rc;
 }
 
-static int smbchg_remove(struct spmi_device *spmi)
+static int smbchg_remove(struct platform_device *pdev)
 {
-	struct smbchg_chip *chip = dev_get_drvdata(&spmi->dev);
+	struct smbchg_chip *chip = dev_get_drvdata(&pdev->dev);
 
 	debugfs_remove_recursive(chip->debug_root);
 
@@ -8083,9 +8102,9 @@ static int smbchg_remove(struct spmi_device *spmi)
 	return 0;
 }
 
-static void smbchg_shutdown(struct spmi_device *spmi)
+static void smbchg_shutdown(struct platform_device *pdev)
 {
-	struct smbchg_chip *chip = dev_get_drvdata(&spmi->dev);
+	struct smbchg_chip *chip = dev_get_drvdata(&pdev->dev);
 	int i, rc;
 
 	if (!(chip->wa_flags & SMBCHG_RESTART_WA))
@@ -8191,7 +8210,7 @@ static const struct dev_pm_ops smbchg_pm_ops = {
 
 MODULE_DEVICE_TABLE(spmi, smbchg_id);
 
-static struct spmi_driver smbchg_driver = {
+static struct platform_driver smbchg_driver = {
 	.driver		= {
 		.name		= "qpnp-smbcharger",
 		.owner		= THIS_MODULE,
@@ -8205,12 +8224,12 @@ static struct spmi_driver smbchg_driver = {
 
 static int __init smbchg_init(void)
 {
-	return spmi_driver_register(&smbchg_driver);
+	return platform_driver_register(&smbchg_driver);
 }
 
 static void __exit smbchg_exit(void)
 {
-	return spmi_driver_unregister(&smbchg_driver);
+	return platform_driver_unregister(&smbchg_driver);
 }
 
 module_init(smbchg_init);

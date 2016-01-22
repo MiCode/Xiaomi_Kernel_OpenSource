@@ -15,6 +15,7 @@
 #include <linux/atomic.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
+#include <linux/regmap.h>
 #include <linux/of.h>
 #include <linux/rtc.h>
 #include <linux/err.h>
@@ -23,6 +24,7 @@
 #include <linux/uaccess.h>
 #include <linux/init.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
 #include <linux/of_irq.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
@@ -396,7 +398,8 @@ static void fg_relax(struct fg_wakeup_source *source)
 #define THERMAL_COEFF_N_BYTES		6
 struct fg_chip {
 	struct device		*dev;
-	struct spmi_device	*spmi;
+	struct platform_device	*pdev;
+	struct regmap		*regmap;
 	u8			pmic_subtype;
 	u8			pmic_revision[4];
 	u8			revision[4];
@@ -591,19 +594,19 @@ static void fill_string(char *str, size_t str_len, u8 *buf, int buf_len)
 static int fg_write(struct fg_chip *chip, u8 *val, u16 addr, int len)
 {
 	int rc = 0;
-	struct spmi_device *spmi = chip->spmi;
+	struct platform_device *pdev = chip->pdev;
 	char str[DEBUG_PRINT_BUFFER_SIZE];
 
 	if ((addr & 0xff00) == 0) {
 		pr_err("addr cannot be zero base=0x%02x sid=0x%02x rc=%d\n",
-			addr, spmi->sid, rc);
+			addr, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return -EINVAL;
 	}
 
-	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, addr, val, len);
+	rc = regmap_bulk_write(chip->regmap, addr, val, len);
 	if (rc) {
 		pr_err("write failed addr=0x%02x sid=0x%02x rc=%d\n",
-			addr, spmi->sid, rc);
+			addr, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return rc;
 	}
 
@@ -611,7 +614,8 @@ static int fg_write(struct fg_chip *chip, u8 *val, u16 addr, int len)
 		str[0] = '\0';
 		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, val, len);
 		pr_info("write(0x%04X), sid=%d, len=%d; %s\n",
-			addr, spmi->sid, len, str);
+			addr, to_spmi_device(pdev->dev.parent)->usid, len,
+			str);
 	}
 
 	return rc;
@@ -620,19 +624,19 @@ static int fg_write(struct fg_chip *chip, u8 *val, u16 addr, int len)
 static int fg_read(struct fg_chip *chip, u8 *val, u16 addr, int len)
 {
 	int rc = 0;
-	struct spmi_device *spmi = chip->spmi;
+	struct platform_device *pdev = chip->pdev;
 	char str[DEBUG_PRINT_BUFFER_SIZE];
 
 	if ((addr & 0xff00) == 0) {
 		pr_err("base cannot be zero base=0x%02x sid=0x%02x rc=%d\n",
-			addr, spmi->sid, rc);
+			addr, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return -EINVAL;
 	}
 
-	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, addr, val, len);
+	rc = regmap_bulk_read(chip->regmap, addr, val, len);
 	if (rc) {
 		pr_err("SPMI read failed base=0x%02x sid=0x%02x rc=%d\n", addr,
-				spmi->sid, rc);
+				to_spmi_device(pdev->dev.parent)->usid, rc);
 		return rc;
 	}
 
@@ -640,7 +644,8 @@ static int fg_read(struct fg_chip *chip, u8 *val, u16 addr, int len)
 		str[0] = '\0';
 		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, val, len);
 		pr_info("read(0x%04x), sid=%d, len=%d; %s\n",
-			addr, spmi->sid, len, str);
+			addr, to_spmi_device(pdev->dev.parent)->usid, len,
+			str);
 	}
 
 	return rc;
@@ -650,21 +655,8 @@ static int fg_masked_write(struct fg_chip *chip, u16 addr,
 		u8 mask, u8 val, int len)
 {
 	int rc;
-	u8 reg;
 
-	rc = fg_read(chip, &reg, addr, len);
-	if (rc) {
-		pr_err("spmi read failed: addr=%03X, rc=%d\n", addr, rc);
-		return rc;
-	}
-	pr_debug("addr = 0x%x read 0x%x\n", addr, reg);
-
-	reg &= ~mask;
-	reg |= val & mask;
-
-	pr_debug("Writing 0x%x\n", reg);
-
-	rc = fg_write(chip, &reg, addr, len);
+	rc = regmap_update_bits(chip->regmap, addr, mask, val);
 	if (rc) {
 		pr_err("spmi write failed: addr=%03X, rc=%d\n", addr, rc);
 		return rc;
@@ -4563,7 +4555,7 @@ static int fg_batt_profile_init(struct fg_chip *chip)
 {
 	int rc = 0, ret;
 	int len;
-	struct device_node *node = chip->spmi->dev.of_node;
+	struct device_node *node = chip->pdev->dev.of_node;
 	struct device_node *batt_node, *profile_node;
 	const char *data, *batt_type_str;
 	bool tried_again = false, vbat_in_range, profiles_same;
@@ -4642,7 +4634,7 @@ wait:
 	 * Only configure from profile if fg-cc-cv-threshold-mv is not
 	 * defined in the charger device node.
 	 */
-	if (!of_find_property(chip->spmi->dev.of_node,
+	if (!of_find_property(chip->pdev->dev.of_node,
 				"qcom,fg-cc-cv-threshold-mv", NULL)) {
 		of_property_read_u32(profile_node,
 				"qcom,fg-cc-cv-threshold-mv",
@@ -4757,7 +4749,7 @@ wait:
 	 * Only configure from profile if thermal-coefficients is not
 	 * defined in the FG device node.
 	 */
-	if (!of_find_property(chip->spmi->dev.of_node,
+	if (!of_find_property(chip->pdev->dev.of_node,
 				"qcom,thermal-coefficients", NULL)) {
 		data = of_get_property(profile_node,
 				"qcom,thermal-coefficients", &len);
@@ -5048,7 +5040,7 @@ do {									\
 	if (retval)							\
 		break;							\
 									\
-	retval = of_property_read_u32(chip->spmi->dev.of_node,		\
+	retval = of_property_read_u32(chip->pdev->dev.of_node,		\
 					"qcom," qpnp_dt_property,	\
 					&settings[type].value);		\
 									\
@@ -5064,7 +5056,7 @@ do {									\
 	if (retval)							\
 		break;							\
 									\
-	retval = of_property_read_u32(chip->spmi->dev.of_node,		\
+	retval = of_property_read_u32(chip->pdev->dev.of_node,		\
 					"qcom," qpnp_dt_property,	\
 					&store);			\
 									\
@@ -5082,7 +5074,7 @@ static int fg_of_init(struct fg_chip *chip)
 {
 	int rc = 0, sense_type, len = 0;
 	const char *data;
-	struct device_node *node = chip->spmi->dev.of_node;
+	struct device_node *node = chip->pdev->dev.of_node;
 	u32 temp[2] = {0};
 
 	OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
@@ -5126,7 +5118,7 @@ static int fg_of_init(struct fg_chip *chip)
 	OF_READ_SETTING(FG_MEM_TERM_CURRENT, "fg-iterm-ma", rc, 1);
 	OF_READ_SETTING(FG_MEM_CHG_TERM_CURRENT, "fg-chg-iterm-ma", rc, 1);
 	OF_READ_SETTING(FG_MEM_CUTOFF_VOLTAGE, "fg-cutoff-voltage-mv", rc, 1);
-	data = of_get_property(chip->spmi->dev.of_node,
+	data = of_get_property(chip->pdev->dev.of_node,
 			"qcom,thermal-coefficients", &len);
 	if (data && len == THERMAL_COEFF_N_BYTES) {
 		memcpy(chip->thermal_coefficients, data, len);
@@ -5159,31 +5151,30 @@ static int fg_of_init(struct fg_chip *chip)
 			DEFAULT_EVALUATION_CURRENT_MA);
 	OF_READ_PROPERTY(chip->cc_cv_threshold_mv,
 			"fg-cc-cv-threshold-mv", rc, 0);
-	if (of_property_read_bool(chip->spmi->dev.of_node,
+	if (of_property_read_bool(chip->pdev->dev.of_node,
 				"qcom,capacity-learning-on"))
 		chip->batt_aging_mode = FG_AGING_CC;
-	else if (of_property_read_bool(chip->spmi->dev.of_node,
+	else if (of_property_read_bool(chip->pdev->dev.of_node,
 				"qcom,capacity-estimation-on"))
 		chip->batt_aging_mode = FG_AGING_ESR;
 	else
 		chip->batt_aging_mode = FG_AGING_NONE;
 	if (chip->batt_aging_mode == FG_AGING_CC) {
-		chip->learning_data.feedback_on = of_property_read_bool(
-					chip->spmi->dev.of_node,
+		chip->learning_data.feedback_on
+			= of_property_read_bool(chip->pdev->dev.of_node,
 					"qcom,capacity-learning-feedback");
 	}
 	if (fg_debug_mask & FG_AGING)
 		pr_info("battery aging mode: %d\n", chip->batt_aging_mode);
 
 	/* Get the use-otp-profile property */
-	chip->use_otp_profile = of_property_read_bool(
-			chip->spmi->dev.of_node,
+	chip->use_otp_profile = of_property_read_bool(chip->pdev->dev.of_node,
 			"qcom,use-otp-profile");
-	chip->hold_soc_while_full = of_property_read_bool(
-			chip->spmi->dev.of_node,
+	chip->hold_soc_while_full
+		= of_property_read_bool(chip->pdev->dev.of_node,
 			"qcom,hold-soc-while-full");
 
-	sense_type = of_property_read_bool(chip->spmi->dev.of_node,
+	sense_type = of_property_read_bool(chip->pdev->dev.of_node,
 					"qcom,ext-sense-type");
 	if (rc == 0) {
 		if (fg_sense_type < 0)
@@ -5218,32 +5209,32 @@ static int fg_of_init(struct fg_chip *chip)
 static int fg_init_irqs(struct fg_chip *chip)
 {
 	int rc = 0;
-	struct resource *resource;
-	struct spmi_resource *spmi_resource;
+	unsigned int base;
+	struct device_node *child;
 	u8 subtype;
-	struct spmi_device *spmi = chip->spmi;
+	struct platform_device *pdev = chip->pdev;
 
-	spmi_for_each_container_dev(spmi_resource, spmi) {
-		if (!spmi_resource) {
-			pr_err("fg: spmi resource absent\n");
+	if (of_get_available_child_count(pdev->dev.of_node) == 0) {
+		pr_err("no child nodes\n");
+		return -ENXIO;
+	}
+
+	for_each_available_child_of_node(pdev->dev.of_node, child) {
+		rc = of_property_read_u32(child, "reg", &base);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Couldn't find reg in node = %s rc = %d\n",
+				child->full_name, rc);
 			return rc;
 		}
 
-		resource = spmi_get_resource(spmi, spmi_resource,
-						IORESOURCE_MEM, 0);
-		if (!(resource && resource->start)) {
-			pr_err("node %s IO resource absent!\n",
-				spmi->dev.of_node->full_name);
-			return rc;
-		}
-
-		if ((resource->start == chip->vbat_adc_addr) ||
-				(resource->start == chip->ibat_adc_addr) ||
-				(resource->start == chip->tp_rev_addr))
+		if ((base == chip->vbat_adc_addr) ||
+				(base == chip->ibat_adc_addr) ||
+				(base == chip->tp_rev_addr))
 			continue;
 
 		rc = fg_read(chip, &subtype,
-				resource->start + REG_OFFSET_PERP_SUBTYPE, 1);
+				base + REG_OFFSET_PERP_SUBTYPE, 1);
 		if (rc) {
 			pr_err("Peripheral subtype read failed rc=%d\n", rc);
 			return rc;
@@ -5251,26 +5242,26 @@ static int fg_init_irqs(struct fg_chip *chip)
 
 		switch (subtype) {
 		case FG_SOC:
-			chip->soc_irq[FULL_SOC].irq = spmi_get_irq_byname(
-					chip->spmi, spmi_resource, "full-soc");
+			chip->soc_irq[FULL_SOC].irq = of_irq_get_byname(child,
+							      "full-soc");
 			if (chip->soc_irq[FULL_SOC].irq < 0) {
 				pr_err("Unable to get full-soc irq\n");
 				return rc;
 			}
-			chip->soc_irq[EMPTY_SOC].irq = spmi_get_irq_byname(
-					chip->spmi, spmi_resource, "empty-soc");
+			chip->soc_irq[EMPTY_SOC].irq = of_irq_get_byname(child,
+							       "empty-soc");
 			if (chip->soc_irq[EMPTY_SOC].irq < 0) {
 				pr_err("Unable to get low-soc irq\n");
 				return rc;
 			}
-			chip->soc_irq[DELTA_SOC].irq = spmi_get_irq_byname(
-					chip->spmi, spmi_resource, "delta-soc");
+			chip->soc_irq[DELTA_SOC].irq = of_irq_get_byname(child,
+							       "delta-soc");
 			if (chip->soc_irq[DELTA_SOC].irq < 0) {
 				pr_err("Unable to get delta-soc irq\n");
 				return rc;
 			}
-			chip->soc_irq[FIRST_EST_DONE].irq = spmi_get_irq_byname(
-				chip->spmi, spmi_resource, "first-est-done");
+			chip->soc_irq[FIRST_EST_DONE].irq
+				= of_irq_get_byname(child, "first-est-done");
 			if (chip->soc_irq[FIRST_EST_DONE].irq < 0) {
 				pr_err("Unable to get first-est-done irq\n");
 				return rc;
@@ -5319,8 +5310,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
 			break;
 		case FG_MEMIF:
-			chip->mem_irq[FG_MEM_AVAIL].irq = spmi_get_irq_byname(
-					chip->spmi, spmi_resource, "mem-avail");
+			chip->mem_irq[FG_MEM_AVAIL].irq
+				= of_irq_get_byname(child, "mem-avail");
 			if (chip->mem_irq[FG_MEM_AVAIL].irq < 0) {
 				pr_err("Unable to get mem-avail irq\n");
 				return rc;
@@ -5338,9 +5329,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 			}
 			break;
 		case FG_BATT:
-			chip->batt_irq[BATT_MISSING].irq = spmi_get_irq_byname(
-					chip->spmi, spmi_resource,
-					"batt-missing");
+			chip->batt_irq[BATT_MISSING].irq
+				= of_irq_get_byname(child, "batt-missing");
 			if (chip->batt_irq[BATT_MISSING].irq < 0) {
 				pr_err("Unable to get batt-missing irq\n");
 				rc = -EINVAL;
@@ -5359,9 +5349,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->batt_irq[BATT_MISSING].irq, rc);
 				return rc;
 			}
-			chip->batt_irq[VBATT_LOW].irq = spmi_get_irq_byname(
-					chip->spmi, spmi_resource,
-					"vbatt-low");
+			chip->batt_irq[VBATT_LOW].irq
+				= of_irq_get_byname(child, "vbatt-low");
 			if (chip->batt_irq[VBATT_LOW].irq < 0) {
 				pr_err("Unable to get vbatt-low irq\n");
 				rc = -EINVAL;
@@ -5427,12 +5416,12 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 }
 
-static int fg_remove(struct spmi_device *spmi)
+static int fg_remove(struct platform_device *pdev)
 {
-	struct fg_chip *chip = dev_get_drvdata(&spmi->dev);
+	struct fg_chip *chip = dev_get_drvdata(&pdev->dev);
 
 	fg_cleanup(chip);
-	dev_set_drvdata(&spmi->dev, NULL);
+	dev_set_drvdata(&pdev->dev, NULL);
 	return 0;
 }
 
@@ -6176,7 +6165,7 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 	struct pmic_revid_data *pmic_rev_id;
 	struct device_node *revid_dev_node;
 
-	revid_dev_node = of_parse_phandle(chip->spmi->dev.of_node,
+	revid_dev_node = of_parse_phandle(chip->pdev->dev.of_node,
 					"qcom,pmic-revid", 0);
 	if (!revid_dev_node) {
 		pr_err("Missing qcom,pmic-revid property - driver failed\n");
@@ -6309,21 +6298,21 @@ done:
 	fg_cleanup(chip);
 }
 
-static int fg_probe(struct spmi_device *spmi)
+static int fg_probe(struct platform_device *pdev)
 {
-	struct device *dev = &(spmi->dev);
+	struct device *dev = &(pdev->dev);
 	struct fg_chip *chip;
-	struct spmi_resource *spmi_resource;
-	struct resource *resource;
+	struct device_node *child;
+	unsigned int base;
 	u8 subtype, reg;
 	int rc = 0;
 
-	if (!spmi) {
+	if (!pdev) {
 		pr_err("no valid spmi pointer\n");
 		return -ENODEV;
 	}
 
-	if (!spmi->dev.of_node) {
+	if (!pdev->dev.of_node) {
 		pr_err("device node missing\n");
 		return -ENODEV;
 	}
@@ -6333,9 +6322,14 @@ static int fg_probe(struct spmi_device *spmi)
 		pr_err("Can't allocate fg_chip\n");
 		return -ENOMEM;
 	}
+	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!chip->regmap) {
+		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+		return -EINVAL;
+	}
 
-	chip->spmi = spmi;
-	chip->dev = &(spmi->dev);
+	chip->pdev = pdev;
+	chip->dev = &(pdev->dev);
 
 	wakeup_source_init(&chip->empty_check_wakeup_source.source,
 			"qpnp_fg_empty_check");
@@ -6383,40 +6377,36 @@ static int fg_probe(struct spmi_device *spmi)
 	complete_all(&chip->sram_access_revoked);
 	init_completion(&chip->batt_id_avail);
 	init_completion(&chip->first_soc_done);
-	dev_set_drvdata(&spmi->dev, chip);
+	dev_set_drvdata(&pdev->dev, chip);
 
-	spmi_for_each_container_dev(spmi_resource, spmi) {
-		if (!spmi_resource) {
-			pr_err("qpnp_chg: spmi resource absent\n");
-			rc = -ENXIO;
+	if (of_get_available_child_count(pdev->dev.of_node) == 0) {
+		pr_err("no child nodes\n");
+		rc = -ENXIO;
+		goto of_init_fail;
+	}
+
+	for_each_available_child_of_node(pdev->dev.of_node, child) {
+		rc = of_property_read_u32(child, "reg", &base);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Couldn't find reg in node = %s rc = %d\n",
+				child->full_name, rc);
 			goto of_init_fail;
 		}
 
-		resource = spmi_get_resource(spmi, spmi_resource,
-						IORESOURCE_MEM, 0);
-		if (!(resource && resource->start)) {
-			pr_err("node %s IO resource absent!\n",
-				spmi->dev.of_node->full_name);
-			rc = -ENXIO;
-			goto of_init_fail;
-		}
-
-		if (strcmp("qcom,fg-adc-vbat",
-					spmi_resource->of_node->name) == 0) {
-			chip->vbat_adc_addr = resource->start;
+		if (strcmp("qcom,fg-adc-vbat", child->name) == 0) {
+			chip->vbat_adc_addr = base;
 			continue;
-		} else if (strcmp("qcom,fg-adc-ibat",
-					spmi_resource->of_node->name) == 0) {
-			chip->ibat_adc_addr = resource->start;
+		} else if (strcmp("qcom,fg-adc-ibat", child->name) == 0) {
+			chip->ibat_adc_addr = base;
 			continue;
-		} else if (strcmp("qcom,revid-tp-rev",
-					spmi_resource->of_node->name) == 0) {
-			chip->tp_rev_addr = resource->start;
+		} else if (strcmp("qcom,revid-tp-rev", child->name) == 0) {
+			chip->tp_rev_addr = base;
 			continue;
 		}
 
 		rc = fg_read(chip, &subtype,
-				resource->start + REG_OFFSET_PERP_SUBTYPE, 1);
+				base + REG_OFFSET_PERP_SUBTYPE, 1);
 		if (rc) {
 			pr_err("Peripheral subtype read failed rc=%d\n", rc);
 			goto of_init_fail;
@@ -6424,13 +6414,13 @@ static int fg_probe(struct spmi_device *spmi)
 
 		switch (subtype) {
 		case FG_SOC:
-			chip->soc_base = resource->start;
+			chip->soc_base = base;
 			break;
 		case FG_MEMIF:
-			chip->mem_base = resource->start;
+			chip->mem_base = base;
 			break;
 		case FG_BATT:
-			chip->batt_base = resource->start;
+			chip->batt_base = base;
 			break;
 		default:
 			pr_err("Invalid peripheral subtype=0x%x\n", subtype);
@@ -6693,11 +6683,11 @@ static struct kernel_param_ops fg_restart_ops = {
 
 module_param_cb(restart, &fg_restart_ops, &fg_restart, 0644);
 
-static struct spmi_driver fg_driver = {
+static struct platform_driver fg_driver = {
 	.driver		= {
-		.name	= QPNP_FG_DEV_NAME,
+		.name		= QPNP_FG_DEV_NAME,
 		.of_match_table	= fg_match_table,
-		.pm	= &qpnp_fg_pm_ops,
+		.pm		= &qpnp_fg_pm_ops,
 	},
 	.probe		= fg_probe,
 	.remove		= fg_remove,
@@ -6705,12 +6695,12 @@ static struct spmi_driver fg_driver = {
 
 static int __init fg_init(void)
 {
-	return spmi_driver_register(&fg_driver);
+	return platform_driver_register(&fg_driver);
 }
 
 static void __exit fg_exit(void)
 {
-	return spmi_driver_unregister(&fg_driver);
+	return platform_driver_unregister(&fg_driver);
 }
 
 module_init(fg_init);

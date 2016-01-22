@@ -21,8 +21,11 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
+#include <linux/regmap.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_address.h>
 #include <linux/radix-tree.h>
 #include <linux/qpnp/pwm.h>
 
@@ -308,7 +311,8 @@ struct _qpnp_pwm_config {
 
 /* Public facing structure */
 struct qpnp_pwm_chip {
-	struct	spmi_device	*spmi_dev;
+	struct platform_device	*pdev;
+	struct regmap		*regmap;
 	struct pwm_chip         chip;
 	bool			enabled;
 	struct _qpnp_pwm_config	pwm_config;
@@ -429,8 +433,7 @@ static int qpnp_lpg_save_and_write(u8 value, u8 mask, u8 *reg, u16 addr,
 {
 	qpnp_lpg_save(reg, mask, value);
 
-	return spmi_ext_register_writel(chip->spmi_dev->ctrl,
-			chip->spmi_dev->sid, addr, reg, size);
+	return regmap_bulk_write(chip->regmap, addr, reg, size);
 }
 
 /*
@@ -617,10 +620,10 @@ static int qpnp_lpg_change_table(struct qpnp_pwm_chip *chip,
 	for (i = 0; i < list_len; i += burst_size) {
 		if (i + burst_size >= list_len)
 			burst_size = list_len - i;
-		rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
-			chip->spmi_dev->sid,
-			chip->lpg_config.lut_base_addr + offset + i,
-			lut->duty_pct_list + i, burst_size);
+		rc = regmap_bulk_write(chip->regmap,
+			       chip->lpg_config.lut_base_addr + offset + i,
+			       lut->duty_pct_list + i,
+			       burst_size);
 	}
 
 	return rc;
@@ -702,10 +705,10 @@ static int qpnp_lpg_save_pwm_value(struct qpnp_pwm_chip *chip)
 	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE ||
 		chip->sub_type == QPNP_LPG_S_CHAN_SUB_TYPE) {
 		value = QPNP_PWM_SYNC_VALUE & QPNP_PWM_SYNC_MASK;
-		rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
-			chip->spmi_dev->sid,
-			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
-			SPMI_LPG_PWM_SYNC), &value, 1);
+		rc = regmap_write(chip->regmap,
+					SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+						SPMI_LPG_PWM_SYNC),
+					value);
 	}
 
 	return rc;
@@ -735,17 +738,18 @@ static int qpnp_lpg_configure_pwm(struct qpnp_pwm_chip *chip)
 	int			rc;
 	u8			value, mask;
 
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
-		SPMI_LPG_REG_ADDR(lpg_config->base_addr, QPNP_LPG_PWM_SIZE_CLK),
-		&chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK], 1);
+	rc = regmap_write(chip->regmap,
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_LPG_PWM_SIZE_CLK),
+		*&chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]);
 
 	if (rc)
 		return rc;
 
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
+	rc = regmap_write(chip->regmap,
 		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 		QPNP_LPG_PWM_FREQ_PREDIV_CLK),
-		&chip->qpnp_lpg_registers[QPNP_LPG_PWM_FREQ_PREDIV_CLK], 1);
+		*&chip->qpnp_lpg_registers[QPNP_LPG_PWM_FREQ_PREDIV_CLK]);
 	if (rc)
 		return rc;
 
@@ -1013,8 +1017,7 @@ static int qpnp_dtest_config(struct qpnp_pwm_chip *chip, bool enable)
 
 	addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr, QPNP_LPG_SEC_ACCESS);
 
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
-		chip->spmi_dev->sid, addr, &value, 1);
+	rc = regmap_write(chip->regmap, addr, value);
 
 	if (rc) {
 		pr_err("Couldn't set the access for test mode\n");
@@ -1032,8 +1035,7 @@ static int qpnp_dtest_config(struct qpnp_pwm_chip *chip, bool enable)
 	pr_debug("Setting TEST mode for channel %d addr:%x value: %x\n",
 		chip->channel_id, addr, value);
 
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
-		chip->spmi_dev->sid, addr, &value, 1);
+	rc = regmap_write(chip->regmap, addr, value);
 
 	return rc;
 }
@@ -1483,10 +1485,10 @@ int pwm_config_period(struct pwm_device *pwm,
 
 	qpnp_lpg_save_period(chip);
 
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
+	rc = regmap_write(chip->regmap,
 			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 			QPNP_LPG_PWM_SIZE_CLK),
-			&chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK], 1);
+			*&chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]);
 
 	if (rc) {
 		pr_err("Write failed: QPNP_LPG_PWM_SIZE_CLK register, rc: %d\n",
@@ -1494,10 +1496,10 @@ int pwm_config_period(struct pwm_device *pwm,
 		goto out_unlock;
 	}
 
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
-			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
-			QPNP_LPG_PWM_FREQ_PREDIV_CLK),
-		&chip->qpnp_lpg_registers[QPNP_LPG_PWM_FREQ_PREDIV_CLK], 1);
+	rc = regmap_write(chip->regmap,
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_LPG_PWM_FREQ_PREDIV_CLK),
+		*&chip->qpnp_lpg_registers[QPNP_LPG_PWM_FREQ_PREDIV_CLK]);
 	if (rc) {
 		pr_err("Failed to write to QPNP_LPG_PWM_FREQ_PREDIV_CLK\n");
 		pr_err("register, rc = %d\n", rc);
@@ -1779,26 +1781,27 @@ out:
 static int qpnp_lpg_get_rev_subtype(struct qpnp_pwm_chip *chip)
 {
 	int rc;
+	uint val;
 
-	rc = spmi_ext_register_readl(chip->spmi_dev->ctrl,
-		chip->spmi_dev->sid,
-		chip->lpg_config.base_addr + SPMI_LPG_SUB_TYPE_OFFSET,
-		&chip->sub_type, 1);
+	rc = regmap_read(chip->regmap,
+			 chip->lpg_config.base_addr + SPMI_LPG_SUB_TYPE_OFFSET,
+			 &val);
 
 	if (rc) {
 		pr_err("Couldn't read subtype rc: %d\n", rc);
 		goto out;
 	}
+	 chip->sub_type = (u8)val;
 
-	rc = spmi_ext_register_readl(chip->spmi_dev->ctrl,
-		chip->spmi_dev->sid,
-		chip->lpg_config.base_addr + SPMI_LPG_REVISION2_OFFSET,
-		(u8 *) &chip->revision, 1);
+	rc = regmap_read(chip->regmap,
+			 chip->lpg_config.base_addr + SPMI_LPG_REVISION2_OFFSET,
+			 &val);
 
 	if (rc) {
 		pr_err("Couldn't read revision2 rc: %d\n", rc);
 		goto out;
 	}
+	chip->revision = (u8)val;
 
 	if (chip->revision < QPNP_LPG_REVISION_0 ||
 		chip->revision > QPNP_LPG_REVISION_1) {
@@ -1822,16 +1825,17 @@ out:
 }
 
 /* Fill in lpg device elements based on values found in device tree. */
-static int qpnp_parse_dt_config(struct spmi_device *spmi,
+static int qpnp_parse_dt_config(struct platform_device *pdev,
 					struct qpnp_pwm_chip *chip)
 {
 	int			rc, enable, lut_entry_size, list_size, i;
 	const char		*lable;
-	struct resource		*res;
+	const __be32		*prop;
+	u64			size;
 	struct device_node	*node;
 	int found_pwm_subnode = 0;
 	int found_lpg_subnode = 0;
-	struct device_node	*of_node = spmi->dev.of_node;
+	struct device_node	*of_node = pdev->dev.of_node;
 	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
 	struct qpnp_lut_config	*lut_config = &lpg_config->lut_config;
 	struct _qpnp_pwm_config	*pwm_config = &chip->pwm_config;
@@ -1841,7 +1845,7 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 	rc = of_property_read_u32(of_node, "qcom,channel-id",
 				&chip->channel_id);
 	if (rc) {
-		dev_err(&spmi->dev, "%s: node is missing LPG channel id\n",
+		dev_err(&pdev->dev, "%s: node is missing LPG channel id\n",
 								__func__);
 		return -EINVAL;
 	}
@@ -1900,34 +1904,36 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 	}
 
 	pwm_config->force_pwm_size = force_pwm_size;
-	res = spmi_get_resource_byname(spmi, NULL, IORESOURCE_MEM,
-					QPNP_LPG_CHANNEL_BASE);
-	if (!res) {
-		dev_err(&spmi->dev, "%s: node is missing base address\n",
-			__func__);
-		return -EINVAL;
-	}
 
-	lpg_config->base_addr = res->start;
+
+	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_LPG_CHANNEL_BASE,
+			0, 0);
+	if (!prop) {
+		dev_err(&pdev->dev, "Couldnt find channel's base addr rc %d\n",
+				rc);
+		return rc;
+	}
+	lpg_config->base_addr = be32_to_cpu(*prop);
 
 	rc = qpnp_lpg_get_rev_subtype(chip);
 	if (rc)
 		return rc;
 
-	res = spmi_get_resource_byname(spmi, NULL, IORESOURCE_MEM,
-						QPNP_LPG_LUT_BASE);
-	if (!res) {
+	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_LPG_LUT_BASE,
+			&size, 0);
+	if (!prop) {
 		chip->flags |= QPNP_PWM_LUT_NOT_SUPPORTED;
 	} else {
-		lpg_config->lut_base_addr = res->start;
-		/* Each entry of LUT is of 2 bytes for generic LUT and of 1 byte
+		lpg_config->lut_base_addr = be32_to_cpu(*prop);
+		/*
+		 * Each entry of LUT is of 2 bytes for generic LUT and of 1 byte
 		 * for KPDBL/GLED LUT.
 		 */
-		lpg_config->lut_size = resource_size(res) >> 1;
+		lpg_config->lut_size = size >> 1;
 		lut_entry_size = sizeof(u16);
 
 		if (pwm_config->supported_sizes == QPNP_PWM_SIZE_7_8_BIT) {
-			lpg_config->lut_size = resource_size(res);
+			lpg_config->lut_size = size;
 			lut_entry_size = sizeof(u8);
 		}
 
@@ -1964,7 +1970,7 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 	for_each_child_of_node(of_node, node) {
 		rc = of_property_read_string(node, "label", &lable);
 		if (rc) {
-			dev_err(&spmi->dev, "%s: Missing lable property\n",
+			dev_err(&pdev->dev, "%s: Missing lable property\n",
 								__func__);
 			goto out;
 		}
@@ -1980,7 +1986,8 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 				goto out;
 			found_lpg_subnode = 1;
 		} else {
-			dev_err(&spmi->dev, "%s: Invalid value for lable prop",
+			dev_err(&pdev->dev,
+				"%s: Invalid value for lable prop",
 								__func__);
 		}
 	}
@@ -1991,7 +1998,7 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 
 	if ((enable == PM_PWM_MODE_PWM && found_pwm_subnode == 0) ||
 		(enable == PM_PWM_MODE_LPG && found_lpg_subnode == 0)) {
-		dev_err(&spmi->dev, "%s: Invalid mode select\n", __func__);
+		dev_err(&pdev->dev, "%s: Invalid mode select\n", __func__);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -2019,7 +2026,7 @@ static struct pwm_ops qpnp_pwm_ops = {
 	.owner = THIS_MODULE,
 };
 
-static int qpnp_pwm_probe(struct spmi_device *spmi)
+static int qpnp_pwm_probe(struct platform_device *pdev)
 {
 	struct qpnp_pwm_chip	*pwm_chip;
 	int			rc;
@@ -2029,18 +2036,23 @@ static int qpnp_pwm_probe(struct spmi_device *spmi)
 		pr_err("kzalloc() failed.\n");
 		return -ENOMEM;
 	}
+	pwm_chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!pwm_chip->regmap) {
+		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+		return -EINVAL;
+	}
 
 	spin_lock_init(&pwm_chip->lpg_lock);
 
-	pwm_chip->spmi_dev = spmi;
-	dev_set_drvdata(&spmi->dev, pwm_chip);
+	pwm_chip->pdev = pdev;
+	dev_set_drvdata(&pdev->dev, pwm_chip);
 
-	rc = qpnp_parse_dt_config(spmi, pwm_chip);
+	rc = qpnp_parse_dt_config(pdev, pwm_chip);
 
 	if (rc)
 		goto failed_config;
 
-	pwm_chip->chip.dev = &spmi->dev;
+	pwm_chip->chip.dev = &pdev->dev;
 	pwm_chip->chip.ops = &qpnp_pwm_ops;
 	pwm_chip->chip.base = -1;
 	pwm_chip->chip.npwm = 1;
@@ -2059,19 +2071,19 @@ static int qpnp_pwm_probe(struct spmi_device *spmi)
 failed_insert:
 	kfree(pwm_chip->lpg_config.lut_config.duty_pct_list);
 failed_config:
-	dev_set_drvdata(&spmi->dev, NULL);
+	dev_set_drvdata(&pdev->dev, NULL);
 	kfree(pwm_chip);
 	return rc;
 }
 
-static int qpnp_pwm_remove(struct spmi_device *spmi)
+static int qpnp_pwm_remove(struct platform_device *pdev)
 {
 	struct qpnp_pwm_chip *pwm_chip;
 	struct qpnp_lpg_config *lpg_config;
 
-	pwm_chip = dev_get_drvdata(&spmi->dev);
+	pwm_chip = dev_get_drvdata(&pdev->dev);
 
-	dev_set_drvdata(&spmi->dev, NULL);
+	dev_set_drvdata(&pdev->dev, NULL);
 
 	if (pwm_chip) {
 		lpg_config = &pwm_chip->lpg_config;
@@ -2088,17 +2100,17 @@ static struct of_device_id spmi_match_table[] = {
 	{}
 };
 
-static const struct spmi_device_id qpnp_lpg_id[] = {
+static const struct platform_device_id qpnp_lpg_id[] = {
 	{ QPNP_LPG_DRIVER_NAME, 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(spmi, qpnp_lpg_id);
 
-static struct spmi_driver qpnp_lpg_driver = {
+static struct platform_driver qpnp_lpg_driver = {
 	.driver		= {
-		.name	= QPNP_LPG_DRIVER_NAME,
-		.of_match_table = spmi_match_table,
-		.owner = THIS_MODULE,
+		.name		= QPNP_LPG_DRIVER_NAME,
+		.of_match_table	= spmi_match_table,
+		.owner		= THIS_MODULE,
 	},
 	.probe		= qpnp_pwm_probe,
 	.remove		= qpnp_pwm_remove,
@@ -2110,12 +2122,12 @@ static struct spmi_driver qpnp_lpg_driver = {
  */
 int __init qpnp_lpg_init(void)
 {
-	return spmi_driver_register(&qpnp_lpg_driver);
+	return platform_driver_register(&qpnp_lpg_driver);
 }
 
 static void __exit qpnp_lpg_exit(void)
 {
-	spmi_driver_unregister(&qpnp_lpg_driver);
+	platform_driver_unregister(&qpnp_lpg_driver);
 }
 
 MODULE_DESCRIPTION("QPNP PMIC LPG driver");

@@ -1202,7 +1202,7 @@ config SENSORS_PCF8591
 
 config SENSORS_QPNP_ADC_VOLTAGE
 	tristate "Support for Qualcomm QPNP Voltage ADC"
-	depends on MSM_SPMI
+	depends on SPMI
 	help
 	  This is the VADC arbiter driver for Qualcomm QPNP ADC Chip.
 
@@ -1212,7 +1212,7 @@ config SENSORS_QPNP_ADC_VOLTAGE
 
 config SENSORS_QPNP_ADC_CURRENT
 	tristate "Support for Qualcomm QPNP current ADC"
-	depends on MSM_SPMI
+	depends on SPMI
 	help
 	  This is the IADC driver for Qualcomm QPNP ADC Chip.
 

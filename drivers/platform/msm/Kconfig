@@ -3,7 +3,7 @@ menu "Qualcomm MSM specific device drivers"
 
 config QPNP_POWER_ON
 	tristate "QPNP PMIC POWER-ON Driver"
-	depends on OF_SPMI && (SPMI || MSM_SPMI) && MSM_QPNP_INT && INPUT
+	depends on SPMI && INPUT
 	help
 	  This driver supports the power-on functionality on Qualcomm
 	  PNP PMIC. It currently supports reporting the change in status of
@@ -11,7 +11,7 @@ config QPNP_POWER_ON
 
 config QPNP_REVID
 	tristate "QPNP Revision ID Peripheral"
-	depends on SPMI || MSM_SPMI
+	depends on SPMI
 	help
 	  Say 'y' here to include support for the Qualcomm QPNP REVID
 	  peripheral. REVID prints out the PMIC type and revision numbers
@@ -20,7 +20,7 @@ config QPNP_REVID
 
 config QPNP_COINCELL
 	tristate "Qualcomm QPNP coincell charger support"
-	depends on (SPMI || MSM_SPMI) && OF_SPMI
+	depends on SPMI
 	help
 	  This driver supports the QPNP coincell peripheral found inside of
 	  Qualcomm QPNP PMIC devices.  The coincell charger provides a means to
@@ -30,7 +30,6 @@ config QPNP_COINCELL
 
 config QPNP_HAPTIC
 	tristate "Haptic support for QPNP PMIC"
-	depends on OF_SPMI
 	help
 	  This option enables device driver support for the Haptic
 	  on the Qualcomm Technologies' QPNP PMICs. It uses the android

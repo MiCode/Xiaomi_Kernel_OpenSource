@@ -1213,7 +1213,8 @@ struct qpnp_iadc_result {
  * @calib - Internal rsens calibration values for gain and offset.
  */
 struct qpnp_adc_drv {
-	struct spmi_device		*spmi;
+	struct platform_device		*pdev;
+	struct regmap			*regmap;
 	uint8_t				slave;
 	uint16_t			offset;
 	struct qpnp_adc_properties	*adc_prop;
@@ -1315,7 +1316,7 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *dev,
  * @spmi:	spmi ADC device.
  * @adc_qpnp:	spmi device tree node structure
  */
-int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
+int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 					struct qpnp_adc_drv *adc_qpnp);
 
 /**

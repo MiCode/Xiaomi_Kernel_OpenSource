@@ -310,8 +310,7 @@ config PWM_RCAR
 	  will be called pwm-rcar.
 
 config PWM_QPNP
-	depends on SPMI || MSM_SPMI
-	depends on OF_SPMI
+	depends on SPMI
         tristate "Qualcomm QPNP LPG/PWM support"
         help
           This driver supports PWM/LPG devices in Qualcomm PMIC chips which

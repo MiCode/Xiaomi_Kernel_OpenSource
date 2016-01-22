@@ -16,10 +16,12 @@
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/regmap.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
 #include <linux/string.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -428,7 +430,8 @@ struct ibb_regulator {
 
 struct qpnp_labibb {
 	struct device			*dev;
-	struct spmi_device		*spmi;
+	struct platform_device		*pdev;
+	struct regmap			*regmap;
 	u16				lab_base;
 	u16				ibb_base;
 	struct lab_regulator		lab_vreg;
@@ -483,18 +486,18 @@ qpnp_labibb_read(struct qpnp_labibb *labibb, u8 *val,
 			u16 base, int count)
 {
 	int rc = 0;
-	struct spmi_device *spmi = labibb->spmi;
+	struct platform_device *pdev = labibb->pdev;
 
 	if (base == 0) {
 		pr_err("base cannot be zero base=0x%02x sid=0x%02x rc=%d\n",
-			base, spmi->sid, rc);
+			base, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return -EINVAL;
 	}
 
-	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, base, val, count);
+	rc = regmap_bulk_read(labibb->regmap, base, val, count);
 	if (rc) {
 		pr_err("SPMI read failed base=0x%02x sid=0x%02x rc=%d\n", base,
-				spmi->sid, rc);
+				to_spmi_device(pdev->dev.parent)->usid, rc);
 		return rc;
 	}
 	return 0;
@@ -505,18 +508,18 @@ qpnp_labibb_write(struct qpnp_labibb *labibb, u16 base,
 			u8 *val, int count)
 {
 	int rc = 0;
-	struct spmi_device *spmi = labibb->spmi;
+	struct platform_device *pdev = labibb->pdev;
 
 	if (base == 0) {
 		pr_err("base cannot be zero base=0x%02x sid=0x%02x rc=%d\n",
-			base, spmi->sid, rc);
+			base, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return -EINVAL;
 	}
 
-	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, base, val, count);
+	rc = regmap_bulk_write(labibb->regmap, base, val, count);
 	if (rc) {
 		pr_err("write failed base=0x%02x sid=0x%02x rc=%d\n",
-			base, spmi->sid, rc);
+			base, to_spmi_device(pdev->dev.parent)->usid, rc);
 		return rc;
 	}
 
@@ -528,21 +531,8 @@ qpnp_labibb_masked_write(struct qpnp_labibb *labibb, u16 base,
 						u8 mask, u8 val)
 {
 	int rc;
-	u8 reg;
 
-	rc = qpnp_labibb_read(labibb, &reg, base, 1);
-	if (rc) {
-		pr_err("spmi read failed: addr=%03X, rc=%d\n", base, rc);
-		return rc;
-	}
-	pr_debug("addr = 0x%x read 0x%x\n", base, reg);
-
-	reg &= ~mask;
-	reg |= val & mask;
-
-	pr_debug("Writing 0x%x\n", reg);
-
-	rc = qpnp_labibb_write(labibb, base, &reg, 1);
+	rc = regmap_update_bits(labibb->regmap, base, mask, val);
 	if (rc) {
 		pr_err("spmi write failed: addr=%03X, rc=%d\n", base, rc);
 		return rc;
@@ -2341,24 +2331,29 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	return 0;
 }
 
-static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
+static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 {
 	struct qpnp_labibb *labibb;
-	struct resource *resource;
-	struct spmi_resource *spmi_resource;
+	unsigned int base;
+	struct device_node *child;
 	const char *mode_name;
 	u8 type;
 	int rc = 0;
 
-	labibb = devm_kzalloc(&spmi->dev,
+	labibb = devm_kzalloc(&pdev->dev,
 			sizeof(struct qpnp_labibb), GFP_KERNEL);
 	if (labibb == NULL) {
 		pr_err("labibb allocation failed.\n");
 		return -ENOMEM;
 	}
+	labibb->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!labibb->regmap) {
+		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+		return -EINVAL;
+	}
 
-	labibb->dev = &(spmi->dev);
-	labibb->spmi = spmi;
+	labibb->dev = &(pdev->dev);
+	labibb->pdev = pdev;
 
 	rc = of_property_read_string(labibb->dev->of_node,
 			"qpnp,qpnp-labibb-mode", &mode_name);
@@ -2393,22 +2388,21 @@ static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
 		return -EINVAL;
 	}
 
-	spmi_for_each_container_dev(spmi_resource, spmi) {
-		if (!spmi_resource) {
-			pr_err("qpnp_labibb: spmi resource absent\n");
-			return -ENXIO;
-		}
-
-		resource = spmi_get_resource(spmi, spmi_resource,
-						IORESOURCE_MEM, 0);
-		if (!(resource && resource->start)) {
-			pr_err("node %s IO resource absent!\n",
-				spmi->dev.of_node->full_name);
-			return -ENXIO;
+	if (of_get_available_child_count(pdev->dev.of_node) == 0) {
+		pr_err("no child nodes\n");
+		return -ENXIO;
+	}
+	for_each_available_child_of_node(pdev->dev.of_node, child) {
+		rc = of_property_read_u32(child, "reg", &base);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Couldn't find reg in node = %s rc = %d\n",
+				child->full_name, rc);
+			return rc;
 		}
 
 		rc = qpnp_labibb_read(labibb, &type,
-				resource->start + REG_PERPH_TYPE, 1);
+				base + REG_PERPH_TYPE, 1);
 		if (rc) {
 			pr_err("Peripheral type read failed rc=%d\n", rc);
 			goto fail_registration;
@@ -2416,17 +2410,15 @@ static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
 
 		switch (type) {
 		case QPNP_LAB_TYPE:
-			labibb->lab_base = resource->start;
-			rc = register_qpnp_lab_regulator(labibb,
-				spmi_resource->of_node);
+			labibb->lab_base = base;
+			rc = register_qpnp_lab_regulator(labibb, child);
 			if (rc)
 				goto fail_registration;
 		break;
 
 		case QPNP_IBB_TYPE:
-			labibb->ibb_base = resource->start;
-			rc = register_qpnp_ibb_regulator(labibb,
-				spmi_resource->of_node);
+			labibb->ibb_base = base;
+			rc = register_qpnp_ibb_regulator(labibb, child);
 			if (rc)
 				goto fail_registration;
 		break;
@@ -2439,7 +2431,7 @@ static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
 		}
 	}
 
-	dev_set_drvdata(&spmi->dev, labibb);
+	dev_set_drvdata(&pdev->dev, labibb);
 	return 0;
 
 fail_registration:
@@ -2451,9 +2443,9 @@ fail_registration:
 	return rc;
 }
 
-static int qpnp_labibb_regulator_remove(struct spmi_device *spmi)
+static int qpnp_labibb_regulator_remove(struct platform_device *pdev)
 {
-	struct qpnp_labibb *labibb = dev_get_drvdata(&spmi->dev);
+	struct qpnp_labibb *labibb = dev_get_drvdata(&pdev->dev);
 
 	if (labibb) {
 		if (labibb->lab_vreg.rdev)
@@ -2469,10 +2461,10 @@ static struct of_device_id spmi_match_table[] = {
 	{ },
 };
 
-static struct spmi_driver qpnp_labibb_regulator_driver = {
+static struct platform_driver qpnp_labibb_regulator_driver = {
 	.driver		= {
-		.name	= QPNP_LABIBB_REGULATOR_DRIVER_NAME,
-		.of_match_table = spmi_match_table,
+		.name		= QPNP_LABIBB_REGULATOR_DRIVER_NAME,
+		.of_match_table	= spmi_match_table,
 	},
 	.probe		= qpnp_labibb_regulator_probe,
 	.remove		= qpnp_labibb_regulator_remove,
@@ -2480,13 +2472,13 @@ static struct spmi_driver qpnp_labibb_regulator_driver = {
 
 static int __init qpnp_labibb_regulator_init(void)
 {
-	return spmi_driver_register(&qpnp_labibb_regulator_driver);
+	return platform_driver_register(&qpnp_labibb_regulator_driver);
 }
 arch_initcall(qpnp_labibb_regulator_init);
 
 static void __exit qpnp_labibb_regulator_exit(void)
 {
-	spmi_driver_unregister(&qpnp_labibb_regulator_driver);
+	platform_driver_unregister(&qpnp_labibb_regulator_driver);
 }
 module_exit(qpnp_labibb_regulator_exit);
 

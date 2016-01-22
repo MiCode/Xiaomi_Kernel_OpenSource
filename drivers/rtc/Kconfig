@@ -1593,7 +1593,7 @@ config RTC_DRV_MOXART
 
 config RTC_DRV_QPNP
 	tristate "Qualcomm QPNP PMIC RTC"
-	depends on (SPMI || MSM_SPMI) && OF_SPMI && MSM_QPNP_INT
+	depends on SPMI && OF_SPMI && MSM_QPNP_INT
 	help
 	  Say Y here if you want to support the Qualcomm QPNP PMIC RTC.
 
@@ -1609,6 +1609,15 @@ config RTC_DRV_MT6397
 	  Mediatek(R) RTC driver.
 
 	  If you want to use Mediatek(R) RTC interface, select Y or M here.
+
+config RTC_DRV_QPNP
+	tristate "Qualcomm QPNP PMIC RTC"
+	depends on SPMI
+	help
+	  Say Y here if you want to support the Qualcomm QPNP PMIC RTC.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qpnp-rtc.
 
 config RTC_DRV_XGENE
 	tristate "APM X-Gene RTC"

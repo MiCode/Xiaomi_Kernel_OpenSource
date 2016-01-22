@@ -708,7 +708,7 @@ config MFD_QCOM_RPM
 
 config MFD_SPMI_PMIC
 	tristate "Qualcomm SPMI PMICs"
-	depends on ARCH_QCOM || COMPILE_TEST
+	depends on ARCH_QCOM || COMPILE_TEST || ARCH_MSM
 	depends on OF
 	depends on SPMI
 	select REGMAP_SPMI

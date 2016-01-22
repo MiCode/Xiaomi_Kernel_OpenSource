@@ -13,11 +13,14 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/regmap.h>
 #include <linux/errno.h>
 #include <linux/leds.h>
 #include <linux/slab.h>
 #include <linux/of_device.h>
+#include <linux/of_address.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
 #include <linux/delay.h>
@@ -269,54 +272,55 @@ static u8 qpnp_wled_sink_dbg_regs[] = {
  */
 struct qpnp_wled {
 	struct led_classdev	cdev;
-	struct spmi_device *spmi;
-	struct work_struct work;
-	struct mutex lock;
-	enum qpnp_wled_fdbk_op fdbk_op;
-	enum qpnp_wled_dim_mode dim_mode;
-	int ovp_irq;
-	int sc_irq;
-	u32 sc_cnt;
-	u32 avdd_trim_steps_from_center;
-	u16 ctrl_base;
-	u16 sink_base;
-	u16 mod_freq_khz;
-	u16 hyb_thres;
-	u16 sync_dly_us;
-	u16 vref_mv;
-	u16 vref_psm_mv;
-	u16 loop_comp_res_kohm;
-	u16 loop_ea_gm;
-	u16 sc_deb_cycles;
-	u16 switch_freq_khz;
-	u16 ovp_mv;
-	u16 ilim_ma;
-	u16 boost_duty_ns;
-	u16 fs_curr_ua;
-	u16 ramp_ms;
-	u16 ramp_step;
-	u16 cons_sync_write_delay_us;
-	u8 strings[QPNP_WLED_MAX_STRINGS];
-	u8 num_strings;
-	bool en_9b_dim_res;
-	bool en_phase_stag;
-	bool en_cabc;
-	bool disp_type_amoled;
-	bool en_ext_pfet_sc_pro;
-	bool prev_state;
+	struct platform_device	*pdev;
+	struct regmap		*regmap;
+	struct work_struct	work;
+	struct mutex		lock;
+	enum qpnp_wled_fdbk_op	fdbk_op;
+	enum qpnp_wled_dim_mode	dim_mode;
+	int			ovp_irq;
+	int			sc_irq;
+	u32			sc_cnt;
+	u32			avdd_trim_steps_from_center;
+	u16			ctrl_base;
+	u16			sink_base;
+	u16			mod_freq_khz;
+	u16			hyb_thres;
+	u16			sync_dly_us;
+	u16			vref_mv;
+	u16			vref_psm_mv;
+	u16			loop_comp_res_kohm;
+	u16			loop_ea_gm;
+	u16			sc_deb_cycles;
+	u16			switch_freq_khz;
+	u16			ovp_mv;
+	u16			ilim_ma;
+	u16			boost_duty_ns;
+	u16			fs_curr_ua;
+	u16			ramp_ms;
+	u16			ramp_step;
+	u16			cons_sync_write_delay_us;
+	u8			strings[QPNP_WLED_MAX_STRINGS];
+	u8			num_strings;
+	bool			en_9b_dim_res;
+	bool			en_phase_stag;
+	bool			en_cabc;
+	bool			disp_type_amoled;
+	bool			en_ext_pfet_sc_pro;
+	bool			prev_state;
 };
 
 /* helper to read a pmic register */
 static int qpnp_wled_read_reg(struct qpnp_wled *wled, u8 *data, u16 addr)
 {
 	int rc;
+	uint val;
 
-	rc = spmi_ext_register_readl(wled->spmi->ctrl, wled->spmi->sid,
-							addr, data, 1);
+	rc = regmap_read(wled->regmap, addr, &val);
 	if (rc < 0)
-		dev_err(&wled->spmi->dev,
+		dev_err(&wled->pdev->dev,
 			"Error reading address: %x(%d)\n", addr, rc);
-
+	*data = (u8)val;
 	return rc;
 }
 
@@ -325,13 +329,12 @@ static int qpnp_wled_write_reg(struct qpnp_wled *wled, u8 *data, u16 addr)
 {
 	int rc;
 
-	rc = spmi_ext_register_writel(wled->spmi->ctrl, wled->spmi->sid,
-							addr, data, 1);
+	rc = regmap_write(wled->regmap, addr, *data);
 	if (rc < 0)
-		dev_err(&wled->spmi->dev,
+		dev_err(&wled->pdev->dev,
 			"Error writing address: %x(%d)\n", addr, rc);
 
-	dev_dbg(&wled->spmi->dev, "write: WLED_0x%x = 0x%x\n", addr, *data);
+	dev_dbg(&wled->pdev->dev, "write: WLED_0x%x = 0x%x\n", addr, *data);
 
 	return rc;
 }
@@ -400,7 +403,7 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 
 	rc = qpnp_wled_sync_reg_toggle(wled);
 	if (rc < 0) {
-		dev_err(&wled->spmi->dev, "Failed to toggle sync reg %d\n", rc);
+		dev_err(&wled->pdev->dev, "Failed to toggle sync reg %d\n", rc);
 		return rc;
 	}
 
@@ -458,7 +461,7 @@ static ssize_t qpnp_wled_ramp_store(struct device *dev,
 	if (!wled->cdev.brightness) {
 		rc = qpnp_wled_module_en(wled, wled->ctrl_base, true);
 		if (rc) {
-			dev_err(&wled->spmi->dev, "wled enable failed\n");
+			dev_err(&wled->pdev->dev, "wled enable failed\n");
 			goto unlock_mutex;
 		}
 	}
@@ -467,7 +470,7 @@ static ssize_t qpnp_wled_ramp_store(struct device *dev,
 	for (i = 0; i <= wled->cdev.max_brightness;) {
 		rc = qpnp_wled_set_level(wled, i);
 		if (rc) {
-			dev_err(&wled->spmi->dev, "wled set level failed\n");
+			dev_err(&wled->pdev->dev, "wled set level failed\n");
 			goto restore_brightness;
 		}
 
@@ -489,7 +492,7 @@ static ssize_t qpnp_wled_ramp_store(struct device *dev,
 	for (i = wled->cdev.max_brightness; i >= 0;) {
 		rc = qpnp_wled_set_level(wled, i);
 		if (rc) {
-			dev_err(&wled->spmi->dev, "wled set level failed\n");
+			dev_err(&wled->pdev->dev, "wled set level failed\n");
 			goto restore_brightness;
 		}
 
@@ -507,7 +510,7 @@ static ssize_t qpnp_wled_ramp_store(struct device *dev,
 			i = 0;
 	}
 
-	dev_info(&wled->spmi->dev, "wled ramp complete\n");
+	dev_info(&wled->pdev->dev, "wled ramp complete\n");
 
 restore_brightness:
 	/* restore the old brightness */
@@ -515,7 +518,7 @@ restore_brightness:
 	if (!wled->cdev.brightness) {
 		rc = qpnp_wled_module_en(wled, wled->ctrl_base, false);
 		if (rc)
-			dev_err(&wled->spmi->dev, "wled enable failed\n");
+			dev_err(&wled->pdev->dev, "wled enable failed\n");
 	}
 unlock_mutex:
 	mutex_unlock(&wled->lock);
@@ -728,7 +731,7 @@ static ssize_t qpnp_wled_fs_curr_ua_store(struct device *dev,
 
 	rc = qpnp_wled_sync_reg_toggle(wled);
 	if (rc < 0) {
-		dev_err(&wled->spmi->dev, "Failed to toggle sync reg %d\n", rc);
+		dev_err(&wled->pdev->dev, "Failed to toggle sync reg %d\n", rc);
 		return rc;
 	}
 
@@ -772,7 +775,7 @@ static void qpnp_wled_work(struct work_struct *work)
 	if (level) {
 		rc = qpnp_wled_set_level(wled, level);
 		if (rc) {
-			dev_err(&wled->spmi->dev, "wled set level failed\n");
+			dev_err(&wled->pdev->dev, "wled set level failed\n");
 			goto unlock_mutex;
 		}
 	}
@@ -781,7 +784,7 @@ static void qpnp_wled_work(struct work_struct *work)
 		rc = qpnp_wled_module_en(wled, wled->ctrl_base, !!level);
 
 		if (rc) {
-			dev_err(&wled->spmi->dev, "wled %sable failed\n",
+			dev_err(&wled->pdev->dev, "wled %sable failed\n",
 						level ? "en" : "dis");
 			goto unlock_mutex;
 		}
@@ -950,7 +953,7 @@ static irqreturn_t qpnp_wled_ovp_irq(int irq, void *_wled)
 {
 	struct qpnp_wled *wled = _wled;
 
-	dev_dbg(&wled->spmi->dev, "ovp detected\n");
+	dev_dbg(&wled->pdev->dev, "ovp detected\n");
 
 	return IRQ_HANDLED;
 }
@@ -960,7 +963,7 @@ static irqreturn_t qpnp_wled_sc_irq(int irq, void *_wled)
 {
 	struct qpnp_wled *wled = _wled;
 
-	dev_err(&wled->spmi->dev,
+	dev_err(&wled->pdev->dev,
 			"Short circuit detected %d times\n", ++wled->sc_cnt);
 
 	qpnp_wled_module_en(wled, wled->ctrl_base, false);
@@ -1205,7 +1208,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	for (i = 0; i < wled->num_strings; i++) {
 		if (wled->strings[i] >= QPNP_WLED_MAX_STRINGS) {
-			dev_err(&wled->spmi->dev, "Invalid string number\n");
+			dev_err(&wled->pdev->dev, "Invalid string number\n");
 			return -EINVAL;
 		}
 
@@ -1294,18 +1297,19 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	rc = qpnp_wled_sync_reg_toggle(wled);
 	if (rc < 0) {
-		dev_err(&wled->spmi->dev, "Failed to toggle sync reg %d\n", rc);
+		dev_err(&wled->pdev->dev, "Failed to toggle sync reg %d\n", rc);
 		return rc;
 	}
 
 	/* setup ovp and sc irqs */
 	if (wled->ovp_irq >= 0) {
-		rc = devm_request_threaded_irq(&wled->spmi->dev, wled->ovp_irq,
+		rc = devm_request_threaded_irq(&wled->pdev->dev,
+					       wled->ovp_irq,
 			NULL, qpnp_wled_ovp_irq,
 			QPNP_IRQ_FLAGS,
 			"qpnp_wled_ovp_irq", wled);
 		if (rc < 0) {
-			dev_err(&wled->spmi->dev,
+			dev_err(&wled->pdev->dev,
 				"Unable to request ovp(%d) IRQ(err:%d)\n",
 				wled->ovp_irq, rc);
 			return rc;
@@ -1314,12 +1318,12 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	if (wled->sc_irq >= 0) {
 		wled->sc_cnt = 0;
-		rc = devm_request_threaded_irq(&wled->spmi->dev, wled->sc_irq,
+		rc = devm_request_threaded_irq(&wled->pdev->dev, wled->sc_irq,
 			NULL, qpnp_wled_sc_irq,
 			QPNP_IRQ_FLAGS,
 			"qpnp_wled_sc_irq", wled);
 		if (rc < 0) {
-			dev_err(&wled->spmi->dev,
+			dev_err(&wled->pdev->dev,
 				"Unable to request sc(%d) IRQ(err:%d)\n",
 				wled->sc_irq, rc);
 			return rc;
@@ -1369,7 +1373,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 /* parse wled dtsi parameters */
 static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 {
-	struct spmi_device *spmi = wled->spmi;
+	struct platform_device *pdev = wled->pdev;
 	struct property *prop;
 	const char *temp_str;
 	u32 temp_val;
@@ -1377,78 +1381,78 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	u8 *strings;
 
 	wled->cdev.name = "wled";
-	rc = of_property_read_string(spmi->dev.of_node,
+	rc = of_property_read_string(pdev->dev.of_node,
 			"linux,name", &wled->cdev.name);
 	if (rc && (rc != -EINVAL)) {
-		dev_err(&spmi->dev, "Unable to read led name\n");
+		dev_err(&pdev->dev, "Unable to read led name\n");
 		return rc;
 	}
 
 	wled->cdev.default_trigger = QPNP_WLED_TRIGGER_NONE;
-	rc = of_property_read_string(spmi->dev.of_node, "linux,default-trigger",
+	rc = of_property_read_string(pdev->dev.of_node, "linux,default-trigger",
 					&wled->cdev.default_trigger);
 	if (rc && (rc != -EINVAL)) {
-		dev_err(&spmi->dev, "Unable to read led trigger\n");
+		dev_err(&pdev->dev, "Unable to read led trigger\n");
 		return rc;
 	}
 
-	wled->disp_type_amoled = of_property_read_bool(spmi->dev.of_node,
+	wled->disp_type_amoled = of_property_read_bool(pdev->dev.of_node,
 				"qcom,disp-type-amoled");
 	if (wled->disp_type_amoled) {
 		wled->vref_psm_mv = QPNP_WLED_VREF_PSM_DFLT_AMOLED_MV;
-		rc = of_property_read_u32(spmi->dev.of_node,
+		rc = of_property_read_u32(pdev->dev.of_node,
 				"qcom,vref-psm-mv", &temp_val);
 		if (!rc) {
 			wled->vref_psm_mv = temp_val;
 		} else if (rc != -EINVAL) {
-			dev_err(&spmi->dev, "Unable to read vref-psm\n");
+			dev_err(&pdev->dev, "Unable to read vref-psm\n");
 			return rc;
 		}
 
 		wled->loop_comp_res_kohm =
 			QPNP_WLED_LOOP_COMP_RES_DFLT_AMOLED_KOHM;
-		rc = of_property_read_u32(spmi->dev.of_node,
+		rc = of_property_read_u32(pdev->dev.of_node,
 				"qcom,loop-comp-res-kohm", &temp_val);
 		if (!rc) {
 			wled->loop_comp_res_kohm = temp_val;
 		} else if (rc != -EINVAL) {
-			dev_err(&spmi->dev, "Unable to read loop-comp-res-kohm\n");
+			dev_err(&pdev->dev, "Unable to read loop-comp-res-kohm\n");
 			return rc;
 		}
 
 		wled->loop_ea_gm = QPNP_WLED_LOOP_EA_GM_DFLT_AMOLED;
-		rc = of_property_read_u32(spmi->dev.of_node,
+		rc = of_property_read_u32(pdev->dev.of_node,
 				"qcom,loop-ea-gm", &temp_val);
 		if (!rc) {
 			wled->loop_ea_gm = temp_val;
 		} else if (rc != -EINVAL) {
-			dev_err(&spmi->dev, "Unable to read loop-ea-gm\n");
+			dev_err(&pdev->dev, "Unable to read loop-ea-gm\n");
 			return rc;
 		}
 
 		wled->sc_deb_cycles = QPNP_WLED_SC_DEB_CYCLES_DFLT_AMOLED;
-		rc = of_property_read_u32(spmi->dev.of_node,
+		rc = of_property_read_u32(pdev->dev.of_node,
 				"qcom,sc-deb-cycles", &temp_val);
 		if (!rc) {
 			wled->sc_deb_cycles = temp_val;
 		} else if (rc != -EINVAL) {
-			dev_err(&spmi->dev, "Unable to read sc debounce cycles\n");
+			dev_err(&pdev->dev, "Unable to read sc debounce cycles\n");
 			return rc;
 		}
 
 		wled->avdd_trim_steps_from_center = 0;
-		rc = of_property_read_u32(spmi->dev.of_node,
+		rc = of_property_read_u32(pdev->dev.of_node,
 				"qcom,avdd-trim-steps-from-center", &temp_val);
 		if (!rc) {
 			wled->avdd_trim_steps_from_center = temp_val;
 		} else if (rc != -EINVAL) {
-			dev_err(&spmi->dev, "Unable to read avdd trim steps from center value\n");
+			dev_err(&pdev->dev, "Unable to read avdd trim steps from center value\n");
 			return rc;
 		}
 	}
 
 	wled->fdbk_op = QPNP_WLED_FDBK_AUTO;
-	rc = of_property_read_string(spmi->dev.of_node,
+	rc = of_property_read_string(pdev->dev.of_node,
 			"qcom,fdbk-output", &temp_str);
 	if (!rc) {
 		if (strcmp(temp_str, "wled1") == 0)
@@ -1462,72 +1466,72 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		else
 			wled->fdbk_op = QPNP_WLED_FDBK_AUTO;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read feedback output\n");
+		dev_err(&pdev->dev, "Unable to read feedback output\n");
 		return rc;
 	}
 
 	wled->vref_mv = QPNP_WLED_DFLT_VREF_MV;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,vref-mv", &temp_val);
 	if (!rc) {
 		wled->vref_mv = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read vref\n");
+		dev_err(&pdev->dev, "Unable to read vref\n");
 		return rc;
 	}
 
 	wled->switch_freq_khz = QPNP_WLED_SWITCH_FREQ_800_KHZ;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,switch-freq-khz", &temp_val);
 	if (!rc) {
 		wled->switch_freq_khz = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read switch freq\n");
+		dev_err(&pdev->dev, "Unable to read switch freq\n");
 		return rc;
 	}
 
 	wled->ovp_mv = QPNP_WLED_OVP_29500_MV;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,ovp-mv", &temp_val);
 	if (!rc) {
 		wled->ovp_mv = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read vref\n");
+		dev_err(&pdev->dev, "Unable to read vref\n");
 		return rc;
 	}
 
 	wled->ilim_ma = QPNP_WLED_DFLT_ILIM_MA;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,ilim-ma", &temp_val);
 	if (!rc) {
 		wled->ilim_ma = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read ilim\n");
+		dev_err(&pdev->dev, "Unable to read ilim\n");
 		return rc;
 	}
 
 	wled->boost_duty_ns = QPNP_WLED_DEF_BOOST_DUTY_NS;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,boost-duty-ns", &temp_val);
 	if (!rc) {
 		wled->boost_duty_ns = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read boost duty\n");
+		dev_err(&pdev->dev, "Unable to read boost duty\n");
 		return rc;
 	}
 
 	wled->mod_freq_khz = QPNP_WLED_MOD_FREQ_9600_KHZ;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,mod-freq-khz", &temp_val);
 	if (!rc) {
 		wled->mod_freq_khz = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read modulation freq\n");
+		dev_err(&pdev->dev, "Unable to read modulation freq\n");
 		return rc;
 	}
 
 	wled->dim_mode = QPNP_WLED_DIM_HYBRID;
-	rc = of_property_read_string(spmi->dev.of_node,
+	rc = of_property_read_string(pdev->dev.of_node,
 			"qcom,dim-mode", &temp_str);
 	if (!rc) {
 		if (strcmp(temp_str, "analog") == 0)
@@ -1537,59 +1541,59 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		else
 			wled->dim_mode = QPNP_WLED_DIM_HYBRID;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read dim mode\n");
+		dev_err(&pdev->dev, "Unable to read dim mode\n");
 		return rc;
 	}
 
 	if (wled->dim_mode == QPNP_WLED_DIM_HYBRID) {
 		wled->hyb_thres = QPNP_WLED_DEF_HYB_THRES;
-		rc = of_property_read_u32(spmi->dev.of_node,
+		rc = of_property_read_u32(pdev->dev.of_node,
 				"qcom,hyb-thres", &temp_val);
 		if (!rc) {
 			wled->hyb_thres = temp_val;
 		} else if (rc != -EINVAL) {
-			dev_err(&spmi->dev, "Unable to read hyb threshold\n");
+			dev_err(&pdev->dev, "Unable to read hyb threshold\n");
 			return rc;
 		}
 	}
 
 	wled->sync_dly_us = QPNP_WLED_DEF_SYNC_DLY_US;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,sync-dly-us", &temp_val);
 	if (!rc) {
 		wled->sync_dly_us = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read sync delay\n");
+		dev_err(&pdev->dev, "Unable to read sync delay\n");
 		return rc;
 	}
 
 	wled->fs_curr_ua = QPNP_WLED_FS_CURR_MAX_UA;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,fs-curr-ua", &temp_val);
 	if (!rc) {
 		wled->fs_curr_ua = temp_val;
 	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read full scale current\n");
+		dev_err(&pdev->dev, "Unable to read full scale current\n");
 		return rc;
 	}
 
 	wled->cons_sync_write_delay_us = 0;
-	rc = of_property_read_u32(spmi->dev.of_node,
+	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,cons-sync-write-delay-us", &temp_val);
 	if (!rc)
 		wled->cons_sync_write_delay_us = temp_val;
 
-	wled->en_9b_dim_res = of_property_read_bool(spmi->dev.of_node,
+	wled->en_9b_dim_res = of_property_read_bool(pdev->dev.of_node,
 			"qcom,en-9b-dim-res");
-	wled->en_phase_stag = of_property_read_bool(spmi->dev.of_node,
+	wled->en_phase_stag = of_property_read_bool(pdev->dev.of_node,
 			"qcom,en-phase-stag");
-	wled->en_cabc = of_property_read_bool(spmi->dev.of_node,
+	wled->en_cabc = of_property_read_bool(pdev->dev.of_node,
 			"qcom,en-cabc");
 
-	prop = of_find_property(spmi->dev.of_node,
+	prop = of_find_property(pdev->dev.of_node,
 			"qcom,led-strings-list", &temp_val);
 	if (!prop || !temp_val || temp_val > QPNP_WLED_MAX_STRINGS) {
-		dev_err(&spmi->dev, "Invalid strings info, use default");
+		dev_err(&pdev->dev, "Invalid strings info, use default");
 		wled->num_strings = QPNP_WLED_MAX_STRINGS;
 		for (i = 0; i < wled->num_strings; i++)
 			wled->strings[i] = i;
@@ -1600,61 +1604,64 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 			wled->strings[i] = strings[i];
 	}
 
-	wled->ovp_irq = spmi_get_irq_byname(spmi, NULL, "ovp-irq");
+	wled->ovp_irq = platform_get_irq_byname(pdev, "ovp-irq");
 	if (wled->ovp_irq < 0)
-		dev_dbg(&spmi->dev, "ovp irq is not used\n");
+		dev_dbg(&pdev->dev, "ovp irq is not used\n");
 
-	wled->sc_irq = spmi_get_irq_byname(spmi, NULL, "sc-irq");
+	wled->sc_irq = platform_get_irq_byname(pdev, "sc-irq");
 	if (wled->sc_irq < 0)
-		dev_dbg(&spmi->dev, "sc irq is not used\n");
+		dev_dbg(&pdev->dev, "sc irq is not used\n");
 
-	wled->en_ext_pfet_sc_pro = of_property_read_bool(spmi->dev.of_node,
+	wled->en_ext_pfet_sc_pro = of_property_read_bool(pdev->dev.of_node,
 					"qcom,en-ext-pfet-sc-pro");
 
 	return 0;
 }
 
-static int qpnp_wled_probe(struct spmi_device *spmi)
+static int qpnp_wled_probe(struct platform_device *pdev)
 {
 	struct qpnp_wled *wled;
-	struct resource *wled_resource;
 	int rc, i;
+	const __be32 *prop;
 
-	wled = devm_kzalloc(&spmi->dev, sizeof(*wled), GFP_KERNEL);
+	wled = devm_kzalloc(&pdev->dev, sizeof(*wled), GFP_KERNEL);
 	if (!wled)
 		return -ENOMEM;
+		wled->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+		if (!wled->regmap) {
+			dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+			return -EINVAL;
+		}
 
-	wled->spmi = spmi;
+	wled->pdev = pdev;
 
-	wled_resource = spmi_get_resource_byname(spmi, NULL, IORESOURCE_MEM,
-					QPNP_WLED_SINK_BASE);
-	if (!wled_resource) {
-		dev_err(&spmi->dev, "Unable to get wled sink base address\n");
-		return -EINVAL;
+	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_WLED_SINK_BASE,
+			0, 0);
+	if (!prop) {
+		dev_err(&pdev->dev, "Couldnt find sink's addr rc %d\n", rc);
+		return rc;
 	}
+	wled->sink_base = be32_to_cpu(*prop);
 
-	wled->sink_base = wled_resource->start;
-
-	wled_resource = spmi_get_resource_byname(spmi, NULL, IORESOURCE_MEM,
-					QPNP_WLED_CTRL_BASE);
-	if (!wled_resource) {
-		dev_err(&spmi->dev, "Unable to get wled ctrl base address\n");
-		return -EINVAL;
+	prop = of_get_address_by_name(pdev->dev.of_node, QPNP_WLED_CTRL_BASE,
+			0, 0);
+	if (!prop) {
+		dev_err(&pdev->dev, "Couldnt find ctrl's addr rc = %d\n", rc);
+		return rc;
 	}
+	wled->ctrl_base = be32_to_cpu(*prop);
 
-	wled->ctrl_base = wled_resource->start;
-
-	dev_set_drvdata(&spmi->dev, wled);
+	dev_set_drvdata(&pdev->dev, wled);
 
 	rc = qpnp_wled_parse_dt(wled);
 	if (rc) {
-		dev_err(&spmi->dev, "DT parsing failed\n");
+		dev_err(&pdev->dev, "DT parsing failed\n");
 		return rc;
 	}
 
 	rc = qpnp_wled_config(wled);
 	if (rc) {
-		dev_err(&spmi->dev, "wled config failed\n");
+		dev_err(&pdev->dev, "wled config failed\n");
 		return rc;
 	}
 
@@ -1668,9 +1675,9 @@ static int qpnp_wled_probe(struct spmi_device *spmi)
 
 	wled->cdev.max_brightness = WLED_MAX_LEVEL_4095;
 
-	rc = led_classdev_register(&spmi->dev, &wled->cdev);
+	rc = led_classdev_register(&pdev->dev, &wled->cdev);
 	if (rc) {
-		dev_err(&spmi->dev, "wled registration failed(%d)\n", rc);
+		dev_err(&pdev->dev, "wled registration failed(%d)\n", rc);
 		goto wled_register_fail;
 	}
 
@@ -1678,7 +1685,7 @@ static int qpnp_wled_probe(struct spmi_device *spmi)
 		rc = sysfs_create_file(&wled->cdev.dev->kobj,
 				&qpnp_wled_attrs[i].attr);
 		if (rc < 0) {
-			dev_err(&spmi->dev, "sysfs creation failed\n");
+			dev_err(&pdev->dev, "sysfs creation failed\n");
 			goto sysfs_fail;
 		}
 	}
@@ -1696,9 +1703,9 @@ wled_register_fail:
 	return rc;
 }
 
-static int qpnp_wled_remove(struct spmi_device *spmi)
+static int qpnp_wled_remove(struct platform_device *pdev)
 {
-	struct qpnp_wled *wled = dev_get_drvdata(&spmi->dev);
+	struct qpnp_wled *wled = dev_get_drvdata(&pdev->dev);
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(qpnp_wled_attrs); i++)
@@ -1717,10 +1724,10 @@ static struct of_device_id spmi_match_table[] = {
 	{ },
 };
 
-static struct spmi_driver qpnp_wled_driver = {
+static struct platform_driver qpnp_wled_driver = {
 	.driver		= {
-		.name	= "qcom,qpnp-wled",
-		.of_match_table = spmi_match_table,
+		.name		= "qcom,qpnp-wled",
+		.of_match_table	= spmi_match_table,
 	},
 	.probe		= qpnp_wled_probe,
 	.remove		= qpnp_wled_remove,
@@ -1728,13 +1735,13 @@ static struct spmi_driver qpnp_wled_driver = {
 
 static int __init qpnp_wled_init(void)
 {
-	return spmi_driver_register(&qpnp_wled_driver);
+	return platform_driver_register(&qpnp_wled_driver);
 }
 module_init(qpnp_wled_init);
 
 static void __exit qpnp_wled_exit(void)
 {
-	spmi_driver_unregister(&qpnp_wled_driver);
+	platform_driver_unregister(&qpnp_wled_driver);
 }
 module_exit(qpnp_wled_exit);
 

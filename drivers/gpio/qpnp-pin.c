@@ -13,8 +13,10 @@
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/interrupt.h>
+#include <linux/regmap.h>
 #include <linux/types.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/gpio.h>
@@ -209,7 +211,8 @@ struct qpnp_pin_spec {
 
 struct qpnp_pin_chip {
 	struct gpio_chip	gpio_chip;
-	struct spmi_device	*spmi;
+	struct platform_device	*pdev;
+	struct regmap		*regmap;
 	struct qpnp_pin_spec	**pmic_pins;
 	struct qpnp_pin_spec	**chip_gpios;
 	uint32_t		pmic_pin_lowest;
@@ -539,8 +542,8 @@ static int qpnp_pin_read_regs(struct qpnp_pin_chip *q_chip,
 	u16 reg_addr = Q_REG_ADDR(q_spec, Q_REG_MODE_CTL);
 
 	while (bytes_left > 0) {
-		rc = spmi_ext_register_readl(q_chip->spmi->ctrl, q_spec->slave,
-			  reg_addr, buf_p, bytes_left < 8 ? bytes_left : 8);
+		rc = regmap_bulk_read(q_chip->regmap, reg_addr, buf_p,
+				      bytes_left < 8 ? bytes_left : 8);
 		if (rc)
 			return rc;
 		bytes_left -= 8;
@@ -559,8 +562,8 @@ static int qpnp_pin_write_regs(struct qpnp_pin_chip *q_chip,
 	u16 reg_addr = Q_REG_ADDR(q_spec, Q_REG_MODE_CTL);
 
 	while (bytes_left > 0) {
-		rc = spmi_ext_register_writel(q_chip->spmi->ctrl, q_spec->slave,
-			  reg_addr, buf_p, bytes_left < 8 ? bytes_left : 8);
+		rc = regmap_bulk_write(q_chip->regmap, reg_addr, buf_p,
+				       bytes_left < 8 ? bytes_left : 8);
 		if (rc)
 			return rc;
 		bytes_left -= 8;
@@ -574,7 +577,7 @@ static int qpnp_pin_cache_regs(struct qpnp_pin_chip *q_chip,
 			       struct qpnp_pin_spec *q_spec)
 {
 	int rc;
-	struct device *dev = &q_chip->spmi->dev;
+	struct device *dev = &q_chip->pdev->dev;
 
 	rc = qpnp_pin_read_regs(q_chip, q_spec);
 	if (rc)
@@ -590,7 +593,7 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 			    struct qpnp_pin_spec *q_spec,
 			    struct qpnp_pin_cfg *param)
 {
-	struct device *dev = &q_chip->spmi->dev;
+	struct device *dev = &q_chip->pdev->dev;
 	int rc;
 	u8 shift, mask, *reg;
 
@@ -699,7 +702,8 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 
 	rc = qpnp_pin_write_regs(q_chip, q_spec);
 	if (rc) {
-		dev_err(&q_chip->spmi->dev, "%s: unable to write master enable\n",
+		dev_err(&q_chip->pdev->dev,
+			"%s: unable to write master enable\n",
 								__func__);
 		goto gpio_cfg;
 	}
@@ -789,14 +793,15 @@ static int qpnp_pin_to_irq(struct gpio_chip *gpio_chip, unsigned offset)
 
 	/* call into irq_domain to get irq mapping */
 	oirq.np = q_chip->int_ctrl;
-	oirq.args[0] = q_chip->spmi->sid;
+	oirq.args[0] = to_spmi_device(q_chip->pdev->dev.parent)->usid;
 	oirq.args[1] = (q_spec->offset >> 8) & 0xFF;
 	oirq.args[2] = 0;
-	oirq.args_count = 3;
+	oirq.args[3] = IRQ_TYPE_NONE;
+	oirq.args_count = 4;
 
 	q_spec->irq = irq_create_of_mapping(&oirq);
 	if (!q_spec->irq) {
-		dev_err(&q_chip->spmi->dev, "%s: invalid irq for gpio %u\n",
+		dev_err(&q_chip->pdev->dev, "%s: invalid irq for gpio %u\n",
 						__func__, q_spec->pmic_pin);
 		WARN_ON(1);
 		return -EINVAL;
@@ -812,6 +817,7 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 	struct qpnp_pin_spec *q_spec = NULL;
 	u8 buf[1], en_mask;
 	u8 shift, mask, reg;
+	int val;
 
 	if (WARN_ON(!q_chip))
 		return -ENODEV;
@@ -823,9 +829,9 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 	/* gpio val is from RT status iff input is enabled */
 	if ((q_spec->regs[Q_REG_I_MODE_CTL] & Q_REG_MODE_SEL_MASK)
 						== QPNP_PIN_MODE_DIG_IN) {
-		rc = spmi_ext_register_readl(q_chip->spmi->ctrl, q_spec->slave,
-				Q_REG_ADDR(q_spec, Q_REG_STATUS1),
-				&buf[0], 1);
+		rc = regmap_read(q_chip->regmap,
+				 Q_REG_ADDR(q_spec, Q_REG_STATUS1), &val);
+		buf[0] = (u8)val;
 
 		if (q_spec->type == Q_GPIO_TYPE && q_spec->dig_major_rev == 0)
 			en_mask = Q_REG_STATUS1_GPIO_EN_REV0_MASK;
@@ -839,7 +845,6 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 			return -EPERM;
 
 		return buf[0] & Q_REG_STATUS1_VAL_MASK;
-
 	} else {
 		if (is_gpio_lv_mv(q_spec)) {
 			shift = Q_REG_DIG_OUT_SRC_INVERT_SHIFT;
@@ -882,10 +887,9 @@ static int __qpnp_pin_set(struct qpnp_pin_chip *q_chip,
 
 	q_reg_clr_set(reg, shift, mask, !!value);
 
-	rc = spmi_ext_register_writel(q_chip->spmi->ctrl, q_spec->slave,
-						address, reg, 1);
+	rc = regmap_write(q_chip->regmap, address, *reg);
 	if (rc)
-		dev_err(&q_chip->spmi->dev, "%s: spmi write failed\n",
+		dev_err(&q_chip->pdev->dev, "%s: spmi write failed\n",
 								__func__);
 	return rc;
 }
@@ -929,12 +933,10 @@ static int qpnp_pin_set_mode(struct qpnp_pin_chip *q_chip,
 		mask = Q_REG_MODE_SEL_MASK;
 	}
 
-	q_reg_clr_set(&q_spec->regs[Q_REG_I_MODE_CTL],
-				shift, mask, mode);
+	q_reg_clr_set(&q_spec->regs[Q_REG_I_MODE_CTL], shift, mask, mode);
 
-	rc = spmi_ext_register_writel(q_chip->spmi->ctrl, q_spec->slave,
-			      Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
-			      &q_spec->regs[Q_REG_I_MODE_CTL], 1);
+	rc = regmap_write(q_chip->regmap, Q_REG_ADDR(q_spec, Q_REG_MODE_CTL),
+			  *&q_spec->regs[Q_REG_I_MODE_CTL]);
 	return rc;
 }
 
@@ -1114,11 +1116,11 @@ static int qpnp_pin_apply_config(struct qpnp_pin_chip *q_chip,
 
 static int qpnp_pin_free_chip(struct qpnp_pin_chip *q_chip)
 {
-	struct spmi_device *spmi = q_chip->spmi;
+	struct platform_device *pdev = q_chip->pdev;
 	int i, rc = 0;
 
 	if (q_chip->chip_gpios)
-		for (i = 0; i < spmi->num_dev_node; i++)
+		for (i = 0; i < of_get_child_count(pdev->dev.of_node); i++)
 			kfree(q_chip->chip_gpios[i]);
 
 	mutex_lock(&qpnp_pin_chips_lock);
@@ -1293,9 +1295,8 @@ static int qpnp_pin_debugfs_set(void *data, u64 val)
 	if (rc)
 		return rc;
 	q_reg_clr_set(&q_spec->regs[cfg.idx], cfg.shift, cfg.mask, val);
-	rc = spmi_ext_register_writel(q_chip->spmi->ctrl, q_spec->slave,
-				      Q_REG_ADDR(q_spec, cfg.addr),
-				      &q_spec->regs[cfg.idx], 1);
+	rc = regmap_write(q_chip->regmap, Q_REG_ADDR(q_spec, cfg.addr),
+			  *&q_spec->regs[cfg.idx]);
 
 	return rc;
 }
@@ -1327,8 +1328,8 @@ static struct qpnp_pin_debugfs_args dfs_args[] = {
 
 static int qpnp_pin_debugfs_create(struct qpnp_pin_chip *q_chip)
 {
-	struct spmi_device *spmi = q_chip->spmi;
-	struct device *dev = &spmi->dev;
+	struct platform_device *pdev = q_chip->pdev;
+	struct device *dev = &pdev->dev;
 	struct qpnp_pin_spec *q_spec;
 	enum qpnp_pin_param_type *params;
 	enum qpnp_pin_param_type type;
@@ -1347,7 +1348,7 @@ static int qpnp_pin_debugfs_create(struct qpnp_pin_chip *q_chip)
 		return -ENODEV;
 	}
 
-	for (i = 0; i < spmi->num_dev_node; i++) {
+	for (i = 0; i < of_get_child_count(pdev->dev.of_node); i++) {
 		q_spec = qpnp_chip_gpio_get_spec(q_chip, i);
 		params = q_spec->params;
 		snprintf(pmic_pin, DEBUGFS_BUF_SIZE, "%u", q_spec->pmic_pin);
@@ -1419,44 +1420,53 @@ static int qpnp_pin_is_valid_pin(struct qpnp_pin_spec *q_spec)
 	return 0;
 }
 
-static int qpnp_pin_probe(struct spmi_device *spmi)
+static int qpnp_pin_probe(struct platform_device *pdev)
 {
 	struct qpnp_pin_chip *q_chip;
 	struct qpnp_pin_spec *q_spec;
-	struct resource *res;
-	struct spmi_resource *d_node;
+	unsigned int base;
+	struct device_node *child;
 	int i, rc;
 	u32 lowest_gpio = UINT_MAX, highest_gpio = 0;
 	u32 gpio;
 	char version[Q_REG_SUBTYPE - Q_REG_DIG_MAJOR_REV + 1];
-	const char *dev_name;
+	const char *pin_dev_name;
+	int num_dev_node;
 
-	dev_name = spmi_get_primary_dev_name(spmi);
-	if (!dev_name) {
-		dev_err(&spmi->dev, "%s: label binding undefined for node %s\n",
-					__func__, spmi->dev.of_node->full_name);
+	pin_dev_name = dev_name(&pdev->dev);
+	if (!pin_dev_name) {
+		dev_err(&pdev->dev,
+			"%s: label binding undefined for node %s\n",
+					__func__,
+			pdev->dev.of_node->full_name);
 		return -EINVAL;
 	}
 
 	q_chip = kzalloc(sizeof(*q_chip), GFP_KERNEL);
-	if (!q_chip) {
-		dev_err(&spmi->dev, "%s: Can't allocate gpio_chip\n",
-								__func__);
+	if (!q_chip)
 		return -ENOMEM;
+
+	q_chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!q_chip->regmap) {
+		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+		return -EINVAL;
 	}
-	q_chip->spmi = spmi;
-	dev_set_drvdata(&spmi->dev, q_chip);
+	q_chip->pdev = pdev;
+	dev_set_drvdata(&pdev->dev, q_chip);
 
 	mutex_lock(&qpnp_pin_chips_lock);
 	list_add(&q_chip->chip_list, &qpnp_pin_chips);
 	mutex_unlock(&qpnp_pin_chips_lock);
 
 	/* first scan through nodes to find the range required for allocation */
-	for (i = 0; i < spmi->num_dev_node; i++) {
-		rc = of_property_read_u32(spmi->dev_node[i].of_node,
-						"qcom,pin-num", &gpio);
+	i = 0;
+	for_each_child_of_node(pdev->dev.of_node, child) {
+		if (!of_device_is_available(child))
+			continue;
+		rc = of_property_read_u32(child, "qcom,pin-num", &gpio);
 		if (rc) {
-			dev_err(&spmi->dev, "%s: unable to get qcom,pin-num property\n",
+			dev_err(&pdev->dev,
+				"%s: unable to get qcom,pin-num property\n",
 								__func__);
 			goto err_probe;
 		}
@@ -1465,15 +1475,18 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 			lowest_gpio = gpio;
 		if (gpio > highest_gpio)
 			highest_gpio = gpio;
+		i++;
 	}
+	num_dev_node = i;
 
 	if (highest_gpio < lowest_gpio) {
-		dev_err(&spmi->dev, "%s: no device nodes specified in topology\n",
+		dev_err(&pdev->dev,
+			"%s: no device nodes specified in topology\n",
 								__func__);
 		rc = -EINVAL;
 		goto err_probe;
 	} else if (lowest_gpio == 0) {
-		dev_err(&spmi->dev, "%s: 0 is not a valid PMIC GPIO\n",
+		dev_err(&pdev->dev, "%s: 0 is not a valid PMIC GPIO\n",
 								__func__);
 		rc = -EINVAL;
 		goto err_probe;
@@ -1487,63 +1500,63 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 					(highest_gpio - lowest_gpio + 1),
 					GFP_KERNEL);
 	q_chip->chip_gpios = kzalloc(sizeof(struct qpnp_pin_spec *) *
-						spmi->num_dev_node, GFP_KERNEL);
+					num_dev_node,
+					GFP_KERNEL);
 	if (!q_chip->pmic_pins || !q_chip->chip_gpios) {
-		dev_err(&spmi->dev, "%s: unable to allocate memory\n",
+		dev_err(&pdev->dev, "%s: unable to allocate memory\n",
 								__func__);
 		rc = -ENOMEM;
 		goto err_probe;
 	}
 
 	/* get interrupt controller device_node */
-	q_chip->int_ctrl = of_irq_find_parent(spmi->dev.of_node);
+	q_chip->int_ctrl = of_irq_find_parent(pdev->dev.of_node);
 	if (!q_chip->int_ctrl) {
-		dev_err(&spmi->dev, "%s: Can't find interrupt parent\n",
+		dev_err(&pdev->dev, "%s: Can't find interrupt parent\n",
 								__func__);
 		rc = -EINVAL;
 		goto err_probe;
 	}
-
+	i = 0;
 	/* now scan through again and populate the lookup table */
-	for (i = 0; i < spmi->num_dev_node; i++) {
-		d_node = &spmi->dev_node[i];
-		res = spmi_get_resource(spmi, d_node, IORESOURCE_MEM, 0);
-		if (!res) {
-			dev_err(&spmi->dev, "%s: node %s is missing has no base address definition\n",
-				__func__, d_node->of_node->full_name);
-			rc = -EINVAL;
+	for_each_child_of_node(pdev->dev.of_node, child) {
+		if (!of_device_is_available(child))
+			continue;
+		rc = of_property_read_u32(child, "reg", &base);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Couldn't find reg in node = %s rc = %d\n",
+				child->full_name, rc);
 			goto err_probe;
 		}
 
-		rc = of_property_read_u32(d_node->of_node,
-							"qcom,pin-num", &gpio);
+		rc = of_property_read_u32(child, "qcom,pin-num", &gpio);
 		if (rc) {
-			dev_err(&spmi->dev, "%s: unable to get qcom,pin-num property\n",
+			dev_err(&pdev->dev,
+				"%s: unable to get qcom,pin-num property\n",
 								__func__);
 			goto err_probe;
 		}
 
-		q_spec = kzalloc(sizeof(struct qpnp_pin_spec),
-							GFP_KERNEL);
+		q_spec = kzalloc(sizeof(struct qpnp_pin_spec), GFP_KERNEL);
 		if (!q_spec) {
-			dev_err(&spmi->dev, "%s: unable to allocate memory\n",
-								__func__);
 			rc = -ENOMEM;
 			goto err_probe;
 		}
 
-		q_spec->slave = spmi->sid;
-		q_spec->offset = res->start;
+		q_spec->slave = to_spmi_device(pdev->dev.parent)->usid;
+		q_spec->offset = base;
 		q_spec->gpio_chip_idx = i;
 		q_spec->pmic_pin = gpio;
-		q_spec->node = d_node->of_node;
+		q_spec->node = child;
 		q_spec->q_chip = q_chip;
 
-		rc = spmi_ext_register_readl(spmi->ctrl, q_spec->slave,
+		rc = regmap_bulk_read(q_chip->regmap,
 				Q_REG_ADDR(q_spec, Q_REG_DIG_MAJOR_REV),
-				&version[0], ARRAY_SIZE(version));
+				&version[0],
+				ARRAY_SIZE(version));
 		if (rc) {
-			dev_err(&spmi->dev, "%s: unable to read type regs\n",
+			dev_err(&pdev->dev, "%s: unable to read type regs\n",
 						__func__);
 			goto err_probe;
 		}
@@ -1553,7 +1566,8 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		q_spec->subtype = version[Q_REG_SUBTYPE - Q_REG_DIG_MAJOR_REV];
 
 		if (!qpnp_pin_is_valid_pin(q_spec)) {
-			dev_err(&spmi->dev, "%s: invalid pin type (type=0x%x subtype=0x%x)\n",
+			dev_err(&pdev->dev,
+				"%s: invalid pin type (type=0x%x subtype=0x%x)\n",
 				       __func__, q_spec->type, q_spec->subtype);
 			goto err_probe;
 		}
@@ -1565,31 +1579,32 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		/* initialize lookup table params */
 		qpnp_pmic_pin_set_spec(q_chip, gpio, q_spec);
 		qpnp_chip_gpio_set_spec(q_chip, i, q_spec);
+		i++;
 	}
 
 	q_chip->gpio_chip.base = -1;
-	q_chip->gpio_chip.ngpio = spmi->num_dev_node;
-	q_chip->gpio_chip.label = dev_name;
+	q_chip->gpio_chip.ngpio = num_dev_node;
+	q_chip->gpio_chip.label = pin_dev_name;
 	q_chip->gpio_chip.direction_input = qpnp_pin_direction_input;
 	q_chip->gpio_chip.direction_output = qpnp_pin_direction_output;
 	q_chip->gpio_chip.to_irq = qpnp_pin_to_irq;
 	q_chip->gpio_chip.get = qpnp_pin_get;
 	q_chip->gpio_chip.set = qpnp_pin_set;
-	q_chip->gpio_chip.dev = &spmi->dev;
+	q_chip->gpio_chip.dev = &pdev->dev;
 	q_chip->gpio_chip.of_xlate = qpnp_pin_of_gpio_xlate;
 	q_chip->gpio_chip.of_gpio_n_cells = 2;
 	q_chip->gpio_chip.can_sleep = 0;
 
 	rc = gpiochip_add(&q_chip->gpio_chip);
 	if (rc) {
-		dev_err(&spmi->dev, "%s: Can't add gpio chip, rc = %d\n",
+		dev_err(&pdev->dev, "%s: Can't add gpio chip, rc = %d\n",
 								__func__, rc);
 		goto err_probe;
 	}
 
 	q_chip->chip_registered = true;
 	/* now configure gpio config defaults if they exist */
-	for (i = 0; i < spmi->num_dev_node; i++) {
+	for (i = 0; i < num_dev_node; i++) {
 		q_spec = qpnp_chip_gpio_get_spec(q_chip, i);
 		if (WARN_ON(!q_spec)) {
 			rc = -ENODEV;
@@ -1605,13 +1620,14 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 			goto err_probe;
 	}
 
-	dev_dbg(&spmi->dev, "%s: gpio_chip registered between %d-%u\n",
+	dev_dbg(&pdev->dev, "%s: gpio_chip registered between %d-%u\n",
 			__func__, q_chip->gpio_chip.base,
 			(q_chip->gpio_chip.base + q_chip->gpio_chip.ngpio) - 1);
 
 	rc = qpnp_pin_debugfs_create(q_chip);
 	if (rc) {
-		dev_err(&spmi->dev, "%s: debugfs creation failed\n", __func__);
+		dev_err(&pdev->dev, "%s: debugfs creation failed\n",
+			__func__);
 		goto err_probe;
 	}
 
@@ -1622,9 +1638,9 @@ err_probe:
 	return rc;
 }
 
-static int qpnp_pin_remove(struct spmi_device *spmi)
+static int qpnp_pin_remove(struct platform_device *pdev)
 {
-	struct qpnp_pin_chip *q_chip = dev_get_drvdata(&spmi->dev);
+	struct qpnp_pin_chip *q_chip = dev_get_drvdata(&pdev->dev);
 
 	debugfs_remove_recursive(q_chip->dfs_dir);
 
@@ -1637,15 +1653,15 @@ static struct of_device_id spmi_match_table[] = {
 	{}
 };
 
-static const struct spmi_device_id qpnp_pin_id[] = {
+static const struct platform_device_id qpnp_pin_id[] = {
 	{ "qcom,qpnp-pin", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(spmi, qpnp_pin_id);
 
-static struct spmi_driver qpnp_pin_driver = {
+static struct platform_driver qpnp_pin_driver = {
 	.driver		= {
-		.name	= "qcom,qpnp-pin",
+		.name		= "qcom,qpnp-pin",
 		.of_match_table = spmi_match_table,
 	},
 	.probe		= qpnp_pin_probe,
@@ -1661,7 +1677,7 @@ static int __init qpnp_pin_init(void)
 		pr_err("Cannot register top level debugfs directory\n");
 #endif
 
-	return spmi_driver_register(&qpnp_pin_driver);
+	return platform_driver_register(&qpnp_pin_driver);
 }
 
 static void __exit qpnp_pin_exit(void)
@@ -1669,7 +1685,7 @@ static void __exit qpnp_pin_exit(void)
 #ifdef CONFIG_GPIO_QPNP_PIN_DEBUG
 	debugfs_remove_recursive(driver_dfs_dir);
 #endif
-	spmi_driver_unregister(&qpnp_pin_driver);
+	platform_driver_unregister(&qpnp_pin_driver);
 }
 
 MODULE_DESCRIPTION("QPNP PMIC gpio driver");

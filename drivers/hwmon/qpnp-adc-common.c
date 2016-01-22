@@ -24,6 +24,7 @@
 #include <linux/module.h>
 #include <linux/debugfs.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
 #include <linux/of_irq.h>
 #include <linux/interrupt.h>
 #include <linux/completion.h>
@@ -1771,11 +1772,11 @@ int qpnp_adc_get_revid_version(struct device *dev)
 }
 EXPORT_SYMBOL(qpnp_adc_get_revid_version);
 
-int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
+int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 			struct qpnp_adc_drv *adc_qpnp)
 {
-	struct device_node *node = spmi->dev.of_node;
-	struct resource *res;
+	struct device_node *node = pdev->dev.of_node;
+	unsigned int base;
 	struct device_node *child;
 	struct qpnp_adc_amux *adc_channel_list;
 	struct qpnp_adc_properties *adc_prop;
@@ -1794,24 +1795,25 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 		return -EINVAL;
 	}
 
-	adc_qpnp->spmi = spmi;
+	adc_qpnp->pdev = pdev;
 
-	adc_prop = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_adc_properties),
+	adc_prop = devm_kzalloc(&pdev->dev,
+				sizeof(struct qpnp_adc_properties),
 					GFP_KERNEL);
 	if (!adc_prop)
 		return -ENOMEM;
 
-	adc_channel_list = devm_kzalloc(&spmi->dev,
+	adc_channel_list = devm_kzalloc(&pdev->dev,
 		((sizeof(struct qpnp_adc_amux)) * count_adc_channel_list),
 				GFP_KERNEL);
 	if (!adc_channel_list)
 		return -ENOMEM;
 
-	amux_prop = devm_kzalloc(&spmi->dev,
+	amux_prop = devm_kzalloc(&pdev->dev,
 		sizeof(struct qpnp_adc_amux_properties) +
 		sizeof(struct qpnp_vadc_chan_properties), GFP_KERNEL);
 	if (!amux_prop) {
-		dev_err(&spmi->dev, "Unable to allocate memory\n");
+		dev_err(&pdev->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
 	}
 
@@ -1928,18 +1930,20 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	adc_qpnp->adc_prop = adc_prop;
 
 	/* Get the peripheral address */
-	res = spmi_get_resource(spmi, 0, IORESOURCE_MEM, 0);
-	if (!res) {
-		pr_err("No base address definition\n");
-		return -EINVAL;
+	rc = of_property_read_u32(pdev->dev.of_node, "reg", &base);
+	if (rc < 0) {
+		dev_err(&pdev->dev,
+			"Couldn't find reg in node = %s rc = %d\n",
+			pdev->dev.of_node->full_name, rc);
+		return rc;
 	}
 
-	adc_qpnp->slave = spmi->sid;
-	adc_qpnp->offset = res->start;
+	adc_qpnp->slave = to_spmi_device(pdev->dev.parent)->usid;
+	adc_qpnp->offset = base;
 
 	/* Register the ADC peripheral interrupt */
-	adc_qpnp->adc_irq_eoc = spmi_get_irq_byname(spmi, NULL,
-						"eoc-int-en-set");
+	adc_qpnp->adc_irq_eoc = platform_get_irq_byname(pdev,
+							"eoc-int-en-set");
 	if (adc_qpnp->adc_irq_eoc < 0) {
 		pr_err("Invalid irq\n");
 		return -ENXIO;
@@ -1948,8 +1952,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	init_completion(&adc_qpnp->adc_rslt_completion);
 
 	if (of_get_property(node, "hkadc_ldo-supply", NULL)) {
-		adc_qpnp->hkadc_ldo = regulator_get(&spmi->dev,
-				"hkadc_ldo");
+		adc_qpnp->hkadc_ldo = regulator_get(&pdev->dev, "hkadc_ldo");
 		if (IS_ERR(adc_qpnp->hkadc_ldo)) {
 			pr_err("hkadc_ldo-supply node not found\n");
 			return -EINVAL;
@@ -1972,7 +1975,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	}
 
 	if (of_get_property(node, "hkadc_ok-supply", NULL)) {
-		adc_qpnp->hkadc_ldo_ok = regulator_get(&spmi->dev,
+		adc_qpnp->hkadc_ldo_ok = regulator_get(&pdev->dev,
 				"hkadc_ok");
 		if (IS_ERR(adc_qpnp->hkadc_ldo_ok)) {
 			pr_err("hkadc_ok node not found\n");

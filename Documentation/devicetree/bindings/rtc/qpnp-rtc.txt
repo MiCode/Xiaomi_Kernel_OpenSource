@@ -15,9 +15,6 @@ Required properties :
 			This must be set to '1'.
  - #size-cells:		The number of cells dedicated to represent address
 			space range of a peripheral. This must be set to '1'.
- - spmi-dev-container:	This specifies that all the device nodes specified
-			within this node should have their resources
-			coalesced into a single spmi_device.
 
 Optional properties:
  - qcom,qpnp-rtc-write:		This property enables/disables rtc write
@@ -44,7 +41,6 @@ Required properties :
 
 Example:
 	qcom,pm8941_rtc {
-		spmi-dev-container;
 		compatible = "qcom,qpnp-rtc";
 		#address-cells = <1>;
 		#size-cells = <1>;

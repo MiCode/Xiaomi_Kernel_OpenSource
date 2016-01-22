@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,9 +13,11 @@
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/kernel.h>
+#include <linux/regmap.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -23,7 +25,8 @@
 #define QPNP_COINCELL_DRIVER_NAME "qcom,qpnp-coincell"
 
 struct qpnp_coincell {
-	struct spmi_device	*spmi_dev;
+	struct platform_device	*pdev;
+	struct regmap		*regmap;
 	u16			base_addr;
 };
 
@@ -56,10 +59,11 @@ static int qpnp_coincell_set_resistance(struct qpnp_coincell *chip, int rset)
 	}
 
 	reg = i;
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
-		chip->base_addr + QPNP_COINCELL_REG_RSET, &reg, 1);
+	rc = regmap_write(chip->regmap,
+			  chip->base_addr + QPNP_COINCELL_REG_RSET, reg);
 	if (rc)
-		dev_err(&chip->spmi_dev->dev, "%s: could not write to RSET register, rc=%d\n",
+		dev_err(&chip->pdev->dev,
+			"%s: could not write to RSET register, rc=%d\n",
 			__func__, rc);
 
 	return rc;
@@ -80,10 +84,11 @@ static int qpnp_coincell_set_voltage(struct qpnp_coincell *chip, int vset)
 	}
 
 	reg = i;
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
-		chip->base_addr + QPNP_COINCELL_REG_VSET, &reg, 1);
+	rc = regmap_write(chip->regmap,
+			  chip->base_addr + QPNP_COINCELL_REG_VSET, reg);
 	if (rc)
-		dev_err(&chip->spmi_dev->dev, "%s: could not write to VSET register, rc=%d\n",
+		dev_err(&chip->pdev->dev,
+			"%s: could not write to VSET register, rc=%d\n",
 			__func__, rc);
 
 	return rc;
@@ -95,10 +100,11 @@ static int qpnp_coincell_set_charge(struct qpnp_coincell *chip, bool enabled)
 	u8 reg;
 
 	reg = enabled ? QPNP_COINCELL_ENABLE : QPNP_COINCELL_DISABLE;
-	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
-		chip->base_addr + QPNP_COINCELL_REG_ENABLE, &reg, 1);
+	rc = regmap_write(chip->regmap,
+			  chip->base_addr + QPNP_COINCELL_REG_ENABLE, reg);
 	if (rc)
-		dev_err(&chip->spmi_dev->dev, "%s: could not write to ENABLE register, rc=%d\n",
+		dev_err(&chip->pdev->dev,
+			"%s: could not write to ENABLE register, rc=%d\n",
 			__func__, rc);
 
 	return rc;
@@ -110,17 +116,20 @@ static void qpnp_coincell_charger_show_state(struct qpnp_coincell *chip)
 	bool enabled;
 	u8 reg[QPNP_COINCELL_REG_ENABLE - QPNP_COINCELL_REG_RSET + 1];
 
-	rc = spmi_ext_register_readl(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
-		chip->base_addr + QPNP_COINCELL_REG_RSET, reg, ARRAY_SIZE(reg));
+	rc = regmap_bulk_read(chip->regmap,
+			      chip->base_addr + QPNP_COINCELL_REG_RSET, reg,
+			      ARRAY_SIZE(reg));
 	if (rc) {
-		dev_err(&chip->spmi_dev->dev, "%s: could not read RSET register, rc=%d\n",
+		dev_err(&chip->pdev->dev,
+			"%s: could not read RSET register, rc=%d\n",
 			__func__, rc);
 		return;
 	}
 
 	temp = reg[QPNP_COINCELL_REG_RSET - QPNP_COINCELL_REG_RSET];
 	if (temp >= ARRAY_SIZE(qpnp_rset_map)) {
-		dev_err(&chip->spmi_dev->dev, "unknown RSET=0x%02X register value\n",
+		dev_err(&chip->pdev->dev,
+			"unknown RSET=0x%02X register value\n",
 			temp);
 		return;
 	}
@@ -128,7 +137,8 @@ static void qpnp_coincell_charger_show_state(struct qpnp_coincell *chip)
 
 	temp = reg[QPNP_COINCELL_REG_VSET - QPNP_COINCELL_REG_RSET];
 	if (temp >= ARRAY_SIZE(qpnp_vset_map)) {
-		dev_err(&chip->spmi_dev->dev, "unknown VSET=0x%02X register value\n",
+		dev_err(&chip->pdev->dev,
+			"unknown VSET=0x%02X register value\n",
 			temp);
 		return;
 	}
@@ -146,16 +156,19 @@ static int qpnp_coincell_check_type(struct qpnp_coincell *chip)
 	int rc;
 	u8 type[2];
 
-	rc = spmi_ext_register_readl(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
-		chip->base_addr + QPNP_COINCELL_REG_TYPE, type, 2);
+	rc = regmap_bulk_read(chip->regmap,
+			      chip->base_addr + QPNP_COINCELL_REG_TYPE, type,
+			      2);
 	if (rc) {
-		dev_err(&chip->spmi_dev->dev, "%s: could not read type register, rc=%d\n",
+		dev_err(&chip->pdev->dev,
+			"%s: could not read type register, rc=%d\n",
 			__func__, rc);
 		return rc;
 	}
 
 	if (type[0] != QPNP_COINCELL_TYPE || type[1] != QPNP_COINCELL_SUBTYPE) {
-		dev_err(&chip->spmi_dev->dev, "%s: invalid type=0x%02X or subtype=0x%02X register value\n",
+		dev_err(&chip->pdev->dev,
+			"%s: invalid type=0x%02X or subtype=0x%02X register value\n",
 			__func__, type[0], type[1]);
 		return -ENODEV;
 	}
@@ -163,34 +176,38 @@ static int qpnp_coincell_check_type(struct qpnp_coincell *chip)
 	return rc;
 }
 
-static int qpnp_coincell_probe(struct spmi_device *spmi)
+static int qpnp_coincell_probe(struct platform_device *pdev)
 {
-	struct device_node *node = spmi->dev.of_node;
+	struct device_node *node = pdev->dev.of_node;
 	struct qpnp_coincell *chip;
-	struct resource *res;
+	unsigned int base;
 	u32 temp;
 	int rc = 0;
 
 	if (!node) {
-		dev_err(&spmi->dev, "%s: device node missing\n", __func__);
+		dev_err(&pdev->dev, "%s: device node missing\n", __func__);
 		return -ENODEV;
 	}
 
-	chip = devm_kzalloc(&spmi->dev, sizeof(*chip), GFP_KERNEL);
-	if (!chip) {
-		dev_err(&spmi->dev, "%s: cannot allocate qpnp_coincell\n",
-			__func__);
+	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
+	if (!chip)
 		return -ENOMEM;
-	}
-	chip->spmi_dev = spmi;
 
-	res = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&spmi->dev, "%s: node is missing base address\n",
-			__func__);
+	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!chip->regmap) {
+		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
 		return -EINVAL;
 	}
-	chip->base_addr = res->start;
+	chip->pdev = pdev;
+
+	rc = of_property_read_u32(pdev->dev.of_node, "reg", &base);
+	if (rc < 0) {
+		dev_err(&pdev->dev,
+			"Couldn't find reg in node = %s rc = %d\n",
+			pdev->dev.of_node->full_name, rc);
+		return rc;
+	}
+	chip->base_addr = base;
 
 	rc = qpnp_coincell_check_type(chip);
 	if (rc)
@@ -222,7 +239,7 @@ static int qpnp_coincell_probe(struct spmi_device *spmi)
 	return 0;
 }
 
-static int qpnp_coincell_remove(struct spmi_device *spmi)
+static int qpnp_coincell_remove(struct platform_device *pdev)
 {
 	return 0;
 }
@@ -232,13 +249,13 @@ static struct of_device_id qpnp_coincell_match_table[] = {
 	{}
 };
 
-static const struct spmi_device_id qpnp_coincell_id[] = {
+static const struct platform_device_id qpnp_coincell_id[] = {
 	{ QPNP_COINCELL_DRIVER_NAME, 0 },
 	{}
 };
 MODULE_DEVICE_TABLE(spmi, qpnp_coincell_id);
 
-static struct spmi_driver qpnp_coincell_driver = {
+static struct platform_driver qpnp_coincell_driver = {
 	.driver	= {
 		.name		= QPNP_COINCELL_DRIVER_NAME,
 		.of_match_table	= qpnp_coincell_match_table,
@@ -251,12 +268,12 @@ static struct spmi_driver qpnp_coincell_driver = {
 
 static int __init qpnp_coincell_init(void)
 {
-	return spmi_driver_register(&qpnp_coincell_driver);
+	return platform_driver_register(&qpnp_coincell_driver);
 }
 
 static void __exit qpnp_coincell_exit(void)
 {
-	spmi_driver_unregister(&qpnp_coincell_driver);
+	platform_driver_unregister(&qpnp_coincell_driver);
 }
 
 MODULE_DESCRIPTION("QPNP PMIC coincell charger driver");

@@ -18,11 +18,13 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/kernel.h>
+#include <linux/regmap.h>
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/spmi.h>
+#include <linux/platform_device.h>
 #include <linux/mutex.h>
 #include <linux/msm_bcl.h>
 #include <linux/power_supply.h>
@@ -114,14 +116,14 @@ struct bcl_peripheral_data {
 };
 
 struct bcl_device {
-	bool                    enabled;
-	struct device           *dev;
-	struct spmi_device      *spmi;
-	uint16_t                base_addr;
-	uint16_t                pon_spare_addr;
-	uint8_t                 slave_id;
-	int                     i_src;
-	struct bcl_peripheral_data   param[BCL_PARAM_MAX];
+	bool				enabled;
+	struct device			*dev;
+	struct platform_device		*pdev;
+	struct regmap			*regmap;
+	uint16_t			base_addr;
+	uint16_t			pon_spare_addr;
+	int				i_src;
+	struct bcl_peripheral_data	param[BCL_PARAM_MAX];
 };
 
 static struct bcl_device *bcl_perph;
@@ -139,9 +141,8 @@ static int bcl_read_multi_register(int16_t reg_offset, uint8_t *data, int len)
 		pr_err("BCL device not initialized\n");
 		return -EINVAL;
 	}
-	ret = spmi_ext_register_readl(bcl_perph->spmi->ctrl,
-		bcl_perph->slave_id, (bcl_perph->base_addr + reg_offset),
-		data, len);
+	ret = regmap_bulk_read(bcl_perph->regmap,
+			       (bcl_perph->base_addr + reg_offset), data, len);
 	if (ret < 0) {
 		pr_err("Error reading register %d. err:%d", reg_offset, ret);
 		return ret;
@@ -171,9 +172,7 @@ static int bcl_write_general_register(int16_t reg_offset,
 		pr_err("BCL device not initialized\n");
 		return -EINVAL;
 	}
-	ret = spmi_ext_register_writel(bcl_perph->spmi->ctrl,
-		bcl_perph->slave_id, (base + reg_offset),
-		write_buf, 1);
+	ret = regmap_write(bcl_perph->regmap, (base + reg_offset), *write_buf);
 	if (ret < 0) {
 		pr_err("Error reading register %d. err:%d", reg_offset, ret);
 		return ret;
@@ -773,28 +772,19 @@ exit_intr:
 	return IRQ_HANDLED;
 }
 
-static int bcl_get_devicetree_data(struct spmi_device *spmi)
+static int bcl_get_devicetree_data(struct platform_device *pdev)
 {
 	int ret = 0, irq_num = 0, temp_val = 0;
-	struct resource *resource = NULL;
 	char *key = NULL;
 	const __be32 *prop = NULL;
-	struct device_node *dev_node = spmi->dev.of_node;
+	struct device_node *dev_node = pdev->dev.of_node;
 
-	/* Get SPMI peripheral address */
-	resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
-	if (!resource) {
-		pr_err("No base address defined\n");
-		return -EINVAL;
-	}
-	bcl_perph->slave_id = spmi->sid;
-	prop = of_get_address_by_name(dev_node,
-			"fg_user_adc", 0, 0);
+	prop = of_get_address_by_name(dev_node, "fg_user_adc", 0, 0);
 	if (prop) {
 		bcl_perph->base_addr = be32_to_cpu(*prop);
 		pr_debug("fg_user_adc@%04x\n", bcl_perph->base_addr);
 	} else {
-		dev_err(&spmi->dev, "No fg_user_adc registers found\n");
+		dev_err(&pdev->dev, "No fg_user_adc registers found\n");
 		return -EINVAL;
 	}
 
@@ -806,16 +796,14 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 	}
 
 	/* Register SPMI peripheral interrupt */
-	irq_num = spmi_get_irq_byname(spmi, NULL,
-			BCL_VBAT_INT_NAME);
+	irq_num = platform_get_irq_byname(pdev, BCL_VBAT_INT_NAME);
 	if (irq_num < 0) {
 		pr_err("Invalid vbat IRQ\n");
 		ret = -ENXIO;
 		goto bcl_dev_exit;
 	}
 	bcl_perph->param[BCL_PARAM_VOLTAGE].irq_num = irq_num;
-	irq_num = spmi_get_irq_byname(spmi, NULL,
-			BCL_IBAT_INT_NAME);
+	irq_num = platform_get_irq_byname(pdev, BCL_IBAT_INT_NAME);
 	if (irq_num < 0) {
 		pr_err("Invalid ibat IRQ\n");
 		ret = -ENXIO;
@@ -1009,20 +997,25 @@ update_data_exit:
 	return ret;
 }
 
-static int bcl_probe(struct spmi_device *spmi)
+static int bcl_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	bcl_perph = devm_kzalloc(&spmi->dev, sizeof(struct bcl_device),
+	bcl_perph = devm_kzalloc(&pdev->dev, sizeof(struct bcl_device),
 			GFP_KERNEL);
 	if (!bcl_perph) {
 		pr_err("Memory alloc failed\n");
 		return -ENOMEM;
 	}
-	bcl_perph->spmi = spmi;
-	bcl_perph->dev = &(spmi->dev);
+	bcl_perph->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!bcl_perph->regmap) {
+		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+		return -EINVAL;
+	}
+	bcl_perph->pdev = pdev;
+	bcl_perph->dev = &(pdev->dev);
 
-	ret = bcl_get_devicetree_data(spmi);
+	ret = bcl_get_devicetree_data(pdev);
 	if (ret) {
 		pr_err("Device tree data fetch error. err:%d", ret);
 		goto bcl_probe_exit;
@@ -1038,7 +1031,7 @@ static int bcl_probe(struct spmi_device *spmi)
 	bcl_psy.set_property     = bcl_psy_set_property;
 	bcl_psy.num_properties   = 0;
 	bcl_psy.external_power_changed = power_supply_callback;
-	ret = power_supply_register(&spmi->dev, &bcl_psy);
+	ret = power_supply_register(&pdev->dev, &bcl_psy);
 	if (ret < 0) {
 		pr_err("Unable to register bcl_psy rc = %d\n", ret);
 		return ret;
@@ -1050,14 +1043,14 @@ static int bcl_probe(struct spmi_device *spmi)
 		goto bcl_probe_exit;
 	}
 	mutex_lock(&bcl_perph->param[BCL_PARAM_VOLTAGE].state_trans_lock);
-	ret = devm_request_threaded_irq(&spmi->dev,
+	ret = devm_request_threaded_irq(&pdev->dev,
 			bcl_perph->param[BCL_PARAM_VOLTAGE].irq_num,
 			NULL, bcl_handle_vbat,
 			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 			"bcl_vbat_interrupt",
 			&bcl_perph->param[BCL_PARAM_VOLTAGE]);
 	if (ret) {
-		dev_err(&spmi->dev, "Error requesting VBAT irq. err:%d", ret);
+		dev_err(&pdev->dev, "Error requesting VBAT irq. err:%d", ret);
 		mutex_unlock(
 			&bcl_perph->param[BCL_PARAM_VOLTAGE].state_trans_lock);
 		goto bcl_probe_exit;
@@ -1070,14 +1063,14 @@ static int bcl_probe(struct spmi_device *spmi)
 	mutex_unlock(&bcl_perph->param[BCL_PARAM_VOLTAGE].state_trans_lock);
 
 	mutex_lock(&bcl_perph->param[BCL_PARAM_CURRENT].state_trans_lock);
-	ret = devm_request_threaded_irq(&spmi->dev,
+	ret = devm_request_threaded_irq(&pdev->dev,
 			bcl_perph->param[BCL_PARAM_CURRENT].irq_num,
 			NULL, bcl_handle_ibat,
 			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
 			"bcl_ibat_interrupt",
 			&bcl_perph->param[BCL_PARAM_CURRENT]);
 	if (ret) {
-		dev_err(&spmi->dev, "Error requesting IBAT irq. err:%d", ret);
+		dev_err(&pdev->dev, "Error requesting IBAT irq. err:%d", ret);
 		mutex_unlock(
 			&bcl_perph->param[BCL_PARAM_CURRENT].state_trans_lock);
 		goto bcl_probe_exit;
@@ -1085,7 +1078,7 @@ static int bcl_probe(struct spmi_device *spmi)
 	disable_irq_nosync(bcl_perph->param[BCL_PARAM_CURRENT].irq_num);
 	mutex_unlock(&bcl_perph->param[BCL_PARAM_CURRENT].state_trans_lock);
 
-	dev_set_drvdata(&spmi->dev, bcl_perph);
+	dev_set_drvdata(&pdev->dev, bcl_perph);
 	ret = bcl_write_register(BCL_MONITOR_EN, BIT(7));
 	if (ret) {
 		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
@@ -1099,7 +1092,7 @@ bcl_probe_exit:
 	return ret;
 }
 
-static int bcl_remove(struct spmi_device *spmi)
+static int bcl_remove(struct platform_device *pdev)
 {
 	int ret = 0, i = 0;
 
@@ -1126,25 +1119,25 @@ static struct of_device_id bcl_match[] = {
 	{},
 };
 
-static struct spmi_driver bcl_driver = {
-	.probe = bcl_probe,
-	.remove = bcl_remove,
-	.driver = {
-		.name = BCL_DRIVER_NAME,
-		.owner = THIS_MODULE,
-		.of_match_table = bcl_match,
+static struct platform_driver bcl_driver = {
+	.probe	= bcl_probe,
+	.remove	= bcl_remove,
+	.driver	= {
+		.name		= BCL_DRIVER_NAME,
+		.owner		= THIS_MODULE,
+		.of_match_table	= bcl_match,
 	},
 };
 
 static int __init bcl_perph_init(void)
 {
 	pr_info("BCL Initialized\n");
-	return spmi_driver_register(&bcl_driver);
+	return platform_driver_register(&bcl_driver);
 }
 
 static void __exit bcl_perph_exit(void)
 {
-	spmi_driver_unregister(&bcl_driver);
+	platform_driver_unregister(&bcl_driver);
 }
 fs_initcall(bcl_perph_init);
 module_exit(bcl_perph_exit);
