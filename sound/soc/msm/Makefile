@@ -15,3 +15,7 @@ obj-$(CONFIG_SND_SOC_CPE) += snd-soc-cpe.o
 # for MSM8996 sound card driver
 snd-soc-msm8996-objs := msm8996.o
 obj-$(CONFIG_SND_SOC_MSM8996) += snd-soc-msm8996.o
+
+# for MSMCOBALT sound card driver
+snd-soc-msmcobalt-objs := msmcobalt.o
+obj-$(CONFIG_SND_SOC_MSMCOBALT) += snd-soc-msmcobalt.o
