@@ -763,7 +763,7 @@ static int smb135x_get_prop_batt_capacity(struct smb135x_chg *chip)
 	if (chip->fake_battery_soc >= 0)
 		return chip->fake_battery_soc;
 	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
+		power_supply_get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
 		return ret.intval;
 	}
@@ -1986,7 +1986,7 @@ static void smb135x_external_power_changed(struct power_supply *psy)
 		chip->bms_psy =
 			power_supply_get_by_name((char *)chip->bms_psy_name);
 
-	rc = chip->usb_psy->get_property(chip->usb_psy,
+	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
 	if (rc < 0)
 		dev_err(chip->dev,
@@ -2006,7 +2006,7 @@ static void smb135x_external_power_changed(struct power_supply *psy)
 					rc);
 	}
 
-	rc = chip->usb_psy->get_property(chip->usb_psy,
+	rc = power_supply_get_property(chip->usb_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 	if (rc < 0)
 		dev_err(chip->dev,

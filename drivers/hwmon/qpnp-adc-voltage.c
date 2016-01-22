@@ -1837,7 +1837,7 @@ int32_t qpnp_vadc_read(struct qpnp_vadc_chip *vadc,
 		prop = POWER_SUPPLY_PROP_FORCE_TLIM;
 		ret.intval = 1;
 
-		rc = vadc->vadc_chg_vote->set_property(vadc->vadc_chg_vote,
+		rc = power_supply_set_property(vadc->vadc_chg_vote,
 								prop, &ret);
 		if (rc) {
 			pr_err("error enabling the charger circuitry vote\n");
@@ -1850,7 +1850,7 @@ int32_t qpnp_vadc_read(struct qpnp_vadc_chip *vadc,
 			pr_err("Error reading die_temp\n");
 
 		ret.intval = 0;
-		rc = vadc->vadc_chg_vote->set_property(vadc->vadc_chg_vote,
+		rc = power_supply_set_property(vadc->vadc_chg_vote,
 								prop, &ret);
 		if (rc) {
 			pr_err("error enabling the charger circuitry vote\n");

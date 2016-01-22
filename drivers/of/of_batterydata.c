@@ -329,7 +329,8 @@ struct device_node *of_batterydata_get_best_profile(
 		return ERR_PTR(-EPROBE_DEFER);
 	}
 
-	rc = psy->get_property(psy, POWER_SUPPLY_PROP_RESISTANCE_ID, &ret);
+	rc = power_supply_get_property(psy, POWER_SUPPLY_PROP_RESISTANCE_ID,
+			&ret);
 	if (rc) {
 		pr_err("failed to retrieve resistance value rc=%d\n", rc);
 		return ERR_PTR(-ENOSYS);

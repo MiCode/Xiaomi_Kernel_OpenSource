@@ -960,7 +960,7 @@ static int set_property_on_fg(struct smbchg_chip *chip,
 	}
 
 	ret.intval = val;
-	rc = chip->bms_psy->set_property(chip->bms_psy, prop, &ret);
+	rc = power_supply_set_property(chip->bms_psy, prop, &ret);
 	if (rc)
 		pr_smb(PR_STATUS,
 			"bms psy does not allow updating prop %d rc = %d\n",
@@ -983,7 +983,7 @@ static int get_property_from_fg(struct smbchg_chip *chip,
 		return -EINVAL;
 	}
 
-	rc = chip->bms_psy->get_property(chip->bms_psy, prop, &ret);
+	rc = power_supply_get_property(chip->bms_psy, prop, &ret);
 	if (rc) {
 		pr_smb(PR_STATUS,
 			"bms psy doesn't support reading prop %d rc = %d\n",
@@ -1084,7 +1084,8 @@ static void get_property_from_typec(struct smbchg_chip *chip,
 {
 	int rc;
 
-	rc = chip->typec_psy->get_property(chip->typec_psy, property, prop);
+	rc = power_supply_get_property(chip->typec_psy,
+			property, prop);
 	if (rc)
 		pr_smb(PR_TYPEC,
 			"typec psy doesn't support reading prop %d rc = %d\n",
@@ -1105,7 +1106,7 @@ static void update_typec_status(struct smbchg_chip *chip)
 		chip->typec_current_ma = capability.intval;
 
 		if (!chip->skip_usb_notification) {
-			rc = chip->usb_psy->set_property(chip->usb_psy,
+			rc = power_supply_set_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 				&capability);
 			if (rc)
@@ -1845,7 +1846,7 @@ static int smbchg_parallel_usb_charging_en(struct smbchg_chip *chip, bool en)
 		return 0;
 
 	pval.intval = en;
-	return parallel_psy->set_property(parallel_psy,
+	return power_supply_set_property(parallel_psy,
 		POWER_SUPPLY_PROP_CHARGING_ENABLED, &pval);
 }
 
@@ -1967,7 +1968,7 @@ try_again:
 		pr_smb(PR_STATUS, "Not parallel charging, skipping\n");
 		goto done;
 	}
-	parallel_psy->get_property(parallel_psy,
+	power_supply_get_property(parallel_psy,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
 	tries += 1;
 	parallel_fcc_ma = pval.intval / 1000;
@@ -1984,7 +1985,7 @@ try_again:
 		pval.intval);
 	/* Change it to uA */
 	pval.intval *= 1000;
-	parallel_psy->set_property(parallel_psy,
+	power_supply_set_property(parallel_psy,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
 	/*
 	 * sleep here for 100 ms in order to make sure the charger has a chance
@@ -2040,7 +2041,7 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 	power_supply_set_current_limit(parallel_psy,
 				new_parallel_cl_ma * 1000);
 	/* read back the real amount of current we are getting */
-	parallel_psy->get_property(parallel_psy,
+	power_supply_get_property(parallel_psy,
 			POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
 	set_parallel_cl_ma = pval.intval / 1000;
 	chip->parallel.current_max_ma = new_parallel_cl_ma;
@@ -2059,10 +2060,10 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 	target_parallel_fcc_ma =
 		(fcc_ma * parallel_chg_fcc_percent) / 100;
 	pval.intval = target_parallel_fcc_ma * 1000;
-	parallel_psy->set_property(parallel_psy,
+	power_supply_set_property(parallel_psy,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
 	/* check how much actual current is supplied by the parallel charger */
-	parallel_psy->get_property(parallel_psy,
+	power_supply_get_property(parallel_psy,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
 	supplied_parallel_fcc_ma = pval.intval / 1000;
 	pr_smb(PR_MISC, "Requested FCC = %d from parallel, got %d\n",
@@ -2199,7 +2200,7 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 		chip->parallel.initial_aicl_ma = current_limit_ma;
 	}
 
-	parallel_psy->get_property(parallel_psy,
+	power_supply_get_property(parallel_psy,
 			POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
 	parallel_cl_ma = pval.intval / 1000;
 	/*
@@ -3351,7 +3352,7 @@ static void smbchg_aicl_deglitch_wa_check(struct smbchg_chip *chip)
 	 * is removed.
 	 */
 	if (!chip->vbat_above_headroom) {
-		rc = chip->bms_psy->get_property(chip->bms_psy,
+		rc = power_supply_get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_VOLTAGE_MIN, &prop);
 		if (rc < 0) {
 			pr_err("could not read voltage_min, rc=%d\n", rc);
@@ -3390,7 +3391,7 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 	struct device_node *node = chip->pdev->dev.of_node;
 	union power_supply_propval prop = {0,};
 
-	rc = chip->bms_psy->get_property(chip->bms_psy,
+	rc = power_supply_get_property(chip->bms_psy,
 			POWER_SUPPLY_PROP_BATTERY_TYPE, &prop);
 	if (rc) {
 		pr_smb(PR_STATUS, "Unable to read battery-type rc=%d\n", rc);
@@ -3502,7 +3503,7 @@ static void check_battery_type(struct smbchg_chip *chip)
 		chip->bms_psy =
 			power_supply_get_by_name((char *)chip->bms_psy_name);
 	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
+		power_supply_get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_BATTERY_TYPE, &prop);
 		en = (strcmp(prop.strval, UNKNOWN_BATT_TYPE) != 0
 				|| chip->charge_unknown_battery)
@@ -3511,7 +3512,7 @@ static void check_battery_type(struct smbchg_chip *chip)
 				BATTCHG_UNKNOWN_BATTERY_EN_VOTER, !en, 0);
 
 		if (!chip->skip_usb_suspend_for_fake_battery) {
-			chip->bms_psy->get_property(chip->bms_psy,
+			power_supply_get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_RESISTANCE_ID, &prop);
 			/* suspend USB path for invalid battery-id */
 			en = (prop.intval <= MAX_INV_BATT_ID &&
@@ -3551,13 +3552,13 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 									rc);
 	}
 
-	rc = chip->usb_psy->get_property(chip->usb_psy,
+	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
 	if (rc == 0)
 		vote(chip->usb_suspend_votable, POWER_SUPPLY_EN_VOTER,
 				!prop.intval, 0);
 
-	rc = chip->usb_psy->get_property(chip->usb_psy,
+	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
 	if (rc == 0)
 		current_limit = prop.intval / 1000;
@@ -5483,8 +5484,8 @@ static void update_typec_capability_status(struct smbchg_chip *chip,
 	pr_smb(PR_TYPEC, "typec capability = %dma\n", val->intval);
 
 	if (!chip->skip_usb_notification) {
-		rc = chip->usb_psy->set_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, val);
+		rc = power_supply_set_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_INPUT_CURRENT_MAX, val);
 		if (rc)
 			pr_err("typec failed to set current max rc=%d\n", rc);
 	}

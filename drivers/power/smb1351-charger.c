@@ -1154,7 +1154,7 @@ static int smb1351_get_prop_batt_capacity(struct smb1351_charger *chip)
 		return chip->fake_battery_soc;
 
 	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
+		power_supply_get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
 		return ret.intval;
 	}
@@ -1169,7 +1169,7 @@ static int smb1351_get_prop_batt_temp(struct smb1351_charger *chip)
 	struct qpnp_vadc_result results;
 
 	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
+		power_supply_get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_TEMP, &ret);
 		return ret.intval;
 	}
@@ -1749,7 +1749,7 @@ static void smb1351_chg_ctrl_in_jeita(struct smb1351_charger *chip)
 	* before the disabe and enable operation.
 	*/
 	if (chip->bms_psy) {
-		rc = chip->bms_psy->get_property(chip->bms_psy,
+		rc = power_supply_get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
 		if (rc) {
 			pr_err("Couldn't read the bms capacity rc = %d\n",
@@ -2059,7 +2059,7 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		chip->apsd_rerun = false;
 	} else if (!chip->apsd_rerun) {
 		/* Handle Charger removal */
-		chip->usb_psy->get_property(chip->usb_psy,
+		power_supply_get_property(chip->usb_psy,
 					POWER_SUPPLY_PROP_TYPE, &prop);
 		chip->chg_present = false;
 		power_supply_set_supply_type(chip->usb_psy,
@@ -2466,14 +2466,14 @@ static void smb1351_external_power_changed(struct power_supply *psy)
 		chip->bms_psy =
 			power_supply_get_by_name((char *)chip->bms_psy_name);
 
-	rc = chip->usb_psy->get_property(chip->usb_psy,
+	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_ONLINE, &prop);
 	if (rc)
 		pr_err("Couldn't read USB online property, rc=%d\n", rc);
 	else
 		online = prop.intval;
 
-	rc = chip->usb_psy->get_property(chip->usb_psy,
+	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
 	if (rc)
 		pr_err("Couldn't read USB current_max property, rc=%d\n", rc);
