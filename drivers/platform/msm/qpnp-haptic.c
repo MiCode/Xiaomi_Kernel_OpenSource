@@ -1638,7 +1638,7 @@ static void qpnp_hap_worker(struct work_struct *work)
 	struct qpnp_hap *hap = container_of(work, struct qpnp_hap,
 					 work);
 	u8 val = 0x00;
-	int rc, reg_en;
+	int rc, reg_en = 0;
 
 	if (hap->vcc_pon) {
 		reg_en = regulator_enable(hap->vcc_pon);

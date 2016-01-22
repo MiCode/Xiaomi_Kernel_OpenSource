@@ -149,7 +149,8 @@ int get_effective_client_id_locked(struct votable *votable)
 
 int vote(struct votable *votable, int client_id, bool state, int val)
 {
-	int effective_id, effective_result;
+	int effective_id = - EINVAL;
+	int effective_result;
 	int rc = 0;
 
 	lock_votable(votable);

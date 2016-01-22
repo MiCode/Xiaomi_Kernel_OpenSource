@@ -2341,6 +2341,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	int rc, i = 0, j, num_leds = 0;
 	u32 val;
 
+	root = NULL;
 	node = pdev->dev.of_node;
 	if (node == NULL) {
 		dev_info(&pdev->dev, "No flash device defined\n");

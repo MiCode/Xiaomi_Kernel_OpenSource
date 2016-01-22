@@ -1773,7 +1773,7 @@ static void smb1351_chg_ctrl_in_jeita(struct smb1351_charger *chip)
 static void smb1351_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 {
 	struct smb1351_charger *chip = ctx;
-	struct battery_status *cur;
+	struct battery_status *cur = NULL;
 	int temp;
 
 	if (state >= ADC_TM_STATE_NUM) {
@@ -1828,7 +1828,6 @@ static void smb1351_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 			chip->adc_param.high_temp = chip->batt_cold_decidegc;
 			chip->adc_param.low_temp = chip->batt_missing_decidegc
 							- HYSTERESIS_DECIDEGC;
-
 		}
 	/* temp from high to low */
 	} else {

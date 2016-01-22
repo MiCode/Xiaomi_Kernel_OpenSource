@@ -4358,7 +4358,7 @@ static int smb135x_parallel_charger_probe(struct i2c_client *client,
 			&parallel_psy_cfg);
 	if (IS_ERR(chip->parallel_psy)) {
 		dev_err(&client->dev,
-			"Unable to register parallel_psy rc = %d\n",
+			"Unable to register parallel_psy rc = %ld\n",
 			PTR_ERR(chip->parallel_psy));
 		return rc;
 	}

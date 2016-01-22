@@ -491,7 +491,7 @@ module_param_named(
 		if (smbchg_debug_mask & (reason))			\
 			pr_info_ratelimited(fmt, ##__VA_ARGS__);	\
 		else							\
-			pr_debug_ratelimited(fmt, ##__VA_ARGS__);	\
+			pr_debug(fmt, ##__VA_ARGS__);	\
 	} while (0)
 
 static int smbchg_read(struct smbchg_chip *chip, u8 *val,
@@ -4645,7 +4645,7 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 
 	if (parallel_psy) {
 		pval.intval = true;
-		power_supply_set_property(parallel_psy,
+		rc = power_supply_set_property(parallel_psy,
 				POWER_SUPPLY_PROP_PRESENT, &pval);
 		chip->parallel_charger_detected = rc ? false : true;
 		if (rc)
@@ -7860,6 +7860,7 @@ static int smbchg_probe(struct platform_device *pdev)
 		}
 	}
 
+	vadc_dev = NULL;
 	if (of_find_property(pdev->dev.of_node, "qcom,dcin-vadc", NULL)) {
 		vadc_dev = qpnp_get_vadc(&pdev->dev, "dcin");
 		if (IS_ERR(vadc_dev)) {
@@ -7872,6 +7873,7 @@ static int smbchg_probe(struct platform_device *pdev)
 		}
 	}
 
+	vchg_vadc_dev = NULL;
 	if (of_find_property(pdev->dev.of_node, "qcom,vchg_sns-vadc", NULL)) {
 		vchg_vadc_dev = qpnp_get_vadc(&pdev->dev, "vchg_sns");
 		if (IS_ERR(vchg_vadc_dev)) {
