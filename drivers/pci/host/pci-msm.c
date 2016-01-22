@@ -585,6 +585,7 @@ struct msm_pcie_dev_t {
 	uint32_t			current_bdf;
 	short				current_short_bdf;
 	uint32_t			tlp_rd_size;
+	bool				linkdown_panic;
 	bool				 ep_wakeirq;
 
 	uint32_t			   rc_idx;
@@ -1790,6 +1791,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->phy_ver);
 	PCIE_DBG_FS(dev, "drv_ready is %d\n",
 		dev->drv_ready);
+	PCIE_DBG_FS(dev, "linkdown_panic is %d\n",
+		dev->linkdown_panic);
 	PCIE_DBG_FS(dev, "the link is %s suspending\n",
 		dev->suspending ? "" : "not");
 	PCIE_DBG_FS(dev, "shadow is %s enabled\n",
@@ -2333,6 +2336,7 @@ static struct dentry *dent_msm_pcie;
 static struct dentry *dfile_rc_sel;
 static struct dentry *dfile_case;
 static struct dentry *dfile_base_sel;
+static struct dentry *dfile_linkdown_panic;
 static struct dentry *dfile_wr_offset;
 static struct dentry *dfile_wr_mask;
 static struct dentry *dfile_wr_value;
@@ -2473,6 +2477,52 @@ static ssize_t msm_pcie_set_base_sel(struct file *file,
 
 const struct file_operations msm_pcie_base_sel_ops = {
 	.write = msm_pcie_set_base_sel,
+};
+
+static ssize_t msm_pcie_set_linkdown_panic(struct file *file,
+				const char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	unsigned long ret;
+	char str[MAX_MSG_LEN];
+	u32 new_linkdown_panic = 0;
+	int i;
+
+	memset(str, 0, sizeof(str));
+	ret = copy_from_user(str, buf, sizeof(str));
+	if (ret)
+		return -EFAULT;
+
+	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+		new_linkdown_panic = (new_linkdown_panic * 10) + (str[i] - '0');
+
+	if (new_linkdown_panic <= 1) {
+		for (i = 0; i < MAX_RC_NUM; i++) {
+			if (!rc_sel) {
+				msm_pcie_dev[0].linkdown_panic =
+					new_linkdown_panic;
+				PCIE_DBG_FS(&msm_pcie_dev[0],
+					"PCIe: RC0: linkdown_panic is now %d\n",
+					msm_pcie_dev[0].linkdown_panic);
+				break;
+			} else if (rc_sel & (1 << i)) {
+				msm_pcie_dev[i].linkdown_panic =
+					new_linkdown_panic;
+				PCIE_DBG_FS(&msm_pcie_dev[i],
+					"PCIe: RC%d: linkdown_panic is now %d\n",
+					i, msm_pcie_dev[i].linkdown_panic);
+			}
+		}
+	} else {
+		pr_err("PCIe: Invalid input for linkdown_panic: %d. Please enter 0 or 1.\n",
+			new_linkdown_panic);
+	}
+
+	return count;
+}
+
+const struct file_operations msm_pcie_linkdown_panic_ops = {
+	.write = msm_pcie_set_linkdown_panic,
 };
 
 static ssize_t msm_pcie_set_wr_offset(struct file *file,
@@ -2657,6 +2707,14 @@ static void msm_pcie_debugfs_init(void)
 		goto base_sel_error;
 	}
 
+	dfile_linkdown_panic = debugfs_create_file("linkdown_panic", 0644,
+					dent_msm_pcie, 0,
+					&msm_pcie_linkdown_panic_ops);
+	if (!dfile_linkdown_panic || IS_ERR(dfile_linkdown_panic)) {
+		pr_err("PCIe: fail to create the file for debug_fs linkdown_panic.\n");
+		goto linkdown_panic_error;
+	}
+
 	dfile_wr_offset = debugfs_create_file("wr_offset", 0664,
 					dent_msm_pcie, 0,
 					&msm_pcie_wr_offset_ops);
@@ -2707,6 +2765,8 @@ wr_value_error:
 wr_mask_error:
 	debugfs_remove(dfile_wr_offset);
 wr_offset_error:
+	debugfs_remove(dfile_linkdown_panic);
+linkdown_panic_error:
 	debugfs_remove(dfile_base_sel);
 base_sel_error:
 	debugfs_remove(dfile_case);
@@ -2721,6 +2781,7 @@ static void msm_pcie_debugfs_exit(void)
 	debugfs_remove(dfile_rc_sel);
 	debugfs_remove(dfile_case);
 	debugfs_remove(dfile_base_sel);
+	debugfs_remove(dfile_linkdown_panic);
 	debugfs_remove(dfile_wr_offset);
 	debugfs_remove(dfile_wr_mask);
 	debugfs_remove(dfile_wr_value);
@@ -4954,6 +5015,9 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 		pcie_phy_dump(dev);
 		pcie_parf_dump(dev);
 
+		if (dev->linkdown_panic)
+			panic("User has chosen to panic on linkdown\n");
+
 		/* assert PERST */
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
@@ -5708,6 +5772,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].current_short_bdf = 0;
 	msm_pcie_dev[rc_idx].use_msi = false;
 	msm_pcie_dev[rc_idx].use_pinctrl = false;
+	msm_pcie_dev[rc_idx].linkdown_panic = false;
 	msm_pcie_dev[rc_idx].bridge_found = false;
 	memcpy(msm_pcie_dev[rc_idx].vreg, msm_pcie_vreg_info,
 				sizeof(msm_pcie_vreg_info));
