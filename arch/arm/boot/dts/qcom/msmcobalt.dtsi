@@ -1466,3 +1466,4 @@
 #include "msmcobalt-regulator.dtsi"
 #include "msmcobalt-camera.dtsi"
 #include "msmcobalt-vidc.dtsi"
+#include "msmcobalt-coresight.dtsi"
