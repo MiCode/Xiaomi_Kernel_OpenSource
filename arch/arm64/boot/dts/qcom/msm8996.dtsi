@@ -3829,3 +3829,4 @@
 #include "msm8996-pm.dtsi"
 #include "msm-arm-smmu-8996.dtsi"
 #include "msm8996-vidc.dtsi"
+#include "msm8996-bus.dtsi"
