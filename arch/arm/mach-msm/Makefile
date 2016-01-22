@@ -6,3 +6,4 @@ obj-$(CONFIG_ARCH_MSM8916) += board-8952.o
 obj-$(CONFIG_ARCH_MSMGOLD) += board-gold.o
 obj-$(CONFIG_ARCH_MSM8937) += board-8937.o
 obj-$(CONFIG_ARCH_MSMTITANIUM) += board-titanium.o
+obj-$(CONFIG_ARCH_MSM8909) += board-8909.o

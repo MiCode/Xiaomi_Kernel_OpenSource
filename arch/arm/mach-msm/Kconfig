@@ -188,5 +188,35 @@ config ARCH_MSMTITANIUM
 	select MSM_RPM_SMD
 	select MSM_JTAGV8 if CORESIGHT_ETMV4
 
+config ARCH_MSM8909
+	bool "MSM8909"
+	select ARCH_MSM_CORTEXMP
+	select ARM_GIC
+	select MULTI_IRQ_HANDLER
+	select HAVE_SMP
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
+	select PINCTRL
+	select PINCTRL_MSM_TLMM
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select MSM_RPM_SMD
+	select MSM_RPM_STATS_LOG
+	select MSM_RPM_LOG
+	select MSM_CORTEX_A7
+	select MSM_IRQ
+	select ARM_TICKET_LOCKS
+	select ARM_HAS_SG_CHAIN
+	select CPU_FREQ
+	select CPU_FREQ_MSM
+	select PM_DEVFREQ
+	select PM_OPP
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+
 endmenu
 endif
