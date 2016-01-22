@@ -1,0 +1,120 @@
+STC311x Fuel Gauge device
+
+STC311x FG provides interface to clients to read properties related
+to the battery. Its main function is to retrieve the State of Charge (SOC),
+a 0-100 percentage representing the amount of charge left in the battery.
+
+- compatible
+	Usage:		Required
+	Value:		<string>
+	Definition:	Must be  "st,stc311x" for the driver.
+
+- reg
+	Usage:		Required
+	Value:		<u32>
+	Definition:	The device 7-bit I2C address.
+
+- st,float-voltage-mv
+	Usage:		Required
+	Value type:	<u32> in mV.
+	Definition:	Float Voltage in mV - the maximum voltage up to which
+			the battery is charged.
+
+- st,rsense-mohm
+	Usage:		Required
+	Value type:	<u32> in mohm.
+	Definition:	Current sense resistance value.
+
+- st,nom-capacity-mah
+	Usage:		Required
+	Value type:	<u32> in mah.
+	Definition:	This specifies nominal capacity of battery.
+
+- st,rbatt-mohm
+	Usage:		Required
+	Value type:	<u32> in mohm.
+	Definition:	This specifies battery internal resistance.
+
+- st,ocv-tbl
+	Usage:		Required
+	Value type:	<u16 array> in mV.
+	Definition:	This specifies an array of battery open circuit voltages at
+			different SOC points.
+			SOC points: [0 3 6 10 15 20 25 30 40 50 60 65 70 80 90
+					100].
+
+- st,vmtemp-tbl
+	Usage:		Required
+	Value type:	<u16 array>
+	Definition:	This specifies an array of VCNF compensation table at
+			different temperatures.
+
+- st,temp-tbl
+	Usage:		Required
+	Value type:	<s16 array in DeciDegC>
+	Definition:	This specifies an array of temperature points used in
+			vtemp table and adaptive capacity tables.
+
+- st,cutoff-voltage-mv
+	Usage:		Optional
+	Value type:	<u32> in mV
+	Definition:	This is the minimum allowed system voltage. The FG
+			will report SOC = 0 at this volatge. This value is
+			also used to configure alarm voltage threshold.
+			If not specified default value is set to 3400mV.
+
+- st,alarm-soc
+	Usage:		Optional
+	Value type:	<u32> in %
+	Definition:	This is the alarm SOC threshold.
+			If not specified default value is set to 10%.
+
+- st,term-current-ma
+	Usage:		Optional
+	Value type:	<u32> in mA
+	Definition:	This is the maximum current threshold limit used to
+			decide end of charge.
+			If not specified value is set to
+
+- st,relax-current-ma
+	Usage:		Optional
+	Value type:	<u32> in mA
+	Definition:	This is the current threshold to decide automatic mode
+			switch between voltage and moxec mode.
+			If not specified value is set to
+
+- st,adaptive-capacity-tbl
+	Usage:		Optional
+	Value type:	<u16 array, each element is in 0.1%>
+	Definition:	This table specifies capacity degradation with
+			temperature.
+
+- st,force-voltage-mode
+	Usage:		Optional
+	Value type:	Boolean
+	Definition:	This is to force FG always in low power voltage mode.
+
+Example:
+	st-fg@70 {
+		compatible = "st,stc3117";
+		reg = <0x70>;
+
+		st,rbatt-mohm = <210>;
+		st,nom-capacity-mah = <1500>;
+		st,rsense-mohm = <10>;
+		st,float-voltage-mv = <4200>;
+
+		st,alarm-soc = <10>;
+		st,alarm-voltage-mv = <3400>;
+
+		st,term-current-ma = <150>;
+		st,relax-current-ma = <200>;
+
+		st,adaptive-capacity-tbl = /bits/ 16 <0 0 0 5 13 42 71>;
+		st,ocv-tbl = /bits/ 16 <3300 3528 3667 3731 3753 3765 3772
+					3792 3827 3900 3929 3957 3513 4072
+					4167>;
+		st,vmtemp-tbl = /bits/ 16 <85 90 100 160 320 440 840>
+		st,temp-tbl = /bits/ 16 <60 40 25 10 0 (-10) (-20)>;
+	};
+
