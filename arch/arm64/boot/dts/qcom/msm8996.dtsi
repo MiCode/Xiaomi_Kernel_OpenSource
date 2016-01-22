@@ -316,14 +316,13 @@
 		qcom,pipe-attr-ee;
 	};
 
-	uartblsp2dm1: serial@75b0000 {
+	uartblsp2dm1: serial@075b0000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x75b0000 0x1000>;
 		interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
-              clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
-                       <&clock_gcc clk_gcc_blsp1_ahb_clk>;
-              clock-names = "core_clk", "iface_clk";
-		status = "okay";
+		clocks = <&clock_gcc clk_gcc_blsp2_uart2_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp2_ahb_clk>;
+		clock-names = "core", "iface";
 	};
 
 	uartblsp1dm1: serial@07570000 {
@@ -767,7 +766,6 @@
 		reg-names = "cc_base";
 		vdd_dig-supply = <&pm8994_s1_corner>;
 		#clock-cells = <1>;
-		status="disabled";
 	};
 
 	clock_mmss: qcom,mmsscc@8c0000 {
