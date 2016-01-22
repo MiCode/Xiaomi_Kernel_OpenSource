@@ -412,6 +412,8 @@ void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
  * struct ion_page_pool - pagepool struct
  * @high_count:		number of highmem items in the pool
  * @low_count:		number of lowmem items in the pool
+ * @nr_unreserved:	number of items in the pool which have not been reserved
+ *			by a prefetch allocation
  * @high_items:		list of highmem items
  * @low_items:		list of lowmem items
  * @mutex:		lock protecting this struct and especially the count
@@ -428,6 +430,7 @@ void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
 struct ion_page_pool {
 	int high_count;
 	int low_count;
+	int nr_unreserved;
 	struct list_head high_items;
 	struct list_head low_items;
 	struct mutex mutex;
@@ -440,9 +443,10 @@ struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order);
 void ion_page_pool_destroy(struct ion_page_pool *);
 void *ion_page_pool_alloc(struct ion_page_pool *, bool *from_pool);
 void *ion_page_pool_alloc_pool_only(struct ion_page_pool *);
-void ion_page_pool_free(struct ion_page_pool *, struct page *);
+void ion_page_pool_free(struct ion_page_pool *, struct page *, bool prefetch);
 void ion_page_pool_free_immediate(struct ion_page_pool *, struct page *);
 int ion_page_pool_total(struct ion_page_pool *pool, bool high);
+void *ion_page_pool_prefetch(struct ion_page_pool *pool, bool *from_pool);
 
 #ifdef CONFIG_ION_POOL_CACHE_POLICY
 static inline void ion_page_pool_alloc_set_cache_policy

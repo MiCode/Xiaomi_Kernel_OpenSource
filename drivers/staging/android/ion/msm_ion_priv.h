@@ -51,6 +51,7 @@ void ion_cp_heap_destroy(struct ion_heap *);
 
 struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *);
 void ion_system_secure_heap_destroy(struct ion_heap *);
+int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *data);
 
 struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *);
 void ion_cma_secure_heap_destroy(struct ion_heap *);
