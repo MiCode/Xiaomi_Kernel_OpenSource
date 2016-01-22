@@ -77,6 +77,7 @@ extern unsigned int sysctl_sched_enable_colocation;
 extern unsigned int sysctl_sched_restrict_cluster_spill;
 #if defined(CONFIG_SCHED_FREQ_INPUT)
 extern unsigned int sysctl_sched_new_task_windows;
+extern unsigned int sysctl_sched_pred_alert_freq;
 #endif
 #endif
 
