@@ -481,6 +481,7 @@ struct fg_chip {
 	bool			bad_batt_detection_en;
 	bool			bcl_lpm_disabled;
 	bool			charging_disabled;
+	bool			use_vbat_low_empty_soc;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -1717,14 +1718,37 @@ out:
 	return rc;
 }
 
+#define VBATT_LOW_STS_BIT BIT(2)
+static int fg_get_vbatt_status(struct fg_chip *chip, bool *vbatt_low_sts)
+{
+	int rc = 0;
+	u8 fg_batt_sts;
+
+	rc = fg_read(chip, &fg_batt_sts, INT_RT_STS(chip->batt_base), 1);
+	if (rc)
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->batt_base), rc);
+	else
+		*vbatt_low_sts = !!(fg_batt_sts & VBATT_LOW_STS_BIT);
+
+	return rc;
+}
+
 #define SOC_EMPTY	BIT(3)
 static bool fg_is_batt_empty(struct fg_chip *chip)
 {
 	u8 fg_soc_sts;
 	int rc;
+	bool vbatt_low_sts;
 
-	rc = fg_read(chip, &fg_soc_sts,
-				 INT_RT_STS(chip->soc_base), 1);
+	if (chip->use_vbat_low_empty_soc) {
+		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
+			return false;
+
+		return vbatt_low_sts;
+	}
+
+	rc = fg_read(chip, &fg_soc_sts, INT_RT_STS(chip->soc_base), 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n",
 				INT_RT_STS(chip->soc_base), rc);
@@ -2267,18 +2291,6 @@ static int fg_set_resume_soc(struct fg_chip *chip, u8 threshold)
 	else
 		pr_debug("setting resume-soc to %x\n", threshold);
 
-	return rc;
-}
-
-#define VBATT_LOW_STS_BIT BIT(2)
-static int fg_get_vbatt_status(struct fg_chip *chip, bool *vbatt_low_sts)
-{
-	int rc = 0;
-	u8 fg_batt_sts;
-
-	rc = fg_read(chip, &fg_batt_sts, INT_RT_STS(chip->batt_base), 1);
-	if (!rc)
-		*vbatt_low_sts = !!(fg_batt_sts & VBATT_LOW_STS_BIT);
 	return rc;
 }
 
@@ -3517,7 +3529,8 @@ static void status_change_work(struct work_struct *work)
 	}
 	if (chip->status == POWER_SUPPLY_STATUS_FULL ||
 			chip->status == POWER_SUPPLY_STATUS_CHARGING) {
-		if (!chip->vbat_low_irq_enabled) {
+		if (!chip->vbat_low_irq_enabled &&
+				!chip->use_vbat_low_empty_soc) {
 			enable_irq(chip->batt_irq[VBATT_LOW].irq);
 			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = true;
@@ -3525,7 +3538,8 @@ static void status_change_work(struct work_struct *work)
 		if (!!(chip->wa_flag & PULSE_REQUEST_WA) && capacity == 100)
 			fg_configure_soc(chip);
 	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
-		if (chip->vbat_low_irq_enabled) {
+		if (chip->vbat_low_irq_enabled &&
+				!chip->use_vbat_low_empty_soc) {
 			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = false;
@@ -4018,21 +4032,40 @@ static bool is_first_est_done(struct fg_chip *chip)
 	return (fg_soc_sts & SOC_FIRST_EST_DONE) ? true : false;
 }
 
+#define FG_EMPTY_DEBOUNCE_MS	1500
 static irqreturn_t fg_vbatt_low_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
-	int rc;
 	bool vbatt_low_sts;
 
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("vbatt-low triggered\n");
 
-	if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
-		rc = fg_get_vbatt_status(chip, &vbatt_low_sts);
-		if (rc) {
-			pr_err("error in reading vbatt_status, rc:%d\n", rc);
+	/* handle empty soc based on vbatt-low interrupt */
+	if (chip->use_vbat_low_empty_soc) {
+		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
 			goto out;
+
+		if (vbatt_low_sts) {
+			if (fg_debug_mask & FG_IRQS)
+				pr_info("Vbatt is low\n");
+			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = false;
+			fg_stay_awake(&chip->empty_check_wakeup_source);
+			schedule_delayed_work(&chip->check_empty_work,
+				msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
+		} else {
+			if (fg_debug_mask & FG_IRQS)
+				pr_info("Vbatt is high\n");
+			chip->soc_empty = false;
 		}
+		goto out;
+	}
+
+	if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
+			goto out;
 		if (!vbatt_low_sts && chip->vbat_low_irq_enabled) {
 			if (fg_debug_mask & FG_IRQS)
 				pr_info("disabling vbatt_low irq\n");
@@ -4121,7 +4154,7 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
 	u8 soc_rt_sts;
-	int rc;
+	int rc, msoc;
 
 	rc = fg_read(chip, &soc_rt_sts, INT_RT_STS(chip->soc_base), 1);
 	if (rc) {
@@ -4140,6 +4173,15 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (chip->soc_slope_limiter_en) {
 		fg_stay_awake(&chip->slope_limit_wakeup_source);
 		schedule_work(&chip->slope_limiter_work);
+	}
+
+	if (chip->use_vbat_low_empty_soc) {
+		msoc = get_monotonic_soc_raw(chip);
+		if (msoc == 0 || chip->soc_empty) {
+			fg_stay_awake(&chip->empty_check_wakeup_source);
+			schedule_delayed_work(&chip->check_empty_work,
+				msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
+		}
 	}
 
 	schedule_work(&chip->battery_age_work);
@@ -4180,7 +4222,6 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
-#define FG_EMPTY_DEBOUNCE_MS	1500
 static irqreturn_t fg_empty_soc_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
@@ -5386,14 +5427,41 @@ static void check_empty_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				check_empty_work.work);
+	bool vbatt_low_sts;
+	int msoc;
 
-	if (fg_is_batt_empty(chip)) {
+	/* handle empty soc based on vbatt-low interrupt */
+	if (chip->use_vbat_low_empty_soc) {
+		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
+			goto out;
+
+		msoc = get_monotonic_soc_raw(chip);
+
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("Vbatt_low: %d, msoc: %d\n", vbatt_low_sts,
+				msoc);
+		if (vbatt_low_sts || (msoc == 0))
+			chip->soc_empty = true;
+		else
+			chip->soc_empty = false;
+
+		if (chip->power_supply_registered)
+			power_supply_changed(&chip->bms_psy);
+
+		if (!chip->vbat_low_irq_enabled) {
+			enable_irq(chip->batt_irq[VBATT_LOW].irq);
+			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = true;
+		}
+	} else if (fg_is_batt_empty(chip)) {
 		if (fg_debug_mask & FG_STATUS)
 			pr_info("EMPTY SOC high\n");
 		chip->soc_empty = true;
 		if (chip->power_supply_registered)
 			power_supply_changed(&chip->bms_psy);
 	}
+
+out:
 	fg_relax(&chip->empty_check_wakeup_source);
 }
 
@@ -5928,6 +5996,9 @@ static int fg_of_init(struct fg_chip *chip)
 		}
 	}
 
+	chip->use_vbat_low_empty_soc = of_property_read_bool(node,
+					"qcom,fg-use-vbat-low-empty-soc");
+
 	return rc;
 }
 
@@ -5976,7 +6047,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 			chip->soc_irq[EMPTY_SOC].irq = spmi_get_irq_byname(
 					chip->spmi, spmi_resource, "empty-soc");
 			if (chip->soc_irq[EMPTY_SOC].irq < 0) {
-				pr_err("Unable to get low-soc irq\n");
+				pr_err("Unable to get empty-soc irq\n");
 				return rc;
 			}
 			chip->soc_irq[DELTA_SOC].irq = spmi_get_irq_byname(
@@ -6001,16 +6072,22 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->soc_irq[FULL_SOC].irq, rc);
 				return rc;
 			}
-			rc = devm_request_irq(chip->dev,
-				chip->soc_irq[EMPTY_SOC].irq,
-				fg_empty_soc_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"empty-soc", chip);
-			if (rc < 0) {
-				pr_err("Can't request %d empty-soc: %d\n",
-					chip->soc_irq[EMPTY_SOC].irq, rc);
-				return rc;
+
+			if (!chip->use_vbat_low_empty_soc) {
+				rc = devm_request_irq(chip->dev,
+					chip->soc_irq[EMPTY_SOC].irq,
+					fg_empty_soc_irq_handler,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING,
+					"empty-soc", chip);
+				if (rc < 0) {
+					pr_err("Can't request %d empty-soc: %d\n",
+						chip->soc_irq[EMPTY_SOC].irq,
+						rc);
+					return rc;
+				}
 			}
+
 			rc = devm_request_irq(chip->dev,
 				chip->soc_irq[DELTA_SOC].irq,
 				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
@@ -6032,7 +6109,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 
 			enable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
 			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
-			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
+			if (!chip->use_vbat_low_empty_soc)
+				enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
 			break;
 		case FG_MEMIF:
 			chip->mem_irq[FG_MEM_AVAIL].irq = spmi_get_irq_byname(
@@ -6094,8 +6172,14 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->batt_irq[VBATT_LOW].irq, rc);
 				return rc;
 			}
-			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
-			chip->vbat_low_irq_enabled = false;
+			if (chip->use_vbat_low_empty_soc) {
+				enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+				chip->vbat_low_irq_enabled = true;
+			} else {
+				disable_irq_nosync(
+					chip->batt_irq[VBATT_LOW].irq);
+				chip->vbat_low_irq_enabled = false;
+			}
 			break;
 		case FG_ADC:
 			break;
@@ -6629,8 +6713,9 @@ static int fg_common_hw_init(struct fg_chip *chip)
 
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
-	update_irq_volt_empty(chip);
 	update_bcl_thresholds(chip);
+	if (!chip->use_vbat_low_empty_soc)
+		update_irq_volt_empty(chip);
 
 	resume_soc_raw = settings[FG_MEM_RESUME_SOC].value;
 	if (resume_soc_raw > 0) {
@@ -6659,6 +6744,11 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		pr_err("failed to write delta soc rc=%d\n", rc);
 		return rc;
 	}
+
+	/* Override the voltage threshold for vbatt_low with empty_volt */
+	if (chip->use_vbat_low_empty_soc)
+		settings[FG_MEM_BATT_LOW].value =
+			settings[FG_MEM_IRQ_VOLT_EMPTY].value;
 
 	rc = fg_mem_masked_write(chip, settings[FG_MEM_BATT_LOW].address, 0xFF,
 			batt_to_setpoint_8b(settings[FG_MEM_BATT_LOW].value),
