@@ -76,8 +76,15 @@
 			size = <0 0x400000>;
 		};
 
-		cont_splash_mem: splash_region@0x90000000 {
-			reg = <0x0 0x90000000 0x0 0x1400000>;
+		dfps_data_mem: dfps_data_mem@90000000 {
+		       compatible = "shared-dma-pool";
+		       no-map;
+		       reg = <0 0x90000000 0 0x1000>;
+		       label = "dfps_data_mem";
+		};
+
+		cont_splash_mem: splash_region@0x90001000 {
+			reg = <0x0 0x90001000 0x0 0x13ff000>;
 			label = "cont_splash_mem";
 		};
 	};
