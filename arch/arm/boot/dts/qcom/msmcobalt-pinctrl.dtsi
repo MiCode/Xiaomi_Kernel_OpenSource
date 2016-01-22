@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,5 +32,103 @@
 				bias-disable;
 			};
 		};
+
+		wcd9xxx_intr {
+			wcd_intr_default: wcd_intr_default{
+				mux {
+					pins = "gpio54";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio54";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+					input-enable;
+				};
+			};
+		};
+
+		cdc_reset_ctrl {
+			cdc_reset_sleep: cdc_reset_sleep {
+				mux {
+					pins = "gpio64";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio64";
+					drive-strength = <16>;
+					bias-disable;
+					output-low;
+				};
+			};
+			cdc_reset_active:cdc_reset_active {
+				mux {
+					pins = "gpio64";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio64";
+					drive-strength = <16>;
+					bias-pull-down;
+					output-high;
+				};
+			};
+		};
+
+		spkr_1_sd_n {
+			spkr_1_sd_n_sleep: spkr_1_sd_n_sleep {
+				mux {
+					pins = "gpio65";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio65";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+			spkr_1_sd_n_active: spkr_1_sd_n_active {
+				mux {
+					pins = "gpio65";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio65";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		spkr_2_sd_n {
+			spkr_2_sd_n_sleep: spkr_2_sd_n_sleep {
+				mux {
+					pins = "gpio66";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio66";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+			spkr_2_sd_n_active: spkr_2_sd_n_active {
+				mux {
+					pins = "gpio66";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio66";
+					drive-strength = <16>;   /* 16 mA */
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
 	};
 };
