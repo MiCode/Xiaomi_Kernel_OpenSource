@@ -8737,7 +8737,7 @@ static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 				(msm_bedais[be_idx].compr_passthr_mode !=
 				LEGACY_PCM))
 				adm_send_compressed_device_mute(port_id,
-					copp, mute);
+					idx, mute);
 			break;
 		case ADM_PP_PARAM_LATENCY_ID:
 			pr_debug("%s: ADM_PP_PARAM_LATENCY\n", __func__);
@@ -8751,7 +8751,7 @@ static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 				(msm_bedais[be_idx].compr_passthr_mode !=
 				LEGACY_PCM))
 				adm_send_compressed_device_latency(port_id,
-					copp, latency);
+					idx, latency);
 			break;
 		default:
 			pr_info("%s, device pp param %d not supported\n",
