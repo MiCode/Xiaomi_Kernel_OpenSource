@@ -495,6 +495,16 @@ config QPNP_SMBCHARGER
 	  The driver also offers relevant information to userspace via the
 	  power supply framework.
 
+config FUELGAUGE_STC3117
+	tristate "STC3117 fuel gauge driver"
+	default n
+	depends on I2C
+	help
+	  Say Y to include support
+	  for STC3117 fuel gauge driver for batteries.
+	  This driver source code implemented
+	  all functions for STC3117 fuel gauge.
+
 config QPNP_FG
 	tristate "QPNP fuel gauge driver"
 	depends on SPMI || MSM_SPMI
