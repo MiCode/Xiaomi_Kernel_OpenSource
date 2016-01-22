@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,9 +133,7 @@ struct hdmi_tx_ctrl {
 	struct msm_hdmi_audio_setup_params audio_data;
 
 	struct mutex mutex;
-	struct mutex lut_lock;
-	struct mutex power_mutex;
-	struct mutex cable_notify_mutex;
+	struct mutex tx_lock;
 	struct list_head cable_notify_handlers;
 	struct kobject *kobj;
 	struct switch_dev sdev;
