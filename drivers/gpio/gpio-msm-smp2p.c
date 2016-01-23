@@ -486,8 +486,8 @@ static void smp2p_add_irq_domain(struct smp2p_chip_dev *chip,
 	}
 
 	/* alloc a contiguous set of virt irqs from anywhere in the irq space */
-	irq_base = irq_alloc_descs_from(0, SMP2P_BITS_PER_ENTRY,
-				of_node_to_nid(chip->irq_domain->of_node));
+	irq_base = irq_alloc_descs_from(0, SMP2P_BITS_PER_ENTRY, of_node_to_nid(
+				irq_domain_get_of_node(chip->irq_domain)));
 	if (irq_base < 0) {
 		SMP2P_ERR("alloc virt irqs failed:%d name:%s pid%d\n", irq_base,
 						chip->name, chip->remote_pid);
