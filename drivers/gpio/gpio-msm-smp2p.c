@@ -1,6 +1,6 @@
 /* drivers/gpio/gpio-msm-smp2p.c
  *
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -377,7 +377,6 @@ static int smp2p_irq_map(struct irq_domain *domain_ptr, unsigned int virq,
 	irq_set_chip_and_handler(virq, &smp2p_gpio_irq_chip,
 				 handle_level_irq);
 	irq_set_chip_data(virq, chip);
-	set_irq_flags(virq, IRQF_VALID);
 
 	return 0;
 }
