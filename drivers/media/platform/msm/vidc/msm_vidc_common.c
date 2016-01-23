@@ -484,8 +484,10 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 		vote_data[i].domain = get_hal_domain(inst->session_type);
 		vote_data[i].codec = get_hal_codec(codec);
-		vote_data[i].width = inst->prop.width[CAPTURE_PORT];
-		vote_data[i].height = inst->prop.height[CAPTURE_PORT];
+		vote_data[i].width =  max(inst->prop.width[CAPTURE_PORT],
+			inst->prop.width[OUTPUT_PORT]);
+		vote_data[i].height = max(inst->prop.height[CAPTURE_PORT],
+			inst->prop.height[OUTPUT_PORT]);
 		vote_data[i].fps = inst->prop.fps;
 		if (msm_comm_turbo_session(inst))
 			vote_data[i].power_mode = VIDC_POWER_TURBO;
