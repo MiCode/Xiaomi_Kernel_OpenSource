@@ -539,7 +539,8 @@ static int pp_dither_set_config(char __iomem *base_addr,
 		      base_addr, cfg_data, pp_sts);
 		return -EINVAL;
 	}
-
+	if (block_type != DSPP)
+		return -ENOTSUPP;
 	dither_cfg_data = (struct mdp_dither_cfg_data *) cfg_data;
 
 	if (dither_cfg_data->version != mdp_dither_v1_7) {

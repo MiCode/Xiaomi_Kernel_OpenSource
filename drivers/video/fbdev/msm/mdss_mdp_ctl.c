@@ -3053,7 +3053,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_ctl *split_ctl;
 	u32 width, height;
-	int split_fb;
+	int split_fb, rc = 0;
 	u32 max_mixer_width;
 	struct mdss_panel_info *pinfo;
 
@@ -3119,6 +3119,16 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	ctl->mixer_left->valid_roi = true;
 	ctl->mixer_left->roi_changed = true;
 
+	rc = mdss_mdp_pp_default_overlay_config(ctl->mfd, ctl->panel_data);
+	/*
+	 * Ignore failure of PP config, ctl set-up can succeed.
+	 */
+	if (rc) {
+		pr_err("failed to set the pp config rc %dfb %d\n", rc,
+			ctl->mfd->index);
+		rc = 0;
+	}
+
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		pr_debug("dual display detected\n");
 		return 0;
@@ -3161,7 +3171,6 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 		ctl->opmode &= ~(MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
 				  MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT);
 	}
-
 	return 0;
 }
 

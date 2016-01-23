@@ -56,6 +56,14 @@
 #define PA_LUTV_REG_OFF 0x200
 #define PA_HIST_RAM_REG_OFF 0x400
 
+#define PPB_GLOBAL_DITHER_REG_OFF 0x30E0
+#define DITHER_MATRIX_LEN 16
+#define DITHER_DEPTH_MAP_INDEX 9
+static u32 dither_matrix[DITHER_MATRIX_LEN] = {
+	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10};
+static u32 dither_depth_map[DITHER_DEPTH_MAP_INDEX] = {
+	0, 0, 0, 0, 0, 1, 2, 3, 3};
+
 /* histogram prototypes */
 static int pp_get_hist_offset(u32 block, u32 *ctl_off);
 static int pp_hist_set_config(char __iomem *base_addr,
@@ -470,7 +478,7 @@ pa_set_sts:
 static int pp_pa_get_config(char __iomem *base_addr, void *cfg_data,
 		u32 block_type, u32 disp_num)
 {
-	return -EINVAL;
+	return -ENOTSUPP;
 }
 
 static int pp_pa_get_version(u32 *version)
@@ -486,14 +494,88 @@ static int pp_pa_get_version(u32 *version)
 static int pp_dither_get_config(char __iomem *base_addr, void *cfg_data,
 		u32 block_type, u32 disp_num)
 {
-	return -EINVAL;
+	return -ENOTSUPP;
 }
 
 static int pp_dither_set_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts, void *cfg_data,
 		u32 block_type)
 {
-	return -EINVAL;
+	int i = 0;
+	u32 data;
+	struct mdp_dither_cfg_data *dither_cfg_data = NULL;
+	struct mdp_dither_data_v1_7 *dither_data = NULL;
+	char __iomem *dither_opmode = NULL;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		      base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+	if (block_type != PPB)
+		return -ENOTSUPP;
+	dither_opmode = base_addr + PPB_GLOBAL_DITHER_REG_OFF;
+	base_addr = dither_opmode + 4;
+
+	dither_cfg_data = (struct mdp_dither_cfg_data *) cfg_data;
+
+	if (dither_cfg_data->version != mdp_dither_v1_7) {
+		pr_err("invalid dither version %d\n", dither_cfg_data->version);
+		return -EINVAL;
+	}
+
+	if (dither_cfg_data->flags & MDP_PP_OPS_READ) {
+		pr_err("Invalid context for read operation\n");
+		return -EINVAL;
+	}
+
+	if (dither_cfg_data->flags & MDP_PP_OPS_DISABLE ||
+		!(dither_cfg_data->flags & MDP_PP_OPS_WRITE)) {
+		pr_debug("non write ops set %d\n", dither_cfg_data->flags);
+		goto dither_set_sts;
+	}
+
+	dither_data = dither_cfg_data->cfg_payload;
+	if (!dither_data) {
+		pr_err("invalid payload for dither %p\n", dither_data);
+		return -EINVAL;
+	}
+
+	if ((dither_data->g_y_depth >= DITHER_DEPTH_MAP_INDEX) ||
+		(dither_data->b_cb_depth >= DITHER_DEPTH_MAP_INDEX) ||
+		(dither_data->r_cr_depth >= DITHER_DEPTH_MAP_INDEX)) {
+		pr_err("invalid data for dither, g_y_depth %d y_cb_depth %d r_cr_depth %d\n",
+			dither_data->g_y_depth, dither_data->b_cb_depth,
+			dither_data->r_cr_depth);
+		return -EINVAL;
+	}
+	data = dither_depth_map[dither_data->g_y_depth];
+	data |= dither_depth_map[dither_data->b_cb_depth] << 2;
+	data |= dither_depth_map[dither_data->r_cr_depth] << 4;
+	data |= (dither_data->temporal_en) ? (1  << 8) : 0;
+	writel_relaxed(data, base_addr);
+	base_addr += 4;
+	for (i = 0; i < DITHER_MATRIX_LEN; i += 4) {
+		data = (dither_matrix[i] & REG_MASK(4)) |
+			((dither_matrix[i + 1] & REG_MASK(4)) << 4) |
+			((dither_matrix[i + 2] & REG_MASK(4)) << 8) |
+			((dither_matrix[i + 3] & REG_MASK(4)) << 12);
+		writel_relaxed(data, base_addr);
+		base_addr += 4;
+	}
+
+dither_set_sts:
+	pp_sts_set_split_bits(&pp_sts->dither_sts,
+			dither_cfg_data->flags);
+	if (dither_cfg_data->flags & MDP_PP_OPS_DISABLE) {
+		pp_sts->dither_sts &= ~PP_STS_ENABLE;
+		writel_relaxed(0, dither_opmode);
+	} else if (dither_cfg_data->flags & MDP_PP_OPS_ENABLE) {
+		pp_sts->dither_sts |= PP_STS_ENABLE;
+		if (pp_sts_is_enabled(pp_sts->dither_sts, pp_sts->side_sts))
+			writel_relaxed(BIT(0), dither_opmode);
+	}
+	return 0;
 }
 
 static int pp_dither_get_version(u32 *version)
