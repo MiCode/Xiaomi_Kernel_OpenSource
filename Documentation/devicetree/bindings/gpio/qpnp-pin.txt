@@ -1,0 +1,224 @@
+* msm-qpnp-pin
+
+msm-qpnp-pin is a GPIO chip driver for the MSM SPMI implementation.
+It creates a spmi_device for every spmi-dev-container block of device_nodes.
+These device_nodes contained within specify the PMIC pin number associated
+with each gpio chip. The driver will map these to Linux GPIO numbers.
+
+[PMIC GPIO Device Declarations]
+
+-Root Node-
+
+Required properties :
+ - spmi-dev-container : Used to specify the following child nodes as part of the
+   same SPMI device.
+ - gpio-controller : Specify as gpio-contoller. All child nodes will belong to
+   this gpio_chip.
+ - #gpio-cells: We encode a PMIC pin number and a 32-bit flag field to
+   specify the gpio configuration. This must be set to '2'.
+ - #address-cells: Specify one address field. This must be set to '1'.
+ - #size-cells: Specify one size-cell. This must be set to '1'.
+ - compatible = "qcom,qpnp-pin" : Specify driver matching for this driver.
+ - label: String giving the name for the gpio_chip device. This name
+   should be unique on the system and portray the specifics of the device.
+
+-Child Nodes-
+
+Required properties :
+ - reg : Specify the spmi offset and size for this pin device.
+ - qcom,pin-num : Specify the PMIC pin number for this device.
+
+Optional configuration properties :
+ -  qcom,mode:		indicates whether the pin should be input, output, or
+			both for gpios. mpp pins also support bidirectional,
+			analog in, analog out and current sink.
+			QPNP_PIN_MODE_DIG_IN	 = 0, (GPIO/MPP)
+			QPNP_PIN_MODE_DIG_OUT	 = 1, (GPIO/MPP)
+			QPNP_PIN_MODE_DIG_IN_OUT = 2, (GPIO/MPP)
+			QPNP_PIN_MODE_ANA_PASS_THRU = 3, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_MODE_BIDIR	 = 3, (MPP)
+			QPNP_PIN_MODE_AIN	 = 4, (MPP)
+			QPNP_PIN_MODE_AOUT	 = 5, (MPP)
+			QPNP_PIN_MODE_SINK	 = 6  (MPP)
+
+ - qcom,output-type:	indicates gpio should be configured as CMOS or open
+			drain.
+			QPNP_PIN_OUT_BUF_CMOS		 = 0, (GPIO)
+			QPNP_PIN_OUT_BUF_OPEN_DRAIN_NMOS = 1, (GPIO)
+			QPNP_PIN_OUT_BUF_OPEN_DRAIN_PMOS = 2  (GPIO)
+			QPNP_PIN_OUT_BUF_NO_DRIVE	 = 3, (GPIO_LV/GPIO_MV)
+
+ - qcom,invert:		Invert the signal of the gpio line -
+			QPNP_PIN_INVERT_DISABLE = 0 (GPIO/MPP)
+			QPNP_PIN_INVERT_ENABLE	= 1 (GPIO/MPP)
+
+ - qcom,pull:		This parameter should be programmed to different values
+			depending on whether it's GPIO or MPP.
+			For GPIO, it indicates whether a pull up or pull down
+			should be applied. If a pullup is required the
+			current strength needs to be specified.
+			Current values of 30uA, 1.5uA, 31.5uA, 1.5uA with 30uA
+			boost are supported. This value should be one of
+			the QPNP_PIN_GPIO_PULL_*. Note that the hardware ignores
+			this configuration if the GPIO is not set to input or
+			output open-drain mode.
+			QPNP_PIN_PULL_UP_30	 = 0, (GPIO)
+			QPNP_PIN_PULL_UP_1P5	 = 1, (GPIO)
+			QPNP_PIN_PULL_UP_31P5	 = 2, (GPIO)
+			QPNP_PIN_PULL_UP_1P5_30  = 3, (GPIO)
+			QPNP_PIN_PULL_DN	 = 4, (GPIO)
+			QPNP_PIN_PULL_NO	 = 5  (GPIO)
+
+			For MPP, it indicates whether a pullup should be
+			applied for bidirectitional mode only. The hardware
+			ignores the configuration when operating in other modes.
+			This value should be one of the QPNP_PIN_MPP_PULL_*.
+
+			QPNP_PIN_MPP_PULL_UP_0P6KOHM = 0, (MPP)
+			QPNP_PIN_MPP_PULL_UP_OPEN    = 1  (MPP)
+			QPNP_PIN_MPP_PULL_UP_10KOHM  = 2, (MPP)
+			QPNP_PIN_MPP_PULL_UP_30KOHM  = 3, (MPP)
+
+  - qcom,vin-sel:	specifies the voltage level when the output is set to 1.
+			For an input gpio specifies the voltage level at which
+			the input is interpreted as a logical 1.
+			QPNP_PIN_VIN0 = 0, (GPIO/MPP/GPIO_LV/GPIO_MV)
+			QPNP_PIN_VIN1 = 1, (GPIO/MPP/GPIO_MV)
+			QPNP_PIN_VIN2 = 2, (GPIO/MPP)
+			QPNP_PIN_VIN3 = 3, (GPIO/MPP)
+			QPNP_PIN_VIN4 = 4, (GPIO/MPP)
+			QPNP_PIN_VIN5 = 5, (GPIO/MPP)
+			QPNP_PIN_VIN6 = 6, (GPIO/MPP)
+			QPNP_PIN_VIN7 = 7  (GPIO/MPP)
+
+  - qcom,out-strength:	the amount of current supplied for an output gpio.
+			QPNP_PIN_OUT_STRENGTH_LOW  = 1  (GPIO)
+			QPNP_PIN_OUT_STRENGTH_MED  = 2, (GPIO)
+			QPNP_PIN_OUT_STRENGTH_HIGH = 3, (GPIO)
+
+  - qcom,dtest-sel	Route the pin internally to a DTEST line.
+			QPNP_PIN_DIG_IN_CTL_DTEST1 = 1	(GPIO/MPP)
+			QPNP_PIN_DIG_IN_CTL_DTEST2 = 2,	(GPIO/MPP)
+			QPNP_PIN_DIG_IN_CTL_DTEST3 = 3,	(GPIO/MPP)
+			QPNP_PIN_DIG_IN_CTL_DTEST4 = 4,	(GPIO/MPP)
+
+  - qcom,src-sel:	select a function for the pin. Certain pins
+			can be paired (shorted) with each other. Some gpio pins
+			can act as alternate functions.
+			In the context of gpio, this acts as a source select.
+			For mpps, this is an enable select.
+			QPNP_PIN_SEL_FUNC_CONSTANT = 0, (GPIO/MPP)
+			QPNP_PIN_SEL_FUNC_PAIRED   = 1, (GPIO/MPP)
+			QPNP_PIN_SEL_FUNC_1	   = 2, (GPIO/MPP)
+			QPNP_PIN_SEL_FUNC_2	   = 3, (GPIO/MPP)
+			QPNP_PIN_SEL_DTEST1	   = 4, (GPIO/MPP)
+			QPNP_PIN_SEL_DTEST2	   = 5, (GPIO/MPP)
+			QPNP_PIN_SEL_DTEST3	   = 6, (GPIO/MPP)
+			QPNP_PIN_SEL_DTEST4	   = 7  (GPIO/MPP)
+
+			Below are the source-select values for GPIO_LV/MV.
+			QPNP_PIN_LV_MV_SEL_FUNC_CONSTANT   = 0, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_FUNC_PAIRED	   = 1, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_FUNC_1	   = 2, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_FUNC_2	   = 3, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_FUNC_3	   = 4, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_FUNC_4	   = 5, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_DTEST1	   = 6  (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_DTEST2	   = 7, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_DTEST3	   = 8, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_LV_MV_SEL_DTEST4	   = 9, (GPIO_LV/GPIO_MV)
+
+ - qcom,master-en:	1 = Enable features within the
+			pin block based on configurations. (GPIO/MPP)
+			0 = Completely disable the block and
+			let the pin float with high impedance
+			regardless of other settings. (GPIO/MPP)
+ - qcom,aout-ref:	set the analog output reference.
+
+			QPNP_PIN_AOUT_1V25    = 0, (MPP)
+			QPNP_PIN_AOUT_0V625   = 1, (MPP)
+			QPNP_PIN_AOUT_0V3125  = 2, (MPP)
+			QPNP_PIN_AOUT_MPP     = 3, (MPP)
+			QPNP_PIN_AOUT_ABUS1   = 4, (MPP)
+			QPNP_PIN_AOUT_ABUS2   = 5, (MPP)
+			QPNP_PIN_AOUT_ABUS3   = 6, (MPP)
+			QPNP_PIN_AOUT_ABUS4   = 7  (MPP)
+
+ - qcom,ain-route:	Set the destination for analog input.
+			QPNP_PIN_AIN_AMUX_CH5   = 0, (MPP)
+			QPNP_PIN_AIN_AMUX_CH6   = 1, (MPP)
+			QPNP_PIN_AIN_AMUX_CH7   = 2, (MPP)
+			QPNP_PIN_AIN_AMUX_CH8   = 3, (MPP)
+			QPNP_PIN_AIN_AMUX_ABUS1 = 4, (MPP)
+			QPNP_PIN_AIN_AMUX_ABUS2 = 5, (MPP)
+			QPNP_PIN_AIN_AMUX_ABUS3 = 6, (MPP)
+			QPNP_PIN_AIN_AMUX_ABUS4 = 7  (MPP)
+
+ - qcom,cs-out:		Set the the amount of output to sync in mA.
+			QPNP_PIN_CS_OUT_5MA  = 0, (MPP)
+			QPNP_PIN_CS_OUT_10MA = 1, (MPP)
+			QPNP_PIN_CS_OUT_15MA = 2, (MPP)
+			QPNP_PIN_CS_OUT_20MA = 3, (MPP)
+			QPNP_PIN_CS_OUT_25MA = 4, (MPP)
+			QPNP_PIN_CS_OUT_30MA = 5, (MPP)
+			QPNP_PIN_CS_OUT_35MA = 6, (MPP)
+			QPNP_PIN_CS_OUT_40MA = 7  (MPP)
+
+ - qcom,apass-sel:	Set the ATEST channel to route the signal
+			QPNP_PIN_APASS_SEL_ATEST1 = 0, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_APASS_SEL_ATEST2 = 1, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_APASS_SEL_ATEST3 = 2, (GPIO_LV/GPIO_MV)
+			QPNP_PIN_APASS_SEL_ATEST4 = 3, (GPIO_LV/GPIO_MV)
+
+*Note: If any of the configuration properties are not specified, then the
+       qpnp-pin driver will not modify that respective configuration in
+       hardware.
+
+[PMIC GPIO clients]
+
+Required properties :
+ - gpios : Contains 3 fields of the form <&gpio_controller pmic_pin_num flags>
+
+[Example]
+
+qpnp: qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+
+		qcom,pm8941@0 {
+			spmi-slave-container;
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			pm8941_gpios: gpios {
+				spmi-dev-container;
+				compatible = "qcom,qpnp-pin";
+				gpio-controller;
+				#gpio-cells = <2>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				gpio@c000 {
+					reg = <0xc000 0x100>;
+					qcom,pin-num = <62>;
+				};
+
+				gpio@c100 {
+					reg = <0xc100 0x100>;
+					qcom,pin-num = <20>;
+					qcom,source_sel = <2>;
+					qcom,pull = <5>;
+				};
+			};
+
+			qcom,testgpio@1000 {
+				compatible = "qcom,qpnp-testgpio";
+				reg = <0x1000 0x1000>;
+				gpios = <&pm8941_gpios 62 0x0 &pm8941_gpios 20 0x1>;
+			};
+		};
+	};
+};

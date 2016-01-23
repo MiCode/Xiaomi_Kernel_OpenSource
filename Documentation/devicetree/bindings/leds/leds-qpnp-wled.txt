@@ -1,0 +1,90 @@
+Qualcomm Technologies QPNP WLED
+
+QPNP (Qualcomm Technologies Plug N Play) WLED (White Light
+Emitting Diode) driver is used for controlling display
+backlight that is part of PMIC on Qualcomm Technologies
+reference platforms. The PMIC is connected to the host
+processor via SPMI bus.
+
+Required properties:
+- compatible		: should be "qcom,qpnp-wled"
+- reg			: base address and size for wled modules
+- reg-names		: names associated with base addresses. It
+			should be "qpnp-wled-ctrl-base", "qpnp-wled-sink-base",
+			"qpnp-wled-ibb-base", "qpnp-wled-lab-base".
+
+Optional properties for WLED:
+ - interrupts		: Specifies the interrupts associated with WLED. The available
+			  interrupts are over voltage protection(ovp) and short circuit(sc).
+			  The values for ovp and sc are <0x3 0xd8 0x1> and <0x3 0xd8 0x2>.
+ - interrupt-names	: Specify the interrupt names associated with interrupts. Must be
+			  one of "ovp-irq" or "sc-irq"
+- linux,name		: name of the wled. default is "wled".
+- linux,default-trigger	: trigger for the backlight. default is NONE.
+- qcom,fdbk-output	: string feedback current output for wled module. The accepted values
+			  are "wled1", "wled2", "wled3", "wled4" and "auto". default is "auto".
+- qcom,vref-mv		: maximum reference voltage in mv. default is 350.
+- qcom,switch-freq-khz	: switch frequency in khz. default is 800.
+- qcom,ovp-mv		: over voltage protection value in mv. default is 17800.
+- qcom,ilim-ma		: maximum current limiter in ma. default is 980.
+- qcom,boost-duty-ns	: maximum boost duty cycle in ns. default is 104.
+- qcom,mod-freq-khz	: modulation frequency in khz. default is 9600.
+- qcom,dim-mode		: dimming mode. supporting dimming modes are "analog",
+			  "digital", and "hybrid". default is "hybrid".
+- qcom,hyb-thres	: threshold value when used in hybrid mode. It represents the
+			  percentage of brightntess at which dimming mode is switched
+			  from "digital" to "analog". the default value is 6.25%. as the
+			  floating point cannot be represented directly, the value is
+			  multiplied by 100. so the default is 625.
+- qcom,sync-dly-us	: delay for current sync in us. default is 400.
+- qcom,fs-curr-ua	: maximum full scale current in ua. default is 25000.
+- qcom,en-9b-dim-res	: boolean, specify if 9-bit dim resultion is needed. otherwise 12-bit is used.
+- qcom,en-phase-stag	: boolean, specify if phase staggering is needed.
+- qcom,en-cabc		: boolean, specify if cabc (content adaptive backlight control) is needed.
+- qcom,disp-type-amoled	: specify if the display is amoled
+- qcom,led-strings-list	: Wled module has four strings of leds numbered from 0 to 3. each string of leds
+			  are operated individually. specify the list of strings used by the device.
+			  any combination of led strings can be used. default value is [00 01 02 03]
+- qcom,en-ext-pfet-sc-pro : Specify if external pfet short circuit protection is needed
+- qcom,cons-sync-write-delay-us : Specify in 'us' the duration of delay between two consecutive writes to
+				  SYNC register.
+
+Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
+- qcom,loop-ea-gm	: control the gm for gm stage in control loop. default is 3.
+- qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.
+- qcom,vref-psm-mv	: reference psm voltage in mv. default for amoled is 450.
+- qcom,sc-deb-cycles	: debounce time for short circuit detection
+- qcom,avdd-trim-steps-from-center : The number of steps to trim the OVP threshold voltage. The possible values can be between -7 to 8.
+
+Example:
+	qcom,leds@d800 {
+		compatible = "qcom,qpnp-wled";
+		reg = <0xd800 0x100>,
+			<0xd900 0x100>,
+			<0xdc00 0x100>,
+			<0xde00 0x100>;
+		reg-names = "qpnp-wled-ctrl-base",
+				"qpnp-wled-sink-base",
+				"qpnp-wled-ibb-base",
+				"qpnp-wled-lab-base";
+		interrupts = <0x3 0xd8 0x2>;
+		interrupt-names = "sc-irq";
+		status = "okay";
+		linux,name = "wled";
+		linux,default-trigger = "bkl-trigger";
+		qcom,fdbk-output = "auto";
+		qcom,vref-mv = <350>;
+		qcom,switch-freq-khz = <800>;
+		qcom,ovp-mv = <29500>;
+		qcom,ilim-ma = <980>;
+		qcom,boost-duty-ns = <26>;
+		qcom,mod-freq-khz = <9600>;
+		qcom,dim-mode = "hybrid";
+		qcom,dim-method = "linear";
+		qcom,hyb-thres = <625>;
+		qcom,sync-dly-us = <800>;
+		qcom,fs-curr-ua = <16000>;
+		qcom,en-phase-stag;
+		qcom,led-strings-list = [00 01 02 03];
+		qcom,en-ext-pfet-sc-pro;
+	};

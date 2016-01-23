@@ -1,0 +1,48 @@
+menu "Qualcomm MSM specific device drivers"
+	depends on ARCH_QCOM
+
+config QPNP_POWER_ON
+	tristate "QPNP PMIC POWER-ON Driver"
+	depends on OF_SPMI && (SPMI || MSM_SPMI) && MSM_QPNP_INT && INPUT
+	help
+	  This driver supports the power-on functionality on Qualcomm
+	  PNP PMIC. It currently supports reporting the change in status of
+	  the KPDPWR_N line (connected to the power-key).
+
+config QPNP_REVID
+	tristate "QPNP Revision ID Peripheral"
+	depends on SPMI || MSM_SPMI
+	help
+	  Say 'y' here to include support for the Qualcomm QPNP REVID
+	  peripheral. REVID prints out the PMIC type and revision numbers
+	  in the kernel log along with the PMIC option status. The PMIC
+	  type is mapped to a Qualcomm chip part number and logged as well.
+
+config QPNP_COINCELL
+	tristate "Qualcomm QPNP coincell charger support"
+	depends on (SPMI || MSM_SPMI) && OF_SPMI
+	help
+	  This driver supports the QPNP coincell peripheral found inside of
+	  Qualcomm QPNP PMIC devices.  The coincell charger provides a means to
+	  charge a coincell battery or backup capacitor which is used to
+	  maintain PMIC register state when the main battery is removed from the
+	  mobile device.
+
+config QPNP_HAPTIC
+	tristate "Haptic support for QPNP PMIC"
+	depends on OF_SPMI
+	help
+	  This option enables device driver support for the Haptic
+	  on the Qualcomm Technologies' QPNP PMICs. It uses the android
+	  timed-output framework.
+
+config GPIO_USB_DETECT
+	tristate "GPIO-based USB VBUS Detection"
+	depends on POWER_SUPPLY
+	help
+	  This driver supports external USB VBUS detection circuitry whose
+	  output is connected to a GPIO. The driver in turn notifies the
+	  USB driver of VBUS presence/disconnection using the power_supply
+	  framework.
+
+endmenu

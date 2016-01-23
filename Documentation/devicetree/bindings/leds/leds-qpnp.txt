@@ -1,0 +1,358 @@
+Qualcomm QPNP Leds
+
+QPNP (Qualcomm Plug N Play) LEDs driver is used for
+controlling LEDs that are part of PMIC on Qualcomm reference
+platforms. The PMIC is connected to Host processor via
+SPMI bus. This driver supports various LED modules such as
+Keypad backlight, WLED (white LED), RGB LED and flash LED.
+
+Each LED module is represented as a node of "leds-qpnp". This
+node will further contain the type of LED supported and its
+properties.  At least one child node is required for each LED
+module.  Each must have the required properties below, in addition
+to the properties for the LED type, WLED, Flash, RGB and MPP.
+
+Required properties for each child node, WLED, Flash and RGB:
+- compatible		: should be "qcom,leds-qpnp"
+- qcom,id		: must be one of values supported in enum qpnp_led
+- label			: type of led that will be used, ie "wled"
+- qcom,max-current	: maximum current that the LED can sustain in mA
+- linux,name		: name of the led that is used in led framework
+
+Optional properties for each child node, WLED, Flash, MPP, RGB and KPDBL:
+- qcom,in-order-command-processing : specify if user space requests leds in order
+
+WLED is primarily used as display backlight. Display subsystem uses
+LED triggers for WLED to control the brightness as needed.
+
+Optional properties for WLED:
+- qcom,num-strings: number of wled strings to be configured
+- qcom,num-physical-strings: number of physical wled strings supported
+- qcom,ovp-val: over voltage protection threshold,
+		follows enum wled_ovp_threshold
+- qcom,boost-curr-lim: boot currnet limit, follows enum wled_current_bost_limit
+- qcom,ctrl-delay-us: delay in activation of led
+- qcom,dig-mod-gen-en: digital module generator
+- qcom,cs-out-en: current sink output enable
+- qcom,op-fdbck: selection of output as feedback for the boost, 00 = automatic selection, 01 = select LED1 output, 02 = select LED2 output, 03 = select LED3 output
+- qcom,cp-select: high pole capacitance
+- linux,default-trigger: trigger the led from external modules such as display
+- qcom,default-state:  default state of the led, should be "on" or "off"
+
+Flash is used primarily as a camera or video flash.
+
+Optional properties for flash:
+- qcom,headroom: headroom to use. Values should be 0, 1, 2, 3 for 250mV, 300mV, 400mV and 500mV
+- qcom,duration: duration of the flash and torch, 10ms - 1280ms for flash and 2s - 33s for torch
+- qcom,clamp-curr: current to clamp at, mA
+- qcom,startup-dly: delay before flashing after flash executed. Values should 0, 1, 2, 3 for 10us, 32us, 64us, and 128us
+- qcom,saftey-timer: include for safety timer use, otherwise watchdog timer will be used
+- linux,default-trigger: trigger the led from external modules such as display
+- qcom,default-state:  default state of the led, should be "on" or "off"
+- qcom,torch-enable: set flash led to torch mode functionality and triggers software workaround for torch if hardware does not support
+- qcom,sw_vreg_ok: Specify if software strobe is used to inform the readiness of flash module to fire the flash LED when there is no smbb support
+- qcom,no-smbb-support: Specify if smbb boost is not required and there is a single regulator for both flash and torch.
+- flash-boost-supply: SMBB regulator for LED flash mode
+- torch-boost-supply: SMBB regulator for LED torch mode
+- flash-wa-supply: SMBB regulator for flash workarounds.
+
+RGB Led is a tri-colored led, Red, Blue & Green.
+
+Required properties for RGB led:
+- qcom,mode: mode the led should operate in, options "pwm" and "lpg". "manual" mode is not supported for RGB led.
+
+Required properties for PWM mode only:
+- pwms: Use the phandle of pwm device
+- qcom,pwm-us: time the pwm device will modulate at (us)
+
+Required properties for LPG mode only:
+- pwms: Use the phandle of pwm device
+- qcom,pwm-us: time the pwm device will modulate at (us)
+- qcom,duty-pcts: array of values for duty cycle to go through
+- qcom,start-idx: starting point duty-pcts array
+
+Optional properties for LPG mode only:
+- qcom,pause-lo: pause at low end of cycle
+- qcom,pause-hi: pause at high end of cycle
+- qcom,ramp-step-ms: step between each cycle (ms)
+- qcom,lut-flags: flags to be used in lut configuration
+
+Optional properties for RGB led:
+- linux,default-trigger: trigger the led from external modules such as display
+- qcom,default-state:  default state of the led, should be "on" or "off"
+- qcom,turn-off-delay-ms: delay in millisecond for turning off the led when its default-state is "on". Value is being ignored in case default-state is "off".
+- qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
+
+MPP LED is an LED controled through a Multi Purpose Pin.
+
+Optional properties for MPP LED:
+- linux,default-trigger: trigger the led from external modules such as display
+- qcom,default-state: default state of the led, should be "on" or "off"
+- qcom,source-sel: select power source, default 1 (enabled)
+- qcom,mode-ctrl: select operation mode, default 0x60 = Mode Sink
+- qcom,mode: mode the led should operate in, options "pwm", "lpg" and "manual"
+- qcom,vin-ctrl: select input source, supported values are 0 to 3
+- qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
+- qcom,min-brightness - Lowest possible brightness supported on this LED other than 0.
+- qcom,current-setting: default current value for wled used as button backlight in mA
+- mpp-power-supply: regulator support for MPP LED
+- qcom,mpp-power-max-voltage - maximum voltage for MPP LED regulator. This should not be specified when no regulator is in use.
+- qcom,mpp-power-min-voltage - minimum voltage for MPP LED regulator. This should not be specified when no regulator is in use.
+
+Required properties for PWM mode only:
+- pwms: Use the phandle of pwm device
+- qcom,pwm-us: time the pwm device will modulate at (us)
+
+Required properties for LPG mode only:
+- pwms: Use the phandle of pwm device
+- qcom,pwm-us: time the pwm device will modulate at (us)
+- qcom,duty-pcts: array of values for duty cycle to go through
+- qcom,start-idx: starting point duty-pcts array
+
+Optional properties for LPG mode only:
+- qcom,pause-lo: pause at low end of cycle
+- qcom,pause-hi: pause at high end of cycle
+- qcom,ramp-step-ms: step between each cycle (ms)
+- qcom,lut-flags: flags to be used in lut configuration
+
+Keypad backlight is a backlight source for buttons. It supports four rows
+and the required rows are enabled by specifying values in the properties.
+
+Required properties for keypad backlight:
+- qcom,mode: mode the led should operate in, options "pwm" and "lpg". "manual" mode is not supported for keypad backlight.
+- qcom,row-id: specify the id of the row. Supported values are 0 to 3.
+
+Optional properties for keypad backlight:
+- qcom,row-src-vbst: select source for rows. Specify for vbst and ignore it
+			for vph_pwr.
+- qcom,row-src-en: specify to enable row source
+- qcom,always-on: specify if the module has to be always on
+- qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
+
+Required properties for PWM mode only:
+- pwms: Use the phandle of pwm device
+- qcom,pwm-us: time the pwm device will modulate at (us)
+
+Required properties for LPG mode only:
+- pwms: Use the phandle of pwm device
+- qcom,pwm-us: time the pwm device will modulate at (us)
+- qcom,duty-pcts: array of values for duty cycle to go through
+- qcom,start-idx: starting point duty-pcts array
+
+Optional properties for LPG mode only:
+- qcom,pause-lo: pause at low end of cycle
+- qcom,pause-hi: pause at high end of cycle
+- qcom,ramp-step-ms: step between each cycle (ms)
+- qcom,lut-flags: flags to be used in lut configuration
+
+GPIO LED is an LED controlled through a PMIC GPIO.
+
+Optional properties for GPIO LED:
+- linux,default-trigger: trigger the led from external modules such as charging
+- qcom,default-state: default state of the led, should be "on" or "off"
+- qcom,turn-off-delay-ms: delay in millisecond for turning off the led when its default-state is "on". Value is being ignored in case default-state is "off".
+- qcom,source-sel: select power source, default 1 (enabled)
+- qcom,mode-ctrl: select operation mode, default 0x60 = Mode Sink
+- qcom,vin-ctrl: select input source, supported values are 0 to 7
+
+Example:
+
+	qcom,leds@a100 {
+		status = "okay";
+		qcom,led_mpp_2 {
+			label = "mpp";
+			linux,name = "button-backlight";
+			linux,default-trigger = "hr-trigger";
+			qcom,default-state = "off";
+			qcom,current-setting = <20>;
+			qcom,max-current = <40>;
+			qcom,id = <6>;
+			qcom,source-sel = <1>;
+			qcom,mode-ctrl = <0x61>;
+			qcom,mode = "manual";
+		};
+	};
+
+	qcom,leds@a200 {
+		status = "okay";
+		qcom,led_mpp_3 {
+			label = "mpp";
+			linux,name = "wled-backlight";
+			linux-default-trigger = "none";
+			qcom,default-state = "on";
+			qcom,max-current = <40>;
+			qcom,id = <6>;
+			qcom,source-sel = <1>;
+			qcom,mode-ctrl = <0x10>;
+			qcom,vin-ctrl = <0x03>;
+			qcom,min-brightness = <20>;
+		};
+	};
+
+	qcom,leds@a300 {
+		status = "okay";
+		qcom,led_mpp_pwm {
+			label = "mpp";
+			linux,name = "green";
+			linux,default-trigger = "none";
+			qcom,default-state = "off";
+			qcom,max-current = <40>;
+			qcom,current-setting = <5>;
+			qcom,id = <6>;
+			qcom,mode = "pwm";
+			qcom,source-sel = <8>;
+			qcom,mode-ctrl = <0x60>;
+			pwms = <&pm8941_pwm_1 0 0>;
+			qcom,pwm-us = <1000>;
+		};
+	};
+
+	qcom,leds@d000 {
+		status = "okay";
+		qcom,rgb_pwm {
+			label = "rgb";
+			linux,name = "led:rgb_red";
+			qcom,mode = "pwm";
+			qcom,pwm-us = <1000>;
+			pwms = <&pm8941_pwm_7 0 0>;
+			qcom,max-current = <12>;
+			qcom,default-state = "off";
+			qcom,id = <3>;
+			linux,default-trigger =
+				"battery-charging";
+		};
+		qcom,rgb_lpg {
+			label = "rgb";
+			linux,name = "led:rgb_green";
+			qcom,mode = "lpg";
+			pwms = <&pm8941_pwm_6 0 0>;
+			qcom,pwm-us = <1000>;
+			qcom,duty-ms = <20>;
+			qcom,start-idx = <1>;
+			qcom,idx-len = <10>;
+			qcom,duty-pcts = [00 19 32 4B 64
+					 64 4B 32 19 00];
+			qcom,max-current = <12>;
+			qcom,default-state = "off";
+			qcom,id = <3>;
+			linux,default-trigger =
+				"battery-charging";
+		};
+
+		qcom,rgb_blink {
+			label = "rgb";
+			linux,name = "led:rgb_blue";
+			qcom,mode = "pwm";
+			pwms = <&pm8941_pwm_5 0 0>;
+			qcom,start-idx = <1>;
+			qcom,idx-len = <10>;
+			qcom,duty-pcts = [00 19 32 4B 64
+					 64 4B 32 19 00];
+			qcom,lut-flags = <3>;
+			qcom,pause-lo = <0>;
+			qcom,pause-hi = <0>;
+			qcom,ramp-step-ms = <255>;
+			qcom,max-current = <12>;
+			qcom,default-state = "on";
+			qcom,turn-off-delay-ms = <500>;
+			qcom,id = <5>;
+			linux,default-trigger = "none";
+			qcom,pwm-us = <1000>;
+			qcom,use-blink;
+		};
+	};
+
+	qcom,leds@d300 {
+			compatible = "qcom,leds-qpnp";
+			status = "okay";
+			flash-boost-supply = <&pm8941_chg_boost>;
+			torch-boost-supply = <&pm8941_boost>;
+			qcom,flash_0 {
+				qcom,max-current = <1000>;
+				qcom,default-state = "off";
+				qcom,headroom = <0>;
+				qcom,duration = <200>;
+				qcom,clamp-curr = <200>;
+				qcom,startup-dly = <1>;
+				qcom,safety-timer;
+				label = "flash";
+				linux,default-trigger =
+					"flash0_trigger";
+				linux,name = "led:flash_0";
+				qcom,current = <625>;
+				qcom,id = <1>;
+				qcom,no-torch-module;
+			};
+	};
+
+	qcom,leds@d800 {
+			compatible = "qcom,leds-qpnp";
+			status = "okay";
+			qcom,wled_0 {
+				linux,default-trigger = "bkl-trigger"
+				label = "wled";
+				qcom,cs-out-en;
+				qcom,op-fdbck = <1>;
+				qcom,default-state "off";
+				qcom,max-current = <25>;
+				qcom,ctrl-delay-us = <0>;
+				qcom,boost-curr-lim = <3>;
+				qcom,cp-sel = <0>;
+				qcom,switch-freq = <2>;
+				qcom,ovp-val = <2>;
+				qcom,num-strings = <1>;
+				qcom,id = <0>;
+				linux,name = "led:wled_backlight";
+			};
+	};
+
+	qcom,leds@e200 {
+		status = "okay";
+
+		qcom,kpdbl1 {
+			label = "kpdbl";
+			linux,name = "kpdbl-pwm-1";
+			qcom,mode = <0>;
+			pwms = <&pm8941_pwm_9 0 0>;
+			qcom,pwm-us = <1000>;
+			qcom,id = <7>;
+			qcom,max-current = <20>;
+			qcom,row-id = <0>;
+			qcom,row-src-en;
+			qcom,always-on;
+		};
+
+		qcom,kpdbl2 {
+			label = "kpdbl";
+			linux,name = "kpdbl-lut-2";
+			qcom,mode = <1>;
+			pwms = <&pm8941_pwm_10 0 0>;
+			qcom,pwm-us = <1000>;
+			qcom,start-idx = <1>;
+			qcom,duty-pcts = [00 00 00 00 64
+					64 00 00 00 00];
+			qcom,id = <7>;
+			qcom,max-current = <20>;
+			qcom,row-id = <1>;
+			qcom,row-src-en;
+		};
+
+	};
+
+	qcom,leds@c900 {
+		compatible = "qcom,leds-qpnp";
+		reg = <0xc900 0x100>;
+		status = "okay";
+		qcom,led_gpio_10 {
+			label = "gpio";
+			linux,name = "led:notification";
+			qcom,max-current = <40>;
+			qcom,id = <8>;
+			linux,default-trigger = "notification";
+			qcom,default-state = "on";
+			qcom,turn-off-delay-ms = <1000>;
+			qcom,source-sel = <1>;
+			qcom,mode-ctrl = <0x10>;
+			qcom,vin-ctrl = <0x02>;
+		};
+	};

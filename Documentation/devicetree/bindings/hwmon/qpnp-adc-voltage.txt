@@ -1,0 +1,181 @@
+Qualcomm's QPNP PMIC Voltage ADC Arbiter
+
+QPNP PMIC Voltage ADC (VADC) provides interface to clients to read
+Voltage. A 15 bit ADC is used for Voltage measurements. There are multiple
+peripherals to the VADC and the scope of the driver is to provide interface
+for the USR peripheral of the VADC.
+
+VADC node
+
+Required properties:
+- compatible : should be "qcom,qpnp-vadc" for Voltage ADC driver and
+		"qcom,qpnp-vadc-hc" for VADC_HC voltage ADC driver.
+- reg : offset and length of the PMIC Aribter register map.
+- address-cells : Must be one.
+- size-cells : Must be zero.
+- interrupts : The USR bank peripheral VADC interrupt.
+- interrupt-names : Should contain "eoc-int-en-set" for EOC,
+		"high-thr-en-set" for high threshold interrupts and
+		"low-thr-en-set" for low threshold interrupts. High and low threshold
+		interrupts are to be enabled if VADC_USR needs to support recurring measurement.
+- qcom,adc-bit-resolution : Bit resolution of the ADC.
+- qcom,adc-vdd-reference : Voltage reference used by the ADC.
+
+Channel nodes
+NOTE: Atleast one Channel node is required.
+
+Optional properties:
+- qcom,vadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
+		    PMIC type and revision for applying the appropriate temperature
+		    compensation parameters.
+-qcom,vadc-meas-int-mode : Enable VADC_USR to handle requests to perform recurring measurements
+			   for any one supported channel along with supporting single conversion
+			   requests.
+- qcom,vadc-recalib-check: Add this property to check if recalibration required due to inaccuracy.
+- qcom,vadc-thermal-node : If present a thermal node is created and the channel is registered as
+			   part of the thermal sysfs which allows clients to use the thermal framework
+			   to set temperature thresholds and receive notification when the temperature
+			   crosses a set threshold, read temperature and enable/set trip types supported
+			   by the thermal framework.
+- hkadc_ldo-supply : Add this property if VADC needs to perform a Software Vote for the HKADC.
+- hkadc_ok-supply : Add this property if the VADC needs to perform a Software vote for the HKADC VREG_OK.
+
+Client required property:
+- qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.
+			The consumer name passed to the driver when calling
+			qpnp_get_vadc() is used to associate the client
+			with the corresponding device.
+
+Required properties:
+- label : Channel name used for sysfs entry.
+- reg : AMUX channel number.
+- qcom,decimation : Sampling rate to use for the individual channel measurement.
+		    Select from following unsigned int.
+		    0 : 512
+		    1 : 1K
+		    2 : 2K
+		    3 : 4K
+- qcom,pre-div-channel-scaling : Pre-div used for the channel before the signal
+				 is being measured. Some of the AMUX channels
+				 support dividing the signal from a predetermined
+				 ratio. The configuration for this node is to know
+				 the pre-determined ratio and use it for post scaling.
+				 Select from the following unsinged int.
+				 0 : {1, 1}
+				 1 : {1, 3}
+				 2 : {1, 4}
+				 3 : {1, 6}
+				 4 : {1, 20}
+				 5 : {1, 8}
+				 6 : {10, 81}
+				 7 : {1, 10}
+- qcom,calibration-type : Reference voltage to use for channel calibration.
+			  Channel calibration is dependendent on the channel.
+			  Certain channels like XO_THERM, BATT_THERM use ratiometric
+			  calibration. Most other channels fall under absolute calibration.
+			  Select from the following strings.
+			  "absolute" : Uses the 625mv and 1.25V reference channels.
+			  "ratiometric" : Uses the reference Voltage/GND for calibration.
+- qcom,scale-function : Scaling function used to convert raw ADC code to units specific to
+			a given channel.
+			Select from the following unsigned int.
+			0 : Default scaling to convert raw adc code to voltage.
+			1 : Conversion to temperature based on btm parameters.
+			2 : Returns result in degC for 100k pull-up.
+			3 : Returns current across 0.1 ohm resistor.
+			4 : Returns XO thermistor voltage in degree's Centigrade.
+			5 : Returns result in degC for 150k pull-up.
+			9 : Conversion to temperature based on -15~55 allowable
+			    battery charging tempeature setting for btm parameters.
+- qcom,hw-settle-time : Settling period for the channel before ADC read.
+			Select from the following unsigned int.
+			0 : 0us
+			1 : 100us
+			2 : 200us
+			3 : 300us
+			4 : 400us
+			5 : 500us
+			6 : 600us
+			7 : 700us
+			8 : 800us
+			9 : 900us
+			0xa : 1ms
+			0xb : 2ms
+			0xc : 4ms
+			0xd : 6ms
+			0xe : 8ms
+			0xf : 10ms
+- qcom,fast-avg-setup : Average number of samples to be used for measurement. Fast averaging
+			provides the option to obtain a single measurement from the ADC that
+			is an average of multiple samples. The value selected is 2^(value)
+			Select from the following unsigned int.
+			0 : 1
+			1 : 2
+			2 : 4
+			3 : 8
+			4 : 16
+			5 : 32
+			6 : 64
+			7 : 128
+			8 : 256
+
+Example:
+	/* Main Node */
+	qcom,vadc@3100 {
+                        compatible = "qcom,qpnp-vadc";
+                        reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+                        interrupts = <0x0 0x31 0x0>;
+			interrupt-names = "eoc-int-en-set";
+                        qcom,adc-bit-resolution = <15>;
+                        qcom,adc-vdd-reference = <1800>;
+
+			/* Channel Node */
+                        chan@0 {
+                                label = "usb_in";
+                                reg = <0>;
+                                qcom,decimation = <0>;
+                                qcom,pre-div-channel-scaling = <4>;
+                                qcom,calibration-type = "absolute";
+                                qcom,scale-function = <0>;
+                                qcom,hw-settle-time = <0>;
+                                qcom,fast-avg-setup = <0>;
+                        };
+	};
+
+Client device example:
+/* Add to the clients node that needs the VADC channel A/D */
+client_node {
+	qcom,client-vadc = <&pm8941_vadc>;
+};
+
+/* Clients have an option of measuring an analog signal through an MPP.
+   MPP block is not part of the VADC block but is an individual PMIC
+   block that has an option to support clients to configure an MPP as
+   an analog input which can be routed through one of the VADC pre-mux
+   inputs. Here is an example of how to configure an MPP as an analog
+   input */
+
+/* Configure MPP4 as an Analog input to AMUX8 and read from channel 0x23 */
+/* MPP DT configuration in the platform DT file*/
+	mpp@a300 { /* MPP 4 */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <3>; /* AMUX 8 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+	};
+
+/* VADC Channel configuration */
+	chan@23 {
+		label = "mpp4_div3";
+		reg = <0x23>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};

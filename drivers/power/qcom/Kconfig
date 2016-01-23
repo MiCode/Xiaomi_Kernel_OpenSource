@@ -1,0 +1,66 @@
+config MSM_PM
+	depends on PM
+	select MSM_IDLE_STATS if DEBUG_FS
+	select CPU_IDLE_MULTIPLE_DRIVERS
+	bool "Qualcomm platform specific PM driver"
+	help
+	  Platform specific power driver to manage cores and l2
+	  low power modes. It interface with various system
+	  driver and put the cores into low power modes.
+
+config MSM_NOPM
+	default y if !PM
+	bool
+	help
+	  This enables bare minimum support of power management at platform level.
+	  i.e WFI
+
+config APSS_CORE_EA
+	depends on CPU_FREQ && PM_OPP
+	bool "Qualcomm Technology Inc specific power aware driver"
+	help
+	  Platform specific power aware driver to provide power
+	  and temperature information to the scheduler.
+
+config MSM_APM
+       bool "Qualcomm Technologies Inc platform specific APM driver"
+       help
+	Platform specific driver to manage the power source of
+	memory arrays. Interfaces with regulator drivers to ensure
+	SRAM Vmin requirements are met across different performance
+	levels.
+
+if MSM_PM
+menuconfig MSM_IDLE_STATS
+	bool "Collect idle statistics"
+	help
+	  Collect cores various low power mode idle statistics
+	  and export them in proc/msm_pm_stats. User can read
+	  this data and determine what low power modes and how
+	  many times cores have entered into LPM modes.
+
+if MSM_IDLE_STATS
+
+config MSM_IDLE_STATS_FIRST_BUCKET
+	int "First bucket time"
+	default 62500
+	help
+	  Upper time limit in nanoseconds of first bucket.
+
+config MSM_IDLE_STATS_BUCKET_SHIFT
+	int "Bucket shift"
+	default 2
+
+config MSM_IDLE_STATS_BUCKET_COUNT
+	int "Bucket count"
+	default 10
+
+config MSM_SUSPEND_STATS_FIRST_BUCKET
+	int "First bucket time for suspend"
+	default 1000000000
+	help
+	  Upper time limit in nanoseconds of first bucket of the
+	  histogram.  This is for collecting statistics on suspend.
+
+endif # MSM_IDLE_STATS
+endif # MSM_PM
