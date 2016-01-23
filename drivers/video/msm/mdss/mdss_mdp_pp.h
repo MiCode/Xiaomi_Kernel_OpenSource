@@ -84,7 +84,8 @@ enum pp_config_block {
 	SSPP_DMA,
 	SSPP_VIG,
 	DSPP,
-	LM
+	LM,
+	PPB
 };
 
 struct mdp_pp_feature_ops {

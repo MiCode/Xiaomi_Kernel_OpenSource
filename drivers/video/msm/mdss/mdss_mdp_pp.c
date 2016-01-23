@@ -508,6 +508,7 @@ static int pp_mfd_release_all(struct msm_fb_data_type *mfd);
 static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd);
 static int mdss_mdp_ad_ipc_reset(struct msm_fb_data_type *mfd);
 static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
+static int pp_ppb_setup(struct mdss_mdp_mixer *mixer);
 
 static u32 last_sts, last_state;
 
@@ -2334,7 +2335,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		} else {
 			addr = base + MDSS_MDP_REG_DSPP_DITHER_DEPTH;
 			pp_ops[DITHER].pp_set_config(addr, pp_sts,
-			      &mdss_pp_res->dither_disp_cfg[disp_num], 0);
+			      &mdss_pp_res->dither_disp_cfg[disp_num], DSPP);
 		}
 	}
 	if (flags & PP_FLAGS_DIRTY_GAMUT) {
@@ -2508,10 +2509,12 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	if (ctl->mixer_left) {
 		pp_mixer_setup(ctl->mixer_left);
 		pp_dspp_setup(disp_num, ctl->mixer_left);
+		pp_ppb_setup(ctl->mixer_left);
 	}
 	if (ctl->mixer_right) {
 		pp_mixer_setup(ctl->mixer_right);
 		pp_dspp_setup(disp_num, ctl->mixer_right);
+		pp_ppb_setup(ctl->mixer_right);
 	}
 
 	if (valid_mixers && (mixer_cnt <= mdata->nmax_concurrent_ad_hw) &&
@@ -4274,20 +4277,38 @@ static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 	dither.version = dither_version.version_info;
 
 	switch (panel_bpp) {
-	case 18:
+	case 24:
 		dither.flags = MDP_PP_OPS_ENABLE | MDP_PP_OPS_WRITE;
 		switch (dither.version) {
 		case mdp_dither_v1_7:
-			dither_data.g_y_depth = 2;
-			dither_data.r_cr_depth = 2;
-			dither_data.b_cb_depth = 2;
+			dither_data.g_y_depth = 8;
+			dither_data.r_cr_depth = 8;
+			dither_data.b_cb_depth = 8;
 			dither.cfg_payload = &dither_data;
 			break;
 		case mdp_pp_legacy:
 		default:
-			dither.g_y_depth = 2;
-			dither.r_cr_depth = 2;
-			dither.b_cb_depth = 2;
+			dither.g_y_depth = 8;
+			dither.r_cr_depth = 8;
+			dither.b_cb_depth = 8;
+			dither.cfg_payload = NULL;
+			break;
+		}
+		break;
+	case 18:
+		dither.flags = MDP_PP_OPS_ENABLE | MDP_PP_OPS_WRITE;
+		switch (dither.version) {
+		case mdp_dither_v1_7:
+			dither_data.g_y_depth = 6;
+			dither_data.r_cr_depth = 6;
+			dither_data.b_cb_depth = 6;
+			dither.cfg_payload = &dither_data;
+			break;
+		case mdp_pp_legacy:
+		default:
+			dither.g_y_depth = 6;
+			dither.r_cr_depth = 6;
+			dither.b_cb_depth = 6;
 			dither.cfg_payload = NULL;
 			break;
 		}
@@ -7337,6 +7358,57 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	default:
 		memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
 		break;
+	}
+	return ret;
+}
+
+static int pp_ppb_setup(struct mdss_mdp_mixer *mixer)
+{
+	struct pp_sts_type *pp_sts;
+	struct mdss_mdp_ctl *ctl;
+	char __iomem *addr;
+	u32 flags, disp_num;
+	int ret = 0;
+
+	if (!mixer || !mixer->ctl || !mixer->ctl->mfd) {
+		pr_err("invalid parameters, mixer %p ctl %p mfd %p\n",
+			mixer, (mixer ? mixer->ctl : NULL),
+		       (mixer ? (mixer->ctl ? mixer->ctl->mfd : NULL) : NULL));
+		return -EINVAL;
+	}
+	ctl = mixer->ctl;
+	disp_num = ctl->mfd->index;
+
+	if (disp_num < MDSS_BLOCK_DISP_NUM)
+		flags = mdss_pp_res->pp_disp_flags[disp_num];
+	else
+		flags = 0;
+	if ((flags & PP_FLAGS_DIRTY_DITHER)) {
+		if (pp_ops[DITHER].pp_set_config) {
+			pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
+			addr = mixer->pingpong_base;
+			/* if dither is supported in PPB function will
+			 * return 0. Failure will indicate that there
+			 * is no DITHER in PPB. In case of error skip the
+			 * programming of CTL flush bits for dither flush.
+			 * */
+			ret = pp_ops[DITHER].pp_set_config(addr, pp_sts,
+				&mdss_pp_res->dither_disp_cfg[disp_num], PPB);
+			if (!ret) {
+				switch (mixer->num) {
+				case MDSS_MDP_INTF_LAYERMIXER0:
+				case MDSS_MDP_INTF_LAYERMIXER1:
+				case MDSS_MDP_INTF_LAYERMIXER2:
+					ctl->flush_bits |= BIT(13) <<
+						mixer->num;
+					break;
+				case MDSS_MDP_INTF_LAYERMIXER3:
+					ctl->flush_bits |= BIT(21);
+					break;
+				}
+			}
+			ret = 0;
+		}
 	}
 	return ret;
 }

@@ -4719,14 +4719,6 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 	}
 
 	mdp5_data->ctl = ctl;
-
-	rc = mdss_mdp_pp_default_overlay_config(mfd, pdata);
-	if (rc) {
-		pr_err("Unable to set default postprocessing configs for fb%d ret %d\n",
-			mfd->index, rc);
-		rc = 0;
-	}
-
 error:
 	if (rc)
 		return ERR_PTR(rc);
