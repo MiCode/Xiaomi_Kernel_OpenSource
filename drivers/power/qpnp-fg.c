@@ -592,6 +592,9 @@ struct fg_chip {
 	bool			irqs_enabled;
 	bool			use_last_soc;
 	int			last_soc;
+	int			last_good_temp;
+	int			batt_temp_low_limit;
+	int			batt_temp_high_limit;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -2565,6 +2568,8 @@ out:
 				TEMP_SENSE_CHARGE_BIT)
 #define TEMP_PERIOD_UPDATE_MS		10000
 #define TEMP_PERIOD_TIMEOUT_MS		3000
+#define BATT_TEMP_LOW_LIMIT		-600
+#define BATT_TEMP_HIGH_LIMIT		1500
 static void update_temp_data(struct work_struct *work)
 {
 	s16 temp;
@@ -2616,8 +2621,33 @@ wait:
 	}
 
 	temp = reg[0] | (reg[1] << 8);
-	fg_data[0].value = (temp * TEMP_LSB_16B / 1000)
-		- DECIKELVIN;
+	temp = (temp * TEMP_LSB_16B / 1000) - DECIKELVIN;
+
+	/*
+	 * If temperature is within the specified range (e.g. -60C and 150C),
+	 * update it to the userspace. Otherwise, use the last read good
+	 * temperature.
+	 */
+	if (temp > chip->batt_temp_low_limit &&
+			temp < chip->batt_temp_high_limit) {
+		chip->last_good_temp = temp;
+		fg_data[0].value = temp;
+	} else {
+		fg_data[0].value = chip->last_good_temp;
+
+		/*
+		 * If the temperature is read before and seems to be in valid
+		 * range, then a bad temperature reading could be because of
+		 * FG lockup. Trigger the FG reset sequence in such cases.
+		 */
+		if (chip->last_temp_update_time && fg_reset_on_lockup &&
+			(chip->last_good_temp > chip->batt_temp_low_limit &&
+			chip->last_good_temp < chip->batt_temp_high_limit)) {
+			pr_err("Batt_temp is %d !, triggering FG reset\n",
+				temp);
+			fg_check_ima_error_handling(chip);
+		}
+	}
 
 	if (fg_debug_mask & FG_MEM_DEBUG_READS)
 		pr_info("BATT_TEMP %d %d\n", temp, fg_data[0].value);
@@ -6402,6 +6432,16 @@ static int fg_of_init(struct fg_chip *chip)
 	chip->use_vbat_low_empty_soc = of_property_read_bool(node,
 					"qcom,fg-use-vbat-low-empty-soc");
 
+	OF_READ_PROPERTY(chip->batt_temp_low_limit,
+			"fg-batt-temp-low-limit", rc, BATT_TEMP_LOW_LIMIT);
+
+	OF_READ_PROPERTY(chip->batt_temp_high_limit,
+			"fg-batt-temp-high-limit", rc, BATT_TEMP_HIGH_LIMIT);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("batt-temp-low_limit: %d batt-temp-high_limit: %d\n",
+			chip->batt_temp_low_limit, chip->batt_temp_high_limit);
+
 	return rc;
 }
 
@@ -7998,6 +8038,8 @@ static int fg_probe(struct spmi_device *spmi)
 		}
 	}
 
+	/* Fake temperature till the actual temperature is read */
+	chip->last_good_temp = 250;
 	schedule_work(&chip->init_work);
 
 	pr_info("FG Probe success - FG Revision DIG:%d.%d ANA:%d.%d PMIC subtype=%d\n",
