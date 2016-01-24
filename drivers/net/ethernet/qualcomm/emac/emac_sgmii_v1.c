@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,8 +17,7 @@
 #include "emac_hw.h"
 
 #define PCS_MAX_REG_CNT		10
-#define PLL_MAX_REG_CNT		17
-#define TX_RX_MAX_REG_CNT	7
+#define PLL_MAX_REG_CNT		18
 
 static const struct emac_reg_write
 		physical_coding_sublayer_programming[][PCS_MAX_REG_CNT] = {
@@ -115,6 +114,7 @@ static const struct emac_reg_write pll_setting[][PLL_MAX_REG_CNT] = {
 		{EMAC_QSERDES_COM_PLLLOCK_CMP3,		QSERDES_PLL_LOCK_CMP3},
 		{EMAC_QSERDES_COM_PLLLOCK_CMP_EN,	PLLLOCK_CMP_EN},
 		{EMAC_QSERDES_COM_RESETSM_CNTRL,	FRQ_TUNE_MODE},
+		{EMAC_QSERDES_COM_RES_TRIM_SEARCH,	RESTRIM_SEARCH},
 		{EMAC_QSERDES_COM_BGTC,				BGTC},
 		{END_MARKER,				END_MARKER},
 	}
@@ -130,41 +130,19 @@ static const struct emac_reg_write cdr_setting[] = {
 {END_MARKER,				END_MARKER},
 };
 
-static const struct emac_reg_write tx_rx_setting[][TX_RX_MAX_REG_CNT] = {
-	/* EMAC_PHY_MAP_DEFAULT */
-	{
-		{EMAC_QSERDES_TX_BIST_MODE_LANENO,
-			QSERDES_TX_BIST_MODE_LANENO},
-		{EMAC_QSERDES_TX_TX_DRV_LVL,		TX_DRV_LVL_MUX |
-			(QSERDES_TX_DRV_LVL_DEF << TX_DRV_LVL_SHFT)},
-		{EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN,	EMP_EN_MUX | EMP_EN},
-		{EMAC_QSERDES_TX_TX_EMP_POST1_LVL,	TX_EMP_POST1_LVL_MUX |
-			(QSERDES_TX_EMP_POST1_LVL_DEF << TX_EMP_POST1_LVL_SHFT)
-			},
-		{EMAC_QSERDES_RX_RX_EQ_GAIN12,
-			(QSERDES_RX_EQ_GAIN2_DEF << RX_EQ_GAIN2_SHFT) |
-			(QSERDES_RX_EQ_GAIN1_DEF << RX_EQ_GAIN1_SHFT)},
-		{EMAC_QSERDES_TX_LANE_MODE,
-			QSERDES_TX_LANE_MODE_DEF},
-		{END_MARKER,				END_MARKER}
-	},
-	/* EMAC_PHY_MAP_MDM9607 */
-	{
-		{EMAC_QSERDES_TX_BIST_MODE_LANENO,
-			QSERDES_TX_BIST_MODE_LANENO},
-		{EMAC_QSERDES_TX_TX_DRV_LVL,		TX_DRV_LVL_MUX |
-			(QSERDES_TX_DRV_LVL_MDM << TX_DRV_LVL_SHFT)},
-		{EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN,	EMP_EN_MUX | EMP_EN},
-		{EMAC_QSERDES_TX_TX_EMP_POST1_LVL,	TX_EMP_POST1_LVL_MUX |
-			(QSERDES_TX_EMP_POST1_LVL_MDM << TX_EMP_POST1_LVL_SHFT)
-			},
-		{EMAC_QSERDES_RX_RX_EQ_GAIN12,
-			(QSERDES_RX_EQ_GAIN2_MDM << RX_EQ_GAIN2_SHFT) |
-			(QSERDES_RX_EQ_GAIN1_MDM << RX_EQ_GAIN1_SHFT)},
-		{EMAC_QSERDES_TX_LANE_MODE,
-			QSERDES_TX_LANE_MODE_MDM},
-		{END_MARKER,				END_MARKER}
-	}
+static const struct emac_reg_write tx_rx_setting[] = {
+{EMAC_QSERDES_TX_BIST_MODE_LANENO,	QSERDES_TX_BIST_MODE_LANENO},
+{EMAC_QSERDES_TX_TX_DRV_LVL,		TX_DRV_LVL_MUX |
+			(QSERDES_TX_DRV_LVL << TX_DRV_LVL_SHFT)},
+{EMAC_QSERDES_TX_TRAN_DRVR_EMP_EN,	EMP_EN_MUX | EMP_EN},
+{EMAC_QSERDES_TX_TX_EMP_POST1_LVL,	TX_EMP_POST1_LVL_MUX |
+			(QSERDES_TX_EMP_POST1_LVL << TX_EMP_POST1_LVL_SHFT)},
+{EMAC_QSERDES_RX_RX_EQ_GAIN12,
+			(QSERDES_RX_EQ_GAIN2 << RX_EQ_GAIN2_SHFT) |
+			(QSERDES_RX_EQ_GAIN1 << RX_EQ_GAIN1_SHFT)},
+{EMAC_QSERDES_TX_LANE_MODE,
+			QSERDES_TX_LANE_MODE},
+{END_MARKER,				END_MARKER}
 };
 
 static int emac_sgmii_v1_init(struct emac_adapter *adpt)
@@ -191,9 +169,7 @@ static int emac_sgmii_v1_init(struct emac_adapter *adpt)
 		sgmii->base,
 		(const struct emac_reg_write *)&pll_setting[phy->board_id]);
 	emac_reg_write_all(sgmii->base, cdr_setting);
-	emac_reg_write_all(
-		sgmii->base,
-		(const struct emac_reg_write *)&tx_rx_setting[phy->board_id]);
+	emac_reg_write_all(sgmii->base, tx_rx_setting);
 
 	/* Ensure SerDes engine configuration is written to hw before powering
 	 * it up
