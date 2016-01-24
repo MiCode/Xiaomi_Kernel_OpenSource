@@ -125,6 +125,7 @@
 };
 
 &dsi_hx8394f_720p_video {
+	qcom,esd-check-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 

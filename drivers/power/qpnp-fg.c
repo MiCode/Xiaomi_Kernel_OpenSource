@@ -2705,6 +2705,9 @@ static int fg_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_NOW_RAW:
 		val->intval = get_sram_prop_now(chip, FG_DATA_CC_CHARGE);
 		break;
+	case POWER_SUPPLY_PROP_HI_POWER:
+		val->intval = !!chip->bcl_lpm_disabled;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -4806,6 +4809,10 @@ reschedule:
 	schedule_delayed_work(
 		&chip->batt_profile_init,
 		msecs_to_jiffies(BATTERY_PSY_WAIT_MS));
+	cancel_delayed_work(&chip->update_sram_data);
+	schedule_delayed_work(
+		&chip->update_sram_data,
+		msecs_to_jiffies(0));
 	fg_relax(&chip->profile_wakeup_source);
 	return 0;
 }

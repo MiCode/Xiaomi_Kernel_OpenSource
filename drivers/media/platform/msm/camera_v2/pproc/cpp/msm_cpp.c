@@ -1189,17 +1189,22 @@ remap_failed:
 	msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
 		cpp_dev->cpp_clk, cpp_dev->num_clk, 0);
 clk_failed:
-	regulator_disable(cpp_dev->fs_cpp);
-	regulator_put(cpp_dev->fs_cpp);
+	if (cpp_dev->fs_cpp) {
+		regulator_disable(cpp_dev->fs_cpp);
+		regulator_put(cpp_dev->fs_cpp);
+		cpp_dev->fs_cpp = NULL;
+	}
 fs_failed:
 	if (cpp_dev->fs_camss) {
 		regulator_disable(cpp_dev->fs_camss);
 		regulator_put(cpp_dev->fs_camss);
+		cpp_dev->fs_camss = NULL;
 	}
 fs_camss_failed:
 	if (cpp_dev->fs_mmagic_camss) {
 		regulator_disable(cpp_dev->fs_mmagic_camss);
 		regulator_put(cpp_dev->fs_mmagic_camss);
+		cpp_dev->fs_mmagic_camss = NULL;
 	}
 fs_mmagic_failed:
 	if (cpp_dev->bus_master_flag)
@@ -1328,6 +1333,9 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		ptr_bin++;
 	}
 	msm_camera_io_w_mb(0x00, cpp_dev->cpp_hw_base + 0xC);
+	rc = msm_cpp_update_gdscr_status(cpp_dev, true);
+	if (rc < 0)
+		pr_err("update cpp gdscr status failed\n");
 	rc = msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_OK);
 	if (rc) {
 		pr_err("%s:%d] poll command %x failed %d", __func__, __LINE__,
@@ -1372,10 +1380,6 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		pr_err("%s:%d] poll command %x failed %d", __func__, __LINE__,
 			MSM_CPP_MSG_ID_JUMP_ACK, rc);
 	}
-
-	rc = msm_cpp_update_gdscr_status(cpp_dev, true);
-	if (rc < 0)
-		pr_err("update cpp gdscr status failed\n");
 
 end:
 	return rc;
@@ -4333,6 +4337,9 @@ static int cpp_probe(struct platform_device *pdev)
 	setup_timer(&cpp_timer.cpp_timer,
 		cpp_timer_callback, (unsigned long)&cpp_timer);
 	cpp_dev->fw_name_bin = NULL;
+	cpp_dev->fs_cpp = NULL;
+	cpp_dev->fs_camss = NULL;
+	cpp_dev->fs_mmagic_camss = NULL;
 	cpp_dev->max_timeout_trial_cnt = MSM_CPP_MAX_TIMEOUT_TRIAL;
 	if (rc == 0)
 		CPP_DBG("SUCCESS.");

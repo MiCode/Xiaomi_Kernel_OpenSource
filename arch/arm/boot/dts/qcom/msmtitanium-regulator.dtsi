@@ -378,30 +378,83 @@
 			apc_vreg: regulator {
 				regulator-name = "apc_corner";
 				regulator-min-microvolt = <1>;
-				regulator-max-microvolt = <8>;
+				regulator-max-microvolt = <9>;
 
 				qcom,cpr-fuse-corners = <4>;
-				qcom,cpr-fuse-combos = <8>;
-				qcom,cpr-speed-bins = <1>;
-				qcom,cpr-speed-bin-corners = <8>;
-				qcom,cpr-corners = <8>;
+				qcom,cpr-fuse-combos = <24>;
+				qcom,cpr-speed-bins = <3>;
+				qcom,cpr-speed-bin-corners = <9 8 7>;
+				qcom,cpr-corners =
+					/* Speed bin 0 */
+					<9 9 9 9 9 9 9 9>,
 
-				qcom,cpr-corner-fmax-map = <1 2 4 8>;
+					/* Speed bin 1 */
+					<8 8 8 8 8 8 8 8>,
+
+					/* Speed bin 2 */
+					<7 7 7 7 7 7 7 7>;
+
+				qcom,cpr-corner-fmax-map =
+					/* Speed bin 0 */
+					<1 2 4 9>,
+
+					/* Speed bin 1 */
+					<1 2 4 8>,
+
+					/* Speed bin 2 */
+					<1 2 4 7>;
 
 				qcom,cpr-voltage-ceiling =
+					/* Speed bin 0 */
 					<645000  720000 790000 865000 920000
-					 990000 1065000 1065000>;
+					 990000 1065000 1065000 1065000>,
+
+					/* Speed bin 1 */
+					<645000  720000 790000 865000 920000
+					 990000 1065000 1065000>,
+
+					/* Speed bin 2 */
+					<645000  720000 790000 865000 920000
+					 990000 1065000>;
 
 				qcom,cpr-voltage-floor =
+					/* Speed bin 0 */
 					<565000  595000 650000 710000 745000
-					 785000  845000 845000>;
+					 785000  845000 845000 845000>,
 
-				qcom,mem-acc-voltage = <1 1 2 2 2 2 2 2>;
+					/* Speed bin 1 */
+					<565000  595000 650000 710000 745000
+					 785000  845000 845000>,
+
+					/* Speed bin 2 */
+					<565000  595000 650000 710000 745000
+					 785000  845000>;
+
+				qcom,mem-acc-voltage =
+					/* Speed bin 0 */
+					<1 1 2 2 2 2 2 2 2>,
+
+					/* Speed bin 1 */
+					<1 1 2 2 2 2 2 2>,
+
+					/* Speed bin 2 */
+					<1 1 2 2 2 2 2>;
 
 				qcom,corner-frequencies =
+					/* Speed bin 0 */
 					<652800000 1036800000 1401600000
 					1689600000 1843200000 1958400000
-					2150400000 2208000000>;
+					2016000000 2150400000 2208000000>,
+
+					/* Speed bin 1 */
+					<652800000 1036800000 1401600000
+					1689600000 1843200000 1958400000
+					2016000000 2150400000>,
+
+					/* Speed bin 2 */
+					<652800000 1036800000 1401600000
+					1689600000 1843200000 1958400000
+					2016000000>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;

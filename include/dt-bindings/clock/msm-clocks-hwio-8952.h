@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -283,6 +283,7 @@
 /* cci_clk_src and usb_fs_system_clk_src */
 #define gpll0_out_aux_source_val	2
 #define gpll4_source_val		2   /* sdcc1_apss_clk_src */
+#define gpll4_out_source_val		3   /* sdcc1_apss_clk_src */
 #define gpll6_source_val		2   /* mclk0_2_clk_src */
 #define gpll6_aux_source_val		3   /* gfx3d_clk_src */
 #define gpll6_out_main_source_val	1   /* usb_fs_ic_clk_src */

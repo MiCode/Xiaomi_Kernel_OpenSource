@@ -244,6 +244,9 @@
 								3200 3200>;
 		qcom,sensor-id = <0 1 2 3 4 5 6 7 8 9 10>;
 		qcom,valid-status-check;
+		qcom,temp1-offset = <1 (-9) (-6) (-4) 0 (-3) (-2) 0 2 (-2)
+									(-3)>;
+		qcom,temp2-offset = <0 10 (-1) 5 (-2) (-9) (-13) 1 1 0 2>;
 	};
 
 	slim_msm: slim@c140000{
@@ -673,14 +676,14 @@
 				"clk-cci-4", "clk-cci-2";
 		qcom,speed0-bin-v0-c0 =
 			<          0 0>,
-			<  806400000 1>,
+			<  768000000 1>,
 			<  902400000 2>,
 			<  998400000 3>,
 			< 1094400000 5>;
 
 		qcom,speed0-bin-v0-c1 =
 			<          0 0>,
-			<  998400000 1>,
+			<  960000000 1>,
 			< 1094400000 2>,
 			< 1248000000 3>,
 			< 1344000000 4>,
@@ -712,14 +715,14 @@
 		qcom,governor-per-policy;
 
 		qcom,cpufreq-table-0 =
-			 <  998400 >,
+			 <  960000 >,
 			 < 1094400 >,
 			 < 1248000 >,
 			 < 1344000 >,
 			 < 1401000 >;
 
 		qcom,cpufreq-table-4 =
-			 <  806400 >,
+			 <  768000 >,
 			 <  902400 >,
 			 <  998400 >,
 			 < 1094400 >;
@@ -778,54 +781,6 @@
 			<  5712 /*  748.8 MHz */ >,     /* NOM   */
 			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
 			<  7031 /*  921.6 MHz */ >;     /* TURBO */
-	};
-
-	memlat_cpu0: qcom,memlat-cpu0 {
-		compatible = "qcom,devbw";
-		governor = "cpufreq";
-		qcom,src-dst-ports = <1 512>;
-		qcom,active-only;
-		qcom,bw-tbl =
-			<   769 /*  100.8 MHz */ >,
-			<  1611 /*  211.2 MHz */ >,
-			<  2124 /*  278.4 MHz */ >,
-			<  2929 /*  384   MHz */ >,	/* SVS	*/
-			<  4101 /*  537.6 MHz */ >,
-			<  4248 /*  556.8 MHz */ >,
-			<  5053 /*  662.4 MHz */ >,	/* SVS+	 */
-			<  5712 /*  748.8 MHz */ >,     /* NOM   */
-			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
-			<  7031 /*  921.6 MHz */ >;     /* TURBO */
-	};
-
-	memlat_cpu4: qcom,memlat-cpu4 {
-		compatible = "qcom,devbw";
-		governor = "cpufreq";
-		qcom,src-dst-ports = <1 512>;
-		qcom,active-only;
-		qcom,bw-tbl =
-			<   769 /*  100.8 MHz */ >,
-			<  1611 /*  211.2 MHz */ >,
-			<  2124 /*  278.4 MHz */ >,
-			<  2929 /*  384   MHz */ >,	/* SVS	*/
-			<  4101 /*  537.6 MHz */ >,
-			<  4248 /*  556.8 MHz */ >,
-			<  5053 /*  662.4 MHz */ >,	/* SVS+	 */
-			<  5712 /*  748.8 MHz */ >,     /* NOM   */
-			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
-			<  7031 /*  921.6 MHz */ >;     /* TURBO */
-	};
-
-	qcom,arm-memlat-mon-0 {
-		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
-		qcom,target-dev = <&memlat_cpu0>;
-	};
-
-	qcom,arm-memlat-mon-4 {
-		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,target-dev = <&memlat_cpu4>;
 	};
 
 	devfreq-cpufreq {

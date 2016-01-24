@@ -338,6 +338,9 @@ struct cfs_bandwidth { };
 struct hmp_sched_stats {
 	int nr_big_tasks;
 	u64 cumulative_runnable_avg;
+#ifdef CONFIG_SCHED_FREQ_INPUT
+	u64 pred_demands_sum;
+#endif
 };
 
 struct sched_cluster {
@@ -700,6 +703,7 @@ struct rq {
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	unsigned int old_busy_time;
 	int notifier_sent;
+	u64 old_estimated_time;
 #endif
 #endif
 
@@ -955,6 +959,13 @@ extern unsigned int sched_init_task_load_windows;
 extern unsigned int sched_heavy_task;
 extern unsigned int up_down_migrate_scale_factor;
 extern unsigned int sysctl_sched_restrict_cluster_spill;
+extern unsigned int sched_pred_alert_load;
+
+#ifdef CONFIG_SCHED_FREQ_INPUT
+#define MAJOR_TASK_PCT 85
+extern unsigned int sched_major_task_runtime;
+#endif
+
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
@@ -1049,6 +1060,14 @@ static inline unsigned int task_load(struct task_struct *p)
 	return p->ravg.demand;
 }
 
+#ifdef CONFIG_SCHED_FREQ_INPUT
+#define set_pred_demands_sum(stats, x) ((stats)->pred_demands_sum = (x))
+#define verify_pred_demands_sum(stat) BUG_ON((s64)(stat)->pred_demands_sum < 0)
+#else
+#define set_pred_demands_sum(stats, x)
+#define verify_pred_demands_sum(stat)
+#endif
+
 static inline void
 inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 				 struct task_struct *p)
@@ -1062,6 +1081,8 @@ inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 			(sched_disable_window_stats ? 0 : p->ravg.demand);
 
 	stats->cumulative_runnable_avg += task_load;
+	set_pred_demands_sum(stats, stats->pred_demands_sum +
+			     p->ravg.pred_demand);
 }
 
 static inline void
@@ -1079,17 +1100,26 @@ dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 	stats->cumulative_runnable_avg -= task_load;
 
 	BUG_ON((s64)stats->cumulative_runnable_avg < 0);
+
+	set_pred_demands_sum(stats, stats->pred_demands_sum -
+			     p->ravg.pred_demand);
+	verify_pred_demands_sum(stats);
 }
 
 static inline void
 fixup_cumulative_runnable_avg(struct hmp_sched_stats *stats,
-			      struct task_struct *p, s64 task_load_delta)
+			      struct task_struct *p, s64 task_load_delta,
+			      s64 pred_demand_delta)
 {
 	if (!sched_enable_hmp || sched_disable_window_stats)
 		return;
 
 	stats->cumulative_runnable_avg += task_load_delta;
 	BUG_ON((s64)stats->cumulative_runnable_avg < 0);
+
+	set_pred_demands_sum(stats, stats->pred_demands_sum +
+			     pred_demand_delta);
+	verify_pred_demands_sum(stats);
 }
 
 
@@ -1196,8 +1226,9 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 #define group_rq_capacity(group) cpu_capacity(group_first_cpu(group))
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
+#define PRED_DEMAND_DELTA ((s64)new_pred_demand - p->ravg.pred_demand)
 
-extern void check_for_freq_change(struct rq *rq);
+extern void check_for_freq_change(struct rq *rq, bool check_cra);
 
 /* Is frequency of two cpus synchronized with each other? */
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
@@ -1213,8 +1244,9 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 #else	/* CONFIG_SCHED_FREQ_INPUT */
 
 #define sched_migration_fixup	0
+#define PRED_DEMAND_DELTA (0)
 
-static inline void check_for_freq_change(struct rq *rq) { }
+static inline void check_for_freq_change(struct rq *rq, bool check_cra) { }
 
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
 {
@@ -1644,7 +1676,7 @@ struct sched_class {
 	void (*inc_hmp_sched_stats)(struct rq *rq, struct task_struct *p);
 	void (*dec_hmp_sched_stats)(struct rq *rq, struct task_struct *p);
 	void (*fixup_hmp_sched_stats)(struct rq *rq, struct task_struct *p,
-				      u32 new_task_load);
+				      u32 new_task_load, u32 new_pred_demand);
 #endif
 };
 

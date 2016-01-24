@@ -14,7 +14,7 @@
 #include <linux/usb/usb_ctrl_qti.h>
 #include <linux/etherdevice.h>
 #include <linux/debugfs.h>
-#include <linux/usb/f_gsi.h>
+#include "f_gsi.h"
 #include "rndis.h"
 #include "debug.h"
 
@@ -980,7 +980,7 @@ static int gsi_ctrl_send_cpkt_tomodem(struct f_gsi *gsi, void *buf, size_t len)
 	}
 
 	cpkt = gsi_ctrl_pkt_alloc(len, GFP_ATOMIC);
-	if (!cpkt) {
+	if (IS_ERR(cpkt)) {
 		log_event_err("%s: Reset func pkt allocation failed", __func__);
 		spin_unlock_irqrestore(&c_port->lock, flags);
 		return -ENOMEM;
@@ -1149,7 +1149,7 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 	}
 
 	cpkt = gsi_ctrl_pkt_alloc(count, GFP_KERNEL);
-	if (!cpkt) {
+	if (IS_ERR(cpkt)) {
 		log_event_err("failed to allocate ctrl pkt");
 		return -ENOMEM;
 	}
@@ -1838,6 +1838,13 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			value);
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
+			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
+		log_event_dbg("%s: USB_CDC_REQ_SET_CONTROL_LINE_STATE DTR:%d\n",
+				__func__, w_value & ACM_CTRL_DTR ? 1 : 0);
+		gsi_ctrl_send_cpkt_tomodem(gsi, NULL, 0);
+		value = 0;
+		break;
+	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_SET_ETHERNET_PACKET_FILTER:
 		/* see 6.2.30: no data, wIndex = interface,
 		 * wValue = packet filter bitmap
@@ -2155,6 +2162,12 @@ static void gsi_suspend(struct usb_function *f)
 	bool block_db;
 	struct f_gsi *gsi = func_to_gsi(f);
 	bool remote_wakeup_allowed;
+
+	/* Check if function is already suspended in gsi_func_suspend() */
+	if (f->func_is_suspended) {
+		log_event_dbg("%s: func already suspended, return\n", __func__);
+		return;
+	}
 
 	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
