@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -415,7 +415,7 @@ static int qpnp_pin_check_config(enum qpnp_pin_param_type idx,
 			return -EINVAL;
 		break;
 	case Q_PIN_CFG_DTEST_SEL:
-		if (!val && val > QPNP_PIN_DTEST_SEL_INVALID)
+		if (val > QPNP_PIN_DTEST_SEL_INVALID)
 			return -EINVAL;
 		break;
 	default:
@@ -1243,8 +1243,8 @@ static int qpnp_pin_reg_attr(enum qpnp_pin_param_type type,
 		break;
 	case Q_PIN_CFG_DTEST_SEL:
 		if (is_gpio_lv_mv(q_spec)) {
-			cfg->shift = Q_REG_LV_MV_DTEST_SEL_SHIFT;
-			cfg->mask = Q_REG_LV_MV_DTEST_SEL_MASK;
+			cfg->shift = Q_REG_LV_MV_DTEST_SEL_CFG_SHIFT;
+			cfg->mask = Q_REG_LV_MV_DTEST_SEL_CFG_MASK;
 		} else {
 			cfg->shift = Q_REG_DTEST_SEL_SHIFT;
 			cfg->mask = Q_REG_DTEST_SEL_MASK;
@@ -1287,6 +1287,23 @@ static int qpnp_pin_debugfs_set(void *data, u64 val)
 	q_spec = container_of(idx, struct qpnp_pin_spec, params[*idx]);
 	q_chip = q_spec->q_chip;
 
+	/*
+	 * special handling for GPIO_LV/MV 'dtest-sel'
+	 * if (dtest_sel == 0) then disable dtest-sel
+	 * else enable and set dtest.
+	 */
+	if ((q_spec->subtype == Q_GPIO_SUBTYPE_GPIO_LV ||
+		q_spec->subtype == Q_GPIO_SUBTYPE_GPIO_MV) &&
+				*idx == Q_PIN_CFG_DTEST_SEL) {
+		/* enable/disable DTEST */
+		cfg.shift = Q_REG_LV_MV_DTEST_SEL_EN_SHIFT;
+		cfg.mask = Q_REG_LV_MV_DTEST_SEL_EN_MASK;
+		cfg.addr = Q_REG_DIG_IN_CTL;
+		cfg.idx = Q_REG_I_DIG_IN_CTL;
+		q_reg_clr_set(&q_spec->regs[cfg.idx],
+				cfg.shift, cfg.mask, !!val);
+	}
+
 	rc = qpnp_pin_check_config(*idx, q_spec, val);
 	if (rc)
 		return rc;
@@ -1294,6 +1311,14 @@ static int qpnp_pin_debugfs_set(void *data, u64 val)
 	rc = qpnp_pin_reg_attr(*idx, &cfg, q_spec);
 	if (rc)
 		return rc;
+
+	if (*idx == Q_PIN_CFG_DTEST_SEL && val)  {
+		if (is_gpio_lv_mv(q_spec))
+			val -= 1;
+		else
+			val = BIT(val - 1);
+	}
+
 	q_reg_clr_set(&q_spec->regs[cfg.idx], cfg.shift, cfg.mask, val);
 	rc = regmap_write(q_chip->regmap, Q_REG_ADDR(q_spec, cfg.addr),
 			  *&q_spec->regs[cfg.idx]);
