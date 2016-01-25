@@ -39,6 +39,9 @@
 #define ADRENO_DEVICE(device) \
 		container_of(device, struct adreno_device, dev)
 
+/* KGSL_DEVICE - given an adreno_device, return the KGSL device struct */
+#define KGSL_DEVICE(_dev) (&((_dev)->dev))
+
 /* ADRENO_CONTEXT - Given a context return the adreno context struct */
 #define ADRENO_CONTEXT(context) \
 		container_of(context, struct adreno_context, base)
@@ -818,7 +821,7 @@ long adreno_ioctl_helper(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, unsigned long arg,
 		const struct kgsl_ioctl *cmds, int len);
 
-int adreno_spin_idle(struct kgsl_device *device, unsigned int timeout);
+int adreno_spin_idle(struct adreno_device *device, unsigned int timeout);
 int adreno_idle(struct kgsl_device *device);
 bool adreno_isidle(struct kgsl_device *device);
 
@@ -836,7 +839,7 @@ void adreno_snapshot(struct kgsl_device *device,
 
 int adreno_reset(struct kgsl_device *device, int fault);
 
-void adreno_fault_skipcmd_detached(struct kgsl_device *device,
+void adreno_fault_skipcmd_detached(struct adreno_device *adreno_dev,
 					 struct adreno_context *drawctxt,
 					 struct kgsl_cmdbatch *cmdbatch);
 
@@ -876,8 +879,8 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 				unsigned int *cmds,
 				struct kgsl_pagetable *pt);
 
-int adreno_sysfs_init(struct kgsl_device *device);
-void adreno_sysfs_close(struct kgsl_device *device);
+int adreno_sysfs_init(struct adreno_device *adreno_dev);
+void adreno_sysfs_close(struct adreno_device *adreno_dev);
 
 void adreno_irqctrl(struct adreno_device *adreno_dev, int state);
 
@@ -1044,7 +1047,7 @@ static inline void adreno_readreg(struct adreno_device *adreno_dev,
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		kgsl_regread(&adreno_dev->dev,
+		kgsl_regread(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets->offsets[offset_name], val);
 	else
 		*val = 0;
@@ -1062,7 +1065,7 @@ static inline void adreno_writereg(struct adreno_device *adreno_dev,
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		kgsl_regwrite(&adreno_dev->dev,
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets->offsets[offset_name], val);
 }
 
@@ -1185,7 +1188,7 @@ static inline void adreno_vbif_start(struct adreno_device *adreno_dev,
 	}
 
 	while ((vbif != NULL) && (vbif->reg != 0)) {
-		kgsl_regwrite(&adreno_dev->dev, vbif->reg, vbif->val);
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev), vbif->reg, vbif->val);
 		vbif++;
 	}
 }
@@ -1232,7 +1235,7 @@ static inline void adreno_set_protected_registers(
 
 	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFFF);
 
-	kgsl_regwrite(&adreno_dev->dev, base + offset, val);
+	kgsl_regwrite(KGSL_DEVICE(adreno_dev), base + offset, val);
 	*index = *index + 1;
 }
 
@@ -1378,7 +1381,8 @@ static inline void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 		if (rb->drawctxt_active)
 			kgsl_context_put(&(rb->drawctxt_active->base));
 		rb->drawctxt_active = NULL;
-		kgsl_sharedmem_writel(&adreno_dev->dev, &rb->pagetable_desc,
+		kgsl_sharedmem_writel(KGSL_DEVICE(adreno_dev),
+			&rb->pagetable_desc,
 			offsetof(struct adreno_ringbuffer_pagetable_info,
 				current_rb_ptname), 0);
 	}

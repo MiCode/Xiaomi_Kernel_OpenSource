@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -137,6 +137,7 @@ void adreno_dispatcher_start(struct kgsl_device *device);
 int adreno_dispatcher_init(struct adreno_device *adreno_dev);
 void adreno_dispatcher_close(struct adreno_device *adreno_dev);
 int adreno_dispatcher_idle(struct adreno_device *adreno_dev);
+void adreno_dispatcher_irq_fault(struct adreno_device *adreno_dev);
 void adreno_dispatcher_stop(struct adreno_device *adreno_dev);
 
 int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,

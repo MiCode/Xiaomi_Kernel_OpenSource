@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -355,7 +355,7 @@ adreno_context_debugfs_init(struct adreno_device *adreno_dev,
 
 void adreno_debugfs_init(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (!device->d_debugfs || IS_ERR(device->d_debugfs))
 		return;

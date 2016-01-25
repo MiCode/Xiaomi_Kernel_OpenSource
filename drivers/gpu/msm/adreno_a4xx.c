@@ -182,7 +182,7 @@ static const struct adreno_vbif_platform a4xx_vbif_platforms[] = {
 static void a4xx_preemption_start(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	uint32_t val;
 
 	/*
@@ -220,7 +220,7 @@ static void a4xx_preemption_start(struct adreno_device *adreno_dev,
 static void a4xx_preemption_save(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	kgsl_regread(device, A4XX_CP_SCRATCH_REG18, &rb->rptr);
 	kgsl_regread(device, A4XX_CP_SCRATCH_REG23, &rb->gpr11);
@@ -250,7 +250,7 @@ static int a4xx_preemption_pre_ibsubmit(
 			struct kgsl_context *context, uint64_t cond_addr,
 			struct kgsl_memobj_node *ib)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *cmds_orig = cmds;
 	int exec_ib = 0;
 
@@ -290,7 +290,8 @@ static int a4xx_preemption_pre_ibsubmit(
 static bool a4xx_is_sptp_idle(struct adreno_device *adreno_dev)
 {
 	unsigned int reg;
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
 		return true;
 
@@ -314,7 +315,8 @@ static bool a4xx_is_sptp_idle(struct adreno_device *adreno_dev)
 static int a4xx_regulator_enable(struct adreno_device *adreno_dev)
 {
 	unsigned int reg;
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
 	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev)))
 		return 0;
 
@@ -337,7 +339,8 @@ static int a4xx_regulator_enable(struct adreno_device *adreno_dev)
  */
 static void a4xx_regulator_disable(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
 	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev)))
 		return;
 
@@ -351,12 +354,12 @@ static void a4xx_regulator_disable(struct adreno_device *adreno_dev)
  */
 static void a4xx_enable_pc(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
 		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
 
-	kgsl_regwrite(device, A4XX_CP_POWER_COLLAPSE_CNTL, 0x00400010);
+	kgsl_regwrite(KGSL_DEVICE(adreno_dev), A4XX_CP_POWER_COLLAPSE_CNTL,
+		0x00400010);
 	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
 };
 
@@ -369,7 +372,7 @@ static void a4xx_enable_pc(struct adreno_device *adreno_dev)
  */
 static void a4xx_enable_ppd(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
 		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag) ||
@@ -401,7 +404,7 @@ static void a4xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 				unsigned int prelevel, unsigned int postlevel,
 				bool post)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	static int pre;
 
 	/* PPD programming only for A430v2 */
@@ -563,7 +566,7 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
  */
 static void a4xx_protect_init(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int index = 0;
 	struct kgsl_protected_registers *iommu_regs;
 
@@ -628,7 +631,7 @@ static struct adreno_snapshot_sizes a4xx_snap_sizes = {
 
 static void a4xx_start(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int cp_debug = A4XX_CP_DEBUG_DEFAULT;
 
@@ -730,7 +733,7 @@ static void a4xx_start(struct adreno_device *adreno_dev)
  */
 static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
 
 	switch (bit) {
@@ -1457,7 +1460,7 @@ int adreno_a4xx_pwron_fixup_init(struct adreno_device *adreno_dev)
 	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
 			return 0;
 
-	ret = kgsl_allocate_global(&adreno_dev->dev,
+	ret = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
 		&adreno_dev->pwron_fixup, PAGE_SIZE,
 		KGSL_MEMFLAGS_GPUREADONLY, 0);
 
@@ -1619,7 +1622,7 @@ static int a4xx_rb_init(struct adreno_device *adreno_dev,
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 	if (ret) {
-		struct kgsl_device *device = &adreno_dev->dev;
+		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 		dev_err(device->dev, "CP initialization failed to idle\n");
 		kgsl_device_snapshot(device, NULL);
@@ -1804,7 +1807,7 @@ static void a4xx_preempt_trig_state(
 			struct adreno_device *adreno_dev)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-	struct kgsl_device *device = &(adreno_dev->dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int rbbase, val;
 
 	/*
@@ -1902,7 +1905,7 @@ static void a4xx_preempt_clear_state(
 
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-	struct kgsl_device *device = &(adreno_dev->dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_dispatcher_cmdqueue *dispatch_tempq;
 	struct kgsl_cmdbatch *cmdbatch;
 	struct adreno_ringbuffer *highest_busy_rb;
@@ -2020,7 +2023,7 @@ static void a4xx_preempt_complete_state(
 
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-	struct kgsl_device *device = &(adreno_dev->dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_dispatcher_cmdqueue *dispatch_q;
 	unsigned int wptr, rbbase;
 	unsigned int val, val1;
@@ -2108,7 +2111,7 @@ static void a4xx_preemption_schedule(
 				struct adreno_device *adreno_dev)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-	struct kgsl_device *device = &(adreno_dev->dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (!adreno_is_preemption_enabled(adreno_dev))
 		return;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,7 +143,7 @@ int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
 		struct kgsl_context *context,
 		uint32_t timestamp, unsigned int timeout)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
 	int ret;
 	long ret_temp;
@@ -207,7 +207,7 @@ static int adreno_drawctxt_wait_rb(struct adreno_device *adreno_dev,
 		struct kgsl_context *context,
 		uint32_t timestamp, unsigned int timeout)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
 	int ret = 0;
 
@@ -486,7 +486,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 		 * the next command in GFT SKIP CMD, print the context
 		 * detached status here.
 		 */
-		adreno_fault_skipcmd_detached(device, drawctxt, list[i]);
+		adreno_fault_skipcmd_detached(adreno_dev, drawctxt, list[i]);
 		kgsl_cmdbatch_destroy(list[i]);
 	}
 
@@ -559,7 +559,7 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				struct adreno_context *drawctxt,
 				unsigned int flags)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pagetable *new_pt;
 	int ret = 0;
 

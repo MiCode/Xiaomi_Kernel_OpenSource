@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -364,7 +364,6 @@ static bool _add_to_assignments_list(struct adreno_profile *profile,
 static bool results_available(struct adreno_device *adreno_dev,
 		struct adreno_profile *profile, unsigned int *shared_buf_tail)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int global_eop;
 	unsigned int off = profile->shared_tail;
 	unsigned int *shared_ptr = (unsigned int *)
@@ -379,7 +378,7 @@ static bool results_available(struct adreno_device *adreno_dev,
 	if (shared_buf_empty(profile))
 		return false;
 
-	if (adreno_rb_readtimestamp(device,
+	if (adreno_rb_readtimestamp(adreno_dev,
 			adreno_dev->cur_rb,
 			KGSL_TIMESTAMP_RETIRED, &global_eop))
 		return false;
@@ -1062,7 +1061,7 @@ DEFINE_SIMPLE_ATTRIBUTE(profile_enable_fops,
 
 void adreno_profile_init(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_profile *profile = &adreno_dev->profile;
 	struct dentry *profile_dir;
 	int ret;
@@ -1108,7 +1107,7 @@ void adreno_profile_close(struct adreno_device *adreno_dev)
 	profile->log_tail = NULL;
 	profile->shared_head = 0;
 	profile->shared_tail = 0;
-	kgsl_free_global(&adreno_dev->dev, &profile->shared_buffer);
+	kgsl_free_global(KGSL_DEVICE(adreno_dev), &profile->shared_buffer);
 	profile->shared_size = 0;
 
 	profile->assignment_count = 0;
