@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -794,7 +794,7 @@ static size_t a5xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 void a5xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	unsigned int clock_ctl, reg;
@@ -879,7 +879,6 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 
 void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int i, count;
 	uint64_t *ptr;
 	uint64_t gpuaddr;
@@ -896,7 +895,7 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 	 * registers that we will capture.
 	 */
 
-	if (kgsl_allocate_global(device, &capturescript,
+	if (kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &capturescript,
 		((ARRAY_SIZE(a5xx_registers) / 2) * 16) + 16,
 		KGSL_MEMFLAGS_GPUREADONLY, 0))
 		return;
@@ -904,9 +903,9 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* Count the total number of registers to capture */
 	count = count_registers();
 
-	if (kgsl_allocate_global(device, &registers,
+	if (kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &registers,
 		count * sizeof(unsigned int), 0, 0)) {
-		kgsl_free_global(device, &capturescript);
+		kgsl_free_global(KGSL_DEVICE(adreno_dev), &capturescript);
 		return;
 	}
 
