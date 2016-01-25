@@ -116,10 +116,10 @@ struct proxy_consumer *regulator_proxy_consumer_register(struct device *reg_dev,
 	}
 
 	if (consumer->current_uA > 0) {
-		rc = regulator_set_optimum_mode(consumer->reg,
+		rc = regulator_set_load(consumer->reg,
 						consumer->current_uA);
 		if (rc < 0) {
-			pr_err("regulator_set_optimum_mode %s failed, rc=%d\n",
+			pr_err("regulator_set_load %s failed, rc=%d\n",
 				reg_name, rc);
 			goto remove_voltage;
 		}
@@ -140,7 +140,7 @@ struct proxy_consumer *regulator_proxy_consumer_register(struct device *reg_dev,
 	return consumer;
 
 remove_current:
-	regulator_set_optimum_mode(consumer->reg, 0);
+	regulator_set_load(consumer->reg, 0);
 remove_voltage:
 	regulator_set_voltage(consumer->reg, 0, INT_MAX);
 free_regulator:
@@ -163,9 +163,9 @@ static int regulator_proxy_consumer_remove(struct proxy_consumer *consumer)
 	}
 
 	if (consumer->current_uA > 0) {
-		rc = regulator_set_optimum_mode(consumer->reg, 0);
+		rc = regulator_set_load(consumer->reg, 0);
 		if (rc < 0)
-			pr_err("regulator_set_optimum_mode failed, rc=%d\n",
+			pr_err("regulator_set_load failed, rc=%d\n",
 				rc);
 	}
 
