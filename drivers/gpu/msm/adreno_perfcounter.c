@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -709,6 +709,7 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 		struct adreno_perfcounters *counters, unsigned int group,
 		unsigned int counter, unsigned int countable)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
 	int i;
@@ -746,17 +747,17 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 		 * rb[0] will not get scheduled to run
 		 */
 		if (adreno_dev->cur_rb != rb)
-			adreno_dispatcher_schedule(rb->device);
+			adreno_dispatcher_schedule(device);
 		/* wait for the above commands submitted to complete */
 		ret = adreno_ringbuffer_waittimestamp(rb, rb->timestamp,
 				ADRENO_IDLE_TIMEOUT);
 		if (ret)
-			KGSL_DRV_ERR(rb->device,
+			KGSL_DRV_ERR(device,
 			"Perfcounter %u/%u/%u start via commands failed %d\n",
 			group, counter, countable, ret);
 	} else {
 		/* Select the desired perfcounter */
-		kgsl_regwrite(&adreno_dev->dev, reg->select, countable);
+		kgsl_regwrite(device, reg->select, countable);
 	}
 
 	if (!ret)

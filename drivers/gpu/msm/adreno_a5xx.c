@@ -220,29 +220,29 @@ static int a5xx_preemption_init(struct adreno_device *adreno_dev)
 
 	/* Allocate mem for storing preemption switch record */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		ret = kgsl_allocate_global(&adreno_dev->dev,
+		ret = kgsl_allocate_global(device,
 			&rb->preemption_desc, A5XX_CP_CTXRECORD_SIZE_IN_BYTES,
 			0, KGSL_MEMDESC_PRIVILEGED);
 		if (ret)
 			return ret;
 
 		/* Initialize the context switch record here */
-		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+		kgsl_sharedmem_writel(device, &rb->preemption_desc,
 			PREEMPT_RECORD(magic), A5XX_CP_CTXRECORD_MAGIC_REF);
-		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+		kgsl_sharedmem_writel(device, &rb->preemption_desc,
 			PREEMPT_RECORD(info), 0);
-		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+		kgsl_sharedmem_writel(device, &rb->preemption_desc,
 			PREEMPT_RECORD(data), 0);
-		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+		kgsl_sharedmem_writel(device, &rb->preemption_desc,
 			PREEMPT_RECORD(cntl), 0x0800000C);
-		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+		kgsl_sharedmem_writel(device, &rb->preemption_desc,
 			PREEMPT_RECORD(rptr), 0);
-		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+		kgsl_sharedmem_writel(device, &rb->preemption_desc,
 			PREEMPT_RECORD(wptr), 0);
-		kgsl_sharedmem_writeq(rb->device, &rb->preemption_desc,
+		kgsl_sharedmem_writeq(device, &rb->preemption_desc,
 			PREEMPT_RECORD(rbase),
 			adreno_dev->ringbuffers[i].buffer_desc.gpuaddr);
-		kgsl_sharedmem_writeq(rb->device, &rb->preemption_desc,
+		kgsl_sharedmem_writeq(device, &rb->preemption_desc,
 			PREEMPT_RECORD(counter), addr);
 
 		addr += A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE;
@@ -355,6 +355,7 @@ static int a5xx_preemption_post_ibsubmit(
 			struct adreno_ringbuffer *rb, unsigned int *cmds,
 			struct kgsl_context *context)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int *cmds_orig = cmds;
 	unsigned int ctx_id = context ? context->id : 0;
 
@@ -373,7 +374,7 @@ static int a5xx_preemption_post_ibsubmit(
 	*cmds++ = 0;
 
 	cmds += a5xx_preemption_token(adreno_dev, rb, cmds,
-				rb->device->memstore.gpuaddr +
+				device->memstore.gpuaddr +
 				KGSL_MEMSTORE_OFFSET(ctx_id, preempted));
 
 	return cmds - cmds_orig;
@@ -2052,11 +2053,11 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 				iommu->smmu_info.gpuaddr);
 
 		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+			kgsl_sharedmem_writel(device, &rb->preemption_desc,
 				PREEMPT_RECORD(rptr), 0);
-			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+			kgsl_sharedmem_writel(device, &rb->preemption_desc,
 				PREEMPT_RECORD(wptr), 0);
-			kgsl_sharedmem_writeq(rb->device, &rb->pagetable_desc,
+			kgsl_sharedmem_writeq(device, &rb->pagetable_desc,
 			  offsetof(struct adreno_ringbuffer_pagetable_info,
 			  ttbr0), def_ttbr0);
 		}
@@ -2070,9 +2071,10 @@ static int _preemption_init(
 			struct adreno_ringbuffer *rb, unsigned int *cmds,
 			struct kgsl_context *context)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int *cmds_orig = cmds;
 	uint64_t gpuaddr = rb->preemption_desc.gpuaddr;
-	uint64_t gpuaddr_token = rb->device->memstore.gpuaddr +
+	uint64_t gpuaddr_token = device->memstore.gpuaddr +
 				KGSL_MEMSTORE_OFFSET(0, preempted);
 
 	/* Turn CP protection OFF */

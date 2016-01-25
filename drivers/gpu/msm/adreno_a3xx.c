@@ -1599,7 +1599,8 @@ static inline int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device,
 
 /**
  * _ringbuffer_bootstrap_ucode() - Bootstrap GPU Ucode
- * @rb: Pointer to adreno ringbuffer
+ * @adreno_dev: Pointer to an adreno device
+ * @rb: The ringbuffer to boostrap the code into
  * @load_jt: If non zero only load Jump tables
  *
  * Bootstrap ucode for GPU
@@ -1615,14 +1616,13 @@ static inline int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device,
  * PFP dwords from microcode to bootstrap
  * PM4 size dwords from microcode to bootstrap
  */
-static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
-					unsigned int load_jt)
+static int _ringbuffer_bootstrap_ucode(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb, unsigned int load_jt)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int *cmds, bootstrap_size, rb_size;
 	int i = 0;
 	int ret;
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int pm4_size, pm4_idx, pm4_addr, pfp_size, pfp_idx, pfp_addr;
 
 	/* Only bootstrap jump tables of ucode */
@@ -1726,8 +1726,7 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 	ret = adreno_spin_idle(device, 2000);
 
 	if (ret) {
-		KGSL_DRV_ERR(rb->device,
-		"microcode bootstrap failed to idle\n");
+		KGSL_DRV_ERR(device, "microcode bootstrap failed to idle\n");
 		kgsl_device_snapshot(device, NULL);
 	}
 
@@ -1744,7 +1743,7 @@ int a3xx_microcode_load(struct adreno_device *adreno_dev,
 {
 	int status;
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	struct kgsl_device *device = rb->device;
+	struct kgsl_device *device = &adreno_dev->dev;
 
 	if (start_type == ADRENO_START_COLD) {
 		/* If bootstrapping if supported to load ucode */
@@ -1760,30 +1759,30 @@ int a3xx_microcode_load(struct adreno_device *adreno_dev,
 			 * microcode.
 			 */
 
-			status = adreno_ringbuffer_load_pm4_ucode(rb->device, 1,
+			status = adreno_ringbuffer_load_pm4_ucode(device, 1,
 				adreno_dev->gpucore->pm4_bstrp_size+1, 0);
 			if (status != 0)
 				return status;
 
-			status = adreno_ringbuffer_load_pfp_ucode(rb->device, 1,
+			status = adreno_ringbuffer_load_pfp_ucode(device, 1,
 				adreno_dev->gpucore->pfp_bstrp_size+1, 0);
 			if (status != 0)
 				return status;
 
 			/* Bootstrap rest of the ucode here */
-			status = _ringbuffer_bootstrap_ucode(rb, 0);
+			status = _ringbuffer_bootstrap_ucode(adreno_dev, rb, 0);
 			if (status != 0)
 				return status;
 
 		} else {
 			/* load the CP ucode using AHB writes */
-			status = adreno_ringbuffer_load_pm4_ucode(rb->device, 1,
+			status = adreno_ringbuffer_load_pm4_ucode(device, 1,
 						adreno_dev->pm4_fw_size, 0);
 			if (status != 0)
 				return status;
 
 			/* load the prefetch parser ucode using AHB writes */
-			status = adreno_ringbuffer_load_pfp_ucode(rb->device, 1,
+			status = adreno_ringbuffer_load_pfp_ucode(device, 1,
 						adreno_dev->pfp_fw_size, 0);
 			if (status != 0)
 				return status;
@@ -1791,7 +1790,7 @@ int a3xx_microcode_load(struct adreno_device *adreno_dev,
 	} else if (start_type == ADRENO_START_WARM) {
 			/* If bootstrapping if supported to load jump tables */
 		if (adreno_bootstrap_ucode(adreno_dev)) {
-			status = _ringbuffer_bootstrap_ucode(rb, 1);
+			status = _ringbuffer_bootstrap_ucode(adreno_dev, rb, 1);
 			if (status != 0)
 				return status;
 
