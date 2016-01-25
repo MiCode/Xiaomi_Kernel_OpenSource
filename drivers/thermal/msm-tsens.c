@@ -2447,8 +2447,8 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 	tm->crit_timestamp_last_interrupt_handled.time_stmp[idx%10] =
 							sched_clock();
 	tm->qtimer_val_last_detection_interrupt = arch_counter_get_cntpct();
-
-	complete(&tm->tsens_rslt_completion);
+	if (tsens_poll_check)
+		complete(&tm->tsens_rslt_completion);
 	/* Mask critical interrupt */
 	mb();
 
