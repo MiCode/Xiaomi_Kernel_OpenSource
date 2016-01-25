@@ -322,7 +322,10 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 		index--;
 
 		if (index < 0) {
-			index = KGSL_RB_DWORDS - 3;
+			if (ADRENO_LEGACY_PM4(adreno_dev))
+				index = KGSL_RB_DWORDS - 3;
+			else
+				index = KGSL_RB_DWORDS - 4;
 
 			/* We wrapped without finding what we wanted */
 			if (index < rb->wptr) {
@@ -331,9 +334,19 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 			}
 		}
 
-		if (adreno_cmd_is_ib(adreno_dev, rbptr[index]) &&
-			rbptr[index + 1] == ibbase)
-			break;
+		if (adreno_cmd_is_ib(adreno_dev, rbptr[index])) {
+			if (ADRENO_LEGACY_PM4(adreno_dev)) {
+				if (rbptr[index + 1] == ibbase)
+					break;
+			} else {
+				uint64_t ibaddr;
+
+				ibaddr = rbptr[index + 2];
+				ibaddr = ibaddr << 32 | rbptr[index + 1];
+				if (ibaddr == ibbase)
+					break;
+			}
+		}
 	} while (index != rb->wptr);
 
 	/*
