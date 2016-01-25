@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smp2p_test.c
  *
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/jiffies.h>
 #include <linux/delay.h>
 #include <linux/completion.h>
+#include <linux/module.h>
 #include <soc/qcom/subsystem_restart.h>
 #include "smp2p_private.h"
 #include "smp2p_test_common.h"
