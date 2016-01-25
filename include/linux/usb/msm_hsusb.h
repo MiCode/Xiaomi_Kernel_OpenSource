@@ -1,8 +1,8 @@
-/* linux/include/asm-arm/arch-msm/hsusb.h
+/* include/linux/usb/msm_hsusb.h
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,8 +20,24 @@
 
 #include <linux/extcon.h>
 #include <linux/types.h>
+#include <linux/usb/ch9.h>
+#include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
-#include <linux/clk.h>
+/*
+ * The following are bit fields describing the usb_request.udc_priv word.
+ * These bit fields are set by function drivers that wish to queue
+ * usb_requests with sps/bam parameters.
+ */
+#define MSM_PIPE_ID_MASK		(0x1F)
+#define MSM_TX_PIPE_ID_OFS		(16)
+#define MSM_SPS_MODE			BIT(5)
+#define MSM_IS_FINITE_TRANSFER		BIT(6)
+#define MSM_PRODUCER			BIT(7)
+#define MSM_DISABLE_WB			BIT(8)
+#define MSM_ETD_IOC			BIT(9)
+#define MSM_INTERNAL_MEM		BIT(10)
+#define MSM_VENDOR_ID			BIT(16)
+
 
 /**
  * OTG control
@@ -99,6 +115,25 @@ enum usb_chg_type {
 };
 
 /**
+ * Supported USB controllers
+ */
+enum usb_ctrl {
+	DWC3_CTRL = 0,	/* DWC3 controller */
+	CI_CTRL,	/* ChipIdea controller */
+	HSIC_CTRL,	/* HSIC controller */
+	NUM_CTRL,
+};
+
+
+/**
+ * USB ID state
+ */
+enum usb_id_state {
+	USB_ID_GROUND = 0,
+	USB_ID_FLOAT,
+};
+
+/**
  * struct msm_otg_platform_data - platform device data
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence values. Value of -1 is reserved as
@@ -130,6 +165,17 @@ struct msm_usb_cable {
 	struct notifier_block		nb;
 	struct extcon_dev		*extcon;
 };
+
+
+/* phy related flags */
+#define ENABLE_DP_MANUAL_PULLUP		BIT(0)
+#define ENABLE_SECONDARY_PHY		BIT(1)
+#define PHY_HOST_MODE			BIT(2)
+#define PHY_CHARGER_CONNECTED		BIT(3)
+#define PHY_VBUS_VALID_OVERRIDE		BIT(4)
+#define DEVICE_IN_SS_MODE		BIT(5)
+
+#define USB_NUM_BUS_CLOCKS      3
 
 /**
  * struct msm_otg: OTG driver data. Shared by HCD and DCD.
@@ -197,4 +243,70 @@ struct msm_otg {
 	struct notifier_block reboot;
 };
 
+#ifdef CONFIG_USB_BAM
+void msm_bam_set_usb_host_dev(struct device *dev);
+void msm_bam_set_hsic_host_dev(struct device *dev);
+void msm_bam_wait_for_usb_host_prod_granted(void);
+void msm_bam_wait_for_hsic_host_prod_granted(void);
+bool msm_bam_hsic_lpm_ok(void);
+void msm_bam_usb_host_notify_on_resume(void);
+void msm_bam_hsic_host_notify_on_resume(void);
+bool msm_bam_hsic_host_pipe_empty(void);
+bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable);
+#else
+static inline void msm_bam_set_usb_host_dev(struct device *dev) {}
+static inline void msm_bam_set_hsic_host_dev(struct device *dev) {}
+static inline void msm_bam_wait_for_usb_host_prod_granted(void) {}
+static inline void msm_bam_wait_for_hsic_host_prod_granted(void) {}
+static inline bool msm_bam_hsic_lpm_ok(void) { return true; }
+static inline void msm_bam_hsic_host_notify_on_resume(void) {}
+static inline void msm_bam_usb_host_notify_on_resume(void) {}
+static inline bool msm_bam_hsic_host_pipe_empty(void) { return true; }
+static inline bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable)
+{
+	return true;
+}
+#endif
+#ifdef CONFIG_USB_DWC3_QCOM
+int msm_ep_config(struct usb_ep *ep);
+int msm_ep_unconfig(struct usb_ep *ep);
+void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
+int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr, u32 size,
+	u8 dst_pipe_idx);
+bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
+int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
+
+#else
+static inline int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr,
+	u32 size, u8 dst_pipe_idx)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ep_config(struct usb_ep *ep)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ep_unconfig(struct usb_ep *ep)
+{
+	return -ENODEV;
+}
+
+static inline void dwc3_tx_fifo_resize_request(
+					struct usb_ep *ep, bool qdss_enable)
+{
+}
+
+static inline bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget)
+{
+	return false;
+}
+
+static inline int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
+{
+	return -ENODEV;
+}
+
+#endif
 #endif
