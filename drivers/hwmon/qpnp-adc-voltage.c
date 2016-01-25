@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2478,7 +2478,8 @@ static int qpnp_vadc_get_temp(struct thermal_zone_device *thermal,
 	rc = qpnp_vadc_read(vadc,
 				vadc_therm->vadc_channel, &result);
 	if (rc) {
-		pr_err("VADC read error with %d\n", rc);
+		if (rc != -EPROBE_DEFER)
+			pr_err("VADC read error with %d\n", rc);
 		return rc;
 	}
 
