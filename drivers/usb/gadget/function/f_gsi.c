@@ -39,7 +39,6 @@ MODULE_PARM_DESC(num_out_bufs,
 		"Number of OUT buffers");
 
 static struct workqueue_struct *ipa_usb_wq;
-static bool gadget_restarted;
 
 struct usb_gsi_debugfs {
 	struct dentry *debugfs_root;
@@ -650,25 +649,6 @@ static void ipa_disconnect_work_handler(struct gsi_data_port *d_port)
 
 	if (gsi->d_port.out_ep)
 		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_FREE_TRBS);
-
-	/*
-	 * Unconfig the gsi eps after freeing the trbs. If done in
-	 * gsi_disable() then since gsi_disable() is called in interrupt context
-	 * and the usb_gsi_ep_op() for GSI_EP_OP_FREE_TRBS which is called from
-	 * ipa_disconnect_work_handler() a worker thread, can get delayed. So
-	 * when gsi_disable() unconfigures the eps, usb_gsi_ep_op() will not be
-	 * executed which leads to a memory leak.
-	 * Also if this is done in gsi_unbind() then again this is executed in
-	 * interrupt context and ipa_disconnect_work_handler() is a worker
-	 * thread which can get delayed.
-	 */
-	if (gadget_is_dwc3(d_port->gadget)) {
-		if (gsi->d_port.in_ep)
-			msm_ep_unconfig(gsi->d_port.in_ep);
-		if (gsi->d_port.out_ep)
-			msm_ep_unconfig(gsi->d_port.out_ep);
-	}
-
 }
 
 static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
@@ -2023,20 +2003,6 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				goto notify_ep_disable;
 			}
 
-			if (gsi->d_port.in_ep &&
-				msm_ep_config(gsi->d_port.in_ep)) {
-				log_event_err("%s: in ep config failed",
-							__func__);
-				goto notify_ep_disable;
-			}
-
-			if (gsi->d_port.out_ep &&
-				msm_ep_config(gsi->d_port.out_ep)) {
-				log_event_err("%s: out ep config failed",
-							__func__);
-				goto in_ep_unconfig;
-			}
-
 			/* Configure EPs for GSI */
 			if (gsi->d_port.in_ep) {
 				if (gsi->prot_id == IPA_USB_DIAG)
@@ -2061,7 +2027,7 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				gsi_rndis_open(gsi);
 				net = gsi_rndis_get_netdev("rndis0");
 				if (IS_ERR(net))
-					goto out_ep_unconfig;
+					goto notify_ep_disable;
 
 				log_event_dbg("RNDIS RX/TX early activation");
 				gsi->d_port.cdc_filter = 0;
@@ -2087,17 +2053,9 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			!gsi->d_port.in_ep->driver_data) ||
 			(gsi->d_port.out_ep &&
 			!gsi->d_port.out_ep->driver_data))) {
-			ipa_disconnect_handler(&gsi->d_port);
-			if (gsi->data_interface_up) {
-				if ((gsi->d_port.in_ep &&
-					msm_ep_unconfig(gsi->d_port.in_ep)) ||
-					(gsi->d_port.out_ep &&
-					msm_ep_unconfig(gsi->d_port.out_ep))) {
-					log_event_err("ep_unconfig failed");
-					goto notify_ep_disable;
-				}
+				ipa_disconnect_handler(&gsi->d_port);
 			}
-		}
+
 		gsi->data_interface_up = alt;
 		log_event_dbg("DATA_INTERFACE id = %d, status = %d",
 				gsi->data_id, gsi->data_interface_up);
@@ -2107,12 +2065,6 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	return 0;
 
-out_ep_unconfig:
-	if (gsi->d_port.out_ep)
-		msm_ep_unconfig(gsi->d_port.out_ep);
-in_ep_unconfig:
-	if (gsi->d_port.in_ep)
-		msm_ep_unconfig(gsi->d_port.in_ep);
 notify_ep_disable:
 	if (gsi->c_port.notify && gsi->c_port.notify->driver_data)
 		usb_ep_disable(gsi->c_port.notify);
@@ -2358,18 +2310,22 @@ skip_string_id_alloc:
 
 	/* allocate instance-specific endpoints */
 	if (info->fs_in_desc) {
-		ep = usb_ep_autoconfig(cdev->gadget, info->fs_in_desc);
+		ep = usb_ep_autoconfig_by_name
+			(cdev->gadget, info->fs_in_desc, info->in_epname);
 		if (!ep)
 			goto fail;
 		gsi->d_port.in_ep = ep;
+		msm_ep_config(gsi->d_port.in_ep);
 		ep->driver_data = cdev;	/* claim */
 	}
 
 	if (info->fs_out_desc) {
-		ep = usb_ep_autoconfig(cdev->gadget, info->fs_out_desc);
+		ep = usb_ep_autoconfig_by_name
+			(cdev->gadget, info->fs_out_desc, info->out_epname);
 		if (!ep)
 			goto fail;
 		gsi->d_port.out_ep = ep;
+		msm_ep_config(gsi->d_port.out_ep);
 		ep->driver_data = cdev;	/* claim */
 	}
 
@@ -2566,6 +2522,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = gsi_eth_fs_function;
 		info.hs_desc_hdr = gsi_eth_hs_function;
 		info.ss_desc_hdr = gsi_eth_ss_function;
+		info.in_epname = "gsi-epin";
+		info.out_epname = "gsi-epout";
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		gsi->d_port.in_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
 		info.in_req_num_buf = num_in_bufs;
@@ -2632,6 +2590,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = mbim_gsi_fs_function;
 		info.hs_desc_hdr = mbim_gsi_hs_function;
 		info.ss_desc_hdr = mbim_gsi_ss_function;
+		info.in_epname = "gsi-epin";
+		info.out_epname = "gsi-epout";
 		gsi->d_port.in_aggr_size = GSI_IN_MBIM_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
@@ -2671,6 +2631,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = rmnet_gsi_fs_function;
 		info.hs_desc_hdr = rmnet_gsi_hs_function;
 		info.ss_desc_hdr = rmnet_gsi_ss_function;
+		info.in_epname = "gsi-epin";
+		info.out_epname = "gsi-epout";
 		gsi->d_port.in_aggr_size = GSI_IN_RMNET_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
@@ -2701,6 +2663,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = ecm_gsi_fs_function;
 		info.hs_desc_hdr = ecm_gsi_hs_function;
 		info.ss_desc_hdr = ecm_gsi_ss_function;
+		info.in_epname = "gsi-epin";
+		info.out_epname = "gsi-epout";
 		gsi->d_port.in_aggr_size = GSI_IN_ECM_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
 		info.in_req_num_buf = num_in_bufs;
@@ -2736,6 +2700,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.fs_desc_hdr = qdss_gsi_hs_data_only_desc;
 		info.hs_desc_hdr = qdss_gsi_hs_data_only_desc;
 		info.ss_desc_hdr = qdss_gsi_ss_data_only_desc;
+		info.in_epname = "gsi-epin";
+		info.out_epname = "";
 		info.in_req_buf_len = 16384;
 		info.in_req_num_buf = num_in_bufs;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
@@ -2778,7 +2744,6 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	 */
 	flush_workqueue(gsi->d_port.ipa_usb_wq);
 	ipa_usb_deinit_teth_prot(gsi->prot_id);
-	gadget_restarted = false;
 
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;
@@ -2839,11 +2804,6 @@ int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 	if (!gsi) {
 		log_event_err("%s: gsi prot ctx is NULL", __func__);
 		return -EINVAL;
-	}
-
-	if (!gadget_restarted) {
-		usb_gadget_restart(c->cdev->gadget);
-		gadget_restarted = true;
 	}
 
 	switch (prot_id) {
