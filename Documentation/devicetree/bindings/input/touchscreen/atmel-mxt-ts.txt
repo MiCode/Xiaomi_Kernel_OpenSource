@@ -1,0 +1,183 @@
+Atmel touch controller
+
+Required properties:
+
+ - compatible	: should be "atmel,mxt-ts"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - vdd_ana-supply	: Analog power supply needed to power device
+ - atmel,irq-gpio	: irq gpio
+ - atmel,reset-gpio	: reset gpio
+ - atmel,family-id	: family identification of the controller
+ - atmel,variant-id	: variant identification of the controller
+ - atmel,version	: firmware version of the controller
+ - atmel,build		: firmware build number of the controller
+ - pinctrl-names	: This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_release" : Release configuration of pins, this should specify
+			release config defined in pin groups of interrupt and reset gpio.
+
+Required for firmware update only:
+ - atmel,fw-name		: firmware name to use for flashing firmware
+ - atmel,bootldr-id		: bootloader identification of the controller
+
+Optional property:
+ - atmel,bl-addr		: bootloader address, by default is looked up
+					in mxt_slave_addresses structure
+ - atmel,config			: configuration parameter for the controller
+ - atmel,i2c-pull-up		: specify to indicate pull up is needed
+ - vcc_i2c-supply		: Power source required to pull up i2c bus
+ - atmel,dig-reg-support	: specify to indicate digital regulator is
+					needed
+ - atmel,need-calibration	: specify to indicate whether calibration is
+					needed during wakeup.
+ - atmel,no-force-update	: flag that signifies whether force configuration
+					update is applicable or not
+ - atmel,no-lpm-support		: flag that signifies whether low power mode is
+					supported or not on this platform
+ - atmel,i2cmode-gpio		: specify gpio number for i2cmode, which provides
+					internal pull-ups to i2c bus in case there
+					is no hardware pull-up support
+ - atmel,panel-coords	: touch panel minimum x, minimum y, maximum x and
+				maximum y resolution. Used to configure the input
+				device.
+ - atmel,display-coords : LCD display minimum x, minimum y, maximum x and
+				maximum y resolution. Used to configure the input
+				device.
+ - atmel,vkey-codes		: virtual key code mappings to be used when touch controller
+				 does not support sending keycodes and sends coordinates
+				 instead. In this case user space programs need to translate
+				 coordinates to keycodes instead. Virtual key region sits
+				 between display's lower bound and touchscreen's lower bound.
+				 Horizontally these keys are evenly distributed between touch
+				 boundaries. These codes map to buttons from left to right
+				 according to icons on the touch panel. The value of these
+				 codes is taken from include/uapi/linux/input.h. If
+				 atmel,vkey-codes are specified, it is mandatory to specify
+				 atmel,panel-coords and atmel,display-coords as well because
+				 rectangular area of each of the virtual key is derived using
+				 these two properties.
+ - atmel,create-vkeys		: Define this property to create vkey entries for Atmel
+				touchscreen driver. This is used when there are multiple Atmel
+				touchscreen controllers, and everyone has to support virtual
+				keys. Following are the mandatory properties that must be
+				defined inside the cfg nodes:
+				- atmel,family-id
+				- atmel,panel-coords
+				- atmel,display-coords
+				- atmel,vkey-codes
+
+Example:
+	i2c@f9966000 {
+		cell-index = <3>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9966000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 104 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <24000000>;
+
+		atmel_mxt_ts@4a {
+			compatible = "atmel,mxt-ts";
+			reg = <0x4a>
+			interrupt-parent = <&msmgpio>
+			interrupts = <48 0x0>;
+			vdd_ana-supply = <&pm8941_l18>;
+			vcc_i2c-supply = <&pm8941_lvs1>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend", "pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			atmel,i2c-pull-up;
+			atmel,no-force-update;
+			atmel,dig-reg-support;
+			atmel,key-codes = <
+				102 139 0 0 0 0 0 0
+				0 158 217 0 0 0 0 0
+				0 0 0 0 0 0 0 0
+				0 0 0 0 0 0 0 0 >;
+			atmel,irq-gpio = <&msmgpio 48 0>;
+			atmel,reset-gpio = <&msmgpio 26 0>;
+			atmel,create-vkeys;
+			atmel,cfg_1 {
+				atmel,family-id = <0x81>;
+				atmel,variant-id = <0x01>;
+				atmel,version = <0x10>;
+				atmel,build = <0xaa>;
+				atmel,panel-coords = <0 0 479 799>;
+				atmel,display-coords = <0 0 479 799>;
+				atmel,vkey-codes = <139 172 158 217>;
+				atmel,config = [
+					/* Object 6, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 38, Instance = 0 */
+					15 00 02 10 08 0C 00 00
+					/* Object 7, Instance = 0 */
+					FF FF 32 03
+					/* Object 8, Instance = 0 */
+					0F 00 0A 0A 00 00 0A 00 00 00
+					/* Object 9, Instance = 0 */
+					83 00 00 18 0E 00 70 32 02 01
+					00 03 01 01 05 0A 0A 0A 90 05
+					F8 02 00 00 0F 0F 00 00 48 2D
+					07 0C 00 00 00 00
+					/* Object 15, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					00
+					/* Object 18, Instance = 0 */
+					00 00
+					/* Object 19, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 23, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00
+					/* Object 25, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00
+					/* Object 40, Instance = 0 */
+					00 00 00 00 00
+					/* Object 42, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					/* Object 46, Instance = 0 */
+					00 00 10 10 00 00 03 00 00 01
+					/* Object 47, Instance = 0 */
+					08 0A 28 0A 02 0A 00 8C 00 20
+					00 00 00
+					/* Object 55, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 56, Instance = 0 */
+					03 00 01 18 05 05 05 05 05 05
+					05 05 05 05 05 05 05 05 05 05
+					05 05 05 05 05 05 05 05 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00
+					/* Object 57, Instance = 0 */
+					00 00 00
+					/* Object 61, Instance = 0 */
+					00 00 00 00 00
+					/* Object 61, Instance = 1 */
+					00 00 00 00 00
+					/* Object 62, Instance = 0 */
+					7F 03 00 16 00 00 00 00 00 00
+					04 08 10 18 05 00 0A 05 05 50
+					14 19 34 1A 64 00 00 04 40 00
+					00 00 00 00 30 32 02 00 01 00
+					05 00 00 00 00 00 00 00 00 00
+					00 00 0C 00
+					];
+			}
+
+		}
+	};

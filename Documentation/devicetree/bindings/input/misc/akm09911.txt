@@ -1,0 +1,44 @@
+AKM AK09911 3-axis electronic compass driver
+
+Required properties:
+
+ - compatible		: Should be "ak,ak09911" or "akm,akm09911".
+ - reg				: i2c address of the device.
+ - pinctrl-names	: The pinctrl configration names of this sensor driver. Should be "default","reset".
+ - pinctrl-0		: The pinctrl node corresponding to "default", should be <&akm_default>.
+ - pinctrl-1		: The pinctrl node corresponding to "reset", should be <&akm_reset>.
+ - vdd-supply		: Analog power supply needed to power up the device.
+ - vio-supply		: Digital IO power supply needed for IO and I2C.
+ - akm,layout		: The layout of the ecompass sensor chip. There are 8
+	patterns of layout described as below:
+	0: Indicate the invalid pattern, The userspace will decide the pattern.
+	1: 1st pin is right down
+	2: 1st pin is left down
+	3: 1st pin is left top
+	4: 1st pin is right top
+	5: 1st pin is left down (from top view)
+	6: 1st pin is left top (from top view)
+	7: 1st pin is right top (from top view)
+	8: 1st pin is right down (from top view)
+ - akm,gpio_rstn	: The gpio pin to reset the sensor chip.
+
+Optional properites:
+
+ - akm,auto-report	: Enable auto-report mode.
+ - akm,use-hrtimer	: Enable the hrtimer mode. The hrtimer will be used as the poling
+	 delay timer, and high priority workqueue will be used in order to get a more stable polling interval.
+
+ Example:
+	akm@c {
+			compatible = "ak,ak09911";
+			reg = <0x0c>;
+			pinctrl-names = "default","reset";
+			pinctrl-0 = <&akm_default>;
+			pinctrl-1 = <&akm_reset>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			akm,layout = <0x0>;
+			akm,gpio_rstn = <&msmgpio 82 0x0>;
+			akm,auto-report;
+	};
+

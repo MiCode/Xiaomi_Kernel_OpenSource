@@ -1,0 +1,367 @@
+MSM TLMM pinmux controller
+
+Qualcomm MSM integrates a GPIO and Pin mux/config hardware, (TOP Level Mode
+Multiplexer in short TLMM). It controls the input/output settings on the
+available pads/pins and also provides ability to multiplex and configure the
+output of various on-chip controllers onto these pads. The pins are also of
+different types, encapsulating different functions and having differing register
+semantics.
+
+ Required Properties:
+ - compatible: identifies TLMM hardware version. should be one of the following
+	"qcom,msm-tlmm-8916"
+	"qcom,msm-tlmm-8226"
+	"qcom,msm-tlmm-8974"
+	"qcom,msm-tlmm-mdm9640"
+	"qcom,msm-tlmm-vpipa"
+ - reg: Base address of the pin controller hardware module and length of
+   the address space it occupies.
+
+- Pin types as child nodes: Pin types supported by a particular controller
+			    instance are represented as child nodes of the
+			    controller node.  This is optional.
+
+  Each pin type nodes' name must be unique and one of followings. Also each pin
+  type nodes can be present only when the specific pin type is supported by
+  SoC's TLMM :
+  - gp : General purpose pins
+  - sdc : SDC pins
+  - qdsc : QDSC pins
+
+  Each pin type node must contain following properties:
+
+   Required Properties
+   - #qcom,pin-cells: number of cells in the pin type specifier.
+   - qcom,num-pins: number of pins of given type present on the MSM.
+   Optional: A pintype may support gpio operations. In that case, a pintype
+   node can have an additional child node representing a gpio controller.
+   Additionally the pintype may also support using pins as interrupt triggers.
+   In this case we augment the gpio controller node with interrupt controller
+   attributes. The interrupt controller node, if present, needs to specify the
+   number of pins that can be used as interrupts as well as the id of the
+   processor core to which they need to be routed. Generally the apps id is
+   fixed for a given TLMM block in all SOCs that use that TLMM block.
+   However in some SOCs, the processor id can change. Override the default
+   value in that case.
+   - gpio-controller: Can be used as a gpio controller
+   - #gpio-cells: Should be two. The first cell is the pin number and the
+			second cell is used to specify optional parameters
+   - interrupt-controller: Can be used as an interrupt controller
+   - compatible: identifies the interrupt controller.
+			- This should be "qcom,msm-tlmm-gp".
+   - num_irqs: number of pins that can be used as an interrupt source.
+   - apps_id: if present, override the default core id for given TLMM block.
+   - #interrupt-cells: Should be two. The first cell is the pin number used as
+			irq and the second cell is used to specify optional
+			flags
+
+- Pin groups as child nodes: The pin mux (selecting pin function
+  mode) and pin config (pull up/down, driver strength, direction) settings are
+  represented as child nodes of the pin-controller node. There is no limit on
+  the count of these child nodes.
+
+   Required Properties
+     -qcom,pins: phandle specifying pin type and a pin number.
+     -qcom,num-grp-pins: number of pins in the group.
+     -label: name to identify the pin group to be used by a client.
+
+   Optional Properties
+     -qcom,pin-func: function setting for the pin group.
+
+  The child node should contain a list of pin(s) on which a particular pin
+  function selection or pin configuration (or both) have to applied. This
+  list of pins is specified using the property name "qcom,pins". There
+  should be atleast one pin specified for this property and there is no upper
+  limit on the count of pins that can be specified. The pins are specified
+  using the pintype phandle and the pin number within that pintype.
+
+  The pin function selection that should be applied on the pins listed in the
+  child node is specified using the "qcom,pin-func" property. The value
+  of this property that should be applied to each of the pins listed in the
+  "qcom,pins" property, should be picked from the hardware manual of the SoC.
+  This property is optional in the child node if no specific function
+  selection is desired for the pins listed in the child node or if the pin is
+  to be used for bit banging.
+
+  The pin group node must additionally have a pin configuration node as its own
+  child node. There can be more then one such configuration node for a pin group
+  node. There can be one or more configurations within the configuration
+  node. These configurations are applied to all pins mentioned above using the
+  "qcom,pins" property. These configurations are specific to the pintype of the
+  pins.
+
+  For the pin configuration properties supported by both pin types lookup
+  Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt
+
+  The values specified by these config properties should be derived from the
+  hardware manual and these values are programmed as-is into the pin config
+  register of the pin-controller.
+
+  NOTE: A pin group node should be formed for all pins that are going to have
+  the same function and configuration settings. If a subset of pins to be used
+  by a client require different function or configuration settings or both
+  then they should be modelled as a separate pin group node to be used by
+  the client.
+
+  The client nodes that require a particular pin function selection and/or
+  pin configuration should use the bindings listed in the "pinctrl-bindings txt"
+  file.
+
+  In case of SDC pintype, we model it as containing 6 pins. 3 each for SDC1 and
+  SDC2. Pins 0-2 corresponds to clock, data and command lines of
+  SDC1 and Pins 3-5 correspond to clock, data and command lines of SDC2.
+
+  Example 1: A pin-controller node with pin types
+
+	pinctrl@fd5110000 {
+		compatible = "qcom,msm-tlmm-8974";
+		reg = <0xfd5110000 0x4000>;
+
+		/* General purpose pin type */
+		gp: gp {
+			qcom,num-pins = <117>;
+			#qcom,pin-cells = <1>;
+			/* Supports Gpio controller */
+			msm_gpio: msm_gpio {
+				gpio-controller;
+				#gpio-cells = <2>;
+				compatible = "qcom,msm-tlmm-gp";
+				interrupt-controller;
+				#interrupt-cells <2>;
+				num_irqs = <117>;
+				apps_id = <4>;
+			};
+		};
+		/* Sdc pin type */
+		sdc: sdc {
+			qcom,num-pins = <6>;
+			#qcom,pin-cells = <1>;
+		};
+	};
+
+Example 2: Spi pin entries within the pincontroller node
+	pinctrl@fd511000 {
+		....
+		..
+		pmx-spi-bus {
+			/*
+			 * MOSI, MISO and CLK lines
+			 * all sharing same function and config
+			 * settings for each configuration node.
+			 */
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "spi-bus";
+
+			/* Active configuration of bus pins */
+			spi-bus-active: spi-bus-active {
+				/*
+				 * Property names as specified in
+				 * pinctrl-bindings.txt
+				 */
+				drive-strength = <8>; /* 8 MA */
+				bias-disable; /* No PULL */
+			};
+			/* Sleep configuration of bus pins */
+			spi-bus-sleep: spi-bus-sleep {
+				/*
+				 * Property values as specified in HW
+				 * manual.
+				 */
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;
+			};
+		};
+
+		pmx-spi-cs {
+			/*
+			 * Chip select for SPI
+			 * different config
+			 * settings as compared to bus pins.
+			 */
+			qcom,pins = <&gp 2>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "spi-cs"
+
+			/* Active configuration of cs pin */
+			spi-cs-active: spi-cs-active {
+				/*
+				 * Property names as specified in
+				 * pinctrl-bindings.txt
+				 */
+				drive-strength = <4>; /* 4 MA */
+				bias-disable; /* No PULL */
+			};
+			/* Sleep configuration of cs pin */
+			spi-cs-sleep: spi-cs-sleep {
+				/*
+				 * Property values as specified in HW
+				 * manual.
+				 */
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+	};
+
+Example 3: Same pin group with different pin function settings modelled as
+separate nodes
+	pinctrl@fd511000 {
+		...
+		..
+		pmx-wcnss-5wire-active {
+			qcom,pins = <&gp 40>, <&gp 41>, <&gp 42>, <&gp 43>.
+					<&gp 44>;
+			qcom,pin-func = <1>;
+			qcom,num-grp-pins = <5>;
+			label = "wcnss-5wire-active";
+			wcnss-5wire-active: wcnss-active {
+				drive-strength = <6>; / * 6MA */
+				bias-pull-up;
+			};
+		};
+		pmx-wcnss-5wire-suspend {
+			qcom,pins = <&gp 40>, <&gp 41>, <&gp 42>, <&gp 43>.
+					<&gp 44>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <5>;
+			label = "wcnss-5wire-suspend";
+			wcnss-5wire-sleep: wcnss-sleep {
+				drive-strength = <6>; / * 6MA */
+				bias-pull-down;
+			};
+		};
+	};
+
+Example 4: SDC pins
+
+	pinctrl@0xfd511000 {
+		...
+		..
+		pmx-sdc1_clk {
+			qcom,pins = <&sdc 0>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc1-clk";
+			sdc1_clk_on: clk_on {
+				bias-disable; /* NO pull */
+				drive-strength = <12>; /* 12 MA */
+			};
+			sdc1_clk_off: clk_off {
+				bias-disable; /* NO pull */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+		pmx-sdc1_cmd {
+			qcom,pins = <&sdc 1>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc1-cmd";
+			sdc1_cmd_on: clk_on {
+				bias-disable; /* NO pull */
+				drive-strength = <12>; /* 12 MA */
+			};
+			sdc1_cmd_off: cmd_off {
+				bias-pull-up = <0x3>; /* pull up */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+		pmx-sdc1_data {
+			qcom,pins = <&sdc 2>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc1-data";
+			sdc1_data_on: data_on {
+				bias-pull-up; /* NO pull */
+				drive-strength = <12>; /* 12 MA */
+			};
+			sdc1_data_off: data_off {
+				bias-pull-up; /* pull up */
+				drive-strength = <0>; /* 2 MA */
+			};
+		};
+		pmx-sdc2_clk {
+			qcom,pins = <&sdc 3>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc2-clk";
+			sdc2_clk_on: clk_on {
+				bias-disable; /* NO pull */
+				drive-strength = <12>; /* 12 MA */
+			};
+			sdc2_clk_off: clk_off {
+				bias-disable; /* NO pull */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+		pmx-sdc2_cmd {
+			qcom,pins = <&sdc 4>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc2-cmd";
+			sdc2_cmd_on: cmd_on {
+				bias-disable; /* NO pull */
+				drive-strength = <12>; /* 12 MA */
+			};
+			sdc2_cmd_off: cmd_off {
+				bias-pull-up; /* pull up */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+		pmx-sdc2_data {
+			qcom,pins = <&sdc 5>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc2-data";
+			sdc2_data_on: data_on {
+				bias-pull-up; /* NO pull */
+				drive-strength = <12>; /* 12 MA */
+			};
+			sdc2_data_off: data_off {
+				bias-pull-up; /* pull up */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+Example 5: A SPI client node that supports 'active' and 'sleep' states.
+
+	spi_0: spi@f9923000 { /* BLSP1 QUP1 */
+			.....
+			...
+			/* pins used by spi controllers */
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&spi-bus-active &spi-cs-active>;
+			pinctrl-1 = <&spi-bus-sleep &spi-cs-sleep>;
+			...
+			..
+	};
+
+Example 6: A wcnss node with active and sleep states
+
+	qcom,wcnss-wlan@fb000000 {
+		....
+		..
+		/* pins used by wlan controllers */
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&wcnss-5wire-active>;
+		pinctrl-1 = <&wcnss-5wire-sleep>;
+		...
+	};
+
+Example 7: SDC1 and SDC2 nodes with on and off states.
+
+	&sdhc_1 {
+		....
+		..
+		/* pins used by SDCC1 */
+		pinctrl-names = "on", "off";
+		pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;
+		pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+		...
+		..
+	};
+
+	&sdhc_2 {
+		....
+		..
+		pinctrl-names = "on", "off";
+		pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on>;
+		pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+	};
+

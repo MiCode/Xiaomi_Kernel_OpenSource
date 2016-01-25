@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,7 @@
 #define MHI_RX_HEADROOM        64
 #define WATCHDOG_TIMEOUT       (30 * HZ)
 #define MHI_RMNET_DEVICE_COUNT 1
-#define RMNET_IPC_LOG_PAGES (10)
+#define RMNET_IPC_LOG_PAGES (100)
 #define IS_INBOUND(_chan) (((u32)(_chan)) % 2)
 
 enum DBG_LVL {
@@ -204,10 +204,6 @@ static void rmnet_mhi_internal_clean_unmap_buffers(struct net_device *dev,
 		struct sk_buff *skb = skb_dequeue(queue);
 		skb_priv = (struct mhi_skb_priv *)(skb->cb);
 		if (skb != 0) {
-			dma_unmap_single(&dev->dev,
-					skb_priv->dma_addr,
-					skb_priv->dma_size,
-					dir);
 			kfree_skb(skb);
 		}
 	}
@@ -252,7 +248,9 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 		struct mhi_result *result =
 		      mhi_poll(rmnet_mhi_ptr->rx_client_handle);
 		if (result->transaction_status == MHI_STATUS_DEVICE_NOT_READY) {
-			continue;
+			rmnet_log(MSG_INFO,
+				  "Transaction status not ready, continuing\n");
+			break;
 		} else if (result->transaction_status != MHI_STATUS_SUCCESS &&
 			   result->transaction_status != MHI_STATUS_OVERFLOW) {
 			rmnet_log(MSG_CRITICAL,
@@ -262,8 +260,9 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 		}
 
 		/* Nothing more to read, or out of buffers in MHI layer */
-		if (unlikely(!result->payload_buf ||
-						!result->bytes_xferd)) {
+		if (unlikely(!result->buf_addr || !result->bytes_xferd)) {
+			rmnet_log(MSG_CRITICAL,
+				  "Not valid buff not rescheduling\n");
 			should_reschedule = false;
 			break;
 		}
@@ -276,23 +275,6 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 		}
 
 		skb_priv = (struct mhi_skb_priv *)(skb->cb);
-
-		/* Sanity check, ensuring that this is actually the buffer */
-		if (unlikely(skb_priv->dma_addr != result->payload_buf ||
-			     skb_priv->dma_size < result->bytes_xferd)) {
-			rmnet_log(MSG_CRITICAL,
-			 "BUG: expected 0x%lx size 0x%x, got 0x%lx, size 0x%x",
-					(uintptr_t)skb_priv->dma_addr,
-					skb_priv->dma_size,
-					(uintptr_t)result->payload_buf,
-					result->bytes_xferd);
-			BUG();
-		}
-
-		dma_unmap_single(&dev->dev,
-				 skb_priv->dma_addr,
-				 skb_priv->dma_size,
-				 DMA_FROM_DEVICE);
 
 		/* Setup the tail to the end of data */
 		skb_put(skb, result->bytes_xferd);
@@ -333,36 +315,22 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 		/* Reserve headroom, tail == data */
 		skb_reserve(skb, MHI_RX_HEADROOM);
 		skb_priv->dma_size -= MHI_RX_HEADROOM;
-		skb_priv->dma_addr = dma_map_single(&dev->dev,
-					skb->data,
-					skb_priv->dma_size,
-					DMA_FROM_DEVICE);
+		skb_priv->dma_addr = 0;
 
 		rmnet_log(MSG_VERBOSE,
 			 "Mapped SKB %p to DMA Addr 0x%lx, DMA_SIZE: 0x%lx\n",
 			  skb->data,
-			  (uintptr_t)skb_priv->dma_addr,
+			  (uintptr_t)skb->data,
 			  (uintptr_t)skb_priv->dma_size);
 
-		if (unlikely(dma_mapping_error(&dev->dev,
-					skb_priv->dma_addr))) {
-			rmnet_log(MSG_CRITICAL,
-				  "DMA mapping error in polling function");
-			dev_kfree_skb_irq(skb);
-			break;
-		}
 
 		res = mhi_queue_xfer(
 			rmnet_mhi_ptr->rx_client_handle,
-			skb_priv->dma_addr, skb_priv->dma_size, MHI_EOT);
+			skb->data, skb_priv->dma_size, MHI_EOT);
 
 		if (unlikely(MHI_STATUS_SUCCESS != res)) {
 			rmnet_log(MSG_CRITICAL,
 				"mhi_queue_xfer failed, error %d", res);
-			dma_unmap_single(&dev->dev, skb_priv->dma_addr,
-					skb_priv->dma_size,
-					DMA_FROM_DEVICE);
-
 			dev_kfree_skb_irq(skb);
 			break;
 		}
@@ -453,17 +421,7 @@ static int rmnet_mhi_init_inbound(struct rmnet_mhi_private *rmnet_mhi_ptr)
 
 		skb_reserve(skb, MHI_RX_HEADROOM);
 		rx_priv->dma_size = cur_mru - MHI_RX_HEADROOM;
-		rx_priv->dma_addr = dma_map_single(&rmnet_mhi_ptr->dev->dev,
-						   skb->data,
-						   rx_priv->dma_size,
-						   DMA_FROM_DEVICE);
-		if (dma_mapping_error(&rmnet_mhi_ptr->dev->dev,
-					rx_priv->dma_addr)) {
-			rmnet_log(MSG_CRITICAL,
-				  "DMA mapping for RX buffers has failed");
-			kfree_skb(skb);
-			return -EIO;
-		}
+		rx_priv->dma_addr = 0;
 		skb_queue_tail(&rmnet_mhi_ptr->rx_buffers, skb);
 	}
 
@@ -472,7 +430,7 @@ static int rmnet_mhi_init_inbound(struct rmnet_mhi_private *rmnet_mhi_ptr)
 		skb = skb_dequeue(&rmnet_mhi_ptr->rx_buffers);
 		rx_priv = (struct mhi_skb_priv *)(skb->cb);
 		res = mhi_queue_xfer(rmnet_mhi_ptr->rx_client_handle,
-						    rx_priv->dma_addr,
+						    skb->data,
 						    rx_priv->dma_size,
 						    MHI_EOT);
 		if (MHI_STATUS_SUCCESS != res) {
@@ -498,7 +456,7 @@ static void rmnet_mhi_tx_cb(struct mhi_result *result)
 	tx_interrupts_count[rmnet_mhi_ptr->dev_index]++;
 
 	rmnet_log(MSG_VERBOSE, "Entered\n");
-	if (!result->payload_buf || !result->bytes_xferd)
+	if (!result->buf_addr || !result->bytes_xferd)
 		return;
 	/* Free the buffers which are TX'd up to the provided address */
 	while (!skb_queue_empty(&(rmnet_mhi_ptr->tx_buffers))) {
@@ -509,13 +467,10 @@ static void rmnet_mhi_tx_cb(struct mhi_result *result)
 				  "NULL buffer returned, error");
 			break;
 		} else {
-			struct mhi_skb_priv *tx_priv =
-				(struct mhi_skb_priv *)(skb->cb);
-
-			dma_unmap_single(&(dev->dev),
-					 tx_priv->dma_addr,
-					 tx_priv->dma_size,
-					 DMA_TO_DEVICE);
+			if (skb->data == result->buf_addr) {
+				kfree_skb(skb);
+				break;
+			}
 			kfree_skb(skb);
 			burst_counter++;
 
@@ -527,8 +482,6 @@ static void rmnet_mhi_tx_cb(struct mhi_result *result)
 			   Comparing to see if it's the last skb to
 			   replenish
 			*/
-			if (tx_priv->dma_addr == result->payload_buf)
-				break;
 		}
 	} /* While TX queue is not empty */
 	tx_cb_skb_free_burst_min[rmnet_mhi_ptr->dev_index] =
@@ -541,6 +494,7 @@ static void rmnet_mhi_tx_cb(struct mhi_result *result)
 
 	/* In case we couldn't write again, now we can! */
 	read_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock, flags);
+	rmnet_log(MSG_VERBOSE, "Waking up queue\n");
 	netif_wake_queue(dev);
 	read_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	rmnet_log(MSG_VERBOSE, "Exited\n");
@@ -656,25 +610,15 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	tx_priv = (struct mhi_skb_priv *)(skb->cb);
 	tx_priv->dma_size = skb->len;
-	tx_priv->dma_addr = dma_map_single(&dev->dev, skb->data,
-				  tx_priv->dma_size,
-				  DMA_TO_DEVICE);
-
-	if (dma_mapping_error(&dev->dev, tx_priv->dma_addr)) {
-			rmnet_log(MSG_CRITICAL,
-				"DMA mapping error in transmit function\n");
-			return NETDEV_TX_BUSY;
-	}
-
-	/* DMA mapping is OK, need to update the cb field properly */
+	tx_priv->dma_addr = 0;
 	do {
 		retry = 0;
 		res = mhi_queue_xfer(rmnet_mhi_ptr->tx_client_handle,
-						    tx_priv->dma_addr,
-						    tx_priv->dma_size,
+						    skb->data,
+						    skb->len,
 						    MHI_EOT);
 
-		if (MHI_STATUS_RING_FULL == res) {
+		if (-ENOSPC == res) {
 			write_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock,
 									flags);
 			if (!mhi_get_free_desc(
@@ -682,6 +626,7 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 				/* Stop writing until we can write again */
 				tx_ring_full_count[rmnet_mhi_ptr->dev_index]++;
 				netif_stop_queue(dev);
+				rmnet_log(MSG_VERBOSE, "Stopping Queue\n");
 				goto rmnet_mhi_xmit_error_cleanup;
 			} else {
 				retry = 1;
@@ -708,8 +653,6 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 	return 0;
 
 rmnet_mhi_xmit_error_cleanup:
-	dma_unmap_single(&(dev->dev), tx_priv->dma_addr, tx_priv->dma_size,
-				 DMA_TO_DEVICE);
 	rmnet_log(MSG_VERBOSE, "Ring full\n");
 	write_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	return NETDEV_TX_BUSY;
@@ -909,7 +852,8 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 	}
 	rmnet_mhi_ptr->dev =
 		alloc_netdev(sizeof(struct rmnet_mhi_private *),
-			     RMNET_MHI_DEV_NAME, rmnet_mhi_setup);
+			     RMNET_MHI_DEV_NAME,
+			     NET_NAME_PREDICTABLE, rmnet_mhi_setup);
 	if (!rmnet_mhi_ptr->dev) {
 		rmnet_log(MSG_CRITICAL, "Network device allocation failed\n");
 		ret = -ENOMEM;

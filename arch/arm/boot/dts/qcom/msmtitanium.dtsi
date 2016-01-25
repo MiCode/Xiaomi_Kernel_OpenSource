@@ -33,19 +33,19 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85e00000 0x0 0xa00000>;
+			reg = <0x0 0x85b00000 0x0 0xd00000>;
 		};
 
 		modem_mem: modem_region@0 {
 			compatible = "removed-dma-pool";
 			no-map-fixup;
-			reg = <0x0 0x86800000 0x0 0x6a00000>;
+			reg = <0x0 0x86c00000 0x0 0x6a00000>;
 		};
 
 		reloc_mem: reloc_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8d200000 0x0 0x1b00000>;
+			reg = <0x0 0x8d600000 0x0 0x1b00000>;
 		};
 
 		venus_mem: venus_region@0 {
@@ -1228,6 +1228,7 @@
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1336,6 +1337,10 @@
 			qcom,smdpkt-port-name = "LOOPBACK";
 			qcom,smdpkt-dev-name = "smd_pkt_loopback";
 		};
+	};
+
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
 	};
 
 	qcom,wcnss-wlan@0a000000 {

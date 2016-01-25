@@ -1,0 +1,173 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-iommu-v2.dtsi"
+
+&gfx_iommu {
+	status = "ok";
+	interrupts = <0 43 0>, <0 42 0>;
+};
+
+&apps_iommu {
+	status = "ok";
+	reg = <0x1e00000 0x40000>;
+	reg-names = "iommu_base";
+	interrupts = <0 41 0>, <0 38 0>;
+
+	qcom,iommu-ctx@1e22000 {
+		compatible = "qcom,msm-smmu-v2-ctx";
+		qcom,secure-context;
+		reg = <0x1e22000 0x1000>;
+		interrupts = <0 103 0>, <0 103 0>;
+		qcom,iommu-ctx-sids = <0x1c0 0x1ca 0x1004>;
+		qcom,iommu-sid-mask = <0x1 0x1 0x2>;
+		label = "MSA0_Audio";
+	};
+
+	vfe: qcom,iommu-ctx@1e23000 {
+		interrupts = <0 104 0>;
+	};
+
+	mdp_0: qcom,iommu-ctx@1e24000 {
+		interrupts = <0 105 0>;
+		qcom,iommu-ctx-sids = <0xc00>;
+	};
+
+	venus_ns: qcom,iommu-ctx@1e25000 {
+		interrupts = <0 106 0>;
+		qcom,iommu-ctx-sids = <0x800 0x807 0x808
+					0x811>;
+		qcom,iommu-sid-mask = <0x0 0x0 0x27
+					0x220>;
+		qcom,report-error-on-fault;
+	};
+
+	cpp: qcom,iommu-ctx@1e26000 {
+		status = "disabled";
+	};
+
+	mDSP: qcom,iommu-ctx@1e27000 {
+		interrupts = <0 110 0>;
+	};
+
+	gss: qcom,iommu-ctx@1e28000 {
+		interrupts = <0 111 0>;
+	};
+
+	a2: qcom,iommu-ctx@1e29000 {
+		interrupts = <0 112 0>;
+	};
+
+	qcom,iommu-ctx@1e2a000 {
+		compatible = "qcom,msm-smmu-v2-ctx";
+		reg = <0x1e2a000 0x1000>;
+		interrupts = <0 113 0>;
+		qcom,iommu-ctx-sids = <0x300>;
+		label = "qpic";
+	};
+
+	qcom,iommu-ctx@1e31000 {
+		compatible = "qcom,msm-smmu-v2-ctx";
+		qcom,secure-context;
+		reg = <0x1e31000 0x1000>;
+		interrupts = <0 120 0>, <0 120 0>;
+		qcom,iommu-ctx-sids = <0x1c01 0x1c02 0x1c03 0x1c04
+					0x1c06 0x1c07 0x1c08 0x1c09
+					0x1c0a 0x1c0b 0x1c0c 0x1c0d>;
+		label = "wlan";
+	};
+
+	mdp_1: qcom,iommu-ctx@1e32000 {
+		interrupts = <0 121 0>, <0 121 0>;
+		qcom,iommu-ctx-sids = <0xc01>;
+	};
+
+	venus_sec_pixel: qcom,iommu-ctx@1e33000 {
+		interrupts = <0 122 0>, <0 122 0>;
+		qcom,iommu-ctx-sids = <0x900 0x909 0x90a 0x90b
+					0x90e>;
+		qcom,iommu-sid-mask = <0x0 0x20 0x0 0x20
+					0x0>;
+		qcom,report-error-on-fault;
+	};
+
+	venus_sec_bitstream: qcom,iommu-ctx@1e34000 {
+		interrupts = <0 223 0>, <0 223 0>;
+		qcom,iommu-ctx-sids = <0x90c>;
+		qcom,report-error-on-fault;
+	};
+
+	venus_sec_non_pixel: qcom,iommu-ctx@1e35000 {
+		interrupts = <0 224 0>, <0 224 0>;
+		qcom,iommu-ctx-sids = <0x9c0 0x907 0x908
+					0x90d 0x90f>;
+		qcom,report-error-on-fault;
+	};
+
+	venus_fw: qcom,iommu-ctx@1e36000 {
+		interrupts = <0 225 0>, <0 225 0>;
+		qcom,iommu-ctx-sids = <0x980 0x986>;
+		qcom,report-error-on-fault;
+	};
+
+	periph_rpm: qcom,iommu-ctx@1e37000 {
+		interrupts = <0 228 0>, <0 228 0>;
+		qcom,iommu-ctx-sids = <0x40>;
+		qcom,iommu-sid-mask = <0x3f>;
+	};
+
+	periph_CE: qcom,iommu-ctx@1e38000 {
+		interrupts = <0 229 0>;
+		qcom,iommu-ctx-sids = <0xC4 0xC8 0xD4 0xD8
+					0xF4 0xF8>;
+		qcom,iommu-sid-mask = <0x23 0x27 0x3 0x7
+					0x3 0x7>;
+	};
+
+	periph_BLSP: qcom,iommu-ctx@1e39000 {
+		interrupts = <0 230 0>;
+		qcom,iommu-ctx-sids = <0x280 0x288 0x28C 0x290>;
+		qcom,iommu-sid-mask = <0x7 0x3 0x3 0x7>;
+	};
+
+	periph_SDC1: qcom,iommu-ctx@1e3a000 {
+		interrupts = <0 231 0>;
+	};
+
+	periph_SDC2: qcom,iommu-ctx@1e3b000 {
+		interrupts = <0 232 0>;
+	};
+
+	periph_audio: qcom,iommu-ctx@1e3c000 {
+		qcom,iommu-ctx-sids = <0x1c2 0x1c4 0x1c8
+					0x1cc 0x1cf>;
+		qcom,iommu-sid-mask = <0x1 0x3 0x0
+					0x3 0x0>;
+		interrupts = <0 233 0>;
+	};
+
+	periph_USB_HS1: qcom,iommu-ctx@1e3d000 {
+		interrupts = <0 150 0>;
+	};
+
+	qcom,iommu-ctx@1e3f000 {
+		compatible = "qcom,msm-smmu-v2-ctx";
+		qcom,secure-context;
+		reg = <0x1e3f000 0x1000>;
+		interrupts = <0 152 0>;
+		qcom,iommu-ctx-sids = <0xc0 0xd0 0xd3 0xf0
+					0xf3>;
+		qcom,iommu-sid-mask = <0x23 0x0 0x0 0x0
+					0x0>;
+		label = "periph_CE_secure";
+	};
+};

@@ -36,6 +36,7 @@
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
+#define EMMC_DLOAD_TYPE		0x2
 
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
 #define SCM_IO_DEASSERT_PS_HOLD		2
@@ -46,7 +47,7 @@
 
 
 static int restart_mode;
-void *restart_reason;
+static void *restart_reason, *dload_type_addr;
 static bool scm_pmic_arbiter_disable_supported;
 static bool scm_deassert_ps_hold_supported;
 /* Download mode master kill-switch */
@@ -59,6 +60,7 @@ static void scm_disable_sdi(void);
  * So the SDI cannot be re-enabled when it already by-passed.
 */
 static int download_mode = 1;
+static struct kobject dload_kobj;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
@@ -71,8 +73,23 @@ static void *emergency_dload_mode_addr;
 static bool scm_dload_supported;
 
 static int dload_set(const char *val, struct kernel_param *kp);
+/* interface for exporting attributes */
+struct reset_attribute {
+	struct attribute        attr;
+	ssize_t (*show)(struct kobject *kobj, struct attribute *attr,
+			char *buf);
+	size_t (*store)(struct kobject *kobj, struct attribute *attr,
+			const char *buf, size_t count);
+};
+#define to_reset_attr(_attr) \
+	container_of(_attr, struct reset_attribute, attr)
+#define RESET_ATTR(_name, _mode, _show, _store)	\
+	static struct reset_attribute reset_attr_##_name = \
+			__ATTR(_name, _mode, _show, _store)
+
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
+
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
@@ -387,6 +404,84 @@ static void do_msm_poweroff(void)
 	return;
 }
 
+static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
+				char *buf)
+{
+	struct reset_attribute *reset_attr = to_reset_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (reset_attr->show)
+		ret = reset_attr->show(kobj, attr, buf);
+
+	return ret;
+}
+
+static ssize_t attr_store(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	struct reset_attribute *reset_attr = to_reset_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (reset_attr->store)
+		ret = reset_attr->store(kobj, attr, buf, count);
+
+	return ret;
+}
+
+static const struct sysfs_ops reset_sysfs_ops = {
+	.show	= attr_show,
+	.store	= attr_store,
+};
+
+static struct kobj_type reset_ktype = {
+	.sysfs_ops	= &reset_sysfs_ops,
+};
+
+static ssize_t show_emmc_dload(struct kobject *kobj, struct attribute *attr,
+				char *buf)
+{
+	uint32_t read_val, show_val;
+
+	read_val = __raw_readl(dload_type_addr);
+	if (read_val == EMMC_DLOAD_TYPE)
+		show_val = 1;
+	else
+		show_val = 0;
+
+	return snprintf(buf, sizeof(show_val), "%u\n", show_val);
+}
+
+static size_t store_emmc_dload(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	uint32_t enabled;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &enabled);
+	if (ret < 0)
+		return ret;
+
+	if (!((enabled == 0) || (enabled == 1)))
+		return -EINVAL;
+
+	if (enabled == 1)
+		__raw_writel(EMMC_DLOAD_TYPE, dload_type_addr);
+	else
+		__raw_writel(0, dload_type_addr);
+
+	return count;
+}
+RESET_ATTR(emmc_dload, 0644, show_emmc_dload, store_emmc_dload);
+
+static struct attribute *reset_attrs[] = {
+	&reset_attr_emmc_dload.attr,
+	NULL
+};
+
+static struct attribute_group reset_attr_group = {
+	.attrs = reset_attrs,
+};
+
 static int msm_restart_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -417,6 +512,31 @@ static int msm_restart_probe(struct platform_device *pdev)
 			pr_err("unable to map imem EDLOAD mode offset\n");
 	}
 
+	np = of_find_compatible_node(NULL, NULL,
+				"qcom,msm-imem-dload-type");
+	if (!np) {
+		pr_err("unable to find DT imem dload-type node\n");
+	} else {
+		dload_type_addr = of_iomap(np, 0);
+		if (!dload_type_addr) {
+			pr_err("unable to map imem dload-type offset\n");
+			goto skip_sysfs_create;
+		}
+	}
+
+	ret = kobject_init_and_add(&dload_kobj, &reset_ktype,
+			kernel_kobj, "%s", "dload");
+	if (ret) {
+		pr_err("%s:Error in creation kobject_add\n", __func__);
+		kobject_put(&dload_kobj);
+	}
+
+	ret = sysfs_create_group(&dload_kobj, &reset_attr_group);
+	if (ret) {
+		pr_err("%s:Error in creation sysfs_create_group\n", __func__);
+		kobject_del(&dload_kobj);
+	}
+skip_sysfs_create:
 #endif
 	np = of_find_compatible_node(NULL, NULL,
 				"qcom,msm-imem-restart_reason");

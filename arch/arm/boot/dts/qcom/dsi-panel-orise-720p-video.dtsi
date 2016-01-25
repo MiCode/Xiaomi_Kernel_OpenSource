@@ -1,0 +1,56 @@
+/* Copyright (c) 2013, 2015 The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_orise_720_vid: qcom,mdss_dsi_orise_720p_video {
+		label = "orise 720p video mode dsi panel";
+		qcom,mdss-pan-res = <720 1280>;
+		qcom,mdss-pan-bpp = <24>;
+		qcom,mdss-pan-porch-values = <32 12 144 3 4 9>;
+		qcom,mdss-pan-underflow-clr = <0xff>;
+		qcom,mdss-pan-bl-levels = <1 255>;
+		qcom,mdss-pan-dsi-mode = <0>;
+		qcom,mdss-pan-dsi-h-pulse-mode = <0>;
+		qcom,mdss-pan-dsi-h-power-stop = <0 0 0>;
+		qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
+		qcom,mdss-pan-dsi-traffic-mode = <1>;
+		qcom,mdss-pan-dsi-dst-format = <3>;
+		qcom,mdss-pan-dsi-vc = <0>;
+		qcom,mdss-pan-dsi-rgb-swap = <0>;
+		qcom,mdss-pan-dsi-data-lanes = <1 1 1 1>;
+		qcom,mdss-pan-dsi-dlane-swap = <0>;
+		qcom,mdss-pan-dsi-t-clk = <0x1b 0x04>;
+		qcom,mdss-pan-dsi-stream = <0>;
+		qcom,mdss-pan-dsi-mdp-tr = <0x0>;
+		qcom,mdss-pan-dsi-dma-tr = <0x04>;
+		qcom,mdss-pan-dsi-framerate = <60>;
+		qcom,panel-phy-regulatorSettings = [03 01 01 00  /* Regualotor settings */
+						    20 00 01];
+		qcom,panel-phy-timingSettings = [69 29 1f 00 55 55
+						    19 2a 2a 03 04 00];
+		qcom,panel-phy-strengthCtrl = [77 06];
+		qcom,panel-phy-bistCtrl = [00 00 b1 ff           /* BIST Ctrl settings */
+					   00 00];
+		qcom,panel-phy-laneConfig = [00 c2 45 00 00 00 00 01 75 /* lane0 config */
+					     00 c2 45 00 00 00 00 01 75 /* lane1 config */
+					     00 c2 45 00 00 00 00 01 75 /* lane2 config */
+					     00 c2 45 00 00 00 00 01 75 /* lane3 config */
+					     00 02 45 00 00 00 00 01 97]; /* Clk ln config */
+
+		qcom,panel-on-cmds = [05 01 00 00 78 00 02 11 00
+					05 01 00 00 78 00 02 29 00];
+		qcom,on-cmds-dsi-state = "DSI_LP_MODE";
+		qcom,panel-off-cmds = [05 01 00 00 32 00 02 28 00
+					05 01 00 00 78 00 02 10 00];
+		qcom,off-cmds-dsi-state = "DSI_LP_MODE";
+	};
+};

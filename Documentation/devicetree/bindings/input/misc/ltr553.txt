@@ -1,0 +1,67 @@
+LTR-553ALS-01 optical sensor
+
+LTR553 is an ambient light and proximity sensor. It connects to host SoC via
+I2C bus.
+
+Abbreviation:
+ALS: ambient light sensor
+PS: proximity sensor
+ALPS: ambient light and proximity sensor
+
+Required properties:
+ - compatible		: Should be "liteon,ltr553".
+ - reg			: i2c slave address of this device.
+ - vdd-supply		: Analog power supply needed to power up this device.
+ - vio-supply		: Digital IO power supply needed for IO and i2c.
+ - interrupt-parent	: The interrupt controller this device is connected to.
+ - interrupts		: L/P sample interrupt to indicate new data ready.
+ - pinctrl-names	: pinctrl configuration names of this device. Should be
+	"default" and "sleep".
+ - pinctrl-0		: Should specify pin control groups used for this sensor.
+ - pinctrl-1		: Should specify pin control groups used for this sensor.
+ - liteon,irq-gpio	: GPIO pin for interrupt of this device.
+ - liteon,als-ps-persist: The number of data out of range to trigger interrupt.
+ - liteon,ps-led	: Proximity sensor LED settings.
+ - liteon,ps-pulses	: Controls the number of LED pulses to be emitted.
+ - liteon,als-integration-time	: ALS integration time configuration. The
+	maximum value is 7.
+
+ Optional properties:
+ - liteon,ps-distance-table	: Proximity sensor ADC value to transfer into
+	distance in centimeter.
+ - liteon,als-equation-0	: Equation to convert ALS data into lux for
+	light ratio below 0.45.
+ - liteon,als-equation-1	: Equation to convert ALS data into lux for
+	light ratio between 0.45 and 0.68.
+ - liteon,als-equation-2	: Equation to convert ALS data into lux for
+	light ratio between 0.68 and 0.99.
+ - liteon,als-equation-3	: Equation to convert ALS data into lux for
+	light ratio above 0.99.
+ - liteon,wakeup-threshold	: Threshold in centimeter to wake up SoC in
+	suspend mode when proximity is enabled.
+ - liteon,als-sensitivity	: Ambient light sensitivity in lux. This array
+	configures how much light intensity change will trigger a light sensor
+	event under different als gain configuration. The array size must be 8.
+
+ Example:
+
+ i2c@78b5000 { /* BLSP1 QUP1 */
+	 liteon@23 {
+		 compatible = "liteon,ltr553";
+		 reg = <0x23>;
+		 vdd-supply = <&pm8916_l17>;
+		 vio-supply = <&pm8916_l6>;
+		 interrupt-parent = <&msm_gpio>;
+		 interrupts = <113 0x2002>;
+		 pinctrl-names = "default","sleep";
+		 pinctrl-0 = <&ltr553_default>;
+		 pinctrl-1 = <&ltr553_sleep>;
+		 liteon,irq-gpio = <&msm_gpio 113 0x2002>;
+		 liteon,als-ps-persist = <0>;
+		 liteon,ps-led = <0x7f>;
+		 liteon,ps-pulses = <4>;
+		 liteon,wakeup-threshold = <4>;
+		 liteon,als-integration-time = <0>;
+		 liteon,als-sensitivity = <6000 3200 1600 800 0 0 130 1>;
+	 };
+ }

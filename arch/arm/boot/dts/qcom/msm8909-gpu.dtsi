@@ -1,0 +1,162 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	/* To use BIMC based bus governor */
+	gpubw: qcom,gpubw {
+		compatible = "qcom,devbw";
+		governor = "bw_hwmon";
+		qcom,src-dst-ports = <26 512>;
+		qcom,bw-tbl =
+			<    0 >,	/*   9.6 MHz */
+			<  381 >,	/*  50.0 MHz */
+			<  762 >,	/* 100.0 MHz */
+			< 1525 >,	/* 200.0 MHz */
+			< 3051 >,	/* 400.0 MHz */
+			< 4066 >;	/* 533.0 MHz */
+	};
+
+	qcom,gpu-bwmon@410000 {
+		compatible = "qcom,bimc-bwmon2";
+		reg = <0x00410000 0x300>, <0x00401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <2>;
+		qcom,target-dev = <&gpubw>;
+	};
+
+	msm_gpu: qcom,kgsl-3d0@01c00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0x01c00000 0x10000
+		       0x01c10000 0x10000
+		       0x0005c000 0x204>;
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory" ,
+			    "qfprom_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,gpu-speed-config = <0>;
+
+		qcom,chipid = <0x03000400>;
+
+		qcom,initial-pwrlevel = <1>;
+
+		/* Idle Timeout = HZ/12 */
+		qcom,idle-timeout = <8>;
+		qcom,strtstp-sleepwake;
+
+		/*
+		 * Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE |
+		 * KGSL_CLK_MEM_IFACE | KGSL_CLK_ALT_MEM_IFACE
+		 */
+		qcom,clk-map = <0x00000056>;
+		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
+			<&clock_gcc clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>,
+			<&clock_gcc clk_gcc_bimc_gpu_clk>,
+			<&clock_gcc clk_gcc_gtcu_ahb_clk>;
+		clock-names = "core_clk", "iface_clk",
+				"mem_iface_clk", "alt_mem_iface_clk",
+				"gtcu_iface_clk";
+
+		/* Bus Scale Settings */
+		qcom,gpubw-dev = <&gpubw>;
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<26 512 0 0>,
+			<26 512 0 1600000>,
+			<26 512 0 3200000>,
+			<26 512 0 4264000>;
+
+		/* GDSC oxili regulators */
+		vdd-supply = <&gdsc_oxili_gx>;
+
+		/* IOMMU Data */
+		iommu = <&gfx_iommu>;
+
+		/* CPU latency parameter */
+		qcom,pm-qos-active-latency = <701>;
+		qcom,pm-qos-wakeup-latency = <701>;
+
+		/* Power levels */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <409600000>;
+				qcom,bus-freq = <3>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <307200000>;
+				qcom,bus-freq = <2>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <200000000>;
+				qcom,bus-freq = <1>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <19200000>;
+				qcom,bus-freq = <0>;
+			};
+		};
+
+		qcom,gpu-speed-config@0 {
+			compatible = "gpu-speed-config@0";
+			/* Power levels */
+			qcom,gpu-pwrlevels {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				compatible = "qcom,gpu-pwrlevels";
+
+				qcom,gpu-pwrlevel@0 {
+					reg = <0>;
+					qcom,gpu-freq = <456000000>;
+					qcom,bus-freq = <3>;
+				};
+
+				qcom,gpu-pwrlevel@1 {
+					reg = <1>;
+					qcom,gpu-freq = <307200000>;
+					qcom,bus-freq = <2>;
+				};
+
+				qcom,gpu-pwrlevel@2 {
+					reg = <2>;
+					qcom,gpu-freq = <200000000>;
+					qcom,bus-freq = <1>;
+				};
+
+				qcom,gpu-pwrlevel@3 {
+					reg = <3>;
+					qcom,gpu-freq = <19200000>;
+					qcom,bus-freq = <0>;
+				};
+			};
+		};
+	 };
+};
+

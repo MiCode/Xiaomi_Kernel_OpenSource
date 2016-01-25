@@ -1,0 +1,71 @@
+AP3426 3-in-1 digital ALS+PS+IRLED module
+
+AP3426 is a module integrated with a digital ambient light sensor, a proximity
+sensor, and an IR LED in a single package. It provides multiple gain ambient
+light detection as well as external object distance detection. It can be
+connected to host processor via i2c.
+
+Required properties:
+ - compatible		: Should be "di,ap3426".
+ - reg			: i2c slave address of this device.
+ - vdd-supply		: Analog power supply needed to power up this device.
+ - vio-supply		: Digital IO power supply needed for IO and i2c.
+ - interrupt-parent	: The interrupt controller this device connected to.
+ - interrupts		: L/P sample interrupt to indicate new data ready.
+ - pinctrl-names	: pinctrl configuration names of this device. Should be "default" and "sleep".
+ - pinctrl-0		: Should specify pin control groups used for this sensor.
+ - pinctrl-1		: Should specify pin control groups used for this sensor.
+ - di,irq-gpio		: GPIO pin for interrupt of this device.
+ - di,als-cal		: Coefficient to calibrate this device for specific board.
+ - di,als-gain		: Default als gain configuration for the device. 0 for 32768,
+		1 for 8192, 2 for 2048 and 3 for 512.
+ - di,als-persist	: Interrupt persist configuration for the device. It indicates
+		how much conversion cycles will trigger ALS interrupt. The maximum value
+		is 63.
+ - di,ps-led-driver	: Specifies proximity LED driver ratio based on 140mA of this device.
+		0 for 16.7%, 1 for 33.3%, 2 for 66.7% and 3 for 100%.
+ - di,ps-mean-time	: Configures response time of proximity detection cycle. 0 for conversion
+		time 5ms, 1 for conversion time 9.6ms, 2 for conversion time 14.1ms and 3 for
+		conversion time 18.7ms.
+ - di,ps-integrated-time: Selects the duration at which the device's ADC will sample the
+		photodiode current signal. The maximum value is 63.
+
+
+Optional properties:
+ - di,ps-distance-table	: Calibrated ADC value of proximity sensor to indicate the distance of
+		the object in centimeter. The value in this table should in descend order and the
+		maximum value is 1023. Use default value if not exist.
+ - di,als-sensitivity	: Ambient light sensitivity in lux. This array configures how much light
+		intensity change will trigger a light sensor event. The array size should be 4.
+ - di,wakeup-threshold	: This value configures the threshold in centimeter that can wake up
+		SoC when system is suspended. This value should between 0 and
+		ARRAY_SIZE(di,ps-distance-table).
+
+Example:
+
+i2c@78b5000 { /* BLSP1 QUP1 */
+	di@1e {
+		compatible = "di,ap3426";
+		reg = <0x1e>;
+		vdd-supply = <&pm8909_l17>;
+		vio-supply = <&pm8909_l6>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <94 0x2002>;
+		pinctrl-names = "default","sleep";
+		pinctrl-0 = <&ap3426_default>;
+		pinctrl-1 = <&ap3426_sleep>;
+		di,irq-gpio = <&msm_gpio 94 0x2002>;
+		di,als-cal = <6>;
+		di,als-gain = <0>;
+		di,als-persist = <1>;
+		di,ps-gain = <1>;
+		di,ps-persist = <2>;
+		di,ps-led-driver = <3>;
+		di,ps-mean-time = <0>;
+		di,ps-integrated-time = <0>;
+		di,ps-distance-table = <887 282 111 78 53 46>;
+		di,als-sensitivity = <200 40 10 1>;
+		di,wakeup-threshold = <4>;
+	};
+};
+

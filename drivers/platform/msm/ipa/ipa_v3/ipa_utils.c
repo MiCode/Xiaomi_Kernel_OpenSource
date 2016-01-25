@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4873,6 +4873,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_smem_restr_bytes = ipa3_get_smem_restr_bytes;
 	api_ctrl->ipa_uc_wdi_get_dbpa = ipa3_uc_wdi_get_dbpa;
 	api_ctrl->ipa_uc_reg_rdyCB = ipa3_uc_reg_rdyCB;
+	api_ctrl->ipa_uc_dereg_rdyCB = ipa3_uc_dereg_rdyCB;
 	api_ctrl->ipa_rm_create_resource = ipa3_rm_create_resource;
 	api_ctrl->ipa_rm_delete_resource = ipa3_rm_delete_resource;
 	api_ctrl->ipa_rm_register = ipa3_rm_register;

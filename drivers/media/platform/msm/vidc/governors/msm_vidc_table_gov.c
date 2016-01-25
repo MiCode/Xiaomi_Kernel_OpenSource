@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,74 +16,130 @@
 #include <linux/string.h>
 #include "governor.h"
 #include "msm_vidc_debug.h"
+#include "msm_vidc_res_parse.h"
 #include "msm_vidc_internal.h"
 #include "venus_hfi.h"
 
-struct msm_vidc_bus_table_gov {
+enum bus_profile {
+	VIDC_BUS_PROFILE_NORMAL			= BIT(0),
+	VIDC_BUS_PROFILE_LOW			= BIT(1),
+	VIDC_BUS_PROFILE_UBWC			= BIT(2),
+};
+
+struct bus_profile_entry {
 	struct {
-		u32 load, freq, codecs;
+		u32 load, freq;
 	} *bus_table;
-	int bus_table_size;
+	u32 bus_table_size;
+	u32 codec_mask;
+	enum bus_profile profile;
+};
+
+struct msm_vidc_bus_table_gov {
+	struct bus_profile_entry *bus_prof_entries;
+	u32 count;
 	struct devfreq_governor devfreq_gov;
 };
 
-int msm_vidc_table_get_target_freq(struct devfreq *dev, unsigned long *freq,
-		u32 *flag)
+static int __get_bus_freq(struct msm_vidc_bus_table_gov *gov,
+		struct vidc_bus_vote_data *data,
+		enum bus_profile profile)
+{
+	int i = 0, load = 0, freq = 0;
+	enum vidc_vote_data_session sess_type = 0;
+	struct bus_profile_entry *entry = NULL;
+	bool found = false;
+
+	load = NUM_MBS_PER_SEC(data->width, data->height, data->fps);
+	sess_type = VIDC_VOTE_DATA_SESSION_VAL(data->codec, data->domain);
+
+	/* check if ubwc bus profile is present */
+	for (i = 0; i < gov->count; i++) {
+		entry = &gov->bus_prof_entries[i];
+		if (!entry->bus_table || !entry->bus_table_size)
+			continue;
+		if (!venus_hfi_is_session_supported(
+				entry->codec_mask, sess_type))
+			continue;
+		if (entry->profile == profile) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found) {
+		/* loop over bus table and select frequency */
+		for (i = entry->bus_table_size - 1; i >= 0; --i) {
+			/* load is arranged in descending order */
+			freq = entry->bus_table[i].freq;
+			if (load <= entry->bus_table[i].load)
+				break;
+		}
+	}
+
+	return freq;
+}
+
+static int msm_vidc_table_get_target_freq(struct devfreq *dev,
+		unsigned long *frequency, u32 *flag)
 {
 	struct devfreq_dev_status status = {0};
 	struct msm_vidc_gov_data *vidc_data = NULL;
 	struct msm_vidc_bus_table_gov *gov = NULL;
-	enum vidc_vote_data_session sess_type = 0;
-	u32 load = 0, i = 0;
-	int j = 0;
+	enum bus_profile profile = 0;
+	int i = 0;
 
-	if (!dev || !freq || !flag) {
+	if (!dev || !frequency || !flag) {
 		dprintk(VIDC_ERR, "%s: Invalid params %p, %p, %p\n",
-			__func__, dev, freq, flag);
+			__func__, dev, frequency, flag);
 		return -EINVAL;
 	}
 
 	gov = container_of(dev->governor,
 			struct msm_vidc_bus_table_gov, devfreq_gov);
+	if (!gov) {
+		dprintk(VIDC_ERR, "%s: governor not found\n", __func__);
+		return -EINVAL;
+	}
+
 	dev->profile->get_dev_status(dev->dev.parent, &status);
 	vidc_data = (struct msm_vidc_gov_data *)status.private_data;
 
-	*freq = 0;
-	for (i = 0; i < vidc_data->data_count; ++i) {
-		struct vidc_bus_vote_data *curr = &vidc_data->data[i];
-		u32 frequency = 0;
+	*frequency = 0;
+	for (i = 0; i < vidc_data->data_count; i++) {
+		struct vidc_bus_vote_data *data = &vidc_data->data[i];
+		int freq = 0;
 
-		load = NUM_MBS_PER_SEC(curr->width, curr->height, curr->fps);
-		sess_type = VIDC_VOTE_DATA_SESSION_VAL(
-			curr->codec, curr->domain);
-
-		if (curr->power_mode == VIDC_POWER_TURBO) {
-			dprintk(VIDC_DBG, "found turbo session[%d] %#x\n",
-				i, sess_type);
-			*freq = INT_MAX;
+		if (data->power_mode == VIDC_POWER_TURBO) {
+			dprintk(VIDC_DBG, "bus: found turbo session[%d] %#x\n",
+				i, VIDC_VOTE_DATA_SESSION_VAL(data->codec,
+					data->domain));
+			*frequency = INT_MAX;
 			goto exit;
 		}
 
-		/*
-		 * loop over bus table and select frequency of
-		 * matching session and appropriate load
-		 */
-		for (j = gov->bus_table_size - 1; j >= 0; --j) {
-			bool matches = venus_hfi_is_session_supported(
-					gov->bus_table[j].codecs, sess_type);
-			if (!matches)
-				continue;
+		profile = VIDC_BUS_PROFILE_NORMAL;
+		if (data->color_formats[0] == HAL_COLOR_FORMAT_NV12_TP10_UBWC ||
+			data->color_formats[0] == HAL_COLOR_FORMAT_NV12_UBWC)
+			profile = VIDC_BUS_PROFILE_UBWC;
 
-			frequency = gov->bus_table[j].freq;
-			if (load <= gov->bus_table[j].load)
-				break;
-		}
-		*freq += frequency;
+		freq = __get_bus_freq(gov, data, profile);
+		/*
+		 * chose frequency from normal profile
+		 * if specific profile frequency was not found.
+		 */
+		if (!freq)
+			freq = __get_bus_freq(gov, data,
+				VIDC_BUS_PROFILE_NORMAL);
+
+		*frequency += (unsigned long)freq;
 
 		dprintk(VIDC_DBG,
-			"session[%d] %#x, wxh %dx%d, fps %d, load %d, freq %d, total_freq %ld\n",
-			i, sess_type, curr->width, curr->height,
-			curr->fps, load, frequency, *freq);
+			"session[%d] %#x: wxh %dx%d, fps %d, bus_profile %#x, freq %d, total_freq %ld KBps\n",
+			i, VIDC_VOTE_DATA_SESSION_VAL(
+			data->codec, data->domain), data->width,
+			data->height, data->fps, profile,
+			freq, *frequency);
 	}
 exit:
 	return 0;
@@ -111,11 +167,34 @@ int msm_vidc_table_event_handler(struct devfreq *devfreq,
 	return rc;
 }
 
+static int msm_vidc_free_bus_table(struct platform_device *pdev,
+		struct msm_vidc_bus_table_gov *data)
+{
+	int rc = 0, i = 0;
+
+	if (!pdev || !data) {
+		dprintk(VIDC_ERR, "%s: invalid args %p %p\n",
+			__func__, pdev, data);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < data->count; i++)
+		data->bus_prof_entries[i].bus_table = NULL;
+
+	data->bus_prof_entries = NULL;
+	data->count = 0;
+
+	return rc;
+}
+
 static int msm_vidc_load_bus_table(struct platform_device *pdev,
 		struct msm_vidc_bus_table_gov *data)
 {
-	int c = 0;
+	int rc = 0, i = 0, j = 0;
 	const char *name = NULL;
+	struct bus_profile_entry *entry = NULL;
+	struct device_node *parent_node = NULL;
+	struct device_node *child_node = NULL;
 
 	if (!pdev || !data) {
 		dprintk(VIDC_ERR, "%s: invalid args %p %p\n",
@@ -136,33 +215,84 @@ static int msm_vidc_load_bus_table(struct platform_device *pdev,
 	data->devfreq_gov.get_target_freq = msm_vidc_table_get_target_freq;
 	data->devfreq_gov.event_handler = msm_vidc_table_event_handler;
 
-	data->bus_table_size = of_property_count_elems_of_size(
-			pdev->dev.of_node, "qcom,bus-table",
-			sizeof(*data->bus_table));
-	if (data->bus_table_size <= 0) {
-		dprintk(VIDC_ERR, "%s: invalid bus table size %d\n",
-			__func__, data->bus_table_size);
-		return -EINVAL;
+	parent_node = of_find_node_by_name(pdev->dev.of_node,
+			"qcom,bus-freq-table");
+	if (!parent_node) {
+		dprintk(VIDC_DBG, "Node qcom,bus-freq-table not found.\n");
+		return 0;
 	}
 
-	data->bus_table = devm_kcalloc(&pdev->dev, data->bus_table_size,
-			sizeof(*data->bus_table), GFP_KERNEL);
-	if (!data->bus_table) {
-		dprintk(VIDC_ERR, "%s: allocation failed\n", __func__);
+	data->count = of_get_child_count(parent_node);
+	if (!data->count) {
+		dprintk(VIDC_DBG, "No child nodes in qcom,bus-freq-table\n");
+		return 0;
+	}
+
+	data->bus_prof_entries = devm_kzalloc(&pdev->dev,
+			sizeof(*data->bus_prof_entries) * data->count,
+			GFP_KERNEL);
+	if (!data->bus_prof_entries) {
+		dprintk(VIDC_DBG, "no memory to allocate bus_prof_entries\n");
 		return -ENOMEM;
 	}
 
-	of_property_read_u32_array(pdev->dev.of_node, "qcom,bus-table",
-			(u32 *)data->bus_table,
-			sizeof(*data->bus_table) /
-			sizeof(u32) * data->bus_table_size);
+	for_each_child_of_node(parent_node, child_node) {
 
-	dprintk(VIDC_DBG, "%s: bus table:\n", __func__);
-	for (c = 0; c < data->bus_table_size; ++c)
-		dprintk(VIDC_DBG, "%8d %8d %#x\n", data->bus_table[c].load,
-			data->bus_table[c].freq, data->bus_table[c].codecs);
+		if (i >= data->count) {
+			dprintk(VIDC_ERR,
+				"qcom,bus-freq-table: invalid child node %d, max is %d\n",
+				i, data->count);
+			break;
+		}
+		entry = &data->bus_prof_entries[i];
 
-	return 0;
+		if (of_find_property(child_node, "qcom,codec-mask", NULL)) {
+			rc = of_property_read_u32(child_node,
+					"qcom,codec-mask", &entry->codec_mask);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"qcom,codec-mask not found\n");
+				break;
+			}
+		}
+
+		if (of_find_property(child_node, "qcom,low-power-mode", NULL))
+			entry->profile = VIDC_BUS_PROFILE_LOW;
+		else if (of_find_property(child_node, "qcom,ubwc-mode", NULL))
+			entry->profile = VIDC_BUS_PROFILE_UBWC;
+		else
+			entry->profile = VIDC_BUS_PROFILE_NORMAL;
+
+		if (of_find_property(child_node,
+					"qcom,load-busfreq-tbl", NULL)) {
+			rc = msm_vidc_load_u32_table(pdev, child_node,
+						"qcom,load-busfreq-tbl",
+						sizeof(*entry->bus_table),
+						(u32 **)&entry->bus_table,
+						&entry->bus_table_size);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"qcom,load-busfreq-tbl failed\n");
+				break;
+			}
+		} else {
+			entry->bus_table = NULL;
+			entry->bus_table_size = 0;
+		}
+
+		dprintk(VIDC_DBG,
+			"qcom,load-busfreq-tbl: size %d, codec_mask %#x, profile %#x\n",
+			entry->bus_table_size, entry->codec_mask,
+			entry->profile);
+		for (j = 0; j < entry->bus_table_size; j++)
+			dprintk(VIDC_DBG, "   load %8d freq %8d\n",
+				entry->bus_table[j].load,
+				entry->bus_table[j].freq);
+
+		i++;
+	}
+
+	return rc;
 }
 
 static int msm_vidc_bus_table_probe(struct platform_device *pdev)
@@ -201,6 +331,10 @@ static int msm_vidc_bus_table_remove(struct platform_device *pdev)
 	gov = platform_get_drvdata(pdev);
 	if (IS_ERR_OR_NULL(gov))
 		return PTR_ERR(gov);
+
+	rc = msm_vidc_free_bus_table(pdev, gov);
+	if (rc)
+		dprintk(VIDC_WARN, "%s: free bus table failed\n", __func__);
 
 	rc = devfreq_remove_governor(&gov->devfreq_gov);
 

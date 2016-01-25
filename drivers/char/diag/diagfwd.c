@@ -507,7 +507,7 @@ void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type)
 	if (data_type >= PERIPHERAL_MODEM && data_type <= PERIPHERAL_SENSORS) {
 		if (driver->feature[data_type].stm_support) {
 			status = diag_send_stm_state(data_type, cmd);
-			if (status == 1)
+			if (status == 0)
 				driver->stm_state[data_type] = cmd;
 		}
 		driver->stm_state_requested[data_type] = cmd;

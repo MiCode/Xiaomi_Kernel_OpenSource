@@ -1,0 +1,51 @@
+Sensortek stk301x, stk321x and stk331x ambient light/proximity 3-in-1 sensor
+
+Required properties:
+
+ - compatible		: Should be "stk,stk3x1x".
+ - reg					: i2c slave address of the device.
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: Sensor will issue interrupt when preset condition is met,
+				typically when proximity sensor detect a change on near/far state.
+ - vdd-supply		: Main power supply to power sensor.
+ - vio-supply		: Power supply required to pullup I2C bus.
+ - stk,irq-gpio	: irq gpio which is to provide interrupts to host, same as
+				"interrupts" node.
+ - stk,transmittance : Transmittance rate of glass above the ambient light
+				detection window. The value may not be equal to real transmittance
+				but just a relative value.
+ - stk,state-reg	: The default setting of state register.
+ - stk,psctrl-reg	: The default setting for proximity sensor.
+ - stk,alsctrl-reg	: The default setting for ambient light sensor.
+ - stk,ledctrl-reg	: The default setting for IR LED.
+ - stk,wait-reg	: The default setting for wait time.
+ - stk,ps-thdh	: High threshold for proximity sensor, sensor will report
+				"near" if the proximity sensor reading is larger or equal to this
+				value.
+ - stk,ps-thdl	: Low threshold for proximity sensor, sensor will report
+				"far" if the proximity sensor reading is larger than this value.
+
+Optional properties:
+
+ - stk,use-fir	: Boolean to enable light data jitter suppressing FIR filter.
+
+Example:
+	i2c@f9925000 {
+		stk@48 {
+			compatible = "stk,stk3x1x";
+			reg = <0x48>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <80 0x2>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			stk,irq-gpio = <&msmgpio 80 0x02>;
+			stk,transmittance = <500>;
+			stk,state-reg = <0x00>;
+			stk,psctrl-reg = <0x71>;
+			stk,alsctrl-reg = <0x38>;
+			stk,ledctrl-reg = <0xFF>;
+			stk,wait-reg = <0x07>;
+			stk,ps-thdh = <1700>;
+			stk,ps-thdl = <1500>;
+			stk,use-fir;
+		};

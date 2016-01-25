@@ -444,6 +444,7 @@ struct smb1351_charger {
 	bool			resume_completed;
 	bool			irq_waiting;
 	struct delayed_work	chg_remove_work;
+	struct delayed_work	hvdcp_det_work;
 
 	/* status tracking */
 	bool			batt_full;
@@ -1936,6 +1937,31 @@ static int rerun_apsd(struct smb1351_charger *chip)
 	return 0;
 }
 
+static void smb1351_hvdcp_det_work(struct work_struct *work)
+{
+	int rc;
+	u8 reg;
+	struct smb1351_charger *chip = container_of(work,
+						struct smb1351_charger,
+						hvdcp_det_work.work);
+
+	rc = smb1351_read_reg(chip, STATUS_7_REG, &reg);
+	if (rc) {
+		pr_err("Couldn't read STATUS_7_REG rc == %d\n", rc);
+		goto end;
+	}
+	pr_debug("STATUS_7_REG = 0x%02X\n", reg);
+
+	if (reg) {
+		pr_debug("HVDCP detected; notifying USB PSY\n");
+		power_supply_set_supply_type(chip->usb_psy,
+			POWER_SUPPLY_TYPE_USB_HVDCP);
+	}
+end:
+	pm_relax(chip->dev);
+}
+
+#define HVDCP_NOTIFY_MS 2500
 static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 						u8 status)
 {
@@ -2015,6 +2041,12 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 			smb1351_masked_write(chip, CMD_HVDCP_REG,
 						CMD_FORCE_HVDCP_2P0_BIT,
 						CMD_FORCE_HVDCP_2P0_BIT);
+			type = POWER_SUPPLY_TYPE_USB_HVDCP;
+		} else if (type == POWER_SUPPLY_TYPE_USB_DCP) {
+			pr_debug("schedule hvdcp detection worker\n");
+			pm_stay_awake(chip->dev);
+			schedule_delayed_work(&chip->hvdcp_det_work,
+					msecs_to_jiffies(HVDCP_NOTIFY_MS));
 		}
 
 		power_supply_set_supply_type(chip->usb_psy, type);
@@ -2111,6 +2143,8 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 	}
 
 	if (status) {
+		cancel_delayed_work_sync(&chip->hvdcp_det_work);
+		pm_relax(chip->dev);
 		pr_debug("schedule charger remove worker\n");
 		schedule_delayed_work(&chip->chg_remove_work,
 					msecs_to_jiffies(FIRST_CHECK_DELAY));
@@ -2924,6 +2958,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	chip->usb_psy = usb_psy;
 	chip->fake_battery_soc = -EINVAL;
 	INIT_DELAYED_WORK(&chip->chg_remove_work, smb1351_chg_remove_work);
+	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smb1351_hvdcp_det_work);
 	device_init_wakeup(chip->dev, true);
 
 	/* probe the device to check if its actually connected */

@@ -1,0 +1,83 @@
+ST LIS3DH 3-axis accelerometer sensor driver
+
+Required properties:
+
+ - compatible		: Should be "st,lis3dh".
+ - reg			: i2c slave address of the device.
+ - pinctrl-names	: The pinctrl configration names of this sensor driver. Should be
+				"lis3dh_default" and "lis3dh_sleep".
+ - pinctrl-0		: Should specify pin control groups used for this controller.
+ - pinctrl-1		: Should specify pin control groups used for this controller.
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: Accelerometer sample interrupt to indicate new data ready.
+ - vdd-supply		: Analog power supply needed to power device.
+ - vddio-supply		: Digital IO power supply needed for IO and I2C.
+ - st,min-interval	: Minimal data polling interval in millisecond.
+ - st,init-interval	: Initial data polling interval in millisecond.
+ - st,axis-map-x	: Select which data will be X-axis of reading.
+				The sensor measures and reports three axis of
+				data, this property select which data will be
+				interpretd as X-axis gravity data of phone.
+				e.g. Give "0" to this property means the first
+				measurement data will be used as X-axis data.
+ - st,axis-map-y	: Select which data will be Y-axis of reading.
+				Similar to property above, this property selet
+				Y-axis data.
+ - st,axis-map-z	: Select which data will be Z-axis of reading.
+				Similar to property above, this property selet
+				Z-axis data.
+ - st,g-range	: Select initial range of measurement. This define
+				the initial configuration of maxinum
+				measurement range of the sensor.Where 2 is 2G,
+				4 is 4G, 8 is 8G and 16 is 16G, 2G will be used for any
+				other values.
+
+Optional properties:
+
+ - pinctrl-names: The names of the pinctrl states that used by the
+				driver to configure the TLMM pins, it should contain
+				only one value - "default".
+ - pinctrl-<n>	: Pinctrl states as described in
+				bindings/pinctrl/pinctrl-bindings.txt.
+ - st,negate-x	: Boolean to select negate of X-axis data is
+				required, if this property is defined, X-axis
+				data will be negated.
+ - st,negate-y	: Boolean to select negate of Y-axis data is
+				required, if this property is defined, Y-axis
+				data will be negated.
+ - st,negate-z	: Boolean to select negate of Z-axis data is
+				required, if this property is defined, Z-axis
+				data will be negated.
+ - st,enable-int: Boolean to select interrupt mode,if this property is defined
+				interrupt mode will be selected.
+ - st,gpio-int1	: 1st irq gpio which is to provide interrupts
+				to host, interrupt events can be route to any of
+				these two irq pins according device configuration.
+ - st,gpio-int2	: 2nd irq gpio which is to provide interrupts
+				to host.
+
+Example:
+	i2c@f9925000 { /* BLSP-1 QUP-3 */
+		st@18 {
+			compatible = "st,lis3dh";
+			reg = <0x18>;
+			pinctrl-names = "lis3dh_default","lis3dh_sleep";
+			pinctrl-0 = <&lis3dh_int1_default>;
+			pinctrl-1 = <&lis3dh_int1_sleep>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <115 0x2002>;
+			vdd-supply = <&pm8916_l17>;
+			vddio-supply = <&pm8916_l6>;
+			st,min-interval = <5>;
+			st,init-interval = <200>;
+			st,axis-map-x = <1>;
+			st,axis-map-y = <0>;
+			st,axis-map-z = <2>;
+			st,g-range = <2>;
+			st,gpio-int1 = <&msm_gpio 115 0x2002>;
+			st,negate-x;
+			st,negate-y;
+			st,negate-z;
+			st,enable-int;
+		};
+	};
