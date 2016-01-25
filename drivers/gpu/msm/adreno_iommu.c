@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -346,8 +346,7 @@ static unsigned int _adreno_mmu_set_pt_update_condition(
 			struct adreno_ringbuffer *rb,
 			unsigned int *cmds, unsigned int ptname)
 {
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	unsigned int *cmds_orig = cmds;
 	/*
 	 * write 1 to switch pt flag indicating that we need to execute the
@@ -397,8 +396,7 @@ static unsigned int _adreno_iommu_pt_update_pid_to_mem(
 				struct adreno_ringbuffer *rb,
 				unsigned int *cmds, int ptname)
 {
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	unsigned int *cmds_orig = cmds;
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
@@ -431,8 +429,7 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 					unsigned int *cmds_orig,
 					u64 ttbr0, u32 contextidr, u32 ptname)
 {
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	unsigned int *cmds = cmds_orig;
 	unsigned int *cond_exec_ptr;
 
@@ -587,12 +584,12 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 					unsigned int *cmds,
 					struct kgsl_pagetable *pt)
 {
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
+	struct kgsl_device *device = &adreno_dev->dev;
 	u64 ttbr0;
 	u32 contextidr;
 	unsigned int *cmds_orig = cmds;
-	struct kgsl_iommu *iommu = adreno_dev->dev.mmu.priv;
+	struct kgsl_iommu *iommu = device->mmu.priv;
 
 	ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pt);
 	contextidr = kgsl_mmu_pagetable_get_contextidr(pt);
@@ -638,8 +635,7 @@ unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
 				unsigned int *cmds,
 				struct kgsl_pagetable *pt)
 {
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	unsigned int *cmds_orig = cmds;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 
@@ -680,9 +676,9 @@ static unsigned int __add_curr_ctxt_cmds(struct adreno_ringbuffer *rb,
 			unsigned int *cmds,
 			struct adreno_context *drawctxt)
 {
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int *cmds_orig = cmds;
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* write the context identifier to memstore memory */
 	*cmds++ = cp_packet(adreno_dev, CP_NOP, 1);
@@ -731,8 +727,8 @@ static unsigned int __add_curr_ctxt_cmds(struct adreno_ringbuffer *rb,
 static void _set_ctxt_cpu(struct adreno_ringbuffer *rb,
 			struct adreno_context *drawctxt)
 {
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
+	struct kgsl_device *device = &adreno_dev->dev;
 
 	if (rb == adreno_dev->cur_rb) {
 		_invalidate_uche_cpu(adreno_dev);
@@ -774,8 +770,8 @@ static int _set_ctxt_gpu(struct adreno_ringbuffer *rb,
 static int _set_pagetable_cpu(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt)
 {
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
+	struct kgsl_device *device = &adreno_dev->dev;
 	int result;
 
 	/* update TTBR0 only if we are updating current RB */
@@ -817,9 +813,9 @@ static int _set_pagetable_cpu(struct adreno_ringbuffer *rb,
 static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt)
 {
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int *link = NULL, *cmds;
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int result;
 
 	link = kmalloc(PAGE_SIZE, GFP_KERNEL);
@@ -924,8 +920,8 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt,
 			struct adreno_context *drawctxt)
 {
-	struct kgsl_device *device = rb->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
+	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_pagetable *cur_pt = device->mmu.defaultpagetable;
 	int result = 0;
 	int cpu_path = 0;

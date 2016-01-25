@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -250,11 +250,12 @@ static int a4xx_preemption_pre_ibsubmit(
 			struct kgsl_context *context, uint64_t cond_addr,
 			struct kgsl_memobj_node *ib)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int *cmds_orig = cmds;
 	int exec_ib = 0;
 
 	cmds += a4xx_preemption_token(adreno_dev, rb, cmds,
-				rb->device->memstore.gpuaddr +
+				device->memstore.gpuaddr +
 				KGSL_MEMSTORE_OFFSET(context->id, preempted));
 
 	if (ib)

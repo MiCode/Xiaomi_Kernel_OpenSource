@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1309,7 +1309,7 @@ static inline unsigned int adreno_preempt_state(
 static inline unsigned int
 adreno_get_rptr(struct adreno_ringbuffer *rb)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	if (adreno_dev->cur_rb == rb &&
 		adreno_preempt_state(adreno_dev,
 			ADRENO_DISPATCHER_PREEMPT_CLEAR))
@@ -1373,7 +1373,7 @@ static inline void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 		if (rb->drawctxt_active)
 			kgsl_context_put(&(rb->drawctxt_active->base));
 		rb->drawctxt_active = NULL;
-		kgsl_sharedmem_writel(rb->device, &rb->pagetable_desc,
+		kgsl_sharedmem_writel(&adreno_dev->dev, &rb->pagetable_desc,
 			offsetof(struct adreno_ringbuffer_pagetable_info,
 				current_rb_ptname), 0);
 	}
