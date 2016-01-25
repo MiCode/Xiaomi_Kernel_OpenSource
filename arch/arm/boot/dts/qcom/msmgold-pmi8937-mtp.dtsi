@@ -13,6 +13,7 @@
 
 #include "msm-pmi8937.dtsi"
 #include "msmgold-mtp.dtsi"
+#include "msmgold-audio-mtp.dtsi"
 
 &soc {
 	led_flash0: qcom,camera-flash {
