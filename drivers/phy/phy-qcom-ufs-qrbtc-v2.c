@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,15 +23,17 @@ int ufs_qcom_phy_qrbtc_v2_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	int err;
 	int tbl_size_A;
 	struct ufs_qcom_phy_calibration *tbl_A;
+	struct ufs_qcom_phy_qrbtc_v2 *qrbtc_phy = container_of(ufs_qcom_phy,
+				struct ufs_qcom_phy_qrbtc_v2, common_cfg);
 
-	writel_relaxed(0x15f, ufs_qcom_phy->mmio + U11_UFS_RESET_REG_OFFSET);
+	writel_relaxed(0x15f, qrbtc_phy->u11_regs + U11_UFS_RESET_REG_OFFSET);
 
 	/* 50ms are required to stabilize the reset */
 	usleep_range(50000, 50100);
-	writel_relaxed(0x0, ufs_qcom_phy->mmio + U11_UFS_RESET_REG_OFFSET);
+	writel_relaxed(0x0, qrbtc_phy->u11_regs + U11_UFS_RESET_REG_OFFSET);
 
 	/* Set R3PC REF CLK */
-	writel_relaxed(0x80, ufs_qcom_phy->mmio + U11_QRBTC_CONTROL_OFFSET);
+	writel_relaxed(0x80, qrbtc_phy->u11_regs + U11_QRBTC_CONTROL_OFFSET);
 
 
 	tbl_A = phy_cal_table_rate_A;
@@ -55,6 +57,8 @@ ufs_qcom_phy_qrbtc_v2_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 {
 	int err = 0;
 	u32 val;
+	struct ufs_qcom_phy_qrbtc_v2 *qrbtc_phy = container_of(phy_common,
+				struct ufs_qcom_phy_qrbtc_v2, common_cfg);
 
 	/*
 	 * The value we are polling for is 0x3D which represents the
@@ -72,7 +76,7 @@ ufs_qcom_phy_qrbtc_v2_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 		dev_err(phy_common->dev, "%s: poll for pcs failed err = %d\n",
 			__func__, err);
 
-	writel_relaxed(0x100, phy_common->mmio + U11_QRBTC_TX_CLK_CTRL);
+	writel_relaxed(0x100, qrbtc_phy->u11_regs + U11_QRBTC_TX_CLK_CTRL);
 
 	return err;
 }
@@ -94,7 +98,6 @@ static void ufs_qcom_phy_qrbtc_v2_start_serdes(struct ufs_qcom_phy *phy)
 static int ufs_qcom_phy_qrbtc_v2_init(struct phy *generic_phy)
 {
 	return 0;
-
 }
 
 struct phy_ops ufs_qcom_phy_qrbtc_v2_phy_ops = {
@@ -115,6 +118,7 @@ static int ufs_qcom_phy_qrbtc_v2_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct phy *generic_phy;
 	struct ufs_qcom_phy_qrbtc_v2 *phy;
+	struct resource *res;
 	int err = 0;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
@@ -130,6 +134,28 @@ static int ufs_qcom_phy_qrbtc_v2_probe(struct platform_device *pdev)
 		dev_err(dev, "%s: ufs_qcom_phy_generic_probe() failed\n",
 			__func__);
 		err = -EIO;
+		goto out;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "u11_user");
+	if (!res) {
+		dev_err(dev, "%s: u11_user resource not found\n", __func__);
+		err = -EINVAL;
+		goto out;
+	}
+
+	phy->u11_regs = devm_ioremap_resource(dev, res);
+	if (IS_ERR_OR_NULL(phy->u11_regs)) {
+		if (IS_ERR(phy->u11_regs)) {
+			err = PTR_ERR(phy->u11_regs);
+			phy->u11_regs = NULL;
+			dev_err(dev, "%s: ioremap for phy_mem resource failed %d\n",
+				__func__, err);
+		} else {
+			dev_err(dev, "%s: ioremap for phy_mem resource failed\n",
+				__func__);
+			err = -ENOMEM;
+		}
 		goto out;
 	}
 
