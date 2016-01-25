@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2318,7 +2318,7 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 		pr_err("fail to allocate rotation items\n");
 		return -ENOMEM;
 	}
-	ret = copy_from_user(items, user_req32.list, size);
+	ret = copy_from_user(items, compat_ptr(user_req32.list), size);
 	if (ret) {
 		pr_err("fail to copy rotation items\n");
 		goto handle_request32_err;
@@ -2345,7 +2345,7 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 		goto handle_request32_err1;
 	}
 
-	ret = copy_to_user(user_req32.list, items, size);
+	ret = copy_to_user(compat_ptr(user_req32.list), items, size);
 	if (ret) {
 		pr_err("fail to copy output fence to user\n");
 		mdss_rotator_remove_request(mgr, private, req);
