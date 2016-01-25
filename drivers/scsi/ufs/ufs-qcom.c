@@ -678,6 +678,7 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_SCSI_UFS_QCOM_ICE
 static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
 	struct ufshcd_lrb *lrbp, u8 *cc_index, bool *enable, u64 *dun)
 {
@@ -741,6 +742,12 @@ static int ufs_qcom_crypto_engine_get_status(struct ufs_hba *hba, u32 *status)
 
 	return ufs_qcom_ice_get_status(host, status);
 }
+#else /* !CONFIG_SCSI_UFS_QCOM_ICE */
+#define ufs_qcom_crypto_req_setup		NULL
+#define ufs_qcom_crytpo_engine_cfg		NULL
+#define ufs_qcom_crytpo_engine_reset		NULL
+#define ufs_qcom_crypto_engine_get_status	NULL
+#endif /* CONFIG_SCSI_UFS_QCOM_ICE */
 
 struct ufs_qcom_dev_params {
 	u32 pwm_rx_gear;	/* pwm rx gear to work in */
