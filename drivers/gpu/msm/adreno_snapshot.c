@@ -469,9 +469,9 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	header->rptr = rb->rptr;
 	header->rbsize = KGSL_RB_DWORDS;
 	header->count = KGSL_RB_DWORDS;
-	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_QUEUED,
+	adreno_rb_readtimestamp(adreno_dev, rb, KGSL_TIMESTAMP_QUEUED,
 					&header->timestamp_queued);
-	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_RETIRED,
+	adreno_rb_readtimestamp(adreno_dev, rb, KGSL_TIMESTAMP_RETIRED,
 					&header->timestamp_retired);
 	header->gpuaddr = rb->buffer_desc.gpuaddr;
 	header->id = rb->id;
@@ -870,7 +870,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global, &adreno_dev->dev.memstore);
+			snapshot, snapshot_global, &device->memstore);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 			snapshot, snapshot_global,

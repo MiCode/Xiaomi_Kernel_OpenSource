@@ -190,7 +190,7 @@ int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 					unsigned int timestamp,
 					unsigned int msecs);
 
-int adreno_rb_readtimestamp(struct kgsl_device *device,
+int adreno_rb_readtimestamp(struct adreno_device *adreno_dev,
 	void *priv, enum kgsl_timestamp_type type,
 	unsigned int *timestamp);
 
