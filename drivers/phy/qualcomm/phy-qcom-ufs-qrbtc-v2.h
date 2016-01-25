@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 /* QCOM UFS PHY control registers */
 #define COM_OFF(x)	(0x000 + x)
 #define PHY_OFF(x)	(0x700 + x)
-#define PHY_USR(x)	(0x11000 + x)
+#define PHY_USR(x)	(x)
 
 #define UFS_PHY_PHY_START_OFFSET		PHY_OFF(0x00)
 #define UFS_PHY_POWER_DOWN_CONTROL_OFFSET	PHY_OFF(0x04)
@@ -110,6 +110,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A[] = {
  */
 struct ufs_qcom_phy_qrbtc_v2 {
 	struct ufs_qcom_phy common_cfg;
+	void __iomem *u11_regs;
 };
 
 #endif
