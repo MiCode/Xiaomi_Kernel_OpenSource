@@ -283,6 +283,13 @@
 		clock-frequency = <19200000>;
 	};
 
+	restart@10ac000 {
+		compatible = "qcom,pshold";
+		reg = <0x10ac000 0x4>,
+		      <0x1fd3000 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
 	uartblsp1dm1: serial@0c170000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xc170000 0x1000>;
