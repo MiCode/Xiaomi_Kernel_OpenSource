@@ -393,19 +393,6 @@ static struct platform_driver kgsl_iommu_platform_driver = {
 	}
 };
 
-static int __init kgsl_iommu_pdev_init(void)
-{
-	return platform_driver_register(&kgsl_iommu_platform_driver);
-}
-
-static void __exit kgsl_iommu_pdev_exit(void)
-{
-	platform_driver_unregister(&kgsl_iommu_platform_driver);
-}
-
-module_init(kgsl_iommu_pdev_init);
-module_exit(kgsl_iommu_pdev_exit);
-
 static int _get_counter(struct adreno_device *adreno_dev,
 		int group, int countable, unsigned int *lo,
 		unsigned int *hi)
@@ -2901,20 +2888,6 @@ static struct platform_driver adreno_platform_driver = {
 	}
 };
 
-static int __init kgsl_3d_init(void)
-{
-	return platform_driver_register(&adreno_platform_driver);
-}
-
-static void __exit kgsl_3d_exit(void)
-{
-	platform_driver_unregister(&adreno_platform_driver);
-}
-
-module_init(kgsl_3d_init);
-module_exit(kgsl_3d_exit);
-
-
 static struct of_device_id busmon_match_table[] = {
 	{ .compatible = "qcom,kgsl-busmon", .data = &device_3d0 },
 	{}
@@ -2945,18 +2918,60 @@ static struct platform_driver kgsl_bus_platform_driver = {
 	}
 };
 
-static int __init kgsl_busmon_init(void)
+#if defined(CONFIG_ARM_SMMU) || defined(CONFIG_MSM_IOMMU)
+static int kgsl_iommu_driver_register(void)
 {
-	return platform_driver_register(&kgsl_bus_platform_driver);
+	return platform_driver_register(&kgsl_iommu_platform_driver);
 }
 
-static void __exit kgsl_busmon_exit(void)
+static void kgsl_iommu_driver_unregister(void)
 {
+	platform_driver_unregister(&kgsl_iommu_platform_driver);
+}
+#else
+static inline int kgsl_iommu_driver_register(void)
+{
+	return 0;
+}
+
+static inline void kgsl_iommu_driver_unregister(void)
+{
+}
+#endif
+
+static int __init kgsl_3d_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&kgsl_bus_platform_driver);
+	if (ret)
+		return ret;
+
+	ret = kgsl_iommu_driver_register();
+	if (ret) {
+		platform_driver_unregister(&kgsl_bus_platform_driver);
+		return ret;
+	}
+
+	ret = platform_driver_register(&adreno_platform_driver);
+	if (ret) {
+		kgsl_iommu_driver_unregister();
+		platform_driver_unregister(&kgsl_bus_platform_driver);
+	}
+
+	return ret;
+}
+
+static void __exit kgsl_3d_exit(void)
+{
+	platform_driver_unregister(&adreno_platform_driver);
+	kgsl_iommu_driver_unregister();
 	platform_driver_unregister(&kgsl_bus_platform_driver);
+
 }
 
-module_init(kgsl_busmon_init);
-module_exit(kgsl_busmon_exit);
+module_init(kgsl_3d_init);
+module_exit(kgsl_3d_exit);
 
 MODULE_DESCRIPTION("3D Graphics driver");
 MODULE_VERSION("1.2");
