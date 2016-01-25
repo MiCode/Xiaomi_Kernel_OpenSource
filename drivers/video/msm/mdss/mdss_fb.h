@@ -273,7 +273,7 @@ struct msm_fb_data_type {
 	u32 idle_state;
 	struct delayed_work idle_notify_work;
 
-	bool validate_pending;
+	bool atomic_commit_pending;
 
 	int op_enable;
 	u32 fb_imgType;
