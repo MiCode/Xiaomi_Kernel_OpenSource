@@ -627,7 +627,7 @@ void mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl, bool print_en);
 void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl);
-u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
+int mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len);
 int mdss_dsi_panel_init(struct device_node *node,
 		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
