@@ -2055,6 +2055,10 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			(gsi->d_port.out_ep &&
 			!gsi->d_port.out_ep->driver_data))) {
 				ipa_disconnect_handler(&gsi->d_port);
+				post_event(&gsi->d_port, EVT_DISCONNECTED);
+				queue_work(gsi->d_port.ipa_usb_wq,
+						&gsi->d_port.usb_ipa_w);
+				log_event_dbg("%s: Disconnecting\n", __func__);
 			}
 
 		gsi->data_interface_up = alt;
@@ -2116,6 +2120,11 @@ static void gsi_suspend(struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 	bool remote_wakeup_allowed;
 
+	if (!gsi->data_interface_up) {
+		log_event_dbg("%s: Data interface not up\n", __func__);
+		return;
+	}
+
 	/* Check if function is already suspended in gsi_func_suspend() */
 	if (f->func_is_suspended) {
 		log_event_dbg("%s: func already suspended, return\n", __func__);
@@ -2168,6 +2177,11 @@ static void gsi_resume(struct usb_function *f)
 	struct usb_composite_dev *cdev = f->config->cdev;
 
 	log_event_dbg("%s", __func__);
+
+	if (!gsi->data_interface_up) {
+		log_event_dbg("%s: Data interface not up\n", __func__);
+		return;
+	}
 
 	/*
 	 * If the function is in USB3 Function Suspend state, resume is
