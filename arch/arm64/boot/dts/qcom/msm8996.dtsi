@@ -1142,7 +1142,7 @@
 	};
 
 	ufs1: ufshc@624000 {
-		compatible = "jedec,ufs-1.1";
+		compatible = "qcom,ufshc";
 		reg = <0x624000 0x2500>;
 		interrupts = <0 265 0>;
 		phys = <&ufsphy1>;
