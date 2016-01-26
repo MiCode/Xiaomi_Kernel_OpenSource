@@ -87,6 +87,7 @@ SECTIONS
 		EXIT_CALL
 		*(.discard)
 		*(.discard.*)
+		*(.interp .dynamic)
 	}
 
 	. = KIMAGE_VADDR + TEXT_OFFSET;
@@ -150,6 +151,21 @@ SECTIONS
 	}
 	.altinstr_replacement : {
 		*(.altinstr_replacement)
+	}
+	.rela : ALIGN(8) {
+		__reloc_start = .;
+		*(.rela .rela*)
+		__reloc_end = .;
+	}
+	.dynsym : ALIGN(8) {
+		__dynsym_start = .;
+		*(.dynsym)
+	}
+	.dynstr : {
+		*(.dynstr)
+	}
+	.hash : {
+		*(.hash)
 	}
 
 	. = ALIGN(PAGE_SIZE);
