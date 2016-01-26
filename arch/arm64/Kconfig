@@ -543,7 +543,7 @@ config HOTPLUG_CPU
 config ARCH_NR_GPIO
         int
         default 1024 if ARCH_TEGRA
-        default 1024 if ARCH_MSM
+        default 1024 if ARCH_QCOM
         default 256
         help
           Maximum number of GPIOs in the system.
