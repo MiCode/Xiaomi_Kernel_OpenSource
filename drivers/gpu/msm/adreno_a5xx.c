@@ -78,7 +78,6 @@ static int a5xx_gpmu_init(struct adreno_device *adreno_dev);
 
 #define A530_QFPROM_RAW_PTE_ROW0_MSB 0x134
 #define A530_QFPROM_RAW_PTE_ROW2_MSB 0x144
-#define A530_QFPROM_CORR_PTE_ROW0_LSB 0x4130
 
 static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 {
@@ -108,12 +107,16 @@ static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 static void a530_efuse_speed_bin(struct adreno_device *adreno_dev)
 {
 	unsigned int val;
+	unsigned int speed_bin[3];
+	struct kgsl_device *device = &adreno_dev->dev;
 
-	adreno_efuse_read_u32(adreno_dev,
-		A530_QFPROM_CORR_PTE_ROW0_LSB, &val);
+	if (of_property_read_u32_array(device->pdev->dev.of_node,
+		"qcom,gpu-speed-bin", speed_bin, 3))
+		return;
 
-	adreno_dev->speed_bin =
-		(val & 0xE0000000) >> 29;
+	adreno_efuse_read_u32(adreno_dev, speed_bin[0], &val);
+
+	adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
 }
 
 static const struct {
@@ -121,7 +124,7 @@ static const struct {
 	void (*func)(struct adreno_device *adreno_dev);
 } a5xx_efuse_funcs[] = {
 	{ adreno_is_a530, a530_efuse_leakage },
-	{ adreno_is_a530v3, a530_efuse_speed_bin },
+	{ adreno_is_a530, a530_efuse_speed_bin },
 };
 
 static void a5xx_check_features(struct adreno_device *adreno_dev)
