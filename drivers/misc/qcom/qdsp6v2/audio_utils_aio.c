@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -204,7 +204,7 @@ static int audio_aio_pause(struct q6audio_aio  *audio)
 
 static int audio_aio_flush(struct q6audio_aio  *audio)
 {
-	int rc;
+	int rc = 0;
 
 	if (audio->enabled) {
 		/* Implicitly issue a pause to the decoder before flushing if
@@ -241,7 +241,7 @@ static int audio_aio_flush(struct q6audio_aio  *audio)
 			__func__, audio, atomic_read(&audio->in_samples));
 	atomic_set(&audio->in_bytes, 0);
 	atomic_set(&audio->in_samples, 0);
-	return 0;
+	return rc;
 }
 
 static int audio_aio_outport_flush(struct q6audio_aio *audio)
