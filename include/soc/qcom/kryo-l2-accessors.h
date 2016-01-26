@@ -14,7 +14,7 @@
 #ifndef __ASM_ARCH_MSM_MSM_KRYO_L2_ACCESSORS_H
 #define __ASM_ARCH_MSM_MSM_KRYO_L2_ACCESSORS_H
 
-#ifdef CONFIG_ARCH_MSM8996
+#ifdef CONFIG_ARCH_QCOM
 void set_l2_indirect_reg(u64 reg_addr, u64 val);
 u64 get_l2_indirect_reg(u64 reg_addr);
 #else
