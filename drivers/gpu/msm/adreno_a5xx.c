@@ -2498,9 +2498,11 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev,
 
 	/*
 	 * Resume call to write the zap shader base address into the
-	 * appropriate register
+	 * appropriate register,
+	 * skip if retention is supported for the CPZ register
 	 */
-	if (zap_ucode_loaded) {
+	if (zap_ucode_loaded && !(ADRENO_FEATURE(adreno_dev,
+		ADRENO_CPZ_RETENTION))) {
 		int ret;
 		struct scm_desc desc = {0};
 
