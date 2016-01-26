@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,7 @@ static char *base_names[] = {
 
 static void *vbases[NUM_BASES];
 static bool cpu_clocks_v3;
+static bool cpu_clocks_pro;
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
@@ -121,6 +122,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 #define APC_DIAG_OFFSET	0x48
 #define MUX_OFFSET	0x40
+
+#define MDD_DROOP_CODE	0x7C
 
 DEFINE_EXT_CLK(xo_ao, NULL);
 DEFINE_CLK_DUMMY(alpha_xo_ao, 19200000);
@@ -1424,6 +1427,7 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 static struct of_device_id match_table[] = {
 	{ .compatible = "qcom,cpu-clock-8996" },
 	{ .compatible = "qcom,cpu-clock-8996-v3" },
+	{ .compatible = "qcom,cpu-clock-8996-pro" },
 	{}
 };
 
@@ -1500,17 +1504,17 @@ int __init cpu_clock_8996_early_init(void)
 	int ret = 0;
 	void __iomem *auxbase;
 	u32 regval;
-	struct device_node *ofnode;
 
-	ofnode = of_find_compatible_node(NULL, NULL,
-					 "qcom,cpu-clock-8996-v3");
-	if (ofnode)
+	if (of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8996-pro")) {
 		cpu_clocks_v3 = true;
-	else {
-		ofnode = of_find_compatible_node(NULL, NULL,
-					 "qcom,cpu-clock-8996");
-		if (!ofnode)
-			return 0;
+		cpu_clocks_pro = true;
+	} else if (of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8996-v3")) {
+		cpu_clocks_v3 = true;
+	} else if (!of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8996")) {
+		return 0;
 	}
 
 	pr_info("clock-cpu-8996: configuring clocks for the perf cluster\n");
@@ -1752,6 +1756,22 @@ int __init cpu_clock_8996_early_init(void)
 
 		perfcl_clk.has_acd = true;
 		pwrcl_clk.has_acd = true;
+
+		if (cpu_clocks_pro) {
+			/*
+			 * Configure ACS logic to switch to always-on clock
+			 * source during D2-D5 entry
+			 */
+			writel_relaxed(0x2, vbases[APC0_BASE] +
+							MDD_DROOP_CODE);
+			writel_relaxed(0x2, vbases[APC1_BASE] +
+							MDD_DROOP_CODE);
+			/*
+			 * Ensure that the writes go through before enabling
+			 * ACD.
+			 */
+			wmb();
+		}
 
 		/* Enable ACD on this cluster if necessary */
 		cpu_clock_8996_acd_init();
