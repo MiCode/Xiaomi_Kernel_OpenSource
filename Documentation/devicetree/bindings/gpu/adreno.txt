@@ -111,6 +111,12 @@ Optional Properties:
 - qcom,gpu-quirk-two-pass-use-wfi:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
 				A5XX_PC_DBG_ECO_CNTL (5XX only)
+- qcom,gpu-speed-bin:      GPU speed bin information in the format
+			   <offset mask shift>
+				offset - offset of the efuse register from the base.
+				mask   - mask for the relevant bits in the efuse register.
+				shift  - number of bits to right shift to get the speed bin
+				value.
 
 - qcom,l2pc-cpu-mask:
 				Disables L2PC on masked CPUs when any of Graphics
