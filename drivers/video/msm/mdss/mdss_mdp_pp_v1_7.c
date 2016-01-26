@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1990,6 +1990,8 @@ set_ops:
 		writel_relaxed(0, base_addr + PGC_OPMODE_OFF);
 	} else if (pgc_data->flags & MDP_PP_OPS_ENABLE) {
 		val = PGC_ENABLE;
+		val |= (pgc_data->flags & MDP_PP_PGC_ROUNDING_ENABLE)
+			? BIT(1) : 0;
 		writel_relaxed(val, base_addr + PGC_OPMODE_OFF);
 		*sts |= PP_STS_ENABLE;
 	}

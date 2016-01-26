@@ -912,6 +912,7 @@ struct mdp_ar_gc_lut_data {
 	uint32_t offset;
 };
 
+#define MDP_PP_PGC_ROUNDING_ENABLE 0x10
 struct mdp_pgc_lut_data {
 	uint32_t version;
 	uint32_t block;
