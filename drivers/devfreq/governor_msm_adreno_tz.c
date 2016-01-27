@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -520,7 +520,12 @@ static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 
 static void _do_partner_event(struct work_struct *work, unsigned int event)
 {
-	struct devfreq *bus_devfreq = partner_gpu_profile->bus_devfreq;
+	struct devfreq *bus_devfreq;
+
+	if (partner_gpu_profile == NULL)
+		return;
+
+	bus_devfreq = partner_gpu_profile->bus_devfreq;
 
 	if (bus_devfreq != NULL &&
 		bus_devfreq->governor &&

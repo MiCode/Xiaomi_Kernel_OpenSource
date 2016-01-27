@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -734,7 +734,8 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 
 	mutex_unlock(&pgmn_dev->lock);
 
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG, CAMERA_AHB_SVS_VOTE);
+	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_JPEG,
+			CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
 		return rc;
@@ -771,8 +772,8 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 	return rc;
 
 platform_init_fail:
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_JPEG,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 	return rc;
 }
@@ -805,8 +806,8 @@ int __msm_jpeg_release(struct msm_jpeg_device *pgmn_dev)
 
 	JPEG_DBG("%s:%d]\n", __func__, __LINE__);
 
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_JPEG,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 
 	return 0;

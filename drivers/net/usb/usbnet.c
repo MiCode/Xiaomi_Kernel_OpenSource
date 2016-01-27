@@ -2057,7 +2057,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	// set up our own records
 	net = alloc_etherdev(sizeof(*dev));
 	if (!net)
-		goto out;
+		goto exit;
 
 	/* netdev_printk() needs this so do it as early as possible */
 	SET_NETDEV_DEV(net, &udev->dev);
@@ -2108,7 +2108,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (info->bind) {
 		status = info->bind (dev, udev);
 		if (status < 0)
-			goto out1;
+			goto free_netdevice;
 
 		// heuristic:  "usb%d" for links we know are two-host,
 		// else "eth%d" when there's reasonable doubt.  userspace
@@ -2147,7 +2147,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (status >= 0 && dev->status)
 		status = init_status (dev, udev);
 	if (status < 0)
-		goto out3;
+		goto unbind;
 
 	if (!dev->rx_urb_size)
 		dev->rx_urb_size = dev->hard_mtu;
@@ -2170,13 +2170,13 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		dev->padding_pkt = kzalloc(1, GFP_KERNEL);
 		if (!dev->padding_pkt) {
 			status = -ENOMEM;
-			goto out4;
+			goto free_urb;
 		}
 	}
 
 	status = register_netdev (net);
 	if (status)
-		goto out5;
+		goto free_padding_pkt;
 	netif_info(dev, probe, dev->net,
 		   "register '%s' at usb-%s-%s, %s, %pM\n",
 		   udev->dev.driver->name,
@@ -2189,7 +2189,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		usbnet_ipa = kzalloc(sizeof(*usbnet_ipa), GFP_KERNEL);
 		if (!usbnet_ipa) {
 			status = -ENOMEM;
-			goto out4;
+			goto unreg_netdev;
 		}
 
 		dev->pusbnet_ipa = usbnet_ipa;
@@ -2204,7 +2204,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		status = usbnet_ipa_setup_rm(dev);
 		if (status) {
 			pr_err("USBNET: IPA Setup RM Failed\n");
-			goto out4;
+			goto free_ipa;
 		}
 
 		status = usbnet_debugfs_init(dev);
@@ -2223,7 +2223,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		status = odu_bridge_init(params_ptr);
 		if (status) {
 			pr_err("Couldnt initialize ODU_Bridge Driver\n");
-			goto out4;
+			goto ipa_cleanup;
 		}
 
 		status = ipa_register_ipa_ready_cb(usbnet_ipa_ready_callback,
@@ -2236,7 +2236,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 						(USBNET_IPA_READY_TIMEOUT));
 			if (!status) {
 				pr_err("%s: ipa ready timeout\n", __func__);
-				return -ETIMEDOUT;
+				status = -ETIMEDOUT;
+				goto ipa_cleanup;
 			}
 		}
 	}
@@ -2251,25 +2252,33 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 
 	if (enable_ipa_bridge) {
 		status = odu_bridge_connect();
-		if (status)
+		if (status) {
 			pr_err("Could not connect to ODU bridge %d\n",
 			       status);
-		else
+			goto ipa_cleanup;
+		} else {
 			usbnet_ipa_set_perf_level(dev);
+		}
 	}
 
 	return 0;
 
-out5:
+ipa_cleanup:
+	usbnet_ipa_cleanup_rm(dev);
+free_ipa:
+	kfree(usbnet_ipa);
+unreg_netdev:
+	unregister_netdev(net);
+free_padding_pkt:
 	kfree(dev->padding_pkt);
-out4:
+free_urb:
 	usb_free_urb(dev->interrupt);
-out3:
+unbind:
 	if (info->unbind)
 		info->unbind (dev, udev);
-out1:
+free_netdevice:
 	free_netdev(net);
-out:
+exit:
 	return status;
 }
 EXPORT_SYMBOL_GPL(usbnet_probe);

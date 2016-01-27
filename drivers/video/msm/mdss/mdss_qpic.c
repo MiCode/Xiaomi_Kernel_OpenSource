@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,7 +121,7 @@ static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd)
 	}
 
 	if (!qpic_res->qpic_is_on) {
-		pr_err("%s: Failed since panel is not ON\n");
+		pr_err("%s: Failed since panel is not ON\n", __func__);
 		return;
 	}
 

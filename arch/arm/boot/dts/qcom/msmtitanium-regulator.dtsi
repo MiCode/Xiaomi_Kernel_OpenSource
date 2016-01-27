@@ -353,9 +353,10 @@
 		qcom,cpr-sensor-time = <1000>;
 		qcom,cpr-loop-time = <5000000>;
 		qcom,cpr-idle-cycles = <15>;
-		qcom,cpr-step-quot-init-min = <13>;
-		qcom,cpr-step-quot-init-max = <13>;
-		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-step-quot-init-min = <12>;
+		qcom,cpr-step-quot-init-max = <14>;
+		qcom,cpr-count-mode = <0>;		/* All-at-once */
+		qcom,cpr-count-repeat = <1>;
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
 
@@ -370,10 +371,10 @@
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
-			qcom,cpr-consecutive-up = <1>;
-			qcom,cpr-consecutive-down = <1>;
-			qcom,cpr-up-threshold = <1>;
-			qcom,cpr-down-threshold = <1>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <2>;
+			qcom,cpr-down-threshold = <2>;
 
 			apc_vreg: regulator {
 				regulator-name = "apc_corner";

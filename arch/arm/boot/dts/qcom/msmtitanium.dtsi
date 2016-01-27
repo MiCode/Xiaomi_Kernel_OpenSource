@@ -75,6 +75,11 @@
 			reusable;
 			size = <0 0x400000>;
 		};
+
+		cont_splash_mem: splash_region@0x90000000 {
+			reg = <0x0 0x90000000 0x0 0x1400000>;
+			label = "cont_splash_mem";
+		};
 	};
 
 	aliases {
@@ -93,6 +98,7 @@
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 for SD card */
 		i2c2 = &i2c_2;
+		i2c3 = &i2c_3;
 		i2c5 = &i2c_5;
 		spi3 = &spi_3;
 	};
@@ -684,6 +690,32 @@
 			qcom,enable-load = <0>;
 			qcom,disable-load = <0>;
 		};
+	};
+
+	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x78b7000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 97 0>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
+
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_3_active>;
+		pinctrl-1 = <&i2c_3_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,master-id = <86>;
+		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
+			<&dma_blsp1 9 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		status = "disabled";
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
@@ -1983,8 +2015,7 @@
 			reg = <0x07000000 0xc8d0>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 140 0>;
-			usb-phy = <&qusb_phy>, <&usb_nop_phy>;
-			maximum-speed = "high-speed";
+			usb-phy = <&qusb_phy>, <&ssphy>;
 			tx-fifo-resize;
 			snps,usb3-u1u2-disable;
 			snps,nominal-elastic-buffer;
@@ -2097,12 +2128,12 @@
 	};
 
 	usb_nop_phy: usb_nop_phy {
+		status = "disabled";
 		compatible = "usb-nop-xceiv";
 	};
 
 
 	ssphy: ssphy@78000 {
-		status = "disabled";
 		compatible = "qcom,usb-ssphy-qmp";
 		reg = <0x78000 0x45c>,
 		      <0x0193f244 0x4>,

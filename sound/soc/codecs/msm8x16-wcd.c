@@ -1149,15 +1149,23 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		if (atomic_read(&pdata->mclk_enabled) == false) {
-			pdata->digital_cdc_core_clk.enable = 1;
-			ret = afe_set_lpass_clock_v2(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_core_clk);
+			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
+				pdata->digital_cdc_clk.clk_val =
+							pdata->mclk_freq;
+				ret = afe_set_digital_codec_core_clock(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_clk);
+			} else {
+				pdata->digital_cdc_core_clk.enable = 1;
+				ret = afe_set_lpass_clock_v2(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+			}
 			if (ret < 0) {
 				pr_err("failed to enable the MCLK\n");
 				goto err;
-			} else
-				pr_err("enabled MCLK\n");
+			}
+			pr_debug("enabled digital codec core clk\n");
 			ret = msm8x16_wcd_ahb_read_device(
 					msm8x16_wcd, reg, 1, &temp);
 			atomic_set(&pdata->mclk_enabled, true);
@@ -1198,16 +1206,24 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		if (atomic_read(&pdata->mclk_enabled) == false) {
 			pr_debug("enable MCLK for AHB write\n");
-			pdata->digital_cdc_core_clk.enable = 1;
-			ret = afe_set_lpass_clock_v2(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_core_clk);
+			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
+				pdata->digital_cdc_clk.clk_val =
+							pdata->mclk_freq;
+				ret = afe_set_digital_codec_core_clock(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_clk);
+			} else {
+				pdata->digital_cdc_core_clk.enable = 1;
+				ret = afe_set_lpass_clock_v2(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+			}
 			if (ret < 0) {
 				pr_err("failed to enable the MCLK\n");
 				ret = 0;
 				goto err;
-			} else
-				pr_err("enabled MCLK\n");
+			}
+			pr_debug("enabled digital codec core clk\n");
 			ret = msm8x16_wcd_ahb_write_device(
 						msm8x16_wcd, reg, &val, 1);
 			atomic_set(&pdata->mclk_enabled, true);
@@ -5660,10 +5676,17 @@ int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
 				&pdata->disable_mclk_work);
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		if (atomic_read(&pdata->mclk_enabled) == true) {
-			pdata->digital_cdc_core_clk.enable = 0;
-			afe_set_lpass_clock_v2(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_core_clk);
+			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
+				pdata->digital_cdc_clk.clk_val = 0;
+				afe_set_digital_codec_core_clock(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_clk);
+			} else {
+				pdata->digital_cdc_core_clk.enable = 0;
+				afe_set_lpass_clock_v2(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+			}
 			atomic_set(&pdata->mclk_enabled, false);
 		}
 		mutex_unlock(&pdata->cdc_mclk_mutex);
@@ -5845,7 +5868,7 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	dev_dbg(&spmi->dev, "%s(%d):slave ID = 0x%x\n",
 		__func__, __LINE__,  spmi->sid);
 
-	adsp_state = apr_get_q6_state();
+	adsp_state = apr_get_subsys_state();
 	if (adsp_state != APR_SUBSYS_LOADED) {
 		dev_dbg(&spmi->dev, "Adsp is not loaded yet %d\n",
 				adsp_state);

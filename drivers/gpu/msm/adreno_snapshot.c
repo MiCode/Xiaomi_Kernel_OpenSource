@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -288,15 +288,15 @@ static void dump_all_ibs(struct kgsl_device *device,
 
 /**
  * snapshot_rb_ibs() - Dump rb data and capture the IB's in the RB as well
+ * @device: Pointer to a KGSL device
  * @rb: The RB to dump
  * @data: Pointer to memory where the RB data is to be dumped
  * @snapshot: Pointer to information about the current snapshot being taken
  */
-static void snapshot_rb_ibs(struct adreno_ringbuffer *rb,
-			unsigned int *data,
-			struct kgsl_snapshot *snapshot)
+static void snapshot_rb_ibs(struct kgsl_device *device,
+		struct adreno_ringbuffer *rb, unsigned int *data,
+		struct kgsl_snapshot *snapshot)
 {
-	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int rptr, *rbptr;
 	uint64_t ibbase;
@@ -469,15 +469,15 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	header->rptr = rb->rptr;
 	header->rbsize = KGSL_RB_DWORDS;
 	header->count = KGSL_RB_DWORDS;
-	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_QUEUED,
+	adreno_rb_readtimestamp(adreno_dev, rb, KGSL_TIMESTAMP_QUEUED,
 					&header->timestamp_queued);
-	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_RETIRED,
+	adreno_rb_readtimestamp(adreno_dev, rb, KGSL_TIMESTAMP_RETIRED,
 					&header->timestamp_retired);
 	header->gpuaddr = rb->buffer_desc.gpuaddr;
 	header->id = rb->id;
 
 	if (rb == adreno_dev->cur_rb) {
-		snapshot_rb_ibs(rb, data, snapshot);
+		snapshot_rb_ibs(device, rb, data, snapshot);
 	} else {
 		/* Just copy the ringbuffer, there are no active IBs */
 		memcpy(data, rb->buffer_desc.hostptr, KGSL_RB_SIZE);
@@ -870,7 +870,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global, &adreno_dev->dev.memstore);
+			snapshot, snapshot_global, &device->memstore);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 			snapshot, snapshot_global,
