@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -334,12 +334,20 @@ kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
 
 #ifdef CONFIG_MSM_IOMMU
 #include <linux/qcom_iommu.h>
+#ifndef CONFIG_ARM_SMMU
 static inline bool kgsl_mmu_bus_secured(struct device *dev)
 {
 	struct bus_type *bus = msm_iommu_get_bus(dev);
 
 	return (bus == &msm_iommu_sec_bus_type) ? true : false;
 }
+#else
+static inline bool kgsl_mmu_bus_secured(struct device *dev)
+{
+	/* ARM driver contains all context banks on single bus */
+	return true;
+}
+#endif /* CONFIG_ARM_SMMU */
 static inline struct bus_type *kgsl_mmu_get_bus(struct device *dev)
 {
 	return msm_iommu_get_bus(dev);
@@ -351,7 +359,8 @@ static inline struct device *kgsl_mmu_get_ctx(const char *name)
 #else
 static inline bool kgsl_mmu_bus_secured(struct device *dev)
 {
-	return false;
+	/*ARM driver contains all context banks on single bus */
+	return true;
 }
 
 static inline struct bus_type *kgsl_mmu_get_bus(struct device *dev)
