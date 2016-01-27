@@ -575,6 +575,7 @@ static void arm64_erp_local_handler(void *info)
 
 	switch (partnum) {
 	case ARM_CPU_PART_CORTEX_A53:
+	case ARM_CPU_PART_KRYO2XX_SILVER:
 		ca53_parse_cpumerrsr(errdata);
 		ca53_parse_l2merrsr(errdata);
 	break;
@@ -745,6 +746,7 @@ static void check_sbe_event(struct erp_drvdata *drv)
 	spin_lock_irqsave(&local_handler_lock, flags);
 	switch (partnum) {
 	case ARM_CPU_PART_CORTEX_A53:
+	case ARM_CPU_PART_KRYO2XX_SILVER:
 		ca53_parse_cpumerrsr(&errdata);
 		ca53_parse_l2merrsr(&errdata);
 	break;
