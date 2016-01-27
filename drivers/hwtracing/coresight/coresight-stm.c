@@ -15,7 +15,6 @@
 #include <linux/init.h>
 #include <linux/types.h>
 #include <linux/device.h>
-#include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/fs.h>
@@ -27,7 +26,9 @@
 #include <linux/bitmap.h>
 #include <linux/of.h>
 #include <linux/sched.h>
+#include <linux/of_address.h>
 #include <linux/coresight.h>
+#include <linux/amba/bus.h>
 #include <linux/coresight-stm.h>
 #include <asm/unaligned.h>
 
@@ -755,52 +756,48 @@ static const struct attribute_group *stm_attr_grps[] = {
 	NULL,
 };
 
-static int stm_probe(struct platform_device *pdev)
+static int stm_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret;
-	struct device *dev = &pdev->dev;
+	struct device *dev = &adev->dev;
 	struct coresight_platform_data *pdata;
 	struct stm_drvdata *drvdata;
-	struct resource *res;
+	struct resource res;
 	size_t res_size, bitmap_size;
 	struct coresight_desc *desc;
 
-	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
+	pdata = of_get_coresight_platform_data(dev, adev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
-	pdev->dev.platform_data = pdata;
+	adev->dev.platform_data = pdata;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
 		return -ENOMEM;
 	/* Store the driver data pointer for use in exported functions */
 	stmdrvdata = drvdata;
-	drvdata->dev = &pdev->dev;
-	platform_set_drvdata(pdev, drvdata);
+	drvdata->dev = &adev->dev;
+	dev_set_drvdata(dev, drvdata);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "stm-base");
-	if (!res)
-		return -ENODEV;
-
-	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
+	/* Validity for the resource is already checked by the AMBA core */
+	drvdata->base = devm_ioremap_resource(dev, &adev->res);
 	if (!drvdata->base)
 		return -ENOMEM;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					   "stm-data-base");
-	if (!res)
+	ret = of_address_to_resource(adev->dev.of_node, 1, &res);
+	if (ret)
 		return -ENODEV;
 
 	if (boot_nr_channel) {
 		res_size = min((resource_size_t)(boot_nr_channel *
-				  BYTES_PER_CHANNEL), resource_size(res));
+				  BYTES_PER_CHANNEL), resource_size(&res));
 		bitmap_size = boot_nr_channel * sizeof(long);
 	} else {
 		res_size = min((resource_size_t)(NR_STM_CHANNEL *
-				 BYTES_PER_CHANNEL), resource_size(res));
+				 BYTES_PER_CHANNEL), resource_size(&res));
 		bitmap_size = NR_STM_CHANNEL * sizeof(long);
 	}
-	drvdata->chs.base = devm_ioremap(dev, res->start, res_size);
+	drvdata->chs.base = devm_ioremap(dev, res.start, res_size);
 	if (!drvdata->chs.base)
 		return -ENOMEM;
 	drvdata->chs.bitmap = devm_kzalloc(dev, bitmap_size, GFP_KERNEL);
@@ -809,10 +806,7 @@ static int stm_probe(struct platform_device *pdev)
 
 	spin_lock_init(&drvdata->spinlock);
 
-	drvdata->clk = devm_clk_get(dev, "core_clk");
-	if (IS_ERR(drvdata->clk))
-		return PTR_ERR(drvdata->clk);
-
+	drvdata->clk = adev->pclk;
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;
@@ -828,7 +822,7 @@ static int stm_probe(struct platform_device *pdev)
 
 	bitmap_fill(drvdata->entities, OST_ENTITY_MAX);
 
-	drvdata->data_barrier = of_property_read_bool(pdev->dev.of_node,
+	drvdata->data_barrier = of_property_read_bool(adev->dev.of_node,
 						      "qcom,data-barrier");
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
@@ -837,15 +831,15 @@ static int stm_probe(struct platform_device *pdev)
 	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
 	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_SOFTWARE;
 	desc->ops = &stm_cs_ops;
-	desc->pdata = pdev->dev.platform_data;
-	desc->dev = &pdev->dev;
+	desc->pdata = adev->dev.platform_data;
+	desc->dev = &adev->dev;
 	desc->groups = stm_attr_grps;
 	drvdata->csdev = coresight_register(desc);
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
 
 	drvdata->miscdev.name = ((struct coresight_platform_data *)
-				 (pdev->dev.platform_data))->name;
+				 (adev->dev.platform_data))->name;
 	drvdata->miscdev.minor = MISC_DYNAMIC_MINOR;
 	drvdata->miscdev.fops = &stm_fops;
 	ret = misc_register(&drvdata->miscdev);
@@ -866,39 +860,42 @@ err1:
 	return -EPERM;
 }
 
-static int stm_remove(struct platform_device *pdev)
+static int stm_remove(struct amba_device *adev)
 {
-	struct stm_drvdata *drvdata = platform_get_drvdata(pdev);
+	struct stm_drvdata *drvdata = amba_get_drvdata(adev);
 
 	misc_deregister(&drvdata->miscdev);
 	coresight_unregister(drvdata->csdev);
 	return 0;
 }
 
-static struct of_device_id stm_match[] = {
-	{.compatible = "arm,coresight-stm"},
-	{}
+static struct amba_id stm_ids[] = {
+	{
+		.id	= 0x0003b962,
+		.mask	= 0x0003ffff,
+	},
+	{ 0, 0},
 };
 
-static struct platform_driver stm_driver = {
-	.probe          = stm_probe,
-	.remove         = stm_remove,
-	.driver         = {
-		.name   = "coresight-stm",
+static struct amba_driver stm_driver = {
+	.drv = {
+		.name	= "coresight-stm",
 		.owner	= THIS_MODULE,
-		.of_match_table = stm_match,
 	},
+	.probe		= stm_probe,
+	.remove		= stm_remove,
+	.id_table	= stm_ids,
 };
 
 static int __init stm_init(void)
 {
-	return platform_driver_register(&stm_driver);
+	return amba_driver_register(&stm_driver);
 }
 module_init(stm_init);
 
 static void __exit stm_exit(void)
 {
-	platform_driver_unregister(&stm_driver);
+	amba_driver_unregister(&stm_driver);
 }
 module_exit(stm_exit);
 
