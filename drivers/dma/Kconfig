@@ -417,6 +417,16 @@ config QCOM_BAM_DMA
 	  Enable support for the QCOM BAM DMA controller.  This controller
 	  provides DMA capabilities for a variety of on-chip devices.
 
+config QCOM_SPS_DMA
+        tristate "Qualcomm technologies inc DMA driver for sps-BAM"
+        depends on ARCH_QCOM
+        select DMA_ENGINE
+        help
+          Enable support for Qualcomm technologies inc, BAM DMA engine.
+          This DMA-engine-driver is a wrapper of the sps-BAM library. DMA
+          engine callbacks are implemented using the sps-BAM functionality
+          to access HW.
+
 config SIRF_DMA
 	tristate "CSR SiRFprimaII/SiRFmarco DMA support"
 	depends on ARCH_SIRF
