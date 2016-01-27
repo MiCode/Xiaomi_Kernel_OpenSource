@@ -16,7 +16,11 @@
 #include <linux/of.h>
 #include <linux/iopoll.h>
 #include <linux/platform_device.h>
+
+#ifdef CONFIG_MSM_BUS_SCALING
 #include <linux/msm-bus.h>
+#endif
+
 #include <soc/qcom/scm.h>
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-qcom-ufs.h>
@@ -1027,6 +1031,9 @@ static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote)
 static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
 {
 	return 0;
+}
+static inline void msm_bus_scale_unregister_client(uint32_t cl)
+{
 }
 #endif /* CONFIG_MSM_BUS_SCALING */
 
