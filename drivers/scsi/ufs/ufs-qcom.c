@@ -1026,6 +1026,9 @@ static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
 {
 	return 0;
 }
+static inline void msm_bus_scale_unregister_client(uint32_t cl)
+{
+}
 #endif /* CONFIG_MSM_BUS_SCALING */
 
 static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
