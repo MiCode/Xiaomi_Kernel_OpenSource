@@ -245,8 +245,8 @@ struct mdss_mdp_writeback {
 	char __iomem *base;
 	u32 caps;
 	struct kref kref;
-	u8 supported_input_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT)];
-	u8 supported_output_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT)];
+	u8 supported_input_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];
+	u8 supported_output_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];
 };
 
 struct mdss_mdp_ctl_intfs_ops {
@@ -432,6 +432,7 @@ struct mdss_mdp_format_params {
 	u8 fetch_mode;
 	u8 bits[MAX_PLANES];
 	u8 element[MAX_PLANES];
+	u8 unpack_dx_format;	/*1 for 10 bit format otherwise 0 */
 };
 
 struct mdss_mdp_format_ubwc_tile_info {
@@ -646,7 +647,7 @@ struct mdss_mdp_pipe {
 	wait_queue_head_t free_waitq;
 	u32 frame_rate;
 	u8 csc_coeff_set;
-	u8 supported_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT)];
+	u8 supported_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];
 };
 
 struct mdss_mdp_writeback_arg {

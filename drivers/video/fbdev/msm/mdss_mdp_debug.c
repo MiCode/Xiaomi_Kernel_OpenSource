@@ -1066,7 +1066,7 @@ static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
 			smps[0], smps[1], smps[2], smps[3]);
 
 	seq_puts(s, "\tSupported formats = ");
-	for (i = 0; i < BITS_TO_BYTES(MDP_IMGTYPE_LIMIT); i++)
+	for (i = 0; i < BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1); i++)
 		seq_printf(s, "0x%02X ", pipe->supported_formats[i]);
 	seq_puts(s, "\n");
 

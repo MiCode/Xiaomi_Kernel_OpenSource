@@ -1617,7 +1617,8 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 
 		/* TODO:if src_fmt is 10 bits program the bitwidth
 		 * accordingly */
-		op_mode |= 0x1 << SCALER_BIT_WIDTH;
+		if (!fmt->unpack_dx_format)
+			op_mode |= 0x1 << SCALER_BIT_WIDTH;
 
 		op_mode |= (scaler->blend_cfg & 1) <<
 			SCALER_BLEND_CFG;
