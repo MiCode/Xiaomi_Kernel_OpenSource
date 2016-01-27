@@ -49,3 +49,96 @@
 &i2c_3 {
 	status = "disabled";
 };
+
+/* Charger/FG configuration */
+&pm8916_chg {
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "disabled";
+};
+
+&msm_gpio {
+	/* Delete gpio58 configuration */
+	/delete-node/ tpiu_seta_14;
+	/delete-node/ smb_int_pin;
+	smb_int_default: smb_int_default {
+		mux {
+			pins = "gpio49";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio49";
+			drive-strength = <2>;   /* 2 MA */
+			bias-pull-up;           /* PULL UP*/
+		};
+	};
+
+	smb_susp_default: smb_susp_default {
+		mux {
+			pins = "gpio58";
+			function ="gpio";
+		};
+		config {
+			pins = "gpio58";
+			drive-strength = <2>;   /* 2 MA */
+			bias-pull-up;           /* PULL UP*/
+			output-high;
+		};
+	};
+};
+
+&i2c_4 {
+	status = "ok";
+	smb23x-lbc@12 {
+		compatible = "qcom,smb231-lbc";
+		reg = <0x12>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <49 2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default &smb_susp_default>;
+
+		qcom,bms-psy-name = "bms";
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <360>;
+		qcom,recharge-thresh-mv = <150>;
+		qcom,iterm-ma = <50>;
+		qcom,fastchg-ma = <1000>;
+		qcom,hot-bat-decidegc = <550>;
+		qcom,warm-bat-decidegc = <450>;
+		qcom,cool-bat-decidegc = <50>;
+		qcom,cold-bat-decidegc = <(-50)>;
+		qcom,soft-temp-vfloat-comp-mv = <200>;
+		qcom,soft-temp-current-comp-ma = <400>;
+		qcom,chg-inhibit-disabled;
+		qcom,apsd-disabled;
+		qcom,thermal-mitigation = <1500 900 500 100>;
+	};
+
+	st-fg@70 {
+		compatible = "st,stc3117";
+		reg = <0x70>;
+		st,rbatt-mohm = <427>;
+		st,nom-capacity-mah = <450>;
+		st,rsense-mohm = <25>;
+		st,float-voltage-mv = <4200>;
+		st,alarm-soc = <10>;
+		st,alarm-voltage-mv = <3400>;
+		st,term-current-ma = <50>;
+		st,relax-current-ma = <25>;
+		st,adaptive-capacity-tbl =
+			/bits/ 16 <0x00 0x00 0x00 0x05 0x0d 0x2a 0x47>;
+		st,ocv-tbl =
+			/bits/ 16 <3400 3478 3631 3684 3703 3724
+				3744 3759 3782 3808 3850 3884
+				3922 3984 4066 4167>;
+		st,soc-tbl = /bits/ 8 <0 3 6 10 15 20
+					25 30 40 50 60 65
+					70 80 90 100>;
+		st,vmtemp-tbl =
+			/bits/ 16 <0x55 0x5a 0x64 0xa0 0x140 0x1b8 0x348>;
+		st,temp-tbl =
+			/bits/ 16 <60 40 25 10 0 (-10) (-20)>;
+	};
+};
