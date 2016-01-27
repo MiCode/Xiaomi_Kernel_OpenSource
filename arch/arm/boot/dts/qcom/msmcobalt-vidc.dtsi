@@ -34,8 +34,8 @@
 		    <0x14800000 0x80000>;
 		reg-names = "reg-base", "mem-base";
 
-		clocks = <&clock_mmss clk_vmem_ahb_clk>,
-		       <&clock_mmss clk_vmem_maxi_clk>;
+		clocks = <&clock_mmss clk_mmss_vmem_ahb_clk>,
+		       <&clock_mmss clk_mmss_vmem_maxi_clk>;
 		clock-names = "ahb", "maxi";
 
 		qcom,msm-bus,name = "vmem";
