@@ -309,8 +309,19 @@ static int a5xx_preemption_pre_ibsubmit(
 	uint64_t gpuaddr = rb->preemption_desc.gpuaddr;
 	unsigned int preempt_style = 0;
 
-	if (context)
-		preempt_style = ADRENO_PREEMPT_STYLE(context->flags);
+	if (context) {
+		/*
+		 * Preemption from secure to unsecure needs Zap shader to be
+		 * run to clear all secure content. CP does not know during
+		 * preemption if it is switching between secure and unsecure
+		 * contexts so restrict Secure contexts to be preempted at
+		 * ringbuffer level.
+		 */
+		if (context->flags & KGSL_CONTEXT_SECURE)
+			preempt_style = KGSL_CONTEXT_PREEMPT_STYLE_RINGBUFFER;
+		else
+			preempt_style = ADRENO_PREEMPT_STYLE(context->flags);
+	}
 
 	/*
 	 * CP_PREEMPT_ENABLE_GLOBAL(global preemption) can only be set by KMD
