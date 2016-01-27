@@ -649,6 +649,17 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	if (ret)
 		goto err2;
 
+	/*
+	 * clear Elastic buffer mode in GUSBPIPE_CTRL(0) register, otherwise
+	 * it results in high link errors and could cause SS mode transfer
+	 * failure.
+	 */
+	if (!dwc->nominal_elastic_buffer) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+		reg &= ~DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE;
+		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	}
+
 	return 0;
 
 err2:
@@ -947,6 +958,9 @@ static int dwc3_probe(struct platform_device *pdev)
 				    &dwc->hsphy_interface);
 	device_property_read_u32(dev, "snps,quirk-frame-length-adjustment",
 				 &fladj);
+
+	dwc->nominal_elastic_buffer = device_property_read_bool(dev,
+				"snps,nominal-elastic-buffer");
 
 	if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;
