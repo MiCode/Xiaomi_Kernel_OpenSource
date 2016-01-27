@@ -4464,7 +4464,7 @@ static int venus_hfi_get_fw_info(void *dev, struct hal_fw_info *fw_info)
 		goto fail_version_string;
 	}
 
-	for (i--; i < VENUS_VERSION_LENGTH && j < VENUS_VERSION_LENGTH; i++)
+	for (i--; i < VENUS_VERSION_LENGTH && j < VENUS_VERSION_LENGTH - 1; i++)
 		fw_info->version[j++] = version[i];
 	fw_info->version[j] = '\0';
 
