@@ -216,7 +216,9 @@ struct dwc3_msm {
 	unsigned int		bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
-	struct power_supply	usb_psy;
+	struct power_supply_desc	usb_psy_d;
+	struct power_supply	*usb_psy;
+	enum power_supply_type	psy_type;
 	unsigned int		online;
 	bool			in_host_mode;
 	unsigned int		voltage_max;
@@ -2276,8 +2278,8 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
 {
-	struct dwc3_msm *mdwc = container_of(psy, struct dwc3_msm,
-								usb_psy);
+	struct dwc3_msm *mdwc = power_supply_get_drvdata(psy);
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = mdwc->voltage_max;
@@ -2295,7 +2297,7 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 		val->intval = mdwc->online;
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
-		val->intval = psy->type;
+		val->intval = mdwc->psy_type;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = mdwc->health_status;
@@ -2313,8 +2315,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
 {
-	struct dwc3_msm *mdwc = container_of(psy, struct dwc3_msm,
-								usb_psy);
+	struct dwc3_msm *mdwc = power_supply_get_drvdata(psy);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int ret;
 
@@ -2387,9 +2388,9 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
-		psy->type = val->intval;
+		mdwc->psy_type = val->intval;
 
-		switch (psy->type) {
+		switch (mdwc->psy_type) {
 		case POWER_SUPPLY_TYPE_USB:
 			mdwc->chg_type = DWC3_SDP_CHARGER;
 			break;
@@ -2424,7 +2425,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		return -EINVAL;
 	}
 
-	power_supply_changed(&mdwc->usb_psy);
+	power_supply_changed(psy);
 	return 0;
 }
 
@@ -2856,24 +2857,29 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
 	/* usb_psy required only for vbus_notifications */
 	if (!host_mode) {
-		mdwc->usb_psy.name = "usb";
-		mdwc->usb_psy.type = POWER_SUPPLY_TYPE_USB;
-		mdwc->usb_psy.supplied_to = dwc3_msm_pm_power_supplied_to;
-		mdwc->usb_psy.num_supplicants = ARRAY_SIZE(
-						dwc3_msm_pm_power_supplied_to);
-		mdwc->usb_psy.properties = dwc3_msm_pm_power_props_usb;
-		mdwc->usb_psy.num_properties =
+		struct power_supply_config usb_psy_cfg = { 0 };
+
+		mdwc->usb_psy_d.name = "usb";
+		mdwc->usb_psy_d.type = POWER_SUPPLY_TYPE_USB;
+		mdwc->usb_psy_d.properties = dwc3_msm_pm_power_props_usb;
+		mdwc->usb_psy_d.num_properties =
 					ARRAY_SIZE(dwc3_msm_pm_power_props_usb);
-		mdwc->usb_psy.get_property = dwc3_msm_power_get_property_usb;
-		mdwc->usb_psy.set_property = dwc3_msm_power_set_property_usb;
-		mdwc->usb_psy.property_is_writeable =
+		mdwc->usb_psy_d.get_property = dwc3_msm_power_get_property_usb;
+		mdwc->usb_psy_d.set_property = dwc3_msm_power_set_property_usb;
+		mdwc->usb_psy_d.property_is_writeable =
 				dwc3_msm_property_is_writeable;
 
-		ret = power_supply_register(&pdev->dev, &mdwc->usb_psy);
-		if (ret < 0) {
-			dev_err(&pdev->dev,
-					"%s:power_supply_register usb failed\n",
-						__func__);
+		usb_psy_cfg.supplied_to = dwc3_msm_pm_power_supplied_to;
+		usb_psy_cfg.num_supplicants = ARRAY_SIZE(
+						dwc3_msm_pm_power_supplied_to);
+		usb_psy_cfg.drv_data = mdwc;
+
+		mdwc->usb_psy = devm_power_supply_register(&pdev->dev,
+					&mdwc->usb_psy_d, &usb_psy_cfg);
+		if (IS_ERR(mdwc->usb_psy)) {
+			ret = PTR_ERR(mdwc->usb_psy);
+			dev_err(&pdev->dev, "%s: power_supply_register usb failed: err %d\n",
+					__func__, ret);
 			goto err;
 		}
 	}
@@ -2948,9 +2954,6 @@ put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
-put_psupply:
-	if (mdwc->usb_psy.dev)
-		power_supply_unregister(&mdwc->usb_psy);
 err:
 	return ret;
 }
@@ -2989,8 +2992,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	cancel_delayed_work_sync(&mdwc->sm_work);
 
-	if (mdwc->usb_psy.dev)
-		power_supply_unregister(&mdwc->usb_psy);
 	if (mdwc->hs_phy)
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 	platform_device_put(mdwc->dwc3);
@@ -3212,7 +3213,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 {
-	enum power_supply_type power_supply_type;
+	union power_supply_propval pval = {0,};
 
 	if (mdwc->charging_disabled)
 		return 0;
@@ -3228,16 +3229,16 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 					mA, mdwc->typec_current_max);
 
 	if (mdwc->chg_type == DWC3_SDP_CHARGER)
-		power_supply_type = POWER_SUPPLY_TYPE_USB;
+		pval.intval = POWER_SUPPLY_TYPE_USB;
 	else if (mdwc->chg_type == DWC3_CDP_CHARGER)
-		power_supply_type = POWER_SUPPLY_TYPE_USB_CDP;
+		pval.intval = POWER_SUPPLY_TYPE_USB_CDP;
 	else if (mdwc->chg_type == DWC3_DCP_CHARGER ||
 			mdwc->chg_type == DWC3_PROPRIETARY_CHARGER)
-		power_supply_type = POWER_SUPPLY_TYPE_USB_DCP;
+		pval.intval = POWER_SUPPLY_TYPE_USB_DCP;
 	else
-		power_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		pval.intval = POWER_SUPPLY_TYPE_UNKNOWN;
 
-	power_supply_set_supply_type(&mdwc->usb_psy, power_supply_type);
+	power_supply_set_property(mdwc->usb_psy, POWER_SUPPLY_PROP_TYPE, &pval);
 
 skip_psy_type:
 
@@ -3258,25 +3259,35 @@ skip_psy_type:
 
 	if (mdwc->max_power <= 2 && mA > 2) {
 		/* Enable Charging */
-		if (power_supply_set_online(&mdwc->usb_psy, true))
+		pval.intval = true;
+		if (power_supply_set_property(mdwc->usb_psy,
+					POWER_SUPPLY_PROP_ONLINE, &pval))
 			goto psy_error;
-		if (power_supply_set_current_limit(&mdwc->usb_psy, 1000*mA))
+		pval.intval = 1000 * mA;
+		if (power_supply_set_property(mdwc->usb_psy,
+					POWER_SUPPLY_PROP_CURRENT_MAX, &pval))
 			goto psy_error;
 	} else if (mdwc->max_power > 0 && (mA == 0 || mA == 2)) {
 		/* Disable charging */
-		if (power_supply_set_online(&mdwc->usb_psy, false))
+		pval.intval = false;
+		if (power_supply_set_property(mdwc->usb_psy,
+					POWER_SUPPLY_PROP_ONLINE, &pval))
 			goto psy_error;
 	} else {
 		/* Enable charging */
-		if (power_supply_set_online(&mdwc->usb_psy, true))
+		pval.intval = true;
+		if (power_supply_set_property(mdwc->usb_psy,
+					POWER_SUPPLY_PROP_ONLINE, &pval))
 			goto psy_error;
 	}
 
 	/* Set max current limit in uA */
-	if (power_supply_set_current_limit(&mdwc->usb_psy, 1000*mA))
+	pval.intval = 1000 * mA;
+	if (power_supply_set_property(mdwc->usb_psy,
+				POWER_SUPPLY_PROP_CURRENT_MAX, &pval))
 		goto psy_error;
 
-	power_supply_changed(&mdwc->usb_psy);
+	power_supply_changed(mdwc->usb_psy);
 	mdwc->max_power = mA;
 	return 0;
 
