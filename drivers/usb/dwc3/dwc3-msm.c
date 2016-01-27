@@ -210,7 +210,6 @@ struct dwc3_msm {
 	bool			charging_disabled;
 	enum usb_otg_state	otg_state;
 	enum usb_chg_state	chg_state;
-	int			pmic_id_irq;
 	u8			dcd_retries;
 	struct work_struct	bus_vote_w;
 	unsigned int		bus_vote;
@@ -2464,21 +2463,6 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_USB_OTG,
 };
 
-static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
-{
-	struct dwc3_msm *mdwc = data;
-	enum dwc3_id_state id;
-
-	/* If we can't read ID line state for some reason, treat it as float */
-	id = !!irq_read_line(irq);
-	if (mdwc->id_state != id) {
-		mdwc->id_state = id;
-		schedule_work(&mdwc->resume_work.work);
-	}
-
-	return IRQ_HANDLED;
-}
-
 static int dwc3_cpu_notifier_cb(struct notifier_block *nfb,
 		unsigned long action, void *hcpu)
 {
@@ -2703,22 +2687,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	mdwc->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
-	if (mdwc->pmic_id_irq > 0) {
-		irq_set_status_flags(mdwc->pmic_id_irq, IRQ_NOAUTOEN);
-		ret = devm_request_irq(&pdev->dev,
-				       mdwc->pmic_id_irq,
-				       dwc3_pmic_id_irq,
-				       IRQF_TRIGGER_RISING |
-				       IRQF_TRIGGER_FALLING,
-				       "dwc3_msm_pmic_id",
-				       mdwc);
-		if (ret) {
-			dev_err(&pdev->dev, "irqreq IDINT failed\n");
-			goto err;
-		}
-	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcsr_base");
 	if (!res) {
 		dev_dbg(&pdev->dev, "missing TCSR memory resource\n");
@@ -2930,17 +2898,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		pm_runtime_get_noresume(mdwc->dev);
 
 	schedule_delayed_work(&mdwc->sm_work, 0);
-
-	/* Update initial ID state */
-	if (mdwc->pmic_id_irq) {
-		enable_irq(mdwc->pmic_id_irq);
-		local_irq_save(flags);
-		mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
-		if (mdwc->id_state == DWC3_ID_GROUND)
-			dwc3_ext_event_notify(mdwc);
-		local_irq_restore(flags);
-		enable_irq_wake(mdwc->pmic_id_irq);
-	}
 
 	if (!dwc->is_drd && host_mode) {
 		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
