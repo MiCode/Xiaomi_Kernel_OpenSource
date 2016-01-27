@@ -316,6 +316,8 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 		      ((fmt->unpack_count - 1) << 12) |
 		      ((fmt->bpp - 1) << 9);
 
+	dst_format |= (fmt->unpack_dx_format << 21);
+
 	ystride0 = (ctx->dst_planes.ystride[0]) |
 		   (ctx->dst_planes.ystride[1] << 16);
 	ystride1 = (ctx->dst_planes.ystride[2]) |
