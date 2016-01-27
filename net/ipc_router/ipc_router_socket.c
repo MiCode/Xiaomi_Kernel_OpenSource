@@ -482,13 +482,18 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 
 		ret = copy_to_user((void *)arg, &server_arg,
 				   sizeof(server_arg));
-		if (srv_info_sz) {
+
+		n = min(server_arg.num_entries_found,
+			server_arg.num_entries_in_array);
+
+		if (ret == 0 && n) {
 			ret = copy_to_user((void *)(arg + sizeof(server_arg)),
-					   srv_info, srv_info_sz);
-			if (ret)
-				ret = -EFAULT;
-			kfree(srv_info);
+					   srv_info, n * sizeof(*srv_info));
 		}
+
+		if (ret)
+			ret = -EFAULT;
+		kfree(srv_info);
 		break;
 
 	case IPC_ROUTER_IOCTL_BIND_CONTROL_PORT:
