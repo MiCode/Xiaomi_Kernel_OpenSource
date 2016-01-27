@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -315,8 +315,8 @@
 	rpm-regulator-ldoa18 {
 		status = "okay";
 		pmcobalt_l18: regulator-l18 {
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
+			regulator-min-microvolt = <2704000>;
+			regulator-max-microvolt = <2704000>;
 			status = "okay";
 		};
 	};
@@ -351,8 +351,8 @@
 	rpm-regulator-ldoa22 {
 		status = "okay";
 		pmcobalt_l22: regulator-l22 {
-			regulator-min-microvolt = <3312000>;
-			regulator-max-microvolt = <3312000>;
+			regulator-min-microvolt = <2864000>;
+			regulator-max-microvolt = <2864000>;
 			status = "okay";
 		};
 	};
