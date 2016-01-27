@@ -16,7 +16,9 @@
 
 &ufsphy1 {
 	compatible = "qcom,ufs-phy-qrbtc-v2";
-	reg = <0x1da7000 0x11100>;
+	reg = <0x1da7000 0xda8>, /* PHY regs */
+		<0x1db8000 0x100>; /* U11 user regs */
+	reg-names = "phy_mem", "u11_user";
 	vdda-phy-supply = <&pmcobalt_l28>;
 	vdda-pll-supply = <&pmcobalt_l2>;
 	vddp-ref-clk-supply = <&pmcobalt_l26>;
