@@ -1,0 +1,79 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msmcobalt-pinctrl.dtsi"
+&uartblsp2dm1 {
+	status = "ok";
+};
+
+&ufsphy1 {
+	compatible = "qcom,ufs-phy-qrbtc-v2";
+	reg = <0x1da7000 0xda8>, /* PHY regs */
+		<0x1db8000 0x100>; /* U11 user regs */
+	reg-names = "phy_mem", "u11_user";
+	vdda-phy-supply = <&pmcobalt_l28>;
+	vdda-pll-supply = <&pmcobalt_l2>;
+	vddp-ref-clk-supply = <&pmcobalt_l26>;
+	status = "ok";
+};
+
+&ufs1 {
+	vcc-supply = <&pmcobalt_l20>;
+	vccq-supply = <&pmcobalt_l26>;
+	vccq2-supply = <&pmcobalt_s4>;
+	status = "ok";
+};
+
+&ufs_ice {
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pmcobalt_l21>;
+	qcom,vdd-voltage-level = <2950000 2960000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pmcobalt_l13>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	status = "ok";
+};
+
+&soc {
+	qcom,icnss@18800000 {
+	compatible = "qcom,icnss";
+	reg = <0x18800000 0x800000>;
+	reg-names = "membase";
+	interrupts =
+		<0 413 0 /* CE0 */ >,
+		<0 414 0 /* CE1 */ >,
+		<0 415 0 /* CE2 */ >,
+		<0 416 0 /* CE3 */ >,
+		<0 417 0 /* CE4 */ >,
+		<0 418 0 /* CE5 */ >,
+		<0 420 0 /* CE6 */ >,
+		<0 421 0 /* CE7 */ >,
+		<0 422 0 /* CE8 */ >,
+		<0 423 0 /* CE9 */ >,
+		<0 424 0 /* CE10 */ >,
+		<0 425 0 /* CE11 */ >;
+	};
+};
+
+&gdsc_ufs {
+	compatible = "regulator-fixed";
+};
