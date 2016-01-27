@@ -1398,7 +1398,7 @@ static void __ufs_qcom_pm_qos_req_end(struct ufs_qcom_host *host, int req_cpu)
 static void ufs_qcom_pm_qos_req_end(struct ufs_hba *hba, struct request *req,
 	bool should_lock)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	if (!hba || !req)
 		return;
