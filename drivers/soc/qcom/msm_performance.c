@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,9 +23,12 @@
 #include <trace/events/power.h>
 #include <linux/sysfs.h>
 #include <linux/module.h>
+#include <linux/input.h>
 #include <linux/kthread.h>
 
+static unsigned int use_input_evts_with_hi_slvt_detect;
 static struct mutex managed_cpus_lock;
+
 
 /* Maximum number to clusters that this module will manage*/
 static unsigned int num_clusters;
@@ -52,22 +55,50 @@ struct cluster {
 	unsigned int multi_enter_cycle_cnt;
 	unsigned int multi_exit_cycle_cnt;
 	spinlock_t mode_lock;
+	/* Perf Cluster Peak Loads */
+	unsigned int perf_cl_peak;
+	u64 last_perf_cl_check_ts;
+	bool perf_cl_detect_state_change;
+	unsigned int perf_cl_peak_enter_cycle_cnt;
+	unsigned int perf_cl_peak_exit_cycle_cnt;
+	spinlock_t perf_cl_peak_lock;
 	/* Tunables */
 	unsigned int single_enter_load;
 	unsigned int pcpu_multi_enter_load;
+	unsigned int perf_cl_peak_enter_load;
 	unsigned int single_exit_load;
 	unsigned int pcpu_multi_exit_load;
+	unsigned int perf_cl_peak_exit_load;
 	unsigned int single_enter_cycles;
 	unsigned int single_exit_cycles;
 	unsigned int multi_enter_cycles;
 	unsigned int multi_exit_cycles;
+	unsigned int perf_cl_peak_enter_cycles;
+	unsigned int perf_cl_peak_exit_cycles;
+	unsigned int current_freq;
 	spinlock_t timer_lock;
 	unsigned int timer_rate;
 	struct timer_list mode_exit_timer;
+	struct timer_list perf_cl_peak_mode_exit_timer;
+};
+
+struct input_events {
+	unsigned int evt_x_cnt;
+	unsigned int evt_y_cnt;
+	unsigned int evt_pres_cnt;
+	unsigned int evt_dist_cnt;
+};
+
+struct trig_thr {
+	unsigned int pwr_cl_trigger_threshold;
+	unsigned int perf_cl_trigger_threshold;
+	unsigned int ip_evt_threshold;
 };
 static struct cluster **managed_clusters;
 static bool clusters_inited;
-
+static bool input_events_handler_registered;
+static struct input_events *ip_evts;
+static struct trig_thr thr;
 /* Work to evaluate the onlining/offlining CPUs */
 struct delayed_work evaluate_hotplug_work;
 
@@ -82,6 +113,9 @@ static unsigned int num_online_managed(struct cpumask *mask);
 static int init_cluster_control(void);
 static int rm_high_pwr_cost_cpus(struct cluster *cl);
 static int init_events_group(void);
+static int register_input_handler(void);
+static void unregister_input_handler(void);
+
 
 static DEFINE_PER_CPU(unsigned int, cpu_power_cost);
 
@@ -92,6 +126,8 @@ struct load_stats {
 	unsigned int last_iopercent;
 	/* CPU load related */
 	unsigned int cpu_load;
+	/*CPU Freq*/
+	unsigned int freq;
 };
 static DEFINE_PER_CPU(struct load_stats, cpu_load_stats);
 
@@ -109,6 +145,8 @@ static struct task_struct *events_notify_thread;
 static unsigned int workload_detect;
 #define IO_DETECT	1
 #define MODE_DETECT	2
+#define PERF_CL_PEAK_DETECT	4
+
 
 /* IOwait related tunables */
 static unsigned int io_enter_cycles = 4;
@@ -122,20 +160,32 @@ static unsigned int aggr_mode;
 
 static struct task_struct *notify_thread;
 
+static struct input_handler *handler;
+
 /* CPU workload detection related */
 #define NO_MODE		(0)
 #define SINGLE		(1)
 #define MULTI		(2)
 #define MIXED		(3)
+#define PERF_CL_PEAK		(4)
 #define DEF_SINGLE_ENT		90
 #define DEF_PCPU_MULTI_ENT	85
+#define DEF_PERF_CL_PEAK_ENT	80
 #define DEF_SINGLE_EX		60
 #define DEF_PCPU_MULTI_EX	50
+#define DEF_PERF_CL_PEAK_EX		70
 #define DEF_SINGLE_ENTER_CYCLE	4
 #define DEF_SINGLE_EXIT_CYCLE	4
 #define DEF_MULTI_ENTER_CYCLE	4
 #define DEF_MULTI_EXIT_CYCLE	4
+#define DEF_PERF_CL_PEAK_ENTER_CYCLE	100
+#define DEF_PERF_CL_PEAK_EXIT_CYCLE	20
 #define LAST_LD_CHECK_TOL	(2 * USEC_PER_MSEC)
+#define CLUSTER_0_THRESHOLD_FREQ	147000
+#define CLUSTER_1_THRESHOLD_FREQ	190000
+#define INPUT_EVENT_CNT_THRESHOLD	15
+
+
 
 /**************************sysfs start********************************/
 
@@ -473,6 +523,105 @@ static const struct kernel_param_ops param_ops_cpu_max_freq = {
 };
 module_param_cb(cpu_max_freq, &param_ops_cpu_max_freq, NULL, 0644);
 
+static int set_ip_evt_trigger_threshold(const char *buf,
+		const struct kernel_param *kp)
+{
+	unsigned int val;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	thr.ip_evt_threshold = val;
+	return 0;
+}
+
+static int get_ip_evt_trigger_threshold(char *buf,
+		const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%u", thr.ip_evt_threshold);
+}
+
+static const struct kernel_param_ops param_ops_ip_evt_trig_thr = {
+	.set = set_ip_evt_trigger_threshold,
+	.get = get_ip_evt_trigger_threshold,
+};
+device_param_cb(ip_evt_trig_thr, &param_ops_ip_evt_trig_thr, NULL, 0644);
+
+
+static int set_perf_cl_trigger_threshold(const char *buf,
+		 const struct kernel_param *kp)
+{
+	unsigned int val;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	thr.perf_cl_trigger_threshold = val;
+	return 0;
+}
+
+static int get_perf_cl_trigger_threshold(char *buf,
+		const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%u", thr.perf_cl_trigger_threshold);
+}
+
+static const struct kernel_param_ops param_ops_perf_trig_thr = {
+	.set = set_perf_cl_trigger_threshold,
+	.get = get_perf_cl_trigger_threshold,
+};
+device_param_cb(perf_cl_trig_thr, &param_ops_perf_trig_thr, NULL, 0644);
+
+
+static int set_pwr_cl_trigger_threshold(const char *buf,
+		const struct kernel_param *kp)
+{
+	unsigned int val;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	thr.pwr_cl_trigger_threshold = val;
+	return 0;
+}
+
+static int get_pwr_cl_trigger_threshold(char *buf,
+		const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%u", thr.pwr_cl_trigger_threshold);
+}
+
+static const struct kernel_param_ops param_ops_pwr_trig_thr = {
+	.set = set_pwr_cl_trigger_threshold,
+	.get = get_pwr_cl_trigger_threshold,
+};
+device_param_cb(pwr_cl_trig_thr, &param_ops_pwr_trig_thr, NULL, 0644);
+
+
+static int freq_greater_than_threshold(struct cluster *cl, int idx)
+{
+	int rc = 0;
+	/*Check for Cluster 0*/
+	if (!idx && cl->current_freq >= thr.pwr_cl_trigger_threshold)
+		rc = 1;
+	/*Check for Cluster 1*/
+	if (idx && cl->current_freq >= thr.perf_cl_trigger_threshold)
+		rc = 1;
+	return rc;
+}
+
+static int input_events_greater_than_threshold(void)
+{
+
+	int rc = 0;
+
+	if ((ip_evts->evt_x_cnt >= thr.ip_evt_threshold) ||
+		(ip_evts->evt_y_cnt >= thr.ip_evt_threshold) ||
+		!use_input_evts_with_hi_slvt_detect)
+			rc = 1;
+
+	return rc;
+}
 static int set_single_enter_load(const char *buf, const struct kernel_param *kp)
 {
 	unsigned int val, i, ntokens = 0;
@@ -695,10 +844,237 @@ static const struct kernel_param_ops param_ops_pcpu_multi_exit_load = {
 	.get = get_pcpu_multi_exit_load,
 };
 device_param_cb(pcpu_multi_exit_load, &param_ops_pcpu_multi_exit_load,
-								NULL, 0644);
+		NULL, 0644);
+static int set_perf_cl_peak_enter_load(const char *buf,
+				const struct kernel_param *kp)
+{
+	unsigned int val, i, ntokens = 0;
+	const char *cp = buf;
+	unsigned int bytes_left;
+
+	if (!clusters_inited)
+		return -EINVAL;
+
+	while ((cp = strpbrk(cp + 1, ":")))
+		ntokens++;
+
+	if (ntokens != (num_clusters - 1))
+		return -EINVAL;
+
+	cp = buf;
+	for (i = 0; i < num_clusters; i++) {
+
+		if (sscanf(cp, "%u\n", &val) != 1)
+			return -EINVAL;
+
+		if (val < managed_clusters[i]->perf_cl_peak_exit_load)
+			return -EINVAL;
+
+		managed_clusters[i]->perf_cl_peak_enter_load = val;
+
+		bytes_left = PAGE_SIZE - (cp - buf);
+		cp = strnchr(cp, bytes_left, ':');
+		cp++;
+	}
+
+	return 0;
+}
+
+static int get_perf_cl_peak_enter_load(char *buf,
+				const struct kernel_param *kp)
+{
+	int i, cnt = 0;
+
+	if (!clusters_inited)
+		return cnt;
+
+	for (i = 0; i < num_clusters; i++)
+		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
+			"%u:", managed_clusters[i]->perf_cl_peak_enter_load);
+	cnt--;
+	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, " ");
+	return cnt;
+}
+
+static const struct kernel_param_ops param_ops_perf_cl_peak_enter_load = {
+	.set = set_perf_cl_peak_enter_load,
+	.get = get_perf_cl_peak_enter_load,
+};
+device_param_cb(perf_cl_peak_enter_load, &param_ops_perf_cl_peak_enter_load,
+		 NULL, 0644);
+
+static int set_perf_cl_peak_exit_load(const char *buf,
+				const struct kernel_param *kp)
+{
+	unsigned int val, i, ntokens = 0;
+	const char *cp = buf;
+	unsigned int bytes_left;
+
+	if (!clusters_inited)
+		return -EINVAL;
+
+	while ((cp = strpbrk(cp + 1, ":")))
+		ntokens++;
+
+	if (ntokens != (num_clusters - 1))
+		return -EINVAL;
+
+	cp = buf;
+	for (i = 0; i < num_clusters; i++) {
+
+		if (sscanf(cp, "%u\n", &val) != 1)
+			return -EINVAL;
+
+		if (val > managed_clusters[i]->perf_cl_peak_enter_load)
+			return -EINVAL;
+
+		managed_clusters[i]->perf_cl_peak_exit_load = val;
+
+		bytes_left = PAGE_SIZE - (cp - buf);
+		cp = strnchr(cp, bytes_left, ':');
+		cp++;
+	}
+
+	return 0;
+}
+
+static int get_perf_cl_peak_exit_load(char *buf,
+				const struct kernel_param *kp)
+{
+	int i, cnt = 0;
+
+	if (!clusters_inited)
+		return cnt;
+
+	for (i = 0; i < num_clusters; i++)
+		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
+			"%u:", managed_clusters[i]->perf_cl_peak_exit_load);
+	cnt--;
+	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, " ");
+	return cnt;
+}
+
+static const struct kernel_param_ops param_ops_perf_cl_peak_exit_load = {
+	.set = set_perf_cl_peak_exit_load,
+	.get = get_perf_cl_peak_exit_load,
+};
+device_param_cb(perf_cl_peak_exit_load, &param_ops_perf_cl_peak_exit_load,
+		 NULL, 0644);
+
+static int set_perf_cl_peak_enter_cycles(const char *buf,
+				const struct kernel_param *kp)
+{
+	unsigned int val, i, ntokens = 0;
+	const char *cp = buf;
+	unsigned int bytes_left;
+
+	if (!clusters_inited)
+		return -EINVAL;
+
+	while ((cp = strpbrk(cp + 1, ":")))
+		ntokens++;
+
+	if (ntokens != (num_clusters - 1))
+		return -EINVAL;
+
+	cp = buf;
+	for (i = 0; i < num_clusters; i++) {
+
+		if (sscanf(cp, "%u\n", &val) != 1)
+			return -EINVAL;
+
+		managed_clusters[i]->perf_cl_peak_enter_cycles = val;
+
+		bytes_left = PAGE_SIZE - (cp - buf);
+		cp = strnchr(cp, bytes_left, ':');
+		cp++;
+	}
+
+	return 0;
+}
+
+static int get_perf_cl_peak_enter_cycles(char *buf,
+				const struct kernel_param *kp)
+{
+	int i, cnt = 0;
+
+	if (!clusters_inited)
+		return cnt;
+
+	for (i = 0; i < num_clusters; i++)
+		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, "%u:",
+				managed_clusters[i]->perf_cl_peak_enter_cycles);
+	cnt--;
+	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, " ");
+	return cnt;
+}
+
+static const struct kernel_param_ops param_ops_perf_cl_peak_enter_cycles = {
+	.set = set_perf_cl_peak_enter_cycles,
+	.get = get_perf_cl_peak_enter_cycles,
+};
+device_param_cb(perf_cl_peak_enter_cycles, &param_ops_perf_cl_peak_enter_cycles,
+		NULL, 0644);
+
+
+static int set_perf_cl_peak_exit_cycles(const char *buf,
+				const struct kernel_param *kp)
+{
+	unsigned int val, i, ntokens = 0;
+	const char *cp = buf;
+	unsigned int bytes_left;
+
+	if (!clusters_inited)
+		return -EINVAL;
+
+	while ((cp = strpbrk(cp + 1, ":")))
+		ntokens++;
+
+	if (ntokens != (num_clusters - 1))
+		return -EINVAL;
+
+	cp = buf;
+	for (i = 0; i < num_clusters; i++) {
+
+		if (sscanf(cp, "%u\n", &val) != 1)
+			return -EINVAL;
+
+		managed_clusters[i]->perf_cl_peak_exit_cycles = val;
+
+		bytes_left = PAGE_SIZE - (cp - buf);
+		cp = strnchr(cp, bytes_left, ':');
+		cp++;
+	}
+
+	return 0;
+}
+
+static int get_perf_cl_peak_exit_cycles(char *buf,
+			const struct kernel_param *kp)
+{
+	int i, cnt = 0;
+
+	if (!clusters_inited)
+		return cnt;
+
+	for (i = 0; i < num_clusters; i++)
+		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
+			"%u:", managed_clusters[i]->perf_cl_peak_exit_cycles);
+	cnt--;
+	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, " ");
+	return cnt;
+}
+
+static const struct kernel_param_ops param_ops_perf_cl_peak_exit_cycles = {
+	.set = set_perf_cl_peak_exit_cycles,
+	.get = get_perf_cl_peak_exit_cycles,
+};
+device_param_cb(perf_cl_peak_exit_cycles, &param_ops_perf_cl_peak_exit_cycles,
+		 NULL, 0644);
+
 
 static int set_single_enter_cycles(const char *buf,
-					const struct kernel_param *kp)
+				const struct kernel_param *kp)
 {
 	unsigned int val, i, ntokens = 0;
 	const char *cp = buf;
@@ -749,11 +1125,11 @@ static const struct kernel_param_ops param_ops_single_enter_cycles = {
 	.get = get_single_enter_cycles,
 };
 device_param_cb(single_enter_cycles, &param_ops_single_enter_cycles,
-								NULL, 0644);
+		NULL, 0644);
 
 
 static int set_single_exit_cycles(const char *buf,
-					const struct kernel_param *kp)
+				const struct kernel_param *kp)
 {
 	unsigned int val, i, ntokens = 0;
 	const char *cp = buf;
@@ -806,7 +1182,7 @@ static const struct kernel_param_ops param_ops_single_exit_cycles = {
 device_param_cb(single_exit_cycles, &param_ops_single_exit_cycles, NULL, 0644);
 
 static int set_multi_enter_cycles(const char *buf,
-					const struct kernel_param *kp)
+				const struct kernel_param *kp)
 {
 	unsigned int val, i, ntokens = 0;
 	const char *cp = buf;
@@ -1023,7 +1399,6 @@ static int set_workload_detect(const char *buf, const struct kernel_param *kp)
 		return 0;
 
 	workload_detect = val;
-
 	if (!(workload_detect & IO_DETECT)) {
 		for (i = 0; i < num_clusters; i++) {
 			i_cl = managed_clusters[i];
@@ -1049,6 +1424,17 @@ static int set_workload_detect(const char *buf, const struct kernel_param *kp)
 		}
 	}
 
+	if (!(workload_detect & PERF_CL_PEAK_DETECT)) {
+		for (i = 0; i < num_clusters; i++) {
+			i_cl = managed_clusters[i];
+			spin_lock_irqsave(&i_cl->perf_cl_peak_lock, flags);
+			i_cl->perf_cl_peak_enter_cycle_cnt = 0;
+			i_cl->perf_cl_peak_exit_cycle_cnt = 0;
+			i_cl->perf_cl_peak = 0;
+			spin_unlock_irqrestore(&i_cl->perf_cl_peak_lock, flags);
+		}
+	}
+
 	wake_up_process(notify_thread);
 	return 0;
 }
@@ -1063,6 +1449,50 @@ static const struct kernel_param_ops param_ops_workload_detect = {
 	.get = get_workload_detect,
 };
 device_param_cb(workload_detect, &param_ops_workload_detect, NULL, 0644);
+
+
+static int set_input_evts_with_hi_slvt_detect(const char *buf,
+					const struct kernel_param *kp)
+{
+
+	unsigned int val;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	if (val == use_input_evts_with_hi_slvt_detect)
+		return 0;
+
+	use_input_evts_with_hi_slvt_detect = val;
+
+	if ((workload_detect & PERF_CL_PEAK_DETECT) &&
+		!input_events_handler_registered &&
+		use_input_evts_with_hi_slvt_detect) {
+		if (register_input_handler() == -ENOMEM) {
+			use_input_evts_with_hi_slvt_detect = 0;
+			return -ENOMEM;
+		}
+	} else if ((workload_detect & PERF_CL_PEAK_DETECT) &&
+				input_events_handler_registered &&
+				!use_input_evts_with_hi_slvt_detect) {
+		unregister_input_handler();
+	}
+	return 0;
+}
+
+static int get_input_evts_with_hi_slvt_detect(char *buf,
+					const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%u",
+			use_input_evts_with_hi_slvt_detect);
+}
+
+static const struct kernel_param_ops param_ops_ip_evts_with_hi_slvt_detect = {
+	.set = set_input_evts_with_hi_slvt_detect,
+	.get = get_input_evts_with_hi_slvt_detect,
+};
+device_param_cb(input_evts_with_hi_slvt_detect,
+	&param_ops_ip_evts_with_hi_slvt_detect, NULL, 0644);
 
 static struct kobject *mode_kobj;
 
@@ -1158,6 +1588,7 @@ static bool check_notify_status(void)
 	bool any_change = false;
 	unsigned long flags;
 
+
 	for (i = 0; i < num_clusters; i++) {
 		cl = managed_clusters[i];
 		spin_lock_irqsave(&cl->iowait_lock, flags);
@@ -1171,6 +1602,12 @@ static bool check_notify_status(void)
 			any_change = cl->mode_change;
 		cl->mode_change = false;
 		spin_unlock_irqrestore(&cl->mode_lock, flags);
+
+		spin_lock_irqsave(&cl->perf_cl_peak_lock, flags);
+		if (!any_change)
+			any_change = cl->perf_cl_detect_state_change;
+		cl->perf_cl_detect_state_change = false;
+		spin_unlock_irqrestore(&cl->perf_cl_peak_lock, flags);
 	}
 
 	return any_change;
@@ -1178,7 +1615,7 @@ static bool check_notify_status(void)
 
 static int notify_userspace(void *data)
 {
-	unsigned int i, io, cpu_mode;
+	unsigned int i, io, cpu_mode, perf_cl_peak_mode;
 
 	while (1) {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -1192,21 +1629,29 @@ static int notify_userspace(void *data)
 
 		io = 0;
 		cpu_mode = 0;
+		perf_cl_peak_mode = 0;
 		for (i = 0; i < num_clusters; i++) {
 			io |= managed_clusters[i]->cur_io_busy;
 			cpu_mode |= managed_clusters[i]->mode;
+			perf_cl_peak_mode |= managed_clusters[i]->perf_cl_peak;
 		}
-
 		if (io != aggr_iobusy) {
 			aggr_iobusy = io;
 			sysfs_notify(mode_kobj, NULL, "aggr_iobusy");
 			pr_debug("msm_perf: Notifying IO: %u\n", aggr_iobusy);
 		}
-
-		if (cpu_mode != aggr_mode) {
-			aggr_mode = cpu_mode;
+		if ((aggr_mode & (SINGLE | MULTI)) != cpu_mode) {
+			aggr_mode &= ~(SINGLE | MULTI);
+			aggr_mode |= cpu_mode;
 			sysfs_notify(mode_kobj, NULL, "aggr_mode");
 			pr_debug("msm_perf: Notifying CPU mode:%u\n",
+								aggr_mode);
+		}
+		if ((aggr_mode & PERF_CL_PEAK) != perf_cl_peak_mode) {
+			aggr_mode &= ~(PERF_CL_PEAK);
+			aggr_mode |= perf_cl_peak_mode;
+			sysfs_notify(mode_kobj, NULL, "aggr_mode");
+			pr_debug("msm_perf: Notifying Gaming mode:%u\n",
 								aggr_mode);
 		}
 	}
@@ -1364,6 +1809,255 @@ static void start_timer(struct cluster *cl)
 	spin_unlock_irqrestore(&cl->timer_lock, flags);
 }
 
+
+static void disable_perf_cl_peak_timer(struct cluster *cl)
+{
+
+	if (del_timer(&cl->perf_cl_peak_mode_exit_timer)) {
+		trace_perf_cl_peak_exit_timer_stop(cpumask_first(cl->cpus),
+			cl->perf_cl_peak_enter_cycles,
+			cl->perf_cl_peak_enter_cycle_cnt,
+			cl->perf_cl_peak_exit_cycles,
+			cl->perf_cl_peak_exit_cycle_cnt,
+			cl->timer_rate, cl->mode);
+	}
+
+}
+
+static void start_perf_cl_peak_timer(struct cluster *cl)
+{
+	if ((cl->mode & PERF_CL_PEAK) &&
+		!timer_pending(&cl->perf_cl_peak_mode_exit_timer)) {
+		/*Set timer for the Cluster since there is none pending*/
+		cl->perf_cl_peak_mode_exit_timer.expires = get_jiffies_64() +
+		usecs_to_jiffies(cl->perf_cl_peak_exit_cycles * cl->timer_rate);
+		cl->perf_cl_peak_mode_exit_timer.data = cpumask_first(cl->cpus);
+		add_timer(&cl->perf_cl_peak_mode_exit_timer);
+		trace_perf_cl_peak_exit_timer_start(cpumask_first(cl->cpus),
+			cl->perf_cl_peak_enter_cycles,
+			cl->perf_cl_peak_enter_cycle_cnt,
+			cl->perf_cl_peak_exit_cycles,
+			cl->perf_cl_peak_exit_cycle_cnt,
+			cl->timer_rate, cl->mode);
+	}
+}
+
+static const struct input_device_id msm_perf_input_ids[] = {
+
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
+		.evbit = {BIT_MASK(EV_ABS)},
+		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
+			BIT_MASK(ABS_MT_POSITION_X) |
+			BIT_MASK(ABS_MT_POSITION_Y)},
+	},
+
+	{},
+};
+
+static void msm_perf_input_event_handler(struct input_handle *handle,
+					unsigned int type,
+					unsigned int code,
+					int value)
+{
+	if (type != EV_ABS)
+		return;
+
+	switch (code) {
+
+	case ABS_MT_POSITION_X:
+		ip_evts->evt_x_cnt++;
+		break;
+	case ABS_MT_POSITION_Y:
+		ip_evts->evt_y_cnt++;
+		break;
+
+	case ABS_MT_DISTANCE:
+		break;
+
+	case ABS_MT_PRESSURE:
+		break;
+
+	default:
+		break;
+
+	}
+}
+static int msm_perf_input_connect(struct input_handler *handler,
+				struct input_dev *dev,
+				const struct input_device_id *id)
+{
+	int rc;
+	struct input_handle *handle;
+
+	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = handler->name;
+
+	rc = input_register_handle(handle);
+	if (rc) {
+		pr_err("Failed to register handle\n");
+		goto error;
+	}
+
+	rc = input_open_device(handle);
+	if (rc) {
+		pr_err("Failed to open device\n");
+		goto error_unregister;
+	}
+	return 0;
+
+error_unregister:
+	input_unregister_handle(handle);
+error:
+	kfree(handle);
+	return rc;
+}
+
+static void  msm_perf_input_disconnect(struct input_handle *handle)
+{
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static void unregister_input_handler(void)
+{
+	if (handler != NULL) {
+		input_unregister_handler(handler);
+		input_events_handler_registered = false;
+	}
+}
+
+static int register_input_handler(void)
+{
+	int rc;
+
+	if (handler == NULL) {
+		handler = kzalloc(sizeof(*handler), GFP_KERNEL);
+		if (!handler)
+			return -ENOMEM;
+		handler->event = msm_perf_input_event_handler;
+		handler->connect = msm_perf_input_connect;
+		handler->disconnect = msm_perf_input_disconnect;
+		handler->name = "msm_perf";
+		handler->id_table = msm_perf_input_ids;
+		handler->private = NULL;
+	}
+	rc = input_register_handler(handler);
+	if (rc) {
+		pr_err("Unable to register the input handler for msm_perf\n");
+		kfree(handler);
+	} else {
+		input_events_handler_registered = true;
+	}
+	return rc;
+}
+
+static void check_perf_cl_peak_load(struct cluster *cl, u64 now)
+{
+	struct load_stats *pcpu_st;
+	unsigned int i, ret_mode, max_load = 0;
+	unsigned int total_load = 0, cpu_cnt = 0;
+	unsigned long flags;
+	bool cpu_of_cluster_zero = true;
+
+	spin_lock_irqsave(&cl->perf_cl_peak_lock, flags);
+
+	cpu_of_cluster_zero = cpumask_first(cl->cpus) ? false:true;
+	/*
+	 * If delta of last load to now < than timer_rate - ld check tolerance
+	 * which is 18ms OR if perf_cl_peak detection not set
+	 * OR the first CPU of Cluster is CPU 0 (LVT)
+	 * then return do nothing. We are interested only in SLVT
+	 */
+	if (((now - cl->last_perf_cl_check_ts)
+		< (cl->timer_rate - LAST_LD_CHECK_TOL)) ||
+		!(workload_detect & PERF_CL_PEAK_DETECT) ||
+		cpu_of_cluster_zero) {
+		spin_unlock_irqrestore(&cl->perf_cl_peak_lock, flags);
+		return;
+	}
+	for_each_cpu(i, cl->cpus) {
+		pcpu_st = &per_cpu(cpu_load_stats, i);
+		if ((now - pcpu_st->last_wallclock)
+			> (cl->timer_rate + LAST_UPDATE_TOL))
+			continue;
+		if (pcpu_st->cpu_load > max_load)
+			max_load = pcpu_st->cpu_load;
+		 /*
+		  * Save the frequency for the cpu of the cluster
+		  * This frequency is the most recent/current
+		  * as obtained due to a transition
+		  * notifier callback.
+		  */
+		cl->current_freq = pcpu_st->freq;
+	}
+	ret_mode = cl->perf_cl_peak;
+
+	if (!(cl->perf_cl_peak & PERF_CL_PEAK)) {
+		if (max_load >= cl->perf_cl_peak_enter_load &&
+			freq_greater_than_threshold(cl,
+				cpumask_first(cl->cpus))) {
+			/* Reset the event count  for the first cycle
+			 * of perf_cl_peak we detect
+			 */
+			if (!cl->perf_cl_peak_enter_cycle_cnt)
+				ip_evts->evt_x_cnt = ip_evts->evt_y_cnt = 0;
+			cl->perf_cl_peak_enter_cycle_cnt++;
+			if (cl->perf_cl_peak_enter_cycle_cnt
+				>= cl->perf_cl_peak_enter_cycles) {
+				if (input_events_greater_than_threshold())
+					ret_mode |= PERF_CL_PEAK;
+				cl->perf_cl_peak_enter_cycle_cnt = 0;
+			}
+		} else {
+			cl->perf_cl_peak_enter_cycle_cnt = 0;
+			/* Reset the event count */
+			ip_evts->evt_x_cnt = ip_evts->evt_y_cnt = 0;
+		}
+	} else {
+		if (max_load >= cl->perf_cl_peak_exit_load &&
+			freq_greater_than_threshold(cl,
+				cpumask_first(cl->cpus))) {
+			cl->perf_cl_peak_exit_cycle_cnt = 0;
+			disable_perf_cl_peak_timer(cl);
+		} else {
+			start_perf_cl_peak_timer(cl);
+			cl->perf_cl_peak_exit_cycle_cnt++;
+			if (cl->perf_cl_peak_exit_cycle_cnt
+				>= cl->perf_cl_peak_exit_cycles) {
+				ret_mode &= ~PERF_CL_PEAK;
+				cl->perf_cl_peak_exit_cycle_cnt = 0;
+				disable_perf_cl_peak_timer(cl);
+			}
+		}
+	}
+
+	cl->last_perf_cl_check_ts = now;
+	if (ret_mode != cl->perf_cl_peak) {
+		pr_debug("msm_perf: Mode changed to %u\n", ret_mode);
+		cl->perf_cl_peak = ret_mode;
+		cl->perf_cl_detect_state_change = true;
+	}
+
+	trace_cpu_mode_detect(cpumask_first(cl->cpus), max_load,
+		cl->single_enter_cycle_cnt, cl->single_exit_cycle_cnt,
+		total_load, cl->multi_enter_cycle_cnt,
+		cl->multi_exit_cycle_cnt, cl->perf_cl_peak_enter_cycle_cnt,
+		cl->perf_cl_peak_exit_cycle_cnt, cl->mode, cpu_cnt);
+
+	spin_unlock_irqrestore(&cl->perf_cl_peak_lock, flags);
+
+	if (cl->perf_cl_detect_state_change)
+		wake_up_process(notify_thread);
+
+}
+
 static void check_cpu_load(struct cluster *cl, u64 now)
 {
 	struct load_stats *pcpu_st;
@@ -1462,7 +2156,8 @@ static void check_cpu_load(struct cluster *cl, u64 now)
 	trace_cpu_mode_detect(cpumask_first(cl->cpus), max_load,
 		cl->single_enter_cycle_cnt, cl->single_exit_cycle_cnt,
 		total_load, cl->multi_enter_cycle_cnt,
-		cl->multi_exit_cycle_cnt, cl->mode, cpu_cnt);
+		cl->multi_exit_cycle_cnt, cl->perf_cl_peak_enter_cycle_cnt,
+		cl->perf_cl_peak_exit_cycle_cnt, cl->mode, cpu_cnt);
 
 	spin_unlock_irqrestore(&cl->mode_lock, flags);
 
@@ -1487,6 +2182,7 @@ static void check_workload_stats(unsigned int cpu, unsigned int rate, u64 now)
 	cl->timer_rate = rate;
 	check_cluster_iowait(cl, now);
 	check_cpu_load(cl, now);
+	check_perf_cl_peak_load(cl, now);
 }
 
 static int perf_govinfo_notify(struct notifier_block *nb, unsigned long val,
@@ -1533,8 +2229,48 @@ static int perf_govinfo_notify(struct notifier_block *nb, unsigned long val,
 
 	return NOTIFY_OK;
 }
+static int perf_cputrans_notify(struct notifier_block *nb, unsigned long val,
+								void *data)
+{
+	struct cpufreq_freqs *freq = data;
+	unsigned int cpu = freq->cpu;
+	unsigned long flags;
+	unsigned int i;
+	struct cluster *cl = NULL;
+	struct load_stats *cpu_st = &per_cpu(cpu_load_stats, cpu);
+
+	if (!clusters_inited || !workload_detect)
+		return NOTIFY_OK;
+
+	for (i = 0; i < num_clusters; i++) {
+		if (cpumask_test_cpu(cpu, managed_clusters[i]->cpus)) {
+			cl = managed_clusters[i];
+			break;
+		}
+	}
+	if (cl == NULL)
+		return NOTIFY_OK;
+
+	if (val == CPUFREQ_POSTCHANGE) {
+		spin_lock_irqsave(&cl->perf_cl_peak_lock, flags);
+		cpu_st->freq = freq->new;
+		spin_unlock_irqrestore(&cl->perf_cl_peak_lock, flags);
+	}
+	/*
+	* Avoid deadlock in case governor notifier ran in the context
+	* of notify_work thread
+	*/
+	if (current == notify_thread)
+		return NOTIFY_OK;
+
+	return NOTIFY_OK;
+}
+
 static struct notifier_block perf_govinfo_nb = {
 	.notifier_call = perf_govinfo_notify,
+};
+static struct notifier_block perf_cputransitions_nb = {
+	.notifier_call = perf_cputrans_notify,
 };
 
 /*
@@ -1802,7 +2538,7 @@ static void single_mod_exit_timer(unsigned long data)
 
 	spin_lock_irqsave(&i_cl->mode_lock, flags);
 	if (i_cl->mode & SINGLE) {
-		/*Disable SINGLE mode and exit since the timer expired*/
+		/* Disable SINGLE mode and exit since the timer expired */
 		i_cl->mode = i_cl->mode & ~SINGLE;
 		i_cl->single_enter_cycle_cnt = 0;
 		i_cl->single_exit_cycle_cnt = 0;
@@ -1814,6 +2550,37 @@ static void single_mod_exit_timer(unsigned long data)
 			i_cl->timer_rate, i_cl->mode);
 	}
 	spin_unlock_irqrestore(&i_cl->mode_lock, flags);
+	wake_up_process(notify_thread);
+}
+
+static void perf_cl_peak_mod_exit_timer(unsigned long data)
+{
+	int i;
+	struct cluster *i_cl = NULL;
+	unsigned long flags;
+
+	if (!clusters_inited)
+		return;
+
+	for (i = 0; i < num_clusters; i++) {
+		if (cpumask_test_cpu(data,
+			managed_clusters[i]->cpus)) {
+			i_cl = managed_clusters[i];
+			break;
+		}
+	}
+
+	if (i_cl == NULL)
+		return;
+
+	spin_lock_irqsave(&i_cl->perf_cl_peak_lock, flags);
+	if (i_cl->perf_cl_peak & PERF_CL_PEAK) {
+		/* Disable PERF_CL_PEAK mode and exit since the timer expired */
+		i_cl->perf_cl_peak = i_cl->perf_cl_peak & ~PERF_CL_PEAK;
+		i_cl->perf_cl_peak_enter_cycle_cnt = 0;
+		i_cl->perf_cl_peak_exit_cycle_cnt = 0;
+	}
+	spin_unlock_irqrestore(&i_cl->perf_cl_peak_lock, flags);
 	wake_up_process(notify_thread);
 }
 
@@ -1849,6 +2616,7 @@ static int init_cluster_control(void)
 			ret = -ENOMEM;
 			goto error;
 		}
+
 		managed_clusters[i]->max_cpu_request = -1;
 		managed_clusters[i]->single_enter_load = DEF_SINGLE_ENT;
 		managed_clusters[i]->single_exit_load = DEF_SINGLE_EX;
@@ -1861,13 +2629,35 @@ static int init_cluster_control(void)
 		managed_clusters[i]->pcpu_multi_exit_load = DEF_PCPU_MULTI_EX;
 		managed_clusters[i]->multi_enter_cycles = DEF_MULTI_ENTER_CYCLE;
 		managed_clusters[i]->multi_exit_cycles = DEF_MULTI_EXIT_CYCLE;
+		managed_clusters[i]->perf_cl_peak_enter_load =
+						DEF_PERF_CL_PEAK_ENT;
+		managed_clusters[i]->perf_cl_peak_exit_load =
+						DEF_PERF_CL_PEAK_EX;
+		managed_clusters[i]->perf_cl_peak_enter_cycles =
+						DEF_PERF_CL_PEAK_ENTER_CYCLE;
+		managed_clusters[i]->perf_cl_peak_exit_cycles =
+						DEF_PERF_CL_PEAK_EXIT_CYCLE;
 
+		/* Initialize trigger threshold */
+		thr.perf_cl_trigger_threshold = CLUSTER_1_THRESHOLD_FREQ;
+		thr.pwr_cl_trigger_threshold = CLUSTER_0_THRESHOLD_FREQ;
+		thr.ip_evt_threshold = INPUT_EVENT_CNT_THRESHOLD;
 		spin_lock_init(&(managed_clusters[i]->iowait_lock));
 		spin_lock_init(&(managed_clusters[i]->mode_lock));
 		spin_lock_init(&(managed_clusters[i]->timer_lock));
+		spin_lock_init(&(managed_clusters[i]->perf_cl_peak_lock));
 		init_timer(&managed_clusters[i]->mode_exit_timer);
 		managed_clusters[i]->mode_exit_timer.function =
 			single_mod_exit_timer;
+		init_timer(&managed_clusters[i]->perf_cl_peak_mode_exit_timer);
+		managed_clusters[i]->perf_cl_peak_mode_exit_timer.function =
+			perf_cl_peak_mod_exit_timer;
+
+	}
+	ip_evts = kcalloc(1, sizeof(struct input_events), GFP_KERNEL);
+	if (!ip_evts) {
+		ret = -ENOMEM;
+		goto error;
 	}
 
 	INIT_DELAYED_WORK(&evaluate_hotplug_work, check_cluster_status);
@@ -1893,7 +2683,6 @@ static int init_cluster_control(void)
 		kobject_put(mode_kobj);
 		goto error;
 	}
-
 	notify_thread = kthread_run(notify_userspace, NULL, "wrkld_notify");
 	clusters_inited = true;
 
@@ -1953,6 +2742,8 @@ static int __init msm_performance_init(void)
 
 	cpufreq_register_notifier(&perf_cpufreq_nb, CPUFREQ_POLICY_NOTIFIER);
 	cpufreq_register_notifier(&perf_govinfo_nb, CPUFREQ_GOVINFO_NOTIFIER);
+	cpufreq_register_notifier(&perf_cputransitions_nb,
+					CPUFREQ_TRANSITION_NOTIFIER);
 
 	for_each_present_cpu(cpu)
 		per_cpu(cpu_stats, cpu).max = UINT_MAX;
