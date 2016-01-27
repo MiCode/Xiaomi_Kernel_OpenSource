@@ -472,7 +472,7 @@ static bool glink_xprt_notify_rx_intent_req(void *handle, const void *priv,
 		return true;
 
 	qrx_intent_work = kmalloc(sizeof(struct queue_rx_intent_work),
-				  GFP_KERNEL);
+				  GFP_ATOMIC);
 	if (!qrx_intent_work) {
 		IPC_RTR_ERR("%s: Couldn't queue rx_intent of %zu bytes\n",
 			    __func__, sz);
