@@ -169,8 +169,14 @@ static int32_t msm_vfe47_init_dt_parms(struct vfe_device *vfe_dev,
 static int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 {
 	int rc = -1;
+	enum cam_ahb_clk_client id;
 
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_VFE, CAMERA_AHB_SVS_VOTE);
+	if (vfe_dev->pdev->id == 0)
+		id = CAM_AHB_CLIENT_VFE0;
+	else
+		id = CAM_AHB_CLIENT_VFE1;
+
+	rc = cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
 		goto ahb_vote_fail;
@@ -317,13 +323,16 @@ camss_vdd_regulator_failed:
 	vfe_dev->fs_vfe = NULL;
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 bus_scale_register_failed:
-	cam_config_ahb_clk(CAM_AHB_CLIENT_VFE, CAMERA_AHB_SUSPEND_VOTE);
+	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
 ahb_vote_fail:
 	return rc;
 }
 
 static void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 {
+	enum cam_ahb_clk_client id;
+
 	/* when closing node, disable all irq */
 	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x5C);
 	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x60);
@@ -357,7 +366,12 @@ static void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 	}
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_VFE, CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (vfe_dev->pdev->id == 0)
+		id = CAM_AHB_CLIENT_VFE0;
+	else
+		id = CAM_AHB_CLIENT_VFE1;
+
+	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to vote for AHB\n", __func__);
 }
 
