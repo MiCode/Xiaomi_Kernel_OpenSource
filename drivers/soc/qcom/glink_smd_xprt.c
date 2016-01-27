@@ -1754,6 +1754,12 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 		if (!ch->streaming_ch)
 			smd_write_end(ch->smd_ch);
 		tx_done = kmalloc(sizeof(*tx_done), GFP_ATOMIC);
+		if (!tx_done) {
+			SMDXPRT_ERR(einfo, "%s: failed allocation of tx_done\n",
+					__func__);
+			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+			return -ENOMEM;
+		}
 		tx_done->ch = ch;
 		tx_done->iid = pctx->riid;
 		INIT_WORK(&tx_done->work, process_tx_done);
