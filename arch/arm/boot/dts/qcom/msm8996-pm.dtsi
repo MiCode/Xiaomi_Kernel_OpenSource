@@ -355,6 +355,7 @@
 			<0xff 208>,
 			<0xff 210>,
 			<0xff 211>, /* usb_dwc3_otg */
+			<0xff 212>, /* usb_dwc3_otg */
 			<0xff 215>, /* o_bimc_intr(0) */
 			<0xff 224>, /* spdm_realtime_irq[1] */
 			<0xff 238>, /* crypto_bam_irq[0] */
