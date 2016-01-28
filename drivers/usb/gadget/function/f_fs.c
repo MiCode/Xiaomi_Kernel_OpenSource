@@ -539,6 +539,7 @@ static int ffs_ep0_open(struct inode *inode, struct file *file)
 	if (unlikely(ffs->state == FFS_CLOSING))
 		return -EBUSY;
 
+	smp_mb__before_atomic();
 	if (atomic_read(&ffs->opened))
 		return -EBUSY;
 
@@ -697,6 +698,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 	ssize_t ret, data_len = -EINVAL;
 	int halt;
 
+	smp_mb__before_atomic();
 	if (atomic_read(&epfile->error))
 		return -ENODEV;
 
@@ -718,6 +720,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 		 * If ep is disabled, this fails all current IOs
 		 * and wait for next epfile open to happen.
 		 */
+		smp_mb__before_atomic();
 		if (!atomic_read(&epfile->error)) {
 			ret = wait_event_interruptible(epfile->wait,
 					(ep = epfile->ep));
@@ -1443,6 +1446,7 @@ static void ffs_data_get(struct ffs_data *ffs)
 {
 	ENTER();
 
+	smp_mb__before_atomic();
 	atomic_inc(&ffs->ref);
 }
 
@@ -1450,6 +1454,7 @@ static void ffs_data_opened(struct ffs_data *ffs)
 {
 	ENTER();
 
+	smp_mb__before_atomic();
 	atomic_inc(&ffs->ref);
 	if (atomic_add_return(1, &ffs->opened) == 1 &&
 			ffs->state == FFS_DEACTIVATED) {
@@ -1462,6 +1467,7 @@ static void ffs_data_put(struct ffs_data *ffs)
 {
 	ENTER();
 
+	smp_mb__before_atomic();
 	if (unlikely(atomic_dec_and_test(&ffs->ref))) {
 		pr_info("%s(): freeing\n", __func__);
 		ffs_data_clear(ffs);
@@ -1476,6 +1482,7 @@ static void ffs_data_closed(struct ffs_data *ffs)
 {
 	ENTER();
 
+	smp_mb__before_atomic();
 	if (atomic_dec_and_test(&ffs->opened)) {
 		if (ffs->no_disconnect) {
 			ffs->state = FFS_DEACTIVATED;
@@ -1491,6 +1498,8 @@ static void ffs_data_closed(struct ffs_data *ffs)
 			ffs_data_reset(ffs);
 		}
 	}
+
+	smp_mb__before_atomic();
 	if (atomic_read(&ffs->opened) < 0) {
 		ffs->state = FFS_CLOSING;
 		ffs_data_reset(ffs);
@@ -1532,8 +1541,8 @@ static void ffs_data_clear(struct ffs_data *ffs)
 	ffs_closed(ffs);
 
 	if (ffs->gadget)
-		pr_err("%s: ffs->gadget= %p, ffs->flags= %lu\n",
-				__func__, ffs->gadget, ffs->flags);
+		pr_err("%s: ffs:%p ffs->gadget= %p, ffs->flags= %lu\n",
+				__func__, ffs, ffs->gadget, ffs->flags);
 	BUG_ON(ffs->gadget);
 
 	if (ffs->epfiles)
@@ -3539,6 +3548,7 @@ static void ffs_closed(struct ffs_data *ffs)
 	else
 		goto done;
 
+	smp_mb__before_atomic();
 	if (opts->no_configfs || !opts->func_inst.group.cg_item.ci_parent
 	    || !atomic_read(&opts->func_inst.group.cg_item.ci_kref.refcount))
 		goto done;
