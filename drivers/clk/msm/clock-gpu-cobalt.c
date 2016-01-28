@@ -510,6 +510,12 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 	udelay(1);
 	clk_disable_unprepare(&gpucc_gfx3d_clk.c);
 
+	/*
+	 * Force periph logic to be ON since after NAP, the value of the perf
+	 * counter might be corrupted frequently.
+	 */
+	clk_set_flags(&gpucc_gfx3d_clk.c, CLKFLAG_RETAIN_PERIPH);
+
 	dev_info(&pdev->dev, "Registered GPU clocks\n");
 	return 0;
 }
