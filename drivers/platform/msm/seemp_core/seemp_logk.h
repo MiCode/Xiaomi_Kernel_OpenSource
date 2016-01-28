@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,7 +128,7 @@ struct seemp_logk_dev {
 };
 
 #define BLK_SIZE       256
-#define BLK_HDR_SIZE   68
+#define BLK_HDR_SIZE   64
 #define TS_SIZE        20
 #define BLK_MAX_MSG_SZ (BLK_SIZE - BLK_HDR_SIZE)
 
