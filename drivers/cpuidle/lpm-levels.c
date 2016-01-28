@@ -841,10 +841,8 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	struct power_params *pwr_params;
 
-	if (idx < 0) {
-		local_irq_enable();
+	if (idx < 0)
 		return -EPERM;
-	}
 
 	trace_cpu_idle_rcuidle(idx, dev->cpu);
 
