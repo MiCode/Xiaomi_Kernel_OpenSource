@@ -426,6 +426,7 @@ struct snd_codec_desc {
  * @align: Block alignment in bytes of an audio sample.
  *		Only required for PCM or IEC formats.
  * @options: encoder-specific settings
+ * @compr_passthr: compressed bitstream passthrough
  * @reserved: reserved for future use
  */
 
@@ -442,7 +443,8 @@ struct snd_codec {
 	__u32 format;
 	__u32 align;
 	union snd_codec_options options;
-	__u32 reserved[3];
+	__u32 compr_passthr;
+	__u32 reserved[2];
 } __attribute__((packed, aligned(4)));
 
 #endif
