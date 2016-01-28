@@ -57,6 +57,15 @@ Emergency Download Mode:
 -compatible: "qcom,msm-imem-emergency_download_mode"
 -reg: start address and size of emergency_download_mode region in imem
 
+USB Diag Cookies:
+-----------------
+Memory region used to store USB PID and serial numbers to be used by
+bootloader in download mode.
+
+Required properties:
+-compatible: "qcom,msm-imem-diag-dload"
+-reg: start address and size of USB Diag download mode region in imem
+
 Example:
 
 	qcom,msm-imem {

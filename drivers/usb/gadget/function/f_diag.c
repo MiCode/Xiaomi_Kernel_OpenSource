@@ -2,7 +2,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/kref.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/ratelimit.h>
 
@@ -27,9 +28,12 @@
 #include <linux/workqueue.h>
 #include <linux/debugfs.h>
 #include <linux/kmemleak.h>
+#include <linux/qcom/diag_dload.h>
 
 static DEFINE_SPINLOCK(ch_lock);
 static LIST_HEAD(usb_diag_ch_list);
+
+static struct dload_struct __iomem *diag_dload;
 
 static struct usb_interface_descriptor intf_desc = {
 	.bLength            =	sizeof intf_desc,
@@ -154,7 +158,6 @@ struct diag_context {
 	spinlock_t lock;
 	unsigned configured;
 	struct usb_composite_dev *cdev;
-	int (*update_pid_and_serial_num)(uint32_t, const char *);
 	struct usb_diag_ch *ch;
 	struct kref kref;
 
@@ -189,36 +192,48 @@ static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 	struct usb_composite_dev *cdev = ctxt->cdev;
 	struct usb_gadget_strings *table;
 	struct usb_string *s;
-
-	if (!ctxt->update_pid_and_serial_num)
-		return;
+	struct dload_struct local_diag_dload = { 0 };
 
 	/*
-	 * update pid and serail number to dload only if diag
+	 * update pid and serial number to dload only if diag
 	 * interface is zeroth interface.
 	 */
 	if (intf_desc.bInterfaceNumber)
 		return;
 
-	/* pass on product id and serial number to dload */
-	if (!cdev->desc.iSerialNumber) {
-		ctxt->update_pid_and_serial_num(
-					cdev->desc.idProduct, 0);
+	if (!diag_dload) {
+		pr_debug("%s: unable to update PID and serial_no\n", __func__);
 		return;
 	}
 
-	/*
-	 * Serial number is filled by the composite driver. So
-	 * it is fair enough to assume that it will always be
-	 * found at first table of strings.
-	 */
-	table = *(cdev->driver->strings);
-	for (s = table->strings; s && s->s; s++)
-		if (s->id == cdev->desc.iSerialNumber) {
-			ctxt->update_pid_and_serial_num(
-					cdev->desc.idProduct, s->s);
-			break;
+	/* update pid */
+	local_diag_dload.magic_struct.pid = PID_MAGIC_ID;
+	local_diag_dload.pid = cdev->desc.idProduct;
+
+	/* pass on product id and serial number to dload */
+	if (cdev->desc.iSerialNumber) {
+		/*
+		 * Serial number is filled by the composite driver. So
+		 * it is fair enough to assume that it will always be
+		 * found at first table of strings.
+		 */
+		table = *(cdev->driver->strings);
+		for (s = table->strings; s && s->s; s++) {
+			if (s->id == cdev->desc.iSerialNumber) {
+				local_diag_dload.magic_struct.serial_num =
+					SERIAL_NUM_MAGIC_ID;
+				strlcpy(local_diag_dload.serial_number, s->s,
+					SERIAL_NUMBER_LENGTH);
+				break;
+			}
 		}
+	}
+
+	pr_debug("%s: dload:%p pid:%x serial_num:%s\n",
+				__func__, diag_dload, local_diag_dload.pid,
+				local_diag_dload.serial_number);
+
+	memcpy_toio(diag_dload, &local_diag_dload, sizeof(local_diag_dload));
 }
 
 static void diag_write_complete(struct usb_ep *ep,
@@ -767,7 +782,12 @@ static int diag_function_bind(struct usb_configuration *c,
 		if (!f->ss_descriptors)
 			goto fail;
 	}
-	diag_update_pid_and_serial_num(ctxt);
+
+	/* Allow only first diag channel to update pid and serial no */
+	if (ctxt == list_first_entry(&diag_dev_list,
+				struct diag_context, list_item))
+		diag_update_pid_and_serial_num(ctxt);
+
 	return 0;
 fail:
 	if (f->ss_descriptors)
@@ -784,8 +804,7 @@ fail:
 
 }
 
-int diag_function_add(struct usb_configuration *c, const char *name,
-			int (*update_pid)(uint32_t, const char *))
+int diag_function_add(struct usb_configuration *c, const char *name)
 {
 	struct diag_context *dev;
 	struct usb_diag_ch *_ch;
@@ -818,7 +837,6 @@ int diag_function_add(struct usb_configuration *c, const char *name,
 	 */
 	dev->ch = _ch;
 
-	dev->update_pid_and_serial_num = update_pid;
 	dev->cdev = c->cdev;
 	dev->function.name = _ch->name;
 	dev->function.fs_descriptors = fs_diag_desc;
@@ -941,6 +959,9 @@ static void diag_cleanup(void)
 	struct usb_diag_ch *_ch;
 	unsigned long flags;
 
+	if (diag_dload)
+		iounmap(diag_dload);
+
 	fdiag_debugfs_remove();
 
 	list_for_each_safe(act, tmp, &usb_diag_ch_list) {
@@ -958,9 +979,21 @@ static void diag_cleanup(void)
 
 static int diag_setup(void)
 {
+	struct device_node *np;
+
 	INIT_LIST_HEAD(&diag_dev_list);
 
 	fdiag_debugfs_init();
+
+	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-diag-dload");
+	if (!np)
+		np = of_find_compatible_node(NULL, NULL, "qcom,android-usb");
+
+	if (!np) {
+		pr_warn("diag: failed to find diag_dload imem node\n");
+		return 0;
+	}
+	diag_dload = of_iomap(np, 0);
 
 	return 0;
 }
