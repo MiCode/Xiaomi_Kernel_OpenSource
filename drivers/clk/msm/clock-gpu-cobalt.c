@@ -39,6 +39,8 @@ static void __iomem *virt_base;
 #define gpu_pll0_pll_out_even_source_val	1
 #define gpu_pll0_pll_out_odd_source_val		2
 
+#define CRC_MND_CFG_OFFSET			0x4
+
 #define F(f, s, div, m, n) \
 	{ \
 		.freq_hz = (f), \
@@ -393,6 +395,7 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device_node *of_node = pdev->dev.of_node;
+	void __iomem *crc_sid_fsm_ctrl;
 	int rc;
 	struct regulator *reg;
 	u32 regval;
@@ -407,6 +410,19 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 	virt_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!virt_base) {
 		dev_err(&pdev->dev, "Failed to map CC registers\n");
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "crc_sid_fsm");
+	if (!res) {
+		dev_err(&pdev->dev, "Unable to retrieve crc_sid_fsm base\n");
+		return -ENOMEM;
+	}
+
+	crc_sid_fsm_ctrl = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+	if (!crc_sid_fsm_ctrl) {
+		dev_err(&pdev->dev, "Failed to map crc_sid_fsm_ctrl\n");
 		return -ENOMEM;
 	}
 
@@ -483,6 +499,16 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 	 *  Keep it enabled always.
 	 */
 	clk_prepare_enable(&gpucc_cxo_clk.c);
+
+	/* CRC ENABLE SEQUENCE */
+	clk_set_rate(&gpucc_gfx3d_clk.c, 650000000);
+	clk_prepare_enable(&gpucc_gfx3d_clk.c);
+	/* Enabling MND RC in Bypass mode */
+	writel_relaxed(0x00015010, crc_sid_fsm_ctrl + CRC_MND_CFG_OFFSET);
+	writel_relaxed(0x00800000, crc_sid_fsm_ctrl);
+	/* Wait for 16 cycles before continuing */
+	udelay(1);
+	clk_disable_unprepare(&gpucc_gfx3d_clk.c);
 
 	dev_info(&pdev->dev, "Registered GPU clocks\n");
 	return 0;
