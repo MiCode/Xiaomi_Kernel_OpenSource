@@ -889,9 +889,20 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 					ret = -ENODEV;
 				spin_unlock_irq(&epfile->ffs->eps_lock);
 				if (io_data->read && ret > 0) {
-					ret = copy_to_iter(data, ret, &io_data->data);
-					if (!ret)
-						ret = -EFAULT;
+
+					if (ret > data_len) {
+						ret = -EOVERFLOW;
+						pr_err("More data(%zd) received than intended length(%zu)\n",
+								ret, data_len);
+
+					} else {
+						ret = copy_to_iter(data, ret, &io_data->data);
+						pr_debug("copied (%zd) bytes to user space\n", ret);
+						if (!ret) {
+							pr_err("Fail to copy to user\n");
+							ret = -EFAULT;
+						}
+					}
 				}
 			}
 			kfree(data);
