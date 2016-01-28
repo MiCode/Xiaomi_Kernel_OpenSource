@@ -833,8 +833,11 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 				/* nop */
 			} else if (unlikely(
 				   wait_for_completion_interruptible(&done))) {
+				spin_lock_irq(&epfile->ffs->eps_lock);
+				if (ep->ep)
+					usb_ep_dequeue(ep->ep, req);
+				spin_unlock_irq(&epfile->ffs->eps_lock);
 				ret = -EINTR;
-				usb_ep_dequeue(ep->ep, req);
 			} else {
 				/*
 				 * XXX We may end up silently droping data
@@ -843,7 +846,12 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 				 * to maxpacketsize), we may end up with more
 				 * data then user space has space for.
 				 */
-				ret = ep->status;
+				spin_lock_irq(&epfile->ffs->eps_lock);
+				if (ep->ep)
+					ret = ep->status;
+				else
+					ret = -ENODEV;
+				spin_unlock_irq(&epfile->ffs->eps_lock);
 				if (io_data->read && ret > 0) {
 					ret = copy_to_iter(data, ret, &io_data->data);
 					if (!ret)
