@@ -88,7 +88,6 @@ struct ice_device {
 	bool			is_ice_enabled;
 	bool			is_ice_disable_fuse_blown;
 	bool			is_clear_irq_pending;
-	ice_success_cb		success_cb;
 	ice_error_cb		error_cb;
 	void			*host_controller_data; /* UFS/EMMC/other? */
 	spinlock_t		lock;
@@ -99,6 +98,8 @@ struct ice_device {
 	struct regulator	*reg;
 	bool			is_regulator_available;
 	struct qcom_ice_bus_vote bus_vote;
+	ktime_t			ice_reset_start_time;
+	ktime_t			ice_reset_complete_time;
 };
 
 static int qcom_ice_enable_clocks(struct ice_device *, bool);
@@ -359,7 +360,7 @@ static void qcom_ice_enable(struct ice_device *ice_dev)
 		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
 		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
 		reg = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BYPASS_STATUS);
-		if ((reg & 0x8000000) != 0x0) {
+		if ((reg & 0x80000000) != 0x0) {
 			pr_err("%s: Bypass failed for ice = %p",
 				__func__, (void *)ice_dev);
 			BUG();
@@ -985,25 +986,26 @@ out:
 	return ret;
 }
 
-static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
+static int qcom_ice_finish_init(struct ice_device *ice_dev)
 {
-	struct ice_device *ice_dev = data;
 	unsigned reg;
+	int err = 0;
 
 	if (!ice_dev) {
 		pr_err("%s: Null data received\n", __func__);
-		return;
+		err = -ENODEV;
+		goto out;
 	}
 
 	if (ice_dev->is_ice_clk_available) {
 		if (qcom_ice_init_clocks(ice_dev)) {
-			ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_IMPROPER_INITIALIZATION);
-			return;
+			err = -ICE_ERROR_IMPROPER_INITIALIZATION;
+			goto out;
 		}
-		if (qcom_ice_bus_register(ice_dev))
-			ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_IMPROPER_INITIALIZATION);
+		if (qcom_ice_bus_register(ice_dev)) {
+			err = -ICE_ERROR_IMPROPER_INITIALIZATION;
+			goto out;
+		}
 	}
 
 	/*
@@ -1013,15 +1015,13 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 	 * configurations of host & ice. It is prudent to restore the config
 	 */
 	if (qcom_ice_update_sec_cfg(ice_dev)) {
-		ice_dev->error_cb(ice_dev->host_controller_data,
-			ICE_ERROR_ICE_TZ_INIT_FAILED);
-		return;
+		err = -ICE_ERROR_ICE_TZ_INIT_FAILED;
+		goto out;
 	}
 
 	if (qcom_ice_verify_ice(ice_dev)) {
-		ice_dev->error_cb(ice_dev->host_controller_data,
-			ICE_ERROR_UNEXPECTED_ICE_DEVICE);
-		return;
+		err = -ICE_ERROR_UNEXPECTED_ICE_DEVICE;
+		goto out;
 	}
 
 	/* if ICE_DISABLE_FUSE is blown, return immediately */
@@ -1032,16 +1032,14 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 		ice_dev->is_ice_disable_fuse_blown = true;
 		pr_err("%s: Error: ICE_ERROR_HW_DISABLE_FUSE_BLOWN\n",
 								__func__);
-		ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_HW_DISABLE_FUSE_BLOWN);
-		return;
+		err = -ICE_ERROR_HW_DISABLE_FUSE_BLOWN;
+		goto out;
 	}
 
 	if (!qcom_ice_secure_ice_init(ice_dev)) {
 		pr_err("%s: Error: ICE_ERROR_ICE_TZ_INIT_FAILED\n", __func__);
-		ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_ICE_TZ_INIT_FAILED);
-		return;
+		err = -ICE_ERROR_ICE_TZ_INIT_FAILED;
+		goto out;
 	}
 
 	qcom_ice_low_power_mode_enable(ice_dev);
@@ -1052,14 +1050,12 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 	ice_dev->is_ice_enabled = true;
 	qcom_ice_enable_intr(ice_dev);
 
-	ice_dev->success_cb(ice_dev->host_controller_data,
-						ICE_INIT_COMPLETION);
-	return;
+out:
+	return err;
 }
 
 static int qcom_ice_init(struct platform_device *pdev,
 			void *host_controller_data,
-			ice_success_cb success_cb,
 			ice_error_cb error_cb)
 {
 	/*
@@ -1077,29 +1073,20 @@ static int qcom_ice_init(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	ice_dev->success_cb = success_cb;
 	ice_dev->error_cb = error_cb;
 	ice_dev->host_controller_data = host_controller_data;
 
-	/*
-	 * As ICE init may take time, create an async task to complete rest
-	 * of init
-	 */
-	async_schedule(qcom_ice_finish_init, ice_dev);
-
-	return 0;
+	return qcom_ice_finish_init(ice_dev);
 }
 EXPORT_SYMBOL(qcom_ice_init);
 
-
-static void qcom_ice_finish_power_collapse(void *data, async_cookie_t cookie)
+static int qcom_ice_finish_power_collapse(struct ice_device *ice_dev)
 {
-	struct ice_device *ice_dev = data;
+	int err = 0;
 
 	if (ice_dev->is_ice_disable_fuse_blown) {
-		ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_HW_DISABLE_FUSE_BLOWN);
-		return;
+		err = -ICE_ERROR_HW_DISABLE_FUSE_BLOWN;
+		goto out;
 	}
 
 	if (ice_dev->is_ice_enabled) {
@@ -1119,9 +1106,10 @@ static void qcom_ice_finish_power_collapse(void *data, async_cookie_t cookie)
 			 * When ICE resets, it wipes all of keys from LUTs
 			 * ICE driver should call TZ to restore keys
 			 */
-			if (qcom_ice_restore_config())
-				ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_ICE_KEY_RESTORE_FAILED);
+			if (qcom_ice_restore_config()) {
+				err = -ICE_ERROR_ICE_KEY_RESTORE_FAILED;
+				goto out;
+			}
 		}
 		/*
 		 * INTR Status are not retained. So there is no need to
@@ -1130,13 +1118,12 @@ static void qcom_ice_finish_power_collapse(void *data, async_cookie_t cookie)
 		ice_dev->is_clear_irq_pending = false;
 	}
 
-	if (ice_dev->success_cb && ice_dev->host_controller_data)
-		ice_dev->success_cb(ice_dev->host_controller_data,
-				ICE_RESUME_COMPLETION);
-	return;
+	ice_dev->ice_reset_complete_time = ktime_get();
+out:
+	return err;
 }
 
-static int  qcom_ice_resume(struct platform_device *pdev)
+static int qcom_ice_resume(struct platform_device *pdev)
 {
 	/*
 	 * ICE is power collapsed when storage controller is power collapsed
@@ -1164,13 +1151,50 @@ static int  qcom_ice_resume(struct platform_device *pdev)
 		qcom_ice_enable(ice_dev);
 	}
 
-	if (ice_dev->success_cb && ice_dev->host_controller_data)
-		ice_dev->success_cb(ice_dev->host_controller_data,
-				ICE_RESUME_COMPLETION);
-
 	return 0;
 }
 EXPORT_SYMBOL(qcom_ice_resume);
+
+static void qcom_ice_dump_test_bus(struct ice_device *ice_dev)
+{
+	u32 reg = 0x1;
+	u32 val;
+	u8 bus_selector;
+	u8 stream_selector;
+
+	pr_err("ICE TEST BUS DUMP:\n");
+
+	for (bus_selector = 0; bus_selector <= 0xF;  bus_selector++) {
+		reg = 0x1;	/* enable test bus */
+		reg |= bus_selector << 28;
+		if (bus_selector == 0xD)
+			continue;
+		qcom_ice_writel(ice_dev, reg, QCOM_ICE_REGS_TEST_BUS_CONTROL);
+		/*
+		 * make sure test bus selector is written before reading
+		 * the test bus register
+		 */
+		mb();
+		val = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_TEST_BUS_REG);
+		pr_err("ICE_TEST_BUS_CONTROL: 0x%08x | ICE_TEST_BUS_REG: 0x%08x\n",
+			reg, val);
+	}
+
+	pr_err("ICE TEST BUS DUMP (ICE_STREAM1_DATAPATH_TEST_BUS):\n");
+	for (stream_selector = 0; stream_selector <= 0xF; stream_selector++) {
+		reg = 0xD0000001;	/* enable stream test bus */
+		reg |= stream_selector << 16;
+		qcom_ice_writel(ice_dev, reg, QCOM_ICE_REGS_TEST_BUS_CONTROL);
+		/*
+		 * make sure test bus selector is written before reading
+		 * the test bus register
+		 */
+		mb();
+		val = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_TEST_BUS_REG);
+		pr_err("ICE_TEST_BUS_CONTROL: 0x%08x | ICE_TEST_BUS_REG: 0x%08x\n",
+			reg, val);
+	}
+}
 
 static void qcom_ice_debug(struct platform_device *pdev)
 {
@@ -1187,35 +1211,35 @@ static void qcom_ice_debug(struct platform_device *pdev)
 	if (!ice_dev->is_ice_enabled)
 		pr_err("%s: ICE device is not enabled\n", __func__);
 
-	pr_info("%s: =========== REGISTER DUMP (%p)===========\n",
+	pr_err("%s: =========== REGISTER DUMP (%p)===========\n",
 			ice_dev->ice_instance_type, ice_dev);
 
-	pr_info("%s: ICE Control: 0x%08x | ICE Reset: 0x%08x\n",
+	pr_err("%s: ICE Control: 0x%08x | ICE Reset: 0x%08x\n",
 		ice_dev->ice_instance_type,
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_CONTROL),
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_RESET));
 
-	pr_info("%s: ICE Version: 0x%08x | ICE FUSE:  0x%08x\n",
+	pr_err("%s: ICE Version: 0x%08x | ICE FUSE:  0x%08x\n",
 		ice_dev->ice_instance_type,
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_VERSION),
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_FUSE_SETTING));
 
-	pr_info("%s: ICE Param1: 0x%08x | ICE Param2:  0x%08x\n",
+	pr_err("%s: ICE Param1: 0x%08x | ICE Param2:  0x%08x\n",
 		ice_dev->ice_instance_type,
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_1),
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_2));
 
-	pr_info("%s: ICE Param3: 0x%08x | ICE Param4:  0x%08x\n",
+	pr_err("%s: ICE Param3: 0x%08x | ICE Param4:  0x%08x\n",
 		ice_dev->ice_instance_type,
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_3),
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_4));
 
-	pr_info("%s: ICE Param5: 0x%08x | ICE IRQ STTS:  0x%08x\n",
+	pr_err("%s: ICE Param5: 0x%08x | ICE IRQ STTS:  0x%08x\n",
 		ice_dev->ice_instance_type,
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_5),
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_NON_SEC_IRQ_STTS));
 
-	pr_info("%s: ICE IRQ MASK: 0x%08x | ICE IRQ CLR:  0x%08x\n",
+	pr_err("%s: ICE IRQ MASK: 0x%08x | ICE IRQ CLR:  0x%08x\n",
 		ice_dev->ice_instance_type,
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_NON_SEC_IRQ_MASK),
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_NON_SEC_IRQ_CLR));
@@ -1223,17 +1247,110 @@ static void qcom_ice_debug(struct platform_device *pdev)
 	if ((ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) ||
 		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
 		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
-		pr_info("%s: ICE BIST Sts: 0x%08x | ICE Bypass Sts:  0x%08x\n",
+		pr_err("%s: ICE BIST Sts: 0x%08x | ICE Bypass Sts:  0x%08x\n",
 			ice_dev->ice_instance_type,
 			qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BIST_STATUS),
 			qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BYPASS_STATUS));
 	}
 
-	pr_info("%s: ICE ADV CTRL: 0x%08x | ICE ENDIAN SWAP:  0x%08x\n",
+	pr_err("%s: ICE ADV CTRL: 0x%08x | ICE ENDIAN SWAP:  0x%08x\n",
 		ice_dev->ice_instance_type,
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_ADVANCED_CONTROL),
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_ENDIAN_SWAP));
 
+	pr_err("%s: ICE_STM1_ERR_SYND1: 0x%08x | ICE_STM1_ERR_SYND2: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_ERROR_SYNDROME1),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_ERROR_SYNDROME2));
+
+	pr_err("%s: ICE_STM2_ERR_SYND1: 0x%08x | ICE_STM2_ERR_SYND2: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_ERROR_SYNDROME1),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_ERROR_SYNDROME2));
+
+	pr_err("%s: ICE_STM1_COUNTER1: 0x%08x | ICE_STM1_COUNTER2: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS1),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS2));
+
+	pr_err("%s: ICE_STM1_COUNTER3: 0x%08x | ICE_STM1_COUNTER4: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS3),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS4));
+
+	pr_err("%s: ICE_STM2_COUNTER1: 0x%08x | ICE_STM2_COUNTER2: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS1),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS2));
+
+	pr_err("%s: ICE_STM2_COUNTER3: 0x%08x | ICE_STM2_COUNTER4: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS3),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS4));
+
+	pr_err("%s: ICE_STM1_CTR5_MSB: 0x%08x | ICE_STM1_CTR5_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS5_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS5_LSB));
+
+	pr_err("%s: ICE_STM1_CTR6_MSB: 0x%08x | ICE_STM1_CTR6_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS6_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS6_LSB));
+
+	pr_err("%s: ICE_STM1_CTR7_MSB: 0x%08x | ICE_STM1_CTR7_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS7_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS7_LSB));
+
+	pr_err("%s: ICE_STM1_CTR8_MSB: 0x%08x | ICE_STM1_CTR8_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS8_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS8_LSB));
+
+	pr_err("%s: ICE_STM1_CTR9_MSB: 0x%08x | ICE_STM1_CTR9_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS9_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM1_COUNTERS9_LSB));
+
+	pr_err("%s: ICE_STM2_CTR5_MSB: 0x%08x | ICE_STM2_CTR5_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS5_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS5_LSB));
+
+	pr_err("%s: ICE_STM2_CTR6_MSB: 0x%08x | ICE_STM2_CTR6_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS6_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS6_LSB));
+
+	pr_err("%s: ICE_STM2_CTR7_MSB: 0x%08x | ICE_STM2_CTR7_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS7_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS7_LSB));
+
+	pr_err("%s: ICE_STM2_CTR8_MSB: 0x%08x | ICE_STM2_CTR8_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS8_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS8_LSB));
+
+	pr_err("%s: ICE_STM2_CTR9_MSB: 0x%08x | ICE_STM2_CTR9_LSB: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS9_MSB),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS9_LSB));
+
+	qcom_ice_dump_test_bus(ice_dev);
+	pr_err("%s: ICE reset start time: %u ICE reset done time: %u\n",
+			ice_dev->ice_instance_type,
+			(unsigned int)ice_dev->ice_reset_start_time.tv64,
+			(unsigned int)ice_dev->ice_reset_complete_time.tv64);
+
+	if (ktime_to_us(ktime_sub(ice_dev->ice_reset_complete_time,
+				  ice_dev->ice_reset_start_time)) > 0)
+		pr_err("%s: Time taken for reset: %lu\n",
+			ice_dev->ice_instance_type,
+			(unsigned long)ktime_to_us(ktime_sub(
+					ice_dev->ice_reset_complete_time,
+					ice_dev->ice_reset_start_time)));
 }
 EXPORT_SYMBOL(qcom_ice_debug);
 
@@ -1248,8 +1365,9 @@ static int qcom_ice_reset(struct  platform_device *pdev)
 		return -EINVAL;
 	}
 
-	async_schedule(qcom_ice_finish_power_collapse, ice_dev);
-	return 0;
+	ice_dev->ice_reset_start_time = ktime_get();
+
+	return qcom_ice_finish_power_collapse(ice_dev);
 }
 EXPORT_SYMBOL(qcom_ice_reset);
 
@@ -1435,56 +1553,105 @@ out:
 	return ice_dev;
 }
 
-int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
+
+static int enable_ice_setup(struct ice_device *ice_dev)
 {
 	int ret = -1, vote;
-	struct ice_device *ice_dev = NULL;
 
-	ice_dev = get_ice_device_from_storage_type(storage_type);
-	if (!ice_dev)
-		goto out;
+	/* Setup Regulator */
+	if (ice_dev->is_regulator_available) {
+		if (qcom_ice_get_vreg(ice_dev)) {
+			pr_err("%s: Could not get regulator\n", __func__);
+			goto out;
+		}
+		ret = regulator_enable(ice_dev->reg);
+		if (ret) {
+			pr_err("%s:%p: Could not enable regulator\n",
+					__func__, ice_dev);
+			goto out;
+		}
+	}
 
 	/* Setup Clocks */
-	if (qcom_ice_enable_clocks(ice_dev, enable)) {
-		pr_err("%s:%p:%s Could not enable clocks\n", __func__, ice_dev,
-				ice_dev->ice_instance_type);
-		goto out;
+	if (qcom_ice_enable_clocks(ice_dev, true)) {
+		pr_err("%s:%p:%s Could not enable clocks\n", __func__,
+				ice_dev, ice_dev->ice_instance_type);
+		goto out_reg;
 	}
 
 	/* Setup Bus Vote */
-	vote = qcom_ice_get_bus_vote(ice_dev, enable ? "MAX" : "MIN");
+	vote = qcom_ice_get_bus_vote(ice_dev, "MAX");
 	if (vote < 0)
 		goto out_clocks;
+
 	ret = qcom_ice_set_bus_vote(ice_dev, vote);
 	if (ret) {
 		pr_err("%s:%p: failed %d\n", __func__, ice_dev, ret);
 		goto out_clocks;
 	}
 
-	/* Setup Regulator */
+	return ret;
+
+out_clocks:
+	qcom_ice_enable_clocks(ice_dev, false);
+out_reg:
+	regulator_disable(ice_dev->reg);
+out:
+	return ret;
+}
+
+static int disable_ice_setup(struct ice_device *ice_dev)
+{
+	int ret = -1, vote;
+
+	/* Setup Bus Vote */
+	vote = qcom_ice_get_bus_vote(ice_dev, "MIN");
+	if (vote < 0) {
+		pr_err("%s:%p: Unable to get bus vote\n", __func__, ice_dev);
+		goto out_disable_clocks;
+	}
+
+	ret = qcom_ice_set_bus_vote(ice_dev, vote);
+	if (ret)
+		pr_err("%s:%p: failed %d\n", __func__, ice_dev, ret);
+
+out_disable_clocks:
+
+	/* Setup Clocks */
+	if (qcom_ice_enable_clocks(ice_dev, false))
+		pr_err("%s:%p:%s Could not disable clocks\n", __func__,
+				ice_dev, ice_dev->ice_instance_type);
+
+/* Setup Regulator */
 	if (ice_dev->is_regulator_available) {
 		if (qcom_ice_get_vreg(ice_dev)) {
 			pr_err("%s: Could not get regulator\n", __func__);
-			goto out_bw_vote;
+			goto out;
 		}
-		ret = (enable) ? regulator_enable(ice_dev->reg)
-				: regulator_disable(ice_dev->reg);
+		ret = regulator_disable(ice_dev->reg);
 		if (ret) {
-			pr_err("%s:%p: Could not enable/disable regulator\n",
+			pr_err("%s:%p: Could not disable regulator\n",
 					__func__, ice_dev);
-			goto out_bw_vote;
+			goto out;
 		}
 	}
-	return ret;
-
-out_bw_vote:
-	if (vote)
-		qcom_ice_set_bus_vote(ice_dev, !vote);
-out_clocks:
-	if (enable)
-		qcom_ice_enable_clocks(ice_dev, !enable);
 out:
 	return ret;
+}
+
+int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
+{
+	int ret = -1;
+	struct ice_device *ice_dev = NULL;
+
+	ice_dev = get_ice_device_from_storage_type(storage_type);
+	if (!ice_dev)
+		return ret;
+
+	if (enable)
+		return enable_ice_setup(ice_dev);
+	else
+		return disable_ice_setup(ice_dev);
 }
 
 struct qcom_ice_variant_ops *qcom_ice_get_variant_ops(struct device_node *node)
