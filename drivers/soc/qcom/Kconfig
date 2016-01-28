@@ -739,6 +739,15 @@ config MSM_KERNEL_PROTECT_TEST
           read-only.  This test is FATAL whether it passes or fails!
           Success is signaled by a stage-2 fault.
 
+config MSM_REMOTEQDSS
+	bool "Allow debug tools to enable events on other processors"
+	depends on MSM_SCM && DEBUG_FS
+	help
+	  Other onchip processors/execution environments may support debug
+	  events. Provide a sysfs interface for debug tools to dynamically
+	  enable/disable these events. Interface located in
+	  /sys/class/remoteqdss.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
