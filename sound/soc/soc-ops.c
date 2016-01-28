@@ -196,7 +196,10 @@ int snd_soc_info_volsw(struct snd_kcontrol *kcontrol,
 
 	uinfo->count = snd_soc_volsw_is_stereo(mc) ? 2 : 1;
 	uinfo->value.integer.min = 0;
-	uinfo->value.integer.max = platform_max - mc->min;
+	if (mc->min < 0 && (uinfo->type == SNDRV_CTL_ELEM_TYPE_INTEGER))
+		uinfo->value.integer.max = platform_max - mc->min;
+	else
+		uinfo->value.integer.max = platform_max;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_soc_info_volsw);
