@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -172,8 +172,6 @@
 			qcom,iommu-ctx-sids = <0x2001>;
 			qcom,iommu-sid-mask = <0x3f0>;
 			label = "adsp_io";
-			qcom,virtual-addr-pool = <0x10000000 0x0fffffff>;
-			#iommu-cells = <1>;
 		};
 
 		adsp_opendsp: qcom,iommu-ctx@1e30000 {
