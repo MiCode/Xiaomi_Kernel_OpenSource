@@ -68,3 +68,31 @@
 &ext_codec {
 	status = "okay";
 };
+
+&int_codec {
+	status = "disabled";
+};
+
+&pm8937_cajon_dig {
+	status = "disabled";
+};
+
+&pm8937_cajon_analog {
+	status = "disabled";
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};
+
+&wsa881x_i2c_45 {
+	status = "disabled";
+};
