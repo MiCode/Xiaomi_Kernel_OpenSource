@@ -633,8 +633,11 @@ static const struct file_operations ffs_ep0_operations = {
 
 static void ffs_epfile_io_complete(struct usb_ep *_ep, struct usb_request *req)
 {
+	struct ffs_ep *ep = _ep->driver_data;
 	ENTER();
-	if (likely(req->context)) {
+
+	/* req may be freed during unbind */
+	if (ep && ep->req && likely(req->context)) {
 		struct ffs_ep *ep = _ep->driver_data;
 		ep->status = req->status ? req->status : req->actual;
 		complete(req->context);
@@ -686,6 +689,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 {
 	struct ffs_epfile *epfile = file->private_data;
 	struct ffs_ep *ep;
+	struct ffs_data *ffs = epfile->ffs;
 	char *data = NULL;
 	ssize_t ret, data_len = -EINVAL;
 	int halt;
@@ -830,14 +834,22 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 
 			spin_unlock_irq(&epfile->ffs->eps_lock);
 		} else {
-			DECLARE_COMPLETION_ONSTACK(done);
+			struct completion *done;
 
 			req = ep->req;
 			req->buf      = data;
 			req->length   = data_len;
 
-			req->context  = &done;
 			req->complete = ffs_epfile_io_complete;
+
+			if (io_data->read) {
+				reinit_completion(&epfile->ffs->epout_completion);
+				done = &epfile->ffs->epout_completion;
+			} else {
+				reinit_completion(&epfile->ffs->epin_completion);
+				done = &epfile->ffs->epin_completion;
+			}
+			req->context = done;
 
 			ret = usb_ep_queue(ep->ep, req, GFP_ATOMIC);
 
@@ -846,7 +858,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			if (unlikely(ret < 0)) {
 				ret = -EIO;
 			} else if (unlikely(
-				   wait_for_completion_interruptible(&done))) {
+				   wait_for_completion_interruptible(done))) {
 				spin_lock_irq(&epfile->ffs->eps_lock);
 				/*
 				 * While we were acquiring lock endpoint got
@@ -1488,6 +1500,8 @@ static struct ffs_data *ffs_data_new(void)
 	spin_lock_init(&ffs->eps_lock);
 	init_waitqueue_head(&ffs->ev.waitq);
 	init_completion(&ffs->ep0req_completion);
+	init_completion(&ffs->epout_completion);
+	init_completion(&ffs->epin_completion);
 
 	/* XXX REVISIT need to update it in some places, or do we? */
 	ffs->ev.can_stall = 1;
