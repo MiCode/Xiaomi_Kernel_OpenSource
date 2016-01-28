@@ -238,6 +238,12 @@ Optional child nodes
 			qcom,mx-restriction-temp-hysteresis should also be present.
 			Also, if this property is defined, will have to define
 			vdd-mx-supply = <&phandle_of_regulator>
+- qcom,mx-restriction-sensor_id: sensor id, which needs to be monitored for requesting MX/CX
+			retention voltage. If this optional property is defined, msm_thermal
+			will monitor only this sensor, otherwise by default it will monitor
+			all TSENS for this feature. If this property exists, then the properties,
+			qcom,mx-restriction-temp, qcom,mx-restriction-temp-hysteresis and
+			qcom,mx-retention-min should also be defined to enable this feature.
 - qcom,therm-reset-temp: Degree above which the KTM will initiate a secure watchdog reset.
 			When this property is defined, KTM will monitor all the tsens from
 			boot time and will initiate a secure watchdog reset if any of the
@@ -287,6 +293,7 @@ Example:
 		qcom,mx-restriction-temp = <5>;
 		qcom,mx-restriction-temp-hysteresis = <10>;
 		qcom,mx-retention-min = <710000>;
+		qcom,mx-restriction-sensor_id = <2>;
 		vdd-mx-supply = <&pma8084_s1>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>; /* Indicates cluster 0 and 1 are synchronous */
