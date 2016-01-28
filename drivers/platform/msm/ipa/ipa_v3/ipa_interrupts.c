@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -439,7 +439,6 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt)
 int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 {
 	int idx;
-	u32 reg = 0xFFFFFFFF;
 	int res = 0;
 
 	ipa_ee = ee;
@@ -456,15 +455,6 @@ int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 		IPAERR("workqueue creation failed\n");
 		return -ENOMEM;
 	}
-
-	/* Clearing interrupts status */
-	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
-		IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
-
-	/* Clearing L2 interrupts status */
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1)
-		ipa_write_reg(ipa3_ctx->mmio,
-			IPA_SUSPEND_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
 
 	res = request_irq(ipa_irq, (irq_handler_t) ipa3_isr,
 				IRQF_TRIGGER_RISING, "ipa", ipa_dev);
