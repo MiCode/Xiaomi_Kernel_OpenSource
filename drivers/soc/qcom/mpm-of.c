@@ -510,7 +510,7 @@ static bool msm_mpm_interrupts_detectable(int d, bool from_idle)
 				MSM_MPM_DEBUG_NON_DETECTABLE_IRQ;
 	}
 
-	ret = (bool) __bitmap_empty(irq_bitmap, unlisted->size);
+	ret = (bool) bitmap_empty(irq_bitmap, unlisted->size);
 
 	if (debug_mask && !ret) {
 		int i = 0;
@@ -593,14 +593,9 @@ void msm_mpm_exit_sleep(bool from_idle)
 			struct irq_desc *desc = apps_irq ?
 				irq_to_desc(apps_irq) : NULL;
 
-			if (desc && !irqd_is_level_type(&desc->irq_data)) {
-				irq_set_pending(apps_irq);
-				if (from_idle) {
-					raw_spin_lock(&desc->lock);
-					check_irq_resend(desc, apps_irq);
-					raw_spin_unlock(&desc->lock);
-				}
-			}
+			if (desc && !irqd_is_level_type(&desc->irq_data))
+				irq_set_irqchip_state(apps_irq,
+						IRQCHIP_STATE_PENDING, true);
 
 			k = find_next_bit(&pending, 32, k + 1);
 		}
