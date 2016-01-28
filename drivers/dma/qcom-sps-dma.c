@@ -394,10 +394,11 @@ need_disconnect:
  *
  * @cfg only cares about cfg->direction
  */
-static int qbam_slave_cfg(struct qbam_channel *qbam_chan,
+static int qbam_slave_cfg(struct dma_chan *chan,
 						struct dma_slave_config *cfg)
 {
 	int ret = 0;
+	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
 	struct qbam_device *qbam_dev = qbam_chan->qbam_dev;
 	struct sps_connect *pipe_cfg = &qbam_chan->bam_pipe.cfg;
 
@@ -456,8 +457,9 @@ cfg_done:
 	return ret;
 }
 
-static int qbam_flush_chan(struct qbam_channel *qbam_chan)
+static int qbam_flush_chan(struct dma_chan *chan)
 {
+	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
 	int ret = qbam_disconnect_chan(qbam_chan);
 	if (ret) {
 		qbam_err(qbam_chan->qbam_dev,
@@ -470,35 +472,6 @@ static int qbam_flush_chan(struct qbam_channel *qbam_chan)
 		qbam_err(qbam_chan->qbam_dev,
 			 "error: reconnect flush(pipe:%d\n)",
 			 qbam_chan->bam_pipe.index);
-	return ret;
-}
-
-/*
- * qbam_control - DMA device control. entry point for channel configuration.
- * @chan: dma channel
- * @cmd: control cmd
- * @arg: cmd argument
- */
-static int qbam_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
-							unsigned long arg)
-{
-	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
-	int ret = 0;
-
-	switch (cmd) {
-	case DMA_SLAVE_CONFIG:
-		ret = qbam_slave_cfg(qbam_chan, (struct dma_slave_config *)arg);
-		break;
-	case DMA_TERMINATE_ALL:
-		ret = qbam_flush_chan(qbam_chan);
-		break;
-	default:
-		ret = -ENXIO;
-		qbam_err(qbam_chan->qbam_dev,
-			"error qbam_control(cmd:%d) unsupported\n", cmd);
-		break;
-	};
-
 	return ret;
 }
 
@@ -683,7 +656,8 @@ static int qbam_probe(struct platform_device *pdev)
 	qbam_dev->dma_dev.device_alloc_chan_resources	= qbam_alloc_chan;
 	qbam_dev->dma_dev.device_free_chan_resources	= qbam_free_chan;
 	qbam_dev->dma_dev.device_prep_slave_sg		= qbam_prep_slave_sg;
-	qbam_dev->dma_dev.device_control		= qbam_control;
+	qbam_dev->dma_dev.device_terminate_all		= qbam_flush_chan;
+	qbam_dev->dma_dev.device_config			= qbam_slave_cfg;
 	qbam_dev->dma_dev.device_issue_pending		= qbam_issue_pending;
 	qbam_dev->dma_dev.device_tx_status		= qbam_tx_status;
 
