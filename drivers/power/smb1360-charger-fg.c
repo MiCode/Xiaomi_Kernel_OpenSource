@@ -4902,6 +4902,13 @@ static int smb1360_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
+	/* probe the device to check if its actually connected */
+	rc = smb1360_read(chip, CFG_BATT_CHG_REG, &reg);
+	if (rc) {
+		pr_err("Failed to detect SMB1360, device may be absent\n");
+		return -ENODEV;
+	}
+
 	chip->resume_completed = true;
 	chip->client = client;
 	chip->dev = &client->dev;
@@ -4911,18 +4918,14 @@ static int smb1360_probe(struct i2c_client *client,
 	mutex_init(&chip->parallel_chg_lock);
 	mutex_init(&chip->otp_gain_lock);
 	mutex_init(&chip->fg_access_request_lock);
+	mutex_init(&chip->irq_complete);
+	mutex_init(&chip->charging_disable_lock);
+	mutex_init(&chip->current_change_lock);
 	INIT_DELAYED_WORK(&chip->jeita_work, smb1360_jeita_work_fn);
 	INIT_DELAYED_WORK(&chip->delayed_init_work,
 			smb1360_delayed_init_work_fn);
 	init_completion(&chip->fg_mem_access_granted);
 	smb1360_wakeup_src_init(chip);
-
-	/* probe the device to check if its actually connected */
-	rc = smb1360_read(chip, CFG_BATT_CHG_REG, &reg);
-	if (rc) {
-		pr_err("Failed to detect SMB1360, device may be absent\n");
-		return -ENODEV;
-	}
 
 	rc = read_revision(chip, &chip->revision);
 	if (rc)
@@ -4931,14 +4934,11 @@ static int smb1360_probe(struct i2c_client *client,
 	rc = smb_parse_dt(chip);
 	if (rc < 0) {
 		dev_err(&client->dev, "Unable to parse DT nodes\n");
-		return rc;
+		goto destroy_mutex;
 	}
 
 	device_init_wakeup(chip->dev, 1);
 	i2c_set_clientdata(client, chip);
-	mutex_init(&chip->irq_complete);
-	mutex_init(&chip->charging_disable_lock);
-	mutex_init(&chip->current_change_lock);
 	chip->default_i2c_addr = client->addr;
 	INIT_WORK(&chip->parallel_work, smb1360_parallel_work);
 	if (chip->cold_hysteresis || chip->hot_hysteresis)
@@ -4951,14 +4951,14 @@ static int smb1360_probe(struct i2c_client *client,
 	if (rc < 0) {
 		dev_err(&client->dev,
 			"Unable to intialize hardware rc = %d\n", rc);
-		return rc;
+		goto destroy_mutex;
 	}
 
 	rc = smb1360_regulator_init(chip);
 	if  (rc) {
 		dev_err(&client->dev,
 			"Couldn't initialize smb349 ragulator rc=%d\n", rc);
-		return rc;
+		goto destroy_mutex;
 	}
 
 	rc = determine_initial_status(chip);
@@ -5122,11 +5122,19 @@ static int smb1360_probe(struct i2c_client *client,
 			smb1360_get_prop_batt_capacity(chip));
 
 	return 0;
-
 unregister_batt_psy:
 	power_supply_unregister(&chip->batt_psy);
 fail_hw_init:
 	regulator_unregister(chip->otg_vreg.rdev);
+destroy_mutex:
+	wakeup_source_trash(&chip->smb1360_ws.source);
+	mutex_destroy(&chip->read_write_lock);
+	mutex_destroy(&chip->parallel_chg_lock);
+	mutex_destroy(&chip->otp_gain_lock);
+	mutex_destroy(&chip->fg_access_request_lock);
+	mutex_destroy(&chip->irq_complete);
+	mutex_destroy(&chip->charging_disable_lock);
+	mutex_destroy(&chip->current_change_lock);
 	return rc;
 }
 
@@ -5135,9 +5143,11 @@ static int smb1360_remove(struct i2c_client *client)
 	struct smb1360_chip *chip = i2c_get_clientdata(client);
 	regulator_unregister(chip->otg_vreg.rdev);
 	power_supply_unregister(&chip->batt_psy);
+	wakeup_source_trash(&chip->smb1360_ws.source);
 	mutex_destroy(&chip->charging_disable_lock);
 	mutex_destroy(&chip->current_change_lock);
 	mutex_destroy(&chip->read_write_lock);
+	mutex_destroy(&chip->parallel_chg_lock);
 	mutex_destroy(&chip->irq_complete);
 	mutex_destroy(&chip->otp_gain_lock);
 	mutex_destroy(&chip->fg_access_request_lock);
