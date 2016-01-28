@@ -386,7 +386,14 @@
 	};
 
 	clock_mmss: qcom,mmsscc@c8c0000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,mmsscc-cobalt";
+		reg = <0xc8c0000 0x40000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pmcobalt_s1_level>;
+		clock-names = "xo", "gpll0", "gpll0_div";
+		clocks = <&clock_gcc clk_cxo_clk_src>,
+			 <&clock_gcc clk_gpll0_out_main>,
+			 <&clock_gcc clk_gcc_mmss_gpll0_div_clk>;
 		#clock-cells = <1>;
 	};
 
@@ -424,8 +431,9 @@
 		compatible = "qcom,cc-debug-cobalt";
 		reg = <0x162000 0x4>;
 		reg-names = "cc_base";
-		clock-names = "debug_gpu_clk";
-		clocks = <&clock_gpu clk_gpucc_gcc_dbg_clk>;
+		clock-names = "debug_gpu_clk", "debug_mmss_clk";
+		clocks = <&clock_gpu clk_gpucc_gcc_dbg_clk>,
+			 <&clock_mmss clk_mmss_debug_mux>;
 		#clock-cells = <1>;
 	};
 
