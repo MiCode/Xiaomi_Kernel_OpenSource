@@ -596,17 +596,12 @@ int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev)
 static void a3xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev;
-	const struct adreno_reg_offsets *reg_offsets;
 
-	if (adreno_is_a306(adreno_dev) || adreno_is_a306a(adreno_dev)) {
+	if (adreno_is_a306(adreno_dev) || adreno_is_a306a(adreno_dev)
+			|| adreno_is_a304(adreno_dev)) {
 		gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-		reg_offsets = gpudev->reg_offsets;
-		reg_offsets->offsets[ADRENO_REG_VBIF_XIN_HALT_CTRL0] =
-			A3XX_VBIF2_XIN_HALT_CTRL0;
-		reg_offsets->offsets[ADRENO_REG_VBIF_XIN_HALT_CTRL1] =
-			A3XX_VBIF2_XIN_HALT_CTRL1;
 		gpudev->vbif_xin_halt_ctrl0_mask =
-				A3XX_VBIF2_XIN_HALT_CTRL0_MASK;
+				A30X_VBIF_XIN_HALT_CTRL0_MASK;
 	}
 }
 
