@@ -2403,7 +2403,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 			roi = &pinfo->roi;
 	}
 
-	req = mdss_dsi_cmdlist_get(ctrl);
+	req = mdss_dsi_cmdlist_get(ctrl, from_mdp);
 	if (req && from_mdp && ctrl->burst_mode_enabled) {
 		mutex_lock(&ctrl->cmd_mutex);
 		cmd_mutex_acquired = true;

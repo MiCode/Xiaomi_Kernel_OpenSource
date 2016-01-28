@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,7 +133,8 @@ int mdss_dsi_short_read2_resp(struct dsi_buf *rp);
 int mdss_dsi_long_read_resp(struct dsi_buf *rp);
 void mdss_dsi_set_tear_on(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_set_tear_off(struct mdss_dsi_ctrl_pdata *ctrl);
-struct dcs_cmd_req *mdss_dsi_cmdlist_get(struct mdss_dsi_ctrl_pdata *ctrl);
+struct dcs_cmd_req *mdss_dsi_cmdlist_get(struct mdss_dsi_ctrl_pdata *ctrl,
+				int from_mdp);
 int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct dcs_cmd_req *cmdreq);
 #endif
