@@ -1034,6 +1034,7 @@ static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
 	struct mdss_mdp_data *buf;
 	int format;
 	int smps[4];
+	int i;
 
 	seq_printf(s, "\nSSPP #%d type=%s ndx=%x flags=0x%08x play_cnt=%u xin_id=%d\n",
 			pipe->num, mdss_mdp_pipetype2str(pipe->type),
@@ -1063,6 +1064,11 @@ static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
 
 	seq_printf(s, "\tSMP allocated=[%d %d] reserved=[%d %d]\n",
 			smps[0], smps[1], smps[2], smps[3]);
+
+	seq_puts(s, "\tSupported formats = ");
+	for (i = 0; i < BITS_TO_BYTES(MDP_IMGTYPE_LIMIT); i++)
+		seq_printf(s, "0x%02X ", pipe->supported_formats[i]);
+	seq_puts(s, "\n");
 
 	seq_puts(s, "Data:\n");
 
