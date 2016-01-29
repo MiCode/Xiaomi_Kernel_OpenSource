@@ -397,7 +397,7 @@ static void mdss_dsi_pll_8996_input_init(struct mdss_pll_resources *pll,
 	pdb->in.pll_icpcset_m = 0;	/* 0, reg: 0x04f8, bit 3 - 5 */
 	pdb->in.pll_lpf_res1 = 3;	/* 3, reg: 0x0504, bit 0 - 3 */
 	pdb->in.pll_lpf_cap1 = 11;	/* 11, reg: 0x0500, bit 0 - 3 */
-	pdb->in.pll_lpf_cap2 = 14;	/* 14, reg: 0x0500, bit 4 - 7 */
+	pdb->in.pll_lpf_cap2 = 1;	/* 1, reg: 0x0500, bit 4 - 7 */
 	pdb->in.pll_iptat_trim = 7;
 	pdb->in.pll_c3ctrl = 2;		/* 2 */
 	pdb->in.pll_r3ctrl = 1;		/* 1 */
@@ -534,7 +534,7 @@ static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
 	pout->pll_kvco_count = cnt;
 
 	pout->pll_misc1 = 16;
-	pout->pll_resetsm_cntrl = 0;
+	pout->pll_resetsm_cntrl = 48;
 	pout->pll_resetsm_cntrl2 = pin->bandgap_timer << 3;
 	pout->pll_resetsm_cntrl5 = pin->pll_wakeup_timer;
 	pout->pll_kvco_code = 0;
