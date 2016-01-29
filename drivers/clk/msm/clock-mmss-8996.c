@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,8 +68,10 @@ static void __iomem *virt_base_gpu;
 #define GFX_MIN_SVS_LEVEL	2
 #define GPU_REQ_ID		0x3
 
-#define EFUSE_SHIFT	29
-#define EFUSE_MASK	0x7
+#define EFUSE_SHIFT_v3	29
+#define EFUSE_MASK_v3	0x7
+#define EFUSE_SHIFT_PRO	28
+#define EFUSE_MASK_PRO	0x3
 
 static struct clk_ops clk_ops_gpu;
 
@@ -402,9 +404,9 @@ static struct mux_div_clk gfx3d_clk_src_v2 = {
 		.max_div = 1,
 	},
 	.parents = (struct clk_src[]) {
+		{&mmpll9_postdiv_clk.c, 2},
 		{&mmpll2_postdiv_clk.c, 3},
 		{&mmpll8_postdiv_clk.c, 4},
-		{&mmpll9_postdiv_clk.c, 2},
 	},
 	.num_parents = 3,
 	.c = {
@@ -3512,6 +3514,19 @@ static void msm_mmsscc_8996_v3_fixup(void)
 	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 520000000;
 }
 
+static void msm_mmsscc_8996_pro_fixup(void)
+{
+	mmpll9.c.rate = 0;
+	mmpll9.c.fmax[VDD_DIG_LOWER] = 652800000;
+	mmpll9.c.fmax[VDD_DIG_LOW] = 652800000;
+	mmpll9.c.fmax[VDD_DIG_NOMINAL] = 1305600000;
+	mmpll9.c.fmax[VDD_DIG_HIGH] = 1305600000;
+	mmpll9.c.ops = &clk_ops_alpha_pll;
+	mmpll9.min_supported_freq = 1248000000;
+
+	mmpll9_postdiv_clk.c.ops = &clk_ops_div;
+}
+
 static int is_v3_gpu;
 static int gpu_pre_set_rate(struct clk *clk, unsigned long new_rate)
 {
@@ -3610,6 +3625,10 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 }
 
 static struct platform_driver msm_clock_gpu_driver;
+struct resource *efuse_res;
+void __iomem *gpu_base;
+u64 efuse;
+int gpu_speed_bin;
 
 int msm_mmsscc_8996_probe(struct platform_device *pdev)
 {
@@ -3618,16 +3637,30 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 	struct clk *tmp;
 	struct regulator *reg;
 	u32 regval;
-	int is_v2, is_v3 = 0;
+	int is_pro, is_v2, is_v3 = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
 		dev_err(&pdev->dev, "Unable to retrieve register base.\n");
 		return -ENOMEM;
 	}
+
+	efuse_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
+	if (!efuse_res) {
+		dev_err(&pdev->dev, "Unable to retrieve efuse register base.\n");
+		return -ENOMEM;
+	}
+
 	virt_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!virt_base) {
 		dev_err(&pdev->dev, "Failed to map CC registers\n");
+		return -ENOMEM;
+	}
+
+	gpu_base = devm_ioremap(&pdev->dev, efuse_res->start,
+					resource_size(efuse_res));
+	if (!gpu_base) {
+		dev_err(&pdev->dev, "Unable to map in efuse base\n");
 		return -ENOMEM;
 	}
 
@@ -3706,6 +3739,9 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 	ext_extpclk_clk_src.dev = &pdev->dev;
 	ext_extpclk_clk_src.clk_id = "extpclk_src";
 
+	efuse = readl_relaxed(gpu_base);
+	gpu_speed_bin = ((efuse >> EFUSE_SHIFT_v3) & EFUSE_MASK_v3);
+
 	is_v2 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,mmsscc-8996-v2");
 	if (is_v2)
@@ -3716,14 +3752,22 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 	if (is_v3)
 		msm_mmsscc_8996_v3_fixup();
 
+	is_pro = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,mmsscc-8996-pro");
+	if (is_pro) {
+		gpu_speed_bin = ((efuse >> EFUSE_SHIFT_PRO) & EFUSE_MASK_PRO);
+		msm_mmsscc_8996_v3_fixup();
+		if (!gpu_speed_bin)
+			msm_mmsscc_8996_pro_fixup();
+	}
 
 	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mmss_8996,
 				   ARRAY_SIZE(msm_clocks_mmss_8996));
 	if (rc)
 		return rc;
 
-	/* Register v2/v3 specific clocks */
-	if (is_v2 || is_v3) {
+	/* Register v2/v3/pro specific clocks */
+	if (is_v2 || is_v3 || is_pro) {
 		rc = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_mmsscc_8996_v2,
 				ARRAY_SIZE(msm_clocks_mmsscc_8996_v2));
@@ -3739,6 +3783,7 @@ static struct of_device_id msm_clock_mmss_match_table[] = {
 	{ .compatible = "qcom,mmsscc-8996" },
 	{ .compatible = "qcom,mmsscc-8996-v2" },
 	{ .compatible = "qcom,mmsscc-8996-v3" },
+	{ .compatible = "qcom,mmsscc-8996-pro" },
 	{},
 };
 
@@ -3803,14 +3848,11 @@ static void msm_gpucc_8996_v2_fixup(void)
 
 int msm_gpucc_8996_probe(struct platform_device *pdev)
 {
-	struct resource *res, *efuse_res;
+	struct resource *res;
 	struct device_node *of_node = pdev->dev.of_node;
-	void __iomem *base;
 	int rc;
 	struct regulator *reg;
-	u64 efuse;
-	int speed_bin;
-	int is_v2_gpu, is_v3_0_gpu;
+	int is_v2_gpu, is_v3_0_gpu, is_pro_gpu;
 	char speedbin_str[] = "qcom,gfxfreq-speedbin0";
 	char mx_speedbin_str[] = "qcom,gfxfreq-mx-speedbin0";
 
@@ -3823,23 +3865,10 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	efuse_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
-	if (!efuse_res) {
-		dev_err(&pdev->dev, "Unable to retrieve efuse register base.\n");
-		return -ENOMEM;
-	}
-
 	gfx3d_clk_src_v2.base = virt_base_gpu =  devm_ioremap(&pdev->dev,
 					res->start, resource_size(res));
 	if (!virt_base_gpu) {
 		dev_err(&pdev->dev, "Failed to map CC registers\n");
-		return -ENOMEM;
-	}
-
-	base = devm_ioremap(&pdev->dev, efuse_res->start,
-					resource_size(efuse_res));
-	if (!base) {
-		dev_err(&pdev->dev, "Unable to map in efuse base\n");
 		return -ENOMEM;
 	}
 
@@ -3870,14 +3899,13 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 	is_v2_gpu = of_device_is_compatible(of_node, "qcom,gpucc-8996-v2");
 	is_v3_gpu = of_device_is_compatible(of_node, "qcom,gpucc-8996-v3");
 	is_v3_0_gpu = of_device_is_compatible(of_node, "qcom,gpucc-8996-v3.0");
+	is_pro_gpu = of_device_is_compatible(of_node, "qcom,gpucc-8996-pro");
 
-	efuse = readl_relaxed(base);
-	speed_bin = ((efuse >> EFUSE_SHIFT) & EFUSE_MASK);
-	dev_info(&pdev->dev, "using speed bin %u\n", speed_bin);
+	dev_info(&pdev->dev, "using speed bin %u\n", gpu_speed_bin);
 	snprintf(speedbin_str, ARRAY_SIZE(speedbin_str),
-				"qcom,gfxfreq-speedbin%d", speed_bin);
+				"qcom,gfxfreq-speedbin%d", gpu_speed_bin);
 	snprintf(mx_speedbin_str, ARRAY_SIZE(mx_speedbin_str),
-				"qcom,gfxfreq-mx-speedbin%d", speed_bin);
+				"qcom,gfxfreq-mx-speedbin%d", gpu_speed_bin);
 
 	rc = of_get_fmax_vdd_class(pdev, &gpu_mx_clk.c, mx_speedbin_str);
 	if (rc) {
@@ -3890,7 +3918,7 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (!is_v2_gpu && !is_v3_gpu && !is_v3_0_gpu) {
+	if (!is_v2_gpu && !is_v3_gpu && !is_v3_0_gpu && !is_pro_gpu) {
 		rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
 							speedbin_str);
 		if (rc) {
@@ -3942,6 +3970,7 @@ static struct of_device_id msm_clock_gpu_match_table[] = {
 	{ .compatible = "qcom,gpucc-8996-v2" },
 	{ .compatible = "qcom,gpucc-8996-v3" },
 	{ .compatible = "qcom,gpucc-8996-v3.0" },
+	{ .compatible = "qcom,gpucc-8996-pro" },
 	{},
 };
 

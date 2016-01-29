@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,32 +10,16 @@
  * GNU General Public License for more details.
  */
 
-&int_codec {
-	status = "okay";
-	qcom,model = "msm8953-snd-card-mtp";
-	qcom,msm-hs-micbias-type = "internal";
-};
+#ifndef __DT_MSM_PM_H__
+#define __DT_MSM_PM_H__
 
-&pmtitanium_diangu_dig {
-	status = "okay";
-};
+#define LPM_RESET_LVL_NONE	0
+#define LPM_RESET_LVL_RET	1
+#define LPM_RESET_LVL_GDHS	2
+#define LPM_RESET_LVL_PC	3
 
-&pmtitanium_diangu_analog {
-	status = "okay";
-};
+#define LPM_AFF_LVL_CPU		0
+#define LPM_AFF_LVL_L2		1
+#define LPM_AFF_LVL_CCI		2
 
-&wsa881x_i2c_e {
-	status = "okay";
-};
-
-&wsa881x_i2c_44 {
-	status = "okay";
-};
-
-&wsa881x_i2c_f {
-	status = "okay";
-};
-
-&wsa881x_i2c_45 {
-	status = "okay";
-};
+#endif

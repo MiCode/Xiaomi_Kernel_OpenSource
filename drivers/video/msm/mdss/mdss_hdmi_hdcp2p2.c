@@ -333,26 +333,6 @@ static int hdmi_hdcp2p2_reauthenticate(void *input)
 
 	return  hdmi_hdcp2p2_authenticate(input);
 }
-static ssize_t hdmi_hdcp2p2_sysfs_rda_sink_status(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	struct hdmi_hdcp2p2_ctrl *ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
-	ssize_t ret;
-
-	if (!ctrl) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	mutex_lock(&ctrl->mutex);
-	if (ctrl->sink_status == SINK_CONNECTED)
-		ret = scnprintf(buf, PAGE_SIZE, "Connected\n");
-	else
-		ret = scnprintf(buf, PAGE_SIZE, "Disconnected\n");
-	mutex_unlock(&ctrl->mutex);
-	return ret;
-}
 
 static ssize_t hdmi_hdcp2p2_sysfs_rda_tethered(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -399,48 +379,6 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_tethered(struct device *dev,
 exit:
 	mutex_unlock(&ctrl->mutex);
 
-	return count;
-}
-
-static ssize_t hdmi_hdcp2p2_sysfs_rda_trigger(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	ssize_t ret;
-	struct hdmi_hdcp2p2_ctrl *ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
-
-	if (!ctrl) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	mutex_lock(&ctrl->mutex);
-	if (ctrl->sink_status == SINK_CONNECTED)
-		ret = scnprintf(buf, PAGE_SIZE, "Triggered\n");
-	else
-		ret = scnprintf(buf, PAGE_SIZE, "Not triggered\n");
-	mutex_unlock(&ctrl->mutex);
-
-	return ret;
-}
-
-static ssize_t hdmi_hdcp2p2_sysfs_wta_trigger(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct hdmi_hdcp2p2_ctrl *ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
-
-	if (!ctrl) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	mutex_lock(&ctrl->mutex);
-	ctrl->sink_status = SINK_CONNECTED;
-	mutex_unlock(&ctrl->mutex);
-
-	pr_debug("HDCP 2.2 authentication triggered\n");
-	hdmi_hdcp2p2_authenticate(ctrl);
 	return count;
 }
 
@@ -600,41 +538,13 @@ static int hdmi_hdcp2p2_read_version(struct hdmi_hdcp2p2_ctrl *ctrl,
 	return rc;
 }
 
-static ssize_t hdmi_hdcp2p2_sysfs_rda_hdcp2_version(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	u8 hdcp2version;
-	ssize_t ret;
-	struct hdmi_hdcp2p2_ctrl *ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
-
-	if (!ctrl) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-	ret = hdmi_hdcp2p2_read_version(ctrl, &hdcp2version);
-	if (ret < 0)
-		return ret;
-	return snprintf(buf, PAGE_SIZE, "%u\n", hdcp2version);
-}
-
-
-static DEVICE_ATTR(trigger, S_IRUGO | S_IWUSR, hdmi_hdcp2p2_sysfs_rda_trigger,
-		hdmi_hdcp2p2_sysfs_wta_trigger);
 static DEVICE_ATTR(min_level_change, S_IWUSR, NULL,
 		hdmi_hdcp2p2_sysfs_wta_min_level_change);
-static DEVICE_ATTR(sink_status, S_IRUGO, hdmi_hdcp2p2_sysfs_rda_sink_status,
-		NULL);
-static DEVICE_ATTR(hdcp2_version, S_IRUGO, hdmi_hdcp2p2_sysfs_rda_hdcp2_version,
-		NULL);
 static DEVICE_ATTR(tethered, S_IRUGO | S_IWUSR, hdmi_hdcp2p2_sysfs_rda_tethered,
 		hdmi_hdcp2p2_sysfs_wta_tethered);
 
 static struct attribute *hdmi_hdcp2p2_fs_attrs[] = {
-	&dev_attr_trigger.attr,
 	&dev_attr_min_level_change.attr,
-	&dev_attr_sink_status.attr,
-	&dev_attr_hdcp2_version.attr,
 	&dev_attr_tethered.attr,
 	NULL,
 };

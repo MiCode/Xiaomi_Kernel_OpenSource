@@ -22,8 +22,9 @@
 	qcom,msm-hs-micbias-type = "internal";
 	qcom,msm-micbias1-ext-cap;
 
-	asoc-codec = <&stub_codec>, <&pmtitanium_diangu_dig>;
-	asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
+	asoc-codec = <&stub_codec>, <&pmtitanium_diangu_dig>, <&hdmi_dba>;
+	asoc-codec-names = "msm-stub-codec.1", "cajon_codec",
+						"msm-hdmi-dba-codec-rx";
 	asoc-wsa-codec-names = "wsa881x-i2c-codec.2-000f";
 	asoc-wsa-codec-prefixes = "SpkrMono";
 

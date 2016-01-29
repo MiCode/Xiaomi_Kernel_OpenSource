@@ -2281,6 +2281,17 @@ static int create_3x_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
+	case HAL_PARAM_VENC_LOW_LATENCY:
+	{
+		struct hfi_enable *hfi;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE;
+		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+		hfi->enable = ((struct hal_enable *) pdata)->enable;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
 	default:
 		rc = create_pkt_cmd_session_set_property(pkt,
 				session, ptype, pdata);

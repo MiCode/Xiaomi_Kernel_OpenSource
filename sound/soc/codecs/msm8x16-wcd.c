@@ -3442,6 +3442,16 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, w->reg, 0x60, 0x00);
 		} else if (strnstr(w->name, internal3_text, strlen(w->name))) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x2);
+		/*
+		 * update MSM8X16_WCD_A_ANALOG_TX_1_2_ATEST_CTL_2
+		 * for external bias only, not for external2.
+		*/
+		} else if (!strnstr(w->name, external2_text, strlen(w->name)) &&
+					strnstr(w->name, external_text,
+						strlen(w->name))) {
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_TX_1_2_ATEST_CTL_2,
+					0x02, 0x02);
 		}
 		if (!strnstr(w->name, external_text, strlen(w->name)))
 			snd_soc_update_bits(codec,

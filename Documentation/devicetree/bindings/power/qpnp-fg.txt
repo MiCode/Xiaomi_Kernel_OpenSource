@@ -168,6 +168,16 @@ Parent node optional properties:
 					coulomb count.
 - qcom,fg-therm-delay-us:		The time in microseconds to delay battery
 					thermistor biasing.
+- qcom,esr-pulse-tuning-en:		A boolean property to enable ESR pulse
+					tuning feature. If this is enabled,
+					ESR pulse extraction will be disabled
+					when state of charge (SOC) is less than
+					2%. It will be enabled back when SOC
+					gets above 2%. In addition, for SOC
+					between 2% and 5%, ESR pulse timing
+					settings will be different from default.
+					Once SOC crosses 5%, ESR pulse timings
+					will be restored back to default.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.

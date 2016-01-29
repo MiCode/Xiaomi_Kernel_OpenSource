@@ -746,8 +746,9 @@
 
 	clock_mmss: qcom,mmsscc@8c0000 {
 		compatible = "qcom,mmsscc-8996";
-		reg = <0x8c0000 0xb00c>;
-		reg-names = "cc_base";
+		reg = <0x8c0000 0xb00c>,
+			<0x74130 0x8>;
+		reg-names = "cc_base", "efuse";
 		vdd_dig-supply = <&pm8994_s1_corner>;
 		mmpll4_dig-supply = <&pm8994_s1_corner>;
 		mmpll4_analog-supply = <&pm8994_l12>;
@@ -771,9 +772,8 @@
 
 	clock_gpu: qcom,gpucc@8c0000 {
 		compatible = "qcom,gpucc-8996";
-		reg = <0x8c0000 0xb00c>,
-			<0x74130 0x8>;
-		reg-names = "cc_base", "efuse";
+		reg = <0x8c0000 0xb00c>;
+		reg-names = "cc_base";
 		vdd_gfx-supply = <&gfx_vreg>;
 		qcom,gfx3d_clk_src-opp-handle = <&msm_gpu>;
 		vdd_mx-supply = <&pm8994_s2_corner>;

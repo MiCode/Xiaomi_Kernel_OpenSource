@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -548,15 +548,11 @@
 
 #define A3XX_VBIF_XIN_HALT_CTRL0 0x3080
 #define A3XX_VBIF_XIN_HALT_CTRL0_MASK 0x3F
+#define A30X_VBIF_XIN_HALT_CTRL0_MASK 0x7
 
 #define A3XX_VBIF_XIN_HALT_CTRL1 0x3081
 
 /* VBIF register offsets for A306 */
-#define A3XX_VBIF2_XIN_HALT_CTRL0 0x3081
-#define A3XX_VBIF2_XIN_HALT_CTRL0_MASK 0x7
-
-#define A3XX_VBIF2_XIN_HALT_CTRL1 0x3082
-
 #define A3XX_VBIF2_PERF_CNT_EN0 0x30c0
 #define A3XX_VBIF2_PERF_CNT_EN1 0x30c1
 #define A3XX_VBIF2_PERF_CNT_EN2 0x30c2
