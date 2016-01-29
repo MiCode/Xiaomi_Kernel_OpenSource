@@ -86,6 +86,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996")
 #define early_machine_is_msm8929()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8929")
+#define early_machine_is_msmcobalt()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmcobalt")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -119,6 +121,7 @@
 #define early_machine_is_msm8996()	0
 #define early_machine_is_msm8976() 0
 #define early_machine_is_msm8929()	0
+#define early_machine_is_msmcobalt()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
