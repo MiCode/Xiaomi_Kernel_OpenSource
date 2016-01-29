@@ -105,7 +105,10 @@ struct cpr4_sdelta {
  * @mem_acc_volt:	The mem-acc-supply voltage in corners
  * @proc_freq:		Processor frequency in Hertz. For CPR rev. 3 and 4
  *			conrollers, this field is only used by platform specific
- *			CPR3 driver for interpolation.
+ *			CPR3 driver for interpolation. For CPRh-compliant
+ *			controllers, this frequency is also utilized by the
+ *			clock driver to determine the corner to CPU clock
+ *			frequency mappings.
  * @cpr_fuse_corner:	Fused corner index associated with this virtual corner
  *			(only used by platform specific CPR3 driver for
  *			mapping purposes)
@@ -125,6 +128,9 @@ struct cpr4_sdelta {
  *			E.g. a value of 900 would imply that the adjustment for
  *			this corner should be 90% (900/1000) of that for the
  *			reference corner.
+ * @use_open_loop:	Boolean indicating that open-loop (i.e CPR disabled) as
+ *			opposed to closed-loop operation must be used for this
+ *			corner on CPRh controllers.
  * @sdelta:		The CPR4 controller specific data for this corner. This
  *			field is applicable for CPR4 controllers.
  *
@@ -149,6 +155,22 @@ struct cpr3_corner {
 	u32			ro_mask;
 	u32			irq_en;
 	int			aging_derate;
+	bool			use_open_loop;
+	struct cpr4_sdelta	*sdelta;
+};
+
+/**
+ * struct cprh_corner_band - CPRh controller specific data structure which
+ *			encapsulates the range of corners and the SDELTA
+ *			adjustment table to be applied to the corners within
+ *			the min and max bounds of the corner band.
+ * @corner:		Corner number which defines the corner band boundary
+ * @sdelta:		The SDELTA adjustment table which contains core-count
+ *			and temp based margin adjustments that are applicable
+ *			to the corner band.
+ */
+struct cprh_corner_band {
+	int			corner;
 	struct cpr4_sdelta	*sdelta;
 };
 
@@ -174,6 +196,9 @@ struct cpr3_corner {
  *			manage LDO retention bypass state
  * @corner:		Array of all corners supported by this CPR3 regulator
  * @corner_count:	The number of elements in the corner array
+ * @corner_band:	Array of all corner bands supported by CPRh compatible
+ *			controllers
+ * @corner_band_count:	The number of elements in the corner band array
  * @platform_fuses:	Pointer to platform specific CPR fuse data (only used by
  *			platform specific CPR3 driver)
  * @speed_bin_fuse:	Value read from the speed bin fuse parameter
@@ -201,6 +226,17 @@ struct cpr3_corner {
  *			support is not required.
  * @speed_bin_offset:	The device tree property array offset for the selected
  *			speed bin
+ * @fuse_combo_corner_band_sum: The sum of the corner band counts across all
+ *			fuse combos
+ * @fuse_combo_corner_band_offset: The device tree property array offset for
+ *			the corner band count corresponding to the selected
+ *			fuse combo
+ * @speed_bin_corner_band_sum: The sum of the corner band counts across all
+ *			speed bins. This may be specified as 0 if per speed bin
+ *			parsing support is not required
+ * @speed_bin_corner_band_offset: The device tree property array offset for the
+ *			corner band count corresponding to the selected speed
+ *			bin
  * @pd_bypass_mask:	Bit mask of power domains associated with this CPR3
  *			regulator
  * @dynamic_floor_corner: Index identifying the voltage corner for the CPR3
@@ -270,6 +306,8 @@ struct cpr3_regulator {
 	struct regulator	*ldo_ret_regulator;
 	struct cpr3_corner	*corner;
 	int			corner_count;
+	struct cprh_corner_band *corner_band;
+	u32			corner_band_count;
 
 	void			*platform_fuses;
 	int			speed_bin_fuse;
@@ -283,6 +321,10 @@ struct cpr3_regulator {
 	int			fuse_combo_offset;
 	int			speed_bin_corner_sum;
 	int			speed_bin_offset;
+	int			fuse_combo_corner_band_sum;
+	int			fuse_combo_corner_band_offset;
+	int			speed_bin_corner_band_sum;
+	int			speed_bin_corner_band_offset;
 	u32			pd_bypass_mask;
 	int			dynamic_floor_corner;
 	bool			uses_dynamic_floor;
@@ -394,10 +436,12 @@ enum cpr3_count_mode {
  * enum cpr_controller_type - supported CPR controller hardware types
  * %CPR_CTRL_TYPE_CPR3:	HW has CPR3 controller
  * %CPR_CTRL_TYPE_CPR4:	HW has CPR4 controller
+ * %CPR_CTRL_TYPE_CPRH:	HW has CPRh controller
  */
 enum cpr_controller_type {
 	CPR_CTRL_TYPE_CPR3,
 	CPR_CTRL_TYPE_CPR4,
+	CPR_CTRL_TYPE_CPRH,
 };
 
 /**
@@ -427,6 +471,8 @@ struct cpr3_aging_sensor_info {
  * struct cpr3_controller - CPR3 controller data structure
  * @dev:		Device pointer for the CPR3 controller device
  * @name:		Unique name for the CPR3 controller
+ * @ctrl_id:		Controller ID corresponding to the VDD supply number
+ *			that this CPR3 controller manages.
  * @cpr_ctrl_base:	Virtual address of the CPR3 controller base register
  * @fuse_base:		Virtual address of fuse row 0
  * @list:		list head used in a global cpr3-regulator list so that
@@ -475,6 +521,11 @@ struct cpr3_aging_sensor_info {
  *			or equal to the APM threshold voltage
  * @apm_low_supply:	APM supply to configure if the VDD voltage is less than
  *			the APM threshold voltage
+ * @base_volt:		Minimum voltage in microvolts supported by the VDD
+ *			supply managed by this CPR controller
+ * @corner_switch_delay_time: The delay time in nanoseconds used by the CPR
+ *			controller to wait for voltage settling before
+ *			acknowledging the OSM block after corner changes
  * @cpr_clock_rate:	CPR reference clock frequency in Hz.
  * @sensor_time:	The time in nanoseconds that each sensor takes to
  *			perform a measurement.
@@ -597,6 +648,7 @@ struct cpr3_aging_sensor_info {
 struct cpr3_controller {
 	struct device		*dev;
 	const char		*name;
+	int			ctrl_id;
 	void __iomem		*cpr_ctrl_base;
 	void __iomem		*fuse_base;
 	struct list_head	list;
@@ -623,6 +675,8 @@ struct cpr3_controller {
 	int			apm_adj_volt;
 	enum msm_apm_supply	apm_high_supply;
 	enum msm_apm_supply	apm_low_supply;
+	int			base_volt;
+	u32			corner_switch_delay_time;
 	u32			cpr_clock_rate;
 	u32			sensor_time;
 	u32			loop_time;
@@ -710,6 +764,8 @@ int cpr3_parse_array_property(struct cpr3_regulator *vreg,
 			const char *prop_name, int tuple_size, u32 *out);
 int cpr3_parse_corner_array_property(struct cpr3_regulator *vreg,
 			const char *prop_name, int tuple_size, u32 *out);
+int cpr3_parse_corner_band_array_property(struct cpr3_regulator *vreg,
+			const char *prop_name, int tuple_size, u32 *out);
 int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg);
 int cpr3_parse_thread_u32(struct cpr3_thread *thread, const char *propname,
 			u32 *out_value, u32 value_min, u32 value_max);
@@ -729,6 +785,8 @@ int cpr3_voltage_adjustment(int ro_scale, int quot_adjust);
 int cpr3_parse_closed_loop_voltage_adjustments(struct cpr3_regulator *vreg,
 			u64 *ro_sel, int *volt_adjust,
 			int *volt_adjust_fuse, int *ro_scale);
+int cpr4_parse_core_count_temp_voltage_adj(struct cpr3_regulator *vreg,
+			bool use_corner_band);
 int cpr3_apm_init(struct cpr3_controller *ctrl);
 int cpr3_mem_acc_init(struct cpr3_regulator *vreg);
 
@@ -798,6 +856,13 @@ static inline int cpr3_parse_array_property(struct cpr3_regulator *vreg,
 
 static inline int cpr3_parse_corner_array_property(struct cpr3_regulator *vreg,
 			const char *prop_name, int tuple_size, u32 *out)
+{
+	return -EPERM;
+}
+
+static inline int cpr3_parse_corner_band_array_property(
+			struct cpr3_regulator *vreg, const char *prop_name,
+			int tuple_size, u32 *out)
 {
 	return -EPERM;
 }
@@ -876,6 +941,12 @@ static inline int cpr3_voltage_adjustment(int ro_scale, int quot_adjust)
 static inline int cpr3_parse_closed_loop_voltage_adjustments(
 			struct cpr3_regulator *vreg, u64 *ro_sel,
 			int *volt_adjust, int *volt_adjust_fuse, int *ro_scale)
+{
+	return 0;
+}
+
+static inline int cpr4_parse_core_count_temp_voltage_adj(
+			struct cpr3_regulator *vreg, bool use_corner_band)
 {
 	return 0;
 }

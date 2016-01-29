@@ -227,6 +227,50 @@
 #define CPR4_CPR_MASK_THREAD_DISABLE_THREAD		BIT(31)
 #define CPR4_CPR_MASK_THREAD_RO_MASK4THREAD_MASK	GENMASK(15, 0)
 
+/* CPRh controller specific registers and bit definitions */
+#define CPRH_REG_CORNER(corner)	(0x3A00 + 0x4 * (corner))
+#define CPRH_CORNER_INIT_VOLTAGE_MASK		GENMASK(7, 0)
+#define CPRH_CORNER_INIT_VOLTAGE_SHIFT		0
+#define CPRH_CORNER_FLOOR_VOLTAGE_MASK		GENMASK(15, 8)
+#define CPRH_CORNER_FLOOR_VOLTAGE_SHIFT		8
+#define CPRH_CORNER_QUOT_DELTA_MASK		GENMASK(24, 16)
+#define CPRH_CORNER_QUOT_DELTA_SHIFT		16
+#define CPRH_CORNER_RO_SEL_MASK			GENMASK(28, 25)
+#define CPRH_CORNER_RO_SEL_SHIFT		25
+#define CPRH_CORNER_CPR_CL_DISABLE	BIT(29)
+#define CPRH_CORNER_CORE_TEMP_MARGIN_DISABLE	BIT(30)
+#define CPRH_CORNER_LAST_KNOWN_VOLTAGE_ENABLE	BIT(31)
+#define CPRH_CORNER_INIT_VOLTAGE_MAX_VALUE	255
+#define CPRH_CORNER_FLOOR_VOLTAGE_MAX_VALUE	255
+#define CPRH_CORNER_QUOT_DELTA_MAX_VALUE	511
+
+#define CPRH_REG_CTL				0x3AA0
+#define CPRH_CTL_OSM_ENABLED			BIT(0)
+#define CPRH_CTL_BASE_VOLTAGE_MASK		GENMASK(10, 1)
+#define CPRH_CTL_BASE_VOLTAGE_SHIFT		1
+#define CPRH_CTL_INIT_MODE_MASK		GENMASK(16, 11)
+#define CPRH_CTL_INIT_MODE_SHIFT		11
+#define CPRH_CTL_MODE_SWITCH_DELAY_MASK		GENMASK(24, 17)
+#define CPRH_CTL_MODE_SWITCH_DELAY_SHIFT	17
+#define CPRH_CTL_VOLTAGE_MULTIPLIER_MASK	GENMASK(28, 25)
+#define CPRH_CTL_VOLTAGE_MULTIPLIER_SHIFT	25
+#define CPRH_CTL_LAST_KNOWN_VOLTAGE_MARGIN_MASK		GENMASK(31, 29)
+#define CPRH_CTL_LAST_KNOWN_VOLTAGE_MARGIN_SHIFT	29
+
+#define CPRH_REG_STATUS			0x3AA4
+#define CPRH_STATUS_CORNER			GENMASK(5, 0)
+#define CPRH_STATUS_CORNER_LAST_VOLT_MASK	GENMASK(17, 6)
+#define CPRH_STATUS_CORNER_LAST_VOLT_SHIFT	6
+
+#define CPRH_REG_CORNER_BAND	0x3AA8
+#define CPRH_CORNER_BAND_MASK		GENMASK(5, 0)
+#define CPRH_CORNER_BAND_SHIFT		6
+#define CPRH_CORNER_BAND_MAX_COUNT		4
+
+#define CPRH_MARGIN_TEMP_CORE_VBAND(core, vband) \
+	((vband) == 0 ? CPR4_REG_MARGIN_TEMP_CORE(core) \
+			: 0x3AB0 + 0x40 * ((vband) - 1) + 0x4 * (core))
+
 /*
  * The amount of time to wait for the CPR controller to become idle when
  * performing an aging measurement.
@@ -259,6 +303,18 @@
  * complete.
  */
 #define CPR3_REGISTER_WRITE_DELAY_US		200
+
+/*
+ * The number of times the CPRh controller multiplies the mode switch
+ * delay before utilizing it.
+ */
+#define CPRH_MODE_SWITCH_DELAY_FACTOR 4
+
+/*
+ * The number of times the CPRh controller multiplies the delta quotient
+ * steps before utilizing it.
+ */
+#define CPRH_DELTA_QUOT_STEP_FACTOR 4
 
 static DEFINE_MUTEX(cpr3_controller_list_mutex);
 static LIST_HEAD(cpr3_controller_list);
@@ -835,11 +891,10 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 static void cpr3_write_temp_core_margin(struct cpr3_controller *ctrl,
 				 int addr, int *temp_core_adj)
 {
-	struct cpr4_sdelta *sdelta = ctrl->aggr_corner.sdelta;
 	int i, margin_steps;
 	u32 reg = 0;
 
-	for (i = 0; i < sdelta->temp_band_count; i++) {
+	for (i = 0; i < ctrl->temp_band_count; i++) {
 		margin_steps = max(min(temp_core_adj[i], 127), -128);
 		reg |= (margin_steps & CPR4_MARGIN_TEMP_CORE_ADJ_MASK) <<
 			(i * CPR4_MARGIN_TEMP_CORE_ADJ_SHIFT);
@@ -968,6 +1023,326 @@ static int cpr3_controller_program_sdelta(struct cpr3_controller *ctrl)
 }
 
 /**
+ * cpr3_regulator_set_base_target_quot() - configure the target quotient
+ *		for each RO of the CPR3 regulator for CPRh operation.
+ *		In particular, the quotient of the RO selected for operation
+ *		should correspond to the lowest target quotient across the
+ *		corners supported by the single regulator of the CPR3 thread.
+ * @vreg:		Pointer to the CPR3 regulator
+ * @base_quots:		Pointer to the base quotient array. The array must be
+ *			of size CPR3_RO_COUNT and it is populated with the
+ *			base quotient per-RO.
+ *
+ * Return: none
+ */
+static void cpr3_regulator_set_base_target_quot(struct cpr3_regulator *vreg,
+						u32 *base_quots)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	int i, j, ro_mask = CPR3_RO_MASK;
+	u32 min_quot;
+
+	for (i = 0; i < vreg->corner_count; i++)
+		ro_mask &= vreg->corner[i].ro_mask;
+
+	/* Unmask the ROs selected for active use. */
+	cpr3_write(ctrl, CPR3_REG_RO_MASK(vreg->thread->thread_id),
+		   ro_mask);
+
+	for (i = 0; i < CPR3_RO_COUNT; i++) {
+		for (j = 0, min_quot = INT_MAX; j < vreg->corner_count; j++)
+			if (vreg->corner[j].target_quot[i])
+				min_quot = min(min_quot,
+				       vreg->corner[j].target_quot[i]);
+
+		if (min_quot == INT_MAX)
+			min_quot = 0;
+
+		cpr3_write(ctrl,
+			   CPR3_REG_TARGET_QUOT(vreg->thread->thread_id, i),
+			   min_quot);
+
+		base_quots[i] = min_quot;
+	}
+}
+
+/**
+ * cpr3_regulator_init_cprh_corners() - configure the per-corner CPRh registers
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * This function programs the controller registers which contain all information
+ * necessary to resolve the closed-loop voltage per-corner at runtime such as
+ * open-loop and floor voltages, target quotient delta, and RO select value.
+ * These registers also provide a means to disable closed-loop operation, core
+ * and temperature adjustments.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_regulator_init_cprh_corners(struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr3_corner *corner;
+	u32 reg, delta_quot_steps, ro_sel;
+	u32 *base_quots;
+	int open_loop_volt_steps, floor_volt_steps, i, j, rc = 0;
+
+	base_quots = kcalloc(CPR3_RO_COUNT, sizeof(*base_quots),
+			     GFP_KERNEL);
+	if (!base_quots)
+		return -ENOMEM;
+
+	cpr3_regulator_set_base_target_quot(vreg, base_quots);
+
+	for (i = 0; i < vreg->corner_count; i++) {
+		corner = &vreg->corner[i];
+		for (j = 0, ro_sel = INT_MAX; j < CPR3_RO_COUNT; j++) {
+			if (corner->target_quot[j]) {
+				ro_sel = j;
+				break;
+			}
+		}
+
+		if (ro_sel == INT_MAX) {
+			cpr3_err(vreg, "corner=%d has invalid RO select value\n",
+				i);
+			rc = -EINVAL;
+			goto free_base_quots;
+		}
+
+		open_loop_volt_steps = DIV_ROUND_UP(corner->open_loop_volt -
+						    ctrl->base_volt,
+						    ctrl->step_volt);
+		floor_volt_steps = DIV_ROUND_UP(corner->floor_volt -
+						ctrl->base_volt,
+						ctrl->step_volt);
+		delta_quot_steps = DIV_ROUND_UP(corner->target_quot[ro_sel] -
+						base_quots[ro_sel],
+						CPRH_DELTA_QUOT_STEP_FACTOR);
+
+		if (open_loop_volt_steps > CPRH_CORNER_INIT_VOLTAGE_MAX_VALUE ||
+		    floor_volt_steps > CPRH_CORNER_FLOOR_VOLTAGE_MAX_VALUE ||
+		    delta_quot_steps > CPRH_CORNER_QUOT_DELTA_MAX_VALUE) {
+			cpr3_err(ctrl, "invalid CPRh corner configuration: open_loop_volt_steps=%d (%d max.), floor_volt_steps=%d (%d max), delta_quot_steps=%d (%d max)\n",
+				 open_loop_volt_steps,
+				 CPRH_CORNER_INIT_VOLTAGE_MAX_VALUE,
+				 floor_volt_steps,
+				 CPRH_CORNER_FLOOR_VOLTAGE_MAX_VALUE,
+				 delta_quot_steps,
+				 CPRH_CORNER_QUOT_DELTA_MAX_VALUE);
+			rc = -EINVAL;
+			goto free_base_quots;
+		}
+
+		reg = (open_loop_volt_steps << CPRH_CORNER_INIT_VOLTAGE_SHIFT)
+			& CPRH_CORNER_INIT_VOLTAGE_MASK;
+		reg |= (floor_volt_steps << CPRH_CORNER_FLOOR_VOLTAGE_SHIFT)
+			& CPRH_CORNER_FLOOR_VOLTAGE_MASK;
+		reg |= (delta_quot_steps << CPRH_CORNER_QUOT_DELTA_SHIFT)
+			& CPRH_CORNER_QUOT_DELTA_MASK;
+		reg |= (ro_sel << CPRH_CORNER_RO_SEL_SHIFT)
+			& CPRH_CORNER_RO_SEL_MASK;
+
+		if (corner->use_open_loop)
+			reg |= CPRH_CORNER_CPR_CL_DISABLE;
+
+		cpr3_debug(ctrl, "corner=%d open_loop_volt_steps=%d, floor_volt_steps=%d, delta_quot_steps=%d, base_volt=%d, step_volt=%d, base_quot=%d\n",
+			   i, open_loop_volt_steps, floor_volt_steps,
+			   delta_quot_steps, ctrl->base_volt,
+			   ctrl->step_volt, base_quots[ro_sel]);
+		cpr3_write(ctrl, CPRH_REG_CORNER(i), reg);
+	}
+
+free_base_quots:
+	kfree(base_quots);
+	return rc;
+}
+
+/**
+ * cprh_controller_program_sdelta() - programs hardware SDELTA registers with
+ *		the margins that need to be applied at different online
+ *		core-count and temperature bands for each corner band. Also,
+ *		programs hardware register configuration for core-count and
+ *		temp-based adjustments
+ *
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * CPR interface/bus clocks must be enabled before calling this function.
+ *
+ * Return: none
+ */
+static void cprh_controller_program_sdelta(
+		struct cpr3_controller *ctrl)
+{
+	struct cpr3_regulator *vreg = &ctrl->thread[0].vreg[0];
+	struct cprh_corner_band *corner_band;
+	struct cpr4_sdelta *sdelta;
+	int i, j, index;
+	u32 reg = 0;
+
+	if (!vreg->allow_core_count_adj && !vreg->allow_temp_adj)
+		return;
+
+	cpr4_regulator_init_temp_points(ctrl);
+
+	for (i = 0; i < CPRH_CORNER_BAND_MAX_COUNT; i++) {
+		reg |= (i < vreg->corner_band_count ?
+			vreg->corner_band[i].corner
+			& CPRH_CORNER_BAND_MASK :
+			vreg->corner_count + 1)
+			<< (i * CPRH_CORNER_BAND_SHIFT);
+	}
+
+	cpr3_write(ctrl, CPRH_REG_CORNER_BAND, reg);
+
+	for (i = 0; i < vreg->corner_band_count; i++) {
+		corner_band = &vreg->corner_band[i];
+		sdelta = corner_band->sdelta;
+
+		if (vreg->allow_core_count_adj)
+			cpr3_write_temp_core_margin(ctrl,
+				    CPRH_MARGIN_TEMP_CORE_VBAND(0, i),
+				    &sdelta->table[0]);
+
+		for (j = 0; j < sdelta->max_core_count; j++) {
+			index = j * sdelta->temp_band_count;
+
+			cpr3_write_temp_core_margin(ctrl,
+				    CPRH_MARGIN_TEMP_CORE_VBAND(
+				    sdelta->allow_core_count_adj
+				    ? j + 1 : vreg->max_core_count, i),
+				    &sdelta->table[index]);
+		}
+	}
+
+	if (!vreg->allow_core_count_adj) {
+		cpr3_masked_write(ctrl, CPR4_REG_MISC,
+			CPR4_MISC_MARGIN_TABLE_ROW_SELECT_MASK,
+			vreg->max_core_count
+			<< CPR4_MISC_MARGIN_TABLE_ROW_SELECT_SHIFT);
+	}
+
+	cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+		CPR4_MARGIN_ADJ_CTL_MAX_NUM_CORES_MASK
+		| CPR4_MARGIN_ADJ_CTL_CORE_ADJ_EN
+		| CPR4_MARGIN_ADJ_CTL_TEMP_ADJ_EN
+		| CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_EN
+		| CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
+		vreg->max_core_count << CPR4_MARGIN_ADJ_CTL_MAX_NUM_CORES_SHIFT
+		| ((vreg->allow_core_count_adj)
+		   ? CPR4_MARGIN_ADJ_CTL_CORE_ADJ_EN : 0)
+		| (vreg->allow_temp_adj ? CPR4_MARGIN_ADJ_CTL_TEMP_ADJ_EN : 0)
+		| ((ctrl->use_hw_closed_loop)
+		? CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_EN : 0)
+		| (ctrl->use_hw_closed_loop
+		? CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE : 0));
+
+	/* Ensure that previous CPR register writes complete */
+	mb();
+}
+
+/**
+ * cpr3_regulator_init_cprh() - performs hardware initialization at the
+ *		controller and thread level required for CPRh operation.
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * CPR interface/bus clocks must be enabled before calling this function.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
+{
+	u32 reg, pmic_step_size = 1;
+	u64 temp;
+	int rc;
+
+	/* Single thread, single regulator supported */
+	if (ctrl->thread_count != 1) {
+		cpr3_err(ctrl, "expected 1 thread but found %d\n",
+			ctrl->thread_count);
+		return -EINVAL;
+	} else if (ctrl->thread[0].vreg_count != 1) {
+		cpr3_err(ctrl, "expected 1 regulator but found %d\n",
+			ctrl->thread[0].vreg_count);
+		return -EINVAL;
+	}
+
+	cprh_controller_program_sdelta(ctrl);
+
+	rc = cpr3_regulator_init_cprh_corners(&ctrl->thread[0].vreg[0]);
+	if (rc) {
+		cpr3_err(ctrl, "failed to initialize CPRh corner registers\n");
+		return rc;
+	}
+
+	if (ctrl->saw_use_unit_mV)
+		pmic_step_size = ctrl->step_volt / 1000;
+	cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+				CPR4_MARGIN_ADJ_CTL_PMIC_STEP_SIZE_MASK,
+				(pmic_step_size
+				<< CPR4_MARGIN_ADJ_CTL_PMIC_STEP_SIZE_SHIFT));
+
+	cpr3_masked_write(ctrl, CPR4_REG_SAW_ERROR_STEP_LIMIT,
+				CPR4_SAW_ERROR_STEP_LIMIT_DN_MASK,
+				(ctrl->down_error_step_limit
+				<< CPR4_SAW_ERROR_STEP_LIMIT_DN_SHIFT));
+
+	cpr3_masked_write(ctrl, CPR4_REG_SAW_ERROR_STEP_LIMIT,
+				CPR4_SAW_ERROR_STEP_LIMIT_UP_MASK,
+				(ctrl->up_error_step_limit
+				<< CPR4_SAW_ERROR_STEP_LIMIT_UP_SHIFT));
+
+	if (ctrl->voltage_settling_time) {
+		/*
+		 * Configure the settling timer used to account for
+		 * one VDD supply step.
+		 */
+		temp = (u64)ctrl->cpr_clock_rate
+				* (u64)ctrl->voltage_settling_time;
+		do_div(temp, 1000000000);
+		cpr3_masked_write(ctrl, CPR4_REG_MARGIN_TEMP_CORE_TIMERS,
+			CPR4_MARGIN_TEMP_CORE_TIMERS_SETTLE_VOLTAGE_COUNT_MASK,
+			temp
+		  << CPR4_MARGIN_TEMP_CORE_TIMERS_SETTLE_VOLTAGE_COUNT_SHIFT);
+	}
+
+	if (ctrl->corner_switch_delay_time) {
+		/*
+		 * Configure the settling timer used to delay
+		 * following SAW requests
+		 */
+		temp = (u64)ctrl->cpr_clock_rate
+			* (u64)ctrl->corner_switch_delay_time;
+		do_div(temp, 1000000000);
+		do_div(temp, CPRH_MODE_SWITCH_DELAY_FACTOR);
+		cpr3_masked_write(ctrl, CPRH_REG_CTL,
+				  CPRH_CTL_MODE_SWITCH_DELAY_MASK,
+				  temp << CPRH_CTL_MODE_SWITCH_DELAY_SHIFT);
+	}
+
+	/*
+	 * Program base voltage and voltage multiplier values which
+	 * are used for floor and initial voltage calculations by the
+	 * CPRh controller.
+	 */
+	reg = (DIV_ROUND_UP(ctrl->base_volt, ctrl->step_volt)
+	       << CPRH_CTL_BASE_VOLTAGE_SHIFT)
+		& CPRH_CTL_BASE_VOLTAGE_MASK;
+	reg |= (DIV_ROUND_UP(ctrl->step_volt, 1000)
+		<< CPRH_CTL_VOLTAGE_MULTIPLIER_SHIFT)
+		& CPRH_CTL_VOLTAGE_MULTIPLIER_MASK;
+	/* Enable OSM block interface with CPR */
+	reg |= CPRH_CTL_OSM_ENABLED;
+	cpr3_masked_write(ctrl, CPRH_REG_CTL, CPRH_CTL_BASE_VOLTAGE_MASK
+			  | CPRH_CTL_VOLTAGE_MULTIPLIER_MASK
+			  | CPRH_CTL_OSM_ENABLED, reg);
+
+	/* Enable loop_en */
+	cpr3_ctrl_loop_enable(ctrl);
+
+	return 0;
+}
+
+/**
  * cpr3_regulator_init_ctrl() - performs hardware initialization of CPR
  *		controller registers
  * @ctrl:		Pointer to the CPR3 controller
@@ -1078,7 +1453,8 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 	}
 
 	if (ctrl->supports_hw_closed_loop) {
-		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4 ||
+		    ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
 			cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
 				CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
 				ctrl->use_hw_closed_loop
@@ -1095,8 +1471,9 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 		}
 	}
 
-	if (ctrl->use_hw_closed_loop ||
-		ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+	if ((ctrl->use_hw_closed_loop ||
+	     ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) &&
+	    ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
 		rc = regulator_enable(ctrl->vdd_limit_regulator);
 		if (rc) {
 			cpr3_err(ctrl, "CPR limit regulator enable failed, rc=%d\n",
@@ -1118,19 +1495,34 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 				rc);
 			return rc;
 		}
+	} else if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
+		rc = cpr3_regulator_init_cprh(ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "CPRh-specific controller initialization failed, rc=%d\n",
+				 rc);
+			return rc;
+		}
 	}
 
 	/* Ensure that all register writes complete before disabling clocks. */
 	wmb();
 
-	cpr3_clock_disable(ctrl);
-	ctrl->cpr_enabled = false;
+	/* Keep CPR clocks on for CPRh full HW closed-loop operation */
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+		cpr3_clock_disable(ctrl);
+		ctrl->cpr_enabled = false;
+	}
 
 	if (!ctrl->cpr_allowed_sw || !ctrl->cpr_allowed_hw)
 		mode = "open-loop";
-	else if (ctrl->supports_hw_closed_loop)
+	else if (ctrl->supports_hw_closed_loop &&
+		 ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH)
 		mode = ctrl->use_hw_closed_loop
 			? "HW closed-loop" : "SW closed-loop";
+	else if (ctrl->supports_hw_closed_loop &&
+		 ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH)
+		mode = ctrl->use_hw_closed_loop
+			? "full HW closed-loop" : "open-loop";
 	else
 		mode = "closed-loop";
 
@@ -3668,6 +4060,55 @@ static struct regulator_ops cpr3_regulator_ops = {
 };
 
 /**
+ * cprh_regulator_get_voltage() - get the voltage corner for the CPR3 regulator
+ *			associated with the regulator device
+ * @rdev:		Regulator device pointer for the cpr3-regulator
+ *
+ * This function is passed as a callback function into the regulator ops that
+ * are registered for each cpr3-regulator device of a CPRh controller. The
+ * corner is read directly from CPRh hardware register.
+ *
+ * Return: voltage corner value offset by CPR3_CORNER_OFFSET
+ */
+static int cprh_regulator_get_voltage(struct regulator_dev *rdev)
+{
+	struct cpr3_regulator *vreg = rdev_get_drvdata(rdev);
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	bool cpr_enabled;
+	u32 reg, rc;
+
+	mutex_lock(&ctrl->lock);
+
+	cpr_enabled = ctrl->cpr_enabled;
+	if (!cpr_enabled) {
+		rc = cpr3_clock_enable(ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "clock enable failed, rc=%d\n", rc);
+			mutex_unlock(&ctrl->lock);
+			return CPR3_REGULATOR_CORNER_INVALID;
+		}
+		ctrl->cpr_enabled = true;
+	}
+
+	reg = cpr3_read(vreg->thread->ctrl, CPRH_REG_STATUS);
+
+	if (!cpr_enabled) {
+		cpr3_clock_disable(ctrl);
+		ctrl->cpr_enabled = false;
+	}
+
+	mutex_unlock(&ctrl->lock);
+
+	return (reg & CPRH_STATUS_CORNER)
+		+ CPR3_CORNER_OFFSET;
+}
+
+static struct regulator_ops cprh_regulator_ops = {
+	.get_voltage		= cprh_regulator_get_voltage,
+	.list_corner_voltage	= cpr3_regulator_list_corner_voltage,
+};
+
+/**
  * cpr3_print_result() - print CPR measurement results to the kernel log for
  *		debugging purposes
  * @thread:		Pointer to the CPR3 thread
@@ -4043,13 +4484,18 @@ static int cpr3_regulator_vreg_register(struct cpr3_regulator *vreg)
 	}
 
 	init_data->constraints.input_uV = init_data->constraints.max_uV;
-	init_data->constraints.valid_ops_mask
-			|= REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS;
-
 	rdesc			= &vreg->rdesc;
+	if (vreg->thread->ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH) {
+		/* CPRh regulators are treated as always-on regulators */
+		rdesc->ops = &cprh_regulator_ops;
+	} else {
+		init_data->constraints.valid_ops_mask
+			|= REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS;
+		rdesc->ops = &cpr3_regulator_ops;
+	}
+
 	rdesc->n_voltages	= vreg->corner_count;
 	rdesc->name		= init_data->constraints.name;
-	rdesc->ops		= &cpr3_regulator_ops;
 	rdesc->owner		= THIS_MODULE;
 	rdesc->type		= REGULATOR_VOLTAGE;
 
@@ -5192,11 +5638,13 @@ int cpr3_regulator_suspend(struct cpr3_controller *ctrl)
 
 	cpr3_ctrl_loop_disable(ctrl);
 
-	rc = cpr3_closed_loop_disable(ctrl);
-	if (rc)
-		cpr3_err(ctrl, "could not disable CPR, rc=%d\n", rc);
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+		rc = cpr3_closed_loop_disable(ctrl);
+		if (rc)
+			cpr3_err(ctrl, "could not disable CPR, rc=%d\n", rc);
 
-	ctrl->cpr_suspended = true;
+		ctrl->cpr_suspended = true;
+	}
 
 	mutex_unlock(&ctrl->lock);
 	return 0;
@@ -5215,11 +5663,14 @@ int cpr3_regulator_resume(struct cpr3_controller *ctrl)
 
 	mutex_lock(&ctrl->lock);
 
-	ctrl->cpr_suspended = false;
-
-	rc = cpr3_regulator_update_ctrl_state(ctrl);
-	if (rc)
-		cpr3_err(ctrl, "could not enable CPR, rc=%d\n", rc);
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+		ctrl->cpr_suspended = false;
+		rc = cpr3_regulator_update_ctrl_state(ctrl);
+		if (rc)
+			cpr3_err(ctrl, "could not enable CPR, rc=%d\n", rc);
+	} else {
+		cpr3_ctrl_loop_enable(ctrl);
+	}
 
 	mutex_unlock(&ctrl->lock);
 	return 0;
@@ -5238,7 +5689,7 @@ static int cpr3_regulator_validate_controller(struct cpr3_controller *ctrl)
 	struct cpr3_regulator *vreg;
 	int i, j, allow_boost_vreg_count = 0;
 
-	if (!ctrl->vdd_regulator) {
+	if (!ctrl->vdd_regulator && ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
 		cpr3_err(ctrl, "vdd regulator missing\n");
 		return -EINVAL;
 	} else if (ctrl->sensor_count <= 0
@@ -5324,13 +5775,16 @@ int cpr3_regulator_register(struct platform_device *pdev,
 	}
 	ctrl->cpr_ctrl_base = devm_ioremap(dev, res->start, resource_size(res));
 
-	ctrl->irq = platform_get_irq_byname(pdev, "cpr");
-	if (ctrl->irq < 0) {
-		cpr3_err(ctrl, "missing CPR interrupt\n");
-		return ctrl->irq;
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+		ctrl->irq = platform_get_irq_byname(pdev, "cpr");
+		if (ctrl->irq < 0) {
+			cpr3_err(ctrl, "missing CPR interrupt\n");
+			return ctrl->irq;
+		}
 	}
 
-	if (ctrl->supports_hw_closed_loop) {
+	if (ctrl->supports_hw_closed_loop && ctrl->ctrl_type !=
+	    CPR_CTRL_TYPE_CPRH) {
 		rc = msm_spm_probe_done();
 		if (rc) {
 			if (rc != -EPROBE_DEFER)
@@ -5345,11 +5799,13 @@ int cpr3_regulator_register(struct platform_device *pdev,
 		}
 	}
 
-	rc = cpr3_regulator_init_ctrl_data(ctrl);
-	if (rc) {
-		cpr3_err(ctrl, "CPR controller data initialization failed, rc=%d\n",
-			rc);
-		return rc;
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+		rc = cpr3_regulator_init_ctrl_data(ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "CPR controller data initialization failed, rc=%d\n",
+				 rc);
+			return rc;
+		}
 	}
 
 	for (i = 0; i < ctrl->thread_count; i++) {
@@ -5389,15 +5845,21 @@ int cpr3_regulator_register(struct platform_device *pdev,
 		}
 	}
 
-	rc = devm_request_threaded_irq(dev, ctrl->irq, NULL, cpr3_irq_handler,
-		IRQF_ONESHOT | IRQF_TRIGGER_RISING, "cpr3", ctrl);
-	if (rc) {
-		cpr3_err(ctrl, "could not request IRQ %d, rc=%d\n",
-			ctrl->irq, rc);
-		goto free_regulators;
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+		rc = devm_request_threaded_irq(dev, ctrl->irq, NULL,
+					       cpr3_irq_handler,
+					       IRQF_ONESHOT |
+					       IRQF_TRIGGER_RISING,
+					       "cpr3", ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "could not request IRQ %d, rc=%d\n",
+				 ctrl->irq, rc);
+			goto free_regulators;
+		}
 	}
 
-	if (ctrl->supports_hw_closed_loop) {
+	if (ctrl->supports_hw_closed_loop &&
+	    ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
 		rc = devm_request_threaded_irq(dev, ctrl->ceiling_irq, NULL,
 			cpr3_ceiling_irq_handler,
 			IRQF_ONESHOT | IRQF_TRIGGER_RISING,
