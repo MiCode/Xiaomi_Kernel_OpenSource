@@ -807,6 +807,11 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 
 	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
 
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		snd_soc_dapm_stream_event(rtd,
+		SNDRV_PCM_STREAM_PLAYBACK,
+		SND_SOC_DAPM_STREAM_START);
+
 	if (rtd->dai_link->ops->prepare) {
 		ret = rtd->dai_link->ops->prepare(substream);
 		if (ret < 0) {
@@ -861,8 +866,15 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 		cancel_delayed_work(&rtd->delayed_work);
 	}
 
-	snd_soc_dapm_stream_event(rtd, substream->stream,
-			SND_SOC_DAPM_STREAM_START);
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		for (i = 0; i < rtd->num_codecs; i++) {
+			codec_dai = rtd->codec_dais[i];
+			if (codec_dai->capture_active == 1)
+				snd_soc_dapm_stream_event(rtd,
+				SNDRV_PCM_STREAM_CAPTURE,
+				SND_SOC_DAPM_STREAM_START);
+		}
+	}
 
 	for (i = 0; i < rtd->num_codecs; i++)
 		snd_soc_dai_digital_mute(rtd->codec_dais[i], 0,
@@ -870,6 +882,13 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 	snd_soc_dai_digital_mute(cpu_dai, 0, substream->stream);
 
 out:
+	if (ret < 0 && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_err("%s: Issue stop stream for codec_dai due to op failure %d = ret\n",
+		__func__, ret);
+		snd_soc_dapm_stream_event(rtd,
+		SNDRV_PCM_STREAM_PLAYBACK,
+		SND_SOC_DAPM_STREAM_STOP);
+	}
 	mutex_unlock(&rtd->pcm_mutex);
 	return ret;
 }
