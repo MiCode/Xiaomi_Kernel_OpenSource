@@ -365,6 +365,16 @@ static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
 	return dwc3_msm_is_dev_superspeed(mdwc);
 }
 
+int dwc3_msm_dbm_disable_updxfer(struct dwc3 *dwc, u8 usb_ep)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	dev_dbg(mdwc->dev, "%s\n", __func__);
+	dwc3_dbm_disable_update_xfer(mdwc->dbm, usb_ep);
+
+	return 0;
+}
+
 #if IS_ENABLED(CONFIG_USB_DWC3_GADGET) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 /**
  * Configure the DBM with the BAM's data fifo.
@@ -1616,7 +1626,8 @@ static void dwc3_msm_vbus_draw_work(struct work_struct *w)
 	dwc3_msm_gadget_vbus_draw(mdwc, dwc->vbus_draw);
 }
 
-static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event,
+							unsigned value)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	u32 reg;
@@ -1707,6 +1718,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 	case DWC3_CONTROLLER_RESTART_USB_SESSION:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_RESTART_USB_SESSION received\n");
 		schedule_work(&mdwc->restart_usb_work);
+		break;
+	case DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER:
+		dwc3_msm_dbm_disable_updxfer(dwc, value);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
