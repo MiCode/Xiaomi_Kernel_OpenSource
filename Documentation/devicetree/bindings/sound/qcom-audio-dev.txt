@@ -323,6 +323,16 @@ Optional properties:
 
  - qcom,codec-mclk-clk-freq:                Codec mclk frequency in Hz.
 
+ - qcom,lpass-mclk-id			    AFE mclk id needed to enable the mclk to drive
+					    11.288MHz clok frequency which is needed to render
+					    the samples at 44.1KHz frequency, this mclk will
+					    run in parallel to the codec mclk
+					    this clock supply to the codec depends on the target
+					    following are the different possibilities to this node.
+					    "pri_mclk"
+					    "sec_mclk"
+					    "spk_i2s_mclk"
+
 * audio_slimslave
 
 Required properties:
