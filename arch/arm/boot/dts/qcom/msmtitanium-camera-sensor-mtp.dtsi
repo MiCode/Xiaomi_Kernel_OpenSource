@@ -239,10 +239,10 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK1",
 			"CAM_RESET1",
 			"CAM_STANDBY1";
-		qcom,sensor-position = <1>;
-		qcom,sensor-mode = <0>;
-		qcom,cci-master = <0>;
-		status = "disabled";
+		qcom,sensor-position = <0x100>;
+		qcom,sensor-mode = <1>;
+		qcom,cci-master = <1>;
+		status = "ok";
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 				<&clock_gcc clk_gcc_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
