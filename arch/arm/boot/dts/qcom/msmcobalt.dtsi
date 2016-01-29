@@ -1599,6 +1599,7 @@
 	status = "ok";
 };
 
+#include "msmcobalt-pm.dtsi"
 #include "msm-arm-smmu-cobalt.dtsi"
 #include "msmcobalt-ion.dtsi"
 #include "msm-pmcobalt-rpm-regulator.dtsi"
