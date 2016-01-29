@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,3 +160,15 @@ struct mdss_util_intf *mdss_get_util_intf()
 	return &mdss_util;
 }
 EXPORT_SYMBOL(mdss_get_util_intf);
+
+/* This routine should only be called from interrupt context */
+bool mdss_get_irq_enable_state(struct mdss_hw *hw)
+{
+	bool is_irq_enabled;
+
+	spin_lock(&mdss_lock);
+	is_irq_enabled = hw->irq_info->irq_ena;
+	spin_unlock(&mdss_lock);
+
+	return is_irq_enabled;
+}
