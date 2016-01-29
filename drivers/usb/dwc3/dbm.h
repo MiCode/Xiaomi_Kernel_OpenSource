@@ -65,6 +65,7 @@ int dbm_event_buffer_config(struct dbm *dbm, u32 addr_lo, u32 addr_hi,
 				int size);
 int dbm_data_fifo_config(struct dbm *dbm, u8 dep_num, unsigned long addr,
 				u32 size, u8 dst_pipe_idx);
+int dwc3_dbm_disable_update_xfer(struct dbm *dbm, u8 usb_ep);
 void dbm_set_speed(struct dbm *dbm, bool speed);
 void dbm_enable(struct dbm *dbm);
 int dbm_ep_soft_reset(struct dbm *dbm, u8 usb_ep, bool enter_reset);

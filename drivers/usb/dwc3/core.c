@@ -256,9 +256,9 @@ static int dwc3_core_reset(struct dwc3 *dwc)
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT);
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT, 0);
 
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT, 0);
 
 	return 0;
 }
@@ -366,7 +366,7 @@ static void dwc3_free_event_buffers(struct dwc3 *dwc)
 		dwc3_free_one_event_buffer(dwc, evt);
 
 	/* free GSI related event buffers */
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_FREE);
+	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_FREE, 0);
 }
 
 /**
@@ -389,7 +389,7 @@ static int dwc3_alloc_event_buffers(struct dwc3 *dwc, unsigned length)
 	dwc->ev_buf = evt;
 
 	/* alloc GSI related event buffers */
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_ALLOC);
+	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_ALLOC, 0);
 	return 0;
 }
 
@@ -420,7 +420,7 @@ int dwc3_event_buffers_setup(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), 0);
 
 	/* setup GSI related event buffers */
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP);
+	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP, 0);
 	return 0;
 }
 
@@ -442,7 +442,7 @@ static void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), 0);
 
 	/* cleanup GSI related event buffers */
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEANUP);
+	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEANUP, 0);
 }
 
 static int dwc3_alloc_scratch_buffers(struct dwc3 *dwc)
@@ -1026,19 +1026,20 @@ void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
 	dwc3_gadget_restart(dwc);
 }
 
-static void (*notify_event)(struct dwc3 *, unsigned int);
-void dwc3_set_notifier(void (*notify)(struct dwc3 *, unsigned int))
+static void (*notify_event)(struct dwc3 *, unsigned int, unsigned int);
+void dwc3_set_notifier(void (*notify)(struct dwc3 *, unsigned int,
+							unsigned int))
 {
 	notify_event = notify;
 }
 EXPORT_SYMBOL(dwc3_set_notifier);
 
-int dwc3_notify_event(struct dwc3 *dwc, unsigned int event)
+int dwc3_notify_event(struct dwc3 *dwc, unsigned int event, unsigned int value)
 {
 	int ret = 0;
 
 	if (dwc->notify_event)
-		dwc->notify_event(dwc, event);
+		dwc->notify_event(dwc, event, value);
 	else
 		ret = -ENODEV;
 
@@ -1459,7 +1460,7 @@ static int dwc3_runtime_suspend(struct device *dev)
 	int		ret;
 
 	/* Check if platform glue driver handling PM, if not then handle here */
-	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT))
+	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT, 0))
 		return 0;
 
 	ret = dwc3_suspend_common(dwc);
@@ -1477,7 +1478,7 @@ static int dwc3_runtime_resume(struct device *dev)
 	int		ret;
 
 	/* Check if platform glue driver handling PM, if not then handle here */
-	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT))
+	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT, 0))
 		return 0;
 
 	device_init_wakeup(dev, false);
@@ -1533,7 +1534,7 @@ static int dwc3_suspend(struct device *dev)
 	int		ret;
 
 	/* Check if platform glue driver handling PM, if not then handle here */
-	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_SUSPEND_EVENT))
+	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_SUSPEND_EVENT, 0))
 		return 0;
 
 	ret = dwc3_suspend_common(dwc);
@@ -1551,7 +1552,7 @@ static int dwc3_resume(struct device *dev)
 	int		ret;
 
 	/* Check if platform glue driver handling PM, if not then handle here */
-	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT))
+	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT, 0))
 		return 0;
 
 	pinctrl_pm_select_default_state(dev);
