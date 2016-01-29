@@ -58,9 +58,11 @@ static int mmc_prep_request(struct request_queue *q, struct request *req)
 static struct request *mmc_peek_request(struct mmc_queue *mq)
 {
 	struct request_queue *q = mq->queue;
+	mq->cmdq_req_peeked = NULL;
 
 	spin_lock_irq(q->queue_lock);
-	mq->cmdq_req_peeked = blk_peek_request(q);
+	if (!blk_queue_stopped(q))
+		mq->cmdq_req_peeked = blk_peek_request(q);
 	spin_unlock_irq(q->queue_lock);
 
 	return mq->cmdq_req_peeked;
