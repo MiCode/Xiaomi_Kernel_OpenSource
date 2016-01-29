@@ -31,7 +31,7 @@
 #define CYCLES_PER_MICRO_SEC_DEFAULT 4915
 #define CCI_MAX_DELAY 1000000
 
-#define CCI_TIMEOUT msecs_to_jiffies(100)
+#define CCI_TIMEOUT msecs_to_jiffies(500)
 
 /* TODO move this somewhere else */
 #define MSM_CCI_DRV_NAME "msm_cci"
@@ -570,7 +570,7 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 	uint32_t read_val = 0;
 	uint32_t reg_offset;
 	uint32_t val = 0;
-	uint32_t max_queue_size;
+	uint32_t max_queue_size, queue_size = 0;
 
 	if (i2c_cmd == NULL) {
 		pr_err("%s:%d Failed line\n", __func__,
@@ -618,6 +618,11 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 
 	max_queue_size = cci_dev->cci_i2c_queue_info[master][queue].
 			max_queue_size;
+
+	if (c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ)
+		queue_size = max_queue_size;
+	else
+		queue_size = max_queue_size/2;
 	reg_addr = i2c_cmd->reg_addr;
 
 	if (sync_en == MSM_SYNC_ENABLE && cci_dev->valid_sync &&
@@ -648,8 +653,8 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 			CCI_I2C_M0_Q0_CUR_WORD_CNT_ADDR + reg_offset);
 		CDBG("%s line %d CUR_WORD_CNT_ADDR %d len %d max %d\n",
 			__func__, __LINE__, read_val, len, max_queue_size);
-		/* + 1 - space alocation for Report CMD*/
-		if ((read_val + len + 1) > max_queue_size/2) {
+		/* + 1 - space alocation for Report CMD */
+		if ((read_val + len + 1) > queue_size) {
 			if ((read_val + len + 1) > max_queue_size) {
 				rc = msm_cci_process_full_q(cci_dev,
 					master, queue);
