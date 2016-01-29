@@ -20,6 +20,7 @@
 #include <linux/cpu.h>
 #include <linux/cpu_pm.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/signal.h>
@@ -90,11 +91,17 @@
 static DEFINE_PER_CPU(struct fpsimd_state *, fpsimd_last_state);
 static DEFINE_PER_CPU(int, fpsimd_stg_enable);
 
+static int fpsimd_settings = 0x1; /* default = 0x1 */
+module_param(fpsimd_settings, int, 0644);
+
 /*
  * Trapped FP/ASIMD access.
  */
 void do_fpsimd_acc(unsigned int esr, struct pt_regs *regs)
 {
+	if (!fpsimd_settings)
+		return;
+
 	fpsimd_disable_trap();
 	fpsimd_settings_disable();
 	this_cpu_write(fpsimd_stg_enable, 0);
@@ -102,6 +109,9 @@ void do_fpsimd_acc(unsigned int esr, struct pt_regs *regs)
 
 void do_fpsimd_acc_compat(unsigned int esr, struct pt_regs *regs)
 {
+	if (!fpsimd_settings)
+		return;
+
 	fpsimd_disable_trap();
 	fpsimd_settings_enable();
 	this_cpu_write(fpsimd_stg_enable, 1);
@@ -144,7 +154,7 @@ void fpsimd_thread_switch(struct task_struct *next)
 	if (current->mm && !test_thread_flag(TIF_FOREIGN_FPSTATE))
 		fpsimd_save_state(&current->thread.fpsimd_state);
 
-	if (__this_cpu_read(fpsimd_stg_enable)) {
+	if (fpsimd_settings && __this_cpu_read(fpsimd_stg_enable)) {
 		fpsimd_settings_disable();
 		this_cpu_write(fpsimd_stg_enable, 0);
 	}
@@ -166,6 +176,9 @@ void fpsimd_thread_switch(struct task_struct *next)
 		else
 			set_ti_thread_flag(task_thread_info(next),
 					   TIF_FOREIGN_FPSTATE);
+
+		if (!fpsimd_settings)
+			return;
 
 		if (test_ti_thread_flag(task_thread_info(next), TIF_32BIT))
 			fpsimd_enable_trap();
