@@ -144,7 +144,12 @@ struct snd_compr_audio_info {
 enum sndrv_compress_encoder {
 	SNDRV_COMPRESS_ENCODER_PADDING = 1,
 	SNDRV_COMPRESS_ENCODER_DELAY = 2,
+	SNDRV_COMPRESS_MIN_BLK_SIZE = 3,
+	SNDRV_COMPRESS_MAX_BLK_SIZE = 4,
 };
+
+#define SNDRV_COMPRESS_MIN_BLK_SIZE SNDRV_COMPRESS_MIN_BLK_SIZE
+#define SNDRV_COMPRESS_MAX_BLK_SIZE SNDRV_COMPRESS_MAX_BLK_SIZE
 
 /**
  * struct snd_compr_metadata - compressed stream metadata
