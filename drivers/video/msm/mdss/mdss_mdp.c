@@ -1675,10 +1675,6 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 #define SPRINT(fmt, ...) \
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	mdss_hw_rev_init(mdata);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-
 	SPRINT("mdp_version=5\n");
 	SPRINT("hw_rev=%d\n", mdata->mdp_rev);
 	SPRINT("pipe_count:%d\n", mdata->nvig_pipes + mdata->nrgb_pipes +
