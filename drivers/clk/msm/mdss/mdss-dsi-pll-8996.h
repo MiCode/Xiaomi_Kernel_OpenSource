@@ -131,7 +131,7 @@ struct dsi_pll_input {
 
 	u32 pll_lpf_res1;	/* 3, reg: 0x0504, bit 0 - 3 */
 	u32 pll_lpf_cap1;	/* 11, reg: 0x0500, bit 0 - 3 */
-	u32 pll_lpf_cap2;	/* 14, reg: 0x0500, bit 4 - 7 */
+	u32 pll_lpf_cap2;	/* 1, reg: 0x0500, bit 4 - 7 */
 	u32 pll_c3ctrl;		/* 2, reg: 0x04c4 */
 	u32 pll_r3ctrl;		/* 1, reg: 0x04c4 */
 };
