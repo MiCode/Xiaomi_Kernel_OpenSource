@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,8 +118,8 @@
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
 				qcom,gpu-freq = <450000000>;
-				qcom,bus-freq = <8>;
-				qcom,bus-min = <8>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <9>;
 				qcom,bus-max = <9>;
 			};
 
