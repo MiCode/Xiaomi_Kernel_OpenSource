@@ -1763,3 +1763,4 @@
 #include "msmcobalt-coresight.dtsi"
 #include "msmcobalt-bus.dtsi"
 #include "msmcobalt-gpu.dtsi"
+#include "msmcobalt-mdss.dtsi"
