@@ -2224,3 +2224,4 @@
 #include "msmcobalt-pinctrl.dtsi"
 #include "msm-audio-lpass.dtsi"
 #include "msmcobalt-audio.dtsi"
+#include "msmcobalt-mdss.dtsi"
