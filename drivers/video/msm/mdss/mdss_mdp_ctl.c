@@ -2390,17 +2390,26 @@ int mdss_mdp_block_mixer_destroy(struct mdss_mdp_mixer *mixer)
 	return 0;
 }
 
-int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
-		int frame_cnt)
+int mdss_mdp_ctl_cmd_set_autorefresh(struct mdss_mdp_ctl *ctl, int frame_cnt)
 {
 	int ret = 0;
+
 	if (ctl->panel_data->panel_info.type == MIPI_CMD_PANEL) {
 		ret = mdss_mdp_cmd_set_autorefresh_mode(ctl, frame_cnt);
 	} else {
 		pr_err("Mode not supported for this panel\n");
 		ret = -EINVAL;
 	}
+
 	return ret;
+}
+
+int mdss_mdp_ctl_cmd_get_autorefresh(struct mdss_mdp_ctl *ctl)
+{
+	if (ctl->panel_data->panel_info.type == MIPI_CMD_PANEL)
+		return mdss_mdp_cmd_get_autorefresh_mode(ctl);
+	else
+		return 0;
 }
 
 int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl, bool handoff)
