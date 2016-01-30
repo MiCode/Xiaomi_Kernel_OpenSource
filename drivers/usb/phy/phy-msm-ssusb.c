@@ -93,7 +93,7 @@ static int msm_ssusb_ldo_enable(struct msm_ssphy *phy, int on)
 		goto disable_regulators;
 
 
-	rc = regulator_set_optimum_mode(phy->vdda18, USB_SSPHY_1P8_HPM_LOAD);
+	rc = regulator_set_load(phy->vdda18, USB_SSPHY_1P8_HPM_LOAD);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of vdda18\n");
 		return rc;
@@ -125,7 +125,7 @@ unset_vdda18:
 		dev_err(phy->phy.dev, "unable to set voltage for vdda18\n");
 
 put_vdda18_lpm:
-	rc = regulator_set_optimum_mode(phy->vdda18, 0);
+	rc = regulator_set_load(phy->vdda18, 0);
 	if (rc < 0)
 		dev_err(phy->phy.dev, "Unable to set LPM of vdda18\n");
 

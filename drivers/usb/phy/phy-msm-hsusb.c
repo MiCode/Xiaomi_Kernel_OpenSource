@@ -171,7 +171,7 @@ static int msm_hsusb_ldo_enable(struct msm_hsphy *phy, int on)
 		goto disable_regulators;
 
 
-	rc = regulator_set_optimum_mode(phy->vdda18, USB_HSPHY_1P8_HPM_LOAD);
+	rc = regulator_set_load(phy->vdda18, USB_HSPHY_1P8_HPM_LOAD);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of vdda18\n");
 		return rc;
@@ -190,7 +190,7 @@ static int msm_hsusb_ldo_enable(struct msm_hsphy *phy, int on)
 		goto unset_vdda18;
 	}
 
-	rc = regulator_set_optimum_mode(phy->vdda33, USB_HSPHY_3P3_HPM_LOAD);
+	rc = regulator_set_load(phy->vdda33, USB_HSPHY_3P3_HPM_LOAD);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of vdda33\n");
 		goto disable_vdda18;
@@ -222,7 +222,7 @@ unset_vdda33:
 		dev_err(phy->phy.dev, "unable to set voltage for vdda33\n");
 
 put_vdda33_lpm:
-	rc = regulator_set_optimum_mode(phy->vdda33, 0);
+	rc = regulator_set_load(phy->vdda33, 0);
 	if (rc < 0)
 		dev_err(phy->phy.dev, "Unable to set LPM of vdda33\n");
 
@@ -237,7 +237,7 @@ unset_vdda18:
 		dev_err(phy->phy.dev, "unable to set voltage for vdda18\n");
 
 put_vdda18_lpm:
-	rc = regulator_set_optimum_mode(phy->vdda18, 0);
+	rc = regulator_set_load(phy->vdda18, 0);
 	if (rc < 0)
 		dev_err(phy->phy.dev, "Unable to set LPM of vdda18\n");
 

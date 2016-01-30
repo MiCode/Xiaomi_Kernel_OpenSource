@@ -215,7 +215,7 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on,
 		}
 	}
 
-	ret = regulator_set_optimum_mode(qphy->vdda18, QUSB2PHY_1P8_HPM_LOAD);
+	ret = regulator_set_load(qphy->vdda18, QUSB2PHY_1P8_HPM_LOAD);
 	if (ret < 0) {
 		dev_err(qphy->phy.dev, "Unable to set HPM of vdda18:%d\n", ret);
 		goto disable_vdd;
@@ -235,7 +235,7 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on,
 		goto unset_vdda18;
 	}
 
-	ret = regulator_set_optimum_mode(qphy->vdda33, QUSB2PHY_3P3_HPM_LOAD);
+	ret = regulator_set_load(qphy->vdda33, QUSB2PHY_3P3_HPM_LOAD);
 	if (ret < 0) {
 		dev_err(qphy->phy.dev, "Unable to set HPM of vdda33:%d\n", ret);
 		goto disable_vdda18;
@@ -273,7 +273,7 @@ unset_vdd33:
 			"Unable to set (0) voltage for vdda33:%d\n", ret);
 
 put_vdda33_lpm:
-	ret = regulator_set_optimum_mode(qphy->vdda33, 0);
+	ret = regulator_set_load(qphy->vdda33, 0);
 	if (ret < 0)
 		dev_err(qphy->phy.dev, "Unable to set (0) HPM of vdda33\n");
 
@@ -289,7 +289,7 @@ unset_vdda18:
 			"Unable to set (0) voltage for vdda18:%d\n", ret);
 
 put_vdda18_lpm:
-	ret = regulator_set_optimum_mode(qphy->vdda18, 0);
+	ret = regulator_set_load(qphy->vdda18, 0);
 	if (ret < 0)
 		dev_err(qphy->phy.dev, "Unable to set LPM of vdda18\n");
 
