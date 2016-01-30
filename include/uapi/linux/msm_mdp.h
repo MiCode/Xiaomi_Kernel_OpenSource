@@ -309,7 +309,7 @@ struct mdp_csc {
  * to include
  */
 
-#define MDP_BLIT_REQ_VERSION 2
+#define MDP_BLIT_REQ_VERSION 3
 
 struct color {
 	uint32_t r;
@@ -329,6 +329,7 @@ struct mdp_blit_req {
 	uint32_t flags;
 	int sharpening_strength;  /* -127 <--> 127, default 64 */
 	uint8_t color_space;
+	uint32_t fps;
 };
 
 struct mdp_blit_req_list {
