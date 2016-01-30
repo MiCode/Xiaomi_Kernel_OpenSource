@@ -41,6 +41,10 @@
 /delete-node/ &mdss_dsi1;
 
 &mdss_mdp {
+	qcom,max-bandwidth-low-kbps = <1800000>;
+	qcom,max-bandwidth-high-kbps = <1800000>;
+	qcom,max-bandwidth-per-pipe-kbps = <1000000>;
+
 	qcom,mdss-intf-off = <0x00000000 0x0006B800>;
 	qcom,mdss-pingpong-off = <0x00071000>;
 	qcom,mdss-mixer-intf-off = <0x00045000>;
@@ -52,6 +56,7 @@
 					<0x0>;
 
 	/delete-property/ qcom,mdss-highest-bank-bit;
+	/delete-property/ qcom,vbif-settings;
 
 	qcom,regs-dump-mdp = <0x01000 0x01454>,
 			     <0x02000 0x02064>,
