@@ -90,7 +90,7 @@
 
 		secure_mem: secure_region@0 {
 			linux,reserve-contiguous-region;
-			reg = <0x0 0x0 0x0 0x7A00000>;
+			reg = <0x0 0x0 0x0 0x8100000>;
 			label = "secure_mem";
 		};
 
