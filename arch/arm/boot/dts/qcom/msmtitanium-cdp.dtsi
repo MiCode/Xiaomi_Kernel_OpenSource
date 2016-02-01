@@ -166,7 +166,7 @@
 };
 
 &mdss_dsi {
-	hw-config = "single_dsi";
+	hw-config = "dual_dsi";
 };
 
 &mdss_dsi0 {
@@ -181,7 +181,6 @@
 };
 
 &mdss_dsi1 {
-	status = "disabled";
 	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
