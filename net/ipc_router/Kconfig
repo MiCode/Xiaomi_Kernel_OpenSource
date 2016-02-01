@@ -1,0 +1,25 @@
+#
+# IPC_ROUTER Configuration
+#
+
+menuconfig IPC_ROUTER
+	bool "IPC Router support"
+	help
+	  IPC Router provides a connectionless message routing service
+	  between multiple modules within a System-on-Chip(SoC). The
+	  communicating entities can run either in the same processor or
+	  in a different processor within the SoC. The IPC Router has been
+	  designed to route messages of any types and support a broader
+	  network of processors.
+
+	  If in doubt, say N.
+
+config IPC_ROUTER_SECURITY
+	depends on IPC_ROUTER
+	bool "IPC Router Security support"
+	help
+	  This feature of IPC Router will enforce security rules
+	  configured by a security script from the user-space. IPC Router
+	  once configured with the security rules will ensure that the
+	  sender of the message to a service belongs to the relevant
+	  Linux group as configured by the security script.
