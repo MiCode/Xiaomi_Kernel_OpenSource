@@ -26,6 +26,7 @@
 #include <linux/debugfs.h>
 #include <linux/ipa_usb.h>
 #include <linux/ipc_logging.h>
+#include <linux/timer.h>
 
 #include "u_ether.h"
 
@@ -275,6 +276,10 @@ struct f_gsi {
 	struct gsi_data_port d_port;
 	struct gsi_ctrl_port c_port;
 	bool rmnet_dtr_status;
+	/* To test remote wakeup using debugfs */
+	struct timer_list debugfs_rw_timer;
+	u8 debugfs_rw_enable;
+	u16 debugfs_rw_interval;
 };
 
 static inline struct f_gsi *func_to_gsi(struct usb_function *f)
