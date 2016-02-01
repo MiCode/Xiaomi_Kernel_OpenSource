@@ -613,6 +613,8 @@
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
 		compatible = "qcom,gcc-8937";
 		reg = <0x1800000 0x80000>,
 			<0xb016000 0x00040>,
