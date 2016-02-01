@@ -817,10 +817,13 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 	}
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		if (codec_dai->capture_active == 1)
-			snd_soc_dapm_stream_event(rtd,
-			SNDRV_PCM_STREAM_CAPTURE,
-			SND_SOC_DAPM_STREAM_START);
+		for (i = 0; i < rtd->num_codecs; i++) {
+			codec_dai = rtd->codec_dais[i];
+			if (codec_dai->capture_active == 1)
+				snd_soc_dapm_stream_event(rtd,
+				SNDRV_PCM_STREAM_CAPTURE,
+				SND_SOC_DAPM_STREAM_START);
+		}
 	}
 
 	for (i = 0; i < rtd->num_codecs; i++)
