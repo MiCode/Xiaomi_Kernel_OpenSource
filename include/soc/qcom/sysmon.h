@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,8 +72,6 @@ extern int sysmon_send_shutdown(struct subsys_desc *dest_desc);
 extern int sysmon_send_shutdown_no_qmi(struct subsys_desc *dest_desc);
 extern int sysmon_notifier_register(struct subsys_desc *desc);
 extern void sysmon_notifier_unregister(struct subsys_desc *desc);
-extern int sysmon_glink_register(struct subsys_desc *desc);
-extern void sysmon_glink_unregister(struct subsys_desc *desc);
 #else
 static inline int sysmon_send_event(struct subsys_desc *dest_desc,
 					struct subsys_desc *event_desc,
@@ -112,6 +110,12 @@ static inline int sysmon_notifier_register(struct subsys_desc *desc)
 static inline void sysmon_notifier_unregister(struct subsys_desc *desc)
 {
 }
+#endif
+
+#if defined(CONFIG_MSM_SYSMON_GLINK_COMM)
+extern int sysmon_glink_register(struct subsys_desc *desc);
+extern void sysmon_glink_unregister(struct subsys_desc *desc);
+#else
 static inline int sysmon_glink_register(struct subsys_desc *desc)
 {
 	return 0;
@@ -120,5 +124,4 @@ static inline void sysmon_glink_unregister(struct subsys_desc *desc)
 {
 }
 #endif
-
 #endif
