@@ -282,3 +282,12 @@ config MSM_MPM_OF
         interrupts when going to a system wide sleep mode. This config option
         enables the MPM driver that supports initialization from a device
         tree
+
+
+config MSM_EVENT_TIMER
+      bool "Event timer"
+      help
+        This option enables a modules that manages a list of event timers that
+        need to be monitored by the PM. The enables the PM code to monitor
+        events that require the core to be awake and ready to handle the
+        event.
