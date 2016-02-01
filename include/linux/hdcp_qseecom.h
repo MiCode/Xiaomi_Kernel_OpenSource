@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2016, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@ enum hdmi_hdcp_wakeup_cmd {
 	HDMI_HDCP_WKUP_CMD_RECV_MESSAGE,
 	HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS,
 	HDMI_HDCP_WKUP_CMD_STATUS_FAILED,
+	HDMI_HDCP_WKUP_CMD_LINK_POLL,
 	HDMI_HDCP_WKUP_CMD_AUTHENTICATE
 };
 
@@ -62,6 +63,8 @@ static inline char *hdmi_hdcp_cmd_to_str(uint32_t cmd)
 		return "HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS";
 	case HDMI_HDCP_WKUP_CMD_STATUS_FAILED:
 		return "HDMI_HDCP_WKUP_CMD_STATUS_FAIL";
+	case HDMI_HDCP_WKUP_CMD_LINK_POLL:
+		return "HDMI_HDCP_WKUP_CMD_LINK_POLL";
 	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
 		return "HDMI_HDCP_WKUP_CMD_AUTHENTICATE";
 	default:

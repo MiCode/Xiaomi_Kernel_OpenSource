@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -504,7 +504,6 @@ int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
 			  u32 type, u32 to_in_num_lines);
 void hdmi_scrambler_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
 void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
-int hdmi_hdcp2p2_ddc_check_status(struct hdmi_tx_ddc_ctrl *ctrl);
 int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl);
 int hdmi_utils_get_timeout_in_hysnc(struct msm_hdmi_mode_timing_info *timing,
 	u32 timeout_ms);
