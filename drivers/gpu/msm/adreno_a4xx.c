@@ -1798,6 +1798,90 @@ static struct adreno_snapshot_data a4xx_snapshot_data = {
 	.sect_sizes = &a4xx_snap_sizes,
 };
 
+#define ADRENO_RB_PREEMPT_TOKEN_DWORDS		125
+
+static int a4xx_submit_preempt_token(struct adreno_ringbuffer *rb,
+					struct adreno_ringbuffer *incoming_rb)
+{
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int *ringcmds, *start;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int ptname;
+	struct kgsl_pagetable *pt;
+	int pt_switch_sizedwords = 0, total_sizedwords = 20;
+	unsigned link[ADRENO_RB_PREEMPT_TOKEN_DWORDS];
+	uint i;
+
+	if (incoming_rb->preempted_midway) {
+
+		kgsl_sharedmem_readl(&incoming_rb->pagetable_desc,
+			&ptname, offsetof(
+			struct adreno_ringbuffer_pagetable_info,
+			current_rb_ptname));
+		pt = kgsl_mmu_get_pt_from_ptname(&(device->mmu),
+			ptname);
+		/*
+		 * always expect a valid pt, else pt refcounting is
+		 * messed up or current pt tracking has a bug which
+		 * could lead to eventual disaster
+		 */
+		BUG_ON(!pt);
+		/* set the ringbuffer for incoming RB */
+		pt_switch_sizedwords =
+			adreno_iommu_set_pt_generate_cmds(incoming_rb,
+							&link[0], pt);
+		total_sizedwords += pt_switch_sizedwords;
+	}
+
+	/*
+	 *  Allocate total_sizedwords space in RB, this is the max space
+	 *  required.
+	 */
+	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
+
+	if (IS_ERR(ringcmds))
+		return PTR_ERR(ringcmds);
+
+	start = ringcmds;
+
+	*ringcmds++ = cp_packet(adreno_dev, CP_SET_PROTECTED_MODE, 1);
+	*ringcmds++ = 0;
+
+	if (incoming_rb->preempted_midway) {
+		for (i = 0; i < pt_switch_sizedwords; i++)
+			*ringcmds++ = link[i];
+	}
+
+	*ringcmds++ = cp_register(adreno_dev, adreno_getreg(adreno_dev,
+			ADRENO_REG_CP_PREEMPT_DISABLE), 1);
+	*ringcmds++ = 0;
+
+	*ringcmds++ = cp_packet(adreno_dev, CP_SET_PROTECTED_MODE, 1);
+	*ringcmds++ = 1;
+
+	ringcmds += gpudev->preemption_token(adreno_dev, rb, ringcmds,
+				device->memstore.gpuaddr +
+				KGSL_MEMSTORE_RB_OFFSET(rb, preempted));
+
+	if ((uint)(ringcmds - start) > total_sizedwords) {
+		KGSL_DRV_ERR(device, "Insufficient rb size allocated\n");
+		BUG();
+	}
+
+	/*
+	 * If we have commands less than the space reserved in RB
+	 *  adjust the wptr accordingly
+	 */
+	rb->wptr = rb->wptr - (total_sizedwords - (uint)(ringcmds - start));
+
+	/* submit just the preempt token */
+	mb();
+	kgsl_pwrscale_busy(device);
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR, rb->wptr);
+	return 0;
+}
+
 /**
  * a4xx_preempt_trig_state() - Schedule preemption in TRIGGERRED
  * state
@@ -1886,7 +1970,7 @@ static void a4xx_preempt_trig_state(
 	/* Submit preempt token to make preemption happen */
 	if (adreno_drawctxt_switch(adreno_dev, adreno_dev->cur_rb, NULL, 0))
 		BUG();
-	if (adreno_ringbuffer_submit_preempt_token(adreno_dev->cur_rb,
+	if (a4xx_submit_preempt_token(adreno_dev->cur_rb,
 						adreno_dev->next_rb))
 		BUG();
 	dispatcher->preempt_token_submit = 1;
@@ -1997,7 +2081,7 @@ static void a4xx_preempt_clear_state(
 			adreno_dev->next_rb, adreno_dev->next_rb->timestamp);
 	/* submit preempt token packet to ensure preemption */
 	if (switch_low_to_high < 0) {
-		ret = adreno_ringbuffer_submit_preempt_token(
+		ret = a4xx_submit_preempt_token(
 			adreno_dev->cur_rb, adreno_dev->next_rb);
 		/*
 		 * unexpected since we are submitting this when rptr = wptr,

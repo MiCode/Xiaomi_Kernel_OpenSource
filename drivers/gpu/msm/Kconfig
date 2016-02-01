@@ -40,3 +40,7 @@ config MSM_ADRENO_DEFAULT_GOVERNOR
 	default "msm-adreno-tz" if DEVFREQ_GOV_MSM_ADRENO_TZ
 	default "simple_ondemand"
 	depends on MSM_KGSL
+
+config MSM_KGSL_IOMMU
+	bool
+	default y if MSM_KGSL && (MSM_IOMMU || ARM_SMMU)

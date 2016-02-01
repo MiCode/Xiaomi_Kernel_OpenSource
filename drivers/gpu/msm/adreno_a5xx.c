@@ -146,7 +146,7 @@ static void a5xx_preemption_start(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = device->mmu.priv;
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	uint64_t ttbr0;
 	uint32_t contextidr;
 	struct kgsl_pagetable *pt;
@@ -196,17 +196,33 @@ static void a5xx_preemption_save(struct adreno_device *adreno_dev,
 		PREEMPT_RECORD(rptr));
 }
 
+#ifdef CONFIG_MSM_KGSL_IOMMU
+static int a5xx_preemption_iommu_init(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+
+	/* Allocate mem for storing preemption smmu record */
+	return kgsl_allocate_global(device, &iommu->smmu_info, PAGE_SIZE,
+		KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED);
+}
+#else
+static int a5xx_preemption_iommu_init(struct adreno_device *adreno_dev)
+{
+	return -ENODEV;
+}
+#endif
+
 static int a5xx_preemption_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = device->mmu.priv;
 	struct adreno_ringbuffer *rb;
 	int ret;
 	unsigned int i;
 	uint64_t addr;
 
 	/* We are dependent on IOMMU to make preemption go on the CP side */
-	if (kgsl_mmu_get_mmutype() != KGSL_MMU_TYPE_IOMMU)
+	if (kgsl_mmu_get_mmutype(device) != KGSL_MMU_TYPE_IOMMU)
 		return -ENODEV;
 
 	/* Allocate mem for storing preemption counters */
@@ -248,9 +264,7 @@ static int a5xx_preemption_init(struct adreno_device *adreno_dev)
 		addr += A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE;
 	}
 
-	/* Allocate mem for storing preemption smmu record */
-	return kgsl_allocate_global(device, &iommu->smmu_info, PAGE_SIZE,
-		KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED);
+	return a5xx_preemption_iommu_init(adreno_dev);
 }
 
 /*
@@ -1843,7 +1857,7 @@ out:
 static void a5xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = device->mmu.priv;
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int i;
 	struct adreno_ringbuffer *rb;
