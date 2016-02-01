@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -679,7 +679,10 @@ static int msm_isp_update_put_buf_cnt_unsafe(
 			bufq->stream_id, buf_info->state);
 			return -EFAULT;
 		}
-		BUG_ON(buf_info->pingpong_bit != pingpong_bit);
+		if (buf_info->pingpong_bit != pingpong_bit) {
+			pr_err("%s: Pingpong bit mismatch\n", __func__);
+			return -EFAULT;
+		}
 	}
 
 	if (bufq->buf_type != ISP_SHARE_BUF ||
