@@ -224,7 +224,7 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 	int nbits;
 	unsigned int align;
 
-	if (!(gfp & __GFP_WAIT))
+	if (!gfpflags_allow_blocking(gfp))
 		return NULL;
 
 	size = PAGE_ALIGN(size);
