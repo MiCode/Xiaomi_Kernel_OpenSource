@@ -483,7 +483,7 @@ static void a5xx_protect_init(struct adreno_device *adreno_dev)
 	adreno_set_protected_registers(adreno_dev, &index, 0xE70, 4);
 
 	/* UCHE registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xE87, 4);
+	adreno_set_protected_registers(adreno_dev, &index, 0xE80, ilog2(16));
 
 	/* SMMU registers */
 	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
