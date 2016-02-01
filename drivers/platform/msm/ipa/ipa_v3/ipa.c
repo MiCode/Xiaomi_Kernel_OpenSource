@@ -3548,8 +3548,7 @@ static int ipa3_gsi_pre_fw_load_init(void)
 {
 	int result;
 
-	/* Enable GSI */
-	ipa_write_reg(ipa3_ctx->mmio, IPA_ENABLE_GSI_OFST, 1);
+	/* GSI already enabled by TZ */
 
 	result = gsi_configure_regs(ipa3_res.transport_mem_base,
 		ipa3_res.transport_mem_size,
