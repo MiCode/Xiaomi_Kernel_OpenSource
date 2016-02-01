@@ -114,6 +114,20 @@ config PCI_PASID
 
 	  If unsure, say N.
 
+config PCI_MSM
+	bool "MSM PCIe Controller driver"
+	depends on ARCH_QCOM && PCI
+	select PCI_DOMAINS
+	select PCI_DOMAINS_GENERIC
+	select PCI_MSI
+	help
+	  Enables the PCIe functionality by configuring PCIe core on
+	  MSM chipset and by enabling the ARM PCI framework extension.
+	  The PCIe core is essential for communication between the host
+	  and an endpoint.
+
+	  If unsure, say N.
+
 config PCI_LABEL
 	def_bool y if (DMI || ACPI)
 	select NLS

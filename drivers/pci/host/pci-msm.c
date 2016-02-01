@@ -3004,7 +3004,7 @@ int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 		}
 
 		if (info->opt_mode) {
-			rc = regulator_set_optimum_mode(vreg, info->opt_mode);
+			rc = regulator_set_load(vreg, info->opt_mode);
 			if (rc < 0) {
 				PCIE_ERR(dev,
 					"PCIe: RC%d can't set mode for %s: %d\n",
@@ -3741,7 +3741,6 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 			}
 		}
 	}
-
 
 	dev->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 	if (!dev->bus_scale_table) {
@@ -4991,7 +4990,7 @@ void arch_teardown_msi_irqs(struct pci_dev *dev)
 
 	pcie_dev->use_msi = false;
 
-	list_for_each_entry(entry, &dev->msi_list, list) {
+	list_for_each_entry(entry, &dev->dev.msi_list, list) {
 		int i, nvec;
 		if (entry->irq == 0)
 			continue;
@@ -5177,7 +5176,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
 
 	PCIE_DBG(pcie_dev, "nvec = %d\n", nvec);
 
-	list_for_each_entry(entry, &dev->msi_list, list) {
+	list_for_each_entry(entry, &dev->dev.msi_list, list) {
 		entry->msi_attrib.multiple =
 				msm_pcie_get_msi_multiple(nvec);
 
@@ -5204,7 +5203,6 @@ static int msm_pcie_msi_map(struct irq_domain *domain, unsigned int irq,
 {
 	irq_set_chip_and_handler (irq, &pcie_msi_chip, handle_simple_irq);
 	irq_set_chip_data(irq, domain->host_data);
-	set_irq_flags(irq, IRQF_VALID);
 	return 0;
 }
 
