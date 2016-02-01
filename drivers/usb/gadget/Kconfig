@@ -211,6 +211,9 @@ config USB_F_AUDIO_SRC
 config USB_F_ACC
 	tristate
 
+config USB_F_DIAG
+	tristate
+
 choice
 	tristate "USB Gadget Drivers"
 	default USB_ETH
@@ -500,6 +503,14 @@ config USB_CONFIGFS_F_PRINTER
 
 	  For more information, see Documentation/usb/gadget_printer.txt
 	  which includes sample code for accessing the device file.
+
+config USB_CONFIGFS_F_DIAG
+	bool "USB Diag function"
+	select USB_F_DIAG
+	depends on USB_CONFIGFS
+	help
+	  Diag function driver enables support for Qualcomm diagnostics
+	  port over USB.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 

@@ -30,6 +30,20 @@
 #include <linux/kmemleak.h>
 #include <linux/qcom/diag_dload.h>
 
+#define MAX_INST_NAME_LEN	40
+
+/* for configfs support */
+struct diag_opts {
+	struct usb_function_instance func_inst;
+	char *name;
+};
+
+static inline struct diag_opts *to_diag_opts(struct config_item *item)
+{
+	return container_of(to_config_group(item), struct diag_opts,
+			    func_inst.group);
+}
+
 static DEFINE_SPINLOCK(ch_lock);
 static LIST_HEAD(usb_diag_ch_list);
 
@@ -438,9 +452,7 @@ fail:
 
 }
 EXPORT_SYMBOL(usb_diag_alloc_req);
-#define DWC3_MAX_REQUEST_SIZE (1024 * 1024)
-#define CI_MAX_REQUEST_SIZE   (16 * 1024)
-/**
+#define DWC3_MAX_REQUEST_SIZE (16 * 1024 * 1024)
 /**
  * usb_diag_request_size - Max request size for controller
  * @ch: Channel handler
@@ -450,13 +462,7 @@ EXPORT_SYMBOL(usb_diag_alloc_req);
  */
 int usb_diag_request_size(struct usb_diag_ch *ch)
 {
-	struct diag_context *ctxt = ch->priv_usb;
-	struct usb_composite_dev *cdev = ctxt->cdev;
-
-	if (gadget_is_dwc3(cdev->gadget))
-		return DWC3_MAX_REQUEST_SIZE;
-	else
-		return CI_MAX_REQUEST_SIZE;
+	return DWC3_MAX_REQUEST_SIZE;
 }
 EXPORT_SYMBOL(usb_diag_request_size);
 
@@ -739,6 +745,8 @@ static int diag_function_bind(struct usb_configuration *c,
 	struct usb_ep *ep;
 	int status = -ENODEV;
 
+	ctxt->cdev = c->cdev;
+
 	intf_desc.bInterfaceNumber =  usb_interface_id(c, f);
 
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_bulk_in_desc);
@@ -804,13 +812,13 @@ fail:
 
 }
 
-int diag_function_add(struct usb_configuration *c, const char *name)
+static struct diag_context *diag_context_init(const char *name)
 {
 	struct diag_context *dev;
 	struct usb_diag_ch *_ch;
-	int found = 0, ret;
+	int found = 0;
 
-	DBG(c->cdev, "diag_function_add\n");
+	pr_debug("%s\n", __func__);
 
 	list_for_each_entry(_ch, &usb_diag_ch_list, list) {
 		if (!strcmp(name, _ch->name)) {
@@ -819,13 +827,13 @@ int diag_function_add(struct usb_configuration *c, const char *name)
 		}
 	}
 	if (!found) {
-		ERROR(c->cdev, "unable to get diag usb channel\n");
-		return -ENODEV;
+		pr_err("%s: unable to get diag usb channel\n", __func__);
+		return ERR_PTR(-ENODEV);
 	}
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	list_add_tail(&dev->list_item, &diag_dev_list);
 
@@ -837,7 +845,6 @@ int diag_function_add(struct usb_configuration *c, const char *name)
 	 */
 	dev->ch = _ch;
 
-	dev->cdev = c->cdev;
 	dev->function.name = _ch->name;
 	dev->function.fs_descriptors = fs_diag_desc;
 	dev->function.hs_descriptors = hs_diag_desc;
@@ -850,14 +857,7 @@ int diag_function_add(struct usb_configuration *c, const char *name)
 	INIT_LIST_HEAD(&dev->read_pool);
 	INIT_LIST_HEAD(&dev->write_pool);
 
-	ret = usb_add_function(c, &dev->function);
-	if (ret) {
-		INFO(c->cdev, "usb_add_function failed\n");
-		list_del(&dev->list_item);
-		kfree(dev);
-	}
-
-	return ret;
+	return dev;
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -953,7 +953,111 @@ static inline void fdiag_debugfs_init(void) {}
 static inline void fdiag_debugfs_remove(void) {}
 #endif
 
-static void diag_cleanup(void)
+static void diag_opts_release(struct config_item *item)
+{
+	struct diag_opts *opts = to_diag_opts(item);
+
+	usb_put_function_instance(&opts->func_inst);
+}
+
+static struct configfs_item_operations diag_item_ops = {
+	.release	= diag_opts_release,
+};
+
+static struct config_item_type diag_func_type = {
+	.ct_item_ops	= &diag_item_ops,
+	.ct_owner	= THIS_MODULE,
+};
+
+static int diag_set_inst_name(struct usb_function_instance *fi,
+	const char *name)
+{
+	struct diag_opts *opts = container_of(fi, struct diag_opts, func_inst);
+	char *ptr;
+	int name_len;
+
+	name_len = strlen(name) + 1;
+	if (name_len > MAX_INST_NAME_LEN)
+		return -ENAMETOOLONG;
+
+	ptr = kstrndup(name, name_len, GFP_KERNEL);
+	if (!ptr)
+		return -ENOMEM;
+
+	opts->name = ptr;
+
+	return 0;
+}
+
+static void diag_free_inst(struct usb_function_instance *f)
+{
+	struct diag_opts *opts;
+
+	opts = container_of(f, struct diag_opts, func_inst);
+	kfree(opts->name);
+	kfree(opts);
+}
+
+static struct usb_function_instance *diag_alloc_inst(void)
+{
+	struct diag_opts *opts;
+
+	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
+	if (!opts)
+		return ERR_PTR(-ENOMEM);
+
+	opts->func_inst.set_inst_name = diag_set_inst_name;
+	opts->func_inst.free_func_inst = diag_free_inst;
+	config_group_init_type_name(&opts->func_inst.group, "",
+				    &diag_func_type);
+
+	return &opts->func_inst;
+}
+
+static struct usb_function *diag_alloc(struct usb_function_instance *fi)
+{
+	struct diag_opts *opts;
+	struct diag_context *dev;
+
+	opts = container_of(fi, struct diag_opts, func_inst);
+
+	dev = diag_context_init(opts->name);
+	if (IS_ERR(dev))
+		return ERR_CAST(dev);
+
+	return &dev->function;
+}
+
+DECLARE_USB_FUNCTION(diag, diag_alloc_inst, diag_alloc);
+
+static int __init diag_init(void)
+{
+	struct device_node *np;
+	int ret;
+
+	INIT_LIST_HEAD(&diag_dev_list);
+
+	fdiag_debugfs_init();
+
+	ret = usb_function_register(&diagusb_func);
+	if (ret) {
+		pr_err("%s: failed to register diag %d\n", __func__, ret);
+		return ret;
+	}
+
+	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-diag-dload");
+	if (!np)
+		np = of_find_compatible_node(NULL, NULL, "qcom,android-usb");
+
+	if (!np)
+		pr_warn("diag: failed to find diag_dload imem node\n");
+
+	diag_dload  = np ? of_iomap(np, 0) : NULL;
+
+	return ret;
+}
+
+static void __exit diag_exit(void)
 {
 	struct list_head *act, *tmp;
 	struct usb_diag_ch *_ch;
@@ -961,6 +1065,8 @@ static void diag_cleanup(void)
 
 	if (diag_dload)
 		iounmap(diag_dload);
+
+	usb_function_unregister(&diagusb_func);
 
 	fdiag_debugfs_remove();
 
@@ -975,25 +1081,8 @@ static void diag_cleanup(void)
 		}
 		spin_unlock_irqrestore(&ch_lock, flags);
 	}
+
 }
 
-static int diag_setup(void)
-{
-	struct device_node *np;
-
-	INIT_LIST_HEAD(&diag_dev_list);
-
-	fdiag_debugfs_init();
-
-	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-diag-dload");
-	if (!np)
-		np = of_find_compatible_node(NULL, NULL, "qcom,android-usb");
-
-	if (!np) {
-		pr_warn("diag: failed to find diag_dload imem node\n");
-		return 0;
-	}
-	diag_dload = of_iomap(np, 0);
-
-	return 0;
-}
+module_init(diag_init);
+module_exit(diag_exit);
