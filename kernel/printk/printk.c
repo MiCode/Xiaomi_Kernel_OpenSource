@@ -2065,6 +2065,14 @@ void resume_console(void)
 	console_unlock();
 }
 
+static void __cpuinit console_flush(struct work_struct *work)
+{
+	console_lock();
+	console_unlock();
+}
+
+static __cpuinitdata DECLARE_WORK(console_cpu_notify_work, console_flush);
+
 /**
  * console_cpu_notify - print deferred console messages after CPU hotplug
  * @self: notifier struct
@@ -2083,16 +2091,21 @@ static int console_cpu_notify(struct notifier_block *self,
 	unsigned long action, void *hcpu)
 {
 	switch (action) {
-	case CPU_ONLINE:
 	case CPU_DEAD:
 	case CPU_DOWN_FAILED:
 	case CPU_UP_CANCELED:
-	case CPU_DYING:
 #ifdef CONFIG_CONSOLE_FLUSH_ON_HOTPLUG
 		console_lock();
 		console_unlock();
 #endif
 		break;
+	/* invoked with preemption disabled, so defer */
+	case CPU_ONLINE:
+	case CPU_DYING:
+		if (!console_trylock())
+			schedule_work(&console_cpu_notify_work);
+		else
+			console_unlock();
 	}
 	return NOTIFY_OK;
 }
