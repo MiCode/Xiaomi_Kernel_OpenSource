@@ -583,7 +583,7 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		 /* No context - set the default pagetable and thats it. */
 		new_pt = device->mmu.defaultpagetable;
 	}
-	ret = adreno_iommu_set_pt_ctx(rb, new_pt, drawctxt);
+	ret = adreno_ringbuffer_set_pt_ctx(rb, new_pt, drawctxt);
 	if (ret) {
 		KGSL_DRV_ERR(device,
 			"Failed to set pagetable on rb %d\n", rb->id);

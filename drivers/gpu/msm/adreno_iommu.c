@@ -14,7 +14,6 @@
 #include "kgsl_sharedmem.h"
 #include "a3xx_reg.h"
 #include "adreno_pm4types.h"
-#include "kgsl_mmu.h"
 
 #define A5XX_PFP_PER_PROCESS_UCODE_VER 0x5FF064
 #define A5XX_PM4_PER_PROCESS_UCODE_VER 0x5FF052
@@ -59,14 +58,12 @@ static unsigned int _wait_reg(struct adreno_device *adreno_dev,
 #define KGSL_MMU(_dev) \
 	((struct kgsl_mmu *) (&(KGSL_DEVICE((_dev))->mmu)))
 
-#define KGSL_IOMMU(_dev) \
-	((struct kgsl_iommu *) ((KGSL_DEVICE((_dev))->mmu.priv)))
-
 static unsigned int  _iommu_lock(struct adreno_device *adreno_dev,
 				 unsigned int *cmds)
 {
 	unsigned int *start = cmds;
-	struct kgsl_iommu *iommu = KGSL_IOMMU(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 
 	/*
 	 * If we don't have this register, probe should have forced
@@ -102,7 +99,8 @@ static unsigned int  _iommu_lock(struct adreno_device *adreno_dev,
 static unsigned int _iommu_unlock(struct adreno_device *adreno_dev,
 				  unsigned int *cmds)
 {
-	struct kgsl_iommu *iommu = KGSL_IOMMU(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	unsigned int *start = cmds;
 
 	BUG_ON(iommu->micro_mmu_ctrl == UINT_MAX);
@@ -172,9 +170,10 @@ static unsigned int _cp_smmu_reg(struct adreno_device *adreno_dev,
 				enum kgsl_iommu_reg_map reg,
 				unsigned int num)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	unsigned int *start = cmds;
 	unsigned int offset;
-	struct kgsl_iommu *iommu = KGSL_IOMMU(adreno_dev);
 
 	offset = kgsl_mmu_get_reg_ahbaddr(KGSL_MMU(adreno_dev),
 					  KGSL_IOMMU_CONTEXT_USER, reg) >> 2;
@@ -300,7 +299,7 @@ static bool _ctx_switch_use_cpu_path(
  *
  * Returns the number of commands generated
  */
-unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
+static unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
 				unsigned int *cmds, int set)
 {
 	unsigned int *cmds_orig = cmds;
@@ -593,10 +592,10 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 {
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	u64 ttbr0;
 	u32 contextidr;
 	unsigned int *cmds_orig = cmds;
-	struct kgsl_iommu *iommu = KGSL_IOMMU(adreno_dev);
 
 	ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pt);
 	contextidr = kgsl_mmu_pagetable_get_contextidr(pt);
@@ -627,46 +626,6 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	cmds += cp_invalidate_state(adreno_dev, cmds);
 
 	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 0);
-
-	return cmds - cmds_orig;
-}
-
-/**
- * adreno_iommu_set_pt_ib() - Generate commands to switch pagetable. The
- * commands generated use an IB
- * @rb: The RB in which the commands will be executed
- * @cmds: Memory pointer where commands are generated
- * @pt: The pagetable to switch to
- */
-unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
-				unsigned int *cmds,
-				struct kgsl_pagetable *pt)
-{
-	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-	unsigned int *cmds_orig = cmds;
-	struct kgsl_iommu_pt *iommu_pt = pt->priv;
-
-	/* Write the ttbr0 and contextidr values to pagetable desc memory */
-	*cmds++ =  cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-			(rb->pagetable_desc.gpuaddr +
-			offsetof(struct adreno_ringbuffer_pagetable_info,
-			ttbr0)));
-	*cmds++ = lower_32_bits(iommu_pt->ttbr0);
-
-	*cmds++ =  cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-			(rb->pagetable_desc.gpuaddr +
-			offsetof(struct adreno_ringbuffer_pagetable_info,
-			contextidr)));
-	*cmds++ = iommu_pt->contextidr;
-
-	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
-	*cmds++ = 0;
-	cmds += cp_wait_for_me(adreno_dev, cmds);
-	*cmds++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, rb->pt_update_desc.gpuaddr);
-	*cmds++ = rb->pt_update_desc.size / sizeof(unsigned int);
 
 	return cmds - cmds_orig;
 }
@@ -874,13 +833,10 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 int adreno_iommu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = KGSL_IOMMU(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 
-	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
+	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE)
 		return 0;
-
-	if (iommu == NULL)
-		return -ENODEV;
 
 	/*
 	 * A nop is required in an indirect buffer when switching
@@ -915,7 +871,7 @@ int adreno_iommu_init(struct adreno_device *adreno_dev)
 }
 
 /**
- * adreno_mmu_set_pt_ctx() - Change the pagetable of the current RB
+ * adreno_iommu_set_pt_ctx() - Change the pagetable of the current RB
  * @device: Pointer to device to which the rb belongs
  * @rb: The RB pointer on which pagetable is to be changed
  * @new_pt: The new pt the device will change to
@@ -962,25 +918,4 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 		KGSL_DRV_ERR(device, "Error switching context %d\n", result);
 
 	return result;
-}
-/**
- * adreno_iommu_set_pt_generate_rb_cmds() - Generate commands to switch pt
- * in a ringbuffer descriptor
- * @rb: The RB whose descriptor is used
- * @pt: The pt to switch to
- */
-void adreno_iommu_set_pt_generate_rb_cmds(struct adreno_ringbuffer *rb,
-						struct kgsl_pagetable *pt)
-{
-	if (rb->pt_update_desc.hostptr)
-		return;
-
-	rb->pt_update_desc.hostptr = rb->pagetable_desc.hostptr +
-			sizeof(struct adreno_ringbuffer_pagetable_info);
-	rb->pt_update_desc.size =
-		adreno_iommu_set_pt_generate_cmds(rb,
-				rb->pt_update_desc.hostptr, pt) *
-				sizeof(unsigned int);
-	rb->pt_update_desc.gpuaddr = rb->pagetable_desc.gpuaddr +
-			sizeof(struct adreno_ringbuffer_pagetable_info);
 }

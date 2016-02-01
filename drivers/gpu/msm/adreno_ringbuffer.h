@@ -14,6 +14,7 @@
 #define __ADRENO_RINGBUFFER_H
 
 #include "kgsl_iommu.h"
+#include "adreno_iommu.h"
 #include "adreno_dispatch.h"
 
 /* Given a ringbuffer, return the adreno device that owns it */
@@ -90,8 +91,6 @@ struct adreno_ringbuffer_pagetable_info {
  * preemption info written/read by CP
  * @pagetable_desc: Memory to hold information about the pagetables being used
  * and the commands to switch pagetable on the RB
- * @pt_update_desc: The memory descriptor containing commands that update
- * pagetable
  * @dispatch_q: The dispatcher side queue for this ringbuffer
  * @ts_expire_waitq: Wait queue to wait for rb timestamp to expire
  * @ts_expire_waitq: Wait q to wait for rb timestamp to expire
@@ -117,7 +116,6 @@ struct adreno_ringbuffer {
 	struct adreno_context *drawctxt_active;
 	struct kgsl_memdesc preemption_desc;
 	struct kgsl_memdesc pagetable_desc;
-	struct kgsl_memdesc pt_update_desc;
 	struct adreno_dispatcher_cmdqueue dispatch_q;
 	wait_queue_head_t ts_expire_waitq;
 	unsigned int wptr_preempt_end;
@@ -194,9 +192,6 @@ int adreno_rb_readtimestamp(struct adreno_device *adreno_dev,
 	void *priv, enum kgsl_timestamp_type type,
 	unsigned int *timestamp);
 
-int adreno_ringbuffer_submit_preempt_token(struct adreno_ringbuffer *rb,
-					struct adreno_ringbuffer *incoming_rb);
-
 static inline int adreno_ringbuffer_count(struct adreno_ringbuffer *rb,
 	unsigned int rptr)
 {
@@ -217,6 +212,12 @@ static inline unsigned int adreno_ringbuffer_dec_wrapped(unsigned int val,
 							unsigned int size)
 {
 	return (val + size - sizeof(unsigned int)) % size;
+}
+
+static inline int adreno_ringbuffer_set_pt_ctx(struct adreno_ringbuffer *rb,
+		struct kgsl_pagetable *pt, struct adreno_context *context)
+{
+	return adreno_iommu_set_pt_ctx(rb, pt, context);
 }
 
 #endif  /* __ADRENO_RINGBUFFER_H */
