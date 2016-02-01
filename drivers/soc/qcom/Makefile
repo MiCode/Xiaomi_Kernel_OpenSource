@@ -62,3 +62,6 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 endif
 obj-$(CONFIG_QCOM_COMMAND_DB) += cmd-db.o
 obj-$(CONFIG_WCD_DSP_GLINK) += wcd-dsp-glink.o
+obj-$(CONFIG_MSM_EVENT_TIMER) += event_timer.o
+obj-$(CONFIG_MSM_IDLE_STATS)	+= lpm-stats.o
+obj-$(CONFIG_APSS_CORE_EA)	+= msm-core.o debug_core.o
