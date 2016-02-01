@@ -1053,8 +1053,6 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	/* Notify cluster enter event after successfully config completion */
 	cluster_notify(cluster, level, true);
 
-	sched_set_cluster_dstate(&cluster->child_cpus, idx, 0, 0);
-
 	cluster->last_level = idx;
 
 	if (predicted && (idx < (cluster->nlevels - 1))) {
@@ -1213,7 +1211,6 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 		WARN_ON(ret);
 
 	}
-	sched_set_cluster_dstate(&cluster->child_cpus, 0, 0, 0);
 
 	cluster_notify(cluster, &cluster->levels[last_level], false);
 
@@ -1437,8 +1434,6 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	struct power_params *pwr_params;
 
 	pwr_params = &cluster->cpu->levels[idx].pwr;
-	sched_set_cpu_cstate(smp_processor_id(), idx + 1,
-		pwr_params->energy_overhead, pwr_params->latency_us);
 
 	pwr_params = &cluster->cpu->levels[idx].pwr;
 
