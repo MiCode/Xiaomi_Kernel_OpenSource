@@ -1578,61 +1578,78 @@ static bool llm_is_enabled(struct adreno_device *adreno_dev)
 
 static void sleep_llm(struct adreno_device *adreno_dev)
 {
-	unsigned int r, retry = 5;
+	unsigned int r, retry;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (!llm_is_enabled(adreno_dev))
 		return;
 
 	kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL, &r);
+
 	if ((r & STATE_OF_CHILD) == 0) {
-		kgsl_regwrite(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-			(r | STATE_OF_CHILD_01) & ~STATE_OF_CHILD);
-		udelay(1);
+		/* If both children are on, sleep CHILD_O1 first */
+		kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
+			STATE_OF_CHILD, STATE_OF_CHILD_01 | IDLE_FULL_LM_SLEEP);
+		/* Wait for IDLE_FULL_ACK before continuing */
+		for (retry = 0; retry < 5; retry++) {
+			udelay(1);
+			kgsl_regread(device,
+				A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
+			if (r & IDLE_FULL_ACK)
+				break;
+		}
+
+		if (retry == 5)
+			KGSL_CORE_ERR("GPMU: LLM failed to idle: 0x%X\n", r);
 	}
 
-	kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL, &r);
-	kgsl_regwrite(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		(r | STATE_OF_CHILD_11) & ~STATE_OF_CHILD);
+	/* Now turn off both children */
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
+		0, STATE_OF_CHILD | IDLE_FULL_LM_SLEEP);
 
-	do {
+	/* wait for WAKEUP_ACK to be zero */
+	for (retry = 0; retry < 5; retry++) {
 		udelay(1);
 		kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
-	} while (!(r & WAKEUP_ACK) && retry--);
+		if ((r & WAKEUP_ACK) == 0)
+			break;
+	}
 
-	if (!retry)
-		KGSL_CORE_ERR("GPMU: LLM sleep failure\n");
+	if (retry == 5)
+		KGSL_CORE_ERR("GPMU: LLM failed to sleep: 0x%X\n", r);
 }
 
 static void wake_llm(struct adreno_device *adreno_dev)
 {
-	unsigned int r, retry = 5;
+	unsigned int r, retry;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (!llm_is_enabled(adreno_dev))
 		return;
 
-	kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL, &r);
-	kgsl_regwrite(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		(r | STATE_OF_CHILD_01) & ~STATE_OF_CHILD);
-
-	udelay(1);
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
+		STATE_OF_CHILD, STATE_OF_CHILD_01);
 
 	if (((device->pwrctrl.num_pwrlevels - 2) -
 		device->pwrctrl.active_pwrlevel) <= LM_DCVS_LIMIT)
 		return;
 
-	kgsl_regread(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, &r);
-	kgsl_regwrite(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		r & ~STATE_OF_CHILD);
+	udelay(1);
 
-	do {
+	/* Turn on all children */
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
+		STATE_OF_CHILD | IDLE_FULL_LM_SLEEP, 0);
+
+	/* Wait for IDLE_FULL_ACK to be zero and WAKEUP_ACK to be set */
+	for (retry = 0; retry < 5; retry++) {
 		udelay(1);
 		kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
-	} while (!(r & WAKEUP_ACK) && retry--);
+		if ((r & (WAKEUP_ACK | IDLE_FULL_ACK)) == WAKEUP_ACK)
+			break;
+	}
 
-	if (!retry)
-		KGSL_CORE_ERR("GPMU: LLM wakeup failure\n");
+	if (retry == 5)
+		KGSL_CORE_ERR("GPMU: LLM failed to wake: 0x%X\n", r);
 }
 
 static bool llm_is_awake(struct adreno_device *adreno_dev)

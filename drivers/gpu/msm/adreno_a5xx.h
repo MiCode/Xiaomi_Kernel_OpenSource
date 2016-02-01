@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,12 +95,11 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev);
 /* A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL */
 #define STATE_OF_CHILD			GENMASK(5, 4)
 #define STATE_OF_CHILD_01		BIT(4)
-#define STATE_OF_CHILD_11		(BIT(4) | BIT(5))
 #define IDLE_FULL_LM_SLEEP		BIT(0)
 
 /* A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS */
 #define WAKEUP_ACK			BIT(1)
-#define IDLE_FULL_ACK_SLEEP		BIT(0)
+#define IDLE_FULL_ACK			BIT(0)
 
 /* A5XX_GPMU_TEMP_SENSOR_CONFIG */
 #define GPMU_BCL_ENABLED		BIT(4)
