@@ -53,6 +53,8 @@ static DEFINE_SPINLOCK(suspend_lock);
 
 #define TZ_V2_UPDATE_ID_64         0xA
 #define TZ_V2_INIT_ID_64           0xB
+#define TZ_V2_INIT_CA_ID_64        0xC
+#define TZ_V2_UPDATE_WITH_CA_ID_64 0xD
 
 #define TAG "msm_adreno_tz: "
 
@@ -187,13 +189,13 @@ static int __secure_tz_reset_entry2(unsigned int *scm_data, u32 size_scm_data,
 }
 
 static int __secure_tz_update_entry3(unsigned int *scm_data, u32 size_scm_data,
-					int *val, u32 size_val, bool is_64)
+		int *val, u32 size_val, struct devfreq_msm_adreno_tz_data *priv)
 {
 	int ret;
 	/* sync memory before sending the commands to tz */
 	__iowmb();
 
-	if (!is_64) {
+	if (!priv->is_64) {
 		spin_lock(&tz_lock);
 		ret = scm_call_atomic3(SCM_SVC_IO, TZ_UPDATE_ID,
 					scm_data[0], scm_data[1], scm_data[2]);
@@ -201,19 +203,63 @@ static int __secure_tz_update_entry3(unsigned int *scm_data, u32 size_scm_data,
 		*val = ret;
 	} else {
 		if (is_scm_armv8()) {
+			unsigned int cmd_id;
 			struct scm_desc desc = {0};
 			desc.args[0] = scm_data[0];
 			desc.args[1] = scm_data[1];
 			desc.args[2] = scm_data[2];
-			desc.arginfo = SCM_ARGS(3);
-			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_DCVS,
-					TZ_V2_UPDATE_ID_64), &desc);
+
+			if (!priv->ctxt_aware_enable) {
+				desc.arginfo = SCM_ARGS(3);
+				cmd_id =  TZ_V2_UPDATE_ID_64;
+			} else {
+				/* Add context count infomration to update*/
+				desc.args[3] = scm_data[3];
+				desc.arginfo = SCM_ARGS(4);
+				cmd_id =  TZ_V2_UPDATE_WITH_CA_ID_64;
+			}
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_DCVS, cmd_id),
+						&desc);
 			*val = desc.ret[0];
 		} else {
 			ret = scm_call(SCM_SVC_DCVS, TZ_UPDATE_ID_64, scm_data,
 				size_scm_data, val, size_val);
 		}
 	}
+	return ret;
+}
+
+static int tz_init_ca(struct devfreq_msm_adreno_tz_data *priv)
+{
+	unsigned int tz_ca_data[2];
+	struct scm_desc desc = {0};
+	unsigned int *tz_buf;
+	int ret;
+
+	/* Set data for TZ */
+	tz_ca_data[0] = priv->bin.ctxt_aware_target_pwrlevel;
+	tz_ca_data[1] = priv->bin.ctxt_aware_busy_penalty;
+
+	tz_buf = kzalloc(PAGE_ALIGN(sizeof(tz_ca_data)), GFP_KERNEL);
+	if (!tz_buf)
+		return -ENOMEM;
+
+	memcpy(tz_buf, tz_ca_data, sizeof(tz_ca_data));
+	/* Ensure memcpy completes execution */
+	mb();
+	dmac_flush_range(tz_buf,
+		tz_buf + PAGE_ALIGN(sizeof(tz_ca_data)));
+
+	desc.args[0] = virt_to_phys(tz_buf);
+	desc.args[1] = sizeof(tz_ca_data);
+	desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
+
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_DCVS,
+			TZ_V2_INIT_CA_ID_64),
+			&desc);
+
+	kzfree(tz_buf);
+
 	return ret;
 }
 
@@ -264,6 +310,30 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 	} else
 		ret = -EINVAL;
 
+	 /* Initialize context aware feature, if enabled. */
+	if (!ret && priv->ctxt_aware_enable) {
+		if (priv->is_64 &&
+			(scm_is_call_available(SCM_SVC_DCVS,
+				TZ_V2_INIT_CA_ID_64)) &&
+			(scm_is_call_available(SCM_SVC_DCVS,
+				TZ_V2_UPDATE_WITH_CA_ID_64))) {
+			ret = tz_init_ca(priv);
+			/*
+			 * If context aware feature intialization fails,
+			 * just print an error message and return
+			 * success as normal DCVS will still work.
+			 */
+			if (ret) {
+				pr_err(TAG "tz: context aware DCVS init failed\n");
+				priv->ctxt_aware_enable = false;
+				return 0;
+			}
+		} else {
+			pr_warn(TAG "tz: context aware DCVS not supported\n");
+			priv->ctxt_aware_enable = false;
+		}
+	}
+
 	return ret;
 }
 
@@ -274,7 +344,8 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
 	struct devfreq_dev_status stats;
 	int val, level = 0;
-	unsigned int scm_data[3];
+	unsigned int scm_data[4];
+	int context_count = 0;
 
 	/* keeps stats.private_data == NULL   */
 	result = devfreq->profile->get_dev_status(devfreq->dev.parent, &stats);
@@ -286,6 +357,9 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	*freq = stats.current_frequency;
 	priv->bin.total_time += stats.total_time;
 	priv->bin.busy_time += stats.busy_time;
+
+	if (stats.private_data)
+		context_count =  *((int *)stats.private_data);
 
 	/* Update the GPU load statistics */
 	compute_work_load(&stats, priv, devfreq);
@@ -319,8 +393,9 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 		scm_data[0] = level;
 		scm_data[1] = priv->bin.total_time;
 		scm_data[2] = priv->bin.busy_time;
+		scm_data[3] = context_count;
 		__secure_tz_update_entry3(scm_data, sizeof(scm_data),
-					&val, sizeof(val), priv->is_64);
+					&val, sizeof(val), priv);
 	}
 	priv->bin.total_time = 0;
 	priv->bin.busy_time = 0;
