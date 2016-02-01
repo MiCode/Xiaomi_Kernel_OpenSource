@@ -34,6 +34,72 @@
 	status = "disabled";
 };
 
+&apc0_cpr {
+	qcom,cpr-initial-temp-band = <3>;
+	qcom,cpr-temp-point-map = <0 25 85>;
+};
+
+&apc0_pwrcl_vreg {
+	qcom,cpr-corner-bands = <4>;
+	qcom,corner-band-allow-core-count-adjustment = <1 1 1 1>;
+	qcom,corner-band-allow-temp-adjustment = <1 0 0 0>;
+	qcom,cpr-corner-band-map = <7 14 18 20>;
+	qcom,max-core-count = <4>;
+	qcom,cpr-corner-band1-temp-core-voltage-adjustment =
+		<(-24000) (-20000) (-20000) (-16000)>,
+		<(-16000) (-16000) (-12000) (-8000)>,
+		<(-8000)  (-8000)  (-4000)  (-4000)>,
+		<0     0     0     0>;
+	qcom,cpr-corner-band2-temp-core-voltage-adjustment =
+		<(-36000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<(-24000) 0 0 0>,
+		<    0 0 0 0>;
+	qcom,cpr-corner-band3-temp-core-voltage-adjustment =
+		<(-40000) 0 0 0>,
+		<(-36000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<    0 0 0 0>;
+	qcom,cpr-corner-band4-temp-core-voltage-adjustment =
+		<(-44000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<(-24000) 0 0 0>,
+		<    0 0 0 0>;
+};
+
+&apc1_cpr {
+	qcom,cpr-initial-temp-band = <3>;
+	qcom,cpr-temp-point-map = <0 25 85>;
+};
+
+&apc1_perfcl_vreg {
+	qcom,cpr-corner-bands = <4>;
+	qcom,corner-band-allow-core-count-adjustment = <1 1 1 1>;
+	qcom,corner-band-allow-temp-adjustment = <1 0 0 0>;
+	qcom,cpr-corner-band-map = <6 12 15 20>;
+	qcom,max-core-count = <4>;
+	qcom,cpr-corner-band1-temp-core-voltage-adjustment =
+		<(-24000) (-20000) (-20000) (-16000)>,
+		<(-16000) (-16000) (-12000) (-8000)>,
+		<(-8000)  (-8000)  (-4000)  (-4000)>,
+		<0     0     0     0>;
+	qcom,cpr-corner-band2-temp-core-voltage-adjustment =
+		<(-36000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<(-24000) 0 0 0>,
+		<    0 0 0 0>;
+	qcom,cpr-corner-band3-temp-core-voltage-adjustment =
+		<(-40000) 0 0 0>,
+		<(-36000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<    0 0 0 0>;
+	qcom,cpr-corner-band4-temp-core-voltage-adjustment =
+		<(-44000) 0 0 0>,
+		<(-32000) 0 0 0>,
+		<(-24000) 0 0 0>,
+		<    0 0 0 0>;
+};
+
 &qusb_phy0 {
 	reg = <0x0a928000 0x8000>,
 	    <0x0a8f8800 0x400>,
