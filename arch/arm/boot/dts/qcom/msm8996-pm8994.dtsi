@@ -1,0 +1,35 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only chipset-specific property overrides should be placed
+ * inside this file.
+ */
+
+#include "msm8996-pm8994-pm8004.dtsi"
+
+/ {
+	qcom,pmic-id = <0x20009 0x0 0x0 0x0>;
+};
+
+&pm8004_s2 {
+	status = "disabled";
+};
+
+&spmi_bus {
+	/delete-node/ qcom,pm8004@4;
+	/delete-node/ qcom,pm8004@5;
+};
+
+&gfx_cpr {
+	/delete-property/ vdd-supply;
+};
