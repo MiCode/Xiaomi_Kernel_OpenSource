@@ -469,29 +469,6 @@
 		qcom,cpr-voltage-floor-override =
 			<(-1) (-1) 795000 795000 835000 855000
 			945000 945000 990000 990000 990000>;
-
-		qcom,fuse-remap-base-row = <1000>;
-		qcom,fuse-remap-source =
-				<59 18 6 0>, /* Aging_sensor_data[5:0] */
-				<72 32 2 0>; /* Aging_sensor_data[7:6] */
-
-		qcom,cpr-cpus = <&CPU0 &CPU1 &CPU2 &CPU3>;
-
-		/* Aging parameters */
-		qcom,cpr-aging-sensor-id = <6>;
-		qcom,cpr-aging-ref-corner = <4>;
-		qcom,cpr-aging-ref-voltage = <1050000>;
-		qcom,cpr-max-aging-margin = <15000>;
-		qcom,cpr-de-aging-allowed =
-				<0>,
-				<0>,
-				<1>,
-				<0>;
-		qcom,cpr-aging-ro-scaling-factor = <1600>;
-		qcom,cpr-ro-scaling-factor = <0 0 2500 0 0 0 0 0>;
-		qcom,cpr-aging-derate = <1000 1000 1000>;
-		qcom,cpr-fuse-aging-init-quot-diff = <1000 0 8 0>;
-
 		qcom,cpr-enable;
 	};
 
@@ -587,31 +564,6 @@
 		qcom,cpr-voltage-floor-override =
 			<(-1) (-1) 790000 790000 820000 850000
 			940000 990000 990000>;
-
-		qcom,fuse-remap-base-row = <1000>;
-		qcom,fuse-remap-source =
-				<59 24 6 0>, /* Aging_sensor_data[5:0] */
-				<72 34 1 0>, /* Aging_sensor_data[6] */
-				<72 55 1 0>; /* Aging_sensor_data[7] */
-
-		qcom,cpr-cpus = <&CPU4 &CPU5 &CPU6 &CPU7>;
-
-		/* Aging parameters */
-		qcom,cpr-aging-sensor-id = <17>;
-		qcom,cpr-aging-ref-corner = <4>;
-		qcom,cpr-aging-ref-voltage = <1050000>;
-		qcom,cpr-max-aging-margin = <15000>;
-		qcom,cpr-de-aging-allowed =
-				<0>,
-				<0>,
-				<1>,
-				<0>;
-		qcom,cpr-non-collapsible-sensors= <0 1 2 7 12 17 22>;
-		qcom,cpr-aging-ro-scaling-factor = <1600>;
-		qcom,cpr-ro-scaling-factor = <0 0 2500 0 0 0 0 0>;
-		qcom,cpr-aging-derate = <1000 1000 1000>;
-		qcom,cpr-fuse-aging-init-quot-diff = <1000 0 8 0>;
-
 		qcom,cpr-enable;
 	};
 
