@@ -5575,16 +5575,14 @@ int ipa3_load_fws(const struct firmware *firmware)
 		/*
 		 * The ELF program header will contain the starting
 		 * address to which the firmware needs to copied.
-		 * TODO: Shall we rely on that, or rely on the order
-		 * of which the FWs reside in the ELF, and use
-		 * registers/defines in here?
 		 */
 		phdr = (struct elf32_phdr *)elf_phdr_ptr;
 
 		/*
 		 * p_addr will contain the physical address to which the
 		 * FW needs to be loaded.
-		 * p_memsz will contain the size of the FW image.
+		 * p_memsz will contain the size of the IRAM.
+		 * p_filesz will contain the size of the FW image.
 		 */
 		fw_mem_base = ioremap(phdr->p_paddr, phdr->p_memsz);
 		if (!fw_mem_base) {
@@ -5592,6 +5590,9 @@ int ipa3_load_fws(const struct firmware *firmware)
 				phdr->p_paddr, phdr->p_memsz);
 				return -ENOMEM;
 		}
+
+		/* Set the entire region to 0s */
+		memset(fw_mem_base, 0, phdr->p_memsz);
 
 		/*
 		 * p_offset will contain and absolute offset from the beginning
@@ -5606,7 +5607,8 @@ int ipa3_load_fws(const struct firmware *firmware)
 			return -EFAULT;
 		}
 
-		for (index = 0; index < phdr->p_memsz/sizeof(uint32_t);
+		/* Write the FW */
+		for (index = 0; index < phdr->p_filesz/sizeof(uint32_t);
 			index++) {
 			writel_relaxed(*elf_data_ptr, &fw_mem_base[index]);
 			elf_data_ptr++;
