@@ -1,0 +1,24 @@
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. Common device definitions should be placed inside the
+ * msm8996.dtsi file.
+ */
+
+#include "msm8996pro.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ 8096 pro";
+	qcom,msm-id = <312 0x20000>;
+};
