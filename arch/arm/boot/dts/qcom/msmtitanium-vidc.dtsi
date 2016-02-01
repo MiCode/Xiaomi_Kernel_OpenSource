@@ -46,8 +46,8 @@
 			/* Enc UHD@30 H.264/HEVC Nom+ to Turbo */
 			<432000 432000 972000 0x4000004>;
 		qcom,dcvs-limit =
-			<32640 30>, /* Encoder UHD */
-			<32640 30>; /* Decoder UHD */
+			<32400 30>, /* Encoder UHD */
+			<32400 30>; /* Decoder UHD */
 		qcom,allowed-clock-rates = <465000000 400000000
 			360000000 310000000 228570000 114290000>;
 		qcom,clock-freq-tbl {
