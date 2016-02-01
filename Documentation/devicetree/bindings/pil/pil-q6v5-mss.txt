@@ -80,6 +80,7 @@ Optional properties:
 - qcom,mx-spike-wa: Boolean- Present if we need to assert QDSP6 I/O clamp, memory
 		    wordline clamp, and compiler memory clamp during MSS restart.
 - qcom,qdsp6v56-1-10: Boolean- Present if the qdsp version is v56 1.10
+- qcom,override-acc-1: Override the default ACC settings with this value if present.
 
 Example:
 	qcom,mss@fc880000 {

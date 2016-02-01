@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,7 @@ struct q6v5_data {
 	bool non_elf_image;
 	bool restart_reg_sec;
 	bool override_acc;
+	int override_acc_1;
 	bool ahb_clk_vote;
 	bool mx_spike_wa;
 };
