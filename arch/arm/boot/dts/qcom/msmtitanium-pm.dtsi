@@ -321,10 +321,12 @@
 			<0xff 112>, /* smmu_bus_intr[38] */
 			<0xff 114>, /* qdsd_intr_out */
 			<0xff 126>, /* app_tcu_cxt_irpt_vec[11] */
+			<0xff 128>, /* blsp1_peripheral_irq[3] */
 			<0xff 131>, /* qup_irq */
 			<0xff 136>, /* app_tcu_cxt_irpt_vec[15] */
 			<0xff 137>, /* app_tcu_cxt_irpt_vec[16] */
 			<0xff 138>, /* app_tcu_cxt_irpt_vec[17] */
+			<0xff 139>, /* uart_dm_intr */
 			<0xff 140>, /* uart_dm_intr */
 			<0xff 141>, /* app_tcu_cxt_irpt_vec[18] */
 			<0xff 142>, /* smmu_bus_intr[47] */
@@ -454,7 +456,8 @@
 			<71  138>,
 			<72  139>,
 			<73  140>,
-			<74  141>;
+			<74  141>,
+			<0xff 88>;
 	};
 
 	qcom,cpu-sleep-status{
