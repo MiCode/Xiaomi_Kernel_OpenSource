@@ -26,6 +26,7 @@
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
+#include <linux/ipc_logging.h>
 #include <linux/firmware.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
@@ -51,10 +52,35 @@
 #define __FILENAME__ \
 	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
+
+#define IPA_IPC_LOGGING(buf, fmt, args...) \
+	ipc_log_string((buf), \
+		DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+
 #define IPADBG(fmt, args...) \
-	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa3_ctx) { \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+		} \
+	} while (0)
+
+#define IPADBG_LOW(fmt, args...) \
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa3_ctx && ipa3_ctx->enable_low_prio_print) \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+	} while (0)
+
 #define IPAERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa3_ctx) { \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+		} \
+	} while (0)
 
 #define WLAN_AMPDU_TX_EP 15
 #define WLAN_PROD_TX_EP  19
@@ -1471,10 +1497,13 @@ struct ipa3_ready_cb_info {
  * @use_ipa_teth_bridge: use tethering bridge driver
  * @ipa_bam_remote_mode: ipa bam is in remote mode
  * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
+ * @logbuf: ipc log buffer for high priority messages
+ * @logbuf_low: ipc log buffer for low priority messages
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
  * @enable_clock_scaling: clock scaling is enabled ?
+ * @enable_low_prio_print: enable low priority prints
  * @curr_ipa_clk_rate: ipa3_clk current rate
  * @wcstats: wlan common buffer stats
  * @uc_ctx: uC interface context
@@ -1569,6 +1598,8 @@ struct ipa3_context {
 	/* featurize if memory footprint becomes a concern */
 	struct ipa3_stats stats;
 	void *smem_pipe_mem;
+	void *logbuf;
+	void *logbuf_low;
 	u32 ipa_bus_hdl;
 	struct ipa3_controller *ctrl;
 	struct idr ipa_idr;
@@ -1576,6 +1607,7 @@ struct ipa3_context {
 	struct device *uc_pdev;
 	spinlock_t idr_lock;
 	u32 enable_clock_scaling;
+	u32 enable_low_prio_print;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
 	u32 ipa_num_pipes;
