@@ -994,7 +994,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.extn_use_mb = msm8x16_wcd_use_mb,
 };
 
-static const uint32_t wcd_imped_val[] = {4, 8, 12, 16,
+static const uint32_t wcd_imped_val[] = {4, 8, 12, 13, 16,
 					20, 24, 28, 32,
 					36, 40, 44, 48};
 
