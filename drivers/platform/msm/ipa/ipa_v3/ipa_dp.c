@@ -38,6 +38,8 @@
 #define IPA_GENERIC_RX_BUFF_SZ (IPA_GENERIC_RX_BUFF_BASE_SZ -\
 		(IPA_REAL_GENERIC_RX_BUFF_SZ - IPA_GENERIC_RX_BUFF_BASE_SZ))
 
+#define IPA_RX_BUFF_CLIENT_HEADROOM 256
+
 #define IPA_WLAN_RX_POOL_SZ 100
 #define IPA_WLAN_RX_POOL_SZ_LOW_WM 5
 #define IPA_WLAN_RX_BUFF_SZ 2048
@@ -2066,6 +2068,21 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 	}
 }
 
+static struct sk_buff *ipa3_skb_copy_for_client(struct sk_buff *skb, int len)
+{
+	struct sk_buff *skb2 = NULL;
+
+	skb2 = __dev_alloc_skb(len + IPA_RX_BUFF_CLIENT_HEADROOM, GFP_KERNEL);
+	if (likely(skb2)) {
+		/* Set the data pointer */
+		skb_reserve(skb2, IPA_RX_BUFF_CLIENT_HEADROOM);
+		memcpy(skb2->data, skb->data, len);
+		skb2->len = len;
+		skb_set_tail_pointer(skb2, len);
+	}
+
+	return skb2;
+}
 
 static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 		struct ipa3_sys_context *sys)
@@ -2261,7 +2278,8 @@ begin:
 				continue;
 			}
 
-			skb2 = skb_clone(skb, GFP_KERNEL);
+			skb2 = ipa3_skb_copy_for_client(skb,
+				status->pkt_len + IPA_PKT_STATUS_SIZE);
 			if (likely(skb2)) {
 				if (skb->len < len + IPA_PKT_STATUS_SIZE) {
 					IPADBG_LOW("SPL skb len %d len %d\n",
@@ -2293,7 +2311,7 @@ begin:
 						IPA_PKT_STATUS_SIZE);
 				}
 			} else {
-				IPAERR("fail to clone\n");
+				IPAERR("fail to alloc skb\n");
 				if (skb->len < len) {
 					sys->prev_skb = NULL;
 					sys->len_rem = len - skb->len +
