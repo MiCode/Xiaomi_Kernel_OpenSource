@@ -429,7 +429,7 @@
 		compatible = "regulator-fixed";
 		regulator-name = "adv_vreg";
 		startup-delay-us = <400>;
-		enable-avtive-high;
+		enable-active-high;
 		gpio = <&pm8937_gpios 8 0>;
 	};
 

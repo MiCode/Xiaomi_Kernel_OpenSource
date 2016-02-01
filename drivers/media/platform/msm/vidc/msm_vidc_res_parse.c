@@ -1190,6 +1190,8 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 	struct buffer_info *temp;
 	struct internal_buf *buf;
 	int i = 0;
+	bool is_decode = false;
+	enum vidc_ports port;
 
 	if (!domain || !core) {
 		dprintk(VIDC_ERR, "%s - invalid param %p %p\n",
@@ -1204,6 +1206,15 @@ int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
+		is_decode = inst->session_type == MSM_VIDC_DECODER;
+		port = is_decode ? OUTPUT_PORT : CAPTURE_PORT;
+		dprintk(VIDC_ERR,
+			"%s session, Codec type: %s HxW: %d x %d fps: %d bitrate: %d bit-depth: %s\n",
+			is_decode ? "Decode" : "Encode", inst->fmts[port]->name,
+			inst->prop.height[port], inst->prop.width[port],
+			inst->prop.fps, inst->prop.bitrate,
+			!inst->bit_depth ? "8" : "10");
+
 		dprintk(VIDC_ERR,
 			"---Buffer details for inst: %p of type: %d---\n",
 			inst, inst->session_type);
