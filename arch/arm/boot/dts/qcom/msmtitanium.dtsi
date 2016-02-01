@@ -530,7 +530,6 @@
 		reg = <0xa0000 0x1000>;
 		qcom,low-hyst-temp = <10>;
 		qcom,high-hyst-temp = <5>;
-		qcom,polling-interval = <50>;
 
 		ea0: ea0 {
 			sensor = <&sensor_information9>;
