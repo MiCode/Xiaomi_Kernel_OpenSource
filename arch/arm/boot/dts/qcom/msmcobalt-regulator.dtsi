@@ -63,6 +63,8 @@
 		pmcobalt_s3: regulator-s3 {
 			regulator-min-microvolt = <1352000>;
 			regulator-max-microvolt = <1352000>;
+			/* Force PWM follows HW2_EN */
+			qcom,init-pin-ctrl-mode = <4>;
 			status = "okay";
 		};
 	};
@@ -81,6 +83,8 @@
 		pmcobalt_s5: regulator-s5 {
 			regulator-min-microvolt = <2040000>;
 			regulator-max-microvolt = <2040000>;
+			/* Force PWM follows HW2_EN */
+			qcom,init-pin-ctrl-mode = <4>;
 			status = "okay";
 		};
 	};
@@ -90,6 +94,8 @@
 		pmcobalt_s7: regulator-s7 {
 			regulator-min-microvolt = <1028000>;
 			regulator-max-microvolt = <1028000>;
+			/* Force PWM follows HW0_EN */
+			qcom,init-pin-ctrl-mode = <1>;
 			status = "okay";
 		};
 	};
@@ -200,6 +206,8 @@
 		pmcobalt_l5: regulator-l5 {
 			regulator-min-microvolt = <800000>;
 			regulator-max-microvolt = <800000>;
+			/* Force NPM follows HW0_EN */
+			qcom,init-pin-ctrl-mode = <1>;
 			status = "okay";
 		};
 	};
@@ -219,6 +227,16 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			status = "okay";
+		};
+
+		pmcobalt_l7_pin_ctrl: regulator-l7-pin-ctrl {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmcobalt_l7_pin_ctrl";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			/* Enable follows HW_EN2 */
+			qcom,enable-with-pin-ctrl = <0 4>;
 		};
 	};
 
@@ -310,6 +328,16 @@
 			regulator-max-microvolt = <1304000>;
 			status = "okay";
 		};
+
+		pmcobalt_l17_pin_ctrl: regulator-l17-pin-ctrl {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmcobalt_l17_pin_ctrl";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1304000>;
+			regulator-max-microvolt = <1304000>;
+			/* Enable follows HW_EN2 */
+			qcom,enable-with-pin-ctrl = <0 4>;
+		};
 	};
 
 	rpm-regulator-ldoa18 {
@@ -380,6 +408,16 @@
 			regulator-min-microvolt = <3312000>;
 			regulator-max-microvolt = <3312000>;
 			status = "okay";
+		};
+
+		pmcobalt_l25_pin_ctrl: regulator-l25-pin-ctrl {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmcobalt_l25_pin_ctrl";
+			qcom,set = <3>;
+			regulator-min-microvolt = <3312000>;
+			regulator-max-microvolt = <3312000>;
+			/* Enable follows HW_EN2 */
+			qcom,enable-with-pin-ctrl = <0 4>;
 		};
 	};
 
