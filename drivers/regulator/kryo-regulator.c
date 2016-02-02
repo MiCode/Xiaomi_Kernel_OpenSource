@@ -811,7 +811,7 @@ static int kryo_regulator_retention_init(struct kryo_regulator *kvreg,
 	struct device *dev = &pdev->dev;
 	struct regulator_init_data *init_data;
 	struct regulator_config reg_config = {};
-	int rc;
+	int rc = 0;
 
 	init_data = of_get_regulator_init_data(dev, ret_node,
 			&kvreg->retention_desc);
