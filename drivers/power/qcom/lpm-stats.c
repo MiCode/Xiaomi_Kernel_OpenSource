@@ -719,7 +719,7 @@ EXPORT_SYMBOL(lpm_stats_cluster_exit);
  */
 void lpm_stats_cpu_enter(uint32_t index)
 {
-	struct lpm_stats *stats = &__get_cpu_var(cpu_stats);
+	struct lpm_stats *stats = &(*this_cpu_ptr(&(cpu_stats)));
 
 	if (!stats->time_stats)
 		return;
@@ -738,7 +738,7 @@ EXPORT_SYMBOL(lpm_stats_cpu_enter);
  */
 void lpm_stats_cpu_exit(uint32_t index, bool success)
 {
-	struct lpm_stats *stats = &__get_cpu_var(cpu_stats);
+	struct lpm_stats *stats = &(*this_cpu_ptr(&(cpu_stats)));
 
 	if (!stats->time_stats)
 		return;
