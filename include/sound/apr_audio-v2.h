@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -7501,11 +7501,184 @@ struct asm_mode_vi_proc_cfg {
 	uint32_t cal_mode;
 } __packed;
 
+#define AFE_MODULE_SPEAKER_PROTECTION_V2_TH_VI	0x0001026A
+#define AFE_PARAM_ID_SP_V2_TH_VI_MODE_CFG	0x0001026B
+#define AFE_PARAM_ID_SP_V2_TH_VI_FTM_CFG	0x0001029F
+#define AFE_PARAM_ID_SP_V2_TH_VI_FTM_PARAMS	0x000102A0
+
+struct afe_sp_th_vi_mode_cfg {
+	uint32_t minor_version;
+	uint32_t operation_mode;
+	/*
+	 * Operation mode of thermal VI module.
+	 *   0 -- Normal Running mode
+	 *   1 -- Calibration mode
+	 *   2 -- FTM mode
+	 */
+	uint32_t r0t0_selection_flag[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * Specifies which set of R0, T0 values the algorithm will use.
+	 * This field is valid only in Normal mode (operation_mode = 0).
+	 * 0 -- Use calibrated R0, T0 value
+	 * 1 -- Use safe R0, T0 value
+	 */
+	int32_t r0_cali_q24[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * Calibration point resistance per device. This field is valid
+	 * only in Normal mode (operation_mode = 0).
+	 * values 33554432 to 1073741824 Ohms (in Q24 format)
+	 */
+	int16_t t0_cali_q6[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * Calibration point temperature per device. This field is valid
+	 * in both Normal mode and Calibration mode.
+	 * values -1920 to 5120 degrees C (in Q6 format)
+	 */
+	uint32_t quick_calib_flag;
+	/*
+	 * Indicates whether calibration is to be done in quick mode or not.
+	 * This field is valid only in Calibration mode (operation_mode = 1).
+	 * 0 -- Disabled
+	 * 1 -- Enabled
+	 */
+} __packed;
+
+struct afe_sp_th_vi_ftm_cfg {
+	uint32_t minor_version;
+	uint32_t wait_time_ms[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * Wait time to heat up speaker before collecting statistics
+	 * for ftm mode in ms.
+	 * values 0 to 4294967295 ms
+	 */
+	uint32_t ftm_time_ms[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * duration for which FTM statistics are collected in ms.
+	 * values 0 to 2000 ms
+	 */
+} __packed;
+
+struct afe_sp_th_vi_ftm_params {
+	uint32_t minor_version;
+	int32_t dc_res_q24[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * DC resistance value in q24 format
+	 * values 0 to 2147483647 Ohms (in Q24 format)
+	 */
+	int32_t temp_q22[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * temperature value in q22 format
+	 * values -125829120 to 2147483647 degC (in Q22 format)
+	 */
+	uint32_t status[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * FTM packet status
+	 * 0 - Incorrect operation mode.This status is returned
+	 *     when GET_PARAM is called in non FTM Mode
+	 * 1 - Inactive mode -- Port is not yet started.
+	 * 2 - Wait state. wait_time_ms has not yet elapsed
+	 * 3 - In progress state. ftm_time_ms has not yet elapsed.
+	 * 4 - Success.
+	 * 5 - Failed.
+	 */
+} __packed;
+
+struct afe_sp_th_vi_get_param {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_get_param_v2 get_param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_sp_th_vi_ftm_params param;
+} __packed;
+
+struct afe_sp_th_vi_get_param_resp {
+	uint32_t status;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_sp_th_vi_ftm_params param;
+} __packed;
+
+
+#define AFE_MODULE_SPEAKER_PROTECTION_V2_EX_VI	0x0001026F
+#define AFE_PARAM_ID_SP_V2_EX_VI_MODE_CFG	0x000102A1
+#define AFE_PARAM_ID_SP_V2_EX_VI_FTM_CFG	0x000102A2
+#define AFE_PARAM_ID_SP_V2_EX_VI_FTM_PARAMS	0x000102A3
+
+struct afe_sp_ex_vi_mode_cfg {
+	uint32_t minor_version;
+	uint32_t operation_mode;
+	/*
+	 * Operation mode of Excursion VI module.
+	 * 0 - Normal Running mode
+	 * 2 - FTM mode
+	 */
+} __packed;
+
+struct afe_sp_ex_vi_ftm_cfg {
+	uint32_t minor_version;
+	uint32_t wait_time_ms[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * Wait time to heat up speaker before collecting statistics
+	 * for ftm mode in ms.
+	 * values 0 to 4294967295 ms
+	 */
+	uint32_t ftm_time_ms[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * duration for which FTM statistics are collected in ms.
+	 * values 0 to 2000 ms
+	 */
+} __packed;
+
+struct afe_sp_ex_vi_ftm_params {
+	uint32_t minor_version;
+	int32_t freq_q20[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * Resonance frequency in q20 format
+	 * values 0 to 2147483647 Hz (in Q20 format)
+	 */
+	int32_t resis_q24[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * Mechanical resistance in q24 format
+	 * values 0 to 2147483647 Ohms (in Q24 format)
+	 */
+	int32_t qmct_q24[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * Mechanical Qfactor in q24 format
+	 * values 0 to 2147483647 (in Q24 format)
+	 */
+	uint32_t status[SP_V2_NUM_MAX_SPKR];
+	/*
+	 * FTM packet status
+	 * 0 - Incorrect operation mode.This status is returned
+	 *      when GET_PARAM is called in non FTM Mode.
+	 * 1 - Inactive mode -- Port is not yet started.
+	 * 2 - Wait state. wait_time_ms has not yet elapsed
+	 * 3 - In progress state. ftm_time_ms has not yet elapsed.
+	 * 4 - Success.
+	 * 5 - Failed.
+	 */
+} __packed;
+
+struct afe_sp_ex_vi_get_param {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_get_param_v2 get_param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_sp_ex_vi_ftm_params param;
+} __packed;
+
+struct afe_sp_ex_vi_get_param_resp {
+	uint32_t status;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_sp_ex_vi_ftm_params param;
+} __packed;
+
 union afe_spkr_prot_config {
 	struct asm_fbsp_mode_rx_cfg mode_rx_cfg;
 	struct asm_spkr_calib_vi_proc_cfg vi_proc_cfg;
 	struct asm_feedback_path_cfg feedback_path_cfg;
 	struct asm_mode_vi_proc_cfg mode_vi_proc_cfg;
+	struct afe_sp_th_vi_mode_cfg th_vi_mode_cfg;
+	struct afe_sp_th_vi_ftm_cfg th_vi_ftm_cfg;
+	struct afe_sp_ex_vi_mode_cfg ex_vi_mode_cfg;
+	struct afe_sp_ex_vi_ftm_cfg ex_vi_ftm_cfg;
 } __packed;
 
 struct afe_spkr_prot_config_command {
