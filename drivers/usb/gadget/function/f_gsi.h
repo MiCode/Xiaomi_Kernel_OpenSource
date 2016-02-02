@@ -217,7 +217,7 @@ struct f_gsi {
 	u32 vendorID;
 	u8 ethaddr[ETH_ADDR_STR_LEN];
 	const char *manufacturer;
-	int config;
+	struct rndis_params *params;
 	atomic_t connected;
 	bool data_interface_up;
 

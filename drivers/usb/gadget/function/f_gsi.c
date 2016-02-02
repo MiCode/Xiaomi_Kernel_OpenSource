@@ -1391,14 +1391,13 @@ static void gsi_rndis_open(struct f_gsi *rndis)
 
 	log_event_dbg("%s", __func__);
 
-	rndis_set_param_medium(rndis->config, RNDIS_MEDIUM_802_3,
+	rndis_set_param_medium(rndis->params, RNDIS_MEDIUM_802_3,
 				gsi_xfer_bitrate(cdev->gadget) / 100);
-	rndis_signal_connect(rndis->config);
+	rndis_signal_connect(rndis->params);
 }
 
-void gsi_rndis_ipa_reset_trigger(void)
+void gsi_rndis_ipa_reset_trigger(struct f_gsi *rndis)
 {
-	struct f_gsi *rndis = gsi_prot_ctx[IPA_USB_RNDIS];
 	unsigned long flags;
 
 	if (!rndis) {
@@ -1417,9 +1416,9 @@ void gsi_rndis_ipa_reset_trigger(void)
 	spin_unlock_irqrestore(&rndis->d_port.lock, flags);
 }
 
-void gsi_rndis_flow_ctrl_enable(bool enable)
+void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)
 {
-	struct f_gsi *rndis = gsi_prot_ctx[IPA_USB_RNDIS];
+	struct f_gsi *rndis = param->v;
 	struct gsi_data_port *d_port;
 
 	if (!rndis) {
@@ -1430,7 +1429,7 @@ void gsi_rndis_flow_ctrl_enable(bool enable)
 	d_port = &rndis->d_port;
 
 	if (enable)	{
-		gsi_rndis_ipa_reset_trigger();
+		gsi_rndis_ipa_reset_trigger(rndis);
 		usb_gsi_ep_op(d_port->in_ep, NULL, GSI_EP_OP_ENDXFER);
 		usb_gsi_ep_op(d_port->out_ep, NULL, GSI_EP_OP_ENDXFER);
 		post_event(d_port, EVT_DISCONNECTED);
@@ -1665,7 +1664,7 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 	struct f_gsi *rndis = req->context;
 	int status;
 
-	status = rndis_msg_parser(rndis->config, (u8 *) req->buf);
+	status = rndis_msg_parser(rndis->params, (u8 *) req->buf);
 	if (status < 0)
 		log_event_err("RNDIS command error %d, %d/%d",
 			status, req->actual, req->length);
@@ -1789,10 +1788,10 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 		if (gsi->prot_id == IPA_USB_RNDIS) {
 			/* return the result */
-			buf = rndis_get_next_response(gsi->config, &n);
+			buf = rndis_get_next_response(gsi->params, &n);
 			if (buf) {
 				memcpy(req->buf, buf, n);
-				rndis_free_response(gsi->config, buf);
+				rndis_free_response(gsi->params, buf);
 				value = n;
 			}
 			break;
@@ -2031,7 +2030,7 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 				log_event_dbg("RNDIS RX/TX early activation");
 				gsi->d_port.cdc_filter = 0;
-				rndis_set_param_dev(gsi->config, net,
+				rndis_set_param_dev(gsi->params, net,
 						&gsi->d_port.cdc_filter);
 			}
 
@@ -2079,7 +2078,7 @@ static void gsi_disable(struct usb_function *f)
 	atomic_set(&gsi->connected, 0);
 
 	if (gsi->prot_id == IPA_USB_RNDIS)
-		rndis_uninit(gsi->config);
+		rndis_uninit(gsi->params);
 
 	 /* Disable Control Path */
 	if (gsi->c_port.notify &&
@@ -2131,7 +2130,7 @@ static void gsi_suspend(struct usb_function *f)
 
 	if (!remote_wakeup_allowed) {
 		if (gsi->prot_id == IPA_USB_RNDIS)
-			rndis_flow_control(gsi->config, true);
+			rndis_flow_control(gsi->params, true);
 		/*
 		 * When remote wakeup is disabled, IPA is disconnected
 		 * because it cannot send new data until the USB bus is
@@ -2200,7 +2199,7 @@ static void gsi_resume(struct usb_function *f)
 		 * Trigger state machine explicitly on resume.
 		 */
 		if (gsi->prot_id == IPA_USB_RNDIS)
-			rndis_flow_control(gsi->config, false);
+			rndis_flow_control(gsi->params, false);
 	} else
 		post_event(&gsi->d_port, EVT_RESUMED);
 
@@ -2485,6 +2484,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_composite_dev *cdev = c->cdev;
 	struct gsi_function_bind_info info = {0};
 	struct f_gsi *gsi = func_to_gsi(f);
+	struct rndis_params *params;
 	int status;
 
 	if (gsi->prot_id == IPA_USB_RMNET ||
@@ -2532,14 +2532,14 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.out_req_num_buf = num_out_bufs;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 
-		status = rndis_register(gsi_rndis_response_available, gsi,
+		params = rndis_register(gsi_rndis_response_available, gsi,
 				gsi_rndis_flow_ctrl_enable);
-		if (status < 0)
+		if (IS_ERR(params))
 			goto fail;
 
-		gsi->config = status;
+		gsi->params = params;
 
-		rndis_set_param_medium(gsi->config, RNDIS_MEDIUM_802_3, 0);
+		rndis_set_param_medium(gsi->params, RNDIS_MEDIUM_802_3, 0);
 
 		/* export host's Ethernet address in CDC format */
 		random_ether_addr(gsi->d_port.ipa_init_params.device_ethaddr);
@@ -2549,23 +2549,23 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		gsi->d_port.ipa_init_params.device_ethaddr);
 		memcpy(gsi->ethaddr, &gsi->d_port.ipa_init_params.host_ethaddr,
 				ETH_ALEN);
-		rndis_set_host_mac(gsi->config, gsi->ethaddr);
+		rndis_set_host_mac(gsi->params, gsi->ethaddr);
 
 		if (gsi->manufacturer && gsi->vendorID &&
-			rndis_set_param_vendor(gsi->config, gsi->vendorID,
+			rndis_set_param_vendor(gsi->params, gsi->vendorID,
 				gsi->manufacturer))
 			goto dereg_rndis;
 
 		log_event_dbg("%s: max_pkt_per_xfer : %d", __func__,
 					DEFAULT_MAX_PKT_PER_XFER);
-		rndis_set_max_pkt_xfer(gsi->config, DEFAULT_MAX_PKT_PER_XFER);
+		rndis_set_max_pkt_xfer(gsi->params, DEFAULT_MAX_PKT_PER_XFER);
 
 		/* In case of aggregated packets QC device will request
 		 * aliment to 4 (2^2).
 		 */
 		log_event_dbg("%s: pkt_alignment_factor : %d", __func__,
 					DEFAULT_PKT_ALIGNMENT_FACTOR);
-		rndis_set_pkt_alignment_factor(gsi->config,
+		rndis_set_pkt_alignment_factor(gsi->params,
 					DEFAULT_PKT_ALIGNMENT_FACTOR);
 		break;
 	case IPA_USB_MBIM:
@@ -2726,7 +2726,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 dereg_rndis:
-	rndis_deregister(gsi->config);
+	rndis_deregister(gsi->params);
 fail:
 	return status;
 }
@@ -2747,7 +2747,7 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;
-		rndis_deregister(gsi->config);
+		rndis_deregister(gsi->params);
 	}
 
 	if (gsi->prot_id == IPA_USB_MBIM)
