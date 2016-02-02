@@ -1204,6 +1204,7 @@ static inline void dwc3_ulpi_exit(struct dwc3 *dwc)
 
 int dwc3_core_init(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
+void dwc3_usb3_phy_suspend(struct dwc3 *dwc, int suspend);
 
 void dwc3_gadget_enable_irq(struct dwc3 *dwc);
 void dwc3_gadget_disable_irq(struct dwc3 *dwc);

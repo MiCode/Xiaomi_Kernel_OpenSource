@@ -3075,7 +3075,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			pm_runtime_disable(&dwc->xhci->dev);
 
 		mdwc->in_host_mode = true;
-		dwc3_gadget_usb3_phy_suspend(dwc, true);
+		dwc3_usb3_phy_suspend(dwc, true);
 
 		/* xHCI should have incremented child count as necessary */
 		dbg_event(0xFF, "StrtHost psync",
@@ -3107,7 +3107,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		 */
 		dwc3_msm_block_reset(mdwc, true);
 
-		dwc3_gadget_usb3_phy_suspend(dwc, false);
+		dwc3_usb3_phy_suspend(dwc, false);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 
 		mdwc->in_host_mode = false;
@@ -3158,7 +3158,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		usb_gadget_vbus_disconnect(&dwc->gadget);
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
-		dwc3_gadget_usb3_phy_suspend(dwc, false);
+		dwc3_usb3_phy_suspend(dwc, false);
 	}
 
 	pm_runtime_put_sync(mdwc->dev);
