@@ -1379,6 +1379,7 @@
                 clock-names = "core_clk";
                 clocks = <&clock_gcc clk_ipa_clk>;
                 qcom,ee = <0>;
+		qcom,modem-cfg-emb-pipe-flt;
                 qcom,msm-bus,name = "ipa";
                 qcom,msm-bus,num-cases = <3>;
                 qcom,msm-bus,num-paths = <1>;
