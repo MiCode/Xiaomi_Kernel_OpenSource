@@ -345,6 +345,18 @@ Required properties:
 
  - elemental-addr:                         slimbus slave enumeration address.
 
+* wcd_gpio_ctrl
+
+Required properties:
+
+ - compatible :                            "qcom,wcd-gpio-ctrl"
+
+ - qcom,cdc-rst-n-gpio :                   TLMM GPIO number
+
+ - pinctrl-names:                          Pinctrl state names for each pin
+                                           group configuration.
+ - pinctrl-x:                              Defines pinctrl state for each pin
+                                           group.
 Example:
 
 	qcom,msm-pcm {
@@ -601,6 +613,15 @@ Example:
 		compatible = "qcom,msm_dai_slim";
 		elemental-addr = [ff ff ff fe 17 02];
 	};
+
+	wcd_gpio_ctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		qcom,cdc-rst-n-gpio = <&tlmm 64 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
 * MSM8916 ASoC Machine driver
 
 Required properties:

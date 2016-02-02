@@ -23,6 +23,7 @@
 #include <linux/mfd/wcd9xxx/core-resource.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
+#include <linux/mfd/wcd9xxx/wcd-gpio-ctrl.h>
 #include <linux/mfd/wcd9335/registers.h>
 
 #include <linux/delay.h>
@@ -1172,6 +1173,28 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 	int ret;
 	struct wcd9xxx_pdata *pdata = wcd9xxx->dev->platform_data;
 
+	if (wcd9xxx->wcd_rst_np) {
+		/* use pinctrl and call into wcd-rst-gpio driver */
+		ret = wcd_gpio_ctrl_select_sleep_state(wcd9xxx->wcd_rst_np);
+		if (ret) {
+			pr_err("%s: wcd sleep pinctrl state fail!\n",
+					__func__);
+			return ret;
+		}
+		/* 20ms sleep required after pulling the reset gpio to LOW */
+		msleep(20);
+		ret = wcd_gpio_ctrl_select_active_state(wcd9xxx->wcd_rst_np);
+		if (ret) {
+			pr_err("%s: wcd active pinctrl state fail!\n",
+					__func__);
+			return ret;
+		}
+		/* 20ms sleep required after pulling the reset gpio to HIGH */
+		msleep(20);
+
+		return 0;
+	}
+
 	if (wcd9xxx->reset_gpio && wcd9xxx->dev_up
 			&& !pdata->use_pinctrl) {
 		ret = gpio_request(wcd9xxx->reset_gpio, "CDC_RESET");
@@ -1214,6 +1237,12 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 static void wcd9xxx_free_reset(struct wcd9xxx *wcd9xxx)
 {
 	struct wcd9xxx_pdata *pdata = wcd9xxx->dev->platform_data;
+
+	if (wcd9xxx->wcd_rst_np) {
+		wcd_gpio_ctrl_select_sleep_state(wcd9xxx->wcd_rst_np);
+		return;
+	}
+
 	if (wcd9xxx->reset_gpio) {
 		if (!pdata->use_pinctrl) {
 			gpio_free(wcd9xxx->reset_gpio);
@@ -1742,6 +1771,15 @@ static void wcd9xxx_set_reset_pin_state(struct wcd9xxx *wcd9xxx,
 					struct wcd9xxx_pdata *pdata,
 					bool active)
 {
+	if (wcd9xxx->wcd_rst_np) {
+		if (active)
+			wcd_gpio_ctrl_select_active_state(wcd9xxx->wcd_rst_np);
+		else
+			wcd_gpio_ctrl_select_sleep_state(wcd9xxx->wcd_rst_np);
+
+		return;
+	}
+
 	if (pdata->use_pinctrl) {
 		if (active == true)
 			pinctrl_select_state(pinctrl_info.pinctrl,
@@ -2218,11 +2256,18 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 				goto err_codec;
 			}
 		}
-		ret = extcodec_get_pinctrl(&client->dev);
-		if (ret < 0)
-			pdata->use_pinctrl = false;
-		else
+		wcd9xxx->reset_gpio = pdata->reset_gpio;
+		wcd9xxx->wcd_rst_np = pdata->wcd_rst_np;
+
+		if (!wcd9xxx->wcd_rst_np) {
+			ret = extcodec_get_pinctrl(&client->dev);
+			if (ret < 0)
+				pdata->use_pinctrl = false;
+			else
+				pdata->use_pinctrl = true;
+		} else {
 			pdata->use_pinctrl = true;
+		}
 
 		if (i2c_check_functionality(client->adapter,
 					    I2C_FUNC_I2C) == 0) {
@@ -2232,7 +2277,6 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 		}
 		dev_set_drvdata(&client->dev, wcd9xxx);
 		wcd9xxx->dev = &client->dev;
-		wcd9xxx->reset_gpio = pdata->reset_gpio;
 		wcd9xxx->dev_up = true;
 		if (client->dev.of_node)
 			wcd9xxx->mclk_rate = pdata->mclk_rate;
@@ -2671,15 +2715,19 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	if (ret)
 		goto err;
 
-	pdata->reset_gpio = of_get_named_gpio(dev->of_node,
+	pdata->wcd_rst_np = of_parse_phandle(dev->of_node,
+					     "qcom,wcd-rst-gpio-node", 0);
+	if (!pdata->wcd_rst_np) {
+		pdata->reset_gpio = of_get_named_gpio(dev->of_node,
 				"qcom,cdc-reset-gpio", 0);
-	if (pdata->reset_gpio < 0) {
-		dev_err(dev, "Looking up %s property in node %s failed %d\n",
-			"qcom, cdc-reset-gpio", dev->of_node->full_name,
-			pdata->reset_gpio);
-		goto err;
+		if (pdata->reset_gpio < 0) {
+			dev_err(dev, "Looking up %s property in node %s failed %d\n",
+				"qcom, cdc-reset-gpio",
+				dev->of_node->full_name, pdata->reset_gpio);
+			goto err;
+		}
+		dev_dbg(dev, "%s: reset gpio %d", __func__, pdata->reset_gpio);
 	}
-	dev_dbg(dev, "%s: reset gpio %d", __func__, pdata->reset_gpio);
 	ret = of_property_read_u32(dev->of_node,
 				   "qcom,cdc-mclk-clk-rate",
 				   &mclk_rate);
@@ -2923,12 +2971,17 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	wcd9xxx->dev = &slim->dev;
 	wcd9xxx->mclk_rate = pdata->mclk_rate;
 	wcd9xxx->dev_up = true;
+	wcd9xxx->wcd_rst_np = pdata->wcd_rst_np;
 
-	ret = extcodec_get_pinctrl(&slim->dev);
-	if (ret < 0)
-		pdata->use_pinctrl = false;
-	else
+	if (!wcd9xxx->wcd_rst_np) {
+		ret = extcodec_get_pinctrl(&slim->dev);
+		if (ret < 0)
+			pdata->use_pinctrl = false;
+		else
+			pdata->use_pinctrl = true;
+	} else {
 		pdata->use_pinctrl = true;
+	}
 
 	ret = wcd9xxx_init_supplies(wcd9xxx, pdata);
 	if (ret) {
