@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1479,6 +1479,16 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 						    dev_list) {
 					ret = swr_set_device_group(swr_dev,
 								SWR_BROADCAST);
+					if (ret)
+						dev_err(swrm->dev,
+							"%s: set num ch failed\n",
+							__func__);
+				}
+			} else {
+				list_for_each_entry(swr_dev, &mstr->devices,
+						    dev_list) {
+					ret = swr_set_device_group(swr_dev,
+								SWR_GROUP_NONE);
 					if (ret)
 						dev_err(swrm->dev,
 							"%s: set num ch failed\n",
