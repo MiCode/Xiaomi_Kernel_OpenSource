@@ -27,6 +27,7 @@
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
+#include <linux/pm_qos.h>
 
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_DSRC_NAME	"vdd-wlan-dsrc"
@@ -87,6 +88,7 @@ static struct cnss_sdio_data {
 	struct cnss_unsafe_channel_list unsafe_list;
 	struct cnss_sdio_info cnss_sdio_info;
 	struct cnss_ssr_info ssr_info;
+	struct pm_qos_request qos_request;
 } *cnss_pdata;
 
 #define WLAN_RECOVERY_DELAY 1
@@ -134,6 +136,34 @@ static const struct sdio_device_id ar6k_id_table[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(sdio, ar6k_id_table);
+
+int cnss_request_bus_bandwidth(int bandwidth)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_request_bus_bandwidth);
+
+void cnss_request_pm_qos(u32 qos_val)
+{
+	if (!cnss_pdata)
+		return;
+
+	pr_debug("%s: PM QoS value: %d\n", __func__, qos_val);
+	pm_qos_add_request(
+		&cnss_pdata->qos_request,
+		PM_QOS_CPU_DMA_LATENCY, qos_val);
+}
+EXPORT_SYMBOL(cnss_request_pm_qos);
+
+void cnss_remove_pm_qos(void)
+{
+	if (!cnss_pdata)
+		return;
+
+	pm_qos_remove_request(&cnss_pdata->qos_request);
+	pr_debug("%s: PM QoS removed\n", __func__);
+}
+EXPORT_SYMBOL(cnss_remove_pm_qos);
 
 int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count)
 {
