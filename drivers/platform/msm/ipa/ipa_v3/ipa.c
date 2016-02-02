@@ -2087,8 +2087,9 @@ int ipa3_q6_cleanup(void)
 		BUG();
 	}
 
-	ipa3_ctx->q6_proxy_clk_vote_valid = true;
-
+	/* set proxy vote before decrement */
+	ipa3_proxy_clk_vote();
+	IPA_ACTIVE_CLIENTS_DEC_SPECIAL("Q6");
 	return 0;
 }
 
