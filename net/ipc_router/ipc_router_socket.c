@@ -200,7 +200,7 @@ static int msm_ipc_router_create(struct net *net,
 		return -EPROTOTYPE;
 	}
 
-	sk = sk_alloc(net, AF_MSM_IPC, GFP_KERNEL, &msm_ipc_proto);
+	sk = sk_alloc(net, AF_MSM_IPC, GFP_KERNEL, &msm_ipc_proto, kern);
 	if (!sk) {
 		IPC_RTR_ERR("%s: sk_alloc failed\n", __func__);
 		return -ENOMEM;
@@ -311,7 +311,7 @@ static int ipc_router_connect(struct socket *sock, struct sockaddr *uaddr,
 	return ret;
 }
 
-static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
+static int msm_ipc_router_sendmsg(struct socket *sock,
 				  struct msghdr *m, size_t total_len)
 {
 	struct sock *sk = sock->sk;
@@ -371,7 +371,7 @@ out_sendmsg:
 	return ret;
 }
 
-static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
+static int msm_ipc_router_recvmsg(struct socket *sock,
 				  struct msghdr *m, size_t buf_len, int flags)
 {
 	struct sock *sk = sock->sk;
