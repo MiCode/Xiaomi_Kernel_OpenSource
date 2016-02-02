@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -618,11 +618,13 @@ EXPORT_SYMBOL(swr_reset_device);
  */
 int swr_set_device_group(struct swr_device *swr_dev, u8 id)
 {
-	struct swr_master *master = swr_dev->master;
+	struct swr_master *master;
 
 	if (!swr_dev)
 		return -EINVAL;
+
 	swr_dev->group_id = id;
+	master = swr_dev->master;
 	if (!id && master)
 		master->gr_sid = 0;
 
