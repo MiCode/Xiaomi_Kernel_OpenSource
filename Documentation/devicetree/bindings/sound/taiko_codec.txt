@@ -8,6 +8,11 @@ Required properties:
  - elemental-addr: codec slimbus slave PGD enumeration address.(48 bits)
 
  - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
+                        If this property is not defined, it is expected
+                        to atleast have "qcom,wcd-rst-n-gpio" to be defined.
+ - qcom,wcd-rst-gpio-node: Phandle reference to the DT node having codec reset gpio
+                        configuration. If this property is not defined, it is
+                        expected to atleast define "qcom,cdc-reset-gpio" property.
 
  - cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
  - qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
