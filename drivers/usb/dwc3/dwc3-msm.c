@@ -2585,7 +2585,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct dwc3	*dwc;
 	struct resource *res;
 	void __iomem *tcsr;
-	unsigned long flags;
 	bool host_mode;
 	int ret = 0;
 	int ext_hub_reset_gpio;
@@ -2831,7 +2830,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
-	/* Assumes dwc3 is the only DT child of dwc3-msm */
+	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
 		dev_err(&pdev->dev, "failed to find dwc3 child\n");
@@ -2839,7 +2838,22 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	host_mode = of_usb_get_dr_mode(dwc3_node) == USB_DR_MODE_HOST;
+	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev,
+				"failed to add create dwc3 core\n");
+		of_node_put(dwc3_node);
+		goto err;
+	}
+
+	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
+	of_node_put(dwc3_node);
+	if (!mdwc->dwc3) {
+		dev_err(&pdev->dev, "failed to get dwc3 platform device\n");
+		goto put_dwc3;
+	}
+
+	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
 	/* usb_psy required only for vbus_notifications */
 	if (!host_mode) {
 		mdwc->usb_psy.name = "usb";
@@ -2862,21 +2876,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 						__func__);
 			goto err;
 		}
-	}
-
-	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"failed to add create dwc3 core\n");
-		of_node_put(dwc3_node);
-		goto put_psupply;
-	}
-
-	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
-	of_node_put(dwc3_node);
-	if (!mdwc->dwc3) {
-		dev_err(&pdev->dev, "failed to get dwc3 platform device\n");
-		goto put_dwc3;
 	}
 
 	mdwc->hs_phy = devm_usb_get_phy_by_phandle(&mdwc->dwc3->dev,
@@ -3658,7 +3657,7 @@ static int dwc3_msm_pm_resume(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 static int dwc3_msm_runtime_idle(struct device *dev)
 {
 	dev_dbg(dev, "DWC3-msm runtime idle\n");
