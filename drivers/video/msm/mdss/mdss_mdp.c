@@ -1459,6 +1459,32 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
 		mdss_set_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE);
 		break;
+	case MDSS_MDP_HW_REV_300:
+	case MDSS_MDP_HW_REV_301:
+		mdata->max_target_zorder = 7; /* excluding base layer */
+		mdata->max_cursor_size = 384;
+		mdata->per_pipe_ib_factor.numer = 8;
+		mdata->per_pipe_ib_factor.denom = 5;
+		mdata->apply_post_scale_bytes = false;
+		mdata->hflip_buffer_reused = false;
+		mdata->min_prefill_lines = 21;
+		mdata->has_ubwc = true;
+		mdata->pixel_ram_size = 50 * 1024;
+		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map);
+		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED,
+			mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_3D_MUX_UNDERRUN_RECOVERY_SUPPORTED,
+			mdata->mdss_caps_map);
+		mdss_mdp_init_default_prefill_factors(mdata);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
+		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
+		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 64;
@@ -2424,86 +2450,112 @@ static void mdss_mdp_parse_dt_pipe_panic_ctrl(struct platform_device *pdev,
 	}
 }
 
-static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
+static int mdss_mdp_parse_dt_pipe_helper(struct platform_device *pdev,
+		u32 npipes,
+		u32 nfids)
 {
-	u32 npipes, dma_off;
-	int rc = 0, i;
-	u32 nfids = 0, setup_cnt = 0, len, nxids = 0;
+	u32 dma_off;
 	u32 *offsets = NULL, *ftch_id = NULL, *xin_id = NULL;
-	u32 sw_reset_offset = 0;
-	u32 data[4];
-
+	u32 len;
+	uint32_t setup_cnt = 0;
+	int rc = 0, i;
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
-	mdata->has_pixel_ram = !mdss_mdp_parse_dt_prop_len(pdev,
-						"qcom,mdss-smp-data");
-
-	mdata->nvig_pipes = mdss_mdp_parse_dt_prop_len(pdev,
-				"qcom,mdss-pipe-vig-off");
-	mdata->nrgb_pipes = mdss_mdp_parse_dt_prop_len(pdev,
-				"qcom,mdss-pipe-rgb-off");
-	mdata->ndma_pipes = mdss_mdp_parse_dt_prop_len(pdev,
-				"qcom,mdss-pipe-dma-off");
-	mdata->ncursor_pipes = mdss_mdp_parse_dt_prop_len(pdev,
-				"qcom,mdss-pipe-cursor-off");
-
-	npipes = mdata->nvig_pipes + mdata->nrgb_pipes + mdata->ndma_pipes;
-
-	if (!mdata->has_pixel_ram) {
-		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
-				"qcom,mdss-pipe-vig-fetch-id");
-		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
-				"qcom,mdss-pipe-rgb-fetch-id");
-		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
-				"qcom,mdss-pipe-dma-fetch-id");
-		if (npipes != nfids) {
-			pr_err("device tree err: unequal number of pipes and smp ids");
-			return -EINVAL;
-		}
-	}
-
-	nxids += mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-pipe-vig-xin-id");
-	nxids += mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-pipe-rgb-xin-id");
-	nxids += mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-pipe-dma-xin-id");
-	if (npipes != nxids) {
-		pr_err("device tree err: unequal number of pipes and xin ids\n");
-		return -EINVAL;
-	}
-
-	offsets = kzalloc(sizeof(u32) * npipes, GFP_KERNEL);
-	if (!offsets) {
-		pr_err("no mem assigned for offsets: kzalloc fail\n");
+	offsets = kcalloc(npipes, sizeof(u32), GFP_KERNEL);
+	if (!offsets)
 		return -ENOMEM;
-	}
 
-	ftch_id = kzalloc(sizeof(u32) * npipes, GFP_KERNEL);
+	ftch_id = kcalloc(npipes, sizeof(u32), GFP_KERNEL);
 	if (!ftch_id) {
-		pr_err("no mem assigned for ftch_id: kzalloc fail\n");
 		rc = -ENOMEM;
 		goto ftch_alloc_fail;
 	}
 
-	xin_id = kzalloc(sizeof(u32) * nxids, GFP_KERNEL);
+	xin_id = kcalloc(npipes, sizeof(u32), GFP_KERNEL);
 	if (!xin_id) {
-		pr_err("no mem assigned for xin_id: kzalloc fail\n");
 		rc = -ENOMEM;
 		goto xin_alloc_fail;
 	}
 
-	mdata->vig_pipes = devm_kzalloc(&mdata->pdev->dev,
-		sizeof(struct mdss_mdp_pipe) * mdata->nvig_pipes, GFP_KERNEL);
-	if (!mdata->vig_pipes) {
-		pr_err("no mem for vig_pipes: kzalloc fail\n");
-		rc = -ENOMEM;
-		goto vig_alloc_fail;
+	if (mdata->nvig_pipes) {
+		mdata->vig_pipes = devm_kzalloc(&mdata->pdev->dev,
+				    (sizeof(struct mdss_mdp_pipe)
+				     * mdata->nvig_pipes), GFP_KERNEL);
+		if (!mdata->vig_pipes) {
+			rc = -ENOMEM;
+			goto vig_alloc_fail;
+		}
+		if (nfids) {
+			rc = mdss_mdp_parse_dt_handler(pdev,
+					"qcom,mdss-pipe-vig-fetch-id", ftch_id,
+					mdata->nvig_pipes);
+			if (rc)
+				goto parse_fail;
+		}
+
+		rc = mdss_mdp_parse_dt_handler(pdev,
+				"qcom,mdss-pipe-vig-xin-id", xin_id,
+				mdata->nvig_pipes);
+		if (rc)
+			goto parse_fail;
+
+		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-vig-off",
+				offsets, mdata->nvig_pipes);
+		if (rc)
+			goto parse_fail;
+
+		len = min_t(int, DEFAULT_TOTAL_VIG_PIPES,
+			    (int)mdata->nvig_pipes);
+		rc = mdss_mdp_pipe_addr_setup(mdata, mdata->vig_pipes, offsets,
+					ftch_id, xin_id, MDSS_MDP_PIPE_TYPE_VIG,
+					MDSS_MDP_SSPP_VIG0, len, 0);
+		if (rc)
+			goto parse_fail;
+
+		setup_cnt += len;
 	}
 
-	mdata->rgb_pipes = devm_kzalloc(&mdata->pdev->dev,
-		sizeof(struct mdss_mdp_pipe) * mdata->nrgb_pipes, GFP_KERNEL);
-	if (!mdata->rgb_pipes) {
-		pr_err("no mem for rgb_pipes: kzalloc fail\n");
-		rc = -ENOMEM;
-		goto rgb_alloc_fail;
+	if (mdata->nrgb_pipes) {
+		mdata->rgb_pipes = devm_kzalloc(&mdata->pdev->dev,
+				(sizeof(struct mdss_mdp_pipe) *
+				 mdata->nrgb_pipes), GFP_KERNEL);
+		if (!mdata->rgb_pipes) {
+			rc = -ENOMEM;
+			goto rgb_alloc_fail;
+		}
+
+		if (nfids) {
+			rc = mdss_mdp_parse_dt_handler(pdev,
+					"qcom,mdss-pipe-rgb-fetch-id",
+					ftch_id + mdata->nvig_pipes,
+					mdata->nrgb_pipes);
+			if (rc)
+				goto parse_fail;
+		}
+
+		rc = mdss_mdp_parse_dt_handler(pdev,
+				"qcom,mdss-pipe-rgb-xin-id",
+				xin_id + mdata->nvig_pipes, mdata->nrgb_pipes);
+		if (rc)
+			goto parse_fail;
+
+		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-rgb-off",
+				offsets + mdata->nvig_pipes, mdata->nrgb_pipes);
+		if (rc)
+			goto parse_fail;
+
+		len = min_t(int, DEFAULT_TOTAL_RGB_PIPES,
+			    (int)mdata->nrgb_pipes);
+		rc = mdss_mdp_pipe_addr_setup(mdata, mdata->rgb_pipes,
+				offsets + mdata->nvig_pipes,
+				ftch_id + mdata->nvig_pipes,
+				xin_id + mdata->nvig_pipes,
+				MDSS_MDP_PIPE_TYPE_RGB,
+				MDSS_MDP_SSPP_RGB0, len, mdata->nvig_pipes);
+		if (rc)
+			goto parse_fail;
+
+		setup_cnt += len;
 	}
 
 	if (mdata->ndma_pipes) {
@@ -2515,63 +2567,7 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 			rc = -ENOMEM;
 			goto dma_alloc_fail;
 		}
-	}
 
-	if (nfids) {
-		rc = mdss_mdp_parse_dt_handler(pdev,
-			"qcom,mdss-pipe-vig-fetch-id", ftch_id,
-			mdata->nvig_pipes);
-		if (rc)
-			goto parse_fail;
-	}
-
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-vig-xin-id",
-		xin_id, mdata->nvig_pipes);
-	if (rc)
-		goto parse_fail;
-
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-vig-off",
-		offsets, mdata->nvig_pipes);
-	if (rc)
-		goto parse_fail;
-
-	len = min_t(int, DEFAULT_TOTAL_VIG_PIPES, (int)mdata->nvig_pipes);
-	rc = mdss_mdp_pipe_addr_setup(mdata, mdata->vig_pipes, offsets, ftch_id,
-		xin_id, MDSS_MDP_PIPE_TYPE_VIG, MDSS_MDP_SSPP_VIG0, len, 0);
-	if (rc)
-		goto parse_fail;
-
-	setup_cnt += len;
-
-	if (nfids) {
-		rc = mdss_mdp_parse_dt_handler(pdev,
-			"qcom,mdss-pipe-rgb-fetch-id",
-			ftch_id + mdata->nvig_pipes, mdata->nrgb_pipes);
-		if (rc)
-			goto parse_fail;
-	}
-
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-rgb-xin-id",
-		xin_id + mdata->nvig_pipes, mdata->nrgb_pipes);
-	if (rc)
-		goto parse_fail;
-
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-rgb-off",
-		offsets + mdata->nvig_pipes, mdata->nrgb_pipes);
-	if (rc)
-		goto parse_fail;
-
-	len = min_t(int, DEFAULT_TOTAL_RGB_PIPES, (int)mdata->nrgb_pipes);
-	rc = mdss_mdp_pipe_addr_setup(mdata, mdata->rgb_pipes,
-		offsets + mdata->nvig_pipes, ftch_id + mdata->nvig_pipes,
-		xin_id + mdata->nvig_pipes, MDSS_MDP_PIPE_TYPE_RGB,
-		MDSS_MDP_SSPP_RGB0, len, mdata->nvig_pipes);
-	if (rc)
-		goto parse_fail;
-
-	setup_cnt += len;
-
-	if (mdata->ndma_pipes) {
 		dma_off = mdata->nvig_pipes + mdata->nrgb_pipes;
 
 		if (nfids) {
@@ -2634,17 +2630,23 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		setup_cnt += mdata->nrgb_pipes - DEFAULT_TOTAL_RGB_PIPES;
 	}
 
-	rc = mdss_mdp_parse_dt_pipe_clk_ctrl(pdev,
-		"qcom,mdss-pipe-vig-clk-ctrl-offsets", mdata->vig_pipes,
-		mdata->nvig_pipes);
-	if (rc)
-		goto parse_fail;
+	if (mdata->nvig_pipes) {
+		rc = mdss_mdp_parse_dt_pipe_clk_ctrl(pdev,
+				"qcom,mdss-pipe-vig-clk-ctrl-offsets",
+				mdata->vig_pipes,
+				mdata->nvig_pipes);
+		if (rc)
+			goto parse_fail;
+	}
 
-	rc = mdss_mdp_parse_dt_pipe_clk_ctrl(pdev,
-		"qcom,mdss-pipe-rgb-clk-ctrl-offsets", mdata->rgb_pipes,
-		mdata->nrgb_pipes);
-	if (rc)
-		goto parse_fail;
+	if (mdata->nrgb_pipes) {
+		rc = mdss_mdp_parse_dt_pipe_clk_ctrl(pdev,
+				"qcom,mdss-pipe-rgb-clk-ctrl-offsets",
+				mdata->rgb_pipes,
+				mdata->nrgb_pipes);
+		if (rc)
+			goto parse_fail;
+	}
 
 	if (mdata->ndma_pipes) {
 		rc = mdss_mdp_parse_dt_pipe_clk_ctrl(pdev,
@@ -2652,48 +2654,6 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 			mdata->ndma_pipes);
 		if (rc)
 			goto parse_fail;
-	}
-
-	mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-sw-reset-off",
-		&sw_reset_offset, 1);
-	if (sw_reset_offset) {
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-vig-sw-reset-map", mdata->vig_pipes,
-			mdata->nvig_pipes);
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-rgb-sw-reset-map", mdata->rgb_pipes,
-			mdata->nrgb_pipes);
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-dma-sw-reset-map", mdata->dma_pipes,
-			mdata->ndma_pipes);
-	}
-
-	mdata->has_panic_ctrl = of_property_read_bool(pdev->dev.of_node,
-		"qcom,mdss-has-panic-ctrl");
-	if (mdata->has_panic_ctrl) {
-		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
-			"qcom,mdss-pipe-vig-panic-ctrl-offsets",
-				mdata->vig_pipes, mdata->nvig_pipes);
-		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
-			"qcom,mdss-pipe-rgb-panic-ctrl-offsets",
-				mdata->rgb_pipes, mdata->nrgb_pipes);
-		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
-			"qcom,mdss-pipe-dma-panic-ctrl-offsets",
-				mdata->dma_pipes, mdata->ndma_pipes);
-	}
-
-	len = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-per-pipe-panic-luts");
-	if (len != 4) {
-		pr_debug("Unable to read per-pipe-panic-luts\n");
-	} else {
-		rc = mdss_mdp_parse_dt_handler(pdev,
-			"qcom,mdss-per-pipe-panic-luts", data, len);
-		mdata->default_panic_lut_per_pipe_linear = data[0];
-		mdata->default_panic_lut_per_pipe_tile = data[1];
-		mdata->default_robust_lut_per_pipe_linear = data[2];
-		mdata->default_robust_lut_per_pipe_tile = data[3];
-		pr_debug("per pipe panic lut [0]:0x%x [1]:0x%x [2]:0x%x [3]:0x%x\n",
-			data[0], data[1], data[2], data[3]);
 	}
 
 	if (mdata->ncursor_pipes) {
@@ -2740,18 +2700,118 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 parse_fail:
 	kfree(mdata->cursor_pipes);
 cursor_alloc_fail:
-	kfree(mdata->dma_pipes);
+	kfree(mdata->cursor_pipes);
 dma_alloc_fail:
 	kfree(mdata->rgb_pipes);
 rgb_alloc_fail:
 	kfree(mdata->vig_pipes);
-parse_done:
 vig_alloc_fail:
 	kfree(xin_id);
 xin_alloc_fail:
 	kfree(ftch_id);
 ftch_alloc_fail:
 	kfree(offsets);
+parse_done:
+	return rc;
+}
+
+static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
+{
+	int rc = 0;
+	u32 nfids = 0, len, nxids = 0, npipes = 0;
+	u32 sw_reset_offset = 0;
+	u32 data[4];
+
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	mdata->has_pixel_ram = !mdss_mdp_parse_dt_prop_len(pdev,
+						"qcom,mdss-smp-data");
+
+	mdata->nvig_pipes = mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-vig-off");
+	mdata->nrgb_pipes = mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-rgb-off");
+	mdata->ndma_pipes = mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-dma-off");
+	mdata->ncursor_pipes = mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-cursor-off");
+
+	npipes = mdata->nvig_pipes + mdata->nrgb_pipes + mdata->ndma_pipes;
+
+	if (!mdata->has_pixel_ram) {
+		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-vig-fetch-id");
+		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-rgb-fetch-id");
+		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-dma-fetch-id");
+		if (npipes != nfids) {
+			pr_err("device tree err: unequal number of pipes and smp ids");
+			return -EINVAL;
+		}
+	}
+
+	if (mdata->nvig_pipes)
+		nxids += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-vig-xin-id");
+	if (mdata->nrgb_pipes)
+		nxids += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-rgb-xin-id");
+	if (mdata->ndma_pipes)
+		nxids += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-dma-xin-id");
+	if (npipes != nxids) {
+		pr_err("device tree err: unequal number of pipes and xin ids\n");
+		return -EINVAL;
+	}
+
+	rc = mdss_mdp_parse_dt_pipe_helper(pdev, npipes, nfids);
+	if (rc)
+		goto parse_fail;
+
+	mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-sw-reset-off",
+		&sw_reset_offset, 1);
+	if (sw_reset_offset) {
+		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+			"qcom,mdss-pipe-vig-sw-reset-map", mdata->vig_pipes,
+			mdata->nvig_pipes);
+		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+			"qcom,mdss-pipe-rgb-sw-reset-map", mdata->rgb_pipes,
+			mdata->nrgb_pipes);
+		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+			"qcom,mdss-pipe-dma-sw-reset-map", mdata->dma_pipes,
+			mdata->ndma_pipes);
+	}
+
+	mdata->has_panic_ctrl = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-panic-ctrl");
+	if (mdata->has_panic_ctrl) {
+		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+			"qcom,mdss-pipe-vig-panic-ctrl-offsets",
+				mdata->vig_pipes, mdata->nvig_pipes);
+		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+			"qcom,mdss-pipe-rgb-panic-ctrl-offsets",
+				mdata->rgb_pipes, mdata->nrgb_pipes);
+		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+			"qcom,mdss-pipe-dma-panic-ctrl-offsets",
+				mdata->dma_pipes, mdata->ndma_pipes);
+	}
+
+	len = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-per-pipe-panic-luts");
+	if (len != 4) {
+		pr_debug("Unable to read per-pipe-panic-luts\n");
+	} else {
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-per-pipe-panic-luts", data, len);
+		mdata->default_panic_lut_per_pipe_linear = data[0];
+		mdata->default_panic_lut_per_pipe_tile = data[1];
+		mdata->default_robust_lut_per_pipe_linear = data[2];
+		mdata->default_robust_lut_per_pipe_tile = data[3];
+		pr_debug("per pipe panic lut [0]:0x%x [1]:0x%x [2]:0x%x [3]:0x%x\n",
+			data[0], data[1], data[2], data[3]);
+	}
+
+parse_fail:
 	return rc;
 }
 
@@ -2763,6 +2823,7 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	u32 *mixer_offsets = NULL, *dspp_offsets = NULL,
 	    *pingpong_offsets = NULL;
 	u32 is_virtual_mixer_req = false;
+	u32 supports_separate_rotator = 0;
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
@@ -2817,13 +2878,15 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
+	supports_separate_rotator = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-separate-rotator");
 	if (mdata->nmixers_wb) {
 		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
 				mixer_offsets + mdata->nmixers_intf,
 				mdata->nmixers_wb);
 		if (rc)
 			goto parse_done;
-	} else {
+	} else if (!supports_separate_rotator) {
 		/*
 		 * If writeback mixers are not available, put the number of
 		 * writeback mixers equal to number of DMA pipes so that
