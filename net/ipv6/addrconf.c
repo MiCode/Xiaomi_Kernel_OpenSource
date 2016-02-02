@@ -3295,6 +3295,7 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
 {
 	struct inet6_dev *idev = ifp->idev;
 	struct net_device *dev = idev->dev;
+	bool notify = false;
 
 	addrconf_join_solict(dev, &ifp->addr);
 
@@ -3340,7 +3341,7 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
 			/* Because optimistic nodes can use this address,
 			 * notify listeners. If DAD fails, RTM_DELADDR is sent.
 			 */
-			ipv6_ifa_notify(RTM_NEWADDR, ifp);
+			notify = true;
 		}
 	}
 
@@ -3348,6 +3349,8 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
 out:
 	spin_unlock(&ifp->lock);
 	read_unlock_bh(&idev->lock);
+	if (notify)
+		ipv6_ifa_notify(RTM_NEWADDR, ifp);
 }
 
 static void addrconf_dad_start(struct inet6_ifaddr *ifp)
