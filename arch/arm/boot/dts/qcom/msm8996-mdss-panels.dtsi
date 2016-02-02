@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include "dsi-panel-nt35950-dsc-4k-cmd.dtsi"
 #include "dsi-panel-sharp-dualmipi-1080p-120hz.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
+#include "dsi-panel-sharp-dsc-4k-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -129,6 +130,14 @@
 };
 
 &dsi_nt35950_4k_dsc_cmd {
+	qcom,mdss-dsi-panel-timings-8996 = [21 1e 06 08 04 03 04 a0
+		21 1e 06 08 04 03 04 a0
+		21 1e 06 08 04 03 04 a0
+		21 1e 06 08 04 03 04 a0
+		21 15 06 07 04 03 04 a0];
+};
+
+&dsi_sharp_4k_dsc_video {
 	qcom,mdss-dsi-panel-timings-8996 = [21 1e 06 08 04 03 04 a0
 		21 1e 06 08 04 03 04 a0
 		21 1e 06 08 04 03 04 a0

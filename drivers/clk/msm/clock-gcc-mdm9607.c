@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -206,6 +206,7 @@ static struct rcg_clk apss_ahb_clk_src = {
 
 static struct clk_freq_tbl ftbl_emac_0_125m_clk_src[] = {
 	F(      19200000,                   xo,    1,    0,     0),
+	F_EXT(  25000000,      emac_0_125m_clk,    5,    0,     0),
 	F_EXT( 125000000,      emac_0_125m_clk,    1,    0,     0),
 	F_END
 };
@@ -246,7 +247,7 @@ static struct rcg_clk emac_0_sys_25m_clk_src = {
 
 static struct clk_freq_tbl ftbl_emac_0_tx_clk_src[] = {
 	F(      19200000,                   xo,    1,    0,     0),
-	F_EXT( 125000000,      emac_0_125m_clk,    1,    0,     0),
+	F_EXT( 125000000,        emac_0_tx_clk,    1,    0,     0),
 	F_END
 };
 static struct rcg_clk emac_0_tx_clk_src = {

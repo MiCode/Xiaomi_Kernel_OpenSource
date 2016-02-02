@@ -651,7 +651,7 @@
 
 		qcom,cdc-reset-gpio = <&tlmm 68 0>;
 
-		pinctrl-names = "default", "sleep";
+		pinctrl-names = "default", "idle";
 		pinctrl-0 = <&cdc_reset_active>;
 		pinctrl-1 = <&cdc_reset_sleep>;
 

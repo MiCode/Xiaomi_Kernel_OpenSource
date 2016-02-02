@@ -55,6 +55,7 @@
 enum fan53555_vendor {
 	FAN53555_VENDOR_FAIRCHILD = 0,
 	FAN53555_VENDOR_SILERGY,
+	HALO_HL7509,
 };
 
 /* IC Type */
@@ -91,6 +92,8 @@ struct fan53555_device_info {
 	unsigned int slew_rate;
 	/* Sleep voltage cache */
 	unsigned int sleep_vol_cache;
+	/* Disable suspend */
+	bool disable_suspend;
 };
 
 static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
@@ -98,6 +101,8 @@ static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
 	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
 	int ret;
 
+	if (di->disable_suspend)
+		return 0;
 	if (di->sleep_vol_cache == uV)
 		return 0;
 	ret = regulator_map_voltage_linear(rdev, uV, uV);
@@ -266,6 +271,9 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
 	case FAN53555_VENDOR_SILERGY:
 		ret = fan53555_voltages_setup_silergy(di);
 		break;
+	case HALO_HL7509:
+		ret = fan53555_voltages_setup_fairchild(di);
+		break;
 	default:
 		dev_err(di->dev, "vendor %d not supported!\n", di->vendor);
 		return -EINVAL;
@@ -320,6 +328,8 @@ static int fan53555_parse_dt(struct fan53555_device_info *di,
 	if (!ret)
 		pdata->sleep_vsel_id = tmp;
 
+	di->disable_suspend = of_property_read_bool(np, "fcs,disable-suspend");
+
 	return ret;
 }
 
@@ -333,6 +343,9 @@ static const struct of_device_id fan53555_dt_ids[] = {
 	}, {
 		.compatible = "silergy,syr828",
 		.data = (void *)FAN53555_VENDOR_SILERGY,
+	}, {
+		.compatible = "halo,hl7509",
+		.data = (void *)HALO_HL7509,
 	},
 	{ }
 };
@@ -436,6 +449,9 @@ static const struct i2c_device_id fan53555_id[] = {
 	}, {
 		.name = "syr82x",
 		.driver_data = FAN53555_VENDOR_SILERGY
+	}, {
+		.name = "hl7509",
+		.driver_data = HALO_HL7509
 	},
 	{ },
 };
