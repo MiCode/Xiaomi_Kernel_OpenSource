@@ -716,7 +716,8 @@ struct dwc3_scratchpad_array {
 #define DWC3_CORE_PM_RESUME_EVENT			4
 #define DWC3_CONTROLLER_CONNDONE_EVENT			5
 #define DWC3_CONTROLLER_NOTIFY_OTG_EVENT		6
-#define DWC3_CONTROLLER_RESTART_USB_SESSION		10
+#define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT		7
+#define DWC3_CONTROLLER_RESTART_USB_SESSION		8
 
 #define MAX_INTR_STATS					10
 /**
@@ -807,6 +808,7 @@ struct dwc3_scratchpad_array {
  * 	1	- -3.5dB de-emphasis
  * 	2	- No de-emphasis
  * 	3	- Reserved
+ * @is_drd: device supports dual-role or not
  * @err_evt_seen: previous event in queue was erratic error
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  * @in_lpm: indicates if controller is in low power mode (no clocks)
@@ -818,6 +820,7 @@ struct dwc3_scratchpad_array {
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  * @wait_linkstate: waitqueue for waiting LINK to move into required state
+ * @vbus_draw: current to be drawn from USB
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -965,6 +968,11 @@ struct dwc3 {
 	unsigned		tx_de_emphasis_quirk:1;
 	unsigned		tx_de_emphasis:2;
 
+	unsigned		is_drd:1;
+	/* Indicate if the gadget was powered by the otg driver */
+	unsigned		vbus_active:1;
+	/* Indicate if software connect was issued by the usb_gadget_driver */
+	unsigned		softconnect:1;
 	unsigned		nominal_elastic_buffer:1;
 	unsigned		err_evt_seen:1;
 	unsigned		usb3_u1u2_disable:1;
@@ -977,6 +985,7 @@ struct dwc3 {
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
 	bool			b_suspend;
+	unsigned		vbus_draw;
 
 	/* IRQ timing statistics */
 	int			irq;
@@ -1156,6 +1165,7 @@ static inline void dwc3_host_exit(struct dwc3 *dwc)
 #if IS_ENABLED(CONFIG_USB_DWC3_GADGET) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_gadget_init(struct dwc3 *dwc);
 void dwc3_gadget_exit(struct dwc3 *dwc);
+void dwc3_gadget_restart(struct dwc3 *dwc);
 int dwc3_gadget_set_test_mode(struct dwc3 *dwc, int mode);
 int dwc3_gadget_get_link_state(struct dwc3 *dwc);
 int dwc3_gadget_set_link_state(struct dwc3 *dwc, enum dwc3_link_state state);
@@ -1166,6 +1176,8 @@ int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned cmd, u32 param);
 static inline int dwc3_gadget_init(struct dwc3 *dwc)
 { return 0; }
 static inline void dwc3_gadget_exit(struct dwc3 *dwc)
+{ }
+static inline void dwc3_gadget_restart(struct dwc3 *dwc)
 { }
 static inline int dwc3_gadget_set_test_mode(struct dwc3 *dwc, int mode)
 { return 0; }
@@ -1212,6 +1224,8 @@ static inline void dwc3_ulpi_exit(struct dwc3 *dwc)
 
 
 int dwc3_core_init(struct dwc3 *dwc);
+int dwc3_core_pre_init(struct dwc3 *dwc);
+void dwc3_post_host_reset_core_init(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
 void dwc3_usb3_phy_suspend(struct dwc3 *dwc, int suspend);
 
