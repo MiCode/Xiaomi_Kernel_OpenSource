@@ -50,7 +50,7 @@
 #define APCS_PLL_TEST_CTL_HI	0x34
 
 #define UPDATE_CHECK_MAX_LOOPS 5000
-#define CCI_RATE(rate)		((rate * 10) / 25)
+#define CCI_RATE(rate)		(div_u64((rate * 10ULL), 25))
 #define PLL_MODE(x)		(*(x)->base + (unsigned long) (x)->mode_reg)
 
 #define GLB_DIAG		0x0b11101c
