@@ -1825,6 +1825,53 @@ static const struct file_operations iommu_debug_unmap_fops = {
 	.write	= iommu_debug_unmap_write,
 };
 
+static ssize_t iommu_debug_config_clocks_write(struct file *file,
+					       const char __user *ubuf,
+					       size_t count, loff_t *offset)
+{
+	char buf;
+	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+
+	/* we're expecting a single character plus (optionally) a newline */
+	if (count > 2) {
+		dev_err(dev, "Invalid value\n");
+		return -EINVAL;
+	}
+
+	if (!ddev->domain) {
+		dev_err(dev, "No domain. Did you already attach?\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(&buf, ubuf, 1)) {
+		dev_err(dev, "Couldn't copy from user\n");
+		return -EFAULT;
+	}
+
+	switch (buf) {
+	case '0':
+		dev_err(dev, "Disabling config clocks\n");
+		iommu_disable_config_clocks(ddev->domain);
+		break;
+	case '1':
+		dev_err(dev, "Enabling config clocks\n");
+		if (iommu_enable_config_clocks(ddev->domain))
+			dev_err(dev, "Failed!\n");
+		break;
+	default:
+		dev_err(dev, "Invalid value. Should be 0 or 1.\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static const struct file_operations iommu_debug_config_clocks_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_config_clocks_write,
+};
+
 /*
  * The following will only work for drivers that implement the generic
  * device tree bindings described in
@@ -1929,6 +1976,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 	if (!debugfs_create_file("unmap", S_IWUSR, dir, ddev,
 				 &iommu_debug_unmap_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/unmap debugfs file\n",
+		       name);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("config_clocks", S_IWUSR, dir, ddev,
+				 &iommu_debug_config_clocks_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/config_clocks debugfs file\n",
 		       name);
 		goto err_rmdir;
 	}
