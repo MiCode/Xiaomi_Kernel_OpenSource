@@ -33,6 +33,7 @@
 
 /* ctrl registers */
 #define QPNP_WLED_INT_EN_SET(b)		(b + 0x15)
+#define QPNP_WLED_INT_EN_CLR(b)		(b + 0x16)
 #define QPNP_WLED_EN_REG(b)		(b + 0x46)
 #define QPNP_WLED_FDBK_OP_REG(b)	(b + 0x48)
 #define QPNP_WLED_VREF_REG(b)		(b + 0x49)
@@ -100,7 +101,6 @@
 #define QPNP_WLED_OVP_29500_MV		29500
 #define QPNP_WLED_OVP_31000_MV		31000
 #define QPNP_WLED_TEST4_EN_VREF_UP	0x32
-#define QPNP_WLED_INT_EN_SET_OVP_DIS	0x00
 #define QPNP_WLED_INT_EN_SET_OVP_EN	0x02
 #define QPNP_WLED_OVP_FLT_SLEEP_US	10
 #define QPNP_WLED_TEST4_EN_IIND_UP	0x1
@@ -417,9 +417,9 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 
 	/* disable OVP fault interrupt */
 	if (state) {
-		reg = QPNP_WLED_INT_EN_SET_OVP_DIS;
+		reg = QPNP_WLED_INT_EN_SET_OVP_EN;
 		rc = qpnp_wled_write_reg(wled, &reg,
-				QPNP_WLED_INT_EN_SET(base_addr));
+				QPNP_WLED_INT_EN_CLR(base_addr));
 		if (rc)
 			return rc;
 	}
@@ -436,7 +436,7 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 		return rc;
 
 	/* enable OVP fault interrupt */
-	if (state) {
+	if (state && (wled->ovp_irq > 0)) {
 		udelay(QPNP_WLED_OVP_FLT_SLEEP_US);
 		reg = QPNP_WLED_INT_EN_SET_OVP_EN;
 		rc = qpnp_wled_write_reg(wled, &reg,
