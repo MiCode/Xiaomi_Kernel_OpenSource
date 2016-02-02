@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -262,7 +262,7 @@
 	};
 
 	eeprom4: qcom,eeprom@4 {
-		cell-index = <0>;
+		cell-index = <4>;
 		reg = <0x4>;
 		qcom,eeprom-name = "dw9761b";
 		compatible = "qcom,eeprom";

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -237,7 +237,7 @@
 	};
 
 	eeprom2: qcom,eeprom@2 {
-		cell-index = <0>;
+		cell-index = <2>;
 		reg = <0x2>;
 		qcom,eeprom-name = "onsemi_cat24c32";
 		compatible = "qcom,eeprom";
@@ -262,7 +262,7 @@
 	};
 
 	eeprom3: qcom,eeprom@3 {
-		cell-index = <0>;
+		cell-index = <3>;
 		reg = <0x3>;
 		qcom,eeprom-name = "dw9761b";
 		compatible = "qcom,eeprom";
