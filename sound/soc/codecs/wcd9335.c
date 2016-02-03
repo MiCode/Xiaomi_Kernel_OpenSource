@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -5188,8 +5188,10 @@ static void tasha_tx_hpf_corner_freq_callback(struct work_struct *work)
 		amic_reg = WCD9335_ANA_AMIC1 + amic_n - 1;
 		tasha_codec_set_tx_hold(codec, amic_reg, false);
 	}
+	tasha_codec_vote_max_bw(codec, true);
 	snd_soc_update_bits(codec, dec_cfg_reg, TX_HPF_CUT_OFF_FREQ_MASK,
 			    hpf_cut_off_freq << 5);
+	tasha_codec_vote_max_bw(codec, false);
 }
 
 static void tasha_tx_mute_update_callback(struct work_struct *work)
