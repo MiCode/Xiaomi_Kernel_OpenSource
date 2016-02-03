@@ -1,4 +1,4 @@
-/* Copyright (c) 2012,2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2014,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,7 +157,7 @@ void *wcnss_prealloc_get(unsigned int size)
 		if (wcnss_allocs[i].occupied)
 			continue;
 
-		if (wcnss_allocs[i].size > size) {
+		if (wcnss_allocs[i].size >= size) {
 			/* we found the slot */
 			wcnss_allocs[i].occupied = 1;
 			spin_unlock_irqrestore(&alloc_lock, flags);
