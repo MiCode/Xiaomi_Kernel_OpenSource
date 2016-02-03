@@ -565,16 +565,24 @@ alloc:
 	return 0;
 }
 
-static int __allocate_data_blocks(struct inode *inode, loff_t offset,
-							size_t count)
+ssize_t f2fs_preallocate_blocks(struct kiocb *iocb, size_t count)
 {
+	struct inode *inode = file_inode(iocb->ki_filp);
 	struct f2fs_map_blocks map;
+	ssize_t ret = 0;
 
-	map.m_lblk = F2FS_BYTES_TO_BLK(offset);
+	map.m_lblk = F2FS_BYTES_TO_BLK(iocb->ki_pos);
 	map.m_len = F2FS_BYTES_TO_BLK(count);
 	map.m_next_pgofs = NULL;
 
-	return f2fs_map_blocks(inode, &map, 1, F2FS_GET_BLOCK_DIO);
+	if (iocb->ki_filp->f_flags & O_DIRECT &&
+		!(f2fs_encrypted_inode(inode) && S_ISREG(inode->i_mode))) {
+		ret = f2fs_convert_inline_inode(inode);
+		if (ret)
+			return ret;
+		ret = f2fs_map_blocks(inode, &map, 1, F2FS_GET_BLOCK_PRE_DIO);
+	}
+	return ret;
 }
 
 /*
@@ -671,7 +679,8 @@ next_block:
 		map->m_len = 1;
 	} else if ((map->m_pblk != NEW_ADDR &&
 			blkaddr == (map->m_pblk + ofs)) ||
-			(map->m_pblk == NEW_ADDR && blkaddr == NEW_ADDR)) {
+			(map->m_pblk == NEW_ADDR && blkaddr == NEW_ADDR) ||
+			flag == F2FS_GET_BLOCK_PRE_DIO) {
 		ofs++;
 		map->m_len++;
 	} else {
@@ -1643,35 +1652,20 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb,
 				const struct iovec *iov, loff_t offset,
 				unsigned long nr_segs)
 {
-	struct file *file = iocb->ki_filp;
-	struct address_space *mapping = file->f_mapping;
+	struct address_space *mapping = iocb->ki_filp->f_mapping;
 	struct inode *inode = mapping->host;
 	size_t count = iov_length(iov, nr_segs);
 	int err;
 
-	/* we don't need to use inline_data strictly */
-	err = f2fs_convert_inline_inode(inode);
+	err = check_direct_IO(inode, rw, iov, offset, nr_segs);
 	if (err)
 		return err;
 
 	if (f2fs_encrypted_inode(inode) && S_ISREG(inode->i_mode))
 		return 0;
 
-	err = check_direct_IO(inode, rw, iov, offset, nr_segs);
-	if (err)
-		return err;
-
-	trace_f2fs_direct_IO_enter(inode, offset, count, rw);
-
-	if (rw & WRITE) {
-		err = __allocate_data_blocks(inode, offset, count);
-		if (err)
-			goto out;
-	}
-
 	err = blockdev_direct_IO(rw, iocb, inode, iov, offset, nr_segs,
 							get_data_block_dio);
-out:
 	if (err < 0 && (rw & WRITE))
 		f2fs_write_failed(mapping, offset + count);
 
