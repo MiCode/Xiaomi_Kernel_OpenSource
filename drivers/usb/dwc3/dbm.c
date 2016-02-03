@@ -308,9 +308,6 @@ int dbm_ep_config(struct dbm *dbm, u8 usb_ep, u8 bam_pipe, bool producer,
 		return -ENODEV;
 	}
 
-	/* First, reset the dbm endpoint */
-	ep_soft_reset(dbm, dbm_ep, 0);
-
 	/* Set ioc bit for dbm_ep if needed */
 	msm_dbm_write_reg_field(dbm, DBM_DBG_CNFG,
 		DBM_ENABLE_IOC_MASK & 1 << dbm_ep, ioc ? 1 : 0);
@@ -387,23 +384,10 @@ int dbm_ep_unconfig(struct dbm *dbm, u8 usb_ep)
 	data &= (~0x1);
 	msm_dbm_write_ep_reg(dbm, DBM_EP_CFG, dbm_ep, data);
 
-	/* Reset the dbm endpoint */
-	ep_soft_reset(dbm, dbm_ep, true);
 	/*
-	 * The necessary delay between asserting and deasserting the dbm ep
-	 * reset is based on the number of active endpoints. If there is more
-	 * than one endpoint, a 1 msec delay is required. Otherwise, a shorter
-	 * delay will suffice.
-	 *
-	 * As this function can be called in atomic context, sleeping variants
-	 * for delay are not possible - albeit a 1ms delay.
+	 * ep_soft_reset is not required during disconnect as pipe reset on
+	 * next connect will take care of the same.
 	 */
-	if (dbm_get_num_of_eps_configured(dbm) > 1)
-		udelay(1000);
-	else
-		udelay(10);
-	ep_soft_reset(dbm, dbm_ep, false);
-
 	return 0;
 }
 
