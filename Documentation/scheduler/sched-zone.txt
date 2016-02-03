@@ -1280,6 +1280,18 @@ power-efficient cpu. We don't let it come back to a power-efficient cpu until
 its demand *in reference to the power-efficient cpu* drops less than 60%
 (sched_downmigrate).
 
+
+*** 7.26 sched_small_wakee_task_load
+
+Appears at: /proc/sys/kernel/sched_small_wakee_task_load
+
+Default value: 10
+
+This tunable is a percentage.  Configure the maximum demand of small wakee task.
+Sync wakee tasks which have demand less than sched_small_wakee_task_load are
+categorized as small wakee tasks.  Scheduler places small wakee tasks on the
+waker's cluster.
+
 =========================
 8. HMP SCHEDULER TRACE POINTS
 =========================
