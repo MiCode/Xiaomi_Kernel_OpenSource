@@ -29,6 +29,7 @@ struct file_ra_state;
 struct user_struct;
 struct writeback_control;
 struct bdi_writeback;
+struct super_block;
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES	/* Don't use mapnrs, do it properly */
 extern unsigned long max_mapnr;
@@ -1989,7 +1990,10 @@ vm_unmapped_area(struct vm_unmapped_area_info *info)
 
 /* truncate.c */
 extern void truncate_inode_pages(struct address_space *, loff_t);
+extern void truncate_inode_pages_fill_zero(struct address_space *, loff_t);
 extern void truncate_inode_pages_range(struct address_space *,
+				       loff_t lstart, loff_t lend);
+extern void truncate_inode_pages_range_fill_zero(struct address_space *,
 				       loff_t lstart, loff_t lend);
 extern void truncate_inode_pages_final(struct address_space *);
 
@@ -2190,6 +2194,8 @@ int drop_caches_sysctl_handler(struct ctl_table *, int,
 
 void drop_slab(void);
 void drop_slab_node(int nid);
+
+void drop_pagecache_sb(struct super_block *sb, void *unused);
 
 #ifndef CONFIG_MMU
 #define randomize_va_space 0
