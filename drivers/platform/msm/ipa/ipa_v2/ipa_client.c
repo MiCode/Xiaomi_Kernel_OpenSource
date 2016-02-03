@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -407,7 +407,8 @@ int ipa2_connect(const struct ipa_connect_params *in,
 	}
 
 	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
-		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_6L) &&
 		IPA_CLIENT_IS_USB_CONS(in->client))
 		ep->connect.event_thresh = IPA_USB_EVENT_THRESHOLD;
 	else
