@@ -78,6 +78,53 @@
 			     <0 425 0 /* CE11 */ >;
 		qcom,wlan-msa-memory = <0x100000>;
 	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_pwrcl_clk>,
+			 <&clock_cpu clk_pwrcl_clk>,
+			 <&clock_cpu clk_pwrcl_clk>,
+			 <&clock_cpu clk_pwrcl_clk>,
+			 <&clock_cpu clk_perfcl_clk>,
+			 <&clock_cpu clk_perfcl_clk>,
+			 <&clock_cpu clk_perfcl_clk>,
+			 <&clock_cpu clk_perfcl_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			<  300000 >,
+			<  345600 >,
+			<  422400 >,
+			<  499200 >,
+			<  576000 >,
+			<  633600 >,
+			<  710400 >,
+			<  806400 >,
+			<  883200 >,
+			<  960000 >,
+			< 1036800 >,
+			< 1113600 >;
+
+		qcom,cpufreq-table-4 =
+			<  300000 >,
+			<  345600 >,
+			<  422400 >,
+			<  480000 >,
+			<  556800 >,
+			<  633600 >,
+			<  710400 >,
+			<  787200 >,
+			<  844800 >,
+			<  902400 >,
+			<  979200 >,
+			< 1056000 >,
+			< 1094400 >,
+			< 1171200 >;
+	};
 };
 
 &gdsc_ufs {
