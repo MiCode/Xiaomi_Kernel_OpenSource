@@ -131,6 +131,8 @@ enum {
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver msm8x16_wcd_i2s_dai[];
+/* By default enable the internal speaker boost */
+static bool spkr_boost_en = true;
 
 #define MSM8X16_WCD_ACQUIRE_LOCK(x) \
 	mutex_lock_nested(&x, SINGLE_DEPTH_NESTING)
@@ -2123,51 +2125,6 @@ static int msm8x16_wcd_boost_option_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int msm8x16_wcd_spk_boost_get(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
-
-	if (msm8x16_wcd->spk_boost_set == false) {
-		ucontrol->value.integer.value[0] = 0;
-	} else if (msm8x16_wcd->spk_boost_set == true) {
-		ucontrol->value.integer.value[0] = 1;
-	} else  {
-		dev_err(codec->dev, "%s: ERROR: Unsupported Speaker Boost = %d\n",
-			__func__, msm8x16_wcd->spk_boost_set);
-		return -EINVAL;
-	}
-
-	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n", __func__,
-			msm8x16_wcd->spk_boost_set);
-	return 0;
-}
-
-static int msm8x16_wcd_spk_boost_set(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
-
-	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
-		__func__, ucontrol->value.integer.value[0]);
-
-	switch (ucontrol->value.integer.value[0]) {
-	case 0:
-		msm8x16_wcd->spk_boost_set = false;
-		break;
-	case 1:
-		msm8x16_wcd->spk_boost_set = true;
-		break;
-	default:
-		return -EINVAL;
-	}
-	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n",
-		__func__, msm8x16_wcd->spk_boost_set);
-	return 0;
-}
-
 static int msm8x16_wcd_ext_spk_boost_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -2470,9 +2427,6 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("EAR PA Gain", msm8x16_wcd_ear_pa_gain_enum[0],
 		msm8x16_wcd_pa_gain_get, msm8x16_wcd_pa_gain_put),
-
-	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
-		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
 
 	SOC_ENUM_EXT("Ext Spk Boost", msm8x16_wcd_ext_spk_boost_ctl_enum[0],
 		msm8x16_wcd_ext_spk_boost_get, msm8x16_wcd_ext_spk_boost_set),
@@ -5402,6 +5356,13 @@ void msm8x16_wcd_hs_detect_exit(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL(msm8x16_wcd_hs_detect_exit);
 
+void msm8x16_update_int_spk_boost(bool enable)
+{
+	pr_debug("%s: enable = %d\n", __func__, enable);
+	spkr_boost_en = enable;
+}
+EXPORT_SYMBOL(msm8x16_update_int_spk_boost);
+
 static void msm8x16_wcd_set_micb_v(struct snd_soc_codec *codec)
 {
 
@@ -5578,6 +5539,11 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x16_wcd_priv->mclk_enabled = false;
 	msm8x16_wcd_priv->clock_active = false;
 	msm8x16_wcd_priv->config_mode_active = false;
+
+	/*Update speaker boost configuration*/
+	msm8x16_wcd_priv->spk_boost_set = spkr_boost_en;
+	pr_debug("%s: speaker boost configured = %d\n",
+			__func__, msm8x16_wcd_priv->spk_boost_set);
 
 	/* Set initial MICBIAS voltage level */
 	msm8x16_wcd_set_micb_v(codec);
