@@ -3536,8 +3536,11 @@ static void thermal_monitor_notify(struct therm_threshold *trig_thres)
 		break;
 	}
 
-	sensor_mgr_set_threshold(trig_thres->sensor_id,
+	if (trig_thres->cur_state != trig_thres->trip_triggered) {
+		sensor_mgr_set_threshold(trig_thres->sensor_id,
 					trig_thres->threshold);
+		trig_thres->cur_state = trig_thres->trip_triggered;
+	}
 }
 
 static int clock_check_tsens(void)
