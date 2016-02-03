@@ -161,6 +161,16 @@ config QCOM_SMEM
 	  The driver provides an interface to items in a heap shared among all
 	  processors in a Qualcomm platform.
 
+config MSM_IPC_ROUTER_SMD_XPRT
+	depends on MSM_SMD
+	depends on IPC_ROUTER
+	bool "MSM SMD XPRT Layer"
+	help
+	  SMD Transport Layer that enables IPC Router communication within
+	  a System-on-Chip(SoC). When the SMD channels become available,
+	  this layer registers a transport with IPC Router and enable
+	  message exchange.
+
 config QCOM_SMD
 	tristate "Qualcomm Shared Memory Driver (SMD)"
 	depends on QCOM_SMEM
