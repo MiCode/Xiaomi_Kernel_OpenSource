@@ -24,6 +24,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rbtree.h>
+#include <linux/of_gpio.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
 #include <linux/msm-bus.h>
@@ -40,6 +41,10 @@
 
 #define CREATE_TRACE_POINTS
 #include "ipa_trace.h"
+
+#define IPA_GPIO_IN_QUERY_CLK_IDX 0
+#define IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX 0
+#define IPA_GPIO_OUT_CLK_VOTE_IDX 1
 
 #define IPA_SUMMING_THRESHOLD (0x10)
 #define IPA_PIPE_MEM_START_OFST (0x0)
@@ -3527,6 +3532,62 @@ static void ipa3_destroy_flt_tbl_idrs(void)
 	}
 }
 
+static void ipa3_freeze_clock_vote_and_notify_modem(void)
+{
+	int res;
+	u32 ipa_clk_state;
+	struct ipa3_active_client_logging_info log_info;
+
+	if (ipa3_ctx->smp2p_info.res_sent)
+		return;
+
+	IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, "FREEZE_VOTE");
+	res = ipa3_inc_client_enable_clks_no_block(&log_info);
+	if (res)
+		ipa_clk_state = 0;
+	else
+		ipa_clk_state = 1;
+
+	if (ipa3_ctx->smp2p_info.out_base_id) {
+		gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
+			IPA_GPIO_OUT_CLK_VOTE_IDX, ipa_clk_state);
+		gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
+			IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX, 1);
+		ipa3_ctx->smp2p_info.res_sent = true;
+	} else {
+		IPAERR("smp2p out gpio not assigned\n");
+	}
+
+	IPADBG("IPA clocks are %s\n", ipa_clk_state ? "ON" : "OFF");
+}
+
+static int ipa3_panic_notifier(struct notifier_block *this,
+	unsigned long event, void *ptr)
+{
+	int res;
+
+	ipa3_freeze_clock_vote_and_notify_modem();
+
+	IPADBG("Calling uC panic handler\n");
+	res = ipa3_uc_panic_notifier(this, event, ptr);
+	if (res)
+		IPAERR("uC panic handler failed %d\n" , res);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ipa3_panic_blk = {
+	.notifier_call = ipa3_panic_notifier,
+	/* IPA panic handler needs to run before modem shuts down */
+	.priority = INT_MAX,
+};
+
+static void ipa3_register_panic_hdlr(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+		&ipa3_panic_blk);
+}
+
 static void ipa3_trigger_ipa_ready_cbs(void)
 {
 	struct ipa3_ready_cb_info *info;
@@ -4691,6 +4752,66 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	return result;
 }
 
+static irqreturn_t ipa3_smp2p_modem_clk_query_isr(int irq, void *ctxt)
+{
+	ipa3_freeze_clock_vote_and_notify_modem();
+
+	return IRQ_HANDLED;
+}
+
+static int ipa3_smp2p_probe(struct device *dev)
+{
+	struct device_node *node = dev->of_node;
+	int res;
+
+	IPADBG("node->name=%s\n", node->name);
+	if (strcmp("qcom,smp2pgpio_map_ipa_1_out", node->name) == 0) {
+		res = of_get_gpio(node, 0);
+		if (res < 0) {
+			IPADBG("of_get_gpio returned %d\n", res);
+			return res;
+		}
+
+		ipa3_ctx->smp2p_info.out_base_id = res;
+		IPADBG("smp2p out_base_id=%d\n",
+			ipa3_ctx->smp2p_info.out_base_id);
+	} else if (strcmp("qcom,smp2pgpio_map_ipa_1_in", node->name) == 0) {
+		int irq;
+
+		res = of_get_gpio(node, 0);
+		if (res < 0) {
+			IPADBG("of_get_gpio returned %d\n", res);
+			return res;
+		}
+
+		ipa3_ctx->smp2p_info.in_base_id = res;
+		IPADBG("smp2p in_base_id=%d\n",
+			ipa3_ctx->smp2p_info.in_base_id);
+
+		/* register for modem clk query */
+		irq = gpio_to_irq(ipa3_ctx->smp2p_info.in_base_id +
+			IPA_GPIO_IN_QUERY_CLK_IDX);
+		if (irq < 0) {
+			IPAERR("gpio_to_irq failed %d\n", irq);
+			return -ENODEV;
+		}
+		IPADBG("smp2p irq#=%d\n", irq);
+		res = request_irq(irq,
+			(irq_handler_t)ipa3_smp2p_modem_clk_query_isr,
+			IRQF_TRIGGER_RISING, "ipa_smp2p_clk_vote", dev);
+		if (res) {
+			IPAERR("fail to register smp2p irq=%d\n", irq);
+			return -ENODEV;
+		}
+		res = enable_irq_wake(ipa3_ctx->smp2p_info.in_base_id +
+			IPA_GPIO_IN_QUERY_CLK_IDX);
+		if (res)
+			IPAERR("failed to enable irq wake\n");
+	}
+
+	return 0;
+}
+
 int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	struct ipa_api_controller *api_ctrl, struct of_device_id *pdrv_match)
 {
@@ -4698,6 +4819,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	struct device *dev = &pdev_p->dev;
 
 	IPADBG("IPA driver probing started\n");
+	IPADBG("dev->of_node->name = %s\n", dev->of_node->name);
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb"))
 		return ipa_smmu_ap_cb_probe(dev);
@@ -4707,6 +4829,14 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb"))
 		return ipa_smmu_uc_cb_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node,
+	    "qcom,smp2pgpio-map-ipa-1-in"))
+		return ipa3_smp2p_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node,
+	    "qcom,smp2pgpio-map-ipa-1-out"))
+		return ipa3_smp2p_probe(dev);
 
 	master_dev = dev;
 	if (!ipa3_pdev)
@@ -4724,10 +4854,15 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		return result;
 	}
 
+	result = of_platform_populate(pdev_p->dev.of_node,
+		pdrv_match, NULL, &pdev_p->dev);
+	if (result) {
+		IPAERR("failed to populate platform\n");
+		return result;
+	}
+
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		arm_smmu = true;
-		result = of_platform_populate(pdev_p->dev.of_node,
-				pdrv_match, NULL, &pdev_p->dev);
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
 		IPAERR("Legacy IOMMU not supported\n");
@@ -4739,16 +4874,16 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 			IPAERR("DMA set mask failed\n");
 			return -EOPNOTSUPP;
 		}
+	}
 
-		if (!ipa3_bus_scale_table)
-			ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
+	if (!ipa3_bus_scale_table)
+		ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
 
-		/* Proceed to real initialization */
-		result = ipa3_pre_init(&ipa3_res, dev);
-		if (result) {
-			IPAERR("ipa3_init failed\n");
-			return result;
-		}
+	/* Proceed to real initialization */
+	result = ipa3_pre_init(&ipa3_res, dev);
+	if (result) {
+		IPAERR("ipa3_init failed\n");
+		return result;
 	}
 
 	return result;
