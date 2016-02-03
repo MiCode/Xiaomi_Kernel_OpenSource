@@ -396,8 +396,8 @@ int msm_create_session(unsigned int session_id, struct video_device *vdev)
 	session = msm_queue_find(msm_session_q, struct msm_session,
 		list, __msm_queue_find_session, &session_id);
 	if (session) {
-		pr_err("%s : Session not found Line %d\n",
-				__func__, __LINE__);
+		pr_err("%s: Session exist session_id=%d\n",
+				__func__, session_id);
 		return -EINVAL;
 	}
 
