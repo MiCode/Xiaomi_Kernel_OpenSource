@@ -592,9 +592,16 @@ struct fg_chip {
 	bool			irqs_enabled;
 	bool			use_last_soc;
 	int			last_soc;
+	/* Validating temperature */
 	int			last_good_temp;
 	int			batt_temp_low_limit;
 	int			batt_temp_high_limit;
+	/* Validating CC_SOC */
+	struct work_struct	cc_soc_store_work;
+	struct fg_wakeup_source	cc_soc_wakeup_source;
+	int			cc_soc_limit_pct;
+	bool			use_last_cc_soc;
+	int64_t			last_cc_soc;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -1334,6 +1341,7 @@ static void fg_check_ima_error_handling(struct fg_chip *chip)
 	}
 	mutex_lock(&chip->ima_recovery_lock);
 	fg_enable_irqs(chip, false);
+	chip->use_last_cc_soc = true;
 	chip->ima_error_handling = true;
 	if (!work_pending(&chip->ima_error_recovery_work))
 		schedule_work(&chip->ima_error_recovery_work);
@@ -2499,10 +2507,15 @@ static int update_sram_data(struct fg_chip *chip, int *resched_ms)
 				pr_err("Couldn't save sram registers\n");
 				goto out;
 			}
-			if (!chip->use_last_soc)
+			if (!chip->use_last_soc) {
 				chip->last_soc = get_monotonic_soc_raw(chip);
+				chip->last_cc_soc = div64_s64(
+					(int64_t)chip->last_soc *
+					FULL_PERCENT_28BIT, FULL_SOC_RAW);
+			}
 			if (fg_debug_mask & FG_STATUS)
-				pr_info("last_soc: %d\n", chip->last_soc);
+				pr_info("last_soc: %d last_cc_soc: %lld\n",
+					chip->last_soc, chip->last_cc_soc);
 		} else {
 			pr_err("update_sram failed\n");
 			goto out;
@@ -4432,6 +4445,37 @@ done:
 	fg_relax(&chip->gain_comp_wakeup_source);
 }
 
+static void cc_soc_store_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+					cc_soc_store_work);
+	int cc_soc_pct;
+
+	if (!chip->nom_cap_uah) {
+		pr_err("nom_cap_uah zero!\n");
+		fg_relax(&chip->cc_soc_wakeup_source);
+		return;
+	}
+
+	cc_soc_pct = get_sram_prop_now(chip, FG_DATA_CC_CHARGE);
+	cc_soc_pct = div64_s64(cc_soc_pct * 100,
+				chip->nom_cap_uah);
+	chip->last_cc_soc = div64_s64((int64_t)chip->last_soc *
+				FULL_PERCENT_28BIT, FULL_SOC_RAW);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("cc_soc_pct: %d last_cc_soc: %lld\n", cc_soc_pct,
+			chip->last_cc_soc);
+
+	if (fg_reset_on_lockup && (chip->cc_soc_limit_pct > 0 &&
+			cc_soc_pct >= chip->cc_soc_limit_pct)) {
+		pr_err("CC_SOC out of range\n");
+		fg_check_ima_error_handling(chip);
+	}
+
+	fg_relax(&chip->cc_soc_wakeup_source);
+}
+
 #define SOC_FIRST_EST_DONE	BIT(5)
 static bool is_first_est_done(struct fg_chip *chip)
 {
@@ -4592,6 +4636,9 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 			chip->last_soc = get_monotonic_soc_raw(chip);
 		if (fg_debug_mask & FG_STATUS)
 			pr_info("last_soc: %d\n", chip->last_soc);
+
+		fg_stay_awake(&chip->cc_soc_wakeup_source);
+		schedule_work(&chip->cc_soc_store_work);
 	}
 
 	if (chip->use_vbat_low_empty_soc) {
@@ -6442,6 +6489,11 @@ static int fg_of_init(struct fg_chip *chip)
 		pr_info("batt-temp-low_limit: %d batt-temp-high_limit: %d\n",
 			chip->batt_temp_low_limit, chip->batt_temp_high_limit);
 
+	OF_READ_PROPERTY(chip->cc_soc_limit_pct, "fg-cc-soc-limit-pct", rc, 0);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("cc-soc-limit-pct: %d\n", chip->cc_soc_limit_pct);
+
 	return rc;
 }
 
@@ -6661,6 +6713,7 @@ static void fg_cancel_all_works(struct fg_chip *chip)
 	cancel_work_sync(&chip->esr_extract_config_work);
 	cancel_work_sync(&chip->slope_limiter_work);
 	cancel_work_sync(&chip->dischg_gain_work);
+	cancel_work_sync(&chip->cc_soc_store_work);
 }
 
 static void fg_cleanup(struct fg_chip *chip)
@@ -6685,6 +6738,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
 	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
 	wakeup_source_trash(&chip->fg_reset_wakeup_source.source);
+	wakeup_source_trash(&chip->cc_soc_wakeup_source.source);
 }
 
 static int fg_remove(struct spmi_device *spmi)
@@ -7502,6 +7556,25 @@ static int fg_init_iadc_config(struct fg_chip *chip)
 	return 0;
 }
 
+static void fg_restore_cc_soc(struct fg_chip *chip)
+{
+	int rc;
+
+	if (!chip->use_last_cc_soc || !chip->last_cc_soc)
+		return;
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Restoring cc_soc: %lld\n", chip->last_cc_soc);
+
+	rc = fg_mem_write(chip, (u8 *)&chip->last_cc_soc,
+			fg_data[FG_DATA_CC_CHARGE].address, 4,
+			fg_data[FG_DATA_CC_CHARGE].offset, 0);
+	if (rc)
+		pr_err("failed to update CC_SOC rc=%d\n", rc);
+	else
+		chip->use_last_cc_soc = false;
+}
+
 static void fg_restore_soc(struct fg_chip *chip)
 {
 	int rc;
@@ -7661,6 +7734,7 @@ wait:
 		pr_info("IMA error recovery done...\n");
 out:
 	fg_restore_soc(chip);
+	fg_restore_cc_soc(chip);
 	fg_enable_irqs(chip, true);
 	update_sram_data_work(&chip->update_sram_data.work);
 	update_temp_data(&chip->update_temp_work.work);
@@ -7870,6 +7944,8 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_dischg_gain");
 	wakeup_source_init(&chip->fg_reset_wakeup_source.source,
 			"qpnp_fg_reset");
+	wakeup_source_init(&chip->cc_soc_wakeup_source.source,
+			"qpnp_fg_cc_soc");
 	spin_lock_init(&chip->sec_access_lock);
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
@@ -7899,6 +7975,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->esr_extract_config_work, esr_extract_config_work);
 	INIT_WORK(&chip->slope_limiter_work, slope_limiter_work);
 	INIT_WORK(&chip->dischg_gain_work, discharge_gain_work);
+	INIT_WORK(&chip->cc_soc_store_work, cc_soc_store_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -8072,6 +8149,7 @@ of_init_fail:
 	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
 	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
 	wakeup_source_trash(&chip->fg_reset_wakeup_source.source);
+	wakeup_source_trash(&chip->cc_soc_wakeup_source.source);
 	return rc;
 }
 
