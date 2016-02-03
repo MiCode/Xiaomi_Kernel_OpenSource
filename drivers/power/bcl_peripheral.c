@@ -1001,7 +1001,7 @@ update_data_exit:
 static int bcl_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct power_supply_config bcl_psy_cfg;
+	struct power_supply_config bcl_psy_cfg = {};
 
 	bcl_perph = devm_kzalloc(&pdev->dev, sizeof(struct bcl_device),
 			GFP_KERNEL);

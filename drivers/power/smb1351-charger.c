@@ -2954,7 +2954,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	int rc;
 	struct smb1351_charger *chip;
 	struct power_supply *usb_psy;
-	struct power_supply_config batt_psy_cfg;
+	struct power_supply_config batt_psy_cfg = {};
 	u8 reg = 0;
 
 	usb_psy = power_supply_get_by_name("usb");
@@ -3118,7 +3118,7 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	int rc;
 	struct smb1351_charger *chip;
 	struct device_node *node = client->dev.of_node;
-	struct power_supply_config parallel_psy_cfg;
+	struct power_supply_config parallel_psy_cfg = {};
 
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip) {

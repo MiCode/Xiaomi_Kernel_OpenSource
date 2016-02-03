@@ -4136,8 +4136,8 @@ static int smb135x_main_charger_probe(struct i2c_client *client,
 	int rc;
 	struct smb135x_chg *chip;
 	struct power_supply *usb_psy;
-	struct power_supply_config batt_psy_cfg;
-	struct power_supply_config dc_psy_cfg;
+	struct power_supply_config batt_psy_cfg = {};
+	struct power_supply_config dc_psy_cfg = {};
 	u8 reg = 0;
 
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
@@ -4300,7 +4300,7 @@ static int smb135x_parallel_charger_probe(struct i2c_client *client,
 	struct smb135x_chg *chip;
 	const struct of_device_id *match;
 	struct device_node *node = client->dev.of_node;
-	struct power_supply_config parallel_psy_cfg;
+	struct power_supply_config parallel_psy_cfg = {};
 
 	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip) {

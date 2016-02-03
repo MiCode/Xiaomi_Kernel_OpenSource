@@ -7833,8 +7833,8 @@ static int smbchg_probe(struct platform_device *pdev)
 	struct qpnp_vadc_chip *vadc_dev, *vchg_vadc_dev;
 	const char *typec_psy_name;
 	union power_supply_propval pval = {0, };
-	struct power_supply_config batt_psy_cfg;
-	struct power_supply_config dc_psy_cfg;
+	struct power_supply_config batt_psy_cfg = {};
+	struct power_supply_config dc_psy_cfg = {};
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
