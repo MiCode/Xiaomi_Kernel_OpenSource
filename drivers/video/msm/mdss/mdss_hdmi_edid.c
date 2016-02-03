@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1674,8 +1674,7 @@ int hdmi_edid_parser(void *input)
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		status = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
 
 	/* reset edid data for new hdmi connection */
