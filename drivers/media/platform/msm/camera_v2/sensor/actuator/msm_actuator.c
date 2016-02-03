@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,7 +156,7 @@ static int msm_actuator_bivcm_handle_i2c_ops(
 	uint32_t hw_dword = hw_params;
 	uint16_t i2c_byte1 = 0, i2c_byte2 = 0;
 	uint16_t value = 0, reg_data = 0;
-	uint32_t size = a_ctrl->reg_tbl_size, i = 0, j = 0;
+	uint32_t size = a_ctrl->reg_tbl_size, i = 0;
 	int32_t rc = 0;
 	struct msm_camera_i2c_reg_array i2c_tbl;
 	struct msm_camera_i2c_reg_setting reg_setting;
@@ -266,23 +266,17 @@ static int msm_actuator_bivcm_handle_i2c_ops(
 					write_arr[i].addr_type);
 				break;
 			}
-			for (j = 0; j < ACTUATOR_MAX_POLL_COUNT; j++) {
-				rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_poll(
-					&a_ctrl->i2c_client,
-					write_arr[i].reg_addr,
-					write_arr[i].reg_data,
-					write_arr[i].data_type);
-				if (rc == 1)
-					continue;
-				if (rc < 0) {
-					pr_err("i2c poll error:%d\n", rc);
-					return rc;
-				}
-				break;
+
+			rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_poll(
+				&a_ctrl->i2c_client,
+				write_arr[i].reg_addr,
+				write_arr[i].reg_data,
+				write_arr[i].data_type,
+				write_arr[i].delay);
+			if (rc < 0) {
+				pr_err("i2c poll error:%d\n", rc);
+				return rc;
 			}
-			if (j == ACTUATOR_MAX_POLL_COUNT)
-				CDBG("%s:%d Poll register not as expected\n",
-				__func__, __LINE__);
 			break;
 		case MSM_ACTUATOR_READ_WRITE:
 			i2c_tbl.reg_addr = write_arr[i].reg_addr;
@@ -386,22 +380,25 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 				settings[i].reg_addr,
 				settings[i].reg_data,
 				settings[i].data_type);
+			if (settings[i].delay > 20)
+				msleep(settings[i].delay);
+			else if (0 != settings[i].delay)
+				usleep_range(settings[i].delay * 1000,
+					(settings[i].delay * 1000) + 1000);
 			break;
 		case MSM_ACT_POLL:
 			rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_poll(
 				&a_ctrl->i2c_client,
 				settings[i].reg_addr,
 				settings[i].reg_data,
-				settings[i].data_type);
+				settings[i].data_type,
+				settings[i].delay);
 			break;
 		default:
 			pr_err("Unsupport i2c_operation: %d\n",
 				settings[i].i2c_operation);
 			break;
 		}
-
-		if (0 != settings[i].delay)
-			msleep(settings[i].delay);
 
 		if (rc < 0) {
 			pr_err("%s:%d fail addr = 0X%X, data = 0X%X, dt = %d",
