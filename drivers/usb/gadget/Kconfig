@@ -214,6 +214,9 @@ config USB_F_ACC
 config USB_F_DIAG
 	tristate
 
+config USB_F_GSI
+	tristate
+
 choice
 	tristate "USB Gadget Drivers"
 	default USB_ETH
@@ -511,6 +514,13 @@ config USB_CONFIGFS_F_DIAG
 	help
 	  Diag function driver enables support for Qualcomm diagnostics
 	  port over USB.
+
+config USB_CONFIGFS_F_GSI
+	bool "USB GSI function"
+	select USB_F_GSI
+	depends on USB_CONFIGFS
+	help
+	  Generic function driver to support h/w acceleration to IPA over GSI.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 

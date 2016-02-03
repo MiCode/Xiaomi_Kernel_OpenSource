@@ -14,11 +14,24 @@
 #ifndef _F_GSI_H
 #define _F_GSI_H
 
+#include <linux/poll.h>
+#include <linux/miscdevice.h>
+#include <linux/ipa.h>
+#include <uapi/linux/usb/cdc.h>
+#include <linux/usb/ch9.h>
+#include <linux/usb/composite.h>
+#include <linux/usb/gadget.h>
+#include <linux/usb/usb_ctrl_qti.h>
+#include <linux/etherdevice.h>
+#include <linux/debugfs.h>
+
 #define GSI_RMNET_CTRL_NAME "rmnet_ctrl"
 #define GSI_MBIM_CTRL_NAME "android_mbim"
 #define GSI_DPL_CTRL_NAME "dpl_ctrl"
 #define GSI_CTRL_NAME_LEN (sizeof(GSI_MBIM_CTRL_NAME)+2)
 #define GSI_MAX_CTRL_PKT_SIZE 4096
+#define GSI_CTRL_DTR (1 << 0)
+
 
 #define GSI_NUM_IN_BUFFERS 7
 #define GSI_IN_BUFF_SIZE 2048
@@ -228,8 +241,6 @@ struct f_gsi {
 	struct gsi_ctrl_port c_port;
 };
 
-static struct f_gsi *gsi_prot_ctx[IPA_USB_MAX_TETH_PROT_SIZE];
-
 static inline struct f_gsi *func_to_gsi(struct usb_function *f)
 {
 	return container_of(f, struct f_gsi, function);
@@ -243,6 +254,40 @@ static inline struct f_gsi *d_port_to_gsi(struct gsi_data_port *d)
 static inline struct f_gsi *c_port_to_gsi(struct gsi_ctrl_port *d)
 {
 	return container_of(d, struct f_gsi, c_port);
+}
+
+/* for configfs support */
+#define MAX_INST_NAME_LEN	40
+
+struct gsi_opts {
+	struct usb_function_instance func_inst;
+	struct f_gsi *gsi;
+};
+
+static inline struct gsi_opts *to_gsi_opts(struct config_item *item)
+{
+	return container_of(to_config_group(item), struct gsi_opts,
+			    func_inst.group);
+}
+
+static enum ipa_usb_teth_prot name_to_prot_id(const char *name)
+{
+	if (!name)
+		goto error;
+
+	if (!strncmp("rndis", name, MAX_INST_NAME_LEN))
+		return IPA_USB_RNDIS;
+	if (!strncmp("ecm", name, MAX_INST_NAME_LEN))
+		return IPA_USB_ECM;
+	if (!strncmp("rmnet", name, MAX_INST_NAME_LEN))
+		return IPA_USB_RMNET;
+	if (!strncasecmp("mbim", name, MAX_INST_NAME_LEN))
+		return IPA_USB_MBIM;
+	if (!strncasecmp("dpl", name, MAX_INST_NAME_LEN))
+		return IPA_USB_DIAG;
+
+error:
+	return -EINVAL;
 }
 
 /* device descriptors */
@@ -661,11 +706,12 @@ static struct usb_gadget_strings *rndis_gsi_strings[] = {
 };
 
 /* mbim device descriptors */
+#define MBIM_NTB_DEFAULT_IN_SIZE	(0x4000)
 
 static struct usb_cdc_ncm_ntb_parameters mbim_gsi_ntb_parameters = {
 	.wLength = sizeof(mbim_gsi_ntb_parameters),
 	.bmNtbFormatsSupported = cpu_to_le16(USB_CDC_NCM_NTB16_SUPPORTED),
-	.dwNtbInMaxSize = cpu_to_le32(0x4000),
+	.dwNtbInMaxSize = cpu_to_le32(MBIM_NTB_DEFAULT_IN_SIZE),
 	.wNdpInDivisor = cpu_to_le16(4),
 	.wNdpInPayloadRemainder = cpu_to_le16(0),
 	.wNdpInAlignment = cpu_to_le16(4),
@@ -965,18 +1011,6 @@ static struct usb_gadget_strings *mbim_gsi_strings[] = {
  */
 #define MBIM_VENDOR_CODE	0xA5
 
-/* Microsoft OS String */
-static u8 mbim_gsi_os_string[] = {
-	18, /* sizeof(mtp_os_string) */
-	USB_DT_STRING,
-	/* Signature field: "MSFT100" */
-	'M', 0, 'S', 0, 'F', 0, 'T', 0, '1', 0, '0', 0, '0', 0,
-	/* vendor code */
-	MBIM_VENDOR_CODE,
-	/* padding */
-	0
-};
-
 /* Microsoft Extended Configuration Descriptor Header Section */
 struct mbim_gsi_ext_config_desc_header {
 	__le32	dwLength;
@@ -1014,7 +1048,8 @@ static struct {
 	},
 };
 /* ecm device descriptors */
-#define ECM_QC_STATUS_BYTECOUNT		16	/* 8 byte header + data */
+#define ECM_QC_LOG2_STATUS_INTERVAL_MSEC	5
+#define ECM_QC_STATUS_BYTECOUNT			16 /* 8 byte header + data */
 
 /* interface descriptor: */
 static struct usb_interface_descriptor ecm_gsi_control_intf = {
