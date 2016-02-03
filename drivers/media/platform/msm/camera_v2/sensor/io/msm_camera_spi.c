@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,7 +132,7 @@ int32_t msm_camera_spi_tx_helper(struct msm_camera_i2c_client *client,
 	if (tx)
 		ctx = tx;
 	else
-		ctx = kzalloc(len, GFP_KERNEL);
+		ctx = kzalloc(len, GFP_KERNEL | GFP_DMA);
 	if (!ctx)
 		return -ENOMEM;
 
@@ -140,7 +140,7 @@ int32_t msm_camera_spi_tx_helper(struct msm_camera_i2c_client *client,
 		if (rx)
 			crx = rx;
 		else
-			crx = kzalloc(len, GFP_KERNEL);
+			crx = kzalloc(len, GFP_KERNEL | GFP_DMA);
 		if (!crx) {
 			if (!tx)
 				kfree(ctx);
@@ -190,14 +190,14 @@ int32_t msm_camera_spi_tx_read(struct msm_camera_i2c_client *client,
 	if (tx)
 		ctx = tx;
 	else
-		ctx = kzalloc(hlen, GFP_KERNEL);
+		ctx = kzalloc(hlen, GFP_KERNEL | GFP_DMA);
 	if (!ctx)
 		return -ENOMEM;
 	if (num_byte) {
 		if (rx)
 			crx = rx;
 		else
-			crx = kzalloc(num_byte, GFP_KERNEL);
+			crx = kzalloc(num_byte, GFP_KERNEL | GFP_DMA);
 		if (!crx) {
 			if (!tx)
 				kfree(ctx);
@@ -462,7 +462,7 @@ int32_t msm_camera_spi_write_seq(struct msm_camera_i2c_client *client,
     /* single page write */
 	if ((addr % page_size) + num_byte <= page_size) {
 		len = header_len + num_byte;
-		tx = kmalloc(len, GFP_KERNEL);
+		tx = kmalloc(len, GFP_KERNEL | GFP_DMA);
 		if (!tx)
 			goto NOMEM;
 		rc = msm_camera_spi_page_program(client, addr, data,
@@ -473,7 +473,7 @@ int32_t msm_camera_spi_write_seq(struct msm_camera_i2c_client *client,
 	}
 	/* multi page write */
 	len = header_len + page_size;
-	tx = kmalloc(len, GFP_KERNEL);
+	tx = kmalloc(len, GFP_KERNEL | GFP_DMA);
 	if (!tx)
 		goto NOMEM;
 	while (num_byte) {
@@ -516,7 +516,7 @@ int32_t msm_camera_spi_write(struct msm_camera_i2c_client *client,
 		return rc;
 	S_I2C_DBG("Data: 0x%x\n", data);
 	len = header_len + (uint8_t)data_type;
-	tx = kmalloc(len, GFP_KERNEL);
+	tx = kmalloc(len, GFP_KERNEL | GFP_DMA);
 	if (!tx)
 		goto NOMEM;
 	if (data_type == MSM_CAMERA_I2C_BYTE_DATA) {
@@ -618,7 +618,7 @@ int32_t msm_camera_spi_send_burst(struct msm_camera_i2c_client *client,
 		__func__, header_len, chunk_num, residue);
 	len = info->chunk_size * data_type + header_len;
 	SPIDBG("buffer allocation size = %d\n", len);
-	ctx = kmalloc(len, GFP_KERNEL);
+	ctx = kmalloc(len, GFP_KERNEL | GFP_DMA);
 	if (!ctx) {
 		pr_err("%s %d memory alloc fail!\n", __func__, __LINE__);
 		return rc;
@@ -815,7 +815,7 @@ int32_t msm_camera_spi_read_burst(struct msm_camera_i2c_client *client,
 	if ((client->addr_type != MSM_CAMERA_I2C_WORD_ADDR)
 		|| (data_type != MSM_CAMERA_I2C_WORD_DATA))
 		return rc;
-	tx_buf = kzalloc(len, GFP_KERNEL);
+	tx_buf = kzalloc(len, GFP_KERNEL | GFP_DMA);
 	if (!tx_buf)
 		return -ENOMEM;
 
