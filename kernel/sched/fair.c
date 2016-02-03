@@ -2470,6 +2470,13 @@ unsigned int __read_mostly sysctl_sched_spill_nr_run = 10;
 unsigned int __read_mostly sysctl_sched_enable_power_aware = 0;
 
 /*
+ * Place sync wakee tasks those have less than configured demand to the waker's
+ * cluster.
+ */
+unsigned int __read_mostly sched_small_wakee_task_load;
+unsigned int __read_mostly sysctl_sched_small_wakee_task_load_pct = 10;
+
+/*
  * CPUs with load greater than the sched_spill_load_threshold are not
  * eligible for task placement. When all CPUs in a cluster achieve a
  * load higher than this level, tasks becomes eligible for inter
@@ -2593,6 +2600,10 @@ void set_hmp_defaults(void)
 
 	sched_short_sleep_task_threshold = sysctl_sched_select_prev_cpu_us *
 					   NSEC_PER_USEC;
+
+	sched_small_wakee_task_load =
+		div64_u64((u64)sysctl_sched_small_wakee_task_load_pct *
+			  (u64)sched_ravg_window, 100);
 }
 
 u32 sched_get_init_task_load(struct task_struct *p)
@@ -2869,6 +2880,7 @@ struct cpu_select_env {
 	struct related_thread_group *rtg;
 	u8 reason;
 	u8 need_idle:1;
+	u8 need_waker_cluster:1;
 	u8 boost:1;
 	u8 sync:1;
 	u8 ignore_prev_cpu:1;
@@ -3034,15 +3046,29 @@ next_candidate(const unsigned long *list, int start, int end)
 	return sched_cluster[cluster_id];
 }
 
-static void update_spare_capacity(
-struct cluster_cpu_stats *stats, int cpu, int capacity, u64 cpu_load)
+static void
+update_spare_capacity(struct cluster_cpu_stats *stats,
+		      struct cpu_select_env *env, int cpu, int capacity,
+		      u64 cpu_load)
 {
 	s64 spare_capacity = sched_ravg_window - cpu_load;
 
 	if (spare_capacity > 0 &&
 	    (spare_capacity > stats->highest_spare_capacity ||
-	    (spare_capacity == stats->highest_spare_capacity &&
-	     capacity > cpu_capacity(stats->best_capacity_cpu)))) {
+	     (spare_capacity == stats->highest_spare_capacity &&
+	      ((!env->need_waker_cluster &&
+		capacity > cpu_capacity(stats->best_capacity_cpu)) ||
+	       (env->need_waker_cluster &&
+		cpu_rq(cpu)->nr_running <
+		cpu_rq(stats->best_capacity_cpu)->nr_running))))) {
+		/*
+		 * If sync waker is the only runnable of CPU, cr_avg of the
+		 * CPU is 0 so we have high chance to place the wakee on the
+		 * waker's CPU which likely causes preemtion of the waker.
+		 * This can lead migration of preempted waker.  Place the
+		 * wakee on the real idle CPU when it's possible by checking
+		 * nr_running to avoid such preemption.
+		 */
 		stats->highest_spare_capacity = spare_capacity;
 		stats->best_capacity_cpu = cpu;
 	}
@@ -3062,7 +3088,7 @@ struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 			sched_irqload(i), power_cost(i, task_load(env->p) +
 					cpu_cravg_sync(i, env->sync)), 0);
 
-			update_spare_capacity(stats, i, next->capacity,
+			update_spare_capacity(stats, env, i, next->capacity,
 					  cpu_load_sync(i, env->sync));
 		}
 	}
@@ -3160,10 +3186,12 @@ static void find_best_cpu_in_cluster(struct sched_cluster *c,
 		if (unlikely(!cpu_active(i)) || skip_cpu(i, env))
 			continue;
 
-		update_spare_capacity(stats, i, c->capacity, env->cpu_load);
+		update_spare_capacity(stats, env, i, c->capacity,
+				      env->cpu_load);
 
-		if (env->boost || sched_cpu_high_irqload(i) ||
-				spill_threshold_crossed(env, cpu_rq(i)))
+		if (env->boost || env->need_waker_cluster ||
+		    sched_cpu_high_irqload(i) ||
+		    spill_threshold_crossed(env, cpu_rq(i)))
 			continue;
 
 		update_cluster_stats(i, stats, env);
@@ -3233,13 +3261,20 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 	env->cpu_load = cpu_load_sync(prev_cpu, env->sync);
 	if (sched_cpu_high_irqload(prev_cpu) ||
 			spill_threshold_crossed(env, cpu_rq(prev_cpu))) {
-		update_spare_capacity(stats, prev_cpu,
+		update_spare_capacity(stats, env, prev_cpu,
 				cluster->capacity, env->cpu_load);
 		env->ignore_prev_cpu = 1;
 		return false;
 	}
 
 	return true;
+}
+
+static inline bool
+wake_to_waker_cluster(struct cpu_select_env *env)
+{
+	return !env->need_idle && !env->reason && env->sync &&
+	       task_load(env->p) < sched_small_wakee_task_load;
 }
 
 static inline int
@@ -3267,6 +3302,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		.p			= p,
 		.reason			= reason,
 		.need_idle		= wake_to_idle(p),
+		.need_waker_cluster	= 0,
 		.boost			= sched_boost(),
 		.sync			= sync,
 		.prev_cpu		= target,
@@ -3289,9 +3325,17 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			clear_bit(pref_cluster->id, env.candidate_list);
 		else
 			env.rtg = grp;
-	} else if (bias_to_prev_cpu(&env, &stats)) {
-		fast_path = true;
-		goto out;
+	} else {
+		cluster = cpu_rq(smp_processor_id())->cluster;
+		if (wake_to_waker_cluster(&env) &&
+		    cluster_allowed(p, cluster)) {
+			env.need_waker_cluster = 1;
+			bitmap_zero(env.candidate_list, NR_CPUS);
+			__set_bit(cluster->id, env.candidate_list);
+		} else if (bias_to_prev_cpu(&env, &stats)) {
+			fast_path = true;
+			goto out;
+		}
 	}
 
 retry:
