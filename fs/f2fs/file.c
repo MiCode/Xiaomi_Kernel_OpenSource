@@ -1898,6 +1898,7 @@ static ssize_t f2fs_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 {
 	struct file *file = iocb->ki_filp;
 	struct inode *inode = file_inode(file);
+	size_t count;
 	ssize_t ret;
 
 	if (f2fs_encrypted_inode(inode) &&
@@ -1905,11 +1906,19 @@ static ssize_t f2fs_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 				f2fs_get_encryption_info(inode))
 		return -EACCES;
 
+	ret = generic_segment_checks(iov, &nr_segs, &count, VERIFY_READ);
+	if (ret)
+		return ret;
+
 	inode_lock(inode);
-	ret = f2fs_preallocate_blocks(iocb, iov_length(iov, nr_segs));
-	if (!ret)
-		ret = __generic_file_aio_write(iocb, iov, nr_segs,
-							&iocb->ki_pos);
+	ret = generic_write_checks(file, &pos, &count, S_ISBLK(inode->i_mode));
+	if (!ret) {
+		ret = f2fs_preallocate_blocks(inode, pos, count,
+				iocb->ki_filp->f_flags & O_DIRECT);
+		if (!ret)
+			ret = __generic_file_aio_write(iocb, iov, nr_segs,
+								&iocb->ki_pos);
+	}
 	inode_unlock(inode);
 
 	if (ret > 0 || ret == -EIOCBQUEUED) {
@@ -1955,6 +1964,23 @@ long f2fs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 #endif
 
+static ssize_t f2fs_file_splice_write(struct pipe_inode_info *pipe,
+			struct file *out,
+			  loff_t *ppos, size_t len, unsigned int flags)
+{
+	struct address_space *mapping = out->f_mapping;
+	struct inode *inode = mapping->host;
+	int ret;
+
+	ret = generic_write_checks(out, ppos, &len, S_ISBLK(inode->i_mode));
+	if (ret)
+		return ret;
+	ret = f2fs_preallocate_blocks(inode, *ppos, len, false);
+	if (ret)
+		return ret;
+	return generic_file_splice_write(pipe, out, ppos, len, flags);
+}
+
 const struct file_operations f2fs_file_operations = {
 	.llseek		= f2fs_llseek,
 	.read		= do_sync_read,
@@ -1971,5 +1997,5 @@ const struct file_operations f2fs_file_operations = {
 	.compat_ioctl	= f2fs_compat_ioctl,
 #endif
 	.splice_read	= generic_file_splice_read,
-	.splice_write	= generic_file_splice_write,
+	.splice_write	= f2fs_file_splice_write,
 };
