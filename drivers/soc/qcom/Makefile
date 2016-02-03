@@ -4,6 +4,7 @@ obj-$(CONFIG_MSM_GLINK)	+=	glink.o glink_debugfs.o glink_ssr.o
 obj-$(CONFIG_MSM_GLINK_LOOPBACK_SERVER)	+=	glink_loopback_server.o
 obj-$(CONFIG_MSM_GLINK_SMD_XPRT)	+=	glink_smd_xprt.o
 obj-$(CONFIG_MSM_GLINK_SMEM_NATIVE_XPRT)+=	glink_smem_native_xprt.o
+obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o sysmon-qmi.o
 obj-$(CONFIG_ARCH_QCOM) +=	kryo-l2-accessors.o
 obj-$(CONFIG_MSM_SMP2P)	+=	smp2p.o smp2p_debug.o smp2p_sleepstate.o
 obj-$(CONFIG_MSM_SMP2P_TEST)	+=	smp2p_loopback.o smp2p_test.o smp2p_spinlock_test.o
@@ -11,6 +12,17 @@ obj-$(CONFIG_MSM_RPM_SMD)	+=	rpm-smd.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)	+=	rpm-smd-debug.o
 endif
+
+obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
+obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
+obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
+
+ifdef CONFIG_MSM_SUBSYSTEM_RESTART
+	obj-y += subsystem_notif.o
+	obj-y += subsystem_restart.o
+	obj-y += ramdump.o
+endif
+
 obj-$(CONFIG_QCOM_GSBI)	+=	qcom_gsbi.o
 obj-$(CONFIG_QCOM_PM)	+=	spm.o
 obj-$(CONFIG_QCOM_SMD) +=	smd.o
