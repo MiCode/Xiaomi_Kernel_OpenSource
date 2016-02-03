@@ -647,15 +647,16 @@ static int branch_clk_prepare(struct clk *c)
 	unsigned long curr_rate;
 	int ret = 0;
 
+	if (!branch->aggr_sibling_rates)
+		return ret;
+
 	mutex_lock(&branch_clk_lock);
 	branch->is_prepared = false;
-	if (branch->aggr_sibling_rates) {
-		curr_rate = branch_clk_aggregate_rate(c->parent);
-		if (c->rate > curr_rate) {
-			ret = clk_set_rate(c->parent, c->rate);
-			if (ret)
-				goto exit;
-		}
+	curr_rate = branch_clk_aggregate_rate(c->parent);
+	if (c->rate > curr_rate) {
+		ret = clk_set_rate(c->parent, c->rate);
+		if (ret)
+			goto exit;
 	}
 	branch->is_prepared = true;
 exit:
@@ -699,14 +700,15 @@ static void branch_clk_unprepare(struct clk *c)
 	struct branch_clk *branch = to_branch_clk(c);
 	unsigned long curr_rate, new_rate;
 
+	if (!branch->aggr_sibling_rates)
+		return;
+
 	mutex_lock(&branch_clk_lock);
 	branch->is_prepared = false;
-	if (branch->aggr_sibling_rates) {
-		new_rate = branch_clk_aggregate_rate(c->parent);
-		curr_rate = max(new_rate, c->rate);
-		if (new_rate < curr_rate)
-			clk_set_rate(c->parent, new_rate);
-	}
+	new_rate = branch_clk_aggregate_rate(c->parent);
+	curr_rate = max(new_rate, c->rate);
+	if (new_rate < curr_rate)
+		clk_set_rate(c->parent, new_rate);
 	mutex_unlock(&branch_clk_lock);
 }
 
@@ -764,31 +766,30 @@ static int branch_clk_set_rate(struct clk *c, unsigned long rate)
 	if (branch->has_sibling)
 		return -EPERM;
 
+	if (!branch->aggr_sibling_rates)
+		return clk_set_rate(c->parent, rate);
+
 	mutex_lock(&branch_clk_lock);
-	if (branch->aggr_sibling_rates) {
-		if (!branch->is_prepared) {
-			c->rate = rate;
-			goto exit;
-		}
-		/*
-		 * Get the aggregate rate without this clock's vote and update
-		 * if the new rate is different than the current rate.
-		 */
-		list_for_each_entry(clkp, &parent->children, siblings) {
-			clkh = to_branch_clk(clkp);
-			if (clkh->is_prepared && clkh != branch)
-				other_rate = max(clkp->rate, other_rate);
-		}
-		curr_rate = max(other_rate, c->rate);
-		new_rate = max(other_rate, rate);
-		if (new_rate != curr_rate) {
-			ret = clk_set_rate(parent, new_rate);
-			if (!ret)
-				c->rate = rate;
-		}
+	if (!branch->is_prepared) {
+		c->rate = rate;
 		goto exit;
 	}
-	ret = clk_set_rate(c->parent, rate);
+	/*
+	 * Get the aggregate rate without this clock's vote and update
+	 * if the new rate is different than the current rate.
+	 */
+	list_for_each_entry(clkp, &parent->children, siblings) {
+		clkh = to_branch_clk(clkp);
+		if (clkh->is_prepared && clkh != branch)
+			other_rate = max(clkp->rate, other_rate);
+	}
+	curr_rate = max(other_rate, c->rate);
+	new_rate = max(other_rate, rate);
+	if (new_rate != curr_rate) {
+		ret = clk_set_rate(parent, new_rate);
+		if (!ret)
+			c->rate = rate;
+	}
 exit:
 	mutex_unlock(&branch_clk_lock);
 	return ret;
