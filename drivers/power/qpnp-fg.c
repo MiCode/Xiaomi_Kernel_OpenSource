@@ -602,6 +602,10 @@ struct fg_chip {
 	int			cc_soc_limit_pct;
 	bool			use_last_cc_soc;
 	int64_t			last_cc_soc;
+	/* Sanity check */
+	struct delayed_work	check_sanity_work;
+	struct fg_wakeup_source	sanity_wakeup_source;
+	u8			last_beat_count;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -2535,6 +2539,52 @@ resched:
 out:
 	fg_relax(&chip->update_sram_wakeup_source);
 	return rc;
+}
+
+#define SANITY_CHECK_PERIOD_MS	5000
+static void check_sanity_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				check_sanity_work.work);
+	int rc = 0;
+	u8 beat_count;
+	bool tried_once = false;
+
+	fg_stay_awake(&chip->sanity_wakeup_source);
+
+try_again:
+	rc = fg_read(chip, &beat_count,
+			chip->mem_base + MEM_INTF_FG_BEAT_COUNT, 1);
+	if (rc) {
+		pr_err("failed to read beat count rc=%d\n", rc);
+		goto resched;
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("current: %d, prev: %d\n", beat_count,
+			chip->last_beat_count);
+
+	if (chip->last_beat_count == beat_count) {
+		if (!tried_once) {
+			/* Wait for 1 FG cycle and read it once again */
+			msleep(1500);
+			tried_once = true;
+			goto try_again;
+		} else {
+			pr_err("Beat count not updating\n");
+			fg_check_ima_error_handling(chip);
+			goto out;
+		}
+	} else {
+		chip->last_beat_count = beat_count;
+	}
+resched:
+	schedule_delayed_work(
+		&chip->check_sanity_work,
+		msecs_to_jiffies(SANITY_CHECK_PERIOD_MS));
+out:
+	fg_relax(&chip->sanity_wakeup_source);
 }
 
 #define SRAM_TIMEOUT_MS			3000
@@ -6690,6 +6740,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 
 static void fg_cancel_all_works(struct fg_chip *chip)
 {
+	cancel_delayed_work_sync(&chip->check_sanity_work);
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
@@ -6739,6 +6790,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
 	wakeup_source_trash(&chip->fg_reset_wakeup_source.source);
 	wakeup_source_trash(&chip->cc_soc_wakeup_source.source);
+	wakeup_source_trash(&chip->sanity_wakeup_source.source);
 }
 
 static int fg_remove(struct spmi_device *spmi)
@@ -7738,6 +7790,8 @@ out:
 	fg_enable_irqs(chip, true);
 	update_sram_data_work(&chip->update_sram_data.work);
 	update_temp_data(&chip->update_temp_work.work);
+	schedule_delayed_work(&chip->check_sanity_work,
+		msecs_to_jiffies(1000));
 	chip->ima_error_handling = false;
 	mutex_unlock(&chip->ima_recovery_lock);
 	fg_relax(&chip->fg_reset_wakeup_source);
@@ -7877,6 +7931,10 @@ static void delayed_init_work(struct work_struct *work)
 	if (!chip->use_otp_profile)
 		schedule_delayed_work(&chip->batt_profile_init, 0);
 
+	if (chip->ima_supported && fg_reset_on_lockup)
+		schedule_delayed_work(&chip->check_sanity_work,
+			msecs_to_jiffies(1000));
+
 	if (chip->wa_flag & IADC_GAIN_COMP_WA) {
 		rc = fg_init_iadc_config(chip);
 		if (rc)
@@ -7946,6 +8004,8 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_reset");
 	wakeup_source_init(&chip->cc_soc_wakeup_source.source,
 			"qpnp_fg_cc_soc");
+	wakeup_source_init(&chip->sanity_wakeup_source.source,
+			"qpnp_fg_sanity_check");
 	spin_lock_init(&chip->sec_access_lock);
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
@@ -7958,6 +8018,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
 	INIT_DELAYED_WORK(&chip->check_empty_work, check_empty_work);
 	INIT_DELAYED_WORK(&chip->batt_profile_init, batt_profile_init);
+	INIT_DELAYED_WORK(&chip->check_sanity_work, check_sanity_work);
 	INIT_WORK(&chip->ima_error_recovery_work, ima_error_recovery_work);
 	INIT_WORK(&chip->rslow_comp_work, rslow_comp_work);
 	INIT_WORK(&chip->fg_cap_learning_work, fg_cap_learning_work);
@@ -8150,6 +8211,7 @@ of_init_fail:
 	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
 	wakeup_source_trash(&chip->fg_reset_wakeup_source.source);
 	wakeup_source_trash(&chip->cc_soc_wakeup_source.source);
+	wakeup_source_trash(&chip->sanity_wakeup_source.source);
 	return rc;
 }
 
@@ -8286,6 +8348,13 @@ static int fg_reset_lockup_set(const char *val, const struct kernel_param *kp)
 
 	if (fg_debug_mask & FG_STATUS)
 		pr_info("fg_reset_on_lockup set to %d\n", fg_reset_on_lockup);
+
+	if (fg_reset_on_lockup)
+		schedule_delayed_work(&chip->check_sanity_work,
+			msecs_to_jiffies(1000));
+	else
+		cancel_delayed_work_sync(&chip->check_sanity_work);
+
 	return rc;
 }
 
