@@ -157,7 +157,7 @@ void *wcnss_prealloc_get(unsigned int size)
 		if (wcnss_allocs[i].occupied)
 			continue;
 
-		if (wcnss_allocs[i].size > size) {
+		if (wcnss_allocs[i].size >= size) {
 			/* we found the slot */
 			wcnss_allocs[i].occupied = 1;
 			spin_unlock_irqrestore(&alloc_lock, flags);
