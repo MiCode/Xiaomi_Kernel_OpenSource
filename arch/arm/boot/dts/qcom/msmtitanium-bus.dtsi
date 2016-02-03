@@ -62,6 +62,12 @@
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_center>;
 			coresight-child-ports = <3>;
+
+			qcom,node-qos-clks {
+				clock-names = "pcnoc-usb3-axi-no-rate";
+				clocks =
+					<&clock_gcc clk_gcc_pcnoc_usb3_axi_clk>;
+			};
 		};
 
 		fab_snoc: fab-snoc {
