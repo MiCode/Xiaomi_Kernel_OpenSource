@@ -1085,6 +1085,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	mfd->pdev = pdev;
 
+	mfd->split_fb_left = mfd->split_fb_right = 0;
 	mfd->split_mode = MDP_SPLIT_MODE_NONE;
 	if (pdata->panel_info.is_split_display) {
 		struct mdss_panel_data *pnext = pdata->next;
