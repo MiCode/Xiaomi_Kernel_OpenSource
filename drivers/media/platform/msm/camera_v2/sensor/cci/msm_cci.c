@@ -1698,6 +1698,8 @@ static long msm_cci_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case MSM_SD_NOTIFY_FREEZE:
 		break;
+	case MSM_SD_UNNOTIFY_FREEZE:
+		break;
 	case MSM_SD_SHUTDOWN: {
 		struct msm_camera_cci_ctrl ctrl_cmd;
 		ctrl_cmd.cmd = MSM_CCI_RELEASE;
