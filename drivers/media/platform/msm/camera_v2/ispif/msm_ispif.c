@@ -46,7 +46,7 @@
 
 #define ISPIF_TIMEOUT_SLEEP_US                1000
 #define ISPIF_TIMEOUT_ALL_US               1000000
-#define ISPIF_SOF_DEBUG_COUNT                    0
+#define ISPIF_SOF_DEBUG_COUNT                    5
 
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
@@ -1490,6 +1490,8 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 		ispif->ispif_rdi2_debug = 0;
 		return 0;
 	}
+	case MSM_SD_UNNOTIFY_FREEZE:
+		return 0;
 	case MSM_SD_SHUTDOWN:
 		return 0;
 	default:

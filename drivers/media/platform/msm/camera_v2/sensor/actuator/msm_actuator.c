@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1489,6 +1489,8 @@ static long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ACTUATOR_CFG:
 		return msm_actuator_config(a_ctrl, argp);
 	case MSM_SD_NOTIFY_FREEZE:
+		return 0;
+	case MSM_SD_UNNOTIFY_FREEZE:
 		return 0;
 	case MSM_SD_SHUTDOWN:
 		if (!a_ctrl->i2c_client.i2c_func_tbl) {
