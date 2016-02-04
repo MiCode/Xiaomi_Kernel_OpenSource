@@ -393,6 +393,14 @@ static void fg_relax(struct fg_wakeup_source *source)
 	}
 }
 
+enum slope_limit_status {
+	LOW_TEMP_CHARGE,
+	HIGH_TEMP_CHARGE,
+	LOW_TEMP_DISCHARGE,
+	HIGH_TEMP_DISCHARGE,
+	SLOPE_LIMIT_MAX,
+};
+
 #define THERMAL_COEFF_N_BYTES		6
 struct fg_chip {
 	struct device		*dev;
@@ -514,6 +522,13 @@ struct fg_chip {
 	bool			esr_extract_disabled;
 	bool			imptr_pulse_slow_en;
 	bool			esr_pulse_tune_en;
+	/* Slope limiter */
+	struct work_struct	slope_limiter_work;
+	struct fg_wakeup_source	slope_limit_wakeup_source;
+	bool			soc_slope_limiter_en;
+	enum slope_limit_status	slope_limit_sts;
+	u32			slope_limit_temp;
+	u32			slope_limit_coeffs[SLOPE_LIMIT_MAX];
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -2183,6 +2198,11 @@ wait:
 
 	get_current_time(&chip->last_temp_update_time);
 
+	if (chip->soc_slope_limiter_en) {
+		fg_stay_awake(&chip->slope_limit_wakeup_source);
+		schedule_work(&chip->slope_limiter_work);
+	}
+
 out:
 	if (chip->sw_rbias_ctrl) {
 		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
@@ -2423,6 +2443,62 @@ static int bcap_uah_2b(u8 *buffer)
 
 	val = buffer[1] << 8 | buffer[0];
 	return ((int)val) * 1000;
+}
+
+#define SLOPE_LIMITER_COEFF_REG		0x430
+#define SLOPE_LIMITER_COEFF_OFFSET	3
+#define SLOPE_LIMIT_TEMP_THRESHOLD	100
+#define SLOPE_LIMIT_LOW_TEMP_CHG	45
+#define SLOPE_LIMIT_HIGH_TEMP_CHG	2
+#define SLOPE_LIMIT_LOW_TEMP_DISCHG	45
+#define SLOPE_LIMIT_HIGH_TEMP_DISCHG	2
+static void slope_limiter_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+				slope_limiter_work);
+	enum slope_limit_status status;
+	int batt_temp, rc;
+	u8 buf[2];
+	int64_t val;
+
+	batt_temp = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
+
+	if (chip->status == POWER_SUPPLY_STATUS_CHARGING ||
+			chip->status == POWER_SUPPLY_STATUS_FULL) {
+		if (batt_temp < chip->slope_limit_temp)
+			status = LOW_TEMP_CHARGE;
+		else
+			status = HIGH_TEMP_CHARGE;
+	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
+		if (batt_temp < chip->slope_limit_temp)
+			status = LOW_TEMP_DISCHARGE;
+		else
+			status = HIGH_TEMP_DISCHARGE;
+	} else {
+		goto out;
+	}
+
+	if (status == chip->slope_limit_sts)
+		goto out;
+
+	val = chip->slope_limit_coeffs[status];
+	val *= MICRO_UNIT;
+	half_float_to_buffer(val, buf);
+	rc = fg_mem_write(chip, buf,
+			SLOPE_LIMITER_COEFF_REG, 2,
+			SLOPE_LIMITER_COEFF_OFFSET, 0);
+	if (rc) {
+		pr_err("Couldn't write to slope_limiter_coeff_reg, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	chip->slope_limit_sts = status;
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Slope limit sts: %d val: %lld buf[%x %x] written\n",
+			status, val, buf[0], buf[1]);
+out:
+	fg_relax(&chip->slope_limit_wakeup_source);
 }
 
 static int lookup_ocv_for_soc(struct fg_chip *chip, int soc)
@@ -3382,6 +3458,17 @@ static void status_change_work(struct work_struct *work)
 	}
 
 	if (chip->prev_status != chip->status && chip->last_sram_update_time) {
+		/*
+		 * Schedule the update_temp_work whenever there is a status
+		 * change. This is essential for applying the slope limiter
+		 * coefficients when that feature is enabled.
+		 */
+		if (chip->last_temp_update_time && chip->soc_slope_limiter_en) {
+			cancel_delayed_work_sync(&chip->update_temp_work);
+			schedule_delayed_work(&chip->update_temp_work,
+				msecs_to_jiffies(0));
+		}
+
 		get_current_time(&current_time);
 		/*
 		 * When charging status changes, update SRAM parameters if it
@@ -3392,8 +3479,10 @@ static void status_change_work(struct work_struct *work)
 			schedule_delayed_work(&chip->update_sram_data,
 				msecs_to_jiffies(0));
 		}
+
 		if (chip->cyc_ctr.en)
 			schedule_work(&chip->cycle_count_work);
+
 		if ((chip->wa_flag & USE_CC_SOC_REG) &&
 				chip->bad_batt_detection_en &&
 				chip->status == POWER_SUPPLY_STATUS_CHARGING) {
@@ -3970,6 +4059,11 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("triggered 0x%x\n", soc_rt_sts);
 
+	if (chip->soc_slope_limiter_en) {
+		fg_stay_awake(&chip->slope_limit_wakeup_source);
+		schedule_work(&chip->slope_limiter_work);
+	}
+
 	schedule_work(&chip->battery_age_work);
 
 	if (chip->power_supply_registered)
@@ -3979,11 +4073,15 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 			chip->rslow_comp.chg_rslow_comp_c1 > 0 &&
 			chip->rslow_comp.chg_rslow_comp_c2 > 0)
 		schedule_work(&chip->rslow_comp_work);
+
 	if (chip->cyc_ctr.en)
 		schedule_work(&chip->cycle_count_work);
+
 	schedule_work(&chip->update_esr_work);
+
 	if (chip->charge_full)
 		schedule_work(&chip->charge_full_work);
+
 	if (chip->wa_flag & IADC_GAIN_COMP_WA
 			&& chip->iadc_comp_data.gain_active) {
 		fg_stay_awake(&chip->gain_comp_wakeup_source);
@@ -5471,6 +5569,38 @@ static int fg_of_init(struct fg_chip *chip)
 	chip->esr_pulse_tune_en = of_property_read_bool(node,
 					"qcom,esr-pulse-tuning-en");
 
+	chip->soc_slope_limiter_en = of_property_read_bool(node,
+					"qcom,fg-control-slope-limiter");
+	if (chip->soc_slope_limiter_en) {
+		OF_READ_PROPERTY(chip->slope_limit_temp,
+			"fg-slope-limit-temp-threshold", rc,
+			SLOPE_LIMIT_TEMP_THRESHOLD);
+
+		OF_READ_PROPERTY(chip->slope_limit_coeffs[LOW_TEMP_CHARGE],
+			"fg-slope-limit-low-temp-chg", rc,
+			SLOPE_LIMIT_LOW_TEMP_CHG);
+
+		OF_READ_PROPERTY(chip->slope_limit_coeffs[HIGH_TEMP_CHARGE],
+			"fg-slope-limit-high-temp-chg", rc,
+			SLOPE_LIMIT_HIGH_TEMP_CHG);
+
+		OF_READ_PROPERTY(chip->slope_limit_coeffs[LOW_TEMP_DISCHARGE],
+			"fg-slope-limit-low-temp-dischg", rc,
+			SLOPE_LIMIT_LOW_TEMP_DISCHG);
+
+		OF_READ_PROPERTY(chip->slope_limit_coeffs[HIGH_TEMP_DISCHARGE],
+			"fg-slope-limit-high-temp-dischg", rc,
+			SLOPE_LIMIT_HIGH_TEMP_DISCHG);
+
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("slope-limiter, temp: %d coeffs: [%d %d %d %d]\n",
+				chip->slope_limit_temp,
+				chip->slope_limit_coeffs[LOW_TEMP_CHARGE],
+				chip->slope_limit_coeffs[HIGH_TEMP_CHARGE],
+				chip->slope_limit_coeffs[LOW_TEMP_DISCHARGE],
+				chip->slope_limit_coeffs[HIGH_TEMP_DISCHARGE]);
+	}
+
 	return rc;
 }
 
@@ -5671,6 +5801,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
+	cancel_work_sync(&chip->slope_limiter_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -5686,6 +5817,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->gain_comp_wakeup_source.source);
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
+	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
 }
 
 static int fg_remove(struct spmi_device *spmi)
@@ -6662,6 +6794,8 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_cap_learning");
 	wakeup_source_init(&chip->esr_extract_wakeup_source.source,
 			"qpnp_fg_esr_extract");
+	wakeup_source_init(&chip->slope_limit_wakeup_source.source,
+			"qpnp_fg_slope_limit");
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
 	mutex_init(&chip->learning_data.learning_lock);
@@ -6686,6 +6820,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->gain_comp_work, iadc_gain_comp_work);
 	INIT_WORK(&chip->bcl_hi_power_work, bcl_hi_power_work);
 	INIT_WORK(&chip->esr_extract_config_work, esr_extract_config_work);
+	INIT_WORK(&chip->slope_limiter_work, slope_limiter_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -6855,6 +6990,7 @@ cancel_work:
 	cancel_work_sync(&chip->charge_full_work);
 	cancel_work_sync(&chip->bcl_hi_power_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
+	cancel_work_sync(&chip->slope_limiter_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -6870,6 +7006,7 @@ of_init_fail:
 	wakeup_source_trash(&chip->gain_comp_wakeup_source.source);
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
+	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
 	return rc;
 }
 

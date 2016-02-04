@@ -178,6 +178,37 @@ Parent node optional properties:
 					settings will be different from default.
 					Once SOC crosses 5%, ESR pulse timings
 					will be restored back to default.
+- qcom,fg-control-slope-limiter:	A boolean property to specify if SOC
+					slope limiter coefficients needs to
+					be modified based on charging status
+					and battery temperature threshold.
+- qcom,fg-slope-limit-temp-threshold:	Temperature threshold in decidegC used
+					for applying the slope coefficient based
+					on charging status and battery
+					temperature. If this property is not
+					specified, a default value of 100 (10C)
+					will be applied by default.
+- qcom,fg-slope-limit-low-temp-chg:	When the temperature goes below the
+					specified temperature threshold and
+					battery is charging, slope coefficient
+					specified with this property will be
+					applied. If this property is not
+					specified, a default value of 45 will be
+					applied.
+- qcom,fg-slope-limit-low-temp-dischg:	Same as "qcom,fg-slope-limit-low-temp-chg"
+					except this is when the battery is
+					discharging.
+- qcom,fg-slope-limit-high-temp-chg:	When the temperature goes above the
+					specified temperature threshold and
+					battery is charging, slope coefficient
+					specified with this property will be
+					applied. If this property is not
+					specified, a default value of 2 will be
+					applied.
+- qcom,fg-slope-limit-high-temp-dischg:	Same as "qcom,fg-slope-limit-high-temp-chg"
+					except this is when the battery is
+					discharging.
+
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
