@@ -2882,7 +2882,6 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	u32 *mixer_offsets = NULL, *dspp_offsets = NULL,
 	    *pingpong_offsets = NULL;
 	u32 is_virtual_mixer_req = false;
-	u32 supports_separate_rotator = 0;
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
@@ -2937,7 +2936,7 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
-	supports_separate_rotator = of_property_read_bool(pdev->dev.of_node,
+	mdata->has_separate_rotator = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-separate-rotator");
 	if (mdata->nmixers_wb) {
 		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
@@ -2945,7 +2944,7 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 				mdata->nmixers_wb);
 		if (rc)
 			goto parse_done;
-	} else if (!supports_separate_rotator) {
+	} else if (!mdata->has_separate_rotator) {
 		/*
 		 * If writeback mixers are not available, put the number of
 		 * writeback mixers equal to number of DMA pipes so that
