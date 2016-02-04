@@ -1328,7 +1328,9 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 		psde = to_sde_plane(plane);
 		pstate = to_sde_plane_state(state);
 
-		DBG("%s: %d <= %d", psde->pipe_name, idx, (int)val);
+		DBG("%s: pipe %d, prop %s, val %d", psde->pipe_name,
+				sde_plane_pipe(plane),
+				property->name, (int)val);
 
 		/* extra handling for incoming properties */
 		if ((property->flags & DRM_MODE_PROP_BLOB) &&
