@@ -5143,6 +5143,9 @@ int afe_spk_prot_get_calib_data(struct afe_spkr_prot_get_vi_calib *calib_resp)
 		pr_err("%s: Invalid params\n", __func__);
 		goto fail_cmd;
 	}
+	if (this_afe.vi_tx_port != -1)
+		port = this_afe.vi_tx_port;
+
 	ret = q6audio_validate_port(port);
 	if (ret < 0) {
 		pr_err("%s: invalid port 0x%x ret %d\n", __func__, port, ret);
