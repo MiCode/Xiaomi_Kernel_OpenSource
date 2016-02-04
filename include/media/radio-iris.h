@@ -34,6 +34,8 @@
 #include <linux/mutex.h>
 #include <linux/atomic.h>
 
+extern struct mutex fm_smd_enable;
+
 struct radio_hci_dev {
 	char		name[8];
 	unsigned long	flags;
