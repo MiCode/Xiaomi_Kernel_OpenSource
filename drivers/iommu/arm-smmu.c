@@ -1533,6 +1533,22 @@ static void arm_smmu_pgtbl_unlock(struct arm_smmu_domain *smmu_domain,
 		spin_unlock_irqrestore(&smmu_domain->pgtbl_spin_lock, flags);
 }
 
+static int arm_smmu_restore_sec_cfg(struct arm_smmu_device *smmu)
+{
+	int ret, scm_ret;
+
+	if (!arm_smmu_is_static_cb(smmu))
+		return 0;
+
+	ret = scm_restore_sec_cfg(smmu->sec_id, 0x0, &scm_ret);
+	if (ret || scm_ret) {
+		pr_err("scm call IOMMU_SECURE_CFG failed\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu)
 {
@@ -2536,15 +2552,8 @@ static void arm_smmu_resume(struct arm_smmu_device *smmu)
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
 	u32 reg;
 
-	if (arm_smmu_is_static_cb(smmu)) {
-		int ret, scm_ret;
-
-		ret = scm_restore_sec_cfg(smmu->sec_id, 0x0, &scm_ret);
-		if (ret || scm_ret) {
-			pr_err("scm call IOMMU_SECURE_CFG failed\n");
-			return;
-		}
-	}
+	if (arm_smmu_restore_sec_cfg(smmu))
+		return;
 
 	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	reg &= ~MICRO_MMU_CTRL_LOCAL_HALT_REQ;
@@ -3288,6 +3297,9 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	unsigned long size;
 	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
 	u32 id;
+
+	if (arm_smmu_restore_sec_cfg(smmu))
+		return -ENODEV;
 
 	dev_dbg(smmu->dev, "probing hardware configuration...\n");
 	dev_dbg(smmu->dev, "SMMUv%d with:\n", smmu->version);
