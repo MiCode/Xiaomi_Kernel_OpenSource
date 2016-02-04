@@ -1762,9 +1762,9 @@ int __init cpu_clock_8996_early_init(void)
 			 * Configure ACS logic to switch to always-on clock
 			 * source during D2-D5 entry
 			 */
-			writel_relaxed(0x2, vbases[APC0_BASE] +
+			writel_relaxed(0x1, vbases[APC0_BASE] +
 							MDD_DROOP_CODE);
-			writel_relaxed(0x2, vbases[APC1_BASE] +
+			writel_relaxed(0x1, vbases[APC1_BASE] +
 							MDD_DROOP_CODE);
 			/*
 			 * Ensure that the writes go through before enabling
