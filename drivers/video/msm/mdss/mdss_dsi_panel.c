@@ -1669,10 +1669,10 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 					of_property_read_bool(np,
 					"qcom,partial-update-roi-merge");
 		}
-
-		pinfo->dcs_cmd_by_left = of_property_read_bool(np,
-				"qcom,dcs-cmd-by-left");
 	}
+
+	pinfo->dcs_cmd_by_left = of_property_read_bool(np,
+		"qcom,dcs-cmd-by-left");
 
 	pinfo->ulps_feature_enabled = of_property_read_bool(np,
 		"qcom,ulps-enabled");
