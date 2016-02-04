@@ -277,7 +277,8 @@ static void blend_setup(struct drm_crtc *crtc)
 			pstate = to_sde_plane_state(plane->state);
 			sde_crtc->stage_cfg.stage[pstate->stage][i] =
 				sde_plane_pipe(plane);
-			DBG("crtc_id %d - pipe %d at stage %d",
+			DBG("crtc_id %d - mixer %d pipe %d at stage %d",
+					i,
 					sde_crtc->id,
 					sde_plane_pipe(plane),
 					pstate->stage);
@@ -645,9 +646,11 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	for (i = 0; i < cnt; i++) {
 		pstates[i].state->stage = SDE_STAGE_0 + i;
-		DBG("%s: assign pipe %d on stage=%d", sde_crtc->name,
+		DBG("%s: assign pipe %d on stage=%d zpos %d", sde_crtc->name,
 				sde_plane_pipe(pstates[i].plane),
-				pstates[i].state->stage);
+				pstates[i].state->stage,
+				sde_plane_get_property32(pstates[i].state,
+						PLANE_PROP_ZPOS));
 	}
 
 	return 0;
