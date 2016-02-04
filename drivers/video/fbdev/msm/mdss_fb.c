@@ -4664,6 +4664,9 @@ int __init mdss_fb_init(void)
 {
 	int rc = -ENODEV;
 
+	if (fb_get_options("msmfb", NULL))
+		return rc;
+
 	if (platform_driver_register(&mdss_fb_driver))
 		return rc;
 
