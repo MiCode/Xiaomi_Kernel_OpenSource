@@ -1106,6 +1106,12 @@ static inline bool mdss_mdp_is_ubwc_supported(struct mdss_data_type *mdata)
 	return mdata->has_ubwc;
 }
 
+static inline bool mdss_mdp_is_wb_rotator_supported(
+		struct mdss_data_type *mdata)
+{
+	return mdata && !mdata->has_separate_rotator;
+}
+
 static inline int mdss_mdp_is_cdm_supported(struct mdss_data_type *mdata,
 					    u32 intf_type, u32 mixer_type)
 {
