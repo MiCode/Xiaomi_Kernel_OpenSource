@@ -450,6 +450,8 @@
 
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
 	};
 
 	ipa_hw: qcom,ipa@01e00000 {
