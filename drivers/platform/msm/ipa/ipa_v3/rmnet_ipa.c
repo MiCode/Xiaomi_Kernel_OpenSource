@@ -2539,14 +2539,14 @@ int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 			GFP_KERNEL);
 	if (!req) {
 		IPAWANERR("Can't allocate memory for stats message\n");
-		return rc;
+		return -ENOMEM;
 	}
 	resp = kzalloc(sizeof(struct ipa_get_data_stats_resp_msg_v01),
 			GFP_KERNEL);
 	if (!resp) {
 		IPAWANERR("Can't allocate memory for stats message\n");
 		kfree(req);
-		return rc;
+		return -ENOMEM;
 	}
 	memset(req, 0, sizeof(struct ipa_get_data_stats_req_msg_v01));
 	memset(resp, 0, sizeof(struct ipa_get_data_stats_resp_msg_v01));
