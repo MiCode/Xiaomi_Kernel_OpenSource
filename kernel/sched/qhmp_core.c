@@ -2734,16 +2734,6 @@ static int register_sched_callback(void)
  */
 core_initcall(register_sched_callback);
 
-static u64 orig_mark_start(struct task_struct *p)
-{
-	return p->ravg.mark_start;
-}
-
-static void restore_orig_mark_start(struct task_struct *p, u64 mark_start)
-{
-	p->ravg.mark_start = mark_start;
-}
-
 /*
  * Note down when task started running on a cpu. This information will be handy
  * to avoid "too" frequent task migrations for a running task on account of
@@ -2782,13 +2772,6 @@ static inline void mark_task_starting(struct task_struct *p) {}
 static inline void set_window_start(struct rq *rq) {}
 
 static inline void migrate_sync_cpu(int cpu) {}
-
-static inline u64 orig_mark_start(struct task_struct *p) { return 0; }
-
-static inline void
-restore_orig_mark_start(struct task_struct *p, u64 mark_start)
-{
-}
 
 static inline void note_run_start(struct task_struct *p, u64 wallclock) { }
 
@@ -3681,7 +3664,6 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.prev_sum_exec_runtime	= 0;
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
-	init_new_task_load(p);
 
 	INIT_LIST_HEAD(&p->se.group_node);
 
@@ -3975,6 +3957,7 @@ void wake_up_new_task(struct task_struct *p)
 	struct rq *rq;
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
+	init_new_task_load(p);
 #ifdef CONFIG_SMP
 	/*
 	 * Fork balancing, do it here and not earlier because:
@@ -6494,18 +6477,10 @@ void init_idle(struct task_struct *idle, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
-	u64 mark_start;
 
 	raw_spin_lock_irqsave(&rq->lock, flags);
 
-	mark_start = orig_mark_start(idle);
-
 	__sched_fork(0, idle);
-	/*
-	 * Restore idle thread's original mark_start as we rely on it being
-	 * correct for maintaining per-cpu counters, curr/prev_runnable_sum.
-	 */
-	restore_orig_mark_start(idle, mark_start);
 	idle->state = TASK_RUNNING;
 	idle->se.exec_start = sched_clock();
 
