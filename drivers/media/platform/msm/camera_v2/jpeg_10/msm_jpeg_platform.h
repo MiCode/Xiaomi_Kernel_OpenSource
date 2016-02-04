@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,14 +28,11 @@ uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
 int msm_jpeg_platform_clk_enable(void);
 int msm_jpeg_platform_clk_disable(void);
 
-int msm_jpeg_platform_init(struct platform_device *pdev,
-	struct resource **mem,
-	void **base,
-	int *irq,
-	irqreturn_t (*handler)(int, void *),
+int msm_jpeg_platform_init(irqreturn_t (*handler)(int, void *),
 	void *context);
-int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
-	void *context);
+int msm_jpeg_platform_release(void *context);
 int msm_jpeg_platform_set_dt_config(struct msm_jpeg_device *pgmn_dev);
+int msm_jpeg_platform_setup(struct msm_jpeg_device *pgmn_dev);
+void msm_jpeg_platform_cleanup(struct msm_jpeg_device *pgmn_dev);
 
 #endif /* MSM_JPEG_PLATFORM_H */
