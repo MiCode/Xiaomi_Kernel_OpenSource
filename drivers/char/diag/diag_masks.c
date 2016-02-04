@@ -656,7 +656,8 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 	mask = (struct diag_msg_mask_t *)mask_info->ptr;
 	for (i = 0; i < driver->msg_mask_tbl_count; i++, mask++) {
 		if ((req->ssid_first < mask->ssid_first) ||
-		    (req->ssid_first > mask->ssid_last_tools)) {
+		    (req->ssid_first > (mask->ssid_first +
+					MAX_SSID_PER_RANGE))) {
 			continue;
 		}
 		found = 1;
@@ -675,8 +676,10 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 			pr_debug("diag: Msg SSID range mismatch\n");
 			if (mask_size != MAX_SSID_PER_RANGE)
 				mask->ssid_last_tools = req->ssid_last;
+			mask->range_tools =
+				mask->ssid_last_tools - mask->ssid_first + 1;
 			temp = krealloc(mask->ptr,
-					mask_size * sizeof(uint32_t),
+					mask->range_tools * sizeof(uint32_t),
 					GFP_KERNEL);
 			if (!temp) {
 				pr_err_ratelimited("diag: In %s, unable to allocate memory for msg mask ptr, mask_size: %d\n",
@@ -685,7 +688,6 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 				return -ENOMEM;
 			}
 			mask->ptr = temp;
-			mask->range_tools = mask_size;
 		}
 
 		offset = req->ssid_first - mask->ssid_first;
