@@ -53,6 +53,7 @@
 
 #define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
 #define ANC_DETECT_RETRY_CNT 7
+#define WCD_MBHC_SPL_HS_CNT  1
 
 static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,
@@ -1059,6 +1060,53 @@ static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 	}
 }
 
+static bool wcd_mbhc_check_for_spl_headset(struct wcd_mbhc *mbhc,
+					   int *spl_hs_cnt)
+{
+	u16 hs_comp_res_1_8v = 0, hs_comp_res_2_7v = 0;
+	bool spl_hs = false;
+
+	if (!mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic)
+		goto exit;
+
+	/* Read back hs_comp_res @ 1.8v Micbias */
+	WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res_1_8v);
+	if (!hs_comp_res_1_8v) {
+		spl_hs = false;
+		goto exit;
+	}
+
+	/* Bump up MB2 to 2.7v */
+	mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(mbhc->codec,
+				mbhc->mbhc_cfg->mbhc_micbias, true);
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
+	usleep_range(10000, 10100);
+
+	/* Read back HS_COMP_RESULT */
+	WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res_2_7v);
+	if (!hs_comp_res_2_7v && hs_comp_res_1_8v)
+		spl_hs = true;
+
+	if (spl_hs && spl_hs_cnt)
+		*spl_hs_cnt += 1;
+
+	/* MB2 back to 1.8v */
+	if (spl_hs_cnt && (*spl_hs_cnt != WCD_MBHC_SPL_HS_CNT)) {
+		mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(mbhc->codec,
+				mbhc->mbhc_cfg->mbhc_micbias, false);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
+		usleep_range(10000, 10100);
+	}
+
+	if (spl_hs)
+		pr_debug("%s: Detected special HS (%d)\n", __func__, spl_hs);
+
+exit:
+	return spl_hs;
+}
+
 static void wcd_correct_swch_plug(struct work_struct *work)
 {
 	struct wcd_mbhc *mbhc;
@@ -1069,11 +1117,11 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	bool wrk_complete = false;
 	int pt_gnd_mic_swap_cnt = 0;
 	int no_gnd_mic_swap_cnt = 0;
-	bool is_pa_on = false;
+	bool is_pa_on = false, spl_hs = false;
 	bool micbias2 = false;
 	bool micbias1 = false;
 	int ret = 0;
-	int rc;
+	int rc, spl_hs_count = 0;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -1142,6 +1190,12 @@ correct_plug_type:
 					mbhc->hs_detect_work_stop);
 			wcd_enable_curr_micbias(mbhc,
 						WCD_MBHC_EN_NONE);
+			if (mbhc->micbias_enable &&
+			    mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic) {
+				mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
+					mbhc->codec, MIC_BIAS_2, false);
+				mbhc->micbias_enable = false;
+			}
 			goto exit;
 		}
 		if (mbhc->btn_press_intr) {
@@ -1159,6 +1213,12 @@ correct_plug_type:
 					mbhc->hs_detect_work_stop);
 			wcd_enable_curr_micbias(mbhc,
 						WCD_MBHC_EN_NONE);
+			if (mbhc->micbias_enable &&
+			    mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic) {
+				mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
+					mbhc->codec, MIC_BIAS_2, false);
+				mbhc->micbias_enable = false;
+			}
 			goto exit;
 		}
 		WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
@@ -1172,6 +1232,17 @@ correct_plug_type:
 		 * sometime and re-check stop request again.
 		 */
 		msleep(180);
+		if (hs_comp_res && (spl_hs_count < WCD_MBHC_SPL_HS_CNT)) {
+			spl_hs = wcd_mbhc_check_for_spl_headset(mbhc,
+								&spl_hs_count);
+
+			if (spl_hs_count == WCD_MBHC_SPL_HS_CNT) {
+				hs_comp_res = 0;
+				spl_hs = true;
+				mbhc->micbias_enable = true;
+			}
+		}
+
 		if ((!hs_comp_res) && (!is_pa_on)) {
 			/* Check for cross connection*/
 			ret = wcd_check_cross_conn(mbhc);
@@ -1200,8 +1271,9 @@ correct_plug_type:
 				no_gnd_mic_swap_cnt++;
 				pt_gnd_mic_swap_cnt = 0;
 				plug_type = MBHC_PLUG_TYPE_HEADSET;
-				if (no_gnd_mic_swap_cnt <
-						GND_MIC_SWAP_THRESHOLD) {
+				if ((no_gnd_mic_swap_cnt <
+				    GND_MIC_SWAP_THRESHOLD) &&
+				    (spl_hs_count != WCD_MBHC_SPL_HS_CNT)) {
 					continue;
 				} else {
 					no_gnd_mic_swap_cnt = 0;
@@ -1243,8 +1315,11 @@ correct_plug_type:
 				     (mbhc->current_plug !=
 				      MBHC_PLUG_TYPE_ANC_HEADPHONE)) &&
 				    !mbhc->btn_press_intr) {
-					pr_debug("%s: cable is headset\n",
-							__func__);
+					pr_debug("%s: cable is %sheadset\n",
+						__func__,
+						((spl_hs_count ==
+							WCD_MBHC_SPL_HS_CNT) ?
+							"special ":""));
 					goto report;
 				}
 			}
