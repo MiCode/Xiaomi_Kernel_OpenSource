@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,7 @@ struct csid_device {
 	int32_t regulator_count;
 	uint8_t is_testmode;
 	struct msm_camera_csid_testmode_parms testmode_params;
+	struct msm_camera_csid_params  current_csid_params;
 	uint32_t csid_sof_debug;
 	uint32_t csid_lane_cnt;
 };

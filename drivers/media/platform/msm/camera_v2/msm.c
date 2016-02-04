@@ -503,12 +503,16 @@ static inline int __msm_sd_close_subdevs(struct msm_sd_subdev *msm_sd,
 	return 0;
 }
 
-static inline int __msm_sd_notify_freeze_subdevs(struct msm_sd_subdev *msm_sd)
+static inline int __msm_sd_notify_freeze_subdevs(struct msm_sd_subdev *msm_sd,
+	int enable)
 {
 	struct v4l2_subdev *sd;
 	sd = &msm_sd->sd;
 
-	v4l2_subdev_call(sd, core, ioctl, MSM_SD_NOTIFY_FREEZE, NULL);
+	if (enable)
+		v4l2_subdev_call(sd, core, ioctl, MSM_SD_NOTIFY_FREEZE, NULL);
+	else
+		v4l2_subdev_call(sd, core, ioctl, MSM_SD_UNNOTIFY_FREEZE, NULL);
 
 	return 0;
 }
@@ -716,10 +720,18 @@ static long msm_private_ioctl(struct file *file, void *fh,
 		break;
 
 	case MSM_CAM_V4L2_IOCTL_NOTIFY_DEBUG: {
-		pr_err("Notifying subdevs about potential sof freeze\n");
+		if (event_data->status) {
+			pr_err("%s:Notifying subdevs about potential sof freeze\n",
+				__func__);
+		} else {
+			pr_err("%s:Notifying subdevs about sof recover\n",
+				__func__);
+		}
+
 		if (!list_empty(&msm_v4l2_dev->subdevs)) {
 			list_for_each_entry(msm_sd, &ordered_sd_list, list)
-				__msm_sd_notify_freeze_subdevs(msm_sd);
+				__msm_sd_notify_freeze_subdevs(msm_sd,
+					event_data->status);
 		}
 	}
 		break;
