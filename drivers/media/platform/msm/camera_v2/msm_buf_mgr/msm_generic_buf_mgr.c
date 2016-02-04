@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -443,6 +443,8 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_BUF_MNGR_FLUSH:
 		rc = msm_generic_buf_mngr_flush(buf_mngr_dev, argp);
+		break;
+	case MSM_SD_UNNOTIFY_FREEZE:
 		break;
 	case MSM_SD_SHUTDOWN:
 		msm_buf_mngr_sd_shutdown(buf_mngr_dev, argp);

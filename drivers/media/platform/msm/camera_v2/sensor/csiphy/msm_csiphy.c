@@ -46,6 +46,7 @@
 #define CSI_3PHASE_HW                               1
 #define MAX_LANES                                   4
 #define CLOCK_OFFSET                              0x700
+#define CSIPHY_SOF_DEBUG_COUNT                      3
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -640,6 +641,13 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 	int i;
 	struct csiphy_device *csiphy_dev = data;
 
+	if (csiphy_dev->csiphy_sof_debug == SOF_DEBUG_ENABLE) {
+		if (csiphy_dev->csiphy_sof_debug_count < CSIPHY_SOF_DEBUG_COUNT)
+			csiphy_dev->csiphy_sof_debug_count++;
+		else
+			return IRQ_HANDLED;
+	}
+
 	for (i = 0; i < csiphy_dev->num_irq_registers; i++) {
 		irq = msm_camera_io_r(
 			csiphy_dev->base +
@@ -649,7 +657,8 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 			csiphy_dev->base +
 			csiphy_dev->ctrl_reg->csiphy_reg.
 			mipi_csiphy_interrupt_clear0_addr + 0x4*i);
-		CDBG("%s MIPI_CSIPHY%d_INTERRUPT_STATUS%d = 0x%x\n",
+		pr_err_ratelimited(
+			"%s CSIPHY%d_IRQ_STATUS_ADDR%d = 0x%x\n",
 			__func__, csiphy_dev->pdev->id, i, irq);
 		msm_camera_io_w(0x0,
 			csiphy_dev->base +
@@ -813,7 +822,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		rc = -ENOMEM;
 		return rc;
 	}
-
+	csiphy_dev->csiphy_sof_debug_count = 0;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (csiphy_dev->csiphy_state == CSIPHY_POWER_UP) {
 		pr_err("%s: csiphy invalid state %d\n", __func__,
@@ -1118,7 +1127,10 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 			csiphy_dev->ctrl_reg->csiphy_reg.
 			mipi_csiphy_glbl_pwr_cfg_addr);
 	}
-
+	if (csiphy_dev->csiphy_sof_debug == SOF_DEBUG_ENABLE) {
+		csiphy_dev->csiphy_sof_debug = SOF_DEBUG_DISABLE;
+		disable_irq(csiphy_dev->irq->start);
+	}
 	if (csiphy_dev->hw_dts_version <= CSIPHY_VERSION_V22) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_dev->csiphy_clk_info, csiphy_dev->csiphy_clk,
@@ -1179,8 +1191,6 @@ static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 			rc = -EFAULT;
 			break;
 		}
-		if (csiphy_dev->csiphy_sof_debug == SOF_DEBUG_ENABLE)
-			disable_irq(csiphy_dev->irq->start);
 		rc = msm_csiphy_release(csiphy_dev, &csi_lane_params);
 		break;
 	default:
@@ -1226,8 +1236,17 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 		if (!csiphy_dev || !csiphy_dev->ctrl_reg ||
 				!csiphy_dev->ref_count)
 			break;
-		csiphy_dev->csiphy_sof_debug = SOF_DEBUG_ENABLE;
-		enable_irq(csiphy_dev->irq->start);
+		if (csiphy_dev->csiphy_sof_debug == SOF_DEBUG_DISABLE) {
+			csiphy_dev->csiphy_sof_debug = SOF_DEBUG_ENABLE;
+			enable_irq(csiphy_dev->irq->start);
+		}
+		break;
+	case MSM_SD_UNNOTIFY_FREEZE:
+		if (!csiphy_dev || !csiphy_dev->ctrl_reg ||
+				!csiphy_dev->ref_count)
+			break;
+		csiphy_dev->csiphy_sof_debug = SOF_DEBUG_DISABLE;
+		disable_irq(csiphy_dev->irq->start);
 		break;
 	default:
 		pr_err_ratelimited("%s: command not found\n", __func__);
