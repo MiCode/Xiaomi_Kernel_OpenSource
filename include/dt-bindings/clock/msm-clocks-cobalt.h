@@ -457,4 +457,10 @@
 #define clk_gpucc_mx_clk			0x1edbb879
 #define clk_gpucc_gcc_dbg_clk			0x9ae8cd3c
 
+/* CPU clocks */
+#define clk_pwrcl_clk				0xc554130e
+#define clk_perfcl_clk				0x58869997
+#define clk_sys_apcsaux_clk_gcc			0xf905e862
+#define clk_xo_ao				0x428c856d
+
 #endif
