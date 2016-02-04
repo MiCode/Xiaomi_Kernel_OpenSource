@@ -95,30 +95,29 @@ void mdss_mdp_wfd_destroy(struct mdss_mdp_wfd *wfd)
 	if (ctl->mixer_left)
 		mdss_mdp_mixer_free(ctl->mixer_left);
 
+	if (ctl->mixer_right)
+		mdss_mdp_mixer_free(ctl->mixer_right);
+
 	ctl->mixer_left = NULL;
+	ctl->mixer_right = NULL;
 	ctl->wb = NULL;
 }
 
-static bool mdss_mdp_wfd_is_config_same(struct mdss_mdp_wfd *wfd,
+bool mdss_mdp_wfd_is_config_same(struct msm_fb_data_type *mfd,
 	struct mdp_output_layer *layer)
 {
-	struct mdss_mdp_ctl *ctl = wfd->ctl;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_ctl *ctl = mdp5_data->wfd->ctl;
 	struct mdss_mdp_writeback *wb = NULL;
-	struct mdss_mdp_mixer *mixer = NULL;
 
 	wb = ctl->wb;
-	mixer = ctl->mixer_left;
-
-	if (!wb || !mixer)
+	if (!wb || !ctl->mixer_left)
 		return false;
 
-	if (wb->num != layer->writeback_ndx)
-		return false;
-
-	if (mixer->width != layer->buffer.width)
-		return false;
-
-	if (mixer->height != layer->buffer.height)
+	if ((wb->num != layer->writeback_ndx)
+		|| (ctl->width != layer->buffer.width)
+		|| (ctl->height != layer->buffer.height)
+		|| (ctl->dst_format != layer->buffer.format))
 		return false;
 
 	return true;
@@ -130,13 +129,13 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	u32 wb_idx = layer->writeback_ndx;
 	struct mdss_mdp_ctl *ctl = wfd->ctl;
 	struct mdss_mdp_writeback *wb = NULL;
-	struct mdss_mdp_mixer *mixer = NULL;
 	int ret = 0;
+	u32 width, height, max_mixer_width;
 
 	if (!ctl)
 		return -EINVAL;
 
-	if (mdss_mdp_wfd_is_config_same(wfd, layer)) {
+	if (mdss_mdp_wfd_is_config_same(ctl->mfd, layer)) {
 		pr_debug("wfd prepared already\n");
 		return 0;
 	}
@@ -150,6 +149,11 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 		}
 		mdss_mdp_wfd_destroy(wfd);
 	}
+	width = layer->buffer.width;
+	height = layer->buffer.height;
+	max_mixer_width = ctl->mdata->max_mixer_width;
+	pr_debug("widthxheight:%dx%d,wb_idx:%d, ctl:%d\n", width, height,
+			wb_idx, ctl->num);
 
 	wb = mdss_mdp_wb_assign(wb_idx, ctl->num);
 	if (!wb) {
@@ -158,25 +162,49 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 		goto wfd_setup_error;
 	}
 	ctl->wb = wb;
+	ctl->dst_format = layer->buffer.format;
+	ctl->dst_comp_ratio = layer->buffer.comp_ratio;
+	ctl->width = width;
+	ctl->height = height;
+	ctl->roi =  (struct mdss_rect) {0, 0, width, height};
+	ctl->is_secure = (layer->flags & MDP_LAYER_SECURE_SESSION);
 
-	if (wb->caps & MDSS_MDP_WB_INTF)
-		mixer = mdss_mdp_mixer_alloc(ctl,
-			MDSS_MDP_MIXER_TYPE_INTF, false, 0);
-	else
-		mixer = mdss_mdp_mixer_assign(wb->num, true);
+	if (wb->caps & MDSS_MDP_WB_INTF) {
+		ctl->mixer_left = mdss_mdp_mixer_alloc(ctl,
+			MDSS_MDP_MIXER_TYPE_INTF, (width > max_mixer_width), 0);
+		if (width > max_mixer_width) {
+			ctl->mixer_right = mdss_mdp_mixer_alloc(ctl,
+				MDSS_MDP_MIXER_TYPE_INTF, true, 0);
+			ctl->mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
+			width = width / 2;
+		} else {
+			ctl->mfd->split_mode = MDP_SPLIT_MODE_NONE;
+		}
+	} else if (width > max_mixer_width) {
+		pr_err("width > max_mixer_width supported only in MDSS_MDP_WB_INTF\n");
+		goto wfd_setup_error;
+	} else {
+		/* WB0 or WB1 in line mode */
+		ctl->mixer_left = mdss_mdp_mixer_assign(wb->num, true);
+	}
 
-	if (!mixer) {
-		pr_err("could not allocate mixer\n");
+	if (!ctl->mixer_left ||
+		((ctl->mfd->split_mode ==
+			MDP_DUAL_LM_SINGLE_DISPLAY) && (!ctl->mixer_right))) {
+		if (ctl->mixer_left)
+			mdss_mdp_mixer_free(ctl->mixer_left);
+		if (ctl->mixer_right)
+			mdss_mdp_mixer_free(ctl->mixer_right);
+		pr_err("could not allocate mixer(s) for ctl:%d\n", ctl->num);
 		ret = -ENODEV;
 		goto wfd_setup_error;
 	}
-	ctl->mixer_left = mixer;
 
-	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF ||
+	if (ctl->mixer_left->type == MDSS_MDP_MIXER_TYPE_INTF ||
 			ctl->mdata->wfd_mode == MDSS_MDP_WFD_DEDICATED) {
 		ctl->opmode = MDSS_MDP_CTL_OP_WFD_MODE;
 	} else {
-		switch (mixer->num) {
+		switch (ctl->mixer_left->num) {
 		case MDSS_MDP_WB_LAYERMIXER0:
 			ctl->opmode = MDSS_MDP_CTL_OP_WB0_MODE;
 			break;
@@ -185,25 +213,34 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 			break;
 		default:
 			pr_err("Incorrect writeback config num=%d\n",
-					mixer->num);
+					ctl->mixer_left->num);
 			ret = -EINVAL;
 			goto wfd_setup_error;
 		}
 		ctl->wb_type = MDSS_MDP_WB_CTL_TYPE_LINE;
 	}
 
-	ctl->dst_format = layer->buffer.format;
-	ctl->dst_comp_ratio = layer->buffer.comp_ratio;
-	ctl->width = layer->buffer.width;
-	ctl->height = layer->buffer.height;
-	ctl->roi =  (struct mdss_rect) {0, 0, ctl->width, ctl->height};
+	ctl->mixer_left->width = width;
+	ctl->mixer_left->height = height;
+	ctl->mixer_left->roi = (struct mdss_rect) {0, 0, width, height};
+	ctl->mixer_left->ctl = ctl;
+	ctl->mixer_left->valid_roi = true;
+	ctl->mixer_left->roi_changed = true;
 
-	ctl->is_secure = (layer->flags & MDP_LAYER_SECURE_SESSION);
-
-	mixer->width = layer->buffer.width;
-	mixer->height = layer->buffer.height;
-	mixer->roi = (struct mdss_rect) {0, 0, mixer->width, mixer->height};
-	mixer->ctl = ctl;
+	if (ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) {
+		ctl->mixer_right->width = width;
+		ctl->mixer_right->height = height;
+		ctl->mixer_right->roi = (struct mdss_rect) {0, 0,
+			width, height};
+		ctl->mixer_right->valid_roi = true;
+		ctl->mixer_right->roi_changed = true;
+		ctl->mixer_right->ctl = ctl;
+		ctl->opmode |= MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
+				       MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT;
+	} else {
+		ctl->opmode &= ~(MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
+				       MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT);
+	}
 
 	if (ctl->ops.start_fnc) {
 		ret = ctl->ops.start_fnc(ctl);
