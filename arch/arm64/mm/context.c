@@ -28,7 +28,7 @@
 #include <asm/cachetype.h>
 
 #define asid_bits(reg) \
-	(((read_cpuid(ID_AA64MMFR0_EL1) & 0xf0) >> 2) + 8)
+	(((read_cpuid(SYS_ID_AA64MMFR0_EL1) & 0xf0) >> 2) + 8)
 
 #define ASID_FIRST_VERSION	(1 << MAX_ASID_BITS)
 
