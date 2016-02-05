@@ -403,6 +403,14 @@ enum slope_limit_status {
 	SLOPE_LIMIT_MAX,
 };
 
+#define VOLT_GAIN_MAX		3
+struct dischg_gain_soc {
+	bool			enable;
+	u32			soc[VOLT_GAIN_MAX];
+	u32			medc_gain[VOLT_GAIN_MAX];
+	u32			highc_gain[VOLT_GAIN_MAX];
+};
+
 #define THERMAL_COEFF_N_BYTES		6
 struct fg_chip {
 	struct device		*dev;
@@ -532,6 +540,10 @@ struct fg_chip {
 	enum slope_limit_status	slope_limit_sts;
 	u32			slope_limit_temp;
 	u32			slope_limit_coeffs[SLOPE_LIMIT_MAX];
+	/* Discharge soc gain */
+	struct work_struct	dischg_gain_work;
+	struct fg_wakeup_source	dischg_gain_wakeup_source;
+	struct dischg_gain_soc	dischg_gain;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -3541,6 +3553,11 @@ static void status_change_work(struct work_struct *work)
 				msecs_to_jiffies(0));
 		}
 
+		if (chip->dischg_gain.enable) {
+			fg_stay_awake(&chip->dischg_gain_wakeup_source);
+			schedule_work(&chip->dischg_gain_work);
+		}
+
 		get_current_time(&current_time);
 		/*
 		 * When charging status changes, update SRAM parameters if it
@@ -4114,6 +4131,11 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("triggered 0x%x\n", soc_rt_sts);
+
+	if (chip->dischg_gain.enable) {
+		fg_stay_awake(&chip->dischg_gain_wakeup_source);
+		schedule_work(&chip->dischg_gain_work);
+	}
 
 	if (chip->soc_slope_limiter_en) {
 		fg_stay_awake(&chip->slope_limit_wakeup_source);
@@ -4764,6 +4786,58 @@ static void esr_extract_config_work(struct work_struct *work)
 	}
 
 	fg_relax(&chip->esr_extract_wakeup_source);
+}
+
+#define KI_COEFF_MEDC_REG		0x400
+#define KI_COEFF_MEDC_OFFSET		0
+#define KI_COEFF_HIGHC_REG		0x404
+#define KI_COEFF_HIGHC_OFFSET		0
+#define DEFAULT_MEDC_VOLTAGE_GAIN	3
+#define DEFAULT_HIGHC_VOLTAGE_GAIN	2
+static void discharge_gain_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+						dischg_gain_work);
+	u8 buf[2];
+	int capacity, rc, i;
+	int64_t medc_val = DEFAULT_MEDC_VOLTAGE_GAIN;
+	int64_t highc_val = DEFAULT_HIGHC_VOLTAGE_GAIN;
+
+	capacity = get_prop_capacity(chip);
+	if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
+		for (i = VOLT_GAIN_MAX - 1; i >= 0; i--) {
+			if (capacity <= chip->dischg_gain.soc[i]) {
+				medc_val = chip->dischg_gain.medc_gain[i];
+				highc_val = chip->dischg_gain.highc_gain[i];
+			}
+		}
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Capacity: %d, medc_gain: %lld highc_gain: %lld\n",
+			capacity, medc_val, highc_val);
+
+	medc_val *= MICRO_UNIT;
+	half_float_to_buffer(medc_val, buf);
+	rc = fg_mem_write(chip, buf, KI_COEFF_MEDC_REG, 2,
+				KI_COEFF_MEDC_OFFSET, 0);
+	if (rc)
+		pr_err("Couldn't write to ki_coeff_medc_reg, rc=%d\n", rc);
+	else if (fg_debug_mask & FG_STATUS)
+		pr_info("Value [%x %x] written to ki_coeff_medc\n", buf[0],
+			buf[1]);
+
+	highc_val *= MICRO_UNIT;
+	half_float_to_buffer(highc_val, buf);
+	rc = fg_mem_write(chip, buf, KI_COEFF_HIGHC_REG, 2,
+				KI_COEFF_HIGHC_OFFSET, 0);
+	if (rc)
+		pr_err("Couldn't write to ki_coeff_highc_reg, rc=%d\n", rc);
+	else if (fg_debug_mask & FG_STATUS)
+		pr_info("Value [%x %x] written to ki_coeff_highc\n", buf[0],
+			buf[1]);
+
+	fg_relax(&chip->dischg_gain_wakeup_source);
 }
 
 #define LOW_LATENCY			BIT(6)
@@ -5574,6 +5648,99 @@ do {									\
 	}								\
 } while (0)
 
+static int fg_dischg_gain_dt_init(struct fg_chip *chip)
+{
+	struct device_node *node = chip->spmi->dev.of_node;
+	struct property *prop;
+	int i, rc = 0;
+	size_t size;
+
+	prop = of_find_property(node, "qcom,fg-dischg-voltage-gain-soc",
+			NULL);
+	if (!prop) {
+		pr_err("qcom-fg-dischg-voltage-gain-soc not specified\n");
+		goto out;
+	}
+
+	size = prop->length / sizeof(u32);
+	if (size != VOLT_GAIN_MAX) {
+		pr_err("Voltage gain SOC specified is of incorrect size\n");
+		goto out;
+	}
+
+	rc = of_property_read_u32_array(node,
+		"qcom,fg-dischg-voltage-gain-soc", chip->dischg_gain.soc, size);
+	if (rc < 0) {
+		pr_err("Reading qcom-fg-dischg-voltage-gain-soc failed, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	for (i = 0; i < VOLT_GAIN_MAX; i++) {
+		if (chip->dischg_gain.soc[i] < 0 ||
+				chip->dischg_gain.soc[i] > 100) {
+			pr_err("Incorrect dischg-voltage-gain-soc\n");
+			goto out;
+		}
+	}
+
+	prop = of_find_property(node, "qcom,fg-dischg-med-voltage-gain",
+			NULL);
+	if (!prop) {
+		pr_err("qcom-fg-dischg-med-voltage-gain not specified\n");
+		goto out;
+	}
+
+	size = prop->length / sizeof(u32);
+	if (size != VOLT_GAIN_MAX) {
+		pr_err("med-voltage-gain specified is of incorrect size\n");
+		goto out;
+	}
+
+	rc = of_property_read_u32_array(node,
+		"qcom,fg-dischg-med-voltage-gain", chip->dischg_gain.medc_gain,
+		size);
+	if (rc < 0) {
+		pr_err("Reading qcom-fg-dischg-med-voltage-gain failed, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	prop = of_find_property(node, "qcom,fg-dischg-high-voltage-gain",
+			NULL);
+	if (!prop) {
+		pr_err("qcom-fg-dischg-high-voltage-gain not specified\n");
+		goto out;
+	}
+
+	size = prop->length / sizeof(u32);
+	if (size != VOLT_GAIN_MAX) {
+		pr_err("high-voltage-gain specified is of incorrect size\n");
+		goto out;
+	}
+
+	rc = of_property_read_u32_array(node,
+		"qcom,fg-dischg-high-voltage-gain",
+		chip->dischg_gain.highc_gain, size);
+	if (rc < 0) {
+		pr_err("Reading qcom-fg-dischg-high-voltage-gain failed, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	if (fg_debug_mask & FG_STATUS) {
+		for (i = 0; i < VOLT_GAIN_MAX; i++)
+			pr_info("SOC:%d MedC_Gain:%d HighC_Gain: %d\n",
+				chip->dischg_gain.soc[i],
+				chip->dischg_gain.medc_gain[i],
+				chip->dischg_gain.highc_gain[i]);
+	}
+	return 0;
+out:
+	chip->dischg_gain.enable = false;
+	return rc;
+}
+
 #define DEFAULT_EVALUATION_CURRENT_MA	1000
 static int fg_of_init(struct fg_chip *chip)
 {
@@ -5749,6 +5916,17 @@ static int fg_of_init(struct fg_chip *chip)
 	}
 
 	OF_READ_PROPERTY(chip->rconn_mohm, "fg-rconn-mohm", rc, 0);
+
+	chip->dischg_gain.enable = of_property_read_bool(node,
+					"qcom,fg-dischg-voltage-gain-ctrl");
+	if (chip->dischg_gain.enable) {
+		rc = fg_dischg_gain_dt_init(chip);
+		if (rc) {
+			pr_err("Error in reading dischg_gain parameters, rc=%d\n",
+				rc);
+			rc = 0;
+		}
+	}
 
 	return rc;
 }
@@ -5951,6 +6129,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->charge_full_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
 	cancel_work_sync(&chip->slope_limiter_work);
+	cancel_work_sync(&chip->dischg_gain_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -5967,6 +6146,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
 	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
+	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
 }
 
 static int fg_remove(struct spmi_device *spmi)
@@ -6959,6 +7139,8 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_esr_extract");
 	wakeup_source_init(&chip->slope_limit_wakeup_source.source,
 			"qpnp_fg_slope_limit");
+	wakeup_source_init(&chip->dischg_gain_wakeup_source.source,
+			"qpnp_fg_dischg_gain");
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
 	mutex_init(&chip->learning_data.learning_lock);
@@ -6984,6 +7166,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->bcl_hi_power_work, bcl_hi_power_work);
 	INIT_WORK(&chip->esr_extract_config_work, esr_extract_config_work);
 	INIT_WORK(&chip->slope_limiter_work, slope_limiter_work);
+	INIT_WORK(&chip->dischg_gain_work, discharge_gain_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -7154,6 +7337,7 @@ cancel_work:
 	cancel_work_sync(&chip->bcl_hi_power_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
 	cancel_work_sync(&chip->slope_limiter_work);
+	cancel_work_sync(&chip->dischg_gain_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -7170,6 +7354,7 @@ of_init_fail:
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
 	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
+	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
 	return rc;
 }
 
