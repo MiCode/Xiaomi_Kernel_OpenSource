@@ -28,8 +28,9 @@
 #define ARM64_HAS_SYSREG_GIC_CPUIF		3
 #define ARM64_HAS_PAN				4
 #define ARM64_HAS_UAO				5
+#define ARM64_ALT_PAN_NOT_UAO			6
 
-#define ARM64_NCAPS				6
+#define ARM64_NCAPS				7
 
 #ifndef __ASSEMBLY__
 
