@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 /* APR Client IDs */
 #define APR_CLIENT_AUDIO	0x0
 #define APR_CLIENT_VOICE	0x1
-#define APR_CLIENT_MAX	0x2
+#define APR_CLIENT_MAX		0x2
 
 #define APR_DL_SMD    0
 #define APR_DL_MAX    1
@@ -29,15 +29,66 @@
 #define APR_DEST_QDSP6 1
 #define APR_DEST_MAX   2
 
-#define APR_MAX_BUF   8192
+#if defined(CONFIG_MSM_QDSP6_APRV2_GLINK) || \
+	defined(CONFIG_MSM_QDSP6_APRV3_GLINK)
+#define APR_MAX_BUF			512
+#define APR_NUM_OF_TX_BUF		20
+#else
+#define APR_MAX_BUF			8092
+#endif
+
+#define APR_DEFAULT_NUM_OF_INTENTS 20
 
 #define APR_OPEN_TIMEOUT_MS 5000
+
+enum {
+	/* If client sets the pkt_owner to APR_PKT_OWNER_DRIVER, APR
+	 * driver will allocate a buffer, where the user packet is
+	 * copied into, for each and every single Tx transmission.
+	 * The buffer is thereafter passed to underlying link layer
+	 * and freed upon the notification received from the link layer
+	 * that the packet has been consumed.
+	 */
+	APR_PKT_OWNER_DRIVER,
+	/* If client sets the pkt_owner to APR_PKT_OWNER_CLIENT, APR
+	 * will pass the user packet memory address directly to underlying
+	 * link layer. In this case it is the client's responsibility to
+	 * make sure the packet is intact until being notified that the
+	 * packet has been consumed.
+	 */
+	APR_PKT_OWNER_CLIENT,
+};
+
+struct apr_pkt_priv {
+	/* This property is only applicable for APR over Glink.
+	 * It is ignored in APR over SMD cases.
+	 */
+	uint8_t pkt_owner;
+};
 
 typedef void (*apr_svc_cb_fn)(void *buf, int len, void *priv);
 struct apr_svc_ch_dev *apr_tal_open(uint32_t svc, uint32_t dest,
 			uint32_t dl, apr_svc_cb_fn func, void *priv);
-int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data, int len);
+int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
+		struct apr_pkt_priv *pkt_priv, int len);
 int apr_tal_close(struct apr_svc_ch_dev *apr_ch);
+int apr_tal_rx_intents_config(struct apr_svc_ch_dev *apr_ch,
+		int num_of_intents, uint32_t size);
+
+
+#if defined(CONFIG_MSM_QDSP6_APRV2_GLINK) || \
+	 defined(CONFIG_MSM_QDSP6_APRV3_GLINK)
+struct apr_svc_ch_dev {
+	void               *handle;
+	spinlock_t         w_lock;
+	spinlock_t         r_lock;
+	struct mutex       m_lock;
+	apr_svc_cb_fn      func;
+	wait_queue_head_t  wait;
+	void               *priv;
+	unsigned           channel_state;
+};
+#else
 struct apr_svc_ch_dev {
 	struct smd_channel *ch;
 	spinlock_t         lock;
@@ -51,5 +102,6 @@ struct apr_svc_ch_dev {
 	wait_queue_head_t  dest;
 	uint32_t           dest_state;
 };
+#endif
 
 #endif
