@@ -220,7 +220,36 @@ Parent node optional properties:
 - qcom,fg-slope-limit-high-temp-dischg:	Same as "qcom,fg-slope-limit-high-temp-chg"
 					except this is when the battery is
 					discharging.
-
+- qcom,fg-dischg-voltage-gain-ctrl:	A boolean property to specify if the
+					voltage gain needs to be modified
+					during discharging based on monotonic
+					soc.
+- qcom,fg-dischg-voltage-gain-soc:	Array of monotonic SOC threshold values
+					to change the voltage gain settings
+					during discharge. This should be defined
+					in the ascending order and in the range
+					of 0-100. Array limit is set to 3.
+					If qcom,fg-dischg-voltage-gain-ctrl is
+					set, then this property should be
+					specified to apply the gain settings.
+- qcom,fg-dischg-med-voltage-gain:	Array of voltage gain values that needs
+					to be applied to medC voltage gain when
+					the monotonic SOC goes below the SOC
+					threshold specified under
+					qcom,fg-dischg-voltage-gain-soc. Array
+					limit is set to 3.
+					If qcom,fg-dischg-voltage-gain-ctrl is
+					set, then this property should be
+					specified to apply the gain setting.
+- qcom,fg-dischg-high-voltage-gain:	Array of voltage gain values that needs
+					to be applied to highC voltage gain when
+					the monotonic SOC goes below the SOC
+					threshold specified under
+					qcom,fg-dischg-voltage-gain-soc. Array
+					limit is set to 3.
+					If qcom,fg-dischg-voltage-gain-ctrl is
+					set, then this property should be
+					specified to apply the gain setting.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
