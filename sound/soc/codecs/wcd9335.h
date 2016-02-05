@@ -86,6 +86,20 @@ enum wcd9335_codec_event {
 	WCD9335_CODEC_EVENT_CODEC_UP = 0,
 };
 
+enum tasha_on_demand_supply {
+	ON_DEMAND_MICBIAS = 0,
+	ON_DEMAND_SUPPLIES_MAX,
+};
+
+/* structure used to put the defined
+ * ondemand supply for codec
+ * and count being used.
+ */
+struct on_demand_supply {
+	struct regulator *supply;
+	int ondemand_supply_count;
+};
+
 /* Dai data structure holds the
  * dai specific info like rate,
  * channel number etc.
