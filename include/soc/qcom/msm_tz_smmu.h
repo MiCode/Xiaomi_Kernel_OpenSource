@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,7 @@ enum tz_smmu_device_id {
 int msm_tz_smmu_atos_start(struct device *dev, int cb_num);
 int msm_tz_smmu_atos_end(struct device *dev, int cb_num);
 enum tz_smmu_device_id msm_dev_to_device_id(struct device *dev);
+void msm_tz_set_cb_format(enum tz_smmu_device_id sec_id, int cbndx);
 
 #else
 
@@ -69,6 +70,11 @@ static inline int msm_tz_smmu_atos_end(struct device *dev, int cb_num)
 static inline enum tz_smmu_device_id msm_dev_to_device_id(struct device *dev)
 {
 	return -EINVAL;
+}
+
+static inline void msm_tz_set_cb_format(enum tz_smmu_device_id sec_id,
+					int cbndx)
+{
 }
 
 #endif /* CONFIG_MSM_TZ_SMMU */
