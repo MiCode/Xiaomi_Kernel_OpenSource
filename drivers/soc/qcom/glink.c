@@ -646,7 +646,7 @@ static int glink_qos_assign_priority(struct channel_ctx *ctx,
 		ctx->transport_ptr->curr_qos_rate_kBps += req_rate_kBps;
 		ctx->token_count = ctx->transport_ptr->token_count;
 		ctx->txd_len = 0;
-		ctx->token_start_time = arch_counter_get_cntpct();
+		ctx->token_start_time = arch_counter_get_cntvct();
 	}
 	spin_unlock(&ctx->tx_lists_lock_lhc3);
 	spin_unlock_irqrestore(&ctx->transport_ptr->tx_ready_lock_lhb2, flags);
@@ -4935,7 +4935,7 @@ static void glink_scheduler_eval_prio(struct channel_ctx *ctx,
 	if (ctx->token_count)
 		return;
 
-	token_end_time = arch_counter_get_cntpct();
+	token_end_time = arch_counter_get_cntvct();
 
 	token_consume_time = NSEC_PER_SEC;
 	rem = do_div(token_consume_time, arch_timer_get_rate());
@@ -4954,7 +4954,7 @@ static void glink_scheduler_eval_prio(struct channel_ctx *ctx,
 
 	ctx->token_count = xprt_ctx->token_count;
 	ctx->txd_len = 0;
-	ctx->token_start_time = arch_counter_get_cntpct();
+	ctx->token_start_time = arch_counter_get_cntvct();
 }
 
 /**

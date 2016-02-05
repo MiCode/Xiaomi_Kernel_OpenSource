@@ -109,7 +109,7 @@ int tracer_pkt_init(void *data, size_t data_len,
 	pkt_hdr->pkt_offset = sizeof(*pkt_hdr) / sizeof(uint32_t);
 	pkt_hdr->clnt_event_cfg = client_event_cfg;
 	pkt_hdr->glink_event_cfg = glink_event_cfg;
-	pkt_hdr->base_ts = arch_counter_get_cntpct();
+	pkt_hdr->base_ts = arch_counter_get_cntvct();
 	memcpy(pkt_hdr->cc, pkt_priv, pkt_hdr->ccl * sizeof(uint32_t));
 	return 0;
 }
@@ -179,7 +179,7 @@ int tracer_pkt_log_event(void *data, uint32_t event_id)
 		return -ETOOSMALL;
 
 	event.event_id = event_id;
-	event.event_ts = (uint32_t)arch_counter_get_cntpct();
+	event.event_ts = (uint32_t)arch_counter_get_cntvct();
 	memcpy(data + (pkt_hdr->pkt_offset * sizeof(uint32_t)),
 		&event, sizeof(event));
 	pkt_hdr->pkt_offset += sizeof(event)/sizeof(uint32_t);

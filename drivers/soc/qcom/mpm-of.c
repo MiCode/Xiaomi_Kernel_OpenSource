@@ -551,7 +551,7 @@ void msm_mpm_enter_sleep(uint64_t sclk_count, bool from_idle,
 
 	if (sclk_count) {
 		do_div(wakeup, SCLK_HZ);
-		wakeup += arch_counter_get_cntpct();
+		wakeup += arch_counter_get_cntvct();
 	} else {
 		wakeup = (~0ULL);
 	}

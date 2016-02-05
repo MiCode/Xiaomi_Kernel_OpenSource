@@ -155,7 +155,7 @@ static void update_debug_pc_event(enum debug_event event, uint32_t arg1,
 	dbg = &lpm_debug[idx & (num_dbg_elements - 1)];
 
 	dbg->evt = event;
-	dbg->time = arch_counter_get_cntpct();
+	dbg->time = arch_counter_get_cntvct();
 	dbg->cpu = raw_smp_processor_id();
 	dbg->arg1 = arg1;
 	dbg->arg2 = arg2;
