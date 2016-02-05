@@ -1685,8 +1685,10 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				/* Update the framedrop count and flag only for
 					controllable_output */
 				num_bufq = buf->bufq_handle & 0xFF;
-				vfe_dev->error_info.
-					stream_framedrop_count[num_bufq]++;
+				if (num_bufq < BUF_MGR_NUM_BUF_Q) {
+					vfe_dev->error_info.
+						stream_framedrop_count[num_bufq]++;
+				}
 				vfe_dev->error_info.framedrop_flag = 1;
 				return;
 			}
