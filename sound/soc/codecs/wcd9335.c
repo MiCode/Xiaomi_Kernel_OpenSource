@@ -4634,6 +4634,11 @@ static int tasha_codec_enable_swr(struct snd_soc_dapm_widget *w,
 		if ((strnstr(w->name, "INT8_", sizeof("RX INT8_"))) &&
 		    tasha->rx_8_count)
 			tasha->rx_8_count--;
+		ch_cnt = tasha->rx_7_count + tasha->rx_8_count;
+
+		for (i = 0; i < tasha->nr; i++)
+			swrm_wcd_notify(tasha->swr_ctrl_data[i].swr_pdev,
+					SWR_SET_NUM_RX_CH, &ch_cnt);
 
 		break;
 	}
