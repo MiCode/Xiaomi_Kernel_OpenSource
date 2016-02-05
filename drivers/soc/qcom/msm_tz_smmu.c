@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,8 @@ static const char * const device_id_mappings[] = {
 #define TZ_SMMU_ATOS_START 1
 #define TZ_SMMU_ATOS_END 0
 
+#define SMMU_CHANGE_PAGETABLE_FORMAT    0X01
+
 enum tz_smmu_device_id msm_dev_to_device_id(struct device *dev)
 {
 	const char *device_id;
@@ -103,4 +105,28 @@ int msm_tz_smmu_atos_start(struct device *dev, int cb_num)
 int msm_tz_smmu_atos_end(struct device *dev, int cb_num)
 {
 	return __msm_tz_smmu_atos(dev, cb_num, TZ_SMMU_ATOS_END);
+}
+
+void msm_tz_set_cb_format(enum tz_smmu_device_id sec_id, int cbndx)
+{
+	struct scm_desc desc = {0};
+	unsigned int ret = 0;
+
+	desc.args[0] = sec_id;
+	desc.args[1] = cbndx;
+	desc.args[2] = 1;	/* Enable */
+	desc.arginfo = SCM_ARGS(3, SCM_VAL, SCM_VAL, SCM_VAL);
+
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_SMMU_PROGRAM,
+			SMMU_CHANGE_PAGETABLE_FORMAT), &desc);
+
+	/* At this stage, we cannot afford to fail because we have
+	 * committed to support V8L format to client and we can't
+	 * fallback.
+	 */
+	if (ret) {
+		pr_err("Format change failed for CB %d with ret %d\n",
+			cbndx, ret);
+		BUG();
+	}
 }
