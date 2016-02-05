@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1217,14 +1217,6 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 						mbim->bam_port.out);
 			break;
 		case USB_GADGET_XPORT_BAM2BAM_IPA:
-			if (gadget_is_dwc3(cdev->gadget)) {
-				if (msm_ep_config(mbim->bam_port.in) ||
-					msm_ep_config(mbim->bam_port.out)) {
-					pr_err("%s: ep_config failed\n",
-							__func__);
-					goto fail;
-				}
-			}
 			ret = bam_data_connect(&mbim->bam_port,
 				mbim->xport, mbim->port_num,
 				USB_FUNC_MBIM);

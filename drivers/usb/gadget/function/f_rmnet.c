@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -717,7 +717,6 @@ static int
 frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_rmnet			*dev = func_to_rmnet(f);
-	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
 	struct usb_composite_dev	*cdev = dev->cdev;
 	int				ret;
 	struct list_head *cpkt;
@@ -757,23 +756,11 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		dev->port.gadget = dev->cdev->gadget;
 	}
 
-	if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA &&
-			gadget_is_dwc3(cdev->gadget)) {
-		if (msm_ep_config(dev->port.in) ||
-		    msm_ep_config(dev->port.out)) {
-			pr_err("%s: msm_ep_config failed\n", __func__);
-			ret = -EINVAL;
-			goto err_disable_ep;
-		}
-	} else {
-		pr_debug("Rmnet is being used with non DWC3 core\n");
-	}
-
 	ret = gport_rmnet_connect(dev, intf);
 	if (ret) {
 		pr_err("%s(): gport_rmnet_connect fail with err:%d\n",
 							__func__, ret);
-		goto err_unconfig_ep;
+		goto err_disable_ep;
 	}
 
 	atomic_set(&dev->online, 1);
@@ -784,14 +771,6 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		frmnet_ctrl_response_available(dev);
 
 	return ret;
-
-err_unconfig_ep:
-	if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA &&
-		gadget_is_dwc3(cdev->gadget)) {
-		msm_ep_unconfig(dev->port.in);
-		msm_ep_unconfig(dev->port.out);
-	}
-
 err_disable_ep:
 	dev->port.in->desc = NULL;
 	dev->port.out->desc = NULL;

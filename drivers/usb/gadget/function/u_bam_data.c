@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -790,6 +790,8 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	ret = usb_bam_disconnect_ipa(d->usb_bam_type, &d->ipa_params);
 	if (ret)
 		pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
+	usb_bam_free_fifos(d->usb_bam_type, d->src_connection_idx);
+	usb_bam_free_fifos(d->usb_bam_type, d->dst_connection_idx);
 
 	/*
 	 * NOTE: it is required to disconnect USB and IPA BAM related pipes
@@ -823,9 +825,7 @@ static void configure_usb_data_fifo(enum usb_ctrl bam_type,
 
 	if (pipe_type == USB_BAM_PIPE_BAM2BAM) {
 		get_bam2bam_connection_info(bam_type, idx,
-					&bam_info.usb_bam_handle,
 					&bam_info.usb_bam_pipe_idx,
-					&bam_info.peer_pipe_idx,
 					NULL, &data_fifo, NULL);
 
 		msm_data_fifo_config(ep,
@@ -916,6 +916,45 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		return;
 	}
 
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	usb_bam_alloc_fifos(d->usb_bam_type, d->src_connection_idx);
+	usb_bam_alloc_fifos(d->usb_bam_type, d->dst_connection_idx);
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (gadget_is_dwc3(gadget)) {
+		/* Configure RX */
+		configure_usb_data_fifo(d->usb_bam_type,
+				d->src_connection_idx,
+				port->port_usb->out, d->src_pipe_type);
+		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
+			| MSM_PRODUCER | d->src_pipe_idx;
+		d->rx_req->length = 32*1024;
+		d->rx_req->udc_priv = sps_params;
+		msm_ep_config(port->port_usb->out, d->rx_req, GFP_ATOMIC);
+
+		/* Configure TX */
+		configure_usb_data_fifo(d->usb_bam_type,
+				d->dst_connection_idx,
+				port->port_usb->in, d->dst_pipe_type);
+		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
+					| d->dst_pipe_idx;
+		d->tx_req->length = 32*1024;
+		d->tx_req->udc_priv = sps_params;
+		msm_ep_config(port->port_usb->in, d->tx_req, GFP_ATOMIC);
+
+	} else {
+		/* Configure RX */
+		sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
+			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+		d->rx_req->udc_priv = sps_params;
+
+		/* Configure TX */
+		sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
+			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+		d->tx_req->udc_priv = sps_params;
+	}
+
 	if (d->func_type == USB_FUNC_MBIM) {
 		teth_bridge_params.client = d->ipa_params.src_client;
 		ret = teth_bridge_init(&teth_bridge_params);
@@ -923,7 +962,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			pr_err("%s:teth_bridge_init() failed\n",
 			      __func__);
-			return;
+			goto free_fifos;
 		}
 		d->ipa_params.notify =
 			teth_bridge_params.usb_notify_cb;
@@ -966,7 +1005,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	if (ret) {
 		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
 			__func__, ret);
-		return;
+		goto free_fifos;
 	}
 	gadget->bam2bam_func_enabled = true;
 
@@ -979,10 +1018,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	}
 
 	d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
-	if (gadget_is_dwc3(gadget))
-		configure_usb_data_fifo(d->usb_bam_type,
-				d->src_connection_idx,
-				port->port_usb->out, d->src_pipe_type);
 
 	/* Remove support for UL using system-to-IPA towards DL */
 	if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
@@ -1036,31 +1071,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	pr_debug("%s(): ipa_producer_ep:%d ipa_consumer_ep:%d\n",
 			__func__, d_port->ipa_producer_ep,
 			d_port->ipa_consumer_ep);
-	if (gadget_is_dwc3(gadget))
-		configure_usb_data_fifo(d->usb_bam_type,
-				d->dst_connection_idx,
-				port->port_usb->in, d->dst_pipe_type);
-
-	/* Upadate BAM specific attributes in usb_request */
-	if (gadget_is_dwc3(gadget)) {
-		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
-			| MSM_PRODUCER | d->src_pipe_idx;
-		d->rx_req->length = 32*1024;
-	} else {
-		sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
-			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
-	}
-	d->rx_req->udc_priv = sps_params;
-
-	if (gadget_is_dwc3(gadget)) {
-		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
-					| d->dst_pipe_idx;
-		d->tx_req->length = 32*1024;
-	} else {
-		sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
-			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
-	}
-	d->tx_req->udc_priv = sps_params;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (d->func_type == USB_FUNC_MBIM) {
@@ -1137,6 +1147,10 @@ disconnect_ipa:
 	/* let disconnect work take care of ipa disconnect */
 	port->is_ipa_connected = true;
 	return;
+
+free_fifos:
+	usb_bam_free_fifos(d->usb_bam_type, d->src_connection_idx);
+	usb_bam_free_fifos(d->usb_bam_type, d->dst_connection_idx);
 }
 
 /*

@@ -697,11 +697,6 @@ static void usb_qdss_connect_work(struct work_struct *work)
 
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM2BAM:
-		status = init_data(qdss->port.data);
-		if (status) {
-			pr_err("init_data error");
-			break;
-		}
 		status = set_qdss_data_connection(
 				qdss->cdev->gadget,
 				qdss->port.data,
@@ -716,9 +711,10 @@ static void usb_qdss_connect_work(struct work_struct *work)
 			USB_QDSS_CONNECT,
 			NULL,
 			&qdss->ch);
-		status = send_sps_req(qdss->port.data);
-		if (status) {
-			pr_err("send_sps_req error\n");
+
+		if (usb_ep_queue(qdss->port.data, qdss->endless_req,
+								GFP_ATOMIC)) {
+			pr_err("%s: usb_ep_queue error\n", __func__);
 			break;
 		}
 		break;
