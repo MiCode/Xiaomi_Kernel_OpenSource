@@ -22,3 +22,7 @@
 		   "qcom,msmgold", "qcom,qrd";
 	qcom,board-id= <0x1000b 0>;
 };
+
+&int_codec {
+	qcom,model = "msm8952-sku2-snd-card";
+};

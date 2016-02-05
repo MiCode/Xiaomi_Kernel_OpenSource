@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -267,7 +267,7 @@ static long __div_round_rate(struct div_data *data, unsigned long rate,
 	rate = max(rate, 1UL);
 
 	min_div = max(data->min_div, 1U);
-	max_div = min(data->max_div, (unsigned int) (ULONG_MAX / rate));
+	max_div = min(data->max_div, (unsigned int) (ULONG_MAX));
 
 	/*
 	 * div values are doubled for half dividers.

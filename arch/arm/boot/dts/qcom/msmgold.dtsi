@@ -404,7 +404,7 @@
 
 		qcom,vdd-dig-rstr {
 			qcom,vdd-rstr-reg = "vdd-dig";
-			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_NOM
+			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_NOM_PLUS
 					RPM_SMD_REGULATOR_LEVEL_BINNING
 					RPM_SMD_REGULATOR_LEVEL_BINNING>;
 			qcom,min-level = <RPM_SMD_REGULATOR_LEVEL_NONE>;

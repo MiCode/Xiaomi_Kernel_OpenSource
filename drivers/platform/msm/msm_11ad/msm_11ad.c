@@ -43,11 +43,26 @@
 #define WIGIG_RAMDUMP_SIZE    0x200000 /* maximum ramdump size */
 #define WIGIG_DUMP_FORMAT_VER   0x1
 #define WIGIG_DUMP_MAGIC_VER_V1 0x57474947
+#define VDD_MIN_UV	1028000
+#define VDD_MAX_UV	1028000
+#define VDD_MAX_UA	575000
+#define VDDIO_MIN_UV	1950000
+#define VDDIO_MAX_UV	2040000
+#define VDDIO_MAX_UA	70300
 
 struct device;
 
 static const char * const gpio_en_name = "qcom,wigig-en";
 static const char * const sleep_clk_en_name = "qcom,sleep-clk-en";
+
+struct msm11ad_vreg {
+	const char *name;
+	struct regulator *reg;
+	int max_uA;
+	int min_uV;
+	int max_uV;
+	bool enabled;
+};
 
 struct msm11ad_ctx {
 	struct list_head list;
@@ -80,6 +95,8 @@ struct msm11ad_ctx {
 	void *ramdump_addr;
 	struct msm_dump_data dump_data;
 	struct ramdump_device *ramdump_dev;
+	struct msm11ad_vreg vdd;
+	struct msm11ad_vreg vddio;
 };
 
 static LIST_HEAD(dev_list);
@@ -93,6 +110,218 @@ static struct msm11ad_ctx *pcidev2ctx(struct pci_dev *pcidev)
 			return ctx;
 	}
 	return NULL;
+}
+
+static int msm_11ad_init_vreg(struct device *dev,
+			      struct msm11ad_vreg *vreg, const char *name)
+{
+	int rc = 0;
+
+	if (!vreg)
+		return 0;
+
+	vreg->name = kstrdup(name, GFP_KERNEL);
+	if (!vreg->name)
+		return -ENOMEM;
+
+	vreg->reg = devm_regulator_get(dev, name);
+	if (IS_ERR_OR_NULL(vreg->reg)) {
+		rc = PTR_ERR(vreg->reg);
+		dev_err(dev, "%s: failed to get %s, rc=%d\n",
+			__func__, name, rc);
+		kfree(vreg->name);
+		vreg->reg = NULL;
+		goto out;
+	}
+
+	dev_info(dev, "%s: %s initialized successfully\n", __func__, name);
+
+out:
+	return rc;
+}
+
+static int msm_11ad_release_vreg(struct device *dev, struct msm11ad_vreg *vreg)
+{
+	if (!vreg || !vreg->reg)
+		return 0;
+
+	dev_info(dev, "%s: %s released\n", __func__, vreg->name);
+
+	devm_regulator_put(vreg->reg);
+	vreg->reg = NULL;
+	kfree(vreg->name);
+
+	return 0;
+}
+
+static int msm_11ad_init_vregs(struct msm11ad_ctx *ctx)
+{
+	int rc;
+	struct device *dev = ctx->dev;
+
+	if (!of_property_read_bool(dev->of_node, "qcom,use-ext-supply"))
+		return 0;
+
+	rc = msm_11ad_init_vreg(dev, &ctx->vdd, "vdd");
+	if (rc)
+		goto out;
+
+	ctx->vdd.max_uV = VDD_MAX_UV;
+	ctx->vdd.min_uV = VDD_MIN_UV;
+	ctx->vdd.max_uA = VDD_MAX_UA;
+
+	rc = msm_11ad_init_vreg(dev, &ctx->vddio, "vddio");
+	if (rc)
+		goto vddio_fail;
+
+	ctx->vddio.max_uV = VDDIO_MAX_UV;
+	ctx->vddio.min_uV = VDDIO_MIN_UV;
+	ctx->vddio.max_uA = VDDIO_MAX_UA;
+
+	return rc;
+
+vddio_fail:
+	msm_11ad_release_vreg(dev, &ctx->vdd);
+out:
+	return rc;
+}
+
+static void msm_11ad_release_vregs(struct msm11ad_ctx *ctx)
+{
+	msm_11ad_release_vreg(ctx->dev, &ctx->vdd);
+	msm_11ad_release_vreg(ctx->dev, &ctx->vddio);
+}
+
+static int msm_11ad_cfg_vreg(struct device *dev,
+			     struct msm11ad_vreg *vreg, bool on)
+{
+	int rc = 0;
+	int min_uV;
+	int uA_load;
+
+	if (!vreg || !vreg->reg)
+		goto out;
+
+	if (regulator_count_voltages(vreg->reg) > 0) {
+		min_uV = on ? vreg->min_uV : 0;
+		rc = regulator_set_voltage(vreg->reg, min_uV, vreg->max_uV);
+		if (rc) {
+			dev_err(dev, "%s: %s set voltage failed, err=%d\n",
+					__func__, vreg->name, rc);
+			goto out;
+		}
+		uA_load = on ? vreg->max_uA : 0;
+		rc = regulator_set_optimum_mode(vreg->reg, uA_load);
+		if (rc >= 0) {
+			/*
+			 * regulator_set_optimum_mode() returns new regulator
+			 * mode upon success.
+			 */
+			dev_dbg(dev,
+				  "%s: %s regulator_set_optimum_mode rc(%d)\n",
+				  __func__, vreg->name, rc);
+			rc = 0;
+		} else {
+			dev_err(dev,
+				"%s: %s set mode(uA_load=%d) failed, rc=%d\n",
+				__func__, vreg->name, uA_load, rc);
+			goto out;
+		}
+	}
+
+out:
+	return rc;
+}
+
+static int msm_11ad_enable_vreg(struct msm11ad_ctx *ctx,
+				struct msm11ad_vreg *vreg)
+{
+	struct device *dev = ctx->dev;
+	int rc = 0;
+
+	if (!vreg || !vreg->reg || vreg->enabled)
+		goto out;
+
+	rc = msm_11ad_cfg_vreg(dev, vreg, true);
+	if (rc)
+		goto out;
+
+	rc = regulator_enable(vreg->reg);
+	if (rc) {
+		dev_err(dev, "%s: %s enable failed, rc=%d\n",
+				__func__, vreg->name, rc);
+		goto enable_fail;
+	}
+
+	vreg->enabled = true;
+
+	dev_info(dev, "%s: %s enabled\n", __func__, vreg->name);
+
+	return rc;
+
+enable_fail:
+	msm_11ad_cfg_vreg(dev, vreg, false);
+out:
+	return rc;
+}
+
+static int msm_11ad_disable_vreg(struct msm11ad_ctx *ctx,
+				 struct msm11ad_vreg *vreg)
+{
+	struct device *dev = ctx->dev;
+	int rc = 0;
+
+	if (!vreg || !vreg->reg || !vreg->enabled)
+		goto out;
+
+	rc = regulator_disable(vreg->reg);
+	if (rc) {
+		dev_err(dev, "%s: %s disable failed, rc=%d\n",
+				__func__, vreg->name, rc);
+		goto out;
+	}
+
+	/* ignore errors on applying disable config */
+	msm_11ad_cfg_vreg(dev, vreg, false);
+	vreg->enabled = false;
+
+	dev_info(dev, "%s: %s disabled\n", __func__, vreg->name);
+
+out:
+	return rc;
+}
+
+static int msm_11ad_enable_vregs(struct msm11ad_ctx *ctx)
+{
+	int rc = 0;
+
+	rc = msm_11ad_enable_vreg(ctx, &ctx->vdd);
+	if (rc)
+		goto out;
+
+	rc = msm_11ad_enable_vreg(ctx, &ctx->vddio);
+	if (rc)
+		goto vddio_fail;
+
+	return rc;
+
+vddio_fail:
+	msm_11ad_disable_vreg(ctx, &ctx->vdd);
+out:
+	return rc;
+}
+
+static int msm_11ad_disable_vregs(struct msm11ad_ctx *ctx)
+{
+	if (!ctx->vdd.reg && !ctx->vddio.reg)
+		goto out;
+
+	/* ignore errors on disable vreg */
+	msm_11ad_disable_vreg(ctx, &ctx->vdd);
+	msm_11ad_disable_vreg(ctx, &ctx->vddio);
+
+out:
+	return 0;
 }
 
 static int ops_suspend(void *handle)
@@ -124,6 +353,9 @@ static int ops_suspend(void *handle)
 
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
+
+	msm_11ad_disable_vregs(ctx);
+
 	return rc;
 }
 
@@ -137,6 +369,13 @@ static int ops_resume(void *handle)
 	if (!ctx) {
 		pr_err("No context\n");
 		return -ENODEV;
+	}
+
+	rc = msm_11ad_enable_vregs(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_enable_vregs failed :%d\n",
+			rc);
+		return rc;
 	}
 
 	if (ctx->sleep_clk_en >= 0)
@@ -173,6 +412,9 @@ err_disable_power:
 
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
+
+	msm_11ad_disable_vregs(ctx);
+
 	return rc;
 }
 
@@ -458,6 +700,19 @@ static int msm_11ad_probe(struct platform_device *pdev)
 
 	/*== execute ==*/
 	/* turn device on */
+	rc = msm_11ad_init_vregs(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_init_vregs failed :%d\n",
+			rc);
+		return rc;
+	}
+	rc = msm_11ad_enable_vregs(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_enable_vregs failed :%d\n",
+			rc);
+		goto out_vreg;
+	}
+
 	if (ctx->gpio_en >= 0) {
 		rc = gpio_request(ctx->gpio_en, gpio_en_name);
 		if (rc < 0) {
@@ -547,6 +802,10 @@ out_set:
 		gpio_free(ctx->gpio_en);
 out_req:
 	ctx->gpio_en = -EINVAL;
+	msm_11ad_disable_vregs(ctx);
+out_vreg:
+	msm_11ad_release_vregs(ctx);
+
 	return rc;
 }
 
@@ -568,6 +827,10 @@ static int msm_11ad_remove(struct platform_device *pdev)
 	}
 	if (ctx->sleep_clk_en >= 0)
 		gpio_free(ctx->sleep_clk_en);
+
+	msm_11ad_disable_vregs(ctx);
+	msm_11ad_release_vregs(ctx);
+
 	return 0;
 }
 
