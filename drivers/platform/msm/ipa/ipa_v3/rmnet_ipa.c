@@ -33,6 +33,7 @@
 #include "ipa_qmi_service.h"
 #include <linux/rmnet_ipa_fd_ioctl.h>
 #include <linux/ipa.h>
+#include <uapi/linux/net_map.h>
 
 #include "ipa_trace.h"
 
@@ -44,6 +45,7 @@
 #define TAILROOM            0 /* for padding by mux layer */
 #define MAX_NUM_OF_MUX_CHANNEL  10 /* max mux channels */
 #define UL_FILTER_RULE_HANDLE_START 69
+#define DEFAULT_OUTSTANDING_HIGH_CTL 96
 #define DEFAULT_OUTSTANDING_HIGH 64
 #define DEFAULT_OUTSTANDING_LOW 32
 
@@ -109,6 +111,7 @@ struct ipa3_wwan_private {
 	struct net_device *net;
 	struct net_device_stats stats;
 	atomic_t outstanding_pkts;
+	int outstanding_high_ctl;
 	int outstanding_high;
 	int outstanding_low;
 	uint32_t ch_id;
@@ -1023,12 +1026,45 @@ static int ipa3_wwan_change_mtu(struct net_device *dev, int new_mtu)
 static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	int ret = 0;
+	bool qmap_check;
 	struct ipa3_wwan_private *wwan_ptr = netdev_priv(dev);
+	struct ipa_tx_meta meta;
 
-	if (netif_queue_stopped(dev)) {
-		IPAWANERR("[%s]fatal: ipa3_wwan_xmit stopped\n", dev->name);
-	return 0;
+	if (skb->protocol != htons(ETH_P_MAP)) {
+		IPAWANDBG
+		("SW filtering out none QMAP packet received from %s",
+		current->comm);
+		return NETDEV_TX_OK;
 	}
+
+	qmap_check = RMNET_MAP_GET_CD_BIT(skb);
+	if (netif_queue_stopped(dev)) {
+		if (qmap_check &&
+			atomic_read(&wwan_ptr->outstanding_pkts) <
+					wwan_ptr->outstanding_high_ctl) {
+			pr_err("[%s]Queue stop, send ctrl pkts\n", dev->name);
+			goto send;
+		} else {
+			pr_err("[%s]fatal: ipa_wwan_xmit stopped\n", dev->name);
+			return NETDEV_TX_BUSY;
+		}
+	}
+
+	/* checking High WM hit */
+	if (atomic_read(&wwan_ptr->outstanding_pkts) >=
+					wwan_ptr->outstanding_high) {
+		if (!qmap_check) {
+			IPAWANDBG("pending(%d)/(%d)- stop(%d), qmap_chk(%d)\n",
+				atomic_read(&wwan_ptr->outstanding_pkts),
+				wwan_ptr->outstanding_high,
+				netif_queue_stopped(dev),
+				qmap_check);
+			netif_stop_queue(dev);
+			return NETDEV_TX_BUSY;
+		}
+	}
+
+send:
 	/* IPA_RM checking start */
 	ret = ipa3_rm_inactivity_timer_request_resource(
 		IPA_RM_RESOURCE_WWAN_0_PROD);
@@ -1042,24 +1078,16 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 		return -EFAULT;
 	}
 	/* IPA_RM checking end */
-	if (skb->protocol != htons(ETH_P_MAP)) {
-		IPAWANDBG
-		("SW filtering out none QMAP packet received from %s",
-		current->comm);
-		ret = NETDEV_TX_OK;
-		goto out;
+
+	if (RMNET_MAP_GET_CD_BIT(skb)) {
+		memset(&meta, 0, sizeof(meta));
+		meta.pkt_init_dst_ep_valid = true;
+		meta.pkt_init_dst_ep_remote = true;
+		ret = ipa3_tx_dp(IPA_CLIENT_Q6_LAN_CONS, skb, &meta);
+	} else {
+		ret = ipa3_tx_dp(IPA_CLIENT_APPS_LAN_WAN_PROD, skb, NULL);
 	}
 
-	/* checking High WM hit */
-	if (atomic_read(&wwan_ptr->outstanding_pkts) >=
-					wwan_ptr->outstanding_high) {
-		IPAWANDBG("Outstanding high (%d)- stopping\n",
-				wwan_ptr->outstanding_high);
-		netif_stop_queue(dev);
-		ret = NETDEV_TX_BUSY;
-		goto out;
-	}
-	ret = ipa3_tx_dp(IPA_CLIENT_APPS_LAN_WAN_PROD, skb, NULL);
 	if (ret) {
 		ret = NETDEV_TX_BUSY;
 		dev->stats.tx_dropped++;
@@ -1070,7 +1098,6 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	dev->stats.tx_packets++;
 	dev->stats.tx_bytes += skb->len;
 	ret = NETDEV_TX_OK;
-
 out:
 	ipa3_rm_inactivity_timer_release_resource(
 		IPA_RM_RESOURCE_WWAN_0_PROD);
