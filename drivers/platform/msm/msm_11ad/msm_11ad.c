@@ -126,6 +126,7 @@ static int ops_resume(void *handle)
 static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 {
 	int disable_htw = 1;
+	int atomic_ctx = 1;
 	int rc;
 
 	if (!ctx->use_smmu)
@@ -149,6 +150,15 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 		 */
 		dev_err(ctx->dev, "Warning: disable coherent HTW failed (%d)\n",
 			rc);
+	}
+
+	rc = iommu_domain_set_attr(ctx->mapping->domain,
+				   DOMAIN_ATTR_ATOMIC,
+				   &atomic_ctx);
+	if (rc) {
+		dev_err(ctx->dev, "Set atomic attribute to SMMU failed (%d)\n",
+			rc);
+		goto release_mapping;
 	}
 
 	rc = arm_iommu_attach_device(&ctx->pcidev->dev, ctx->mapping);
