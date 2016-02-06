@@ -16,18 +16,16 @@
 
 #include <linux/device.h>
 #include "wil_platform.h"
-#ifdef CONFIG_WIL6210_PLATFORM_MSM
-#include "wil_platform_msm.h"
-#endif
-
+#include "msm_11ad.h"
 
 int __init wil_platform_modinit(void)
 {
-	return 0;
+	return msm_11ad_modinit();
 }
 
 void wil_platform_modexit(void)
 {
+	msm_11ad_modexit();
 }
 
 /**
@@ -39,7 +37,7 @@ void wil_platform_modexit(void)
  */
 void *wil_platform_init(struct device *dev, struct wil_platform_ops *ops)
 {
-	void *handle = ops; /* to return some non-NULL for 'void' impl. */
+	void *handle;
 
 	if (!ops) {
 		dev_err(dev,
@@ -47,13 +45,7 @@ void *wil_platform_init(struct device *dev, struct wil_platform_ops *ops)
 		return NULL;
 	}
 
-#ifdef CONFIG_WIL6210_PLATFORM_MSM
-	handle = wil_platform_msm_init(dev, ops);
-	if (handle)
-		return handle;
-#endif
-
-	/* other platform specific init functions should be called here */
+	handle = msm_11ad_dev_init(dev, ops);
 
 	return handle;
 }
