@@ -97,6 +97,17 @@ Optional properties:
 - clock-names: This property shall contain the clock input names used
     by driver in same order as the clocks property.This should be "iface_clk"
 
+IPA SMP2P sub nodes
+
+-compatible: "qcom,smp2pgpio-map-ipa-1-out" - represents the out gpio from
+					      ipa driver to modem.
+
+-compatible: "qcom,smp2pgpio-map-ipa-1-in" - represents the in gpio to
+					     ipa driver from modem.
+
+-gpios: Binding to the gpio defined in XXX-smp2p.dtsi
+
+
 Example:
 
 qcom,ipa@fd4c0000 {
@@ -146,5 +157,16 @@ qcom,ipa@fd4c0000 {
 		qcom,data-fifo-size = <0xd00>;
 		qcom,descriptor-fifo-offset = <0xd00>;
 		qcom,descriptor-fifo-size = <0x300>;
+	};
+
+	/* smp2p gpio information */
+	qcom,smp2pgpio_map_ipa_1_out {
+		compatible = "qcom,smp2pgpio-map-ipa-1-out";
+		gpios = <&smp2pgpio_ipa_1_out 0 0>;
+	};
+
+	qcom,smp2pgpio_map_ipa_1_in {
+		compatible = "qcom,smp2pgpio-map-ipa-1-in";
+		gpios = <&smp2pgpio_ipa_1_in 0 0>;
 	};
 };
