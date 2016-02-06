@@ -37,11 +37,13 @@
 struct device;
 
 static const char * const gpio_en_name = "qcom,wigig-en";
+static const char * const sleep_clk_en_name = "qcom,sleep-clk-en";
 
 struct msm11ad_ctx {
 	struct list_head list;
 	struct device *dev; /* for platform device */
 	int gpio_en; /* card enable */
+	int sleep_clk_en; /* sleep clock enable for low PM management */
 
 	/* pci device */
 	u32 rc_index; /* PCIE root complex index */
@@ -95,6 +97,9 @@ static int ops_suspend(void *handle)
 		return rc;
 	}
 	gpio_direction_output(ctx->gpio_en, 0);
+
+	if (ctx->sleep_clk_en >= 0)
+		gpio_direction_output(ctx->sleep_clk_en, 0);
 	return rc;
 }
 
@@ -110,6 +115,9 @@ static int ops_resume(void *handle)
 		return -ENODEV;
 	}
 
+	if (ctx->sleep_clk_en >= 0)
+		gpio_direction_output(ctx->sleep_clk_en, 1);
+
 	pcidev = ctx->pcidev;
 	gpio_direction_output(ctx->gpio_en, 1);
 	msleep(WIGIG_ENABLE_DELAY);
@@ -119,15 +127,25 @@ static int ops_resume(void *handle)
 	if (rc) {
 		dev_err(ctx->dev, "msm_pcie_pm_control(RESUME) failed :%d\n",
 			rc);
-		return rc;
+		goto err_disable_power;
 	}
 	rc = msm_pcie_recover_config(pcidev);
 	if (rc) {
 		dev_err(ctx->dev, "msm_pcie_recover_config failed :%d\n",
 			rc);
-		return rc;
+		goto err_suspend_rc;
 	}
 
+	return 0;
+
+err_suspend_rc:
+	msm_pcie_pm_control(MSM_PCIE_SUSPEND, pcidev->bus->number,
+			    pcidev, NULL, PM_OPT_SUSPEND);
+err_disable_power:
+	gpio_direction_output(ctx->gpio_en, 0);
+
+	if (ctx->sleep_clk_en >= 0)
+		gpio_direction_output(ctx->sleep_clk_en, 0);
 	return rc;
 }
 
@@ -206,6 +224,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	 *	compatible = "qcom,wil6210";
 	 *	qcom,pcie-parent = <&pcie1>;
 	 *	qcom,wigig-en = <&tlmm 94 0>; (ctx->gpio_en)
+	 *	qcom,sleep-clk-en = <&pm8994_gpios 18 0>; (ctx->sleep_clk_en)
 	 *	qcom,msm-bus,name = "wil6210";
 	 *	qcom,msm-bus,num-cases = <2>;
 	 *	qcom,msm-bus,num-paths = <1>;
@@ -224,6 +243,10 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		dev_err(ctx->dev, "GPIO <%s> not found\n", gpio_en_name);
 		return ctx->gpio_en;
 	}
+	ctx->sleep_clk_en = of_get_named_gpio(of_node, sleep_clk_en_name, 0);
+	if (ctx->sleep_clk_en < 0)
+		dev_warn(ctx->dev, "GPIO <%s> not found, sleep clock not used\n",
+			 sleep_clk_en_name);
 	rc_node = of_parse_phandle(of_node, "qcom,pcie-parent", 0);
 	if (!rc_node) {
 		dev_err(ctx->dev, "Parent PCIE device not found\n");
@@ -283,14 +306,27 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	}
 	ctx->pristine_state = pci_store_saved_state(pcidev);
 
+	if (ctx->sleep_clk_en >= 0) {
+		rc = gpio_request(ctx->sleep_clk_en, "msm_11ad");
+		if (rc < 0) {
+			dev_err(ctx->dev,
+				"failed to request GPIO %d <%s>, sleep clock disabled\n",
+				ctx->sleep_clk_en, sleep_clk_en_name);
+			ctx->sleep_clk_en = -EINVAL;
+		} else {
+			gpio_direction_output(ctx->sleep_clk_en, 0);
+		}
+	}
+
 	/* report */
 	dev_info(ctx->dev, "msm_11ad discovered. %p {\n"
 		 "  gpio_en = %d\n"
+		 "  sleep_clk_en = %d\n"
 		 "  rc_index = %d\n"
 		 "  use_smmu = %d\n"
 		 "  pcidev = %p\n"
-		 "}\n", ctx, ctx->gpio_en, ctx->rc_index, ctx->use_smmu,
-		 ctx->pcidev);
+		 "}\n", ctx, ctx->gpio_en, ctx->sleep_clk_en, ctx->rc_index,
+		 ctx->use_smmu, ctx->pcidev);
 
 	platform_set_drvdata(pdev, ctx);
 
@@ -320,6 +356,8 @@ static int msm_11ad_remove(struct platform_device *pdev)
 	pci_dev_put(ctx->pcidev);
 	gpio_direction_output(ctx->gpio_en, 0);
 	gpio_free(ctx->gpio_en);
+	if (ctx->sleep_clk_en >= 0)
+		gpio_free(ctx->sleep_clk_en);
 	return 0;
 }
 
