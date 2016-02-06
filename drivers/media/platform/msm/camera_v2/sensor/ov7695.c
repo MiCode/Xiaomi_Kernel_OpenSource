@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,10 +293,11 @@ MODULE_DEVICE_TABLE(of, ov7695_dt_match);
 
 static int32_t ov7695_platform_probe(struct platform_device *pdev)
 {
-	int32_t rc;
-	const struct of_device_id *match;
+	int32_t rc = -EFAULT;
+	const struct of_device_id *match = NULL;
 	match = of_match_device(ov7695_dt_match, &pdev->dev);
-	rc = msm_sensor_platform_probe(pdev, match->data);
+	if (match)
+		rc = msm_sensor_platform_probe(pdev, match->data);
 	return rc;
 }
 
