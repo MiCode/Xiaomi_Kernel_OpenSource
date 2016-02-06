@@ -16,6 +16,10 @@
 
 #include <linux/device.h>
 #include "wil_platform.h"
+#ifdef CONFIG_WIL6210_PLATFORM_MSM
+#include "wil_platform_msm.h"
+#endif
+
 
 int __init wil_platform_modinit(void)
 {
@@ -43,7 +47,13 @@ void *wil_platform_init(struct device *dev, struct wil_platform_ops *ops)
 		return NULL;
 	}
 
-	/* platform specific init functions should be called here */
+#ifdef CONFIG_WIL6210_PLATFORM_MSM
+	handle = wil_platform_msm_init(dev, ops);
+	if (handle)
+		return handle;
+#endif
+
+	/* other platform specific init functions should be called here */
 
 	return handle;
 }
