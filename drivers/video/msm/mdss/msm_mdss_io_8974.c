@@ -1171,6 +1171,7 @@ int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata, bool update_phy)
 			pr_err("Error in calculating phy timings\n");
 			return rc;
 		}
+		ctrl_pdata->update_phy_timing = false;
 	}
 
 	return rc;
