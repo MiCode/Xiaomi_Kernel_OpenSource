@@ -242,7 +242,6 @@ static void ipa_tx_switch_to_intr_mode(struct ipa_sys_context *sys)
 	}
 	atomic_set(&sys->curr_polling_state, 0);
 	ipa_handle_tx_core(sys, true, false);
-	ipa_dec_release_wakelock();
 	return;
 
 fail:
@@ -726,7 +725,6 @@ static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 				IPAERR("sps_set_config() failed %d\n", ret);
 				break;
 			}
-			ipa_inc_acquire_wakelock();
 			atomic_set(&sys->curr_polling_state, 1);
 			queue_work(sys->wq, &sys->work);
 		}
@@ -842,7 +840,7 @@ static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 	}
 	atomic_set(&sys->curr_polling_state, 0);
 	ipa_handle_rx_core(sys, true, false);
-	ipa_dec_release_wakelock();
+	ipa_dec_release_wakelock(sys->ep->wakelock_client);
 	return;
 
 fail:
@@ -970,7 +968,7 @@ static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 				IPAERR("sps_set_config() failed %d\n", ret);
 				break;
 			}
-			ipa_inc_acquire_wakelock();
+			ipa_inc_acquire_wakelock(sys->ep->wakelock_client);
 			atomic_set(&sys->curr_polling_state, 1);
 			trace_intr_to_poll(sys->ep->client);
 			queue_work(sys->wq, &sys->work);
@@ -2873,6 +2871,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		}
 	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		sys->ep->status.status_en = true;
+		sys->ep->wakelock_client = IPA_WAKELOCK_REF_CLIENT_MAX;
 		if (IPA_CLIENT_IS_PROD(in->client)) {
 			if (!sys->ep->skip_ep_cfg) {
 				sys->policy = IPA_POLICY_NOINTR_MODE;
@@ -2920,11 +2919,15 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 					IPA_GENERIC_AGGR_BYTE_LIMIT;
 					in->ipa_ep_cfg.aggr.aggr_pkt_limit =
 					IPA_GENERIC_AGGR_PKT_LIMIT;
+					sys->ep->wakelock_client =
+					IPA_WAKELOCK_REF_CLIENT_LAN_RX;
 				} else if (in->client ==
 						IPA_CLIENT_APPS_WAN_CONS) {
 					sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
 					sys->rx_pool_sz =
 						ipa_ctx->wan_rx_ring_size;
+					sys->ep->wakelock_client =
+					IPA_WAKELOCK_REF_CLIENT_WAN_RX;
 					if (ipa_ctx->
 					ipa_client_apps_wan_cons_agg_gro) {
 						IPAERR("get close-by %u\n",
@@ -2998,6 +3001,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
+				sys->ep->wakelock_client =
+					IPA_WAKELOCK_REF_CLIENT_WLAN_RX;
 			} else if (IPA_CLIENT_IS_ODU_CONS(in->client)) {
 				IPADBG("assigning policy to client:%d",
 					in->client);
@@ -3022,6 +3027,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				sys->repl_hdlr = ipa_replenish_rx_cache;
+				sys->ep->wakelock_client =
+					IPA_WAKELOCK_REF_CLIENT_ODU_RX;
 			} else if (in->client ==
 					IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS) {
 				IPADBG("assigning policy to client:%d",
