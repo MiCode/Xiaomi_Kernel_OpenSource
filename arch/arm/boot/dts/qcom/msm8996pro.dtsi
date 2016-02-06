@@ -19,7 +19,7 @@
 #include "msm8996-v3.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996pro";
-	qcom,msm-id = <305 0x20000>;
+	qcom,msm-id = <305 0x10000>;
 };
 
 &apc_apm {
