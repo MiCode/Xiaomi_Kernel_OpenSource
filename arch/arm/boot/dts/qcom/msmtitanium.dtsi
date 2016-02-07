@@ -537,7 +537,6 @@
 		reg = <0xa0000 0x1000>;
 		qcom,low-hyst-temp = <10>;
 		qcom,high-hyst-temp = <5>;
-		qcom,polling-interval = <50>;
 
 		ea0: ea0 {
 			sensor = <&sensor_information9>;
@@ -854,6 +853,7 @@
 			< 1689600000 4>,
 			< 1843200000 5>,
 			< 1958400000 6>,
+			< 2016000000 7>,
 			< 2150400000 8>,
 			< 2208000000 9>;
 		qcom,speed0-bin-v0-cci =
@@ -864,6 +864,7 @@
 			<  675840000 4>,
 			<  737280000 5>,
 			<  783360000 6>,
+			<  806400000 7>,
 			<  860160000 8>,
 			<  883200000 9>;
 		qcom,speed2-bin-v0-cl =
@@ -1062,6 +1063,7 @@
 			qcom,smd-irq-bitmask = <0x1000>;
 			interrupts = <0 25 1>;
 			label = "modem";
+			qcom,not-loadable;
 		};
 
 		qcom,smsm-modem {
@@ -1214,6 +1216,7 @@
 		      <0x6190000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1227,6 +1230,7 @@
 		      <0x6192000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1240,6 +1244,7 @@
 		      <0x6194000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU2>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1253,6 +1258,7 @@
 		      <0x6196000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1266,6 +1272,7 @@
 		      <0x61b0000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU4>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1279,6 +1286,7 @@
 		      <0x61b2000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU5>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1292,6 +1300,7 @@
 		      <0x61b4000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU6>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1305,6 +1314,7 @@
 		      <0x61b6000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
+		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1626,7 +1636,6 @@
 	qcom,ipc_router {
 		compatible = "qcom,ipc_router";
 		qcom,node-id = <1>;
-		qcom,default-peripheral = "modem";
 	};
 
 	qcom,ipc_router_modem_xprt {
@@ -1636,6 +1645,7 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+		qcom,disable-pil-loading;
 	};
 
 	qcom,ipc_router_q6_xprt {

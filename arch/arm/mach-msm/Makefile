@@ -7,3 +7,7 @@ obj-$(CONFIG_ARCH_MSMGOLD) += board-gold.o
 obj-$(CONFIG_ARCH_MSM8937) += board-8937.o
 obj-$(CONFIG_ARCH_MSMTITANIUM) += board-titanium.o
 obj-$(CONFIG_ARCH_MSM8909) += board-8909.o
+
+#SMP
+obj-$(CONFIG_SMP) += headsmp.o platsmp.o
+obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o

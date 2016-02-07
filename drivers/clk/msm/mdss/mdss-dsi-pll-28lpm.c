@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -497,7 +497,8 @@ int dsi_pll_clock_register_lpm(struct platform_device *pdev,
 	}
 
 	if ((pll_res->target_id == MDSS_PLL_TARGET_8952) ||
-		(pll_res->target_id == MDSS_PLL_TARGET_8937)) {
+		(pll_res->target_id == MDSS_PLL_TARGET_8937) ||
+		(pll_res->target_id == MDSS_PLL_TARGET_8909)) {
 		if (!pll_res->index)
 			rc = of_msm_clock_register(pdev->dev.of_node,
 				dsi_pll0_cc, ARRAY_SIZE(dsi_pll0_cc));

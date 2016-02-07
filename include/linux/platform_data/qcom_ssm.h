@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,10 +10,12 @@
  * GNU General Public License for more details.
  */
 
-void msm_secondary_startup(void);
-void write_pen_release(int val);
+#ifndef __QCOM_SSM_H_
+#define __QCOM_SSM_H_
 
-void msm_cpu_die(unsigned int cpu);
-int msm_cpu_kill(unsigned int cpu);
+struct ssm_platform_data {
+	bool need_key_exchg;
+	const char *channel_name;
+};
 
-extern struct smp_operations msm8909_smp_ops;
+#endif /* __QCOM_SSM_H_ */

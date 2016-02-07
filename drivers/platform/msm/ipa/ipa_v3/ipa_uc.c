@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -397,7 +397,7 @@ static void ipa3_uc_event_handler(enum ipa_irq_type interrupt,
 
 }
 
-static int ipa3_uc_panic_notifier(struct notifier_block *this,
+int ipa3_uc_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
 	int result = 0;
@@ -434,16 +434,6 @@ static int ipa3_uc_panic_notifier(struct notifier_block *this,
 
 fail:
 	return NOTIFY_DONE;
-}
-
-static struct notifier_block ipa3_uc_panic_blk = {
-	.notifier_call  = ipa3_uc_panic_notifier,
-};
-
-void ipa3_register_panic_hdlr(void)
-{
-	atomic_notifier_chain_register(&panic_notifier_list,
-			&ipa3_uc_panic_blk);
 }
 
 static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,

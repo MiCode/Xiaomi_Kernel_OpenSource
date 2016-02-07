@@ -205,6 +205,7 @@
 #define CPR4_MARGIN_TEMP_POINT2_SHIFT		0
 
 #define CPR4_REG_MARGIN_ADJ_CTL					0x7F8
+#define CPR4_MARGIN_ADJ_CTL_BOOST_EN				BIT(0)
 #define CPR4_MARGIN_ADJ_CTL_CORE_ADJ_EN				BIT(1)
 #define CPR4_MARGIN_ADJ_CTL_TEMP_ADJ_EN				BIT(2)
 #define CPR4_MARGIN_ADJ_CTL_TIMER_SETTLE_VOLTAGE_EN		BIT(3)
@@ -335,7 +336,8 @@ static inline void cpr3_masked_write(struct cpr3_controller *ctrl, u32 offset,
  */
 static inline void cpr3_ctrl_loop_enable(struct cpr3_controller *ctrl)
 {
-	if (ctrl->cpr_enabled)
+	if (ctrl->cpr_enabled && !(ctrl->aggr_corner.sdelta
+		&& ctrl->aggr_corner.sdelta->allow_boost))
 		cpr3_masked_write(ctrl, CPR3_REG_CPR_CTL,
 			CPR3_CPR_CTL_LOOP_EN_MASK, CPR3_CPR_CTL_LOOP_ENABLE);
 }
@@ -417,7 +419,7 @@ static inline int cpr3_ctrl_clear_cpr4_config(struct cpr3_controller *ctrl)
 	int i, rc = 0;
 
 	if (!aggr_sdelta || !(aggr_sdelta->allow_core_count_adj
-		|| aggr_sdelta->allow_temp_adj))
+		|| aggr_sdelta->allow_temp_adj || aggr_sdelta->allow_boost))
 		/* cpr4 features are not enabled */
 		return 0;
 
@@ -439,13 +441,15 @@ static inline int cpr3_ctrl_clear_cpr4_config(struct cpr3_controller *ctrl)
 		CPR4_MARGIN_ADJ_CTL_MAX_NUM_CORES_MASK
 		| CPR4_MARGIN_ADJ_CTL_CORE_ADJ_EN
 		| CPR4_MARGIN_ADJ_CTL_TEMP_ADJ_EN
-		| CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_EN, 0);
+		| CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_EN
+		| CPR4_MARGIN_ADJ_CTL_BOOST_EN
+		| CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK, 0);
 
 	cpr3_masked_write(ctrl, CPR4_REG_MISC,
 			CPR4_MISC_MARGIN_TABLE_ROW_SELECT_MASK,
 			0 << CPR4_MISC_MARGIN_TABLE_ROW_SELECT_SHIFT);
 
-	for (i = 0; i < aggr_sdelta->max_core_count; i++) {
+	for (i = 0; i <= aggr_sdelta->max_core_count; i++) {
 		/* Clear voltage margin adjustments programmed in TEMP_COREi */
 		cpr3_write(ctrl, CPR4_REG_MARGIN_TEMP_CORE(i), 0);
 	}
@@ -689,7 +693,8 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 		break;
 	}
 
-	if (!ctrl->allow_core_count_adj && !ctrl->allow_temp_adj) {
+	if (!ctrl->allow_core_count_adj && !ctrl->allow_temp_adj
+		&& !ctrl->allow_boost) {
 		/*
 		 * Skip below configuration as none of the features
 		 * are enabled.
@@ -758,7 +763,8 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 			thread_max_core_count = max(thread_max_core_count,
 							vreg->max_core_count);
 			thread_valid_sdelta |= (vreg->allow_core_count_adj
-							| vreg->allow_temp_adj);
+							| vreg->allow_temp_adj
+							| vreg->allow_boost);
 		}
 		if (thread_valid_sdelta) {
 			sdelta = devm_kzalloc(ctrl->dev, sizeof(*sdelta),
@@ -772,6 +778,13 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 						sizeof(*sdelta->table),
 						GFP_KERNEL);
 			if (!sdelta->table)
+				return -ENOMEM;
+
+			sdelta->boost_table = devm_kcalloc(ctrl->dev,
+						ctrl->temp_band_count,
+						sizeof(*sdelta->boost_table),
+						GFP_KERNEL);
+			if (!sdelta->boost_table)
 				return -ENOMEM;
 
 			thread->aggr_corner.sdelta = sdelta;
@@ -791,6 +804,13 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 					* ctrl->temp_band_count,
 					sizeof(*sdelta->table), GFP_KERNEL);
 		if (!sdelta->table)
+			return -ENOMEM;
+
+		sdelta->boost_table = devm_kcalloc(ctrl->dev,
+					ctrl->temp_band_count,
+					sizeof(*sdelta->boost_table),
+					GFP_KERNEL);
+		if (!sdelta->boost_table)
 			return -ENOMEM;
 
 		ctrl->aggr_corner.sdelta = sdelta;
@@ -852,10 +872,18 @@ static int cpr3_controller_program_sdelta(struct cpr3_controller *ctrl)
 		/* cpr4_sdelta not defined for current aggregated corner */
 		return 0;
 
-	if (!sdelta->allow_core_count_adj && !sdelta->allow_temp_adj) {
+	if (ctrl->supports_hw_closed_loop && ctrl->cpr_enabled) {
+		cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+			CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_EN_MASK,
+			(ctrl->use_hw_closed_loop && !sdelta->allow_boost)
+			? CPR4_MARGIN_ADJ_CTL_HW_CLOSED_LOOP_ENABLE : 0);
+	}
+
+	if (!sdelta->allow_core_count_adj && !sdelta->allow_temp_adj
+		&& !sdelta->allow_boost) {
 		/*
-		 * Both per-online-core and per-temperature adjustments
-		 * are disabled for this aggregation corner
+		 * Per-online-core, per-temperature and voltage boost
+		 * adjustments are disabled for this aggregation corner.
 		 */
 		return 0;
 	}
@@ -872,25 +900,37 @@ static int cpr3_controller_program_sdelta(struct cpr3_controller *ctrl)
 
 	max_core_count = sdelta->max_core_count;
 
-	if (sdelta->allow_core_count_adj) {
-		/* Program TEMP_CORE0 to same margins as TEMP_CORE1 */
-		cpr3_write_temp_core_margin(ctrl,
-			CPR4_REG_MARGIN_TEMP_CORE(0), &sdelta->table[0]);
-	}
+	if (sdelta->allow_core_count_adj || sdelta->allow_temp_adj) {
+		if (sdelta->allow_core_count_adj) {
+			/* Program TEMP_CORE0 to same margins as TEMP_CORE1 */
+			cpr3_write_temp_core_margin(ctrl,
+				CPR4_REG_MARGIN_TEMP_CORE(0),
+				&sdelta->table[0]);
+		}
 
-	for (i = 0; i < max_core_count; i++) {
-		index = i * sdelta->temp_band_count;
-		/*
-		 * Program TEMP_COREi with voltage margin adjustments that need
-		 * to be applied when the number of cores becomes i.
-		 */
-		cpr3_write_temp_core_margin(ctrl,
-			CPR4_REG_MARGIN_TEMP_CORE(sdelta->allow_core_count_adj
+		for (i = 0; i < max_core_count; i++) {
+			index = i * sdelta->temp_band_count;
+			/*
+			 * Program TEMP_COREi with voltage margin adjustments
+			 * that need to be applied when the number of cores
+			 * becomes i.
+			 */
+			cpr3_write_temp_core_margin(ctrl,
+				CPR4_REG_MARGIN_TEMP_CORE(
+						sdelta->allow_core_count_adj
 						? i + 1 : max_core_count),
 						&sdelta->table[index]);
+		}
 	}
 
-	if (!sdelta->allow_core_count_adj) {
+	if (sdelta->allow_boost) {
+		/* Program only boost_num_cores row of SDELTA */
+		cpr3_write_temp_core_margin(ctrl,
+			CPR4_REG_MARGIN_TEMP_CORE(sdelta->boost_num_cores),
+					&sdelta->boost_table[0]);
+	}
+
+	if (!sdelta->allow_core_count_adj && !sdelta->allow_boost) {
 		cpr3_masked_write(ctrl, CPR4_REG_MISC,
 			CPR4_MISC_MARGIN_TABLE_ROW_SELECT_MASK,
 			max_core_count
@@ -901,13 +941,16 @@ static int cpr3_controller_program_sdelta(struct cpr3_controller *ctrl)
 		CPR4_MARGIN_ADJ_CTL_MAX_NUM_CORES_MASK
 		| CPR4_MARGIN_ADJ_CTL_CORE_ADJ_EN
 		| CPR4_MARGIN_ADJ_CTL_TEMP_ADJ_EN
-		| CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_EN,
+		| CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_EN
+		| CPR4_MARGIN_ADJ_CTL_BOOST_EN,
 		max_core_count << CPR4_MARGIN_ADJ_CTL_MAX_NUM_CORES_SHIFT
-		| (sdelta->allow_core_count_adj
+		| ((sdelta->allow_core_count_adj || sdelta->allow_boost)
 		? CPR4_MARGIN_ADJ_CTL_CORE_ADJ_EN : 0)
 		| (sdelta->allow_temp_adj ? CPR4_MARGIN_ADJ_CTL_TEMP_ADJ_EN : 0)
-		| (ctrl->use_hw_closed_loop
-		? CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_EN : 0));
+		| ((ctrl->use_hw_closed_loop && !sdelta->allow_boost)
+		? CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_EN : 0)
+		| (sdelta->allow_boost
+		?  CPR4_MARGIN_ADJ_CTL_BOOST_EN : 0));
 
 	/*
 	 * Ensure that all previous CPR register writes have completed before
@@ -2219,7 +2262,7 @@ static void cpr3_regulator_aggregate_sdelta(
 	struct cpr4_sdelta *aggr_sdelta, *sdelta;
 	int aggr_core_count, core_count, temp_band_count;
 	u32 aggr_index, index;
-	int i, j, sdelta_size, cap_steps;
+	int i, j, sdelta_size, cap_steps, adjust_sdelta;
 
 	aggr_sdelta = aggr_corner->sdelta;
 	sdelta = corner->sdelta;
@@ -2236,7 +2279,6 @@ static void cpr3_regulator_aggregate_sdelta(
 		aggr_sdelta->cap_volt = min(aggr_sdelta->cap_volt,
 						(corner->open_loop_volt -
 						aggr_corner->open_loop_volt));
-		aggr_corner->open_loop_volt = corner->open_loop_volt;
 
 		/* Clear old data in the sdelta table */
 		sdelta_size = aggr_sdelta->max_core_count
@@ -2256,6 +2298,23 @@ static void cpr3_regulator_aggregate_sdelta(
 					sdelta_size * sizeof(*sdelta->table));
 		}
 
+		if (sdelta->allow_boost) {
+			memcpy(aggr_sdelta->boost_table, sdelta->boost_table,
+				sdelta->temp_band_count
+				* sizeof(*sdelta->boost_table));
+			aggr_sdelta->boost_num_cores = sdelta->boost_num_cores;
+		} else if (aggr_sdelta->allow_boost) {
+			for (i = 0; i < aggr_sdelta->temp_band_count; i++) {
+				adjust_sdelta = (corner->open_loop_volt
+						- aggr_corner->open_loop_volt)
+						/ step_volt;
+				aggr_sdelta->boost_table[i] += adjust_sdelta;
+				aggr_sdelta->boost_table[i]
+					= min(aggr_sdelta->boost_table[i], 0);
+			}
+		}
+
+		aggr_corner->open_loop_volt = corner->open_loop_volt;
 		aggr_sdelta->allow_temp_adj = sdelta->allow_temp_adj;
 		aggr_sdelta->allow_core_count_adj
 					= sdelta->allow_core_count_adj;
@@ -2269,6 +2328,19 @@ static void cpr3_regulator_aggregate_sdelta(
 		aggr_sdelta->cap_volt = min(aggr_sdelta->cap_volt,
 						(aggr_corner->open_loop_volt
 						- corner->open_loop_volt));
+
+		if (sdelta->allow_boost) {
+			for (i = 0; i < aggr_sdelta->temp_band_count; i++) {
+				adjust_sdelta = (aggr_corner->open_loop_volt
+						- corner->open_loop_volt)
+						/ step_volt;
+				aggr_sdelta->boost_table[i] =
+					sdelta->boost_table[i] + adjust_sdelta;
+				aggr_sdelta->boost_table[i]
+					= min(aggr_sdelta->boost_table[i], 0);
+			}
+			aggr_sdelta->boost_num_cores = sdelta->boost_num_cores;
+		}
 	} else {
 		/*
 		 * Found another dominant regulator with same open-loop
@@ -2280,6 +2352,7 @@ static void cpr3_regulator_aggregate_sdelta(
 		 */
 		aggr_sdelta->cap_volt = 0;
 		aggr_sdelta->allow_core_count_adj = false;
+
 		if (aggr_sdelta->allow_temp_adj
 					&& sdelta->allow_temp_adj) {
 			aggr_core_count = aggr_sdelta->max_core_count - 1;
@@ -2296,9 +2369,21 @@ static void cpr3_regulator_aggregate_sdelta(
 		} else {
 			aggr_sdelta->allow_temp_adj = false;
 		}
+
+		if (sdelta->allow_boost) {
+			memcpy(aggr_sdelta->boost_table, sdelta->boost_table,
+				sdelta->temp_band_count
+				* sizeof(*sdelta->boost_table));
+			aggr_sdelta->boost_num_cores = sdelta->boost_num_cores;
+		}
 	}
 
-	if (aggr_sdelta->cap_volt && !aggr_sdelta->cap_volt == INT_MAX) {
+	/* Keep non-dominant clients boost enable state */
+	aggr_sdelta->allow_boost |= sdelta->allow_boost;
+	if (aggr_sdelta->allow_boost)
+		aggr_sdelta->allow_core_count_adj = false;
+
+	if (aggr_sdelta->cap_volt && !(aggr_sdelta->cap_volt == INT_MAX)) {
 		core_count = aggr_sdelta->max_core_count;
 		temp_band_count = aggr_sdelta->temp_band_count;
 		/*
@@ -2357,7 +2442,8 @@ static void cpr3_regulator_aggregate_corners(struct cpr3_corner *aggr_corner,
 	}
 
 	if (aggr_corner->sdelta && corner->sdelta
-		&& aggr_corner->sdelta->table) {
+		&& (aggr_corner->sdelta->table
+		|| aggr_corner->sdelta->boost_table)) {
 		cpr3_regulator_aggregate_sdelta(aggr_corner, corner, step_volt);
 	} else {
 		aggr_corner->open_loop_volt
@@ -2398,7 +2484,7 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 	bool thread_valid;
 	int i, j, rc, new_volt, vdd_volt, dynamic_floor_volt, last_corner_volt;
 	u32 reg_last_measurement = 0, sdelta_size;
-	int *sdelta_table;
+	int *sdelta_table, *boost_table;
 
 	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
 		rc = cpr3_ctrl_clear_cpr4_config(ctrl);
@@ -2443,9 +2529,15 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 					* sizeof(*sdelta_table));
 		}
 
+		boost_table = sdelta->boost_table;
+		if (boost_table)
+			memset(boost_table, 0, sdelta->temp_band_count
+					* sizeof(*boost_table));
+
 		memset(sdelta, 0, sizeof(*sdelta));
 		sdelta->table = sdelta_table;
 		sdelta->cap_volt = INT_MAX;
+		sdelta->boost_table = boost_table;
 	}
 
 	/* Aggregate the requests of all threads */
@@ -2463,9 +2555,15 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 						* sizeof(*sdelta_table));
 			}
 
+			boost_table = sdelta->boost_table;
+			if (boost_table)
+				memset(boost_table, 0, sdelta->temp_band_count
+						* sizeof(*boost_table));
+
 			memset(sdelta, 0, sizeof(*sdelta));
 			sdelta->table = sdelta_table;
 			sdelta->cap_volt = INT_MAX;
+			sdelta->boost_table = boost_table;
 		}
 
 		memset(&thread->aggr_corner, 0, sizeof(thread->aggr_corner));
@@ -2689,7 +2787,8 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 
 	ctrl->aggr_corner = aggr_corner;
 
-	if (ctrl->allow_core_count_adj || ctrl->allow_temp_adj) {
+	if (ctrl->allow_core_count_adj || ctrl->allow_temp_adj
+		|| ctrl->allow_boost) {
 		rc = cpr3_controller_program_sdelta(ctrl);
 		if (rc) {
 			cpr3_err(ctrl, "failed to program sdelta, rc=%d\n", rc);
@@ -5136,7 +5235,9 @@ int cpr3_regulator_resume(struct cpr3_controller *ctrl)
  */
 static int cpr3_regulator_validate_controller(struct cpr3_controller *ctrl)
 {
-	int i;
+	struct cpr3_thread *thread;
+	struct cpr3_regulator *vreg;
+	int i, j, allow_boost_vreg_count = 0;
 
 	if (!ctrl->vdd_regulator) {
 		cpr3_err(ctrl, "vdd regulator missing\n");
@@ -5161,6 +5262,24 @@ static int cpr3_regulator_validate_controller(struct cpr3_controller *ctrl)
 				return -EINVAL;
 			}
 		}
+	}
+
+	for (i = 0; i < ctrl->thread_count; i++) {
+		thread = &ctrl->thread[i];
+		for (j = 0; j < thread->vreg_count; j++) {
+			vreg = &thread->vreg[j];
+			if (vreg->allow_boost)
+				allow_boost_vreg_count++;
+		}
+	}
+
+	if (allow_boost_vreg_count > 1) {
+		/*
+		 * Boost feature is not allowed to be used for more
+		 * than one CPR3 regulator of a CPR3 controller.
+		 */
+		cpr3_err(ctrl, "Boost feature is enabled for more than one regulator\n");
+		return -EINVAL;
 	}
 
 	return 0;

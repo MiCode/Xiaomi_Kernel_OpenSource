@@ -71,6 +71,14 @@ struct cpr3_fuse_param {
  *			values correspond to a reduction in voltage and negative
  *			value correspond to an increase (this follows the SDELTA
  *			register semantics).
+ * @allow_boost:	Voltage boost allowed.
+ * @boost_num_cores:	The number of online cores at which the boost voltage
+ *			adjustments will be applied
+ * @boost_table:	SDELTA table with boost voltage adjustments of size
+ *			temp_band_count. Each element has units of VDD supply
+ *			steps. Positive values correspond to a reduction in
+ *			voltage and negative value correspond to an increase
+ *			(this follows the SDELTA register semantics).
  */
 struct cpr4_sdelta {
 	bool	allow_core_count_adj;
@@ -79,6 +87,9 @@ struct cpr4_sdelta {
 	int	temp_band_count;
 	int	cap_volt;
 	int	*table;
+	bool	allow_boost;
+	int	boost_num_cores;
+	int	*boost_table;
 };
 
 /**
@@ -233,6 +244,7 @@ struct cpr3_corner {
  *			regulator.
  * @max_core_count:	Maximum number of cores considered for core count
  *			adjustment logic.
+ * @allow_boost:	Voltage boost allowed for this regulator.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements current_corner, last_closed_loop_corner, aggregated, debug_corner,
@@ -285,6 +297,7 @@ struct cpr3_regulator {
 	bool			allow_core_count_adj;
 	bool			allow_temp_adj;
 	int			max_core_count;
+	bool			allow_boost;
 };
 
 /**
@@ -544,6 +557,7 @@ struct cpr3_aging_sensor_info {
  * @allow_core_count_adj: Core count adjustments are allowed for this controller
  * @allow_temp_adj:	Temperature based adjustments are allowed for
  *			this controller
+ * @allow_boost:	Voltage boost allowed for this controller.
  * @temp_band_count:	Number of temperature bands used for temperature based
  *			adjustment logic
  * @temp_points:	Array of temperature points in decidegrees Celsius used
@@ -640,6 +654,7 @@ struct cpr3_controller {
 	bool			use_dynamic_step_quot;
 	bool			allow_core_count_adj;
 	bool			allow_temp_adj;
+	bool			allow_boost;
 	int			temp_band_count;
 	int			*temp_points;
 	u32			temp_sensor_id_start;

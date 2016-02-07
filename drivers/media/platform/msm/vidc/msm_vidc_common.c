@@ -301,8 +301,14 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 	 */
 
 	if (is_non_realtime_session(inst) &&
-		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD))
-		load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
+		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD)) {
+		if (!inst->prop.fps) {
+			dprintk(VIDC_INFO, "instance:%p fps = 0\n", inst);
+			load = 0;
+		} else {
+			load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
+		}
+	}
 
 exit:
 	mutex_unlock(&inst->lock);
@@ -992,12 +998,6 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	}
 	inst->capability.pixelprocess_capabilities =
 		call_hfi_op(hdev, get_core_capabilities, hdev->hfi_device_data);
-	if (!(inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_VP9)) {
-		dprintk(VIDC_DBG,
-			"Updaing the mbs per frame value from %d to %d\n",
-			inst->capability.mbs_per_frame.max, 32400);
-		inst->capability.mbs_per_frame.max = 32400;
-	}
 
 	dprintk(VIDC_DBG,
 		"Capability type : min      max      step size\n");
@@ -5023,7 +5023,7 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 
 	if (fps % 15 == 14 || fps % 24 == 23)
 		fps = fps + 1;
-	else if (fps % 24 == 1 || fps % 15 == 1)
+	else if ((fps > 1) && (fps % 24 == 1 || fps % 15 == 1))
 		fps = fps - 1;
 
 	if (inst->prop.fps != fps) {
