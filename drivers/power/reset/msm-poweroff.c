@@ -148,9 +148,6 @@ static void set_dload_mode(int on)
 	if (ret)
 		pr_err("Failed to set secure DLOAD mode: %d\n", ret);
 
-	if (!on)
-		scm_disable_sdi();
-
 	dload_mode_enabled = on;
 }
 
@@ -210,7 +207,7 @@ static int dload_set(const char *val, struct kernel_param *kp)
 #else
 static void set_dload_mode(int on)
 {
-	scm_disable_sdi();
+	return;
 }
 
 static void enable_emergency_dload_mode(void)
@@ -391,6 +388,7 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 		msm_trigger_wdog_bite();
 #endif
 
+	scm_disable_sdi();
 	halt_spmi_pmic_arbiter();
 	deassert_ps_hold();
 
@@ -402,6 +400,7 @@ static void do_msm_poweroff(void)
 	pr_notice("Powering off the SoC\n");
 
 	set_dload_mode(0);
+	scm_disable_sdi();
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
 
 	halt_spmi_pmic_arbiter();
@@ -600,6 +599,8 @@ skip_sysfs_create:
 
 	download_mode = scm_is_secure_device();
 	set_dload_mode(download_mode);
+	if (!download_mode)
+		scm_disable_sdi();
 
 	return 0;
 
