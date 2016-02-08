@@ -1349,6 +1349,7 @@
 		compatible = "qcom,rmnet-ipa";
 		qcom,rmnet-ipa-ssr;
 		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
 	};
 
 	qcom,smdtty {
