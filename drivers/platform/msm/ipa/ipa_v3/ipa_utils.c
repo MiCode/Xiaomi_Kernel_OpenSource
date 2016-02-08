@@ -19,6 +19,7 @@
 #include <linux/msm_gsi.h>
 #include <linux/elf.h>
 #include "ipa_i.h"
+#include "ipahal/ipahal.h"
 
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
@@ -3893,9 +3894,9 @@ void ipa3_id_remove(u32 id)
 	spin_unlock(&ipa3_ctx->idr_lock);
 }
 
-void ipa3_tag_free_buf(void *user1, int user2)
+void ipa3_tag_destroy_imm(void *user1, int user2)
 {
-	kfree(user1);
+	ipahal_destroy_imm_cmd(user1);
 }
 
 static void ipa3_tag_free_skb(void *user1, int user2)
@@ -3923,9 +3924,9 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	struct ipa3_sys_context *sys;
 	struct ipa3_desc *tag_desc;
 	int desc_idx = 0;
-	struct ipa3_ip_packet_init *pkt_init;
-	struct ipa3_register_write *reg_write_nop;
-	struct ipa3_ip_packet_tag_status *status;
+	struct ipahal_imm_cmd_ip_packet_init pktinit_cmd;
+	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
+	struct ipahal_imm_cmd_ip_packet_tag_status status;
 	int i;
 	struct sk_buff *dummy_skb;
 	int res;
@@ -3951,8 +3952,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	tag_desc = kzalloc(sizeof(*tag_desc) * IPA_TAG_MAX_DESC, GFP_KERNEL);
 	if (!tag_desc) {
 		IPAERR("failed to allocate memory\n");
-		res = -ENOMEM;
-		goto fail_alloc_desc;
+		return -ENOMEM;
 	}
 
 	/* Copy the required descriptors from the client now */
@@ -3963,60 +3963,57 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	}
 
 	/* NO-OP IC for ensuring that IPA pipeline is empty */
-	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
-	if (!reg_write_nop) {
-		IPAERR("no mem\n");
+	cmd_pyld = ipahal_construct_nop_imm_cmd(
+		false, IPAHAL_FULL_PIPELINE_CLEAR, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct NOP imm cmd\n");
 		res = -ENOMEM;
-		goto fail_free_desc;
+		goto fail_free_tag_desc;
 	}
-
-	reg_write_nop->skip_pipeline_clear = 0;
-	reg_write_nop->pipeline_clear_options = IPA_FULL_PIPELINE_CLEAR;
-	reg_write_nop->value_mask = 0x0;
-
-	tag_desc[desc_idx].opcode = IPA_REGISTER_WRITE;
-	tag_desc[desc_idx].pyld = reg_write_nop;
-	tag_desc[desc_idx].len = sizeof(*reg_write_nop);
+	tag_desc[desc_idx].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	tag_desc[desc_idx].pyld = cmd_pyld->data;
+	tag_desc[desc_idx].len = cmd_pyld->len;
 	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
-	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
-	tag_desc[desc_idx].user1 = reg_write_nop;
+	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
+	tag_desc[desc_idx].user1 = cmd_pyld;
 	desc_idx++;
 
 	/* IP_PACKET_INIT IC for tag status to be sent to apps */
-	pkt_init = kzalloc(sizeof(*pkt_init), GFP_KERNEL);
-	if (!pkt_init) {
-		IPAERR("failed to allocate memory\n");
-		res = -ENOMEM;
-		goto fail_alloc_pkt_init;
-	}
-
-	pkt_init->destination_pipe_index =
+	pktinit_cmd.destination_pipe_index =
 		ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
-
-	tag_desc[desc_idx].opcode = IPA_IP_PACKET_INIT;
-	tag_desc[desc_idx].pyld = pkt_init;
-	tag_desc[desc_idx].len = sizeof(*pkt_init);
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
-	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
-	tag_desc[desc_idx].user1 = pkt_init;
-	desc_idx++;
-
-	/* status IC */
-	status = kzalloc(sizeof(*status), GFP_KERNEL);
-	if (!status) {
-		IPAERR("no mem\n");
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_PACKET_INIT, &pktinit_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct ip_packet_init imm cmd\n");
 		res = -ENOMEM;
 		goto fail_free_desc;
 	}
-
-	status->tag = IPA_COOKIE;
-
-	tag_desc[desc_idx].opcode = IPA_IP_PACKET_TAG_STATUS;
-	tag_desc[desc_idx].pyld = status;
-	tag_desc[desc_idx].len = sizeof(*status);
+	tag_desc[desc_idx].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_INIT);
+	tag_desc[desc_idx].pyld = cmd_pyld->data;
+	tag_desc[desc_idx].len = cmd_pyld->len;
 	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
-	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
-	tag_desc[desc_idx].user1 = status;
+	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
+	tag_desc[desc_idx].user1 = cmd_pyld;
+	desc_idx++;
+
+	/* status IC */
+	status.tag = IPA_COOKIE;
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_PACKET_TAG_STATUS, &status, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct ip_packet_tag_status imm cmd\n");
+		res = -ENOMEM;
+		goto fail_free_desc;
+	}
+	tag_desc[desc_idx].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
+	tag_desc[desc_idx].pyld = cmd_pyld->data;
+	tag_desc[desc_idx].len = cmd_pyld->len;
+	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
+	tag_desc[desc_idx].user1 = cmd_pyld;
 	desc_idx++;
 
 	comp = kzalloc(sizeof(*comp), GFP_KERNEL);
@@ -4035,7 +4032,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	if (!dummy_skb) {
 		IPAERR("failed to allocate memory\n");
 		res = -ENOMEM;
-		goto fail_free_skb;
+		goto fail_free_comp;
 	}
 
 	memcpy(skb_put(dummy_skb, sizeof(comp)), &comp, sizeof(comp));
@@ -4052,7 +4049,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	if (res) {
 		IPAERR("failed to send TAG packets %d\n", res);
 		res = -ENOMEM;
-		goto fail_send;
+		goto fail_free_comp;
 	}
 	kfree(tag_desc);
 	tag_desc = NULL;
@@ -4077,26 +4074,24 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 
 	return 0;
 
-fail_send:
-	dev_kfree_skb_any(dummy_skb);
-	desc_idx--;
-fail_free_skb:
+fail_free_comp:
 	kfree(comp);
 fail_free_desc:
 	/*
 	 * Free only the first descriptors allocated here.
-	 * [pkt_init, status, nop]
+	 * [nop, pkt_init, status, dummy_skb]
 	 * The user is responsible to free his allocations
 	 * in case of failure.
 	 * The min is required because we may fail during
 	 * of the initial allocations above
 	 */
-	for (i = 0; i < min(REQUIRED_TAG_PROCESS_DESCRIPTORS-1, desc_idx); i++)
-		kfree(tag_desc[i].user1);
-
-fail_alloc_pkt_init:
+	for (i = descs_num;
+		i < min(REQUIRED_TAG_PROCESS_DESCRIPTORS, desc_idx); i++)
+		if (tag_desc[i].callback)
+			tag_desc[i].callback(tag_desc[i].user1,
+				tag_desc[i].user2);
+fail_free_tag_desc:
 	kfree(tag_desc);
-fail_alloc_desc:
 	return res;
 }
 
@@ -4118,7 +4113,8 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 	struct ipa_ep_cfg_aggr ep_aggr;
 	int desc_idx = 0;
 	int res;
-	struct ipa3_register_write *reg_write_agg_close;
+	struct ipahal_imm_cmd_register_write reg_write_agg_close;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipahal_reg_valmask valmask;
 
 	for (i = start_pipe; i < end_pipe; i++) {
@@ -4132,30 +4128,29 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 			goto fail_no_desc;
 		}
 
-		reg_write_agg_close = kzalloc(sizeof(*reg_write_agg_close),
-			GFP_KERNEL);
-		if (!reg_write_agg_close) {
-			IPAERR("no mem\n");
+		reg_write_agg_close.skip_pipeline_clear = false;
+		reg_write_agg_close.pipeline_clear_options =
+			IPAHAL_FULL_PIPELINE_CLEAR;
+		reg_write_agg_close.offset =
+			ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(1<<i, &valmask);
+		reg_write_agg_close.value = valmask.val;
+		reg_write_agg_close.value_mask = valmask.mask;
+		cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_agg_close, false);
+		if (!cmd_pyld) {
+			IPAERR("failed to construct register_write imm cmd\n");
 			res = -ENOMEM;
 			goto fail_alloc_reg_write_agg_close;
 		}
 
-		reg_write_agg_close->skip_pipeline_clear = 0;
-		reg_write_agg_close->pipeline_clear_options =
-			IPA_FULL_PIPELINE_CLEAR;
-
-		reg_write_agg_close->offset =
-			ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
-		ipahal_get_aggr_force_close_valmask(1<<i, &valmask);
-		reg_write_agg_close->value = valmask.val;
-		reg_write_agg_close->value_mask = valmask.mask;
-
-		desc[desc_idx].opcode = IPA_REGISTER_WRITE;
-		desc[desc_idx].pyld = reg_write_agg_close;
-		desc[desc_idx].len = sizeof(*reg_write_agg_close);
+		desc[desc_idx].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+		desc[desc_idx].pyld = cmd_pyld->data;
+		desc[desc_idx].len = cmd_pyld->len;
 		desc[desc_idx].type = IPA_IMM_CMD_DESC;
-		desc[desc_idx].callback = ipa3_tag_free_buf;
-		desc[desc_idx].user1 = reg_write_agg_close;
+		desc[desc_idx].callback = ipa3_tag_destroy_imm;
+		desc[desc_idx].user1 = cmd_pyld;
 		desc_idx++;
 	}
 
@@ -4163,7 +4158,9 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 
 fail_alloc_reg_write_agg_close:
 	for (i = 0; i < desc_idx; i++)
-		kfree(desc[desc_idx].user1);
+		if (desc[desc_idx].callback)
+			desc[desc_idx].callback(desc[desc_idx].user1,
+				desc[desc_idx].user2);
 fail_no_desc:
 	return res;
 }
@@ -4744,7 +4741,8 @@ void ipa3_suspend_apps_pipes(bool suspend)
 int ipa3_inject_dma_task_for_gsi(void)
 {
 	static struct ipa3_mem_buffer mem = {0};
-	static struct ipa3_hw_imm_cmd_dma_task_32b_addr cmd = {0};
+	struct ipahal_imm_cmd_dma_task_32b_addr cmd = {0};
+	static struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipa3_desc desc = {0};
 
 	/* allocate the memory only for the very first time */
@@ -4759,16 +4757,24 @@ int ipa3_inject_dma_task_for_gsi(void)
 			IPAERR("no mem\n");
 			return -EFAULT;
 		}
-
+	}
+	if (!cmd_pyld) {
 		cmd.flsh = 1;
 		cmd.size1 = mem.size;
 		cmd.addr1 = mem.phys_base;
 		cmd.packet_size = mem.size;
+		cmd_pyld = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_TASK_32B_ADDR, &cmd, false);
+		if (!cmd_pyld) {
+			IPAERR("failed to construct dma_task_32b_addr cmd\n");
+			return -EFAULT;
+		}
 	}
 
-	desc.opcode = IPA_DMA_TASK_32B_ADDR(1);
-	desc.pyld = &cmd;
-	desc.len = sizeof(cmd);
+	desc.opcode = ipahal_imm_cmd_get_opcode_param(
+		IPA_IMM_CMD_DMA_TASK_32B_ADDR, 1);
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	desc.type = IPA_IMM_CMD_DESC;
 
 	IPADBG("sending 1B packet to IPA\n");

@@ -807,6 +807,7 @@ struct ipahal_reg_obj {
 /*
  * This table contains the info regarding each register for IPAv3 and later.
  * Information like: offset and construct/parse functions.
+ * All the information on the register on IPAv3 are statically defined below.
  * If information is missing regarding some register on some IPA version,
  *  the init function will fill it with the information from the previous
  *  IPA version.

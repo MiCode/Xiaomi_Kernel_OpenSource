@@ -13,6 +13,7 @@
 #include <linux/bitops.h>
 #include <linux/idr.h>
 #include "ipa_i.h"
+#include "ipahal/ipahal.h"
 
 #define IPA_RT_INDEX_BITMAP_SIZE	(32)
 #define IPA_RT_STATUS_OF_ADD_FAILED	(-1)
@@ -634,8 +635,9 @@ static bool ipa_rt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
 int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 {
 	struct ipa3_desc desc[5];
-	struct ipa3_register_write reg_write_cmd = {0};
-	struct ipa3_hw_imm_cmd_dma_shared_mem  mem_cmd[4];
+	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
+	struct ipahal_imm_cmd_dma_shared_mem  mem_cmd = {0};
+	struct ipahal_imm_cmd_pyld *cmd_pyld[5];
 	int num_cmd = 0;
 	struct ipa3_mem_buffer hash_bdy, nhash_bdy;
 	struct ipa3_mem_buffer hash_hdr, nhash_hdr;
@@ -646,9 +648,10 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	bool lcl_hash, lcl_nhash;
 	struct ipahal_reg_fltrt_hash_flush flush;
 	struct ipahal_reg_valmask valmask;
+	int i;
 
 	memset(desc, 0, sizeof(desc));
-	memset(mem_cmd, 0, sizeof(mem_cmd));
+	memset(cmd_pyld, 0, sizeof(cmd_pyld));
 
 	if (ip == IPA_IP_v4) {
 		num_modem_rt_index =
@@ -708,62 +711,101 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	else
 		flush.v6_rt = true;
 	ipahal_get_fltrt_hash_flush_valmask(&flush, &valmask);
-	reg_write_cmd.skip_pipeline_clear = 0;
-	reg_write_cmd.pipeline_clear_options = IPA_HPS_CLEAR;
+	reg_write_cmd.skip_pipeline_clear = false;
+	reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
 	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_FILT_ROUT_HASH_FLUSH);
 	reg_write_cmd.value = valmask.val;
 	reg_write_cmd.value_mask = valmask.mask;
-	desc[num_cmd].opcode = IPA_REGISTER_WRITE;
-	desc[num_cmd].pyld = &reg_write_cmd;
-	desc[num_cmd].len = sizeof(reg_write_cmd);
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_REGISTER_WRITE, &reg_write_cmd, false);
+	if (!cmd_pyld[num_cmd]) {
+		IPAERR("fail construct register_write imm cmd. IP %d\n", ip);
+		goto fail_size_valid;
+	}
+	desc[num_cmd].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
+	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 	desc[num_cmd].type = IPA_IMM_CMD_DESC;
 	num_cmd++;
 
-	mem_cmd[num_cmd - 1].skip_pipeline_clear = 0;
-	mem_cmd[num_cmd - 1].pipeline_clear_options = IPA_HPS_CLEAR;
-	mem_cmd[num_cmd - 1].size = nhash_hdr.size;
-	mem_cmd[num_cmd - 1].system_addr = nhash_hdr.phys_base;
-	mem_cmd[num_cmd - 1].local_addr = lcl_nhash_hdr;
-	desc[num_cmd].opcode = IPA_DMA_SHARED_MEM;
-	desc[num_cmd].pyld = &mem_cmd[num_cmd - 1];
-	desc[num_cmd].len = sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
+	mem_cmd.is_read = false;
+	mem_cmd.skip_pipeline_clear = false;
+	mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	mem_cmd.size = nhash_hdr.size;
+	mem_cmd.system_addr = nhash_hdr.phys_base;
+	mem_cmd.local_addr = lcl_nhash_hdr;
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
+	if (!cmd_pyld[num_cmd]) {
+		IPAERR("fail construct dma_shared_mem imm cmd. IP %d\n", ip);
+		goto fail_imm_cmd_construct;
+	}
+	desc[num_cmd].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
+	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 	desc[num_cmd].type = IPA_IMM_CMD_DESC;
 	num_cmd++;
 
-	mem_cmd[num_cmd - 1].skip_pipeline_clear = 0;
-	mem_cmd[num_cmd - 1].pipeline_clear_options = IPA_HPS_CLEAR;
-	mem_cmd[num_cmd - 1].size = hash_hdr.size;
-	mem_cmd[num_cmd - 1].system_addr = hash_hdr.phys_base;
-	mem_cmd[num_cmd - 1].local_addr = lcl_hash_hdr;
-	desc[num_cmd].opcode = IPA_DMA_SHARED_MEM;
-	desc[num_cmd].pyld = &mem_cmd[num_cmd - 1];
-	desc[num_cmd].len = sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
+	mem_cmd.is_read = false;
+	mem_cmd.skip_pipeline_clear = false;
+	mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	mem_cmd.size = hash_hdr.size;
+	mem_cmd.system_addr = hash_hdr.phys_base;
+	mem_cmd.local_addr = lcl_hash_hdr;
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
+	if (!cmd_pyld[num_cmd]) {
+		IPAERR("fail construct dma_shared_mem imm cmd. IP %d\n", ip);
+		goto fail_imm_cmd_construct;
+	}
+	desc[num_cmd].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
+	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 	desc[num_cmd].type = IPA_IMM_CMD_DESC;
 	num_cmd++;
 
 	if (lcl_nhash) {
-		mem_cmd[num_cmd - 1].skip_pipeline_clear = 0;
-		mem_cmd[num_cmd - 1].pipeline_clear_options = IPA_HPS_CLEAR;
-		mem_cmd[num_cmd - 1].size = nhash_bdy.size;
-		mem_cmd[num_cmd - 1].system_addr = nhash_bdy.phys_base;
-		mem_cmd[num_cmd - 1].local_addr = lcl_nhash_bdy;
-		desc[num_cmd].opcode = IPA_DMA_SHARED_MEM;
-		desc[num_cmd].pyld = &mem_cmd[num_cmd - 1];
-		desc[num_cmd].len =
-				sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
+		mem_cmd.is_read = false;
+		mem_cmd.skip_pipeline_clear = false;
+		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		mem_cmd.size = nhash_bdy.size;
+		mem_cmd.system_addr = nhash_bdy.phys_base;
+		mem_cmd.local_addr = lcl_nhash_bdy;
+		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR("fail construct dma_shared_mem cmd. IP %d\n",
+				ip);
+			goto fail_imm_cmd_construct;
+		}
+		desc[num_cmd].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
+		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 		desc[num_cmd].type = IPA_IMM_CMD_DESC;
 		num_cmd++;
 	}
 	if (lcl_hash) {
-		mem_cmd[num_cmd - 1].skip_pipeline_clear = 0;
-		mem_cmd[num_cmd - 1].pipeline_clear_options = IPA_HPS_CLEAR;
-		mem_cmd[num_cmd - 1].size = hash_bdy.size;
-		mem_cmd[num_cmd - 1].system_addr = hash_bdy.phys_base;
-		mem_cmd[num_cmd - 1].local_addr = lcl_hash_bdy;
-		desc[num_cmd].opcode = IPA_DMA_SHARED_MEM;
-		desc[num_cmd].pyld = &mem_cmd[num_cmd - 1];
-		desc[num_cmd].len =
-				sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
+		mem_cmd.is_read = false;
+		mem_cmd.skip_pipeline_clear = false;
+		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		mem_cmd.size = hash_bdy.size;
+		mem_cmd.system_addr = hash_bdy.phys_base;
+		mem_cmd.local_addr = lcl_hash_bdy;
+		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR("fail construct dma_shared_mem cmd. IP %d\n",
+				ip);
+			goto fail_imm_cmd_construct;
+		}
+		desc[num_cmd].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
+		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 		desc[num_cmd].type = IPA_IMM_CMD_DESC;
 		num_cmd++;
 	}
@@ -771,7 +813,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	if (ipa3_send_cmd(num_cmd, desc)) {
 		IPAERR("fail to send immediate command\n");
 		rc = -EFAULT;
-		goto fail_size_valid;
+		goto fail_imm_cmd_construct;
 	}
 
 	IPADBG_LOW("Hashable HEAD\n");
@@ -794,6 +836,9 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 
 	__ipa_reap_sys_rt_tbls(ip);
 
+fail_imm_cmd_construct:
+	for (i = 0 ; i < num_cmd ; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
 fail_size_valid:
 	dma_free_coherent(ipa3_ctx->pdev, hash_hdr.size,
 		hash_hdr.base, hash_hdr.phys_base);
