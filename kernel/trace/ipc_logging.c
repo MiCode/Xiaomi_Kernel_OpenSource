@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -428,7 +428,7 @@ EXPORT_SYMBOL(tsv_timestamp_write);
 int tsv_qtimer_write(struct encode_context *ectxt)
 {
 	int ret;
-	uint64_t t_now = arch_counter_get_cntpct();
+	uint64_t t_now = arch_counter_get_cntvct();
 
 	ret = tsv_write_header(ectxt, TSV_TYPE_QTIMER, sizeof(t_now));
 	if (ret)
