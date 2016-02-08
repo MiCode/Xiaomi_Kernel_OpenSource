@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -787,7 +787,6 @@ static int adreno_cp_parse_ib2(struct kgsl_device *device,
 			struct adreno_ib_object_list *ib_obj_list,
 			int ib_level)
 {
-	struct adreno_ib_object *ib_obj;
 	int i;
 	/*
 	 * We can only expect an IB2 in IB1, if we are
@@ -799,13 +798,14 @@ static int adreno_cp_parse_ib2(struct kgsl_device *device,
 	 * only try to find sub objects iff this IB has
 	 * not been processed already
 	 */
-	for (i = 0; i < ib_obj_list->num_objs; i++)
-		ib_obj = &(ib_obj_list->obj_list[i]);
+	for (i = 0; i < ib_obj_list->num_objs; i++) {
+		struct adreno_ib_object *ib_obj = &(ib_obj_list->obj_list[i]);
 		if ((SNAPSHOT_GPU_OBJECT_IB == ib_obj->snapshot_obj_type) &&
 			(gpuaddr >= ib_obj->gpuaddr) &&
 			(gpuaddr + dwords * sizeof(unsigned int) <=
 			ib_obj->gpuaddr + ib_obj->size))
 			return 0;
+	}
 
 	return adreno_ib_find_objs(device, process, gpuaddr, dwords,
 		SNAPSHOT_GPU_OBJECT_IB, ib_obj_list, 2);
