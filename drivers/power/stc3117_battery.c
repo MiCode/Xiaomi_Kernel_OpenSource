@@ -64,6 +64,7 @@
 #define OCVTAB_REG		0x30
 #define SOCTAB_REG		0x50
 #define OCV_SOC_SIZE		16
+#define SOCTAB_MULTIPLIER	2
 
 #define STC3117_ID		0x16
 
@@ -144,8 +145,8 @@ struct stc311x_chip  {
 	u16				ocv_mv;
 	u8				cmonit_count;
 	u8				cmonit_max;
-	u16				cc_adj;
-	u16				vm_adj;
+	s16				cc_adj;
+	s16				vm_adj;
 	u32				peek_poke_address;
 	int				running_mode;
 	int				soc;
@@ -165,12 +166,14 @@ struct stc311x_chip  {
 	u16				*cfg_ocv_soc_table;
 	s16				*cfg_temp_table;
 	u16				*cfg_vmtemp_table;
+	u8				*cfg_soc_table;
 	int				cfg_cnom_mah;
 	int				cfg_rsense_mohm;
 	int				cfg_rbatt_mohm;
-	int				cfg_force_vmode;
 	int				cfg_term_current_ma;
 	int				cfg_float_voltage_mv;
+	bool				cfg_force_vmode;
+	bool				cfg_enable_soc_correction;
 
 	/* RAM info */
 	union {
@@ -428,6 +431,17 @@ static int stc311x_update_params(struct stc311x_chip *chip)
 		}
 	}
 
+	/* covert SOC points and fill SOC table*/
+	for (i = 0; i < OCV_SOC_SIZE; i++)
+		chip->cfg_soc_table[i] *= SOCTAB_MULTIPLIER;
+
+	rc = stc311x_write_raw(chip, SOCTAB_REG, chip->cfg_soc_table,
+				OCV_SOC_SIZE);
+	if (rc < 0) {
+		pr_err("failed to update SOCTAB rc=%d\n", rc);
+		return rc;
+	}
+
 	/* update Alarm SOC */
 	reg_val = chip->cfg_alarm_soc * 2;
 	rc = stc311x_write_raw(chip, ALM_SOC_REG, &reg_val, 1);
@@ -492,7 +506,6 @@ static int stc311x_update_params(struct stc311x_chip *chip)
 
 	return rc;
 }
-
 
 static int stc311x_start_fg(struct stc311x_chip *chip)
 {
@@ -583,7 +596,7 @@ static int stc311x_start(struct stc311x_chip *chip)
 	chip->cc_cnf = ((chip->cfg_cnom_mah * chip->cfg_rsense_mohm)
 				* 1000) / 49556;
 	chip->vm_cnf = ((chip->cfg_cnom_mah * chip->cfg_rbatt_mohm)
-				* 1000) / 97778;
+				* 100) / 97778;
 	pr_debug("caluclate cc_cnf = %x and vm_cnf = %x\n",
 					chip->cc_cnf, chip->vm_cnf);
 
@@ -707,7 +720,7 @@ int stc311x_parse_dt(struct stc311x_chip *chip)
 		}
 	}
 
-	/* Read the OCV-SOC curve data */
+	/* Read the OCV curve data */
 	if (!of_find_property(chip->dev->of_node, "st,ocv-tbl", &prop_len)) {
 		pr_err("OCV-SOC curve data missing\n");
 		return -EINVAL;
@@ -727,7 +740,33 @@ int stc311x_parse_dt(struct stc311x_chip *chip)
 	rc = of_property_read_u16_array(chip->dev->of_node, "st,ocv-tbl",
 					chip->cfg_ocv_soc_table, prop_len);
 	if (rc) {
-		pr_err("invalid ocv-tbl rc=%d\n", rc);
+		pr_err("invalid length of OCV_SOC curve table expected length=%d\n",
+				OCV_SOC_SIZE);
+		return rc;
+	}
+
+	/* Read the SOC point data */
+	if (!of_find_property(chip->dev->of_node, "st,soc-tbl", &prop_len)) {
+		pr_err("SOC point data st-soc-tbl missing\n");
+		return -EINVAL;
+	}
+
+	prop_len /= sizeof(u8);
+	if (prop_len != OCV_SOC_SIZE) {
+		pr_err("invalid length of SOC point table expected length=%d\n",
+				OCV_SOC_SIZE);
+		return -EINVAL;
+	}
+
+	chip->cfg_soc_table = devm_kzalloc(chip->dev,
+				sizeof(u8) * OCV_SOC_SIZE, GFP_KERNEL);
+	if (!chip->cfg_soc_table)
+		return -ENOMEM;
+
+	rc = of_property_read_u8_array(chip->dev->of_node, "st,soc-tbl",
+					chip->cfg_soc_table, prop_len);
+	if (rc) {
+		pr_err("invalid soc-tbl rc=%d\n", rc);
 		return rc;
 	}
 
@@ -782,6 +821,9 @@ int stc311x_parse_dt(struct stc311x_chip *chip)
 
 	chip->cfg_force_vmode = of_property_read_bool(chip->dev->of_node,
 						"st,force-voltage-mode");
+	chip->cfg_enable_soc_correction =
+				of_property_read_bool(chip->dev->of_node,
+						"st,enable-soc-correction");
 
 	return rc;
 }
@@ -875,8 +917,10 @@ static int stc311x_read_fg(struct stc311x_chip *chip, struct fg_data *data)
 	/* ADJ no need to decode 2's complement */
 	/* CC_ADJ */
 	chip->cc_adj = get_val(&reg[7]);
+	stc311x_decode_twos_compl(chip, &chip->cc_adj, 15);
 	/* VM_ADJ */
 	chip->vm_adj = get_val(&reg[9]);
+	stc311x_decode_twos_compl(chip, &chip->vm_adj, 15);
 
 	return 0;
 }
@@ -932,7 +976,8 @@ static void compensatesoc(struct stc311x_chip *chip)
 #define A_VAR3		500
 #define VAR1MAX		64
 #define VAR2MAX		128
-#define	VAR4MAX		128
+#define VAR4MAX		128
+
 void soc_correction(struct stc311x_chip *chip)
 {
 	int var1 = 0, var2, var3, var4, rc;
@@ -950,10 +995,9 @@ void soc_correction(struct stc311x_chip *chip)
 	else
 		var3 = 400;
 
-	var1 = (256 * chip->avg_current_ma * A_VAR3) / var3
+	var1 = ((256 * chip->avg_current_ma * A_VAR3) / var3)
 				/ current_threshold;
-	var1 = (32768 * GAIN) / ((256 + (var1 * var1)) / 256) / 10;
-
+	var1 = ((32768 * GAIN) / ((256 + (var1 * var1)) / 256)) / 10;
 	var1 = (var1 + 1) / 2;
 	if (!var1)
 		var1 = 1;
@@ -963,9 +1007,9 @@ void soc_correction(struct stc311x_chip *chip)
 	var4 = chip->cc_adj - chip->vm_adj;
 
 	if (chip->running_mode == CC_MODE)
-		socopt = chip->hr_soc + (var1 * var4) / 64;
+		socopt = (chip->hr_soc + (var1 * var4)) / 64;
 	else
-		socopt = chip->hr_soc + chip->cc_adj + (var1 * var4) / 64;
+		socopt = (chip->hr_soc + chip->cc_adj + (var1 * var4)) / 64;
 
 	var2 = chip->nropt;
 	if ((chip->avg_current_ma < (current_threshold * -1))
@@ -997,7 +1041,6 @@ void soc_correction(struct stc311x_chip *chip)
 			chip->soc = soc;
 		}
 	}
-
 }
 
 static int compensate_vm(struct stc311x_chip *chip)
@@ -1027,7 +1070,6 @@ static int compensate_vm(struct stc311x_chip *chip)
 	if (!chip->cfg_force_vmode)
 		chip->mode_reg |= FORCE_CC_BIT | GG_RUN_BIT;
 
-	pr_err("MODE_REG write %x\n\n", chip->mode_reg);
 	rc = stc311x_write_raw(chip, MODE_REG, &chip->mode_reg, 1);
 	if (rc) {
 		pr_err("failed to reset GG_RUN rc=%d\n", rc);
@@ -1095,7 +1137,7 @@ static int stc311x_process_fg_task(struct stc311x_chip *chip)
 	}
 
 	if ((chip->ctrl_reg & (BATFAIL_BIT | UVLOD_BIT))) {
-		pr_err("BATFAIL_BIT/UVLOD_BIT detected\n");
+		pr_warn("BATFAIL_BIT/UVLOD_BIT detected\n");
 		/* Reset FG */
 		rc = stc311x_reset(chip);
 		if (rc) {
@@ -1124,7 +1166,7 @@ static int stc311x_process_fg_task(struct stc311x_chip *chip)
 		stc311x_init_ram(chip);
 		chip->ram_info.reg.gg_status = GG_INIT;
 	} else if (!(chip->mode_reg & GG_RUN_BIT)) {
-		pr_debug("FG in standby detected\n");
+		pr_warn("FG in standby detected\n");
 		rc = stc311x_restore_fg(chip);
 		if (rc) {
 			pr_err("failed to restore FG rc=%d\n", rc);
@@ -1157,12 +1199,12 @@ static int stc311x_process_fg_task(struct stc311x_chip *chip)
 
 			chip->ram_info.reg.gg_status = GG_RUNNING;
 		}
+	} else {
+		chip->avg_current_ma = temp_data.avg_current_ma;
 	}
 
-	if (chip->avg_current_ma)
+	if (chip->cfg_enable_soc_correction && chip->avg_current_ma)
 		soc_correction(chip);
-	else
-		pr_err("skipping soc corretcion\n");
 
 	if (chip->cfg_adaptive_capacity_table)
 		compensatesoc(chip);
