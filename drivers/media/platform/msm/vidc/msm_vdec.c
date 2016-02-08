@@ -392,7 +392,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH,
 		.default_value = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE,
 		.menu_skip_mask = 0,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
 	{
@@ -402,7 +402,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = V4L2_MPEG_VIDEO_H264_LEVEL_5_2,
 		.default_value = V4L2_MPEG_VIDEO_H264_LEVEL_1_0,
 		.menu_skip_mask = 0,
-		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
 		.qmenu = NULL,
 	},
 	{
