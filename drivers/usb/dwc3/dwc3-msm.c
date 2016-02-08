@@ -391,6 +391,16 @@ static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
 	return dwc3_msm_is_dev_superspeed(mdwc);
 }
 
+int dwc3_msm_dbm_disable_updxfer(struct dwc3 *dwc, u8 usb_ep)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	dev_dbg(mdwc->dev, "%s\n", __func__);
+	dwc3_dbm_disable_update_xfer(mdwc->dbm, usb_ep);
+
+	return 0;
+}
+
 /**
  * Configure the DBM with the BAM's data fifo.
  * This function is called by the USB BAM Driver
@@ -1609,7 +1619,8 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 
 }
 
-static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
+static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event,
+							unsigned value)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	u32 reg;
@@ -1701,6 +1712,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_RESTART_USB_SESSION received\n");
 		dwc3_restart_usb_work(&mdwc->restart_usb_work);
 		break;
+	case DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER:
+		dwc3_msm_dbm_disable_updxfer(dwc, value);
+		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
 		break;
@@ -1771,7 +1785,8 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 	dwc3_core_init(dwc);
 	/* Re-configure event buffers */
 	dwc3_event_buffers_setup(dwc);
-	dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_POST_INITIALIZATION_EVENT);
+	dwc3_msm_notify_event(dwc,
+				DWC3_CONTROLLER_POST_INITIALIZATION_EVENT, 0);
 }
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
