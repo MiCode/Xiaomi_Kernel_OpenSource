@@ -3443,6 +3443,14 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 
+		inst->fmts[fmt->type] = fmt;
+
+		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to open instance\n");
+			goto exit;
+		}
+
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
 		rc = msm_vidc_check_session_supported(inst);
@@ -3487,6 +3495,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto exit;
 		}
+		inst->fmts[fmt->type] = fmt;
 
 		msm_comm_set_color_format(inst, HAL_BUFFER_INPUT, fmt->fourcc);
 	} else {
@@ -3496,18 +3505,11 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		goto exit;
 	}
 
-	inst->fmts[fmt->type] = fmt;
 	f->fmt.pix_mp.num_planes = fmt->num_planes;
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		struct hal_frame_size frame_sz = {0};
 		struct hal_buffer_requirements *bufreq = NULL;
-
-		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
-		if (rc) {
-			dprintk(VIDC_ERR, "Failed to open instance\n");
-			goto exit;
-		}
 
 		frame_sz.width = inst->prop.width[CAPTURE_PORT];
 		frame_sz.height = inst->prop.height[CAPTURE_PORT];
