@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,7 @@
 #include <linux/of_gpio.h>
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
+#include <linux/reboot.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/socinfo.h>
@@ -1766,6 +1767,32 @@ static struct notifier_block panic_nb = {
 	.notifier_call  = ssr_panic_handler,
 };
 
+static int subsys_reboot(struct device *dev, void *data)
+{
+	struct subsys_device *subsys = to_subsys(dev);
+
+	if (subsys->desc->err_ready_irq)
+		disable_irq(subsys->desc->err_ready_irq);
+	if (subsys->desc->err_fatal_irq)
+		disable_irq(subsys->desc->err_fatal_irq);
+	if (subsys->desc->crash_shutdown)
+		subsys->desc->crash_shutdown(subsys->desc);
+	return 0;
+}
+
+static int ssr_reboot_handler(struct notifier_block *this,
+				unsigned long event, void *ptr)
+{
+	bus_for_each_dev(&subsys_bus_type, NULL, NULL, subsys_reboot);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ssr_reboot_notifier = {
+	ssr_reboot_handler,
+	NULL,
+	0
+};
+
 static int __init subsys_restart_init(void)
 {
 	int ret;
@@ -1791,7 +1818,11 @@ static int __init subsys_restart_init(void)
 			&panic_nb);
 	if (ret)
 		goto err_soc;
-
+	ret = register_reboot_notifier(&ssr_reboot_notifier);
+	if (ret) {
+		pr_err("Failed to register reboot notifier\n");
+		return ret;
+	}
 	return 0;
 
 err_soc:
