@@ -188,6 +188,7 @@ enum adreno_gpurev {
 #define ADRENO_SPTP_PC_CTRL 0
 #define ADRENO_PPD_CTRL     1
 #define ADRENO_LM_CTRL      2
+#define ADRENO_HWCG_CTRL    3
 
 /* number of throttle counters for DCVS adjustment */
 #define ADRENO_GPMU_THROTTLE_COUNTERS 4
