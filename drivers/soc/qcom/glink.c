@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
 #include <asm/arch_timer.h>
 #include <linux/err.h>
 #include <linux/ipc_logging.h>
+#include <linux/kthread.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/module.h>
@@ -36,6 +37,7 @@
 #define GLINK_QOS_DEF_NUM_PRIORITY	1
 #define GLINK_QOS_DEF_MTU		2048
 
+#define GLINK_KTHREAD_PRIO 1
 /**
  * struct glink_qos_priority_bin - Packet Scheduler's priority bucket
  * @max_rate_kBps:	Maximum rate supported by the priority bucket.
@@ -78,8 +80,9 @@ struct glink_qos_priority_bin {
  *				created channel
  * @max_cid:			maximum number of channel identifiers supported
  * @max_iid:			maximum number of intent identifiers supported
- * @tx_work:			work item to process @tx_ready
- * @tx_wq:			workqueue to run @tx_work
+ * @tx_kwork:			work item to process @tx_ready
+ * @tx_wq:				workqueue to run @tx_kwork
+ * @tx_task:		handle to the running kthread
  * @channels:			list of all existing channels on this transport
  * @mtu:			MTU supported by this transport.
  * @token_count:		Number of tokens to be assigned per assignment.
@@ -119,8 +122,9 @@ struct glink_core_xprt_ctx {
 
 	uint32_t max_cid;
 	uint32_t max_iid;
-	struct work_struct tx_work;
-	struct workqueue_struct *tx_wq;
+	struct kthread_work tx_kwork;
+	struct kthread_worker tx_wq;
+	struct task_struct *tx_task;
 
 	size_t mtu;
 	uint32_t token_count;
@@ -340,7 +344,7 @@ static int xprt_single_threaded_tx(struct glink_core_xprt_ctx *xprt_ptr,
 			     struct channel_ctx *ch_ptr,
 			     struct glink_core_tx_pkt *tx_info);
 
-static void tx_work_func(struct work_struct *work);
+static void tx_func(struct kthread_work *work);
 
 static struct channel_ctx *ch_name_to_ch_ctx_create(
 					struct glink_core_xprt_ctx *xprt_ctx,
@@ -3389,7 +3393,8 @@ void glink_xprt_ctx_release(struct rwref_lock *xprt_st_lock)
 	xprt_rm_dbgfs.par_name = "xprt";
 	glink_debugfs_remove_recur(&xprt_rm_dbgfs);
 	GLINK_INFO("%s: xprt debugfs removec\n", __func__);
-	destroy_workqueue(xprt_ctx->tx_wq);
+	kthread_stop(xprt_ctx->tx_task);
+	xprt_ctx->tx_task = NULL;
 	glink_core_deinit_xprt_qos_cfg(xprt_ctx);
 	kfree(xprt_ctx);
 	xprt_ctx = NULL;
@@ -3557,6 +3562,7 @@ static int glink_core_init_xprt_qos_cfg(struct glink_core_xprt_ctx *xprt_ptr,
 					 struct glink_core_transport_cfg *cfg)
 {
 	int i;
+	struct sched_param param = { .sched_priority = GLINK_KTHREAD_PRIO };
 
 	xprt_ptr->mtu = cfg->mtu ? cfg->mtu : GLINK_QOS_DEF_MTU;
 	xprt_ptr->num_priority = cfg->num_flows ? cfg->num_flows :
@@ -3567,6 +3573,8 @@ static int glink_core_init_xprt_qos_cfg(struct glink_core_xprt_ctx *xprt_ptr,
 	xprt_ptr->prio_bin = kzalloc(xprt_ptr->num_priority *
 				sizeof(struct glink_qos_priority_bin),
 				GFP_KERNEL);
+	if (xprt_ptr->num_priority > 1)
+		sched_setscheduler(xprt_ptr->tx_task, SCHED_FIFO, &param);
 	if (!xprt_ptr->prio_bin) {
 		GLINK_ERR("%s: unable to allocate priority bins\n", __func__);
 		return -ENOMEM;
@@ -3683,20 +3691,23 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 	xprt_ptr->local_state = GLINK_XPRT_DOWN;
 	xprt_ptr->remote_neg_completed = false;
 	INIT_LIST_HEAD(&xprt_ptr->channels);
+	spin_lock_init(&xprt_ptr->tx_ready_lock_lhb2);
+	mutex_init(&xprt_ptr->xprt_dbgfs_lock_lhb3);
+	init_kthread_work(&xprt_ptr->tx_kwork, tx_func);
+	init_kthread_worker(&xprt_ptr->tx_wq);
+	xprt_ptr->tx_task = kthread_run(kthread_worker_fn,
+			&xprt_ptr->tx_wq, "%s_%s_glink_tx",
+			xprt_ptr->edge, xprt_ptr->name);
+	if (IS_ERR_OR_NULL(xprt_ptr->tx_task)) {
+		GLINK_ERR("%s: unable to run thread\n", __func__);
+		glink_core_deinit_xprt_qos_cfg(xprt_ptr);
+		kfree(xprt_ptr);
+		return -ENOMEM;
+	}
 	ret = glink_core_init_xprt_qos_cfg(xprt_ptr, cfg);
 	if (ret < 0) {
 		kfree(xprt_ptr);
 		return ret;
-	}
-	spin_lock_init(&xprt_ptr->tx_ready_lock_lhb2);
-	mutex_init(&xprt_ptr->xprt_dbgfs_lock_lhb3);
-	INIT_WORK(&xprt_ptr->tx_work, tx_work_func);
-	xprt_ptr->tx_wq = create_singlethread_workqueue("glink_tx");
-	if (IS_ERR_OR_NULL(xprt_ptr->tx_wq)) {
-		GLINK_ERR("%s: unable to allocate workqueue\n", __func__);
-		glink_core_deinit_xprt_qos_cfg(xprt_ptr);
-		kfree(xprt_ptr);
-		return -ENOMEM;
 	}
 	INIT_DELAYED_WORK(&xprt_ptr->pm_qos_work, glink_pm_qos_cancel_worker);
 	pm_qos_add_request(&xprt_ptr->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
@@ -3789,7 +3800,7 @@ static void glink_core_link_down(struct glink_transport_if *if_ptr)
 	GLINK_DBG_XPRT(xprt_ptr,
 		"%s: Flushing work from tx_wq. Thread: %u\n", __func__,
 		current->pid);
-	flush_workqueue(xprt_ptr->tx_wq);
+	flush_kthread_worker(&xprt_ptr->tx_wq);
 	glink_core_channel_cleanup(xprt_ptr);
 	check_link_notifier_and_notify(xprt_ptr, GLINK_LINK_STATE_DOWN);
 }
@@ -4557,6 +4568,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 {
 	struct channel_ctx *ctx;
 	bool is_ch_fully_closed;
+	struct glink_core_xprt_ctx *xprt_ptr = if_ptr->glink_core_priv;
 
 	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
@@ -4583,7 +4595,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 
 	if (is_ch_fully_closed) {
 		glink_delete_ch_from_list(ctx, true);
-		flush_workqueue(ctx->transport_ptr->tx_wq);
+		flush_kthread_worker(&xprt_ptr->tx_wq);
 	}
 	rwref_put(&ctx->ch_state_lhc0);
 }
@@ -4599,6 +4611,7 @@ static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 {
 	struct channel_ctx *ctx;
 	bool is_ch_fully_closed;
+	struct glink_core_xprt_ctx *xprt_ptr = if_ptr->glink_core_priv;
 
 	ctx = xprt_lcid_to_ch_ctx_get(if_ptr->glink_core_priv, lcid);
 	if (!ctx) {
@@ -4620,7 +4633,7 @@ static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 	is_ch_fully_closed = glink_core_ch_close_ack_common(ctx);
 	if (is_ch_fully_closed) {
 		glink_delete_ch_from_list(ctx, true);
-		flush_workqueue(ctx->transport_ptr->tx_wq);
+		flush_kthread_worker(&xprt_ptr->tx_wq);
 	}
 	rwref_put(&ctx->ch_state_lhc0);
 }
@@ -4933,7 +4946,7 @@ static void xprt_schedule_tx(struct glink_core_xprt_ctx *xprt_ptr,
 	spin_unlock(&ch_ptr->tx_lists_lock_lhc3);
 	spin_unlock_irqrestore(&xprt_ptr->tx_ready_lock_lhb2, flags);
 
-	queue_work(xprt_ptr->tx_wq, &xprt_ptr->tx_work);
+	queue_kthread_work(&xprt_ptr->tx_wq, &xprt_ptr->tx_kwork);
 }
 
 /**
@@ -5115,13 +5128,11 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 }
 
 /**
- * tx_work_func() - Transmit worker
- * @work:	Linux work structure
+ * tx_func()	Transmit Kthread
+ * @work:	Linux kthread work structure
  */
-static void tx_work_func(struct work_struct *work)
+static void tx_func(struct kthread_work *work)
 {
-	struct glink_core_xprt_ctx *xprt_ptr =
-			container_of(work, struct glink_core_xprt_ctx, tx_work);
 	struct channel_ctx *ch_ptr;
 	uint32_t prio;
 	uint32_t tx_ready_head_prio;
@@ -5129,6 +5140,8 @@ static void tx_work_func(struct work_struct *work)
 	struct channel_ctx *tx_ready_head = NULL;
 	bool transmitted_successfully = true;
 	unsigned long flags;
+	struct glink_core_xprt_ctx *xprt_ptr = container_of(work,
+			struct glink_core_xprt_ctx, tx_kwork);
 
 	GLINK_PERF("%s: worker starting\n", __func__);
 
@@ -5214,8 +5227,9 @@ static void tx_work_func(struct work_struct *work)
 
 static void glink_core_tx_resume(struct glink_transport_if *if_ptr)
 {
-	queue_work(if_ptr->glink_core_priv->tx_wq,
-					&if_ptr->glink_core_priv->tx_work);
+	struct glink_core_xprt_ctx *xprt_ptr = if_ptr->glink_core_priv;
+
+	queue_kthread_work(&xprt_ptr->tx_wq, &xprt_ptr->tx_kwork);
 }
 
 /**
