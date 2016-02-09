@@ -239,17 +239,17 @@ int lpm_get_latency(struct latency_level *level, uint32_t *latency)
 	struct lpm_cluster *cluster;
 	uint32_t val;
 
+	if (!lpm_root_node) {
+		pr_err("%s: lpm_probe not completed\n", __func__);
+		return -EAGAIN;
+	}
+
 	if ((level->affinity_level < 0)
 		|| (level->affinity_level > lpm_root_node->aff_level)
 		|| (level->reset_level < LPM_RESET_LVL_RET)
 		|| (level->reset_level > LPM_RESET_LVL_PC)
 		|| !latency)
 		return -EINVAL;
-
-	if (!lpm_root_node) {
-		pr_err("%s: lpm_probe not completed\n", __func__);
-		return -EAGAIN;
-	}
 
 	cluster = cluster_aff_match(lpm_root_node, level->affinity_level);
 	if (!cluster) {
