@@ -16,6 +16,7 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ctrls.h>
+#include <media/videobuf2-v4l2.h>
 #include <linux/msm-bus.h>
 #include <media/msm_fd.h>
 #include <linux/dma-buf.h>
@@ -115,7 +116,7 @@ struct msm_fd_buf_handle {
  * @list: Buffer is part of FD device processing queue
  */
 struct msm_fd_buffer {
-	struct vb2_buffer vb;
+	struct vb2_v4l2_buffer vb_v4l2_buf;
 	atomic_t active;
 	struct completion completion;
 	struct msm_fd_format format;

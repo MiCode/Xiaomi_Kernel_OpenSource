@@ -427,9 +427,10 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 					goto vreg_set_voltage_fail;
 				}
 				if (curr_vreg->op_mode >= 0) {
-					rc = regulator_set_optimum_mode(
+					rc = regulator_set_load(
 						reg_ptr[j],
 						curr_vreg->op_mode);
+					rc = 0;
 					if (rc < 0) {
 						pr_err(
 						"%s:%s set optimum mode fail\n",
@@ -452,7 +453,7 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 			if (reg_ptr[j]) {
 				if (regulator_count_voltages(reg_ptr[j]) > 0) {
 					if (curr_vreg->op_mode >= 0) {
-						regulator_set_optimum_mode(
+						regulator_set_load(
 							reg_ptr[j], 0);
 					}
 					regulator_set_voltage(
@@ -468,7 +469,7 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 
 vreg_unconfig:
 if (regulator_count_voltages(reg_ptr[j]) > 0)
-	regulator_set_optimum_mode(reg_ptr[j], 0);
+	regulator_set_load(reg_ptr[j], 0);
 
 vreg_set_opt_mode_fail:
 if (regulator_count_voltages(reg_ptr[j]) > 0)
@@ -575,7 +576,6 @@ void msm_camera_bus_scale_cfg(uint32_t bus_perf_client,
 		pr_err("%s: Bus Client NOT Registered!!!\n", __func__);
 		return;
 	}
-
 	switch (perf_setting) {
 	case S_EXIT:
 		rc = msm_bus_scale_client_update_request(bus_perf_client, 1);
@@ -671,7 +671,7 @@ int msm_camera_config_single_vreg(struct device *dev,
 				goto vreg_set_voltage_fail;
 			}
 			if (cam_vreg->op_mode >= 0) {
-				rc = regulator_set_optimum_mode(*reg_ptr,
+				rc = regulator_set_load(*reg_ptr,
 					cam_vreg->op_mode);
 				if (rc < 0) {
 					pr_err(
@@ -694,7 +694,7 @@ int msm_camera_config_single_vreg(struct device *dev,
 			regulator_disable(*reg_ptr);
 			if (regulator_count_voltages(*reg_ptr) > 0) {
 				if (cam_vreg->op_mode >= 0)
-					regulator_set_optimum_mode(*reg_ptr, 0);
+					regulator_set_load(*reg_ptr, 0);
 				regulator_set_voltage(
 					*reg_ptr, 0, cam_vreg->max_voltage);
 			}
@@ -708,7 +708,7 @@ int msm_camera_config_single_vreg(struct device *dev,
 
 vreg_unconfig:
 if (regulator_count_voltages(*reg_ptr) > 0)
-	regulator_set_optimum_mode(*reg_ptr, 0);
+	regulator_set_load(*reg_ptr, 0);
 
 vreg_set_opt_mode_fail:
 if (regulator_count_voltages(*reg_ptr) > 0)

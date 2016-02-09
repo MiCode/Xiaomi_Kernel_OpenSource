@@ -1378,31 +1378,12 @@ static int msm_sensor_power(struct v4l2_subdev *sd, int on)
 	mutex_unlock(s_ctrl->msm_sensor_mutex);
 	return rc;
 }
-
-static int msm_sensor_v4l2_enum_fmt(struct v4l2_subdev *sd,
-	unsigned int index, enum v4l2_mbus_pixelcode *code)
-{
-	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
-
-	if ((unsigned int)index >= s_ctrl->sensor_v4l2_subdev_info_size)
-		return -EINVAL;
-
-	*code = s_ctrl->sensor_v4l2_subdev_info[index].code;
-	return 0;
-}
-
 static struct v4l2_subdev_core_ops msm_sensor_subdev_core_ops = {
 	.ioctl = msm_sensor_subdev_ioctl,
 	.s_power = msm_sensor_power,
 };
-
-static struct v4l2_subdev_video_ops msm_sensor_subdev_video_ops = {
-	.enum_mbus_fmt = msm_sensor_v4l2_enum_fmt,
-};
-
 static struct v4l2_subdev_ops msm_sensor_subdev_ops = {
 	.core = &msm_sensor_subdev_core_ops,
-	.video  = &msm_sensor_subdev_video_ops,
 };
 
 static struct msm_sensor_fn_t msm_sensor_func_tbl = {

@@ -277,11 +277,12 @@ static int msm_jpegdma_update_hw_config(struct jpegdma_ctx *ctx)
  * @alloc_ctxs: Array of allocated contexts for each plane.
  */
 static int msm_jpegdma_queue_setup(struct vb2_queue *q,
-	const struct v4l2_format *fmt,
+	const void *parg,
 	unsigned int *num_buffers, unsigned int *num_planes,
 	unsigned int sizes[], void *alloc_ctxs[])
 {
 	struct jpegdma_ctx *ctx = vb2_get_drv_priv(q);
+	struct v4l2_format *fmt = (struct v4l2_format *)parg;
 
 	if (NULL == fmt) {
 		switch (q->type) {
@@ -311,8 +312,9 @@ static int msm_jpegdma_queue_setup(struct vb2_queue *q,
 static void msm_jpegdma_buf_queue(struct vb2_buffer *vb)
 {
 	struct jpegdma_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+	struct vb2_v4l2_buffer *vb2_v4l2_buf = to_vb2_v4l2_buffer(vb);
 
-	v4l2_m2m_buf_queue(ctx->m2m_ctx, vb);
+	v4l2_m2m_buf_queue(ctx->m2m_ctx, vb2_v4l2_buf);
 
 	return;
 }
@@ -381,7 +383,8 @@ static struct vb2_ops msm_jpegdma_vb2_q_ops = {
  * @write: True if buffer will be used for writing the data.
  */
 static void *msm_jpegdma_get_userptr(void *alloc_ctx,
-	unsigned long vaddr, unsigned long size, int write)
+	unsigned long vaddr, unsigned long size,
+	enum dma_data_direction dma_dir)
 {
 	struct msm_jpegdma_device *dma = alloc_ctx;
 	struct msm_jpegdma_buf_handle *buf;
@@ -438,7 +441,7 @@ static int msm_jpegdma_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->drv_priv = ctx;
 	src_vq->mem_ops = &msm_jpegdma_vb2_mem_ops;
 	src_vq->ops = &msm_jpegdma_vb2_q_ops;
-	src_vq->buf_struct_size = sizeof(struct vb2_buffer);
+	src_vq->buf_struct_size = sizeof(struct vb2_v4l2_buffer);
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	ret = vb2_queue_init(src_vq);
@@ -452,7 +455,7 @@ static int msm_jpegdma_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->drv_priv = ctx;
 	dst_vq->mem_ops = &msm_jpegdma_vb2_mem_ops;
 	dst_vq->ops = &msm_jpegdma_vb2_q_ops;
-	dst_vq->buf_struct_size = sizeof(struct vb2_buffer);
+	dst_vq->buf_struct_size = sizeof(struct vb2_v4l2_buffer);
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 
 	ret = vb2_queue_init(dst_vq);
@@ -1042,17 +1045,17 @@ static const struct v4l2_ioctl_ops fd_ioctl_ops = {
  * @dst_buf: Pointer to Vb2 destination buffer.
  */
 static void msm_jpegdma_process_buffers(struct jpegdma_ctx *ctx,
-	struct vb2_buffer *src_buf, struct vb2_buffer *dst_buf)
+	struct vb2_v4l2_buffer *src_buf, struct vb2_v4l2_buffer *dst_buf)
 {
 	struct msm_jpegdma_buf_handle *buf_handle;
 	struct msm_jpegdma_addr addr;
 	int plane_idx;
 	int config_idx;
 
-	buf_handle = dst_buf->planes[0].mem_priv;
+	buf_handle = dst_buf->vb2_buf.planes[0].mem_priv;
 	addr.out_addr = buf_handle->addr;
 
-	buf_handle = src_buf->planes[0].mem_priv;
+	buf_handle = src_buf->vb2_buf.planes[0].mem_priv;
 	addr.in_addr = buf_handle->addr;
 
 	plane_idx = ctx->plane_idx;
@@ -1068,8 +1071,8 @@ static void msm_jpegdma_process_buffers(struct jpegdma_ctx *ctx,
  */
 static void msm_jpegdma_device_run(void *priv)
 {
-	struct vb2_buffer *src_buf;
-	struct vb2_buffer *dst_buf;
+	struct vb2_v4l2_buffer *src_buf;
+	struct vb2_v4l2_buffer *dst_buf;
 	struct jpegdma_ctx *ctx = priv;
 
 	dev_dbg(ctx->jdma_device->dev, "Jpeg v4l2 dma device run E\n");
@@ -1130,8 +1133,8 @@ static struct v4l2_m2m_ops msm_jpegdma_m2m_ops = {
  */
 void msm_jpegdma_isr_processing_done(struct msm_jpegdma_device *dma)
 {
-	struct vb2_buffer *src_buf;
-	struct vb2_buffer *dst_buf;
+	struct vb2_v4l2_buffer *src_buf;
+	struct vb2_v4l2_buffer *dst_buf;
 	struct jpegdma_ctx *ctx;
 
 	mutex_lock(&dma->lock);

@@ -26,7 +26,7 @@
 
 struct msm_get_bufs {
 	struct list_head entry;
-	struct vb2_buffer *vb2_buf;
+	struct vb2_v4l2_buffer *vb2_v4l2_buf;
 	uint32_t session_id;
 	uint32_t stream_id;
 	uint32_t index;

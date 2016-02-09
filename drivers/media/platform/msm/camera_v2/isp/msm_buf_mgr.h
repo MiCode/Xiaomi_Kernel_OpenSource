@@ -104,7 +104,7 @@ struct msm_isp_buffer {
 	struct msm_isp_buffer_debug_t buf_debug;
 
 	/*Vb2 buffer data*/
-	struct vb2_buffer *vb2_buf;
+	struct vb2_v4l2_buffer *vb2_v4l2_buf;
 };
 
 struct msm_isp_bufq {
