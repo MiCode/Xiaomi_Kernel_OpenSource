@@ -1,0 +1,106 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msmtitanium.dtsi"
+#include "msmtitanium-cdp.dtsi"
+#include "msmtitanium-audio-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSMTITANIUM CDP";
+	compatible = "qcom,msmtitanium-cdp", "qcom,msmtitanium", "qcom,cdp";
+	qcom,board-id= <1 1>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_truly_wuxga_vid>;
+	qcom,platform-enable-gpio = <&tlmm 12 0>;
+};
+
+
+&pmtitanium_pwm {
+	status = "ok";
+};
+
+&pmx_mdss {
+	mdss_dsi_active: mdss_dsi_active {
+		mux {
+			pins = "gpio12", "gpio61", "gpio59";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12", "gpio61", "gpio59";
+			drive-strength = <8>; /* 8 mA */
+			bias-disable = <0>; /* no pull */
+			output-high;
+		};
+	};
+
+	mdss_dsi_suspend: mdss_dsi_suspend {
+		mux {
+			pins = "gpio12", "gpio61", "gpio59";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12", "gpio61", "gpio59";
+			drive-strength = <2>; /* 2 mA */
+			bias-pull-down; /* pull down */
+		};
+	};
+};
+
+&hsuart_active {
+		mux {
+			pins = "gpio13", "gpio14", "gpio15";
+			function = "blsp_uart4";
+		};
+
+		config {
+			pins = "gpio13", "gpio14", "gpio15";
+			drive-strength = <16>;
+			bias-disable;
+		};
+};
+
+&hsuart_sleep {
+	      mux {
+		      pins = "gpio13", "gpio14", "gpio15";
+		      function = "gpio";
+	      };
+
+	      config {
+		      pins = "gpio13", "gpio14", "gpio15";
+		      drive-strength = <2>;
+		      bias-disable;
+	      };
+};
+
+&pmtitanium_mpps {
+	mpp@a300 {
+		/* MPP4 - PWM config */
+		qcom,mode = <1>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		qcom,vin-sel = <0>;
+	};
+};
+
+&pmtitanium_vadc {
+	chan@13 {
+		status = "disabled";
+	};
+};
