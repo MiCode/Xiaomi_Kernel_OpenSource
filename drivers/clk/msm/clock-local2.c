@@ -1023,18 +1023,20 @@ unsigned long measure_get_rate(struct clk *c)
 	u64 raw_count_short, raw_count_full;
 	unsigned ret;
 	u32 sample_ticks = 0x10000;
-	u32 multiplier = 0x1;
+	u32 multiplier = to_mux_clk(c)->post_div + 1;
 	struct measure_clk_data *data = to_mux_clk(c)->priv;
 
 	regval = readl_relaxed(MUX_REG(to_mux_clk(c)));
-	/* clear post divider bits */
+	/* clear and set post divider bits */
 	regval &= ~BM(15, 12);
+	regval |= BVAL(15, 12, to_mux_clk(c)->post_div);
 	writel_relaxed(regval, MUX_REG(to_mux_clk(c)));
 
 	ret = clk_prepare_enable(data->cxo);
 	if (ret) {
 		pr_warn("CXO clock failed to enable. Can't measure\n");
-		return 0;
+		ret = 0;
+		goto fail;
 	}
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
@@ -1075,6 +1077,12 @@ unsigned long measure_get_rate(struct clk *c)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	clk_disable_unprepare(data->cxo);
+
+fail:
+	regval = readl_relaxed(MUX_REG(to_mux_clk(c)));
+	/* clear post divider bits */
+	regval &= ~BM(15, 12);
+	writel_relaxed(regval, MUX_REG(to_mux_clk(c)));
 
 	return ret;
 }
