@@ -625,9 +625,7 @@ static int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	}
 
 	pix_cfg = &input_cfg->d.pix_cfg;
-	if ((pix_cfg->hvx_cmd > HVX_DISABLE) &&
-		(pix_cfg->hvx_cmd <= HVX_ROUND_TRIP))
-		vfe_dev->hvx_cmd = pix_cfg->hvx_cmd;
+	vfe_dev->hvx_cmd = pix_cfg->hvx_cmd;
 	vfe_dev->is_split = input_cfg->d.pix_cfg.is_split;
 
 	vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock =

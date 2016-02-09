@@ -1384,6 +1384,8 @@ static void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 		if ((vfe_dev->hvx_cmd > HVX_DISABLE) &&
 			(vfe_dev->hvx_cmd <= HVX_ROUND_TRIP))
 			msm_vfe47_configure_hvx(vfe_dev, 1);
+		else
+			msm_vfe47_configure_hvx(vfe_dev, 0);
 
 		bus_en =
 			((vfe_dev->axi_data.
