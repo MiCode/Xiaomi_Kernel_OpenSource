@@ -208,6 +208,13 @@
 	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
 };
 
+&dsi_truly_wuxga_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pmtitanium_mpps 4 0>;
+};
+
 &blsp1_uart0 {
 	status = "ok";
 	pinctrl-names = "default";
