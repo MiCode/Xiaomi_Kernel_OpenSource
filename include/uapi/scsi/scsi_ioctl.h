@@ -1,6 +1,8 @@
 #ifndef _SCSI_IOCTL_H
 #define _SCSI_IOCTL_H 
 
+#include <linux/types.h>
+
 #define SCSI_IOCTL_SEND_COMMAND 1
 #define SCSI_IOCTL_TEST_UNIT_READY 2
 #define SCSI_IOCTL_BENCHMARK_COMMAND 3
