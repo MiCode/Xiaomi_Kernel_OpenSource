@@ -52,6 +52,16 @@ static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
 static u32 mdss_mdp_get_vbp_factor_max(struct mdss_mdp_ctl *ctl);
 
+static inline u32 __mdss_mdp_get_wb_mixer(struct mdss_mdp_mixer *mixer)
+{
+	/* Return the dedicated WB mixer. */
+	if (test_bit(MDSS_CAPS_MIXER_1_FOR_WB,
+				mixer->ctl->mdata->mdss_caps_map))
+		return MDSS_MDP_INTF_LAYERMIXER1;
+	else
+		return MDSS_MDP_INTF_LAYERMIXER3;
+}
+
 static void __mdss_mdp_reset_mixercfg(struct mdss_mdp_ctl *ctl)
 {
 	u32 off;
@@ -74,28 +84,32 @@ static void __mdss_mdp_reset_mixercfg(struct mdss_mdp_ctl *ctl)
 
 static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer)
 {
+	u32 wb_mixer_num = 0;
+
 	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 		if (mixer->num == MDSS_MDP_INTF_LAYERMIXER3)
 			return MDSS_MDP_CTL_X_LAYER_5;
 		else
 			return MDSS_MDP_REG_CTL_LAYER(mixer->num);
 	} else {
-		return MDSS_MDP_REG_CTL_LAYER(mixer->num +
-				MDSS_MDP_INTF_LAYERMIXER3);
+		wb_mixer_num = __mdss_mdp_get_wb_mixer(mixer);
+		return MDSS_MDP_REG_CTL_LAYER(mixer->num + wb_mixer_num);
 	}
 }
 
 static inline int __mdss_mdp_ctl_get_mixer_extn_off(
 	struct mdss_mdp_mixer *mixer)
 {
+	u32 wb_mixer_num = 0;
+
 	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 		if (mixer->num == MDSS_MDP_INTF_LAYERMIXER3)
 			return MDSS_MDP_REG_CTL_LAYER_EXTN(5);
 		else
 			return MDSS_MDP_REG_CTL_LAYER_EXTN(mixer->num);
 	} else {
-		return MDSS_MDP_REG_CTL_LAYER_EXTN(mixer->num +
-				MDSS_MDP_INTF_LAYERMIXER3);
+		wb_mixer_num = __mdss_mdp_get_wb_mixer(mixer);
+		return MDSS_MDP_REG_CTL_LAYER_EXTN(wb_mixer_num);
 	}
 }
 
@@ -2220,6 +2234,8 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	case MDSS_MDP_MIXER_TYPE_WRITEBACK:
 		mixer_pool = ctl->mdata->mixer_wb;
 		nmixers = nmixers_wb;
+		if ((ctl->mdata->wfd_mode == MDSS_MDP_WFD_DEDICATED) && rotator)
+			mixer_pool = mixer_pool + nmixers;
 		break;
 
 	default:
@@ -2257,14 +2273,16 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	return mixer;
 }
 
-struct mdss_mdp_mixer *mdss_mdp_mixer_assign(u32 id, bool wb)
+struct mdss_mdp_mixer *mdss_mdp_mixer_assign(u32 id, bool wb, bool rot)
 {
 	struct mdss_mdp_mixer *mixer = NULL;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	mutex_lock(&mdss_mdp_ctl_lock);
 
-	if (wb && id < mdata->nmixers_wb)
+	if (rot && (mdata->wfd_mode == MDSS_MDP_WFD_DEDICATED))
+		mixer = mdata->mixer_wb + mdata->nmixers_wb;
+	else if (wb && id < mdata->nmixers_wb)
 		mixer = mdata->mixer_wb + id;
 	else if (!wb && id < mdata->nmixers_intf)
 		mixer = mdata->mixer_intf + id;
@@ -3021,6 +3039,11 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 	}
 
 	fbc = &pdata->fbc;
+
+	if (!fbc->enabled) {
+		pr_debug("FBC not enabled\n");
+		return -EINVAL;
+	}
 
 	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER0 ||
 			mixer->num == MDSS_MDP_INTF_LAYERMIXER1) {
@@ -3780,16 +3803,22 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 
 	if (ctl->ops.stop_fnc) {
 		ret = ctl->ops.stop_fnc(ctl, power_state);
-		mdss_mdp_ctl_fbc_enable(0, ctl->mixer_left,
-				&ctl->panel_data->panel_info);
+		if (ctl->panel_data->panel_info.compression_mode ==
+				COMPRESSION_FBC) {
+			mdss_mdp_ctl_fbc_enable(0, ctl->mixer_left,
+					&ctl->panel_data->panel_info);
+		}
 	} else {
 		pr_warn("no stop func for ctl=%d\n", ctl->num);
 	}
 
 	if (sctl && sctl->ops.stop_fnc) {
 		ret = sctl->ops.stop_fnc(sctl, power_state);
-		mdss_mdp_ctl_fbc_enable(0, sctl->mixer_left,
-				&sctl->panel_data->panel_info);
+		if (sctl->panel_data->panel_info.compression_mode ==
+				COMPRESSION_FBC) {
+			mdss_mdp_ctl_fbc_enable(0, sctl->mixer_left,
+					&sctl->panel_data->panel_info);
+		}
 	}
 	if (ret) {
 		pr_warn("error powering off intf ctl=%d\n", ctl->num);
@@ -4299,12 +4328,17 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		mixercfg |= MDSS_MDP_LM_CURSOR_OUT;
 
 update_mixer:
-	if (mixer_hw->num == MDSS_MDP_INTF_LAYERMIXER3)
+	if (mixer_hw->num == MDSS_MDP_INTF_LAYERMIXER3) {
 		ctl_hw->flush_bits |= BIT(20);
-	else if (mixer_hw->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
-		ctl_hw->flush_bits |= BIT(9) << mixer_hw->num;
-	else
+	} else if (mixer_hw->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) {
+		if (test_bit(MDSS_CAPS_MIXER_1_FOR_WB,
+			 mdata->mdss_caps_map))
+			ctl_hw->flush_bits |= BIT(7) << mixer_hw->num;
+		else
+			ctl_hw->flush_bits |= BIT(9) << mixer_hw->num;
+	} else {
 		ctl_hw->flush_bits |= BIT(6) << mixer_hw->num;
+	}
 
 	/* Read GC enable/disable status on LM */
 	mixer_op_mode |=
