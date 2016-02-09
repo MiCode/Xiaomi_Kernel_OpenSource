@@ -1510,6 +1510,11 @@
 			qcom,dump-id = <0x87>;
 		};
 	};
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		status = "ok";
+	};
 };
 
 &gdsc_mmss {
