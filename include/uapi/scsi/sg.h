@@ -2,6 +2,7 @@
 #define _SCSI_GENERIC_H
 
 #include <linux/compiler.h>
+#include <linux/param.h>
 
 /*
  * History:
