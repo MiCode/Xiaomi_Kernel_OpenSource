@@ -156,6 +156,13 @@
 		poll-delay-ms = <5000>;
 	};
 
+	qcom,msm-gladiator@b1c0000 {
+		compatible = "qcom,msm-gladiator";
+		reg = <0x0b1c0000 0x4000>;
+		reg-names = "gladiator_base";
+		interrupts = <0 22 0>;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <1 2 0xff08>,
@@ -483,6 +490,7 @@
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd-dig-supply = <&pmtitanium_s2_floor_level>;
+		vdd-gfx-supply = <&gfx_vreg_corner>;
 
 		qcom,vdd-dig-rstr {
 			qcom,vdd-rstr-reg = "vdd-dig";
@@ -490,6 +498,12 @@
 					RPM_SMD_REGULATOR_LEVEL_BINNING
 					RPM_SMD_REGULATOR_LEVEL_BINNING>;
 			qcom,min-level = <RPM_SMD_REGULATOR_LEVEL_NONE>;
+		};
+
+		qcom,vdd-gfx-rstr {
+			qcom,vdd-rstr-reg = "vdd-gfx";
+			qcom,levels = <5 7 7>; /* Nominal, Turbo, Turbo */
+			qcom,min-level = <1>; /* No Request */
 		};
 
 		msm_thermal_freq: qcom,vdd-apps-rstr {

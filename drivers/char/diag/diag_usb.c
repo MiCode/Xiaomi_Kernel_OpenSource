@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -323,10 +323,13 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	len = entry->len;
 	kfree(entry);
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
-	spin_unlock_irqrestore(&ch->write_lock, flags);
 
 	if (ch->ops && ch->ops->write_done)
 		ch->ops->write_done(buf, len, ctxt, DIAG_USB_MODE);
+	buf = NULL;
+	len = 0;
+	ctxt = 0;
+	spin_unlock_irqrestore(&ch->write_lock, flags);
 	diagmem_free(driver, req, ch->mempool);
 }
 

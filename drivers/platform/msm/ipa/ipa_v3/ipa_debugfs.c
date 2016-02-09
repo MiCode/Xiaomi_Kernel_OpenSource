@@ -2010,6 +2010,13 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	file = debugfs_create_u32("enable_low_prio_print", read_write_mode,
+		dent, &ipa3_ctx->enable_low_prio_print);
+	if (!file) {
+		IPAERR("could not create enable_low_prio_print file\n");
+		goto fail;
+	}
+
 	return;
 
 fail:

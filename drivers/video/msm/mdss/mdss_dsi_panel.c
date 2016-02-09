@@ -132,7 +132,7 @@ static struct dsi_cmd_desc dcs_read_cmd = {
 	dcs_cmd
 };
 
-u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
+int mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len)
 {
 	struct dcs_cmd_req cmdreq;
@@ -153,12 +153,11 @@ u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 	cmdreq.rlen = len;
 	cmdreq.rbuf = rbuf;
 	cmdreq.cb = fxn; /* call back */
-	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 	/*
 	 * blocked here, until call back called
 	 */
 
-	return 0;
+	return mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
 static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
@@ -1670,10 +1669,10 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 					of_property_read_bool(np,
 					"qcom,partial-update-roi-merge");
 		}
-
-		pinfo->dcs_cmd_by_left = of_property_read_bool(np,
-				"qcom,dcs-cmd-by-left");
 	}
+
+	pinfo->dcs_cmd_by_left = of_property_read_bool(np,
+		"qcom,dcs-cmd-by-left");
 
 	pinfo->ulps_feature_enabled = of_property_read_bool(np,
 		"qcom,ulps-enabled");
@@ -1957,6 +1956,7 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 	const char *data;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
 	struct mdss_panel_info *pinfo;
+	bool phy_timings_present;
 
 	pinfo = &panel_data->panel_info;
 
@@ -2024,12 +2024,13 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 
 	data = of_get_property(np, "qcom,mdss-dsi-panel-timings", &len);
 	if ((!data) || (len != 12)) {
-		pr_err("%s:%d, Unable to read Phy timing settings",
+		pr_debug("%s:%d, Unable to read Phy timing settings",
 		       __func__, __LINE__);
-		return -EINVAL;
+	} else {
+		for (i = 0; i < len; i++)
+			pt->phy_timing[i] = data[i];
+		phy_timings_present = true;
 	}
-	for (i = 0; i < len; i++)
-		pt->phy_timing[i] = data[i];
 
 	data = of_get_property(np, "qcom,mdss-dsi-panel-timings-8996", &len);
 	if ((!data) || (len != 40)) {
@@ -2038,6 +2039,11 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 	} else {
 		for (i = 0; i < len; i++)
 			pt->phy_timing_8996[i] = data[i];
+		phy_timings_present = true;
+	}
+	if (!phy_timings_present) {
+		pr_err("%s: phy timing settings not present\n", __func__);
+		return -EINVAL;
 	}
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-t-clk-pre", &tmp);

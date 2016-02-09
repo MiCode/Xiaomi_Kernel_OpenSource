@@ -1415,6 +1415,86 @@ static void adv7533_video_setup(struct adv7533 *pdata,
 	adv7533_write(pdata, I2C_ADDR_CEC_DSI, 0x37, ((vbp & 0xF) << 4));
 }
 
+static int adv7533_config_vreg(struct adv7533 *pdata, int enable)
+{
+	int rc = 0;
+	struct dss_module_power *power_data = NULL;
+
+	if (!pdata) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	power_data = &pdata->power_data;
+	if (!power_data || !power_data->num_vreg) {
+		pr_warn("%s: Error: invalid power data\n", __func__);
+		return 0;
+	}
+
+	if (enable) {
+		rc = msm_dss_config_vreg(&pdata->i2c_client->dev,
+					power_data->vreg_config,
+					power_data->num_vreg, 1);
+		if (rc) {
+			pr_err("%s: Failed to config vreg. Err=%d\n",
+				__func__, rc);
+			goto exit;
+		}
+	} else {
+		rc = msm_dss_config_vreg(&pdata->i2c_client->dev,
+					power_data->vreg_config,
+					power_data->num_vreg, 0);
+		if (rc) {
+			pr_err("%s: Failed to deconfig vreg. Err=%d\n",
+				__func__, rc);
+			goto exit;
+		}
+	}
+exit:
+	return rc;
+
+}
+
+static int adv7533_enable_vreg(struct adv7533 *pdata, int enable)
+{
+	int rc = 0;
+	struct dss_module_power *power_data = NULL;
+
+	if (!pdata) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	power_data = &pdata->power_data;
+	if (!power_data || !power_data->num_vreg) {
+		pr_warn("%s: Error: invalid power data\n", __func__);
+		return 0;
+	}
+
+	if (enable) {
+		rc = msm_dss_enable_vreg(power_data->vreg_config,
+					power_data->num_vreg, 1);
+		if (rc) {
+			pr_err("%s: Failed to enable vreg. Err=%d\n",
+				__func__, rc);
+			goto exit;
+		}
+	} else {
+		rc = msm_dss_enable_vreg(power_data->vreg_config,
+					power_data->num_vreg, 0);
+		if (rc) {
+			pr_err("%s: Failed to disable vreg. Err=%d\n",
+				__func__, rc);
+			goto exit;
+		}
+	}
+exit:
+	return rc;
+
+}
+
 static int adv7533_video_on(void *client, bool on,
 	struct msm_dba_video_cfg *cfg, u32 flags)
 {
@@ -1825,46 +1905,6 @@ static void adv7533_unregister_dba(struct adv7533 *pdata)
 	msm_dba_remove_probed_device(&pdata->dev_info);
 }
 
-static int adv7533_config_vreg(struct adv7533 *pdata, int enable)
-{
-	int rc = 0;
-	struct dss_module_power *power_data = NULL;
-
-	if (!pdata) {
-		pr_err("invalid input\n");
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	power_data = &pdata->power_data;
-	if (!power_data || !power_data->num_vreg) {
-		pr_warn("%s: Error: invalid power data\n", __func__);
-		return 0;
-	}
-
-	if (enable) {
-		rc = msm_dss_config_vreg(&pdata->i2c_client->dev,
-					power_data->vreg_config,
-					power_data->num_vreg, 1);
-		if (rc) {
-			pr_err("%s: Failed to config vreg. Err=%d\n",
-				__func__, rc);
-			goto exit;
-		}
-	} else {
-		rc = msm_dss_config_vreg(&pdata->i2c_client->dev,
-					power_data->vreg_config,
-					power_data->num_vreg, 0);
-		if (rc) {
-			pr_err("%s: Failed to config vreg. Err=%d\n",
-				__func__, rc);
-			goto exit;
-		}
-	}
-exit:
-	return rc;
-
-}
 
 static int adv7533_probe(struct i2c_client *client,
 	 const struct i2c_device_id *id)
@@ -1895,6 +1935,7 @@ static int adv7533_probe(struct i2c_client *client,
 		pr_err("%s: Failed to config vreg\n", __func__);
 		return -EPROBE_DEFER;
 	}
+	adv7533_enable_vreg(pdata, 1);
 
 	mutex_init(&pdata->ops_mutex);
 
@@ -1982,6 +2023,7 @@ err_gpio_cfg:
 	adv7533_unregister_dba(pdata);
 err_dba_reg:
 err_i2c_prog:
+	adv7533_enable_vreg(pdata, 0);
 	adv7533_config_vreg(pdata, 0);
 err_dt_parse:
 	devm_kfree(&client->dev, pdata);
@@ -2009,6 +2051,7 @@ static int adv7533_remove(struct i2c_client *client)
 	disable_irq(pdata->irq);
 	free_irq(pdata->irq, pdata);
 
+	adv7533_config_vreg(pdata, 0);
 	ret = adv7533_gpio_configure(pdata, false);
 
 	mutex_destroy(&pdata->ops_mutex);

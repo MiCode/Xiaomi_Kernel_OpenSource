@@ -121,6 +121,9 @@ struct gsi_function_bind_info {
 	struct usb_descriptor_header **fs_desc_hdr;
 	struct usb_descriptor_header **hs_desc_hdr;
 	struct usb_descriptor_header **ss_desc_hdr;
+	const char *in_epname;
+	const char *out_epname;
+
 	u32 in_req_buf_len;
 	u32 in_req_num_buf;
 	u32 out_req_buf_len;

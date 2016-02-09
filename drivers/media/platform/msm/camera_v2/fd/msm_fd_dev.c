@@ -26,7 +26,6 @@
 #include "msm_fd_dev.h"
 #include "msm_fd_hw.h"
 #include "msm_fd_regs.h"
-#include "cam_hw_ops.h"
 
 #define MSM_FD_DRV_NAME "msm_fd"
 
@@ -1212,6 +1211,7 @@ static int fd_probe(struct platform_device *pdev)
 	spin_lock_init(&fd->slock);
 	init_completion(&fd->hw_halt_completion);
 	INIT_LIST_HEAD(&fd->buf_queue);
+	fd->pdev = pdev;
 	fd->dev = &pdev->dev;
 
 	/* Get resources */
@@ -1222,18 +1222,20 @@ static int fd_probe(struct platform_device *pdev)
 		goto error_mem_resources;
 	}
 
-	ret = msm_fd_hw_get_regulators(fd);
+	ret = msm_camera_get_regulator_info(pdev, &fd->vdd,
+		&fd->num_reg);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Fail to get regulators\n");
 		goto error_get_regulator;
 	}
-	ret = msm_fd_hw_get_clocks(fd);
+	ret = msm_camera_get_clk_info_and_rates(pdev, &fd->clk_info,
+		&fd->clk, &fd->clk_rates, &fd->clk_rates_num, &fd->clk_num);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Fail to get clocks\n");
 		goto error_get_clocks;
 	}
 
-	ret = msm_fd_hw_get_bus(fd);
+	ret = msm_camera_register_bus_client(pdev, CAM_BUS_CLIENT_FD);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Fail to get bus\n");
 		goto error_get_bus;
@@ -1289,11 +1291,12 @@ error_video_register:
 error_v4l2_register:
 	msm_fd_hw_release_irq(fd);
 error_hw_get_request_irq:
-	msm_fd_hw_put_bus(fd);
+	msm_camera_unregister_bus_client(CAM_BUS_CLIENT_FD);
 error_get_bus:
-	msm_fd_hw_put_clocks(fd);
+	msm_camera_put_clk_info_and_rates(pdev, &fd->clk_info,
+		&fd->clk, &fd->clk_rates, fd->clk_rates_num, fd->clk_num);
 error_get_clocks:
-	msm_fd_hw_put_regulators(fd);
+	msm_camera_put_regulators(pdev, &fd->vdd, fd->num_reg);
 error_get_regulator:
 	msm_fd_hw_release_mem_resources(fd);
 error_mem_resources:
@@ -1317,9 +1320,10 @@ static int fd_device_remove(struct platform_device *pdev)
 	video_unregister_device(&fd->video);
 	v4l2_device_unregister(&fd->v4l2_dev);
 	msm_fd_hw_release_irq(fd);
-	msm_fd_hw_put_bus(fd);
-	msm_fd_hw_put_clocks(fd);
-	msm_fd_hw_put_regulators(fd);
+	msm_camera_unregister_bus_client(CAM_BUS_CLIENT_FD);
+	msm_camera_put_clk_info_and_rates(pdev, &fd->clk_info,
+		&fd->clk, &fd->clk_rates, fd->clk_rates_num, fd->clk_num);
+	msm_camera_put_regulators(pdev, &fd->vdd, fd->num_reg);
 	msm_fd_hw_release_mem_resources(fd);
 	kfree(fd);
 

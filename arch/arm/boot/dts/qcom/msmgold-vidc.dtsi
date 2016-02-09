@@ -54,7 +54,7 @@
 			};
 			qcom,profile-dec {
 				qcom,codec-mask = <0xf3ffffff>;
-				qcom,cycles-per-mb = <684>;
+				qcom,cycles-per-mb = <788>;
 			};
 			qcom,profile-hevcdec {
 				qcom,codec-mask = <0x0c000000>;

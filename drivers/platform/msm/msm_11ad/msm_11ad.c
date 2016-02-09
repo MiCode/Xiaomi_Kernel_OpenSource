@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,10 @@
 #include <linux/qcom_iommu.h>
 #include <linux/version.h>
 #include <linux/delay.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/ramdump.h>
+#include <soc/qcom/memory_dump.h>
 #include "wil_platform.h"
 #include "msm_11ad.h"
 
@@ -35,10 +39,30 @@
 			MSM_PCIE_CONFIG_LINKDOWN)
 #define PM_OPT_RESUME MSM_PCIE_CONFIG_NO_CFG_RESTORE
 
+#define WIGIG_SUBSYS_NAME	"WIGIG"
+#define WIGIG_RAMDUMP_SIZE    0x200000 /* maximum ramdump size */
+#define WIGIG_DUMP_FORMAT_VER   0x1
+#define WIGIG_DUMP_MAGIC_VER_V1 0x57474947
+#define VDD_MIN_UV	1028000
+#define VDD_MAX_UV	1028000
+#define VDD_MAX_UA	575000
+#define VDDIO_MIN_UV	1950000
+#define VDDIO_MAX_UV	2040000
+#define VDDIO_MAX_UA	70300
+
 struct device;
 
 static const char * const gpio_en_name = "qcom,wigig-en";
 static const char * const sleep_clk_en_name = "qcom,sleep-clk-en";
+
+struct msm11ad_vreg {
+	const char *name;
+	struct regulator *reg;
+	int max_uA;
+	int min_uV;
+	int max_uV;
+	bool enabled;
+};
 
 struct msm11ad_ctx {
 	struct list_head list;
@@ -58,6 +82,21 @@ struct msm11ad_ctx {
 	/* bus frequency scaling */
 	struct msm_bus_scale_pdata *bus_scale;
 	u32 msm_bus_handle;
+
+	/* subsystem restart */
+	struct wil_platform_rops rops;
+	void *wil_handle;
+	struct subsys_desc subsysdesc;
+	struct subsys_device *subsys;
+	void *subsys_handle;
+	bool recovery_in_progress;
+
+	/* ramdump */
+	void *ramdump_addr;
+	struct msm_dump_data dump_data;
+	struct ramdump_device *ramdump_dev;
+	struct msm11ad_vreg vdd;
+	struct msm11ad_vreg vddio;
 };
 
 static LIST_HEAD(dev_list);
@@ -71,6 +110,218 @@ static struct msm11ad_ctx *pcidev2ctx(struct pci_dev *pcidev)
 			return ctx;
 	}
 	return NULL;
+}
+
+static int msm_11ad_init_vreg(struct device *dev,
+			      struct msm11ad_vreg *vreg, const char *name)
+{
+	int rc = 0;
+
+	if (!vreg)
+		return 0;
+
+	vreg->name = kstrdup(name, GFP_KERNEL);
+	if (!vreg->name)
+		return -ENOMEM;
+
+	vreg->reg = devm_regulator_get(dev, name);
+	if (IS_ERR_OR_NULL(vreg->reg)) {
+		rc = PTR_ERR(vreg->reg);
+		dev_err(dev, "%s: failed to get %s, rc=%d\n",
+			__func__, name, rc);
+		kfree(vreg->name);
+		vreg->reg = NULL;
+		goto out;
+	}
+
+	dev_info(dev, "%s: %s initialized successfully\n", __func__, name);
+
+out:
+	return rc;
+}
+
+static int msm_11ad_release_vreg(struct device *dev, struct msm11ad_vreg *vreg)
+{
+	if (!vreg || !vreg->reg)
+		return 0;
+
+	dev_info(dev, "%s: %s released\n", __func__, vreg->name);
+
+	devm_regulator_put(vreg->reg);
+	vreg->reg = NULL;
+	kfree(vreg->name);
+
+	return 0;
+}
+
+static int msm_11ad_init_vregs(struct msm11ad_ctx *ctx)
+{
+	int rc;
+	struct device *dev = ctx->dev;
+
+	if (!of_property_read_bool(dev->of_node, "qcom,use-ext-supply"))
+		return 0;
+
+	rc = msm_11ad_init_vreg(dev, &ctx->vdd, "vdd");
+	if (rc)
+		goto out;
+
+	ctx->vdd.max_uV = VDD_MAX_UV;
+	ctx->vdd.min_uV = VDD_MIN_UV;
+	ctx->vdd.max_uA = VDD_MAX_UA;
+
+	rc = msm_11ad_init_vreg(dev, &ctx->vddio, "vddio");
+	if (rc)
+		goto vddio_fail;
+
+	ctx->vddio.max_uV = VDDIO_MAX_UV;
+	ctx->vddio.min_uV = VDDIO_MIN_UV;
+	ctx->vddio.max_uA = VDDIO_MAX_UA;
+
+	return rc;
+
+vddio_fail:
+	msm_11ad_release_vreg(dev, &ctx->vdd);
+out:
+	return rc;
+}
+
+static void msm_11ad_release_vregs(struct msm11ad_ctx *ctx)
+{
+	msm_11ad_release_vreg(ctx->dev, &ctx->vdd);
+	msm_11ad_release_vreg(ctx->dev, &ctx->vddio);
+}
+
+static int msm_11ad_cfg_vreg(struct device *dev,
+			     struct msm11ad_vreg *vreg, bool on)
+{
+	int rc = 0;
+	int min_uV;
+	int uA_load;
+
+	if (!vreg || !vreg->reg)
+		goto out;
+
+	if (regulator_count_voltages(vreg->reg) > 0) {
+		min_uV = on ? vreg->min_uV : 0;
+		rc = regulator_set_voltage(vreg->reg, min_uV, vreg->max_uV);
+		if (rc) {
+			dev_err(dev, "%s: %s set voltage failed, err=%d\n",
+					__func__, vreg->name, rc);
+			goto out;
+		}
+		uA_load = on ? vreg->max_uA : 0;
+		rc = regulator_set_optimum_mode(vreg->reg, uA_load);
+		if (rc >= 0) {
+			/*
+			 * regulator_set_optimum_mode() returns new regulator
+			 * mode upon success.
+			 */
+			dev_dbg(dev,
+				  "%s: %s regulator_set_optimum_mode rc(%d)\n",
+				  __func__, vreg->name, rc);
+			rc = 0;
+		} else {
+			dev_err(dev,
+				"%s: %s set mode(uA_load=%d) failed, rc=%d\n",
+				__func__, vreg->name, uA_load, rc);
+			goto out;
+		}
+	}
+
+out:
+	return rc;
+}
+
+static int msm_11ad_enable_vreg(struct msm11ad_ctx *ctx,
+				struct msm11ad_vreg *vreg)
+{
+	struct device *dev = ctx->dev;
+	int rc = 0;
+
+	if (!vreg || !vreg->reg || vreg->enabled)
+		goto out;
+
+	rc = msm_11ad_cfg_vreg(dev, vreg, true);
+	if (rc)
+		goto out;
+
+	rc = regulator_enable(vreg->reg);
+	if (rc) {
+		dev_err(dev, "%s: %s enable failed, rc=%d\n",
+				__func__, vreg->name, rc);
+		goto enable_fail;
+	}
+
+	vreg->enabled = true;
+
+	dev_info(dev, "%s: %s enabled\n", __func__, vreg->name);
+
+	return rc;
+
+enable_fail:
+	msm_11ad_cfg_vreg(dev, vreg, false);
+out:
+	return rc;
+}
+
+static int msm_11ad_disable_vreg(struct msm11ad_ctx *ctx,
+				 struct msm11ad_vreg *vreg)
+{
+	struct device *dev = ctx->dev;
+	int rc = 0;
+
+	if (!vreg || !vreg->reg || !vreg->enabled)
+		goto out;
+
+	rc = regulator_disable(vreg->reg);
+	if (rc) {
+		dev_err(dev, "%s: %s disable failed, rc=%d\n",
+				__func__, vreg->name, rc);
+		goto out;
+	}
+
+	/* ignore errors on applying disable config */
+	msm_11ad_cfg_vreg(dev, vreg, false);
+	vreg->enabled = false;
+
+	dev_info(dev, "%s: %s disabled\n", __func__, vreg->name);
+
+out:
+	return rc;
+}
+
+static int msm_11ad_enable_vregs(struct msm11ad_ctx *ctx)
+{
+	int rc = 0;
+
+	rc = msm_11ad_enable_vreg(ctx, &ctx->vdd);
+	if (rc)
+		goto out;
+
+	rc = msm_11ad_enable_vreg(ctx, &ctx->vddio);
+	if (rc)
+		goto vddio_fail;
+
+	return rc;
+
+vddio_fail:
+	msm_11ad_disable_vreg(ctx, &ctx->vdd);
+out:
+	return rc;
+}
+
+static int msm_11ad_disable_vregs(struct msm11ad_ctx *ctx)
+{
+	if (!ctx->vdd.reg && !ctx->vddio.reg)
+		goto out;
+
+	/* ignore errors on disable vreg */
+	msm_11ad_disable_vreg(ctx, &ctx->vdd);
+	msm_11ad_disable_vreg(ctx, &ctx->vddio);
+
+out:
+	return 0;
 }
 
 static int ops_suspend(void *handle)
@@ -102,6 +353,9 @@ static int ops_suspend(void *handle)
 
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
+
+	msm_11ad_disable_vregs(ctx);
+
 	return rc;
 }
 
@@ -115,6 +369,13 @@ static int ops_resume(void *handle)
 	if (!ctx) {
 		pr_err("No context\n");
 		return -ENODEV;
+	}
+
+	rc = msm_11ad_enable_vregs(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_enable_vregs failed :%d\n",
+			rc);
+		return rc;
 	}
 
 	if (ctx->sleep_clk_en >= 0)
@@ -151,6 +412,9 @@ err_disable_power:
 
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
+
+	msm_11ad_disable_vregs(ctx);
+
 	return rc;
 }
 
@@ -204,6 +468,173 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 release_mapping:
 	arm_iommu_release_mapping(ctx->mapping);
 	ctx->mapping = NULL;
+	return rc;
+}
+
+static int msm_11ad_ssr_shutdown(const struct subsys_desc *subsys,
+				 bool force_stop)
+{
+	pr_info("%s(%p,%d)\n", __func__, subsys, force_stop);
+	/* nothing is done in shutdown. We do full recovery in powerup */
+	return 0;
+}
+
+static int msm_11ad_ssr_powerup(const struct subsys_desc *subsys)
+{
+	int rc = 0;
+	struct platform_device *pdev;
+	struct msm11ad_ctx *ctx;
+
+	pr_info("%s(%p)\n", __func__, subsys);
+
+	pdev = to_platform_device(subsys->dev);
+	ctx = platform_get_drvdata(pdev);
+
+	if (!ctx)
+		return -ENODEV;
+
+	if (ctx->recovery_in_progress) {
+		if (ctx->rops.fw_recovery && ctx->wil_handle) {
+			dev_info(ctx->dev, "requesting FW recovery\n");
+			rc = ctx->rops.fw_recovery(ctx->wil_handle);
+		}
+		ctx->recovery_in_progress = false;
+	}
+
+	return rc;
+}
+
+static int msm_11ad_ssr_ramdump(int enable, const struct subsys_desc *subsys)
+{
+	int rc;
+	struct ramdump_segment segment;
+	struct platform_device *pdev;
+	struct msm11ad_ctx *ctx;
+
+	pdev = to_platform_device(subsys->dev);
+	ctx = platform_get_drvdata(pdev);
+
+	if (!ctx)
+		return -ENODEV;
+
+	if (!enable)
+		return 0;
+
+	if (ctx->rops.ramdump && ctx->wil_handle) {
+		rc = ctx->rops.ramdump(ctx->wil_handle, ctx->ramdump_addr,
+				       WIGIG_RAMDUMP_SIZE);
+		if (rc) {
+			dev_err(ctx->dev, "ramdump failed : %d\n", rc);
+			return -EINVAL;
+		}
+	}
+
+	memset(&segment, 0, sizeof(segment));
+	segment.v_address = ctx->ramdump_addr;
+	segment.size = WIGIG_RAMDUMP_SIZE;
+
+	return do_ramdump(ctx->ramdump_dev, &segment, 1);
+}
+
+static void msm_11ad_ssr_crash_shutdown(const struct subsys_desc *subsys)
+{
+	int rc;
+	struct platform_device *pdev;
+	struct msm11ad_ctx *ctx;
+
+	pdev = to_platform_device(subsys->dev);
+	ctx = platform_get_drvdata(pdev);
+
+	if (!ctx) {
+		pr_err("%s: no context\n", __func__);
+		return;
+	}
+
+	if (ctx->rops.ramdump && ctx->wil_handle) {
+		rc = ctx->rops.ramdump(ctx->wil_handle, ctx->ramdump_addr,
+				       WIGIG_RAMDUMP_SIZE);
+		if (rc)
+			dev_err(ctx->dev, "ramdump failed : %d\n", rc);
+		/* continue */
+	}
+
+	ctx->dump_data.version = WIGIG_DUMP_FORMAT_VER;
+	strlcpy(ctx->dump_data.name, WIGIG_SUBSYS_NAME,
+		sizeof(ctx->dump_data.name));
+
+	ctx->dump_data.magic = WIGIG_DUMP_MAGIC_VER_V1;
+}
+
+static void msm_11ad_ssr_deinit(struct msm11ad_ctx *ctx)
+{
+	if (ctx->ramdump_dev) {
+		destroy_ramdump_device(ctx->ramdump_dev);
+		ctx->ramdump_dev = NULL;
+	}
+
+	kfree(ctx->ramdump_addr);
+	ctx->ramdump_addr = NULL;
+
+	if (ctx->subsys_handle) {
+		subsystem_put(ctx->subsys_handle);
+		ctx->subsys_handle = NULL;
+	}
+
+	if (ctx->subsys) {
+		subsys_unregister(ctx->subsys);
+		ctx->subsys = NULL;
+	}
+}
+
+static int msm_11ad_ssr_init(struct msm11ad_ctx *ctx)
+{
+	int rc;
+	struct msm_dump_entry dump_entry;
+
+	ctx->subsysdesc.name = "WIGIG";
+	ctx->subsysdesc.owner = THIS_MODULE;
+	ctx->subsysdesc.shutdown = msm_11ad_ssr_shutdown;
+	ctx->subsysdesc.powerup = msm_11ad_ssr_powerup;
+	ctx->subsysdesc.ramdump = msm_11ad_ssr_ramdump;
+	ctx->subsysdesc.crash_shutdown = msm_11ad_ssr_crash_shutdown;
+	ctx->subsysdesc.dev = ctx->dev;
+	ctx->subsys = subsys_register(&ctx->subsysdesc);
+	if (IS_ERR(ctx->subsys)) {
+		rc = PTR_ERR(ctx->subsys);
+		dev_err(ctx->dev, "subsys_register failed :%d\n", rc);
+		goto out_rc;
+	}
+
+	/* register ramdump area */
+	ctx->ramdump_addr = kmalloc(WIGIG_RAMDUMP_SIZE, GFP_KERNEL);
+	if (!ctx->ramdump_addr) {
+		rc = -ENOMEM;
+		goto out_rc;
+	}
+
+	ctx->dump_data.addr = virt_to_phys(ctx->ramdump_addr);
+	ctx->dump_data.len = WIGIG_RAMDUMP_SIZE;
+	dump_entry.id = MSM_DUMP_DATA_WIGIG;
+	dump_entry.addr = virt_to_phys(&ctx->dump_data);
+
+	rc = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (rc) {
+		dev_err(ctx->dev, "Dump table setup failed: %d\n", rc);
+		goto out_rc;
+	}
+
+	ctx->ramdump_dev = create_ramdump_device(ctx->subsysdesc.name,
+						 ctx->subsysdesc.dev);
+	if (!ctx->ramdump_dev) {
+		dev_err(ctx->dev, "Create ramdump device failed: %d\n", rc);
+		rc = -ENOMEM;
+		goto out_rc;
+	}
+
+	return 0;
+
+out_rc:
+	msm_11ad_ssr_deinit(ctx);
 	return rc;
 }
 
@@ -269,6 +700,19 @@ static int msm_11ad_probe(struct platform_device *pdev)
 
 	/*== execute ==*/
 	/* turn device on */
+	rc = msm_11ad_init_vregs(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_init_vregs failed :%d\n",
+			rc);
+		return rc;
+	}
+	rc = msm_11ad_enable_vregs(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_enable_vregs failed :%d\n",
+			rc);
+		goto out_vreg;
+	}
+
 	if (ctx->gpio_en >= 0) {
 		rc = gpio_request(ctx->gpio_en, gpio_en_name);
 		if (rc < 0) {
@@ -326,6 +770,13 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* register for subsystem restart */
+	rc = msm_11ad_ssr_init(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_ssr_init failed: %d\n", rc);
+		goto out_rc;
+	}
+
 	/* report */
 	dev_info(ctx->dev, "msm_11ad discovered. %p {\n"
 		 "  gpio_en = %d\n"
@@ -351,6 +802,10 @@ out_set:
 		gpio_free(ctx->gpio_en);
 out_req:
 	ctx->gpio_en = -EINVAL;
+	msm_11ad_disable_vregs(ctx);
+out_vreg:
+	msm_11ad_release_vregs(ctx);
+
 	return rc;
 }
 
@@ -358,6 +813,7 @@ static int msm_11ad_remove(struct platform_device *pdev)
 {
 	struct msm11ad_ctx *ctx = platform_get_drvdata(pdev);
 
+	msm_11ad_ssr_deinit(ctx);
 	list_del(&ctx->list);
 	dev_info(ctx->dev, "%s: pdev %p pcidev %p\n", __func__, pdev,
 		 ctx->pcidev);
@@ -371,6 +827,10 @@ static int msm_11ad_remove(struct platform_device *pdev)
 	}
 	if (ctx->sleep_clk_en >= 0)
 		gpio_free(ctx->sleep_clk_en);
+
+	msm_11ad_disable_vregs(ctx);
+	msm_11ad_release_vregs(ctx);
+
 	return 0;
 }
 
@@ -434,10 +894,34 @@ static void ops_uninit(void *handle)
 		arm_iommu_release_mapping(ctx->mapping);
 		ctx->mapping = NULL;
 	}
+
+	memset(&ctx->rops, 0, sizeof(ctx->rops));
+	ctx->wil_handle = NULL;
+
 	ops_suspend(ctx);
 }
 
-void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops)
+static int ops_notify_crash(void *handle)
+{
+	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
+	int rc;
+
+	if (ctx->subsys) {
+		dev_info(ctx->dev, "SSR requested\n");
+		ctx->recovery_in_progress = true;
+		rc = subsystem_restart_dev(ctx->subsys);
+		if (rc) {
+			dev_err(ctx->dev,
+				"subsystem_restart_dev fail: %d\n", rc);
+			ctx->recovery_in_progress = false;
+		}
+	}
+
+	return 0;
+}
+
+void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
+			const struct wil_platform_rops *rops, void *wil_handle)
 {
 	struct pci_dev *pcidev = to_pci_dev(dev);
 	struct msm11ad_ctx *ctx = pcidev2ctx(pcidev);
@@ -462,12 +946,19 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops)
 		return NULL;
 	}
 
+	/* subsystem restart */
+	if (rops) {
+		ctx->rops = *rops;
+		ctx->wil_handle = wil_handle;
+	}
+
 	/* fill ops */
 	memset(ops, 0, sizeof(*ops));
 	ops->bus_request = ops_bus_request;
 	ops->suspend = ops_suspend;
 	ops->resume = ops_resume;
 	ops->uninit = ops_uninit;
+	ops->notify_crash = ops_notify_crash;
 
 	return ctx;
 }
@@ -494,12 +985,27 @@ int msm_11ad_modinit(void)
 		ctx->pristine_state = pci_store_saved_state(ctx->pcidev);
 	}
 
+	ctx->subsys_handle = subsystem_get(ctx->subsysdesc.name);
+
 	return ops_resume(ctx);
 }
 EXPORT_SYMBOL(msm_11ad_modinit);
 
 void msm_11ad_modexit(void)
 {
+	struct msm11ad_ctx *ctx = list_first_entry_or_null(&dev_list,
+							   struct msm11ad_ctx,
+							   list);
+
+	if (!ctx) {
+		pr_err("Context not found\n");
+		return;
+	}
+
+	if (ctx->subsys_handle) {
+		subsystem_put(ctx->subsys_handle);
+		ctx->subsys_handle = NULL;
+	}
 }
 EXPORT_SYMBOL(msm_11ad_modexit);
 

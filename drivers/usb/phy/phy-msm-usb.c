@@ -2589,7 +2589,8 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 		break;
 	}
 	msm_otg_dbg_log_event(&motg->phy, "SM INIT", pdata->mode, motg->inputs);
-	motg->id_state = (test_bit(ID, &motg->inputs)) ? USB_ID_FLOAT :
+	if (motg->id_state != USB_ID_GROUND)
+		motg->id_state = (test_bit(ID, &motg->inputs)) ? USB_ID_FLOAT :
 							USB_ID_GROUND;
 }
 

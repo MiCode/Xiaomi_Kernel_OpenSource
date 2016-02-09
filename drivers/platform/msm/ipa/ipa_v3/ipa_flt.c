@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -246,12 +246,12 @@ static int ipa3_generate_flt_hw_rule(enum ipa_ip_type ip,
 		}
 	}
 
-	IPADBG("en_rule=0x%x, action=%d, rt_idx=%d, retain_hdr=%d\n",
+	IPADBG_LOW("en_rule=0x%x, action=%d, rt_idx=%d, retain_hdr=%d\n",
 		en_rule,
 		hdr->u.hdr.action,
 		hdr->u.hdr.rt_tbl_idx,
 		hdr->u.hdr.retain_hdr);
-	IPADBG("priority=%d, rule_id=%d\n",
+	IPADBG_LOW("priority=%d, rule_id=%d\n",
 		hdr->u.hdr.priority,
 		hdr->u.hdr.rule_id);
 
@@ -274,7 +274,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip, enum ipa_rule_type rlt)
 	struct ipa3_flt_tbl *tbl;
 	int i;
 
-	IPADBG("reaping sys flt tbls ip=%d rlt=%d\n", ip, rlt);
+	IPADBG_LOW("reaping sys flt tbls ip=%d rlt=%d\n", ip, rlt);
 
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		if (!ipa_is_ep_support_flt(i))
@@ -282,7 +282,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip, enum ipa_rule_type rlt)
 
 		tbl = &ipa3_ctx->flt_tbl[i][ip];
 		if (tbl->prev_mem[rlt].phys_base) {
-			IPADBG("reaping flt tbl (prev) pipe=%d\n", i);
+			IPADBG_LOW("reaping flt tbl (prev) pipe=%d\n", i);
 			dma_free_coherent(ipa3_ctx->pdev,
 				tbl->prev_mem[rlt].size,
 				tbl->prev_mem[rlt].base,
@@ -293,7 +293,8 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip, enum ipa_rule_type rlt)
 
 		if (list_empty(&tbl->head_flt_rule_list)) {
 			if (tbl->curr_mem[rlt].phys_base) {
-				IPADBG("reaping flt tbl (curr) pipe=%d\n", i);
+				IPADBG_LOW("reaping flt tbl (curr) pipe=%d\n",
+					i);
 				dma_free_coherent(ipa3_ctx->pdev,
 					tbl->curr_mem[rlt].size,
 					tbl->curr_mem[rlt].base,
@@ -391,7 +392,7 @@ static int ipa_prep_flt_tbl_for_cmt(enum ipa_ip_type ip,
 			IPAERR("failed to calculate HW FLT rule size\n");
 			return -EPERM;
 		}
-		IPADBG("pipe %d hw_len %d priority %u\n",
+		IPADBG_LOW("pipe %d hw_len %d priority %u\n",
 			pipe_idx, entry->hw_len, entry->prio);
 
 		if (entry->rule.hashable)
@@ -402,7 +403,8 @@ static int ipa_prep_flt_tbl_for_cmt(enum ipa_ip_type ip,
 
 	if ((tbl->sz[IPA_RULE_HASHABLE] +
 		tbl->sz[IPA_RULE_NON_HASHABLE]) == 0) {
-		IPADBG("flt tbl pipe %d is with zero total size\n", pipe_idx);
+		IPADBG_LOW("flt tbl pipe %d is with zero total size\n",
+			pipe_idx);
 		return 0;
 	}
 
@@ -412,7 +414,7 @@ static int ipa_prep_flt_tbl_for_cmt(enum ipa_ip_type ip,
 	if (tbl->sz[IPA_RULE_NON_HASHABLE])
 		tbl->sz[IPA_RULE_NON_HASHABLE] += IPA_HW_TBL_HDR_WIDTH;
 
-	IPADBG("FLT tbl pipe idx %d hash sz %u non-hash sz %u\n", pipe_idx,
+	IPADBG_LOW("FLT tbl pipe idx %d hash sz %u non-hash sz %u\n", pipe_idx,
 		tbl->sz[IPA_RULE_HASHABLE], tbl->sz[IPA_RULE_NON_HASHABLE]);
 
 	return 0;
@@ -648,7 +650,7 @@ static int ipa_generate_flt_hw_tbl_img(enum ipa_ip_type ip,
 	}
 
 	ipa_get_flt_tbl_lcl_bdy_size(ip, &hash_bdy_sz, &nhash_bdy_sz);
-	IPADBG("total flt tbl local body sizes: hash %u nhash %u\n",
+	IPADBG_LOW("total flt tbl local body sizes: hash %u nhash %u\n",
 		hash_bdy_sz, nhash_bdy_sz);
 
 	hash_bdy->size = hash_bdy_sz + IPA_HW_TBL_BLK_SIZE_ALIGNMENT;
@@ -791,18 +793,18 @@ fail_desc_alloc:
 static bool ipa_flt_skip_pipe_config(int pipe)
 {
 	if (ipa_is_modem_pipe(pipe)) {
-		IPADBG("skip %d - modem owned pipe\n", pipe);
+		IPADBG_LOW("skip %d - modem owned pipe\n", pipe);
 		return true;
 	}
 
 	if (ipa3_ctx->skip_ep_cfg_shadow[pipe]) {
-		IPADBG("skip %d\n", pipe);
+		IPADBG_LOW("skip %d\n", pipe);
 		return true;
 	}
 
 	if ((ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD) == pipe
 		&& ipa3_ctx->modem_cfg_emb_pipe_flt)) {
-		IPADBG("skip %d\n", pipe);
+		IPADBG_LOW("skip %d\n", pipe);
 		return true;
 	}
 
@@ -900,7 +902,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 	hdr_idx = 0;
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		if (!ipa_is_ep_support_flt(i)) {
-			IPADBG("skip %d - not filtering pipe\n", i);
+			IPADBG_LOW("skip %d - not filtering pipe\n", i);
 			continue;
 		}
 
@@ -909,7 +911,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 			continue;
 		}
 
-		IPADBG("Prepare imm cmd for hdr at index %d for pipe %d\n",
+		IPADBG_LOW("Prepare imm cmd for hdr at index %d for pipe %d\n",
 			hdr_idx, i);
 
 		mem_cmd[num_cmd-1].skip_pipeline_clear = 0;
@@ -972,20 +974,20 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		goto fail_send_cmd;
 	}
 
-	IPADBG("Hashable HEAD\n");
+	IPADBG_LOW("Hashable HEAD\n");
 	IPA_DUMP_BUFF(hash_hdr.base, hash_hdr.phys_base, hash_hdr.size);
 
-	IPADBG("Non-Hashable HEAD\n");
+	IPADBG_LOW("Non-Hashable HEAD\n");
 	IPA_DUMP_BUFF(nhash_hdr.base, nhash_hdr.phys_base, nhash_hdr.size);
 
 	if (hash_bdy.size) {
-		IPADBG("Hashable BODY\n");
+		IPADBG_LOW("Hashable BODY\n");
 		IPA_DUMP_BUFF(hash_bdy.base,
 			hash_bdy.phys_base, hash_bdy.size);
 	}
 
 	if (nhash_bdy.size) {
-		IPADBG("Non-Hashable BODY\n");
+		IPADBG_LOW("Non-Hashable BODY\n");
 		IPA_DUMP_BUFF(nhash_bdy.base,
 			nhash_bdy.phys_base, nhash_bdy.size);
 	}
@@ -1112,7 +1114,7 @@ static int __ipa_finish_flt_rule_add(struct ipa3_flt_tbl *tbl,
 	}
 	*rule_hdl = id;
 	entry->id = id;
-	IPADBG("add flt rule rule_cnt=%d\n", tbl->rule_cnt);
+	IPADBG_LOW("add flt rule rule_cnt=%d\n", tbl->rule_cnt);
 
 	return 0;
 }
@@ -1320,7 +1322,7 @@ static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 		return -EINVAL;
 
 	tbl = &ipa3_ctx->flt_tbl[ipa_ep_idx][ip];
-	IPADBG("add ep flt rule ip=%d ep=%d\n", ip, ep);
+	IPADBG_LOW("add ep flt rule ip=%d ep=%d\n", ip, ep);
 
 	return __ipa_add_flt_rule(tbl, ip, rule, add_rear, rule_hdl);
 }

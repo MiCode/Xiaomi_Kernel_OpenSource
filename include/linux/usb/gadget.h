@@ -268,6 +268,7 @@ struct usb_ep {
 	const struct usb_endpoint_descriptor	*desc;
 	const struct usb_ss_ep_comp_descriptor	*comp_desc;
 	enum ep_type		ep_type;
+	u8			ep_num;
 	u8			ep_intr_num;
 	bool			endless;
 };
@@ -1340,5 +1341,8 @@ extern struct usb_ep *usb_ep_autoconfig_ss(struct usb_gadget *,
 			struct usb_ss_ep_comp_descriptor *);
 
 extern void usb_ep_autoconfig_reset(struct usb_gadget *);
+extern struct usb_ep *usb_ep_autoconfig_by_name(struct usb_gadget *,
+			struct usb_endpoint_descriptor *,
+			const char *ep_name);
 
 #endif /* __LINUX_USB_GADGET_H */

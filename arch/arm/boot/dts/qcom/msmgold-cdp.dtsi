@@ -65,12 +65,6 @@
 		qcom,dig-load = <15000>;
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
-		qcom,display-resolution = <719 1279>;
-		qcom,use-scale;
-		qcom,default-max-x = <1080>;
-		qcom,default-max-y = <1920>;
-		qcom,desired-max-x = <720>;
-		qcom,desired-max-y = <1280>;
 	};
 };
 

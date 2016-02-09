@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2682,7 +2682,7 @@ static int glink_mailbox_probe(struct platform_device *pdev)
 
 	key = "irq-rx-reset";
 	rx_reset_r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
-	if (!irq_r) {
+	if (!rx_reset_r) {
 		pr_err("%s: missing key %s\n", __func__, key);
 		rc = -ENODEV;
 		goto missing_key;

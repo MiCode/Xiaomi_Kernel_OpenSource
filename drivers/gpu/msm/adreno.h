@@ -855,29 +855,11 @@ void adreno_coresight_remove(struct adreno_device *adreno_dev);
 
 bool adreno_hw_isidle(struct adreno_device *adreno_dev);
 
-int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
-			struct kgsl_pagetable *new_pt,
-			struct adreno_context *drawctxt);
-
-int adreno_iommu_init(struct adreno_device *adreno_dev);
-
-void adreno_iommu_set_pt_generate_rb_cmds(struct adreno_ringbuffer *rb,
-					struct kgsl_pagetable *pt);
-
 void adreno_fault_detect_start(struct adreno_device *adreno_dev);
 void adreno_fault_detect_stop(struct adreno_device *adreno_dev);
 
 void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit);
 void adreno_cp_callback(struct adreno_device *adreno_dev, int bit);
-
-unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
-					unsigned int *cmds,
-					struct kgsl_pagetable *pt);
-
-unsigned int adreno_iommu_set_pt_generate_cmds(
-				struct adreno_ringbuffer *rb,
-				unsigned int *cmds,
-				struct kgsl_pagetable *pt);
 
 int adreno_sysfs_init(struct adreno_device *adreno_dev);
 void adreno_sysfs_close(struct adreno_device *adreno_dev);
@@ -1406,9 +1388,6 @@ void adreno_readreg64(struct adreno_device *adreno_dev,
 
 void adreno_writereg64(struct adreno_device *adreno_dev,
 		enum adreno_regs lo, enum adreno_regs hi, uint64_t val);
-
-unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
-				unsigned int *cmds, int set);
 
 static inline bool adreno_soft_fault_detect(struct adreno_device *adreno_dev)
 {

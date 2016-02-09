@@ -745,9 +745,12 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 		return 0;
 	}
 
-	snprintf(dep->name, sizeof(dep->name), "ep%d%s",
+	/* Keep GSI ep names with "-gsi" suffix */
+	if (!strnstr(dep->name, "gsi", 10)) {
+		snprintf(dep->name, sizeof(dep->name), "ep%d%s",
 			dep->number >> 1,
 			(dep->number & 1) ? "in" : "out");
+	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = __dwc3_gadget_ep_disable(dep);
@@ -2249,11 +2252,27 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 
 /* -------------------------------------------------------------------------- */
 
+#define NUM_GSI_OUT_EPS	1
+#define NUM_GSI_IN_EPS	2
+
 static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 		u8 num, u32 direction)
 {
 	struct dwc3_ep			*dep;
-	u8				i;
+	u8				i, gsi_ep_count, gsi_ep_index = 0;
+
+	/* Read number of event buffers to check if we need
+	 * to update gsi_ep_count. For non GSI targets this
+	 * will be 0 and we will skip reservation of GSI eps.
+	 * There is one event buffer for each GSI EP.
+	 */
+	gsi_ep_count = dwc->num_gsi_event_buffers;
+	/* OUT GSI EPs based on direction field */
+	if (gsi_ep_count && !direction)
+		gsi_ep_count = NUM_GSI_OUT_EPS;
+	/* IN GSI EPs */
+	else if (gsi_ep_count && direction)
+		gsi_ep_count = NUM_GSI_IN_EPS;
 
 	for (i = 0; i < num; i++) {
 		u8 epnum = (i << 1) | (!!direction);
@@ -2267,12 +2286,25 @@ static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 		dep->direction = !!direction;
 		dwc->eps[epnum] = dep;
 
-		snprintf(dep->name, sizeof(dep->name), "ep%d%s", epnum >> 1,
-				(epnum & 1) ? "in" : "out");
+		/* Reserve EPs at the end for GSI based on gsi_ep_count */
+		if ((gsi_ep_index < gsi_ep_count) &&
+				(i > (num - 1 - gsi_ep_count))) {
+			gsi_ep_index++;
+			/* For GSI EPs, name eps as "gsi-epin" or "gsi-epout" */
+			snprintf(dep->name, sizeof(dep->name), "%s",
+				(epnum & 1) ? "gsi-epin" : "gsi-epout");
+			/* Set ep type as GSI */
+			dep->endpoint.ep_type = EP_TYPE_GSI;
+		} else {
+			snprintf(dep->name, sizeof(dep->name), "ep%d%s",
+				epnum >> 1, (epnum & 1) ? "in" : "out");
+		}
 
+		dep->endpoint.ep_num = epnum >> 1;
 		dep->endpoint.name = dep->name;
 
-		dev_vdbg(dwc->dev, "initializing %s\n", dep->name);
+		dev_vdbg(dwc->dev, "initializing %s %d\n",
+				dep->name, epnum >> 1);
 
 		if (epnum == 0 || epnum == 1) {
 			usb_ep_set_maxpacket_limit(&dep->endpoint, 512);

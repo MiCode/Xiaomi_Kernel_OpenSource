@@ -31,6 +31,7 @@
 #include "kgsl_trace.h"
 
 #include "adreno.h"
+#include "adreno_iommu.h"
 #include "adreno_compat.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
@@ -68,8 +69,6 @@ static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
 };
 
 static const struct kgsl_functable adreno_functable;
-
-static struct kgsl_iommu device_3d0_iommu;
 
 static struct adreno_device device_3d0 = {
 	.dev = {
@@ -235,164 +234,6 @@ int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
 
 	return 0;
 }
-
-/*
- * adreno_iommu_cb_probe() - Adreno iommu context bank probe
- *
- * Iommu context bank probe function.
- */
-static int adreno_iommu_cb_probe(struct platform_device *pdev)
-{
-	struct kgsl_iommu_context *ctx = NULL;
-	struct device_node *node = pdev->dev.of_node;
-	struct kgsl_iommu *iommu = &device_3d0_iommu;
-	int ret = 0;
-
-	/* Map context names from dt to id's */
-	if (!strcmp("gfx3d_user", node->name)) {
-		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-		ctx->id = KGSL_IOMMU_CONTEXT_USER;
-		ctx->cb_num = -1;
-	} else if (!strcmp("gfx3d_secure", node->name)) {
-		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
-		ctx->id = KGSL_IOMMU_CONTEXT_SECURE;
-		ctx->cb_num = -1;
-		device_3d0.dev.mmu.secured = true;
-	} else {
-		KGSL_CORE_ERR("dt: Unknown context label %s\n", node->name);
-		return -EINVAL;
-	}
-
-	if (ctx->name != NULL) {
-		KGSL_CORE_ERR("dt: %s appears multiple times\n", node->name);
-		return -EINVAL;
-	}
-	ctx->name = node->name;
-
-	/* this property won't be found for all context banks */
-	if (of_property_read_u32(node, "qcom,gpu-offset",
-				&ctx->gpu_offset))
-		ctx->gpu_offset = UINT_MAX;
-
-	ctx->kgsldev = &device_3d0.dev;
-
-	/* arm-smmu driver we'll have the right device pointer here. */
-	if (of_find_property(node, "iommus", NULL)) {
-		ctx->dev = &pdev->dev;
-	} else {
-		/*
-		 * old iommu driver requires that we query the context bank
-		 * device rather than getting it from dt.
-		 */
-		ctx->dev = kgsl_mmu_get_ctx(ctx->name);
-		if (IS_ERR_OR_NULL(ctx->dev)) {
-			ret = (ctx->dev == NULL) ? -ENODEV : PTR_ERR(ctx->dev);
-			KGSL_CORE_ERR("ctx %s: kgsl_mmu_get_ctx err: %d\n",
-					ctx->name, ret);
-			return ret;
-		}
-	}
-
-	kgsl_mmu_set_mmutype(KGSL_MMU_TYPE_IOMMU);
-
-	return ret;
-}
-
-static struct of_device_id iommu_match_table[] = {
-	{ .compatible = "qcom,kgsl-smmu-v1", },
-	{ .compatible = "qcom,kgsl-smmu-v2", },
-	{ .compatible = "qcom,smmu-kgsl-cb", },
-	{}
-};
-
-/**
- * adreno_iommu_pdev_probe() - Adreno iommu context bank probe
- * @pdev: Platform device
- *
- * Iommu probe function.
- */
-static int adreno_iommu_pdev_probe(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	const char *cname;
-	struct property *prop;
-	u32 reg_val[2];
-	int i = 0;
-	struct kgsl_iommu *iommu = &device_3d0_iommu;
-
-	if (of_device_is_compatible(dev->of_node, "qcom,smmu-kgsl-cb"))
-		return adreno_iommu_cb_probe(pdev);
-	else if (of_device_is_compatible(dev->of_node, "qcom,kgsl-smmu-v1"))
-		iommu->version = 1;
-	else
-		iommu->version = 2;
-
-	if (of_property_read_u32_array(pdev->dev.of_node, "reg", reg_val, 2)) {
-		KGSL_CORE_ERR("dt: Unable to read KGSL IOMMU register range\n");
-		return -EINVAL;
-	}
-	iommu->regstart = reg_val[0];
-	iommu->regsize = reg_val[1];
-
-	/* Protecting the SMMU registers is mandatory */
-	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,protect",
-					reg_val, 2)) {
-		KGSL_CORE_ERR("dt: no iommu protection range specified\n");
-		return -EINVAL;
-	}
-	iommu->protect.base = reg_val[0] / sizeof(u32);
-	iommu->protect.range = ilog2(reg_val[1] / sizeof(u32));
-
-	of_property_for_each_string(dev->of_node, "clock-names", prop, cname) {
-		struct clk *c = devm_clk_get(dev, cname);
-		if (IS_ERR(c)) {
-			KGSL_CORE_ERR("dt: Couldn't get clock: %s\n", cname);
-			return -ENODEV;
-		}
-		if (i >= KGSL_IOMMU_MAX_CLKS) {
-			KGSL_CORE_ERR("dt: too many clocks defined.\n");
-			return -EINVAL;
-		}
-
-		iommu->clks[i] = c;
-		++i;
-	}
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,retention"))
-		device_3d0.dev.mmu.features |= KGSL_MMU_RETENTION;
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,global_pt"))
-		device_3d0.dev.mmu.features |= KGSL_MMU_GLOBAL_PAGETABLE;
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,hyp_secure_alloc"))
-		device_3d0.dev.mmu.features |= KGSL_MMU_HYP_SECURE_ALLOC;
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,force-32bit"))
-		device_3d0.dev.mmu.features |= KGSL_MMU_FORCE_32BIT;
-
-	if (of_property_read_u32(pdev->dev.of_node, "qcom,micro-mmu-control",
-				&iommu->micro_mmu_ctrl))
-		iommu->micro_mmu_ctrl = UINT_MAX;
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,coherent-htw"))
-		device_3d0.dev.mmu.features |= KGSL_MMU_COHERENT_HTW;
-
-	if (of_property_read_u32(pdev->dev.of_node, "qcom,secure_align_mask",
-		&device_3d0.dev.mmu.secure_align_mask))
-		device_3d0.dev.mmu.secure_align_mask = 0xfff;
-
-	return of_platform_populate(pdev->dev.of_node, iommu_match_table,
-					NULL, &pdev->dev);
-}
-
-static struct platform_driver kgsl_iommu_platform_driver = {
-	.probe = adreno_iommu_pdev_probe,
-	.driver = {
-		.owner = THIS_MODULE,
-		.name = "kgsl-iommu",
-		.of_match_table = iommu_match_table,
-	}
-};
 
 static int _get_counter(struct adreno_device *adreno_dev,
 		int group, int countable, unsigned int *lo,
@@ -1038,10 +879,6 @@ static int adreno_probe(struct platform_device *pdev)
 	struct adreno_device *adreno_dev;
 	int status;
 
-	/* Defer adreno probe if IOMMU is not already probed */
-	if (device_3d0_iommu.regstart == 0)
-		return -EPROBE_DEFER;
-
 	adreno_dev = adreno_get_dev(pdev);
 
 	if (adreno_dev == NULL) {
@@ -1051,7 +888,6 @@ static int adreno_probe(struct platform_device *pdev)
 
 	device = KGSL_DEVICE(adreno_dev);
 	device->pdev = pdev;
-	device->mmu.priv = &device_3d0_iommu;
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	adreno_identify_gpu(adreno_dev);
@@ -1830,7 +1666,8 @@ static int adreno_getproperty(struct kgsl_device *device,
 			memset(&devinfo, 0, sizeof(devinfo));
 			devinfo.device_id = device->id+1;
 			devinfo.chip_id = adreno_dev->chipid;
-			devinfo.mmu_enabled = kgsl_mmu_enabled();
+			devinfo.mmu_enabled =
+				MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED);
 			devinfo.gmem_gpubaseaddr = adreno_dev->gmem_base;
 			devinfo.gmem_sizebytes = adreno_dev->gmem_size;
 
@@ -1873,9 +1710,11 @@ static int adreno_getproperty(struct kgsl_device *device,
 		break;
 	case KGSL_PROP_MMU_ENABLE:
 		{
-			int mmu_prop = kgsl_mmu_enabled();
+			/* Report MMU only if we can handle paged memory */
+			int mmu_prop = MMU_FEATURE(&device->mmu,
+				KGSL_MMU_PAGED);
 
-			if (sizebytes != sizeof(int)) {
+			if (sizebytes < sizeof(mmu_prop)) {
 				status = -EINVAL;
 				break;
 			}
@@ -2919,27 +2758,6 @@ static struct platform_driver kgsl_bus_platform_driver = {
 	}
 };
 
-#if defined(CONFIG_ARM_SMMU) || defined(CONFIG_MSM_IOMMU)
-static int kgsl_iommu_driver_register(void)
-{
-	return platform_driver_register(&kgsl_iommu_platform_driver);
-}
-
-static void kgsl_iommu_driver_unregister(void)
-{
-	platform_driver_unregister(&kgsl_iommu_platform_driver);
-}
-#else
-static inline int kgsl_iommu_driver_register(void)
-{
-	return 0;
-}
-
-static inline void kgsl_iommu_driver_unregister(void)
-{
-}
-#endif
-
 static int __init kgsl_3d_init(void)
 {
 	int ret;
@@ -2948,17 +2766,9 @@ static int __init kgsl_3d_init(void)
 	if (ret)
 		return ret;
 
-	ret = kgsl_iommu_driver_register();
-	if (ret) {
-		platform_driver_unregister(&kgsl_bus_platform_driver);
-		return ret;
-	}
-
 	ret = platform_driver_register(&adreno_platform_driver);
-	if (ret) {
-		kgsl_iommu_driver_unregister();
+	if (ret)
 		platform_driver_unregister(&kgsl_bus_platform_driver);
-	}
 
 	return ret;
 }
@@ -2966,9 +2776,7 @@ static int __init kgsl_3d_init(void)
 static void __exit kgsl_3d_exit(void)
 {
 	platform_driver_unregister(&adreno_platform_driver);
-	kgsl_iommu_driver_unregister();
 	platform_driver_unregister(&kgsl_bus_platform_driver);
-
 }
 
 module_init(kgsl_3d_init);

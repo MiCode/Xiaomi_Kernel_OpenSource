@@ -283,6 +283,13 @@
 		clock-frequency = <19200000>;
 	};
 
+	restart@10ac000 {
+		compatible = "qcom,pshold";
+		reg = <0x10ac000 0x4>,
+		      <0x1fd3000 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
 	uartblsp1dm1: serial@0c170000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xc170000 0x1000>;
@@ -399,8 +406,9 @@
 
 	clock_gpu: qcom,gpucc@5065000 {
 		compatible = "qcom,gpucc-cobalt";
-		reg = <0x5065000 0x9000>;
-		reg-names = "cc_base";
+		reg = <0x5065000 0x9000>,
+			<0x50660a0 0x8>;
+		reg-names = "cc_base", "crc_sid_fsm";
 		vdd_gpucc-supply = <&pm8005_s1>;
 		vdd_dig-supply = <&pmcobalt_s1_level>;
 		vdd_mx-supply = <&pmcobalt_s9_level>;
@@ -1410,6 +1418,21 @@
 			compatible = "qcom,msm-imem-mem_dump_table";
 			reg = <0x10 8>;
 		};
+
+		restart_reason@65c {
+			compatible = "qcom,msm-imem-restart_reason";
+			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
+		};
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
 	};
 
 	cpu_pmu: cpu-pmu {
@@ -1599,6 +1622,7 @@
 	status = "ok";
 };
 
+#include "msmcobalt-pm.dtsi"
 #include "msm-arm-smmu-cobalt.dtsi"
 #include "msmcobalt-ion.dtsi"
 #include "msm-pmcobalt-rpm-regulator.dtsi"
@@ -1606,3 +1630,4 @@
 #include "msmcobalt-camera.dtsi"
 #include "msmcobalt-vidc.dtsi"
 #include "msmcobalt-coresight.dtsi"
+#include "msmcobalt-bus.dtsi"

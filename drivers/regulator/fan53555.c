@@ -55,6 +55,7 @@
 enum fan53555_vendor {
 	FAN53555_VENDOR_FAIRCHILD = 0,
 	FAN53555_VENDOR_SILERGY,
+	HALO_HL7509,
 };
 
 /* IC Type */
@@ -91,6 +92,8 @@ struct fan53555_device_info {
 	unsigned int slew_rate;
 	/* Sleep voltage cache */
 	unsigned int sleep_vol_cache;
+	/* Disable suspend */
+	bool disable_suspend;
 };
 
 static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
@@ -98,6 +101,8 @@ static int fan53555_set_suspend_voltage(struct regulator_dev *rdev, int uV)
 	struct fan53555_device_info *di = rdev_get_drvdata(rdev);
 	int ret;
 
+	if (di->disable_suspend)
+		return 0;
 	if (di->sleep_vol_cache == uV)
 		return 0;
 	ret = regulator_map_voltage_linear(rdev, uV, uV);
@@ -266,6 +271,9 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
 	case FAN53555_VENDOR_SILERGY:
 		ret = fan53555_voltages_setup_silergy(di);
 		break;
+	case HALO_HL7509:
+		ret = fan53555_voltages_setup_fairchild(di);
+		break;
 	default:
 		dev_err(di->dev, "vendor %d not supported!\n", di->vendor);
 		return -EINVAL;
@@ -301,25 +309,28 @@ static struct regmap_config fan53555_regmap_config = {
 	.val_bits = 8,
 };
 
-static struct fan53555_platform_data *fan53555_parse_dt(struct device *dev,
-							struct device_node *np)
+static int fan53555_parse_dt(struct fan53555_device_info *di,
+				struct fan53555_platform_data *pdata)
 {
-	struct fan53555_platform_data *pdata;
+	struct device *dev = di->dev;
+	struct device_node *np = dev->of_node;
 	int ret;
 	u32 tmp;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-	if (!pdata)
-		return NULL;
-
 	pdata->regulator = of_get_regulator_init_data(dev, np);
+	if (!pdata->regulator) {
+		dev_err(dev, "regulator init data is missing\n");
+		return -ENODEV;
+	}
 
 	ret = of_property_read_u32(np, "fcs,suspend-voltage-selector",
 				   &tmp);
 	if (!ret)
 		pdata->sleep_vsel_id = tmp;
 
-	return pdata;
+	di->disable_suspend = of_property_read_bool(np, "fcs,disable-suspend");
+
+	return ret;
 }
 
 static const struct of_device_id fan53555_dt_ids[] = {
@@ -332,6 +343,9 @@ static const struct of_device_id fan53555_dt_ids[] = {
 	}, {
 		.compatible = "silergy,syr828",
 		.data = (void *)FAN53555_VENDOR_SILERGY,
+	}, {
+		.compatible = "halo,hl7509",
+		.data = (void *)HALO_HL7509,
 	},
 	{ }
 };
@@ -340,7 +354,6 @@ MODULE_DEVICE_TABLE(of, fan53555_dt_ids);
 static int fan53555_regulator_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
-	struct device_node *np = client->dev.of_node;
 	struct fan53555_device_info *di;
 	struct fan53555_platform_data *pdata;
 	struct regulator_config config = { };
@@ -348,18 +361,21 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 	int ret;
 
 	pdata = dev_get_platdata(&client->dev);
-	if (!pdata)
-		pdata = fan53555_parse_dt(&client->dev, np);
-
-	if (!pdata || !pdata->regulator) {
-		dev_err(&client->dev, "Platform data not found!\n");
-		return -ENODEV;
+	if (!pdata) {
+		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
 	}
 
 	di = devm_kzalloc(&client->dev, sizeof(struct fan53555_device_info),
 					GFP_KERNEL);
 	if (!di)
 		return -ENOMEM;
+
+	di->dev = &client->dev;
+	ret = fan53555_parse_dt(di, pdata);
+	if (ret)
+		return ret;
 
 	di->regulator = pdata->regulator;
 	if (client->dev.of_node) {
@@ -389,7 +405,6 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Failed to allocate regmap!\n");
 		return PTR_ERR(di->regmap);
 	}
-	di->dev = &client->dev;
 	i2c_set_clientdata(client, di);
 	/* Get chip ID */
 	ret = regmap_read(di->regmap, FAN53555_ID1, &val);
@@ -418,7 +433,7 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 	config.init_data = di->regulator;
 	config.regmap = di->regmap;
 	config.driver_data = di;
-	config.of_node = np;
+	config.of_node = client->dev.of_node;
 
 	ret = fan53555_regulator_register(di, &config);
 	if (ret < 0)
@@ -434,6 +449,9 @@ static const struct i2c_device_id fan53555_id[] = {
 	}, {
 		.name = "syr82x",
 		.driver_data = FAN53555_VENDOR_SILERGY
+	}, {
+		.name = "hl7509",
+		.driver_data = HALO_HL7509
 	},
 	{ },
 };

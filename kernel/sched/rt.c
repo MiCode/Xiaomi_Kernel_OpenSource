@@ -1657,7 +1657,8 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	int prev_cpu = task_cpu(task);
 	u64 cpu_load, min_load = ULLONG_MAX;
 	int i;
-	int restrict_cluster = sysctl_sched_restrict_cluster_spill;
+	int restrict_cluster = sched_boost() ? 0 :
+				sysctl_sched_restrict_cluster_spill;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))

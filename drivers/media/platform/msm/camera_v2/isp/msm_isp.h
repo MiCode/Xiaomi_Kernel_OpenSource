@@ -284,6 +284,8 @@ struct msm_vfe_hardware_info {
 	struct msm_vfe_axi_hardware_info *axi_hw_info;
 	struct msm_vfe_stats_hardware_info *stats_hw_info;
 	uint32_t dmi_reg_offset;
+	uint32_t min_ab;
+	uint32_t min_ib;
 };
 
 struct msm_vfe_axi_hardware_info {

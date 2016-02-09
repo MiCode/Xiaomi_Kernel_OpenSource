@@ -473,6 +473,7 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0, yuv = 0;
+		struct v4l2_control ctrl;
 
 		codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT]->fourcc :
@@ -488,7 +489,15 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 			inst->prop.width[OUTPUT_PORT]);
 		vote_data[i].height = max(inst->prop.height[CAPTURE_PORT],
 			inst->prop.height[OUTPUT_PORT]);
-		vote_data[i].fps = inst->prop.fps;
+
+		ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE;
+		rc = msm_comm_g_ctrl(inst, &ctrl);
+		if (!rc && ctrl.value)
+			vote_data[i].fps = (ctrl.value >> 16) ?
+				ctrl.value >> 16 : 1;
+		else
+			vote_data[i].fps = inst->prop.fps;
+
 		if (msm_comm_turbo_session(inst))
 			vote_data[i].power_mode = VIDC_POWER_TURBO;
 		else if (is_low_power_session(inst))

@@ -2261,10 +2261,10 @@ again:
  * @locked: value received from mem_cgroup_begin_page_stat()
  * @flags: value received from mem_cgroup_begin_page_stat()
  */
-void mem_cgroup_end_page_stat(struct mem_cgroup *memcg, bool locked,
+void mem_cgroup_end_page_stat(struct mem_cgroup *memcg, bool *locked,
 			      unsigned long flags)
 {
-	if (memcg && locked)
+	if (memcg && *locked)
 		move_unlock_mem_cgroup(memcg, &flags);
 
 	rcu_read_unlock();

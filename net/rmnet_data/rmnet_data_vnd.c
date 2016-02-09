@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,6 @@
 #include <linux/rmnet_data.h>
 #include <linux/msm_rmnet.h>
 #include <linux/etherdevice.h>
-#include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/spinlock.h>
 #include <net/pkt_sched.h>
@@ -38,9 +37,6 @@ RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_VND);
 #define RMNET_MAP_FLOW_NUM_TC_HANDLE 3
 #define RMNET_VND_UF_ACTION_ADD 0
 #define RMNET_VND_UF_ACTION_DEL 1
-#define RMNET_DATA_NAPI_WEIGHT 1
-#define RMNET_DATA_NAPI_WORK 0
-
 enum {
 	RMNET_VND_UPDATE_FLOW_OK,
 	RMNET_VND_UPDATE_FLOW_NO_ACTION,
@@ -62,7 +58,7 @@ struct rmnet_map_flow_mapping_s {
 struct rmnet_vnd_private_s {
 	uint32_t qos_version;
 	struct rmnet_logical_ep_conf_s local_ep;
-	struct napi_struct napi;
+
 	rwlock_t flow_map_lock;
 	struct list_head flow_head;
 	struct rmnet_map_flow_mapping_s root_flow;
@@ -507,19 +503,6 @@ static void rmnet_vnd_setup(struct net_device *dev)
 	INIT_LIST_HEAD(&dev_conf->flow_head);
 }
 
-/**
- * rmnet_data_napi_poll() - NAPI poll function
- * @napi:      NAPI struct
- *
- * Called by net_rx_action() when NAPI is scheduled. Since we have already
- * queued packets to network stack, we just flush and return here.
- */
-static int rmnet_data_napi_poll(struct napi_struct *napi, int budget)
-{
-	napi_complete(napi);
-	return RMNET_DATA_NAPI_WORK;
-}
-
 /* ***************** Exposed API ******************************************** */
 
 /**
@@ -574,7 +557,6 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 	struct net_device *dev;
 	char dev_prefix[IFNAMSIZ];
 	int p, rc = 0;
-	struct napi_struct *n;
 
 	if (id < 0 || id >= RMNET_DATA_MAX_VND) {
 		*new_device = 0;
@@ -634,10 +616,6 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 		*new_device = dev;
 	}
 
-	n = rmnet_vnd_get_napi(dev);
-	netif_napi_add(dev, n, rmnet_data_napi_poll, RMNET_DATA_NAPI_WEIGHT);
-	napi_enable(n);
-
 	LOGM("Registered device %s", dev->name);
 	return rc;
 }
@@ -681,10 +659,6 @@ int rmnet_vnd_free_dev(int id)
 	rtnl_unlock();
 
 	if (dev) {
-		struct napi_struct *n = rmnet_vnd_get_napi(dev);
-
-		napi_disable(n);
-		netif_napi_del(n);
 		unregister_netdev(dev);
 		free_netdev(dev);
 		return 0;
@@ -1124,16 +1098,4 @@ struct net_device *rmnet_vnd_get_by_id(int id)
 		return 0;
 	}
 	return rmnet_devices[id];
-}
-
-/**
- * rmnet_vnd_get_napi() - Get NAPI struct from the device
- * @dev: Virtual network device
- *
- * Return:
- *      - napi struct corresponding to the netdevice
- */
-struct napi_struct *rmnet_vnd_get_napi(struct net_device *dev)
-{
-	return &(((struct rmnet_vnd_private_s *)netdev_priv(dev))->napi);
 }

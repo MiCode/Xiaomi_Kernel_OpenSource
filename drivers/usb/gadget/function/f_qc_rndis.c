@@ -6,7 +6,7 @@
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
  *			Author: Michal Nazarewicz (mina86@mina86.com)
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -696,16 +696,6 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				goto fail;
 			}
 		}
-		if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
-			gadget_is_dwc3(cdev->gadget)) {
-				if (msm_ep_config(rndis->port.in_ep) ||
-					msm_ep_config(rndis->port.out_ep)) {
-					pr_err("%s: ep_config failed\n",
-						__func__);
-					goto fail;
-				}
-		} else
-			pr_debug("RNDIS is being used with non DWC3 core\n");
 
 		/* Avoid ZLPs; they can be troublesome. */
 		rndis->port.is_zlp_ok = false;

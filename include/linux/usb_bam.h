@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -345,11 +345,7 @@ int usb_bam_disconnect_pipe(enum usb_ctrl bam_type, u8 idx);
  *
  * @idx - Connection index.
  *
- * @usb_bam_handle - Usb bam handle.
- *
  * @usb_bam_pipe_idx - Usb bam pipe index.
- *
- * @peer_pipe_idx - Peer pipe index.
  *
  * @desc_fifo - Descriptor fifo parameters.
  *
@@ -358,8 +354,7 @@ int usb_bam_disconnect_pipe(enum usb_ctrl bam_type, u8 idx);
  * @return pipe index on success, negative value on error.
  */
 int get_bam2bam_connection_info(enum usb_ctrl bam_type, u8 idx,
-	unsigned long *usb_bam_handle, u32 *usb_bam_pipe_idx,
-	u32 *peer_pipe_idx, struct sps_mem_buffer *desc_fifo,
+	u32 *usb_bam_pipe_idx, struct sps_mem_buffer *desc_fifo,
 	struct sps_mem_buffer *data_fifo, enum usb_pipe_mem_type *mem_type);
 
 /**
@@ -423,6 +418,16 @@ int usb_bam_get_pipe_type(enum usb_ctrl bam_type,
 */
 bool usb_bam_get_prod_granted(enum usb_ctrl bam_type, u8 idx);
 
+/**
+* Allocates memory for data fifo and descriptor fifos.
+*/
+int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx);
+
+/**
+* Frees memory for data fifo and descriptor fifos.
+*/
+int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx);
+
 #else
 static inline int usb_bam_connect(enum usb_ctrl bam, u8 idx, u32 *bam_pipe_idx)
 {
@@ -473,8 +478,7 @@ static inline int usb_bam_disconnect_pipe(enum usb_ctrl bam_type, u8 idx)
 }
 
 static inline int get_bam2bam_connection_info(enum usb_ctrl bam_type, u8 idx,
-	unsigned long *usb_bam_handle, u32 *usb_bam_pipe_idx,
-	u32 *peer_pipe_idx, struct sps_mem_buffer *desc_fifo,
+	u32 *usb_bam_pipe_idx, struct sps_mem_buffer *desc_fifo,
 	struct sps_mem_buffer *data_fifo, enum usb_pipe_mem_type *mem_type)
 {
 	return -ENODEV;
@@ -507,6 +511,16 @@ static inline int usb_bam_get_pipe_type(enum usb_ctrl bam_type, u8 idx,
 }
 
 static inline bool usb_bam_get_prod_granted(enum usb_ctrl bam_type, u8 idx)
+{
+	return false;
+}
+
+int usb_bam_alloc_fifos(enum usb_ctrl cur_bam, u8 idx)
+{
+	return false;
+}
+
+int usb_bam_free_fifos(enum usb_ctrl cur_bam, u8 idx)
 {
 	return false;
 }

@@ -230,7 +230,11 @@ struct printk_log {
 #if defined(CONFIG_LOG_BUF_MAGIC)
 	u32 magic;		/* handle for ramdump analysis tools */
 #endif
-};
+}
+#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+__packed __aligned(4)
+#endif
+;
 
 /*
  * The logbuf_lock protects kmsg buffer, indices, counters.  This can be taken
@@ -268,11 +272,7 @@ static u32 clear_idx;
 #define LOG_LINE_MAX		(1024 - PREFIX_MAX)
 
 /* record buffer */
-#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-#define LOG_ALIGN 4
-#else
 #define LOG_ALIGN __alignof__(struct printk_log)
-#endif
 #define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
 static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;

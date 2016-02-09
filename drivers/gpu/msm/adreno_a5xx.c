@@ -146,7 +146,7 @@ static void a5xx_preemption_start(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = device->mmu.priv;
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	uint64_t ttbr0;
 	uint32_t contextidr;
 	struct kgsl_pagetable *pt;
@@ -196,17 +196,33 @@ static void a5xx_preemption_save(struct adreno_device *adreno_dev,
 		PREEMPT_RECORD(rptr));
 }
 
+#ifdef CONFIG_MSM_KGSL_IOMMU
+static int a5xx_preemption_iommu_init(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+
+	/* Allocate mem for storing preemption smmu record */
+	return kgsl_allocate_global(device, &iommu->smmu_info, PAGE_SIZE,
+		KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED);
+}
+#else
+static int a5xx_preemption_iommu_init(struct adreno_device *adreno_dev)
+{
+	return -ENODEV;
+}
+#endif
+
 static int a5xx_preemption_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = device->mmu.priv;
 	struct adreno_ringbuffer *rb;
 	int ret;
 	unsigned int i;
 	uint64_t addr;
 
 	/* We are dependent on IOMMU to make preemption go on the CP side */
-	if (kgsl_mmu_get_mmutype() != KGSL_MMU_TYPE_IOMMU)
+	if (kgsl_mmu_get_mmutype(device) != KGSL_MMU_TYPE_IOMMU)
 		return -ENODEV;
 
 	/* Allocate mem for storing preemption counters */
@@ -248,9 +264,7 @@ static int a5xx_preemption_init(struct adreno_device *adreno_dev)
 		addr += A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE;
 	}
 
-	/* Allocate mem for storing preemption smmu record */
-	return kgsl_allocate_global(device, &iommu->smmu_info, PAGE_SIZE,
-		KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_PRIVILEGED);
+	return a5xx_preemption_iommu_init(adreno_dev);
 }
 
 /*
@@ -469,7 +483,7 @@ static void a5xx_protect_init(struct adreno_device *adreno_dev)
 	adreno_set_protected_registers(adreno_dev, &index, 0xE70, 4);
 
 	/* UCHE registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xE87, 4);
+	adreno_set_protected_registers(adreno_dev, &index, 0xE80, ilog2(16));
 
 	/* SMMU registers */
 	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
@@ -1564,61 +1578,78 @@ static bool llm_is_enabled(struct adreno_device *adreno_dev)
 
 static void sleep_llm(struct adreno_device *adreno_dev)
 {
-	unsigned int r, retry = 5;
+	unsigned int r, retry;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (!llm_is_enabled(adreno_dev))
 		return;
 
 	kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL, &r);
+
 	if ((r & STATE_OF_CHILD) == 0) {
-		kgsl_regwrite(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-			(r | STATE_OF_CHILD_01) & ~STATE_OF_CHILD);
-		udelay(1);
+		/* If both children are on, sleep CHILD_O1 first */
+		kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
+			STATE_OF_CHILD, STATE_OF_CHILD_01 | IDLE_FULL_LM_SLEEP);
+		/* Wait for IDLE_FULL_ACK before continuing */
+		for (retry = 0; retry < 5; retry++) {
+			udelay(1);
+			kgsl_regread(device,
+				A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
+			if (r & IDLE_FULL_ACK)
+				break;
+		}
+
+		if (retry == 5)
+			KGSL_CORE_ERR("GPMU: LLM failed to idle: 0x%X\n", r);
 	}
 
-	kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL, &r);
-	kgsl_regwrite(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		(r | STATE_OF_CHILD_11) & ~STATE_OF_CHILD);
+	/* Now turn off both children */
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
+		0, STATE_OF_CHILD | IDLE_FULL_LM_SLEEP);
 
-	do {
+	/* wait for WAKEUP_ACK to be zero */
+	for (retry = 0; retry < 5; retry++) {
 		udelay(1);
 		kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
-	} while (!(r & WAKEUP_ACK) && retry--);
+		if ((r & WAKEUP_ACK) == 0)
+			break;
+	}
 
-	if (!retry)
-		KGSL_CORE_ERR("GPMU: LLM sleep failure\n");
+	if (retry == 5)
+		KGSL_CORE_ERR("GPMU: LLM failed to sleep: 0x%X\n", r);
 }
 
 static void wake_llm(struct adreno_device *adreno_dev)
 {
-	unsigned int r, retry = 5;
+	unsigned int r, retry;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	if (!llm_is_enabled(adreno_dev))
 		return;
 
-	kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL, &r);
-	kgsl_regwrite(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		(r | STATE_OF_CHILD_01) & ~STATE_OF_CHILD);
-
-	udelay(1);
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
+		STATE_OF_CHILD, STATE_OF_CHILD_01);
 
 	if (((device->pwrctrl.num_pwrlevels - 2) -
 		device->pwrctrl.active_pwrlevel) <= LM_DCVS_LIMIT)
 		return;
 
-	kgsl_regread(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, &r);
-	kgsl_regwrite(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
-		r & ~STATE_OF_CHILD);
+	udelay(1);
 
-	do {
+	/* Turn on all children */
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_CTRL,
+		STATE_OF_CHILD | IDLE_FULL_LM_SLEEP, 0);
+
+	/* Wait for IDLE_FULL_ACK to be zero and WAKEUP_ACK to be set */
+	for (retry = 0; retry < 5; retry++) {
 		udelay(1);
 		kgsl_regread(device, A5XX_GPMU_GPMU_LLM_GLM_SLEEP_STATUS, &r);
-	} while (!(r & WAKEUP_ACK) && retry--);
+		if ((r & (WAKEUP_ACK | IDLE_FULL_ACK)) == WAKEUP_ACK)
+			break;
+	}
 
-	if (!retry)
-		KGSL_CORE_ERR("GPMU: LLM wakeup failure\n");
+	if (retry == 5)
+		KGSL_CORE_ERR("GPMU: LLM failed to wake: 0x%X\n", r);
 }
 
 static bool llm_is_awake(struct adreno_device *adreno_dev)
@@ -1843,7 +1874,7 @@ out:
 static void a5xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_iommu *iommu = device->mmu.priv;
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int i;
 	struct adreno_ringbuffer *rb;

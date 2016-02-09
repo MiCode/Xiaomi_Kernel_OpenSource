@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@
 #include <media/msm_fd.h>
 #include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
+#include "cam_soc_api.h"
+#include "cam_hw_ops.h"
 /* Maximum number of result buffers */
 #define MSM_FD_MAX_RESULT_BUFS 5
 /* Max number of clocks defined in device tree */
@@ -220,26 +222,23 @@ struct msm_fd_device {
 	int ref_count;
 
 	int irq_num;
-	struct resource *res_mem[MSM_FD_IOMEM_LAST];
 	void __iomem *iomem_base[MSM_FD_IOMEM_LAST];
-	struct resource *ioarea[MSM_FD_IOMEM_LAST];
-	struct regulator *vdd[MSM_FD_MAX_REGULATOR_NUM];
-	unsigned int regulator_num;
+	struct msm_cam_clk_info *clk_info;
+	struct regulator **vdd;
+	int num_reg;
+	struct resource *irq;
 
-	unsigned int clk_num;
-	struct clk *clk[MSM_FD_MAX_CLK_NUM];
-	unsigned int clk_rates_num;
-	unsigned int clk_rates[MSM_FD_MAX_CLK_RATES][MSM_FD_MAX_CLK_NUM];
-
-	struct msm_bus_vectors *bus_vectors;
-	struct msm_bus_paths *bus_paths;
-	struct msm_bus_scale_pdata bus_scale_data;
+	size_t clk_num;
+	size_t clk_rates_num;
+	struct clk **clk;
+	uint32_t **clk_rates;
 	uint32_t bus_client;
 
 	unsigned int iommu_attached_cnt;
 
 	int iommu_hdl;
 	struct device *dev;
+	struct platform_device *pdev;
 	struct v4l2_device v4l2_dev;
 	struct video_device video;
 

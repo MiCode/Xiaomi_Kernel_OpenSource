@@ -2909,6 +2909,7 @@ static struct branch_clk gcc_usb3_aux_clk = {
 static struct branch_clk gcc_usb_phy_cfg_ahb_clk = {
 	.cbcr_reg = USB_PHY_CFG_AHB_CBCR,
 	.has_sibling = 1,
+	.no_halt_check_on_disable = true,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_usb_phy_cfg_ahb_clk",

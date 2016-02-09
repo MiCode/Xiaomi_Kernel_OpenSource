@@ -1006,10 +1006,8 @@ static int lpm_cpuidle_select(struct cpuidle_driver *drv,
 
 	idx = cpu_power_select(dev, cluster->cpu);
 
-	if (idx < 0) {
-		local_irq_enable();
+	if (idx < 0)
 		return -EPERM;
-	}
 
 	trace_cpu_idle_rcuidle(idx, dev->cpu);
 	return idx;

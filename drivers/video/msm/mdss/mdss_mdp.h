@@ -1206,6 +1206,8 @@ int mdss_mdp_layer_atomic_validate_wfd(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *ov_commit);
 int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *ov_commit);
+bool mdss_mdp_wfd_is_config_same(struct msm_fb_data_type *mfd,
+	struct mdp_output_layer *layer);
 
 int mdss_mdp_async_position_update(struct msm_fb_data_type *mfd,
 		struct mdp_position_update *update_pos);

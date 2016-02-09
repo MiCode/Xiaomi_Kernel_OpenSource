@@ -23,6 +23,7 @@
 #include "kgsl_pwrctrl.h"
 
 #include "adreno.h"
+#include "adreno_iommu.h"
 #include "adreno_pm4types.h"
 #include "adreno_ringbuffer.h"
 
@@ -30,9 +31,6 @@
 #include "adreno_a5xx.h"
 
 #define GSL_RB_NOP_SIZEDWORDS				2
-
-#define ADRENO_RB_PREEMPT_TOKEN_IB_DWORDS	50
-#define ADRENO_RB_PREEMPT_TOKEN_DWORDS		125
 
 #define RB_HOSTPTR(_rb, _pos) \
 	((unsigned int *) ((_rb)->buffer_desc.hostptr + \
@@ -285,8 +283,6 @@ static void _ringbuffer_setup_common(struct adreno_device *adreno_dev)
 		rb->wptr_preempt_end = 0xFFFFFFFF;
 		rb->starve_timer_state =
 		ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
-		adreno_iommu_set_pt_generate_rb_cmds(rb,
-					device->mmu.defaultpagetable);
 	}
 
 	/* Continue setting up the current ringbuffer */
@@ -438,8 +434,6 @@ static void _adreno_ringbuffer_close(struct adreno_device *adreno_dev,
 
 	kgsl_free_global(device, &rb->pagetable_desc);
 	kgsl_free_global(device, &rb->preemption_desc);
-
-	memset(&rb->pt_update_desc, 0, sizeof(struct kgsl_memdesc));
 
 	kgsl_free_global(device, &rb->buffer_desc);
 	kgsl_del_event_group(&rb->events);
@@ -1292,107 +1286,4 @@ int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 	}
 
 	return ret;
-}
-
-/**
- * adreno_ringbuffer_submit_preempt_token() - Submit a preempt token
- * @rb: Ringbuffer in which the token is submitted
- * @incoming_rb: The RB to which the GPU switches when this preemption
- * token is executed.
- *
- * Called to make sure that an outstanding preemption request is
- * granted.
- */
-int adreno_ringbuffer_submit_preempt_token(struct adreno_ringbuffer *rb,
-					struct adreno_ringbuffer *incoming_rb)
-{
-	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int *ringcmds, *start;
-	struct kgsl_iommu *iommu = device->mmu.priv;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int ptname;
-	struct kgsl_pagetable *pt;
-	int pt_switch_sizedwords = 0, total_sizedwords = 20;
-	unsigned link[ADRENO_RB_PREEMPT_TOKEN_DWORDS];
-	uint i;
-	uint64_t ttbr0;
-
-	if (incoming_rb->preempted_midway) {
-
-		if (adreno_is_a5xx(adreno_dev)) {
-			kgsl_sharedmem_readq(&rb->pagetable_desc, &ttbr0,
-				offsetof(struct adreno_ringbuffer_pagetable_info
-				, ttbr0));
-			kgsl_sharedmem_writeq(device, &iommu->smmu_info,
-				offsetof(struct a5xx_cp_smmu_info, ttbr0),
-				ttbr0);
-		} else {
-			kgsl_sharedmem_readl(&incoming_rb->pagetable_desc,
-				&ptname, offsetof(
-				struct adreno_ringbuffer_pagetable_info,
-				current_rb_ptname));
-			pt = kgsl_mmu_get_pt_from_ptname(&(device->mmu),
-				ptname);
-			/*
-			 * always expect a valid pt, else pt refcounting is
-			 * messed up or current pt tracking has a bug which
-			 * could lead to eventual disaster
-			 */
-			BUG_ON(!pt);
-			/* set the ringbuffer for incoming RB */
-			pt_switch_sizedwords =
-				adreno_iommu_set_pt_generate_cmds(incoming_rb,
-								&link[0], pt);
-			total_sizedwords += pt_switch_sizedwords;
-
-		}
-	}
-
-	/*
-	 *  Allocate total_sizedwords space in RB, this is the max space
-	 *  required.
-	 */
-	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
-
-	if (IS_ERR(ringcmds))
-		return PTR_ERR(ringcmds);
-
-	start = ringcmds;
-
-	*ringcmds++ = cp_packet(adreno_dev, CP_SET_PROTECTED_MODE, 1);
-	*ringcmds++ = 0;
-
-	if (incoming_rb->preempted_midway) {
-		for (i = 0; i < pt_switch_sizedwords; i++)
-			*ringcmds++ = link[i];
-	}
-
-	*ringcmds++ = cp_register(adreno_dev, adreno_getreg(adreno_dev,
-			ADRENO_REG_CP_PREEMPT_DISABLE), 1);
-	*ringcmds++ = 0;
-
-	*ringcmds++ = cp_packet(adreno_dev, CP_SET_PROTECTED_MODE, 1);
-	*ringcmds++ = 1;
-
-	ringcmds += gpudev->preemption_token(adreno_dev, rb, ringcmds,
-				device->memstore.gpuaddr +
-				KGSL_MEMSTORE_RB_OFFSET(rb, preempted));
-
-	if ((uint)(ringcmds - start) > total_sizedwords) {
-		KGSL_DRV_ERR(device, "Insufficient rb size allocated\n");
-		BUG();
-	}
-
-	/*
-	 * If we have commands less than the space reserved in RB
-	 *  adjust the wptr accordingly
-	 */
-	rb->wptr = rb->wptr - (total_sizedwords - (uint)(ringcmds - start));
-
-	/* submit just the preempt token */
-	mb();
-	kgsl_pwrscale_busy(device);
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR, rb->wptr);
-	return 0;
 }

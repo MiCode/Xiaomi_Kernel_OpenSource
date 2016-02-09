@@ -67,7 +67,11 @@
 
 &clock_audio {
 	qcom,audio-ref-clk-gpio = <&pmtitanium_gpios 1 0>;
+	qcom,lpass-mclk-id = "pri_mclk";
 	clocks = <&clock_gcc clk_div_clk2>;
+	pinctrl-names = "sleep", "active";
+	pinctrl-0 = <&cdc_mclk2_sleep>;
+	pinctrl-1 = <&cdc_mclk2_active>;
 };
 
 &pmtitanium_1 {
@@ -139,6 +143,10 @@
 };
 
 &wcd9335 {
+	clock-names = "wcd_clk", "wcd_native_clk";
+	clocks = <&clock_audio clk_audio_pmi_clk>,
+		<&clock_audio clk_audio_ap_clk2>;
+
 	qcom,cdc-reset-gpio = <&tlmm 67 0>;
 
 	cdc-vdd-buck-supply = <&eldo2_titanium>;
