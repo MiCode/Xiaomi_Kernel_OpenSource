@@ -823,6 +823,15 @@
 		qcom,config-reg = <0x179d1434>;
 	};
 
+	qcom,msm-gladiator-v2@17900000 {
+		compatible = "qcom,msm-gladiator-v2";
+		reg = <0x17900000 0xe000>;
+		reg-names = "gladiator_base";
+		interrupts = <0 22 0>;
+		clock-names = "atb_clk";
+		clocks = <&clock_gcc clk_qdss_clk>;
+	};
+
 	qcom,smem@86000000 {
 		compatible = "qcom,smem";
 		reg = <0x86000000 0x200000>,
