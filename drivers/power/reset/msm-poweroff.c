@@ -571,6 +571,7 @@ skip_sysfs_create:
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
 
+	download_mode = scm_is_secure_device();
 	set_dload_mode(download_mode);
 	if (!download_mode)
 		scm_disable_sdi();
