@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,11 @@ struct mux_clk {
 	u32		mask;
 	u32		shift;
 	u32		en_mask;
+	/*
+	 * Set post divider for debug mux in order to divide the clock
+	 * by post_div + 1.
+	 */
+	u32		post_div;
 	int		low_power_sel;
 	void		*priv;
 
