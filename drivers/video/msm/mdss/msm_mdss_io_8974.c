@@ -1900,7 +1900,7 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 		 * However, when blanking the panel, we should enter ULPS
 		 * only if ULPS during suspend feature is enabled.
 		 */
-		if (!(ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE)) {
+		if (!(ctrl->ctrl_state & CTRL_STATE_PANEL_INIT)) {
 			if (pdata->panel_info.ulps_suspend_enabled)
 				mdss_dsi_ulps_config(ctrl, 1);
 		} else if (mdss_dsi_ulps_feature_enabled(pdata)) {
