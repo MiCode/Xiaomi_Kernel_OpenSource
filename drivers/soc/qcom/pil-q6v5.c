@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -359,6 +359,12 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 	/* Override the ACC value if required */
 	if (drv->override_acc)
 		writel_relaxed(QDSP6SS_ACC_OVERRIDE_VAL,
+				drv->reg_base + QDSP6SS_STRAP_ACC);
+
+	/* Override the ACC value with input value */
+	if (!of_property_read_u32(pil->dev->of_node, "qcom,override-acc-1",
+				&drv->override_acc_1))
+		writel_relaxed(drv->override_acc_1,
 				drv->reg_base + QDSP6SS_STRAP_ACC);
 
 	/* Assert resets, stop core */
