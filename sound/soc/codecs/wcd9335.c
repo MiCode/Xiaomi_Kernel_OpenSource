@@ -2550,6 +2550,9 @@ static const struct snd_kcontrol_new aif4_mad_mixer[] = {
 			slim_tx_mixer_get, slim_tx_mixer_put),
 	SOC_SINGLE_EXT("SLIM TX13", SND_SOC_NOPM, TASHA_TX13, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX1", SND_SOC_NOPM, 0, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+
 };
 
 static const struct snd_kcontrol_new rx_int1_spline_mix_switch[] = {
@@ -2603,6 +2606,11 @@ static const struct snd_kcontrol_new rx_int7_vbat_mix_switch[] = {
 static const struct snd_kcontrol_new rx_int8_vbat_mix_switch[] = {
 	SOC_DAPM_SINGLE("SPKRR VBAT Enable", SND_SOC_NOPM, 0, 1, 0)
 };
+
+static const struct snd_kcontrol_new cpe_in_mix_switch[] = {
+	SOC_DAPM_SINGLE("MAD_BYPASS", SND_SOC_NOPM, 0, 1, 0)
+};
+
 
 
 static int tasha_put_iir_enable_audio_mixer(
@@ -5759,6 +5767,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MAD_BROADCAST", "Switch", "MAD_SEL MUX"},
 	{"TX13 INP MUX", "CPE_TX_PP", "MADONOFF"},
 
+	/* CPE HW MAD bypass */
+	{"CPE IN Mixer", "MAD_BYPASS", "SLIM TX1 MUX"},
+
+	{"AIF4_MAD Mixer", "SLIM TX1", "CPE IN Mixer"},
 	{"AIF4_MAD Mixer", "SLIM TX12", "MADONOFF"},
 	{"AIF4_MAD Mixer", "SLIM TX13", "TX13 INP MUX"},
 	{"AIF4 MAD", NULL, "AIF4_MAD Mixer"},
@@ -8173,6 +8185,11 @@ static int tasha_codec_enable_mad(struct snd_soc_dapm_widget *w,
 
 	dev_dbg(codec->dev,
 		"%s: event = %d\n", __func__, event);
+
+	/* Return if CPE INPUT is DEC1 */
+	if (snd_soc_read(codec, WCD9335_CPE_SS_SVA_CFG) & 0x01)
+		return ret;
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 
@@ -8201,6 +8218,39 @@ static int tasha_codec_enable_mad(struct snd_soc_dapm_widget *w,
 
 	return ret;
 }
+
+static int tasha_codec_configure_cpe_input(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	dev_dbg(codec->dev,
+		"%s: event = %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/* Configure CPE input as DEC1 */
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_SVA_CFG,
+				    0x01, 0x01);
+
+		/* Configure DEC1 Tx out with sample rate as 16K */
+		snd_soc_update_bits(codec, WCD9335_CDC_TX1_TX_PATH_CTL,
+				    0x0F, 0x01);
+
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* Reset DEC1 Tx out sample rate */
+		snd_soc_update_bits(codec, WCD9335_CDC_TX1_TX_PATH_CTL,
+				    0x0F, 0x04);
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_SVA_CFG,
+				    0x01, 0x00);
+
+		break;
+	}
+
+	return 0;
+}
+
 
 static int tasha_codec_aif4_mixer_switch_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
@@ -9989,6 +10039,11 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			     4, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("SRC1", WCD9335_CDC_SIDETONE_SRC1_ST_SRC_PATH_CTL,
 			     4, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER_E("CPE IN Mixer", SND_SOC_NOPM, 0, 0,
+				cpe_in_mix_switch,
+				ARRAY_SIZE(cpe_in_mix_switch),
+				tasha_codec_configure_cpe_input,
+				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("RX MIX TX0 MUX", SND_SOC_NOPM, 0, 0,
 		&rx_mix_tx0_mux),
