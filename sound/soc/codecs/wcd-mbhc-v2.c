@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2192,11 +2192,14 @@ void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 	}
 	mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
 	mbhc->hph_status = 0;
-	mbhc->mbhc_cb->irq_control(mbhc->codec, mbhc->intr_ids->hph_left_ocp,
-				   false);
-	mbhc->mbhc_cb->irq_control(mbhc->codec, mbhc->intr_ids->hph_right_ocp,
-				   false);
-
+	if (mbhc->mbhc_cb && mbhc->mbhc_cb->irq_control) {
+		mbhc->mbhc_cb->irq_control(mbhc->codec,
+				mbhc->intr_ids->hph_left_ocp,
+				false);
+		mbhc->mbhc_cb->irq_control(mbhc->codec,
+				mbhc->intr_ids->hph_right_ocp,
+				false);
+	}
 	if (mbhc->mbhc_fw || mbhc->mbhc_cal) {
 		cancel_delayed_work_sync(&mbhc->mbhc_firmware_dwork);
 		if (!mbhc->mbhc_cal)
