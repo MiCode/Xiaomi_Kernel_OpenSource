@@ -53,6 +53,9 @@ static int mmc_host_runtime_suspend(struct device *dev)
 	if (!mmc_use_core_runtime_pm(host))
 		return 0;
 
+	if (mmc_bus_needs_resume(host))
+		goto out;
+
 	if (host->card && host->card->cmdq_init) {
 		BUG_ON(host->cmdq_ctx.active_reqs);
 
@@ -126,6 +129,9 @@ static int mmc_host_runtime_resume(struct device *dev)
 			BUG_ON(1);
 	}
 
+	if (mmc_bus_needs_resume(host))
+		goto out;
+
 	if (host->card && !ret && mmc_card_cmdq(host->card)) {
 		ret = mmc_cmdq_halt(host, false);
 		if (ret)
@@ -134,6 +140,7 @@ static int mmc_host_runtime_resume(struct device *dev)
 			mmc_card_clr_suspended(host->card);
 	}
 
+out:
 	trace_mmc_host_runtime_resume(mmc_hostname(host), ret,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
 	return ret;
@@ -149,6 +156,9 @@ static int mmc_host_suspend(struct device *dev)
 
 	if (!mmc_use_core_pm(host))
 		return 0;
+
+	if (mmc_bus_needs_resume(host))
+		goto out;
 
 	spin_lock_irqsave(&host->clk_lock, flags);
 	/*
@@ -227,6 +237,9 @@ static int mmc_host_resume(struct device *dev)
 
 	if (!pm_runtime_suspended(dev)) {
 		ret = mmc_resume_host(host);
+		if (!ret && mmc_bus_needs_resume(host))
+			goto out;
+
 		if (ret < 0) {
 			pr_err("%s: %s: failed: ret: %d\n", mmc_hostname(host),
 			       __func__, ret);
@@ -241,6 +254,7 @@ static int mmc_host_resume(struct device *dev)
 	}
 	host->dev_status = DEV_RESUMED;
 
+out:
 	return ret;
 }
 #endif
