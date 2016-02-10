@@ -181,6 +181,9 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
 unsigned int nf_conntrack_max __read_mostly;
 seqcount_t nf_conntrack_generation __read_mostly;
 
+unsigned int nf_conntrack_pkt_threshold __read_mostly;
+EXPORT_SYMBOL(nf_conntrack_pkt_threshold);
+
 DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
 EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
 
@@ -1434,6 +1437,9 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 			  unsigned long extra_jiffies,
 			  int do_acct)
 {
+	struct nf_conn_acct *acct;
+	u64 pkts;
+
 	NF_CT_ASSERT(skb);
 
 	/* Only update if this is not a fixed timeout */
@@ -1446,8 +1452,27 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 
 	ct->timeout = extra_jiffies;
 acct:
-	if (do_acct)
-		nf_ct_acct_update(ct, ctinfo, skb->len);
+	if (do_acct) {
+		acct = nf_conn_acct_find(ct);
+		if (acct) {
+			struct nf_conn_counter *counter = acct->counter;
+
+			atomic64_inc(&counter[CTINFO2DIR(ctinfo)].packets);
+			atomic64_add(skb->len, &counter
+					[CTINFO2DIR(ctinfo)].bytes);
+
+			pkts =
+			atomic64_read(&counter[CTINFO2DIR(ctinfo)].packets) +
+			atomic64_read(&counter[!CTINFO2DIR(ctinfo)].packets);
+			/* Report if the packet threshold is reached. */
+			if ((nf_conntrack_pkt_threshold > 0) &&
+			    (pkts == nf_conntrack_pkt_threshold)) {
+				nf_conntrack_event_cache(IPCT_COUNTER, ct);
+				nf_conntrack_event_cache(IPCT_PROTOINFO, ct);
+				nf_ct_deliver_cached_events(ct);
+			}
+		}
+	}
 }
 EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
 
