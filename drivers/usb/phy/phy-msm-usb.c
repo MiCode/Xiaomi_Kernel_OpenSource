@@ -74,6 +74,9 @@
 
 #define USB_DEFAULT_SYSTEM_CLOCK 80000000	/* 80 MHz */
 
+#define PM_QOS_SAMPLE_SEC	2
+#define PM_QOS_THRESHOLD	400
+
 enum msm_otg_phy_reg_mode {
 	USB_PHY_REG_OFF,
 	USB_PHY_REG_ON,
@@ -964,11 +967,12 @@ static void msm_otg_bus_vote(struct msm_otg *motg, enum usb_bus_vote vote)
 		if (ret)
 			dev_err(motg->phy.dev, "%s: Failed to vote (%d)\n"
 				   "for bus bw %d\n", __func__, vote, ret);
-		if (vote == USB_MAX_PERF_VOTE)
-			msm_otg_bus_clks_enable(motg);
-		else
-			msm_otg_bus_clks_disable(motg);
 	}
+
+	if (vote == USB_MAX_PERF_VOTE)
+		msm_otg_bus_clks_enable(motg);
+	else
+		msm_otg_bus_clks_disable(motg);
 }
 
 static void msm_otg_enable_phy_hv_int(struct msm_otg *motg)
@@ -1137,6 +1141,7 @@ static irqreturn_t msm_otg_phy_irq_handler(int irq, void *data)
 #define PHY_SUSPEND_RETRIES_MAX 3
 
 static void msm_otg_set_vbus_state(int online);
+static void msm_otg_perf_vote_update(struct msm_otg *motg, bool perf_mode);
 
 #ifdef CONFIG_PM_SLEEP
 static int msm_otg_suspend(struct msm_otg *motg)
@@ -1160,6 +1165,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (atomic_read(&motg->in_lpm))
 		return 0;
 
+	cancel_delayed_work_sync(&motg->perf_vote_work);
+
 	disable_irq(motg->irq);
 	if (motg->phy_irq)
 		disable_irq(motg->phy_irq);
@@ -1169,6 +1176,8 @@ lpm_start:
 		test_bit(A_BUS_SUSPEND, &motg->inputs) &&
 		motg->caps & ALLOW_LPM_ON_DEV_SUSPEND;
 
+	if (host_bus_suspend)
+		msm_otg_perf_vote_update(motg, false);
 	/*
 	 * Allow putting PHY into SIDDQ with wall charger connected in
 	 * case of external charger detection.
@@ -1639,8 +1648,11 @@ skip_phy_resume:
 		msm_id_status_w(&motg->id_status_work.work);
 	}
 
-	if (motg->host_bus_suspend)
+	if (motg->host_bus_suspend) {
 		usb_hcd_resume_root_hub(hcd);
+		schedule_delayed_work(&motg->perf_vote_work,
+			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+	}
 
 	dev_info(phy->dev, "USB exited from low power mode\n");
 	msm_otg_dbg_log_event(phy, "LPM EXIT DONE",
@@ -1812,6 +1824,61 @@ static int msm_otg_set_power(struct usb_phy *phy, unsigned mA)
 }
 
 static void msm_hsusb_vbus_power(struct msm_otg *motg, bool on);
+
+static void msm_otg_perf_vote_update(struct msm_otg *motg, bool perf_mode)
+{
+	static bool curr_perf_mode;
+	int ret, latency = motg->pm_qos_latency;
+	long clk_rate;
+
+	if (curr_perf_mode == perf_mode)
+		return;
+
+	if (perf_mode) {
+		if (latency)
+			pm_qos_update_request(&motg->pm_qos_req_dma, latency);
+		msm_otg_bus_vote(motg, USB_MAX_PERF_VOTE);
+		clk_rate = motg->core_clk_rate;
+	} else {
+		if (latency)
+			pm_qos_update_request(&motg->pm_qos_req_dma,
+						PM_QOS_DEFAULT_VALUE);
+		msm_otg_bus_vote(motg, USB_MIN_PERF_VOTE);
+		clk_rate = motg->core_clk_svs_rate;
+	}
+
+	if (clk_rate) {
+		ret = clk_set_rate(motg->core_clk, clk_rate);
+		if (ret)
+			dev_err(motg->phy.dev, "sys_clk set_rate fail:%d %ld\n",
+					ret, clk_rate);
+	}
+	curr_perf_mode = perf_mode;
+	pr_debug("%s: latency updated to: %d, core_freq to: %ld\n", __func__,
+					latency, clk_rate);
+}
+
+static void msm_otg_perf_vote_work(struct work_struct *w)
+{
+	struct msm_otg *motg = container_of(w, struct msm_otg,
+						perf_vote_work.work);
+	unsigned curr_sample_int_count;
+	bool in_perf_mode = false;
+
+	curr_sample_int_count = motg->usb_irq_count;
+	motg->usb_irq_count = 0;
+
+	if (curr_sample_int_count >= PM_QOS_THRESHOLD)
+		in_perf_mode = true;
+
+	msm_otg_perf_vote_update(motg, in_perf_mode);
+	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%u\n",
+		 __func__, in_perf_mode, curr_sample_int_count);
+
+	schedule_delayed_work(&motg->perf_vote_work,
+			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+}
+
 static void msm_otg_start_host(struct usb_otg *otg, int on)
 {
 	struct msm_otg *motg = container_of(otg->phy, struct msm_otg, phy);
@@ -1842,11 +1909,28 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 			writel_relaxed(val, USB_HS_APF_CTRL);
 		}
 		usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
+#ifdef CONFIG_SMP
+		motg->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+		motg->pm_qos_req_dma.irq = motg->irq;
+#endif
+		pm_qos_add_request(&motg->pm_qos_req_dma,
+				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		/* start in perf mode for better performance initially */
+		msm_otg_perf_vote_update(motg, true);
+		schedule_delayed_work(&motg->perf_vote_work,
+				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 	} else {
 		dev_dbg(otg->phy->dev, "host off\n");
 		msm_otg_dbg_log_event(&motg->phy, "HOST OFF",
 				motg->inputs, otg->phy->state);
 		msm_hsusb_vbus_power(motg, 0);
+
+		cancel_delayed_work_sync(&motg->perf_vote_work);
+		msm_otg_perf_vote_update(motg, false);
+		pm_qos_remove_request(&motg->pm_qos_req_dma);
+		/* bump up usb core_clk to max_nom */
+		clk_set_rate(motg->core_clk, motg->core_clk_rate);
+
 		usb_remove_hcd(hcd);
 
 		if (pdata->enable_axi_prefetch)
@@ -2871,6 +2955,7 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 
 		return IRQ_HANDLED;
 	}
+	motg->usb_irq_count++;
 
 	otgsc = readl_relaxed(USB_OTGSC);
 	if (!(otgsc & (OTGSC_IDIS | OTGSC_BSVIS)))
@@ -4165,6 +4250,13 @@ static int msm_otg_probe(struct platform_device *pdev)
 		goto put_core_clk;
 	}
 
+	if (of_property_read_u32(pdev->dev.of_node,
+					"qcom,max-svs-sysclk-rate", &ret)) {
+		dev_dbg(&pdev->dev, "core_clk svs freq not specified\n");
+	} else {
+		motg->core_clk_svs_rate = clk_round_rate(motg->core_clk, ret);
+	}
+
 	if (of_property_read_bool(pdev->dev.of_node,
 					"qcom,boost-sysclk-with-streaming"))
 		motg->core_clk_rate = clk_round_rate(motg->core_clk,
@@ -4268,26 +4360,19 @@ static int msm_otg_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (pdev->dev.of_node) {
-		dev_dbg(&pdev->dev, "device tree enabled\n");
-		pdata = msm_otg_dt_to_pdata(pdev);
-		if (!pdata) {
-			ret = -ENOMEM;
-			goto disable_phy_csr_clk;
-		}
+	of_property_read_u32(pdev->dev.of_node, "qcom,pm-qos-latency",
+				&motg->pm_qos_latency);
 
-		pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
-		if (!pdata->bus_scale_table)
-			dev_dbg(&pdev->dev, "bus scaling is disabled\n");
-
-		pdev->dev.platform_data = pdata;
-	} else if (!pdev->dev.platform_data) {
-		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
-		ret = -ENODEV;
+	pdata = msm_otg_dt_to_pdata(pdev);
+	if (!pdata) {
+		ret = -ENOMEM;
 		goto disable_phy_csr_clk;
-	} else {
-		pdata = pdev->dev.platform_data;
 	}
+	pdev->dev.platform_data = pdata;
+
+	pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (!pdata->bus_scale_table)
+		dev_dbg(&pdev->dev, "bus scaling is disabled\n");
 
 	if (pdata->phy_type == QUSB_ULPI_PHY) {
 		if (of_property_match_string(pdev->dev.of_node,
@@ -4525,6 +4610,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
 	INIT_DELAYED_WORK(&motg->id_status_work, msm_id_status_w);
+	INIT_DELAYED_WORK(&motg->perf_vote_work, msm_otg_perf_vote_work);
 	setup_timer(&motg->chg_check_timer, msm_otg_chg_check_timer_func,
 				(unsigned long) motg);
 	motg->otg_wq = alloc_ordered_workqueue("k_otg", 0);
@@ -4855,6 +4941,8 @@ static int msm_otg_remove(struct platform_device *pdev)
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_delayed_work_sync(&motg->id_status_work);
+	cancel_delayed_work_sync(&motg->perf_vote_work);
+	msm_otg_perf_vote_update(motg, false);
 	cancel_work_sync(&motg->sm_work);
 	destroy_workqueue(motg->otg_wq);
 
