@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,9 @@ void ufs_qcom_ice_print_regs(struct ufs_qcom_host *qcom_host)
 				(REG_UFS_QCOM_ICE_CTRL_INFO_2_n + 8 * i)));
 	}
 
+	if (qcom_host->ice.pdev && qcom_host->ice.vops &&
+	    qcom_host->ice.vops->debug)
+		qcom_host->ice.vops->debug(qcom_host->ice.pdev);
 }
 
 static void ufs_qcom_ice_error_cb(void *host_ctrl, u32 error)
