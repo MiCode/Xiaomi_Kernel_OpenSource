@@ -624,6 +624,16 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&dsi_sharp_4k_dsc_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,partial-update-enabled;
+	/* panel supports slice height of 8/16/32/48/3840 */
+	qcom,panel-roi-alignment = <1080 8 1080 8 1080 8>;
+};
+
 &labibb {
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
