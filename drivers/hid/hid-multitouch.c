@@ -897,10 +897,13 @@ static int mt_input_configured(struct hid_device *hdev, struct hid_input *hi)
 	char *name;
 	const char *suffix = NULL;
 	struct hid_field *field = hi->report->field[0];
-	int ret = 0;
+	int ret;
 
-	if (hi->report->id == td->mt_report_id)
+	if (hi->report->id == td->mt_report_id) {
 		ret = mt_touch_input_configured(hdev, hi);
+		if (ret)
+			return ret;
+	}
 
 	/*
 	 * some egalax touchscreens have "application == HID_DG_TOUCHSCREEN"
@@ -951,7 +954,8 @@ static int mt_input_configured(struct hid_device *hdev, struct hid_input *hi)
 			hi->input->name = name;
 		}
 	}
-	return ret;
+
+	return 0;
 }
 
 static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
