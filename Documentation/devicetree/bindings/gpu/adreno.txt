@@ -120,6 +120,10 @@ Optional Properties:
 				mask   - mask for the relevant bits in the efuse register.
 				shift  - number of bits to right shift to get the speed bin
 				value.
+- qcom,highest-bank-bit:
+				Specify the bit of the highest DDR bank. This
+				is programmed into protected registers and also
+				passed to the user as a property.
 
 - qcom,l2pc-cpu-mask:
 				Disables L2PC on masked CPUs when any of Graphics

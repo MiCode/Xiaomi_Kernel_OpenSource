@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -569,6 +569,7 @@
 
 /* RB registers */
 #define A5XX_RB_ADDR_MODE_CNTL              0xCC5
+#define A5XX_RB_MODE_CNTL                   0xCC6
 #define A5XX_RB_PERFCTR_RB_SEL_0            0xCD0
 #define A5XX_RB_PERFCTR_RB_SEL_1            0xCD1
 #define A5XX_RB_PERFCTR_RB_SEL_2            0xCD2
@@ -656,6 +657,7 @@
 #define A5XX_UCHE_GMEM_RANGE_MIN_HI         0xE8C
 #define A5XX_UCHE_GMEM_RANGE_MAX_LO         0xE8D
 #define A5XX_UCHE_GMEM_RANGE_MAX_HI         0xE8E
+#define A5XX_UCHE_DBG_ECO_CNTL_2            0xE8F
 #define A5XX_UCHE_INVALIDATE0               0xE95
 #define A5XX_UCHE_CACHE_WAYS                0xE96
 #define A5XX_UCHE_PERFCTR_UCHE_SEL_0        0xEA0
@@ -697,6 +699,7 @@
 
 /* TP registers */
 #define A5XX_TPL1_ADDR_MODE_CNTL            0xF01
+#define A5XX_TPL1_MODE_CNTL                 0xF02
 #define A5XX_TPL1_PERFCTR_TP_SEL_0          0xF10
 #define A5XX_TPL1_PERFCTR_TP_SEL_1          0xF11
 #define A5XX_TPL1_PERFCTR_TP_SEL_2          0xF12

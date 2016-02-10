@@ -1826,6 +1826,29 @@ static int adreno_getproperty(struct kgsl_device *device,
 			status = 0;
 		}
 		break;
+	case KGSL_PROP_HIGHEST_BANK_BIT:
+		{
+			unsigned int bit;
+
+			if (sizebytes < sizeof(unsigned int)) {
+				status = -EINVAL;
+				break;
+			}
+
+			if (of_property_read_u32(device->pdev->dev.of_node,
+				"qcom,highest-bank-bit", &bit)) {
+					status = -EINVAL;
+					break;
+			}
+
+			if (copy_to_user(value, &bit, sizeof(bit))) {
+				status = -EFAULT;
+				break;
+			}
+		}
+		status = 0;
+		break;
+
 	default:
 		status = -EINVAL;
 	}

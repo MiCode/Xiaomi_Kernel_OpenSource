@@ -302,6 +302,7 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_SP_GENERIC_MEM	0x14
 #define KGSL_PROP_UCODE_VERSION		0x15
 #define KGSL_PROP_GPMU_VERSION		0x16
+#define KGSL_PROP_HIGHEST_BANK_BIT	0x17
 
 struct kgsl_shadowprop {
 	unsigned long gpuaddr;
