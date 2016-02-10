@@ -131,9 +131,12 @@ enum ip_conntrack_events {
 	IPCT_LABEL,		/* new connlabel has been set */
 	IPCT_SYNPROXY,		/* synproxy has been set */
 #ifdef __KERNEL__
+	IPCT_COUNTER,		/* Packet counters have matched. */
 	__IPCT_MAX
 #endif
 };
+
+#define IPCT_COUNTER IPCT_COUNTER
 
 enum ip_conntrack_expect_events {
 	IPEXP_NEW,		/* new expectation */
