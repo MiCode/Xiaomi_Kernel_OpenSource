@@ -495,6 +495,7 @@ struct mdss_util_intf {
 	int (*bus_scale_set_quota)(int client, u64 ab_quota, u64 ib_quota);
 	int (*panel_intf_status)(u32 disp_num, u32 intf_type);
 	struct mdss_panel_cfg* (*panel_intf_type)(int intf_val);
+	int (*dyn_clk_gating_ctrl)(int enable);
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);

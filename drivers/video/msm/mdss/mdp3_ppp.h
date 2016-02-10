@@ -1,4 +1,4 @@
-/* Copyright (c) 2007, 2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007, 2013, 2016, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -22,6 +22,8 @@
 #define PPP_UPSCALE_MAX 64
 #define PPP_BLUR_SCALE_MAX 128
 #define PPP_LUT_MAX 256
+
+#define MDPOP_SMART_BLIT        BIT(31) /* blit optimization flag */
 
 /* MDP PPP Operations */
 #define MDPOP_NOP               0
@@ -51,6 +53,8 @@
 #define PPP_OP_FLIP_UD			BIT(11)
 #define PPP_OP_BLEND_ON			BIT(12)
 #define PPP_OP_BLEND_CONSTANT_ALPHA BIT(14)
+#define PPP_OP_BLEND_BG_ALPHA		BIT(13)
+#define PPP_OP_BLEND_EQ_REVERSE		BIT(15)
 #define PPP_OP_DITHER_EN		BIT(16)
 #define PPP_BLEND_CALPHA_TRNASP BIT(24)
 
@@ -298,6 +302,8 @@ struct ppp_resource {
 	u64 next_ab;
 	u64 next_ib;
 	u64 clk_rate;
+	u64 solid_fill_pixel;
+	u64 solid_fill_byte;
 };
 
 struct ppp_csc_table {
@@ -392,6 +398,8 @@ struct ppp_edge_rep {
 	int32_t luma_repeat_top;
 	int32_t luma_repeat_bottom;
 };
+
+bool check_if_rgb(int color);
 
 /* func for ppp register values */
 uint32_t ppp_bpp(uint32_t type);
