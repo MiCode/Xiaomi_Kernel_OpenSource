@@ -428,7 +428,18 @@
 				<3 1248000000>,
 				<4 1401000000>;
 		qcom,speed-bin-fuse-sel = <37 34 3 0>;
+		qcom,cpr-speed-bin-max-corners =
+					<0 0 1 2 4>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
+		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
+		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-fuse-revision = <69 39 3 0>;
+		qcom,cpr-fuse-version-map =
+			<(-1)   (-1)     1    (-1)    (-1)    (-1)>,
+			<(-1)   (-1)   (-1)   (-1)    (-1)    (-1)>;
+		qcom,cpr-quotient-adjustment =
+				<0      20      100>,
+				<0       0        0>;
+		qcom,cpr-enable;
 	};
 };
