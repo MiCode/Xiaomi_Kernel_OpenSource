@@ -1,14 +1,6 @@
 menu "Qualcomm MSM specific device drivers"
 	depends on ARCH_QCOM
 
-config QPNP_POWER_ON
-	tristate "QPNP PMIC POWER-ON Driver"
-	depends on SPMI && INPUT
-	help
-	  This driver supports the power-on functionality on Qualcomm
-	  PNP PMIC. It currently supports reporting the change in status of
-	  the KPDPWR_N line (connected to the power-key).
-
 config QPNP_REVID
 	tristate "QPNP Revision ID Peripheral"
 	depends on SPMI
@@ -27,13 +19,6 @@ config QPNP_COINCELL
 	  charge a coincell battery or backup capacitor which is used to
 	  maintain PMIC register state when the main battery is removed from the
 	  mobile device.
-
-config QPNP_HAPTIC
-	tristate "Haptic support for QPNP PMIC"
-	help
-	  This option enables device driver support for the Haptic
-	  on the Qualcomm Technologies' QPNP PMICs. It uses the android
-	  timed-output framework.
 
 config SPS
 	bool "SPS support"

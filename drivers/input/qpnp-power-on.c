@@ -621,7 +621,7 @@ static int qpnp_pon_get_trigger_config(enum pon_trigger_source pon_src,
 		return -ENODEV;
 
 	if (pon_src < PON_SMPL || pon_src > PON_KPDPWR_N) {
-		dev_err(&pon->spmi->dev, "Invalid PON source\n");
+		dev_err(&pon->pdev->dev, "Invalid PON source\n");
 		return -EINVAL;
 	}
 
@@ -635,7 +635,7 @@ static int qpnp_pon_get_trigger_config(enum pon_trigger_source pon_src,
 
 	rc = regmap_read(pon->regmap, addr, &val);
 	if (rc)
-		dev_err(&pon->spmi->dev,
+		dev_err(&pon->pdev->dev,
 			"Unable to read from addr=%hx, rc(%d)\n",
 			addr, rc);
 	else
@@ -1664,7 +1664,7 @@ static int pon_regulator_init(struct qpnp_pon *pon)
 			return rc;
 		}
 
-		init_data = of_get_regulator_init_data(dev, node);
+		init_data = of_get_regulator_init_data(dev, node, &pon_reg->rdesc);
 		if (!init_data) {
 			dev_err(dev, "regulator init data is missing\n");
 			return -EINVAL;

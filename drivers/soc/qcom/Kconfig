@@ -10,6 +10,14 @@ config MSM_SMEM
 	  processors in the System on a Chip (SoC) which allows basic
 	  inter-processor communication.
 
+config QPNP_HAPTIC
+        tristate "Haptic support for QPNP PMIC"
+	depends on ARCH_QCOM
+        help
+          This option enables device driver support for the Haptic
+          on the Qualcomm Technologies' QPNP PMICs. It uses the android
+          timed-output framework.
+
 config MSM_SMD
 	depends on MSM_SMEM
 	bool "MSM Shared Memory Driver (SMD)"
