@@ -2145,7 +2145,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 				IS_SIX_ZONE_DIRTY(flags, pa_v2_flags)));
 	if (mdata->pp_reg_bus_clt && max_bw_needed) {
 		ret = mdss_update_reg_bus_vote(mdata->pp_reg_bus_clt,
-				VOTE_INDEX_80_MHZ);
+				VOTE_INDEX_HIGH);
 		if (ret)
 			pr_err("Updated reg_bus_scale failed, ret = %d", ret);
 	}
