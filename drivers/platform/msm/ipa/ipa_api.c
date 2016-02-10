@@ -408,7 +408,7 @@ int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 EXPORT_SYMBOL(ipa_cfg_ep_holb_by_client);
 
 /**
- * ipa_cfg_ep_hdr() -  IPA end-point Control configuration
+ * ipa_cfg_ep_ctrl() -  IPA end-point Control configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  * @ipa_ep_cfg_ctrl:	[in] IPA end-point configuration params
  *

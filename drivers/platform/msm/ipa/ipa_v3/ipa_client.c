@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,8 +44,7 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 	struct ipa_ep_cfg_holb holb_cfg;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	int res = 0;
-	u32 reg_val = 0;
-	int ep_grp;
+	struct ipahal_reg_endp_init_rsrc_grp rsrc_grp;
 
 	IPADBG("Enabling data path\n");
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
@@ -65,21 +64,19 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 
-	/* Assign the resource group for pipe*/
-	ep_grp = ipa_get_ep_group(ep->client);
-	if (ep_grp == -1) {
+	/* Assign the resource group for pipe */
+	memset(&rsrc_grp, 0, sizeof(rsrc_grp));
+	rsrc_grp.rsrc_grp = ipa_get_ep_group(ep->client);
+	if (rsrc_grp.rsrc_grp == -1) {
 		IPAERR("invalid group for client %d\n", ep->client);
 		WARN_ON(1);
 		return -EFAULT;
 	}
 
 	IPADBG("Setting group %d for pipe %d\n",
-		ep_grp, clnt_hdl);
-	IPA_SETFIELD_IN_REG(reg_val, ep_grp,
-		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_SHFT,
-		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_BMSK);
-	ipa_write_reg(ipa3_ctx->mmio,
-		IPA_ENDP_INIT_RSRC_GRP_n(clnt_hdl), reg_val);
+		rsrc_grp.rsrc_grp, clnt_hdl);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_RSRC_GRP_n, clnt_hdl,
+		&rsrc_grp);
 
 	return res;
 }
@@ -89,7 +86,7 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 	struct ipa3_ep_context *ep = &ipa3_ctx->ep[clnt_hdl];
 	struct ipa_ep_cfg_holb holb_cfg;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
-	u32 aggr_init;
+	struct ipa_ep_cfg_aggr ep_aggr;
 	int res = 0;
 
 	IPADBG("Disabling data path\n");
@@ -108,10 +105,8 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 	}
 
 	udelay(IPA_PKT_FLUSH_TO_US);
-	aggr_init = ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(clnt_hdl));
-	if (((aggr_init & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) >>
-	    IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) == IPA_ENABLE_AGGR) {
+	ipahal_read_reg_n_fields(IPA_ENDP_INIT_AGGR_n, clnt_hdl, &ep_aggr);
+	if (ep_aggr.aggr_en) {
 		res = ipa3_tag_aggr_force_close(clnt_hdl);
 		if (res) {
 			IPAERR("tag process timeout, client:%d err:%d\n",
@@ -286,7 +281,7 @@ int ipa3_connect(const struct ipa_connect_params *in,
 	int ipa_ep_idx;
 	int result = -EFAULT;
 	struct ipa3_ep_context *ep;
-	struct ipa3_ep_cfg_status ep_status;
+	struct ipahal_reg_ep_cfg_status ep_status;
 	unsigned long base;
 	struct iommu_domain *smmu_domain;
 
@@ -850,8 +845,7 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 	int aggr_active_bitmap = 0;
 
 	IPADBG("Applying reset channel with open aggregation frame WA\n");
-	ipa_write_reg(ipa3_ctx->mmio, IPA_AGGR_FORCE_CLOSE_OFST,
-		(1 << clnt_hdl));
+	ipahal_write_reg(IPA_AGGR_FORCE_CLOSE, (1 << clnt_hdl));
 
 	/* Reset channel */
 	gsi_res = gsi_reset_channel(ep->gsi_chan_hdl);
@@ -900,8 +894,7 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 
 	/* Wait for aggregation frame to be closed and stop channel*/
 	for (i = 0; i < IPA_POLL_AGGR_STATE_RETRIES_NUM; i++) {
-		aggr_active_bitmap = ipa_read_reg(ipa3_ctx->mmio,
-			IPA_STATE_AGGR_ACTIVE_OFST);
+		aggr_active_bitmap = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
 		if (!(aggr_active_bitmap & (1 << clnt_hdl)))
 			break;
 		msleep(IPA_POLL_AGGR_STATE_SLEEP_MSEC);
@@ -980,8 +973,7 @@ int ipa3_reset_gsi_channel(u32 clnt_hdl)
 	 * reset with open aggregation frame WA
 	 */
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
-		aggr_active_bitmap = ipa_read_reg(ipa3_ctx->mmio,
-				IPA_STATE_AGGR_ACTIVE_OFST);
+		aggr_active_bitmap = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
 		if (aggr_active_bitmap & (1 << clnt_hdl)) {
 			result = ipa3_reset_with_open_aggr_frame_wa(clnt_hdl,
 				ep);
@@ -1067,7 +1059,7 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 	int ipa_ep_idx;
 	int result = -EFAULT;
 	struct ipa3_ep_context *ep;
-	struct ipa3_ep_cfg_status ep_status;
+	struct ipahal_reg_ep_cfg_status ep_status;
 	unsigned long gsi_dev_hdl;
 	enum gsi_status gsi_res;
 	struct ipa_gsi_ep_config gsi_ep_cfg;
@@ -1714,8 +1706,7 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	}
 
 	if (!dl_data_pending) {
-		aggr_active_bitmap = ipa_read_reg(ipa3_ctx->mmio,
-				IPA_STATE_AGGR_ACTIVE_OFST);
+		aggr_active_bitmap = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
 		if (aggr_active_bitmap & (1 << dl_clnt_hdl)) {
 			IPADBG("DL/DPL data pending due to open aggr. frame\n");
 			dl_data_pending = true;

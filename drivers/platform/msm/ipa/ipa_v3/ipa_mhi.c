@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2492,8 +2492,7 @@ static bool ipa3_mhi_has_open_aggr_frame(void)
 	int i;
 	int ipa_ep_idx;
 
-	aggr_state_active = ipa_read_reg(ipa3_ctx->mmio,
-		IPA_STATE_AGGR_ACTIVE_OFST);
+	aggr_state_active = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
 	IPA_MHI_DBG("IPA_STATE_AGGR_ACTIVE_OFST 0x%x\n", aggr_state_active);
 
 	for (i = 0; i < IPA_MHI_MAX_DL_CHANNELS; i++) {

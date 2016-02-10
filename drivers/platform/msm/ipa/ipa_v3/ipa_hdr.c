@@ -263,7 +263,9 @@ int __ipa_commit_hdr_v3_0(void)
 		} else {
 			reg_write_cmd.skip_pipeline_clear = 0;
 			reg_write_cmd.pipeline_clear_options = IPA_HPS_CLEAR;
-			reg_write_cmd.offset = IPA_SYS_PKT_PROC_CNTXT_BASE_OFST;
+			reg_write_cmd.offset =
+				ipahal_get_reg_ofst(
+				IPA_SYS_PKT_PROC_CNTXT_BASE);
 			reg_write_cmd.value = aligned_ctx_mem.phys_base;
 			reg_write_cmd.value_mask =
 				~(IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1);

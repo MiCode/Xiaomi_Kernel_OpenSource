@@ -834,6 +834,8 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 	u32 lcl_hash_hdr, lcl_nhash_hdr;
 	u32 lcl_hash_bdy, lcl_nhash_bdy;
 	bool lcl_hash, lcl_nhash;
+	struct ipahal_reg_fltrt_hash_flush flush;
+	struct ipahal_reg_valmask valmask;
 
 	if (ip == IPA_IP_v4) {
 		lcl_hash_hdr = ipa3_ctx->smem_restricted_bytes +
@@ -886,13 +888,17 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 	}
 
 	/* flushing ipa internal hashable flt rules cache */
+	memset(&flush, 0, sizeof(flush));
+	if (ip == IPA_IP_v4)
+		flush.v4_flt = true;
+	else
+		flush.v6_flt = true;
+	ipahal_get_fltrt_hash_flush_valmask(&flush, &valmask);
 	reg_write_cmd.skip_pipeline_clear = 0;
 	reg_write_cmd.pipeline_clear_options = IPA_HPS_CLEAR;
-	reg_write_cmd.offset = IPA_FILT_ROUT_HASH_FLUSH_OFST;
-	reg_write_cmd.value = (ip == IPA_IP_v4) ?
-		(1<<IPA_FILT_ROUT_HASH_FLUSH_IPv4_FILT_SHFT) :
-		(1<<IPA_FILT_ROUT_HASH_FLUSH_IPv6_FILT_SHFT);
-	reg_write_cmd.value_mask = reg_write_cmd.value;
+	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_FILT_ROUT_HASH_FLUSH);
+	reg_write_cmd.value = valmask.val;
+	reg_write_cmd.value_mask = valmask.mask;
 	desc[0].opcode = IPA_REGISTER_WRITE;
 	desc[0].pyld = &reg_write_cmd;
 	desc[0].len = sizeof(reg_write_cmd);
@@ -1695,48 +1701,6 @@ void ipa3_delete_dflt_flt_rules(u32 ipa_ep_idx)
 	mutex_unlock(&ipa3_ctx->lock);
 }
 
-static u32 ipa3_build_flt_tuple_mask(struct ipa3_hash_tuple *tpl)
-{
-	u32 msk = 0;
-
-	IPA_SETFIELD_IN_REG(msk, tpl->src_id,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_ID_SHFT,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_ID_BMSK
-		);
-
-	IPA_SETFIELD_IN_REG(msk, tpl->src_ip_addr,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_IP_SHFT,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_IP_BMSK
-		);
-
-	IPA_SETFIELD_IN_REG(msk, tpl->dst_ip_addr,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_DST_IP_SHFT,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_DST_IP_BMSK
-		);
-
-	IPA_SETFIELD_IN_REG(msk, tpl->src_port,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_PORT_SHFT,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_PORT_BMSK
-		);
-
-	IPA_SETFIELD_IN_REG(msk, tpl->dst_port,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_DST_PORT_SHFT,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_DST_PORT_BMSK
-		);
-
-	IPA_SETFIELD_IN_REG(msk, tpl->protocol,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_PROTOCOL_SHFT,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_PROTOCOL_BMSK
-		);
-
-	IPA_SETFIELD_IN_REG(msk, tpl->meta_data,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_METADATA_SHFT,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_METADATA_BMSK
-		);
-
-	return msk;
-}
-
 /**
  * ipa3_set_flt_tuple_mask() - Sets the flt tuple masking for the given pipe
  *  Pipe must be for AP EP (not modem) and support filtering
@@ -1747,10 +1711,9 @@ static u32 ipa3_build_flt_tuple_mask(struct ipa3_hash_tuple *tpl)
  * Returns:	0 on success, negative on failure
  *
  */
-int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple)
+int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipahal_reg_hash_tuple *tuple)
 {
-	u32 val;
-	u32 mask;
+	struct ipahal_reg_fltrt_hash_tuple fltrt_tuple;
 
 	if (!tuple) {
 		IPAERR("bad tuple\n");
@@ -1772,19 +1735,11 @@ int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple)
 		return -EINVAL;
 	}
 
-	val = ipa_read_reg(ipa3_ctx->mmio,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_OFST(pipe_idx));
-
-	val &= 0xFFFF0000; /* clear 16 LSBs - flt bits */
-
-	mask = ipa3_build_flt_tuple_mask(tuple);
-	mask &= 0x0000FFFF;
-
-	val |= mask;
-
-	ipa_write_reg(ipa3_ctx->mmio,
-		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_OFST(pipe_idx),
-		val);
+	ipahal_read_reg_n_fields(IPA_ENDP_FILTER_ROUTER_HSH_CFG_n,
+		pipe_idx, &fltrt_tuple);
+	fltrt_tuple.flt = *tuple;
+	ipahal_write_reg_n_fields(IPA_ENDP_FILTER_ROUTER_HSH_CFG_n,
+		pipe_idx, &fltrt_tuple);
 
 	return 0;
 }
@@ -1868,7 +1823,8 @@ int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
 	IPADBG("tbl_entry_in_hdr_ofst=0x%llx\n", tbl_entry_in_hdr_ofst);
 
 	tbl_entry_in_hdr = ipa3_ctx->mmio +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) + tbl_entry_in_hdr_ofst;
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
+		tbl_entry_in_hdr_ofst;
 
 	/* for tables resides in DDR access it from the virtual memory */
 	if (*tbl_entry_in_hdr & 0x1) {

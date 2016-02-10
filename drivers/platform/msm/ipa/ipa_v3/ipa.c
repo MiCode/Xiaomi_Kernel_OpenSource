@@ -38,6 +38,7 @@
 #include <linux/hash.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
+#include "ipahal/ipahal.h"
 
 #define CREATE_TRACE_POINTS
 #include "ipa_trace.h"
@@ -1482,7 +1483,7 @@ static int ipa3_setup_exception_path(void)
 {
 	struct ipa_ioc_add_hdr *hdr;
 	struct ipa_hdr_add *hdr_entry;
-	struct ipa3_route route = { 0 };
+	struct ipahal_reg_route route = { 0 };
 	int ret;
 
 	/* install the basic exception header */
@@ -1637,22 +1638,21 @@ static void ipa3_free_buffer(void *user1, int user2)
 
 static int ipa3_q6_pipe_delay(void)
 {
-	u32 reg_val = 0;
 	int client_idx;
 	int ep_idx;
+	struct ipa_ep_cfg_ctrl ep_ctrl;
 
+	memset(&ep_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
 			ep_idx = ipa3_get_ep_mapping(client_idx);
 			if (ep_idx == -1)
 				continue;
 
-			IPA_SETFIELD_IN_REG(reg_val, 1,
-				IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_SHFT,
-				IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_BMSK);
+			ep_ctrl.ipa_ep_delay = 1;
 
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_ENDP_INIT_CTRL_N_OFST(ep_idx), reg_val);
+			ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n,
+				ep_idx, &ep_ctrl);
 		}
 	}
 
@@ -1661,12 +1661,13 @@ static int ipa3_q6_pipe_delay(void)
 
 static int ipa3_q6_avoid_holb(void)
 {
-	u32 reg_val;
 	int ep_idx;
 	int client_idx;
 	struct ipa_ep_cfg_ctrl avoid_holb;
+	struct ipa_ep_cfg_holb ep_holb;
 
 	memset(&avoid_holb, 0, sizeof(avoid_holb));
+	memset(&ep_holb, 0, sizeof(ep_holb));
 	avoid_holb.ipa_ep_suspend = true;
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
@@ -1681,23 +1682,14 @@ static int ipa3_q6_avoid_holb(void)
 			 * they are not valid, therefore, the above function
 			 * will fail.
 			 */
-			reg_val = 0;
-			IPA_SETFIELD_IN_REG(reg_val, 0,
-				IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_TIMER_SHFT,
-				IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_TIMER_BMSK);
-
-			ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v3_0(ep_idx),
-				reg_val);
-
-			reg_val = 0;
-			IPA_SETFIELD_IN_REG(reg_val, 1,
-				IPA_ENDP_INIT_HOL_BLOCK_EN_N_EN_SHFT,
-				IPA_ENDP_INIT_HOL_BLOCK_EN_N_EN_BMSK);
-
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v3_0(ep_idx),
-				reg_val);
+			ep_holb.tmr_val = 0;
+			ep_holb.en = 1;
+			ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
+				ep_idx, &ep_holb);
+			ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+				ep_idx, &ep_holb);
 
 			ipa3_cfg_ep_ctrl(ep_idx, &avoid_holb);
 		}
@@ -1944,23 +1936,17 @@ bail_dma:
 static void ipa3_q6_disable_agg_reg(struct ipa3_register_write *reg_write,
 				   int ep_idx)
 {
+	struct ipahal_reg_valmask valmask;
+
 	reg_write->skip_pipeline_clear = 0;
 	reg_write->pipeline_clear_options = IPA_FULL_PIPELINE_CLEAR;
 
-	reg_write->offset = IPA_ENDP_INIT_AGGR_N_OFST_v3_0(ep_idx);
-	reg_write->value =
-		(1 & IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_BMSK) <<
-		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_SHFT;
-	reg_write->value_mask =
-		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_BMSK <<
-		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_SHFT;
+	reg_write->offset = ipahal_get_reg_n_ofst(IPA_ENDP_INIT_AGGR_n, ep_idx);
 
-	reg_write->value |=
-		((0 & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) <<
-		IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT);
-	reg_write->value_mask |=
-		((IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK <<
-		IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT));
+	ipahal_get_disable_aggr_valmask(&valmask);
+
+	reg_write->value = valmask.val;
+	reg_write->value_mask = valmask.mask;
 }
 
 static int ipa3_q6_set_ex_path_dis_agg(void)
@@ -1972,6 +1958,7 @@ static int ipa3_q6_set_ex_path_dis_agg(void)
 	int index;
 	struct ipa3_register_write *reg_write;
 	int retval;
+	struct ipahal_reg_valmask valmask;
 
 	desc = kcalloc(ipa3_ctx->ipa_num_pipes, sizeof(struct ipa3_desc),
 			GFP_KERNEL);
@@ -1998,14 +1985,13 @@ static int ipa3_q6_set_ex_path_dis_agg(void)
 			reg_write->skip_pipeline_clear = 0;
 			reg_write->pipeline_clear_options =
 				IPA_FULL_PIPELINE_CLEAR;
-			reg_write->offset = IPA_ENDP_STATUS_n_OFST(ep_idx);
-			reg_write->value =
-				(ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) &
-				IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK) <<
-				IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
-			reg_write->value_mask =
-				IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK <<
-				IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
+			reg_write->offset =
+				ipahal_get_reg_ofst(IPA_ENDP_STATUS_n);
+			ipahal_get_status_ep_valmask(
+				ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS),
+				&valmask);
+			reg_write->value = valmask.val;
+			reg_write->value_mask = valmask.mask;
 
 			desc[num_descs].opcode = IPA_REGISTER_WRITE;
 			desc[num_descs].pyld = reg_write;
@@ -2146,7 +2132,7 @@ int _ipa_init_sram_v3_0(void)
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n,
 			ipa3_ctx->smem_restricted_bytes / 4);
 
 	ipa_sram_mmio = ioremap(phys_addr, ipa3_ctx->smem_sz);
@@ -2263,9 +2249,7 @@ int _ipa_init_hdr_v3_0(void)
 		return -EFAULT;
 	}
 
-	ipa_write_reg(ipa3_ctx->mmio,
-		IPA_LOCAL_PKT_PROC_CNTXT_BASE_OFST,
-		dma_cmd.local_addr);
+	ipahal_write_reg(IPA_LOCAL_PKT_PROC_CNTXT_BASE, dma_cmd.local_addr);
 
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 
@@ -2563,9 +2547,9 @@ int _ipa_init_flt6_v3(void)
 static int ipa3_setup_flt_hash_tuple(void)
 {
 	int pipe_idx;
-	struct ipa3_hash_tuple tuple;
+	struct ipahal_reg_hash_tuple tuple;
 
-	memset(&tuple, 0, sizeof(struct ipa3_hash_tuple));
+	memset(&tuple, 0, sizeof(struct ipahal_reg_hash_tuple));
 
 	for (pipe_idx = 0; pipe_idx < ipa3_ctx->ipa_num_pipes ; pipe_idx++) {
 		if (!ipa_is_ep_support_flt(pipe_idx))
@@ -2586,9 +2570,9 @@ static int ipa3_setup_flt_hash_tuple(void)
 static int ipa3_setup_rt_hash_tuple(void)
 {
 	int tbl_idx;
-	struct ipa3_hash_tuple tuple;
+	struct ipahal_reg_hash_tuple tuple;
 
-	memset(&tuple, 0, sizeof(struct ipa3_hash_tuple));
+	memset(&tuple, 0, sizeof(struct ipahal_reg_hash_tuple));
 
 	for (tbl_idx = 0;
 		tbl_idx < max(IPA_MEM_PART(v6_rt_num_index),
@@ -4017,6 +4001,12 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_remap;
 	}
 
+	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio)) {
+		IPAERR("fail to init ipahal\n");
+		result = -EFAULT;
+		goto fail_ipahal;
+	}
+
 	result = ipa3_init_hw();
 	if (result) {
 		IPAERR(":error initializing HW.\n");
@@ -4404,8 +4394,10 @@ fail_clk:
 	ipa3_active_clients_log_destroy();
 fail_init_active_client:
 	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
-fail_bus_reg:
+fail_ipahal:
 	ipa3_bus_scale_table = NULL;
+fail_bus_reg:
+	ipahal_destroy();
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
 fail_mem_ctrl:

@@ -30,9 +30,9 @@
 #include <linux/firmware.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
-#include "ipa_reg.h"
 #include "ipa_qmi_service.h"
 #include "../ipa_api.h"
+#include "ipahal/ipahal_reg.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -156,9 +156,6 @@
 
 #define IPA_CLIENT_IS_PROD(x) (x >= IPA_CLIENT_PROD && x < IPA_CLIENT_CONS)
 #define IPA_CLIENT_IS_CONS(x) (x >= IPA_CLIENT_CONS && x < IPA_CLIENT_MAX)
-#define IPA_SETFIELD(val, shift, mask) (((val) << (shift)) & (mask))
-#define IPA_SETFIELD_IN_REG(reg, val, shift, mask) \
-			(reg |= ((val) << (shift)) & (mask))
 
 #define IPA_HW_TABLE_ALIGNMENT(start_ofst) \
 	(((start_ofst) + 127) & ~127)
@@ -613,28 +610,6 @@ struct ipa3_rt_tbl_set {
 };
 
 /**
- * struct ipa3_ep_cfg_status - status configuration in IPA end-point
- * @status_en: Determines if end point supports Status Indications. SW should
- *	set this bit in order to enable Statuses. Output Pipe - send
- *	Status indications only if bit is set. Input Pipe - forward Status
- *	indication to STATUS_ENDP only if bit is set. Valid for Input
- *	and Output Pipes (IPA Consumer and Producer)
- * @status_ep: Statuses generated for this endpoint will be forwarded to the
- *	specified Status End Point. Status endpoint needs to be
- *	configured with STATUS_EN=1 Valid only for Input Pipes (IPA
- *	Consumer)
- * @status_location: Location of PKT-STATUS on destination pipe.
- *	If set to 0 (default), PKT-STATUS will be appended before the packet
- *	for this endpoint. If set to 1, PKT-STATUS will be appended after the
- *	packet for this endpoint. Valid only for Output Pipes (IPA Producer)
- */
-struct ipa3_ep_cfg_status {
-	bool status_en;
-	u8 status_ep;
-	bool status_location;
-};
-
-/**
  * struct ipa3_wlan_stats - Wlan stats for each wlan endpoint
  * @rx_pkts_rcvd: Packets sent by wlan driver
  * @rx_pkts_status_rcvd: Status packets received from ipa hw
@@ -736,7 +711,7 @@ struct ipa3_ep_context {
 	dma_addr_t phys_base;
 	struct ipa_ep_cfg cfg;
 	struct ipa_ep_cfg_holb holb;
-	struct ipa3_ep_cfg_status status;
+	struct ipahal_reg_ep_cfg_status status;
 	u32 dst_pipe_index;
 	u32 rt_tbl_idx;
 	struct sps_connect connect;
@@ -1396,28 +1371,6 @@ struct ipa3cm_client_info {
 	enum ipacm_client_enum client_enum;
 	bool uplink;
 };
-/**
- * struct ipa3_hash_tuple - Hash tuple members for flt and rt
- *  the fields tells if to be masked or not
- * @src_id: pipe number for flt, table index for rt
- * @src_ip_addr: IP source address
- * @dst_ip_addr: IP destination address
- * @src_port: L4 source port
- * @dst_port: L4 destination port
- * @protocol: IP protocol field
- * @meta_data: packet meta-data
- *
- */
-struct ipa3_hash_tuple {
-	/* src_id: pipe in flt, tbl index in rt */
-	bool src_id;
-	bool src_ip_addr;
-	bool dst_ip_addr;
-	bool src_port;
-	bool dst_port;
-	bool protocol;
-	bool meta_data;
-};
 
 struct ipa3_smp2p_info {
 	u32 out_base_id;
@@ -1652,27 +1605,6 @@ struct ipa3_context {
 };
 
 /**
- * struct ipa3_route - IPA route
- * @route_dis: route disable
- * @route_def_pipe: route default pipe
- * @route_def_hdr_table: route default header table
- * @route_def_hdr_ofst: route default header offset table
- * @route_frag_def_pipe: Default pipe to route fragmented exception
- *    packets and frag new rule statues, if source pipe does not have
- *    a notification status pipe defined.
- * @route_def_retain_hdr: default value of retain header. It is used
- *    when no rule was hit
- */
-struct ipa3_route {
-	u32 route_dis;
-	u32 route_def_pipe;
-	u32 route_def_hdr_table;
-	u32 route_def_hdr_ofst;
-	u8  route_frag_def_pipe;
-	u32 route_def_retain_hdr;
-};
-
-/**
  * enum ipa3_pipe_mem_type - IPA pipe memory type
  * @IPA_SPS_PIPE_MEM: Default, SPS dedicated pipe memory
  * @IPA_PRIVATE_MEM: IPA's private memory
@@ -1795,43 +1727,15 @@ struct ipa3_controller {
 	int (*ipa_init_rt6)(void);
 	int (*ipa_init_flt4)(void);
 	int (*ipa_init_flt6)(void);
-	void (*ipa3_cfg_ep_hdr)(u32 pipe_number,
-			const struct ipa_ep_cfg_hdr *ipa_ep_hdr_cfg);
-	int (*ipa3_cfg_ep_hdr_ext)(u32 pipe_number,
-		const struct ipa_ep_cfg_hdr_ext *ipa_ep_hdr_ext_cfg);
-	void (*ipa3_cfg_ep_aggr)(u32 pipe_number,
-			const struct ipa_ep_cfg_aggr *ipa_ep_agrr_cfg);
-	int (*ipa3_cfg_ep_deaggr)(u32 pipe_index,
-			const struct ipa_ep_cfg_deaggr *ep_deaggr);
-	void (*ipa3_cfg_ep_nat)(u32 pipe_number,
-			const struct ipa_ep_cfg_nat *ipa_ep_nat_cfg);
-	void (*ipa3_cfg_ep_mode)(u32 pipe_number, u32 dst_pipe_number,
-			const struct ipa_ep_cfg_mode *ep_mode);
-	void (*ipa3_cfg_ep_route)(u32 pipe_index, u32 rt_tbl_index);
-	void (*ipa3_cfg_ep_holb)(u32 pipe_index,
-			const struct ipa_ep_cfg_holb *ep_holb);
-	void (*ipa3_cfg_route)(struct ipa3_route *route);
-	int (*ipa3_read_gen_reg)(char *buff, int max_len);
 	int (*ipa3_read_ep_reg)(char *buff, int max_len, int pipe);
-	void (*ipa3_write_dbg_cnt)(int option);
-	int (*ipa3_read_dbg_cnt)(char *buf, int max_len);
-	void (*ipa3_cfg_ep_status)(u32 clnt_hdl,
-			const struct ipa3_ep_cfg_status *ep_status);
 	int (*ipa3_commit_flt)(enum ipa_ip_type ip);
 	int (*ipa3_commit_rt)(enum ipa_ip_type ip);
 	int (*ipa_generate_rt_hw_rule)(enum ipa_ip_type ip,
 		struct ipa3_rt_entry *entry, u8 *buf);
 	int (*ipa3_commit_hdr)(void);
-	void (*ipa3_cfg_ep_cfg)(u32 clnt_hdl,
-			const struct ipa_ep_cfg_cfg *cfg);
-	void (*ipa3_cfg_ep_metadata_mask)(u32 clnt_hdl,
-			const struct ipa_ep_cfg_metadata_mask *metadata_mask);
 	void (*ipa3_enable_clks)(void);
 	void (*ipa3_disable_clks)(void);
 	struct msm_bus_scale_pdata *msm_bus_data_ptr;
-
-	void (*ipa3_cfg_ep_metadata)(u32 pipe_number,
-			const struct ipa_ep_cfg_metadata *);
 };
 
 extern struct ipa3_context *ipa3_ctx;
@@ -2288,7 +2192,7 @@ void ipa3_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
 #endif
 int ipa3_controller_static_bind(struct ipa3_controller *controller,
 		enum ipa_hw_type ipa_hw_type);
-int ipa3_cfg_route(struct ipa3_route *route);
+int ipa3_cfg_route(struct ipahal_reg_route *route);
 int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr);
 int ipa3_cfg_filter(u32 disable);
 int ipa3_pipe_mem_init(u32 start_ofst, u32 size);
@@ -2314,10 +2218,7 @@ int __ipa3_del_rt_rule(u32 rule_hdl);
 int __ipa3_del_hdr(u32 hdr_hdl);
 int __ipa3_release_hdr(u32 hdr_hdl);
 int __ipa3_release_hdr_proc_ctx(u32 proc_ctx_hdl);
-int _ipa_read_gen_reg_v3_0(char *buff, int max_len);
 int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe);
-void _ipa_write_dbg_cnt_v3_0(int option);
-int _ipa_read_dbg_cnt_v3_0(char *buf, int max_len);
 void _ipa_enable_clks_v3_0(void);
 void _ipa_disable_clks_v3_0(void);
 struct device *ipa3_get_dma_dev(void);
@@ -2326,22 +2227,6 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				void *private_data,
 				void *interrupt_data);
 
-
-static inline u32 ipa_read_reg(void *base, u32 offset)
-{
-	return ioread32(base + offset);
-}
-
-static inline u32 ipa_read_reg_field(void *base, u32 offset,
-		u32 mask, u32 shift)
-{
-	return (ipa_read_reg(base, offset) & mask) >> shift;
-}
-
-static inline void ipa_write_reg(void *base, u32 offset, u32 val)
-{
-	iowrite32(val, base + offset);
-}
 
 int ipa_bridge_init(void);
 void ipa_bridge_cleanup(void);
@@ -2390,9 +2275,7 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 				  u32 bandwidth_mbps);
 
 int ipa3_cfg_ep_status(u32 clnt_hdl,
-		const struct ipa3_ep_cfg_status *ipa_ep_cfg);
-int ipa3_cfg_aggr_cntr_granularity(u8 aggr_granularity);
-int ipa3_cfg_eot_coal_cntr_granularity(u8 eot_coal_granularity);
+		const struct ipahal_reg_ep_cfg_status *ipa_ep_cfg);
 
 int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name name);
 int ipa3_suspend_resource_sync(enum ipa_rm_resource_name name);
@@ -2450,7 +2333,7 @@ int ipa3_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 void ipa3_tag_free_buf(void *user1, int user2);
 struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx);
-void ipa3_uc_rg10_write_reg(void *base, u32 offset, u32 val);
+void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val);
 
 u32 ipa3_get_num_pipes(void);
 struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
@@ -2464,8 +2347,8 @@ int ipa3_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_resource_name depends_on_name);
 int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
-int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple);
-int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
+int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipahal_reg_hash_tuple *tuple);
+int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipahal_reg_hash_tuple *tuple);
 void ipa3_set_resorce_groups_min_max_limits(void);
 void ipa3_suspend_apps_pipes(bool suspend);
 void ipa3_flow_control(enum ipa_client_type ipa_client, bool enable,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,8 +91,8 @@ static int ipa3_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 		}
 		phys_addr = ipa3_ctx->ipa_wrapper_base +
 			ipa3_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(
-				IPA_NAT_PHYS_MEM_OFFSET);
+			ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n,
+			IPA_NAT_PHYS_MEM_OFFSET);
 
 		if (remap_pfn_range(
 			 vma, vma->vm_start,

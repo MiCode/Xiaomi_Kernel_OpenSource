@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -554,7 +554,7 @@ static void ipa3_uc_mhi_event_log_info_hdlr(
 	if (ipa3_uc_mhi_ctx->mhi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsMhiInfoData_t) >=
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
 		ipa3_ctx->smem_sz) {
 		IPAERR("uc_mhi_stats 0x%x outside SRAM\n",
 			ipa3_uc_mhi_ctx->mhi_uc_stats_ofst);
