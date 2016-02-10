@@ -104,6 +104,9 @@ static void sdhci_dump_state(struct sdhci_host *host)
 {
 	struct mmc_host *mmc = host->mmc;
 
+	pr_info("%s: eMMC FW version: 0x%02x Manfid: 0x%06x\n",
+		mmc_hostname(mmc), get_mmc_fw_version(host->mmc->card),
+		get_mmc_manfid(host->mmc->card));
 	pr_info("%s: clk: %d clk-gated: %d claimer: %s pwr: %d\n",
 		mmc_hostname(mmc), host->clock, mmc->clk_gated,
 		mmc->claimer->comm, host->pwr);
