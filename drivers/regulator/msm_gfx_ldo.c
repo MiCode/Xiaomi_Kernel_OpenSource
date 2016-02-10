@@ -28,6 +28,11 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
+#define LDO_ATEST_REG			0x0
+#define LDO_CFG0_REG			0x4
+#define LDO_CFG1_REG			0x8
+#define LDO_CFG2_REG			0xC
+
 #define LDO_VREF_TEST_CFG		0x14
 #define ENABLE_LDO_STATUS_BIT		(BIT(8) | BIT(12))
 #define LDO_AUTOBYPASS_BIT		BIT(20)
@@ -89,6 +94,11 @@ struct fuse_param {
 	unsigned		bit_end;
 };
 
+struct ldo_config {
+	u32 offset;
+	u32 value;
+};
+
 struct msm_gfx_ldo {
 	struct device		*dev;
 	struct regulator_desc	rdesc;
@@ -111,6 +121,7 @@ struct msm_gfx_ldo {
 	const struct fuse_param	**init_volt_param;
 	bool			ldo_enable;
 	bool			ldo_bypass_fuse_enable;
+	struct ldo_config	*ldo_init_config;
 
 	void __iomem		*efuse_base;
 	phys_addr_t		efuse_addr;
@@ -125,6 +136,15 @@ struct msm_gfx_ldo {
 };
 
 #define MSMTITANIUM_LDO_FUSE_CORNERS		3
+#define LDO_MAX_OFFSET				0xFFFF
+static struct ldo_config msmtitanium_ldo_config[] = {
+	{LDO_ATEST_REG,		0x00000203},
+	{LDO_CFG0_REG,		0x05008600},
+	{LDO_CFG1_REG,		       0x0},
+	{LDO_CFG2_REG,		0x0000C3FC},
+	{LDO_VREF_TEST_CFG,	0x004B1102},
+	{LDO_MAX_OFFSET,	LDO_MAX_OFFSET},
+};
 
 static struct fuse_param msmtitanium_ldo_enable_param[] = {
 	{65, 10, 10},
@@ -888,7 +908,7 @@ static int msm_gfx_ldo_init(struct platform_device *pdev,
 {
 	struct resource *res;
 	u32 len, ctl;
-	int rc;
+	int rc, i = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ldo_addr");
 	if (!res || !res->start) {
@@ -920,16 +940,14 @@ static int msm_gfx_ldo_init(struct platform_device *pdev,
 	ctl &= ~LDO_CLAMP_IO_BIT;
 	writel_relaxed(ctl, ldo_vreg->ldo_base + PWRSWITCH_CTRL_REG);
 
-	/* enable ldo status routing */
-	ctl = readl_relaxed(ldo_vreg->ldo_base + LDO_VREF_TEST_CFG);
-	ctl |= ENABLE_LDO_STATUS_BIT;
-	writel_relaxed(ctl, ldo_vreg->ldo_base + LDO_VREF_TEST_CFG);
-
-	/* enable auto-bypass */
-	ctl = readl_relaxed(ldo_vreg->ldo_base + LDO_VREF_TEST_CFG);
-	ctl |= LDO_AUTOBYPASS_BIT;
-	writel_relaxed(ctl, ldo_vreg->ldo_base + LDO_VREF_TEST_CFG);
-
+	i = 0;
+	while (ldo_vreg->ldo_init_config &&
+			ldo_vreg->ldo_init_config[i].offset != LDO_MAX_OFFSET) {
+		writel_relaxed(ldo_vreg->ldo_init_config[i].value,
+				ldo_vreg->ldo_base +
+				ldo_vreg->ldo_init_config[i].offset);
+		i++;
+	}
 	/* complete the writes */
 	mb();
 
@@ -1056,6 +1074,7 @@ static int msm_gfx_ldo_target_init(struct msm_gfx_ldo *ldo_vreg)
 		ldo_vreg->init_volt_param[i] =
 				msmtitanium_init_voltage_param[i];
 
+	ldo_vreg->ldo_init_config = msmtitanium_ldo_config;
 	ldo_vreg->ref_volt = msmtitanium_fuse_ref_volt;
 	ldo_vreg->ldo_enable_param = msmtitanium_ldo_enable_param;
 	ldo_vreg->ldo_bypass_fuse_enable = true;
