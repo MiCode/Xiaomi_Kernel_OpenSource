@@ -57,13 +57,22 @@ enum layer_pipe_q {
 	LAYER_USES_DESTROY_PIPE_Q,
 };
 
-static inline bool is_layer_right_blend(struct mdp_rect *left_blend,
-	struct mdp_rect *right_blend, u32 left_lm_w)
+enum layer_zorder_used {
+	LAYER_ZORDER_NONE = 0,
+	LAYER_ZORDER_LEFT = 1,
+	LAYER_ZORDER_RIGHT = 2,
+	LAYER_ZORDER_BOTH = 3,
+};
+
+/*
+ * __layer_needs_src_split() - check needs source split configuration
+ * @layer:	input layer
+ *
+ * return true if the layer should be used as source split
+ */
+static bool __layer_needs_src_split(struct mdp_input_layer *layer)
 {
-	return ((left_blend->x + left_blend->w) == right_blend->x)	&&
-	       ((left_blend->x + left_blend->w) != left_lm_w)		&&
-	       (left_blend->y == right_blend->y)			&&
-	       (left_blend->h == right_blend->h);
+	return layer->flags & MDP_LAYER_ASYNC;
 }
 
 static bool is_pipe_type_vig(struct mdss_data_type *mdata, u32 ndx)
@@ -584,7 +593,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 			pipe->is_right_blend = false;
 		}
 
-		if (pipe->async_update && is_split_lm(mfd)) {
+		if (is_split_lm(mfd) && __layer_needs_src_split(layer)) {
 			pipe->src_split_req = true;
 		} else if ((mixer_mux == MDSS_MDP_MIXER_MUX_LEFT) &&
 		    ((layer->dst_rect.x + layer->dst_rect.w) > mixer->width)) {
@@ -1184,6 +1193,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	struct mdp_input_layer *layer, *prev_layer, *layer_list;
 	bool is_single_layer = false;
 	enum layer_pipe_q pipe_q_type;
+	enum layer_zorder_used zorder_used[MDSS_MDP_MAX_STAGE] = {0};
 
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
 	if (ret)
@@ -1208,6 +1218,8 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	}
 
 	for (i = 0; i < layer_count; i++) {
+		enum layer_zorder_used z = LAYER_ZORDER_NONE;
+
 		layer = &layer_list[i];
 		dst_x = layer->dst_rect.x;
 		left_blend_pipe = NULL;
@@ -1224,9 +1236,12 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 		 *
 		 * Following logic of selecting left_blend has an inherent
 		 * assumption that layer list is sorted on dst_x within a
-		 * same z_order.
+		 * same z_order. Otherwise it will fail based on z_order checks.
 		 */
 		if (prev_layer && (prev_layer->z_order == layer->z_order)) {
+			struct mdp_rect *left = &prev_layer->dst_rect;
+			struct mdp_rect *right = &layer->dst_rect;
+
 			if ((layer->flags & MDP_LAYER_ASYNC)
 				|| (prev_layer->flags & MDP_LAYER_ASYNC)) {
 				ret = -EINVAL;
@@ -1235,13 +1250,46 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 				goto validate_exit;
 			}
 
-			if (is_layer_right_blend(&prev_layer->dst_rect,
-				 &layer->dst_rect, left_lm_w))
+			/*
+			 * check if layer is right blend by checking it's
+			 * directly to the right.
+			 */
+			if (((left->x + left->w) == right->x) &&
+			    (left->y == right->y) && (left->h == right->h))
 				left_blend_pipe = pipe;
+
+			/*
+			 * if the layer is right at the left lm boundary and
+			 * src split is not required then right blend is not
+			 * required as it will lie only on the left mixer
+			 */
+			if (!__layer_needs_src_split(prev_layer) &&
+			    ((left->x + left->w) == left_lm_w))
+				left_blend_pipe = NULL;
+		}
+
+		if (__layer_needs_src_split(layer))
+			z = LAYER_ZORDER_BOTH;
+		else if (dst_x >= left_lm_w)
+			z = LAYER_ZORDER_RIGHT;
+		else if ((dst_x + layer->dst_rect.w) <= left_lm_w)
+			z = LAYER_ZORDER_LEFT;
+		else
+			z = LAYER_ZORDER_BOTH;
+
+		if (!left_blend_pipe && (layer->z_order >= MDSS_MDP_MAX_STAGE ||
+				(z & zorder_used[layer->z_order]))) {
+			pr_err("invalid z_order=%d or already in use %x\n",
+					layer->z_order, z);
+			ret = -EINVAL;
+			layer->error_code = ret;
+			goto validate_exit;
+		} else {
+			zorder_used[layer->z_order] |= z;
 		}
 
 		if ((layer->dst_rect.x < left_lm_w) ||
-				(layer->flags & MDP_LAYER_ASYNC)) {
+				__layer_needs_src_split(layer)) {
 			is_single_layer = (left_lm_layers == 1);
 			mixer_mux = MDSS_MDP_MIXER_MUX_LEFT;
 		} else {
