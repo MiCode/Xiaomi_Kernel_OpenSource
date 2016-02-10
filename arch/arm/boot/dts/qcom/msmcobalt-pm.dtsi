@@ -78,6 +78,7 @@
 				qcom,time-overhead = <550>;
 				qcom,min-child-idx = <3>;
 				qcom,is-reset;
+				qcom,notify-rpm;
 			};
 
 			qcom,pm-cluster@0{
