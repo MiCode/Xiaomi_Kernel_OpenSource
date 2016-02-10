@@ -232,6 +232,8 @@ struct mdss_intf_recovery {
  *				the panel.
  * @MDSS_EVENT_PANEL_TIMING_SWITCH: Panel timing switch is requested.
  *				Argument provided is new panel timing.
+ * @MDSS_EVENT_DEEP_COLOR: Set deep color.
+ *				Argument provided is bits per pixel (8/10/12)
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -262,6 +264,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_RECONFIG_CMD,
 	MDSS_EVENT_DSI_RESET_WRITE_PTR,
 	MDSS_EVENT_PANEL_TIMING_SWITCH,
+	MDSS_EVENT_DEEP_COLOR,
 	MDSS_EVENT_MAX,
 };
 
@@ -600,6 +603,7 @@ struct mdss_panel_info {
 	u32 rst_seq[MDSS_DSI_RST_SEQ_LEN];
 	u32 rst_seq_len;
 	u32 vic; /* video identification code */
+	u32 deep_color;
 	struct mdss_rect roi;
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
