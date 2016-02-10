@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +58,7 @@ static inline int msm_unsecure_table(struct sg_table *table)
 {
 	return -EINVAL;
 }
-int hyp_assign_table(struct sg_table *table,
+static inline int hyp_assign_table(struct sg_table *table,
 			u32 *source_vm_list, int source_nelems,
 			int *dest_vmids, int *dest_perms,
 			int dest_nelems)
@@ -77,7 +77,7 @@ static inline bool msm_secure_v2_is_supported(void)
 {
 	return false;
 }
-const char *msm_secure_vmid_to_string(int secure_vmid)
+static inline const char *msm_secure_vmid_to_string(int secure_vmid)
 {
 	return "N/A";
 }
