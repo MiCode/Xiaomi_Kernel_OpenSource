@@ -1394,15 +1394,10 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 {
 	int i;
-	u32 mixercfg, mixercfg_extn, stage_off_mask, stage_off_extn_mask;
-	u32 stage = BIT(0) | BIT(1) | BIT(2);
 	bool in_use = false;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_mixer *mixer;
-
-	stage_off_mask = mdss_mdp_get_mixer_mask(pipe->num, stage);
-	stage_off_extn_mask = mdss_mdp_get_mixer_extn_mask(pipe->num, stage);
 
 	for (i = 0; i < mdata->nctl; i++) {
 		ctl = mdata->ctl_off + i;
@@ -1410,30 +1405,22 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 			continue;
 
 		mixer = ctl->mixer_left;
-		if (mixer && mixer->rotator_mode)
+		if (!mixer || mixer->rotator_mode)
 			continue;
 
-		mixercfg = mdss_mdp_get_mixercfg(mixer, false);
-		mixercfg_extn = mdss_mdp_get_mixercfg(mixer, true);
-		if ((mixercfg & stage_off_mask) ||
-			(mixercfg_extn & stage_off_extn_mask)) {
-			pr_err("IN USE: mixer=%d pipe=%d mcfg:0x%x mask:0x%x mcfg_extn:0x%x mask_ext:0x%x\n",
-				mixer->num, pipe->num,
-				mixercfg, stage_off_mask,
-				mixercfg_extn, stage_off_extn_mask);
+		if (mdss_mdp_mixer_reg_has_pipe(mixer, pipe)) {
+			in_use = true;
+			pr_err("IN USE: pipe=%d mixer=%d\n",
+					pipe->num, mixer->num);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt",
 				"dbg_bus", "vbif_dbg_bus", "panic");
 		}
 
 		mixer = ctl->mixer_right;
-		mixercfg = mdss_mdp_get_mixercfg(mixer, false);
-		mixercfg_extn = mdss_mdp_get_mixercfg(mixer, true);
-		if ((mixercfg & stage_off_mask) ||
-			(mixercfg_extn & stage_off_extn_mask)) {
-			pr_err("IN USE: mixer=%d pipe=%d mcfg:0x%x mask:0x%x mcfg_extn:0x%x mask_ext:0x%x\n",
-				mixer->num, pipe->num,
-				mixercfg, stage_off_mask,
-				mixercfg_extn, stage_off_extn_mask);
+		if (mixer && mdss_mdp_mixer_reg_has_pipe(mixer, pipe)) {
+			in_use = true;
+			pr_err("IN USE: pipe=%d mixer=%d\n",
+					pipe->num, mixer->num);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt",
 				"dbg_bus", "vbif_dbg_bus", "panic");
 		}

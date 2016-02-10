@@ -16,6 +16,23 @@
 
 #include <linux/bitops.h>
 
+/*
+ * struct mdss_mdp_hwio_cfg - used to define a register bitfield
+ * @start: bitfield offset start from lsb
+ * @len: number of lsb bits that can be taken from field value
+ * @shift: number of lsb bits to truncate from field value
+ */
+struct mdss_mdp_hwio_cfg {
+	u32 start, len, shift;
+};
+
+static inline u32 mdss_mdp_hwio_mask(struct mdss_mdp_hwio_cfg *cfg, u32 val)
+{
+	u32 mask = (1 << cfg->len) - 1;
+
+	return ((val >> cfg->shift) & mask) << cfg->start;
+}
+
 #define IGC_LUT_ENTRIES	256
 #define GC_LUT_SEGMENTS	16
 #define ENHIST_LUT_ENTRIES 256
@@ -141,16 +158,22 @@ enum mdss_mdp_ctl_index {
 	MDSS_MDP_MAX_CTL
 };
 
+
+#define MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET		0x40
+#define MDSS_MDP_CTL_X_LAYER_5				0x24
+
+/* mixer 5 has different offset than others */
 #define MDSS_MDP_REG_CTL_LAYER(lm)	\
-			((lm == 5) ? (0x024) : ((lm) * 0x004))
+	(((lm) == 5) ? MDSS_MDP_CTL_X_LAYER_5 : ((lm) * 0x004))
+
 #define MDSS_MDP_REG_CTL_LAYER_EXTN(lm)	\
-		((lm == 5) ? (0x54) : (MDSS_MDP_REG_CTL_LAYER(lm) + 0x40))
+	 (MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET + ((lm) * 0x004))
+
 #define MDSS_MDP_REG_CTL_TOP				0x014
 #define MDSS_MDP_REG_CTL_FLUSH				0x018
 #define MDSS_MDP_REG_CTL_START				0x01C
 #define MDSS_MDP_REG_CTL_PACK_3D			0x020
 #define MDSS_MDP_REG_CTL_SW_RESET			0x030
-#define MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET		0x40
 
 #define MDSS_MDP_CTL_OP_VIDEO_MODE		(0 << 17)
 #define MDSS_MDP_CTL_OP_CMD_MODE		(1 << 17)
@@ -360,10 +383,6 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_SCALEY_EN			BIT(1)
 #define MDSS_MDP_SCALEX_EN			BIT(0)
 #define MDSS_MDP_FMT_SOLID_FILL			0x4037FF
-
-#define MDSS_MDP_NUM_REG_MIXERS 3
-#define MDSS_MDP_NUM_WB_MIXERS 2
-#define MDSS_MDP_CTL_X_LAYER_5 0x24
 
 #define MDSS_MDP_INTF_EDP_SEL	(BIT(3) | BIT(1))
 #define MDSS_MDP_INTF_HDMI_SEL	(BIT(25) | BIT(24))
