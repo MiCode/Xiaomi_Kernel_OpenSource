@@ -317,6 +317,8 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
 extern unsigned int nf_conntrack_htable_size;
 extern unsigned int nf_conntrack_max;
 extern unsigned int nf_conntrack_hash_rnd;
+extern unsigned int nf_conntrack_pkt_threshold;
+
 void init_nf_conntrack_hash_rnd(void);
 
 void nf_conntrack_tmpl_insert(struct net *net, struct nf_conn *tmpl);
