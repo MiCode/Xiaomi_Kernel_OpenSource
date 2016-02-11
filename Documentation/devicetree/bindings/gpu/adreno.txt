@@ -93,6 +93,9 @@ Optional Properties:
 			   This is used to override faulty hardware readings.
 - qcom,strtstp-sleepwake:  Boolean. Enables use of GPU SLUMBER instead of SLEEP for power savings
 - qcom,gx-retention:  	   Boolean. Enables use of GX rail RETENTION voltage
+- qcom,disable-busy-time-burst:
+				Boolean. Disables the busy time burst to avoid switching
+				of power level for large frames based on the busy time limit.
 
 - qcom,pm-qos-active-latency:
 				Right after GPU wakes up from sleep, driver votes for
