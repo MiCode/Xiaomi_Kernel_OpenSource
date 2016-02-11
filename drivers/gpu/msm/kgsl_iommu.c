@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1489,6 +1489,7 @@ kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
 static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 				struct kgsl_pagetable *pt)
 {
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	int ret = 0;
@@ -1513,7 +1514,7 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 	 * Taking the liberty to spin idle since this codepath
 	 * is invoked when we can spin safely for it to be idle
 	 */
-	ret = adreno_spin_idle(KGSL_MMU_DEVICE(mmu), ADRENO_IDLE_TIMEOUT);
+	ret = adreno_spin_idle(ADRENO_DEVICE(device), ADRENO_IDLE_TIMEOUT);
 	if (ret)
 		return ret;
 
