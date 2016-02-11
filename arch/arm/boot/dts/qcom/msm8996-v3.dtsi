@@ -98,7 +98,6 @@
 	/* Updated chip ID */
 	qcom,chipid = <0x05030002>;
 
-	qcom,initial-pwrlevel = <5>;
 	qcom,bus-width = <32>;
 	qcom,gpu-speed-bin = <0x4130 0xe0000000 29>;
 
@@ -116,6 +115,8 @@
 			#size-cells = <0>;
 
 			qcom,speed-bin = <0>;
+
+			qcom,initial-pwrlevel = <5>;
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
@@ -187,6 +188,8 @@
 			#size-cells = <0>;
 
 			qcom,speed-bin = <1>;
+
+			qcom,initial-pwrlevel = <3>;
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
