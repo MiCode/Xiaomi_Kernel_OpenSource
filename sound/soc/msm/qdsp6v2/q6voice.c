@@ -1,4 +1,4 @@
-/*  Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/*  Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -474,9 +474,6 @@ static void voc_set_error_state(uint16_t reset_proc)
 	int i;
 
 	for (i = 0; i < MAX_VOC_SESSIONS; i++) {
-		if (reset_proc == APR_DEST_MODEM  && i == VOC_PATH_FULL)
-			continue;
-
 		v = &common.voice[i];
 		if (v != NULL)
 			v->voc_state = VOC_ERROR;
@@ -586,7 +583,6 @@ static int voice_get_cvd_int_version(char *cvd_ver_string)
 
 static int voice_apr_register(uint32_t session_id)
 {
-	void *modem_mvm, *modem_cvs, *modem_cvp;
 
 	pr_debug("%s\n", __func__);
 
@@ -604,21 +600,6 @@ static int voice_apr_register(uint32_t session_id)
 			pr_err("%s: Unable to register MVM\n", __func__);
 			goto err;
 		}
-
-		/*
-		 * Register with modem for SSR callback for voice, volte and
-		 * modem based QCHAT calls. The APR handle is not stored since
-		 * it is used only to receive notifications and not for
-		 * communication
-		 */
-		if (!is_voip_session(session_id)) {
-			modem_mvm = apr_register("MODEM", "MVM",
-						 qdsp_mvm_callback,
-						 0xFFFFFFFF, &common);
-			if (modem_mvm == NULL)
-				pr_err("%s: Unable to register MVM for MODEM\n",
-					__func__);
-		}
 	}
 
 	if (common.apr_q6_cvs == NULL) {
@@ -633,20 +614,6 @@ static int voice_apr_register(uint32_t session_id)
 			goto err;
 		}
 		rtac_set_voice_handle(RTAC_CVS, common.apr_q6_cvs);
-		/*
-		 * Register with modem for SSR callback for voice, volte and
-		 * modem based QCHAT calls. The APR handle is not stored since
-		 * it is used only to receive notifications and not for
-		 * communication
-		 */
-		if (!is_voip_session(session_id)) {
-			modem_cvs = apr_register("MODEM", "CVS",
-						 qdsp_cvs_callback,
-						 0xFFFFFFFF, &common);
-			 if (modem_cvs == NULL)
-				pr_err("%s: Unable to register CVS for MODEM\n",
-					__func__);
-		}
 	}
 
 	if (common.apr_q6_cvp == NULL) {
@@ -661,20 +628,6 @@ static int voice_apr_register(uint32_t session_id)
 			goto err;
 		}
 		rtac_set_voice_handle(RTAC_CVP, common.apr_q6_cvp);
-		/*
-		 * Register with modem for SSR callback for voice, volte and
-		 * modem based QCHAT calls. The APR handle is not stored since
-		 * it is used only to receive notifications and not for
-		 * communication
-		 */
-		if (!is_voip_session(session_id)) {
-			modem_cvp = apr_register("MODEM", "CVP",
-						 qdsp_cvp_callback,
-						 0xFFFFFFFF, &common);
-			if (modem_cvp == NULL)
-				pr_err("%s: Unable to register CVP for MODEM\n",
-					__func__);
-		}
 	}
 
 	mutex_unlock(&common.common_lock);
@@ -6295,40 +6248,35 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 		data->payload_size, data->opcode);
 
 	if (data->opcode == RESET_EVENTS) {
-
-		if (data->reset_proc == APR_DEST_MODEM) {
-			pr_debug("%s: Received MODEM reset event\n", __func__);
-
-		} else {
-			pr_debug("%s: Reset event received in Voice service\n",
+		pr_debug("%s: Reset event received in Voice service\n",
 				__func__);
 
-			if (common.mvs_info.ssr_cb) {
-				pr_debug("%s: Informing reset event to VoIP\n",
+		if (common.mvs_info.ssr_cb) {
+			pr_debug("%s: Informing reset event to VoIP\n",
 					__func__);
-				common.mvs_info.ssr_cb(data->opcode,
-						common.mvs_info.private_data);
-			}
+			common.mvs_info.ssr_cb(data->opcode,
+					common.mvs_info.private_data);
+		}
 
-			apr_reset(c->apr_q6_mvm);
-			c->apr_q6_mvm = NULL;
+		apr_reset(c->apr_q6_mvm);
+		c->apr_q6_mvm = NULL;
 
-			/* clean up memory handle */
-			c->cal_mem_handle = 0;
-			c->rtac_mem_handle = 0;
-			cal_utils_clear_cal_block_q6maps(MAX_VOICE_CAL_TYPES,
+		/* clean up memory handle */
+		c->cal_mem_handle = 0;
+		c->rtac_mem_handle = 0;
+		cal_utils_clear_cal_block_q6maps(MAX_VOICE_CAL_TYPES,
 				common.cal_data);
-			rtac_clear_mapping(VOICE_RTAC_CAL);
+		rtac_clear_mapping(VOICE_RTAC_CAL);
 
-			/* Sub-system restart is applicable to all sessions. */
-			for (i = 0; i < MAX_VOC_SESSIONS; i++) {
-				c->voice[i].mvm_handle = 0;
-				c->voice[i].shmem_info.mem_handle = 0;
-			}
+		/* Sub-system restart is applicable to all sessions. */
+		for (i = 0; i < MAX_VOC_SESSIONS; i++) {
+			c->voice[i].mvm_handle = 0;
+			c->voice[i].shmem_info.mem_handle = 0;
+		}
 
 		/* Free the ION memory and clear handles for Source Tracking */
-			if (is_source_tracking_shared_memomry_allocated()) {
-				msm_audio_ion_free(
+		if (is_source_tracking_shared_memomry_allocated()) {
+			msm_audio_ion_free(
 			common.source_tracking_sh_mem.sh_mem_block.client,
 			common.source_tracking_sh_mem.sh_mem_block.handle);
 			common.source_tracking_sh_mem.mem_handle = 0;
@@ -6336,7 +6284,6 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 									NULL;
 			common.source_tracking_sh_mem.sh_mem_block.handle =
 									NULL;
-			}
 		}
 		/* clean up srvcc rec flag */
 		c->srvcc_rec_flag = false;
@@ -6521,26 +6468,22 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 		data->payload_size, data->opcode);
 
 	if (data->opcode == RESET_EVENTS) {
-		if (data->reset_proc == APR_DEST_MODEM) {
-			pr_debug("%s: Received Modem reset event\n", __func__);
+		pr_debug("%s: Reset event received in Voice service\n",
+				__func__);
 
-		} else {
-			pr_debug("%s: Reset event received in Voice service\n",
-				 __func__);
+		apr_reset(c->apr_q6_cvs);
+		c->apr_q6_cvs = NULL;
 
-			apr_reset(c->apr_q6_cvs);
-			c->apr_q6_cvs = NULL;
+		/* Sub-system restart is applicable to all sessions. */
+		for (i = 0; i < MAX_VOC_SESSIONS; i++)
+			c->voice[i].cvs_handle = 0;
 
-			/* Sub-system restart is applicable to all sessions. */
-			for (i = 0; i < MAX_VOC_SESSIONS; i++)
-				c->voice[i].cvs_handle = 0;
-
-			cal_utils_clear_cal_block_q6maps(MAX_VOICE_CAL_TYPES,
+		cal_utils_clear_cal_block_q6maps(MAX_VOICE_CAL_TYPES,
 				common.cal_data);
 
 		/* Free the ION memory and clear handles for Source Tracking */
-			if (is_source_tracking_shared_memomry_allocated()) {
-				msm_audio_ion_free(
+		if (is_source_tracking_shared_memomry_allocated()) {
+			msm_audio_ion_free(
 			common.source_tracking_sh_mem.sh_mem_block.client,
 			common.source_tracking_sh_mem.sh_mem_block.handle);
 			common.source_tracking_sh_mem.mem_handle = 0;
@@ -6548,9 +6491,7 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 									NULL;
 			common.source_tracking_sh_mem.sh_mem_block.handle =
 									NULL;
-			}
 		}
-
 		voc_set_error_state(data->reset_proc);
 		return 0;
 	}
@@ -6801,28 +6742,24 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 	c = priv;
 
 	if (data->opcode == RESET_EVENTS) {
-		if (data->reset_proc == APR_DEST_MODEM) {
-			pr_debug("%s: Received Modem reset event\n", __func__);
+		pr_debug("%s: Reset event received in Voice service\n",
+				__func__);
 
-		} else {
-			pr_debug("%s: Reset event received in Voice service\n",
-				 __func__);
-
-			apr_reset(c->apr_q6_cvp);
-			c->apr_q6_cvp = NULL;
-			cal_utils_clear_cal_block_q6maps(MAX_VOICE_CAL_TYPES,
+		apr_reset(c->apr_q6_cvp);
+		c->apr_q6_cvp = NULL;
+		cal_utils_clear_cal_block_q6maps(MAX_VOICE_CAL_TYPES,
 				common.cal_data);
 
-			/* Sub-system restart is applicable to all sessions. */
-			for (i = 0; i < MAX_VOC_SESSIONS; i++)
-				c->voice[i].cvp_handle = 0;
+		/* Sub-system restart is applicable to all sessions. */
+		for (i = 0; i < MAX_VOC_SESSIONS; i++)
+			c->voice[i].cvp_handle = 0;
 
-			/*
-			 * Free the ION memory and clear handles for
-			 * Source Tracking
-			 */
-			if (is_source_tracking_shared_memomry_allocated()) {
-				msm_audio_ion_free(
+		/*
+		 * Free the ION memory and clear handles for
+		 * Source Tracking
+		 */
+		if (is_source_tracking_shared_memomry_allocated()) {
+			msm_audio_ion_free(
 			common.source_tracking_sh_mem.sh_mem_block.client,
 			common.source_tracking_sh_mem.sh_mem_block.handle);
 			common.source_tracking_sh_mem.mem_handle = 0;
@@ -6830,9 +6767,7 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 									NULL;
 			common.source_tracking_sh_mem.sh_mem_block.handle =
 									NULL;
-			}
 		}
-
 		voc_set_error_state(data->reset_proc);
 		return 0;
 	}

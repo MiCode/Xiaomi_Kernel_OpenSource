@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -409,6 +409,9 @@
 
 /* EMAC_QSERDES_COM_RESETSM_CNTRL */
 #define FRQ_TUNE_MODE                                              0x10
+
+/* EMAC_QSERDES_COM_RES_TRIM_SEARCH */
+#define RESTRIM_SEARCH						   0x0
 
 /* EMAC_QSERDES_COM_BGTC */
 #define BGTC							   0x7

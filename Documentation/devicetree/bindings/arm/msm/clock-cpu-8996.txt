@@ -7,7 +7,7 @@ PLL FMAXes etc.
 
 Required properties:
 - compatible:		Must be either "qcom,cpu-clock-8996" or
-			"qcom,cpu-clock-8996-v3"
+			"qcom,cpu-clock-8996-v3" or "qcom,cpu-clock-8996-pro"
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected

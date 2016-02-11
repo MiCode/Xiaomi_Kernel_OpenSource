@@ -276,7 +276,8 @@
 		clock-names = "clk-1", "clk-5";
 		qcom,speed4-bin-v0 =
 				<          0 0>,
-				<  806400000 2>,
+				<  400000000 1>,
+				<  800000000 2>,
 				<  998400000 3>,
 				< 1094400000 4>,
 				< 1190400000 5>,
@@ -304,7 +305,8 @@
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
 			cpu-to-dev-map =
-				 <  806400   915>,
+				 <  400000   732>,
+				 <  800000   915>,
 				 <  998400  1145>,
 				 < 1094400  1831>,
 				 < 1305600  2291>;
@@ -326,7 +328,8 @@
 		clocks = <&clock_cpu  clk_a7ssmux>;
 		clock-names = "cpu0_clk";
 		qcom,cpufreq-table =
-				<  806400 >,
+				<  400000 >,
+				<  800000 >,
 				<  998400 >,
 				< 1094400 >,
 				< 1190400 >,
@@ -524,6 +527,9 @@
 		HSUSB_3p3-supply = <&mdm9607_l4>;
 		qcom,vdd-voltage-level = <0 1225000 1225000>;
 
+		qcom,hsusb-otg-phy-init-seq =
+			<0x44 0x80 0x38 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <3>; /* OTG mode */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC control */
@@ -702,6 +708,10 @@
 
 			qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50",
 					"DDR50","SDR104";
+
+			qcom,pm-qos-irq-type = "affine_irq";
+			qcom,pm-qos-irq-latency = <2 250>;
+
 			status = "disabled";
 	};
 
@@ -962,7 +972,7 @@
 
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";
-			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_NOM
+			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_NOM_PLUS
 					RPM_SMD_REGULATOR_LEVEL_TURBO
 					RPM_SMD_REGULATOR_LEVEL_TURBO>;
 			qcom,min-level = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
@@ -1291,6 +1301,9 @@
 		clock-names = "iface_clk", "core_clk";
 
 		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 250>;
 
 		status = "disabled";
 	};

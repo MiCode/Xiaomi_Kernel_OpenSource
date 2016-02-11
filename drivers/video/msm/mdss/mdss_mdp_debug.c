@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -933,6 +933,8 @@ static struct debug_bus dbg_bus_8996[] = {
 	{ 0x348, 20, 0},
 	{ 0x348, 20, 1},
 	{ 0x348, 20, 3},
+
+	{ 0x418, 60, 0},
 };
 
 static struct vbif_debug_bus vbif_dbg_bus_8996[] = {
@@ -1420,6 +1422,8 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 			&mdss_debugfs_safe_stats_fops);
 	debugfs_create_bool("serialize_wait4pp", 0644, mdd->root,
 		(u32 *)&mdata->serialize_wait4pp);
+	debugfs_create_bool("wait4autorefresh", 0644, mdd->root,
+		(u32 *)&mdata->wait4autorefresh);
 	debugfs_create_bool("enable_gate", 0644, mdd->root,
 		(u32 *)&mdata->enable_gate);
 

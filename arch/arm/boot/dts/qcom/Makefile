@@ -38,6 +38,7 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996pro-pmi8996-mtp.dtb \
 	msm8996pro-pmi8996-pmk8001-cdp.dtb \
 	msm8996pro-pmi8996-pmk8001-mtp.dtb \
+	apq8096pro-liquid.dtb \
 	msm8996-v3.0-pmi8994-cdp.dtb \
 	msm8996-v3.0-pmi8994-mtp.dtb \
 	msm8996-v3.0-pmi8994-pm8004-cdp.dtb \
@@ -89,7 +90,13 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	apq8096-v3-pmi8996-dragonboard.dtb
 
 dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
-	msmcobalt-rumi.dtb
+	msmcobalt-rumi.dtb \
+	msmcobalt-cdp.dtb \
+	msmcobalt-mtp.dtb \
+	msmcobalt-v2-sim.dtb \
+	msmcobalt-v2-rumi.dtb \
+	msmcobalt-v2-mtp.dtb \
+	msmcobalt-v2-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-rumi.dtb \
@@ -132,7 +139,8 @@ dtb-$(CONFIG_ARCH_MSMGOLD) += msmgold-rumi.dtb \
 	msmgold-pmi8950-ext-codec-cdp.dtb \
 	msmgold-pmi8950-mtp.dtb \
 	msmgold-pmi8937-rcm.dtb \
-	msmgold-pmi8950-rcm.dtb
+	msmgold-pmi8950-rcm.dtb \
+	msmgold-pmi8937-qrd-sku5.dtb
 
 dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	msmtitanium-rumi.dtb \
@@ -158,7 +166,9 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
 
 dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909w-wtp.dtb \
-	apq8009w-wtp.dtb
+	apq8009w-wtp.dtb \
+	msm8909w-pm8916-mtp-ext-chg-fg.dtb
+
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)

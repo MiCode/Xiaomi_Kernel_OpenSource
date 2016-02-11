@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2008 Nokia Corporation
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -645,16 +645,6 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 								"ecm0", true);
 				if (IS_ERR(net))
 					return PTR_ERR(net);
-			}
-
-			if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
-			    gadget_is_dwc3(cdev->gadget)) {
-				if (msm_ep_config(ecm->port.in_ep) ||
-				    msm_ep_config(ecm->port.out_ep)) {
-					pr_err("%s: ep_config failed\n",
-						__func__);
-					goto fail;
-				}
 			}
 
 			ecm->bam_port.cdev = cdev;

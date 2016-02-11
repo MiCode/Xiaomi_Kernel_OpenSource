@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,22 +70,22 @@ static void ipa3_rm_inactivity_timer_func(struct work_struct *work)
 						    work);
 	unsigned long flags;
 
-	IPADBG("%s: timer expired for resource %d!\n", __func__,
+	IPADBG_LOW("%s: timer expired for resource %d!\n", __func__,
 	    me->resource_name);
 
 	spin_lock_irqsave(
 		&ipa3_rm_it_handles[me->resource_name].lock, flags);
 	if (ipa3_rm_it_handles[me->resource_name].reschedule_work) {
-		IPADBG("%s: setting delayed work\n", __func__);
+		IPADBG_LOW("%s: setting delayed work\n", __func__);
 		ipa3_rm_it_handles[me->resource_name].reschedule_work = false;
 		schedule_delayed_work(
 			&ipa3_rm_it_handles[me->resource_name].work,
 			ipa3_rm_it_handles[me->resource_name].jiffies);
 	} else if (ipa3_rm_it_handles[me->resource_name].resource_requested) {
-		IPADBG("%s: not calling release\n", __func__);
+		IPADBG_LOW("%s: not calling release\n", __func__);
 		ipa3_rm_it_handles[me->resource_name].work_in_progress = false;
 	} else {
-		IPADBG("%s: calling release_resource on resource %d!\n",
+		IPADBG_LOW("%s: calling release_resource on resource %d!\n",
 			__func__, me->resource_name);
 		ipa3_rm_release_resource(me->resource_name);
 		ipa3_rm_it_handles[me->resource_name].work_in_progress = false;
@@ -110,7 +110,7 @@ static void ipa3_rm_inactivity_timer_func(struct work_struct *work)
 int ipa3_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 				 unsigned long msecs)
 {
-	IPADBG("%s: resource %d\n", __func__, resource_name);
+	IPADBG_LOW("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
 	    resource_name >= IPA_RM_RESOURCE_MAX) {
@@ -150,7 +150,7 @@ int ipa3_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 */
 int ipa3_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 {
-	IPADBG("%s: resource %d\n", __func__, resource_name);
+	IPADBG_LOW("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
 	    resource_name >= IPA_RM_RESOURCE_MAX) {
@@ -190,7 +190,7 @@ int ipa3_rm_inactivity_timer_request_resource(
 	int ret;
 	unsigned long flags;
 
-	IPADBG("%s: resource %d\n", __func__, resource_name);
+	IPADBG_LOW("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
 	    resource_name >= IPA_RM_RESOURCE_MAX) {
@@ -207,7 +207,8 @@ int ipa3_rm_inactivity_timer_request_resource(
 	ipa3_rm_it_handles[resource_name].resource_requested = true;
 	spin_unlock_irqrestore(&ipa3_rm_it_handles[resource_name].lock, flags);
 	ret = ipa3_rm_request_resource(resource_name);
-	IPADBG("%s: resource %d: returning %d\n", __func__, resource_name, ret);
+	IPADBG_LOW("%s: resource %d: returning %d\n", __func__,
+		resource_name, ret);
 
 	return ret;
 }
@@ -232,7 +233,7 @@ int ipa3_rm_inactivity_timer_release_resource(
 {
 	unsigned long flags;
 
-	IPADBG("%s: resource %d\n", __func__, resource_name);
+	IPADBG_LOW("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
 	    resource_name >= IPA_RM_RESOURCE_MAX) {
@@ -248,7 +249,7 @@ int ipa3_rm_inactivity_timer_release_resource(
 	spin_lock_irqsave(&ipa3_rm_it_handles[resource_name].lock, flags);
 	ipa3_rm_it_handles[resource_name].resource_requested = false;
 	if (ipa3_rm_it_handles[resource_name].work_in_progress) {
-		IPADBG("%s: Timer already set, not scheduling again %d\n",
+		IPADBG_LOW("%s: Timer already set, not scheduling again %d\n",
 		    __func__, resource_name);
 		ipa3_rm_it_handles[resource_name].reschedule_work = true;
 		spin_unlock_irqrestore(
@@ -257,7 +258,7 @@ int ipa3_rm_inactivity_timer_release_resource(
 	}
 	ipa3_rm_it_handles[resource_name].work_in_progress = true;
 	ipa3_rm_it_handles[resource_name].reschedule_work = false;
-	IPADBG("%s: setting delayed work\n", __func__);
+	IPADBG_LOW("%s: setting delayed work\n", __func__);
 	schedule_delayed_work(&ipa3_rm_it_handles[resource_name].work,
 			      ipa3_rm_it_handles[resource_name].jiffies);
 	spin_unlock_irqrestore(&ipa3_rm_it_handles[resource_name].lock, flags);

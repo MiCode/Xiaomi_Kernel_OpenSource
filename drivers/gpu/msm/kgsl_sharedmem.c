@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -342,7 +342,7 @@ int kgsl_allocate_user(struct kgsl_device *device,
 
 	memdesc->flags = flags;
 
-	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
+	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE)
 		ret = kgsl_sharedmem_alloc_contig(device, memdesc,
 				pagetable, size);
 	else if (flags & KGSL_MEMFLAGS_SECURE)
@@ -384,6 +384,8 @@ static int kgsl_page_alloc_vmfault(struct kgsl_memdesc *memdesc,
 
 			get_page(page);
 			vmf->page = page;
+
+			memdesc->mapsize += PAGE_SIZE;
 
 			return 0;
 		}
@@ -549,6 +551,8 @@ static int kgsl_contiguous_vmfault(struct kgsl_memdesc *memdesc,
 		return VM_FAULT_OOM;
 	else if (ret == -EFAULT)
 		return VM_FAULT_SIGBUS;
+
+	memdesc->mapsize += PAGE_SIZE;
 
 	return VM_FAULT_NOPAGE;
 }
@@ -1094,7 +1098,7 @@ int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
 
 	/* Record statistics */
 
-	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
+	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_NONE)
 		memdesc->gpuaddr = memdesc->physaddr;
 
 	KGSL_STATS_ADD(size, &kgsl_driver.stats.coherent,
@@ -1165,7 +1169,7 @@ static int scm_lock_chunk(struct kgsl_memdesc *memdesc, int lock)
 static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, uint64_t size)
 {
-	struct kgsl_iommu *iommu = device->mmu.priv;
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	int result = 0;
 	struct kgsl_pagetable *pagetable = device->mmu.securepagetable;
 	size_t aligned;

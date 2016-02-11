@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,74 +26,169 @@ static struct dentry *dent_ep_pcie;
 static struct dentry *dfile_case;
 static struct ep_pcie_dev_t *dev;
 
+static void ep_ep_pcie_phy_dump_pcs_debug_bus(struct ep_pcie_dev_t *dev,
+					u32 cntrl4, u32 cntrl5,
+					u32 cntrl6, u32 cntrl7)
+{
+	ep_pcie_write_reg(dev->phy, PCIE_PHY_TEST_CONTROL4, cntrl4);
+	ep_pcie_write_reg(dev->phy, PCIE_PHY_TEST_CONTROL5, cntrl5);
+	ep_pcie_write_reg(dev->phy, PCIE_PHY_TEST_CONTROL6, cntrl6);
+	ep_pcie_write_reg(dev->phy, PCIE_PHY_TEST_CONTROL7, cntrl7);
+
+	if (!cntrl4 && !cntrl5 && !cntrl6 && !cntrl7) {
+		EP_PCIE_DUMP(dev,
+			"PCIe V%d: zero out test control registers.\n\n",
+			dev->rev);
+		return;
+	}
+
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_TEST_CONTROL4: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_TEST_CONTROL4));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_TEST_CONTROL5: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_TEST_CONTROL5));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_TEST_CONTROL6: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_TEST_CONTROL6));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_TEST_CONTROL7: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_TEST_CONTROL7));
+
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_DEBUG_BUS_0_STATUS: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_0_STATUS));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_DEBUG_BUS_1_STATUS: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_1_STATUS));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_DEBUG_BUS_2_STATUS: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_2_STATUS));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_DEBUG_BUS_3_STATUS: 0x%x\n\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_3_STATUS));
+}
+
+static void ep_ep_pcie_phy_dump_pcs_misc_debug_bus(struct ep_pcie_dev_t *dev,
+					u32 b0, u32 b1,	u32 b2, u32 b3)
+{
+	ep_pcie_write_reg(dev->phy, PCIE_PHY_MISC_DEBUG_BUS_BYTE0_INDEX, b0);
+	ep_pcie_write_reg(dev->phy, PCIE_PHY_MISC_DEBUG_BUS_BYTE1_INDEX, b1);
+	ep_pcie_write_reg(dev->phy, PCIE_PHY_MISC_DEBUG_BUS_BYTE2_INDEX, b2);
+	ep_pcie_write_reg(dev->phy, PCIE_PHY_MISC_DEBUG_BUS_BYTE3_INDEX, b3);
+
+	if (!b0 && !b1 && !b2 && !b3) {
+		EP_PCIE_DUMP(dev,
+			"PCIe V%d: zero out misc debug bus byte index registers.\n\n",
+			dev->rev);
+		return;
+	}
+
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_MISC_DEBUG_BUS_BYTE0_INDEX: 0x%x\n",
+		dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_MISC_DEBUG_BUS_BYTE0_INDEX));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_MISC_DEBUG_BUS_BYTE1_INDEX: 0x%x\n",
+		dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_MISC_DEBUG_BUS_BYTE1_INDEX));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_MISC_DEBUG_BUS_BYTE2_INDEX: 0x%x\n",
+		dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_MISC_DEBUG_BUS_BYTE2_INDEX));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_MISC_DEBUG_BUS_BYTE3_INDEX: 0x%x\n",
+		dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_MISC_DEBUG_BUS_BYTE3_INDEX));
+
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_MISC_DEBUG_BUS_0_STATUS: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_MISC_DEBUG_BUS_0_STATUS));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_MISC_DEBUG_BUS_1_STATUS: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_MISC_DEBUG_BUS_1_STATUS));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_MISC_DEBUG_BUS_2_STATUS: 0x%x\n", dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_MISC_DEBUG_BUS_2_STATUS));
+	EP_PCIE_DUMP(dev,
+		"PCIe V%d: PCIE_PHY_MISC_DEBUG_BUS_3_STATUS: 0x%x\n\n",
+		dev->rev,
+		readl_relaxed(dev->phy + PCIE_PHY_MISC_DEBUG_BUS_3_STATUS));
+}
+
 static void ep_pcie_phy_dump(struct ep_pcie_dev_t *dev)
 {
 	int i;
-	int control_offset[6] = {0x60, 0x70, 0x80, 0xA0, 0xB0, 0xB0};
+	u32 write_val;
 
-	EP_PCIE_DUMP(dev, "PCIe V%d: PHY testbus\n", dev->rev);
+	EP_PCIE_DUMP(dev, "PCIe V%d: Beginning of PHY debug dump.\n\n",
+			dev->rev);
 
-	for (i = 0; i < 6; i++) {
-		switch (i) {
-		case 3:
-			ep_pcie_write_reg(dev->phy,
-					QSERDES_COM_ATB_SEL2,
-					0x10);
-			EP_PCIE_DUMP(dev,
-				"PCIe V%d: QSERDES_COM_ATB_SEL2: 0x%x\n",
-				dev->rev,
-				readl_relaxed(dev->phy + QSERDES_COM_ATB_SEL2));
-			break;
-		case 4:
-			ep_pcie_write_reg(dev->phy,
-					QSERDES_TX_SERDES_BYP_EN_OUT,
-					0x10);
-			EP_PCIE_DUMP(dev,
-				"PCIe V%d: QSERDES_TX_SERDES_BYP_EN_OUT: 0x%x\n",
-				dev->rev,
-				readl_relaxed(dev->phy +
-					QSERDES_TX_SERDES_BYP_EN_OUT));
-			break;
-		case 5:
-			ep_pcie_write_reg(dev->phy,
-					QSERDES_TX_SERDES_BYP_EN_OUT,
-					0x30);
-			EP_PCIE_DUMP(dev,
-				"PCIe V%d: QSERDES_TX_SERDES_BYP_EN_OUT: 0x%x\n",
-				dev->rev,
-				readl_relaxed(dev->phy +
-					QSERDES_TX_SERDES_BYP_EN_OUT));
-			break;
-		default:
-			break;
-		}
+	EP_PCIE_DUMP(dev, "PCIe V%d: PCS Debug Signals.\n\n", dev->rev);
 
-		ep_pcie_write_reg(dev->phy, PCIE_PHY_TEST_CONTROL,
-			control_offset[i]);
+	ep_ep_pcie_phy_dump_pcs_debug_bus(dev, 0x01, 0x02, 0x03, 0x0A);
+	ep_ep_pcie_phy_dump_pcs_debug_bus(dev, 0x0E, 0x0F, 0x12, 0x13);
+	ep_ep_pcie_phy_dump_pcs_debug_bus(dev, 0x18, 0x19, 0x1A, 0x1B);
+	ep_ep_pcie_phy_dump_pcs_debug_bus(dev, 0x1C, 0x1D, 0x1E, 0x1F);
+	ep_ep_pcie_phy_dump_pcs_debug_bus(dev, 0x20, 0x21, 0x22, 0x23);
+	ep_ep_pcie_phy_dump_pcs_debug_bus(dev, 0, 0, 0, 0);
+
+	EP_PCIE_DUMP(dev, "PCIe V%d: PCS Misc Debug Signals.\n\n", dev->rev);
+
+	ep_ep_pcie_phy_dump_pcs_misc_debug_bus(dev, 0x1, 0x2, 0x3, 0x4);
+	ep_ep_pcie_phy_dump_pcs_misc_debug_bus(dev, 0x5, 0x6, 0x7, 0x8);
+	ep_ep_pcie_phy_dump_pcs_misc_debug_bus(dev, 0, 0, 0, 0);
+
+	EP_PCIE_DUMP(dev, "PCIe V%d: QSERDES COM Debug Signals.\n\n", dev->rev);
+
+	for (i = 0; i < 2; i++) {
+		write_val = 0x2 + i;
+
+		ep_pcie_write_reg(dev->phy, QSERDES_COM_DEBUG_BUS_SEL,
+			write_val);
 
 		EP_PCIE_DUMP(dev,
-			"PCIe V%d: PCIE_PHY_TEST_CONTROL: 0x%x\n",
+			"PCIe V%d: to QSERDES_COM_DEBUG_BUS_SEL: 0x%x\n",
 			dev->rev,
-			readl_relaxed(dev->phy + PCIE_PHY_TEST_CONTROL));
+			readl_relaxed(dev->phy + QSERDES_COM_DEBUG_BUS_SEL));
 		EP_PCIE_DUMP(dev,
-			"PCIe V%d: PCIE_PHY_DEBUG_BUS_0_STATUS: 0x%x\n",
+			"PCIe V%d: QSERDES_COM_DEBUG_BUS0: 0x%x\n",
 			dev->rev,
-			readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_0_STATUS));
+			readl_relaxed(dev->phy + QSERDES_COM_DEBUG_BUS0));
 		EP_PCIE_DUMP(dev,
-			"PCIe V%d: PCIE_PHY_DEBUG_BUS_1_STATUS: 0x%x\n",
+			"PCIe V%d: QSERDES_COM_DEBUG_BUS1: 0x%x\n",
 			dev->rev,
-			readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_1_STATUS));
+			readl_relaxed(dev->phy + QSERDES_COM_DEBUG_BUS1));
 		EP_PCIE_DUMP(dev,
-			"PCIe V%d: PCIE_PHY_DEBUG_BUS_2_STATUS: 0x%x\n",
+			"PCIe V%d: QSERDES_COM_DEBUG_BUS2: 0x%x\n",
 			dev->rev,
-			readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_2_STATUS));
+			readl_relaxed(dev->phy + QSERDES_COM_DEBUG_BUS2));
 		EP_PCIE_DUMP(dev,
-			"PCIe V%d: PCIE_PHY_DEBUG_BUS_3_STATUS: 0x%x\n",
+			"PCIe V%d: QSERDES_COM_DEBUG_BUS3: 0x%x\n\n",
 			dev->rev,
-			readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_3_STATUS));
+			readl_relaxed(dev->phy + QSERDES_COM_DEBUG_BUS3));
 	}
 
-	EP_PCIE_DUMP(dev, "PCIe V%d: PHY register dump\n", dev->rev);
+	ep_pcie_write_reg(dev->phy, QSERDES_COM_DEBUG_BUS_SEL, 0);
+
+	EP_PCIE_DUMP(dev, "PCIe V%d: QSERDES LANE Debug Signals.\n\n",
+			dev->rev);
+
+	for (i = 0; i < 3; i++) {
+		write_val = 0x1 + i;
+		ep_pcie_write_reg(dev->phy,
+			QSERDES_TX_DEBUG_BUS_SEL, write_val);
+		EP_PCIE_DUMP(dev,
+			"PCIe V%d: QSERDES_TX_DEBUG_BUS_SEL: 0x%x\n",
+			dev->rev,
+			readl_relaxed(dev->phy + QSERDES_TX_DEBUG_BUS_SEL));
+
+		ep_ep_pcie_phy_dump_pcs_debug_bus(dev, 0x30, 0x31, 0x32, 0x33);
+	}
+
+	ep_ep_pcie_phy_dump_pcs_debug_bus(dev, 0, 0, 0, 0);
+
+	EP_PCIE_DUMP(dev, "PCIe V%d: End of PHY debug dump.\n\n", dev->rev);
 
 }
 

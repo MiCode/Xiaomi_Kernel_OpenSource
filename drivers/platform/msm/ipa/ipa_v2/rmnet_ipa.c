@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1366,6 +1366,11 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 					rmnet_mux_val.mux_id);
 				return rc;
 			}
+			if (rmnet_index >= MAX_NUM_OF_MUX_CHANNEL) {
+				IPAWANERR("Exceed mux_channel limit(%d)\n",
+				rmnet_index);
+				return -EFAULT;
+			}
 			IPAWANDBG("ADD_MUX_CHANNEL(%d, name: %s)\n",
 			extend_ioctl_data.u.rmnet_mux_val.mux_id,
 			extend_ioctl_data.u.rmnet_mux_val.vchannel_name);
@@ -2496,15 +2501,15 @@ int rmnet_ipa_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	req = kzalloc(sizeof(struct ipa_get_data_stats_req_msg_v01),
 			GFP_KERNEL);
 	if (!req) {
-		IPAWANERR("Can't allocate memory for stats message\n");
-		return rc;
+		IPAWANERR("failed to allocate memory for stats message\n");
+		return -ENOMEM;
 	}
 	resp = kzalloc(sizeof(struct ipa_get_data_stats_resp_msg_v01),
 			GFP_KERNEL);
 	if (!resp) {
-		IPAWANERR("Can't allocate memory for stats message\n");
+		IPAWANERR("failed to allocate memory for stats message\n");
 		kfree(req);
-		return rc;
+		return -ENOMEM;
 	}
 	memset(req, 0, sizeof(struct ipa_get_data_stats_req_msg_v01));
 	memset(resp, 0, sizeof(struct ipa_get_data_stats_resp_msg_v01));

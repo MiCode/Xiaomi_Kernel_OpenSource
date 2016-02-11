@@ -1,0 +1,189 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	tmc_etr: tmc@6048000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b961>;
+
+		reg = <0x6048000 0x1000>,
+		      <0x6064000 0x15000>;
+		reg-names = "tmc-base", "bam-base";
+
+		arm,buffer-size = <0x400000>;
+
+		coresight-name = "coresight-tmc-etr";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk", "core_a_clk";
+
+		port{
+			tmc_etr_in_replicator: endpoint {
+				slave-mode;
+				remote-endpoint = <&replicator_out_tmc_etr>;
+			};
+		};
+	};
+
+	replicator: replicator@6046000 {
+		compatible = "arm,coresight-replicator";
+
+		coresight-name = "coresight-replicator";
+
+		ports{
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				replicator_out_tmc_etr:endpoint {
+					remote-endpoint =
+						<&tmc_etr_in_replicator>;
+				};
+			};
+			port@1 {
+				reg = <0>;
+				replicator_in_tmc_etf:endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tmc_etf_out_replicator>;
+				};
+			};
+		};
+	};
+
+	tmc_etf: tmc@6047000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b961>;
+
+		reg = <0x6047000 0x1000>;
+		reg-names = "tmc-base";
+
+		coresight-name = "coresight-tmc-etf";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk", "core_a_clk";
+
+		ports{
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				tmc_etf_out_replicator:endpoint {
+					remote-endpoint =
+						<&replicator_in_tmc_etf>;
+				};
+			};
+			port@1 {
+				reg = <0>;
+				tmc_etf_in_funnel_merg:endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&funnel_merg_out_tmc_etf>;
+				};
+			};
+		};
+	};
+
+	funnel_merg: funnel@6045000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x6045000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-merg";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk", "core_a_clk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_merg_out_tmc_etf:endpoint {
+					remote-endpoint =
+						<&tmc_etf_in_funnel_merg>;
+				};
+			};
+			port@1 {
+				reg = <0>;
+				funnel_merg_in_funnel_in0:endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&funnel_in0_out_funnel_merg>;
+				};
+			};
+		};
+	};
+
+	funnel_in0: funnel@6041000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b908>;
+
+		reg = <0x6041000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-name = "coresight-funnel-in0";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk", "core_a_clk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				funnel_in0_out_funnel_merg: endpoint {
+					remote-endpoint =
+						<&funnel_merg_in_funnel_in0>;
+				};
+			};
+			port@1 {
+				reg = <7>;
+				funnel_in0_in_stm: endpoint {
+					slave-mode;
+					remote-endpoint = <&stm_out_funnel_in0>;
+				};
+			};
+		};
+	};
+
+	stm: stm@6002000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b962>;
+
+		reg = <0x6002000 0x1000>,
+		      <0x16280000 0x180000>;
+		reg-names = "stm-base", "stm-data-base";
+
+		coresight-name = "coresight-stm";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk", "core_a_clk";
+
+		port{
+			stm_out_funnel_in0: endpoint {
+				remote-endpoint = <&funnel_in0_in_stm>;
+			};
+		};
+	};
+};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -746,8 +746,9 @@
 
 	clock_mmss: qcom,mmsscc@8c0000 {
 		compatible = "qcom,mmsscc-8996";
-		reg = <0x8c0000 0xb00c>;
-		reg-names = "cc_base";
+		reg = <0x8c0000 0xb00c>,
+			<0x74130 0x8>;
+		reg-names = "cc_base", "efuse";
 		vdd_dig-supply = <&pm8994_s1_corner>;
 		mmpll4_dig-supply = <&pm8994_s1_corner>;
 		mmpll4_analog-supply = <&pm8994_l12>;
@@ -771,9 +772,8 @@
 
 	clock_gpu: qcom,gpucc@8c0000 {
 		compatible = "qcom,gpucc-8996";
-		reg = <0x8c0000 0xb00c>,
-			<0x74130 0x8>;
-		reg-names = "cc_base", "efuse";
+		reg = <0x8c0000 0xb00c>;
+		reg-names = "cc_base";
 		vdd_gfx-supply = <&gfx_vreg>;
 		qcom,gfx3d_clk_src-opp-handle = <&msm_gpu>;
 		vdd_mx-supply = <&pm8994_s2_corner>;
@@ -957,6 +957,7 @@
 			qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 01 17 02];
 			qcom,cdc-dmic-sample-rate = <4800000>;
 			qcom,cdc-mad-dmic-rate = <600000>;
+			qcom,cdc-dmic-clk-drv-strength = <2>;
 		};
 	};
 
@@ -2012,7 +2013,7 @@
 	android_usb@66bf0c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x066bf0c8 0xc8>;
-		qcom,pm-qos-latency = <301 701 801>;
+		qcom,pm-qos-latency = <41 91 801>;
 	};
 
 	qusb_phy0: qusb@7411000 {
@@ -2207,6 +2208,7 @@
 		vdd-wlan-io-supply = <&pm8994_s4>;
 		vdd-wlan-xtal-supply = <&pm8994_l30>;
 		vdd-wlan-core-supply = <&pm8994_s3>;
+		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
 		qcom,notify-modem-status;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cnss_default>;
@@ -2771,6 +2773,31 @@
 			qcom,vph-low-threshold-uv = <3300000>;
 			qcom,soc-low-threshold = <10>;
 			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x200000>;
+			qcom,client-id = <0>;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x300000>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <1>;
+			label = "modem";
 		};
 	};
 

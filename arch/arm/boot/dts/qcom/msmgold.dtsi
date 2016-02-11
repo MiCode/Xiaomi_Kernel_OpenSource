@@ -43,6 +43,8 @@
 		i2c2 = &i2c_2;
 		i2c5 = &i2c_5;
 		i2c3 = &i2c_3;
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 for SD card */
 	};
 
 	reserved-memory {
@@ -205,6 +207,13 @@
 			reg = <0xb128000 0x1000>;
 			status = "disabled";
 		};
+	};
+
+	qcom,rmtfs_sharedmem@00000000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x00000000 0x00e0000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
 	};
 
 	restart@4ab000 {
@@ -395,7 +404,7 @@
 
 		qcom,vdd-dig-rstr {
 			qcom,vdd-rstr-reg = "vdd-dig";
-			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_NOM
+			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_NOM_PLUS
 					RPM_SMD_REGULATOR_LEVEL_BINNING
 					RPM_SMD_REGULATOR_LEVEL_BINNING>;
 			qcom,min-level = <RPM_SMD_REGULATOR_LEVEL_NONE>;
@@ -649,7 +658,7 @@
 	clock_debug: qcom,cc-debug@1874000 {
 		compatible = "qcom,cc-debug-gold";
 		reg = <0x1874000 0x4>,
-		      <0xb11101c 0x8>;
+		      <0xb01101c 0x8>;
 		reg-names = "cc_base", "meas";
 		#clock-cells = <1>;
 	};
@@ -671,12 +680,13 @@
 		vdd-c1-supply = <&apc_vreg_corner>;
 		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
 			 <&clock_gcc clk_a53ss_c1_pll>;
-		clock-names = "clk-c0-4", "clk-c0-5";
+		clock-names = "clk-c1-4", "clk-c1-5";
 		qcom,speed0-bin-v0-c1 =
 			<          0 0>,
-			<  998400000 1>,
+			<  960000000 1>,
 			< 1094400000 2>,
-			< 1209600000 3>;
+			< 1248000000 3>,
+			< 1401000000 4>;
 
 		#clock-cells = <1>;
 	};
@@ -691,9 +701,10 @@
 			 <&clock_cpu clk_a53_bc_clk>;
 
 		qcom,cpufreq-table =
-			 <  998400 >,
+			 <  960000 >,
 			 < 1094400 >,
-			 < 1209600 >;
+			 < 1248000 >,
+			 < 1401000 >;
 	};
 
 	usb_otg: usb@78db000 {
@@ -722,6 +733,7 @@
 		qcom,phy-dvdd-always-on;
 		qcom,boost-sysclk-with-streaming;
 		qcom,axi-prefetch-enable;
+		qcom,enable-sdp-typec-current-limit;
 		qcom,hsusb-otg-delay-lpm;
 
 		qcom,msm-bus,name = "usb2";
@@ -851,7 +863,6 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
-		status = "disabled";
 	};
 
 	qcom,memshare {
@@ -895,6 +906,11 @@
 		mem_dump_table@10 {
 			compatible = "qcom,msm-imem-mem_dump_table";
 			reg = <0x10 8>;
+		};
+
+		dload_type@18 {
+			compatible = "qcom,msm-imem-dload-type";
+			reg = <0x18 4>;
 		};
 
 		restart_reason@65c {
@@ -1306,6 +1322,116 @@
 		qcom,fast-shutdown;
 	};
 
+	sdcc1_ice: sdcc1ice@7803000 {
+		compatible = "qcom,ice";
+		reg = <0x7803000 0x8000>;
+		interrupt-names = "sdcc_ice_nonsec_level_irq",
+				  "sdcc_ice_sec_level_irq";
+		interrupts = <0 312 0>, <0 313 0>;
+		qcom,enable-ice-clk;
+		clock-names = "ice_core_clk_src", "ice_core_clk",
+				"bus_clk", "iface_clk";
+		clocks = <&clock_gcc clk_sdcc1_ice_core_clk_src>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ahb_clk>;
+		qcom,op-freq-hz = <200000000>, <0>, <0>, <0>;
+		qcom,msm-bus,name = "sdcc_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<78 512 0 0>,    /* No vote */
+			<78 512 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN", "MAX";
+		qcom,instance-type = "sdcc";
+	};
+
+	sdhc_1: sdhci@7824900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0x7824900 0x500>, <0x7824000 0x800>, <0x7824e00 0x200>;
+		reg-names = "hc_mem", "core_mem", "cmdq_mem";
+
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		sdhc-msm-crypto = <&sdcc1_ice>;
+		qcom,bus-width = <8>;
+		qcom,large-address-bus;
+
+		qcom,devfreq,freq-table = <50000000 200000000>;
+
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 200>;
+
+		qcom,pm-qos-cpu-groups = <0x0f>;
+		qcom,pm-qos-cmdq-latency-us = <2 200>, <2 200>;
+
+		qcom,pm-qos-legacy-latency-us = <2 200>, <2 200>;
+
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
+			<78 512 1046 3200>,    /* 400 KB/s*/
+			<78 512 52286 160000>, /* 20 MB/s */
+			<78 512 65360 200000>, /* 25 MB/s */
+			<78 512 130718 400000>, /* 50 MB/s */
+			<78 512 130718 400000>, /* 100 MB/s */
+			<78 512 261438 800000>, /* 200 MB/s */
+			<78 512 261438 800000>, /* 400 MB/s */
+			<78 512 1338562 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000
+			50000000 100000000 200000000 400000000 4294967295>;
+
+		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>;
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
+		qcom,ice-clk-rates = <200000000 100000000>;
+
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+		status = "disabled";
+	};
+
+	sdhc_2: sdhci@7864900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0x7864900 0x500>, <0x7864000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 125 0>, <0 221 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		qcom,large-address-bus;
+
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 200>;
+
+		qcom,pm-qos-cpu-groups = <0x0f>;
+		qcom,pm-qos-legacy-latency-us = <2 200>, <2 200>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+			<81 512 1046 3200>,    /* 400 KB/s*/
+			<81 512 52286 160000>, /* 20 MB/s */
+			<81 512 65360 200000>, /* 25 MB/s */
+			<81 512 130718 400000>, /* 50 MB/s */
+			<81 512 261438 800000>, /* 100 MB/s */
+			<81 512 261438 800000>, /* 200 MB/s */
+			<81 512 1338562 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100000000 200000000 4294967295>;
+
+		qcom,devfreq,freq-table = <50000000 200000000>;
+		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
+			<&clock_gcc clk_gcc_sdcc2_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+
+		status = "disabled";
+	};
+
 	qcom,adsprpc-mem {
 		compatible = "qcom,msm-adsprpc-mem-region";
 		memory-region = <&adsp_mem>;
@@ -1512,6 +1638,10 @@
 		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&venus_mem>;
+	};
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
 	};
 
 };

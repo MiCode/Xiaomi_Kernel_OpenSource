@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,8 +40,8 @@
 		cell-index = <0>;
 		compatible = "qcom,camera-flash";
 		qcom,flash-type = <1>;
-		qcom,flash-source = <&pmi8937_flash0 &pmi8937_flash1>;
-		qcom,torch-source = <&pmi8937_torch0 &pmi8937_torch1>;
+		qcom,flash-source = <&pmi8937_flash0>;
+		qcom,torch-source = <&pmi8937_torch0>;
 		qcom,switch-source = <&pmi8937_switch>;
 	};
 
@@ -125,5 +125,43 @@
 };
 
 &dsi_hx8394f_720p_video {
+	qcom,esd-check-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&sdc2_cmd_on {
+	config {
+		drive-strength = <12>;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength = <12>;
+	};
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-qrd-sku2-4v35-2590mah.dtsi"
+	};
+};
+
+&pmi8937_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,float-voltage-mv = <4350>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	status = "okay";
+};
+
+&pmi8937_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,cold-bat-decidegc = <(-100)>;
+	qcom,cool-bat-decidegc = <(-100)>;
+	qcom,hot-bat-decidegc = <550>;
+	qcom,warm-bat-decidegc = <550>;
+	qcom,bad-battery-detection-enable;
+	qcom,hold-soc-while-full;
 };

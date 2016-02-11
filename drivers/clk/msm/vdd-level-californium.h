@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,8 +57,26 @@
 	},					\
 	.num_fmax = VDD_DIG_NUM
 
+#define VDD_GPU_PLL_FMAX_MAP2(l1, f1, l2, f2)	\
+	.vdd_class = &vdd_gpucc_mx,		\
+	.fmax = (unsigned long[VDD_DIG_NUM]) {	\
+		[VDD_DIG_##l1] = (f1),		\
+		[VDD_DIG_##l2] = (f2),		\
+	},					\
+	.num_fmax = VDD_DIG_NUM
+
+#define VDD_GPU_PLL_FMAX_MAP3(l1, f1, l2, f2, l3, f3)	\
+	.vdd_class = &vdd_gpucc_mx,			\
+	.fmax = (unsigned long[VDD_DIG_NUM]) {		\
+		[VDD_DIG_##l1] = (f1),			\
+		[VDD_DIG_##l2] = (f2),			\
+		[VDD_DIG_##l3] = (f3),			\
+	},						\
+	.num_fmax = VDD_DIG_NUM
+
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
+	VDD_DIG_MIN,		/* MIN SVS */
 	VDD_DIG_LOWER,		/* SVS2 */
 	VDD_DIG_LOW,		/* SVS */
 	VDD_DIG_NOMINAL,	/* NOM */
@@ -68,6 +86,7 @@ enum vdd_dig_levels {
 
 static int vdd_corner[] = {
 	RPM_REGULATOR_LEVEL_NONE,		/* VDD_DIG_NONE */
+	RPM_REGULATOR_LEVEL_MIN_SVS,		/* VDD_DIG_MIN */
 	RPM_REGULATOR_LEVEL_LOW_SVS,		/* VDD_DIG_LOWER */
 	RPM_REGULATOR_LEVEL_SVS,		/* VDD_DIG_LOW */
 	RPM_REGULATOR_LEVEL_NOM,		/* VDD_DIG_NOMINAL */

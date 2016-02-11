@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@ struct  usb_qdss_bam_connect_info {
 
 static struct usb_qdss_bam_connect_info bam_info;
 
-int send_sps_req(struct usb_ep *data_ep)
+int alloc_sps_req(struct usb_ep *data_ep)
 {
 	struct usb_request *req = NULL;
 	struct f_qdss *qdss = data_ep->driver_data;
@@ -53,19 +53,18 @@ int send_sps_req(struct usb_ep *data_ep)
 	}
 	req->udc_priv = sps_params;
 	qdss->endless_req = req;
-	if (usb_ep_queue(data_ep, req, GFP_ATOMIC)) {
-		pr_err("send_sps_req: usb_ep_queue error\n");
-		return -EIO;
-	}
+
 	return 0;
 }
 
+static int init_data(struct usb_ep *ep);
 static int set_qdss_data_connection(struct usb_gadget *gadget,
 	struct usb_ep *data_ep, u8 data_addr, int enable)
 {
 	enum usb_ctrl		usb_bam_type;
 	int			res = 0;
 	int			idx;
+	struct f_qdss *qdss = data_ep->driver_data;
 
 	pr_debug("set_qdss_data_connection\n");
 
@@ -80,9 +79,7 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 	}
 
 	if (enable) {
-		res = usb_bam_connect(usb_bam_type, idx,
-					&(bam_info.usb_bam_pipe_idx));
-		gadget->bam2bam_func_enabled = true;
+		usb_bam_alloc_fifos(usb_bam_type, idx);
 		bam_info.data_fifo =
 			kzalloc(sizeof(struct sps_mem_buffer), GFP_KERNEL);
 		if (!bam_info.data_fifo) {
@@ -90,28 +87,32 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 			return -ENOMEM;
 		}
 		get_bam2bam_connection_info(usb_bam_type, idx,
-			&bam_info.usb_bam_handle,
-			&bam_info.usb_bam_pipe_idx, &bam_info.peer_pipe_idx,
-			NULL, bam_info.data_fifo, NULL);
+				&bam_info.usb_bam_pipe_idx,
+				NULL, bam_info.data_fifo, NULL);
 
+		alloc_sps_req(data_ep);
 		if (gadget_is_dwc3(gadget))
 			msm_data_fifo_config(data_ep,
 					     bam_info.data_fifo->phys_base,
 					     bam_info.data_fifo->size,
 					     bam_info.usb_bam_pipe_idx);
+		init_data(qdss->port.data);
+
+		res = usb_bam_connect(usb_bam_type, idx,
+					&(bam_info.usb_bam_pipe_idx));
+		gadget->bam2bam_func_enabled = true;
 	} else {
 		kfree(bam_info.data_fifo);
 		res = usb_bam_disconnect_pipe(usb_bam_type, idx);
-		if (res) {
+		if (res)
 			pr_err("usb_bam_disconnection error\n");
-			return res;
-		}
+		usb_bam_free_fifos(usb_bam_type, idx);
 	}
 
 	return res;
 }
 
-int init_data(struct usb_ep *ep)
+static int init_data(struct usb_ep *ep)
 {
 	struct f_qdss *qdss = ep->driver_data;
 	struct usb_gadget *gadget = qdss->cdev->gadget;
@@ -120,7 +121,7 @@ int init_data(struct usb_ep *ep)
 	pr_debug("init_data\n");
 
 	if (gadget_is_dwc3(gadget)) {
-		res = msm_ep_config(ep);
+		res = msm_ep_config(ep, qdss->endless_req, GFP_ATOMIC);
 		if (res)
 			pr_err("msm_ep_config failed\n");
 	} else {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,7 +293,7 @@
 		reg = <0x0c0a300c 0x4>,
 			<0x0c0a3010 0x4>;
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
-		qcom,clk_div = <27>;
+		qcom,clk-div = <27>;
 	};
 
 	int_codec: sound {
@@ -327,27 +327,56 @@
 			"AMIC3", "MIC BIAS External",
 			"WSA_SPK OUT", "VDD_WSA_SWITCH",
 			"SpkrMono WSA_IN", "WSA_SPK OUT";
+
+		qcom,hdmi-dba-codec-rx;
+
 		qcom,msm-gpios =
 			"pri_i2s",
-			"us_eu_gpio";
+			"us_eu_gpio",
+			"quin_i2s";
 		qcom,pinctrl-names =
 			"all_off",
 			"pri_i2s_act",
 			"us_eu_gpio_act",
-			"pri_i2s_us_eu_gpio_act";
+			"pri_i2s_us_eu_gpio_act",
+			"quin_act",
+			"quin_pri_i2s_act",
+			"quin_us_eu_gpio_act",
+			"quin_us_eu_gpio_pri_i2s_act";
 		pinctrl-names =
 			"all_off",
 			"pri_i2s_act",
 			"us_eu_gpio_act",
-			"pri_i2s_us_eu_gpio_act";
+			"pri_i2s_us_eu_gpio_act",
+			"quin_act",
+			"quin_pri_i2s_act",
+			"quin_us_eu_gpio_act",
+			"quin_us_eu_gpio_pri_i2s_act";
 		pinctrl-0 = <&cdc_pdm_lines_sus
-				&cdc_pdm_lines_2_sus &cross_conn_det_sus>;
+				&cdc_pdm_lines_2_sus &cross_conn_det_sus
+				&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
 		pinctrl-1 = <&cdc_pdm_lines_act
-				&cdc_pdm_lines_2_act &cross_conn_det_sus>;
+				&cdc_pdm_lines_2_act &cross_conn_det_sus
+				&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
 		pinctrl-2 = <&cdc_pdm_lines_sus
-				&cdc_pdm_lines_2_sus &cross_conn_det_act>;
+				&cdc_pdm_lines_2_sus &cross_conn_det_act
+				&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
 		pinctrl-3 = <&cdc_pdm_lines_act
-				&cdc_pdm_lines_2_act &cross_conn_det_act>;
+				&cdc_pdm_lines_2_act &cross_conn_det_act
+				&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+		pinctrl-4 = <&cdc_pdm_lines_sus
+				&cdc_pdm_lines_2_sus &cross_conn_det_sus
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+		pinctrl-5 = <&cdc_pdm_lines_act
+				&cdc_pdm_lines_2_act &cross_conn_det_sus
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+		pinctrl-6 = <&cdc_pdm_lines_sus
+				&cdc_pdm_lines_2_sus &cross_conn_det_act
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+		pinctrl-7 = <&cdc_pdm_lines_act
+				&cdc_pdm_lines_2_act &cross_conn_det_act
+				&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>;
@@ -401,6 +430,7 @@
 
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
+			"AIF4 VI", "MICBIAS_REGULATOR",
 			"RX_BIAS", "MCLK",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
@@ -424,19 +454,36 @@
 			"MIC BIAS4", "Digital Mic4",
 			"DMIC5", "MIC BIAS4",
 			"MIC BIAS4", "Digital Mic5",
+			"MIC_BIAS1", "MICBIAS_REGULATOR",
+			"MIC_BIAS2", "MICBIAS_REGULATOR",
+			"MIC_BIAS3", "MICBIAS_REGULATOR",
+			"MIC_BIAS4", "MICBIAS_REGULATOR",
 			"SpkrLeft IN", "SPK1 OUT",
 			"SpkrRight IN", "SPK2 OUT";
 
+		qcom,hdmi-dba-codec-rx;
+
 		qcom,msm-gpios =
+			"quin_i2s",
 			"us_eu_gpio";
 		qcom,pinctrl-names =
 			"all_off",
-			"us_eu_gpio_act";
+			"quin_act",
+			"us_eu_gpio_act",
+			"quin_us_eu_gpio_act";
 		pinctrl-names =
 			"all_off",
-			"us_eu_gpio_act";
-		pinctrl-0 = <&cross_conn_det_sus>;
-		pinctrl-1 = <&cross_conn_det_act>;
+			"quin_act",
+			"us_eu_gpio_act",
+			"quin_us_eu_gpio_act";
+		pinctrl-0 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus
+						&cross_conn_det_sus>;
+		pinctrl-1 = <&pri_tlmm_lines_act &pri_tlmm_ws_act
+						&cross_conn_det_sus>;
+		pinctrl-2 = <&pri_tlmm_lines_sus &pri_tlmm_ws_sus
+						&cross_conn_det_act>;
+		pinctrl-3 = <&pri_tlmm_lines_act &pri_tlmm_ws_act
+						&cross_conn_det_act>;
 
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -477,8 +524,8 @@
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
 				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
-		asoc-codec = <&stub_codec>;
-		asoc-codec-names = "msm-stub-codec.1";
+		asoc-codec = <&stub_codec>, <&hdmi_dba>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-dba-codec-rx";
 	};
 
 	i2c@78b6000 {
@@ -566,6 +613,8 @@
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-names = "cdc-int";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_intr_default>;
 	};
 
 	clock_audio: audio_ext_clk {
@@ -575,6 +624,11 @@
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
 	};
+};
+
+&adsp_io {
+	qcom,virtual-addr-pool = <0x10000000 0x0fffffff>;
+	#iommu-cells = <1>;
 };
 
 &slim_msm {
@@ -597,6 +651,10 @@
 
 		qcom,cdc-reset-gpio = <&tlmm 68 0>;
 
+		pinctrl-names = "default", "idle";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;
 
@@ -615,6 +673,6 @@
 		qcom,cdc-mclk-clk-rate = <9600000>;
 		qcom,cdc-slim-ifd = "tasha-slim-ifd";
 		qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 01 17 02];
-		qcom,cdc-dmic-sample-rate = <4800000>;
+		qcom,cdc-dmic-sample-rate = <2400000>;
 	};
 };

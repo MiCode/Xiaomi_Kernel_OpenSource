@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,8 +141,8 @@
 			   <GIC_SPI 275 IRQ_TYPE_LEVEL_HIGH>,
 			   <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
 		vdd-supply = <&gdsc_bimc_smmu>;
-		clocks = <&clock_mmss clk_bimc_smmu_ahb_clk>,
-			<&clock_mmss clk_bimc_smmu_axi_clk>;
+		clocks = <&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
 		clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
 		#clock-cells = <1>;
 		/*

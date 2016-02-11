@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,8 +79,8 @@
 			ite,wakeup;
 			ite,palm-detect-en;
 			ite,palm-detect-keycode = <142>;
-			ite,fw-name = "it7260_fw.bin";
-			ite,cfg-name = "it7260_cfg.bin";
+			ite,fw-name = "it7260_fw_050D0014.bin";
+			ite,cfg-name = "it7260_cfg_62011E01.bin";
 			ite,avdd-lpm-cur = <3000>;
 		};
 	};

@@ -110,6 +110,11 @@ Optional Properties:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
 				A5XX_PC_DBG_ECO_CNTL (5XX only)
 
+- qcom,l2pc-cpu-mask:
+				Disables L2PC on masked CPUs when any of Graphics
+				rendering thread is running on masked CPUs.
+				Bit 0 is for CPU-0, bit 1 is for CPU-1...
+
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
 properties can be found in:

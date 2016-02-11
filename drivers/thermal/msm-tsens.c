@@ -2453,8 +2453,8 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 	tm->crit_timestamp_last_interrupt_handled.time_stmp[idx%10] =
 							sched_clock();
 	tm->qtimer_val_last_detection_interrupt = arch_counter_get_cntpct();
-
-	complete(&tm->tsens_rslt_completion);
+	if (tsens_poll_check)
+		complete(&tm->tsens_rslt_completion);
 	/* Mask critical interrupt */
 	mb();
 
@@ -2724,8 +2724,21 @@ static int tsens_calib_msm8937_msmgold_sensors(struct tsens_tm_device *tmdev)
 		pr_debug("calib mode is %d\n", tsens_calibration_mode);
 	}
 
+	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB_N_WA) ||
+		(tsens_calibration_mode ==
+					TSENS_TWO_POINT_CALIB_N_OFFSET_WA)) {
+		pr_debug("No offsets needed for these calib modes\n");
+		for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+			tmdev->sensor[i].wa_temp1_calib_offset_factor = 0;
+			tmdev->sensor[i].wa_temp2_calib_offset_factor = 0;
+		}
+	}
+
 	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
-		(tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2)) {
+		(tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2) ||
+		(tsens_calibration_mode == TSENS_TWO_POINT_CALIB_N_WA) ||
+		(tsens_calibration_mode ==
+					TSENS_TWO_POINT_CALIB_N_OFFSET_WA)) {
 		tsens_base0_data = (calib_data[0] &
 						TSENS_CONTR_14_BASE0_MASK);
 		tsens0_point1 = (calib_data[2] &
@@ -2765,7 +2778,9 @@ static int tsens_calib_msm8937_msmgold_sensors(struct tsens_tm_device *tmdev)
 				>> TSENS10_CONTR_14_POINT1_SHIFT;
 	}
 
-	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
+		(tsens_calibration_mode ==
+					TSENS_TWO_POINT_CALIB_N_OFFSET_WA)) {
 		tsens_base1_data = (calib_data[1] &
 					TSENS_CONTR_14_BASE1_MASK)
 				>> TSENS_CONTR_14_BASE1_SHIFT;
@@ -2813,8 +2828,11 @@ static int tsens_calib_msm8937_msmgold_sensors(struct tsens_tm_device *tmdev)
 		}
 	}
 
-	if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2) ||
-		(tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
+	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
+		(tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2) ||
+		(tsens_calibration_mode == TSENS_TWO_POINT_CALIB_N_WA) ||
+		(tsens_calibration_mode ==
+					TSENS_TWO_POINT_CALIB_N_OFFSET_WA)) {
 		calib_tsens_point1_data[0] =
 				(((tsens_base0_data) + tsens0_point1) << 2) +
 				tmdev->sensor[0].wa_temp1_calib_offset_factor;
@@ -2851,7 +2869,9 @@ static int tsens_calib_msm8937_msmgold_sensors(struct tsens_tm_device *tmdev)
 				tmdev->sensor[10].wa_temp1_calib_offset_factor;
 	}
 
-	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
+		(tsens_calibration_mode ==
+					TSENS_TWO_POINT_CALIB_N_OFFSET_WA)){
 		pr_debug("two point calibration calculation\n");
 		calib_tsens_point2_data[0] =
 				((tsens_base1_data + tsens0_point2) << 2) +
@@ -2897,7 +2917,9 @@ static int tsens_calib_msm8937_msmgold_sensors(struct tsens_tm_device *tmdev)
 		pr_debug("sensor:%d - calib_data_point1:0x%x, calib_data_point2:0x%x\n",
 				i, tmdev->sensor[i].calib_data_point1,
 				tmdev->sensor[i].calib_data_point2);
-		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+		if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
+			(tsens_calibration_mode ==
+					TSENS_TWO_POINT_CALIB_N_OFFSET_WA)){
 			/*
 			 * slope (m) = adc_code2 - adc_code1 (y2 - y1)
 			 * temp_120_degc - temp_30_degc (x2 - x1)

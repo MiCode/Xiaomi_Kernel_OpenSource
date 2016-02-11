@@ -75,6 +75,7 @@ struct msm_mdp_interface mdp5 = {
 	.fb_mem_get_iommu_domain = mdss_fb_mem_get_iommu_domain,
 	.fb_stride = mdss_mdp_fb_stride,
 	.check_dsi_status = mdss_check_dsi_ctrl_status,
+	.get_format_params = mdss_mdp_get_format_params,
 };
 
 #define DEFAULT_TOTAL_RGB_PIPES 3
@@ -176,10 +177,14 @@ u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
 static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 {
 	struct mdss_data_type *mdata = ptr;
-	u32 intr = MDSS_REG_READ(mdata, MDSS_REG_HW_INTR_STATUS);
+	u32 intr;
 
 	if (!mdata)
 		return IRQ_NONE;
+	else if (!mdss_get_irq_enable_state(&mdss_mdp_hw))
+		return IRQ_HANDLED;
+
+	intr = MDSS_REG_READ(mdata, MDSS_REG_HW_INTR_STATUS);
 
 	mdss_mdp_hw.irq_info->irq_buzy = true;
 
@@ -1670,10 +1675,6 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 
 #define SPRINT(fmt, ...) \
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	mdss_hw_rev_init(mdata);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	SPRINT("mdp_version=5\n");
 	SPRINT("hw_rev=%d\n", mdata->mdp_rev);

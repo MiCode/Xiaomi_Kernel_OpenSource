@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -629,11 +629,11 @@ static long alpha_pll_round_rate(struct clk *c, unsigned long rate)
 		return -EINVAL;
 
 	freq_hz = round_rate_up(pll, rate, &l_val, &a_val);
-	if (pll->is_fabia) {
-		if (rate < pll->min_supported_freq)
-			return pll->min_supported_freq;
+	if (rate < pll->min_supported_freq)
+		return pll->min_supported_freq;
+	if (pll->is_fabia)
 		return freq_hz;
-	}
+
 	ret = find_vco(pll, freq_hz);
 	if (!IS_ERR_VALUE(ret))
 		return freq_hz;

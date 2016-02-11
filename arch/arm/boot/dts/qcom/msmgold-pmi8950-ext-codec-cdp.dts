@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,15 +43,6 @@
 		qcom,master-en = <1>;
 		qcom,out-strength = <2>;
 	};
-
-	gpio@c700 {
-		status = "ok";
-		qcom,mode = <1>;
-		qcom,vin-sel = <0>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		qcom,out-strength = <2>;
-	};
 };
 
 &slim_msm {
@@ -76,4 +67,32 @@
 
 &ext_codec {
 	status = "okay";
+};
+
+&int_codec {
+	status = "disabled";
+};
+
+&pm8937_cajon_dig {
+	status = "disabled";
+};
+
+&pm8937_cajon_analog {
+	status = "disabled";
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};
+
+&wsa881x_i2c_45 {
+	status = "disabled";
 };

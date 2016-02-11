@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -799,6 +799,12 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(UTMI_ULPI_SEL | UTMI_TEST_MUX_SEL,
 				qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
 
+			/* Disable PHY */
+			writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+			/* Make sure that above write is completed */
+			wmb();
 
 			qusb_phy_enable_clocks(qphy, false);
 			qusb_phy_enable_power(qphy, false, true);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -454,8 +454,8 @@
 		interrupt-names = "int_global";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default
-			&pcie0_wake_default &pcie0_mdm2apstatus_default>;
+		pinctrl-0 = <&pcie0_clkreq_default &pcie_ep_perst_default
+			&pcie_ep_wake_default &pcie0_mdm2apstatus_default>;
 
 		perst-gpio = <&tlmm_pinmux 65 0>;
 		wake-gpio = <&tlmm_pinmux 61 0>;
@@ -534,6 +534,17 @@
 		<90 512 206000 960000>, <90 585 206000 960000>,    /* NOMINAL */
 		<90 512 206000 3600000>, <90 585 206000 3600000>;    /* TURBO */
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+
+		/* smp2p gpio information */
+		qcom,smp2pgpio_map_ipa_1_out {
+			compatible = "qcom,smp2pgpio-map-ipa-1-out";
+			gpios = <&smp2pgpio_ipa_1_out 0 0>;
+		};
+
+		qcom,smp2pgpio_map_ipa_1_in {
+			compatible = "qcom,smp2pgpio-map-ipa-1-in";
+			gpios = <&smp2pgpio_ipa_1_in 0 0>;
+		};
 	};
 
 	mhi_dev@87000 {
@@ -582,6 +593,11 @@
 		interrupts = <1 3 0>, <1 2 0>;
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <10000>;
+	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
 	};
 
 	jtag_fuse: jtagfuse@5e01c {

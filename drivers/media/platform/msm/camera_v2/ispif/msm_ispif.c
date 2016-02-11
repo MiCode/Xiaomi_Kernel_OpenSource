@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1354,7 +1354,8 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		goto error_irq;
 	}
 
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_ISPIF, CAMERA_AHB_SVS_VOTE);
+	rc = cam_config_ahb_clk(NULL, 0,
+			CAM_AHB_CLIENT_ISPIF, CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
 		pr_err("%s: failed to vote for AHB\n", __func__);
 		goto ahb_vote_fail;
@@ -1372,10 +1373,9 @@ static int msm_ispif_init(struct ispif_device *ispif,
 	}
 
 error_ahb:
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_ISPIF,
-			CAMERA_AHB_SUSPEND_VOTE);
-	if (rc < 0)
-		pr_err("%s: failed to vote for AHB\n", __func__);
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_ISPIF,
+		CAM_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
 ahb_vote_fail:
 	free_irq(ispif->irq->start, ispif);
 error_irq:
@@ -1413,8 +1413,8 @@ static void msm_ispif_release(struct ispif_device *ispif)
 
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_ISPIF,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_ISPIF,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 }
 
@@ -1490,20 +1490,8 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 		ispif->ispif_rdi2_debug = 0;
 		return 0;
 	}
-	case MSM_SD_SHUTDOWN: {
-		struct ispif_device *ispif =
-			(struct ispif_device *)v4l2_get_subdevdata(sd);
-
-		if (ispif && ispif->base) {
-			while (ispif->open_cnt != 0)
-				ispif_close_node(sd, NULL);
-		} else {
-			pr_debug("%s:SD SHUTDOWN fail, ispif%s %p\n", __func__,
-				ispif ? "_base" : "",
-				ispif ? ispif->base : NULL);
-		}
+	case MSM_SD_SHUTDOWN:
 		return 0;
-	}
 	default:
 		pr_err_ratelimited("%s: invalid cmd 0x%x received\n",
 			__func__, cmd);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@ static struct mux_div_clk a7ssmux = {
 	.div_mask = BM(4, 0),
 	.src_mask = BM(10, 8) >> 8,
 	.src_shift = 8,
+	.en_mask = 1,
 };
 
 static struct clk_lookup clock_tbl_a7[] = {

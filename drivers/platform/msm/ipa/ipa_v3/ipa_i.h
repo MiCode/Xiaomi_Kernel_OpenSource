@@ -26,6 +26,7 @@
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
+#include <linux/ipc_logging.h>
 #include <linux/firmware.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
@@ -51,10 +52,35 @@
 #define __FILENAME__ \
 	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
+
+#define IPA_IPC_LOGGING(buf, fmt, args...) \
+	ipc_log_string((buf), \
+		DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+
 #define IPADBG(fmt, args...) \
-	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa3_ctx) { \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+		} \
+	} while (0)
+
+#define IPADBG_LOW(fmt, args...) \
+	do { \
+		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa3_ctx && ipa3_ctx->enable_low_prio_print) \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+	} while (0)
+
 #define IPAERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+		if (ipa3_ctx) { \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+		} \
+	} while (0)
 
 #define WLAN_AMPDU_TX_EP 15
 #define WLAN_PROD_TX_EP  19
@@ -812,6 +838,7 @@ struct ipa3_sys_context {
 	int (*pyld_hdlr)(struct sk_buff *skb, struct ipa3_sys_context *sys);
 	struct sk_buff * (*get_skb)(unsigned int len, gfp_t flags);
 	void (*free_skb)(struct sk_buff *skb);
+	void (*free_rx_wrapper)(struct ipa3_rx_pkt_wrapper *rk_pkt);
 	u32 rx_buff_sz;
 	u32 rx_pool_sz;
 	struct sk_buff *prev_skb;
@@ -829,6 +856,7 @@ struct ipa3_sys_context {
 	/* ordering is important - mutable fields go above */
 	struct ipa3_ep_context *ep;
 	struct list_head head_desc_list;
+	struct list_head rcycl_list;
 	spinlock_t spinlock;
 	struct workqueue_struct *wq;
 	struct workqueue_struct *repl_wq;
@@ -1391,6 +1419,12 @@ struct ipa3_hash_tuple {
 	bool meta_data;
 };
 
+struct ipa3_smp2p_info {
+	u32 out_base_id;
+	u32 in_base_id;
+	bool res_sent;
+};
+
 /**
  * struct ipa3_ready_cb_info - A list of all the registrations
  *  for an indication of IPA driver readiness
@@ -1471,10 +1505,13 @@ struct ipa3_ready_cb_info {
  * @use_ipa_teth_bridge: use tethering bridge driver
  * @ipa_bam_remote_mode: ipa bam is in remote mode
  * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
+ * @logbuf: ipc log buffer for high priority messages
+ * @logbuf_low: ipc log buffer for low priority messages
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
  * @enable_clock_scaling: clock scaling is enabled ?
+ * @enable_low_prio_print: enable low priority prints
  * @curr_ipa_clk_rate: ipa3_clk current rate
  * @wcstats: wlan common buffer stats
  * @uc_ctx: uC interface context
@@ -1569,6 +1606,8 @@ struct ipa3_context {
 	/* featurize if memory footprint becomes a concern */
 	struct ipa3_stats stats;
 	void *smem_pipe_mem;
+	void *logbuf;
+	void *logbuf_low;
 	u32 ipa_bus_hdl;
 	struct ipa3_controller *ctrl;
 	struct idr ipa_idr;
@@ -1576,6 +1615,7 @@ struct ipa3_context {
 	struct device *uc_pdev;
 	spinlock_t idr_lock;
 	u32 enable_clock_scaling;
+	u32 enable_low_prio_print;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
 	u32 ipa_num_pipes;
@@ -1608,6 +1648,7 @@ struct ipa3_context {
 	bool ipa_initialization_complete;
 	struct list_head ipa_ready_cb_list;
 	struct completion init_completion_obj;
+	struct ipa3_smp2p_info smp2p_info;
 };
 
 /**
@@ -2384,7 +2425,6 @@ int ipa3_uc_loaded_check(void);
 void ipa3_uc_load_notify(void);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
-void ipa3_register_panic_hdlr(void);
 void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
 			      struct ipa3_uc_hdlrs *hdlrs);
 int ipa3_create_nat_device(void);
@@ -2446,6 +2486,8 @@ int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
 const char *ipa3_rm_resource_str(enum ipa_rm_resource_name resource_name);
 int ipa3_restore_suspend_handler(void);
 int ipa3_inject_dma_task_for_gsi(void);
+int ipa3_uc_panic_notifier(struct notifier_block *this,
+	unsigned long event, void *ptr);
 void ipa3_inc_acquire_wakelock(void);
 void ipa3_dec_release_wakelock(void);
 int ipa3_load_fws(const struct firmware *firmware);

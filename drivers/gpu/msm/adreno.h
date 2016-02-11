@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,9 @@
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
 #define ADRENO_DEVICE(device) \
 		container_of(device, struct adreno_device, dev)
+
+/* KGSL_DEVICE - given an adreno_device, return the KGSL device struct */
+#define KGSL_DEVICE(_dev) (&((_dev)->dev))
 
 /* ADRENO_CONTEXT - Given a context return the adreno context struct */
 #define ADRENO_CONTEXT(context) \
@@ -317,6 +320,7 @@ struct adreno_gpu_core {
  * @speed_bin: Indicate which power level set to use
  * @csdev: Pointer to a coresight device (if applicable)
  * @gpmu_throttle_counters - counteers for number of throttled clocks
+ * @irq_storm_work: Worker to handle possible interrupt storms
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -377,6 +381,7 @@ struct adreno_device {
 
 	struct coresight_device *csdev;
 	uint32_t gpmu_throttle_counters[ADRENO_GPMU_THROTTLE_COUNTERS];
+	struct work_struct irq_storm_work;
 };
 
 /**
@@ -398,6 +403,8 @@ struct adreno_device {
  * @ADRENO_DEVICE_GPMU_INITIALIZED - Set if GPMU firmware initialization succeed
  * @ADRENO_DEVICE_ISDB_ENABLED - Set if the Integrated Shader DeBugger is
  * attached and enabled
+ * @ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED - Set if a CACHE_FLUSH_TS irq storm
+ * is in progress
  */
 enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON = 0,
@@ -413,6 +420,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_SOFT_FAULT_DETECT = 10,
 	ADRENO_DEVICE_GPMU_INITIALIZED = 11,
 	ADRENO_DEVICE_ISDB_ENABLED = 12,
+	ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED = 13,
 };
 
 /**
@@ -813,7 +821,7 @@ long adreno_ioctl_helper(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, unsigned long arg,
 		const struct kgsl_ioctl *cmds, int len);
 
-int adreno_spin_idle(struct kgsl_device *device, unsigned int timeout);
+int adreno_spin_idle(struct adreno_device *device, unsigned int timeout);
 int adreno_idle(struct kgsl_device *device);
 bool adreno_isidle(struct kgsl_device *device);
 
@@ -831,7 +839,7 @@ void adreno_snapshot(struct kgsl_device *device,
 
 int adreno_reset(struct kgsl_device *device, int fault);
 
-void adreno_fault_skipcmd_detached(struct kgsl_device *device,
+void adreno_fault_skipcmd_detached(struct adreno_device *adreno_dev,
 					 struct adreno_context *drawctxt,
 					 struct kgsl_cmdbatch *cmdbatch);
 
@@ -847,32 +855,14 @@ void adreno_coresight_remove(struct adreno_device *adreno_dev);
 
 bool adreno_hw_isidle(struct adreno_device *adreno_dev);
 
-int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
-			struct kgsl_pagetable *new_pt,
-			struct adreno_context *drawctxt);
-
-int adreno_iommu_init(struct adreno_device *adreno_dev);
-
-void adreno_iommu_set_pt_generate_rb_cmds(struct adreno_ringbuffer *rb,
-					struct kgsl_pagetable *pt);
-
 void adreno_fault_detect_start(struct adreno_device *adreno_dev);
 void adreno_fault_detect_stop(struct adreno_device *adreno_dev);
 
 void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit);
 void adreno_cp_callback(struct adreno_device *adreno_dev, int bit);
 
-unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
-					unsigned int *cmds,
-					struct kgsl_pagetable *pt);
-
-unsigned int adreno_iommu_set_pt_generate_cmds(
-				struct adreno_ringbuffer *rb,
-				unsigned int *cmds,
-				struct kgsl_pagetable *pt);
-
-int adreno_sysfs_init(struct kgsl_device *device);
-void adreno_sysfs_close(struct kgsl_device *device);
+int adreno_sysfs_init(struct adreno_device *adreno_dev);
+void adreno_sysfs_close(struct adreno_device *adreno_dev);
 
 void adreno_irqctrl(struct adreno_device *adreno_dev, int state);
 
@@ -1039,7 +1029,7 @@ static inline void adreno_readreg(struct adreno_device *adreno_dev,
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		kgsl_regread(&adreno_dev->dev,
+		kgsl_regread(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets->offsets[offset_name], val);
 	else
 		*val = 0;
@@ -1057,7 +1047,7 @@ static inline void adreno_writereg(struct adreno_device *adreno_dev,
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		kgsl_regwrite(&adreno_dev->dev,
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev),
 				gpudev->reg_offsets->offsets[offset_name], val);
 }
 
@@ -1180,7 +1170,7 @@ static inline void adreno_vbif_start(struct adreno_device *adreno_dev,
 	}
 
 	while ((vbif != NULL) && (vbif->reg != 0)) {
-		kgsl_regwrite(&adreno_dev->dev, vbif->reg, vbif->val);
+		kgsl_regwrite(KGSL_DEVICE(adreno_dev), vbif->reg, vbif->val);
 		vbif++;
 	}
 }
@@ -1227,7 +1217,7 @@ static inline void adreno_set_protected_registers(
 
 	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFFF);
 
-	kgsl_regwrite(&adreno_dev->dev, base + offset, val);
+	kgsl_regwrite(KGSL_DEVICE(adreno_dev), base + offset, val);
 	*index = *index + 1;
 }
 
@@ -1309,7 +1299,7 @@ static inline unsigned int adreno_preempt_state(
 static inline unsigned int
 adreno_get_rptr(struct adreno_ringbuffer *rb)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	if (adreno_dev->cur_rb == rb &&
 		adreno_preempt_state(adreno_dev,
 			ADRENO_DISPATCHER_PREEMPT_CLEAR))
@@ -1373,7 +1363,8 @@ static inline void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 		if (rb->drawctxt_active)
 			kgsl_context_put(&(rb->drawctxt_active->base));
 		rb->drawctxt_active = NULL;
-		kgsl_sharedmem_writel(rb->device, &rb->pagetable_desc,
+		kgsl_sharedmem_writel(KGSL_DEVICE(adreno_dev),
+			&rb->pagetable_desc,
 			offsetof(struct adreno_ringbuffer_pagetable_info,
 				current_rb_ptname), 0);
 	}
@@ -1397,9 +1388,6 @@ void adreno_readreg64(struct adreno_device *adreno_dev,
 
 void adreno_writereg64(struct adreno_device *adreno_dev,
 		enum adreno_regs lo, enum adreno_regs hi, uint64_t val);
-
-unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
-				unsigned int *cmds, int set);
 
 static inline bool adreno_soft_fault_detect(struct adreno_device *adreno_dev)
 {

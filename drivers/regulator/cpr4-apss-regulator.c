@@ -51,6 +51,9 @@
  * @speed_bin:		Application processor speed bin fuse parameter value for
  *			the given chip
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
+ * @boost_cfg:		CPR boost configuration fuse parameter value
+ * @boost_voltage:	CPR boost voltage fuse parameter value (raw, not
+ *			converted to a voltage)
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -61,6 +64,8 @@ struct cpr4_msmtitanium_apss_fuses {
 	u64	quot_offset[MSMTITANIUM_APSS_FUSE_CORNERS];
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
+	u64	boost_cfg;
+	u64	boost_voltage;
 };
 
 /*
@@ -140,6 +145,16 @@ static const struct cpr3_fuse_param msmtitanium_apss_speed_bin_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param msmtitanium_cpr_boost_fuse_cfg_param[] = {
+	{36, 43, 45},
+	{},
+};
+
+static const struct cpr3_fuse_param msmtitanium_apss_boost_fuse_volt_param[] = {
+	{71, 0, 5},
+	{},
+};
+
 /*
  * Open loop voltage fuse reference voltages in microvolts for MSMTITANIUM
  */
@@ -158,6 +173,26 @@ static const int msmtitanium_apss_fuse_ref_volt
 #define MSMTITANIUM_APSS_CPR_SENSOR_COUNT	13
 
 #define MSMTITANIUM_APSS_CPR_CLOCK_RATE		19200000
+
+#define MSMTITANIUM_APSS_MAX_TEMP_POINTS	3
+#define MSMTITANIUM_APSS_TEMP_SENSOR_ID_START	4
+#define MSMTITANIUM_APSS_TEMP_SENSOR_ID_END	13
+/*
+ * Boost voltage fuse reference and ceiling voltages in microvolts for
+ * MSMTITANIUM.
+ */
+#define MSMTITANIUM_APSS_BOOST_FUSE_REF_VOLT	1140000
+#define MSMTITANIUM_APSS_BOOST_CEILING_VOLT	1140000
+#define MSMTITANIUM_APSS_BOOST_FLOOR_VOLT	900000
+#define MAX_BOOST_CONFIG_FUSE_VALUE		8
+
+#define MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT	15
+
+/*
+ * Array of integer values mapped to each of the boost config fuse values to
+ * indicate boost enable/disable status.
+ */
+static bool boost_fuse[MAX_BOOST_CONFIG_FUSE_VALUE] = {0, 1, 1, 1, 1, 1, 1, 1};
 
 /**
  * cpr4_msmtitanium_apss_read_fuse_data() - load APSS specific fuse parameter values
@@ -232,6 +267,26 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 				i, rc);
 			return rc;
 		}
+	}
+
+	rc = cpr3_read_fuse_param(base, msmtitanium_cpr_boost_fuse_cfg_param,
+				&fuse->boost_cfg);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read CPR boost config fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+	cpr3_info(vreg, "Voltage boost fuse config = %llu boost = %s\n",
+			fuse->boost_cfg, boost_fuse[fuse->boost_cfg]
+			? "enable" : "disable");
+
+	rc = cpr3_read_fuse_param(base,
+				msmtitanium_apss_boost_fuse_volt_param,
+				&fuse->boost_voltage);
+	if (rc) {
+		cpr3_err(vreg, "failed to read boost fuse voltage, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
@@ -692,6 +747,413 @@ static int cpr4_apss_init_thread(struct cpr3_thread *thread)
 }
 
 /**
+ * cpr4_apss_parse_temp_adj_properties() - parse temperature based
+ *		adjustment properties from device tree.
+ * @ctrl:	Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_parse_temp_adj_properties(struct cpr3_controller *ctrl)
+{
+	struct device_node *of_node = ctrl->dev->of_node;
+	int rc, i, len, temp_point_count;
+
+	if (!of_find_property(of_node, "qcom,cpr-temp-point-map", &len)) {
+		/*
+		 * Temperature based adjustments are not defined. Single
+		 * temperature band is still valid for per-online-core
+		 * adjustments.
+		 */
+		ctrl->temp_band_count = 1;
+		return 0;
+	}
+
+	temp_point_count = len / sizeof(u32);
+	if (temp_point_count <= 0
+		|| temp_point_count > MSMTITANIUM_APSS_MAX_TEMP_POINTS) {
+		cpr3_err(ctrl, "invalid number of temperature points %d > %d (max)\n",
+			 temp_point_count, MSMTITANIUM_APSS_MAX_TEMP_POINTS);
+		return -EINVAL;
+	}
+
+	ctrl->temp_points = devm_kcalloc(ctrl->dev, temp_point_count,
+					sizeof(*ctrl->temp_points), GFP_KERNEL);
+	if (!ctrl->temp_points)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-temp-point-map",
+					ctrl->temp_points, temp_point_count);
+	if (rc) {
+		cpr3_err(ctrl, "error reading property qcom,cpr-temp-point-map, rc=%d\n",
+			 rc);
+		return rc;
+	}
+
+	for (i = 0; i < temp_point_count; i++)
+		cpr3_debug(ctrl, "Temperature Point %d=%d\n", i,
+				   ctrl->temp_points[i]);
+
+	/*
+	 * If t1, t2, and t3 are the temperature points, then the temperature
+	 * bands are: (-inf, t1], (t1, t2], (t2, t3], and (t3, inf).
+	 */
+	ctrl->temp_band_count = temp_point_count + 1;
+	cpr3_debug(ctrl, "Number of temp bands =%d\n", ctrl->temp_band_count);
+
+	rc = of_property_read_u32(of_node, "qcom,cpr-initial-temp-band",
+				  &ctrl->initial_temp_band);
+	if (rc) {
+		cpr3_err(ctrl, "error reading qcom,cpr-initial-temp-band, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	if (ctrl->initial_temp_band >= ctrl->temp_band_count) {
+		cpr3_err(ctrl, "Initial temperature band value %d should be in range [0 - %d]\n",
+			ctrl->initial_temp_band, ctrl->temp_band_count - 1);
+		return -EINVAL;
+	}
+
+	ctrl->temp_sensor_id_start = MSMTITANIUM_APSS_TEMP_SENSOR_ID_START;
+	ctrl->temp_sensor_id_end = MSMTITANIUM_APSS_TEMP_SENSOR_ID_END;
+	ctrl->allow_temp_adj = true;
+	return rc;
+}
+
+/**
+ * cpr4_load_corner_core_and_temp_adj() - parse amount of voltage adjustment for
+ *		per-online-core and per-temperature voltage adjustment for a
+ *		given corner from device tree.
+ * @vreg:	Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_load_corner_core_and_temp_adj(struct cpr3_regulator *vreg,
+					int corner_num)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr3_corner *corner = &vreg->corner[corner_num];
+	struct cpr4_sdelta *sdelta = corner->sdelta;
+	int sdelta_size, i, rc = 0;
+	char prop_str[60];
+
+	if (!sdelta->allow_core_count_adj && !sdelta->allow_temp_adj) {
+		/* corner doesn't need sdelta table */
+		sdelta->max_core_count = 0;
+		sdelta->temp_band_count = 0;
+		return rc;
+	}
+
+	sdelta_size = sdelta->max_core_count * sdelta->temp_band_count;
+	cpr3_debug(vreg, "corner=%d core_config_count=%d temp_band_count=%d sdelta_size=%d\n",
+			corner_num, sdelta->max_core_count,
+			sdelta->temp_band_count, sdelta_size);
+
+	sdelta->table = devm_kcalloc(ctrl->dev, sdelta_size,
+				sizeof(*sdelta->table), GFP_KERNEL);
+	if (!sdelta->table)
+		return -ENOMEM;
+
+	snprintf(prop_str, sizeof(prop_str),
+		"qcom,cpr-corner%d-temp-core-voltage-adjustment",
+		corner_num + CPR3_CORNER_OFFSET);
+
+	rc = cpr3_parse_array_property(vreg, prop_str, sdelta_size,
+				sdelta->table);
+	if (rc) {
+		cpr3_err(vreg, "could not load %s, rc=%d\n", prop_str, rc);
+		return rc;
+	}
+
+	/*
+	 * Convert sdelta margins from uV to PMIC steps and apply negation to
+	 * follow the SDELTA register semantics.
+	 */
+	for (i = 0; i < sdelta_size; i++)
+		sdelta->table[i] = -(sdelta->table[i] / ctrl->step_volt);
+
+	return rc;
+}
+
+/**
+ * cpr4_apss_parse_core_count_temp_voltage_adj() - parse configuration data for
+ *		per-online-core and per-temperature voltage adjustment for CPR3
+ *		regulator from device tree.
+ * @vreg:	Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_parse_core_count_temp_voltage_adj(
+			struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct device_node *node = vreg->of_node;
+	struct cpr3_corner *corner;
+	struct cpr4_sdelta *sdelta;
+	int i, rc = 0;
+	int *allow_core_count_adj = NULL, *allow_temp_adj = NULL;
+
+	if (of_find_property(node, "qcom,corner-allow-temp-adjustment", NULL)) {
+		if (!ctrl->allow_temp_adj) {
+			cpr3_err(ctrl, "Temperature adjustment configurations missing\n");
+			return -EINVAL;
+		}
+
+		vreg->allow_temp_adj = true;
+	}
+
+	if (of_find_property(node, "qcom,corner-allow-core-count-adjustment",
+				NULL)) {
+		rc = of_property_read_u32(node, "qcom,max-core-count",
+				&vreg->max_core_count);
+		if (rc) {
+			cpr3_err(vreg, "error reading qcom,max-num-cpus, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		if (vreg->max_core_count <= 0 || vreg->max_core_count
+				> MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT) {
+			cpr3_err(vreg, "qcom,max-core-count has invalid value = %d\n",
+				vreg->max_core_count);
+			return -EINVAL;
+		}
+
+		vreg->allow_core_count_adj = true;
+		ctrl->allow_core_count_adj = true;
+	}
+
+	if (!vreg->allow_temp_adj && !vreg->allow_core_count_adj) {
+		/*
+		 * Both per-online-core and temperature based adjustments are
+		 * disabled for this regualtor.
+		 */
+		return 0;
+	} else if (!vreg->allow_core_count_adj) {
+		/*
+		 * Only per-temperature voltage adjusments are allowed.
+		 * Keep max core count value as 1 to allocate SDELTA.
+		 */
+		vreg->max_core_count = 1;
+	}
+
+	if (vreg->allow_core_count_adj) {
+		allow_core_count_adj = kcalloc(vreg->corner_count,
+					sizeof(*allow_core_count_adj),
+					GFP_KERNEL);
+		if (!allow_core_count_adj)
+			return -ENOMEM;
+
+		rc = cpr3_parse_corner_array_property(vreg,
+				"qcom,corner-allow-core-count-adjustment",
+				1, allow_core_count_adj);
+		if (rc) {
+			cpr3_err(vreg, "qcom,corner-allow-core-count-adjustment reading failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
+	if (vreg->allow_temp_adj) {
+		allow_temp_adj = kcalloc(vreg->corner_count,
+					sizeof(*allow_temp_adj), GFP_KERNEL);
+		if (!allow_temp_adj) {
+			rc = -ENOMEM;
+			goto done;
+		}
+
+		rc = cpr3_parse_corner_array_property(vreg,
+					"qcom,corner-allow-temp-adjustment",
+					1, allow_temp_adj);
+		if (rc) {
+			cpr3_err(vreg, "qcom,corner-allow-temp-adjustment reading failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
+	for (i = 0; i < vreg->corner_count; i++) {
+		corner = &vreg->corner[i];
+		sdelta = devm_kzalloc(ctrl->dev, sizeof(*corner->sdelta),
+					GFP_KERNEL);
+		if (!sdelta) {
+			rc = -ENOMEM;
+			goto done;
+		}
+
+		if (allow_core_count_adj)
+			sdelta->allow_core_count_adj = allow_core_count_adj[i];
+		if (allow_temp_adj)
+			sdelta->allow_temp_adj = allow_temp_adj[i];
+		sdelta->max_core_count = vreg->max_core_count;
+		sdelta->temp_band_count = ctrl->temp_band_count;
+		corner->sdelta = sdelta;
+		rc = cpr4_load_corner_core_and_temp_adj(vreg, i);
+		if (rc) {
+			cpr3_err(vreg, "corner %d core and temp adjustment loading failed: rc=%d\n",
+				i, rc);
+			goto done;
+		}
+	}
+
+done:
+	kfree(allow_core_count_adj);
+	kfree(allow_temp_adj);
+	return rc;
+}
+
+/**
+ * cpr4_apss_parse_boost_properties() - parse configuration data for boost
+ *		voltage adjustment for CPR3 regulator from device tree.
+ * @vreg:	Pointer to the CPR3 regulator
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_parse_boost_properties(struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr4_msmtitanium_apss_fuses *fuse = vreg->platform_fuses;
+	struct cpr3_corner *corner;
+	int i, boost_voltage, final_boost_volt, rc = 0;
+	int *boost_table = NULL, *boost_temp_adj = NULL;
+	int boost_voltage_adjust = 0, boost_num_cores = 0;
+	u32 boost_allowed = 0;
+
+	if (!boost_fuse[fuse->boost_cfg])
+		/* Voltage boost is disabled in fuse */
+		return 0;
+
+	if (of_find_property(vreg->of_node, "qcom,allow-boost", NULL)) {
+		rc = cpr3_parse_array_property(vreg, "qcom,allow-boost", 1,
+				&boost_allowed);
+		if (rc)
+			return rc;
+	}
+
+	if (!boost_allowed) {
+		/* Voltage boost is not enabled for this regulator */
+		return 0;
+	}
+
+	boost_voltage = cpr3_convert_open_loop_voltage_fuse(
+				MSMTITANIUM_APSS_BOOST_FUSE_REF_VOLT,
+				MSMTITANIUM_APSS_FUSE_STEP_VOLT,
+				fuse->boost_voltage,
+				MSMTITANIUM_APSS_VOLTAGE_FUSE_SIZE);
+
+	/* Log boost voltage value for debugging purposes. */
+	cpr3_info(vreg, "Boost open-loop=%7d uV\n", boost_voltage);
+
+	if (of_find_property(vreg->of_node,
+			"qcom,cpr-boost-voltage-fuse-adjustment", NULL)) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,cpr-boost-voltage-fuse-adjustment",
+			1, &boost_voltage_adjust);
+		if (rc) {
+			cpr3_err(vreg, "qcom,cpr-boost-voltage-fuse-adjustment reading failed, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		boost_voltage += boost_voltage_adjust;
+		/* Log boost voltage value for debugging purposes. */
+		cpr3_info(vreg, "Adjusted boost open-loop=%7d uV\n",
+			boost_voltage);
+	}
+
+	/* Limit boost voltage value between ceiling and floor voltage limits */
+	boost_voltage = min(boost_voltage, MSMTITANIUM_APSS_BOOST_CEILING_VOLT);
+	boost_voltage = max(boost_voltage, MSMTITANIUM_APSS_BOOST_FLOOR_VOLT);
+
+	/*
+	 * The boost feature can only be used for the highest voltage corner.
+	 * Also, keep core-count adjustments disabled when the boost feature
+	 * is enabled.
+	 */
+	corner = &vreg->corner[vreg->corner_count - 1];
+	if (!corner->sdelta) {
+		/*
+		 * If core-count/temp adjustments are not defined, the cpr4
+		 * sdelta for this corner will not be allocated. Allocate it
+		 * here for boost configuration.
+		 */
+		corner->sdelta = devm_kzalloc(ctrl->dev,
+					sizeof(*corner->sdelta), GFP_KERNEL);
+		if (!corner->sdelta)
+			return -ENOMEM;
+	}
+	corner->sdelta->temp_band_count = ctrl->temp_band_count;
+
+	rc = of_property_read_u32(vreg->of_node, "qcom,cpr-num-boost-cores",
+				&boost_num_cores);
+	if (rc) {
+		cpr3_err(vreg, "qcom,cpr-num-boost-cores reading failed, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	if (boost_num_cores <= 0
+		|| boost_num_cores > MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT) {
+		cpr3_err(vreg, "Invalid boost number of cores = %d\n",
+			boost_num_cores);
+		return -EINVAL;
+	}
+	corner->sdelta->boost_num_cores = boost_num_cores;
+
+	boost_table = devm_kcalloc(ctrl->dev, corner->sdelta->temp_band_count,
+					sizeof(*boost_table), GFP_KERNEL);
+	if (!boost_table)
+		return -ENOMEM;
+
+	if (of_find_property(vreg->of_node,
+				"qcom,cpr-boost-temp-adjustment", NULL)) {
+		boost_temp_adj = kcalloc(corner->sdelta->temp_band_count,
+					sizeof(*boost_temp_adj), GFP_KERNEL);
+		if (!boost_temp_adj)
+			return -ENOMEM;
+
+		rc = cpr3_parse_array_property(vreg,
+				"qcom,cpr-boost-temp-adjustment",
+				corner->sdelta->temp_band_count,
+				boost_temp_adj);
+		if (rc) {
+			cpr3_err(vreg, "qcom,cpr-boost-temp-adjustment reading failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
+	for (i = 0; i < corner->sdelta->temp_band_count; i++) {
+		/* Apply static adjustments to boost voltage */
+		final_boost_volt = boost_voltage + (boost_temp_adj == NULL
+						? 0 : boost_temp_adj[i]);
+		/*
+		 * Limit final adjusted boost voltage value between ceiling
+		 * and floor voltage limits
+		 */
+		final_boost_volt = min(final_boost_volt,
+					MSMTITANIUM_APSS_BOOST_CEILING_VOLT);
+		final_boost_volt = max(final_boost_volt,
+					MSMTITANIUM_APSS_BOOST_FLOOR_VOLT);
+
+		boost_table[i] = (corner->open_loop_volt - final_boost_volt)
+					/ ctrl->step_volt;
+		cpr3_debug(vreg, "Adjusted boost voltage margin for temp band %d = %d steps\n",
+			i, boost_table[i]);
+	}
+
+	corner->ceiling_volt = MSMTITANIUM_APSS_BOOST_CEILING_VOLT;
+	corner->sdelta->boost_table = boost_table;
+	corner->sdelta->allow_boost = true;
+	corner->sdelta->allow_core_count_adj = false;
+	vreg->allow_boost = true;
+	ctrl->allow_boost = true;
+done:
+	kfree(boost_temp_adj);
+	return rc;
+}
+
+/**
  * cpr4_apss_init_regulator() - perform all steps necessary to initialize the
  *		configuration data for a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
@@ -755,9 +1217,23 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
+	rc = cpr4_apss_parse_core_count_temp_voltage_adj(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to parse temperature and core count voltage adjustments, rc=%d\n",
+			 rc);
+		return rc;
+	}
+
+	rc = cpr4_apss_parse_boost_properties(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to parse boost adjustments, rc=%d\n",
+			 rc);
+		return rc;
+	}
+
 	cpr4_apss_print_settings(vreg);
 
-	return 0;
+	return rc;
 }
 
 /**
@@ -797,8 +1273,20 @@ static int cpr4_apss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
+	/*
+	 * Use fixed step quotient if specified otherwise use dynamic
+	 * calculated per RO step quotient
+	 */
+	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-step-quot-fixed",
+			&ctrl->step_quot_fixed);
+	ctrl->use_dynamic_step_quot = ctrl->step_quot_fixed ? false : true;
+
 	ctrl->saw_use_unit_mV = of_property_read_bool(ctrl->dev->of_node,
 					"qcom,cpr-saw-use-unit-mV");
+
+	of_property_read_u32(ctrl->dev->of_node,
+			"qcom,cpr-voltage-settling-time",
+			&ctrl->voltage_settling_time);
 
 	ctrl->vdd_limit_regulator = devm_regulator_get(ctrl->dev, "vdd-limit");
 	if (IS_ERR(ctrl->vdd_limit_regulator)) {
@@ -814,6 +1302,13 @@ static int cpr4_apss_init_controller(struct cpr3_controller *ctrl)
 		if (rc != -EPROBE_DEFER)
 			cpr3_err(ctrl, "unable to initialize APM settings, rc=%d\n",
 				rc);
+		return rc;
+	}
+
+	rc = cpr4_apss_parse_temp_adj_properties(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "unable to parse temperature adjustment properties, rc=%d\n",
+			 rc);
 		return rc;
 	}
 

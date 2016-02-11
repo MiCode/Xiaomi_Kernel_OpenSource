@@ -57,10 +57,12 @@ Required properties:
 			"qcom,mmsscc-8996"
 			"qcom,mmsscc-8996-v2"
 			"qcom,mmsscc-8996-v3"
+			"qcom,mmsscc-8996-pro"
 			"qcom,gpucc-8996"
 			"qcom,gpucc-8996-v2"
 			"qcom,gpucc-8996-v3"
 			"qcom,gpucc-8996-v3.0"
+			"qcom,gpucc-8996-pro"
 			"qcom,gcc-gfx-titanium"
 			"qcom,gcc-californium"
 			"qcom,cc-debug-californium"
@@ -68,6 +70,8 @@ Required properties:
 			"qcom,cc-debug-mdm9607"
 			"qcom,gcc-cobalt"
 			"qcom,cc-debug-cobalt"
+			"qcom,gpucc-cobalt"
+			"qcom,mmsscc-cobalt"
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
@@ -75,7 +79,7 @@ Required properties:
 			there is one expected base: "cc_base". Optional
 			reg-names are "apcs_base", "meas", "mmss_base",
 			"lpass_base", "apcs_c0_base", "apcs_c1_base",
-			"apcs_cci_base".
+			"apcs_cci_base", "efuse".
 
 Optional properties:
 - vdd_dig-supply:	The digital logic rail supply.

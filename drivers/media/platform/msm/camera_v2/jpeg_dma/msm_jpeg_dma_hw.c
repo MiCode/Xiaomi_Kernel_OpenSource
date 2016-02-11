@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1246,37 +1246,33 @@ error_irq:
 }
 
 /*
- * msm_jpegdma_hw_release_irq - Free dma irq.
- * @dma: Pointer to dma device.
- */
-void msm_jpegdma_hw_release_irq(struct msm_jpegdma_device *dma)
-{
-	if (dma->irq_num >= 0) {
-		free_irq(dma->irq_num, dma);
-		dma->irq_num = -1;
-	}
-}
-
-/*
  * msm_jpegdma_hw_release_mem_resources - Releases memory resources.
  * @dma: Pointer to dma device.
  */
 void msm_jpegdma_hw_release_mem_resources(struct msm_jpegdma_device *dma)
 {
-	int i;
+	int i, reserve_mem_flag;
+	char *dev_name;
 
 	/* Prepare memory resources */
 	for (i = 0; i < MSM_JPEGDMA_IOMEM_LAST; i++) {
-		if (dma->iomem_base[i]) {
-			iounmap(dma->iomem_base[i]);
-			dma->iomem_base[i] = NULL;
+
+		switch (i) {
+		case MSM_JPEGDMA_IOMEM_CORE:
+			dev_name = "jpeg_hw";
+			reserve_mem_flag = true;
+			break;
+		case MSM_JPEGDMA_IOMEM_VBIF:
+			dev_name = "jpeg_vbif";
+			reserve_mem_flag = false;
+			break;
+		default:
+			pr_err("%s: Invalid device : %d\n", __func__, i);
+			return;
 		}
-		if (dma->ioarea[i]) {
-			release_mem_region(dma->res_mem[i]->start,
-				resource_size(dma->res_mem[i]));
-			dma->ioarea[i] = NULL;
-		}
-		dma->res_mem[i] = NULL;
+		/* release the device address */
+		msm_camera_put_reg_base(dma->pdev, dma->iomem_base[i], dev_name,
+			reserve_mem_flag);
 	}
 }
 
@@ -1292,32 +1288,32 @@ int msm_jpegdma_hw_get_mem_resources(struct platform_device *pdev,
 {
 	int i;
 	int ret = 0;
+	char *dev_name;
+	int reserve_mem_flag;
 
 	/* Prepare memory resources */
 	for (i = 0; i < MSM_JPEGDMA_IOMEM_LAST; i++) {
-		/* Get resources */
-		dma->res_mem[i] = platform_get_resource(pdev,
-			IORESOURCE_MEM, i);
-		if (!dma->res_mem[i]) {
-			dev_err(dma->dev, "Fail get resource idx %d\n", i);
-			ret = -ENODEV;
-			break;
-		}
 
-		dma->ioarea[i] = request_mem_region(dma->res_mem[i]->start,
-			resource_size(dma->res_mem[i]), dma->res_mem[i]->name);
-		if (!dma->ioarea[i]) {
-			dev_err(dma->dev, "%s can not request mem\n",
-				dma->res_mem[i]->name);
-			ret = -ENODEV;
+		switch (i) {
+		case MSM_JPEGDMA_IOMEM_CORE:
+			dev_name = "jpeg_hw";
+			reserve_mem_flag = true;
 			break;
+		case MSM_JPEGDMA_IOMEM_VBIF:
+			dev_name = "jpeg_vbif";
+			reserve_mem_flag = false;
+			break;
+		default:
+			pr_err("%s: Invalid device : %d\n", __func__, i);
+			return -EINVAL;
 		}
-
-		dma->iomem_base[i] = ioremap(dma->res_mem[i]->start,
-			resource_size(dma->res_mem[i]));
+		/* get the device address base */
+		dma->iomem_base[i] =
+			msm_camera_get_reg_base(pdev, dev_name,
+				reserve_mem_flag);
 		if (!dma->iomem_base[i]) {
 			dev_err(dma->dev, "%s can not remap region\n",
-				dma->res_mem[i]->name);
+				dev_name);
 			ret = -ENODEV;
 			break;
 		}
@@ -1327,202 +1323,6 @@ int msm_jpegdma_hw_get_mem_resources(struct platform_device *pdev,
 		msm_jpegdma_hw_release_mem_resources(dma);
 
 	return ret;
-}
-
-/*
- * msm_jpegdma_hw_get_regulators - Get jpeg dma regulators.
- * @dma: Pointer to dma device.
- *
- * Read regulator information from device tree and perform get regulator.
- */
-int msm_jpegdma_hw_get_regulators(struct msm_jpegdma_device *dma)
-{
-	const char *name;
-	uint32_t cnt;
-	int i;
-	int ret;
-
-	if (of_get_property(dma->dev->of_node, "qcom,vdd-names", NULL)) {
-		cnt = of_property_count_strings(dma->dev->of_node,
-			"qcom,vdd-names");
-
-		if ((cnt == 0) || (cnt == -EINVAL)) {
-			dev_err(dma->dev, "no regulators found %d\n", cnt);
-			return -EINVAL;
-		}
-
-		if (cnt > MSM_JPEGDMA_MAX_REGULATOR_NUM) {
-			dev_err(dma->dev, "Exceed max regulators %d\n", cnt);
-			return -EINVAL;
-		}
-
-		for (i = 0; i < cnt; i++) {
-			ret = of_property_read_string_index(dma->dev->of_node,
-				"qcom,vdd-names", i, &name);
-			if (ret < 0) {
-				dev_err(dma->dev, "Fail regulator idx %d\n", i);
-				goto regulator_get_error;
-			}
-
-			dma->vdd[i] = devm_regulator_get(dma->dev, name);
-			if (IS_ERR(dma->vdd[i])) {
-				ret = PTR_ERR(dma->vdd[i]);
-				dma->vdd[i] = NULL;
-				dev_err(dma->dev, "Error regulator get %s\n",
-					name);
-				goto regulator_get_error;
-			}
-			dev_dbg(dma->dev, "Regulator %s idx %d\n", name, i);
-		}
-		dma->regulator_num = cnt;
-	} else {
-		dma->regulator_num = 1;
-		dma->vdd[0] = devm_regulator_get(dma->dev, "vdd");
-		if (IS_ERR(dma->vdd[0])) {
-			dev_err(dma->dev, "Fail to get vdd regulator\n");
-			ret = PTR_ERR(dma->vdd[0]);
-			dma->vdd[0] = NULL;
-			return ret;
-		}
-	}
-	return 0;
-
-regulator_get_error:
-	for (; i > 0; i--) {
-		if (!IS_ERR_OR_NULL(dma->vdd[i - 1]))
-			devm_regulator_put(dma->vdd[i - 1]);
-	}
-	return ret;
-}
-
-/*
- * msm_jpegdma_hw_put_regulators - Put fd regulators.
- * @dma: Pointer to dma device.
- */
-void msm_jpegdma_hw_put_regulators(struct msm_jpegdma_device *dma)
-{
-	int i;
-
-	for (i = dma->regulator_num - 1; i >= 0; i--) {
-		if (!IS_ERR_OR_NULL(dma->vdd[i]))
-			devm_regulator_put(dma->vdd[i]);
-
-		dma->vdd[i] = NULL;
-	}
-}
-
-/*
- * msm_jpegdma_hw_enable_regulators - Prepare and enable fd regulators.
- * @dma: Pointer to dma device.
- */
-static int msm_jpegdma_hw_enable_regulators(struct msm_jpegdma_device *dma)
-{
-	int i;
-	int ret;
-
-	for (i = 0; i < dma->regulator_num; i++) {
-
-		ret = regulator_enable(dma->vdd[i]);
-		if (ret < 0) {
-			dev_err(dma->dev, "regulator enable failed %d\n", i);
-			regulator_put(dma->vdd[i]);
-			goto error;
-		}
-	}
-
-	return 0;
-error:
-	for (; i > 0; i--) {
-		if (!IS_ERR_OR_NULL(dma->vdd[i - 1])) {
-			regulator_disable(dma->vdd[i - 1]);
-			regulator_put(dma->vdd[i - 1]);
-		}
-	}
-	return ret;
-}
-
-/*
- * msm_jpegdma_hw_disable_regulators - Disable jpeg dma regulator.
- * @dma: Pointer to dma device.
- */
-static void msm_jpegdma_hw_disable_regulators(struct msm_jpegdma_device *dma)
-{
-	int i;
-
-	for (i = dma->regulator_num - 1; i >= 0; i--) {
-		if (!IS_ERR_OR_NULL(dma->vdd[i]))
-			regulator_disable(dma->vdd[i]);
-	}
-}
-
-/*
- * msm_jpegdma_hw_get_clocks - Get dma clocks.
- * @dma: Pointer to dma device.
- *
- * Read clock information from device tree and perform get clock.
- */
-int msm_jpegdma_hw_get_clocks(struct msm_jpegdma_device *dma)
-{
-	const char *clk_name;
-	size_t cnt;
-	int i;
-	int ret;
-
-	cnt = of_property_count_strings(dma->dev->of_node, "clock-names");
-	if (cnt > MSM_JPEGDMA_MAX_CLK) {
-		dev_err(dma->dev, "Exceed max number of clocks %zu\n", cnt);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < cnt; i++) {
-		ret = of_property_read_string_index(dma->dev->of_node,
-			"clock-names", i, &clk_name);
-		if (ret < 0) {
-			dev_err(dma->dev, "Can not read clock name %d\n", i);
-			goto error;
-		}
-
-		dma->clk[i] = clk_get(dma->dev, clk_name);
-		if (IS_ERR(dma->clk[i])) {
-			ret = -ENOENT;
-			dev_err(dma->dev, "Error clock get %s\n", clk_name);
-			goto error;
-		}
-		dev_dbg(dma->dev, "Clock name idx %d %s\n", i, clk_name);
-
-		ret = of_property_read_u32_index(dma->dev->of_node,
-			"qcom,clock-rates", i, &dma->clk_rates[i]);
-		if (ret < 0) {
-			dev_err(dma->dev, "Get clock rate fail %s\n", clk_name);
-			goto error;
-		}
-		dev_dbg(dma->dev, "Clock rate idx %d value %d\n", i,
-			dma->clk_rates[i]);
-	}
-	dma->clk_num = cnt;
-
-	return 0;
-error:
-	for (; i > 0; i--)
-		clk_put(dma->clk[i - 1]);
-
-	return ret;
-}
-
-/*
- * msm_jpegdma_hw_put_clocks - Put dma clocks.
- * @dma: Pointer to dma device.
- */
-int msm_jpegdma_hw_put_clocks(struct msm_jpegdma_device *dma)
-{
-	int i;
-
-	for (i = 0; i < dma->clk_num; i++) {
-		if (!IS_ERR_OR_NULL(dma->clk[i]))
-			clk_put(dma->clk[i]);
-		dma->clk_num = 0;
-	}
-	return 0;
 }
 
 /*
@@ -1714,151 +1514,6 @@ void msm_jpegdma_hw_put_prefetch(struct msm_jpegdma_device *dma)
 }
 
 /*
- * msm_jpegdma_hw_set_clock_rate - Set clock rates described in device tree.
- * @dma: Pointer to dma device.
- */
-static int msm_jpegdma_hw_set_clock_rate(struct msm_jpegdma_device *dma)
-{
-	int ret;
-	long clk_rate;
-	int i;
-
-	for (i = 0; i < dma->clk_num; i++) {
-
-		clk_rate = clk_round_rate(dma->clk[i], dma->clk_rates[i]);
-		if (clk_rate < 0) {
-			dev_dbg(dma->dev, "Clk round rate fail skip %d\n", i);
-			continue;
-		}
-
-		ret = clk_set_rate(dma->clk[i], clk_rate);
-		if (ret < 0) {
-			dev_err(dma->dev, "Fail clock rate %ld\n", clk_rate);
-			return -EINVAL;
-		}
-		dev_dbg(dma->dev, "Clk rate %d-%ld\n", i, clk_rate);
-	}
-
-	return 0;
-}
-
-/*
- * msm_jpegdma_hw_enable_clocks - Prepare and enable dma clocks.
- * @dma: Pointer to dma device.
- */
-static int msm_jpegdma_hw_enable_clocks(struct msm_jpegdma_device *dma)
-{
-	int i;
-	int ret;
-
-	for (i = 0; i < dma->clk_num; i++) {
-		ret = clk_prepare(dma->clk[i]);
-		if (ret < 0) {
-			dev_err(dma->dev, "clock prepare failed %d\n", i);
-			goto error;
-		}
-
-		ret = clk_enable(dma->clk[i]);
-		if (ret < 0) {
-			dev_err(dma->dev, "clock enable %d\n", i);
-			clk_unprepare(dma->clk[i]);
-			goto error;
-		}
-	}
-
-	return 0;
-error:
-	for (; i > 0; i--) {
-		clk_disable(dma->clk[i - 1]);
-		clk_unprepare(dma->clk[i - 1]);
-	}
-	return ret;
-}
-/*
- * msm_jpegdma_hw_disable_clocks - Disable dma clock.
- * @dma: Pointer to dma device.
- */
-static void msm_jpegdma_hw_disable_clocks(struct msm_jpegdma_device *dma)
-{
-	int i;
-
-	for (i = 0; i < dma->clk_num; i++) {
-		clk_disable(dma->clk[i]);
-		clk_unprepare(dma->clk[i]);
-	}
-}
-
-/*
- * msm_jpegdma_hw_bus_request - Request bus for memory access.
- * @dma: Pointer to dma device.
- * @clk_idx: Clock rate index.
- */
-static int msm_jpegdma_hw_bus_request(struct msm_jpegdma_device *dma)
-{
-	int ret;
-
-	dma->bus_vectors.src = MSM_BUS_MASTER_JPEG;
-	dma->bus_vectors.dst = MSM_BUS_SLAVE_EBI_CH0;
-	dma->bus_vectors.ab = dma->clk_rates[MSM_JPEGDMA_CORE_CLK] * 2;
-	dma->bus_vectors.ib = dma->clk_rates[MSM_JPEGDMA_CORE_CLK] * 2;
-
-	dma->bus_paths.num_paths = 1;
-	dma->bus_paths.vectors = &dma->bus_vectors;
-
-	dma->bus_scale_data.usecase = &dma->bus_paths;
-	dma->bus_scale_data.num_usecases = 1;
-	dma->bus_scale_data.name = MSM_JPEGDMA_BUS_CLIENT_NAME;
-
-	dma->bus_client = msm_bus_scale_register_client(&dma->bus_scale_data);
-	if (!dma->bus_client) {
-		dev_err(dma->dev, "Fail to register bus client\n");
-		return -ENOENT;
-	}
-
-	ret = msm_bus_scale_client_update_request(dma->bus_client, 0);
-	if (ret < 0) {
-		dev_err(dma->dev, "Fail bus scale update %d\n", ret);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-/*
- * msm_jpegdma_hw_bus_release - Release memory access bus.
- * @dma: Pointer to dma device.
- */
-static void msm_jpegdma_hw_bus_release(struct msm_jpegdma_device *dma)
-{
-	if (dma->bus_client) {
-		msm_bus_scale_unregister_client(dma->bus_client);
-		dma->bus_client = 0;
-	}
-}
-
-/*
- * msm_jpegdma_hw_update_bus_data - Update bus data request
- * @dma: Pointer to dma device.
- * @clk_idx: Clock rate index.
- */
-int msm_jpegdma_hw_update_bus_data(struct msm_jpegdma_device *dma,
-	u64 ab, u64 ib)
-{
-	int ret;
-
-	dma->bus_vectors.ab = ab;
-	dma->bus_vectors.ib = ib;
-
-	ret = msm_bus_scale_client_update_request(dma->bus_client, 0);
-	if (ret < 0) {
-		dev_err(dma->dev, "Fail bus scale update %d\n", ret);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-/*
  * msm_jpegdma_hw_get_capabilities - Get dma hw for performing any hw operation.
  * @dma: Pointer to dma device.
  */
@@ -1868,34 +1523,38 @@ int msm_jpegdma_hw_get_capabilities(struct msm_jpegdma_device *dma)
 
 	mutex_lock(&dma->lock);
 
-	ret = msm_jpegdma_hw_enable_regulators(dma);
+	/* enable all the regulators */
+	ret = msm_camera_regulator_enable(dma->vdd,
+			dma->num_reg, true);
 	if (ret < 0) {
 		dev_err(dma->dev, "Fail to enable regulators\n");
 		goto error_regulators_get;
 	}
 
-	ret = msm_jpegdma_hw_set_clock_rate(dma);
-	if (ret < 0) {
-		dev_err(dma->dev, "Fail to set clock rate\n");
-		goto error_fail_clock;
-	}
-
-	ret = msm_jpegdma_hw_enable_clocks(dma);
+	/* enable all the clocks */
+	ret = msm_camera_clk_enable(&dma->pdev->dev,
+			dma->jpeg_clk_info, dma->clk,
+			dma->num_clk, true);
 	if (ret < 0) {
 		dev_err(dma->dev, "Fail to enable clocks\n");
-		goto error_fail_clock;
+		goto error_clocks;
 	}
+
 	dma->hw_num_pipes = msm_jpegdma_hw_get_num_pipes(dma);
 
-	msm_jpegdma_hw_disable_clocks(dma);
-	msm_jpegdma_hw_disable_regulators(dma);
+	/* disable all the clocks */
+	msm_camera_clk_enable(&dma->pdev->dev,
+		dma->jpeg_clk_info, dma->clk,
+		dma->num_clk, false);
+	/* disable all the regulators */
+	msm_camera_regulator_enable(dma->vdd, dma->num_reg, false);
 
 	mutex_unlock(&dma->lock);
 
 	return 0;
 
-error_fail_clock:
-	msm_jpegdma_hw_disable_regulators(dma);
+error_clocks:
+	msm_camera_regulator_enable(dma->vdd, dma->num_reg, false);
 error_regulators_get:
 	mutex_unlock(&dma->lock);
 	return ret;
@@ -1917,29 +1576,25 @@ int msm_jpegdma_hw_get(struct msm_jpegdma_device *dma)
 	if (dma->ref_count == 0) {
 
 		dev_dbg(dma->dev, "msm_jpegdma_hw_get E\n");
-		ret = msm_jpegdma_hw_set_clock_rate(dma);
-		if (ret < 0) {
-			dev_err(dma->dev, "Fail to set clock rates\n");
-			goto error;
-		}
-
-		ret = msm_jpegdma_hw_enable_regulators(dma);
+		/* enable all the regulators */
+		ret = msm_camera_regulator_enable(dma->vdd,
+				dma->num_reg, true);
 		if (ret < 0) {
 			dev_err(dma->dev, "Fail to enable regulators\n");
-			goto error;
+			goto error_regulators_get;
 		}
 
-		ret = msm_jpegdma_hw_enable_clocks(dma);
+		/* enable all the clocks */
+		ret = msm_camera_clk_enable(&dma->pdev->dev,
+			dma->jpeg_clk_info, dma->clk,
+			dma->num_clk, true);
 		if (ret < 0) {
 			dev_err(dma->dev, "Fail to enable clocks\n");
 			goto error_clocks;
 		}
 
-		ret = msm_jpegdma_hw_bus_request(dma);
-		if (ret < 0) {
-			dev_err(dma->dev, "Fail bus request\n");
-			goto error_bus_request;
-		}
+		/* update the bus vector with valid bw */
+		msm_camera_update_bus_vector(dma->bus_client, 1);
 		msm_jpegdma_hw_config_qos(dma);
 		msm_jpegdma_hw_config_vbif(dma);
 
@@ -1962,11 +1617,11 @@ int msm_jpegdma_hw_get(struct msm_jpegdma_device *dma)
 
 error_hw_reset:
 	msm_jpegdma_hw_disable_irq(dma);
-error_bus_request:
-	msm_jpegdma_hw_disable_clocks(dma);
+	msm_camera_clk_enable(&dma->pdev->dev, dma->jpeg_clk_info,
+		dma->clk, dma->num_clk, false);
 error_clocks:
-	msm_jpegdma_hw_disable_regulators(dma);
-error:
+	msm_camera_regulator_enable(dma->vdd, dma->num_reg, false);
+error_regulators_get:
 	mutex_unlock(&dma->lock);
 	return ret;
 }
@@ -1986,9 +1641,16 @@ void msm_jpegdma_hw_put(struct msm_jpegdma_device *dma)
 	if (--dma->ref_count == 0) {
 		msm_jpegdma_hw_halt(dma);
 		msm_jpegdma_hw_disable_irq(dma);
-		msm_jpegdma_hw_bus_release(dma);
-		msm_jpegdma_hw_disable_clocks(dma);
-		msm_jpegdma_hw_disable_regulators(dma);
+		/* release the irq */
+		msm_camera_unregister_irq(dma->pdev,
+			dma->irq, dma);
+		/* update the bus vector with zeroth vector */
+		msm_camera_update_bus_vector(dma->bus_client, 0);
+		/* disable all the clocks */
+		msm_camera_clk_enable(&dma->pdev->dev, dma->jpeg_clk_info,
+			dma->clk, dma->num_clk, false);
+		/* disable all the regulators */
+		msm_camera_regulator_enable(dma->vdd, dma->num_reg, false);
 	}
 	/* Reset clock rate, need to be updated on next processing */
 	dma->active_clock_rate = -1;

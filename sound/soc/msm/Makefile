@@ -36,3 +36,7 @@ obj-$(CONFIG_SND_SOC_MDMCALIFORNIUM) += snd-soc-mdmcalifornium.o
 # for MDM 9607 sound card driver
 snd-soc-mdm9607-objs := mdm9607.o
 obj-$(CONFIG_SND_SOC_MDM9607) += snd-soc-mdm9607.o
+
+# for MSM 8909 sound card driver
+snd-soc-msm8909-objs := msm8952.o msm-audio-pinctrl.o
+obj-$(CONFIG_SND_SOC_MSM8909) += snd-soc-msm8909.o

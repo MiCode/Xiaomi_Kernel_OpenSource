@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -174,8 +174,9 @@ int adm_get_topology_for_port_from_copp_id(int port_id, int copp_id)
 int adm_get_topology_for_port_copp_idx(int port_id, int copp_idx)
 {
 	int port_idx = adm_validate_and_get_port_index(port_id);
-	if (port_idx < 0) {
-		pr_err("%s: Invalid port id: 0x%x", __func__, port_id);
+	if (port_idx < 0 || copp_idx >= MAX_COPPS_PER_PORT) {
+		pr_err("%s: Invalid port: 0x%x copp id: 0x%x",
+				__func__, port_id, copp_idx);
 		return 0;
 	}
 	return atomic_read(&this_adm.copp.topology[port_idx][copp_idx]);

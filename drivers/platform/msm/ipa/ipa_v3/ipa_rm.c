@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,12 +30,12 @@ static const char *ipa3_resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_MHI_PROD),
 	__stringify(IPA_RM_RESOURCE_Q6_CONS),
 	__stringify(IPA_RM_RESOURCE_USB_CONS),
+	__stringify(IPA_RM_RESOURCE_USB_DPL_CONS),
 	__stringify(IPA_RM_RESOURCE_HSIC_CONS),
 	__stringify(IPA_RM_RESOURCE_WLAN_CONS),
 	__stringify(IPA_RM_RESOURCE_APPS_CONS),
 	__stringify(IPA_RM_RESOURCE_ODU_ADAPT_CONS),
 	__stringify(IPA_RM_RESOURCE_MHI_CONS),
-	__stringify(IPA_RM_RESOURCE_USB_DPL_CONS),
 };
 
 struct ipa3_rm_profile_vote_type {
@@ -533,6 +533,9 @@ int ipa3_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
 	unsigned long flags;
 	struct ipa_rm_resource *resource;
 
+	IPADBG("resource: %s ", ipa3_rm_resource_str(resource_name));
+	if (profile)
+		IPADBG("BW: %d\n", profile->max_supported_bandwidth_mbps);
 	IPA_RM_DBG("%s\n", ipa3_rm_resource_str(resource_name));
 
 	spin_lock_irqsave(&ipa3_rm_ctx->ipa_rm_lock, flags);

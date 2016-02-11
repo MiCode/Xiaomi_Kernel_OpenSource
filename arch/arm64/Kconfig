@@ -10,6 +10,7 @@ config ARM64
 	select ARCH_WANT_COMPAT_IPC_PARSE_VERSION
 	select ARCH_WANT_FRAME_POINTERS
 	select ARCH_HAVE_CUSTOM_GPIO_H
+	select ARCH_HAS_UBSAN_SANITIZE_ALL
 	select ARM_AMBA
 	select ARM_ARCH_TIMER
 	select ARM_GIC
@@ -528,6 +529,15 @@ config CPU_BIG_ENDIAN
        bool "Build big-endian kernel"
        help
          Say Y if you plan on running a kernel in big-endian mode.
+
+config ARM64_SEV_IN_LOCK_UNLOCK
+	bool "Add explicit SEV in the spinlock unlock code path"
+	help
+	  In certain unexplained cases, the stlr alone might not wakeup
+	  the processor waiting in WFE on a spinlock.
+	  Add an explicity dsb and SEV in write_unlock, read_unlock
+	  and spin_unlock to ensure that the core waiting on the lock
+	  wakes up from WFE.
 
 config SMP
 	bool "Symmetric Multi-Processing"

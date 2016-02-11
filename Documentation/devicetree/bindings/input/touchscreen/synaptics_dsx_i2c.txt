@@ -67,6 +67,7 @@ These properties are defined only when synaptics,detect-device property is defin
  - synaptics,bypass-sensor-coords-check : Bypass the comparison of sensor coordinates
 				range read from DT and touch controller. Used when some
 				touch panels in the field are unprogrammed and misprogrammed.
+ - synaptics,resume-in-workqueue : specifiy whether to defer the resume to workqueue.
 
 Example:
 	i2c@f9927000 {

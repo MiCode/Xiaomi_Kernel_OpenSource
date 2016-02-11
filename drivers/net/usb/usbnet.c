@@ -2008,14 +2008,42 @@ static void usbnet_ipa_send_routine(struct work_struct *work)
 	spin_unlock(&dev->ipa_pendq.lock);
 }
 
+static void usbnet_odu_bridge_init(struct work_struct *work)
+{
+	struct usbnet *dev = container_of(work, struct usbnet, odu_bridge_init);
+	struct odu_bridge_params params;
+	int status;
+
+	/* Initialize the ODU bridge driver */
+	params.netdev_name      = dev->net->name;
+	params.priv             = dev;
+	params.tx_dp_notify     = usbnet_ipa_tx_dp_cb;
+	params.send_dl_skb      = (void *)&usbnet_ipa_tx_dl;
+	params.ipa_desc_size    = (dev->ipa_high_watermark + 1) *
+					sizeof(struct sps_iovec);
+	memcpy(params.device_ethaddr, dev->net->dev_addr, 6);
+
+	status = odu_bridge_init(&params);
+	if (status) {
+		pr_err("Couldnt initialize ODU_Bridge Driver\n");
+		return;
+	}
+
+	status = odu_bridge_connect();
+	if (!status) {
+		usbnet_ipa_set_perf_level(dev);
+	} else {
+		pr_err("Could not connect to ODU bridge %d\n", status);
+		return;
+	}
+}
+
 static void usbnet_ipa_ready_callback(void *user_data)
 {
 	struct usbnet *dev = user_data;
 
 	pr_info("%s: ipa is ready\n", __func__);
-	dev->ipa_ready = true;
-
-	wake_up_interruptible(&dev->wait_for_ipa_ready);
+	queue_work(usbnet_wq, &dev->odu_bridge_init);
 }
 
 int
@@ -2030,9 +2058,6 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	const char			*name;
 	struct usb_driver 	*driver = to_usb_driver(udev->dev.driver);
 	struct usbnet_ipa_ctx *usbnet_ipa = NULL;
-	struct odu_bridge_params *params_ptr, params;
-
-	params_ptr = &params;
 
 	/* usbnet already took usb runtime pm, so have to enable the feature
 	 * for usb interface, otherwise usb_autopm_get_interface may return
@@ -2057,7 +2082,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	// set up our own records
 	net = alloc_etherdev(sizeof(*dev));
 	if (!net)
-		goto out;
+		goto exit;
 
 	/* netdev_printk() needs this so do it as early as possible */
 	SET_NETDEV_DEV(net, &udev->dev);
@@ -2070,7 +2095,6 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	dev->msg_enable = netif_msg_init (msg_level, NETIF_MSG_DRV
 				| NETIF_MSG_PROBE | NETIF_MSG_LINK);
 	init_waitqueue_head(&dev->wait);
-	init_waitqueue_head(&dev->wait_for_ipa_ready);
 	skb_queue_head_init (&dev->rxq);
 	skb_queue_head_init (&dev->txq);
 	skb_queue_head_init (&dev->done);
@@ -2108,7 +2132,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (info->bind) {
 		status = info->bind (dev, udev);
 		if (status < 0)
-			goto out1;
+			goto free_netdevice;
 
 		// heuristic:  "usb%d" for links we know are two-host,
 		// else "eth%d" when there's reasonable doubt.  userspace
@@ -2147,7 +2171,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (status >= 0 && dev->status)
 		status = init_status (dev, udev);
 	if (status < 0)
-		goto out3;
+		goto unbind;
 
 	if (!dev->rx_urb_size)
 		dev->rx_urb_size = dev->hard_mtu;
@@ -2170,13 +2194,13 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		dev->padding_pkt = kzalloc(1, GFP_KERNEL);
 		if (!dev->padding_pkt) {
 			status = -ENOMEM;
-			goto out4;
+			goto free_urb;
 		}
 	}
 
 	status = register_netdev (net);
 	if (status)
-		goto out5;
+		goto free_padding_pkt;
 	netif_info(dev, probe, dev->net,
 		   "register '%s' at usb-%s-%s, %s, %pM\n",
 		   udev->dev.driver->name,
@@ -2189,7 +2213,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		usbnet_ipa = kzalloc(sizeof(*usbnet_ipa), GFP_KERNEL);
 		if (!usbnet_ipa) {
 			status = -ENOMEM;
-			goto out4;
+			goto unreg_netdev;
 		}
 
 		dev->pusbnet_ipa = usbnet_ipa;
@@ -2200,44 +2224,28 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 		/* Initialize flow control variables */
 		skb_queue_head_init(&dev->ipa_pendq);
 		INIT_WORK(&dev->ipa_send_task, usbnet_ipa_send_routine);
+		INIT_WORK(&dev->odu_bridge_init, usbnet_odu_bridge_init);
 
 		status = usbnet_ipa_setup_rm(dev);
 		if (status) {
 			pr_err("USBNET: IPA Setup RM Failed\n");
-			goto out4;
+			goto free_ipa;
 		}
 
 		status = usbnet_debugfs_init(dev);
 		if (status)
 			pr_err("USBNET: Debugfs Init Failed\n");
 
-		/* Initialize the ODU bridge driver now: odu_bridge_init()*/
-		params_ptr->netdev_name = net->name;
-		params_ptr->priv = dev;
-		params.tx_dp_notify = usbnet_ipa_tx_dp_cb;
-		params_ptr->send_dl_skb = (void *)&usbnet_ipa_tx_dl;
-		memcpy(params_ptr->device_ethaddr, net->dev_addr, 6);
-		params_ptr->ipa_desc_size = (dev->ipa_high_watermark + 1) *
-					sizeof(struct sps_iovec);
-
-		status = odu_bridge_init(params_ptr);
-		if (status) {
-			pr_err("Couldnt initialize ODU_Bridge Driver\n");
-			goto out4;
-		}
-
 		status = ipa_register_ipa_ready_cb(usbnet_ipa_ready_callback,
 						   dev);
 		if (!status) {
 			pr_info("%s: ipa is not ready\n", __func__);
-			status = wait_event_interruptible_timeout(
-					dev->wait_for_ipa_ready, dev->ipa_ready,
-					msecs_to_jiffies
-						(USBNET_IPA_READY_TIMEOUT));
-			if (!status) {
-				pr_err("%s: ipa ready timeout\n", __func__);
-				return -ETIMEDOUT;
-			}
+		} else if (status == -EEXIST) {
+			pr_debug("USBNET: IPA is ready\n");
+			usbnet_odu_bridge_init(&dev->odu_bridge_init);
+		} else {
+			pr_err("USBNET: error in ipa register cb\n");
+			goto free_ipa;
 		}
 	}
 
@@ -2249,27 +2257,22 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	if (dev->driver_info->flags & FLAG_LINK_INTR)
 		usbnet_link_change(dev, 0, 0);
 
-	if (enable_ipa_bridge) {
-		status = odu_bridge_connect();
-		if (status)
-			pr_err("Could not connect to ODU bridge %d\n",
-			       status);
-		else
-			usbnet_ipa_set_perf_level(dev);
-	}
-
 	return 0;
 
-out5:
+free_ipa:
+	kfree(usbnet_ipa);
+unreg_netdev:
+	unregister_netdev(net);
+free_padding_pkt:
 	kfree(dev->padding_pkt);
-out4:
+free_urb:
 	usb_free_urb(dev->interrupt);
-out3:
+unbind:
 	if (info->unbind)
 		info->unbind (dev, udev);
-out1:
+free_netdevice:
 	free_netdev(net);
-out:
+exit:
 	return status;
 }
 EXPORT_SYMBOL_GPL(usbnet_probe);

@@ -647,11 +647,6 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	struct dwc3_msm_req_complete *req_complete;
 	unsigned long flags;
 	int ret = 0, size;
-	u8 bam_pipe;
-	bool producer;
-	bool disable_wb;
-	bool internal_mem;
-	bool ioc;
 	bool superspeed;
 
 	if (!(request->udc_priv & MSM_SPS_MODE)) {
@@ -709,23 +704,6 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	req_complete->orig_complete = request->complete;
 	list_add_tail(&req_complete->list_item, &mdwc->req_complete_list);
 	request->complete = dwc3_msm_req_complete_func;
-
-	/*
-	 * Configure the DBM endpoint
-	 */
-	bam_pipe = request->udc_priv & MSM_PIPE_ID_MASK;
-	producer = ((request->udc_priv & MSM_PRODUCER) ? true : false);
-	disable_wb = ((request->udc_priv & MSM_DISABLE_WB) ? true : false);
-	internal_mem = ((request->udc_priv & MSM_INTERNAL_MEM) ? true : false);
-	ioc = ((request->udc_priv & MSM_ETD_IOC) ? true : false);
-
-	ret = dbm_ep_config(mdwc->dbm, dep->number, bam_pipe, producer,
-				disable_wb, internal_mem, ioc);
-	if (ret < 0) {
-		dev_err(mdwc->dev,
-			"error %d after calling dbm_ep_config\n", ret);
-		return ret;
-	}
 
 	dev_vdbg(dwc->dev, "%s: queing request %p to ep %s length %d\n",
 			__func__, request, ep->name, request->length);
@@ -1089,11 +1067,6 @@ static void gsi_free_trbs(struct usb_ep *ep)
 		dep->trb_pool = NULL;
 		dep->trb_pool_dma = 0;
 		dep->trb_dma_pool = NULL;
-		/*
-		 * Reset the ep_type to NORMAL, for next compostion
-		 * switch which may be non-gsi.
-		 */
-		dep->endpoint.ep_type = EP_TYPE_NORMAL;
 	}
 }
 /*
@@ -1113,9 +1086,6 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	u32			reg;
 
 	memset(&params, 0x00, sizeof(params));
-
-	/* Set the ep_type as GSI */
-	dep->endpoint.ep_type = EP_TYPE_GSI;
 
 	/* Configure GSI EP */
 	params.param0 = DWC3_DEPCFG_EP_TYPE(usb_endpoint_type(desc))
@@ -1353,12 +1323,19 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
  *
  * @return int - 0 on success, negetive on error.
  */
-int msm_ep_config(struct usb_ep *ep)
+int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
+							gfp_t gfp_flags)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct usb_ep_ops *new_ep_ops;
+	int ret = 0;
+	u8 bam_pipe;
+	bool producer;
+	bool disable_wb;
+	bool internal_mem;
+	bool ioc;
 
 
 	/* Save original ep ops for future restore*/
@@ -1384,9 +1361,25 @@ int msm_ep_config(struct usb_ep *ep)
 	ep->ops = new_ep_ops;
 
 	/*
-	 * Do HERE more usb endpoint configurations
-	 * which are specific to MSM.
+	 * Configure the DBM endpoint if required.
 	 */
+	if (mdwc->dbm) {
+		bam_pipe = request->udc_priv & MSM_PIPE_ID_MASK;
+		producer = ((request->udc_priv & MSM_PRODUCER) ? true : false);
+		disable_wb = ((request->udc_priv & MSM_DISABLE_WB) ?
+								true : false);
+		internal_mem = ((request->udc_priv & MSM_INTERNAL_MEM) ?
+								true : false);
+		ioc = ((request->udc_priv & MSM_ETD_IOC) ? true : false);
+
+		ret = dbm_ep_config(mdwc->dbm, dep->number, bam_pipe, producer,
+					disable_wb, internal_mem, ioc);
+		if (ret < 0) {
+			dev_err(mdwc->dev,
+				"error %d after calling dbm_ep_config\n", ret);
+			return ret;
+		}
+	}
 
 	return 0;
 }
@@ -2021,16 +2014,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		clk_prepare_enable(mdwc->sleep_clk);
 	}
 
-	/* Resume SS PHY */
-	if (mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
-		usb_phy_set_suspend(mdwc->ss_phy, 0);
-		mdwc->ss_phy->flags &= ~DEVICE_IN_SS_MODE;
-		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
-	}
-
-	/* Resume HS PHY */
-	usb_phy_set_suspend(mdwc->hs_phy, 0);
-
 	/*
 	 * Enable clocks
 	 * Turned ON iface_clk before core_clk due to FSM depedency.
@@ -2041,6 +2024,16 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	clk_prepare_enable(mdwc->utmi_clk);
 	if (mdwc->bus_aggr_clk)
 		clk_prepare_enable(mdwc->bus_aggr_clk);
+
+	/* Resume SS PHY */
+	if (mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
+		usb_phy_set_suspend(mdwc->ss_phy, 0);
+		mdwc->ss_phy->flags &= ~DEVICE_IN_SS_MODE;
+		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
+	}
+
+	/* Resume HS PHY */
+	usb_phy_set_suspend(mdwc->hs_phy, 0);
 
 	/* Recover from controller power collapse */
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {

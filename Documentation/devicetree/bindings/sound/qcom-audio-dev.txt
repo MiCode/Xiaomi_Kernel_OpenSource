@@ -323,6 +323,16 @@ Optional properties:
 
  - qcom,codec-mclk-clk-freq:                Codec mclk frequency in Hz.
 
+ - qcom,lpass-mclk-id			    AFE mclk id needed to enable the mclk to drive
+					    11.288MHz clok frequency which is needed to render
+					    the samples at 44.1KHz frequency, this mclk will
+					    run in parallel to the codec mclk
+					    this clock supply to the codec depends on the target
+					    following are the different possibilities to this node.
+					    "pri_mclk"
+					    "sec_mclk"
+					    "spk_i2s_mclk"
+
 * audio_slimslave
 
 Required properties:
@@ -1390,6 +1400,7 @@ the flavor.
 - pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
 
 Optional properties:
+- qcom,msm-afe-clk-ver: Provides detail of AFE clock API version.
 - qcom,hdmi-dba-codec-rx: Boolean. specifies if HDMI DBA audio support is enabled or not.
 - qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
 - qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
@@ -1453,6 +1464,7 @@ Example:
 		reg-names = "csr_gp_io_mux_mic_ctl",
 			    "csr_gp_io_mux_spkr_ctl",
 			    "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
+		qcom,msm-afe-clk-ver = <1>;
 		qcom,msm-ext-pa = "primary";
 		qcom,hdmi-dba-codec-rx;
 		qcom,msm-mclk-freq = <9600000>;

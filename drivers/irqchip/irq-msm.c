@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,3 +69,4 @@ IRQCHIP_DECLARE(8952_pinctrl, "qcom,msm8952-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(8937_pinctrl, "qcom,msm8937-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(titanium_pinctrl, "qcom,msmtitanium-pinctrl",
 						pinctrl_irq_dummy);
+IRQCHIP_DECLARE(8909_pinctrl, "qcom,msm8909-pinctrl", pinctrl_irq_dummy);

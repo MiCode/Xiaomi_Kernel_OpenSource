@@ -131,6 +131,8 @@ enum {
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver msm8x16_wcd_i2s_dai[];
+/* By default enable the internal speaker boost */
+static bool spkr_boost_en = true;
 
 #define MSM8X16_WCD_ACQUIRE_LOCK(x) \
 	mutex_lock_nested(&x, SINGLE_DEPTH_NESTING)
@@ -992,7 +994,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.extn_use_mb = msm8x16_wcd_use_mb,
 };
 
-static const uint32_t wcd_imped_val[] = {4, 8, 12, 16,
+static const uint32_t wcd_imped_val[] = {4, 8, 12, 13, 16,
 					20, 24, 28, 32,
 					36, 40, 44, 48};
 
@@ -1149,15 +1151,23 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		if (atomic_read(&pdata->mclk_enabled) == false) {
-			pdata->digital_cdc_core_clk.enable = 1;
-			ret = afe_set_lpass_clock_v2(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_core_clk);
+			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
+				pdata->digital_cdc_clk.clk_val =
+							pdata->mclk_freq;
+				ret = afe_set_digital_codec_core_clock(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_clk);
+			} else {
+				pdata->digital_cdc_core_clk.enable = 1;
+				ret = afe_set_lpass_clock_v2(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+			}
 			if (ret < 0) {
 				pr_err("failed to enable the MCLK\n");
 				goto err;
-			} else
-				pr_err("enabled MCLK\n");
+			}
+			pr_debug("enabled digital codec core clk\n");
 			ret = msm8x16_wcd_ahb_read_device(
 					msm8x16_wcd, reg, 1, &temp);
 			atomic_set(&pdata->mclk_enabled, true);
@@ -1198,16 +1208,24 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		if (atomic_read(&pdata->mclk_enabled) == false) {
 			pr_debug("enable MCLK for AHB write\n");
-			pdata->digital_cdc_core_clk.enable = 1;
-			ret = afe_set_lpass_clock_v2(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_core_clk);
+			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
+				pdata->digital_cdc_clk.clk_val =
+							pdata->mclk_freq;
+				ret = afe_set_digital_codec_core_clock(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_clk);
+			} else {
+				pdata->digital_cdc_core_clk.enable = 1;
+				ret = afe_set_lpass_clock_v2(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+			}
 			if (ret < 0) {
 				pr_err("failed to enable the MCLK\n");
 				ret = 0;
 				goto err;
-			} else
-				pr_err("enabled MCLK\n");
+			}
+			pr_debug("enabled digital codec core clk\n");
 			ret = msm8x16_wcd_ahb_write_device(
 						msm8x16_wcd, reg, &val, 1);
 			atomic_set(&pdata->mclk_enabled, true);
@@ -2107,51 +2125,6 @@ static int msm8x16_wcd_boost_option_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int msm8x16_wcd_spk_boost_get(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
-
-	if (msm8x16_wcd->spk_boost_set == false) {
-		ucontrol->value.integer.value[0] = 0;
-	} else if (msm8x16_wcd->spk_boost_set == true) {
-		ucontrol->value.integer.value[0] = 1;
-	} else  {
-		dev_err(codec->dev, "%s: ERROR: Unsupported Speaker Boost = %d\n",
-			__func__, msm8x16_wcd->spk_boost_set);
-		return -EINVAL;
-	}
-
-	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n", __func__,
-			msm8x16_wcd->spk_boost_set);
-	return 0;
-}
-
-static int msm8x16_wcd_spk_boost_set(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
-
-	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
-		__func__, ucontrol->value.integer.value[0]);
-
-	switch (ucontrol->value.integer.value[0]) {
-	case 0:
-		msm8x16_wcd->spk_boost_set = false;
-		break;
-	case 1:
-		msm8x16_wcd->spk_boost_set = true;
-		break;
-	default:
-		return -EINVAL;
-	}
-	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n",
-		__func__, msm8x16_wcd->spk_boost_set);
-	return 0;
-}
-
 static int msm8x16_wcd_ext_spk_boost_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -2454,9 +2427,6 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("EAR PA Gain", msm8x16_wcd_ear_pa_gain_enum[0],
 		msm8x16_wcd_pa_gain_get, msm8x16_wcd_pa_gain_put),
-
-	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
-		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
 
 	SOC_ENUM_EXT("Ext Spk Boost", msm8x16_wcd_ext_spk_boost_ctl_enum[0],
 		msm8x16_wcd_ext_spk_boost_get, msm8x16_wcd_ext_spk_boost_set),
@@ -3426,6 +3396,16 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, w->reg, 0x60, 0x00);
 		} else if (strnstr(w->name, internal3_text, strlen(w->name))) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x2);
+		/*
+		 * update MSM8X16_WCD_A_ANALOG_TX_1_2_ATEST_CTL_2
+		 * for external bias only, not for external2.
+		*/
+		} else if (!strnstr(w->name, external2_text, strlen(w->name)) &&
+					strnstr(w->name, external_text,
+						strlen(w->name))) {
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_TX_1_2_ATEST_CTL_2,
+					0x02, 0x02);
 		}
 		if (!strnstr(w->name, external_text, strlen(w->name)))
 			snd_soc_update_bits(codec,
@@ -5376,6 +5356,13 @@ void msm8x16_wcd_hs_detect_exit(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL(msm8x16_wcd_hs_detect_exit);
 
+void msm8x16_update_int_spk_boost(bool enable)
+{
+	pr_debug("%s: enable = %d\n", __func__, enable);
+	spkr_boost_en = enable;
+}
+EXPORT_SYMBOL(msm8x16_update_int_spk_boost);
+
 static void msm8x16_wcd_set_micb_v(struct snd_soc_codec *codec)
 {
 
@@ -5553,6 +5540,11 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x16_wcd_priv->clock_active = false;
 	msm8x16_wcd_priv->config_mode_active = false;
 
+	/*Update speaker boost configuration*/
+	msm8x16_wcd_priv->spk_boost_set = spkr_boost_en;
+	pr_debug("%s: speaker boost configured = %d\n",
+			__func__, msm8x16_wcd_priv->spk_boost_set);
+
 	/* Set initial MICBIAS voltage level */
 	msm8x16_wcd_set_micb_v(codec);
 
@@ -5660,10 +5652,17 @@ int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
 				&pdata->disable_mclk_work);
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		if (atomic_read(&pdata->mclk_enabled) == true) {
-			pdata->digital_cdc_core_clk.enable = 0;
-			afe_set_lpass_clock_v2(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_core_clk);
+			if (pdata->afe_clk_ver == AFE_CLK_VERSION_V1) {
+				pdata->digital_cdc_clk.clk_val = 0;
+				afe_set_digital_codec_core_clock(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_clk);
+			} else {
+				pdata->digital_cdc_core_clk.enable = 0;
+				afe_set_lpass_clock_v2(
+						AFE_PORT_ID_PRIMARY_MI2S_RX,
+						&pdata->digital_cdc_core_clk);
+			}
 			atomic_set(&pdata->mclk_enabled, false);
 		}
 		mutex_unlock(&pdata->cdc_mclk_mutex);
@@ -5841,11 +5840,12 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	struct msm8x16_wcd_pdata *pdata;
 	struct resource *wcd_resource;
 	int adsp_state;
+	static int spmi_dev_registered_cnt;
 
 	dev_dbg(&spmi->dev, "%s(%d):slave ID = 0x%x\n",
 		__func__, __LINE__,  spmi->sid);
 
-	adsp_state = apr_get_q6_state();
+	adsp_state = apr_get_subsys_state();
 	if (adsp_state != APR_SUBSYS_LOADED) {
 		dev_dbg(&spmi->dev, "Adsp is not loaded yet %d\n",
 				adsp_state);
@@ -5878,7 +5878,8 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 		dev_dbg(&spmi->dev,
 				"%s: irq initialization passed\n", __func__);
 	}
-		goto rtn;
+		spmi_dev_registered_cnt++;
+		goto register_codec;
 	default:
 		ret = -EINVAL;
 		goto rtn;
@@ -5940,17 +5941,24 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 		goto err_supplies;
 	}
 	dev_set_drvdata(&spmi->dev, msm8x16);
-
-	ret = snd_soc_register_codec(&spmi->dev, &soc_codec_dev_msm8x16_wcd,
-				     msm8x16_wcd_i2s_dai,
-				     ARRAY_SIZE(msm8x16_wcd_i2s_dai));
-	if (ret) {
-		dev_err(&spmi->dev,
-			"%s:snd_soc_register_codec failed with error %d\n",
-			__func__, ret);
-	} else {
-		goto rtn;
+	spmi_dev_registered_cnt++;
+register_codec:
+	if ((spmi_dev_registered_cnt == MAX_MSM8X16_WCD_DEVICE) && (!ret)) {
+		if (msm8x16_wcd_modules[0].spmi) {
+			ret = snd_soc_register_codec(
+					&msm8x16_wcd_modules[0].spmi->dev,
+					&soc_codec_dev_msm8x16_wcd,
+					msm8x16_wcd_i2s_dai,
+					ARRAY_SIZE(msm8x16_wcd_i2s_dai));
+			if (ret) {
+				dev_err(&spmi->dev,
+				"%s:snd_soc_register_codec failed with error %d\n",
+				__func__, ret);
+				goto err_supplies;
+			}
+		}
 	}
+	return ret;
 err_supplies:
 	msm8x16_wcd_disable_supplies(msm8x16, pdata);
 err_codec:

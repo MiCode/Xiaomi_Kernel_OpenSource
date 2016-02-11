@@ -89,10 +89,9 @@ enum {
 
 enum {
 	MSM8996_ID,
+	MSM8996PRO_ID,
 	MSMTITANIUM_ID,
 };
-
-static int msm_id[] = {MSM8996_ID, MSMTITANIUM_ID};
 
 struct msm_apm_ctrl_dev {
 	struct list_head	list;
@@ -368,19 +367,43 @@ static int msm_apm_secure_clock_source_override(
 	return 0;
 }
 
+static int msm8996_apm_wait_for_switch(struct msm_apm_ctrl_dev *ctrl_dev,
+					u32 done_val)
+{
+	int timeout = MSM_APM_SWITCH_TIMEOUT_US;
+	u32 regval;
+
+	while (timeout > 0) {
+		regval = readl_relaxed(ctrl_dev->reg_base + APCC_APM_CTL_STS);
+		if ((regval & MSM_APM_CTL_STS_MASK) == done_val)
+			break;
+
+		udelay(1);
+		timeout--;
+	}
+
+	if (timeout == 0) {
+		dev_err(ctrl_dev->dev, "%s switch timed out. APCC_APM_CTL_STS=0x%x\n",
+			done_val == MSM_APM_MX_DONE_VAL
+				? "APCC to MX" : "MX to APCC",
+			regval);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static int msm8996_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 {
-	int i, timeout = MSM_APM_SWITCH_TIMEOUT_US;
-	u32 regval;
-	int ret = 0;
 	unsigned long flags;
+	int i, ret;
 
 	mutex_lock(&scm_lmh_lock);
 	spin_lock_irqsave(&ctrl_dev->lock, flags);
 
 	ret = msm_apm_secure_clock_source_override(ctrl_dev, true);
 	if (ret)
-		return ret;
+		goto done;
 
 	/* Perform revision-specific programming steps */
 	if (ctrl_dev->version < HMSS_VERSION_1P2) {
@@ -412,21 +435,7 @@ static int msm8996_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 	/* Ensure write above completes before delaying */
 	mb();
 
-	while (timeout > 0) {
-		regval = readl_relaxed(ctrl_dev->reg_base + APCC_APM_CTL_STS);
-		if ((regval & MSM_APM_CTL_STS_MASK) ==
-		    MSM_APM_MX_DONE_VAL)
-			break;
-
-		udelay(1);
-		timeout--;
-	}
-
-	if (timeout == 0) {
-		ret = -ETIMEDOUT;
-		dev_err(ctrl_dev->dev, "APCC to MX APM switch timed out. APCC_APM_CTL_STS=0x%x\n",
-			regval);
-	}
+	ret = msm8996_apm_wait_for_switch(ctrl_dev, MSM_APM_MX_DONE_VAL);
 
 	/* Perform revision-specific programming steps */
 	if (ctrl_dev->version < HMSS_VERSION_1P2) {
@@ -449,15 +458,21 @@ static int msm8996_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 				       ctrl_dev->apcs_spm_events_addr[i]);
 	}
 
+	/*
+	 * Ensure that HMSS v1.0/v1.1 register writes are completed before
+	 * bailing out in the case of a switching time out.
+	 */
+	if (ret)
+		goto done;
+
 	ret = msm_apm_secure_clock_source_override(ctrl_dev, false);
 	if (ret)
-		return ret;
+		goto done;
 
-	if (!ret) {
-		ctrl_dev->supply = MSM_APM_SUPPLY_MX;
-		dev_dbg(ctrl_dev->dev, "APM supply switched to MX\n");
-	}
+	ctrl_dev->supply = MSM_APM_SUPPLY_MX;
+	dev_dbg(ctrl_dev->dev, "APM supply switched to MX\n");
 
+done:
 	spin_unlock_irqrestore(&ctrl_dev->lock, flags);
 	mutex_unlock(&scm_lmh_lock);
 
@@ -466,17 +481,15 @@ static int msm8996_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 
 static int msm8996_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 {
-	int i, timeout = MSM_APM_SWITCH_TIMEOUT_US;
-	u32 regval;
-	int ret = 0;
 	unsigned long flags;
+	int i, ret;
 
 	mutex_lock(&scm_lmh_lock);
 	spin_lock_irqsave(&ctrl_dev->lock, flags);
 
 	ret = msm_apm_secure_clock_source_override(ctrl_dev, true);
 	if (ret)
-		return ret;
+		goto done;
 
 	/* Perform revision-specific programming steps */
 	if (ctrl_dev->version < HMSS_VERSION_1P2) {
@@ -508,21 +521,7 @@ static int msm8996_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 	/* Ensure write above completes before delaying */
 	mb();
 
-	while (timeout > 0) {
-		regval = readl_relaxed(ctrl_dev->reg_base + APCC_APM_CTL_STS);
-		if ((regval & MSM_APM_CTL_STS_MASK) ==
-		    MSM_APM_APCC_DONE_VAL)
-			break;
-
-		udelay(1);
-		timeout--;
-	}
-
-	if (timeout == 0) {
-		ret = -ETIMEDOUT;
-		dev_err(ctrl_dev->dev, "MX to APCC APM switch timed out. APCC_APM_CTL_STS=0x%x\n",
-			regval);
-	}
+	ret = msm8996_apm_wait_for_switch(ctrl_dev, MSM_APM_APCC_DONE_VAL);
 
 	/* Perform revision-specific programming steps */
 	if (ctrl_dev->version < HMSS_VERSION_1P2) {
@@ -545,17 +544,77 @@ static int msm8996_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 			       ctrl_dev->apc1_pll_ctl_addr);
 	}
 
+	/*
+	 * Ensure that HMSS v1.0/v1.1 register writes are completed before
+	 * bailing out in the case of a switching time out.
+	 */
+	if (ret)
+		goto done;
+
 	ret = msm_apm_secure_clock_source_override(ctrl_dev, false);
 	if (ret)
-		return ret;
+		goto done;
 
-	if (!ret) {
-		ctrl_dev->supply = MSM_APM_SUPPLY_APCC;
-		dev_dbg(ctrl_dev->dev, "APM supply switched to APCC\n");
-	}
+	ctrl_dev->supply = MSM_APM_SUPPLY_APCC;
+	dev_dbg(ctrl_dev->dev, "APM supply switched to APCC\n");
 
+done:
 	spin_unlock_irqrestore(&ctrl_dev->lock, flags);
 	mutex_unlock(&scm_lmh_lock);
+
+	return ret;
+}
+
+static int msm8996pro_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
+{
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&ctrl_dev->lock, flags);
+
+	/* Switch arrays to MX supply and wait for its completion */
+	writel_relaxed(MSM_APM_MX_MODE_VAL, ctrl_dev->reg_base +
+		       APCC_APM_MODE);
+
+	/* Ensure write above completes before delaying */
+	mb();
+
+	ret = msm8996_apm_wait_for_switch(ctrl_dev, MSM_APM_MX_DONE_VAL);
+	if (ret)
+		goto done;
+
+	ctrl_dev->supply = MSM_APM_SUPPLY_MX;
+	dev_dbg(ctrl_dev->dev, "APM supply switched to MX\n");
+
+done:
+	spin_unlock_irqrestore(&ctrl_dev->lock, flags);
+
+	return ret;
+}
+
+static int msm8996pro_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
+{
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&ctrl_dev->lock, flags);
+
+	/* Switch arrays to APCC supply and wait for its completion */
+	writel_relaxed(MSM_APM_APCC_MODE_VAL, ctrl_dev->reg_base +
+		       APCC_APM_MODE);
+
+	/* Ensure write above completes before delaying */
+	mb();
+
+	ret = msm8996_apm_wait_for_switch(ctrl_dev, MSM_APM_APCC_DONE_VAL);
+	if (ret)
+		goto done;
+
+	ctrl_dev->supply = MSM_APM_SUPPLY_APCC;
+	dev_dbg(ctrl_dev->dev, "APM supply switched to APCC\n");
+
+done:
+	spin_unlock_irqrestore(&ctrl_dev->lock, flags);
 
 	return ret;
 }
@@ -660,6 +719,9 @@ static int msm_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 	case MSM8996_ID:
 		ret = msm8996_apm_switch_to_mx(ctrl_dev);
 		break;
+	case MSM8996PRO_ID:
+		ret = msm8996pro_apm_switch_to_mx(ctrl_dev);
+		break;
 	case MSMTITANIUM_ID:
 		ret = msmtitanium_apm_switch_to_mx(ctrl_dev);
 		break;
@@ -675,6 +737,9 @@ static int msm_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 	switch (ctrl_dev->msm_id) {
 	case MSM8996_ID:
 		ret = msm8996_apm_switch_to_apcc(ctrl_dev);
+		break;
+	case MSM8996PRO_ID:
+		ret = msm8996pro_apm_switch_to_apcc(ctrl_dev);
 		break;
 	case MSMTITANIUM_ID:
 		ret = msmtitanium_apm_switch_to_apcc(ctrl_dev);
@@ -869,12 +934,16 @@ static void apm_debugfs_base_remove(void)
 
 static struct of_device_id msm_apm_match_table[] = {
 	{
-	  .compatible = "qcom,msm-apm",
-	  .data = &msm_id[MSM8996_ID]
+		.compatible = "qcom,msm-apm",
+		.data = (void *)(uintptr_t)MSM8996_ID,
 	},
 	{
-	  .compatible = "qcom,msmtitanium-apm",
-	  .data = &msm_id[MSMTITANIUM_ID]
+		.compatible = "qcom,msm8996pro-apm",
+		.data = (void *)(uintptr_t)MSM8996PRO_ID,
+	},
+	{
+		.compatible = "qcom,msmtitanium-apm",
+		.data = (void *)(uintptr_t)MSMTITANIUM_ID,
 	},
 	{}
 };
@@ -906,11 +975,12 @@ static int msm_apm_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&ctrl->list);
 	spin_lock_init(&ctrl->lock);
 	ctrl->dev = dev;
-	ctrl->msm_id = *(int *)match->data;
+	ctrl->msm_id = (uintptr_t)match->data;
 	platform_set_drvdata(pdev, ctrl);
 
 	switch (ctrl->msm_id) {
 	case MSM8996_ID:
+	case MSM8996PRO_ID:
 		ret = msm_apm_ctrl_devm_ioremap(pdev, ctrl);
 		if (ret) {
 			dev_err(dev, "Failed to add APM controller device\n");

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,18 +86,13 @@
 #define QSERDES_RX_CDR_CTRL1_GAIN       0x02
 #define QSERDES_RX_CDR_CTRL2_THRESH     0x03
 #define QSERDES_RX_CDR_CTRL2_GAIN       0x04
-#define QSERDES_RX_EQ_GAIN2_DEF              0xf
-#define QSERDES_RX_EQ_GAIN1_DEF              0xf
-#define QSERDES_RX_EQ_GAIN2_MDM              0x3
-#define QSERDES_RX_EQ_GAIN1_MDM              0x3
+#define QSERDES_RX_EQ_GAIN2             0xf
+#define QSERDES_RX_EQ_GAIN1             0xf
 
 #define QSERDES_TX_BIST_MODE_LANENO     0x00
-#define QSERDES_TX_DRV_LVL_DEF              0x0f
-#define QSERDES_TX_EMP_POST1_LVL_DEF           1
-#define QSERDES_TX_LANE_MODE_DEF            0x08
-#define QSERDES_TX_DRV_LVL_MDM              0x0c
-#define QSERDES_TX_EMP_POST1_LVL_MDM           4
-#define QSERDES_TX_LANE_MODE_MDM            0x00
+#define QSERDES_TX_DRV_LVL              0x0f
+#define QSERDES_TX_EMP_POST1_LVL           1
+#define QSERDES_TX_LANE_MODE            0x08
 
 #define SGMII_PHY_IRQ_CLR_WAIT_TIME     10
 

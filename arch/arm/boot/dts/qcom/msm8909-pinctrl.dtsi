@@ -496,6 +496,7 @@
 					pins = "gpio12";
 					drive-strength = <8>;
 					bias-pull-down;
+					output-high;
 				};
 			};
 		};
@@ -511,6 +512,7 @@
 					pins = "gpio12";
 					drive-strength = <2>;
 					bias-pull-down;
+					output-low;
 				};
 			};
 		};
@@ -1388,6 +1390,90 @@
 					pins = "gpio93";
 					drive-strength = <16>;
 					bias-disable;
+				};
+			};
+		};
+
+		vdd_spkdrv {
+			vdd_spkdrv_act: vdd_spkdrv_on {
+				mux {
+					pins = "gpio4";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio4";
+					drive-strength = <8>;
+				};
+			};
+			vdd_spkdrv_sus: vdd_spkdrv_off {
+				mux {
+					pins = "gpio4";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio4";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		cdc-pdm-lines {
+			cdc_pdm_lines_act: pdm_lines_on {
+				mux {
+					pins = "gpio59", "gpio60", "gpio61",
+						"gpio62", "gpio63", "gpio64";
+					function = "cdc_pdm0";
+				};
+
+				config {
+					pins = "gpio59", "gpio60", "gpio61",
+						"gpio62", "gpio63", "gpio64";
+					drive-strength = <8>;
+				};
+			};
+			cdc_pdm_lines_sus: pdm_lines_off {
+				mux {
+					pins = "gpio59", "gpio60", "gpio61",
+						"gpio62", "gpio63", "gpio64";
+					function = "cdc_pdm0";
+				};
+
+				config {
+					pins = "gpio59", "gpio60", "gpio61",
+						"gpio62", "gpio63", "gpio64";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		cross-conn-det {
+			cross_conn_det_act: lines_on {
+				mux {
+					pins = "gpio97";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio97";
+					drive-strength = <8>;
+					output-low;
+					bias-pull-down;
+				};
+			};
+
+			cross_conn_det_sus: lines_off {
+				mux {
+					pins = "gpio97";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio97";
+					drive-strength = <2>;
+					bias-pull-down;
 				};
 			};
 		};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -329,12 +329,30 @@ err:
 	return -EINVAL;
 }
 
+static void audio_ref_update_afe_mclk_id(const char *ptr)
+{
+	if (!strcmp(ptr, "pri_mclk")) {
+		pr_debug("%s: updating the mclk id with primary mclk\n",
+				__func__);
+		clk2_config.clk_id = Q6AFE_LPASS_CLK_ID_MCLK_1;
+	} else if (!strcmp(ptr, "sec_mclk")) {
+		pr_debug("%s: updating the mclk id with secondary mclk\n",
+				__func__);
+		clk2_config.clk_id = Q6AFE_LPASS_CLK_ID_MCLK_2;
+	} else {
+		pr_debug("%s: updating the mclk id with default\n", __func__);
+	}
+	pr_debug("%s: clk_id = 0x%x\n", __func__, clk2_config.clk_id);
+}
+
 static int audio_ref_clk_probe(struct platform_device *pdev)
 {
 	int clk_gpio;
 	int ret;
 	struct clk *div_clk1;
 	u32 mclk_freq;
+	const char *mclk_id = "qcom,lpass-mclk-id";
+	const char *mclk_str = NULL;
 
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,codec-mclk-clk-freq",
@@ -352,6 +370,15 @@ static int audio_ref_clk_probe(struct platform_device *pdev)
 				__func__);
 		return ret;
 	}
+
+	ret = of_property_read_string(pdev->dev.of_node,
+				mclk_id, &mclk_str);
+	if (ret)
+		dev_dbg(&pdev->dev, "%s:of read string %s not present %d\n",
+				__func__, mclk_id, ret);
+
+	if (mclk_str)
+		audio_ref_update_afe_mclk_id(mclk_str);
 
 	clk_gpio = of_get_named_gpio(pdev->dev.of_node,
 				     "qcom,audio-ref-clk-gpio", 0);

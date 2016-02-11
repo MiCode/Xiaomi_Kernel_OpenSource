@@ -353,6 +353,7 @@ struct mdss_data_type {
 	u32 enable_bw_release;
 	u32 enable_rotator_bw_release;
 	u32 serialize_wait4pp;
+	u32 wait4autorefresh;
 	u32 lines_before_active;
 
 	struct mdss_hw_settings *hw_settings;
@@ -496,6 +497,7 @@ struct mdss_util_intf {
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);
+bool mdss_get_irq_enable_state(struct mdss_hw *hw);
 
 static inline int mdss_get_sd_client_cnt(void)
 {

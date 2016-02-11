@@ -16,12 +16,4 @@ void write_pen_release(int val);
 void msm_cpu_die(unsigned int cpu);
 int msm_cpu_kill(unsigned int cpu);
 
-extern struct smp_operations arm_smp_ops;
-extern struct smp_operations msm8960_smp_ops;
-extern struct smp_operations msm8974_smp_ops;
-extern struct smp_operations msm8962_smp_ops;
-extern struct smp_operations msm8625_smp_ops;
-extern struct smp_operations scorpion_smp_ops;
-extern struct smp_operations msm8916_smp_ops;
-extern struct smp_operations msm8936_smp_ops;
-extern struct smp_operations msm8976_smp_ops;
+extern struct smp_operations msm8909_smp_ops;

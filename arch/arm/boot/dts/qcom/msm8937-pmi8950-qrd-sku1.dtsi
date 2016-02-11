@@ -40,8 +40,8 @@
 		cell-index = <0>;
 		compatible = "qcom,camera-flash";
 		qcom,flash-type = <1>;
-		qcom,flash-source = <&pmi8950_flash0 &pmi8950_flash1>;
-		qcom,torch-source = <&pmi8950_torch0 &pmi8950_torch1>;
+		qcom,flash-source = <&pmi8950_flash0>;
+		qcom,torch-source = <&pmi8950_torch0>;
 		qcom,switch-source = <&pmi8950_switch>;
 	};
 
@@ -65,6 +65,7 @@
 			synaptics,irq-gpio = <&tlmm 65 0x2008>;
 			synaptics,disable-gpios;
 			synaptics,button-map = <158 139 172>;
+			synaptics,resume-in-workqueue;
 		};
 	};
 };
@@ -149,5 +150,17 @@
 				qcom,qpnp-ibb-init-lcd-voltage = <5700000>;
 			};
 		};
+	};
+};
+
+&sdc2_cmd_on {
+	config {
+		drive-strength = <12>;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength = <12>;
 	};
 };

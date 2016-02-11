@@ -71,6 +71,7 @@ google	Google, Inc.
 goodix	Goodix. Ltd
 gumstix	Gumstix, Inc.
 gw	Gateworks Corporation
+halo	Halo Microelectronics Co., Ltd.
 haoyu	Haoyu Microelectronic Co. Ltd.
 hisilicon	Hisilicon Limited.
 honeywell	Honeywell

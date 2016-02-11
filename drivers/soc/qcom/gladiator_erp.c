@@ -27,7 +27,9 @@
 #define TZ_INFO_GET_SECURE_STATE	0x4
 
 /* Secure State Check */
-#define SEC_STATE_VALID(a) (a & (BIT(0) | BIT(2) | BIT(6)))
+#define SEC_STATE_VALID(a)       (a & BIT(0))
+#define SCM_SECURE_BOOT_ENABLED  1
+#define SCM_SECURE_BOOT_DISABLED 0
 
 /* Register Offsets */
 #define GLADIATOR_ID_COREID	0x0
@@ -616,9 +618,11 @@ static int scm_is_gladiator_erp_available(void)
 	}
 
 	if (SEC_STATE_VALID(desc.ret[0]))
-		return 0;
+		ret = SCM_SECURE_BOOT_DISABLED;
 	else
-		return -ENODEV;
+		ret = SCM_SECURE_BOOT_ENABLED;
+
+	return ret;
 }
 
 static struct platform_driver gladiator_erp_driver = {
@@ -636,7 +640,7 @@ static int init_gladiator_erp(void)
 
 	ret = scm_is_gladiator_erp_available();
 	if (ret) {
-		pr_info("Gladiator Error Reporting not available\n");
+		pr_info("Gladiator Error Reporting not available %d\n", ret);
 		return -ENODEV;
 	}
 

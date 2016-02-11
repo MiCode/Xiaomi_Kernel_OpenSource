@@ -90,6 +90,18 @@
 		qcom,master-en = <1>;		/* Enable GPIO */
 		status = "okay";
 	};
+
+	/* ROME 32k Sleep Clock */
+	gpio@c500 {
+		qcom,mode = <1>;               /* Digital output */
+		qcom,output-type = <0>;        /* CMOS logic */
+		qcom,invert = <0>;             /* no inversion */
+		qcom,vin-sel = <2>;            /* VIN 2 */
+		qcom,src-sel = <2>;            /* Function 2 */
+		qcom,out-strength = <2>;       /* Medium */
+		qcom,master-en = <1>;          /* Enable GPIO */
+		status = "ok";
+	};
 };
 
 &pm8019_gpios {

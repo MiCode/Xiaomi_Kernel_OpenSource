@@ -393,15 +393,8 @@
 	};
 };
 
-&pmi8994_fg {
-	status = "disabled";
-};
-
-&pmi8994_charger {
-	status = "disabled";
-};
-
 &usb_otg_switch {
+	/delete-property/ vin-supply;
 	gpio = <&pm8994_gpios 11 0>;
 	enable-active-high;
 	status = "ok";

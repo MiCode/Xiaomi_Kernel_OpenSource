@@ -630,13 +630,18 @@ config SND_SOC_WCD9330
 config SND_SOC_WCD9335
         tristate
 
+config SND_SOC_WSA881X_SENSORS
+	tristate
+
 config SND_SOC_WSA881X
         tristate
 	select REGMAP_SWR
+	select SND_SOC_WSA881X_SENSORS
 
 config SND_SOC_WSA881X_ANALOG
         tristate
 	select REGMAP_I2C
+	select SND_SOC_WSA881X_SENSORS
 
 config SND_SOC_MSM8X16_WCD
 	tristate

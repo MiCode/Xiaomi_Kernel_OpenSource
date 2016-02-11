@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,8 @@
  * @offset_voltage:	The closed-loop voltage margin adjustment fuse parameter
  *			value for each fuse corner (raw, not converted to a
  *			voltage)
+ * @speed_bin:		Graphics processor speed bin fuse parameter value for
+ *			the given chip
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
  * @limitation:		CPR limitation select fuse parameter value
  * @aging_init_quot_diff:	Initial quotient difference between CPR aging
@@ -54,38 +56,20 @@
 struct cpr3_msm8996_mmss_fuses {
 	u64	init_voltage[MSM8996_MMSS_FUSE_CORNERS];
 	u64	offset_voltage[MSM8996_MMSS_FUSE_CORNERS];
+	u64	speed_bin;
 	u64	cpr_fusing_rev;
 	u64	limitation;
 	u64	aging_init_quot_diff;
 };
 
-/**
- * enum cpr3_msm8996_mmss_fuse_combo - fuse combinations supported by the MMSS
- *			CPR3 controller on MSM8996
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV0:	Part with CPR fusing rev == 0
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV1:	Part with CPR fusing rev == 1
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV2:	Part with CPR fusing rev == 2
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV3:	Part with CPR fusing rev == 3
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV4:	Part with CPR fusing rev == 4
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV5:	Part with CPR fusing rev == 5
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV6:	Part with CPR fusing rev == 6
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV7:	Part with CPR fusing rev == 7
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_COUNT:		Defines the number of
- *						combinations supported
- *
- * This list will be expanded as new requirements are added.
+/* Fuse combos 0 -  7 map to CPR fusing revision 0 - 7 */
+#define CPR3_MSM8996_MMSS_FUSE_COMBO_COUNT	8
+
+/*
+ * Fuse combos 0 -  7 map to CPR fusing revision 0 - 7 with speed bin fuse = 0.
+ * Fuse combos 8 - 15 map to CPR fusing revision 0 - 7 with speed bin fuse = 1.
  */
-enum cpr3_msm8996_mmss_fuse_combo {
-	CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV0 = 0,
-	CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV1 = 1,
-	CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV2 = 2,
-	CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV3 = 3,
-	CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV4 = 4,
-	CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV5 = 5,
-	CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV6 = 6,
-	CPR3_MSM8996_MMSS_FUSE_COMBO_CPR_REV7 = 7,
-	CPR3_MSM8996_MMSS_FUSE_COMBO_COUNT
-};
+#define CPR3_MSM8996PRO_MMSS_FUSE_COMBO_COUNT	16
 
 /*
  * MSM8996 MMSS fuse parameter locations:
@@ -132,6 +116,13 @@ msm8996_mmss_offset_voltage_param[MSM8996_MMSS_FUSE_CORNERS][2] = {
 	{{64, 58, 61}, {} },
 };
 
+static const struct cpr3_fuse_param msm8996pro_mmss_speed_bin_param[] = {
+	{39, 60, 61},
+	{},
+};
+
+#define MSM8996PRO_SOC_ID			4
+
 /*
  * Some initial msm8996 parts cannot be used in a meaningful way by software.
  * Other parts can only be used when operating with CPR disabled (i.e. at the
@@ -152,6 +143,13 @@ static const int msm8996_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
 	745000,
 	905000,
 	1015000,
+};
+
+static const int msm8996pro_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
+	670000,
+	745000,
+	905000,
+	1065000,
 };
 
 #define MSM8996_MMSS_FUSE_STEP_VOLT		10000
@@ -181,11 +179,22 @@ static int cpr3_msm8996_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 {
 	void __iomem *base = vreg->thread->ctrl->fuse_base;
 	struct cpr3_msm8996_mmss_fuses *fuse;
-	int i, rc;
+	int i, rc, combo_max;
 
 	fuse = devm_kzalloc(vreg->thread->ctrl->dev, sizeof(*fuse), GFP_KERNEL);
 	if (!fuse)
 		return -ENOMEM;
+
+	if (vreg->thread->ctrl->soc_revision == MSM8996PRO_SOC_ID) {
+		rc = cpr3_read_fuse_param(base, msm8996pro_mmss_speed_bin_param,
+					&fuse->speed_bin);
+		if (rc) {
+			cpr3_err(vreg, "Unable to read speed bin fuse, rc=%d\n",
+				rc);
+			return rc;
+		}
+		cpr3_info(vreg, "speed bin = %llu\n", fuse->speed_bin);
+	}
 
 	rc = cpr3_read_fuse_param(base, msm8996_cpr_fusing_rev_param,
 				&fuse->cpr_fusing_rev);
@@ -237,13 +246,21 @@ static int cpr3_msm8996_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 	}
 
-	vreg->fuse_combo = fuse->cpr_fusing_rev;
-	if (vreg->fuse_combo >= CPR3_MSM8996_MMSS_FUSE_COMBO_COUNT) {
-		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
-			vreg->fuse_combo);
+	if (vreg->thread->ctrl->soc_revision == MSM8996PRO_SOC_ID) {
+		combo_max = CPR3_MSM8996PRO_MMSS_FUSE_COMBO_COUNT;
+		vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
+	} else {
+		combo_max = CPR3_MSM8996_MMSS_FUSE_COMBO_COUNT;
+		vreg->fuse_combo = fuse->cpr_fusing_rev;
+	}
+
+	if (vreg->fuse_combo >= combo_max) {
+		cpr3_err(vreg, "invalid CPR fuse combo = %d found, not in range 0 - %d\n",
+			vreg->fuse_combo, combo_max - 1);
 		return -EINVAL;
 	}
 
+	vreg->speed_bin_fuse	= fuse->speed_bin;
 	vreg->cpr_rev_fuse	= fuse->cpr_fusing_rev;
 	vreg->fuse_corner_count	= MSM8996_MMSS_FUSE_CORNERS;
 	vreg->platform_fuses	= fuse;
@@ -587,6 +604,7 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 	bool allow_interpolation;
 	u64 freq_low, volt_low, freq_high, volt_high;
 	int i, j;
+	const int *ref_volt;
 	int *fuse_volt;
 	int *fmax_corner;
 
@@ -599,9 +617,13 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 		goto done;
 	}
 
+	if (vreg->thread->ctrl->soc_revision == MSM8996PRO_SOC_ID)
+		ref_volt = msm8996pro_mmss_fuse_ref_volt;
+	else
+		ref_volt = msm8996_mmss_fuse_ref_volt;
+
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
-		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(
-			msm8996_mmss_fuse_ref_volt[i],
+		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(ref_volt[i],
 			MSM8996_MMSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
 			MSM8996_MMSS_VOLTAGE_FUSE_SIZE);
 		cpr3_info(vreg, "fuse_corner[%d] open-loop=%7d uV\n",
@@ -914,14 +936,35 @@ static int cpr3_mmss_regulator_resume(struct platform_device *pdev)
 	return cpr3_regulator_resume(ctrl);
 }
 
+/* Data corresponds to the SoC revision */
 static struct of_device_id cpr_regulator_match_table[] = {
-	{ .compatible = "qcom,cpr3-msm8996-mmss-regulator", },
+	{
+		.compatible = "qcom,cpr3-msm8996-v1-mmss-regulator",
+		.data = (void *)(uintptr_t)1,
+	},
+	{
+		.compatible = "qcom,cpr3-msm8996-v2-mmss-regulator",
+		.data = (void *)(uintptr_t)2,
+	},
+	{
+		.compatible = "qcom,cpr3-msm8996-v3-mmss-regulator",
+		.data = (void *)(uintptr_t)3,
+	},
+	{
+		.compatible = "qcom,cpr3-msm8996-mmss-regulator",
+		.data = (void *)(uintptr_t)3,
+	},
+	{
+		.compatible = "qcom,cpr3-msm8996pro-mmss-regulator",
+		.data = (void *)(uintptr_t)MSM8996PRO_SOC_ID,
+	},
 	{}
 };
 
 static int cpr3_mmss_regulator_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *match;
 	struct cpr3_controller *ctrl;
 	int rc;
 
@@ -945,6 +988,12 @@ static int cpr3_mmss_regulator_probe(struct platform_device *pdev)
 			rc);
 		return rc;
 	}
+
+	match = of_match_node(cpr_regulator_match_table, dev->of_node);
+	if (match)
+		ctrl->soc_revision = (uintptr_t)match->data;
+	else
+		cpr3_err(ctrl, "could not find compatible string match\n");
 
 	rc = cpr3_map_fuse_base(ctrl, pdev);
 	if (rc) {

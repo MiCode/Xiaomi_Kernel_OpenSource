@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -507,6 +507,13 @@ static int parse_cluster_level(struct device_node *node,
 	if (ret)
 		goto failed;
 
+	key = "qcom,reset-level";
+	ret = of_property_read_u32(node, key, &level->reset_level);
+	if (ret == -EINVAL)
+		level->reset_level = LPM_RESET_LVL_NONE;
+	else if (ret)
+		goto failed;
+
 	cluster->nlevels++;
 	return 0;
 failed:
@@ -563,6 +570,9 @@ static int parse_cpu_mode(struct device_node *n, struct lpm_cpu_level *l)
 					n->name);
 			return ret;
 		}
+		key = "qcom,hyp-psci";
+
+		l->hyp_psci = of_property_read_bool(n, key);
 	} else {
 		l->mode = parse_cpu_spm_mode(l->name);
 
@@ -658,6 +668,13 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 
 		key = "qcom,jtag-save-restore";
 		l->jtag_save_restore = of_property_read_bool(n, key);
+
+		key = "qcom,reset-level";
+		ret = of_property_read_u32(n, key, &l->reset_level);
+		if (ret == -EINVAL)
+			l->reset_level = LPM_RESET_LVL_NONE;
+		else if (ret)
+			goto failed;
 	}
 	return 0;
 failed:

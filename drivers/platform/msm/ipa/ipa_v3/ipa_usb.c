@@ -2173,10 +2173,10 @@ int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		goto bad_params;
 	}
 
-	if (!ipa3_usb_set_state(IPA_USB_INVALID, false, ttype))
-			IPA_USB_ERR("failed to change state to invalid\n");
 	if (IPA3_USB_IS_TTYPE_DPL(ttype) ||
 		(ipa3_usb_ctx->num_init_prot == 0)) {
+		if (!ipa3_usb_set_state(IPA_USB_INVALID, false, ttype))
+			IPA_USB_ERR("failed to change state to invalid\n");
 		ipa_rm_delete_resource(
 			ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_params.name);
 		ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx.prod_valid = false;

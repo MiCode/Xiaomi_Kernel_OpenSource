@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
 #include <linux/ion.h>
 #include <linux/msm_ion.h>
 #include <linux/delay.h>
@@ -499,18 +498,20 @@ static int msm_jpegdma_open(struct file *file)
 		ret = PTR_ERR(ctx->m2m_ctx);
 		goto error_m2m_init;
 	}
+	ret = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_JPEG,
+			CAM_AHB_SVS_VOTE);
+	if (ret < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		goto ahb_vote_fail;
+	}
 	init_completion(&ctx->completion);
 	complete_all(&ctx->completion);
 	dev_dbg(ctx->jdma_device->dev, "Jpeg v4l2 dma open success\n");
 
-	ret = cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG, CAMERA_AHB_SVS_VOTE);
-	if (ret < 0) {
-		pr_err("%s: failed to vote for AHB\n", __func__);
-		goto error_m2m_init;
-	}
-
 	return 0;
 
+ahb_vote_fail:
+	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 error_m2m_init:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
@@ -526,6 +527,8 @@ static int msm_jpegdma_release(struct file *file)
 {
 	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(file->private_data);
 
+	/* release all the resources */
+	msm_jpegdma_hw_put(ctx->jdma_device);
 	atomic_set(&ctx->active, 0);
 	complete_all(&ctx->completion);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
@@ -533,8 +536,8 @@ static int msm_jpegdma_release(struct file *file)
 	v4l2_fh_exit(&ctx->fh);
 	kfree(ctx);
 
-	if (cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG,
-		CAMERA_AHB_SUSPEND_VOTE) < 0)
+	if (cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_JPEG,
+		CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 
 	return 0;
@@ -1188,17 +1191,26 @@ static int jpegdma_probe(struct platform_device *pdev)
 	init_completion(&jpegdma->hw_reset_completion);
 	init_completion(&jpegdma->hw_halt_completion);
 	jpegdma->dev = &pdev->dev;
+	jpegdma->pdev = pdev;
+
+	if (pdev->dev.of_node)
+		of_property_read_u32((&pdev->dev)->of_node, "cell-index",
+			&pdev->id);
 
 	/* Get resources */
 	ret = msm_jpegdma_hw_get_mem_resources(pdev, jpegdma);
 	if (ret < 0)
 		goto error_mem_resources;
 
-	ret = msm_jpegdma_hw_get_regulators(jpegdma);
+	/* get all the regulators */
+	ret = msm_camera_get_regulator_info(pdev, &jpegdma->vdd,
+		&jpegdma->num_reg);
 	if (ret < 0)
 		goto error_get_regulators;
 
-	ret = msm_jpegdma_hw_get_clocks(jpegdma);
+	/* get all the clocks */
+	ret = msm_camera_get_clk_info(pdev, &jpegdma->jpeg_clk_info,
+		&jpegdma->clk, &jpegdma->num_clk);
 	if (ret < 0)
 		goto error_get_clocks;
 
@@ -1214,13 +1226,33 @@ static int jpegdma_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto error_prefetch_get;
 
-	ret = msm_jpegdma_hw_request_irq(pdev, jpegdma);
-	if (ret < 0)
-		goto error_hw_get_request_irq;
+	/* get the irq resource */
+	jpegdma->irq = msm_camera_get_irq(pdev, "jpeg");
+	if (!jpegdma->irq)
+		goto error_hw_get_irq;
+
+	switch (pdev->id) {
+	case 3:
+		jpegdma->bus_client = CAM_BUS_CLIENT_JPEG_DMA;
+		break;
+	default:
+		pr_err("%s: invalid cell id :%d\n",
+			__func__, pdev->id);
+		goto error_reg_bus;
+	}
+
+	/* register bus client */
+	ret = msm_camera_register_bus_client(pdev,
+			jpegdma->bus_client);
+	if (ret < 0) {
+		pr_err("Fail to register bus client\n");
+		ret = -EINVAL;
+		goto error_reg_bus;
+	}
 
 	ret = msm_jpegdma_hw_get_capabilities(jpegdma);
 	if (ret < 0)
-		goto error_hw_get_request_irq;
+		goto error_hw_get_cap;
 
 	/* mem2mem device */
 	jpegdma->m2m_dev = v4l2_m2m_init(&msm_jpegdma_m2m_ops);
@@ -1265,17 +1297,21 @@ error_video_register:
 error_v4l2_register:
 	v4l2_m2m_release(jpegdma->m2m_dev);
 error_m2m_init:
-	msm_jpegdma_hw_release_irq(jpegdma);
-error_hw_get_request_irq:
+error_hw_get_cap:
+	msm_camera_unregister_bus_client(jpegdma->bus_client);
+error_reg_bus:
+error_hw_get_irq:
 	msm_jpegdma_hw_put_prefetch(jpegdma);
 error_prefetch_get:
 	msm_jpegdma_hw_put_vbif(jpegdma);
 error_vbif_get:
 	msm_jpegdma_hw_put_qos(jpegdma);
 error_qos_get:
-	msm_jpegdma_hw_put_clocks(jpegdma);
+	msm_camera_put_clk_info(pdev, &jpegdma->jpeg_clk_info,
+		&jpegdma->clk, jpegdma->num_clk);
 error_get_clocks:
-	msm_jpegdma_hw_put_regulators(jpegdma);
+	msm_camera_put_regulators(pdev, &jpegdma->vdd,
+		jpegdma->num_reg);
 error_get_regulators:
 	msm_jpegdma_hw_release_mem_resources(jpegdma);
 error_mem_resources:
@@ -1299,9 +1335,14 @@ static int jpegdma_device_remove(struct platform_device *pdev)
 	video_unregister_device(&dma->video);
 	v4l2_device_unregister(&dma->v4l2_dev);
 	v4l2_m2m_release(dma->m2m_dev);
-	msm_jpegdma_hw_release_irq(dma);
-	msm_jpegdma_hw_put_clocks(dma);
-	msm_jpegdma_hw_put_regulators(dma);
+	/* unregister bus client */
+	msm_camera_unregister_bus_client(dma->bus_client);
+	/* release all the regulators */
+	msm_camera_put_regulators(dma->pdev, &dma->vdd,
+		dma->num_reg);
+	/* release all the clocks */
+	msm_camera_put_clk_info(dma->pdev, &dma->jpeg_clk_info,
+		&dma->clk, dma->num_clk);
 	msm_jpegdma_hw_release_mem_resources(dma);
 	kfree(dma);
 

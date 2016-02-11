@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -354,6 +354,7 @@ struct hdcp_lib_handle {
 	enum hdcp_state hdcp_state;
 	enum hdcp_lib_wakeup_cmd wakeup_cmd;
 	bool repeater_flag;
+	bool update_stream;
 	bool tethered;
 	struct qseecom_handle *qseecom_handle;
 	int last_msg_sent;
@@ -452,6 +453,13 @@ static int hdcp_lib_enable_encryption(struct hdcp_lib_handle *handle)
 	struct hdcp_set_hw_key_req *req_buf;
 	struct hdcp_set_hw_key_rsp *rsp_buf;
 
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_err("invalid handle\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
 	/*
 	 * wait at least 200ms before enabling encryption
 	 * as per hdcp2p2 sepcifications.
@@ -548,8 +556,10 @@ static int hdcp_lib_library_unload(struct hdcp_lib_handle *handle)
 	struct hdcp_deinit_req *req_buf;
 	struct hdcp_deinit_rsp *rsp_buf;
 
-	if (!handle) {
-		pr_err("invalid input\n");
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_err("invalid handle\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
@@ -593,9 +603,11 @@ static int hdcp_lib_txmtr_init(struct hdcp_lib_handle *handle)
 	struct hdcp_init_req *req_buf;
 	struct hdcp_init_rsp *rsp_buf;
 
-	if (!handle) {
-		pr_err("invalid input\n");
-		return -EINVAL;
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_err("invalid handle\n");
+		rc = -EINVAL;
+		goto exit;
 	}
 
 	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
@@ -653,8 +665,9 @@ static int hdcp_lib_txmtr_deinit(struct hdcp_lib_handle *handle)
 	struct hdcp_deinit_req *req_buf;
 	struct hdcp_deinit_rsp *rsp_buf;
 
-	if (!handle) {
-		pr_err("invalid input\n");
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_err("invalid handle\n");
 		rc = -EINVAL;
 		goto exit;
 	}
@@ -703,8 +716,14 @@ static void hdcp_lib_stream(struct hdcp_lib_handle *handle)
 	struct hdcp_query_stream_type_req *req_buf;
 	struct hdcp_query_stream_type_rsp *rsp_buf;
 
-	if (!handle) {
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
 		pr_err("invalid handle\n");
+		return;
+	}
+
+	if (atomic_read(&handle->hdcp_off)) {
+		pr_debug("invalid state, hdcp off\n");
 		return;
 	}
 
@@ -837,12 +856,12 @@ static int hdcp_lib_check_valid_state(struct hdcp_lib_handle *handle)
 		}
 	} else {
 		if (atomic_read(&handle->hdcp_off)) {
-			pr_warn("hdcp2.2 session tearing down\n");
+			pr_debug("hdcp2.2 session tearing down\n");
 			goto exit;
 		}
 
 		if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
-			pr_warn("hdcp 2.2 app not loaded\n");
+			pr_debug("hdcp 2.2 app not loaded\n");
 			goto exit;
 		}
 	}
@@ -921,7 +940,8 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 	switch (handle->wakeup_cmd) {
 	case HDCP_LIB_WKUP_CMD_START:
 		handle->no_stored_km_flag = 0;
-		handle->repeater_flag = 0;
+		handle->repeater_flag = false;
+		handle->update_stream = false;
 		handle->last_msg_sent = 0;
 		handle->hdcp_timeout = 0;
 		handle->timeout_left = 0;
@@ -983,6 +1003,10 @@ static void hdcp_lib_msg_sent(struct hdcp_lib_handle *handle)
 
 		if (!hdcp_lib_enable_encryption(handle)) {
 			cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS;
+			hdcp_lib_wakeup_client(handle, &cdata);
+
+			/* poll for link check */
+			cdata.cmd = HDMI_HDCP_WKUP_CMD_LINK_POLL;
 		} else {
 			if (!atomic_read(&handle->hdcp_off))
 				HDCP_LIB_EXECUTE(clean);
@@ -990,6 +1014,13 @@ static void hdcp_lib_msg_sent(struct hdcp_lib_handle *handle)
 		break;
 	case REPEATER_AUTH_SEND_ACK_MESSAGE_ID:
 		pr_debug("Repeater authentication successful\n");
+
+		if (handle->update_stream) {
+			HDCP_LIB_EXECUTE(stream);
+			handle->update_stream = false;
+		} else {
+			cdata.cmd = HDMI_HDCP_WKUP_CMD_LINK_POLL;
+		}
 		break;
 	default:
 		cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
@@ -1055,8 +1086,14 @@ static void hdcp_lib_timeout(struct hdcp_lib_handle *handle)
 	struct hdcp_send_timeout_req *req_buf;
 	struct hdcp_send_timeout_rsp *rsp_buf;
 
-	if (!handle) {
-		pr_err("invalid handle\n");
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_debug("invalid handle\n");
+		return;
+	}
+
+	if (atomic_read(&handle->hdcp_off)) {
+		pr_debug("invalid state, hdcp off\n");
 		return;
 	}
 
@@ -1105,6 +1142,8 @@ static void hdcp_lib_timeout(struct hdcp_lib_handle *handle)
 			hdcp_lib_send_message(handle);
 		}
 	}
+
+	return;
 error:
 	if (!atomic_read(&handle->hdcp_off))
 		HDCP_LIB_EXECUTE(clean);
@@ -1157,8 +1196,14 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 	uint32_t msglen;
 	char *msg;
 
-	if (!handle) {
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
 		pr_err("invalid handle\n");
+		return;
+	}
+
+	if (atomic_read(&handle->hdcp_off)) {
+		pr_debug("invalid state, hdcp off\n");
 		return;
 	}
 
@@ -1222,6 +1267,8 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 	if ((msg[0] == REPEATER_AUTH_STREAM_READY_MESSAGE_ID) &&
 			(rc == 0) && (rsp_buf->status == 0)) {
 		pr_debug("Got Auth_Stream_Ready, nothing sent to rx\n");
+
+		cdata.cmd = HDMI_HDCP_WKUP_CMD_LINK_POLL;
 		goto exit;
 	}
 
@@ -1252,7 +1299,8 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 		if ((rsp_buf->flag ==
 			HDCP_TXMTR_SUBSTATE_WAITING_FOR_RECIEVERID_LIST) &&
 						(rsp_buf->timeout > 0))
-			handle->repeater_flag = 1;
+			handle->repeater_flag = true;
+			handle->update_stream = true;
 	}
 
 	memset(handle->listener_buf, 0, MAX_TX_MESSAGE_SIZE);

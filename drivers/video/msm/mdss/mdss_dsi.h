@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -374,7 +374,7 @@ struct dsi_err_container {
 #define DSI_CTRL_CLK_MASTER	DSI_CTRL_LEFT
 
 #define DSI_EV_PLL_UNLOCKED		0x0001
-#define DSI_EV_MDP_FIFO_UNDERFLOW	0x0002
+#define DSI_EV_DLNx_FIFO_UNDERFLOW	0x0002
 #define DSI_EV_DSI_FIFO_EMPTY		0x0004
 #define DSI_EV_DLNx_FIFO_OVERFLOW	0x0008
 #define DSI_EV_LP_RX_TIMEOUT		0x0010
@@ -461,8 +461,11 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds post_panel_on_cmds;
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds status_cmds;
-	u32 status_cmds_rlen;
+	u32 *status_valid_params;
+	u32 *status_cmds_rlen;
 	u32 *status_value;
+	unsigned char *return_buf;
+	u32 groups; /* several alternative values to compare */
 	u32 status_error_count;
 	u32 max_status_error_count;
 
@@ -532,6 +535,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct workqueue_struct *workq;
 	struct delayed_work dba_work;
 	bool timing_db_mode;
+	bool update_phy_timing; /* flag to recalculate PHY timings */
 };
 
 struct dsi_status_data {
@@ -574,7 +578,7 @@ void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);
 int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 			    int frame_rate);
-int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata);
+int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata, bool update_phy);
 int mdss_dsi_link_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_link_clk_deinit(struct device *dev,
@@ -623,7 +627,7 @@ void mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl, bool print_en);
 void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl);
-u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
+int mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len);
 int mdss_dsi_panel_init(struct device_node *node,
 		struct mdss_dsi_ctrl_pdata *ctrl_pdata,

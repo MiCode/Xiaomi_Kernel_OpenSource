@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/msm/pm.h>
+
 &soc {
 	qcom,spm@b009000 {
 		compatible = "qcom,spm-v2";
@@ -75,6 +77,7 @@
 				qcom,time-overhead = <540>;
 				qcom,min-child-idx = <2>;
 				qcom,notify-rpm;
+				qcom,reset-level = <LPM_RESET_LVL_PC>;
 			};
 
 			qcom,pm-cpu {
@@ -99,6 +102,7 @@
 					qcom,time-overhead = <420>;
 					qcom,use-broadcast-timer;
 					qcom,is-reset;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
 				};
 
 				qcom,pm-cpu-level@2 {
@@ -110,6 +114,7 @@
 					qcom,time-overhead = <500>;
 					qcom,use-broadcast-timer;
 					qcom,is-reset;
+					qcom,reset-level = <LPM_RESET_LVL_PC>;
 				};
 			};
 		};
@@ -127,7 +132,6 @@
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
 			<49 172>, /* usb1_hs_async_wakeup_irq */
-			<50 173>, /* hsic_core_irq */
 			<51 174>, /* usb2_hs_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<58 166>, /* usb_hs_irq */
@@ -156,6 +160,7 @@
 			<0xff 164>, /* qpic_bam_irq[0] */
 			<0xff 168>,
 			<0xff 170>, /* sdc1_pwr_cmd_irq */
+			<0xff 173>, /* hsic_core_irq */
 			<0xff 192>, /* audio_out0_irq */
 			<0xff 198>, /* qdss_etrbytecnt_irq */
 			<0xff 200>, /* rpm_ipc(4) */

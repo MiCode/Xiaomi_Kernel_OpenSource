@@ -2820,14 +2820,15 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	if (!entry)
 		return DIAG_DCI_NOT_SUPPORTED;
 
-	token = entry->client_info.token;
-
 	mutex_lock(&driver->dci_mutex);
+
+	token = entry->client_info.token;
 	/*
 	 * Remove the entry from the list before freeing the buffers
 	 * to ensure that we don't have any invalid access.
 	 */
-	list_del(&entry->track);
+	if (!list_empty(&entry->track))
+		list_del(&entry->track);
 	driver->num_dci_client--;
 	/*
 	 * Clear the client's log and event masks, update the cumulative
@@ -2856,7 +2857,8 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 		req_entry = list_entry(start, struct dci_pkt_req_entry_t,
 				       track);
 		if (req_entry->client_id == entry->client_info.client_id) {
-			list_del(&req_entry->track);
+			if (!list_empty(&req_entry->track))
+				list_del(&req_entry->track);
 			kfree(req_entry);
 		}
 	}
@@ -2865,7 +2867,8 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	mutex_lock(&entry->write_buf_mutex);
 	list_for_each_entry_safe(buf_entry, temp, &entry->list_write_buf,
 							buf_track) {
-		list_del(&buf_entry->buf_track);
+		if (!list_empty(&buf_entry->buf_track))
+			list_del(&buf_entry->buf_track);
 		if (buf_entry->buf_type == DCI_BUF_SECONDARY) {
 			mutex_lock(&buf_entry->data_mutex);
 			diagmem_free(driver, buf_entry->data, POOL_TYPE_DCI);

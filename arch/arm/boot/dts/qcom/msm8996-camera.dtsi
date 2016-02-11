@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -341,7 +341,7 @@
 			0xcccc0011
 			0x40000103>;
 		max-clk-svs = <300000000>;
-		max-clk-nominal = <465000000>;
+		max-clk-nominal = <480000000>;
 		max-clk-turbo = <600000000>;
 	};
 
@@ -413,7 +413,7 @@
 			0xcccc0011
 			0x40000103>;
 		max-clk-svs = <300000000>;
-		max-clk-nominal = <465000000>;
+		max-clk-nominal = <480000000>;
 		max-clk-turbo = <600000000>;
 	};
 
@@ -471,7 +471,7 @@
 		compatible = "qcom,jpeg";
 		reg = <0xa1c000 0x4000>,
 			<0xa60000 0x3000>;
-		reg-names = "jpeg";
+		reg-names = "jpeg_hw", "jpeg_vbif";
 		interrupts = <0 316 0>;
 		interrupt-names = "jpeg";
 		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
@@ -497,6 +497,11 @@
 			<0x324 0x31>,
 			<0x330 0x31>,
 			<0x33c 0x0>;
+		qcom,msm-bus,name = "msm_camera_jpeg0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
 		status = "ok";
 	};
 
@@ -505,7 +510,7 @@
 		compatible = "qcom,jpeg";
 		reg = <0xa24000 0x4000>,
 			<0xa60000 0x3000>;
-		reg-names = "jpeg";
+		reg-names = "jpeg_hw", "jpeg_vbif";
 		interrupts = <0 318 0>;
 		interrupt-names = "jpeg";
 		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
@@ -531,6 +536,11 @@
 			<0x324 0x31>,
 			<0x330 0x31>,
 			<0x33c 0x31>;
+		qcom,msm-bus,name = "msm_camera_jpeg2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
 		status = "ok";
 	};
 
@@ -539,7 +549,7 @@
 		compatible = "qcom,jpeg_dma";
 		reg = <0xaa0000 0x4000>,
 			<0xa60000 0x3000>;
-		reg-names = "jpeg";
+		reg-names = "jpeg_hw", "jpeg_vbif";
 		interrupts = <0 304 0>;
 		interrupt-names = "jpeg";
 		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
@@ -563,6 +573,11 @@
 		qcom,prefetch-reg-settings = <0x18c 0x11>,
 			<0x1a0 0x31>,
 			<0x1b0 0x31>;
+		qcom,msm-bus,name = "msm_camera_jpeg_dma";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
 		status = "ok";
 	};
 
@@ -604,7 +619,7 @@
 			"camss_cpp_axi_clk", "camss_cpp_clk",
 			"micro_iface_clk", "camss_ahb_clk",
 			"smmu_cpp_axi_clk", "cpp_vbif_ahb_clk";
-		qcom,clock-rates = <0 0 0 465000000 0 0 465000000 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 480000000 0 0 480000000 0 0 0 0>;
 		qcom,min-clock-rate = <200000000>;
 		qcom,bus-master = <1>;
 		qcom,vbif-qos-setting = <0x20 0x10000000>,
@@ -671,11 +686,18 @@
 			"smmu_cpp_axi_clk", "camss_ahb_clk",
 			"camss_cpp_axi_clk", "cpp_vbif_ahb_clk",
 			"smmu_cpp_ahb_clk";
-		clock-rates = <0 0 0 400000000 400000000>,
-			<400000000 80000000 0 0 0 0 0>;
-		qcom,bus-bandwidth-vectors = <13000000 13000000>,
-			<45000000 45000000>,
-			<90000000 90000000>;
+		qcom,clock-rates =
+			<0 0 0 400000000 400000000 0 0 0 0 0 0 0>,
+			<0 0 0 400000000 400000000 0 0 0 0 0 0 0>,
+			<0 0 0 200000000 200000000 0 0 0 0 0 0 0>,
+			<0 0 0 100000000 100000000 0 0 0 0 0 0 0>;
+		qcom,msm-bus,name = "msm_camera_fd";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <106 512 0 0>,
+			<106 512 13000 13000>,
+			<106 512 13000 13000>,
+			<106 512 13000 13000>;
 		qcom,fd-vbif-reg-settings = <0x20 0x10000000 0x30000000>,
 			<0x24 0x10000000 0x30000000>,
 			<0x28 0x10000000 0x30000000>,
@@ -738,44 +760,47 @@
 };
 
 &i2c_freq_100Khz {
-	qcom,hw-thigh = <78>;
-	qcom,hw-tlow = <114>;
-	qcom,hw-tsu-sto = <28>;
-	qcom,hw-tsu-sta = <28>;
-	qcom,hw-thd-dat = <10>;
-	qcom,hw-thd-sta = <77>;
-	qcom,hw-tbuf = <118>;
+	qcom,hw-thigh = <201>;
+	qcom,hw-tlow = <174>;
+	qcom,hw-tsu-sto = <204>;
+	qcom,hw-tsu-sta = <231>;
+	qcom,hw-thd-dat = <22>;
+	qcom,hw-thd-sta = <162>;
+	qcom,hw-tbuf = <227>;
 	qcom,hw-scl-stretch-en = <0>;
 	qcom,hw-trdhld = <6>;
-	qcom,hw-tsp = <1>;
+	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
 	status = "ok";
 };
 
 &i2c_freq_400Khz {
-	qcom,hw-thigh = <20>;
-	qcom,hw-tlow = <28>;
-	qcom,hw-tsu-sto = <21>;
-	qcom,hw-tsu-sta = <21>;
-	qcom,hw-thd-dat = <13>;
-	qcom,hw-thd-sta = <18>;
-	qcom,hw-tbuf = <32>;
+	qcom,hw-thigh = <38>;
+	qcom,hw-tlow = <56>;
+	qcom,hw-tsu-sto = <40>;
+	qcom,hw-tsu-sta = <40>;
+	qcom,hw-thd-dat = <22>;
+	qcom,hw-thd-sta = <35>;
+	qcom,hw-tbuf = <62>;
 	qcom,hw-scl-stretch-en = <0>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
 	status = "ok";
 };
 
 &i2c_freq_custom {
-	qcom,hw-thigh = <15>;
-	qcom,hw-tlow = <28>;
-	qcom,hw-tsu-sto = <21>;
-	qcom,hw-tsu-sta = <21>;
-	qcom,hw-thd-dat = <13>;
-	qcom,hw-thd-sta = <18>;
-	qcom,hw-tbuf = <25>;
+	qcom,hw-thigh = <38>;
+	qcom,hw-tlow = <56>;
+	qcom,hw-tsu-sto = <40>;
+	qcom,hw-tsu-sta = <40>;
+	qcom,hw-thd-dat = <22>;
+	qcom,hw-thd-sta = <35>;
+	qcom,hw-tbuf = <62>;
 	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
 	status = "ok";
 };
 
@@ -786,8 +811,8 @@
 	qcom,hw-tsu-sta = <18>;
 	qcom,hw-thd-dat = <16>;
 	qcom,hw-thd-sta = <15>;
-	qcom,hw-tbuf = <19>;
-	qcom,hw-scl-stretch-en = <1>;
+	qcom,hw-tbuf = <24>;
+	qcom,hw-scl-stretch-en = <0>;
 	qcom,hw-trdhld = <3>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;

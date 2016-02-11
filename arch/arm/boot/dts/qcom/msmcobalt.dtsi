@@ -25,6 +25,11 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -34,14 +39,21 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			qcom,limits-info = <&mitigation_profile0>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
+				  qcom,dump-size = <0x0>;      /* A53 L2 dump not supported */
 			};
-
+			L1_I_0: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9040>;
+			};
+			L1_D_0: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9040>;
+			};
 		};
 
 		CPU1: cpu@1 {
@@ -49,9 +61,16 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x1>;
 			qcom,limits-info = <&mitigation_profile1>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			L1_I_1: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9040>;
+			};
+			L1_D_1: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9040>;
+			};
 		};
 
 		CPU2: cpu@2 {
@@ -59,9 +78,16 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x2>;
 			qcom,limits-info = <&mitigation_profile2>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			L1_I_2: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9040>;
+			};
+			L1_D_2: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9040>;
+			};
 		};
 
 		CPU3: cpu@3 {
@@ -69,9 +95,16 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x3>;
 			qcom,limits-info = <&mitigation_profile3>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			L1_I_3: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9040>;
+			};
+			L1_D_3: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x9040>;
+			};
 		};
 
 		CPU4: cpu@100 {
@@ -79,12 +112,19 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			qcom,limits-info = <&mitigation_profile4>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
-			      compatible = "arm,arch-cache";
-			      cache-level = <2>;
+				compatible = "arm,arch-cache";
+				cache-level = <2>;
+			};
+			L1_I_100: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
+			L1_D_100: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
 			};
 		};
 
@@ -93,9 +133,16 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x101>;
 			qcom,limits-info = <&mitigation_profile5>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			L1_I_101: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
+			L1_D_101: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
 		};
 
 		CPU6: cpu@102 {
@@ -103,9 +150,16 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x102>;
 			qcom,limits-info = <&mitigation_profile6>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			L1_I_102: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
+			L1_D_102: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
 		};
 
 		CPU7: cpu@103 {
@@ -113,9 +167,16 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x103>;
 			qcom,limits-info = <&mitigation_profile7>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			L1_I_103: l1-icache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
+			L1_D_103: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x12000>;
+			};
 		};
 
 		cpu-map {
@@ -215,11 +276,18 @@
 
 	timer {
 		compatible = "arm,armv8-timer";
-		interrupts = <1 2 0xf08>,
+		interrupts = <1 1 0xf08>,
+			     <1 2 0xf08>,
 			     <1 3 0xf08>,
-			     <1 4 0xf08>,
-			     <1 1 0xf08>;
+			     <1 0 0xf08>;
 		clock-frequency = <19200000>;
+	};
+
+	restart@10ac000 {
+		compatible = "qcom,pshold";
+		reg = <0x10ac000 0x4>,
+		      <0x1fd3000 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
 	uartblsp1dm1: serial@0c170000 {
@@ -252,50 +320,50 @@
 
 		frame@17921000 {
 			frame-number = <0>;
-			interrupts = <0 31 0x4>,
-				     <0 30 0x4>;
+			interrupts = <0 8 0x4>,
+				     <0 7 0x4>;
 			reg = <0x17921000 0x1000>,
 			      <0x17922000 0x1000>;
 		};
 
 		frame@17923000 {
 			frame-number = <1>;
-			interrupts = <0 32 0x4>;
+			interrupts = <0 9 0x4>;
 			reg = <0x17923000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17924000 {
 			frame-number = <2>;
-			interrupts = <0 33 0x4>;
+			interrupts = <0 10 0x4>;
 			reg = <0x17924000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17925000 {
 			frame-number = <3>;
-			interrupts = <0 34 0x4>;
+			interrupts = <0 11 0x4>;
 			reg = <0x17925000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17926000 {
 			frame-number = <4>;
-			interrupts = <0 35 0x4>;
+			interrupts = <0 12 0x4>;
 			reg = <0x17926000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17927000 {
 			frame-number = <5>;
-			interrupts = <0 36 0x4>;
+			interrupts = <0 13 0x4>;
 			reg = <0x17927000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17928000 {
 			frame-number = <6>;
-			interrupts = <0 37 0x4>;
+			interrupts = <0 14 0x4>;
 			reg = <0x17928000 0x1000>;
 			status = "disabled";
 		};
@@ -325,12 +393,45 @@
 	};
 
 	clock_mmss: qcom,mmsscc@c8c0000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,mmsscc-cobalt";
+		reg = <0xc8c0000 0x40000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pmcobalt_s1_level>;
+		clock-names = "xo", "gpll0", "gpll0_div";
+		clocks = <&clock_gcc clk_cxo_clk_src>,
+			 <&clock_gcc clk_gpll0_out_main>,
+			 <&clock_gcc clk_gcc_mmss_gpll0_div_clk>;
 		#clock-cells = <1>;
 	};
 
 	clock_gpu: qcom,gpucc@5065000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gpucc-cobalt";
+		reg = <0x5065000 0x9000>,
+			<0x50660a0 0x8>;
+		reg-names = "cc_base", "crc_sid_fsm";
+		vdd_gpucc-supply = <&pm8005_s1>;
+		vdd_dig-supply = <&pmcobalt_s1_level>;
+		vdd_mx-supply = <&pmcobalt_s9_level>;
+		vdd_gpu_mx-supply = <&pmcobalt_s9_level>;
+		clock-names = "xo", "gpll0";
+		clocks = <&clock_gcc clk_cxo_clk_src>,
+			<&clock_gcc clk_gpll0_out_main>;
+		qcom,gfxfreq-speedbin0 =
+			<	  0	 0			     0 >,
+			< 171000000 520000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 251000000 570000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 332000000 630000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 403000000 680000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 504000000 745000 RPM_SMD_REGULATOR_LEVEL_NOM >,
+			< 650000000 855000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
+		qcom,gfxfreq-mx-speedbin0 =
+			<         0			      0 >,
+			< 171000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 251000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 332000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 403000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
+			< 504000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
+			< 650000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
 		#clock-cells = <1>;
 	};
 
@@ -338,6 +439,9 @@
 		compatible = "qcom,cc-debug-cobalt";
 		reg = <0x162000 0x4>;
 		reg-names = "cc_base";
+		clock-names = "debug_gpu_clk", "debug_mmss_clk";
+		clocks = <&clock_gpu clk_gpucc_gcc_dbg_clk>,
+			 <&clock_mmss clk_mmss_debug_mux>;
 		#clock-cells = <1>;
 	};
 
@@ -347,6 +451,8 @@
 
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa3";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
 	};
 
 	ipa_hw: qcom,ipa@01e00000 {
@@ -377,6 +483,16 @@
 		<90 512 206000 960000>, <90 585 206000 960000>,    /* NOMINAL */
 		<90 512 206000 3600000>, <90 585 206000 3600000>;    /* TURBO */
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+	};
+
+	qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		qcom,threshold-arr = <0x179880b0 0x179980b0
+		0x179a80b0 0x179b80b0 0x178880b0 0x178980b0
+		0x178a80b0 0x178b80b0>;
+		qcom,config-arr = <0x179880b8 0x179980b8
+		0x179a80b8 0x179b80b8 0x178880b8 0x178980b8
+		0x178a80b8 0x178b80b8>;
 	};
 
 	qcom,ipc-spinlock@1f40000 {
@@ -1241,10 +1357,10 @@
 		vdd-supply = <&gdsc_venus>;
 		qcom,proxy-reg-names = "vdd";
 
-		clocks = <&clock_mmss clk_video_core_clk>,
-			 <&clock_mmss clk_video_ahb_clk>,
-			 <&clock_mmss clk_video_axi_clk>,
-			 <&clock_mmss clk_video_maxi_clk>;
+		clocks = <&clock_mmss clk_mmss_video_core_clk>,
+			 <&clock_mmss clk_mmss_video_ahb_clk>,
+			 <&clock_mmss clk_mmss_video_axi_clk>,
+			 <&clock_mmss clk_mmss_video_maxi_clk>;
 		clock-names = "core_clk", "iface_clk",
 			      "bus_clk", "maxi_clk";
 		qcom,proxy-clock-names = "core_clk", "iface_clk",
@@ -1267,6 +1383,32 @@
 		qcom,wakeup-enable;
 	};
 
+	qcom,spss@1d00000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x1d00000 0x20000>;
+		reg-names = "sp_scsr_base";
+		interrupts = <0 352 1>;
+
+		vdd_cx-supply = <&pmcobalt_s1_level>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
+
+		clocks = <&clock_gcc clk_cxo_pil_spss_clk>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+		qcom,pil-generic-irq-handler;
+
+		qcom,pas-id = <14>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,firmware-name = "spss";
+		memory-region = <&peripheral_mem>;
+	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
+	};
+
 	qcom,msm-imem@146bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146bf000 0x1000>;
@@ -1278,8 +1420,96 @@
 			compatible = "qcom,msm-imem-mem_dump_table";
 			reg = <0x10 8>;
 		};
+
+		restart_reason@65c {
+			compatible = "qcom,msm-imem-restart_reason";
+			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
+		};
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
 	};
 
+	cpu_pmu: cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 6 4>;
+	};
+
+	cpuss_dump {
+		compatible = "qcom,cpuss-dump";
+		qcom,l1_i_cache0 {
+			qcom,dump-node = <&L1_I_0>;
+			qcom,dump-id = <0x60>;
+		};
+		qcom,l1_i_cache1 {
+			qcom,dump-node = <&L1_I_1>;
+			qcom,dump-id = <0x61>;
+		};
+		qcom,l1_i_cache2 {
+			qcom,dump-node = <&L1_I_2>;
+			qcom,dump-id = <0x62>;
+		};
+		qcom,l1_i_cache3 {
+			qcom,dump-node = <&L1_I_3>;
+			qcom,dump-id = <0x63>;
+		};
+		qcom,l1_i_cache100 {
+			qcom,dump-node = <&L1_I_100>;
+			qcom,dump-id = <0x64>;
+		};
+		qcom,l1_i_cache101 {
+			qcom,dump-node = <&L1_I_101>;
+			qcom,dump-id = <0x65>;
+		};
+		qcom,l1_i_cache102 {
+			qcom,dump-node = <&L1_I_102>;
+			qcom,dump-id = <0x66>;
+		};
+		qcom,l1_i_cache103 {
+			qcom,dump-node = <&L1_I_103>;
+			qcom,dump-id = <0x67>;
+		};
+		qcom,l1_d_cache0 {
+			qcom,dump-node = <&L1_D_0>;
+			qcom,dump-id = <0x80>;
+		};
+		qcom,l1_d_cache1 {
+			qcom,dump-node = <&L1_D_1>;
+			qcom,dump-id = <0x81>;
+		};
+		qcom,l1_d_cache2 {
+			qcom,dump-node = <&L1_D_2>;
+			qcom,dump-id = <0x82>;
+		};
+		qcom,l1_d_cache3 {
+			qcom,dump-node = <&L1_D_3>;
+			qcom,dump-id = <0x83>;
+		};
+		qcom,l1_d_cache100 {
+			qcom,dump-node = <&L1_D_100>;
+			qcom,dump-id = <0x84>;
+		};
+		qcom,l1_d_cache101 {
+			qcom,dump-node = <&L1_D_101>;
+			qcom,dump-id = <0x85>;
+		};
+		qcom,l1_d_cache102 {
+			qcom,dump-node = <&L1_D_102>;
+			qcom,dump-id = <0x86>;
+		};
+		qcom,l1_d_cache103 {
+			qcom,dump-node = <&L1_D_103>;
+			qcom,dump-id = <0x87>;
+		};
+	};
 };
 
 &gdsc_mmss {
@@ -1310,7 +1540,7 @@
 
 &gdsc_bimc_smmu {
 	clock-names = "bus_clk";
-	clocks = <&clock_mmss clk_bimc_smmu_axi_clk>;
+	clocks = <&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
 	status = "ok";
 };
 
@@ -1324,59 +1554,59 @@
 
 &gdsc_venus {
 	clock-names = "bus_clk", "maxi_clk", "core_clk";
-	clocks = <&clock_mmss clk_video_axi_clk>,
-		 <&clock_mmss clk_video_maxi_clk>,
-		 <&clock_mmss clk_video_core_clk>;
+	clocks = <&clock_mmss clk_mmss_video_axi_clk>,
+		 <&clock_mmss clk_mmss_video_maxi_clk>,
+		 <&clock_mmss clk_mmss_video_core_clk>;
 	status = "ok";
 };
 
 &gdsc_venus_core0 {
 	clock-names = "core0_clk";
-	clocks = <&clock_mmss clk_video_subcore0_clk>;
+	clocks = <&clock_mmss clk_mmss_video_subcore0_clk>;
 	status = "ok";
 };
 
 &gdsc_venus_core1 {
 	clock-names = "core1_clk";
-	clocks = <&clock_mmss clk_video_subcore1_clk>;
+	clocks = <&clock_mmss clk_mmss_video_subcore1_clk>;
 	status = "ok";
 };
 
 &gdsc_camss_top {
 	clock-names = "bus_clk", "vfe_axi";
-	clocks = <&clock_mmss clk_camss_cpp_axi_clk>,
-		 <&clock_mmss clk_camss_vfe_vbif_axi_clk>;
+	clocks = <&clock_mmss clk_mmss_camss_cpp_axi_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe_vbif_axi_clk>;
 	status = "ok";
 };
 
 &gdsc_vfe0 {
 	clock-names = "core0_clk" , "core0_stream_clk";
-	clocks = <&clock_mmss clk_camss_vfe0_clk>,
-		 <&clock_mmss clk_camss_vfe0_stream_clk>;
+	clocks = <&clock_mmss clk_mmss_camss_vfe0_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe0_stream_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_vfe1 {
 	clock-names = "core1_clk" , "core1_stream_clk";
-	clocks = <&clock_mmss clk_camss_vfe1_clk>,
-		 <&clock_mmss clk_camss_vfe1_stream_clk>;
+	clocks = <&clock_mmss clk_mmss_camss_vfe1_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe1_stream_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_cpp {
 	clock-names = "core_clk";
-	clocks = <&clock_mmss clk_camss_cpp_clk>;
+	clocks = <&clock_mmss clk_mmss_camss_cpp_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_mdss {
 	clock-names = "bus_clk", "core_clk", "root_clk";
-	clocks = <&clock_mmss clk_mdss_axi_clk>,
-		 <&clock_mmss clk_mdss_mdp_clk>,
-		 <&clock_mmss clk_mdss_rot_clk>;
+	clocks = <&clock_mmss clk_mmss_mdss_axi_clk>,
+		 <&clock_mmss clk_mmss_mdss_mdp_clk>,
+		 <&clock_mmss clk_mmss_mdss_rot_clk>;
 	status = "ok";
 };
 
@@ -1394,8 +1624,12 @@
 	status = "ok";
 };
 
+#include "msmcobalt-pm.dtsi"
 #include "msm-arm-smmu-cobalt.dtsi"
 #include "msmcobalt-ion.dtsi"
 #include "msm-pmcobalt-rpm-regulator.dtsi"
 #include "msmcobalt-regulator.dtsi"
 #include "msmcobalt-camera.dtsi"
+#include "msmcobalt-vidc.dtsi"
+#include "msmcobalt-coresight.dtsi"
+#include "msmcobalt-bus.dtsi"

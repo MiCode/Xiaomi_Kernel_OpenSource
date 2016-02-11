@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -133,6 +133,7 @@
 #define gpll0_source_val			1
 #define gpll2_source_val			1
 #define emac_0_125m_clk_source_val		1
+#define emac_0_tx_clk_source_val		2
 
 #define F(f, s, div, m, n) \
 	{ \

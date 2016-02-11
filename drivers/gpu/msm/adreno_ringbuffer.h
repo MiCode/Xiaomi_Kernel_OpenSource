@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,16 @@
 #define __ADRENO_RINGBUFFER_H
 
 #include "kgsl_iommu.h"
+#include "adreno_iommu.h"
 #include "adreno_dispatch.h"
+
+/* Given a ringbuffer, return the adreno device that owns it */
+
+#define _RB_OFFSET(_id) (offsetof(struct adreno_device, ringbuffers) + \
+		((_id) * sizeof(struct adreno_ringbuffer)))
+
+#define ADRENO_RB_DEVICE(_rb) \
+	((struct adreno_device *) (((void *) (_rb)) - _RB_OFFSET((_rb)->id)))
 
 /* Adreno ringbuffer size in bytes */
 #define KGSL_RB_SIZE (32 * 1024)
@@ -66,7 +75,6 @@ struct adreno_ringbuffer_pagetable_info {
 
 /**
  * struct adreno_ringbuffer - Definition for an adreno ringbuffer object
- * @device: KGSL device that owns the ringbuffer object
  * @flags: Internal control flags for the ringbuffer
  * @buffer_desc: Pointer to the ringbuffer memory descriptor
  * @wptr: Local copy of the wptr offset
@@ -83,8 +91,6 @@ struct adreno_ringbuffer_pagetable_info {
  * preemption info written/read by CP
  * @pagetable_desc: Memory to hold information about the pagetables being used
  * and the commands to switch pagetable on the RB
- * @pt_update_desc: The memory descriptor containing commands that update
- * pagetable
  * @dispatch_q: The dispatcher side queue for this ringbuffer
  * @ts_expire_waitq: Wait queue to wait for rb timestamp to expire
  * @ts_expire_waitq: Wait q to wait for rb timestamp to expire
@@ -97,7 +103,6 @@ struct adreno_ringbuffer_pagetable_info {
  * @starve_timer_state: Indicates the state of the wait.
  */
 struct adreno_ringbuffer {
-	struct kgsl_device *device;
 	uint32_t flags;
 	struct kgsl_memdesc buffer_desc;
 	unsigned int sizedwords;
@@ -111,7 +116,6 @@ struct adreno_ringbuffer {
 	struct adreno_context *drawctxt_active;
 	struct kgsl_memdesc preemption_desc;
 	struct kgsl_memdesc pagetable_desc;
-	struct kgsl_memdesc pt_update_desc;
 	struct adreno_dispatcher_cmdqueue dispatch_q;
 	wait_queue_head_t ts_expire_waitq;
 	unsigned int wptr_preempt_end;
@@ -184,12 +188,9 @@ int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 					unsigned int timestamp,
 					unsigned int msecs);
 
-int adreno_rb_readtimestamp(struct kgsl_device *device,
+int adreno_rb_readtimestamp(struct adreno_device *adreno_dev,
 	void *priv, enum kgsl_timestamp_type type,
 	unsigned int *timestamp);
-
-int adreno_ringbuffer_submit_preempt_token(struct adreno_ringbuffer *rb,
-					struct adreno_ringbuffer *incoming_rb);
 
 static inline int adreno_ringbuffer_count(struct adreno_ringbuffer *rb,
 	unsigned int rptr)
@@ -213,14 +214,10 @@ static inline unsigned int adreno_ringbuffer_dec_wrapped(unsigned int val,
 	return (val + size - sizeof(unsigned int)) % size;
 }
 
-/* check if timestamp is greater than the current rb timestamp */
-static inline int adreno_ringbuffer_check_timestamp(
-			struct adreno_ringbuffer *rb,
-			unsigned int timestamp, int type)
+static inline int adreno_ringbuffer_set_pt_ctx(struct adreno_ringbuffer *rb,
+		struct kgsl_pagetable *pt, struct adreno_context *context)
 {
-	unsigned int ts;
-	adreno_rb_readtimestamp(rb->device, rb, type, &ts);
-	return (timestamp_cmp(ts, timestamp) >= 0);
+	return adreno_iommu_set_pt_ctx(rb, pt, context);
 }
 
 #endif  /* __ADRENO_RINGBUFFER_H */
