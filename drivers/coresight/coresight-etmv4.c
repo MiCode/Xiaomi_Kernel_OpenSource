@@ -3003,6 +3003,10 @@ static void etm_init_arch_data(void *info)
 
 	ETM_UNLOCK(drvdata);
 
+	/* check the state of the fuse */
+	if (!coresight_authstatus_enabled(drvdata->base))
+		goto out;
+
 	/* find all capabilities */
 	/* tracing capabilities of trace unit */
 	etmidr0 = etm_readl(drvdata, TRCIDR0);
@@ -3182,7 +3186,7 @@ static void etm_init_arch_data(void *info)
 		drvdata->reduced_cntr_support = true;
 	else
 		drvdata->reduced_cntr_support = false;
-
+out:
 	ETM_LOCK(drvdata);
 }
 
@@ -3531,10 +3535,6 @@ static int etm_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device_node *cpu_node;
 
-	if (coresight_fuse_access_disabled() ||
-	    coresight_fuse_apps_access_disabled())
-		return -EPERM;
-
 	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
@@ -3587,9 +3587,6 @@ static int etm_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	/* parse clock gating control DT and disable clock gating */
-	etm_parse_cgc_data(pdev, drvdata);
-
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		goto err0;
@@ -3639,6 +3636,9 @@ static int etm_probe(struct platform_device *pdev)
 		drvdata->init = true;
 	}
 	mutex_unlock(&drvdata->mutex);
+
+	/* parse clock gating control DT and disable clock gating */
+	etm_parse_cgc_data(pdev, drvdata);
 
 	return 0;
 err1:
