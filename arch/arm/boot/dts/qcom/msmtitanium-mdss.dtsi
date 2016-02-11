@@ -159,6 +159,19 @@
 			qcom,mdss-dspp-pgc-off = <0x17c0>;
 		};
 
+		qcom,mdss-reg-bus {
+			/* Reg Bus Scale Settings */
+			qcom,msm-bus,name = "mdss_reg";
+			qcom,msm-bus,num-cases = <4>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<1 590 0 0>,
+				<1 590 0 76800>,
+				<1 590 0 160000>,
+				<1 590 0 320000>;
+		};
+
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
 			compatible = "qcom,smmu_mdp_unsec";
 		};
@@ -392,9 +405,20 @@
 
 		rot-vdd-supply = <&gdsc_mdss>;
 		qcom,supply-names = "rot-vdd";
-
+		qcom,mdss-has-reg-bus;
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
 			<&clock_gcc_mdss clk_mdss_rotator_vote_clk>;
 		clock-names = "iface_clk", "rot_core_clk";
+
+		qcom,mdss-rot-reg-bus {
+			/* Reg Bus Scale Settings */
+			qcom,msm-bus,name = "mdss_rot_reg";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<1 590 0 0>,
+				<1 590 0 76800>;
+		};
 	};
 };
