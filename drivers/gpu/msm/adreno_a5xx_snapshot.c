@@ -797,11 +797,10 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
-	unsigned int clock_ctl, reg;
+	unsigned int reg;
 
 	/* Disable Clock gating temporarily for the debug bus to work */
-	kgsl_regread(device, A5XX_RBBM_CLOCK_CNTL, &clock_ctl);
-	kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, 0);
+	a5xx_hwcg_set(adreno_dev, false);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
 		snapshot, a5xx_snapshot_registers, NULL);
