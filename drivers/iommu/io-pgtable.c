@@ -26,6 +26,7 @@
 #include <linux/iommu.h>
 #include <linux/debugfs.h>
 #include <linux/atomic.h>
+#include <linux/module.h>
 
 #include "io-pgtable.h"
 
