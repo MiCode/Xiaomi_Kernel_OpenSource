@@ -1369,6 +1369,7 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 		/* map_sg */
 		for (j = 0; j < ARRAY_SIZE(test_sg_sizes); ++j) {
 			size_t mapped;
+			size_t unused;
 			struct page *page;
 			phys_addr_t page_phys;
 			struct sg_table table;
@@ -1391,7 +1392,7 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 				sg_set_page(sg, page, chunk_size, 0);
 
 			mapped = ops->map_sg(ops, iova, table.sgl, table.nents,
-					     IOMMU_READ | IOMMU_WRITE);
+					     IOMMU_READ | IOMMU_WRITE, &unused);
 
 			if (mapped != total_size)
 				return __FAIL(ops, i);
