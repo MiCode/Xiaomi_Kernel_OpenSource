@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/qcom_iommu.h>
+#include <linux/module.h>
 
 #ifdef CONFIG_IOMMU_DEBUG_TRACKING
 
