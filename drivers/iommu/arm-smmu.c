@@ -2542,6 +2542,12 @@ static bool arm_smmu_capable(enum iommu_cap cap)
 	}
 }
 
+static int __arm_smmu_get_pci_sid(struct pci_dev *pdev, u16 alias, void *data)
+{
+	*((u16 *)data) = alias;
+	return 0; /* Continue walking */
+}
+
 static void __arm_smmu_release_pci_iommudata(void *data)
 {
 	kfree(data);
