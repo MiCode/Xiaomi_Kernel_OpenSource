@@ -2244,6 +2244,9 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	SPRINT("max_downscale_ratio=%d\n", MAX_DOWNSCALE_RATIO);
 	SPRINT("max_upscale_ratio=%d\n", MAX_UPSCALE_RATIO);
 
+	if (mdata->nwb)
+		SPRINT("wb_intf_index=%d\n", mdata->nwb - 1);
+
 	if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map)) {
 		SPRINT("fmt_mt_nv12_factor=%d\n",
 			mdata->prefill_data.prefill_factors.fmt_mt_nv12_factor);
