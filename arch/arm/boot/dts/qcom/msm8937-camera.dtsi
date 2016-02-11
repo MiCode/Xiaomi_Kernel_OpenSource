@@ -151,8 +151,9 @@
 		interrupts = <0 55 0>;
 		interrupt-names = "ispif";
 		qcom,num-isps = <0x2>;
-		vfe0_vdd_supply = <&gdsc_vfe>;
-		vfe1_vdd_supply = <&gdsc_vfe1>;
+		vfe0-vdd-supply = <&gdsc_vfe>;
+		vfe1-vdd-supply = <&gdsc_vfe1>;
+		qcom,vdd-names = "vfe0-vdd", "vfe1-vdd";
 		clocks = <&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_top_ahb_clk>,
