@@ -211,6 +211,15 @@ config MSM_IPC_ROUTER_GLINK_XPRT
 	  this layer registers a transport with IPC Router and enable
 	  message exchange.
 
+config MSM_GLINK_PKT
+	bool "Enable device interface for GLINK packet channels"
+	depends on MSM_GLINK
+	help
+	  G-link packet driver provides the interface for the userspace
+	  clients to communicate over G-Link via deivce nodes.
+	  This enable the usersapce clients to read and write to
+	  some glink packets channel.
+
 config QCOM_SMD
 	tristate "Qualcomm Shared Memory Driver (SMD)"
 	depends on QCOM_SMEM
