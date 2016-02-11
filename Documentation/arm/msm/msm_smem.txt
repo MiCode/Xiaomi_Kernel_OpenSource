@@ -1,0 +1,595 @@
+Introduction
+============
+The Shared Memory (SMEM) protocol allows multiple processors in Qualcomm
+Technologies, Inc. MSM System on Chips to communicate at a low level using a
+segment of shared system memory that is accessible by any of the processors.
+This is accomplished by an operating-system independent mechanism that allows a
+client on any processor to dynamically allocate a block of memory from shared
+system memory which is then visible and accessible to clients on other
+processors for the purpose of storing and exchanging data.
+
+
+                                                            +-------------+
+                                   SMEM                     | Processor 1 |
+  +---------+                 +------------+                +-------------+
+  |         |+--------------->|   Item 1   |<----------------+  ^
+  | Linux   |                 |            |                    |
+  |         |<---------------+|            |+-------------------+
+  +---------+                 +------------+
+       ^   +                  |   Item 2   |                +-------------+
+       |   |                  |            |<--------------+| Processor 2 |
+       |   |                  |            |+-------------->|             |
+       |   |                  |            |                +-------------+
+       |   |                  |            |
+       |   |                  |            |                +-------------+
+       |   |                  +------------+                | Processor 3 |
+       |   |                        .                       +-------------+
+       |   |                        .                         +  ^ .
+       |   |                  +------------+                  |  | .
+       |   +----------------->|   Item N   |<-----------------+  | .
+       +---------------------+|            |+--------------------+ .
+                              |            |                +-------------+
+                              |            |+-------------->|             |
+                              |            |                | Processor N |
+                              |            |<--------------+|             |
+                              +------------+                +-------------+
+
+The SMEM driver supports all known versions of the SMEM protocol.
+
+Hardware description
+====================
+The SMEM protocol requires a contiguous segment of system memory that is
+accessible by both the local processor and one or more remote processors.
+Each processor supporting the SMEM protocol must configure their MMUs and other
+applicable hardware such that accesses to shared memory are non-cacheable.
+
+Optionally, additional segments of system memory may be provided to act as
+auxiliary memory areas for the SMEM protocol.  Such segments may provide
+performance benefits to certain processors by optimizing access latency.  Such
+auxiliary memory areas must be a slave to the single main SMEM area.
+
+While the SMEM protocol has provisions for software-based remote spinlocks to
+manage synchronization between processors, this functionality may be
+substituted with dedicated hardware.  Such hardware is expected to be managed
+by another driver providing a standardized API.
+
+Software description
+====================
+At its core, the SMEM protocol is a heap memory management system.  The core
+functionality consists of allocating segments of memory, and lookup operations
+to find the address of existing segments of memory.  There is no provision to
+free memory that is allocated.
+
+Allocated segments of memory are called SMEM items.  Each SMEM item has a unique
+32-bit identifier which maps each specific SMEM item to a slot in the table of
+contents that lives at the start of the SMEM region.
+
+A SMEM client that wishes to allocate a SMEM item will provide the item
+identifier and a desired size in bytes.  Assuming there is enough free space in
+the SMEM region to accommodate the request, the amount of desired bytes will be
+carved out, and the base address and size for the item will be stored in the
+table of contents.  The base address will be returned as a pointer to the
+client, so that the client may use the SMEM item as if it were normal memory
+allocated through "malloc".
+
+A SMEM client that wishes to find an already allocated SMEM item will provide
+the item identifier and the size in bytes that the client expects for the item.
+A lookup in the table of contents for the specified item identifier will be
+performed.  Assuming a matching SMEM item is found, the size of the item that
+is stored in the table of contents will be compared to the size specified by the
+client.  This sanity check of the expected vs actual size is done to ensure that
+all users of a particular SMEM item agree on the size of the data to be
+exchanged under the assumption that if the users do not agree on the item size,
+then they will not be able to sucessfully communicate as one or more sides may
+view a corruption of the data stored in the SMEM item.  Assuming the sizes
+match, the virtual address corresponding to the base address stored in the table
+of contents for the item will be returned to the client.
+
+  +------+     Request       +-----------+                Memory
+  |Client|+----------------->|SMEM Driver|          +---------------+
+  +------+ Item X of size Y  +-----------+          |               |
+     ^                             +                |               |
+     |                             | Lookup/Alloc   +---------------+  Find X
+     |                             +--------------->|     TOC[X]    |+--------+
+     |                                              +---------------+         |
+     |                                              |               |         |
+     |                                              |               |         |
+     |                                              |               |         |
+     |                                              |               |         |
+     |                                              |               |         |
+     |                                              |               |         |
+     |         Return pointer for client            +---------------+         |
+     +---------------------------------------------+|     Item X    |<--------+
+                                                    +---------------+
+                                                    |               |
+                                                    |               |
+                                                    |               |
+                                                    +---------------+
+
+The SMEM driver depends on the kernel memory management subsystem for managing
+the system memory that SMEM uses.  The main SMEM memory region is statically
+mapped at boot, and the virtual address for the base of the region is stored
+in MSM_SHARED_RAM_BASE.  Auxiliary memory regions are ioremap'd at driver init.
+All SMEM regions are mapped as non-cacheable.
+
+Although the SMEM driver is aware of auxiliary memory regions, and capable of
+understanding SMEM items that exist in auxiliary memory regions, the SMEM
+driver does not allocate from the auxiliary memory regions.  A detailed
+description of the purpose and use of auxiliary memory regions is outside the
+scope of this document.
+
+Design
+======
+The SMEM protocol requires that the system bootloader initialize (zero out) and
+bootstrap the main SMEM region before any processor in the system has booted to
+avoid an initialization race condition.
+
+SMEM regions are configured as non-cachable memory.  While this results in a
+small performance hit, it significantly reduces the complexity for the SMEM
+driver and clients in terms of cache management and memory barriers.  Clients
+are generally able to treat their SMEM items like regular local memory, which
+eases the requirements to write correct code.
+
+The unsigned data type is assumed to be an unsigned 32-bit integer value.
+
+The root structure at the base of the main SMEM region is:
+
+#define SMD_HEAP_SIZE 512
+
+struct smem_shared {
+        struct smem_proc_comm proc_comm[4];
+        unsigned version[32];
+        struct smem_heap_info heap_info;
+        struct smem_heap_entry heap_toc[SMD_HEAP_SIZE];
+};
+
+This structure and its fields are initialized by the bootloader.
+
+The proc_comm field is reserved as the first part of the SMEM region to maintain
+compatibility with legacy systems, but is otherwise deprecated.  While the
+proc comm driver is beyond the scope of this document, the remaining structure
+definition to fully define smem_shared is:
+
+struct smem_proc_comm {
+        unsigned command;
+        unsigned status;
+        unsigned data1;
+        unsigned data2;
+};
+
+The version field of the smem_shared struct is an array of version entries
+specifying the SMEM protocol version of every supporting processor active in the
+system.  Each unsigned value in the array corresponds to one entry.  This
+provides a mechanism for ensuring protocol version compatability between
+processors.  While the full table of assigned and reserved entries in the array
+is beyond the scope of this document, index 8 (smem_shared.version[8]) is
+reserved for any future use by Linux.  The bootloader always initializes it's
+entry (index 7, or smem_shared.version[7]) to the SMEM protocol version
+supported by the bootloader.  Checking the value of the bootloader's entry can
+be used as a sanity check to determine if the SMEM region was sucessfully
+initialized.
+
+The heap_info field of smem_shared contains basic information of the SMEM heap.
+The bootloader fills in values corresponding to the main SMEM region when it
+initializes the heap.  It is defined as:
+
+struct smem_heap_info {
+        unsigned initialized;
+        unsigned free_offset;
+        unsigned heap_remaining;
+        unsigned reserved;
+};
+
+The initialized field is set to 1 by the bootloader when it initializes the
+heap.  The free_offset field contains the offset from the base of the SMEM
+region for the first free byte in the heap.  When a new SMEM item is allocated,
+free_offset is incremented by the size of the allocated item.  SMEM item sizes
+are 8-byte aligned.  The heap_remaining field contains the number of free bytes
+remaining in the heap.  When a new SMEM item is allocated, heap_remaining is
+decremented by the size of the item.  The reserved field is defined to be 0.
+
+The heap_toc field of smem_shared is the heap table of contents.  It is an array
+containing a slot for every defined SMEM item.  SMEM item identifiers index into
+this array.  The structures definition is:
+
+struct smem_heap_entry {
+        unsigned allocated;
+        unsigned offset;
+        unsigned size;
+        unsigned reserved; /* bits 1:0 reserved, bits 31:2 aux smem base addr */
+};
+
+If an SMEM item is allocated, the allocated field is 1.  The offset field is
+either the offset from the main SMEM region base where this SMEM item exists, or
+the offset from the auxiliary SMEM region base specified in the reserved field.
+The size field contains the size of the SMEM item in bytes.  The size is defined
+to be 8-byte aligned.  The reserved field is 0 if the SMEM item is located in
+the main SMEM region, or bits 31(MSB) to 2 specify the physical address of the
+auxiliary SMEM region where the SMEM item resides.  If reserved is used as a
+physical address, then the address must be 4-byte aligned per ARM architectural
+requirements.
+
+The bootloader allocates and intializes the following SMEM items:
+
+Name                            ID      Size (bytes)
+----------------------------------------------------
+SMEM_PROC_COMM                  0       64
+SMEM_HEAP_INFO                  1       16
+SMEM_ALLOCATION_TABLE           2       8192
+SMEM_VERSION_INFO               3       128
+SMEM_HW_RESET_DETECT            4       8
+SMEM_AARM_WARM_BOOT             5       4
+SMEM_DIAG_ERR_MESSAGE           6       200
+SMEM_SPINLOCK_ARRAY             7       32
+SMEM_MEMORY_BARRIER_LOCATION    8       4
+
+All other SMEM items are dynamically allocated by processors in the system.
+
+Although the SMEM protocol requires the bootloader to initialize the SMEM region
+before any processor in the system is active, early development of new systems
+do not always have a fully functional bootloader.  To determine if the
+bootloader initialized the main SMEM region properly, the SMEM driver will check
+the expected values of smem_shared.heap_info.initialized,
+smem_shared.heap_info.reserved, and the bootloader entry of the
+SMEM_VERSION_INFO SMEM item.  If this check fails, the SMEM driver will print
+an error message to the kernel log, and enter a disabled state.
+
+Security Feature
+----------------
+The SMEM protocol supports an optional security feature that segments the main
+SMEM region into multiple partitions.  Each partition becomes a unique item
+namespace.  Access to partitions is restricted to a maximum of two processors
+and enforced by Memory Protection Units (MPUs).  The exceptions to this are the
+Partition Table of Contents partition, which is read-only accessible by all
+processors, and the Legacy/Default partition, which is freely accessible by all
+processors.
+
+  +-------------------------+ SMEM Base address
+  |Legacy/Default           |
+  |SMEM Partition           |
+  +-------------------------+
+  |SMEM Partition 0         |
+  |Processor 1 - Processor 2|
+  +-------------------------+
+  |SMEM Partition 1         |
+  |Processor 1 - Processor 3|
+  +-------------------------+
+  |SMEM Partition 2         |
+  |Processor 4 - Processor 5|
+  +-------------------------+
+               .
+               .
+               .
+  +-------------------------+
+  |SMEM Partition N         |
+  |Processor N - Processor M|
+  +-------------------------+ SMEM Base address + SMEM size - 4k
+  |Table of Contents        |
+  |                         |
+  +-------------------------+ SMEM Base address + SMEM size
+
+SMEM items which are point-to-point in nature and accessed by two or fewer
+processors may be allocated from a partition that is restricted to those
+processors.  SMEM items which are non-sensitive, accessed by 3 or more
+processors, and/or do not correspond to a secured partition are allocated from
+the Legacy/Default partition.
+
+During the firmware boot process, the Table of Contents is initialized with a
+description of all the secured partitions.  Each secured partition is also
+initialized.  The required MPU settings to protect the Table of Contents and the
+secured partitions are also established.  The Table of Contents is located 4k
+bytes prior to the end of the main SMEM region so that it is in a known position
+for all processors to find and do local configuration.
+
+The Table of Contents is defined as:
+
+struct smem_toc {
+	/*
+	 * Identifier is a constant for use in debugging and identifying this
+	 * struct in a binary capture. Set to 0x434f5424 ("$TOC").
+	 */
+	uint32_t identifier;
+
+	/* Version number */
+	uint32_t version;
+
+	/* Number of entries in the table */
+	uint32_t num_entries;
+
+	uint32_t reserved[5];
+
+	/* Zero or more entries follow */
+	struct smem_toc_entry entry[];
+};
+
+Each entry in the Table of Contents is defined as:
+
+struct smem_toc_entry {
+	/* Offset in bytes from SMEM base of the region */
+	uint32_t offset;
+
+	/* Size in bytes of the region */
+	uint32_t size;
+
+	/* Flags for this region */
+	uint32_t flags;
+
+	/*
+	 * IDs for the 2 subsystems which have access to this partition.
+	 * Order does not matter.
+	 * For the entry which describes the TOC itself, these are both set to
+	 * SMEM_INVALID_HOST.
+	 * Use uint16_t, rather than enum type, to ensure size.
+	 */
+	uint16_t host0;
+	uint16_t host1;
+
+	/*
+	 * Lowest common multiple of cacheline sizes for both endpoints. For
+	 * example, if host0 has cacheline size of 32 and host1 has cacheline
+	 * size of 64, this value is set to 64.
+	 */
+	uint32_t size_cacheline;
+
+	uint32_t reserved[3];
+
+	/*
+	 * Sizes of sub ranges that are part of the region, but are excluded
+	 * from the SMEM heap. These are allocated from the end of the region
+	 * starting with sizes[0]. Set to 0 when not used.
+	 */
+	uint32_t exclusion_sizes[SMEM_TOC_MAX_EXCLUSIONS];
+};
+
+While the Legacy/Default partition maintains the structure and format of the
+main SMEM region with the security feature disabled, the secured partitions have
+a different format and structure:
+
+  +--------------+  +--------------------------+ Partition Base Address
+  |              |  | Partition Header         |
+  |              |  |                          |   +
+  | Uncached Page|  +--------------------------+   |
+  |              |  | Item A Header            |   |
+  |              |  +--------------------------+   |
+  |              |  | Item A Data              |   |
+  +--------------+  |                          |   |
+  |              |  |                          |   |
+  |              |  +--------------------------+   |
+  | Uncached Page|  | Item B Header            |   |Direction of heap growth
+  |              |  +--------------------------+   |
+  |              |  | Item B Data              |   |
+  |              |  |                          |   |
+  +--------------+  |                          |   |
+  |              |  +--------------------------+   |
+  |              |  |                          |   |
+  | Uncached Page|  |       Unused Heap        |   |
+  |              |  |         space to         |   v
+  |              |  |       page boundry       |
+  |              |  |                          |
+  +--------------+  +--------------------------+<----------+ End of heap
+                  . . .                      . . .
+                            Free Space
+                          Can be used for
+                            either heap.
+                  . . .                      . . .
+  +--------------+  +--------------------------+<----------+ End of heap
+  |              |  |                          |
+  |              |  |      Unused Heap         |
+  |  Cached Page |  |        space to          |   ^
+  |              |  |      page boundry        |   |
+  |              |  +--------------------------+   |
+  |              |  | Item Y Data              |   |
+  +--------------+  |                          |   |
+  |              |  +--------------------------+   |
+  |              |  | Item Y Header            |   |
+  |  Cached Page |  +--------------------------+   |
+  |              |  | Item Y Header Padding    |   |Direction of heap growth
+  |              |  +--------------------------+   |
+  |              |  | Item Z Data              |   |
+  +--------------+  |                          |   |
+  |              |  |                          |   |
+  |              |  |                          |   |
+  |  Cached Page |  +--------------------------+   |
+  |              |  | Item Z Header            |   |
+  |              |  +--------------------------+   +  Padding is here to ensure
+  |              |  | Item Z Header Padding    |      the the data buffer start
+  +--------------+  +--------------------------+      and end addresses are
+  |              |                                    aligned to cachelines for
+  |              |        Exclusion Range             both endpoints.
+  | Uncached Page|. . .   Free Space         . . .
+  |              |  +--------------------------+
+  |              |  | Exclusion Ranges 0..N    |
+  |              |  |                          |
+  +--------------+  +--------------------------+ Partition Base Address + size
+
+The design of the secured partitions has two advantages over the Legacy/Default
+Partition
+	1. Using a linked list instead of a static array to track allocated SMEM
+		items maximizes space utilization
+	2. Creating two heaps allows one to be cacheline aligned, thus providing
+		an option for a higher level of performance to clients (requires
+		client to specify they want their SMEM item allocated in the
+		cached area)
+
+The partition header struct is defined as:
+
+struct smem_partition_header {
+	/* Identifier magic number - 0x54525024 ("$PRT") */
+	uint32_t identifier;
+
+	/*
+	 * IDs for the 2 subsystems which have access to this partition.
+	 * Order does not matter.
+	 * Use uint16_t, rather than enum type, to ensure size.
+	 */
+	uint16_t host0;
+	uint16_t host1;
+
+	/* Partition size, in bytes, not including the exclusion ranges */
+	uint32_t size;
+
+	/* Offset of the byte following the last allocation in uncached heap */
+	uint32_t offset_free_uncached;
+
+	/* Offset of the byte following the last allocation in cached heap */
+	uint32_t offset_free_cached;
+
+	uint32_t reserved[3];
+};
+
+The allocated SMEM item header struct is defined as:
+
+struct smem_partition_allocation_header {
+	/* 0xa5a5 canary value to detect overrun problems */
+	uint16_t canary;
+
+	/* SMEM item ID. Use uint16_t here, rather than enum, to ensure size. */
+	uint16_t smem_id;
+
+	/* Size of the allocated item, includes any necessary padding. */
+	uint32_t size;
+
+	/* Size of the data padding for cacheline alignment, if applicable */
+	uint16_t data_padding;
+
+	/* Size of the header padding for cacheline alignment, if applicable */
+	uint16_t header_padding;
+
+	uint32_t reserved[1];
+};
+
+SMP/multi-core
+==============
+The SMEM driver expects a remote spinlock driver to provide inter-processor
+synchronization primitives which not only provide locking between multiple cores
+but locking between multiple processors to protect the state of structures
+stored in SMEM regions during allocation and lookup.  Once a pointer to a SMEM
+item is returned to a client, that client is expected to provide all the
+necessary locking and other synchronization as required.
+
+The remote spinlocks may make use of the SMEM_SPINLOCK_ARRAY SMEM item (typical
+of legacy systems).
+
+SMEM regions are non-cachable to maintain a consistent state of the data
+throughout all operations.  This simplifies cache management and memory barrier
+requirements to a few key points in the SMEM item allocation process, and allows
+clients to treat SMEM items like local memory once allocated.
+
+Security
+========
+SMEM by default provides no security of SMEM items.  If a SMEM item is intended
+to only be used between clients on processors A and B, malicious clients on
+processor C are free to sniff or inject data into the SMEM item.
+
+An optional security feature may be enabled that makes use of Memory Protection
+Units (MPUs) to limit access of special segments of the main SMEM region.
+Access to these partitions is limited to two processors, so only point-to-point
+traffic (such as SMD or SMP2P) is able to be protected.  Auxiliary SMEM regions
+are not protected under this feature.  Support for this feature is activated by
+a Device Tree property.
+
+Performance
+===========
+Some client use cases such as SMD may benefit from caching, but that places an
+additional burden of cache maintenance and protocol design onto the clients.
+
+Interface
+=========
+Kernel-space APIs:
+
+/**
+ * smem_alloc() - Find an existing item, otherwise allocate it with security
+ *                support
+ *
+ * @id: ID of SMEM item
+ * @size_in: Size of the SMEM item
+ * @to_proc: SMEM host that shares the item with apps
+ * @flags: Item attribute flags
+ * @returns: Pointer to SMEM item, NULL if it couldn't be found/allocated, or
+ *           -EPROBE_DEFER if the driver is not ready
+ */
+void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
+                   unsigned flags);
+
+/**
+ * smem_get_entry() - Get existing item with security support
+ *
+ * @id: ID of SMEM item
+ * @size: Pointer to size variable for storing the result
+ * @to_proc: SMEM host that shares the item with apps
+ * @flags: Item attribute flags
+ * @returns: Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *           if the driver isn't ready
+ */
+void *smem_get_entry(unsigned id, unsigned *size, unsigned to_proc,
+                                unsigned flags);
+
+/**
+ * smem_get_entry_no_rlock() - Get existing item without using remote spinlock.
+ *
+ * @id: ID of SMEM item
+ * @size_out: Pointer to size variable for storing the result
+ * @to_proc: SMEM host that shares the item with apps
+ * @flags: Item attribute flags
+ * @returns: Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *           if the driver isn't ready
+ *
+ * This function does not lock the remote spinlock and should only be used in
+ * failure-recover cases such as retrieving the subsystem failure reason during
+ * subsystem restart.
+ */
+void *smem_get_entry_no_rlock(unsigned id, unsigned *size_out, unsigned to_proc,
+                                unsigned flags);
+
+/**
+ * smem_find() - Find existing item with security support
+ *
+ * @id: ID of SMEM item
+ * @size_in: Size of the SMEM item
+ * @to_proc: SMEM host that shares the item with apps
+ * @flags: Item attribute flags
+ * @returns: Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *           if the driver is not ready
+ */
+void *smem_find(unsigned id, unsigned size);
+
+/**
+ * smem_virt_to_phys() - Convert SMEM address to physical address.
+ *
+ * @smem_address: Address of SMEM item (returned by smem_alloc(), etc)
+ * @returns: Physical address (or NULL if there is a failure)
+ *
+ * This function should only be used if an SMEM item needs to be handed
+ * off to a DMA engine. This function will not return a version of EPROBE_DEFER
+ * if the driver is not ready since the caller should obtain @smem_address from
+ * one of the other public APIs and get EPROBE_DEFER at that time, if
+ * applicable.
+ */
+phys_addr_t smem_virt_to_phys(void *smem_address);
+
+Driver parameters
+=================
+Module parameters:
+debug_mask - 0 for off (default), 1 for on.
+	Enables or disables printing debug messages to the kernel log
+
+Config options
+==============
+Configuration of SMEM regions is done via Device Tree per the format in
+Documentation/devicetree/bindings/arm/msm/smem.txt.
+
+Dependencies
+============
+Drivers needed:
+	Remote spinlocks
+
+Depends on the system bootloader to initialize the main SMEM region.
+
+Known issues
+============
+None.
+
+To do
+=====
+Convert use of the unsigned data type to well defined value such as uint32_t for
+better portability.
