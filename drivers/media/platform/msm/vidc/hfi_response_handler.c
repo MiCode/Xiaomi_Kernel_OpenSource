@@ -1302,8 +1302,8 @@ u32 hfi_process_msg_packet(
 {
 	u32 rc = 0;
 	struct hal_session *sess = NULL;
-	if (!callback || !msg_hdr || msg_hdr->size <
-		VIDC_IFACEQ_MIN_PKT_SIZE) {
+	if (!callback || !session_lock || !msg_hdr ||
+			msg_hdr->size <	VIDC_IFACEQ_MIN_PKT_SIZE) {
 		dprintk(VIDC_ERR, "hal_process_msg_packet:bad"
 			"packet/packet size: %d", msg_hdr->size);
 		rc = -EINVAL;
