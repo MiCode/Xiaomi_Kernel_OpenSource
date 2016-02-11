@@ -47,7 +47,6 @@
 #include <linux/amba/bus.h>
 #include <soc/qcom/msm_tz_smmu.h>
 #include <soc/qcom/secure_buffer.h>
-#include <linux/msm_pcie.h>
 #include <asm/cacheflush.h>
 #include <linux/msm-bus.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
