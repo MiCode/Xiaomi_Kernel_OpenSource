@@ -46,6 +46,7 @@ struct devfreq_msm_adreno_tz_data {
 	} bus;
 	unsigned int device_id;
 	bool is_64;
+	bool disable_busy_time_burst;
 };
 
 struct msm_adreno_extended_profile {
