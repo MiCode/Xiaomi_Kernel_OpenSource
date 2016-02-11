@@ -206,6 +206,8 @@ struct arm_lpae_io_pgtable {
 
 typedef u64 arm_lpae_iopte;
 
+static bool selftest_running = false;
+
 /*
  * We'll use some ignored bits in table entries to keep track of the number
  * of page mappings beneath the table.  The maximum number of entries
@@ -1190,6 +1192,7 @@ static void __init arm_lpae_dump_ops(struct io_pgtable_ops *ops)
 #define __FAIL(ops, i)	({						\
 		WARN(1, "selftest: test failed for fmt idx %d\n", (i));	\
 		arm_lpae_dump_ops(ops);					\
+		selftest_running = false;                               \
 		suppress_map_failures = false;				\
 		-EFAULT;						\
 })
@@ -1242,6 +1245,8 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 	unsigned long iova;
 	size_t size;
 	struct io_pgtable_ops *ops;
+
+	selftest_running = true;
 
 	for (i = 0; i < ARRAY_SIZE(fmts); ++i) {
 		unsigned long test_sg_sizes[] = { SZ_4K, SZ_64K, SZ_2M,
