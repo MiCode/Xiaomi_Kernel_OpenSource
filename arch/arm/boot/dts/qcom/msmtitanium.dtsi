@@ -1477,6 +1477,7 @@
 		qcom,is-pronto-v3;
 		qcom,has-pronto-hw;
 		qcom,has-vsys-adc-channel;
+		qcom,has-a2xb-split-reg;
 		qcom,wcnss-adc_tm = <&pmtitanium_adc_tm>;
 	};
 
