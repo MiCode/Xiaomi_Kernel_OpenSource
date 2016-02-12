@@ -1188,7 +1188,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
 		}
 	}
 
-	if (!(tun->flags & TUN_NO_PI))
+	if (!(tun->flags & IFF_NO_PI))
 		if (pi.flags & htons(CHECKSUM_UNNECESSARY))
 			skb->ip_summed = CHECKSUM_UNNECESSARY;
 
