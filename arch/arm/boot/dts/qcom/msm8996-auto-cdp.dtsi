@@ -432,6 +432,16 @@
 		qcom,master-en = <1>;		/* Enable GPIO */
 		status = "okay";
 	};
+
+	mpp@a700 { /* MPP 8 */
+		/* USB 5V regulator enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
 };
 
 &soc {
@@ -603,6 +613,21 @@
 		interrupt-names = "vbus_det_irq";
 	};
 
+	usb_vbus_vreg: usb_vbus_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_vbus_vreg";
+		gpio = <&pm8994_mpps 8 0>;
+		enable-active-high;
+	};
+
+	usb2_otg_switch: usb2_otg_switch {
+		compatible = "regulator-fixed";
+		vin-supply = <&usb_vbus_vreg>;
+		regulator-name = "usb2_otg_vreg";
+		gpio = <&pm8994_gpios 12 0>;
+		enable-active-high;
+	};
+
 	qcom,msm-dai-mi2s {
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
 			pinctrl-names = "default", "sleep";
@@ -693,6 +718,14 @@
 		status = "okay";
 	};
 
+	gpio@cb00 { /* GPIO 12 - USB enb2 (otg switch) */
+		qcom,mode = <1>;	/* DIGITAL OUT */
+		qcom,vin-sel = <2>;	/* 1.8 */
+		qcom,src-sel = <0>;	/* GPIO */
+		qcom,master-en = <1>;	/* Enable GPIO */
+		status = "okay";
+	};
+
 	gpio@cc00 { /* GPIO 13 - HPH_EN0 */
 		qcom,mode = <1>;
 		qcom,output-type = <0>;
@@ -748,6 +781,7 @@
 
 &usb2s {
 	status = "ok";
+	vbus_dwc3-supply = <&usb2_otg_switch>;
 	dwc3@7600000 {
 		dr_mode = "host";
 	};
@@ -755,17 +789,17 @@
 
 &usb3 {
 	interrupt-parent = <&usb3>;
-	interrupts = <0 1 2>;
+	interrupts = <0 1 2 3>;
 	#interrupt-cells = <1>;
 	interrupt-map-mask = <0x0 0xffffffff>;
-	interrupt-map = <0x0 0 &intc 0 133 0
-			 0x0 1 &intc 0 180 0
-			 0x0 2 &spmi_bus 0x0 0x0 0x9 0x0>;
-	interrupt-names = "hs_phy_irq", "pwr_event_irq", "pmic_id_irq";
+	interrupt-map = <0x0 0 &intc 0 0 347 0
+			 0x0 1 &intc 0 0 243 0
+			 0x0 2 &intc 0 0 180 0
+			 0x0 3 &spmi_bus 0x0 0x0 0x9 0x0>;
+	interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq",
+				"pmic_id_irq";
 
 	vbus_dwc3-supply = <&usb_otg_switch>;
-	vdda33-supply = <&pm8994_l24>;
-	vdda18-supply = <&pm8994_l12>;
 };
 
 &blsp1_uart2 {
