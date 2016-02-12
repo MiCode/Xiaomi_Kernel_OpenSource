@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/io.h>
@@ -289,6 +290,11 @@ static const struct v4l2_file_operations msm_ba_v4l2_ba_fops = {
 	.poll = msm_ba_v4l2_poll,
 };
 
+static const struct of_device_id msm_ba_dt_match[] = {
+	{.compatible = "qcom,msm-ba"},
+	{}
+};
+
 static int msm_ba_device_init(struct platform_device *pdev,
 					struct msm_ba_dev **ret_dev_ctxt)
 {
@@ -298,12 +304,26 @@ static int msm_ba_device_init(struct platform_device *pdev,
 
 	dprintk(BA_INFO, "Enter %s", __func__);
 	if ((ret_dev_ctxt == NULL) ||
-			(*ret_dev_ctxt != NULL))
+		(*ret_dev_ctxt != NULL) ||
+		(pdev == NULL)) {
+		dprintk(BA_ERR, "%s(%d) Invalid params %p %p %p",
+			__func__, __LINE__,
+			ret_dev_ctxt, *ret_dev_ctxt, pdev);
 		return -EINVAL;
+	}
 
 	dev_ctxt = kzalloc(sizeof(struct msm_ba_dev), GFP_KERNEL);
 	if (dev_ctxt == NULL)
 		return -ENOMEM;
+
+	dev_set_drvdata(&pdev->dev, dev_ctxt);
+	dev_ctxt->pdev = pdev;
+	if (!pdev->dev.of_node) {
+		dprintk(BA_ERR, "%s(%d) pdev node is NULL",
+			__func__, __LINE__);
+		rc = -EINVAL;
+		goto err_dev_init;
+	}
 
 	INIT_LIST_HEAD(&dev_ctxt->inputs);
 	INIT_LIST_HEAD(&dev_ctxt->instances);
@@ -359,24 +379,25 @@ static int msm_ba_device_init(struct platform_device *pdev,
 			}
 		}
 	} else {
-	dprintk(BA_ERR, "Failed to register v4l2 device");
+		dprintk(BA_ERR, "Failed to register v4l2 device");
 	}
 
+err_dev_init:
 	if (rc) {
 		kfree(dev_ctxt);
-	dev_ctxt = NULL;
+		dev_ctxt = NULL;
 	}
 	dprintk(BA_INFO, "Exit %s with error %d", __func__, rc);
 
 	return rc;
 }
 
-static int msm_ba_probe(struct platform_device *pdev)
+static int msm_ba_probe_ba_device(struct platform_device *pdev)
 {
 	struct ba_ctxt *ba_ctxt;
 	int rc = 0;
 
-	dprintk(BA_INFO, "Enter %s: pdev 0x%p device id = %d",
+	dprintk(BA_INFO, "Enter %s: pdev %p device id = %d",
 		__func__, pdev, pdev->id);
 	ba_ctxt = msm_ba_get_ba_context();
 
@@ -395,6 +416,15 @@ static int msm_ba_probe(struct platform_device *pdev)
 	dprintk(BA_INFO, "Exit %s with error %d", __func__, rc);
 
 	return rc;
+}
+
+static int msm_ba_probe(struct platform_device *pdev)
+{
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,msm-ba"))
+		return msm_ba_probe_ba_device(pdev);
+	/* How did we end up here? */
+	WARN_ON(1);
+	return -EINVAL;
 }
 
 static int msm_ba_remove(struct platform_device *pdev)
@@ -462,7 +492,7 @@ int msm_ba_create(void)
 	dprintk(BA_DBG, "%s(%d), BA create complete",
 			__func__, __LINE__);
 
-			return rc;
+	return rc;
 }
 
 int msm_ba_destroy(void)
@@ -489,11 +519,6 @@ int msm_ba_destroy(void)
 
 	return rc;
 }
-
-static const struct of_device_id msm_ba_dt_match[] = {
-	{.compatible = "qcom,msm-ba"},
-	{}
-};
 
 MODULE_DEVICE_TABLE(of, msm_ba_dt_match);
 
