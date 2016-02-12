@@ -212,7 +212,7 @@ static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 				mapping->ion_fd);
 			return;
 		} else {
-			pr_err("vaddr %p is not in this range: %p-%p, ion_fd = %d\n",
+			CDBG("vaddr %p is not in this range: %p-%p, ion_fd = %d\n",
 				vaddr, (void *)start_addr, (void *)end_addr,
 				mapping->ion_fd);
 		}
