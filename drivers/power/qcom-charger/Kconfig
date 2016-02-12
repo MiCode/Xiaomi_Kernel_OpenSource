@@ -1,0 +1,26 @@
+menu "Qualcomm Technologies Inc Charger and FG Drivers"
+
+config SMB135X_CHARGER
+	tristate "SMB135X Battery Charger"
+	depends on I2C
+	select POWER_SUPPLY
+	help
+	  Say Y to include support for SMB135X Battery Charger.
+	  SMB135X is a dual path switching mode charger capable of charging
+	  the battery with 3Amps of current.
+	  The driver supports charger enable/disable.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+
+config SMB1351_USB_CHARGER
+	tristate "smb1351 usb charger (with VBUS detection)"
+	depends on I2C
+	select POWER_SUPPLY
+	help
+	 Say Y to enable support for the SMB1351 switching mode based charger.
+	 The driver supports charging control (enable/disable) and
+	 charge-current limiting. It also provides USB VBUS detection and
+	 notification support. The driver controls SMB1351 via I2C and
+	 supports device-tree interface.
+
+endmenu
