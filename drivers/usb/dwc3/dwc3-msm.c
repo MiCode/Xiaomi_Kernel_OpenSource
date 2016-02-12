@@ -1358,7 +1358,7 @@ int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 	mdwc->original_ep_ops[dep->number] = ep->ops;
 
 	/* Set new usb ops as we like */
-	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), GFP_ATOMIC);
+	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), gfp_flags);
 	if (!new_ep_ops) {
 		dev_err(mdwc->dev,
 			"%s: unable to allocate mem for new usb ep ops\n",
@@ -1370,25 +1370,24 @@ int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 	new_ep_ops->gsi_ep_op = dwc3_msm_gsi_ep_op;
 	ep->ops = new_ep_ops;
 
+	if (!mdwc->dbm || !request || (dep->endpoint.ep_type == EP_TYPE_GSI))
+		return 0;
+
 	/*
 	 * Configure the DBM endpoint if required.
 	 */
-	if (mdwc->dbm) {
-		bam_pipe = request->udc_priv & MSM_PIPE_ID_MASK;
-		producer = ((request->udc_priv & MSM_PRODUCER) ? true : false);
-		disable_wb = ((request->udc_priv & MSM_DISABLE_WB) ?
-								true : false);
-		internal_mem = ((request->udc_priv & MSM_INTERNAL_MEM) ?
-								true : false);
-		ioc = ((request->udc_priv & MSM_ETD_IOC) ? true : false);
+	bam_pipe = request->udc_priv & MSM_PIPE_ID_MASK;
+	producer = ((request->udc_priv & MSM_PRODUCER) ? true : false);
+	disable_wb = ((request->udc_priv & MSM_DISABLE_WB) ? true : false);
+	internal_mem = ((request->udc_priv & MSM_INTERNAL_MEM) ? true : false);
+	ioc = ((request->udc_priv & MSM_ETD_IOC) ? true : false);
 
-		ret = dbm_ep_config(mdwc->dbm, dep->number, bam_pipe, producer,
+	ret = dbm_ep_config(mdwc->dbm, dep->number, bam_pipe, producer,
 					disable_wb, internal_mem, ioc);
-		if (ret < 0) {
-			dev_err(mdwc->dev,
-				"error %d after calling dbm_ep_config\n", ret);
-			return ret;
-		}
+	if (ret < 0) {
+		dev_err(mdwc->dev,
+			"error %d after calling dbm_ep_config\n", ret);
+		return ret;
 	}
 
 	return 0;
