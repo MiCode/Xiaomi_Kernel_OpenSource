@@ -283,7 +283,6 @@
 					pins = "gpio8";
 					drive-strength = <8>; /* 8 mA */
 					bias-disable = <0>; /* no pull */
-					output-high;
 				};
 			};
 			mdss_dsi_suspend: mdss_dsi_suspend {
