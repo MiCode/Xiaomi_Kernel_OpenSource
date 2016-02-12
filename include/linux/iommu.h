@@ -57,6 +57,10 @@ struct iommu_domain_geometry {
 	bool force_aperture;       /* DMA only allowed in mappable range? */
 };
 
+struct iommu_pgtbl_info {
+	void *pmds;
+};
+
 /* Domain feature flags */
 #define __IOMMU_DOMAIN_PAGING	(1U << 0)  /* Support for iommu_map/unmap */
 #define __IOMMU_DOMAIN_DMA_API	(1U << 1)  /* Domain for use in DMA-API
@@ -130,6 +134,7 @@ enum iommu_attr {
 	DOMAIN_ATTR_ATOMIC,
 	DOMAIN_ATTR_SECURE_VMID,
 	DOMAIN_ATTR_FAST,
+	DOMAIN_ATTR_PGTBL_INFO,
 	DOMAIN_ATTR_MAX,
 };
 
