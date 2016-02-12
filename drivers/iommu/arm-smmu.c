@@ -2572,6 +2572,17 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*((int *)data) = smmu_domain->secure_vmid;
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_PGTBL_INFO: {
+		struct iommu_pgtbl_info *info = data;
+
+		if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST))) {
+			ret = -ENODEV;
+			break;
+		}
+		info->pmds = smmu_domain->pgtbl_cfg.av8l_fast_cfg.pmds;
+		ret = 0;
+		break;
+	}
 	default:
 		return -ENODEV;
 	}
