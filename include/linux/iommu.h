@@ -56,6 +56,10 @@ struct iommu_domain_geometry {
 	bool force_aperture;       /* DMA only allowed in mappable range? */
 };
 
+struct iommu_pgtbl_info {
+	void *pmds;
+};
+
 struct iommu_domain {
 	const struct iommu_ops *ops;
 	void *priv;
@@ -103,6 +107,7 @@ enum iommu_attr {
 	DOMAIN_ATTR_NON_FATAL_FAULTS,
 	DOMAIN_ATTR_S1_BYPASS,
 	DOMAIN_ATTR_FAST,
+	DOMAIN_ATTR_PGTBL_INFO,
 	DOMAIN_ATTR_MAX,
 };
 
