@@ -633,7 +633,7 @@ struct mdss_mdp_pipe {
 
 	struct mdp_overlay_pp_params pp_cfg;
 	struct mdss_pipe_pp_res pp_res;
-	struct mdp_scale_data scale;
+	struct mdp_scale_data_v2 scaler;
 	u8 chroma_sample_h;
 	u8 chroma_sample_v;
 
@@ -1481,6 +1481,7 @@ int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
 					struct mdp_mixer_cfg *mixer_cfg);
 
 void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe);
+void mdss_mdp_pipe_calc_qseed3_cfg(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable);
 int mdss_mdp_wb_get_secure(struct msm_fb_data_type *mfd, uint8_t *enable);
 void mdss_mdp_ctl_restore(bool locked);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,12 @@
 	GAMUT_T2_SIZE + GAMUT_T3_SIZE + GAMUT_T4_SIZE + \
 	GAMUT_T5_SIZE + GAMUT_T6_SIZE + GAMUT_T7_SIZE)
 
+/* Total 5 QSEED3 filters: Direction filter + Y plane cir and sep + UV plane
+ * cir and  sep filters
+ */
+#define QSEED3_FILTERS		5
+
+#define QSEED3_LUT_REGIONS	4
 
 enum pp_block_opmodes {
 	PP_OPMODE_VIG = 1,
