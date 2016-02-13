@@ -655,10 +655,11 @@ static void ipa_disconnect_work_handler(struct gsi_data_port *d_port)
 static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 {
 	int ret = 0;
-	bool block_db;
+	bool block_db, f_suspend;
 	struct f_gsi *gsi = d_port_to_gsi(d_port);
 
-	if (!usb_gsi_ep_op(gsi->d_port.in_ep, NULL,
+	f_suspend = gsi->function.func_wakeup_allowed;
+	if (!usb_gsi_ep_op(gsi->d_port.in_ep, (void *) &f_suspend,
 				GSI_EP_OP_CHECK_FOR_SUSPEND)) {
 		ret = -EFAULT;
 		goto done;
