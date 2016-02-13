@@ -113,7 +113,7 @@ static inline void msm_isp_cfg_stream_scratch(struct vfe_device *vfe_dev,
 	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
 	for (i = 0; i < stream_info->num_planes; i++)
 		msm_isp_cfg_wm_scratch(vfe_dev, stream_info->wm[i],
-				~pingpong_bit);
+				~pingpong_bit & 0x1);
 	stream_info->buf[pingpong_bit] = NULL;
 }
 
