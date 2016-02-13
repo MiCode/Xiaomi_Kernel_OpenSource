@@ -896,6 +896,14 @@
 	/delete-property/ vin-supply;
 };
 
+&pcie1 {
+	/delete-property/ qcom,ep-wakeirq;
+};
+
+&pcie2 {
+	/delete-property/ qcom,ep-wakeirq;
+};
+
 &wsa881x_211 {
 	/delete-property/ qcom,spkr-sd-n-gpio;
 };
