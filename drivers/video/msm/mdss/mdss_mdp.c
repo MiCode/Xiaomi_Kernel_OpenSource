@@ -1481,6 +1481,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 			mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_3D_MUX_UNDERRUN_RECOVERY_SUPPORTED,
 			mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map);
 		mdss_mdp_init_default_prefill_factors(mdata);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
@@ -1575,6 +1577,96 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	}
 
 	return rc;
+}
+
+static u32 mdss_mdp_scaler_init(struct mdss_data_type *mdata,
+				struct device *dev)
+{
+	int ret;
+	struct device_node *node;
+	u32 prop_val;
+
+	if (!dev)
+		return -EPERM;
+
+	node = of_get_child_by_name(dev->of_node, "qcom,mdss-scaler-offsets");
+	if (!node)
+		return 0;
+
+	if (mdata->scaler_off)
+		return -EFAULT;
+
+	mdata->scaler_off = devm_kzalloc(&mdata->pdev->dev,
+			sizeof(*mdata->scaler_off), GFP_KERNEL);
+	if (!mdata->scaler_off)
+		return -ENOMEM;
+
+	ret = of_property_read_u32(node,
+			"qcom,mdss-vig-scaler-off",
+			&prop_val);
+	if (ret) {
+		pr_err("read property %s failed ret %d\n",
+				"qcom,mdss-vig-scaler-off", ret);
+		return -EINVAL;
+	}
+	mdata->scaler_off->vig_scaler_off = prop_val;
+	ret = of_property_read_u32(node,
+			"qcom,mdss-vig-scaler-lut-off",
+			&prop_val);
+	if (ret) {
+		pr_err("read property %s failed ret %d\n",
+				"qcom,mdss-vig-scaler-lut-off", ret);
+		return -EINVAL;
+	}
+	mdata->scaler_off->vig_scaler_lut_off = prop_val;
+	mdata->scaler_off->has_dest_scaler =
+		of_property_read_bool(mdata->pdev->dev.of_node,
+				"qcom,mdss-has-dest-scaler");
+	if (mdata->scaler_off->has_dest_scaler) {
+		ret = of_property_read_u32(node,
+				"qcom,mdss-dest-block-off",
+				&prop_val);
+		if (ret) {
+			pr_err("read property %s failed ret %d\n",
+					"qcom,mdss-dest-block-off", ret);
+			return -EINVAL;
+		}
+		mdata->scaler_off->dest_base = mdata->mdss_io.base +
+			prop_val;
+		mdata->scaler_off->ndest_scalers =
+			mdss_mdp_parse_dt_prop_len(mdata->pdev,
+					"qcom,mdss-dest-scalers-off");
+		mdata->scaler_off->dest_scaler_off =
+			devm_kzalloc(&mdata->pdev->dev, sizeof(u32) *
+					mdata->scaler_off->ndest_scalers,
+					GFP_KERNEL);
+		if  (!mdata->scaler_off->dest_scaler_off) {
+			kfree(mdata->scaler_off->dest_scaler_off);
+			return -ENOMEM;
+		}
+		ret = mdss_mdp_parse_dt_handler(mdata->pdev,
+				"qcom,mdss-dest-scaler-off",
+				mdata->scaler_off->dest_scaler_off,
+				mdata->scaler_off->ndest_scalers);
+		if (ret)
+			return -EINVAL;
+		mdata->scaler_off->dest_scaler_lut_off =
+			devm_kzalloc(&mdata->pdev->dev, sizeof(u32) *
+					mdata->scaler_off->ndest_scalers,
+					GFP_KERNEL);
+		if  (!mdata->scaler_off->dest_scaler_lut_off) {
+			kfree(mdata->scaler_off->dest_scaler_lut_off);
+			return -ENOMEM;
+		}
+		ret = mdss_mdp_parse_dt_handler(mdata->pdev,
+				"qcom,mdss-dest-scalers-lut-off",
+				mdata->scaler_off->dest_scaler_lut_off,
+				mdata->scaler_off->ndest_scalers);
+		if (ret)
+			return -EINVAL;
+	}
+
+	return 0;
 }
 
 /**
@@ -1850,6 +1942,10 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" rotator_downscale");
 	if (mdata->max_bw_settings_cnt)
 		SPRINT(" dynamic_bw_limit");
+	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map))
+		SPRINT("qseed3");
+	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map))
+		SPRINT("dest_scaler");
 	SPRINT("\n");
 #undef SPRINT
 
@@ -2109,6 +2205,9 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		pr_err("unable to initialize mdp debugging\n");
 		goto probe_done;
 	}
+	rc = mdss_mdp_scaler_init(mdata, &pdev->dev);
+	if (rc)
+		goto probe_done;
 
 	pm_runtime_set_autosuspend_delay(&pdev->dev, AUTOSUSPEND_TIMEOUT_MS);
 	if (mdata->idle_pc_enabled)

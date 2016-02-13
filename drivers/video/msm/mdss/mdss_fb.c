@@ -4148,6 +4148,114 @@ static int mdss_fb_display_commit(struct fb_info *info,
 	return ret;
 }
 
+/**
+ * __mdss_fb_copy_pixel_ext() - copy pixel extension payload
+ * @src: pixel extn structure
+ * @dest: Qseed3/pixel extn common payload
+ *
+ * Function copies the pixel extension parameters into the scale data structure,
+ * this is required to allow using the scale_v2 data structure for both
+ * QSEED2 and QSEED3
+ */
+static void __mdss_fb_copy_pixel_ext(struct mdp_scale_data *src,
+					struct mdp_scale_data_v2 *dest)
+{
+	if (!src || !dest)
+		return;
+	memcpy(dest->init_phase_x, src->init_phase_x,
+		sizeof(src->init_phase_x));
+	memcpy(dest->phase_step_x, src->phase_step_x,
+		sizeof(src->init_phase_x));
+	memcpy(dest->init_phase_y, src->init_phase_y,
+		sizeof(src->init_phase_x));
+	memcpy(dest->phase_step_y, src->phase_step_y,
+		sizeof(src->init_phase_x));
+
+	memcpy(dest->num_ext_pxls_left, src->num_ext_pxls_left,
+		sizeof(src->num_ext_pxls_left));
+	memcpy(dest->num_ext_pxls_right, src->num_ext_pxls_right,
+		sizeof(src->num_ext_pxls_right));
+	memcpy(dest->num_ext_pxls_top, src->num_ext_pxls_top,
+		sizeof(src->num_ext_pxls_top));
+	memcpy(dest->num_ext_pxls_btm, src->num_ext_pxls_btm,
+		sizeof(src->num_ext_pxls_btm));
+
+	memcpy(dest->left_ftch, src->left_ftch, sizeof(src->left_ftch));
+	memcpy(dest->left_rpt, src->left_rpt, sizeof(src->left_rpt));
+	memcpy(dest->right_ftch, src->right_ftch, sizeof(src->right_ftch));
+	memcpy(dest->right_rpt, src->right_rpt, sizeof(src->right_rpt));
+
+
+	memcpy(dest->top_rpt, src->top_rpt, sizeof(src->top_rpt));
+	memcpy(dest->btm_rpt, src->btm_rpt, sizeof(src->btm_rpt));
+	memcpy(dest->top_ftch, src->top_ftch, sizeof(src->top_ftch));
+	memcpy(dest->btm_ftch, src->btm_ftch, sizeof(src->btm_ftch));
+
+	memcpy(dest->roi_w, src->roi_w, sizeof(src->roi_w));
+}
+
+static int __mdss_fb_scaler_handler(struct mdp_input_layer *layer)
+{
+	int ret = 0;
+	struct mdp_scale_data *pixel_ext = NULL;
+	struct mdp_scale_data_v2 *scale = NULL;
+
+	if ((layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT) &&
+			(layer->flags & MDP_LAYER_ENABLE_QSEED3_SCALE)) {
+		pr_err("Invalid flag configuration for scaler, %x\n",
+				layer->flags);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT) {
+		scale = kzalloc(sizeof(struct mdp_scale_data_v2),
+				GFP_KERNEL);
+		pixel_ext = kzalloc(sizeof(struct mdp_scale_data),
+				GFP_KERNEL);
+		if (!scale || !pixel_ext) {
+			mdss_mdp_free_layer_pp_info(layer);
+			ret = -ENOMEM;
+			goto err;
+		}
+		ret = copy_from_user(pixel_ext, layer->scale,
+				sizeof(struct mdp_scale_data));
+		if (ret) {
+			mdss_mdp_free_layer_pp_info(layer);
+			ret = -EFAULT;
+			goto err;
+		}
+		__mdss_fb_copy_pixel_ext(pixel_ext, scale);
+		layer->scale = scale;
+	} else if (layer->flags & MDP_LAYER_ENABLE_QSEED3_SCALE) {
+		scale = kzalloc(sizeof(struct mdp_scale_data_v2),
+				GFP_KERNEL);
+		if (!scale) {
+			mdss_mdp_free_layer_pp_info(layer);
+			ret =  -ENOMEM;
+			goto err;
+		}
+
+		ret = copy_from_user(scale, layer->scale,
+				sizeof(struct mdp_scale_data_v2));
+		if (ret) {
+			mdss_mdp_free_layer_pp_info(layer);
+			ret = -EFAULT;
+			goto err;
+		}
+		layer->scale = scale;
+	} else {
+		layer->scale = NULL;
+	}
+	kfree(pixel_ext);
+	return ret;
+err:
+	kfree(pixel_ext);
+	kfree(scale);
+	layer->scale = NULL;
+	return ret;
+}
+
 static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	unsigned long *argp, struct file *file)
 {
@@ -4156,7 +4264,6 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	u32 buffer_size, layer_count;
 	struct mdp_input_layer *layer, *layer_list = NULL;
 	struct mdp_input_layer __user *input_layer_list;
-	struct mdp_scale_data *scale;
 	struct mdp_output_layer *output_layer = NULL;
 	struct mdp_output_layer __user *output_layer_user;
 
@@ -4209,7 +4316,6 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 
 		for (i = 0; i < layer_count; i++) {
 			layer = &layer_list[i];
-			scale = NULL;
 
 			if (!(layer->flags & MDP_LAYER_PP)) {
 				layer->pp_info = NULL;
@@ -4222,32 +4328,18 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 				}
 			}
 
-			if (!(layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT)) {
+			if ((layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT) ||
+				(layer->flags &
+				 MDP_LAYER_ENABLE_QSEED3_SCALE)) {
+				ret = __mdss_fb_scaler_handler(layer);
+				if (ret) {
+					pr_err("failure to copy scale params for layer %d, ret = %d\n",
+						i, ret);
+					goto err;
+				}
+			} else {
 				layer->scale = NULL;
-				continue;
 			}
-
-			scale = kzalloc(sizeof(struct mdp_scale_data),
-				GFP_KERNEL);
-			if (!scale) {
-				pr_err("unable to allocate memory for overlays\n");
-				mdss_mdp_free_layer_pp_info(layer);
-				ret = -ENOMEM;
-				goto err;
-			}
-
-			ret = copy_from_user(scale, layer->scale,
-					sizeof(struct mdp_scale_data));
-			if (ret) {
-				pr_err("layer list copy from user failed, scale = %p\n",
-						layer->scale);
-				kfree(scale);
-				scale = NULL;
-				mdss_mdp_free_layer_pp_info(layer);
-				ret = -EFAULT;
-				goto err;
-			}
-			layer->scale = scale;
 		}
 	}
 

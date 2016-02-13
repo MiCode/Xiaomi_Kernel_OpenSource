@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,15 @@
 #define GC_LUT_SEGMENTS	16
 #define ENHIST_LUT_ENTRIES 256
 #define HIST_V_SIZE	256
+
+/* QSEED3 LUT sizes */
+#define DIR_LUT_IDX		1
+#define DIR_LUT_COEFFS		200
+#define CIR_LUT_IDX		9
+#define CIR_LUT_COEFFS		60
+#define SEP_LUT_IDX		10
+#define SEP_LUT_COEFFS		60
+
 
 #define MDSS_MDP_FETCH_CONFIG_RESET_VALUE	0x00000087
 
@@ -252,6 +261,67 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_VIG_QSEED2_SHARP			0x230
 #define MDSS_MDP_REG_VIG_MEM_COL_BASE			0x288
 #define MDSS_MDP_REG_VIG_PA_BASE			0x310
+
+/* QSEED3 registers shared by VIG and Destination Scaler */
+#define MDSS_MDP_REG_SCALER_HW_VERSION			0x00
+#define MDSS_MDP_REG_SCALER_OP_MODE			0x04
+#define MDSS_MDP_REG_SCALER_RGB2Y_COEFF			0x08
+#define MDSS_MDP_REG_SCALER_PHASE_INIT			0x0C
+#define MDSS_MDP_REG_SCALER_PHASE_STEP_Y_H		0x10
+#define MDSS_MDP_REG_SCALER_PHASE_STEP_Y_V		0x14
+#define MDSS_MDP_REG_SCALER_PHASE_STEP_UV_H		0x18
+#define MDSS_MDP_REG_SCALER_PHASE_STEP_UV_V		0x1C
+#define MDSS_MDP_REG_SCALER_PRELOAD			0x20
+#define MDSS_MDP_REG_SCALER_DE_SHARPEN			0x24
+#define MDSS_MDP_REG_SCALER_DE_SHARPEN_CTL		0x28
+#define MDSS_MDP_REG_SCALER_DE_SHAPE_CTL		0x2C
+#define MDSS_MDP_REG_SCALER_DE_THRESHOLD		0x30
+#define MDSS_MDP_REG_SCALER_DE_ADJUST_DATA_0		0x34
+#define MDSS_MDP_REG_SCALER_DE_ADJUST_DATA_1		0x38
+#define MDSS_MDP_REG_SCALER_DE_ADJUST_DATA_2		0x3C
+#define MDSS_MDP_REG_SCALER_SRC_SIZE_Y_RGB_A		0x40
+#define MDSS_MDP_REG_SCALER_SRC_SIZE_UV			0x44
+#define MDSS_MDP_REG_SCALER_DST_SIZE			0x48
+#define MDSS_MDP_REG_SCALER_COEF_LUT_CTRL		0x4C
+#define MDSS_MDP_REG_SCALER_BUFFER_CTRL			0x50
+#define MDSS_MDP_REG_SCALER_CLK_CTRL0			0x54
+#define MDSS_MDP_REG_SCALER_CLK_CTRL1			0x58
+#define MDSS_MDP_REG_SCALER_CLK_STATUS			0x5C
+#define MDSS_MDP_REG_SCALER_MISR_CTRL			0x70
+#define MDSS_MDP_REG_SCALER_MISR_SIGNATURE_0		0x74
+#define MDSS_MDP_REG_SCALER_MISR_SIGNATURE_1		0x78
+
+#define SCALER_EN			BIT(0)
+#define SCALER_DIR_EN			BIT(4)
+#define SCALER_DE_EN			BIT(8)
+#define SCALER_ALPHA_EN			BIT(10)
+#define SCALER_COLOR_SPACE		12
+#define SCALER_BIT_WIDTH		14
+#define Y_FILTER_CFG			16
+#define UV_FILTER_CFG			24
+#define ALPHA_FILTER_CFG		30
+#define SCALER_BLEND_CFG		31
+
+#define PHASE_BITS			0x3F
+#define PHASE_STEP_BITS			0xFFFFFF
+#define PRELOAD_BITS			0x7F
+
+#define Y_PHASE_INIT_H			0
+#define Y_PHASE_INIT_V			8
+#define UV_PHASE_INIT_H			16
+#define UV_PHASE_INIT_V			24
+#define Y_PRELOAD_H			0
+#define Y_PRELOAD_V			8
+#define UV_PRELOAD_H			16
+#define UV_PRELOAD_V			24
+/* supported filters */
+#define EDGE_DIRECTED_2D		0x0
+#define CIRCULAR_2D			0x1
+#define SEPERABLE_1D			0x2
+#define BILINEAR			0x3
+#define ALPHA_DROP_REPEAT		0x0
+#define ALPHA_BILINEAR			0x1
+
 
 /* in mpq product */
 #define MDSS_MDP_REG_VIG_FLUSH_SEL			0x204
