@@ -27,6 +27,13 @@ config ARM_GIC_V3_ITS
 	bool
 	select PCI_MSI_IRQ_DOMAIN
 
+config ARM_GIC_V3_ACL
+	bool "GICv3 Access control"
+	depends on ARM_GIC_V3
+	help
+	  Access to GIC ITS address space is controlled by EL2.
+	  Kernel has no permission to access ITS
+
 config ARM_GIC_V3_NO_ACCESS_CONTROL
 	bool "GICv3 No Access Control Configuration"
 	depends on ARM_GIC_V3
