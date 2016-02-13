@@ -103,6 +103,8 @@ static inline u64 gic_read_iar_common(void)
 	u64 irqstat;
 
 	asm volatile("mrs_s %0, " __stringify(ICC_IAR1_EL1) : "=r" (irqstat));
+	/* As per the architecture specification */
+	mb();
 	return irqstat;
 }
 
@@ -131,6 +133,8 @@ static inline u64 gic_read_iar_cavium_thunderx(void)
 static inline void gic_write_pmr(u32 val)
 {
 	asm volatile("msr_s " __stringify(ICC_PMR_EL1) ", %0" : : "r" ((u64)val));
+	/* As per the architecture specification */
+	mb();
 }
 
 static inline void gic_write_ctlr(u32 val)
@@ -148,6 +152,8 @@ static inline void gic_write_grpen1(u32 val)
 static inline void gic_write_sgi1r(u64 val)
 {
 	asm volatile("msr_s " __stringify(ICC_SGI1R_EL1) ", %0" : : "r" (val));
+	/* As per the architecture specification */
+	mb();
 }
 
 static inline u32 gic_read_sre(void)
