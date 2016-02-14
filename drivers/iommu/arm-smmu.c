@@ -340,6 +340,7 @@ struct arm_smmu_device {
 
 	void __iomem			*base;
 	unsigned long			size;
+	phys_addr_t			phys_addr;
 	unsigned long			pgshift;
 
 #define ARM_SMMU_FEAT_COHERENT_WALK	(1 << 0)
@@ -2502,7 +2503,20 @@ static int __arm_smmu_halt(struct arm_smmu_device *smmu, bool wait)
 
 	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	reg |= MICRO_MMU_CTRL_LOCAL_HALT_REQ;
-	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+
+	if (arm_smmu_is_static_cb(smmu)) {
+		phys_addr_t impl_def1_base_phys = impl_def1_base - smmu->base +
+							smmu->phys_addr;
+
+		if (scm_io_write(impl_def1_base_phys +
+				IMPL_DEF1_MICRO_MMU_CTRL, reg)) {
+			dev_err(smmu->dev,
+				"scm_io_write fail. SMMU might not be halted");
+			return -EINVAL;
+		}
+	} else {
+		writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	}
 
 	return wait ? arm_smmu_wait_for_halt(smmu) : 0;
 }
@@ -2534,7 +2548,18 @@ static void arm_smmu_resume(struct arm_smmu_device *smmu)
 
 	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 	reg &= ~MICRO_MMU_CTRL_LOCAL_HALT_REQ;
-	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+
+	if (arm_smmu_is_static_cb(smmu)) {
+		phys_addr_t impl_def1_base_phys = impl_def1_base - smmu->base +
+							smmu->phys_addr;
+
+		if (scm_io_write(impl_def1_base_phys +
+				IMPL_DEF1_MICRO_MMU_CTRL, reg))
+			dev_err(smmu->dev,
+				"scm_io_write fail. SMMU might not be resumed");
+	} else {
+		writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	}
 }
 
 static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
@@ -3449,6 +3474,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	smmu->version = (enum arm_smmu_arch_version)of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	smmu->phys_addr = res->start;
 	smmu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(smmu->base))
 		return PTR_ERR(smmu->base);
