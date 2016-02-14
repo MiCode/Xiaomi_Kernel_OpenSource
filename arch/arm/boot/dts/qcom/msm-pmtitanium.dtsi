@@ -35,7 +35,6 @@
 				"resin-bark", "kpdpwr-resin-bark";
 			qcom,pon-dbc-delay = <15625>;
 			qcom,system-reset;
-			qcom,store-hard-reset-reason;
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
