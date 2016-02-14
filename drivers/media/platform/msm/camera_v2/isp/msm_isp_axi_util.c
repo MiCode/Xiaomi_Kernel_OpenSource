@@ -42,7 +42,8 @@ static inline struct msm_vfe_axi_stream *msm_isp_get_controllable_stream(
 		struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info)
 {
-	if (vfe_dev->is_split && stream_info->stream_src < RDI_INTF_0)
+	if (vfe_dev->is_split && stream_info->stream_src < RDI_INTF_0 &&
+		stream_info->controllable_output)
 		return msm_isp_vfe_get_stream(
 					vfe_dev->common_data->dual_vfe_res,
 					ISP_VFE1,
@@ -3391,6 +3392,20 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 			__func__,
 			temp_stream->runtime_num_burst_capture);
 		temp_stream->runtime_num_burst_capture--;
+		/*
+		 * For non controllable stream decrement the burst count for
+		 * dual stream as well here
+		 */
+		if (!stream_info->controllable_output && vfe_dev->is_split &&
+			RDI_INTF_0 > stream_info->stream_src) {
+			temp_stream = msm_isp_vfe_get_stream(
+					vfe_dev->common_data->dual_vfe_res,
+					((vfe_dev->pdev->id == ISP_VFE0) ?
+					ISP_VFE1 : ISP_VFE0),
+					HANDLE_TO_IDX(
+					stream_info->stream_handle));
+			temp_stream->runtime_num_burst_capture--;
+		}
 	}
 
 	rc = msm_isp_update_deliver_count(vfe_dev, stream_info,
