@@ -2224,7 +2224,7 @@ int mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	unsigned long flag;
 	u32 data;
 	int rc = 0;
-	struct mdss_dsi_ctrl_pdata *sctrl_pdata;
+	struct mdss_dsi_ctrl_pdata *sctrl_pdata = NULL;
 
 	/* DSI_INTL_CTRL */
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
@@ -2246,7 +2246,12 @@ int mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	MIPI_OUTP((ctrl->ctrl_base) + DSI_DYNAMIC_REFRESH_CTRL,
 		(BIT(13) | BIT(8) | BIT(0)));
 
-	sctrl_pdata = mdss_dsi_get_ctrl_clk_slave();
+	/*
+	 * Configure DYNAMIC_REFRESH_CTRL for second controller only
+	 * for split DSI cases.
+	 */
+	if (mdss_dsi_is_ctrl_clk_master(ctrl))
+		sctrl_pdata = mdss_dsi_get_ctrl_clk_slave();
 
 	if (sctrl_pdata)
 		MIPI_OUTP((sctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_CTRL,
