@@ -204,6 +204,11 @@
 			reg = <0 0x83401000 0 0x23FF000>;
 			label = "cont_splash_mem";
 		};
+
+		cont_splash_mem_hdmi: cont_splash_mem_hdmi@b1c00000 {
+			reg = <0 0xb1c00000 0 0x23ff000>;
+			label = "cont_splash_mem_hdmi";
+		};
 	};
 };
 
