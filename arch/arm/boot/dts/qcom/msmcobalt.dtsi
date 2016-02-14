@@ -1385,8 +1385,12 @@
 
 	qcom,spss@1d00000 {
 		compatible = "qcom,pil-tz-generic";
-		reg = <0x1d00000 0x20000>;
-		reg-names = "sp_scsr_base";
+		reg = <0x1d0101c 0x4>,
+		      <0x1d01024 0x4>,
+		      <0x1d01028 0x4>,
+		      <0x1d0103c 0x4>;
+		reg-names = "sp2soc_irq_status", "sp2soc_irq_clr",
+			    "sp2soc_irq_mask","rmb_err";
 		interrupts = <0 352 1>;
 
 		vdd_cx-supply = <&pmcobalt_s1_level>;
@@ -1402,6 +1406,7 @@
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "spss";
 		memory-region = <&peripheral_mem>;
+		qcom,spss-scsr-bits = <0 1 2 3 16 17 24 25>;
 	};
 
 	qcom,msm-rtb {
