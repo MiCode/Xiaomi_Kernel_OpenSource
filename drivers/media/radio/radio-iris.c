@@ -63,6 +63,10 @@ static void radio_hci_rx_task(unsigned long arg);
 static struct video_device *video_get_dev(void);
 static DEFINE_RWLOCK(hci_task_lock);
 
+typedef int (*radio_hci_request_func)(struct radio_hci_dev *hdev,
+		int (*req)(struct radio_hci_dev *hdev, unsigned long param),
+		unsigned long param, unsigned long timeout_msecs);
+
 struct iris_device {
 	struct device *dev;
 	struct kfifo data_buf[IRIS_BUF_MAX];
@@ -73,6 +77,7 @@ struct iris_device {
 	struct completion sync_xfr_start;
 	int tune_req;
 	unsigned int mode;
+	bool is_fm_closing;
 
 	__u16 pi;
 	__u8 pty;
@@ -1305,7 +1310,8 @@ static int radio_hci_err(__u32 code)
 static int __radio_hci_request(struct radio_hci_dev *hdev,
 		int (*req)(struct radio_hci_dev *hdev,
 			unsigned long param),
-			unsigned long param, __u32 timeout)
+			unsigned long param, unsigned long timeout_msecs,
+			bool interruptible)
 {
 	int err = 0;
 	DECLARE_WAITQUEUE(wait, current);
@@ -1319,15 +1325,18 @@ static int __radio_hci_request(struct radio_hci_dev *hdev,
 	hdev->req_status = HCI_REQ_PEND;
 
 	add_wait_queue(&hdev->req_wait_q, &wait);
-	set_current_state(TASK_INTERRUPTIBLE);
+	if (interruptible)
+		set_current_state(TASK_INTERRUPTIBLE);
+	else
+		set_current_state(TASK_UNINTERRUPTIBLE);
 
 	err = req(hdev, param);
 
-	schedule_timeout(msecs_to_jiffies(timeout));
+	schedule_timeout(msecs_to_jiffies(timeout_msecs));
 
 	remove_wait_queue(&hdev->req_wait_q, &wait);
 
-	if (signal_pending(current)) {
+	if (interruptible && signal_pending(current)) {
 		mutex_unlock(&iris_fm);
 		return -EINTR;
 	}
@@ -1348,16 +1357,36 @@ static int __radio_hci_request(struct radio_hci_dev *hdev,
 	return err;
 }
 
-static inline int radio_hci_request(struct radio_hci_dev *hdev,
+static inline int radio_hci_request_interruptible(struct radio_hci_dev *hdev,
 		int (*req)(struct
 		radio_hci_dev * hdev, unsigned long param),
-		unsigned long param, __u32 timeout)
+		unsigned long param, unsigned long timeout_msecs)
 {
 	int ret = 0;
 
-	ret = __radio_hci_request(hdev, req, param, timeout);
+	ret = __radio_hci_request(hdev, req, param, timeout_msecs, true);
 
 	return ret;
+}
+
+static inline int radio_hci_request_uninterruptible(struct radio_hci_dev *hdev,
+		int (*req)(struct
+		radio_hci_dev * hdev, unsigned long param),
+		unsigned long param, unsigned long timeout_msecs)
+{
+	int ret = 0;
+
+	ret = __radio_hci_request(hdev, req, param, timeout_msecs, false);
+
+	return ret;
+}
+
+static inline int radio_hci_request(struct radio_hci_dev *hdev,
+		int (*req)(struct
+		radio_hci_dev * hdev, unsigned long param),
+		unsigned long param, unsigned long timeout_msecs)
+{
+	return radio_hci_request_interruptible(hdev, req, param, timeout_msecs);
 }
 
 static inline int hci_conf_event_mask(__u8 *arg,
@@ -1734,13 +1763,18 @@ static int hci_set_blend_tbl_req(struct hci_fm_blend_table *arg,
 	return ret;
 }
 
-static int hci_cmd(unsigned int cmd, struct radio_hci_dev *hdev)
+static int hci_cmd_internal(unsigned int cmd, struct radio_hci_dev *hdev,
+						bool interruptible)
 {
 	int ret = 0;
 	unsigned long arg = 0;
+	radio_hci_request_func radio_hci_request;
 
 	if (!hdev)
 		return -ENODEV;
+
+	radio_hci_request = interruptible ? radio_hci_request_interruptible :
+			radio_hci_request_uninterruptible;
 
 	switch (cmd) {
 	case HCI_FM_ENABLE_RECV_CMD:
@@ -1838,6 +1872,17 @@ static int hci_cmd(unsigned int cmd, struct radio_hci_dev *hdev)
 	return ret;
 }
 
+
+static int hci_cmd(unsigned int cmd, struct radio_hci_dev *hdev)
+{
+	return hci_cmd_internal(cmd, hdev, true);
+}
+
+static int hci_cmd_uninterruptible(unsigned int cmd, struct radio_hci_dev *hdev)
+{
+	return hci_cmd_internal(cmd, hdev, false);
+}
+
 static void radio_hci_req_complete(struct radio_hci_dev *hdev, int result)
 {
 
@@ -1847,7 +1892,7 @@ static void radio_hci_req_complete(struct radio_hci_dev *hdev, int result)
 	}
 	hdev->req_result = result;
 	hdev->req_status = HCI_REQ_DONE;
-	wake_up_interruptible(&hdev->req_wait_q);
+	wake_up(&hdev->req_wait_q);
 }
 
 static void radio_hci_status_complete(struct radio_hci_dev *hdev, int result)
@@ -1858,7 +1903,7 @@ static void radio_hci_status_complete(struct radio_hci_dev *hdev, int result)
 	}
 	hdev->req_result = result;
 	hdev->req_status = HCI_REQ_STATUS;
-	wake_up_interruptible(&hdev->req_wait_q);
+	wake_up(&hdev->req_wait_q);
 }
 
 static void hci_cc_rsp(struct radio_hci_dev *hdev, struct sk_buff *skb)
@@ -1892,7 +1937,8 @@ static void hci_cc_fm_disable_rsp(struct radio_hci_dev *hdev,
 
 	status = *((__u8 *) skb->data);
 	if ((radio->mode == FM_TURNING_OFF) && (status == 0)) {
-		iris_q_event(radio, IRIS_EVT_RADIO_DISABLED);
+		if (!radio->is_fm_closing)
+			iris_q_event(radio, IRIS_EVT_RADIO_DISABLED);
 		radio_hci_req_complete(hdev, status);
 		radio->mode = FM_OFF;
 	} else if (radio->mode == FM_CALIB) {
@@ -5147,17 +5193,19 @@ static int iris_fops_release(struct file *file)
 		goto END;
 
 	if (radio->mode == FM_RECV) {
+		radio->is_fm_closing = true;
+		radio->mode = FM_TURNING_OFF;
+		retval = hci_cmd_uninterruptible(HCI_FM_DISABLE_RECV_CMD,
+				radio->fm_hdev);
 		radio->mode = FM_OFF;
-		retval = hci_cmd(HCI_FM_DISABLE_RECV_CMD,
-						radio->fm_hdev);
-		/* wait for disable cmd resp from controller */
-		msleep(50);
+		radio->is_fm_closing = false;
 	} else if (radio->mode == FM_TRANS) {
+		radio->is_fm_closing = true;
+		radio->mode = FM_TURNING_OFF;
+		retval = hci_cmd_uninterruptible(HCI_FM_DISABLE_TRANS_CMD,
+				radio->fm_hdev);
 		radio->mode = FM_OFF;
-		retval = hci_cmd(HCI_FM_DISABLE_TRANS_CMD,
-					radio->fm_hdev);
-		/* wait for disable cmd resp from controller */
-		msleep(50);
+		radio->is_fm_closing = false;
 	} else if (radio->mode == FM_CALIB) {
 		radio->mode = FM_OFF;
 		return retval;
@@ -5454,6 +5502,7 @@ static int iris_probe(struct platform_device *pdev)
 	init_completion(&radio->sync_xfr_start);
 	radio->tune_req = 0;
 	radio->prev_trans_rds = 2;
+	radio->is_fm_closing = false;
 	init_waitqueue_head(&radio->event_queue);
 	init_waitqueue_head(&radio->read_queue);
 
