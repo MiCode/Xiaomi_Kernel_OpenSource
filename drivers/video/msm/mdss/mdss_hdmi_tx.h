@@ -157,7 +157,6 @@ struct hdmi_tx_ctrl {
 
 	struct hdmi_util_ds_data ds_data;
 	struct completion hpd_int_done;
-	struct completion hpd_off_done;
 	struct work_struct hpd_int_work;
 	struct delayed_work hdcp_cb_work;
 
