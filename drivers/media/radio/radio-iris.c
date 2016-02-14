@@ -5211,8 +5211,11 @@ static int iris_fops_release(struct file *file)
 		return retval;
 	}
 END:
-	if (radio->fm_hdev != NULL)
+	if (radio->fm_hdev != NULL) {
+		mutex_lock(&fm_smd_enable);
 		radio->fm_hdev->close_smd();
+		mutex_unlock(&fm_smd_enable);
+	}
 	if (retval < 0)
 		FMDERR("Err on disable FM %d\n", retval);
 
