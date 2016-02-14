@@ -61,8 +61,6 @@
 #define AUDIO_POLL_SLEEP_US   (5 * 1000)
 #define AUDIO_POLL_TIMEOUT_US (AUDIO_POLL_SLEEP_US * 1000)
 
-#define LPA_DMA_IDLE_MAX 200
-
 #define IFRAME_CHECKSUM_32(d)			\
 	((d & 0xff) + ((d >> 8) & 0xff) +	\
 	((d >> 16) & 0xff) + ((d >> 24) & 0xff))
@@ -3907,8 +3905,9 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		goto end;
 	}
 
-	hdmi_ctrl->panel_power_on = true;
 end:
+	hdmi_ctrl->panel_power_on = true;
+
 	dss_reg_dump(io->base, io->len, "HDMI-ON: ", REG_DUMP);
 
 	DEV_DBG("%s: Tx: %s (%s mode)\n", __func__,
@@ -4473,7 +4472,8 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_RESET:
-		if (hdmi_ctrl->hpd_initialized) {
+		if (!hdmi_ctrl->pdata.cont_splash_enabled &&
+				hdmi_ctrl->hpd_initialized) {
 			hdmi_tx_set_mode(hdmi_ctrl, false);
 			hdmi_tx_phy_reset(hdmi_ctrl);
 			hdmi_tx_set_mode(hdmi_ctrl, true);
@@ -5166,69 +5166,6 @@ error:
 	return rc;
 } /* hdmi_tx_get_dt_data */
 
-static void hdmi_tx_audio_tear_down(struct hdmi_tx_ctrl *hdmi_ctrl)
-{
-	struct dss_io_data *io;
-	u32 audio_pkt_ctrl;
-	u32 audio_eng_cfg;
-
-	if (!hdmi_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return;
-	}
-
-	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
-	if (!io->base) {
-		DEV_ERR("%s: Core io is not initialized\n", __func__);
-		return;
-	}
-
-	audio_pkt_ctrl = DSS_REG_R(io, HDMI_AUDIO_PKT_CTRL);
-	audio_eng_cfg  = DSS_REG_R(io, HDMI_AUDIO_CFG);
-
-	if ((audio_pkt_ctrl & BIT(0)) || (audio_eng_cfg & BIT(0))) {
-		u32 lpa_dma, i = 0;
-
-		void __iomem *lpa_base = ioremap(LPASS_LPAIF_RDDMA_CTL0, 0xFF);
-
-		lpa_dma = readl_relaxed(lpa_base + LPASS_LPAIF_RDDMA_PER_CNT0);
-
-		/* Disable audio packet transmission */
-		DSS_REG_W(io, HDMI_AUDIO_PKT_CTRL,
-			DSS_REG_R(io, HDMI_AUDIO_PKT_CTRL) & ~BIT(0));
-
-		/* Wait for LPA DMA Engine to be idle */
-		while (i < LPA_DMA_IDLE_MAX) {
-			u32 val;
-
-			/*
-			 * sleep for minimum HW recommended time
-			 * for HW status to update.
-			 */
-			msleep(20);
-
-			val = readl_relaxed(lpa_base +
-				LPASS_LPAIF_RDDMA_PER_CNT0);
-			if (val == lpa_dma)
-				break;
-
-			lpa_dma = val;
-			i++;
-		}
-
-		DEV_DBG("%s: LPA DMA idle after %d ms\n", __func__, i * 20);
-
-		/* Disable audio engine */
-		DSS_REG_W(io, HDMI_AUDIO_CFG,
-			DSS_REG_R(io, HDMI_AUDIO_CFG) & ~BIT(0));
-
-		/* Disable LPA DMA Engine */
-		writel_relaxed(readl_relaxed(lpa_base) & ~BIT(0), lpa_base);
-
-		iounmap(lpa_base);
-	}
-}
-
 static int hdmi_tx_probe(struct platform_device *pdev)
 {
 	int rc = 0, i;
@@ -5345,8 +5282,6 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 				hdmi_ctrl->pdata.power_data[i].clk_config,
 				hdmi_ctrl->pdata.power_data[i].num_clk, 1);
 		}
-
-		hdmi_tx_audio_tear_down(hdmi_ctrl);
 	}
 
 	return rc;

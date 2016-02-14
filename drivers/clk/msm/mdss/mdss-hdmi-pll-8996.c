@@ -2265,9 +2265,102 @@ static int hdmi_8996_v3_1p8_vco_set_rate(struct clk *c, unsigned long rate)
 	return hdmi_8996_vco_set_rate(c, rate, HDMI_VERSION_8996_V3_1_8);
 }
 
+static unsigned long hdmi_get_hsclk_sel_divisor(unsigned long hsclk_sel)
+{
+	unsigned long divisor;
+
+	switch (hsclk_sel) {
+	case 0:
+		divisor = 2;
+		break;
+	case 1:
+		divisor = 6;
+		break;
+	case 2:
+		divisor = 10;
+		break;
+	case 3:
+		divisor = 14;
+		break;
+	case 4:
+		divisor = 3;
+		break;
+	case 5:
+		divisor = 9;
+		break;
+	case 6:
+	case 13:
+		divisor = 15;
+		break;
+	case 7:
+		divisor = 21;
+		break;
+	case 8:
+		divisor = 4;
+		break;
+	case 9:
+		divisor = 12;
+		break;
+	case 10:
+		divisor = 20;
+		break;
+	case 11:
+		divisor = 28;
+		break;
+	case 12:
+		divisor = 5;
+		break;
+	case 14:
+		divisor = 25;
+		break;
+	case 15:
+		divisor = 35;
+		break;
+	default:
+		divisor = 1;
+		DEV_ERR("%s: invalid hsclk_sel value = %lu",
+				__func__, hsclk_sel);
+		break;
+	}
+
+	return divisor;
+}
+
 static unsigned long hdmi_8996_vco_get_rate(struct clk *c)
 {
-	unsigned long freq = 0;
+	unsigned long freq = 0, hsclk_sel = 0, tx_band = 0, dec_start = 0,
+		      div_frac_start = 0, vco_clock_freq = 0;
+	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
+	struct mdss_pll_resources *io = vco->priv;
+
+	if (mdss_pll_resource_enable(io, true)) {
+		DEV_ERR("%s: pll resource can't be enabled\n", __func__);
+		return freq;
+	}
+
+	dec_start = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_DEC_START_MODE0);
+
+	div_frac_start =
+		MDSS_PLL_REG_R(io->pll_base,
+				QSERDES_COM_DIV_FRAC_START1_MODE0) |
+		MDSS_PLL_REG_R(io->pll_base,
+				QSERDES_COM_DIV_FRAC_START2_MODE0) << 8 |
+		MDSS_PLL_REG_R(io->pll_base,
+				QSERDES_COM_DIV_FRAC_START3_MODE0) << 16;
+
+	vco_clock_freq = (dec_start + (div_frac_start / (1 << 20)))
+		* 4 * (HDMI_REF_CLOCK);
+
+	hsclk_sel = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_HSCLK_SEL) & 0x15;
+	hsclk_sel = hdmi_get_hsclk_sel_divisor(hsclk_sel);
+	tx_band = MDSS_PLL_REG_R(io->pll_base + HDMI_TX_L0_BASE_OFFSET,
+			QSERDES_TX_L0_TX_BAND) & 0x3;
+
+	freq = vco_clock_freq / (10 * hsclk_sel * (1 << tx_band));
+
+	mdss_pll_resource_enable(io, false);
+
+	DEV_DBG("%s: freq = %lu\n", __func__, freq);
 
 	return freq;
 }
