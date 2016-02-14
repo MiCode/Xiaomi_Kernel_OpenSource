@@ -277,6 +277,8 @@
 #define clk_bimc_msmbus_a_clk			0x71d1a499
 #define clk_bimc_usb_a_clk			0xea410834
 #define clk_bimc_usb_clk			0x9bd2b2bf
+#define clk_bimc_gpu_clk			0xd3e0a327
+#define clk_bimc_gpu_a_clk			0x67f0e9a5
 #define clk_qdss_clk				0x1492202a
 #define clk_qdss_a_clk				0xdd121669
 #define clk_xo_clk_src				0x23f5649f
