@@ -3120,6 +3120,8 @@ static bool reuse_internal_buffers(struct msm_vidc_inst *inst,
 			}
 		}
 		reused = true;
+		dprintk(VIDC_DBG,
+			"Re-using internal buffer type : %d\n", buffer_type);
 	}
 	mutex_unlock(&buf_list->lock);
 	return reused;
@@ -3369,6 +3371,36 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 				"Failed to flush buffers: %d\n", rc);
 		}
 		break;
+	case V4L2_DEC_QCOM_CMD_RECONFIG_HINT:
+	{
+		u32 *ptr = NULL;
+		struct hal_buffer_requirements *output_buf;
+
+		rc = msm_comm_try_get_bufreqs(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"Getting buffer requirements failed: %d\n",
+					rc);
+			break;
+		}
+
+		output_buf = get_buff_req_buffer(inst,
+				msm_comm_get_hal_output_buffer(inst));
+		if (!output_buf) {
+			dprintk(VIDC_DBG,
+					"This output buffer not required, buffer_type: %x\n",
+					HAL_BUFFER_OUTPUT);
+		} else {
+			ptr = (u32 *)dec->raw.data;
+			ptr[0] = output_buf->buffer_size;
+			ptr[1] = output_buf->buffer_count_actual;
+			dprintk(VIDC_DBG,
+				"Reconfig hint, size is %u, count is %u\n",
+				ptr[0], ptr[1]);
+
+		}
+		break;
+	}
 	default:
 		dprintk(VIDC_ERR, "Unknown Command %d\n", which_cmd);
 		rc = -ENOTSUPP;
