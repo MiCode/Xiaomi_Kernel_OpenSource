@@ -563,7 +563,7 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev,
 		 * set to what we want
 		 */
 		if (stream_info->current_framedrop_period !=
-			stream_info->activated_framedrop_period) {
+			stream_info->requested_framedrop_period) {
 			msm_isp_cfg_framedrop_reg(vfe_dev, stream_info);
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
@@ -642,7 +642,6 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 				if (msm_isp_drop_frame(vfe_dev, stream_info, ts,
 					sof_info)) {
 					pr_err("drop frame failed\n");
-
 				}
 			}
 		}
@@ -1822,10 +1821,10 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 	struct msm_isp_sof_info *sof_info)
 {
 	struct msm_isp_buffer *done_buf = NULL;
-	uint32_t pingpong_status, pingpong_bit, frame_id;
+	uint32_t pingpong_status;
 	unsigned long flags;
 	struct msm_isp_bufq *bufq = NULL;
-	int i;
+	uint32_t pingpong_bit;
 
 	if (!vfe_dev || !stream_info || !ts || !sof_info) {
 		pr_err("%s %d vfe_dev %p stream_info %p ts %p op_info %p\n",
@@ -1833,44 +1832,32 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 			sof_info);
 		return -EINVAL;
 	}
-
 	pingpong_status =
 		~vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
 
 	spin_lock_irqsave(&stream_info->lock, flags);
-
 	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
-	for (i = 0; i < stream_info->num_planes; i++) {
-		if (pingpong_bit !=
-			(~(pingpong_status >> stream_info->wm[i]) & 0x1)) {
-			spin_unlock_irqrestore(&stream_info->lock, flags);
-			pr_err("%s: Write master ping pong mismatch. Status: 0x%x\n",
-				__func__, pingpong_status);
-			msm_isp_halt_send_error(vfe_dev,
-					ISP_EVENT_PING_PONG_MISMATCH);
-			return -EINVAL;
-		}
-	}
-
 	done_buf = stream_info->buf[pingpong_bit];
-
-	spin_unlock_irqrestore(&stream_info->lock, flags);
-
-	frame_id = vfe_dev->axi_data.
-		src_info[SRC_TO_INTF(stream_info->stream_src)].frame_id;
-
 	if (done_buf) {
 		bufq = vfe_dev->buf_mgr->ops->get_bufq(vfe_dev->buf_mgr,
 			done_buf->bufq_handle);
 		if (!bufq) {
+			spin_unlock_irqrestore(&stream_info->lock, flags);
 			pr_err("%s: Invalid bufq buf_handle %x\n",
 				__func__, done_buf->bufq_handle);
 			return -EINVAL;
 		}
 		sof_info->reg_update_fail_mask |=
 			1 << (bufq->bufq_handle & 0xF);
-	} else {
-		pr_err("%s: Warning! buf is NULL is unexpected\n", __func__);
+	}
+	spin_unlock_irqrestore(&stream_info->lock, flags);
+
+	/* if buf done will not come, we need to process it ourself */
+	if (stream_info->activated_framedrop_period ==
+		MSM_VFE_STREAM_STOP_PERIOD) {
+		/* no buf done come */
+		msm_isp_process_axi_irq_stream(vfe_dev, stream_info,
+			pingpong_status, ts);
 	}
 	return 0;
 }
