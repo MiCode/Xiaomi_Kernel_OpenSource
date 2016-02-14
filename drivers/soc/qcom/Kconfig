@@ -67,10 +67,29 @@ config MSM_QDSP6_APRV3
 	  used by audio driver to configure QDSP6v2's
 	  ASM, ADM and AFE.
 
+config MSM_QDSP6_APRV2_GLINK
+	bool "Audio QDSP6 APRv2 over Glink support"
+	depends on MSM_GLINK
+	help
+	  Enable APRv2 IPC protocol support over
+	  Glink between application processor and
+	  QDSP6. APR is used by audio driver to
+	  configure QDSP6's ASM, ADM and AFE.
+
+config MSM_QDSP6_APRV3_GLINK
+	bool "Audio QDSP6 APRv3 over Glink support"
+	depends on MSM_GLINK
+	help
+	  Enable APRv3 IPC protocol support over
+	  Glink between application processor and
+	  QDSP6. APR is used by audio driver to
+	  configure QDSP6v2's ASM, ADM and AFE.
+
 config MSM_ADSP_LOADER
 	tristate "ADSP loader support"
 	select SND_SOC_MSM_APRV2_INTF
-	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3 || \
+		MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
 	help
 	  Enable ADSP image loader.
 	  The ADSP loader brings ADSP out of reset
