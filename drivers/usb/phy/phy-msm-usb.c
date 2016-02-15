@@ -808,7 +808,12 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 * Enable USB BAM if USB BAM is enabled already before block reset as
 	 * block reset also resets USB BAM registers.
 	 */
-	msm_usb_bam_enable(CI_CTRL, phy->otg->gadget->bam2bam_func_enabled);
+	if (test_bit(ID, &motg->inputs)) {
+		msm_usb_bam_enable(CI_CTRL,
+				   phy->otg->gadget->bam2bam_func_enabled);
+	} else {
+		dev_dbg(phy->dev, "host mode BAM not enabled\n");
+	}
 
 	return 0;
 }
@@ -1917,6 +1922,8 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 		msm_otg_dbg_log_event(&motg->phy, "HOST ON",
 				motg->inputs, otg->phy->state);
 		msm_hsusb_vbus_power(motg, 1);
+		msm_otg_reset(&motg->phy);
+
 		if (pdata->otg_control == OTG_PHY_CONTROL)
 			ulpi_write(otg->phy, OTG_COMP_DISABLE,
 				ULPI_SET(ULPI_PWR_CLK_MNG_REG));
@@ -1948,6 +1955,7 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 		pm_qos_remove_request(&motg->pm_qos_req_dma);
 
 		usb_remove_hcd(hcd);
+		msm_otg_reset(&motg->phy);
 
 		if (pdata->enable_axi_prefetch)
 			writel_relaxed(readl_relaxed(USB_HS_APF_CTRL)
