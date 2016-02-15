@@ -21,6 +21,7 @@
 #include "dsi-adv7533-720p.dtsi"
 #include "dsi-panel-truly-720p-video.dtsi"
 #include "dsi-panel-truly-wuxga-video.dtsi"
+#include "dsi-panel-truly-720p-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {

@@ -140,6 +140,10 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&dsi_truly_720_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
 &tlmm {
 	tlmm_gpio_key {
 		gpio_key_active: gpio_key_active {
