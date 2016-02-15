@@ -33,6 +33,10 @@
 
 #include "msmtitanium-mdss-panels.dtsi"
 
+&dsi_r69006_1080p_cmd {
+	qcom,esd-check-enabled;
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
