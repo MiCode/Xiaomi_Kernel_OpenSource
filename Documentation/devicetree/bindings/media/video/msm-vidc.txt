@@ -15,6 +15,8 @@ Required properties:
 Optional properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the vidc interrupt.
+- qcom,platform-version : mask and shift of the platform version bits
+    in efuse register.
 - qcom,load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec
   clock required along with codec's config, which is a bitmap that describes
   what the clock is used for. The bitmaps are as follows:
