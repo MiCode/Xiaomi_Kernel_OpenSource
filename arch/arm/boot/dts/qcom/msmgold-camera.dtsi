@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -337,10 +337,11 @@
 		compatible = "qcom,jpeg";
 		reg = <0x1b1c000 0x400>,
 			<0x1b60000 0xc30>;
-		reg-names = "jpeg";
+		reg-names = "jpeg_hw", "jpeg_vbif";
 		interrupts = <0 59 0>;
 		interrupt-names = "jpeg";
 		vdd-supply = <&gdsc_jpeg>;
+		qcom,vdd-names = "vdd";
 		clock-names =  "core_clk", "iface_clk", "bus_clk0",
 			"camss_top_ahb_clk", "camss_ahb_clk";
 		clocks = <&clock_gcc clk_gcc_camss_jpeg0_clk>,
@@ -351,6 +352,11 @@
 		qcom,clock-rates = <266670000 0 0 0 0>;
 		qcom,qos-reg-settings = <0x28 0x0000555e>,
 			<0xc8 0x00005555>;
+		qcom,msm-bus,name = "msm_camera_jpeg0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
+			<62 512 666675 666675>;
 		qcom,vbif-reg-settings = <0xc0 0x10101000>,
 			<0xb0 0x10100010>;
 	};
@@ -375,6 +381,7 @@
 		interrupts = <0 49 0>;
 		interrupt-names = "cpp";
 		vdd-supply = <&gdsc_cpp>;
+		qcom,vdd-names = "vdd";
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_cpp_clk_src>,
 			<&clock_gcc clk_gcc_camss_cpp_ahb_clk>,
@@ -388,6 +395,13 @@
 		qcom,clock-rates = <0 180000000 0 0 180000000 0 0>;
 		qcom,min-clock-rate = <133000000>;
 		qcom,bus-master = <1>;
+		qcom,msm-bus,name = "msm_camera_cpp";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<106 512 0 0>,
+			<106 512 0 0>;
+		qcom,msm-bus-vector-dyn-vote;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <156>;
 			qcom,plane-base = <141>;
