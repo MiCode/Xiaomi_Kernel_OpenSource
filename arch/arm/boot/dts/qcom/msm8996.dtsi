@@ -204,6 +204,11 @@
 			reg = <0 0x83401000 0 0x23FF000>;
 			label = "cont_splash_mem";
 		};
+
+		cont_splash_mem_hdmi: cont_splash_mem_hdmi@b1c00000 {
+			reg = <0 0xb1c00000 0 0x23ff000>;
+			label = "cont_splash_mem_hdmi";
+		};
 	};
 };
 
@@ -1891,6 +1896,7 @@
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk", "utmi_clk",
 				"sleep_clk", "xo", "cfg_ahb_clk";
 
+		qcom,core-clk-rate = <120000000>;
 		dwc3@6a00000 {
 			compatible = "snps,dwc3";
 			reg = <0x06a00000 0xc8d0>;
@@ -1997,6 +2003,7 @@
 		clock-names = "core_clk", "iface_clk", "utmi_clk", "sleep_clk",
 				"xo", "cfg_ahb_clk";
 
+		qcom,core-clk-rate = <60000000>;
 		dwc3@7600000 {
 			compatible = "snps,dwc3";
 			reg = <0x07600000 0xc8d0>;
@@ -2963,11 +2970,11 @@
 		qcom,msm-pcm-dsp-id = <0>;
 	};
 
-	pcm1: qcom,msm-pcm-ull-post-processing {
+	pcm1: qcom,msm-pcm-low-latency {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <1>;
 		qcom,msm-pcm-low-latency;
-		qcom,latency-level = "ull-pp";
+		qcom,latency-level = "regular";
 	};
 
 	pcm2: qcom,msm-ultra-low-latency {

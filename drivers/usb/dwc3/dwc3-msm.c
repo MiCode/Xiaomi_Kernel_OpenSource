@@ -204,7 +204,6 @@ struct dwc3_msm {
 	struct workqueue_struct *dwc3_wq;
 	struct delayed_work	sm_work;
 	unsigned long		inputs;
-	struct completion	dwc3_xcvr_vbus_init;
 	enum dwc3_chg_type	chg_type;
 	unsigned		max_power;
 	bool			charging_disabled;
@@ -1358,7 +1357,7 @@ int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 	mdwc->original_ep_ops[dep->number] = ep->ops;
 
 	/* Set new usb ops as we like */
-	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), GFP_ATOMIC);
+	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), gfp_flags);
 	if (!new_ep_ops) {
 		dev_err(mdwc->dev,
 			"%s: unable to allocate mem for new usb ep ops\n",
@@ -1370,25 +1369,24 @@ int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 	new_ep_ops->gsi_ep_op = dwc3_msm_gsi_ep_op;
 	ep->ops = new_ep_ops;
 
+	if (!mdwc->dbm || !request || (dep->endpoint.ep_type == EP_TYPE_GSI))
+		return 0;
+
 	/*
 	 * Configure the DBM endpoint if required.
 	 */
-	if (mdwc->dbm) {
-		bam_pipe = request->udc_priv & MSM_PIPE_ID_MASK;
-		producer = ((request->udc_priv & MSM_PRODUCER) ? true : false);
-		disable_wb = ((request->udc_priv & MSM_DISABLE_WB) ?
-								true : false);
-		internal_mem = ((request->udc_priv & MSM_INTERNAL_MEM) ?
-								true : false);
-		ioc = ((request->udc_priv & MSM_ETD_IOC) ? true : false);
+	bam_pipe = request->udc_priv & MSM_PIPE_ID_MASK;
+	producer = ((request->udc_priv & MSM_PRODUCER) ? true : false);
+	disable_wb = ((request->udc_priv & MSM_DISABLE_WB) ? true : false);
+	internal_mem = ((request->udc_priv & MSM_INTERNAL_MEM) ? true : false);
+	ioc = ((request->udc_priv & MSM_ETD_IOC) ? true : false);
 
-		ret = dbm_ep_config(mdwc->dbm, dep->number, bam_pipe, producer,
+	ret = dbm_ep_config(mdwc->dbm, dep->number, bam_pipe, producer,
 					disable_wb, internal_mem, ioc);
-		if (ret < 0) {
-			dev_err(mdwc->dev,
-				"error %d after calling dbm_ep_config\n", ret);
-			return ret;
-		}
+	if (ret < 0) {
+		dev_err(mdwc->dev,
+			"error %d after calling dbm_ep_config\n", ret);
+		return ret;
 	}
 
 	return 0;
@@ -1944,7 +1942,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	clk_disable_unprepare(mdwc->xo_clk);
 
 	/* Perform controller power collapse */
-	if (!mdwc->in_host_mode && !mdwc->vbus_active) {
+	if (!mdwc->in_host_mode && (!mdwc->vbus_active || mdwc->in_restart)) {
 		mdwc->lpm_flags |= MDWC3_POWER_COLLAPSE;
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
@@ -2110,8 +2108,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 {
 	/* Flush processing any pending events before handling new ones */
-	if (mdwc->init)
-		flush_delayed_work(&mdwc->sm_work);
+	flush_delayed_work(&mdwc->sm_work);
 
 	if (mdwc->id_state == DWC3_ID_FLOAT) {
 		dev_dbg(mdwc->dev, "XCVR: ID set\n");
@@ -2143,12 +2140,8 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		pm_runtime_use_autosuspend(mdwc->dev);
 		if (!work_busy(&mdwc->sm_work.work))
 			schedule_delayed_work(&mdwc->sm_work, 0);
-
-		complete(&mdwc->dwc3_xcvr_vbus_init);
-		dev_dbg(mdwc->dev, "XCVR: BSV init complete\n");
 		return;
 	}
-
 
 	schedule_delayed_work(&mdwc->sm_work, 0);
 }
@@ -2627,7 +2620,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
 	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
-	init_completion(&mdwc->dwc3_xcvr_vbus_init);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
 
 	mdwc->dwc3_wq = alloc_ordered_workqueue("dwc3_wq", 0);
@@ -2644,6 +2636,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	mdwc->id_state = DWC3_ID_FLOAT;
+	set_bit(ID, &mdwc->inputs);
+
 	mdwc->charging_disabled = of_property_read_bool(node,
 				"qcom,charging-disabled");
 
@@ -3304,36 +3298,6 @@ psy_error:
 }
 
 
-void dwc3_init_sm(struct dwc3_msm *mdwc)
-{
-	int ret;
-	static bool sm_initialized;
-
-	/*
-	 * dwc3_init_sm() can be called multiple times in undefined state.
-	 * example: QC charger connected during boot up sequeunce, and
-	 * performing charger disconnect.
-	 */
-	if (sm_initialized) {
-		pr_debug("%s(): Already sm_initialized.\n", __func__);
-		return;
-	}
-
-	/*
-	 * VBUS initial state is reported after PMIC
-	 * driver initialization. Wait for it.
-	 */
-	ret = wait_for_completion_timeout(&mdwc->dwc3_xcvr_vbus_init,
-					msecs_to_jiffies(SM_INIT_TIMEOUT));
-	if (!ret) {
-		dev_err(mdwc->dev, "%s: completion timeout\n", __func__);
-		/* We can safely assume no cable connected */
-		set_bit(ID, &mdwc->inputs);
-	}
-
-	sm_initialized = true;
-}
-
 static void dwc3_initialize(struct dwc3_msm *mdwc)
 {
 	u32 tmp;
@@ -3411,7 +3375,6 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	/* Check OTG state */
 	switch (mdwc->otg_state) {
 	case OTG_STATE_UNDEFINED:
-		dwc3_init_sm(mdwc);
 		if (!test_bit(ID, &mdwc->inputs)) {
 			dbg_event(0xFF, "undef_host", 0);
 			atomic_set(&dwc->in_lpm, 0);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -377,7 +377,7 @@ out:
 }
 EXPORT_SYMBOL_GPL(coresight_disable);
 
-static ssize_t enable_sink_show(struct device *dev,
+static ssize_t curr_sink_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	struct coresight_device *csdev = to_coresight_device(dev);
@@ -385,7 +385,7 @@ static ssize_t enable_sink_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", (unsigned)csdev->activated);
 }
 
-static ssize_t enable_sink_store(struct device *dev,
+static ssize_t curr_sink_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t size)
 {
@@ -405,9 +405,9 @@ static ssize_t enable_sink_store(struct device *dev,
 	return size;
 
 }
-static DEVICE_ATTR_RW(enable_sink);
+static DEVICE_ATTR_RW(curr_sink);
 
-static ssize_t enable_source_show(struct device *dev,
+static ssize_t enable_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
 	struct coresight_device *csdev = to_coresight_device(dev);
@@ -415,7 +415,7 @@ static ssize_t enable_source_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", (unsigned)csdev->enable);
 }
 
-static ssize_t enable_source_store(struct device *dev,
+static ssize_t enable_store(struct device *dev,
 				   struct device_attribute *attr,
 				   const char *buf, size_t size)
 {
@@ -437,16 +437,16 @@ static ssize_t enable_source_store(struct device *dev,
 
 	return size;
 }
-static DEVICE_ATTR_RW(enable_source);
+static DEVICE_ATTR_RW(enable);
 
 static struct attribute *coresight_sink_attrs[] = {
-	&dev_attr_enable_sink.attr,
+	&dev_attr_curr_sink.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(coresight_sink);
 
 static struct attribute *coresight_source_attrs[] = {
-	&dev_attr_enable_source.attr,
+	&dev_attr_enable.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(coresight_source);

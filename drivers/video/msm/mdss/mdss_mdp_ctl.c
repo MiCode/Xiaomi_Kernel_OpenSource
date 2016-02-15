@@ -2435,6 +2435,7 @@ int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl, bool handoff)
 	switch (ctl->panel_data->panel_info.type) {
 	case MIPI_VIDEO_PANEL:
 	case EDP_PANEL:
+	case DTV_PANEL:
 		return mdss_mdp_video_reconfigure_splash_done(ctl, handoff);
 	case MIPI_CMD_PANEL:
 		return mdss_mdp_cmd_reconfigure_splash_done(ctl, handoff);
@@ -3788,7 +3789,7 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 
 	pr_debug("ctl_num=%d, power_state=%d\n", ctl->num, ctl->power_state);
 
-	if (!mdss_mdp_ctl_is_power_on(ctl)) {
+	if (!ctl->mfd->panel_reconfig && !mdss_mdp_ctl_is_power_on(ctl)) {
 		pr_debug("%s %d already off!\n", __func__, __LINE__);
 		return 0;
 	}

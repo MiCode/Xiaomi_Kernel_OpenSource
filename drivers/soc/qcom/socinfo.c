@@ -504,6 +504,8 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* 8996 IDs */
 	[246] = {MSM_CPU_8996, "MSM8996"},
+	[310] = {MSM_CPU_8996, "MSM8996"},
+	[311] = {MSM_CPU_8996, "APQ8096"},
 	[291] = {MSM_CPU_8996, "APQ8096"},
 	[305] = {MSM_CPU_8996, "MSM8996pro"},
 	[312] = {MSM_CPU_8996, "APQ8096pro"},
@@ -1137,6 +1139,10 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 246;
 		strlcpy(dummy_socinfo.build_id, "msm8996 - ",
 			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8996_auto()) {
+		dummy_socinfo.id = 310;
+		strlcpy(dummy_socinfo.build_id, "msm8996-auto - ",
+		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm8929()) {
 		dummy_socinfo.id = 268;
 		strlcpy(dummy_socinfo.build_id, "msm8929 - ",

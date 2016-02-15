@@ -1752,6 +1752,81 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	return rc;
 }
 
+static inline int set_max_internal_buffers_size(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct {
+		enum hal_buffer type;
+		struct hal_buffer_requirements *req;
+		size_t size;
+	} internal_buffers[] = {
+		{ HAL_BUFFER_INTERNAL_SCRATCH, NULL, 0},
+		{ HAL_BUFFER_INTERNAL_SCRATCH_1, NULL, 0},
+		{ HAL_BUFFER_INTERNAL_SCRATCH_2, NULL, 0},
+		{ HAL_BUFFER_INTERNAL_PERSIST, NULL, 0},
+		{ HAL_BUFFER_INTERNAL_PERSIST_1, NULL, 0},
+	};
+
+	struct hal_frame_size frame_sz;
+	int i;
+
+	frame_sz.buffer_type = HAL_BUFFER_INPUT;
+	frame_sz.width = inst->capability.width.max;
+	frame_sz.height =
+		(inst->capability.mbs_per_frame.max * 256) /
+		inst->capability.width.max;
+
+	dprintk(VIDC_DBG,
+		"Max buffer reqs, buffer type = %d width = %d, height = %d, max_mbs_per_frame = %d\n",
+		frame_sz.buffer_type, frame_sz.width,
+		frame_sz.height, inst->capability.mbs_per_frame.max);
+
+	msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
+	rc = msm_comm_try_get_bufreqs(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s Failed to get max buf req, %d\n", __func__, rc);
+		return 0;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(internal_buffers); i++) {
+		internal_buffers[i].req =
+			get_buff_req_buffer(inst, internal_buffers[i].type);
+		internal_buffers[i].size = internal_buffers[i].req ?
+			internal_buffers[i].req->buffer_size : 0;
+	}
+
+	frame_sz.buffer_type = HAL_BUFFER_INPUT;
+	frame_sz.width = inst->prop.width[OUTPUT_PORT];
+	frame_sz.height = inst->prop.height[OUTPUT_PORT];
+
+	msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
+	rc = msm_comm_try_get_bufreqs(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s Failed to get back old buf req, %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	dprintk(VIDC_DBG,
+			"Old buffer reqs, buffer type = %d width = %d, height = %d\n",
+			frame_sz.buffer_type, frame_sz.width,
+			frame_sz.height);
+
+	for (i = 0; i < ARRAY_SIZE(internal_buffers); i++) {
+		if (internal_buffers[i].req) {
+			internal_buffers[i].req->buffer_size =
+				internal_buffers[i].size;
+			dprintk(VIDC_DBG,
+				"Changing buffer type : %d size to : %zd\n",
+				internal_buffers[i].type,
+				internal_buffers[i].size);
+		}
+	}
+	return 0;
+}
+
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -1765,6 +1840,15 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	if (rc) {
 		dprintk(VIDC_ERR, "H/w scaling is not in valid range\n");
 		return -EINVAL;
+	}
+	if ((inst->flags & VIDC_SECURE) && !inst->in_reconfig) {
+		rc = set_max_internal_buffers_size(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set max scratch buffer size: %d\n",
+				rc);
+			goto fail_start;
+		}
 	}
 	rc = msm_comm_set_scratch_buffers(inst);
 	if (rc) {

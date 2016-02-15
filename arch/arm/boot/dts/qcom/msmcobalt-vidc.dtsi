@@ -23,6 +23,51 @@
 		qcom,hfi = "venus";
 		qcom,hfi-version = "3xx";
 		qcom,firmware-name = "venus";
+		qcom,never-unload-fw;
+		qcom,reg-presets =
+			<0x80124 0x0002000>,
+			<0x80550 0x0000001>,
+			<0x80560 0x2222221>,
+			<0x80568 0x3333331>,
+			<0x80570 0x0000001>,
+			<0x80580 0x2222221>,
+			<0x80588 0x3333331>;
+
+		non_secure_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_ns";
+			iommus =
+				<&mmss_smmu 0x400>,
+				<&mmss_smmu 0x401>,
+				<&mmss_smmu 0x40a>,
+				<&mmss_smmu 0x407>,
+				<&mmss_smmu 0x40e>,
+				<&mmss_smmu 0x40f>,
+				<&mmss_smmu 0x408>,
+				<&mmss_smmu 0x409>,
+				<&mmss_smmu 0x40b>,
+				<&mmss_smmu 0x40c>,
+				<&mmss_smmu 0x40d>,
+				<&mmss_smmu 0x410>,
+				<&mmss_smmu 0x421>,
+				<&mmss_smmu 0x428>,
+				<&mmss_smmu 0x429>,
+				<&mmss_smmu 0x42b>,
+				<&mmss_smmu 0x42c>,
+				<&mmss_smmu 0x42d>,
+				<&mmss_smmu 0x411>,
+				<&mmss_smmu 0x431>;
+			buffer-types = <0xfff>;
+			virtual-addr-pool = <0x70800000 0x8f800000>;
+		};
+
+		firmware_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			qcom,fw-context-bank;
+			iommus = <&mmss_smmu 0x580>,
+				<&mmss_smmu 0x586>;
+		};
+
 	};
 
 	qcom,vmem@c880000 {

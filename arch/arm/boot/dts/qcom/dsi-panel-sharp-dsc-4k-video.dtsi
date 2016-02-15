@@ -82,7 +82,7 @@
 				 05 01 00 00 78 00 02 10 00];
 
 		qcom,compression-mode = "dsc";
-		qcom,config-select = <&dsi_nt35950_dsc_cmd_config0>;
+		qcom,config-select = <&dsi_sharp_dsc_video_config0>;
 
 		dsi_sharp_dsc_video_config0: config0 {
 			qcom,mdss-dsc-encoders = <1>;
