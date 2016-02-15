@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2681,6 +2681,17 @@ static void __exit cnss_exit(void)
 		devm_unregister_esoc_client(&pdev->dev, penv->esoc_desc);
 	platform_driver_unregister(&cnss_driver);
 }
+
+void cnss_request_pm_qos_type(int latency_type, u32 qos_val)
+{
+	if (!penv) {
+		pr_err("%s: penv is NULL!\n", __func__);
+		return;
+	}
+
+	pm_qos_add_request(&penv->qos_request, latency_type, qos_val);
+}
+EXPORT_SYMBOL(cnss_request_pm_qos_type);
 
 void cnss_request_pm_qos(u32 qos_val)
 {
