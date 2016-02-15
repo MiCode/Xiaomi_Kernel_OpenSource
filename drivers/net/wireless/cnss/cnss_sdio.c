@@ -143,6 +143,16 @@ int cnss_request_bus_bandwidth(int bandwidth)
 }
 EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
+void cnss_request_pm_qos_type(int latency_type, u32 qos_val)
+{
+	if (!cnss_pdata)
+		return;
+
+	pr_debug("%s: PM QoS value: %d\n", __func__, qos_val);
+	pm_qos_add_request(&cnss_pdata->qos_request, latency_type, qos_val);
+}
+EXPORT_SYMBOL(cnss_request_pm_qos_type);
+
 void cnss_request_pm_qos(u32 qos_val)
 {
 	if (!cnss_pdata)

@@ -137,6 +137,7 @@ extern int cnss_wlan_pm_control(bool vote);
 extern void cnss_lock_pm_sem(void);
 extern void cnss_release_pm_sem(void);
 
+extern void cnss_request_pm_qos_type(int latency_type, u32 qos_val);
 extern void cnss_request_pm_qos(u32 qos_val);
 extern void cnss_remove_pm_qos(void);
 extern int cnss_get_platform_cap(struct cnss_platform_cap *cap);
