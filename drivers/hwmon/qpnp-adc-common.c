@@ -1668,103 +1668,88 @@ int qpnp_adc_get_revid_version(struct device *dev)
 		(revid_data->rev2 == PM8941_V3P1_REV2) &&
 		(revid_data->rev3 == PM8941_V3P1_REV3) &&
 		(revid_data->rev4 == PM8941_V3P1_REV4) &&
-		(revid_data->pmic_type == PM8941_V3P1_TYPE) &&
-		(revid_data->pmic_subtype == PM8941_V3P1_SUBTYPE))
+		(revid_data->pmic_subtype == PM8941_SUBTYPE))
 			return QPNP_REV_ID_8941_3_1;
 	else if ((revid_data->rev1 == PM8941_V3P0_REV1) &&
 		(revid_data->rev2 == PM8941_V3P0_REV2) &&
 		(revid_data->rev3 == PM8941_V3P0_REV3) &&
 		(revid_data->rev4 == PM8941_V3P0_REV4) &&
-		(revid_data->pmic_type == PM8941_V3P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8941_V3P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8941_SUBTYPE))
 			return QPNP_REV_ID_8941_3_0;
 	else if ((revid_data->rev1 == PM8941_V2P0_REV1) &&
 		(revid_data->rev2 == PM8941_V2P0_REV2) &&
 		(revid_data->rev3 == PM8941_V2P0_REV3) &&
 		(revid_data->rev4 == PM8941_V2P0_REV4) &&
-		(revid_data->pmic_type == PM8941_V2P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8941_V2P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8941_SUBTYPE))
 			return QPNP_REV_ID_8941_2_0;
 	else if ((revid_data->rev1 == PM8226_V2P2_REV1) &&
 		(revid_data->rev2 == PM8226_V2P2_REV2) &&
 		(revid_data->rev3 == PM8226_V2P2_REV3) &&
 		(revid_data->rev4 == PM8226_V2P2_REV4) &&
-		(revid_data->pmic_type == PM8226_V2P2_TYPE) &&
-		(revid_data->pmic_subtype == PM8226_V2P2_SUBTYPE))
+		(revid_data->pmic_subtype == PM8226_SUBTYPE))
 			return QPNP_REV_ID_8026_2_2;
 	else if ((revid_data->rev1 == PM8226_V2P1_REV1) &&
 		(revid_data->rev2 == PM8226_V2P1_REV2) &&
 		(revid_data->rev3 == PM8226_V2P1_REV3) &&
 		(revid_data->rev4 == PM8226_V2P1_REV4) &&
-		(revid_data->pmic_type == PM8226_V2P1_TYPE) &&
-		(revid_data->pmic_subtype == PM8226_V2P1_SUBTYPE))
+		(revid_data->pmic_subtype == PM8226_SUBTYPE))
 			return QPNP_REV_ID_8026_2_1;
 	else if ((revid_data->rev1 == PM8226_V2P0_REV1) &&
 		(revid_data->rev2 == PM8226_V2P0_REV2) &&
 		(revid_data->rev3 == PM8226_V2P0_REV3) &&
 		(revid_data->rev4 == PM8226_V2P0_REV4) &&
-		(revid_data->pmic_type == PM8226_V2P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8226_V2P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8226_SUBTYPE))
 			return QPNP_REV_ID_8026_2_0;
 	else if ((revid_data->rev1 == PM8226_V1P0_REV1) &&
 		(revid_data->rev2 == PM8226_V1P0_REV2) &&
 		(revid_data->rev3 == PM8226_V1P0_REV3) &&
 		(revid_data->rev4 == PM8226_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8226_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8226_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8226_SUBTYPE))
 			return QPNP_REV_ID_8026_1_0;
 	else if ((revid_data->rev1 == PM8110_V1P0_REV1) &&
 		(revid_data->rev2 == PM8110_V1P0_REV2) &&
 		(revid_data->rev3 == PM8110_V1P0_REV3) &&
 		(revid_data->rev4 == PM8110_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8110_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8110_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8110_SUBTYPE))
 			return QPNP_REV_ID_8110_1_0;
 	else if ((revid_data->rev1 == PM8110_V2P0_REV1) &&
 		(revid_data->rev2 == PM8110_V2P0_REV2) &&
 		(revid_data->rev3 == PM8110_V2P0_REV3) &&
 		(revid_data->rev4 == PM8110_V2P0_REV4) &&
-		(revid_data->pmic_type == PM8110_V2P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8110_V2P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8110_SUBTYPE))
 			return QPNP_REV_ID_8110_2_0;
 	else if ((revid_data->rev1 == PM8916_V1P0_REV1) &&
 		(revid_data->rev2 == PM8916_V1P0_REV2) &&
 		(revid_data->rev3 == PM8916_V1P0_REV3) &&
 		(revid_data->rev4 == PM8916_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8916_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8916_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8916_SUBTYPE))
 			return QPNP_REV_ID_8916_1_0;
 	else if ((revid_data->rev1 == PM8916_V1P1_REV1) &&
 		(revid_data->rev2 == PM8916_V1P1_REV2) &&
 		(revid_data->rev3 == PM8916_V1P1_REV3) &&
 		(revid_data->rev4 == PM8916_V1P1_REV4) &&
-		(revid_data->pmic_type == PM8916_V1P1_TYPE) &&
-		(revid_data->pmic_subtype == PM8916_V1P1_SUBTYPE))
+		(revid_data->pmic_subtype == PM8916_SUBTYPE))
 			return QPNP_REV_ID_8916_1_1;
 	else if ((revid_data->rev1 == PM8916_V2P0_REV1) &&
 		(revid_data->rev2 == PM8916_V2P0_REV2) &&
 		(revid_data->rev3 == PM8916_V2P0_REV3) &&
 		(revid_data->rev4 == PM8916_V2P0_REV4) &&
-		(revid_data->pmic_type == PM8916_V2P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8916_V2P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8916_SUBTYPE))
 			return QPNP_REV_ID_8916_2_0;
 	else if ((revid_data->rev1 == PM8909_V1P0_REV1) &&
 		(revid_data->rev2 == PM8909_V1P0_REV2) &&
 		(revid_data->rev3 == PM8909_V1P0_REV3) &&
 		(revid_data->rev4 == PM8909_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8909_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8909_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8909_SUBTYPE))
 			return QPNP_REV_ID_8909_1_0;
 	else if ((revid_data->rev1 == PM8909_V1P1_REV1) &&
 		(revid_data->rev2 == PM8909_V1P1_REV2) &&
 		(revid_data->rev3 == PM8909_V1P1_REV3) &&
 		(revid_data->rev4 == PM8909_V1P1_REV4) &&
-		(revid_data->pmic_type == PM8909_V1P1_TYPE) &&
-		(revid_data->pmic_subtype == PM8909_V1P1_SUBTYPE))
+		(revid_data->pmic_subtype == PM8909_SUBTYPE))
 			return QPNP_REV_ID_8909_1_1;
 	else if ((revid_data->rev4 == PM8950_V1P0_REV4) &&
-		(revid_data->pmic_type == PM8950_V1P0_TYPE) &&
-		(revid_data->pmic_subtype == PM8950_V1P0_SUBTYPE))
+		(revid_data->pmic_subtype == PM8950_SUBTYPE))
 			return QPNP_REV_ID_PM8950_1_0;
 	else
 		return -EINVAL;
