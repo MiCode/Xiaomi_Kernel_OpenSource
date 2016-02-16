@@ -2156,7 +2156,8 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 {
 	struct gsi_chan_ctx *ctx;
 	uint16_t free;
-	struct gsi_tre *tre;
+	struct gsi_tre tre;
+	struct gsi_tre *tre_ptr;
 	uint16_t idx;
 	uint64_t wp_rollback;
 	int i;
@@ -2198,25 +2199,29 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 
 	wp_rollback = ctx->ring.wp_local;
 	for (i = 0; i < num_xfers; i++) {
-		idx = gsi_find_idx_from_addr(&ctx->ring, ctx->ring.wp_local);
-		tre = (struct gsi_tre *)(ctx->ring.base_va +
-				idx * ctx->ring.elem_sz);
-		memset(tre, 0, sizeof(*tre));
-		tre->buffer_ptr = xfer[i].addr;
-		tre->buf_len = xfer[i].len;
+		memset(&tre, 0, sizeof(tre));
+		tre.buffer_ptr = xfer[i].addr;
+		tre.buf_len = xfer[i].len;
 		if (xfer[i].type == GSI_XFER_ELEM_DATA) {
-			tre->re_type = GSI_RE_XFER;
+			tre.re_type = GSI_RE_XFER;
 		} else if (xfer[i].type == GSI_XFER_ELEM_IMME_CMD) {
-			tre->re_type = GSI_RE_IMMD_CMD;
+			tre.re_type = GSI_RE_IMMD_CMD;
 		} else {
 			GSIERR("chan_hdl=%lu bad RE type=%u\n", chan_hdl,
 				xfer[i].type);
 			break;
 		}
-		tre->bei = (xfer[i].flags & GSI_XFER_FLAG_BEI) ? 1 : 0;
-		tre->ieot = (xfer[i].flags & GSI_XFER_FLAG_EOT) ? 1 : 0;
-		tre->ieob = (xfer[i].flags & GSI_XFER_FLAG_EOB) ? 1 : 0;
-		tre->chain = (xfer[i].flags & GSI_XFER_FLAG_CHAIN) ? 1 : 0;
+		tre.bei = (xfer[i].flags & GSI_XFER_FLAG_BEI) ? 1 : 0;
+		tre.ieot = (xfer[i].flags & GSI_XFER_FLAG_EOT) ? 1 : 0;
+		tre.ieob = (xfer[i].flags & GSI_XFER_FLAG_EOB) ? 1 : 0;
+		tre.chain = (xfer[i].flags & GSI_XFER_FLAG_CHAIN) ? 1 : 0;
+
+		idx = gsi_find_idx_from_addr(&ctx->ring, ctx->ring.wp_local);
+		tre_ptr = (struct gsi_tre *)(ctx->ring.base_va +
+				idx * ctx->ring.elem_sz);
+
+		/* write the TRE to ring */
+		*tre_ptr = tre;
 		ctx->user_data[idx] = xfer[i].xfer_user_data;
 		gsi_incr_ring_wp(&ctx->ring);
 	}
