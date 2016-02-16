@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,13 @@
 			linux,contiguous-region = <&cont_splash_mem>;
 			};
 		};
+
+		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
+			compatible = "qcom,smmu_mdp_unsec";
+		};
+		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
+			compatible = "qcom,smmu_mdp_sec";
+		};
 	};
 
 	mdss_dsi: qcom,mdss_dsi@0 {
@@ -46,6 +53,15 @@
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8909_l2>;
 		vddio-supply = <&pm8909_l6>;
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_dsi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>,
+			<22 512 0 1000>;
+
 		ranges = <0x1ac8000 0x1ac8000 0x25c
 			0x1ac8500 0x1ac8500 0x280
 			0x1ac8780 0x1ac8780 0x30

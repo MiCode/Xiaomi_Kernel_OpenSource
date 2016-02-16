@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,18 @@
 	qcom,model = "msm8909-pm8916-snd-card";
 	asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
 	asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
+};
+
+&dsi_auo_qvga_cmd {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+};
+
+&dsi_auo_cx_qvga_cmd {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+};
+
+&dsi_hx8394d_480_vid {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 };
 
 &dsi_hx8394d_720_vid {
