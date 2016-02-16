@@ -110,6 +110,7 @@ struct msm_compr_pdata {
 	uint32_t volume[MSM_FRONTEND_DAI_MAX][2]; /* For both L & R */
 	struct msm_compr_audio_effects *audio_effects[MSM_FRONTEND_DAI_MAX];
 	bool use_dsp_gapless_mode;
+	bool use_legacy_api; /* indicates use older asm apis*/
 	struct msm_compr_dec_params *dec_params[MSM_FRONTEND_DAI_MAX];
 	struct msm_compr_ch_map *ch_map[MSM_FRONTEND_DAI_MAX];
 };
@@ -1748,8 +1749,14 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			/*
 			 * Cache this time as last known time
 			 */
-			q6asm_get_session_time(prtd->audio_client,
-					       &prtd->marker_timestamp);
+			if (pdata->use_legacy_api)
+				q6asm_get_session_time_legacy(
+							prtd->audio_client,
+						       &prtd->marker_timestamp);
+			else
+				q6asm_get_session_time(prtd->audio_client,
+						       &prtd->marker_timestamp);
+
 			spin_lock_irqsave(&prtd->lock, flags);
 			/*
 			 * Don't reset these as these vars map to
@@ -1879,13 +1886,16 @@ static int msm_compr_pointer(struct snd_compr_stream *cstream,
 				struct snd_compr_tstamp *arg)
 {
 	struct snd_compr_runtime *runtime = cstream->runtime;
+	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct msm_compr_audio *prtd = runtime->private_data;
+	struct msm_compr_pdata *pdata = NULL;
 	struct snd_compr_tstamp tstamp;
 	uint64_t timestamp = 0;
 	int rc = 0, first_buffer;
 	unsigned long flags;
 	uint32_t gapless_transition;
 
+	pdata = snd_soc_platform_get_drvdata(rtd->platform);
 	pr_debug("%s\n", __func__);
 	memset(&tstamp, 0x0, sizeof(struct snd_compr_tstamp));
 
@@ -1918,8 +1928,12 @@ static int msm_compr_pointer(struct snd_compr_stream *cstream,
 		if (gapless_transition)
 			pr_debug("%s session time in gapless transition",
 				 __func__);
-
-		rc = q6asm_get_session_time(prtd->audio_client, &timestamp);
+		if (pdata->use_legacy_api)
+			rc = q6asm_get_session_time_legacy(prtd->audio_client,
+							&timestamp);
+		else
+			rc = q6asm_get_session_time(prtd->audio_client,
+							&timestamp);
 		if (rc < 0) {
 			pr_err("%s: Get Session Time return value =%lld\n",
 				__func__, timestamp);
@@ -2767,6 +2781,8 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 {
 	struct msm_compr_pdata *pdata;
 	int i;
+	int rc;
+	const char *qdsp_version;
 
 	pr_debug("%s\n", __func__);
 	pdata = (struct msm_compr_pdata *)
@@ -2788,6 +2804,17 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform, msm_compr_gapless_controls,
 				      ARRAY_SIZE(msm_compr_gapless_controls));
 
+	rc =  of_property_read_string(platform->dev->of_node,
+		"qcom,adsp-version", &qdsp_version);
+	if (!rc) {
+		if (!strcmp(qdsp_version, "MDSP 1.2"))
+			pdata->use_legacy_api = true;
+		else
+			pdata->use_legacy_api = false;
+	} else
+		pdata->use_legacy_api = false;
+
+	pr_debug("%s: use legacy api %d\n", __func__, pdata->use_legacy_api);
 	/*
 	 * use_dsp_gapless_mode part of platform data(pdata) is updated from HAL
 	 * through a mixer control before compress driver is opened. The mixer
