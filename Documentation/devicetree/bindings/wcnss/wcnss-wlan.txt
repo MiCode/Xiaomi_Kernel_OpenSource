@@ -57,6 +57,8 @@ support for pronto hardware.
 	6      -  GPIO strength value
 - qcom,has-vsys-adc-channel: boolean flag to determine which ADC HW channel need
 to use for VBATT feature.
+- qcom,has-a2xb-split-reg: boolean flag to determine A2xb split timeout limit
+register is available or not.
 
 Example:
 
