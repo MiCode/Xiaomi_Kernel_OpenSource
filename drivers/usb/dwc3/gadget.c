@@ -386,7 +386,7 @@ static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 
 	dep->trb_pool = dma_zalloc_coherent(dwc->dev,
 			sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
-			&dep->trb_pool_dma, GFP_ATOMIC);
+			&dep->trb_pool_dma, GFP_KERNEL);
 	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to allocate trb pool for %s\n",
 				dep->name);
@@ -668,6 +668,17 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 			dep->number >> 1,
 			(dep->number & 1) ? "in" : "out");
 
+	/*
+	 * Clean up ep ring of non-control endpoint to avoid getting xferInProgress
+	 * due to stale trbs with HWO bit set from previous composition when update
+	 * transfer cmd is issued.
+	 */
+	if (dep->number > 1) {
+		memset(&dep->trb_pool[0], 0,
+			sizeof(struct dwc3_trb) * DWC3_TRB_NUM);
+		dbg_event(dep->number, "Clr_TRB", 0);
+	}
+
 	return 0;
 }
 
@@ -714,12 +725,6 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 		return 0;
 	}
 
-	if (dep->number > 1) {
-		ret = dwc3_alloc_trb_pool(dep);
-		if (ret)
-			return ret;
-	}
-
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = __dwc3_gadget_ep_enable(dep, desc, ep->comp_desc, false, false);
 	dbg_event(dep->number, "ENABLE", ret);
@@ -753,8 +758,6 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 	ret = __dwc3_gadget_ep_disable(dep);
 	dbg_event(dep->number, "DISABLE", ret);
 	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	dwc3_free_trb_pool(dep);
 
 	return ret;
 }
@@ -2162,11 +2165,17 @@ static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 			if (!epnum)
 				dwc->gadget.ep0 = &dep->endpoint;
 		} else {
+			int		ret;
+
 			usb_ep_set_maxpacket_limit(&dep->endpoint, 1024);
 			dep->endpoint.max_streams = 15;
 			dep->endpoint.ops = &dwc3_gadget_ep_ops;
 			list_add_tail(&dep->endpoint.ep_list,
 					&dwc->gadget.ep_list);
+
+			ret = dwc3_alloc_trb_pool(dep);
+			if (ret)
+				return ret;
 		}
 
 		if (epnum == 0 || epnum == 1) {
@@ -2229,8 +2238,7 @@ static void dwc3_gadget_free_endpoints(struct dwc3 *dwc)
 		 * with all sorts of bugs when removing dwc3.ko.
 		 */
 		if (epnum != 0 && epnum != 1) {
-			if (dep->trb_pool)
-				dwc3_free_trb_pool(dep);
+			dwc3_free_trb_pool(dep);
 			list_del(&dep->endpoint.ep_list);
 		}
 
