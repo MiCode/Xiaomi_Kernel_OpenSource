@@ -397,7 +397,9 @@
 #define clk_mmss_mdss_ahb_clk			0x85d37ab5
 #define clk_mmss_mdss_axi_clk			0xdf04fc1d
 #define clk_mmss_mdss_byte0_clk			0x38105d25
+#define clk_mmss_mdss_byte0_intf_clk		0x38e5aa79
 #define clk_mmss_mdss_byte1_clk			0xe0c21354
+#define clk_mmss_mdss_byte1_intf_clk		0xcf654d8e
 #define clk_mmss_mdss_dp_aux_clk		0x23125eb6
 #define clk_mmss_mdss_dp_gtc_clk		0xb59c151a
 #define clk_mmss_mdss_esc0_clk			0x5721ff83
