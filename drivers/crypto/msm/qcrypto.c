@@ -1,6 +1,6 @@
 /* Qualcomm Crypto driver
  *
- * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1605,7 +1605,8 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 #endif
 	if (digest) {
 		memcpy(rctx->digest, digest, diglen);
-		memcpy(areq->result, digest, diglen);
+		if (rctx->last_blk)
+			memcpy(areq->result, digest, diglen);
 	}
 	if (authdata) {
 		rctx->byte_count[0] = auth32[0];
