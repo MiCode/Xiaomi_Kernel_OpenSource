@@ -36,6 +36,8 @@
 #include <linux/time.h>
 #include <linux/hashtable.h>
 #include <linux/hash.h>
+#include <soc/qcom/subsystem_restart.h>
+#define IPA_SUBSYSTEM_NAME "ipa_fws"
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
 #include "ipahal/ipahal.h"
@@ -3740,8 +3742,6 @@ static int ipa3_gsi_pre_fw_load_init(void)
 {
 	int result;
 
-	/* GSI already enabled by TZ */
-
 	result = gsi_configure_regs(ipa3_res.transport_mem_base,
 		ipa3_res.transport_mem_size,
 		ipa3_res.ipa_mem_base);
@@ -3919,7 +3919,7 @@ fail_register_device:
 	return result;
 }
 
-static void ipa3_trigger_fw_loading(void)
+static int ipa3_trigger_fw_loading_mdms(void)
 {
 	int result;
 	const struct firmware *fw;
@@ -3929,11 +3929,11 @@ static void ipa3_trigger_fw_loading(void)
 	result = request_firmware(&fw, IPA_FWS_PATH, ipa3_ctx->dev);
 	if (result < 0) {
 		IPAERR("request_firmware failed, error %d\n", result);
-		return;
+		return result;
 	}
 	if (fw == NULL) {
 		IPAERR("Firmware is NULL!\n");
-		return;
+		return -EINVAL;
 	}
 
 	IPADBG("FWs are available for loading\n");
@@ -3941,26 +3941,45 @@ static void ipa3_trigger_fw_loading(void)
 	result = ipa3_load_fws(fw);
 	if (result) {
 		IPAERR("IPA FWs loading has failed\n");
-		return;
+		release_firmware(fw);
+		return result;
 	}
 
 	result = gsi_enable_fw(ipa3_res.transport_mem_base,
 				ipa3_res.transport_mem_size);
 	if (result) {
 		IPAERR("Failed to enable GSI FW\n");
-		return;
+		release_firmware(fw);
+		return result;
 	}
 
 	release_firmware(fw);
 
 	IPADBG("FW loading process is complete\n");
-	ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
+	return 0;
+}
+
+static int ipa3_trigger_fw_loading_msms(void)
+{
+	void *subsystem_get_retval = NULL;
+
+	IPADBG("FW loading process initiated\n");
+
+	subsystem_get_retval = subsystem_get(IPA_SUBSYSTEM_NAME);
+	if (IS_ERR_OR_NULL(subsystem_get_retval)) {
+		IPAERR("Unable to trigger PIL process for FW loading\n");
+		return -EINVAL;
+	}
+
+	IPADBG("FW loading process is complete\n");
+	return 0;
 }
 
 static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			  size_t count, loff_t *ppos)
 {
 	unsigned long missing;
+	int result = -EINVAL;
 
 	char dbg_buff[16] = { 0 };
 
@@ -3982,9 +4001,23 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	 * We will trigger the process only if we're in GSI mode, otherwise,
 	 * we just ignore the write.
 	 */
-	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
-		ipa3_trigger_fw_loading();
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
+		if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_0)
+			result = ipa3_trigger_fw_loading_mdms();
+		else if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1)
+			result = ipa3_trigger_fw_loading_msms();
+		/* No IPAv3.x chipsets that don't support FW loading */
+
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+		if (result) {
+			IPAERR("FW loading process has failed\n");
+			BUG();
+		} else
+			ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
+	}
 	return count;
 }
 
@@ -4470,11 +4503,17 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	 * the GSI FW to be up and running before the registration.
 	 */
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
-		result = ipa3_gsi_pre_fw_load_init();
-		if (result) {
-			IPAERR("ipa gsi pre FW loading procedure failed\n");
-			result = -ENODEV;
-			goto fail_ipa_init_interrupts;
+		/*
+		 * For IPA3.0, the GSI configuration is done by the GSI driver.
+		 * For IPA3.1 (and on), the GSI configuration is done by TZ.
+		 */
+		if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_0) {
+			result = ipa3_gsi_pre_fw_load_init();
+			if (result) {
+				IPAERR("gsi pre FW loading config failed\n");
+				result = -ENODEV;
+				goto fail_ipa_init_interrupts;
+			}
 		}
 	}
 	/* For BAM (No other mode), we can just carry on with initialization */
