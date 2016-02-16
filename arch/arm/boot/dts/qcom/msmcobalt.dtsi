@@ -13,6 +13,7 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-cobalt.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM COBALT";
@@ -435,6 +436,119 @@
 			< 403000000 RPM_SMD_REGULATOR_LEVEL_SVS >,
 			< 504000000 RPM_SMD_REGULATOR_LEVEL_NOM >,
 			< 650000000 RPM_SMD_REGULATOR_LEVEL_TURBO >;
+		#clock-cells = <1>;
+	};
+
+	clock_cpu: qcom,cpu-clock-cobalt@179c0000 {
+		compatible = "qcom,cpu-clock-osm";
+		reg = <0x179C0000 0x4000>,
+		      <0x17916000 0x1000>,
+		      <0x17816000 0x1000>;
+		reg-names = "osm", "pwrcl_pll", "perfcl_pll";
+
+		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
+		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
+
+		interrupts = <GIC_SPI 35 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 36 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "pwrcl-irq", "perfcl-irq";
+
+		qcom,pwrcl-speedbin0-v0 =
+			< 300000000 0x4000f 0x31e001e >,
+			< 345600000 0x5040012 0x4200020 >,
+			< 422400000 0x5040016 0x4200020 >,
+			< 499200000 0x504001a 0x5200020 >,
+			< 576000000 0x504001e 0x6200020 >,
+			< 633600000 0x4040021 0x7200020 >,
+			< 710400000 0x4040025 0x7200020 >,
+			< 806400000 0x404002a 0x8220022 >,
+			< 883200000 0x404002e 0x9250025 >,
+			< 960000000 0x4040032 0xa280028 >,
+			< 1036800000 0x4040036 0xb2b002b >,
+			< 1113600000 0x404003a 0xc2e002e >,
+			< 1190400000 0x404003e 0xc320032 >,
+			< 1248000000 0x4040041 0xd340034 >,
+			< 1324800000 0x4040045 0xe370037 >,
+			< 1401600000 0x4040049 0xf3a003a >,
+			< 1478400000 0x404004d 0x103e003e >,
+			< 1497600000 0x404004e 0x103e003e >,
+			< 1574400000 0x4040052 0x10420042 >,
+			< 1651200000 0x4040056 0x11450045 >,
+			< 1728000000 0x404005a 0x12480048 >,
+			< 1804800000 0x404005e 0x134b004b >,
+			< 1881600000 0x4040062 0x144e004e >;
+
+		qcom,perfcl-speedbin0-v0 =
+			< 300000000 0x4000f 0x3200020 >,
+			< 345600000 0x5040012 0x4200020 >,
+			< 422400000 0x5040016 0x4200020 >,
+			< 480000000 0x5040019 0x5200020 >,
+			< 556800000 0x504001d 0x6200020 >,
+			< 633600000 0x4040021 0x7200020 >,
+			< 710400000 0x4040025 0x7200020 >,
+			< 787200000 0x4040029 0x8210021 >,
+			< 844800000 0x404002c 0x9240024 >,
+			< 902400000 0x404002f 0x9260026 >,
+			< 979200000 0x4040033 0xa290029 >,
+			< 1056000000 0x4040037 0xb2c002c >,
+			< 1094400000 0x4040039 0xb2e002e >,
+			< 1171200000 0x404003d 0xc300030 >,
+			< 1248000000 0x4040041 0xd340034 >,
+			< 1324800000 0x4040045 0xe370037 >,
+			< 1401600000 0x4040049 0xf3b003b >,
+			< 1478400000 0x404004d 0xf3e003e >,
+			< 1536000000 0x4040050 0x10400040 >,
+			< 1632000000 0x4040055 0x11440044 >,
+			< 1708800000 0x4040059 0x12480048 >,
+			< 1785600000 0x404005d 0x134a004a >,
+			< 1862400000 0x4040061 0x134e004e >,
+			< 1939200000 0x4040065 0x14510051 >,
+			< 2016000000 0x4040069 0x15540054 >,
+			< 2092800000 0x404006d 0x16570057 >;
+
+		qcom,osm-no-tz;
+		qcom,osm-pll-setup;
+
+		qcom,up-timer =
+			<1 1>;
+		qcom,down-timer =
+			<1 1>;
+		qcom,pc-override-index =
+			<0 0>;
+		qcom,set-ret-inactive;
+		qcom,enable-llm-freq-vote;
+		qcom,llm-freq-up-timer =
+			<1 1>;
+		qcom,llm-freq-down-timer =
+			<1 1>;
+		qcom,enable-llm-volt-vote;
+		qcom,llm-volt-up-timer =
+			<1 1>;
+		qcom,llm-volt-down-timer =
+			<1 1>;
+		qcom,cc-reads = <10>;
+
+		qcom,l-val-base =
+			<0x17916004 0x17816004>;
+		qcom,apcs-itm-present =
+			<0x179d143c 0x179d143c>;
+		qcom,apcs-pll-user-ctl =
+			<0x1791600c 0x1781600c>;
+		qcom,apcs-cfg-rcgr =
+			<0x17911054 0x17811054>;
+		qcom,apcs-cmd-rcgr =
+			<0x17911050 0x17811050>;
+		qcom,apm-mode-ctl =
+			<0x179d0004 0x179d0010>;
+		qcom,apm-ctrl-status =
+			<0x179d000c 0x179d0018>;
+		qcom,red-fsm-en;
+		qcom,boost-fsm-en;
+		qcom,safe-fsm-en;
+
+		clock-names = "aux_clk", "xo_ao";
+		clocks = <&clock_gcc clk_hmss_gpll0_clk_src>,
+			<&clock_gcc clk_cxo_clk_src_ao>;
 		#clock-cells = <1>;
 	};
 
