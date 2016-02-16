@@ -175,3 +175,5 @@ obj-$(CONFIG_NVMEM)		+= nvmem/
 obj-$(CONFIG_FPGA)		+= fpga/
 
 obj-$(CONFIG_BIF)		+= bif/
+
+obj-$(CONFIG_SENSORS_SSC)	+= sensors/

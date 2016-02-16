@@ -1,0 +1,11 @@
+* msm-ssc-sensors
+
+Required properties:
+
+ - compatible:	"qcom,msm-ssc-sensors"
+
+Example:
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};

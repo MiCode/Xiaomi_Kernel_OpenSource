@@ -202,4 +202,6 @@ source "drivers/fpga/Kconfig"
 
 source "drivers/bif/Kconfig"
 
+source "drivers/sensors/Kconfig"
+
 endmenu
