@@ -1600,18 +1600,16 @@ void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d, ext_pa = %d\n", __func__,
 		 substream->name, substream->stream, pdata->ext_pa);
 
-	if (((pdata->ext_pa & QUAT_MI2S_ID) == QUAT_MI2S_ID)) {
-		ret = quat_mi2s_clk_ctl(substream, false);
-		if (ret < 0)
-			pr_err("%s:clock disable failed\n", __func__);
-		if (atomic_read(&pdata->clk_ref.quat_mi2s_clk_ref) > 0)
-			atomic_dec(&pdata->clk_ref.quat_mi2s_clk_ref);
-		ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "quat_i2s");
-		if (ret < 0) {
-			pr_err("%s: failed to disable quat gpio's state\n",
-					__func__);
-			return;
-		}
+	ret = quat_mi2s_clk_ctl(substream, false);
+	if (ret < 0)
+		pr_err("%s:clock disable failed\n", __func__);
+	if (atomic_read(&pdata->clk_ref.quat_mi2s_clk_ref) > 0)
+		atomic_dec(&pdata->clk_ref.quat_mi2s_clk_ref);
+	ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "quat_i2s");
+	if (ret < 0) {
+		pr_err("%s: failed to disable quat gpio's state\n",
+				__func__);
+		return;
 	}
 }
 
@@ -1674,27 +1672,23 @@ int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 
-	if (((pdata->ext_pa & QUAT_MI2S_ID) == QUAT_MI2S_ID)) {
-		/* Configure mux for quaternary i2s */
-		if (pdata->vaddr_gpio_mux_mic_ctl) {
-			val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
-			val = val | 0x02020002;
-			iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
-		}
-		ret = quat_mi2s_clk_ctl(substream, true);
-		if (ret < 0) {
-			pr_err("%s: failed to enable bit clock\n",
-					__func__);
-			return ret;
-		}
-		ret = msm_gpioset_activate(CLIENT_WCD_EXT, "quat_i2s");
-		if (ret < 0) {
-			pr_err("%s: failed to actiavte the quat gpio's state\n",
-					__func__);
-			goto err;
-		}
-	} else {
-		pr_err("%s: error codec type\n", __func__);
+	/* Configure mux for quaternary i2s */
+	if (pdata->vaddr_gpio_mux_mic_ctl) {
+		val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
+		val = val | 0x02020002;
+		iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
+	}
+	ret = quat_mi2s_clk_ctl(substream, true);
+	if (ret < 0) {
+		pr_err("%s: failed to enable bit clock\n",
+				__func__);
+		return ret;
+	}
+	ret = msm_gpioset_activate(CLIENT_WCD_EXT, "quat_i2s");
+	if (ret < 0) {
+		pr_err("%s: failed to actiavte the quat gpio's state\n",
+				__func__);
+		goto err;
 	}
 
 	if (atomic_inc_return(&pdata->clk_ref.quat_mi2s_clk_ref) == 1) {
@@ -1761,18 +1755,16 @@ void msm_quin_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 				substream->name, substream->stream);
-	if ((pdata->ext_pa & QUIN_MI2S_ID) == QUIN_MI2S_ID) {
-		ret = quin_mi2s_sclk_ctl(substream, false);
-		if (ret < 0)
-			pr_err("%s:clock disable failed\n", __func__);
-		if (atomic_read(&pdata->clk_ref.quin_mi2s_clk_ref) > 0)
-			atomic_dec(&pdata->clk_ref.quin_mi2s_clk_ref);
-		ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "quin_i2s");
-		if (ret < 0) {
-			pr_err("%s: gpio set cannot be de-activated %sd",
-						__func__, "quin_i2s");
-			return;
-		}
+	ret = quin_mi2s_sclk_ctl(substream, false);
+	if (ret < 0)
+		pr_err("%s:clock disable failed\n", __func__);
+	if (atomic_read(&pdata->clk_ref.quin_mi2s_clk_ref) > 0)
+		atomic_dec(&pdata->clk_ref.quin_mi2s_clk_ref);
+	ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "quin_i2s");
+	if (ret < 0) {
+		pr_err("%s: gpio set cannot be de-activated %sd",
+					__func__, "quin_i2s");
+		return;
 	}
 }
 
