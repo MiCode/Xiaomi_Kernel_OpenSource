@@ -14,6 +14,7 @@
 #include <linux/usb/usb_ctrl_qti.h>
 #include <linux/etherdevice.h>
 #include <linux/debugfs.h>
+#include <linux/ipa_usb.h>
 #include "f_gsi.h"
 #include "rndis.h"
 #include "debug.h"
