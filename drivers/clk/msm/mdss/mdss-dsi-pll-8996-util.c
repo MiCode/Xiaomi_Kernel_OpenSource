@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -99,6 +99,14 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 	struct mdss_pll_resources *pll = clk->priv;
 	struct dsi_pll_db *pdb;
 	struct dsi_pll_output *pout;
+	int rc;
+	u32 n1div = 0;
+
+	rc = mdss_pll_resource_enable(pll, true);
+	if (rc) {
+		pr_err("Failed to enable mdss dsi pll resources\n");
+		return rc;
+	}
 
 	pdb = (struct dsi_pll_db *)pll->priv;
 	pout = &pdb->out;
@@ -116,10 +124,16 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 	pout->pll_postdiv = 1;	/* fixed, divided by 1 */
 	pout->pll_n1div  = div;
 
+	n1div = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_CMN_CLK_CFG0);
+	n1div &= ~0xf;
+	n1div |= (div & 0xf);
+	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_CMN_CLK_CFG0, n1div);
+	/* ensure n1 divider is programed */
+	wmb();
 	pr_debug("ndx=%d div=%d postdiv=%x n1div=%x\n",
 			pll->index, div, pout->pll_postdiv, pout->pll_n1div);
 
-	/* registers commited at pll_db_commit_8996() */
+	mdss_pll_resource_enable(pll, false);
 
 	return 0;
 }
