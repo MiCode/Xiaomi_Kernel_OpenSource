@@ -795,13 +795,13 @@
 				"xo";
 		qcom,bus-clk-rate = <400000000 200000000 100000000>;
 		qcom,max-nominal-sysclk-rate = <100000000>;
+		qcom,boost-sysclk-with-streaming;
 	};
 
 	android_usb: android_usb@086000c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <2 1001 12701>;
-		qcom,streaming-func = "rndis","mtp";
 	};
 
 	qcom,usbbam@78c4000 {
