@@ -127,7 +127,7 @@ static struct regulator *vbus_otg;
 static struct power_supply *psy;
 
 static int vdd_val[VDD_VAL_MAX];
-static u32 bus_freqs[USB_NUM_BUS_CLOCKS];	/* bimc, snoc, pcnoc clk */;
+static u32 bus_freqs[USB_NOC_NUM_VOTE][USB_NUM_BUS_CLOCKS]  /*bimc,snoc,pcnoc*/;
 static char bus_clkname[USB_NUM_BUS_CLOCKS][20] = {"bimc_clk", "snoc_clk",
 						"pcnoc_clk"};
 static bool bus_clk_rate_set;
@@ -864,48 +864,66 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 	return 0;
 }
 
-static int msm_otg_bus_freq_get(struct device *dev, struct msm_otg *motg)
+static int msm_otg_bus_freq_set(struct msm_otg *motg, enum usb_noc_mode mode)
 {
+	int i, ret;
+	long rate;
+
+	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++) {
+		rate = bus_freqs[mode][i];
+		if (!rate) {
+			pr_debug("%s rate not available\n", bus_clkname[i]);
+			continue;
+		}
+
+		ret = clk_set_rate(motg->bus_clks[i], rate);
+		if (ret) {
+			pr_err("%s set rate failed: %d\n", bus_clkname[i], ret);
+			return ret;
+		}
+		pr_debug("%s set to %lu Hz\n", bus_clkname[i],
+			 clk_get_rate(motg->bus_clks[i]));
+		msm_otg_dbg_log_event(&motg->phy, "OTG BUS FREQ SET", i, rate);
+	}
+
+	bus_clk_rate_set = true;
+
+	return 0;
+}
+
+static int msm_otg_bus_freq_get(struct msm_otg *motg)
+{
+	struct device *dev = motg->phy.dev;
 	struct device_node *np = dev->of_node;
-	int len = 0;
-	int i;
-	int ret;
+	int len = 0, i, count = USB_NUM_BUS_CLOCKS;
 
 	if (!np)
 		return -EINVAL;
 
 	of_find_property(np, "qcom,bus-clk-rate", &len);
-	if (!len || (len / sizeof(u32) != USB_NUM_BUS_CLOCKS)) {
-		pr_err("Invalid bus clock rate parameters\n");
+	/* SVS requires extra set of frequencies for perf_mode sysfs node */
+	if (motg->default_noc_mode == USB_NOC_SVS_VOTE)
+		count *= 2;
+
+	if (!len || (len / sizeof(u32) != count)) {
+		pr_err("Invalid bus rate:%d %u\n", len, motg->default_noc_mode);
 		return -EINVAL;
 	}
-	of_property_read_u32_array(np, "qcom,bus-clk-rate", bus_freqs,
-		USB_NUM_BUS_CLOCKS);
+	of_property_read_u32_array(np, "qcom,bus-clk-rate", bus_freqs[0],
+				   count);
 	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++) {
-		if (bus_freqs[i] == 0) {
+		if (bus_freqs[0][i] == 0) {
 			motg->bus_clks[i] = NULL;
 			pr_debug("%s not available\n", bus_clkname[i]);
 			continue;
 		}
 
-		motg->bus_clks[i] = devm_clk_get(motg->phy.dev,
-				bus_clkname[i]);
+		motg->bus_clks[i] = devm_clk_get(dev, bus_clkname[i]);
 		if (IS_ERR(motg->bus_clks[i])) {
 			pr_err("%s get failed\n", bus_clkname[i]);
 			return PTR_ERR(motg->bus_clks[i]);
 		}
-		ret = clk_set_rate(motg->bus_clks[i], bus_freqs[i]);
-		if (ret) {
-			pr_err("%s set rate failed: %d\n", bus_clkname[i],
-				ret);
-			return ret;
-		}
-		pr_debug("%s set at %lu Hz\n", bus_clkname[i],
-			clk_get_rate(motg->bus_clks[i]));
-		msm_otg_dbg_log_event(&motg->phy, "OTG BUS FREQ SET",
-				i, bus_freqs[i]);
 	}
-	bus_clk_rate_set = true;
 	return 0;
 }
 
@@ -1928,8 +1946,6 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 		cancel_delayed_work_sync(&motg->perf_vote_work);
 		msm_otg_perf_vote_update(motg, false);
 		pm_qos_remove_request(&motg->pm_qos_req_dma);
-		/* bump up usb core_clk to max_nom */
-		clk_set_rate(motg->core_clk, motg->core_clk_rate);
 
 		usb_remove_hcd(hcd);
 
@@ -2074,6 +2090,8 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 		/* Configure BUS performance parameters for MAX bandwidth */
 		if (debug_bus_voting_enabled)
 			msm_otg_bus_vote(motg, USB_MAX_PERF_VOTE);
+		/* bump up usb core_clk to default */
+		clk_set_rate(motg->core_clk, motg->core_clk_rate);
 
 		usb_gadget_vbus_connect(otg->gadget);
 
@@ -3705,6 +3723,39 @@ static void msm_otg_debugfs_cleanup(void)
 	debugfs_remove_recursive(msm_otg_dbg_root);
 }
 
+static ssize_t
+set_msm_otg_perf_mode(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct msm_otg *motg = the_msm_otg;
+	int ret;
+	long clk_rate;
+
+	pr_debug("%s: enable:%d\n", __func__, !strnicmp(buf, "enable", 6));
+
+	if (!strnicmp(buf, "enable", 6)) {
+		clk_rate = motg->core_clk_nominal_rate;
+		msm_otg_bus_freq_set(motg, USB_NOC_NOM_VOTE);
+	} else {
+		clk_rate = motg->core_clk_svs_rate;
+		msm_otg_bus_freq_set(motg, USB_NOC_SVS_VOTE);
+	}
+
+	if (clk_rate) {
+		pr_debug("Set usb sys_clk rate:%ld\n", clk_rate);
+		ret = clk_set_rate(motg->core_clk, clk_rate);
+		if (ret)
+			pr_err("sys_clk set_rate fail:%d %ld\n", ret, clk_rate);
+	} else {
+		pr_err("usb sys_clk rate is undefined\n");
+	}
+	msm_otg_dbg_log_event(&motg->phy, "OTG PERF SET", clk_rate, ret);
+
+	return count;
+}
+
+static DEVICE_ATTR(perf_mode, S_IWUSR, NULL, set_msm_otg_perf_mode);
+
 #define MSM_OTG_CMD_ID		0x09
 #define MSM_OTG_DEVICE_ID	0x04
 #define MSM_OTG_VMID_IDX	0xFF
@@ -3804,8 +3855,11 @@ static int msm_otg_setup_devices(struct platform_device *ofdev,
 	int retval = 0;
 
 	if (!init) {
-		if (gadget_pdev)
+		if (gadget_pdev) {
 			platform_device_unregister(gadget_pdev);
+			device_remove_file(&gadget_pdev->dev,
+					   &dev_attr_perf_mode);
+		}
 		if (host_pdev)
 			platform_device_unregister(host_pdev);
 		return 0;
@@ -3820,6 +3874,8 @@ static int msm_otg_setup_devices(struct platform_device *ofdev,
 			retval = PTR_ERR(gadget_pdev);
 			break;
 		}
+		if (device_create_file(&gadget_pdev->dev, &dev_attr_perf_mode))
+			dev_err(&gadget_pdev->dev, "perf_mode file failed\n");
 		if (mode == USB_PERIPHERAL)
 			break;
 		/* fall through */
@@ -3827,8 +3883,11 @@ static int msm_otg_setup_devices(struct platform_device *ofdev,
 		host_pdev = msm_otg_add_pdev(ofdev, host_name);
 		if (IS_ERR(host_pdev)) {
 			retval = PTR_ERR(host_pdev);
-			if (mode == USB_OTG)
+			if (mode == USB_OTG) {
 				platform_device_unregister(gadget_pdev);
+				device_remove_file(&gadget_pdev->dev,
+						   &dev_attr_perf_mode);
+			}
 		}
 		break;
 	default:
@@ -4240,10 +4299,12 @@ static int msm_otg_probe(struct platform_device *pdev)
 	 * the same. Otherwise set USB Core CLK to defined default value.
 	 */
 	if (of_property_read_u32(pdev->dev.of_node,
-					"qcom,max-nominal-sysclk-rate",
-					&motg->max_nominal_system_clk_rate)) {
+					"qcom,max-nominal-sysclk-rate", &ret)) {
 		ret = -EINVAL;
 		goto put_core_clk;
+	} else {
+		motg->core_clk_nominal_rate = clk_round_rate(motg->core_clk,
+							     ret);
 	}
 
 	if (of_property_read_u32(pdev->dev.of_node,
@@ -4253,13 +4314,18 @@ static int msm_otg_probe(struct platform_device *pdev)
 		motg->core_clk_svs_rate = clk_round_rate(motg->core_clk, ret);
 	}
 
-	if (of_property_read_bool(pdev->dev.of_node,
-					"qcom,boost-sysclk-with-streaming"))
-		motg->core_clk_rate = clk_round_rate(motg->core_clk,
-					motg->max_nominal_system_clk_rate);
-	else
+	motg->default_noc_mode = USB_NOC_NOM_VOTE;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,default-mode-svs")) {
+		motg->core_clk_rate = motg->core_clk_svs_rate;
+		motg->default_noc_mode = USB_NOC_SVS_VOTE;
+	} else if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,boost-sysclk-with-streaming")) {
+		motg->core_clk_rate = motg->core_clk_nominal_rate;
+	} else {
 		motg->core_clk_rate = clk_round_rate(motg->core_clk,
 						USB_DEFAULT_SYSTEM_CLOCK);
+	}
+
 	if (IS_ERR_VALUE(motg->core_clk_rate)) {
 		dev_err(&pdev->dev, "fail to get core clk max freq.\n");
 	} else {
@@ -4419,9 +4485,14 @@ static int msm_otg_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = msm_otg_bus_freq_get(motg->phy.dev, motg);
-	if (ret)
-		pr_err("failed to vote for explicit noc rates: %d\n", ret);
+	ret = msm_otg_bus_freq_get(motg);
+	if (ret) {
+		pr_err("failed to get noc clocks: %d\n", ret);
+	} else {
+		ret = msm_otg_bus_freq_set(motg, motg->default_noc_mode);
+		if (ret)
+			pr_err("failed to vote explicit noc rates: %d\n", ret);
+	}
 
 	/* initialize reset counter */
 	motg->reset_counter = 0;
