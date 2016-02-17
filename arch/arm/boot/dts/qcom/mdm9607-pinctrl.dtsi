@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -686,7 +686,7 @@
 		};
 
 		emac0 {
-			emac0_active: emac0_active {
+			emac0_mdio_active: emac0_mdio_active {
 				/* active state */
 				mux {
 					/* MDC MDIO */
@@ -701,7 +701,7 @@
 				};
 			};
 
-			emac0_sleep: emac0_sleep {
+			emac0_mdio_sleep: emac0_mdio_sleep {
 				/* suspended state */
 				mux {
 					/* MDC MDIO */
@@ -716,25 +716,26 @@
 				};
 			};
 
-			emac0_rst_active: emac0_rst_active {
+			emac0_ephy_active: emac0_ephy_active {
 				/* active state */
 				mux {
-					/* ETH RST */
+					/* EPHY RST */
 					pins = "gpio29";
 					function = "gpio";
 				};
 
 				config {
 					pins = "gpio29";
-					drive-strength = <16>; /* 8 MA */
+					drive-strength = <16>; /* 16 MA */
 					bias-pull-up;
+					output-high;
 				};
 			};
 
-			emac0_rst_sleep: emac0_rst_sleep {
+			emac0_ephy_sleep: emac0_ephy_sleep {
 				/* suspended state */
 				mux {
-					/* ETH RST */
+					/* EPHY RST */
 					pins = "gpio29";
 					function = "gpio";
 				};
@@ -742,7 +743,8 @@
 				config {
 					pins = "gpio29";
 					drive-strength = <2>; /* 2 MA */
-					bias-pull-down;
+					bias-disable;
+					output-low;
 				};
 			};
 		};
