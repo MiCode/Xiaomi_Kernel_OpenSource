@@ -35,6 +35,14 @@
 		interrupt-names = "cdc-int";
 	};
 
+	wcd_rst_gpio: wcd_gpio_ctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		qcom,cdc-rst-n-gpio = <&msm_gpio 68 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_line_act>;
+		pinctrl-1 = <&cdc_reset_line_sus>;
+	};
+
 	ext_codec: sound-9335 {
 		compatible = "qcom,msm8952-audio-slim-codec";
 		qcom,model = "msm8976-tasha-snd-card";
@@ -345,8 +353,6 @@
 			17 18 19 20 21 22 23 24 25 26 27 28 29
 			30>;
 
-		qcom,cdc-reset-gpio = <&msm_gpio 68 0>;
-
 		cdc-vdd-buck-supply = <&eldo2_8952>;
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
 		qcom,cdc-vdd-buck-current = <650000>;
@@ -389,9 +395,7 @@
 		qcom,cdc-dmic-sample-rate = <4800000>;
 		qcom,cdc-mad-dmic-rate = <600000>;
 
-		pinctrl-names = "suspend", "active";
-		pinctrl-0 = <&cdc_reset_line_sus>;
-		pinctrl-1 = <&cdc_reset_line_act>;
+		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
 
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;
