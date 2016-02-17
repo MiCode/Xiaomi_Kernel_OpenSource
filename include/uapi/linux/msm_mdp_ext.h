@@ -23,6 +23,13 @@
 #define MSMFB_ASYNC_POSITION_UPDATE _IOWR(MDP_IOCTL_MAGIC, 129, \
 					struct mdp_position_update)
 
+/*
+ * Ioctl for sending the config information.
+ * QSEED3 coefficeint LUT tables is passed by the user space using this IOCTL.
+ */
+#define MSMFB_MDP_SET_CFG _IOW(MDP_IOCTL_MAGIC, 130, \
+					      struct mdp_set_cfg)
+
 /**********************************************************************
 LAYER FLAG CONFIGURATION
 **********************************************************************/
@@ -64,6 +71,9 @@ LAYER FLAG CONFIGURATION
 
 /* Flag indicates that layer is associated with secure display session */
 #define MDP_LAYER_SECURE_DISPLAY_SESSION 0x400
+
+/* Flag enabled qseed3 scaling for the current layer */
+#define MDP_LAYER_ENABLE_QSEED3_SCALE   0x800
 
 /**********************************************************************
 VALIDATE/COMMIT FLAG CONFIGURATION
@@ -243,7 +253,7 @@ struct mdp_input_layer {
 	struct mdp_rect		dst_rect;
 
 	/* Scaling parameters. */
-	struct mdp_scale_data __user	*scale;
+	void __user	*scale;
 
 	/* Buffer attached with each layer. Device uses it for commit call. */
 	struct mdp_layer_buffer	buffer;
@@ -424,4 +434,144 @@ struct mdp_position_update {
 	uint32_t input_layer_cnt;
 };
 
+#define MAX_DET_CURVES		3
+struct mdp_det_enhance_data {
+	uint32_t enable;
+	int16_t sharpen_level1;
+	int16_t sharpen_level2;
+	uint16_t clip;
+	uint16_t limit;
+	uint16_t thr_quiet;
+	uint16_t thr_dieout;
+	uint16_t thr_low;
+	uint16_t thr_high;
+	uint16_t prec_shift;
+	int16_t adjust_a[MAX_DET_CURVES];
+	int16_t adjust_b[MAX_DET_CURVES];
+	int16_t adjust_c[MAX_DET_CURVES];
+};
+
+/* Flags to enable Scaler and its sub components */
+#define ENABLE_SCALE			0x1
+#define ENABLE_DETAIL_ENHANCE		0x2
+#define ENABLE_DIRECTION_DETECTION	0x4
+
+/* LUT configuration flags */
+#define SCALER_LUT_SWAP			0x1
+#define SCALER_LUT_DIR_WR		0x2
+#define SCALER_LUT_Y_CIR_WR		0x4
+#define SCALER_LUT_UV_CIR_WR		0x8
+#define SCALER_LUT_Y_SEP_WR		0x10
+#define SCALER_LUT_UV_SEP_WR		0x20
+
+/* Y/RGB and UV filter configuration */
+#define FILTER_EDGE_DIRECTED_2D		0x0
+#define FILTER_CIRCULAR_2D		0x1
+#define FILTER_SEPARABLE_1D		0x2
+#define FILTER_BILINEAR			0x3
+
+/* Alpha filters */
+#define FILTER_ALPHA_DROP_REPEAT	0x0
+#define FILTER_ALPHA_BILINEAR		0x1
+
+/**
+ * struct mdp_scale_data_v2
+ * Driver uses this new Data structure for storing all scaling params
+ * This structure contains all pixel extension data and QSEED3 filter
+ * configuration and coefficient table indices
+ */
+struct mdp_scale_data_v2 {
+	uint32_t enable;
+
+	/* Init phase values */
+	int32_t init_phase_x[MAX_PLANES];
+	int32_t phase_step_x[MAX_PLANES];
+	int32_t init_phase_y[MAX_PLANES];
+	int32_t phase_step_y[MAX_PLANES];
+
+	/* This should be set to toal horizontal pixels
+	 * left + right +  width */
+	uint32_t num_ext_pxls_left[MAX_PLANES];
+
+	/* Unused param for backward compatibility */
+	uint32_t num_ext_pxls_right[MAX_PLANES];
+
+	/*  This should be set to vertical pixels
+	 *  top + bottom + height */
+	uint32_t num_ext_pxls_top[MAX_PLANES];
+
+	/* Unused param for backward compatibility */
+	uint32_t num_ext_pxls_btm[MAX_PLANES];
+
+	/* over fetch pixels */
+	int32_t left_ftch[MAX_PLANES];
+	int32_t left_rpt[MAX_PLANES];
+	int32_t right_ftch[MAX_PLANES];
+	int32_t right_rpt[MAX_PLANES];
+
+	/* Repeat pixels */
+	uint32_t top_rpt[MAX_PLANES];
+	uint32_t btm_rpt[MAX_PLANES];
+	uint32_t top_ftch[MAX_PLANES];
+	uint32_t btm_ftch[MAX_PLANES];
+
+	uint32_t roi_w[MAX_PLANES];
+
+	/* alpha plane can only be scaled using bilinear or pixel
+	 * repeat/drop, specify these for Y and UV planes only */
+	uint32_t preload_x[MAX_PLANES];
+	uint32_t preload_y[MAX_PLANES];
+	uint32_t src_width[MAX_PLANES];
+	uint32_t src_height[MAX_PLANES];
+
+	uint32_t dst_width;
+	uint32_t dst_height;
+
+	uint32_t y_rgb_filter_cfg;
+	uint32_t uv_filter_cfg;
+	uint32_t alpha_filter_cfg;
+	uint32_t blend_cfg;
+
+	uint32_t lut_flag;
+	uint32_t dir_lut_idx;
+
+	/* for Y(RGB) and UV planes*/
+	uint32_t y_rgb_cir_lut_idx;
+	uint32_t uv_cir_lut_idx;
+	uint32_t y_rgb_sep_lut_idx;
+	uint32_t uv_sep_lut_idx;
+
+	struct mdp_det_enhance_data detail_enhance;
+
+	/* reserved value for future usage. */
+	uint64_t reserved[8];
+};
+
+/**
+ * struct mdp_scale_luts_info
+ * This struct pointer is received as payload in SET_CFG_IOCTL when the flags
+ * is set to MDP_QSEED3_LUT_CFG
+ * @dir_lut:      Direction detection coefficients table
+ * @cir_lut:      Circular coefficeints table
+ * @sep_lut:      Separable coefficeints table
+ * @dir_lut_size: Size of direction coefficients table
+ * @cir_lut_size: Size of circular coefficients table
+ * @sep_lut_size: Size of separable coefficients table
+ */
+struct mdp_scale_luts_info {
+	uint64_t __user dir_lut;
+	uint64_t __user cir_lut;
+	uint64_t __user sep_lut;
+	uint32_t dir_lut_size;
+	uint32_t cir_lut_size;
+	uint32_t sep_lut_size;
+};
+
+#define MDP_QSEED3_LUT_CFG 0x1
+
+struct mdp_set_cfg {
+	uint64_t flags;
+	uint32_t len;
+	uint64_t __user payload;
+};
 #endif
