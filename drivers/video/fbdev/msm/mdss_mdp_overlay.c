@@ -3114,6 +3114,106 @@ static ssize_t mdss_mdp_cmd_autorefresh_store(struct device *dev,
 }
 
 
+/* Print the last CRC Value read for batch mode */
+static ssize_t mdss_mdp_misr_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_mdp_ctl *ctl;
+
+	if (!mfd) {
+		pr_err("Invalid mfd structure\n");
+		return -EINVAL;
+	}
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl structure\n");
+		return -EINVAL;
+	}
+
+	ret = mdss_dump_misr_data(&buf, PAGE_SIZE);
+
+	return ret;
+}
+
+/*
+ * Enable crc batch mode. By enabling this mode through sysfs
+ * driver will keep collecting the misr in ftrace during interrupts,
+ * until disabled.
+ */
+static ssize_t mdss_mdp_misr_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	int enable_misr, rc;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_ctl *ctl;
+	struct mdp_misr req, sreq;
+
+	if (!mfd) {
+		pr_err("Invalid mfd structure\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl structure\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	rc = kstrtoint(buf, 10, &enable_misr);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("intf_type:%d enable:%d\n", ctl->intf_type, enable_misr);
+	if (ctl->intf_type == MDSS_INTF_DSI) {
+
+		req.block_id = DISPLAY_MISR_DSI0;
+		req.crc_op_mode = MISR_OP_BM;
+		req.frame_count = 1;
+		if (is_panel_split(mfd)) {
+
+			sreq.block_id = DISPLAY_MISR_DSI1;
+			sreq.crc_op_mode = MISR_OP_BM;
+			sreq.frame_count = 1;
+		}
+	} else if (ctl->intf_type == MDSS_INTF_HDMI) {
+
+		req.block_id = DISPLAY_MISR_HDMI;
+		req.crc_op_mode = MISR_OP_BM;
+		req.frame_count = 1;
+	} else {
+		pr_err("misr not supported fo this fb:%d\n", mfd->index);
+	}
+
+	if (enable_misr) {
+		mdss_misr_set(mdata, &req , ctl);
+
+		if (is_panel_split(mfd))
+			mdss_misr_set(mdata, &sreq , ctl);
+
+	} else {
+		mdss_misr_disable(mdata, &req, ctl);
+
+		if (is_panel_split(mfd))
+			mdss_misr_disable(mdata, &sreq , ctl);
+	}
+
+	pr_debug("misr %s\n", enable_misr ? "enabled" : "disabled");
+
+	return len;
+}
+
+static DEVICE_ATTR(msm_misr_en, S_IRUGO | S_IWUSR,
+	mdss_mdp_misr_show, mdss_mdp_misr_store);
 static DEVICE_ATTR(msm_cmd_autorefresh_en, S_IRUGO | S_IWUSR,
 	mdss_mdp_cmd_autorefresh_show, mdss_mdp_cmd_autorefresh_store);
 static DEVICE_ATTR(vsync_event, S_IRUGO, mdss_mdp_vsync_show_event, NULL);
@@ -3130,6 +3230,7 @@ static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_vsync_event.attr,
 	&dev_attr_ad.attr,
 	&dev_attr_dyn_pu.attr,
+	&dev_attr_msm_misr_en.attr,
 	&dev_attr_msm_cmd_autorefresh_en.attr,
 	&dev_attr_hist_event.attr,
 	&dev_attr_bl_event.attr,
@@ -3954,7 +4055,8 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		ctl = mfd_to_ctl(mfd);
 		if (!ctl || mdss_fb_is_power_off(mfd))
 			return -EPERM;
-		ret = mdss_misr_get(mdata, &metadata->data.misr_request, ctl);
+		ret = mdss_misr_get(mdata, &metadata->data.misr_request, ctl,
+			ctl->is_video_mode);
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");
