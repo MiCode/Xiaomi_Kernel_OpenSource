@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@ struct camera_v4l2_private {
 	unsigned int stream_id;
 	unsigned int is_vb2_valid; /*0 if no vb2 buffers on stream, else 1*/
 	struct vb2_queue vb2_q;
+	bool stream_created;
 };
 
 static void camera_pack_event(struct file *filep, int evt_id,
@@ -415,6 +416,7 @@ static int camera_v4l2_s_parm(struct file *filep, void *fh,
 
 	/* use stream_id as stream index */
 	parm->parm.capture.extendedmode = sp->stream_id;
+	sp->stream_created = true;
 
 	return rc;
 
@@ -664,18 +666,21 @@ static int camera_v4l2_close(struct file *filep)
 	if (WARN_ON(!session))
 		return -EIO;
 
+	mutex_lock(&session->close_lock);
 	opn_idx = atomic_read(&pvdev->opened);
-	pr_debug("%s: close stream_id=%d\n", __func__, sp->stream_id);
 	mask = (1 << sp->stream_id);
 	opn_idx &= ~mask;
 	atomic_set(&pvdev->opened, opn_idx);
 
-	if (atomic_read(&pvdev->opened) == 0) {
-		mutex_lock(&session->close_lock);
+	if (sp->stream_created == true) {
+		pr_debug("%s: close stream_id=%d\n", __func__, sp->stream_id);
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 			MSM_CAMERA_PRIV_DEL_STREAM, -1, &event);
 		msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
+		sp->stream_created = false;
+	}
 
+	if (atomic_read(&pvdev->opened) == 0) {
 		camera_pack_event(filep, MSM_CAMERA_DEL_SESSION, 0, -1, &event);
 		msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 
@@ -688,11 +693,6 @@ static int camera_v4l2_close(struct file *filep)
 		msm_destroy_session(pvdev->vdev->num);
 		pm_relax(&pvdev->vdev->dev);
 	} else {
-		mutex_lock(&session->close_lock);
-		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
-			MSM_CAMERA_PRIV_DEL_STREAM, -1, &event);
-		msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
-
 		msm_delete_command_ack_q(pvdev->vdev->num,
 			sp->stream_id);
 
