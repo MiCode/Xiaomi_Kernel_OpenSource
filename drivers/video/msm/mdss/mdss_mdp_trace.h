@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,6 +293,23 @@ TRACE_EVENT(mdp_perf_update_bus,
 			__entry->client,
 			__entry->ab_quota,
 			__entry->ib_quota)
+);
+
+TRACE_EVENT(mdp_misr_crc,
+	TP_PROTO(u32 block_id, u32 vsync_cnt, u32 crc),
+	TP_ARGS(block_id, vsync_cnt, crc),
+	TP_STRUCT__entry(
+			__field(u32, block_id)
+			__field(u32, vsync_cnt)
+			__field(u32, crc)
+	),
+	TP_fast_assign(
+			__entry->block_id = block_id;
+			__entry->vsync_cnt = vsync_cnt;
+			__entry->crc = crc;
+	),
+	TP_printk("block_id:%d vsync_cnt:%d crc:0x%08x",
+			__entry->block_id, __entry->vsync_cnt, __entry->crc)
 );
 
 TRACE_EVENT(mdp_cmd_pingpong_done,
