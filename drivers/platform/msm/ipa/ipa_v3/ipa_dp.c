@@ -2956,6 +2956,7 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 			if (sys->rx_pool_sz > IPA_WLAN_RX_POOL_SZ)
 				sys->rx_pool_sz = IPA_WLAN_RX_POOL_SZ;
 			sys->pyld_hdlr = NULL;
+			sys->repl_hdlr = ipa3_replenish_wlan_rx_cache;
 			sys->get_skb = ipa3_get_skb_ipa_rx;
 			sys->free_skb = ipa3_free_skb_rx;
 			sys->free_rx_wrapper = ipa3_free_rx_wrapper;
