@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,8 +87,9 @@
 #define USBIN_SUSPEND_VIA_COMMAND_BIT	BIT(6)
 
 #define CFG_14_REG			0x14
-#define CHG_EN_BY_PIN_BIT			BIT(7)
+#define CHG_EN_BY_PIN_BIT		BIT(7)
 #define CHG_EN_ACTIVE_LOW_BIT		BIT(6)
+#define CHG_EN_ACTIVE_HIGH_BIT		0x0
 #define PRE_TO_FAST_REQ_CMD_BIT		BIT(5)
 #define DISABLE_CURRENT_TERM_BIT	BIT(3)
 #define DISABLE_AUTO_RECHARGE_BIT	BIT(2)
@@ -367,6 +368,7 @@ struct smb135x_chg {
 	bool				parallel_charger;
 	bool				parallel_charger_present;
 	bool				bms_controlled_charging;
+	u32				parallel_pin_polarity_setting;
 
 	/* psy */
 	struct power_supply		*usb_psy;
@@ -1787,7 +1789,8 @@ static int smb135x_parallel_set_chg_present(struct smb135x_chg *chip,
 		rc = smb135x_masked_write(chip, CFG_14_REG,
 				CHG_EN_BY_PIN_BIT | CHG_EN_ACTIVE_LOW_BIT
 				| DISABLE_AUTO_RECHARGE_BIT,
-				CHG_EN_BY_PIN_BIT | CHG_EN_ACTIVE_LOW_BIT);
+				CHG_EN_BY_PIN_BIT |
+				chip->parallel_pin_polarity_setting);
 
 		/* set bit 0 = 100mA bit 1 = 500mA and set register control */
 		rc = smb135x_masked_write(chip, CFG_E_REG,
@@ -4292,6 +4295,15 @@ static int smb135x_parallel_charger_probe(struct i2c_client *client,
 						&chip->vfloat_mv);
 	if (rc < 0)
 		chip->vfloat_mv = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,parallel-en-pin-polarity",
+					&chip->parallel_pin_polarity_setting);
+	if (rc)
+		chip->parallel_pin_polarity_setting = CHG_EN_ACTIVE_LOW_BIT;
+	else
+		chip->parallel_pin_polarity_setting =
+				chip->parallel_pin_polarity_setting ?
+				CHG_EN_ACTIVE_HIGH_BIT : CHG_EN_ACTIVE_LOW_BIT;
 
 	mutex_init(&chip->path_suspend_lock);
 	mutex_init(&chip->current_change_lock);
