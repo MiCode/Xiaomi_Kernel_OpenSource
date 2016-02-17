@@ -2322,11 +2322,16 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 								usb_psy);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int ret;
+	enum dwc3_id_state id;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_USB_OTG:
+		id = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
+		if (mdwc->id_state == id)
+			break;
+
 		/* Let OTG know about ID detection */
-		mdwc->id_state = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
+		mdwc->id_state = id;
 		dbg_event(0xFF, "id_state", mdwc->id_state);
 		if (dwc->is_drd)
 			queue_delayed_work(mdwc->dwc3_wq,
