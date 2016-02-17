@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -375,6 +375,10 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_CP_SEC_DISPLAY";
 	case VMID_CP_APP:
 		return "VMID_CP_APP";
+	case VMID_WLAN:
+		return "VMID_WLAN";
+	case VMID_WLAN_CE:
+		return "VMID_WLAN_CE";
 	case VMID_INVAL:
 		return "VMID_INVAL";
 	default:
