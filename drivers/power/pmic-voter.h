@@ -10,6 +10,9 @@
  * GNU General Public License for more details.
  */
 
+#ifndef __PMIC_VOTER_H
+#define __PMIC_VOTER_H
+
 #include <linux/mutex.h>
 
 struct votable;
@@ -39,3 +42,5 @@ struct votable *create_votable(struct device *dev, const char *name,
 					);
 void lock_votable(struct votable *votable);
 void unlock_votable(struct votable  *votable);
+
+#endif /* __PMIC_VOTER_H */
