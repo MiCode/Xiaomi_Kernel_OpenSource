@@ -1105,7 +1105,7 @@ static int sanity_check_raw_super(struct super_block *sb,
 	return 0;
 }
 
-static int sanity_check_ckpt(struct f2fs_sb_info *sbi)
+int sanity_check_ckpt(struct f2fs_sb_info *sbi)
 {
 	unsigned int total, fsmeta;
 	struct f2fs_super_block *raw_super = F2FS_RAW_SUPER(sbi);
@@ -1364,13 +1364,6 @@ try_onemore:
 		goto free_meta_inode;
 	}
 
-	/* sanity checking of checkpoint */
-	err = -EINVAL;
-	if (sanity_check_ckpt(sbi)) {
-		f2fs_msg(sb, KERN_ERR, "Invalid F2FS checkpoint");
-		goto free_cp;
-	}
-
 	sbi->total_valid_node_count =
 				le32_to_cpu(sbi->ckpt->valid_node_count);
 	sbi->total_valid_inode_count =
@@ -1538,7 +1531,6 @@ free_nm:
 	destroy_node_manager(sbi);
 free_sm:
 	destroy_segment_manager(sbi);
-free_cp:
 	kfree(sbi->ckpt);
 free_meta_inode:
 	make_bad_inode(sbi->meta_inode);
