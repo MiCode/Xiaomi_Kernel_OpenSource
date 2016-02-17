@@ -48,7 +48,6 @@ Optional Properties:
 				property should be used with 'qcom,iterm-disabled'
 				to ensure EOC detection in charger is disabled.
 - qcom,force-hvdcp-2p0		Boolean value which allows to force hvdcp working on 2.0 mode.
-- qcom,parallel-charger		Boolean value which enables the parallel charger.
 - qcom,chg-vadc			Corresponding VADC device's phandle.
 - qcom,chg-adc_tm		phandle to the corresponding VADC device to read the ADC channels.
 - qcom,batt-cold-decidegc	Cold battery temperature in decidegC.
@@ -67,9 +66,54 @@ Optional Properties:
 - qcom,batt-cool-mv:		Maximum cool battery target voltage in milli-volts.
 - qcom,switch-freq:		Switching frequency of charger. Supported values:
 				0 - 750 kHz, 1 - 1 MHz, 2 - 1.5 MHz, 3 - 3 MHz.
-- qcom,parallel-en-pin-polarity Specify the polarity of enable signal controlled
-				via pin in a parallel-charger configuration.
-				0 - Active low and 1  - Active high.
+- qcom,parallel-usb-min-current-ma:
+				Minimum current which has to be drawn from USB when
+				acting as the primary charger before enabling the
+				parallel slave.
+				This property needs to be specified if it's acting as
+				the primary charger in parallel charger configuration.
+- qcom,parallel-usb-9v-min-current-ma:
+				Minimum current which has to be drawn from USB when
+				acting as the primary charger before enabling the
+				parallel slave. This value applies only for 9V charger
+				adapters.
+				This property needs to be specified if it's acting as
+				the primary charger in parallel charger configuration.
+- qcom,parallel-usb-12v-min-current-ma:
+				Minimum current which has to be drawn from USB when
+				acting as the primary charger before enabling the
+				parallel slave. This value applies only for 12V charger
+				adapters.
+				This property needs to be specified if it's acting as
+				the primary charger in parallel charger configuration.
+- qcom,parallel-allowed-lowering-ma:
+				The acceptable current drop from the initial limit(ICL)
+				to keep parallel charging active. If charging current
+				drops below this threshold, parallel charging is
+				disabled.
+				This property needs to be specified if it's acting as
+				the primary charger in parallel charger configuration.
+- qcom,parallel-main-chg-fcc-percent:
+				Percentage of the fast charge current allotted to the
+				primary charger when parallel charging is enabled and
+				operational.
+				If this property is not defined, the driver defaults
+				to a 50% : 50% split between the primary charger and the
+				slave charger.
+- qcom,parallel-main-chg-icl-percent:
+				Percentage of the input current allotted to the primary
+				charger when parallel charging is enabled and
+				operational.
+				If this property is not defined, the driver defaults to
+				a 50% : 50% split between the primary charger and the
+				slave charger.
+- qcom,parallel-charger:	Boolean value to indicate if it's a slave charger in
+				parallel charger configuration.
+- qcom,parallel-en-pin-polarity:
+				Specify the active polarity of enable pin of the slave
+				charger in parallel charger configuration:
+					0 - Active low
+					1 - Active high.
 				If not specified the default value is active-low.
 
 Example for standalone charger:
@@ -99,6 +143,13 @@ Example for standalone charger:
 		qcom,batt-cool-ma = <350>;
 		qcom,batt-warm-mv = <4200>;
 		qcom,batt-cool-mv = <4200>;
+		qcom,parallel-usb-min-current-ma = <1300>;
+		qcom,parallel-usb-9v-min-current-ma = <900>;
+		qcom,parallel-usb-12v-min-current-ma = <900>;
+		qcom,parallel-allowed-lowering-ma = <500>;
+		qcom,parallel-main-chg-fcc-percent = <50>;
+		qcom,parallel-main-chg-icl-percent = <50>;
+
 	};
 };
 
