@@ -29,7 +29,6 @@
 #include <linux/interrupt.h>
 #include <linux/completion.h>
 #include <linux/qpnp/qpnp-adc.h>
-#include <linux/platform_device.h>
 
 #define KELVINMIL_DEGMIL	273160
 #define QPNP_VADC_LDO_VOLTAGE_MIN	1800000
@@ -1966,8 +1965,7 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 			return rc;
 		}
 
-		rc = regulator_set_optimum_mode(adc_qpnp->hkadc_ldo,
-				100000);
+		rc = regulator_set_load(adc_qpnp->hkadc_ldo, 100000);
 		if (rc < 0) {
 			pr_err("hkadc_ldo optimum mode failed%d\n", rc);
 			return rc;

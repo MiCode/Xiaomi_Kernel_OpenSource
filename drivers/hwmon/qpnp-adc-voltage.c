@@ -227,7 +227,6 @@ static int32_t qpnp_vadc_read_reg(struct qpnp_vadc_chip *vadc, int16_t reg,
 						u8 *data, int len)
 {
 	int rc;
-	uint val;
 
 	rc = regmap_bulk_read(vadc->adc->regmap,
 		(vadc->adc->offset + reg), data, len);
@@ -235,7 +234,6 @@ static int32_t qpnp_vadc_read_reg(struct qpnp_vadc_chip *vadc, int16_t reg,
 		pr_err("qpnp adc read reg %d failed with %d\n", reg, rc);
 		return rc;
 	}
-	*data = (u8)val;
 
 	return 0;
 }
@@ -2470,7 +2468,7 @@ hwmon_err_sens:
 }
 
 static int qpnp_vadc_get_temp(struct thermal_zone_device *thermal,
-			     unsigned long *temp)
+			     int *temp)
 {
 	struct qpnp_vadc_thermal_data *vadc_therm = thermal->devdata;
 	struct qpnp_vadc_chip *vadc = vadc_therm->vadc_dev;
