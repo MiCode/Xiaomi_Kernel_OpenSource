@@ -1268,6 +1268,7 @@
 
 	compress: qcom,msm-compress-dsp {
 		compatible = "qcom,msm-compress-dsp";
+		qcom,adsp-version = "MDSP 1.2";
 	};
 
 	voip: qcom,msm-voip-dsp {
