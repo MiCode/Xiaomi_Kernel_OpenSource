@@ -20,6 +20,7 @@
 #include <linux/types.h>
 #include <linux/workqueue.h>
 #include <linux/irqreturn.h>
+#include <linux/irqdomain.h>
 #include <linux/mdss_io_util.h>
 
 #include <linux/msm-bus.h>
@@ -128,6 +129,7 @@ enum mdss_hw_index {
 	MDSS_HW_DSI1,
 	MDSS_HW_HDMI,
 	MDSS_HW_EDP,
+	MDSS_HW_MISC,
 	MDSS_MAX_HW_BLK
 };
 
@@ -292,6 +294,7 @@ struct mdss_data_type {
 	u32 default_ot_rd_limit;
 	u32 default_ot_wr_limit;
 
+	struct irq_domain *irq_domain;
 	u32 mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 
