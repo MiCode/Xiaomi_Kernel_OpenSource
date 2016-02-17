@@ -20,6 +20,15 @@ Required properties:
 	       should be "qcom,msm8994-tsens" for 8994 TSENS driver.
 	       should be "qcom,msm8996-tsens" for 8996 TSENS driver.
 	       should be "qcom,msm8992-tsens" for 8992 TSENS driver.
+	       should be "qcom,msm8916-tsens" for 8916 TSENS driver.
+	       should be "qcom,msm8939-tsens" for 8939 TSENS driver.
+	       should be "qcom,msm8909-tsens" for 8909 TSENS driver.
+	       should be "qcom,msm8952-tsens" for 8952 TSENS driver.
+	       should be "qcom,msmzirc-tsens" for zirc TSENS driver.
+	       should be "qcom,mdm9607-tsens" for 9607 TSENS driver.
+	       should be "qcom,msmtitanium-tsens" for titanium TSENS driver.
+	       should be "qcom,msm8937-tsens" for 8937 TSENS driver.
+	       should be "qcom,msmgold-tsens" for gold TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers.
@@ -54,6 +63,19 @@ Optional properties:
 - qcom,sensor-id : If the flag is present map the TSENS sensors based on the
 		remote sensors that are enabled in HW. Ensure the mapping is not
 		more than the number of supported sensors.
+- qcom,client-id : If the flag is present use it to identify the SW ID mapping
+		used to associate it with the controller and the physical sensor
+		mapping within the controller. The physical sensor mapping within
+		each controller is done using the qcom,sensor-id property. If the
+		property is not present the SW ID mapping with default from 0 to
+		total number of supported sensors with each controller instance.
+- qcom,valid-status-check: If property is present, check the VALID bit is set
+		before reporting the temperature data.
+- qcom,temp1-offset: If property is present, Use these offset values
+		to be added for 30 deg calib points.
+- qcom,temp2-offset: If property is present, Use these offset values
+		to be added for 120 deg calib points.
+
 Example:
 
 tsens@fc4a8000 {
