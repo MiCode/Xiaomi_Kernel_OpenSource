@@ -3570,10 +3570,12 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 
 	memset(&gsi_channel_props, 0, sizeof(gsi_channel_props));
 	gsi_channel_props.prot = GSI_CHAN_PROT_GPI;
-	if (IPA_CLIENT_IS_PROD(ep->client))
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		gsi_channel_props.dir = GSI_CHAN_DIR_TO_GSI;
-	else
+	} else {
 		gsi_channel_props.dir = GSI_CHAN_DIR_FROM_GSI;
+		gsi_channel_props.max_re_expected = ep->sys->rx_pool_sz;
+	}
 
 	gsi_ep_info = ipa3_get_gsi_ep_info(ipa3_get_ep_mapping(ep->client));
 	if (!gsi_ep_info) {

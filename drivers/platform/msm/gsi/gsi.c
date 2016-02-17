@@ -315,7 +315,7 @@ static void gsi_incr_ring_rp(struct gsi_ring_ctx *ctx)
 		ctx->rp_local = ctx->base;
 }
 
-static uint16_t gsi_find_idx_from_addr(struct gsi_ring_ctx *ctx, uint64_t addr)
+uint16_t gsi_find_idx_from_addr(struct gsi_ring_ctx *ctx, uint64_t addr)
 {
 	BUG_ON(addr < ctx->base || addr >= ctx->end);
 
@@ -1538,10 +1538,12 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
 
 	spin_lock_init(&ctx->ring.slock);
 	gsi_init_chan_ring(props, &ctx->ring);
-
+	if (!props->max_re_expected)
+		ctx->props.max_re_expected = ctx->ring.max_num_elem;
 	ctx->user_data = user_data;
 	*chan_hdl = props->ch_id;
 	ctx->allocated = true;
+	ctx->stats.dp.last_timestamp = jiffies_to_msecs(jiffies);
 	atomic_inc(&gsi_ctx->num_chan);
 
 	return GSI_STATUS_SUCCESS;
@@ -1955,35 +1957,67 @@ int gsi_dealloc_channel(unsigned long chan_hdl)
 }
 EXPORT_SYMBOL(gsi_dealloc_channel);
 
+void gsi_update_ch_dp_stats(struct gsi_chan_ctx *ctx, uint16_t used)
+{
+	unsigned long now = jiffies_to_msecs(jiffies);
+	unsigned long elapsed;
+
+	if (used == 0) {
+		elapsed = now - ctx->stats.dp.last_timestamp;
+		if (ctx->stats.dp.empty_time < elapsed)
+			ctx->stats.dp.empty_time = elapsed;
+	}
+
+	if (used <= ctx->props.max_re_expected / 3)
+		++ctx->stats.dp.ch_below_lo;
+	else if (used <= 2 * ctx->props.max_re_expected / 3)
+		++ctx->stats.dp.ch_below_hi;
+	else
+		++ctx->stats.dp.ch_above_hi;
+	ctx->stats.dp.last_timestamp = now;
+}
+
 static void __gsi_query_channel_free_re(struct gsi_chan_ctx *ctx,
 		uint16_t *num_free_re)
 {
 	uint16_t start;
+	uint16_t start_hw;
 	uint16_t end;
 	uint64_t rp;
+	uint64_t rp_hw;
 	int ee = gsi_ctx->per.ee;
 	uint16_t used;
+	uint16_t used_hw;
+
+	rp_hw = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_4_OFFS(ctx->props.ch_id, ee));
+	rp_hw |= ((uint64_t)gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_5_OFFS(ctx->props.ch_id, ee)))
+		<< 32;
 
 	if (!ctx->evtr) {
-		rp = gsi_readl(gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_CNTXT_4_OFFS(ctx->props.ch_id, ee));
-		rp |= ((uint64_t)gsi_readl(gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_CNTXT_5_OFFS(ctx->props.ch_id, ee)))
-			<< 32;
+		rp = rp_hw;
 		ctx->ring.rp = rp;
 	} else {
 		rp = ctx->ring.rp_local;
 	}
 
 	start = gsi_find_idx_from_addr(&ctx->ring, rp);
+	start_hw = gsi_find_idx_from_addr(&ctx->ring, rp_hw);
 	end = gsi_find_idx_from_addr(&ctx->ring, ctx->ring.wp_local);
 
 	if (end >= start)
 		used = end - start;
 	else
-		used = ctx->ring.max_num_elem + 1 - (end - start);
+		used = ctx->ring.max_num_elem + 1 - (start - end);
+
+	if (end >= start_hw)
+		used_hw = end - start_hw;
+	else
+		used_hw = ctx->ring.max_num_elem + 1 - (start_hw - end);
 
 	*num_free_re = ctx->ring.max_num_elem - used;
+	gsi_update_ch_dp_stats(ctx, used_hw);
 }
 
 int gsi_query_channel_info(unsigned long chan_hdl,
