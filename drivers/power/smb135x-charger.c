@@ -2227,8 +2227,9 @@ static int smb135x_set_current_tables(struct smb135x_chg *chip)
 			= ARRAY_SIZE(usb_current_table_smb1357_smb1358);
 		chip->dc_current_table = dc_current_table;
 		chip->dc_current_arr_size = ARRAY_SIZE(dc_current_table);
-		chip->fastchg_current_table = NULL;
-		chip->fastchg_current_arr_size = 0;
+		chip->fastchg_current_table = fastchg_current_table;
+		chip->fastchg_current_arr_size
+			= ARRAY_SIZE(fastchg_current_table);
 		break;
 	case V_SMB1359:
 		chip->usb_current_table = usb_current_table_smb1359;
