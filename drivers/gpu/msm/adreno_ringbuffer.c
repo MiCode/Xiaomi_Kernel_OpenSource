@@ -301,17 +301,6 @@ static void _ringbuffer_setup_common(struct adreno_device *adreno_dev)
 
 	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
 			  ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc.gpuaddr);
-
-	/* CP ROQ queue sizes (bytes) - RB:16, ST:16, IB1:32, IB2:64 */
-	if (adreno_is_a3xx(adreno_dev)) {
-		unsigned int val = 0x000E0602;
-
-		if (adreno_is_a305b(adreno_dev) ||
-				adreno_is_a310(adreno_dev) ||
-				adreno_is_a330(adreno_dev))
-			val = 0x003E2008;
-		kgsl_regwrite(device, A3XX_CP_QUEUE_THRESHOLDS, val);
-	}
 }
 
 /**
@@ -1153,8 +1142,22 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 		/* Put the timevalues in the profiling buffer */
 		if (cmdbatch_user_profiling) {
-			profile_buffer->wall_clock_s = time->utime.tv_sec;
-			profile_buffer->wall_clock_ns = time->utime.tv_nsec;
+			/*
+			* Return kernel clock time to the the client
+			* if requested
+			*/
+			if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING_KTIME) {
+				uint64_t secs = time->ktime;
+
+				profile_buffer->wall_clock_ns =
+					do_div(secs, NSEC_PER_SEC);
+				profile_buffer->wall_clock_s = secs;
+			} else {
+				profile_buffer->wall_clock_s =
+					time->utime.tv_sec;
+				profile_buffer->wall_clock_ns =
+					time->utime.tv_nsec;
+			}
 			profile_buffer->gpu_ticks_queued = time->ticks;
 		}
 	}

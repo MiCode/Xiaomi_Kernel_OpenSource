@@ -15,6 +15,7 @@
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include "board-dt.h"
+#include "platsmp.h"
 
 static const char *msm8909_dt_match[] __initconst = {
 	"qcom,msm8909",
@@ -31,4 +32,5 @@ DT_MACHINE_START(MSM8909_DT,
 	"Qualcomm Technologies, Inc. MSM 8909 (Flattened Device Tree)")
 	.init_machine	= msm8909_init,
 	.dt_compat	= msm8909_dt_match,
+	.smp	= &msm8909_smp_ops,
 MACHINE_END

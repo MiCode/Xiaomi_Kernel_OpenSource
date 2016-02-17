@@ -744,6 +744,7 @@ struct dwc3_scratchpad_array {
 #define DWC3_CONTROLLER_NOTIFY_OTG_EVENT		9
 #define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT		10
 #define DWC3_CONTROLLER_RESTART_USB_SESSION		11
+#define DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER		12
 
 #define MAX_INTR_STATS					10
 /**
@@ -926,7 +927,7 @@ struct dwc3 {
 	u8			lpm_nyet_threshold;
 	u8			hird_threshold;
 
-	void (*notify_event)	(struct dwc3 *, unsigned);
+	void (*notify_event)(struct dwc3 *, unsigned, unsigned);
 	struct work_struct	wakeup_work;
 
 	unsigned		delayed_status:1;
@@ -1211,7 +1212,7 @@ void dwc3_gadget_enable_irq(struct dwc3 *dwc);
 void dwc3_gadget_disable_irq(struct dwc3 *dwc);
 
 extern void dwc3_set_notifier(
-		void (*notify) (struct dwc3 *dwc3, unsigned event));
-extern int dwc3_notify_event(struct dwc3 *dwc3, unsigned event);
+	void (*notify)(struct dwc3 *dwc3, unsigned event, unsigned value));
+extern int dwc3_notify_event(struct dwc3 *dwc3, unsigned event, unsigned value);
 
 #endif /* __DRIVERS_USB_DWC3_CORE_H */

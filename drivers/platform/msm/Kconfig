@@ -192,6 +192,16 @@ config RMNET_IPA3
 	  for RmNet Data Driver and also exchange of QMI messages between
 	  A7 and Q6 IPA-driver.
 
+config SSM
+	tristate "QTI Secure Service Module"
+	depends on QSEECOM
+	depends on MSM_SMD
+	help
+	  Provides an interface for OEM driver to communicate with Trustzone
+	  and modem for key exchange and mode change.
+	  This driver uses Secure Channel Manager interface for trustzone
+	  communication and communicates with modem over SMD channel.
+
 config MSM_MHI
 	tristate "Modem Host Interface Driver"
 	help

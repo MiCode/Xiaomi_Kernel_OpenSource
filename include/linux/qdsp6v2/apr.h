@@ -136,6 +136,7 @@ struct apr_svc {
 	void *priv;
 	struct mutex m_lock;
 	spinlock_t w_lock;
+	uint8_t pkt_owner;
 };
 
 struct apr_client {
@@ -145,6 +146,16 @@ struct apr_client {
 	struct mutex m_lock;
 	struct apr_svc_ch_dev *handle;
 	struct apr_svc svc[APR_SVC_MAX];
+};
+
+struct apr_rx_intents {
+	int num_of_intents;
+	uint32_t size;
+};
+
+struct apr_pkt_cfg {
+	uint8_t pkt_owner;
+	struct apr_rx_intents intents;
 };
 
 int apr_load_adsp_image(void);

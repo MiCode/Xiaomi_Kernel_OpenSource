@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,10 +119,6 @@ static int msm_hdmi_dba_codec_rx_init_dba(
 					&codec_data->dba_info,
 					&codec_data->dba_ops);
 	if (!IS_ERR_OR_NULL(codec_data->dba_data)) {
-		/* Power on the hdmi bridge */
-		if (codec_data->dba_ops.power_on)
-			codec_data->dba_ops.power_on(codec_data->dba_data,
-							true, 0);
 		/* Enable callback */
 		if (codec_data->dba_ops.interrupts_enable)
 			codec_data->dba_ops.interrupts_enable(
@@ -464,27 +460,11 @@ static void msm_hdmi_dba_codec_rx_dai_shutdown(
 
 static int msm_hdmi_dba_codec_rx_dai_suspend(struct snd_soc_codec *codec)
 {
-	struct msm_hdmi_dba_codec_rx_data *codec_data =
-					dev_get_drvdata(codec->dev);
-
-	/* device is going to suspend, so power off HDMI brige chip */
-	if (codec_data->dba_ops.power_on)
-		codec_data->dba_ops.power_on(codec_data->dba_data,
-				false, 0);
-
 	return 0;
 }
 
 static int msm_hdmi_dba_codec_rx_dai_resume(struct snd_soc_codec *codec)
 {
-	struct msm_hdmi_dba_codec_rx_data *codec_data =
-					dev_get_drvdata(codec->dev);
-
-	/* on resume, power on HDMI brige chip */
-	if (codec_data->dba_ops.power_on)
-		codec_data->dba_ops.power_on(codec_data->dba_data,
-				true, 0);
-
 	return 0;
 }
 

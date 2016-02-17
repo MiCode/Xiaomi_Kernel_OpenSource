@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,8 +127,11 @@ struct coresight_platform_data *of_get_coresight_platform_data(
 	if (!pdata)
 		return ERR_PTR(-ENOMEM);
 
-	/* Use device name as sysfs handle */
-	pdata->name = dev_name(dev);
+	ret = of_property_read_string(node, "coresight-name", &pdata->name);
+	if (ret) {
+		/* Use device name as sysfs handle */
+		pdata->name = dev_name(dev);
+	}
 
 	/* Get the number of input and output port for this component */
 	of_coresight_get_ports(node, &pdata->nr_inport, &pdata->nr_outport);
@@ -178,7 +181,11 @@ struct coresight_platform_data *of_get_coresight_platform_data(
 			if (!rdev)
 				continue;
 
-			pdata->child_names[i] = dev_name(rdev);
+			ret = of_property_read_string(rparent, "coresight-name",
+						      &pdata->child_names[i]);
+			if (ret)
+				pdata->child_names[i] = dev_name(rdev);
+
 			pdata->child_ports[i] = rendpoint.id;
 
 			i++;

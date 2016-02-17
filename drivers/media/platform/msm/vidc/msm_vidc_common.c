@@ -301,8 +301,14 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 	 */
 
 	if (is_non_realtime_session(inst) &&
-		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD))
-		load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
+		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD)) {
+		if (!inst->prop.fps) {
+			dprintk(VIDC_INFO, "instance:%p fps = 0\n", inst);
+			load = 0;
+		} else {
+			load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
+		}
+	}
 
 exit:
 	mutex_unlock(&inst->lock);
@@ -992,12 +998,6 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	}
 	inst->capability.pixelprocess_capabilities =
 		call_hfi_op(hdev, get_core_capabilities, hdev->hfi_device_data);
-	if (!(inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_VP9)) {
-		dprintk(VIDC_DBG,
-			"Updaing the mbs per frame value from %d to %d\n",
-			inst->capability.mbs_per_frame.max, 32400);
-		inst->capability.mbs_per_frame.max = 32400;
-	}
 
 	dprintk(VIDC_DBG,
 		"Capability type : min      max      step size\n");
@@ -1767,10 +1767,6 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 
 	if (cnt < 0)
 		return cnt;
-
-	rc = output_buffer_cache_invalidate(inst, binfo);
-	if (rc)
-		return rc;
 
 	if (release_buf) {
 		/*
@@ -3124,6 +3120,8 @@ static bool reuse_internal_buffers(struct msm_vidc_inst *inst,
 			}
 		}
 		reused = true;
+		dprintk(VIDC_DBG,
+			"Re-using internal buffer type : %d\n", buffer_type);
 	}
 	mutex_unlock(&buf_list->lock);
 	return reused;
@@ -3373,6 +3371,36 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 				"Failed to flush buffers: %d\n", rc);
 		}
 		break;
+	case V4L2_DEC_QCOM_CMD_RECONFIG_HINT:
+	{
+		u32 *ptr = NULL;
+		struct hal_buffer_requirements *output_buf;
+
+		rc = msm_comm_try_get_bufreqs(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"Getting buffer requirements failed: %d\n",
+					rc);
+			break;
+		}
+
+		output_buf = get_buff_req_buffer(inst,
+				msm_comm_get_hal_output_buffer(inst));
+		if (!output_buf) {
+			dprintk(VIDC_DBG,
+					"This output buffer not required, buffer_type: %x\n",
+					HAL_BUFFER_OUTPUT);
+		} else {
+			ptr = (u32 *)dec->raw.data;
+			ptr[0] = output_buf->buffer_size;
+			ptr[1] = output_buf->buffer_count_actual;
+			dprintk(VIDC_DBG,
+				"Reconfig hint, size is %u, count is %u\n",
+				ptr[0], ptr[1]);
+
+		}
+		break;
+	}
 	default:
 		dprintk(VIDC_ERR, "Unknown Command %d\n", which_cmd);
 		rc = -ENOTSUPP;
@@ -5023,7 +5051,7 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 
 	if (fps % 15 == 14 || fps % 24 == 23)
 		fps = fps + 1;
-	else if (fps % 24 == 1 || fps % 15 == 1)
+	else if ((fps > 1) && (fps % 24 == 1 || fps % 15 == 1))
 		fps = fps - 1;
 
 	if (inst->prop.fps != fps) {

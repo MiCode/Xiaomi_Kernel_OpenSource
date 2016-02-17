@@ -184,6 +184,11 @@ static struct subsys_device *to_subsys(struct device *d)
 	return container_of(d, struct subsys_device, dev);
 }
 
+void complete_err_ready(struct subsys_device *subsys)
+{
+	complete(&subsys->err_ready);
+}
+
 static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
 {
 	struct subsys_soc_restart_order *order = subsys->restart_order;
@@ -538,6 +543,10 @@ static void enable_all_irqs(struct subsys_device *dev)
 		enable_irq(dev->desc->err_fatal_irq);
 	if (dev->desc->stop_ack_irq && dev->desc->stop_ack_handler)
 		enable_irq(dev->desc->stop_ack_irq);
+	if (dev->desc->generic_irq && dev->desc->generic_handler) {
+		enable_irq(dev->desc->generic_irq);
+		irq_set_irq_wake(dev->desc->generic_irq, 1);
+	}
 }
 
 static void disable_all_irqs(struct subsys_device *dev)
@@ -552,6 +561,10 @@ static void disable_all_irqs(struct subsys_device *dev)
 		disable_irq(dev->desc->err_fatal_irq);
 	if (dev->desc->stop_ack_irq && dev->desc->stop_ack_handler)
 		disable_irq(dev->desc->stop_ack_irq);
+	if (dev->desc->generic_irq && dev->desc->generic_handler) {
+		disable_irq(dev->desc->generic_irq);
+		irq_set_irq_wake(dev->desc->generic_irq, 0);
+	}
 }
 
 int wait_for_shutdown_ack(struct subsys_desc *desc)
@@ -577,7 +590,12 @@ static int wait_for_err_ready(struct subsys_device *subsys)
 {
 	int ret;
 
-	if (!subsys->desc->err_ready_irq || enable_debug == 1)
+	/*
+	 * If subsys is using generic_irq in which case err_ready_irq will be 0,
+	 * don't return.
+	 */
+	if ((subsys->desc->generic_irq <= 0 && !subsys->desc->err_ready_irq)
+							|| enable_debug == 1)
 		return 0;
 
 	ret = wait_for_completion_timeout(&subsys->err_ready,
@@ -1475,6 +1493,13 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 	if (ret > 0)
 		desc->wdog_bite_irq = ret;
 
+	if (of_property_read_bool(pdev->dev.of_node,
+					"qcom,pil-generic-irq-handler")) {
+		ret = platform_get_irq(pdev, 0);
+		if (ret > 0)
+			desc->generic_irq = ret;
+	}
+
 	order = ssr_parse_restart_orders(desc);
 	if (IS_ERR(order)) {
 		pr_err("Could not initialize SSR restart order, err = %ld\n",
@@ -1524,6 +1549,18 @@ static int subsys_setup_irqs(struct subsys_device *subsys)
 			return ret;
 		}
 		disable_irq(desc->wdog_bite_irq);
+	}
+
+	if (desc->generic_irq && desc->generic_handler) {
+		ret = devm_request_irq(desc->dev, desc->generic_irq,
+			desc->generic_handler,
+			IRQF_TRIGGER_HIGH, desc->name, desc);
+		if (ret < 0) {
+			dev_err(desc->dev, "[%s]: Unable to register generic irq handler!: %d\n",
+				desc->name, ret);
+			return ret;
+		}
+		disable_irq(desc->generic_irq);
 	}
 
 	if (desc->err_ready_irq) {

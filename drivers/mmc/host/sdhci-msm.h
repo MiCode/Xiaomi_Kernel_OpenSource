@@ -213,6 +213,7 @@ struct sdhci_msm_host {
 	struct device_attribute pm_qos_group_status_attr;
 	bool pm_qos_group_enable;
 	struct sdhci_msm_pm_qos_irq pm_qos_irq;
+	bool tuning_in_progress;
 };
 
 extern char *saved_command_line;

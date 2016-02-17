@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,7 @@ enum {
 	MDSS_PLL_TARGET_8952,
 	MDSS_PLL_TARGET_8937,
 	MDSS_PLL_TARGET_TITANIUM,
+	MDSS_PLL_TARGET_8909,
 };
 
 #define DFPS_MAX_NUM_OF_FRAME_RATES 10

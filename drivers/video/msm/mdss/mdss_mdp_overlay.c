@@ -2620,27 +2620,35 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 
 	if (!ctl)
 		return -ENODEV;
-	if (!ctl->ops.add_vsync_handler || !ctl->ops.remove_vsync_handler)
-		return -EOPNOTSUPP;
+
+	mutex_lock(&mdp5_data->ov_lock);
+	if (!ctl->ops.add_vsync_handler || !ctl->ops.remove_vsync_handler) {
+		rc = -EOPNOTSUPP;
+		pr_err_once("fb%d vsync handlers are not registered\n",
+			mfd->index);
+		goto end;
+	}
+
 	if (!ctl->panel_data->panel_info.cont_splash_enabled
 		&& (!mdss_mdp_ctl_is_power_on(ctl) ||
 		mdss_panel_is_power_on_ulp(ctl->power_state))) {
-		pr_debug("fb%d vsync pending first update en=%d\n",
-				mfd->index, en);
-		return -EPERM;
+		pr_debug("fb%d vsync pending first update en=%d, ctl power state:%d\n",
+				mfd->index, en, ctl->power_state);
+		rc = -EPERM;
+		goto end;
 	}
 
 	pr_debug("fb%d vsync en=%d\n", mfd->index, en);
 
-	mutex_lock(&mdp5_data->ov_lock);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	if (en)
 		rc = ctl->ops.add_vsync_handler(ctl, &ctl->vsync_handler);
 	else
 		rc = ctl->ops.remove_vsync_handler(ctl, &ctl->vsync_handler);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	mutex_unlock(&mdp5_data->ov_lock);
 
+end:
+	mutex_unlock(&mdp5_data->ov_lock);
 	return rc;
 }
 
@@ -4597,6 +4605,46 @@ end:
 	return rc;
 }
 
+static int mdss_mdp_handoff_cleanup_ctl(struct msm_fb_data_type *mfd)
+{
+	int rc;
+	int need_cleanup;
+	struct mdss_overlay_private *mdp5_data;
+
+	if (!mfd)
+		return -ENODEV;
+
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
+
+	mdss_mdp_overlay_free_fb_pipe(mfd);
+
+	mutex_lock(&mdp5_data->list_lock);
+	need_cleanup = !list_empty(&mdp5_data->pipes_cleanup) ||
+		!list_empty(&mdp5_data->pipes_used);
+	mutex_unlock(&mdp5_data->list_lock);
+
+	if (need_cleanup)
+		mdss_mdp_overlay_kickoff(mfd, NULL);
+
+	rc = mdss_mdp_ctl_stop(mdp5_data->ctl, mfd->panel_power_state);
+	if (!rc) {
+		if (mdss_fb_is_power_off(mfd)) {
+			mutex_lock(&mdp5_data->list_lock);
+			__mdss_mdp_overlay_free_list_purge(mfd);
+			mutex_unlock(&mdp5_data->list_lock);
+		}
+	}
+
+	rc = mdss_mdp_splash_cleanup(mfd, false);
+	if (rc)
+		pr_err("%s: failed splash clean up %d\n", __func__, rc);
+
+	return rc;
+}
+
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 {
 	int rc;
@@ -4619,6 +4667,9 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 
 	if (!mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
 		if (mfd->panel_reconfig) {
+			if (mfd->panel_info->cont_splash_enabled)
+				mdss_mdp_handoff_cleanup_ctl(mfd);
+
 			mdp5_data->borderfill_enable = false;
 			mdss_mdp_ctl_destroy(mdp5_data->ctl);
 			mdp5_data->ctl = NULL;

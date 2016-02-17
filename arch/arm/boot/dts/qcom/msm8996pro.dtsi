@@ -19,7 +19,7 @@
 #include "msm8996-v3.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996pro";
-	qcom,msm-id = <305 0x20000>;
+	qcom,msm-id = <305 0x10000>;
 };
 
 &apc_apm {
@@ -860,6 +860,8 @@
 	qcom,chipid = <0x05030004>;
 
 	qcom,initial-pwrlevel = <6>;
+
+	qcom,gpu-speed-bin = <0x413c 0x30000000 28>;
 
 	qcom,gpu-pwrlevel-bins {
 		#address-cells = <1>;

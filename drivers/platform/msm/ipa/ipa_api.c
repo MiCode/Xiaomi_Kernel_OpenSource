@@ -2648,6 +2648,8 @@ static struct of_device_id ipa_plat_drv_match[] = {
 	{ .compatible = "qcom,ipa-smmu-ap-cb", },
 	{ .compatible = "qcom,ipa-smmu-wlan-cb", },
 	{ .compatible = "qcom,ipa-smmu-uc-cb", },
+	{ .compatible = "qcom,smp2pgpio-map-ipa-1-in", },
+	{ .compatible = "qcom,smp2pgpio-map-ipa-1-out", },
 	{}
 };
 
@@ -2655,21 +2657,29 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 {
 	int result;
 
-	pr_debug("ipa: IPA driver probing started\n");
+	/*
+	* IPA probe function can be called for multiple times as the same probe
+	* function handles multiple compatibilities
+	*/
+	pr_debug("ipa: IPA driver probing started for %s\n",
+		pdev_p->dev.of_node->name);
 
-	ipa_api_ctrl = kzalloc(sizeof(*ipa_api_ctrl), GFP_KERNEL);
-	if (!ipa_api_ctrl)
-		return -ENOMEM;
+	if (!ipa_api_ctrl) {
+		ipa_api_ctrl = kzalloc(sizeof(*ipa_api_ctrl), GFP_KERNEL);
+		if (!ipa_api_ctrl)
+			return -ENOMEM;
 
-	/* Get IPA HW Version */
-	result = of_property_read_u32(pdev_p->dev.of_node, "qcom,ipa-hw-ver",
-		&ipa_api_hw_type);
-	if ((result) || (ipa_api_hw_type == 0)) {
-		pr_err("ipa: get resource failed for ipa-hw-ver!\n");
-		result = -ENODEV;
-		goto fail;
+		/* Get IPA HW Version */
+		result = of_property_read_u32(pdev_p->dev.of_node,
+			"qcom,ipa-hw-ver", &ipa_api_hw_type);
+		if ((result) || (ipa_api_hw_type == 0)) {
+			pr_err("ipa: get resource failed for ipa-hw-ver!\n");
+			kfree(ipa_api_ctrl);
+			ipa_api_ctrl = 0;
+			return -ENODEV;
+		}
+		pr_debug("ipa: ipa_api_hw_type = %d", ipa_api_hw_type);
 	}
-	pr_debug("ipa: ipa_api_hw_type = %d", ipa_api_hw_type);
 
 	/* call probe based on IPA HW version */
 	switch (ipa_api_hw_type) {
@@ -2679,30 +2689,20 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 	case IPA_HW_v2_6L:
 		result = ipa_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
-		if (result) {
-			pr_err("ipa: ipa_plat_drv_probe failed\n");
-			goto fail;
-		}
 		break;
 	case IPA_HW_v3_0:
 	case IPA_HW_v3_1:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
-		if (result) {
-			pr_err("ipa: ipa3_plat_drv_probe failed\n");
-			goto fail;
-		}
 		break;
 	default:
 		pr_err("ipa: unsupported version %d\n", ipa_api_hw_type);
-		result = -EPERM;
-		goto fail;
+		return -EPERM;
 	}
 
-	return 0;
-fail:
-	kfree(ipa_api_ctrl);
-	ipa_api_ctrl = 0;
+	if (result && result != -EPROBE_DEFER)
+		pr_err("ipa: ipa_plat_drv_probe failed\n");
+
 	return result;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 		interrupts = <0 166 0>;
 		interrupt-names = "byte-cntr-irq";
 
-		qcom,memory-size = <0x100000>;
+		qcom,memory-size = <0x2000000>;
 		qcom,sg-enable;
 		qcom,force-reg-dump;
 
@@ -646,6 +646,8 @@
 		coresight-nr-inports = <0>;
 		coresight-cti-cpu = <&CPU0>;
 
+		qcom,cti-save;
+
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -660,6 +662,8 @@
 		coresight-name = "coresight-cti-cpu1";
 		coresight-nr-inports = <0>;
 		coresight-cti-cpu = <&CPU1>;
+
+		qcom,cti-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -676,6 +680,8 @@
 		coresight-nr-inports = <0>;
 		coresight-cti-cpu = <&CPU2>;
 
+		qcom,cti-save;
+
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -690,6 +696,8 @@
 		coresight-name = "coresight-cti-cpu3";
 		coresight-nr-inports = <0>;
 		coresight-cti-cpu = <&CPU3>;
+
+		qcom,cti-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -706,6 +714,8 @@
 		coresight-nr-inports = <0>;
 		coresight-cti-cpu = <&CPU4>;
 
+		qcom,cti-save;
+
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -720,6 +730,8 @@
 		coresight-name = "coresight-cti-cpu5";
 		coresight-nr-inports = <0>;
 		coresight-cti-cpu = <&CPU5>;
+
+		qcom,cti-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -736,6 +748,8 @@
 		coresight-nr-inports = <0>;
 		coresight-cti-cpu = <&CPU6>;
 
+		qcom,cti-save;
+
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -750,6 +764,8 @@
 		coresight-name = "coresight-cti-cpu7";
 		coresight-nr-inports = <0>;
 		coresight-cti-cpu = <&CPU7>;
+
+		qcom,cti-save;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;

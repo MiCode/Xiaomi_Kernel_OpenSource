@@ -92,9 +92,6 @@
 
 	qcom,msm-mbhc-hphl-swh = <1>;
 
-	asoc-codec = <&stub_codec>;
-	asoc-codec-names = "msm-stub-codec.1";
-
 	qcom,wsa-max-devs = <1>;
 	qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_213>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";

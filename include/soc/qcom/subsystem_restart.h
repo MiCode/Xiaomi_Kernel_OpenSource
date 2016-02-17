@@ -66,12 +66,14 @@ struct subsys_desc {
 	irqreturn_t (*err_fatal_handler) (int irq, void *dev_id);
 	irqreturn_t (*stop_ack_handler) (int irq, void *dev_id);
 	irqreturn_t (*wdog_bite_handler) (int irq, void *dev_id);
+	irqreturn_t (*generic_handler)(int irq, void *dev_id);
 	int is_not_loadable;
 	int err_fatal_gpio;
 	unsigned int err_fatal_irq;
 	unsigned int err_ready_irq;
 	unsigned int stop_ack_irq;
 	unsigned int wdog_bite_irq;
+	unsigned int generic_irq;
 	int force_stop_gpio;
 	int ramdump_disable_gpio;
 	int shutdown_ack_gpio;
@@ -120,6 +122,7 @@ extern void subsys_set_crash_status(struct subsys_device *dev, bool crashed);
 extern bool subsys_get_crash_status(struct subsys_device *dev);
 void notify_proxy_vote(struct device *device);
 void notify_proxy_unvote(struct device *device);
+void complete_err_ready(struct subsys_device *subsys);
 extern int wait_for_shutdown_ack(struct subsys_desc *desc);
 #else
 

@@ -54,6 +54,8 @@ DEFINE_CLK_RPM_SMD_BRANCH(xo_clk_src, xo_a_clk_src, RPM_MISC_CLK_TYPE,
 				CXO_CLK_SRC_ID, 19200000);
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_CLK_ID, NULL);
+DEFINE_CLK_RPM_SMD(bimc_gpu_clk, bimc_gpu_a_clk, RPM_MEM_CLK_TYPE,
+						BIMC_GPU_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(sysmmnoc_clk, sysmmnoc_a_clk, RPM_BUS_CLK_TYPE,
 						SYSMMNOC_CLK_ID, NULL);
@@ -755,6 +757,7 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_gold[] = {
 	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
 	F_SLEW( 484800000, 969600000,	  gpll3,	1,	0,	0),
 	F_SLEW( 523200000, 1046400000,	  gpll3,	1,	0,	0),
+	F_SLEW( 550000000, 1100000000,	  gpll3,	1,	0,	0),
 	F_SLEW( 598000000, 1196000000,	  gpll3,	1,	0,	0),
 	F_END
 };
@@ -3955,6 +3958,8 @@ static struct clk_lookup msm_clocks_lookup_gold[] = {
 	CLK_LIST(gpll0_clk_src_8937),
 	CLK_LIST(gpll0_ao_clk_src_8937),
 	CLK_LIST(gpll0_sleep_clk_src),
+	CLK_LIST(bimc_gpu_clk),
+	CLK_LIST(bimc_gpu_a_clk),
 	CLK_LIST(gcc_dcc_clk),
 	CLK_LIST(gcc_qdss_dap_clk),
 	CLK_LIST(gcc_gfx_tcu_clk),

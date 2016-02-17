@@ -234,6 +234,7 @@
 #define SNOC_CLK_ID			0x1
 #define SYSMMNOC_CLK_ID			0x2
 #define BIMC_CLK_ID			0x0
+#define BIMC_GPU_CLK_ID			0x2
 #define IPA_CLK_ID			0x0
 
 #define BUS_SCALING		0x2

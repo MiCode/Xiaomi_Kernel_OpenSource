@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,39 +15,6 @@
 #include <linux/of.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/msm_tz_smmu.h>
-
-enum tz_smmu_device_id {
-	TZ_DEVICE_START = 0,
-	TZ_DEVICE_VIDEO = 0,
-	TZ_DEVICE_MDSS,
-	TZ_DEVICE_LPASS,
-	TZ_DEVICE_MDSS_BOOT,
-	TZ_DEVICE_USB1_HS,
-	TZ_DEVICE_OCMEM,
-	TZ_DEVICE_LPASS_CORE,
-	TZ_DEVICE_VPU,
-	TZ_DEVICE_COPSS_SMMU,
-	TZ_DEVICE_USB3_0,
-	TZ_DEVICE_USB3_1,
-	TZ_DEVICE_PCIE_0,
-	TZ_DEVICE_PCIE_1,
-	TZ_DEVICE_BCSS,
-	TZ_DEVICE_VCAP,
-	TZ_DEVICE_PCIE20,
-	TZ_DEVICE_IPA,
-	TZ_DEVICE_APPS,
-	TZ_DEVICE_GPU,
-	TZ_DEVICE_UFS,
-	TZ_DEVICE_ICE,
-	TZ_DEVICE_ROT,
-	TZ_DEVICE_VFE,
-	TZ_DEVICE_ANOC0,
-	TZ_DEVICE_ANOC1,
-	TZ_DEVICE_ANOC2,
-	TZ_DEVICE_CPP,
-	TZ_DEVICE_JPEG,
-	TZ_DEVICE_MAX,
-};
 
 static const char * const device_id_mappings[] = {
 	[TZ_DEVICE_VIDEO] = "VIDEO",
@@ -86,7 +53,9 @@ static const char * const device_id_mappings[] = {
 #define TZ_SMMU_ATOS_START 1
 #define TZ_SMMU_ATOS_END 0
 
-static enum tz_smmu_device_id __dev_to_device_id(struct device *dev)
+#define SMMU_CHANGE_PAGETABLE_FORMAT    0X01
+
+enum tz_smmu_device_id msm_dev_to_device_id(struct device *dev)
 {
 	const char *device_id;
 	enum tz_smmu_device_id iter;
@@ -108,7 +77,7 @@ static int __msm_tz_smmu_atos(struct device *dev, int cb_num, int operation)
 {
 	int ret;
 	struct scm_desc desc = {0};
-	enum tz_smmu_device_id devid = __dev_to_device_id(dev);
+	enum tz_smmu_device_id devid = msm_dev_to_device_id(dev);
 
 	if (devid == TZ_DEVICE_MAX)
 		return -ENODEV;
@@ -136,4 +105,28 @@ int msm_tz_smmu_atos_start(struct device *dev, int cb_num)
 int msm_tz_smmu_atos_end(struct device *dev, int cb_num)
 {
 	return __msm_tz_smmu_atos(dev, cb_num, TZ_SMMU_ATOS_END);
+}
+
+void msm_tz_set_cb_format(enum tz_smmu_device_id sec_id, int cbndx)
+{
+	struct scm_desc desc = {0};
+	unsigned int ret = 0;
+
+	desc.args[0] = sec_id;
+	desc.args[1] = cbndx;
+	desc.args[2] = 1;	/* Enable */
+	desc.arginfo = SCM_ARGS(3, SCM_VAL, SCM_VAL, SCM_VAL);
+
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_SMMU_PROGRAM,
+			SMMU_CHANGE_PAGETABLE_FORMAT), &desc);
+
+	/* At this stage, we cannot afford to fail because we have
+	 * committed to support V8L format to client and we can't
+	 * fallback.
+	 */
+	if (ret) {
+		pr_err("Format change failed for CB %d with ret %d\n",
+			cbndx, ret);
+		BUG();
+	}
 }

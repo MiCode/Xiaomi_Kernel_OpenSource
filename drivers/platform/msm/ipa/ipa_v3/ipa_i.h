@@ -1419,6 +1419,12 @@ struct ipa3_hash_tuple {
 	bool meta_data;
 };
 
+struct ipa3_smp2p_info {
+	u32 out_base_id;
+	u32 in_base_id;
+	bool res_sent;
+};
+
 /**
  * struct ipa3_ready_cb_info - A list of all the registrations
  *  for an indication of IPA driver readiness
@@ -1642,6 +1648,7 @@ struct ipa3_context {
 	bool ipa_initialization_complete;
 	struct list_head ipa_ready_cb_list;
 	struct completion init_completion_obj;
+	struct ipa3_smp2p_info smp2p_info;
 };
 
 /**
@@ -2418,7 +2425,6 @@ int ipa3_uc_loaded_check(void);
 void ipa3_uc_load_notify(void);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
-void ipa3_register_panic_hdlr(void);
 void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
 			      struct ipa3_uc_hdlrs *hdlrs);
 int ipa3_create_nat_device(void);
@@ -2480,6 +2486,8 @@ int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
 const char *ipa3_rm_resource_str(enum ipa_rm_resource_name resource_name);
 int ipa3_restore_suspend_handler(void);
 int ipa3_inject_dma_task_for_gsi(void);
+int ipa3_uc_panic_notifier(struct notifier_block *this,
+	unsigned long event, void *ptr);
 void ipa3_inc_acquire_wakelock(void);
 void ipa3_dec_release_wakelock(void);
 int ipa3_load_fws(const struct firmware *firmware);

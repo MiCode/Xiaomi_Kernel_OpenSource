@@ -453,6 +453,13 @@ static int hdcp_lib_enable_encryption(struct hdcp_lib_handle *handle)
 	struct hdcp_set_hw_key_req *req_buf;
 	struct hdcp_set_hw_key_rsp *rsp_buf;
 
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_err("invalid handle\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
 	/*
 	 * wait at least 200ms before enabling encryption
 	 * as per hdcp2p2 sepcifications.
@@ -549,8 +556,10 @@ static int hdcp_lib_library_unload(struct hdcp_lib_handle *handle)
 	struct hdcp_deinit_req *req_buf;
 	struct hdcp_deinit_rsp *rsp_buf;
 
-	if (!handle) {
-		pr_err("invalid input\n");
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_err("invalid handle\n");
+		rc = -EINVAL;
 		goto exit;
 	}
 
@@ -594,9 +603,11 @@ static int hdcp_lib_txmtr_init(struct hdcp_lib_handle *handle)
 	struct hdcp_init_req *req_buf;
 	struct hdcp_init_rsp *rsp_buf;
 
-	if (!handle) {
-		pr_err("invalid input\n");
-		return -EINVAL;
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_err("invalid handle\n");
+		rc = -EINVAL;
+		goto exit;
 	}
 
 	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
@@ -654,8 +665,9 @@ static int hdcp_lib_txmtr_deinit(struct hdcp_lib_handle *handle)
 	struct hdcp_deinit_req *req_buf;
 	struct hdcp_deinit_rsp *rsp_buf;
 
-	if (!handle) {
-		pr_err("invalid input\n");
+	if (!handle || !handle->qseecom_handle ||
+		!handle->qseecom_handle->sbuf) {
+		pr_err("invalid handle\n");
 		rc = -EINVAL;
 		goto exit;
 	}
@@ -704,7 +716,7 @@ static void hdcp_lib_stream(struct hdcp_lib_handle *handle)
 	struct hdcp_query_stream_type_req *req_buf;
 	struct hdcp_query_stream_type_rsp *rsp_buf;
 
-	if (!handle && !handle->qseecom_handle &&
+	if (!handle || !handle->qseecom_handle ||
 		!handle->qseecom_handle->sbuf) {
 		pr_err("invalid handle\n");
 		return;
@@ -1074,12 +1086,7 @@ static void hdcp_lib_timeout(struct hdcp_lib_handle *handle)
 	struct hdcp_send_timeout_req *req_buf;
 	struct hdcp_send_timeout_rsp *rsp_buf;
 
-	if (!handle) {
-		pr_err("invalid handle\n");
-		return;
-	}
-
-	if (!handle && !handle->qseecom_handle &&
+	if (!handle || !handle->qseecom_handle ||
 		!handle->qseecom_handle->sbuf) {
 		pr_debug("invalid handle\n");
 		return;
@@ -1189,7 +1196,7 @@ static void hdcp_lib_msg_recvd(struct hdcp_lib_handle *handle)
 	uint32_t msglen;
 	char *msg;
 
-	if (!handle && !handle->qseecom_handle &&
+	if (!handle || !handle->qseecom_handle ||
 		!handle->qseecom_handle->sbuf) {
 		pr_err("invalid handle\n");
 		return;

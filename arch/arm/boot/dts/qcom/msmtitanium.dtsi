@@ -60,7 +60,7 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			alignment = <0 0x400000>;
-			size = <0 0x7000000>;
+			size = <0 0x08c00000>;
 		};
 
 		qseecom_mem: qseecom_region@0 {
@@ -76,8 +76,15 @@
 			size = <0 0x400000>;
 		};
 
-		cont_splash_mem: splash_region@0x90000000 {
-			reg = <0x0 0x90000000 0x0 0x1400000>;
+		dfps_data_mem: dfps_data_mem@90000000 {
+		       compatible = "shared-dma-pool";
+		       no-map;
+		       reg = <0 0x90000000 0 0x1000>;
+		       label = "dfps_data_mem";
+		};
+
+		cont_splash_mem: splash_region@0x90001000 {
+			reg = <0x0 0x90001000 0x0 0x13ff000>;
 			label = "cont_splash_mem";
 		};
 	};
@@ -537,7 +544,6 @@
 		reg = <0xa0000 0x1000>;
 		qcom,low-hyst-temp = <10>;
 		qcom,high-hyst-temp = <5>;
-		qcom,polling-interval = <50>;
 
 		ea0: ea0 {
 			sensor = <&sensor_information9>;
@@ -854,6 +860,7 @@
 			< 1689600000 4>,
 			< 1843200000 5>,
 			< 1958400000 6>,
+			< 2016000000 7>,
 			< 2150400000 8>,
 			< 2208000000 9>;
 		qcom,speed0-bin-v0-cci =
@@ -864,6 +871,7 @@
 			<  675840000 4>,
 			<  737280000 5>,
 			<  783360000 6>,
+			<  806400000 7>,
 			<  860160000 8>,
 			<  883200000 9>;
 		qcom,speed2-bin-v0-cl =
@@ -952,56 +960,6 @@
 			<  7104 /*  931.2 MHz */ >;     /* TURBO */
 	};
 
-	memlat_cpu0: qcom,memlat-cpu0 {
-		compatible = "qcom,devbw";
-		governor = "cpufreq";
-		qcom,src-dst-ports = <1 512>;
-		qcom,active-only;
-		qcom,bw-tbl =
-			<   769 /*  100.8 MHz */ >,
-			<  1611 /*  211.2 MHz */ >,     /*Low SVS*/
-			<  2124 /*  278.4 MHz */ >,
-			<  2929 /*  384   MHz */ >,
-			<  3221 /*  422.4 MHz */ >,	/* SVS */
-			<  4248 /*  556.8 MHz */ >,
-			<  5126 /*  672   MHz */ >,
-			<  5859 /*  768   MHz */ >,     /* SVS+  */
-			<  6152 /*  806.4 MHz */ >,
-			<  6445 /*  844.8 MHz */ >,     /* NOM   */
-			<  7104 /*  931.2 MHz */ >;     /* TURBO */
-	};
-
-	memlat_cpu4: qcom,memlat-cpu4 {
-		compatible = "qcom,devbw";
-		governor = "cpufreq";
-		qcom,src-dst-ports = <1 512>;
-		qcom,active-only;
-		qcom,bw-tbl =
-			<   769 /*  100.8 MHz */ >,
-			<  1611 /*  211.2 MHz */ >,     /*Low SVS*/
-			<  2124 /*  278.4 MHz */ >,
-			<  2929 /*  384   MHz */ >,
-			<  3221 /*  422.4 MHz */ >,	/* SVS */
-			<  4248 /*  556.8 MHz */ >,
-			<  5126 /*  672   MHz */ >,
-			<  5859 /*  768   MHz */ >,     /* SVS+  */
-			<  6152 /*  806.4 MHz */ >,
-			<  6445 /*  844.8 MHz */ >,     /* NOM   */
-			<  7104 /*  931.2 MHz */ >;     /* TURBO */
-	};
-
-	qcom,arm-memlat-mon-0 {
-		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
-		qcom,target-dev = <&memlat_cpu0>;
-	};
-
-	qcom,arm-memlat-mon-4 {
-		compatible = "qcom,arm-memlat-mon";
-		qcom,cpulist = <&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,target-dev = <&memlat_cpu4>;
-	};
-
 	qcom,cpu-bwmon {
 		compatible = "qcom,bimc-bwmon2";
 		reg = <0x408000 0x300>, <0x401000 0x200>;
@@ -1062,6 +1020,7 @@
 			qcom,smd-irq-bitmask = <0x1000>;
 			interrupts = <0 25 1>;
 			label = "modem";
+			qcom,not-loadable;
 		};
 
 		qcom,smsm-modem {
@@ -1634,7 +1593,6 @@
 	qcom,ipc_router {
 		compatible = "qcom,ipc_router";
 		qcom,node-id = <1>;
-		qcom,default-peripheral = "modem";
 	};
 
 	qcom,ipc_router_modem_xprt {
@@ -1644,6 +1602,7 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+		qcom,disable-pil-loading;
 	};
 
 	qcom,ipc_router_q6_xprt {
