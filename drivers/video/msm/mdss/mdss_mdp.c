@@ -1483,8 +1483,7 @@ static void mdss_hw_rev_init(struct mdss_data_type *mdata)
  */
 void mdss_hw_init(struct mdss_data_type *mdata)
 {
-	int i, j;
-	char *offset;
+	int i;
 	struct mdss_mdp_pipe *vig;
 
 	mdss_hw_rev_init(mdata);
@@ -1503,24 +1502,7 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 		}
 	}
 
-	for (i = 0; i < mdata->ndspp; i++) {
-		offset = mdata->mixer_intf[i].dspp_base +
-				MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
-		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
-			writel_relaxed(j, offset);
-
-		/* swap */
-		writel_relaxed(1, offset + 4);
-	}
 	vig = mdata->vig_pipes;
-	for (i = 0; i < mdata->nvig_pipes; i++) {
-		offset = vig[i].base +
-			MDSS_MDP_REG_VIG_HIST_LUT_BASE;
-		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
-			writel_relaxed(j, offset);
-		/* swap */
-		writel_relaxed(1, offset + 16);
-	}
 
 	/* initialize csc matrix default value */
 	for (i = 0; i < mdata->nvig_pipes; i++)
