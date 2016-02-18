@@ -2942,11 +2942,11 @@
 		qcom,msm-pcm-dsp-id = <0>;
 	};
 
-	pcm1: qcom,msm-pcm-ull-post-processing {
+	pcm1: qcom,msm-pcm-low-latency {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <1>;
 		qcom,msm-pcm-low-latency;
-		qcom,latency-level = "ull-pp";
+		qcom,latency-level = "regular";
 	};
 
 	pcm2: qcom,msm-ultra-low-latency {
