@@ -2489,9 +2489,27 @@ static struct snd_soc_dai_link msm8952_quin_dai_link[] = {
 	},
 };
 
+static struct snd_soc_dai_link msm8952_split_a2dp_dai_link[] = {
+	{
+		.name = LPASS_BE_INT_BT_A2DP_RX,
+		.stream_name = "Internal BT-A2DP Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.12290",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "msm-stub-rx",
+		.codec_name = "msm-stub-codec.1",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_INT_BT_A2DP_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+};
+
 static struct snd_soc_dai_link msm8952_dai_links[
 ARRAY_SIZE(msm8952_dai) +
-ARRAY_SIZE(msm8952_hdmi_dba_dai_link)];
+ARRAY_SIZE(msm8952_hdmi_dba_dai_link) +
+ARRAY_SIZE(msm8952_split_a2dp_dai_link)];
 
 static int msm8952_wsa881x_init(struct snd_soc_component *component)
 {
@@ -2792,6 +2810,14 @@ static struct snd_soc_card *msm8952_populate_sndcard_dailinks(
 		memcpy(dailink + len1, msm8952_quin_dai_link,
 				sizeof(msm8952_quin_dai_link));
 		len1 += ARRAY_SIZE(msm8952_quin_dai_link);
+	}
+	if (of_property_read_bool(dev->of_node,
+				"qcom,split-a2dp")) {
+		dev_dbg(dev, "%s(): split a2dp support present\n",
+				__func__);
+		memcpy(dailink + len1, msm8952_split_a2dp_dai_link,
+				sizeof(msm8952_split_a2dp_dai_link));
+		len1 += ARRAY_SIZE(msm8952_split_a2dp_dai_link);
 	}
 	card->dai_link = dailink;
 	card->num_links = len1;
