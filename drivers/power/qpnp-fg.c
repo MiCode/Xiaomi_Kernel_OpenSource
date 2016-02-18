@@ -148,6 +148,8 @@ struct fg_learning_data {
 	int			min_temp;
 	int			max_temp;
 	int			vbat_est_thr_uv;
+	int			max_cap_limit;
+	int			min_cap_limit;
 };
 
 struct fg_rslow_data {
@@ -3205,6 +3207,32 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 		chip->learning_data.learned_cc_uah =
 			chip->learning_data.cc_uah;
 
+	if (chip->learning_data.max_cap_limit) {
+		max_inc_val = (int64_t)chip->nom_cap_uah * (1000 +
+				chip->learning_data.max_cap_limit);
+		do_div(max_inc_val, 1000);
+		if (chip->learning_data.cc_uah > max_inc_val) {
+			if (fg_debug_mask & FG_AGING)
+				pr_info("learning capacity %lld goes above max limit %lld\n",
+					chip->learning_data.cc_uah,
+					max_inc_val);
+			chip->learning_data.learned_cc_uah = max_inc_val;
+		}
+	}
+
+	if (chip->learning_data.min_cap_limit) {
+		min_dec_val = (int64_t)chip->nom_cap_uah * (1000 -
+				chip->learning_data.min_cap_limit);
+		do_div(min_dec_val, 1000);
+		if (chip->learning_data.cc_uah < min_dec_val) {
+			if (fg_debug_mask & FG_AGING)
+				pr_info("learning capacity %lld goes below min limit %lld\n",
+					chip->learning_data.cc_uah,
+					min_dec_val);
+			chip->learning_data.learned_cc_uah = min_dec_val;
+		}
+	}
+
 	fg_cap_learning_save_data(chip);
 	if (fg_debug_mask & FG_AGING)
 		pr_info("final cc_uah = %lld, learned capacity %lld -> %lld uah\n",
@@ -5554,6 +5582,10 @@ static int fg_of_init(struct fg_chip *chip)
 			"cl-max-start-capacity", rc, 15);
 	OF_READ_PROPERTY(chip->learning_data.vbat_est_thr_uv,
 			"cl-vbat-est-thr-uv", rc, 40000);
+	OF_READ_PROPERTY(chip->learning_data.max_cap_limit,
+			"cl-max-limit-deciperc", rc, 0);
+	OF_READ_PROPERTY(chip->learning_data.min_cap_limit,
+			"cl-min-limit-deciperc", rc, 0);
 	OF_READ_PROPERTY(chip->evaluation_current,
 			"aging-eval-current-ma", rc,
 			DEFAULT_EVALUATION_CURRENT_MA);

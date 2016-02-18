@@ -143,6 +143,14 @@ Parent node optional properties:
 					battery voltage shadow and the current
 					predicted voltage in uV to initiate
 					capacity learning.
+- qcom,cl-max-limit-deciperc:		The maximum percent that the capacity
+					cannot go above during any capacity
+					learning cycle. This property is in the
+					unit of .1% increments.
+- qcom,cl-min-limit-deciperc:		The minimum percent that the capacity
+					cannot go below during any capacity
+					learning cycle. This property is in the
+					unit of .1% increments.
 - qcom,capacity-estimation-on:		A boolean property to have the fuel
 					gauge driver attempt to estimate the
 					battery capacity using battery
