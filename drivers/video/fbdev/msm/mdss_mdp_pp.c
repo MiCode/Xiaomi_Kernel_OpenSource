@@ -152,9 +152,9 @@ struct mdp_csc_cfg mdp_csc_10bit_convert[MDSS_MDP_MAX_CSC] = {
 		{
 			0x0254, 0x0000, 0x0396,
 			0x0254, 0xff93, 0xfeef,
-			0x0254, 0x043e, 0x0000,
+			0x0254, 0x043a, 0x0000,
 		},
-		{ 0xffc0, 0xffe0, 0xffe0,},
+		{ 0xffc0, 0xfe00, 0xfe00,},
 		{ 0x0, 0x0, 0x0,},
 		{ 0x40, 0x3ac, 0x40, 0x3c0, 0x40, 0x3c0,},
 		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
@@ -587,6 +587,22 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 			ret = -EINVAL;
 		}
 		break;
+	case MDSS_MDP_BLOCK_SSPP_10:
+		lv_shift = CSC_10BIT_LV_SHIFT;
+		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
+		if (!pipe) {
+			pr_err("invalid blk index=%d\n", blk_idx);
+			ret = -EINVAL;
+			break;
+		}
+		if (mdss_mdp_pipe_is_yuv(pipe)) {
+			base = pipe->base + MDSS_MDP_REG_VIG_CSC_10_BASE;
+		} else {
+			pr_err("non ViG pipe %d for CSC is not allowed\n",
+			blk_idx);
+			ret = -EINVAL;
+		}
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -641,7 +657,7 @@ int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 csc_type)
 	pr_debug("csc type=%d blk=%d idx=%d\n", csc_type,
 		 block, blk_idx);
 
-	if (block == MDSS_MDP_BLOCK_CDM)
+	if (block == MDSS_MDP_BLOCK_CDM || block == MDSS_MDP_BLOCK_SSPP_10)
 		data = &mdp_csc_10bit_convert[csc_type];
 	else
 		data = &mdp_csc_8bit_convert[csc_type];
@@ -951,13 +967,28 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	struct mdss_data_type *mdata;
 	u32 dcm_state = DCM_UNINIT, current_opmode, csc_reset;
 	int ret = 0;
+	u32 csc_op;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
 	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
 
 	mdata = mdss_mdp_get_mdata();
-	if ((pipe->flags & MDP_OVERLAY_PP_CFG_EN) &&
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_301) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_300)) {
+		if (pipe->src_fmt->is_yuv) {
+			/* TODO: check csc cfg from PP block */
+			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP_10, pipe->num,
+			pp_vig_csc_pipe_val(pipe));
+			csc_op = ((0 << 2) |	/* DST_DATA=RGB */
+					  (1 << 1) |	/* SRC_DATA=YCBCR*/
+					  (1 << 0));	/* CSC_10_EN */
+		} else {
+				csc_op = 0; /* CSC_10_DISABLE */
+		}
+		writel_relaxed(csc_op, pipe->base +
+		MDSS_MDP_REG_VIG_CSC_10_OP_MODE);
+	} else if ((pipe->flags & MDP_OVERLAY_PP_CFG_EN) &&
 	    (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_CSC_CFG)) {
 		*op |= !!(pipe->pp_cfg.csc_cfg.flags &
 				MDP_CSC_FLAG_ENABLE) << 17;

@@ -346,6 +346,9 @@ enum mdss_mdp_sspp_chroma_samp_type {
 
 #define MDSS_MDP_REG_VIG_CSC_1_BASE			0x320
 
+#define MDSS_MDP_REG_VIG_CSC_10_BASE			0x1A04
+#define MDSS_MDP_REG_VIG_CSC_10_OP_MODE			0x1A00
+
 #define MDSS_MDP_REG_VIG_HIST_CTL_BASE			0x2C4
 #define MDSS_MDP_REG_VIG_HIST_DATA_BASE			0x2E0
 #define MDSS_MDP_REG_VIG_HIST_LUT_BASE			0x2F0
