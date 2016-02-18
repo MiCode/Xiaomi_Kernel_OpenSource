@@ -1259,7 +1259,7 @@ static int qpnp_adc_tm_get_trip_type(struct thermal_zone_device *thermal,
 }
 
 static int qpnp_adc_tm_get_trip_temp(struct thermal_zone_device *thermal,
-				   int trip, unsigned long *temp)
+				   int trip, int *temp)
 {
 	struct qpnp_adc_tm_sensor *adc_tm_sensor = thermal->devdata;
 	struct qpnp_adc_tm_chip *chip = adc_tm_sensor->chip;
@@ -1338,7 +1338,7 @@ static int qpnp_adc_tm_get_trip_temp(struct thermal_zone_device *thermal,
 }
 
 static int qpnp_adc_tm_set_trip_temp(struct thermal_zone_device *thermal,
-				   int trip, unsigned long temp)
+				   int trip, int temp)
 {
 	struct qpnp_adc_tm_sensor *adc_tm = thermal->devdata;
 	struct qpnp_adc_tm_chip *chip = adc_tm->chip;
@@ -1356,6 +1356,7 @@ static int qpnp_adc_tm_set_trip_temp(struct thermal_zone_device *thermal,
 		return -EINVAL;
 
 	tm_config.channel = adc_tm->vadc_channel_num;
+	tm_config.high_thr_temp = tm_config.low_thr_temp = 0;
 	switch (trip) {
 	case ADC_TM_TRIP_HIGH_WARM:
 		tm_config.high_thr_temp = temp;
@@ -2077,7 +2078,7 @@ static irqreturn_t qpnp_adc_tm_low_thr_isr(int irq, void *data)
 }
 
 static int qpnp_adc_read_temp(struct thermal_zone_device *thermal,
-			     unsigned long *temp)
+			     int *temp)
 {
 	struct qpnp_adc_tm_sensor *adc_tm_sensor = thermal->devdata;
 	struct qpnp_adc_tm_chip *chip = adc_tm_sensor->chip;

@@ -2063,6 +2063,10 @@ static inline void qpnp_adc_disable_voltage(struct qpnp_adc_drv *adc)
 static inline void qpnp_adc_free_voltage_resource(struct qpnp_adc_drv *adc)
 { return; }
 
+static inline int32_t qpnp_adc_get_devicetree_data(
+		struct platform_device *pdev, struct qpnp_adc_drv *adc_qpnp)
+{ return -ENXIO; }
+
 #endif
 
 /* Public API */
