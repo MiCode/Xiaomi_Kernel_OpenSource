@@ -39,7 +39,11 @@ static void __iomem *virt_base;
 #define gpu_pll0_pll_out_even_source_val	1
 #define gpu_pll0_pll_out_odd_source_val		2
 
-#define CRC_MND_CFG_OFFSET			0x4
+#define SW_COLLAPSE_MASK			BIT(0)
+#define GPU_CX_GDSCR_OFFSET			0x1004
+#define GPU_GX_GDSCR_OFFSET			0x1094
+#define CRC_SID_FSM_OFFSET			0x10A0
+#define CRC_MND_CFG_OFFSET			0x10A4
 
 #define F(f, s, div, m, n) \
 	{ \
@@ -395,7 +399,6 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device_node *of_node = pdev->dev.of_node;
-	void __iomem *crc_sid_fsm_ctrl;
 	int rc;
 	struct regulator *reg;
 	u32 regval;
@@ -410,19 +413,6 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 	virt_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!virt_base) {
 		dev_err(&pdev->dev, "Failed to map CC registers\n");
-		return -ENOMEM;
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "crc_sid_fsm");
-	if (!res) {
-		dev_err(&pdev->dev, "Unable to retrieve crc_sid_fsm base\n");
-		return -ENOMEM;
-	}
-
-	crc_sid_fsm_ctrl = devm_ioremap(&pdev->dev, res->start,
-						resource_size(res));
-	if (!crc_sid_fsm_ctrl) {
-		dev_err(&pdev->dev, "Failed to map crc_sid_fsm_ctrl\n");
 		return -ENOMEM;
 	}
 
@@ -501,14 +491,38 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 	clk_prepare_enable(&gpucc_cxo_clk.c);
 
 	/* CRC ENABLE SEQUENCE */
-	clk_set_rate(&gpucc_gfx3d_clk.c, 650000000);
+	clk_set_rate(&gpucc_gfx3d_clk.c, 251000000);
+	/* Turn on the gpu_cx and gpu_gx GDSCs */
+	regval = readl_relaxed(virt_base + GPU_CX_GDSCR_OFFSET);
+	regval &= ~SW_COLLAPSE_MASK;
+	writel_relaxed(regval, virt_base + GPU_CX_GDSCR_OFFSET);
+	/* Wait for 10usecs to let the GDSC turn ON */
+	mb();
+	udelay(10);
+	regval = readl_relaxed(virt_base + GPU_GX_GDSCR_OFFSET);
+	regval &= ~SW_COLLAPSE_MASK;
+	writel_relaxed(regval, virt_base + GPU_GX_GDSCR_OFFSET);
+	/* Wait for 10usecs to let the GDSC turn ON */
+	mb();
+	udelay(10);
+	/* Enable the graphics clock */
 	clk_prepare_enable(&gpucc_gfx3d_clk.c);
 	/* Enabling MND RC in Bypass mode */
-	writel_relaxed(0x00015010, crc_sid_fsm_ctrl + CRC_MND_CFG_OFFSET);
-	writel_relaxed(0x00800000, crc_sid_fsm_ctrl);
+	writel_relaxed(0x00015010, virt_base + CRC_MND_CFG_OFFSET);
+	writel_relaxed(0x00800000, virt_base + CRC_SID_FSM_OFFSET);
 	/* Wait for 16 cycles before continuing */
 	udelay(1);
+	clk_set_rate(&gpucc_gfx3d_clk.c, 650000000);
+	/* Disable the graphics clock */
 	clk_disable_unprepare(&gpucc_gfx3d_clk.c);
+	/* Turn off the gpu_cx and gpu_gx GDSCs */
+	regval = readl_relaxed(virt_base + GPU_GX_GDSCR_OFFSET);
+	regval |= SW_COLLAPSE_MASK;
+	writel_relaxed(regval, virt_base + GPU_GX_GDSCR_OFFSET);
+	regval = readl_relaxed(virt_base + GPU_CX_GDSCR_OFFSET);
+	regval |= SW_COLLAPSE_MASK;
+	writel_relaxed(regval, virt_base + GPU_CX_GDSCR_OFFSET);
+	/* END OF CRC ENABLE SEQUENCE */
 
 	/*
 	 * Force periph logic to be ON since after NAP, the value of the perf

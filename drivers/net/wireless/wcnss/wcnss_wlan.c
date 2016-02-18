@@ -88,6 +88,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define CCU_RIVA_LAST_ADDR2_OFFSET		0x10c
 
 #define PRONTO_PMU_SPARE_OFFSET       0x1088
+#define PMU_A2XB_CFG_HSPLIT_RESP_LIMIT_OFFSET	0x117C
 
 #define PRONTO_PMU_COM_GDSCR_OFFSET       0x0024
 #define PRONTO_PMU_COM_GDSCR_SW_COLLAPSE  BIT(0)
@@ -352,6 +353,7 @@ static struct {
 	int		smd_channel_ready;
 	u32		wlan_rx_buff_count;
 	int		is_vsys_adc_channel;
+	int		is_a2xb_split_reg;
 	smd_channel_t	*smd_ch;
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned char   fw_major;
@@ -628,6 +630,13 @@ void wcnss_pronto_log_debug_regs(void)
 	reg_addr = penv->pronto_saw2_base + PRONTO_SAW2_SPM_CTL;
 	reg = readl_relaxed(reg_addr);
 	pr_err("PRONTO_SAW2_SPM_CTL %08x\n", reg);
+
+	if (penv->is_a2xb_split_reg) {
+		reg_addr = penv->msm_wcnss_base +
+			   PMU_A2XB_CFG_HSPLIT_RESP_LIMIT_OFFSET;
+		reg = readl_relaxed(reg_addr);
+		pr_err("PMU_A2XB_CFG_HSPLIT_RESP_LIMIT %08x\n", reg);
+	}
 
 	reg_addr = penv->pronto_saw2_base + PRONTO_SAW2_SAW2_VERSION;
 	reg = readl_relaxed(reg_addr);
@@ -2709,6 +2718,9 @@ wcnss_trigger_config(struct platform_device *pdev)
 
 	penv->is_vsys_adc_channel = of_property_read_bool(pdev->dev.of_node,
 						"qcom,has-vsys-adc-channel");
+
+	penv->is_a2xb_split_reg = of_property_read_bool(pdev->dev.of_node,
+						"qcom,has-a2xb-split-reg");
 
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {

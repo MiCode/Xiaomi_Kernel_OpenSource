@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,9 +56,9 @@
 #define TYPEC_PSY_NAME		"typec"
 
 enum cc_line_state {
-	OPEN,
 	CC_1,
 	CC_2,
+	OPEN,
 };
 
 struct qpnp_typec_chip {
@@ -84,6 +84,7 @@ struct qpnp_typec_chip {
 	int			cc_line_state;
 	int			current_ma;
 	int			ssmux_gpio;
+	enum of_gpio_flags	gpio_flag;
 	int			typec_state;
 };
 
@@ -200,7 +201,8 @@ static int qpnp_typec_configure_ssmux(struct qpnp_typec_chip *chip,
 
 			if (chip->ssmux_gpio) {
 				rc = gpio_direction_output(chip->ssmux_gpio,
-						(cc_line == CC_2) ? 1 : 0);
+					(chip->gpio_flag == OF_GPIO_ACTIVE_LOW)
+						? !cc_line : cc_line);
 				if (rc) {
 					pr_err("failed to configure ssmux gpio rc=%d\n",
 							rc);
@@ -436,8 +438,8 @@ static int qpnp_typec_parse_dt(struct qpnp_typec_chip *chip)
 
 	/* SS-Mux configuration gpio */
 	if (of_find_property(node, "qcom,ssmux-gpio", NULL)) {
-		chip->ssmux_gpio = of_get_named_gpio(node, "qcom,ssmux-gpio",
-				0);
+		chip->ssmux_gpio = of_get_named_gpio_flags(node,
+				"qcom,ssmux-gpio", 0, &chip->gpio_flag);
 		if (!gpio_is_valid(chip->ssmux_gpio)) {
 			if (chip->ssmux_gpio != -EPROBE_DEFER)
 				pr_err("failed to get ss-mux config gpio=%d\n",
