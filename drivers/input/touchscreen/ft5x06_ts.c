@@ -47,6 +47,12 @@
 #define FT_SUSPEND_LEVEL 1
 #endif
 
+#if defined(CONFIG_FT_SECURE_TOUCH)
+#include <linux/completion.h>
+#include <linux/atomic.h>
+#include <linux/pm_runtime.h>
+#endif
+
 #define FT_DRIVER_VERSION	0x02
 
 #define FT_META_REGS		3
@@ -262,10 +268,65 @@ struct ft5x06_ts_data {
 	struct pinctrl_state *pinctrl_state_active;
 	struct pinctrl_state *pinctrl_state_suspend;
 	struct pinctrl_state *pinctrl_state_release;
+#if defined(CONFIG_FT_SECURE_TOUCH)
+	atomic_t st_enabled;
+	atomic_t st_pending_irqs;
+	struct completion st_powerdown;
+	struct completion st_irq_processed;
+#endif
 };
 
 static int ft5x06_ts_start(struct device *dev);
 static int ft5x06_ts_stop(struct device *dev);
+
+#if defined(CONFIG_FT_SECURE_TOUCH)
+static void ft5x06_secure_touch_init(struct ft5x06_ts_data *data)
+{
+	init_completion(&data->st_powerdown);
+	init_completion(&data->st_irq_processed);
+}
+
+static void ft5x06_secure_touch_notify(struct ft5x06_ts_data *data)
+{
+	sysfs_notify(&data->input_dev->dev.kobj, NULL, "secure_touch");
+}
+
+static irqreturn_t ft5x06_filter_interrupt(struct ft5x06_ts_data *data)
+{
+	if (atomic_read(&data->st_enabled)) {
+		if (atomic_cmpxchg(&data->st_pending_irqs, 0, 1) == 0) {
+			reinit_completion(&data->st_irq_processed);
+			ft5x06_secure_touch_notify(data);
+			wait_for_completion_interruptible(
+						&data->st_irq_processed);
+		}
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+
+static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, int blocking)
+{
+	if (atomic_read(&data->st_enabled)) {
+		atomic_set(&data->st_pending_irqs, -1);
+		ft5x06_secure_touch_notify(data);
+		if (blocking)
+			wait_for_completion_interruptible(
+						&data->st_powerdown);
+	}
+}
+#else
+static void ft5x06_secure_touch_init(struct ft5x06_ts_data *data)
+{
+}
+static irqreturn_t ft5x06_filter_interrupt(struct ft5x06_ts_data *data)
+{
+	return IRQ_NONE;
+}
+static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, int blocking)
+{
+}
+#endif
 
 static inline bool ft5x06_gesture_support_enabled(void)
 {
@@ -593,6 +654,9 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
+	if (ft5x06_filter_interrupt(data) == IRQ_HANDLED)
+		return IRQ_HANDLED;
+
 	ip_dev = data->input_dev;
 	buf = data->tch_data;
 
@@ -620,6 +684,10 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	}
 
 	for (i = 0; i < data->pdata->num_max_touches; i++) {
+		/*
+		 * Getting the finger ID of the touch event incase of
+		 * multiple touch events
+		 */
 		id = (buf[FT_TOUCH_ID_POS + FT_ONE_TCH_LEN * i]) >> 4;
 		if (id >= FT_MAX_ID)
 			break;
@@ -1057,6 +1125,8 @@ static int ft5x06_ts_suspend(struct device *dev)
 		return 0;
 	}
 
+	ft5x06_secure_touch_stop(data, 1);
+
 	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support &&
 		device_may_wakeup(dev) &&
 		data->gesture_pdata->gesture_enable_to_set) {
@@ -1082,6 +1152,8 @@ static int ft5x06_ts_resume(struct device *dev)
 		dev_dbg(dev, "Already in awake state\n");
 		return 0;
 	}
+
+	ft5x06_secure_touch_stop(data, 1);
 
 	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support &&
 		device_may_wakeup(dev) &&
@@ -1185,6 +1257,7 @@ static void ft5x06_ts_early_suspend(struct early_suspend *handler)
 						   struct ft5x06_ts_data,
 						   early_suspend);
 
+	ft5x06_secure_touch_stop(data, 0);
 	ft5x06_ts_suspend(&data->client->dev);
 }
 
@@ -1194,6 +1267,7 @@ static void ft5x06_ts_late_resume(struct early_suspend *handler)
 						   struct ft5x06_ts_data,
 						   early_suspend);
 
+	ft5x06_secure_touch_stop(data, 0);
 	ft5x06_ts_resume(&data->client->dev);
 }
 #endif
@@ -2283,6 +2357,10 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 			dev_err(&client->dev, "sysfs create fail .\n");
 		}
 	}
+
+	/*Initialize secure touch */
+	ft5x06_secure_touch_init(data);
+	ft5x06_secure_touch_stop(data, 1);
 
 	ft5x06_update_fw_ver(data);
 	ft5x06_update_fw_vendor_id(data);
