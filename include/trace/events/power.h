@@ -1151,6 +1151,27 @@ TRACE_EVENT(memlat_dev_update,
 		__entry->vote)
 );
 
+TRACE_EVENT(msmpower_max_ddr,
+
+	TP_PROTO(unsigned int prev_max_ddr, unsigned int curr_max_ddr),
+
+	TP_ARGS(prev_max_ddr, curr_max_ddr),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, prev_max_ddr)
+		__field(unsigned int, curr_max_ddr)
+	),
+
+	TP_fast_assign(
+		__entry->prev_max_ddr = prev_max_ddr;
+		__entry->curr_max_ddr = curr_max_ddr;
+	),
+
+	TP_printk("prev_max_ddr = %u, curr_max_ddr = %u",
+		__entry->prev_max_ddr,
+		__entry->curr_max_ddr)
+);
+
 #endif /* _TRACE_POWER_H */
 
 /* This part must be outside protection */
