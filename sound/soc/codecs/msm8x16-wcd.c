@@ -4385,6 +4385,10 @@ static int msm8x16_wcd_get_channel_map(struct snd_soc_dai *dai,
 static int msm8x16_wcd_set_interpolator_rate(struct snd_soc_dai *dai,
 	u8 rx_fs_rate_reg_val, u32 sample_rate)
 {
+	snd_soc_update_bits(dai->codec,
+			MSM8X16_WCD_A_CDC_RX1_B5_CTL, 0xF0, rx_fs_rate_reg_val);
+	snd_soc_update_bits(dai->codec,
+			MSM8X16_WCD_A_CDC_RX2_B5_CTL, 0xF0, rx_fs_rate_reg_val);
 	return 0;
 }
 
@@ -4398,7 +4402,7 @@ static int msm8x16_wcd_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
 {
-	u8 tx_fs_rate, rx_fs_rate;
+	u8 tx_fs_rate, rx_fs_rate, rx_clk_fs_rate;
 	int ret;
 
 	dev_dbg(dai->codec->dev,
@@ -4410,26 +4414,32 @@ static int msm8x16_wcd_hw_params(struct snd_pcm_substream *substream,
 	case 8000:
 		tx_fs_rate = 0x00;
 		rx_fs_rate = 0x00;
+		rx_clk_fs_rate = 0x00;
 		break;
 	case 16000:
-		tx_fs_rate = 0x01;
+		tx_fs_rate = 0x20;
 		rx_fs_rate = 0x20;
+		rx_clk_fs_rate = 0x01;
 		break;
 	case 32000:
-		tx_fs_rate = 0x02;
+		tx_fs_rate = 0x40;
 		rx_fs_rate = 0x40;
+		rx_clk_fs_rate = 0x02;
 		break;
 	case 48000:
-		tx_fs_rate = 0x03;
+		tx_fs_rate = 0x60;
 		rx_fs_rate = 0x60;
+		rx_clk_fs_rate = 0x03;
 		break;
 	case 96000:
-		tx_fs_rate = 0x04;
+		tx_fs_rate = 0x80;
 		rx_fs_rate = 0x80;
+		rx_clk_fs_rate = 0x04;
 		break;
 	case 192000:
-		tx_fs_rate = 0x05;
+		tx_fs_rate = 0xA0;
 		rx_fs_rate = 0xA0;
+		rx_clk_fs_rate = 0x05;
 		break;
 	default:
 		dev_err(dai->codec->dev,
@@ -4437,6 +4447,9 @@ static int msm8x16_wcd_hw_params(struct snd_pcm_substream *substream,
 			params_rate(params));
 		return -EINVAL;
 	}
+
+	snd_soc_update_bits(dai->codec,
+			MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL, 0x0F, rx_clk_fs_rate);
 
 	switch (substream->stream) {
 	case SNDRV_PCM_STREAM_CAPTURE:
