@@ -229,3 +229,16 @@
 
 	status = "ok";
 };
+
+&pm8937_gpios {
+	gpio@c100 {
+		qcom,mode = <0>;
+		qcom,vin-sel = <3>;
+		qcom,dtest-sel = <1>;
+		status = "okay";
+	};
+};
+
+&qpdi {
+	qcom,pmic-carddetect-gpio = <&pm8937_gpios 0x2 0>;
+};
