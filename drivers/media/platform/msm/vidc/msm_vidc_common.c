@@ -3120,8 +3120,6 @@ static bool reuse_internal_buffers(struct msm_vidc_inst *inst,
 			}
 		}
 		reused = true;
-		dprintk(VIDC_DBG,
-			"Re-using internal buffer type : %d\n", buffer_type);
 	}
 	mutex_unlock(&buf_list->lock);
 	return reused;
