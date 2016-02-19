@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,6 @@
 #include <linux/smp.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
-#include <linux/clk.h>
 #include <linux/cpu.h>
 #include <linux/coresight.h>
 #include <linux/pm_wakeup.h>
@@ -42,14 +41,17 @@ module_param_named(boot_enable, boot_enable, int, S_IRUGO);
 /* The number of ETMv4 currently registered */
 static int etm4_count;
 static struct etmv4_drvdata *etmdrvdata[NR_CPUS];
+static struct notifier_block etm4_cpu_notifier;
 
 static void etm4_os_unlock(void *info)
 {
 	struct etmv4_drvdata *drvdata = (struct etmv4_drvdata *)info;
 
+	CS_UNLOCK(drvdata->base);
 	/* Writing any value to ETMOSLAR unlocks the trace registers */
 	writel_relaxed(0x0, drvdata->base + TRCOSLAR);
 	isb();
+	CS_LOCK(drvdata->base);
 }
 
 static bool etm4_arch_supported(u8 arch)
@@ -92,8 +94,6 @@ static void etm4_enable_hw(void *info)
 	struct etmv4_drvdata *drvdata = info;
 
 	CS_UNLOCK(drvdata->base);
-
-	etm4_os_unlock(drvdata);
 
 	/* Disable the trace unit before programming trace registers */
 	writel_relaxed(0, drvdata->base + TRCPRGCTLR);
@@ -2550,20 +2550,79 @@ static void etm4_init_default_data(struct etmv4_drvdata *drvdata)
 	drvdata->trcid = 0x20 + drvdata->cpu;
 }
 
+static int etm4_late_init(struct etmv4_drvdata *drvdata)
+{
+	int ret;
+	struct coresight_desc *desc;
+	struct device *dev = drvdata->dev;
+
+	if (etm4_arch_supported(drvdata->arch) == false)
+		return -EINVAL;
+
+	etm4_init_default_data(drvdata);
+
+	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return -ENOMEM;
+
+	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
+	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
+	desc->ops = &etm4_cs_ops;
+	desc->pdata = dev->platform_data;
+	desc->dev = dev;
+	desc->groups = coresight_etmv4_groups;
+	drvdata->csdev = coresight_register(desc);
+	if (IS_ERR(drvdata->csdev)) {
+		ret = PTR_ERR(drvdata->csdev);
+		goto err_coresight_register;
+	}
+
+	dev_info(dev, "ETM 4.0 initialized\n");
+
+	if (boot_enable) {
+		coresight_enable(drvdata->csdev);
+		drvdata->boot_enable = true;
+	}
+
+	drvdata->init = true;
+
+	return 0;
+
+err_coresight_register:
+	devm_kfree(dev, desc);
+	return ret;
+}
+
 static int etm4_cpu_callback(struct notifier_block *nfb, unsigned long action,
 			    void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
+	static bool clk_disable[NR_CPUS];
+	int ret;
 
 	if (!etmdrvdata[cpu])
 		goto out;
 
 	switch (action & (~CPU_TASKS_FROZEN)) {
+	case CPU_UP_PREPARE:
+		if (!etmdrvdata[cpu]->os_unlock) {
+			ret = pm_runtime_get_sync(etmdrvdata[cpu]->dev);
+			if (ret) {
+				dev_err(etmdrvdata[cpu]->dev,
+					"ETM clk enable during hotplug failed for cpu: %d, ret: %d\n",
+					cpu, ret);
+				goto err_clk_init;
+			}
+			clk_disable[cpu] = true;
+		}
+		break;
+
 	case CPU_STARTING:
 		spin_lock(&etmdrvdata[cpu]->spinlock);
 		if (!etmdrvdata[cpu]->os_unlock) {
 			etm4_os_unlock(etmdrvdata[cpu]);
 			etmdrvdata[cpu]->os_unlock = true;
+			etm4_init_arch_data(etmdrvdata[cpu]);
 		}
 
 		if (etmdrvdata[cpu]->enable)
@@ -2572,9 +2631,34 @@ static int etm4_cpu_callback(struct notifier_block *nfb, unsigned long action,
 		break;
 
 	case CPU_ONLINE:
+		mutex_lock(&etmdrvdata[cpu]->mutex);
+		if (!etmdrvdata[cpu]->init) {
+			ret = etm4_late_init(etmdrvdata[cpu]);
+			if (ret) {
+				dev_err(etmdrvdata[cpu]->dev,
+					"ETM init failed. Cpu: %d, ret: %d\n",
+					cpu, ret);
+				mutex_unlock(&etmdrvdata[cpu]->mutex);
+				goto err_init;
+			}
+		}
+		mutex_unlock(&etmdrvdata[cpu]->mutex);
+
+		if (clk_disable[cpu]) {
+			pm_runtime_put(etmdrvdata[cpu]->dev);
+			clk_disable[cpu] = false;
+		}
+
 		if (etmdrvdata[cpu]->boot_enable &&
 			!etmdrvdata[cpu]->sticky_enable)
 			coresight_enable(etmdrvdata[cpu]->csdev);
+		break;
+
+	case CPU_UP_CANCELED:
+		if (clk_disable[cpu]) {
+			pm_runtime_put(etmdrvdata[cpu]->dev);
+			clk_disable[cpu] = false;
+		}
 		break;
 
 	case CPU_DYING:
@@ -2586,6 +2670,23 @@ static int etm4_cpu_callback(struct notifier_block *nfb, unsigned long action,
 	}
 out:
 	return NOTIFY_OK;
+
+err_init:
+	if (--etm4_count == 0)
+		unregister_hotcpu_notifier(&etm4_cpu_notifier);
+
+	if (clk_disable[cpu]) {
+		pm_runtime_put(etmdrvdata[cpu]->dev);
+		clk_disable[cpu] = false;
+	}
+
+	devm_iounmap(etmdrvdata[cpu]->dev, etmdrvdata[cpu]->base);
+	dev_set_drvdata(etmdrvdata[cpu]->dev, NULL);
+	devm_kfree(etmdrvdata[cpu]->dev, etmdrvdata[cpu]);
+	etmdrvdata[cpu] = NULL;
+
+err_clk_init:
+	return notifier_from_errno(ret);
 }
 
 static struct notifier_block etm4_cpu_notifier = {
@@ -2600,12 +2701,7 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	struct coresight_platform_data *pdata = NULL;
 	struct etmv4_drvdata *drvdata;
 	struct resource *res = &adev->res;
-	struct coresight_desc *desc;
 	struct device_node *np = adev->dev.of_node;
-
-	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -2629,56 +2725,48 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->base = base;
 
 	spin_lock_init(&drvdata->spinlock);
+	mutex_init(&drvdata->mutex);
 
 	drvdata->cpu = pdata ? pdata->cpu : 0;
 
 	get_online_cpus();
-	etmdrvdata[drvdata->cpu] = drvdata;
 
-	if (!smp_call_function_single(drvdata->cpu, etm4_os_unlock, drvdata, 1))
+	if (!smp_call_function_single(drvdata->cpu, etm4_os_unlock,
+				      drvdata, 1)) {
 		drvdata->os_unlock = true;
 
-	if (smp_call_function_single(drvdata->cpu,
-				etm4_init_arch_data,  drvdata, 1))
-		dev_err(dev, "ETM arch init failed\n");
+		ret = smp_call_function_single(drvdata->cpu,
+					       etm4_init_arch_data, drvdata, 1);
+		if (ret) {
+			dev_err(dev, "ETM arch init failed\n");
+			put_online_cpus();
+			pm_runtime_put(&adev->dev);
+			return ret;
+		}
+	}
+
+	etmdrvdata[drvdata->cpu] = drvdata;
 
 	if (!etm4_count++)
 		register_hotcpu_notifier(&etm4_cpu_notifier);
 
 	put_online_cpus();
 
-	if (etm4_arch_supported(drvdata->arch) == false) {
-		ret = -EINVAL;
-		goto err_arch_supported;
-	}
-	etm4_init_default_data(drvdata);
-
 	pm_runtime_put(&adev->dev);
 
-	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
-	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
-	desc->ops = &etm4_cs_ops;
-	desc->pdata = pdata;
-	desc->dev = dev;
-	desc->groups = coresight_etmv4_groups;
-	drvdata->csdev = coresight_register(desc);
-	if (IS_ERR(drvdata->csdev)) {
-		ret = PTR_ERR(drvdata->csdev);
-		goto err_coresight_register;
+	mutex_lock(&drvdata->mutex);
+	if (drvdata->os_unlock && !drvdata->init) {
+		ret = etm4_late_init(drvdata);
+		if (ret) {
+			mutex_unlock(&drvdata->mutex);
+			goto err_late_init;
+		}
 	}
-
-	dev_info(dev, "%s initialized\n", (char *)id->data);
-
-	if (boot_enable) {
-		coresight_enable(drvdata->csdev);
-		drvdata->boot_enable = true;
-	}
+	mutex_unlock(&drvdata->mutex);
 
 	return 0;
 
-err_arch_supported:
-	pm_runtime_put(&adev->dev);
-err_coresight_register:
+err_late_init:
 	if (--etm4_count == 0)
 		unregister_hotcpu_notifier(&etm4_cpu_notifier);
 	return ret;
