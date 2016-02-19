@@ -2920,7 +2920,15 @@ static void __dsi_error_counter(struct dsi_err_container *err_container)
 
 void mdss_dsi_error(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	u32 intr;
+	u32 intr, mask;
+
+	/* Ignore the interrupt if the error intr mask is not set */
+	mask = MIPI_INP(ctrl->ctrl_base + 0x0110);
+	if (!(mask & DSI_INTR_ERROR_MASK)) {
+		pr_debug("%s: Ignore interrupt as error mask not set, 0x%x\n",
+				__func__, mask);
+		return;
+	}
 
 	/* disable dsi error interrupt */
 	mdss_dsi_err_intr_ctrl(ctrl, DSI_INTR_ERROR_MASK, 0);
