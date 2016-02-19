@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@
 #include <linux/interrupt.h>
 #include <media/v4l2-subdev.h>
 #include "msm_sd.h"
+#include "cam_soc_api.h"
+#include "cam_hw_ops.h"
 
 /* hw version info:
   31:28  Major version
@@ -200,21 +202,16 @@ struct cpp_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
 	struct v4l2_subdev subdev;
-	struct resource *mem;
 	struct resource *irq;
-	struct resource *io;
-	struct resource	*vbif_mem;
-	struct resource *vbif_io;
-	struct resource	*cpp_hw_mem;
-	struct resource	*camss_cpp;
 	void __iomem *vbif_base;
 	void __iomem *base;
 	void __iomem *cpp_hw_base;
 	void __iomem *camss_cpp_base;
 	struct clk **cpp_clk;
-	struct regulator *fs_cpp;
-	struct regulator *fs_camss;
-	struct regulator *fs_mmagic_camss;
+	struct msm_cam_clk_info *clk_info;
+	size_t num_clks;
+	struct regulator **cpp_vdd;
+	int num_reg;
 	struct mutex mutex;
 	enum cpp_state state;
 	enum cpp_iommu_state iommu_state;
@@ -264,4 +261,12 @@ struct cpp_device {
 	uint32_t bus_master_flag;
 	struct msm_cpp_payload_params payload_params;
 };
+
+int msm_cpp_set_micro_clk(struct cpp_device *cpp_dev);
+int msm_update_freq_tbl(struct cpp_device *cpp_dev);
+int msm_cpp_get_clock_index(struct cpp_device *cpp_dev, const char *clk_name);
+long msm_cpp_set_core_clk(struct cpp_device *cpp_dev, long rate, int idx);
+void msm_cpp_fetch_dt_params(struct cpp_device *cpp_dev);
+int msm_cpp_read_payload_params_from_dt(struct cpp_device *cpp_dev);
+
 #endif /* __MSM_CPP_H__ */
