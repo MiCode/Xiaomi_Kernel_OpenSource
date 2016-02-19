@@ -1,0 +1,55 @@
+Qualcomm I2C controller
+
+Required properties:
+ - reg : Offset and length of the register region for the device named in
+	reg-names and has the same index.
+ - reg-names : Register region name(s) referenced in reg above
+	"qup_phys_addr" : Physical address of QUP register space.
+ - compatible : should be "qcom,i2c-msm-v2"
+ - interrupts : Interrupt number which correspond to the entry with the same
+	index in interrupt-names.
+ - interrupt-names: QUP core interrupt name(s) referenced in interrupts above
+	"qup_irq" : QUP interrupt used by the controller.
+ - dmas : DMA engine API's parameters for blsp.
+	<[phandle of the dma controller] [pipe index] [number of descriptors]
+				[sps_connect flags] [sps_register_event flags]>;
+ - dma-names :  dma channel names.
+ - qcom,clk-freq-out : Desired I2C bus clock frequency in Hz
+ - qcom,clk-freq-in  : Supplied core clock frequency in Hz.
+
+Required alias:
+ - The desired bus-number is specified by an alias with the following format:
+	'i2c{n}' where n is the bus number.
+
+Optional property:
+ - qcom,noise-rjct-scl : number of low samples on clock line to consider it low.
+	When missing default to 0.
+ - qcom,noise-rjct-sda : number of low samples on data  line to consider it low.
+	When missing default to 0.
+ - qcom,disable-dma : disables DMA transfer mode.
+ - qcom,master-id : Master-port value used on voting for the clock path.
+ - qcom,high-time-clk-div : high time divider value to configure clk-ctl
+	register. When missing, default to the value given in driver.
+ - qcom,fs-clk-div: fs divider value to configure clk-ctl register. When
+	missing, default to the value given in driver.
+
+Example:
+	aliases {
+		i2c10 = &i2c_10;
+	};
+
+	i2c_10: i2c@f9966000 {
+		compatible = "qcom,i2c-msm-v2";
+		reg-names = "qup_phys_addr", "dma_phys_addr";
+		reg = <0xf9966000 0x1000>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 104 0>;
+		dmas = <&dma_blsp1 14 32 0x20000020 0x20>,
+			<&dma_blsp1 15 64 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-in  = <24000000>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+
+	};
