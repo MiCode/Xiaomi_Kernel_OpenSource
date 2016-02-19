@@ -390,87 +390,66 @@ void ion_system_heap_unmap_dma(struct ion_heap *heap,
 {
 }
 
-static int ion_move_secure_pages_to_uncached_pool(
+static int ion_secure_page_pool_shrink(
 		struct ion_system_heap *sys_heap,
-		int vmid, unsigned int nr)
+		int vmid, int order_idx, int nr_to_scan)
 {
-	int count = 0, i, ret, num_pages = 0;
-	struct page *page;
+	int ret, freed = 0;
+	int order = orders[order_idx];
+	struct page *page, *tmp;
 	struct sg_table sgt;
 	struct scatterlist *sg;
-	struct page_info *pinfo, *tmpinfo;
+	struct ion_page_pool *pool = sys_heap->secure_pools[vmid][order_idx];
 	LIST_HEAD(pages);
 
-	INIT_LIST_HEAD(&pages);
-	for (i = 0; i < num_orders && num_pages < nr; i++) {
-		/*
-		 * Ideally we want to just dequeue page from the pool list only,
-		 * but currently we can only call alloc and it could potentially
-		 * try to allocate a new page if nothing exists in the pool
-		 */
-		do {
-			struct page_info *info;
+	if (nr_to_scan == 0)
+		return ion_page_pool_total(pool, true);
 
-			page = ion_page_pool_alloc_pool_only(
-					sys_heap->secure_pools[vmid][i]);
-			if (!page)
-				break;
-			info = kmalloc(sizeof(struct page_info), GFP_KERNEL);
-			if (!info)
-				goto out1;
-			info->page = page;
-			info->order = orders[i];
-			INIT_LIST_HEAD(&info->list);
-			list_add(&info->list, &pages);
-			count += 1;
-			num_pages += 1<<info->order;
-			if (num_pages >= nr)
-				break;
-		} while (1);
+	while (freed < nr_to_scan) {
+		page = ion_page_pool_alloc_pool_only(pool);
+		if (!page)
+			break;
+		list_add(&page->lru, &pages);
+		freed += (1 << order);
 	}
 
-	if (!count)
-		return 0;
+	if (!freed)
+		return freed;
 
-	ret = sg_alloc_table(&sgt, count, GFP_KERNEL);
+	ret = sg_alloc_table(&sgt, (freed >> order), GFP_KERNEL);
 	if (ret)
 		goto out1;
 	sg = sgt.sgl;
-	list_for_each_entry(pinfo, &pages, list) {
-		sg_set_page(sg, pinfo->page,
-				(1 << pinfo->order) * PAGE_SIZE, 0);
-		sg_dma_address(sg) = page_to_phys(pinfo->page);
+	list_for_each_entry(page, &pages, lru) {
+		sg_set_page(sg, page, (1 << order) * PAGE_SIZE, 0);
+		sg_dma_address(sg) = page_to_phys(page);
 		sg = sg_next(sg);
 	}
 
 	if (ion_system_secure_heap_unassign_sg(&sgt, vmid))
 		goto out2;
 
-	list_for_each_entry_safe(pinfo, tmpinfo, &pages, list) {
-		ion_page_pool_free(
-			sys_heap->uncached_pools[order_to_index(pinfo->order)],
-			pinfo->page);
-		list_del(&pinfo->list);
-		kfree(pinfo);
+	list_for_each_entry_safe(page, tmp, &pages, lru) {
+		list_del(&page->lru);
+		ion_page_pool_free_immediate(pool, page);
 	}
 
 	sg_free_table(&sgt);
-	return num_pages;
+	return freed;
 
-out2:
-	sg_free_table(&sgt);
 out1:
-	/*
-	 * TODO Figure out how to handle failure here
-	 * 1. return pages back to secure pool ?
-	 */
-	list_for_each_entry_safe(pinfo, tmpinfo, &pages, list) {
-		ion_page_pool_free(
-		sys_heap->secure_pools[vmid][order_to_index(pinfo->order)],
-		pinfo->page);
-		list_del(&pinfo->list);
-		kfree(pinfo);
+	/* Restore pages to secure pool */
+	list_for_each_entry_safe(page, tmp, &pages, lru) {
+		list_del(&page->lru);
+		ion_page_pool_free(pool, page);
 	}
+	return 0;
+out2:
+	/*
+	 * The security state of the pages is unknown after a failure;
+	 * They can neither be added back to the secure pool nor buddy system.
+	 */
+	sg_free_table(&sgt);
 	return 0;
 }
 
@@ -479,7 +458,7 @@ static int ion_system_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 {
 	struct ion_system_heap *sys_heap;
 	int nr_total = 0;
-	int i, j, nr_freed = 0, nr_secure = 0;
+	int i, j, nr_freed = 0;
 	int only_scan = 0;
 	struct ion_page_pool *pool;
 
@@ -489,17 +468,17 @@ static int ion_system_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 		only_scan = 1;
 
 	for (i = 0; i < num_orders; i++) {
+		nr_freed = 0;
+
 		for (j = 0; j < VMID_LAST; j++) {
 			if (is_secure_vmid_valid(j))
-				nr_secure +=
-					ion_move_secure_pages_to_uncached_pool(
-							sys_heap,
-							j, nr_to_scan/4);
+				nr_freed += ion_secure_page_pool_shrink(
+						sys_heap, j, i, nr_to_scan);
 		}
 
 		pool = sys_heap->uncached_pools[i];
 		nr_freed += ion_page_pool_shrink(pool, gfp_mask,
-						nr_to_scan + nr_secure);
+						nr_to_scan);
 
 		pool = sys_heap->cached_pools[i];
 		nr_freed += ion_page_pool_shrink(pool, gfp_mask, nr_to_scan);
@@ -728,15 +707,15 @@ void ion_system_heap_destroy(struct ion_heap *heap)
 	struct ion_system_heap *sys_heap = container_of(heap,
 							struct ion_system_heap,
 							heap);
-	int i;
+	int i, j;
 
 	for (i = 0; i < VMID_LAST; i++) {
-		if (is_secure_vmid_valid(i)) {
-			ion_move_secure_pages_to_uncached_pool(sys_heap,
-								i, UINT_MAX);
-			ion_system_heap_destroy_pools(
-						sys_heap->secure_pools[i]);
-		}
+		if (!is_secure_vmid_valid(i))
+			continue;
+		for (j = 0; j < num_orders; j++)
+			ion_secure_page_pool_shrink(sys_heap, i, j, UINT_MAX);
+
+		ion_system_heap_destroy_pools(sys_heap->secure_pools[i]);
 	}
 	ion_system_heap_destroy_pools(sys_heap->uncached_pools);
 	ion_system_heap_destroy_pools(sys_heap->cached_pools);
