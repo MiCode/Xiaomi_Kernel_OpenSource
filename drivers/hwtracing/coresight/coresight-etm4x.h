@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #define _CORESIGHT_CORESIGHT_ETM_H
 
 #include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include "coresight-priv.h"
 
 /*
@@ -185,12 +186,14 @@
  * @dev:        The device entity associated to this component.
  * @csdev:      Component vitals needed by the framework.
  * @spinlock:   Only one at a time pls.
+ * @mutex:      Avoid race condition between hotplug and probe path.
  * @cpu:        The cpu this component is affined to.
  * @arch:       ETM version number.
  * @enable:	Is this ETM currently tracing.
  * @sticky_enable: true if ETM base configuration has been done.
  * @boot_enable:True if we should start tracing at boot time.
  * @os_unlock:  True if access to management registers is allowed.
+ * @init:	True if ETM is initialzied
  * @nr_pe:	The number of processing entity available for tracing.
  * @nr_pe_cmp:	The number of processing entity comparator inputs that are
  *		available for tracing.
@@ -286,12 +289,14 @@ struct etmv4_drvdata {
 	struct device			*dev;
 	struct coresight_device		*csdev;
 	spinlock_t			spinlock;
+	struct mutex			mutex;
 	int				cpu;
 	u8				arch;
 	bool				enable;
 	bool				sticky_enable;
 	bool				boot_enable;
 	bool				os_unlock;
+	bool				init;
 	u8				nr_pe;
 	u8				nr_pe_cmp;
 	u8				nr_addr_cmp;
