@@ -48,7 +48,7 @@ int msm_slim_rx_dequeue(struct msm_slim_ctrl *dev, u8 *buf)
 
 int msm_slim_get_ctrl(struct msm_slim_ctrl *dev)
 {
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	int ref = 0;
 	int ret = pm_runtime_get_sync(dev->dev);
 	if (ret >= 0) {
@@ -65,7 +65,7 @@ int msm_slim_get_ctrl(struct msm_slim_ctrl *dev)
 }
 void msm_slim_put_ctrl(struct msm_slim_ctrl *dev)
 {
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 	int ref;
 	pm_runtime_mark_last_busy(dev->dev);
 	ref = atomic_read(&dev->dev->power.usage_count);

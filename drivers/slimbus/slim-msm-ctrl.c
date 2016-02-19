@@ -1462,7 +1462,7 @@ static int msm_slim_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 static int msm_slim_runtime_idle(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
