@@ -1223,10 +1223,6 @@
 		qcom,pm-qos-default-cpu = <0>;
 
 		status = "disabled";
-
-		ufs_variant {
-			compatible = "qcom,ufs_variant";
-		};
 	};
 
 	pcie0: qcom,pcie@00600000 {
