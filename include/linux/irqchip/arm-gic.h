@@ -92,6 +92,8 @@
 
 #ifndef __ASSEMBLY__
 
+#include <linux/irqdomain.h>
+
 struct device_node;
 
 extern struct irq_chip gic_arch_extn;
@@ -106,6 +108,8 @@ static inline void gic_init(unsigned int nr, int start,
 {
 	gic_init_bases(nr, start, dist, cpu, 0, NULL);
 }
+
+int gicv2m_of_init(struct device_node *node, struct irq_domain *parent);
 
 void gic_send_sgi(unsigned int cpu_id, unsigned int irq);
 int gic_get_cpu_id(unsigned int cpu);

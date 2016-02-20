@@ -39,6 +39,22 @@ jiffies = jiffies_64;
 	*(.hyp.text)					\
 	VMLINUX_SYMBOL(__hyp_text_end) = .;
 
+/*
+ * The size of the PE/COFF section that covers the kernel image, which
+ * runs from stext to _edata, must be a round multiple of the PE/COFF
+ * FileAlignment, which we set to its minimum value of 0x200. 'stext'
+ * itself is 4 KB aligned, so padding out _edata to a 0x200 aligned
+ * boundary should be sufficient.
+ */
+PECOFF_FILE_ALIGNMENT = 0x200;
+
+#ifdef CONFIG_EFI
+#define PECOFF_EDATA_PADDING	\
+	.pecoff_edata_padding : { BYTE(0); . = ALIGN(PECOFF_FILE_ALIGNMENT); }
+#else
+#define PECOFF_EDATA_PADDING
+#endif
+
 #ifdef CONFIG_DEBUG_ALIGN_RODATA
 #define ALIGN_DEBUG_RO			. = ALIGN(1<<SECTION_SHIFT);
 #define ALIGN_DEBUG_RO_MIN(min)		ALIGN_DEBUG_RO
@@ -133,6 +149,7 @@ SECTIONS
 	_data = .;
 	_sdata = .;
 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+	PECOFF_EDATA_PADDING
 	_edata = .;
 
 	BSS_SECTION(0, 0, 0)

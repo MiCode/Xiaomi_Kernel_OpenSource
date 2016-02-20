@@ -834,7 +834,7 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
 	if (error)
 		goto err_kfree_flow;
 
-	ovs_flow_mask_key(&new_flow->key, &new_flow->unmasked_key, &mask);
+	ovs_flow_mask_key(&new_flow->key, &new_flow->unmasked_key, true, &mask);
 
 	/* Validate actions. */
 	acts = ovs_nla_alloc_flow_actions(nla_len(a[OVS_FLOW_ATTR_ACTIONS]));
@@ -949,7 +949,7 @@ static struct sw_flow_actions *get_flow_actions(const struct nlattr *a,
 	if (IS_ERR(acts))
 		return acts;
 
-	ovs_flow_mask_key(&masked_key, key, mask);
+	ovs_flow_mask_key(&masked_key, key, true, mask);
 	error = ovs_nla_copy_actions(a, &masked_key, 0, &acts);
 	if (error) {
 		OVS_NLERR("Flow actions may not be safe on all matching packets.\n");
