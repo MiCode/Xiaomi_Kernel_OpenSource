@@ -80,7 +80,7 @@
 
 		cdc-vdd-io-supply = <&pmgold_l5>;
 		qcom,cdc-vdd-io-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-io-current = <10000>;
+		qcom,cdc-vdd-io-current = <5000>;
 
 		cdc-vdd-pa-supply = <&pmgold_s4>;
 		qcom,cdc-vdd-pa-voltage = <2050000 2050000>;
