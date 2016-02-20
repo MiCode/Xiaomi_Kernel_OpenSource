@@ -5086,6 +5086,11 @@ int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data)
 {
 	struct ipa3_ready_cb_info *cb_info = NULL;
 
+	/* check ipa3_ctx existed or not */
+	if (!ipa3_ctx) {
+		IPADBG("IPA driver haven't initialized\n");
+		return -ENXIO;
+	}
 	mutex_lock(&ipa3_ctx->lock);
 	if (ipa3_ctx->ipa_initialization_complete) {
 		mutex_unlock(&ipa3_ctx->lock);
