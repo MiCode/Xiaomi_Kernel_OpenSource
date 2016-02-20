@@ -16,6 +16,7 @@
 #include <linux/switch.h>
 #include "mdss_hdmi_util.h"
 #include "mdss_cec_core.h"
+#include "mdss_hdmi_audio.h"
 
 #define MAX_SWITCH_NAME_SIZE        5
 
@@ -130,14 +131,12 @@ struct hdmi_tx_ctrl {
 
 
 	struct hdmi_tx_pinctrl pin_res;
-	struct msm_hdmi_audio_setup_params audio_data;
 
 	struct mutex mutex;
 	struct mutex tx_lock;
 	struct list_head cable_notify_handlers;
 	struct kobject *kobj;
 	struct switch_dev sdev;
-	struct switch_dev audio_sdev;
 	struct workqueue_struct *workq;
 	spinlock_t hpd_state_lock;
 
@@ -168,8 +167,6 @@ struct hdmi_tx_ctrl {
 	bool scrambler_enabled;
 	u32 hdcp14_present;
 	bool hdcp1_use_sw_keys;
-	bool audio_ack_enabled;
-	atomic_t audio_ack_pending;
 	bool hdcp14_sw_keys;
 	bool auth_state;
 	bool custom_edid;
@@ -183,6 +180,7 @@ struct hdmi_tx_ctrl {
 
 	void (*hdmi_tx_hpd_done) (void *data);
 	void *downstream_data;
+	void *audio_data;
 
 	void *feature_data[HDMI_TX_FEAT_MAX];
 	struct hdmi_hdcp_ops *hdcp_ops;
@@ -195,6 +193,8 @@ struct hdmi_tx_ctrl {
 
 	struct cec_ops hdmi_cec_ops;
 	struct cec_cbs hdmi_cec_cbs;
+	struct hdmi_audio_ops audio_ops;
+	struct msm_hdmi_audio_setup_params audio_params;
 
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 	bool power_data_enable[HDMI_TX_MAX_PM];
