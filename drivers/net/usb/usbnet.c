@@ -47,7 +47,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/debugfs.h>
 #include <linux/types.h>
-#include <linux/ipa.h>
+#include <linux/ipa_odu_bridge.h>
 #define DRIVER_VERSION		"22-Aug-2005"
 
 
