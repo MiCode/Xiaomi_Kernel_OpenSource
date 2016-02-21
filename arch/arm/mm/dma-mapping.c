@@ -1302,8 +1302,8 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 					  int coherent_flag)
 {
 	struct page **pages;
-	int count = size >> PAGE_SHIFT;
-	int array_size = count * sizeof(struct page *);
+	size_t count = size >> PAGE_SHIFT;
+	size_t array_size = count * sizeof(struct page *);
 	int i = 0;
 	int order_idx = 0;
 
