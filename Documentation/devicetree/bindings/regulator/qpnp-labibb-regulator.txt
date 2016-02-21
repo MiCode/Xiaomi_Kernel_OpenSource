@@ -19,6 +19,8 @@ Main node required properties:
 				configured for AMOLED mode together.
 				"stand-alone" means using LAB and IBB regulators
 				as stand alone regulators.
+- qcom,pmic-revid:		Specifies the phandle of the PMIC revid module.
+				Used to identify the PMIC subtype.
 
 Main node optional properties:
 
@@ -31,6 +33,8 @@ Main node optional properties:
 - qpnp,swire-control:			A bool property which indicates if the LAB/IBB is
 					controlled by the SWIRE interface. Enable only
 					if qpnp,qpnp-labibb-mode = "amoled".
+- qcom,labibb-ttw-force-lab-on:		A boolean property which forces LAB to be
+					always on during TTW mode.
 
 LAB subnode required properties:
 
@@ -200,6 +204,7 @@ Example:
 			#address-cells = <1>;
 			#size-cells = <1>;
 			qpnp,qpnp-labibb-mode = "lcd";
+			qcom,pmic-revid = <&pmi8994_revid>;
 
 			lab_regulator: qcom,lab@de00 {
 				reg = <0xde00 0x100>;
