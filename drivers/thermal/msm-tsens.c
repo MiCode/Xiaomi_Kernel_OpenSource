@@ -753,7 +753,7 @@ enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_MSM8952,
 	TSENS_CALIB_FUSE_MAP_MDM9607,
 	TSENS_CALIB_FUSE_MAP_MSM8937,
-	TSENS_CALIB_FUSE_MAP_MSMGOLD,
+	TSENS_CALIB_FUSE_MAP_MSM8917,
 	TSENS_CALIB_FUSE_MAP_NUM,
 };
 
@@ -926,8 +926,8 @@ static struct of_device_id tsens_match[] = {
 	{	.compatible = "qcom,msm8937-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8937,
 	},
-	{	.compatible = "qcom,msmgold-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_MSMGOLD,
+	{	.compatible = "qcom,msm8917-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8917,
 	},
 	{	.compatible = "qcom,msmcobalt-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_NONE,
@@ -2687,7 +2687,7 @@ static int tsens_hw_init(struct tsens_tm_device *tmdev)
 	return 0;
 }
 
-static int tsens_calib_msm8937_msmgold_sensors(struct tsens_tm_device *tmdev)
+static int tsens_calib_msm8937_msm8917_sensors(struct tsens_tm_device *tmdev)
 {
 	int i, tsens_base0_data = 0, tsens_base1_data = 0, ext_sen = 1;
 	int tsens0_point1 = 0, tsens0_point2 = 0;
@@ -2706,7 +2706,7 @@ static int tsens_calib_msm8937_msmgold_sensors(struct tsens_tm_device *tmdev)
 	uint32_t calib_data[5] = {0, 0, 0, 0, 0};
 	uint32_t calib_tsens_point1_data[11], calib_tsens_point2_data[11];
 
-	if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSMGOLD)
+	if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSM8917)
 		ext_sen = 0;
 
 	if (!tmdev->calibration_less_mode) {
@@ -5372,9 +5372,9 @@ static int tsens_calib_sensors(struct tsens_tm_device *tmdev)
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MDM9607)
 		rc = tsens_calib_mdm9607_sensors(tmdev);
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSM8937)
-		rc = tsens_calib_msm8937_msmgold_sensors(tmdev);
-	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSMGOLD)
-		rc = tsens_calib_msm8937_msmgold_sensors(tmdev);
+		rc = tsens_calib_msm8937_msm8917_sensors(tmdev);
+	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSM8917)
+		rc = tsens_calib_msm8937_msm8917_sensors(tmdev);
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_NONE) {
 		pr_debug("Fuse map info not required\n");
 		rc = 0;
@@ -5491,7 +5491,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 		tmdev->tsens_type = TSENS_TYPE3;
 		tsens_poll_check = 0;
 	} else if (!strcmp(id->compatible, "qcom,msm8952-tsens") ||
-			(!strcmp(id->compatible, "qcom,msmgold-tsens")) ||
+			(!strcmp(id->compatible, "qcom,msm8917-tsens")) ||
 			(!strcmp(id->compatible, "qcom,msm8937-tsens")))
 		tmdev->tsens_type = TSENS_TYPE4;
 	else
