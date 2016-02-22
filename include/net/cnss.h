@@ -196,6 +196,7 @@ enum {
 	CNSS_RESET_LEVEL_MAX
 };
 extern int cnss_get_restart_level(void);
+extern void cnss_dump_stack(struct task_struct *task);
 
 #ifdef CONFIG_CNSS_SDIO
 struct cnss_sdio_wlan_driver {
