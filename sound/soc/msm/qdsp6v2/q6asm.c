@@ -1079,6 +1079,7 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	/* DSP expects stream id from 1 */
 	ac->stream_id = 1;
 	INIT_LIST_HEAD(&ac->no_wait_que);
+	spin_lock_init(&ac->no_wait_que_spinlock);
 	ac->apr = apr_register("ADSP", "ASM", \
 			(apr_fn)q6asm_callback,\
 			((ac->session) << 8 | 0x0001),\
@@ -1124,7 +1125,6 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	}
 	atomic_set(&ac->cmd_state, 0);
 	atomic_set(&ac->nowait_cmd_cnt, 0);
-	spin_lock_init(&ac->no_wait_que_spinlock);
 	atomic_set(&ac->mem_state, 0);
 
 	rc = send_asm_custom_topology(ac);
