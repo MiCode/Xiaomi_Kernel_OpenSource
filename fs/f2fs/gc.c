@@ -818,7 +818,6 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 								gc_type);
 
 		stat_inc_seg_count(sbi, type, gc_type);
-		stat_inc_call_count(sbi->stat_info);
 
 		f2fs_put_page(sum_page, 0);
 	}
@@ -843,6 +842,9 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 			if (get_valid_blocks(sbi, start_segno++, 1) == 0)
 				seg_freed++;
 	}
+
+	stat_inc_call_count(sbi->stat_info);
+
 	return seg_freed;
 }
 
