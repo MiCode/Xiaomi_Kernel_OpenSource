@@ -36,7 +36,7 @@ APSS specific properties:
 	Usage:      required
 	Value type: <string>
 	Definition: should be one of the following:
-		    "qcom,cpr4-msmtitanium-apss-regulator";
+		    "qcom,cpr4-msm8953-apss-regulator";
 
 - interrupts
 	Usage:      required
@@ -358,7 +358,7 @@ APSS specific properties:
 
 		    Each tuple list must contain a number of tuples equal to
 		    2 to the power of the number of bits selected for misc
-		    voltage adj fuse definition. For MSMTITANIUM the tuple
+		    voltage adj fuse definition. For MSM8953 the tuple
 		    list must contain 2 tuples for the 1-bit misc fuse.
 		    Tuples in a list should be specified in ascending order
 		    according to the misc fuse value assuming that the fuse
@@ -374,7 +374,7 @@ Example
 =======
 
 apc_cpr: cpr4-ctrl@b018000 {
-	compatible = "qcom,cpr4-msmtitanium-apss-regulator";
+	compatible = "qcom,cpr4-msm8953-apss-regulator";
 	reg = <0xb018000 0x4000>, <0xa4000 0x1000>;
 	reg-names = "cpr_ctrl", "fuse_base";
 	interrupts = <GIC_SPI 15 IRQ_TYPE_EDGE_RISING>,
@@ -396,9 +396,9 @@ apc_cpr: cpr4-ctrl@b018000 {
 	qcom,apm-threshold-voltage = <848000>;
 	qcom,apm-hysteresis-voltage = <5000>;
 
-	vdd-supply = <&pmtitanium_s5>;
+	vdd-supply = <&pm8953_s5>;
 	qcom,voltage-step = <5000>;
-	vdd-limit-supply = <&pmtitanium_s5_limit>;
+	vdd-limit-supply = <&pm8953_s5_limit>;
 	mem-acc-supply = <&apc_mem_acc_vreg>;
 
 	qcom,cpr-enable;

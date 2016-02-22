@@ -164,7 +164,7 @@ config SND_SOC_MSM8996
 
 config SND_SOC_MSM8X16
 	tristate "SoC Machine driver for MSM8916"
-	depends on ARCH_MSMTITANIUM || ARCH_MSM8937
+	depends on ARCH_MSM8953 || ARCH_MSM8937
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
