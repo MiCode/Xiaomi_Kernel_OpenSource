@@ -1471,6 +1471,7 @@ module_exit(cpu_clock_8996_exit);
 #define CBF_BASE_PHY 0x09A11000
 #define CBF_PLL_BASE_PHY 0x09A20000
 #define AUX_BASE_PHY 0x09820050
+#define APCC_RECAL_DLY_BASE 0x099E00C8
 
 #define CLK_CTL_OFFSET 0x44
 #define PSCTL_OFFSET 0x164
@@ -1478,6 +1479,10 @@ module_exit(cpu_clock_8996_exit);
 #define CBF_AUTO_CLK_SEL_BIT BIT(6)
 #define AUTO_CLK_SEL_ALWAYS_ON_MASK BM(5, 4)
 #define AUTO_CLK_SEL_ALWAYS_ON_GPLL0_SEL (0x3 << 4)
+#define APCC_RECAL_DLY_SIZE 0x10
+#define APCC_RECAL_VCTL_OFFSET 0x8
+#define APCC_RECAL_CPR_DLY_SETTING 0x00000000
+#define APCC_RECAL_VCTL_DLY_SETTING 0x800003ff
 
 #define HF_MUX_MASK 0x3
 #define LF_MUX_MASK 0x3
@@ -1516,7 +1521,7 @@ static struct notifier_block __refdata clock_cpu_8996_cpu_notifier = {
 int __init cpu_clock_8996_early_init(void)
 {
 	int ret = 0;
-	void __iomem *auxbase;
+	void __iomem *auxbase, *acd_recal_base;
 	u32 regval;
 
 	if (of_find_compatible_node(NULL, NULL,
@@ -1592,6 +1597,13 @@ int __init cpu_clock_8996_early_init(void)
 		WARN(1, "Unable to ioremap aux base. Can't configure CPU clocks\n");
 		ret = -ENOMEM;
 		goto auxbase_fail;
+	}
+
+	acd_recal_base = ioremap(APCC_RECAL_DLY_BASE, APCC_RECAL_DLY_SIZE);
+	if (!acd_recal_base) {
+		WARN(1, "Unable to ioremap ACD recal base. Can't configure ACD\n");
+		ret = -ENOMEM;
+		goto acd_recal_base_fail;
 	}
 
 	/*
@@ -1785,6 +1797,21 @@ int __init cpu_clock_8996_early_init(void)
 			writel_relaxed(0x3, vbases[APC1_BASE] +
 							MDD_DROOP_CODE);
 			/*
+			 * Ensure that the writes go through before going
+			 * forward.
+			 */
+			wmb();
+
+			/*
+			 * Program the DLY registers to set a voltage settling
+			 * delay time for HW based ACD recalibration.
+			 */
+			writel_relaxed(APCC_RECAL_CPR_DLY_SETTING,
+						acd_recal_base);
+			writel_relaxed(APCC_RECAL_VCTL_DLY_SETTING,
+						acd_recal_base +
+						APCC_RECAL_VCTL_OFFSET);
+			/*
 			 * Ensure that the writes go through before enabling
 			 * ACD.
 			 */
@@ -1829,6 +1856,8 @@ int __init cpu_clock_8996_early_init(void)
 	 */
 	pr_info("%s: finished CPU clock configuration\n", __func__);
 
+	iounmap(acd_recal_base);
+acd_recal_base_fail:
 	iounmap(auxbase);
 auxbase_fail:
 	iounmap(vbases[CBF_PLL_BASE]);
