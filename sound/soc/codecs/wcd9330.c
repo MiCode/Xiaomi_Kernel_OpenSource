@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3262,7 +3262,7 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 
 static int tomtom_codec_config_mad(struct snd_soc_codec *codec)
 {
-	int ret;
+	int ret = 0;
 	const struct firmware *fw;
 	struct firmware_cal *hwdep_cal = NULL;
 	struct mad_audio_cal *mad_cal;
