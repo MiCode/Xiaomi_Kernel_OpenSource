@@ -1340,6 +1340,7 @@ static int diag_md_session_check(int curr_mode, int req_mode,
 				 uint8_t *change_mode)
 {
 	int err = 0;
+	struct diag_md_session_t *session_info = NULL;
 
 	if (!param || !change_mode)
 		return -EIO;
@@ -1404,8 +1405,10 @@ static int diag_md_session_check(int curr_mode, int req_mode,
 					 "another instance running\n");
 				*change_mode = 0;
 				return -EINVAL;
-			} else
-				return 0;
+			}
+			session_info = diag_md_session_get_pid(current->tgid);
+			diag_md_session_close(session_info);
+			return 0;
 		}
 
 		if (param->mode_param == DIAG_MD_NORMAL) {
