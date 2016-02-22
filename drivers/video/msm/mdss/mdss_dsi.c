@@ -2263,9 +2263,9 @@ static void mdss_dsi_dba_work(struct work_struct *work)
 
 	memset(&utils_init_data, 0, sizeof(utils_init_data));
 
-	utils_init_data.chip_name = "adv7533";
+	utils_init_data.chip_name = ctrl_pdata->bridge_name;
 	utils_init_data.client_name = "dsi";
-	utils_init_data.instance_id = pinfo->pdest;
+	utils_init_data.instance_id = ctrl_pdata->bridge_index;
 	utils_init_data.fb_node = ctrl_pdata->fb_node;
 	utils_init_data.kobj = ctrl_pdata->kobj;
 	utils_init_data.pinfo = pinfo;
@@ -2907,6 +2907,36 @@ static int mdss_dsi_cont_splash_config(struct mdss_panel_info *pinfo,
 	return rc;
 }
 
+static int mdss_dsi_get_bridge_chip_params(struct mdss_panel_info *pinfo,
+				       struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+				       struct platform_device *pdev)
+{
+	int rc = 0;
+	u32 temp_val = 0;
+
+	if (!ctrl_pdata || !pdev || !pinfo) {
+		pr_err("%s: Invalid Params ctrl_pdata=%p, pdev=%p\n", __func__,
+			ctrl_pdata, pdev);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (pinfo->is_dba_panel) {
+		rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,bridge-index", &temp_val);
+		if (rc) {
+			pr_err("%s:%d Unable to read qcom,bridge-index, ret=%d\n",
+				__func__, __LINE__, rc);
+			goto end;
+		}
+		pr_debug("%s: DT property %s is %X\n", __func__,
+			"qcom,bridge-index", temp_val);
+		ctrl_pdata->bridge_index = temp_val;
+	}
+end:
+	return rc;
+}
+
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -3039,6 +3069,12 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 			goto error_shadow_clk_deinit;
 		}
 		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
+	}
+
+	rc = mdss_dsi_get_bridge_chip_params(pinfo, ctrl_pdata, pdev);
+	if (rc) {
+		pr_err("%s: Failed to get bridge params\n", __func__);
+		goto error_shadow_clk_deinit;
 	}
 
 	ctrl_pdata->workq = create_workqueue("mdss_dsi_dba");

@@ -132,6 +132,8 @@ Optional properties:
 					- "primary"
 					- "secondary"
 					- "tertiary"
+- qcom,bridge-index:			Instance id of the bridge chip connected to DSI. qcom,bridge-index is
+					required if a bridge chip panel is used.
 
 Example:
 	mdss_dsi: qcom,mdss_dsi@0 {
@@ -247,5 +249,6 @@ Example:
 			qcom,dsi-irq-line;
 			qcom,lane-map = "lane_map_3012";
 			qcom,display-id = "primary";
+			qcom,bridge-index = <00>;
 	        };
 	};

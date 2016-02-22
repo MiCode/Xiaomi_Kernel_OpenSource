@@ -386,6 +386,7 @@ struct dsi_err_container {
 #define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL	0x02a8
 #define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL2	0x02ac
 #define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL3	0x02b0
+#define MSM_DBA_CHIP_NAME_MAX_LEN				20
 
 struct mdss_dsi_ctrl_pdata {
 	int ndx;	/* panel_num */
@@ -526,14 +527,16 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct dsi_err_container err_cont;
 
-
-	bool ds_registered;
-
 	struct kobject *kobj;
 	int fb_node;
 
+	/* DBA data */
 	struct workqueue_struct *workq;
 	struct delayed_work dba_work;
+	char bridge_name[MSM_DBA_CHIP_NAME_MAX_LEN];
+	uint32_t bridge_index;
+	bool ds_registered;
+
 	bool timing_db_mode;
 	bool update_phy_timing; /* flag to recalculate PHY timings */
 };
