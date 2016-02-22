@@ -175,6 +175,15 @@
 			qcom,mdss-dspp-pgc-off = <0x17c0>;
 		};
 
+		qcom,mdss-scaler-offsets {
+			qcom,mdss-vig-scaler-off = <0xA00>;
+			qcom,mdss-vig-scaler-lut-off = <0xB00>;
+			qcom,mdss-has-dest-scaler;
+			qcom,mdss-dest-block-off = <0x00061000>;
+			qcom,mdss-dest-scaler-off = <0x800 0x1000>;
+			qcom,mdss-dest-scaler-lut-off = <0x900 0x1100>;
+		};
+
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
 			compatible = "qcom,smmu_mdp_unsec";
 			iommus = <&mmss_smmu 0>;
