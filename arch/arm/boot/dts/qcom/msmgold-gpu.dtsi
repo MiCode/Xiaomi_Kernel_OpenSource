@@ -53,17 +53,19 @@
 
 		qcom,idle-timeout = <80>; //msecs
 		qcom,strtstp-sleepwake;
+		qcom,gpu-bimc-interface-clk-freq = <400000000>; //In Hz
 
 		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
 			<&clock_gcc clk_gcc_oxili_ahb_clk>,
 			<&clock_gcc clk_gcc_bimc_gfx_clk>,
 			<&clock_gcc clk_gcc_bimc_gpu_clk>,
 			<&clock_gcc clk_gcc_gtcu_ahb_clk>,
-			<&clock_gcc clk_gcc_gfx_tcu_clk>;
+			<&clock_gcc clk_gcc_gfx_tcu_clk>,
+			<&clock_gcc clk_bimc_gpu_clk>;
 
 		clock-names = "core_clk", "iface_clk", "mem_iface_clk",
 				"alt_mem_iface_clk", "gtcu_iface_clk",
-				"gtcu_clk";
+				"gtcu_clk", "bimc_gpu_clk";
 
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
