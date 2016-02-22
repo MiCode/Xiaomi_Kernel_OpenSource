@@ -1871,6 +1871,7 @@ static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 		.ias		= smmu->va_size,
 		.oas		= smmu->ipa_size,
 		.tlb		= &arm_smmu_gather_ops,
+		.iommu_dev	= smmu->dev,
 	};
 
 	fmt = IS_ENABLED(CONFIG_64BIT) ? ARM_64_LPAE_S1 : ARM_32_LPAE_S1;
