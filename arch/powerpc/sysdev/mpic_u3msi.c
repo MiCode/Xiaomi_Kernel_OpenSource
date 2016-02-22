@@ -25,14 +25,14 @@ static struct mpic *msi_mpic;
 
 static void mpic_u3msi_mask_irq(struct irq_data *data)
 {
-	mask_msi_irq(data);
+	pci_msi_mask_irq(data);
 	mpic_mask_irq(data);
 }
 
 static void mpic_u3msi_unmask_irq(struct irq_data *data)
 {
 	mpic_unmask_irq(data);
-	unmask_msi_irq(data);
+	pci_msi_unmask_irq(data);
 }
 
 static struct irq_chip mpic_u3msi_chip = {
@@ -108,15 +108,16 @@ static u64 find_u4_magic_addr(struct pci_dev *pdev, unsigned int hwirq)
 static void u3msi_teardown_msi_irqs(struct pci_dev *pdev)
 {
 	struct msi_desc *entry;
+	irq_hw_number_t hwirq;
 
         list_for_each_entry(entry, &pdev->msi_list, list) {
 		if (entry->irq == NO_IRQ)
 			continue;
 
+		hwirq = virq_to_hw(entry->irq);
 		irq_set_msi_desc(entry->irq, NULL);
-		msi_bitmap_free_hwirqs(&msi_mpic->msi_bitmap,
-				       virq_to_hw(entry->irq), 1);
 		irq_dispose_mapping(entry->irq);
+		msi_bitmap_free_hwirqs(&msi_mpic->msi_bitmap, hwirq, 1);
 	}
 
 	return;

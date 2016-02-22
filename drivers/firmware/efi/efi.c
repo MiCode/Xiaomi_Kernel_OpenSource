@@ -30,6 +30,7 @@ struct efi __read_mostly efi = {
 	.acpi       = EFI_INVALID_TABLE_ADDR,
 	.acpi20     = EFI_INVALID_TABLE_ADDR,
 	.smbios     = EFI_INVALID_TABLE_ADDR,
+	.smbios3    = EFI_INVALID_TABLE_ADDR,
 	.sal_systab = EFI_INVALID_TABLE_ADDR,
 	.boot_info  = EFI_INVALID_TABLE_ADDR,
 	.hcdp       = EFI_INVALID_TABLE_ADDR,
@@ -86,6 +87,8 @@ static ssize_t systab_show(struct kobject *kobj,
 		str += sprintf(str, "ACPI=0x%lx\n", efi.acpi);
 	if (efi.smbios != EFI_INVALID_TABLE_ADDR)
 		str += sprintf(str, "SMBIOS=0x%lx\n", efi.smbios);
+	if (efi.smbios3 != EFI_INVALID_TABLE_ADDR)
+		str += sprintf(str, "SMBIOS3=0x%lx\n", efi.smbios3);
 	if (efi.hcdp != EFI_INVALID_TABLE_ADDR)
 		str += sprintf(str, "HCDP=0x%lx\n", efi.hcdp);
 	if (efi.boot_info != EFI_INVALID_TABLE_ADDR)
@@ -260,6 +263,7 @@ static __initdata efi_config_table_type_t common_tables[] = {
 	{MPS_TABLE_GUID, "MPS", &efi.mps},
 	{SAL_SYSTEM_TABLE_GUID, "SALsystab", &efi.sal_systab},
 	{SMBIOS_TABLE_GUID, "SMBIOS", &efi.smbios},
+	{SMBIOS3_TABLE_GUID, "SMBIOS 3.0", &efi.smbios3},
 	{UGA_IO_PROTOCOL_GUID, "UGA", &efi.uga},
 	{NULL_GUID, NULL, NULL},
 };
@@ -289,10 +293,49 @@ static __init int match_config_table(efi_guid_t *guid,
 	return 0;
 }
 
+int __init efi_config_parse_tables(void *config_tables, int count, int sz,
+				   efi_config_table_type_t *arch_tables)
+{
+	void *tablep;
+	int i;
+
+	tablep = config_tables;
+	pr_info("");
+	for (i = 0; i < count; i++) {
+		efi_guid_t guid;
+		unsigned long table;
+
+		if (efi_enabled(EFI_64BIT)) {
+			u64 table64;
+			guid = ((efi_config_table_64_t *)tablep)->guid;
+			table64 = ((efi_config_table_64_t *)tablep)->table;
+			table = table64;
+#ifndef CONFIG_64BIT
+			if (table64 >> 32) {
+				pr_cont("\n");
+				pr_err("Table located above 4GB, disabling EFI.\n");
+				return -EINVAL;
+			}
+#endif
+		} else {
+			guid = ((efi_config_table_32_t *)tablep)->guid;
+			table = ((efi_config_table_32_t *)tablep)->table;
+		}
+
+		if (!match_config_table(&guid, table, common_tables))
+			match_config_table(&guid, table, arch_tables);
+
+		tablep += sz;
+	}
+	pr_cont("\n");
+	set_bit(EFI_CONFIG_TABLES, &efi.flags);
+	return 0;
+}
+
 int __init efi_config_init(efi_config_table_type_t *arch_tables)
 {
-	void *config_tables, *tablep;
-	int i, sz;
+	void *config_tables;
+	int sz, ret;
 
 	if (efi_enabled(EFI_64BIT))
 		sz = sizeof(efi_config_table_64_t);
@@ -309,42 +352,11 @@ int __init efi_config_init(efi_config_table_type_t *arch_tables)
 		return -ENOMEM;
 	}
 
-	tablep = config_tables;
-	pr_info("");
-	for (i = 0; i < efi.systab->nr_tables; i++) {
-		efi_guid_t guid;
-		unsigned long table;
+	ret = efi_config_parse_tables(config_tables, efi.systab->nr_tables, sz,
+				      arch_tables);
 
-		if (efi_enabled(EFI_64BIT)) {
-			u64 table64;
-			guid = ((efi_config_table_64_t *)tablep)->guid;
-			table64 = ((efi_config_table_64_t *)tablep)->table;
-			table = table64;
-#ifndef CONFIG_64BIT
-			if (table64 >> 32) {
-				pr_cont("\n");
-				pr_err("Table located above 4GB, disabling EFI.\n");
-				early_memunmap(config_tables,
-					       efi.systab->nr_tables * sz);
-				return -EINVAL;
-			}
-#endif
-		} else {
-			guid = ((efi_config_table_32_t *)tablep)->guid;
-			table = ((efi_config_table_32_t *)tablep)->table;
-		}
-
-		if (!match_config_table(&guid, table, common_tables))
-			match_config_table(&guid, table, arch_tables);
-
-		tablep += sz;
-	}
-	pr_cont("\n");
 	early_memunmap(config_tables, efi.systab->nr_tables * sz);
-
-	set_bit(EFI_CONFIG_TABLES, &efi.flags);
-
-	return 0;
+	return ret;
 }
 
 #ifdef CONFIG_EFI_VARS_MODULE

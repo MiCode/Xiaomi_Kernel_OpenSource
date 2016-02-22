@@ -39,8 +39,10 @@ Required properties :
          "hsusb_vdd_dig" (when voting for VDDCX Corner voltage),
          "HSUSB_1p8-supply" and "HSUSB_3p3-supply".
 - qcom,vdd-voltage-level: This property must be a list of three integer
-	values (no, min, max) where each value represents either a voltage
-	in microvolts or a value corresponding to voltage corner.
+	values (none, min, max) where each value represents either a voltage
+	in microvolts or a value corresponding to voltage corner. If usb core
+	supports svs, min value will have absolute SVS or SVS corner otherwise
+	min value will have absolute nominal or nominal corner.
 - clocks: a list of phandles to the USB clocks. Usage is as per
 	Documentation/devicetree/bindings/clock/clock-bindings.txt
 - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"

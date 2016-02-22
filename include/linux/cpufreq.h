@@ -219,26 +219,26 @@ __ATTR(_name, 0644, show_##_name, store_##_name)
 
 
 struct cpufreq_driver {
-	char			name[CPUFREQ_NAME_LEN];
-	u8			flags;
-	void			*driver_data;
+	char		name[CPUFREQ_NAME_LEN];
+	u8		flags;
+	void		*driver_data;
 
 	/* needed by all drivers */
-	int	(*init)		(struct cpufreq_policy *policy);
-	int	(*verify)	(struct cpufreq_policy *policy);
+	int		(*init)(struct cpufreq_policy *policy);
+	int		(*verify)(struct cpufreq_policy *policy);
 
 	/* define one out of two */
-	int	(*setpolicy)	(struct cpufreq_policy *policy);
+	int		(*setpolicy)(struct cpufreq_policy *policy);
 
 	/*
 	 * On failure, should always restore frequency to policy->restore_freq
 	 * (i.e. old freq).
 	 */
-	int	(*target)	(struct cpufreq_policy *policy,	/* Deprecated */
-				 unsigned int target_freq,
-				 unsigned int relation);
-	int	(*target_index)	(struct cpufreq_policy *policy,
-				 unsigned int index);
+	int		(*target)(struct cpufreq_policy *policy,
+				  unsigned int target_freq,
+				  unsigned int relation);	/* Deprecated */
+	int		(*target_index)(struct cpufreq_policy *policy,
+					unsigned int index);
 	/*
 	 * Only for drivers with target_index() and CPUFREQ_ASYNC_NOTIFICATION
 	 * unset.
@@ -254,27 +254,31 @@ struct cpufreq_driver {
 	 * wish to switch to intermediate frequency for some target frequency.
 	 * In that case core will directly call ->target_index().
 	 */
-	unsigned int (*get_intermediate)(struct cpufreq_policy *policy,
-					 unsigned int index);
-	int	(*target_intermediate)(struct cpufreq_policy *policy,
-				       unsigned int index);
+	unsigned int	(*get_intermediate)(struct cpufreq_policy *policy,
+					    unsigned int index);
+	int		(*target_intermediate)(struct cpufreq_policy *policy,
+					       unsigned int index);
 
 	/* should be defined, if possible */
-	unsigned int	(*get)	(unsigned int cpu);
+	unsigned int	(*get)(unsigned int cpu);
 
 	/* optional */
-	int	(*bios_limit)	(int cpu, unsigned int *limit);
+	int		(*bios_limit)(int cpu, unsigned int *limit);
 
-	int	(*exit)		(struct cpufreq_policy *policy);
-	void	(*stop_cpu)	(struct cpufreq_policy *policy);
-	int	(*suspend)	(struct cpufreq_policy *policy);
-	int	(*resume)	(struct cpufreq_policy *policy);
-	struct freq_attr	**attr;
+	int		(*exit)(struct cpufreq_policy *policy);
+	void		(*stop_cpu)(struct cpufreq_policy *policy);
+	int		(*suspend)(struct cpufreq_policy *policy);
+	int		(*resume)(struct cpufreq_policy *policy);
+
+	/* Will be called after the driver is fully initialized */
+	void		(*ready)(struct cpufreq_policy *policy);
+
+	struct freq_attr **attr;
 
 	/* platform specific boost support code */
-	bool                    boost_supported;
-	bool                    boost_enabled;
-	int     (*set_boost)    (int state);
+	bool		boost_supported;
+	bool		boost_enabled;
+	int		(*set_boost)(int state);
 };
 
 /* flags */
@@ -589,6 +593,8 @@ ssize_t cpufreq_show_cpus(const struct cpumask *mask, char *buf);
 int cpufreq_boost_trigger_state(int state);
 int cpufreq_boost_supported(void);
 int cpufreq_boost_enabled(void);
+int cpufreq_enable_boost_support(void);
+bool policy_has_boost_freq(struct cpufreq_policy *policy);
 #else
 static inline int cpufreq_boost_trigger_state(int state)
 {
@@ -602,12 +608,23 @@ static inline int cpufreq_boost_enabled(void)
 {
 	return 0;
 }
+
+static inline int cpufreq_enable_boost_support(void)
+{
+	return -EINVAL;
+}
+
+static inline bool policy_has_boost_freq(struct cpufreq_policy *policy)
+{
+	return false;
+}
 #endif
 /* the following funtion is for cpufreq core use only */
 struct cpufreq_frequency_table *cpufreq_frequency_get_table(unsigned int cpu);
 
 /* the following are really really optional */
 extern struct freq_attr cpufreq_freq_attr_scaling_available_freqs;
+extern struct freq_attr cpufreq_freq_attr_scaling_boost_freqs;
 extern struct freq_attr *cpufreq_generic_attr[];
 int cpufreq_table_validate_and_show(struct cpufreq_policy *policy,
 				      struct cpufreq_frequency_table *table);
