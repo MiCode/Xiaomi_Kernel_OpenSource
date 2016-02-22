@@ -1,7 +1,7 @@
 /*
  * u_smd.c - utilities for USB gadget serial over smd
  *
- * Copyright (c) 2011, 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)
@@ -687,6 +687,7 @@ int gsmd_connect(struct gserial *gser, u8 portno)
 	gser->notify_modem = gsmd_notify_modem;
 	port->nbytes_tomodem = 0;
 	port->nbytes_tolaptop = 0;
+	port->is_suspended = false;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	ret = usb_ep_enable(gser->in);
@@ -734,6 +735,7 @@ void gsmd_disconnect(struct gserial *gser, u8 portno)
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_usb = 0;
+	port->is_suspended = false;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	/* disable endpoints, aborting down any active I/O */
