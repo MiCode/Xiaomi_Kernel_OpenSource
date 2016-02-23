@@ -158,6 +158,7 @@
 &apc0_cbf_vreg {
 	regulator-min-microvolt = <1>;
 	regulator-max-microvolt = <19>;
+	qcom,is-cbf-regulator;
 
 	qcom,proxy-consumer-voltage = <14 19>;
 
