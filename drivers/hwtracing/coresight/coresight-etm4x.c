@@ -2725,7 +2725,11 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	spin_lock_init(&drvdata->spinlock);
 	mutex_init(&drvdata->mutex);
 
-	drvdata->cpu = pdata ? pdata->cpu : 0;
+	drvdata->cpu = pdata ? pdata->cpu : -1;
+	if (drvdata->cpu == -1) {
+		dev_err(drvdata->dev, "invalid ETM cpu handle\n");
+		return -EINVAL;
+	}
 
 	get_online_cpus();
 
