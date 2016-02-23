@@ -4149,6 +4149,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	 * 1. Card detection is handled using separate GPIO.
 	 * 2. Bus power control is handled by interacting with PMIC.
 	 */
+	host->quirks |= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL;
 	host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
 	host->quirks |= SDHCI_QUIRK_SINGLE_POWER_WRITE;
 	host->quirks |= SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN;
