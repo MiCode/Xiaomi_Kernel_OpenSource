@@ -862,7 +862,7 @@ static int f2fs_readdir(struct file *file, void *dirent, filldir_t filldir)
 
 	if (f2fs_encrypted_inode(inode)) {
 		err = fscrypt_get_encryption_info(inode);
-		if (err)
+		if (err && err != -ENOKEY)
 			return err;
 
 		err = fscrypt_fname_alloc_buffer(inode, F2FS_NAME_LEN, &fstr);
