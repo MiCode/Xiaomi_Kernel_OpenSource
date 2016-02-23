@@ -784,7 +784,7 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 * timeout value.
 	 */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL)
-		return 0xE;
+		return 0xF;
 
 	/* Unspecified timeout, assume max */
 	if (!data && !cmd->busy_timeout)
