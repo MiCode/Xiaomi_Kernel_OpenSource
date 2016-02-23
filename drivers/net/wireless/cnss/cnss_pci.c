@@ -2867,6 +2867,17 @@ static void __exit cnss_exit(void)
 	platform_driver_unregister(&cnss_driver);
 }
 
+void cnss_request_pm_qos_type(int latency_type, u32 qos_val)
+{
+	if (!penv) {
+		pr_err("%s: penv is NULL!\n", __func__);
+		return;
+	}
+
+	pm_qos_add_request(&penv->qos_request, latency_type, qos_val);
+}
+EXPORT_SYMBOL(cnss_request_pm_qos_type);
+
 void cnss_request_pm_qos(u32 qos_val)
 {
 	if (!penv) {

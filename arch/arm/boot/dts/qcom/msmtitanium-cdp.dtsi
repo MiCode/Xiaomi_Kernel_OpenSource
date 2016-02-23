@@ -154,9 +154,6 @@
 &flash_led {
 	compatible = "qcom,qpnp-flash-led";
 	reg = <0xd300 0x100>;
-	pinctrl-names = "flash_led_enable","flash_led_disable";
-	pinctrl-0 = <&rear_flash_led_enable>;
-	pinctrl-1 = <&rear_flash_led_disable>;
 	qcom,follow-otst2-rb-disabled;
 };
 
@@ -186,6 +183,7 @@
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,bridge-index = <0>;
 
 	qcom,pluggable;
 	qcom,platform-te-gpio = <&tlmm 24 0>;

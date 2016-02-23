@@ -4435,6 +4435,9 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 	clk_ops_debug_mux = clk_ops_gen_mux;
 	clk_ops_debug_mux.get_rate = measure_get_rate;
 
+	if (compat_bin2)
+		gcc_debug_mux_8937.post_div = 0x3;
+
 	if (!compat_bin && !compat_bin2)
 		ret =  of_msm_clock_register(pdev->dev.of_node,
 			msm_clocks_measure, ARRAY_SIZE(msm_clocks_measure));
