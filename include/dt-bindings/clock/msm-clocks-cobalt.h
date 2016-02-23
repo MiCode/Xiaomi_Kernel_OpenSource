@@ -451,6 +451,13 @@
 #define clk_dsi1pll_bitclk_src			0x13ab045b
 #define clk_dsi1pll_vco_clk			0x99797b50
 
+#define clk_dp_vco_clk				0xfcaaeec7
+#define clk_hsclk_divsel_clk_src		0x0a325543
+#define clk_dp_link_2x_clk_divsel_five		0xcfe3f5dd
+#define clk_dp_link_2x_clk_divsel_ten		0xfeb9924d
+#define clk_dp_link_2x_clk_mux			0xce4c4fc6
+#define clk_vco_divided_clk_src			0x3da6cb51
+
 /* clock_gpu controlled clocks*/
 #define clk_gpucc_xo				0xc4e1a890
 #define clk_gpucc_gpll0				0x0db0e37f

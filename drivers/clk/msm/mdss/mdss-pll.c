@@ -24,6 +24,7 @@
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
 #include "mdss-hdmi-pll.h"
+#include "mdss-dp-pll.h"
 
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable)
 {
@@ -136,6 +137,8 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 		pll_res->revision = 2;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_cobalt")) {
 		pll_res->pll_interface_type = MDSS_DSI_PLL_COBALT;
+	} else if (!strcmp(compatible_stream, "qcom,mdss_dp_pll_cobalt")) {
+		pll_res->pll_interface_type = MDSS_DP_PLL_COBALT;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_8996")) {
 		pll_res->pll_interface_type = MDSS_HDMI_PLL_8996;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_8996_v2")) {
@@ -173,6 +176,8 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 		break;
 	case MDSS_DSI_PLL_COBALT:
 		rc = dsi_pll_clock_register_cobalt(pdev, pll_res);
+	case MDSS_DP_PLL_COBALT:
+		rc = dp_pll_clock_register_cobalt(pdev, pll_res);
 		break;
 	case MDSS_HDMI_PLL_8996:
 		rc = hdmi_8996_v1_pll_clock_register(pdev, pll_res);
@@ -389,6 +394,7 @@ static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_hdmi_pll_8996_v2"},
 	{.compatible = "qcom,mdss_hdmi_pll_8996_v3"},
 	{.compatible = "qcom,mdss_hdmi_pll_8996_v3_1p8"},
+	{.compatible = "qcom,mdss_dp_pll_cobalt"},
 	{}
 };
 

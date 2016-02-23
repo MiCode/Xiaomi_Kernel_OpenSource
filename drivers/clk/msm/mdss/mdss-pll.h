@@ -14,6 +14,7 @@
 #define __MDSS_PLL_H
 
 #include <linux/mdss_io_util.h>
+#include <linux/clk/msm-clock-generic.h>
 #include <linux/io.h>
 
 #define MDSS_PLL_REG_W(base, offset, data)	\
@@ -31,6 +32,7 @@
 enum {
 	MDSS_DSI_PLL_8996,
 	MDSS_DSI_PLL_COBALT,
+	MDSS_DP_PLL_COBALT,
 	MDSS_HDMI_PLL_8996,
 	MDSS_HDMI_PLL_8996_V2,
 	MDSS_HDMI_PLL_8996_V3,
@@ -195,6 +197,23 @@ static inline bool is_gdsc_disabled(struct mdss_pll_resources *pll_res)
 
 	return ((readl_relaxed(pll_res->gdsc_base + 0x4) & BIT(31)) &&
 		(!(readl_relaxed(pll_res->gdsc_base) & BIT(0)))) ? false : true;
+}
+
+static inline int mdss_pll_div_prepare(struct clk *c)
+{
+	struct div_clk *div = to_div_clk(c);
+	/* Restore the divider's value */
+	return div->ops->set_div(div, div->data.div);
+}
+
+static inline int mdss_set_mux_sel(struct mux_clk *clk, int sel)
+{
+	return 0;
+}
+
+static inline int mdss_get_mux_sel(struct mux_clk *clk)
+{
+	return 0;
 }
 
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable);
