@@ -1253,14 +1253,6 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	*clnt_hdl = ipa_ep_idx;
 
-	if (IPA_CLIENT_IS_CONS(sys_in->client))
-		ipa3_replenish_rx_cache(ep->sys);
-
-	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
-		ipa3_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
-		atomic_inc(&ipa3_ctx->wc_memb.active_clnt_cnt);
-	}
-
 	if (ep->sys->repl_hdlr == ipa3_fast_replenish_rx_cache) {
 		ep->sys->repl.capacity = ep->sys->rx_pool_sz + 1;
 		ep->sys->repl.cache = kzalloc(ep->sys->repl.capacity *
@@ -1274,6 +1266,14 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 			atomic_set(&ep->sys->repl.tail_idx, 0);
 			ipa3_wq_repl_rx(&ep->sys->repl_work);
 		}
+	}
+
+	if (IPA_CLIENT_IS_CONS(sys_in->client))
+		ipa3_replenish_rx_cache(ep->sys);
+
+	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
+		ipa3_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
+		atomic_inc(&ipa3_ctx->wc_memb.active_clnt_cnt);
 	}
 
 	ipa3_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
@@ -1351,6 +1351,8 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		} while (1);
 	}
 
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
 	flush_workqueue(ep->sys->wq);
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		result = ipa3_stop_gsi_channel(clnt_hdl);
