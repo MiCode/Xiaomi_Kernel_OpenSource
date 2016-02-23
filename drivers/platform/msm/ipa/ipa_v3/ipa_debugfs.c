@@ -114,7 +114,6 @@ static struct dentry *dfile_ip4_nat;
 static struct dentry *dfile_rm_stats;
 static struct dentry *dfile_status_stats;
 static struct dentry *dfile_active_clients;
-static struct dentry *dfile_ipa_usb;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static char *active_clients_buf;
 
@@ -1512,75 +1511,6 @@ static ssize_t ipa3_read_nat4(struct file *file,
 	return 0;
 }
 
-static ssize_t ipa3_read_ipa_usb(struct file *file, char __user *ubuf,
-		size_t count, loff_t *ppos)
-{
-	struct ipa3_usb_status_dbg_info status;
-	int result;
-	int nbytes;
-	int cnt = 0;
-	int i;
-
-	result = ipa3_usb_get_status_dbg_info(&status);
-	if (result) {
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-				"Fail to read IPA USB status\n");
-		cnt += nbytes;
-	} else {
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"Tethering Data State: %s\n"
-			"DPL State: %s\n"
-			"Protocols in Initialized State: ",
-			status.teth_state,
-			status.dpl_state);
-		cnt += nbytes;
-
-		for (i = 0 ; i < status.num_init_prot ; i++) {
-			nbytes = scnprintf(dbg_buff + cnt,
-					IPA_MAX_MSG_LEN - cnt,
-					"%s ", status.inited_prots[i]);
-			cnt += nbytes;
-		}
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				status.num_init_prot ? "\n" : "None\n");
-		cnt += nbytes;
-
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"Protocols in Connected State: ");
-		cnt += nbytes;
-		if (status.teth_connected_prot) {
-			nbytes = scnprintf(dbg_buff + cnt,
-				IPA_MAX_MSG_LEN - cnt,
-				"%s ", status.teth_connected_prot);
-			cnt += nbytes;
-		}
-		if (status.dpl_connected_prot) {
-			nbytes = scnprintf(dbg_buff + cnt,
-				IPA_MAX_MSG_LEN - cnt,
-				"%s ", status.dpl_connected_prot);
-			cnt += nbytes;
-		}
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				(status.teth_connected_prot ||
-				status.dpl_connected_prot) ? "\n" : "None\n");
-		cnt += nbytes;
-
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"USB Tethering Consumer State: %s\n",
-				status.teth_cons_state ?
-				status.teth_cons_state : "Invalid");
-		cnt += nbytes;
-
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"DPL Consumer State: %s\n",
-				status.dpl_cons_state ? status.dpl_cons_state :
-				"Invalid");
-		cnt += nbytes;
-	}
-
-	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
-}
-
 static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -1782,10 +1712,6 @@ const struct file_operations ipa3_rm_stats = {
 	.read = ipa3_rm_read_stats,
 };
 
-const struct file_operations ipa3_ipa_usb_ops = {
-	.read = ipa3_read_ipa_usb,
-};
-
 const struct file_operations ipa3_active_clients = {
 	.read = ipa3_print_active_clients_log,
 	.write = ipa3_clear_active_clients_log,
@@ -1977,13 +1903,6 @@ void ipa3_debugfs_init(void)
 			read_only_mode, dent, 0, &ipa3_status_stats_ops);
 	if (!dfile_status_stats || IS_ERR(dfile_status_stats)) {
 		IPAERR("fail to create file for debug_fs status_stats\n");
-		goto fail;
-	}
-
-	dfile_ipa_usb = debugfs_create_file("ipa_usb", read_only_mode, dent, 0,
-		&ipa3_ipa_usb_ops);
-	if (!dfile_ipa_usb || IS_ERR(dfile_ipa_usb)) {
-		IPAERR("fail to create file for debug_fs ipa_usb\n");
 		goto fail;
 	}
 

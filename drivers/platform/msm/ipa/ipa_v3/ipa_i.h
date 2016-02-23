@@ -22,6 +22,7 @@
 #include <linux/skbuff.h>
 #include <linux/slab.h>
 #include <linux/ipa.h>
+#include <linux/ipa_usb.h>
 #include <linux/msm-sps.h>
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
@@ -793,17 +794,6 @@ struct ipa_request_gsi_channel_params {
 	union __packed gsi_evt_scratch evt_scratch;
 	struct gsi_chan_props chan_params;
 	union __packed gsi_channel_scratch chan_scratch;
-};
-
-struct ipa3_usb_status_dbg_info {
-	const char *teth_state;
-	const char *dpl_state;
-	int num_init_prot;
-	const char *inited_prots[IPA_USB_MAX_TETH_PROT_SIZE];
-	const char *teth_connected_prot;
-	const char *dpl_connected_prot;
-	const char *teth_cons_state;
-	const char *dpl_cons_state;
 };
 
 enum ipa3_sys_pipe_policy {
@@ -1871,36 +1861,6 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	bool should_force_clear, u32 qmi_req_id, bool is_dpl);
 
 int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl, bool is_dpl);
-
-/*
- * USB
- */
-int ipa3_usb_init(void);
-
-int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
-			   struct ipa_usb_teth_params *teth_params,
-			   int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event,
-			   void *),
-			   void *user_data);
-
-int ipa3_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
-			 struct ipa_usb_xdci_chan_params *dl_chan_params,
-			 struct ipa_req_chan_out_params *ul_out_params,
-			 struct ipa_req_chan_out_params *dl_out_params,
-			 struct ipa_usb_xdci_connect_params *connect_params);
-
-int ipa3_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-			     enum ipa_usb_teth_prot teth_prot);
-
-int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot);
-
-int ipa3_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-			  enum ipa_usb_teth_prot teth_prot);
-
-int ipa3_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-			enum ipa_usb_teth_prot teth_prot);
-
-int ipa3_usb_get_status_dbg_info(struct ipa3_usb_status_dbg_info *status);
 
 /*
  * Resume / Suspend
