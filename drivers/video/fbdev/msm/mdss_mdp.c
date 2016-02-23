@@ -1322,6 +1322,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" tile_format");
 	if (mdata->has_non_scalar_rgb)
 		SPRINT(" non_scalar_rgb");
+	if (mdata->has_src_split)
+		SPRINT(" src_split");
 	SPRINT("\n");
 
 	return cnt;
@@ -1803,7 +1805,7 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 
 	len = min_t(int, DEFAULT_TOTAL_VIG_PIPES, (int)mdata->nvig_pipes);
 	rc = mdss_mdp_pipe_addr_setup(mdata, mdata->vig_pipes, offsets, ftch_id,
-		xin_id, MDSS_MDP_PIPE_TYPE_VIG, MDSS_MDP_SSPP_VIG0, len);
+		xin_id, MDSS_MDP_PIPE_TYPE_VIG, MDSS_MDP_SSPP_VIG0, len, 0);
 	if (rc)
 		goto parse_fail;
 
@@ -1828,7 +1830,7 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	rc = mdss_mdp_pipe_addr_setup(mdata, mdata->rgb_pipes,
 		offsets + mdata->nvig_pipes, ftch_id + mdata->nvig_pipes,
 		xin_id + mdata->nvig_pipes, MDSS_MDP_PIPE_TYPE_RGB,
-		MDSS_MDP_SSPP_RGB0, len);
+		MDSS_MDP_SSPP_RGB0, len, mdata->nvig_pipes);
 	if (rc)
 		goto parse_fail;
 
@@ -1857,7 +1859,8 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		len = mdata->ndma_pipes;
 		rc = mdss_mdp_pipe_addr_setup(mdata, mdata->dma_pipes,
 			offsets + dma_off, ftch_id + dma_off, xin_id + dma_off,
-			MDSS_MDP_PIPE_TYPE_DMA, MDSS_MDP_SSPP_DMA0, len);
+			MDSS_MDP_PIPE_TYPE_DMA, MDSS_MDP_SSPP_DMA0, len,
+			mdata->nvig_pipes + mdata->nrgb_pipes);
 		if (rc)
 			goto parse_fail;
 
@@ -1871,7 +1874,8 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 			ftch_id + DEFAULT_TOTAL_VIG_PIPES,
 			xin_id + DEFAULT_TOTAL_VIG_PIPES,
 			MDSS_MDP_PIPE_TYPE_VIG, setup_cnt,
-			mdata->nvig_pipes - DEFAULT_TOTAL_VIG_PIPES);
+			mdata->nvig_pipes - DEFAULT_TOTAL_VIG_PIPES,
+			DEFAULT_TOTAL_VIG_PIPES);
 		if (rc)
 			goto parse_fail;
 
@@ -1885,7 +1889,8 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 			ftch_id + mdata->nvig_pipes + DEFAULT_TOTAL_RGB_PIPES,
 			xin_id + mdata->nvig_pipes + DEFAULT_TOTAL_RGB_PIPES,
 			MDSS_MDP_PIPE_TYPE_RGB, setup_cnt,
-			mdata->nrgb_pipes - DEFAULT_TOTAL_RGB_PIPES);
+			mdata->nrgb_pipes - DEFAULT_TOTAL_RGB_PIPES,
+			mdata->nvig_pipes + DEFAULT_TOTAL_RGB_PIPES);
 		if (rc)
 			goto parse_fail;
 
@@ -2317,6 +2322,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		mdata->wfd_mode = MDSS_MDP_WFD_SHARED;
 	}
 
+	mdata->has_src_split = of_property_read_bool(pdev->dev.of_node,
+		 "qcom,mdss-has-source-split");
 	prop = of_find_property(pdev->dev.of_node, "batfet-supply", NULL);
 	mdata->batfet_required = prop ? true : false;
 	rc = of_property_read_u32(pdev->dev.of_node,

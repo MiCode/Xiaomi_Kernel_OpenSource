@@ -425,6 +425,14 @@ static inline void pp_sts_set_split_bits(u32 *sts, u32 bits);
 
 static u32 last_sts, last_state;
 
+static inline void mdss_mdp_pp_get_dcm_state(struct mdss_mdp_pipe *pipe,
+	u32 *dcm_state)
+{
+	if (pipe && pipe->mixer_left && pipe->mixer_left->ctl &&
+		pipe->mixer_left->ctl->mfd)
+		*dcm_state = pipe->mixer_left->ctl->mfd->dcm_state;
+}
+
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 				   struct mdp_csc_cfg *data)
 {
@@ -819,8 +827,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 
 	pr_debug("pnum=%x\n", pipe->num);
 
-	if (pipe->mixer && pipe->mixer->ctl && pipe->mixer->ctl->mfd)
-		dcm_state = pipe->mixer->ctl->mfd->dcm_state;
+	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
 
 	mdata = mdss_mdp_get_mdata();
 	if ((pipe->flags & MDP_OVERLAY_PP_CFG_EN) &&
@@ -863,7 +870,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		return 0;
 	}
 
-	pp_hist_setup(&opmode, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer);
+	pp_hist_setup(&opmode, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer_left);
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
 		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_CFG) &&
@@ -1009,8 +1016,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			pipe->scale.enable_pxl_ext);
 	mdata = mdss_mdp_get_mdata();
 
-	if (pipe->mixer && pipe->mixer->ctl && pipe->mixer->ctl->mfd)
-		dcm_state = pipe->mixer->ctl->mfd->dcm_state;
+	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
 
 	if ((mdata->mdp_rev == MDSS_MDP_HW_REV_200) &&
 		(pipe->type == MDSS_MDP_PIPE_TYPE_VIG))
@@ -1261,8 +1267,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	if (pipe == NULL)
 		return -EINVAL;
 
-	if (pipe->mixer && pipe->mixer->ctl && pipe->mixer->ctl->mfd)
-		dcm_state = pipe->mixer->ctl->mfd->dcm_state;
+	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
 
 	/* Read IGC state and update the same if tuning mode is enable */
 	if (dcm_state == DTM_ENTER) {
