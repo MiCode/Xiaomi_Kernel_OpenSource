@@ -1,0 +1,24 @@
+Limits Management Hardware - DCVS
+
+The LMH-DCVS block is a hardware IP for every CPU cluster, to handle quick
+changes in thermal limits. The hardware responds to thermal variation amongst
+the CPUs in the cluster by requesting limits on the clock frequency and
+voltage on the OSM hardware.
+
+The LMH DCVS driver exports a virtual sensor that can be used to set the
+thermal limits on the hardware. The thermal zone is not capable of reading out
+a temperature.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: shall be "qcom,msm-hw-limits"
+
+Example:
+
+	lmh_dcvs0: qcom,limits-dcvs@0 {
+		compatible = "qcom,msm-hw-limits";
+	};
+

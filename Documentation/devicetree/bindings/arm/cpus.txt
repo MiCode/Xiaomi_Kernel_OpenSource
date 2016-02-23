@@ -240,6 +240,13 @@ nodes to be present and contain the properties described below.
 		Value type: <phandle>
 		Definition: Specifies the ACC[2] node associated with this CPU.
 
+	- qcom,lmh-dcvs:
+		Usage: optional and only defined for those SoC's that support
+		       LMH DCVS hardware block
+		Value type: <phandle>
+		Definition: Specifies the LMH device that is associated with
+			    with this CPU.
+
 	- cpu-idle-states
 		Usage: Optional
 		Value type: <prop-encoded-array>
