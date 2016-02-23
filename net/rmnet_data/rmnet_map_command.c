@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,6 +120,7 @@ static void rmnet_map_send_ack(struct sk_buff *skb,
 	if (unlikely(!skb))
 		BUG();
 
+	skb->protocol = htons(ETH_P_MAP);
 	cmd = RMNET_MAP_GET_CMD_START(skb);
 	cmd->cmd_type = type & 0x03;
 
