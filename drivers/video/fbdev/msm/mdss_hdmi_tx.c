@@ -3021,20 +3021,6 @@ static int hdmi_tx_get_dt_vreg_data(struct device *dev,
 		}
 		snprintf(mp->vreg_config[j].vreg_name, 32, "%s", st);
 
-		/* vreg-type */
-		memset(prop_name, 0, sizeof(prop_name));
-		snprintf(prop_name, 32, "%s-%s", COMPATIBLE_NAME,
-			"supply-type");
-		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
-		rc = of_property_read_u32_array(of_node,
-			prop_name, val_array, dt_vreg_total);
-		if (rc) {
-			DEV_ERR("%s: error read '%s' vreg type. rc=%d\n",
-				__func__, hdmi_tx_pm_name(module_type), rc);
-			goto error;
-		}
-		mp->vreg_config[j].type = val_array[i];
-
 		/* vreg-min-voltage */
 		memset(prop_name, 0, sizeof(prop_name));
 		snprintf(prop_name, 32, "%s-%s", COMPATIBLE_NAME,
@@ -3068,24 +3054,23 @@ static int hdmi_tx_get_dt_vreg_data(struct device *dev,
 		/* vreg-op-mode */
 		memset(prop_name, 0, sizeof(prop_name));
 		snprintf(prop_name, 32, "%s-%s", COMPATIBLE_NAME,
-			"op-mode");
+			"peak-current");
 		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
 		rc = of_property_read_u32_array(of_node,
 			prop_name, val_array,
 			dt_vreg_total);
 		if (rc) {
-			DEV_ERR("%s: error read '%s' min volt. rc=%d\n",
+			DEV_ERR("%s: error read '%s' peak current. rc=%d\n",
 				__func__, hdmi_tx_pm_name(module_type), rc);
 			goto error;
 		}
-		mp->vreg_config[j].optimum_voltage = val_array[i];
+		mp->vreg_config[j].peak_current = val_array[i];
 
-		DEV_DBG("%s: %s type=%d, min=%d, max=%d, op=%d\n",
-			__func__, mp->vreg_config[j].vreg_name,
-			mp->vreg_config[j].type,
+		DEV_DBG("%s: %s min=%d, max=%d, pc=%d\n", __func__,
+			mp->vreg_config[j].vreg_name,
 			mp->vreg_config[j].min_voltage,
 			mp->vreg_config[j].max_voltage,
-			mp->vreg_config[j].optimum_voltage);
+			mp->vreg_config[j].peak_current);
 
 		ndx_mask >>= 1;
 		j++;
