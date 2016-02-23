@@ -718,10 +718,28 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+
+static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,
+		struct device_node *node)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int init_level = 1;
+
+	of_property_read_u32(node, "qcom,initial-pwrlevel", &init_level);
+
+	if (init_level < 0 || init_level > pwr->num_pwrlevels)
+		init_level = 1;
+
+	pwr->active_pwrlevel = init_level;
+	pwr->default_pwrlevel = init_level;
+}
+
 static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
 		struct device_node *parent)
 {
 	struct device_node *node;
+	int ret;
 
 	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevels");
 
@@ -730,7 +748,10 @@ static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
 		return -EINVAL;
 	}
 
-	return adreno_of_parse_pwrlevels(adreno_dev, node);
+	ret = adreno_of_parse_pwrlevels(adreno_dev, node);
+	if (ret == 0)
+		adreno_of_get_initial_pwrlevel(adreno_dev, parent);
+	return ret;
 }
 
 static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
@@ -748,8 +769,15 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 		if (of_property_read_u32(child, "qcom,speed-bin", &bin))
 			continue;
 
-		if (bin == adreno_dev->speed_bin)
-			return adreno_of_parse_pwrlevels(adreno_dev, child);
+		if (bin == adreno_dev->speed_bin) {
+			int ret;
+
+			ret = adreno_of_parse_pwrlevels(adreno_dev, child);
+			if (ret == 0)
+				adreno_of_get_initial_pwrlevel(adreno_dev,
+								child);
+			return ret;
+		}
 	}
 
 	return -ENODEV;
@@ -775,9 +803,8 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 		struct platform_device *pdev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct device_node *node = pdev->dev.of_node;
-	int i, init_level;
+	int i;
 	unsigned int timeout;
 
 	if (of_property_read_string(node, "label", &pdev->name)) {
@@ -796,15 +823,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	if (adreno_of_get_pwrlevels(adreno_dev, node))
 		return -EINVAL;
-
-	if (of_property_read_u32(node, "qcom,initial-pwrlevel", &init_level))
-		init_level = 1;
-
-	if (init_level < 0 || init_level > pwr->num_pwrlevels)
-		init_level = 1;
-
-	pwr->active_pwrlevel = init_level;
-	pwr->default_pwrlevel = init_level;
 
 	/* get pm-qos-active-latency, set it to default if not found */
 	if (of_property_read_u32(node, "qcom,pm-qos-active-latency",
