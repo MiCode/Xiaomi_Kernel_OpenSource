@@ -37,87 +37,6 @@ static struct dsi_drv_cm_data shared_ctrl_data;
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
 
-static int mdss_dsi_labibb_vreg_init(struct platform_device *pdev)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
-	int rc;
-
-	ctrl = platform_get_drvdata(pdev);
-	if (!ctrl) {
-		pr_err("%s: invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	if (!ctrl->panel_bias_vreg)
-		return -EINVAL;
-
-	ctrl->lab = regulator_get(&pdev->dev, "lab_reg");
-	rc = PTR_RET(ctrl->lab);
-	if (rc) {
-		ctrl->lab = NULL;
-		pr_err("%s: lab_regi get failed.\n", __func__);
-		return rc;
-	}
-	ctrl->ibb = regulator_get(&pdev->dev, "ibb_reg");
-	rc = PTR_RET(ctrl->ibb);
-	if (rc) {
-		ctrl->lab = NULL;
-		ctrl->ibb = NULL;
-		pr_err("%s: ibb_regi get failed.\n", __func__);
-		regulator_put(ctrl->lab);
-		return rc;
-	}
-
-	pr_debug("%s: lab=%p ibb=%p\n", __func__,
-				ctrl->lab, ctrl->ibb);
-
-	return 0;
-}
-
-static int mdss_dsi_labibb_vreg_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
-							int enable)
-{
-	int rc;
-
-	if (!ctrl->panel_bias_vreg || !ctrl->lab || !ctrl->ibb)
-		return -EINVAL;
-
-	pr_debug("%s: ndx=%d enable=%d\n", __func__, ctrl->ndx, enable);
-
-	if (enable) {
-		rc = regulator_enable(ctrl->lab);
-		if (rc) {
-			pr_err("%s: enable failed for lab regulator\n",
-							__func__);
-			return rc;
-		}
-		rc = regulator_enable(ctrl->ibb);
-		if (rc) {
-			pr_err("%s: enable failed for ibb regulator\n",
-							__func__);
-			regulator_disable(ctrl->lab);
-			return rc;
-		}
-
-	} else {
-		rc = regulator_disable(ctrl->lab);
-		if (rc) {
-			pr_err("%s: disable failed for lab regulator\n",
-							__func__);
-			return rc;
-		}
-
-		rc = regulator_disable(ctrl->ibb);
-		if (rc) {
-			pr_err("%s: disable failed for ibb regulator\n",
-							__func__);
-			return rc;
-		}
-	}
-
-	return 0;
-}
-
 static int mdss_dsi_regulator_init(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -145,8 +64,6 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev)
 				__func__, __mdss_dsi_pm_name(i));
 	}
 
-	mdss_dsi_labibb_vreg_init(pdev);
-
 	return rc;
 }
 
@@ -172,15 +89,6 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
 		pr_debug("reset disable: pinctrl not enabled\n");
-
-	if (ctrl_pdata->panel_bias_vreg) {
-		pr_debug("%s: Disabling panel bias vreg. ndx = %d\n",
-		       __func__, ctrl_pdata->ndx);
-		if (mdss_dsi_labibb_vreg_ctrl(ctrl_pdata, false))
-			pr_err("Unable to disable bias vreg\n");
-		/* Add delay recommended by panel specs */
-		udelay(2000);
-	}
 
 	ret = msm_dss_enable_vreg(
 		ctrl_pdata->power_data[DSI_PANEL_PM].vreg_config,
@@ -213,15 +121,6 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 		pr_err("%s: failed to enable vregs for %s\n",
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 		return ret;
-	}
-
-	if (ctrl_pdata->panel_bias_vreg) {
-		pr_debug("%s: Enable panel bias vreg. ndx = %d\n",
-		       __func__, ctrl_pdata->ndx);
-		if (mdss_dsi_labibb_vreg_ctrl(ctrl_pdata, true))
-			pr_err("Unable to configure bias vreg\n");
-		/* Add delay recommended by panel specs */
-		udelay(2000);
 	}
 
 	/*
@@ -2207,14 +2106,6 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 			goto error_vreg;
 		}
 	}
-
-	/*
-	 * Currently, the Bias vreg is controlled by wled driver.
-	 * Once we have support from pmic driver, implement the
-	 * bias vreg control using the existing vreg apis.
-	 */
-	ctrl_pdata->panel_bias_vreg = of_property_read_bool(
-			pdev->dev.of_node, "qcom,dsi-panel-bias-vreg");
 
 	/* DSI panels can be different between controllers */
 	rc = mdss_dsi_get_panel_cfg(panel_cfg, ctrl_pdata);

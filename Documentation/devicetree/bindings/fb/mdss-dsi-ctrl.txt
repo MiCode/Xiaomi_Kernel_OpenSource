@@ -63,7 +63,6 @@ Optional properties:
 					controller. These pin configurations are installed in the pinctrl
 					device node. Refer to pinctrl-bindings.txt
 - qcom,regulator-ldo-mode:		Boolean to enable ldo mode for the dsi phy regulator
-- qcom,dsi-panel-bias-vreg:		Boolean to enable control of panel bias regulator
 - qcom,mmss-ulp-clamp-ctrl-offset:	Specifies the offset for dsi ulps clamp control register.
 - qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
 - qcom,dsi-irq-line:			Boolean specifies if DSI has a different irq line than mdp.
@@ -106,7 +105,6 @@ Example:
 		qcom,platform-enable-gpio = <&msmgpio 58 1>;
 		qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
 		qcom,platform-mode-gpio = <&msmgpio 7 0>;
-		qcom,dsi-panel-bias-vreg;
 		qcom,dsi-irq-line;
 		qcom,timing-db-mode;
 		qcom,dsi-clk-ln-recovery;
