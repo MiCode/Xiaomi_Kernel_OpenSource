@@ -71,9 +71,8 @@ ev_mutex_free:
 
 size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	int i, r;
+	int i = 0;
 	size_t mhi_dev_mem = 0;
-	struct mhi_chan_info chan_info;
 
 	/* Calculate size needed for contexts */
 	mhi_dev_mem += (MHI_MAX_CHANNELS * sizeof(struct mhi_chan_ctxt)) +
@@ -90,23 +89,6 @@ size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_dev_mem += (sizeof(union mhi_event_pkt) *
 				mhi_dev_ctxt->ev_ring_props[i].nr_desc);
 
-	/* Calculate size needed for xfer TREs and bounce buffers */
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
-		if (VALID_CHAN_NR(i)) {
-			r = get_chan_props(mhi_dev_ctxt, i, &chan_info);
-			if (r)
-				continue;
-			/* Add size of TREs */
-			mhi_dev_mem += (sizeof(union mhi_xfer_pkt) *
-					chan_info.max_desc);
-			/* Add bounce buffer size */
-			if (mhi_dev_ctxt->flags.bb_enabled) {
-				mhi_log(MHI_MSG_INFO,
-					"Enabling BB list, chan %d\n", i);
-				/*mhi_dev_mem += (MAX_BOUNCE_BUF_SIZE *
-						chan_info.max_desc); */
-			}
-		}
 	mhi_log(MHI_MSG_INFO, "Final bytes for MHI device space %zd\n",
 				mhi_dev_mem);
 	return mhi_dev_mem;
@@ -198,20 +180,6 @@ static int mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 	ring[PRIMARY_CMD_RING].len = ring_size;
 	ring[PRIMARY_CMD_RING].el_size = sizeof(union mhi_cmd_pkt);
 	ring[PRIMARY_CMD_RING].overwrite_en = 0;
-	return 0;
-}
-
-
-static int enable_bb_ctxt(struct mhi_ring *bb_ctxt, int nr_el)
-{
-	bb_ctxt->el_size = sizeof(struct mhi_buf_info);
-	bb_ctxt->len     = bb_ctxt->el_size * nr_el;
-	bb_ctxt->base    = kzalloc(bb_ctxt->len, GFP_KERNEL);
-	bb_ctxt->wp	 = bb_ctxt->base;
-	bb_ctxt->rp	 = bb_ctxt->base;
-	bb_ctxt->ack_rp  = bb_ctxt->base;
-	if (!bb_ctxt->base)
-		return -ENOMEM;
 	return 0;
 }
 
@@ -311,7 +279,7 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 					calculate_mhi_space(mhi_dev_ctxt);
 
 	mhi_dev_ctxt->dev_space.dev_mem_start =
-		dma_alloc_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+		dma_alloc_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 				    mhi_dev_ctxt->dev_space.dev_mem_len,
 				   &mhi_dev_ctxt->dev_space.dma_dev_mem_start,
 				    GFP_KERNEL);
@@ -392,49 +360,9 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 				(u64)dma_dev_mem_start + mhi_mem_index);
 		mhi_mem_index += ring_len;
 	}
-
-	/* Initialize both the local and device xfer contexts */
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
-		if (VALID_CHAN_NR(i)) {
-			struct mhi_chan_info chan_info;
-
-			r = get_chan_props(mhi_dev_ctxt, i, &chan_info);
-			if (r)
-				continue;
-			mhi_log(MHI_MSG_INFO, "Initializing chan ctxt %d\n", i);
-			ring_len = (sizeof(union mhi_xfer_pkt) *
-							chan_info.max_desc);
-			init_dev_chan_ctxt(
-				&mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[i],
-				dma_dev_mem_start + mhi_mem_index,
-				ring_len, chan_info.ev_ring);
-			/* TODO: May not need to do this. It would be best for
-			 *	the client to set it during chan open */
-			mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[i].
-						mhi_chan_type = (i % 2) + 1;
-			init_local_chan_ctxt(
-				&mhi_dev_ctxt->mhi_local_chan_ctxt[i],
-				dev_mem_start + mhi_mem_index,
-				ring_len);
-			/* TODO: May not need to do this. It would be best for
-			 *	the client to set it during chan open */
-			mhi_dev_ctxt->mhi_local_chan_ctxt[i].dir = (i % 2) + 1;
-			/* Add size of TREs */
-			mhi_mem_index += ring_len;
-			if (mhi_dev_ctxt->flags.bb_enabled) {
-				r = enable_bb_ctxt(
-						&mhi_dev_ctxt->chan_bb_list[i],
-						chan_info.max_desc);
-				if (r)
-					goto error_during_bb_list;
-			}
-		}
 	return 0;
 
-error_during_bb_list:
-	for (; i >= 0; --i)
-		kfree(mhi_dev_ctxt->chan_bb_list[i].base);
-	dma_free_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 			   mhi_dev_ctxt->dev_space.dev_mem_len,
 			   mhi_dev_ctxt->dev_space.dev_mem_start,
 			   mhi_dev_ctxt->dev_space.dma_dev_mem_start);
@@ -629,7 +557,7 @@ error_during_thread_init:
 	kfree(mhi_dev_ctxt->mhi_ev_wq.m3_event);
 	kfree(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
 error_wq_init:
-	dma_free_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 		   mhi_dev_ctxt->dev_space.dev_mem_len,
 		   mhi_dev_ctxt->dev_space.dev_mem_start,
 		   mhi_dev_ctxt->dev_space.dma_dev_mem_start);
