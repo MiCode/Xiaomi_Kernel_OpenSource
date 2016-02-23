@@ -339,7 +339,7 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 	if (ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsWDIInfoData_t) >=
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
 		ipa3_ctx->smem_sz) {
 			IPAERR("uc_wdi_stats 0x%x outside SRAM\n",
 				ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_ofst);
@@ -824,10 +824,10 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		tx->num_tx_buffers = in->u.dl.num_tx_buffers;
 		tx->ipa_pipe_number = ipa_ep_idx;
 		out->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
-				IPA_REG_BASE_OFST_v3_0 +
-				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
-					IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
+				ipahal_get_reg_base() +
+				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
+				IPA_HW_WDI_TX_MBOX_START_INDEX/32,
+				IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
 		rx = (struct IpaHwWdiRxSetUpCmdData_t *)cmd.base;
 
@@ -867,8 +867,8 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 		rx->ipa_pipe_number = ipa_ep_idx;
 		out->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
-				IPA_REG_BASE_OFST_v3_0 +
-				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+				ipahal_get_reg_base() +
+				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
 					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
 					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}
@@ -1417,14 +1417,14 @@ int ipa3_uc_wdi_get_dbpa(
 
 	if (IPA_CLIENT_IS_CONS(param->client)) {
 		param->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
-				IPA_REG_BASE_OFST_v3_0 +
-				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+				ipahal_get_reg_base() +
+				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
 					IPA_HW_WDI_TX_MBOX_START_INDEX/32,
 					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
 		param->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
-				IPA_REG_BASE_OFST_v3_0 +
-				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+				ipahal_get_reg_base() +
+				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
 					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
 					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}

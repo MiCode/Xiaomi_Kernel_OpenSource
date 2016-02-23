@@ -80,8 +80,8 @@ enum ipa_aggr_type {
  * enum ipa_aggr_mode - global aggregation mode
  */
 enum ipa_aggr_mode {
-	IPA_MBIM,
-	IPA_QCNCM,
+	IPA_MBIM_AGGR,
+	IPA_QCNCM_AGGR,
 };
 
 /**
@@ -239,6 +239,13 @@ struct ipa_ep_cfg_mode {
  *			aggregation closure. Valid for Output Pipes only (IPA
  *			Producer). EOF affects only Pipes configured for
  *			generic aggregation.
+ * @aggr_hard_byte_limit_en: If set to 1, byte-limit aggregation for this
+ *			pipe will apply a hard-limit behavior which will not
+ *			allow frames to be closed with more than byte-limit
+ *			bytes. If set to 0, previous byte-limit behavior
+ *			will apply - frames close once a packet causes the
+ *			accumulated byte-count to cross the byte-limit
+ *			threshold (closed frame will contain that packet).
  */
 struct ipa_ep_cfg_aggr {
 	enum ipa_aggr_en_type aggr_en;
@@ -246,6 +253,7 @@ struct ipa_ep_cfg_aggr {
 	u32 aggr_byte_limit;
 	u32 aggr_time_limit;
 	u32 aggr_pkt_limit;
+	u32 aggr_hard_byte_limit_en;
 };
 
 /**
@@ -323,11 +331,16 @@ enum ipa_cs_offload {
  *	checksum meta info header (4 bytes) starts (UL). Values are 0-15, which
  *	mean 0 - 60 byte checksum header offset. Valid for input
  *	pipes only (IPA consumer)
+ * @gen_qmb_master_sel: Select bit for ENDP GEN-QMB master. This is used to
+ *	separate DDR & PCIe transactions in-order to limit them as
+ *	a group (using MAX_WRITES/READS limiation). Valid for input and
+ *	output pipes (IPA consumer+producer)
  */
 struct ipa_ep_cfg_cfg {
 	bool frag_offload_en;
 	enum ipa_cs_offload cs_offload_en;
 	u8 cs_metadata_hdr_offset;
+	u8 gen_qmb_master_sel;
 };
 
 /**

@@ -18,6 +18,7 @@
 #include <linux/msm_gsi.h>
 #include "ipa_i.h"
 #include "ipa_trace.h"
+#include "ipahal/ipahal.h"
 
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
@@ -77,7 +78,7 @@ static void ipa3_dma_memcpy_notify(struct ipa3_sys_context *sys,
 static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep);
 static int ipa_populate_tag_field(struct ipa3_desc *desc,
 		struct ipa3_tx_pkt_wrapper *tx_pkt,
-		struct ipa3_ip_packet_tag_status **tag_ret);
+		struct ipahal_imm_cmd_pyld **tag_pyld_ret);
 static int ipa_handle_rx_core_gsi(struct ipa3_sys_context *sys,
 	bool process_all, bool in_poll_state);
 static int ipa_handle_rx_core_sps(struct ipa3_sys_context *sys,
@@ -431,7 +432,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		bool in_atomic)
 {
 	struct ipa3_tx_pkt_wrapper *tx_pkt, *tx_pkt_first;
-	struct ipa3_ip_packet_tag_status *tag_ret = NULL;
+	struct ipahal_imm_cmd_pyld *tag_pyld_ret = NULL;
 	struct ipa3_tx_pkt_wrapper *next_pkt;
 	struct sps_transfer transfer = { 0 };
 	struct sps_iovec *iovec;
@@ -505,9 +506,11 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		}
 
 		/* populate tag field */
-		if (desc[i].opcode == IPA_IP_PACKET_TAG_STATUS) {
+		if (desc[i].opcode ==
+			ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_IP_PACKET_TAG_STATUS)) {
 			if (ipa_populate_tag_field(&desc[i], tx_pkt,
-				&tag_ret)) {
+				&tag_pyld_ret)) {
 				IPAERR("Failed to populate tag field\n");
 				goto failure;
 			}
@@ -626,7 +629,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	return 0;
 
 failure:
-	kfree(tag_ret);
+	ipahal_destroy_imm_cmd(tag_pyld_ret);
 	tx_pkt = tx_pkt_first;
 	for (j = 0; j < i; j++) {
 		next_pkt = list_next_entry(tx_pkt, link);
@@ -1458,7 +1461,7 @@ static void ipa3_tx_comp_usr_notify_release(void *user1, int user2)
 
 static void ipa3_tx_cmd_comp(void *user1, int user2)
 {
-	kfree(user1);
+	ipahal_destroy_imm_cmd(user1);
 }
 
 /**
@@ -1493,7 +1496,8 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 {
 	struct ipa3_desc desc[3];
 	int dst_ep_idx;
-	struct ipa3_ip_packet_init *cmd;
+	struct ipahal_imm_cmd_ip_packet_init cmd;
+	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
 	struct ipa3_sys_context *sys;
 	int src_ep_idx;
 
@@ -1542,24 +1546,26 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 
 	if (dst_ep_idx != -1) {
 		/* SW data path */
-		cmd = kzalloc(sizeof(struct ipa3_ip_packet_init), GFP_ATOMIC);
-		if (!cmd) {
-			IPAERR("failed to alloc immediate command object\n");
+		cmd.destination_pipe_index = dst_ep_idx;
+		cmd_pyld = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_IP_PACKET_INIT, &cmd, true);
+		if (unlikely(!cmd_pyld)) {
+			IPAERR("failed to construct ip_packet_init imm cmd\n");
 			goto fail_gen;
 		}
 
-		cmd->destination_pipe_index = dst_ep_idx;
-
 		/* the tag field will be populated in ipa3_send() function */
-		desc[0].opcode = IPA_IP_PACKET_TAG_STATUS;
+		desc[0].opcode = ipahal_imm_cmd_get_opcode(
+			IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
 		desc[0].type = IPA_IMM_CMD_DESC;
-		desc[0].callback = ipa3_tag_free_buf;
-		desc[1].opcode = IPA_IP_PACKET_INIT;
-		desc[1].pyld = cmd;
-		desc[1].len = sizeof(struct ipa3_ip_packet_init);
+		desc[0].callback = ipa3_tag_destroy_imm;
+		desc[1].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_INIT);
+		desc[1].pyld = cmd_pyld->data;
+		desc[1].len = cmd_pyld->len;
 		desc[1].type = IPA_IMM_CMD_DESC;
 		desc[1].callback = ipa3_tx_cmd_comp;
-		desc[1].user1 = cmd;
+		desc[1].user1 = cmd_pyld;
 		desc[2].pyld = skb->data;
 		desc[2].len = skb->len;
 		desc[2].type = IPA_DATA_DESC_SKB;
@@ -1581,9 +1587,11 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		IPA_STATS_INC_CNT(ipa3_ctx->stats.tx_sw_pkts);
 	} else {
 		/* HW data path */
-		desc[0].opcode = IPA_IP_PACKET_TAG_STATUS;
+		desc[0].opcode =
+			ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
 		desc[0].type = IPA_IMM_CMD_DESC;
-		desc[0].callback = ipa3_tag_free_buf;
+		desc[0].callback = ipa3_tag_destroy_imm;
 		desc[1].pyld = skb->data;
 		desc[1].len = skb->len;
 		desc[1].type = IPA_DATA_DESC_SKB;
@@ -1606,7 +1614,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	return 0;
 
 fail_send:
-	kfree(cmd);
+	ipahal_destroy_imm_cmd(cmd_pyld);
 fail_gen:
 	return -EFAULT;
 }
@@ -3139,9 +3147,11 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 			(u8)sys->ep->cfg.meta.qmap_id;
 
 		/* the tag field will be populated in ipa3_send() function */
-		desc[0].opcode = IPA_IP_PACKET_TAG_STATUS;
+		desc[0].opcode =
+			ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
 		desc[0].type = IPA_IMM_CMD_DESC;
-		desc[0].callback = ipa3_tag_free_buf;
+		desc[0].callback = ipa3_tag_destroy_imm;
 		desc[1].pyld = entry->pyld_buffer;
 		desc[1].len = entry->pyld_len;
 		desc[1].type = IPA_DATA_DESC_SKB;
@@ -3646,31 +3656,30 @@ fail_alloc_evt_ring:
 
 static int ipa_populate_tag_field(struct ipa3_desc *desc,
 		struct ipa3_tx_pkt_wrapper *tx_pkt,
-		struct ipa3_ip_packet_tag_status **tag_ret)
+		struct ipahal_imm_cmd_pyld **tag_pyld_ret)
 {
-	struct ipa3_ip_packet_tag_status *tag = NULL;
-	int tag_size;
+	struct ipahal_imm_cmd_pyld *tag_pyld;
+	struct ipahal_imm_cmd_ip_packet_tag_status tag_cmd = {0};
 
-	tag = (struct ipa3_ip_packet_tag_status *)desc->pyld;
-	tag_size = sizeof(struct ipa3_ip_packet_tag_status);
 	/* populate tag field only if it is NULL */
-	if (tag == NULL) {
-		tag = kzalloc(tag_size, GFP_ATOMIC);
-		if (!tag) {
-			IPAERR("Failed to alloc tag.\n");
+	if (desc->pyld == NULL) {
+		tag_cmd.tag = pointer_to_tag_wa(tx_pkt);
+		tag_pyld = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_IP_PACKET_TAG_STATUS, &tag_cmd, true);
+		if (unlikely(!tag_pyld)) {
+			IPAERR("Failed to construct ip_packet_tag_status\n");
 			return -EFAULT;
 		}
 		/*
 		 * This is for 32-bit pointer, will need special
 		 * handling if 64-bit pointer is used
 		 */
-		tag->tag = pointer_to_tag_wa(tx_pkt);
 		IPADBG_LOW("tx_pkt sent in tag: 0x%p\n", tx_pkt);
-		desc->pyld = tag;
-		desc->len = sizeof(*tag);
-		desc->user1 = tag;
+		desc->pyld = tag_pyld->data;
+		desc->len = tag_pyld->len;
+		desc->user1 = tag_pyld;
 
-		*tag_ret = tag;
+		*tag_pyld_ret = tag_pyld;
 	}
 	return 0;
 }
