@@ -947,6 +947,7 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 	}
 }
 
+/* Must be called with clocks/regulators enabled */
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 					  bool leaf, void *cookie)
 {
@@ -959,9 +960,6 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 
 	BUG_ON(atomic_ctx && !smmu);
 	if (!smmu)
-		return;
-
-	if (arm_smmu_enable_clocks_atomic(smmu))
 		return;
 
 	if (stage1) {
@@ -990,8 +988,6 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 		reg = ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_TLBIVMID;
 		writel_relaxed(ARM_SMMU_CB_VMID(cfg), reg);
 	}
-
-	arm_smmu_disable_clocks_atomic(smmu);
 }
 
 static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
