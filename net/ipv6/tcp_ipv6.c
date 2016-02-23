@@ -1698,7 +1698,6 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
 	const struct fastopen_queue *fastopenq = &icsk->icsk_accept_queue.fastopenq;
 	int rx_queue;
 	int state;
-	struct fastopen_queue *fastopenq = icsk->icsk_accept_queue.fastopenq;
 	__u8 state_seq = sp->sk_state;
 
 	dest  = &sp->sk_v6_daddr;
