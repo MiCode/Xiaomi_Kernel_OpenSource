@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,8 +18,14 @@
 
 #include "mhi_sys.h"
 
-enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_VERBOSE;
-enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_VERBOSE;
+enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_ERROR;
+
+#ifdef CONFIG_MSM_MHI_DEBUG
+	enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_VERBOSE;
+#else
+	enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_ERROR;
+#endif
+
 unsigned int mhi_log_override;
 
 module_param(mhi_msg_lvl , uint, S_IRUGO | S_IWUSR);
@@ -27,9 +33,6 @@ MODULE_PARM_DESC(mhi_msg_lvl, "dbg lvl");
 
 module_param(mhi_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_ipc_log_lvl, "dbg lvl");
-
-module_param(mhi_log_override , uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(mhi_log_override, "dbg class");
 
 static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 				size_t count, loff_t *offp)
