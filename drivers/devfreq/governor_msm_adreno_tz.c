@@ -311,7 +311,8 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	 * If there is an extended block of busy processing,
 	 * increase frequency.  Otherwise run the normal algorithm.
 	 */
-	if (priv->bin.busy_time > CEILING) {
+	if (!priv->disable_busy_time_burst &&
+			priv->bin.busy_time > CEILING) {
 		val = -1 * level;
 	} else {
 
