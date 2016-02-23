@@ -298,6 +298,14 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	open_cfg.notify_state = apr_tal_notify_state;
 	open_cfg.notify_rx_intent_req = apr_tal_notify_rx_intent_req;
 	open_cfg.priv = apr_ch;
+	/*
+	 * The transport name "smd_trans" is required if far end is using SMD.
+	 * In that case Glink will fall back to SMD and the client (APR in this
+	 * case) will still work as if Glink is the communication channel.
+	 * If far end is already using Glink, this property will be ignored in
+	 * Glink layer and communication will be through Glink.
+	 */
+	open_cfg.transport = "smd_trans";
 
 	apr_ch->channel_state = GLINK_REMOTE_DISCONNECTED;
 	apr_ch->handle = glink_open(&open_cfg);
