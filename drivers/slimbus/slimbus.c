@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -641,6 +641,7 @@ void slim_report_absent(struct slim_device *sbdev)
 }
 EXPORT_SYMBOL(slim_report_absent);
 
+static int slim_remove_ch(struct slim_controller *ctrl, struct slim_ich *slc);
 /*
  * slim_framer_booted: This function is called by controller after the active
  * framer has booted (using Bus Reset sequence, or after it has shutdown and has
@@ -653,8 +654,20 @@ void slim_framer_booted(struct slim_controller *ctrl)
 {
 	struct slim_device *sbdev;
 	struct list_head *pos, *next;
+	int i;
+
 	if (!ctrl)
 		return;
+
+	/* Since framer has rebooted, reset all data channels */
+	mutex_lock(&ctrl->sched.m_reconf);
+	for (i = 0; i < ctrl->nchans; i++) {
+		struct slim_ich *slc = &ctrl->chans[i];
+
+		if (slc->state > SLIM_CH_DEFINED)
+			slim_remove_ch(ctrl, slc);
+	}
+	mutex_unlock(&ctrl->sched.m_reconf);
 	mutex_lock(&ctrl->m_ctrl);
 	list_for_each_safe(pos, next, &ctrl->devs) {
 		struct slim_driver *sbdrv;
@@ -1667,6 +1680,7 @@ static int slim_remove_ch(struct slim_controller *ctrl, struct slim_ich *slc)
 	arr[*len] = NULL;
 
 	slc->state = SLIM_CH_ALLOCATED;
+	slc->def = 0;
 	slc->newintr = 0;
 	slc->newoff = 0;
 	for (i = 0; i < slc->nsink; i++) {
@@ -3099,6 +3113,7 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 		return -EINVAL;
 
 	mutex_lock(&sb->sldev_reconf);
+	mutex_lock(&ctrl->sched.m_reconf);
 	do {
 		struct slim_pending_ch *pch;
 		u8 add_mark_removal  = true;
@@ -3157,6 +3172,7 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 		if (nchan < SLIM_GRP_TO_NCHAN(chanh))
 			chan = SLIM_HDL_TO_CHIDX(slc->nextgrp);
 	} while (nchan < SLIM_GRP_TO_NCHAN(chanh));
+	mutex_unlock(&ctrl->sched.m_reconf);
 	if (!ret && commit == true)
 		ret = slim_reconfigure_now(sb);
 	mutex_unlock(&sb->sldev_reconf);
