@@ -744,7 +744,7 @@ static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 		 * Return the word address of the erroring register so that it
 		 * matches the register specification
 		 */
-		KGSL_DRV_CRIT(device,
+		KGSL_DRV_CRIT_RATELIMIT(device,
 			"RBBM | AHB bus error | %s | addr=%x | ports=%x:%x\n",
 			reg & (1 << 28) ? "WRITE" : "READ",
 			(reg & 0xFFFFF) >> 2, (reg >> 20) & 0x3,
@@ -752,7 +752,7 @@ static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 
 		/* Clear the error */
 		kgsl_regwrite(device, A4XX_RBBM_AHB_CMD, (1 << 4));
-		return;
+		break;
 	}
 	case A4XX_INT_RBBM_REG_TIMEOUT:
 		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: AHB register timeout\n");
@@ -798,11 +798,11 @@ static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	}
 	case A4XX_INT_CP_REG_PROTECT_FAULT:
 		kgsl_regread(device, A4XX_CP_PROTECT_STATUS, &reg);
-		KGSL_DRV_CRIT(device,
+		KGSL_DRV_CRIT_RATELIMIT(device,
 			"CP | Protected mode error| %s | addr=%x\n",
 			reg & (1 << 24) ? "WRITE" : "READ",
 			(reg & 0xFFFFF) >> 2);
-		return;
+		break;
 	case A4XX_INT_CP_AHB_ERROR_HALT:
 		KGSL_DRV_CRIT_RATELIMIT(device,
 			"ringbuffer AHB error interrupt\n");

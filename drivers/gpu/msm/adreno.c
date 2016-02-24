@@ -533,7 +533,8 @@ void adreno_irqctrl(struct adreno_device *adreno_dev, int state)
  */
 void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit)
 {
-	KGSL_DRV_CRIT(KGSL_DEVICE(adreno_dev), "MISC: GPU hang detected\n");
+	KGSL_DRV_CRIT_RATELIMIT(KGSL_DEVICE(adreno_dev),
+			"MISC: GPU hang detected\n");
 	adreno_irqctrl(adreno_dev, 0);
 
 	/* Trigger a fault in the dispatcher - this will effect a restart */
@@ -575,7 +576,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 			if (irq_params->mask & BIT(i))
 				irq_params->funcs[i].func(adreno_dev, i);
 		} else
-			KGSL_DRV_CRIT(device,
+			KGSL_DRV_CRIT_RATELIMIT(device,
 					"Unhandled interrupt bit %x\n", i);
 
 		ret = IRQ_HANDLED;
