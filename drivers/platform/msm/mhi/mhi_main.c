@@ -1154,10 +1154,9 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 					"Done. Processed until: %lx.\n",
 					(uintptr_t)trb_data_loc);
 				break;
-			} else {
-				local_trb_loc =
-				(union mhi_xfer_pkt *)local_chan_ctxt->rp;
 			}
+			local_trb_loc =
+			(union mhi_xfer_pkt *)local_chan_ctxt->rp;
 			i++;
 		} while (i < nr_trb_to_parse);
 		break;
@@ -1183,9 +1182,8 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 				     db_value);
 		}
 		client_handle = mhi_dev_ctxt->client_handle_list[chan];
-			if (NULL != client_handle) {
+			if (NULL != client_handle)
 				result->transaction_status = -ENOTCONN;
-			}
 		break;
 	}
 	case MHI_EVENT_CC_BAD_TRE:
@@ -1435,9 +1433,9 @@ int parse_cmd_event(struct mhi_device_ctxt *mhi_dev_ctxt,
 	case MHI_EVENT_CC_SUCCESS:
 	{
 		u32 chan = 0;
+
 		MHI_TRB_GET_INFO(CMD_TRB_CHID, cmd_pkt, chan);
 		switch (MHI_TRB_READ_INFO(CMD_TRB_TYPE, cmd_pkt)) {
-
 		mhi_log(MHI_MSG_INFO, "CCE chan %d cmd %d\n", chan,
 				MHI_TRB_READ_INFO(CMD_TRB_TYPE, cmd_pkt));
 		case MHI_PKT_TYPE_RESET_CHAN_CMD:
