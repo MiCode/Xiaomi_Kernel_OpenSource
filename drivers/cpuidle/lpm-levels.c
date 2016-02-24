@@ -972,20 +972,31 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 #elif defined(CONFIG_ARM_PSCI)
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 {
-	int affinity_level = 0;
-	int state_id = get_cluster_id(cluster, &affinity_level);
-	int power_state = PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
-
-	affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
 	if (!idx) {
+		stop_critical_timings();
 		wfi();
+		start_critical_timings();
 		return 1;
+	} else {
+		int affinity_level = 0;
+		int state_id = get_cluster_id(cluster, &affinity_level);
+		int power_state =
+			PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
+		bool success = false;
+
+		affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
+		state_id |= (power_state | affinity_level
+			| cluster->cpu->levels[idx].psci_id);
+
+		update_debug_pc_event(CPU_ENTER, state_id,
+						0xdeaffeed, 0xdeaffeed, true);
+		stop_critical_timings();
+		success = !cpu_suspend(state_id);
+		start_critical_timings();
+		update_debug_pc_event(CPU_EXIT, state_id,
+						success, 0xdeaffeed, true);
+		return success;
 	}
-
-	state_id |= (power_state | affinity_level
-				| cluster->cpu->levels[idx].psci_id);
-
-	return !cpu_suspend(state_id);
 }
 #else
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
