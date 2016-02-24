@@ -576,6 +576,15 @@ static inline struct clk *mdss_mdp_get_clk(u32 clk_idx)
 	return NULL;
 }
 
+static inline void mdss_update_sd_client(struct mdss_data_type *mdata,
+							bool status)
+{
+	if (status)
+		atomic_inc(&mdata->sd_client_count);
+	else
+		atomic_add_unless(&mdss_res->sd_client_count, -1, 0);
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_iommu_attach(struct mdss_data_type *mdata);
 int mdss_iommu_dettach(struct mdss_data_type *mdata);
@@ -597,6 +606,7 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx);
 int mdss_mdp_vsync_clk_enable(int enable);
 void mdss_mdp_clk_ctrl(int enable);
 struct mdss_data_type *mdss_mdp_get_mdata(void);
+int mdss_mdp_secure_display_ctrl(unsigned int enable);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
