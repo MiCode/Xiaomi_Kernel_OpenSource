@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1806,14 +1806,14 @@ static int vdd_restriction_apply_voltage(struct rail *r, int level)
 	/* level = -1: disable, level = 0,1,2..n: enable */
 	if (level == -1) {
 		ret = regulator_set_voltage(r->reg, r->min_level,
-			r->levels[r->num_levels - 1]);
+			INT_MAX);
 		if (!ret)
 			r->curr_level = -1;
 		pr_debug("Requested min level for %s. curr level: %d\n",
 				r->name, r->curr_level);
 	} else if (level >= 0 && level < (r->num_levels)) {
 		ret = regulator_set_voltage(r->reg, r->levels[level],
-			r->levels[r->num_levels - 1]);
+			INT_MAX);
 		if (!ret)
 			r->curr_level = level;
 		pr_debug("Requesting level %d for %s. curr level: %d\n",
