@@ -1,0 +1,2 @@
+header-y += msm-adie-codec.h
+header-y += wcd9xxx/

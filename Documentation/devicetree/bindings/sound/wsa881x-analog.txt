@@ -1,0 +1,88 @@
+wsa881x Audio CODEC
+
+wsa881x Audio CODEC can support either I2C interface or Soundwire interface.
+In Analog mode, this codec will operate as I2C slave device and
+interacts with I2C controller for status, control and interrupt management.
+The wsa881x device nodes will be represented as child nodes to I2C
+master device node in the devicetree. Currently, the below devicetree
+bindings are for I2C mode only and does not include soundwire mode.
+
+Required properties:
+
+ - compatible : "qcom,wsa881x-i2c-codec"
+ - reg : Unique device ID of I2C slave device.
+
+Optional properties:
+- qcom,msm-gpios : Lists down all the gpio sets that are supported.
+- qcom,pinctrl-names : Lists all the possible combinations of the gpio sets
+mentioned in qcom,msm-gpios. Say we have 2^N combinations for N GPIOs, this
+list all 2^N combinations.
+- pinctrl-names : The combinations of gpio sets from above that are supported in
+the flavor. This can be sometimes same as qcom, pinctrl-names i.e with 2^N
+combinations or will have less incase if some combination is not supported.
+- pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
+
+* wsa_intc
+
+Required properties:
+
+ - compatible :                            "qcom,wsa-irq"
+ - interrupt-controller :                  Mark this device node as an
+					   interrupt controller
+ - #interrupt-cells :                      Should be 1
+ - interrupt-parent :                      Parent interrupt controller
+ - interrupts :                            Interrupt number on the parent
+                                           interrupt controller
+ - interrupt-names :                       Name of interrupt on the parent
+                                           interrupt controller
+Example:
+
+wsa881x-i2c-codec@0e {
+	compatible = "qcom,wsa881x-i2c-codec";
+	reg = <0x0e>;
+	qcom,msm-gpios = "wsa_clk",
+			"wsa_reset";
+	qcom,pinctrl-names = "all_off",
+				"wsa_clk",
+				"wsa_active",
+				"wsa_clk_active";
+	pinctrl-names = "all_off",
+			"wsa_clk",
+			"wsa_active",
+			"wsa_clk_active";
+	pinctrl-0 = <&wsa_clk_off &wsa_suspend>;
+	pinctrl-1 = <&wsa_clk_on &wsa_suspend>;
+	pinctrl-2 = <&wsa_clk_off &wsa_active>;
+	pinctrl-3 = <&wsa_clk_on &wsa_active>;
+};
+
+wsa881x-i2c-codec@44 {
+	compatible = "qcom,wsa881x-i2c-codec";
+	reg = <0x44>;
+};
+
+wsa881x-i2c-codec@0f {
+	compatible = "qcom,wsa881x-i2c-codec";
+	reg = <0x0f>;
+	qcom,msm-gpios = "wsa_clk",
+			"wsa_reset";
+	qcom,pinctrl-names = "all_off",
+				"wsa_clk",
+				"wsa_active",
+				"wsa_clk_active";
+	pinctrl-names = "all_off",
+			"wsa_active",
+			"wsa_clk_active";
+	pinctrl-0 = <&wsa_clk_off &wsa_suspend>;
+	pinctrl-1 = <&wsa_clk_off &wsa_active>;
+	pinctrl-2 = <&wsa_clk_on &wsa_active>;
+};
+
+wsa_intc: wsa-irq {
+	compatible = "qcom,wsa-irq";
+	interrupt-controller;
+	#interrupt-cells = <1>;
+	interrupt-parent = <&msm_gpio>;
+	interrupts = <97 0>;
+	interrupt-names = "wsa-int";
+};
