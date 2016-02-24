@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,14 @@ struct gsi_ring_ctx {
 	uint64_t end;
 };
 
+struct gsi_chan_dp_stats {
+	unsigned long ch_below_lo;
+	unsigned long ch_below_hi;
+	unsigned long ch_above_hi;
+	unsigned long empty_time;
+	unsigned long last_timestamp;
+};
+
 struct gsi_chan_stats {
 	unsigned long queued;
 	unsigned long completed;
@@ -68,6 +76,7 @@ struct gsi_chan_stats {
 	unsigned long invalid_tre_error;
 	unsigned long poll_ok;
 	unsigned long poll_empty;
+	struct gsi_chan_dp_stats dp;
 };
 
 struct gsi_chan_ctx {
@@ -82,6 +91,8 @@ struct gsi_chan_ctx {
 	atomic_t poll_mode;
 	union __packed gsi_channel_scratch scratch;
 	struct gsi_chan_stats stats;
+	bool enable_dp_stats;
+	bool print_dp_stats;
 };
 
 struct gsi_evt_stats {
@@ -128,6 +139,8 @@ struct gsi_ctx {
 	atomic_t num_chan;
 	atomic_t num_evt_ring;
 	struct gsi_ee_scratch scratch;
+	int num_ch_dp_stats;
+	struct workqueue_struct *dp_stat_wq;
 };
 
 enum gsi_re_type {
@@ -203,5 +216,7 @@ enum gsi_evt_ch_cmd_opcode {
 
 extern struct gsi_ctx *gsi_ctx;
 void gsi_debugfs_init(void);
+uint16_t gsi_find_idx_from_addr(struct gsi_ring_ctx *ctx, uint64_t addr);
+void gsi_update_ch_dp_stats(struct gsi_chan_ctx *ctx, uint16_t used);
 
 #endif

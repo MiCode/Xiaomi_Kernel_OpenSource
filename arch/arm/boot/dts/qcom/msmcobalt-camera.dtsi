@@ -16,13 +16,14 @@
 		compatible = "qcom,msm-cam";
 		reg = <0x8c0000 0x40000>;
 		reg-names = "msm-cam";
-		status = "ok";
+		status = "disabled";
 		bus-vectors = "suspend", "svs", "nominal", "turbo";
 		qcom,bus-votes = <0 300000000 640000000 640000000>;
 	};
 
 	qcom,cam_smmu {
 		compatible = "qcom,msm-cam-smmu";
+		status = "disabled";
 
 		msm_cam_smmu_cb1 {
 			compatible = "qcom,msm-cam-smmu-cb";
@@ -99,6 +100,6 @@
 			<0x2c 0x10000000 0x30000000>;
 		qcom,fd-misc-reg-settings = <0x20 0x2 0x3>,
 			<0x24 0x2 0x3>;
-		status = "ok";
+		status = "disabled";
 	};
 };

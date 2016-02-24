@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -199,9 +199,10 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 				SNDRV_PCM_INFO_INTERLEAVED),
 	.formats =              SNDRV_PCM_FMTBIT_S16_LE |
 				SNDRV_PCM_FMTBIT_SPECIAL,
-	.rates =                SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+	.rates =                SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+				SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000,
 	.rate_min =             8000,
-	.rate_max =             16000,
+	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         1,
 	.buffer_bytes_max =	sizeof(struct voip_buf_node) * VOIP_MAX_Q_LEN,
@@ -316,7 +317,7 @@ static int msm_pcm_voip_probe(struct snd_soc_platform *platform)
 }
 
 /* sample rate supported */
-static unsigned int supported_sample_rates[] = {8000, 16000};
+static unsigned int supported_sample_rates[] = {8000, 16000, 32000, 48000};
 
 static void voip_ssr_cb_fn(uint32_t opcode, void *private_data)
 {
@@ -1142,21 +1143,16 @@ static int voip_config_vocoder(struct snd_pcm_substream *substream)
 	}
 	pr_debug("%s(): media_type=%d\n", __func__, media_type);
 
-	if ((prtd->play_samp_rate == 8000) &&
-	    (prtd->cap_samp_rate == 8000))
+	if ((prtd->play_samp_rate == 8000 && prtd->cap_samp_rate == 8000) ||
+	    (prtd->play_samp_rate == 16000 && prtd->cap_samp_rate == 16000) ||
+	    (prtd->play_samp_rate == 32000 && prtd->cap_samp_rate == 32000) ||
+	    (prtd->play_samp_rate == 48000 && prtd->cap_samp_rate == 48000)) {
 		voc_config_vocoder(media_type, rate_type,
-				   VSS_NETWORK_ID_VOIP_NB,
+				   VSS_NETWORK_ID_VOIP,
 				   voip_info.dtx_mode,
 				   evrc_min_rate_type,
 				   evrc_max_rate_type);
-	else if ((prtd->play_samp_rate == 16000) &&
-		 (prtd->cap_samp_rate == 16000))
-		voc_config_vocoder(media_type, rate_type,
-				   VSS_NETWORK_ID_VOIP_WB,
-				   voip_info.dtx_mode,
-				   evrc_min_rate_type,
-				   evrc_max_rate_type);
-	else {
+	} else {
 		pr_debug("%s: Invalid rate playback %d, capture %d\n",
 			 __func__, prtd->play_samp_rate,
 			 prtd->cap_samp_rate);
@@ -1550,9 +1546,13 @@ static int voip_get_media_type(uint32_t mode, uint32_t rate_type,
 		break;
 	case MODE_PCM:
 		if (samp_rate == 8000)
-			*media_type = VSS_MEDIA_ID_PCM_NB;
+			*media_type = VSS_MEDIA_ID_PCM_8_KHZ;
+		else if (samp_rate == 16000)
+			*media_type = VSS_MEDIA_ID_PCM_16_KHZ;
+		else if (samp_rate == 32000)
+			*media_type = VSS_MEDIA_ID_PCM_32_KHZ;
 		else
-			*media_type = VSS_MEDIA_ID_PCM_WB;
+			*media_type = VSS_MEDIA_ID_PCM_48_KHZ;
 		break;
 	case MODE_IS127: /* EVRC-A */
 		*media_type = VSS_MEDIA_ID_EVRC_MODEM;

@@ -1083,14 +1083,15 @@ static int msm8x16_wcd_spmi_write_device(u16 reg, u8 *value, u32 bytes)
 	ret = spmi_ext_register_writel(wcd->spmi->ctrl, wcd->spmi->sid,
 						wcd->base + reg, value, bytes);
 	if (ret)
-		pr_err("Unable to write to addr=%x, ret(%d)\n", reg, ret);
+		pr_err_ratelimited("Unable to write to addr=%x, ret(%d)\n",
+				reg, ret);
 	/* Try again if the write fails */
 	if (ret != 0) {
 		usleep_range(10, 11);
 		ret = spmi_ext_register_writel(wcd->spmi->ctrl, wcd->spmi->sid,
 						wcd->base + reg, value, 1);
 		if (ret != 0) {
-			pr_err("failed to write the device\n");
+			pr_err_ratelimited("failed to write the device\n");
 			return ret;
 		}
 	}
@@ -1183,7 +1184,7 @@ err:
 	mutex_unlock(&msm8x16_wcd->io_lock);
 
 	if (ret < 0) {
-		dev_err(msm8x16_wcd->dev,
+		dev_err_ratelimited(msm8x16_wcd->dev,
 				"%s: codec read failed for reg 0x%x\n",
 				__func__, reg);
 		return ret;
@@ -1270,7 +1271,7 @@ static int msm8x16_wcd_write(struct snd_soc_codec *codec, unsigned int reg,
 	if (!msm8x16_wcd_volatile(codec, reg)) {
 		ret = snd_soc_cache_write(codec, reg, value);
 		if (ret != 0)
-			dev_err(codec->dev, "Cache write to %x failed: %d\n",
+			dev_err_ratelimited(codec->dev, "Cache write to %x failed: %d\n",
 				reg, ret);
 	}
 	if (unlikely(test_bit(BUS_DOWN, &msm8x16_wcd->status_mask))) {
@@ -1299,7 +1300,7 @@ static unsigned int msm8x16_wcd_read(struct snd_soc_codec *codec,
 		ret = snd_soc_cache_read(codec, reg, &val);
 		if (ret >= 0)
 			return val;
-		dev_err(codec->dev, "Cache read from %x failed: %d\n",
+		dev_err_ratelimited(codec->dev, "Cache read from %x failed: %d\n",
 				reg, ret);
 	}
 	if (unlikely(test_bit(BUS_DOWN, &msm8x16_wcd->status_mask))) {

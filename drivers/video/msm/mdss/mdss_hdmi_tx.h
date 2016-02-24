@@ -173,6 +173,7 @@ struct hdmi_tx_ctrl {
 	bool hdcp14_sw_keys;
 	bool auth_state;
 	bool custom_edid;
+	bool sim_mode;
 	u32 enc_lvl;
 
 	u8 spd_vendor_name[9];

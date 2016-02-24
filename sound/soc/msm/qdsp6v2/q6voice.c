@@ -4199,7 +4199,7 @@ static int voice_send_netid_timing_cmd(struct voice_data *v)
 		goto fail;
 	}
 	/* Set network ID. */
-	pr_debug("Setting network ID\n");
+	pr_debug("Setting network ID %x\n", common.mvs_info.network_type);
 
 	mvm_set_network.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(APR_HDR_SIZE),
@@ -4210,7 +4210,7 @@ static int voice_send_netid_timing_cmd(struct voice_data *v)
 				voice_get_idx_for_session(v->session_id);
 	mvm_set_network.hdr.dest_port = mvm_handle;
 	mvm_set_network.hdr.token = 0;
-	mvm_set_network.hdr.opcode = VSS_ICOMMON_CMD_SET_NETWORK;
+	mvm_set_network.hdr.opcode = VSS_IMVM_CMD_SET_CAL_NETWORK;
 	mvm_set_network.network.network_id = common.mvs_info.network_type;
 
 	v->mvm_state = CMD_STATUS_FAIL;

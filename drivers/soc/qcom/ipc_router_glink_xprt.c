@@ -56,7 +56,7 @@ if (ipc_router_glink_xprt_debug_mask) \
  * @xprt: IPC Router XPRT structure to contain XPRT specific info.
  * @ch_hndl: Opaque Channel handle returned by GLink.
  * @xprt_wq: Workqueue to queue read & other XPRT related works.
- * @ss_reset_lock: Lock to protect access to the ss_reset flag.
+ * @ss_reset_rwlock: Read-Write lock to protect access to the ss_reset flag.
  * @ss_reset: flag used to check SSR state.
  * @pil: pil handle to the remote subsystem
  * @sft_close_complete: Variable to indicate completion of SSR handling
@@ -75,7 +75,7 @@ struct ipc_router_glink_xprt {
 	struct msm_ipc_router_xprt xprt;
 	void *ch_hndl;
 	struct workqueue_struct *xprt_wq;
-	struct mutex ss_reset_lock;
+	struct rw_semaphore ss_reset_rwlock;
 	int ss_reset;
 	void *pil;
 	struct completion sft_close_complete;
@@ -238,14 +238,13 @@ static int ipc_router_glink_xprt_write(void *data, uint32_t len,
 		return -ENOMEM;
 	}
 
-	mutex_lock(&glink_xprtp->ss_reset_lock);
+	down_read(&glink_xprtp->ss_reset_rwlock);
 	if (glink_xprtp->ss_reset) {
-		mutex_unlock(&glink_xprtp->ss_reset_lock);
 		release_pkt(temp_pkt);
 		IPC_RTR_ERR("%s: %s chnl reset\n", __func__, xprt->name);
-		return -ENETRESET;
+		ret = -ENETRESET;
+		goto out_write_data;
 	}
-	mutex_unlock(&glink_xprtp->ss_reset_lock);
 
 	D("%s: Ready to write %d bytes\n", __func__, len);
 	ret = glink_txv(glink_xprtp->ch_hndl, (void *)glink_xprtp,
@@ -254,11 +253,15 @@ static int ipc_router_glink_xprt_write(void *data, uint32_t len,
 	if (ret < 0) {
 		release_pkt(temp_pkt);
 		IPC_RTR_ERR("%s: Error %d while tx\n", __func__, ret);
-		return ret;
+		goto out_write_data;
 	}
+	ret = len;
 	D("%s:%s: TX Complete for %d bytes @ %p\n", __func__,
 	  glink_xprtp->ipc_rtr_xprt_name, len, temp_pkt);
-	return len;
+
+out_write_data:
+	up_read(&glink_xprtp->ss_reset_rwlock);
+	return ret;
 }
 
 static int ipc_router_glink_xprt_close(struct msm_ipc_router_xprt *xprt)
@@ -266,9 +269,9 @@ static int ipc_router_glink_xprt_close(struct msm_ipc_router_xprt *xprt)
 	struct ipc_router_glink_xprt *glink_xprtp =
 		container_of(xprt, struct ipc_router_glink_xprt, xprt);
 
-	mutex_lock(&glink_xprtp->ss_reset_lock);
+	down_write(&glink_xprtp->ss_reset_rwlock);
 	glink_xprtp->ss_reset = 1;
-	mutex_unlock(&glink_xprtp->ss_reset_lock);
+	up_write(&glink_xprtp->ss_reset_rwlock);
 	return glink_close(glink_xprtp->ch_hndl);
 }
 
@@ -329,14 +332,12 @@ static void glink_xprt_read_data(struct work_struct *work)
 	struct ipc_router_glink_xprt *glink_xprtp = rx_work->glink_xprtp;
 	bool reuse_intent = false;
 
-	mutex_lock(&glink_xprtp->ss_reset_lock);
+	down_read(&glink_xprtp->ss_reset_rwlock);
 	if (glink_xprtp->ss_reset) {
-		mutex_unlock(&glink_xprtp->ss_reset_lock);
 		IPC_RTR_ERR("%s: %s channel reset\n",
 			__func__, glink_xprtp->xprt.name);
 		goto out_read_data;
 	}
-	mutex_unlock(&glink_xprtp->ss_reset_lock);
 
 	D("%s %zu bytes @ %p\n", __func__, rx_work->iovec_size, rx_work->iovec);
 	if (rx_work->iovec_size <= DEFAULT_RX_INTENT_SIZE)
@@ -354,6 +355,7 @@ static void glink_xprt_read_data(struct work_struct *work)
 out_read_data:
 	glink_rx_done(glink_xprtp->ch_hndl, rx_work->iovec, reuse_intent);
 	kfree(rx_work);
+	up_read(&glink_xprtp->ss_reset_rwlock);
 }
 
 static void glink_xprt_open_event(struct work_struct *work)
@@ -496,9 +498,9 @@ static void glink_xprt_notify_state(void *handle, const void *priv,
 	case GLINK_CONNECTED:
 		if (IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
 			glink_xprtp->ch_hndl = handle;
-		mutex_lock(&glink_xprtp->ss_reset_lock);
+		down_write(&glink_xprtp->ss_reset_rwlock);
 		glink_xprtp->ss_reset = 0;
-		mutex_unlock(&glink_xprtp->ss_reset_lock);
+		up_write(&glink_xprtp->ss_reset_rwlock);
 		xprt_work = kmalloc(sizeof(struct ipc_router_glink_xprt_work),
 				    GFP_ATOMIC);
 		if (!xprt_work) {
@@ -514,13 +516,13 @@ static void glink_xprt_notify_state(void *handle, const void *priv,
 
 	case GLINK_LOCAL_DISCONNECTED:
 	case GLINK_REMOTE_DISCONNECTED:
-		mutex_lock(&glink_xprtp->ss_reset_lock);
+		down_write(&glink_xprtp->ss_reset_rwlock);
 		if (glink_xprtp->ss_reset) {
-			mutex_unlock(&glink_xprtp->ss_reset_lock);
+			up_write(&glink_xprtp->ss_reset_rwlock);
 			break;
 		}
 		glink_xprtp->ss_reset = 1;
-		mutex_unlock(&glink_xprtp->ss_reset_lock);
+		up_write(&glink_xprtp->ss_reset_rwlock);
 		xprt_work = kmalloc(sizeof(struct ipc_router_glink_xprt_work),
 				    GFP_ATOMIC);
 		if (!xprt_work) {
@@ -694,7 +696,7 @@ static int ipc_router_glink_config_init(
 	glink_xprtp->xprt.sft_close_done = glink_xprt_sft_close_done;
 	glink_xprtp->xprt.priv = NULL;
 
-	mutex_init(&glink_xprtp->ss_reset_lock);
+	init_rwsem(&glink_xprtp->ss_reset_rwlock);
 	glink_xprtp->ss_reset = 0;
 
 	scnprintf(xprt_wq_name, GLINK_NAME_SIZE, "%s_%s_%s",

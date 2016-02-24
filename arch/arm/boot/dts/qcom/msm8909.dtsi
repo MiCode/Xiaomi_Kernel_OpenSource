@@ -265,8 +265,8 @@
 
 	clock_gcc_mdss: qcom,gcc-mdss@1ac8300 {
 		compatible = "qcom,gcc-mdss-8909";
-		clocks = <&mdss_dsi0_pll clk_pixel_clk_src>,
-			 <&mdss_dsi0_pll clk_byte_clk_src>;
+		clocks = <&mdss_dsi0_pll clk_dsi_pll0_pixel_clk_src>,
+			 <&mdss_dsi0_pll clk_dsi_pll0_byte_clk_src>;
 		clock-names = "pixel_src", "byte_src";
 		#clock-cells = <1>;
 	};

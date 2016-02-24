@@ -1888,8 +1888,6 @@ static int adv7533_register_dba(struct adv7533 *pdata)
 	strlcpy(pdata->dev_info.chip_name, "adv7533",
 		sizeof(pdata->dev_info.chip_name));
 
-	pdata->dev_info.instance_id = 0;
-
 	mutex_init(&pdata->dev_info.dev_mutex);
 
 	INIT_LIST_HEAD(&pdata->dev_info.client_list);

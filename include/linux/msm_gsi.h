@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -280,6 +280,9 @@ enum gsi_chan_use_db_eng {
  * @re_size:         size of channel ring element
  * @ring_len:        length of ring in bytes (must be integral multiple of
  *                   re_size)
+ * @max_re_expected: maximal number of ring elements expected to be queued.
+ *                   used for data path statistics gathering. if 0 provided
+ *                   ring_len / re_size will be used.
  * @ring_base_addr:  physical base address of ring. Address must be aligned to
  *                   ring_len rounded to power of two
  * @ring_base_vaddr: virtual base address of ring (set to NULL when not
@@ -333,6 +336,7 @@ struct gsi_chan_props {
 	unsigned long evt_ring_hdl;
 	enum gsi_chan_ring_elem_size re_size;
 	uint16_t ring_len;
+	uint16_t max_re_expected;
 	uint64_t ring_base_addr;
 	void *ring_base_vaddr;
 	enum gsi_chan_use_db_eng use_db_eng;

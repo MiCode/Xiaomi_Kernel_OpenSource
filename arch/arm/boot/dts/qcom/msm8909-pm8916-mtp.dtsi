@@ -46,6 +46,17 @@
 	vdd-io-supply = <&pm8916_l12>;
 };
 
+&dsi_auo_qvga_cmd {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+};
+
+&dsi_auo_cx_qvga_cmd {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+};
+&dsi_hx8394d_480_vid {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+};
+
 &dsi_hx8394d_720_vid {
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
