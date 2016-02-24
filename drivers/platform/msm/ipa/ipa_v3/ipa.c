@@ -4033,12 +4033,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	IPADBG("IPA Driver initialization started\n");
 
-	/*
-	 * since structure alignment is implementation dependent, add test to
-	 * avoid different and incompatible data layouts
-	 */
-	BUILD_BUG_ON(sizeof(struct ipa3_hw_pkt_status) != IPA_PKT_STATUS_SIZE);
-
 	ipa3_ctx = kzalloc(sizeof(*ipa3_ctx), GFP_KERNEL);
 	if (!ipa3_ctx) {
 		IPAERR(":kzalloc err.\n");

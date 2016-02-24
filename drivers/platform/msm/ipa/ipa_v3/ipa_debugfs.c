@@ -37,17 +37,6 @@ const char *ipa3_excp_name[] = {
 	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_IP),
 };
 
-const char *ipa3_status_excp_name[] = {
-	__stringify_1(IPA_EXCP_DEAGGR),
-	__stringify_1(IPA_EXCP_REPLICATION),
-	__stringify_1(IPA_EXCP_IP),
-	__stringify_1(IPA_EXCP_IHL),
-	__stringify_1(IPA_EXCP_FRAG_MISS),
-	__stringify_1(IPA_EXCP_SW),
-	__stringify_1(IPA_EXCP_NAT),
-	__stringify_1(IPA_EXCP_NONE),
-};
-
 const char *ipa3_event_name[] = {
 	__stringify(WLAN_CLIENT_CONNECT),
 	__stringify(WLAN_CLIENT_DISCONNECT),
@@ -929,47 +918,47 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++)
 		connect |= (ipa3_ctx->ep[i].valid << i);
 
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"sw_tx=%u\n"
-			"hw_tx=%u\n"
-			"tx_compl=%u\n"
-			"wan_rx=%u\n"
-			"stat_compl=%u\n"
-			"lan_aggr_close=%u\n"
-			"wan_aggr_close=%u\n"
-			"act_clnt=%u\n"
-			"con_clnt_bmap=0x%x\n"
-			"wan_rx_empty=%u\n"
-			"wan_repl_rx_empty=%u\n"
-			"lan_rx_empty=%u\n"
-			"lan_repl_rx_empty=%u\n"
-			"flow_enable=%u\n"
-			"flow_disable=%u\n",
-			ipa3_ctx->stats.tx_sw_pkts,
-			ipa3_ctx->stats.tx_hw_pkts,
-			ipa3_ctx->stats.tx_pkts_compl,
-			ipa3_ctx->stats.rx_pkts,
-			ipa3_ctx->stats.stat_compl,
-			ipa3_ctx->stats.aggr_close,
-			ipa3_ctx->stats.wan_aggr_close,
-			ipa3_ctx->ipa3_active_clients.cnt,
-			connect,
-			ipa3_ctx->stats.wan_rx_empty,
-			ipa3_ctx->stats.wan_repl_rx_empty,
-			ipa3_ctx->stats.lan_rx_empty,
-			ipa3_ctx->stats.lan_repl_rx_empty,
-			ipa3_ctx->stats.flow_enable,
-			ipa3_ctx->stats.flow_disable);
-		cnt += nbytes;
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+		"sw_tx=%u\n"
+		"hw_tx=%u\n"
+		"tx_compl=%u\n"
+		"wan_rx=%u\n"
+		"stat_compl=%u\n"
+		"lan_aggr_close=%u\n"
+		"wan_aggr_close=%u\n"
+		"act_clnt=%u\n"
+		"con_clnt_bmap=0x%x\n"
+		"wan_rx_empty=%u\n"
+		"wan_repl_rx_empty=%u\n"
+		"lan_rx_empty=%u\n"
+		"lan_repl_rx_empty=%u\n"
+		"flow_enable=%u\n"
+		"flow_disable=%u\n",
+		ipa3_ctx->stats.tx_sw_pkts,
+		ipa3_ctx->stats.tx_hw_pkts,
+		ipa3_ctx->stats.tx_pkts_compl,
+		ipa3_ctx->stats.rx_pkts,
+		ipa3_ctx->stats.stat_compl,
+		ipa3_ctx->stats.aggr_close,
+		ipa3_ctx->stats.wan_aggr_close,
+		ipa3_ctx->ipa3_active_clients.cnt,
+		connect,
+		ipa3_ctx->stats.wan_rx_empty,
+		ipa3_ctx->stats.wan_repl_rx_empty,
+		ipa3_ctx->stats.lan_rx_empty,
+		ipa3_ctx->stats.lan_repl_rx_empty,
+		ipa3_ctx->stats.flow_enable,
+		ipa3_ctx->stats.flow_disable);
+	cnt += nbytes;
 
-		for (i = 0; i < MAX_NUM_EXCP; i++) {
-			nbytes = scnprintf(dbg_buff + cnt,
-				IPA_MAX_MSG_LEN - cnt,
-				"lan_rx_excp[%u:%20s]=%u\n", i,
-				ipa3_status_excp_name[i],
-				ipa3_ctx->stats.rx_excp_pkts[i]);
-			cnt += nbytes;
-		}
+	for (i = 0; i < IPAHAL_PKT_STATUS_EXCEPTION_MAX; i++) {
+		nbytes = scnprintf(dbg_buff + cnt,
+			IPA_MAX_MSG_LEN - cnt,
+			"lan_rx_excp[%u:%20s]=%u\n", i,
+			ipahal_pkt_status_exception_str(i),
+			ipa3_ctx->stats.rx_excp_pkts[i]);
+		cnt += nbytes;
+	}
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
@@ -1492,7 +1481,7 @@ static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
-static void ipa_dump_status(struct ipa3_hw_pkt_status *status)
+static void ipa_dump_status(struct ipahal_pkt_status *status)
 {
 	IPA_DUMP_STATUS_FIELD(status_opcode);
 	IPA_DUMP_STATUS_FIELD(exception);
@@ -1501,22 +1490,24 @@ static void ipa_dump_status(struct ipa3_hw_pkt_status *status)
 	IPA_DUMP_STATUS_FIELD(endp_src_idx);
 	IPA_DUMP_STATUS_FIELD(endp_dest_idx);
 	IPA_DUMP_STATUS_FIELD(metadata);
-	IPA_DUMP_STATUS_FIELD(filt_local);
-	IPA_DUMP_STATUS_FIELD(filt_hash);
-	IPA_DUMP_STATUS_FIELD(filt_global);
-	IPA_DUMP_STATUS_FIELD(ret_hdr);
-	IPA_DUMP_STATUS_FIELD(filt_rule_id);
-	IPA_DUMP_STATUS_FIELD(route_local);
-	IPA_DUMP_STATUS_FIELD(route_hash);
+	IPA_DUMP_STATUS_FIELD(flt_local);
+	IPA_DUMP_STATUS_FIELD(flt_hash);
+	IPA_DUMP_STATUS_FIELD(flt_global);
+	IPA_DUMP_STATUS_FIELD(flt_ret_hdr);
+	IPA_DUMP_STATUS_FIELD(flt_miss);
+	IPA_DUMP_STATUS_FIELD(flt_rule_id);
+	IPA_DUMP_STATUS_FIELD(rt_local);
+	IPA_DUMP_STATUS_FIELD(rt_hash);
 	IPA_DUMP_STATUS_FIELD(ucp);
-	IPA_DUMP_STATUS_FIELD(route_tbl_idx);
-	IPA_DUMP_STATUS_FIELD(route_rule_id);
+	IPA_DUMP_STATUS_FIELD(rt_tbl_idx);
+	IPA_DUMP_STATUS_FIELD(rt_miss);
+	IPA_DUMP_STATUS_FIELD(rt_rule_id);
 	IPA_DUMP_STATUS_FIELD(nat_hit);
-	IPA_DUMP_STATUS_FIELD(nat_tbl_idx);
+	IPA_DUMP_STATUS_FIELD(nat_entry_idx);
 	IPA_DUMP_STATUS_FIELD(nat_type);
-	pr_err("tag = 0x%llx\n", (u64)status->tag & 0xFFFFFFFFFFFF);
+	pr_err("tag = 0x%llx\n", (u64)status->tag_info & 0xFFFFFFFFFFFF);
 	IPA_DUMP_STATUS_FIELD(seq_num);
-	IPA_DUMP_STATUS_FIELD(time_day_ctr);
+	IPA_DUMP_STATUS_FIELD(time_of_day_ctr);
 	IPA_DUMP_STATUS_FIELD(hdr_local);
 	IPA_DUMP_STATUS_FIELD(hdr_offset);
 	IPA_DUMP_STATUS_FIELD(frag_hit);
@@ -1538,8 +1529,6 @@ static ssize_t ipa_status_stats_read(struct file *file, char __user *ubuf,
 			continue;
 
 		memcpy(stats, ipa3_ctx->ep[i].sys->status_stat, sizeof(*stats));
-		stats->curr = (stats->curr + IPA_MAX_STATUS_STAT_NUM - 1)
-			% IPA_MAX_STATUS_STAT_NUM;
 		pr_err("Statuses for pipe %d\n", i);
 		for (j = 0; j < IPA_MAX_STATUS_STAT_NUM; j++) {
 			pr_err("curr=%d\n", stats->curr);
