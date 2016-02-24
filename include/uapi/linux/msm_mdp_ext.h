@@ -84,6 +84,18 @@ LAYER FLAG CONFIGURATION
 /* Flag enabled qseed3 scaling for the current layer */
 #define MDP_LAYER_ENABLE_QSEED3_SCALE   0x800
 
+/*
+ * layer will work in multirect mode, where single hardware should
+ * fetch multiple rectangles with a single hardware
+ */
+#define MDP_LAYER_MULTIRECT_ENABLE		0x1000
+
+/*
+ * if flag present and multirect is enabled, multirect will work in parallel
+ * fetch mode, otherwise it will default to serial fetch mode.
+ */
+#define MDP_LAYER_MULTIRECT_PARALLEL_MODE	0x2000
+
 /**********************************************************************
 DESTINATION SCALER FLAG CONFIGURATION
 **********************************************************************/

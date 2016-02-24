@@ -1074,6 +1074,23 @@ static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
 	seq_printf(s, "\tstage=%d alpha=0x%x transp=0x%x blend_op=%d\n",
 			pipe->mixer_stage, pipe->alpha,
 			pipe->transp, pipe->blend_op);
+	if (pipe->multirect.max_rects > 1) {
+		const char const *fmodes[] = {
+			[MDSS_MDP_PIPE_MULTIRECT_PARALLEL]	= "parallel",
+			[MDSS_MDP_PIPE_MULTIRECT_SERIAL]	= "serial",
+			[MDSS_MDP_PIPE_MULTIRECT_NONE]		= "single",
+		};
+		const char *mode = NULL;
+
+		if (pipe->multirect.mode < ARRAY_SIZE(fmodes))
+			mode = fmodes[pipe->multirect.mode];
+		if (!mode)
+			mode = "invalid";
+
+		seq_printf(s, "\trect=%d/%d fetch_mode=%s\n",
+				pipe->multirect.num, pipe->multirect.max_rects,
+				mode);
+	}
 
 	format = pipe->src_fmt->format;
 	seq_printf(s, "\tsrc w=%d h=%d format=%d (%s)\n",
@@ -1403,10 +1420,39 @@ static void __stats_ctl_dump(struct mdss_mdp_ctl *ctl, struct seq_file *s)
 	}
 }
 
+static void __dump_stat(struct seq_file *s, char *ptypestr,
+		struct mdss_mdp_pipe *pipe_list, int count)
+{
+	struct mdss_mdp_pipe *pipe;
+	int i = 0, ndx = 0;
+	u32 rects_per_pipe = 1;
+
+	while (i < count) {
+		pipe = pipe_list + ndx;
+		rects_per_pipe = pipe->multirect.max_rects;
+
+		if (rects_per_pipe == 1)
+			seq_printf(s, "%s%d", ptypestr, i);
+		else
+			seq_printf(s, "%s%d.%d", ptypestr, i,
+					ndx % rects_per_pipe);
+
+		seq_printf(s, " :   %08u\t", pipe->play_cnt);
+
+		if ((++ndx % rects_per_pipe) == 0)
+			i++;
+
+		if ((ndx % 4) == 0)
+			seq_puts(s, "\n");
+	}
+
+	if ((ndx % 4) != 0)
+		seq_puts(s, "\n");
+}
+
 static int mdss_debugfs_stats_show(struct seq_file *s, void *v)
 {
 	struct mdss_data_type *mdata = (struct mdss_data_type *)s->private;
-	struct mdss_mdp_pipe *pipe;
 	int i;
 
 	seq_puts(s, "\nmdp:\n");
@@ -1415,23 +1461,10 @@ static int mdss_debugfs_stats_show(struct seq_file *s, void *v)
 		__stats_ctl_dump(mdata->ctl_off + i, s);
 	seq_puts(s, "\n");
 
-	for (i = 0; i < mdata->nvig_pipes; i++) {
-		pipe = mdata->vig_pipes + i;
-		seq_printf(s, "VIG%d :   %08u\t", i, pipe->play_cnt);
-	}
-	seq_puts(s, "\n");
-
-	for (i = 0; i < mdata->nrgb_pipes; i++) {
-		pipe = mdata->rgb_pipes + i;
-		seq_printf(s, "RGB%d :   %08u\t", i, pipe->play_cnt);
-	}
-	seq_puts(s, "\n");
-
-	for (i = 0; i < mdata->ndma_pipes; i++) {
-		pipe = mdata->dma_pipes + i;
-		seq_printf(s, "DMA%d :   %08u\t", i, pipe->play_cnt);
-	}
-	seq_puts(s, "\n");
+	__dump_stat(s, "VIG", mdata->vig_pipes, mdata->nvig_pipes);
+	__dump_stat(s, "RGB", mdata->rgb_pipes, mdata->nrgb_pipes);
+	__dump_stat(s, "DMA", mdata->dma_pipes, mdata->ndma_pipes);
+	__dump_stat(s, "CURSOR", mdata->cursor_pipes, mdata->ncursor_pipes);
 
 	return 0;
 }
