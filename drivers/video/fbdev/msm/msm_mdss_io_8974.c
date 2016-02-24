@@ -17,8 +17,6 @@
 #include <linux/io.h>
 #include <linux/clk/msm-clk.h>
 
-#include <mach/msm_iomap.h>
-
 #include "mdss_dsi.h"
 #include "mdss_edp.h"
 
