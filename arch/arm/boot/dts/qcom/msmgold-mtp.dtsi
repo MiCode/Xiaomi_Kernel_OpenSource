@@ -134,6 +134,9 @@
 
 &dsi_truly_720_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,ulps-enabled;
+	qcom,partial-update-enabled;
+	qcom,panel-roi-alignment = <2 2 2 2 2 2>;
 };
 
 &sdhc_1 {
