@@ -12,6 +12,8 @@
 
 #include <mhi_sys.h>
 #include <mhi.h>
+#include <mhi_bhi.h>
+#include <mhi_hwio.h>
 
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
@@ -79,19 +81,6 @@ static struct notifier_block mhi_ssr_nb = {
 	.notifier_call = mhi_ssr_notify_cb,
 };
 
-static void esoc_parse_link_type(struct mhi_device_ctxt *mhi_dev_ctxt)
-{
-	int ret_val;
-
-	ret_val = strcmp(mhi_dev_ctxt->esoc_handle->link, "HSIC+PCIe");
-	mhi_log(MHI_MSG_VERBOSE, "Link type is %s as indicated by ESOC\n",
-					mhi_dev_ctxt->esoc_handle->link);
-	if (ret_val)
-		mhi_dev_ctxt->base_state = STATE_TRANSITION_BHI;
-	else
-		mhi_dev_ctxt->base_state = STATE_TRANSITION_RESET;
-}
-
 int mhi_esoc_register(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int ret_val = 0;
@@ -99,7 +88,6 @@ int mhi_esoc_register(struct mhi_device_ctxt *mhi_dev_ctxt)
 	struct pci_driver *mhi_driver;
 	struct device *dev = &mhi_dev_ctxt->dev_info->pcie_device->dev;
 
-	mhi_dev_ctxt->base_state = STATE_TRANSITION_BHI;
 	mhi_driver = mhi_dev_ctxt->dev_info->mhi_pcie_driver;
 	np = dev->of_node;
 	mhi_dev_ctxt->esoc_handle = devm_register_esoc_client(dev, "mdm");
@@ -112,8 +100,6 @@ int mhi_esoc_register(struct mhi_device_ctxt *mhi_dev_ctxt)
 			(uintptr_t)mhi_dev_ctxt->esoc_handle);
 		return -EIO;
 	}
-
-	esoc_parse_link_type(mhi_dev_ctxt);
 
 	mhi_dev_ctxt->esoc_ssr_handle = subsys_notif_register_notifier(
 					mhi_dev_ctxt->esoc_handle->name,
@@ -162,6 +148,34 @@ void mhi_notify_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 	}
 }
 
+static int set_mhi_base_state(struct mhi_pcie_dev_info *mhi_pcie_dev)
+{
+	u32 pcie_word_val = 0;
+	int r = 0;
+	struct mhi_device_ctxt *mhi_dev_ctxt = &mhi_pcie_dev->mhi_ctxt;
+
+	mhi_pcie_dev->bhi_ctxt.bhi_base = mhi_pcie_dev->core.bar0_base;
+	pcie_word_val = mhi_reg_read(mhi_pcie_dev->bhi_ctxt.bhi_base, BHIOFF);
+	mhi_pcie_dev->bhi_ctxt.bhi_base += pcie_word_val;
+	pcie_word_val = mhi_reg_read(mhi_pcie_dev->bhi_ctxt.bhi_base,
+				     BHI_EXECENV);
+	if (pcie_word_val == MHI_EXEC_ENV_AMSS) {
+		mhi_dev_ctxt->base_state = STATE_TRANSITION_RESET;
+	} else if (pcie_word_val == MHI_EXEC_ENV_PBL) {
+		mhi_dev_ctxt->base_state = STATE_TRANSITION_BHI;
+		r = bhi_probe(mhi_pcie_dev);
+		if (r)
+			mhi_log(MHI_MSG_ERROR, "Failed to initialize BHI.\n");
+	} else {
+		mhi_log(MHI_MSG_ERROR, "Invalid EXEC_ENV: 0x%x\n",
+			pcie_word_val);
+		r = -EIO;
+	}
+	mhi_log(MHI_MSG_INFO, "EXEC_ENV: %d Base state %d\n",
+		pcie_word_val, mhi_dev_ctxt->base_state);
+	return r;
+}
+
 void mhi_link_state_cb(struct msm_pcie_notify *notify)
 {
 	int ret_val = 0;
@@ -200,6 +214,9 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 				mhi_dev_ctxt = &mhi_pcie_dev->mhi_ctxt;
 				mhi_pcie_dev->mhi_ctxt.flags.link_up = 1;
 				pci_set_master(mhi_pcie_dev->pcie_device);
+				r = set_mhi_base_state(mhi_pcie_dev);
+				if (r)
+					return;
 				init_mhi_base_state(mhi_dev_ctxt);
 		} else {
 			mhi_log(MHI_MSG_INFO,
@@ -242,8 +259,7 @@ int init_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
 	if (r)
 		mhi_log(MHI_MSG_INFO,
 			"Failed to scale bus request to active set.\n");
-	r = mhi_init_state_transition(mhi_dev_ctxt,
-			mhi_dev_ctxt->base_state);
+	r = mhi_init_state_transition(mhi_dev_ctxt, mhi_dev_ctxt->base_state);
 	if (r) {
 		mhi_log(MHI_MSG_CRITICAL,
 		"Failed to start state change event, to %d\n",

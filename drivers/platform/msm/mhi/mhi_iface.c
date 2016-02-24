@@ -167,17 +167,10 @@ int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 	pcie_device->dev.platform_data = &mhi_pcie_dev->mhi_ctxt;
 	mhi_pcie_dev->mhi_ctxt.dev_info->plat_dev->dev.platform_data =
 						&mhi_pcie_dev->mhi_ctxt;
-	if (mhi_pcie_dev->mhi_ctxt.base_state == STATE_TRANSITION_BHI) {
-		ret_val = bhi_probe(mhi_pcie_dev);
-		if (ret_val) {
-			mhi_log(MHI_MSG_ERROR, "Failed to initialize BHI.\n");
-			goto mhi_state_transition_error;
-		}
-	}
 	ret_val = mhi_reg_notifiers(&mhi_pcie_dev->mhi_ctxt);
 	if (ret_val) {
 		mhi_log(MHI_MSG_ERROR, "Failed to register for notifiers\n");
-		return ret_val;
+		goto mhi_state_transition_error;
 	}
 	mhi_log(MHI_MSG_INFO,
 			"Finished all driver probing returning ret_val %d.\n",

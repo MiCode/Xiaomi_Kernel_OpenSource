@@ -170,16 +170,11 @@ int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_pcie_device->bhi_ctxt;
 	int ret_val = 0;
-	u32 pcie_word_val = 0;
 	int r;
 
 	if (NULL == mhi_pcie_device || 0 == mhi_pcie_device->core.bar0_base
 	    || 0 == mhi_pcie_device->core.bar0_end)
 		return -EIO;
-
-	bhi_ctxt->bhi_base = mhi_pcie_device->core.bar0_base;
-	pcie_word_val = mhi_reg_read(bhi_ctxt->bhi_base, BHIOFF);
-	bhi_ctxt->bhi_base += pcie_word_val;
 
 	mhi_log(MHI_MSG_INFO,
 		"Successfully registered char dev. bhi base is: 0x%p.\n",
