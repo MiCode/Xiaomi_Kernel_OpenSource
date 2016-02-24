@@ -9,6 +9,7 @@ header-y += msm_jpeg.h
 header-y += msm_jpeg_dma.h
 header-y += msm_media_info.h
 header-y += msm_mercury.h
+header-y += msm_sde_rotator.h
 header-y += msm_vidc.h
 header-y += msm_vpu.h
 header-y += msmb_camera.h
