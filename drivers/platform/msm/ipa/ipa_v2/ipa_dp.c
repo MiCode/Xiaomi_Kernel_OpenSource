@@ -2998,6 +2998,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				if (sys->rx_pool_sz > IPA_WLAN_RX_POOL_SZ)
 					sys->rx_pool_sz = IPA_WLAN_RX_POOL_SZ;
 				sys->pyld_hdlr = NULL;
+				sys->repl_hdlr = ipa_replenish_wlan_rx_cache;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
