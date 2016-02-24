@@ -541,7 +541,6 @@ inline int linear_map(int in, int *out, int in_max, int out_max)
  */
 static inline struct mdss_mdp_pipe *__get_hist_pipe(int pnum)
 {
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	enum mdss_mdp_pipe_type ptype;
 
 	ptype = get_pipe_type_from_num(pnum);
@@ -550,7 +549,7 @@ static inline struct mdss_mdp_pipe *__get_hist_pipe(int pnum)
 	if (ptype != MDSS_MDP_PIPE_TYPE_VIG)
 		return NULL;
 
-	return mdss_mdp_pipe_get(mdata, BIT(pnum));
+	return mdss_mdp_pipe_get(BIT(pnum), MDSS_MDP_PIPE_RECT0);
 }
 
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
@@ -572,7 +571,12 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 	switch (block) {
 	case MDSS_MDP_BLOCK_SSPP:
 		lv_shift = CSC_8BIT_LV_SHIFT;
-		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
+		/*
+		 * CSC is used on VIG pipes and currently VIG pipes do not
+		 * support multirect so always use RECT0.
+		 */
+		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx),
+				MDSS_MDP_PIPE_RECT0);
 		if (!pipe) {
 			pr_err("invalid blk index=%d\n", blk_idx);
 			ret = -EINVAL;
@@ -613,7 +617,10 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 		break;
 	case MDSS_MDP_BLOCK_SSPP_10:
 		lv_shift = CSC_10BIT_LV_SHIFT;
-		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
+
+		/* CSC can be applied only on VIG which RECT0 only */
+		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx),
+				MDSS_MDP_PIPE_RECT0);
 		if (!pipe) {
 			pr_err("invalid blk index=%d\n", blk_idx);
 			ret = -EINVAL;
@@ -1198,15 +1205,8 @@ static int mdss_mdp_qseed2_setup(struct mdss_mdp_pipe *pipe)
 			pipe->scaler.enable);
 	mdata = mdss_mdp_get_mdata();
 
-	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
-
-	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 && pipe->src_fmt->is_yuv)
-		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
-	else
-		filter_mode = MDSS_MDP_SCALE_FILTER_BIL;
-
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA ||
-			pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
+	    pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
 		if (pipe->dst.h != pipe->src.h || pipe->dst.w != pipe->src.w) {
 			pr_err("no scaling supported on dma/cursor pipe, num:%d\n",
 					pipe->num);
@@ -1215,6 +1215,13 @@ static int mdss_mdp_qseed2_setup(struct mdss_mdp_pipe *pipe)
 			return 0;
 		}
 	}
+
+	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
+
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 && pipe->src_fmt->is_yuv)
+		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
+	else
+		filter_mode = MDSS_MDP_SCALE_FILTER_BIL;
 
 	src_w = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
 	src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
@@ -1815,7 +1822,7 @@ void mdss_mdp_pipe_pp_clear(struct mdss_mdp_pipe *pipe)
 
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
-	int ret = 0;
+	int i, ret = 0;
 	unsigned long flags = 0;
 	char __iomem *pipe_base;
 	u32 pipe_num, pipe_cnt;
@@ -1869,9 +1876,10 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		return -EINVAL;
 	}
 
-	for (pipe_num = 0; pipe_num < pipe_cnt; pipe_num++) {
-		if (pipe == (pipe_list + pipe_num))
+	for (i = 0, pipe_num = 0; pipe_num < pipe_cnt; pipe_num++) {
+		if (pipe->num == pipe_list[i].num)
 			break;
+		i += pipe->multirect.max_rects;
 	}
 
 	if (pipe_num == pipe_cnt) {
@@ -5331,7 +5339,8 @@ static inline struct pp_hist_col_info *get_hist_info_from_isr(u32 *isr)
 			*isr &= ~(MDSS_MDP_HIST_INTR_VIG_3_DONE |
 				MDSS_MDP_HIST_INTR_VIG_3_RESET_DONE);
 		}
-		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
+		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx),
+				MDSS_MDP_PIPE_RECT0);
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_debug("pipe DNE, %d\n", blk_idx);
 			return NULL;

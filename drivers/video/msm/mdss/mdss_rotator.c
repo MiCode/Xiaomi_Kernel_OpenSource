@@ -746,7 +746,8 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 		goto error;
 
 	pipe_ndx = mdata->dma_pipes[pipe_id].ndx;
-	hw->pipe = mdss_mdp_pipe_assign(mdata, hw->mixer, pipe_ndx);
+	hw->pipe = mdss_mdp_pipe_assign(mdata, hw->mixer,
+			pipe_ndx, MDSS_MDP_PIPE_RECT0);
 	if (IS_ERR_OR_NULL(hw->pipe)) {
 		pr_err("dma pipe allocation failed\n");
 		ret = -ENODEV;

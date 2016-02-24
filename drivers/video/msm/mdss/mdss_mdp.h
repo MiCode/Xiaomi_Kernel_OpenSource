@@ -114,14 +114,6 @@ enum mdss_mdp_mixer_mux {
 	MDSS_MDP_MIXER_MUX_RIGHT,
 };
 
-enum mdss_mdp_pipe_type {
-	MDSS_MDP_PIPE_TYPE_INVALID,
-	MDSS_MDP_PIPE_TYPE_VIG,
-	MDSS_MDP_PIPE_TYPE_RGB,
-	MDSS_MDP_PIPE_TYPE_DMA,
-	MDSS_MDP_PIPE_TYPE_CURSOR,
-};
-
 static inline enum mdss_mdp_sspp_index get_pipe_num_from_ndx(u32 ndx)
 {
 	u32 id;
@@ -647,6 +639,42 @@ struct mdss_mdp_shared_reg_ctrl {
 	u32 bit_off;
 };
 
+enum mdss_mdp_pipe_rect {
+	MDSS_MDP_PIPE_RECT0, /* default */
+	MDSS_MDP_PIPE_RECT1,
+	MDSS_MDP_PIPE_MAX_RECTS,
+};
+
+/**
+ * enum mdss_mdp_pipe_multirect_mode - pipe multirect mode
+ * @MDSS_MDP_PIPE_MULTIRECT_NONE:	pipe is not working in multirect mode
+ * @MDSS_MDP_PIPE_MULTIRECT_PARALLEL:	rectangles are being fetched at the
+ *					same time in time multiplexed fashion
+ * @MDSS_MDP_PIPE_MULTIRECT_SERIAL:	rectangles are fetched serially, where
+ *					one is only fetched after the other one
+ *					is complete
+ */
+enum mdss_mdp_pipe_multirect_mode {
+	MDSS_MDP_PIPE_MULTIRECT_NONE,
+	MDSS_MDP_PIPE_MULTIRECT_PARALLEL,
+	MDSS_MDP_PIPE_MULTIRECT_SERIAL,
+};
+
+/**
+ * struct mdss_mdp_pipe_multirect_params - multirect info for layer or pipe
+ * @num:	rectangle being operated, default is RECT0 if pipe doesn't
+ *		support multirect
+ * @mode:	mode of multirect operation, default is NONE
+ * @next:	pointer to sibling pipe/layer which is also operating in
+ *		multirect mode
+ */
+struct mdss_mdp_pipe_multirect_params {
+	enum mdss_mdp_pipe_rect num; /* RECT0 or RECT1 */
+	int max_rects;
+	enum mdss_mdp_pipe_multirect_mode mode;
+	void *next; /* pointer to next pipe or layer */
+};
+
 struct mdss_mdp_pipe {
 	u32 num;
 	u32 type;
@@ -719,6 +747,8 @@ struct mdss_mdp_pipe {
 	u32 frame_rate;
 	u8 csc_coeff_set;
 	u8 supported_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];
+
+	struct mdss_mdp_pipe_multirect_params multirect;
 };
 
 struct mdss_mdp_writeback_arg {
@@ -1402,7 +1432,8 @@ int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 	u32 flags);
 int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
-	struct mdss_mdp_mixer *mixer, u32 ndx);
+	struct mdss_mdp_mixer *mixer, u32 ndx,
+	enum mdss_mdp_pipe_rect rect_num);
 struct mdss_mdp_pipe *mdss_mdp_overlay_pipe_reuse(
 	struct msm_fb_data_type *mfd, int pipe_ndx);
 void mdss_mdp_pipe_position_update(struct mdss_mdp_pipe *pipe,
@@ -1556,12 +1587,12 @@ int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_smp_handoff(struct mdss_data_type *mdata);
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
 	u32 type, struct mdss_mdp_pipe *left_blend_pipe);
-struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx);
+struct mdss_mdp_pipe *mdss_mdp_pipe_get(u32 ndx,
+	enum mdss_mdp_pipe_rect rect_num);
 struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
-						  u32 ndx);
+	u32 ndx, enum mdss_mdp_pipe_rect rect_num);
 int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe);
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer);
 
 u32 mdss_mdp_smp_calc_num_blocks(struct mdss_mdp_pipe *pipe);
 u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe);
@@ -1571,7 +1602,8 @@ void mdss_mdp_smp_release(struct mdss_mdp_pipe *pipe);
 
 int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_id, u32 *xin_id,
-	u32 type, const int *pnums, u32 len, u8 priority_base);
+	u32 type, const int *pnums, u32 len, u32 rects_per_sspp,
+	u8 priority_base);
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata, u32 *mixer_offsets,
 		u32 *dspp_offsets, u32 *pingpong_offsets, u32 type, u32 len);
 int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,

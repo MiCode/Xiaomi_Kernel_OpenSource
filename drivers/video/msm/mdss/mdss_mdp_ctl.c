@@ -57,6 +57,15 @@ static struct {
 	[MDSS_MDP_SSPP_CURSOR1] = { 23, .ext  = { 26, 4, 0 } },
 };
 
+static struct {
+	struct mdss_mdp_hwio_cfg ext2;
+} mdp_pipe_rec1_hwio[MDSS_MDP_MAX_SSPP] = {
+	[MDSS_MDP_SSPP_DMA0]    = { .ext2 = {  8, 4, 0 } },
+	[MDSS_MDP_SSPP_DMA1]    = { .ext2 = { 12, 4, 0 } },
+	[MDSS_MDP_SSPP_DMA2]    = { .ext2 = { 16, 4, 0 } },
+	[MDSS_MDP_SSPP_DMA3]    = { .ext2 = { 20, 4, 0 } },
+};
+
 static void __mdss_mdp_mixer_write_cfg(struct mdss_mdp_mixer *mixer,
 		struct mdss_mdp_mixer_cfg *cfg);
 static void __mdss_mdp_reset_mixercfg(struct mdss_mdp_ctl *ctl);
@@ -476,7 +485,7 @@ u32 mdss_mdp_perf_calc_smp_size(struct mdss_mdp_pipe *pipe,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 smp_bytes;
 
-	if (pipe->type == PIPE_TYPE_CURSOR)
+	if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
 		return 0;
 
 	/* Get allocated or fixed smp bytes */
@@ -1087,7 +1096,8 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 			if (mdss_mdp_perf_is_overlap(y0, y1, pipe->dst.y,
 				(pipe->dst.y + pipe->dst.h)))
 				bw_max_region += bw_overlap[j];
-			pr_debug("v[%d](%d,%d)pipe[%d](%d,%d)bw(%llu %llu)\n",
+			pr_debug("pipe%d rect%d: v[%d](%d,%d)pipe[%d](%d,%d)bw(%llu %llu)\n",
+				pipe->num, pipe->multirect.num,
 				i, y0, y1, j, pipe->dst.y,
 				pipe->dst.y + pipe->dst.h, bw_overlap[j],
 				bw_max_region);
@@ -3846,7 +3856,13 @@ static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer, bool is_recovery)
 	for_each_set_bit_from(bit, &pipe_map, MAX_PIPES_PER_LM) {
 		struct mdss_mdp_pipe *pipe;
 
-		pipe = mdss_mdp_pipe_search(mdata, 1 << bit);
+		/*
+		 * this assumes that within lm there can be either rect0+rect1
+		 * or rect0 only. Thus to find the hardware pipe to halt only
+		 * check for rect 0 is sufficient.
+		 */
+		pipe = mdss_mdp_pipe_search(mdata, 1 << bit,
+				MDSS_MDP_PIPE_RECT0);
 		if (pipe) {
 			mdss_mdp_pipe_fetch_halt(pipe, is_recovery);
 			if (sw_rst_avail)
@@ -4048,8 +4064,9 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	}
 }
 
-static void __mdss_mdp_mixer_update_cfg_masks(u32 pnum, u32 stage,
-		struct mdss_mdp_mixer_cfg *cfg)
+static void __mdss_mdp_mixer_update_cfg_masks(u32 pnum,
+		enum mdss_mdp_pipe_rect rect_num,
+		u32 stage, struct mdss_mdp_mixer_cfg *cfg)
 {
 	u32 masks[NUM_MIXERCFG_REGS] = { 0 };
 	int i;
@@ -4057,9 +4074,14 @@ static void __mdss_mdp_mixer_update_cfg_masks(u32 pnum, u32 stage,
 	if (pnum >= MDSS_MDP_MAX_SSPP)
 		return;
 
-	masks[0] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].base, stage);
-	masks[1] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].ext, stage);
-	masks[2] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].ext2, stage);
+	if (rect_num == MDSS_MDP_PIPE_RECT0) {
+		masks[0] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].base, stage);
+		masks[1] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].ext, stage);
+		masks[2] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].ext2, stage);
+	} else { /* RECT1 */
+		masks[2] = mdss_mdp_hwio_mask(&mdp_pipe_rec1_hwio[pnum].ext2,
+				stage);
+	}
 
 	for (i = 0; i < NUM_MIXERCFG_REGS; i++)
 		cfg->config_masks[i] |= masks[i];
@@ -4142,9 +4164,9 @@ static void __mdss_mdp_mixer_write_cfg(struct mdss_mdp_mixer *mixer,
 	__mdss_mdp_mixer_write_layer(mixer->ctl, mixer_num,
 			vals, ARRAY_SIZE(vals));
 
-	pr_debug("mixer=%d cfg=0%08x cfg_extn=0x%08x\n",
-		mixer->num, vals[0], vals[1]);
-	MDSS_XLOG(mixer->num, vals[0], vals[1]);
+	pr_debug("mixer=%d cfg=0%08x cfg_extn=0x%08x cfg_extn2=0x%08x\n",
+		mixer->num, vals[0], vals[1], vals[2]);
+	MDSS_XLOG(mixer->num, vals[0], vals[1], vals[2]);
 }
 
 static void __mdss_mdp_reset_mixercfg(struct mdss_mdp_ctl *ctl)
@@ -4180,7 +4202,8 @@ bool mdss_mdp_mixer_reg_has_pipe(struct mdss_mdp_mixer *mixer,
 	for (i = 0; i < NUM_MIXERCFG_REGS; i++)
 		cfgs[i] = mdss_mdp_ctl_read(mixer->ctl, offs[i]);
 
-	__mdss_mdp_mixer_update_cfg_masks(pipe->num, -1, &mixercfg);
+	__mdss_mdp_mixer_update_cfg_masks(pipe->num, pipe->multirect.num, -1,
+			&mixercfg);
 	for (i = 0; i < NUM_MIXERCFG_REGS; i++) {
 		if (cfgs[i] & mixercfg.config_masks[i]) {
 			MDSS_XLOG(mixer->num, cfgs[0], cfgs[1]);
@@ -4277,7 +4300,8 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		mixercfg.border_enabled = true;
 	} else {
 		__mdss_mdp_mixer_update_cfg_masks(pipe->num,
-				MDSS_MDP_STAGE_BASE, &mixercfg);
+				pipe->multirect.num, MDSS_MDP_STAGE_BASE,
+				&mixercfg);
 
 		if (pipe->src_fmt->alpha_enable)
 			bg_alpha_enable = 1;
@@ -4291,9 +4315,9 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 
 		stage = i / MAX_PIPES_PER_STAGE;
 		if (stage != pipe->mixer_stage) {
-			pr_err("pipe%d mixer:%d mixer:%d stage mismatch. pipe->mixer_stage=%d, mixer->stage_pipe=%d. skip staging it\n",
-			    pipe->num, mixer->num, mixer->num,
-			    pipe->mixer_stage, stage);
+			pr_warn("pipe%d rec%d mixer:%d stage mismatch. pipe->mixer_stage=%d, mixer->stage_pipe=%d multirect_mode=%d. skip staging it\n",
+			    pipe->num, pipe->multirect.num, mixer->num,
+			    pipe->mixer_stage, stage, pipe->multirect.mode);
 			mixer->stage_pipe[i] = NULL;
 			continue;
 		}
@@ -4378,7 +4402,8 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		if (!pipe->src_fmt->alpha_enable && bg_alpha_enable)
 			mixer_op_mode = 0;
 
-		__mdss_mdp_mixer_update_cfg_masks(pipe->num, stage, &mixercfg);
+		__mdss_mdp_mixer_update_cfg_masks(pipe->num,
+				pipe->multirect.num, stage, &mixercfg);
 
 		trace_mdp_sspp_change(pipe);
 
