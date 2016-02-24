@@ -36,18 +36,21 @@
 			<0x802000 0x1000>,
 			<0x9180000 0x1000>,
 			<0x9181000 0x1000>;
-		qcom,max-hw-load = <979200>; /* 3840 x 2176 @ 30 fps */
+		qcom,max-hw-load = <1044480>; /* 4096 x 2176 @ 30 fps */
 		qcom,slave-side-cp;
 		qcom,firmware-name = "venus";
 		qcom,dcvs-tbl =
 			/* Dec UHD@30 H.264, HEVC, VP8, VP9 - NOM to NOM+*/
-			<816000 816000 972000 0x3f00000c>,
+			<816000 816000 979200 0x3f00000c>,
 
-			/* Enc UHD@30 H.264/HEVC Nom+ to Turbo */
-			<432000 432000 972000 0x4000004>;
+			/* Enc UHD@30 H.264/HEVC Turbo to Nom+ */
+			<897600 897600 979200 0x4000004>,
+
+			/* Enc True4K@24 H.264/HEVC Nom to Nom+ */
+			<816000 816000 835584 0x4000004>;
 		qcom,dcvs-limit =
-			<32400 30>, /* Encoder UHD */
-			<32400 30>; /* Decoder UHD */
+			<32400 24>, /* Encoder UHD */
+			<32400 24>; /* Decoder UHD */
 		qcom,allowed-clock-rates = <465000000 400000000
 			360000000 310000000 228570000 114290000>;
 		qcom,clock-freq-tbl {
