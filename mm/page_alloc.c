@@ -1852,7 +1852,6 @@ static bool __zone_watermark_ok(struct zone *z, unsigned int order,
 	/* free_pages my go negative - that's OK */
 	long min = mark;
 	int o;
-	long free_cma = 0;
 
 	free_pages -= (1 << order) - 1;
 	if (alloc_flags & ALLOC_HIGH)
@@ -1862,14 +1861,23 @@ static bool __zone_watermark_ok(struct zone *z, unsigned int order,
 #ifdef CONFIG_CMA
 	/* If allocation can't use CMA areas don't use free CMA pages */
 	if (!(alloc_flags & ALLOC_CMA))
-		free_cma = zone_page_state(z, NR_FREE_CMA_PAGES);
+		free_pages -= zone_page_state(z, NR_FREE_CMA_PAGES);
 #endif
 
-	if (free_pages - free_cma <= min + z->lowmem_reserve[classzone_idx])
+	if (free_pages <= min + z->lowmem_reserve[classzone_idx])
 		return false;
+
 	for (o = 0; o < order; o++) {
 		/* At the next order, this order's pages become unavailable */
-		free_pages -= z->free_area[o].nr_free << o;
+		if (!(alloc_flags & ALLOC_CMA)) {
+			long free = z->free_area[o].nr_free -
+					z->free_area[o].nr_free_cma;
+			if (free < 0)
+				free = 0;
+			free_pages -= free << o;
+		} else {
+			free_pages -= z->free_area[o].nr_free << o;
+		}
 
 		/* Require fewer higher order pages to be free */
 		min >>= min_free_order_shift;
