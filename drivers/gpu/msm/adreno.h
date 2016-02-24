@@ -108,6 +108,8 @@
 #define ADRENO_64BIT BIT(9)
 /* The GPU supports retention for cpz registers */
 #define ADRENO_CPZ_RETENTION BIT(10)
+/* The core has soft fault detection available */
+#define ADRENO_SOFT_FAULT_DETECT BIT(11)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
