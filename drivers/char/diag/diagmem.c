@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -282,7 +282,7 @@ void diagmem_exit(struct diagchar_dev *driver, int index)
 
 	mempool = &diag_mempools[index];
 	spin_lock_irqsave(&mempool->lock, flags);
-	if (mempool->count == 0) {
+	if (mempool->count == 0 && mempool->pool != NULL) {
 		mempool_destroy(mempool->pool);
 		mempool->pool = NULL;
 	} else {
