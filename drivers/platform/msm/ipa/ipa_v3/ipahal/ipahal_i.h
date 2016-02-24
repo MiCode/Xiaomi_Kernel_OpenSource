@@ -348,4 +348,97 @@ struct ipa_imm_cmd_hw_dma_task_32b_addr {
 	u64 packet_size:16;
 };
 
+
+
+/* IPA Status packet H/W structures and info */
+
+/*
+ * struct ipa_status_pkt_hw - IPA status packet payload in H/W format.
+ *  This structure describes the status packet H/W structure for the
+ *   following statuses: IPA_STATUS_PACKET, IPA_STATUS_DROPPED_PACKET,
+ *   IPA_STATUS_SUSPENDED_PACKET.
+ *  Other statuses types has different status packet structure.
+ * @status_opcode: The Type of the status (Opcode).
+ * @exception: (not bitmask) - the first exception that took place.
+ *  In case of exception, src endp and pkt len are always valid.
+ * @status_mask: Bit mask specifying on which H/W blocks the pkt was processed.
+ * @pkt_len: Pkt pyld len including hdr, include retained hdr if used. Does
+ *  not include padding or checksum trailer len.
+ * @endp_src_idx: Source end point index.
+ * @rsvd1: reserved
+ * @endp_dest_idx: Destination end point index.
+ *  Not valid in case of exception
+ * @rsvd2: reserved
+ * @metadata: meta data value used by packet
+ * @flt_local: Filter table location flag: Does matching flt rule belongs to
+ *  flt tbl that resides in lcl memory? (if not, then system mem)
+ * @flt_hash: Filter hash hit flag: Does matching flt rule was in hash tbl?
+ * @flt_global: Global filter rule flag: Does matching flt rule belongs to
+ *  the global flt tbl? (if not, then the per endp tables)
+ * @flt_ret_hdr: Retain header in filter rule flag: Does matching flt rule
+ *  specifies to retain header?
+ * @flt_rule_id: The ID of the matching filter rule. This info can be combined
+ *  with endp_src_idx to locate the exact rule. ID=0x3FF reserved to specify
+ *  flt miss. In case of miss, all flt info to be ignored
+ * @rt_local: Route table location flag: Does matching rt rule belongs to
+ *  rt tbl that resides in lcl memory? (if not, then system mem)
+ * @rt_hash: Route hash hit flag: Does matching rt rule was in hash tbl?
+ * @ucp: UC Processing flag.
+ * @rt_tbl_idx: Index of rt tbl that contains the rule on which was a match
+ * @rt_rule_id: The ID of the matching rt rule. This info can be combined
+ *  with rt_tbl_idx to locate the exact rule. ID=0x3FF reserved to specify
+ *  rt miss. In case of miss, all rt info to be ignored
+ * @nat_hit: NAT hit flag: Was their NAT hit?
+ * @nat_entry_idx: Index of the NAT entry used of NAT processing
+ * @nat_type: Defines the type of the NAT operation:
+ *	00: No NAT
+ *	01: Source NAT
+ *	10: Destination NAT
+ *	11: Reserved
+ * @tag_info: S/W defined value provided via immediate command
+ * @seq_num: Per source endp unique packet sequence number
+ * @time_of_day_ctr: running counter from IPA clock
+ * @hdr_local: Header table location flag: In header insertion, was the header
+ *  taken from the table resides in local memory? (If no, then system mem)
+ * @hdr_offset: Offset of used header in the header table
+ * @frag_hit: Frag hit flag: Was their frag rule hit in H/W frag table?
+ * @frag_rule: Frag rule index in H/W frag table in case of frag hit
+ * @hw_specific: H/W specific reserved value
+ */
+struct ipa_pkt_status_hw {
+	u64 status_opcode:8;
+	u64 exception:8;
+	u64 status_mask:16;
+	u64 pkt_len:16;
+	u64 endp_src_idx:5;
+	u64 rsvd1:3;
+	u64 endp_dest_idx:5;
+	u64 rsvd2:3;
+	u64 metadata:32;
+	u64 flt_local:1;
+	u64 flt_hash:1;
+	u64 flt_global:1;
+	u64 flt_ret_hdr:1;
+	u64 flt_rule_id:10;
+	u64 rt_local:1;
+	u64 rt_hash:1;
+	u64 ucp:1;
+	u64 rt_tbl_idx:5;
+	u64 rt_rule_id:10;
+	u64 nat_hit:1;
+	u64 nat_entry_idx:13;
+	u64 nat_type:2;
+	u64 tag_info:48;
+	u64 seq_num:8;
+	u64 time_of_day_ctr:24;
+	u64 hdr_local:1;
+	u64 hdr_offset:10;
+	u64 frag_hit:1;
+	u64 frag_rule:4;
+	u64 hw_specific:16;
+};
+
+/* Size of H/W Packet Status */
+#define IPA3_0_PKT_STATUS_SIZE 32
+
 #endif /* _IPAHAL_I_H_ */

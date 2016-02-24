@@ -14,8 +14,6 @@
 #include "ipahal_i.h"
 #include "ipahal_reg_i.h"
 
-static int ipahal_imm_cmd_init(enum ipa_hw_type ipa_hw_type);
-
 struct ipahal_context *ipahal_ctx;
 
 static const char *ipahal_imm_cmd_name_to_str[IPA_IMM_CMD_MAX] = {
@@ -32,6 +30,18 @@ static const char *ipahal_imm_cmd_name_to_str[IPA_IMM_CMD_MAX] = {
 	__stringify(IPA_IMM_CMD_DMA_SHARED_MEM),
 	__stringify(IPA_IMM_CMD_IP_PACKET_TAG_STATUS),
 	__stringify(IPA_IMM_CMD_DMA_TASK_32B_ADDR),
+};
+
+static const char *ipahal_pkt_status_exception_to_str
+	[IPAHAL_PKT_STATUS_EXCEPTION_MAX] = {
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_NONE),
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_DEAGGR),
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_IPTYPE),
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_PACKET_LENGTH),
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_PACKET_THRESHOLD),
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS),
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT),
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_NAT),
 };
 
 #define IPAHAL_MEM_ALLOC(__size, __is_atomic_ctx) \
@@ -538,14 +548,14 @@ static int ipahal_imm_cmd_init(enum ipa_hw_type ipa_hw_type)
 				 */
 				 if (!ipahal_imm_cmd_objs[i+1][j].opcode) {
 					IPAHAL_ERR(
-					  "imm_cmd=%s with zero opcode\n",
-					  ipahal_imm_cmd_name_str(j));
+					  "imm_cmd=%s with zero opcode ipa_ver=%d\n",
+					  ipahal_imm_cmd_name_str(j), i+1);
 					WARN_ON(1);
 				 }
 				 if (!ipahal_imm_cmd_objs[i+1][j].construct) {
 					IPAHAL_ERR(
-					  "imm_cmd=%s with NULL construct fun\n",
-					  ipahal_imm_cmd_name_str(j));
+					  "imm_cmd=%s with NULL construct func ipa_ver=%d\n",
+					  ipahal_imm_cmd_name_str(j), i+1);
 					WARN_ON(1);
 				 }
 			}
@@ -709,6 +719,270 @@ struct ipahal_imm_cmd_pyld *ipahal_construct_nop_imm_cmd(
 	return cmd_pyld;
 }
 
+
+/* IPA Packet Status Logic */
+
+#define IPA_PKT_STATUS_SET_MSK(__hw_bit_msk, __shft) \
+	(status->status_mask |= \
+		((hw_status->status_mask & (__hw_bit_msk) ? 1 : 0) << (__shft)))
+
+static void ipa_pkt_status_parse(
+	const void *unparsed_status, struct ipahal_pkt_status *status)
+{
+	enum ipahal_pkt_status_opcode opcode = 0;
+	enum ipahal_pkt_status_exception exception_type = 0;
+
+	struct ipa_pkt_status_hw *hw_status =
+		(struct ipa_pkt_status_hw *)unparsed_status;
+
+	status->pkt_len = hw_status->pkt_len;
+	status->endp_src_idx = hw_status->endp_src_idx;
+	status->endp_dest_idx = hw_status->endp_dest_idx;
+	status->metadata = hw_status->metadata;
+	status->flt_local = hw_status->flt_local;
+	status->flt_hash = hw_status->flt_hash;
+	status->flt_global = hw_status->flt_hash;
+	status->flt_ret_hdr = hw_status->flt_ret_hdr;
+	status->flt_miss = ~(hw_status->flt_rule_id) ? false : true;
+	status->flt_rule_id = hw_status->flt_rule_id;
+	status->rt_local = hw_status->rt_local;
+	status->rt_hash = hw_status->rt_hash;
+	status->ucp = hw_status->ucp;
+	status->rt_tbl_idx = hw_status->rt_tbl_idx;
+	status->rt_miss = ~(hw_status->rt_rule_id) ? false : true;
+	status->rt_rule_id = hw_status->rt_rule_id;
+	status->nat_hit = hw_status->nat_hit;
+	status->nat_entry_idx = hw_status->nat_entry_idx;
+	status->tag_info = hw_status->tag_info;
+	status->seq_num = hw_status->seq_num;
+	status->time_of_day_ctr = hw_status->time_of_day_ctr;
+	status->hdr_local = hw_status->hdr_local;
+	status->hdr_offset = hw_status->hdr_offset;
+	status->frag_hit = hw_status->frag_hit;
+	status->frag_rule = hw_status->frag_rule;
+
+	switch (hw_status->status_opcode) {
+	case 0x1:
+		opcode = IPAHAL_PKT_STATUS_OPCODE_PACKET;
+		break;
+	case 0x2:
+		opcode = IPAHAL_PKT_STATUS_OPCODE_NEW_FRAG_RULE;
+		break;
+	case 0x4:
+		opcode = IPAHAL_PKT_STATUS_OPCODE_DROPPED_PACKET;
+		break;
+	case 0x8:
+		opcode = IPAHAL_PKT_STATUS_OPCODE_SUSPENDED_PACKET;
+		break;
+	case 0x10:
+		opcode = IPAHAL_PKT_STATUS_OPCODE_LOG;
+		break;
+	case 0x20:
+		opcode = IPAHAL_PKT_STATUS_OPCODE_DCMP;
+		break;
+	case 0x40:
+		opcode = IPAHAL_PKT_STATUS_OPCODE_PACKET_2ND_PASS;
+		break;
+	default:
+		IPAHAL_ERR("unsupported Status Opcode 0x%x\n",
+			hw_status->status_opcode);
+		WARN_ON(1);
+	};
+	status->status_opcode = opcode;
+
+	switch (hw_status->nat_type) {
+	case 0:
+		status->nat_type = IPAHAL_PKT_STATUS_NAT_NONE;
+		break;
+	case 1:
+		status->nat_type = IPAHAL_PKT_STATUS_NAT_SRC;
+		break;
+	case 2:
+		status->nat_type = IPAHAL_PKT_STATUS_NAT_DST;
+		break;
+	default:
+		IPAHAL_ERR("unsupported Status NAT type 0x%x\n",
+			hw_status->nat_type);
+		WARN_ON(1);
+	};
+
+	switch (hw_status->exception) {
+	case 0:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NONE;
+		break;
+	case 1:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_DEAGGR;
+		break;
+	case 4:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPTYPE;
+		break;
+	case 8:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_PACKET_LENGTH;
+		break;
+	case 16:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS;
+		break;
+	case 32:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT;
+		break;
+	case 64:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NAT;
+		break;
+	default:
+		IPAHAL_ERR("unsupported Status Exception type 0x%x\n",
+			hw_status->exception);
+		WARN_ON(1);
+	};
+	status->exception = exception_type;
+
+	IPA_PKT_STATUS_SET_MSK(0x1, IPAHAL_PKT_STATUS_MASK_FRAG_PROCESS_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x2, IPAHAL_PKT_STATUS_MASK_FILT_PROCESS_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x4, IPAHAL_PKT_STATUS_MASK_NAT_PROCESS_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x8, IPAHAL_PKT_STATUS_MASK_ROUTE_PROCESS_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x10, IPAHAL_PKT_STATUS_MASK_TAG_VALID_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x20, IPAHAL_PKT_STATUS_MASK_FRAGMENT_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x40,
+		IPAHAL_PKT_STATUS_MASK_FIRST_FRAGMENT_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x80, IPAHAL_PKT_STATUS_MASK_V4_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x100,
+		IPAHAL_PKT_STATUS_MASK_CKSUM_PROCESS_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x200, IPAHAL_PKT_STATUS_MASK_AGGR_PROCESS_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x400, IPAHAL_PKT_STATUS_MASK_DEST_EOT_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x800,
+		IPAHAL_PKT_STATUS_MASK_DEAGGR_PROCESS_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x1000, IPAHAL_PKT_STATUS_MASK_DEAGG_FIRST_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x2000, IPAHAL_PKT_STATUS_MASK_SRC_EOT_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x4000, IPAHAL_PKT_STATUS_MASK_PREV_EOT_SHFT);
+	IPA_PKT_STATUS_SET_MSK(0x8000, IPAHAL_PKT_STATUS_MASK_BYTE_LIMIT_SHFT);
+	status->status_mask &= 0xFFFF;
+}
+
+/*
+ * struct ipahal_pkt_status_obj - Pakcet Status H/W information for
+ *  specific IPA version
+ * @size: H/W size of the status packet
+ * @parse: CB that parses the H/W packet status into the abstracted structure
+ */
+struct ipahal_pkt_status_obj {
+	u32 size;
+	void (*parse)(const void *unparsed_status,
+		struct ipahal_pkt_status *status);
+};
+
+/*
+ * This table contains the info regard packet status for IPAv3 and later
+ * Information like: size of packet status and parsing function
+ * All the information on the pkt Status on IPAv3 are statically defined below.
+ * If information is missing regard some IPA version, the init function
+ *  will fill it with the information from the previous IPA version.
+ * Information is considered missing if all of the fields are 0
+ */
+static struct ipahal_pkt_status_obj ipahal_pkt_status_objs[IPA_HW_MAX] = {
+	/* IPAv3 */
+	[IPA_HW_v3_0] = {
+		IPA3_0_PKT_STATUS_SIZE,
+		ipa_pkt_status_parse,
+		},
+};
+
+/*
+ * ipahal_pkt_status_init() - Build the packet status information array
+ *  for the different IPA versions
+ *  See ipahal_pkt_status_objs[] comments
+ */
+static int ipahal_pkt_status_init(enum ipa_hw_type ipa_hw_type)
+{
+	int i;
+	struct ipahal_pkt_status_obj zero_obj;
+
+	IPAHAL_DBG("Entry - HW_TYPE=%d\n", ipa_hw_type);
+
+	/*
+	 * Since structure alignment is implementation dependent,
+	 * add test to avoid different and incompatible data layouts.
+	 *
+	 * In case new H/W has different size or structure of status packet,
+	 * add a compile time validty check for it like below (as well as
+	 * the new defines and/or the new strucutre in the internal header).
+	 */
+	BUILD_BUG_ON(sizeof(struct ipa_pkt_status_hw) !=
+		IPA3_0_PKT_STATUS_SIZE);
+
+	memset(&zero_obj, 0, sizeof(zero_obj));
+	for (i = IPA_HW_v3_0 ; i < ipa_hw_type ; i++) {
+		if (!memcmp(&ipahal_pkt_status_objs[i+1], &zero_obj,
+			sizeof(struct ipahal_pkt_status_obj))) {
+			memcpy(&ipahal_pkt_status_objs[i+1],
+				&ipahal_pkt_status_objs[i],
+				sizeof(struct ipahal_pkt_status_obj));
+		} else {
+			/*
+			 * explicitly overridden Packet Status info
+			 * Check validity
+			 */
+			 if (!ipahal_pkt_status_objs[i+1].size) {
+				IPAHAL_ERR(
+				  "Packet Status with zero size ipa_ver=%d\n",
+				  i+1);
+				WARN_ON(1);
+			 }
+			  if (!ipahal_pkt_status_objs[i+1].parse) {
+				IPAHAL_ERR(
+				  "Packet Status without Parse func ipa_ver=%d\n",
+				  i+1);
+				WARN_ON(1);
+			 }
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * ipahal_pkt_status_get_size() - Get H/W size of packet status
+ */
+u32 ipahal_pkt_status_get_size(void)
+{
+	return ipahal_pkt_status_objs[ipahal_ctx->hw_type].size;
+}
+
+/*
+ * ipahal_pkt_status_parse() - Parse Packet Status payload to abstracted form
+ * @unparsed_status: Pointer to H/W format of the packet status as read from H/W
+ * @status: Pointer to pre-allocated buffer where the parsed info will be stored
+ */
+void ipahal_pkt_status_parse(const void *unparsed_status,
+	struct ipahal_pkt_status *status)
+{
+	if (!unparsed_status || !status) {
+		IPAHAL_ERR("Input Error: unparsed_status=%p status=%p\n",
+			unparsed_status, status);
+		return;
+	}
+
+	IPAHAL_DBG("Parse Status Packet\n");
+	memset(status, 0, sizeof(*status));
+	ipahal_pkt_status_objs[ipahal_ctx->hw_type].parse(unparsed_status,
+		status);
+}
+
+/*
+ * ipahal_pkt_status_exception_str() - returns string represents exception type
+ * @exception: [in] The exception type
+ */
+const char *ipahal_pkt_status_exception_str(
+	enum ipahal_pkt_status_exception exception)
+{
+	if (exception < 0 || exception >= IPAHAL_PKT_STATUS_EXCEPTION_MAX) {
+		IPAHAL_ERR(
+			"requested string of invalid pkt_status exception=%d\n",
+			exception);
+		return "Invalid PKT_STATUS_EXCEPTION";
+	}
+
+	return ipahal_pkt_status_exception_to_str[exception];
+}
+
 int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 {
 	int result;
@@ -746,6 +1020,12 @@ int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 
 	if (ipahal_imm_cmd_init(ipa_hw_type)) {
 		IPAHAL_ERR("failed to init ipahal imm cmd\n");
+		result = -EFAULT;
+		goto bail_free_ctx;
+	}
+
+	if (ipahal_pkt_status_init(ipa_hw_type)) {
+		IPAHAL_ERR("failed to init ipahal pkt status\n");
 		result = -EFAULT;
 		goto bail_free_ctx;
 	}

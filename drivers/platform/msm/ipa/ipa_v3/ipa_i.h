@@ -34,6 +34,7 @@
 #include "ipa_qmi_service.h"
 #include "../ipa_api.h"
 #include "ipahal/ipahal_reg.h"
+#include "ipahal/ipahal.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -90,25 +91,20 @@
 #define WLAN3_CONS_RX_EP  17
 #define WLAN4_CONS_RX_EP  18
 
-#define MAX_NUM_EXCP     8
-
 #define IPA_STATS
 
 #ifdef IPA_STATS
 #define IPA_STATS_INC_CNT(val) (++val)
 #define IPA_STATS_DEC_CNT(val) (--val)
-#define IPA_STATS_EXCP_CNT(flags, base) do {			\
-			int i;					\
-			for (i = 0; i < MAX_NUM_EXCP; i++)	\
-				if (flags & BIT(i))		\
-					++base[i];		\
-			if (flags == 0)				\
-				++base[MAX_NUM_EXCP - 1];	\
-			} while (0)
+#define IPA_STATS_EXCP_CNT(__excp, __base) do {				\
+	if (__excp < 0 || __excp >= IPAHAL_PKT_STATUS_EXCEPTION_MAX)	\
+		break;							\
+	++__base[__excp];						\
+	} while (0)
 #else
 #define IPA_STATS_INC_CNT(x) do { } while (0)
 #define IPA_STATS_DEC_CNT(x)
-#define IPA_STATS_EXCP_CNT(flags, base) do { } while (0)
+#define IPA_STATS_EXCP_CNT(__excp, __base) do { } while (0)
 #endif
 
 #define IPA_TOS_EQ			BIT(0)
@@ -665,7 +661,7 @@ struct ipa_gsi_ep_mem_info {
 };
 
 struct ipa3_status_stats {
-	struct ipa3_hw_pkt_status status[IPA_MAX_STATUS_STAT_NUM];
+	struct ipahal_pkt_status status[IPA_MAX_STATUS_STAT_NUM];
 	int curr;
 };
 
@@ -1008,7 +1004,7 @@ struct ipa3_stats {
 	u32 tx_sw_pkts;
 	u32 tx_hw_pkts;
 	u32 rx_pkts;
-	u32 rx_excp_pkts[MAX_NUM_EXCP];
+	u32 rx_excp_pkts[IPAHAL_PKT_STATUS_EXCEPTION_MAX];
 	u32 rx_repl_repost;
 	u32 tx_pkts_compl;
 	u32 rx_q_len;
