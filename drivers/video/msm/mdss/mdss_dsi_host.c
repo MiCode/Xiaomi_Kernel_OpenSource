@@ -840,7 +840,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		if (i == loop) {
 			MDSS_XLOG(ctrl0->ndx, ln0, 0x1f1f);
 			MDSS_XLOG(ctrl1->ndx, ln1, 0x1f1f);
-			pr_err("Clock lane still in stop state");
+			pr_err("%s: Clock lane still in stop state\n",
+					__func__);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "panic");
 		}
@@ -911,7 +912,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 		}
 		if (i == loop) {
 			MDSS_XLOG(ctrl->ndx, ln0, 0x1f1f);
-			pr_err("Clock lane still in stop state");
+			pr_err("%s: Clock lane still in stop state\n",
+					__func__);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "panic");
 		}
@@ -2679,6 +2681,8 @@ static int dsi_event_thread(void *data)
 						  MDSS_DSI_ALL_CLKS,
 						  MDSS_DSI_CLK_OFF);
 			} else {
+				pr_err("%s: ctrl recovery not defined\n",
+						__func__);
 				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
 				"dsi0_phy", "dsi1_ctrl", "dsi1_phy", "vbif",
 				"vbif_nrt", "dbg_bus", "vbif_dbg_bus", "panic");
@@ -2913,14 +2917,25 @@ static void __dsi_error_counter(struct dsi_err_container *err_container)
 	prev_time = err_container->err_time[prev_index];
 
 	if (prev_time &&
-		((curr_time - prev_time) < err_container->err_time_delta))
+		((curr_time - prev_time) < err_container->err_time_delta)) {
+		pr_err("%s: panic in WQ as dsi error intrs within:%dms\n",
+				__func__, err_container->err_time_delta);
 		MDSS_XLOG_TOUT_HANDLER_WQ("mdp", "dsi0_ctrl", "dsi0_phy",
 			"dsi1_ctrl", "dsi1_phy", "panic");
+	}
 }
 
 void mdss_dsi_error(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	u32 intr;
+	u32 intr, mask;
+
+	/* Ignore the interrupt if the error intr mask is not set */
+	mask = MIPI_INP(ctrl->ctrl_base + 0x0110);
+	if (!(mask & DSI_INTR_ERROR_MASK)) {
+		pr_debug("%s: Ignore interrupt as error mask not set, 0x%x\n",
+				__func__, mask);
+		return;
+	}
 
 	/* disable dsi error interrupt */
 	mdss_dsi_err_intr_ctrl(ctrl, DSI_INTR_ERROR_MASK, 0);
@@ -2962,6 +2977,7 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 	pr_debug("%s: ndx=%d isr=%x\n", __func__, ctrl->ndx, isr);
 
 	if (isr & DSI_INTR_BTA_DONE) {
+		MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, isr, 0x96);
 		spin_lock(&ctrl->mdp_lock);
 		mdss_dsi_disable_irq_nosync(ctrl, DSI_BTA_TERM);
 		complete(&ctrl->bta_comp);
