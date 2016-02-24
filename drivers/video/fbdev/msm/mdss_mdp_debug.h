@@ -21,6 +21,14 @@
 #include "mdss.h"
 #include "mdss_mdp.h"
 
+#define MDP_DANGER_SAFE_BIT_OFFSET	0
+#define VIG_DANGER_SAFE_BIT_OFFSET	4
+#define RGB_DANGER_SAFE_BIT_OFFSET	12
+#define DMA_DANGER_SAFE_BIT_OFFSET	20
+#define CURSOR_DANGER_SAFE_BIT_OFFSET	24
+
+#define DANGER_SAFE_STATUS(X, Y) (((X) & (BIT(Y) | BIT((Y)+1))) >> (Y))
+
 static inline const char *mdss_mdp_pipetype2str(u32 ptype)
 {
 	static const char const *strings[] = {
