@@ -310,20 +310,24 @@ static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 		pr_debug("register bus_hdl=%x\n", mdata->bus_hdl);
 	}
 
-	if (!mdata->reg_bus_hdl) {
+	if (!mdata->reg_bus_scale_table) {
 		reg_bus_pdata = &mdp_reg_bus_scale_table;
 		for (i = 0; i < reg_bus_pdata->num_usecases; i++) {
 			mdp_reg_bus_usecases[i].num_paths = 1;
 			mdp_reg_bus_usecases[i].vectors =
 				&mdp_reg_bus_vectors[i];
 		}
+		mdata->reg_bus_scale_table = reg_bus_pdata;
+	}
 
+	if (!mdata->reg_bus_hdl) {
 		mdata->reg_bus_hdl =
-			msm_bus_scale_register_client(reg_bus_pdata);
-		if (!mdata->reg_bus_hdl) {
+			msm_bus_scale_register_client(
+			      mdata->reg_bus_scale_table);
+		if (!mdata->reg_bus_hdl)
 			/* Continue without reg_bus scaling */
 			pr_warn("reg_bus_client register failed\n");
-		} else
+		else
 			pr_debug("register reg_bus_hdl=%x\n",
 					mdata->reg_bus_hdl);
 	}
@@ -829,7 +833,7 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 {
 	if (enable) {
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
-				VOTE_INDEX_19_MHZ);
+				VOTE_INDEX_LOW);
 		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
 				mdss_bus_scale_set_quota(MDSS_HW_RT,
 					SZ_1M, SZ_1M);
@@ -1112,7 +1116,7 @@ void mdss_mdp_clk_ctrl(int enable)
 			pm_runtime_get_sync(&mdata->pdev->dev);
 
 			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
-				VOTE_INDEX_19_MHZ);
+				VOTE_INDEX_LOW);
 
 			rc = mdss_iommu_ctrl(1);
 			if (IS_ERR_VALUE(rc))
@@ -3719,6 +3723,7 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev)
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 {
 	int rc, paths;
+	struct device_node *node;
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
 	rc = of_property_read_u32(pdev->dev.of_node,
@@ -3747,6 +3752,28 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 			rc = -EINVAL;
 		pr_err("msm_bus_cl_get_pdata failed. rc=%d\n", rc);
 		mdata->bus_scale_table = NULL;
+		return rc;
+	}
+
+	/*
+	 * if mdss-reg-bus is not found then default table is picked
+	 * hence below code wont return error.
+	 */
+	node = of_get_child_by_name(pdev->dev.of_node, "qcom,mdss-reg-bus");
+	if (node) {
+		mdata->reg_bus_scale_table =
+			msm_bus_pdata_from_node(pdev, node);
+		if (IS_ERR_OR_NULL(mdata->reg_bus_scale_table)) {
+			rc = PTR_ERR(mdata->reg_bus_scale_table);
+			if (!rc)
+				pr_err("bus_pdata reg_bus failed rc=%d\n", rc);
+			rc = 0;
+			mdata->reg_bus_scale_table = NULL;
+		}
+	} else {
+		rc = 0;
+		mdata->reg_bus_scale_table = NULL;
+		pr_debug("mdss-reg-bus not found\n");
 	}
 
 	return rc;

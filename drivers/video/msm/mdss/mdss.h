@@ -55,9 +55,9 @@ enum mdss_iommu_domain_type {
 
 enum mdss_bus_vote_type {
 	VOTE_INDEX_DISABLE,
-	VOTE_INDEX_19_MHZ,
-	VOTE_INDEX_40_MHZ,
-	VOTE_INDEX_80_MHZ,
+	VOTE_INDEX_LOW,
+	VOTE_INDEX_MID,
+	VOTE_INDEX_HIGH,
 	VOTE_INDEX_MAX,
 };
 
@@ -334,6 +334,7 @@ struct mdss_data_type {
 	u32 curr_bw_uc_idx;
 	u32 ao_bw_uc_idx; /* active only idx */
 	struct msm_bus_scale_pdata *bus_scale_table;
+	struct msm_bus_scale_pdata *reg_bus_scale_table;
 	u32 max_bw_low;
 	u32 max_bw_high;
 	u32 max_bw_per_pipe;
