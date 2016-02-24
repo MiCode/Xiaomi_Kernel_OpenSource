@@ -555,12 +555,8 @@ struct mdss_panel_data {
 
 struct mdss_panel_debugfs_info {
 	struct dentry *root;
-	u32 xres;
-	u32 yres;
-	struct lcd_panel_info lcdc;
-	struct fbc_panel_info fbc;
+	struct mdss_panel_info panel_info;
 	u32 override_flag;
-	char frame_rate;
 	struct mdss_panel_debugfs_info *next;
 };
 
