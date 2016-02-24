@@ -65,10 +65,13 @@ int mhi_runtime_suspend(struct device *dev)
 	int r = 0;
 	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
 
-	mhi_log(MHI_MSG_INFO, "Runtime Suspend - Entered\n");
+	mhi_log(MHI_MSG_INFO, "Entered\n");
 	r = mhi_initiate_m3(mhi_dev_ctxt);
+	if (r)
+		mhi_log(MHI_MSG_ERROR, "Init M3 failed ret %d\n", r);
+
 	pm_runtime_mark_last_busy(dev);
-	mhi_log(MHI_MSG_INFO, "Runtime Suspend - Exited\n");
+	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return r;
 }
 
@@ -77,10 +80,12 @@ int mhi_runtime_resume(struct device *dev)
 	int r = 0;
 	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
 
-	mhi_log(MHI_MSG_INFO, "Runtime Resume - Entered\n");
+	mhi_log(MHI_MSG_INFO, "Entered\n");
 	r = mhi_initiate_m0(mhi_dev_ctxt);
+	if (r)
+		mhi_log(MHI_MSG_ERROR, "Init M0 failed ret %d\n", r);
 	pm_runtime_mark_last_busy(dev);
-	mhi_log(MHI_MSG_INFO, "Runtime Resume - Exited\n");
+	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return r;
 }
 
@@ -88,6 +93,7 @@ int mhi_pci_resume(struct device *dev)
 {
 	int r = 0;
 	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
+
 	r = mhi_initiate_m0(mhi_dev_ctxt);
 	if (r)
 		goto exit;
@@ -139,9 +145,10 @@ ssize_t sysfs_init_m3(struct device *dev, struct device_attribute *attr,
 				"Failed to suspend %d\n", r);
 		return r;
 	}
-	if (MHI_STATUS_SUCCESS != mhi_turn_off_pcie_link(mhi_dev_ctxt))
+	r = mhi_turn_off_pcie_link(mhi_dev_ctxt);
+	if (r)
 		mhi_log(MHI_MSG_CRITICAL,
-				"Failed to turn off link\n");
+				"Failed to turn off link ret %d\n", r);
 
 	return count;
 }
@@ -150,14 +157,14 @@ ssize_t sysfs_init_mhi_reset(struct device *dev, struct device_attribute *attr,
 {
 	struct mhi_device_ctxt *mhi_dev_ctxt =
 		&mhi_devices.device_list[0].mhi_ctxt;
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int r = 0;
 
 	mhi_log(MHI_MSG_INFO, "Triggering MHI Reset.\n");
-	ret_val = mhi_trigger_reset(mhi_dev_ctxt);
-	if (ret_val != MHI_STATUS_SUCCESS)
+	r = mhi_trigger_reset(mhi_dev_ctxt);
+	if (r != 0)
 		mhi_log(MHI_MSG_CRITICAL,
 			"Failed to trigger MHI RESET ret %d\n",
-			ret_val);
+			r);
 	else
 		mhi_log(MHI_MSG_INFO, "Triggered! MHI RESET\n");
 	return count;
@@ -167,7 +174,7 @@ ssize_t sysfs_init_m0(struct device *dev, struct device_attribute *attr,
 {
 	struct mhi_device_ctxt *mhi_dev_ctxt =
 		&mhi_devices.device_list[0].mhi_ctxt;
-	if (MHI_STATUS_SUCCESS != mhi_turn_on_pcie_link(mhi_dev_ctxt)) {
+	if (0 != mhi_turn_on_pcie_link(mhi_dev_ctxt)) {
 		mhi_log(MHI_MSG_CRITICAL,
 				"Failed to resume link\n");
 		return count;
@@ -180,11 +187,10 @@ ssize_t sysfs_init_m0(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-enum MHI_STATUS mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
+int mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	int r;
 	struct pci_dev *pcie_dev;
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int r = 0;
 
 	mhi_log(MHI_MSG_INFO, "Entered...\n");
 	pcie_dev = mhi_dev_ctxt->dev_info->pcie_device;
@@ -204,7 +210,6 @@ enum MHI_STATUS mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 	if (r) {
 		mhi_log(MHI_MSG_CRITICAL,
 			"Failed to set pcie power state to D3 hotret: %x\n", r);
-		ret_val = MHI_STATUS_ERROR;
 		goto exit;
 	}
 	r = msm_pcie_pm_control(MSM_PCIE_SUSPEND,
@@ -219,14 +224,13 @@ enum MHI_STATUS mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 exit:
 	mutex_unlock(&mhi_dev_ctxt->mhi_link_state);
 	mhi_log(MHI_MSG_INFO, "Exited...\n");
-	return MHI_STATUS_SUCCESS;
+	return 0;
 }
 
-enum MHI_STATUS mhi_turn_on_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
+int mhi_turn_on_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
 	struct pci_dev *pcie_dev;
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
 
 	pcie_dev = mhi_dev_ctxt->dev_info->pcie_device;
 
@@ -241,7 +245,6 @@ enum MHI_STATUS mhi_turn_on_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 	if (r) {
 		mhi_log(MHI_MSG_CRITICAL,
 				"Failed to resume pcie bus ret %d\n", r);
-		ret_val = MHI_STATUS_ERROR;
 		goto exit;
 	}
 
@@ -250,20 +253,18 @@ enum MHI_STATUS mhi_turn_on_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 	if (r) {
 		mhi_log(MHI_MSG_CRITICAL,
 				"Failed to load stored state %d\n", r);
-		ret_val = MHI_STATUS_ERROR;
 		goto exit;
 	}
 	r = msm_pcie_recover_config(mhi_dev_ctxt->dev_info->pcie_device);
 	if (r) {
 		mhi_log(MHI_MSG_CRITICAL,
 				"Failed to Recover config space ret: %d\n", r);
-		ret_val = MHI_STATUS_ERROR;
 		goto exit;
 	}
 	mhi_dev_ctxt->flags.link_up = 1;
 exit:
 	mutex_unlock(&mhi_dev_ctxt->mhi_link_state);
 	mhi_log(MHI_MSG_INFO, "Exited...\n");
-	return ret_val;
+	return r;
 }
 

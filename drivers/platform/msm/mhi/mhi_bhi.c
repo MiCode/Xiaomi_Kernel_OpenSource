@@ -31,7 +31,7 @@ static ssize_t bhi_write(struct file *file,
 		const char __user *buf,
 		size_t count, loff_t *offp)
 {
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int ret_val = 0;
 	u32 pcie_word_val = 0;
 	u32 i = 0;
 	struct bhi_ctxt_t *bhi_ctxt =
@@ -150,7 +150,7 @@ static ssize_t bhi_write(struct file *file,
 
 	ret_val = mhi_init_state_transition(mhi_dev_ctxt,
 					STATE_TRANSITION_RESET);
-	if (MHI_STATUS_SUCCESS != ret_val) {
+	if (ret_val) {
 		mhi_log(MHI_MSG_CRITICAL,
 				"Failed to start state change event\n");
 	}
@@ -169,7 +169,7 @@ static const struct file_operations bhi_fops = {
 int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_pcie_device->bhi_ctxt;
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int ret_val = 0;
 	u32 pcie_word_val = 0;
 	int r;
 

@@ -128,7 +128,7 @@ void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 					event_ring_index, db_value);
 }
 
-static enum MHI_STATUS mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
+static int mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
 				struct mhi_ring *ring, u32 el_per_ring,
 				u32 intmodt_val, u32 msi_vec)
 {
@@ -141,7 +141,7 @@ static enum MHI_STATUS mhi_event_ring_init(struct mhi_event_ctxt *ev_list,
 	ring->overwrite_en = 0;
 	/* Flush writes to MMIO */
 	wmb();
-	return MHI_STATUS_SUCCESS;
+	return 0;
 }
 
 void init_event_ctxt_array(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -163,7 +163,7 @@ void init_event_ctxt_array(struct mhi_device_ctxt *mhi_dev_ctxt)
 int init_local_ev_ring_by_type(struct mhi_device_ctxt *mhi_dev_ctxt,
 		  enum MHI_TYPE_EVENT_RING type)
 {
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int ret_val = 0;
 	u32 i;
 
 	mhi_log(MHI_MSG_INFO, "Entered\n");
@@ -184,11 +184,10 @@ int init_local_ev_ring_by_type(struct mhi_device_ctxt *mhi_dev_ctxt,
 	return 0;
 }
 
-enum MHI_STATUS mhi_add_elements_to_event_rings(
-					struct mhi_device_ctxt *mhi_dev_ctxt,
+int mhi_add_elements_to_event_rings(struct mhi_device_ctxt *mhi_dev_ctxt,
 					enum STATE_TRANSITION new_state)
 {
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int ret_val = 0;
 
 	switch (new_state) {
 	case STATE_TRANSITION_READY:
@@ -202,19 +201,19 @@ enum MHI_STATUS mhi_add_elements_to_event_rings(
 	default:
 		mhi_log(MHI_MSG_ERROR,
 			"Unrecognized event stage, %d\n", new_state);
-		ret_val = MHI_STATUS_ERROR;
+		ret_val = -EINVAL;
 		break;
 	}
 	return ret_val;
 }
 
-enum MHI_STATUS mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
+int mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 					u32 nr_ev_el, u32 ring_index)
 {
 	union mhi_event_pkt *ev_pkt = NULL;
 	u32 i = 0;
 	unsigned long flags = 0;
-	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int ret_val = 0;
 	spinlock_t *lock =
 		&mhi_dev_ctxt->mhi_ev_spinlock_list[ring_index];
 	struct mhi_ring *event_ctxt =
@@ -222,7 +221,7 @@ enum MHI_STATUS mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 	if (NULL == mhi_dev_ctxt || 0 == nr_ev_el) {
 		mhi_log(MHI_MSG_ERROR, "Bad Input data, quitting\n");
-		return MHI_STATUS_ERROR;
+		return -EINVAL;
 	}
 
 	spin_lock_irqsave(lock, flags);
@@ -235,10 +234,9 @@ enum MHI_STATUS mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 	for (i = 0; i < nr_ev_el - 1; ++i) {
 		ret_val = ctxt_add_element(event_ctxt, (void *)&ev_pkt);
-		if (MHI_STATUS_SUCCESS != ret_val) {
+		if (0 != ret_val) {
 			mhi_log(MHI_MSG_ERROR,
 				"Failed to insert el in ev ctxt\n");
-			ret_val = MHI_STATUS_ERROR;
 			break;
 		}
 	}
