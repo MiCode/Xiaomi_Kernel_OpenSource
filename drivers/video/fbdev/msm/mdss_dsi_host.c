@@ -81,6 +81,9 @@ void mdss_dsi_ctrl_init(struct device *ctrl_dev,
 		ctrl->ndx = DSI_CTRL_1;
 	}
 
+	if (!(ctrl->dsi_irq_line))
+		ctrl->dsi_hw->irq_info = mdss_intr_line();
+
 	ctrl->panel_mode = ctrl->panel_data.panel_info.mipi.mode;
 
 	ctrl_list[ctrl->ndx] = ctrl;	/* keep it */

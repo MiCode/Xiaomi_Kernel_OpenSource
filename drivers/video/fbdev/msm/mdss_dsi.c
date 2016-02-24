@@ -1476,6 +1476,29 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 	return 0;
 }
 
+static int mdss_dsi_irq_init(struct device *dev, int irq_no,
+			struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int ret;
+
+	ret = devm_request_irq(dev, irq_no, mdss_dsi_isr,
+				0x0, "DSI", ctrl);
+	if (ret) {
+		pr_err("msm_dsi_irq_init request_irq() failed!\n");
+	} else {
+		ctrl->dsi_hw->irq_info =
+			kzalloc(sizeof(struct irq_info), GFP_KERNEL);
+		if (!ctrl->dsi_hw->irq_info) {
+			pr_err("no mem to save irq info: kzalloc fail\n");
+			return -ENOMEM;
+		}
+		ctrl->dsi_hw->irq_info->irq = irq_no;
+		ctrl->dsi_hw->irq_info->irq_ena = false;
+	}
+
+	return ret;
+}
+
 int dsi_panel_device_register(struct device_node *pan_node,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -1485,6 +1508,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
 	const char *data;
+	struct resource *res;
 
 	mipi  = &(pinfo->mipi);
 
@@ -1629,6 +1653,26 @@ int dsi_panel_device_register(struct device_node *pan_node,
 					     ctrl_pdata)) {
 		pr_err("%s: unable to get Dsi controller res\n", __func__);
 		return -EPERM;
+	}
+
+	ctrl_pdata->dsi_irq_line = of_property_read_bool(
+				ctrl_pdev->dev.of_node, "qcom,dsi-irq-line");
+
+	if (ctrl_pdata->dsi_irq_line) {
+		/* DSI has it's own irq line */
+		res = platform_get_resource(ctrl_pdev, IORESOURCE_IRQ, 0);
+		if (!res || res->start == 0) {
+			pr_err("%s:%d unable to get the MDSS irq resources\n",
+							__func__, __LINE__);
+			rc = -ENODEV;
+		}
+		rc = mdss_dsi_irq_init(&ctrl_pdev->dev, res->start,
+						   ctrl_pdata);
+		if (rc) {
+			dev_err(&ctrl_pdev->dev, "%s: failed to init irq\n",
+							__func__);
+			return rc;
+		}
 	}
 
 	ctrl_pdata->panel_data.event_handler = mdss_dsi_event_handler;

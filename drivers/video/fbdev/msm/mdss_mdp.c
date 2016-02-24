@@ -234,7 +234,7 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 	if (!mdata)
 		return IRQ_NONE;
 
-	mdata->irq_buzy = true;
+	mdss_mdp_hw.irq_info->irq_buzy = true;
 
 	if (intr & MDSS_INTR_MDP) {
 		spin_lock(&mdp_lock);
@@ -254,7 +254,7 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 	if (intr & MDSS_INTR_HDMI)
 		mdata->mdss_util->irq_dispatch(MDSS_HW_HDMI, irq, ptr);
 
-	mdata->irq_buzy = false;
+	mdss_mdp_hw.irq_info->irq_buzy = false;
 
 	return IRQ_HANDLED;
 }
@@ -819,13 +819,13 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 
 	pr_debug("max mdp clk rate=%d\n", mdata->max_mdp_clk_rate);
 
-	ret = devm_request_irq(&mdata->pdev->dev, mdata->irq, mdss_irq_handler,
-			 0x0, "MDSS", mdata);
+	ret = devm_request_irq(&mdata->pdev->dev, mdss_mdp_hw.irq_info->irq,
+				mdss_irq_handler, 0x0, "MDSS", mdata);
 	if (ret) {
 		pr_err("mdp request_irq() failed!\n");
 		return ret;
 	}
-	disable_irq(mdata->irq);
+	disable_irq(mdss_mdp_hw.irq_info->irq);
 
 	mdata->fs = devm_regulator_get(&mdata->pdev->dev, "vdd");
 	if (IS_ERR_OR_NULL(mdata->fs)) {
@@ -1104,8 +1104,8 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 
 	mdata->res_init = true;
 	mdata->clk_ena = false;
-	mdata->irq_mask = MDSS_MDP_DEFAULT_INTR_MASK;
-	mdata->irq_ena = false;
+	mdss_mdp_hw.irq_info->irq_mask = MDSS_MDP_DEFAULT_INTR_MASK;
+	mdss_mdp_hw.irq_info->irq_ena = false;
 
 	rc = mdss_mdp_irq_clk_setup(mdata);
 	if (rc)
@@ -1420,7 +1420,13 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto probe_done;
 	}
-	mdata->irq = res->start;
+
+	mdss_mdp_hw.irq_info = kzalloc(sizeof(struct irq_info), GFP_KERNEL);
+	if (!mdss_mdp_hw.irq_info) {
+		pr_err("no mem to save irq info: kzalloc fail\n");
+		return -ENOMEM;
+	}
+	mdss_mdp_hw.irq_info->irq = res->start;
 	mdss_mdp_hw.ptr = mdata;
 
 	/*populate hw iomem base info from device tree*/
@@ -2789,6 +2795,12 @@ struct mdss_panel_cfg *mdss_panel_intf_type(int intf_val)
 		return NULL;
 }
 EXPORT_SYMBOL(mdss_panel_intf_type);
+
+struct irq_info *mdss_intr_line()
+{
+	return mdss_mdp_hw.irq_info;
+}
+EXPORT_SYMBOL(mdss_intr_line);
 
 int mdss_panel_get_boot_cfg(void)
 {
