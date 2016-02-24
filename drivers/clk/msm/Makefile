@@ -15,6 +15,7 @@ obj-$(CONFIG_DEBUG_FS)		+= clock-debug.o
 obj-$(CONFIG_ARCH_MSM8996)	+= clock-gcc-8996.o
 obj-$(CONFIG_ARCH_MSM8996)	+= clock-mmss-8996.o
 obj-$(CONFIG_ARCH_MSM8996)	+= clock-cpu-8996.o
+obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-osm.o
 
 # MSM COBALT
 obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-gcc-cobalt.o
