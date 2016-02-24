@@ -11,6 +11,22 @@
  */
 
 &soc {
+	pil_gpu: qcom,kgsl-hyp {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <13>;
+		qcom,firmware-name = "a506_zap";
+		memory-region = <&gpu_mem>;
+		clocks = <&clock_gcc clk_gcc_crypto_clk>,
+		<&clock_gcc clk_gcc_crypto_ahb_clk>,
+		<&clock_gcc clk_gcc_crypto_axi_clk>,
+		<&clock_gcc clk_crypto_clk_src>;
+		clock-names = "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,proxy-clock-names = "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <80000000>;
+	};
+
 	msm_bus: qcom,kgsl-busmon {
 		label = "kgsl-busmon";
 		compatible = "qcom,kgsl-busmon";
