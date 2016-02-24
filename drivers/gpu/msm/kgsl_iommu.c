@@ -390,11 +390,10 @@ static void _get_entries(struct kgsl_process_private *private,
 }
 
 static void _find_mem_entries(struct kgsl_mmu *mmu, uint64_t faultaddr,
-	phys_addr_t ptbase, struct _mem_entry *preventry,
-	struct _mem_entry *nextentry)
+		struct _mem_entry *preventry, struct _mem_entry *nextentry,
+		struct kgsl_context *context)
 {
-	struct kgsl_process_private *private = NULL, *p;
-	int id = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
+	struct kgsl_process_private *private;
 
 	memset(preventry, 0, sizeof(*preventry));
 	memset(nextentry, 0, sizeof(*nextentry));
@@ -402,22 +401,11 @@ static void _find_mem_entries(struct kgsl_mmu *mmu, uint64_t faultaddr,
 	/* Set the maximum possible size as an initial value */
 	nextentry->gpuaddr = (uint64_t) -1;
 
-	mutex_lock(&kgsl_driver.process_mutex);
-	list_for_each_entry(p, &kgsl_driver.process_list, list) {
-		if (p->pagetable && (p->pagetable->name == id)) {
-			if (kgsl_process_private_get(p))
-				private = p;
-			break;
-		}
-	}
-	mutex_unlock(&kgsl_driver.process_mutex);
-
-	if (private != NULL) {
+	if (context) {
+		private = context->proc_priv;
 		spin_lock(&private->mem_lock);
 		_get_entries(private, faultaddr, preventry, nextentry);
 		spin_unlock(&private->mem_lock);
-
-		kgsl_process_private_put(private);
 	}
 }
 
@@ -467,6 +455,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct kgsl_iommu_context *ctx;
 	u64 ptbase;
 	u32 contextidr;
+	pid_t tid = 0;
 	pid_t ptname;
 	struct _mem_entry prev, next;
 	int write;
@@ -507,9 +496,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	if (context != NULL) {
 		/* save pagefault timestamp for GFT */
 		set_bit(KGSL_CONTEXT_PRIV_PAGEFAULT, &context->priv);
-
-		kgsl_context_put(context);
-		context = NULL;
+		tid = context->tid;
 	}
 
 	ctx->fault = 1;
@@ -535,7 +522,8 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	ptbase = KGSL_IOMMU_GET_CTX_REG_Q(ctx, TTBR0);
 	contextidr = KGSL_IOMMU_GET_CTX_REG(ctx, CONTEXTIDR);
 
-	ptname = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
+	ptname = MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE) ?
+		KGSL_MMU_GLOBAL_PT : tid;
 
 	if (test_bit(KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE,
 		&adreno_dev->ft_pf_policy))
@@ -556,8 +544,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 			KGSL_LOG_DUMP(ctx->kgsldev,
 				"---- nearby memory ----\n");
 
-			_find_mem_entries(mmu, addr, ptbase, &prev, &next);
-
+			_find_mem_entries(mmu, addr, &prev, &next, context);
 			if (prev.gpuaddr)
 				_print_entry(ctx->kgsldev, &prev);
 			else
@@ -570,13 +557,11 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 				_print_entry(ctx->kgsldev, &next);
 			else
 				KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
-
 		}
 	}
 
 	trace_kgsl_mmu_pagefault(ctx->kgsldev, addr,
-			kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase),
-			write ? "write" : "read");
+			ptname, write ? "write" : "read");
 
 	/*
 	 * We do not want the h/w to resume fetching data from an iommu
@@ -602,6 +587,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		adreno_dispatcher_schedule(device);
 	}
 
+	kgsl_context_put(context);
 	return ret;
 }
 
