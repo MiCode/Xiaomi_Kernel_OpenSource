@@ -1488,12 +1488,12 @@ static void msm_vfe40_update_camif_state(struct vfe_device *vfe_dev,
 		val &= 0xFFFFFF3F;
 		val = val | bus_en << 7 | vfe_en << 6;
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x2F8);
-		msm_camera_io_w_mb(0x4, vfe_dev->vfe_base + 0x2F4);
-		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2F4);
-		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 1;
 		/* testgen GO*/
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
 			msm_camera_io_w(1, vfe_dev->vfe_base + 0x93C);
+		msm_camera_io_w_mb(0x4, vfe_dev->vfe_base + 0x2F4);
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2F4);
+		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 1;
 	} else if (update_state == DISABLE_CAMIF) {
 		msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x2F4);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
