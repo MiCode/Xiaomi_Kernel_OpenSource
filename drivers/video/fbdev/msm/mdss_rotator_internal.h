@@ -15,6 +15,7 @@
 #define MDSS_MDP_ROTATOR_INTERNAL_H
 
 #include <linux/list.h>
+#include <linux/file.h>
 #include <linux/mdss_rotator.h>
 #include <linux/mutex.h>
 #include <linux/types.h>
@@ -123,6 +124,8 @@ struct mdss_rot_file_private {
 
 	struct mutex perf_lock;
 	struct list_head perf_list;
+
+	struct file *file;
 };
 
 struct mdss_rot_bus_data_type {
