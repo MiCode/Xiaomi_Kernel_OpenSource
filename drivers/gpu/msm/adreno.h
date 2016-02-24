@@ -109,6 +109,8 @@
 #define ADRENO_LM BIT(8)
 /* The core uses 64 bit GPU addresses */
 #define ADRENO_64BIT BIT(9)
+/* The GPU supports retention for cpz registers */
+#define ADRENO_CPZ_RETENTION BIT(10)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
