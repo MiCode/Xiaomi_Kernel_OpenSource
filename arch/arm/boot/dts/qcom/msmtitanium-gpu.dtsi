@@ -202,5 +202,10 @@
 			iommus = <&kgsl_smmu 0>;
 			qcom,gpu-offset = <0x48000>;
 		};
+		gfx3d_secure: gfx3d_secure {
+			compatible = "qcom,smmu-kgsl-cb";
+			iommus = <&kgsl_smmu 2>;
+			memory-region = <&secure_mem>;
+		};
 	};
 };
