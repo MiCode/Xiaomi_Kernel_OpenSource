@@ -172,6 +172,7 @@
 			<&clock_gcc clk_gcc_gfx_tbu_clk>;
 		clock-names = "scfg_clk", "gtcu_clk", "gtcu_iface_clk",
 				"gtbu_clk";
+		qcom,retention;
 		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
 			qcom,gpu-offset = <0xa000>;
