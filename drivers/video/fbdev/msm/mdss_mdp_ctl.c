@@ -607,6 +607,22 @@ static u32 mdss_mdp_get_rotator_fps(struct mdss_mdp_pipe *pipe)
 	return fps;
 }
 
+u32 mdss_apply_overhead_factors(u32 quota, bool is_nrt,
+	bool is_rot_read, struct mdss_mdp_format_params *fmt)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdata)
+		return quota;
+
+	if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
+			mdata->mdss_qos_map)) {
+		quota = apply_overhead_factors(quota,
+			is_nrt, is_rot_read, fmt);
+	}
+	return quota;
+}
+
 /**
  * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
@@ -1467,6 +1483,9 @@ static u64 mdss_mdp_ctl_calc_client_vote(struct mdss_data_type *mdata,
 			!ctl->mixer_left->rotator_mode) ||
 		    /* Non-RealTime clients */
 		    (nrt_client && mdss_mdp_is_nrt_ctl_path(ctl)))) {
+			/* Skip rotation layers as bw calc by rot driver */
+			if (ctl->mixer_left && ctl->mixer_left->rotator_mode)
+				continue;
 			/*
 			 * If traffic shaper is enabled we must check
 			 * if additional bandwidth is required.
@@ -1663,7 +1682,7 @@ u32 mdss_mdp_get_mdp_clk_rate(struct mdss_data_type *mdata)
 {
 	u32 clk_rate = 0;
 	uint i;
-	struct clk *clk = mdss_mdp_get_clk(MDSS_CLK_MDP_SRC);
+	struct clk *clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
 
 	for (i = 0; i < mdata->nctl; i++) {
 		struct mdss_mdp_ctl *ctl;
@@ -1718,6 +1737,10 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 	is_bw_released = !mdss_mdp_ctl_perf_get_transaction_status(ctl);
 
 	if (mdss_mdp_ctl_is_power_on(ctl)) {
+		/* Skip perf update if ctl is used for rotation */
+		if (ctl->mixer_left && ctl->mixer_left->rotator_mode)
+			goto end;
+
 		if (ctl->perf_release_ctl_bw &&
 			mdata->enable_rotator_bw_release)
 			mdss_mdp_perf_release_ctl_bw(ctl, new);
@@ -1796,6 +1819,7 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		pr_debug("update clk rate = %d HZ\n", clk_rate);
 	}
 
+end:
 	mutex_unlock(&mdss_mdp_ctl_lock);
 	ATRACE_END(__func__);
 }

@@ -4570,7 +4570,7 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 		goto error;
 	}
 
-	ctl->clk_rate = mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC);
+	ctl->clk_rate = mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE);
 	pr_debug("Set the ctl clock rate to %d Hz\n", ctl->clk_rate);
 
 	rc = __mdss_mdp_ctl_handoff(ctl, mdata);

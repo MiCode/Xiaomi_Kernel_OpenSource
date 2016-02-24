@@ -19,6 +19,10 @@
 #include <linux/file.h>
 #include <linux/uaccess.h>
 #include <linux/of.h>
+#include <linux/clk.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
+#include <linux/regulator/consumer.h>
 #include <sync.h>
 
 #include "mdss_rotator_internal.h"
@@ -29,12 +33,322 @@
 
 /* acquire fence time out, following other driver fence time out practice */
 #define ROT_FENCE_WAIT_TIMEOUT MSEC_PER_SEC
+/*
+ * Max rotator hw blocks possible. Used for upper array limits instead of
+ * alloc and freeing small array
+ */
+#define ROT_MAX_HW_BLOCKS 2
+
 
 #define CLASS_NAME "rotator"
 #define DRIVER_NAME "mdss_rotator"
 
+#define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)	\
+	{						\
+		.src = MSM_BUS_MASTER_AMPSS_M0,		\
+		.dst = MSM_BUS_SLAVE_DISPLAY_CFG,	\
+		.ab = (ab_val),				\
+		.ib = (ib_val),				\
+	}
+
+#define BUS_VOTE_19_MHZ 153600000
+
+static struct msm_bus_vectors rot_reg_bus_vectors[] = {
+	MDP_REG_BUS_VECTOR_ENTRY(0, 0),
+	MDP_REG_BUS_VECTOR_ENTRY(0, BUS_VOTE_19_MHZ),
+};
+static struct msm_bus_paths rot_reg_bus_usecases[ARRAY_SIZE(
+		rot_reg_bus_vectors)];
+static struct msm_bus_scale_pdata rot_reg_bus_scale_table = {
+	.usecase = rot_reg_bus_usecases,
+	.num_usecases = ARRAY_SIZE(rot_reg_bus_usecases),
+	.name = "mdss_rot_reg",
+};
+
 static struct mdss_rot_mgr *rot_mgr;
 static void mdss_rotator_wq_handler(struct work_struct *work);
+
+static int mdss_rotator_bus_scale_set_quota(struct mdss_rot_bus_data_type *bus,
+		u64 quota)
+{
+	int new_uc_idx;
+
+	if (bus->bus_hdl < 1) {
+		pr_err("invalid bus handle %d\n", bus->bus_hdl);
+		return -EINVAL;
+	}
+
+	if (bus->curr_quota_val == quota) {
+		pr_debug("bw request already requested\n");
+		return 0;
+	}
+
+	if (!quota) {
+		new_uc_idx = 0;
+	} else {
+		struct msm_bus_vectors *vect = NULL;
+		struct msm_bus_scale_pdata *bw_table =
+			bus->bus_scale_pdata;
+		u64 port_quota;
+		u32 total_axi_port_cnt;
+		int i;
+
+		new_uc_idx = (bus->curr_bw_uc_idx %
+			(bw_table->num_usecases - 1)) + 1;
+
+		total_axi_port_cnt = bw_table->usecase[new_uc_idx].num_paths;
+		if (total_axi_port_cnt == 0) {
+			pr_err("Number of bw paths is 0\n");
+			return -ENODEV;
+		}
+		port_quota = do_div(quota, total_axi_port_cnt);
+
+		for (i = 0; i < total_axi_port_cnt; i++) {
+			vect = &bw_table->usecase[new_uc_idx].vectors[i];
+			vect->ab = port_quota;
+			vect->ib = 0;
+		}
+	}
+	bus->curr_bw_uc_idx = new_uc_idx;
+	bus->curr_quota_val = quota;
+
+	pr_debug("uc_idx=%d quota=%llu\n", new_uc_idx, quota);
+	return msm_bus_scale_client_update_request(bus->bus_hdl,
+		new_uc_idx);
+}
+
+static int mdss_rotator_enable_reg_bus(struct mdss_rot_mgr *mgr, u64 quota)
+{
+	int ret = 0, changed = 0;
+	u32 usecase_ndx = 0;
+
+	if (!mgr || !mgr->reg_bus.bus_hdl)
+		return 0;
+
+	if (quota)
+		usecase_ndx = 1;
+
+	if (usecase_ndx != mgr->reg_bus.curr_bw_uc_idx) {
+		mgr->reg_bus.curr_bw_uc_idx = usecase_ndx;
+		changed++;
+	}
+
+	pr_debug("%s, changed=%d register bus %s\n", __func__, changed,
+		quota ? "Enable":"Disable");
+
+	if (changed)
+		ret = msm_bus_scale_client_update_request(mgr->reg_bus.bus_hdl,
+			usecase_ndx);
+
+	return ret;
+}
+
+/*
+ * Clock rate of all open sessions working a particular hw block
+ * are added together to get the required rate for that hw block.
+ * The max of each hw block becomes the final clock rate voted for
+ */
+static unsigned long mdss_rotator_clk_rate_calc(
+	struct mdss_rot_mgr *mgr,
+	struct mdss_rot_file_private *private)
+{
+	struct mdss_rot_perf *perf;
+	unsigned long clk_rate[ROT_MAX_HW_BLOCKS] = {0};
+	unsigned long total_clk_rate = 0;
+	int i, wb_idx;
+
+	mutex_lock(&private->perf_lock);
+	list_for_each_entry(perf, &private->perf_list, list) {
+		bool rate_accounted_for = false;
+		/*
+		 * If there is one session that has two work items across
+		 * different hw blocks rate is accounted for in both blocks.
+		 */
+		for (i = 0; i < mgr->queue_count; i++) {
+			if (atomic_read(&perf->work_distribution[i])) {
+				clk_rate[i] += perf->clk_rate;
+				rate_accounted_for = true;
+			}
+		}
+
+		/*
+		 * Sessions that are open but not distributed on any hw block
+		 * Still need to be accounted for. Rate is added to last known
+		 * wb idx.
+		 */
+		wb_idx = perf->last_wb_idx;
+		if ((!rate_accounted_for) && (wb_idx >= 0) &&
+				(wb_idx < mgr->queue_count))
+			clk_rate[wb_idx] += perf->clk_rate;
+	}
+	mutex_unlock(&private->perf_lock);
+
+	for (i = 0; i < mgr->queue_count; i++)
+		total_clk_rate = max(clk_rate[i], total_clk_rate);
+
+	pr_debug("Total clk rate calc=%lu\n", total_clk_rate);
+	return total_clk_rate;
+}
+
+static struct clk *mdss_rotator_get_clk(struct mdss_rot_mgr *mgr, u32 clk_idx)
+{
+	if (clk_idx >= MDSS_CLK_ROTATOR_END_IDX) {
+		pr_err("Invalid clk index:%u", clk_idx);
+		return NULL;
+	}
+
+	return mgr->rot_clk[clk_idx];
+}
+
+static void mdss_rotator_set_clk_rate(struct mdss_rot_mgr *mgr,
+		unsigned long rate, u32 clk_idx)
+{
+	unsigned long clk_rate;
+	struct clk *clk = mdss_rotator_get_clk(mgr, clk_idx);
+	int ret;
+
+	if (clk) {
+		mutex_lock(&mgr->clk_lock);
+		clk_rate = clk_round_rate(clk, rate);
+		if (IS_ERR_VALUE(clk_rate)) {
+			pr_err("unable to round rate err=%ld\n", clk_rate);
+		} else if (clk_rate != clk_get_rate(clk)) {
+			ret = clk_set_rate(clk, clk_rate);
+			if (IS_ERR_VALUE(ret))
+				pr_err("clk_set_rate failed, err:%d\n", ret);
+			else
+				pr_debug("rotator clk rate=%lu\n", clk_rate);
+		}
+		mutex_unlock(&mgr->clk_lock);
+	} else {
+		pr_err("rotator clk not setup properly\n");
+	}
+}
+
+static void mdss_rotator_footswitch_ctrl(struct mdss_rot_mgr *mgr, bool on)
+{
+	int ret;
+
+	if (mgr->regulator_enable == on) {
+		pr_err("Regulators already in selected mode on=%d\n", on);
+		return;
+	}
+
+	pr_debug("%s: rotator regulators", on ? "Enable" : "Disable");
+	ret = msm_dss_enable_vreg(mgr->module_power.vreg_config,
+		mgr->module_power.num_vreg, on);
+	if (ret) {
+		pr_warn("Rotator regulator failed to %s\n",
+			on ? "enable" : "disable");
+		return;
+	}
+
+	mgr->regulator_enable = on;
+}
+
+static int mdss_rotator_clk_ctrl(struct mdss_rot_mgr *mgr, int enable)
+{
+	struct clk *clk;
+	int ret = 0;
+	int i;
+
+	/* Ref counting done by clock driver */
+	for (i = 0; i < MDSS_CLK_ROTATOR_END_IDX; i++) {
+		clk = mgr->rot_clk[i];
+		if (enable) {
+			ret = clk_enable(clk);
+			if (ret) {
+				pr_err("enable failed clk_idx %d\n", i);
+				goto error;
+			}
+		} else {
+			clk_disable(clk);
+		}
+	}
+
+	return ret;
+error:
+	for (i--; i >= 0; i--)
+		clk_disable(mgr->rot_clk[i]);
+	return ret;
+}
+
+static int __mdss_rotator_clk_prepare(struct mdss_rot_mgr *mgr, int prepare)
+{
+	struct clk *clk;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < MDSS_CLK_ROTATOR_END_IDX; i++) {
+		clk = mgr->rot_clk[i];
+		if (prepare) {
+			ret = clk_prepare(clk);
+			if (ret) {
+				pr_err("prepare_enable failed clk_idx %d\n", i);
+				goto error;
+			}
+		} else {
+			clk_unprepare(clk);
+		}
+	}
+
+	return ret;
+error:
+	for (i--; i >= 0; i--)
+		clk_unprepare(mgr->rot_clk[i]);
+	return ret;
+}
+
+int mdss_rotator_resource_ctrl(struct mdss_rot_mgr *mgr, int enable)
+{
+	int changed = 0;
+	int ret = 0;
+
+	mutex_lock(&mgr->clk_lock);
+	if (enable) {
+		if (mgr->res_ref_cnt == 0)
+			changed++;
+		mgr->res_ref_cnt++;
+	} else {
+		if (mgr->res_ref_cnt) {
+			mgr->res_ref_cnt--;
+			if (mgr->res_ref_cnt == 0)
+				changed++;
+		} else {
+			pr_err("Rot resource already off\n");
+		}
+	}
+
+	pr_debug("%s: res_cnt=%d changed=%d enable=%d\n",
+		__func__, mgr->res_ref_cnt, changed, enable);
+
+	if (changed) {
+		if (enable) {
+			mdss_rotator_footswitch_ctrl(mgr, true);
+			ret = __mdss_rotator_clk_prepare(mgr, enable);
+		} else {
+			__mdss_rotator_clk_prepare(mgr, enable);
+			mdss_rotator_footswitch_ctrl(mgr, false);
+		}
+	}
+	mutex_unlock(&mgr->clk_lock);
+	return ret;
+}
+
+static bool mdss_rotator_is_work_pending(struct mdss_rot_mgr *mgr,
+	struct mdss_rot_perf *perf)
+{
+	int i;
+
+	for (i = 0; i < mgr->queue_count; i++) {
+		atomic_t *wrk_dis = &perf->work_distribution[i];
+		if (atomic_read(wrk_dis)) {
+			pr_debug("Work is still scheduled to complete\n");
+			return true;
+		}
+	}
+	return false;
+}
 
 static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 {
@@ -570,8 +884,10 @@ static int mdss_rotator_assign_queue(struct mdss_rot_mgr *mgr,
 		pipe_idx = 0;
 	}
 
-	if (wb_idx >= mgr->queue_count)
+	if (wb_idx >= mgr->queue_count) {
+		pr_err("Invalid wb idx = %d\n", wb_idx);
 		return -EINVAL;
+	}
 
 	queue = mgr->queues + wb_idx;
 
@@ -600,7 +916,8 @@ static int mdss_rotator_assign_queue(struct mdss_rot_mgr *mgr,
 		return -EINVAL;
 	}
 
-	perf->wb_idx = wb_idx;
+	entry->perf = perf;
+	perf->last_wb_idx = wb_idx;
 
 	return ret;
 }
@@ -633,11 +950,27 @@ static void mdss_rotator_unassign_queue(struct mdss_rot_mgr *mgr,
 }
 
 static void mdss_rotator_queue_request(struct mdss_rot_mgr *mgr,
+	struct mdss_rot_file_private *private,
 	struct mdss_rot_entry_container *req)
 {
 	struct mdss_rot_entry *entry;
 	struct mdss_rot_queue *queue;
+	unsigned long clk_rate;
+	atomic_t *wrk_dis;
+	u32 wb_idx;
 	int i;
+
+	for (i = 0; i < req->count; i++) {
+		entry = req->entries + i;
+		queue = entry->queue;
+		wb_idx = queue->hw->wb_id;
+		wrk_dis = &entry->perf->work_distribution[wb_idx];
+		atomic_inc(wrk_dis);
+		entry->work_assigned = true;
+	}
+
+	clk_rate = mdss_rotator_clk_rate_calc(mgr, private);
+	mdss_rotator_set_clk_rate(mgr, clk_rate, MDSS_CLK_ROTATOR_CORE);
 
 	for (i = 0; i < req->count; i++) {
 		entry = req->entries + i;
@@ -650,45 +983,95 @@ static void mdss_rotator_queue_request(struct mdss_rot_mgr *mgr,
 static int mdss_rotator_calc_perf(struct mdss_rot_perf *perf)
 {
 	struct mdp_rotation_config *config = &perf->config;
+	u32 read_bw, write_bw;
+	struct mdss_mdp_format_params *in_fmt, *out_fmt;
+
+	in_fmt = mdss_mdp_get_format_params(config->input.format);
+	if (!in_fmt) {
+		pr_err("invalid input format\n");
+		return -EINVAL;
+	}
+	out_fmt = mdss_mdp_get_format_params(config->output.format);
+	if (!out_fmt) {
+		pr_err("invalid output format\n");
+		return -EINVAL;
+	}
 
 	perf->clk_rate = config->input.width * config->input.height;
 	perf->clk_rate *= config->frame_rate;
 	/* rotator processes 4 pixels per clock */
 	perf->clk_rate /= 4;
 
-	/*
-	 * todo: need to revisit to refine the bw calculation
-	 */
-	perf->bw = 0;
+	read_bw = config->input.width * config->input.height *
+		config->frame_rate;
+	if (in_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
+		read_bw = (read_bw * 3) / 2;
+	else
+		read_bw *= in_fmt->bpp;
 
+	write_bw = config->output.width * config->output.height *
+		config->frame_rate;
+	if (out_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
+		write_bw = (write_bw * 3) / 2;
+	else
+		write_bw *= out_fmt->bpp;
+
+	read_bw = mdss_apply_overhead_factors(read_bw,
+		true, true, in_fmt);
+	write_bw = mdss_apply_overhead_factors(write_bw,
+		true, false, out_fmt);
+
+	perf->bw = read_bw + write_bw;
 	return 0;
 }
 
 static int mdss_rotator_update_perf(struct mdss_rot_mgr *mgr)
 {
 	struct mdss_rot_file_private *priv;
-	u32 clk_rate = 0;
+	u64 total_bw = 0;
 
-	/*
-	 * todo: need to revisit to refine the bw/clock calculation
-	 */
-	mutex_lock(&rot_mgr->file_lock);
+	mutex_lock(&mgr->file_lock);
 	list_for_each_entry(priv, &mgr->file_list, list) {
 		struct mdss_rot_perf *perf;
 		mutex_lock(&priv->perf_lock);
 		list_for_each_entry(perf, &priv->perf_list, list) {
-			clk_rate = max(clk_rate, perf->clk_rate);
+			total_bw += perf->bw;
 		}
 		mutex_unlock(&priv->perf_lock);
 	}
-	mutex_unlock(&rot_mgr->file_lock);
+	mutex_unlock(&mgr->file_lock);
 
+	mutex_lock(&mgr->bus_lock);
+	mdss_rotator_enable_reg_bus(mgr, total_bw);
+	mdss_rotator_bus_scale_set_quota(&mgr->data_bus, total_bw);
+	mutex_unlock(&mgr->bus_lock);
 	return 0;
+}
+
+static void mdss_rotator_release_from_work_distribution(
+		struct mdss_rot_mgr *mgr,
+		struct mdss_rot_entry *entry)
+{
+	if (entry->work_assigned) {
+		atomic_t *wrk_dis;
+		u32 wb_idx = entry->queue->hw->wb_id;
+
+		wrk_dis = &entry->perf->work_distribution[wb_idx];
+		atomic_add_unless(wrk_dis, -1, 0);
+		entry->work_assigned = false;
+		if (entry->perf->waiting_for_completion &&
+				!mdss_rotator_is_work_pending(mgr,
+				entry->perf)) {
+			complete(&entry->perf->stop_comp);
+			entry->perf->waiting_for_completion = false;
+		}
+	}
 }
 
 static void mdss_rotator_release_entry(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_entry *entry)
 {
+	mdss_rotator_release_from_work_distribution(mgr, entry);
 	mdss_rotator_clear_fence(entry);
 	mdss_rotator_release_data(entry);
 	mdss_rotator_unassign_queue(mgr, entry);
@@ -1038,6 +1421,7 @@ static void mdss_rotator_release_private_resource(
 	mutex_lock(&private->perf_lock);
 	list_for_each_entry_safe(perf, perf_next, &private->perf_list, list) {
 		list_del_init(&perf->list);
+		devm_kfree(&mgr->pdev->dev, perf->work_distribution);
 		devm_kfree(&mgr->pdev->dev, perf);
 	}
 	mutex_unlock(&private->perf_lock);
@@ -1065,6 +1449,7 @@ static void mdss_rotator_release_all(struct mdss_rot_mgr *mgr)
 	mutex_lock(&mgr->file_lock);
 	list_for_each_entry_safe(priv, priv_next, &mgr->file_list, list) {
 		mdss_rotator_release_private_resource(rot_mgr, priv);
+		mdss_rotator_resource_ctrl(mgr, false);
 		list_del_init(&priv->list);
 		devm_kfree(&mgr->pdev->dev, priv);
 	}
@@ -1259,6 +1644,7 @@ static void mdss_rotator_wq_handler(struct work_struct *work)
 		return;
 	}
 
+	mdss_rotator_clk_ctrl(rot_mgr, true);
 	hw = mdss_rotator_get_hw_resource(entry->queue, entry);
 	if (!hw) {
 		pr_err("no hw for the queue\n");
@@ -1273,6 +1659,7 @@ static void mdss_rotator_wq_handler(struct work_struct *work)
 
 get_hw_res_err:
 	mdss_rotator_signal_output(entry);
+	mdss_rotator_clk_ctrl(rot_mgr, false);
 	mdss_rotator_release_entry(rot_mgr, entry);
 	atomic_dec(&request->pending_count);
 }
@@ -1311,7 +1698,7 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 {
 	struct mdp_rotation_config config;
 	struct mdss_rot_perf *perf;
-	int ret;
+	int ret, i;
 
 	ret = copy_from_user(&config, (void __user *)arg, sizeof(config));
 	if (ret) {
@@ -1331,9 +1718,21 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 		return -ENOMEM;
 	}
 
+	perf->work_distribution = devm_kzalloc(&mgr->pdev->dev,
+		sizeof(atomic_t) * mgr->queue_count, GFP_KERNEL);
+	if (!perf->work_distribution) {
+		pr_err("fail to allocate work_distribution\n");
+		ret = -ENOMEM;
+		goto alloc_err;
+	}
+
 	config.session_id = mdss_rotator_generator_session_id(mgr);
 	perf->config = config;
-	perf->wb_idx = -1;
+	perf->last_wb_idx = -1;
+	init_completion(&perf->stop_comp);
+	for (i = 0; i < mgr->queue_count; i++)
+		atomic_set(&perf->work_distribution[i], 0);
+
 	INIT_LIST_HEAD(&perf->list);
 
 	ret = mdss_rotator_calc_perf(perf);
@@ -1352,17 +1751,28 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 	list_add(&perf->list, &private->perf_list);
 	mutex_unlock(&private->perf_lock);
 
+	ret = mdss_rotator_resource_ctrl(mgr, true);
+	if (ret) {
+		pr_err("Failed to aqcuire rotator resources\n");
+		goto resource_err;
+	}
+
 	ret = mdss_rotator_update_perf(mgr);
 	if (ret) {
 		pr_err("fail to open session, not enough clk/bw\n");
-		mutex_lock(&private->perf_lock);
-		list_del_init(&perf->list);
-		mutex_unlock(&private->perf_lock);
-		goto copy_user_err;
+		goto perf_err;
 	}
 
 	return ret;
+perf_err:
+	mdss_rotator_resource_ctrl(mgr, false);
+resource_err:
+	mutex_lock(&private->perf_lock);
+	list_del_init(&perf->list);
+	mutex_unlock(&private->perf_lock);
 copy_user_err:
+	devm_kfree(&mgr->pdev->dev, perf->work_distribution);
+alloc_err:
 	devm_kfree(&mgr->pdev->dev, perf);
 	return ret;
 }
@@ -1375,13 +1785,35 @@ static int mdss_rotator_close_session(struct mdss_rot_mgr *mgr,
 
 	id = (u32)arg;
 	perf = mdss_rotator_find_session(private, id);
-	if (!perf)
+	if (!perf) {
+		pr_err("Trying to close session that does not exist\n");
 		return -EINVAL;
+	}
 
+	/*
+	 * Client should not be calling close session when there
+	 * are pending rotation work. Driver will attempt to
+	 * wait for request to complete.
+	 */
+
+	if (mdss_rotator_is_work_pending(mgr, perf)) {
+		pr_debug("Work is still pending, attempting to wait\n");
+		reinit_completion(&perf->stop_comp);
+		perf->waiting_for_completion = true;
+		wait_for_completion_timeout(&perf->stop_comp, 3 * KOFF_TIMEOUT);
+
+		if (mdss_rotator_is_work_pending(mgr, perf)) {
+			pr_err("Calling session close, rot work is pending\n");
+			return -EBUSY;
+		}
+	}
+
+	mdss_rotator_resource_ctrl(mgr, false);
 	mutex_lock(&private->perf_lock);
 	list_del_init(&perf->list);
-	devm_kfree(&mgr->pdev->dev, perf);
 	mutex_unlock(&private->perf_lock);
+	devm_kfree(&mgr->pdev->dev, perf->work_distribution);
+	devm_kfree(&mgr->pdev->dev, perf);
 	mdss_rotator_update_perf(mgr);
 	return 0;
 }
@@ -1536,7 +1968,7 @@ static int mdss_rotator_handle_request(struct mdss_rot_mgr *mgr,
 		goto handle_request_err1;
 	}
 
-	mdss_rotator_queue_request(mgr, req);
+	mdss_rotator_queue_request(mgr, private, req);
 
 	mutex_unlock(&mgr->lock);
 
@@ -1662,7 +2094,7 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 		goto handle_request32_err1;
 	}
 
-	mdss_rotator_queue_request(mgr, req);
+	mdss_rotator_queue_request(mgr, private, req);
 
 	mutex_unlock(&mgr->lock);
 
@@ -1796,10 +2228,41 @@ static const struct file_operations mdss_rotator_fops = {
 #endif
 };
 
+static int mdss_rotator_parse_dt_bus(struct mdss_rot_mgr *mgr,
+	struct platform_device *dev)
+{
+	int ret = 0, i;
+	bool register_bus_needed;
+	int usecases;
+
+	mgr->data_bus.bus_scale_pdata = msm_bus_cl_get_pdata(dev);
+	if (IS_ERR_OR_NULL(mgr->data_bus.bus_scale_pdata)) {
+		ret = PTR_ERR(mgr->data_bus.bus_scale_pdata);
+		if (!ret) {
+			ret = -EINVAL;
+			pr_err("msm_bus_cl_get_pdata failed. ret=%d\n", ret);
+			mgr->data_bus.bus_scale_pdata = NULL;
+		}
+	}
+
+	register_bus_needed = of_property_read_bool(dev->dev.of_node,
+		"qcom,mdss-has-reg-bus");
+	if (register_bus_needed) {
+		mgr->reg_bus.bus_scale_pdata = &rot_reg_bus_scale_table;
+		usecases = mgr->reg_bus.bus_scale_pdata->num_usecases;
+		for (i = 0; i < usecases; i++) {
+			rot_reg_bus_usecases[i].num_paths = 1;
+			rot_reg_bus_usecases[i].vectors =
+				&rot_reg_bus_vectors[i];
+		}
+	}
+	return ret;
+}
+
 static int mdss_rotator_parse_dt(struct mdss_rot_mgr *mgr,
 	struct platform_device *dev)
 {
-	int ret;
+	int ret = 0;
 	u32 data;
 
 	ret = of_property_read_u32(dev->dev.of_node,
@@ -1808,13 +2271,200 @@ static int mdss_rotator_parse_dt(struct mdss_rot_mgr *mgr,
 		pr_err("Error in device tree\n");
 		return ret;
 	}
+	if (data > ROT_MAX_HW_BLOCKS) {
+		pr_err("Err, num of wb block (%d) larger than sw max %d\n",
+			data, ROT_MAX_HW_BLOCKS);
+		return -EINVAL;
+	}
 
 	rot_mgr->queue_count = data;
 	rot_mgr->has_downscale = of_property_read_bool(dev->dev.of_node,
 					   "qcom,mdss-has-downscale");
 	rot_mgr->has_ubwc = of_property_read_bool(dev->dev.of_node,
 					   "qcom,mdss-has-ubwc");
+
+	ret = mdss_rotator_parse_dt_bus(mgr, dev);
+	if (ret)
+		pr_err("Failed to parse bus data\n");
+
+	return ret;
+}
+
+static void mdss_rotator_put_dt_vreg_data(struct device *dev,
+	struct dss_module_power *mp)
+{
+	if (!mp) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	msm_dss_config_vreg(dev, mp->vreg_config, mp->num_vreg, 0);
+	if (mp->vreg_config) {
+		devm_kfree(dev, mp->vreg_config);
+		mp->vreg_config = NULL;
+	}
+	mp->num_vreg = 0;
+}
+
+static int mdss_rotator_get_dt_vreg_data(struct device *dev,
+	struct dss_module_power *mp)
+{
+	const char *st = NULL;
+	struct device_node *of_node = NULL;
+	int dt_vreg_total = 0;
+	int i;
+	int rc;
+
+	if (!dev || !mp) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	of_node = dev->of_node;
+
+	dt_vreg_total = of_property_count_strings(of_node, "qcom,supply-names");
+	if (dt_vreg_total < 0) {
+		DEV_ERR("%s: vreg not found. rc=%d\n", __func__,
+			dt_vreg_total);
+		return 0;
+	}
+	mp->num_vreg = dt_vreg_total;
+	mp->vreg_config = devm_kzalloc(dev, sizeof(struct dss_vreg) *
+		dt_vreg_total, GFP_KERNEL);
+	if (!mp->vreg_config) {
+		DEV_ERR("%s: can't alloc vreg mem\n", __func__);
+		return -ENOMEM;
+	}
+
+	/* vreg-name */
+	for (i = 0; i < dt_vreg_total; i++) {
+		rc = of_property_read_string_index(of_node,
+			"qcom,supply-names", i, &st);
+		if (rc) {
+			DEV_ERR("%s: error reading name. i=%d, rc=%d\n",
+				__func__, i, rc);
+			goto error;
+		}
+		snprintf(mp->vreg_config[i].vreg_name, 32, "%s", st);
+	}
+	msm_dss_config_vreg(dev, mp->vreg_config, mp->num_vreg, 1);
+
+	for (i = 0; i < dt_vreg_total; i++) {
+		DEV_DBG("%s: %s min=%d, max=%d, enable=%d disable=%d\n",
+			__func__,
+			mp->vreg_config[i].vreg_name,
+			mp->vreg_config[i].min_voltage,
+			mp->vreg_config[i].max_voltage,
+			mp->vreg_config[i].enable_load,
+			mp->vreg_config[i].disable_load);
+	}
+	return rc;
+
+error:
+	if (mp->vreg_config) {
+		devm_kfree(dev, mp->vreg_config);
+		mp->vreg_config = NULL;
+	}
+	mp->num_vreg = 0;
+	return rc;
+}
+
+static void mdss_rotator_bus_scale_unregister(struct mdss_rot_mgr *mgr)
+{
+	pr_debug("unregister bus_hdl=%x, reg_bus_hdl=%x\n",
+		mgr->data_bus.bus_hdl, mgr->reg_bus.bus_hdl);
+
+	if (mgr->data_bus.bus_hdl)
+		msm_bus_scale_unregister_client(mgr->data_bus.bus_hdl);
+
+	if (mgr->reg_bus.bus_hdl)
+		msm_bus_scale_unregister_client(mgr->reg_bus.bus_hdl);
+}
+
+static int mdss_rotator_bus_scale_register(struct mdss_rot_mgr *mgr)
+{
+	if (!mgr->data_bus.bus_scale_pdata) {
+		pr_err("Scale table is NULL\n");
+		return -EINVAL;
+	}
+
+	mgr->data_bus.bus_hdl =
+		msm_bus_scale_register_client(
+		mgr->data_bus.bus_scale_pdata);
+	if (!mgr->data_bus.bus_hdl) {
+		pr_err("bus_client register failed\n");
+		return -EINVAL;
+	}
+	pr_debug("registered bus_hdl=%x\n", mgr->data_bus.bus_hdl);
+
+	if (mgr->reg_bus.bus_scale_pdata) {
+		mgr->reg_bus.bus_hdl =
+			msm_bus_scale_register_client(
+			mgr->reg_bus.bus_scale_pdata);
+		if (!mgr->reg_bus.bus_hdl) {
+			pr_err("register bus_client register failed\n");
+			mdss_rotator_bus_scale_unregister(mgr);
+			return -EINVAL;
+		}
+		pr_debug("registered register bus_hdl=%x\n",
+			mgr->reg_bus.bus_hdl);
+	}
+
 	return 0;
+}
+
+static int mdss_rotator_clk_register(struct platform_device *pdev,
+	struct mdss_rot_mgr *mgr, char *clk_name, u32 clk_idx)
+{
+	struct clk *tmp;
+	pr_debug("registered clk_reg\n");
+
+	if (clk_idx >= MDSS_CLK_ROTATOR_END_IDX) {
+		pr_err("invalid clk index %d\n", clk_idx);
+		return -EINVAL;
+	}
+
+	if (mgr->rot_clk[clk_idx]) {
+		pr_err("Stomping on clk prev registered:%d\n", clk_idx);
+		return -EINVAL;
+	}
+
+	tmp = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(tmp)) {
+		pr_err("unable to get clk: %s\n", clk_name);
+		return PTR_ERR(tmp);
+	}
+	mgr->rot_clk[clk_idx] = tmp;
+	return 0;
+}
+
+static int mdss_rotator_res_init(struct platform_device *pdev,
+	struct mdss_rot_mgr *mgr)
+{
+	int ret;
+
+	ret = mdss_rotator_get_dt_vreg_data(&pdev->dev, &mgr->module_power);
+	if (ret)
+		return ret;
+
+	ret = mdss_rotator_clk_register(pdev, mgr,
+		"iface_clk", MDSS_CLK_ROTATOR_AHB);
+	if (ret)
+		goto error;
+
+	ret = mdss_rotator_clk_register(pdev, mgr,
+		"rot_core_clk", MDSS_CLK_ROTATOR_CORE);
+	if (ret)
+		goto error;
+
+	ret = mdss_rotator_bus_scale_register(mgr);
+	if (ret)
+		goto error;
+
+	return 0;
+error:
+	mdss_rotator_put_dt_vreg_data(&pdev->dev, &mgr->module_power);
+	return ret;
 }
 
 static int mdss_rotator_probe(struct platform_device *pdev)
@@ -1836,6 +2486,8 @@ static int mdss_rotator_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&rot_mgr->lock);
+	mutex_init(&rot_mgr->clk_lock);
+	mutex_init(&rot_mgr->bus_lock);
 	atomic_set(&rot_mgr->device_suspended, 0);
 	ret = mdss_rotator_init_queue(rot_mgr);
 	if (ret) {
@@ -1882,8 +2534,15 @@ static int mdss_rotator_probe(struct platform_device *pdev)
 	if (ret)
 		pr_err("unable to register rotator sysfs nodes\n");
 
+	ret = mdss_rotator_res_init(pdev, rot_mgr);
+	if (ret < 0) {
+		pr_err("res_init failed %d\n", ret);
+		goto error_res_init;
+	}
 	return 0;
 
+error_res_init:
+	cdev_del(&rot_mgr->cdev);
 error_cdev_add:
 	device_destroy(rot_mgr->class, rot_mgr->dev_num);
 error_class_device_create:
@@ -1910,6 +2569,8 @@ static int mdss_rotator_remove(struct platform_device *dev)
 
 	mdss_rotator_release_all(mgr);
 
+	mdss_rotator_put_dt_vreg_data(&dev->dev, &mgr->module_power);
+	mdss_rotator_bus_scale_unregister(mgr);
 	cdev_del(&rot_mgr->cdev);
 	device_destroy(rot_mgr->class, rot_mgr->dev_num);
 	class_destroy(rot_mgr->class);
