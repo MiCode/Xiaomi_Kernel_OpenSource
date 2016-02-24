@@ -54,10 +54,10 @@ static unsigned long mmap_rnd(void)
 	if (current->flags & PF_RANDOMIZE) {
 #ifdef CONFIG_COMPAT
 		if (test_thread_flag(TIF_32BIT))
-			rnd = (unsigned long)get_random_int() & ((1 << mmap_rnd_compat_bits) - 1);
+			rnd = get_random_long() & ((1UL << mmap_rnd_compat_bits) - 1);
 		else
 #endif
-			rnd = (unsigned long)get_random_int() & ((1 << mmap_rnd_bits) - 1);
+			rnd = get_random_long() & ((1UL << mmap_rnd_bits) - 1);
 	}
 	return rnd << PAGE_SHIFT;
 }
