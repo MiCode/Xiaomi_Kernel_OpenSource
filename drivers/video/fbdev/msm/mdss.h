@@ -21,8 +21,10 @@
 #include <linux/workqueue.h>
 #include <linux/irqreturn.h>
 #include <linux/mdss_io_util.h>
-#include <linux/msm_iommu_domains.h>
+
 #include <linux/msm-bus.h>
+#include <linux/file.h>
+#include <linux/dma-direction.h>
 
 #include "mdss_panel.h"
 
@@ -56,15 +58,6 @@ enum mdss_bus_vote_type {
 	VOTE_INDEX_19_MHZ,
 	VOTE_INDEX_40_MHZ,
 	VOTE_INDEX_80_MHZ,
-};
-
-struct mdss_iommu_map_type {
-	char *client_name;
-	char *ctx_name;
-	struct device *ctx;
-	struct msm_iova_partition partitions[1];
-	int npartitions;
-	int domain_idx;
 };
 
 struct mdss_hw_settings {

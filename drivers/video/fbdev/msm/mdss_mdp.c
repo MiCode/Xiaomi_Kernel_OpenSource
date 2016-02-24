@@ -41,8 +41,6 @@
 #include <linux/uaccess.h>
 #include <linux/clk/msm-clk.h>
 
-#include <linux/qcom_iommu.h>
-#include <linux/msm_iommu_domains.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <soc/qcom/scm.h>

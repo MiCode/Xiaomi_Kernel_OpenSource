@@ -17,7 +17,6 @@
 #include <linux/msm_ion.h>
 #include <linux/msm_mdp.h>
 #include <linux/mdss_io_util.h>
-#include <linux/msm_iommu_domains.h>
 
 #include "mdss.h"
 #include "mdss_mdp.h"
