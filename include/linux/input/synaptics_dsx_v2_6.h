@@ -34,13 +34,13 @@
 #ifndef _SYNAPTICS_DSX_H_
 #define _SYNAPTICS_DSX_H_
 
-#define PLATFORM_DRIVER_NAME "synaptics_dsx"
-#define STYLUS_DRIVER_NAME "synaptics_dsx_stylus"
-#define ACTIVE_PEN_DRIVER_NAME "synaptics_dsx_active_pen"
-#define PROXIMITY_DRIVER_NAME "synaptics_dsx_proximity"
-#define GESTURE_DRIVER_NAME "synaptics_dsx_gesture"
-#define I2C_DRIVER_NAME "synaptics_dsx_i2c"
-#define SPI_DRIVER_NAME "synaptics_dsx_spi"
+#define PLATFORM_DRIVER_NAME "synaptics_dsxv26"
+#define STYLUS_DRIVER_NAME "synaptics_dsxv26_stylus"
+#define ACTIVE_PEN_DRIVER_NAME "synaptics_dsxv26_active_pen"
+#define PROXIMITY_DRIVER_NAME "synaptics_dsxv26_proximity"
+#define GESTURE_DRIVER_NAME "synaptics_dsxv26_gesture"
+#define I2C_DRIVER_NAME "synaptics_dsxv26"
+#define SPI_DRIVER_NAME "synaptics_dsxv26"
 
 /*
  * struct synaptics_dsx_button_map - button map
