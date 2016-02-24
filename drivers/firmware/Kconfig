@@ -176,5 +176,6 @@ config QCOM_SCM_64
 source "drivers/firmware/broadcom/Kconfig"
 source "drivers/firmware/google/Kconfig"
 source "drivers/firmware/efi/Kconfig"
+source "drivers/firmware/qcom/Kconfig"
 
 endmenu
