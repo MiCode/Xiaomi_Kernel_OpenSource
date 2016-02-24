@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,15 +39,15 @@ static struct attribute_group mhi_attribute_group = {
 	.attrs = mhi_attributes,
 };
 
-int mhi_pci_suspend(struct pci_dev *pcie_dev, pm_message_t state)
+int mhi_pci_suspend(struct device *dev)
 {
 	int r = 0;
-	struct mhi_device_ctxt *mhi_dev_ctxt = pcie_dev->dev.platform_data;
+	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
 
 	if (NULL == mhi_dev_ctxt)
 		return -EINVAL;
-	mhi_log(MHI_MSG_INFO, "Entered, sys state %d, MHI state %d\n",
-			state.event, mhi_dev_ctxt->mhi_state);
+	mhi_log(MHI_MSG_INFO, "Entered, MHI state %d\n",
+			mhi_dev_ctxt->mhi_state);
 	atomic_set(&mhi_dev_ctxt->flags.pending_resume, 1);
 
 	r = mhi_initiate_m3(mhi_dev_ctxt);
@@ -84,11 +84,10 @@ int mhi_runtime_resume(struct device *dev)
 	return r;
 }
 
-int mhi_pci_resume(struct pci_dev *pcie_dev)
+int mhi_pci_resume(struct device *dev)
 {
 	int r = 0;
-	struct mhi_device_ctxt *mhi_dev_ctxt = pcie_dev->dev.platform_data;
-
+	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
 	r = mhi_initiate_m0(mhi_dev_ctxt);
 	if (r)
 		goto exit;
