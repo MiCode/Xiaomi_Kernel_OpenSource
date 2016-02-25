@@ -63,7 +63,7 @@ static int _read_fw2_block_header(uint32_t *header, uint32_t id,
  * Number of times to check if the GPMU firmware is initialized before
  * giving up and returning failure.
  */
-#define GPMU_FW_INIT_RETRY 100
+#define GPMU_FW_INIT_RETRY 5000
 
 #define GPMU_HEADER_ID		1
 #define GPMU_FIRMWARE_ID	2
@@ -1398,7 +1398,7 @@ static void a5xx_lm_enable(struct adreno_device *adreno_dev)
 static int gpmu_set_level(struct kgsl_device *device, unsigned int val)
 {
 	unsigned int reg;
-	int retry = 20;
+	int retry = 100;
 
 	kgsl_regwrite(device, A5XX_GPMU_GPMU_VOLTAGE, val);
 
