@@ -217,6 +217,9 @@ config USB_F_DIAG
 config USB_F_GSI
 	tristate
 
+config USB_F_CDEV
+	tristate
+
 choice
 	tristate "USB Gadget Drivers"
 	default USB_ETH
@@ -521,6 +524,13 @@ config USB_CONFIGFS_F_GSI
 	depends on USB_CONFIGFS
 	help
 	  Generic function driver to support h/w acceleration to IPA over GSI.
+
+config USB_CONFIGFS_F_CDEV
+	bool "USB Serial Character function"
+	select USB_F_CDEV
+	depends on USB_CONFIGFS
+	help
+	  Generic USB serial character function driver to support DUN/NMEA.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 

@@ -10,7 +10,7 @@
  * Copyright (C) 1999 - 2002 Greg Kroah-Hartman (greg@kroah.com)
  * Copyright (C) 2000 Peter Berger (pberger@brimson.com)
  *
- * gbridge_port_read() API implementation is using borrowed code from
+ * f_cdev_read() API implementation is using borrowed code from
  * drivers/usb/gadget/legacy/printer.c, which is
  * Copyright (C) 2003-2005 David Brownell
  * Copyright (C) 2006 Craig W. Nadler
@@ -37,24 +37,60 @@
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/debugfs.h>
+#include <linux/cdev.h>
 #include <linux/spinlock.h>
+#include <linux/usb/gadget.h>
+#include <linux/usb/cdc.h>
+#include <linux/usb/composite.h>
+#include <linux/module.h>
 #include <asm/ioctls.h>
+#include <asm-generic/termios.h>
 
 #define DEVICE_NAME "at_usb"
 #define MODULE_NAME "msm_usb_bridge"
-#define num_of_instance 2
+#define NUM_INSTANCE 2
 
 #define BRIDGE_RX_QUEUE_SIZE	8
 #define BRIDGE_RX_BUF_SIZE	2048
 #define BRIDGE_TX_QUEUE_SIZE	8
 #define BRIDGE_TX_BUF_SIZE	2048
 
-struct gbridge_port {
-	struct cdev		gbridge_cdev;
+#define GS_LOG2_NOTIFY_INTERVAL		5  /* 1 << 5 == 32 msec */
+#define GS_NOTIFY_MAXPACKET		10 /* notification + 2 bytes */
+
+struct cserial {
+	struct usb_function		func;
+	struct usb_ep			*in;
+	struct usb_ep			*out;
+	struct usb_ep			*notify;
+	struct usb_request		*notify_req;
+	struct usb_cdc_line_coding	port_line_coding;
+	u8				pending;
+	u8				data_id;
+	u16				serial_state;
+	u16				port_handshake_bits;
+	/* control signal callbacks*/
+	unsigned int (*get_dtr)(struct cserial *p);
+	unsigned int (*get_rts)(struct cserial *p);
+
+	/* notification callbacks */
+	void (*connect)(struct cserial *p);
+	void (*disconnect)(struct cserial *p);
+	int (*send_break)(struct cserial *p, int duration);
+	unsigned int (*send_carrier_detect)(struct cserial *p, unsigned int);
+	unsigned int (*send_ring_indicator)(struct cserial *p, unsigned int);
+	int (*send_modem_ctrl_bits)(struct cserial *p, int ctrl_bits);
+
+	/* notification changes to modem */
+	void (*notify_modem)(void *port, int ctrl_bits);
+};
+
+struct f_cdev {
+	struct cdev		fcdev_cdev;
 	struct device		*dev;
 	unsigned		port_num;
 	char			name[sizeof(DEVICE_NAME) + 2];
+	int			minor;
 
 	spinlock_t		port_lock;
 
@@ -72,11 +108,19 @@ struct gbridge_port {
 	/* current USB RX buffer */
 	u8			*current_rx_buf;
 
-	struct gserial		*port_usb;
+	struct cserial		port_usb;
+
+#define ACM_CTRL_DTR		0x01
+#define ACM_CTRL_RTS		0x02
+#define ACM_CTRL_DCD		0x01
+#define ACM_CTRL_DSR		0x02
+#define ACM_CTRL_BRK		0x04
+#define ACM_CTRL_RI		0x08
 
 	unsigned		cbits_to_modem;
 	bool			cbits_updated;
 
+	struct workqueue_struct *fcdev_wq;
 	bool			is_connected;
 	bool			port_open;
 
@@ -86,31 +130,563 @@ struct gbridge_port {
 	unsigned long		nbytes_from_port_bridge;
 };
 
-struct gbridge_port *ports[num_of_instance];
-struct class *gbridge_classp;
-static dev_t gbridge_number;
-static struct workqueue_struct *gbridge_wq;
-static unsigned n_bridge_ports;
-static void gbridge_read_complete(struct usb_ep *ep, struct usb_request *req);
-static void gbridge_free_req(struct usb_ep *ep, struct usb_request *req)
+struct f_cdev_opts {
+	struct usb_function_instance func_inst;
+	struct f_cdev *port;
+	char *func_name;
+	u8 port_num;
+};
+
+static int major, minors;
+struct class *fcdev_classp;
+static DEFINE_IDA(chardev_ida);
+static DEFINE_MUTEX(chardev_ida_lock);
+
+static int usb_cser_alloc_chardev_region(void);
+static void usb_cser_chardev_deinit(void);
+static void usb_cser_read_complete(struct usb_ep *ep, struct usb_request *req);
+static int usb_cser_connect(struct f_cdev *port);
+static void usb_cser_disconnect(struct f_cdev *port);
+static struct f_cdev *f_cdev_alloc(char *func_name, int portno);
+static void usb_cser_free_req(struct usb_ep *ep, struct usb_request *req);
+
+static struct usb_interface_descriptor cser_interface_desc = {
+	.bLength =		USB_DT_INTERFACE_SIZE,
+	.bDescriptorType =	USB_DT_INTERFACE,
+	/* .bInterfaceNumber = DYNAMIC */
+	.bNumEndpoints =	3,
+	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceSubClass =	0,
+	.bInterfaceProtocol =	0,
+	/* .iInterface = DYNAMIC */
+};
+
+static struct usb_cdc_header_desc cser_header_desc  = {
+	.bLength =		sizeof(cser_header_desc),
+	.bDescriptorType =	USB_DT_CS_INTERFACE,
+	.bDescriptorSubType =	USB_CDC_HEADER_TYPE,
+	.bcdCDC =		cpu_to_le16(0x0110),
+};
+
+static struct usb_cdc_call_mgmt_descriptor
+cser_call_mgmt_descriptor  = {
+	.bLength =		sizeof(cser_call_mgmt_descriptor),
+	.bDescriptorType =	USB_DT_CS_INTERFACE,
+	.bDescriptorSubType =	USB_CDC_CALL_MANAGEMENT_TYPE,
+	.bmCapabilities =	0,
+	/* .bDataInterface = DYNAMIC */
+};
+
+static struct usb_cdc_acm_descriptor cser_descriptor  = {
+	.bLength =		sizeof(cser_descriptor),
+	.bDescriptorType =	USB_DT_CS_INTERFACE,
+	.bDescriptorSubType =	USB_CDC_ACM_TYPE,
+	.bmCapabilities =	USB_CDC_CAP_LINE,
+};
+
+static struct usb_cdc_union_desc cser_union_desc  = {
+	.bLength =		sizeof(cser_union_desc),
+	.bDescriptorType =	USB_DT_CS_INTERFACE,
+	.bDescriptorSubType =	USB_CDC_UNION_TYPE,
+	/* .bMasterInterface0 =	DYNAMIC */
+	/* .bSlaveInterface0 =	DYNAMIC */
+};
+
+/* full speed support: */
+static struct usb_endpoint_descriptor cser_fs_notify_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	cpu_to_le16(GS_NOTIFY_MAXPACKET),
+	.bInterval =		1 << GS_LOG2_NOTIFY_INTERVAL,
+};
+
+static struct usb_endpoint_descriptor cser_fs_in_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+};
+
+static struct usb_endpoint_descriptor cser_fs_out_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_OUT,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+};
+
+static struct usb_descriptor_header *cser_fs_function[] = {
+	(struct usb_descriptor_header *) &cser_interface_desc,
+	(struct usb_descriptor_header *) &cser_header_desc,
+	(struct usb_descriptor_header *) &cser_call_mgmt_descriptor,
+	(struct usb_descriptor_header *) &cser_descriptor,
+	(struct usb_descriptor_header *) &cser_union_desc,
+	(struct usb_descriptor_header *) &cser_fs_notify_desc,
+	(struct usb_descriptor_header *) &cser_fs_in_desc,
+	(struct usb_descriptor_header *) &cser_fs_out_desc,
+	NULL,
+};
+
+/* high speed support: */
+static struct usb_endpoint_descriptor cser_hs_notify_desc  = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	cpu_to_le16(GS_NOTIFY_MAXPACKET),
+	.bInterval =		GS_LOG2_NOTIFY_INTERVAL+4,
+};
+
+static struct usb_endpoint_descriptor cser_hs_in_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(512),
+};
+
+static struct usb_endpoint_descriptor cser_hs_out_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(512),
+};
+
+static struct usb_descriptor_header *cser_hs_function[] = {
+	(struct usb_descriptor_header *) &cser_interface_desc,
+	(struct usb_descriptor_header *) &cser_header_desc,
+	(struct usb_descriptor_header *) &cser_call_mgmt_descriptor,
+	(struct usb_descriptor_header *) &cser_descriptor,
+	(struct usb_descriptor_header *) &cser_union_desc,
+	(struct usb_descriptor_header *) &cser_hs_notify_desc,
+	(struct usb_descriptor_header *) &cser_hs_in_desc,
+	(struct usb_descriptor_header *) &cser_hs_out_desc,
+	NULL,
+};
+
+static struct usb_endpoint_descriptor cser_ss_in_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(1024),
+};
+
+static struct usb_endpoint_descriptor cser_ss_out_desc = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	cpu_to_le16(1024),
+};
+
+static struct usb_ss_ep_comp_descriptor cser_ss_bulk_comp_desc = {
+	.bLength =              sizeof(cser_ss_bulk_comp_desc),
+	.bDescriptorType =      USB_DT_SS_ENDPOINT_COMP,
+};
+
+static struct usb_endpoint_descriptor cser_ss_notify_desc  = {
+	.bLength =		USB_DT_ENDPOINT_SIZE,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	cpu_to_le16(GS_NOTIFY_MAXPACKET),
+	.bInterval =		GS_LOG2_NOTIFY_INTERVAL+4,
+};
+
+static struct usb_ss_ep_comp_descriptor cser_ss_notify_comp_desc = {
+	.bLength =		sizeof(cser_ss_notify_comp_desc),
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+	.wBytesPerInterval =	cpu_to_le16(GS_NOTIFY_MAXPACKET),
+};
+
+static struct usb_descriptor_header *cser_ss_function[] = {
+	(struct usb_descriptor_header *) &cser_interface_desc,
+	(struct usb_descriptor_header *) &cser_header_desc,
+	(struct usb_descriptor_header *) &cser_call_mgmt_descriptor,
+	(struct usb_descriptor_header *) &cser_descriptor,
+	(struct usb_descriptor_header *) &cser_union_desc,
+	(struct usb_descriptor_header *) &cser_ss_notify_desc,
+	(struct usb_descriptor_header *) &cser_ss_notify_comp_desc,
+	(struct usb_descriptor_header *) &cser_ss_in_desc,
+	(struct usb_descriptor_header *) &cser_ss_bulk_comp_desc,
+	(struct usb_descriptor_header *) &cser_ss_out_desc,
+	(struct usb_descriptor_header *) &cser_ss_bulk_comp_desc,
+	NULL,
+};
+
+/* string descriptors: */
+static struct usb_string cser_string_defs[] = {
+	[0].s = "CDEV Serial",
+	{  } /* end of list */
+};
+
+static struct usb_gadget_strings cser_string_table = {
+	.language =	0x0409,	/* en-us */
+	.strings =	cser_string_defs,
+};
+
+static struct usb_gadget_strings *usb_cser_strings[] = {
+	&cser_string_table,
+	NULL,
+};
+
+static inline struct f_cdev *func_to_port(struct usb_function *f)
+{
+	return container_of(f, struct f_cdev, port_usb.func);
+}
+
+static inline struct f_cdev *cser_to_port(struct cserial *cser)
+{
+	return container_of(cser, struct f_cdev, port_usb);
+}
+
+static unsigned int convert_acm_sigs_to_uart(unsigned acm_sig)
+{
+	unsigned int uart_sig = 0;
+
+	acm_sig &= (ACM_CTRL_DTR | ACM_CTRL_RTS);
+	if (acm_sig & ACM_CTRL_DTR)
+		uart_sig |= TIOCM_DTR;
+
+	if (acm_sig & ACM_CTRL_RTS)
+		uart_sig |= TIOCM_RTS;
+
+	return uart_sig;
+}
+
+static void port_complete_set_line_coding(struct usb_ep *ep,
+		struct usb_request *req)
+{
+	struct f_cdev            *port = ep->driver_data;
+	struct usb_composite_dev *cdev = port->port_usb.func.config->cdev;
+
+	if (req->status != 0) {
+		dev_dbg(&cdev->gadget->dev, "port(%s) completion, err %d\n",
+				port->name, req->status);
+		return;
+	}
+
+	/* normal completion */
+	if (req->actual != sizeof(port->port_usb.port_line_coding)) {
+		dev_dbg(&cdev->gadget->dev, "port(%s) short resp, len %d\n",
+			port->name, req->actual);
+		usb_ep_set_halt(ep);
+	} else {
+		struct usb_cdc_line_coding	*value = req->buf;
+
+		port->port_usb.port_line_coding = *value;
+	}
+}
+
+static void usb_cser_free_func(struct usb_function *f)
+{
+	/* Do nothing as cser_alloc() doesn't alloc anything. */
+}
+
+static int
+usb_cser_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
+{
+	struct f_cdev            *port = func_to_port(f);
+	struct usb_composite_dev *cdev = f->config->cdev;
+	struct usb_request	 *req = cdev->req;
+	int			 value = -EOPNOTSUPP;
+	u16			 w_index = le16_to_cpu(ctrl->wIndex);
+	u16			 w_value = le16_to_cpu(ctrl->wValue);
+	u16			 w_length = le16_to_cpu(ctrl->wLength);
+
+	switch ((ctrl->bRequestType << 8) | ctrl->bRequest) {
+
+	/* SET_LINE_CODING ... just read and save what the host sends */
+	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
+			| USB_CDC_REQ_SET_LINE_CODING:
+		if (w_length != sizeof(struct usb_cdc_line_coding))
+			goto invalid;
+
+		value = w_length;
+		cdev->gadget->ep0->driver_data = port;
+		req->complete = port_complete_set_line_coding;
+		break;
+
+	/* GET_LINE_CODING ... return what host sent, or initial value */
+	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
+			| USB_CDC_REQ_GET_LINE_CODING:
+		value = min_t(unsigned, w_length,
+				sizeof(struct usb_cdc_line_coding));
+		memcpy(req->buf, &port->port_usb.port_line_coding, value);
+		break;
+
+	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
+			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
+
+		value = 0;
+		port->port_usb.port_handshake_bits = w_value;
+		pr_debug("USB_CDC_REQ_SET_CONTROL_LINE_STATE: DTR:%d RST:%d\n",
+			w_value & ACM_CTRL_DTR ? 1 : 0,
+			w_value & ACM_CTRL_RTS ? 1 : 0);
+		if (port->port_usb.notify_modem)
+			port->port_usb.notify_modem(port, w_value);
+
+		break;
+
+	default:
+invalid:
+		dev_dbg(&cdev->gadget->dev,
+			"invalid control req%02x.%02x v%04x i%04x l%d\n",
+			ctrl->bRequestType, ctrl->bRequest,
+			w_value, w_index, w_length);
+	}
+
+	/* respond with data transfer or status phase? */
+	if (value >= 0) {
+		dev_dbg(&cdev->gadget->dev,
+			"port(%s) req%02x.%02x v%04x i%04x l%d\n",
+			port->name, ctrl->bRequestType, ctrl->bRequest,
+			w_value, w_index, w_length);
+		req->zero = 0;
+		req->length = value;
+		value = usb_ep_queue(cdev->gadget->ep0, req, GFP_ATOMIC);
+		if (value < 0)
+			pr_err("port response on (%s), err %d\n",
+					port->name, value);
+	}
+
+	/* device either stalls (value < 0) or reports success */
+	return value;
+}
+
+static int usb_cser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
+{
+	struct f_cdev *port = func_to_port(f);
+	struct usb_composite_dev *cdev	= f->config->cdev;
+	int rc = 0;
+
+	if (port->port_usb.notify->driver_data) {
+		dev_dbg(&cdev->gadget->dev,
+			"reset port(%s)\n", port->name);
+		usb_ep_disable(port->port_usb.notify);
+	}
+
+	if (!port->port_usb.notify->desc) {
+		if (config_ep_by_speed(cdev->gadget, f,
+				port->port_usb.notify)) {
+			port->port_usb.notify->desc = NULL;
+			return -EINVAL;
+		}
+	}
+
+	rc = usb_ep_enable(port->port_usb.notify);
+	if (rc) {
+		dev_err(&cdev->gadget->dev, "can't enable %s, result %d\n",
+				port->port_usb.notify->name, rc);
+		return rc;
+	}
+	port->port_usb.notify->driver_data = port;
+
+	if (port->port_usb.in->driver_data) {
+		dev_dbg(&cdev->gadget->dev,
+			"reset port(%s)\n", port->name);
+		usb_cser_disconnect(port);
+	}
+	if (!port->port_usb.in->desc || !port->port_usb.out->desc) {
+		dev_dbg(&cdev->gadget->dev,
+			"activate port(%s)\n", port->name);
+		if (config_ep_by_speed(cdev->gadget, f, port->port_usb.in) ||
+			config_ep_by_speed(cdev->gadget, f,
+					port->port_usb.out)) {
+			port->port_usb.in->desc = NULL;
+			port->port_usb.out->desc = NULL;
+			return -EINVAL;
+		}
+	}
+
+	usb_cser_connect(port);
+	return rc;
+}
+
+static void usb_cser_disable(struct usb_function *f)
+{
+	struct f_cdev	*port = func_to_port(f);
+	struct usb_composite_dev *cdev = f->config->cdev;
+
+	dev_dbg(&cdev->gadget->dev,
+		"port(%s) deactivated\n", port->name);
+
+	usb_cser_disconnect(port);
+	usb_ep_disable(port->port_usb.notify);
+	usb_cser_free_req(port->port_usb.notify, port->port_usb.notify_req);
+	port->port_usb.notify->driver_data = NULL;
+}
+
+static int usb_cser_notify(struct f_cdev *port, u8 type, u16 value,
+		void *data, unsigned length)
+{
+	struct usb_ep			*ep = port->port_usb.notify;
+	struct usb_request		*req;
+	struct usb_cdc_notification	*notify;
+	const unsigned			len = sizeof(*notify) + length;
+	void				*buf;
+	int				status;
+
+	req = port->port_usb.notify_req;
+	port->port_usb.notify_req = NULL;
+	port->port_usb.pending = false;
+
+	req->length = len;
+	notify = req->buf;
+	buf = notify + 1;
+
+	notify->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS
+			| USB_RECIP_INTERFACE;
+	notify->bNotificationType = type;
+	notify->wValue = cpu_to_le16(value);
+	notify->wIndex = cpu_to_le16(port->port_usb.data_id);
+	notify->wLength = cpu_to_le16(length);
+	memcpy(buf, data, length);
+
+	status = usb_ep_queue(ep, req, GFP_ATOMIC);
+	if (status < 0) {
+		pr_err("port %s can't notify serial state, %d\n",
+				port->name, status);
+		port->port_usb.notify_req = req;
+	}
+
+	return status;
+}
+
+static int port_notify_serial_state(struct cserial *cser)
+{
+	struct f_cdev *port = cser_to_port(cser);
+	int status;
+	unsigned long flags;
+	struct usb_composite_dev *cdev = port->port_usb.func.config->cdev;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (port->port_usb.notify_req) {
+		dev_dbg(&cdev->gadget->dev, "port %d serial state %04x\n",
+				port->port_num, port->port_usb.serial_state);
+		status = usb_cser_notify(port, USB_CDC_NOTIFY_SERIAL_STATE,
+				0, &port->port_usb.serial_state,
+				sizeof(port->port_usb.serial_state));
+	} else {
+		port->port_usb.pending = true;
+		status = 0;
+	}
+	spin_unlock_irqrestore(&port->port_lock, flags);
+	return status;
+}
+
+static void usb_cser_notify_complete(struct usb_ep *ep, struct usb_request *req)
+{
+	struct f_cdev *port = req->context;
+	u8	      doit = false;
+	unsigned long flags;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (req->status != -ESHUTDOWN)
+		doit = port->port_usb.pending;
+	port->port_usb.notify_req = req;
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	if (doit && port->is_connected)
+		port_notify_serial_state(&port->port_usb);
+}
+static void dun_cser_connect(struct cserial *cser)
+{
+	cser->serial_state |= ACM_CTRL_DSR | ACM_CTRL_DCD;
+	port_notify_serial_state(cser);
+}
+
+unsigned int dun_cser_get_dtr(struct cserial *cser)
+{
+	if (cser->port_handshake_bits & ACM_CTRL_DTR)
+		return 1;
+	else
+		return 0;
+}
+
+unsigned int dun_cser_get_rts(struct cserial *cser)
+{
+	if (cser->port_handshake_bits & ACM_CTRL_RTS)
+		return 1;
+	else
+		return 0;
+}
+
+unsigned int dun_cser_send_carrier_detect(struct cserial *cser,
+				unsigned int yes)
+{
+	u16 state;
+
+	state = cser->serial_state;
+	state &= ~ACM_CTRL_DCD;
+	if (yes)
+		state |= ACM_CTRL_DCD;
+
+	cser->serial_state = state;
+	return port_notify_serial_state(cser);
+}
+
+unsigned int dun_cser_send_ring_indicator(struct cserial *cser,
+				unsigned int yes)
+{
+	u16 state;
+
+	state = cser->serial_state;
+	state &= ~ACM_CTRL_RI;
+	if (yes)
+		state |= ACM_CTRL_RI;
+
+	cser->serial_state = state;
+	return port_notify_serial_state(cser);
+}
+
+static void dun_cser_disconnect(struct cserial *cser)
+{
+	cser->serial_state &= ~(ACM_CTRL_DSR | ACM_CTRL_DCD);
+	port_notify_serial_state(cser);
+}
+
+static int dun_cser_send_break(struct cserial *cser, int duration)
+{
+	u16 state;
+
+	state = cser->serial_state;
+	state &= ~ACM_CTRL_BRK;
+	if (duration)
+		state |= ACM_CTRL_BRK;
+
+	cser->serial_state = state;
+	return port_notify_serial_state(cser);
+}
+
+static int dun_cser_send_ctrl_bits(struct cserial *cser, int ctrl_bits)
+{
+	cser->serial_state = ctrl_bits;
+	return port_notify_serial_state(cser);
+}
+
+static void usb_cser_free_req(struct usb_ep *ep, struct usb_request *req)
 {
 	kfree(req->buf);
 	usb_ep_free_request(ep, req);
 }
 
-static void gbridge_free_requests(struct usb_ep *ep, struct list_head *head)
+static void usb_cser_free_requests(struct usb_ep *ep, struct list_head *head)
 {
 	struct usb_request	*req;
 
 	while (!list_empty(head)) {
 		req = list_entry(head->next, struct usb_request, list);
 		list_del_init(&req->list);
-		gbridge_free_req(ep, req);
+		usb_cser_free_req(ep, req);
 	}
 }
 
 static struct usb_request *
-gbridge_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags)
+usb_cser_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags)
 {
 	struct usb_request *req;
 
@@ -131,7 +707,112 @@ gbridge_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags)
 	return req;
 }
 
-static int gbridge_alloc_requests(struct usb_ep *ep, struct list_head *head,
+static int usb_cser_bind(struct usb_configuration *c, struct usb_function *f)
+{
+	struct usb_composite_dev *cdev = c->cdev;
+	struct f_cdev *port = func_to_port(f);
+	int status;
+	struct usb_ep *ep;
+
+	if (cser_string_defs[0].id == 0) {
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		cser_string_defs[0].id = status;
+	}
+
+	status = usb_interface_id(c, f);
+	if (status < 0)
+		goto fail;
+	port->port_usb.data_id = status;
+	cser_interface_desc.bInterfaceNumber = status;
+
+	status = -ENODEV;
+	ep = usb_ep_autoconfig(cdev->gadget, &cser_fs_in_desc);
+	if (!ep)
+		goto fail;
+	port->port_usb.in = ep;
+	ep->driver_data = cdev;
+
+	ep = usb_ep_autoconfig(cdev->gadget, &cser_fs_out_desc);
+	if (!ep)
+		goto fail;
+	port->port_usb.out = ep;
+	ep->driver_data = cdev;
+
+	ep = usb_ep_autoconfig(cdev->gadget, &cser_fs_notify_desc);
+	if (!ep)
+		goto fail;
+	port->port_usb.notify = ep;
+	ep->driver_data = cdev;
+	/* allocate notification */
+	port->port_usb.notify_req = usb_cser_alloc_req(ep,
+			sizeof(struct usb_cdc_notification) + 2, GFP_KERNEL);
+	if (!port->port_usb.notify_req)
+		goto fail;
+
+	port->port_usb.notify_req->complete = usb_cser_notify_complete;
+	port->port_usb.notify_req->context = port;
+
+	cser_hs_in_desc.bEndpointAddress = cser_fs_in_desc.bEndpointAddress;
+	cser_hs_out_desc.bEndpointAddress = cser_fs_out_desc.bEndpointAddress;
+
+	cser_ss_in_desc.bEndpointAddress = cser_fs_in_desc.bEndpointAddress;
+	cser_ss_out_desc.bEndpointAddress = cser_fs_out_desc.bEndpointAddress;
+
+	if (gadget_is_dualspeed(c->cdev->gadget)) {
+		cser_hs_notify_desc.bEndpointAddress =
+				cser_fs_notify_desc.bEndpointAddress;
+	}
+	if (gadget_is_superspeed(c->cdev->gadget)) {
+		cser_ss_notify_desc.bEndpointAddress =
+				cser_fs_notify_desc.bEndpointAddress;
+	}
+
+	status = usb_assign_descriptors(f, cser_fs_function, cser_hs_function,
+			cser_ss_function);
+	if (status)
+		goto fail;
+
+	dev_dbg(&cdev->gadget->dev, "usb serial port(%d): %s speed IN/%s OUT/%s\n",
+		port->port_num,
+		gadget_is_superspeed(c->cdev->gadget) ? "super" :
+		gadget_is_dualspeed(c->cdev->gadget) ? "dual" : "full",
+		port->port_usb.in->name, port->port_usb.out->name);
+	return 0;
+
+fail:
+	if (port->port_usb.notify_req)
+		usb_cser_free_req(port->port_usb.notify,
+				port->port_usb.notify_req);
+
+	if (port->port_usb.notify)
+		port->port_usb.notify->driver_data = NULL;
+	if (port->port_usb.out)
+		port->port_usb.out->driver_data = NULL;
+	if (port->port_usb.in)
+		port->port_usb.in->driver_data = NULL;
+
+	pr_err("%s: can't bind, err %d\n", f->name, status);
+	return status;
+}
+
+static void cser_free_inst(struct usb_function_instance *fi)
+{
+	struct f_cdev_opts *opts;
+
+	opts = container_of(fi, struct f_cdev_opts, func_inst);
+	kfree(opts->port);
+	usb_cser_chardev_deinit();
+	kfree(opts);
+}
+
+static void usb_cser_unbind(struct usb_configuration *c, struct usb_function *f)
+{
+	usb_free_all_descriptors(f);
+}
+
+static int usb_cser_alloc_requests(struct usb_ep *ep, struct list_head *head,
 		int num, int size,
 		void (*cb)(struct usb_ep *ep, struct usb_request *))
 {
@@ -142,7 +823,7 @@ static int gbridge_alloc_requests(struct usb_ep *ep, struct list_head *head,
 				ep, head, num, size, cb);
 
 	for (i = 0; i < num; i++) {
-		req = gbridge_alloc_req(ep, size, GFP_ATOMIC);
+		req = usb_cser_alloc_req(ep, size, GFP_ATOMIC);
 		if (!req) {
 			pr_debug("req allocated:%d\n", i);
 			return list_empty(head) ? -ENOMEM : 0;
@@ -154,7 +835,7 @@ static int gbridge_alloc_requests(struct usb_ep *ep, struct list_head *head,
 	return 0;
 }
 
-static void gbridge_start_rx(struct gbridge_port *port)
+static void usb_cser_start_rx(struct f_cdev *port)
 {
 	struct list_head	*pool;
 	struct usb_ep		*ep;
@@ -175,7 +856,7 @@ static void gbridge_start_rx(struct gbridge_port *port)
 	}
 
 	pool = &port->read_pool;
-	ep = port->port_usb->out;
+	ep = port->port_usb.out;
 
 	while (!list_empty(pool)) {
 		struct usb_request	*req;
@@ -183,7 +864,7 @@ static void gbridge_start_rx(struct gbridge_port *port)
 		req = list_entry(pool->next, struct usb_request, list);
 		list_del_init(&req->list);
 		req->length = BRIDGE_RX_BUF_SIZE;
-		req->complete = gbridge_read_complete;
+		req->complete = usb_cser_read_complete;
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		ret = usb_ep_queue(ep, req, GFP_KERNEL);
 		spin_lock_irqsave(&port->port_lock, flags);
@@ -198,9 +879,9 @@ static void gbridge_start_rx(struct gbridge_port *port)
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
-static void gbridge_read_complete(struct usb_ep *ep, struct usb_request *req)
+static void usb_cser_read_complete(struct usb_ep *ep, struct usb_request *req)
 {
-	struct gbridge_port *port = ep->driver_data;
+	struct f_cdev *port = ep->driver_data;
 	unsigned long flags;
 
 	pr_debug("ep:(%p)(%s) port:%p req_status:%d req->actual:%u\n",
@@ -225,10 +906,10 @@ static void gbridge_read_complete(struct usb_ep *ep, struct usb_request *req)
 	return;
 }
 
-static void gbridge_write_complete(struct usb_ep *ep, struct usb_request *req)
+static void usb_cser_write_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	unsigned long flags;
-	struct gbridge_port *port = ep->driver_data;
+	struct f_cdev *port = ep->driver_data;
 
 	pr_debug("ep:(%p)(%s) port:%p req_stats:%d\n",
 			ep, ep->name, port, req->status);
@@ -261,7 +942,7 @@ static void gbridge_write_complete(struct usb_ep *ep, struct usb_request *req)
 	return;
 }
 
-static void gbridge_start_io(struct gbridge_port *port)
+static void usb_cser_start_io(struct f_cdev *port)
 {
 	int ret = -ENODEV;
 	unsigned long	flags;
@@ -269,28 +950,28 @@ static void gbridge_start_io(struct gbridge_port *port)
 	pr_debug("port: %p\n", port);
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb)
+	if (!port->is_connected)
 		goto start_io_out;
 
 	port->current_rx_req = NULL;
 	port->pending_rx_bytes = 0;
 	port->current_rx_buf = NULL;
 
-	ret = gbridge_alloc_requests(port->port_usb->out,
+	ret = usb_cser_alloc_requests(port->port_usb.out,
 				&port->read_pool,
 				BRIDGE_RX_QUEUE_SIZE, BRIDGE_RX_BUF_SIZE,
-				gbridge_read_complete);
+				usb_cser_read_complete);
 	if (ret) {
 		pr_err("unable to allocate out requests\n");
 		goto start_io_out;
 	}
 
-	ret = gbridge_alloc_requests(port->port_usb->in,
+	ret = usb_cser_alloc_requests(port->port_usb.in,
 				&port->write_pool,
 				BRIDGE_TX_QUEUE_SIZE, BRIDGE_TX_BUF_SIZE,
-				gbridge_write_complete);
+				usb_cser_write_complete);
 	if (ret) {
-		gbridge_free_requests(port->port_usb->out, &port->read_pool);
+		usb_cser_free_requests(port->port_usb.out, &port->read_pool);
 		pr_err("unable to allocate IN requests\n");
 		goto start_io_out;
 	}
@@ -300,10 +981,10 @@ start_io_out:
 	if (ret)
 		return;
 
-	gbridge_start_rx(port);
+	usb_cser_start_rx(port);
 }
 
-static void gbridge_stop_io(struct gbridge_port *port)
+static void usb_cser_stop_io(struct f_cdev *port)
 {
 	struct usb_ep	*in;
 	struct usb_ep	*out;
@@ -311,12 +992,8 @@ static void gbridge_stop_io(struct gbridge_port *port)
 
 	pr_debug("port:%p\n", port);
 	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		return;
-	}
-	in = port->port_usb->in;
-	out = port->port_usb->out;
+	in = port->port_usb.in;
+	out = port->port_usb.out;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	/* disable endpoints, aborting down any active I/O */
@@ -333,20 +1010,19 @@ static void gbridge_stop_io(struct gbridge_port *port)
 
 	port->pending_rx_bytes = 0;
 	port->current_rx_buf = NULL;
-	gbridge_free_requests(out, &port->read_queued);
-	gbridge_free_requests(out, &port->read_pool);
-	gbridge_free_requests(in, &port->write_pool);
+	usb_cser_free_requests(out, &port->read_queued);
+	usb_cser_free_requests(out, &port->read_pool);
+	usb_cser_free_requests(in, &port->write_pool);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
-int gbridge_port_open(struct inode *inode, struct file *file)
+int f_cdev_open(struct inode *inode, struct file *file)
 {
 	int ret;
 	unsigned long flags;
-	struct gbridge_port *port;
+	struct f_cdev *port;
 
-	port = container_of(inode->i_cdev, struct gbridge_port,
-							gbridge_cdev);
+	port = container_of(inode->i_cdev, struct f_cdev, fcdev_cdev);
 	if (!port) {
 		pr_err("Port is NULL.\n");
 		return -EINVAL;
@@ -358,7 +1034,7 @@ int gbridge_port_open(struct inode *inode, struct file *file)
 	}
 
 	file->private_data = port;
-	pr_debug("opening port(%p)\n", port);
+	pr_debug("opening port(%s)(%p)\n", port->name, port);
 	ret = wait_event_interruptible(port->open_wq,
 					port->is_connected);
 	if (ret) {
@@ -369,17 +1045,17 @@ int gbridge_port_open(struct inode *inode, struct file *file)
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_open = true;
 	spin_unlock_irqrestore(&port->port_lock, flags);
-	gbridge_start_rx(port);
+	usb_cser_start_rx(port);
 
-	pr_debug("port(%p) open is success\n", port);
+	pr_debug("port(%s)(%p) open is success\n", port->name, port);
 
 	return 0;
 }
 
-int gbridge_port_release(struct inode *inode, struct file *file)
+int f_cdev_release(struct inode *inode, struct file *file)
 {
 	unsigned long flags;
-	struct gbridge_port *port;
+	struct f_cdev *port;
 
 	port = file->private_data;
 	if (!port) {
@@ -387,23 +1063,22 @@ int gbridge_port_release(struct inode *inode, struct file *file)
 		return -EINVAL;
 	}
 
-	pr_debug("closing port(%p)\n", port);
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_open = false;
 	port->cbits_updated = false;
 	spin_unlock_irqrestore(&port->port_lock, flags);
-	pr_debug("port(%p) is closed.\n", port);
+	pr_debug("port(%s)(%p) is closed.\n", port->name, port);
 
 	return 0;
 }
 
-ssize_t gbridge_port_read(struct file *file,
+ssize_t f_cdev_read(struct file *file,
 		       char __user *buf,
 		       size_t count,
 		       loff_t *ppos)
 {
 	unsigned long flags;
-	struct gbridge_port *port;
+	struct f_cdev *port;
 	struct usb_request *req;
 	struct list_head *pool;
 	struct usb_request *current_rx_req;
@@ -416,7 +1091,7 @@ ssize_t gbridge_port_read(struct file *file,
 		return -EINVAL;
 	}
 
-	pr_debug("read on port(%p) count:%zu\n", port, count);
+	pr_debug("read on port(%s)(%p) count:%zu\n", port->name, port, count);
 	spin_lock_irqsave(&port->port_lock, flags);
 	current_rx_req = port->current_rx_req;
 	pending_rx_bytes = port->pending_rx_bytes;
@@ -493,18 +1168,18 @@ ssize_t gbridge_port_read(struct file *file,
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 start_rx:
-	gbridge_start_rx(port);
+	usb_cser_start_rx(port);
 	return bytes_copied;
 }
 
-ssize_t gbridge_port_write(struct file *file,
+ssize_t f_cdev_write(struct file *file,
 		       const char __user *buf,
 		       size_t count,
 		       loff_t *ppos)
 {
 	int ret;
 	unsigned long flags;
-	struct gbridge_port *port;
+	struct f_cdev *port;
 	struct usb_request *req;
 	struct list_head *pool;
 	unsigned xfer_size;
@@ -517,9 +1192,9 @@ ssize_t gbridge_port_write(struct file *file,
 	}
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	pr_debug("write on port(%p)\n", port);
+	pr_debug("write on port(%s)(%p)\n", port->name, port);
 
-	if (!port->is_connected || !port->port_usb) {
+	if (!port->is_connected) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_err("%s: cable is disconnected.\n", __func__);
 		return -ENODEV;
@@ -531,7 +1206,7 @@ ssize_t gbridge_port_write(struct file *file,
 		return 0;
 	}
 
-	in = port->port_usb->in;
+	in = port->port_usb.in;
 	pool = &port->write_pool;
 	req = list_first_entry(pool, struct usb_request, list);
 	list_del_init(&req->list);
@@ -567,7 +1242,7 @@ err_exit:
 		if (port->is_connected)
 			list_add(&req->list, &port->write_pool);
 		else
-			gbridge_free_req(in, req);
+			usb_cser_free_req(in, req);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return ret;
 	}
@@ -575,10 +1250,10 @@ err_exit:
 	return xfer_size;
 }
 
-static unsigned int gbridge_port_poll(struct file *file, poll_table *wait)
+static unsigned int f_cdev_poll(struct file *file, poll_table *wait)
 {
 	unsigned int mask = 0;
-	struct gbridge_port *port;
+	struct f_cdev *port;
 	unsigned long flags;
 
 	port = file->private_data;
@@ -587,12 +1262,12 @@ static unsigned int gbridge_port_poll(struct file *file, poll_table *wait)
 		spin_lock_irqsave(&port->port_lock, flags);
 		if (!list_empty(&port->read_queued)) {
 			mask |= POLLIN | POLLRDNORM;
-			pr_debug("sets POLLIN for gbridge_port\n");
+			pr_debug("sets POLLIN for %s\n", port->name);
 		}
 
 		if (port->cbits_updated) {
 			mask |= POLLPRI;
-			pr_debug("sets POLLPRI for gbridge_port\n");
+			pr_debug("sets POLLPRI for %s\n", port->name);
 		}
 		spin_unlock_irqrestore(&port->port_lock, flags);
 	} else {
@@ -603,9 +1278,9 @@ static unsigned int gbridge_port_poll(struct file *file, poll_table *wait)
 	return mask;
 }
 
-static int gbridge_port_tiocmget(struct gbridge_port *port)
+static int f_cdev_tiocmget(struct f_cdev *port)
 {
-	struct gserial	*gser;
+	struct cserial	*cser;
 	unsigned int result = 0;
 	unsigned long flags;
 
@@ -615,33 +1290,26 @@ static int gbridge_port_tiocmget(struct gbridge_port *port)
 	}
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	gser = port->port_usb;
-	if (!gser) {
-		pr_err("gser is null.\n");
-		result = -ENODEV;
-		goto fail;
-	}
+	cser = &port->port_usb;
+	if (cser->get_dtr)
+		result |= (cser->get_dtr(cser) ? TIOCM_DTR : 0);
 
-	if (gser->get_dtr)
-		result |= (gser->get_dtr(gser) ? TIOCM_DTR : 0);
+	if (cser->get_rts)
+		result |= (cser->get_rts(cser) ? TIOCM_RTS : 0);
 
-	if (gser->get_rts)
-		result |= (gser->get_rts(gser) ? TIOCM_RTS : 0);
-
-	if (gser->serial_state & TIOCM_CD)
+	if (cser->serial_state & TIOCM_CD)
 		result |= TIOCM_CD;
 
-	if (gser->serial_state & TIOCM_RI)
+	if (cser->serial_state & TIOCM_RI)
 		result |= TIOCM_RI;
-fail:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 	return result;
 }
 
-static int gbridge_port_tiocmset(struct gbridge_port *port,
+static int f_cdev_tiocmset(struct f_cdev *port,
 			unsigned int set, unsigned int clear)
 {
-	struct gserial *gser;
+	struct cserial *cser;
 	int status = 0;
 	unsigned long flags;
 
@@ -651,49 +1319,43 @@ static int gbridge_port_tiocmset(struct gbridge_port *port,
 	}
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	gser = port->port_usb;
-	if (!gser) {
-		pr_err("gser is NULL.\n");
-		status = -ENODEV;
-		goto fail;
-	}
-
+	cser = &port->port_usb;
 	if (set & TIOCM_RI) {
-		if (gser->send_ring_indicator) {
-			gser->serial_state |= TIOCM_RI;
-			status = gser->send_ring_indicator(gser, 1);
+		if (cser->send_ring_indicator) {
+			cser->serial_state |= TIOCM_RI;
+			status = cser->send_ring_indicator(cser, 1);
 		}
 	}
 	if (clear & TIOCM_RI) {
-		if (gser->send_ring_indicator) {
-			gser->serial_state &= ~TIOCM_RI;
-			status = gser->send_ring_indicator(gser, 0);
+		if (cser->send_ring_indicator) {
+			cser->serial_state &= ~TIOCM_RI;
+			status = cser->send_ring_indicator(cser, 0);
 		}
 	}
 	if (set & TIOCM_CD) {
-		if (gser->send_carrier_detect) {
-			gser->serial_state |= TIOCM_CD;
-			status = gser->send_carrier_detect(gser, 1);
+		if (cser->send_carrier_detect) {
+			cser->serial_state |= TIOCM_CD;
+			status = cser->send_carrier_detect(cser, 1);
 		}
 	}
 	if (clear & TIOCM_CD) {
-		if (gser->send_carrier_detect) {
-			gser->serial_state &= ~TIOCM_CD;
-			status = gser->send_carrier_detect(gser, 0);
+		if (cser->send_carrier_detect) {
+			cser->serial_state &= ~TIOCM_CD;
+			status = cser->send_carrier_detect(cser, 0);
 		}
 	}
-fail:
+
 	spin_unlock_irqrestore(&port->port_lock, flags);
 	return status;
 }
 
-static long gbridge_port_ioctl(struct file *fp, unsigned cmd,
+static long f_cdev_ioctl(struct file *fp, unsigned cmd,
 						unsigned long arg)
 {
 	long ret = 0;
 	int i = 0;
 	uint32_t val;
-	struct gbridge_port *port;
+	struct f_cdev *port;
 
 	port = fp->private_data;
 	if (!port) {
@@ -705,17 +1367,17 @@ static long gbridge_port_ioctl(struct file *fp, unsigned cmd,
 	case TIOCMBIC:
 	case TIOCMBIS:
 	case TIOCMSET:
-		pr_debug("TIOCMSET on port:%p\n", port);
+		pr_debug("TIOCMSET on port(%s)%p\n", port->name, port);
 		i = get_user(val, (uint32_t *)arg);
 		if (i) {
 			pr_err("Error getting TIOCMSET value\n");
 			return i;
 		}
-		ret = gbridge_port_tiocmset(port, val, ~val);
+		ret = f_cdev_tiocmset(port, val, ~val);
 		break;
 	case TIOCMGET:
-		pr_debug("TIOCMGET on port:%p\n", port);
-		ret = gbridge_port_tiocmget(port);
+		pr_debug("TIOCMGET on port(%s)%p\n", port->name, port);
+		ret = f_cdev_tiocmget(port);
 		if (ret >= 0) {
 			ret = put_user(ret, (uint32_t *)arg);
 			port->cbits_updated = false;
@@ -730,20 +1392,18 @@ static long gbridge_port_ioctl(struct file *fp, unsigned cmd,
 	return ret;
 }
 
-static void gbridge_notify_modem(void *gptr, u8 portno, int ctrl_bits)
+static void usb_cser_notify_modem(void *fport, int ctrl_bits)
 {
-	struct gbridge_port *port;
 	int temp;
-	struct gserial *gser = gptr;
 	unsigned long flags;
+	struct f_cdev *port = fport;
 
-	pr_debug("portno:%d ctrl_bits:%x\n", portno, ctrl_bits);
-	if (!gser) {
-		pr_err("gser is null\n");
+	if (!port) {
+		pr_err("port is null\n");
 		return;
 	}
 
-	port = ports[portno];
+	pr_debug("port(%s): ctrl_bits:%x\n", port->name, ctrl_bits);
 	spin_lock_irqsave(&port->port_lock, flags);
 	temp = convert_acm_sigs_to_uart(ctrl_bits);
 
@@ -758,260 +1418,193 @@ static void gbridge_notify_modem(void *gptr, u8 portno, int ctrl_bits)
 	wake_up(&port->read_wq);
 }
 
-#if defined(CONFIG_DEBUG_FS)
-static ssize_t debug_gbridge_read_stats(struct file *file, char __user *ubuf,
-		size_t count, loff_t *ppos)
-{
-	struct gbridge_port *port;
-	char *buf;
-	unsigned long flags;
-	int temp = 0;
-	int i;
-	int ret;
-
-	buf = kzalloc(sizeof(char) * 512, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-
-	for (i = 0; i < n_bridge_ports; i++) {
-		port = ports[i];
-		spin_lock_irqsave(&port->port_lock, flags);
-		temp += scnprintf(buf + temp, 512 - temp,
-				"###PORT:%d###\n"
-				"nbytes_to_host: %lu\n"
-				"nbytes_from_host: %lu\n"
-				"nbytes_to_port_bridge:  %lu\n"
-				"nbytes_from_port_bridge: %lu\n"
-				"cbits_to_modem:  %u\n"
-				"Port Opened: %s\n",
-				i, port->nbytes_to_host,
-				port->nbytes_from_host,
-				port->nbytes_to_port_bridge,
-				port->nbytes_from_port_bridge,
-				port->cbits_to_modem,
-				(port->port_open ? "Opened" : "Closed"));
-		spin_unlock_irqrestore(&port->port_lock, flags);
-	}
-
-	ret = simple_read_from_buffer(ubuf, count, ppos, buf, temp);
-	kfree(buf);
-
-	return ret;
-}
-
-static ssize_t debug_gbridge_reset_stats(struct file *file,
-				const char __user *buf,
-				size_t count, loff_t *ppos)
-{
-	struct gbridge_port *port;
-	unsigned long flags;
-	int i;
-
-	for (i = 0; i < n_bridge_ports; i++) {
-		port = ports[i];
-		spin_lock_irqsave(&port->port_lock, flags);
-		port->nbytes_to_host = port->nbytes_from_host = 0;
-		port->nbytes_to_port_bridge = port->nbytes_from_port_bridge = 0;
-		spin_unlock_irqrestore(&port->port_lock, flags);
-	}
-
-	return count;
-}
-
-static int debug_gbridge_open(struct inode *inode, struct file *file)
-{
-	return 0;
-}
-
-static const struct file_operations debug_gbridge_ops = {
-	.open = debug_gbridge_open,
-	.read = debug_gbridge_read_stats,
-	.write = debug_gbridge_reset_stats,
-};
-
-static void gbridge_debugfs_init(void)
-{
-	struct dentry *dent;
-
-	dent = debugfs_create_dir("usb_gbridge", 0);
-	if (IS_ERR(dent))
-		return;
-
-	debugfs_create_file("status", 0444, dent, 0, &debug_gbridge_ops);
-}
-#else
-static void gbridge_debugfs_init(void) {}
-#endif
-
-int gbridge_setup(void *gptr, u8 no_ports)
-{
-	pr_debug("gptr:%p, no_bridge_ports:%d\n", gptr, no_ports);
-	if (no_ports >= num_of_instance) {
-		pr_err("More ports are requested\n");
-		return -EINVAL;
-	}
-
-	n_bridge_ports = no_ports;
-	gbridge_debugfs_init();
-	return 0;
-}
-
-int gbridge_connect(void *gptr, u8 portno)
+int usb_cser_connect(struct f_cdev *port)
 {
 	unsigned long flags;
 	int ret;
-	struct gserial *gser;
-	struct gbridge_port *port;
+	struct cserial *cser;
 
-	if (!gptr) {
-		pr_err("gptr is null\n");
-		return -EINVAL;
+	if (!port) {
+		pr_err("port is NULL.\n");
+		return -ENODEV;
 	}
 
-	pr_debug("gbridge:%p portno:%u\n", gptr, portno);
-	port = ports[portno];
-	gser = gptr;
-
+	pr_debug("port(%s) (%p)\n", port->name, port);
 	spin_lock_irqsave(&port->port_lock, flags);
-	port->port_usb = gser;
-	gser->notify_modem = gbridge_notify_modem;
+	cser = &port->port_usb;
+	cser->notify_modem = usb_cser_notify_modem;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	ret = usb_ep_enable(gser->in);
+	ret = usb_ep_enable(cser->in);
 	if (ret) {
 		pr_err("usb_ep_enable failed eptype:IN ep:%p, err:%d",
-					gser->in, ret);
-		port->port_usb = 0;
+					cser->in, ret);
 		return ret;
 	}
-	gser->in->driver_data = port;
+	cser->in->driver_data = port;
 
-	ret = usb_ep_enable(gser->out);
+	ret = usb_ep_enable(cser->out);
 	if (ret) {
 		pr_err("usb_ep_enable failed eptype:OUT ep:%p, err: %d",
-					gser->out, ret);
-		port->port_usb = 0;
-		gser->in->driver_data = 0;
+					cser->out, ret);
+		cser->in->driver_data = 0;
 		return ret;
 	}
-	gser->out->driver_data = port;
+	cser->out->driver_data = port;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_connected = true;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	gbridge_start_io(port);
+	usb_cser_start_io(port);
 	wake_up(&port->open_wq);
 	return 0;
 }
 
-void gbridge_disconnect(void *gptr, u8 portno)
+void usb_cser_disconnect(struct f_cdev *port)
 {
 	unsigned long flags;
-	struct gserial *gser;
-	struct gbridge_port *port;
 
-	if (!gptr) {
-		pr_err("gptr is null\n");
-		return;
-	}
-
-	pr_debug("gptr:%p portno:%u\n", gptr, portno);
-	if (portno >= num_of_instance) {
-		pr_err("Wrong port no %d\n", portno);
-		return;
-	}
-
-	port = ports[portno];
-	gser = gptr;
-
-	gbridge_stop_io(port);
+	usb_cser_stop_io(port);
 
 	/* lower DTR to modem */
-	gbridge_notify_modem(gser, portno, 0);
+	usb_cser_notify_modem(port, 0);
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_connected = false;
-	port->port_usb = NULL;
 	port->nbytes_from_host = port->nbytes_to_host = 0;
 	port->nbytes_to_port_bridge = 0;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
-static void gbridge_port_free(int portno)
-{
-	if (portno >= num_of_instance) {
-		pr_err("Wrong portno %d\n", portno);
-		return;
-	}
-
-	kfree(ports[portno]);
-}
-static int gbridge_port_alloc(int portno)
-{
-	int ret;
-
-	ports[portno] = kzalloc(sizeof(struct gbridge_port), GFP_KERNEL);
-	if (!ports[portno]) {
-		pr_err("Unable to allocate memory for port(%d)\n", portno);
-		ret = -ENOMEM;
-		return  ret;
-	}
-
-	ports[portno]->port_num = portno;
-	snprintf(ports[portno]->name, sizeof(ports[portno]->name),
-			"%s%d", DEVICE_NAME, portno);
-	spin_lock_init(&ports[portno]->port_lock);
-
-	init_waitqueue_head(&ports[portno]->open_wq);
-	init_waitqueue_head(&ports[portno]->read_wq);
-	INIT_LIST_HEAD(&ports[portno]->read_pool);
-	INIT_LIST_HEAD(&ports[portno]->read_queued);
-	INIT_LIST_HEAD(&ports[portno]->write_pool);
-	pr_debug("port:%p portno:%d\n", ports[portno], portno);
-	return 0;
-}
-
-static const struct file_operations gbridge_port_fops = {
+static const struct file_operations f_cdev_fops = {
 	.owner = THIS_MODULE,
-	.open = gbridge_port_open,
-	.release = gbridge_port_release,
-	.read = gbridge_port_read,
-	.write = gbridge_port_write,
-	.poll = gbridge_port_poll,
-	.unlocked_ioctl = gbridge_port_ioctl,
-	.compat_ioctl = gbridge_port_ioctl,
+	.open = f_cdev_open,
+	.release = f_cdev_release,
+	.read = f_cdev_read,
+	.write = f_cdev_write,
+	.poll = f_cdev_poll,
+	.unlocked_ioctl = f_cdev_ioctl,
+	.compat_ioctl = f_cdev_ioctl,
 };
 
-static void gbridge_chardev_deinit(void)
-{
-	int i;
-
-	for (i = 0; i < num_of_instance; i++) {
-		cdev_del(&ports[i]->gbridge_cdev);
-		gbridge_port_free(i);
-	}
-
-	if (!IS_ERR_OR_NULL(gbridge_classp))
-		class_destroy(gbridge_classp);
-	unregister_chrdev_region(MAJOR(gbridge_number), num_of_instance);
-}
-
-static int gbridge_alloc_chardev_region(void)
+static struct f_cdev *f_cdev_alloc(char *func_name, int portno)
 {
 	int ret;
+	dev_t dev;
+	struct device *device;
+	struct f_cdev *port;
 
-	ret = alloc_chrdev_region(&gbridge_number,
+	port = kzalloc(sizeof(struct f_cdev), GFP_KERNEL);
+	if (!port) {
+		ret = -ENOMEM;
+		return  ERR_PTR(ret);
+	}
+
+	mutex_lock(&chardev_ida_lock);
+	if (idr_is_empty(&chardev_ida.idr)) {
+		ret = usb_cser_alloc_chardev_region();
+		if (ret) {
+			mutex_unlock(&chardev_ida_lock);
+			pr_err("alloc chardev failed\n");
+			goto err_alloc_chardev;
+		}
+	}
+
+	ret = ida_simple_get(&chardev_ida, 0, 0, GFP_KERNEL);
+	if (ret >= NUM_INSTANCE) {
+		ida_simple_remove(&chardev_ida, ret);
+		mutex_unlock(&chardev_ida_lock);
+		ret = -ENODEV;
+		goto err_get_ida;
+	}
+
+	port->port_num = portno;
+	port->minor = ret;
+	mutex_unlock(&chardev_ida_lock);
+
+	snprintf(port->name, sizeof(port->name), "%s%d", DEVICE_NAME, portno);
+	spin_lock_init(&port->port_lock);
+
+	init_waitqueue_head(&port->open_wq);
+	init_waitqueue_head(&port->read_wq);
+	INIT_LIST_HEAD(&port->read_pool);
+	INIT_LIST_HEAD(&port->read_queued);
+	INIT_LIST_HEAD(&port->write_pool);
+
+	port->fcdev_wq = create_singlethread_workqueue(port->name);
+	if (!port->fcdev_wq) {
+		pr_err("Unable to create workqueue fcdev_wq for port:%s\n",
+						port->name);
+		ret = -ENOMEM;
+		goto err_get_ida;
+	}
+
+	/* create char device */
+	cdev_init(&port->fcdev_cdev, &f_cdev_fops);
+	dev = MKDEV(major, port->minor);
+	ret = cdev_add(&port->fcdev_cdev, dev, 1);
+	if (ret) {
+		pr_err("Failed to add cdev for port(%s)\n", port->name);
+		goto err_cdev_add;
+	}
+
+	device = device_create(fcdev_classp, NULL, dev, NULL, port->name);
+	if (IS_ERR(device)) {
+		ret = PTR_ERR(device);
+		goto err_create_dev;
+	}
+
+	pr_info("port_name:%s (%p) portno:(%d)\n",
+			port->name, port, port->port_num);
+	return port;
+
+err_create_dev:
+	cdev_del(&port->fcdev_cdev);
+err_cdev_add:
+	destroy_workqueue(port->fcdev_wq);
+err_get_ida:
+	usb_cser_chardev_deinit();
+err_alloc_chardev:
+	kfree(port);
+
+	return ERR_PTR(ret);
+}
+
+static void usb_cser_chardev_deinit(void)
+{
+
+	if (idr_is_empty(&chardev_ida.idr)) {
+
+		if (major) {
+			unregister_chrdev_region(MKDEV(major, 0), minors);
+			major = minors = 0;
+		}
+
+		if (!IS_ERR_OR_NULL(fcdev_classp))
+			class_destroy(fcdev_classp);
+	}
+}
+
+static int usb_cser_alloc_chardev_region(void)
+{
+	int ret;
+	dev_t dev;
+
+	ret = alloc_chrdev_region(&dev,
 			       0,
-			       num_of_instance,
+			       NUM_INSTANCE,
 			       MODULE_NAME);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("alloc_chrdev_region() failed ret:%i\n", ret);
 		return ret;
 	}
 
-	gbridge_classp = class_create(THIS_MODULE, MODULE_NAME);
-	if (IS_ERR(gbridge_classp)) {
+	major = MAJOR(dev);
+	minors = NUM_INSTANCE;
+
+	fcdev_classp = class_create(THIS_MODULE, MODULE_NAME);
+	if (IS_ERR(fcdev_classp)) {
 		pr_err("class_create() failed ENOMEM\n");
 		ret = -ENOMEM;
 	}
@@ -1019,59 +1612,223 @@ static int gbridge_alloc_chardev_region(void)
 	return 0;
 }
 
-static int __init gbridge_init(void)
+static inline struct f_cdev_opts *to_f_cdev_opts(struct config_item *item)
 {
-	int ret, i;
-	struct device *devicep;
-	struct gbridge_port *cur_port;
+	return container_of(to_config_group(item), struct f_cdev_opts,
+			func_inst.group);
+}
 
-	gbridge_wq = create_singlethread_workqueue("k_gbridge");
-	if (!gbridge_wq) {
-		pr_err("Unable to create workqueue gbridge_wq\n");
+static struct f_cdev_opts *to_fi_cdev_opts(struct usb_function_instance *fi)
+{
+	return container_of(fi, struct f_cdev_opts, func_inst);
+}
+
+static void cserial_attr_release(struct config_item *item)
+{
+	struct f_cdev_opts *opts = to_f_cdev_opts(item);
+
+	usb_put_function_instance(&opts->func_inst);
+}
+
+static struct configfs_item_operations cserial_item_ops = {
+	.release	= cserial_attr_release,
+};
+
+static ssize_t usb_cser_port_num_show(struct config_item *item, char *page)
+{
+	return sprintf(page, "%u\n", to_f_cdev_opts(item)->port_num);
+}
+
+static ssize_t usb_cser_func_name_show(struct config_item *item, char *page)
+{
+	return sprintf(page, "%s\n", to_f_cdev_opts(item)->func_name);
+}
+
+static ssize_t usb_cser_status_show(struct config_item *item, char *page)
+{
+	struct f_cdev *port = to_f_cdev_opts(item)->port;
+	char *buf;
+	unsigned long flags;
+	int temp = 0;
+	int ret;
+
+	buf = kzalloc(sizeof(char) * 512, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	temp += scnprintf(buf + temp, 512 - temp,
+			"###PORT:%s###\n"
+			"port_no:%d\n"
+			"func:%s\n"
+			"nbytes_to_host: %lu\n"
+			"nbytes_from_host: %lu\n"
+			"nbytes_to_port_bridge:  %lu\n"
+			"nbytes_from_port_bridge: %lu\n"
+			"cbits_to_modem:  %u\n"
+			"Port Opened: %s\n",
+			port->name,
+			port->port_num,
+			to_f_cdev_opts(item)->func_name,
+			port->nbytes_to_host,
+			port->nbytes_from_host,
+			port->nbytes_to_port_bridge,
+			port->nbytes_from_port_bridge,
+			port->cbits_to_modem,
+			(port->port_open ? "Opened" : "Closed"));
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	ret = scnprintf(page, temp, buf);
+	kfree(buf);
+
+	return ret;
+}
+
+static ssize_t usb_cser_status_store(struct config_item *item,
+			const char *page, size_t len)
+{
+	struct f_cdev *port = to_f_cdev_opts(item)->port;
+	unsigned long flags;
+	u8 stats;
+
+	if (page == NULL) {
+		pr_err("Invalid buffer");
+		return len;
+	}
+
+	if (kstrtou8(page, 0, &stats) != 0 || stats != 0) {
+		pr_err("(%u)Wrong value. enter 0 to clear.\n", stats);
+		return len;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	port->nbytes_to_host = port->nbytes_from_host = 0;
+	port->nbytes_to_port_bridge = port->nbytes_from_port_bridge = 0;
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	return len;
+}
+
+CONFIGFS_ATTR_RO(usb_cser_, port_num);
+CONFIGFS_ATTR_RO(usb_cser_, func_name);
+CONFIGFS_ATTR(usb_cser_, status);
+static struct configfs_attribute *cserial_attrs[] = {
+	&usb_cser_attr_port_num,
+	&usb_cser_attr_func_name,
+	&usb_cser_attr_status,
+	NULL,
+};
+
+static struct config_item_type cserial_func_type = {
+	.ct_item_ops	= &cserial_item_ops,
+	.ct_attrs	= cserial_attrs,
+	.ct_owner	= THIS_MODULE,
+};
+
+static int cser_set_inst_name(struct usb_function_instance *f, const char *name)
+{
+	struct f_cdev_opts *opts =
+		container_of(f, struct f_cdev_opts, func_inst);
+	char *ptr, *str;
+	size_t name_len, str_size;
+	int ret;
+	struct f_cdev *port;
+
+	name_len = strlen(name) + 1;
+	if (name_len > 15)
+		return -ENAMETOOLONG;
+
+	/* expect name as cdev.<func>.<port_num> */
+	str = strnchr(name, strlen(name), '.');
+	if (!str) {
+		pr_err("invalid input (%s)\n", name);
+		return -EINVAL;
+	}
+
+	/* get function name */
+	str_size = name_len - strlen(str);
+	ptr = kstrndup(name, str_size - 1, GFP_KERNEL);
+	if (!ptr) {
+		pr_err("error:%ld\n", PTR_ERR(ptr));
 		return -ENOMEM;
 	}
 
-	ret = gbridge_alloc_chardev_region();
+	opts->func_name = ptr;
+
+	/* get port number */
+	str = strrchr(name, '.');
+	pr_debug("str:%s\n", str);
+
+	*str = '\0';
+	str++;
+
+	ret = kstrtou8(str, 0, &opts->port_num);
 	if (ret) {
-		pr_err("gbridge_alloc_chardev_region() failed ret:%d\n", ret);
-		destroy_workqueue(gbridge_wq);
-		return ret;
+		pr_err("erro: not able to get port number\n");
+		return -EINVAL;
 	}
 
-	for (i = 0; i < num_of_instance; i++) {
-		gbridge_port_alloc(i);
-		cur_port = ports[i];
-		cdev_init(&cur_port->gbridge_cdev, &gbridge_port_fops);
-		cur_port->gbridge_cdev.owner = THIS_MODULE;
+	pr_debug("gser: port_num:%d func_name:%s\n",
+			opts->port_num, opts->func_name);
 
-		ret = cdev_add(&cur_port->gbridge_cdev, gbridge_number + i, 1);
-		if (IS_ERR_VALUE(ret)) {
-			pr_err("cdev_add() failed ret:%d\n", ret);
-			unregister_chrdev_region(MAJOR(gbridge_number),
-							num_of_instance);
-			return ret;
-		}
-
-		devicep = device_create(gbridge_classp,	NULL,
-					gbridge_number + i, cur_port->dev,
-					cur_port->name);
-		if (IS_ERR_OR_NULL(devicep)) {
-			pr_err("device_create() failed for port(%d)\n", i);
-			ret = -ENOMEM;
-			cdev_del(&cur_port->gbridge_cdev);
-			return ret;
-		}
+	port = f_cdev_alloc(opts->func_name, opts->port_num);
+	if (IS_ERR(port)) {
+		pr_err("Failed to create cdev port(%d)\n", opts->port_num);
+		return -ENOMEM;
 	}
 
-	pr_info("gbridge_init successs.\n");
+	opts->port = port;
+
+	/* For DUN functionality only sets control signal handling */
+	if (!strcmp(opts->func_name, "dun")) {
+		port->port_usb.connect = dun_cser_connect;
+		port->port_usb.get_dtr = dun_cser_get_dtr;
+		port->port_usb.get_rts = dun_cser_get_rts;
+		port->port_usb.send_carrier_detect =
+				dun_cser_send_carrier_detect;
+		port->port_usb.send_ring_indicator =
+				dun_cser_send_ring_indicator;
+		port->port_usb.send_modem_ctrl_bits = dun_cser_send_ctrl_bits;
+		port->port_usb.disconnect = dun_cser_disconnect;
+		port->port_usb.send_break = dun_cser_send_break;
+	}
+
 	return 0;
 }
-module_init(gbridge_init);
 
-static void __exit gbridge_exit(void)
+static struct usb_function_instance *cser_alloc_inst(void)
 {
-	gbridge_chardev_deinit();
+	struct f_cdev_opts *opts;
+
+	opts = kzalloc(sizeof(*opts), GFP_KERNEL);
+	if (!opts)
+		return ERR_PTR(-ENOMEM);
+
+	opts->func_inst.free_func_inst = cser_free_inst;
+	opts->func_inst.set_inst_name = cser_set_inst_name;
+
+	config_group_init_type_name(&opts->func_inst.group, "",
+				    &cserial_func_type);
+	return &opts->func_inst;
 }
-module_exit(gbridge_exit);
-MODULE_DESCRIPTION("Port Bridge DUN character Driver");
+
+static struct usb_function *cser_alloc(struct usb_function_instance *fi)
+{
+	struct f_cdev_opts *opts = to_fi_cdev_opts(fi);
+	struct f_cdev *port = opts->port;
+
+	port->port_usb.func.name = "cser";
+	port->port_usb.func.strings = usb_cser_strings;
+	port->port_usb.func.bind = usb_cser_bind;
+	port->port_usb.func.unbind = usb_cser_unbind;
+	port->port_usb.func.set_alt = usb_cser_set_alt;
+	port->port_usb.func.disable = usb_cser_disable;
+	port->port_usb.func.setup = usb_cser_setup;
+	port->port_usb.func.free_func = usb_cser_free_func;
+
+	return &port->port_usb.func;
+}
+
+DECLARE_USB_FUNCTION_INIT(cser, cser_alloc_inst, cser_alloc);
+MODULE_DESCRIPTION("USB Serial Character Driver");
 MODULE_LICENSE("GPL v2");
