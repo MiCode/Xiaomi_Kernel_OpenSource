@@ -1892,9 +1892,11 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 	 * Address this by setting the read timeout to a "reasonably high"
 	 * value. For the cards tested, 300ms has proven enough. If necessary,
 	 * this value can be increased if other problematic cards require this.
+	 * Certain Hynix 5.x cards giving read timeout even with 300ms.
+	 * Increasing further to max value (4s).
 	 */
 	if (mmc_card_long_read_time(card) && data->flags & MMC_DATA_READ) {
-		data->timeout_ns = 300000000;
+		data->timeout_ns = 4000000000u;
 		data->timeout_clks = 0;
 	}
 
