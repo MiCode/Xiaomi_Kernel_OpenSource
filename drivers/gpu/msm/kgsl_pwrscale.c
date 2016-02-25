@@ -434,6 +434,18 @@ static int popp_trans2(struct kgsl_device *device, int level)
 	return level;
 }
 
+#ifdef DEVFREQ_FLAG_WAKEUP_MAXFREQ
+static inline bool _check_maxfreq(u32 flags)
+{
+	return (flags & DEVFREQ_FLAG_WAKEUP_MAXFREQ);
+}
+#else
+static inline bool _check_maxfreq(u32 flags)
+{
+	return false;
+}
+#endif
+
 /*
  * kgsl_devfreq_target - devfreq_dev_profile.target callback
  * @dev: see devfreq.h
@@ -458,7 +470,7 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 		return 0;
 
 	pwr = &device->pwrctrl;
-	if (flags & DEVFREQ_FLAG_WAKEUP_MAXFREQ) {
+	if (_check_maxfreq(flags)) {
 		/*
 		 * The GPU is about to get suspended,
 		 * but it needs to be at the max power level when waking up
@@ -660,6 +672,30 @@ int kgsl_busmon_get_dev_status(struct device *dev,
 	return 0;
 }
 
+#ifdef DEVFREQ_FLAG_FAST_HINT
+static inline bool _check_fast_hint(u32 flags)
+{
+	return (flags & DEVFREQ_FLAG_FAST_HINT);
+}
+#else
+static inline bool _check_fast_hint(u32 flags)
+{
+	return false;
+}
+#endif
+
+#ifdef DEVFREQ_FLAG_SLOW_HINT
+static inline bool _check_slow_hint(u32 flags)
+{
+	return (flags & DEVFREQ_FLAG_SLOW_HINT);
+}
+#else
+static inline bool _check_slow_hint(u32 flags)
+{
+	return false;
+}
+#endif
+
 /*
  * kgsl_busmon_target - devfreq_dev_profile.target callback
  * @dev: see devfreq.h
@@ -708,10 +744,10 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	}
 
 	b = pwr->bus_mod;
-	if ((bus_flag & DEVFREQ_FLAG_FAST_HINT) &&
+	if (_check_fast_hint(bus_flag) &&
 		((pwr_level->bus_freq + pwr->bus_mod) < pwr_level->bus_max))
 			pwr->bus_mod++;
-	 else if ((bus_flag & DEVFREQ_FLAG_SLOW_HINT) &&
+	else if (_check_slow_hint(bus_flag) &&
 		((pwr_level->bus_freq + pwr->bus_mod) > pwr_level->bus_min))
 			pwr->bus_mod--;
 
