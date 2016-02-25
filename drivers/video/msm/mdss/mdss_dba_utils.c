@@ -219,13 +219,37 @@ static ssize_t mdss_dba_utils_sysfs_wta_hpd(struct device *dev,
 	return count;
 }
 
+static ssize_t mdss_dba_utils_sysfs_rda_hpd(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct mdss_dba_utils_data *udata = NULL;
+
+	if (!dev) {
+		pr_debug("invalid device\n");
+		return -EINVAL;
+	}
+
+	udata = mdss_dba_utils_get_data(dev);
+
+	if (!udata) {
+		pr_debug("invalid input\n");
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", udata->hpd_state);
+	pr_debug("'%d'\n", udata->hpd_state);
+
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO,
 		mdss_dba_utils_sysfs_rda_connected, NULL);
 
 static DEVICE_ATTR(video_mode, S_IRUGO,
 		mdss_dba_utils_sysfs_rda_video_mode, NULL);
 
-static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, NULL,
+static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, mdss_dba_utils_sysfs_rda_hpd,
 		mdss_dba_utils_sysfs_wta_hpd);
 
 static struct attribute *mdss_dba_utils_fs_attrs[] = {
