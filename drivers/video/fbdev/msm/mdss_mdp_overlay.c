@@ -4089,6 +4089,10 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 	case mdp_op_calib_dcm_state:
 		ret = mdss_fb_dcm(mfd, mdp_pp.data.calib_dcm.dcm_state);
 		break;
+	case mdp_op_pa_dither_cfg:
+		ret = mdss_mdp_pa_dither_config(mfd,
+			&mdp_pp.data.dither_cfg_data);
+		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL. %d = op\n",
 								mdp_pp.op);

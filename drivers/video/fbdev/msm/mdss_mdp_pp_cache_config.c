@@ -1476,3 +1476,106 @@ exit:
 	pp_info->pcc_cfg_data.cfg_payload = cfg_payload;
 	return ret;
 }
+
+static int pp_pa_dither_cache_params_v1_7(
+			struct mdp_dither_cfg_data *config,
+			struct mdss_pp_res_type *mdss_pp_res)
+{
+	struct mdss_pp_res_type_v1_7 *res_cache;
+	int disp_num, ret = 0;
+	size_t sz = 0;
+	struct mdp_pa_dither_res_data_v1_7 *res_data;
+	struct mdp_pa_dither_data dither_data;
+
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(config->block >= MDP_BLOCK_MAX)) {
+		pr_err("Invalid config block %d\n", config->block);
+		return -EINVAL;
+	}
+	if (!mdss_pp_res || !mdss_pp_res->pp_data_v1_7) {
+		pr_err("invalid param mdss_pp_res %p pp_data_res %p\n",
+			mdss_pp_res,
+			((mdss_pp_res) ? mdss_pp_res->pp_data_v1_7 : NULL));
+		return -EINVAL;
+	}
+
+	res_cache = mdss_pp_res->pp_data_v1_7;
+	if (config->flags & MDP_PP_OPS_READ) {
+		pr_err("Read op is not supported\n");
+		return -EINVAL;
+	}
+
+	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+	res_data = &res_cache->pa_dither_data[disp_num];
+	if ((config->flags & MDP_PP_OPS_DISABLE) ||
+		!(config->flags & MDP_PP_OPS_WRITE)) {
+		mdss_pp_res->pa_dither_cfg[disp_num] = *config;
+		mdss_pp_res->pa_dither_cfg[disp_num].cfg_payload =
+			(void *) res_data;
+		return 0;
+	}
+	sz = offsetof(struct mdp_pa_dither_data, offset_en)
+		+ sizeof(dither_data.offset_en);
+	memset(&dither_data, 0, sizeof(dither_data));
+	ret = copy_from_user(&dither_data, config->cfg_payload, sz);
+	if (ret) {
+		pr_err("failed to copy the dither data ret %d sz %zd", ret, sz);
+		ret = -EFAULT;
+		goto exit;
+	}
+	if (dither_data.matrix_sz != MDP_DITHER_DATA_V1_7_SZ) {
+		pr_err("invalid matrix len %d expected %d\n",
+			dither_data.matrix_sz, MDP_DITHER_DATA_V1_7_SZ);
+		ret = -EINVAL;
+		goto exit;
+	}
+	res_data->offset_en = dither_data.offset_en;
+	res_data->strength = dither_data.strength;
+	res_data->matrix_sz = MDP_DITHER_DATA_V1_7_SZ;
+	ret = copy_from_user(res_data->matrix_data,
+			     (u8 *)dither_data.matrix_data,
+			     (MDP_DITHER_DATA_V1_7_SZ * sizeof(u32)));
+	if (ret) {
+		pr_err("failed to copy the dither matrix ret %d sz %zd", ret,
+			MDP_DITHER_DATA_V1_7_SZ * sizeof(u32));
+		ret = -EFAULT;
+		goto exit;
+	}
+	mdss_pp_res->pa_dither_cfg[disp_num] = *config;
+	mdss_pp_res->pa_dither_cfg[disp_num].cfg_payload =
+		(void *) res_data;
+exit:
+	return ret;
+}
+
+int pp_pa_dither_cache_params(struct mdp_dither_cfg_data *config,
+			 struct mdp_pp_cache_res *res_cache)
+{
+	int ret = 0;
+
+	if (!config || !res_cache) {
+		pr_err("invalid params config %p res_cache %p\n",
+			config, res_cache);
+		return -EINVAL;
+	}
+	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
+		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+			res_cache->block, res_cache->mdss_pp_res,
+			res_cache->pipe_res);
+		return -EINVAL;
+	}
+	switch (config->version) {
+	case mdp_dither_pa_v1_7:
+		if (res_cache->block == DSPP)
+			ret = pp_pa_dither_cache_params_v1_7(config,
+					res_cache->mdss_pp_res);
+		else
+			ret = -ENOTSUPP;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+

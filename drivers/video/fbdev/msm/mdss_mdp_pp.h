@@ -99,13 +99,20 @@ struct mdp_pp_feature_ops {
 };
 
 struct mdp_pp_driver_ops {
-	struct mdp_pp_feature_ops pp_ops[PP_FEATURE_MAX];
+	struct mdp_pp_feature_ops pp_ops[PP_MAX_FEATURES];
 	void (*pp_opmode_config)(int location, struct pp_sts_type *pp_sts,
 			u32 *opmode, int side);
 	int (*get_hist_offset)(u32 block, u32 *ctl_off);
 	int (*get_hist_isr_info)(u32 *isr_mask);
 	bool (*is_sspp_hist_supp)(void);
 	void (*gamut_clk_gate_en)(char __iomem *base_addr);
+};
+
+struct mdp_pa_dither_res_data_v1_7 {
+	uint32_t matrix_sz;
+	uint32_t matrix_data[MDP_DITHER_DATA_V1_7_SZ];
+	uint32_t strength;
+	uint32_t offset_en;
 };
 
 struct mdss_pp_res_type_v1_7 {
@@ -128,6 +135,7 @@ struct mdss_pp_res_type_v1_7 {
 	struct mdp_gamut_data_v1_7 gamut_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pcc_data_v1_7 pcc_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pa_data_v1_7 pa_v17_data[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pa_dither_res_data_v1_7 pa_dither_data[MDSS_BLOCK_DISP_NUM];
 };
 
 struct mdss_pp_res_type {
@@ -156,6 +164,7 @@ struct mdss_pp_res_type {
 	uint16_t gamut_tbl[MDSS_BLOCK_DISP_NUM][GAMUT_TOTAL_TABLE_SIZE];
 	u32 hist_data[MDSS_BLOCK_DISP_NUM][HIST_V_SIZE];
 	struct pp_sts_type pp_disp_sts[MDSS_BLOCK_DISP_NUM];
+	struct mdp_dither_cfg_data pa_dither_cfg[MDSS_BLOCK_DISP_NUM];
 	/* physical info */
 	struct pp_hist_col_info *dspp_hist;
 	/*

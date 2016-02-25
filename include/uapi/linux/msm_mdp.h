@@ -1019,6 +1019,14 @@ struct mdp_dither_data_v1_7 {
 	uint32_t temporal_en;
 };
 
+struct mdp_pa_dither_data {
+	uint64_t data_flags;
+	uint32_t matrix_sz;
+	uint64_t __user matrix_data;
+	uint32_t strength;
+	uint32_t offset_en;
+};
+
 struct mdp_dither_cfg_data {
 	uint32_t version;
 	uint32_t block;
@@ -1198,7 +1206,11 @@ enum {
 	mdp_op_calib_buffer,
 	mdp_op_calib_dcm_state,
 	mdp_op_max,
+	mdp_op_pa_dither_cfg,
+	mdp_op_pp_max = 255,
 };
+#define mdp_op_pa_dither_cfg mdp_op_pa_dither_cfg
+#define mdp_op_pp_max mdp_op_pp_max
 
 enum {
 	WB_FORMAT_NV12,
@@ -1394,7 +1406,12 @@ enum {
 	mdp_pcc_v1_7,
 	mdp_pcc_vmax,
 	mdp_pp_legacy,
+	mdp_dither_pa_v1_7,
+	mdp_pp_unknown = 255
 };
+
+#define mdp_dither_pa_v1_7 mdp_dither_pa_v1_7
+#define mdp_pp_unknown mdp_pp_unknown
 
 /* PP Features */
 enum {
@@ -1408,7 +1425,12 @@ enum {
 	HIST_LUT,
 	HIST,
 	PP_FEATURE_MAX,
+	PA_DITHER,
+	PP_MAX_FEATURES = 25,
 };
+
+#define PA_DITHER PA_DITHER
+#define PP_MAX_FEATURES PP_MAX_FEATURES
 
 struct mdp_pp_feature_version {
 	uint32_t pp_feature;

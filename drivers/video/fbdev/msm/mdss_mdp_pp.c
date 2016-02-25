@@ -355,6 +355,8 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 #define PP_FLAGS_DIRTY_HIST_COL	0x80
 #define PP_FLAGS_DIRTY_PGC	0x100
 #define PP_FLAGS_DIRTY_SHARP	0x200
+#define PP_FLAGS_DIRTY_PA_DITHER 0x400
+
 /* Leave space for future features */
 #define PP_FLAGS_RESUME_COMMIT	0x10000000
 
@@ -2391,6 +2393,12 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 					      pgc_config->flags);
 		}
 	}
+	if (flags & PP_FLAGS_DIRTY_PA_DITHER &&
+		pp_ops[PA_DITHER].pp_set_config) {
+		pp_ops[PA_DITHER].pp_set_config(base, pp_sts,
+					&mdss_pp_res->pa_dither_cfg[disp_num],
+					DSPP);
+	}
 
 	pp_dspp_opmode_config(ctl, dspp_num, pp_sts, mdata->mdp_rev, &opmode);
 
@@ -2716,7 +2724,13 @@ int mdss_mdp_pp_resume(struct msm_fb_data_type *mfd)
 			mdss_pp_res->pgc_disp_cfg[disp_num].flags |=
 				MDP_PP_OPS_WRITE;
 	}
-
+	if (pp_sts.pa_dither_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_PA_DITHER;
+		if (!(mdss_pp_res->pa_dither_cfg[disp_num].flags
+			& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->pa_dither_cfg[disp_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
 	mdss_pp_res->pp_disp_flags[disp_num] |= flags;
 	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_RESUME_COMMIT;
 
@@ -7138,7 +7152,7 @@ int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version)
 		ret = -EINVAL;
 		goto exit_version;
 	}
-	if (version->pp_feature >= PP_FEATURE_MAX) {
+	if (version->pp_feature >= PP_MAX_FEATURES) {
 		pr_err("invalid feature passed %d\n", version->pp_feature);
 		ret = -EINVAL;
 		goto exit_version;
@@ -7507,5 +7521,52 @@ static int pp_ppb_setup(struct mdss_mdp_mixer *mixer)
 			ret = 0;
 		}
 	}
+	return ret;
+}
+
+int mdss_mdp_pa_dither_config(struct msm_fb_data_type *mfd,
+					struct mdp_dither_cfg_data *config)
+{
+	u32 disp_num;
+	int ret = 0;
+	struct mdp_pp_cache_res res_cache;
+
+	ret = pp_validate_dspp_mfd_block(mfd, config->block);
+	if (ret) {
+		pr_err("Invalid block %d mfd index %d, ret %d\n",
+				config->block,
+				(mfd ? mfd->index : -1), ret);
+		return ret;
+	}
+
+	if (config->flags & MDP_PP_OPS_READ) {
+		pr_err("Dither read is not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	if ((config->flags & MDSS_PP_SPLIT_MASK) == MDSS_PP_SPLIT_MASK) {
+		pr_warn("Can't set both split bits\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&mdss_pp_mutex);
+	disp_num = PP_BLOCK(config->block) - MDP_LOGICAL_BLOCK_DISP_0;
+	res_cache.block = DSPP;
+	res_cache.mdss_pp_res = mdss_pp_res;
+	if (pp_ops[PA_DITHER].pp_set_config) {
+		pr_debug("version of pa dither is %d\n", config->version);
+		ret = pp_pa_dither_cache_params(config, &res_cache);
+		if (ret) {
+			pr_err("pa dither config failed version %d ret %d\n",
+				config->version, ret);
+			goto dither_config_exit;
+		}
+	} else {
+		ret = -EINVAL;
+		goto dither_config_exit;
+	}
+	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PA_DITHER;
+dither_config_exit:
+	mutex_unlock(&mdss_pp_mutex);
 	return ret;
 }
