@@ -1,0 +1,75 @@
+Introduction:
+=============
+
+The msm_rng device driver handles random number generation
+using hardware present in MSM chipsets.
+
+Hardware description:
+=====================
+
+The supported hardware is a macro block within a system-on-a-chip (SoC).
+The hardware is pseudo random number generator (PRNG) with four oscillators
+setup with a linear feedback shift register (LFSR).
+The hardware must be initially configured once for normal operation and
+a 32bit FIFO is read to obtain hardware generated pseudo random numbers.
+Currently the driver configures the hardware registers during initialization
+and the future plan is to have the boot loader configure these registers and
+write lock them so only host OS can read them and the driver writes will be
+ignored.
+
+Software description
+====================
+
+The driver is based on the platform_driver model.  It registers an entry,
+exit and probe functions. Once the probe function is called, the driver
+registers a callback function with the hwrng (Hardware Random Number Generator)
+subsystem that is called when the hardware device (i.e. /dev/hw_random) is
+requesting random data from this device.
+Once the callback is issued from the hwrng subsystem, the driver checks to
+make sure the hardware has random data available and determines the maximum
+data it can return and returns that much data back.
+
+Power Management
+================
+
+Initially, no services are provided in the area of power management.
+
+SMP/multi-core
+==============
+
+The locking mechanism for the hwrng operations is taken care of by the hwrng
+framework. There are no SMP situations within the driver that need addressing.
+
+Driver parameters
+=================
+
+This driver is built and statically linked into the kernel; therefore,
+there are no module parameters supported by this driver.
+
+There are no kernel command line parameters supported by this driver.
+
+Config options
+==============
+
+This driver is enabled by the kernel config option CONFIG_HW_RANDOM_MSM.
+The option CONFIG_HW_RANDOM_MSM depends on HW_RANDOM && ARCH_MSM.
+
+Dependencies:
+=============
+
+This driver depends on the HW_RANDOM subsystem to register with and get
+callbacks to request random data.
+
+User space utilities:
+=====================
+
+The driver alone does not feed random numbers into kernel but just provides a
+method to get random numbers to a known device (i.e. /dev/hw_random). A user-
+space utility is required to monitor the /dev/random device entropy pool and
+feed it from the /dev/hw_random device. This application also must perform some
+sort of sanity checking on the returned data to make sure the data is not all
+the same.
+
+There is currently a GPL v2 tool called rng-tools that has a daemon called,
+"rngd" that performs this functionality. There is also a test tool in this
+package that tests the whole random subsystem.

@@ -32,4 +32,5 @@ obj-$(CONFIG_HW_RANDOM_IPROC_RNG200) += iproc-rng200.o
 obj-$(CONFIG_HW_RANDOM_MSM) += msm-rng.o
 obj-$(CONFIG_HW_RANDOM_ST) += st-rng.o
 obj-$(CONFIG_HW_RANDOM_XGENE) += xgene-rng.o
+obj-$(CONFIG_HW_RANDOM_MSM_LEGACY) += msm_rng.o
 obj-$(CONFIG_HW_RANDOM_STM32) += stm32-rng.o
