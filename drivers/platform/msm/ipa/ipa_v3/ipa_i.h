@@ -1095,6 +1095,47 @@ enum ipa3_hw_features {
 };
 
 /**
+ * enum ipa3_hw_2_cpu_events - Values that represent HW event to be sent to CPU.
+ * @IPA_HW_2_CPU_EVENT_ERROR : Event specify a system error is detected by the
+ * device
+ * @IPA_HW_2_CPU_EVENT_LOG_INFO : Event providing logging specific information
+ */
+enum ipa3_hw_2_cpu_events {
+	IPA_HW_2_CPU_EVENT_ERROR     =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
+	IPA_HW_2_CPU_EVENT_LOG_INFO  =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
+};
+
+/**
+ * enum ipa3_hw_errors - Common error types.
+ * @IPA_HW_ERROR_NONE : No error persists
+ * @IPA_HW_INVALID_DOORBELL_ERROR : Invalid data read from doorbell
+ * @IPA_HW_DMA_ERROR : Unexpected DMA error
+ * @IPA_HW_FATAL_SYSTEM_ERROR : HW has crashed and requires reset.
+ * @IPA_HW_INVALID_OPCODE : Invalid opcode sent
+ * @IPA_HW_ZIP_ENGINE_ERROR : ZIP engine error
+ */
+enum ipa3_hw_errors {
+	IPA_HW_ERROR_NONE              =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 0),
+	IPA_HW_INVALID_DOORBELL_ERROR  =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
+	IPA_HW_DMA_ERROR               =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
+	IPA_HW_FATAL_SYSTEM_ERROR      =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 3),
+	IPA_HW_INVALID_OPCODE          =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4),
+	IPA_HW_ZIP_ENGINE_ERROR        =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5),
+	IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 6),
+	IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7)
+};
+
+/**
  * struct IpaHwSharedMemCommonMapping_t - Structure referring to the common
  * section in 128B shared memory located in offset zero of SW Partition in IPA
  * SRAM.
@@ -1151,6 +1192,20 @@ union IpaHwFeatureInfoData_t {
 	struct IpaHwFeatureInfoParams_t {
 		u32 offset:16;
 		u32 size:16;
+	} __packed params;
+	u32 raw32b;
+} __packed;
+
+/**
+ * union IpaHwErrorEventData_t - HW->CPU Common Events
+ * @errorType : Entered when a system error is detected by the HW. Type of
+ * error is specified by IPA_HW_ERRORS
+ * @reserved : Reserved
+ */
+union IpaHwErrorEventData_t {
+	struct IpaHwErrorEventParams_t {
+		u32 errorType:8;
+		u32 reserved:24;
 	} __packed params;
 	u32 raw32b;
 } __packed;
@@ -1306,6 +1361,7 @@ union IpaHwMhiDlUlSyncCmdData_t {
  * @uc_status: The last status provided by the uC
  * @uc_zip_error: uC has notified the APPS upon a ZIP engine error
  * @uc_error_type: error type from uC error event
+ * @uc_error_timestamp: tag timer sampled after uC crashed
  */
 struct ipa3_uc_ctx {
 	bool uc_inited;
@@ -1321,6 +1377,7 @@ struct ipa3_uc_ctx {
 	u32 uc_status;
 	bool uc_zip_error;
 	u32 uc_error_type;
+	u32 uc_error_timestamp;
 };
 
 /**
@@ -2335,4 +2392,5 @@ void ipa3_inc_acquire_wakelock(void);
 void ipa3_dec_release_wakelock(void);
 int ipa3_load_fws(const struct firmware *firmware);
 int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
+const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
 #endif /* _IPA3_I_H_ */
