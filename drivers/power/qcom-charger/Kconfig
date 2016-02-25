@@ -23,4 +23,18 @@ config SMB1351_USB_CHARGER
 	 notification support. The driver controls SMB1351 via I2C and
 	 supports device-tree interface.
 
+config QPNP_SMB2
+	tristate "SMB2 Battery Charger"
+	depends on MFD_SPMI_PMIC
+	select POWER_SUPPLY
+	help
+	  Say Y to enables support for the SMB2 charging peripheral.
+	  The QPNP SMB2 charger driver supports the charger peripheral
+	  present in the PMICOBALT chip.
+	  The power supply framework is used to communicate battery and
+	  usb properties to userspace and other driver consumers such
+	  as fuel gauge, USB, and USB-PD.
+	  VBUS and VCONN regulators are registered for supporting OTG,
+	  and powered Type-C cables respectively.
+
 endmenu
