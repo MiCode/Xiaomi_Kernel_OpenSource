@@ -114,6 +114,11 @@
 	qcom,actuator-type = "erm";
 };
 
+&flash_led {
+	/delete-node/ qcom,flash_1;
+	/delete-node/ qcom,torch_1;
+};
+
 &soc {
 	led_flash0: qcom,camera-flash {
 		cell-index = <0>;
