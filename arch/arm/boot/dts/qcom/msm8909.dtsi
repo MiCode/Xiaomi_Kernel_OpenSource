@@ -1361,6 +1361,11 @@
 			qcom,msm-dai-q6-dev-id = <12289>;
 		};
 
+		bt_a2dp_rx: qcom,msm-dai-q6-bt-a2dp-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12290>;
+		};
+
 		int_fm_rx: qcom,msm-dai-q6-int-fm-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12292>;
