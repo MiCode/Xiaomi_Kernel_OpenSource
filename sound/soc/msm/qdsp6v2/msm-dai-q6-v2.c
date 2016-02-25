@@ -1246,7 +1246,7 @@ static int msm_dai_q6_spdif_dai_probe(struct snd_soc_dai *dai)
 	kcontrol = &spdif_config_controls[1];
 	dapm = snd_soc_component_get_dapm(dai->component);
 
-	rc = snd_ctl_add(dai->card->snd_card,
+	rc = snd_ctl_add(dai->component->card->snd_card,
 			snd_ctl_new1(kcontrol, dai_data));
 
 	memset(&intercon, 0 , sizeof(intercon));
@@ -1902,22 +1902,22 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 
 	switch (dai->id) {
 	case SLIMBUS_4_TX:
-		rc = snd_ctl_add(dai->card->snd_card,
+		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&sb_config_controls[0],
 				 dai_data));
 		break;
 	case SLIMBUS_2_RX:
-		rc = snd_ctl_add(dai->card->snd_card,
+		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&sb_config_controls[1],
 				 dai_data));
 		break;
 	case RT_PROXY_DAI_001_RX:
-		rc = snd_ctl_add(dai->card->snd_card,
+		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&rt_proxy_config_controls[0],
 				 dai_data));
 		break;
 	case RT_PROXY_DAI_001_TX:
-		rc = snd_ctl_add(dai->card->snd_card,
+		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&rt_proxy_config_controls[1],
 				 dai_data));
 		break;
@@ -2799,7 +2799,7 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 	if (ctrl) {
 		kcontrol = snd_ctl_new1(ctrl,
 					&mi2s_dai_data->rx_dai.mi2s_dai_data);
-		rc = snd_ctl_add(dai->card->snd_card, kcontrol);
+		rc = snd_ctl_add(dai->component->card->snd_card, kcontrol);
 
 		if (IS_ERR_VALUE(rc)) {
 			dev_err(dai->dev, "%s: err add RX fmt ctl DAI = %s\n",
@@ -2825,13 +2825,14 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 	}
 
 	if (ctrl) {
-		rc = snd_ctl_add(dai->card->snd_card,
+		rc = snd_ctl_add(dai->component->card->snd_card,
 				snd_ctl_new1(ctrl,
 				&mi2s_dai_data->tx_dai.mi2s_dai_data));
 
 		if (IS_ERR_VALUE(rc)) {
 			if (kcontrol)
-				snd_ctl_remove(dai->card->snd_card, kcontrol);
+				snd_ctl_remove(dai->component->card->snd_card,
+						kcontrol);
 			dev_err(dai->dev, "%s: err add TX fmt ctl DAI = %s\n",
 				__func__, dai->name);
 		}
@@ -4932,7 +4933,8 @@ static int msm_dai_q6_dai_tdm_probe(struct snd_soc_dai *dai)
 	if (data_format_ctrl) {
 		data_format_kcontrol = snd_ctl_new1(data_format_ctrl,
 					tdm_dai_data);
-		rc = snd_ctl_add(dai->card->snd_card, data_format_kcontrol);
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 data_format_kcontrol);
 
 		if (IS_ERR_VALUE(rc)) {
 			dev_err(dai->dev, "%s: err add data format ctrl DAI = %s\n",
@@ -4944,11 +4946,12 @@ static int msm_dai_q6_dai_tdm_probe(struct snd_soc_dai *dai)
 	if (header_type_ctrl) {
 		header_type_kcontrol = snd_ctl_new1(header_type_ctrl,
 					tdm_dai_data);
-		rc = snd_ctl_add(dai->card->snd_card, header_type_kcontrol);
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 header_type_kcontrol);
 
 		if (IS_ERR_VALUE(rc)) {
 			if (data_format_kcontrol)
-				snd_ctl_remove(dai->card->snd_card,
+				snd_ctl_remove(dai->component->card->snd_card,
 					data_format_kcontrol);
 			dev_err(dai->dev, "%s: err add header type ctrl DAI = %s\n",
 				__func__, dai->name);
@@ -4959,14 +4962,15 @@ static int msm_dai_q6_dai_tdm_probe(struct snd_soc_dai *dai)
 	if (header_ctrl) {
 		header_kcontrol = snd_ctl_new1(header_ctrl,
 					tdm_dai_data);
-		rc = snd_ctl_add(dai->card->snd_card, header_kcontrol);
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 header_kcontrol);
 
 		if (IS_ERR_VALUE(rc)) {
 			if (header_type_kcontrol)
-				snd_ctl_remove(dai->card->snd_card,
+				snd_ctl_remove(dai->component->card->snd_card,
 					header_type_kcontrol);
 			if (data_format_kcontrol)
-				snd_ctl_remove(dai->card->snd_card,
+				snd_ctl_remove(dai->component->card->snd_card,
 					data_format_kcontrol);
 			dev_err(dai->dev, "%s: err add header ctrl DAI = %s\n",
 				__func__, dai->name);

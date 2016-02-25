@@ -1835,19 +1835,23 @@ static int voice_send_dtmf_rx_detection_cmd(struct voice_data *v,
 
 static void voice_vote_powerstate_to_bms(struct voice_data *v, bool state)
 {
+	union power_supply_propval pval = {0, };
 
 	if (!v->psy)
 		v->psy = power_supply_get_by_name("bms");
 	if (v->psy && !(is_voip_session(v->session_id) ||
 			is_vowlan_session(v->session_id))) {
+		pval.intval = VMBMS_VOICE_CALL_BIT;
 		if (state) {
-			power_supply_set_hi_power_state(v->psy,
-				VMBMS_VOICE_CALL_BIT);
+			power_supply_set_property(v->psy,
+				POWER_SUPPLY_PROP_HI_POWER,
+				&pval);
 			pr_debug("%s : Vote High power to BMS\n",
 				__func__);
 		} else {
-			power_supply_set_low_power_state(v->psy,
-				VMBMS_VOICE_CALL_BIT);
+			power_supply_set_property(v->psy,
+				POWER_SUPPLY_PROP_LOW_POWER,
+				&pval);
 			pr_debug("%s: Vote low power to BMS\n",
 				__func__);
 		}

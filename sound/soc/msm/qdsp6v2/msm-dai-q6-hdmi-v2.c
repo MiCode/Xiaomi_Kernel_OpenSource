@@ -254,12 +254,12 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 
 	kcontrol = &hdmi_config_controls[0];
 
-	rc = snd_ctl_add(dai->card->snd_card,
+	rc = snd_ctl_add(dai->component->card->snd_card,
 					 snd_ctl_new1(kcontrol, dai_data));
 
 	kcontrol = &hdmi_config_controls[1];
 
-	rc = snd_ctl_add(dai->card->snd_card,
+	rc = snd_ctl_add(dai->component->card->snd_card,
 					 snd_ctl_new1(kcontrol, dai_data));
 
 	dapm = snd_soc_component_get_dapm(dai->component);
