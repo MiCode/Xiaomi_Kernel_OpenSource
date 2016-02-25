@@ -447,6 +447,7 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 	DIAG_SET_FEATURE_MASK(F_DIAG_FEATURE_MASK_SUPPORT);
 	DIAG_SET_FEATURE_MASK(F_DIAG_LOG_ON_DEMAND_APPS);
 	DIAG_SET_FEATURE_MASK(F_DIAG_STM);
+	DIAG_SET_FEATURE_MASK(F_DIAG_DCI_EXTENDED_HEADER_SUPPORT);
 	if (driver->supports_separate_cmdrsp)
 		DIAG_SET_FEATURE_MASK(F_DIAG_REQ_RSP_SUPPORT);
 	if (driver->supports_apps_hdlc_encoding)

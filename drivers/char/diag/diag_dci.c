@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -420,10 +420,13 @@ static int diag_process_single_dci_pkt(unsigned char *buf, int len,
 
 	switch (cmd_code) {
 	case LOG_CMD_CODE:
-		extract_dci_log(buf, len, data_source, token);
+		extract_dci_log(buf, len, data_source, token, NULL);
 		break;
 	case EVENT_CMD_CODE:
-		extract_dci_events(buf, len, data_source, token);
+		extract_dci_events(buf, len, data_source, token, NULL);
+		break;
+	case EXT_HDR_CMD_CODE:
+		extract_dci_ext_pkt(buf, len, data_source, token);
 		break;
 	case DCI_PKT_RSP_CODE:
 	case DCI_DELAYED_RSP_CODE:
@@ -1051,8 +1054,24 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	mutex_unlock(&driver->dci_mutex);
 }
 
+static void copy_ext_hdr(struct diag_dci_buffer_t *data_buffer, void *ext_hdr)
+{
+	if (!data_buffer) {
+		pr_err("diag: In %s, data buffer is NULL", __func__);
+		return;
+	}
+
+	*(int *)(data_buffer->data + data_buffer->data_len) =
+			DCI_EXT_HDR_TYPE;
+	data_buffer->data_len += sizeof(int);
+	memcpy(data_buffer->data + data_buffer->data_len, ext_hdr,
+			EXT_HDR_LEN);
+	data_buffer->data_len += EXT_HDR_LEN;
+}
+
 static void copy_dci_event(unsigned char *buf, int len,
-			   struct diag_dci_client_tbl *client, int data_source)
+			struct diag_dci_client_tbl *client, int data_source,
+			void *ext_hdr)
 {
 	struct diag_dci_buffer_t *data_buffer = NULL;
 	struct diag_dci_buf_peripheral_t *proc_buf = NULL;
@@ -1064,6 +1083,8 @@ static void copy_dci_event(unsigned char *buf, int len,
 	}
 
 	total_len = sizeof(int) + len;
+	if (ext_hdr)
+		total_len += sizeof(int) + EXT_HDR_LEN;
 
 	proc_buf = &client->buffers[data_source];
 	mutex_lock(&proc_buf->buf_mutex);
@@ -1086,6 +1107,9 @@ static void copy_dci_event(unsigned char *buf, int len,
 	mutex_unlock(&proc_buf->buf_mutex);
 
 	mutex_lock(&data_buffer->data_mutex);
+	if (ext_hdr)
+		copy_ext_hdr(data_buffer, ext_hdr);
+
 	*(int *)(data_buffer->data + data_buffer->data_len) = DCI_EVENT_TYPE;
 	data_buffer->data_len += sizeof(int);
 	memcpy(data_buffer->data + data_buffer->data_len, buf, len);
@@ -1095,7 +1119,8 @@ static void copy_dci_event(unsigned char *buf, int len,
 
 }
 
-void extract_dci_events(unsigned char *buf, int len, int data_source, int token)
+void extract_dci_events(unsigned char *buf, int len, int data_source,
+		int token, void *ext_hdr)
 {
 	uint16_t event_id, event_id_packet, length, temp_len;
 	uint8_t payload_len, payload_len_field;
@@ -1105,7 +1130,7 @@ void extract_dci_events(unsigned char *buf, int len, int data_source, int token)
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 
-	length =  *(uint16_t *)(buf + 1); /* total length of event series */
+	length = *(uint16_t *)(buf + 1); /* total length of event series */
 	if (length == 0) {
 		pr_err("diag: Incoming dci event length is invalid\n");
 		return;
@@ -1193,7 +1218,7 @@ void extract_dci_events(unsigned char *buf, int len, int data_source, int token)
 			if (diag_dci_query_event_mask(entry, event_id)) {
 				/* copy to client buffer */
 				copy_dci_event(event_data, total_event_len,
-					       entry, data_source);
+					       entry, data_source, ext_hdr);
 			}
 		}
 		mutex_unlock(&driver->dci_mutex);
@@ -1201,7 +1226,8 @@ void extract_dci_events(unsigned char *buf, int len, int data_source, int token)
 }
 
 static void copy_dci_log(unsigned char *buf, int len,
-			 struct diag_dci_client_tbl *client, int data_source)
+			 struct diag_dci_client_tbl *client, int data_source,
+			 void *ext_hdr)
 {
 	uint16_t log_length = 0;
 	struct diag_dci_buffer_t *data_buffer = NULL;
@@ -1220,6 +1246,8 @@ static void copy_dci_log(unsigned char *buf, int len,
 		return;
 	}
 	total_len = sizeof(int) + log_length;
+	if (ext_hdr)
+		total_len += sizeof(int) + EXT_HDR_LEN;
 
 	/* Check if we are within the len. The check should include the
 	 * first 4 bytes for the Log code(2) and the length bytes (2)
@@ -1254,6 +1282,8 @@ static void copy_dci_log(unsigned char *buf, int len,
 		mutex_unlock(&data_buffer->data_mutex);
 		return;
 	}
+	if (ext_hdr)
+		copy_ext_hdr(data_buffer, ext_hdr);
 
 	*(int *)(data_buffer->data + data_buffer->data_len) = DCI_LOG_TYPE;
 	data_buffer->data_len += sizeof(int);
@@ -1264,7 +1294,8 @@ static void copy_dci_log(unsigned char *buf, int len,
 	mutex_unlock(&data_buffer->data_mutex);
 }
 
-void extract_dci_log(unsigned char *buf, int len, int data_source, int token)
+void extract_dci_log(unsigned char *buf, int len, int data_source, int token,
+			void *ext_hdr)
 {
 	uint16_t log_code, read_bytes = 0;
 	struct list_head *start, *temp;
@@ -1297,10 +1328,50 @@ void extract_dci_log(unsigned char *buf, int len, int data_source, int token)
 			pr_debug("\t log code %x needed by client %d",
 				 log_code, entry->client->tgid);
 			/* copy to client buffer */
-			copy_dci_log(buf, len, entry, data_source);
+			copy_dci_log(buf, len, entry, data_source, ext_hdr);
 		}
 	}
 	mutex_unlock(&driver->dci_mutex);
+}
+
+void extract_dci_ext_pkt(unsigned char *buf, int len, int data_source,
+		int token)
+{
+	uint8_t version, pkt_cmd_code = 0;
+	unsigned char *pkt = NULL;
+
+	if (!buf) {
+		pr_err("diag: In %s buffer is NULL\n", __func__);
+		return;
+	}
+
+	version = *(uint8_t *)buf + 1;
+	if (version < EXT_HDR_VERSION)  {
+		pr_err("diag: %s, Extended header with invalid version: %d\n",
+			__func__, version);
+		return;
+	}
+
+	pkt = buf + EXT_HDR_LEN;
+	pkt_cmd_code = *(uint8_t *)pkt;
+	len -= EXT_HDR_LEN;
+	if (len < 0) {
+		pr_err("diag: %s, Invalid length len: %d\n", __func__, len);
+		return;
+	}
+
+	switch (pkt_cmd_code) {
+	case LOG_CMD_CODE:
+		extract_dci_log(pkt, len, data_source, token, buf);
+		break;
+	case EVENT_CMD_CODE:
+		extract_dci_events(pkt, len, data_source, token, buf);
+		break;
+	default:
+		pr_err("diag: %s unsupported cmd_code: %d, data_source: %d\n",
+			__func__, pkt_cmd_code, data_source);
+		return;
+	}
 }
 
 void diag_dci_channel_open_work(struct work_struct *work)
