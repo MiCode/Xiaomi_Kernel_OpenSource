@@ -741,10 +741,10 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		 * Don't do some of the more aggressive memory recovery
 		 * techniques for large order allocations
 		 */
-		if (page_size != PAGE_SIZE)
-			gfp_mask |= __GFP_COMP | __GFP_NORETRY |
-				__GFP_NO_KSWAPD | __GFP_NOWARN;
-		else
+		if (page_size != PAGE_SIZE) {
+			gfp_mask |= __GFP_COMP | __GFP_NORETRY | __GFP_NOWARN;
+			gfp_mask &= ~__GFP_RECLAIM;
+		} else
 			gfp_mask |= GFP_KERNEL;
 
 		if (sharedmem_noretry_flag == true)

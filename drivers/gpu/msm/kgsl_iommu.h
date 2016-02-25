@@ -13,7 +13,7 @@
 #ifndef __KGSL_IOMMU_H
 #define __KGSL_IOMMU_H
 
-#ifdef CONFIG_MSM_IOMMU
+#ifdef CONFIG_QCOM_IOMMU
 #include <linux/qcom_iommu.h>
 #endif
 #include <linux/of.h>

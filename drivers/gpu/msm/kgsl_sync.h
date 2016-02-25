@@ -13,7 +13,7 @@
 #ifndef __KGSL_SYNC_H
 #define __KGSL_SYNC_H
 
-#include <linux/sync.h>
+#include "sync.h"
 #include "kgsl_device.h"
 
 struct kgsl_sync_timeline {

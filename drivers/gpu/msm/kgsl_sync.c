@@ -13,7 +13,6 @@
 
 #include <linux/err.h>
 #include <linux/file.h>
-#include <linux/oneshot_sync.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
@@ -298,14 +297,6 @@ static int kgsl_sync_fill_driver_data(struct sync_pt *sync_pt, void *data,
 	return sizeof(kpt->timestamp);
 }
 
-static void kgsl_sync_pt_log(struct sync_pt *sync_pt)
-{
-	struct kgsl_sync_pt *kpt = (struct kgsl_sync_pt *) sync_pt;
-	pr_info("-----\n");
-	kgsl_context_dump(kpt->context);
-	pr_info("-----\n");
-}
-
 static void kgsl_sync_timeline_release_obj(struct sync_timeline *sync_timeline)
 {
 	/*
@@ -324,7 +315,6 @@ static const struct sync_timeline_ops kgsl_sync_timeline_ops = {
 	.pt_value_str = kgsl_sync_pt_value_str,
 	.fill_driver_data = kgsl_sync_fill_driver_data,
 	.release_obj = kgsl_sync_timeline_release_obj,
-	.pt_log = kgsl_sync_pt_log,
 };
 
 int kgsl_sync_timeline_create(struct kgsl_context *context)
@@ -441,6 +431,8 @@ int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_waiter *kwaiter)
 }
 
 #ifdef CONFIG_ONESHOT_SYNC
+
+#include <linux/oneshot_sync.h>
 
 struct kgsl_syncsource {
 	struct kref refcount;

@@ -23,7 +23,7 @@ static inline bool kgsl_cffdump_flags_no_memzero(void) { return true; }
 
 struct kgsl_device_private;
 
-#ifdef CONFIG_MSM_KGSL_CFF_DUMP
+#ifdef CONFIG_QCOM_KGSL_CFF_DUMP
 
 #define CFF_OP_WRITE_MEM        0x0000000b
 
@@ -179,5 +179,5 @@ static inline int kgsl_cff_dump_enable_get(void *data, u64 *val)
 	return -ENODEV;
 }
 
-#endif /* CONFIG_MSM_KGSL_CFF_DUMP */
+#endif /* CONFIG_QCOM_KGSL_CFF_DUMP */
 #endif /* __KGSL_CFFDUMP_H */

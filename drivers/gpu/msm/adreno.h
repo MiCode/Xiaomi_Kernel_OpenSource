@@ -26,7 +26,7 @@
 
 #include "a4xx_reg.h"
 
-#ifdef CONFIG_MSM_OCMEM
+#ifdef CONFIG_QCOM_OCMEM
 #include <soc/qcom/ocmem.h>
 #endif
 

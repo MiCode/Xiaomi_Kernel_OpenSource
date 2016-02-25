@@ -11,7 +11,6 @@
  */
 
 #include <linux/platform_device.h>
-#include <linux/of_coresight.h>
 #include <linux/coresight.h>
 
 #include "adreno.h"
@@ -319,7 +318,6 @@ int adreno_coresight_init(struct adreno_device *adreno_dev)
 	desc.subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_BUS;
 	desc.ops = &adreno_coresight_ops;
 	desc.dev = &device->pdev->dev;
-	desc.owner = THIS_MODULE;
 	desc.groups = gpudev->coresight->groups;
 
 	adreno_dev->csdev = coresight_register(&desc);

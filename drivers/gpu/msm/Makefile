@@ -1,4 +1,4 @@
-ccflags-y := -Iinclude/uapi/drm -Iinclude/drm -Idrivers/gpu/msm
+ccflags-y := -Idrivers/staging/android
 
 msm_kgsl_core-y = \
 	kgsl.o \
@@ -14,7 +14,7 @@ msm_kgsl_core-y = \
 	kgsl_events.o
 
 msm_kgsl_core-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
-msm_kgsl_core-$(CONFIG_MSM_KGSL_CFF_DUMP) += kgsl_cffdump.o
+msm_kgsl_core-$(CONFIG_QCOM_KGSL_CFF_DUMP) += kgsl_cffdump.o
 msm_kgsl_core-$(CONFIG_SYNC) += kgsl_sync.o
 msm_kgsl_core-$(CONFIG_COMPAT) += kgsl_compat.o
 
@@ -44,5 +44,5 @@ msm_adreno-$(CONFIG_COMPAT) += adreno_compat.o
 msm_kgsl_core-objs = $(msm_kgsl_core-y)
 msm_adreno-objs = $(msm_adreno-y)
 
-obj-$(CONFIG_MSM_KGSL) += msm_kgsl_core.o
-obj-$(CONFIG_MSM_KGSL) += msm_adreno.o
+obj-$(CONFIG_QCOM_KGSL) += msm_kgsl_core.o
+obj-$(CONFIG_QCOM_KGSL) += msm_adreno.o

@@ -27,8 +27,6 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_cmdbatch.h"
 
-#include <linux/sync.h>
-
 #define KGSL_TIMEOUT_NONE           0
 #define KGSL_TIMEOUT_DEFAULT        0xFFFFFFFF
 #define KGSL_TIMEOUT_PART           50 /* 50 msec */
