@@ -61,4 +61,11 @@ config MSM_BCL_PERIPHERAL_CTL
 	  provides routines to configure and monitor the BCL
 	  PMIC peripheral.
 
+config QPNP_SMB2
+	tristate "SMB2 Battery Charger"
+	depends on MFD_SPMI_PMIC
+	select POWER_SUPPLY
+	help
+	  Enables support for the SMB2 charging peripheral
+
 endmenu
