@@ -208,7 +208,7 @@ static int ep_pcie_vreg_init(struct ep_pcie_dev_t *dev)
 		}
 
 		if (info->opt_mode) {
-			rc = regulator_set_optimum_mode(vreg, info->opt_mode);
+			rc = regulator_set_load(vreg, info->opt_mode);
 			if (rc < 0) {
 				EP_PCIE_ERR(dev,
 					"PCIe V%d:  can't set mode for %s: %d\n",
