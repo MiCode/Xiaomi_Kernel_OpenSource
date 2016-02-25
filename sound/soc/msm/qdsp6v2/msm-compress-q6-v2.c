@@ -2185,10 +2185,10 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 static int msm_compr_volume_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	unsigned long fe_id = kcontrol->private_value;
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-			snd_soc_platform_get_drvdata(platform);
+			snd_soc_component_get_drvdata(comp);
 	struct snd_compr_stream *cstream = NULL;
 	uint32_t *volume = NULL;
 
@@ -2213,11 +2213,11 @@ static int msm_compr_volume_put(struct snd_kcontrol *kcontrol,
 static int msm_compr_volume_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	unsigned long fe_id = kcontrol->private_value;
 
 	struct msm_compr_pdata *pdata =
-		snd_soc_platform_get_drvdata(platform);
+		snd_soc_component_get_drvdata(comp);
 	uint32_t *volume = NULL;
 
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
@@ -2236,10 +2236,10 @@ static int msm_compr_volume_get(struct snd_kcontrol *kcontrol,
 static int msm_compr_audio_effects_config_put(struct snd_kcontrol *kcontrol,
 					   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	unsigned long fe_id = kcontrol->private_value;
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-			snd_soc_platform_get_drvdata(platform);
+			snd_soc_component_get_drvdata(comp);
 	struct msm_compr_audio_effects *audio_effects = NULL;
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_compr_audio *prtd = NULL;
@@ -2352,10 +2352,10 @@ static int msm_compr_audio_effects_config_put(struct snd_kcontrol *kcontrol,
 static int msm_compr_audio_effects_config_get(struct snd_kcontrol *kcontrol,
 					   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	unsigned long fe_id = kcontrol->private_value;
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-			snd_soc_platform_get_drvdata(platform);
+			snd_soc_component_get_drvdata(comp);
 	struct msm_compr_audio_effects *audio_effects = NULL;
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_compr_audio *prtd = NULL;
@@ -2407,10 +2407,10 @@ static int msm_compr_audio_effects_config_get(struct snd_kcontrol *kcontrol,
 static int msm_compr_query_audio_effect_put(struct snd_kcontrol *kcontrol,
 					   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	unsigned long fe_id = kcontrol->private_value;
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-			snd_soc_platform_get_drvdata(platform);
+			snd_soc_component_get_drvdata(comp);
 	struct msm_compr_audio_effects *audio_effects = NULL;
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_compr_audio *prtd = NULL;
@@ -2448,10 +2448,10 @@ static int msm_compr_query_audio_effect_put(struct snd_kcontrol *kcontrol,
 static int msm_compr_query_audio_effect_get(struct snd_kcontrol *kcontrol,
 					   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	unsigned long fe_id = kcontrol->private_value;
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-			snd_soc_platform_get_drvdata(platform);
+			snd_soc_component_get_drvdata(comp);
 	struct msm_compr_audio_effects *audio_effects = NULL;
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_compr_audio *prtd = NULL;
@@ -2528,10 +2528,10 @@ end:
 static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	unsigned long fe_id = kcontrol->private_value;
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-			snd_soc_platform_get_drvdata(platform);
+			snd_soc_component_get_drvdata(comp);
 	struct msm_compr_dec_params *dec_params = NULL;
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_compr_audio *prtd = NULL;
@@ -2650,10 +2650,10 @@ static int msm_compr_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 static int msm_compr_channel_map_put(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	u64 fe_id = kcontrol->private_value;
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-			snd_soc_platform_get_drvdata(platform);
+			snd_soc_component_get_drvdata(comp);
 	int rc = 0, i;
 
 	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
@@ -2682,10 +2682,10 @@ end:
 static int msm_compr_channel_map_get(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	u64 fe_id = kcontrol->private_value;
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-			snd_soc_platform_get_drvdata(platform);
+			snd_soc_component_get_drvdata(comp);
 	int rc = 0, i;
 
 	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
@@ -2708,9 +2708,9 @@ end:
 static int msm_compr_gapless_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-		snd_soc_platform_get_drvdata(platform);
+		snd_soc_component_get_drvdata(comp);
 	pdata->use_dsp_gapless_mode =  ucontrol->value.integer.value[0];
 	pr_debug("%s: value: %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
@@ -2721,9 +2721,9 @@ static int msm_compr_gapless_put(struct snd_kcontrol *kcontrol,
 static int msm_compr_gapless_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
 	struct msm_compr_pdata *pdata =
-		snd_soc_platform_get_drvdata(platform);
+		snd_soc_component_get_drvdata(comp);
 	pr_debug("%s:gapless mode %d\n", __func__, pdata->use_dsp_gapless_mode);
 	ucontrol->value.integer.value[0] = pdata->use_dsp_gapless_mode;
 
