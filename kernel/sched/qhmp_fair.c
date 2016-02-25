@@ -3056,7 +3056,7 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 
 	hmp_capable = !cpumask_equal(&mpc_mask, cpu_possible_mask);
 
-	cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
+	cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_active_mask);
 	if (unlikely(!cpumask_test_cpu(i, &search_cpu))) {
 		i = cpumask_first(&search_cpu);
 		if (i >= nr_cpu_ids)
@@ -3121,7 +3121,7 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		return min_cstate_cpu;
 
 	if (!sysctl_sched_restrict_tasks_spread) {
-		cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
+		cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_active_mask);
 		cpumask_andnot(&search_cpu, &search_cpu, &fb_search_cpu);
 		for_each_cpu(i, &search_cpu) {
 			rq = cpu_rq(i);
@@ -3244,7 +3244,7 @@ static int select_packing_target(struct task_struct *p, int best_cpu)
 	if (rq->max_freq <= rq->mostly_idle_freq)
 		return best_cpu;
 
-	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
+	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_active_mask);
 	cpumask_and(&search_cpus, &search_cpus, &rq->freq_domain_cpumask);
 
 	/* Pick the first lowest power cpu as target */
@@ -3316,7 +3316,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	}
 
 	trq = task_rq(p);
-	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
+	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_active_mask);
 	for_each_cpu(i, &search_cpus) {
 		struct rq *rq = cpu_rq(i);
 
@@ -4030,7 +4030,7 @@ static int lower_power_cpu_available(struct task_struct *p, int cpu)
 	 * This function should be called only when task 'p' fits in the current
 	 * CPU which can be ensured by task_will_fit() prior to this.
 	 */
-	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
+	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_active_mask);
 	cpumask_and(&search_cpus, &search_cpus, &rq->freq_domain_cpumask);
 	cpumask_clear_cpu(lowest_power_cpu, &search_cpus);
 
