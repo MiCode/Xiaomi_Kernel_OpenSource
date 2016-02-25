@@ -160,6 +160,7 @@ enum mdss_mdp_ctl_index {
 
 
 #define MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET		0x40
+#define MDSS_MDP_REG_CTL_LAYER_EXTN2_OFFSET		0x70
 #define MDSS_MDP_CTL_X_LAYER_5				0x24
 
 /* mixer 5 has different offset than others */
@@ -168,6 +169,9 @@ enum mdss_mdp_ctl_index {
 
 #define MDSS_MDP_REG_CTL_LAYER_EXTN(lm)	\
 	 (MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET + ((lm) * 0x004))
+
+#define MDSS_MDP_REG_CTL_LAYER_EXTN2(lm)	\
+	 (MDSS_MDP_REG_CTL_LAYER_EXTN2_OFFSET + ((lm) * 0x004))
 
 #define MDSS_MDP_REG_CTL_TOP				0x014
 #define MDSS_MDP_REG_CTL_FLUSH				0x018
@@ -203,7 +207,9 @@ enum mdss_mdp_sspp_index {
 	MDSS_MDP_SSPP_RGB3,
 	MDSS_MDP_SSPP_CURSOR0,
 	MDSS_MDP_SSPP_CURSOR1,
-	MDSS_MDP_MAX_SSPP
+	MDSS_MDP_SSPP_DMA2,
+	MDSS_MDP_SSPP_DMA3,
+	MDSS_MDP_MAX_SSPP,
 };
 
 enum mdss_mdp_sspp_fetch_type {

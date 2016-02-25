@@ -27,7 +27,7 @@
 #include "mdss_mdp_trace.h"
 #include "mdss_debug.h"
 
-#define NUM_MIXERCFG_REGS 2
+#define NUM_MIXERCFG_REGS 3
 #define MDSS_MDP_WB_OUTPUT_BPP	3
 struct mdss_mdp_mixer_cfg {
 	u32 config_masks[NUM_MIXERCFG_REGS];
@@ -39,6 +39,7 @@ static struct {
 	u32 flush_bit;
 	struct mdss_mdp_hwio_cfg base;
 	struct mdss_mdp_hwio_cfg ext;
+	struct mdss_mdp_hwio_cfg ext2;
 } mdp_pipe_hwio[MDSS_MDP_MAX_SSPP] = {
 	[MDSS_MDP_SSPP_VIG0]    = {  0, {  0, 3, 0 }, {  0, 1, 3 } },
 	[MDSS_MDP_SSPP_VIG1]    = {  1, {  3, 3, 0 }, {  2, 1, 3 } },
@@ -50,6 +51,8 @@ static struct {
 	[MDSS_MDP_SSPP_RGB3]    = { 19, { 29, 3, 0 }, { 14, 1, 3 } },
 	[MDSS_MDP_SSPP_DMA0]    = { 11, { 18, 3, 0 }, { 16, 1, 3 } },
 	[MDSS_MDP_SSPP_DMA1]    = { 12, { 21, 3, 0 }, { 18, 1, 3 } },
+	[MDSS_MDP_SSPP_DMA2]    = { 24, .ext2 = {  0, 4, 0 } },
+	[MDSS_MDP_SSPP_DMA3]    = { 25, .ext2 = {  4, 4, 0 } },
 	[MDSS_MDP_SSPP_CURSOR0] = { 22, .ext  = { 20, 4, 0 } },
 	[MDSS_MDP_SSPP_CURSOR1] = { 23, .ext  = { 26, 4, 0 } },
 };
@@ -4043,6 +4046,7 @@ static void __mdss_mdp_mixer_update_cfg_masks(u32 pnum, u32 stage,
 
 	masks[0] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].base, stage);
 	masks[1] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].ext, stage);
+	masks[2] = mdss_mdp_hwio_mask(&mdp_pipe_hwio[pnum].ext2, stage);
 
 	for (i = 0; i < NUM_MIXERCFG_REGS; i++)
 		cfg->config_masks[i] |= masks[i];
@@ -4058,6 +4062,7 @@ static void __mdss_mdp_mixer_get_offsets(u32 mixer_num,
 
 	offsets[0] = MDSS_MDP_REG_CTL_LAYER(mixer_num);
 	offsets[1] = MDSS_MDP_REG_CTL_LAYER_EXTN(mixer_num);
+	offsets[2] = MDSS_MDP_REG_CTL_LAYER_EXTN2(mixer_num);
 }
 
 static inline int __mdss_mdp_mixer_get_hw_num(struct mdss_mdp_mixer *mixer)

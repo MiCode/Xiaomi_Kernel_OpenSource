@@ -155,6 +155,8 @@ get_pipe_type_from_num(enum mdss_mdp_sspp_index pnum)
 		break;
 	case MDSS_MDP_SSPP_DMA0:
 	case MDSS_MDP_SSPP_DMA1:
+	case MDSS_MDP_SSPP_DMA2:
+	case MDSS_MDP_SSPP_DMA3:
 		ptype = MDSS_MDP_PIPE_TYPE_DMA;
 		break;
 	case MDSS_MDP_SSPP_CURSOR0:
