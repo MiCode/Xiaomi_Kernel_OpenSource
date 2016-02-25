@@ -169,7 +169,7 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	ctl->roi =  (struct mdss_rect) {0, 0, width, height};
 	ctl->is_secure = (layer->flags & MDP_LAYER_SECURE_SESSION);
 
-	if (wb->caps & MDSS_MDP_WB_INTF) {
+	if (ctl->mdata->wfd_mode == MDSS_MDP_WFD_INTERFACE) {
 		ctl->mixer_left = mdss_mdp_mixer_alloc(ctl,
 			MDSS_MDP_MIXER_TYPE_INTF, (width > max_mixer_width), 0);
 		if (width > max_mixer_width) {
@@ -183,9 +183,11 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	} else if (width > max_mixer_width) {
 		pr_err("width > max_mixer_width supported only in MDSS_MDP_WB_INTF\n");
 		goto wfd_setup_error;
+	} else if (ctl->mdata->wfd_mode == MDSS_MDP_WFD_DEDICATED) {
+		ctl->mixer_left = mdss_mdp_mixer_alloc(ctl,
+				MDSS_MDP_MIXER_TYPE_WRITEBACK, false, 0);
 	} else {
-		/* WB0 or WB1 in line mode */
-		ctl->mixer_left = mdss_mdp_mixer_assign(wb->num, true);
+		ctl->mixer_left = mdss_mdp_mixer_assign(wb->num, true, false);
 	}
 
 	if (!ctl->mixer_left ||

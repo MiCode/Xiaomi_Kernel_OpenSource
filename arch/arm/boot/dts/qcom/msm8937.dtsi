@@ -39,13 +39,13 @@
 		modem_mem: modem_region@0 {
 			compatible = "removed-dma-pool";
 			no-map-fixup;
-			reg = <0x0 0x86800000 0x0 0x5a00000>;
+			reg = <0x0 0x86800000 0x0 0x5000000>;
 		};
 
 		reloc_mem: reloc_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8c200000 0x0 0x1b00000>;
+			reg = <0x0 0x8b800000 0x0 0x1800000>;
 		};
 
 		venus_mem: venus_region@0 {
@@ -61,6 +61,7 @@
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x7000000>;
+			status = "disabled";
 		};
 
 		qseecom_mem: qseecom_region@0 {
@@ -613,6 +614,8 @@
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
 		compatible = "qcom,gcc-8937";
 		reg = <0x1800000 0x80000>,
 			<0xb016000 0x00040>,
@@ -678,19 +681,36 @@
 			<          0 0>,
 			<  768000000 1>,
 			<  902400000 2>,
-			<  998400000 3>,
-			< 1094400000 5>;
+			<  998400000 4>,
+			< 1094400000 6>;
 
 		qcom,speed0-bin-v0-c1 =
 			<          0 0>,
 			<  960000000 1>,
 			< 1094400000 2>,
-			< 1248000000 3>,
-			< 1344000000 4>,
-			< 1401000000 5>;
+			< 1248000000 4>,
+			< 1344000000 5>,
+			< 1401000000 6>;
 
 
 		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 3>;
+
+		qcom,speed2-bin-v0-c0 =
+			<          0 0>,
+			<  768000000 1>,
+			<  902400000 2>,
+			<  998400000 3>;
+
+		qcom,speed2-bin-v0-c1 =
+			<          0 0>,
+			<  960000000 1>,
+			< 1094400000 2>,
+			< 1209600000 3>;
+
+		qcom,speed2-bin-v0-cci =
 			<          0 0>,
 			<  400000000 1>,
 			<  533333333 3>;
@@ -717,6 +737,7 @@
 		qcom,cpufreq-table-0 =
 			 <  960000 >,
 			 < 1094400 >,
+			 < 1209600 >,
 			 < 1248000 >,
 			 < 1344000 >,
 			 < 1401000 >;

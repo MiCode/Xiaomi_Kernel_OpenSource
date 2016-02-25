@@ -66,3 +66,7 @@
 &ssphy {
 	compatible =  "usb-nop-xceiv";
 };
+
+&rpm_bus {
+	rpm-standalone;
+};

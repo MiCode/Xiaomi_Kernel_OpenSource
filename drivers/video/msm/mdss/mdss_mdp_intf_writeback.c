@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -826,6 +826,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_writeback *wb;
 	u32 mem_sel;
 	u32 mixer_type = MDSS_MDP_MIXER_TYPE_UNUSED;
+	bool is_rot;
 
 	pr_debug("start ctl=%d\n", ctl->num);
 
@@ -848,8 +849,17 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 		return -EINVAL;
 	}
 
-	if (ctl->mixer_left)
+	is_rot = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR) ? true : false;
+
+	if (ctl->mixer_left) {
 		mixer_type = ctl->mixer_left->type;
+		/*
+		 * If the WB mixer is dedicated, the rotator uses a virtual
+		 * mixer. Mark the mixer_type as UNUSED in such cases.
+		 */
+		if ((mixer_type == MDSS_MDP_MIXER_TYPE_WRITEBACK) && is_rot)
+			mixer_type = MDSS_MDP_MIXER_TYPE_UNUSED;
+	}
 
 	if (mdss_mdp_is_cdm_supported(ctl->mdata, ctl->intf_type,
 				mixer_type)) {

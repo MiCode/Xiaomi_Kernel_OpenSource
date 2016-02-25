@@ -457,13 +457,16 @@ static int etb_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->buffer_depth = etb_get_buffer_depth(drvdata);
 	clk_disable_unprepare(drvdata->clk);
 
-	if (drvdata->buffer_depth < 0)
+	if (drvdata->buffer_depth & 0x80000000)
 		return -EINVAL;
 
 	drvdata->buf = devm_kzalloc(dev,
 				    drvdata->buffer_depth * 4, GFP_KERNEL);
-	if (!drvdata->buf)
+	if (!drvdata->buf) {
+		dev_err(dev, "Failed to allocate %u bytes for buffer data\n",
+			drvdata->buffer_depth * 4);
 		return -ENOMEM;
+	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)

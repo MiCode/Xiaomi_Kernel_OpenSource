@@ -2499,7 +2499,7 @@ static void adreno_power_stats(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
-	uint64_t adj;
+	uint64_t adj = 0;
 
 	memset(stats, 0, sizeof(*stats));
 

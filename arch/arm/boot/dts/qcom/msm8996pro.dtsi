@@ -861,6 +861,8 @@
 
 	qcom,initial-pwrlevel = <6>;
 
+	qcom,gpu-speed-bin = <0x413c 0x30000000 28>;
+
 	qcom,gpu-pwrlevel-bins {
 		#address-cells = <1>;
 		#size-cells = <0>;

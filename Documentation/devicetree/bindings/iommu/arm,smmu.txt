@@ -118,6 +118,15 @@ conditions.
 		  a call back notifier on regulators in whcih SMMU can be halted
 		  or resumed when regulator is powered down/up.
 
+- qcom,enable-static-cb : Enables option to use pre-defined static context bank
+		  allocation programmed by TZ. Global register including SMR and
+		  S2CR registers are configured by TZ before kernel comes up and
+		  this programming is not altered throughout the life of system.
+		  We would be reading through these registers at run time to
+		  identify CB allocated for a particular sid. SID masking isn't
+		  supported as we are directly comparing client SID with ID bits
+		  of SMR registers.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,10 +73,10 @@
 				C6 57 07 4A 07 4A 01 0E
 				01 02 01 02 09 15 07
 			29 01 00 00 00 00 1F
-				C7 00 13 1E 2A 3A 47 50
-				5D 40 48 52 5F 67 6F 7A
-				00 13 1E 2A 3A 47 50 5D
-				40 48 52 5F 67 6F 7A
+				C7 00 06 0C 16 27 35 3F
+				4D 33 3C 49 5B 64 66 67
+				00 06 0C 16 27 35 3F 4D
+				33 3C 49 5B 64 66 67
 			29 01 00 00 00 00 14
 				C8 00 00 FE 01 08 E7 00
 				00 FD 02 03 A8 00 00 FC
@@ -85,19 +85,19 @@
 				C9 1F 68 1F 68 4C 4C C4
 				11
 			29 01 00 00 00 00 11
-				D0 33 01 91 0B D9 19 19
+				D0 11 01 91 0B D9 19 19
 				00 00 00 19 99 00 00 00
 				00
 			29 01 00 00 00 00 1D
 				D3 1B 3B BB AD A5 33 33
-				33 00 80 AD A8 5B 5B 33
+				33 00 80 AD A8 37 33 33
 				33 33 F7 F2 1F 7D 7C FF
 				0F 99 00 FF FF
 			29 01 00 00 00 00 04
 				D4 57 33 03
 			29 01 00 00 00 00 0C
-				D5 66 00 00 01 33 01 33
-				00 43 00 43
+				D5 66 00 00 01 32 01 32
+				00 0b 00 0b
 			29 01 00 00 00 00 02 BE 04
 			29 01 00 00 00 00 11
 				CF 40 10 00 00 00 00 32

@@ -940,10 +940,12 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	if (is_dynamic_output_buffer_mode(b, inst)) {
-		if (!buffer_info)
-			return -EINVAL;
+	rc = output_buffer_cache_invalidate(inst, buffer_info);
+	if (rc)
+		return rc;
 
+
+	if (is_dynamic_output_buffer_mode(b, inst)) {
 		buffer_info->dequeued = true;
 
 		dprintk(VIDC_DBG, "[DEQUEUED]: fd[0] = %d\n",
@@ -951,8 +953,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		mutex_lock(&inst->registeredbufs.lock);
 		rc = unmap_and_deregister_buf(inst, buffer_info);
 		mutex_unlock(&inst->registeredbufs.lock);
-	} else
-		rc = output_buffer_cache_invalidate(inst, buffer_info);
+	}
 
 	return rc;
 }

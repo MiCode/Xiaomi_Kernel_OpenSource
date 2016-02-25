@@ -2649,8 +2649,14 @@ static void msm_otg_sm_work(struct work_struct *w)
 
 	/* Just resume h/w if reqd, pm_count is handled based on state/inputs */
 	if (motg->resume_pending) {
-		pm_runtime_get_noresume(otg->phy->dev);
-		msm_otg_resume(motg);
+		pm_runtime_get_sync(otg->phy->dev);
+		if (atomic_read(&motg->in_lpm)) {
+			dev_err(dev, "SM WORK: USB is in LPM\n");
+			msm_otg_dbg_log_event(&motg->phy,
+					"SM WORK: USB IS IN LPM",
+					otg->phy->state, motg->inputs);
+			msm_otg_resume(motg);
+		}
 		motg->resume_pending = false;
 		pm_runtime_put_noidle(otg->phy->dev);
 	}

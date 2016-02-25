@@ -331,4 +331,9 @@
 #define clk_dsi1pll_vco_clk				 0x99797b50
 #define clk_mdss_dsi1_vco_clk_src			 0xfcd15658
 
+#define clk_dsi0pll_shadow_byte_clk_src			 0x177c029c
+#define clk_dsi0pll_shadow_pixel_clk_src		 0x98ae3c92
+#define clk_dsi1pll_shadow_byte_clk_src			 0xfc021ce5
+#define clk_dsi1pll_shadow_pixel_clk_src		 0xdcca3ffc
+
 #endif

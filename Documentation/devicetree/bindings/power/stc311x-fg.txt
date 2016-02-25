@@ -40,8 +40,12 @@ a 0-100 percentage representing the amount of charge left in the battery.
 	Value type:	<u16 array> in mV.
 	Definition:	This specifies an array of battery open circuit voltages at
 			different SOC points.
-			SOC points: [0 3 6 10 15 20 25 30 40 50 60 65 70 80 90
-					100].
+
+- st,soc-tbl
+	Usage:		Required
+	Value type:	<u8 array>.
+	Definition:	This specifies an array of SOC points associated with
+			OCV table.
 
 - st,vmtemp-tbl
 	Usage:		Required
@@ -94,6 +98,11 @@ a 0-100 percentage representing the amount of charge left in the battery.
 	Value type:	Boolean
 	Definition:	This is to force FG always in low power voltage mode.
 
+- st,enable-soc-correction
+	Usage:		Optional
+	Value type:	Boolean
+	Definition:	This is to enable soc correction algorithm.
+
 Example:
 	st-fg@70 {
 		compatible = "st,stc3117";
@@ -114,6 +123,8 @@ Example:
 		st,ocv-tbl = /bits/ 16 <3300 3528 3667 3731 3753 3765 3772
 					3792 3827 3900 3929 3957 3513 4072
 					4167>;
+		st,soc-tbl = /bits/ 8 <0 3 6 10 15 20 25 30 40 50 60 65
+					70 80 90 100>;
 		st,vmtemp-tbl = /bits/ 16 <85 90 100 160 320 440 840>
 		st,temp-tbl = /bits/ 16 <60 40 25 10 0 (-10) (-20)>;
 	};

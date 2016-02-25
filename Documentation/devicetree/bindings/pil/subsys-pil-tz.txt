@@ -61,6 +61,9 @@ Optional properties:
 - qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
 - qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
                            on behalf of the subsystem driver.
+- qcom,pil-generic-irq-handler: generic interrupt handler used for communication with subsytem
+				based on bit values in scsr registers.
+- qcom,spss-scsr-bits: array of bit positions into the scsr registers used in generic handler.
 
 Example:
 	qcom,venus@fdce0000 {

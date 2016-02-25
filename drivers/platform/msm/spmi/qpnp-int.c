@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,7 @@ struct q_perip_data {
 	uint8_t pol_low;    /* bitmap */
 	uint8_t int_en;     /* bitmap */
 	uint8_t use_count;
+	spinlock_t lock;
 };
 
 struct q_irq_data {
@@ -205,7 +206,7 @@ static void qpnpint_irq_mask(struct irq_data *d)
 	struct q_chip_data *chip_d = irq_d->chip_d;
 	struct q_perip_data *per_d = irq_d->per_d;
 	int rc;
-	uint8_t prev_int_en = per_d->int_en;
+	uint8_t prev_int_en;
 
 	pr_debug("hwirq %lu irq: %d\n", d->hwirq, d->irq);
 
@@ -216,6 +217,8 @@ static void qpnpint_irq_mask(struct irq_data *d)
 		return;
 	}
 
+	spin_lock(&per_d->lock);
+	prev_int_en = per_d->int_en;
 	per_d->int_en &= ~irq_d->mask_shift;
 
 	if (prev_int_en && !(per_d->int_en)) {
@@ -225,6 +228,7 @@ static void qpnpint_irq_mask(struct irq_data *d)
 		 */
 		qpnpint_arbiter_op(d, irq_d, chip_d->cb->mask);
 	}
+	spin_unlock(&per_d->lock);
 
 	rc = qpnpint_spmi_write(irq_d, QPNPINT_REG_EN_CLR,
 					(u8 *)&irq_d->mask_shift, 1);
@@ -251,7 +255,7 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 	struct q_perip_data *per_d = irq_d->per_d;
 	int rc;
 	uint8_t buf[2];
-	uint8_t prev_int_en = per_d->int_en;
+	uint8_t prev_int_en;
 
 	pr_debug("hwirq %lu irq: %d\n", d->hwirq, d->irq);
 
@@ -262,6 +266,8 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 		return;
 	}
 
+	spin_lock(&per_d->lock);
+	prev_int_en = per_d->int_en;
 	per_d->int_en |= irq_d->mask_shift;
 	if (!prev_int_en && per_d->int_en) {
 		/*
@@ -271,6 +277,7 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 		 */
 		qpnpint_arbiter_op(d, irq_d, chip_d->cb->unmask);
 	}
+	spin_unlock(&per_d->lock);
 
 	/* Check the current state of the interrupt enable bit. */
 	rc = qpnpint_spmi_read(irq_d, QPNPINT_REG_EN_SET, buf, 1);
@@ -429,6 +436,7 @@ static struct q_irq_data *qpnpint_alloc_irq_data(
 			rc = -ENOMEM;
 			goto alloc_fail;
 		}
+		spin_lock_init(&per_d->lock);
 		rc = radix_tree_preload(GFP_KERNEL);
 		if (rc)
 			goto alloc_fail;

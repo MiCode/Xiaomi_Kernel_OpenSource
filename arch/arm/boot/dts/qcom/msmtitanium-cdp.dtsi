@@ -12,6 +12,7 @@
  */
 
 #include "msmtitanium-pinctrl.dtsi"
+#include "msmtitanium-audio-cdp.dtsi"
 #include "msmtitanium-camera-sensor-cdp.dtsi"
 
 &spi_3 { /* BLSP1 QUP3 */
@@ -199,6 +200,8 @@
 
 &dsi_truly_1080_vid {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_clk_mode";
 };
 
 &dsi_truly_1080_cmd {
@@ -206,6 +209,13 @@
 	qcom,ulps-enabled;
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
+};
+
+&dsi_truly_wuxga_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pmtitanium_mpps 4 0>;
 };
 
 &blsp1_uart0 {

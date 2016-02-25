@@ -33,8 +33,6 @@
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
 
-#define ADRENO_PRIORITY_MAX_RB_LEVELS	4
-
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
 #define ADRENO_DEVICE(device) \
 		container_of(device, struct adreno_device, dev)
@@ -339,7 +337,7 @@ struct adreno_device {
 	struct kgsl_memdesc pm4;
 	size_t gpmu_cmds_size;
 	unsigned int *gpmu_cmds;
-	struct adreno_ringbuffer ringbuffers[ADRENO_PRIORITY_MAX_RB_LEVELS];
+	struct adreno_ringbuffer ringbuffers[KGSL_PRIORITY_MAX_RB_LEVELS];
 	int num_ringbuffers;
 	struct adreno_ringbuffer *cur_rb;
 	struct adreno_ringbuffer *next_rb;

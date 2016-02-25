@@ -3415,7 +3415,8 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		usleep_range(20000, 20100);
+		if (get_codec_version(msm8x16_wcd) <= TOMBAK_2_0)
+			usleep_range(20000, 20100);
 		if (strnstr(w->name, internal1_text, strlen(w->name))) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x40, 0x40);
 		} else if (strnstr(w->name, internal2_text,  strlen(w->name))) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -768,6 +768,9 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		else
 			msm_ssusb_qmp_enable_autonomous(phy, 1);
 
+		/* Make sure above write completed with PHY */
+		wmb();
+
 		clk_disable_unprepare(phy->cfg_ahb_clk);
 		clk_disable_unprepare(phy->aux_clk);
 		clk_disable_unprepare(phy->pipe_clk);
@@ -797,6 +800,10 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		} else  {
 			msm_ssusb_qmp_enable_autonomous(phy, 0);
 		}
+
+		/* Make sure that above write completed with PHY */
+		wmb();
+
 		phy->in_suspend = false;
 		dev_dbg(uphy->dev, "QMP PHY is resumed\n");
 	}

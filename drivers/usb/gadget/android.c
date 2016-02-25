@@ -518,14 +518,13 @@ static void android_disable(struct android_dev *dev)
 	struct android_configuration *conf;
 
 	if (dev->disable_depth++ == 0) {
-		usb_gadget_disconnect(cdev->gadget);
-		dev->last_disconnect = ktime_get();
-
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 
 		list_for_each_entry(conf, &dev->configs, list_item)
 			usb_remove_config(cdev, &conf->usb_config);
+		usb_gadget_disconnect(cdev->gadget);
+		dev->last_disconnect = ktime_get();
 	}
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,8 +25,6 @@ DEFINE_MSM_MUTEX(msm_ois_mutex);
 #else
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
-
-#define MAX_POLL_COUNT 100
 
 static struct v4l2_file_operations msm_ois_v4l2_subdev_fops;
 static int32_t msm_ois_power_up(struct msm_ois_ctrl_t *o_ctrl);
@@ -90,26 +88,25 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 					settings[i].data_type);
 				break;
 			}
+			if (settings[i].delay > 20)
+				msleep(settings[i].delay);
+			else if (0 != settings[i].delay)
+				usleep_range(settings[i].delay * 1000,
+					(settings[i].delay * 1000) + 1000);
 		}
 			break;
 
 		case MSM_OIS_POLL: {
-			int32_t poll_count = 0;
 			switch (settings[i].data_type) {
 			case MSM_CAMERA_I2C_BYTE_DATA:
 			case MSM_CAMERA_I2C_WORD_DATA:
-				do {
-					rc = o_ctrl->i2c_client.i2c_func_tbl
-						->i2c_poll(&o_ctrl->i2c_client,
-						settings[i].reg_addr,
-						settings[i].reg_data,
-						settings[i].data_type);
 
-					if (poll_count++ > MAX_POLL_COUNT) {
-						pr_err("MSM_OIS_POLL failed");
-						break;
-					}
-				} while (rc != 0);
+				rc = o_ctrl->i2c_client.i2c_func_tbl
+					->i2c_poll(&o_ctrl->i2c_client,
+					settings[i].reg_addr,
+					settings[i].reg_data,
+					settings[i].data_type,
+					settings[i].delay);
 				break;
 
 			default:
@@ -119,12 +116,6 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 			}
 		}
 		}
-
-		if (settings[i].delay > 20)
-			msleep(settings[i].delay);
-		else if (0 != settings[i].delay)
-			usleep_range(settings[i].delay * 1000,
-				(settings[i].delay * 1000) + 1000);
 
 		if (rc < 0)
 			break;
