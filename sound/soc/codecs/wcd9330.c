@@ -598,7 +598,7 @@ struct tomtom_priv {
 	unsigned int rx_port_value;
 	unsigned int tx_port_value;
 
-	struct mutex lock;
+	struct mutex codec_mutex;
 };
 
 static const u32 comp_shift[] = {
@@ -782,7 +782,7 @@ static int tomtom_put_anc_func(struct snd_kcontrol *kcontrol,
 	struct snd_soc_dapm_context *dapm =
 				snd_soc_codec_get_dapm(codec);
 
-	mutex_lock(&tomtom->lock);
+	mutex_lock(&tomtom->codec_mutex);
 	tomtom->anc_func = (!ucontrol->value.integer.value[0] ? false : true);
 
 	dev_dbg(codec->dev, "%s: anc_func %x", __func__, tomtom->anc_func);
@@ -810,7 +810,7 @@ static int tomtom_put_anc_func(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_enable_pin(dapm, "EAR PA");
 		snd_soc_dapm_enable_pin(dapm, "EAR");
 	}
-	mutex_unlock(&tomtom->lock);
+	mutex_unlock(&tomtom->codec_mutex);
 	snd_soc_dapm_sync(dapm);
 	return 0;
 }
@@ -2517,13 +2517,13 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 		widget->name, ucontrol->id.name, tomtom_p->tx_port_value,
 		widget->shift, ucontrol->value.integer.value[0]);
 
-	mutex_lock(&tomtom_p->lock);
+	mutex_lock(&tomtom_p->codec_mutex);
 
 	if (tomtom_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		if (dai_id != AIF1_CAP) {
 			dev_err(codec->dev, "%s: invalid AIF for I2C mode\n",
 				__func__);
-			mutex_unlock(&tomtom_p->lock);
+			mutex_unlock(&tomtom_p->codec_mutex);
 			return -EINVAL;
 		}
 	}
@@ -2548,7 +2548,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 					tomtom_p->dai, NUM_CODEC_DAIS)) {
 				dev_dbg(codec->dev, "%s: TX%u is used by other virtual port\n",
 					__func__, port_id + 1);
-				mutex_unlock(&tomtom_p->lock);
+				mutex_unlock(&tomtom_p->codec_mutex);
 				return 0;
 			}
 			tomtom_p->tx_port_value |= 1 << port_id;
@@ -2569,20 +2569,20 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 					"this virtual port\n",
 					__func__, port_id + 1);
 			/* avoid update power function */
-			mutex_unlock(&tomtom_p->lock);
+			mutex_unlock(&tomtom_p->codec_mutex);
 			return 0;
 		}
 		break;
 	default:
 		pr_err("Unknown AIF %d\n", dai_id);
-		mutex_unlock(&tomtom_p->lock);
+		mutex_unlock(&tomtom_p->codec_mutex);
 		return -EINVAL;
 	}
 	pr_debug("%s: name %s sname %s updated value %u shift %d\n", __func__,
 		widget->name, widget->sname, tomtom_p->tx_port_value,
 		widget->shift);
 
-	mutex_unlock(&tomtom_p->lock);
+	mutex_unlock(&tomtom_p->codec_mutex);
 	snd_soc_dapm_mixer_update_power(widget->dapm, kcontrol, enable, update);
 
 	return 0;
@@ -2624,7 +2624,7 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 
 	tomtom_p->rx_port_value = ucontrol->value.enumerated.item[0];
 
-	mutex_lock(&tomtom_p->lock);
+	mutex_lock(&tomtom_p->codec_mutex);
 
 	if (tomtom_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		if (tomtom_p->rx_port_value > 2) {
@@ -2677,13 +2677,13 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		goto err;
 	}
 rtn:
-	mutex_unlock(&tomtom_p->lock);
+	mutex_unlock(&tomtom_p->codec_mutex);
 	snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
 					tomtom_p->rx_port_value, e, update);
 
 	return 0;
 err:
-	mutex_unlock(&tomtom_p->lock);
+	mutex_unlock(&tomtom_p->codec_mutex);
 	return -EINVAL;
 }
 
@@ -3960,7 +3960,7 @@ static int __tomtom_codec_enable_ldo_h(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/*
-		 * ldo_h_users is protected by tomtom->lock, don't need
+		 * ldo_h_users is protected by tomtom->codec_mutex, don't need
 		 * additional mutex
 		 */
 		if (++priv->ldo_h_users == 1) {
@@ -8292,7 +8292,7 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	snd_soc_card_change_online_state(codec->component.card, 1);
 	clear_bit(BUS_DOWN, &tomtom->status_mask);
 
-	mutex_lock(&tomtom->lock);
+	mutex_lock(&tomtom->codec_mutex);
 
 	tomtom_update_reg_defaults(codec);
 	if (wcd9xxx->mclk_rate == TOMTOM_MCLK_CLK_12P288MHZ)
@@ -8343,7 +8343,7 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	 * handling is finished.
 	 */
 	tomtom_enable_qfuse_sensing(codec);
-	mutex_unlock(&tomtom->lock);
+	mutex_unlock(&tomtom->codec_mutex);
 	return ret;
 }
 
@@ -8772,13 +8772,13 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	atomic_set(&kp_tomtom_priv, (unsigned long)tomtom);
-	mutex_lock(&tomtom->lock);
+	mutex_lock(&tomtom->codec_mutex);
 	snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
 	snd_soc_dapm_disable_pin(dapm, "ANC HPHR");
 	snd_soc_dapm_disable_pin(dapm, "ANC HEADPHONE");
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR");
-	mutex_unlock(&tomtom->lock);
+	mutex_unlock(&tomtom->codec_mutex);
 	snd_soc_dapm_sync(dapm);
 
 	codec->component.ignore_pmdown_time = 1;
@@ -8894,14 +8894,14 @@ static int tomtom_probe(struct platform_device *pdev)
 	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
 		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tomtom,
 			tomtom_i2s_dai, ARRAY_SIZE(tomtom_i2s_dai));
-	mutex_init(&tomtom->lock);
+	mutex_init(&tomtom->codec_mutex);
 	return ret;
 }
 static int tomtom_remove(struct platform_device *pdev)
 {
 	struct tomtom_priv *tomtom = platform_get_drvdata(pdev);
 
-	mutex_destroy(&tomtom->lock);
+	mutex_destroy(&tomtom->codec_mutex);
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }

@@ -1865,7 +1865,7 @@ static int wcd9xxx_init_supplies(struct wcd9xxx *wcd9xxx,
 			goto err_get;
 		}
 
-		ret = regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer,
+		ret = regulator_set_load(wcd9xxx->supplies[i].consumer,
 						pdata->regulator[i].optimum_uA);
 		if (ret < 0) {
 			pr_err("%s: Setting regulator optimum mode failed for regulator %s err = %d\n",
@@ -1947,7 +1947,7 @@ static void wcd9xxx_release_supplies(struct wcd9xxx *wcd9xxx,
 			continue;
 		regulator_set_voltage(wcd9xxx->supplies[i].consumer, 0,
 				      pdata->regulator[i].max_uV);
-		regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer, 0);
+		regulator_set_load(wcd9xxx->supplies[i].consumer, 0);
 	}
 	regulator_bulk_free(wcd9xxx->num_of_supplies, wcd9xxx->supplies);
 	kfree(wcd9xxx->supplies);
@@ -3078,9 +3078,10 @@ static int wcd9xxx_slim_resume(struct slim_device *sldev)
 	return wcd9xxx_core_res_resume(&wcd9xxx->core_res);
 }
 
-static int wcd9xxx_i2c_resume(struct i2c_client *i2cdev)
+static int wcd9xxx_i2c_resume(struct device *dev)
 {
-	struct wcd9xxx *wcd9xxx = dev_get_drvdata(&i2cdev->dev);
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(dev);
+
 	if (wcd9xxx)
 		return wcd9xxx_core_res_resume(&wcd9xxx->core_res);
 	else
@@ -3093,9 +3094,11 @@ static int wcd9xxx_slim_suspend(struct slim_device *sldev, pm_message_t pmesg)
 	return wcd9xxx_core_res_suspend(&wcd9xxx->core_res, pmesg);
 }
 
-static int wcd9xxx_i2c_suspend(struct i2c_client *i2cdev, pm_message_t pmesg)
+static int wcd9xxx_i2c_suspend(struct device *dev)
 {
-	struct wcd9xxx *wcd9xxx = dev_get_drvdata(&i2cdev->dev);
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(dev);
+	pm_message_t pmesg = {0};
+
 	if (wcd9xxx)
 		return wcd9xxx_core_res_suspend(&wcd9xxx->core_res, pmesg);
 	else
@@ -3270,40 +3273,42 @@ static struct i2c_device_id tabla_id_table[] = {
 };
 MODULE_DEVICE_TABLE(i2c, tabla_id_table);
 
+static const struct dev_pm_ops wcd9xxx_i2c_pm_ops = {
+	.suspend = wcd9xxx_i2c_suspend,
+	.resume	= wcd9xxx_i2c_resume,
+};
+
 static struct i2c_driver tabla_i2c_driver = {
 	.driver                 = {
 		.owner          =       THIS_MODULE,
 		.name           =       "tabla-i2c-core",
+		.pm		=	&wcd9xxx_i2c_pm_ops,
 	},
 	.id_table               =       tabla_id_table,
 	.probe                  =       wcd9xxx_i2c_probe,
 	.remove                 =       wcd9xxx_i2c_remove,
-	.resume	= wcd9xxx_i2c_resume,
-	.suspend = wcd9xxx_i2c_suspend,
 };
 
 static struct i2c_driver wcd9xxx_i2c_driver = {
 	.driver                 = {
 		.owner          =       THIS_MODULE,
 		.name           =       "wcd9xxx-i2c-core",
+		.pm		=	&wcd9xxx_i2c_pm_ops,
 	},
 	.id_table               =       wcd9xxx_id_table,
 	.probe                  =       wcd9xxx_i2c_probe,
 	.remove                 =       wcd9xxx_i2c_remove,
-	.resume	= wcd9xxx_i2c_resume,
-	.suspend = wcd9xxx_i2c_suspend,
 };
 
 static struct i2c_driver wcd9335_i2c_driver = {
 	.driver	                = {
 		.owner	        =       THIS_MODULE,
 		.name           =       "tasha-i2c-core",
+		.pm		=	&wcd9xxx_i2c_pm_ops,
 	},
 	.id_table               =       tasha_id_table,
 	.probe                  =       wcd9xxx_i2c_probe,
 	.remove                 =       wcd9xxx_i2c_remove,
-	.resume = wcd9xxx_i2c_resume,
-	.suspend = wcd9xxx_i2c_suspend,
 };
 
 static int __init wcd9xxx_init(void)

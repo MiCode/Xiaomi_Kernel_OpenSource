@@ -392,37 +392,37 @@ static const struct file_operations codec_debug_ops = {
 	.read = codec_debug_read,
 };
 
-static const struct reg_default wsa881x_pre_pmu_pa[] = {
-	{WSA881X_SPKR_DRV_GAIN, 0x41},
-	{WSA881X_SPKR_MISC_CTL1, 0x01},
-	{WSA881X_ADC_EN_DET_TEST_I, 0x01},
-	{WSA881X_ADC_EN_MODU_V, 0x02},
-	{WSA881X_ADC_EN_DET_TEST_V, 0x10},
-	{WSA881X_SPKR_PWRSTG_DBG, 0xA0},
+static const struct reg_sequence wsa881x_pre_pmu_pa[] = {
+	{WSA881X_SPKR_DRV_GAIN, 0x41, 0},
+	{WSA881X_SPKR_MISC_CTL1, 0x01, 0},
+	{WSA881X_ADC_EN_DET_TEST_I, 0x01, 0},
+	{WSA881X_ADC_EN_MODU_V, 0x02, 0},
+	{WSA881X_ADC_EN_DET_TEST_V, 0x10, 0},
+	{WSA881X_SPKR_PWRSTG_DBG, 0xA0, 0},
 };
 
-static const struct reg_default wsa881x_pre_pmu_pa_2_0[] = {
-	{WSA881X_SPKR_DRV_GAIN, 0x41},
-	{WSA881X_SPKR_MISC_CTL1, 0x87},
+static const struct reg_sequence wsa881x_pre_pmu_pa_2_0[] = {
+	{WSA881X_SPKR_DRV_GAIN, 0x41, 0},
+	{WSA881X_SPKR_MISC_CTL1, 0x87, 0},
 };
 
-static const struct reg_default wsa881x_post_pmu_pa[] = {
-	{WSA881X_SPKR_PWRSTG_DBG, 0x00},
-	{WSA881X_ADC_EN_DET_TEST_V, 0x00},
-	{WSA881X_ADC_EN_MODU_V, 0x00},
-	{WSA881X_ADC_EN_DET_TEST_I, 0x00},
+static const struct reg_sequence wsa881x_post_pmu_pa[] = {
+	{WSA881X_SPKR_PWRSTG_DBG, 0x00, 0},
+	{WSA881X_ADC_EN_DET_TEST_V, 0x00, 0},
+	{WSA881X_ADC_EN_MODU_V, 0x00, 0},
+	{WSA881X_ADC_EN_DET_TEST_I, 0x00, 0},
 };
 
-static const struct reg_default wsa881x_vi_txfe_en[] = {
-	{WSA881X_SPKR_PROT_FE_VSENSE_VCM, 0x85},
-	{WSA881X_SPKR_PROT_ATEST2, 0x0A},
-	{WSA881X_SPKR_PROT_FE_GAIN, 0xCF},
+static const struct reg_sequence wsa881x_vi_txfe_en[] = {
+	{WSA881X_SPKR_PROT_FE_VSENSE_VCM, 0x85, 0},
+	{WSA881X_SPKR_PROT_ATEST2, 0x0A, 0},
+	{WSA881X_SPKR_PROT_FE_GAIN, 0xCF, 0},
 };
 
-static const struct reg_default wsa881x_vi_txfe_en_2_0[] = {
-	{WSA881X_SPKR_PROT_FE_VSENSE_VCM, 0x85},
-	{WSA881X_SPKR_PROT_ATEST2, 0x0A},
-	{WSA881X_SPKR_PROT_FE_GAIN, 0xCF},
+static const struct reg_sequence wsa881x_vi_txfe_en_2_0[] = {
+	{WSA881X_SPKR_PROT_FE_VSENSE_VCM, 0x85, 0},
+	{WSA881X_SPKR_PROT_ATEST2, 0x0A, 0},
+	{WSA881X_SPKR_PROT_FE_GAIN, 0x47, 0},
 };
 
 static int wsa881x_boost_ctrl(struct snd_soc_codec *codec, bool enable)
@@ -640,7 +640,7 @@ static int wsa881x_set_port(struct snd_soc_codec *codec, int port_idx,
 static int wsa881x_enable_swr_dac_port(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
-	struct snd_soc_codec *codec = w->codec;
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 	u8 port_id[WSA881X_MAX_SWR_PORTS];
 	u8 num_ch[WSA881X_MAX_SWR_PORTS];
@@ -714,7 +714,7 @@ static int wsa881x_enable_swr_dac_port(struct snd_soc_dapm_widget *w,
 static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *kcontrol, int event)
 {
-	struct snd_soc_codec *codec = w->codec;
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s: %s %d boost %d visense %d\n", __func__,
@@ -778,7 +778,7 @@ static void wsa881x_ocp_ctl_work(struct work_struct *work)
 static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *kcontrol, int event)
 {
-	struct snd_soc_codec *codec = w->codec;
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);

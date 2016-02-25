@@ -757,6 +757,7 @@ struct tasha_priv {
 	int spkr_mode;
 	struct hpf_work tx_hpf_work[TASHA_NUM_DECIMATORS];
 	struct tx_mute_work tx_mute_dwork[TASHA_NUM_DECIMATORS];
+	struct mutex codec_mutex;
 };
 
 static int tasha_codec_vote_max_bw(struct snd_soc_codec *codec,
@@ -1930,7 +1931,7 @@ static int tasha_put_anc_func(struct snd_kcontrol *kcontrol,
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 
-	mutex_lock(&tasha->lock);
+	mutex_lock(&tasha->codec_mutex);
 	tasha->anc_func = (!ucontrol->value.integer.value[0] ? false : true);
 
 	dev_dbg(codec->dev, "%s: anc_func %x", __func__, tasha->anc_func);
@@ -1978,7 +1979,7 @@ static int tasha_put_anc_func(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_enable_pin(dapm, "EAR PA");
 		snd_soc_dapm_enable_pin(dapm, "EAR");
 	}
-	mutex_unlock(&tasha->lock);
+	mutex_unlock(&tasha->codec_mutex);
 	snd_soc_dapm_sync(dapm);
 	return 0;
 }
@@ -2093,7 +2094,7 @@ static int tasha_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 
 	tasha_p->vi_feed_value = ucontrol->value.integer.value[0];
 
-	mutex_lock(&tasha_p->lock);
+	mutex_lock(&tasha_p->codec_mutex);
 	if (enable) {
 		if (port_id == TASHA_TX14 && !test_bit(VI_SENSE_1,
 						&tasha_p->status_mask)) {
@@ -2119,7 +2120,7 @@ static int tasha_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 			clear_bit(VI_SENSE_2, &tasha_p->status_mask);
 		}
 	}
-	mutex_unlock(&tasha_p->lock);
+	mutex_unlock(&tasha_p->codec_mutex);
 	snd_soc_dapm_mixer_update_power(widget->dapm, kcontrol, enable, NULL);
 
 	return 0;
@@ -2162,12 +2163,12 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 		widget->name, ucontrol->id.name, tasha_p->tx_port_value,
 		widget->shift, ucontrol->value.integer.value[0]);
 
-	mutex_lock(&tasha_p->lock);
+	mutex_lock(&tasha_p->codec_mutex);
 
 	if (dai_id >= ARRAY_SIZE(vport_check_table)) {
 		dev_err(codec->dev, "%s: dai_id: %d, out of bounds\n",
 			__func__, dai_id);
-			mutex_unlock(&tasha_p->lock);
+			mutex_unlock(&tasha_p->codec_mutex);
 		return -EINVAL;
 	}
 	vtable = vport_check_table[dai_id];
@@ -2175,7 +2176,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 		if (dai_id != AIF1_CAP) {
 			dev_err(codec->dev, "%s: invalid AIF for I2C mode\n",
 				__func__);
-			mutex_unlock(&tasha_p->lock);
+			mutex_unlock(&tasha_p->codec_mutex);
 			return -EINVAL;
 		}
 	}
@@ -2190,7 +2191,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 					tasha_p->dai, NUM_CODEC_DAIS)) {
 				dev_dbg(codec->dev, "%s: TX%u is used by other virtual port\n",
 					__func__, port_id);
-				mutex_unlock(&tasha_p->lock);
+				mutex_unlock(&tasha_p->codec_mutex);
 				return 0;
 			}
 			tasha_p->tx_port_value |= 1 << port_id;
@@ -2211,7 +2212,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 					"this virtual port\n",
 					__func__, port_id);
 			/* avoid update power function */
-			mutex_unlock(&tasha_p->lock);
+			mutex_unlock(&tasha_p->codec_mutex);
 			return 0;
 		}
 		break;
@@ -2219,14 +2220,14 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 		break;
 	default:
 		pr_err("Unknown AIF %d\n", dai_id);
-		mutex_unlock(&tasha_p->lock);
+		mutex_unlock(&tasha_p->codec_mutex);
 		return -EINVAL;
 	}
 	pr_debug("%s: name %s sname %s updated value %u shift %d\n", __func__,
 		widget->name, widget->sname, tasha_p->tx_port_value,
 		widget->shift);
 
-	mutex_unlock(&tasha_p->lock);
+	mutex_unlock(&tasha_p->codec_mutex);
 	snd_soc_dapm_mixer_update_power(widget->dapm, kcontrol, enable, update);
 
 	return 0;
@@ -2268,7 +2269,7 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 
 	tasha_p->rx_port_value = ucontrol->value.enumerated.item[0];
 
-	mutex_lock(&tasha_p->lock);
+	mutex_lock(&tasha_p->codec_mutex);
 
 	if (tasha_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		if (tasha_p->rx_port_value > 2) {
@@ -2331,13 +2332,13 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		goto err;
 	}
 rtn:
-	mutex_unlock(&tasha_p->lock);
+	mutex_unlock(&tasha_p->codec_mutex);
 	snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
 					tasha_p->rx_port_value, e, update);
 
 	return 0;
 err:
-	mutex_unlock(&tasha_p->lock);
+	mutex_unlock(&tasha_p->codec_mutex);
 	return -EINVAL;
 }
 
@@ -11707,7 +11708,7 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 				WCD_REGION_POWER_COLLAPSE_REMOVE,
 				WCD9XXX_DIG_CORE_REGION_1);
 
-	mutex_lock(&tasha->lock);
+	mutex_lock(&tasha->codec_mutex);
 
 	tasha_slimbus_slave_port_cfg.slave_dev_intfdev_la =
 		control->slim_slave->laddr;
@@ -11781,7 +11782,7 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	wcd_cpe_ssr_event(tasha->cpe_core, WCD_CPE_BUS_UP_EVENT);
 
 err:
-	mutex_unlock(&tasha->lock);
+	mutex_unlock(&tasha->codec_mutex);
 	return ret;
 }
 
@@ -11944,7 +11945,7 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 			  tasha_tx_mute_update_callback);
 	}
 
-	mutex_lock(&tasha->lock);
+	mutex_lock(&tasha->codec_mutex);
 	snd_soc_dapm_disable_pin(dapm, "ANC LINEOUT1");
 	snd_soc_dapm_disable_pin(dapm, "ANC LINEOUT2");
 	snd_soc_dapm_disable_pin(dapm, "ANC LINEOUT1 PA");
@@ -11955,7 +11956,7 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_disable_pin(dapm, "ANC HPHR PA");
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR");
-	mutex_unlock(&tasha->lock);
+	mutex_unlock(&tasha->codec_mutex);
 	snd_soc_dapm_sync(dapm);
 
 	return ret;
@@ -12359,6 +12360,7 @@ static int tasha_probe(struct platform_device *pdev)
 			goto cdc_reg_fail;
 		}
 	}
+	mutex_init(&tasha->codec_mutex);
 	/*
 	 * Init resource manager so that if child nodes such as SoundWire
 	 * requests for clock, resource manager can honor the request
@@ -12420,6 +12422,7 @@ static int tasha_remove(struct platform_device *pdev)
 
 	tasha = platform_get_drvdata(pdev);
 
+	mutex_destroy(&tasha->codec_mutex);
 	clk_put(tasha->wcd_ext_clk);
 	if (tasha->wcd_native_clk)
 		clk_put(tasha->wcd_native_clk);

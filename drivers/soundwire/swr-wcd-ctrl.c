@@ -474,7 +474,7 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 	int ret = 0;
-	int val;
+	int val = 0;
 	u8 *reg_val = (u8 *)buf;
 
 	if (!swrm) {
@@ -990,7 +990,7 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 				u8 *dev_num)
 {
 	int i;
-	u64 id;
+	u64 id = 0;
 	int ret = -EINVAL;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(mstr);
 
@@ -1270,7 +1270,7 @@ static int swrm_clk_pause(struct swr_mstr_ctrl *swrm)
 	return 0;
 }
 
-#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_PM
 static int swrm_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1343,7 +1343,7 @@ exit:
 	mutex_unlock(&swrm->reslock);
 	return ret;
 }
-#endif /* CONFIG_PM_RUNTIME */
+#endif /* CONFIG_PM */
 
 static int swrm_device_down(struct device *dev)
 {

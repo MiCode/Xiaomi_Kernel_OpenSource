@@ -536,15 +536,7 @@ int wcd9xxx_request_irq(struct wcd9xxx_core_resource *wcd9xxx_res,
 
 	virq = phyirq_to_virq(wcd9xxx_res, irq);
 
-	/*
-	 * ARM needs us to explicitly flag the IRQ as valid
-	 * and will set them noprobe when we do so.
-	 */
-#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
-	set_irq_flags(virq, IRQF_VALID);
-#else
-	set_irq_noprobe(virq);
-#endif
+	irq_modify_status(virq, IRQ_NOREQUEST, (IRQ_NOPROBE | IRQ_NOAUTOEN));
 
 	return request_threaded_irq(virq, NULL, handler, IRQF_TRIGGER_RISING,
 				    name, data);

@@ -35,8 +35,7 @@
 			   SND_JACK_UNSUPPORTED | SND_JACK_MECHANICAL)
 #define WCD_MBHC_JACK_BUTTON_MASK (SND_JACK_BTN_0 | SND_JACK_BTN_1 | \
 				  SND_JACK_BTN_2 | SND_JACK_BTN_3 | \
-				  SND_JACK_BTN_4 | SND_JACK_BTN_5 | \
-				  SND_JACK_BTN_6 | SND_JACK_BTN_7)
+				  SND_JACK_BTN_4 | SND_JACK_BTN_5 )
 #define OCP_ATTEMPT 1
 #define HS_DETECT_PLUG_TIME_MS (3 * 1000)
 #define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
@@ -1380,12 +1379,6 @@ static int wcd_mbhc_get_button_mask(struct wcd_mbhc *mbhc)
 	case 5:
 		mask = SND_JACK_BTN_5;
 		break;
-	case 6:
-		mask = SND_JACK_BTN_6;
-		break;
-	case 7:
-		mask = SND_JACK_BTN_7;
-		break;
 	default:
 		break;
 	}
@@ -1967,12 +1960,6 @@ int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
 			case 5:
 				type = SND_JACK_BTN_5;
 				break;
-			case 6:
-				type = SND_JACK_BTN_6;
-				break;
-			case 7:
-				type = SND_JACK_BTN_7;
-				break;
 			default:
 				WARN_ONCE(1, "Wrong button number:%d\n", i);
 				result = -1;
@@ -2119,16 +2106,18 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	}
 
 	if (mbhc->headset_jack.jack == NULL) {
-		ret = snd_soc_jack_new(codec, "Headset Jack",
-				WCD_MBHC_JACK_MASK, &mbhc->headset_jack);
+		ret = snd_soc_card_jack_new(codec->component.card,
+					    "Headset Jack", WCD_MBHC_JACK_MASK,
+					    &mbhc->headset_jack, NULL, 0);
 		if (ret) {
 			pr_err("%s: Failed to create new jack\n", __func__);
 			return ret;
 		}
 
-		ret = snd_soc_jack_new(codec, "Button Jack",
-				       WCD_MBHC_JACK_BUTTON_MASK,
-				       &mbhc->button_jack);
+		ret = snd_soc_card_jack_new(codec->component.card,
+					    "Button Jack",
+					    WCD_MBHC_JACK_BUTTON_MASK,
+					    &mbhc->button_jack, NULL, 0);
 		if (ret) {
 			pr_err("Failed to create new jack\n");
 			return ret;
