@@ -67,3 +67,7 @@
 
 	/delete-node/qcom,gpu-speed-config@0;
 };
+
+&kgsl_msm_iommu {
+		qcom,retention;
+};
