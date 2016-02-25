@@ -107,19 +107,6 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
-&audio_codec {
-	pinctrl-4 =     <&cdc_pdm_lines_act &cdc_ext_pa_act
-			&cdc_ext_pa_d0_act &cdc_ext_mclk_act
-			&cross_conn_det_act>;
-	pinctrl-5 =     <&cdc_pdm_lines_sus &cdc_ext_pa_sus
-			&cdc_ext_pa_d0_sus &cdc_ext_mclk_sus
-			&cross_conn_det_sus>;
-	pinctrl-6 =     <&cdc_pdm_lines_act &cdc_ext_tlmm_act
-			&cdc_ext_mclk_act &cross_conn_det_act>;
-	pinctrl-7 =     <&cdc_pdm_lines_sus &cdc_ext_tlmm_sus
-			&cdc_ext_mclk_sus &cross_conn_det_sus>;
-};
-
 &soc {
 	tlmm_pinmux: pinctrl@1000000 {
 		vdd_spkdrv {
