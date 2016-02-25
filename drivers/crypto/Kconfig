@@ -557,7 +557,7 @@ config CRYPTO_DEV_SUN4I_SS
 	  will be called sun4i-ss.
 
 if ARCH_QCOM
-source "drivers/crypto/msm/Kconfig"
+source drivers/crypto/msm/Kconfig
 endif # ARCH_QCOM
 
 
