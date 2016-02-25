@@ -32,6 +32,7 @@
 #include <linux/msm-sps.h>
 #include <linux/usb_bam.h>
 #include <linux/usb/usb_qdss.h>
+#include <soc/qcom/memory_dump.h>
 
 #include "coresight-priv.h"
 
@@ -162,6 +163,8 @@ struct tmc_etr_bam_data {
  * @enable:	this TMC is being used.
  * @config_type: TMC variant, must be of type @tmc_config_type.
  * @trigger_cntr: amount of words to store after a trigger.
+ * @reg_data:	MSM memory dump data to store TMC registers.
+ * @buf_data:	MSM memory dump data to store ETF/ETB buffer.
  */
 struct tmc_drvdata {
 	void __iomem		*base;
@@ -188,6 +191,8 @@ struct tmc_drvdata {
 	struct usb_qdss_ch	*usbch;
 	struct tmc_etr_bam_data	*bamdata;
 	bool			enable_to_bam;
+	struct msm_dump_data	reg_data;
+	struct msm_dump_data	buf_data;
 };
 
 static void tmc_wait_for_ready(struct tmc_drvdata *drvdata)
@@ -1606,6 +1611,67 @@ static struct attribute *coresight_etf_attrs[] = {
 };
 ATTRIBUTE_GROUPS(coresight_etf);
 
+static int tmc_etf_set_buf_dump(struct tmc_drvdata *drvdata)
+{
+	int ret;
+	struct msm_dump_entry dump_entry;
+	static int count;
+
+	drvdata->buf_data.addr = virt_to_phys(drvdata->buf);
+	drvdata->buf_data.len = drvdata->size;
+	dump_entry.id = MSM_DUMP_DATA_TMC_ETF + count;
+	dump_entry.addr = virt_to_phys(&drvdata->buf_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+				     &dump_entry);
+	if (ret)
+		return ret;
+
+	count++;
+
+	return 0;
+}
+
+static int tmc_set_reg_dump(struct tmc_drvdata *drvdata)
+{
+	int ret;
+	void *baddr;
+	struct amba_device *adev;
+	struct resource *res;
+	struct device *dev = drvdata->dev;
+	struct msm_dump_entry dump_entry;
+	uint32_t size;
+	static int count;
+
+	adev = to_amba_device(dev);
+	if (!adev)
+		return -EINVAL;
+
+	res = &adev->res;
+	size = resource_size(res);
+
+	baddr = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!baddr)
+		return -ENOMEM;
+
+	drvdata->reg_data.addr = virt_to_phys(baddr);
+	drvdata->reg_data.len = size;
+
+	dump_entry.id = MSM_DUMP_DATA_TMC_REG + count;
+	dump_entry.addr = virt_to_phys(&drvdata->reg_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+				     &dump_entry);
+	if (ret) {
+		devm_kfree(dev, baddr);
+		return ret;
+	}
+
+	count++;
+
+	return 0;
+}
+
 static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret = 0;
@@ -1671,7 +1737,16 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->buf = devm_kzalloc(dev, drvdata->size, GFP_KERNEL);
 		if (!drvdata->buf)
 			return -ENOMEM;
+
+		ret = tmc_etf_set_buf_dump(drvdata);
+		if (ret)
+			dev_err(dev, "TMC ETF-ETB dump setup failed. ret: %d\n",
+				ret);
 	}
+
+	ret = tmc_set_reg_dump(drvdata);
+	if (ret)
+		dev_err(dev, "TMC REG dump setup failed. ret: %d\n", ret);
 
 	pdata->default_sink = of_property_read_bool(np, "arm,default-sink");
 
