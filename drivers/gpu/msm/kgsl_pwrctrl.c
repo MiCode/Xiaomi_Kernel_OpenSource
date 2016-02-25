@@ -26,7 +26,6 @@
 #include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
-#include <soc/qcom/devfreq_devbw.h>
 
 #define KGSL_PWRFLAGS_POWER_ON 0
 #define KGSL_PWRFLAGS_CLK_ON   1
@@ -119,6 +118,9 @@ static void _record_pwrevent(struct kgsl_device *device,
 	}
 }
 
+#ifdef CONFIG_DEVFREQ_GOV_MSM_GPUBW_MON
+#include <soc/qcom/devfreq_devbw.h>
+
 /**
  * kgsl_get_bw() - Return latest msm bus IB vote
  */
@@ -126,6 +128,7 @@ static unsigned int kgsl_get_bw(void)
 {
 	return ib_votes[last_vote_buslevel];
 }
+#endif
 
 /**
  * _ab_buslevel_update() - Return latest msm bus AB vote
@@ -198,6 +201,18 @@ static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
 	return level;
 }
 
+#ifdef CONFIG_DEVFREQ_GOV_MSM_GPUBW_MON
+static void kgsl_pwrctrl_vbif_update(unsigned long ab)
+{
+	/* ask a governor to vote on behalf of us */
+	devfreq_vbif_update_bw(ib_votes[last_vote_buslevel], ab);
+}
+#else
+static void kgsl_pwrctrl_vbif_update(unsigned long ab)
+{
+}
+#endif
+
 /**
  * kgsl_pwrctrl_buslevel_update() - Recalculate the bus vote and send it
  * @device: Pointer to the kgsl_device struct
@@ -246,9 +261,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	if (pwr->pcl)
 		msm_bus_scale_client_update_request(pwr->pcl, buslevel);
 
-	/* ask a governor to vote on behalf of us */
-	if (pwr->devbw)
-		devfreq_vbif_update_bw(ib_votes[last_vote_buslevel], ab);
+	kgsl_pwrctrl_vbif_update(ab);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
@@ -1320,6 +1333,28 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	}
 }
 
+#ifdef CONFIG_DEVFREQ_GOV_MSM_GPUBW_MON
+static void kgsl_pwrctrl_suspend_devbw(struct kgsl_pwrctrl *pwr)
+{
+	if (pwr->devbw)
+		devfreq_suspend_devbw(pwr->devbw);
+}
+
+static void kgsl_pwrctrl_resume_devbw(struct kgsl_pwrctrl *pwr)
+{
+	if (pwr->devbw)
+		devfreq_resume_devbw(pwr->devbw);
+}
+#else
+static void kgsl_pwrctrl_suspend_devbw(struct kgsl_pwrctrl *pwr)
+{
+}
+
+static void kgsl_pwrctrl_resume_devbw(struct kgsl_pwrctrl *pwr)
+{
+}
+#endif
+
 static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
@@ -1333,8 +1368,7 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 			trace_kgsl_bus(device, state);
 			kgsl_pwrctrl_buslevel_update(device, false);
 
-			if (pwr->devbw)
-				devfreq_suspend_devbw(pwr->devbw);
+			kgsl_pwrctrl_suspend_devbw(pwr);
 		}
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_AXI_ON,
@@ -1342,8 +1376,7 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 			trace_kgsl_bus(device, state);
 			kgsl_pwrctrl_buslevel_update(device, true);
 
-			if (pwr->devbw)
-				devfreq_resume_devbw(pwr->devbw);
+			kgsl_pwrctrl_resume_devbw(pwr);
 		}
 	}
 }
@@ -1498,6 +1531,19 @@ void kgsl_deep_nap_timer(unsigned long data)
 	}
 }
 
+#ifdef CONFIG_DEVFREQ_GOV_MSM_GPUBW_MON
+static int kgsl_pwrctrl_vbif_init(void)
+{
+	devfreq_vbif_register_callback(kgsl_get_bw);
+	return 0;
+}
+#else
+static int kgsl_pwrctrl_vbif_init(void)
+{
+	return 0;
+}
+#endif
+
 static int _get_regulator(struct kgsl_device *device,
 		struct kgsl_regulator *regulator, const char *str)
 {
@@ -1596,7 +1642,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	struct device_node *ocmem_bus_node;
 	struct msm_bus_scale_pdata *ocmem_scale_table = NULL;
 	struct msm_bus_scale_pdata *bus_scale_table;
-	struct device_node *gpubw_dev_node;
+	struct device_node *gpubw_dev_node = NULL;
 	struct platform_device *p2dev;
 
 	bus_scale_table = msm_bus_cl_get_pdata(device->pdev);
@@ -1772,9 +1818,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	spin_lock_init(&pwr->limits_lock);
 	pwr->sysfs_pwr_limit = kgsl_pwr_limits_add(KGSL_DEVICE_3D0);
 
+	kgsl_pwrctrl_vbif_init();
+
 	setup_timer(&pwr->deep_nap_timer, kgsl_deep_nap_timer,
 			(unsigned long) device);
-	devfreq_vbif_register_callback(kgsl_get_bw);
 
 	return result;
 }
