@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -524,9 +524,9 @@ void mdss_panel_debugfs_cleanup(struct mdss_panel_info *panel_info)
 void mdss_panel_override_te_params(struct mdss_panel_info *pinfo)
 {
 	pinfo->te.sync_cfg_height = mdss_panel_get_vtotal(pinfo);
-	pinfo->te.vsync_init_val = 0;
-	pinfo->te.start_pos = 5;
-	pinfo->te.rd_ptr_irq = 1;
+	pinfo->te.vsync_init_val = pinfo->yres;
+	pinfo->te.start_pos = pinfo->yres;
+	pinfo->te.rd_ptr_irq = pinfo->yres + 1;
 	pr_debug("SW TE override: read_ptr:%d,start_pos:%d,height:%d,init_val:%d\n",
 		pinfo->te.rd_ptr_irq, pinfo->te.start_pos,
 		pinfo->te.sync_cfg_height,
