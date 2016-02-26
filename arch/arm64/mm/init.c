@@ -365,8 +365,8 @@ void __init mem_init(void)
 		  MLK_ROUNDUP(_text, _etext),
 		  MLK_ROUNDUP(_sdata, _edata),
 #ifdef CONFIG_SPARSEMEM_VMEMMAP
-		  MLG((unsigned long)vmemmap,
-		      (unsigned long)vmemmap + VMEMMAP_SIZE),
+		  MLG(VMEMMAP_START,
+		      VMEMMAP_START + VMEMMAP_SIZE),
 		  MLM((unsigned long)virt_to_page(PAGE_OFFSET),
 		      (unsigned long)virt_to_page(high_memory)),
 #endif
