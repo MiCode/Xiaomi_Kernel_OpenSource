@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,7 +69,7 @@ static LIST_HEAD(qce50_bam_list);
 /* Max number of request supported */
 #define MAX_QCE_BAM_REQ 8
 /* Interrupt flag will be set for every SET_INTR_AT_REQ request */
-#define SET_INTR_AT_REQ			(MAX_QCE_BAM_REQ - 2)
+#define SET_INTR_AT_REQ			(MAX_QCE_BAM_REQ / 2)
 /* To create extra request space to hold dummy request */
 #define MAX_QCE_BAM_REQ_WITH_DUMMY_REQ	(MAX_QCE_BAM_REQ + 1)
 /* Allocate the memory for MAX_QCE_BAM_REQ  + 1 (for dummy request) */
@@ -83,6 +83,12 @@ static LIST_HEAD(qce50_bam_list);
 #define DELAY_IN_JIFFIES 5
 /* Index to point the dummy request */
 #define DUMMY_REQ_INDEX			MAX_QCE_BAM_REQ
+
+enum qce_owner {
+	QCE_OWNER_NONE   = 0,
+	QCE_OWNER_CLIENT = 1,
+	QCE_OWNER_TIMEOUT = 2
+};
 
 struct dummy_request {
 	struct qce_sha_req sreq;
@@ -133,9 +139,8 @@ struct qce_device {
 	struct ce_bam_info ce_bam_info;
 	struct ce_request_info ce_request_info[MAX_QCE_ALLOC_BAM_REQ];
 	unsigned int ce_request_index;
-	spinlock_t lock;
-	spinlock_t sps_lock;
-	unsigned int no_of_queued_req;
+	enum qce_owner owner;
+	atomic_t no_of_queued_req;
 	struct timer_list timer;
 	struct dummy_request dummyreq;
 	unsigned int mode;
@@ -144,6 +149,7 @@ struct qce_device {
 	struct qce_driver_stats qce_stats;
 	atomic_t bunch_cmd_seq;
 	atomic_t last_intr_seq;
+	bool cadence_flag;
 };
 
 static void print_notify_debug(struct sps_event_notify *notify);
@@ -2477,7 +2483,6 @@ static int _qce_sps_add_cmd(struct qce_device *pce_dev, uint32_t flag,
 static int _qce_sps_transfer(struct qce_device *pce_dev, int req_info)
 {
 	int rc = 0;
-	unsigned long flags;
 	struct ce_sps_data *pce_sps_data;
 
 	pce_sps_data = &pce_dev->ce_request_info[req_info].ce_sps;
@@ -2489,7 +2494,6 @@ static int _qce_sps_transfer(struct qce_device *pce_dev, int req_info)
 					(unsigned int) req_info));
 	_qce_dump_descr_fifos_dbg(pce_dev, req_info);
 
-	spin_lock_irqsave(&pce_dev->sps_lock, flags);
 	if (pce_sps_data->in_transfer.iovec_count) {
 		rc = sps_transfer(pce_dev->ce_bam_info.consumer.pipe,
 					  &pce_sps_data->in_transfer);
@@ -2508,7 +2512,6 @@ static int _qce_sps_transfer(struct qce_device *pce_dev, int req_info)
 ret:
 	if (rc)
 		_qce_dump_descr_fifos(pce_dev, req_info);
-	spin_unlock_irqrestore(&pce_dev->sps_lock, flags);
 	return rc;
 }
 
@@ -2892,23 +2895,20 @@ static inline int qce_alloc_req_info(struct qce_device *pce_dev)
 		}
 	}
 	pr_warn("pcedev %d no reqs available no_of_queued_req %d\n",
-			pce_dev->dev_no, pce_dev->no_of_queued_req);
+			pce_dev->dev_no, atomic_read(
+					&pce_dev->no_of_queued_req));
 	return -EBUSY;
 }
 
 static inline void qce_free_req_info(struct qce_device *pce_dev, int req_info,
 		bool is_complete)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&pce_dev->lock, flags);
 	pce_dev->ce_request_info[req_info].xfer_type = QCE_XFER_TYPE_LAST;
 	if (xchg(&pce_dev->ce_request_info[req_info].in_use, false) == true) {
 		if (req_info < MAX_QCE_BAM_REQ && is_complete)
-			pce_dev->no_of_queued_req--;
+			atomic_dec(&pce_dev->no_of_queued_req);
 	} else
 		pr_warn("request info %d free already\n", req_info);
-	spin_unlock_irqrestore(&pce_dev->lock, flags);
 }
 
 static void print_notify_debug(struct sps_event_notify *notify)
@@ -2955,7 +2955,6 @@ static void qce_multireq_timeout(unsigned long data)
 {
 	struct qce_device *pce_dev = (struct qce_device *)data;
 	int ret = 0;
-	unsigned long flags;
 	int last_seq;
 
 	last_seq = atomic_read(&pce_dev->bunch_cmd_seq);
@@ -2966,27 +2965,29 @@ static void qce_multireq_timeout(unsigned long data)
 		return;
 	}
 	/* last bunch mode command time out */
-	spin_lock_irqsave(&pce_dev->lock, flags);
+	if (cmpxchg(&pce_dev->owner, QCE_OWNER_NONE, QCE_OWNER_TIMEOUT)
+							!= QCE_OWNER_NONE) {
+		mod_timer(&(pce_dev->timer), (jiffies + DELAY_IN_JIFFIES));
+		return;
+	}
 	del_timer(&(pce_dev->timer));
 	pce_dev->mode = IN_INTERRUPT_MODE;
 	pce_dev->qce_stats.no_of_timeouts++;
 	pr_debug("pcedev %d mode switch to INTR\n", pce_dev->dev_no);
-	spin_unlock_irqrestore(&pce_dev->lock, flags);
 
 	ret = qce_dummy_req(pce_dev);
 	if (ret)
 		pr_warn("pcedev %d: Failed to insert dummy req\n",
 				pce_dev->dev_no);
+	cmpxchg(&pce_dev->owner, QCE_OWNER_TIMEOUT, QCE_OWNER_NONE);
 }
 
 void qce_get_driver_stats(void *handle)
 {
-	unsigned long flags;
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 
 	if (!_qce50_disp_stats)
 		return;
-	spin_lock_irqsave(&pce_dev->lock, flags);
 	pr_info("Engine %d timeout occuured %d\n", pce_dev->dev_no,
 			pce_dev->qce_stats.no_of_timeouts);
 	pr_info("Engine %d dummy request inserted %d\n", pce_dev->dev_no,
@@ -2996,20 +2997,16 @@ void qce_get_driver_stats(void *handle)
 	else
 		pr_info("Engine %d is in INTERRUPT MODE\n", pce_dev->dev_no);
 	pr_info("Engine %d outstanding request %d\n", pce_dev->dev_no,
-			pce_dev->no_of_queued_req);
-	spin_unlock_irqrestore(&pce_dev->lock, flags);
+			atomic_read(&pce_dev->no_of_queued_req));
 }
 EXPORT_SYMBOL(qce_get_driver_stats);
 
 void qce_clear_driver_stats(void *handle)
 {
-	unsigned long flags;
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 
-	spin_lock_irqsave(&pce_dev->lock, flags);
 	pce_dev->qce_stats.no_of_timeouts = 0;
 	pce_dev->qce_stats.no_of_dummy_reqs = 0;
-	spin_unlock_irqrestore(&pce_dev->lock, flags);
 }
 EXPORT_SYMBOL(qce_clear_driver_stats);
 
@@ -3021,7 +3018,6 @@ static void _sps_producer_callback(struct sps_event_notify *notify)
 	unsigned int req_info;
 	struct ce_sps_data *pce_sps_data;
 	struct ce_request_info *preq_info;
-	unsigned long flags;
 
 	print_notify_debug(notify);
 
@@ -3050,10 +3046,8 @@ static void _sps_producer_callback(struct sps_event_notify *notify)
 					  &pce_sps_data->out_transfer);
 		_qce_set_flag(&pce_sps_data->out_transfer,
 				SPS_IOVEC_FLAG_INT);
-		spin_lock_irqsave(&pce_dev->sps_lock, flags);
 		rc = sps_transfer(pce_dev->ce_bam_info.producer.pipe,
 					  &pce_sps_data->out_transfer);
-		spin_unlock_irqrestore(&pce_dev->sps_lock, flags);
 		if (rc) {
 			pr_err("sps_xfr() fail (producer pipe=0x%lx) rc = %d\n",
 				(uintptr_t)pce_dev->ce_bam_info.producer.pipe,
@@ -4527,18 +4521,27 @@ static int qce_dummy_req(struct qce_device *pce_dev)
 static int select_mode(struct qce_device *pce_dev,
 		struct ce_request_info *preq_info)
 {
-	unsigned long flags;
 	struct ce_sps_data *pce_sps_data = &preq_info->ce_sps;
+	unsigned int no_of_queued_req;
+	unsigned int cadence;
 
 	if (!pce_dev->no_get_around) {
 		_qce_set_flag(&pce_sps_data->out_transfer, SPS_IOVEC_FLAG_INT);
 		return 0;
 	}
 
-	spin_lock_irqsave(&pce_dev->lock, flags);
-	pce_dev->no_of_queued_req++;
+	/*
+	 * claim ownership of device
+	 */
+again:
+	if (cmpxchg(&pce_dev->owner, QCE_OWNER_NONE, QCE_OWNER_CLIENT)
+							!= QCE_OWNER_NONE) {
+		ndelay(40);
+		goto again;
+	}
+	no_of_queued_req = atomic_inc_return(&pce_dev->no_of_queued_req);
 	if (pce_dev->mode == IN_INTERRUPT_MODE) {
-		if (pce_dev->no_of_queued_req >= MAX_BUNCH_MODE_REQ) {
+		if (no_of_queued_req >= MAX_BUNCH_MODE_REQ) {
 			pce_dev->mode = IN_BUNCH_MODE;
 			pr_debug("pcedev %d mode switch to BUNCH\n",
 					pce_dev->dev_no);
@@ -4555,17 +4558,21 @@ static int select_mode(struct qce_device *pce_dev,
 		}
 	} else {
 		pce_dev->intr_cadence++;
-		if (pce_dev->intr_cadence >= SET_INTR_AT_REQ) {
+		cadence = (preq_info->req_len >> 7) + 1;
+		if (cadence > SET_INTR_AT_REQ)
+			cadence = SET_INTR_AT_REQ;
+		if (pce_dev->intr_cadence < cadence || ((pce_dev->intr_cadence
+					== cadence) && pce_dev->cadence_flag))
+			atomic_inc(&pce_dev->bunch_cmd_seq);
+		else {
 			_qce_set_flag(&pce_sps_data->out_transfer,
 					SPS_IOVEC_FLAG_INT);
 			pce_dev->intr_cadence = 0;
 			atomic_set(&pce_dev->bunch_cmd_seq, 0);
 			atomic_set(&pce_dev->last_intr_seq, 0);
-		} else {
-			atomic_inc(&pce_dev->bunch_cmd_seq);
+			pce_dev->cadence_flag = ~pce_dev->cadence_flag;
 		}
 	}
-	spin_unlock_irqrestore(&pce_dev->lock, flags);
 
 	return 0;
 }
@@ -4675,6 +4682,7 @@ static int _qce_aead_ccm_req(void *handle, struct qce_req *q_req)
 
 	/* setup xfer type for producer callback handling */
 	preq_info->xfer_type = QCE_XFER_AEAD;
+	preq_info->req_len = totallen_in;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
@@ -4712,6 +4720,7 @@ static int _qce_aead_ccm_req(void *handle, struct qce_req *q_req)
 							SPS_IOVEC_FLAG_INT);
 			pce_sps_data->producer_state = QCE_PIPE_STATE_COMP;
 		}
+		rc = _qce_sps_transfer(pce_dev, req_info);
 	} else {
 		if (_qce_sps_add_sg_data(pce_dev, areq->assoc, areq->assoclen,
 					 &pce_sps_data->in_transfer))
@@ -4758,8 +4767,9 @@ static int _qce_aead_ccm_req(void *handle, struct qce_req *q_req)
 		_qce_ccm_get_around_output(pce_dev, preq_info, q_req->dir);
 
 		select_mode(pce_dev, preq_info);
+		rc = _qce_sps_transfer(pce_dev, req_info);
+		cmpxchg(&pce_dev->owner, QCE_OWNER_CLIENT, QCE_OWNER_NONE);
 	}
-	rc = _qce_sps_transfer(pce_dev, req_info);
 	if (rc)
 		goto bad;
 	return 0;
@@ -4949,6 +4959,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 
 	/* setup xfer type for producer callback handling */
 	preq_info->xfer_type = QCE_XFER_AEAD;
+	preq_info->req_len = totallen;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
@@ -4989,6 +5000,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 							SPS_IOVEC_FLAG_INT);
 			pce_sps_data->producer_state = QCE_PIPE_STATE_COMP;
 		}
+	rc = _qce_sps_transfer(pce_dev, req_info);
 	} else {
 		if (_qce_sps_add_sg_data(pce_dev, areq->assoc, areq->assoclen,
 					 &pce_sps_data->in_transfer))
@@ -5028,8 +5040,9 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 			pce_sps_data->producer_state = QCE_PIPE_STATE_IDLE;
 		}
 		select_mode(pce_dev, preq_info);
+		rc = _qce_sps_transfer(pce_dev, req_info);
+		cmpxchg(&pce_dev->owner, QCE_OWNER_CLIENT, QCE_OWNER_NONE);
 	}
-	rc = _qce_sps_transfer(pce_dev, req_info);
 	if (rc)
 		goto bad;
 	return 0;
@@ -5123,6 +5136,7 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 
 	/* setup xfer type for producer callback handling */
 	preq_info->xfer_type = QCE_XFER_CIPHERING;
+	preq_info->req_len = areq->nbytes;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 	if (pce_dev->support_cmd_dscr)
@@ -5154,8 +5168,8 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	}
 
 	select_mode(pce_dev, preq_info);
-
 	rc = _qce_sps_transfer(pce_dev, req_info);
+	cmpxchg(&pce_dev->owner, QCE_OWNER_CLIENT, QCE_OWNER_NONE);
 	if (rc)
 		goto bad;
 
@@ -5227,6 +5241,7 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 
 	/* setup xfer type for producer callback handling */
 	preq_info->xfer_type = QCE_XFER_HASHING;
+	preq_info->req_len = sreq->size;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
@@ -5255,11 +5270,14 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 					  &pce_sps_data->out_transfer))
 		goto bad;
 
-	if (is_dummy)
+	if (is_dummy) {
 		_qce_set_flag(&pce_sps_data->out_transfer, SPS_IOVEC_FLAG_INT);
-	else
+		rc = _qce_sps_transfer(pce_dev, req_info);
+	} else {
 		select_mode(pce_dev, preq_info);
-	rc = _qce_sps_transfer(pce_dev, req_info);
+		rc = _qce_sps_transfer(pce_dev, req_info);
+		cmpxchg(&pce_dev->owner, QCE_OWNER_CLIENT, QCE_OWNER_NONE);
+	}
 	if (rc)
 		goto bad;
 	return 0;
@@ -5347,6 +5365,7 @@ int qce_f8_req(void *handle, struct qce_f8_req *req,
 
 	/* setup xfer type for producer callback handling */
 	preq_info->xfer_type = QCE_XFER_F8;
+	preq_info->req_len = req->data_len;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
@@ -5372,8 +5391,8 @@ int qce_f8_req(void *handle, struct qce_f8_req *req,
 					  &pce_sps_data->out_transfer);
 
 	select_mode(pce_dev, preq_info);
-
 	rc = _qce_sps_transfer(pce_dev, req_info);
+	cmpxchg(&pce_dev->owner, QCE_OWNER_CLIENT, QCE_OWNER_NONE);
 	if (rc)
 		goto bad;
 	return 0;
@@ -5462,6 +5481,7 @@ int qce_f8_multi_pkt_req(void *handle, struct qce_f8_multi_pkt_req *mreq,
 
 	/* setup xfer type for producer callback handling */
 	preq_info->xfer_type = QCE_XFER_F8;
+	preq_info->req_len = total;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 
@@ -5486,8 +5506,8 @@ int qce_f8_multi_pkt_req(void *handle, struct qce_f8_multi_pkt_req *mreq,
 					  &pce_sps_data->out_transfer);
 
 	select_mode(pce_dev, preq_info);
-
 	rc = _qce_sps_transfer(pce_dev, req_info);
+	cmpxchg(&pce_dev->owner, QCE_OWNER_CLIENT, QCE_OWNER_NONE);
 
 	if (rc == 0)
 		return 0;
@@ -5548,6 +5568,7 @@ int qce_f9_req(void *handle, struct qce_f9_req *req, void *cookie,
 
 	/* setup xfer type for producer callback handling */
 	preq_info->xfer_type = QCE_XFER_F9;
+	preq_info->req_len = req->msize;
 
 	_qce_sps_iovec_count_init(pce_dev, req_info);
 	if (pce_dev->support_cmd_dscr)
@@ -5567,8 +5588,8 @@ int qce_f9_req(void *handle, struct qce_f9_req *req, void *cookie,
 					  &pce_sps_data->out_transfer);
 
 	select_mode(pce_dev, preq_info);
-
 	rc = _qce_sps_transfer(pce_dev, req_info);
+	cmpxchg(&pce_dev->owner, QCE_OWNER_CLIENT, QCE_OWNER_NONE);
 	if (rc)
 		goto bad;
 	return 0;
@@ -5933,9 +5954,7 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	qce_setup_ce_sps_data(pce_dev);
 	qce_disable_clk(pce_dev);
 	setup_dummy_req(pce_dev);
-	spin_lock_init(&pce_dev->lock);
-	spin_lock_init(&pce_dev->sps_lock);
-	pce_dev->no_of_queued_req = 0;
+	atomic_set(&pce_dev->no_of_queued_req, 0);
 	pce_dev->mode = IN_INTERRUPT_MODE;
 	init_timer(&(pce_dev->timer));
 	pce_dev->timer.function = qce_multireq_timeout;
@@ -5944,6 +5963,7 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	pce_dev->intr_cadence = 0;
 	pce_dev->dev_no = pcedev_no;
 	pcedev_no++;
+	pce_dev->owner = QCE_OWNER_NONE;
 	mutex_unlock(&qce_iomap_mutex);
 	return pce_dev;
 err:
