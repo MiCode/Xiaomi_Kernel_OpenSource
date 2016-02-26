@@ -461,7 +461,7 @@ static int mrf24j40_filter(struct ieee802154_dev *dev,
 
 	dev_dbg(printdev(devrec), "filter\n");
 
-	if (changed & IEEE802515_AFILT_SADDR_CHANGED) {
+	if (changed & IEEE802154_AFILT_SADDR_CHANGED) {
 		/* Short Addr */
 		u8 addrh, addrl;
 
@@ -474,7 +474,7 @@ static int mrf24j40_filter(struct ieee802154_dev *dev,
 			"Set short addr to %04hx\n", filt->short_addr);
 	}
 
-	if (changed & IEEE802515_AFILT_IEEEADDR_CHANGED) {
+	if (changed & IEEE802154_AFILT_IEEEADDR_CHANGED) {
 		/* Device Address */
 		u8 i, addr[8];
 
@@ -490,7 +490,7 @@ static int mrf24j40_filter(struct ieee802154_dev *dev,
 #endif
 	}
 
-	if (changed & IEEE802515_AFILT_PANID_CHANGED) {
+	if (changed & IEEE802154_AFILT_PANID_CHANGED) {
 		/* PAN ID */
 		u8 panidl, panidh;
 
@@ -502,7 +502,7 @@ static int mrf24j40_filter(struct ieee802154_dev *dev,
 		dev_dbg(printdev(devrec), "Set PANID to %04hx\n", filt->pan_id);
 	}
 
-	if (changed & IEEE802515_AFILT_PANC_CHANGED) {
+	if (changed & IEEE802154_AFILT_PANC_CHANGED) {
 		/* Pan Coordinator */
 		u8 val;
 		int ret;
