@@ -220,13 +220,13 @@ static int slpi_loader_remove(struct platform_device *pdev)
 }
 
 /*
- * Read QTimer clock ticks and scale down to 32KHz clock as used
+ * Read virtual QTimer clock ticks and scale down to 32KHz clock as used
  * in DSPS
  */
 static u32 sns_read_qtimer(void)
 {
 	u64 val;
-	val = arch_counter_get_cntpct();
+	val = arch_counter_get_cntvct();
 	/*
 	 * To convert ticks from 19.2 Mhz clock to 32768 Hz clock:
 	 * x = (value * 32768) / 19200000

@@ -328,7 +328,7 @@ static void *memcpy_to_log(void *dest, const void *src, size_t num_bytes)
 
 static inline unsigned int read_timestamp(void)
 {
-	return (unsigned int)(arch_counter_get_cntpct());
+	return (unsigned int)(arch_counter_get_cntvct());
 }
 
 static void smem_log_event_from_user(struct smem_log_inst *inst,
