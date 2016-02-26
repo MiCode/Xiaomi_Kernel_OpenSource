@@ -2022,7 +2022,7 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 
 int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_id, u32 *xin_id,
-	u32 type, u32 num_base, u32 len, u8 priority_base)
+	u32 type, const int *pnums, u32 len, u8 priority_base)
 {
 	u32 i;
 
@@ -2035,8 +2035,8 @@ int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 		head[i].type = type;
 		head[i].ftch_id  = ftch_id[i];
 		head[i].xin_id = xin_id[i];
-		head[i].num = i + num_base;
-		head[i].ndx = BIT(i + num_base);
+		head[i].num = pnums[i];
+		head[i].ndx = BIT(pnums[i]);
 		head[i].priority = i + priority_base;
 		head[i].base = mdata->mdss_io.base + offsets[i];
 		pr_info("type:%d ftchid:%d xinid:%d num:%d ndx:0x%x prio:%d\n",
