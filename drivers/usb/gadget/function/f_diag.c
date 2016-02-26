@@ -1090,3 +1090,6 @@ static void __exit diag_exit(void)
 
 module_init(diag_init);
 module_exit(diag_exit);
+
+MODULE_DESCRIPTION("Diag function driver");
+MODULE_LICENSE("GPL v2");
