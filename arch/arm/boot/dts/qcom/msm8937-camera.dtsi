@@ -153,8 +153,10 @@
 		qcom,num-isps = <0x2>;
 		vfe0_vdd_supply = <&gdsc_vfe>;
 		vfe1_vdd_supply = <&gdsc_vfe1>;
-		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
-			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
+		clocks = <&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
+			<&clock_gcc clk_gcc_camss_ahb_clk>,
+			<&clock_gcc clk_gcc_camss_top_ahb_clk>,
+			<&clock_gcc clk_camss_top_ahb_clk_src>,
 			<&clock_gcc clk_csi0_clk_src>,
 			<&clock_gcc clk_gcc_camss_csi0_clk>,
 			<&clock_gcc clk_gcc_camss_csi0rdi_clk>,
@@ -173,7 +175,9 @@
 			<&clock_gcc clk_vfe1_clk_src>,
 			<&clock_gcc clk_gcc_camss_vfe1_clk>,
 			<&clock_gcc clk_gcc_camss_csi_vfe1_clk>;
-		clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
+		clock-names = "ispif_ahb_clk",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"camss_ahb_src",
 			"csi0_src_clk", "csi0_clk",
 			"csi0_rdi_clk", "csi0_pix_clk",
 			"csi1_src_clk", "csi1_clk",
@@ -183,18 +187,20 @@
 			"vfe0_clk_src", "camss_vfe_vfe0_clk",
 			"camss_csi_vfe0_clk", "vfe1_clk_src",
 			"camss_vfe_vfe1_clk", "camss_csi_vfe1_clk";
-		qcom,clock-rates = <0 61540000
+		qcom,clock-rates = <61540000 0 0 0
 			200000000 0 0 0
 			200000000 0 0 0
 			200000000 0 0 0
 			0 0 0
 			0 0 0>;
-		qcom,clock-control = "NO_SET_RATE", "SET_RATE",
-			"SET_RATE", "NO_SET_RATE", "NO_SET_RATE", "NO_SET_RATE",
-			"SET_RATE", "NO_SET_RATE", "NO_SET_RATE", "NO_SET_RATE",
-			"SET_RATE", "NO_SET_RATE", "NO_SET_RATE", "NO_SET_RATE",
-			"INIT_RATE", "NO_SET_RATE", "NO_SET_RATE",
-			"INIT_RATE", "NO_SET_RATE", "NO_SET_RATE";
+		qcom,clock-control = "SET_RATE","NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE", "SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE", "NO_SET_RATE",
+			"SET_RATE", "NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "INIT_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "INIT_RATE", "NO_SET_RATE",
+			"NO_SET_RATE";
 	};
 
 	vfe0: qcom,vfe0@1b10000 {
