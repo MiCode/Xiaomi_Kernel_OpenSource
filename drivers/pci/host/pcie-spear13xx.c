@@ -280,7 +280,8 @@ static int add_pcie_port(struct pcie_port *pp, struct platform_device *pdev)
 		return -ENODEV;
 	}
 	ret = devm_request_irq(dev, pp->irq, spear13xx_pcie_irq_handler,
-			       IRQF_SHARED, "spear1340-pcie", pp);
+			       IRQF_SHARED | IRQF_NO_THREAD,
+			       "spear1340-pcie", pp);
 	if (ret) {
 		dev_err(dev, "failed to request irq %d\n", pp->irq);
 		return ret;
