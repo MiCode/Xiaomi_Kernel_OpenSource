@@ -407,7 +407,8 @@ static struct mdss_pp_res_type *mdss_pp_res;
 
 static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info);
-static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix);
+static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix,
+				struct pp_sts_type *pp_sts);
 static int pp_hist_disable(struct pp_hist_col_info *hist_info);
 static void pp_update_pcc_regs(char __iomem *addr,
 				struct mdp_pcc_cfg_data *cfg_ptr);
@@ -1048,7 +1049,8 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	}
 
 	/* Histogram collection enabled checked inside pp_hist_setup */
-	pp_hist_setup(op, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer_left);
+	pp_hist_setup(op, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer_left,
+			&pipe->pp_res.pp_sts);
 
 	if (!(pipe->flags & MDP_OVERLAY_PP_CFG_EN)) {
 		pr_debug("Overlay PP CFG enable not set\n");
@@ -2002,11 +2004,12 @@ static char __iomem *mdss_mdp_get_dspp_addr_off(u32 dspp_num)
 }
 
 /* Assumes that function will be called from within clock enabled space*/
-static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
+static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix,
+			struct pp_sts_type *pp_sts)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 	char __iomem *base;
-	u32 op_flags;
+	u32 op_flags = 0, block_type = 0;
 	struct mdss_mdp_pipe *pipe;
 	struct pp_hist_col_info *hist_info;
 	unsigned long flag;
@@ -2019,6 +2022,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 	intr_mask = 1;
 	if (mix && (PP_LOCAT(block) == MDSS_PP_DSPP_CFG)) {
 		/* HIST_EN */
+		block_type = DSPP;
 		op_flags = BIT(16);
 		hist_info = &mdss_pp_res->dspp_hist[mix->num];
 		base = mdss_mdp_get_dspp_addr_off(PP_BLOCK(block));
@@ -2029,6 +2033,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 	} else if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG &&
 		(pp_driver_ops.is_sspp_hist_supp) &&
 		(pp_driver_ops.is_sspp_hist_supp())) {
+		block_type = SSPP_VIG;
 		pipe = __get_hist_pipe(PP_BLOCK(block));
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_debug("pipe DNE (%d)\n",
@@ -2041,18 +2046,38 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 		base = pipe->base;
 		mdss_mdp_pipe_unmap(pipe);
 	} else {
+		ret = -EINVAL;
 		goto error;
 	}
 
 	mutex_lock(&hist_info->hist_mutex);
 	spin_lock_irqsave(&hist_info->hist_lock, flag);
-	if (hist_info->col_en) {
+	/*
+	 * Set histogram interrupt if histogram collection is enabled. The
+	 * interrupt register offsets are the same across different mdss
+	 * versions so far, hence mdss_mdp_hist_irq_set_mask is used for
+	 * all the mdss versions.
+	 */
+	if (hist_info->col_en)
 		mdss_mdp_hist_irq_set_mask(intr_mask << hist_info->intr_shift);
+	/*
+	 * Starting from msmcobalt, the histogram enable bit has been moved
+	 * from DSPP opmode register to PA_HIST opmode register, hence we need
+	 * to update the histogram enable bit differently based on mdss version.
+	 * If HIST pp_set_config is defined, we will enable or disable the
+	 * hist_en bit in PA_HIST opmode register inside HIST pp_set_config
+	 * function; else, we only need to add the hist_en bit to the *op when
+	 * histogram collection is enable, and *op will be passed to
+	 * pp_dspp_setup to update the DSPP opmode register.
+	 */
+	if (pp_ops[HIST].pp_set_config)
+		ret = pp_ops[HIST].pp_set_config(base, pp_sts, hist_info,
+							block_type);
+	else if (hist_info->col_en)
 		*op |= op_flags;
-	}
+
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	mutex_unlock(&hist_info->hist_mutex);
-	ret = 0;
 error:
 	return ret;
 }
@@ -2195,14 +2220,20 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 			(pp_driver_ops.gamut_clk_gate_en))
 		pp_driver_ops.gamut_clk_gate_en(base +
 					mdata->pp_block_off.dspp_gamut_off);
-	ret = pp_hist_setup(&opmode, MDSS_PP_DSPP_CFG | dspp_num, mixer);
-	if (ret)
-		goto dspp_exit;
 
-	if (disp_num < MDSS_BLOCK_DISP_NUM)
+	if (disp_num < MDSS_BLOCK_DISP_NUM) {
+		pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
+		pp_sts->side_sts = side;
+
+		ret = pp_hist_setup(&opmode, MDSS_PP_DSPP_CFG | dspp_num, mixer,
+				pp_sts);
+		if (ret)
+			goto dspp_exit;
+
 		flags = mdss_pp_res->pp_disp_flags[disp_num];
-	else
+	} else {
 		flags = 0;
+	}
 
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 	if (dspp_num < mdata->nad_cfgs && disp_num < mdata->nad_cfgs &&
@@ -2217,9 +2248,6 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	/* nothing to update */
 	if ((!flags) && (!(opmode)) && (!ad_flags))
 		goto dspp_exit;
-
-	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
-	pp_sts->side_sts = side;
 
 	if (flags & PP_FLAGS_DIRTY_PA) {
 		if (!pp_ops[PA].pp_set_config) {
@@ -2847,7 +2875,7 @@ int mdss_mdp_pp_init(struct device *dev)
 				vig[i].pp_res.hist.intr_shift = 10;
 			if (pp_driver_ops.get_hist_offset) {
 				ret = pp_driver_ops.get_hist_offset(
-					DSPP, &ctl_off);
+					SSPP_VIG, &ctl_off);
 				if (ret) {
 					pr_err("get_hist_offset ret %d\n",
 						ret);
@@ -4803,7 +4831,7 @@ hist_stop_clk:
 }
 
 /**
- * mdss_mdp_hist_intr_req() - Request changes the histogram interupts
+ * mdss_mdp_hist_intr_req() - Request changes the histogram interrupts
  * @intr: structure containting state of interrupt register
  * @bits: the bits on interrupt register that should be changed
  * @en: true if bits should be set, false if bits should be cleared

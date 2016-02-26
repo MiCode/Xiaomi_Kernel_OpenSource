@@ -421,7 +421,7 @@ static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
 		hist_addr += 4;
 	}
 	if (copy_to_user(lut_data->data, data, sz)) {
-		pr_err("faild to copy the hist_lut back to user\n");
+		pr_err("failed to copy the hist_lut back to user\n");
 		ret = -EFAULT;
 	}
 	kfree(data);
@@ -503,7 +503,8 @@ static int pp_hist_lut_set_config(char __iomem *base_addr,
 	}
 	if (lut_cfg_data->hist_lut_first)
 		pp_sts->enhist_sts |= PP_STS_PA_LUT_FIRST;
-
+	else
+		pp_sts->enhist_sts &= ~PP_STS_PA_LUT_FIRST;
 
 	writel_relaxed(1, swap_addr);
 
