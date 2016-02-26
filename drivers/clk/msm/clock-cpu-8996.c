@@ -535,6 +535,7 @@ struct cpu_clk_8996 {
 	struct pm_qos_request req;
 	bool do_half_rate;
 	bool has_acd;
+	int postdiv;
 };
 
 static inline struct cpu_clk_8996 *to_cpu_clk_8996(struct clk *c)
@@ -705,12 +706,12 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 		&& c->rate > 600000000 && rate < 600000000) {
 		if (!cpu_clocks_v3)
 			mutex_lock(&scm_lmh_lock);
-		ret = clk_set_rate(c->parent, c->rate/2);
+		ret = clk_set_rate(c->parent, c->rate/cpuclk->postdiv);
 		if (!cpu_clocks_v3)
 			mutex_unlock(&scm_lmh_lock);
 		if (ret) {
 			pr_err("failed to set rate %lu on %s (%d)\n",
-				c->rate/2, c->dbg_name, ret);
+				c->rate/cpuclk->postdiv, c->dbg_name, ret);
 			goto fail;
 		}
 	}
@@ -781,6 +782,7 @@ static struct cpu_clk_8996 pwrcl_clk = {
 	.cpu_reg_mask = 0x3,
 	.pm_qos_latency = PWRCL_LATENCY_NO_L2_PC_US,
 	.do_half_rate = true,
+	.postdiv = 2,
 	.c = {
 		.parent = &pwrcl_hf_mux.c,
 		.dbg_name = "pwrcl_clk",
@@ -800,6 +802,7 @@ static struct cpu_clk_8996 perfcl_clk = {
 	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_perfcl_freqs),
 	.pm_qos_latency = PERFCL_LATENCY_NO_L2_PC_US,
 	.do_half_rate = true,
+	.postdiv = 2,
 	.c = {
 		.parent = &perfcl_hf_mux.c,
 		.dbg_name = "perfcl_clk",
@@ -945,7 +948,7 @@ static struct pll_clk cbf_pll = {
 	},
 	.min_rate =  600000000,
 	.max_rate = 3000000000,
-	.src_rate = 19200000,
+	.src_rate =   19200000,
 	.base = &vbases[CBF_PLL_BASE],
 	.c = {
 		.parent = &xo_ao.c,
@@ -984,6 +987,7 @@ static struct mux_clk cbf_hf_mux = {
 
 static struct cpu_clk_8996 cbf_clk = {
 	.do_half_rate = true,
+	.postdiv = 2,
 	.c = {
 		.parent = &cbf_hf_mux.c,
 		.dbg_name = "cbf_clk",
@@ -1038,6 +1042,7 @@ static struct clk_lookup cpu_clocks_8996[] = {
 	CLK_LIST(perfcl_lf_mux),
 
 	CLK_LIST(cbf_pll),
+	CLK_LIST(cbf_pll_main),
 	CLK_LIST(cbf_hf_mux),
 	CLK_LIST(cbf_clk),
 
@@ -1271,6 +1276,15 @@ static void populate_opp_table(struct platform_device *pdev)
 
 	WARN(add_opp(&cbf_clk.c, &cbf_dev->dev, cbf_fmax),
 	    "Failed to add OPP levels for CBF\n");
+}
+
+static void cpu_clock_8996_pro_fixup(void)
+{
+	cbf_pll.vals.post_div_masked = 0x300;
+	cbf_pll_main.data.max_div = 4;
+	cbf_pll_main.data.min_div = 4;
+	cbf_pll_main.data.div = 4;
+	cbf_clk.postdiv = 4;
 }
 
 static int perfclspeedbin;
@@ -1534,6 +1548,9 @@ int __init cpu_clock_8996_early_init(void)
 		perfcl_pll.vals.test_ctl_lo_val = 0x1C000000;
 		cbf_pll.vals.test_ctl_lo_val = 0x1C000000;
 	}
+
+	if (cpu_clocks_pro)
+		cpu_clock_8996_pro_fixup();
 
 	/*
 	 * We definitely don't want to parse DT here - this is too early and in
