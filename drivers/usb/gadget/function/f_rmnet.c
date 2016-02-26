@@ -624,6 +624,10 @@ static void frmnet_suspend(struct usb_function *f)
 			pr_debug("in_ep_desc_bkup = %p, out_ep_desc_bkup = %p",
 			       dev->in_ep_desc_backup, dev->out_ep_desc_backup);
 			pr_debug("%s(): Disconnecting\n", __func__);
+			if (gadget_is_dwc3(f->config->cdev->gadget)) {
+				msm_ep_unconfig(dev->port.out);
+				msm_ep_unconfig(dev->port.in);
+			}
 			gport_rmnet_disconnect(dev);
 		}
 		break;

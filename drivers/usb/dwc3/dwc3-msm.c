@@ -1422,7 +1422,7 @@ int msm_ep_unconfig(struct usb_ep *ep)
 
 	/* Restore original ep ops */
 	if (!mdwc->original_ep_ops[dep->number]) {
-		dev_err(mdwc->dev,
+		dev_dbg(mdwc->dev,
 			"ep [%s,%d] was not configured as msm endpoint\n",
 			ep->name, dep->number);
 		return -EINVAL;
