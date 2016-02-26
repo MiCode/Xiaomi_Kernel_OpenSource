@@ -2778,7 +2778,7 @@ int mdss_mdp_pp_init(struct device *dev)
 
 
 	mdata->pp_reg_bus_clt = mdss_reg_bus_vote_client_create("pp\0");
-	if (IS_ERR_OR_NULL(mdata->pp_reg_bus_clt))
+	if (IS_ERR(mdata->pp_reg_bus_clt))
 		pr_err("bus client register failed\n");
 
 	mutex_lock(&mdss_pp_mutex);

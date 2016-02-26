@@ -117,6 +117,7 @@ struct mdss_hw mdss_misc_hw = {
 	.irq_handler = NULL,
 };
 
+#ifdef CONFIG_MSM_BUS_SCALING
 #define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)	\
 	{						\
 		.src = MSM_BUS_MASTER_AMPSS_M0,		\
@@ -143,6 +144,7 @@ static struct msm_bus_scale_pdata mdp_reg_bus_scale_table = {
 	.name = "mdss_reg",
 	.active_only = true,
 };
+#endif
 
 u32 invalid_mdp107_wb_output_fmts[] = {
 	MDP_XRGB_8888,
@@ -294,6 +296,7 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_MSM_BUS_SCALING
 static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 {
 	struct msm_bus_scale_pdata *reg_bus_pdata;
@@ -571,6 +574,42 @@ int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 
 	return rc;
 }
+#else
+static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
+{
+	return 0;
+}
+
+static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
+{
+}
+
+int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
+{
+	pr_debug("No bus scaling! client=%d ab=%llu ib=%llu\n",
+			client, ab_quota, ib_quota);
+
+	return 0;
+}
+
+struct reg_bus_client *mdss_reg_bus_vote_client_create(char *client_name)
+{
+	return NULL;
+}
+
+void mdss_reg_bus_vote_client_destroy(struct reg_bus_client *client)
+{
+}
+
+int mdss_update_reg_bus_vote(struct reg_bus_client *bus_client, u32 usecase_ndx)
+{
+	pr_debug("%pS: No reg scaling! usecase=%u\n",
+			__builtin_return_address(0), usecase_ndx);
+
+	return 0;
+}
+#endif
+
 
 static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
 {
@@ -1271,7 +1310,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	}
 
 	mdata->reg_bus_clt = mdss_reg_bus_vote_client_create("mdp\0");
-	if (IS_ERR_OR_NULL(mdata->reg_bus_clt)) {
+	if (IS_ERR(mdata->reg_bus_clt)) {
 		pr_err("bus client register failed\n");
 		return PTR_ERR(mdata->reg_bus_clt);
 	}
@@ -3899,6 +3938,7 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev)
 	return -EINVAL;
 }
 
+#ifdef CONFIG_MSM_BUS_SCALING
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 {
 	int rc, paths;
@@ -3957,6 +3997,13 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 
 	return rc;
 }
+#else
+static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
+{
+	return 0;
+}
+
+#endif
 
 static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
 		char *prop_name, u32 *offsets, int len)
