@@ -1293,7 +1293,7 @@ categorized as small wakee tasks.  Scheduler places small wakee tasks on the
 waker's cluster.
 
 
-*** 7.26 sched_big_waker_task_load
+*** 7.27 sched_big_waker_task_load
 
 Appears at: /proc/sys/kernel/sched_big_waker_task_load
 
@@ -1302,6 +1302,23 @@ Default value: 25
 This tunable is a percentage.  Configure the minimum demand of big sync waker
 task.  Scheduler places small wakee tasks woken up by big sync waker on the
 waker's cluster.
+
+*** 7.28 sched_prefer_sync_wakee_to_waker
+
+Appears at: /proc/sys/kernel/sched_prefer_sync_wakee_to_waker
+
+Default value: 0
+
+The default sync wakee policy has a preference to select an idle CPU in the
+waker cluster compared to the waker CPU running only 1 task. By selecting
+an idle CPU, it eliminates the chance of waker migrating to a different CPU
+after the wakee preempts it. This policy is also not susceptible to the
+incorrect "sync" usage i.e the waker does not goto sleep after waking up
+the wakee.
+
+However LPM exit latency associated with an idle CPU outweigh the above
+benefits on some targets. When this knob is turned on, the waker CPU is
+selected if it has only 1 runnable task.
 
 =========================
 8. HMP SCHEDULER TRACE POINTS
