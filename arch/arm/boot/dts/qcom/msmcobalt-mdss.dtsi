@@ -56,11 +56,12 @@
 
 		qcom,mdss-pipe-vig-off = <0x00005000 0x00007000
 					  0x00009000 0x0000b000>;
-		qcom,mdss-pipe-dma-off = <0x00025000 0x00027000>;
+		qcom,mdss-pipe-dma-off = <0x00025000 0x00027000
+					  0x00029000 0x0002b000>;
 		qcom,mdss-pipe-cursor-off = <0x00035000 0x00037000>;
 
 		qcom,mdss-pipe-vig-xin-id = <0 4 8 12>;
-		qcom,mdss-pipe-dma-xin-id = <1 5>;
+		qcom,mdss-pipe-dma-xin-id = <1 5 9 13>;
 		qcom,mdss-pipe-cursor-xin-id = <2 10>;
 
 		/* These Offsets are relative to
@@ -70,8 +71,10 @@
 						      <0x2b4 0 0>,
 						      <0x2bc 0 0>,
 						      <0x2c4 0 0>;
-		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2ac 8 12>,
-						      <0x2b4 8 12>;
+		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2ac  8 12>,
+						      <0x2b4  8 12>,
+						      <0x2c4  8 12>,
+						      <0x2c4 12 14>;
 		qcom,mdss-pipe-cursor-clk-ctrl-offsets = <0x3a8 16 15>,
 							 <0x3b0 16 15>;
 
@@ -101,6 +104,7 @@
 		clocks = <&clock_mmss clk_mmss_mdss_ahb_clk>,
 			 <&clock_mmss clk_mmss_mdss_axi_clk>,
 			 <&clock_mmss clk_mdp_clk_src>,
+			 <&clock_mmss clk_mmss_mdss_mdp_clk>,
 			 <&clock_mmss clk_mmss_mdss_vsync_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
@@ -119,8 +123,10 @@
 				     <0x09200 0x09230>,
 				     <0x0b000 0x0b150>,
 				     <0x0b200 0x0b230>,
-				     <0x25000 0x25150>,
-				     <0x27000 0x27150>,
+				     <0x25000 0x25184>,
+				     <0x27000 0x27184>,
+				     <0x29000 0x29184>,
+				     <0x2b000 0x2b184>,
 				     <0x35000 0x35150>,
 				     <0x37000 0x37150>,
 				     <0x45000 0x452bc>,
@@ -147,6 +153,7 @@
 			"VIG0_SSPP", "VIG0",  "VIG1_SSPP", "VIG1",
 			"VIG2_SSPP", "VIG2",  "VIG3_SSPP", "VIG3",
 			"DMA0_SSPP", "DMA1_SSPP",
+			"DMA2_SSPP", "DMA3_SSPP",
 			"CURSOR0_SSPP", "CURSOR1_SSPP",
 			"LAYER_0", "LAYER_1", "LAYER_2",
 			"LAYER_3", "LAYER_4", "LAYER_5",
