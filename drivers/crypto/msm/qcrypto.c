@@ -691,7 +691,7 @@ static int qcrypto_count_sg(struct scatterlist *sg, int nbytes)
 {
 	int i;
 
-	for (i = 0; nbytes > 0 && sg != NULL; i++, sg = scatterwalk_sg_next(sg))
+	for (i = 0; nbytes > 0 && sg != NULL; i++, sg = sg_next(sg))
 		nbytes -= sg->length;
 
 	return i;
@@ -708,7 +708,7 @@ static size_t qcrypto_sg_copy_from_buffer(struct scatterlist *sgl,
 		buf += len;
 		buflen -= len;
 		offset += len;
-		sgl = scatterwalk_sg_next(sgl);
+		sgl = sg_next(sgl);
 	}
 
 	return offset;
@@ -725,7 +725,7 @@ static size_t qcrypto_sg_copy_to_buffer(struct scatterlist *sgl,
 		buf += len;
 		buflen -= len;
 		offset += len;
-		sgl = scatterwalk_sg_next(sgl);
+		sgl = sg_next(sgl);
 	}
 
 	return offset;
@@ -887,6 +887,7 @@ static int _qcrypto_cra_aes_ablkcipher_init(struct crypto_tfm *tfm)
 	return _qcrypto_cra_ablkcipher_init(tfm);
 };
 
+#if 0
 static int _qcrypto_cra_aead_sha1_init(struct crypto_tfm *tfm)
 {
 	int rc;
@@ -930,6 +931,7 @@ static int _qcrypto_cra_aead_rfc4309_ccm_init(struct crypto_tfm *tfm)
 	ctx->auth_alg =  QCE_HASH_AES_CMAC;
 	return rc;
 }
+#endif
 
 static void _qcrypto_cra_ablkcipher_exit(struct crypto_tfm *tfm)
 {
@@ -1606,7 +1608,7 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 	req_done(pqcrypto_req_control);
 };
 
-
+#if 0
 static void _qce_aead_complete(void *cookie, unsigned char *icv,
 				unsigned char *iv, int ret)
 {
@@ -1728,6 +1730,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 	pqcrypto_req_control->arsp->res = ret;
 	req_done(pqcrypto_req_control);
 }
+#endif
 
 static int aead_ccm_set_msg_len(u8 *block, unsigned int msglen, int csize)
 {
@@ -1942,6 +1945,7 @@ static int _qcrypto_process_ahash(struct crypto_engine *pengine,
 	return ret;
 }
 
+#if 0
 static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 			struct qcrypto_req_control *pqcrypto_req_control)
 {
@@ -2145,6 +2149,7 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 
 	return ret;
 }
+#endif
 
 static struct crypto_engine *_qcrypto_static_assign_engine(
 					struct crypto_priv *cp)
@@ -2284,9 +2289,11 @@ again:
 	case CRYPTO_ALG_TYPE_AHASH:
 		ret = _qcrypto_process_ahash(pengine, pqcrypto_req_control);
 		break;
+#if 0
 	case CRYPTO_ALG_TYPE_AEAD:
 		ret = _qcrypto_process_aead(pengine, pqcrypto_req_control);
 		break;
+#endif
 	default:
 		ret = -EINVAL;
 	};
@@ -2853,7 +2860,7 @@ static int _qcrypto_dec_aes_xts(struct ablkcipher_request *req)
 	return _qcrypto_queue_req(cp, ctx->pengine, &req->base);
 };
 
-
+#if 0
 static int _qcrypto_aead_decrypt_aes_ccm(struct aead_request *req)
 {
 	struct qcrypto_cipher_req_ctx *rctx;
@@ -3259,6 +3266,7 @@ static int _qcrypto_aead_givencrypt_3des_cbc(struct aead_givcrypt_request *req)
 		pstat->aead_sha256_3des_enc++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &areq->base);
 }
+#endif
 
 static int _sha_init(struct ahash_request *req)
 {
@@ -3523,7 +3531,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 		if ((len + sg_last->length) > nbytes)
 			break;
 		len += sg_last->length;
-		sg_last = scatterwalk_sg_next(sg_last);
+		sg_last = sg_next(sg_last);
 	}
 	if (rctx->trailing_buf_len) {
 		if (cp->ce_support.aligned_only)  {
@@ -4463,7 +4471,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_xts_algo = {
 		},
 	},
 };
-
+#if 0
 static struct crypto_alg _qcrypto_aead_sha1_hmac_algos[] = {
 	{
 		.cra_name	= "authenc(hmac(sha1),cbc(aes))",
@@ -4670,7 +4678,7 @@ static struct crypto_alg _qcrypto_aead_rfc4309_ccm_algo = {
 		}
 	}
 };
-
+#endif
 
 static int  _qcrypto_probe(struct platform_device *pdev)
 {
@@ -4891,6 +4899,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	}
 
 	/* register crypto aead (hmac-sha1) algorithms the device supports */
+#if 0
 	if (cp->ce_support.sha1_hmac_20 || cp->ce_support.sha1_hmac
 		|| cp->ce_support.sha_hmac) {
 		for (i = 0; i < ARRAY_SIZE(_qcrypto_aead_sha1_hmac_algos);
@@ -4966,7 +4975,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
+#endif
 	if ((cp->ce_support.sha_hmac) || (cp->platform_support.sha_hmac)) {
 		/* register crypto hmac algorithms the device supports */
 		for (i = 0; i < ARRAY_SIZE(_qcrypto_sha_hmac_algos); i++) {
@@ -5009,6 +5018,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	 * Register crypto cipher (aes-ccm) algorithms the
 	 * device supports
 	 */
+#if 0
 	if (cp->ce_support.aes_ccm) {
 		struct qcrypto_alg *q_alg;
 
@@ -5070,7 +5080,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 					q_alg->cipher_alg.cra_driver_name);
 		}
 	}
-
+#endif
 	mutex_unlock(&cp->engine_lock);
 
 

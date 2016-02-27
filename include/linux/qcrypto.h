@@ -27,16 +27,16 @@
 
 int qcrypto_cipher_set_device(struct ablkcipher_request *req, unsigned int dev);
 int qcrypto_ahash_set_device(struct ahash_request *req, unsigned int dev);
-int qcrypto_aead_set_device(struct aead_request *req, unsigned int dev);
+/*int qcrypto_aead_set_device(struct aead_request *req, unsigned int dev);*/
 
 int qcrypto_cipher_set_flag(struct ablkcipher_request *req, unsigned int flags);
 int qcrypto_ahash_set_flag(struct ahash_request *req, unsigned int flags);
-int qcrypto_aead_set_flag(struct aead_request *req, unsigned int flags);
+/*int qcrypto_aead_set_flag(struct aead_request *req, unsigned int flags);*/
 
 int qcrypto_cipher_clear_flag(struct ablkcipher_request *req,
 							unsigned int flags);
 int qcrypto_ahash_clear_flag(struct ahash_request *req, unsigned int flags);
-int qcrypto_aead_clear_flag(struct aead_request *req, unsigned int flags);
+/*int qcrypto_aead_clear_flag(struct aead_request *req, unsigned int flags);*/
 
 struct crypto_engine_entry {
 	u32 hw_instance;

@@ -207,7 +207,7 @@ static int count_sg(struct scatterlist *sg, int nbytes)
 {
 	int i;
 
-	for (i = 0; nbytes > 0; i++, sg = scatterwalk_sg_next(sg))
+	for (i = 0; nbytes > 0; i++, sg = sg_next(sg))
 		nbytes -= sg->length;
 	return i;
 }
@@ -219,7 +219,7 @@ static int qce_dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
 
 	for (i = 0; i < nents; ++i) {
 		dma_map_sg(dev, sg, 1, direction);
-		sg = scatterwalk_sg_next(sg);
+		sg = sg_next(sg);
 	}
 
 	return nents;
@@ -232,7 +232,7 @@ static int qce_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
 
 	for (i = 0; i < nents; ++i) {
 		dma_unmap_sg(dev, sg, 1, direction);
-		sg = scatterwalk_sg_next(sg);
+		sg = sg_next(sg);
 	}
 
 	return nents;
@@ -2035,6 +2035,7 @@ static int _qce_unlock_other_pipes(struct qce_device *pce_dev, int req_info)
 
 static inline void qce_free_req_info(struct qce_device *pce_dev, int req_info,
 		bool is_complete);
+#if 0
 static int _aead_complete(struct qce_device *pce_dev, int req_info)
 {
 	struct aead_request *areq;
@@ -2124,6 +2125,7 @@ static int _aead_complete(struct qce_device *pce_dev, int req_info)
 	}
 	return 0;
 };
+#endif
 
 static int _sha_complete(struct qce_device *pce_dev, int req_info)
 {
@@ -2450,7 +2452,7 @@ static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
 			addr += data_cnt;
 			len -= data_cnt;
 		}
-		sg_src = scatterwalk_sg_next(sg_src);
+		sg_src = sg_next(sg_src);
 	}
 	return 0;
 }
@@ -2936,9 +2938,11 @@ static void _qce_req_complete(struct qce_device *pce_dev, unsigned int req_info)
 	case QCE_XFER_HASHING:
 		_sha_complete(pce_dev, req_info);
 		break;
+#if 0
 	case QCE_XFER_AEAD:
 		_aead_complete(pce_dev, req_info);
 		break;
+#endif
 	case QCE_XFER_F8:
 		_f8_complete(pce_dev, req_info);
 		break;
@@ -4569,7 +4573,7 @@ static int select_mode(struct qce_device *pce_dev,
 
 	return 0;
 }
-
+#if 0
 static int _qce_aead_ccm_req(void *handle, struct qce_req *q_req)
 {
 	struct qce_device *pce_dev = (struct qce_device *) handle;
@@ -4782,6 +4786,7 @@ bad:
 
 	return rc;
 }
+#endif
 
 static int _qce_suspend(void *handle)
 {
@@ -4844,6 +4849,7 @@ static int _qce_resume(void *handle)
 struct qce_pm_table qce_pm_table  = {_qce_suspend, _qce_resume};
 EXPORT_SYMBOL(qce_pm_table);
 
+#if 0
 int qce_aead_req(void *handle, struct qce_req *q_req)
 {
 	struct qce_device *pce_dev = (struct qce_device *)handle;
@@ -5053,6 +5059,7 @@ bad:
 	return rc;
 }
 EXPORT_SYMBOL(qce_aead_req);
+#endif
 
 int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 {
