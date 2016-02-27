@@ -190,6 +190,12 @@ struct mdss_mdp_vsync_handler {
 	struct list_head list;
 };
 
+struct mdss_mdp_lineptr_handler {
+	bool enabled;
+	mdp_vsync_handler_t lineptr_handler;
+	struct list_head list;
+};
+
 enum mdss_mdp_wb_ctl_type {
 	MDSS_MDP_WB_CTL_TYPE_BLOCK = 1,
 	MDSS_MDP_WB_CTL_TYPE_LINE
@@ -341,6 +347,8 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_vsync_handler recover_underrun_handler;
 	struct work_struct recover_work;
 	struct work_struct remove_underrun_handler;
+
+	struct mdss_mdp_lineptr_handler lineptr_handler;
 
 	/*
 	 * This ROI is aligned to as per following guidelines and
@@ -659,7 +667,9 @@ struct mdss_mdp_wfd;
 
 struct mdss_overlay_private {
 	ktime_t vsync_time;
+	ktime_t lineptr_time;
 	struct kernfs_node *vsync_event_sd;
+	struct kernfs_node *lineptr_event_sd;
 	struct kernfs_node *hist_event_sd;
 	struct kernfs_node *bl_event_sd;
 	struct kernfs_node *ad_event_sd;
@@ -1178,6 +1188,46 @@ static inline bool mdss_mdp_is_lm_swap_needed(struct mdss_data_type *mdata,
 static inline int mdss_mdp_get_display_id(struct mdss_mdp_pipe *pipe)
 {
 	return (pipe && pipe->mfd) ? pipe->mfd->index : -1;
+}
+
+static inline bool mdss_mdp_is_full_frame_update(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_mixer *mixer;
+	struct mdss_rect *roi;
+
+	if (mdss_mdp_get_pu_type(ctl) != MDSS_MDP_DEFAULT_UPDATE)
+		return false;
+
+	if (ctl->mixer_left->valid_roi) {
+		mixer = ctl->mixer_left;
+		roi = &mixer->roi;
+		if ((roi->x != 0) || (roi->y != 0) || (roi->w != mixer->width)
+			|| (roi->h != mixer->height))
+			return false;
+	}
+
+	if (ctl->mixer_right && ctl->mixer_right->valid_roi) {
+		mixer = ctl->mixer_right;
+		roi = &mixer->roi;
+		if ((roi->x != 0) || (roi->y != 0) || (roi->w != mixer->width)
+			|| (roi->h != mixer->height))
+			return false;
+	}
+
+	return true;
+}
+
+static inline bool mdss_mdp_is_lineptr_supported(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_panel_info *pinfo;
+
+	if (!ctl || !ctl->mixer_left || !ctl->is_master)
+		return false;
+
+	pinfo = &ctl->panel_data->panel_info;
+
+	return (((pinfo->type == MIPI_CMD_PANEL)
+			&& (pinfo->te.tear_check_en)) ? true : false);
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
