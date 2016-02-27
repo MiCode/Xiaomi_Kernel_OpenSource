@@ -467,6 +467,39 @@ static void cnss_ramdump_cleanup(void)
 	ssr_info->ramdump_dev = NULL;
 }
 
+void *cnss_sdio_get_virt_ramdump_mem(unsigned long *size)
+{
+	if (!cnss_pdata || !cnss_pdata->pdev)
+		return NULL;
+
+	*size = cnss_pdata->ssr_info.ramdump_size;
+
+	return cnss_pdata->ssr_info.ramdump_addr;
+}
+EXPORT_SYMBOL(cnss_sdio_get_virt_ramdump_mem);
+
+void cnss_sdio_device_self_recovery(void)
+{
+	cnss_sdio_shutdown(NULL, false);
+	msleep(WLAN_RECOVERY_DELAY);
+	cnss_sdio_powerup(NULL);
+}
+EXPORT_SYMBOL(cnss_sdio_device_self_recovery);
+
+void cnss_sdio_device_crashed(void)
+{
+	struct cnss_ssr_info *ssr_info;
+
+	if (!cnss_pdata)
+		return;
+	ssr_info = &cnss_pdata->ssr_info;
+	if (ssr_info->subsys) {
+		subsys_set_crash_status(ssr_info->subsys, true);
+		subsystem_restart_dev(ssr_info->subsys);
+	}
+}
+EXPORT_SYMBOL(cnss_sdio_device_crashed);
+
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
 	struct cnss_ssr_info *ssr_info;
@@ -501,12 +534,18 @@ void cnss_device_self_recovery(void)
 }
 EXPORT_SYMBOL(cnss_device_self_recovery);
 
-static void recovery_work_handler(struct work_struct *recovery)
+static void cnss_sdio_recovery_work_handler(struct work_struct *recovery)
 {
 	cnss_device_self_recovery();
 }
 
-DECLARE_WORK(recovery_work, recovery_work_handler);
+DECLARE_WORK(recovery_work, cnss_sdio_recovery_work_handler);
+
+void cnss_sdio_schedule_recovery_work(void)
+{
+	schedule_work(&recovery_work);
+}
+EXPORT_SYMBOL(cnss_sdio_schedule_recovery_work);
 
 void cnss_schedule_recovery_work(void)
 {
