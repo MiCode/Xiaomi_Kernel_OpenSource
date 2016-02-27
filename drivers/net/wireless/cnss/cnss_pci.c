@@ -1752,12 +1752,12 @@ static ssize_t fw_image_setup_store(struct device *dev,
 static DEVICE_ATTR(fw_image_setup, S_IRUSR | S_IWUSR,
 	fw_image_setup_show, fw_image_setup_store);
 
-void recovery_work_handler(struct work_struct *recovery)
+void cnss_pci_recovery_work_handler(struct work_struct *recovery)
 {
 	cnss_device_self_recovery();
 }
 
-DECLARE_WORK(recovery_work, recovery_work_handler);
+DECLARE_WORK(recovery_work, cnss_pci_recovery_work_handler);
 
 void cnss_schedule_recovery_work(void)
 {
@@ -2189,6 +2189,32 @@ void cnss_release_pm_sem(void)
 }
 EXPORT_SYMBOL(cnss_release_pm_sem);
 
+void cnss_pci_schedule_recovery_work(void)
+{
+	schedule_work(&recovery_work);
+}
+EXPORT_SYMBOL(cnss_pci_schedule_recovery_work);
+
+void *cnss_pci_get_virt_ramdump_mem(unsigned long *size)
+{
+	if (!penv || !penv->pldev)
+		return NULL;
+
+	*size = penv->ramdump_size;
+
+	return penv->ramdump_addr;
+}
+EXPORT_SYMBOL(cnss_pci_get_virt_ramdump_mem);
+
+void cnss_pci_device_crashed(void)
+{
+	if (penv && penv->subsys) {
+		subsys_set_crash_status(penv->subsys, true);
+		subsystem_restart_dev(penv->subsys);
+	}
+}
+EXPORT_SYMBOL(cnss_pci_device_crashed);
+
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
 	if (!penv || !penv->pldev)
@@ -2363,6 +2389,32 @@ err_pcie_link_up:
 err_wlan_vreg_on:
 	return ret;
 }
+
+void cnss_pci_device_self_recovery(void)
+{
+	if (!penv)
+		return;
+
+	if (penv->recovery_in_progress) {
+		pr_err("cnss: Recovery already in progress\n");
+		return;
+	}
+
+	if (penv->driver_status == CNSS_LOAD_UNLOAD) {
+		pr_err("cnss: load unload in progress\n");
+		return;
+	}
+
+	penv->recovery_count++;
+	penv->recovery_in_progress = true;
+	cnss_pm_wake_lock(&penv->ws);
+	cnss_shutdown(NULL, false);
+	msleep(WLAN_RECOVERY_DELAY);
+	cnss_powerup(NULL);
+	cnss_pm_wake_lock_release(&penv->ws);
+	penv->recovery_in_progress = false;
+}
+EXPORT_SYMBOL(cnss_pci_device_self_recovery);
 
 static int cnss_ramdump(int enable, const struct subsys_desc *subsys)
 {
