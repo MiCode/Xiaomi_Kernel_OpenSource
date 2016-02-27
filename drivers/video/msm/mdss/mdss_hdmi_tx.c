@@ -3016,7 +3016,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			goto disable_vreg;
 		}
 		mdss_update_reg_bus_vote(hdmi_ctrl->pdata.reg_bus_clt[module],
-			VOTE_INDEX_19_MHZ);
+			VOTE_INDEX_LOW);
 
 		rc = msm_dss_clk_set_rate(power_data->clk_config,
 			power_data->num_clk);

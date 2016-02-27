@@ -859,7 +859,7 @@
 	/* Updated chip ID */
 	qcom,chipid = <0x05030004>;
 
-	qcom,initial-pwrlevel = <6>;
+	/delete-property/ qcom,gpu-quirk-critical-packets;
 
 	qcom,gpu-speed-bin = <0x413c 0x30000000 28>;
 
@@ -874,6 +874,8 @@
 			#size-cells = <0>;
 
 			qcom,speed-bin = <0>;
+
+			qcom,initial-pwrlevel = <6>;
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
@@ -953,6 +955,8 @@
 			#size-cells = <0>;
 
 			qcom,speed-bin = <1>;
+
+			qcom,initial-pwrlevel = <5>;
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;

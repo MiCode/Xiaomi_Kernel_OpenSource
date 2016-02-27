@@ -877,6 +877,17 @@ config REGULATOR_CPR4_APSS
 	  adjustments for performance boost mode. This driver reads both initial
 	  voltage and CPR target quotient values out of hardware fuses.
 
+config REGULATOR_CPRH_KBSS
+	bool "CPRH regulator for KBSS"
+	depends on OF
+	select REGULATOR_CPR3
+	help
+	  This driver supports Qualcomm Technologies, Inc. KBSS application
+	  processor specific features including CPR hardening (CPRh) and two
+	  CPRh controllers which monitor the two KBSS clusters each powered by
+	  independent voltage supplies. This driver reads both initial voltage
+	  and CPR target quotient values out of hardware fuses.
+
 config REGULATOR_KRYO
 	bool "Kryo regulator driver"
 	depends on OF

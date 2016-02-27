@@ -1268,6 +1268,7 @@
 
 	compress: qcom,msm-compress-dsp {
 		compatible = "qcom,msm-compress-dsp";
+		qcom,adsp-version = "MDSP 1.2";
 	};
 
 	voip: qcom,msm-voip-dsp {
@@ -1359,6 +1360,11 @@
 		bt_sco_tx: qcom,msm-dai-q6-bt-sco-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12289>;
+		};
+
+		bt_a2dp_rx: qcom,msm-dai-q6-bt-a2dp-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12290>;
 		};
 
 		int_fm_rx: qcom,msm-dai-q6-int-fm-rx {

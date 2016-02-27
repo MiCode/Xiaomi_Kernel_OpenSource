@@ -252,6 +252,18 @@
 					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
 			qcom,use-voltage-level;
 		};
+
+		mdm9607_l12_floor_level: regulator-l12-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "mdm9607_l12_floor_lebel";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+			qcom,always-send-voltage;
+		};
 	};
 
 	rpm-regulator-ldoa13 {

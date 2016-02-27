@@ -267,7 +267,7 @@ static void ipa3_log_evt_hdlr(void)
 		if (ipa3_ctx->uc_ctx.uc_event_top_ofst +
 			sizeof(struct IpaHwEventLogInfoData_t) >=
 			ipa3_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
+			ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
 			ipa3_ctx->smem_sz) {
 				IPAERR("uc_top 0x%x outside SRAM\n",
 					ipa3_ctx->uc_ctx.uc_event_top_ofst);
@@ -420,11 +420,11 @@ int ipa3_uc_panic_notifier(struct notifier_block *this,
 	wmb();
 
 	if (ipa3_ctx->apply_rg10_wa)
-		ipa_write_reg(ipa3_ctx->mmio,
-			IPA_UC_MAILBOX_m_n_OFFS_v3_0(IPA_CPU_2_HW_CMD_MBOX_m,
-			IPA_CPU_2_HW_CMD_MBOX_n), 0x1);
+		ipahal_write_reg_mn(IPA_UC_MAILBOX_m_n,
+			IPA_CPU_2_HW_CMD_MBOX_m,
+			IPA_CPU_2_HW_CMD_MBOX_n, 0x1);
 	else
-		ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
+		ipahal_write_reg_n(IPA_IRQ_EE_UC_n, 0, 0x1);
 
 	/* give uc enough time to save state */
 	udelay(IPA_PKT_FLUSH_TO_US);
@@ -549,11 +549,11 @@ send_cmd:
 	wmb();
 
 	if (ipa3_ctx->apply_rg10_wa)
-		ipa_write_reg(ipa3_ctx->mmio,
-			IPA_UC_MAILBOX_m_n_OFFS_v3_0(IPA_CPU_2_HW_CMD_MBOX_m,
-			IPA_CPU_2_HW_CMD_MBOX_n), 0x1);
+		ipahal_write_reg_mn(IPA_UC_MAILBOX_m_n,
+			IPA_CPU_2_HW_CMD_MBOX_m,
+			IPA_CPU_2_HW_CMD_MBOX_n, 0x1);
 	else
-		ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
+		ipahal_write_reg_n(IPA_IRQ_EE_UC_n, 0, 0x1);
 
 	if (polling_mode) {
 		for (index = 0; index < IPA_UC_POLL_MAX_RETRY; index++) {
@@ -652,7 +652,7 @@ int ipa3_uc_interface_init(void)
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0);
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0);
 	ipa3_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr,
 					       IPA_RAM_UC_SMEM_SIZE);
 	if (!ipa3_ctx->uc_ctx.uc_sram_mmio) {
@@ -891,20 +891,21 @@ int ipa3_uc_update_hw_flags(u32 flags)
  * to a register will be proxied by the uC due to H/W limitation.
  * This func should be called for RG10 registers only
  *
- * @Parameters: Like ipa_write_reg() parameters
+ * @Parameters: Like ipahal_write_reg_n() parameters
  *
  */
-void ipa3_uc_rg10_write_reg(void *base, u32 offset, u32 val)
+void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val)
 {
 	int ret;
 	u32 paddr;
 
 	if (!ipa3_ctx->apply_rg10_wa)
-		return ipa_write_reg(base, offset, val);
+		return ipahal_write_reg_n(reg, n, val);
+
 
 	/* calculate register physical address */
 	paddr = ipa3_ctx->ipa_wrapper_base + ipa3_ctx->ctrl->ipa_reg_base_ofst;
-	paddr += offset;
+	paddr += ipahal_get_reg_n_ofst(reg, n);
 
 	IPADBG("Sending uC cmd to reg write: addr=0x%x val=0x%x\n",
 		paddr, val);

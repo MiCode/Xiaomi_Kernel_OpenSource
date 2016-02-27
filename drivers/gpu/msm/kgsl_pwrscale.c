@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -786,6 +786,10 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 
 	/* initialize msm-adreno-tz governor specific data here */
 	data = gpu_profile->private_data;
+
+	data->disable_busy_time_burst = of_property_read_bool(
+		device->pdev->dev.of_node, "qcom,disable-busy-time-burst");
+
 	/*
 	 * If there is a separate GX power rail, allow
 	 * independent modification to its voltage through

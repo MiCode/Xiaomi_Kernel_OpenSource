@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -455,6 +455,8 @@ int q6asm_set_multich_gain(struct audio_client *ac, uint32_t channels,
 int q6asm_set_mute(struct audio_client *ac, int muteflag);
 
 int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp);
+
+int q6asm_get_session_time_legacy(struct audio_client *ac, uint64_t *tstamp);
 
 int q6asm_send_audio_effects_params(struct audio_client *ac, char *params,
 				    uint32_t params_length);

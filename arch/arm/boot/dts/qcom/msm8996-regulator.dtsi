@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -275,7 +275,7 @@
 			status = "okay";
 		};
 
-		pm8994_l18_pin_ctrl: regulator-l18 {
+		pm8994_l18_pin_ctrl: regulator-l18-pin-ctrl {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8994_l18_pin_ctrl";
 			qcom,set = <3>;
@@ -1445,6 +1445,14 @@
 		enable-active-high;
 		gpio = <&pm8994_gpios 9 0>;
 	};
+
+	hl7509_en_vreg: hl7509_en_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "hl7509_en_vreg";
+		gpio = <&pm8994_mpps 6 0>;
+		enable-active-high;
+		status = "disabled";
+	};
 };
 
 &pmi8994_charger {
@@ -1458,3 +1466,17 @@
 	};
 };
 
+/* Halo HL7509 external buck that powers VDD_GFX supply on 8996AU boards */
+&i2c_7 {
+	hl7509_vreg: hl7509-regulator@68 {
+		compatible = "halo,hl7509";
+		reg = <0x68>;
+		vin-supply = <&hl7509_en_vreg>;
+		fcs,disable-suspend;
+		fcs,suspend-voltage-selector = <1>;
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <1230000>;
+		regulator-ramp-delay = <500>;
+		status = "disabled";
+	};
+};

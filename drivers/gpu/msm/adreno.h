@@ -109,6 +109,8 @@
 #define ADRENO_LM BIT(8)
 /* The core uses 64 bit GPU addresses */
 #define ADRENO_64BIT BIT(9)
+/* The GPU supports retention for cpz registers */
+#define ADRENO_CPZ_RETENTION BIT(10)
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
@@ -118,6 +120,10 @@
 #define ADRENO_QUIRK_TWO_PASS_USE_WFI BIT(0)
 /* Lock/unlock mutex to sync with the IOMMU */
 #define ADRENO_QUIRK_IOMMU_SYNC BIT(1)
+/* Submit critical packets at GPU wake up */
+#define ADRENO_QUIRK_CRITICAL_PACKETS BIT(2)
+/* Mask out RB1-3 activity signals from HW hang detection logic */
+#define ADRENO_QUIRK_FAULT_DETECT_MASK BIT(3)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -186,6 +192,7 @@ enum adreno_gpurev {
 #define ADRENO_SPTP_PC_CTRL 0
 #define ADRENO_PPD_CTRL     1
 #define ADRENO_LM_CTRL      2
+#define ADRENO_HWCG_CTRL    3
 
 /* number of throttle counters for DCVS adjustment */
 #define ADRENO_GPMU_THROTTLE_COUNTERS 4
@@ -693,6 +700,7 @@ struct adreno_gpudev {
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
 	void (*platform_setup)(struct adreno_device *);
 	void (*init)(struct adreno_device *);
+	void (*remove)(struct adreno_device *);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*hw_init)(struct adreno_device *);
 	int (*microcode_read)(struct adreno_device *);

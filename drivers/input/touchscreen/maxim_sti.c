@@ -30,6 +30,7 @@
 #include <net/genetlink.h>
 #include <net/sock.h>
 #include <uapi/linux/maxim_sti.h>
+#include <linux/input/mt.h>
 #include <asm/byteorder.h>  /* MUST include this header to get byte order */
 #ifdef CONFIG_OF
 #include <linux/gpio.h>
@@ -76,6 +77,7 @@ struct maxim_sti_pdata {
 	int       (*init)(struct maxim_sti_pdata *pdata, bool init);
 	void      (*reset)(struct maxim_sti_pdata *pdata, int value);
 	int       (*irq)(struct maxim_sti_pdata *pdata);
+	bool	  mt_type_b_enabled;
 };
 
 struct dev_data;
@@ -135,6 +137,8 @@ struct dev_data {
 	u32                          tf_status;
 	bool                         idle;
 	bool                         gesture_reset;
+	bool			     touch_status[INPUT_DEVICES]
+						[MAX_INPUT_EVENTS];
 	u16                          gesture_en;
 	unsigned long int            sysfs_update_type;
 	struct completion            sysfs_ack_glove;
@@ -980,6 +984,9 @@ static int maxim_parse_dt(struct device *dev, struct maxim_sti_pdata *pdata)
 	pdata->gpio_irq = of_get_named_gpio_flags(np,
 			"maxim_sti,irq-gpio", 0, &flags);
 
+	pdata->mt_type_b_enabled =
+		of_property_read_bool(np, "maxim_sti,mt_type_b_enabled");
+
 	ret = of_property_read_string(np, "maxim_sti,touch_fusion", &str);
 	if (ret) {
 		dev_err(dev, "%s: unable to read touch_fusion location (%d)\n",
@@ -1108,6 +1115,22 @@ nl_callback_noop(struct sk_buff *skb, struct genl_info *info)
 	return 0;
 }
 
+static void
+release_slot_events(struct dev_data *dd, bool *active_touch, int inp)
+{
+	int i;
+
+	for (i = 0; i < MAX_INPUT_EVENTS; i++) {
+		if (dd->touch_status[inp][i] == true &&
+					active_touch[i] == false) {
+			input_mt_slot(dd->input_dev[inp], i);
+			input_mt_report_slot_state(dd->input_dev[inp],
+				MT_TOOL_FINGER, 0);
+		}
+		dd->touch_status[inp][i] = active_touch[i];
+	}
+}
+
 static inline bool
 nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 {
@@ -1131,9 +1154,10 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 	struct dr_sysfs_ack           *sysfs_ack_msg;
 	struct dr_idle                *idle_msg;
 	struct dr_tf_status           *tf_status_msg;
-	u8                            i, inp;
-	int                           ret;
+	u8			      i, inp;
+	int                           ret, id;
 	u16                           read_value[2] = { 0 };
+	bool	active_touch[INPUT_DEVICES][MAX_INPUT_EVENTS] = { {false} };
 
 	if (dd->expect_resume_ack && msg_id != DR_DECONFIG &&
 	    msg_id != DR_RESUME_ACK)
@@ -1294,6 +1318,19 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 				__set_bit(KEY_POWER,
 					  dd->input_dev[i]->keybit);
 			}
+			if (pdata->mt_type_b_enabled &&
+				input_mt_init_slots(dd->input_dev[i],
+						MAX_INPUT_EVENTS, 0)) {
+					ERROR("Error in initialising slots\n");
+					input_free_device(dd->input_dev[i]);
+					dd->input_dev[i] = NULL;
+					continue;
+			} else {
+				input_set_abs_params(dd->input_dev[i],
+						ABS_MT_TRACKING_ID, 0,
+						MAX_INPUT_EVENTS, 0, 0);
+			}
+
 			input_set_abs_params(dd->input_dev[i],
 					     ABS_MT_POSITION_X, 0,
 					     config_input_msg->x_range, 0, 0);
@@ -1302,9 +1339,7 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 					     config_input_msg->y_range, 0, 0);
 			input_set_abs_params(dd->input_dev[i],
 					     ABS_MT_PRESSURE, 0, 0xFF, 0, 0);
-			input_set_abs_params(dd->input_dev[i],
-					     ABS_MT_TRACKING_ID, 0,
-					     MAX_INPUT_EVENTS, 0, 0);
+
 			if (i == (INPUT_DEVICES - 1))
 				input_set_abs_params(dd->input_dev[i],
 						     ABS_MT_TOOL_TYPE, 0,
@@ -1387,7 +1422,12 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 				dd->eraser_active = false;
 			}
 			for (i = 0; i < INPUT_DEVICES; i++) {
-				input_mt_sync(dd->input_dev[i]);
+				if (pdata->mt_type_b_enabled)
+					release_slot_events(dd,
+							active_touch[i], i);
+				else
+					input_mt_sync(dd->input_dev[i]);
+
 				input_sync(dd->input_dev[i]);
 			}
 		} else {
@@ -1395,15 +1435,36 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 				switch (input_msg->event[i].tool_type) {
 				case DR_INPUT_FINGER:
 					inp = 0;
-					input_report_abs(dd->input_dev[inp],
-							 ABS_MT_TOOL_TYPE,
-							 MT_TOOL_FINGER);
+					id = input_msg->event[i].id;
+					if (pdata->mt_type_b_enabled) {
+						input_mt_slot(
+							dd->input_dev[inp], id);
+						input_mt_report_slot_state(
+							dd->input_dev[inp],
+							MT_TOOL_FINGER, 1);
+						active_touch[inp][id] = true;
+					} else {
+						input_report_abs(
+							dd->input_dev[inp],
+							ABS_MT_TOOL_TYPE,
+							MT_TOOL_FINGER);
+					}
 					break;
 				case DR_INPUT_STYLUS:
 					inp = INPUT_DEVICES - 1;
-					input_report_abs(dd->input_dev[inp],
-							 ABS_MT_TOOL_TYPE,
-							 MT_TOOL_PEN);
+					if (pdata->mt_type_b_enabled) {
+						input_mt_slot(
+							dd->input_dev[inp], id);
+						input_mt_report_slot_state(
+							dd->input_dev[inp],
+							MT_TOOL_PEN, 1);
+						active_touch[inp][id] = true;
+					} else {
+						input_report_abs(
+							dd->input_dev[inp],
+							ABS_MT_TOOL_TYPE,
+							MT_TOOL_PEN);
+					}
 					break;
 				case DR_INPUT_ERASER:
 					inp = INPUT_DEVICES - 1;
@@ -1417,9 +1478,9 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 					      input_msg->event[i].tool_type);
 					break;
 				}
-				input_report_abs(dd->input_dev[inp],
-						 ABS_MT_TRACKING_ID,
-						 input_msg->event[i].id);
+				if (!pdata->mt_type_b_enabled)
+					input_report_abs(dd->input_dev[inp],
+						ABS_MT_TRACKING_ID, id);
 				input_report_abs(dd->input_dev[inp],
 						 ABS_MT_POSITION_X,
 						 input_msg->event[i].x);
@@ -1429,8 +1490,16 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 				input_report_abs(dd->input_dev[inp],
 						 ABS_MT_PRESSURE,
 						 input_msg->event[i].z);
-				input_mt_sync(dd->input_dev[inp]);
+				if (!pdata->mt_type_b_enabled)
+					input_mt_sync(dd->input_dev[inp]);
 			}
+
+			if (pdata->mt_type_b_enabled) {
+				for (i = 0; i < INPUT_DEVICES; i++)
+					release_slot_events(dd,
+						active_touch[i], i);
+			}
+
 			for (i = 0; i < INPUT_DEVICES; i++)
 				input_sync(dd->input_dev[i]);
 		}

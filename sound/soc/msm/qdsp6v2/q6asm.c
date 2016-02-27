@@ -1079,6 +1079,7 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	/* DSP expects stream id from 1 */
 	ac->stream_id = 1;
 	INIT_LIST_HEAD(&ac->no_wait_que);
+	spin_lock_init(&ac->no_wait_que_spinlock);
 	ac->apr = apr_register("ADSP", "ASM", \
 			(apr_fn)q6asm_callback,\
 			((ac->session) << 8 | 0x0001),\
@@ -1124,7 +1125,6 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	}
 	atomic_set(&ac->cmd_state, 0);
 	atomic_set(&ac->nowait_cmd_cnt, 0);
-	spin_lock_init(&ac->no_wait_que_spinlock);
 	atomic_set(&ac->mem_state, 0);
 
 	rc = send_asm_custom_topology(ac);
@@ -5978,6 +5978,53 @@ int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
 fail_cmd:
 	return -EINVAL;
 }
+
+int q6asm_get_session_time_legacy(struct audio_client *ac, uint64_t *tstamp)
+{
+	struct apr_hdr hdr;
+	int rc;
+
+	if (ac == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (ac->apr == NULL) {
+		pr_err("%s: AC APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (tstamp == NULL) {
+		pr_err("%s: tstamp NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
+	hdr.opcode = ASM_SESSION_CMD_GET_SESSIONTIME_V3;
+	atomic_set(&ac->time_flag, 1);
+
+	dev_vdbg(ac->dev, "%s: session[%d]opcode[0x%x]\n", __func__,
+			ac->session,
+			hdr.opcode);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &hdr);
+	if (rc < 0) {
+		pr_err("%s: Commmand 0x%x failed %d\n",
+				__func__, hdr.opcode, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->time_wait,
+			(atomic_read(&ac->time_flag) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout in getting session time from DSP\n",
+				__func__);
+		goto fail_cmd;
+	}
+
+	*tstamp = ac->time_stamp;
+	return 0;
+
+fail_cmd:
+	return -EINVAL;
+}
+
 
 int q6asm_send_audio_effects_params(struct audio_client *ac, char *params,
 				    uint32_t params_length)

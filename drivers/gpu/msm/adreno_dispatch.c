@@ -2571,7 +2571,7 @@ void adreno_dispatcher_preempt_callback(struct adreno_device *adreno_dev,
 	struct adreno_dispatcher *dispatcher = &(adreno_dev->dispatcher);
 	if (ADRENO_DISPATCHER_PREEMPT_TRIGGERED !=
 			atomic_read(&dispatcher->preemption_state)) {
-		KGSL_DRV_INFO(KGSL_DEVICE(adreno_dev),
+		KGSL_DRV_CRIT_RATELIMIT(KGSL_DEVICE(adreno_dev),
 			"Preemption interrupt generated w/o trigger!\n");
 		return;
 	}

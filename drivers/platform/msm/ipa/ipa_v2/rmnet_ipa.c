@@ -1413,7 +1413,8 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 					RMNET_IOCTL_EGRESS_FORMAT_CHECKSUM) {
 				apps_to_ipa_ep_cfg.ipa_ep_cfg.hdr.hdr_len = 8;
 				apps_to_ipa_ep_cfg.ipa_ep_cfg.cfg.
-					cs_offload_en = 1;
+					cs_offload_en =
+					IPA_ENABLE_CS_OFFLOAD_UL;
 				apps_to_ipa_ep_cfg.ipa_ep_cfg.cfg.
 					cs_metadata_hdr_offset = 1;
 			} else {
@@ -1471,7 +1472,8 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			if ((extend_ioctl_data.u.data) &
 					RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
 				ipa_to_apps_ep_cfg.ipa_ep_cfg.cfg.
-					cs_offload_en = 2;
+					cs_offload_en =
+					IPA_ENABLE_CS_OFFLOAD_DL;
 
 			if ((extend_ioctl_data.u.data) &
 					RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {

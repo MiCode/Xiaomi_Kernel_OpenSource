@@ -1436,7 +1436,8 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
 					ipa_ep_cfg.hdr.hdr_len = 8;
 				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
-					ipa_ep_cfg.cfg.cs_offload_en = 1;
+					ipa_ep_cfg.cfg.cs_offload_en =
+					IPA_ENABLE_CS_OFFLOAD_UL;
 				rmnet_ipa3_ctx->apps_to_ipa_ep_cfg.
 					ipa_ep_cfg.cfg.cs_metadata_hdr_offset
 						= 1;
@@ -1501,7 +1502,8 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			if ((extend_ioctl_data.u.data) &
 					RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
 				rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
-					ipa_ep_cfg.cfg.cs_offload_en = 2;
+					ipa_ep_cfg.cfg.cs_offload_en =
+					IPA_ENABLE_CS_OFFLOAD_DL;
 
 			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.
 				hdr_len = 4;

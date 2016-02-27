@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/cpu.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 
@@ -70,9 +71,7 @@ ev_mutex_free:
 
 size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	int i, r;
 	size_t mhi_dev_mem = 0;
-	struct mhi_chan_info chan_info;
 
 	/* Calculate size needed for contexts */
 	mhi_dev_mem += (MHI_MAX_CHANNELS * sizeof(struct mhi_chan_ctxt)) +
@@ -83,29 +82,6 @@ size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 				mhi_dev_mem);
 	/*Calculate size needed for cmd TREs */
 	mhi_dev_mem += (CMD_EL_PER_RING * sizeof(union mhi_cmd_pkt));
-
-	/* Calculate size needed for event TREs */
-	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i)
-		mhi_dev_mem += (sizeof(union mhi_event_pkt) *
-				mhi_dev_ctxt->ev_ring_props[i].nr_desc);
-
-	/* Calculate size needed for xfer TREs and bounce buffers */
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
-		if (VALID_CHAN_NR(i)) {
-			r = get_chan_props(mhi_dev_ctxt, i, &chan_info);
-			if (r)
-				continue;
-			/* Add size of TREs */
-			mhi_dev_mem += (sizeof(union mhi_xfer_pkt) *
-					chan_info.max_desc);
-			/* Add bounce buffer size */
-			if (mhi_dev_ctxt->flags.bb_enabled) {
-				mhi_log(MHI_MSG_INFO,
-					"Enabling BB list, chan %d\n", i);
-				/*mhi_dev_mem += (MAX_BOUNCE_BUF_SIZE *
-						chan_info.max_desc); */
-			}
-		}
 	mhi_log(MHI_MSG_INFO, "Final bytes for MHI device space %zd\n",
 				mhi_dev_mem);
 	return mhi_dev_mem;
@@ -180,7 +156,7 @@ int populate_bb_list(struct list_head *bb_list, int num_bb)
  * @ring_size:			Ring size
  * @ring:			Pointer to the shadow command context
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
 static int mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 				void *trb_list_virt_addr,
@@ -200,29 +176,54 @@ static int mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 	return 0;
 }
 
-
-static int enable_bb_ctxt(struct mhi_ring *bb_ctxt, int nr_el)
+/*
+ * The device can have severe addressing limitations, and in this case
+ * the MHI driver may be restricted on where memory can be allocated.
+ *
+ * The allocation of the MHI control data structures takes place as one
+ * big, physically contiguous allocation.
+ * The device's addressing window, must be placed around that control segment
+ * allocation.
+ * Here we attempt to do this by building an addressing window around the
+ * initial allocated control segment.
+ *
+ * The window size is specified by the device and must be contiguous,
+ * but depending on where the control segment was allocated, it may be
+ * necessary to leave more room, before the ctrl segment start or after
+ * the ctrl segment end.
+ * The following assumptions are made:
+ * Assumption: 1. size of allocated ctrl seg << (device allocation window / 2)
+ *	       2. allocated ctrl seg is physically contiguous
+ */
+static int calculate_mhi_addressing_window(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	bb_ctxt->el_size = sizeof(struct mhi_buf_info);
-	bb_ctxt->len     = bb_ctxt->el_size * nr_el;
-	bb_ctxt->base    = kzalloc(bb_ctxt->len, GFP_KERNEL);
-	bb_ctxt->wp	 = bb_ctxt->base;
-	bb_ctxt->rp	 = bb_ctxt->base;
-	bb_ctxt->ack_rp  = bb_ctxt->base;
-	if (!bb_ctxt->base)
-		return -ENOMEM;
-	return 0;
-}
-
-static void calculate_mhi_addressing_window(
-			struct mhi_device_ctxt *mhi_dev_ctxt)
-{
-	dma_addr_t dma_dev_mem_start;
-	dma_addr_t dma_seg_size = 0x1FF00000UL;
-	dma_addr_t dma_max_addr = (dma_addr_t)(-1);
+	u64 dma_dev_mem_start = 0;
+	u64 dma_seg_size = 0;
+	u64 dma_max_addr = (dma_addr_t)(-1);
+	u64 dev_address_limit = 0;
+	int r = 0;
+	const struct device_node *np =
+		mhi_dev_ctxt->dev_info->plat_dev->dev.of_node;
 
 	dma_dev_mem_start = mhi_dev_ctxt->dev_space.dma_dev_mem_start;
+	r = of_property_read_u64(np, "mhi-dev-address-win-size",
+				 &dev_address_limit);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+			"Failed to get device addressing limit ret %d",
+			r);
+		return r;
+	}
+	/* Mask off the last 3 bits for address calculation */
+	dev_address_limit &= ~0x7;
+	mhi_log(MHI_MSG_INFO, "Device Addressing limit 0x%llx\n",
+				dev_address_limit);
+	dma_seg_size = dev_address_limit / 2;
 
+	/*
+	 * The region of the allocated control segment is within the
+	 * first half of the device's addressing limit
+	 */
 	if (dma_dev_mem_start < dma_seg_size) {
 		mhi_dev_ctxt->dev_space.start_win_addr = 0;
 		mhi_dev_ctxt->dev_space.end_win_addr =
@@ -230,15 +231,26 @@ static void calculate_mhi_addressing_window(
 				       (dma_seg_size - dma_dev_mem_start);
 	} else if (dma_dev_mem_start >= dma_seg_size &&
 			dma_dev_mem_start <= (dma_max_addr - dma_seg_size)) {
+		/*
+		 * The start of the control segment is located past
+		 * halfway point of the device's addressing limit
+		 * Place the control segment in the middle of the device's
+		 * addressing range
+		 */
 		mhi_dev_ctxt->dev_space.start_win_addr =
 					 dma_dev_mem_start - dma_seg_size;
 		mhi_dev_ctxt->dev_space.end_win_addr =
 					 dma_dev_mem_start + dma_seg_size;
 	} else if (dma_dev_mem_start > (dma_max_addr - dma_seg_size)) {
-		mhi_dev_ctxt->dev_space.start_win_addr =
-				dma_dev_mem_start - (dma_seg_size +
-						(dma_seg_size - (dma_max_addr -
-							dma_dev_mem_start)));
+		/*
+		 * The start of the control segment is located at the tail end
+		 * of the host addressing space. Leave extra addressing space
+		 * at window start
+		 */
+		mhi_dev_ctxt->dev_space.start_win_addr = dma_dev_mem_start;
+		mhi_dev_ctxt->dev_space.start_win_addr -=
+			dma_seg_size + (dma_seg_size -
+					(dma_max_addr - dma_dev_mem_start));
 		mhi_dev_ctxt->dev_space.end_win_addr = dma_max_addr;
 	}
 	mhi_log(MHI_MSG_INFO,
@@ -246,7 +258,7 @@ static void calculate_mhi_addressing_window(
 		(u64)dma_dev_mem_start,
 		(u64)mhi_dev_ctxt->dev_space.start_win_addr,
 		(u64)mhi_dev_ctxt->dev_space.end_win_addr);
-
+	return 0;
 }
 
 int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -260,7 +272,7 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 					calculate_mhi_space(mhi_dev_ctxt);
 
 	mhi_dev_ctxt->dev_space.dev_mem_start =
-		dma_alloc_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+		dma_alloc_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 				    mhi_dev_ctxt->dev_space.dev_mem_len,
 				   &mhi_dev_ctxt->dev_space.dma_dev_mem_start,
 				    GFP_KERNEL);
@@ -274,7 +286,12 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 	dma_dev_mem_start = mhi_dev_ctxt->dev_space.dma_dev_mem_start;
 	memset(dev_mem_start, 0, mhi_dev_ctxt->dev_space.dev_mem_len);
 
-	calculate_mhi_addressing_window(mhi_dev_ctxt);
+	r = calculate_mhi_addressing_window(mhi_dev_ctxt);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+		"Failed to calculate addressing window ret %d", r);
+		return r;
+	}
 
 	mhi_log(MHI_MSG_INFO, "Starting Seg address: virt 0x%p, dma 0x%llx\n",
 					dev_mem_start, (u64)dma_dev_mem_start);
@@ -322,63 +339,40 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	/* Initialize both the local and device event contexts */
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
+		dma_addr_t ring_dma_addr = 0;
+		void *ring_addr = NULL;
+
 		ring_len = sizeof(union mhi_event_pkt) *
 					mhi_dev_ctxt->ev_ring_props[i].nr_desc;
+		ring_addr = dma_alloc_coherent(
+				&mhi_dev_ctxt->dev_info->pcie_device->dev,
+				ring_len, &ring_dma_addr, GFP_KERNEL);
+		if (!ring_addr)
+			goto err_ev_alloc;
 		init_dev_ev_ctxt(&mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i],
-				dma_dev_mem_start + mhi_mem_index,
-				ring_len);
+				ring_dma_addr, ring_len);
 		init_local_ev_ctxt(&mhi_dev_ctxt->mhi_local_event_ctxt[i],
-				dev_mem_start + mhi_mem_index,
-				ring_len);
+				ring_addr, ring_len);
 		mhi_log(MHI_MSG_INFO,
 			"Initializing EV_%d TRE list at virt 0x%p dma 0x%llx\n",
-				i, dev_mem_start + mhi_mem_index,
-				(u64)dma_dev_mem_start + mhi_mem_index);
-		mhi_mem_index += ring_len;
+				i, ring_addr, (u64)ring_dma_addr);
 	}
-
-	/* Initialize both the local and device xfer contexts */
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
-		if (VALID_CHAN_NR(i)) {
-			struct mhi_chan_info chan_info;
-
-			r = get_chan_props(mhi_dev_ctxt, i, &chan_info);
-			if (r)
-				continue;
-			mhi_log(MHI_MSG_INFO, "Initializing chan ctxt %d\n", i);
-			ring_len = (sizeof(union mhi_xfer_pkt) *
-							chan_info.max_desc);
-			init_dev_chan_ctxt(
-				&mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[i],
-				dma_dev_mem_start + mhi_mem_index,
-				ring_len, chan_info.ev_ring);
-			/* TODO: May not need to do this. It would be best for
-			 *	the client to set it during chan open */
-			mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[i].
-						mhi_chan_type = (i % 2) + 1;
-			init_local_chan_ctxt(
-				&mhi_dev_ctxt->mhi_local_chan_ctxt[i],
-				dev_mem_start + mhi_mem_index,
-				ring_len);
-			/* TODO: May not need to do this. It would be best for
-			 *	the client to set it during chan open */
-			mhi_dev_ctxt->mhi_local_chan_ctxt[i].dir = (i % 2) + 1;
-			/* Add size of TREs */
-			mhi_mem_index += ring_len;
-			if (mhi_dev_ctxt->flags.bb_enabled) {
-				r = enable_bb_ctxt(
-						&mhi_dev_ctxt->chan_bb_list[i],
-						chan_info.max_desc);
-				if (r)
-					goto error_during_bb_list;
-			}
-		}
 	return 0;
 
-error_during_bb_list:
-	for (; i >= 0; --i)
-		kfree(mhi_dev_ctxt->chan_bb_list[i].base);
-	dma_free_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+err_ev_alloc:
+	for (; i >= 0; --i) {
+		struct mhi_event_ctxt *dev_ev_ctxt = NULL;
+		struct mhi_ring *ev_ctxt = NULL;
+
+		dev_ev_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
+		ev_ctxt = &mhi_dev_ctxt->mhi_local_event_ctxt[i];
+
+		dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
+				  ev_ctxt->len,
+				  ev_ctxt->base,
+				  dev_ev_ctxt->mhi_event_ring_base_addr);
+	}
+	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 			   mhi_dev_ctxt->dev_space.dev_mem_len,
 			   mhi_dev_ctxt->dev_space.dev_mem_start,
 			   mhi_dev_ctxt->dev_space.dma_dev_mem_start);
@@ -393,7 +387,7 @@ static int mhi_init_events(struct mhi_device_ctxt *mhi_dev_ctxt)
 						GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq) {
 		mhi_log(MHI_MSG_ERROR, "Failed to init event");
-		return MHI_STATUS_ERROR;
+		return -ENOMEM;
 	}
 	mhi_dev_ctxt->mhi_ev_wq.state_change_event =
 				kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
@@ -441,7 +435,7 @@ error_state_change_event_handle:
 	kfree(mhi_dev_ctxt->mhi_ev_wq.state_change_event);
 error_event_handle_alloc:
 	kfree(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
-	return MHI_STATUS_ERROR;
+	return -ENOMEM;
 }
 
 static int mhi_init_state_change_thread_work_queue(
@@ -483,12 +477,12 @@ static int mhi_spawn_threads(struct mhi_device_ctxt *mhi_dev_ctxt)
 							mhi_dev_ctxt,
 							"mhi_ev_thrd");
 	if (IS_ERR(mhi_dev_ctxt->event_thread_handle))
-		return MHI_STATUS_ERROR;
+		return PTR_ERR(mhi_dev_ctxt->event_thread_handle);
 	mhi_dev_ctxt->st_thread_handle = kthread_run(mhi_state_change_thread,
 							mhi_dev_ctxt,
 							"mhi_st_thrd");
 	if (IS_ERR(mhi_dev_ctxt->event_thread_handle))
-		return MHI_STATUS_ERROR;
+		return PTR_ERR(mhi_dev_ctxt->event_thread_handle);
 	return 0;
 }
 
@@ -501,7 +495,7 @@ static int mhi_spawn_threads(struct mhi_device_ctxt *mhi_dev_ctxt)
  which this mhi context belongs
  * @param mhi_struct device [IN/OUT] reference to a mhi context to be populated
  *
- * @return MHI_STATUS
+ * @return errno
  */
 int mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
 		struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -573,7 +567,7 @@ error_during_thread_init:
 	kfree(mhi_dev_ctxt->mhi_ev_wq.m3_event);
 	kfree(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
 error_wq_init:
-	dma_free_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 		   mhi_dev_ctxt->dev_space.dev_mem_len,
 		   mhi_dev_ctxt->dev_space.dev_mem_start,
 		   mhi_dev_ctxt->dev_space.dma_dev_mem_start);
@@ -599,11 +593,11 @@ error_during_props:
  * @event_ring:	 Event ring to be mapped to this channel context
  * @ring:		 Shadow context to be initialized alongside
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
 int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 		uintptr_t trb_list_phy, uintptr_t trb_list_virt,
-		u64 el_per_ring, enum MHI_CHAN_TYPE chan_type,
+		u64 el_per_ring, enum MHI_CHAN_DIR chan_type,
 		u32 event_ring, struct mhi_ring *ring,
 		enum MHI_CHAN_STATE chan_state)
 {
@@ -645,11 +639,8 @@ int mhi_reg_notifiers(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u32 ret_val;
 
 	if (NULL == mhi_dev_ctxt)
-		return MHI_STATUS_ERROR;
+		return -EINVAL;
 	mhi_dev_ctxt->mhi_cpu_notifier.notifier_call = mhi_cpu_notifier_cb;
 	ret_val = register_cpu_notifier(&mhi_dev_ctxt->mhi_cpu_notifier);
-	if (ret_val)
-		return MHI_STATUS_ERROR;
-	else
-		return 0;
+	return ret_val;
 }

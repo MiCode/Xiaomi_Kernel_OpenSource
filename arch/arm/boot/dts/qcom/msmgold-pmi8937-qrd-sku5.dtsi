@@ -33,6 +33,7 @@
 };
 
 &dsi_hx8394f_720p_video {
+	qcom,esd-check-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
@@ -112,6 +113,11 @@
 &pmi_haptic {
 	status = "okay";
 	qcom,actuator-type = "erm";
+};
+
+&flash_led {
+	/delete-node/ qcom,flash_1;
+	/delete-node/ qcom,torch_1;
 };
 
 &soc {

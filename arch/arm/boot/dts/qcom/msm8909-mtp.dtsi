@@ -197,6 +197,7 @@
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,msm-hs-micbias-type = "internal";
 		qcom,msm-micbias1-ext-cap;
+		qcom,split-a2dp;
 		qcom,msm-afe-clk-ver = <1>;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
@@ -244,9 +245,9 @@
 		asoc-cpu = <&dai_pri_auxpcm>,
 				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>,
 				<&dai_mi2s3>, <&dai_mi2s5>, <&dai_mi2s6>,
-				<&bt_sco_rx>, <&bt_sco_tx>, <&int_fm_rx>,
-				<&int_fm_tx>, <&afe_pcm_rx>, <&afe_pcm_tx>,
-				<&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&bt_sco_rx>, <&bt_sco_tx>, <&bt_a2dp_rx>,
+				<&int_fm_rx>, <&int_fm_tx>, <&afe_pcm_rx>,
+				<&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
 				<&incall_record_rx>, <&incall_record_tx>,
 				<&incall_music_rx>, <&incall_music_2_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
@@ -254,11 +255,12 @@
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 				"msm-dai-q6-mi2s.5", "msm-dai-q6-mi2s.6",
 				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
-				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
-				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
-				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
-				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
-				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
+				"msm-dai-q6-dev.12290", "msm-dai-q6-dev.12292",
+				"msm-dai-q6-dev.12293", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770";
 		asoc-codec = <&stub_codec>, <&pm8909_conga_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 	};
