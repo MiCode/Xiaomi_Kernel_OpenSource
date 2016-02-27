@@ -109,6 +109,10 @@ Parent node optional properties:
 					this. If this property is not specified,
 					low battery voltage threshold will be
 					configured to 4200 mV.
+- qcom,fg-rconn-mohm:			Battery connector resistance (Rconn) in
+					milliohms. If Rconn is specified, then
+					Rslow values will be updated to account
+					it for an accurate ESR.
 - qcom,cycle-counter-en:		Boolean property which enables the cycle
 					counter feature. If this property is
 					present, then the following properties
