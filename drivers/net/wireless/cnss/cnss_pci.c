@@ -250,7 +250,6 @@ static struct cnss_data {
 	bool notify_modem_status;
 	struct pci_saved_state *saved_state;
 	u16 revision_id;
-	u16 dfs_nol_info_len;
 	bool recovery_in_progress;
 	bool fw_available;
 	struct codeswap_codeseg_info *cnss_seg_info;
@@ -270,7 +269,6 @@ static struct cnss_data {
 	struct wakeup_source ws;
 	uint32_t recovery_count;
 	enum cnss_driver_status driver_status;
-	void *dfs_nol_info;
 #ifdef CONFIG_CNSS_SECURE_FW
 	void *fw_mem;
 #endif
@@ -2165,52 +2163,6 @@ cut_power:
 }
 EXPORT_SYMBOL(cnss_wlan_unregister_driver);
 
-int cnss_wlan_set_dfs_nol(const void *info, u16 info_len)
-{
-	void *temp;
-
-	if (!penv)
-		return -ENODEV;
-
-	if (!info || !info_len)
-		return -EINVAL;
-
-	temp = kmalloc(info_len, GFP_KERNEL);
-	if (!temp)
-		return -ENOMEM;
-
-	memcpy(temp, info, info_len);
-
-	kfree(penv->dfs_nol_info);
-
-	penv->dfs_nol_info = temp;
-	penv->dfs_nol_info_len = info_len;
-
-	return 0;
-}
-EXPORT_SYMBOL(cnss_wlan_set_dfs_nol);
-
-int cnss_wlan_get_dfs_nol(void *info, u16 info_len)
-{
-	int len;
-
-	if (!penv)
-		return -ENODEV;
-
-	if (!info || !info_len)
-		return -EINVAL;
-
-	if (penv->dfs_nol_info == NULL || penv->dfs_nol_info_len == 0)
-		return -ENOENT;
-
-	len = min(info_len, penv->dfs_nol_info_len);
-
-	memcpy(info, penv->dfs_nol_info, len);
-
-	return len;
-}
-EXPORT_SYMBOL(cnss_wlan_get_dfs_nol);
-
 #ifdef CONFIG_PCI_MSM
 int cnss_wlan_pm_control(bool vote)
 {
@@ -2764,8 +2716,6 @@ static int cnss_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_fw_image_setup);
 
 	cnss_pm_wake_lock_destroy(&penv->ws);
-
-	kfree(penv->dfs_nol_info);
 
 	if (penv->bus_client)
 		msm_bus_scale_unregister_client(penv->bus_client);
