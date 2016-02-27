@@ -10,11 +10,9 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/irqchip/qpnp-int.h>
+#include <linux/irqchip.h>
 #include <linux/irqchip/msm-gpio-irq.h>
 #include <linux/irqchip/msm-mpm-irq.h>
-#include <linux/mfd/wcd9xxx/core.h>
-#include "irqchip.h"
 
 static int __init irq_msm_gpio_init(struct device_node *node,
 			struct device_node *parent)
@@ -58,5 +56,3 @@ IRQCHIP_DECLARE(tlmmv3_irq, "qcom,msm-tlmm-gp", irq_msm_gpio_init);
 IRQCHIP_DECLARE(tlmm_irq, "qcom,msm-gpio", irq_msm_gpio_init);
 #endif
 IRQCHIP_DECLARE(8996_pinctrl, "qcom,msm8996-pinctrl", pinctrl_irq_dummy);
-IRQCHIP_DECLARE(qpnp_irq, "qcom,spmi-pmic-arb", qpnpint_of_init);
-IRQCHIP_DECLARE(wcd9xxx_irq, "qcom,wcd9xxx-irq", wcd9xxx_irq_of_init);
