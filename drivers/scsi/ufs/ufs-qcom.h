@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -264,6 +264,7 @@ struct ufs_qcom_host {
 	struct clk *tx_l0_sync_clk;
 	struct clk *rx_l1_sync_clk;
 	struct clk *tx_l1_sync_clk;
+	bool disable_lpm;
 	bool is_lane_clks_enabled;
 	bool sec_cfg_updated;
 	struct ufs_qcom_ice_data ice;

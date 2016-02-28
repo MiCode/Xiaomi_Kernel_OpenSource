@@ -33,6 +33,8 @@ Optional properties:
 - vdda-pll-max-microamp : specifies max. load that can be drawn from pll supply
 - vddp-ref-clk-supply   : phandle to UFS device ref_clk pad power supply
 - vddp-ref-clk-max-microamp : specifies max. load that can be drawn from this supply
+- qcom,disable-lpm : disable various LPM mechanisms in UFS for platform compatibility
+  (limit link to PWM Gear-1, 1-lane slow mode; disable hibernate, and avoid suspend/resume)
 
 Example:
 
