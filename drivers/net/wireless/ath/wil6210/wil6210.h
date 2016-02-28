@@ -156,6 +156,9 @@ struct RGF_ICR {
 #define RGF_USER_SPARROW_M_4			(0x880c50) /* Sparrow */
 	#define BIT_SPARROW_M_4_SEL_SLEEP_OR_REF	BIT(2)
 
+#define RGF_DMA_PEDI_DIF		(0x8812C4) /* struct RGF_PEDI_DIF */
+	#define BIT_DMA_WR_CMD_ATTR_NO_SNOOP		BIT(4)
+	#define BIT_DMA_WR_CMD_ATTR_RELAXED_ORDERING	BIT(5)
 #define RGF_DMA_EP_TX_ICR		(0x881bb4) /* struct RGF_ICR */
 	#define BIT_DMA_EP_TX_ICR_TX_DONE	BIT(0)
 	#define BIT_DMA_EP_TX_ICR_TX_DONE_N(n)	BIT(n+1) /* n = [0..23] */
