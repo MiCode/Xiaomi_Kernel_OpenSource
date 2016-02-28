@@ -158,8 +158,8 @@ static int regulator_stub_probe(struct platform_device *pdev)
 
 	if (dev->of_node) {
 		/* Use device tree. */
-		init_data = of_get_regulator_init_data(dev,
-						       dev->of_node);
+		init_data = of_get_regulator_init_data(dev, dev->of_node,
+							&vreg_priv->rdesc);
 		if (!init_data) {
 			dev_err(dev, "%s: unable to allocate memory\n",
 					__func__);
