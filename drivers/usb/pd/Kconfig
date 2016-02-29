@@ -13,4 +13,12 @@ config USB_PD_POLICY
 	help
           Say Y here to enable USB PD protocol and policy engine.
 
+config QPNP_USB_PDPHY
+	tristate "QPNP USB Power Delivery PHY"
+	depends on SPMI
+	help
+          Say Y here to enable QPNP USB PD PHY peripheral driver
+	  which communicates over the SPMI bus. The is used to handle
+	  the PHY layer communication of the Power Delivery stack.
+
 endmenu
