@@ -1834,42 +1834,45 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	uint32_t agc_lm_config =
-		AGC_LM_CONFIG_ENABLE_GPMU_ADAPTIVE | AGC_THROTTLE_SEL_DCS;
+		((ADRENO_CHIPID_PATCH(adreno_dev->chipid) | 0x3)
+		<< AGC_GPU_VERSION_SHIFT);
 	unsigned int r, i;
 
-	if (!lm_on(adreno_dev))
-		return;
+	if (lm_on(adreno_dev)) {
+		agc_lm_config |=
+			AGC_LM_CONFIG_ENABLE_GPMU_ADAPTIVE |
+			AGC_THROTTLE_SEL_DCS;
 
-	agc_lm_config |= ((ADRENO_CHIPID_PATCH(adreno_dev->chipid) | 0x3)
-		<< AGC_GPU_VERSION_SHIFT);
+		kgsl_regread(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, &r);
+		if (r & GPMU_BCL_ENABLED)
+			agc_lm_config |= AGC_BCL_ENABLED;
 
-	kgsl_regread(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, &r);
-	if (r & GPMU_BCL_ENABLED)
-		agc_lm_config |= AGC_BCL_ENABLED;
+		if (r & GPMU_LLM_ENABLED)
+			agc_lm_config |= AGC_LLM_ENABLED;
 
-	if (r & GPMU_LLM_ENABLED)
-		agc_lm_config |= AGC_LLM_ENABLED;
+		if ((r & GPMU_ISENSE_STATUS) == GPMU_ISENSE_END_POINT_CAL_ERR) {
+			KGSL_CORE_ERR(
+				"GPMU: ISENSE end point calibration failure\n");
+			agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
+			goto start_agc;
+		}
 
-	if ((r & GPMU_ISENSE_STATUS) == GPMU_ISENSE_END_POINT_CAL_ERR) {
-		KGSL_CORE_ERR("GPMU: ISENSE end point calibration failure\n");
-		agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
-		goto start_agc;
-	}
+		if (!isense_enable(adreno_dev)) {
+			agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
+			goto start_agc;
+		}
 
-	if (!isense_enable(adreno_dev)) {
-		agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
-		goto start_agc;
-	}
+		for (i = 0; i < AMP_CALIBRATION_RETRY_CNT; i++) {
+			if (isense_cot(adreno_dev))
+				cpu_relax();
+			else
+				break;
+		}
 
-	for (i = 0; i < AMP_CALIBRATION_RETRY_CNT; i++)
-		if (isense_cot(adreno_dev))
-			cpu_relax();
-		else
-			break;
-
-	if (i == AMP_CALIBRATION_RETRY_CNT) {
-		KGSL_CORE_ERR("GPMU: ISENSE cold trimming failure\n");
-		agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
+		if (i == AMP_CALIBRATION_RETRY_CNT) {
+			KGSL_CORE_ERR("GPMU: ISENSE cold trimming failure\n");
+			agc_lm_config |= AGC_LM_CONFIG_ENABLE_ERROR;
+		}
 	}
 
 start_agc:
@@ -1891,7 +1894,8 @@ start_agc:
 	kgsl_regwrite(device, A5XX_GPMU_GPMU_PWR_THRESHOLD,
 		PWR_THRESHOLD_VALID | lm_limit(adreno_dev));
 
-	wake_llm(adreno_dev);
+	if (lm_on(adreno_dev))
+		wake_llm(adreno_dev);
 }
 
 
