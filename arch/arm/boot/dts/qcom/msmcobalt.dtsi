@@ -693,6 +693,10 @@
 		qcom,llm-volt-down-timer =
 			<1 1>;
 		qcom,cc-reads = <10>;
+		qcom,cc-delay = <5>;
+		qcom,cc-factor = <100>;
+		qcom,osm-clk-rate = <200000000>;
+		qcom,xo-clk-rate = <19200000>;
 
 		qcom,l-val-base =
 			<0x17916004 0x17816004>;
