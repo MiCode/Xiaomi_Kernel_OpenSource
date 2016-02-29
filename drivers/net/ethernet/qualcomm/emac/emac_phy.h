@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -89,6 +89,7 @@ int emac_phy_setup_link_speed(struct emac_adapter *adpt, u32 speed,
 int emac_phy_check_link(struct emac_adapter *adpt, u32 *speed, bool *link_up);
 int emac_phy_get_lpa_speed(struct emac_adapter *adpt, u32 *speed);
 int emac_phy_config_fc(struct emac_adapter *adpt);
+void emac_phy_reset_external(struct emac_adapter *adpt);
 
 struct emac_reg_write {
 	ulong		offset;

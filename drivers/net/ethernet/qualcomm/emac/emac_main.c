@@ -70,8 +70,10 @@ static struct of_device_id emac_dt_match[];
 
 #define EMAC_SKB_CB(skb) ((struct emac_skb_cb *)(skb)->cb)
 
-#define EMAC_PINCTRL_STATE_ACTIVE "emac_active"
-#define EMAC_PINCTRL_STATE_SLEEP "emac_sleep"
+#define EMAC_PINCTRL_STATE_MDIO_ACTIVE "emac_mdio_active"
+#define EMAC_PINCTRL_STATE_MDIO_SLEEP  "emac_mdio_sleep"
+#define EMAC_PINCTRL_STATE_EPHY_ACTIVE "emac_ephy_active"
+#define EMAC_PINCTRL_STATE_EPHY_SLEEP  "emac_ephy_sleep"
 
 #define EMAC_VREG1_VOLTAGE	1250000
 #define EMAC_VREG2_VOLTAGE	1800000
@@ -1873,21 +1875,26 @@ static int emac_change_mtu(struct net_device *netdev, int new_mtu)
 	return 0;
 }
 
-static inline int msm_emac_request_gpio_on(struct emac_adapter *adpt)
+static inline int msm_emac_request_gpio_on(struct emac_adapter *adpt,
+					   bool mdio, bool ephy)
 {
 	int i = 0;
 	int result = 0;
 	struct emac_phy *phy = &adpt->phy;
 
-	for (i = 0; phy->uses_gpios && i < EMAC_GPIO_CNT; i++) {
-		result = gpio_request(adpt->gpio[i], emac_gpio_name[i]);
-		if (result) {
-			emac_err(adpt, "error:%d on gpio_request(%d:%s)\n",
-				 result, adpt->gpio[i],
-				emac_gpio_name[i]);
-			while (--i >= 0)
-				gpio_free(adpt->gpio[i]);
-			goto error;
+	if (phy->external) {
+		for (i = 0; phy->uses_gpios && i < EMAC_GPIO_CNT; i++) {
+			result = gpio_request(adpt->gpio[i], emac_gpio_name[i]);
+			if (result) {
+				emac_err(adpt,
+					 "error:%d on gpio_request(%d:%s)\n",
+					 result, adpt->gpio[i],
+					 emac_gpio_name[i]);
+
+				while (--i >= 0)
+					gpio_free(adpt->gpio[i]);
+				goto error;
+			}
 		}
 	}
 	return 0;
@@ -1895,36 +1902,83 @@ error:
 	return result;
 }
 
-static inline int msm_emac_request_gpio_off(struct emac_adapter *adpt)
+static inline int msm_emac_request_gpio_off(struct emac_adapter *adpt,
+					    bool mdio, bool ephy)
 {
 	int i = 0;
 	struct emac_phy *phy = &adpt->phy;
 
-	for (i = 0; phy->uses_gpios && i < EMAC_GPIO_CNT; i++)
-		gpio_free(adpt->gpio[i]);
+	if (phy->external) {
+		for (i = 0; phy->uses_gpios && i < EMAC_GPIO_CNT; i++)
+			gpio_free(adpt->gpio[i]);
+	}
 	return 0;
 }
 
-static inline int msm_emac_request_pinctrl_on(struct emac_adapter *adpt)
+static inline int msm_emac_request_pinctrl_on(struct emac_adapter *adpt,
+					      bool mdio, bool ephy)
 {
 	int result = 0;
+	int ret    = 0;
+	struct emac_phy *phy = &adpt->phy;
 
-	result = pinctrl_select_state(adpt->pinctrl, adpt->pins_active);
-	if (result)
-		emac_err(adpt, "error:%d Can not set %s pins\n",
-			 result, EMAC_PINCTRL_STATE_ACTIVE);
-	return result;
+	if (phy->external) {
+		if (mdio) {
+			result = pinctrl_select_state(adpt->pinctrl,
+						      adpt->mdio_pins_active);
+			if (result)
+				emac_err(adpt,
+					 "error:%d Can not switch on %s pins\n",
+					 result,
+					 EMAC_PINCTRL_STATE_MDIO_ACTIVE);
+			ret = result;
+		}
+
+		if (ephy) {
+			result = pinctrl_select_state(adpt->pinctrl,
+						      adpt->ephy_pins_active);
+			if (result)
+				emac_err(adpt,
+					 "error:%d Can not switch on %s pins\n",
+					 result,
+					 EMAC_PINCTRL_STATE_EPHY_ACTIVE);
+			if (!ret)
+				ret = result;
+		}
+	}
+	return ret;
 }
 
-static inline int msm_emac_request_pinctrl_off(struct emac_adapter *adpt)
+static inline int msm_emac_request_pinctrl_off(struct emac_adapter *adpt,
+					       bool mdio, bool ephy)
 {
 	int result = 0;
+	int ret    = 0;
+	struct emac_phy *phy = &adpt->phy;
 
-	result = pinctrl_select_state(adpt->pinctrl, adpt->pins_sleep);
-	if (result)
-		emac_err(adpt, "error:%d Can not set %s pins\n",
-			 result, EMAC_PINCTRL_STATE_SLEEP);
-	return result;
+	if (phy->external) {
+		if (mdio) {
+			result = pinctrl_select_state(adpt->pinctrl,
+						      adpt->mdio_pins_sleep);
+			if (result)
+				emac_err(adpt,
+					 "error:%d Can not switch off %s pins\n",
+					 result, EMAC_PINCTRL_STATE_MDIO_SLEEP);
+			ret = result;
+		}
+
+		if (ephy) {
+			result = pinctrl_select_state(adpt->pinctrl,
+						      adpt->ephy_pins_sleep);
+			if (result)
+				emac_err(adpt,
+					 "error:%d Can not switch off %s pins\n",
+					 result, EMAC_PINCTRL_STATE_EPHY_SLEEP);
+			if (!ret)
+				ret = result;
+		}
+	}
+	return ret;
 }
 
 /* Bringup the interface/HW */
@@ -1945,10 +1999,6 @@ int emac_up(struct emac_adapter *adpt)
 	retval = phy->ops.up(adpt);
 	if (retval)
 		return retval;
-
-	retval = adpt->gpio_on(adpt);
-	if (retval < 0)
-		goto err_request_gpio;
 
 	for (i = 0; i < EMAC_IRQ_CNT; i++) {
 		struct emac_irq_per_dev *irq = &adpt->irq[i];
@@ -1989,8 +2039,6 @@ int emac_up(struct emac_adapter *adpt)
 	return retval;
 
 err_request_irq:
-	adpt->gpio_off(adpt);
-err_request_gpio:
 	adpt->phy.ops.down(adpt);
 	return retval;
 }
@@ -2017,8 +2065,6 @@ void emac_down(struct emac_adapter *adpt, u32 ctrl)
 	for (i = 0; i < EMAC_IRQ_CNT; i++)
 		if (adpt->irq[i].irq)
 			free_irq(adpt->irq[i].irq, &adpt->irq[i]);
-
-	adpt->gpio_off(adpt);
 
 	CLR_FLAG(adpt, ADPT_TASK_LSC_REQ);
 	CLR_FLAG(adpt, ADPT_TASK_REINIT_REQ);
@@ -2718,20 +2764,36 @@ static int msm_emac_pinctrl_init(struct emac_adapter *adpt, struct device *dev)
 			 PTR_ERR(adpt->pinctrl));
 		return PTR_ERR(adpt->pinctrl);
 	}
-	adpt->pins_active = pinctrl_lookup_state(adpt->pinctrl,
-				EMAC_PINCTRL_STATE_ACTIVE);
-	if (IS_ERR_OR_NULL(adpt->pins_active)) {
-		emac_dbg(adpt, probe, "error:%ld Failed to lookup pinctrl active state\n",
-			 PTR_ERR(adpt->pins_active));
-		return PTR_ERR(adpt->pins_active);
+	adpt->mdio_pins_active = pinctrl_lookup_state(adpt->pinctrl,
+				EMAC_PINCTRL_STATE_MDIO_ACTIVE);
+	if (IS_ERR_OR_NULL(adpt->mdio_pins_active)) {
+		emac_dbg(adpt, probe, "error:%ld Failed to lookup mdio pinctrl active state\n",
+			 PTR_ERR(adpt->mdio_pins_active));
+		return PTR_ERR(adpt->mdio_pins_active);
 	}
 
-	adpt->pins_sleep = pinctrl_lookup_state(adpt->pinctrl,
-				EMAC_PINCTRL_STATE_SLEEP);
-	if (IS_ERR_OR_NULL(adpt->pins_sleep)) {
-		emac_dbg(adpt, probe, "error:%ld Failed to lookup pinctrl sleep state\n",
-			 PTR_ERR(adpt->pins_sleep));
-		return PTR_ERR(adpt->pins_sleep);
+	adpt->mdio_pins_sleep = pinctrl_lookup_state(adpt->pinctrl,
+				EMAC_PINCTRL_STATE_MDIO_SLEEP);
+	if (IS_ERR_OR_NULL(adpt->mdio_pins_sleep)) {
+		emac_dbg(adpt, probe, "error:%ld Failed to lookup mdio pinctrl sleep state\n",
+			 PTR_ERR(adpt->mdio_pins_sleep));
+		return PTR_ERR(adpt->mdio_pins_sleep);
+	}
+
+	adpt->ephy_pins_active = pinctrl_lookup_state(adpt->pinctrl,
+				EMAC_PINCTRL_STATE_EPHY_ACTIVE);
+	if (IS_ERR_OR_NULL(adpt->ephy_pins_active)) {
+		emac_dbg(adpt, probe, "error:%ld Failed to lookup ephy pinctrl active state\n",
+			 PTR_ERR(adpt->ephy_pins_active));
+		return PTR_ERR(adpt->ephy_pins_active);
+	}
+
+	adpt->ephy_pins_sleep = pinctrl_lookup_state(adpt->pinctrl,
+				EMAC_PINCTRL_STATE_EPHY_SLEEP);
+	if (IS_ERR_OR_NULL(adpt->ephy_pins_sleep)) {
+		emac_dbg(adpt, probe, "error:%ld Failed to lookup ephy pinctrl sleep state\n",
+			 PTR_ERR(adpt->ephy_pins_sleep));
+		return PTR_ERR(adpt->ephy_pins_sleep);
 	}
 
 	return 0;
@@ -3116,6 +3178,8 @@ static int emac_suspend(struct device *device)
 	emac_hw_config_pow_save(hw, phy->link_speed, !!wufc,
 				!!(wufc & EMAC_WOL_MAGIC));
 
+	/* Don't reset ephy as need it for WOL/Link detection later */
+	adpt->gpio_off(adpt, true, false);
 	emac_disable_clks(adpt);
 	emac_disable_regulator(adpt);
 	return 0;
@@ -3130,11 +3194,13 @@ static int emac_resume(struct device *device)
 	struct emac_hw  *hw  = &adpt->hw;
 	u32 retval;
 
+	adpt->gpio_on(adpt, true, false);
 	emac_enable_regulator(adpt);
 	emac_init_clks(adpt);
 	emac_enable_clks(adpt);
 
 	emac_hw_reset_mac(hw);
+	emac_phy_reset_external(adpt);
 	retval = emac_phy_setup_link(adpt, phy->autoneg_advertised, true,
 				     !phy->disable_fc_autoneg);
 	if (retval)
@@ -3244,6 +3310,11 @@ static int emac_probe(struct platform_device *pdev)
 	if (retval)
 		goto err_clk_en;
 
+	/* Configure MDIO lines */
+	retval = adpt->gpio_on(adpt, true, true);
+	if (retval)
+		goto err_init_mdio_gpio;
+
 	/* init external phy */
 	retval = emac_phy_init_external(adpt);
 	if (retval)
@@ -3313,6 +3384,8 @@ static int emac_probe(struct platform_device *pdev)
 err_register_netdev:
 err_phy_link:
 err_init_ephy:
+	adpt->gpio_off(adpt, true, true);
+err_init_mdio_gpio:
 err_clk_en:
 err_init_phy:
 err_clk_init:
@@ -3339,6 +3412,7 @@ static int emac_remove(struct platform_device *pdev)
 	if (TEST_FLAG(hw, HW_PTP_CAP))
 		emac_ptp_remove(netdev);
 
+	adpt->gpio_off(adpt, true, true);
 	emac_disable_regulator(adpt);
 	emac_disable_clks(adpt);
 	emac_release_resources(adpt);
