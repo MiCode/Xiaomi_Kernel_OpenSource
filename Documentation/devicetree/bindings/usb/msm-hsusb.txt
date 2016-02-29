@@ -174,6 +174,10 @@ Optional properties :
 	be limited.
 - qcom,enable-phy-id-pullup: If present, PHY can keep D+ pull-up resistor on USB ID line
 	during cable disconnect.
+- qcom,max-svs-sysclk-rate: Indicates system clock frequency voted by driver in
+	non-perf mode. In perf mode driver uses qcom,max-nominal-sysclk-rate.
+- qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
+	which is used as a vote by driver to get max performance in perf mode.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -201,7 +205,10 @@ Example HSUSB OTG controller device node :
 		qcom,dp-manual-pullup;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
 		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
-		qcom,max-nominal-sysclk-rate;
+		qcom,max-nominal-sysclk-rate = <133330000>;
+		qcom,max-svs-sysclk-rate = <100000000>;
+		qcom,pm-qos-latency = <59>;
+
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num_cases = <2>;
 		qcom,msm-bus,num_paths = <1>;
