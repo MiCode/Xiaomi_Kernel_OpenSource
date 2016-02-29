@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,7 +37,6 @@
 	qcom,hsusb-otg-otg-control = <1>; /* PHY control */
 	qcom,emulation;
 	/delete-property/ qcom,boost-sysclk-with-streaming;
-	/delete-property/ qcom,streaming-func;
 	/delete-property/ vbus_otg-supply;
 };
 
