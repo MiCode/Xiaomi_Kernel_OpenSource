@@ -30,6 +30,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_ENABLED_PIPES),
 	__stringify(IPA_COMP_SW_RESET),
 	__stringify(IPA_VERSION),
+	__stringify(IPA_TAG_TIMER),
 	__stringify(IPA_COMP_HW_VERSION),
 	__stringify(IPA_SPARE_REG_1),
 	__stringify(IPA_SPARE_REG_2),
@@ -844,6 +845,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_VERSION] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000034, 0},
+	[IPA_HW_v3_0][IPA_TAG_TIMER] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000060, 0 },
 	[IPA_HW_v3_0][IPA_COMP_HW_VERSION] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000030, 0},
