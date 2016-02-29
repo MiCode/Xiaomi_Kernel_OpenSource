@@ -433,7 +433,7 @@ static inline bool cpr3_msm8996_hmss_use_voltage_offset_fuse(
 	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
 
 	return vreg->thread->ctrl->soc_revision == MSM8996PRO_SOC_ID
-	       && fuse->cpr_fusing_rev >= 2
+	       && fuse->cpr_fusing_rev >= 1
 	       && of_property_read_bool(vreg->of_node, "qcom,is-cbf-regulator");
 }
 
