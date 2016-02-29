@@ -2297,6 +2297,8 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	populate_debugfs_dir(&pwrcl_clk);
 	populate_debugfs_dir(&perfcl_clk);
 
+	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
 	pr_info("OSM driver inited\n");
 	return 0;
 
