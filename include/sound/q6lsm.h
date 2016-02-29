@@ -274,7 +274,7 @@ int q6lsm_read(struct lsm_client *client, struct lsm_cmd_read *read);
 int q6lsm_lab_buffer_alloc(struct lsm_client *client, bool alloc);
 int q6lsm_set_one_param(struct lsm_client *client,
 			struct lsm_params_info *p_info, void *data,
-			enum LSM_PARAM_TYPE param_type);
+			uint32_t param_type);
 void q6lsm_sm_set_param_data(struct lsm_client *client,
 		struct lsm_params_info *p_info,
 		size_t *offset);
