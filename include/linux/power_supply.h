@@ -217,6 +217,10 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION,
 	POWER_SUPPLY_PROP_BATTERY_INFO,
 	POWER_SUPPLY_PROP_BATTERY_INFO_ID,
+	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION, /* 0: N/C, 1: CC1, 2: CC2 */
+	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
+	POWER_SUPPLY_PROP_PD_ALLOWED,
+	POWER_SUPPLY_PROP_PD_ACTIVE,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
@@ -237,6 +241,7 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_USB_HVDCP,	/* High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_HVDCP_3,	/* Efficient High Voltage DCP */
+	POWER_SUPPLY_TYPE_USB_PD,	/* Power Delivery */
 	POWER_SUPPLY_TYPE_WIRELESS,	/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
 	POWER_SUPPLY_TYPE_USB_PARALLEL,		/* USB Parallel Path */
@@ -244,6 +249,31 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_TYPEC,	/*Type-C */
 	POWER_SUPPLY_TYPE_UFP,		/* Type-C UFP */
 	POWER_SUPPLY_TYPE_DFP,		/* TYpe-C DFP */
+};
+
+/* Indicates USB Type-C CC connection status */
+enum power_supply_typec_mode {
+	POWER_SUPPLY_TYPEC_NONE,
+
+	/* Acting as source */
+	POWER_SUPPLY_TYPEC_SINK,			/* Rd only */
+	POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE,		/* Rd/Ra */
+	POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY,	/* Rd/Rd */
+	POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER,		/* Ra/Ra */
+	POWER_SUPPLY_TYPEC_POWERED_CABLE_ONLY,		/* Ra only */
+
+	/* Acting as sink */
+	POWER_SUPPLY_TYPEC_SOURCE_DEFAULT,		/* Rp default */
+	POWER_SUPPLY_TYPEC_SOURCE_MEDIUM,		/* Rp 1.5A */
+	POWER_SUPPLY_TYPEC_SOURCE_HIGH,			/* Rp 3A */
+	POWER_SUPPLY_TYPEC_NON_COMPLIANT,
+};
+
+enum power_supply_typec_power_role {
+	POWER_SUPPLY_TYPEC_PR_NONE,	/* CC lines in high-Z */
+	POWER_SUPPLY_TYPEC_PR_DUAL,
+	POWER_SUPPLY_TYPEC_PR_SINK,
+	POWER_SUPPLY_TYPEC_PR_SOURCE,
 };
 
 enum power_supply_notifier_events {
