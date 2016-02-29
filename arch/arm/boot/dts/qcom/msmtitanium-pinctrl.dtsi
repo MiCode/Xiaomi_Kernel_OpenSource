@@ -887,6 +887,33 @@
 			};
 		};
 
+		cdc-pdm-comp-lines {
+			cdc_pdm_comp_lines_act: pdm_comp_lines_on {
+				mux {
+					pins = "gpio67", "gpio68";
+					function = "cdc_pdm0";
+				};
+
+				config {
+					pins = "gpio67", "gpio68";
+					drive-strength = <8>;
+				};
+			};
+
+			cdc_pdm_comp_lines_sus: pdm_comp_lines_off {
+				mux {
+					pins = "gpio67", "gpio68";
+					function = "cdc_pdm0";
+				};
+
+				config {
+					pins = "gpio67", "gpio68";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		cross-conn-det {
 			cross_conn_det_act: lines_on {
 				mux {
