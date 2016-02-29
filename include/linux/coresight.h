@@ -18,6 +18,7 @@
 #else
 
 #include <linux/device.h>
+#include <linux/sched.h>
 
 /* Peripheral id registers (0xFD0-0xFEC) */
 #define CORESIGHT_PERIPHIDR4	0xfd0
@@ -217,7 +218,7 @@ struct coresight_ops_link {
  * Operations available for sources.
  * @trace_id:	returns the value of the component's trace ID as known
 		to the HW.
- * @enable:	enables tracing from a source.
+ * @enable:	enables tracing for a source.
  * @disable:	disables tracing for a source.
  */
 struct coresight_ops_source {
