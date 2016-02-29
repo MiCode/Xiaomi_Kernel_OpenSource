@@ -1,4 +1,4 @@
-/* Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -504,7 +504,7 @@ bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	int dcvs_2k = 0, dcvs_4k = 0;
+	int dcvs_2k = -ENOTSUPP, dcvs_4k = 0;
 	int num_mbs_per_frame = 0;
 	int instance_count = 0;
 	struct msm_vidc_inst *temp = NULL;
