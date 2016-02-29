@@ -1390,7 +1390,7 @@ static int q6lsm_send_param_gain(
 
 int q6lsm_set_one_param(struct lsm_client *client,
 	struct lsm_params_info *p_info, void *data,
-	enum LSM_PARAM_TYPE param_type)
+	uint32_t param_type)
 {
 	int rc = 0, pkt_sz;
 	struct lsm_module_param_ids ids;

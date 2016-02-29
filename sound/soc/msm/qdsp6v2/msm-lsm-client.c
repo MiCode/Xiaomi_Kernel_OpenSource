@@ -1074,7 +1074,7 @@ struct lsm_params_info_32 {
 	u32 param_id;
 	u32 param_size;
 	compat_uptr_t param_data;
-	enum LSM_PARAM_TYPE param_type;
+	uint32_t param_type;
 };
 
 struct snd_lsm_module_params_32 {
