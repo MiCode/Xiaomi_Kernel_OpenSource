@@ -1802,6 +1802,14 @@
 			qcom,sensor-type =  "adc";
 			qcom,sensor-name = "quiet_therm";
 		};
+		sensor_information28: qcom,sensor-information-28 {
+			qcom,sensor-type = "llm";
+			qcom,sensor-name = "limits_sensor-01";
+		};
+		sensor_information29: qcom,sensor-information-29 {
+			qcom,sensor-type = "llm";
+			qcom,sensor-name = "limits_sensor-02";
+		};
 	};
 
 	mitigation_profile0: qcom,limit_info-0 {
@@ -1868,6 +1876,8 @@
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,synchronous-cluster-map = <0 4 &CPU0 &CPU1 &CPU2 &CPU3>,
 						<1 4 &CPU4 &CPU5 &CPU6 &CPU7>;
+		clock-names = "osm";
+		clocks = <&clock_cpu clk_pwrcl_clk>;
 	};
 
 	qcom,ssc@5c00000 {
