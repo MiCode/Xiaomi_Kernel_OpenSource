@@ -453,6 +453,15 @@ void msm8x16_wcd_spk_ext_pa_cb(
 	msm8x16_wcd->codec_spk_ext_pa_cb = codec_spk_ext_pa;
 }
 
+void msm8x16_wcd_hph_comp_cb(
+	int (*codec_hph_comp_gpio)(bool enable), struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: Enter\n", __func__);
+	msm8x16_wcd->codec_hph_comp_gpio = codec_hph_comp_gpio;
+}
+
 static void msm8x16_wcd_compute_impedance(struct snd_soc_codec *codec, s16 l,
 				s16 r, uint32_t *zl, uint32_t *zr, bool high)
 {
@@ -3851,7 +3860,15 @@ static int msm8x16_wcd_codec_config_compander(struct snd_soc_codec *codec,
 				MSM8X16_WCD_A_CDC_COMP0_B3_CTL, 0xFF, 0x28);
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0xF0, 0xB0);
+
+			/* Enable Compander GPIO */
+			if (msm8x16_wcd->codec_hph_comp_gpio)
+				msm8x16_wcd->codec_hph_comp_gpio(1);
 		} else if (SND_SOC_DAPM_EVENT_OFF(event)) {
+			/* Disable Compander GPIO */
+			if (msm8x16_wcd->codec_hph_comp_gpio)
+				msm8x16_wcd->codec_hph_comp_gpio(0);
+
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_COMP0_B2_CTL, 0x0F, 0x05);
 			snd_soc_update_bits(codec,
