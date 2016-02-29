@@ -50,9 +50,21 @@
 #include <linux/uaccess.h>
 #include <linux/uio_driver.h>
 
+#include <asm/cacheflush.h>
+
 #define CREATE_TRACE_POINTS
 #define TRACE_MSM_THERMAL
 #include <trace/trace_thermal.h>
+
+#define MSM_LIMITS_DCVSH		0x10
+#define MSM_LIMITS_NODE_DCVS		0x44435653
+#define MSM_LIMITS_SUB_FN_GENERAL	0x47454E00
+#define MSM_LIMITS_SUB_FN_CRNT		0x43524E54
+#define MSM_LIMITS_DOMAIN_MAX		0x444D4158
+#define MSM_LIMITS_DOMAIN_MIN		0x444D494E
+#define MSM_LIMITS_CLUSTER_0		0x6370302D
+#define MSM_LIMITS_CLUSTER_1		0x6370312D
+#define MSM_LIMITS_ALGO_MODE_ENABLE	0x454E424C
 
 #define MAX_CURRENT_UA 100000
 #define MAX_RAILS 5
@@ -170,6 +182,7 @@ static bool online_core;
 static bool cluster_info_probed;
 static bool cluster_info_nodes_called;
 static bool in_suspend, retry_in_progress;
+static bool lmh_dcvs_available;
 static int *tsens_id_map;
 static int *zone_id_tsens_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
@@ -317,6 +330,12 @@ enum cpu_config {
 	HOTPLUG_CONFIG,
 	CPUFREQ_CONFIG,
 	MAX_CPU_CONFIG
+};
+
+enum freq_limits {
+	FREQ_LIMIT_MIN = 0x1,
+	FREQ_LIMIT_MAX = 0x2,
+	FREQ_LIMIT_ALL = 0x3,
 };
 
 struct msm_thermal_debugfs_thresh_config {
@@ -985,10 +1004,82 @@ static struct notifier_block msm_thermal_cpufreq_notifier = {
 	.notifier_call = msm_thermal_cpufreq_callback,
 };
 
-static void update_cpu_freq(int cpu)
+static int msm_lmh_dcvs_write(uint32_t node_id, uint32_t fn, uint32_t setting,
+				uint32_t val)
+{
+	int ret;
+	struct scm_desc desc_arg;
+	uint32_t *payload = NULL;
+
+	payload = kzalloc(sizeof(uint32_t) * 5, GFP_KERNEL);
+	if (!payload)
+		return -ENOMEM;
+
+	payload[0] = fn;
+	payload[1] = 0; /* unused sub-algorithm */
+	payload[2] = setting;
+	payload[3] = 1; /* number of values */
+	payload[4] = val;
+
+	desc_arg.args[0] = SCM_BUFFER_PHYS(payload);
+	desc_arg.args[1] = sizeof(uint32_t) * 5;
+	desc_arg.args[2] = MSM_LIMITS_NODE_DCVS;
+	desc_arg.args[3] = node_id;
+	desc_arg.args[4] = 0; /* version */
+	desc_arg.arginfo = SCM_ARGS(5, SCM_RO, SCM_VAL, SCM_VAL,
+					SCM_VAL, SCM_VAL);
+
+	dmac_flush_range(payload, payload + 5 * (sizeof(uint32_t)));
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH, MSM_LIMITS_DCVSH), &desc_arg);
+
+	kfree(payload);
+	return ret;
+}
+
+static int msm_lmh_dcvs_update(int cpu)
+{
+	uint32_t id = cpus[cpu].parent_ptr->cluster_id;
+	uint32_t max_freq = cpus[cpu].limited_max_freq;
+	uint32_t min_freq = cpus[cpu].limited_min_freq;
+	uint32_t affinity;
+	int ret;
+
+	switch (id) {
+	case 0:
+		affinity = MSM_LIMITS_CLUSTER_0;
+		break;
+	case 1:
+		affinity = MSM_LIMITS_CLUSTER_1;
+		break;
+	default:
+		pr_err("%s: unknown affinity %d\n", __func__, id);
+		return -EINVAL;
+	};
+
+	ret = msm_lmh_dcvs_write(affinity, MSM_LIMITS_SUB_FN_GENERAL,
+					MSM_LIMITS_DOMAIN_MAX, max_freq);
+	if (ret)
+		return ret;
+
+	ret = msm_lmh_dcvs_write(affinity, MSM_LIMITS_SUB_FN_GENERAL,
+					MSM_LIMITS_DOMAIN_MIN, min_freq);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
+static void update_cpu_freq(int cpu, enum freq_limits changed)
 {
 	int ret = 0;
 	cpumask_t mask;
+
+	/*
+	 * If the limits overshoot each other, choose the min requirement
+	 * over the max freq requirement.
+	 */
+	if (cpus[cpu].limited_min_freq > cpus[cpu].limited_max_freq)
+		cpus[cpu].limited_max_freq = cpus[cpu].limited_min_freq;
 
 	get_cluster_mask(cpu, &mask);
 	if (cpu_online(cpu)) {
@@ -1004,7 +1095,22 @@ static void update_cpu_freq(int cpu)
 		trace_thermal_pre_frequency_mit(cpu,
 			cpus[cpu].limited_max_freq,
 			cpus[cpu].limited_min_freq);
-		ret = cpufreq_update_policy(cpu);
+
+		/*
+		 * If LMH DCVS is available, we update the hardware directly
+		 * for faster response. However, the LMH DCVS does not aggregate
+		 * min freq correctly - cpufreq could be voting for a min
+		 * freq lesser than what we desire and that would be honored.
+		 * Update cpufreq, so the min freq remains consistent in the hw.
+		 */
+		if (lmh_dcvs_available) {
+			msm_lmh_dcvs_update(cpu);
+			if (changed | FREQ_LIMIT_MIN)
+				cpufreq_update_policy(cpu);
+		} else {
+			cpufreq_update_policy(cpu);
+		}
+
 		trace_thermal_post_frequency_mit(cpu,
 			cpufreq_quick_get_max(cpu),
 			cpus[cpu].limited_min_freq);
@@ -1525,6 +1631,7 @@ static void update_cluster_freq(void)
 	int online_cpu = -1;
 	struct cluster_info *cluster_ptr = NULL;
 	uint32_t _cluster = 0, _cpu = 0, max = UINT_MAX, min = 0;
+	uint32_t changed;
 
 	if (!core_ptr)
 		return;
@@ -1552,10 +1659,15 @@ static void update_cluster_freq(void)
 		if (cluster_ptr->limited_max_freq == max
 			&& cluster_ptr->limited_min_freq == min)
 			continue;
+		changed = 0;
+		if (max != cluster_ptr->limited_max_freq)
+			changed |= FREQ_LIMIT_MAX;
+		if (min != cluster_ptr->limited_min_freq)
+			changed |= FREQ_LIMIT_MIN;
 		cluster_ptr->limited_max_freq = max;
 		cluster_ptr->limited_min_freq = min;
 		if (online_cpu != -1)
-			update_cpu_freq(online_cpu);
+			update_cpu_freq(online_cpu, changed);
 	}
 }
 
@@ -1608,6 +1720,47 @@ static void do_cluster_freq_ctrl(int temp)
 	if (_cpu != -1)
 		update_cluster_freq();
 	put_online_cpus();
+}
+
+/**
+ * msm_thermal_lmh_dcvs_init: Initialize LMH DCVS hardware block
+ *
+ * @pdev: handle to the thermal device node
+ *
+ * Probe for the 'OSM clock' and initialize the LMH DCVS blocks.
+ */
+static int msm_thermal_lmh_dcvs_init(struct platform_device *pdev)
+{
+	struct clk *osm_clk;
+	const char *clk_name = "osm";
+	int ret = 0;
+
+	/* We are okay if the osm clock is not present in DT */
+	osm_clk = devm_clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(osm_clk))
+		return ret;
+
+	/*
+	 * We actually don't need the clock, we just wanted to make sure
+	 * the OSM block is ready.
+	 */
+	devm_clk_put(&pdev->dev, osm_clk);
+
+	/* Enable the CRNT algorithm. Again, we dont care if this fails */
+	ret = msm_lmh_dcvs_write(MSM_LIMITS_CLUSTER_0,
+				MSM_LIMITS_SUB_FN_CRNT,
+				MSM_LIMITS_ALGO_MODE_ENABLE, 1);
+	if (ret)
+		pr_err("Unable enable CRNT algo for cluster0\n");
+	ret = msm_lmh_dcvs_write(MSM_LIMITS_CLUSTER_1,
+				MSM_LIMITS_SUB_FN_CRNT,
+				MSM_LIMITS_ALGO_MODE_ENABLE, 1);
+	if (ret)
+		pr_err("Unable enable CRNT algo for cluster1\n");
+
+	lmh_dcvs_available = true;
+
+	return ret;
 }
 
 /* If freq table exists, then we can send freq request */
@@ -1666,6 +1819,13 @@ free_and_exit:
 	}
 
 exit:
+	if (!ret) {
+		int err;
+
+		err = msm_thermal_lmh_dcvs_init(msm_thermal_info.pdev);
+		if (err)
+			pr_err("Error initializing OSM\n");
+	}
 	return ret;
 }
 
@@ -1731,26 +1891,45 @@ static int update_cpu_min_freq_all(struct rail *apss_rail, uint32_t min)
 			if (!cluster_ptr->freq_table)
 				continue;
 			for_each_cpu(cpu, &cluster_ptr->cluster_cores) {
-				cpus[cpu].limited_min_freq = min;
+				uint32_t max;
+				uint32_t changed = 0;
+
 				cpus[cpu].vdd_max_freq = max_freq;
-				cpus[cpu].limited_max_freq = min(
-					cluster_ptr->freq_table[
+				max = min(cluster_ptr->freq_table[
 					cluster_ptr->freq_idx].frequency,
 					cpus[cpu].vdd_max_freq);
+
+				if (max != cpus[cpu].limited_max_freq)
+					changed |= FREQ_LIMIT_MAX;
+				if (min != cpus[cpu].limited_min_freq)
+					changed |= FREQ_LIMIT_MIN;
+
+				cpus[cpu].limited_min_freq = min;
+				cpus[cpu].limited_max_freq = max;
 				if (!SYNC_CORE(cpu))
-					update_cpu_freq(cpu);
+					update_cpu_freq(cpu, changed);
 			}
 			update_cluster_freq();
 		}
 	} else {
 		for_each_possible_cpu(cpu) {
-			cpus[cpu].limited_min_freq = min;
+			uint32_t max;
+			uint32_t changed = 0;
+
 			cpus[cpu].vdd_max_freq = max_freq;
-			cpus[cpu].limited_max_freq =
-				min(table[limit_idx].frequency,
-					cpus[cpu].vdd_max_freq);
+			max = min(table[limit_idx].frequency,
+				cpus[cpu].vdd_max_freq);
+
+			if (max != cpus[cpu].limited_max_freq)
+				changed |= FREQ_LIMIT_MAX;
+			if (min != cpus[cpu].limited_min_freq)
+				changed |= FREQ_LIMIT_MIN;
+
+			cpus[cpu].limited_min_freq = min;
+			cpus[cpu].limited_max_freq = max;
+
 			if (!SYNC_CORE(cpu))
-				update_cpu_freq(cpu);
+				update_cpu_freq(cpu, changed);
 		}
 		update_cluster_freq();
 	}
@@ -3380,7 +3559,7 @@ static void do_freq_control(int temp)
 		cpus[cpu].limited_max_freq =
 				min(max_freq, cpus[cpu].vdd_max_freq);
 		if (!SYNC_CORE(cpu))
-			update_cpu_freq(cpu);
+			update_cpu_freq(cpu, FREQ_LIMIT_MAX);
 	}
 	update_cluster_freq();
 	put_online_cpus();
@@ -3596,6 +3775,7 @@ static __ref int do_freq_mitigation(void *data)
 	struct sched_param param = {.sched_priority = MAX_RT_PRIO-1};
 	struct device_clnt_data *clnt = NULL;
 	struct device_manager_data *cpu_dev = NULL;
+	uint32_t changed;
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 	while (!kthread_should_stop()) {
@@ -3632,10 +3812,16 @@ static __ref int do_freq_mitigation(void *data)
 				cpus[cpu].limited_min_freq))
 				goto reset_threshold;
 
+			changed = 0;
+			if (max_freq_req != cpus[cpu].limited_max_freq)
+				changed |= FREQ_LIMIT_MAX;
+			if (min_freq_req != cpus[cpu].limited_min_freq)
+				changed |= FREQ_LIMIT_MIN;
+
 			cpus[cpu].limited_max_freq = max_freq_req;
 			cpus[cpu].limited_min_freq = min_freq_req;
 			if (!SYNC_CORE(cpu))
-				update_cpu_freq(cpu);
+				update_cpu_freq(cpu, changed);
 reset_threshold:
 			if (!SYNC_CORE(cpu) &&
 				devices && devices->cpufreq_dev[cpu]) {
@@ -4664,7 +4850,7 @@ static void __ref disable_msm_thermal(void)
 		cpus[cpu].vdd_max_freq = UINT_MAX;
 		cpus[cpu].limited_min_freq = 0;
 		if (!SYNC_CORE(cpu))
-			update_cpu_freq(cpu);
+			update_cpu_freq(cpu, FREQ_LIMIT_ALL);
 	}
 	update_cluster_freq();
 	put_online_cpus();
