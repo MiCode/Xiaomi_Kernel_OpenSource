@@ -326,6 +326,8 @@ struct adreno_gpu_core {
  * @csdev: Pointer to a coresight device (if applicable)
  * @gpmu_throttle_counters - counteers for number of throttled clocks
  * @irq_storm_work: Worker to handle possible interrupt storms
+ * @active_list: List to track active contexts
+ * @active_list_lock: Lock to protect active_list
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -387,6 +389,9 @@ struct adreno_device {
 	struct coresight_device *csdev;
 	uint32_t gpmu_throttle_counters[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct work_struct irq_storm_work;
+
+	struct list_head active_list;
+	spinlock_t active_list_lock;
 };
 
 /**
