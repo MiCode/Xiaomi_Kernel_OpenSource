@@ -46,7 +46,9 @@ static void __iomem *virt_base;
 #define mmpll10_pll_out_mm_source_val		4
 #define dsi0phypll_mm_source_val		1
 #define dsi1phypll_mm_source_val		2
-#define hdmiphypll_mm_source_val	1
+#define hdmiphypll_mm_source_val		1
+#define ext_dp_phy_pll_link_mm_source_val	1
+#define ext_dp_phy_pll_vco_mm_source_val	2
 
 #define FIXDIV(div) (div ? (2 * (div) - 1) : (0))
 
@@ -61,9 +63,23 @@ static void __iomem *virt_base;
 			| BVAL(10, 8, s##_mm_source_val), \
 	}
 
+#define F_SLEW(f, s_f, s, div, m, n) \
+	{ \
+		.freq_hz = (f), \
+		.src_freq = (s_f), \
+		.src_clk = &s.c, \
+		.m_val = (m), \
+		.n_val = ~((n)-(m)) * !!(n), \
+		.d_val = ~(n),\
+		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
+			| BVAL(10, 8, s##_mm_source_val), \
+	}
+
 DEFINE_EXT_CLK(mmsscc_xo, NULL);
 DEFINE_EXT_CLK(mmsscc_gpll0, NULL);
 DEFINE_EXT_CLK(mmsscc_gpll0_div, NULL);
+DEFINE_EXT_CLK(ext_dp_phy_pll_vco, NULL);
+DEFINE_EXT_CLK(ext_dp_phy_pll_link, NULL);
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
@@ -1091,6 +1107,57 @@ static struct rcg_clk dp_aux_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_dp_link_clk_src[] = {
+	F_SLEW( 162000000,  324000000, ext_dp_phy_pll_link,   2,   0,   0),
+	F_SLEW( 270000000,  540000000, ext_dp_phy_pll_link,   2,   0,   0),
+	F_SLEW( 540000000, 1080000000, ext_dp_phy_pll_link,   2,   0,   0),
+	F_END
+};
+
+static struct rcg_clk dp_link_clk_src = {
+	.cmd_rcgr_reg = MMSS_DP_LINK_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_dp_link_clk_src,
+	.current_freq = ftbl_dp_link_clk_src,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "dp_link_clk_src",
+		.ops = &clk_ops_rcg,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		VDD_DIG_FMAX_MAP3(LOWER, 162000000, LOW, 270000000,
+					NOMINAL, 540000000),
+		CLK_INIT(dp_link_clk_src.c),
+	},
+};
+
+/*
+ * Current understanding is that the DP PLL is going to be configured by using
+ * the set_rate ops for the dp_link_clk_src and dp_pixel_clk_src. When set_rate
+ * is called on this RCG, the rate call never makes it to the external DP
+ * clocks.
+ */
+static struct clk_freq_tbl ftbl_dp_crypto_clk_src[] = {
+	F_MM( 101250000, ext_dp_phy_pll_link,   1,   5,   16),
+	F_MM( 168750000, ext_dp_phy_pll_link,   1,   5,   16),
+	F_MM( 337500000, ext_dp_phy_pll_link,   1,   5,   16),
+	F_END
+};
+
+static struct rcg_clk dp_crypto_clk_src = {
+	.cmd_rcgr_reg = MMSS_DP_CRYPTO_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_dp_crypto_clk_src,
+	.current_freq = ftbl_dp_crypto_clk_src,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "dp_crypto_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		VDD_DIG_FMAX_MAP3(LOWER, 101250000, LOW, 168750000,
+					NOMINAL, 337500000),
+		CLK_INIT(dp_crypto_clk_src.c),
+	},
+};
+
 static struct branch_clk mmss_bimc_smmu_ahb_clk = {
 	.cbcr_reg = MMSS_BIMC_SMMU_AHB_CBCR,
 	.has_sibling = 1,
@@ -1936,6 +2003,44 @@ static struct branch_clk mmss_mdss_dp_aux_clk = {
 	},
 };
 
+static struct branch_clk mmss_mdss_dp_link_clk = {
+	.cbcr_reg = MMSS_MDSS_DP_LINK_CBCR,
+	.has_sibling = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "mmss_mdss_dp_link_clk",
+		.parent = &dp_link_clk_src.c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mmss_mdss_dp_link_clk.c),
+	},
+};
+
+/* Reset state of MMSS_MDSS_DP_LINK_INTF_DIV is 0x3 (div-4) */
+static struct branch_clk mmss_mdss_dp_link_intf_clk = {
+	.cbcr_reg = MMSS_MDSS_DP_LINK_INTF_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "mmss_mdss_dp_link_intf_clk",
+		.parent = &dp_link_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mmss_mdss_dp_link_intf_clk.c),
+	},
+};
+
+static struct branch_clk mmss_mdss_dp_crypto_clk = {
+	.cbcr_reg = MMSS_MDSS_DP_CRYPTO_CBCR,
+	.has_sibling = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "mmss_mdss_dp_crypto_clk",
+		.parent = &dp_crypto_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mmss_mdss_dp_crypto_clk.c),
+	},
+};
+
 static struct branch_clk mmss_mdss_dp_gtc_clk = {
 	.cbcr_reg = MMSS_MDSS_DP_GTC_CBCR,
 	.has_sibling = 0,
@@ -2313,10 +2418,13 @@ static struct mux_clk mmss_debug_mux = {
 		{ &mmss_fd_core_clk.c, 0x0089 },
 		{ &mmss_fd_core_uar_clk.c, 0x008a },
 		{ &mmss_fd_ahb_clk.c, 0x008c },
-		{ &mmss_camss_cphy_csid0_clk.c, 0x008d},
-		{ &mmss_camss_cphy_csid1_clk.c, 0x008e},
-		{ &mmss_camss_cphy_csid2_clk.c, 0x008f},
-		{ &mmss_camss_cphy_csid3_clk.c, 0x0090},
+		{ &mmss_camss_cphy_csid0_clk.c, 0x008d },
+		{ &mmss_camss_cphy_csid1_clk.c, 0x008e },
+		{ &mmss_camss_cphy_csid2_clk.c, 0x008f },
+		{ &mmss_camss_cphy_csid3_clk.c, 0x0090 },
+		{ &mmss_mdss_dp_link_clk.c, 0x0098 },
+		{ &mmss_mdss_dp_link_intf_clk.c, 0x0099 },
+		{ &mmss_mdss_dp_crypto_clk.c, 0x009a },
 		{ &mmss_mdss_dp_aux_clk.c, 0x009c },
 		{ &mmss_mdss_dp_gtc_clk.c, 0x009d },
 		{ &mmss_mdss_byte0_intf_clk.c, 0x00ad },
@@ -2384,6 +2492,10 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(pclk1_clk_src),
 	CLK_LIST(ext_extpclk_clk_src),
 	CLK_LIST(extpclk_clk_src),
+	CLK_LIST(ext_dp_phy_pll_vco),
+	CLK_LIST(ext_dp_phy_pll_link),
+	CLK_LIST(dp_link_clk_src),
+	CLK_LIST(dp_crypto_clk_src),
 	CLK_LIST(csi0phytimer_clk_src),
 	CLK_LIST(csi1phytimer_clk_src),
 	CLK_LIST(csi2phytimer_clk_src),
@@ -2463,6 +2575,9 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(mmss_mdss_byte0_intf_div_clk),
 	CLK_LIST(mmss_mdss_byte1_intf_clk),
 	CLK_LIST(mmss_mdss_dp_aux_clk),
+	CLK_LIST(mmss_mdss_dp_crypto_clk),
+	CLK_LIST(mmss_mdss_dp_link_clk),
+	CLK_LIST(mmss_mdss_dp_link_intf_clk),
 	CLK_LIST(mmss_mdss_dp_gtc_clk),
 	CLK_LIST(mmss_mdss_esc0_clk),
 	CLK_LIST(mmss_mdss_esc1_clk),
@@ -2645,6 +2760,11 @@ int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
 	ext_byte1_clk_src.c.flags = CLKFLAG_NO_RATE_CACHE;
 	ext_extpclk_clk_src.dev = &pdev->dev;
 	ext_extpclk_clk_src.clk_id = "extpclk_src";
+
+	ext_dp_phy_pll_link.dev = &pdev->dev;
+	ext_dp_phy_pll_link.clk_id = "dp_link_src";
+	ext_dp_phy_pll_vco.dev = &pdev->dev;
+	ext_dp_phy_pll_vco.clk_id = "dp_vco_div";
 
 	is_vq = of_device_is_compatible(pdev->dev.of_node,
 					"qcom,mmsscc-hamster");
