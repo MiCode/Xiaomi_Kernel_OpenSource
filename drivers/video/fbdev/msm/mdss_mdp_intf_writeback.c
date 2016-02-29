@@ -26,6 +26,8 @@
  */
 #define BWC_FMT_MASK	0xC3FFFFFF
 #define MDSS_DEFAULT_OT_SETTING    0x10
+#define CWB_PPB_0 2
+#define CWB_PPB_1 3
 
 enum mdss_mdp_writeback_type {
 	MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
@@ -196,6 +198,57 @@ static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
 	return mdss_mdp_cdm_setup(cdm, &setup);
 }
 
+static void mdss_mdp_writeback_cwb_overflow(void *arg)
+{
+	struct mdss_mdp_ctl *ctl = arg;
+	struct mdss_overlay_private *mdp5_data = NULL;
+
+	pr_err("Buffer overflow triggered ctl=%d\n", ctl->num);
+	MDSS_XLOG(ctl->num);
+	if (ctl->mfd)
+		return;
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	mdp5_data->cwb.valid = 0;
+
+	blocking_notifier_call_chain(&mdp5_data->cwb.notifier_head,
+			MDP_NOTIFY_FRAME_TIMEOUT, NULL);
+
+	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, CWB_PPB_0);
+	if (mdss_mdp_get_split_ctl(ctl))
+		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
+				CWB_PPB_1);
+
+	if (!atomic_add_unless(&mdp5_data->wb_busy, -1, 0))
+		pr_err("Invalid state for WB\n");
+
+	wake_up_all(&mdp5_data->wb_waitq);
+}
+
+static void mdss_mdp_writeback_cwb_intr_done(void *arg)
+{
+	struct mdss_mdp_ctl *ctl = arg;
+	struct mdss_overlay_private *mdp5_data = NULL;
+	struct mdss_mdp_writeback_ctx *ctx = NULL;
+
+	if (ctl->mfd)
+		return;
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	ctx = mdp5_data->cwb.priv_data;
+	mdp5_data->cwb.valid = 0;
+
+	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
+
+	blocking_notifier_call_chain(&mdp5_data->cwb.notifier_head,
+			MDP_NOTIFY_FRAME_DONE, NULL);
+
+	if (!atomic_add_unless(&mdp5_data->wb_busy, -1, 0))
+		pr_err("Invalid state for WB\n");
+
+	wake_up_all(&mdp5_data->wb_waitq);
+}
+
 void mdss_mdp_set_wb_cdp(struct mdss_mdp_writeback_ctx *ctx,
 	struct mdss_mdp_format_params *fmt)
 {
@@ -353,6 +406,63 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 		mdss_mdp_set_wb_cdp(ctx, fmt);
 
 	return 0;
+}
+
+int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
+		struct mdss_mdp_writeback_arg *wb_arg)
+{
+	struct mdss_overlay_private *mdp5_data;
+	struct mdss_mdp_writeback_ctx *ctx = NULL;
+	struct mdp_layer_buffer *buffer = NULL;
+	struct mdss_mdp_cwb *cwb = NULL;
+	struct mdss_mdp_ctl *sctl = NULL;
+	int ret = 0;
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	cwb = &mdp5_data->cwb;
+	ctx = (struct mdss_mdp_writeback_ctx *)cwb->priv_data;
+
+	buffer = &cwb->layer->buffer;
+
+	ctx->opmode = 0;
+	ctx->img_width = buffer->width;
+	ctx->img_height = buffer->height;
+	ctx->width = buffer->width;
+	ctx->height = buffer->height;
+	ctx->frame_rate = ctl->frame_rate;
+	ctx->dst_rect.x = 0;
+	ctx->dst_rect.y = 0;
+	ctx->dst_rect.w = ctx->width;
+	ctx->dst_rect.h = ctx->height;
+
+	ret = mdss_mdp_writeback_format_setup(ctx, buffer->format, ctl);
+	if (ret) {
+		pr_err("format setup failed for cwb\n");
+		return ret;
+	}
+
+	ret = mdss_mdp_writeback_addr_setup(ctx, wb_arg->data);
+	if (ret) {
+		pr_err("cwb writeback data setup error\n");
+		return ret;
+	}
+	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
+	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
+			 mdss_mdp_writeback_cwb_intr_done, ctl);
+
+	mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, ctl->intf_num);
+	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
+			ctl->intf_num,
+			mdss_mdp_writeback_cwb_overflow, ctl);
+	sctl = mdss_mdp_get_split_ctl(ctl);
+	if (sctl) {
+		mdss_mdp_irq_enable(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
+				sctl->intf_num);
+		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW,
+				sctl->intf_num,
+				mdss_mdp_writeback_cwb_overflow, sctl);
+	}
+	return ret;
 }
 
 static int mdss_mdp_writeback_prepare_wfd(struct mdss_mdp_ctl *ctl, void *arg)
@@ -557,6 +667,7 @@ static void mdss_mdp_writeback_intr_done(void *arg)
 	spin_unlock(&ctx->wb_lock);
 
 	complete_all(&ctx->wb_comp);
+
 	MDSS_XLOG(ctx->wb_num, ctx->type, ctx->xin_id, ctx->intf_num);
 }
 
@@ -822,11 +933,43 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	return 0;
 }
 
+static struct mdss_mdp_writeback_ctx *mdss_mdp_writeback_get_ctx(u32 opmode)
+{
+	u32 mem_sel = (opmode & 0xF) - 1;
+
+	if (mem_sel < MDSS_MDP_MAX_WRITEBACK)
+		return &wb_ctx_list[mem_sel];
+	return NULL;
+}
+
+void *mdss_mdp_writeback_get_ctx_for_cwb(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_writeback_ctx *ctx =
+		mdss_mdp_writeback_get_ctx(MDSS_MDP_CTL_OP_WFD_MODE);
+	struct mdss_mdp_writeback_ctx *cwb_ctx =
+		kzalloc(sizeof(struct mdss_mdp_writeback_ctx), GFP_KERNEL);
+
+	if (cwb_ctx == NULL) {
+		pr_err("fail to allocate CWB context\n");
+		return NULL;
+	}
+
+	/* Populate only needed parameters for CWB programming. */
+	cwb_ctx->base = ctl->wb->base;
+	cwb_ctx->wb_num = ctl->wb->num;
+	cwb_ctx->intf_num = ctx->intf_num;
+	cwb_ctx->intr_type = ctx->intr_type;
+	cwb_ctx->xin_id = ctx->xin_id;
+	cwb_ctx->clk_ctrl.reg_off = ctx->clk_ctrl.reg_off;
+	cwb_ctx->clk_ctrl.bit_off = ctx->clk_ctrl.bit_off;
+
+	return cwb_ctx;
+}
+
 int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
 	struct mdss_mdp_writeback *wb;
-	u32 mem_sel;
 	u32 mixer_type = MDSS_MDP_MIXER_TYPE_UNUSED;
 	bool is_rot;
 
@@ -838,16 +981,16 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	}
 
 	wb = ctl->wb;
-	mem_sel = (ctl->opmode & 0xF) - 1;
-	if (mem_sel < MDSS_MDP_MAX_WRITEBACK) {
-		ctx = &wb_ctx_list[mem_sel];
+
+	ctx = mdss_mdp_writeback_get_ctx(ctl->opmode);
+	if (ctx) {
 		if (ctx->ref_cnt) {
-			pr_err("writeback in use %d\n", mem_sel);
+			pr_err("writeback id: %d in use\n", wb->num);
 			return -EBUSY;
 		}
 		ctx->ref_cnt++;
 	} else {
-		pr_err("invalid writeback mode %d\n", mem_sel);
+		pr_err("unable to get wb context for wb id: %d\n", wb->num);
 		return -EINVAL;
 	}
 

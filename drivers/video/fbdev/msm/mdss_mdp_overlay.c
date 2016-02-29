@@ -5430,6 +5430,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	struct msm_mdp_interface *mdp5_interface = &mfd->mdp;
 	struct mdss_overlay_private *mdp5_data = NULL;
 	struct irq_info *mdss_irq;
+	char timeline_name[32];
 	int rc;
 
 	mdp5_data = kzalloc(sizeof(struct mdss_overlay_private), GFP_KERNEL);
@@ -5490,6 +5491,21 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_data->hw_refresh = true;
 	mdp5_data->cursor_ndx[CURSOR_PIPE_LEFT] = MSMFB_NEW_REQUEST;
 	mdp5_data->cursor_ndx[CURSOR_PIPE_RIGHT] = MSMFB_NEW_REQUEST;
+
+	init_waitqueue_head(&mdp5_data->wb_waitq);
+	mutex_init(&mdp5_data->cwb.queue_lock);
+	INIT_LIST_HEAD(&mdp5_data->cwb.data_queue);
+
+	snprintf(timeline_name, sizeof(timeline_name), "cwb%d", mfd->index);
+	mdp5_data->cwb.cwb_sync_pt_data.timeline =
+		sw_sync_timeline_create(timeline_name);
+	if (mdp5_data->cwb.cwb_sync_pt_data.timeline == NULL) {
+		pr_err("failed to create sync pt timeline for cwb\n");
+		return -ENOMEM;
+	}
+
+	blocking_notifier_chain_register(&mdp5_data->cwb.notifier_head,
+			&mfd->mdp_sync_pt_data.notifier);
 
 	mfd->mdp.private1 = mdp5_data;
 	mfd->wait_for_kickoff = true;

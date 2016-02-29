@@ -138,6 +138,15 @@ VALIDATE/COMMIT FLAG CONFIGURATION
  */
 #define MDP_COMMIT_SYNC_FENCE_WAIT		0x04
 
+/* Flag to enable concurrent writeback for the frame */
+#define MDP_COMMIT_CWB_EN 0x800
+
+/*
+ * Flag to select DSPP as the data point for CWB. If CWB
+ * is enabled without this flag, LM will be selected as data point.
+ */
+#define MDP_COMMIT_CWB_DSPP 0x1000
+
 #define MDP_COMMIT_VERSION_1_0		0x00010000
 
 /**********************************************************************

@@ -4374,8 +4374,19 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		commit.commit_v1.output_layer = output_layer_user;
 		rc = copy_to_user(argp, &commit,
 			sizeof(struct mdp_layer_commit));
-		if (rc)
+		if (rc) {
 			pr_err("copy to user for release & retire fence failed\n");
+			goto err;
+		}
+	}
+
+	if (output_layer_user) {
+		rc = copy_to_user(&output_layer_user->buffer.fence,
+			&output_layer->buffer.fence,
+			sizeof(int));
+
+		if (rc)
+			pr_err("copy to user for output fence failed");
 	}
 
 err:
