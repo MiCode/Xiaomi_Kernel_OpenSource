@@ -113,11 +113,6 @@ struct mdss_prefill_data {
 	struct simplified_prefill_factors prefill_factors;
 };
 
-struct mdss_mdp_ppb {
-	u32 ctl_off;
-	u32 cfg_off;
-};
-
 struct mdss_mdp_dsc {
 	u32 num;
 	char __iomem *base;
@@ -400,8 +395,10 @@ struct mdss_data_type {
 	u8  ncursor_pipes;
 	u32 max_cursor_size;
 
-	u32 nppb;
-	struct mdss_mdp_ppb *ppb;
+	u32 nppb_ctl;
+	u32 *ppb_ctl;
+	u32 nppb_cfg;
+	u32 *ppb_cfg;
 	char __iomem *slave_pingpong_base;
 
 	struct mdss_mdp_mixer *mixer_intf;
