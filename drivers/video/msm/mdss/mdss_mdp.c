@@ -1976,9 +1976,11 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	if (mdata->max_bw_settings_cnt)
 		SPRINT(" dynamic_bw_limit");
 	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map))
-		SPRINT("qseed3");
+		SPRINT(" qseed3");
 	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map))
-		SPRINT("dest_scaler");
+		SPRINT(" dest_scaler");
+	if (mdata->has_separate_rotator)
+		SPRINT(" separate_rotator");
 	SPRINT("\n");
 #undef SPRINT
 
