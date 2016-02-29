@@ -43,6 +43,12 @@
 
 #define MSM_CPE_LAB_THREAD_TIMEOUT (3 * (HZ/10))
 
+/*
+ * Driver ioctl will parse only so many params
+ * size of LSM_PARAMS_MAX is last LSM_PARAM_TYPE + 1
+ */
+#define LSM_PARAMS_MAX (LSM_POLLING_ENABLE + 1)
+
 #define MSM_CPE_LSM_GRAB_LOCK(lock, name)		\
 {						\
 	pr_debug("%s: %s lock acquire\n",	\
