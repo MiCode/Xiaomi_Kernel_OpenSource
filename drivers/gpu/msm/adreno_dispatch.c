@@ -78,59 +78,69 @@ unsigned int adreno_cmdbatch_timeout = 2000;
 /* Interval for reading and comparing fault detection registers */
 static unsigned int _fault_timer_interval = 200;
 
-/**
- * _track_context - Add a context ID to the list of recently seen contexts
- * for the command queue
- * @cmdqueue: cmdqueue to add the context to
- * @id: ID of the context to add
- *
- * This function is called when a new item is added to a context - this tracks
- * the number of active contexts seen in the last 100ms for the command queue
- */
-static void _track_context(struct adreno_dispatcher_cmdqueue *cmdqueue,
-		unsigned int id)
+static void _add_context(struct adreno_device *adreno_dev,
+		struct adreno_context *drawctxt)
 {
-	struct adreno_context_list *list = cmdqueue->active_contexts;
-	int oldest = -1, empty = -1;
-	unsigned long age = 0;
-	int i, count = 0;
-	bool updated = false;
+	/* Remove it from the list */
+	list_del_init(&drawctxt->active_node);
 
-	for (i = 0; i < ACTIVE_CONTEXT_LIST_MAX; i++) {
+	/* And push it to the front */
+	drawctxt->active_time = jiffies;
+	list_add(&drawctxt->active_node, &adreno_dev->active_list);
+}
 
-		/* If the new ID matches the slot update the expire time */
-		if (list[i].id == id) {
-			list[i].jiffies = jiffies + msecs_to_jiffies(100);
-			updated = true;
-			count++;
-			continue;
-		}
+static int __count_context(struct adreno_context *drawctxt, void *data)
+{
+	unsigned long expires = drawctxt->active_time + msecs_to_jiffies(100);
 
-		/* Remember and skip empty slots */
-		if ((list[i].id == 0) ||
-			time_after(jiffies, list[i].jiffies)) {
-			empty = i;
-			continue;
-		}
+	return time_after(jiffies, expires) ? 0 : 1;
+}
+
+static int __count_cmdqueue_context(struct adreno_context *drawctxt, void *data)
+{
+	unsigned long expires = drawctxt->active_time + msecs_to_jiffies(100);
+
+	if (time_after(jiffies, expires))
+		return 0;
+
+	return (&drawctxt->rb->dispatch_q ==
+			(struct adreno_dispatcher_cmdqueue *) data) ? 1 : 0;
+}
+
+static int _adreno_count_active_contexts(struct adreno_device *adreno_dev,
+		int (*func)(struct adreno_context *, void *), void *data)
+{
+	struct adreno_context *ctxt;
+	int count = 0;
+
+	list_for_each_entry(ctxt, &adreno_dev->active_list, active_node) {
+		if (func(ctxt, data) == 0)
+			return count;
 
 		count++;
-
-		/* Remember the oldest active entry */
-		if (oldest == -1 || time_before(list[i].jiffies, age)) {
-			age = list[i].jiffies;
-			oldest = i;
-		}
 	}
 
-	if (updated == false) {
-		int pos = (empty != -1) ? empty : oldest;
+	return count;
+}
 
-		list[pos].jiffies = jiffies + msecs_to_jiffies(100);
-		list[pos].id = id;
-		count++;
-	}
+static void _track_context(struct adreno_device *adreno_dev,
+		struct adreno_dispatcher_cmdqueue *cmdqueue,
+		struct adreno_context *drawctxt)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	cmdqueue->active_context_count = count;
+	spin_lock(&adreno_dev->active_list_lock);
+
+	_add_context(adreno_dev, drawctxt);
+
+	device->active_context_count =
+			_adreno_count_active_contexts(adreno_dev,
+					__count_context, NULL);
+	cmdqueue->active_context_count =
+			_adreno_count_active_contexts(adreno_dev,
+					__count_cmdqueue_context, cmdqueue);
+
+	spin_unlock(&adreno_dev->active_list_lock);
 }
 
 /*
@@ -1174,7 +1184,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	drawctxt->queued++;
 	trace_adreno_cmdbatch_queued(cmdbatch, drawctxt->queued);
 
-	_track_context(dispatch_q, drawctxt->base.id);
+	_track_context(adreno_dev, dispatch_q, drawctxt);
 
 	spin_unlock(&drawctxt->lock);
 

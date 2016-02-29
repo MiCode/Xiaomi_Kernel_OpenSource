@@ -64,28 +64,19 @@ enum adreno_dispatcher_starve_timer_states {
 
 #define CMDQUEUE_NEXT(_i, _s) (((_i) + 1) % (_s))
 
-#define ACTIVE_CONTEXT_LIST_MAX 2
-
-struct adreno_context_list {
-	unsigned int id;
-	unsigned long jiffies;
-};
-
 /**
  * struct adreno_dispatcher_cmdqueue - List of commands for a RB level
  * @cmd_q: List of command batches submitted to dispatcher
  * @inflight: Number of commands inflight in this q
  * @head: Head pointer to the q
  * @tail: Queues tail pointer
- * @active_contexts: List of most recently seen contexts
- * @active_context_count: Number of active contexts in the active_contexts list
+ * @active_context_count: Number of active contexts seen in this rb cmdqueue
  */
 struct adreno_dispatcher_cmdqueue {
 	struct kgsl_cmdbatch *cmd_q[ADRENO_DISPATCH_CMDQUEUE_SIZE];
 	unsigned int inflight;
 	unsigned int head;
 	unsigned int tail;
-	struct adreno_context_list active_contexts[ACTIVE_CONTEXT_LIST_MAX];
 	int active_context_count;
 };
 

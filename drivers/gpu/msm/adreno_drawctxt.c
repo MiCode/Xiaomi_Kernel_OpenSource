@@ -420,6 +420,8 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
+	INIT_LIST_HEAD(&drawctxt->active_node);
+
 	/* copy back whatever flags we dediced were valid */
 	*flags = drawctxt->base.flags;
 	return &drawctxt->base;
@@ -461,6 +463,10 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	adreno_dev = ADRENO_DEVICE(device);
 	drawctxt = ADRENO_CONTEXT(context);
 	rb = drawctxt->rb;
+
+	spin_lock(&adreno_dev->active_list_lock);
+	list_del_init(&drawctxt->active_node);
+	spin_unlock(&adreno_dev->active_list_lock);
 
 	/* deactivate context */
 	mutex_lock(&device->mutex);
