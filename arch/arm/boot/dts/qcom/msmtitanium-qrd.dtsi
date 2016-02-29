@@ -33,7 +33,7 @@
 
 	i2c@78b7000 { /* BLSP1 QUP3 */
 		status = "okay";
-		synaptics@20 {
+		synaptics@4b {
 			compatible = "synaptics,dsx";
 			reg = <0x4b>;
 			interrupt-parent = <&tlmm>;
