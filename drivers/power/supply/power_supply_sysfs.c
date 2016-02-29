@@ -69,6 +69,17 @@ static ssize_t power_supply_show_property(struct device *dev,
 	static char *scope_text[] = {
 		"Unknown", "System", "Device"
 	};
+	static const char * const typec_text[] = {
+		"Nothing attached", "Sink attached", "Powered cable w/ sink",
+		"Debug Accessory", "Audio Adapter", "Powered cable w/o sink",
+		"Source attached (default current)",
+		"Source attached (medium current)",
+		"Source attached (high current)",
+		"Non compliant",
+	};
+	static const char * const typec_pr_text[] = {
+		"none", "dual power role", "sink", "source"
+	};
 	ssize_t ret = 0;
 	struct power_supply *psy = dev_get_drvdata(dev);
 	const ptrdiff_t off = attr - power_supply_attrs;
@@ -104,6 +115,10 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", type_text[value.intval]);
 	else if (off == POWER_SUPPLY_PROP_SCOPE)
 		return sprintf(buf, "%s\n", scope_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_TYPEC_MODE)
+		return sprintf(buf, "%s\n", typec_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_TYPEC_POWER_ROLE)
+		return sprintf(buf, "%s\n", typec_pr_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
 
@@ -205,6 +220,11 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(usb_hc),
 	POWER_SUPPLY_ATTR(usb_otg),
 	POWER_SUPPLY_ATTR(charge_enabled),
+	POWER_SUPPLY_ATTR(typec_mode),
+	POWER_SUPPLY_ATTR(typec_cc_orientation),
+	POWER_SUPPLY_ATTR(typec_power_role),
+	POWER_SUPPLY_ATTR(pd_allowed),
+	POWER_SUPPLY_ATTR(pd_active),
 	POWER_SUPPLY_ATTR(set_ship_mode),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
