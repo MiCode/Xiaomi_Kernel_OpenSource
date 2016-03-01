@@ -648,7 +648,8 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 			  param->output_type);
 
 	/* input config */
-	if (Q_HAVE_HW_SP(Q_PIN_CFG_DTEST_SEL, q_spec, param->dtest_sel)) {
+	if (Q_HAVE_HW_SP(Q_PIN_CFG_DTEST_SEL, q_spec, param->dtest_sel)
+			&& param->dtest_sel) {
 		if (is_gpio_lv_mv(q_spec)) {
 			q_reg_clr_set(&q_spec->regs[Q_REG_I_DIG_IN_CTL],
 					Q_REG_LV_MV_DTEST_SEL_CFG_SHIFT,
