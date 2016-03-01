@@ -54,6 +54,8 @@
  * @boost_cfg:		CPR boost configuration fuse parameter value
  * @boost_voltage:	CPR boost voltage fuse parameter value (raw, not
  *			converted to a voltage)
+ * @aging_init_quot_diff:	Initial quotient difference between CPR aging
+ *			min and max sensors measured at time of manufacturing
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -67,6 +69,7 @@ struct cpr4_msm8953_apss_fuses {
 	u64	boost_cfg;
 	u64	boost_voltage;
 	u64	misc;
+	u64	aging_init_quot_diff;
 };
 
 /*
@@ -161,6 +164,12 @@ static const struct cpr3_fuse_param msm8953_misc_fuse_volt_adj_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param msm8953_apss_aging_init_quot_diff_param[]
+= {
+	{72, 0, 7},
+	{},
+};
+
 /*
  * The number of possible values for misc fuse is
  * 2^(#bits defined for misc fuse)
@@ -205,6 +214,14 @@ static const int msm8953_apss_fuse_ref_volt
  * indicate boost enable/disable status.
  */
 static bool boost_fuse[MAX_BOOST_CONFIG_FUSE_VALUE] = {0, 1, 1, 1, 1, 1, 1, 1};
+
+/* CPR Aging parameters for msm8953 */
+#define MSM8953_APSS_AGING_INIT_QUOT_DIFF_SCALE	1
+#define MSM8953_APSS_AGING_INIT_QUOT_DIFF_SIZE	8
+#define MSM8953_APSS_AGING_SENSOR_ID		6
+
+/* Use a very high value for max aging margin to be applied */
+#define MSM8953_APSS_AGING_MAX_AGE_MARGIN_QUOT	(-1000)
 
 /**
  * cpr4_msm8953_apss_read_fuse_data() - load APSS specific fuse parameter values
@@ -255,6 +272,14 @@ static int cpr4_msm8953_apss_read_fuse_data(struct cpr3_regulator *vreg)
 		cpr3_err(vreg, "CPR misc fuse value = %llu, should be < %lu\n",
 			fuse->misc, MSM8953_MISC_FUSE_VAL_COUNT);
 		return -EINVAL;
+	}
+
+	rc = cpr3_read_fuse_param(base, msm8953_apss_aging_init_quot_diff_param,
+				&fuse->aging_init_quot_diff);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read aging initial quotient difference fuse, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	for (i = 0; i < MSM8953_APSS_FUSE_CORNERS; i++) {
@@ -1212,6 +1237,81 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 }
 
 /**
+ * cpr4_apss_init_aging() - perform APSS CPR4 controller specific
+ *		aging initializations
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_init_aging(struct cpr3_controller *ctrl)
+{
+	struct cpr4_msm8953_apss_fuses *fuse = NULL;
+	struct cpr3_regulator *vreg;
+	u32 aging_ro_scale;
+	int i, j, rc;
+
+	for (i = 0; i < ctrl->thread_count; i++) {
+		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+			if (ctrl->thread[i].vreg[j].aging_allowed) {
+				ctrl->aging_required = true;
+				vreg = &ctrl->thread[i].vreg[j];
+				fuse = vreg->platform_fuses;
+				break;
+			}
+		}
+	}
+
+	if (!ctrl->aging_required || !fuse)
+		return 0;
+
+	rc = cpr3_parse_array_property(vreg, "qcom,cpr-aging-ro-scaling-factor",
+					1, &aging_ro_scale);
+	if (rc)
+		return rc;
+
+	if (aging_ro_scale == 0) {
+		cpr3_err(ctrl, "aging RO scaling factor is invalid: %u\n",
+			aging_ro_scale);
+		return -EINVAL;
+	}
+
+	ctrl->aging_vdd_mode = REGULATOR_MODE_NORMAL;
+	ctrl->aging_complete_vdd_mode = REGULATOR_MODE_IDLE;
+
+	ctrl->aging_sensor_count = 1;
+	ctrl->aging_sensor = kzalloc(sizeof(*ctrl->aging_sensor), GFP_KERNEL);
+	if (!ctrl->aging_sensor)
+		return -ENOMEM;
+
+	ctrl->aging_sensor->sensor_id = MSM8953_APSS_AGING_SENSOR_ID;
+	ctrl->aging_sensor->ro_scale = aging_ro_scale;
+
+	ctrl->aging_sensor->init_quot_diff
+		= cpr3_convert_open_loop_voltage_fuse(0,
+			MSM8953_APSS_AGING_INIT_QUOT_DIFF_SCALE,
+			fuse->aging_init_quot_diff,
+			MSM8953_APSS_AGING_INIT_QUOT_DIFF_SIZE);
+
+	if (ctrl->aging_sensor->init_quot_diff == 0) {
+		/*
+		 * Initial quotient difference value '0' has a special meaning
+		 * in MSM8953 fusing scheme. Use max age margin quotient
+		 * difference to consider full aging margin of 15 mV.
+		 */
+		ctrl->aging_sensor->init_quot_diff
+			= MSM8953_APSS_AGING_MAX_AGE_MARGIN_QUOT;
+		cpr3_debug(ctrl, "Init quotient diff = 0, use max age margin quotient\n");
+	}
+
+	cpr3_info(ctrl, "sensor %u aging init quotient diff = %d, aging RO scale = %u QUOT/V\n",
+		ctrl->aging_sensor->sensor_id,
+		ctrl->aging_sensor->init_quot_diff,
+		ctrl->aging_sensor->ro_scale);
+
+	return 0;
+}
+
+/**
  * cpr4_apss_init_controller() - perform APSS CPR4 controller specific
  *		initializations
  * @ctrl:		Pointer to the CPR3 controller
@@ -1388,6 +1488,13 @@ static int cpr4_apss_regulator_probe(struct platform_device *pdev)
 				 rc);
 			return rc;
 		}
+	}
+
+	rc = cpr4_apss_init_aging(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "failed to initialize aging configurations, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	platform_set_drvdata(pdev, ctrl);
