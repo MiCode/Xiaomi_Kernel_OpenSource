@@ -51,10 +51,16 @@ enum clk_osm_lut_data {
 	FREQ,
 	FREQ_DATA,
 	PLL_OVERRIDES,
+	SPARE_DATA,
 	NUM_FIELDS,
 };
 
-#define SEQ_REG(n) (0x300 + n*4)
+#define SEQ_REG(n) (0x300 + (n) * 4)
+#define MEM_ACC_SEQ_REG_CFG_START(n) (SEQ_REG(12 + (n)))
+#define MEM_ACC_SEQ_CONST(n) (n)
+#define MEM_ACC_INSTR_COMP(n) (0x67 + ((n) * 0x40))
+#define MEM_ACC_SEQ_REG_VAL_START(n) \
+	((n) < 8 ? SEQ_REG(4 + (n)) : SEQ_REG(60 + (n) - 8))
 
 #define OSM_TABLE_SIZE 40
 #define MAX_CLUSTER_CNT 2
@@ -65,6 +71,7 @@ enum clk_osm_lut_data {
 #define FREQ_REG 0x1154
 #define VOLT_REG 0x1158
 #define OVERRIDE_REG 0x115C
+#define SPARE_REG 0x1164
 
 #define OSM_CYCLE_COUNTER_CTRL_REG 0x1F00
 #define OSM_CYCLE_COUNTER_STATUS_REG 0x1F04
@@ -153,45 +160,58 @@ enum clk_osm_lut_data {
 #define MAX_INSTRUCTIONS 256
 #define MAX_BR_INSTRUCTIONS 49
 
+#define MAX_MEM_ACC_LEVELS 4
+#define MAX_MEM_ACC_VAL_PER_LEVEL 3
+#define MAX_MEM_ACC_VALUES (MAX_MEM_ACC_LEVELS * \
+			    MAX_MEM_ACC_VAL_PER_LEVEL)
+#define MEM_ACC_READ_MASK 0x7
+
 static u32 seq_instr[] = {
 	0xc2005000, 0x2c9e3b21, 0xc0ab2cdc, 0xc2882525, 0x359dc491,
 	0x700a500b, 0x70005001, 0x390938c8, 0xcb44c833, 0xce56cd54,
 	0x341336e0, 0xadba0000, 0x10004000, 0x70005001, 0x1000500c,
 	0xc792c5a1, 0x501625e1, 0x3da335a2, 0x50170006, 0x50150006,
-	0x1000c633, 0x1000acb3, 0xc422acb4, 0xaefc1000, 0x700a500b,
-	0x70005001, 0x5010aefd, 0x5012700b, 0xad41700c, 0x0000adb9,
-	0x500c181b, 0x5011500f, 0x181b3413, 0x853984b9, 0x0003bd80,
-	0xa0012ba4, 0x71050006, 0x500e1000, 0x500c1000, 0x38801c0a,
-	0x1c063b18, 0x1c073b43, 0x1c061000, 0x1c073983, 0x3840500c,
-	0x00001c0a, 0x50021000, 0x00007001, 0x81031000, 0x70025003,
-	0x70035004, 0x3b441000, 0x81043985, 0x70025003, 0x50054003,
-	0xa1467009, 0x0003b1c0, 0x4005238b, 0x83081000, 0x850c848b,
-	0x830d1000, 0x850c848e, 0x38811000, 0xa7183842, 0xa79aa759,
-	0x0000a7db, 0x8c101000, 0x8d128c91, 0x00008d93, 0x8c141000,
-	0x8d168c95, 0x00008d97, 0x50061000, 0x39cd3a4c, 0x3ad03a8f,
-	0x10004006, 0x70065007, 0xa00f2c12, 0x00064007, 0x700d7105,
-	0xa9641000, 0x40071c1a, 0x1000700d, 0x70065007, 0x50101c16,
-	0x24115012, 0x700d4007, 0x10004007, 0xa821a00f, 0x71050006,
-	0x700d4007, 0x91ad500c, 0x500f1c15, 0x00005011, 0x2bd41000,
-	0xa00f500c, 0x71050006, 0xa00f1000, 0x0006a821, 0x500c7005,
-	0x1c1591ad, 0x5011500f, 0x2bce1000, 0x50101c16, 0xa0225012,
-	0x0006a82a, 0x91a67105, 0x500f1c15, 0x500c5011, 0xa00f5014,
-	0x71050006, 0x10000000, 0x501391a4, 0xa9632217, 0x10001c1a,
-	0xa9632217, 0x10001c1a, 0x70075008, 0xa9634008, 0x50091c1a,
-	0x40097008, 0x848e1000, 0xb1c0850c, 0x2b990003, 0x1000400d,
-	0x1000500d, 0x84b0abaf, 0xbb808531, 0x10000003, 0x0006a037,
-	0x10007105,
+	0xafb9c633, 0xacb31000, 0xacb41000, 0x1000c422, 0x500baefc,
+	0x5001700a, 0xaefd7000, 0x700b5010, 0x700c5012, 0xadb9ad41,
+	0x181b0000, 0x500f500c, 0x34135011, 0x84b9181b, 0xbd808539,
+	0x2ba40003, 0x0006a001, 0x10007105, 0x1000500e, 0x1c0a500c,
+	0x3b181c01, 0x3b431c06, 0x10001c07, 0x39831c06, 0x500c1c07,
+	0x1c0a1c02, 0x10000000, 0x70015002, 0x10000000, 0x50038103,
+	0x50047002, 0x10007003, 0x39853b44, 0x50038104, 0x40037002,
+	0x70095005, 0xb1c0a146, 0x238b0003, 0x10004005, 0x848b8308,
+	0x1000850c, 0x848e830d, 0x1000850c, 0x3a4c5006, 0x3a8f39cd,
+	0x40063ad0, 0x50071000, 0x2c127006, 0x4007a00f, 0x71050006,
+	0x1000700d, 0x1c1aa964, 0x700d4007, 0x50071000, 0x1c167006,
+	0x50125010, 0x40072411, 0x4007700d, 0xa00f1000, 0x0006a821,
+	0x40077105, 0x500c700d, 0x1c1591ad, 0x5011500f, 0x10000000,
+	0x500c2bd4, 0x0006a00f, 0x10007105, 0xa821a00f, 0x70050006,
+	0x91ad500c, 0x500f1c15, 0x10005011, 0x1c162bce, 0x50125010,
+	0xa82aa022, 0x71050006, 0x1c1591a6, 0x5011500f, 0x5014500c,
+	0x0006a00f, 0x00007105, 0x91a41000, 0x22175013, 0x1c1aa963,
+	0x22171000, 0x1c1aa963, 0x50081000, 0x40087007, 0x1c1aa963,
+	0x70085009, 0x10004009, 0x850c848e, 0x0003b1c0, 0x400d2b99,
+	0x500d1000, 0xabaf1000, 0x853184b0, 0x0003bb80, 0xa0371000,
+	0x71050006, 0x85481000, 0xbf8084c3, 0x2ba80003, 0xbf8084c2,
+	0x2ba70003, 0xbf8084c1, 0x2ba60003, 0x8ec71000, 0xc6dd8dc3,
+	0x8c1625ec, 0x8d498c97, 0x8ec61c00, 0xc6dd8dc2, 0x8c1325ec,
+	0x8d158c94, 0x8ec51c00, 0xc6dd8dc1, 0x8c1025ec, 0x8d128c91,
+	0x8dc01c00, 0x182cc633, 0x84c08548, 0x0003bf80, 0x84c12ba9,
+	0x0003bf80, 0x84c22baa, 0x0003bf80, 0x10002bab, 0x8dc08ec4,
+	0x25ecc6dd, 0x8c948c13, 0x1c008d15, 0x8dc18ec5, 0x25ecc6dd,
+	0x8c978c16, 0x1c008d49, 0x8dc28ec6, 0x25ecc6dd, 0x8ccb8c4a,
+	0x1c008d4c, 0xc6338dc3, 0x1000af9b, 0xa759a79a, 0x1000a718,
 };
 
 static u32 seq_br_instr[] = {
-	0xfa, 0x10a, 0x116, 0xce, 0xea,
-	0xf2, 0xba, 0xc2, 0x9a, 0xaa,
-	0x122, 0xe0, 0x17a, 0x19a, 0x1a2,
-	0x130, 0x14c, 0x160, 0x142, 0x96,
-	0x186, 0x1cc, 0x1c0, 0x1d4, 0x1e6,
-	0x1f4, 0x1f8, 0x30, 0x5e, 0x84,
-	0x7a, 0x1fe, 0x34, 0x3c, 0x54,
-	0x58, 0x204, 0x2e,
+	0x28c, 0x1e6, 0x238, 0xd0, 0xec,
+	0xf4, 0xbc, 0xc4, 0x9c, 0xac,
+	0xfc, 0xe2, 0x154, 0x174, 0x17c,
+	0x10a, 0x126, 0x13a, 0x11c, 0x98,
+	0x160, 0x1a6, 0x19a, 0x1ae, 0x1c0,
+	0x1ce, 0x1d2, 0x30, 0x60, 0x86,
+	0x7c, 0x1d8, 0x34, 0x3c, 0x56,
+	0x5a, 0x1de, 0x2e, 0x222, 0x212,
+	0x202, 0x254, 0x264, 0x274, 0x288,
 };
 
 DEFINE_EXT_CLK(xo_ao, NULL);
@@ -202,6 +222,7 @@ struct osm_entry {
 	u16 open_loop_volt;
 	u32 freq_data;
 	u32 override_data;
+	u32 spare_data;
 	long frequency;
 };
 
@@ -230,10 +251,13 @@ struct clk_osm {
 	u32 apcs_cfg_rcgr;
 	u32 apcs_cmd_rcgr;
 	u32 apcs_pll_user_ctl;
+	u32 apcs_mem_acc_cfg[MAX_MEM_ACC_VAL_PER_LEVEL];
+	u32 apcs_mem_acc_val[MAX_MEM_ACC_VALUES];
 	u32 apm_mode_ctl;
 	u32 apm_ctrl_status;
 	u32 osm_clk_rate;
 	u32 xo_clk_rate;
+	bool secure_init;
 	bool red_fsm_en;
 	bool boost_fsm_en;
 	bool safe_fsm_en;
@@ -396,20 +420,21 @@ static void clk_osm_print_osm_table(struct clk_osm *c)
 	struct osm_entry *table = c->osm_table;
 	u32 pll_src, pll_div, lval;
 
-	pr_debug("Index, Frequency, VC, OLV (mv), PLLSrc, PLLDivVal, LVal\n");
+	pr_debug("Index, Frequency, VC, OLV (mv), PLL Src, PLL Div, L-Val, ACC Level\n");
 	for (i = 0; i < c->num_entries; i++) {
 		pll_src = (table[i].freq_data & GENMASK(27, 26)) >> 26;
 		pll_div = (table[i].freq_data & GENMASK(25, 24)) >> 24;
 		lval = table[i].freq_data & GENMASK(7, 0);
 
-		pr_debug("%3d, %11lu, %2u, %5u, %6u, %8u, %7u\n",
+		pr_debug("%3d, %11lu, %2u, %5u, %6u, %8u, %7u, %5u\n",
 			i,
 			table[i].frequency,
 			table[i].virtual_corner,
 			table[i].open_loop_volt,
 			pll_src,
 			pll_div,
-			lval);
+			lval,
+			table[i].spare_data);
 	}
 	pr_debug("APM crossover corner: %d\n",
 		 c->apm_crossover_vc);
@@ -466,10 +491,12 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 		c->osm_table[j].frequency = array[i + FREQ];
 		c->osm_table[j].freq_data = array[i + FREQ_DATA];
 		c->osm_table[j].override_data = array[i + PLL_OVERRIDES];
-		pr_debug("index=%d freq=%ld freq_data=0x%x override_data=0x%x\n",
+		c->osm_table[j].spare_data = array[i + SPARE_DATA];
+		pr_debug("index=%d freq=%ld freq_data=0x%x override_data=0x%x spare_data=0x%x\n",
 			 j, c->osm_table[j].frequency,
 			 c->osm_table[j].freq_data,
-			 c->osm_table[j].override_data);
+			 c->osm_table[j].override_data,
+			 c->osm_table[j].spare_data);
 
 		data = (array[i + FREQ_DATA] & GENMASK(18, 16)) >> 16;
 		if (!last_entry && data == MAX_CONFIG) {
@@ -641,6 +668,49 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 		of_property_read_bool(of, "qcom,pc-fsm-en");
 
 	devm_kfree(&pdev->dev, array);
+
+	perfcl_clk.secure_init = pwrcl_clk.secure_init =
+		of_property_read_bool(pdev->dev.of_node, "qcom,osm-no-tz");
+
+	if (!pwrcl_clk.secure_init)
+		return rc;
+
+	rc = of_property_read_u32_array(of, "qcom,pwrcl-apcs-mem-acc-cfg",
+					pwrcl_clk.apcs_mem_acc_cfg,
+					MAX_MEM_ACC_VAL_PER_LEVEL);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find qcom,pwrcl-apcs-mem-acc-cfg property, rc=%d\n",
+			rc);
+		return -EINVAL;
+	}
+
+	of_property_read_u32_array(of, "qcom,perfcl-apcs-mem-acc-cfg",
+				   perfcl_clk.apcs_mem_acc_cfg,
+				   MAX_MEM_ACC_VAL_PER_LEVEL);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find qcom,perfcl-apcs-mem-acc-cfg property, rc=%d\n",
+			rc);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(of, "qcom,pwrcl-apcs-mem-acc-val",
+					pwrcl_clk.apcs_mem_acc_val,
+					MAX_MEM_ACC_VALUES);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find qcom,pwrcl-apcs-mem-acc-val property, rc=%d\n",
+			rc);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(of, "qcom,perfcl-apcs-mem-acc-val",
+					perfcl_clk.apcs_mem_acc_val,
+					MAX_MEM_ACC_VALUES);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find qcom,perfcl-apcs-mem-acc-val property, rc=%d\n",
+			rc);
+		return -EINVAL;
+	}
+
 	return rc;
 }
 
@@ -793,12 +863,12 @@ static void clk_osm_setup_cluster_pll(struct clk_osm *c)
 	writel_relaxed(0x7, c->vbases[PLL_BASE] + PLL_MODE);
 }
 
-static void clk_osm_setup_hw_table(struct clk_osm *c)
+static int clk_osm_setup_hw_table(struct clk_osm *c)
 {
 	struct osm_entry *entry = c->osm_table;
 	int i;
-	u32 freq_val, volt_val, override_val;
-	u32 table_entry_offset;
+	u32 freq_val, volt_val, override_val, spare_val;
+	u32 table_entry_offset, last_spare, last_virtual_corner = 0;
 
 	for (i = 0; i < OSM_TABLE_SIZE; i++) {
 		if (i < c->num_entries) {
@@ -806,17 +876,34 @@ static void clk_osm_setup_hw_table(struct clk_osm *c)
 			volt_val = BVAL(21, 16, entry[i].virtual_corner)
 				| BVAL(11, 0, entry[i].open_loop_volt);
 			override_val = entry[i].override_data;
+			spare_val = entry[i].spare_data;
+
+			if (last_virtual_corner && last_virtual_corner ==
+			    entry[i].virtual_corner && last_spare !=
+			    entry[i].spare_data) {
+				pr_err("invalid LUT entry at row=%d virtual_corner=%d, spare_data=%d\n",
+				       i, entry[i].virtual_corner,
+				       entry[i].spare_data);
+				return -EINVAL;
+			}
+			last_virtual_corner = entry[i].virtual_corner;
+			last_spare = entry[i].spare_data;
 		}
+
 		table_entry_offset = i * OSM_REG_SIZE;
 		clk_osm_write_reg(c, i, INDEX_REG + table_entry_offset);
 		clk_osm_write_reg(c, freq_val, FREQ_REG + table_entry_offset);
 		clk_osm_write_reg(c, volt_val, VOLT_REG + table_entry_offset);
 		clk_osm_write_reg(c, override_val, OVERRIDE_REG +
 				  table_entry_offset);
+		clk_osm_write_reg(c, spare_val, SPARE_REG +
+				  table_entry_offset);
 	}
 
 	/* Make sure all writes go through */
 	mb();
+
+	return 0;
 }
 
 static int clk_osm_resolve_open_loop_voltages(struct clk_osm *c)
@@ -1207,6 +1294,36 @@ static void clk_osm_program_apm_regs(struct clk_osm *c)
 	clk_osm_write_reg(c, APM_APC_MODE_VAL, SEQ_REG(26));
 }
 
+static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
+{
+	int i;
+
+	if (!c->secure_init)
+		return;
+
+	clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(50) +
+			  c->cluster_num * OSM_CORE_TABLE_SIZE,
+			  SEQ_REG(49));
+	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(1), SEQ_REG(50));
+	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(1), SEQ_REG(51));
+	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(2), SEQ_REG(52));
+	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(3), SEQ_REG(53));
+	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(4), SEQ_REG(54));
+	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(0), SEQ_REG(55));
+	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(1), SEQ_REG(56));
+	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(2), SEQ_REG(57));
+	clk_osm_write_reg(c, MEM_ACC_INSTR_COMP(3), SEQ_REG(58));
+	clk_osm_write_reg(c, MEM_ACC_READ_MASK, SEQ_REG(59));
+
+	for (i = 0; i < MAX_MEM_ACC_VALUES; i++)
+		clk_osm_write_reg(c, c->apcs_mem_acc_val[i],
+				  MEM_ACC_SEQ_REG_VAL_START(i));
+
+	for (i = 0; i < MAX_MEM_ACC_VAL_PER_LEVEL; i++)
+		clk_osm_write_reg(c, c->apcs_mem_acc_cfg[i],
+				  MEM_ACC_SEQ_REG_CFG_START(i));
+}
+
 void clk_osm_setup_sequencer(struct clk_osm *c)
 {
 	u32 i;
@@ -1267,7 +1384,7 @@ static void clk_osm_do_additional_setup(struct clk_osm *c,
 {
 	u32 val;
 
-	if (!of_property_read_bool(pdev->dev.of_node, "qcom,osm-no-tz"))
+	if (!c->secure_init)
 		return;
 
 	dev_info(&pdev->dev, "Performing additional OSM setup due to lack of TZ for cluster=%d\n",
@@ -1286,6 +1403,9 @@ static void clk_osm_do_additional_setup(struct clk_osm *c,
 
 	/* APM Programming */
 	clk_osm_program_apm_regs(c);
+
+	/* MEM-ACC Programming */
+	clk_osm_program_mem_acc_regs(c);
 
 	/* GFMUX Programming */
 	clk_osm_write_reg(c, c->apcs_cfg_rcgr, SEQ_REG(16));
@@ -1789,8 +1909,16 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	clk_osm_write_reg(&pwrcl_clk, PLL_MIN_LVAL, SEQ_REG(27));
 	clk_osm_write_reg(&perfcl_clk, PLL_MIN_LVAL, SEQ_REG(27));
 
-	clk_osm_setup_hw_table(&pwrcl_clk);
-	clk_osm_setup_hw_table(&perfcl_clk);
+	rc = clk_osm_setup_hw_table(&pwrcl_clk);
+	if (rc) {
+		dev_err(&pdev->dev, "failed to setup power cluster hardware table\n");
+		goto exit;
+	}
+	rc = clk_osm_setup_hw_table(&perfcl_clk);
+	if (rc) {
+		dev_err(&pdev->dev, "failed to setup perf cluster hardware table\n");
+		goto exit;
+	}
 
 	/* Policy tuning */
 	rc = clk_osm_set_cc_policy(pdev);
@@ -1895,7 +2023,7 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	return 0;
 
 exit:
-	dev_err(&pdev->dev, "OSM driver failed to initialize, rc=%d",
+	dev_err(&pdev->dev, "OSM driver failed to initialize, rc=%d\n",
 		rc);
 	panic("Unable to Setup OSM");
 }
