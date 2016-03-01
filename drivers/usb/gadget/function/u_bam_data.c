@@ -590,7 +590,7 @@ static void bam_data_start_endless_rx(struct bam_data_port *port)
 	int status;
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
+	if (!port->port_usb || !d->rx_req) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
@@ -611,7 +611,7 @@ static void bam_data_start_endless_tx(struct bam_data_port *port)
 	int status;
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
+	if (!port->port_usb || !d->tx_req) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
@@ -922,6 +922,12 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	usb_bam_alloc_fifos(d->usb_bam_type, d->dst_connection_idx);
 
 	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb) {
+		pr_err("Disconnected.port_usb is NULL\n");
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		goto free_fifos;
+	}
+
 	if (gadget_is_dwc3(gadget)) {
 		/* Configure RX */
 		configure_usb_data_fifo(d->usb_bam_type,
