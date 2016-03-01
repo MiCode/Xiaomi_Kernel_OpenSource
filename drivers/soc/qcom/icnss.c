@@ -9,6 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <asm/dma-iommu.h>
+#include <linux/clk.h>
+#include <linux/iommu.h>
 #include <linux/export.h>
 #include <linux/err.h>
 #include <linux/of.h>
@@ -45,6 +48,7 @@ struct icnss_qmi_event {
 #define WLFW_SERVICE_INS_ID_V01		0
 #define ICNSS_WLFW_QMI_CONNECTED	BIT(0)
 #define ICNSS_FW_READY			BIT(1)
+#define SMMU_CLOCK_NAME			"smmu_aggre2_noc_clk"
 
 #define ICNSS_IS_WLFW_QMI_CONNECTED(_state) \
 		((_state) & ICNSS_WLFW_QMI_CONNECTED)
@@ -84,6 +88,10 @@ static struct {
 	void __iomem *mem_base_va;
 	phys_addr_t mpm_config_pa;
 	void __iomem *mpm_config_va;
+	struct dma_iommu_mapping *smmu_mapping;
+	dma_addr_t smmu_iova_start;
+	size_t smmu_iova_len;
+	struct clk *smmu_clk;
 	struct qmi_handle *wlfw_clnt;
 	struct list_head qmi_event_list;
 	spinlock_t qmi_event_lock;
@@ -1170,9 +1178,110 @@ static ssize_t icnss_wlan_mode_store(struct device *dev,
 
 static DEVICE_ATTR(icnss_wlan_mode, S_IWUSR, NULL, icnss_wlan_mode_store);
 
+static struct clk *icnss_clock_init(struct device *dev, const char *cname)
+{
+	struct clk *c;
+	long rate;
+
+	if (of_property_match_string(dev->of_node, "clock-names", cname) < 0) {
+		pr_err("%s: clock %s is not found!", __func__, cname);
+		return NULL;
+	}
+
+	c = devm_clk_get(dev, cname);
+	if (IS_ERR(c)) {
+		pr_err("%s: couldn't get clock %s!", __func__, cname);
+		return NULL;
+	}
+
+	if (clk_get_rate(c) == 0) {
+		rate = clk_round_rate(c, 1000);
+		clk_set_rate(c, rate);
+	}
+
+	return c;
+}
+
+static int icnss_clock_enable(struct clk *c)
+{
+	int ret = 0;
+
+	ret = clk_prepare_enable(c);
+
+	if (ret < 0)
+		pr_err("%s: couldn't enable clock!\n", __func__);
+
+	return ret;
+}
+
+static void icnss_clock_disable(struct clk *c)
+{
+	clk_disable_unprepare(c);
+}
+
+static int icnss_smmu_init(struct device *dev)
+{
+	struct dma_iommu_mapping *mapping;
+	int disable_htw = 1;
+	int atomic_ctx = 1;
+	int ret = 0;
+
+	mapping = arm_iommu_create_mapping(&platform_bus_type,
+					   penv->smmu_iova_start,
+					   penv->smmu_iova_len);
+	if (IS_ERR(mapping)) {
+		pr_err("%s: create mapping failed, err = %d\n", __func__, ret);
+		ret = PTR_ERR(mapping);
+		goto map_fail;
+	}
+
+	ret = iommu_domain_set_attr(mapping->domain,
+				    DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+				    &disable_htw);
+	if (ret < 0) {
+		pr_err("%s: set disable_htw attribute failed, err = %d\n",
+		       __func__, ret);
+		goto set_attr_fail;
+	}
+
+	ret = iommu_domain_set_attr(mapping->domain,
+				    DOMAIN_ATTR_ATOMIC,
+				    &atomic_ctx);
+	if (ret < 0) {
+		pr_err("%s: set atomic_ctx attribute failed, err = %d\n",
+		       __func__, ret);
+		goto set_attr_fail;
+	}
+
+	ret = arm_iommu_attach_device(dev, mapping);
+	if (ret < 0) {
+		pr_err("%s: attach device failed, err = %d\n", __func__, ret);
+		goto attach_fail;
+	}
+
+	penv->smmu_mapping = mapping;
+
+	return ret;
+
+attach_fail:
+set_attr_fail:
+	arm_iommu_release_mapping(mapping);
+map_fail:
+	return ret;
+}
+
+static void icnss_smmu_remove(struct device *dev)
+{
+	arm_iommu_detach_device(dev);
+	arm_iommu_release_mapping(penv->smmu_mapping);
+
+	penv->smmu_mapping = NULL;
+}
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	u32 smmu_iova_address[2];
 	struct resource *res;
 	int i;
 	struct device *dev = &pdev->dev;
@@ -1247,6 +1356,30 @@ static int icnss_probe(struct platform_device *pdev)
 		goto unmap_mpm_config;
 	}
 
+	if (of_property_read_u32_array(pdev->dev.of_node,
+				       "qcom,wlan-smmu-iova-address",
+				       smmu_iova_address, 2) == 0) {
+		penv->smmu_iova_start = smmu_iova_address[0];
+		penv->smmu_iova_len = smmu_iova_address[1];
+
+		ret = icnss_smmu_init(&pdev->dev);
+		if (ret < 0) {
+			pr_err("%s: SMMU init failed, err = %d\n",
+			       __func__, ret);
+			goto err_smmu_init;
+		}
+
+		penv->smmu_clk = icnss_clock_init(&pdev->dev, SMMU_CLOCK_NAME);
+		if (penv->smmu_clk) {
+			ret = icnss_clock_enable(penv->smmu_clk);
+			if (ret < 0) {
+				pr_err("%s: SMMU clock enable failed!\n",
+				       __func__);
+				goto err_smmu_clock_enable;
+			}
+		}
+	}
+
 	penv->skip_qmi = of_property_read_bool(dev->of_node,
 					       "qcom,skip-qmi");
 
@@ -1289,6 +1422,12 @@ err_qmi:
 err_workqueue:
 	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
 err_wlan_mode:
+	if (penv->smmu_clk)
+		icnss_clock_disable(penv->smmu_clk);
+err_smmu_clock_enable:
+	if (penv->smmu_mapping)
+		icnss_smmu_remove(&pdev->dev);
+err_smmu_init:
 	if (penv->msa_va)
 		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
 				  penv->msa_va, penv->msa_pa);
@@ -1311,6 +1450,13 @@ static int icnss_remove(struct platform_device *pdev)
 	if (penv->qmi_event_wq)
 		destroy_workqueue(penv->qmi_event_wq);
 	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
+
+	if (penv->smmu_mapping) {
+		if (penv->smmu_clk)
+			icnss_clock_disable(penv->smmu_clk);
+		icnss_smmu_remove(&pdev->dev);
+	}
+
 	if (penv->msa_va)
 		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
 				  penv->msa_va, penv->msa_pa);
