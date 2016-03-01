@@ -316,13 +316,22 @@ int __getnstimeofday(struct timespec *ts)
 	return 0;
 }
 EXPORT_SYMBOL(__getnstimeofday);
+#if defined(CONFIG_PRINTK_RTC_TIME)
+int do_gettimeofday_nolock(struct timespec *ts)
+{
+	struct timekeeper *tk = &timekeeper;
 
-/**
- * getnstimeofday - Returns the time of day in a timespec.
- * @ts:		pointer to the timespec to be set
- *
- * Returns the time of day in a timespec (WARN if suspended).
- */
+	s64 nsecs = 0;
+
+	ts->tv_sec = tk->xtime_sec;
+	nsecs = timekeeping_get_ns(tk);
+
+	ts->tv_nsec = 0;
+	timespec_add_ns(ts, nsecs);
+
+	return 0;
+}
+#endif
 void getnstimeofday(struct timespec *ts)
 {
 	WARN_ON(__getnstimeofday(ts));

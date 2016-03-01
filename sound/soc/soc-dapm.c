@@ -3,6 +3,7 @@
  *
  * Copyright 2005 Wolfson Microelectronics PLC.
  * Author: Liam Girdwood <lrg@slimlogic.co.uk>
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
@@ -44,8 +45,12 @@
 #include <sound/initval.h>
 
 #include <trace/events/asoc.h>
+#include <linux/spinlock.h>
 
 #define DAPM_UPDATE_STAT(widget, val) widget->dapm->card->dapm_stats.val++;
+
+static DEFINE_SPINLOCK(soc_list_lock);
+
 
 /* dapm power sequences - make this per codec in the future */
 static int dapm_up_seq[] = {
@@ -138,7 +143,11 @@ void dapm_mark_dirty(struct snd_soc_dapm_widget *w, const char *reason)
 	if (!dapm_dirty_widget(w)) {
 		dev_vdbg(w->dapm->dev, "Marking %s dirty due to %s\n",
 			 w->name, reason);
+
+		spin_lock(&soc_list_lock);
 		list_add_tail(&w->dirty, &w->dapm->card->dapm_dirty);
+		spin_unlock(&soc_list_lock);
+
 	}
 }
 EXPORT_SYMBOL_GPL(dapm_mark_dirty);

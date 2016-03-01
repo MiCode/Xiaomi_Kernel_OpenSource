@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -301,6 +302,18 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds status_cmds;
+	struct dsi_panel_cmds warm_cmds;
+	struct dsi_panel_cmds cool_cmds;
+	struct dsi_panel_cmds nature_cmds;
+	struct dsi_panel_cmds vivid_cmds;
+	struct dsi_panel_cmds standard_cmds;
+	struct dsi_panel_cmds bright_cmds;
+
+	struct dsi_panel_cmds gamma_cmds;
+	struct dsi_panel_cmds ce_cmds;
+
+	bool init_last;
+
 	u32 status_value;
 
 	struct dsi_panel_cmds video2cmd;
@@ -382,6 +395,8 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp);
 void mdss_dsi_cmdlist_kickoff(int intf);
+int mdss_panel_set_ce(struct mdss_panel_data *pdata, int mode);
+int mdss_panel_set_gamma(struct mdss_panel_data *pdata, int mode);
 int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl, u8 clk_type);

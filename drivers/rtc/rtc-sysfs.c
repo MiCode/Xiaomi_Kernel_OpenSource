@@ -191,12 +191,6 @@ rtc_sysfs_set_wakealarm(struct device *dev, struct device_attribute *attr,
 		 * entirely prevent that here, without even the minimal
 		 * locking from the /dev/rtcN api.
 		 */
-		retval = rtc_read_alarm(rtc, &alm);
-		if (retval < 0)
-			return retval;
-		if (alm.enabled)
-			return -EBUSY;
-
 		alm.enabled = 1;
 	} else {
 		alm.enabled = 0;

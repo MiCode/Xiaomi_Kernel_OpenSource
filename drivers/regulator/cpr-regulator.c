@@ -670,16 +670,11 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 				& RBCPR_RESULT0_ERROR_STEPS_MASK;
 	last_volt = cpr_vreg->last_volt[corner];
 
-	cpr_debug_irq("last_volt[corner:%d, fuse_corner:%d] = %d uV\n", corner,
-			fuse_corner, last_volt);
-
 	gcnt = cpr_read(cpr_vreg, REG_RBCPR_GCNT_TARGET
 			(cpr_vreg->cpr_fuse_ro_sel[fuse_corner]));
 	quot = gcnt & ((1 << RBCPR_GCNT_TARGET_GCNT_SHIFT) - 1);
 
 	if (dir == UP) {
-		cpr_debug_irq("Up: cpr status = 0x%08x (error_steps=%d)\n",
-			      reg_val, error_steps);
 
 		if (last_volt >= cpr_vreg->ceiling_volt[fuse_corner]) {
 			cpr_debug_irq(
@@ -713,9 +708,6 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Calculate new voltage */
 		new_volt = last_volt + (error_steps * cpr_vreg->step_volt);
 		if (new_volt > cpr_vreg->ceiling_volt[fuse_corner]) {
-			cpr_debug_irq("new_volt(%d) >= ceiling(%d): Clamp\n",
-				      new_volt,
-				      cpr_vreg->ceiling_volt[fuse_corner]);
 
 			new_volt = cpr_vreg->ceiling_volt[fuse_corner];
 		}
@@ -738,18 +730,9 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
 
-		cpr_debug_irq(
-			"UP: -> new_volt[corner:%d, fuse_corner:%d] = %d uV\n",
-			corner, fuse_corner, new_volt);
 	} else if (dir == DOWN) {
-		cpr_debug_irq("Down: cpr status = 0x%08x (error_steps=%d)\n",
-			      reg_val, error_steps);
 
 		if (last_volt <= cpr_vreg->floor_volt[fuse_corner]) {
-			cpr_debug_irq(
-			"[corn:%d, fuse_corner:%d] @ floor: %d <= %d: NACK\n",
-				corner, fuse_corner, last_volt,
-				cpr_vreg->floor_volt[fuse_corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
 			cpr_debug_irq("gcnt = 0x%08x (quot = %d)\n", gcnt,
@@ -777,9 +760,6 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Calculte new voltage */
 		new_volt = last_volt - (error_steps * cpr_vreg->step_volt);
 		if (new_volt < cpr_vreg->floor_volt[fuse_corner]) {
-			cpr_debug_irq("new_volt(%d) < floor(%d): Clamp\n",
-				      new_volt,
-				      cpr_vreg->floor_volt[fuse_corner]);
 			new_volt = cpr_vreg->floor_volt[fuse_corner];
 		}
 
@@ -802,9 +782,6 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
 
-		cpr_debug_irq(
-		"DOWN: -> new_volt[corner:%d, fuse_corner:%d] = %d uV\n",
-			corner, fuse_corner, new_volt);
 	}
 }
 
@@ -818,8 +795,6 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 	reg_val = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
 	if (cpr_vreg->flags & FLAGS_IGNORE_1ST_IRQ_STATUS)
 		reg_val = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
-
-	cpr_debug_irq("IRQ_STATUS = 0x%02X\n", reg_val);
 
 	if (!cpr_ctl_is_enabled(cpr_vreg)) {
 		cpr_debug_irq("CPR is disabled\n");

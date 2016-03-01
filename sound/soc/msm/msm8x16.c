@@ -1,4 +1,5 @@
  /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -235,6 +236,118 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
 static int msm8x16_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
 
+#define EXT_CLASS_D_EN_DELAY 13000
+#define EXT_CLASS_D_DIS_DELAY 3000
+#define EXT_CLASS_D_DELAY_DELTA 2000
+
+struct delayed_work lineout_amp_enable;
+struct delayed_work lineout_amp_dualmode;
+
+static int msm8x16_ext_spk_gpio_request(void)
+{
+	int ret = 0;
+
+	ret = gpio_request(EXT_SPK_AMP_GPIO, "ext_spk_amp_gpio");
+	if (ret) {
+		pr_err("%s: gpio_request failed for ext_spk_amp_gpio.\n",
+			__func__);
+		return -EINVAL;
+		gpio_direction_output(EXT_SPK_AMP_GPIO, false);
+	}
+
+	ret = gpio_request(EXT_SPK_AMP_GPIO_1, "ext_spk_amp_gpio_1");
+	if (ret) {
+		pr_err("%s: gpio_request failed for ext_spk_amp_gpio_1.\n",
+			__func__);
+		return -EINVAL;
+		gpio_direction_output(EXT_SPK_AMP_GPIO_1, false);
+	}
+
+	ret = gpio_request(EXT_SPK_AMP_HEADSET_GPIO, "ext_spk_amp_headset_gpio");
+	if (ret) {
+		pr_err("%s: gpio_request failed for ext_spk_amp_headset_gpio.\n",
+			__func__);
+		return -EINVAL;
+		gpio_direction_output(EXT_SPK_AMP_HEADSET_GPIO, false);
+	}
+
+	return 0;
+}
+
+static void msm8x16_ext_spk_gpio_free(void)
+{
+	if (gpio_is_valid(EXT_SPK_AMP_GPIO))
+		gpio_free(EXT_SPK_AMP_GPIO);
+
+	if (gpio_is_valid(EXT_SPK_AMP_GPIO_1))
+		gpio_free(EXT_SPK_AMP_GPIO_1);
+
+	if (gpio_is_valid(EXT_SPK_AMP_HEADSET_GPIO))
+		gpio_free(EXT_SPK_AMP_HEADSET_GPIO);
+}
+
+static void msm8x16_ext_spk_delayed_enable(struct work_struct *work)
+{
+	int i = 0;
+
+	gpio_direction_output(EXT_SPK_AMP_HEADSET_GPIO, false);
+	usleep_range(EXT_CLASS_D_EN_DELAY,
+		EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+
+	gpio_direction_output(EXT_SPK_AMP_GPIO, true);
+	usleep_range(EXT_CLASS_D_EN_DELAY,
+		EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+
+	for (i = 0; i < 5; i++) {
+		gpio_direction_output(EXT_SPK_AMP_GPIO_1, true);
+		usleep_range(100, 105);
+		gpio_direction_output(EXT_SPK_AMP_GPIO_1, false);
+		usleep_range(100, 105);
+	}
+	gpio_direction_output(EXT_SPK_AMP_GPIO_1, true);
+
+	pr_debug("%s: Enable external speaker PAs.\n", __func__);
+}
+static void msm8x16_ext_spk_delayed_dualmode(struct work_struct *work)
+{
+	int i = 0;
+
+	gpio_direction_output(EXT_SPK_AMP_HEADSET_GPIO, true);
+	usleep_range(EXT_CLASS_D_EN_DELAY,
+		EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+
+	gpio_direction_output(EXT_SPK_AMP_GPIO, true);
+	usleep_range(EXT_CLASS_D_EN_DELAY,
+		EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+
+	for (i = 0; i < 5; i++) {
+		gpio_direction_output(EXT_SPK_AMP_GPIO_1, true);
+		usleep_range(100, 105);
+		gpio_direction_output(EXT_SPK_AMP_GPIO_1, false);
+		usleep_range(100, 105);
+	}
+	gpio_direction_output(EXT_SPK_AMP_GPIO_1, true);
+
+	pr_debug("%s: Enable external speaker PAs dualmode.\n", __func__);
+}
+static void msm8x16_ext_spk_control(u32 enable)
+{
+	if (enable) {
+		gpio_direction_output(EXT_SPK_AMP_GPIO, enable);
+		usleep_range(EXT_CLASS_D_EN_DELAY,
+		EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+		gpio_direction_output(EXT_SPK_AMP_GPIO_1, enable);
+	} else {
+		gpio_direction_output(EXT_SPK_AMP_GPIO_1, enable);
+		usleep_range(EXT_CLASS_D_DIS_DELAY,
+		EXT_CLASS_D_DIS_DELAY + EXT_CLASS_D_DELAY_DELTA);
+		gpio_direction_output(EXT_SPK_AMP_GPIO, enable);
+	}
+
+	pr_debug("%s: %s external speaker PAs.\n", __func__,
+		enable ? "Enable" : "Disable");
+}
+
 static const struct snd_soc_dapm_widget msm8x16_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY_S("MCLK", -1, SND_SOC_NOPM, 0, 0,
@@ -242,12 +355,12 @@ static const struct snd_soc_dapm_widget msm8x16_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Secondary Mic", NULL),
-
 };
 
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
 static const char *const ter_mi2s_tx_ch_text[] = {"One", "Two"};
 static const char *const loopback_mclk_text[] = {"DISABLE", "ENABLE"};
+static const char *const lineout_text[] = {"DISABLE", "ENABLE", "DUALMODE"};
 
 static int msm_pri_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
@@ -363,6 +476,36 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 		break;
 	}
 	return ret;
+}
+
+static int lineout_status_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+#define LINEOUT_DELAY_TIME 100
+static int lineout_status_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int state = 0;
+	state = ucontrol->value.integer.value[0];
+	pr_debug("%s: external speaker PA mode:%d\n", __func__, state);
+
+	switch (state) {
+	case 1:
+		schedule_delayed_work(&lineout_amp_enable, msecs_to_jiffies(LINEOUT_DELAY_TIME));
+		break;
+	case 0:
+		msm8x16_ext_spk_control(0);
+		break;
+	case 2:
+		schedule_delayed_work(&lineout_amp_dualmode, msecs_to_jiffies(LINEOUT_DELAY_TIME));
+		break;
+	default:
+		pr_err("%s: Unexpected input value\n", __func__);
+		break;
+	}
+	return 0;
 }
 
 static int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
@@ -703,6 +846,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(2, ter_mi2s_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, loopback_mclk_text),
+	SOC_ENUM_SINGLE_EXT(3, lineout_text),
 };
 
 static const char *const btsco_rate_text[] = {"8000", "16000"};
@@ -721,6 +865,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			loopback_mclk_get, loopback_mclk_put),
 	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
 		     msm_btsco_rate_get, msm_btsco_rate_put),
+	SOC_ENUM_EXT("Lineout_1 amp", msm_snd_enum[3],
+			lineout_status_get, lineout_status_put),
 
 };
 
@@ -1069,15 +1215,15 @@ static void *def_msm8x16_wcd_mbhc_cal(void)
 	btn_high = btn_cfg->_v_btn_high;
 
 	btn_low[0] = 0;
-	btn_high[0] = 25;
-	btn_low[1] = 25;
-	btn_high[1] = 50;
-	btn_low[2] = 50;
-	btn_high[2] = 75;
-	btn_low[3] = 75;
-	btn_high[3] = 112;
-	btn_low[4] = 112;
-	btn_high[4] = 137;
+	btn_high[0] = 75;
+	btn_low[1] = 75;
+	btn_high[1] = 225;
+	btn_low[2] = 225;
+	btn_high[2] = 420;
+	btn_low[3] = 420;
+	btn_high[3] = 421;
+	btn_low[4] = 422;
+	btn_high[4] = 423;
 
 	return msm8x16_wcd_cal;
 }
@@ -1107,6 +1253,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK_EXTN_OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
@@ -1124,6 +1271,10 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			return ret;
 		}
 	}
+
+	msm8x16_ext_spk_gpio_request();
+	INIT_DELAYED_WORK(&lineout_amp_enable, msm8x16_ext_spk_delayed_enable);
+	INIT_DELAYED_WORK(&lineout_amp_dualmode, msm8x16_ext_spk_delayed_dualmode);
 
 	return ret;
 }
@@ -1153,6 +1304,7 @@ static int msm_audrx_init_wcd(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK_EXTN_OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
@@ -2215,6 +2367,7 @@ static int msm8x16_asoc_machine_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
+	msm8x16_ext_spk_gpio_free();
 	snd_soc_unregister_card(card);
 	mutex_destroy(&pdata->cdc_mclk_mutex);
 	return 0;

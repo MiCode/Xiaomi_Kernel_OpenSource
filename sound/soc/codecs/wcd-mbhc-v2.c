@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +36,8 @@
 #include "msm8x16_wcd_registers.h"
 #include "msm8916-wcd-irq.h"
 #include "msm8x16-wcd.h"
-
+#include <linux/switch.h>
+#include <linux/cdev.h>
 #define WCD_MBHC_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
 			   SND_JACK_UNSUPPORTED)
@@ -50,6 +52,23 @@
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
 
 static int det_extn_cable_en;
+
+static struct cdev *accdet_cdev;
+static dev_t accdet_devno;
+/*----------------------------------------------------------------------
+IOCTL
+----------------------------------------------------------------------*/
+#define ACCDET_DEVNAME "accdet"
+#define ACCDET_IOC_MAGIC 'A'
+#define ACCDET_INIT _IO(ACCDET_IOC_MAGIC, 0)
+#define SET_CALL_STATE _IO(ACCDET_IOC_MAGIC, 1)
+#define GET_BUTTON_STATUS _IO(ACCDET_IOC_MAGIC, 2)
+static volatile int call_status;
+static volatile int button_status;
+static struct class *accdet_class;
+static struct device *accdet_nor_device;
+
+
 module_param(det_extn_cable_en, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(det_extn_cable_en, "enable/disable extn cable detect");
@@ -318,6 +337,7 @@ static bool wcd_mbhc_is_hph_pa_on(struct snd_soc_codec *codec)
 static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 {
 	u8 wg_time;
+	u8 state = 0;
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	wg_time = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_WG_TIME);
@@ -332,8 +352,12 @@ static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 	} else {
 		pr_debug("%s PA is off\n", __func__);
 	}
-	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
+	state = gpio_get_value(EXT_SPK_AMP_GPIO);
+	pr_debug("%s external audio pa state:%d\n", __func__, state);
+	if (!state) {
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
 			    0x30, 0x00);
+	}
 	usleep_range(wg_time * 1000, wg_time * 1000 + 50);
 }
 
@@ -541,6 +565,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				mbhc->hph_status, WCD_MBHC_JACK_MASK);
+
+		msm8x16_wcd_codec_set_headset_state(mbhc->hph_status);
+
 		wcd_mbhc_set_and_turnoff_hph_padac(mbhc);
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
@@ -617,6 +644,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD_MBHC_JACK_MASK);
+
+		msm8x16_wcd_codec_set_headset_state(mbhc->hph_status);
+
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
 	}
 	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
@@ -780,7 +810,7 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 		if (!(result2 & 0x01))
 			pr_debug("%s: Special headset detected in %d msecs\n",
 					__func__, (delay * 2));
-		if (delay == SPECIAL_HS_DETECT_TIME_MS) {
+		if (delay == 500/*SPECIAL_HS_DETECT_TIME_MS*/) {
 			pr_debug("%s: Spl headset didnt get detect in 4 sec\n",
 					__func__);
 			break;
@@ -798,6 +828,7 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN, 0x18, 0x00);
 
 	pr_debug("%s: leave\n", __func__);
+	ret = true;
 	return ret;
 }
 
@@ -891,6 +922,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			pr_debug("%s: cable is extension cable\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 			wrk_complete = true;
+				break;
 		} else {
 			pr_debug("%s: cable might be headset: %d\n", __func__,
 					plug_type);
@@ -1177,6 +1209,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 				0xB0, 0x00);
 	}
 
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+			0x40, 0x00);
+
 	mbhc->in_swch_irq_handler = false;
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 	pr_debug("%s: leave\n", __func__);
@@ -1233,6 +1269,7 @@ static irqreturn_t wcd_mbhc_hs_ins_irq(int irq, void *data)
 	u16 result2;
 	bool detection_type;
 	static u16 hphl_trigerred;
+	static u16 hphr_trigerred;
 	static u16 mic_trigerred;
 
 	pr_debug("%s: enter\n", __func__);
@@ -1276,7 +1313,18 @@ static irqreturn_t wcd_mbhc_hs_ins_irq(int irq, void *data)
 				pr_debug("%s: Insertion HPHL trigerred %d\n",
 					 __func__, hphl_trigerred);
 			}
+			if (result2 & 0x06) {
+				hphr_trigerred++;
+				pr_debug("%s: Insertion HPHR trigerred %d\n",
+					 __func__, hphl_trigerred);
+			}
 			if (mic_trigerred && hphl_trigerred) {
+				/* Go for plug type determination */
+				pr_debug("%s: Go for plug type determination\n",
+					 __func__);
+				goto determine_plug;
+			}
+			if (mic_trigerred && hphr_trigerred) {
 				/* Go for plug type determination */
 				pr_debug("%s: Go for plug type determination\n",
 					 __func__);
@@ -1303,6 +1351,7 @@ determine_plug:
 	snd_soc_update_bits(codec,
 		MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 		0x80, 0x80);
+	hphr_trigerred = 0;
 	hphl_trigerred = 0;
 	mic_trigerred = 0;
 	wcd_mbhc_detect_plug_type(mbhc);
@@ -1317,6 +1366,7 @@ static irqreturn_t wcd_mbhc_hs_rem_irq(int irq, void *data)
 	struct snd_soc_codec *codec = mbhc->codec;
 	u16 result2;
 	static u16 hphl_trigerred;
+	static u16 hphr_trigerred;
 	static u16 mic_trigerred;
 	unsigned long timeout;
 	bool removed = true;
@@ -1359,7 +1409,19 @@ static irqreturn_t wcd_mbhc_hs_rem_irq(int irq, void *data)
 				pr_debug("%s: Removal HPHL trigerred %d\n",
 					 __func__, hphl_trigerred);
 			}
+			if (!(result2 & 0x08)) {
+				hphr_trigerred++;
+				pr_debug("%s: Removal HPHR trigerred %d\n",
+					 __func__, hphl_trigerred);
+			}
 			if (mic_trigerred && hphl_trigerred) {
+				/*
+				 * extension cable is still plugged in
+				 * report it as LINEOUT device
+				 */
+				goto report_unplug;
+			}
+			if (mic_trigerred && hphr_trigerred) {
 				/*
 				 * extension cable is still plugged in
 				 * report it as LINEOUT device
@@ -1397,6 +1459,7 @@ report_unplug:
 	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->mbhc_hs_ins_intr);
 	wcd_mbhc_report_plug(mbhc, 1, SND_JACK_LINEOUT);
 	hphl_trigerred = 0;
+	hphr_trigerred = 0;
 	mic_trigerred = 0;
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 	pr_debug("%s: leave\n", __func__);
@@ -1471,6 +1534,10 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 				__func__);
 		goto done;
 	}
+	pr_debug("%s: XIExp enter button press,btn_status is %d \n", __func__, button_status);
+	if (0 == button_status)
+		button_status = 1;
+	pr_debug("%s: XIExp leave button press,btn_status is %d \n", __func__, button_status);
 	result1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
 	mask = wcd_mbhc_get_button_mask(result1);
 	mbhc->buttons_pressed |= mask;
@@ -1541,6 +1608,10 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 			}
 		}
 		mbhc->buttons_pressed &= ~WCD_MBHC_JACK_BUTTON_MASK;
+		pr_debug("%s: XIExp enter button release,btn_status is %d \n", __func__, button_status);
+		if (1 == button_status)
+			button_status = 0;
+		pr_debug("%s: XIExp leave button release,btn_status is %d \n", __func__, button_status);
 	}
 exit:
 	pr_debug("%s: leave\n", __func__);
@@ -1671,6 +1742,41 @@ EXPORT_SYMBOL(wcd_mbhc_stop);
  *
  * NOTE: mbhc->mbhc_cfg is not YET configure so shouldn't be used
  */
+static long accdet_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	switch (cmd) {
+	case ACCDET_INIT:
+		break;
+	case SET_CALL_STATE:
+		call_status = (int)arg;
+		pr_err("%s:[Accdet]accdet_ioctl: CALL_STATE=%d \n", __func__, call_status);
+		break;
+
+	case GET_BUTTON_STATUS:
+		pr_err("%s:[Accdet]accdet_ioctl: Button_Status=%d \n", __func__, button_status);
+		return button_status;
+	default:
+		pr_err("%s:[Accdet]accdet_ioctl: default\n", __func__);
+	break;
+	}
+	return 0;
+}
+
+static int accdet_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static int accdet_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+static struct file_operations accdet_fops = {
+	.owner		= THIS_MODULE,
+	.unlocked_ioctl		= accdet_unlocked_ioctl,
+	.open		= accdet_open,
+	.release	= accdet_release,
+};
 int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		      const struct wcd_mbhc_cb *mbhc_cb,
 		      const struct wcd_mbhc_intr *mbhc_cdc_intr_ids,
@@ -1749,10 +1855,36 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 				__func__);
 			return ret;
 		}
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_1,
+				       KEY_NEXTSONG);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-1\n",
+				__func__);
+			return ret;
+		}
+			ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_2,
+				       KEY_PREVIOUSSONG);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-2\n",
+				__func__);
+			return ret;
+		}
 
 		INIT_DELAYED_WORK(&mbhc->mbhc_btn_dwork, wcd_btn_lpress_fn);
 	}
+	ret = alloc_chrdev_region(&accdet_devno, 0, 1, ACCDET_DEVNAME);
+	if (ret)
+		pr_err("%s:[Accdet]alloc_chrdev_region: Get Major number error!\n", __func__);
 
+	accdet_cdev = cdev_alloc();
+	accdet_cdev->owner = THIS_MODULE;
+	accdet_cdev->ops = &accdet_fops;
+	ret = cdev_add(accdet_cdev, accdet_devno, 1);
+	accdet_class = class_create(THIS_MODULE, ACCDET_DEVNAME);
+
+	accdet_nor_device = device_create(accdet_class, NULL, accdet_devno, NULL, ACCDET_DEVNAME);
 	/* Register event notifier */
 	mbhc->nblock.notifier_call = wcd_event_notify;
 	ret = msm8x16_register_notifier(codec, &mbhc->nblock);

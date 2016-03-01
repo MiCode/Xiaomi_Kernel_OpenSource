@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,13 +31,14 @@
 				     <0x0 0x8 0x1>;
 			interrupt-names = "kpdpwr", "resin";
 			qcom,pon-dbc-delay = <15625>;
+			qcom,poweron-vadc = <&pm8916_vadc>;
 			qcom,system-reset;
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
 				qcom,support-reset = <1>;
 				qcom,pull-up = <1>;
-				qcom,s1-timer = <10256>;
+				qcom,s1-timer = <6000>;
 				qcom,s2-timer = <2000>;
 				qcom,s2-type = <1>;
 				linux,code = <116>;
@@ -66,6 +68,13 @@
 			mpp@a100 {
 				reg = <0xa100 0x100>;
 				qcom,pin-num = <2>;
+				qcom,mode = <4>;
+				qcom,invert = <0>;
+				qcom,output-type = <0>;
+				qcom,vin-sel = <2>;
+				qcom,src-sel = <0>;
+				qcom,ain-route = <1>;
+				qcom,master-en = <1>;
 			};
 
 			mpp@a200 {

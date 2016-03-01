@@ -10,6 +10,7 @@
  * Description        : LIS3DH accelerometer sensor driver
  *
  *******************************************************************************
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -68,6 +69,8 @@
 #include	<linux/regulator/consumer.h>
 #include	<linux/of_gpio.h>
 #include	<linux/sensors.h>
+#include	<linux/hardware_info.h>
+
 
 #define	DEBUG	1
 
@@ -1626,7 +1629,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	mutex_unlock(&acc->lock);
 
 	dev_dbg(&client->dev, "%s: probed\n", LIS3DH_ACC_DEV_NAME);
-
+	hardwareinfo_set_prop(HARDWARE_MAGNETOMETER, "lis3dh");
 	return 0;
 
 err_destoyworkqueue2:
@@ -1655,6 +1658,7 @@ err_mutexunlock:
 	kfree(acc);
 exit_check_functionality_failed:
 	dev_err(&client->dev, "%s: Driver Init failed\n", LIS3DH_ACC_DEV_NAME);
+	hardwareinfo_set_prop(HARDWARE_ACCELEROMETER, "lis3dh fail");
 	return err;
 }
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,7 @@
 	i2c@78ba000 { /* BLSP1 QUP6 */
 		nfc-nci@e {
 			compatible = "qcom,nfc-nci";
+			status = "disabled";
 			reg = <0x0e>;
 			qcom,irq-gpio = <&msm_gpio 21 0x00>;
 			qcom,dis-gpio = <&msm_gpio 20 0x00>;
@@ -41,10 +43,6 @@
 	};
 
 
-};
-
-&android_usb {
-	qcom,android-usb-cdrom;
 };
 
 &blsp1_uart2 {
@@ -93,8 +91,15 @@
 	};
 
 	gpio@c200 { /* GPIO 3 */
-		/* External regulator control for WTR */
-		status = "disabled";
+
+		qcom,mode = <1>;
+		qcom,output-type = <1>;
+		qcom,invert = <0>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <0>;
+		qcom,out-strength = <3>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
 	};
 
 	gpio@c300 { /* GPIO 4 */
@@ -133,19 +138,20 @@
 	qcom,vdd-io-current-level = <200 50000>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
-	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on /*&sdc2_cd_on*/>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off /*&sdc2_cd_off*/>;
+
+	qcom,nonremovable;
 
 	#address-cells = <0>;
 	interrupt-parent = <&sdhc_2>;
-	interrupts = <0 1 2>;
+	interrupts = <0 1>;/*2*/
 	#interrupt-cells = <1>;
 	interrupt-map-mask = <0xffffffff>;
 	interrupt-map = <0 &intc 0 125 0
 			1 &intc 0 221 0
-			2 &msm_gpio 38 0>;
+			/*2 &msm_gpio 38 0*/>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&msm_gpio 38 0x0>;
 
 	status = "ok";
 };
@@ -155,7 +161,7 @@
 		qcom,vibrator@c000 {
 			status = "okay";
 			qcom,vib-timeout-ms = <15000>;
-			qcom,vib-vtg-level-mV = <3100>;
+			qcom,vib-vtg-level-mV = <2700>;
 		};
 	};
 };

@@ -1,4 +1,10 @@
 
+config PRINTK_RTC_TIME
+	bool "Show UTC timing information on printks"
+	depends on PRINTK
+	help
+	  Selecting this option causes time stamps of the printk()
+
 config PRINTK_TIME
 	bool "Show timing information on printks"
 	depends on PRINTK

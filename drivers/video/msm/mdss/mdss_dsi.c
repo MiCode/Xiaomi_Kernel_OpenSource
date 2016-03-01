@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +27,9 @@
 #include "mdss_panel.h"
 #include "mdss_dsi.h"
 #include "mdss_debug.h"
+
+bool is_Lcm_Present;
+
 
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
@@ -1190,6 +1194,7 @@ static struct device_node *mdss_dsi_pref_prim_panel(
  *
  * returns pointer to panel node on success, NULL on error.
  */
+
 static struct device_node *mdss_dsi_find_panel_of_node(
 		struct platform_device *pdev, char *panel_cfg)
 {
@@ -1199,7 +1204,6 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 	char ctrl_id_stream[3] =  "0:";
 	char *stream = NULL, *pan = NULL;
 	struct device_node *dsi_pan_node = NULL, *mdss_node = NULL;
-
 	len = strlen(panel_cfg);
 	if (!len) {
 		/* no panel cfg chg, parse dt */
@@ -1244,11 +1248,13 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 			       __func__);
 			goto end;
 		}
+		is_Lcm_Present = true;
 		return dsi_pan_node;
 	}
 end:
 	dsi_pan_node = mdss_dsi_pref_prim_panel(pdev);
 
+	is_Lcm_Present = false;
 	return dsi_pan_node;
 }
 
@@ -1733,6 +1739,120 @@ static int mdss_dsi_register_driver(void)
 {
 	return platform_driver_register(&mdss_dsi_ctrl_driver);
 }
+
+#define WARM      1
+#define COOL      3
+#define NATURE    2
+#define STANDARD  10
+#define VIVID     11
+#define BRIGHT    12
+
+extern int mdss_dsi_panel_gamma(struct mdss_panel_data *pdata);
+int mdss_panel_set_gamma(struct mdss_panel_data *pdata, int mode)
+{
+	int ret = 0;
+	struct mipi_panel_info *mipi;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	pr_debug("%s: Set panel gamma\n", __func__);
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	mipi  = &pdata->panel_info.mipi;
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+
+	switch (mode) {
+	case WARM:
+		ctrl_pdata->gamma_cmds = ctrl_pdata->warm_cmds;
+		break;
+	case COOL:
+		ctrl_pdata->gamma_cmds = ctrl_pdata->cool_cmds;
+		break;
+	case NATURE:
+		ctrl_pdata->gamma_cmds = ctrl_pdata->nature_cmds;
+		break;
+	default:
+		ret = -EINVAL;
+		goto err_out;
+	}
+	if (ctrl_pdata->nature_cmds.link_state == DSI_HS_MODE)
+		mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+
+	ret = mdss_dsi_panel_gamma(pdata);
+	if (ret) {
+		pr_err("%s: unable to set the panel gamma\n",
+							__func__);
+		goto err_out;
+	}
+
+	if (ctrl_pdata->nature_cmds.link_state == DSI_HS_MODE)
+		mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+
+err_out:
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	return ret;
+
+}
+extern int mdss_dsi_panel_ce(struct mdss_panel_data *pdata);
+int mdss_panel_set_ce(struct mdss_panel_data *pdata, int mode)
+{
+	int ret = 0;
+	struct mipi_panel_info *mipi;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	pr_debug("%s: Set panel CE\n", __func__);
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	mipi  = &pdata->panel_info.mipi;
+
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+
+	switch (mode) {
+	case VIVID:
+		ctrl_pdata->ce_cmds = ctrl_pdata->vivid_cmds;
+		break;
+	case STANDARD:
+		ctrl_pdata->ce_cmds = ctrl_pdata->standard_cmds;
+		break;
+	case BRIGHT:
+		ctrl_pdata->ce_cmds = ctrl_pdata->bright_cmds;
+		break;
+	default:
+		ret = -EINVAL;
+		goto err_out;
+	}
+	if (ctrl_pdata->nature_cmds.link_state == DSI_HS_MODE)
+		mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
+
+	ret = mdss_dsi_panel_ce(pdata);
+	if (ret) {
+		pr_err("%s: unable to set the panel ce\n",
+							__func__);
+		goto err_out;
+	}
+
+	if (ctrl_pdata->nature_cmds.link_state == DSI_HS_MODE)
+		mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
+
+err_out:
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	return ret;
+}
+
 
 static int __init mdss_dsi_driver_init(void)
 {

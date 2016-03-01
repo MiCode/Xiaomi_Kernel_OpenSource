@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,9 +28,12 @@
 
 #define QPNP_VIB_MAX_LEVEL		31
 #define QPNP_VIB_MIN_LEVEL		12
+#define QPNP_VIB_HIGH_LEVEL		30
+#define QPNP_VIB_MEDIUM_LEVEL		27
+#define QPNP_VIB_LOW_LEVEL		24
 
 #define QPNP_VIB_DEFAULT_TIMEOUT	15000
-#define QPNP_VIB_DEFAULT_VTG_LVL	3100
+#define QPNP_VIB_DEFAULT_VTG_LVL	2700
 
 #define QPNP_VIB_EN			BIT(7)
 #define QPNP_VIB_VTG_SET_MASK		0x1F
@@ -175,6 +179,7 @@ static int qpnp_vib_set(struct qpnp_vib *vib, int on)
 	return 0;
 }
 
+
 static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 {
 	struct qpnp_vib *vib = container_of(dev, struct qpnp_vib,
@@ -226,6 +231,67 @@ static enum hrtimer_restart qpnp_vib_timer_func(struct hrtimer *timer)
 
 	return HRTIMER_NORESTART;
 }
+
+
+static void qpnp_vib_pattern(struct timed_output_dev *dev, int qiangdu)
+{
+	struct qpnp_vib *vib = container_of(dev, struct qpnp_vib,
+					 timed_dev);
+	int rc = 0;
+	u8 reg = 0;
+	printk("Qpnp vibrator pattern enter\n");
+	mutex_lock(&vib->lock);
+	hrtimer_cancel(&vib->vib_timer);
+	if (qiangdu == 2)
+		vib->vtg_level = QPNP_VIB_HIGH_LEVEL;
+	if (qiangdu == 1)
+		vib->vtg_level = QPNP_VIB_MEDIUM_LEVEL;
+	if (qiangdu == 0)
+		vib->vtg_level = QPNP_VIB_LOW_LEVEL;
+
+	rc = qpnp_vib_read_u8(vib, &reg, QPNP_VIB_VTG_CTL(vib->base));
+	if (rc < 0)
+		printk("Qpnp vibrator get reg error\n");
+	reg &= ~QPNP_VIB_VTG_SET_MASK;
+	reg |= (vib->vtg_level & QPNP_VIB_VTG_SET_MASK);
+	rc = qpnp_vib_write_u8(vib, &reg, QPNP_VIB_VTG_CTL(vib->base));
+	if (rc)
+		printk("Qpnp vibrator write reg error\n");
+
+	vib->state = 1;
+		hrtimer_start(&vib->vib_timer,
+			      ktime_set(1, (1 % 1000) * 1000000),
+			      HRTIMER_MODE_REL);
+	mutex_unlock(&vib->lock);
+	schedule_work(&vib->work);
+}
+
+static ssize_t pattern_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct timed_output_dev *tdev = dev_get_drvdata(dev);
+	int remaining = qpnp_vib_get_time(tdev);
+
+	return sprintf(buf, "%d\n", remaining);
+}
+
+
+static ssize_t pattern_store(
+		struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	struct timed_output_dev *tdev = dev_get_drvdata(dev);
+	int value;
+
+	if (sscanf(buf, "%d", &value) != 1)
+		return -EINVAL;
+
+	qpnp_vib_pattern(tdev, value);
+
+	return size;
+}
+static DEVICE_ATTR(pattern, 0664, pattern_show, pattern_store);
+
 
 #ifdef CONFIG_PM
 static int qpnp_vibrator_suspend(struct device *dev)
@@ -369,6 +435,9 @@ static int qpnp_vibrator_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, vib);
 
 	rc = timed_output_dev_register(&vib->timed_dev);
+
+	device_create_file(vib->timed_dev.dev, &dev_attr_pattern);
+
 	if (rc < 0)
 		return rc;
 

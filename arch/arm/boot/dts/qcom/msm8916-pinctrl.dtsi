@@ -248,7 +248,7 @@
 			label = "sdc2-cmd";
 			sdc2_cmd_on: cmd_on {
 				bias-pull-up; /* pull up */
-				drive-strength = <10>; /* 10 MA */
+				drive-strength = <10>;/* 10 MA */
 			};
 			sdc2_cmd_off: cmd_off {
 				bias-pull-up; /* pull up */
@@ -262,7 +262,7 @@
 			label = "sdc2-data";
 			sdc2_data_on: data_on {
 				bias-pull-up; /* pull up */
-				drive-strength = <10>; /* 10 MA */
+				drive-strength = <10>;/*10 MA*/
 			};
 			sdc2_data_off: data_off {
 				bias-pull-up; /* pull up */

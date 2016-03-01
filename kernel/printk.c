@@ -2,6 +2,7 @@
  *  linux/kernel/printk.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2015 XiaoMi, Inc.
  *
  * Modified to make sys_syslog() more flexible: added commands to
  * return the last 4k of kernel messages, regardless of whether
@@ -45,6 +46,10 @@
 #include <linux/poll.h>
 #include <linux/irq_work.h>
 #include <linux/utsname.h>
+#if defined(CONFIG_PRINTK_RTC_TIME)
+#include <linux/rtc.h>
+#include <linux/time.h>
+#endif
 
 #include <asm/uaccess.h>
 
@@ -1003,20 +1008,58 @@ static bool printk_time;
 #endif
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
 
+#if defined(CONFIG_PRINTK_RTC_TIME)
+static bool printk_rtc_time = 1;
+module_param_named(rtc_time, printk_rtc_time, bool, S_IRUGO | S_IWUSR);
+#endif
+
 static size_t print_time(u64 ts, char *buf)
 {
 	unsigned long rem_nsec;
+#ifdef CONFIG_PRINTK_RTC_TIME
+	struct rtc_device *rtc;
+	struct rtc_time tm;
+	struct timespec now;
+	#endif
 
 	if (!printk_time)
 		return 0;
 
 	rem_nsec = do_div(ts, 1000000000);
 
+#if defined(CONFIG_PRINTK_RTC_TIME)
+	if (printk_rtc_time) {
+		if (!buf) {
+			rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+			if (rtc) {
+				do_gettimeofday_nolock(&now);
+				rtc_time_to_tm(now.tv_sec, &tm);;
+				rtc_class_close(rtc);
+				return snprintf(NULL, 0, "[%5lu.000000][UTC:%d-%02d-%02d %02d:%02d:%02d(%u)] ",
+						(unsigned long)ts, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, (unsigned int) now.tv_sec);
+			} else
+				return snprintf(NULL, 0, "[%5lu.000000] ", (unsigned long)ts);
+			rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+			if (rtc) {
+				do_gettimeofday_nolock(&now);
+				rtc_time_to_tm(now.tv_sec, &tm);;
+				rtc_class_close(rtc);
+				return snprintf(buf, "[%5lu.%06lu][UTC:%d-%02d-%02d %02d:%02d:%02d(%u)]",
+				(unsigned long)ts, rem_nsec / 1000, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, (unsigned int) now.tv_sec);
+			} else
+				return snprintf(buf, "[%5lu.%06lu] ", (unsigned long)ts, rem_nsec / 1000);
+		} else {
+			if (!buf)
+				return snprintf(NULL, 0, "[%5lu.000000] ", (unsigned long)ts);
+			return snprintf(buf, "[%5lu.%06lu] ", (unsigned long)ts, rem_nsec / 1000);
+		}
+#else
 	if (!buf)
 		return snprintf(NULL, 0, "[%5lu.000000] ", (unsigned long)ts);
 
 	return sprintf(buf, "[%5lu.%06lu] ",
 		       (unsigned long)ts, rem_nsec / 1000);
+#endif
 }
 
 static size_t print_prefix(const struct log *msg, bool syslog, char *buf)

@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +18,7 @@
 #include "camera.h"
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
+#include <linux/hardware_info.h>
 
 /* Logging macro */
 /*#define MSM_SENSOR_DRIVER_DEBUG*/
@@ -548,6 +550,9 @@ int32_t msm_sensor_driver_probe(void *setting)
 	s_ctrl->sensordata->sensor_name = slave_info->sensor_name;
 	s_ctrl->sensordata->eeprom_name = slave_info->eeprom_name;
 	s_ctrl->sensordata->actuator_name = slave_info->actuator_name;
+	CDBG("sensor_name %s", s_ctrl->sensordata->sensor_name);
+	CDBG("eeprom_name %s", s_ctrl->sensordata->eeprom_name);
+	CDBG("actuator_name %s", s_ctrl->sensordata->actuator_name);
 
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
@@ -571,6 +576,11 @@ int32_t msm_sensor_driver_probe(void *setting)
 	if (rc < 0) {
 		pr_err("%s power up failed", slave_info->sensor_name);
 		goto FREE_CAMERA_INFO;
+	} else {
+		if (slave_info->camera_id == 0)
+			hardwareinfo_set_prop(HARDWARE_BACK_CAM, s_ctrl->sensordata->sensor_name);
+		else
+			hardwareinfo_set_prop(HARDWARE_FRONT_CAM, s_ctrl->sensordata->sensor_name);
 	}
 
 	pr_err("%s probe succeeded", slave_info->sensor_name);

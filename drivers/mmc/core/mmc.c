@@ -4,6 +4,7 @@
  *  Copyright (C) 2003-2004 Russell King, All Rights Reserved.
  *  Copyright (C) 2005-2007 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
+ *  Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,6 +25,7 @@
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd_ops.h"
+#include <linux/hardware_info.h>
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -82,14 +84,35 @@ static const struct mmc_fixup mmc_fixups[] = {
 /*
  * Given the decoded CSD structure, decode the raw CID to our CID structure.
  */
+
+struct emmc_id_pnm {
+	unsigned int		manfid;
+	unsigned char		pnm[6];
+	char  *emmc_name;
+};
+
+static struct emmc_id_pnm emmc_arrary[] = {
+	{0x15, {0x51, 0x37, 0x58, 0x53, 0x41, 0x42}, "KMQ7x000SA-B315-Samsung"},
+	{0x90, {0x48, 0x38, 0x47, 0x32, 0x64, 0x04}, "H9TQ65A8GTMCUR-Hynix"},
+	{0xfe, {0x50, 0x31, 0x4a, 0x39, 0x35, 0x4b}, "MT29TZZZ8D5BKFAH-125-Micron"},
+	{0x15, {0x51, 0x4e, 0x31, 0x53, 0x4d, 0x42}, "KMQN1000SM-B316-Samsung"},
+	{0x15, {0x52, 0x33, 0x31, 0x31, 0x4d, 0x42}, "KMR310001M-B611-Samsung"},
+	{0x90, {0x48, 0x41, 0x47, 0x32, 0x65, 0x05}, "H9TQ17ABJTMCUR-Hynix"},
+	{0x13, {0x52, 0x31, 0x4a, 0x39, 0x36, 0x4e}, "MT29TZZZ5D6YKFAH-125-Micron"},
+	{0x11, {0x30, 0x30, 0x38, 0x47, 0x37, 0x30}, "TYD0GH121661RA-Toshiba"},
+	{0x11, {0x30, 0x31, 0x36, 0x47, 0x37, 0x30}, "TYE0HH221657RA-Toshiba"},
+};
+
+
 static int mmc_decode_cid(struct mmc_card *card)
 {
 	u32 *resp = card->raw_cid;
-
+	unsigned int i, j;
+	char *temp_emmc_name = "flash not found";
 	/*
-	 * The selection of the format here is based upon published
-	 * specs from sandisk and from what people have reported.
-	 */
+	* The selection of the format here is based upon published
+	* specs from sandisk and from what people have reported.
+	*/
 	switch (card->csd.mmca_vsn) {
 	case 0: /* MMC v1.0 - v1.2 */
 	case 1: /* MMC v1.4 */
@@ -123,14 +146,32 @@ static int mmc_decode_cid(struct mmc_card *card)
 		card->cid.serial	= UNSTUFF_BITS(resp, 16, 32);
 		card->cid.month		= UNSTUFF_BITS(resp, 12, 4);
 		card->cid.year		= UNSTUFF_BITS(resp, 8, 4) + 1997;
-		break;
 
-	default:
-		pr_err("%s: card has unknown MMCA version %d\n",
+		for (i = 0; i < (sizeof(emmc_arrary)/sizeof(emmc_arrary[0])); i++) {
+			j = 0;
+			if (!(emmc_arrary[i].manfid == card->cid.manfid))
+				;
+			else {
+				for (j = 0; j < 6; j++) {
+				if (!(emmc_arrary[i].pnm[j] == card->cid.prod_name[j]))
+					break;
+				}
+			}
+			if (j == 6) {
+				printk("XXX::emmc_name=%s\r\n", emmc_arrary[i].emmc_name);
+				temp_emmc_name = emmc_arrary[i].emmc_name;
+				break;
+			}
+		}
+		break;
+		default:
+			hardwareinfo_set_prop(HARDWARE_FLASH, temp_emmc_name);
+			pr_err("%s: card has unknown MMCA version %d\n",
 			mmc_hostname(card->host), card->csd.mmca_vsn);
 		return -EINVAL;
 	}
 
+	hardwareinfo_set_prop(HARDWARE_FLASH, temp_emmc_name);
 	return 0;
 }
 

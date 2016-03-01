@@ -1,0 +1,73 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8916-qrd-skum.dtsi"
+#include "msm8916-memory.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUM";
+	compatible = "qcom,msm8916-qrd-skum", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
+	qcom,board-id = <0x1010b 7>;
+};
+
+&soc {
+	i2c@78b8000 {
+		smb1360_otg_supply: smb1360-chg-fg@14 {
+			compatible = "qcom,smb1360-chg-fg";
+			reg = <0x14>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <62 8>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&smb_int_default>;
+			qcom,chg-inhibit-disabled;
+			qcom,fg-batt-capacity-mah = <2200>;
+			qcom,fg-cc-soc-coeff = <0x8373>;
+			qcom,fg-delta-soc =  <1>;
+			qcom,fg-cutoff-voltage-mv = <3400>;
+			qcom,fg-iterm-ma = <150>;
+			qcom,fg-ibatt-standby-ma = <200>;
+			qcom,fg-cc-to-cv-mv = <4328>;
+			qcom,fg-auto-recharge-soc = <99>;
+			qcom,warm-recharge-thresh-mv = <200>;
+			qcom,thermistor-c1-coeff = <0x85D2>;
+			qcom,float-voltage-mv = <4350>;
+			qcom,iterm-ma = <100>;
+			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,config-hard-thresholds;
+			qcom,hot-bat-decidegc = <600>;
+			qcom,cold-bat-decidegc = <0>;
+			qcom,soft-jeita-supported;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,warm-bat-mv = <4000>;
+			qcom,cool-bat-mv = <4100>;
+			qcom,warm-bat-ma = <600>;
+			qcom,cool-bat-ma = <600>;
+			regulator-name = "smb1360_otg_vreg";
+			qcom,shdn-after-pwroff;
+		};
+	};
+};
+
+&pm8916_chg {
+	status = "ok";
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,disable-bms;
+};
+

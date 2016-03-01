@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2014, Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,7 +92,7 @@ module_param(lpm_disconnect_thresh , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(lpm_disconnect_thresh,
 	"Delay before entering LPM on USB disconnect");
 
-static bool floated_charger_enable;
+static bool floated_charger_enable = 1;
 module_param(floated_charger_enable , bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(floated_charger_enable,
 	"Whether to enable floated charger");
@@ -1494,6 +1495,17 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 	pr_debug("setting usb power supply type %d\n", charger_type);
 	power_supply_set_supply_type(psy, charger_type);
 	return 0;
+}
+
+int is_usb_connect(void)
+{
+	if ((the_msm_otg == NULL))
+		return 0xff;
+
+	if (the_msm_otg->chg_type == USB_SDP_CHARGER)
+		return 1;
+	else
+		return 0;
 }
 
 static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)

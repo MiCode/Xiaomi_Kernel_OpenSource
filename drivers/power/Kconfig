@@ -393,6 +393,12 @@ config SMB135X_CHARGER
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
 
+config BQ2022A_SUPPORT
+	bool "BQ2022A_SUPPORT"
+	depends on OF
+	help
+	  ba2022a use to get battery ID.
+
 config SMB1360_CHARGER_FG
 	tristate "SMB1360 Charger and Fuel Guage"
 	depends on I2C

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +18,7 @@
 #include "msm_sd.h"
 #include "msm_cci.h"
 #include "msm_eeprom.h"
+#include <linux/hardware_info.h>
 
 #undef CDBG
 #ifdef MSM_EEPROM_DEBUG
@@ -1026,6 +1028,22 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 	for (j = 0; j < e_ctrl->cal_data.num_data; j++)
 		CDBG("memory_data[%d] = 0x%X\n", j,
 			e_ctrl->cal_data.mapdata[j]);
+
+	if (e_ctrl->cal_data.mapdata[1] == 0x02)
+		hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "oufeiguang");
+	else if (e_ctrl->cal_data.mapdata[1] == 0x01) {
+		if (e_ctrl->cal_data.mapdata[2] == 0x31)
+			hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "shunyu_new_vcm");
+		else
+			hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "shunyu");
+	} else if (e_ctrl->cal_data.mapdata[1] == 0x0b) {
+		if ((e_ctrl->cal_data.mapdata[2]) == 0x20)
+			hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "qiutai_sikao");
+		else
+			hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "qiutai_meituosi");
+	} else {
+		pr_err("%s read_otp_id failed\n", __func__);
+	}
 
 	e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
 

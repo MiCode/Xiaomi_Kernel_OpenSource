@@ -619,6 +619,11 @@ config APQ8084_DOCKING_STATION
 	  This option enables support for the USB and Ethernet ports found on
 	  the QTI APQ8084 Docking Station.
 
+config HARDWARE_INFO
+	tristate "Wingtech Hardware Information support"
+	help
+	  This option enables device driver to initial the hardware info module.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

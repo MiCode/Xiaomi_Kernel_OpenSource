@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1777,6 +1778,17 @@
 		qcom,scale-function = <3>;
 		qcom,hw-settle-time = <0>;
 		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@11 {
+		label = "mpp2_vol";
+		reg = <0x11>;
+		qcom,decimation = <0x0>;
+		qcom,pre-div-channel-scaling = <0x0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0x0>;
+		qcom,hw-settle-time = <0x0>;
+		qcom,fast-avg-setup = <0x0>;
 	};
 
 	chan@30 {

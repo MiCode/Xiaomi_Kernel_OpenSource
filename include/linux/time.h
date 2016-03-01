@@ -153,6 +153,10 @@ void timekeeping_inject_sleeptime(struct timespec *delta);
 extern u32 (*arch_gettimeoffset)(void);
 #endif
 
+#if defined(CONFIG_PRINTK_RTC_TIME)
+extern int do_gettimeofday_nolock(struct timespec *tv);;
+#endif
+
 extern void do_gettimeofday(struct timeval *tv);
 extern int do_settimeofday(const struct timespec *tv);
 extern int do_sys_settimeofday(const struct timespec *tv,

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,8 @@
 #include <linux/input.h>
 #include <linux/log2.h>
 #include <linux/qpnp/power-on.h>
+#include <linux/qpnp/qpnp-adc.h>
+#include <linux/hardware_info.h>
 
 #define PMIC_VER_8941           0x01
 #define PMIC_VERSION_REG        0x0105
@@ -1146,6 +1149,9 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 					"Unable to read s2-type\n");
 				return rc;
 			}
+#ifdef WT_LONGPRESS_POWERKEY_REBOOT
+			cfg->s2_type = 7;
+#endif
 			if (cfg->s2_type > QPNP_PON_RESET_TYPE_MAX) {
 				dev_err(&pon->spmi->dev,
 					"Incorrect reset type specified\n");
@@ -1249,6 +1255,25 @@ free_input_dev:
 	return rc;
 }
 
+void probe_board_and_set(void)
+{
+	char *boadrid_start, *boardvol_start;
+	char boardid_info[HARDWARE_MAX_ITEM_LONGTH];
+
+	boadrid_start = strstr(saved_command_line, "board_id=");
+	boardvol_start = strstr(saved_command_line, "board_vol=");
+	memset(boardid_info, 0, HARDWARE_MAX_ITEM_LONGTH);
+	if (boadrid_start != NULL) {
+		boardvol_start = strstr(boadrid_start, ":board_vol=");
+		if (boardvol_start != NULL)
+			strlcpy(boardid_info, boadrid_start+sizeof("board_id=")-1, boardvol_start-(boadrid_start+sizeof("board_id=")-1));
+		else
+			strlcpy(boardid_info, boadrid_start+sizeof("board_id=")-1, 8);
+	} else
+		sprintf(boardid_info, "boarid not define!");
+	hardwareinfo_set_prop(HARDWARE_BOARD_ID, boardid_info);
+}
+
 static int qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -1260,6 +1285,8 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	u16 poff_sts = 0;
 	const char *s3_src;
 	u8 s3_src_reg;
+	u8 pull_down = 0x80;
+
 
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
@@ -1397,6 +1424,8 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+	spmi_ext_register_writel(pon->spmi->ctrl, 1, 0x4548, &pull_down, 1);
+
 	dev_set_drvdata(&spmi->dev, pon);
 
 	INIT_DELAYED_WORK(&pon->bark_work, bark_work_func);
@@ -1427,6 +1456,8 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "sys file creation failed\n");
 		return rc;
 	}
+
+	probe_board_and_set();
 
 	return rc;
 }

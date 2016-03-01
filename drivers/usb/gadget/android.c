@@ -5,6 +5,7 @@
  *.Copyright (c) 2014, The Linux Foundation. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
+ *Copyright (C) 2015 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -231,6 +232,7 @@ static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum);
 static char manufacturer_string[256];
 static char product_string[256];
 static char serial_string[256];
+static char uinque_serial_string[256];
 
 /* String Table */
 static struct usb_string strings_dev[] = {
@@ -301,6 +303,7 @@ static void android_pm_qos_update_latency(struct android_dev *dev, int vote)
 	last_vote = vote;
 }
 
+extern int is_usb_connect(void);
 static void android_work(struct work_struct *data)
 {
 	struct android_dev *dev = container_of(data, struct android_dev, work);
@@ -311,11 +314,17 @@ static void android_work(struct work_struct *data)
 	char *suspended[2]   = { "USB_STATE=SUSPENDED", NULL };
 	char *resumed[2]   = { "USB_STATE=RESUMED", NULL };
 	char **uevent_envp = NULL;
+	int hw_connected = 0;
 	static enum android_device_state last_uevent, next_state;
 	unsigned long flags;
 	int pm_qos_vote = -1;
 
 	spin_lock_irqsave(&cdev->lock, flags);
+	if (is_usb_connect())
+		 hw_connected = 1;
+	else
+		 hw_connected = 0;
+
 	if (dev->suspended != dev->sw_suspended && cdev->config) {
 		if (strncmp(dev->pm_qos, "low", 3))
 			pm_qos_vote = dev->suspended ? 0 : 1;
@@ -372,6 +381,9 @@ static void android_work(struct work_struct *data)
 	} else {
 		pr_info("%s: did not send uevent (%d %d %p)\n", __func__,
 			 dev->connected, dev->sw_connected, cdev->config);
+		uevent_envp = hw_connected ? connected : disconnected;
+		kobject_uevent_env(&dev->dev->kobj, KOBJ_CHANGE,
+					   uevent_envp);
 	}
 }
 
@@ -2844,6 +2856,29 @@ static ssize_t remote_wakeup_store(struct device *pdev,
 }
 
 static ssize_t
+iSerial_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s", serial_string);
+}
+static ssize_t
+iSerial_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	if (size >= sizeof(serial_string))
+		return -EINVAL;
+	strlcpy(serial_string, buf, sizeof(serial_string));
+	strim(serial_string);
+	if (0 != strncmp(buf, "0123456789", sizeof("0123456789" - 1))) {
+		strlcpy(uinque_serial_string, buf, sizeof(uinque_serial_string));
+		strim(uinque_serial_string);
+	}
+	printk("%s: serial number is %s, uinque_serial_string is %s\n", __func__, serial_string, uinque_serial_string);
+	return size;
+}
+static DEVICE_ATTR(iSerial, S_IRUGO | S_IWUSR, iSerial_show, iSerial_store);
+
+static ssize_t
 functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
 	struct android_dev *dev = dev_get_drvdata(pdev);
@@ -2891,6 +2926,9 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 		mutex_unlock(&dev->mutex);
 		return -EBUSY;
 	}
+
+	if (0 != strcmp(buff, "diag,serial,rmnet,adb"))
+		strlcpy(serial_string, uinque_serial_string, sizeof(serial_string));
 
 	/* Clear previous enabled list */
 	list_for_each_entry(conf, &dev->configs, list_item) {
@@ -3137,7 +3175,6 @@ DESCRIPTOR_ATTR(bDeviceSubClass, "%d\n")
 DESCRIPTOR_ATTR(bDeviceProtocol, "%d\n")
 DESCRIPTOR_STRING_ATTR(iManufacturer, manufacturer_string)
 DESCRIPTOR_STRING_ATTR(iProduct, product_string)
-DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
 
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						 functions_store);

@@ -499,6 +499,7 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 
 	rtc_dd->rtc_dev = &(spmi->dev);
 	rtc_dd->spmi = spmi;
+	rtc_dd->rtc_dev->power.can_wakeup = 1;
 
 	/* Get RTC/ALARM resources */
 	spmi_for_each_container_dev(spmi_resource, spmi) {
