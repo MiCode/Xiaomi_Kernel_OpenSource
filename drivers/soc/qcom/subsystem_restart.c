@@ -1348,7 +1348,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	if (0 == strncmp(WT_SUBSYSTEM_REASTART_LEVEL, "related", 7)) {
 		subsys->restart_level = RESET_SUBSYS_COUPLED;
 	}
-         
+
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 
 	snprintf(subsys->wlname, sizeof(subsys->wlname), "ssr(%s)", desc->name);
