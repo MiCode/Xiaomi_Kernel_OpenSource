@@ -35,6 +35,13 @@ Main node optional properties:
 					if qpnp,qpnp-labibb-mode = "amoled".
 - qcom,labibb-ttw-force-lab-on:		A boolean property which forces LAB to be
 					always on during TTW mode.
+- qcom,skip-2nd-swire-cmd:		A boolean property which indicates if
+					the second SWIRE command needs to be skipped.
+- qcom,swire-2nd-cmd-delay:		A integer value which specifes the
+					delay in millisecs between the first and second
+					SWIRE command. If not specified this value
+					defaults to 20ms. This delay is applied only
+					if 'qpnp,skip-2nd-swire-cmd' is defined.
 
 LAB subnode required properties:
 
@@ -205,12 +212,16 @@ Example:
 			#size-cells = <1>;
 			qpnp,qpnp-labibb-mode = "lcd";
 			qcom,pmic-revid = <&pmi8994_revid>;
+			qcom,skip-2nd-swire-cmd;
 
 			lab_regulator: qcom,lab@de00 {
 				reg = <0xde00 0x100>;
 				reg-names = "lab";
-				regulator-name = "lab_reg";
 
+				interrupts = <0x3 0xde 0x0>;
+                                interrupt-names = "lab-vreg-ok";
+
+				regulator-name = "lab_reg";
 				regulator-min-microvolt = <4600000>;
 				regulator-max-microvolt = <6000000>;
 
