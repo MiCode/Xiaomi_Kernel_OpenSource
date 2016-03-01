@@ -409,6 +409,34 @@ config MSM_BOOT_STATS
 	 This figures are reported in mpm sleep clock cycles and have a
 	 resolution of 31 bits as 1 bit is used as an overflow check.
 
+config MSM_QDSP6_APRV2
+        bool "Audio QDSP6 APRv2 support"
+        depends on MSM_SMD
+        help
+          Enable APRv2 IPC protocol support between
+          application processor and QDSP6. APR is
+          used by audio driver to configure QDSP6's
+          ASM, ADM and AFE.
+
+config MSM_QDSP6_APRV3
+	bool "Audio QDSP6 APRv3 support"
+	depends on MSM_SMD
+	help
+	  Enable APRv3 IPC protocol support between
+	  application processor and QDSP6. APR is
+	  used by audio driver to configure QDSP6v2's
+	  ASM, ADM and AFE.
+
+config MSM_ADSP_LOADER
+	tristate "ADSP loader support"
+	select SND_SOC_MSM_APRV2_INTF
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
+	help
+	  Enable ADSP image loader.
+	  The ADSP loader brings ADSP out of reset
+	  for the platforms that use APRv2.
+	  Say M if you want to enable this module.
+
 endif # ARCH_QCOM
 
 config MSM_SUBSYSTEM_RESTART
@@ -485,5 +513,12 @@ config MSM_EVENT_TIMER
         need to be monitored by the PM. The enables the PM code to monitor
         events that require the core to be awake and ready to handle the
         event.
+
+config MSM_AVTIMER
+	tristate "Avtimer Driver"
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
+	help
+		This driver gets the Q6 out of power collapsed state and
+		exposes ioctl control to read avtimer tick.
 
 source "drivers/soc/qcom/memshare/Kconfig"
