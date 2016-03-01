@@ -134,6 +134,20 @@ static int ipa3_handle_interrupt(int irq_num, bool isr_context)
 		suspend_interrupt_data->endpoints = suspend_data;
 		interrupt_data = suspend_interrupt_data;
 		break;
+	case IPA_UC_IRQ_0:
+		if (ipa3_ctx->apply_rg10_wa) {
+			/*
+			 * Early detect of uC crash. If RG10 workaround is
+			 * enable uC crash will not be detected as before
+			 * processing uC event the interrupt is cleared using
+			 * uC register write which times out as it crashed
+			 * already.
+			 */
+			if (ipa3_ctx->uc_ctx.uc_sram_mmio->eventOp ==
+			    IPA_HW_2_CPU_EVENT_ERROR)
+				ipa3_ctx->uc_ctx.uc_failed = true;
+		}
+		break;
 	default:
 		break;
 	}
@@ -251,6 +265,13 @@ static void ipa3_process_interrupts(bool isr_context)
 			}
 			bmsk = bmsk << 1;
 		}
+		/*
+		 * In case uC failed interrupt cannot be cleared.
+		 * Device will crash as part of handling uC event handler.
+		 */
+		if (ipa3_ctx->apply_rg10_wa && ipa3_ctx->uc_ctx.uc_failed)
+			break;
+
 		ipa3_uc_rg10_write_reg(IPA_IRQ_CLR_EE_n, ipa_ee, reg);
 		reg = ipahal_read_reg_n(IPA_IRQ_STTS_EE_n, ipa_ee);
 		/* since the suspend interrupt HW bug we must

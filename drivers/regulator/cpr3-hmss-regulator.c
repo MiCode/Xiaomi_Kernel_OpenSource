@@ -51,6 +51,8 @@
  *			interpolation
  * @speed_bin:		Application processor speed bin fuse parameter value for
  *			the given chip
+ * @cbf_voltage_offset:	Voltage margin offset for the CBF regulator used on
+ *			MSM8996-Pro chips.
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
  * @redundant_fusing:	Redundant fusing select fuse parameter value
  * @limitation:		CPR limitation select fuse parameter value
@@ -71,6 +73,7 @@ struct cpr3_msm8996_hmss_fuses {
 	u64	init_voltage[MSM8996_HMSS_FUSE_CORNERS];
 	u64	target_quot[MSM8996_HMSS_FUSE_CORNERS];
 	u64	quot_offset[MSM8996_HMSS_FUSE_CORNERS];
+	u64	cbf_voltage_offset[MSM8996_HMSS_FUSE_CORNERS];
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
 	u64	redundant_fusing;
@@ -324,6 +327,15 @@ msm8996_hmss_aging_init_quot_diff_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param
+msm8996pro_hmss_voltage_offset_param[MSM8996_HMSS_FUSE_CORNERS][4] = {
+	{{68, 50, 52}, {41, 63, 63}, {} },
+	{{62, 30, 31}, {62, 63, 63}, {66, 45, 45}, {} },
+	{{61, 35, 36}, {61, 62, 63}, {} },
+	{{61, 26, 26}, {61, 32, 34}, {} },
+	{{61, 22, 25}, {} },
+};
+
 #define MSM8996PRO_SOC_ID			4
 
 /*
@@ -391,6 +403,8 @@ static const int msm8996_vdd_mx_fuse_ret_volt[] = {
 
 #define MSM8996_HMSS_FUSE_STEP_VOLT		10000
 #define MSM8996_HMSS_VOLTAGE_FUSE_SIZE		6
+#define MSM8996PRO_HMSS_CBF_FUSE_STEP_VOLT	10000
+#define MSM8996PRO_HMSS_CBF_VOLTAGE_FUSE_SIZE	4
 #define MSM8996_HMSS_QUOT_OFFSET_SCALE		5
 #define MSM8996_HMSS_AGING_INIT_QUOT_DIFF_SCALE	2
 #define MSM8996_HMSS_AGING_INIT_QUOT_DIFF_SIZE	6
@@ -405,6 +419,23 @@ static const int msm8996_vdd_mx_fuse_ret_volt[] = {
 
 #define MSM8996_HMSS_AGING_SENSOR_ID		11
 #define MSM8996_HMSS_AGING_BYPASS_MASK0		(GENMASK(7, 0) & ~BIT(3))
+
+/**
+ * cpr3_msm8996_hmss_use_voltage_offset_fuse() - return if this part utilizes
+ *		voltage offset fuses or not
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * Return: true if this part utilizes voltage offset fuses, else false
+ */
+static inline bool cpr3_msm8996_hmss_use_voltage_offset_fuse(
+					struct cpr3_regulator *vreg)
+{
+	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
+
+	return vreg->thread->ctrl->soc_revision == MSM8996PRO_SOC_ID
+	       && fuse->cpr_fusing_rev >= 2
+	       && of_property_read_bool(vreg->of_node, "qcom,is-cbf-regulator");
+}
 
 /**
  * cpr3_msm8996_hmss_read_fuse_data() - load HMSS specific fuse parameter values
@@ -570,6 +601,49 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_regulator *vreg)
 	vreg->fuse_corner_count	= MSM8996_HMSS_FUSE_CORNERS;
 	vreg->platform_fuses	= fuse;
 
+	if (cpr3_msm8996_hmss_use_voltage_offset_fuse(vreg)) {
+		for (i = 0; i < MSM8996_HMSS_FUSE_CORNERS; i++) {
+			rc = cpr3_read_fuse_param(base,
+				msm8996pro_hmss_voltage_offset_param[i],
+				&fuse->cbf_voltage_offset[i]);
+			if (rc) {
+				cpr3_err(vreg, "Unable to read fuse-corner %d CBF voltage offset fuse, rc=%d\n",
+					i, rc);
+				return rc;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * cpr3_hmss_apply_fused_voltage_offset() - adjust the fused voltages for each
+ *		fuse corner according to voltage offset fuse values
+ * @vreg:		Pointer to the CPR3 regulator
+ * @fuse_volt:		Pointer to an array of the fused voltage values; must
+ *			have length equal to vreg->fuse_corner_count
+ *
+ * Voltage values in fuse_volt are modified in place.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_hmss_apply_fused_voltage_offset(struct cpr3_regulator *vreg,
+		int *fuse_volt)
+{
+	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
+	int i;
+
+	if (!cpr3_msm8996_hmss_use_voltage_offset_fuse(vreg))
+		return 0;
+
+	for (i = 0; i < vreg->fuse_corner_count; i++)
+		fuse_volt[i] += cpr3_convert_open_loop_voltage_fuse(
+					0,
+					MSM8996PRO_HMSS_CBF_FUSE_STEP_VOLT,
+					fuse->cbf_voltage_offset[i],
+					MSM8996PRO_HMSS_CBF_VOLTAGE_FUSE_SIZE);
+
 	return 0;
 }
 
@@ -652,6 +726,20 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 			cpr3_info(vreg, "fused %6s: open-loop=%7d uV\n",
 				cpr3_msm8996_hmss_fuse_corner_name[i],
 				fuse_volt[i]);
+	}
+
+	if (cpr3_msm8996_hmss_use_voltage_offset_fuse(vreg)) {
+		rc = cpr3_hmss_apply_fused_voltage_offset(vreg, fuse_volt);
+		if (rc) {
+			cpr3_err(vreg, "could not apply CBF voltage offsets, rc=%d\n",
+				rc);
+			goto done;
+		}
+
+		for (i = 0; i < vreg->fuse_corner_count; i++)
+			cpr3_info(vreg, "fused %6s: CBF offset open-loop=%7d uV\n",
+					cpr3_msm8996_hmss_fuse_corner_name[i],
+					fuse_volt[i]);
 	}
 
 	rc = cpr3_adjust_fused_open_loop_voltages(vreg, fuse_volt);
@@ -864,6 +952,13 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 				volt_adjust, volt_adjust_fuse, ro_scale);
 	if (rc) {
 		cpr3_err(vreg, "could not load closed-loop voltage adjustments, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	rc = cpr3_hmss_apply_fused_voltage_offset(vreg, volt_adjust_fuse);
+	if (rc) {
+		cpr3_err(vreg, "could not apply CBF voltage offsets, rc=%d\n",
 			rc);
 		goto done;
 	}

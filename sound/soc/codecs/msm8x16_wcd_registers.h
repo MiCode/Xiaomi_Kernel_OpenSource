@@ -1,4 +1,4 @@
- /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -350,6 +350,8 @@
 #define MSM8X16_WCD_A_CDC_CLK_SD_CTL__POR				(0x00)
 #define MSM8X16_WCD_A_CDC_CLK_WSA_VI_B1_CTL		(0x230)
 #define MSM8X16_WCD_A_CDC_CLK_WSA_VI_B1_CTL__POR			(0x00)
+#define MSM8X16_WCD_A_CDC_CLK_RX_B2_CTL			(0x234)
+#define MSM8X16_WCD_A_CDC_CLK_RX_B2_CTL__POR				(0x00)
 #define MSM8X16_WCD_A_CDC_RX1_B1_CTL			(0x240)
 #define MSM8X16_WCD_A_CDC_RX1_B1_CTL__POR				(0x00)
 #define MSM8X16_WCD_A_CDC_RX2_B1_CTL			(0x260)
@@ -402,6 +404,24 @@
 #define MSM8X16_WCD_A_CDC_TOP_GAIN_UPDATE__POR				(0x00)
 #define MSM8X16_WCD_A_CDC_TOP_CTL				(0x2A4)
 #define MSM8X16_WCD_A_CDC_TOP_CTL__POR					(0x01)
+#define MSM8X16_WCD_A_CDC_COMP0_B1_CTL				(0x2B0)
+#define MSM8X16_WCD_A_CDC_COMP0_B1_CTL__POR				(0x30)
+#define MSM8X16_WCD_A_CDC_COMP0_B2_CTL				(0x2B4)
+#define MSM8X16_WCD_A_CDC_COMP0_B2_CTL__POR				(0xB5)
+#define MSM8X16_WCD_A_CDC_COMP0_B3_CTL				(0x2B8)
+#define MSM8X16_WCD_A_CDC_COMP0_B3_CTL__POR				(0x28)
+#define MSM8X16_WCD_A_CDC_COMP0_B4_CTL				(0x2BC)
+#define MSM8X16_WCD_A_CDC_COMP0_B4_CTL__POR				(0x37)
+#define MSM8X16_WCD_A_CDC_COMP0_B5_CTL				(0x2C0)
+#define MSM8X16_WCD_A_CDC_COMP0_B5_CTL__POR				(0x7F)
+#define MSM8X16_WCD_A_CDC_COMP0_B6_CTL				(0x2C4)
+#define MSM8X16_WCD_A_CDC_COMP0_B6_CTL__POR				(0x00)
+#define MSM8X16_WCD_A_CDC_COMP0_SHUT_DOWN_STATUS		(0x2C8)
+#define MSM8X16_WCD_A_CDC_COMP0_SHUT_DOWN_STATUS__POR			(0x03)
+#define MSM8X16_WCD_A_CDC_COMP0_FS_CFG				(0x2CC)
+#define MSM8X16_WCD_A_CDC_COMP0_FS_CFG__POR				(0x03)
+#define MSM8X16_WCD_A_CDC_COMP0_DELAY_BUF_CTL			(0x2D0)
+#define MSM8X16_WCD_A_CDC_COMP0_DELAY_BUF_CTL__POR			(0x02)
 #define MSM8X16_WCD_A_CDC_DEBUG_DESER1_CTL			(0x2E0)
 #define MSM8X16_WCD_A_CDC_DEBUG_DESER1_CTL__POR				(0x00)
 #define MSM8X16_WCD_A_CDC_DEBUG_DESER2_CTL			(0x2E4)

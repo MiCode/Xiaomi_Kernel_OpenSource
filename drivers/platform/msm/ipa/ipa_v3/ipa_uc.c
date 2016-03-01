@@ -79,47 +79,6 @@ enum ipa3_hw_2_cpu_responses {
 };
 
 /**
- * enum ipa3_hw_2_cpu_events - Values that represent HW event to be sent to CPU.
- * @IPA_HW_2_CPU_EVENT_ERROR : Event specify a system error is detected by the
- * device
- * @IPA_HW_2_CPU_EVENT_LOG_INFO : Event providing logging specific information
- */
-enum ipa3_hw_2_cpu_events {
-	IPA_HW_2_CPU_EVENT_ERROR     =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
-	IPA_HW_2_CPU_EVENT_LOG_INFO  =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
-};
-
-/**
- * enum ipa3_hw_errors - Common error types.
- * @IPA_HW_ERROR_NONE : No error persists
- * @IPA_HW_INVALID_DOORBELL_ERROR : Invalid data read from doorbell
- * @IPA_HW_DMA_ERROR : Unexpected DMA error
- * @IPA_HW_FATAL_SYSTEM_ERROR : HW has crashed and requires reset.
- * @IPA_HW_INVALID_OPCODE : Invalid opcode sent
- * @IPA_HW_ZIP_ENGINE_ERROR : ZIP engine error
- */
-enum ipa3_hw_errors {
-	IPA_HW_ERROR_NONE              =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 0),
-	IPA_HW_INVALID_DOORBELL_ERROR  =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
-	IPA_HW_DMA_ERROR               =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
-	IPA_HW_FATAL_SYSTEM_ERROR      =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 3),
-	IPA_HW_INVALID_OPCODE          =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4),
-	IPA_HW_ZIP_ENGINE_ERROR        =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5),
-	IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 6),
-	IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7)
-};
-
-/**
  * struct IpaHwResetPipeCmdData_t - Structure holding the parameters
  * for IPA_CPU_2_HW_CMD_MEMCPY command.
  *
@@ -181,20 +140,6 @@ union IpaHwCpuCmdCompletedResponseData_t {
 } __packed;
 
 /**
- * union IpaHwErrorEventData_t - HW->CPU Common Events
- * @errorType : Entered when a system error is detected by the HW. Type of
- * error is specified by IPA_HW_ERRORS
- * @reserved : Reserved
- */
-union IpaHwErrorEventData_t {
-	struct IpaHwErrorEventParams_t {
-		u32 errorType:8;
-		u32 reserved:24;
-	} __packed params;
-	u32 raw32b;
-} __packed;
-
-/**
  * union IpaHwUpdateFlagsCmdData_t - Structure holding the parameters for
  * IPA_CPU_2_HW_CMD_UPDATE_FLAGS command
  * @newFlags: SW flags defined the behavior of HW.
@@ -230,7 +175,7 @@ do {									      \
 
 struct ipa3_uc_hdlrs ipa3_uc_hdlrs[IPA_HW_NUM_FEATURES] = { { 0 } };
 
-static inline const char *ipa_hw_error_str(enum ipa3_hw_errors err_type)
+const char *ipa_hw_error_str(enum ipa3_hw_errors err_type)
 {
 	const char *str;
 
@@ -383,6 +328,8 @@ static void ipa3_uc_event_handler(enum ipa_irq_type interrupt,
 			IPAERR("IPA has encountered a ZIP engine error\n");
 			ipa3_ctx->uc_ctx.uc_zip_error = true;
 		}
+		ipa3_ctx->uc_ctx.uc_error_timestamp =
+			ipahal_read_reg(IPA_TAG_TIMER);
 		BUG();
 	} else if (ipa3_ctx->uc_ctx.uc_sram_mmio->eventOp ==
 		IPA_HW_2_CPU_EVENT_LOG_INFO) {
