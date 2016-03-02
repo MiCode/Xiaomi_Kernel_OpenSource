@@ -335,7 +335,7 @@ config HW_RANDOM_TPM
 
 config HW_RANDOM_MSM_LEGACY
         tristate "Qualcomm MSM Random Number Generator support (LEGACY)"
-        depends on HW_RANDOM && ARCH_MSM
+        depends on HW_RANDOM && ARCH_QCOM
         select CRYPTO_AES
         select CRYPTO_ECB
         default n
@@ -351,7 +351,7 @@ config HW_RANDOM_MSM_LEGACY
 config HW_RANDOM_MSM
 	tristate "Qualcomm SoCs Random Number Generator support"
 	depends on HW_RANDOM && ARCH_QCOM
-	default HW_RANDOM
+	default n
 	---help---
 	  This driver provides kernel-side support for the Random Number
 	  Generator hardware found on Qualcomm SoCs.
