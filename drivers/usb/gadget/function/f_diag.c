@@ -225,13 +225,17 @@ static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 	local_diag_dload.pid = cdev->desc.idProduct;
 
 	/* pass on product id and serial number to dload */
-	if (cdev->desc.iSerialNumber) {
+	if (!cdev->desc.iSerialNumber) {
 		/*
 		 * Serial number is filled by the composite driver. So
 		 * it is fair enough to assume that it will always be
 		 * found at first table of strings.
 		 */
 		table = *(cdev->driver->strings);
+		if (!table) {
+			pr_err("%s: can't update dload cookie\n", __func__);
+			return;
+		}
 		for (s = table->strings; s && s->s; s++) {
 			if (s->id == cdev->desc.iSerialNumber) {
 				local_diag_dload.magic_struct.serial_num =
