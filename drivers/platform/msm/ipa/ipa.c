@@ -1366,6 +1366,7 @@ int ipa_q6_monitor_holb_mitigation(bool enable)
 	int ep_idx;
 	int client_idx;
 
+	ipa_inc_client_enable_clks();
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client_idx)) {
 			ep_idx = ipa_get_ep_mapping(client_idx);
@@ -1377,6 +1378,7 @@ int ipa_q6_monitor_holb_mitigation(bool enable)
 			ipa_uc_monitor_holb(client_idx, enable);
 		}
 	}
+	ipa_dec_client_disable_clks();
 
 	return 0;
 }
