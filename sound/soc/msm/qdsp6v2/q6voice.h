@@ -17,7 +17,6 @@
 #include <linux/msm_ion.h>
 #include <sound/voice_params.h>
 #include <linux/power_supply.h>
-#include <uapi/linux/vm_bms.h>
 
 #define MAX_VOC_PKT_SIZE 642
 #define SESSION_NAME_LEN 20
