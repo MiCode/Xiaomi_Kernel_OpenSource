@@ -448,6 +448,7 @@
 					pins = "gpio60", "gpio98", "gpio99";
 					drive-strength = <2>; /* 2 mA */
 					bias-pull-down; /* pull down */
+					input-enable;
 				};
 			};
 		};
