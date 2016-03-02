@@ -242,6 +242,12 @@ enum power_supply_notifier_events {
 	PSY_EVENT_PROP_CHANGED,
 };
 
+enum vmbms_power_usecase {
+	VMBMS_IGNORE_ALL_BIT = 1,
+	VMBMS_VOICE_CALL_BIT = (1 << 4),
+	VMBMS_STATIC_DISPLAY_BIT = (1 << 5),
+};
+
 union power_supply_propval {
 	int intval;
 	const char *strval;
