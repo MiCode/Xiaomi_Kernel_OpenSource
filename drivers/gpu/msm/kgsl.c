@@ -3942,7 +3942,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	}
 
 
-	device->events_wq = create_workqueue("kgsl-events");
+	device->events_wq = create_singlethread_workqueue("kgsl-events");
 
 	/* Initalize the snapshot engine */
 	kgsl_device_snapshot_init(device);
