@@ -1825,17 +1825,17 @@ static void msm_cci_init_default_clk_params(struct cci_device *cci_dev,
 	uint8_t index)
 {
 	/* default clock params are for 100Khz */
-	cci_dev->cci_clk_params[index].hw_thigh = 78;
-	cci_dev->cci_clk_params[index].hw_tlow = 114;
-	cci_dev->cci_clk_params[index].hw_tsu_sto = 28;
-	cci_dev->cci_clk_params[index].hw_tsu_sta = 28;
-	cci_dev->cci_clk_params[index].hw_thd_dat = 10;
-	cci_dev->cci_clk_params[index].hw_thd_sta = 77;
-	cci_dev->cci_clk_params[index].hw_tbuf = 118;
+	cci_dev->cci_clk_params[index].hw_thigh = 201;
+	cci_dev->cci_clk_params[index].hw_tlow = 174;
+	cci_dev->cci_clk_params[index].hw_tsu_sto = 204;
+	cci_dev->cci_clk_params[index].hw_tsu_sta = 231;
+	cci_dev->cci_clk_params[index].hw_thd_dat = 22;
+	cci_dev->cci_clk_params[index].hw_thd_sta = 162;
+	cci_dev->cci_clk_params[index].hw_tbuf = 227;
 	cci_dev->cci_clk_params[index].hw_scl_stretch_en = 0;
 	cci_dev->cci_clk_params[index].hw_trdhld = 6;
-	cci_dev->cci_clk_params[index].hw_tsp = 1;
-	cci_dev->cci_clk_params[index].cci_clk_src = 19200000;
+	cci_dev->cci_clk_params[index].hw_tsp = 3;
+	cci_dev->cci_clk_params[index].cci_clk_src = 37500000;
 }
 
 static void msm_cci_init_clk_params(struct cci_device *cci_dev)
