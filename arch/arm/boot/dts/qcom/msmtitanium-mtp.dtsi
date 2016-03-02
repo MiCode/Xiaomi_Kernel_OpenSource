@@ -181,6 +181,10 @@
 	pinctrl-0 = <&uart_console_active>;
 };
 
+&mem_client_3_size {
+	qcom,peripheral-size = <0x500000>;
+};
+
 &sdhc_1 {
 	/* device core power supply */
 	vdd-supply = <&pmtitanium_l8>;
