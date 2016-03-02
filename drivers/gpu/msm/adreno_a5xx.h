@@ -123,6 +123,9 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 #define AMP_OFFSET_CHECK_MAX_ERR	BIT(2)
 #define AMP_OFFSET_CHECK_MIN_ERR	BIT(1)
 
+/* A5XX_GPU_CS_AMP_CALIBRATION_DONE */
+#define SW_OPAMP_CAL_DONE           BIT(0)
+
 #define AMP_CALIBRATION_ERR (AMP_OFFSET_CHECK_MIN_ERR | \
 		AMP_OFFSET_CHECK_MAX_ERR | AMP_OUT_OF_RANGE_ERR)
 
