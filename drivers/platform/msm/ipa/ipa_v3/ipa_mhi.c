@@ -1151,12 +1151,12 @@ static void ipa3_mhi_set_holb_on_dl_channels(bool enable,
 static int ipa3_mhi_suspend_gsi_channel(struct ipa3_mhi_channel_ctx *channel)
 {
 	int res;
-	u32 clnt_hdl;
+	int clnt_hdl;
 
 	IPA_MHI_FUNC_ENTRY();
 
 	clnt_hdl = ipa3_get_ep_mapping(channel->ep->client);
-	if (clnt_hdl == -1)
+	if (clnt_hdl < 0)
 		return -EFAULT;
 
 	res = ipa3_stop_gsi_channel(clnt_hdl);
@@ -1180,12 +1180,12 @@ static int ipa3_mhi_suspend_gsi_channel(struct ipa3_mhi_channel_ctx *channel)
 static int ipa3_mhi_reset_gsi_channel(struct ipa3_mhi_channel_ctx *channel)
 {
 	int res;
-	u32 clnt_hdl;
+	int clnt_hdl;
 
 	IPA_MHI_FUNC_ENTRY();
 
 	clnt_hdl = ipa3_get_ep_mapping(channel->ep->client);
-	if (clnt_hdl == -1)
+	if (clnt_hdl < 0)
 		return -EFAULT;
 
 	res = ipa3_reset_gsi_channel(clnt_hdl);
@@ -1528,6 +1528,7 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	union __packed gsi_evt_scratch ev_scratch;
 	struct gsi_chan_props ch_props;
 	union __packed gsi_channel_scratch ch_scratch;
+	struct ipa_gsi_ep_config *ep_cfg;
 
 	IPA_MHI_FUNC_ENTRY();
 
@@ -1539,7 +1540,11 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 
 	msi = ipa3_mhi_ctx->msi;
 	ep = channel->ep;
-
+	ep_cfg = ipa_get_gsi_ep_info(ipa_ep_idx);
+	if (!ep_cfg) {
+		IPA_MHI_ERR("Wrong parameter, ep_cfg is NULL\n");
+		return -EPERM;
+	}
 	IPA_MHI_DBG("reading ch/ev context from host\n");
 	res = ipa_mhi_read_ch_ctx(channel);
 	if (res) {
@@ -1599,8 +1604,7 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	ch_props.prot = GSI_CHAN_PROT_MHI;
 	ch_props.dir = IPA_CLIENT_IS_PROD(ep->client) ?
 		GSI_CHAN_DIR_TO_GSI : GSI_CHAN_DIR_FROM_GSI;
-	ch_props.ch_id =
-		ipa_get_gsi_ep_info(ipa_ep_idx)->ipa_gsi_chan_num;
+	ch_props.ch_id = ep_cfg->ipa_gsi_chan_num;
 	ch_props.evt_ring_hdl = channel->cached_gsi_evt_ring_hdl;
 	ch_props.re_size = GSI_CHAN_RE_SIZE_16B;
 	ch_props.ring_len = channel->ch_ctx_host.rlen;
@@ -1626,9 +1630,8 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	ch_scratch.mhi.ul_dl_sync_en = ipa3_cached_dl_ul_sync_info.
 			params.isDlUlSyncEnabled;
 	ch_scratch.mhi.assert_bit40 = ipa3_mhi_ctx->assert_bit40;
-	ch_scratch.mhi.max_outstanding_tre =
-		ipa_get_gsi_ep_info(ipa_ep_idx)->ipa_if_aos *
-			GSI_CHAN_RE_SIZE_16B;
+	ch_scratch.mhi.max_outstanding_tre = ep_cfg->ipa_if_aos *
+		GSI_CHAN_RE_SIZE_16B;
 	ch_scratch.mhi.outstanding_threshold =
 		4 * GSI_CHAN_RE_SIZE_16B;
 	res = gsi_write_channel_scratch(channel->ep->gsi_chan_hdl,
