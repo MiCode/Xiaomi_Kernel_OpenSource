@@ -652,13 +652,15 @@ static int hidpp_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 	return 0;
 }
 
-static void hidpp_input_configured(struct hid_device *hdev,
+static int hidpp_input_configured(struct hid_device *hdev,
 				struct hid_input *hidinput)
 {
 	struct hidpp_device *hidpp = hid_get_drvdata(hdev);
 
 	if (hidpp->quirks & HIDPP_QUIRK_CLASS_WTP)
 		wtp_input_configured(hdev, hidinput);
+
+	return 0;
 }
 
 static int hidpp_raw_hidpp_event(struct hidpp_device *hidpp, u8 *data,
