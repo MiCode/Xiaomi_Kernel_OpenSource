@@ -992,11 +992,15 @@ void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
 	old_volt = ipa_rm_ctx->prof_vote.curr_volt;
 	old_bw = ipa_rm_ctx->prof_vote.curr_bw;
 
-	if (IPA_RM_RESORCE_IS_PROD(resource_name))
+	if (IPA_RM_RESORCE_IS_PROD(resource_name)) {
 		bw_ptr = &ipa_rm_ctx->prof_vote.bw_prods[resource_name];
-	else
+	} else if (IPA_RM_RESORCE_IS_CONS(resource_name)) {
 		bw_ptr = &ipa_rm_ctx->prof_vote.bw_cons[
 				resource_name - IPA_RM_RESOURCE_PROD_MAX];
+	} else {
+		IPAERR("Invalid resource_name\n");
+		return;
+	}
 
 	switch (resource->state) {
 	case IPA_RM_GRANTED:

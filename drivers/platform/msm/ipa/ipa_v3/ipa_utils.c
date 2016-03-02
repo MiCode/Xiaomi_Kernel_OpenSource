@@ -1085,6 +1085,10 @@ bool ipa_is_ep_support_flt(int pipe_idx)
  */
 u8 *ipa3_write_64(u64 w, u8 *dest)
 {
+	if (unlikely(dest == NULL)) {
+		IPAERR("NULL address!\n");
+		return dest;
+	}
 	*dest++ = (u8)((w) & 0xFF);
 	*dest++ = (u8)((w >> 8) & 0xFF);
 	*dest++ = (u8)((w >> 16) & 0xFF);
@@ -1106,6 +1110,10 @@ u8 *ipa3_write_64(u64 w, u8 *dest)
  */
 u8 *ipa3_write_32(u32 w, u8 *dest)
 {
+	if (unlikely(dest == NULL)) {
+		IPAERR("NULL address!\n");
+		return dest;
+	}
 	*dest++ = (u8)((w) & 0xFF);
 	*dest++ = (u8)((w >> 8) & 0xFF);
 	*dest++ = (u8)((w >> 16) & 0xFF);
@@ -1123,6 +1131,10 @@ u8 *ipa3_write_32(u32 w, u8 *dest)
  */
 u8 *ipa3_write_16(u16 hw, u8 *dest)
 {
+	if (unlikely(dest == NULL)) {
+		IPAERR("NULL address!\n");
+		return dest;
+	}
 	*dest++ = (u8)((hw) & 0xFF);
 	*dest++ = (u8)((hw >> 8) & 0xFF);
 
@@ -1138,6 +1150,10 @@ u8 *ipa3_write_16(u16 hw, u8 *dest)
  */
 u8 *ipa3_write_8(u8 b, u8 *dest)
 {
+	if (unlikely(dest == NULL)) {
+		IPAERR("NULL address!\n");
+		return dest;
+	}
 	*dest++ = (b) & 0xFF;
 
 	return dest;
