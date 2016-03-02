@@ -102,6 +102,8 @@
 #define DEVICE_READY_COUNT_MAX		500
 #define DEVICE_READY_COUNT_20		20
 #define IT_I2C_WAIT_10MS		10
+#define IT_I2C_READ_RET			2
+#define IT_I2C_WRITE_RET		1
 
 /* result of reading with BUF_QUERY bits */
 #define CMD_STATUS_BITS			0x07
@@ -233,7 +235,7 @@ DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, IT7260_debug_suspend_get,
 				IT7260_debug_suspend_set, "%lld\n");
 
 /* internal use func - does not make sure chip is ready before read */
-static bool IT7260_i2cReadNoReadyCheck(struct IT7260_ts_data *ts_data,
+static int IT7260_i2cReadNoReadyCheck(struct IT7260_ts_data *ts_data,
 			uint8_t buf_index, uint8_t *buffer, uint16_t buf_len)
 {
 	int ret;
@@ -255,15 +257,13 @@ static bool IT7260_i2cReadNoReadyCheck(struct IT7260_ts_data *ts_data,
 	memset(buffer, 0xFF, buf_len);
 
 	ret = i2c_transfer(ts_data->client->adapter, msgs, 2);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(&ts_data->client->dev, "i2c read failed %d\n", ret);
-		return false;
-	}
 
-	return (ret == 2) ? true : false;
+	return ret;
 }
 
-static bool IT7260_i2cWriteNoReadyCheck(struct IT7260_ts_data *ts_data,
+static int IT7260_i2cWriteNoReadyCheck(struct IT7260_ts_data *ts_data,
 		uint8_t buf_index, const uint8_t *buffer, uint16_t buf_len)
 {
 	uint8_t txbuf[257];
@@ -285,12 +285,10 @@ static bool IT7260_i2cWriteNoReadyCheck(struct IT7260_ts_data *ts_data,
 	memcpy(txbuf + 1, buffer, buf_len);
 
 	ret = i2c_transfer(ts_data->client->adapter, &msg, 1);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(&ts_data->client->dev, "i2c write failed %d\n", ret);
-		return false;
-	}
 
-	return (ret == 1) ? true : false;
+	return ret;
 }
 
 /*
@@ -302,12 +300,12 @@ static bool IT7260_i2cWriteNoReadyCheck(struct IT7260_ts_data *ts_data,
  * If slowly is set to TRUE, then add sleep of 50 ms in each retry,
  * otherwise don't sleep.
  */
-static bool IT7260_waitDeviceReady(struct IT7260_ts_data *ts_data, bool forever,
+static int IT7260_waitDeviceReady(struct IT7260_ts_data *ts_data, bool forever,
 							bool slowly)
 {
 	uint8_t query;
 	uint32_t count = DEVICE_READY_COUNT_20;
-	bool ret;
+	int ret;
 
 	if (ts_data->fw_cfg_uploading || forever)
 		count = DEVICE_READY_COUNT_MAX;
@@ -315,7 +313,7 @@ static bool IT7260_waitDeviceReady(struct IT7260_ts_data *ts_data, bool forever,
 	do {
 		ret = IT7260_i2cReadNoReadyCheck(ts_data, BUF_QUERY, &query,
 						sizeof(query));
-		if (ret == false && ((query & CMD_STATUS_BITS)
+		if (ret < 0 && ((query & CMD_STATUS_BITS)
 						== CMD_STATUS_NO_CONN))
 			continue;
 
@@ -327,90 +325,126 @@ static bool IT7260_waitDeviceReady(struct IT7260_ts_data *ts_data, bool forever,
 			msleep(IT_I2C_WAIT_10MS);
 	} while (--count);
 
-	return !(query & CMD_STATUS_BITS);
+	return ((!(query & CMD_STATUS_BITS)) ? 0 : -ENODEV);
 }
 
-static bool IT7260_i2cRead(struct IT7260_ts_data *ts_data, uint8_t buf_index,
+static int IT7260_i2cRead(struct IT7260_ts_data *ts_data, uint8_t buf_index,
 				uint8_t *buffer, uint16_t buf_len)
 {
-	bool ret;
+	int ret;
 
 	ret = IT7260_waitDeviceReady(ts_data, false, false);
-	if (ret == false)
+	if (ret < 0)
 		return ret;
 
 	return IT7260_i2cReadNoReadyCheck(ts_data, buf_index, buffer, buf_len);
 }
 
-static bool IT7260_i2cWrite(struct IT7260_ts_data *ts_data, uint8_t buf_index,
+static int IT7260_i2cWrite(struct IT7260_ts_data *ts_data, uint8_t buf_index,
 			const uint8_t *buffer, uint16_t buf_len)
 {
-	bool ret;
+	int ret;
 
 	ret = IT7260_waitDeviceReady(ts_data, false, false);
-	if (ret == false)
+	if (ret < 0)
 		return ret;
 
 	return IT7260_i2cWriteNoReadyCheck(ts_data, buf_index, buffer, buf_len);
 }
 
-static bool IT7260_firmware_reinitialize(struct IT7260_ts_data *ts_data,
+static int IT7260_firmware_reinitialize(struct IT7260_ts_data *ts_data,
 						u8 command)
 {
 	uint8_t cmd[] = {command};
 	uint8_t rsp[2];
+	int ret;
 
-	if (!IT7260_i2cWrite(ts_data, BUF_COMMAND, cmd, sizeof(cmd)))
-		return false;
+	ret = IT7260_i2cWrite(ts_data, BUF_COMMAND, cmd, sizeof(cmd));
+	if (ret != IT_I2C_WRITE_RET) {
+		dev_err(&ts_data->client->dev,
+			"failed to write fw reinit command %d\n", ret);
+		return ret;
+	}
 
-	if (!IT7260_i2cRead(ts_data, BUF_RESPONSE, rsp, sizeof(rsp)))
-		return false;
+	ret = IT7260_i2cRead(ts_data, BUF_RESPONSE, rsp, sizeof(rsp));
+	if (ret != IT_I2C_READ_RET) {
+		dev_err(&ts_data->client->dev,
+			"failed to read any response from chip %d\n", ret);
+		return ret;
+	}
 
 	/* a reply of two zero bytes signifies success */
-	return !rsp[0] && !rsp[1];
+	if (rsp[0] == 0 && rsp[1] == 0)
+		return 0;
+	else
+		return -EIO;
 }
 
-static bool IT7260_enter_exit_fw_ugrade_mode(struct IT7260_ts_data *ts_data,
+static int IT7260_enter_exit_fw_ugrade_mode(struct IT7260_ts_data *ts_data,
 							bool enter)
 {
 	uint8_t cmd[] = {CMD_FIRMWARE_UPGRADE, 0, 'I', 'T', '7', '2',
 						'6', '0', 0x55, 0xAA};
 	uint8_t resp[2];
+	int ret;
 
 	cmd[1] = enter ? SUB_CMD_ENTER_FW_UPGRADE_MODE :
 				SUB_CMD_EXIT_FW_UPGRADE_MODE;
-	if (!IT7260_i2cWrite(ts_data, BUF_COMMAND, cmd, sizeof(cmd)))
-		return false;
 
-	if (!IT7260_i2cRead(ts_data, BUF_RESPONSE, resp, sizeof(resp)))
-		return false;
+	ret = IT7260_i2cWrite(ts_data, BUF_COMMAND, cmd, sizeof(cmd));
+	if (ret != IT_I2C_WRITE_RET) {
+		dev_err(&ts_data->client->dev,
+			"failed to write CMD_FIRMWARE_UPGRADE %d\n", ret);
+		return ret;
+	}
+
+	ret = IT7260_i2cRead(ts_data, BUF_RESPONSE, resp, sizeof(resp));
+	if (ret != IT_I2C_READ_RET) {
+		dev_err(&ts_data->client->dev,
+			"failed to read any response from chip %d\n", ret);
+		return ret;
+	}
 
 	/* a reply of two zero bytes signifies success */
-	return !resp[0] && !resp[1];
+	if (resp[0] == 0 && resp[1] == 0)
+		return 0;
+	else
+		return -EIO;
 }
 
-static bool IT7260_chipSetStartOffset(struct IT7260_ts_data *ts_data,
+static int IT7260_chipSetStartOffset(struct IT7260_ts_data *ts_data,
 					uint16_t offset)
 {
 	uint8_t cmd[] = {CMD_SET_START_OFFSET, 0, ((uint8_t)(offset)),
 				((uint8_t)((offset) >> 8))};
 	uint8_t resp[2];
+	int ret;
 
-	if (!IT7260_i2cWrite(ts_data, BUF_COMMAND, cmd, 4))
-		return false;
+	ret = IT7260_i2cWrite(ts_data, BUF_COMMAND, cmd, 4);
+	if (ret != IT_I2C_WRITE_RET) {
+		dev_err(&ts_data->client->dev,
+			"failed to write CMD_SET_START_OFFSET %d\n", ret);
+		return ret;
+	}
 
 
-	if (!IT7260_i2cRead(ts_data, BUF_RESPONSE, resp, sizeof(resp)))
-		return false;
-
+	ret = IT7260_i2cRead(ts_data, BUF_RESPONSE, resp, sizeof(resp));
+	if (ret != IT_I2C_READ_RET) {
+		dev_err(&ts_data->client->dev,
+			"failed to read any response from chip %d\n", ret);
+		return ret;
+	}
 
 	/* a reply of two zero bytes signifies success */
-	return !resp[0] && !resp[1];
+	if (resp[0] == 0 && resp[1] == 0)
+		return 0;
+	else
+		return -EIO;
 }
 
 
 /* write fw_length bytes from fw_data at chip offset wr_start_offset */
-static bool IT7260_fw_flash_write_verify(struct IT7260_ts_data *ts_data,
+static int IT7260_fw_flash_write_verify(struct IT7260_ts_data *ts_data,
 			unsigned int fw_length,	const uint8_t *fw_data,
 			uint16_t wr_start_offset)
 {
@@ -468,11 +502,11 @@ static bool IT7260_fw_flash_write_verify(struct IT7260_ts_data *ts_data,
 			dev_err(&ts_data->client->dev,
 				"write of data offset %u failed on try %u at byte %u/%u\n",
 				cur_data_off, retries, i, cur_wr_size);
-			return false;
+			return -EIO;
 		}
 	}
 
-	return true;
+	return 0;
 }
 
 /*
@@ -486,49 +520,57 @@ static void IT7260_get_chip_versions(struct IT7260_ts_data *ts_data)
 	static const u8 cmd_read_cfg_ver[] = {CMD_READ_VERSIONS,
 						SUB_CMD_READ_CONFIG_VERSION};
 	u8 ver_fw[VERSION_LENGTH], ver_cfg[VERSION_LENGTH];
-	bool ret = true;
+	int ret;
 
 	ret = IT7260_i2cWrite(ts_data, BUF_COMMAND, cmd_read_fw_ver,
 					sizeof(cmd_read_fw_ver));
-	if (ret) {
+	if (ret == IT_I2C_WRITE_RET) {
 		/*
 		 * Sometimes, the controller may not respond immediately after
 		 * writing the command, so wait for device to get ready.
 		 */
 		ret = IT7260_waitDeviceReady(ts_data, true, false);
-		if (ret == false)
-			dev_err(&ts_data->client->dev, "failed to read chip status\n");
+		if (ret < 0)
+			dev_err(&ts_data->client->dev,
+				"failed to read chip status %d\n", ret);
 
 		ret = IT7260_i2cReadNoReadyCheck(ts_data, BUF_RESPONSE, ver_fw,
 					VERSION_LENGTH);
-		if (ret)
+		if (ret == IT_I2C_READ_RET)
 			memcpy(ts_data->fw_ver, ver_fw + (5 * sizeof(u8)),
 					VER_BUFFER_SIZE * sizeof(u8));
-	}
-	if (!ret)
+		else
+			dev_err(&ts_data->client->dev,
+				"failed to read fw-ver from chip %d\n", ret);
+	} else {
 		dev_err(&ts_data->client->dev,
-				"failed to read fw version from chip\n");
+				"failed to write fw-read command %d\n", ret);
+	}
 
 	ret = IT7260_i2cWrite(ts_data, BUF_COMMAND, cmd_read_cfg_ver,
 					sizeof(cmd_read_cfg_ver));
-	if (ret) {
+	if (ret == IT_I2C_WRITE_RET) {
 		/*
 		 * Sometimes, the controller may not respond immediately after
 		 * writing the command, so wait for device to get ready.
 		 */
 		ret = IT7260_waitDeviceReady(ts_data, true, false);
-		if (ret == false)
-			dev_err(&ts_data->client->dev, "failed to read chip status\n");
+		if (ret < 0)
+			dev_err(&ts_data->client->dev,
+				"failed to read chip status %d\n", ret);
 
 		ret = IT7260_i2cReadNoReadyCheck(ts_data, BUF_RESPONSE, ver_cfg,
 					VERSION_LENGTH);
-		if (ret)
+		if (ret == IT_I2C_READ_RET)
 			memcpy(ts_data->cfg_ver, ver_cfg + (1 * sizeof(u8)),
 					VER_BUFFER_SIZE * sizeof(u8));
-	}
-	if (!ret)
+		else
+			dev_err(&ts_data->client->dev,
+				"failed to read cfg-ver from chip %d\n", ret);
+	} else {
 		dev_err(&ts_data->client->dev,
-				"failed to read cfg version from chip\n");
+				"failed to write cfg-read command %d\n", ret);
+	}
 
 	dev_info(&ts_data->client->dev, "Current fw{%X.%X.%X.%X} cfg{%X.%X.%X.%X}\n",
 		ts_data->fw_ver[0], ts_data->fw_ver[1], ts_data->fw_ver[2],
@@ -540,7 +582,7 @@ static int IT7260_cfg_upload(struct IT7260_ts_data *ts_data, bool force)
 {
 	const struct firmware *cfg = NULL;
 	int ret;
-	bool success, cfg_upgrade = false;
+	bool cfg_upgrade = false;
 	struct device *dev = &ts_data->client->dev;
 
 	ret = request_firmware(&cfg, ts_data->cfg_name, dev);
@@ -561,7 +603,13 @@ static int IT7260_cfg_upload(struct IT7260_ts_data *ts_data, bool force)
 		cfg_upgrade = true;
 
 	if (!cfg_upgrade) {
-		dev_err(dev, "CFG upgrade no required ...\n");
+		dev_err(dev, "CFG upgrade not required ...\n");
+		dev_info(dev,
+			"Chip CFG : %X.%X.%X.%X Binary CFG : %X.%X.%X.%X\n",
+			ts_data->cfg_ver[0], ts_data->cfg_ver[1],
+			ts_data->cfg_ver[2], ts_data->cfg_ver[3],
+			cfg->data[cfg->size - 8], cfg->data[cfg->size - 7],
+			cfg->data[cfg->size - 6], cfg->data[cfg->size - 5]);
 		ret = -EFAULT;
 		goto out;
 	} else {
@@ -569,21 +617,30 @@ static int IT7260_cfg_upload(struct IT7260_ts_data *ts_data, bool force)
 
 		disable_irq(ts_data->client->irq);
 		/* enter cfg upload mode */
-		success = IT7260_enter_exit_fw_ugrade_mode(ts_data, true);
-		if (!success) {
-			dev_err(dev, "Can't enter cfg upgrade mode\n");
-			ret = -EIO;
+		ret = IT7260_enter_exit_fw_ugrade_mode(ts_data, true);
+		if (ret < 0) {
+			dev_err(dev, "Can't enter cfg upgrade mode %d\n", ret);
+			enable_irq(ts_data->client->irq);
 			goto out;
 		}
 		/* flash config data if requested */
-		success  = IT7260_fw_flash_write_verify(ts_data, cfg->size,
+		ret  = IT7260_fw_flash_write_verify(ts_data, cfg->size,
 					cfg->data, CHIP_FLASH_SIZE - cfg->size);
-		if (!success) {
-			dev_err(dev, "failed to upgrade touch cfg data\n");
-			IT7260_enter_exit_fw_ugrade_mode(ts_data, false);
-			IT7260_firmware_reinitialize(ts_data,
+		if (ret < 0) {
+			dev_err(dev,
+				"failed to upgrade touch cfg data %d\n", ret);
+			ret = IT7260_enter_exit_fw_ugrade_mode(ts_data, false);
+			if (ret < 0)
+				dev_err(dev,
+					"Can't exit cfg upgrade mode%d\n", ret);
+
+			ret = IT7260_firmware_reinitialize(ts_data,
 						CMD_FIRMWARE_REINIT_6F);
+			if (ret < 0)
+				dev_err(dev, "Can't reinit cfg %d\n", ret);
+
 			ret = -EIO;
+			enable_irq(ts_data->client->irq);
 			goto out;
 		} else {
 			memcpy(ts_data->cfg_ver, cfg->data +
@@ -607,7 +664,7 @@ static int IT7260_fw_upload(struct IT7260_ts_data *ts_data, bool force)
 {
 	const struct firmware *fw = NULL;
 	int ret;
-	bool success, fw_upgrade = false;
+	bool fw_upgrade = false;
 	struct device *dev = &ts_data->client->dev;
 
 	ret = request_firmware(&fw, ts_data->fw_name, dev);
@@ -629,6 +686,10 @@ static int IT7260_fw_upload(struct IT7260_ts_data *ts_data, bool force)
 
 	if (!fw_upgrade) {
 		dev_err(dev, "FW upgrade not required ...\n");
+		dev_info(dev, "Chip FW : %X.%X.%X.%X Binary FW : %X.%X.%X.%X\n",
+			ts_data->fw_ver[0], ts_data->fw_ver[1],
+			ts_data->fw_ver[2], ts_data->fw_ver[3],
+			fw->data[8], fw->data[9], fw->data[10], fw->data[11]);
 		ret = -EFAULT;
 		goto out;
 	} else {
@@ -636,21 +697,30 @@ static int IT7260_fw_upload(struct IT7260_ts_data *ts_data, bool force)
 
 		disable_irq(ts_data->client->irq);
 		/* enter fw upload mode */
-		success = IT7260_enter_exit_fw_ugrade_mode(ts_data, true);
-		if (!success) {
-			dev_err(dev, "Can't enter fw upgrade mode\n");
-			ret = -EIO;
+		ret = IT7260_enter_exit_fw_ugrade_mode(ts_data, true);
+		if (ret < 0) {
+			dev_err(dev, "Can't enter fw upgrade mode %d\n", ret);
+			enable_irq(ts_data->client->irq);
 			goto out;
 		}
 		/* flash the firmware if requested */
-		success = IT7260_fw_flash_write_verify(ts_data, fw->size,
+		ret = IT7260_fw_flash_write_verify(ts_data, fw->size,
 							fw->data, 0);
-		if (!success) {
-			dev_err(dev, "failed to upgrade touch firmware\n");
-			IT7260_enter_exit_fw_ugrade_mode(ts_data, false);
-			IT7260_firmware_reinitialize(ts_data,
+		if (ret < 0) {
+			dev_err(dev,
+				"failed to upgrade touch firmware %d\n", ret);
+			ret = IT7260_enter_exit_fw_ugrade_mode(ts_data, false);
+			if (ret < 0)
+				dev_err(dev,
+					"Can't exit fw upgrade mode %d\n", ret);
+
+			ret = IT7260_firmware_reinitialize(ts_data,
 						CMD_FIRMWARE_REINIT_6F);
+			if (ret < 0)
+				dev_err(dev, "Can't reinit firmware %d\n", ret);
+
 			ret = -EIO;
+			enable_irq(ts_data->client->irq);
 			goto out;
 		} else {
 			memcpy(ts_data->fw_ver, fw->data + (8 * sizeof(u8)),
@@ -865,7 +935,7 @@ static ssize_t sysfs_calibration_show(struct device *dev,
 				ts_data->calibration_success);
 }
 
-static bool IT7260_chipSendCalibrationCmd(struct IT7260_ts_data *ts_data,
+static int IT7260_chipSendCalibrationCmd(struct IT7260_ts_data *ts_data,
 						bool auto_tune_on)
 {
 	uint8_t cmd_calibrate[] = {CMD_CALIBRATE, 0,
@@ -880,13 +950,16 @@ static ssize_t sysfs_calibration_store(struct device *dev,
 {
 	struct IT7260_ts_data *ts_data = dev_get_drvdata(dev);
 	uint8_t resp;
+	int ret;
 
-	if (!IT7260_chipSendCalibrationCmd(ts_data, false)) {
+	ret = IT7260_chipSendCalibrationCmd(ts_data, false);
+	if (ret < 0) {
 		dev_err(dev, "failed to send calibration command\n");
 	} else {
-		ts_data->calibration_success =
-			IT7260_i2cRead(ts_data, BUF_RESPONSE, &resp,
+		ret = IT7260_i2cRead(ts_data, BUF_RESPONSE, &resp,
 							sizeof(resp));
+		if (ret == IT_I2C_READ_RET)
+			ts_data->calibration_success = true;
 
 		/*
 		 * previous logic that was here never called
@@ -908,13 +981,13 @@ static ssize_t sysfs_point_show(struct device *dev,
 {
 	struct IT7260_ts_data *ts_data = dev_get_drvdata(dev);
 	uint8_t point_data[sizeof(struct PointData)];
-	bool readSuccess;
+	int readSuccess;
 	ssize_t ret;
 
 	readSuccess = IT7260_i2cReadNoReadyCheck(ts_data, BUF_POINT_INFO,
 					point_data, sizeof(point_data));
 
-	if (readSuccess) {
+	if (readSuccess == IT_I2C_READ_RET) {
 		ret = scnprintf(buf, MAX_BUFFER_SIZE,
 			"point_show read ret[%d]--point[%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x]\n",
 			readSuccess, point_data[0], point_data[1],
@@ -1122,14 +1195,17 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 	u8 pressure = FD_PRESSURE_NONE;
 	u16 x, y;
 	bool palm_detected;
+	int ret;
 
 	/* verify there is point data to read & it is readable and valid */
-	IT7260_i2cReadNoReadyCheck(ts_data, BUF_QUERY, &dev_status,
+	ret = IT7260_i2cReadNoReadyCheck(ts_data, BUF_QUERY, &dev_status,
 						sizeof(dev_status));
-	if (!((dev_status & PT_INFO_BITS) & PT_INFO_YES))
-		return IRQ_HANDLED;
-	if (!IT7260_i2cReadNoReadyCheck(ts_data, BUF_POINT_INFO,
-				(void *)&point_data, sizeof(point_data))) {
+	if (ret == IT_I2C_READ_RET)
+		if (!((dev_status & PT_INFO_BITS) & PT_INFO_YES))
+			return IRQ_HANDLED;
+	ret = IT7260_i2cReadNoReadyCheck(ts_data, BUF_POINT_INFO,
+				(void *)&point_data, sizeof(point_data));
+	if (ret != IT_I2C_READ_RET) {
 		dev_err(&ts_data->client->dev,
 			"failed to read point data buffer\n");
 		return IRQ_HANDLED;
@@ -1215,6 +1291,7 @@ static int IT7260_chipIdentify(struct IT7260_ts_data *ts_data)
 	static const uint8_t expected_id[] = {0x0A, 'I', 'T', 'E', '7',
 							'2', '6', '0'};
 	uint8_t chip_id[10] = {0,};
+	int ret;
 
 	/*
 	 * Sometimes, the controller may not respond immediately after
@@ -1222,15 +1299,19 @@ static int IT7260_chipIdentify(struct IT7260_ts_data *ts_data)
 	 * FALSE means to retry 20 times at max to read the chip status.
 	 * TRUE means to add delay in each retry.
 	 */
-	if (!IT7260_waitDeviceReady(ts_data, false, true)) {
-		dev_err(&ts_data->client->dev, "failed to read chip status\n");
-		return -ENODEV;
+	ret = IT7260_waitDeviceReady(ts_data, false, true);
+	if (ret < 0) {
+		dev_err(&ts_data->client->dev,
+			"failed to read chip status %d\n", ret);
+		return ret;
 	}
 
-	if (!IT7260_i2cWriteNoReadyCheck(ts_data, BUF_COMMAND, cmd_ident,
-							sizeof(cmd_ident))) {
-		dev_err(&ts_data->client->dev, "failed to write CMD_IDENT_CHIP\n");
-		return -ENODEV;
+	ret = IT7260_i2cWriteNoReadyCheck(ts_data, BUF_COMMAND, cmd_ident,
+							sizeof(cmd_ident));
+	if (ret != IT_I2C_WRITE_RET) {
+		dev_err(&ts_data->client->dev,
+			"failed to write CMD_IDENT_CHIP %d\n", ret);
+		return ret;
 	}
 
 	/*
@@ -1239,16 +1320,20 @@ static int IT7260_chipIdentify(struct IT7260_ts_data *ts_data)
 	 * TRUE means to retry 500 times at max to read the chip status.
 	 * FALSE means to avoid unnecessary delays in each retry.
 	 */
-	if (!IT7260_waitDeviceReady(ts_data, true, false)) {
-		dev_err(&ts_data->client->dev, "failed to read chip status\n");
-		return -ENODEV;
+	ret = IT7260_waitDeviceReady(ts_data, true, false);
+	if (ret < 0) {
+		dev_err(&ts_data->client->dev,
+			"failed to read chip status %d\n", ret);
+		return ret;
 	}
 
 
-	if (!IT7260_i2cReadNoReadyCheck(ts_data, BUF_RESPONSE, chip_id,
-							sizeof(chip_id))) {
-		dev_err(&ts_data->client->dev, "failed to read chip-id\n");
-		return -ENODEV;
+	ret = IT7260_i2cReadNoReadyCheck(ts_data, BUF_RESPONSE, chip_id,
+							sizeof(chip_id));
+	if (ret != IT_I2C_READ_RET) {
+		dev_err(&ts_data->client->dev,
+			"failed to read chip-id %d\n", ret);
+		return ret;
 	}
 	dev_info(&ts_data->client->dev,
 		"IT7260_chipIdentify read id: %02X %c%c%c%c%c%c%c %c%c\n",
