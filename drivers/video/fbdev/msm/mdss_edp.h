@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,10 +14,20 @@
 #ifndef MDSS_EDP_H
 #define MDSS_EDP_H
 
+#include <linux/list.h>
+#include <linux/mdss_io_util.h>
+#include <linux/irqreturn.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/gpio.h>
 #include <linux/of_gpio.h>
 
-#define edp_read(offset) readl_relaxed((offset))
-#define edp_write(offset, data) writel_relaxed((data), (offset))
+#include "mdss_hdmi_util.h"
+#include "video/msm_hdmi_modes.h"
+#include "mdss.h"
+#include "mdss_panel.h"
+
+#define dp_read(offset) readl_relaxed((offset))
+#define dp_write(offset, data) writel_relaxed((data), (offset))
 
 #define AUX_CMD_FIFO_LEN	144
 #define AUX_CMD_MAX		16
@@ -73,7 +83,7 @@
 
 
 #define EDP_INTR_STATUS1 \
-	(EDP_INTR_HPD | EDP_INTR_AUX_I2C_DONE| \
+	(EDP_INTR_AUX_I2C_DONE| \
 	EDP_INTR_WRONG_ADDR | EDP_INTR_TIMEOUT | \
 	EDP_INTR_NACK_DEFER | EDP_INTR_WRONG_DATA_CNT | \
 	EDP_INTR_I2C_NACK | EDP_INTR_I2C_DEFER | \
@@ -93,17 +103,6 @@
 
 #define EDP_INTR_MASK2		(EDP_INTR_STATUS2 << 2)
 
-
-#define EDP_MAINLINK_CTRL	0x004
-#define EDP_STATE_CTRL		0x008
-#define EDP_MAINLINK_READY	0x084
-
-#define EDP_AUX_CTRL		0x300
-#define EDP_INTERRUPT_STATUS	0x308
-#define EDP_INTERRUPT_STATUS_2	0x30c
-#define EDP_AUX_DATA		0x314
-#define EDP_AUX_TRANS_CTRL	0x318
-#define EDP_AUX_STATUS		0x324
 
 #define EDP_PHY_EDPPHY_GLB_VM_CFG0	0x510
 #define EDP_PHY_EDPPHY_GLB_VM_CFG1	0x514
@@ -125,6 +124,13 @@ struct edp_buf {
 	int len;	/* dara length */
 	char trans_num;	/* transaction number */
 	char i2c;	/* 1 == i2c cmd, 0 == native cmd */
+};
+
+enum dp_pm_type {
+	DP_CORE_PM,
+	DP_CTRL_PM,
+	DP_PHY_PM,
+	DP_MAX_PM
 };
 
 #define DPCD_ENHANCED_FRAME	BIT(0)
@@ -156,9 +162,10 @@ struct edp_buf {
 #define SINK_POWER_ON		1
 #define SINK_POWER_OFF		2
 
-#define EDP_LINK_RATE_162	6	/* 1.62G = 270M * 6 */
-#define EDP_LINK_RATE_270	10	/* 2.70G = 270M * 10 */
-#define EDP_LINK_RATE_MAX	EDP_LINK_RATE_270
+#define DP_LINK_RATE_162	6	/* 1.62G = 270M * 6 */
+#define DP_LINK_RATE_270	10	/* 2.70G = 270M * 10 */
+#define DP_LINK_RATE_540	20	/* 5.40G = 270M * 20 */
+#define DP_LINK_RATE_MAX	DP_LINK_RATE_540
 
 struct dpcd_cap {
 	char major;
@@ -215,7 +222,7 @@ struct edp_edid {
 	short id_product;
 	char version;
 	char revision;
-	char video_intf;	/* edp == 0x5 */
+	char video_intf;	/* dp == 0x5 */
 	char color_depth;	/* 6, 8, 10, 12 and 14 bits */
 	char color_format;	/* RGB 4:4:4, YCrCb 4:4:4, Ycrcb 4:2:2 */
 	char dpm;		/* display power management */
@@ -227,7 +234,7 @@ struct edp_edid {
 	struct display_timing_desc timing[4];
 };
 
-struct edp_statistic {
+struct dp_statistic {
 	u32 intr_hpd;
 	u32 intr_aux_i2c_done;
 	u32 intr_wrong_addr;
@@ -251,9 +258,9 @@ struct edp_statistic {
 #define DPCD_LINK_VOLTAGE_MAX	4
 #define DPCD_LINK_PRE_EMPHASIS_MAX	4
 
-#define HPD_EVENT_MAX   8
+irqreturn_t dp_isr(int irq, void *ptr);
 
-struct mdss_edp_drv_pdata {
+struct mdss_dp_drv_pdata {
 	/* device driver */
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
@@ -263,10 +270,15 @@ struct mdss_edp_drv_pdata {
 	int clk_cnt;
 	int cont_splash;
 	bool inited;
-	int delay_link_train;
+	bool core_power;
+	bool core_clks_on;
+	bool link_clks_on;
 
-	/* edp specific */
+	/* dp specific */
 	unsigned char *base;
+	struct dss_io_data ctrl_io;
+	struct dss_io_data phy_io;
+	struct dss_io_data tcsr_reg_io;
 	int base_size;
 	unsigned char *mmss_cc_base;
 	u32 mask1;
@@ -275,8 +287,8 @@ struct mdss_edp_drv_pdata {
 	struct mdss_panel_data panel_data;
 	struct mdss_util_intf *mdss_util;
 
-	int edp_on_cnt;
-	int edp_off_cnt;
+	int dp_on_cnt;
+	int dp_off_cnt;
 
 	u32 pixel_rate;
 	u32 aux_rate;
@@ -289,25 +301,8 @@ struct mdss_edp_drv_pdata {
 	struct dpcd_cap dpcd;
 
 	/* regulators */
-	struct regulator *vdda_vreg;
-
-	/* clocks */
-	struct clk *aux_clk;
-	struct clk *pixel_clk;
-	struct clk *ahb_clk;
-	struct clk *link_clk;
-	struct clk *mdp_core_clk;
+	struct dss_module_power power_data[DP_MAX_PM];
 	int clk_on;
-
-	/* gpios */
-	int gpio_panel_en;
-	int gpio_lvl_en;
-
-	/* backlight */
-	struct pwm_device *bl_pwm;
-	bool is_pwm_enabled;
-	int lpg_channel;
-	int pwm_period;
 
 	/* hpd */
 	int gpio_panel_hpd;
@@ -338,43 +333,51 @@ struct mdss_edp_drv_pdata {
 	char valid_boundary;
 	char delay_start;
 	u32 bpp;
-	struct edp_statistic edp_stat;
+	struct dp_statistic dp_stat;
 
 	/* event */
-	wait_queue_head_t event_q;
-	u32 event_pndx;
-	u32 event_gndx;
-	u32 event_todo_list[HPD_EVENT_MAX];
+	struct workqueue_struct *workq;
+	struct delayed_work dwork;
+	u32 current_event;
 	spinlock_t event_lock;
 	spinlock_t lock;
+	struct hdmi_util_ds_data ds_data;
 };
 
-int mdss_edp_aux_clk_enable(struct mdss_edp_drv_pdata *edp_drv);
-void mdss_edp_aux_clk_disable(struct mdss_edp_drv_pdata *edp_drv);
-int mdss_edp_clk_enable(struct mdss_edp_drv_pdata *edp_drv);
-void mdss_edp_clk_disable(struct mdss_edp_drv_pdata *edp_drv);
-int mdss_edp_clk_init(struct mdss_edp_drv_pdata *edp_drv);
-void mdss_edp_clk_deinit(struct mdss_edp_drv_pdata *edp_drv);
-int mdss_edp_prepare_aux_clocks(struct mdss_edp_drv_pdata *edp_drv);
-void mdss_edp_unprepare_aux_clocks(struct mdss_edp_drv_pdata *edp_drv);
-int mdss_edp_prepare_clocks(struct mdss_edp_drv_pdata *edp_drv);
-void mdss_edp_unprepare_clocks(struct mdss_edp_drv_pdata *edp_drv);
+static inline const char *__mdss_dp_pm_name(enum dp_pm_type module)
+{
+	switch (module) {
+	case DP_CORE_PM:	return "DP_CORE_PM";
+	case DP_CTRL_PM:	return "DP_CTRL_PM";
+	case DP_PHY_PM:		return "DP_PHY_PM";
+	default:		return "???";
+	}
+}
 
-void mdss_edp_dpcd_cap_read(struct mdss_edp_drv_pdata *edp);
-int mdss_edp_dpcd_status_read(struct mdss_edp_drv_pdata *edp);
-void mdss_edp_edid_read(struct mdss_edp_drv_pdata *edp, int block);
-int mdss_edp_link_train(struct mdss_edp_drv_pdata *edp);
-void edp_aux_i2c_handler(struct mdss_edp_drv_pdata *edp, u32 isr);
-void edp_aux_native_handler(struct mdss_edp_drv_pdata *edp, u32 isr);
-void mdss_edp_aux_init(struct mdss_edp_drv_pdata *ep);
+static inline const char *__mdss_dp_pm_supply_node_name(
+	enum dp_pm_type module)
+{
+	switch (module) {
+	case DP_CORE_PM:	return "qcom,core-supply-entries";
+	case DP_CTRL_PM:	return "qcom,ctrl-supply-entries";
+	case DP_PHY_PM:		return "qcom,phy-supply-entries";
+	default:		return "???";
+	}
+}
 
-void mdss_edp_fill_link_cfg(struct mdss_edp_drv_pdata *ep);
-void mdss_edp_sink_power_down(struct mdss_edp_drv_pdata *ep);
-void mdss_edp_state_ctrl(struct mdss_edp_drv_pdata *ep, u32 state);
-int mdss_edp_sink_power_state(struct mdss_edp_drv_pdata *ep, char state);
-void mdss_edp_lane_power_ctrl(struct mdss_edp_drv_pdata *ep, int up);
-void mdss_edp_config_ctrl(struct mdss_edp_drv_pdata *ep);
+void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp);
 
-void mdss_edp_clk_debug(unsigned char *edp_base, unsigned char *mmss_cc_base);
+void mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *dp);
+int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *dp);
+void mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp, int block);
+int mdss_dp_link_train(struct mdss_dp_drv_pdata *dp);
+void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *dp, u32 isr);
+void dp_aux_native_handler(struct mdss_dp_drv_pdata *dp, u32 isr);
+void mdss_dp_aux_init(struct mdss_dp_drv_pdata *ep);
+
+void mdss_dp_fill_link_cfg(struct mdss_dp_drv_pdata *ep);
+void mdss_dp_sink_power_down(struct mdss_dp_drv_pdata *ep);
+void mdss_dp_lane_power_ctrl(struct mdss_dp_drv_pdata *ep, int up);
+void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *ep);
 
 #endif /* MDSS_EDP_H */

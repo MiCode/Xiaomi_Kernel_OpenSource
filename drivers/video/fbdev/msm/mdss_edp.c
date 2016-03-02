@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  *
  */
+
+#define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -27,11 +29,10 @@
 #include <linux/clk.h>
 #include <linux/spinlock_types.h>
 #include <linux/kthread.h>
-#include <mach/hardware.h>
-#include <mach/dma.h>
 
 #include "mdss.h"
 #include "mdss_edp.h"
+#include "mdss_dp_util.h"
 #include "mdss_debug.h"
 
 #define RGB_COMPONENTS		3
@@ -40,1234 +41,1108 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
-static int mdss_edp_regulator_on(struct mdss_edp_drv_pdata *edp_drv);
-/*
- * Init regulator needed for edp, 8974_l12
- */
-static int mdss_edp_regulator_init(struct mdss_edp_drv_pdata *edp_drv)
+
+
+static void mdss_dp_put_dt_clk_data(struct device *dev,
+	struct dss_module_power *module_power)
 {
-	int ret;
-
-	edp_drv->vdda_vreg = devm_regulator_get(&(edp_drv->pdev->dev), "vdda");
-	if (IS_ERR(edp_drv->vdda_vreg)) {
-		pr_err("%s: Could not get 8941_l12, ret = %ld\n", __func__,
-				PTR_ERR(edp_drv->vdda_vreg));
-		return -ENODEV;
-	}
-
-	ret = regulator_set_voltage(edp_drv->vdda_vreg,
-			VDDA_MIN_UV, VDDA_MAX_UV);
-	if (ret) {
-		pr_err("%s: vdda_vreg set_voltage failed, ret=%d\n", __func__,
-				ret);
-		return -EINVAL;
-	}
-
-	ret = mdss_edp_regulator_on(edp_drv);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-/*
- * Set uA and enable vdda
- */
-static int mdss_edp_regulator_on(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret;
-
-	ret = regulator_set_optimum_mode(edp_drv->vdda_vreg, VDDA_UA_ON_LOAD);
-	if (ret < 0) {
-		pr_err("%s: vdda_vreg set regulator mode failed.\n", __func__);
-		return ret;
-	}
-
-	ret = regulator_enable(edp_drv->vdda_vreg);
-	if (ret) {
-		pr_err("%s: Failed to enable vdda_vreg regulator.\n", __func__);
-		return ret;
-	}
-
-	return 0;
-}
-
-/*
- * Disable vdda and set uA
- */
-static int mdss_edp_regulator_off(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret;
-
-	ret = regulator_disable(edp_drv->vdda_vreg);
-	if (ret) {
-		pr_err("%s: Failed to disable vdda_vreg regulator.\n",
-				__func__);
-		return ret;
-	}
-
-	ret = regulator_set_optimum_mode(edp_drv->vdda_vreg, VDDA_UA_OFF_LOAD);
-	if (ret < 0) {
-		pr_err("%s: vdda_vreg set regulator mode failed.\n",
-				__func__);
-		return ret;
-	}
-
-	return 0;
-}
-
-/*
- * Enables the gpio that supply power to the panel and enable the backlight
- */
-static int mdss_edp_gpio_panel_en(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret = 0;
-
-	edp_drv->gpio_panel_en = of_get_named_gpio(edp_drv->pdev->dev.of_node,
-			"gpio-panel-en", 0);
-	if (!gpio_is_valid(edp_drv->gpio_panel_en)) {
-		pr_err("%s: gpio_panel_en=%d not specified\n", __func__,
-				edp_drv->gpio_panel_en);
-		goto gpio_err;
-	}
-
-	ret = gpio_request(edp_drv->gpio_panel_en, "disp_enable");
-	if (ret) {
-		pr_err("%s: Request reset gpio_panel_en failed, ret=%d\n",
-				__func__, ret);
-		return ret;
-	}
-
-	ret = gpio_direction_output(edp_drv->gpio_panel_en, 1);
-	if (ret) {
-		pr_err("%s: Set direction for gpio_panel_en failed, ret=%d\n",
-				__func__, ret);
-		goto gpio_free;
-	}
-
-	return 0;
-
-gpio_free:
-	gpio_free(edp_drv->gpio_panel_en);
-gpio_err:
-	return -ENODEV;
-}
-
-static int mdss_edp_gpio_lvl_en(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret = 0;
-
-	edp_drv->gpio_lvl_en = of_get_named_gpio(edp_drv->pdev->dev.of_node,
-			"gpio-lvl-en", 0);
-	if (!gpio_is_valid(edp_drv->gpio_lvl_en)) {
-		pr_err("%s: gpio_lvl_en=%d not specified\n", __func__,
-				edp_drv->gpio_lvl_en);
-		ret = -ENODEV;
-		goto gpio_err;
-	}
-
-	ret = gpio_request(edp_drv->gpio_lvl_en, "lvl_enable");
-	if (ret) {
-		pr_err("%s: Request reset gpio_lvl_en failed, ret=%d\n",
-				__func__, ret);
-		return ret;
-	}
-
-	ret = gpio_direction_output(edp_drv->gpio_lvl_en, 1);
-	if (ret) {
-		pr_err("%s: Set direction for gpio_lvl_en failed, ret=%d\n",
-				__func__, ret);
-		goto gpio_free;
-	}
-
-	return ret;
-
-gpio_free:
-	gpio_free(edp_drv->gpio_lvl_en);
-gpio_err:
-	return ret;
-}
-
-static int mdss_edp_pwm_config(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret = 0;
-
-	ret = of_property_read_u32(edp_drv->pdev->dev.of_node,
-			"qcom,panel-pwm-period", &edp_drv->pwm_period);
-	if (ret) {
-		pr_warn("%s: panel pwm period is not specified, %d", __func__,
-				edp_drv->pwm_period);
-		edp_drv->pwm_period = -EINVAL;
-	}
-
-	ret = of_property_read_u32(edp_drv->pdev->dev.of_node,
-			"qcom,panel-lpg-channel", &edp_drv->lpg_channel);
-	if (ret) {
-		pr_warn("%s: panel lpg channel is not specified, %d", __func__,
-				edp_drv->lpg_channel);
-		edp_drv->lpg_channel = -EINVAL;
-	}
-
-	if (edp_drv->pwm_period != -EINVAL &&
-		edp_drv->lpg_channel != -EINVAL) {
-		edp_drv->bl_pwm = pwm_request(edp_drv->lpg_channel,
-				"lcd-backlight");
-		if (edp_drv->bl_pwm == NULL || IS_ERR(edp_drv->bl_pwm)) {
-			pr_err("%s: pwm request failed", __func__);
-			edp_drv->bl_pwm = NULL;
-			return -EIO;
-		}
-	} else {
-		edp_drv->bl_pwm = NULL;
-	}
-
-	return 0;
-}
-
-void mdss_edp_set_backlight(struct mdss_panel_data *pdata, u32 bl_level)
-{
-	int ret = 0;
-	struct mdss_edp_drv_pdata *edp_drv = NULL;
-	int bl_max;
-	int period_ns;
-
-	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata, panel_data);
-	if (!edp_drv) {
-		pr_err("%s: Invalid input data\n", __func__);
+	if (!module_power) {
+		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
 
-	if (edp_drv->bl_pwm != NULL) {
-		bl_max = edp_drv->panel_data.panel_info.bl_max;
-		if (bl_level > bl_max)
-			bl_level = bl_max;
+	if (module_power->clk_config) {
+		devm_kfree(dev, module_power->clk_config);
+		module_power->clk_config = NULL;
+	}
+	module_power->num_clk = 0;
+} /* mdss_dp_put_dt_clk_data */
 
-		/* In order to avoid overflow, use the microsecond version
-		 * of pwm_config if the pwm_period is greater than or equal
-		 * to 1 second.
-		 */
-		if (edp_drv->pwm_period >= USEC_PER_SEC) {
-			ret = pwm_config_us(edp_drv->bl_pwm,
-					bl_level * edp_drv->pwm_period / bl_max,
-					edp_drv->pwm_period);
-			if (ret) {
-				pr_err("%s: pwm_config_us() failed err=%d.\n",
-						__func__, ret);
-				return;
-			}
-		} else {
-			period_ns = edp_drv->pwm_period * NSEC_PER_USEC;
-			ret = pwm_config(edp_drv->bl_pwm,
-					bl_level * period_ns / bl_max,
-					period_ns);
-			if (ret) {
-				pr_err("%s: pwm_config() failed err=%d.\n",
-						__func__, ret);
-				return;
-			}
+static int mdss_dp_is_clk_prefix(const char *clk_prefix, const char *clk_name)
+{
+	return !strncmp(clk_name, clk_prefix, strlen(clk_prefix));
+}
+
+static int mdss_dp_init_clk_power_data(struct device *dev,
+		struct mdss_dp_drv_pdata *pdata)
+{
+	int num_clk = 0, i = 0, rc = 0;
+	int core_clk_count = 0, ctrl_clk_count = 0;
+	const char *core_clk = "core";
+	const char *ctrl_clk = "ctrl";
+	struct dss_module_power *core_power_data = NULL;
+	struct dss_module_power *ctrl_power_data = NULL;
+	const char *clk_name;
+
+	num_clk = of_property_count_strings(dev->of_node,
+			"clock-names");
+	if (num_clk <= 0) {
+		pr_err("no clocks are defined\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	core_power_data = &pdata->power_data[DP_CORE_PM];
+	ctrl_power_data = &pdata->power_data[DP_CTRL_PM];
+
+	for (i = 0; i < num_clk; i++) {
+		of_property_read_string_index(dev->of_node, "clock-names",
+				i, &clk_name);
+
+		if (mdss_dp_is_clk_prefix(core_clk, clk_name))
+			core_clk_count++;
+		if (mdss_dp_is_clk_prefix(ctrl_clk, clk_name))
+			ctrl_clk_count++;
+	}
+
+	/* Initialize the CORE power module */
+	if (core_clk_count <= 0) {
+		pr_err("no core clocks are defined\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	core_power_data->num_clk = core_clk_count;
+	core_power_data->clk_config = devm_kzalloc(dev, sizeof(struct dss_clk) *
+			core_power_data->num_clk, GFP_KERNEL);
+	if (!core_power_data->clk_config) {
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	/* Initialize the CTRL power module */
+	if (ctrl_clk_count <= 0) {
+		pr_err("no ctrl clocks are defined\n");
+		rc = -EINVAL;
+		goto ctrl_clock_error;
+	}
+
+	ctrl_power_data->num_clk = ctrl_clk_count;
+	ctrl_power_data->clk_config = devm_kzalloc(dev, sizeof(struct dss_clk) *
+			ctrl_power_data->num_clk, GFP_KERNEL);
+	if (!ctrl_power_data->clk_config) {
+		ctrl_power_data->num_clk = 0;
+		rc = -EINVAL;
+		goto ctrl_clock_error;
+	}
+
+	return rc;
+
+ctrl_clock_error:
+	mdss_dp_put_dt_clk_data(dev, core_power_data);
+exit:
+	return rc;
+}
+
+static int mdss_dp_get_dt_clk_data(struct device *dev,
+		struct mdss_dp_drv_pdata *pdata)
+{
+	int rc = 0, i = 0;
+	const char *clk_name;
+	int num_clk = 0;
+	int core_clk_index = 0, ctrl_clk_index = 0;
+	int core_clk_count = 0, ctrl_clk_count = 0;
+	const char *core_clk = "core";
+	const char *ctrl_clk = "ctrl";
+	struct dss_module_power *core_power_data = NULL;
+	struct dss_module_power *ctrl_power_data = NULL;
+
+	if (!dev || !pdata) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	rc =  mdss_dp_init_clk_power_data(dev, pdata);
+	if (rc) {
+		pr_err("failed to initialize power data\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	core_power_data = &pdata->power_data[DP_CORE_PM];
+	core_clk_count = core_power_data->num_clk;
+	ctrl_power_data = &pdata->power_data[DP_CTRL_PM];
+	ctrl_clk_count = ctrl_power_data->num_clk;
+
+	num_clk = core_clk_count + ctrl_clk_count;
+
+	for (i = 0; i < num_clk; i++) {
+		of_property_read_string_index(dev->of_node, "clock-names",
+				i, &clk_name);
+
+		if (mdss_dp_is_clk_prefix(core_clk, clk_name)
+				&& core_clk_index < core_clk_count) {
+			struct dss_clk *clk =
+				&core_power_data->clk_config[core_clk_index];
+			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
+			clk->type = DSS_CLK_AHB;
+			core_clk_index++;
+		} else if (mdss_dp_is_clk_prefix(ctrl_clk, clk_name)
+				&& ctrl_clk_index < ctrl_clk_count) {
+			struct dss_clk *clk =
+				&ctrl_power_data->clk_config[ctrl_clk_index];
+			strlcpy(clk->clk_name, clk_name, sizeof(clk->clk_name));
+			ctrl_clk_index++;
+			if (!strcmp(clk_name, "ctrl_link_clk"))
+				clk->type = DSS_CLK_PCLK;
+			else if (!strcmp(clk_name, "ctrl_pixel_clk"))
+				clk->type = DSS_CLK_PCLK;
+			else
+				clk->type = DSS_CLK_AHB;
 		}
-
-	if (edp_drv->is_pwm_enabled) {
-		pwm_disable(edp_drv->bl_pwm);
-		edp_drv->is_pwm_enabled = 0;
 	}
 
-		ret = pwm_enable(edp_drv->bl_pwm);
-		if (ret) {
-			pr_err("%s: pwm_enable() failed err=%d\n", __func__,
-					ret);
-			return;
-		}
-	edp_drv->is_pwm_enabled = 1;
-	}
-}
+	pr_debug("Display-port clock parsing successful\n");
 
-int mdss_edp_mainlink_ready(struct mdss_edp_drv_pdata *ep, u32 which)
+exit:
+	return rc;
+} /* mdss_dp_get_dt_clk_data */
+
+/*
+ * This clock control function supports enabling/disabling
+ * of core and ctrl power module clocks
+ */
+static int mdss_dp_clk_ctrl(struct mdss_dp_drv_pdata *dp_drv,
+				int pm_type, bool enable)
 {
-	u32 data;
-	int cnt = 10;
+	int ret = 0;
 
-	while (--cnt) {
-		data = edp_read(ep->base + 0x84); /* EDP_MAINLINK_READY */
-		if (data & which) {
-			pr_debug("%s: which=%x ready\n", __func__, which);
-			return 1;
-		}
-		usleep_range(1000, 1000);
-	}
-	pr_err("%s: which=%x NOT ready\n", __func__, which);
-
-	return 0;
-}
-
-void mdss_edp_mainlink_reset(struct mdss_edp_drv_pdata *ep)
-{
-	edp_write(ep->base + 0x04, 0x02); /* EDP_MAINLINK_CTRL */
-	usleep_range(1000, 1000);
-	edp_write(ep->base + 0x04, 0); /* EDP_MAINLINK_CTRL */
-}
-
-void mdss_edp_mainlink_ctrl(struct mdss_edp_drv_pdata *ep, int enable)
-{
-	u32 data;
-
-	data = edp_read(ep->base + 0x04);
-	data &= ~BIT(0);
-
-	if (enable)
-		data |= 0x1;
-
-	edp_write(ep->base + 0x04, data);
-}
-
-void mdss_edp_state_ctrl(struct mdss_edp_drv_pdata *ep, u32 state)
-{
-	edp_write(ep->base + EDP_STATE_CTRL, state);
-}
-
-void mdss_edp_aux_reset(struct mdss_edp_drv_pdata *ep)
-{
-	/* reset AUX */
-	edp_write(ep->base + 0x300, BIT(1)); /* EDP_AUX_CTRL */
-	usleep_range(1000, 1000);
-	edp_write(ep->base + 0x300, 0); /* EDP_AUX_CTRL */
-}
-
-void mdss_edp_aux_ctrl(struct mdss_edp_drv_pdata *ep, int enable)
-{
-	u32 data;
-
-	data = edp_read(ep->base + 0x300);
-	if (enable)
-		data |= 0x01;
-	else
-		data |= ~0x01;
-	edp_write(ep->base + 0x300, data); /* EDP_AUX_CTRL */
-}
-
-void mdss_edp_phy_pll_reset(struct mdss_edp_drv_pdata *ep)
-{
-	/* EDP_PHY_CTRL */
-	edp_write(ep->base + 0x74, 0x005); /* bit 0, 2 */
-	usleep_range(1000, 1000);
-	edp_write(ep->base + 0x74, 0x000); /* EDP_PHY_CTRL */
-}
-
-int mdss_edp_phy_pll_ready(struct mdss_edp_drv_pdata *ep)
-{
-	int cnt;
-	u32 status = 0;
-
-	cnt = 100;
-	while (--cnt) {
-		status = edp_read(ep->base + 0x6c0);
-		if (status & 0x01)
-			break;
-		usleep_range(100, 100);
+	if ((pm_type != DP_CORE_PM)
+			&& (pm_type != DP_CTRL_PM)) {
+		pr_err("unsupported power module: %s\n",
+				__mdss_dp_pm_name(pm_type));
+		return -EINVAL;
 	}
 
-	pr_debug("%s: PLL cnt=%d status=%x\n", __func__, cnt, (int)status);
-
-	if (cnt <= 0) {
-		pr_err("%s: PLL NOT ready\n", __func__);
-		return 0;
-	} else
-		return 1;
-}
-
-int mdss_edp_phy_ready(struct mdss_edp_drv_pdata *ep)
-{
-	u32 status;
-
-	status = edp_read(ep->base + 0x598);
-	status &= 0x01;
-
-	return status;
-}
-
-void mdss_edp_phy_power_ctrl(struct mdss_edp_drv_pdata *ep, int enable)
-{
 	if (enable) {
-		/* EDP_PHY_EDPPHY_GLB_PD_CTL */
-		edp_write(ep->base + 0x52c, 0x3f);
-		/* EDP_PHY_EDPPHY_GLB_CFG */
-		edp_write(ep->base + 0x528, 0x1);
-		/* EDP_PHY_PLL_UNIPHY_PLL_GLB_CFG */
-		edp_write(ep->base + 0x620, 0xf);
+		if ((pm_type == DP_CORE_PM)
+			&& (dp_drv->core_clks_on)) {
+			pr_debug("core clks already enabled\n");
+			return 0;
+		}
+
+		if ((pm_type == DP_CTRL_PM)
+			&& (dp_drv->link_clks_on)) {
+			pr_debug("links clks already enabled\n");
+			return 0;
+		}
+
+		if ((pm_type == DP_CTRL_PM)
+			&& (!dp_drv->core_clks_on)) {
+			pr_debug("Need to enable core clks before link clks\n");
+
+			ret = msm_dss_enable_clk(
+				dp_drv->power_data[DP_CORE_PM].clk_config,
+				dp_drv->power_data[DP_CORE_PM].num_clk, 1);
+			if (ret) {
+				pr_err("failed to enable clks for %s\n",
+					__mdss_dp_pm_name(pm_type));
+				goto error;
+			} else {
+				dp_drv->core_clks_on = true;
+			}
+		}
+
+		ret = msm_dss_enable_clk(
+			dp_drv->power_data[pm_type].clk_config,
+			dp_drv->power_data[pm_type].num_clk, 1);
+		if (ret) {
+			pr_err("failed to enable clks for %s\n",
+				 __mdss_dp_pm_name(pm_type));
+				goto error;
+		}
 	} else {
-		/* EDP_PHY_EDPPHY_GLB_PD_CTL */
-		edp_write(ep->base + 0x52c, 0xc0);
+		ret = msm_dss_enable_clk(
+			dp_drv->power_data[pm_type].clk_config,
+			dp_drv->power_data[pm_type].num_clk, 0);
+		if (ret) {
+			pr_err("failed to disable clks for %s\n",
+				__mdss_dp_pm_name(pm_type));
+				goto error;
+		}
 	}
-}
 
-void mdss_edp_lane_power_ctrl(struct mdss_edp_drv_pdata *ep, int up)
-{
-	int i, off, max_lane;
-	u32 data;
-
-	max_lane = ep->lane_cnt;
-
-	if (up)
-		data = 0;	/* power up */
+	if (pm_type == DP_CORE_PM)
+		dp_drv->core_clks_on = enable;
 	else
-		data = 0x7;	/* power down */
+		dp_drv->link_clks_on = enable;
 
-	/* EDP_PHY_EDPPHY_LNn_PD_CTL */
-	for (i = 0; i < max_lane; i++) {
-		off = 0x40 * i;
-		edp_write(ep->base + 0x404 + off , data);
+error:
+	return ret;
+}
+
+static int mdss_dp_regulator_ctrl(struct mdss_dp_drv_pdata *dp_drv,
+					bool enable)
+{
+	int i, ret = 0;
+
+	if (dp_drv->core_power == enable) {
+		pr_debug("regulators already %s\n",
+			enable ? "enabled" : "disabled");
+		return 0;
 	}
 
-	/* power down un used lane */
-	data = 0x7;	/* power down */
-	for (i = max_lane; i < EDP_MAX_LANE; i++) {
-		off = 0x40 * i;
-		edp_write(ep->base + 0x404 + off , data);
+	if (enable) {
+		for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
+			ret = msm_dss_enable_vreg(
+				dp_drv->power_data[i].vreg_config,
+				dp_drv->power_data[i].num_vreg, 1);
+			if (ret) {
+				pr_err("failed to enable vregs for %s\n",
+					__mdss_dp_pm_name(i));
+				goto error;
+			}
+		}
+	} else {
+		for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
+			ret = msm_dss_enable_vreg(
+				dp_drv->power_data[i].vreg_config,
+				dp_drv->power_data[i].num_vreg, 1);
+			if (ret) {
+				pr_err("failed to disable vregs for %s\n",
+					__mdss_dp_pm_name(i));
+				goto error;
+			}
+		}
 	}
+
+	dp_drv->core_power = enable;
+
+error:
+	return ret;
 }
 
-void mdss_edp_clock_synchrous(struct mdss_edp_drv_pdata *ep, int sync)
+static void mdss_dp_put_dt_vreg_data(struct device *dev,
+	struct dss_module_power *module_power)
 {
-	u32 data;
-	u32 color;
+	if (!module_power) {
+		DEV_ERR("invalid input\n");
+		return;
+	}
 
-	/* EDP_MISC1_MISC0 */
-	data = edp_read(ep->base + 0x02c);
+	if (module_power->vreg_config) {
+		devm_kfree(dev, module_power->vreg_config);
+		module_power->vreg_config = NULL;
+	}
+	module_power->num_vreg = 0;
+} /* mdss_dp_put_dt_vreg_data */
 
-	if (sync)
-		data |= 0x01;
-	else
-		data &= ~0x01;
-
-	/* only legacy rgb mode supported */
-	color = 0; /* 6 bits */
-	if (ep->edid.color_depth == 8)
-		color = 0x01;
-	else if (ep->edid.color_depth == 10)
-		color = 0x02;
-	else if (ep->edid.color_depth == 12)
-		color = 0x03;
-	else if (ep->edid.color_depth == 16)
-		color = 0x04;
-
-	color <<= 5;    /* bit 5 to bit 7 */
-
-	data |= color;
-	/* EDP_MISC1_MISC0 */
-	edp_write(ep->base + 0x2c, data);
-}
-
-/* voltage mode and pre emphasis cfg */
-void mdss_edp_phy_vm_pe_init(struct mdss_edp_drv_pdata *ep)
+static int mdss_dp_get_dt_vreg_data(struct device *dev,
+	struct device_node *of_node, struct dss_module_power *mp,
+	enum dp_pm_type module)
 {
-	/* EDP_PHY_EDPPHY_GLB_VM_CFG0 */
-	edp_write(ep->base + 0x510, 0x3);	/* vm only */
-	/* EDP_PHY_EDPPHY_GLB_VM_CFG1 */
-	edp_write(ep->base + 0x514, 0x64);
-	/* EDP_PHY_EDPPHY_GLB_MISC9 */
-	edp_write(ep->base + 0x518, 0x6c);
+	int i = 0, rc = 0;
+	u32 tmp = 0;
+	struct device_node *supply_node = NULL;
+	const char *pm_supply_name = NULL;
+	struct device_node *supply_root_node = NULL;
+
+	if (!dev || !mp) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	mp->num_vreg = 0;
+	pm_supply_name = __mdss_dp_pm_supply_node_name(module);
+	supply_root_node = of_get_child_by_name(of_node, pm_supply_name);
+	if (!supply_root_node) {
+		pr_err("no supply entry present: %s\n", pm_supply_name);
+		goto novreg;
+	}
+
+	mp->num_vreg =
+		of_get_available_child_count(supply_root_node);
+
+	if (mp->num_vreg == 0) {
+		pr_debug("no vreg\n");
+		goto novreg;
+	} else {
+		pr_debug("vreg found. count=%d\n", mp->num_vreg);
+	}
+
+	mp->vreg_config = devm_kzalloc(dev, sizeof(struct dss_vreg) *
+		mp->num_vreg, GFP_KERNEL);
+	if (!mp->vreg_config) {
+		rc = -ENOMEM;
+		goto error;
+	}
+
+	for_each_child_of_node(supply_root_node, supply_node) {
+		const char *st = NULL;
+		/* vreg-name */
+		rc = of_property_read_string(supply_node,
+			"qcom,supply-name", &st);
+		if (rc) {
+			pr_err("error reading name. rc=%d\n",
+				 rc);
+			goto error;
+		}
+		snprintf(mp->vreg_config[i].vreg_name,
+			ARRAY_SIZE((mp->vreg_config[i].vreg_name)), "%s", st);
+		/* vreg-min-voltage */
+		rc = of_property_read_u32(supply_node,
+			"qcom,supply-min-voltage", &tmp);
+		if (rc) {
+			pr_err("error reading min volt. rc=%d\n",
+				rc);
+			goto error;
+		}
+		mp->vreg_config[i].min_voltage = tmp;
+
+		/* vreg-max-voltage */
+		rc = of_property_read_u32(supply_node,
+			"qcom,supply-max-voltage", &tmp);
+		if (rc) {
+			pr_err("error reading max volt. rc=%d\n",
+				rc);
+			goto error;
+		}
+		mp->vreg_config[i].max_voltage = tmp;
+
+		/* enable-load */
+		rc = of_property_read_u32(supply_node,
+			"qcom,supply-enable-load", &tmp);
+		if (rc) {
+			pr_err("error reading enable load. rc=%d\n",
+				rc);
+			goto error;
+		}
+		mp->vreg_config[i].enable_load = tmp;
+
+		/* disable-load */
+		rc = of_property_read_u32(supply_node,
+			"qcom,supply-disable-load", &tmp);
+		if (rc) {
+			pr_err("error reading disable load. rc=%d\n",
+				rc);
+			goto error;
+		}
+		mp->vreg_config[i].disable_load = tmp;
+
+		pr_debug("%s min=%d, max=%d, enable=%d, disable=%d\n",
+			mp->vreg_config[i].vreg_name,
+			mp->vreg_config[i].min_voltage,
+			mp->vreg_config[i].max_voltage,
+			mp->vreg_config[i].enable_load,
+			mp->vreg_config[i].disable_load
+			);
+		++i;
+	}
+
+	return rc;
+
+error:
+	if (mp->vreg_config) {
+		devm_kfree(dev, mp->vreg_config);
+		mp->vreg_config = NULL;
+	}
+novreg:
+	mp->num_vreg = 0;
+
+	return rc;
+} /* mdss_dp_get_dt_vreg_data */
+
+static int mdss_dp_regulator_init(struct platform_device *pdev,
+			struct mdss_dp_drv_pdata *dp_drv)
+{
+	int rc = 0, i = 0, j = 0;
+
+	if (!pdev || !dp_drv) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	for (i = DP_CORE_PM; !rc && (i < DP_MAX_PM); i++) {
+		rc = msm_dss_config_vreg(&pdev->dev,
+			dp_drv->power_data[i].vreg_config,
+			dp_drv->power_data[i].num_vreg, 1);
+		if (rc) {
+			pr_err("failed to init vregs for %s\n",
+				__mdss_dp_pm_name(i));
+			for (j = i-1; j >= DP_CORE_PM; j--) {
+				msm_dss_config_vreg(&pdev->dev,
+				dp_drv->power_data[j].vreg_config,
+				dp_drv->power_data[j].num_vreg, 0);
+			}
+		}
+	}
+
+	return rc;
 }
 
-void mdss_edp_config_ctrl(struct mdss_edp_drv_pdata *ep)
+void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp)
+{
+	/*
+	 * To siwtch the usb3_phy to operate in DP mode, the phy and PLL
+	 * should have the reset lines asserted
+	 */
+	mdss_dp_assert_phy_reset(&dp->ctrl_io, true);
+	/* Delay to make sure the assert is propagated */
+	udelay(2000);
+	mdss_dp_switch_usb3_phy_to_dp_mode(&dp->tcsr_reg_io);
+	wmb(); /* ensure that the register write is successful */
+	mdss_dp_assert_phy_reset(&dp->ctrl_io, false);
+}
+
+void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *dp)
 {
 	struct dpcd_cap *cap;
-	struct display_timing_desc *dp;
+	struct display_timing_desc *timing;
 	u32 data = 0;
 
-	dp = &ep->edid.timing[0];
+	timing = &dp->edid.timing[0];
 
-	cap = &ep->dpcd;
+	cap = &dp->dpcd;
 
-	data = ep->lane_cnt - 1;
+	data = dp->lane_cnt - 1;
 	data <<= 4;
 
 	if (cap->enhanced_frame)
 		data |= 0x40;
 
-	if (ep->edid.color_depth == 8) {
+	if (dp->edid.color_depth == 8) {
 		/* 0 == 6 bits, 1 == 8 bits */
 		data |= 0x100;	/* bit 8 */
 	}
 
-	if (!dp->interlaced)	/* progressive */
+	if (!timing->interlaced)	/* progressive */
 		data |= 0x04;
 
 	data |= 0x03;	/* sycn clock & static Mvid */
 
-	edp_write(ep->base + 0xc, data); /* EDP_CONFIGURATION_CTRL */
+	mdss_dp_configuration_ctrl(&dp->ctrl_io, data);
 }
 
-static void mdss_edp_sw_mvid_nvid(struct mdss_edp_drv_pdata *ep)
-{
-	edp_write(ep->base + 0x14, 0x13b); /* EDP_SOFTWARE_MVID */
-	edp_write(ep->base + 0x18, 0x266); /* EDP_SOFTWARE_NVID */
-}
-
-static void mdss_edp_timing_cfg(struct mdss_edp_drv_pdata *ep)
-{
-	struct mdss_panel_info *pinfo;
-	u32 total_ver, total_hor;
-	u32 data;
-
-	pinfo = &ep->panel_data.panel_info;
-
-	pr_debug("%s: width=%d hporch= %d %d %d\n", __func__,
-		pinfo->xres, pinfo->lcdc.h_back_porch,
-		pinfo->lcdc.h_front_porch, pinfo->lcdc.h_pulse_width);
-
-	pr_debug("%s: height=%d vporch= %d %d %d\n", __func__,
-		pinfo->yres, pinfo->lcdc.v_back_porch,
-		pinfo->lcdc.v_front_porch, pinfo->lcdc.v_pulse_width);
-
-	total_hor = pinfo->xres + pinfo->lcdc.h_back_porch +
-		pinfo->lcdc.h_front_porch + pinfo->lcdc.h_pulse_width;
-
-	total_ver = pinfo->yres + pinfo->lcdc.v_back_porch +
-			pinfo->lcdc.v_front_porch + pinfo->lcdc.v_pulse_width;
-
-	data = total_ver;
-	data <<= 16;
-	data |= total_hor;
-	edp_write(ep->base + 0x1c, data); /* EDP_TOTAL_HOR_VER */
-
-	data = (pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width);
-	data <<= 16;
-	data |= (pinfo->lcdc.h_back_porch + pinfo->lcdc.h_pulse_width);
-	edp_write(ep->base + 0x20, data); /* EDP_START_HOR_VER_FROM_SYNC */
-
-	data = pinfo->lcdc.v_pulse_width;
-	data <<= 16;
-	data |= pinfo->lcdc.h_pulse_width;
-	edp_write(ep->base + 0x24, data); /* EDP_HSYNC_VSYNC_WIDTH_POLARITY */
-
-	data = pinfo->yres;
-	data <<= 16;
-	data |= pinfo->xres;
-	edp_write(ep->base + 0x28, data); /* EDP_ACTIVE_HOR_VER */
-}
-
-int mdss_edp_wait4train(struct mdss_edp_drv_pdata *edp_drv)
+int mdss_dp_wait4train(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret = 0;
 
-	if (edp_drv->cont_splash)
+	if (dp_drv->cont_splash)
 		return ret;
 
-	ret = wait_for_completion_timeout(&edp_drv->video_comp, 30);
+	ret = wait_for_completion_timeout(&dp_drv->video_comp, 30);
 	if (ret <= 0) {
-		pr_err("%s: Link Train timedout\n", __func__);
+		pr_err("Link Train timedout\n");
 		ret = -EINVAL;
 	} else {
 		ret = 0;
 	}
 
-	pr_debug("%s:\n", __func__);
+	pr_debug("End--\n");
 
 	return ret;
 }
 
-static void mdss_edp_irq_enable(struct mdss_edp_drv_pdata *edp_drv);
-static void mdss_edp_irq_disable(struct mdss_edp_drv_pdata *edp_drv);
+#define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
 
-int mdss_edp_on(struct mdss_panel_data *pdata)
+static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv)
 {
-	struct mdss_edp_drv_pdata *edp_drv = NULL;
+	struct mdss_panel_info *pinfo;
+	struct msm_hdmi_mode_timing_info timing = {0};
+	u32 ret;
+
+	if (!dp_drv) {
+		DEV_ERR("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp_drv->ds_data.ds_registered = false;
+	ret = hdmi_get_supported_mode(&timing, &dp_drv->ds_data,
+		DEFAULT_VIDEO_RESOLUTION);
+	pinfo = &dp_drv->panel_data.panel_info;
+
+	if (ret || !timing.supported || !pinfo) {
+		DEV_ERR("%s: invalid timing data\n", __func__);
+		return -EINVAL;
+	}
+
+	pinfo->xres = timing.active_h;
+	pinfo->yres = timing.active_v;
+	pinfo->clk_rate = timing.pixel_freq * 1000;
+
+	pinfo->lcdc.h_back_porch = timing.back_porch_h;
+	pinfo->lcdc.h_front_porch = timing.front_porch_h;
+	pinfo->lcdc.h_pulse_width = timing.pulse_width_h;
+	pinfo->lcdc.v_back_porch = timing.back_porch_v;
+	pinfo->lcdc.v_front_porch = timing.front_porch_v;
+	pinfo->lcdc.v_pulse_width = timing.pulse_width_v;
+
+	pinfo->type = EDP_PANEL;
+	pinfo->pdest = DISPLAY_4;
+	pinfo->wait_cycle = 0;
+	pinfo->bpp = 24;
+	pinfo->fb_num = 1;
+
+	pinfo->lcdc.border_clr = 0; /* blk */
+	pinfo->lcdc.underflow_clr = 0xff; /* blue */
+	pinfo->lcdc.hsync_skew = 0;
+
+	return 0;
+} /* dp_init_panel_info */
+
+
+int mdss_dp_on(struct mdss_panel_data *pdata)
+{
+	struct mdss_dp_drv_pdata *dp_drv = NULL;
 	int ret = 0;
 
 	if (!pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
+		pr_err("Invalid input data\n");
 		return -EINVAL;
 	}
 
-	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata,
+	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
-	pr_debug("%s:+, cont_splash=%d\n", __func__, edp_drv->cont_splash);
+	pr_debug("++ cont_splash=%d\n", dp_drv->cont_splash);
 
-	if (!edp_drv->cont_splash) { /* vote for clocks */
-		mdss_edp_phy_pll_reset(edp_drv);
-		mdss_edp_aux_reset(edp_drv);
-		mdss_edp_mainlink_reset(edp_drv);
-		mdss_edp_aux_ctrl(edp_drv, 1);
-
-		ret = mdss_edp_prepare_clocks(edp_drv);
-		if (ret)
-			return ret;
-
-		mdss_edp_phy_power_ctrl(edp_drv, 1);
-
-		ret = mdss_edp_clk_enable(edp_drv);
+	if (!dp_drv->cont_splash) { /* vote for clocks */
+		ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
 		if (ret) {
-			mdss_edp_unprepare_clocks(edp_drv);
+			pr_err("Unabled to start core clocks\n");
+			return ret;
+		}
+		mdss_dp_phy_reset(&dp_drv->ctrl_io);
+		mdss_dp_aux_reset(&dp_drv->ctrl_io);
+		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
+		mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
+		mdss_dp_hpd_configure(&dp_drv->ctrl_io, true);
+
+		mdss_dp_phy_aux_setup(&dp_drv->phy_io);
+
+		mdss_dp_irq_enable(dp_drv);
+		pr_debug("irq enabled\n");
+		mdss_dp_dpcd_cap_read(dp_drv);
+		ret = mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, true);
+		if (ret) {
+			mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
+			pr_err("Unabled to start link clocks\n");
 			return ret;
 		}
 
-		mdss_edp_phy_pll_ready(edp_drv);
+		mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
 
-		mdss_edp_lane_power_ctrl(edp_drv, 1);
-
-		mdss_edp_clock_synchrous(edp_drv, 1);
-		mdss_edp_phy_vm_pe_init(edp_drv);
-		mdss_edp_config_ctrl(edp_drv);
-		mdss_edp_sw_mvid_nvid(edp_drv);
-		mdss_edp_timing_cfg(edp_drv);
-
-		gpio_set_value(edp_drv->gpio_panel_en, 1);
-		if (gpio_is_valid(edp_drv->gpio_lvl_en))
-			gpio_set_value(edp_drv->gpio_lvl_en, 1);
-
-		reinit_completion(&edp_drv->idle_comp);
-		mdss_edp_mainlink_ctrl(edp_drv, 1);
+		reinit_completion(&dp_drv->idle_comp);
+		mdss_dp_fill_link_cfg(dp_drv);
+		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, true);
+		mdss_dp_config_ctrl(dp_drv);
+		mdss_dp_sw_mvid_nvid(&dp_drv->ctrl_io);
+		mdss_dp_timing_cfg(&dp_drv->ctrl_io,
+				&dp_drv->panel_data.panel_info);
 	} else {
-		mdss_edp_aux_ctrl(edp_drv, 1);
+		mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
 	}
 
-	mdss_edp_irq_enable(edp_drv);
+	pr_debug("call link_training\n");
+	mdss_dp_link_train(dp_drv);
 
-	if (edp_drv->delay_link_train) {
-		mdss_edp_link_train(edp_drv);
-		edp_drv->delay_link_train = 0;
-	}
+	mdss_dp_wait4train(dp_drv);
 
-	mdss_edp_wait4train(edp_drv);
+	dp_drv->cont_splash = 0;
 
-	edp_drv->cont_splash = 0;
+	if (mdss_dp_mainlink_ready(dp_drv, BIT(0)))
+		pr_debug("mainlink ready\n");
 
-	pr_debug("%s:-\n", __func__);
+	pr_debug("End-\n");
 	return ret;
 }
 
-int mdss_edp_off(struct mdss_panel_data *pdata)
+int mdss_dp_off(struct mdss_panel_data *pdata)
 {
-	struct mdss_edp_drv_pdata *edp_drv = NULL;
+	struct mdss_dp_drv_pdata *dp_drv = NULL;
 	int ret = 0;
 
-	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata,
+	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 				panel_data);
-	if (!edp_drv) {
-		pr_err("%s: Invalid input data\n", __func__);
+	if (!dp_drv) {
+		pr_err("Invalid input data\n");
 		return -EINVAL;
 	}
-	pr_debug("%s:+, cont_splash=%d\n", __func__, edp_drv->cont_splash);
+	pr_debug("Entered++, cont_splash=%d\n", dp_drv->cont_splash);
 
 	/* wait until link training is completed */
-	mutex_lock(&edp_drv->train_mutex);
+	mutex_lock(&dp_drv->train_mutex);
 
-	reinit_completion(&edp_drv->idle_comp);
-	mdss_edp_state_ctrl(edp_drv, ST_PUSH_IDLE);
+	reinit_completion(&dp_drv->idle_comp);
+	mdss_dp_state_ctrl(&dp_drv->ctrl_io, ST_PUSH_IDLE);
 
-	ret = wait_for_completion_timeout(&edp_drv->idle_comp,
+	ret = wait_for_completion_timeout(&dp_drv->idle_comp,
 						msecs_to_jiffies(100));
 	if (ret == 0)
-		pr_err("%s: idle pattern timedout\n", __func__);
+		pr_err("idle pattern timedout\n");
 
-	mdss_edp_state_ctrl(edp_drv, 0);
+	mdss_dp_state_ctrl(&dp_drv->ctrl_io, 0);
 
-	mdss_edp_sink_power_state(edp_drv, SINK_POWER_OFF);
+	mdss_dp_irq_disable(dp_drv);
 
-	mdss_edp_irq_disable(edp_drv);
+	mdss_dp_mainlink_reset(&dp_drv->ctrl_io);
+	mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
 
-	gpio_set_value(edp_drv->gpio_panel_en, 0);
-	if (gpio_is_valid(edp_drv->gpio_lvl_en))
-		gpio_set_value(edp_drv->gpio_lvl_en, 0);
-	if (edp_drv->bl_pwm != NULL)
-		pwm_disable(edp_drv->bl_pwm);
-	edp_drv->is_pwm_enabled = 0;
+	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, false);
+	mdss_dp_clk_ctrl(dp_drv, DP_CTRL_PM, false);
+	mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
 
-	mdss_edp_mainlink_reset(edp_drv);
-	mdss_edp_mainlink_ctrl(edp_drv, 0);
+	mdss_dp_regulator_ctrl(dp_drv, false);
 
-	mdss_edp_lane_power_ctrl(edp_drv, 0);
-	mdss_edp_phy_power_ctrl(edp_drv, 0);
+	pr_debug("End--: state_ctrl=%x\n",
+				dp_read(dp_drv->base + DP_STATE_CTRL));
 
-	mdss_edp_clk_disable(edp_drv);
-	mdss_edp_unprepare_clocks(edp_drv);
-
-	mdss_edp_aux_ctrl(edp_drv, 0);
-
-	pr_debug("%s-: state_ctrl=%x\n", __func__,
-				edp_read(edp_drv->base + 0x8));
-
-	mutex_unlock(&edp_drv->train_mutex);
+	mutex_unlock(&dp_drv->train_mutex);
 	return 0;
 }
 
-static int mdss_edp_event_handler(struct mdss_panel_data *pdata,
+static int mdss_dp_host_init(struct mdss_panel_data *pdata)
+{
+	struct mdss_dp_drv_pdata *dp_drv = NULL;
+	int ret = 0;
+
+	if (!pdata) {
+		pr_err("Invalid input data\n");
+		return -EINVAL;
+	}
+
+	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
+			panel_data);
+
+	ret = mdss_dp_regulator_ctrl(dp_drv, true);
+	if (ret) {
+		pr_err("failed to enable regulators\n");
+		goto vreg_error;
+	}
+
+	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
+	if (ret) {
+		pr_err("Unabled to start core clocks\n");
+		goto clk_error;
+	}
+
+	mdss_dp_aux_init(dp_drv);
+
+	mdss_dp_phy_reset(&dp_drv->ctrl_io);
+	mdss_dp_aux_reset(&dp_drv->ctrl_io);
+	mdss_dp_phy_initialize(dp_drv);
+	mdss_dp_aux_ctrl(&dp_drv->ctrl_io, true);
+
+	return ret;
+
+clk_error:
+	mdss_dp_regulator_ctrl(dp_drv, false);
+vreg_error:
+	return ret;
+}
+
+static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
 	int rc = 0;
 
-	pr_debug("%s: event=%d\n", __func__, event);
+	pr_debug("event=%d\n", event);
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
-		rc = mdss_edp_on(pdata);
+		rc = mdss_dp_on(pdata);
 		break;
 	case MDSS_EVENT_PANEL_OFF:
-		rc = mdss_edp_off(pdata);
+		rc = mdss_dp_off(pdata);
 		break;
 	}
 	return rc;
 }
 
-/*
- * Converts from EDID struct to mdss_panel_info
- */
-static void mdss_edp_edid2pinfo(struct mdss_edp_drv_pdata *edp_drv)
+static int mdss_dp_remove(struct platform_device *pdev)
 {
-	struct display_timing_desc *dp;
-	struct mdss_panel_info *pinfo;
+	struct mdss_dp_drv_pdata *dp_drv = NULL;
 
-	dp = &edp_drv->edid.timing[0];
-	pinfo = &edp_drv->panel_data.panel_info;
+	dp_drv = platform_get_drvdata(pdev);
 
-	pinfo->clk_rate = dp->pclk;
-	pr_debug("%s: pclk=%d\n", __func__, pinfo->clk_rate);
-
-	pinfo->xres = dp->h_addressable + dp->h_border * 2;
-	pinfo->yres = dp->v_addressable + dp->v_border * 2;
-
-	pr_debug("%s: x=%d y=%d\n", __func__, pinfo->xres, pinfo->yres);
-
-	pinfo->lcdc.h_back_porch = dp->h_blank - dp->h_fporch \
-		- dp->h_sync_pulse;
-	pinfo->lcdc.h_front_porch = dp->h_fporch;
-	pinfo->lcdc.h_pulse_width = dp->h_sync_pulse;
-
-	pr_debug("%s: hporch= %d %d %d\n", __func__,
-		pinfo->lcdc.h_back_porch, pinfo->lcdc.h_front_porch,
-		pinfo->lcdc.h_pulse_width);
-
-	pinfo->lcdc.v_back_porch = dp->v_blank - dp->v_fporch \
-		- dp->v_sync_pulse;
-	pinfo->lcdc.v_front_porch = dp->v_fporch;
-	pinfo->lcdc.v_pulse_width = dp->v_sync_pulse;
-
-	pr_debug("%s: vporch= %d %d %d\n", __func__,
-		pinfo->lcdc.v_back_porch, pinfo->lcdc.v_front_porch,
-		pinfo->lcdc.v_pulse_width);
-
-	pinfo->type = EDP_PANEL;
-	pinfo->pdest = DISPLAY_1;
-	pinfo->wait_cycle = 0;
-	pinfo->bpp = edp_drv->edid.color_depth * RGB_COMPONENTS;
-	pinfo->fb_num = 2;
-
-	pinfo->lcdc.border_clr = 0;	 /* black */
-	pinfo->lcdc.underflow_clr = 0xff; /* blue */
-	pinfo->lcdc.hsync_skew = 0;
-}
-
-static int mdss_edp_remove(struct platform_device *pdev)
-{
-	struct mdss_edp_drv_pdata *edp_drv = NULL;
-
-	edp_drv = platform_get_drvdata(pdev);
-
-	gpio_free(edp_drv->gpio_panel_en);
-	if (gpio_is_valid(edp_drv->gpio_lvl_en))
-		gpio_free(edp_drv->gpio_lvl_en);
-	mdss_edp_regulator_off(edp_drv);
-	iounmap(edp_drv->base);
-	iounmap(edp_drv->mmss_cc_base);
-	edp_drv->base = NULL;
+	iounmap(dp_drv->ctrl_io.base);
+	dp_drv->ctrl_io.base = NULL;
+	iounmap(dp_drv->phy_io.base);
+	dp_drv->phy_io.base = NULL;
 
 	return 0;
 }
 
-static int mdss_edp_device_register(struct mdss_edp_drv_pdata *edp_drv)
+static int mdss_dp_device_register(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret;
-	u32 tmp;
 
-	mdss_edp_edid2pinfo(edp_drv);
-	edp_drv->panel_data.panel_info.bl_min = 1;
-	edp_drv->panel_data.panel_info.bl_max = 255;
-	ret = of_property_read_u32(edp_drv->pdev->dev.of_node,
-		"qcom,mdss-brightness-max-level", &tmp);
-	edp_drv->panel_data.panel_info.brightness_max =
-		(!ret ? tmp : MDSS_MAX_BL_BRIGHTNESS);
-
-	edp_drv->panel_data.panel_info.edp.frame_rate =
-				DEFAULT_FRAME_RATE;/* 60 fps */
-
-	edp_drv->panel_data.event_handler = mdss_edp_event_handler;
-	edp_drv->panel_data.set_backlight = mdss_edp_set_backlight;
-
-	edp_drv->panel_data.panel_info.cont_splash_enabled =
-					edp_drv->cont_splash;
-
-	ret = mdss_register_panel(edp_drv->pdev, &edp_drv->panel_data);
+	ret = dp_init_panel_info(dp_drv);
 	if (ret) {
-		dev_err(&(edp_drv->pdev->dev), "unable to register eDP\n");
+		DEV_ERR("%s: dp_init_panel_info failed\n", __func__);
 		return ret;
 	}
 
-	pr_info("%s: eDP initialized\n", __func__);
+	dp_drv->panel_data.event_handler = mdss_dp_event_handler;
+
+	dp_drv->panel_data.panel_info.cont_splash_enabled =
+					dp_drv->cont_splash;
+
+	ret = mdss_register_panel(dp_drv->pdev, &dp_drv->panel_data);
+	if (ret) {
+		dev_err(&(dp_drv->pdev->dev), "unable to register dp\n");
+		return ret;
+	}
+
+	pr_info("dp initialized\n");
 
 	return 0;
 }
 
 /*
- * Retrieve edp base address
+ * Retrieve dp Resources
  */
-static int mdss_edp_get_base_address(struct mdss_edp_drv_pdata *edp_drv)
+static int mdss_retrieve_dp_ctrl_resources(struct platform_device *pdev,
+			struct mdss_dp_drv_pdata *dp_drv)
 {
-	struct resource *res;
+	int rc = 0;
+	u32 index;
 
-	res = platform_get_resource_byname(edp_drv->pdev, IORESOURCE_MEM,
-			"edp_base");
-	if (!res) {
-		pr_err("%s: Unable to get the MDSS EDP resources", __func__);
-		return -ENOMEM;
+	rc = of_property_read_u32(pdev->dev.of_node, "cell-index", &index);
+	if (rc) {
+		dev_err(&pdev->dev,
+			"Cell-index not specified, rc=%d\n",
+						rc);
+		return rc;
 	}
 
-	edp_drv->base_size = resource_size(res);
-	edp_drv->base = ioremap(res->start, resource_size(res));
-	if (!edp_drv->base) {
-		pr_err("%s: Unable to remap EDP resources",  __func__);
-		return -ENOMEM;
+	rc = msm_dss_ioremap_byname(pdev, &dp_drv->ctrl_io, "dp_ctrl");
+	if (rc) {
+		pr_err("%d unable to remap dp ctrl resources\n",
+				__LINE__);
+		return rc;
+	}
+	dp_drv->base = dp_drv->ctrl_io.base;
+	dp_drv->base_size = dp_drv->ctrl_io.len;
+
+	rc = msm_dss_ioremap_byname(pdev, &dp_drv->phy_io, "dp_phy");
+	if (rc) {
+		pr_err("%d unable to remap dp PHY resources\n",
+				__LINE__);
+		return rc;
 	}
 
-	pr_debug("%s: drv=%x base=%x size=%x\n", __func__,
-		(int)edp_drv, (int)edp_drv->base, edp_drv->base_size);
+	rc = msm_dss_ioremap_byname(pdev, &dp_drv->tcsr_reg_io,
+					"tcsr_regs");
+	if (rc) {
+		pr_err("%d unable to remap dp tcsr_reg resources\n",
+			       __LINE__);
+		return rc;
+	}
 
-	mdss_debug_register_base("edp",
-			edp_drv->base, edp_drv->base_size, NULL);
+	pr_debug("DP Driver base=%p size=%x\n",
+		dp_drv->base, dp_drv->base_size);
+
+	mdss_debug_register_base("dp",
+			dp_drv->base, dp_drv->base_size, NULL);
 
 	return 0;
 }
 
-static int mdss_edp_get_mmss_cc_base_address(struct mdss_edp_drv_pdata
-		*edp_drv)
+static void mdss_dp_video_ready(struct mdss_dp_drv_pdata *dp)
 {
-	struct resource *res;
-
-	res = platform_get_resource_byname(edp_drv->pdev, IORESOURCE_MEM,
-			"mmss_cc_base");
-	if (!res) {
-		pr_err("%s: Unable to get the MMSS_CC resources", __func__);
-		return -ENOMEM;
-	}
-
-	edp_drv->mmss_cc_base = ioremap(res->start, resource_size(res));
-	if (!edp_drv->mmss_cc_base) {
-		pr_err("%s: Unable to remap MMSS_CC resources",  __func__);
-		return -ENOMEM;
-	}
-
-	return 0;
+	pr_debug("dp_video_ready\n");
+	complete(&dp->video_comp);
 }
 
-static void mdss_edp_video_ready(struct mdss_edp_drv_pdata *ep)
+static void mdss_dp_idle_patterns_sent(struct mdss_dp_drv_pdata *dp)
 {
-	pr_debug("%s: edp_video_ready\n", __func__);
-	complete(&ep->video_comp);
+	pr_debug("idle_patterns_sent\n");
+	complete(&dp->idle_comp);
 }
 
-static void mdss_edp_idle_patterns_sent(struct mdss_edp_drv_pdata *ep)
+static void mdss_dp_do_link_train(struct mdss_dp_drv_pdata *dp)
 {
-	pr_debug("%s: idle_patterns_sent\n", __func__);
-	complete(&ep->idle_comp);
-}
-
-static void mdss_edp_do_link_train(struct mdss_edp_drv_pdata *ep)
-{
-	if (ep->cont_splash)
+	if (dp->cont_splash)
 		return;
 
-	if (!ep->inited) {
-		ep->delay_link_train++;
-		return;
-	}
-
-	mdss_edp_link_train(ep);
+	mdss_dp_link_train(dp);
 }
 
-static int edp_event_thread(void *data)
+static void mdss_dp_event_work(struct work_struct *work)
 {
-	struct mdss_edp_drv_pdata *ep;
+	struct mdss_dp_drv_pdata *dp = NULL;
+	struct delayed_work *dw = to_delayed_work(work);
 	unsigned long flag;
 	u32 todo = 0;
 
-	ep = (struct mdss_edp_drv_pdata *)data;
-
-	while (1) {
-		wait_event(ep->event_q, (ep->event_pndx != ep->event_gndx));
-		spin_lock_irqsave(&ep->event_lock, flag);
-		if (ep->event_pndx == ep->event_gndx) {
-			spin_unlock_irqrestore(&ep->event_lock, flag);
-			break;
-		}
-		todo = ep->event_todo_list[ep->event_gndx];
-		ep->event_todo_list[ep->event_gndx++] = 0;
-		ep->event_gndx %= HPD_EVENT_MAX;
-		spin_unlock_irqrestore(&ep->event_lock, flag);
-
-		pr_debug("%s: todo=%x\n", __func__, todo);
-
-		if (todo == 0)
-			continue;
-
-		if (todo & EV_EDID_READ)
-			mdss_edp_edid_read(ep, 0);
-
-		if (todo & EV_DPCD_CAP_READ)
-			mdss_edp_dpcd_cap_read(ep);
-
-		if (todo & EV_DPCD_STATUS_READ)
-			mdss_edp_dpcd_status_read(ep);
-
-		if (todo & EV_LINK_TRAIN)
-			mdss_edp_do_link_train(ep);
-
-		if (todo & EV_VIDEO_READY)
-			mdss_edp_video_ready(ep);
-
-		if (todo & EV_IDLE_PATTERNS_SENT)
-			mdss_edp_idle_patterns_sent(ep);
+	if (!dw) {
+		pr_err("invalid work structure\n");
+		return;
 	}
 
-	return 0;
+	dp = container_of(dw, struct mdss_dp_drv_pdata, dwork);
+
+	spin_lock_irqsave(&dp->event_lock, flag);
+	todo = dp->current_event;
+	dp->current_event = 0;
+	spin_unlock_irqrestore(&dp->event_lock, flag);
+
+	pr_debug("todo=%x\n", todo);
+
+	switch (todo) {
+	case (EV_EDID_READ):
+		mdss_dp_edid_read(dp, 0);
+		break;
+	case (EV_DPCD_CAP_READ):
+		mdss_dp_dpcd_cap_read(dp);
+		break;
+	case (EV_DPCD_STATUS_READ):
+		mdss_dp_dpcd_status_read(dp);
+		break;
+	case (EV_LINK_TRAIN):
+		mdss_dp_do_link_train(dp);
+		break;
+	case (EV_VIDEO_READY):
+		mdss_dp_video_ready(dp);
+		break;
+	case (EV_IDLE_PATTERNS_SENT):
+		mdss_dp_idle_patterns_sent(dp);
+		break;
+	default:
+		pr_err("Unknown event:%d\n", todo);
+	}
 }
 
-static void edp_send_events(struct mdss_edp_drv_pdata *ep, u32 events)
+static void dp_send_events(struct mdss_dp_drv_pdata *dp, u32 events)
 {
-	spin_lock(&ep->event_lock);
-	ep->event_todo_list[ep->event_pndx++] = events;
-	ep->event_pndx %= HPD_EVENT_MAX;
-	wake_up(&ep->event_q);
-	spin_unlock(&ep->event_lock);
+	spin_lock(&dp->event_lock);
+	dp->current_event = events;
+	queue_delayed_work(dp->workq,
+				&dp->dwork, HZ);
+	spin_unlock(&dp->event_lock);
 }
 
-irqreturn_t edp_isr(int irq, void *ptr)
+irqreturn_t dp_isr(int irq, void *ptr)
 {
-	struct mdss_edp_drv_pdata *ep = (struct mdss_edp_drv_pdata *)ptr;
-	unsigned char *base = ep->base;
+	struct mdss_dp_drv_pdata *dp = (struct mdss_dp_drv_pdata *)ptr;
+	unsigned char *base = dp->base;
 	u32 isr1, isr2, mask1, mask2;
 	u32 ack;
 
-	spin_lock(&ep->lock);
-	isr1 = edp_read(base + 0x308);
-	isr2 = edp_read(base + 0x30c);
+	spin_lock(&dp->lock);
+	isr1 = dp_read(base + DP_INTR_STATUS);
+	isr2 = dp_read(base + DP_INTR_STATUS2);
 
-	mask1 = isr1 & ep->mask1;
-	mask2 = isr2 & ep->mask2;
+	mask1 = isr1 & dp->mask1;
+	mask2 = isr2 & dp->mask2;
 
 	isr1 &= ~mask1;	/* remove masks bit */
 	isr2 &= ~mask2;
 
-	pr_debug("%s: isr=%x mask=%x isr2=%x mask2=%x\n",
-			__func__, isr1, mask1, isr2, mask2);
+	pr_debug("isr=%x mask=%x isr2=%x mask2=%x\n",
+			isr1, mask1, isr2, mask2);
 
 	ack = isr1 & EDP_INTR_STATUS1;
 	ack <<= 1;	/* ack bits */
 	ack |= mask1;
-	edp_write(base + 0x308, ack);
+	dp_write(base + DP_INTR_STATUS, ack);
 
 	ack = isr2 & EDP_INTR_STATUS2;
 	ack <<= 1;	/* ack bits */
 	ack |= mask2;
-	edp_write(base + 0x30c, ack);
-	spin_unlock(&ep->lock);
+	dp_write(base + DP_INTR_STATUS2, ack);
+	spin_unlock(&dp->lock);
 
 	if (isr1 & EDP_INTR_HPD) {
 		isr1 &= ~EDP_INTR_HPD;	/* clear */
-		edp_send_events(ep, EV_LINK_TRAIN);
+		mdss_dp_host_init(&dp->panel_data);
+		dp_send_events(dp, EV_LINK_TRAIN);
 	}
 
 	if (isr2 & EDP_INTR_READY_FOR_VIDEO)
-		edp_send_events(ep, EV_VIDEO_READY);
+		dp_send_events(dp, EV_VIDEO_READY);
 
 	if (isr2 & EDP_INTR_IDLE_PATTERNs_SENT)
-		edp_send_events(ep, EV_IDLE_PATTERNS_SENT);
+		dp_send_events(dp, EV_IDLE_PATTERNS_SENT);
 
-	if (isr1 && ep->aux_cmd_busy) {
-		/* clear EDP_AUX_TRANS_CTRL */
-		edp_write(base + 0x318, 0);
-		/* read EDP_INTERRUPT_TRANS_NUM */
-		ep->aux_trans_num = edp_read(base + 0x310);
+	if (isr1 && dp->aux_cmd_busy) {
+		/* clear DP_AUX_TRANS_CTRL */
+		dp_write(base + DP_AUX_TRANS_CTRL, 0);
+		/* read DP_INTERRUPT_TRANS_NUM */
+		dp->aux_trans_num =
+			dp_read(base + DP_INTERRUPT_TRANS_NUM);
 
-		if (ep->aux_cmd_i2c)
-			edp_aux_i2c_handler(ep, isr1);
+		if (dp->aux_cmd_i2c)
+			dp_aux_i2c_handler(dp, isr1);
 		else
-			edp_aux_native_handler(ep, isr1);
+			dp_aux_native_handler(dp, isr1);
 	}
 
 	return IRQ_HANDLED;
 }
 
-struct mdss_hw mdss_edp_hw = {
-	.hw_ndx = MDSS_HW_EDP,
-	.ptr = NULL,
-	.irq_handler = edp_isr,
-};
-
-static void mdss_edp_irq_enable(struct mdss_edp_drv_pdata *edp_drv)
+static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 {
-	unsigned long flags;
 
-	spin_lock_irqsave(&edp_drv->lock, flags);
-	edp_write(edp_drv->base + 0x308, edp_drv->mask1);
-	edp_write(edp_drv->base + 0x30c, edp_drv->mask2);
-	spin_unlock_irqrestore(&edp_drv->lock, flags);
-
-	edp_drv->mdss_util->enable_irq(&mdss_edp_hw);
-}
-
-static void mdss_edp_irq_disable(struct mdss_edp_drv_pdata *edp_drv)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&edp_drv->lock, flags);
-	edp_write(edp_drv->base + 0x308, 0x0);
-	edp_write(edp_drv->base + 0x30c, 0x0);
-	spin_unlock_irqrestore(&edp_drv->lock, flags);
-
-	edp_drv->mdss_util->disable_irq(&mdss_edp_hw);
-}
-
-static int mdss_edp_irq_setup(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret = 0;
-
-	edp_drv->gpio_panel_hpd = of_get_named_gpio_flags(
-			edp_drv->pdev->dev.of_node, "gpio-panel-hpd", 0,
-			&edp_drv->hpd_flags);
-
-	if (!gpio_is_valid(edp_drv->gpio_panel_hpd)) {
-		pr_err("%s gpio_panel_hpd %d is not valid ", __func__,
-				edp_drv->gpio_panel_hpd);
-		return -ENODEV;
+	spin_lock_init(&dp->event_lock);
+	dp->workq = create_workqueue("mdss_dp_hpd");
+	if (!dp->workq) {
+		pr_err("%s: Error creating workqueue\n", __func__);
+		return -EPERM;
 	}
 
-	ret = gpio_request(edp_drv->gpio_panel_hpd, "edp_hpd_irq_gpio");
-	if (ret) {
-		pr_err("%s unable to request gpio_panel_hpd %d", __func__,
-				edp_drv->gpio_panel_hpd);
-		return -ENODEV;
-	}
-
-	ret = gpio_tlmm_config(GPIO_CFG(
-					edp_drv->gpio_panel_hpd,
-					1,
-					GPIO_CFG_INPUT,
-					GPIO_CFG_NO_PULL,
-					GPIO_CFG_2MA),
-					GPIO_CFG_ENABLE);
-	if (ret) {
-		pr_err("%s: unable to config tlmm = %d\n", __func__,
-				edp_drv->gpio_panel_hpd);
-		gpio_free(edp_drv->gpio_panel_hpd);
-		return -ENODEV;
-	}
-
-	ret = gpio_direction_input(edp_drv->gpio_panel_hpd);
-	if (ret) {
-		pr_err("%s unable to set direction for gpio_panel_hpd %d",
-				__func__, edp_drv->gpio_panel_hpd);
-		return -ENODEV;
-	}
-
-	mdss_edp_hw.ptr = (void *)(edp_drv);
-
-	if (edp_drv->mdss_util->register_irq(&mdss_edp_hw))
-		pr_err("%s: mdss_register_irq failed.\n", __func__);
-
-
+	INIT_DELAYED_WORK(&dp->dwork, mdss_dp_event_work);
 	return 0;
 }
 
-
-static void mdss_edp_event_setup(struct mdss_edp_drv_pdata *ep)
+static int mdss_dp_probe(struct platform_device *pdev)
 {
-	init_waitqueue_head(&ep->event_q);
-	spin_lock_init(&ep->event_lock);
-
-	kthread_run(edp_event_thread, (void *)ep, "mdss_edp_hpd");
-}
-
-static int mdss_edp_probe(struct platform_device *pdev)
-{
-	int ret;
-	struct mdss_edp_drv_pdata *edp_drv;
+	int ret, i;
+	struct mdss_dp_drv_pdata *dp_drv;
 	struct mdss_panel_cfg *pan_cfg = NULL;
+	struct mdss_util_intf *util;
 
-	if (!mdss_is_ready()) {
-		pr_err("%s: MDP not probed yet!\n", __func__);
+	util = mdss_get_util_intf();
+	if (!util) {
+		pr_err("Failed to get mdss utility functions\n");
+		return -ENODEV;
+	}
+
+	if (!util->mdp_probe_done) {
+		pr_err("MDP not probed yet!\n");
 		return -EPROBE_DEFER;
+	}
+
+	if (!pdev || !pdev->dev.of_node) {
+		pr_err("pdev not found for DP controller\n");
+		return -ENODEV;
 	}
 
 	pan_cfg = mdss_panel_intf_type(MDSS_PANEL_INTF_EDP);
 	if (IS_ERR(pan_cfg)) {
 		return PTR_ERR(pan_cfg);
-	} else if (!pan_cfg) {
-		pr_debug("%s: not configured as prim\n", __func__);
+	} else if (pan_cfg) {
+		pr_debug("DP as prim not supported\n");
 		return -ENODEV;
 	}
 
-	if (!pdev->dev.of_node) {
-		pr_err("%s: Failed\n", __func__);
-		return -EPERM;
-	}
-
-	edp_drv = devm_kzalloc(&pdev->dev, sizeof(*edp_drv), GFP_KERNEL);
-	if (edp_drv == NULL) {
-		pr_err("%s: Failed, could not allocate edp_drv", __func__);
+	dp_drv = devm_kzalloc(&pdev->dev, sizeof(*dp_drv), GFP_KERNEL);
+	if (dp_drv == NULL)
 		return -ENOMEM;
-	}
 
-	edp_drv->mdss_util = mdss_get_util_intf();
-	if (edp_drv->mdss_util == NULL) {
-		pr_err("Failed to get mdss utility functions\n");
-		return -ENODEV;
-	}
-	edp_drv->panel_data.panel_info.is_prim_panel = true;
+	dp_drv->pdev = pdev;
+	dp_drv->pdev->id = 1;
+	dp_drv->mdss_util = util;
+	dp_drv->clk_on = 0;
+	dp_drv->aux_rate = 19200000;
+	dp_drv->mask1 = EDP_INTR_MASK1;
+	dp_drv->mask2 = EDP_INTR_MASK2;
+	mutex_init(&dp_drv->emutex);
+	spin_lock_init(&dp_drv->lock);
 
-	mdss_edp_hw.irq_info = mdss_intr_line();
-	if (mdss_edp_hw.irq_info == NULL) {
-		pr_err("Failed to get mdss irq information\n");
-		return -ENODEV;
-	}
-
-	edp_drv->pdev = pdev;
-	edp_drv->pdev->id = 1;
-	edp_drv->clk_on = 0;
-	edp_drv->aux_rate = 19200000;
-	edp_drv->mask1 = EDP_INTR_MASK1;
-	edp_drv->mask2 = EDP_INTR_MASK2;
-	mutex_init(&edp_drv->emutex);
-	spin_lock_init(&edp_drv->lock);
-
-	ret = mdss_edp_get_base_address(edp_drv);
+	ret = mdss_retrieve_dp_ctrl_resources(pdev, dp_drv);
 	if (ret)
 		goto probe_err;
 
-	ret = mdss_edp_get_mmss_cc_base_address(edp_drv);
+	/* Parse the regulator information */
+	for (i = DP_CORE_PM; i < DP_MAX_PM; i++) {
+		ret = mdss_dp_get_dt_vreg_data(&pdev->dev,
+			pdev->dev.of_node, &dp_drv->power_data[i], i);
+		if (ret) {
+			pr_err("get_dt_vreg_data failed for %s. rc=%d\n",
+				__mdss_dp_pm_name(i), ret);
+			i--;
+			for (; i >= DP_CORE_PM; i--)
+				mdss_dp_put_dt_vreg_data(&pdev->dev,
+					&dp_drv->power_data[i]);
+			goto probe_err;
+		}
+	}
+
+	ret = mdss_dp_get_dt_clk_data(&pdev->dev, dp_drv);
+	if (ret) {
+		DEV_ERR("get_dt_clk_data failed.ret=%d\n",
+				ret);
+		goto probe_err;
+	}
+
+	ret = mdss_dp_regulator_init(pdev, dp_drv);
 	if (ret)
-		goto edp_base_unmap;
+		goto probe_err;
 
-	ret = mdss_edp_regulator_init(edp_drv);
+	ret = mdss_dp_irq_setup(dp_drv);
 	if (ret)
-		goto mmss_cc_base_unmap;
+		goto probe_err;
 
-	ret = mdss_edp_clk_init(edp_drv);
+	ret = mdss_dp_event_setup(dp_drv);
 	if (ret)
-		goto edp_clk_deinit;
+		goto probe_err;
 
-	ret = mdss_edp_gpio_panel_en(edp_drv);
-	if (ret)
-		goto edp_clk_deinit;
+	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, true);
+	if (ret) {
+		pr_err("Unabled to enable core clocks\n");
+		goto probe_err;
+	}
 
-	ret = mdss_edp_gpio_lvl_en(edp_drv);
-	if (ret)
-		pr_err("%s: No gpio_lvl_en detected\n", __func__);
+	pr_info("ctrl_hw_rev =0x%x, phy hw_rev =0x%x\n",
+	       mdss_dp_get_ctrl_hw_version(&dp_drv->ctrl_io),
+	       mdss_dp_get_phy_hw_version(&dp_drv->phy_io));
 
-	ret = mdss_edp_pwm_config(edp_drv);
-	if (ret)
-		goto edp_free_gpio_panel_en;
+	ret = mdss_dp_clk_ctrl(dp_drv, DP_CORE_PM, false);
+	if (ret) {
+		pr_err("Unabled to disable core clocks\n");
+		goto probe_err;
+	}
 
-	mdss_edp_irq_setup(edp_drv);
-
-	mdss_edp_aux_init(edp_drv);
-
-	mdss_edp_event_setup(edp_drv);
-
-	edp_drv->cont_splash = edp_drv->mdss_util->panel_intf_status(DISPLAY_1,
+	dp_drv->cont_splash = dp_drv->mdss_util->panel_intf_status(DISPLAY_1,
 		MDSS_PANEL_INTF_EDP) ? true : false;
 
-	/* only need aux and ahb clock for aux channel */
-	mdss_edp_prepare_aux_clocks(edp_drv);
-	mdss_edp_aux_clk_enable(edp_drv);
+	platform_set_drvdata(pdev, dp_drv);
 
-	if (!edp_drv->cont_splash) {
-		mdss_edp_phy_pll_reset(edp_drv);
-		mdss_edp_aux_reset(edp_drv);
-		mdss_edp_mainlink_reset(edp_drv);
-		mdss_edp_phy_power_ctrl(edp_drv, 1);
-		mdss_edp_aux_ctrl(edp_drv, 1);
-	}
+	mdss_dp_device_register(dp_drv);
 
-	mdss_edp_irq_enable(edp_drv);
+	dp_drv->inited = true;
 
-	mdss_edp_edid_read(edp_drv, 0);
-	mdss_edp_dpcd_cap_read(edp_drv);
-	mdss_edp_fill_link_cfg(edp_drv);
-
-	mdss_edp_irq_disable(edp_drv);
-
-	if (!edp_drv->cont_splash) {
-		mdss_edp_aux_ctrl(edp_drv, 0);
-		mdss_edp_phy_power_ctrl(edp_drv, 0);
-	}
-
-	mdss_edp_aux_clk_disable(edp_drv);
-	mdss_edp_unprepare_aux_clocks(edp_drv);
-
-	if (edp_drv->cont_splash) { /* vote for clocks */
-		mdss_edp_prepare_clocks(edp_drv);
-		mdss_edp_clk_enable(edp_drv);
-	}
-
-	mdss_edp_device_register(edp_drv);
-
-	edp_drv->inited = true;
-
-	pr_debug("%s: done\n", __func__);
+	pr_debug("done\n");
 
 	return 0;
 
-
-edp_free_gpio_panel_en:
-	gpio_free(edp_drv->gpio_panel_en);
-	if (gpio_is_valid(edp_drv->gpio_lvl_en))
-		gpio_free(edp_drv->gpio_lvl_en);
-edp_clk_deinit:
-	mdss_edp_clk_deinit(edp_drv);
-	mdss_edp_regulator_off(edp_drv);
-mmss_cc_base_unmap:
-	iounmap(edp_drv->mmss_cc_base);
-edp_base_unmap:
-	iounmap(edp_drv->base);
 probe_err:
+	iounmap(dp_drv->ctrl_io.base);
+	iounmap(dp_drv->phy_io.base);
+	if (dp_drv)
+		devm_kfree(&pdev->dev, dp_drv);
 	return ret;
 
 }
 
-static const struct of_device_id msm_mdss_edp_dt_match[] = {
-	{.compatible = "qcom,mdss-edp"},
+static const struct of_device_id msm_mdss_dp_dt_match[] = {
+	{.compatible = "qcom,mdss-dp"},
 	{}
 };
-MODULE_DEVICE_TABLE(of, msm_mdss_edp_dt_match);
+MODULE_DEVICE_TABLE(of, msm_mdss_dp_dt_match);
 
-static struct platform_driver mdss_edp_driver = {
-	.probe = mdss_edp_probe,
-	.remove = mdss_edp_remove,
+static struct platform_driver mdss_dp_driver = {
+	.probe = mdss_dp_probe,
+	.remove = mdss_dp_remove,
 	.shutdown = NULL,
 	.driver = {
-		.name = "mdss_edp",
-		.of_match_table = msm_mdss_edp_dt_match,
+		.name = "mdss_dp",
+		.of_match_table = msm_mdss_dp_dt_match,
 	},
 };
 
-static int __init mdss_edp_init(void)
+static int __init mdss_dp_init(void)
 {
 	int ret;
 
-	ret = platform_driver_register(&mdss_edp_driver);
+	ret = platform_driver_register(&mdss_dp_driver);
 	if (ret) {
-		pr_err("%s driver register failed", __func__);
+		pr_err("driver register failed");
 		return ret;
 	}
 
 	return ret;
 }
-module_init(mdss_edp_init);
+module_init(mdss_dp_init);
 
-static void __exit mdss_edp_driver_cleanup(void)
+static void __exit mdss_dp_driver_cleanup(void)
 {
-	platform_driver_unregister(&mdss_edp_driver);
+	platform_driver_unregister(&mdss_dp_driver);
 }
-module_exit(mdss_edp_driver_cleanup);
+module_exit(mdss_dp_driver_cleanup);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("eDP controller driver");
+MODULE_DESCRIPTION("DP controller driver");
