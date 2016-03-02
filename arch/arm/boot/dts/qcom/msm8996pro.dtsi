@@ -632,6 +632,7 @@
 	qcom,cpr-aging-ref-corner = <6>;
 	qcom,cpr-aging-ro-scaling-factor = <2950>;
 	qcom,allow-aging-voltage-adjustment = <1>;
+	qcom,allow-aging-open-loop-voltage-adjustment = <1>;
 };
 
 &clock_cpu {
