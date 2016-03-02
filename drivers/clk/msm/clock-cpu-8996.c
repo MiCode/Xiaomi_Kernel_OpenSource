@@ -551,7 +551,13 @@ static enum handoff cpu_clk_8996_handoff(struct clk *c)
 
 static long cpu_clk_8996_round_rate(struct clk *c, unsigned long rate)
 {
-	return clk_round_rate(c->parent, rate);
+	int i;
+
+	for (i = 0; i < c->num_fmax; i++)
+		if (rate <= c->fmax[i])
+			return clk_round_rate(c->parent, c->fmax[i]);
+
+	return clk_round_rate(c->parent, c->fmax[c->num_fmax - 1]);
 }
 
 static unsigned long alt_pll_perfcl_freqs[] = {
