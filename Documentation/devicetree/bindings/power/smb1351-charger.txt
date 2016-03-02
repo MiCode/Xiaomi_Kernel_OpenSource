@@ -32,6 +32,17 @@ Optional Properties:
 - qcom,using-pmic-therm		This property indicates thermal pin connected to pmic or smb.
 - qcom,bms-psy-name		This is a string and it points to the bms
 				power supply name.
+- qcom,use-external-fg		This is a bool property to indicate if the SMB charger
+				working with an external Fuel Gauge(FG). If yes, the SMB
+				charger would interact with FG and several software
+				workarounds will be applied to improve the SoC reporting
+				accuracy.
+- qcom,resume-soc		This property specify an integer value to indicate
+				SOC value to resume charging. This property could be
+				defined when qcom,use-external-fg is defined. When this
+				property is defined, recharging behavior will be based
+				upon the SOC reported by FG and the recharging based on
+				internal voltage will be disabled.
 - qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
 				Possible values in mA - 70, 100, 200, 300, 400, 500, 600, 700.
 - qcom,iterm-disabled		Disables the termination current feature. This is a bool
