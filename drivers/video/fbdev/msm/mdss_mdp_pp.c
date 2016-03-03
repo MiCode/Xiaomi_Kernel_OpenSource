@@ -2315,6 +2315,10 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 				&mdss_pp_res->igc_disp_cfg[disp_num],
 				DSPP);
 		}
+		if (pp_driver_ops.igc_set_dither_strength)
+			pp_driver_ops.igc_set_dither_strength(base, pp_sts,
+				&mdss_pp_res->igc_disp_cfg[disp_num],
+				DSPP);
 	}
 
 	if (flags & PP_FLAGS_DIRTY_ENHIST) {
@@ -7454,16 +7458,25 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 		break;
 	case MDSS_MDP_HW_REV_300:
 	case MDSS_MDP_HW_REV_301:
-		pp_cfg = pp_get_driver_ops_v3(ops);
+		/*
+		 * Some of the REV_300 PP features are same as REV_107.
+		 * Get the driver ops for both the versions and update the
+		 * payload/function pointers.
+		 */
+		mdss_pp_res->pp_data_v1_7 = NULL;
+		mdss_pp_res->pp_data_v3 = NULL;
+		pp_cfg = pp_get_driver_ops_v1_7(ops);
 		if (IS_ERR_OR_NULL(pp_cfg)) {
 			ret = -EINVAL;
+			break;
+		}
+		mdss_pp_res->pp_data_v1_7 = pp_cfg;
+		pp_cfg = pp_get_driver_ops_v3(ops);
+		if (IS_ERR_OR_NULL(pp_cfg)) {
+			mdss_pp_res->pp_data_v1_7 = NULL;
+			ret = -EINVAL;
 		} else {
-			mdss_pp_res->pp_data_v1_7 = pp_cfg;
-			/* Currently all caching data is used from v17 for V3
-			 * hence setting the pointer to NULL. Will be used if we
-			 * have to add any caching specific to V3.
-			 */
-			mdss_pp_res->pp_data_v3 = NULL;
+			mdss_pp_res->pp_data_v3 = pp_cfg;
 		}
 		break;
 	default:

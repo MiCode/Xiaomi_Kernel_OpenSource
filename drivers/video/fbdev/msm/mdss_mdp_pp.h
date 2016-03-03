@@ -106,6 +106,9 @@ struct mdp_pp_driver_ops {
 	int (*get_hist_isr_info)(u32 *isr_mask);
 	bool (*is_sspp_hist_supp)(void);
 	void (*gamut_clk_gate_en)(char __iomem *base_addr);
+	int (*igc_set_dither_strength)(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
 };
 
 struct mdp_pa_dither_res_data_v1_7 {
@@ -136,6 +139,23 @@ struct mdss_pp_res_type_v1_7 {
 	struct mdp_pcc_data_v1_7 pcc_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pa_data_v1_7 pa_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pa_dither_res_data_v1_7 pa_dither_data[MDSS_BLOCK_DISP_NUM];
+};
+
+struct mdp_igc_lut_data_config {
+	uint32_t table_fmt;
+	uint32_t len;
+	uint32_t *c0_c1_data;
+	uint32_t *c2_data;
+	uint32_t strength;
+};
+
+struct mdss_pp_res_type_v3 {
+	int (*igc_set_config)(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+	u32 igc_table_c0_c1[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
+	u32 igc_table_c2[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
+	struct mdp_igc_lut_data_config igc_v3_data[MDSS_BLOCK_DISP_NUM];
 };
 
 struct mdss_pp_res_type {

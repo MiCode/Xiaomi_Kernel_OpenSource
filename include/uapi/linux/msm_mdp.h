@@ -622,6 +622,14 @@ struct mdp_igc_lut_data_v1_7 {
 	uint32_t *c2_data;
 };
 
+struct mdp_igc_lut_data_payload {
+	uint32_t table_fmt;
+	uint32_t len;
+	uint64_t __user c0_c1_data;
+	uint64_t __user c2_data;
+	uint32_t strength;
+};
+
 struct mdp_histogram_cfg {
 	uint32_t ops;
 	uint32_t block;
@@ -1407,11 +1415,13 @@ enum {
 	mdp_pcc_vmax,
 	mdp_pp_legacy,
 	mdp_dither_pa_v1_7,
+	mdp_igc_v3,
 	mdp_pp_unknown = 255
 };
 
 #define mdp_dither_pa_v1_7 mdp_dither_pa_v1_7
 #define mdp_pp_unknown mdp_pp_unknown
+#define mdp_igc_v3 mdp_igc_v3
 
 /* PP Features */
 enum {
