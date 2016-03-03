@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -754,6 +754,7 @@ static int mem_acc_reg_addr_val_dump(struct mem_acc_regulator *mem_acc_vreg,
 		pr_debug("%s\n", buf);
 	}
 
+	kfree(buf);
 	return 0;
 }
 
