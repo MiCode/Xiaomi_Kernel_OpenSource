@@ -1597,7 +1597,9 @@ static int clock_cpu_probe(struct platform_device *pdev)
 
 	vmin_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,enable-vmin");
-	if (pboost_freq > 0)
+
+	if ((of_property_read_bool(pdev->dev.of_node, "qcom,enable-boost"))
+		       && (pboost_freq > 0))
 		pboost_en = true;
 
 	rc = cpu_parse_devicetree(pdev);

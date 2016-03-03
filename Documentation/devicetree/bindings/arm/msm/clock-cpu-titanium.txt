@@ -46,6 +46,11 @@ Optional Properties:
 			If defined, the "safe_l" value column is required to be
 			defined along with speedX-bin-vY-cl as indicated in
 			below example.
+- qcom,enable-boost:    Boolean property if defined denotes presence of boost
+			available for clusters.
+			If defined, the "safe_l" value column is required to be
+			defined along with speedX-bin-vY-cl as indicated in
+			below example.
 - qcom,enable-qos:      Boolean property to indicate the pm qos is required
 			during set rate of the cluster clocks, which would not
 			allow the cluster cores to go to low power mode.
