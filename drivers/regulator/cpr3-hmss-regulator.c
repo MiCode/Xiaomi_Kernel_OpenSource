@@ -781,19 +781,8 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 		goto done;
 	}
 
-	/* Determine highest corner mapped to each fuse corner */
-	j = vreg->fuse_corner_count - 1;
-	for (i = vreg->corner_count - 1; i >= 0; i--) {
-		if (vreg->corner[i].cpr_fuse_corner == j) {
-			fmax_corner[j] = i;
-			j--;
-		}
-	}
-	if (j >= 0) {
-		cpr3_err(vreg, "invalid fuse corner mapping\n");
-		rc = -EINVAL;
-		goto done;
-	}
+	for (i = 0; i < vreg->fuse_corner_count; i++)
+		fmax_corner[i] = vreg->fuse_corner_map[i];
 
 	/*
 	 * Interpolation is not possible for corners mapped to the lowest fuse
@@ -801,6 +790,14 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 	 */
 	for (i = 0; i <= fmax_corner[0]; i++)
 		vreg->corner[i].open_loop_volt = fuse_volt[0];
+
+	/*
+	 * Interpolation is not possible for corners mapped above the highest
+	 * fuse corner so use the fuse corner value directly.
+	 */
+	j = vreg->fuse_corner_count - 1;
+	for (i = fmax_corner[j] + 1; i < vreg->corner_count; i++)
+		vreg->corner[i].open_loop_volt = fuse_volt[j];
 
 	/*
 	 * Corner LowSVS should be skipped for voltage interpolation
@@ -969,19 +966,8 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 				volt_adjust, volt_adjust_fuse, ro_scale);
 	}
 
-	/* Determine highest corner mapped to each fuse corner */
-	j = vreg->fuse_corner_count - 1;
-	for (i = vreg->corner_count - 1; i >= 0; i--) {
-		if (vreg->corner[i].cpr_fuse_corner == j) {
-			fmax_corner[j] = i;
-			j--;
-		}
-	}
-	if (j >= 0) {
-		cpr3_err(vreg, "invalid fuse corner mapping\n");
-		rc = -EINVAL;
-		goto done;
-	}
+	for (i = 0; i < vreg->fuse_corner_count; i++)
+		fmax_corner[i] = vreg->fuse_corner_map[i];
 
 	/*
 	 * Interpolation is not possible for corners mapped to the lowest fuse
@@ -996,6 +982,17 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 		cpr3_debug(vreg, "adjusted fuse corner %d RO%u target quot: %llu --> %u (%d uV)\n",
 			i, ro, fuse->target_quot[i], quot, volt_adjust_fuse[i]);
 	for (i = 0; i <= fmax_corner[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]; i++)
+		vreg->corner[i].target_quot[ro] = quot;
+
+	/*
+	 * Interpolation is not possible for corners mapped above the highest
+	 * fuse corner so use the fuse corner value directly.
+	 */
+	j = vreg->fuse_corner_count - 1;
+	quot_adjust = cpr3_quot_adjustment(ro_scale[j], volt_adjust_fuse[j]);
+	quot = fuse->target_quot[j] + quot_adjust;
+	ro = fuse->ro_sel[j];
+	for (i = fmax_corner[j] + 1; i < vreg->corner_count; i++)
 		vreg->corner[i].target_quot[ro] = quot;
 
 	/*
