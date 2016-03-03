@@ -1045,11 +1045,10 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
 	if (IS_ERR(ctrl->vdd_regulator)) {
 		rc = PTR_ERR(ctrl->vdd_regulator);
-		if (rc != -EPROBE_DEFER) {
+		if (rc != -EPROBE_DEFER)
 			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
 				 rc);
-			return rc;
-		}
+		return rc;
 	}
 
 	ctrl->system_regulator = devm_regulator_get_optional(ctrl->dev,
