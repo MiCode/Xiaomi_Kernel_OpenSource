@@ -621,7 +621,7 @@
 
 		qcom,num-corners = <7>;
 		qcom,num-ldo-corners = <3>;
-		qcom,ldo-enable-corner-map = <1 1 1 0 0 0 0>;
+		qcom,ldo-enable-corner-map = <0 0 0 0 0 0 0>;
 		qcom,init-corner = <4>;
 
 		vdd-cx-supply = <&pmtitanium_s2_level>;
