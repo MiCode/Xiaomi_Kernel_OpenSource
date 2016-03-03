@@ -628,6 +628,26 @@ config ARM64_REG_REBALANCE_ON_CTX_SW
 	 Forcefully re-balance register rename pools on context switches for
 	 improved performance on some devices.
 
+config PERF_EVENTS_USERMODE
+	bool "Enable usermode access for perf events"
+	depends on PERF_EVENTS
+	help
+	  Enable user-mode access to performance counters for perf events.
+	  If enabled, the access permissions allowing CPU performance
+	  counters to be accessed from user-mode are set.
+
+	  If you want user-mode programs to access perf events, say Y
+
+config PERF_EVENTS_RESET_PMU_DEBUGFS
+	bool "Reset PMU via debugfs node"
+	depends on PERF_EVENTS
+	help
+		Enable the debugfs node that can be used to reset PMUs and all
+		state variables associated with PMUs. If enabled, PMU and internal
+		state variable are cleared.
+		If you want to reset PMU and PMU related internal Perf variables
+		via debugfs then say Y.
+
 config SYS_SUPPORTS_HUGETLBFS
 	def_bool y
 

@@ -22,6 +22,7 @@
 #include <linux/spinlock.h>
 #include <linux/irq.h>
 #include <linux/irqdesc.h>
+#include <linux/debugfs.h>
 
 #include <asm/cputype.h>
 #include <asm/irq_regs.h>
@@ -925,3 +926,74 @@ out_free:
 	kfree(pmu);
 	return ret;
 }
+
+static struct dentry *perf_debug_dir;
+
+struct dentry *perf_create_debug_dir(void)
+{
+	if (!perf_debug_dir)
+		perf_debug_dir = debugfs_create_dir("msm_perf", NULL);
+	return perf_debug_dir;
+}
+
+#ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
+static __ref void reset_pmu_force(void)
+{
+	int cpu, ret;
+	u32 save_online_mask = 0;
+
+	for_each_possible_cpu(cpu) {
+		if (!cpu_online(cpu)) {
+			save_online_mask |= BIT(cpu);
+			ret = cpu_up(cpu);
+			if (ret)
+				pr_err("Failed to bring up CPU: %d, ret: %d\n",
+				       cpu, ret);
+		}
+	}
+	if (cpu_pmu && cpu_pmu->reset)
+		on_each_cpu(cpu_pmu->reset, NULL, 1);
+	if (cpu_pmu && cpu_pmu->plat_device)
+		armpmu_release_hardware(cpu_pmu);
+	for_each_possible_cpu(cpu) {
+		if ((save_online_mask & BIT(cpu)) && cpu_online(cpu)) {
+			ret = cpu_down(cpu);
+			if (ret)
+				pr_err("Failed to bring down CPU: %d, ret: %d\n",
+						cpu, ret);
+		}
+	}
+}
+
+static int write_enabled_perfpmu_action(void *data, u64 val)
+{
+	if (val != 0)
+		reset_pmu_force();
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_pmuaction,
+		NULL, write_enabled_perfpmu_action, "%llu\n");
+
+int __init init_pmu_actions(void)
+{
+	struct dentry *dir;
+	struct dentry *file;
+	unsigned int value = 1;
+
+	dir = perf_create_debug_dir();
+	if (!dir)
+		return -ENOMEM;
+	file = debugfs_create_file("resetpmu", 0220, dir,
+		&value, &fops_pmuaction);
+	if (!file)
+		return -ENOMEM;
+	return 0;
+}
+#else
+int __init init_pmu_actions(void)
+{
+	return 0;
+}
+#endif
+late_initcall(init_pmu_actions);
