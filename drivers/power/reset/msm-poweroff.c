@@ -516,6 +516,7 @@ static int msm_restart_probe(struct platform_device *pdev)
 				"qcom,msm-imem-dload-type");
 	if (!np) {
 		pr_err("unable to find DT imem dload-type node\n");
+		goto skip_sysfs_create;
 	} else {
 		dload_type_addr = of_iomap(np, 0);
 		if (!dload_type_addr) {
@@ -529,6 +530,7 @@ static int msm_restart_probe(struct platform_device *pdev)
 	if (ret) {
 		pr_err("%s:Error in creation kobject_add\n", __func__);
 		kobject_put(&dload_kobj);
+		goto skip_sysfs_create;
 	}
 
 	ret = sysfs_create_group(&dload_kobj, &reset_attr_group);
