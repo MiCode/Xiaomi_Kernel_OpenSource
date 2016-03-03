@@ -522,7 +522,7 @@ static void dapm_set_mixer_path_status(struct snd_soc_dapm_widget *w,
 	unsigned int max = mc->max;
 	unsigned int mask = (1 << fls(max)) - 1;
 	unsigned int invert = mc->invert;
-	unsigned int val;
+	unsigned int val = 0;
 
 	if (reg != SND_SOC_NOPM) {
 		soc_dapm_read(w->dapm, reg, &val);
