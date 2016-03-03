@@ -143,6 +143,7 @@
 		      <0x5066090 0x4>;
 		reg-names = "base", "domain_addr", "sw_reset";
 		qcom,retain-periph;
+		qcom,reset-aon-logic;
 		status = "disabled";
 	};
 };
