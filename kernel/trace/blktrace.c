@@ -800,9 +800,6 @@ static void blk_add_trace_bio(struct request_queue *q, struct bio *bio,
 	    bio->bi_io_vec->bv_page->tsk_dirty)
 		tsk = bio->bi_io_vec->bv_page->tsk_dirty;
 
-	if (!error && !bio_flagged(bio, BIO_UPTODATE))
-		error = EIO;
-
 	__blk_add_trace(bt, bio->bi_iter.bi_sector, bio->bi_iter.bi_size,
 			bio->bi_rw, what, error, 0, NULL, tsk);
 }
