@@ -15,6 +15,7 @@
 
 #include <soc/qcom/camera2.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/of.h>
 #include "msm_camera_i2c.h"
 #include "cam_soc_api.h"
@@ -58,4 +59,10 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 	int num_vreg, struct msm_sensor_power_setting *power_setting,
 	uint16_t power_setting_size);
 
+int msm_camera_pinctrl_init
+	(struct msm_pinctrl_info *sensor_pctrl, struct device *dev);
+
+int32_t msm_sensor_driver_get_gpio_data(
+	struct msm_camera_gpio_conf **gpio_conf,
+	struct device_node *of_node);
 #endif
