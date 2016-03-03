@@ -14,20 +14,65 @@
 #define _IPAHAL_I_H_
 
 #define IPAHAL_DRV_NAME "ipahal"
+
+#define IPAHAL_IPC_LOG_PAGES 10
+#define IPAHAL_IPC_LOG(buf, fmt, args...) \
+	ipc_log_string((buf), \
+		IPAHAL_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+
 #define IPAHAL_DBG(fmt, args...) \
-	pr_debug(IPAHAL_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(IPAHAL_DRV_NAME " %s:%d " fmt, \
+			__func__, __LINE__, ## args); \
+		if (likely(ipahal_ctx)) { \
+			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf, fmt, ## args); \
+			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf_low, \
+				fmt, ## args); \
+		} \
+	} while (0)
+
+#define IPAHAL_DBG_LOW(fmt, args...) \
+	do { \
+		pr_debug(IPAHAL_DRV_NAME " %s:%d " fmt, \
+			__func__, __LINE__, ## args); \
+		if (likely(ipahal_ctx) && \
+			ipahal_ctx->enable_low_prio_ipc) { \
+			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf_low, \
+				fmt, ## args); \
+		} \
+	} while (0)
+
 #define IPAHAL_ERR(fmt, args...) \
-	pr_err(IPAHAL_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(IPAHAL_DRV_NAME " %s:%d " fmt, \
+			__func__, __LINE__, ## args); \
+		if (likely(ipahal_ctx)) { \
+			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf, fmt, ## args); \
+			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf_low, \
+				fmt, ## args); \
+		} \
+	} while (0)
 
 /*
  * struct ipahal_context - HAL global context data
  * @hw_type: IPA H/W type/version.
  * @base: Base address to be used for accessing IPA memory. This is
  *  I/O memory mapped address.
+ * @ipc_logbuf: IPC debug logs buffer
+ * @ipc_logbuf_low: IPC Low priority debug logs buffer
+ * @enable_low_prio_ipc: Flag telling to enable low priority logging
+ *  Controlled by debugfs. default is off
+ * @dent: Debugfs folder dir entry
+ * @dfile_enable_low_prio_ipc: Debugfs file for enable_low_prio_ipc
  */
 struct ipahal_context {
 	enum ipa_hw_type hw_type;
 	void __iomem *base;
+	void *ipc_logbuf;
+	void *ipc_logbuf_low;
+	u32 enable_low_prio_ipc;
+	struct dentry *dent;
+	struct dentry *dfile_enable_low_prio_ipc;
 };
 
 extern struct ipahal_context *ipahal_ctx;
