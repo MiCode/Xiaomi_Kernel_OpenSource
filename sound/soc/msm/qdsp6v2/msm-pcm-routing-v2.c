@@ -551,8 +551,8 @@ void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 	pr_debug("%s: fedai_id %d, app_type %d, sample_rate %d\n",
 		__func__, fedai_id, app_type, sample_rate);
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
-		/* bad ID assigned in machine driver */
-		pr_err("%s: bad MM ID %d\n", __func__, fedai_id);
+		pr_err("%s: Invalid machine driver ID %d\n",
+			__func__, fedai_id);
 		return;
 	}
 	fe_dai_app_type_cfg[fedai_id].app_type = app_type;
@@ -560,6 +560,51 @@ void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 	fe_dai_app_type_cfg[fedai_id].sample_rate = sample_rate;
 }
 
+/**
+ * msm_pcm_routing_get_stream_app_type_cfg
+ *
+ * Receives fedai_id and populates app_type, acdb_dev_id, &
+ * sample rate. Returns 0 on success. On failure returns
+ * -EINVAL and does not alter passed values.
+ *
+ * fedai_id - Passed value, front end ID for which app type config is wanted
+ * app_type - Returned value, app type used by app type config
+ * acdb_dev_id - Returned value, ACDB device ID used by app type config
+ * sample_rate - Returned value, sample rate used by app type config
+ */
+int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int *app_type,
+					    int *acdb_dev_id, int *sample_rate)
+{
+	int ret = 0;
+
+	if (app_type == NULL) {
+		pr_err("%s: NULL pointer sent for app_type\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	} else if (acdb_dev_id == NULL) {
+		pr_err("%s: NULL pointer sent for acdb_dev_id\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	} else if (sample_rate == NULL) {
+		pr_err("%s: NULL pointer sent for sample rate\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	} else if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
+		pr_err("%s: Invalid FE ID %d\n",
+			__func__, fedai_id);
+		ret = -EINVAL;
+		goto done;
+	}
+	*app_type = fe_dai_app_type_cfg[fedai_id].app_type;
+	*acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
+	*sample_rate = fe_dai_app_type_cfg[fedai_id].sample_rate;
+
+	pr_debug("%s: fedai_id %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fedai_id, *app_type, *acdb_dev_id, *sample_rate);
+done:
+	return ret;
+}
+EXPORT_SYMBOL(msm_pcm_routing_get_stream_app_type_cfg);
 
 static struct cal_block_data *msm_routing_find_topology_by_path(int path)
 {
