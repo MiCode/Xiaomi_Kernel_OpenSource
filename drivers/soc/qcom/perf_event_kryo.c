@@ -205,12 +205,14 @@ static void kryo_clear_resr(struct kryo_evt *evtinfo)
 	kryo_write_pmresr(evtinfo->reg, evtinfo->l_h, val);
 }
 
-static void kryo_pmu_disable_event(struct hw_perf_event *hwc, int idx)
+static void kryo_pmu_disable_event(struct perf_event *event)
 {
 	unsigned long flags;
 	u32 val = 0;
 	unsigned long ev_num;
 	struct kryo_evt evtinfo;
+	struct hw_perf_event *hwc = &event->hw;
+	int idx = hwc->idx;
 	struct pmu_hw_events *events = this_cpu_ptr(cpu_pmu->hw_events);
 
 	/* Disable counter and interrupt */
@@ -240,12 +242,14 @@ kryo_dis_out:
 	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
 
-static void kryo_pmu_enable_event(struct hw_perf_event *hwc, int idx)
+static void kryo_pmu_enable_event(struct perf_event *event)
 {
 	unsigned long flags;
 	u32 val = 0;
 	unsigned long ev_num;
 	struct kryo_evt evtinfo;
+	struct hw_perf_event *hwc = &event->hw;
+	int idx = hwc->idx;
 	unsigned long long prev_count = local64_read(&hwc->prev_count);
 	struct pmu_hw_events *events = this_cpu_ptr(cpu_pmu->hw_events);
 
@@ -280,7 +284,7 @@ static void kryo_pmu_enable_event(struct hw_perf_event *hwc, int idx)
 	armv8pmu_enable_intens(idx);
 
 	/* Restore prev val */
-	cpu_pmu->write_counter(idx, prev_count & COUNT_MASK);
+	cpu_pmu->write_counter(event, prev_count & COUNT_MASK);
 
 	/* Enable counter */
 	armv8pmu_enable_counter(idx);
@@ -306,6 +310,13 @@ static inline void kryo_init_usermode(void)
 {
 }
 #endif
+
+static int kryo_map_event(struct perf_event *event)
+{
+	return armpmu_map_event(event, &armv8_pmuv3_perf_map,
+				&armv8_pmuv3_perf_cache_map,
+				KRYO_EVT_MASK);
+}
 
 static void kryo_pmu_reset(void *info)
 {
@@ -357,16 +368,18 @@ static const struct attribute_group *kryo_pmu_attr_grps[] = {
 	NULL,
 };
 
-int kryo_pmu_init(struct arm_pmu *armv8_pmu)
+int kryo_pmu_init(struct arm_pmu *kryo_pmu)
 {
 	pr_info("CPU pmu for kryo-pmuv3 detected\n");
 
-	cpu_pmu = armv8_pmu;
+	armv8_pmu_init(kryo_pmu);
+	cpu_pmu = kryo_pmu;
 
 	cpu_pmu->enable			= kryo_pmu_enable_event;
 	cpu_pmu->disable		= kryo_pmu_disable_event;
 	cpu_pmu->reset			= kryo_pmu_reset;
 	cpu_pmu->pmu.attr_groups	= kryo_pmu_attr_grps;
+	cpu_pmu->map_event              = kryo_map_event;
 	cpu_pmu->name			= "qcom,kryo-pmuv3";
 
 	kryo_clear_resrs();
