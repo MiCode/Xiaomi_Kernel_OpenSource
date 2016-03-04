@@ -40,6 +40,7 @@
 #include <linux/crypto.h>
 #include <linux/scatterlist.h>
 #include <linux/log2.h>
+#include <linux/etherdevice.h>
 #ifdef CONFIG_PCI_MSM
 #include <linux/msm_pcie.h>
 #else
@@ -223,6 +224,16 @@ struct index_file {
 	u8 file_name[13];
 };
 
+/**
+ * struct wlan_mac_addr - Structure to hold WLAN MAC Address
+ * @mac_addr: MAC address
+ */
+#define MAX_NO_OF_MAC_ADDR 4
+struct cnss_wlan_mac_addr {
+	u8 mac_addr[MAX_NO_OF_MAC_ADDR][ETH_ALEN];
+	uint32_t no_of_mac_addr_set;
+};
+
 /* device_info is expected to be fully populated after cnss_config is invoked.
  * The function pointer callbacks are expected to be non null as well.
  */
@@ -230,6 +241,8 @@ static struct cnss_data {
 	struct platform_device *pldev;
 	struct subsys_device *subsys;
 	struct subsys_desc    subsysdesc;
+	struct cnss_wlan_mac_addr wlan_mac_addr;
+	bool is_wlan_mac_set;
 	bool ramdump_dynamic;
 	struct ramdump_device *ramdump_dev;
 	unsigned long ramdump_size;
@@ -1926,6 +1939,96 @@ release_fw:
 end:
 	return;
 }
+
+/**
+ * cnss_get_wlan_mac_address() - API to return MAC addresses buffer
+ * @dev: struct device pointer
+ * @num: buffer for number of mac addresses supported
+ *
+ * API returns the pointer to the buffer filled with mac addresses and
+ * updates num with the number of mac addresses the buffer contains.
+ *
+ * Return: pointer to mac address buffer.
+ */
+u8 *cnss_get_wlan_mac_address(struct device *dev, uint32_t *num)
+{
+	struct cnss_wlan_mac_addr *addr = NULL;
+
+	if (!penv) {
+		pr_err("%s: Invalid Platform Driver Context\n", __func__);
+		goto end;
+	}
+
+	if (!penv->is_wlan_mac_set) {
+		pr_info("%s: Platform Driver doesn't have any mac address\n",
+			__func__);
+		goto end;
+	}
+
+	addr = &penv->wlan_mac_addr;
+	*num = addr->no_of_mac_addr_set;
+	return &addr->mac_addr[0][0];
+end:
+	*num = 0;
+	return NULL;
+}
+EXPORT_SYMBOL(cnss_get_wlan_mac_address);
+
+/**
+* cnss_pcie_set_wlan_mac_address() - API to get two wlan mac address
+* @in: Input buffer with wlan mac addresses
+* @len: Size of the buffer passed
+*
+* API to store wlan mac address passed by the caller. The stored mac
+* addresses are used by the wlan functional driver to program wlan HW.
+*
+* Return: kernel error code.
+*/
+int cnss_pcie_set_wlan_mac_address(const u8 *in, uint32_t len)
+{
+	uint32_t no_of_mac_addr;
+	struct cnss_wlan_mac_addr *addr = NULL;
+	int iter = 0;
+	u8 *temp = NULL;
+
+	if (len == 0 || (len % ETH_ALEN) != 0) {
+		pr_err("%s: Invalid Length:%d\n", __func__, len);
+		return -EINVAL;
+	}
+
+	no_of_mac_addr = len / ETH_ALEN;
+
+	if (no_of_mac_addr > MAX_NO_OF_MAC_ADDR) {
+		pr_err("%s: Num of supported MAC  addresses are:%d given:%d\n",
+		       __func__, MAX_NO_OF_MAC_ADDR, no_of_mac_addr);
+		return -EINVAL;
+	}
+
+	if (!penv) {
+		pr_err("%s: Invalid CNSS Platform Context\n", __func__);
+		return -ENOENT;
+	}
+
+	if (penv->is_wlan_mac_set) {
+		pr_info("%s: Already MAC address are configured\n", __func__);
+		return 0;
+	}
+
+	penv->is_wlan_mac_set = true;
+	addr = &penv->wlan_mac_addr;
+	addr->no_of_mac_addr_set = no_of_mac_addr;
+	temp = &addr->mac_addr[0][0];
+
+	for (; iter < no_of_mac_addr; ++iter, temp += ETH_ALEN, in +=
+	     ETH_ALEN) {
+		ether_addr_copy(temp, in);
+		pr_debug("%s MAC_ADDR:%02x:%02x:%02x:%02x:%02x:%02x\n",
+			 __func__, temp[0], temp[1], temp[2], temp[3], temp[4],
+			 temp[5]);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(cnss_pcie_set_wlan_mac_address);
 
 int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 {
