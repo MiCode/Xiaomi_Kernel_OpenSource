@@ -32,6 +32,7 @@
 #include <linux/pm_qos.h>
 #include <linux/interrupt.h>
 #include <linux/regulator/driver.h>
+#include <linux/uaccess.h>
 
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-local2.h>
@@ -53,6 +54,18 @@ enum clk_osm_lut_data {
 	PLL_OVERRIDES,
 	SPARE_DATA,
 	NUM_FIELDS,
+};
+
+enum clk_osm_trace_method {
+	XOR_PACKET,
+	PERIODIC_PACKET,
+};
+
+enum clk_osm_trace_packet_id {
+	TRACE_PACKET0,
+	TRACE_PACKET1,
+	TRACE_PACKET2,
+	TRACE_PACKET3,
 };
 
 #define SEQ_REG(n) (0x300 + (n) * 4)
@@ -166,6 +179,19 @@ enum clk_osm_lut_data {
 			    MAX_MEM_ACC_VAL_PER_LEVEL)
 #define MEM_ACC_READ_MASK 0x7
 
+#define TRACE_CTRL 0x1F38
+#define TRACE_CTRL_EN_MASK BIT(0)
+#define TRACE_CTRL_ENABLE 1
+#define TRACE_CTRL_DISABLE 0
+#define TRACE_CTRL_PACKET_TYPE_MASK BVAL(2, 1, 3)
+#define TRACE_CTRL_PACKET_TYPE_SHIFT 1
+#define TRACE_CTRL_PERIODIC_TRACE_EN_MASK BIT(3)
+#define TRACE_CTRL_PERIODIC_TRACE_ENABLE BIT(3)
+#define PERIODIC_TRACE_TIMER_CTRL 0x1F3C
+#define PERIODIC_TRACE_MIN_US 1
+#define PERIODIC_TRACE_MAX_US 20000000
+#define PERIODIC_TRACE_DEFAULT_US 1000
+
 static u32 seq_instr[] = {
 	0xc2005000, 0x2c9e3b21, 0xc0ab2cdc, 0xc2882525, 0x359dc491,
 	0x700a500b, 0x70005001, 0x390938c8, 0xcb44c833, 0xce56cd54,
@@ -265,15 +291,35 @@ struct clk_osm {
 	bool droop_fsm_en;
 	bool wfx_fsm_en;
 	bool pc_fsm_en;
+
+	enum clk_osm_trace_method trace_method;
+	enum clk_osm_trace_packet_id trace_id;
+	u32 trace_periodic_timer;
+	bool trace_en;
 };
 
-static void clk_osm_write_reg(struct clk_osm *c, int val, u32 offset)
+static inline void clk_osm_masked_write_reg(struct clk_osm *c, u32 val,
+					    u32 offset, u32 mask)
+{
+	u32 val2, orig_val;
+
+	val2 = orig_val = readl_relaxed((char *)c->vbases[OSM_BASE] + offset
+			+ c->cluster_num * OSM_CORE_TABLE_SIZE);
+	val2 &= ~mask;
+	val2 |= val & mask;
+
+	if (val2 != orig_val)
+		writel_relaxed(val2, (char *)c->vbases[OSM_BASE] + offset
+			+ c->cluster_num * OSM_CORE_TABLE_SIZE);
+}
+
+static inline void clk_osm_write_reg(struct clk_osm *c, u32 val, u32 offset)
 {
 	writel_relaxed(val , (char *)c->vbases[OSM_BASE] + offset
 		       + c->cluster_num * OSM_CORE_TABLE_SIZE);
 }
 
-static int clk_osm_read_reg(struct clk_osm *c, u32 offset)
+static inline int clk_osm_read_reg(struct clk_osm *c, u32 offset)
 {
 	return readl_relaxed((char *)c->vbases[OSM_BASE] + offset +
 			     c->cluster_num * OSM_CORE_TABLE_SIZE);
@@ -1723,6 +1769,189 @@ static void populate_opp_table(struct platform_device *pdev)
 	}
 }
 
+static int debugfs_get_trace_enable(void *data, u64 *val)
+{
+	struct clk_osm *c = data;
+
+	*val = c->trace_en;
+	return 0;
+}
+
+static int debugfs_set_trace_enable(void *data, u64 val)
+{
+	struct clk_osm *c = data;
+
+	clk_osm_masked_write_reg(c, val ? TRACE_CTRL_ENABLE :
+				 TRACE_CTRL_DISABLE,
+				 TRACE_CTRL, TRACE_CTRL_EN_MASK);
+	c->trace_en = val ? true : false;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_trace_enable_fops,
+			debugfs_get_trace_enable,
+			debugfs_set_trace_enable,
+			"%llu\n");
+
+#define MAX_DEBUG_BUF_LEN 15
+
+static DEFINE_MUTEX(debug_buf_mutex);
+static char debug_buf[MAX_DEBUG_BUF_LEN];
+
+static ssize_t debugfs_trace_method_set(struct file *file,
+					const char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	struct clk_osm *c = file->private_data;
+	u32 val;
+
+	if (IS_ERR(file) || file == NULL) {
+		pr_err("input error %ld\n", PTR_ERR(file));
+		return -EINVAL;
+	}
+
+	if (!c) {
+		pr_err("invalid clk_osm handle\n");
+		return -EINVAL;
+	}
+
+	if (count < MAX_DEBUG_BUF_LEN) {
+		mutex_lock(&debug_buf_mutex);
+
+		if (copy_from_user(debug_buf, (void __user *) buf, count)) {
+			mutex_unlock(&debug_buf_mutex);
+			return -EFAULT;
+		}
+		debug_buf[count] = '\0';
+		mutex_unlock(&debug_buf_mutex);
+
+		/* check that user entered a supported packet type */
+		if (strcmp(debug_buf, "periodic\n") == 0) {
+			clk_osm_write_reg(c, clk_osm_count_us(c,
+					      PERIODIC_TRACE_DEFAULT_US),
+					  PERIODIC_TRACE_TIMER_CTRL);
+			clk_osm_masked_write_reg(c,
+				 TRACE_CTRL_PERIODIC_TRACE_ENABLE,
+				 TRACE_CTRL, TRACE_CTRL_PERIODIC_TRACE_EN_MASK);
+			c->trace_method = PERIODIC_PACKET;
+			c->trace_periodic_timer = PERIODIC_TRACE_DEFAULT_US;
+			return count;
+		} else if (strcmp(debug_buf, "xor\n") == 0) {
+			val = clk_osm_read_reg(c, TRACE_CTRL);
+			val &= ~TRACE_CTRL_PERIODIC_TRACE_ENABLE;
+			clk_osm_write_reg(c, val, TRACE_CTRL);
+			c->trace_method = XOR_PACKET;
+			return count;
+		}
+	}
+
+	pr_err("error, supported trace mode types: 'periodic' or 'xor'\n");
+	return -EINVAL;
+}
+
+static ssize_t debugfs_trace_method_get(struct file *file, char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	struct clk_osm *c = file->private_data;
+	int len, rc;
+
+	if (IS_ERR(file) || file == NULL) {
+		pr_err("input error %ld\n", PTR_ERR(file));
+		return -EINVAL;
+	}
+
+	if (!c) {
+		pr_err("invalid clk_osm handle\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&debug_buf_mutex);
+
+	if (c->trace_method == PERIODIC_PACKET)
+		len = snprintf(debug_buf, sizeof(debug_buf), "periodic\n");
+	else if (c->trace_method == XOR_PACKET)
+		len = snprintf(debug_buf, sizeof(debug_buf), "xor\n");
+
+	rc = simple_read_from_buffer((void __user *) buf, len, ppos,
+				     (void *) debug_buf, len);
+
+	mutex_unlock(&debug_buf_mutex);
+
+	return rc;
+}
+
+static int debugfs_trace_method_open(struct inode *inode, struct file *file)
+{
+	if (IS_ERR(file) || file == NULL) {
+		pr_err("input error %ld\n", PTR_ERR(file));
+		return -EINVAL;
+	}
+
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static const struct file_operations debugfs_trace_method_fops = {
+	.write	= debugfs_trace_method_set,
+	.open   = debugfs_trace_method_open,
+	.read	= debugfs_trace_method_get,
+};
+
+static int debugfs_get_trace_packet_id(void *data, u64 *val)
+{
+	struct clk_osm *c = data;
+
+	*val = c->trace_id;
+	return 0;
+}
+
+static int debugfs_set_trace_packet_id(void *data, u64 val)
+{
+	struct clk_osm *c = data;
+
+	if (val < TRACE_PACKET0 || val > TRACE_PACKET3) {
+		pr_err("supported trace IDs=%d-%d\n",
+		       TRACE_PACKET0, TRACE_PACKET3);
+		return 0;
+	}
+
+	clk_osm_masked_write_reg(c, val << TRACE_CTRL_PACKET_TYPE_SHIFT,
+				 TRACE_CTRL, TRACE_CTRL_PACKET_TYPE_MASK);
+	c->trace_id = val;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_trace_packet_id_fops,
+			debugfs_get_trace_packet_id,
+			debugfs_set_trace_packet_id,
+			"%llu\n");
+
+static int debugfs_get_trace_periodic_timer(void *data, u64 *val)
+{
+	struct clk_osm *c = data;
+
+	*val = c->trace_periodic_timer;
+	return 0;
+}
+
+static int debugfs_set_trace_periodic_timer(void *data, u64 val)
+{
+	struct clk_osm *c = data;
+
+	if (val < PERIODIC_TRACE_MIN_US || val > PERIODIC_TRACE_MAX_US) {
+		pr_err("supported periodic trace periods=%d-%d\n",
+		       PERIODIC_TRACE_MIN_US, PERIODIC_TRACE_MAX_US);
+		return 0;
+	}
+
+	clk_osm_write_reg(c, clk_osm_count_us(c, val),
+			  PERIODIC_TRACE_TIMER_CTRL);
+	c->trace_periodic_timer = val;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(debugfs_trace_periodic_timer_fops,
+			debugfs_get_trace_periodic_timer,
+			debugfs_set_trace_periodic_timer,
+			"%llu\n");
+
 static int debugfs_get_perf_state_met_irq(void *data, u64 *val)
 {
 	struct clk_osm *c = data;
@@ -1831,6 +2060,42 @@ static void populate_debugfs_dir(struct clk_osm *c)
 			   &debugfs_perf_state_deviation_corrected_irq_fops);
 	if (IS_ERR_OR_NULL(temp)) {
 		pr_err("debugfs_perf_state_deviation_corrected_irq_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
+	temp = debugfs_create_file("trace_enable",
+			   S_IRUGO | S_IWUSR,
+			   c->debugfs, c,
+			   &debugfs_trace_enable_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_trace_enable_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
+	temp = debugfs_create_file("trace_method",
+			   S_IRUGO | S_IWUSR,
+			   c->debugfs, c,
+			   &debugfs_trace_method_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_trace_method_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
+	temp = debugfs_create_file("trace_packet_id",
+			   S_IRUGO | S_IWUSR,
+			   c->debugfs, c,
+			   &debugfs_trace_packet_id_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_trace_packet_id_fops debugfs file creation failed\n");
+		goto exit;
+	}
+
+	temp = debugfs_create_file("trace_periodic_timer",
+			   S_IRUGO | S_IWUSR,
+			   c->debugfs, c,
+			   &debugfs_trace_periodic_timer_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debugfs_trace_periodic_timer_fops debugfs file creation failed\n");
 		goto exit;
 	}
 
