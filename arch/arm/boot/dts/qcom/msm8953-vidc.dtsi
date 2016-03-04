@@ -38,6 +38,7 @@
 			<0x9181000 0x1000>;
 		qcom,max-hw-load = <1044480>; /* 4096 x 2176 @ 30 fps */
 		qcom,slave-side-cp;
+		qcom,sw-power-collapse;
 		qcom,firmware-name = "venus";
 		qcom,dcvs-tbl =
 			/* Dec UHD@30 H.264, HEVC, VP8, VP9 - NOM to NOM+*/
