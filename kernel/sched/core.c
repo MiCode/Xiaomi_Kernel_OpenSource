@@ -2813,6 +2813,7 @@ static inline void mark_task_starting(struct task_struct *p)
 
 	wallclock = sched_ktime_clock();
 	p->ravg.mark_start = p->last_wake_ts = wallclock;
+	p->last_cpu_selected_ts = wallclock;
 	p->last_switch_out_ts = 0;
 }
 
