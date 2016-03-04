@@ -77,3 +77,7 @@
 		<0 425 0 /* CE11 */ >;
 	};
 };
+
+&gdsc_ufs {
+	compatible = "regulator-fixed";
+};
