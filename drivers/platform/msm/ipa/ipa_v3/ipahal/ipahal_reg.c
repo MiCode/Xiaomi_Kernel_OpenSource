@@ -1040,20 +1040,20 @@ int ipahal_reg_init(enum ipa_hw_type ipa_hw_type)
 				 */
 				 if (!ipahal_reg_objs[i+1][j].offset) {
 					IPAHAL_ERR(
-					  "reg=%s with zero offset\n",
-					  ipahal_reg_name_str(j));
+					  "reg=%s with zero offset ipa_ver=%d\n",
+					  ipahal_reg_name_str(j), i+1);
 					WARN_ON(1);
 				 }
 				 if (!ipahal_reg_objs[i+1][j].construct) {
 					IPAHAL_ERR(
-					  "reg=%s with NULL construct func\n",
-					  ipahal_reg_name_str(j));
+					  "reg=%s with NULL construct func ipa_ver=%d\n",
+					  ipahal_reg_name_str(j), i+1);
 					WARN_ON(1);
 				 }
 				 if (!ipahal_reg_objs[i+1][j].parse) {
 					IPAHAL_ERR(
-					  "reg=%s with NULL parse func\n",
-					  ipahal_reg_name_str(j));
+					  "reg=%s with NULL parse func ipa_ver=%d\n",
+					  ipahal_reg_name_str(j), i+1);
 					WARN_ON(1);
 				 }
 			}

@@ -24,6 +24,9 @@
 
 #include <soc/qcom/scm.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/scm.h>
+
 #define SCM_ENOMEM		-5
 #define SCM_EOPNOTSUPP		-4
 #define SCM_EINVAL_ADDR		-3
@@ -661,6 +664,8 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 			x0, desc->arginfo, desc->args[0], desc->args[1],
 			desc->args[2], desc->x5);
 
+		trace_scm_call_start(x0, desc);
+
 		if (scm_version == SCM_ARMV8_64)
 			ret = __scm_call_armv8_64(x0, desc->arginfo,
 						  desc->args[0], desc->args[1],
@@ -673,6 +678,8 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 						  desc->args[2], desc->x5,
 						  &desc->ret[0], &desc->ret[1],
 						  &desc->ret[2]);
+
+		trace_scm_call_end(desc);
 
 		if (SCM_SVC_ID(fn_id) == SCM_SVC_LMH)
 			mutex_unlock(&scm_lmh_lock);

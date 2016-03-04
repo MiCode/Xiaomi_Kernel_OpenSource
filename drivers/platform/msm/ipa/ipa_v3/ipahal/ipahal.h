@@ -389,6 +389,214 @@ static inline void ipahal_destroy_imm_cmd(struct ipahal_imm_cmd_pyld *pyld)
 	kfree(pyld);
 }
 
+
+/* IPA Status packet Structures and Function APIs */
+
+/*
+ * enum ipahal_pkt_status_opcode - Packet Status Opcode
+ * @IPAHAL_STATUS_OPCODE_PACKET_2ND_PASS: Packet Status generated as part of
+ *  IPA second processing pass for a packet (i.e. IPA XLAT processing for
+ *  the translated packet).
+ */
+enum ipahal_pkt_status_opcode {
+	IPAHAL_PKT_STATUS_OPCODE_PACKET = 0,
+	IPAHAL_PKT_STATUS_OPCODE_NEW_FRAG_RULE,
+	IPAHAL_PKT_STATUS_OPCODE_DROPPED_PACKET,
+	IPAHAL_PKT_STATUS_OPCODE_SUSPENDED_PACKET,
+	IPAHAL_PKT_STATUS_OPCODE_LOG,
+	IPAHAL_PKT_STATUS_OPCODE_DCMP,
+	IPAHAL_PKT_STATUS_OPCODE_PACKET_2ND_PASS,
+};
+
+/*
+ * enum ipahal_pkt_status_exception - Packet Status exception type
+ * @IPAHAL_PKT_STATUS_EXCEPTION_PACKET_LENGTH: formerly IHL exception.
+ *
+ * Note: IPTYPE, PACKET_LENGTH and PACKET_THRESHOLD exceptions means that
+ *  partial / no IP processing took place and corresponding Status Mask
+ *  fields should be ignored. Flt and rt info is not valid.
+ *
+ * NOTE:: Any change to this enum, need to change to
+ *	ipahal_pkt_status_exception_to_str array as well.
+ */
+enum ipahal_pkt_status_exception {
+	IPAHAL_PKT_STATUS_EXCEPTION_NONE = 0,
+	IPAHAL_PKT_STATUS_EXCEPTION_DEAGGR,
+	IPAHAL_PKT_STATUS_EXCEPTION_IPTYPE,
+	IPAHAL_PKT_STATUS_EXCEPTION_PACKET_LENGTH,
+	IPAHAL_PKT_STATUS_EXCEPTION_PACKET_THRESHOLD,
+	IPAHAL_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS,
+	IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT,
+	IPAHAL_PKT_STATUS_EXCEPTION_NAT,
+	IPAHAL_PKT_STATUS_EXCEPTION_MAX,
+};
+
+/*
+ * enum ipahal_pkt_status_mask - Packet Status bitmask shift values of
+ *  the contained flags. This bitmask indicates flags on the properties of
+ *  the packet as well as IPA processing it may had.
+ * @FRAG_PROCESS: Frag block processing flag: Was pkt processed by frag block?
+ *  Also means the frag info is valid unless exception or first frag
+ * @FILT_PROCESS: Flt block processing flag: Was pkt processed by flt block?
+ *  Also means that flt info is valid.
+ * @NAT_PROCESS: NAT block processing flag: Was pkt processed by NAT block?
+ *  Also means that NAT info is valid, unless exception.
+ * @ROUTE_PROCESS: Rt block processing flag: Was pkt processed by rt block?
+ *  Also means that rt info is valid, unless exception.
+ * @TAG_VALID: Flag specifying if TAG and TAG info valid?
+ * @FRAGMENT: Flag specifying if pkt is IP fragment.
+ * @FIRST_FRAGMENT: Flag specifying if pkt is first fragment. In this case, frag
+ *  info is invalid
+ * @V4: Flag specifying pkt is IPv4 or IPv6
+ * @CKSUM_PROCESS: CSUM block processing flag: Was pkt processed by csum block?
+ *  If so, csum trailer exists
+ * @AGGR_PROCESS: Aggr block processing flag: Was pkt processed by aggr block?
+ * @DEST_EOT: Flag specifying if EOT was asserted for the pkt on dest endp
+ * @DEAGGR_PROCESS: Deaggr block processing flag: Was pkt processed by deaggr
+ *  block?
+ * @DEAGG_FIRST: Flag specifying if this is the first pkt in deaggr frame
+ * @SRC_EOT: Flag specifying if EOT asserted by src endp when sending the buffer
+ * @PREV_EOT: Flag specifying if EOT was sent just before the pkt as part of
+ *  aggr hard-byte-limit
+ * @BYTE_LIMIT: Flag specifying if pkt is over a configured byte limit.
+ */
+enum ipahal_pkt_status_mask {
+	IPAHAL_PKT_STATUS_MASK_FRAG_PROCESS_SHFT = 0,
+	IPAHAL_PKT_STATUS_MASK_FILT_PROCESS_SHFT,
+	IPAHAL_PKT_STATUS_MASK_NAT_PROCESS_SHFT,
+	IPAHAL_PKT_STATUS_MASK_ROUTE_PROCESS_SHFT,
+	IPAHAL_PKT_STATUS_MASK_TAG_VALID_SHFT,
+	IPAHAL_PKT_STATUS_MASK_FRAGMENT_SHFT,
+	IPAHAL_PKT_STATUS_MASK_FIRST_FRAGMENT_SHFT,
+	IPAHAL_PKT_STATUS_MASK_V4_SHFT,
+	IPAHAL_PKT_STATUS_MASK_CKSUM_PROCESS_SHFT,
+	IPAHAL_PKT_STATUS_MASK_AGGR_PROCESS_SHFT,
+	IPAHAL_PKT_STATUS_MASK_DEST_EOT_SHFT,
+	IPAHAL_PKT_STATUS_MASK_DEAGGR_PROCESS_SHFT,
+	IPAHAL_PKT_STATUS_MASK_DEAGG_FIRST_SHFT,
+	IPAHAL_PKT_STATUS_MASK_SRC_EOT_SHFT,
+	IPAHAL_PKT_STATUS_MASK_PREV_EOT_SHFT,
+	IPAHAL_PKT_STATUS_MASK_BYTE_LIMIT_SHFT,
+};
+
+/*
+ * Returns boolean value representing a property of the a packet.
+ * @__flag_shft: The shift value of the flag of the status bitmask of
+ * @__status: Pointer to abstracrted status structure
+ *  the needed property. See enum ipahal_pkt_status_mask
+ */
+#define IPAHAL_PKT_STATUS_MASK_FLAG_VAL(__flag_shft, __status) \
+	(((__status)->status_mask) & ((u32)0x1<<(__flag_shft)) ? true : false)
+
+/*
+ * enum ipahal_pkt_status_nat_type - Type of NAT
+ */
+enum ipahal_pkt_status_nat_type {
+	IPAHAL_PKT_STATUS_NAT_NONE,
+	IPAHAL_PKT_STATUS_NAT_SRC,
+	IPAHAL_PKT_STATUS_NAT_DST,
+};
+
+/*
+ * struct ipahal_pkt_status - IPA status packet abstracted payload.
+ *  This structure describes the status packet fields for the
+ *   following statuses: IPA_STATUS_PACKET, IPA_STATUS_DROPPED_PACKET,
+ *   IPA_STATUS_SUSPENDED_PACKET.
+ *  Other statuses types has different status packet structure.
+ * @status_opcode: The Type of the status (Opcode).
+ * @exception: The first exception that took place.
+ *  In case of exception, src endp and pkt len are always valid.
+ * @status_mask: Bit mask for flags on several properties on the packet
+ *  and processing it may passed at IPA. See enum ipahal_pkt_status_mask
+ * @pkt_len: Pkt pyld len including hdr and retained hdr if used. Does
+ *  not include padding or checksum trailer len.
+ * @endp_src_idx: Source end point index.
+ * @endp_dest_idx: Destination end point index.
+ *  Not valid in case of exception
+ * @metadata: meta data value used by packet
+ * @flt_local: Filter table location flag: Does matching flt rule belongs to
+ *  flt tbl that resides in lcl memory? (if not, then system mem)
+ * @flt_hash: Filter hash hit flag: Does matching flt rule was in hash tbl?
+ * @flt_global: Global filter rule flag: Does matching flt rule belongs to
+ *  the global flt tbl? (if not, then the per endp tables)
+ * @flt_ret_hdr: Retain header in filter rule flag: Does matching flt rule
+ *  specifies to retain header?
+ * @flt_miss: Filtering miss flag: Was their a filtering rule miss?
+ *   In case of miss, all flt info to be ignored
+ * @flt_rule_id: The ID of the matching filter rule (if no miss).
+ *  This info can be combined with endp_src_idx to locate the exact rule.
+ * @rt_local: Route table location flag: Does matching rt rule belongs to
+ *  rt tbl that resides in lcl memory? (if not, then system mem)
+ * @rt_hash: Route hash hit flag: Does matching rt rule was in hash tbl?
+ * @ucp: UC Processing flag
+ * @rt_tbl_idx: Index of rt tbl that contains the rule on which was a match
+ * @rt_miss: Routing miss flag: Was their a routing rule miss?
+ * @rt_rule_id: The ID of the matching rt rule. (if no miss). This info
+ *  can be combined with rt_tbl_idx to locate the exact rule.
+ * @nat_hit: NAT hit flag: Was their NAT hit?
+ * @nat_entry_idx: Index of the NAT entry used of NAT processing
+ * @nat_type: Defines the type of the NAT operation:
+ * @tag_info: S/W defined value provided via immediate command
+ * @seq_num: Per source endp unique packet sequence number
+ * @time_of_day_ctr: running counter from IPA clock
+ * @hdr_local: Header table location flag: In header insertion, was the header
+ *  taken from the table resides in local memory? (If no, then system mem)
+ * @hdr_offset: Offset of used header in the header table
+ * @frag_hit: Frag hit flag: Was their frag rule hit in H/W frag table?
+ * @frag_rule: Frag rule index in H/W frag table in case of frag hit
+ */
+struct ipahal_pkt_status {
+	enum ipahal_pkt_status_opcode status_opcode;
+	enum ipahal_pkt_status_exception exception;
+	u32 status_mask;
+	u32 pkt_len;
+	u8 endp_src_idx;
+	u8 endp_dest_idx;
+	u32 metadata;
+	bool flt_local;
+	bool flt_hash;
+	bool flt_global;
+	bool flt_ret_hdr;
+	bool flt_miss;
+	u16 flt_rule_id;
+	bool rt_local;
+	bool rt_hash;
+	bool ucp;
+	u8 rt_tbl_idx;
+	bool rt_miss;
+	u16 rt_rule_id;
+	bool nat_hit;
+	u16 nat_entry_idx;
+	enum ipahal_pkt_status_nat_type nat_type;
+	u64 tag_info;
+	u8 seq_num;
+	u32 time_of_day_ctr;
+	bool hdr_local;
+	u16 hdr_offset;
+	bool frag_hit;
+	u8 frag_rule;
+};
+
+/*
+ * ipahal_pkt_status_get_size() - Get H/W size of packet status
+ */
+u32 ipahal_pkt_status_get_size(void);
+
+/*
+ * ipahal_pkt_status_parse() - Parse Packet Status payload to abstracted form
+ * @unparsed_status: Pointer to H/W format of the packet status as read from H/W
+ * @status: Pointer to pre-allocated buffer where the parsed info will be stored
+ */
+void ipahal_pkt_status_parse(const void *unparsed_status,
+	struct ipahal_pkt_status *status);
+
+/*
+ * ipahal_pkt_status_exception_str() - returns string represents exception type
+ * @exception: [in] The exception type
+ */
+const char *ipahal_pkt_status_exception_str(
+	enum ipahal_pkt_status_exception exception);
+
 int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base);
 void ipahal_destroy(void);
 

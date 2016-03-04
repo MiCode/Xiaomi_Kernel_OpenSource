@@ -1838,20 +1838,6 @@ enum ipacm_client_enum ipa2_get_client(int pipe_idx);
 bool ipa2_get_client_uplink(int pipe_idx);
 
 /*
- * ODU bridge
- */
-
-int ipa2_odu_bridge_init(struct odu_bridge_params *params);
-
-int ipa2_odu_bridge_connect(void);
-
-int ipa2_odu_bridge_disconnect(void);
-
-int ipa2_odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata);
-
-int ipa2_odu_bridge_cleanup(void);
-
-/*
  * IPADMA
  */
 int ipa2_dma_init(void);

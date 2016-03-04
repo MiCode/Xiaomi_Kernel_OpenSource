@@ -528,9 +528,9 @@ int cpr3_parse_corner_band_array_property(struct cpr3_regulator *vreg,
  * and qcom,cpr-corner-fmax-map.
  *
  * It initializes these CPR3 regulator elements: corner, corner_count,
- * fuse_combos_supported, and speed_bins_supported.  It initializes these
- * elements for each corner: ceiling_volt, floor_volt, proc_freq, and
- * cpr_fuse_corner.
+ * fuse_combos_supported, fuse_corner_map, and speed_bins_supported.  It
+ * initializes these elements for each corner: ceiling_volt, floor_volt,
+ * proc_freq, and cpr_fuse_corner.
  *
  * It requires that the following CPR3 regulator elements be initialized before
  * being called: fuse_corner_count, fuse_combo, and speed_bin_fuse.
@@ -695,9 +695,11 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 			1, temp);
 	if (rc)
 		goto free_temp;
-	for (i = 0; i < vreg->corner_count; i++)
+	for (i = 0; i < vreg->corner_count; i++) {
 		vreg->corner[i].ceiling_volt
 			= CPR3_ROUND(temp[i], ctrl->step_volt);
+		vreg->corner[i].abs_ceiling_volt = vreg->corner[i].ceiling_volt;
+	}
 
 	rc = cpr3_parse_corner_array_property(vreg, "qcom,cpr-voltage-floor",
 			1, temp);
@@ -748,11 +750,19 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 		}
 	}
 
+	vreg->fuse_corner_map = devm_kcalloc(ctrl->dev, vreg->fuse_corner_count,
+				    sizeof(*vreg->fuse_corner_map), GFP_KERNEL);
+	if (!vreg->fuse_corner_map) {
+		rc = -ENOMEM;
+		goto free_temp;
+	}
+
 	rc = cpr3_parse_array_property(vreg, "qcom,cpr-corner-fmax-map",
 		vreg->fuse_corner_count, temp);
 	if (rc)
 		goto free_temp;
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
+		vreg->fuse_corner_map[i] = temp[i] - CPR3_CORNER_OFFSET;
 		if (temp[i] < CPR3_CORNER_OFFSET
 		    || temp[i] > vreg->corner_count + CPR3_CORNER_OFFSET) {
 			cpr3_err(vreg, "invalid corner value specified in qcom,cpr-corner-fmax-map: %u\n",
@@ -766,19 +776,25 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 			goto free_temp;
 		}
 	}
-	if (temp[vreg->fuse_corner_count - 1] != vreg->corner_count) {
-		cpr3_err(vreg, "highest Fmax corner %u in qcom,cpr-corner-fmax-map does not match highest supported corner %d\n",
+	if (temp[vreg->fuse_corner_count - 1] != vreg->corner_count)
+		cpr3_debug(vreg, "Note: highest Fmax corner %u in qcom,cpr-corner-fmax-map does not match highest supported corner %d\n",
 			temp[vreg->fuse_corner_count - 1],
 			vreg->corner_count);
-		rc = -EINVAL;
-		goto free_temp;
-	}
+
 	for (i = 0; i < vreg->corner_count; i++) {
 		for (j = 0; j < vreg->fuse_corner_count; j++) {
 			if (i + CPR3_CORNER_OFFSET <= temp[j]) {
 				vreg->corner[i].cpr_fuse_corner = j;
 				break;
 			}
+		}
+		if (j == vreg->fuse_corner_count) {
+			/*
+			 * Handle the case where the highest fuse corner maps
+			 * to a corner below the highest corner.
+			 */
+			vreg->corner[i].cpr_fuse_corner
+				= vreg->fuse_corner_count - 1;
 		}
 	}
 
@@ -791,6 +807,17 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 			goto free_temp;
 
 		vreg->aging_allowed = aging_allowed;
+	}
+
+	if (of_find_property(vreg->of_node,
+		       "qcom,allow-aging-open-loop-voltage-adjustment", NULL)) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,allow-aging-open-loop-voltage-adjustment",
+			1, &aging_allowed);
+		if (rc)
+			goto free_temp;
+
+		vreg->aging_allow_open_loop_adj = aging_allowed;
 	}
 
 	if (vreg->aging_allowed) {
@@ -1045,11 +1072,10 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
 	if (IS_ERR(ctrl->vdd_regulator)) {
 		rc = PTR_ERR(ctrl->vdd_regulator);
-		if (rc != -EPROBE_DEFER) {
+		if (rc != -EPROBE_DEFER)
 			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
 				 rc);
-			return rc;
-		}
+		return rc;
 	}
 
 	ctrl->system_regulator = devm_regulator_get_optional(ctrl->dev,

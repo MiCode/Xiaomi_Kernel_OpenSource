@@ -1194,7 +1194,7 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	}
 	if (atomic_read(&pdata->mclk_rsc_ref) > 0) {
 		atomic_dec(&pdata->mclk_rsc_ref);
-		pr_err("%s: decrementing mclk_res_ref %d\n",
+		pr_debug("%s: decrementing mclk_res_ref %d\n",
 				__func__, atomic_read(&pdata->mclk_rsc_ref));
 	}
 }
@@ -2694,8 +2694,6 @@ codec_dai:
 				ret = -ENODEV;
 				goto err;
 			}
-			pr_err("%s: codec dai %s failed\n",
-					__func__, dai_link[i].codec_name);
 			dai_link[i].codec_of_node = phandle;
 			dai_link[i].codec_name = NULL;
 		}

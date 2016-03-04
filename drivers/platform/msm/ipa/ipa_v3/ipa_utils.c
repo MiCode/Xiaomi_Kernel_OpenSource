@@ -4459,11 +4459,6 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_set_client = ipa3_set_client;
 	api_ctrl->ipa_get_client = ipa3_get_client;
 	api_ctrl->ipa_get_client_uplink = ipa3_get_client_uplink;
-	api_ctrl->odu_bridge_init = ipa3_odu_bridge_init;
-	api_ctrl->odu_bridge_connect = ipa3_odu_bridge_connect;
-	api_ctrl->odu_bridge_disconnect = ipa3_odu_bridge_disconnect;
-	api_ctrl->odu_bridge_tx_dp = ipa3_odu_bridge_tx_dp;
-	api_ctrl->odu_bridge_cleanup = ipa3_odu_bridge_cleanup;
 	api_ctrl->ipa_dma_init = ipa3_dma_init;
 	api_ctrl->ipa_dma_enable = ipa3_dma_enable;
 	api_ctrl->ipa_dma_disable = ipa3_dma_disable;
