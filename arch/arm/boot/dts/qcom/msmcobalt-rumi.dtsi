@@ -29,6 +29,11 @@
 	vcc-supply = <&pmcobalt_l20>;
 	vccq-supply = <&pmcobalt_l26>;
 	vccq2-supply = <&pmcobalt_s4>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+
 	status = "ok";
 };
 
