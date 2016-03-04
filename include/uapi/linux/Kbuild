@@ -504,3 +504,4 @@ header-y += zorro_ids.h
 header-y += userfaultfd.h
 header-y += msm_dsps.h
 header-y += msm-core-interface.h
+header-y += msm_thermal_ioctl.h
