@@ -1972,8 +1972,10 @@
 
 	usb3: ssusb@7000000{
 		compatible = "qcom,dwc-usb3-msm";
-		reg = <0x07000000 0xfc000>;
-		reg-names = "core_base";
+		reg = <0x07000000 0xfc000>,
+			<0x0007e000 0x400>;
+		reg-names = "core_base",
+			"ahb2phy_base";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
