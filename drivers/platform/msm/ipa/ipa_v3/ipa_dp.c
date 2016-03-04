@@ -2958,6 +2958,8 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 						ipa3_replenish_rx_cache;
 				sys->rx_pool_sz =
 					ipa3_ctx->wan_rx_ring_size;
+				in->ipa_ep_cfg.aggr.aggr_sw_eof_active
+					= true;
 			}
 		} else if (IPA_CLIENT_IS_WLAN_CONS(in->client)) {
 			IPADBG("assigning policy to client:%d",
