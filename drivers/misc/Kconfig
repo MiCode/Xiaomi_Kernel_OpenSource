@@ -574,7 +574,7 @@ config TI_DRV2667
 
 config QPNP_MISC
 	tristate "QPNP Misc Peripheral"
-	depends on SPMI
+	depends on SPMI || MSM_SPMI
 	help
 	  Say 'y' here to include support for the QTI QPNP MISC
 	  peripheral. The MISC peripheral holds the USB ID interrupt
