@@ -197,6 +197,7 @@ struct usbpd {
 	u32			rx_payload[7];
 
 	u32			received_pdos[7];
+	int			src_cap_id;
 	u8			selected_pdo;
 	u8			requested_pdo;
 	u32			rdo;	/* can be either source or sink */
@@ -320,6 +321,7 @@ static int pd_eval_src_caps(struct usbpd *pd, const u32 *src_caps)
 
 	/* save the PDOs so userspace can further evaluate */
 	memcpy(&pd->received_pdos, src_caps, sizeof(pd->received_pdos));
+	pd->src_cap_id++;
 
 	if (PD_SRC_PDO_TYPE(first_pdo) != PD_SRC_PDO_TYPE_FIXED) {
 		dev_err(&pd->dev, "First src_cap invalid! %08x\n", first_pdo);
@@ -546,6 +548,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (pd->current_dr == DR_DFP)
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 1);
 		pd->in_explicit_contract = true;
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		break;
 
 	case PE_SRC_TRANSITION_TO_DEFAULT:
@@ -694,6 +697,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SNK_READY:
 		pd->in_explicit_contract = true;
+		kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		break;
 
 	case PE_SNK_TRANSITION_TO_DEFAULT:
@@ -925,6 +929,7 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			dr_swap(pd);
+			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		} else if (ctrl_recvd == MSG_PR_SWAP) {
 			/* we'll happily accept Src->Sink requests anytime */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
@@ -1051,6 +1056,7 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			dr_swap(pd);
+			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		} else if (ctrl_recvd == MSG_PR_SWAP) {
 			/* TODO: should we Reject in certain circumstances? */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
@@ -1345,9 +1351,334 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	return 0;
 }
 
+static int usbpd_uevent(struct device *dev, struct kobj_uevent_env *env)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	int i;
+
+	add_uevent_var(env, "DATA_ROLE=%s", pd->current_dr == DR_DFP ?
+			"dfp" : "ufp");
+
+	if (pd->current_pr == PR_SINK) {
+		add_uevent_var(env, "POWER_ROLE=sink");
+		add_uevent_var(env, "SRC_CAP_ID=%d", pd->src_cap_id);
+
+		for (i = 0; i < ARRAY_SIZE(pd->received_pdos); i++)
+			add_uevent_var(env, "PDO%d=%08x", i,
+					pd->received_pdos[i]);
+
+		add_uevent_var(env, "REQUESTED_PDO=%d", pd->requested_pdo);
+		add_uevent_var(env, "SELECTED_PDO=%d", pd->selected_pdo);
+	} else {
+		add_uevent_var(env, "POWER_ROLE=source");
+		for (i = 0; i < ARRAY_SIZE(default_src_caps); i++)
+			add_uevent_var(env, "PDO%d=%08x", i,
+					default_src_caps[i]);
+	}
+
+	add_uevent_var(env, "RDO=%08x", pd->rdo);
+	add_uevent_var(env, "CONTRACT=%s", pd->in_explicit_contract ?
+				"explicit" : "implicit");
+
+	return 0;
+}
+
+static ssize_t contract_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+			pd->in_explicit_contract ?  "explicit" : "implicit");
+}
+static DEVICE_ATTR_RO(contract);
+
+static ssize_t current_pr_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	const char *pr = "none";
+
+	if (pd->current_pr == PR_SINK)
+		pr = "sink";
+	else if (pd->current_pr == PR_SRC)
+		pr = "source";
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", pr);
+}
+static DEVICE_ATTR_RO(current_pr);
+
+static ssize_t initial_pr_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	const char *pr = "none";
+
+	if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT)
+		pr = "sink";
+	else if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SINK)
+		pr = "source";
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", pr);
+}
+static DEVICE_ATTR_RO(initial_pr);
+
+static ssize_t current_dr_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	const char *dr = "none";
+
+	if (pd->current_dr == DR_UFP)
+		dr = "ufp";
+	else if (pd->current_dr == DR_DFP)
+		dr = "dfp";
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", dr);
+}
+static DEVICE_ATTR_RO(current_dr);
+
+static ssize_t initial_dr_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	const char *dr = "none";
+
+	if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT)
+		dr = "ufp";
+	else if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SINK)
+		dr = "dfp";
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", dr);
+}
+static DEVICE_ATTR_RO(initial_dr);
+
+static ssize_t src_cap_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", pd->src_cap_id);
+}
+static DEVICE_ATTR_RO(src_cap_id);
+
+/* Dump received source PDOs in human-readable format */
+static ssize_t pdo_h_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	int i;
+	ssize_t cnt = 0;
+
+	for (i = 0; i < ARRAY_SIZE(pd->received_pdos); i++) {
+		u32 pdo = pd->received_pdos[i];
+
+		if (pdo == 0)
+			break;
+
+		cnt += scnprintf(&buf[cnt], PAGE_SIZE - cnt, "PDO %d\n", i + 1);
+
+		if (PD_SRC_PDO_TYPE(pdo) == PD_SRC_PDO_TYPE_FIXED) {
+			cnt += scnprintf(&buf[cnt], PAGE_SIZE - cnt,
+					"\tFixed supply\n"
+					"\tDual-Role Power:%d\n"
+					"\tUSB Suspend Supported:%d\n"
+					"\tExternally Powered:%d\n"
+					"\tUSB Communications Capable:%d\n"
+					"\tData Role Swap:%d\n"
+					"\tPeak Current:%d\n"
+					"\tVoltage:%d (mV)\n"
+					"\tMax Current:%d (mA)\n",
+					PD_SRC_PDO_FIXED_PR_SWAP(pdo),
+					PD_SRC_PDO_FIXED_USB_SUSP(pdo),
+					PD_SRC_PDO_FIXED_EXT_POWERED(pdo),
+					PD_SRC_PDO_FIXED_USB_COMM(pdo),
+					PD_SRC_PDO_FIXED_DR_SWAP(pdo),
+					PD_SRC_PDO_FIXED_PEAK_CURR(pdo),
+					PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50,
+					PD_SRC_PDO_FIXED_MAX_CURR(pdo) * 10);
+		} else if (PD_SRC_PDO_TYPE(pdo) == PD_SRC_PDO_TYPE_BATTERY) {
+			cnt += scnprintf(&buf[cnt], PAGE_SIZE - cnt,
+					"\tBattery supply\n"
+					"\tMax Voltage:%d (mV)\n"
+					"\tMin Voltage:%d (mV)\n"
+					"\tMax Power:%d (mW)\n",
+					PD_SRC_PDO_VAR_BATT_MAX_VOLT(pdo),
+					PD_SRC_PDO_VAR_BATT_MIN_VOLT(pdo),
+					PD_SRC_PDO_VAR_BATT_MAX(pdo));
+		} else if (PD_SRC_PDO_TYPE(pdo) == PD_SRC_PDO_TYPE_VARIABLE) {
+			cnt += scnprintf(&buf[cnt], PAGE_SIZE - cnt,
+					"\tVariable supply\n"
+					"\tMax Voltage:%d (mV)\n"
+					"\tMin Voltage:%d (mV)\n"
+					"\tMax Current:%d (mA)\n",
+					PD_SRC_PDO_VAR_BATT_MAX_VOLT(pdo),
+					PD_SRC_PDO_VAR_BATT_MIN_VOLT(pdo),
+					PD_SRC_PDO_VAR_BATT_MAX(pdo));
+		} else {
+			cnt += scnprintf(&buf[cnt], PAGE_SIZE - cnt,
+					"Invalid PDO\n");
+		}
+
+		buf[cnt++] = '\n';
+	}
+
+	return cnt;
+}
+static DEVICE_ATTR_RO(pdo_h);
+
+static ssize_t pdo_n_show(struct device *dev, struct device_attribute *attr,
+		char *buf);
+
+#define PDO_ATTR(n) {					\
+	.attr	= { .name = __stringify(pdo##n), .mode = S_IRUGO },	\
+	.show	= pdo_n_show,				\
+}
+static struct device_attribute dev_attr_pdos[] = {
+	PDO_ATTR(1),
+	PDO_ATTR(2),
+	PDO_ATTR(3),
+	PDO_ATTR(4),
+	PDO_ATTR(5),
+	PDO_ATTR(6),
+	PDO_ATTR(7),
+};
+
+static ssize_t pdo_n_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev_attr_pdos); i++)
+		if (attr == &dev_attr_pdos[i])
+			/* dump the PDO as a hex string */
+			return snprintf(buf, PAGE_SIZE, "%08x\n",
+					pd->received_pdos[i]);
+
+	dev_err(&pd->dev, "Invalid PDO index\n");
+	return -EINVAL;
+}
+
+static ssize_t select_pdo_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	int src_cap_id;
+	int pdo;
+	int ret;
+
+	/* Only allowed if we are already in explicit sink contract */
+	if (pd->current_state != PE_SNK_READY) {
+		dev_err(&pd->dev, "select_pdo: Cannot select new PDO yet\n");
+		return -EBUSY;
+	}
+
+	if (sscanf(buf, "%d %d\n", &src_cap_id, &pdo) != 2) {
+		dev_err(&pd->dev, "select_pdo: Must specify <src cap id> <PDO>\n");
+		return -EINVAL;
+	}
+
+	if (src_cap_id != pd->src_cap_id) {
+		dev_err(&pd->dev, "select_pdo: src_cap_id mismatch.  Requested:%d, current:%d\n",
+				src_cap_id, pd->src_cap_id);
+		return -EINVAL;
+	}
+
+	if (pdo < 1 || pdo > 7) {
+		dev_err(&pd->dev, "select_pdo: invalid PDO:%d\n", pdo);
+		return -EINVAL;
+	}
+
+	ret = pd_select_pdo(pd, pdo);
+	if (ret)
+		return ret;
+
+	usbpd_set_state(pd, PE_SNK_SELECT_CAPABILITY);
+
+	return size;
+}
+
+static ssize_t select_pdo_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", pd->selected_pdo);
+}
+static DEVICE_ATTR_RW(select_pdo);
+
+static ssize_t rdo_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "Request Data Object: %08x\n\n"
+			"Obj Pos:%d\n"
+			"Giveback:%d\n"
+			"Capability Mismatch:%d\n"
+			"USB Communications Capable:%d\n"
+			"No USB Suspend:%d\n"
+			"Operating Current/Power:%d (mA) / %d (mW)\n"
+			"%s Current/Power:%d (mA) / %d (mW)\n",
+			pd->rdo,
+			PD_RDO_OBJ_POS(pd->rdo),
+			PD_RDO_GIVEBACK(pd->rdo),
+			PD_RDO_MISMATCH(pd->rdo),
+			PD_RDO_USB_COMM(pd->rdo),
+			PD_RDO_NO_USB_SUSP(pd->rdo),
+			PD_RDO_FIXED_CURR(pd->rdo) * 10,
+			PD_RDO_FIXED_CURR(pd->rdo) * 250,
+			PD_RDO_GIVEBACK(pd->rdo) ? "Min" : "Max",
+			PD_RDO_FIXED_CURR_MINMAX(pd->rdo) * 10,
+			PD_RDO_FIXED_CURR_MINMAX(pd->rdo) * 250);
+}
+static DEVICE_ATTR_RO(rdo);
+
+static ssize_t hard_reset_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	int val = 0;
+
+	if (sscanf(buf, "%d\n", &val) != 1)
+		return -EINVAL;
+
+	if (val)
+		usbpd_set_state(pd, pd->current_pr == PR_SRC ?
+				PE_SRC_HARD_RESET : PE_SNK_HARD_RESET);
+
+	return size;
+}
+static DEVICE_ATTR_WO(hard_reset);
+
+static struct attribute *usbpd_attrs[] = {
+	&dev_attr_contract.attr,
+	&dev_attr_initial_pr.attr,
+	&dev_attr_current_pr.attr,
+	&dev_attr_initial_dr.attr,
+	&dev_attr_current_dr.attr,
+	&dev_attr_src_cap_id.attr,
+	&dev_attr_pdo_h.attr,
+	&dev_attr_pdos[0].attr,
+	&dev_attr_pdos[1].attr,
+	&dev_attr_pdos[2].attr,
+	&dev_attr_pdos[3].attr,
+	&dev_attr_pdos[4].attr,
+	&dev_attr_pdos[5].attr,
+	&dev_attr_pdos[6].attr,
+	&dev_attr_select_pdo.attr,
+	&dev_attr_rdo.attr,
+	&dev_attr_hard_reset.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(usbpd);
+
 static struct class usbpd_class = {
 	.name = "usbpd",
 	.owner = THIS_MODULE,
+	.dev_uevent = usbpd_uevent,
+	.dev_groups = usbpd_groups,
 };
 
 static int num_pd_instances;
