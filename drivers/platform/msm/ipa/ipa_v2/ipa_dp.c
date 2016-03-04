@@ -1322,14 +1322,6 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	*clnt_hdl = ipa_ep_idx;
 
-	if (IPA_CLIENT_IS_CONS(sys_in->client))
-		ipa_replenish_rx_cache(ep->sys);
-
-	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
-		ipa_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
-		atomic_inc(&ipa_ctx->wc_memb.active_clnt_cnt);
-	}
-
 	if (nr_cpu_ids > 1 &&
 		(sys_in->client == IPA_CLIENT_APPS_LAN_CONS ||
 		 sys_in->client == IPA_CLIENT_APPS_WAN_CONS)) {
@@ -1345,6 +1337,14 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 			atomic_set(&ep->sys->repl.tail_idx, 0);
 			ipa_wq_repl_rx(&ep->sys->repl_work);
 		}
+	}
+
+	if (IPA_CLIENT_IS_CONS(sys_in->client))
+		ipa_replenish_rx_cache(ep->sys);
+
+	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
+		ipa_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
+		atomic_inc(&ipa_ctx->wc_memb.active_clnt_cnt);
 	}
 
 	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
@@ -1427,6 +1427,8 @@ int ipa2_teardown_sys_pipe(u32 clnt_hdl)
 		} while (1);
 	}
 
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
 	flush_workqueue(ep->sys->wq);
 	sps_disconnect(ep->ep_hdl);
 	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
