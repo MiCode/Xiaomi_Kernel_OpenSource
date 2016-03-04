@@ -2678,6 +2678,9 @@ static unsigned int __read_mostly
 sched_short_sleep_task_threshold = 2000 * NSEC_PER_USEC;
 unsigned int __read_mostly sysctl_sched_select_prev_cpu_us = 2000;
 
+static unsigned int __read_mostly
+sched_long_cpu_selection_threshold = 100 * NSEC_PER_MSEC;
+
 unsigned int __read_mostly sysctl_sched_restrict_cluster_spill;
 
 void update_up_down_migrate(void)
@@ -3455,12 +3458,17 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 	struct sched_cluster *cluster;
 
 	if (env->boost_type != SCHED_BOOST_NONE || env->reason ||
+	    !task->ravg.mark_start ||
 	    env->need_idle || !sched_short_sleep_task_threshold)
 		return false;
 
 	prev_cpu = env->prev_cpu;
 	if (!cpumask_test_cpu(prev_cpu, tsk_cpus_allowed(task)) ||
 					unlikely(!cpu_active(prev_cpu)))
+		return false;
+
+	if (task->ravg.mark_start - task->last_cpu_selected_ts >=
+				sched_long_cpu_selection_threshold)
 		return false;
 
 	/*
@@ -3604,6 +3612,7 @@ retry:
 		if (stats.best_capacity_cpu >= 0)
 			target = stats.best_capacity_cpu;
 	}
+	p->last_cpu_selected_ts = sched_ktime_clock();
 
 out:
 	rcu_read_unlock();
