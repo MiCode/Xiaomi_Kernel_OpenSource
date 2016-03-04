@@ -201,10 +201,10 @@ static int hbtp_input_report_events(struct hbtp_data *hbtp_data,
 	return 0;
 }
 
-static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
+static int reg_set_load_check(struct regulator *reg, int load_uA)
 {
 	return (regulator_count_voltages(reg) > 0) ?
-		regulator_set_optimum_mode(reg, load_uA) : 0;
+		regulator_set_load(reg, load_uA) : 0;
 }
 
 static int hbtp_pdev_power_on(struct hbtp_data *hbtp, bool on)
@@ -226,7 +226,7 @@ static int hbtp_pdev_power_on(struct hbtp_data *hbtp, bool on)
 		goto reg_off;
 
 	if (hbtp->vcc_ana) {
-		ret = reg_set_optimum_mode_check(hbtp->vcc_ana,
+		ret = reg_set_load_check(hbtp->vcc_ana,
 			hbtp->afe_load_ua);
 		if (ret < 0) {
 			pr_err("%s: Regulator vcc_ana set_opt failed rc=%d\n",
@@ -238,12 +238,12 @@ static int hbtp_pdev_power_on(struct hbtp_data *hbtp, bool on)
 		if (ret) {
 			pr_err("%s: Regulator vcc_ana enable failed rc=%d\n",
 				__func__, ret);
-			reg_set_optimum_mode_check(hbtp->vcc_ana, 0);
+			reg_set_load_check(hbtp->vcc_ana, 0);
 			return ret;
 		}
 	}
 	if (hbtp->vcc_dig) {
-		ret = reg_set_optimum_mode_check(hbtp->vcc_dig,
+		ret = reg_set_load_check(hbtp->vcc_dig,
 			hbtp->dig_load_ua);
 		if (ret < 0) {
 			pr_err("%s: Regulator vcc_dig set_opt failed rc=%d\n",
@@ -255,7 +255,7 @@ static int hbtp_pdev_power_on(struct hbtp_data *hbtp, bool on)
 		if (ret) {
 			pr_err("%s: Regulator vcc_dig enable failed rc=%d\n",
 				__func__, ret);
-			reg_set_optimum_mode_check(hbtp->vcc_dig, 0);
+			reg_set_load_check(hbtp->vcc_dig, 0);
 			return ret;
 		}
 	}
@@ -264,11 +264,11 @@ static int hbtp_pdev_power_on(struct hbtp_data *hbtp, bool on)
 
 reg_off:
 	if (hbtp->vcc_ana) {
-		reg_set_optimum_mode_check(hbtp->vcc_ana, 0);
+		reg_set_load_check(hbtp->vcc_ana, 0);
 		regulator_disable(hbtp->vcc_ana);
 	}
 	if (hbtp->vcc_dig) {
-		reg_set_optimum_mode_check(hbtp->vcc_dig, 0);
+		reg_set_load_check(hbtp->vcc_dig, 0);
 		regulator_disable(hbtp->vcc_dig);
 	}
 	return 0;
