@@ -570,6 +570,15 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 	if (rb->drawctxt_active == drawctxt)
 		return ret;
 
+	/*
+	 * Submitting pt switch commands from a detached context can
+	 * lead to a race condition where the pt is destroyed before
+	 * the pt switch commands get executed by the GPU, leading to
+	 * pagefaults.
+	 */
+	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base))
+		return -ENOENT;
+
 	trace_adreno_drawctxt_switch(rb,
 		drawctxt, flags);
 
