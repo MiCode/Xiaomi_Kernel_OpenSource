@@ -1856,8 +1856,8 @@
 		qcom,dcvs-min-mbperframe = <32400>; /* 3840 x 2160 */
 
 		qcom,load-freq-tbl =
-			<979200 400000000 0xffffffff>, /* NOM+ , UHD30D   */
 			<979200 466000000 0x55555555>, /* TURBO, UHD30E   */
+			<979200 400000000 0xffffffff>, /* NOM+ , UHD30D   */
 			<734400 360000000 0xffffffff>, /* NOM  , 1080p90D */
 			<734400 400000000 0x55555555>, /* NOM+ , 1080p90E */
 			<489600 228570000 0xffffffff>, /* SVS  , 1080p60D */
