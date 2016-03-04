@@ -342,6 +342,7 @@ int zbud_alloc(struct zbud_pool *pool, size_t size, gfp_t gfp,
 	struct zbud_header *zhdr = NULL;
 	enum buddy bud;
 	struct page *page;
+	int found = 0;
 
 	if (!size || (gfp & __GFP_HIGHMEM))
 		return -EINVAL;
@@ -361,6 +362,7 @@ int zbud_alloc(struct zbud_pool *pool, size_t size, gfp_t gfp,
 				bud = FIRST;
 			else
 				bud = LAST;
+			found = 1;
 			goto found;
 		}
 	}
@@ -396,6 +398,8 @@ found:
 	list_add(&zhdr->lru, &pool->lru);
 
 	*handle = encode_handle(zhdr, bud);
+	if ((gfp & __GFP_ZERO) && found)
+		memset((void *)*handle, 0, size);
 	spin_unlock(&pool->lock);
 
 	return 0;
