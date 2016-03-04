@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,6 +147,8 @@ Common Registers
 
 #define IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK 0x1
 #define IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT 0x16
+#define IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_BMSK 0x200000
+#define IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_SHFT 0x15
 #define IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK 0x1f8000
 #define IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT 0xf
 #define IPA_ENDP_INIT_AGGR_N_AGGR_TIME_LIMIT_BMSK 0x7c00

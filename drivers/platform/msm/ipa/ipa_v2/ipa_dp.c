@@ -2930,6 +2930,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						ipa_ctx->wan_rx_ring_size;
 					sys->ep->wakelock_client =
 					IPA_WAKELOCK_REF_CLIENT_WAN_RX;
+					in->ipa_ep_cfg.aggr.aggr_sw_eof_active
+						= true;
 					if (ipa_ctx->
 					ipa_client_apps_wan_cons_agg_gro) {
 						IPAERR("get close-by %u\n",
