@@ -252,7 +252,7 @@ static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *dev,
 			pr_info("%s: Delete invalid bufs =%lx, session_id=%u, bufs->ses_id=%d, str_id=%d, idx=%d\n",
 				__func__, (unsigned long)bufs, session->session,
 				bufs->session_id, bufs->stream_id,
-				bufs->vb2_buf->v4l2_buf.index);
+				bufs->index);
 			if (session->session == bufs->session_id) {
 				list_del_init(&bufs->entry);
 				kfree(bufs);
