@@ -158,6 +158,14 @@ struct cpr3_corner {
  * @fuse_combos_supported: The number of fuse combinations supported by the
  *			device tree configuration for this CPR3 regulator
  * @fuse_corner_count:	Number of corners defined by fuse parameters
+ * @fuse_corner_map:	Array of length fuse_corner_count which specifies the
+ *			highest corner associated with each fuse corner.  Note
+ *			that each element must correspond to a valid corner
+ *			and that element values must be strictly increasing.
+ *			Also, it is acceptable for the lowest fuse corner to map
+ *			to a corner other than the lowest.  Likewise, it is
+ *			acceptable for the highest fuse corner to map to a
+ *			corner other than the highest.
  * @fuse_combo_corner_sum: The sum of the corner counts across all fuse combos
  * @fuse_combo_offset:	The device tree property array offset for the selected
  *			fuse combo
@@ -244,6 +252,7 @@ struct cpr3_regulator {
 	int			fuse_combo;
 	int			fuse_combos_supported;
 	int			fuse_corner_count;
+	int			*fuse_corner_map;
 	int			fuse_combo_corner_sum;
 	int			fuse_combo_offset;
 	int			speed_bin_corner_sum;
