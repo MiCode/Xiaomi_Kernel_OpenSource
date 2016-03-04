@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,7 +102,8 @@
 
 /* QPIC NANDc (NAND Controller) Register Set */
 #define MSM_NAND_REG(info, off)		    (info->nand_phys + off)
-#define MSM_NAND_QPIC_VERSION(info)	    MSM_NAND_REG(info, 0x24100)
+#define MSM_NAND_REG_ADJUSTED(info, off)    (info->nand_phys_adjusted + off)
+#define MSM_NAND_QPIC_VERSION(info)	    MSM_NAND_REG_ADJUSTED(info, 0x20100)
 #define MSM_NAND_FLASH_CMD(info)	    MSM_NAND_REG(info, 0x30000)
 #define MSM_NAND_ADDR0(info)                MSM_NAND_REG(info, 0x30004)
 #define MSM_NAND_ADDR1(info)                MSM_NAND_REG(info, 0x30008)
@@ -173,7 +174,7 @@
 
 #define MSM_NAND_CTRL(info)		    MSM_NAND_REG(info, 0x30F00)
 #define BAM_MODE_EN	0
-#define MSM_NAND_VERSION(info)         MSM_NAND_REG(info, 0x34F08)
+#define MSM_NAND_VERSION(info)         MSM_NAND_REG_ADJUSTED(info, 0x30F08)
 #define MSM_NAND_READ_LOCATION_0(info)      MSM_NAND_REG(info, 0x30F20)
 #define MSM_NAND_READ_LOCATION_1(info)      MSM_NAND_REG(info, 0x30F24)
 
@@ -302,6 +303,7 @@ struct msm_nand_info {
 	struct msm_nand_sps_info sps;
 	unsigned long bam_phys;
 	unsigned long nand_phys;
+	unsigned long nand_phys_adjusted;
 	void __iomem *bam_base;
 	int bam_irq;
 	/*

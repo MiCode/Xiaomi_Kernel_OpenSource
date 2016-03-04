@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3363,6 +3363,7 @@ static int msm_nand_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, err, nr_parts;
 	struct device *dev;
+	u32 adjustment_offset;
 	/*
 	 * The partition information can also be passed from kernel command
 	 * line. Also, the MTD core layer supports adding the whole device as
@@ -3382,6 +3383,18 @@ static int msm_nand_probe(struct platform_device *pdev)
 		goto out;
 	}
 	info->nand_phys = res->start;
+
+	err = of_property_read_u32(pdev->dev.of_node,
+				   "qcom,reg-adjustment-offset",
+				   &adjustment_offset);
+	if (err) {
+		pr_err("adjustment_offset not found, err = %d\n", err);
+		WARN_ON(1);
+		return err;
+	}
+
+	info->nand_phys_adjusted = info->nand_phys + adjustment_offset;
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"bam_phys");
 	if (!res || !res->start) {
