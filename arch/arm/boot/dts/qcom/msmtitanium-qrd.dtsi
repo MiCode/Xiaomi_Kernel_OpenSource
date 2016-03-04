@@ -84,7 +84,7 @@
 };
 
 &pmtitanium_typec {
-	ss-mux-supply = <&pmtitanium_l13>;
+	ss-mux-supply = <&pmtitanium_l6>;
 	qcom,ssmux-gpio = <&tlmm 139 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&typec_ssmux_config>;
