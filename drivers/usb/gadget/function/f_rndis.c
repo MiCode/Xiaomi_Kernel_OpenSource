@@ -466,6 +466,9 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 	int				status;
 	rndis_init_msg_type		*buf;
 
+	if (!rndis || !rndis->notify)
+		return;
+
 	/* received RNDIS command from USB_CDC_SEND_ENCAPSULATED_COMMAND */
 //	spin_lock(&dev->lock);
 	status = rndis_msg_parser(rndis->params, (u8 *) req->buf);
