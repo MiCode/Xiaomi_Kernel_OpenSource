@@ -1,0 +1,56 @@
+comment "Qualcomm Atheros Prima WLAN module"
+
+config PRIMA_WLAN
+
+	tristate "Qualcomm Atheros Prima WLAN module"
+	default n
+	help
+	Add support for the Qualcomm Atheros Prima WLAN module
+
+config PRONTO_WLAN
+
+	tristate "Qualcomm Atheros Pronto WLAN module"
+	default n
+	help
+	Add support for the Qualcomm Atheros Pronto WLAN module
+
+
+#	depends on WLAN
+#	depends on CFG80211
+#        depends on WCNSS_CORE
+
+if PRIMA_WLAN != n || PRONTO_WLAN != n
+
+config PRIMA_WLAN_BTAMP
+	bool "Enable the Prima WLAN BT-AMP feature"
+	default n
+
+config PRIMA_WLAN_LFR
+	bool "Enable the Prima WLAN Legacy Fast Roaming feature"
+	default n
+
+config PRIMA_WLAN_OKC
+	bool "Enable the Prima WLAN Opportunistic Key Caching feature"
+	default n
+
+config PRIMA_WLAN_11AC_HIGH_TP
+	bool "Enable the Prima WLAN 802.11ac High Throughput option (depends upon kernel support)"
+	default n
+
+config WLAN_FEATURE_11W
+	bool "Enable the WLAN 802.11w Protected Management Frames feature"
+	default n
+
+config QCOM_VOWIFI_11R
+	bool "Enable Fast Transition (11r) feature"
+	default n
+
+config QCOM_TDLS
+	bool "Enable TDLS feature"
+	default n
+
+config ENABLE_LINUX_REG
+	bool "Enable linux regulatory feature"
+	default n
+
+endif # PRIMA_WLAN || PRONTO_WLAN
