@@ -60,7 +60,7 @@ if not os.environ.get('CROSS_COMPILE'):
 def check_kernel():
     """Ensure that PWD is a kernel directory"""
     if (not os.path.isfile('MAINTAINERS') or
-        not os.path.isfile('arch/arm/mach-msm/Kconfig')):
+        not os.path.isfile('arch/arm64/configs/msm_defconfig')):
         fail("This doesn't seem to be an MSM kernel dir")
 
 def check_build():
