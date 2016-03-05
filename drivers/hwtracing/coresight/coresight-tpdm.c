@@ -60,6 +60,7 @@ do {									\
 #define TPDM_BC_SHADOW_LO(n)	(0x3D0 + (n * 4))
 #define TPDM_BC_SHADOW_HI(n)	(0x450 + (n * 4))
 #define TPDM_BC_SWINC		(0x4D0)
+#define TPDM_BC_MSR(n)		(0x4F0 + (n * 4))
 
 /* TC Subunit Registers */
 #define TPDM_TC_CR		(0x500)
@@ -78,6 +79,7 @@ do {									\
 #define TPDM_TC_SHADOW_LO(n)	(0x594 + (n * 4))
 #define TPDM_TC_SHADOW_HI(n)	(0x644 + (n * 4))
 #define TPDM_TC_SWINC		(0x700)
+#define TPDM_TC_MSR(n)		(0x768 + (n * 4))
 
 /* DSB Subunit Registers */
 #define TPDM_DSB_CR		(0x780)
@@ -89,6 +91,7 @@ do {									\
 #define TPDM_DSB_EDCR(n)	(0x808 + (n * 4))
 #define TPDM_DSB_EDCMR(n)	(0x848 + (n * 4))
 #define TPDM_DSB_CA_SELECT(n)	(0x86c + (n * 4))
+#define TPDM_DSB_MSR(n)		(0x980 + (n * 4))
 
 /* CMB Subunit Registers */
 #define TPDM_CMB_CR		(0xA00)
@@ -97,6 +100,7 @@ do {									\
 #define TPDM_CMB_TPMR(n)	(0xA10 + (n * 4))
 #define TPDM_CMB_XPR(n)		(0xA18 + (n * 4))
 #define TPDM_CMB_XPMR(n)	(0xA20 + (n * 4))
+#define TPDM_CMB_MSR(n)		(0xA80 + (n * 4))
 
 /* TPDM Specific Registers */
 #define TPDM_ITATBCNTRL		(0xEF0)
@@ -105,13 +109,17 @@ do {									\
 #define TPDM_DATASETS		32
 #define TPDM_BC_MAX_COUNTERS	32
 #define TPDM_BC_MAX_OVERFLOW	6
+#define TPDM_BC_MAX_MSR		4
 #define TPDM_TC_MAX_COUNTERS	44
 #define TPDM_TC_MAX_TRIG	8
+#define TPDM_TC_MAX_MSR		6
 #define TPDM_DSB_MAX_PATT	8
 #define TPDM_DSB_MAX_SELECT	8
+#define TPDM_DSB_MAX_MSR	32
 #define TPDM_DSB_MAX_EDCR	16
 #define TPDM_DSB_MAX_LINES	256
 #define TPDM_CMB_PATT_CMP	2
+#define TPDM_CMB_MAX_MSR	128
 
 /* DSB programming modes */
 #define TPDM_DSB_MODE_CYCACC(val)	BMVAL(val, 0, 2)
@@ -123,6 +131,9 @@ do {									\
 #define TPDM_GPR_REGS_MAX	160
 
 #define TPDM_TRACE_ID_START	128
+
+#define TPDM_REVISION_A		0
+#define TPDM_REVISION_B		1
 
 enum tpdm_dataset {
 	TPDM_DS_IMPLDEF,
@@ -181,6 +192,7 @@ struct bc_dataset {
 	uint32_t		trig_val_hi[TPDM_BC_MAX_COUNTERS];
 	uint32_t		enable_ganging;
 	uint32_t		overflow_val[TPDM_BC_MAX_OVERFLOW];
+	uint32_t		msr[TPDM_BC_MAX_MSR];
 };
 
 struct tc_dataset {
@@ -194,6 +206,7 @@ struct tc_dataset {
 	uint32_t		trig_sel[TPDM_TC_MAX_TRIG];
 	uint32_t		trig_val_lo[TPDM_TC_MAX_TRIG];
 	uint32_t		trig_val_hi[TPDM_TC_MAX_TRIG];
+	uint32_t		msr[TPDM_TC_MAX_MSR];
 };
 
 struct dsb_dataset {
@@ -207,6 +220,7 @@ struct dsb_dataset {
 	uint32_t		trig_patt_mask[TPDM_DSB_MAX_PATT];
 	bool			trig_ts;
 	uint32_t		select_val[TPDM_DSB_MAX_SELECT];
+	uint32_t		msr[TPDM_DSB_MAX_MSR];
 };
 
 struct cmb_dataset {
@@ -217,6 +231,7 @@ struct cmb_dataset {
 	uint32_t		trig_patt_val[TPDM_CMB_PATT_CMP];
 	uint32_t		trig_patt_mask[TPDM_CMB_PATT_CMP];
 	bool			trig_ts;
+	uint32_t		msr[TPDM_CMB_MAX_MSR];
 };
 
 struct tpdm_drvdata {
@@ -240,6 +255,8 @@ struct tpdm_drvdata {
 	struct dsb_dataset	*dsb;
 	struct cmb_dataset	*cmb;
 	int			traceid;
+	uint32_t		version;
+	bool			msr_support;
 };
 
 static void __tpdm_enable_gpr(struct tpdm_drvdata *drvdata)
@@ -251,6 +268,50 @@ static void __tpdm_enable_gpr(struct tpdm_drvdata *drvdata)
 			continue;
 		tpdm_writel(drvdata, drvdata->gpr->gp_regs[i], TPDM_GPR_CR(i));
 	}
+}
+
+static void __tpdm_config_bc_msr(struct tpdm_drvdata *drvdata)
+{
+	int i;
+
+	if (!drvdata->msr_support)
+		return;
+
+	for (i = 0; i < TPDM_BC_MAX_MSR; i++)
+		tpdm_writel(drvdata, drvdata->bc->msr[i], TPDM_BC_MSR(i));
+}
+
+static void __tpdm_config_tc_msr(struct tpdm_drvdata *drvdata)
+{
+	int i;
+
+	if (!drvdata->msr_support)
+		return;
+
+	for (i = 0; i < TPDM_TC_MAX_MSR; i++)
+		tpdm_writel(drvdata, drvdata->tc->msr[i], TPDM_TC_MSR(i));
+}
+
+static void __tpdm_config_dsb_msr(struct tpdm_drvdata *drvdata)
+{
+	int i;
+
+	if (!drvdata->msr_support)
+		return;
+
+	for (i = 0; i < TPDM_DSB_MAX_MSR; i++)
+		tpdm_writel(drvdata, drvdata->dsb->msr[i], TPDM_DSB_MSR(i));
+}
+
+static void __tpdm_config_cmb_msr(struct tpdm_drvdata *drvdata)
+{
+	int i;
+
+	if (!drvdata->msr_support)
+		return;
+
+	for (i = 0; i < TPDM_CMB_MAX_MSR; i++)
+		tpdm_writel(drvdata, drvdata->cmb->msr[i], TPDM_CMB_MSR(i));
 }
 
 static void __tpdm_enable_bc(struct tpdm_drvdata *drvdata)
@@ -302,6 +363,8 @@ static void __tpdm_enable_bc(struct tpdm_drvdata *drvdata)
 	for (i = 0; i < TPDM_BC_MAX_OVERFLOW; i++)
 		tpdm_writel(drvdata, drvdata->bc->overflow_val[i],
 			    TPDM_BC_OVERFLOW(i));
+
+	__tpdm_config_bc_msr(drvdata);
 
 	val = tpdm_readl(drvdata, TPDM_BC_CR);
 	if (drvdata->bc->retrieval_mode == TPDM_MODE_APB)
@@ -356,6 +419,8 @@ static void __tpdm_enable_tc(struct tpdm_drvdata *drvdata)
 		tpdm_writel(drvdata, drvdata->tc->trig_val_hi[0],
 			    TPDM_TC_TRIG_HI(0));
 	}
+
+	__tpdm_config_tc_msr(drvdata);
 
 	val = tpdm_readl(drvdata, TPDM_TC_CR);
 	if (drvdata->tc->sat_mode)
@@ -414,6 +479,8 @@ static void __tpdm_enable_dsb(struct tpdm_drvdata *drvdata)
 		val = val & ~BIT(1);
 	tpdm_writel(drvdata, val, TPDM_DSB_TIER);
 
+	__tpdm_config_dsb_msr(drvdata);
+
 	val = tpdm_readl(drvdata, TPDM_DSB_CR);
 	/* Set the cycle accurate mode */
 	mode = TPDM_DSB_MODE_CYCACC(drvdata->dsb->mode);
@@ -468,6 +535,8 @@ static void __tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 	else
 		val = val & ~BIT(1);
 	tpdm_writel(drvdata, val, TPDM_CMB_TIER);
+
+	__tpdm_config_cmb_msr(drvdata);
 
 	val = tpdm_readl(drvdata, TPDM_CMB_CR);
 	/* Set the flow control bit */
@@ -1550,6 +1619,35 @@ static ssize_t tpdm_store_bc_sw_inc(struct device *dev,
 static DEVICE_ATTR(bc_sw_inc, S_IRUGO | S_IWUSR,
 		   tpdm_show_bc_sw_inc, tpdm_store_bc_sw_inc);
 
+static ssize_t tpdm_store_bc_msr(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf,
+				 size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned num, val;
+	int nval;
+
+	if (!drvdata->msr_support)
+		return -EINVAL;
+
+	if (!test_bit(TPDM_DS_BC, drvdata->datasets))
+		return -EPERM;
+
+	nval = sscanf(buf, "%u %x", &num, &val);
+	if (nval != 2)
+		return -EINVAL;
+
+	if (num >= TPDM_BC_MAX_MSR)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->lock);
+	drvdata->bc->msr[num] = val;
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR(bc_msr, S_IWUSR, NULL, tpdm_store_bc_msr);
+
 static ssize_t tpdm_show_tc_capture_mode(struct device *dev,
 					 struct device_attribute *attr,
 					 char *buf)
@@ -2395,6 +2493,35 @@ static ssize_t tpdm_store_tc_sw_inc(struct device *dev,
 static DEVICE_ATTR(tc_sw_inc, S_IRUGO | S_IWUSR,
 		   tpdm_show_tc_sw_inc, tpdm_store_tc_sw_inc);
 
+static ssize_t tpdm_store_tc_msr(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf,
+				 size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned num, val;
+	int nval;
+
+	if (!drvdata->msr_support)
+		return -EINVAL;
+
+	if (!test_bit(TPDM_DS_TC, drvdata->datasets))
+		return -EPERM;
+
+	nval = sscanf(buf, "%u %x", &num, &val);
+	if (nval != 2)
+		return -EINVAL;
+
+	if (num >= TPDM_TC_MAX_MSR)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->lock);
+	drvdata->tc->msr[num] = val;
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR(tc_msr, S_IWUSR, NULL, tpdm_store_tc_msr);
+
 static ssize_t tpdm_show_dsb_mode(struct device *dev,
 				  struct device_attribute *attr,
 				  char *buf)
@@ -2836,6 +2963,35 @@ static ssize_t tpdm_store_dsb_select_val(struct device *dev,
 static DEVICE_ATTR(dsb_select_val, S_IRUGO | S_IWUSR,
 		   tpdm_show_dsb_select_val, tpdm_store_dsb_select_val);
 
+static ssize_t tpdm_store_dsb_msr(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf,
+				  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned num, val;
+	int nval;
+
+	if (!drvdata->msr_support)
+		return -EINVAL;
+
+	if (!test_bit(TPDM_DS_DSB, drvdata->datasets))
+		return -EPERM;
+
+	nval = sscanf(buf, "%u %x", &num, &val);
+	if (nval != 2)
+		return -EINVAL;
+
+	if (num >= TPDM_DSB_MAX_MSR)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->lock);
+	drvdata->dsb->msr[num] = val;
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR(dsb_msr, S_IWUSR, NULL, tpdm_store_dsb_msr);
+
 static ssize_t tpdm_show_cmb_available_modes(struct device *dev,
 					     struct device_attribute *attr,
 					     char *buf)
@@ -3249,6 +3405,35 @@ static ssize_t tpdm_store_cmb_trig_ts(struct device *dev,
 static DEVICE_ATTR(cmb_trig_ts, S_IRUGO | S_IWUSR,
 		   tpdm_show_cmb_trig_ts, tpdm_store_cmb_trig_ts);
 
+static ssize_t tpdm_store_cmb_msr(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf,
+				  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned num, val;
+	int nval;
+
+	if (!drvdata->msr_support)
+		return -EINVAL;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	nval = sscanf(buf, "%u %x", &num, &val);
+	if (nval != 2)
+		return -EINVAL;
+
+	if (num >= TPDM_CMB_MAX_MSR)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->lock);
+	drvdata->cmb->msr[num] = val;
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR(cmb_msr, S_IWUSR, NULL, tpdm_store_cmb_msr);
+
 static struct attribute *tpdm_bc_attrs[] = {
 	&dev_attr_bc_capture_mode.attr,
 	&dev_attr_bc_retrieval_mode.attr,
@@ -3269,6 +3454,7 @@ static struct attribute *tpdm_bc_attrs[] = {
 	&dev_attr_bc_shadow_val_lo.attr,
 	&dev_attr_bc_shadow_val_hi.attr,
 	&dev_attr_bc_sw_inc.attr,
+	&dev_attr_bc_msr.attr,
 	NULL,
 };
 
@@ -3292,6 +3478,7 @@ static struct attribute *tpdm_tc_attrs[] = {
 	&dev_attr_tc_shadow_val_lo.attr,
 	&dev_attr_tc_shadow_val_hi.attr,
 	&dev_attr_tc_sw_inc.attr,
+	&dev_attr_tc_msr.attr,
 	NULL,
 };
 
@@ -3306,6 +3493,7 @@ static struct attribute *tpdm_dsb_attrs[] = {
 	&dev_attr_dsb_trig_patt_mask.attr,
 	&dev_attr_dsb_trig_ts.attr,
 	&dev_attr_dsb_select_val.attr,
+	&dev_attr_dsb_msr.attr,
 	NULL,
 };
 
@@ -3322,6 +3510,7 @@ static struct attribute *tpdm_cmb_attrs[] = {
 	&dev_attr_cmb_trig_patt_val_msb.attr,
 	&dev_attr_cmb_trig_patt_mask_msb.attr,
 	&dev_attr_cmb_trig_ts.attr,
+	&dev_attr_cmb_msr.attr,
 	NULL,
 };
 
@@ -3420,6 +3609,7 @@ static int tpdm_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct coresight_desc *desc;
 	static int traceid = TPDM_TRACE_ID_START;
+	uint32_t version;
 
 	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 	if (IS_ERR(pdata))
@@ -3456,6 +3646,12 @@ static int tpdm_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
+
+	version = tpdm_readl(drvdata, CORESIGHT_PERIPHIDR2);
+	drvdata->version = BMVAL(version, 4, 7);
+
+	if (drvdata->version)
+		drvdata->msr_support = true;
 
 	pidr = tpdm_readl(drvdata, CORESIGHT_PERIPHIDR0);
 	for (i = 0; i < TPDM_DATASETS; i++) {
