@@ -1292,6 +1292,17 @@ Sync wakee tasks which have demand less than sched_small_wakee_task_load are
 categorized as small wakee tasks.  Scheduler places small wakee tasks on the
 waker's cluster.
 
+
+*** 7.26 sched_big_waker_task_load
+
+Appears at: /proc/sys/kernel/sched_big_waker_task_load
+
+Default value: 25
+
+This tunable is a percentage.  Configure the minimum demand of big sync waker
+task.  Scheduler places small wakee tasks woken up by big sync waker on the
+waker's cluster.
+
 =========================
 8. HMP SCHEDULER TRACE POINTS
 =========================
