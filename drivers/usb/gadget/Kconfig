@@ -220,6 +220,9 @@ config USB_F_GSI
 config USB_F_CDEV
 	tristate
 
+config USB_F_QDSS
+	tristate
+
 choice
 	tristate "USB Gadget Drivers"
 	default USB_ETH
@@ -531,6 +534,13 @@ config USB_CONFIGFS_F_CDEV
 	depends on USB_CONFIGFS
 	help
 	  Generic USB serial character function driver to support DUN/NMEA.
+
+config USB_CONFIGFS_F_QDSS
+	bool "USB QDSS function"
+	select USB_F_QDSS
+	depends on USB_CONFIGFS
+	help
+	  USB QDSS function driver to get hwtracing related data over USB.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 

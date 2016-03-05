@@ -41,7 +41,7 @@ enum qdss_state {
 	USB_QDSS_CTRL_WRITE_DONE,
 };
 
-#ifdef CONFIG_USB_G_ANDROID
+#if IS_ENABLED(CONFIG_USB_F_QDSS)
 struct usb_qdss_ch *usb_qdss_open(const char *name, void *priv,
 	void (*notify)(void *, unsigned, struct qdss_request *,
 		struct usb_qdss_ch *));
@@ -89,6 +89,6 @@ static inline int usb_qdss_alloc_req(struct usb_qdss_ch *c, int n_wr, int n_rd)
 static inline void usb_qdss_close(struct usb_qdss_ch *ch) { }
 
 static inline void usb_qdss_free_req(struct usb_qdss_ch *ch) { }
-#endif
+#endif /* CONFIG_USB_F_QDSS */
 
 #endif
