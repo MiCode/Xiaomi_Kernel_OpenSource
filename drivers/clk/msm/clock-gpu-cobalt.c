@@ -446,10 +446,10 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 		return PTR_ERR(reg);
 	}
 
-	tmp = gpucc_xo.c.parent = devm_clk_get(&pdev->dev, "xo");
+	tmp = gpucc_xo.c.parent = devm_clk_get(&pdev->dev, "xo_ao");
 	if (IS_ERR(tmp)) {
 		if (PTR_ERR(tmp) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Unable to get xo clock\n");
+			dev_err(&pdev->dev, "Unable to get xo_ao clock\n");
 		return PTR_ERR(tmp);
 	}
 
