@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,8 +65,8 @@ struct rtac_apr_data {
 	wait_queue_head_t	cmd_wait;
 };
 
-static struct rtac_apr_data	rtac_adm_apr_data;
-static struct rtac_apr_data	rtac_asm_apr_data[SESSION_MAX+1];
+static struct rtac_apr_data rtac_adm_apr_data;
+static struct rtac_apr_data rtac_asm_apr_data[ASM_ACTIVE_STREAMS_ALLOWED + 1];
 static struct rtac_apr_data	rtac_afe_apr_data;
 static struct rtac_apr_data	rtac_voice_apr_data[RTAC_VOICE_MODES];
 
@@ -989,7 +989,7 @@ int send_rtac_asm_apr(void *buf, u32 opcode)
 			__func__);
 		goto done;
 	}
-	if (session_id >= (SESSION_MAX + 1)) {
+	if (session_id >= (ASM_ACTIVE_STREAMS_ALLOWED + 1)) {
 		pr_err("%s: Invalid Session = %d\n", __func__, session_id);
 		goto done;
 	}
@@ -1838,7 +1838,7 @@ static int __init rtac_init(void)
 	}
 
 	/* ASM */
-	for (i = 0; i < SESSION_MAX+1; i++) {
+	for (i = 0; i < ASM_ACTIVE_STREAMS_ALLOWED+1; i++) {
 		rtac_asm_apr_data[i].apr_handle = NULL;
 		atomic_set(&rtac_asm_apr_data[i].cmd_state, 0);
 		init_waitqueue_head(&rtac_asm_apr_data[i].cmd_wait);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,6 +141,7 @@ static void event_handler(uint32_t opcode,
 	uint32_t *ptrmem = (uint32_t *)payload;
 	uint32_t idx = 0;
 	uint32_t size = 0;
+	uint8_t buf_index;
 
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE_V2: {
@@ -172,12 +173,15 @@ static void event_handler(uint32_t opcode,
 		break;
 	case ASM_DATA_EVENT_READ_DONE_V2: {
 		pr_debug("ASM_DATA_EVENT_READ_DONE_V2\n");
-		pr_debug("token = 0x%08x\n", token);
-		prtd->in_frame_info[token].size = payload[4];
-		prtd->in_frame_info[token].offset = payload[5];
+		buf_index = q6asm_get_buf_index_from_token(token);
+		pr_debug("%s: token=0x%08x buf_index=0x%08x\n",
+			 __func__, token, buf_index);
+		prtd->in_frame_info[buf_index].size = payload[4];
+		prtd->in_frame_info[buf_index].offset = payload[5];
 		/* assume data size = 0 during flushing */
-		if (prtd->in_frame_info[token].size) {
-			prtd->pcm_irq_pos += prtd->in_frame_info[token].size;
+		if (prtd->in_frame_info[buf_index].size) {
+			prtd->pcm_irq_pos +=
+				prtd->in_frame_info[buf_index].size;
 			pr_debug("pcm_irq_pos=%d\n", prtd->pcm_irq_pos);
 			if (atomic_read(&prtd->start))
 				snd_pcm_period_elapsed(substream);
