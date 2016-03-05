@@ -2476,6 +2476,9 @@ unsigned int __read_mostly sysctl_sched_enable_power_aware = 0;
 unsigned int __read_mostly sched_small_wakee_task_load;
 unsigned int __read_mostly sysctl_sched_small_wakee_task_load_pct = 10;
 
+unsigned int __read_mostly sched_big_waker_task_load;
+unsigned int __read_mostly sysctl_sched_big_waker_task_load_pct = 25;
+
 /*
  * CPUs with load greater than the sched_spill_load_threshold are not
  * eligible for task placement. When all CPUs in a cluster achieve a
@@ -2603,6 +2606,10 @@ void set_hmp_defaults(void)
 
 	sched_small_wakee_task_load =
 		div64_u64((u64)sysctl_sched_small_wakee_task_load_pct *
+			  (u64)sched_ravg_window, 100);
+
+	sched_big_waker_task_load =
+		div64_u64((u64)sysctl_sched_big_waker_task_load_pct *
 			  (u64)sched_ravg_window, 100);
 }
 
@@ -3274,6 +3281,7 @@ static inline bool
 wake_to_waker_cluster(struct cpu_select_env *env)
 {
 	return !env->need_idle && !env->reason && env->sync &&
+	       task_load(current) > sched_big_waker_task_load &&
 	       task_load(env->p) < sched_small_wakee_task_load;
 }
 
