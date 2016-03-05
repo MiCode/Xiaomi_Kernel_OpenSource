@@ -259,8 +259,6 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 
 		/* Nothing more to read, or out of buffers in MHI layer */
 		if (unlikely(!result->buf_addr || !result->bytes_xferd)) {
-			rmnet_log(MSG_CRITICAL,
-				  "Not valid buff not rescheduling\n");
 			should_reschedule = false;
 			break;
 		}
