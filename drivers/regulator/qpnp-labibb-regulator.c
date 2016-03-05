@@ -1231,12 +1231,12 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 	return 0;
 }
 
-static int qpnp_labibb_ttw_exit_ibb_pmi8996(struct qpnp_labibb *labibb)
+static int qpnp_labibb_ttw_exit_ibb_common(struct qpnp_labibb *labibb)
 {
 	int rc;
 	u8 val;
 
-	val = 0;
+	val = IBB_FASTER_PFET_OFF;
 	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_SPARE_CTL,
 			&val, 1);
 	if (rc)
@@ -1294,7 +1294,9 @@ static int qpnp_labibb_regulator_ttw_mode_exit(struct qpnp_labibb *labibb)
 
 	switch (labibb->pmic_rev_id->pmic_subtype) {
 	case PMI8996:
-		rc = qpnp_labibb_ttw_exit_ibb_pmi8996(labibb);
+	case PMI8994:
+	case PMI8950:
+		rc = qpnp_labibb_ttw_exit_ibb_common(labibb);
 		break;
 	}
 	if (rc) {
