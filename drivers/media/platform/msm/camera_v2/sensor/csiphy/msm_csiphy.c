@@ -1219,7 +1219,10 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 {
 	int rc = -ENOIOCTLCMD;
 	struct csiphy_device *csiphy_dev = v4l2_get_subdevdata(sd);
-	CDBG("%s:%d id %d\n", __func__, __LINE__, csiphy_dev->pdev->id);
+	if (!csiphy_dev) {
+		pr_err("%s:%d failed\n", __func__, __LINE__);
+		return  -EINVAL;
+	}
 	mutex_lock(&csiphy_dev->mutex);
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_GET_SUBDEV_ID:
