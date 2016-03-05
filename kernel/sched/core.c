@@ -3088,7 +3088,7 @@ static void remove_task_from_group(struct task_struct *p)
 
 	rq = __task_rq_lock(p);
 	list_del_init(&p->grp_list);
-	p->grp = NULL;
+	rcu_assign_pointer(p->grp, NULL);
 	__task_rq_unlock(rq);
 
 	if (!list_empty(&grp->tasks)) {
@@ -3118,7 +3118,7 @@ add_task_to_group(struct task_struct *p, struct related_thread_group *grp)
 	 * reference of p->grp in various hot-paths
 	 */
 	rq = __task_rq_lock(p);
-	p->grp = grp;
+	rcu_assign_pointer(p->grp, grp);
 	list_add(&p->grp_list, &grp->tasks);
 	__task_rq_unlock(rq);
 
@@ -3187,12 +3187,13 @@ done:
 
 unsigned int sched_get_group_id(struct task_struct *p)
 {
-	unsigned long flags;
 	unsigned int group_id;
+	struct related_thread_group *grp;
 
-	raw_spin_lock_irqsave(&p->pi_lock, flags);
-	group_id = p->grp ? p->grp->id : 0;
-	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+	rcu_read_lock();
+	grp = task_related_thread_group(p);
+	group_id = grp ? grp->id : 0;
+	rcu_read_unlock();
 
 	return group_id;
 }
@@ -3392,7 +3393,7 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 	 * has passed since we last updated preference
 	 */
 	if (abs(new_load - old_load) > sched_ravg_window / 4 ||
-		sched_ktime_clock() - p->grp->last_update > sched_ravg_window)
+		sched_ktime_clock() - grp->last_update > sched_ravg_window)
 		return 1;
 
 	return 0;
@@ -4133,15 +4134,17 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 
 	raw_spin_lock(&rq->lock);
 	old_load = task_load(p);
-	grp = task_related_thread_group(p);
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	heavy_task = heavy_task_wakeup(p, rq, TASK_WAKE);
 	update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 	raw_spin_unlock(&rq->lock);
 
+	rcu_read_lock();
+	grp = task_related_thread_group(p);
 	if (update_preferred_cluster(grp, p, old_load))
 		set_preferred_cluster(grp);
+	rcu_read_unlock();
 
 	p->sched_contributes_to_load = !!task_contributes_to_load(p);
 	p->state = TASK_WAKING;
@@ -5073,7 +5076,6 @@ void scheduler_tick(void)
 
 	raw_spin_lock(&rq->lock);
 	old_load = task_load(curr);
-	grp = task_related_thread_group(curr);
 	set_window_start(rq);
 	update_rq_clock(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
@@ -5095,8 +5097,11 @@ void scheduler_tick(void)
 #endif
 	rq_last_tick_reset(rq);
 
+	rcu_read_lock();
+	grp = task_related_thread_group(curr);
 	if (update_preferred_cluster(grp, curr, old_load))
 		set_preferred_cluster(grp);
+	rcu_read_unlock();
 
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
