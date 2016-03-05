@@ -2235,7 +2235,7 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 			u32 offset, u32 mask, u32 value)
 {
 	int ret = 0;
-	struct msm_pcie_dev_t *pdev;
+	struct msm_pcie_dev_t *pdev = NULL;
 
 	if (!dev) {
 		pr_err("PCIe: the input pci dev is NULL.\n");
@@ -4886,7 +4886,7 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 	int i;
 	struct msm_pcie_dev_t *dev = data;
 	unsigned long irqsave_flags;
-	u32 status;
+	u32 status = 0;
 
 	PCIE_DBG2(dev, "RC%d: Global IRQ %d received: 0x%x\n",
 		dev->rc_idx, irq, status);

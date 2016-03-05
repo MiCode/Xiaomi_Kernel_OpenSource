@@ -943,7 +943,7 @@ static ssize_t iommu_debug_unmap_write(struct file *file,
 				       const char __user *ubuf,
 				       size_t count, loff_t *offset)
 {
-	ssize_t retval;
+	ssize_t retval = 0;
 	char *comma1;
 	char buf[100];
 	dma_addr_t iova;

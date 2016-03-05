@@ -3209,7 +3209,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 			   "\t(IDR0.CTTW overridden by dma-coherent property)\n");
 
 	if (id & ID0_SMS) {
-		u32 smr, sid, mask;
+		u32 smr, sid, mask = 0;
 
 		smmu->features |= ARM_SMMU_FEAT_STREAM_MATCH;
 		smmu->num_mapping_groups = (id >> ID0_NUMSMRG_SHIFT) &

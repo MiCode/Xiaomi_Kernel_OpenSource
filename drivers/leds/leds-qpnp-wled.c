@@ -1621,7 +1621,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 static int qpnp_wled_probe(struct platform_device *pdev)
 {
 	struct qpnp_wled *wled;
-	int rc, i;
+	int rc = 0, i;
 	const __be32 *prop;
 
 	wled = devm_kzalloc(&pdev->dev, sizeof(*wled), GFP_KERNEL);

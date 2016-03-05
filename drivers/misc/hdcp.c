@@ -1114,7 +1114,7 @@ static void hdcp_lib_msg_recvd_work(struct kthread_work *work)
 	struct hdcp_rcvd_msg_req *req_buf;
 	struct hdcp_rcvd_msg_rsp *rsp_buf;
 	uint32_t msglen;
-	char *msg;
+	char *msg = NULL;
 	struct hdcp_lib_handle *handle = container_of(work,
 		struct hdcp_lib_handle, msg_recvd);
 	struct hdmi_hdcp_wakeup_data cdata = {HDMI_HDCP_WKUP_CMD_INVALID};
