@@ -593,7 +593,7 @@
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
 		clock-names = "core_clk";
-		clocks = <&clock_gcc clk_ipa_a_clk>;
+		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;
