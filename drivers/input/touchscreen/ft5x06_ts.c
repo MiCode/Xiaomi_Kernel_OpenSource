@@ -208,6 +208,8 @@
 #define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
 #define PINCTRL_STATE_RELEASE	"pmx_ts_release"
 
+static irqreturn_t ft5x06_ts_interrupt(int irq, void *data);
+
 enum {
 	FT_BLOADER_VERSION_LZ4 = 0,
 	FT_BLOADER_VERSION_Z7 = 1,
@@ -246,6 +248,7 @@ struct ft5x06_ts_data {
 	struct ft5x06_gesture_platform_data *gesture_pdata;
 	struct regulator *vdd;
 	struct regulator *vcc_i2c;
+	struct mutex ft_clk_io_ctrl_mutex;
 	char fw_name[FT_FW_NAME_MAX_LEN];
 	bool loading_fw;
 	u8 family_id;
@@ -305,7 +308,12 @@ static irqreturn_t ft5x06_filter_interrupt(struct ft5x06_ts_data *data)
 	return IRQ_NONE;
 }
 
-static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, int blocking)
+/*
+ * 'blocking' variable will have value 'true' when we want to prevent the driver
+ * from accessing the xPU/SMMU protected HW resources while the session is
+ * active.
+ */
+static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, bool blocking)
 {
 	if (atomic_read(&data->st_enabled)) {
 		atomic_set(&data->st_pending_irqs, -1);
@@ -315,6 +323,125 @@ static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, int blocking)
 						&data->st_powerdown);
 	}
 }
+
+static int ft5x06_bus_get(struct ft5x06_ts_data *data)
+{
+	int retval;
+
+	mutex_lock(&data->ft_clk_io_ctrl_mutex);
+	retval = pm_runtime_get_sync(data->client->adapter->dev.parent);
+	mutex_unlock(&data->ft_clk_io_ctrl_mutex);
+	return retval;
+}
+
+static void ft5x06_bus_put(struct ft5x06_ts_data *data)
+{
+	mutex_lock(&data->ft_clk_io_ctrl_mutex);
+	pm_runtime_put_sync(data->client->adapter->dev.parent);
+	mutex_unlock(&data->ft_clk_io_ctrl_mutex);
+}
+
+static ssize_t ft5x06_secure_touch_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d", atomic_read(&data->st_enabled));
+}
+
+/*
+ * Accept only "0" and "1" valid values.
+ * "0" will reset the st_enabled flag, then wake up the reading process and
+ * the interrupt handler.
+ * The bus driver is notified via pm_runtime that it is not required to stay
+ * awake anymore.
+ * It will also make sure the queue of events is emptied in the controller,
+ * in case a touch happened in between the secure touch being disabled and
+ * the local ISR being ungated.
+ * "1" will set the st_enabled flag and clear the st_pending_irqs flag.
+ * The bus driver is requested via pm_runtime to stay awake.
+ */
+static ssize_t ft5x06_secure_touch_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	unsigned long value;
+	int err = 0;
+
+	if (count > 2)
+		return -EINVAL;
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	err = count;
+	switch (value) {
+	case 0:
+		if (atomic_read(&data->st_enabled) == 0)
+			break;
+		ft5x06_bus_put(data);
+		atomic_set(&data->st_enabled, 0);
+		ft5x06_secure_touch_notify(data);
+		complete(&data->st_irq_processed);
+		ft5x06_ts_interrupt(data->client->irq, data);
+		complete(&data->st_powerdown);
+		break;
+
+	case 1:
+		if (atomic_read(&data->st_enabled)) {
+			err = -EBUSY;
+			break;
+		}
+		synchronize_irq(data->client->irq);
+		if (ft5x06_bus_get(data) < 0) {
+			dev_err(data->client->dev.parent,
+					"focalTech_bus_get failed\n");
+			err = -EIO;
+			break;
+		}
+		reinit_completion(&data->st_powerdown);
+		reinit_completion(&data->st_irq_processed);
+		atomic_set(&data->st_enabled, 1);
+		atomic_set(&data->st_pending_irqs,  0);
+		break;
+
+	default:
+		dev_err(data->client->dev.parent,
+				"unsupported value: %lu\n", value);
+		err = -EINVAL;
+		break;
+	}
+	return err;
+}
+
+/*
+ * This function returns whether there are pending interrupts, or
+ * other error conditions that need to be signaled to the userspace library,
+ * according tot he following logic:
+ * - st_enabled is 0 if secure touch is not enabled, returning -EBADF
+ * - st_pending_irqs is -1 to signal that secure touch is in being stopped,
+ *   returning -EINVAL
+ * - st_pending_irqs is 1 to signal that there is a pending irq, returning
+ *   the value "1" to the sysfs read operation
+ * - st_pending_irqs is 0 (only remaining case left) if the pending interrupt
+ *   has been processed, so the interrupt handler can be allowed to continue.
+ */
+static ssize_t ft5x06_secure_touch_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	int val = 0;
+
+	if (atomic_read(&data->st_enabled) == 0)
+		return -EBADF;
+	if (atomic_cmpxchg(&data->st_pending_irqs, -1, 0) == -1)
+		return -EINVAL;
+	if (atomic_cmpxchg(&data->st_pending_irqs, 1, 0) == 1)
+		val = 1;
+	else
+		complete(&data->st_irq_processed);
+	return scnprintf(buf, PAGE_SIZE, "%u", val);
+}
 #else
 static void ft5x06_secure_touch_init(struct ft5x06_ts_data *data)
 {
@@ -323,10 +450,20 @@ static irqreturn_t ft5x06_filter_interrupt(struct ft5x06_ts_data *data)
 {
 	return IRQ_NONE;
 }
-static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, int blocking)
+static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, bool blocking)
 {
 }
 #endif
+
+static struct device_attribute attrs[] = {
+#if defined(CONFIG_FT_SECURE_TOUCH)
+		__ATTR(secure_touch_enable, (S_IRUGO | S_IWUSR | S_IWGRP),
+				ft5x06_secure_touch_enable_show,
+				ft5x06_secure_touch_enable_store),
+		__ATTR(secure_touch, S_IRUGO ,
+				ft5x06_secure_touch_show, NULL),
+#endif
+};
 
 static inline bool ft5x06_gesture_support_enabled(void)
 {
@@ -1125,7 +1262,7 @@ static int ft5x06_ts_suspend(struct device *dev)
 		return 0;
 	}
 
-	ft5x06_secure_touch_stop(data, 1);
+	ft5x06_secure_touch_stop(data, true);
 
 	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support &&
 		device_may_wakeup(dev) &&
@@ -1153,7 +1290,7 @@ static int ft5x06_ts_resume(struct device *dev)
 		return 0;
 	}
 
-	ft5x06_secure_touch_stop(data, 1);
+	ft5x06_secure_touch_stop(data, true);
 
 	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support &&
 		device_may_wakeup(dev) &&
@@ -1257,7 +1394,13 @@ static void ft5x06_ts_early_suspend(struct early_suspend *handler)
 						   struct ft5x06_ts_data,
 						   early_suspend);
 
-	ft5x06_secure_touch_stop(data, 0);
+	/*
+	 * During early suspend/late resume, the driver doesn't access xPU/SMMU
+	 * protected HW resources. So, there is no compelling need to block,
+	 * but notifying the userspace that a power event has occurred is
+	 * enough. Hence 'blocking' variable can be set to false.
+	 */
+	ft5x06_secure_touch_stop(data, false);
 	ft5x06_ts_suspend(&data->client->dev);
 }
 
@@ -1267,7 +1410,7 @@ static void ft5x06_ts_late_resume(struct early_suspend *handler)
 						   struct ft5x06_ts_data,
 						   early_suspend);
 
-	ft5x06_secure_touch_stop(data, 0);
+	ft5x06_secure_touch_stop(data, false);
 	ft5x06_ts_resume(&data->client->dev);
 }
 #endif
@@ -2058,7 +2201,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	struct dentry *temp;
 	u8 reg_value;
 	u8 reg_addr;
-	int err, len;
+	int err, len, retval, attr_count;
 
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
@@ -2361,7 +2504,20 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	/*Initialize secure touch */
 	ft5x06_secure_touch_init(data);
-	ft5x06_secure_touch_stop(data, 1);
+	ft5x06_secure_touch_stop(data, true);
+	mutex_init(&(data->ft_clk_io_ctrl_mutex));
+
+	/* Creation of secure touch sysfs files */
+	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
+		retval = sysfs_create_file(&data->input_dev->dev.kobj,
+						&attrs[attr_count].attr);
+		if (retval < 0) {
+			dev_err(&client->dev,
+				"%s: Failed to create sysfs attributes\n",
+							__func__);
+			goto free_secure_touch_sysfs;
+		}
+	}
 
 	ft5x06_update_fw_ver(data);
 	ft5x06_update_fw_vendor_id(data);
@@ -2390,6 +2546,11 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 #endif
 	return 0;
 
+free_secure_touch_sysfs:
+	for (attr_count--; attr_count >= 0; attr_count--) {
+		sysfs_remove_file(&data->input_dev->dev.kobj,
+					&attrs[attr_count].attr);
+	}
 free_debug_dir:
 	debugfs_remove_recursive(data->dir);
 free_force_update_fw_sys:
@@ -2450,7 +2611,7 @@ unreg_inputdev:
 static int ft5x06_ts_remove(struct i2c_client *client)
 {
 	struct ft5x06_ts_data *data = i2c_get_clientdata(client);
-	int retval;
+	int retval, attr_count;
 
 	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support) {
 		device_init_wakeup(&client->dev, 0);
@@ -2491,6 +2652,11 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 			if (retval < 0)
 				pr_err("failed to select release pinctrl state\n");
 		}
+	}
+
+	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
+		sysfs_remove_file(&data->input_dev->dev.kobj,
+					&attrs[attr_count].attr);
 	}
 
 	if (data->pdata->power_on)
