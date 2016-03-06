@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/usb/usb_ctrl_qti.h>
 #include <linux/etherdevice.h>
+#include <linux/usb/composite.h>
 #include <linux/debugfs.h>
 #include <linux/ipa_usb.h>
 #include "f_gsi.h"
@@ -2229,6 +2230,14 @@ static void gsi_resume(struct usb_function *f)
 	log_event_dbg("%s: completed", __func__);
 }
 
+static int gsi_get_status(struct usb_function *f)
+{
+	unsigned remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+
+	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
+		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
+}
+
 static int gsi_func_suspend(struct usb_function *f, u8 options)
 {
 	bool func_wakeup_allowed;
@@ -2856,6 +2865,7 @@ int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 	gsi->function.setup = gsi_setup;
 	gsi->function.disable = gsi_disable;
 	gsi->function.suspend = gsi_suspend;
+	gsi->function.get_status = gsi_get_status;
 	gsi->function.func_suspend = gsi_func_suspend;
 	gsi->function.resume = gsi_resume;
 
