@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,6 +58,13 @@ struct icnss_wlan_enable_cfg {
 	struct icnss_shadow_reg_cfg *shadow_reg_cfg;
 };
 
+/* MSA Memory Regions Information */
+struct icnss_mem_region_info {
+	uint64_t reg_addr;
+	uint32_t size;
+	uint8_t secure_flag;
+};
+
 /* driver modes */
 enum icnss_driver_mode {
 	ICNSS_MISSION,
@@ -91,5 +98,6 @@ extern int icnss_ce_request_irq(unsigned int ce_id,
 	irqreturn_t (*handler)(int, void *),
 	unsigned long flags, const char *name, void *ctx);
 extern int icnss_get_ce_id(int irq);
+extern int icnss_set_fw_debug_mode(bool enablefwlog);
 
 #endif /* _ICNSS_WLAN_H_ */

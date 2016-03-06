@@ -1,4 +1,4 @@
- /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,29 +16,39 @@
 #define WLFW_SERVICE_ID_V01 0x45
 #define WLFW_SERVICE_VERS_V01 0x01
 
-#define QMI_WLFW_CAL_REPORT_REQ_V01 0x0026
-#define QMI_WLFW_CAL_REPORT_RESP_V01 0x0026
-#define QMI_WLFW_CAP_RESP_V01 0x0024
 #define QMI_WLFW_BDF_DOWNLOAD_REQ_V01 0x0025
-#define QMI_WLFW_CAL_DOWNLOAD_RESP_V01 0x0027
-#define QMI_WLFW_WLAN_MODE_RESP_V01 0x0022
-#define QMI_WLFW_CAL_UPDATE_RESP_V01 0x0029
-#define QMI_WLFW_BDF_DOWNLOAD_RESP_V01 0x0025
 #define QMI_WLFW_INITIATE_CAL_UPDATE_IND_V01 0x002A
-#define QMI_WLFW_FW_READY_IND_V01 0x0021
-#define QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01 0x0028
 #define QMI_WLFW_CAP_REQ_V01 0x0024
-#define QMI_WLFW_CAL_DOWNLOAD_REQ_V01 0x0027
+#define QMI_WLFW_CAL_REPORT_REQ_V01 0x0026
+#define QMI_WLFW_CAL_UPDATE_RESP_V01 0x0029
+#define QMI_WLFW_CAL_DOWNLOAD_RESP_V01 0x0027
+#define QMI_WLFW_INI_RESP_V01 0x002F
+#define QMI_WLFW_CAL_REPORT_RESP_V01 0x0026
+#define QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01 0x0028
+#define QMI_WLFW_MSA_READY_IND_V01 0x002B
 #define QMI_WLFW_WLAN_MODE_REQ_V01 0x0022
-#define QMI_WLFW_CAL_UPDATE_REQ_V01 0x0029
 #define QMI_WLFW_IND_REGISTER_REQ_V01 0x0020
 #define QMI_WLFW_WLAN_CFG_RESP_V01 0x0023
+#define QMI_WLFW_WLAN_MODE_RESP_V01 0x0022
+#define QMI_WLFW_PIN_CONNECT_RESULT_IND_V01 0x002C
+#define QMI_WLFW_FW_READY_IND_V01 0x0021
+#define QMI_WLFW_MSA_READY_RESP_V01 0x002E
+#define QMI_WLFW_CAL_UPDATE_REQ_V01 0x0029
+#define QMI_WLFW_INI_REQ_V01 0x002F
+#define QMI_WLFW_BDF_DOWNLOAD_RESP_V01 0x0025
+#define QMI_WLFW_MSA_INFO_RESP_V01 0x002D
+#define QMI_WLFW_MSA_READY_REQ_V01 0x002E
+#define QMI_WLFW_CAP_RESP_V01 0x0024
+#define QMI_WLFW_MSA_INFO_REQ_V01 0x002D
+#define QMI_WLFW_CAL_DOWNLOAD_REQ_V01 0x0027
 #define QMI_WLFW_WLAN_CFG_REQ_V01 0x0023
 #define QMI_WLFW_IND_REGISTER_RESP_V01 0x0020
 
+#define QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01 2
 #define QMI_WLFW_MAX_NUM_CAL_V01 5
 #define QMI_WLFW_MAX_DATA_SIZE_V01 6144
 #define QMI_WLFW_MAX_NUM_CE_V01 12
+#define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
 #define QMI_WLFW_MAX_STR_LEN_V01 16
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
 #define QMI_WLFW_MAX_NUM_SVC_V01 24
@@ -98,6 +108,30 @@ struct wlfw_shadow_reg_cfg_s_v01 {
 	uint16_t offset;
 };
 
+struct wlfw_memory_region_info_s_v01 {
+	uint64_t region_addr;
+	uint32_t size;
+	uint8_t secure_flag;
+};
+
+struct wlfw_rf_chip_info_s_v01 {
+	uint32_t chip_id;
+	uint32_t chip_family;
+};
+
+struct wlfw_rf_board_info_s_v01 {
+	uint32_t board_id;
+};
+
+struct wlfw_soc_info_s_v01 {
+	uint32_t soc_id;
+};
+
+struct wlfw_fw_version_info_s_v01 {
+	uint32_t fw_version;
+	char fw_build_timestamp[QMI_WLFW_MAX_TIMESTAMP_LEN_V01 + 1];
+};
+
 struct wlfw_ind_register_req_msg_v01 {
 	uint8_t fw_ready_enable_valid;
 	uint8_t fw_ready_enable;
@@ -105,8 +139,12 @@ struct wlfw_ind_register_req_msg_v01 {
 	uint8_t initiate_cal_download_enable;
 	uint8_t initiate_cal_update_enable_valid;
 	uint8_t initiate_cal_update_enable;
+	uint8_t msa_ready_enable_valid;
+	uint8_t msa_ready_enable;
+	uint8_t pin_connect_result_enable_valid;
+	uint8_t pin_connect_result_enable;
 };
-#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 12
+#define WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN 20
 extern struct elem_info wlfw_ind_register_req_msg_v01_ei[];
 
 struct wlfw_ind_register_resp_msg_v01 {
@@ -120,6 +158,23 @@ struct wlfw_fw_ready_ind_msg_v01 {
 };
 #define WLFW_FW_READY_IND_MSG_V01_MAX_MSG_LEN 0
 extern struct elem_info wlfw_fw_ready_ind_msg_v01_ei[];
+
+struct wlfw_msa_ready_ind_msg_v01 {
+	char placeholder;
+};
+#define WLFW_MSA_READY_IND_MSG_V01_MAX_MSG_LEN 0
+extern struct elem_info wlfw_msa_ready_ind_msg_v01_ei[];
+
+struct wlfw_pin_connect_result_ind_msg_v01 {
+	uint8_t pwr_pin_result_valid;
+	uint32_t pwr_pin_result;
+	uint8_t phy_io_pin_result_valid;
+	uint32_t phy_io_pin_result;
+	uint8_t rf_pin_result_valid;
+	uint32_t rf_pin_result;
+};
+#define WLFW_PIN_CONNECT_RESULT_IND_MSG_V01_MAX_MSG_LEN 21
+extern struct elem_info wlfw_pin_connect_result_ind_msg_v01_ei[];
 
 struct wlfw_wlan_mode_req_msg_v01 {
 	enum wlfw_driver_mode_enum_v01 mode;
@@ -163,16 +218,16 @@ extern struct elem_info wlfw_cap_req_msg_v01_ei[];
 
 struct wlfw_cap_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
-	uint8_t board_id_valid;
-	uint32_t board_id;
-	uint8_t num_peers_valid;
-	uint32_t num_peers;
-	uint8_t mac_version_valid;
-	uint32_t mac_version;
-	uint8_t fw_version_valid;
-	char fw_version[QMI_WLFW_MAX_STR_LEN_V01 + 1];
+	uint8_t chip_info_valid;
+	struct wlfw_rf_chip_info_s_v01 chip_info;
+	uint8_t board_info_valid;
+	struct wlfw_rf_board_info_s_v01 board_info;
+	uint8_t soc_info_valid;
+	struct wlfw_soc_info_s_v01 soc_info;
+	uint8_t fw_version_info_valid;
+	struct wlfw_fw_version_info_s_v01 fw_version_info;
 };
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 47
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 72
 extern struct elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
@@ -270,5 +325,46 @@ struct wlfw_cal_update_resp_msg_v01 {
 };
 #define WLFW_CAL_UPDATE_RESP_MSG_V01_MAX_MSG_LEN 6181
 extern struct elem_info wlfw_cal_update_resp_msg_v01_ei[];
+
+struct wlfw_msa_info_req_msg_v01 {
+	uint64_t msa_addr;
+	uint32_t size;
+};
+#define WLFW_MSA_INFO_REQ_MSG_V01_MAX_MSG_LEN 18
+extern struct elem_info wlfw_msa_info_req_msg_v01_ei[];
+
+struct wlfw_msa_info_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+	uint32_t mem_region_info_len;
+	struct wlfw_memory_region_info_s_v01
+	mem_region_info[QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01];
+};
+#define WLFW_MSA_INFO_RESP_MSG_V01_MAX_MSG_LEN 37
+extern struct elem_info wlfw_msa_info_resp_msg_v01_ei[];
+
+struct wlfw_msa_ready_req_msg_v01 {
+	char placeholder;
+};
+#define WLFW_MSA_READY_REQ_MSG_V01_MAX_MSG_LEN 0
+extern struct elem_info wlfw_msa_ready_req_msg_v01_ei[];
+
+struct wlfw_msa_ready_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+#define WLFW_MSA_READY_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct elem_info wlfw_msa_ready_resp_msg_v01_ei[];
+
+struct wlfw_ini_req_msg_v01 {
+	uint8_t enablefwlog_valid;
+	uint8_t enablefwlog;
+};
+#define WLFW_INI_REQ_MSG_V01_MAX_MSG_LEN 4
+extern struct elem_info wlfw_ini_req_msg_v01_ei[];
+
+struct wlfw_ini_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+};
+#define WLFW_INI_RESP_MSG_V01_MAX_MSG_LEN 7
+extern struct elem_info wlfw_ini_resp_msg_v01_ei[];
 
 #endif
