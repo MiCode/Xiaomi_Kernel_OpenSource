@@ -46,7 +46,7 @@ enum {
 	MDSS_PLL_TARGET_8909,
 };
 
-#define DFPS_MAX_NUM_OF_FRAME_RATES 10
+#define DFPS_MAX_NUM_OF_FRAME_RATES 20
 
 struct dfps_panel_info {
 	uint32_t enabled;
