@@ -39,7 +39,7 @@
 #include <linux/input.h>
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
 #define FW_IMAGE_NAME "synaptics/startup_fw_update.img"
@@ -661,25 +661,25 @@ static struct bin_attribute dev_attr_data = {
 };
 
 static struct device_attribute attrs[] = {
-	__ATTR(dorecovery, S_IWUGO,
+	__ATTR(dorecovery, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_do_recovery_store),
-	__ATTR(doreflash, S_IWUGO,
+	__ATTR(doreflash, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_do_reflash_store),
-	__ATTR(writeconfig, S_IWUGO,
+	__ATTR(writeconfig, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_write_config_store),
-	__ATTR(readconfig, S_IWUGO,
+	__ATTR(readconfig, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_read_config_store),
-	__ATTR(configarea, S_IWUGO,
+	__ATTR(configarea, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_config_area_store),
-	__ATTR(imagename, S_IWUGO,
+	__ATTR(imagename, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_image_name_store),
-	__ATTR(imagesize, S_IWUGO,
+	__ATTR(imagesize, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_image_size_store),
 	__ATTR(blocksize, S_IRUGO,
@@ -703,7 +703,7 @@ static struct device_attribute attrs[] = {
 	__ATTR(guestcodeblockcount, S_IRUGO,
 			fwu_sysfs_guest_code_block_count_show,
 			synaptics_rmi4_store_error),
-	__ATTR(writeguestcode, S_IWUGO,
+	__ATTR(writeguestcode, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_write_guest_code_store),
 };
