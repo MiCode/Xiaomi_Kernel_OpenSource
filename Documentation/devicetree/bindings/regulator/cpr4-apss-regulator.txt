@@ -348,6 +348,27 @@ APSS specific properties:
 		    regardless of the fuse combination and speed bin found
 		    on a given chip.
 
+- qcom,cpr-misc-fuse-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists where each tuple defines
+		    the voltage adjustments in microvolts for each voltage
+		    corner in order from lowest to highest. This adjustment is
+		    applied to both open-loop and closed-loop voltages.
+
+		    Each tuple list must contain a number of tuples equal to
+		    2 to the power of the number of bits selected for misc
+		    voltage adj fuse definition. For MSMTITANIUM the tuple
+		    list must contain 2 tuples for the 1-bit misc fuse.
+		    Tuples in a list should be specified in ascending order
+		    according to the misc fuse value assuming that the fuse
+		    is treated like an unsigned integer.
+
+		    The tuple list grouping must contain qcom,cpr-speed-bins
+		    number of tuple lists in which case the lists are matched to
+		    speed bins 1-to-1 or exactly 1 list which is used regardless
+		    of the speed bin found on a given chip.
+
 =======
 Example
 =======
@@ -421,6 +442,13 @@ apc_cpr: cpr4-ctrl@b018000 {
 				<652800000 1036800000 1401600000
 				1689600000 1843200000 1958400000
 				2150400000 2208000000>;
+
+			qcom,cpr-misc-fuse-voltage-adjustment =
+				/* Speed bin 0; misc fuse 0..1 */
+				<    0     0     0     0
+				     0     0     0     0>,
+				<    0     0 30000     0
+				     0     0     0     0>;
 
 			qcom,allow-voltage-interpolation;
 			qcom,allow-quotient-interpolation;
