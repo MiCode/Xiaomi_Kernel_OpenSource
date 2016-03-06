@@ -169,7 +169,10 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
 dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909w-wtp.dtb \
 	apq8009w-wtp.dtb \
-	msm8909w-pm8916-mtp-ext-chg-fg.dtb
+	apq8009w-cdp.dtb \
+	msm8909w-pm8916-mtp-ext-chg-fg.dtb \
+	msm8909-pm8916-cdp.dtb \
+	msm8909w-cdp.dtb
 
 
 ifeq ($(CONFIG_ARM64),y)
