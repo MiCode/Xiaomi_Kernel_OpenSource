@@ -196,9 +196,11 @@
 	};
 };
 
-&wcd9335 {
-	qcom,cdc-reset-gpio = <&tlmm 68 0>;
+&wcd_rst_gpio {
+	qcom,cdc-rst-n-gpio = <&tlmm 68 0>;
+};
 
+&wcd9335 {
 	cdc-vdd-buck-supply = <&eldo2_pm8937>;
 	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
 	qcom,cdc-vdd-buck-current = <650000>;
