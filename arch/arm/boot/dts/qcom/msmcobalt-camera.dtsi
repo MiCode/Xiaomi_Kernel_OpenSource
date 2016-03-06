@@ -102,4 +102,66 @@
 			<0x24 0x2 0x3>;
 		status = "disabled";
 	};
+
+	qcom,cpp@ca04000 {
+		cell-index = <0>;
+		compatible = "qcom,cpp";
+		reg = <0xca04000 0x100>,
+			<0xca80000 0x3000>,
+			<0xca18000 0x3000>,
+			<0xc8c36D4 0x4>;
+		reg-names = "cpp", "cpp_vbif", "cpp_hw", "camss_cpp";
+		interrupts = <0 294 0>;
+		interrupt-names = "cpp";
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		vdd-supply = <&gdsc_cpp>;
+		qcom,vdd-names = "smmu-vdd", "camss-vdd", "vdd";
+		clocks = <&clock_mmss clk_mmss_camss_top_ahb_clk>,
+			<&clock_mmss clk_cpp_clk_src>,
+			<&clock_mmss clk_mmss_camss_cpp_ahb_clk>,
+			<&clock_mmss clk_mmss_camss_cpp_axi_clk>,
+			<&clock_mmss clk_mmss_camss_cpp_clk>,
+			<&clock_mmss clk_mmss_camss_micro_ahb_clk>,
+			<&clock_mmss clk_mmss_camss_ahb_clk>,
+			<&clock_mmss clk_mmss_camss_cpp_vbif_ahb_clk>;
+		clock-names = "camss_top_ahb_clk",
+			"cpp_core_clk", "camss_cpp_ahb_clk",
+			"camss_cpp_axi_clk", "camss_cpp_clk",
+			"micro_iface_clk", "camss_ahb_clk",
+			"cpp_vbif_ahb_clk";
+		qcom,clock-rates = <0 200000000 0 0 200000000 0 0 0>;
+		qcom,min-clock-rate = <200000000>;
+		qcom,bus-master = <1>;
+		qcom,vbif-qos-setting = <0x20 0x10000000>,
+			<0x24 0x10000000>,
+			<0x28 0x10000000>,
+			<0x2C 0x10000000>;
+		status = "disabled";
+		qcom,msm-bus,name = "msm_camera_cpp";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<106 512 0 0>,
+			<106 512 0 0>;
+		qcom,msm-bus-vector-dyn-vote;
+		qcom,cpp-fw-payload-info {
+			qcom,stripe-base = <790>;
+			qcom,plane-base = <715>;
+			qcom,stripe-size = <63>;
+			qcom,plane-size = <25>;
+			qcom,fe-ptr-off = <11>;
+			qcom,we-ptr-off = <23>;
+			qcom,ref-fe-ptr-off = <17>;
+			qcom,ref-we-ptr-off = <36>;
+			qcom,we-meta-ptr-off = <42>;
+			qcom,fe-mmu-pf-ptr-off = <7>;
+			qcom,ref-fe-mmu-pf-ptr-off = <10>;
+			qcom,we-mmu-pf-ptr-off = <13>;
+			qcom,dup-we-mmu-pf-ptr-off = <18>;
+			qcom,ref-we-mmu-pf-ptr-off = <23>;
+			qcom,set-group-buffer-len = <135>;
+			qcom,dup-frame-indicator-off = <70>;
+		};
+	};
 };
