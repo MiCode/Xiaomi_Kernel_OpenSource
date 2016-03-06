@@ -3085,8 +3085,9 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 			ipa3_get_aggr_type_str(ep_aggr->aggr),
 			ep_aggr->aggr_byte_limit,
 			ep_aggr->aggr_time_limit);
-	IPADBG("hard_byte_limit_en=%d\n",
-		ep_aggr->aggr_hard_byte_limit_en);
+	IPADBG("hard_byte_limit_en=%d aggr_sw_eof_active=%d\n",
+		ep_aggr->aggr_hard_byte_limit_en,
+		ep_aggr->aggr_sw_eof_active);
 
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.aggr = *ep_aggr;

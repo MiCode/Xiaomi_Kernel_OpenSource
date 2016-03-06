@@ -640,6 +640,9 @@ static void ipareg_parse_endp_init_aggr_n(enum ipahal_reg_name reg,
 	ep_aggr->aggr_pkt_limit =
 		((val & IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK) >>
 			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT);
+	ep_aggr->aggr_sw_eof_active =
+		((val & IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_BMSK) >>
+			IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_SHFT);
 	ep_aggr->aggr_hard_byte_limit_en =
 		((val & IPA_ENDP_INIT_AGGR_n_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK)
 			>>
@@ -671,6 +674,10 @@ static void ipareg_construct_endp_init_aggr_n(enum ipahal_reg_name reg,
 	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_pkt_limit,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT,
 		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_aggr->aggr_sw_eof_active,
+		IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_SHFT,
+		IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_BMSK);
 
 	/* At IPAv3 hard_byte_limit is not supported */
 	ep_aggr->aggr_hard_byte_limit_en = 0;
