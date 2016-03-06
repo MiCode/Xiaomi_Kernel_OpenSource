@@ -923,7 +923,7 @@ static void shadow_pll_dynamic_refresh_8996(struct mdss_pll_resources *pll,
 	MDSS_PLL_REG_W(pll->dyn_pll_base,
 		DSI_DYNAMIC_REFRESH_PLL_UPPER_ADDR, 0x0000001E);
 	MDSS_PLL_REG_W(pll->dyn_pll_base,
-		DSI_DYNAMIC_REFRESH_PLL_UPPER_ADDR2, 0x003FFE00);
+		DSI_DYNAMIC_REFRESH_PLL_UPPER_ADDR2, 0x001FFE00);
 
 	/*
 	 * Ensure all the dynamic refresh registers are written before
