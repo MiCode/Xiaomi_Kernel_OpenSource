@@ -756,6 +756,18 @@ struct msm_isp_event_data {
 	} u; /* union can have max 52 bytes */
 };
 
+enum msm_vfe_ahb_clk_vote {
+	MSM_ISP_CAMERA_AHB_SVS_VOTE = 1,
+	MSM_ISP_CAMERA_AHB_TURBO_VOTE = 2,
+	MSM_ISP_CAMERA_AHB_NOMINAL_VOTE = 3,
+	MSM_ISP_CAMERA_AHB_SUSPEND_VOTE = 4,
+};
+
+struct msm_isp_ahb_clk_cfg {
+	uint32_t vote;
+	uint32_t reserved[2];
+};
+
 #define V4L2_PIX_FMT_QBGGR8  v4l2_fourcc('Q', 'B', 'G', '8')
 #define V4L2_PIX_FMT_QGBRG8  v4l2_fourcc('Q', 'G', 'B', '8')
 #define V4L2_PIX_FMT_QGRBG8  v4l2_fourcc('Q', 'G', 'R', '8')
@@ -860,5 +872,8 @@ struct msm_isp_event_data {
 
 #define VIDIOC_MSM_ISP_UNMAP_BUF \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+24, struct msm_isp_unmap_buf_req)
+
+#define VIDIOC_MSM_ISP_AHB_CLK_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+25, struct msm_isp_ahb_clk_cfg)
 
 #endif /* __MSMB_ISP__ */
