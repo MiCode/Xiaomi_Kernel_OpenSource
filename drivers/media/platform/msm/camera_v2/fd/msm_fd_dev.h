@@ -253,6 +253,7 @@ struct msm_fd_device {
 	struct work_struct work;
 	struct completion hw_halt_completion;
 	int recovery_mode;
+	uint32_t clk_rate_idx;
 };
 
 #endif /* __MSM_FD_DEV_H__ */
