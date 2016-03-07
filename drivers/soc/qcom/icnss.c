@@ -1036,7 +1036,7 @@ int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
 
 	memset(&req, 0, sizeof(req));
 
-	if (mode == ICNSS_WALTEST)
+	if (mode == ICNSS_WALTEST || mode == ICNSS_CCPM)
 		goto skip;
 	else if (!config || !host_version) {
 		pr_err("%s: Invalid cfg pointer\n", __func__);
@@ -1118,6 +1118,38 @@ int icnss_get_ce_id(int irq)
 }
 EXPORT_SYMBOL(icnss_get_ce_id);
 
+static ssize_t icnss_wlan_mode_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf,
+				     size_t count)
+{
+	int val;
+	int ret;
+
+	if (!penv)
+		return -ENODEV;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	if (val == ICNSS_WALTEST || val == ICNSS_CCPM) {
+		pr_debug("%s: WLAN Test Mode -> %d\n", __func__, val);
+		ret = icnss_wlan_enable(NULL, val, NULL);
+		if (ret)
+			pr_err("%s: WLAN Test Mode %d failed with %d\n",
+			       __func__, val, ret);
+	} else {
+		pr_err("%s: Mode %d is not supported from command line\n",
+		       __func__, val);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static DEVICE_ATTR(icnss_wlan_mode, S_IWUSR, NULL, icnss_wlan_mode_store);
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1183,6 +1215,13 @@ static int icnss_probe(struct platform_device *pdev)
 	penv->skip_qmi = of_property_read_bool(dev->of_node,
 					       "qcom,skip-qmi");
 
+	ret = device_create_file(dev, &dev_attr_icnss_wlan_mode);
+	if (ret) {
+		pr_err("%s: wlan_mode sys file creation failed\n",
+		       __func__);
+		goto err_wlan_mode;
+	}
+
 	penv->qmi_event_wq = alloc_workqueue("icnss_qmi_event", 0, 0);
 	if (!penv->qmi_event_wq) {
 		pr_err("%s: workqueue creation failed\n", __func__);
@@ -1211,6 +1250,8 @@ err_qmi:
 	if (penv->qmi_event_wq)
 		destroy_workqueue(penv->qmi_event_wq);
 err_workqueue:
+	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
+err_wlan_mode:
 	if (penv->msa_va)
 		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
 				  penv->msa_va, penv->msa_pa);
@@ -1226,6 +1267,7 @@ static int icnss_remove(struct platform_device *pdev)
 					  &wlfw_clnt_nb);
 	if (penv->qmi_event_wq)
 		destroy_workqueue(penv->qmi_event_wq);
+	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
 	if (penv->msa_va)
 		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
 				  penv->msa_va, penv->msa_pa);
