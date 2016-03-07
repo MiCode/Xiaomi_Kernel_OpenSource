@@ -522,6 +522,9 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 	int				status;
 	rndis_init_msg_type		*buf;
 
+	if (!rndis || !rndis->notify || !rndis->notify->driver_data)
+		return;
+
 	if (!rndis->port.func.config || !rndis->port.func.config->cdev)
 		return;
 	else
