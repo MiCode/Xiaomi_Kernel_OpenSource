@@ -5705,7 +5705,7 @@ int q6asm_async_write(struct audio_client *ac,
 	port = &ac->port[IN];
 	ab = &port->buf[port->dsp_buf];
 
-	/* Pass physical address as token for AIO scheme */
+	/* Pass session id as token for AIO scheme */
 	write.hdr.token = param->uid;
 	write.hdr.opcode = ASM_DATA_CMD_WRITE_V2;
 	write.buf_addr_lsw = lower_32_bits(param->paddr);
@@ -5781,8 +5781,8 @@ int q6asm_async_read(struct audio_client *ac,
 
 	q6asm_add_hdr_async(ac, &read.hdr, sizeof(read), FALSE);
 
-	/* Pass physical address as token for AIO scheme */
-	read.hdr.token = param->paddr;
+	/* Pass session id as token for AIO scheme */
+	read.hdr.token = param->uid;
 	read.hdr.opcode = ASM_DATA_CMD_READ_V2;
 	read.buf_addr_lsw = lower_32_bits(param->paddr);
 	read.buf_addr_msw = msm_audio_populate_upper_32_bits(param->paddr);

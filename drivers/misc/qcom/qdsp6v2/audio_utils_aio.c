@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1062,7 +1062,7 @@ static int audio_aio_async_write(struct q6audio_aio *audio,
 		param.flags |= AUDIO_DEC_EOF_SET;
 
 	param.uid = ac->session;
-	/* Read command will populate paddr as token */
+	/* Read command will populate session id as token */
 	buf_node->token = ac->session;
 	rc = q6asm_async_write(ac, &param);
 	if (rc < 0)
@@ -1116,9 +1116,9 @@ static int audio_aio_async_read(struct q6audio_aio *audio,
 		sizeof(struct dec_meta_out);
 	param.len = buf_node->buf.buf_len -
 		sizeof(struct dec_meta_out);
-	param.uid = param.paddr;
-	/* Write command will populate paddr as token */
-	buf_node->token = param.paddr;
+	param.uid = ac->session;
+	/* Write command will populate session_id as token */
+	buf_node->token = ac->session;
 	rc = q6asm_async_read(ac, &param);
 	if (rc < 0)
 		pr_err("%s[%p]:failed\n", __func__, audio);
