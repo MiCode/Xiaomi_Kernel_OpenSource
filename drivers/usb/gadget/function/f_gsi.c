@@ -741,6 +741,22 @@ static void ipa_work_handler(struct work_struct *w)
 			d_port->sm_state = STATE_CONNECT_IN_PROGRESS;
 			log_event_dbg("%s: ST_INIT_EVT_CONN_IN_PROG",
 					__func__);
+		} else if (event == EVT_HOST_READY) {
+			/*
+			 * When in a composition such as RNDIS + ADB,
+			 * RNDIS host sends a GEN_CURRENT_PACKET_FILTER msg
+			 * to enable/disable flow control eg. during RNDIS
+			 * adaptor disable/enable from device manager.
+			 * In the case of the msg to disable flow control,
+			 * connect IPA channels and enable data path.
+			 * EVT_HOST_READY is posted to the state machine
+			 * in the handler for this msg.
+			 */
+			ipa_connect_channels(d_port);
+			ipa_data_path_enable(d_port);
+			d_port->sm_state = STATE_CONNECTED;
+			log_event_dbg("%s: ST_INIT_EVT_HOST_READY",
+					__func__);
 		}
 		break;
 	case STATE_CONNECT_IN_PROGRESS:
