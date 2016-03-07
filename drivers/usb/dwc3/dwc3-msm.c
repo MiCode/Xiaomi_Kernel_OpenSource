@@ -668,32 +668,6 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 								gfp_flags);
 	}
 
-	if (!dep->endpoint.desc) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue request %p to disabled ep %s\n",
-			__func__, request, ep->name);
-		return -EPERM;
-	}
-
-	if (dep->number == 0 || dep->number == 1) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue dbm request %p to control ep %s\n",
-			__func__, request, ep->name);
-		return -EPERM;
-	}
-
-
-	if (dep->busy_slot != dep->free_slot || !list_empty(&dep->request_list)
-					 || !list_empty(&dep->req_queued)) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue dbm request %p tp ep %s\n",
-			__func__, request, ep->name);
-		return -EPERM;
-	} else {
-		dep->busy_slot = 0;
-		dep->free_slot = 0;
-	}
-
 	/* HW restriction regarding TRB size (8KB) */
 	if (req->request.length < 0x2000) {
 		dev_err(mdwc->dev, "%s: Min TRB size is 8KB\n", __func__);
@@ -730,18 +704,52 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	 * as soon as possible so we will release back the lock.
 	 */
 	spin_lock_irqsave(&dwc->lock, flags);
+	if (!dep->endpoint.desc) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue request %p to disabled ep %s\n",
+			__func__, request, ep->name);
+		ret = -EPERM;
+		goto err;
+	}
+
+	if (dep->number == 0 || dep->number == 1) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue dbm request %p to control ep %s\n",
+			__func__, request, ep->name);
+		ret = -EPERM;
+		goto err;
+	}
+
+
+	if (dep->busy_slot != dep->free_slot || !list_empty(&dep->request_list)
+					 || !list_empty(&dep->req_queued)) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue dbm request %p tp ep %s\n",
+			__func__, request, ep->name);
+		ret = -EPERM;
+		goto err;
+	} else {
+		dep->busy_slot = 0;
+		dep->free_slot = 0;
+	}
+
 	ret = __dwc3_msm_ep_queue(dep, req);
-	spin_unlock_irqrestore(&dwc->lock, flags);
 	if (ret < 0) {
 		dev_err(mdwc->dev,
 			"error %d after calling __dwc3_msm_ep_queue\n", ret);
-		return ret;
+		goto err;
 	}
 
+	spin_unlock_irqrestore(&dwc->lock, flags);
 	superspeed = dwc3_msm_is_dev_superspeed(mdwc);
 	dbm_set_speed(mdwc->dbm, (u8)superspeed);
 
 	return 0;
+
+err:
+	spin_unlock_irqrestore(&dwc->lock, flags);
+	kfree(req_complete);
+	return ret;
 }
 
 /*
