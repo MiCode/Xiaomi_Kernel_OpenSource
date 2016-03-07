@@ -822,6 +822,45 @@ static int msm_fd_hw_set_clock_rate_idx(struct msm_fd_device *fd,
 
 	return 0;
 }
+
+/**
+ * msm_fd_hw_update_settings() - API to set clock rate and bus settings
+ * @fd: Pointer to fd device.
+ * @buf: fd buffer
+ */
+static int msm_fd_hw_update_settings(struct msm_fd_device *fd,
+				struct msm_fd_buffer *buf)
+{
+	int ret = 0;
+	uint32_t clk_rate_idx;
+
+	if (!buf)
+		return 0;
+
+	clk_rate_idx = buf->settings.speed;
+	if (fd->clk_rate_idx == clk_rate_idx)
+		return 0;
+
+	if (fd->bus_client) {
+		ret = msm_fd_hw_bus_request(fd, clk_rate_idx);
+		if (ret < 0) {
+			dev_err(fd->dev, "Fail bus scale update %d\n", ret);
+			return -EINVAL;
+		}
+	}
+
+	ret = msm_fd_hw_set_clock_rate_idx(fd, clk_rate_idx);
+	if (ret < 0) {
+		dev_err(fd->dev, "Fail to set clock rate idx\n");
+		goto end;
+	}
+	dev_dbg(fd->dev, "set clk %d %d", fd->clk_rate_idx, clk_rate_idx);
+	fd->clk_rate_idx = clk_rate_idx;
+
+end:
+	return ret;
+}
+
 /*
  * msm_fd_hw_get - Get fd hw for performing any hw operation.
  * @fd: Pointer to fd device.
@@ -868,6 +907,8 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 		ret = msm_fd_hw_set_dt_parms(fd);
 		if (ret < 0)
 			goto error_set_dt;
+
+		fd->clk_rate_idx = clock_rate_idx;
 	}
 
 	fd->ref_count++;
@@ -1228,6 +1269,8 @@ int msm_fd_hw_schedule_and_start(struct msm_fd_device *fd)
 
 	spin_unlock(&fd->slock);
 
+	msm_fd_hw_update_settings(fd, buf);
+
 	return 0;
 }
 
@@ -1265,6 +1308,8 @@ int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd)
 			dev_err(fd->dev, "No Buffer in recovery mode.Device Idle\n");
 	}
 	spin_unlock(&fd->slock);
+
+	msm_fd_hw_update_settings(fd, buf);
 
 	return 0;
 }
