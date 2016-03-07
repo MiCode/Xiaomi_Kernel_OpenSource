@@ -50,6 +50,11 @@
 		qcom,master-en = <0>;	/* DISABLE GPIO */
 	};
 
+	gpio@c200 { /* GPIO 3 - LED */
+		status = "ok";
+		qcom,master-en = <0>;    /* Disable GPIO */
+	};
+
 	gpio@c400 { /* GPIO 5 - USB_ID */
 		status = "ok";
 		qcom,mode = <0>;	/* Digital input */
@@ -83,6 +88,14 @@
 &pmdcalifornium_misc {
 	qcom,pwm-sel = <2>;		/* PWM2 */
 	qcom,enable-gp-driver;		/* Enable GP */
+};
+
+&pmdcalifornium_pwm_1 {
+	status = "ok";
+};
+
+&pmdcalifornium_pwm_2 {
+	status = "ok";
 };
 
 &qnand_1 {
