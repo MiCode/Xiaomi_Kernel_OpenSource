@@ -867,6 +867,10 @@ int adreno_iommu_init(struct adreno_device *adreno_dev)
 		}
 	}
 
+	/* Enable guard page MMU feature for A3xx and A4xx targets only */
+	if (adreno_is_a3xx(adreno_dev) || adreno_is_a4xx(adreno_dev))
+		device->mmu.features |= KGSL_MMU_NEED_GUARD_PAGE;
+
 	return 0;
 }
 
