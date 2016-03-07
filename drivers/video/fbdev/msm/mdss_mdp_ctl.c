@@ -325,7 +325,7 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_video(struct mdss_mdp_prefill_params
 	u32 y_buf_bytes = 0;
 	u32 y_scaler_bytes = 0;
 	u32 pp_bytes = 0, pp_lines = 0;
-	u32 post_scaler_bytes;
+	u32 post_scaler_bytes = 0;
 	u32 fbc_bytes = 0;
 
 	prefill_bytes = prefill->ot_bytes;
