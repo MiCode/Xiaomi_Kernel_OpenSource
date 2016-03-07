@@ -15,14 +15,13 @@
 #include <linux/device.h>
 #include <linux/skbuff.h>
 #include <linux/pci.h>
+#include <net/cnss_common.h>
 #ifdef CONFIG_CNSS_SDIO
 #include <linux/mmc/sdio_func.h>
 #endif
 
 #ifdef CONFIG_CNSS
-#define CNSS_MAX_FILE_NAME	  20
-
-#define MAX_FIRMWARE_SIZE (1 * 1024 * 1024)
+#define CNSS_MAX_FILE_NAME	20
 
 enum cnss_bus_width_type {
 	CNSS_BUS_WIDTH_NONE,
@@ -122,10 +121,8 @@ extern void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver);
 extern int cnss_get_fw_files(struct cnss_fw_files *pfw_files);
 extern int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 					u32 target_type, u32 target_version);
-extern int cnss_pci_request_bus_bandwidth(int bandwidth);
-extern int cnss_sdio_request_bus_bandwidth(int bandwidth);
-extern int cnss_request_bus_bandwidth(int bandwidth);
 
+extern int cnss_request_bus_bandwidth(int bandwidth);
 extern int cnss_get_sha_hash(const u8 *data, u32 data_len,
 					u8 *hash_idx, u8 *out);
 extern void *cnss_get_fw_ptr(void);
@@ -172,47 +169,15 @@ extern int cnss_is_auto_suspend_allowed(const char *caller_func);
 extern int cnss_pm_runtime_request(struct device *dev, enum
 		cnss_runtime_request request);
 #endif
-/* max 20mhz channel count */
-#define CNSS_MAX_CH_NUM       45
-
-extern void cnss_init_work(struct work_struct *work, work_func_t func);
-extern void cnss_flush_work(void *work);
-extern void cnss_flush_delayed_work(void *dwork);
-extern void cnss_get_monotonic_boottime(struct timespec *ts);
-extern void cnss_get_boottime(struct timespec *ts);
-extern void cnss_init_delayed_work(struct delayed_work *work, work_func_t func);
-extern int cnss_vendor_cmd_reply(struct sk_buff *skb);
 
 extern void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name);
 extern void cnss_pm_wake_lock(struct wakeup_source *ws);
-extern void cnss_pm_wake_lock_timeout(struct wakeup_source *ws, ulong msec);
-extern void cnss_pm_wake_lock_release(struct wakeup_source *ws);
-extern void cnss_pm_wake_lock_destroy(struct wakeup_source *ws);
-extern int cnss_set_cpus_allowed_ptr(struct task_struct *task, ulong cpu);
-
-extern int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count);
-extern int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
-		u16 *ch_count, u16 buf_len);
-extern int cnss_wlan_set_dfs_nol(const void *info, u16 info_len);
-extern int cnss_wlan_get_dfs_nol(void *info, u16 info_len);
 
 extern void cnss_device_crashed(void);
-extern void cnss_sdio_device_crashed(void);
-extern void cnss_pci_device_crashed(void);
-
 extern void cnss_device_self_recovery(void);
-extern void cnss_pci_device_self_recovery(void);
-extern void cnss_sdio_device_self_recovery(void);
-
-extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
-
 extern void *cnss_get_virt_ramdump_mem(unsigned long *size);
-extern void *cnss_pci_get_virt_ramdump_mem(unsigned long *size);
-extern void *cnss_sdio_get_virt_ramdump_mem(unsigned long *size);
 
 extern void cnss_schedule_recovery_work(void);
-extern void cnss_sdio_schedule_recovery_work(void);
-extern void cnss_pci_schedule_recovery_work(void);
 extern int cnss_pcie_set_wlan_mac_address(const u8 *in, uint32_t len);
 extern u8 *cnss_get_wlan_mac_address(struct device *dev, uint32_t *num);
 extern int cnss_sdio_set_wlan_mac_address(const u8 *in, uint32_t len);
@@ -223,7 +188,6 @@ enum {
 	CNSS_RESET_LEVEL_MAX
 };
 extern int cnss_get_restart_level(void);
-extern void cnss_dump_stack(struct task_struct *task);
 
 #ifdef CONFIG_CNSS_SDIO
 struct cnss_sdio_wlan_driver {
