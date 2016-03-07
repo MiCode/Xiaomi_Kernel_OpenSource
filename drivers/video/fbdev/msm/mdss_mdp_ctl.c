@@ -3652,7 +3652,10 @@ void mdss_mdp_ctl_restore(bool locked)
 		if (sctl) {
 			mdss_mdp_ctl_restore_sub(sctl);
 			mdss_mdp_ctl_split_display_enable(1, ctl, sctl);
+		} else if (is_pingpong_split(ctl->mfd)) {
+			mdss_mdp_ctl_pp_split_display_enable(1, ctl);
 		}
+
 		if (ctl->ops.restore_fnc)
 			ctl->ops.restore_fnc(ctl, locked);
 	}
