@@ -256,7 +256,7 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	mutex_lock(&apr_ch->m_lock);
 	if (apr_ch->handle) {
 		pr_err("%s: This channel is already opened\n", __func__);
-		apr_ch = NULL;
+		rc = -EBUSY;
 		goto unlock;
 	}
 
@@ -299,30 +299,28 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	if (rc == 0) {
 		pr_err("%s: TIMEOUT for OPEN event\n", __func__);
 		rc = -ETIMEDOUT;
-		goto unlock;
+		goto close_link;
 	}
 
 	rc = apr_tal_rx_intents_config(apr_ch, APR_DEFAULT_NUM_OF_INTENTS,
 				       APR_MAX_BUF);
 	if (rc) {
 		pr_err("%s: Unable to queue intents\n", __func__);
-		goto unlock;
+		goto close_link;
 	}
 
 	apr_ch->func = func;
 	apr_ch->priv = priv;
 
-unlock:
-	if (rc && apr_ch) {
-		if (apr_ch->handle) {
-			glink_close(apr_ch->handle);
-			apr_ch->handle = NULL;
-		}
-		apr_ch = NULL;
+close_link:
+	if (rc) {
+		glink_close(apr_ch->handle);
+		apr_ch->handle = NULL;
 	}
+unlock:
 	mutex_unlock(&apr_ch->m_lock);
 
-	return apr_ch;
+	return rc ? NULL : apr_ch;
 }
 
 int apr_tal_close(struct apr_svc_ch_dev *apr_ch)
