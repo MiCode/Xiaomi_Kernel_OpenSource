@@ -71,7 +71,6 @@ ev_mutex_free:
 
 size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	int i = 0;
 	size_t mhi_dev_mem = 0;
 
 	/* Calculate size needed for contexts */
@@ -83,12 +82,6 @@ size_t calculate_mhi_space(struct mhi_device_ctxt *mhi_dev_ctxt)
 				mhi_dev_mem);
 	/*Calculate size needed for cmd TREs */
 	mhi_dev_mem += (CMD_EL_PER_RING * sizeof(union mhi_cmd_pkt));
-
-	/* Calculate size needed for event TREs */
-	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i)
-		mhi_dev_mem += (sizeof(union mhi_event_pkt) *
-				mhi_dev_ctxt->ev_ring_props[i].nr_desc);
-
 	mhi_log(MHI_MSG_INFO, "Final bytes for MHI device space %zd\n",
 				mhi_dev_mem);
 	return mhi_dev_mem;
@@ -163,7 +156,7 @@ int populate_bb_list(struct list_head *bb_list, int num_bb)
  * @ring_size:			Ring size
  * @ring:			Pointer to the shadow command context
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
 static int mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 				void *trb_list_virt_addr,
@@ -346,22 +339,39 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	/* Initialize both the local and device event contexts */
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
+		dma_addr_t ring_dma_addr = 0;
+		void *ring_addr = NULL;
+
 		ring_len = sizeof(union mhi_event_pkt) *
 					mhi_dev_ctxt->ev_ring_props[i].nr_desc;
+		ring_addr = dma_alloc_coherent(
+				&mhi_dev_ctxt->dev_info->pcie_device->dev,
+				ring_len, &ring_dma_addr, GFP_KERNEL);
+		if (!ring_addr)
+			goto err_ev_alloc;
 		init_dev_ev_ctxt(&mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i],
-				dma_dev_mem_start + mhi_mem_index,
-				ring_len);
+				ring_dma_addr, ring_len);
 		init_local_ev_ctxt(&mhi_dev_ctxt->mhi_local_event_ctxt[i],
-				dev_mem_start + mhi_mem_index,
-				ring_len);
+				ring_addr, ring_len);
 		mhi_log(MHI_MSG_INFO,
 			"Initializing EV_%d TRE list at virt 0x%p dma 0x%llx\n",
-				i, dev_mem_start + mhi_mem_index,
-				(u64)dma_dev_mem_start + mhi_mem_index);
-		mhi_mem_index += ring_len;
+				i, ring_addr, (u64)ring_dma_addr);
 	}
 	return 0;
 
+err_ev_alloc:
+	for (; i >= 0; --i) {
+		struct mhi_event_ctxt *dev_ev_ctxt = NULL;
+		struct mhi_ring *ev_ctxt = NULL;
+
+		dev_ev_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[i];
+		ev_ctxt = &mhi_dev_ctxt->mhi_local_event_ctxt[i];
+
+		dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
+				  ev_ctxt->len,
+				  ev_ctxt->base,
+				  dev_ev_ctxt->mhi_event_ring_base_addr);
+	}
 	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 			   mhi_dev_ctxt->dev_space.dev_mem_len,
 			   mhi_dev_ctxt->dev_space.dev_mem_start,
@@ -377,7 +387,7 @@ static int mhi_init_events(struct mhi_device_ctxt *mhi_dev_ctxt)
 						GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq) {
 		mhi_log(MHI_MSG_ERROR, "Failed to init event");
-		return MHI_STATUS_ERROR;
+		return -ENOMEM;
 	}
 	mhi_dev_ctxt->mhi_ev_wq.state_change_event =
 				kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
@@ -467,12 +477,12 @@ static int mhi_spawn_threads(struct mhi_device_ctxt *mhi_dev_ctxt)
 							mhi_dev_ctxt,
 							"mhi_ev_thrd");
 	if (IS_ERR(mhi_dev_ctxt->event_thread_handle))
-		return MHI_STATUS_ERROR;
+		return PTR_ERR(mhi_dev_ctxt->event_thread_handle);
 	mhi_dev_ctxt->st_thread_handle = kthread_run(mhi_state_change_thread,
 							mhi_dev_ctxt,
 							"mhi_st_thrd");
 	if (IS_ERR(mhi_dev_ctxt->event_thread_handle))
-		return MHI_STATUS_ERROR;
+		return PTR_ERR(mhi_dev_ctxt->event_thread_handle);
 	return 0;
 }
 
@@ -485,7 +495,7 @@ static int mhi_spawn_threads(struct mhi_device_ctxt *mhi_dev_ctxt)
  which this mhi context belongs
  * @param mhi_struct device [IN/OUT] reference to a mhi context to be populated
  *
- * @return MHI_STATUS
+ * @return errno
  */
 int mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
 		struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -583,7 +593,7 @@ error_during_props:
  * @event_ring:	 Event ring to be mapped to this channel context
  * @ring:		 Shadow context to be initialized alongside
  *
- * @Return MHI_STATUS
+ * @Return errno
  */
 int mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
 		uintptr_t trb_list_phy, uintptr_t trb_list_virt,
@@ -629,11 +639,8 @@ int mhi_reg_notifiers(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u32 ret_val;
 
 	if (NULL == mhi_dev_ctxt)
-		return MHI_STATUS_ERROR;
+		return -EINVAL;
 	mhi_dev_ctxt->mhi_cpu_notifier.notifier_call = mhi_cpu_notifier_cb;
 	ret_val = register_cpu_notifier(&mhi_dev_ctxt->mhi_cpu_notifier);
-	if (ret_val)
-		return MHI_STATUS_ERROR;
-	else
-		return 0;
+	return ret_val;
 }
