@@ -139,6 +139,8 @@
 #define REG_IBB_CURRENT_LIMIT		0x4B
 #define REG_IBB_PS_CTL			0x50
 #define REG_IBB_RDSON_MNGMNT		0x53
+#define REG_IBB_NONOVERLAP_TIME_1	0x56
+#define REG_IBB_NONOVERLAP_TIME_2	0x57
 #define REG_IBB_PWRUP_PWRDN_CTL_1	0x58
 #define REG_IBB_PWRUP_PWRDN_CTL_2	0x59
 #define REG_IBB_SOFT_START_CTL		0x5F
@@ -197,11 +199,22 @@
 #define IBB_PFET_SW_SIZE_MASK		((1 << PFET_SW_SIZE_BITS) - 1)
 #define IBB_NFET_SW_SIZE_SHIFT		3
 
+/* REG_IBB_NONOVERLAP_TIME_1 */
+#define IBB_OVERRIDE_NONOVERLAP	BIT(6)
+#define IBB_NONOVERLAP_NFET_BITS	3
+#define IBB_NONOVERLAP_NFET_MASK	((1 << IBB_NONOVERLAP_NFET_BITS) - 1)
+#define IBB_NFET_GATE_DELAY_2		0x3
+
+/* REG_IBB_NONOVERLAP_TIME_2 */
+#define IBB_N2P_MUX_SEL		BIT(0)
+
 /* REG_IBB_SOFT_START_CTL */
 #define IBB_SOFT_START_CHARGING_RESISTOR_16K	0x3
 
 /* REG_IBB_SPARE_CTL */
 #define IBB_BYPASS_PWRDN_DLY2_BIT	BIT(5)
+#define IBB_POFF_CTL_MASK		BIT(4)
+#define IBB_FASTER_PFET_OFF		BIT(4)
 #define IBB_FAST_STARTUP		BIT(3)
 
 /* REG_IBB_SWIRE_CTL */
@@ -2550,6 +2563,41 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 			return rc;
 		}
 	}
+
+	if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
+		val = IBB_OVERRIDE_NONOVERLAP | IBB_NFET_GATE_DELAY_2;
+		rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
+			REG_IBB_NONOVERLAP_TIME_1,
+			IBB_OVERRIDE_NONOVERLAP | IBB_NONOVERLAP_NFET_MASK,
+			val);
+
+		if (rc) {
+			pr_err("qpnp_labibb_sec_masked_write register %x failed rc = %d\n",
+				REG_IBB_NONOVERLAP_TIME_1, rc);
+			return rc;
+		}
+
+		val = IBB_N2P_MUX_SEL;
+		rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
+			REG_IBB_NONOVERLAP_TIME_2, &val, 1);
+
+		if (rc) {
+			pr_err("qpnp_labibb_sec_write register %x failed rc = %d\n",
+				REG_IBB_NONOVERLAP_TIME_2, rc);
+			return rc;
+		}
+
+		val = IBB_FASTER_PFET_OFF;
+		rc = qpnp_labibb_masked_write(labibb,
+			labibb->ibb_base + REG_IBB_SPARE_CTL,
+			IBB_POFF_CTL_MASK, val);
+		if (rc) {
+			pr_err("qpnp_labibb_masked_write %x failed rc = %d\n",
+				REG_IBB_SPARE_CTL, rc);
+			return rc;
+		}
+	}
+
 	rc = qpnp_labibb_read(labibb, &val,
 			labibb->ibb_base + REG_IBB_MODULE_RDY, 1);
 	if (rc) {
