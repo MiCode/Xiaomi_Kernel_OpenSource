@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/ipc_logging.h>
 #include <linux/init.h>
 #include <linux/ipa.h>
 #include <linux/kernel.h>
@@ -1030,7 +1031,7 @@ int ipahal_reg_init(enum ipa_hw_type ipa_hw_type)
 	int j;
 	struct ipahal_reg_obj zero_obj;
 
-	IPAHAL_DBG("Entry - HW_TYPE=%d\n", ipa_hw_type);
+	IPAHAL_DBG_LOW("Entry - HW_TYPE=%d\n", ipa_hw_type);
 
 	memset(&zero_obj, 0, sizeof(zero_obj));
 	for (i = IPA_HW_v3_0 ; i < ipa_hw_type ; i++) {
@@ -1097,7 +1098,7 @@ u32 ipahal_read_reg_n(enum ipahal_reg_name reg, u32 n)
 		return -EFAULT;
 	}
 
-	IPAHAL_DBG("read from %s n=%u\n",
+	IPAHAL_DBG_LOW("read from %s n=%u\n",
 		ipahal_reg_name_str(reg), n);
 
 	offset = ipahal_reg_objs[ipahal_ctx->hw_type][reg].offset;
@@ -1123,7 +1124,7 @@ void ipahal_write_reg_mn(enum ipahal_reg_name reg, u32 m, u32 n, u32 val)
 		return;
 	}
 
-	IPAHAL_DBG("write to %s m=%u n=%u val=%u\n",
+	IPAHAL_DBG_LOW("write to %s m=%u n=%u val=%u\n",
 		ipahal_reg_name_str(reg), m, n, val);
 	offset = ipahal_reg_objs[ipahal_ctx->hw_type][reg].offset;
 	if (offset == -1) {
@@ -1163,7 +1164,7 @@ u32 ipahal_read_reg_n_fields(enum ipahal_reg_name reg, u32 n, void *fields)
 		return -EFAULT;
 	}
 
-	IPAHAL_DBG("read from %s n=%u and parse it\n",
+	IPAHAL_DBG_LOW("read from %s n=%u and parse it\n",
 		ipahal_reg_name_str(reg), n);
 	offset = ipahal_reg_objs[ipahal_ctx->hw_type][reg].offset;
 	if (offset == -1) {
@@ -1198,7 +1199,7 @@ void ipahal_write_reg_n_fields(enum ipahal_reg_name reg, u32 n,
 		return;
 	}
 
-	IPAHAL_DBG("write to %s n=%u after constructing it\n",
+	IPAHAL_DBG_LOW("write to %s n=%u after constructing it\n",
 		ipahal_reg_name_str(reg), n);
 	offset = ipahal_reg_objs[ipahal_ctx->hw_type][reg].offset;
 	if (offset == -1) {
@@ -1226,7 +1227,7 @@ u32 ipahal_get_reg_mn_ofst(enum ipahal_reg_name reg, u32 m, u32 n)
 		return -EFAULT;
 	}
 
-	IPAHAL_DBG("get offset of %s m=%u n=%u\n",
+	IPAHAL_DBG_LOW("get offset of %s m=%u n=%u\n",
 		ipahal_reg_name_str(reg), m, n);
 	offset = ipahal_reg_objs[ipahal_ctx->hw_type][reg].offset;
 	if (offset == -1) {
