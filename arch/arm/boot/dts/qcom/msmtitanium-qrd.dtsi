@@ -222,3 +222,7 @@
 	qcom,flash-source = <&pmi8950_flash0>;
 	qcom,torch-source = <&pmi8950_torch0>;
 };
+
+&pmtitanium_vadc {
+	/delete-node/ chan@11;
+};
