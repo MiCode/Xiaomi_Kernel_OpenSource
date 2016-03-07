@@ -1514,6 +1514,7 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 			.get_overflow_mask = msm_vfe32_get_overflow_mask,
 			.is_module_cfg_lock_needed =
 				msm_vfe32_is_module_cfg_lock_needed,
+			.ahb_clk_cfg = NULL,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe32_get_stats_idx,
