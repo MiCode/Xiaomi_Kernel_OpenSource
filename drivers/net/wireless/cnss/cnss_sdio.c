@@ -27,6 +27,7 @@
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
+#include <net/cnss_common.h>
 #include <linux/pm_qos.h>
 
 #define WLAN_VREG_NAME		"vdd-wlan"
@@ -137,7 +138,6 @@ int cnss_sdio_request_bus_bandwidth(int bandwidth)
 {
 	return 0;
 }
-EXPORT_SYMBOL(cnss_sdio_request_bus_bandwidth);
 
 void cnss_sdio_request_pm_qos(u32 qos_val)
 {
@@ -474,7 +474,6 @@ void *cnss_sdio_get_virt_ramdump_mem(unsigned long *size)
 
 	return cnss_pdata->ssr_info.ramdump_addr;
 }
-EXPORT_SYMBOL(cnss_sdio_get_virt_ramdump_mem);
 
 void cnss_sdio_device_self_recovery(void)
 {
@@ -482,7 +481,6 @@ void cnss_sdio_device_self_recovery(void)
 	msleep(WLAN_RECOVERY_DELAY);
 	cnss_sdio_powerup(NULL);
 }
-EXPORT_SYMBOL(cnss_sdio_device_self_recovery);
 
 void cnss_sdio_device_crashed(void)
 {
@@ -496,22 +494,6 @@ void cnss_sdio_device_crashed(void)
 		subsystem_restart_dev(ssr_info->subsys);
 	}
 }
-EXPORT_SYMBOL(cnss_sdio_device_crashed);
-
-int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
-{
-	struct cnss_ssr_info *ssr_info;
-
-	if (!cnss_pdata || !cnss_pdata->pdev)
-		return -ENODEV;
-
-	ssr_info = &cnss_pdata->ssr_info;
-	*address = ssr_info->ramdump_phys;
-	*size = ssr_info->ramdump_size;
-
-	return 0;
-}
-EXPORT_SYMBOL(cnss_get_ramdump_mem);
 
 void *cnss_get_virt_ramdump_mem(unsigned long *size)
 {
@@ -534,7 +516,7 @@ EXPORT_SYMBOL(cnss_device_self_recovery);
 
 static void cnss_sdio_recovery_work_handler(struct work_struct *recovery)
 {
-	cnss_device_self_recovery();
+	cnss_sdio_device_self_recovery();
 }
 
 DECLARE_WORK(recovery_work, cnss_sdio_recovery_work_handler);
@@ -543,7 +525,6 @@ void cnss_sdio_schedule_recovery_work(void)
 {
 	schedule_work(&recovery_work);
 }
-EXPORT_SYMBOL(cnss_sdio_schedule_recovery_work);
 
 void cnss_schedule_recovery_work(void)
 {
@@ -960,7 +941,7 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 	error = cnss_sdio_wlan_init();
 	if (error) {
 		dev_err(&pdev->dev, "cnss wlan init failed error=%d\n", error);
-		goto err_wlan_dsrc_enable_regulator;
+		goto err_cnss_sdio_wlan_init;
 	}
 
 	error = cnss_configure_ramdump();
@@ -979,10 +960,13 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "CNSS SDIO Driver registered");
 	return 0;
+
 err_subsys_init:
 	cnss_ramdump_cleanup();
 err_ramdump_create:
 	cnss_sdio_wlan_exit();
+err_cnss_sdio_wlan_init:
+	regulator_put(cnss_pdata->regulator.wlan_vreg);
 err_wlan_enable_regulator:
 	regulator_put(cnss_pdata->regulator.wlan_xtal);
 	regulator_put(cnss_pdata->regulator.wlan_io);
@@ -1008,6 +992,13 @@ int cnss_sdio_set_wlan_mac_address(const u8 *in, uint32_t len)
 	return 0;
 }
 EXPORT_SYMBOL(cnss_sdio_set_wlan_mac_address);
+
+u8 *cnss_sdio_get_wlan_mac_address(uint32_t *num)
+{
+	*num = 0;
+	return NULL;
+}
+EXPORT_SYMBOL(cnss_sdio_get_wlan_mac_address);
 
 u8 *cnss_get_wlan_mac_address(struct device *dev, uint32_t *num)
 {
