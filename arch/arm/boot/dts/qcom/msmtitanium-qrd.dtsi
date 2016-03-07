@@ -52,6 +52,7 @@
 			synaptics,reset-gpio = <&tlmm 64 0x0>;
 			synaptics,disable-gpios;
 			synaptics,button-map = <139 158 172>;
+			synaptics,resume-in-workqueue;
 		};
 	};
 };
@@ -84,7 +85,7 @@
 };
 
 &pmtitanium_typec {
-	ss-mux-supply = <&pmtitanium_l13>;
+	ss-mux-supply = <&pmtitanium_l6>;
 	qcom,ssmux-gpio = <&tlmm 139 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&typec_ssmux_config>;
@@ -220,4 +221,8 @@
 &led_flash0{
 	qcom,flash-source = <&pmi8950_flash0>;
 	qcom,torch-source = <&pmi8950_torch0>;
+};
+
+&pmtitanium_vadc {
+	/delete-node/ chan@11;
 };

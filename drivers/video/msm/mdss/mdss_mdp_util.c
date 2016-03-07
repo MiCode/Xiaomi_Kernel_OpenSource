@@ -188,11 +188,15 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	if (isr & MDSS_MDP_INTR_INTF_3_UNDERRUN)
 		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_3);
 
-	if (isr & MDSS_MDP_INTR_PING_PONG_0_DONE)
+	if (isr & MDSS_MDP_INTR_PING_PONG_0_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI0, false);
+	}
 
-	if (isr & MDSS_MDP_INTR_PING_PONG_1_DONE)
+	if (isr & MDSS_MDP_INTR_PING_PONG_1_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_1);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI1, false);
+	}
 
 	if (isr & MDSS_MDP_INTR_PING_PONG_2_DONE)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2);
@@ -214,38 +218,38 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 
 	if (isr & MDSS_MDP_INTR_INTF_0_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_0);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_EDP);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_EDP, true);
 	}
 
 	if (isr & MDSS_MDP_INTR_INTF_1_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_1);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI0);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI0, true);
 	}
 
 	if (isr & MDSS_MDP_INTR_INTF_2_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_2);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI1);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI1, true);
 	}
 
 	if (isr & MDSS_MDP_INTR_INTF_3_VSYNC) {
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_3);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_HDMI);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_HDMI, true);
 	}
 
 	if (isr & MDSS_MDP_INTR_WB_0_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_WB_0);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
 	}
 
 	if (isr & MDSS_MDP_INTR_WB_1_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_WB_1);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
 	}
 
 	if (isr & ((mdata->mdp_rev == MDSS_MDP_HW_REV_108) ?
 		MDSS_MDP_INTR_WB_2_DONE >> 2 : MDSS_MDP_INTR_WB_2_DONE)) {
 		mdss_mdp_intr_done(MDP_INTR_WB_2);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
 	}
 
 	if (isr & MDSS_MDP_INTR_PING_PONG_0_AUTOREFRESH_DONE)

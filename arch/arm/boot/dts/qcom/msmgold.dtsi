@@ -83,6 +83,7 @@
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x7000000>;
+			status = "disabled";
 		};
 
 		qseecom_mem: qseecom_region@0 {
@@ -117,7 +118,7 @@
 #include "msmgold-iommu-domains.dtsi"
 #include "msmgold-smp2p.dtsi"
 #include "msmgold-coresight.dtsi"
-#include "msm8937-bus.dtsi"
+#include "msmgold-bus.dtsi"
 #include "msmgold-mdss.dtsi"
 #include "msmgold-mdss-pll.dtsi"
 #include "msmgold-vidc.dtsi"

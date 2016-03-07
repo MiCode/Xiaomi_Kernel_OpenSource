@@ -413,8 +413,8 @@
 		vdd_dig-supply = <&pmcobalt_s1_level>;
 		vdd_mx-supply = <&pmcobalt_s9_level>;
 		vdd_gpu_mx-supply = <&pmcobalt_s9_level>;
-		clock-names = "xo", "gpll0";
-		clocks = <&clock_gcc clk_cxo_clk_src>,
+		clock-names = "xo_ao", "gpll0";
+		clocks = <&clock_gcc clk_cxo_clk_src_ao>,
 			<&clock_gcc clk_gpll0_out_main>;
 		qcom,gfxfreq-speedbin0 =
 			<	  0	 0			     0 >,
@@ -556,6 +556,13 @@
 		clocks = <&clock_gpu clk_gpucc_gcc_dbg_clk>,
 			 <&clock_mmss clk_mmss_debug_mux>;
 		#clock-cells = <1>;
+	};
+
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x00200000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
 	};
 
 	qcom,msm_gsi {

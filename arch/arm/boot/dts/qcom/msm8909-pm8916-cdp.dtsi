@@ -13,7 +13,6 @@
 
 #include "msm8909-pm8916.dtsi"
 #include "msm8909-pinctrl.dtsi"
-#include "msm8909-pm8916-camera-sensor-cdp.dtsi"
 
 &soc {
 	i2c@78b9000 {
@@ -28,18 +27,6 @@
 		};
 	};
 
-	i2c@78b6000 {
-		nfc-nci@e {
-			qcom,clk-gpio = <&pm8916_gpios 2 0>;
-		};
-	};
-};
-
-&audio_codec {
-	status = "ok";
-	qcom,model = "msm8909-pm8916-snd-card";
-	asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
-	asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 };
 
 &dsi_auo_qvga_cmd {

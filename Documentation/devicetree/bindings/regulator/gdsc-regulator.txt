@@ -48,6 +48,8 @@ Optional properties:
 			the api which will allow clearing the bits.
  - qcom,gds-timeout:	Maximum time (in usecs) that might be taken by a GDSC
 			to enable.
+ - qcom,reset-aon-logic: If present, the GPU DEMET cells need to be reset while
+			 enabling the GX GDSC.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

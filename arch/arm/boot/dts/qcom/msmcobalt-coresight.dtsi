@@ -515,4 +515,300 @@
 			};
 		};
 	};
+
+	cti0: cti@6010000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6010000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti0";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti1: cti@6011000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6011000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti1";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti2: cti@6012000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6012000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti2";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti3: cti@6013000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6013000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti3";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti4: cti@6014000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6014000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti4";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti5: cti@6015000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6015000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti5";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti6: cti@6016000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6016000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti6";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti7: cti@6017000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6017000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti7";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti8: cti@6018000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6018000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti8";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti9: cti@6019000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6019000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti9";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti10: cti@601a000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x601a000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti10";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti11: cti@601b000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x601b000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti11";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti12: cti@601c000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x601c000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti12";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti13: cti@601d000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x601d000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti13";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti14: cti@601e000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x601e000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti14";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti15: cti@601f000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x601f000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti15";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu0: cti@7820000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7820000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-cpu0";
+		cpu = <&CPU0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu1: cti@7920000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7920000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-cpu1";
+		cpu = <&CPU1>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu2: cti@7a20000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7a20000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-cpu2";
+		cpu = <&CPU2>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu3: cti@7b20000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7b20000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-cpu3";
+		cpu = <&CPU3>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu4: cti@7c20000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7c20000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-cpu4";
+		cpu = <&CPU4>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu5: cti@7d20000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7d20000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-cpu5";
+		cpu = <&CPU5>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu6: cti@7e20000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7e20000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-cpu6";
+		cpu = <&CPU6>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_cpu7: cti@7f20000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7f20000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-cpu7";
+		cpu = <&CPU7>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
 };

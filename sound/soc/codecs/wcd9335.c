@@ -5300,6 +5300,7 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	char *wname;
 	int ret = 0, amic_n;
 	u16 tx_vol_ctl_reg, pwr_level_reg = 0, dec_cfg_reg, hpf_gate_reg;
+	u16 tx_gain_ctl_reg;
 	char *dec;
 	u8 hpf_cut_off_freq;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
@@ -5342,6 +5343,7 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	tx_vol_ctl_reg = WCD9335_CDC_TX0_TX_PATH_CTL + 16 * decimator;
 	hpf_gate_reg = WCD9335_CDC_TX0_TX_PATH_SEC2 + 16 * decimator;
 	dec_cfg_reg = WCD9335_CDC_TX0_TX_PATH_CFG0 + 16 * decimator;
+	tx_gain_ctl_reg = WCD9335_CDC_TX0_TX_VOL_CTL + 16 * decimator;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -5397,6 +5399,9 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 			schedule_delayed_work(
 					&tasha->tx_hpf_work[decimator].dwork,
 					msecs_to_jiffies(300));
+		/* apply gain after decimator is enabled */
+		snd_soc_write(codec, tx_gain_ctl_reg,
+			      snd_soc_read(codec, tx_gain_ctl_reg));
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
@@ -8377,6 +8382,14 @@ static const struct snd_kcontrol_new tasha_analog_gain_controls[] = {
 		line_gain),
 	SOC_SINGLE_TLV("HPHR Volume", WCD9335_HPH_R_EN, 0, 20, 1,
 		line_gain),
+	SOC_SINGLE_TLV("LINEOUT1 Volume", WCD9335_DIFF_LO_LO1_COMPANDER,
+			3, 16, 1, line_gain),
+	SOC_SINGLE_TLV("LINEOUT2 Volume", WCD9335_DIFF_LO_LO2_COMPANDER,
+			3, 16, 1, line_gain),
+	SOC_SINGLE_TLV("LINEOUT3 Volume", WCD9335_SE_LO_LO3_GAIN, 0, 20, 1,
+			line_gain),
+	SOC_SINGLE_TLV("LINEOUT4 Volume", WCD9335_SE_LO_LO4_GAIN, 0, 20, 1,
+			line_gain),
 
 	SOC_SINGLE_TLV("ADC1 Volume", WCD9335_ANA_AMIC1, 0, 20, 0,
 			analog_gain),

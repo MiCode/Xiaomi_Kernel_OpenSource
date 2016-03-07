@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
+#include <linux/dma-mapping.h>
 #include <linux/qmi_encdec.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
@@ -84,11 +85,19 @@ static struct {
 	struct work_struct qmi_event_work;
 	struct work_struct qmi_recv_msg_work;
 	struct workqueue_struct *qmi_event_wq;
+	phys_addr_t msa_phys;
+	uint32_t msa_mem_size;
+	void *msa_addr;
 	uint32_t state;
-	u32 board_id;
-	u32 num_peers;
-	u32 mac_version;
-	char fw_version[QMI_WLFW_MAX_STR_LEN_V01 + 1];
+	struct wlfw_rf_chip_info_s_v01 chip_info;
+	struct wlfw_rf_board_info_s_v01 board_info;
+	struct wlfw_soc_info_s_v01 soc_info;
+	struct wlfw_fw_version_info_s_v01 fw_version_info;
+	u32 pwr_pin_result;
+	u32 phy_io_pin_result;
+	u32 rf_pin_result;
+	struct icnss_mem_region_info
+		icnss_mem_region[QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01];
 } *penv;
 
 static int icnss_qmi_event_post(enum icnss_qmi_event_type type, void *data)
@@ -115,6 +124,167 @@ static int icnss_qmi_event_post(enum icnss_qmi_event_type type, void *data)
 	return 0;
 }
 
+static int icnss_qmi_pin_connect_result_ind(void *msg, unsigned int msg_len)
+{
+	struct msg_desc ind_desc;
+	struct wlfw_pin_connect_result_ind_msg_v01 ind_msg;
+	int ret = 0;
+
+	if (!penv || !penv->wlfw_clnt) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	ind_desc.msg_id = QMI_WLFW_PIN_CONNECT_RESULT_IND_V01;
+	ind_desc.max_msg_len = WLFW_PIN_CONNECT_RESULT_IND_MSG_V01_MAX_MSG_LEN;
+	ind_desc.ei_array = wlfw_pin_connect_result_ind_msg_v01_ei;
+
+	ret = qmi_kernel_decode(&ind_desc, &ind_msg, msg, msg_len);
+	if (ret < 0) {
+		pr_err("%s: Failed to decode message!\n", __func__);
+		goto out;
+	}
+
+	/* store pin result locally */
+	if (ind_msg.pwr_pin_result_valid)
+		penv->pwr_pin_result = ind_msg.pwr_pin_result;
+	if (ind_msg.phy_io_pin_result_valid)
+		penv->phy_io_pin_result = ind_msg.phy_io_pin_result;
+	if (ind_msg.rf_pin_result_valid)
+		penv->rf_pin_result = ind_msg.rf_pin_result;
+
+	pr_debug("%s: Pin connect Result: pwr_pin: 0x%x phy_io_pin: 0x%x rf_io_pin: 0x%x\n",
+		__func__, ind_msg.pwr_pin_result, ind_msg.phy_io_pin_result,
+		ind_msg.rf_pin_result);
+out:
+	return ret;
+}
+
+
+static int icnss_adrastea_power_on(void)
+{
+	int ret = 0;
+
+	/* TZ API of power on adrastea */
+
+	return ret;
+}
+
+void icnss_adrastea_power_off(void)
+{
+	/* TZ API of power off adrastea */
+}
+
+static int wlfw_msa_mem_info_send_sync_msg(void)
+{
+	int ret = 0;
+	int i;
+	struct wlfw_msa_info_req_msg_v01 req;
+	struct wlfw_msa_info_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+
+	if (!penv || !penv->wlfw_clnt) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	req.msa_addr = penv->msa_phys;
+	req.size = penv->msa_mem_size;
+
+	req_desc.max_msg_len = WLFW_MSA_INFO_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_MSA_INFO_REQ_V01;
+	req_desc.ei_array = wlfw_msa_info_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_MSA_INFO_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_MSA_INFO_RESP_V01;
+	resp_desc.ei_array = wlfw_msa_info_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
+			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		pr_err("%s: send req failed %d\n", __func__, ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		pr_err("%s: QMI request failed %d %d\n",
+			__func__, resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		goto out;
+	}
+
+	pr_debug("%s: Receive mem_region_info_len: %d\n",
+			__func__, resp.mem_region_info_len);
+
+	if (resp.mem_region_info_len > 2) {
+		pr_err("%s : Invalid memory region length received\n",
+		       __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	for (i = 0; i < resp.mem_region_info_len; i++) {
+		penv->icnss_mem_region[i].reg_addr =
+			resp.mem_region_info[i].region_addr;
+		penv->icnss_mem_region[i].size =
+			resp.mem_region_info[i].size;
+		penv->icnss_mem_region[i].secure_flag =
+			resp.mem_region_info[i].secure_flag;
+		pr_debug("%s : Memory Region: %d  Addr:0x%x Size : %d Flag: %d\n",
+			 __func__,
+			 i,
+			 (unsigned int)penv->icnss_mem_region[i].reg_addr,
+			 penv->icnss_mem_region[i].size,
+			 penv->icnss_mem_region[i].secure_flag);
+	}
+
+out:
+	return ret;
+}
+
+static int wlfw_msa_ready_send_sync_msg(void)
+{
+	int ret;
+	struct wlfw_msa_ready_req_msg_v01 req;
+	struct wlfw_msa_ready_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+
+	if (!penv || !penv->wlfw_clnt) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	req_desc.max_msg_len = WLFW_MSA_READY_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_MSA_READY_REQ_V01;
+	req_desc.ei_array = wlfw_msa_ready_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_MSA_READY_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_MSA_READY_RESP_V01;
+	resp_desc.ei_array = wlfw_msa_ready_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
+			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		pr_err("%s: send req failed %d\n", __func__, ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		pr_err("%s: QMI request failed %d %d\n",
+			__func__, resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		goto out;
+	}
+out:
+	return ret;
+}
+
 static int wlfw_ind_register_send_sync_msg(void)
 {
 	int ret;
@@ -132,6 +302,10 @@ static int wlfw_ind_register_send_sync_msg(void)
 
 	req.fw_ready_enable_valid = 1;
 	req.fw_ready_enable = 1;
+	req.msa_ready_enable_valid = 1;
+	req.msa_ready_enable = 1;
+	req.pin_connect_result_enable_valid = 1;
+	req.pin_connect_result_enable = 1;
 
 	req_desc.max_msg_len = WLFW_IND_REGISTER_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_IND_REGISTER_REQ_V01;
@@ -197,19 +371,25 @@ static int wlfw_cap_send_sync_msg(void)
 	}
 
 	/* store cap locally */
-	if (resp.board_id_valid)
-		penv->board_id = resp.board_id;
-	if (resp.num_peers_valid)
-		penv->num_peers = resp.num_peers;
-	if (resp.mac_version_valid)
-		penv->mac_version = resp.mac_version;
-	if (resp.fw_version_valid)
-		strlcpy(penv->fw_version, resp.fw_version,
-			QMI_WLFW_MAX_STR_LEN_V01 + 1);
+	if (resp.chip_info_valid)
+		penv->chip_info = resp.chip_info;
+	if (resp.board_info_valid)
+		penv->board_info = resp.board_info;
+	else
+		penv->board_info.board_id = 0xFF;
+	if (resp.soc_info_valid)
+		penv->soc_info = resp.soc_info;
+	if (resp.fw_version_info_valid)
+		penv->fw_version_info = resp.fw_version_info;
 
-	pr_debug("%s: board_id:0x%0x num_peers: %d mac_version: 0x%0x fw_version: %s",
-		__func__, penv->board_id, penv->num_peers,
-		penv->mac_version, penv->fw_version);
+	pr_debug("%s: chip_id: 0x%0x, chip_family: 0x%0x, board_id: 0x%0x, soc_id: 0x%0x, fw_version: 0x%0x, fw_build_timestamp: %s",
+		__func__,
+		penv->chip_info.chip_id,
+		penv->chip_info.chip_family,
+		penv->board_info.board_id,
+		penv->soc_info.soc_id,
+		penv->fw_version_info.fw_version,
+		penv->fw_version_info.fw_build_timestamp);
 out:
 	return ret;
 }
@@ -300,6 +480,49 @@ out:
 	return ret;
 }
 
+static int wlfw_ini_send_sync_msg(bool enablefwlog)
+{
+	int ret;
+	struct wlfw_ini_req_msg_v01 req;
+	struct wlfw_ini_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+
+	if (!penv || !penv->wlfw_clnt) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	memset(&req, 0, sizeof(req));
+	memset(&resp, 0, sizeof(resp));
+
+	req.enablefwlog_valid = 1;
+	req.enablefwlog = enablefwlog;
+
+	req_desc.max_msg_len = WLFW_INI_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.msg_id = QMI_WLFW_INI_REQ_V01;
+	req_desc.ei_array = wlfw_ini_req_msg_v01_ei;
+
+	resp_desc.max_msg_len = WLFW_INI_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.msg_id = QMI_WLFW_INI_RESP_V01;
+	resp_desc.ei_array = wlfw_ini_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
+			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
+	if (ret < 0) {
+		pr_err("%s: send req failed %d\n", __func__, ret);
+		goto out;
+	}
+
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		pr_err("%s: QMI request failed %d %d\n",
+		       __func__, resp.resp.result, resp.resp.error);
+		ret = resp.resp.result;
+		goto out;
+	}
+out:
+	return ret;
+}
+
 static void icnss_qmi_wlfw_clnt_notify_work(struct work_struct *work)
 {
 	int ret;
@@ -344,6 +567,15 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 	case QMI_WLFW_FW_READY_IND_V01:
 		icnss_qmi_event_post(ICNSS_QMI_EVENT_FW_READY_IND, NULL);
 		break;
+	case QMI_WLFW_MSA_READY_IND_V01:
+		pr_debug("%s: Received MSA Ready Indication msg_id 0x%x\n",
+			 __func__, msg_id);
+		break;
+	case QMI_WLFW_PIN_CONNECT_RESULT_IND_V01:
+		pr_debug("%s: Received Pin Connect Test Result msg_id 0x%x\n",
+			 __func__, msg_id);
+		icnss_qmi_pin_connect_result_ind(msg, msg_len);
+		break;
 	default:
 		pr_err("%s: Invalid msg_id 0x%x\n", __func__, msg_id);
 		break;
@@ -376,8 +608,8 @@ static int icnss_qmi_event_server_arrive(void *data)
 	ret = qmi_register_ind_cb(penv->wlfw_clnt,
 				  icnss_qmi_wlfw_clnt_ind, penv);
 	if (ret < 0) {
-		pr_err("Failed to register indication callback: %d\n",
-		       ret);
+		pr_err("%s: Failed to register indication callback: %d\n",
+		       __func__, ret);
 		goto fail;
 	}
 
@@ -385,17 +617,48 @@ static int icnss_qmi_event_server_arrive(void *data)
 
 	pr_info("%s: QMI Server Connected\n", __func__);
 
+	ret = icnss_adrastea_power_on();
+	if (ret < 0) {
+		pr_err("%s: Failed to power on hardware: %d\n",
+		       __func__, ret);
+		goto fail;
+	}
+
 	ret = wlfw_ind_register_send_sync_msg();
 	if (ret < 0) {
-		pr_err("Failed to send indication message: %d\n",
-		       ret);
+		pr_err("%s: Failed to send indication message: %d\n",
+		       __func__, ret);
 		goto out;
+	}
+
+	if (penv->msa_mem_size) {
+		penv->msa_addr = dma_alloc_coherent(&penv->pdev->dev,
+				    penv->msa_mem_size, &penv->msa_phys,
+				    GFP_KERNEL);
+
+		pr_debug("%s: MSA addr: %p, MSA phys: %pa\n", __func__,
+			penv->msa_addr, &penv->msa_phys);
+
+		if (penv->msa_addr) {
+			ret = wlfw_msa_mem_info_send_sync_msg();
+			if (ret < 0) {
+				pr_err("%s: Failed to send MSA info: %d\n",
+				       __func__, ret);
+				goto out;
+			}
+			ret = wlfw_msa_ready_send_sync_msg();
+			if (ret < 0) {
+				pr_err("%s: Failed to send MSA ready : %d\n",
+				       __func__, ret);
+				goto out;
+			}
+		}
 	}
 
 	ret = wlfw_cap_send_sync_msg();
 	if (ret < 0) {
-		pr_err("Failed to get capability: %d\n",
-		       ret);
+		pr_err("%s: Failed to get capability: %d\n",
+		       __func__, ret);
 		goto out;
 	}
 	return ret;
@@ -403,6 +666,10 @@ fail:
 	qmi_handle_destroy(penv->wlfw_clnt);
 	penv->wlfw_clnt = NULL;
 out:
+	if (penv->msa_addr) {
+		dma_free_coherent(&penv->pdev->dev, penv->msa_mem_size,
+				  penv->msa_addr, penv->msa_phys);
+	}
 	ICNSS_ASSERT(0);
 	return ret;
 }
@@ -415,6 +682,10 @@ static int icnss_qmi_event_server_exit(void *data)
 	pr_info("%s: QMI Service Disconnected\n", __func__);
 
 	qmi_handle_destroy(penv->wlfw_clnt);
+	if (penv->msa_addr) {
+		dma_free_coherent(&penv->pdev->dev, penv->msa_mem_size,
+				  penv->msa_addr, penv->msa_phys);
+	}
 	penv->state = 0;
 	penv->wlfw_clnt = NULL;
 
@@ -435,6 +706,9 @@ static int icnss_qmi_event_fw_ready_ind(void *data)
 		ret = -ENODEV;
 		goto out;
 	}
+
+	icnss_adrastea_power_off();
+
 	if (!penv->ops || !penv->ops->probe) {
 		pr_err("%s: WLAN driver is not registed yet\n", __func__);
 		ret = -ENOENT;
@@ -457,7 +731,7 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 	if (!penv)
 		return -ENODEV;
 
-	pr_debug("Event Notify: code: %ld", code);
+	pr_debug("%s: Event Notify: code: %ld", __func__, code);
 
 	switch (code) {
 	case QMI_SERVER_ARRIVE:
@@ -468,7 +742,7 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 		ret = icnss_qmi_event_post(ICNSS_QMI_EVENT_SERVER_EXIT, NULL);
 		break;
 	default:
-		pr_debug("Invalid code: %ld", code);
+		pr_debug("%s: Invalid code: %ld", __func__, code);
 		break;
 	}
 	return ret;
@@ -498,7 +772,8 @@ static void icnss_qmi_wlfw_event_work(struct work_struct *work)
 			icnss_qmi_event_fw_ready_ind(event->data);
 			break;
 		default:
-			pr_debug("Invalid Event type: %d", event->type);
+			pr_debug("%s: Invalid Event type: %d",
+				 __func__, event->type);
 			break;
 		}
 		kfree(event);
@@ -535,8 +810,12 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 	penv->ops = ops;
 
 	/* check for all conditions before invoking probe */
-	if (ICNSS_IS_FW_READY(penv->state) && penv->ops->probe)
+	if (ICNSS_IS_FW_READY(penv->state) && penv->ops->probe) {
 		ret = penv->ops->probe(&pdev->dev);
+	} else {
+		pr_err("icnss: FW is not ready\n");
+		ret = -ENOENT;
+	}
 
 out:
 	return ret;
@@ -743,6 +1022,18 @@ int icnss_get_soc_info(struct icnss_soc_info *info)
 }
 EXPORT_SYMBOL(icnss_get_soc_info);
 
+int icnss_set_fw_debug_mode(bool enablefwlog)
+{
+	int ret;
+
+	ret = wlfw_ini_send_sync_msg(enablefwlog);
+	if (ret)
+		pr_err("icnss: Fail to send ini, ret = %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(icnss_set_fw_debug_mode);
+
 int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
 		      enum icnss_driver_mode mode,
 		      const char *host_version)
@@ -837,6 +1128,8 @@ static int icnss_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct resource *res;
 	int i;
+	struct device *dev = &pdev->dev;
+	u32 msa_mem_size = 0;
 
 	if (penv)
 		return -EEXIST;
@@ -870,6 +1163,15 @@ static int icnss_probe(struct platform_device *pdev)
 		} else {
 			penv->ce_irqs[i] = res->start;
 		}
+	}
+
+	if (of_property_read_u32(dev->of_node, "qcom,wlan-msa-memory",
+				 &msa_mem_size) == 0) {
+		penv->msa_mem_size = msa_mem_size;
+	} else {
+		pr_err("icnss: Fail to get MSA Memory Size\n");
+		ret = -ENODEV;
+		goto out;
 	}
 
 	penv->qmi_event_wq = alloc_workqueue("icnss_qmi_event", 0, 0);

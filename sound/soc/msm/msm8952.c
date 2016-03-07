@@ -209,6 +209,33 @@ static const struct snd_soc_dapm_widget msm8952_dapm_widgets[] = {
 	SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 
+static int config_hph_compander_gpio(bool enable)
+{
+	int ret = 0;
+
+	pr_debug("%s: %s HPH Compander\n", __func__,
+		enable ? "Enable" : "Disable");
+
+	if (enable) {
+		ret = msm_gpioset_activate(CLIENT_WCD_INT, "comp_gpio");
+		if (ret) {
+			pr_err("%s: gpio set cannot be activated %s\n",
+				__func__, "comp_gpio");
+			goto done;
+		}
+	} else {
+		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "comp_gpio");
+		if (ret) {
+			pr_err("%s: gpio set cannot be de-activated %s\n",
+				__func__, "comp_gpio");
+			goto done;
+		}
+	}
+
+done:
+	return ret;
+}
+
 int is_ext_spk_gpio_support(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
 {
@@ -1539,6 +1566,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_sync(dapm);
 
 	msm8x16_wcd_spk_ext_pa_cb(enable_spk_ext_pa, codec);
+	msm8x16_wcd_hph_comp_cb(config_hph_compander_gpio, codec);
 
 	mbhc_cfg.calibration = def_msm8952_wcd_mbhc_cal();
 	if (mbhc_cfg.calibration) {
@@ -2404,7 +2432,7 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
 		.no_pcm = 1,
-		.dpcm_capture = 1,
+		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
@@ -2418,7 +2446,7 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.codec_name     = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
 		.no_pcm = 1,
-		.dpcm_capture = 1,
+		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_VOICE2_PLAYBACK_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,

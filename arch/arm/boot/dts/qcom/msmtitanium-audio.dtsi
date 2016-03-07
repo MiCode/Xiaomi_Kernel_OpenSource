@@ -22,6 +22,96 @@
 	qcom,msm-hs-micbias-type = "internal";
 	qcom,msm-micbias1-ext-cap;
 
+	qcom,msm-gpios =
+		"pri_i2s",
+		"us_eu_gpio",
+		"quin_i2s",
+		"comp_gpio";
+	qcom,pinctrl-names =
+		"all_off",
+		"pri_i2s_act",
+		"us_eu_gpio_act",
+		"pri_i2s_us_eu_gpio_act",
+		"quin_act",
+		"quin_pri_i2s_act",
+		"quin_us_eu_gpio_act",
+		"quin_us_eu_gpio_pri_i2s_act",
+		"comp_gpio_act",
+		"comp_gpio_pri_i2s_act",
+		"comp_gpio_us_eu_gpio_act",
+		"comp_gpio_pri_i2s_us_eu_gpio_act",
+		"comp_gpio_quin_act",
+		"comp_gpio_quin_pri_i2s_act",
+		"comp_gpio_quin_us_eu_gpio_act",
+		"comp_gpio_quin_us_eu_gpio_pri_i2s_act";
+
+	pinctrl-names =
+		"all_off",
+		"pri_i2s_act",
+		"us_eu_gpio_act",
+		"pri_i2s_us_eu_gpio_act",
+		"quin_act",
+		"quin_pri_i2s_act",
+		"quin_us_eu_gpio_act",
+		"quin_us_eu_gpio_pri_i2s_act",
+		"comp_gpio_act",
+		"comp_gpio_pri_i2s_act",
+		"comp_gpio_us_eu_gpio_act",
+		"comp_gpio_pri_i2s_us_eu_gpio_act",
+		"comp_gpio_quin_act",
+		"comp_gpio_quin_pri_i2s_act",
+		"comp_gpio_quin_us_eu_gpio_act",
+		"comp_gpio_quin_us_eu_gpio_pri_i2s_act";
+
+	pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_act &cross_conn_det_sus
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-2 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_sus &cross_conn_det_act
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-3 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_act &cross_conn_det_act
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-4 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-5 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_act &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-6 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_sus &cross_conn_det_act
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-7 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_sus
+		&cdc_pdm_lines_2_act &cross_conn_det_act
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-8 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-9 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_act &cross_conn_det_sus
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-10 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_sus &cross_conn_det_act
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-11 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_act &cross_conn_det_act
+		&pri_tlmm_lines_sus &pri_tlmm_ws_sus>;
+	pinctrl-12 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_sus &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-13 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_act &cross_conn_det_sus
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-14 = <&cdc_pdm_lines_sus &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_sus &cross_conn_det_act
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+	pinctrl-15 = <&cdc_pdm_lines_act &cdc_pdm_comp_lines_act
+		&cdc_pdm_lines_2_act &cross_conn_det_act
+		&pri_tlmm_lines_act &pri_tlmm_ws_act>;
+
 	asoc-codec = <&stub_codec>, <&pmtitanium_diangu_dig>, <&hdmi_dba>;
 	asoc-codec-names = "msm-stub-codec.1", "cajon_codec",
 						"msm-hdmi-dba-codec-rx";
@@ -142,12 +232,14 @@
 	};
 };
 
+&wcd_rst_gpio {
+	qcom,cdc-rst-n-gpio = <&tlmm 67 0>;
+};
+
 &wcd9335 {
 	clock-names = "wcd_clk", "wcd_native_clk";
 	clocks = <&clock_audio clk_audio_pmi_clk>,
 		<&clock_audio clk_audio_ap_clk2>;
-
-	qcom,cdc-reset-gpio = <&tlmm 67 0>;
 
 	cdc-vdd-buck-supply = <&eldo2_titanium>;
 	qcom,cdc-vdd-buck-voltage = <1800000 1800000>;

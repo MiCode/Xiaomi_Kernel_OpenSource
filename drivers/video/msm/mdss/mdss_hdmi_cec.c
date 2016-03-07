@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/stat.h>
 #include <linux/slab.h>
 #include <linux/device.h>
+#include <linux/input.h>
 
 #include "mdss_hdmi_cec.h"
 #include "mdss_panel.h"
@@ -28,14 +29,21 @@
 
 /* Reference: HDMI 1.4a Specification section 7.1 */
 
+#define CEC_OP_SET_STREAM_PATH  0x86
+#define CEC_OP_KEY_PRESS        0x44
+#define CEC_OP_STANDBY          0x36
+
 struct hdmi_cec_ctrl {
 	bool cec_enabled;
+	bool cec_wakeup_en;
+	bool cec_device_suspend;
 
 	u32 cec_msg_wr_status;
 	spinlock_t lock;
 	struct work_struct cec_read_work;
 	struct completion cec_msg_wr_done;
 	struct hdmi_cec_init_data init_data;
+	struct input_dev *input;
 };
 
 static int hdmi_cec_msg_send(void *data, struct cec_msg *msg)
@@ -116,6 +124,46 @@ static int hdmi_cec_msg_send(void *data, struct cec_msg *msg)
 	return rc;
 } /* hdmi_cec_msg_send */
 
+static void hdmi_cec_init_input_event(struct hdmi_cec_ctrl *cec_ctrl)
+{
+	int rc = 0;
+
+	if (!cec_ctrl) {
+		DEV_ERR("%s: Invalid input\n", __func__);
+		return;
+	}
+
+	/* Initialize CEC input events */
+	if (!cec_ctrl->input)
+		cec_ctrl->input = input_allocate_device();
+	if (!cec_ctrl->input) {
+		DEV_ERR("%s: hdmi input device allocation failed\n", __func__);
+		return;
+	}
+
+	cec_ctrl->input->name = "HDMI CEC User or Deck Control";
+	cec_ctrl->input->phys = "hdmi/input0";
+	cec_ctrl->input->id.bustype = BUS_VIRTUAL;
+
+	input_set_capability(cec_ctrl->input, EV_KEY, KEY_POWER);
+
+	rc = input_register_device(cec_ctrl->input);
+	if (rc) {
+		DEV_ERR("%s: cec input device registeration failed\n",
+				__func__);
+		input_free_device(cec_ctrl->input);
+		cec_ctrl->input = NULL;
+		return;
+	}
+}
+
+static void hdmi_cec_deinit_input_event(struct hdmi_cec_ctrl *cec_ctrl)
+{
+	if (cec_ctrl->input)
+		input_unregister_device(cec_ctrl->input);
+	cec_ctrl->input = NULL;
+}
+
 static void hdmi_cec_msg_recv(struct work_struct *work)
 {
 	int i;
@@ -170,6 +218,31 @@ static void hdmi_cec_msg_recv(struct work_struct *work)
 
 	for (; i < 14; i++)
 		msg.operand[i] = 0;
+
+	DEV_DBG("%s: opcode 0x%x, wakup_en %d, device_suspend %d\n", __func__,
+		msg.opcode, cec_ctrl->cec_wakeup_en,
+		cec_ctrl->cec_device_suspend);
+
+	if ((msg.opcode == CEC_OP_SET_STREAM_PATH ||
+		msg.opcode == CEC_OP_KEY_PRESS) &&
+		cec_ctrl->input && cec_ctrl->cec_wakeup_en &&
+		cec_ctrl->cec_device_suspend) {
+		DEV_DBG("%s: Sending power on at wakeup\n", __func__);
+		input_report_key(cec_ctrl->input, KEY_POWER, 1);
+		input_sync(cec_ctrl->input);
+		input_report_key(cec_ctrl->input, KEY_POWER, 0);
+		input_sync(cec_ctrl->input);
+	}
+
+	if ((msg.opcode == CEC_OP_STANDBY) &&
+		cec_ctrl->input && cec_ctrl->cec_wakeup_en &&
+		!cec_ctrl->cec_device_suspend) {
+		DEV_DBG("%s: Sending power off on standby\n", __func__);
+		input_report_key(cec_ctrl->input, KEY_POWER, 1);
+		input_sync(cec_ctrl->input);
+		input_report_key(cec_ctrl->input, KEY_POWER, 0);
+		input_sync(cec_ctrl->input);
+	}
 
 	if (cbs && cbs->msg_recv_notify)
 		cbs->msg_recv_notify(cbs->data, &msg);
@@ -240,6 +313,42 @@ int hdmi_cec_isr(void *input)
 	}
 
 	return rc;
+}
+
+void hdmi_cec_device_suspend(void *input, bool suspend)
+{
+	struct hdmi_cec_ctrl *cec_ctrl = (struct hdmi_cec_ctrl *)input;
+
+	if (!cec_ctrl) {
+		DEV_WARN("%s: HDMI CEC HW module not initialized.\n", __func__);
+		return;
+	}
+
+	cec_ctrl->cec_device_suspend = suspend;
+}
+
+bool hdmi_cec_is_wakeup_en(void *input)
+{
+	struct hdmi_cec_ctrl *cec_ctrl = (struct hdmi_cec_ctrl *)input;
+
+	if (!cec_ctrl) {
+		DEV_WARN("%s: HDMI CEC HW module not initialized.\n", __func__);
+		return 0;
+	}
+
+	return cec_ctrl->cec_wakeup_en;
+}
+
+static void hdmi_cec_wakeup_en(void *input, bool enable)
+{
+	struct hdmi_cec_ctrl *cec_ctrl = (struct hdmi_cec_ctrl *)input;
+
+	if (!cec_ctrl) {
+		DEV_ERR("%s: Invalid input\n", __func__);
+		return;
+	}
+
+	cec_ctrl->cec_wakeup_en = enable;
 }
 
 static void hdmi_cec_write_logical_addr(void *input, u8 addr)
@@ -367,6 +476,11 @@ void *hdmi_cec_init(struct hdmi_cec_init_data *init_data)
 	ops->wt_logical_addr = hdmi_cec_write_logical_addr;
 	ops->enable = hdmi_cec_enable;
 	ops->data = cec_ctrl;
+	ops->wakeup_en = hdmi_cec_wakeup_en;
+	ops->is_wakeup_en = hdmi_cec_is_wakeup_en;
+	ops->device_suspend = hdmi_cec_device_suspend;
+
+	hdmi_cec_init_input_event(cec_ctrl);
 
 	return cec_ctrl;
 error:
@@ -382,6 +496,9 @@ error:
 void hdmi_cec_deinit(void *data)
 {
 	struct hdmi_cec_ctrl *cec_ctrl = (struct hdmi_cec_ctrl *)data;
+
+	if (cec_ctrl)
+		hdmi_cec_deinit_input_event(cec_ctrl);
 
 	kfree(cec_ctrl);
 }

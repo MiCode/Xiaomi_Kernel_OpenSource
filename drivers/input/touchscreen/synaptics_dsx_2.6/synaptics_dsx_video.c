@@ -37,7 +37,7 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx.h>
+#include <linux/input/synaptics_dsx_v2_6.h>
 #include "synaptics_dsx_core.h"
 
 #define SYSFS_FOLDER_NAME "video"

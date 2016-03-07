@@ -3209,6 +3209,7 @@ out:
 
 	mmc_cmdq_clk_scaling_stop_busy(host, true, is_dcmd);
 	if (!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state)) {
+		mmc_host_clk_release(host);
 		wake_up(&ctx_info->wait);
 		mmc_put_card(host->card);
 	}

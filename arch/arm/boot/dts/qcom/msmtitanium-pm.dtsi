@@ -285,6 +285,7 @@
 		qcom,num-mpm-irqs = <96>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
 			<58 168>,   /* qusb2phy_dmse_hv -> hs_phy_irq*/
+			<49 166>,   /* qusb2phy_dpse_hv -> usb30_pwr_evnt_irq */
 			<37 252>,   /* qmp_usb3_lfps_rxterm_irq -> ss_phy_irq */
 			<53 104>, /* mdss_irq */
 			<88 222>, /* ee0_krait_hlos_spmi_periph_irq */
@@ -343,7 +344,6 @@
 			<0xff 153>, /* smmu_bus_intr[58] */
 			<0xff 155>, /* sdc1_irq(0) */
 			<0xff 157>, /* sdc2_irq(0) */
-			<0xff 166>, /* usb30_power_event_irq */
 			<0xff 167>, /* usb30_bam_irq[0] */
 			<0xff 170>, /* sdc1_pwr_cmd_irq */
 			<0xff 172>, /* usb30_ctrl_irq[0] */
@@ -374,7 +374,9 @@
 			<0xff 205>, /* rpm_ipc(25) */
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
+			<0xff 212>, /* lpass_slimbus_bam_ee1_irq */
 			<0xff 215>, /* o_bimc_intr[0] */
+			<0xff 231>, /* arm-smmu global fault */
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdc2_pwr_cmd_irq */

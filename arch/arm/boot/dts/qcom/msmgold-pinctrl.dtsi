@@ -1072,6 +1072,42 @@
 			};
 		};
 
+		pmx_rd_nfc_int {
+			/*qcom,pins = <&gp 17>;*/
+			pins = "gpio17";
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_nfc_int";
+
+			nfc_int_active: active {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+
+			nfc_int_suspend: suspend {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_nfc_reset {
+			/*qcom,pins = <&gp 16>;*/
+			pins = "gpio16";
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_nfc_disable";
+
+			nfc_disable_active: active {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+
+			nfc_disable_suspend: suspend {
+				drive-strength = <6>;
+				bias-disable;
+			};
+		};
+
 		tlmm_gpio_key {
 			gpio_key_active: gpio_key_active {
 				mux {
