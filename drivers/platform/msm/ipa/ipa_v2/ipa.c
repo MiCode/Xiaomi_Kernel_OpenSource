@@ -1897,6 +1897,9 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 
 	/* Disable AGGR on IPA->Q6 pipes */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		ep_idx = ipa2_get_ep_mapping(client_idx);
+		if (ep_idx == -1)
+			continue;
 		if (IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client_idx) ||
 			IPA_CLIENT_IS_Q6_ZIP_CONS(client_idx)) {
 			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
@@ -1906,8 +1909,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 				BUG();
 			}
 
-			ipa_q6_disable_agg_reg(reg_write,
-					       ipa2_get_ep_mapping(client_idx));
+			ipa_q6_disable_agg_reg(reg_write, ep_idx);
 
 			desc[num_descs].opcode = IPA_REGISTER_WRITE;
 			desc[num_descs].pyld = reg_write;
