@@ -23,9 +23,6 @@
 #include "wmi.h"
 #include "boot_loader.h"
 
-#define WAIT_FOR_DISCONNECT_TIMEOUT_MS 2000
-#define WAIT_FOR_DISCONNECT_INTERVAL_MS 10
-
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, S_IRUGO);
 MODULE_PARM_DESC(debug_fw, " do not perform card reset. For FW debug");
@@ -437,6 +434,9 @@ int wil_priv_init(struct wil6210_priv *wil)
 	memset(wil->sta, 0, sizeof(wil->sta));
 	for (i = 0; i < WIL6210_MAX_CID; i++)
 		spin_lock_init(&wil->sta[i].tid_rx_lock);
+
+	for (i = 0; i < WIL6210_MAX_TX_RINGS; i++)
+		spin_lock_init(&wil->vring_tx_data[i].lock);
 
 	mutex_init(&wil->mutex);
 	mutex_init(&wil->wmi_mutex);
@@ -939,8 +939,7 @@ int wil_up(struct wil6210_priv *wil)
 
 int __wil_down(struct wil6210_priv *wil)
 {
-	int iter = WAIT_FOR_DISCONNECT_TIMEOUT_MS /
-			WAIT_FOR_DISCONNECT_INTERVAL_MS;
+	int rc;
 
 	WARN_ON(!mutex_is_locked(&wil->mutex));
 
@@ -964,22 +963,16 @@ int __wil_down(struct wil6210_priv *wil)
 	}
 
 	if (test_bit(wil_status_fwconnected, wil->status) ||
-	    test_bit(wil_status_fwconnecting, wil->status))
-		wmi_send(wil, WMI_DISCONNECT_CMDID, NULL, 0);
+	    test_bit(wil_status_fwconnecting, wil->status)) {
 
-	/* make sure wil is idle (not connected) */
-	mutex_unlock(&wil->mutex);
-	while (iter--) {
-		int idle = !test_bit(wil_status_fwconnected, wil->status) &&
-			   !test_bit(wil_status_fwconnecting, wil->status);
-		if (idle)
-			break;
-		msleep(WAIT_FOR_DISCONNECT_INTERVAL_MS);
+		mutex_unlock(&wil->mutex);
+		rc = wmi_call(wil, WMI_DISCONNECT_CMDID, NULL, 0,
+			      WMI_DISCONNECT_EVENTID, NULL, 0,
+			      WIL6210_DISCONNECT_TO_MS);
+		mutex_lock(&wil->mutex);
+		if (rc)
+			wil_err(wil, "timeout waiting for disconnect\n");
 	}
-	mutex_lock(&wil->mutex);
-
-	if (iter < 0)
-		wil_err(wil, "timeout waiting for idle FW/HW\n");
 
 	wil_reset(wil, false);
 
