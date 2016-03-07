@@ -638,9 +638,8 @@ static void ops_uninit(void *handle)
 	ops_suspend(ctx);
 }
 
-static int ops_notify_crash(void *handle)
+static int msm_11ad_notify_crash(struct msm11ad_ctx *ctx)
 {
-	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
 	int rc;
 
 	if (ctx->subsys) {
@@ -655,6 +654,23 @@ static int ops_notify_crash(void *handle)
 	}
 
 	return 0;
+}
+
+static int ops_notify(void *handle, enum wil_platform_event evt)
+{
+	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
+	int rc = 0;
+
+	switch (evt) {
+	case WIL_PLATFORM_EVT_FW_CRASH:
+		rc = msm_11ad_notify_crash(ctx);
+		break;
+	default:
+		pr_debug("%s: Unhandled event %d\n", __func__, evt);
+		break;
+	}
+
+	return rc;
 }
 
 void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
@@ -695,7 +711,7 @@ void *msm_11ad_dev_init(struct device *dev, struct wil_platform_ops *ops,
 	ops->suspend = ops_suspend;
 	ops->resume = ops_resume;
 	ops->uninit = ops_uninit;
-	ops->notify_crash = ops_notify_crash;
+	ops->notify = ops_notify;
 
 	return ctx;
 }
