@@ -250,6 +250,43 @@ static int32_t msm_vfe47_init_dt_parms(struct vfe_device *vfe_dev,
 	return 0;
 }
 
+static enum cam_ahb_clk_vote msm_isp47_get_cam_clk_vote(
+	 enum msm_vfe_ahb_clk_vote vote)
+{
+	switch (vote) {
+	case MSM_ISP_CAMERA_AHB_SVS_VOTE:
+		return CAM_AHB_SVS_VOTE;
+	case MSM_ISP_CAMERA_AHB_TURBO_VOTE:
+		return CAM_AHB_TURBO_VOTE;
+	case MSM_ISP_CAMERA_AHB_NOMINAL_VOTE:
+		return CAM_AHB_NOMINAL_VOTE;
+	case MSM_ISP_CAMERA_AHB_SUSPEND_VOTE:
+		return CAM_AHB_SUSPEND_VOTE;
+	}
+	return 0;
+}
+
+static int msm_isp47_ahb_clk_cfg(struct vfe_device *vfe_dev,
+			struct msm_isp_ahb_clk_cfg *ahb_cfg)
+{
+	int rc = 0;
+	enum cam_ahb_clk_vote vote;
+
+	vote = msm_isp47_get_cam_clk_vote(ahb_cfg->vote);
+
+	if (vote && vfe_dev->ahb_vote != vote) {
+		rc = cam_config_ahb_clk(NULL, 0,
+			(ISP_VFE0 == vfe_dev->pdev->id ?
+			CAM_AHB_CLIENT_VFE0 : CAM_AHB_CLIENT_VFE1), vote);
+		if (rc)
+			pr_err("%s: failed to set ahb vote to %x\n",
+				__func__, vote);
+		else
+			vfe_dev->ahb_vote = vote;
+	}
+	return rc;
+}
+
 int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 {
 	int rc = -1;
@@ -265,6 +302,7 @@ int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 		pr_err("%s: failed to vote for AHB\n", __func__);
 		goto ahb_vote_fail;
 	}
+	vfe_dev->ahb_vote = CAM_AHB_SVS_VOTE;
 
 	rc = vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(
 								vfe_dev, 1);
@@ -292,6 +330,7 @@ clk_enable_failed:
 enable_regulators_failed:
 	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
+	vfe_dev->ahb_vote = CAM_AHB_SUSPEND_VOTE;
 ahb_vote_fail:
 	return rc;
 }
@@ -324,6 +363,7 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 
 	if (cam_config_ahb_clk(NULL, 0, id, CAM_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to vote for AHB\n", __func__);
+	 vfe_dev->ahb_vote = CAM_AHB_SUSPEND_VOTE;
 }
 
 void msm_vfe47_init_hardware_reg(struct vfe_device *vfe_dev)
@@ -2639,6 +2679,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.process_error_status = msm_vfe47_process_error_status,
 			.is_module_cfg_lock_needed =
 				msm_vfe47_is_module_cfg_lock_needed,
+			.ahb_clk_cfg = msm_isp47_ahb_clk_cfg,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,

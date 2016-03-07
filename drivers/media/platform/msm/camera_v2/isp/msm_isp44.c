@@ -1897,6 +1897,7 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.process_error_status = msm_vfe44_process_error_status,
 			.is_module_cfg_lock_needed =
 				msm_vfe44_is_module_cfg_lock_needed,
+			.ahb_clk_cfg = NULL,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe44_get_stats_idx,
