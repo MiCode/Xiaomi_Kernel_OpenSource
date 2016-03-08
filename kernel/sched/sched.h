@@ -358,6 +358,11 @@ struct sched_cluster {
 	 * max_possible_freq = maximum supported by hardware
 	 */
 	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
+	/*
+	 * cpu_cycle_max_scale_factor represents number of cycles per NSEC at
+	 * CPU's fmax.
+	 */
+	u32 cpu_cycle_max_scale_factor;
 	bool freq_init_done;
 	int dstate, dstate_wakeup_latency, dstate_wakeup_energy;
 	unsigned int static_cluster_pwr_cost;
@@ -1028,6 +1033,16 @@ static inline int same_cluster(int src_cpu, int dst_cpu)
 static inline int cpu_max_power_cost(int cpu)
 {
 	return cpu_rq(cpu)->cluster->max_power_cost;
+}
+
+static inline int cpu_cycle_max_scale_factor(int cpu)
+{
+	return cpu_rq(cpu)->cluster->cpu_cycle_max_scale_factor;
+}
+
+static inline u32 cpu_cycles_to_freq(int cpu, u64 cycles, u32 period)
+{
+	return div64_u64(cycles * cpu_cycle_max_scale_factor(cpu), period);
 }
 
 static inline bool hmp_capable(void)

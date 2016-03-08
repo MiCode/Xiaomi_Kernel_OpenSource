@@ -4153,6 +4153,7 @@ void init_new_task_load(struct task_struct *p)
 
 	p->init_load_pct = 0;
 	memset(&p->ravg, 0, sizeof(struct ravg));
+	p->cpu_cycles = 0;
 	p->se.avg.decay_count	= 0;
 	rcu_assign_pointer(p->grp, NULL);
 	INIT_LIST_HEAD(&p->grp_list);

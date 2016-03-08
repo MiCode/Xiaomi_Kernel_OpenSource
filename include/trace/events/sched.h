@@ -206,7 +206,6 @@ DECLARE_EVENT_CLASS(sched_cpu_load,
 		__field(unsigned int, capacity			)
 		__field(	 u64, cumulative_runnable_avg	)
 		__field(	 u64, irqload			)
-		__field(unsigned int, cur_freq			)
 		__field(unsigned int, max_freq			)
 		__field(unsigned int, power_cost		)
 		__field(	 int, cstate			)
@@ -223,7 +222,6 @@ DECLARE_EVENT_CLASS(sched_cpu_load,
 		__entry->capacity		= cpu_capacity(rq->cpu);
 		__entry->cumulative_runnable_avg = rq->hmp_stats.cumulative_runnable_avg;
 		__entry->irqload		= irqload;
-		__entry->cur_freq		= cpu_cur_freq(rq->cpu);
 		__entry->max_freq		= cpu_max_freq(rq->cpu);
 		__entry->power_cost		= power_cost;
 		__entry->cstate			= rq->cstate;
@@ -231,10 +229,10 @@ DECLARE_EVENT_CLASS(sched_cpu_load,
 		__entry->temp			= temp;
 	),
 
-	TP_printk("cpu %u idle %d nr_run %u nr_big %u lsf %u capacity %u cr_avg %llu irqload %llu fcur %u fmax %u power_cost %u cstate %d dstate %d temp %d",
+	TP_printk("cpu %u idle %d nr_run %u nr_big %u lsf %u capacity %u cr_avg %llu irqload %llu fmax %u power_cost %u cstate %d dstate %d temp %d",
 	__entry->cpu, __entry->idle, __entry->nr_running, __entry->nr_big_tasks,
 	__entry->load_scale_factor, __entry->capacity,
-	__entry->cumulative_runnable_avg, __entry->irqload, __entry->cur_freq,
+	__entry->cumulative_runnable_avg, __entry->irqload,
 	__entry->max_freq, __entry->power_cost, __entry->cstate,
 	__entry->dstate, __entry->temp)
 );
@@ -274,9 +272,9 @@ TRACE_EVENT(sched_set_boost,
 TRACE_EVENT(sched_update_task_ravg,
 
 	TP_PROTO(struct task_struct *p, struct rq *rq, enum task_event evt,
-						u64 wallclock, u64 irqtime),
+		 u64 wallclock, u64 irqtime, u32 cycles, u32 exec_time),
 
-	TP_ARGS(p, rq, evt, wallclock, irqtime),
+	TP_ARGS(p, rq, evt, wallclock, irqtime, cycles, exec_time),
 
 	TP_STRUCT__entry(
 		__array(	char,	comm,   TASK_COMM_LEN	)
@@ -312,7 +310,8 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->evt            = evt;
 		__entry->cpu            = rq->cpu;
 		__entry->cur_pid        = rq->curr->pid;
-		__entry->cur_freq       = cpu_cur_freq(rq->cpu);
+		__entry->cur_freq       = cpu_cycles_to_freq(rq->cpu, cycles,
+							     exec_time);
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->pid            = p->pid;
 		__entry->mark_start     = p->ravg.mark_start;
@@ -1194,6 +1193,37 @@ TRACE_EVENT(sched_get_nr_running_avg,
 	TP_printk("avg=%d big_avg=%d iowait_avg=%d",
 		__entry->avg, __entry->big_avg, __entry->iowait_avg)
 );
+
+TRACE_EVENT(sched_get_task_cpu_cycles,
+
+	TP_PROTO(int cpu, int event, u64 cycles, u32 exec_time),
+
+	TP_ARGS(cpu, event, cycles, exec_time),
+
+	TP_STRUCT__entry(
+		__field(int,		cpu		)
+		__field(int,		event		)
+		__field(u64,		cycles		)
+		__field(u64,		exec_time	)
+		__field(u32,		freq		)
+		__field(u32,		legacy_freq	)
+	),
+
+	TP_fast_assign(
+		__entry->cpu 		= cpu;
+		__entry->event 		= event;
+		__entry->cycles 	= cycles;
+		__entry->exec_time 	= exec_time;
+		__entry->freq 		= cpu_cycles_to_freq(cpu, cycles,
+							     exec_time);
+		__entry->legacy_freq 	= cpu_cur_freq(cpu);
+	),
+
+	TP_printk("cpu=%d event=%d cycles=%llu exec_time=%llu freq=%u legacy_freq=%u",
+		  __entry->cpu, __entry->event, __entry->cycles,
+		  __entry->exec_time, __entry->freq, __entry->legacy_freq)
+);
+
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */
