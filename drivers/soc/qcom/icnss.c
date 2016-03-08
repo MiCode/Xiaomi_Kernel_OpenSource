@@ -85,9 +85,9 @@ static struct {
 	struct work_struct qmi_event_work;
 	struct work_struct qmi_recv_msg_work;
 	struct workqueue_struct *qmi_event_wq;
-	phys_addr_t msa_phys;
+	phys_addr_t msa_pa;
 	uint32_t msa_mem_size;
-	void *msa_addr;
+	void *msa_va;
 	uint32_t state;
 	struct wlfw_rf_chip_info_s_v01 chip_info;
 	struct wlfw_rf_board_info_s_v01 board_info;
@@ -192,7 +192,7 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
-	req.msa_addr = penv->msa_phys;
+	req.msa_addr = penv->msa_pa;
 	req.size = penv->msa_mem_size;
 
 	req_desc.max_msg_len = WLFW_MSA_INFO_REQ_MSG_V01_MAX_MSG_LEN;
@@ -629,48 +629,39 @@ static int icnss_qmi_event_server_arrive(void *data)
 	if (ret < 0) {
 		pr_err("%s: Failed to send indication message: %d\n",
 		       __func__, ret);
-		goto out;
+		goto fail;
 	}
 
-	if (penv->msa_mem_size) {
-		penv->msa_addr = dma_alloc_coherent(&penv->pdev->dev,
-				    penv->msa_mem_size, &penv->msa_phys,
-				    GFP_KERNEL);
-
-		pr_debug("%s: MSA addr: %p, MSA phys: %pa\n", __func__,
-			penv->msa_addr, &penv->msa_phys);
-
-		if (penv->msa_addr) {
-			ret = wlfw_msa_mem_info_send_sync_msg();
-			if (ret < 0) {
-				pr_err("%s: Failed to send MSA info: %d\n",
-				       __func__, ret);
-				goto out;
-			}
-			ret = wlfw_msa_ready_send_sync_msg();
-			if (ret < 0) {
-				pr_err("%s: Failed to send MSA ready : %d\n",
-				       __func__, ret);
-				goto out;
-			}
+	if (penv->msa_va) {
+		ret = wlfw_msa_mem_info_send_sync_msg();
+		if (ret < 0) {
+			pr_err("%s: Failed to send MSA info: %d\n",
+			       __func__, ret);
+			goto fail;
 		}
+		ret = wlfw_msa_ready_send_sync_msg();
+		if (ret < 0) {
+			pr_err("%s: Failed to send MSA ready : %d\n",
+			       __func__, ret);
+			goto fail;
+		}
+	} else {
+		pr_err("%s: Invalid MSA address\n", __func__);
+		ret = -EINVAL;
+		goto fail;
 	}
 
 	ret = wlfw_cap_send_sync_msg();
 	if (ret < 0) {
 		pr_err("%s: Failed to get capability: %d\n",
 		       __func__, ret);
-		goto out;
+		goto fail;
 	}
 	return ret;
 fail:
 	qmi_handle_destroy(penv->wlfw_clnt);
 	penv->wlfw_clnt = NULL;
 out:
-	if (penv->msa_addr) {
-		dma_free_coherent(&penv->pdev->dev, penv->msa_mem_size,
-				  penv->msa_addr, penv->msa_phys);
-	}
 	ICNSS_ASSERT(0);
 	return ret;
 }
@@ -683,10 +674,7 @@ static int icnss_qmi_event_server_exit(void *data)
 	pr_info("%s: QMI Service Disconnected\n", __func__);
 
 	qmi_handle_destroy(penv->wlfw_clnt);
-	if (penv->msa_addr) {
-		dma_free_coherent(&penv->pdev->dev, penv->msa_mem_size,
-				  penv->msa_addr, penv->msa_phys);
-	}
+
 	penv->state = 0;
 	penv->wlfw_clnt = NULL;
 
@@ -1136,7 +1124,6 @@ static int icnss_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i;
 	struct device *dev = &pdev->dev;
-	u32 msa_mem_size = 0;
 
 	if (penv)
 		return -EEXIST;
@@ -1173,10 +1160,22 @@ static int icnss_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_read_u32(dev->of_node, "qcom,wlan-msa-memory",
-				 &msa_mem_size) == 0) {
-		penv->msa_mem_size = msa_mem_size;
+				 &penv->msa_mem_size) == 0) {
+		if (penv->msa_mem_size) {
+			penv->msa_va = dma_alloc_coherent(&pdev->dev,
+							  penv->msa_mem_size,
+							  &penv->msa_pa,
+							  GFP_KERNEL);
+			if (!penv->msa_va) {
+				pr_err("%s: DMA alloc failed\n", __func__);
+				ret = -EINVAL;
+				goto out;
+			}
+			pr_debug("%s: MAS va: %p, MSA pa: %pa\n",
+				 __func__, penv->msa_va, &penv->msa_pa);
+		}
 	} else {
-		pr_err("icnss: Fail to get MSA Memory Size\n");
+		pr_err("%s: Fail to get MSA Memory Size\n", __func__);
 		ret = -ENODEV;
 		goto out;
 	}
@@ -1188,7 +1187,7 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!penv->qmi_event_wq) {
 		pr_err("%s: workqueue creation failed\n", __func__);
 		ret = -EFAULT;
-		goto out;
+		goto err_workqueue;
 	}
 
 	INIT_WORK(&penv->qmi_event_work, icnss_qmi_wlfw_event_work);
@@ -1201,11 +1200,20 @@ static int icnss_probe(struct platform_device *pdev)
 					      &wlfw_clnt_nb);
 	if (ret < 0) {
 		pr_err("%s: notifier register failed\n", __func__);
-		destroy_workqueue(penv->qmi_event_wq);
-		goto out;
+		goto err_qmi;
 	}
 
 	pr_debug("icnss: Platform driver probed successfully\n");
+
+	return ret;
+
+err_qmi:
+	if (penv->qmi_event_wq)
+		destroy_workqueue(penv->qmi_event_wq);
+err_workqueue:
+	if (penv->msa_va)
+		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
+				  penv->msa_va, penv->msa_pa);
 out:
 	return ret;
 }
@@ -1218,6 +1226,9 @@ static int icnss_remove(struct platform_device *pdev)
 					  &wlfw_clnt_nb);
 	if (penv->qmi_event_wq)
 		destroy_workqueue(penv->qmi_event_wq);
+	if (penv->msa_va)
+		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
+				  penv->msa_va, penv->msa_pa);
 
 	return 0;
 }
