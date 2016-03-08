@@ -38,6 +38,9 @@
 		qcom,max-mixer-width = <2560>;
 		qcom,max-pipe-width = <2560>;
 
+		qcom,max-dest-scaler-input-width = <2048>;
+		qcom,max-dest-scaler-output-width = <2560>;
+
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
 		qcom,vbif-settings = <0x00ac 0x00000040>;
