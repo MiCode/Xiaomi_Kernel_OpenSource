@@ -446,7 +446,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 	if (map->flags == ADSP_MMAP_HEAP_ADDR) {
 		DEFINE_DMA_ATTRS(attrs);
 
-		if (me->dev != NULL) {
+		if (me->dev == NULL) {
 			pr_err("failed to free remote heap allocation\n");
 			return;
 		}
