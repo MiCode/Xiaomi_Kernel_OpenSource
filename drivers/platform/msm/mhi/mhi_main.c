@@ -1499,7 +1499,7 @@ int mhi_poll_inbound(struct mhi_client_handle *client_handle,
 	bb_ctxt = &mhi_dev_ctxt->chan_bb_list[chan];
 
 	mutex_lock(chan_mutex);
-	if (local_chan_ctxt->rp != local_chan_ctxt->ack_rp) {
+	if (bb_ctxt->rp != bb_ctxt->ack_rp) {
 		pending_trb = (struct mhi_tx_pkt *)(local_chan_ctxt->ack_rp);
 		result->flags = pending_trb->info;
 		bb = bb_ctxt->ack_rp;
