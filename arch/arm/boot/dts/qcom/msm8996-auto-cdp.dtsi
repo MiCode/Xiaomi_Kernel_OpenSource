@@ -11,7 +11,7 @@
  */
 
 #include "msm8996-pinctrl.dtsi"
-#include "msm8996-camera-sensor-adp.dtsi"
+#include "msm8996-camera-sensor-cdp.dtsi"
 #include "msm8996-wsa881x.dtsi"
 
 / {
@@ -26,6 +26,10 @@
 		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
 		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
 	};
+};
+
+&eeprom0 {
+	status = "disabled";
 };
 
 &ufs_ice {
