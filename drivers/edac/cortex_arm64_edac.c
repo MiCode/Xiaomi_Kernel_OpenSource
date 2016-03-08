@@ -605,7 +605,7 @@ static irqreturn_t arm64_cci_handler(int irq, void *drvdata)
 
 	return IRQ_HANDLED;
 }
-
+#ifndef CONFIG_EDAC_CORTEX_ARM64_DBE_IRQ_ONLY
 static void arm64_sbe_handler(struct perf_event *event,
 			      struct perf_sample_data *data,
 			      struct pt_regs *regs)
@@ -620,6 +620,7 @@ static void arm64_sbe_handler(struct perf_event *event,
 	WARN_ON(!panic_on_ce);
 	arm64_erp_local_handler(&errdata);
 }
+#endif
 
 static int request_erp_irq(struct platform_device *pdev, const char *propname,
 			   const char *desc, irq_handler_t handler,
