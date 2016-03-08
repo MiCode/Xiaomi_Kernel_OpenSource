@@ -122,6 +122,14 @@
 		vddcx-supply = <&gdsc_gpu_cx>;
 		vdd-supply = <&gdsc_gpu_gx>;
 
+		/* Trace bus */
+		coresight-name = "coresight-gfx";
+		port {
+			gfx_out_funnel_in1: endpoint {
+				remote-endpoint = <&funnel_in1_in_gfx>;
+			};
+		};
+
 		/* GPU Mempools */
 		qcom,gpu-mempools {
 			#address-cells= <1>;

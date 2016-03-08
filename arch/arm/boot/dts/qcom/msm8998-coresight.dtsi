@@ -277,6 +277,14 @@
 					    <&funnel_apss_merg_out_funnel_in1>;
 				};
 			};
+			port@6 {
+				reg = <7>;
+				funnel_in1_in_gfx: endpoint {
+					slave-mode;
+					remote-endpoint =
+					    <&gfx_out_funnel_in1>;
+				};
+			};
 		};
 	};
 
