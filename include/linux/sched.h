@@ -1470,6 +1470,7 @@ struct task_struct {
 	u64 last_switch_out_ts;
 	struct related_thread_group *grp;
 	struct list_head grp_list;
+	u64 cpu_cycles;
 #endif
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;
@@ -3357,5 +3358,11 @@ static inline unsigned long rlimit_max(unsigned int limit)
 {
 	return task_rlimit_max(current, limit);
 }
+
+struct cpu_cycle_counter_cb {
+	u64 (*get_cpu_cycle_counter)(int cpu);
+	u32 (*get_cpu_cycles_max_per_us)(int cpu);
+};
+int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
 
 #endif

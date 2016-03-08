@@ -4808,6 +4808,7 @@ void init_new_task_load(struct task_struct *p)
 	rcu_assign_pointer(p->grp, NULL);
 	INIT_LIST_HEAD(&p->grp_list);
 	memset(&p->ravg, 0, sizeof(struct ravg));
+	p->cpu_cycles = 0;
 
 	if (init_load_pct) {
 		init_load_pelt = div64_u64((u64)init_load_pct *
