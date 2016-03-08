@@ -297,6 +297,7 @@
 			<0xff 39>,  /* arch_mem_timer */
 			<0xff 40>,  /* qtmr_phy_irq[0] */
 			<0xff 47>,  /* rbif_irq[0] */
+			<0xff 54>,  /* gladiator-error */
 			<0xff 56>,  /* q6_wdog_expired_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
@@ -384,6 +385,7 @@
 			<0xff 260>, /* ipa_irq[0] */
 			<0xff 262>, /* ipa_bam_irq[0] */
 			<0xff 263>, /* ipa_bam_irq[2] */
+			<0xff 264>, /* arm-smmu context fault */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
 			<0xff 273>, /* smmu_bus_intr[18] */
