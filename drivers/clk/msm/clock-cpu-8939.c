@@ -789,7 +789,7 @@ static int clock_a53_probe(struct platform_device *pdev)
 
 static struct of_device_id clock_a53_match_table[] = {
 	{.compatible = "qcom,cpu-clock-8939"},
-	{.compatible = "qcom,cpu-clock-gold"},
+	{.compatible = "qcom,cpu-clock-8917"},
 	{}
 };
 
