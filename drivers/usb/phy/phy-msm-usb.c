@@ -1690,12 +1690,14 @@ phcd_retry:
 	atomic_set(&motg->in_lpm, 1);
 	wake_up(&motg->host_suspend_wait);
 
-	/* Enable ASYNC IRQ during LPM */
-	enable_irq(motg->async_irq);
+	if (host_bus_suspend || device_bus_suspend) {
+		/* Enable ASYNC IRQ during LPM */
+		enable_irq(motg->async_irq);
+		enable_irq(motg->irq);
+	}
 	if (motg->phy_irq)
 		enable_irq(motg->phy_irq);
 
-	enable_irq(motg->irq);
 	wake_unlock(&motg->wlock);
 
 	dev_dbg(phy->dev, "LPM caps = %lu flags = %lu\n",
@@ -1744,7 +1746,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 
 	msm_bam_notify_lpm_resume(CI_CTRL);
 
-	disable_irq(motg->irq);
+	if (motg->host_bus_suspend || motg->device_bus_suspend)
+		disable_irq(motg->irq);
 	wake_lock(&motg->wlock);
 
 	/*
@@ -1903,7 +1906,8 @@ skip_phy_resume:
 	enable_irq(motg->irq);
 
 	/* Enable ASYNC_IRQ only during LPM */
-	disable_irq(motg->async_irq);
+	if (motg->host_bus_suspend || motg->device_bus_suspend)
+		disable_irq(motg->async_irq);
 
 	if (motg->phy_irq_pending) {
 		motg->phy_irq_pending = false;
