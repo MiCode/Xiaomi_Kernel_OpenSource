@@ -514,6 +514,49 @@
 		};
 	};
 
+	pinctrl@01010000 {
+		pcie2 {
+			pcie2_perst_default: pcie2_perst_default {
+				mux {
+					pins = "gpio90";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio90";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			pcie2_wake_default: pcie2_wake_default {
+				mux {
+					pins = "gpio54";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio54";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			pcie2_wake_sleep: pcie2_wake_sleep {
+				mux {
+					pins = "gpio54";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio54";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+	};
+
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
 		label = "synaptics_dsx";
@@ -901,6 +944,9 @@
 };
 
 &pcie2 {
+	perst-gpio = <&tlmm 90 0>;
+	wake-gpio = <&tlmm 54 0>;
+
 	/delete-property/ qcom,ep-wakeirq;
 };
 
