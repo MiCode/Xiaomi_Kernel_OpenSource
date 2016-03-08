@@ -67,6 +67,7 @@
 
 phys_addr_t __fdt_pointer __initdata;
 
+const char *machine_name;
 /*
  * Standard memory resources
  */
@@ -193,7 +194,9 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 			cpu_relax();
 	}
 
-	dump_stack_set_arch_desc("%s (DT)", of_flat_dt_get_machine_name());
+	machine_name = of_flat_dt_get_machine_name();
+
+	dump_stack_set_arch_desc("%s (DT)", machine_name);
 }
 
 static void __init request_standard_resources(void)
