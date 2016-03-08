@@ -3567,8 +3567,12 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 	}
 
 	ep->gsi_evt_ring_hdl = ~0;
-	/* allocate event ring for all interrupt-policy pipes */
-	if (ep->sys->policy != IPA_POLICY_NOINTR_MODE) {
+	/*
+	 * allocate event ring for all interrupt-policy
+	 * pipes and IPA consumers pipes
+	 */
+	if (ep->sys->policy != IPA_POLICY_NOINTR_MODE ||
+	     IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 		gsi_evt_ring_props.intf = GSI_EVT_CHTYPE_GPI_EV;
 		gsi_evt_ring_props.intr = GSI_INTR_IRQ;
