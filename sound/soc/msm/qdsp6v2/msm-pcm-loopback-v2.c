@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
 
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,12 @@
 static const DECLARE_TLV_DB_LINEAR(loopback_rx_vol_gain, 0,
 				LOOPBACK_VOL_MAX_STEPS);
 
+enum {
+	LOOPBACK_SESSION_1,
+	LOOPBACK_SESSION_2,
+	LOOPBACK_SESSION_MAX,
+};
+
 struct msm_pcm_loopback {
 	struct snd_pcm_substream *playback_substream;
 	struct snd_pcm_substream *capture_substream;
@@ -49,6 +55,10 @@ struct msm_pcm_loopback {
 	int session_id;
 	struct audio_client *audio_client;
 	int volume;
+};
+
+struct loopback_info {
+	struct msm_pcm_loopback loop[LOOPBACK_SESSION_MAX];
 };
 
 static void stop_pcm(struct msm_pcm_loopback *pcm);
@@ -116,13 +126,22 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(substream);
 	struct msm_pcm_loopback *pcm;
+	struct loopback_info *loopback_info;
 	int ret = 0;
 	uint16_t bits_per_sample = 16;
 	struct msm_pcm_routing_evt event;
 	struct asm_session_mtmx_strtr_param_window_v2_t asm_mtmx_strtr_window;
 	uint32_t param_id;
 
-	pcm = dev_get_drvdata(rtd->platform->dev);
+	dev_dbg(rtd->platform->dev, "%s: stream name: %s\n", __func__,
+			rtd->dai_link->stream_name);
+
+	loopback_info = dev_get_drvdata(rtd->platform->dev);
+	if (!strcmp(rtd->dai_link->stream_name, "MultiMedia6"))
+		pcm = &loopback_info->loop[LOOPBACK_SESSION_1];
+	else
+		pcm = &loopback_info->loop[LOOPBACK_SESSION_2];
+
 	mutex_lock(&pcm->lock);
 
 	pcm->volume = 0x2000;
@@ -368,32 +387,35 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static int msm_pcm_probe(struct platform_device *pdev)
 {
-	struct msm_pcm_loopback *pcm;
-
+	struct loopback_info *loopback;
+	int i = 0;
 
 	dev_dbg(&pdev->dev, "%s: dev name %s\n",
 		__func__, dev_name(&pdev->dev));
 
-	pcm = kzalloc(sizeof(struct msm_pcm_loopback), GFP_KERNEL);
-	if (!pcm) {
-		dev_err(&pdev->dev, "%s Failed to allocate memory for pcm\n",
-			__func__);
+	loopback = kzalloc(sizeof(struct loopback_info), GFP_KERNEL);
+	if (!loopback)
 		return -ENOMEM;
-	} else {
-		mutex_init(&pcm->lock);
-		dev_set_drvdata(&pdev->dev, pcm);
-	}
+
+	for (i = 0; i < LOOPBACK_SESSION_MAX; i++)
+		mutex_init(&loopback->loop[i].lock);
+
+	dev_set_drvdata(&pdev->dev, loopback);
 	return snd_soc_register_platform(&pdev->dev,
 				   &msm_soc_platform);
 }
 
 static int msm_pcm_remove(struct platform_device *pdev)
 {
-	struct msm_pcm_loopback *pcm;
+	struct loopback_info *loopback;
+	int i = 0;
 
-	pcm = dev_get_drvdata(&pdev->dev);
-	mutex_destroy(&pcm->lock);
-	kfree(pcm);
+	loopback = dev_get_drvdata(&pdev->dev);
+	if (loopback) {
+		for (i = 0; i < LOOPBACK_SESSION_MAX; i++)
+			mutex_destroy(&loopback->loop[i].lock);
+		kfree(loopback);
+	}
 
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
