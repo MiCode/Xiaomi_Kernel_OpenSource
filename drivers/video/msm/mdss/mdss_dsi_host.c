@@ -275,23 +275,11 @@ void mdss_dsi_cmd_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl)
 
 void mdss_dsi_read_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	/* clock must be on */
-	ctrl->shared_data->hw_rev = MIPI_INP(ctrl->ctrl_base);
-}
-
-void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl)
-{
 	if (ctrl->shared_data->hw_rev)
 		return;
 
-	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_CORE_CLK,
-			  MDSS_DSI_CLK_ON);
+	/* clock must be on */
 	ctrl->shared_data->hw_rev = MIPI_INP(ctrl->ctrl_base);
-	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_CORE_CLK,
-			  MDSS_DSI_CLK_OFF);
-
-	pr_debug("%s: ndx=%d hw_rev=%x\n", __func__,
-				ctrl->ndx, ctrl->shared_data->hw_rev);
 }
 
 void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -1506,8 +1494,6 @@ static int mdss_dsi_cmd_dma_tpg_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		return -EINVAL;
 	}
 
-	mdss_dsi_get_hw_revision(ctrl);
-
 	if (ctrl->shared_data->hw_rev < MDSS_DSI_HW_REV_103) {
 		pr_err("CMD DMA TPG not supported for this DSI version\n");
 		return -EINVAL;
@@ -2516,8 +2502,6 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		/* make sure dsi_cmd_mdp is idle */
 		mdss_dsi_cmd_mdp_busy(ctrl);
 	}
-
-	mdss_dsi_get_hw_revision(ctrl);
 
 	/* For DSI versions less than 1.3.0, CMD DMA TPG is not supported */
 	if (req && (ctrl->shared_data->hw_rev < MDSS_DSI_HW_REV_103))
