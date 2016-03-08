@@ -593,7 +593,7 @@ config MSM_GLINK_PKT
 
 config MSM_TZ_SMMU
 	bool "Helper functions for SMMU configuration through TZ"
-	depends on ARCH_MSMTHULIUM || ARCH_MSMTITANIUM
+	depends on ARCH_MSMTHULIUM || ARCH_MSM8953
 	help
 	  Say 'Y' here for targets that need to call into TZ to configure
 	  SMMUs for any reason (for example, for errata workarounds or

@@ -524,9 +524,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Cobalt ID */
 	[292] = {MSM_CPU_COBALT, "MSMCOBALT"},
 
-	/* Titanium ID */
-	[293] = {MSM_CPU_TITANIUM, "MSMTITANIUM"},
-	[304] = {MSM_CPU_TITANIUM, "APQTITANIUM"},
+	/* 8953 ID */
+	[293] = {MSM_CPU_8953, "MSM8953"},
+	[304] = {MSM_CPU_8953, "APQ8953"},
 
 	/* 9607 IDs */
 	[290] = {MSM_CPU_9607, "MDM9607"},
@@ -1149,9 +1149,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 268;
 		strlcpy(dummy_socinfo.build_id, "msm8929 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmtitanium()) {
+	} else if (early_machine_is_msm8953()) {
 		dummy_socinfo.id = 293;
-		strlcpy(dummy_socinfo.build_id, "msmtitanium - ",
+		strlcpy(dummy_socinfo.build_id, "msm8953 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_mdm9607()) {
 		dummy_socinfo.id = 290;

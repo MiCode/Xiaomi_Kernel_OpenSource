@@ -920,7 +920,7 @@ static struct of_device_id tsens_match[] = {
 	{	.compatible = "qcom,mdm9607-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_MDM9607,
 	},
-	{	.compatible = "qcom,msmtitanium-tsens",
+	{	.compatible = "qcom,msm8953-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_NONE,
 	},
 	{	.compatible = "qcom,msm8937-tsens",
@@ -5486,7 +5486,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 		tmdev->tsens_type = TSENS_TYPE2;
 	else if (!strcmp(id->compatible, "qcom,msm8996-tsens"))
 		tmdev->tsens_type = TSENS_TYPE3;
-	else if (!strcmp(id->compatible, "qcom,msmtitanium-tsens") ||
+	else if (!strcmp(id->compatible, "qcom,msm8953-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmcobalt-tsens"))) {
 		tmdev->tsens_type = TSENS_TYPE3;
 		tsens_poll_check = 0;
@@ -5506,7 +5506,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 		(!strcmp(id->compatible, "qcom,msm8996-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8952-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8937-tsens")) ||
-		(!strcmp(id->compatible, "qcom,msmtitanium-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msm8953-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmcobalt-tsens")))
 			tmdev->tsens_valid_status_check = true;
 	}
@@ -5521,7 +5521,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 
 	if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmcobalt-tsens")) ||
-		(!strcmp(id->compatible, "qcom,msmtitanium-tsens"))) {
+		(!strcmp(id->compatible, "qcom,msm8953-tsens"))) {
 		tmdev->tsens_critical_irq =
 				platform_get_irq_byname(pdev,
 						"tsens-critical");

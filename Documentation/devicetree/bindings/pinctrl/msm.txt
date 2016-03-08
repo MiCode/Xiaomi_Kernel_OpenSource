@@ -7,7 +7,7 @@ Required properties:
 	      "qcom,msmgold-pinctrl"
 	       "qcom,mdmcalifornium-pinctrl"
 	      "qcom,msm8952-pinctrl"
-	      "qcom,msmtitanium-pinctrl"
+	      "qcom,msm8953-pinctrl"
 	      "qcom,msm8937-pinctrl"
 	      "qcom,msmcobalt-pinctrl"
 	      "qcom,msm8909-pinctrl"

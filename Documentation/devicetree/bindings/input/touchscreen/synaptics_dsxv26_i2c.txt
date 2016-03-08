@@ -34,8 +34,8 @@ Example:
 			reg = <0x4b>;
 			interrupt-parent = <&tlmm>;
 			interrupts = <65 0x2008>;
-			vdd_ana-supply = <&pmtitanium_l17>;
-			vcc_i2c-supply = <&pmtitanium_l6>;
+			vdd_ana-supply = <&pm8953_l17>;
+			vcc_i2c-supply = <&pm8953_l6>;
 			synaptics,pwr-reg-name = "vdd_ana";
 			synaptics,bus-reg-name = "vcc_i2c";
 			synaptics,irq-gpio = <&tlmm 65 0x2008>;
