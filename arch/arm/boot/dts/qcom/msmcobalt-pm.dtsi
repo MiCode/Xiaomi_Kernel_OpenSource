@@ -233,4 +233,16 @@
 			};
 		};
 	};
+
+	qcom,rpm-stats@200000 {
+		compatible = "qcom,rpm-stats";
+		reg = <0x200000 0x1000>,
+			<0x290014 0x4>,
+			<0x29001c 0x4>;
+		reg-names = "phys_addr_base",
+			"offset_addr",
+			"heap_phys_addrbase";
+		qcom,sleep-stats-version = <2>;
+	};
+
 };
