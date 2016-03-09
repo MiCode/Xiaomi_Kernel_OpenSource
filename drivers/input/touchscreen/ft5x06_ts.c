@@ -50,7 +50,9 @@
 #if defined(CONFIG_FT_SECURE_TOUCH)
 #include <linux/completion.h>
 #include <linux/atomic.h>
+#include <linux/clk.h>
 #include <linux/pm_runtime.h>
+static irqreturn_t ft5x06_ts_interrupt(int irq, void *data);
 #endif
 
 #define FT_DRIVER_VERSION	0x02
@@ -276,6 +278,9 @@ struct ft5x06_ts_data {
 	atomic_t st_pending_irqs;
 	struct completion st_powerdown;
 	struct completion st_irq_processed;
+	bool st_initialized;
+	struct clk *core_clk;
+	struct clk *iface_clk;
 #endif
 };
 
@@ -285,8 +290,26 @@ static int ft5x06_ts_stop(struct device *dev);
 #if defined(CONFIG_FT_SECURE_TOUCH)
 static void ft5x06_secure_touch_init(struct ft5x06_ts_data *data)
 {
+	data->st_initialized = 0;
+
 	init_completion(&data->st_powerdown);
 	init_completion(&data->st_irq_processed);
+
+	/* Get clocks */
+	data->core_clk = devm_clk_get(&data->client->dev, "core_clk");
+	if (IS_ERR(data->core_clk)) {
+		data->core_clk = NULL;
+		dev_warn(&data->client->dev,
+			"%s: core_clk is not defined\n", __func__);
+	}
+
+	data->iface_clk = devm_clk_get(&data->client->dev, "iface_clk");
+	if (IS_ERR(data->iface_clk)) {
+		data->iface_clk = NULL;
+		dev_warn(&data->client->dev,
+			"%s: iface_clk is not defined", __func__);
+	}
+	data->st_initialized = 1;
 }
 
 static void ft5x06_secure_touch_notify(struct ft5x06_ts_data *data)
@@ -324,12 +347,43 @@ static void ft5x06_secure_touch_stop(struct ft5x06_ts_data *data, bool blocking)
 	}
 }
 
+static int ft5x06_clk_prepare_enable(struct ft5x06_ts_data *data)
+{
+	int ret;
+
+	ret = clk_prepare_enable(data->iface_clk);
+	if (ret) {
+		dev_err(&data->client->dev,
+			"error on clk_prepare_enable(iface_clk):%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(data->core_clk);
+	if (ret) {
+		clk_disable_unprepare(data->iface_clk);
+		dev_err(&data->client->dev,
+			"error clk_prepare_enable(core_clk):%d\n", ret);
+	}
+	return ret;
+}
+
+static void ft5x06_clk_disable_unprepare(struct ft5x06_ts_data *data)
+{
+	clk_disable_unprepare(data->core_clk);
+	clk_disable_unprepare(data->iface_clk);
+}
+
 static int ft5x06_bus_get(struct ft5x06_ts_data *data)
 {
 	int retval;
 
 	mutex_lock(&data->ft_clk_io_ctrl_mutex);
 	retval = pm_runtime_get_sync(data->client->adapter->dev.parent);
+	if (retval >= 0 &&  data->core_clk != NULL && data->iface_clk != NULL) {
+		retval = ft5x06_clk_prepare_enable(data);
+		if (retval)
+			pm_runtime_put_sync(data->client->adapter->dev.parent);
+	}
 	mutex_unlock(&data->ft_clk_io_ctrl_mutex);
 	return retval;
 }
@@ -337,6 +391,8 @@ static int ft5x06_bus_get(struct ft5x06_ts_data *data)
 static void ft5x06_bus_put(struct ft5x06_ts_data *data)
 {
 	mutex_lock(&data->ft_clk_io_ctrl_mutex);
+	if (data->core_clk != NULL && data->iface_clk != NULL)
+		ft5x06_clk_disable_unprepare(data);
 	pm_runtime_put_sync(data->client->adapter->dev.parent);
 	mutex_unlock(&data->ft_clk_io_ctrl_mutex);
 }
@@ -374,6 +430,9 @@ static ssize_t ft5x06_secure_touch_enable_store(struct device *dev,
 	if (err != 0)
 		return err;
 
+	if (!data->st_initialized)
+		return -EIO;
+
 	err = count;
 	switch (value) {
 	case 0:
@@ -394,8 +453,7 @@ static ssize_t ft5x06_secure_touch_enable_store(struct device *dev,
 		}
 		synchronize_irq(data->client->irq);
 		if (ft5x06_bus_get(data) < 0) {
-			dev_err(data->client->dev.parent,
-					"focalTech_bus_get failed\n");
+			dev_err(&data->client->dev, "ft5x06_bus_get failed\n");
 			err = -EIO;
 			break;
 		}
@@ -406,8 +464,7 @@ static ssize_t ft5x06_secure_touch_enable_store(struct device *dev,
 		break;
 
 	default:
-		dev_err(data->client->dev.parent,
-				"unsupported value: %lu\n", value);
+		dev_err(&data->client->dev, "unsupported value: %lu\n", value);
 		err = -EINVAL;
 		break;
 	}
