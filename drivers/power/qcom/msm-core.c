@@ -228,7 +228,7 @@ void trigger_cpu_pwr_stats_calc(void)
 	int cpu;
 	static long prev_temp[NR_CPUS];
 	struct cpu_activity_info *cpu_node;
-	long temp;
+	int temp;
 
 	if (disabled)
 		return;
@@ -697,7 +697,7 @@ static int msm_core_tsens_init(struct device_node *node, int cpu)
 	struct device_node *phandle;
 	const char *sensor_type = NULL;
 	struct cpu_activity_info *cpu_node = &activity[cpu];
-	long temp;
+	int temp;
 
 	if (!node)
 		return -ENODEV;
