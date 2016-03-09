@@ -2563,6 +2563,64 @@ static int mmc_resume(struct mmc_host *host)
 	return err;
 }
 
+#define MAX_DEFER_SUSPEND_COUNTER 20
+static bool mmc_process_bkops(struct mmc_host *host)
+{
+	int err = 0;
+	bool is_running = false;
+	u32 status;
+
+	mmc_claim_host(host);
+	if (mmc_card_cmdq(host->card)) {
+		BUG_ON(host->cmdq_ctx.active_reqs);
+
+		err = mmc_cmdq_halt(host, true);
+		if (err) {
+			pr_err("%s: halt: failed: %d\n", __func__, err);
+			goto unhalt;
+		}
+	}
+
+	if (mmc_card_doing_bkops(host->card)) {
+		/* check that manual bkops finished */
+		err = mmc_send_status(host->card, &status);
+		if (err) {
+			pr_err("%s: Get card status fail\n", __func__);
+			goto unhalt;
+		}
+		if (R1_CURRENT_STATE(status) != R1_STATE_PRG) {
+			mmc_card_clr_doing_bkops(host->card);
+			goto unhalt;
+		}
+	} else {
+		mmc_check_bkops(host->card);
+	}
+
+	if (host->card->bkops.needs_bkops &&
+			!mmc_card_support_auto_bkops(host->card))
+		mmc_start_manual_bkops(host->card);
+
+unhalt:
+	if (mmc_card_cmdq(host->card)) {
+		err = mmc_cmdq_halt(host, false);
+		if (err)
+			pr_err("%s: unhalt: failed: %d\n", __func__, err);
+	}
+	mmc_release_host(host);
+
+	if (host->card->bkops.needs_bkops ||
+			mmc_card_doing_bkops(host->card)) {
+		if (host->card->bkops.retry_counter++ <
+				MAX_DEFER_SUSPEND_COUNTER) {
+			host->card->bkops.needs_check = true;
+			is_running = true;
+		} else {
+			host->card->bkops.retry_counter = 0;
+		}
+	}
+	return is_running;
+}
+
 /*
  * Callback for runtime_suspend.
  */
@@ -2573,6 +2631,12 @@ static int mmc_runtime_suspend(struct mmc_host *host)
 
 	if (!(host->caps & MMC_CAP_AGGRESSIVE_PM))
 		return 0;
+
+	if (mmc_process_bkops(host)) {
+		pm_runtime_mark_last_busy(&host->card->dev);
+		pr_debug("%s: defered, need bkops\n", __func__);
+		return -EBUSY;
+	}
 
 	err = _mmc_suspend(host, true);
 	if (err)

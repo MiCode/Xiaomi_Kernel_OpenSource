@@ -1159,6 +1159,8 @@ int mmc_set_auto_bkops(struct mmc_card *card, bool enable)
 			mmc_update_bkops_auto_off(&card->bkops.stats);
 		}
 		card->ext_csd.bkops_en = bkops_en;
+		pr_debug("%s: %s: bkops state %x\n",
+				mmc_hostname(card->host), __func__, bkops_en);
 	}
 out:
 	return ret;
@@ -1178,9 +1180,7 @@ void mmc_check_bkops(struct mmc_card *card)
 
 	BUG_ON(!card);
 
-	if (unlikely(!mmc_card_configured_manual_bkops(card)))
-		return;
-	if (mmc_card_doing_bkops(card) || mmc_card_doing_auto_bkops(card))
+	if (mmc_card_doing_bkops(card))
 		return;
 
 	err = mmc_read_bkops_status(card);
@@ -1190,12 +1190,12 @@ void mmc_check_bkops(struct mmc_card *card)
 		return;
 	}
 
+	card->bkops.needs_check = false;
+
 	mmc_update_bkops_level(&card->bkops.stats,
 				card->ext_csd.raw_bkops_status);
-	if (card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2)
-		return;
 
-	card->bkops.needs_manual = true;
+	card->bkops.needs_bkops = card->ext_csd.raw_bkops_status > 0;
 }
 EXPORT_SYMBOL(mmc_check_bkops);
 
@@ -1226,7 +1226,7 @@ void mmc_start_manual_bkops(struct mmc_card *card)
 	} else {
 		mmc_card_set_doing_bkops(card);
 		mmc_update_bkops_start(&card->bkops.stats);
-		card->bkops.needs_manual = false;
+		card->bkops.needs_bkops = false;
 	}
 }
 EXPORT_SYMBOL(mmc_start_manual_bkops);
