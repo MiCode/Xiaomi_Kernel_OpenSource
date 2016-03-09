@@ -424,6 +424,27 @@
 #define clk_mmss_vmem_maxi_clk			0xb6067889
 #define clk_mmss_debug_mux			0xe646ffda
 
+/* external multimedia clocks */
+#define clk_dsi0pll_byteclk_mux			0xecf2c434
+#define clk_dsi0pll_byteclk_src			0x6f6f740f
+#define clk_dsi0pll_pclk_mux			0x6c9da335
+#define clk_dsi0pll_pclk_src			0x5efd85d4
+#define clk_dsi0pll_pclk_src_mux		0x84b14663
+#define clk_dsi0pll_post_bit_div		0xf46dcf27
+#define clk_dsi0pll_post_vco_div		0x8ee956ff
+#define clk_dsi0pll_bitclk_src			0x36c3c437
+#define clk_dsi0pll_vco_clk			0x15940d40
+
+#define clk_dsi1pll_byteclk_mux			0x14e2f38f
+#define clk_dsi1pll_byteclk_src			0x4b65c298
+#define clk_dsi1pll_pclk_mux			0x4c0518b5
+#define clk_dsi1pll_pclk_src			0xeddcd80e
+#define clk_dsi1pll_pclk_src_mux		0x3651feb3
+#define clk_dsi1pll_post_bit_div		0x712f0260
+#define clk_dsi1pll_post_vco_div		0x623e04de
+#define clk_dsi1pll_bitclk_src			0x13ab045b
+#define clk_dsi1pll_vco_clk			0x99797b50
+
 /* clock_gpu controlled clocks*/
 #define clk_gpucc_xo				0xc4e1a890
 #define clk_gpucc_gpll0				0x0db0e37f
