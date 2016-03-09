@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,7 @@ struct msm_ba_input {
 struct msm_ba_dev {
 	struct mutex dev_cs;
 
+	struct platform_device *pdev;
 	enum ba_dev_state state;
 
 	struct list_head inputs;
