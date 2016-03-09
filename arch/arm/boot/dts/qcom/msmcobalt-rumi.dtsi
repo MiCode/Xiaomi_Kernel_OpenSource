@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "msmcobalt-pinctrl.dtsi"
+
 &uartblsp2dm1 {
 	status = "ok";
 };
