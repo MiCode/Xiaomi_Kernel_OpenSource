@@ -75,7 +75,7 @@
 	lpass_q6_smmu: arm,smmu-lpass_q6@5100000 {
 		status = "ok";
 		compatible = "qcom,smmu-v2";
-		reg = <0x5100000 0x4000>;
+		reg = <0x5100000 0x40000>;
 		#iommu-cells = <1>;
 		qcom,tz-device-id = "LPASS";
 		qcom,register-save;
