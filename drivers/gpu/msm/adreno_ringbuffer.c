@@ -520,7 +520,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (gpudev->preemption_post_ibsubmit &&
 				adreno_is_preemption_enabled(adreno_dev))
-		total_sizedwords += 13;
+		total_sizedwords += 5;
 
 	/*
 	 * a5xx uses 64 bit memory address. pm4 commands that involve read/write
@@ -707,8 +707,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (gpudev->preemption_post_ibsubmit &&
 				adreno_is_preemption_enabled(adreno_dev))
-		ringcmds += gpudev->preemption_post_ibsubmit(adreno_dev,
-					rb, ringcmds, &drawctxt->base);
+		ringcmds += gpudev->preemption_post_ibsubmit(adreno_dev, rb,
+					ringcmds, &drawctxt->base);
 
 	/*
 	 * If we have more ringbuffer commands than space reserved
@@ -860,6 +860,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_cmdbatch *cmdbatch, struct adreno_submit_time *time)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_memobj_node *ib;
 	unsigned int numibs = 0;
 	unsigned int *link;
@@ -978,6 +979,10 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			dwords += 2;
 	}
 
+	if (gpudev->preemption_yield_enable &&
+				adreno_is_preemption_enabled(adreno_dev))
+		dwords += 8;
+
 	link = kzalloc(sizeof(unsigned int) *  dwords, GFP_KERNEL);
 	if (!link) {
 		ret = -ENOMEM;
@@ -1027,6 +1032,10 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			use_preamble = false;
 		}
 	}
+
+	if (gpudev->preemption_yield_enable &&
+				adreno_is_preemption_enabled(adreno_dev))
+		cmds += gpudev->preemption_yield_enable(cmds);
 
 	if (cmdbatch_kernel_profiling) {
 		cmds += _get_alwayson_counter(adreno_dev, cmds,
