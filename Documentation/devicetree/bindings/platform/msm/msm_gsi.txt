@@ -1,0 +1,11 @@
+* Qualcomm Technologies, Inc. GSI driver module
+
+This module enables GSI driver.
+
+Required properties:
+- compatible:		Must be "qcom,msm_gsi"
+
+Example:
+	qcom,msm-gsi {
+		compatible = "qcom,msm_gsi";
+	}

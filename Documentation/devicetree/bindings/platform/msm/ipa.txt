@@ -1,0 +1,150 @@
+Qualcomm Internet Packet Accelerator
+
+Internet Packet Accelerator (IPA) is a programmable protocol
+processor HW block. It is designed to support generic HW processing
+of UL/DL IP packets for various use cases independent of radio technology.
+
+Required properties:
+
+IPA node:
+
+- compatible : "qcom,ipa"
+- reg: Specifies the base physical addresses and the sizes of the IPA
+       registers.
+- reg-names: "ipa-base" - string to identify the IPA CORE base registers.
+	     "bam-base" - string to identify the IPA BAM base registers.
+	     "a2-bam-base" - string to identify the A2 BAM base registers.
+- interrupts: Specifies the interrupt associated with IPA.
+- interrupt-names: "ipa-irq" - string to identify the IPA core interrupt.
+                   "bam-irq" - string to identify the IPA BAM interrupt.
+                   "a2-bam-irq" - string to identify the A2 BAM interrupt.
+- qcom,ipa-hw-ver: Specifies the IPA hardware version.
+
+Optional:
+
+- qcom,wan-rx-ring-size: size of WAN rx ring, default is 32
+- qcom,arm-smmu: SMMU is present and ARM SMMU driver is used
+- qcom,msm-smmu: SMMU is present and QSMMU driver is used
+- ipa_smmu_ap: AP general purpose SMMU device
+	compatible "qcom,ipa-smmu-ap-cb"
+- ipa_smmu_wlan: WDI SMMU device
+	compatible "qcom,ipa-smmu-wlan-cb"
+- ipa_smmu_uc: uc SMMU device
+	compatible "qcom,ipa-smmu-uc-cb"
+- qcom,smmu-disable-htw: boolean value to turn off SMMU page table caching
+- qcom,use-a2-service: determine if A2 service will be used
+- qcom,use-ipa-tethering-bridge: determine if tethering bridge will be used
+- qcom,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
+- qcom,ee: which EE is assigned to (non-secure) APPS from IPA-BAM POV. This
+is a number
+- qcom,ipa-hw-mode: IPA hardware mode - Normal, Virtual memory allocation,
+memory allocation over a PCIe bridge
+- qcom,msm-bus,name:            String representing the client-name
+- qcom,msm-bus,num-cases:       Total number of usecases
+- qcom,msm-bus,active-only:     Boolean context flag for requests in active or
+                                dual (active & sleep) contex
+- qcom,msm-bus,num-paths:       Total number of master-slave pairs
+- qcom,msm-bus,vectors-KBps:    Arrays of unsigned integers representing:
+                                master-id, slave-id, arbitrated bandwidth
+                                in KBps, instantaneous bandwidth in KBps
+- qcom,ipa-bam-remote-mode:     Boolean context flag to determine if ipa bam
+                                is in remote mode.
+- qcom,modem-cfg-emb-pipe-flt:  Boolean context flag to determine if modem
+                                configures embedded pipe filtering rules
+- qcom,skip-uc-pipe-reset:      Boolean context flag to indicate whether
+                                a pipe reset via the IPA uC is required
+- qcom,use-dma-zone:            Boolean context flag to indicate whether memory
+                                allocations controlled by IPA driver that do not
+				specify a struct device * should use GFP_DMA to
+				workaround IPA HW limitations
+- qcom,use-gsi:                 Boolean context flag to indicate if the
+                                transport protocol is GSI
+- qcom,use-rg10-limitation-mitigation:	Boolean context flag to activate
+					the mitigation to register group 10
+					AP access limitation
+
+- qcom,tethered-flow-control:   Boolean context flag to indicate whether
+                                apps based flow control is needed for tethered
+                                call.
+IPA pipe sub nodes (A2 static pipes configurations):
+
+-label: two labels are supported, a2-to-ipa and ipa-to-a2 which
+supply static configuration for A2-IPA connection.
+-qcom,src-bam-physical-address: The physical address of the source BAM
+-qcom,ipa-bam-mem-type:The memory type:
+                       0(Pipe memory), 1(Private memory), 2(System memory)
+-qcom,src-bam-pipe-index: Source pipe index
+-qcom,dst-bam-physical-address: The physical address of the
+                                destination BAM
+-qcom,dst-bam-pipe-index: Destination pipe index
+-qcom,data-fifo-offset: Data fifo base offset
+-qcom,data-fifo-size:  Data fifo size (bytes)
+-qcom,descriptor-fifo-offset: Descriptor fifo base offset
+-qcom,descriptor-fifo-size: Descriptor fifo size (bytes)
+
+Optional properties:
+-qcom,ipa-pipe-mem: Specifies the base physical address and the
+                    size of the IPA pipe memory region.
+                    Pipe memory is a feature which may be supported by the
+                    target (HW platform). The Driver support using pipe
+                    memory instead of system memory. In case this property
+                    will not appear in the IPA DTS entry, the driver will
+                    use system memory.
+- clocks: This property shall provide a list of entries each of which
+    contains a phandle to clock controller device and a macro that is
+    the clock's name in hardware.This should be "clock_rpm" as clock
+    controller phandle and "clk_ipa_clk" as macro for "iface_clk"
+- clock-names: This property shall contain the clock input names used
+    by driver in same order as the clocks property.This should be "iface_clk"
+
+Example:
+
+qcom,ipa@fd4c0000 {
+	compatible = "qcom,ipa";
+	reg = <0xfd4c0000 0x26000>,
+	      <0xfd4c4000 0x14818>;
+	      <0xfc834000 0x7000>;
+	reg-names = "ipa-base", "bam-base"; "a2-bam-base";
+	interrupts = <0 252 0>,
+	             <0 253 0>;
+	             <0 29 1>;
+	interrupt-names = "ipa-irq", "bam-irq"; "a2-bam-irq";
+	qcom,ipa-hw-ver = <1>;
+	clocks = <&clock_rpm clk_ipa_clk>;
+	clock-names = "iface_clk";
+
+        qcom,msm-bus,name = "ipa";
+        qcom,msm-bus,num-cases = <3>;
+        qcom,msm-bus,num-paths = <2>;
+        qcom,msm-bus,vectors-KBps =
+        <90 512 0 0>, <90 585 0 0>,         /* No vote */
+        <90 512 100000 800000>, <90 585 100000 800000>,    /* SVS */
+        <90 512 100000 1200000>, <90 585 100000 1200000>;    /* PERF */
+        qcom,bus-vector-names = "MIN", "SVS", "PERF";
+
+	qcom,pipe1 {
+		label = "a2-to-ipa";
+		qcom,src-bam-physical-address = <0xfc834000>;
+		qcom,ipa-bam-mem-type = <0>;
+		qcom,src-bam-pipe-index = <1>;
+		qcom,dst-bam-physical-address = <0xfd4c0000>;
+		qcom,dst-bam-pipe-index = <6>;
+		qcom,data-fifo-offset = <0x1000>;
+		qcom,data-fifo-size = <0xd00>;
+		qcom,descriptor-fifo-offset = <0x1d00>;
+		qcom,descriptor-fifo-size = <0x300>;
+	};
+
+	qcom,pipe2 {
+		label = "ipa-to-a2";
+		qcom,src-bam-physical-address = <0xfd4c0000>;
+		qcom,ipa-bam-mem-type = <0>;
+		qcom,src-bam-pipe-index = <7>;
+		qcom,dst-bam-physical-address = <0xfc834000>;
+		qcom,dst-bam-pipe-index = <0>;
+		qcom,data-fifo-offset = <0x00>;
+		qcom,data-fifo-size = <0xd00>;
+		qcom,descriptor-fifo-offset = <0xd00>;
+		qcom,descriptor-fifo-size = <0x300>;
+	};
+};
