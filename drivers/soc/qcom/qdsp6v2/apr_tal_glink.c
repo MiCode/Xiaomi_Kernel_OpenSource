@@ -92,7 +92,7 @@ static int apr_get_free_buf(int len, void **buf)
 	return 0;
 }
 
-static void apr_buf_add_tail(void *buf)
+static void apr_buf_add_tail(const void *buf)
 {
 	struct apr_tx_buf *list;
 	unsigned long flags;
@@ -101,7 +101,7 @@ static void apr_buf_add_tail(void *buf)
 		return;
 
 	spin_lock_irqsave(&buf_list.lock, flags);
-	list = container_of(buf, struct apr_tx_buf, buf);
+	list = container_of((void *)buf, struct apr_tx_buf, buf);
 	list_add_tail(&list->list, &buf_list.list);
 	spin_unlock_irqrestore(&buf_list.lock, flags);
 }
@@ -183,9 +183,7 @@ void apr_tal_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 void apr_tal_notify_tx_done(void *handle, const void *priv,
 			    const void *pkt_priv, const void *ptr)
 {
-	struct apr_tx_buf *buf = NULL;
 	struct apr_pkt_priv *apr_pkt_priv = (struct apr_pkt_priv *)pkt_priv;
-	unsigned long flags;
 
 	if (!pkt_priv || !ptr) {
 		pr_err("%s: Invalid pkt_priv or ptr\n", __func__);
