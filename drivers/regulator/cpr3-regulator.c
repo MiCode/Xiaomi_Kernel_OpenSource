@@ -1481,10 +1481,13 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 			return rc;
 		}
 
-		rc = msm_spm_avs_enable_irq(0, MSM_SPM_AVS_IRQ_MAX);
-		if (rc) {
-			cpr3_err(ctrl, "could not enable max IRQ, rc=%d\n", rc);
-			return rc;
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
+			rc = msm_spm_avs_enable_irq(0, MSM_SPM_AVS_IRQ_MAX);
+			if (rc) {
+				cpr3_err(ctrl, "could not enable max IRQ, rc=%d\n",
+					rc);
+				return rc;
+			}
 		}
 	}
 
@@ -5846,10 +5849,13 @@ int cpr3_regulator_register(struct platform_device *pdev,
 			return rc;
 		}
 
-		ctrl->ceiling_irq = platform_get_irq_byname(pdev, "ceiling");
-		if (ctrl->ceiling_irq < 0) {
-			cpr3_err(ctrl, "missing ceiling interrupt\n");
-			return ctrl->ceiling_irq;
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
+			ctrl->ceiling_irq = platform_get_irq_byname(pdev,
+						"ceiling");
+			if (ctrl->ceiling_irq < 0) {
+				cpr3_err(ctrl, "missing ceiling interrupt\n");
+				return ctrl->ceiling_irq;
+			}
 		}
 	}
 
@@ -5913,7 +5919,7 @@ int cpr3_regulator_register(struct platform_device *pdev,
 	}
 
 	if (ctrl->supports_hw_closed_loop &&
-	    ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
+	    ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3) {
 		rc = devm_request_threaded_irq(dev, ctrl->ceiling_irq, NULL,
 			cpr3_ceiling_irq_handler,
 			IRQF_ONESHOT | IRQF_TRIGGER_RISING,
@@ -5967,10 +5973,13 @@ int cpr3_regulator_unregister(struct cpr3_controller *ctrl)
 
 	cpr3_closed_loop_disable(ctrl);
 
-	if (ctrl->use_hw_closed_loop ||
-		ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
+	if ((ctrl->use_hw_closed_loop
+			|| ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4)
+		&& ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH) {
 		regulator_disable(ctrl->vdd_limit_regulator);
-		msm_spm_avs_disable_irq(0, MSM_SPM_AVS_IRQ_MAX);
+
+		if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR3)
+			msm_spm_avs_disable_irq(0, MSM_SPM_AVS_IRQ_MAX);
 	}
 
 	for (i = 0; i < ctrl->thread_count; i++)
