@@ -53,25 +53,25 @@ static int msm_tert_mi2s_tx_ch = 2;
 static int msm_quat_mi2s_rx_ch = 2;
 
 /* TDM default channels */
-static int msm_tert_tdm_rx_0_ch = 6;
-static int msm_tert_tdm_rx_1_ch = 1;
-static int msm_tert_tdm_rx_2_ch = 1;
-static int msm_tert_tdm_rx_3_ch = 1;
+static int msm_tert_tdm_rx_0_ch = 2; /* ICC STREAM */
+static int msm_tert_tdm_rx_1_ch = 2;
+static int msm_tert_tdm_rx_2_ch = 2;
+static int msm_tert_tdm_rx_3_ch = 2;
 
-static int msm_tert_tdm_tx_0_ch = 4; /* MIC1-MIC4 */
-static int msm_tert_tdm_tx_1_ch = 2; /* EC_REF */
-static int msm_tert_tdm_tx_2_ch = 2; /* ENT_IN */
-static int msm_tert_tdm_tx_3_ch = 1;
+static int msm_tert_tdm_tx_0_ch = 6; /* EC_REF1-EC_REF6(6 CHAN) */
+static int msm_tert_tdm_tx_1_ch = 1;
+static int msm_tert_tdm_tx_2_ch = 1;
+static int msm_tert_tdm_tx_3_ch;
 
 static int msm_quat_tdm_rx_0_ch = 6; /* ENT */
 static int msm_quat_tdm_rx_1_ch = 1; /* ANN */
 static int msm_quat_tdm_rx_2_ch = 1; /* TEL */
-static int msm_quat_tdm_rx_3_ch = 1;
+static int msm_quat_tdm_rx_3_ch;
 
-static int msm_quat_tdm_tx_0_ch = 4;
-static int msm_quat_tdm_tx_1_ch = 2;
-static int msm_quat_tdm_tx_2_ch = 2;
-static int msm_quat_tdm_tx_3_ch = 1;
+static int msm_quat_tdm_tx_0_ch = 4; /*MIC1-MIC4*/
+static int msm_quat_tdm_tx_1_ch = 2; /*EC_REF(2 CHAN)*/
+static int msm_quat_tdm_tx_2_ch = 2; /*ENT RECORD*/
+static int msm_quat_tdm_tx_3_ch;
 
 /* TDM default bit format */
 static int msm_tert_tdm_rx_0_bit_format = SNDRV_PCM_FORMAT_S16_LE;
@@ -153,18 +153,18 @@ static unsigned int tdm_slot_offset[TDM_MAX][TDM_SLOT_OFFSET_MAX] = {
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	/* TERT_TDM_RX */
-	{0, 4, 8, 12, 16, 20, 0xFFFF},
-	{24, 0xFFFF},
-	{28, 0xFFFF},
-	{0xFFFF}, /* not used */
+	{0, 4, 0xFFFF},
+	{8, 12, 0xFFFF},
+	{16, 20, 0xFFFF},
+	{24, 28, 0xFFFF},
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	/* TERT_TDM_TX */
-	{0, 4, 8, 12, 0xFFFF},
-	{16, 20, 0xFFFF},
-	{24, 28, 0xFFFF},
+	{0, 4, 8, 12, 16, 20, 0xFFFF},
+	{24, 0xFFFF},
+	{28, 0xFFFF},
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
 	{0xFFFF}, /* not used */
