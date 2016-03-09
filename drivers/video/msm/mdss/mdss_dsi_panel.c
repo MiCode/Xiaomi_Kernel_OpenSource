@@ -1748,6 +1748,13 @@ static void mdss_dsi_parse_panel_horizintal_line_idle(struct device_node *np,
 		ctrl->horizontal_idle_cnt++;
 	}
 
+	/*
+	 * idle is enabled for this controller, this will be used to
+	 * enable/disable burst mode since both features are mutually
+	 * exclusive.
+	 */
+	ctrl->idle_enabled = true;
+
 	pr_debug("%s: horizontal_idle_cnt=%d\n", __func__,
 				ctrl->horizontal_idle_cnt);
 }
