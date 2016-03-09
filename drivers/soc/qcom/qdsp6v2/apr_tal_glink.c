@@ -92,6 +92,20 @@ static int apr_get_free_buf(int len, void **buf)
 	return 0;
 }
 
+static void apr_buf_add_tail(void *buf)
+{
+	struct apr_tx_buf *list;
+	unsigned long flags;
+
+	if (!buf)
+		return;
+
+	spin_lock_irqsave(&buf_list.lock, flags);
+	list = container_of(buf, struct apr_tx_buf, buf);
+	list_add_tail(&list->list, &buf_list.list);
+	spin_unlock_irqrestore(&buf_list.lock, flags);
+}
+
 static int __apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 			   struct apr_pkt_priv *pkt_priv, int len)
 {
@@ -137,8 +151,11 @@ int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 		rc = __apr_tal_write(apr_ch, pkt_data, pkt_priv, len);
 	} while (rc == -EAGAIN && retries++ < APR_MAXIMUM_NUM_OF_RETRIES);
 
-	if (rc == -EAGAIN)
-		pr_err("%s: TIMEOUT for write\n", __func__);
+	if (rc < 0) {
+		pr_err("%s: Unable to send the packet, rc:%d\n", __func__, rc);
+		if (pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER)
+			apr_buf_add_tail(pkt_data);
+	}
 exit:
 	return rc;
 }
@@ -177,12 +194,8 @@ void apr_tal_notify_tx_done(void *handle, const void *priv,
 
 	pr_debug("%s: tx_done received\n", __func__);
 
-	if (apr_pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER) {
-		spin_lock_irqsave(&buf_list.lock, flags);
-		buf = container_of(ptr, struct apr_tx_buf, list);
-		list_add_tail(&buf->list, &buf_list.list);
-		spin_unlock_irqrestore(&buf_list.lock, flags);
-	}
+	if (apr_pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER)
+		apr_buf_add_tail(ptr);
 }
 
 bool apr_tal_notify_rx_intent_req(void *handle, const void *priv,
@@ -285,6 +298,14 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	open_cfg.notify_state = apr_tal_notify_state;
 	open_cfg.notify_rx_intent_req = apr_tal_notify_rx_intent_req;
 	open_cfg.priv = apr_ch;
+	/*
+	 * The transport name "smd_trans" is required if far end is using SMD.
+	 * In that case Glink will fall back to SMD and the client (APR in this
+	 * case) will still work as if Glink is the communication channel.
+	 * If far end is already using Glink, this property will be ignored in
+	 * Glink layer and communication will be through Glink.
+	 */
+	open_cfg.transport = "smd_trans";
 
 	apr_ch->channel_state = GLINK_REMOTE_DISCONNECTED;
 	apr_ch->handle = glink_open(&open_cfg);
