@@ -1379,43 +1379,9 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 	clk_osm_write_reg(c, val, SEQ_REG(48));
 }
 
-static void clk_osm_do_additional_setup(struct clk_osm *c,
-					struct platform_device *pdev)
+static void clk_osm_setup_fsms(struct clk_osm *c)
 {
 	u32 val;
-
-	if (!c->secure_init)
-		return;
-
-	dev_info(&pdev->dev, "Performing additional OSM setup due to lack of TZ for cluster=%d\n",
-		 c->cluster_num);
-
-	clk_osm_write_reg(c, BVAL(23, 16, 0xF), SPM_CC_CTRL);
-
-	/* PLL LVAL programming */
-	clk_osm_write_reg(c, c->l_val_base, SEQ_REG(0));
-	clk_osm_write_reg(c, PLL_MIN_LVAL, SEQ_REG(21));
-
-	/* PLL post-div programming */
-	clk_osm_write_reg(c, c->apcs_pll_user_ctl, SEQ_REG(18));
-	clk_osm_write_reg(c, PLL_POST_DIV2, SEQ_REG(19));
-	clk_osm_write_reg(c, PLL_POST_DIV1, SEQ_REG(29));
-
-	/* APM Programming */
-	clk_osm_program_apm_regs(c);
-
-	/* MEM-ACC Programming */
-	clk_osm_program_mem_acc_regs(c);
-
-	/* GFMUX Programming */
-	clk_osm_write_reg(c, c->apcs_cfg_rcgr, SEQ_REG(16));
-	clk_osm_write_reg(c, GPLL_SEL, SEQ_REG(17));
-	clk_osm_write_reg(c, PLL_EARLY_SEL, SEQ_REG(20));
-	clk_osm_write_reg(c, PLL_MAIN_SEL, SEQ_REG(32));
-	clk_osm_write_reg(c, c->apcs_cmd_rcgr, SEQ_REG(33));
-	clk_osm_write_reg(c, RCG_UPDATE, SEQ_REG(34));
-	clk_osm_write_reg(c, RCG_UPDATE_SUCCESS, SEQ_REG(35));
-	clk_osm_write_reg(c, RCG_UPDATE, SEQ_REG(36));
 
 	/* Reduction FSM */
 	if (c->red_fsm_en) {
@@ -1524,6 +1490,43 @@ static void clk_osm_do_additional_setup(struct clk_osm *c,
 			BVAL(22, 16, 0x2);
 		clk_osm_write_reg(c, val, DROOP_CTRL_REG);
 	}
+}
+
+static void clk_osm_do_additional_setup(struct clk_osm *c,
+					struct platform_device *pdev)
+{
+	if (!c->secure_init)
+		return;
+
+	dev_info(&pdev->dev, "Performing additional OSM setup due to lack of TZ for cluster=%d\n",
+		 c->cluster_num);
+
+	clk_osm_write_reg(c, BVAL(23, 16, 0xF), SPM_CC_CTRL);
+
+	/* PLL LVAL programming */
+	clk_osm_write_reg(c, c->l_val_base, SEQ_REG(0));
+	clk_osm_write_reg(c, PLL_MIN_LVAL, SEQ_REG(21));
+
+	/* PLL post-div programming */
+	clk_osm_write_reg(c, c->apcs_pll_user_ctl, SEQ_REG(18));
+	clk_osm_write_reg(c, PLL_POST_DIV2, SEQ_REG(19));
+	clk_osm_write_reg(c, PLL_POST_DIV1, SEQ_REG(29));
+
+	/* APM Programming */
+	clk_osm_program_apm_regs(c);
+
+	/* MEM-ACC Programming */
+	clk_osm_program_mem_acc_regs(c);
+
+	/* GFMUX Programming */
+	clk_osm_write_reg(c, c->apcs_cfg_rcgr, SEQ_REG(16));
+	clk_osm_write_reg(c, GPLL_SEL, SEQ_REG(17));
+	clk_osm_write_reg(c, PLL_EARLY_SEL, SEQ_REG(20));
+	clk_osm_write_reg(c, PLL_MAIN_SEL, SEQ_REG(32));
+	clk_osm_write_reg(c, c->apcs_cmd_rcgr, SEQ_REG(33));
+	clk_osm_write_reg(c, RCG_UPDATE, SEQ_REG(34));
+	clk_osm_write_reg(c, RCG_UPDATE_SUCCESS, SEQ_REG(35));
+	clk_osm_write_reg(c, RCG_UPDATE, SEQ_REG(36));
 
 	pr_debug("seq_size: %lu, seqbr_size: %lu\n", ARRAY_SIZE(seq_instr),
 						ARRAY_SIZE(seq_br_instr));
@@ -1942,6 +1945,9 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to set LLM voltage Policy");
 		goto exit;
 	}
+
+	clk_osm_setup_fsms(&pwrcl_clk);
+	clk_osm_setup_fsms(&perfcl_clk);
 
 	/*
 	 * Perform typical secure-world HW initialization
