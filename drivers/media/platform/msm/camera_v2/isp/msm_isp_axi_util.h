@@ -72,7 +72,7 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
-	struct msm_isp_timestamp *ts);
+	uint32_t pingpong_status, struct msm_isp_timestamp *ts);
 
 void msm_isp_axi_disable_all_wm(struct vfe_device *vfe_dev);
 
