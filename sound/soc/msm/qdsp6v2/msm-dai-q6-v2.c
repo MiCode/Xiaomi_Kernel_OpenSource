@@ -3992,6 +3992,7 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 	const uint32_t *port_id_array = NULL;
 	uint32_t array_length = 0;
 	int i = 0;
+	int group_idx = 0;
 
 	/* extract tdm group info into static */
 	rc = of_property_read_u32(pdev->dev.of_node,
@@ -4061,6 +4062,16 @@ static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 	}
 	dev_dbg(&pdev->dev, "%s: Clk Rate from DT file %d\n",
 		__func__, tdm_clk_set.clk_freq_in_hz);
+
+	/* other initializations within device group */
+	group_idx = msm_dai_q6_get_group_idx(tdm_group_cfg.group_id);
+	if (group_idx < 0) {
+		dev_err(&pdev->dev, "%s: group id 0x%x not supported\n",
+			__func__, tdm_group_cfg.group_id);
+		rc = -EINVAL;
+		goto rtn;
+	}
+	atomic_set(&tdm_group_ref[group_idx], 0);
 
 	/* probe child node info */
 	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
@@ -4895,7 +4906,7 @@ static int msm_dai_q6_dai_tdm_probe(struct snd_soc_dai *dai)
 	struct snd_kcontrol *data_format_kcontrol = NULL;
 	struct snd_kcontrol *header_type_kcontrol = NULL;
 	struct snd_kcontrol *header_kcontrol = NULL;
-	int port_idx = 0, i = 0;
+	int port_idx = 0;
 	const struct snd_kcontrol_new *data_format_ctrl = NULL;
 	const struct snd_kcontrol_new *header_type_ctrl = NULL;
 	const struct snd_kcontrol_new *header_ctrl = NULL;
@@ -4963,10 +4974,6 @@ static int msm_dai_q6_dai_tdm_probe(struct snd_soc_dai *dai)
 	}
 
 	rc = msm_dai_q6_dai_add_route(dai);
-
-	/* other initializations */
-	for (i = 0; i < IDX_GROUP_TDM_MAX; i++)
-		atomic_set(&tdm_group_ref[i], 0);
 
 rtn:
 	return rc;
