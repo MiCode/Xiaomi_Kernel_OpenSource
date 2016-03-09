@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,13 +89,18 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 void msm_isp_halt(struct vfe_device *vfe_dev);
 void msm_isp_halt_send_error(struct vfe_device *vfe_dev, uint32_t event);
 
+void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info,
+	uint32_t pingpong_status,
+	struct msm_isp_timestamp *ts);
+
 static inline void msm_isp_cfg_wm_scratch(struct vfe_device *vfe_dev,
 				int wm,
-				uint32_t pingpong_status)
+				uint32_t pingpong_bit)
 {
 	vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
 		vfe_dev->vfe_base, wm,
-		pingpong_status, vfe_dev->buf_mgr->scratch_buf_addr, 0);
+		pingpong_bit, vfe_dev->buf_mgr->scratch_buf_addr, 0);
 }
 
 static inline void msm_isp_cfg_stream_scratch(struct vfe_device *vfe_dev,
@@ -105,10 +110,10 @@ static inline void msm_isp_cfg_stream_scratch(struct vfe_device *vfe_dev,
 	int i;
 	uint32_t pingpong_bit;
 
+	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
 	for (i = 0; i < stream_info->num_planes; i++)
 		msm_isp_cfg_wm_scratch(vfe_dev, stream_info->wm[i],
-				pingpong_status);
-	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
+				~pingpong_bit & 0x1);
 	stream_info->buf[pingpong_bit] = NULL;
 }
 
