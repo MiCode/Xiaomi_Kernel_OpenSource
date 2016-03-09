@@ -11,9 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8917.dtsi"
+/dts-v1/;
+
+#include "apq8017.dtsi"
+#include "msm8917-pmi8950-mtp.dtsi"
+
 / {
-	model = "Qualcomm Technologies, Inc. APQ8917";
-	compatible = "qcom,apq8917";
-	qcom,msm-id = <307 0x0>;
+	model = "Qualcomm Technologies, Inc. APQ8017-PMI8950 MTP";
+	compatible = "qcom,apq8017-mtp", "qcom,apq8017", "qcom,mtp";
+	qcom,board-id= <8 0>;
+	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
 };

@@ -17,7 +17,7 @@
 
 static const char *msm8953_dt_match[] __initconst = {
 	"qcom,msm8953",
-	"qcom,apq8953",
+	"qcom,apq8053",
 	NULL
 };
 
