@@ -76,7 +76,7 @@ struct mdss_mdp_writeback_ctx {
 static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
-		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
+		.intr_type = MDSS_MDP_IRQ_TYPE_WB_ROT_COMP,
 		.intf_num = 0,
 		.xin_id = 3,
 		.clk_ctrl.reg_off = 0x2BC,
@@ -84,7 +84,7 @@ static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
-		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
+		.intr_type = MDSS_MDP_IRQ_TYPE_WB_ROT_COMP,
 		.intf_num = 1,
 		.xin_id = 11,
 		.clk_ctrl.reg_off = 0x2BC,
@@ -92,7 +92,7 @@ static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_LINE,
-		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
+		.intr_type = MDSS_MDP_IRQ_TYPE_WB_ROT_COMP,
 		.intf_num = 0,
 		.xin_id = 3,
 		.clk_ctrl.reg_off = 0x2BC,
@@ -100,7 +100,7 @@ static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_LINE,
-		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
+		.intr_type = MDSS_MDP_IRQ_TYPE_WB_ROT_COMP,
 		.intf_num = 1,
 		.xin_id = 11,
 		.clk_ctrl.reg_off = 0x2BC,
@@ -108,7 +108,7 @@ static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_WFD,
-		.intr_type = MDSS_MDP_IRQ_WB_WFD,
+		.intr_type = MDSS_MDP_IRQ_TYPE_WB_WFD_COMP,
 		.intf_num = 0,
 		.xin_id = 6,
 		.clk_ctrl.reg_off = 0x2BC,
@@ -889,7 +889,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 
 		/* WB2 Intr Enable is BIT(2) in MDSS 1.8.0 */
 		if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_108) {
-			ctx->intr_type = MDSS_MDP_IRQ_WB_ROT_COMP;
+			ctx->intr_type = MDSS_MDP_IRQ_TYPE_WB_ROT_COMP;
 			ctx->intf_num = 2;
 		}
 	}
