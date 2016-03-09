@@ -585,12 +585,14 @@
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist =	<&CPU0 &CPU1>;
 		qcom,target-dev = <&memlat_cpu0>;
+		status = "disabled";
 	};
 
 	qcom,arm-memlat-mon-2 {
 		compatible = "qcom,arm-memlat-mon";
 		qcom,cpulist =	<&CPU2 &CPU3>;
 		qcom,target-dev = <&memlat_cpu2>;
+		status = "disabled";
 	};
 
 	devfreq_cpufreq: devfreq-cpufreq {
