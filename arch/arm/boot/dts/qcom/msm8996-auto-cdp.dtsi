@@ -692,6 +692,10 @@
 		pinctrl-0 = <&quat_tdm_dout_active>;
 		pinctrl-1 = <&quat_tdm_dout_sleep>;
 	};
+
+	qcom,msm-ssc-sensors {
+		status = "disabled";
+	};
 };
 
 &pm8994_gpios {
