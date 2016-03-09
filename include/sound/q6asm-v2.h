@@ -50,6 +50,8 @@
 #define FORMAT_ALAC         0x0017
 #define FORMAT_VORBIS       0x0018
 #define FORMAT_APE          0x0019
+#define FORMAT_G711_ALAW_FS 0x001a
+#define FORMAT_G711_MLAW_FS 0x001b
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
@@ -316,6 +318,10 @@ int q6asm_enc_cfg_blk_aac(struct audio_client *ac,
 			uint32_t sample_rate, uint32_t channels,
 			 uint32_t bit_rate,
 			 uint32_t mode, uint32_t format);
+
+int q6asm_enc_cfg_blk_g711(struct audio_client *ac,
+			 uint32_t frames_per_buf,
+			uint32_t sample_rate);
 
 int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 			uint32_t rate, uint32_t channels);
