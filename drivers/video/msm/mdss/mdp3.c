@@ -2035,9 +2035,8 @@ __ref int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
 	prop = of_find_property(pdev->dev.of_node, "qcom,memblock-reserve",
 				&len);
 	if (!prop) {
-		pr_err("error reading memblock reserve settings for fb\n");
-		rc = -EINVAL;
-		goto error;
+		pr_debug("Read memblock reserve settings for fb failed\n");
+		pr_debug("Read cont-splash-memory settings\n");
 	}
 
 	if (len) {
