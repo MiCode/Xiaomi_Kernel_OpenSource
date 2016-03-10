@@ -3849,6 +3849,15 @@ static const struct file_operations reg_consumers_fops = {
 	.release	= single_release,
 };
 
+static void rdev_deinit_debugfs(struct regulator_dev *rdev)
+{
+	if (!IS_ERR_OR_NULL(rdev)) {
+		debugfs_remove_recursive(rdev->debugfs);
+		rdev->debug_consumer->debugfs = NULL;
+		regulator_put(rdev->debug_consumer);
+	}
+}
+
 static void rdev_init_debugfs(struct regulator_dev *rdev)
 {
 	struct dentry *err_ptr = NULL;
@@ -3883,6 +3892,7 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 		pr_err("Error-Bad Function Input\n");
 		goto error;
 	}
+	rdev->debug_consumer = reg;
 
 	reg_ops = rdev->desc->ops;
 	mode = S_IRUGO | S_IWUSR;
@@ -3892,7 +3902,6 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 						reg, &reg_enable_fops);
 	if (IS_ERR(err_ptr)) {
 		pr_err("Error-Could not create enable file\n");
-		debugfs_remove_recursive(rdev->debugfs);
 		goto error;
 	}
 
@@ -3907,7 +3916,6 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 					rdev->debugfs, reg, &reg_fdisable_fops);
 	if (IS_ERR(err_ptr)) {
 		pr_err("Error-Could not create force_disable file\n");
-		debugfs_remove_recursive(rdev->debugfs);
 		goto error;
 	}
 
@@ -3922,7 +3930,6 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 						reg, &reg_volt_fops);
 	if (IS_ERR(err_ptr)) {
 		pr_err("Error-Could not create voltage file\n");
-		debugfs_remove_recursive(rdev->debugfs);
 		goto error;
 	}
 
@@ -3937,7 +3944,6 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 						reg, &reg_mode_fops);
 	if (IS_ERR(err_ptr)) {
 		pr_err("Error-Could not create mode file\n");
-		debugfs_remove_recursive(rdev->debugfs);
 		goto error;
 	}
 
@@ -3952,18 +3958,26 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 				rdev->debugfs, reg, &reg_optimum_mode_fops);
 	if (IS_ERR(err_ptr)) {
 		pr_err("Error-Could not create optimum_mode file\n");
-		debugfs_remove_recursive(rdev->debugfs);
 		goto error;
 	}
 
+	return;
+
 error:
+	rdev_deinit_debugfs(rdev);
 	return;
 }
+
 #else
+
+static inline void rdev_deinit_debugfs(struct regulator_dev *rdev)
+{
+}
+
 static inline void rdev_init_debugfs(struct regulator_dev *rdev)
 {
-	return;
 }
+
 #endif
 
 /**
@@ -4172,8 +4186,8 @@ void regulator_unregister(struct regulator_dev *rdev)
 	if (rdev->supply)
 		regulator_put(rdev->supply);
 	regulator_proxy_consumer_unregister(rdev->proxy_consumer);
+	rdev_deinit_debugfs(rdev);
 	mutex_lock(&regulator_list_mutex);
-	debugfs_remove_recursive(rdev->debugfs);
 	flush_work(&rdev->disable_work.work);
 	WARN_ON(rdev->open_count);
 	unset_regulator_supplies(rdev);
