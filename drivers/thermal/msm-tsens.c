@@ -1994,7 +1994,7 @@ static void tsens_poll(struct work_struct *work)
 	idx = tmdev->crit_timestamp_last_run.idx;
 	tmdev->crit_timestamp_last_run.time_stmp[idx%10] = sched_clock();
 	tmdev->crit_timestamp_last_run.idx++;
-	tmdev->qtimer_val_detection_start = arch_counter_get_cntpct();
+	tmdev->qtimer_val_detection_start = arch_counter_get_cntvct();
 
 	spin_lock_irqsave(&tmdev->tsens_crit_lock, flags);
 	/* Clear the sensor0 critical status */
@@ -2446,7 +2446,7 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 	tm->crit_timestamp_last_interrupt_handled.dbg_count[idx%10]++;
 	tm->crit_timestamp_last_interrupt_handled.time_stmp[idx%10] =
 							sched_clock();
-	tm->qtimer_val_last_detection_interrupt = arch_counter_get_cntpct();
+	tm->qtimer_val_last_detection_interrupt = arch_counter_get_cntvct();
 	if (tsens_poll_check)
 		complete(&tm->tsens_rslt_completion);
 	/* Mask critical interrupt */
