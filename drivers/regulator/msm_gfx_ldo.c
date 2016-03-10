@@ -72,10 +72,8 @@
 #define MAX_FUSE_ROW_BIT		63
 #define MIN_CORNER_OFFSET		1
 
-#define GFX_LDO_FUSE_STEP_VOLT		10
+#define GFX_LDO_FUSE_STEP_VOLT		10000
 #define GFX_LDO_FUSE_SIZE		5
-#define GFX_LDO_BYPASS_FUSE_MASK	0xF
-#define GFX_LDO_BYPASS_FUSE_VALUE	0xF
 
 enum regulator_mode {
 	LDO,
@@ -115,12 +113,11 @@ struct msm_gfx_ldo {
 	u32			*ldo_corner_en_map;
 	u32			*vdd_cx_corner_map;
 	u32			*mem_acc_corner_map;
-	u8			*force_ldo_bypass;
 	const int		*ref_volt;
 	const struct fuse_param	*ldo_enable_param;
 	const struct fuse_param	**init_volt_param;
-	bool			ldo_enable;
-	bool			ldo_bypass_fuse_enable;
+	bool			ldo_fuse_enable;
+	bool			ldo_mode_disable;
 	struct ldo_config	*ldo_init_config;
 
 	void __iomem		*efuse_base;
@@ -147,7 +144,7 @@ static struct ldo_config msm8953_ldo_config[] = {
 };
 
 static struct fuse_param msm8953_ldo_enable_param[] = {
-	{65, 10, 10},
+	{65, 11, 11},
 	{},
 };
 
@@ -214,9 +211,8 @@ static int read_fuse_param(void __iomem *fuse_base_addr,
 static enum regulator_mode get_operating_mode(struct msm_gfx_ldo *ldo_vreg,
 								int corner)
 {
-	if (ldo_vreg->ldo_enable
-		&& ldo_vreg->ldo_corner_en_map[corner]
-		&& !ldo_vreg->force_ldo_bypass[corner])
+	if (!ldo_vreg->ldo_mode_disable && ldo_vreg->ldo_fuse_enable
+			&& ldo_vreg->ldo_corner_en_map[corner])
 		return LDO;
 
 	return BHS;
@@ -248,7 +244,7 @@ static void dump_registers(struct msm_gfx_ldo *ldo_vreg, char *func)
 	}
 }
 
-#define GET_VREF(a) (1 + DIV_ROUND_UP(a - MIN_LDO_VOLTAGE, LDO_STEP_VOLATGE))
+#define GET_VREF(a) DIV_ROUND_UP(a - MIN_LDO_VOLTAGE, LDO_STEP_VOLATGE)
 
 static void configure_ldo_voltage(struct msm_gfx_ldo *ldo_vreg, int new_corner)
 {
@@ -754,12 +750,9 @@ static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 	ldo_vreg->floor_volt = devm_kcalloc(ldo_vreg->dev,
 			len, sizeof(*ldo_vreg->floor_volt),
 			GFP_KERNEL);
-	ldo_vreg->force_ldo_bypass = devm_kcalloc(ldo_vreg->dev,
-			len, sizeof(*ldo_vreg->force_ldo_bypass),
-			GFP_KERNEL);
 
 	if (!ldo_vreg->open_loop_volt || !ldo_vreg->ceiling_volt
-		|| !ldo_vreg->floor_volt || !ldo_vreg->force_ldo_bypass)
+					|| !ldo_vreg->floor_volt)
 		return -ENOMEM;
 
 	rc = of_property_read_u32_array(of_node, "qcom,ldo-voltage-ceiling",
@@ -783,13 +776,6 @@ static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 		if (rc) {
 			pr_err("Unable to read init-voltage rc=%d\n", rc);
 			return rc;
-		}
-		if (ldo_vreg->ldo_bypass_fuse_enable &&
-			((efuse_bits & GFX_LDO_BYPASS_FUSE_MASK) ==
-						GFX_LDO_BYPASS_FUSE_VALUE)) {
-			ldo_vreg->force_ldo_bypass[i] = true;
-			pr_info("LDO corner %d in force-bypass\n",
-					i + MIN_CORNER_OFFSET);
 		}
 		ldo_vreg->open_loop_volt[i] = convert_open_loop_voltage_fuse(
 					ldo_vreg->ref_volt[i],
@@ -824,8 +810,8 @@ static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 		pr_err("Unable to read ldo_enable_param rc=%d\n", rc);
 		return rc;
 	}
-	ldo_vreg->ldo_enable = !!efuse_bits;
-	pr_info("LDO mode %s by default\n", ldo_vreg->ldo_enable ?
+	ldo_vreg->ldo_fuse_enable = !!efuse_bits;
+	pr_info("LDO-mode fuse %s by default\n", ldo_vreg->ldo_fuse_enable ?
 					"enabled" : "disabled");
 
 	return rc;
@@ -1077,10 +1063,33 @@ static int msm_gfx_ldo_target_init(struct msm_gfx_ldo *ldo_vreg)
 	ldo_vreg->ldo_init_config = msm8953_ldo_config;
 	ldo_vreg->ref_volt = msm8953_fuse_ref_volt;
 	ldo_vreg->ldo_enable_param = msm8953_ldo_enable_param;
-	ldo_vreg->ldo_bypass_fuse_enable = true;
 
 	return 0;
 }
+
+static int debugfs_ldo_mode_disable_set(void *data, u64 val)
+{
+	struct msm_gfx_ldo *ldo_vreg = data;
+
+	ldo_vreg->ldo_mode_disable = !!val;
+
+	pr_debug("LDO-mode %s\n", ldo_vreg->ldo_mode_disable ?
+					"disabled" : "enabled");
+
+	return 0;
+}
+
+static int debugfs_ldo_mode_disable_get(void *data, u64 *val)
+{
+	struct msm_gfx_ldo *ldo_vreg = data;
+
+	*val = ldo_vreg->ldo_mode_disable;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(ldo_mode_disable_fops, debugfs_ldo_mode_disable_get,
+				debugfs_ldo_mode_disable_set, "%llu\n");
 
 static int debugfs_ldo_set_voltage(void *data, u64 val)
 {
@@ -1126,6 +1135,10 @@ static int debugfs_ldo_set_voltage(void *data, u64 val)
 		pr_err("LDO_VREF_SETTLED not set PWRSWITCH_STATUS = 0x%x\n",
 								reg);
 		rc = -EBUSY;
+	} else {
+		ldo_vreg->ldo_voltage_uv = val;
+		pr_debug("LDO voltage set to %d uV\n",
+				ldo_vreg->ldo_voltage_uv);
 	}
 done:
 	mutex_unlock(&ldo_vreg->ldo_mutex);
@@ -1135,7 +1148,7 @@ done:
 static int debugfs_ldo_get_voltage(void *data, u64 *val)
 {
 	struct msm_gfx_ldo *ldo_vreg = data;
-	int rc = -EINVAL;
+	int rc = 0;
 	u32 reg;
 
 	mutex_lock(&ldo_vreg->ldo_mutex);
@@ -1148,7 +1161,7 @@ static int debugfs_ldo_get_voltage(void *data, u64 *val)
 	reg = readl_relaxed(ldo_vreg->ldo_base + LDO_VREF_SET_REG);
 	reg &= VREF_VAL_MASK;
 
-	rc = (reg * LDO_STEP_VOLATGE) + MIN_LDO_VOLTAGE;
+	*val = (reg * LDO_STEP_VOLATGE) + MIN_LDO_VOLTAGE;
 done:
 	mutex_unlock(&ldo_vreg->ldo_mutex);
 	return rc;
@@ -1227,6 +1240,13 @@ static void msm_gfx_ldo_debugfs_init(struct msm_gfx_ldo *ldo_vreg)
 			ldo_vreg->debugfs, ldo_vreg, &ldo_voltage_fops);
 	if (IS_ERR_OR_NULL(temp)) {
 		pr_err("ldo_voltage node creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_file("ldo_mode_disable", S_IRUGO | S_IWUSR,
+			ldo_vreg->debugfs, ldo_vreg, &ldo_mode_disable_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("ldo_mode_disable node creation failed\n");
 		return;
 	}
 }
