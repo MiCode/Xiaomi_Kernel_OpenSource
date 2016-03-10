@@ -148,7 +148,7 @@ void msm_cpp_vbif_register_error_handler(void *dev,
 	int (*client_vbif_error_handler)(void *, uint32_t))
 {
 	if (dev == NULL || client >= VBIF_CLIENT_MAX) {
-		pr_err("%s: Fail to register handler! dev = %p, client %d\n",
+		pr_err("%s: Fail to register handler! dev = %pK,client %d\n",
 			__func__, dev, client);
 		return;
 	}
@@ -1054,7 +1054,7 @@ int cpp_vbif_error_handler(void *dev, uint32_t vbif_error)
 	struct cpp_device *cpp_dev = NULL;
 
 	if (dev == NULL || vbif_error >= CPP_VBIF_ERROR_MAX) {
-		pr_err("failed: dev %p, vbif error %d\n", dev, vbif_error);
+		pr_err("failed: dev %pK,vbif error %d\n", dev, vbif_error);
 		return -EINVAL;
 	}
 
@@ -1083,13 +1083,13 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	CPP_DBG("E\n");
 
 	if (!sd || !fh) {
-		pr_err("Wrong input parameters sd %p fh %p!",
+		pr_err("Wrong input parameters sd %pK fh %pK!",
 			sd, fh);
 		return -EINVAL;
 	}
 	cpp_dev = v4l2_get_subdevdata(sd);
 	if (!cpp_dev) {
-		pr_err("failed: cpp_dev %p\n", cpp_dev);
+		pr_err("failed: cpp_dev %pK\n", cpp_dev);
 		return -EINVAL;
 	}
 	mutex_lock(&cpp_dev->mutex);
@@ -1112,7 +1112,7 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -ENODEV;
 	}
 
-	CPP_DBG("open %d %p\n", i, &fh->vfh);
+	CPP_DBG("open %d %pK\n", i, &fh->vfh);
 	cpp_dev->cpp_open_cnt++;
 	if (cpp_dev->cpp_open_cnt == 1) {
 		rc = cpp_init_hardware(cpp_dev);
@@ -1158,7 +1158,7 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	cpp_dev =  v4l2_get_subdevdata(sd);
 
 	if (!cpp_dev) {
-		pr_err("failed: cpp_dev %p\n", cpp_dev);
+		pr_err("failed: cpp_dev %pK\n", cpp_dev);
 		return -EINVAL;
 	}
 
@@ -1446,7 +1446,7 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 	mutex_lock(&cpp_dev->mutex);
 
 	if (!work || (cpp_timer.data.cpp_dev->state != CPP_STATE_ACTIVE)) {
-		pr_err("Invalid work:%p or state:%d\n", work,
+		pr_err("Invalid work:%pK or state:%d\n", work,
 			cpp_timer.data.cpp_dev->state);
 		/* Do not flush queue here as it is not a fatal error */
 		goto end;
@@ -2512,7 +2512,7 @@ static int msm_cpp_copy_from_ioctl_ptr(void *dst_ptr,
 {
 	int ret;
 	if ((ioctl_ptr->ioctl_ptr == NULL) || (ioctl_ptr->len == 0)) {
-		pr_err("%s: Wrong ioctl_ptr %p / len %zu\n", __func__,
+		pr_err("%s: Wrong ioctl_ptr %pK / len %zu\n", __func__,
 			ioctl_ptr, ioctl_ptr->len);
 		return -EINVAL;
 	}
@@ -2535,7 +2535,7 @@ static int msm_cpp_copy_from_ioctl_ptr(void *dst_ptr,
 {
 	int ret;
 	if ((ioctl_ptr->ioctl_ptr == NULL) || (ioctl_ptr->len == 0)) {
-		pr_err("%s: Wrong ioctl_ptr %p / len %zu\n", __func__,
+		pr_err("%s: Wrong ioctl_ptr %pK / len %zu\n", __func__,
 			ioctl_ptr, ioctl_ptr->len);
 		return -EINVAL;
 	}
@@ -2607,14 +2607,14 @@ static int msm_cpp_validate_input(unsigned int cmd, void *arg,
 		break;
 	default: {
 		if (ioctl_ptr == NULL) {
-			pr_err("Wrong ioctl_ptr %p\n", ioctl_ptr);
+			pr_err("Wrong ioctl_ptr %pK\n", ioctl_ptr);
 			return -EINVAL;
 		}
 
 		*ioctl_ptr = arg;
 		if ((*ioctl_ptr == NULL) ||
 			((*ioctl_ptr)->ioctl_ptr == NULL)) {
-			pr_err("Wrong arg %p\n", arg);
+			pr_err("Wrong arg %pK\n", arg);
 			return -EINVAL;
 		}
 		break;
@@ -2631,7 +2631,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	int rc = 0;
 
 	if (sd == NULL) {
-		pr_err("sd %p\n", sd);
+		pr_err("sd %pK\n", sd);
 		return -EINVAL;
 	}
 	cpp_dev = v4l2_get_subdevdata(sd);
@@ -2707,7 +2707,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				&cpp_dev->pdev->dev);
 			if (rc) {
 				dev_err(&cpp_dev->pdev->dev,
-					"Fail to loc blob %s dev %p, rc:%d\n",
+					"Fail to loc blob %s dev %pK, rc:%d\n",
 					cpp_dev->fw_name_bin,
 					&cpp_dev->pdev->dev, rc);
 				kfree(cpp_dev->fw_name_bin);
@@ -3170,14 +3170,15 @@ static long msm_cpp_subdev_do_ioctl(
 	struct v4l2_fh *vfh = NULL;
 
 	if ((arg == NULL) || (file == NULL)) {
-		pr_err("Invalid input parameters arg %p, file %p\n", arg, file);
+		pr_err("Invalid input parameters arg %pK, file %pK\n",
+			arg, file);
 		return -EINVAL;
 	}
 	vdev = video_devdata(file);
 	sd = vdev_to_v4l2_subdev(vdev);
 
 	if (sd == NULL) {
-		pr_err("Invalid input parameter sd %p\n", sd);
+		pr_err("Invalid input parameter sd %pK\n", sd);
 		return -EINVAL;
 	}
 	vfh = file->private_data;
@@ -3451,7 +3452,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	}
 	cpp_dev = v4l2_get_subdevdata(sd);
 	if (!vdev || !cpp_dev) {
-		pr_err("Invalid vdev %p or cpp_dev %p structures!",
+		pr_err("Invalid vdev %pK or cpp_dev %pK structures!",
 			vdev, cpp_dev);
 		return -EINVAL;
 	}

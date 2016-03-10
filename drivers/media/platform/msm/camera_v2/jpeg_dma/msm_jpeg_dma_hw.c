@@ -93,7 +93,7 @@ static inline u32 msm_jpegdma_hw_read_reg(struct msm_jpegdma_device *dma,
 static inline void msm_jpegdma_hw_write_reg(struct msm_jpegdma_device *dma,
 	enum msm_jpegdma_mem_resources base_idx, u32 reg, u32 value)
 {
-	pr_debug("%s:%d]%p %08x\n", __func__, __LINE__,
+	pr_debug("%s:%d]%pK %08x\n", __func__, __LINE__,
 		dma->iomem_base[base_idx] + reg,
 		value);
 	msm_camera_io_w(value, dma->iomem_base[base_idx] + reg);
