@@ -656,8 +656,14 @@ EXPORT_SYMBOL(kgsl_cache_range_op);
 #ifndef CONFIG_ALLOC_BUFFERS_IN_4K_CHUNKS
 static inline int get_page_size(size_t size, unsigned int align)
 {
-	return (align >= ilog2(SZ_64K) && size >= SZ_64K)
-					? SZ_64K : PAGE_SIZE;
+	if (align >= ilog2(SZ_1M) && size >= SZ_1M)
+		return SZ_1M;
+	else if (align >= ilog2(SZ_64K) && size >= SZ_64K)
+		return SZ_64K;
+	else if (align >= ilog2(SZ_8K) && size >= SZ_8K)
+		return SZ_8K;
+	else
+		return PAGE_SIZE;
 }
 #else
 static inline int get_page_size(size_t size, unsigned int align)
@@ -665,56 +671,6 @@ static inline int get_page_size(size_t size, unsigned int align)
 	return PAGE_SIZE;
 }
 #endif
-
-static void kgsl_zero_pages(struct page **pages, unsigned int pcount)
-{
-	unsigned int j;
-	unsigned int step = ((VMALLOC_END - VMALLOC_START)/8) >> PAGE_SHIFT;
-	pgprot_t page_prot = pgprot_writecombine(PAGE_KERNEL);
-	void *ptr;
-
-	/*
-	 * All memory that goes to the user has to be zeroed out before it gets
-	 * exposed to userspace. This means that the memory has to be mapped in
-	 * the kernel, zeroed (memset) and then unmapped.  This also means that
-	 * the dcache has to be flushed to ensure coherency between the kernel
-	 * and user pages. We used to pass __GFP_ZERO to alloc_page which mapped
-	 * zeroed and unmaped each individual page, and then we had to turn
-	 * around and call flush_dcache_page() on that page to clear the caches.
-	 * This was killing us for performance. Instead, we found it is much
-	 * faster to allocate the pages without GFP_ZERO, map a chunk of the
-	 * range ('step' pages), memset it, flush it and then unmap
-	 * - this results in a factor of 4 improvement for speed for large
-	 * buffers. There is a small decrease in speed for small buffers,
-	 * but only on the order of a few microseconds at best. The 'step'
-	 * size is based on a guess at the amount of free vmalloc space, but
-	 * will scale down if there's not enough free space.
-	 */
-	for (j = 0; j < pcount; j += step) {
-		step = min(step, pcount - j);
-
-		ptr = vmap(&pages[j], step, VM_IOREMAP, page_prot);
-
-		if (ptr != NULL) {
-			memset(ptr, 0, step * PAGE_SIZE);
-			dmac_flush_range(ptr, ptr + step * PAGE_SIZE);
-			vunmap(ptr);
-		} else {
-			int k;
-			/* Very, very, very slow path */
-
-			for (k = j; k < j + step; k++) {
-				ptr = kmap_atomic(pages[k]);
-				memset(ptr, 0, PAGE_SIZE);
-				dmac_flush_range(ptr, ptr + PAGE_SIZE);
-				kunmap_atomic(ptr);
-			}
-			/* scale down the step size to avoid this path */
-			if (step > 1)
-				step >>= 1;
-		}
-	}
-}
 
 static int
 kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
@@ -741,8 +697,10 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 	 * larger however to accomodate hardware quirks
 	 */
 
-	if (align < ilog2(page_size))
+	if (align < ilog2(page_size)) {
 		kgsl_memdesc_set_align(memdesc, ilog2(page_size));
+		align = ilog2(page_size);
+	}
 
 	/*
 	 * There needs to be enough room in the page array to be able to
@@ -775,18 +733,13 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 	while (len > 0) {
 		int page_count;
 
-		/* don't waste space at the end of the allocation*/
-		if (len < page_size)
-			page_size = PAGE_SIZE;
-
-		page_count = kgsl_pool_alloc_page(page_size,
-					pages + pcount, len_alloc - pcount);
+		page_count = kgsl_pool_alloc_page(&page_size,
+					pages + pcount, len_alloc - pcount,
+					&align);
 
 		if (page_count <= 0) {
-			if (page_size != PAGE_SIZE) {
-				page_size = PAGE_SIZE;
+			if (page_count == -EAGAIN)
 				continue;
-			}
 
 			/*
 			 * Update sglen and memdesc size,as requested allocation
@@ -807,6 +760,9 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 		pcount += page_count;
 		len -= page_size;
 		memdesc->size += page_size;
+
+		/* Get the needed page size for the next iteration */
+		page_size = get_page_size(len, align);
 	}
 
 	ret = sg_alloc_table_from_pages(memdesc->sgt, pages, pcount, 0,
@@ -843,11 +799,6 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 
 	KGSL_STATS_ADD(memdesc->size, &kgsl_driver.stats.page_alloc,
 		&kgsl_driver.stats.page_alloc_max);
-
-	/*
-	 * Zero out the pages.
-	 */
-	kgsl_zero_pages(pages, pcount);
 
 done:
 	if (ret) {
