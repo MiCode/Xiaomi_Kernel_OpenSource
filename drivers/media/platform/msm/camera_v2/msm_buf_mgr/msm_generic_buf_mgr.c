@@ -63,9 +63,9 @@ static int32_t msm_buf_mngr_get_buf(struct msm_buf_mngr_device *dev,
 		return -ENOMEM;
 	}
 	INIT_LIST_HEAD(&new_entry->entry);
-	new_entry->vb2_v4l2_buf = dev->vb2_ops.get_buf(buf_info->session_id,
+	new_entry->vb2_buf = dev->vb2_ops.get_buf(buf_info->session_id,
 		buf_info->stream_id);
-	if (!new_entry->vb2_v4l2_buf) {
+	if (!new_entry->vb2_buf) {
 		pr_debug("%s:Get buf is null\n", __func__);
 		kfree(new_entry);
 		return -EINVAL;
@@ -75,7 +75,7 @@ static int32_t msm_buf_mngr_get_buf(struct msm_buf_mngr_device *dev,
 	spin_lock_irqsave(&dev->buf_q_spinlock, flags);
 	list_add_tail(&new_entry->entry, &dev->buf_qhead);
 	spin_unlock_irqrestore(&dev->buf_q_spinlock, flags);
-	buf_info->index = new_entry->vb2_v4l2_buf->vb2_buf.index;
+	buf_info->index = new_entry->vb2_buf->v4l2_buf.index;
 	if (buf_info->type == MSM_CAMERA_BUF_MNGR_BUF_USER) {
 		mutex_lock(&dev->cont_mutex);
 		if (!list_empty(&dev->cont_qhead)) {
@@ -101,12 +101,12 @@ static int32_t msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
 		if ((bufs->session_id == buf_info->session_id) &&
 			(bufs->stream_id == buf_info->stream_id) &&
-			(bufs->vb2_v4l2_buf->vb2_buf.index ==
-				buf_info->index)) {
-			bufs->vb2_v4l2_buf->sequence  = buf_info->frame_id;
-			bufs->vb2_v4l2_buf->timestamp = buf_info->timestamp;
+			(bufs->vb2_buf->v4l2_buf.index == buf_info->index)) {
+			bufs->vb2_buf->v4l2_buf.sequence  = buf_info->frame_id;
+			bufs->vb2_buf->v4l2_buf.timestamp = buf_info->timestamp;
+			bufs->vb2_buf->v4l2_buf.reserved = buf_info->reserved;
 			ret = buf_mngr_dev->vb2_ops.buf_done
-					(bufs->vb2_v4l2_buf,
+					(bufs->vb2_buf,
 						buf_info->session_id,
 						buf_info->stream_id);
 			list_del_init(&bufs->entry);
@@ -130,8 +130,8 @@ static int32_t msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
 		if ((bufs->session_id == buf_info->session_id) &&
 			(bufs->stream_id == buf_info->stream_id) &&
-			(bufs->vb2_v4l2_buf->vb2_buf.index == buf_info->index)) {
-			ret = buf_mngr_dev->vb2_ops.put_buf(bufs->vb2_v4l2_buf,
+			(bufs->vb2_buf->v4l2_buf.index == buf_info->index)) {
+			ret = buf_mngr_dev->vb2_ops.put_buf(bufs->vb2_buf,
 				buf_info->session_id, buf_info->stream_id);
 			list_del_init(&bufs->entry);
 			kfree(bufs);
@@ -158,11 +158,11 @@ static int32_t msm_generic_buf_mngr_flush(
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
 		if ((bufs->session_id == buf_info->session_id) &&
 			(bufs->stream_id == buf_info->stream_id)) {
-			ret = buf_mngr_dev->vb2_ops.buf_done(bufs->vb2_v4l2_buf,
+			ret = buf_mngr_dev->vb2_ops.buf_done(bufs->vb2_buf,
 						buf_info->session_id,
 						buf_info->stream_id);
 			pr_err("Bufs not flushed: str_id = %d buf_index = %d ret = %d\n",
-			buf_info->stream_id, bufs->vb2_v4l2_buf->vb2_buf.index,
+			buf_info->stream_id, bufs->vb2_buf->v4l2_buf.index,
 			ret);
 			list_del_init(&bufs->entry);
 			kfree(bufs);
@@ -250,7 +250,7 @@ static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *dev,
 			pr_info("%s: Delete invalid bufs =%lx, session_id=%u, bufs->ses_id=%d, str_id=%d, idx=%d\n",
 				__func__, (unsigned long)bufs, session->session,
 				bufs->session_id, bufs->stream_id,
-				bufs->vb2_v4l2_buf->vb2_buf.index);
+				bufs->vb2_buf->v4l2_buf.index);
 			if (session->session == bufs->session_id) {
 				list_del_init(&bufs->entry);
 				kfree(bufs);

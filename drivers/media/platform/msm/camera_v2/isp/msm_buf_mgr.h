@@ -81,7 +81,7 @@ struct msm_isp_buffer {
 	enum msm_isp_buffer_state state;
 
 	/*Vb2 buffer data*/
-	struct vb2_v4l2_buffer *vb2_v4l2_buf;
+	struct vb2_buffer *vb2_buf;
 
 	/*Share buffer cache state*/
 	struct list_head share_list;

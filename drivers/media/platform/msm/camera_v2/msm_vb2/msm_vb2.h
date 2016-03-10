@@ -38,7 +38,7 @@ struct msm_vb2_buffer {
 	 * because both v4l2 frameworks and driver directly
 	 * cast msm_vb2_buffer to a vb2_buf.
 	 */
-	struct vb2_v4l2_buffer vb2_v4l2_buf;
+	struct vb2_buffer vb2_buf;
 	struct list_head list;
 	int in_freeq;
 };

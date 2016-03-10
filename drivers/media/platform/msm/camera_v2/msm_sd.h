@@ -69,13 +69,12 @@ struct msm_sd_req_sd {
 };
 
 struct msm_sd_req_vb2_q {
-	struct vb2_v4l2_buffer * (*get_buf)(int session_id,
-		unsigned int stream_id);
+	struct vb2_buffer * (*get_buf)(int session_id, unsigned int stream_id);
 	struct vb2_queue * (*get_vb2_queue)(int session_id,
 		unsigned int stream_id);
-	int (*put_buf)(struct vb2_v4l2_buffer *vb2_buf, int session_id,
+	int (*put_buf)(struct vb2_buffer *vb2_buf, int session_id,
 		unsigned int stream_id);
-	int (*buf_done)(struct vb2_v4l2_buffer *vb2_buf, int session_id,
+	int (*buf_done)(struct vb2_buffer *vb2_buf, int session_id,
 		unsigned int stream_id);
 	int (*flush_buf)(int session_id, unsigned int stream_id);
 };
