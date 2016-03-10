@@ -13244,8 +13244,8 @@ static int tasha_probe(struct platform_device *pdev)
 	struct wcd9xxx_power_region *cdc_pwr;
 
 	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
-		if (apr_get_modem_state() == APR_SUBSYS_DOWN) {
-			dev_err(&pdev->dev, "%s: modem down\n", __func__);
+		if (apr_get_subsys_state() == APR_SUBSYS_DOWN) {
+			dev_err(&pdev->dev, "%s: dsp down\n", __func__);
 			return -EPROBE_DEFER;
 		}
 	}
