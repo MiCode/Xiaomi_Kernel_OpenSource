@@ -1820,10 +1820,6 @@
 	};
 };
 
-&gdsc_mmss {
-	status = "ok";
-};
-
 &gdsc_usb30 {
 	clock-names = "core_clk";
 	clocks = <&clock_gcc clk_gcc_usb30_master_clk>;
