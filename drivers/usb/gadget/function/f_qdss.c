@@ -494,7 +494,7 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 				NULL);
 
 		status = set_qdss_data_connection(
-				qdss->cdev->gadget,
+				qdss->gadget,
 				qdss->port.data,
 				qdss->port.data->address,
 				0);
@@ -544,7 +544,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 
 	pr_debug("usb_qdss_connect_work\n");
 	status = set_qdss_data_connection(
-			qdss->cdev->gadget,
+			qdss->gadget,
 			qdss->port.data,
 			qdss->port.data->address,
 			1);
@@ -844,7 +844,7 @@ EXPORT_SYMBOL(usb_qdss_open);
 void usb_qdss_close(struct usb_qdss_ch *ch)
 {
 	struct f_qdss *qdss = ch->priv_usb;
-	struct usb_gadget *gadget = qdss->cdev->gadget;
+	struct usb_gadget *gadget = qdss->gadget;
 	unsigned long flags;
 	int status;
 

@@ -42,7 +42,6 @@ struct gqdss {
 struct f_qdss {
 	struct gqdss port;
 	struct usb_qdss_bam_connect_info bam_info;
-	struct usb_composite_dev *cdev;
 	struct usb_gadget *gadget;
 	short int port_num;
 	u8 ctrl_iface_id;
