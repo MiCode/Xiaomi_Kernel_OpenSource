@@ -900,6 +900,14 @@
 			&tsif1_sync_active>;		/* dual-tsif-mode2 */
 	};
 
+	wcd_rst_gpio: wcd_gpio_ctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		qcom,cdc-rst-n-gpio = <&tlmm 64 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
 	slim_msm: slim@91c0000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
@@ -925,10 +933,7 @@
 				      17 18 19 20 21 22 23 24 25 26 27 28 29
 				      30>;
 
-			qcom,cdc-reset-gpio = <&tlmm 64 0>;
-			pinctrl-names = "default", "idle";
-			pinctrl-0 = <&cdc_reset_active>;
-			pinctrl-1 = <&cdc_reset_sleep>;
+			qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
 
 			clock-names = "wcd_clk", "wcd_native_clk";
 			clocks = <&clock_audio clk_audio_pmi_clk>,
