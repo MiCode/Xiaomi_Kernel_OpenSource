@@ -504,6 +504,7 @@ struct fg_chip {
 	struct fg_cc_soc_data	sw_cc_soc_data;
 	/* rslow compensation */
 	struct fg_rslow_data	rslow_comp;
+	int			rconn_mohm;
 	/* cycle counter */
 	struct fg_cyc_ctr_data	cyc_ctr;
 	/* iadc compensation */
@@ -2568,6 +2569,7 @@ static int lookup_soc_for_ocv(struct fg_chip *chip, int ocv)
 #define ESR_ACTUAL_REG		0x554
 #define BATTERY_ESR_REG		0x4F4
 #define TEMP_RS_TO_RSLOW_REG	0x514
+#define ESR_OFFSET		2
 static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 {
 	int64_t ocv_cutoff_new, ocv_cutoff_aged, temp_rs_to_rslow;
@@ -2608,7 +2610,7 @@ static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 
 	rc = fg_mem_read(chip, buffer, ESR_ACTUAL_REG, 2, 2, 0);
 	esr_actual = half_float(buffer);
-	rc |= fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, 2, 0);
+	rc |= fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, ESR_OFFSET, 0);
 	battery_esr = half_float(buffer);
 
 	if (rc) {
@@ -4268,7 +4270,6 @@ done:
 	fg_relax(&chip->resume_soc_wakeup_source);
 }
 
-
 #define OCV_COEFFS_START_REG		0x4C0
 #define OCV_JUNCTION_REG		0x4D8
 #define NOM_CAP_REG			0x4F4
@@ -4277,7 +4278,8 @@ done:
 #define RSLOW_CFG_OFFSET		2
 #define RSLOW_THRESH_REG		0x52C
 #define RSLOW_THRESH_OFFSET		0
-#define TEMP_RS_TO_RSLOW_OFFSET		2
+#define RS_TO_RSLOW_CHG_OFFSET		2
+#define RS_TO_RSLOW_DISCHG_OFFSET	0
 #define RSLOW_COMP_REG			0x528
 #define RSLOW_COMP_C1_OFFSET		0
 #define RSLOW_COMP_C2_OFFSET		2
@@ -4380,9 +4382,9 @@ static int populate_system_data(struct fg_chip *chip)
 	}
 	chip->rslow_comp.rslow_thr = buffer[0];
 	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
-			RSLOW_THRESH_OFFSET, 0);
+			RS_TO_RSLOW_CHG_OFFSET, 0);
 	if (rc) {
-		pr_err("unable to read rs to rslow: %d\n", rc);
+		pr_err("unable to read rs to rslow_chg: %d\n", rc);
 		goto done;
 	}
 	memcpy(chip->rslow_comp.rs_to_rslow, buffer, 2);
@@ -4396,6 +4398,68 @@ static int populate_system_data(struct fg_chip *chip)
 
 done:
 	fg_mem_release(chip);
+	return rc;
+}
+
+static int fg_update_batt_rslow_settings(struct fg_chip *chip)
+{
+	int64_t rs_to_rslow_chg, rs_to_rslow_dischg, batt_esr, rconn_uohm;
+	u8 buffer[2];
+	int rc;
+
+	rc = fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, ESR_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read battery_esr: %d\n", rc);
+		goto done;
+	}
+	batt_esr = half_float(buffer);
+
+	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_DISCHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rs to rslow dischg: %d\n", rc);
+		goto done;
+	}
+	rs_to_rslow_dischg = half_float(buffer);
+
+	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_CHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rs to rslow chg: %d\n", rc);
+		goto done;
+	}
+	rs_to_rslow_chg = half_float(buffer);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("rs_rslow_chg: %lld, rs_rslow_dischg: %lld, esr: %lld\n",
+			rs_to_rslow_chg, rs_to_rslow_dischg, batt_esr);
+
+	rconn_uohm = chip->rconn_mohm * 1000;
+	rs_to_rslow_dischg = div64_s64(rs_to_rslow_dischg * batt_esr,
+					batt_esr + rconn_uohm);
+	rs_to_rslow_chg = div64_s64(rs_to_rslow_chg * batt_esr,
+					batt_esr + rconn_uohm);
+
+	half_float_to_buffer(rs_to_rslow_chg, buffer);
+	rc = fg_mem_write(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_CHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rs_to_rslow_chg: %d\n", rc);
+		goto done;
+	}
+
+	half_float_to_buffer(rs_to_rslow_dischg, buffer);
+	rc = fg_mem_write(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_DISCHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rs_to_rslow_dischg: %d\n", rc);
+		goto done;
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Modified rs_rslow_chg: %lld, rs_rslow_dischg: %lld\n",
+			rs_to_rslow_chg, rs_to_rslow_dischg);
+done:
 	return rc;
 }
 
@@ -4425,7 +4489,7 @@ static int fg_rslow_charge_comp_set(struct fg_chip *chip)
 
 	half_float_to_buffer(chip->rslow_comp.chg_rs_to_rslow, buffer);
 	rc = fg_mem_write(chip, buffer,
-			TEMP_RS_TO_RSLOW_REG, 2, TEMP_RS_TO_RSLOW_OFFSET, 0);
+			TEMP_RS_TO_RSLOW_REG, 2, RS_TO_RSLOW_CHG_OFFSET, 0);
 	if (rc) {
 		pr_err("unable to write rs to rslow: %d\n", rc);
 		goto done;
@@ -4478,7 +4542,7 @@ static int fg_rslow_charge_comp_clear(struct fg_chip *chip)
 	}
 
 	rc = fg_mem_write(chip, chip->rslow_comp.rs_to_rslow,
-			TEMP_RS_TO_RSLOW_REG, 2, TEMP_RS_TO_RSLOW_OFFSET, 0);
+			TEMP_RS_TO_RSLOW_REG, 2, RS_TO_RSLOW_CHG_OFFSET, 0);
 	if (rc) {
 		pr_err("unable to write rs to rslow: %d\n", rc);
 		goto done;
@@ -5186,6 +5250,11 @@ wait:
 		}
 	}
 
+	if (chip->rconn_mohm > 0) {
+		rc = fg_update_batt_rslow_settings(chip);
+		if (rc)
+			pr_err("Error in updating ESR, rc=%d\n", rc);
+	}
 done:
 	if (chip->charging_disabled) {
 		rc = set_prop_enable_charging(chip, true);
@@ -5678,6 +5747,8 @@ static int fg_of_init(struct fg_chip *chip)
 				chip->slope_limit_coeffs[LOW_TEMP_DISCHARGE],
 				chip->slope_limit_coeffs[HIGH_TEMP_DISCHARGE]);
 	}
+
+	OF_READ_PROPERTY(chip->rconn_mohm, "fg-rconn-mohm", rc, 0);
 
 	return rc;
 }
@@ -6491,6 +6562,20 @@ static int fg_common_hw_init(struct fg_chip *chip)
 			pr_info("rslow_comp active is %sabled\n",
 				chip->rslow_comp.active ? "en" : "dis");
 	}
+
+	rc = fg_mem_read(chip, &val, RSLOW_CFG_REG, 1, RSLOW_CFG_OFFSET,
+			0);
+	if (rc) {
+		pr_err("unable to read rslow cfg: %d\n", rc);
+		return rc;
+	}
+
+	if (val & RSLOW_CFG_ON_VAL)
+		chip->rslow_comp.active = true;
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("rslow_comp active is %sabled\n",
+			chip->rslow_comp.active ? "en" : "dis");
 
 	return 0;
 }
