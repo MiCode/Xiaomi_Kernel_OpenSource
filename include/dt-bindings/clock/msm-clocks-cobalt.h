@@ -261,6 +261,7 @@
 #define clk_gcc_qusb2phy_sec_reset		0x3f3a87d0
 #define clk_gcc_mmss_noc_cfg_ahb_clk		0xb41a9d99
 #define clk_gcc_wcss_shdreg_ahb_clk		0x33459c85
+#define clk_gcc_dcc_ahb_clk			0xfa14a88c
 #define clk_hlos1_vote_lpass_core_smmu_clk	0x3aaa1743
 #define clk_hlos1_vote_lpass_adsp_smmu_clk	0xc76f702f
 #define clk_gcc_mss_cfg_ahb_clk			0x111cde81

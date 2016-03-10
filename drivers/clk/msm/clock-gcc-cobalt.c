@@ -2267,6 +2267,17 @@ static struct branch_clk gcc_mss_snoc_axi_clk = {
 	},
 };
 
+static struct branch_clk gcc_dcc_ahb_clk = {
+	.cbcr_reg = GCC_DCC_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_dcc_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_dcc_ahb_clk.c),
+	},
+};
+
 static struct branch_clk hlos1_vote_lpass_core_smmu_clk = {
 	.cbcr_reg = GCC_HLOS1_VOTE_LPASS_CORE_SMMU_CBCR,
 	.has_sibling = 0,
@@ -2392,6 +2403,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_ufs_rx_symbol_0_clk.c, 0x00ed },
 		{ &gcc_ufs_unipro_core_clk.c, 0x00f0 },
 		{ &gcc_ufs_ice_core_clk.c, 0x00f1 },
+		{ &gcc_dcc_ahb_clk.c, 0x0119 },
 		{ &ipa_clk.c, 0x011b },
 		{ &gcc_mss_cfg_ahb_clk.c, 0x011f },
 		{ &gcc_mss_q6_bimc_axi_clk.c, 0x0124 },
@@ -2647,6 +2659,7 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_rx1_usb2_clkref_clk),
 	CLK_LIST(gcc_ufs_clkref_clk),
 	CLK_LIST(gcc_usb3_clkref_clk),
+	CLK_LIST(gcc_dcc_ahb_clk),
 	CLK_LIST(hlos1_vote_lpass_core_smmu_clk),
 	CLK_LIST(hlos1_vote_lpass_adsp_smmu_clk),
 };
