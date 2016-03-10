@@ -1,0 +1,260 @@
+Qualcomm Technologies, Inc. CPR3 Regulator - MMSS Specific Bindings
+
+MMSS CPR3 controllers each support one CPR thread that monitors the voltage of
+the graphics processor (MMSS) supply regulator.  The CPR open-loop voltages are
+stored in hardware fuses for MMSS CPR3 controllers.  However, the CPR target
+quotients must be defined in device tree.
+
+This document describes the MMSS specific CPR3 bindings.
+
+=======================
+Required Node Structure
+=======================
+
+CPR3 regulators must be described in three levels of devices nodes.  The first
+level describes the CPR3 controller.  The second level describes exacly one
+hardware thread managed by the controller.  The third level describes one or
+more logical regulators handled by the CPR thread.
+
+All platform independent cpr3-regulator binding guidelines defined in
+cpr3-regulator.txt also apply to cpr3-hmss-regulator devices.
+
+====================================
+First Level Nodes - CPR3 Controllers
+====================================
+
+MMSS specific properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "qcom,cpr3-msm8996-mmss-regulator"
+
+- clocks
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of clock tuples in which each tuple consists of a
+		    phandle to a clock device and a clock ID number.  The
+		    following clocks must be specified: MMSS RBCPR, MMSS RBCPR
+		    AHB, and MMSS MMAGIC AHB.
+
+- clock-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Clock names.  This list must match up 1-to-1 with the clocks
+		    specified in the 'clocks' property. "core_clk", "iface_clk",
+		    and "bus_clk" must be specified.
+
+=================================================
+Second Level Nodes - CPR Threads for a Controller
+=================================================
+
+MMSS specific properties:
+N/A
+
+===============================================
+Third Level Nodes - CPR Regulators for a Thread
+===============================================
+
+MMSS specific properties:
+- qcom,cpr-fuse-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse corners.  This value must be 4
+		    for MMSS.
+
+- qcom,cpr-fuse-combos
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse combinations being supported by
+		    the device.  This value is utilized by several other
+		    properties.  Supported values are 1 up to the maximum
+		    possible for a given regulator type.  For MMSS the maximum
+		    supported value is 8.  These combos correspond to CPR
+		    revision fuse values from 0 to 7 in order.
+
+- qcom,cpr-speed-bins
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the number of speed bins being supported by the
+		    device.  This value is utilized by several other properties.
+		    Supported values are 1 up to the maximum possible for a
+		    given regulator type.  For MMSS the maximum supported value
+		    is 1.
+
+- qcom,mem-acc-voltage
+	Usage:      required if mem-acc-supply is specified for the CPR3 controller
+		    containing this CPR3 regulator
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the mem-acc-supply
+		    corner for each voltage corner in order from lowest to highest.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
+
+- qcom,cpr-target-quotients
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists.  Each tuple defines the
+		    CPR target quotient for each ring oscillator (RO) for a
+		    given corner.  Since CPR3 supports exactly 16 ROs, each
+		    tuple must contain 16 elements corresponding to RO0 through
+		    RO15 in order.  If a given RO is unused for a corner, then
+		    its target quotient should be specified as 0.
+
+		    Each tuple list in the grouping must meet the same size
+		    requirements as those specified for qcom,mem-acc-voltage
+		    above. The tuples in a given list are ordered from the
+		    lowest corner to the highest corner.
+
+- qcom,cpr-ro-scaling-factor
+	Usage:      required if qcom,cpr-closed-loop-voltage-adjustment is
+		    specified
+	Value type: <prop-encoded-array>
+	Definition: The common definition of this property in cpr3-regulator.txt
+		    is accurate for MMSS CPR3 controllers except for this
+		    modification:
+
+		    Each tuple list must contain the number of tuples defined in
+		    the corresponding element of the qcom,cpr-corners property
+		    or the qcom,cpr-speed-bins property as opposed to the value
+		    of the qcom,cpr-fuse-corners property.
+
+- qcom,cpr-fused-closed-loop-voltage-adjustment-map
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR fused
+		    corner closed-loop offset adjustment fuse to utilize for
+		    each voltage corner in order from lowest to highest.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
+
+		    Each tuple element must be either 0 or in the range 1 to
+		    qcom,cpr-fuse-corners.  A value of 0 signifies that no fuse
+		    based adjustment should be applied to the fuse corner.
+		    Values 1 to qcom,cpr-fuse-corners denote the specific fuse
+		    corner that should be used by a given voltage corner.
+
+Note that the qcom,cpr-closed-loop-voltage-fuse-adjustment property is not
+meaningful for MMSS CPR3 regulator nodes since target quotients are not defined
+in fuses.
+
+=======
+Example
+=======
+
+gfx_cpr: cpr3-ctrl@838000 {
+	compatible = "qcom,cpr3-msm8996-mmss-regulator";
+	reg = <0x00838000 0x4000>, <0x00074000 0x1000>;
+	reg-names = "cpr_ctrl", "fuse_base";
+	clocks = <&clock_mmss clk_mmss_rbcpr_clk>,
+		 <&clock_mmss clk_mmss_rbcpr_ahb_clk>,
+		 <&clock_mmss clk_mmss_mmagic_ahb_clk>;
+	clock-names = "core_clk", "iface_clk", "bus_clk";
+	interrupts = <0 166 0>;
+	interrupt-names = "cpr";
+	qcom,cpr-ctrl-name = "gfx";
+
+	qcom,cpr-sensor-time = <1000>;
+	qcom,cpr-loop-time = <5000000>;
+	qcom,cpr-idle-cycles = <15>;
+	qcom,cpr-step-quot-init-min = <13>;
+	qcom,cpr-step-quot-init-max = <13>;
+	qcom,cpr-count-mode = <2>;
+
+	vdd-supply = <&pmi8994_s2>;
+	qcom,voltage-step = <5000>;
+
+	qcom,cpr-enable;
+
+	qcom,cpr-aging-ref-voltage = <905000>;
+
+	thread@0 {
+		qcom,cpr-thread-id = <0>;
+		qcom,cpr-consecutive-up = <0>;
+		qcom,cpr-consecutive-down = <2>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <2>;
+
+		gfx_vreg: regulator {
+			regulator-name = "gfx_corner";
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <4>;
+
+			qcom,cpr-fuse-corners = <4>;
+			qcom,cpr-fuse-combos = <1>;
+			qcom,cpr-corners = <4>;
+
+			qcom,cpr-corner-fmax-map = <1 2 3 4>;
+
+			qcom,cpr-voltage-ceiling =
+				<670000  745000  905000 1015000>;
+			qcom,cpr-voltage-floor =
+				<545000  625000  755000  855000>;
+
+			qcom,mem-acc-voltage = <1 1 2 2>;
+
+			qcom,corner-frequencies =
+				<120000000 205000000 360000000
+				 480000000>;
+
+			qcom,cpr-target-quotients =
+			      <   0    0    0    0  249  232    0  394
+				  0  422    0    0    0    0    0    0>,
+			      <   0    0    0    0  400  363    0  565
+				  0  603    0    0    0    0    0    0>,
+			      <   0    0    0    0  669  601    0  851
+				  0  905    0    0    0    0    0    0>,
+			      <   0    0    0    0  899  806    0 1084
+				  0 1149    0    0    0    0    0    0>;
+
+			qcom,cpr-ro-scaling-factor =
+			      <   0    0    0    0 2268 2004    0 2408
+				  0 2539    0    0    0    0    0    0>,
+			      <   0    0    0    0 2268 2004    0 2408
+				  0 2539    0    0    0    0    0    0>,
+			      <   0    0    0    0 2268 2004    0 2408
+				  0 2539    0    0    0    0    0    0>,
+			      <   0    0    0    0 2268 2004    0 2408
+				  0 2539    0    0    0    0    0    0>;
+
+			qcom,cpr-open-loop-voltage-fuse-adjustment =
+				<35000 0 0 0>;
+			qcom,cpr-closed-loop-voltage-adjustment =
+				<45000 0 0 0>;
+
+			qcom,cpr-fused-closed-loop-voltage-adjustment-map =
+				<2 2 0 4>;
+
+			qcom,allow-voltage-interpolation;
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+			qcom,cpr-aging-max-voltage-adjustment = <25000>;
+			qcom,cpr-aging-ref-corner = <3>;
+			qcom,cpr-aging-ro-scaling-factor = <2950>;
+			qcom,cpr-aging-derate =
+				<1000 1000 1000 1000>;
+			qcom,allow-aging-voltage-adjustment = <1>;
+		};
+	};
+};

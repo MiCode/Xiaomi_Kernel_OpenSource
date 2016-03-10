@@ -1,0 +1,258 @@
+Qualcomm Technologies, Inc. CPR4 Regulator - APSS Specific Bindings
+
+APSS CPR4 controllers each support one CPR thread that monitors the voltage of
+a pair of application processor (APSS) clusters that are powered by a shared
+regulator supply. They also have a hardware channel to use these requests to
+directly change the supply voltage at the PMIC via the SPM without software
+intervention.
+
+APSS CPR4 controllers also have to take into account the state of the memory
+array power mux (APM) when scaling voltage to ensure that memory always receives
+a sufficiently high voltage.
+
+Both CPR open-loop voltages and CPR target quotients are stored in hardware
+fuses for APSS CPR4 controllers.
+
+This document describes the APSS specific CPR4 bindings.
+
+=======================
+Required Node Structure
+=======================
+
+CPR4 regulators must be described in three levels of devices nodes.  The first
+level describes the CPR4 controller.  The second level describes one or more
+hardware threads managed by the controller.  The third level describes one or
+more logical regulators handled by each CPR thread.
+
+All platform independent cpr3-regulator binding guidelines defined in
+cpr3-regulator.txt also apply to cpr4-apss-regulator devices.
+
+====================================
+First Level Nodes - CPR4 Controllers
+====================================
+
+APSS specific properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be one of the following:
+		    "qcom,cpr4-msmtitanium-apss-regulator";
+
+- interrupts
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: CPR interrupt specifier and a hardware closed-loop ceiling
+		    interrupt specifier.
+
+- interrupt-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Interrupt names.  This list must match up 1-to-1 with the
+		    interrupts specified in the 'interrupts' property. "cpr"
+		    and "ceiling" must be specified.
+
+- qcom,apm-ctrl
+	Usage:      required on systems that need APM management
+	Value type: <phandle>
+	Definition: phandle of memory array power mux (APM) controller device
+		    node for the APM that is used by the APSS VDD supply
+
+- qcom,apm-threshold-voltage
+	Usage:      required if qcom,apm-ctrl is specified
+	Value type: <u32>
+	Definition: Specifies the APM threshold voltage in microvolts.  If the
+		    vdd-supply voltage is greater than or equal to this level,
+		    then the APM is switched to use the vdd-supply. If the
+		    vdd-supply voltage is below this level, then the APM is
+		    switched to use the system-supply.
+
+- qcom,apm-hysteresis-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the voltage delta in microvolts between the APM
+		    threshold voltage and the highest corner open-loop voltage
+		    which may be used as the ceiling for the corner.  If this
+		    property is not specified, then a value of 0 is assumed.
+
+- qcom,cpr-hw-closed-loop
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the APSS CPR4 controller
+		    should operate in hardware closed-loop mode as opposed to
+		    software closed-loop mode.
+
+- vdd-limit-supply
+	Usage:      required
+	Value type: <phandle>
+	Definition: phandle of the VDD supply limit regulator which controls the
+		    CPR ceiling and floor voltages when operating in hardware
+		    closed-loop mode.
+
+- qcom,cpr-down-error-step-limit
+	Usage:      required
+	Value type: <u32>
+	Definition: CPR4 hardware closed-loop down error step limit which
+		    defines the maximum number of vdd-supply regulator steps
+		    that the voltage may be reduced as the result of a single
+		    CPR measurement.
+
+- qcom,cpr-up-error-step-limit
+	Usage:      required
+	Value type: <u32>
+	Definition: CPR4 hardware closed-loop up error step limit which defines
+		    the maximum number of vdd-supply regulator steps that the
+                    voltage may be increased as the result of a single
+		    CPR measurement.
+
+- qcom,cpr-saw-use-unit-mV
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the unit used in SAW PVC
+		    interface is mV. Use this for vdd-supply regulators which
+		    do not use PMIC voltage control register LSBs per actually
+		    unique PMIC regulator output voltage.
+
+=================================================
+Second Level Nodes - CPR Threads for a Controller
+=================================================
+
+APSS specific properties:
+N/A
+
+===============================================
+Third Level Nodes - CPR Regulators for a Thread
+===============================================
+
+APSS specific properties:
+- qcom,cpr-fuse-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse corners. This value must be 4
+		    for APSS. These fuse corners are: LowSVS, SVS, Nominal,
+		    and Turbo.
+
+- qcom,cpr-fuse-combos
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse combinations being supported by
+		    the device.  This value is utilized by several other
+		    properties.  Supported values are 1 up to the maximum
+		    possible for a given regulator type.  For APSS the maximum
+		    supported value is 64.  The first 8 fuse combos correspond
+		    to speed bin fuse value 0 along with CPR revision fuse
+		    values 0 to 7.  The second 8 fuse combos correspond to speed
+		    bin fuse value 1 along with CPR revision fuse values 0 to 7.
+		    The last 8 fuse combos correspond to speed bin fuse value 7
+		    along with CPR revision fuse values 0 to 7.
+
+- qcom,cpr-speed-bins
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the number of speed bins being supported by the
+		    device.  This value is utilized by several other properties.
+		    Supported values are 1 up to the maximum possible for a
+		    given regulator type.  For APSS the maximum supported value
+		    is 8.
+
+- qcom,mem-acc-voltage
+	Usage:      required if mem-acc-supply is specified for the CPR4 controller
+		    containing this regulator
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the mem-acc-supply
+		    corner for each voltage corner in order from lowest to highest.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
+
+- qcom,allow-quotient-interpolation
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that it is acceptable to use
+		    interpolated CPR target quotient values.  These values are
+		    interpolated between the target quotient Fmax fuse values.
+
+=======
+Example
+=======
+
+apc_cpr: cpr4-ctrl@b018000 {
+	compatible = "qcom,cpr4-msmtitanium-apss-regulator";
+	reg = <0xb018000 0x4000>, <0xa4000 0x1000>;
+	reg-names = "cpr_ctrl", "fuse_base";
+	interrupts = <GIC_SPI 15 IRQ_TYPE_EDGE_RISING>,
+		<GIC_SPI 282 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "cpr", "ceiling";
+
+	qcom,cpr-ctrl-name = "apc";
+
+	qcom,cpr-sensor-time = <1000>;
+	qcom,cpr-loop-time = <5000000>;
+	qcom,cpr-idle-cycles = <15>;
+	qcom,cpr-step-quot-init-min = <13>;
+	qcom,cpr-step-quot-init-max = <13>;
+	qcom,cpr-count-mode = <2>;		/* Staggered */
+	qcom,cpr-down-error-step-limit = <1>;
+	qcom,cpr-up-error-step-limit = <1>;
+
+	qcom,apm-ctrl = <&apc_apm>;
+	qcom,apm-threshold-voltage = <848000>;
+	qcom,apm-hysteresis-voltage = <5000>;
+
+	vdd-supply = <&pmtitanium_s5>;
+	qcom,voltage-step = <5000>;
+	vdd-limit-supply = <&pmtitanium_s5_limit>;
+	mem-acc-supply = <&apc_mem_acc_vreg>;
+
+	qcom,cpr-enable;
+	qcom,cpr-hw-closed-loop;
+
+	thread@0 {
+		qcom,cpr-thread-id = <0>;
+		qcom,cpr-consecutive-up = <1>;
+		qcom,cpr-consecutive-down = <1>;
+		qcom,cpr-up-threshold = <1>;
+		qcom,cpr-down-threshold = <1>;
+
+		apc_vreg: regulator {
+			regulator-name = "apc_corner";
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <8>;
+
+			qcom,cpr-fuse-corners = <4>;
+			qcom,cpr-fuse-combos = <8>;
+			qcom,cpr-speed-bins = <1>;
+			qcom,cpr-corners = <8>;
+
+			qcom,cpr-corner-fmax-map = <1 2 4 8>;
+
+			qcom,cpr-voltage-ceiling =
+				<645000  720000 790000  865000 920000
+				 990000 1065000 1065000>;
+
+			qcom,cpr-voltage-floor =
+				<590000  625000 690000  755000 800000
+				 855000  920000 920000>;
+
+			qcom,mem-acc-voltage = <1 1 2 2 2 2 2 2>;
+
+			qcom,corner-frequencies =
+				<652800000 1036800000 1401600000
+				1689600000 1843200000 1958400000
+				2150400000 2208000000>;
+
+			qcom,allow-voltage-interpolation;
+			qcom,allow-quotient-interpolation;
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+		};
+	};
+};

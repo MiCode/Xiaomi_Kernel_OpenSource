@@ -1,0 +1,575 @@
+Qualcomm Technologies, Inc. CPR3 Regulator - Platform Independent Bindings
+
+Core Power Reduction (CPR) version 3 controllers are used by some Qualcomm
+Technologies, Inc. (QTI) SoCs to manage important voltage regulators.  CPR3
+controllers are capable of monitoring several ring oscillator sensing loops
+simultaneously.  The CPR3 controller informs software when the silicon
+conditions require the supply voltage to be increased or decreased.  On certain
+supply rails, the CPR3 controller is able to propagate the voltage increase
+or decrease requests all the way to the PMIC without software involvement.
+
+This document describes the common platform independent bindings that apply
+to all CPR3 controllers.
+
+=======================
+Required Node Structure
+=======================
+
+CPR3 regulators must be described in three levels of devices nodes.  The first
+level describes the CPR3 controller.  The second level describes one or more
+hardware threads managed by the controller.  The third level describes one or
+more logical regulators handled by each CPR thread.
+
+====================================
+First Level Nodes - CPR3 Controllers
+====================================
+
+Platform independent properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: The value to use for this property is defined in the
+		    platform specific cpr3-regulator binding documentation
+		    files.
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Addresses and sizes for the memory of the CPR3 controller
+		    and the first fuse row
+
+- reg-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Address names. Must be "cpr_ctrl" and "fuse_base".  Must be
+		    specified in the same order as the corresponding addresses
+		    are specified in the reg property.
+
+- qcom,cpr-ctrl-name
+	Usage:      required
+	Value type: <string>
+	Definition: Name for this CPR controller
+
+- vdd-supply
+	Usage:      required
+	Value type: <phandle>
+	Definition: phandle of the underlying regulator device that is managed
+		    by this CPR controller.
+
+- system-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the system-level regulator device which the
+		    vdd-supply depends upon.  Requests for this regulator must
+		    be made before increasing the vdd-supply voltage and after
+		    decreasing the vdd-supply voltage.
+
+- mem-acc-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the mem-acc regulator device which is used to
+		    configure memory array circuitry settings based upon
+		    the performance operating point. Requests for this regulator
+		    must be made before decreasing the vdd-supply voltage and
+		    after increasing the vdd-supply voltage.
+
+- clocks
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of clock tuples in which each tuple consists of a
+		    phandle to a clock device and a clock ID number. The CPR3
+		    core clock must be specified for some targets. See platform
+		    specific cpr3-regulator binding documentation for additional
+		    clocks that may also need to be specified.
+
+- clock-names
+	Usage:      optional
+	Value type: <stringlist>
+	Definition: Clock names.  This list must match up 1-to-1 with the clocks
+		    specified in the 'clocks' property. "core_clk" must be
+		    specified for some platforms. Other clocks may be required
+		    for some platforms.
+
+- interrupts
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: CPR interrupt specifier and optionally a hardware
+		    closed-loop ceiling interrupt specifier.
+
+- interrupt-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Interrupt names.  This list must match up 1-to-1 with the
+		    interrupts specified in the 'interrupts' property. "cpr"
+		    must be specified.  "ceiling" may be specified for some
+		    platforms.
+
+- qcom,cpr-sensor-time
+	Usage:      required
+	Value type: <u32>
+	Definition: The time in nanoseconds that each CPR sensor within the
+		    sensing loop takes to perform a measurement.
+
+- qcom,cpr-loop-time
+	Usage:      required
+	Value type: <u32>
+	Definition: The time in nanoseconds between consecutive CPR
+		    measurements.
+
+- qcom,cpr-idle-cycles
+	Usage:      required
+	Value type: <u32>
+	Definition: The number of CPR core clock cycles for the CPR controller
+		    to wait in transitional states.
+		    Supported values: 0 - 31.
+
+- qcom,voltage-step
+	Usage:      required
+	Value type: <u32>
+	Definition: The voltage in microvolts of a single step of the VDD supply
+		    regulator being controlled by CPR.
+
+- qcom,cpr-step-quot-init-min
+	Usage:      required
+	Value type: <u32>
+	Definition: The default minimum CPR step quotient value.  The step
+		    quotient is the number of additional ring oscillator ticks
+		    observed for each qcom,voltage-step increase in vdd-supply
+		    output voltage.  Supported values: 0 - 63.
+
+- qcom,cpr-step-quot-init-max
+	Usage:      required
+	Value type: <u32>
+	Definition: The default maximum CPR step quotient value.
+		    Supported values: 0 - 63.
+
+- qcom,cpr-count-mode
+	Usage:      required
+	Value type: <u32>
+	Definition: The CPR counting mode to use during CPR measurements.
+		    Supported values:
+			0 - Read all sensors at once and use the minimum
+			    quotient value observed in repeated measurements.
+			1 - Read all sensors at once and use the maximum
+			    quotient value observed in repeated measurements.
+			2 - Read each sensor once in a sequential, staggered
+			    fashion.
+
+- qcom,cpr-count-repeat
+	Usage:      optional
+	Value type: <u32>
+	Definition: The number of times to read CPR sensors during a single CPR
+		    measurement when using one of the all-at-once count modes.
+
+- qcom,cpr-enable
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the CPR3 controller
+		    should operate in closed-loop mode (i.e. CPR sensing loop
+		    enabled) as opposed to open-loop mode (i.e. CPR sensing loop
+		    disabled) by default.
+
+- qcom,cpr-aging-ref-voltage
+	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
+		    for any third level nodes
+	Value type: <u32>
+	Definition: Specifies the CPR aging reference voltage in microvolts.
+		    This is the voltage that vdd-supply must be set to when
+		    performing an aging measurement.
+
+=================================================
+Second Level Nodes - CPR Threads for a Controller
+=================================================
+
+Platform independent properties:
+- qcom,cpr-thread-id
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the hardware thread ID of this thread within the
+		    CPR controller.
+
+- qcom,cpr-consecutive-up
+	Usage:      required
+	Value type: <u32>
+	Definition: The number of consecutive CPR step up events needed to
+		    to trigger an up interrupt.  Supported values: 0 - 15.
+
+- qcom,cpr-consecutive-down
+	Usage:      required
+	Value type: <u32>
+	Definition: The number of consecutive CPR step down events needed to
+		    to trigger a down interrupt.  Supported values: 0 - 15.
+
+- qcom,cpr-up-threshold
+	Usage:      required
+	Value type: <u32>
+	Definition: The number CPR error steps required to generate an up event.
+		    Supported values: 0 - 31.
+
+- qcom,cpr-down-threshold
+	Usage:      required
+	Value type: <u32>
+	Definition: The number CPR error steps required to generate a down
+		    event.  Supported values: 0 - 31.
+
+===============================================
+Third Level Nodes - CPR Regulators for a Thread
+===============================================
+
+Platform independent properties:
+- regulator-name
+	Usage:      required
+	Value type: <string>
+	Definition: Specifies the name for this CPR3 regulator.
+
+- regulator-min-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Minimum corner value which should be 1 to represent the
+		    lowest supported corner.
+
+- regulator-max-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Maximum corner value which should be equal to largest value
+		    listed in qcom,cpr-corners.
+
+- qcom,cpr-fuse-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse corners.  See platform specific
+		    binding files for further requirements.
+
+- qcom,cpr-fuse-combos
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse combinations being supported by
+		    the device.  This value is utilized by several other
+		    properties.  Supported values are 1 up to the maximum
+		    possible for a given regulator type.  See platform specific
+		    binding files for further details.
+
+- qcom,cpr-speed-bins
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the number of speed bins being supported by the
+		    device.  This value is utilized by several other properties.
+		    Supported values are 1 up to the maximum possible for a
+		    given regulator type.  See platform specific binding files
+		    for further details.
+
+		    This property can only be utilized if the number of corners
+		    for all fuse combinations associated with a given speed bin
+		    is the same.
+
+- qcom,cpr-corners
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines how many voltage corners
+		    are to be used for each fuse combination.  The list must
+		    contain either qcom,cpr-fuse-combos number of elements in
+		    which case the corner counts are applied to fuse
+		    combinations 1-to-1 or the list must contain exactly 1
+		    element which is used regardless of the fuse combination
+		    found on a given chip.
+
+- qcom,cpr-speed-bin-corners
+	Usage:      required if qcom,cpr-speed-bins is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines how many voltage corners
+		    are to be used for each speed bin.  The list must contain
+		    qcom,cpr-speed-bins number of elements.
+
+- qcom,cpr-corner-fmax-map
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the highest
+		    (i.e. maximum frequency) 1-based corner value associated
+		    with each fuse-corner.
+
+		    Each tuple must have a number of elements equal to the value
+		    of the qcom,cpr-fuse-corners property.  The elements of a
+		    tuple are ordered from lowest to highest fuse corner.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+- qcom,cpr-voltage-ceiling
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR ceiling
+		    voltage in microvolts for each voltage corner in order from
+		    lowest to highest.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
+
+- qcom,cpr-voltage-floor
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR floor
+		    voltage in microvolts for each voltage corner in order from
+		    lowest to highest.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+- qcom,cpr-floor-to-ceiling-max-range
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the maximum
+		    allowed difference between the final floor voltage and the
+		    final ceiling voltage in microvolts for each voltage corner
+		    in order from lowest to highest.  A negative value may be
+		    specified for an element to indicate that there is no
+		    limitation of the floor to ceiling voltage range for the
+		    corresponding corner.
+
+		    In the case that the initial floor to ceiling voltage is
+		    greater than the max range specified, the floor voltage will
+		    be increased in order to satisfy the max range constraint.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+- qcom,system-voltage
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the system-supply
+		    voltage in microvolts or corners or levels for each voltage
+		    corner in order from lowest to highest.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+- qcom,corner-frequencies
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPU frequency
+		    in Hertz corresponding to each voltage corner in order from
+		    lowest to highest.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+- qcom,allow-voltage-interpolation
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that it is acceptable to use
+		    interpolated open-loop voltage values.  These values are
+		    interpolated between the open-loop voltage Fmax fuse values.
+
+- qcom,cpr-scaled-open-loop-voltage-as-ceiling
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that it is acceptable to use
+		    the interpolated open-loop voltage for each corner as the
+		    CPR ceiling voltage for each corner.
+
+- qcom,cpr-open-loop-voltage-fuse-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the open-loop
+		    voltage adjustment in microvolts for each fused voltage
+		    corner in order from lowest to highest.  This adjustment is
+		    applied to the values read from fuses before the values are
+		    used in interpolation for intermediate corners.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-corner-fmax-map above.
+
+		    The open-loop voltage for a given fuse corner corresponds to
+		    the voltage that is safe to use under all circumstances.
+		    It is used as a starting voltage for CPR and may also be
+		    specified as a ceiling voltage for CPR scaling.
+
+- qcom,cpr-open-loop-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the open-loop
+		    voltage adjustment in microvolts for each voltage corner in
+		    order from lowest to highest.  This adjustment is applied to
+		    the open-loop voltage values after they have been
+		    interpolated for intermediate corners.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+- qcom,cpr-open-loop-voltage-min-diff
+	Usage:      optional; only meaningful if the
+		    qcom,cpr-open-loop-voltage-adjustment property is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the minimum
+		    allowed open-loop voltage difference in microvolts between
+		    each voltage corner and the one immediately preceding it.
+		    The elements in a tuple are ordered from the lowest to the
+		    highest corner.  The value specified for the first corner is
+		    ignored since there is no corner before it.
+
+		    Negative voltage values may be specified for this property.
+		    A negative value means that the open-loop voltage of a
+		    corner may be lower than that of the preceding corner.
+
+		    The minimum difference is enforced after the open-loop
+		    voltage values have been interpolated for intermediate
+		    corners and after adjustments have been applied.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+		    If this property is not specified, then the minimum
+		    difference is assumed to be 0 uV for all corners.
+
+- qcom,cpr-closed-loop-voltage-fuse-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the closed-loop
+		    voltage adjustment in microvolts for each fused voltage
+		    corner in order from lowest to highest.  This adjustment is
+		    applied to the values read from fuses before the values are
+		    used in interpolation for intermediate corners.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-corner-fmax-map above.
+
+		    The qcom,cpr-ro-scaling-factor property must be specified in
+		    order to utilize this property.
+
+		    The closed-loop voltage for a given fuse corner corresponds
+		    to the voltage that the CPR controller settles the VDD
+		    supply rail to based upon the programmed CPR target
+		    quotients and the current silicon conditions.
+
+- qcom,cpr-closed-loop-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the closed-loop
+		    voltage adjustment in microvolts for each voltage corner in
+		    order from lowest to highest.  This adjustment is applied to
+		    target quotient values after they have been interpolated
+		    for intermediate corners.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+		    The qcom,cpr-ro-scaling-factor property must be specified in
+		    order to utilize this property.
+
+- qcom,cpr-ro-scaling-factor
+	Usage:      required if qcom,cpr-closed-loop-voltage-fuse-adjustment,
+		    qcom,cpr-closed-loop-voltage-adjustment, or
+		    qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists.  Each tuple defines the
+		    CPR ring oscillator (RO) scaling factor with units of QUOT/V
+		    for each RO for a given fuse corner.  Since CPR3 supports
+		    exactly 16 ROs, each tuple must contain 16 elements
+		    corresponding to RO0 through RO15 in order.  If a given RO
+		    is unused for a fuse corner, then its scaling factor may be
+		    specified as 0.
+
+		    Each tuple list must contain the number of tuples defined in
+		    the qcom,cpr-fuse-corners property.  The tuples in a given
+		    list are ordered from the lowest fuse corner to the highest
+		    fuse corner.
+
+		    The tuple list grouping must contain qcom,cpr-fuse-combos
+		    number of tuple lists in which case the lists are matched to
+		    fuse combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    tuple lists in which case the lists are matched to
+		    speed bins 1-to-1 or exactly 1 list which is used regardless
+		    of the fuse combination and speed bin found on a given chip.
+
+		    The target quotient adjustment to apply for each RO of a
+		    given corner is determined by multiplying the adjustment
+		    value in qcom,cpr-closed-loop-voltage-fuse-adjustment or
+		    qcom,cpr-closed-loop-voltage-adjustment by the relevant RO
+		    scaling factor in this property.
+
+- qcom,allow-aging-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which specifies if CPR aging adjustment
+		    should be performed for each fuse combination.
+		    Supported per-combo element values:
+			0 - do not perform CPR aging adjustment
+			1 - perform CPR aging adjustment
+
+		    The list must contain qcom,cpr-fuse-combos number of
+		    elements in which case the elements are matched to fuse
+		    combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    elements in which case the elements are matched to
+		    speed bins 1-to-1 or exactly 1 element which is used
+		    regardless of the fuse combination and speed bin found
+		    on a given chip.
+
+- qcom,cpr-aging-max-voltage-adjustment
+	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines the maximum CPR aging
+		    voltage margin adjustment in microvolts that may be added
+		    for each fuse combination.  If this property is specified
+		    and the adjustment specified is greater than 0, then aging
+		    adjustments are required for this regulator.
+
+		    The list must meet the same size requirements as those
+		    specified for qcom,allow-aging-voltage-adjustment above.
+
+- qcom,cpr-aging-ref-corner
+	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines the CPR reference corner
+		    for this regulator to use during aging measurements for each
+		    fuse combination.
+
+		    The list must meet the same size requirements as those
+		    specified for qcom,allow-aging-voltage-adjustment above.
+
+- qcom,cpr-aging-ro-scaling-factor
+	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines the CPR aging ring
+		    oscillator (RO) scaling factor with units of QUOT/V to use
+		    during aging measurements for each fuse combination.
+
+		    The list must meet the same size requirements as those
+		    specified for qcom,allow-aging-voltage-adjustment above.
+
+- qcom,cpr-aging-derate
+	Usage:      optional, though only meaningful if
+		    qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR aging
+		    derating scaling factor to apply to the closed-loop voltage
+		    margin adjustment for each corner.  The individual scaling
+		    factors have units of uV/mV and are ordered from lowest to
+		    highest corner per tuple.  For example, a value of 900
+		    specifies that the voltage adjustment for the corner should
+		    be 90% (900/1000) of that for the reference corner.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+		    If this property is not specified, then it is assumed that
+		    no corners require derating (i.e. the scaling factor would
+		    be 1000).
+
+All properties specified within the core regulator framework can also be used in
+third level nodes.  These bindings can be found in:
+Documentation/devicetree/bindings/regulator/regulator.txt.
+
+See platform specific cpr3-regulator binding documentation files for examples.

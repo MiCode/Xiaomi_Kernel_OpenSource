@@ -1,0 +1,546 @@
+Qualcomm Technologies, Inc. CPR3 Regulator - HMSS Specific Bindings
+
+HMSS CPR3 controllers each support two CPR threads that monitor the voltage of
+a pair of application processor (HMSS) clusters that are powered by a shared
+regulator supply.  These controllers have a hardware aggregator to combine the
+UP/DOWN requests from each CPR thread into a single unified request.  They also
+have a hardware channel to use these requests to directly change the supply
+voltage at the PMIC via the SPM without software intervention.
+
+HMSS CPR3 controllers also have to take into account the state of the memory
+array power mux (APM) when scaling voltage to ensure that memory always receives
+a sufficiently high voltage.
+
+Both CPR open-loop voltages and CPR target quotients are stored in hardware
+fuses for HMSS CPR3 controllers.
+
+This document describes the HMSS specific CPR3 bindings.
+
+=======================
+Required Node Structure
+=======================
+
+CPR3 regulators must be described in three levels of devices nodes.  The first
+level describes the CPR3 controller.  The second level describes one or more
+hardware threads managed by the controller.  The third level describes one or
+more logical regulators handled by each CPR thread.
+
+All platform independent cpr3-regulator binding guidelines defined in
+cpr3-regulator.txt also apply to cpr3-hmss-regulator devices.
+
+====================================
+First Level Nodes - CPR3 Controllers
+====================================
+
+HMSS specific properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be one of the following:
+		    "qcom,cpr3-msm8996-v1-hmss-regulator",
+		    "qcom,cpr3-msm8996-v2-hmss-regulator",
+		    "qcom,cpr3-msm8996-v3-hmss-regulator",
+		    "qcom,cpr3-msm8996-hmss-regulator".
+		    If the SoC revision is not specified, then it is assumed to
+		    be the most recent revision, i.e. v3.
+
+- interrupts
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: CPR interrupt specifier and a hardware closed-loop ceiling
+		    interrupt specifier.
+
+- interrupt-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Interrupt names.  This list must match up 1-to-1 with the
+		    interrupts specified in the 'interrupts' property. "cpr"
+		    and "ceiling" must be specified.
+
+- qcom,apm-ctrl
+	Usage:      required on systems that need APM management
+	Value type: <phandle>
+	Definition: phandle of memory array power mux (APM) controller device
+		    node for the APM that is used by the HMSS VDD supply
+
+- qcom,apm-threshold-voltage
+	Usage:      required if qcom,apm-ctrl is specified
+	Value type: <u32>
+	Definition: Specifies the APM threshold voltage in microvolts.  If the
+		    vdd-supply voltage is greater than or equal to this level,
+		    then the APM is switched to use the vdd-supply. If the
+		    vdd-supply voltage is below this level, then the APM is
+		    switched to use the system-supply.
+
+- qcom,apm-hysteresis-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the voltage delta in microvolts between the APM
+		    threshold voltage and the highest corner open-loop voltage
+		    which may be used as the ceiling for the corner.  If this
+		    property is not specified, then a value of 0 is assumed.
+
+- qcom,system-supply-max-voltage
+	Usage:      required if qcom,vdd-threadN-ldo-supply is specified for any
+		    CPR3 regulator managed by any CPR3 thread of this controller.
+	Value type: <u32>
+	Definition: Maximum voltage setpoint for the system-supply regulator.
+
+- qcom,mem-acc-supply-threshold-voltage
+	Usage:      required if mem-acc-supply or mem-acc-threadN-supply is
+		    specified and the CPR3 controller or any of the CPR3 regulators
+		    it controls needs to manage mem-acc settings.
+	Value type: <u32>
+	Definition: Specifies the mem-acc-supply threshold voltage in microvolts.
+		    If the vdd-supply voltage is greater than or equal to this
+		    level, then the mem-acc-supply regulator is switched to the
+		    high voltage corner setting. Conversely, if the vdd-supply
+		    voltage is below this level, then the mem-acc-supply regulator
+		    is switched to the low voltage corner setting.
+
+- qcom,mem-acc-supply-corner-map
+	Usage:      required if mem-acc-supply or mem-acc-threadN-supply is
+		    specified and the CPR3 controller or any of the CPR3 regulators
+		    it controls needs to manage mem-acc settings.
+	Value type: <prop-encoded-array>
+	Definition: A tuple containing two integers which defines the mem-acc-supply
+		    corner to use for low and high vdd-supply voltages, respectively.
+
+- qcom,cpr-up-down-delay-time
+	Usage:      required
+	Value type: <u32>
+	Definition: The time to delay in nanoseconds between consecutive CPR
+		    measurements when the last measurement recommended
+		    increasing or decreasing the vdd-supply voltage.
+
+- qcom,cpr-hw-closed-loop
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the HMSS CPR3 controller
+		    should operate in hardware closed-loop mode as opposed to
+		    software closed-loop mode.
+
+- vdd-limit-supply
+	Usage:      required
+	Value type: <phandle>
+	Definition: phandle of the VDD supply limit regulator which controls the
+		    CPR ceiling and floor voltages when operating in hardware
+		    closed-loop mode.
+
+- qcom,cpr-clock-throttling
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the power domains for which CPR processor clock
+		    throttling should be enabled.  This feature reduces the
+		    processor's clock frequency when it is resuming from a low
+		    power mode until CPR is able to raise the supply voltage to
+		    a final settled value.  The following bits may be set:
+			BIT(0) - Power cluster L2 cache
+			BIT(1) - Power cluster core 1
+			BIT(2) - Power cluster core 0
+			BIT(5) - Performance cluster L2 cache
+			BIT(6) - Performance cluster core 1
+			BIT(7) - Performance cluster core 0
+
+- mem-acc-threadN-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the regulator device which manages mem-acc
+		    configuration for the clusters per CPR thread. 'N' must
+		    match with the hardware thread ID of the thread it controls.
+
+- vdd-threadN-ldo-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the regulator device which manages LDO and BHS
+		    modes for the clusters per CPR thread. 'N' must match with
+		    the hardware thread ID of the thread it controls.
+
+- vdd-threadN-ldo-ret-supply
+	Usage:      required if vdd-threadN-ldo-supply is specified for
+		    this CPR thread.
+	Value type: <phandle>
+	Definition: phandle of the regulator device which manages LDO retention
+		    modes for the clusters per CPR thread. 'N' must match with
+		    the hardware thread ID of the thread it controls.
+
+=================================================
+Second Level Nodes - CPR Threads for a Controller
+=================================================
+
+HMSS specific properties:
+N/A
+
+===============================================
+Third Level Nodes - CPR Regulators for a Thread
+===============================================
+
+HMSS specific properties:
+- qcom,cpr-fuse-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse corners.  This value must be 5
+		    for HMSS.  These fuse corners are: MinSVS, LowSVS, SVS,
+		    Nominal, and Turbo.  Note that a specific fused target
+		    quotient is available for the LowSVS corner but a fused
+		    open-loop voltage is not available.  The LowSVS open-loop
+		    voltage is calculated using linear interpolation between
+		    the MinSVS and SVS values.
+
+- qcom,cpr-fuse-combos
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse combinations being supported by
+		    the device.  This value is utilized by several other
+		    properties.  Supported values are 1 up to the maximum
+		    possible for a given regulator type.  For HMSS the maximum
+		    supported value is 16.  The first 8 fuse combos correspond
+		    to speed bin fuse value 0 along with CPR revision fuse
+		    values 0 to 7.  The last 8 fuse combos correspond to speed
+		    bin fuse value 1 along with CPR revision fuse values 0 to 7.
+
+- qcom,cpr-speed-bins
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the number of speed bins being supported by the
+		    device.  This value is utilized by several other properties.
+		    Supported values are 1 up to the maximum possible for a
+		    given regulator type.  For HMSS the maximum supported value
+		    is 2.
+
+- qcom,ldo-min-headroom-voltage
+	Usage:      required if vdd-threadN-ldo-supply is specified for the
+		    CPR3 thread containing this CPR3 regulator and this CPR3
+		    regulator needs to manage the cluster LDO state.
+	Value type: <u32>
+	Definition: Voltage in microvolts required between the VDD_APCC voltage
+		    and the LDO output in order for the LDO to be operational.
+
+- qcom,ldo-max-headroom-voltage
+	Usage:      required if vdd-threadN-ldo-supply is specified for the
+		    CPR3 thread containing this CPR3 regulator and this CPR3
+		    regulator needs to manage the cluster LDO state.
+	Value type: <u32>
+	Definition: Maximum voltage difference in microvolts between the vdd-supply
+		    voltage and the LDO output voltage in order for active LDO mode
+		    to be operational.
+
+- qcom,ldo-adjust-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: Voltage in microvolts used to offset margins between PMIC
+		    output and CPU.
+
+- qcom,ldo-max-voltage
+	Usage:      required if qcom,ldo-min-headroom-voltage is specified for this
+		    CPR3 regulator.
+	Value type: <u32>
+	Definition: Voltage in microvolts which represents the maximum
+		    physically supported voltage output of the LDO hardware.
+
+- qcom,uses-mem-acc
+	Usage:      required if mem-acc-threadN-supply is specified for the
+		    CPR3 thread containing this CPR3 regulator and this CPR3
+		    regulator needs to manage mem-acc settings.
+	Value type: <empty>
+	Definition: Boolean flag which indicates that this CPR3 regulator must
+		    manage mem-acc.
+
+- qcom,ldo-disable
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that LDO mode usage is
+		    disallowed.  If this flag is present, then the
+		    vdd-threadN-ldo-supply mode will not be modified.
+
+- qcom,allow-quotient-interpolation
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that it is acceptable to use
+		    interpolated CPR target quotient values.  These values are
+		    interpolated between the target quotient Fmax fuse values.
+
+- qcom,cpr-pd-bypass-mask
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the power domains associated with this CPR3
+		    regulator.  The following bits may be set:
+			BIT(0) - Power cluster L2 cache
+			BIT(1) - Power cluster core 1
+			BIT(2) - Power cluster core 0
+			BIT(3) - CBF
+			BIT(4) - L3 cache
+			BIT(5) - Performance cluster L2 cache
+			BIT(6) - Performance cluster core 1
+			BIT(7) - Performance cluster core 0
+
+- qcom,cpr-dynamic-floor-corner
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines for each fuse combination
+		    the CPR corner whose closed-loop voltage should be used as
+		    a CPR floor voltage whenever the power domains for this CPR3
+		    regulator are bypassed.  Supported values are 0 and 1 to N.
+		    A value of 0 means that no dynamic floor is needed.  N is
+		    the number of corners defined for this fuse combination in
+		    the qcom,cpr-corners property.
+
+		    The list must contain qcom,cpr-fuse-combos number of
+		    elements in which case the elements are matched to fuse
+		    combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    elements in which case the elements are matched to
+		    speed bins 1-to-1 or exactly 1 element which is used
+		    regardless of the fuse combination and speed bin found
+		    on a given chip.
+
+=======
+Example
+=======
+
+apcc_cpr: cpr3-ctrl@99e8000 {
+	compatible = "qcom,cpr3-msm8996-hmss-regulator";
+	reg = <0x099e8000 0x4000>, <0x00074000 0x1000>;
+	reg-names = "cpr_ctrl", "fuse_base";
+	clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
+	clock-names = "core_clk";
+	interrupts = <0 48 0>, <0 47 0>;
+	interrupt-names = "cpr", "ceiling";
+	qcom,cpr-ctrl-name = "apcc";
+
+	qcom,cpr-sensor-time = <1000>;
+	qcom,cpr-loop-time = <5000000>;
+	qcom,cpr-idle-cycles = <15>;
+	qcom,cpr-up-down-delay-time = <3000>;
+	qcom,cpr-step-quot-init-min = <13>;
+	qcom,cpr-step-quot-init-max = <13>;
+	qcom,cpr-count-mode = <2>;
+
+	qcom,apm-ctrl = <&apc_apm>;
+	qcom,apm-threshold-voltage = <850000>;
+	qcom,apm-hysteresis-voltage = <5000>;
+	qcom,system-supply-max-voltage = <1015000>;
+	qcom,mem-acc-supply-threshold-voltage = <700000>;
+	qcom,mem-acc-supply-corner-map = <1 2>;
+
+	vdd-supply = <&pm8994_s11>;
+	qcom,voltage-step = <5000>;
+	vdd-limit-supply = <&pm8994_s11_limit>;
+	mem-acc-thread0-supply = <&apc0_pwrcl_mem_acc_vreg>;
+	mem-acc-thread1-supply = <&apc1_perfcl_mem_acc_vreg>;
+	mem-acc-supply = <&apcc_l3_mem_acc_vreg>;
+	vdd-thread0-ldo-supply = <&kryo0_vreg>;
+	vdd-thread1-ldo-supply = <&kryo1_vreg>;
+	vdd-thread0-ldo-ret-supply = <&kryo0_retention_vreg>;
+	vdd-thread1-ldo-ret-supply = <&kryo1_retention_vreg>;
+
+	qcom,cpr-enable;
+	qcom,cpr-hw-closed-loop;
+	qcom,cpr-clock-throttling = <0x20>;
+
+	qcom,cpr-aging-ref-voltage = <905000>;
+
+	thread@0 {
+		qcom,cpr-thread-id = <0>;
+		qcom,cpr-consecutive-up = <0>;
+		qcom,cpr-consecutive-down = <2>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <2>;
+
+		apc0_pwrcl_vreg: regulator-pwrcl {
+			regulator-name = "apc0_pwrcl_corner";
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <19>;
+
+			qcom,cpr-pd-bypass-mask = <0x07>;
+			qcom,cpr-fuse-corners = <5>;
+			qcom,cpr-fuse-combos = <1>;
+			qcom,cpr-corners = <19>;
+
+			qcom,ldo-min-headroom-voltage = <150000>;
+			qcom,ldo-max-headroom-voltage = <470000>;
+			qcom,ldo-max-voltage = <805000>;
+			qcom,uses-mem-acc;
+
+			qcom,cpr-corner-fmax-map = <1 2 6 11 19>;
+
+			qcom,cpr-voltage-ceiling =
+				<670000  670000  745000  745000  745000
+				 745000  905000  905000  905000  905000
+				 905000 1015000 1015000 1015000 1015000
+				1015000 1015000 1015000 1015000>;
+			qcom,cpr-voltage-floor =
+				<520000  550000  555000  565000  585000
+				 615000  635000  655000  690000  720000
+				 740000  750000  760000  770000  780000
+				 790000  815000  840000  850000>;
+			qcom,corner-frequencies =
+				<192000000  268800000  307200000
+				 345600000  403200000  480000000
+				 576000000  633600000  729600000
+				 806400000  883200000  960000000
+				1017600000 1113600000 1190400000
+				1267200000 1344000000 1420800000
+				1459200000>;
+
+			qcom,cpr-ro-scaling-factor =
+			      <   0    0    0    0 2222 2275 2506 2491
+			       2649 2640 2886 2866    0    0    0    0>,
+			      <   0    0    0    0 2222 2275 2506 2491
+			       2649 2640 2886 2866    0    0    0    0>,
+			      <   0    0    0    0 2222 2275 2506 2491
+			       2649 2640 2886 2866    0    0    0    0>,
+			      <   0    0    0    0 2147 2226 2310 2312
+			       2450 2447 2603 2600    0    0    0    0>,
+			      <   0    0    0    0 1989 2079 2066 2083
+			       2193 2201 2283 2296    0    0    0    0>;
+
+			qcom,cpr-open-loop-voltage-fuse-adjustment =
+				<0 0 0 0 0>;
+			qcom,cpr-closed-loop-voltage-fuse-adjustment =
+				<0 0 0 0 0>;
+
+			qcom,allow-voltage-interpolation;
+			qcom,allow-quotient-interpolation;
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+			qcom,cpr-aging-max-voltage-adjustment = <25000>;
+			qcom,cpr-aging-ref-corner = <11>;
+			qcom,cpr-aging-ro-scaling-factor = <3200>;
+			qcom,cpr-aging-derate =
+				<1000 1000 1000 1000 1000 1000 1000 1000
+				 1000 1000 1000 1000 1000 1000 1000 1000
+				 1000 1000 1000>;
+			qcom,allow-aging-voltage-adjustment = <1>;
+		};
+
+		apc0_cbf_vreg: regulator-cbf {
+			regulator-name = "apc0_cbf_corner";
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <10>;
+
+			qcom,cpr-pd-bypass-mask = <0x18>;
+			qcom,cpr-fuse-corners = <5>;
+			qcom,cpr-fuse-combos = <1>;
+			qcom,cpr-corners = <10>;
+
+			qcom,cpr-corner-fmax-map = <1 2 5 9 10>;
+
+			qcom,cpr-voltage-ceiling =
+			       <605000  670000  745000  745000  745000
+				905000  905000  905000  905000 1015000>;
+			qcom,cpr-voltage-floor =
+			       <520000  545000  565000  595000  635000
+				660000  690000  730000  750000  850000>;
+
+			qcom,corner-frequencies =
+				<150000000  307200000  384000000
+				 499200000  595200000  691200000
+				 787200000  883200000  960000000
+				1036800000>;
+
+			qcom,cpr-ro-scaling-factor =
+			      <   0    0    0    0 2222 2275 2506 2491
+			       2649 2640 2886 2866    0    0    0    0>,
+			      <   0    0    0    0 2222 2275 2506 2491
+			       2649 2640 2886 2866    0    0    0    0>,
+			      <   0    0    0    0 2222 2275 2506 2491
+			       2649 2640 2886 2866    0    0    0    0>,
+			      <   0    0    0    0 2147 2226 2310 2312
+			       2450 2447 2603 2600    0    0    0    0>,
+			      <   0    0    0    0 1989 2079 2066 2083
+			       2193 2201 2283 2296    0    0    0    0>;
+
+			qcom,cpr-open-loop-voltage-fuse-adjustment =
+				<0 0 0 0 0>;
+			qcom,cpr-closed-loop-voltage-fuse-adjustment =
+				<0 0 0 0 0>;
+
+			qcom,allow-voltage-interpolation;
+			qcom,allow-quotient-interpolation;
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+			qcom,cpr-aging-max-voltage-adjustment = <25000>;
+			qcom,cpr-aging-ref-corner = <9>;
+			qcom,cpr-aging-ro-scaling-factor = <3200>;
+			qcom,cpr-aging-derate =
+				<1000 1000 1000 1000 1000 1000 1000 1000
+				 1000 1000>;
+			qcom,allow-aging-voltage-adjustment = <1>;
+		};
+	};
+
+	thread@1 {
+		qcom,cpr-thread-id = <1>;
+		qcom,cpr-consecutive-up = <0>;
+		qcom,cpr-consecutive-down = <2>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <2>;
+
+		apc1_vreg: regulator {
+			regulator-name = "apc1_corner";
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <18>;
+
+			qcom,cpr-pd-bypass-mask = <0xe0>;
+			qcom,cpr-fuse-corners = <5>;
+			qcom,cpr-fuse-combos = <1>;
+			qcom,cpr-corners = <18>;
+
+			qcom,ldo-min-headroom-voltage = <150000>;
+			qcom,ldo-max-headroom-voltage = <470000>;
+			qcom,ldo-max-voltage = <805000>;
+			qcom,uses-mem-acc;
+
+			qcom,cpr-corner-fmax-map = <1 3 5 11 18>;
+
+			qcom,cpr-voltage-ceiling =
+				<670000  670000  670000  745000  745000
+				 905000  905000  905000  905000  905000
+				 905000 1015000 1015000 1015000 1015000
+				1015000 1015000 1015000>;
+			qcom,cpr-voltage-floor =
+				<520000  530000  545000  590000  620000
+				 635000  660000  685000  700000  730000
+				 740000  750000  765000  790000  805000
+				 815000  830000  850000>;
+
+			qcom,corner-frequencies =
+				<307200000  345600000  403200000
+				 480000000  576000000  633600000
+				 729600000  806400000  883200000
+				 960000000 1017600000 1113600000
+				1190400000 1267200000 1344000000
+				1420800000 1497600000 1593600000>;
+
+			qcom,cpr-ro-scaling-factor =
+			      <   0    0    0    0 2212 2273 2517 2506
+			       2663 2650 2908 2891    0    0    0    0>,
+			      <   0    0    0    0 2212 2273 2517 2506
+			       2663 2650 2908 2891    0    0    0    0>,
+			      <   0    0    0    0 2212 2273 2517 2506
+			       2663 2650 2908 2891    0    0    0    0>,
+			      <   0    0    0    0 2152 2237 2321 2337
+			       2475 2469 2636 2612    0    0    0    0>,
+			      <   0    0    0    0 2001 2102 2092 2090
+			       2203 2210 2297 2297    0    0    0    0>;
+
+			qcom,cpr-open-loop-voltage-fuse-adjustment =
+				<0 0 0 5000 0>;
+			qcom,cpr-closed-loop-voltage-fuse-adjustment =
+				<0 0 0 20000 0>;
+
+			qcom,allow-voltage-interpolation;
+			qcom,allow-quotient-interpolation;
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+			qcom,cpr-aging-max-voltage-adjustment = <25000>;
+			qcom,cpr-aging-ref-corner = <11>;
+			qcom,cpr-aging-ro-scaling-factor = <3200>;
+			qcom,cpr-aging-derate =
+				<1000 1000 1000 1000 1000 1000 1000 1000
+				 1000 1000 1000 1000 1000 1000 1000 1000
+				 1000 1000>;
+			qcom,allow-aging-voltage-adjustment = <1>;
+		};
+	};
+};
