@@ -1,0 +1,101 @@
+SMB135x battery charger
+
+SMB135x is a single-cell switching mode battery charger. It can charge
+the battery and power the system via the USB and AC adapter input.
+
+The smb135x interface is via I2C bus.
+
+Required Properties:
+- compatible:			Must be "qcom,smb1357-charger", "qcom,smb1358-charger"
+				or  "qcom,smb1359-charger".
+- reg:				The device 7-bit I2C address.
+
+Optional Properties:
+
+- interrupts			This indicates the IRQ number of the GPIO
+				connected to the STAT pin.
+- qcom,bms-psy-name	 	the psy name to use for reporting battery capacity. If left
+				unspecified it uses a preprogrammed default value.
+- qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range 3600mV to 4500mV
+- qcom,charging-timeout		Maximum duration in minutes that a single charge
+				cycle may last.  Supported values are: 0, 192, 384,
+				768, and 1536.  A value of 0 means that no
+				charge cycle timeout is used and charging can
+				continue indefinitely.
+- qcom,dc-psy-type		The type of charger connected to the DC path.
+				Can be "Mains" or "Wireless"
+- qcom,dc-psy-ma		The current in mA dc path can support. Must be specified if
+				dc-psy-type is specified. Valid range 300mA to 2000mA.
+- qcom,charging-disabled	Set this if charging should be disabled in the build
+				by default. Useful in usecases where battery current
+				needs to be profiled even when USB is present.
+- qcom,recharge-thresh-mv	Specifies the minimum voltage drop in millivolts
+				below the float voltage that is required in
+				order to initiate a new charging cycle.
+				Supported values are: 50, 100, 200 and 300mV.
+- qcom,bmd-algo-disabled	Indicates if the battery missing detection algorithm
+				is disabled. If this node is present SMB uses
+				the THERM pin for battery missing detection.
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 50, 100, 150, 200, 250, 300, 500, 600.
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
+- qcom,soft-vfloat-comp-disabled	Set this property when the battery is powered via external
+					source and could go above the float voltage.  smb135x chips
+					go in to unintentional reverse boost in such a situation and
+					the float voltage compensation needs to be disabled to avoid
+					that reverse boost.
+- qcom,soft-current-comp-disabled	Set this property to disable charging current compensation
+					if battery temperature exceeds soft JEITA thresholds.
+- qcom,gamma-setting			Array of gamma values for JEITA. The sequence is
+					<"Cold Hard" "Hot Hard" "Cold Soft" "Hot Soft">. Gamma value
+					indicates the ratio of the pull up resistors and NTC
+					resistor in battery pack. There are 4 options refering to
+					the graphic user interface.
+- qcom,thermal-mitigation:		Array of input current limit values for different
+					system thermal mitigation level.
+- regulator-name			A string used as a descriptive name for OTG regulator.
+- therm-bias-supply			The supply that provides bias voltage to the battery
+					thermistor. This is useful in designs that do not use the SYSON
+					pin to bias the thermistor.
+- usb-pullup-supply			The supply regulator that act as pull-up for USB data lines.
+- qcom,parallel-charger:		A flag to indicate if the charger merely assists for USB
+					charging. In this case the input current from USB is split
+					between a main charger and smb135x for reducing thermal impact
+					of high current charging from USB path.
+- qcom,inhibit-disabled:	Disables the charger-inhibit function.
+- qcom,bms-controlled-charging: This property enables BMS to control EOC and
+				recharge. BMS and charger communicates with each
+				other via power_supply framework. This
+				property should be used with 'qcom,iterm-disabled'
+				to ensure EOC detection in charger is
+				disabled.
+- qcom,fastchg-ma:		Specifies the maximum fastcharge current.
+				The possible range for fastcharge current is
+				from 300mA to 3000mA.
+- qcom,id-line-not-connected:	Specifies if smb135x charger is not monitoring the USB_ID line.
+- qcom,parallel-en-pin-polarity Specify the polarity of enable signal controlled
+				via pin in a parallel-charger configuration.
+				0 - Active low and 1  - Active high.
+				If not specified the default value is active-low.
+
+Example:
+	i2c@f9967000 {
+		smb1357-charger@1b {
+			compatible = "qcom,smb1357-charger";
+			reg = <0x1b>;
+			interrupt-parent = <&spmi_bus>;
+			interrupts = <0x00 0xCD 0>;
+			qcom,float-voltage-mv = <4200>;
+			qcom,iterm-ma = <100>;
+			qcom,dc-psy-type = <8>;
+			qcom,dc-psy-ma = <800>;
+			qcom,charging-disabled;
+			qcom,recharge-thresh-mv = <100>;
+			regulator-name = "smb1357-otg";
+			qcom,thermal-mitigation = <1500 700 600 325>;
+			qcom,gamma-setting = <3 2 0 2>;
+			qcom,fastchg-ma = <3000>;
+		};
+	};
