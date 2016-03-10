@@ -2393,6 +2393,16 @@
 		status = "ok";
 	};
 
+	dcc: dcc@10b3000 {
+		compatible = "qcom,dcc";
+		reg = <0x10b3000 0x1000>,
+		      <0x10b4000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&clock_gcc clk_gcc_dcc_ahb_clk>;
+		clock-names = "dcc_clk";
+	};
+
 	qcom,msm-core@780000 {
 		compatible = "qcom,apss-core-ea";
 		reg = <0x780000 0x1000>;
