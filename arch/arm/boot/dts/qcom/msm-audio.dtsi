@@ -618,6 +618,7 @@
 	};
 
 	wcd_rst_gpio: wcd_gpio_ctrl {
+		status = "disabled";
 		compatible = "qcom,wcd-gpio-ctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
 		pinctrl-0 = <&cdc_reset_active>;
