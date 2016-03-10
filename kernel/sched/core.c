@@ -3767,24 +3767,29 @@ static struct rq *__migrate_task(struct rq *rq, struct task_struct *p, int dest_
 	src_cpu = cpu_of(rq);
 	rq = move_queued_task(rq, p, dest_cpu);
 
+	return rq;
+}
+
+static void notify_migration(int src_cpu, int dest_cpu, bool src_cpu_dead,
+			     struct task_struct *p)
+{
+	struct migration_notify_data mnd;
+
 	if (!same_freq_domain(src_cpu, dest_cpu)) {
-		check_for_freq_change(cpu_rq(src_cpu), false);
+		if (!src_cpu_dead)
+			check_for_freq_change(cpu_rq(src_cpu), false);
 		check_for_freq_change(cpu_rq(dest_cpu), false);
 	} else {
 		check_for_freq_change(cpu_rq(dest_cpu), true);
 	}
 
 	if (task_notify_on_migrate(p)) {
-		struct migration_notify_data mnd;
-
 		mnd.src_cpu = src_cpu;
 		mnd.dest_cpu = dest_cpu;
 		mnd.load = pct_task_load(p);
-		atomic_notifier_call_chain(&migration_notifier_head,
-					   0, (void *)&mnd);
+		atomic_notifier_call_chain(&migration_notifier_head, 0,
+					   (void *)&mnd);
 	}
-
-	return rq;
 }
 
 /*
@@ -3797,6 +3802,8 @@ static int migration_cpu_stop(void *data)
 	struct migration_arg *arg = data;
 	struct task_struct *p = arg->task;
 	struct rq *rq = this_rq();
+	int src_cpu = cpu_of(rq);
+	bool moved = false;
 
 	/*
 	 * The original target cpu might have gone down and we might
@@ -3817,12 +3824,18 @@ static int migration_cpu_stop(void *data)
 	 * holding rq->lock, if p->on_rq == 0 it cannot get enqueued because
 	 * we're holding p->pi_lock.
 	 */
-	if (task_rq(p) == rq && task_on_rq_queued(p))
+	if (task_rq(p) == rq && task_on_rq_queued(p)) {
 		rq = __migrate_task(rq, p, arg->dest_cpu);
+		moved = true;
+	}
 	raw_spin_unlock(&rq->lock);
 	raw_spin_unlock(&p->pi_lock);
 
 	local_irq_enable();
+
+	if (moved)
+		notify_migration(src_cpu, arg->dest_cpu, false, p);
+
 	return 0;
 }
 
@@ -8160,8 +8173,11 @@ static void migrate_tasks(struct rq *dead_rq)
 
 		rq = __migrate_task(rq, next, dest_cpu);
 		if (rq != dead_rq) {
+			raw_spin_unlock(&next->pi_lock);
 			raw_spin_unlock(&rq->lock);
+			notify_migration(dead_rq->cpu, dest_cpu, true, next);
 			rq = dead_rq;
+			raw_spin_lock(&next->pi_lock);
 			raw_spin_lock(&rq->lock);
 		}
 		raw_spin_unlock(&next->pi_lock);
