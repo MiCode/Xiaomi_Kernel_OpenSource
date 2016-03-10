@@ -33,6 +33,7 @@
 #include <linux/interrupt.h>
 #include <linux/regulator/driver.h>
 #include <linux/uaccess.h>
+#include <linux/sched.h>
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/clock-pll.h>
@@ -104,6 +105,7 @@ enum clk_osm_trace_packet_id {
 #define OSM_CORE_TABLE_SIZE 8192
 #define OSM_REG_SIZE 32
 
+#define OSM_CYCLE_COUNTER_USE_XO_EDGE_EN BIT(8)
 #define PLL_MODE		0x0
 #define PLL_L_VAL		0x4
 #define PLL_USER_CTRL		0xC
@@ -286,16 +288,18 @@ struct clk_osm {
 	struct platform_device *vdd_dev;
 	void *vbases[NUM_BASES];
 	unsigned long pbases[NUM_BASES];
-	u32 cpu_reg_mask;
+	spinlock_t lock;
 
+	u32 cpu_reg_mask;
 	u32 num_entries;
 	u32 cluster_num;
 	u32 irq;
 	u32 apm_crossover_vc;
-
 	u32 cycle_counter_reads;
 	u32 cycle_counter_delay;
 	u32 cycle_counter_factor;
+	u64 total_cycle_counter;
+	u32 prev_cycle_counter;
 	u32 l_val_base;
 	u32 apcs_itm_present;
 	u32 apcs_cfg_rcgr;
@@ -1478,8 +1482,10 @@ static void clk_osm_setup_cycle_counters(struct clk_osm *c)
 	val |= BIT(0);
 	/* Setup OSM clock to XO ratio */
 	do_div(ratio, c->xo_clk_rate);
-	val |= BVAL(5, 1, ratio - 1);
+	val |= BVAL(5, 1, ratio - 1) | OSM_CYCLE_COUNTER_USE_XO_EDGE_EN;
 	clk_osm_write_reg(c, val, OSM_CYCLE_COUNTER_CTRL_REG);
+	c->total_cycle_counter = 0;
+	c->prev_cycle_counter = 0;
 	pr_debug("OSM to XO clock ratio: %d\n", ratio);
 }
 
@@ -1854,6 +1860,38 @@ fail:
 	return NULL;
 }
 
+static u64 clk_osm_get_cpu_cycle_counter(int cpu)
+{
+	struct clk_osm *c;
+	u32 val;
+	unsigned long flags;
+
+	if (logical_cpu_to_clk(cpu) == &pwrcl_clk.c)
+		c = &pwrcl_clk;
+	else if (logical_cpu_to_clk(cpu) == &perfcl_clk.c)
+		c = &perfcl_clk;
+	else {
+		pr_err("no clock device for CPU=%d\n", cpu);
+		return 0;
+	}
+
+	spin_lock_irqsave(&c->lock, flags);
+	val = clk_osm_read_reg(c, OSM_CYCLE_COUNTER_STATUS_REG);
+
+	if (val < c->prev_cycle_counter) {
+		/* Handle counter overflow */
+		c->total_cycle_counter += UINT_MAX -
+			c->prev_cycle_counter + val;
+		c->prev_cycle_counter = val;
+	} else {
+		c->total_cycle_counter += val - c->prev_cycle_counter;
+		c->prev_cycle_counter = val;
+	}
+	spin_unlock_irqrestore(&c->lock, flags);
+
+	return c->total_cycle_counter;
+}
+
 static void populate_opp_table(struct platform_device *pdev)
 {
 	int cpu;
@@ -2213,6 +2251,9 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	char perfclspeedbinstr[] = "qcom,perfcl-speedbin0-v0";
 	char pwrclspeedbinstr[] = "qcom,pwrcl-speedbin0-v0";
 	int rc, cpu;
+	struct cpu_cycle_counter_cb cb = {
+		.get_cpu_cycle_counter = clk_osm_get_cpu_cycle_counter,
+	};
 
 	rc = clk_osm_resources_init(pdev);
 	if (rc) {
@@ -2344,6 +2385,9 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		clk_osm_setup_cluster_pll(&perfcl_clk);
 	}
 
+	spin_lock_init(&pwrcl_clk.lock);
+	spin_lock_init(&perfcl_clk.lock);
+
 	rc = of_msm_clock_register(pdev->dev.of_node, cpu_clocks_osm,
 				   ARRAY_SIZE(cpu_clocks_osm));
 	if (rc) {
@@ -2403,6 +2447,8 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	populate_debugfs_dir(&perfcl_clk);
 
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
+	register_cpu_cycle_counter_cb(&cb);
 
 	pr_info("OSM driver inited\n");
 	put_online_cpus();
