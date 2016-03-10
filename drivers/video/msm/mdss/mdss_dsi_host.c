@@ -37,6 +37,8 @@
 #define FIFO_STATUS	0x0C
 #define LANE_STATUS	0xA8
 
+#define MDSS_DSI_INT_CTRL	0x0110
+
 struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
 
 struct mdss_hw mdss_dsi0_hw = {
@@ -2279,10 +2281,25 @@ int mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP((sctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_CTRL,
 				(BIT(13) | BIT(8) | BIT(0)));
 
-	if (!wait_for_completion_timeout(&ctrl->dynamic_comp,
-			msecs_to_jiffies(VSYNC_PERIOD * 4))) {
-		pr_err("Dynamic interrupt timedout\n");
-		rc = -EINVAL;
+	rc = wait_for_completion_timeout(&ctrl->dynamic_comp,
+			msecs_to_jiffies(VSYNC_PERIOD * 4));
+	if (rc == 0) {
+		u32 reg_val, status;
+
+		reg_val = MIPI_INP(ctrl->ctrl_base + MDSS_DSI_INT_CTRL);
+		status = reg_val & DSI_INTR_DYNAMIC_REFRESH_DONE;
+		if (status) {
+			reg_val &= DSI_INTR_MASK_ALL;
+			/* clear dfps DONE isr only */
+			reg_val |= DSI_INTR_DYNAMIC_REFRESH_DONE;
+			MIPI_OUTP(ctrl->ctrl_base + MDSS_DSI_INT_CTRL, reg_val);
+			mdss_dsi_disable_irq(ctrl, DSI_DYNAMIC_TERM);
+			pr_warn_ratelimited("%s: dfps done but irq not triggered\n",
+				__func__);
+		} else {
+			pr_err("Dynamic interrupt timedout\n");
+			rc = -ETIMEDOUT;
+		}
 	}
 
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);

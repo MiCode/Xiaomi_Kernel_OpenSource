@@ -1967,7 +1967,7 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 	}
 
 	rc = mdss_dsi_en_wait4dynamic_done(ctrl_pdata);
-	if (rc) {
+	if (rc < 0) {
 		pr_err("Unsuccessful dynamic fps change");
 		goto dfps_timeout;
 	}
