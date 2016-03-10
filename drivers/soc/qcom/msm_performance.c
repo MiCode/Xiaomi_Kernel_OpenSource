@@ -184,6 +184,7 @@ static struct input_handler *handler;
 #define CLUSTER_0_THRESHOLD_FREQ	147000
 #define CLUSTER_1_THRESHOLD_FREQ	190000
 #define INPUT_EVENT_CNT_THRESHOLD	15
+#define MAX_LENGTH_CPU_STRING	256
 
 
 
@@ -307,20 +308,33 @@ static int set_managed_cpus(const char *buf, const struct kernel_param *kp)
 
 static int get_managed_cpus(char *buf, const struct kernel_param *kp)
 {
-	int i, cnt = 0;
+	int i, cnt = 0, total_cnt = 0;
+	char tmp[MAX_LENGTH_CPU_STRING];
 
 	if (!clusters_inited)
 		return cnt;
 
 	for (i = 0; i < num_clusters; i++) {
-		cnt += cpulist_scnprintf(buf + cnt, PAGE_SIZE - cnt,
+		cnt = cpumap_print_to_pagebuf(true, buf,
 						managed_clusters[i]->cpus);
-		if ((i + 1) >= num_clusters)
+		if ((i + 1) < num_clusters &&
+		    (total_cnt + cnt + 1) <= MAX_LENGTH_CPU_STRING) {
+			snprintf(tmp + total_cnt, cnt, "%s", buf);
+			tmp[cnt-1] = ':';
+			tmp[cnt] = '\0';
+			total_cnt += cnt;
+		} else if ((i + 1) == num_clusters &&
+			   (total_cnt + cnt) <= MAX_LENGTH_CPU_STRING) {
+			snprintf(tmp + total_cnt, cnt, "%s", buf);
+			total_cnt += cnt;
+		} else {
+			pr_err("invalid string for managed_cpu:%s%s\n", tmp,
+				buf);
 			break;
-		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, ":");
+		}
 	}
-
-	return cnt;
+	snprintf(buf, PAGE_SIZE, "%s", tmp);
+	return total_cnt;
 }
 
 static const struct kernel_param_ops param_ops_managed_cpus = {
@@ -332,7 +346,8 @@ device_param_cb(managed_cpus, &param_ops_managed_cpus, NULL, 0644);
 /* Read-only node: To display all the online managed CPUs */
 static int get_managed_online_cpus(char *buf, const struct kernel_param *kp)
 {
-	int i, cnt = 0;
+	int i, cnt = 0, total_cnt = 0;
+	char tmp[MAX_LENGTH_CPU_STRING];
 	struct cpumask tmp_mask;
 	struct cluster *i_cl;
 
@@ -346,15 +361,25 @@ static int get_managed_online_cpus(char *buf, const struct kernel_param *kp)
 		cpumask_complement(&tmp_mask, i_cl->offlined_cpus);
 		cpumask_and(&tmp_mask, i_cl->cpus, &tmp_mask);
 
-		cnt += cpulist_scnprintf(buf + cnt, PAGE_SIZE - cnt,
-								&tmp_mask);
-
-		if ((i + 1) >= num_clusters)
+		cnt = cpumap_print_to_pagebuf(true, buf, &tmp_mask);
+		if ((i + 1) < num_clusters &&
+		    (total_cnt + cnt + 1) <= MAX_LENGTH_CPU_STRING) {
+			snprintf(tmp + total_cnt, cnt, "%s", buf);
+			tmp[cnt-1] = ':';
+			tmp[cnt] = '\0';
+			total_cnt += cnt;
+		} else if ((i + 1) == num_clusters &&
+			   (total_cnt + cnt) <= MAX_LENGTH_CPU_STRING) {
+			snprintf(tmp + total_cnt, cnt, "%s", buf);
+			total_cnt += cnt;
+		} else {
+			pr_err("invalid string for managed_cpu:%s%s\n", tmp,
+				buf);
 			break;
-		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, ":");
+		}
 	}
-
-	return cnt;
+	snprintf(buf, PAGE_SIZE, "%s", tmp);
+	return total_cnt;
 }
 
 static const struct kernel_param_ops param_ops_managed_online_cpus = {
