@@ -976,7 +976,7 @@ int msm_vfe47_start_fetch_engine(struct vfe_device *vfe_dev,
 		rc = vfe_dev->buf_mgr->ops->get_buf_by_index(
 			vfe_dev->buf_mgr, bufq_handle, fe_cfg->buf_idx, &buf);
 		if (rc < 0 || !buf) {
-			pr_err("%s: No fetch buffer rc= %d buf= %p\n",
+			pr_err("%s: No fetch buffer rc= %d buf= %pK\n",
 				__func__, rc, buf);
 			return -EINVAL;
 		}
@@ -2309,14 +2309,14 @@ int msm_vfe47_get_max_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	long	  round_rate = 0;
 
 	if (!vfe_dev || !rate) {
-		pr_err("%s:%d failed: vfe_dev %p rate %p\n", __func__, __LINE__,
-			vfe_dev, rate);
+		pr_err("%s:%d failed: vfe_dev %pK rate %pK\n", __func__,
+			__LINE__, vfe_dev, rate);
 		return -EINVAL;
 	}
 
 	*rate = 0;
 	if (!vfe_dev->hw_info) {
-		pr_err("%s:%d failed: vfe_dev->hw_info %p\n", __func__,
+		pr_err("%s:%d failed: vfe_dev->hw_info %pK\n", __func__,
 			__LINE__, vfe_dev->hw_info);
 		return -EINVAL;
 	}
@@ -2347,13 +2347,13 @@ int msm_vfe47_get_clk_rates(struct vfe_device *vfe_dev,
 	uint32_t svs = 0, nominal = 0, turbo = 0;
 
 	if (!vfe_dev || !rates) {
-		pr_err("%s:%d failed: vfe_dev %p rates %p\n", __func__,
+		pr_err("%s:%d failed: vfe_dev %pK rates %pK\n", __func__,
 			__LINE__, vfe_dev, rates);
 		return -EINVAL;
 	}
 
 	if (!vfe_dev->pdev) {
-		pr_err("%s:%d failed: vfe_dev->pdev %p\n", __func__,
+		pr_err("%s:%d failed: vfe_dev->pdev %pK\n", __func__,
 			__LINE__, vfe_dev->pdev);
 		return -EINVAL;
 	}
@@ -2361,7 +2361,7 @@ int msm_vfe47_get_clk_rates(struct vfe_device *vfe_dev,
 	of_node = vfe_dev->pdev->dev.of_node;
 
 	if (!of_node) {
-		pr_err("%s %d failed: of_node = %p\n", __func__,
+		pr_err("%s %d failed: of_node = %pK\n", __func__,
 		 __LINE__, of_node);
 		return -EINVAL;
 	}
