@@ -616,7 +616,8 @@ static void swrm_apply_port_config(struct swr_master *master)
 	int len = 0;
 
 	int mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
-		SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK);
+		    SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK |
+		    SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_BMSK);
 
 	if (!swrm) {
 		pr_err("%s: Invalid handle to swr controller\n",
@@ -632,7 +633,8 @@ static void swrm_apply_port_config(struct swr_master *master)
 	value = swrm->read(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank));
 	value &= (~mask);
 	value |= ((0 << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
-		(7 << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT));
+		  (7 << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT) |
+		  (0 << SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_SHFT));
 	swrm->write(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
 	dev_dbg(swrm->dev, "%s: regaddr: 0x%x, value: 0x%x\n", __func__,
 		SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
@@ -1049,6 +1051,7 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 	u32 val;
 	u8 row_ctrl = SWR_MAX_ROW;
 	u8 col_ctrl = SWR_MIN_COL;
+	u8 ssp_period = 1;
 	u8 retry_cmd_num = 3;
 	u32 reg[SWRM_MAX_INIT_REG];
 	u32 value[SWRM_MAX_INIT_REG];
@@ -1056,7 +1059,8 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 
 	/* Clear Rows and Cols */
 	val = ((row_ctrl << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
-		(col_ctrl << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT));
+		(col_ctrl << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT) |
+		(ssp_period << SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_SHFT));
 
 	reg[len] = SWRM_MCP_FRAME_CTRL_BANK_ADDR(0);
 	value[len++] = val;
@@ -1085,11 +1089,12 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 	reg[len] = SWRM_COMP_CFG_ADDR;
 	value[len++] = 0x02;
 
-	reg[len] = SWRM_MCP_BUS_CTRL_ADDR;
-	value[len++] = 0x02;
-
 	reg[len] = SWRM_COMP_CFG_ADDR;
 	value[len++] = 0x03;
+
+	reg[len] = SWRM_INTERRUPT_CLEAR;
+	value[len++] = 0x08;
+
 	swrm->bulk_write(swrm->handle, reg, value, len);
 
 	return ret;
