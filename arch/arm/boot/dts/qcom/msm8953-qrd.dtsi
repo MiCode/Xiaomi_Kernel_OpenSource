@@ -34,25 +34,24 @@
 	i2c@78b7000 { /* BLSP1 QUP3 */
 		status = "okay";
 		synaptics@4b {
-			compatible = "synaptics,dsx";
+			compatible = "synaptics,dsx-i2c";
 			reg = <0x4b>;
 			interrupt-parent = <&tlmm>;
 			interrupts = <65 0x2008>;
-			avdd-supply = <&pm8953_l17>;
-			vdd-supply = <&pm8953_l6>;
-			/* pins used by touchscreen */
-			pinctrl-names = "pmx_ts_active",
-				"pmx_ts_suspend","pmx_ts_release";
-			pinctrl-0 = <&ts_int_active &ts_reset_active>;
-			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
-			pinctrl-2 = <&ts_release>;
-			synaptics,display-coords = <0 0 1079 1919>;
-			synaptics,panel-coords = <0 0 1079 1919>;
+			vdd_ana-supply = <&pm8953_l17>;
+			vcc_i2c-supply = <&pm8953_l6>;
+			synaptics,pwr-reg-name = "vdd_ana";
+			synaptics,bus-reg-name = "vcc_i2c";
 			synaptics,irq-gpio = <&tlmm 65 0x2008>;
-			synaptics,reset-gpio = <&tlmm 64 0x0>;
-			synaptics,disable-gpios;
-			synaptics,button-map = <139 158 172>;
-			synaptics,resume-in-workqueue;
+			synaptics,irq-on-state = <0>;
+			synaptics,irq-flags = <0x2008>;
+			synaptics,power-delay-ms = <200>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,max-y-for-2d = <1919>;
+			synaptics,cap-button-codes = <139 172 158>;
+			synaptics,vir-button-codes = <139 180 2000 320 160
+						      158 540 2000 320 160
+						      172 900 2000 320 160>;
 		};
 	};
 };
