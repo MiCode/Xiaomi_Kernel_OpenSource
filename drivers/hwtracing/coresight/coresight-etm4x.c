@@ -2543,11 +2543,9 @@ static void etm4_init_default_data(struct etmv4_drvdata *drvdata)
 	drvdata->vmid_mask1 = 0x0;
 
 	/*
-	 * A trace ID value of 0 is invalid, so let's start at some
-	 * random value that fits in 7 bits.  ETMv3.x has 0x10 so let's
-	 * start at 0x20.
+	 * Start trace id from 0x1.
 	 */
-	drvdata->trcid = 0x20 + drvdata->cpu;
+	drvdata->trcid = 0x1 + drvdata->cpu;
 }
 
 static int etm4_late_init(struct etmv4_drvdata *drvdata)
