@@ -122,6 +122,11 @@
  */
 #define MDSS_MDP_DS_OVERFETCH_SIZE 5
 
+#define QOS_LUT_NRT_READ	0x0
+#define QOS_LUT_CWB_READ	0xe4000000
+#define PANIC_LUT_NRT_READ	0x0
+#define ROBUST_LUT_NRT_READ	0xFFFF
+
 /* hw cursor can only be setup in highest mixer stage */
 #define HW_CURSOR_STAGE(mdata) \
 	(((mdata)->max_target_zorder + MDSS_MDP_STAGE_0) - 1)
