@@ -129,31 +129,31 @@ dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	apq8037-pmi8950-mtp.dtb \
 	apq8037-pmi8937-mtp.dtb
 
-dtb-$(CONFIG_ARCH_MSMGOLD) += msmgold-rumi.dtb \
-	apqgold-pmi8937-cdp.dtb \
-	apqgold-pmi8937-mtp.dtb \
-	apqgold-pmi8950-cdp.dtb \
-	apqgold-pmi8950-mtp.dtb \
-	msmgold-pmi8937-cdp.dtb \
-	msmgold-pmi8937-mtp.dtb \
-	msmgold-pmi8950-cdp.dtb \
-	msmgold-pmi8950-ext-codec-cdp.dtb \
-	msmgold-pmi8950-mtp.dtb \
-	msmgold-pmi8937-rcm.dtb \
-	msmgold-pmi8950-rcm.dtb \
-	msmgold-pmi8937-qrd-sku5.dtb
+dtb-$(CONFIG_ARCH_MSM8917) += msm8917-rumi.dtb \
+	apq8917-pmi8937-cdp.dtb \
+	apq8917-pmi8937-mtp.dtb \
+	apq8917-pmi8950-cdp.dtb \
+	apq8917-pmi8950-mtp.dtb \
+	msm8917-pmi8937-cdp.dtb \
+	msm8917-pmi8937-mtp.dtb \
+	msm8917-pmi8950-cdp.dtb \
+	msm8917-pmi8950-ext-codec-cdp.dtb \
+	msm8917-pmi8950-mtp.dtb \
+	msm8917-pmi8937-rcm.dtb \
+	msm8917-pmi8950-rcm.dtb \
+	msm8917-pmi8937-qrd-sku5.dtb
 
-dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
-	msmtitanium-rumi.dtb \
-	msmtitanium-cdp.dtb \
-	msmtitanium-mtp.dtb \
-	msmtitanium-ext-codec-mtp.dtb \
-	msmtitanium-qrd-sku3.dtb \
-	msmtitanium-rcm.dtb \
-	msmtitanium-ext-codec-rcm.dtb \
-	apqtitanium-cdp.dtb \
-	apqtitanium-mtp.dtb \
-	msmtitanium-cdp-1200p.dtb
+dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
+	msm8953-rumi.dtb \
+	msm8953-cdp.dtb \
+	msm8953-mtp.dtb \
+	msm8953-ext-codec-mtp.dtb \
+	msm8953-qrd-sku3.dtb \
+	msm8953-rcm.dtb \
+	msm8953-ext-codec-rcm.dtb \
+	apq8953-cdp.dtb \
+	apq8953-mtp.dtb \
+	msm8953-cdp-1200p.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9607-cdp.dtb \

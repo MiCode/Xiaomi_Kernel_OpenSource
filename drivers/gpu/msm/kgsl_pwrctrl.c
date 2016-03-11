@@ -485,7 +485,7 @@ void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device)
 	if ((1 << cpu) & device->pwrctrl.l2pc_cpus_mask) {
 		pm_qos_update_request_timeout(
 				&device->pwrctrl.l2pc_cpus_qos,
-				device->pwrctrl.pm_qos_active_latency,
+				device->pwrctrl.pm_qos_cpu_mask_latency,
 				KGSL_L2PC_CPU_TIMEOUT);
 	}
 }
@@ -1744,14 +1744,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		return result;
 
 	pwr->power_flags = 0;
-
-	if (kgsl_property_read_u32(device, "qcom,pm-qos-active-latency",
-		&pwr->pm_qos_active_latency))
-		pwr->pm_qos_active_latency = 501;
-
-	if (kgsl_property_read_u32(device, "qcom,pm-qos-wakeup-latency",
-		&pwr->pm_qos_wakeup_latency))
-		pwr->pm_qos_wakeup_latency = 101;
 
 	kgsl_property_read_u32(device, "qcom,l2pc-cpu-mask",
 			&pwr->l2pc_cpus_mask);

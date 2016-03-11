@@ -26,6 +26,7 @@
 #include "mdp3_ctrl.h"
 #include "mdp3.h"
 #include "mdp3_ppp.h"
+#include "mdss_smmu.h"
 
 #define VSYNC_EXPIRE_TICK	4
 
@@ -1368,6 +1369,33 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
+static int mdp3_map_pan_buff_immediate(struct msm_fb_data_type *mfd)
+{
+	int rc = 0;
+	unsigned long length;
+	dma_addr_t addr;
+	int domain = mfd->mdp.fb_mem_get_iommu_domain();
+
+	rc = mdss_smmu_map_dma_buf(mfd->fbmem_buf, mfd->fb_table, domain,
+					&addr, &length, DMA_BIDIRECTIONAL);
+	if (IS_ERR_VALUE(rc))
+		goto err_unmap;
+	else
+		mfd->iova = addr;
+
+	pr_debug("%s : smmu map dma buf VA: (%llx) MFD->iova %llx\n",
+			__func__, (u64) addr, (u64) mfd->iova);
+	return rc;
+
+err_unmap:
+	pr_err("smmu map dma buf failed: (%d)\n", rc);
+	dma_buf_unmap_attachment(mfd->fb_attachment, mfd->fb_table,
+			mdss_smmu_dma_data_direction(DMA_BIDIRECTIONAL));
+	dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
+	dma_buf_put(mfd->fbmem_buf);
+	return rc;
+}
+
 static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 {
 	struct fb_info *fbi;
@@ -1423,6 +1451,11 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 		mdp3_ctrl_reset_countdown(mdp3_session, mfd);
 		mdp3_ctrl_notify(mdp3_session, MDP_NOTIFY_FRAME_BEGIN);
 		mdp3_ctrl_clk_enable(mfd, 1);
+		if (mdp3_session->first_commit) {
+			rc = mdp3_map_pan_buff_immediate(mfd);
+			if (IS_ERR_VALUE(rc))
+				goto pan_error;
+		}
 		rc = mdp3_session->dma->update(mdp3_session->dma,
 				(void *)(int)(mfd->iova + offset),
 				mdp3_session->intf, NULL);

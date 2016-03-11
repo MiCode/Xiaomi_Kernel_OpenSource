@@ -940,7 +940,7 @@ core99_sound_chip_enable(struct device_node *node, long param, long value)
 	 * the driver as well
 	 */
 	if (pmac_mb.model_id == PMAC_TYPE_PISMO ||
-	    pmac_mb.model_id == PMAC_TYPE_TITANIUM) {
+	    pmac_mb.model_id == PMAC_TYPE_8953) {
 		LOCK(flags);
 		if (value)
 			MACIO_OUT8(KL_GPIO_SOUND_POWER,
@@ -2250,20 +2250,20 @@ static struct pmac_mb_def pmac_mb_defs[] = {
 		PMAC_MB_MAY_SLEEP | PMAC_MB_HAS_FW_POWER |
 		PMAC_MB_OLD_CORE99 | PMAC_MB_MOBILE
 	},
-	{	"PowerBook3,2",			"PowerBook Titanium",
-		PMAC_TYPE_TITANIUM,		core99_features,
+	{	"PowerBook3,2",			"PowerBook 8953",
+		PMAC_TYPE_8953,		core99_features,
 		PMAC_MB_MAY_SLEEP | PMAC_MB_HAS_FW_POWER | PMAC_MB_MOBILE
 	},
-	{	"PowerBook3,3",			"PowerBook Titanium II",
-		PMAC_TYPE_TITANIUM2,		core99_features,
+	{	"PowerBook3,3",			"PowerBook 8953 II",
+		PMAC_TYPE_89532,		core99_features,
 		PMAC_MB_MAY_SLEEP | PMAC_MB_HAS_FW_POWER | PMAC_MB_MOBILE
 	},
-	{	"PowerBook3,4",			"PowerBook Titanium III",
-		PMAC_TYPE_TITANIUM3,		core99_features,
+	{	"PowerBook3,4",			"PowerBook 8953 III",
+		PMAC_TYPE_89533,		core99_features,
 		PMAC_MB_MAY_SLEEP | PMAC_MB_HAS_FW_POWER | PMAC_MB_MOBILE
 	},
-	{	"PowerBook3,5",			"PowerBook Titanium IV",
-		PMAC_TYPE_TITANIUM4,		core99_features,
+	{	"PowerBook3,5",			"PowerBook 8953 IV",
+		PMAC_TYPE_89534,		core99_features,
 		PMAC_MB_MAY_SLEEP | PMAC_MB_HAS_FW_POWER | PMAC_MB_MOBILE
 	},
 	{	"PowerBook4,1",			"iBook 2",

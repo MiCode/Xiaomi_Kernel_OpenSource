@@ -1,0 +1,205 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+				core1 {
+					cpu = <&CPU1>;
+				};
+				core2 {
+					cpu = <&CPU2>;
+				};
+				core3 {
+					cpu = <&CPU3>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&CPU4>;
+				};
+				core1 {
+					cpu = <&CPU5>;
+				};
+				core2 {
+					cpu = <&CPU6>;
+				};
+				core3 {
+					cpu = <&CPU7>;
+				};
+			};
+		};
+
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
+			enable-method = "psci";
+			qcom,acc = <&acc0>;
+			qcom,limits-info = <&mitigation_profile0>;
+			qcom,ea = <&ea0>;
+			next-level-cache = <&L2_0>;
+			L2_0: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      power-domain = <&l2ccc_0>;
+			};
+		};
+
+		CPU1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			enable-method = "psci";
+			reg = <0x1>;
+			qcom,acc = <&acc1>;
+			qcom,limits-info = <&mitigation_profile1>;
+			qcom,ea = <&ea1>;
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			enable-method = "psci";
+			reg = <0x2>;
+			qcom,acc = <&acc2>;
+			qcom,limits-info = <&mitigation_profile2>;
+			qcom,ea = <&ea2>;
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			enable-method = "psci";
+			reg = <0x3>;
+			qcom,acc = <&acc3>;
+			qcom,limits-info = <&mitigation_profile3>;
+			qcom,ea = <&ea3>;
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU4: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			enable-method = "psci";
+			reg = <0x100>;
+			qcom,acc = <&acc4>;
+			qcom,limits-info = <&mitigation_profile4>;
+			qcom,ea = <&ea4>;
+			next-level-cache = <&L2_1>;
+			L2_1: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      power-domain = <&l2ccc_1>;
+			};
+		};
+
+		CPU5: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			enable-method = "psci";
+			reg = <0x101>;
+			qcom,acc = <&acc5>;
+			qcom,limits-info = <&mitigation_profile5>;
+			qcom,ea = <&ea5>;
+			next-level-cache = <&L2_1>;
+		};
+
+		CPU6: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			enable-method = "psci";
+			reg = <0x102>;
+			qcom,acc = <&acc6>;
+			qcom,limits-info = <&mitigation_profile6>;
+			qcom,ea = <&ea6>;
+			next-level-cache = <&L2_1>;
+		};
+
+		CPU7: cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			enable-method = "psci";
+			reg = <0x103>;
+			qcom,acc = <&acc7>;
+			qcom,limits-info = <&mitigation_profile7>;
+			qcom,ea = <&ea7>;
+			next-level-cache = <&L2_1>;
+		};
+	};
+};
+
+&soc {
+	l2ccc_0: clock-controller@b111000 {
+		compatible = "qcom,8953-l2ccc";
+		reg = <0x0b111000 0x1000>;
+	};
+
+	l2ccc_1: clock-controller@b011000 {
+		compatible = "qcom,8953-l2ccc";
+		reg = <0x0b011000 0x1000>;
+	};
+
+	acc0:clock-controller@b188000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b188000 0x1000>;
+	};
+
+	acc1:clock-controller@b198000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b198000 0x1000>;
+	};
+
+	acc2:clock-controller@b1a8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b1a8000 0x1000>;
+	};
+
+	acc3:clock-controller@b1b8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b1b8000 0x1000>;
+	};
+
+	acc4:clock-controller@b088000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b088000 0x1000>;
+	};
+
+	acc5:clock-controller@b098000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b098000 0x1000>;
+	};
+
+	acc6:clock-controller@b0a8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0a8000 0x1000>;
+	};
+
+	acc7:clock-controller@b0b8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0b8000 0x1000>;
+	};
+};

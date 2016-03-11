@@ -98,6 +98,7 @@ static struct {
 	u32 rf_pin_result;
 	struct icnss_mem_region_info
 		icnss_mem_region[QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01];
+	bool skip_qmi;
 } *penv;
 
 static int icnss_qmi_event_post(enum icnss_qmi_event_type type, void *data)
@@ -809,6 +810,9 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 	}
 	penv->ops = ops;
 
+	if (penv->skip_qmi)
+		penv->state |= ICNSS_FW_READY;
+
 	/* check for all conditions before invoking probe */
 	if (ICNSS_IS_FW_READY(penv->state) && penv->ops->probe) {
 		ret = penv->ops->probe(&pdev->dev);
@@ -1100,6 +1104,9 @@ skip:
 	if (ret)
 		pr_err("%s: Failed to send mode, ret = %d\n", __func__, ret);
 out:
+	if (penv->skip_qmi)
+		ret = 0;
+
 	return ret;
 }
 EXPORT_SYMBOL(icnss_wlan_enable);
@@ -1173,6 +1180,9 @@ static int icnss_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto out;
 	}
+
+	penv->skip_qmi = of_property_read_bool(dev->of_node,
+					       "qcom,skip-qmi");
 
 	penv->qmi_event_wq = alloc_workqueue("icnss_qmi_event", 0, 0);
 	if (!penv->qmi_event_wq) {

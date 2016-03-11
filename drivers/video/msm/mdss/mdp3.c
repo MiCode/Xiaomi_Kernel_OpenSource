@@ -1482,7 +1482,6 @@ void mdp3_batfet_ctrl(int enable)
 
 void mdp3_enable_regulator(int enable)
 {
-	msm_mdp3_cx_ctrl(enable);
 	mdp3_batfet_ctrl(enable);
 }
 
@@ -2036,9 +2035,8 @@ __ref int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
 	prop = of_find_property(pdev->dev.of_node, "qcom,memblock-reserve",
 				&len);
 	if (!prop) {
-		pr_err("error reading memblock reserve settings for fb\n");
-		rc = -EINVAL;
-		goto error;
+		pr_debug("Read memblock reserve settings for fb failed\n");
+		pr_debug("Read cont-splash-memory settings\n");
 	}
 
 	if (len) {
@@ -2101,47 +2099,6 @@ error:
 		rc = 0;
 
 	return rc;
-}
-
-static int mdp3_alloc(struct msm_fb_data_type *mfd)
-{
-	int ret;
-	int dom;
-	void *virt;
-	phys_addr_t phys;
-	size_t size;
-
-	mfd->fbi->screen_base = NULL;
-	mfd->fbi->fix.smem_start = 0;
-	mfd->fbi->fix.smem_len = 0;
-
-	mdp3_parse_dt_splash(mfd);
-
-	size = mfd->fbi->fix.smem_len;
-
-	dom = mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain_idx;
-
-	ret = mdss_smmu_dma_alloc_coherent(&mdp3_res->pdev->dev, size,
-		&phys, &mfd->iova, &virt, GFP_KERNEL, dom);
-	if (ret) {
-		pr_err("unable to alloc fbmem size=%zx\n", size);
-		return -ENOMEM;
-	}
-
-	if (MDSS_LPAE_CHECK(phys)) {
-		pr_warn("fb mem phys %pa > 4GB is not supported.\n", &phys);
-		mdss_smmu_dma_free_coherent(&mdp3_res->pdev->dev, size, &virt,
-				phys, mfd->iova, dom);
-		return -ERANGE;
-	}
-
-	pr_debug("alloc 0x%zxB @ (%pa phys) (0x%p virt) (%pa iova) for fb%d\n",
-		 size, &phys, virt, &mfd->iova, mfd->index);
-
-	mfd->fbi->fix.smem_start = phys;
-	mfd->fbi->screen_base = virt;
-
-	return 0;
 }
 
 void mdp3_free(struct msm_fb_data_type *mfd)
@@ -2707,7 +2664,6 @@ static int mdp3_probe(struct platform_device *pdev)
 	.fb_mem_get_iommu_domain = mdp3_fb_mem_get_iommu_domain,
 	.panel_register_done = mdp3_panel_register_done,
 	.fb_stride = mdp3_fb_stride,
-	.fb_mem_alloc_fnc = mdp3_alloc,
 	.check_dsi_status = mdp3_check_dsi_ctrl_status,
 	};
 

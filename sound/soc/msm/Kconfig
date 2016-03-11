@@ -164,7 +164,7 @@ config SND_SOC_MSM8996
 
 config SND_SOC_MSM8X16
 	tristate "SoC Machine driver for MSM8916"
-	depends on ARCH_MSMTITANIUM || ARCH_MSM8937
+	depends on ARCH_MSM8953 || ARCH_MSM8937
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
@@ -200,7 +200,7 @@ config SND_SOC_MDMCALIFORNIUM
         select SND_SOC_MSM_STUB
         select SND_SOC_MSM_HOSTLESS_PCM
         select SND_DYNAMIC_MINORS
-        select MSM_QDSP6_APRV3
+        select MSM_QDSP6_APRV3_GLINK
         select MSM_QDSP6V2_CODECS
         select SND_SOC_WCD9335
         select SND_SOC_WSA881X

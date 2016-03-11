@@ -92,6 +92,11 @@ static void ipa3_wq_write_done_common(struct ipa3_sys_context *sys,
 	struct ipa3_tx_pkt_wrapper *next_pkt;
 	int i, cnt;
 
+	if (unlikely(tx_pkt == NULL)) {
+		IPAERR("tx_pkt is NULL\n");
+		return;
+	}
+
 	cnt = tx_pkt->cnt;
 	IPADBG_LOW("cnt: %d\n", cnt);
 	for (i = 0; i < cnt; i++) {
@@ -640,7 +645,7 @@ failure:
 		kmem_cache_free(ipa3_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}
-	if (i < num_desc)
+	if (j < num_desc)
 		/* last desc failed */
 		if (fail_dma_wrap)
 			kmem_cache_free(ipa3_ctx->tx_pkt_wrapper_cache, tx_pkt);
@@ -3562,8 +3567,12 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 	}
 
 	ep->gsi_evt_ring_hdl = ~0;
-	/* allocate event ring for all interrupt-policy pipes */
-	if (ep->sys->policy != IPA_POLICY_NOINTR_MODE) {
+	/*
+	 * allocate event ring for all interrupt-policy
+	 * pipes and IPA consumers pipes
+	 */
+	if (ep->sys->policy != IPA_POLICY_NOINTR_MODE ||
+	     IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 		gsi_evt_ring_props.intf = GSI_EVT_CHTYPE_GPI_EV;
 		gsi_evt_ring_props.intr = GSI_INTR_IRQ;

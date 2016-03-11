@@ -832,6 +832,11 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 		&device->pwrctrl.pm_qos_active_latency))
 		device->pwrctrl.pm_qos_active_latency = 501;
 
+	/* get pm-qos-cpu-mask-latency, set it to default if not found */
+	if (of_property_read_u32(node, "qcom,l2pc-cpu-mask-latency",
+		&device->pwrctrl.pm_qos_cpu_mask_latency))
+		device->pwrctrl.pm_qos_cpu_mask_latency = 501;
+
 	/* get pm-qos-wakeup-latency, set it to default if not found */
 	if (of_property_read_u32(node, "qcom,pm-qos-wakeup-latency",
 		&device->pwrctrl.pm_qos_wakeup_latency))
@@ -944,7 +949,7 @@ static int adreno_probe(struct platform_device *pdev)
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
 		device->mmu.secured = false;
 
-	status = adreno_ringbuffer_init(adreno_dev, nopreempt);
+	status = adreno_ringbuffer_probe(adreno_dev, nopreempt);
 	if (status)
 		goto out;
 
@@ -1131,15 +1136,6 @@ static int adreno_init(struct kgsl_device *device)
 	/* Power down the device */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 
-	/*
-	 * Enable the power on shader corruption fix
-	 * This is only applicable for 28nm targets
-	 */
-	if (adreno_is_a3xx(adreno_dev))
-		adreno_a3xx_pwron_fixup_init(adreno_dev);
-	else if ((adreno_is_a405(adreno_dev)) || (adreno_is_a420(adreno_dev)))
-		adreno_a4xx_pwron_fixup_init(adreno_dev);
-
 	if (gpudev->init != NULL)
 		gpudev->init(adreno_dev);
 
@@ -1160,16 +1156,6 @@ static int adreno_init(struct kgsl_device *device)
 			device->shader_mem_len =
 					adreno_dev->gpucore->shader_size;
 		}
-	}
-
-	/* Adjust snapshot section sizes according to core */
-	if ((adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))) {
-		gpudev->snapshot_data->sect_sizes->cp_pfp =
-					A320_SNAPSHOT_CP_STATE_SECTION_SIZE;
-		gpudev->snapshot_data->sect_sizes->roq =
-					A320_SNAPSHOT_ROQ_SECTION_SIZE;
-		gpudev->snapshot_data->sect_sizes->cp_merciu =
-					A320_SNAPSHOT_CP_MERCIU_SECTION_SIZE;
 	}
 
 	/*
@@ -1456,12 +1442,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	status = adreno_ringbuffer_start(adreno_dev, ADRENO_START_COLD);
 	if (status)
 		goto error_mmu_off;
-
-	if (gpudev->hw_init) {
-		status = gpudev->hw_init(adreno_dev);
-		if (status)
-			goto error_mmu_off;
-	}
 
 	/* Start the dispatcher */
 	adreno_dispatcher_start(device);
@@ -2120,19 +2100,11 @@ static int adreno_soft_reset(struct kgsl_device *device)
 		ret = adreno_ringbuffer_start(adreno_dev, ADRENO_START_WARM);
 	else
 		ret = adreno_ringbuffer_start(adreno_dev, ADRENO_START_COLD);
-	if (ret)
-		goto done;
+	if (ret == 0) {
+		device->reset_counter++;
+		set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+	}
 
-	if (gpudev->hw_init)
-		ret = gpudev->hw_init(adreno_dev);
-	if (ret)
-		goto done;
-
-	device->reset_counter++;
-	/* device is back online */
-	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
-
-done:
 	return ret;
 }
 

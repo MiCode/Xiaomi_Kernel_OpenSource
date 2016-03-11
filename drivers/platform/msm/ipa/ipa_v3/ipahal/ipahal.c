@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/ipc_logging.h>
+#include <linux/debugfs.h>
 #include "ipahal.h"
 #include "ipahal_i.h"
 #include "ipahal_reg_i.h"
@@ -531,7 +533,7 @@ static int ipahal_imm_cmd_init(enum ipa_hw_type ipa_hw_type)
 	int j;
 	struct ipahal_imm_cmd_obj zero_obj;
 
-	IPAHAL_DBG("Entry - HW_TYPE=%d\n", ipa_hw_type);
+	IPAHAL_DBG_LOW("Entry - HW_TYPE=%d\n", ipa_hw_type);
 
 	memset(&zero_obj, 0, sizeof(zero_obj));
 	for (i = IPA_HW_v3_0 ; i < ipa_hw_type ; i++) {
@@ -592,7 +594,8 @@ u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd)
 		return -EFAULT;
 	}
 
-	IPAHAL_DBG("Get opcode of IMM_CMD=%s\n", ipahal_imm_cmd_name_str(cmd));
+	IPAHAL_DBG_LOW("Get opcode of IMM_CMD=%s\n",
+		ipahal_imm_cmd_name_str(cmd));
 	opcode = ipahal_imm_cmd_objs[ipahal_ctx->hw_type][cmd].opcode;
 	if (opcode == -1) {
 		IPAHAL_ERR("Try to get opcode of obsolete IMM_CMD=%s\n",
@@ -624,7 +627,8 @@ u16 ipahal_imm_cmd_get_opcode_param(enum ipahal_imm_cmd_name cmd, int param)
 		return -EFAULT;
 	}
 
-	IPAHAL_DBG("Get opcode of IMM_CMD=%s\n", ipahal_imm_cmd_name_str(cmd));
+	IPAHAL_DBG_LOW("Get opcode of IMM_CMD=%s\n",
+		ipahal_imm_cmd_name_str(cmd));
 
 	if (!ipahal_imm_cmd_objs[ipahal_ctx->hw_type][cmd].dyn_op) {
 		IPAHAL_ERR("IMM_CMD=%s does not support dynamic opcode\n",
@@ -681,7 +685,7 @@ struct ipahal_imm_cmd_pyld *ipahal_construct_imm_cmd(
 		return NULL;
 	}
 
-	IPAHAL_DBG("construct IMM_CMD:%s\n", ipahal_imm_cmd_name_str(cmd));
+	IPAHAL_DBG_LOW("construct IMM_CMD:%s\n", ipahal_imm_cmd_name_str(cmd));
 	return ipahal_imm_cmd_objs[ipahal_ctx->hw_type][cmd].construct(
 		cmd, params, is_atomic_ctx);
 }
@@ -895,7 +899,7 @@ static int ipahal_pkt_status_init(enum ipa_hw_type ipa_hw_type)
 	int i;
 	struct ipahal_pkt_status_obj zero_obj;
 
-	IPAHAL_DBG("Entry - HW_TYPE=%d\n", ipa_hw_type);
+	IPAHAL_DBG_LOW("Entry - HW_TYPE=%d\n", ipa_hw_type);
 
 	/*
 	 * Since structure alignment is implementation dependent,
@@ -960,7 +964,7 @@ void ipahal_pkt_status_parse(const void *unparsed_status,
 		return;
 	}
 
-	IPAHAL_DBG("Parse Status Packet\n");
+	IPAHAL_DBG_LOW("Parse Status Packet\n");
 	memset(status, 0, sizeof(*status));
 	ipahal_pkt_status_objs[ipahal_ctx->hw_type].parse(unparsed_status,
 		status);
@@ -983,6 +987,72 @@ const char *ipahal_pkt_status_exception_str(
 	return ipahal_pkt_status_exception_to_str[exception];
 }
 
+static int ipahal_ipc_logging_init(void)
+{
+	ipahal_ctx->ipc_logbuf =
+		ipc_log_context_create(IPAHAL_IPC_LOG_PAGES, "ipahal", 0);
+	if (!ipahal_ctx->ipc_logbuf) {
+		/* Cannot use the logging macros as no log buffers yet */
+		pr_err("ipaghal: failed to create ipc_logbuf\n");
+		return -ENOMEM;
+	}
+
+	ipahal_ctx->ipc_logbuf_low =
+		ipc_log_context_create(IPAHAL_IPC_LOG_PAGES, "ipahal_low", 0);
+	if (!ipahal_ctx->ipc_logbuf_low) {
+		/* Cannot use the logging macros as no log buffers yet */
+		pr_err("ipaghal: failed to create ipc_logbuf_low\n");
+		ipc_log_context_destroy(ipahal_ctx->ipc_logbuf);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+#ifdef CONFIG_DEBUG_FS
+static void ipahal_debugfs_init(void)
+{
+	const mode_t read_write_mode = S_IRUSR | S_IRGRP | S_IROTH |
+		S_IWUSR | S_IWGRP;
+
+	ipahal_ctx->dent = debugfs_create_dir("ipahal", 0);
+	if (!ipahal_ctx->dent || IS_ERR(ipahal_ctx->dent)) {
+		IPAHAL_ERR("fail to create ipahal debugfs folder\n");
+		return;
+	}
+
+	ipahal_ctx->dfile_enable_low_prio_ipc =
+		debugfs_create_u32("enable_low_prio_log", read_write_mode,
+		ipahal_ctx->dent, &ipahal_ctx->enable_low_prio_ipc);
+	if (!ipahal_ctx->dfile_enable_low_prio_ipc ||
+		IS_ERR(ipahal_ctx->dfile_enable_low_prio_ipc)) {
+		IPAHAL_ERR("fail create enable_low_prio_log debugfs file\n");
+		goto fail;
+	}
+
+	return;
+fail:
+	debugfs_remove_recursive(ipahal_ctx->dent);
+	ipahal_ctx->dent = NULL;
+}
+
+static void ipahal_debugfs_remove(void)
+{
+	if (!ipahal_ctx)
+		return;
+
+	if (IS_ERR(ipahal_ctx->dent)) {
+		IPAHAL_ERR("ipahal debugfs folder was not created\n");
+		return;
+	}
+
+	debugfs_remove_recursive(ipahal_ctx->dent);
+}
+#else /* CONFIG_DEBUG_FS */
+static void ipahal_debugfs_init(void) {}
+static void ipahal_debugfs_remove(void) {}
+#endif /* CONFIG_DEBUG_FS */
+
 int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 {
 	int result;
@@ -997,16 +1067,23 @@ int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 		goto bail_err_exit;
 	}
 
+	if (ipahal_ipc_logging_init()) {
+		/* Cannot use the logging macros as no log buffers yet */
+		pr_err("ipahal: failed to initialize ipc logging\n");
+		result = -ENOMEM;
+		goto bail_free_ctx;
+	}
+
 	if (ipa_hw_type < IPA_HW_v3_0) {
 		IPAHAL_ERR("ipahal supported on IPAv3 and later only\n");
 		result = -EINVAL;
-		goto bail_free_ctx;
+		goto bail_destroy_ipc;
 	}
 
 	if (!base) {
 		IPAHAL_ERR("invalid memory io mapping addr\n");
 		result = -EINVAL;
-		goto bail_free_ctx;
+		goto bail_destroy_ipc;
 	}
 
 	ipahal_ctx->hw_type = ipa_hw_type;
@@ -1015,23 +1092,28 @@ int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 	if (ipahal_reg_init(ipa_hw_type)) {
 		IPAHAL_ERR("failed to init ipahal reg\n");
 		result = -EFAULT;
-		goto bail_free_ctx;
+		goto bail_destroy_ipc;
 	}
 
 	if (ipahal_imm_cmd_init(ipa_hw_type)) {
 		IPAHAL_ERR("failed to init ipahal imm cmd\n");
 		result = -EFAULT;
-		goto bail_free_ctx;
+		goto bail_destroy_ipc;
 	}
 
 	if (ipahal_pkt_status_init(ipa_hw_type)) {
 		IPAHAL_ERR("failed to init ipahal pkt status\n");
 		result = -EFAULT;
-		goto bail_free_ctx;
+		goto bail_destroy_ipc;
 	}
+
+	ipahal_debugfs_init();
 
 	return 0;
 
+bail_destroy_ipc:
+	ipc_log_context_destroy(ipahal_ctx->ipc_logbuf_low);
+	ipc_log_context_destroy(ipahal_ctx->ipc_logbuf);
 bail_free_ctx:
 	kfree(ipahal_ctx);
 	ipahal_ctx = NULL;
@@ -1042,7 +1124,7 @@ bail_err_exit:
 void ipahal_destroy(void)
 {
 	IPAHAL_DBG("Entry\n");
-
+	ipahal_debugfs_remove();
 	kfree(ipahal_ctx);
 	ipahal_ctx = NULL;
 }

@@ -1049,6 +1049,10 @@ bool ipa_is_ep_support_flt(int pipe_idx)
  */
 u8 *ipa3_write_64(u64 w, u8 *dest)
 {
+	if (unlikely(dest == NULL)) {
+		IPAERR("NULL address!\n");
+		return dest;
+	}
 	*dest++ = (u8)((w) & 0xFF);
 	*dest++ = (u8)((w >> 8) & 0xFF);
 	*dest++ = (u8)((w >> 16) & 0xFF);
@@ -1070,6 +1074,10 @@ u8 *ipa3_write_64(u64 w, u8 *dest)
  */
 u8 *ipa3_write_32(u32 w, u8 *dest)
 {
+	if (unlikely(dest == NULL)) {
+		IPAERR("NULL address!\n");
+		return dest;
+	}
 	*dest++ = (u8)((w) & 0xFF);
 	*dest++ = (u8)((w >> 8) & 0xFF);
 	*dest++ = (u8)((w >> 16) & 0xFF);
@@ -1087,6 +1095,10 @@ u8 *ipa3_write_32(u32 w, u8 *dest)
  */
 u8 *ipa3_write_16(u16 hw, u8 *dest)
 {
+	if (unlikely(dest == NULL)) {
+		IPAERR("NULL address!\n");
+		return dest;
+	}
 	*dest++ = (u8)((hw) & 0xFF);
 	*dest++ = (u8)((hw >> 8) & 0xFF);
 
@@ -1102,6 +1114,10 @@ u8 *ipa3_write_16(u16 hw, u8 *dest)
  */
 u8 *ipa3_write_8(u8 b, u8 *dest)
 {
+	if (unlikely(dest == NULL)) {
+		IPAERR("NULL address!\n");
+		return dest;
+	}
 	*dest++ = (b) & 0xFF;
 
 	return dest;
@@ -2505,7 +2521,7 @@ int ipa3_generate_flt_eq(enum ipa_ip_type ip,
  *
  * Note:	Should not be called from atomic context
  */
-int ipa3_cfg_ep_seq(u32 clnt_hdl)
+int ipa3_cfg_ep_seq(u32 clnt_hdl, const struct ipa_ep_cfg_seq *seq_cfg)
 {
 	int type;
 	u8 hw_type_index;
@@ -2530,19 +2546,25 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl)
 		return 0;
 	}
 
-	switch (ipa3_ctx->ipa_hw_type) {
-	case IPA_HW_v3_0:
-	case IPA_HW_v3_1:
-		hw_type_index = IPA_3_0;
-		break;
-	default:
-		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
-		hw_type_index = IPA_3_0;
-		break;
+	if (seq_cfg->set_dynamic) {
+		type = seq_cfg->seq_type;
+	} else {
+		switch (ipa3_ctx->ipa_hw_type) {
+		case IPA_HW_v3_0:
+		case IPA_HW_v3_1:
+			hw_type_index = IPA_3_0;
+			break;
+		default:
+			IPAERR("Incorrect IPA version %d\n",
+				ipa3_ctx->ipa_hw_type);
+			hw_type_index = IPA_3_0;
+			break;
+		}
+
+		type = ipa3_ep_mapping[hw_type_index][ipa3_ctx->ep[clnt_hdl]
+					.client].sequencer_type;
 	}
 
-	type = ipa3_ep_mapping[hw_type_index][ipa3_ctx->ep[clnt_hdl].client]
-						.sequencer_type;
 	if (type != IPA_DPS_HPS_SEQ_TYPE_INVALID) {
 		if (ipa3_ctx->ep[clnt_hdl].cfg.mode.mode == IPA_DMA &&
 			!IPA_DPS_HPS_SEQ_TYPE_IS_DMA(type)) {
@@ -2610,7 +2632,7 @@ int ipa3_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 		if (result)
 			return result;
 
-		result = ipa3_cfg_ep_seq(clnt_hdl);
+		result = ipa3_cfg_ep_seq(clnt_hdl, &ipa_ep_cfg->seq);
 		if (result)
 			return result;
 

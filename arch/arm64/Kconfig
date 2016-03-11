@@ -251,18 +251,18 @@ config ARCH_MSM8916
 	  This enables support for the MSM8916 chipset. If you don't
 	  know what to do here, say N
 
-config ARCH_MSMGOLD
-	bool "Enable Support for Qualcomm Technologies Inc MSMGOLD"
+config ARCH_MSM8917
+	bool "Enable Support for Qualcomm Technologies Inc MSM8917"
 	depends on ARCH_MSM
 	help
-	  This enables support for the MSMGOLD chipset. If you don't
+	  This enables support for the MSM8917 chipset. If you don't
 	  know what to do here, say N
 
-config ARCH_MSMTITANIUM
-	bool "Enable Support for Qualcomm Technologies Inc MSMTITANIUM"
+config ARCH_MSM8953
+	bool "Enable Support for Qualcomm Technologies Inc MSM8953"
 	depends on ARCH_MSM
 	help
-	  This enables support for the MSMTITANIUM chipset. If you don't
+	  This enables support for the MSM8953 chipset. If you don't
 	  know what to do here, say N
 
 config ARCH_MSM8937

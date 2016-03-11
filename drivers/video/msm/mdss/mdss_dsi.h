@@ -513,6 +513,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool cmd_cfg_restore;
 	bool do_unicast;
 
+	bool idle_enabled;
 	int horizontal_idle_cnt;
 	struct panel_horizontal_idle *line_idle;
 	struct mdss_util_intf *mdss_util;
@@ -565,7 +566,7 @@ void mdss_dsi_cmd_mode_ctrl(int enable);
 void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
-void mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl);
+bool mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 	enum mdss_dsi_clk_type clk_type, enum mdss_dsi_clk_state clk_state);
 void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
@@ -627,7 +628,7 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl, u8 clk_type);
 void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl);
-void mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl, bool print_en);
+bool mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl, bool print_en);
 void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_read_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl);
@@ -652,6 +653,7 @@ void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl,
 void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dsc_desc *dsc);
 void mdss_dsi_dfps_config_8996(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_set_burst_mode(struct mdss_dsi_ctrl_pdata *ctrl);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {

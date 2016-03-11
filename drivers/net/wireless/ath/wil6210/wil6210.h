@@ -51,7 +51,7 @@ static inline u32 WIL_GET_BITS(u32 x, int b0, int b1)
 
 #define WIL_TX_Q_LEN_DEFAULT		(4000)
 #define WIL_RX_RING_SIZE_ORDER_DEFAULT	(10)
-#define WIL_TX_RING_SIZE_ORDER_DEFAULT	(10)
+#define WIL_TX_RING_SIZE_ORDER_DEFAULT	(12)
 #define WIL_BCAST_RING_SIZE_ORDER_DEFAULT	(7)
 #define WIL_BCAST_MCS0_LIMIT		(1024) /* limit for MCS0 frame size */
 /* limit ring size in range [32..32k] */
@@ -92,6 +92,7 @@ static inline u32 wil_mtu2macbuf(u32 mtu)
 #define WIL6210_FW_RECOVERY_RETRIES	(5) /* try to recover this many times */
 #define WIL6210_FW_RECOVERY_TO	msecs_to_jiffies(5000)
 #define WIL6210_SCAN_TO		msecs_to_jiffies(10000)
+#define WIL6210_DISCONNECT_TO_MS (2000)
 #define WIL6210_RX_HIGH_TRSH_INIT		(0)
 #define WIL6210_RX_HIGH_TRSH_DEFAULT \
 				(1 << (WIL_RX_RING_SIZE_ORDER_DEFAULT - 3))

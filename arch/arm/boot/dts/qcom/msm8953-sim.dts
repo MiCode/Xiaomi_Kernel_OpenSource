@@ -1,0 +1,295 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8953.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSMTitaninum Simulator";
+	compatible = "qcom,msm8953-sim", "qcom,msm8953", "qcom,sim";
+	qcom,board-id= <16 0>;
+};
+
+&blsp1_uart0 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&sdhc_1 {
+	/* device core power supply */
+	vdd-supply = <&pm8953_l8>;
+	qcom,vdd-voltage-level = <2900000 2900000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm8953_l5>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+
+	qcom,nonremovable;
+	qcom,clk-rates = <400000 25000000 50000000>;
+
+	status = "ok";
+};
+
+&usb3 {
+	reg = <0x07000000 0xfc000>;
+	reg-names = "core_base";
+	dwc3@7000000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&ssphy {
+	compatible =  "usb-nop-xceiv";
+};
+
+&qusb_phy {
+	compatible =  "usb-nop-xceiv";
+};
+
+&dcc {
+	status = "disabled";
+};
+
+&tmc_etr {
+	status = "disabled";
+};
+
+&replicator {
+	status = "disabled";
+};
+
+&tmc_etf {
+	status = "disabled";
+};
+
+&funnel_in0 {
+	status = "disabled";
+};
+
+&funnel_center {
+	status = "disabled";
+};
+
+&funnel_right {
+	status = "disabled";
+};
+
+&funnel_mm {
+	status = "disabled";
+};
+
+&funnel_cam {
+	status = "disabled";
+};
+
+&funnel_apss1 {
+	status = "disabled";
+};
+
+&funnel_apss0 {
+	status = "disabled";
+};
+
+&etm0 {
+	status = "disabled";
+};
+
+&etm1 {
+	status = "disabled";
+};
+
+&etm2 {
+	status = "disabled";
+};
+
+&etm3 {
+	status = "disabled";
+};
+
+&etm4 {
+	status = "disabled";
+};
+
+&etm5 {
+	status = "disabled";
+};
+
+&etm6 {
+	status = "disabled";
+};
+
+&etm7 {
+	status = "disabled";
+};
+
+&stm {
+	status = "disabled";
+};
+
+&csr {
+	status = "disabled";
+};
+
+&dbgui {
+	status = "disabled";
+};
+
+&cti0 {
+	status = "disabled";
+};
+
+&cti1 {
+	status = "disabled";
+};
+
+&cti2 {
+	status = "disabled";
+};
+
+&cti3 {
+	status = "disabled";
+};
+
+&cti4 {
+	status = "disabled";
+};
+
+&cti5 {
+	status = "disabled";
+};
+
+&cti6 {
+	status = "disabled";
+};
+
+&cti7 {
+	status = "disabled";
+};
+
+&cti8 {
+	status = "disabled";
+};
+
+&cti9 {
+	status = "disabled";
+};
+
+&cti10 {
+	status = "disabled";
+};
+
+&cti11 {
+	status = "disabled";
+};
+
+&cti12 {
+	status = "disabled";
+};
+
+&cti13 {
+	status = "disabled";
+};
+
+&cti14 {
+	status = "disabled";
+};
+
+&cti15 {
+	status = "disabled";
+};
+
+&cti_cpu0 {
+	status = "disabled";
+};
+
+&cti_cpu1 {
+	status = "disabled";
+};
+
+&cti_cpu2 {
+	status = "disabled";
+};
+
+&cti_cpu3 {
+	status = "disabled";
+};
+
+&cti_cpu4 {
+	status = "disabled";
+};
+
+&cti_cpu5 {
+	status = "disabled";
+};
+
+&cti_cpu6 {
+	status = "disabled";
+};
+
+&cti_cpu7 {
+	status = "disabled";
+};
+
+&cti_modem_cpu0 {
+	status = "disabled";
+};
+
+&cti_modem_cpu1 {
+	status = "disabled";
+};
+
+&cti_video_cpu0 {
+	status = "disabled";
+};
+
+&cti_wcn_cpu0 {
+	status = "disabled";
+};
+
+&cti_audio_cpu0 {
+	status = "disabled";
+};
+
+&tpda {
+	status = "disabled";
+};
+
+&tpdm_dcc {
+	status = "disabled";
+};
+
+&hwevent {
+	status = "disabled";
+};
+
+&fuse {
+	status = "disabled";
+};
+
+&qpdi {
+	status = "disabled";
+};
+
+&tpiu {
+	status = "disabled";
+};

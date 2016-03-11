@@ -135,9 +135,9 @@ struct msm_gfx_ldo {
 	struct mutex		ldo_mutex;
 };
 
-#define MSMTITANIUM_LDO_FUSE_CORNERS		3
+#define MSM8953_LDO_FUSE_CORNERS		3
 #define LDO_MAX_OFFSET				0xFFFF
-static struct ldo_config msmtitanium_ldo_config[] = {
+static struct ldo_config msm8953_ldo_config[] = {
 	{LDO_ATEST_REG,		0x00000203},
 	{LDO_CFG0_REG,		0x05008600},
 	{LDO_CFG1_REG,		       0x0},
@@ -146,19 +146,19 @@ static struct ldo_config msmtitanium_ldo_config[] = {
 	{LDO_MAX_OFFSET,	LDO_MAX_OFFSET},
 };
 
-static struct fuse_param msmtitanium_ldo_enable_param[] = {
+static struct fuse_param msm8953_ldo_enable_param[] = {
 	{65, 10, 10},
 	{},
 };
 
 static const struct fuse_param
-msmtitanium_init_voltage_param[MSMTITANIUM_LDO_FUSE_CORNERS][2] = {
+msm8953_init_voltage_param[MSM8953_LDO_FUSE_CORNERS][2] = {
 		{ {73, 42, 46}, {} },
 		{ {73, 37, 41}, {} },
 		{ {73, 32, 36}, {} },
 };
 
-static const int msmtitanium_fuse_ref_volt[MSMTITANIUM_LDO_FUSE_CORNERS] = {
+static const int msm8953_fuse_ref_volt[MSM8953_LDO_FUSE_CORNERS] = {
 	580000,
 	650000,
 	720000,
@@ -1063,20 +1063,20 @@ static int msm_gfx_ldo_target_init(struct msm_gfx_ldo *ldo_vreg)
 {
 	int i;
 
-	/* MSMTITANIUM */
+	/* MSM8953 */
 	ldo_vreg->init_volt_param = devm_kzalloc(ldo_vreg->dev,
-			(MSMTITANIUM_LDO_FUSE_CORNERS *
+			(MSM8953_LDO_FUSE_CORNERS *
 			sizeof(struct fuse_param *)), GFP_KERNEL);
 	if (!ldo_vreg->init_volt_param)
 		return -ENOMEM;
 
-	for (i = 0; i < MSMTITANIUM_LDO_FUSE_CORNERS; i++)
+	for (i = 0; i < MSM8953_LDO_FUSE_CORNERS; i++)
 		ldo_vreg->init_volt_param[i] =
-				msmtitanium_init_voltage_param[i];
+				msm8953_init_voltage_param[i];
 
-	ldo_vreg->ldo_init_config = msmtitanium_ldo_config;
-	ldo_vreg->ref_volt = msmtitanium_fuse_ref_volt;
-	ldo_vreg->ldo_enable_param = msmtitanium_ldo_enable_param;
+	ldo_vreg->ldo_init_config = msm8953_ldo_config;
+	ldo_vreg->ref_volt = msm8953_fuse_ref_volt;
+	ldo_vreg->ldo_enable_param = msm8953_ldo_enable_param;
 	ldo_vreg->ldo_bypass_fuse_enable = true;
 
 	return 0;
@@ -1332,7 +1332,7 @@ static int msm_gfx_ldo_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_gfx_ldo_match_table[] = {
-	{ .compatible = "qcom,msmtitanium-gfx-ldo", },
+	{ .compatible = "qcom,msm8953-gfx-ldo", },
 	{}
 };
 
