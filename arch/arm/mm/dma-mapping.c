@@ -160,6 +160,8 @@ static void arm_dma_unremap(struct device *dev, void *remapped_addr,
 		return;
 	}
 	vunmap(remapped_addr);
+	flush_tlb_kernel_range((unsigned long)remapped_addr,
+				(unsigned long)(remapped_addr + size));
 }
 
 struct dma_map_ops arm_dma_ops = {
