@@ -17,6 +17,13 @@ Required properties:
   - vdd-wlan-io-supply: phandle to the WLAN IO regulator device tree node.
   - vdd-wlan-xtal-supply: phandle to the WLAM XTAL regulator device tree node.
 
+Optional properties:
+  - pinctrl-names: Names corresponding to the numbered pinctrl states
+  - pinctrl-<n>: Pinctrl states as described in
+                bindings/pinctrl/pinctrl-bindings.txt
+  - qcom,is-antenna-shared: Enabled for Platforms with both sdio and pcie QCA
+                           Chipsets are attached.
+
 Example:
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
@@ -27,4 +34,9 @@ Example:
 		vdd-wlan-dsrc-supply = <&sdcard_ext_vreg>;
 		vdd-wlan-io-supply = <&mdm9607_l11>;
 		vdd-wlan-xtal-supply = <&mdm9607_l2>;
+		qcom,is-antenna-shared;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&cnss_sdio_active>;
+		pinctrl-1 = <&cnss_sdio_sleep>;
+
 	};
