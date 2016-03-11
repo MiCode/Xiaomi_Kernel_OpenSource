@@ -34,6 +34,11 @@ enum cam_bus_client {
 	CAM_BUS_CLIENT_MAX
 };
 
+struct msm_cam_regulator {
+	const char *name;
+	struct regulator *vdd;
+};
+
 /**
  * @brief      : Gets clock information from dtsi
  *
@@ -154,28 +159,28 @@ long msm_camera_clk_set_rate(struct device *dev,
  * platform device
  *
  * @param pdev   : platform device to get regulator information
- * @param vdd: Pointer to populate the regulator names
+ * @param vdd_info: Pointer to populate the regulator names
  * @param num_reg: Pointer to populate the number of regulators
  *                 extracted from dtsi
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int msm_camera_get_regulator_info(struct platform_device *pdev,
-		struct regulator ***vddd, int *num_reg);
+		struct msm_cam_regulator **vdd_info, int *num_reg);
 /**
  * @brief      : Enable/Disable the regultors
  *
  * This function enables/disables the regulators for a specific
  * platform device
  *
- * @param vdd: Pointer to list of regulators
+ * @param vdd_info: Pointer to list of regulators
  * @param cnt: Number of regulators to enable/disable
  * @param enable: Flags specifies either enable/disable
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 
-int msm_camera_regulator_enable(struct regulator **vdd,
+int msm_camera_regulator_enable(struct msm_cam_regulator *vdd_info,
 				int cnt, int enable);
 
 /**
@@ -184,13 +189,12 @@ int msm_camera_regulator_enable(struct regulator **vdd,
  * This function releases the regulator resources.
  *
  * @param pdev: Pointer to platform device
- * @param vdd: Pointer to list of regulators
+ * @param vdd_info: Pointer to list of regulators
  * @param cnt: Number of regulators to release
  */
 
 void msm_camera_put_regulators(struct platform_device *pdev,
-							struct regulator ***vdd,
-							int cnt);
+	struct msm_cam_regulator **vdd_info, int cnt);
 /**
  * @brief      : Get the IRQ resource
  *
@@ -248,7 +252,7 @@ int msm_camera_register_threaded_irq(struct platform_device *pdev,
 						irq_handler_t handler_fn,
 						irq_handler_t thread_fn,
 						unsigned long irqflags,
-						char *irq_name,
+						const char *irq_name,
 						void *dev);
 
 /**

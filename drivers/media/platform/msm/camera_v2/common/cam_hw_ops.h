@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _CAM_HW_OPS_H_
+#define _CAM_HW_OPS_H_
 
 enum cam_ahb_clk_vote {
 	/* need to update the voting requests
@@ -37,3 +39,4 @@ enum cam_ahb_clk_client {
 int cam_config_ahb_clk(struct device *dev, unsigned long freq,
 	enum cam_ahb_clk_client id, enum cam_ahb_clk_vote vote);
 int cam_ahb_clk_init(struct platform_device *pdev);
+#endif /* _CAM_HW_OPS_H_ */

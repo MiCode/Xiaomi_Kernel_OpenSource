@@ -1524,7 +1524,7 @@ int msm_jpegdma_hw_get_capabilities(struct msm_jpegdma_device *dma)
 	mutex_lock(&dma->lock);
 
 	/* enable all the regulators */
-	ret = msm_camera_regulator_enable(dma->vdd,
+	ret = msm_camera_regulator_enable(dma->dma_vdd,
 			dma->num_reg, true);
 	if (ret < 0) {
 		dev_err(dma->dev, "Fail to enable regulators\n");
@@ -1547,14 +1547,14 @@ int msm_jpegdma_hw_get_capabilities(struct msm_jpegdma_device *dma)
 		dma->jpeg_clk_info, dma->clk,
 		dma->num_clk, false);
 	/* disable all the regulators */
-	msm_camera_regulator_enable(dma->vdd, dma->num_reg, false);
+	msm_camera_regulator_enable(dma->dma_vdd, dma->num_reg, false);
 
 	mutex_unlock(&dma->lock);
 
 	return 0;
 
 error_clocks:
-	msm_camera_regulator_enable(dma->vdd, dma->num_reg, false);
+	msm_camera_regulator_enable(dma->dma_vdd, dma->num_reg, false);
 error_regulators_get:
 	mutex_unlock(&dma->lock);
 	return ret;
@@ -1577,7 +1577,7 @@ int msm_jpegdma_hw_get(struct msm_jpegdma_device *dma)
 
 		dev_dbg(dma->dev, "msm_jpegdma_hw_get E\n");
 		/* enable all the regulators */
-		ret = msm_camera_regulator_enable(dma->vdd,
+		ret = msm_camera_regulator_enable(dma->dma_vdd,
 				dma->num_reg, true);
 		if (ret < 0) {
 			dev_err(dma->dev, "Fail to enable regulators\n");
@@ -1620,7 +1620,7 @@ error_hw_reset:
 	msm_camera_clk_enable(&dma->pdev->dev, dma->jpeg_clk_info,
 		dma->clk, dma->num_clk, false);
 error_clocks:
-	msm_camera_regulator_enable(dma->vdd, dma->num_reg, false);
+	msm_camera_regulator_enable(dma->dma_vdd, dma->num_reg, false);
 error_regulators_get:
 	mutex_unlock(&dma->lock);
 	return ret;
@@ -1650,7 +1650,7 @@ void msm_jpegdma_hw_put(struct msm_jpegdma_device *dma)
 		msm_camera_clk_enable(&dma->pdev->dev, dma->jpeg_clk_info,
 			dma->clk, dma->num_clk, false);
 		/* disable all the regulators */
-		msm_camera_regulator_enable(dma->vdd, dma->num_reg, false);
+		msm_camera_regulator_enable(dma->dma_vdd, dma->num_reg, false);
 	}
 	/* Reset clock rate, need to be updated on next processing */
 	dma->active_clock_rate = -1;
