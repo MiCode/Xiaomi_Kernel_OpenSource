@@ -1785,3 +1785,5 @@
 #include "msmcobalt-coresight.dtsi"
 #include "msmcobalt-bus.dtsi"
 #include "msmcobalt-gpu.dtsi"
+#include "msm-pmcobalt.dtsi"
+#include "msm-pmicobalt.dtsi"
