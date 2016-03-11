@@ -27,6 +27,8 @@ struct bt_power_vreg_data {
 	/* voltage levels to be set */
 	unsigned int low_vol_level;
 	unsigned int high_vol_level;
+	/* current level to be set */
+	unsigned int load_uA;
 	/*
 	 * is set voltage supported for this regulator?
 	 * false => set voltage is not supported
