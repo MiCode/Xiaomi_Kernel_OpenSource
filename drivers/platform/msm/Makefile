@@ -14,3 +14,4 @@ obj-$(CONFIG_GPIO_USB_DETECT) += gpio-usbdetect.o
 obj-$(CONFIG_MSM_11AD) += msm_11ad/
 obj-$(CONFIG_SEEMP_CORE) += seemp_core/
 obj-$(CONFIG_SSM) += ssm.o
+obj-$(CONFIG_USB_BAM) += usb_bam.o
