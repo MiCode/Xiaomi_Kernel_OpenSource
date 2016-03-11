@@ -918,7 +918,41 @@ static struct configfs_item_operations qdss_item_ops = {
 	.release	= qdss_attr_release,
 };
 
+static ssize_t qdss_enable_debug_inface_show(struct config_item *item,
+			char *page)
+{
+	return snprintf(page, PAGE_SIZE, "%s\n",
+		(to_f_qdss_opts(item)->usb_qdss->debug_inface_enabled == 1) ?
+		"Enabled" : "Disabled");
+}
+
+static ssize_t qdss_enable_debug_inface_store(struct config_item *item,
+			const char *page, size_t len)
+{
+	struct f_qdss *qdss = to_f_qdss_opts(item)->usb_qdss;
+	unsigned long flags;
+	u8 stats;
+
+	if (page == NULL) {
+		pr_err("Invalid buffer");
+		return len;
+	}
+
+	if (kstrtou8(page, 0, &stats) != 0 && (stats != 0 || stats != 1)) {
+		pr_err("(%u)Wrong value. enter 0 to disable or 1 to enable.\n",
+			stats);
+		return len;
+	}
+
+	spin_lock_irqsave(&qdss->lock, flags);
+	qdss->debug_inface_enabled = (stats == 1 ? "true" : "false");
+	spin_unlock_irqrestore(&qdss->lock, flags);
+	return len;
+}
+
+CONFIGFS_ATTR(qdss_, enable_debug_inface);
 static struct configfs_attribute *qdss_attrs[] = {
+	&qdss_attr_enable_debug_inface,
 	NULL,
 };
 
