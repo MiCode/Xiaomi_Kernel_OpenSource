@@ -618,9 +618,9 @@ config MSM_CORE_CTL_HELPER
 	  system load and state. It also supports limiting min and
 	  max online CPUs from userspace.
 
-config MSM_REMOTEQDSS
+config QCOM_REMOTEQDSS
 	bool "Allow debug tools to enable events on other processors"
-	depends on MSM_SCM && DEBUG_FS
+	depends on QCOM_SCM && DEBUG_FS
 	help
 	  Other onchip processors/execution environments may support debug
 	  events. Provide a sysfs interface for debug tools to dynamically
