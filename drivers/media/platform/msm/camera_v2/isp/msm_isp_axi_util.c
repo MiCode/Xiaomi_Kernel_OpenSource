@@ -1350,19 +1350,9 @@ void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
 					cfg_wm_reg(vfe_dev, stream_info, j);
 			/*Resume AXI*/
 			stream_info->state = RESUME_PENDING;
-			if (vfe_dev->is_split) {
-				msm_isp_update_dual_HW_axi(vfe_dev,
-					stream_info);
-			} else {
-				msm_isp_axi_stream_enable_cfg(
-					vfe_dev,
-					&axi_data->stream_info[i], 1);
-				stream_info->state = RESUMING;
-			}
+			msm_isp_update_dual_HW_axi(vfe_dev, stream_info);
 		} else if (stream_info->state == RESUMING) {
-			stream_info->runtime_output_format =
-				stream_info->output_format;
-			stream_info->state = ACTIVE;
+			msm_isp_update_dual_HW_axi(vfe_dev, stream_info);
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 	}
@@ -2420,28 +2410,54 @@ static int msm_isp_update_dual_HW_axi(struct vfe_device *vfe_dev,
 	}
 
 	dual_vfe_res = vfe_dev->common_data->dual_vfe_res;
-
-	if (!dual_vfe_res->vfe_dev[ISP_VFE0] ||
-		!dual_vfe_res->vfe_dev[ISP_VFE1] ||
-		!dual_vfe_res->axi_data[ISP_VFE0] ||
-		!dual_vfe_res->axi_data[ISP_VFE1]) {
-		pr_err("%s: Error in dual vfe resource\n", __func__);
-		rc = -EINVAL;
-	} else {
-		if (stream_info->state == RESUME_PENDING &&
-			(dual_vfe_res->axi_data[!vfe_dev->pdev->id]->
-			stream_info[stream_idx].state == RESUME_PENDING)) {
-			/* Update the AXI only after both ISPs receiving the
-				Reg update interrupt*/
-			for (vfe_id = 0; vfe_id < MAX_VFE; vfe_id++) {
-				rc = msm_isp_axi_stream_enable_cfg(
-					dual_vfe_res->vfe_dev[vfe_id],
-					&dual_vfe_res->axi_data[vfe_id]->
-					stream_info[stream_idx], 1);
-				dual_vfe_res->axi_data[vfe_id]->
-					stream_info[stream_idx].state =
-					RESUMING;
+	if (vfe_dev->is_split) {
+		if (!dual_vfe_res->vfe_dev[ISP_VFE0] ||
+			!dual_vfe_res->vfe_dev[ISP_VFE1] ||
+			!dual_vfe_res->axi_data[ISP_VFE0] ||
+			!dual_vfe_res->axi_data[ISP_VFE1]) {
+			pr_err("%s: Error in dual vfe resource\n", __func__);
+			rc = -EINVAL;
+		} else {
+			if (stream_info->state == RESUME_PENDING &&
+				(dual_vfe_res->axi_data[!vfe_dev->pdev->id]->
+				stream_info[stream_idx].state ==
+				RESUME_PENDING)) {
+				/* Update the AXI only after both ISPs receiving
+					the Reg update interrupt*/
+				for (vfe_id = 0; vfe_id < MAX_VFE; vfe_id++) {
+					rc = msm_isp_axi_stream_enable_cfg(
+						dual_vfe_res->vfe_dev[vfe_id],
+						&dual_vfe_res->
+						axi_data[vfe_id]->
+						stream_info[stream_idx], 1);
+					dual_vfe_res->axi_data[vfe_id]->
+						stream_info[stream_idx].state =
+						RESUMING;
+				}
+			} else if (stream_info->state == RESUMING &&
+				(dual_vfe_res->axi_data[!vfe_dev->pdev->id]->
+				 stream_info[stream_idx].state == RESUMING)) {
+				for (vfe_id = 0; vfe_id < MAX_VFE; vfe_id++) {
+					dual_vfe_res->axi_data[vfe_id]->
+						stream_info[stream_idx].
+						runtime_output_format =
+						stream_info->output_format;
+					dual_vfe_res->axi_data[vfe_id]->
+						stream_info[stream_idx].state =
+						ACTIVE;
+				}
 			}
+
+		}
+	} else {
+		if (stream_info->state == RESUME_PENDING) {
+			msm_isp_axi_stream_enable_cfg(
+				vfe_dev, stream_info, 0);
+			stream_info->state = RESUMING;
+		} else if (stream_info->state == RESUMING) {
+			stream_info->runtime_output_format =
+				stream_info->output_format;
+			stream_info->state = ACTIVE;
 		}
 	}
 	return rc;
