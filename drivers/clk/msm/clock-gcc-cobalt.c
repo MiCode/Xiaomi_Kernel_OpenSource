@@ -1777,17 +1777,6 @@ static struct branch_clk gcc_mmss_noc_cfg_ahb_clk = {
 	},
 };
 
-static struct branch_clk gcc_mmss_qm_ahb_clk = {
-	.cbcr_reg = GCC_MMSS_QM_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_mmss_qm_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_mmss_qm_ahb_clk.c),
-	},
-};
-
 static struct branch_clk gcc_mmss_sys_noc_axi_clk = {
 	.cbcr_reg = GCC_MMSS_SYS_NOC_AXI_CBCR,
 	.has_sibling = 1,
@@ -2600,7 +2589,6 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_hmss_dvm_bus_clk),
 	CLK_LIST(gcc_hmss_rbcpr_clk),
 	CLK_LIST(gcc_mmss_noc_cfg_ahb_clk),
-	CLK_LIST(gcc_mmss_qm_ahb_clk),
 	CLK_LIST(gcc_mmss_sys_noc_axi_clk),
 	CLK_LIST(gcc_pcie_0_aux_clk),
 	CLK_LIST(gcc_pcie_0_cfg_ahb_clk),
