@@ -603,6 +603,17 @@
 		<90 512 206000 960000>, <90 585 206000 960000>,    /* NOMINAL */
 		<90 512 206000 3600000>, <90 585 206000 3600000>;    /* TURBO */
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+
+		/* smp2p gpio information */
+		qcom,smp2pgpio_map_ipa_1_out {
+			compatible = "qcom,smp2pgpio-map-ipa-1-out";
+			gpios = <&smp2pgpio_ipa_1_out 0 0>;
+		};
+
+		qcom,smp2pgpio_map_ipa_1_in {
+			compatible = "qcom,smp2pgpio-map-ipa-1-in";
+			gpios = <&smp2pgpio_ipa_1_in 0 0>;
+		};
 	};
 
 	qcom,chd {
