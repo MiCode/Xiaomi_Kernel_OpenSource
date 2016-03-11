@@ -361,6 +361,7 @@
 			<0xff 257>, /* osmmu_CIrpt[0] */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 271>, /* sps interrupt */
 			<0xff 272>, /* smmu_intr_bus[17] */
 			<0xff 273>, /* smmu_bus_intr[18] */
 			<0xff 274>, /* smmu_bus_intr[19] */
@@ -385,6 +386,8 @@
 			<9  36>,
 			<10  13>,
 			<11  35>,
+			<12  17>,
+			<13  21>,
 			<14  54>,
 			<15  34>,
 			<16  31>,
