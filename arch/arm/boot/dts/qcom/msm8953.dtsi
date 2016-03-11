@@ -846,14 +846,13 @@
 		compatible = "qcom,cpu-clock-8953";
 		reg =   <0xb114000  0x68>,
 			<0xb014000  0x68>,
-			<0xb116000  0x330>,
-			<0xb016000  0x330>,
+			<0xb116000  0x400>,
 			<0xb111050  0x08>,
 			<0xb011050  0x08>,
 			<0xb1d1050  0x08>,
 			<0x00a4124  0x08>;
 		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
-			    "c0-pll", "c1-pll", "c0-mux", "c1-mux",
+			    "c0-pll", "c0-mux", "c1-mux",
 			    "cci-mux", "efuse";
 		vdd-mx-supply = <&pm8953_s7_level_ao>;
 		vdd-cl-supply = <&apc_vreg>;
