@@ -958,6 +958,9 @@ static int adreno_probe(struct platform_device *pdev)
 
 	kgsl_pwrscale_init(&pdev->dev, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
 
+	/* Initialize coresight for the target */
+	adreno_coresight_init(adreno_dev);
+
 	adreno_input_handler.private = device;
 
 #ifdef CONFIG_INPUT
@@ -1120,9 +1123,6 @@ static int adreno_init(struct kgsl_device *device)
 	ret = adreno_iommu_init(adreno_dev);
 	if (ret)
 		return ret;
-
-	/* Initialize coresight for the target */
-	adreno_coresight_init(adreno_dev);
 
 	adreno_perfcounter_init(adreno_dev);
 	adreno_fault_detect_init(adreno_dev);
