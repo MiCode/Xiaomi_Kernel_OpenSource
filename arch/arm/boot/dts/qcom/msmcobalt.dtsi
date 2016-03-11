@@ -295,6 +295,25 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	spmi_bus: qcom,spmi@800f000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg =	<0x800f000 0x1000>,
+			<0x8400000 0xffe024>,
+			<0x9400000 0xffe020>,
+			<0xa400000 0x207040>,
+			<0x800a000 0x202c>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupt-names = "periph_irq";
+		interrupts = <GIC_SPI 326 IRQ_TYPE_NONE>;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
+		cell-index = <0>;
+	};
+
 	uartblsp1dm1: serial@0c170000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0xc170000 0x1000>;
