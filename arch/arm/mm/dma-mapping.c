@@ -926,6 +926,8 @@ static void arm_dma_unremap(struct device *dev, void *remapped_addr,
 	}
 
 	vunmap(remapped_addr);
+	flush_tlb_kernel_range((unsigned long)remapped_addr,
+			(unsigned long)(remapped_addr + size));
 }
 /*
  * Create userspace mapping for the DMA-coherent memory.
