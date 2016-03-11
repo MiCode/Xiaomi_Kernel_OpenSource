@@ -44,6 +44,10 @@
 #define CNSS_DUMP_FORMAT_VER	0x11
 #define CNSS_DUMP_MAGIC_VER_V2	0x42445953
 #define CNSS_DUMP_NAME		"CNSS_WLAN"
+#define CNSS_PINCTRL_SLEEP_STATE	"sleep"
+#define CNSS_PINCTRL_ACTIVE_STATE	"active"
+#define PINCTRL_SLEEP	0
+#define PINCTRL_ACTIVE	1
 
 struct cnss_sdio_regulator {
 	struct regulator *wlan_io;
@@ -71,12 +75,20 @@ struct cnss_ssr_info {
 	char subsys_name[10];
 };
 
+struct cnss_wlan_pinctrl_info {
+	bool is_antenna_shared;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *sleep;
+	struct pinctrl_state *active;
+};
+
 static struct cnss_sdio_data {
 	struct cnss_sdio_regulator regulator;
 	struct platform_device *pdev;
 	struct cnss_sdio_info cnss_sdio_info;
 	struct cnss_ssr_info ssr_info;
 	struct pm_qos_request qos_request;
+	struct cnss_wlan_pinctrl_info pinctrl_info;
 } *cnss_pdata;
 
 #define WLAN_RECOVERY_DELAY 1
@@ -689,6 +701,20 @@ static struct sdio_driver cnss_ar6k_driver = {
 #endif
 };
 
+static int cnss_set_pinctrl_state(struct cnss_sdio_data *pdata, bool state)
+{
+	struct cnss_wlan_pinctrl_info *info = &pdata->pinctrl_info;
+
+	if (!info->is_antenna_shared)
+		return 0;
+
+	if (!info->pinctrl)
+		return -EIO;
+
+	return state ? pinctrl_select_state(info->pinctrl, info->active) :
+		pinctrl_select_state(info->pinctrl, info->sleep);
+}
+
 /**
  * cnss_sdio_wlan_register_driver() - cnss wlan register API
  * @driver: sdio wlan driver interface from wlan driver.
@@ -710,6 +736,12 @@ int cnss_sdio_wlan_register_driver(struct cnss_sdio_wlan_driver *driver)
 	if (cnss_info->wdrv)
 		pr_debug("%s:wdrv already exists wdrv(%p)\n", __func__,
 			 cnss_info->wdrv);
+
+	error = cnss_set_pinctrl_state(cnss_pdata, PINCTRL_ACTIVE);
+	if (error) {
+		pr_err("%s: Fail to set pinctrl to active state\n", __func__);
+		return -EFAULT;
+	}
 
 	cnss_info->wdrv = driver;
 	if (driver->probe) {
@@ -745,6 +777,7 @@ cnss_sdio_wlan_unregister_driver(struct cnss_sdio_wlan_driver *driver)
 	if (cnss_info->wdrv->remove)
 		cnss_info->wdrv->remove(cnss_info->func);
 	cnss_info->wdrv = NULL;
+	cnss_set_pinctrl_state(cnss_pdata, PINCTRL_SLEEP);
 }
 EXPORT_SYMBOL(cnss_sdio_wlan_unregister_driver);
 
@@ -959,6 +992,55 @@ static void cnss_sdio_release_resource(void)
 		regulator_put(cnss_pdata->regulator.wlan_vreg_dsrc);
 }
 
+static int cnss_sdio_pinctrl_init(struct cnss_sdio_data *pdata,
+				  struct platform_device *pdev)
+{
+	int ret = 0;
+	struct device *dev = &pdev->dev;
+	struct cnss_wlan_pinctrl_info *info = &pdata->pinctrl_info;
+
+	if (!of_find_property(dev->of_node, "qcom,is-antenna-shared", NULL))
+		return 0;
+
+	info->is_antenna_shared = true;
+	info->pinctrl = devm_pinctrl_get(dev);
+	if ((IS_ERR_OR_NULL(info->pinctrl))) {
+		dev_err(dev, "%s: Failed to get pinctrl!\n", __func__);
+		return PTR_ERR(info->pinctrl);
+	}
+
+	info->sleep = pinctrl_lookup_state(info->pinctrl,
+						   CNSS_PINCTRL_SLEEP_STATE);
+	if (IS_ERR_OR_NULL(info->sleep)) {
+		dev_err(dev, "%s: Fail to get sleep state for pin\n", __func__);
+		ret = PTR_ERR(info->sleep);
+		goto release_pinctrl;
+	}
+
+	info->active = pinctrl_lookup_state(info->pinctrl,
+					    CNSS_PINCTRL_ACTIVE_STATE);
+	if (IS_ERR_OR_NULL(info->active)) {
+		dev_err(dev, "%s: Fail to get active state for pin\n",
+			__func__);
+		ret = PTR_ERR(info->active);
+		goto release_pinctrl;
+	}
+
+	ret = cnss_set_pinctrl_state(pdata, PINCTRL_SLEEP);
+
+	if (ret) {
+		dev_err(dev, "%s: Fail to set pin in sleep state\n", __func__);
+		goto release_pinctrl;
+	}
+
+	return ret;
+
+release_pinctrl:
+	devm_pinctrl_put(info->pinctrl);
+	info->is_antenna_shared = false;
+	return ret;
+}
+
 static int cnss_sdio_probe(struct platform_device *pdev)
 {
 	int error;
@@ -976,6 +1058,14 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	cnss_pdata->pdev = pdev;
+
+	error = cnss_sdio_pinctrl_init(cnss_pdata, pdev);
+	if (error) {
+		dev_err(&pdev->dev, "Fail to configure pinctrl err:%d\n",
+			error);
+		return error;
+	}
+
 	error = cnss_sdio_configure_regulator();
 	if (error) {
 		dev_err(&pdev->dev, "Failed to configure voltage regulator error=%d\n",
