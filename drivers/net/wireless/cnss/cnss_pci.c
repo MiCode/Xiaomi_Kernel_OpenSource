@@ -712,8 +712,8 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 				goto err_ant_switch_set;
 			}
 
-			ret = regulator_set_optimum_mode(vreg_info->ant_switch,
-							 WLAN_ANT_SWITCH_CURR);
+			ret = regulator_set_load(vreg_info->ant_switch,
+						 WLAN_ANT_SWITCH_CURR);
 			if (ret < 0) {
 				pr_err("%s: Set ant_switch current failed!\n",
 				       __func__);
