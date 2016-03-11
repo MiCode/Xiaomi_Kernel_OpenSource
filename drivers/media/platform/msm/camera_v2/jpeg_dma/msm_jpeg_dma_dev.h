@@ -334,7 +334,7 @@ struct msm_jpegdma_device {
 	void __iomem *iomem_base[MSM_JPEGDMA_IOMEM_LAST];
 
 	struct resource *irq;
-	struct regulator **vdd;
+	struct msm_cam_regulator *dma_vdd;
 	int num_reg;
 
 	struct clk **clk;

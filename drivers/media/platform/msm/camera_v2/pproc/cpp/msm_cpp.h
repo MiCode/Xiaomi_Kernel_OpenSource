@@ -210,7 +210,7 @@ struct cpp_device {
 	struct clk **cpp_clk;
 	struct msm_cam_clk_info *clk_info;
 	size_t num_clks;
-	struct regulator **cpp_vdd;
+	struct msm_cam_regulator *cpp_vdd;
 	int num_reg;
 	struct mutex mutex;
 	enum cpp_state state;

@@ -1222,7 +1222,7 @@ static int fd_probe(struct platform_device *pdev)
 		goto error_mem_resources;
 	}
 
-	ret = msm_camera_get_regulator_info(pdev, &fd->vdd,
+	ret = msm_camera_get_regulator_info(pdev, &fd->vdd_info,
 		&fd->num_reg);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Fail to get regulators\n");
@@ -1296,7 +1296,7 @@ error_get_bus:
 	msm_camera_put_clk_info_and_rates(pdev, &fd->clk_info,
 		&fd->clk, &fd->clk_rates, fd->clk_rates_num, fd->clk_num);
 error_get_clocks:
-	msm_camera_put_regulators(pdev, &fd->vdd, fd->num_reg);
+	msm_camera_put_regulators(pdev, &fd->vdd_info, fd->num_reg);
 error_get_regulator:
 	msm_fd_hw_release_mem_resources(fd);
 error_mem_resources:
@@ -1323,7 +1323,7 @@ static int fd_device_remove(struct platform_device *pdev)
 	msm_camera_unregister_bus_client(CAM_BUS_CLIENT_FD);
 	msm_camera_put_clk_info_and_rates(pdev, &fd->clk_info,
 		&fd->clk, &fd->clk_rates, fd->clk_rates_num, fd->clk_num);
-	msm_camera_put_regulators(pdev, &fd->vdd, fd->num_reg);
+	msm_camera_put_regulators(pdev, &fd->vdd_info, fd->num_reg);
 	msm_fd_hw_release_mem_resources(fd);
 	kfree(fd);
 
