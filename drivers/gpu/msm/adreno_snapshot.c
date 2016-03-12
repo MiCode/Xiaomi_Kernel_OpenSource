@@ -21,9 +21,6 @@
 #include "adreno_snapshot.h"
 #include "adreno_a5xx.h"
 
-/* Number of dwords of ringbuffer history to record */
-#define NUM_DWORDS_OF_RINGBUFFER_HISTORY 100
-
 #define VPC_MEMORY_BANKS 4
 
 /* Maintain a list of the objects we see during parsing */

@@ -36,23 +36,12 @@
 
 #define UPDATE_BUSY_VAL		1000000
 
-/*
- * Expected delay for post-interrupt processing on A3xx.
- * The delay may be longer, gradually increase the delay
- * to compensate.  If the GPU isn't done by max delay,
- * it's working on something other than just the final
- * command sequence so stop waiting for it to be idle.
- */
-#define INIT_UDELAY		200
-#define MAX_UDELAY		2000
-
 /* Number of jiffies for a full thermal cycle */
 #define TH_HZ			(HZ/5)
 
 #define KGSL_MAX_BUSLEVELS	20
 
 #define DEFAULT_BUS_P 25
-#define DEFAULT_BUS_DIV (100 / DEFAULT_BUS_P)
 
 /*
  * The effective duration of qos request in usecs. After

@@ -27,13 +27,9 @@
 #define VBIF2_PERF_CLR_REG_SEL_OFF 8
 /* offset of enable register from select register */
 #define VBIF2_PERF_EN_REG_SEL_OFF 16
-/* offset of high counter from low counter value */
-#define VBIF2_PERF_HIGH_REG_LOW_OFF 8
 
 /* offset of clear register from the enable register */
 #define VBIF2_PERF_PWR_CLR_REG_EN_OFF 8
-/* offset of high counter from low counter value */
-#define VBIF2_PERF_PWR_HIGH_REG_LOW_OFF 8
 
 #define REG_64BIT_VAL(hi, lo, val) (((((uint64_t) hi) << 32) | lo) + val)
 /*
