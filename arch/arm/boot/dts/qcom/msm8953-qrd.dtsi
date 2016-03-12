@@ -38,7 +38,7 @@
 			reg = <0x4b>;
 			interrupt-parent = <&tlmm>;
 			interrupts = <65 0x2008>;
-			vdd_ana-supply = <&pm8953_l17>;
+			vdd_ana-supply = <&vdd_vreg>;
 			vcc_i2c-supply = <&pm8953_l6>;
 			synaptics,pwr-reg-name = "vdd_ana";
 			synaptics,bus-reg-name = "vcc_i2c";
@@ -53,6 +53,12 @@
 						      158 540 2000 320 160
 						      172 900 2000 320 160>;
 		};
+	};
+
+	vdd_vreg: vdd_vreg {
+		compatible = "regulator-fixed";
+		status = "ok";
+		regulator-name = "vdd_vreg";
 	};
 };
 
