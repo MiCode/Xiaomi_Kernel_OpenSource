@@ -14,6 +14,6 @@
 #include "msm8953.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8953";
-	compatible = "qcom,apq8953";
+	compatible = "qcom,apq8053";
 	qcom,msm-id = <304 0x0>;
 };
