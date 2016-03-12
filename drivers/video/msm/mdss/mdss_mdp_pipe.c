@@ -2002,12 +2002,19 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 	if (fmt->is_yuv && test_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map))
 		src_format |= BIT(15);
 
+	src_format |= (fmt->unpack_dx_format << 14);
+
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 	if (fmt->fetch_mode != MDSS_MDP_FETCH_LINEAR
 		&& mdata->highest_bank_bit) {
+		u32 fetch_config = MDSS_MDP_FETCH_CONFIG_RESET_VALUE;
+
+		fetch_config |= (mdata->highest_bank_bit << 18);
+		if (fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC)
+			fetch_config |= (2 << 16);
+
 		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_FETCH_CONFIG,
-			MDSS_MDP_FETCH_CONFIG_RESET_VALUE |
-				 mdata->highest_bank_bit << 18);
+			fetch_config);
 	}
 	if (pipe->scaler.enable)
 		opmode |= (1 << 31);

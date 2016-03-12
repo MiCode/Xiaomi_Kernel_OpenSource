@@ -171,6 +171,44 @@ enum {
 		},						\
 	}
 
+#define FMT_RGB_2101010(fmt, fetch_type, flag_arg,	\
+		alpha_en, e0, e1, e2, e3)	\
+	{							\
+		.format = (fmt),				\
+		.flag = flag_arg,					\
+		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,	\
+		.unpack_tight = 1,				\
+		.unpack_align_msb = 0,				\
+		.alpha_enable = (alpha_en),			\
+		.unpack_count = 4,				\
+		.bpp = 4,					\
+		.fetch_mode = (fetch_type),			\
+		.element = { (e0), (e1), (e2), (e3) },		\
+		.bits = {					\
+			[C3_ALPHA] = COLOR_8BIT,		\
+			[C2_R_Cr] = COLOR_8BIT,			\
+			[C0_G_Y] = COLOR_8BIT,			\
+			[C1_B_Cb] = COLOR_8BIT,			\
+		},						\
+		.unpack_dx_format = 1,	\
+	}
+
+#define FMT_YUV_PSEUDO_10(fmt, fetch_type, samp, \
+		flag_arg, e0, e1, unpack_type, unpack_align)		\
+	{							\
+		FMT_YUV_COMMON(fmt),				\
+		.flag = flag_arg,					\
+		.fetch_planes = MDSS_MDP_PLANE_PSEUDO_PLANAR,	\
+		.chroma_sample = samp,				\
+		.unpack_count = 2,				\
+		.bpp = 2,					\
+		.fetch_mode = (fetch_type),			\
+		.element = { (e0), (e1) },			\
+		.unpack_dx_format = 1,	\
+		.unpack_tight = unpack_type,	\
+		.unpack_align_msb = unpack_align,	\
+	}
+
 /*
  * UBWC formats table:
  * This table holds the UBWC formats supported.
@@ -216,6 +254,36 @@ static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 		.micro = {
 			.tile_height = 8,
 			.tile_width = 32,
+		},
+	},
+	{
+		.mdp_format = FMT_RGB_2101010(MDP_RGBA_1010102_UBWC,
+			MDSS_MDP_FETCH_UBWC,
+			VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
+			1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format = FMT_RGB_2101010(MDP_RGBX_1010102_UBWC,
+			MDSS_MDP_FETCH_UBWC,
+			VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
+			0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format = FMT_YUV_PSEUDO_10(MDP_Y_CBCR_H2V2_TP10_UBWC,
+			MDSS_MDP_FETCH_UBWC, MDSS_MDP_CHROMA_420,
+			VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
+			C1_B_Cb, C2_R_Cr, 1, 0),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 48,
 		},
 	},
 };
@@ -345,6 +413,31 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		VALID_MDP_CURSOR_FORMAT, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
 	FMT_RGB_4444(MDP_ARGB_4444, 1, VALID_ROT_WB_FORMAT |
 		VALID_MDP_CURSOR_FORMAT, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+
+	FMT_RGB_2101010(MDP_RGBA_1010102, MDSS_MDP_FETCH_LINEAR,
+		VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT, 1,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+	FMT_RGB_2101010(MDP_ARGB_2101010, MDSS_MDP_FETCH_LINEAR, 0, 1,
+		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
+	FMT_RGB_2101010(MDP_RGBX_1010102, MDSS_MDP_FETCH_LINEAR,
+		VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT, 0,
+		C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+	FMT_RGB_2101010(MDP_XRGB_2101010, MDSS_MDP_FETCH_LINEAR, 0, 0,
+		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
+	FMT_RGB_2101010(MDP_BGRA_1010102, MDSS_MDP_FETCH_LINEAR,
+		VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT, 1,
+		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_2101010(MDP_ABGR_2101010, MDSS_MDP_FETCH_LINEAR, 0, 1,
+		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
+	FMT_RGB_2101010(MDP_BGRX_1010102, MDSS_MDP_FETCH_LINEAR,
+		VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT, 0,
+		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_2101010(MDP_XBGR_2101010, MDSS_MDP_FETCH_LINEAR, 0, 0,
+		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
+
+	FMT_YUV_PSEUDO_10(MDP_Y_CBCR_H2V2_P010, MDSS_MDP_FETCH_LINEAR,
+		MDSS_MDP_CHROMA_420, VALID_ROT_WB_FORMAT,
+		C1_B_Cb, C2_R_Cr, 0, 1),
 
 };
 #endif

@@ -292,10 +292,6 @@ void mdss_mdp_format_flag_removal(u32 *table, u32 num, u32 remove_bits)
 	}
 
 	for (i = 0; i < num; i++) {
-		if (table[i] > MDP_IMGTYPE_LIMIT) {
-			pr_err("Invalid format:%d, idx:%d\n", table[i], i);
-			continue;
-		}
 		for (j = 0; j < ARRAY_SIZE(mdss_mdp_format_map); j++) {
 			fmt = &mdss_mdp_format_map[i];
 			if (table[i] == fmt->format) {
@@ -328,6 +324,11 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 
 		if ((fmt->fetch_mode == MDSS_MDP_FETCH_TILE && has_tile) ||
 			(fmt->fetch_mode == MDSS_MDP_FETCH_LINEAR)) {
+			if (fmt->unpack_dx_format &&
+				!test_bit(MDSS_CAPS_10_BIT_SUPPORTED,
+				mdata->mdss_caps_map))
+				continue;
+
 			for (j = 0; j < mdata->nvig_pipes; j++)
 				SET_BIT(vig_pipes[j].supported_formats,
 						fmt->format);
@@ -364,6 +365,11 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 	for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_ubwc_map) && has_ubwc; i++) {
 		struct mdss_mdp_format_params *fmt =
 			&mdss_mdp_format_ubwc_map[i].mdp_format;
+
+		if (fmt->unpack_dx_format &&
+			!test_bit(MDSS_CAPS_10_BIT_SUPPORTED,
+			mdata->mdss_caps_map))
+			continue;
 
 		for (j = 0; j < mdata->nvig_pipes; j++)
 			SET_BIT(vig_pipes[j].supported_formats, fmt->format);
@@ -404,9 +410,6 @@ struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 	int i;
 	bool fmt_found = false;
 
-	if (format > MDP_IMGTYPE_LIMIT)
-		goto end;
-
 	for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_map); i++) {
 		fmt = &mdss_mdp_format_map[i];
 		if (format == fmt->format) {
@@ -423,7 +426,6 @@ struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 		}
 	}
 
-end:
 	return (mdss_mdp_is_ubwc_format(fmt) &&
 		!mdss_mdp_is_ubwc_supported(mdata)) ? NULL : fmt;
 }
@@ -658,6 +660,8 @@ static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
 {
 	int rc = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_format_params_ubwc *fmt_ubwc =
+		(struct mdss_mdp_format_params_ubwc *)fmt;
 
 	if (!mdss_mdp_is_ubwc_supported(mdata)) {
 		pr_err("ubwc format is not supported for format: %d\n",
@@ -665,31 +669,65 @@ static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
 		return -EINVAL;
 	}
 
-	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC) {
+	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC ||
+		fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC) {
+		uint32_t y_stride_alignment, uv_stride_alignment;
+		uint32_t y_height_alignment, uv_height_alignment;
+		uint32_t y_tile_width = fmt_ubwc->micro.tile_width;
+		uint32_t y_tile_height = fmt_ubwc->micro.tile_height;
+		uint32_t uv_tile_width = y_tile_width / 2;
+		uint32_t uv_tile_height = y_tile_height;
+		uint32_t y_bpp_numer = 1, y_bpp_denom = 1;
+		uint32_t uv_bpp_numer = 1, uv_bpp_denom = 1;
+
 		ps->num_planes = 4;
+		if (fmt->format == MDP_Y_CBCR_H2V2_UBWC) {
+			y_stride_alignment = 128;
+			uv_stride_alignment = 64;
+			y_height_alignment = 32;
+			uv_height_alignment = 32;
+			y_bpp_numer = 1;
+			uv_bpp_numer = 2;
+			y_bpp_denom = 1;
+			uv_bpp_denom = 1;
+		} else if (fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC) {
+			y_stride_alignment = 192;
+			uv_stride_alignment = 96;
+			y_height_alignment = 16;
+			uv_height_alignment = 16;
+			y_bpp_numer = 4;
+			uv_bpp_numer = 8;
+			y_bpp_denom = 3;
+			uv_bpp_denom = 3;
+		}
+
 		/* Y bitstream stride and plane size */
-		ps->ystride[0] = ALIGN(width, 128);
-		ps->plane_size[0] = ALIGN(ps->ystride[0] * ALIGN(height, 32),
-					4096);
+		ps->ystride[0] = ALIGN(width, y_stride_alignment);
+		ps->ystride[0] = (ps->ystride[0] * y_bpp_numer) / y_bpp_denom;
+		ps->plane_size[0] = ALIGN(ps->ystride[0] *
+			ALIGN(height, y_height_alignment), 4096);
 
 		/* CbCr bitstream stride and plane size */
-		ps->ystride[1] = ALIGN(width, 64);
+		ps->ystride[1] = ALIGN(width / 2, uv_stride_alignment);
+		ps->ystride[1] = (ps->ystride[1] * uv_bpp_numer) / uv_bpp_denom;
 		ps->plane_size[1] = ALIGN(ps->ystride[1] *
-			ALIGN(height / 2, 32), 4096);
+			ALIGN(height / 2, uv_height_alignment), 4096);
 
 		/* Y meta data stride and plane size */
-		ps->ystride[2] = ALIGN(DIV_ROUND_UP(width, 32), 64);
+		ps->ystride[2] = ALIGN(DIV_ROUND_UP(width, y_tile_width), 64);
 		ps->plane_size[2] = ALIGN(ps->ystride[2] *
-			ALIGN(DIV_ROUND_UP(height, 8), 16), 4096);
+			ALIGN(DIV_ROUND_UP(height, y_tile_height), 16), 4096);
 
 		/* CbCr meta data stride and plane size */
-		ps->ystride[3] = ALIGN(DIV_ROUND_UP(width / 2, 16), 64);
-		ps->plane_size[3] = ALIGN(ps->ystride[3] *
-			ALIGN(DIV_ROUND_UP(height / 2, 8), 16), 4096);
-
+		ps->ystride[3] =
+			ALIGN(DIV_ROUND_UP(width / 2, uv_tile_width), 64);
+		ps->plane_size[3] = ALIGN(ps->ystride[3] * ALIGN(
+			DIV_ROUND_UP(height / 2, uv_tile_height), 16), 4096);
 	} else if (fmt->format == MDP_RGBA_8888_UBWC ||
 		fmt->format == MDP_RGBX_8888_UBWC ||
-		fmt->format == MDP_RGB_565_UBWC) {
+		fmt->format == MDP_RGB_565_UBWC ||
+		fmt->format == MDP_RGBA_1010102_UBWC ||
+		fmt->format == MDP_RGBX_1010102_UBWC) {
 		uint32_t stride_alignment, bpp, aligned_bitstream_width;
 
 		if (fmt->format == MDP_RGB_565_UBWC) {
@@ -708,8 +746,8 @@ static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
 			ALIGN(height, 16), 4096);
 
 		/* RGB meta data stride and plane size */
-		ps->ystride[2] = ALIGN(DIV_ROUND_UP(aligned_bitstream_width,
-			16), 64);
+		ps->ystride[2] =
+			ALIGN(DIV_ROUND_UP(aligned_bitstream_width, 16), 64);
 		ps->plane_size[2] = ALIGN(ps->ystride[2] *
 			ALIGN(DIV_ROUND_UP(height, 4), 16), 4096);
 	} else {
@@ -799,6 +837,8 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 				break;
 			}
 
+			w = w << fmt->unpack_dx_format;
+
 			ps->ystride[0] = ALIGN(w, stride_align);
 			ps->ystride[1] = ALIGN(w / h_subsample, stride_align);
 			ps->plane_size[0] = ps->ystride[0] *
@@ -852,7 +892,8 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 
 	base_addr = data->p[0].addr;
 
-	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC) {
+	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC ||
+		fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC) {
 		/************************************************/
 		/*      UBWC            **                      */
 		/*      buffer          **      MDP PLANE       */
@@ -925,7 +966,8 @@ end:
 		return -EINVAL;
 	}
 
-	inc = ((fmt->format == MDP_Y_CBCR_H2V2_UBWC) ? 1 : 2);
+	inc = ((fmt->format == MDP_Y_CBCR_H2V2_UBWC ||
+		fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC) ? 1 : 2);
 	for (i = 0; i < MAX_PLANES; i += inc) {
 		if (data->p[i].len != ps->plane_size[i]) {
 			pr_err("plane:%d fmt:%d, len does not match: data:%lu, ps:%d\n",
@@ -1029,7 +1071,8 @@ void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	}
 	macro_w = 4 * micro_w;
 
-	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC) {
+	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC ||
+		fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC) {
 		u16 chroma_macro_w = macro_w / 2;
 		u16 chroma_micro_w = micro_w / 2;
 

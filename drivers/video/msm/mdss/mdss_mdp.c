@@ -1487,6 +1487,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
 		mdata->has_wb_ubwc = true;
+		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -1843,7 +1844,7 @@ static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
 	int i;
 	int j;
 	size_t len = PAGE_SIZE;
-	int num_bytes = BITS_TO_BYTES(MDP_IMGTYPE_LIMIT);
+	int num_bytes = BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1);
 
 #define SPRINT(fmt, ...) \
 		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
@@ -1881,7 +1882,7 @@ static void mdss_mdp_update_wb_info(struct mdss_data_type *mdata,
 		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
 	size_t len = PAGE_SIZE;
 	int i;
-	int num_bytes = BITS_TO_BYTES(MDP_IMGTYPE_LIMIT);
+	int num_bytes = BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1);
 
 	SPRINT("rot_input_fmts=");
 	for (i = 0; i < num_bytes && mdata->wb; i++)
