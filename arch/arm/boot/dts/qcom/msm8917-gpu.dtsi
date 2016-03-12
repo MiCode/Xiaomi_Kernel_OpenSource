@@ -94,8 +94,7 @@
 		iommu = <&gfx_iommu>;
 
 		/* CPU latency parameter */
-		qcom,pm-qos-active-latency = <360>;
-		qcom,pm-qos-wakeup-latency = <360>;
+		qcom,pm-qos-active-latency = <651>;
 
 		/* Trace bus */
 		coresight-id = <67>;
