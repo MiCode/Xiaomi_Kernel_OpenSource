@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,7 +180,8 @@ enum {
 static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	{
 		.mdp_format = FMT_RGB_565(MDP_RGB_565_UBWC,
-			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT,
+			MDSS_MDP_FETCH_UBWC,
+			VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
 			C2_R_Cr, C0_G_Y, C1_B_Cb),
 		.micro = {
 			.tile_height = 4,
@@ -189,7 +190,8 @@ static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	},
 	{
 		.mdp_format = FMT_RGB_8888(MDP_RGBA_8888_UBWC,
-			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 1,
+			MDSS_MDP_FETCH_UBWC,
+			VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT, 1,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 		.micro = {
 			.tile_height = 4,
@@ -198,7 +200,8 @@ static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	},
 	{
 		.mdp_format = FMT_RGB_8888(MDP_RGBX_8888_UBWC,
-			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 0,
+			MDSS_MDP_FETCH_UBWC,
+			VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT, 0,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 		.micro = {
 			.tile_height = 4,
@@ -208,7 +211,8 @@ static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	{
 		.mdp_format = FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_UBWC,
 			MDSS_MDP_FETCH_UBWC, MDSS_MDP_CHROMA_420,
-			VALID_ROT_WB_FORMAT, C1_B_Cb, C2_R_Cr),
+			VALID_ROT_WB_FORMAT | VALID_MDP_WB_INTF_FORMAT,
+			C1_B_Cb, C2_R_Cr),
 		.micro = {
 			.tile_height = 8,
 			.tile_width = 32,
@@ -231,17 +235,17 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		VALID_MDP_WB_INTF_FORMAT, C1_B_Cb, C0_G_Y, C2_R_Cr),
 
 	FMT_RGB_8888(MDP_XRGB_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT |
-		VALID_MDP_WB_INTF_FORMAT, 0, C3_ALPHA, C2_R_Cr, C0_G_Y,
-		C1_B_Cb),
-	FMT_RGB_8888(MDP_ARGB_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
-		1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_8888(MDP_RGBA_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
-		1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		VALID_MDP_WB_INTF_FORMAT | VALID_MDP_CURSOR_FORMAT, 0,
+		C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
+	FMT_RGB_8888(MDP_ARGB_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT |
+		VALID_MDP_CURSOR_FORMAT, 1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
+	FMT_RGB_8888(MDP_RGBA_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT |
+		VALID_MDP_CURSOR_FORMAT, 1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 	FMT_RGB_8888(MDP_RGBX_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT |
 		VALID_MDP_WB_INTF_FORMAT, 0, C2_R_Cr, C0_G_Y, C1_B_Cb,
 		C3_ALPHA),
-	FMT_RGB_8888(MDP_BGRA_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
-		1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_8888(MDP_BGRA_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT |
+		VALID_MDP_CURSOR_FORMAT, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
 	FMT_RGB_8888(MDP_BGRX_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT |
 		VALID_MDP_WB_INTF_FORMAT, 0, C1_B_Cb, C0_G_Y, C2_R_Cr,
 		C3_ALPHA),
@@ -333,14 +337,14 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
 		.element = { C2_R_Cr, C0_G_Y, C1_B_Cb, C0_G_Y },
 	},
-	FMT_RGB_1555(MDP_RGBA_5551, 1, VALID_ROT_WB_FORMAT,
-		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_1555(MDP_ARGB_1555, 1, VALID_ROT_WB_FORMAT,
-		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_4444(MDP_RGBA_4444, 1, VALID_ROT_WB_FORMAT,
-		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_4444(MDP_ARGB_4444, 1, VALID_ROT_WB_FORMAT,
-		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_1555(MDP_RGBA_5551, 1, VALID_ROT_WB_FORMAT |
+		VALID_MDP_CURSOR_FORMAT, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
+	FMT_RGB_1555(MDP_ARGB_1555, 1, VALID_ROT_WB_FORMAT |
+		VALID_MDP_CURSOR_FORMAT, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_4444(MDP_RGBA_4444, 1, VALID_ROT_WB_FORMAT |
+		VALID_MDP_CURSOR_FORMAT, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
+	FMT_RGB_4444(MDP_ARGB_4444, 1, VALID_ROT_WB_FORMAT |
+		VALID_MDP_CURSOR_FORMAT, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
 
 };
 #endif

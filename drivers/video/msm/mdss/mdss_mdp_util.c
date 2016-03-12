@@ -306,6 +306,97 @@ void mdss_mdp_format_flag_removal(u32 *table, u32 num, u32 remove_bits)
 	}
 }
 
+void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
+{
+#define SET_BIT(value, bit_num) \
+	{ \
+		value[bit_num >> 3] |= (1 << (bit_num & 7)); \
+	} \
+
+	struct mdss_mdp_pipe *vig_pipes = mdata->vig_pipes;
+	struct mdss_mdp_pipe *rgb_pipes = mdata->rgb_pipes;
+	struct mdss_mdp_pipe *dma_pipes = mdata->dma_pipes;
+	struct mdss_mdp_pipe *cur_pipes = mdata->cursor_pipes;
+	struct mdss_mdp_writeback *wb = mdata->wb;
+	bool has_tile = mdata->highest_bank_bit && !mdata->has_ubwc;
+	bool has_ubwc = mdata->has_ubwc;
+	int i;
+	int j;
+
+	for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_map); i++) {
+		struct mdss_mdp_format_params *fmt = &mdss_mdp_format_map[i];
+
+		if ((fmt->fetch_mode == MDSS_MDP_FETCH_TILE && has_tile) ||
+			(fmt->fetch_mode == MDSS_MDP_FETCH_LINEAR)) {
+			for (j = 0; j < mdata->nvig_pipes; j++)
+				SET_BIT(vig_pipes[j].supported_formats,
+						fmt->format);
+
+			if (fmt->flag & VALID_ROT_WB_FORMAT) {
+				for (j = 0; j < mdata->nwb; j++)
+					SET_BIT(wb[j].supported_input_formats,
+							fmt->format);
+			}
+			if (fmt->flag & VALID_MDP_WB_INTF_FORMAT) {
+				for (j = 0; j < mdata->nwb; j++)
+					SET_BIT(wb[j].supported_output_formats,
+							fmt->format);
+			}
+			if (fmt->flag & VALID_MDP_CURSOR_FORMAT &&
+					mdata->ncursor_pipes) {
+				for (j = 0; j < mdata->ncursor_pipes; j++)
+					SET_BIT(cur_pipes[j].supported_formats,
+							fmt->format);
+			}
+
+			if (!fmt->is_yuv) {
+				for (j = 0; j < mdata->nrgb_pipes; j++)
+					SET_BIT(rgb_pipes[j].supported_formats,
+							fmt->format);
+
+				for (j = 0; j < mdata->ndma_pipes; j++)
+					SET_BIT(dma_pipes[j].supported_formats,
+							fmt->format);
+			}
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_ubwc_map) && has_ubwc; i++) {
+		struct mdss_mdp_format_params *fmt =
+			&mdss_mdp_format_ubwc_map[i].mdp_format;
+
+		for (j = 0; j < mdata->nvig_pipes; j++)
+			SET_BIT(vig_pipes[j].supported_formats, fmt->format);
+
+		if (fmt->flag & VALID_ROT_WB_FORMAT) {
+			for (j = 0; j < mdata->nwb; j++)
+				SET_BIT(wb[j].supported_input_formats,
+						fmt->format);
+		}
+		if (fmt->flag & VALID_MDP_WB_INTF_FORMAT) {
+			for (j = 0; j < mdata->nwb; j++)
+				SET_BIT(wb[j].supported_output_formats,
+						fmt->format);
+		}
+		if (fmt->flag & VALID_MDP_CURSOR_FORMAT &&
+				mdata->ncursor_pipes) {
+			for (j = 0; j < mdata->ncursor_pipes; j++)
+				SET_BIT(cur_pipes[j].supported_formats,
+						fmt->format);
+		}
+
+		if (!fmt->is_yuv) {
+			for (j = 0; j < mdata->nrgb_pipes; j++)
+				SET_BIT(rgb_pipes[j].supported_formats,
+						fmt->format);
+
+			for (j = 0; j < mdata->ndma_pipes; j++)
+				SET_BIT(dma_pipes[j].supported_formats,
+						fmt->format);
+		}
+	}
+}
+
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 {
 	struct mdss_mdp_format_params *fmt = NULL;

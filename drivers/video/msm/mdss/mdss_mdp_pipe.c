@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,9 @@
 
 /* Priority 2, no panic */
 #define VBLANK_PANIC_DEFAULT_CONFIG 0x200000
+
+#define QSEED3_DEFAULT_PRELAOD_H  0x4
+#define QSEED3_DEFAULT_PRELAOD_V  0x3
 
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
@@ -1384,7 +1387,7 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 	pipe->mfd = NULL;
 	pipe->mixer_left = pipe->mixer_right = NULL;
 	pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
-	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
+	memset(&pipe->scaler, 0, sizeof(struct mdp_scale_data));
 	memset(&pipe->layer, 0, sizeof(struct mdp_input_layer));
 }
 
@@ -1727,7 +1730,7 @@ void mdss_mdp_pipe_position_update(struct mdss_mdp_pipe *pipe,
 	 * Software overfetch is used when scalar pixel extension is
 	 * not enabled
 	 */
-	if (pipe->overfetch_disable && !pipe->scale.enable_pxl_ext) {
+	if (pipe->overfetch_disable && !pipe->scaler.enable) {
 		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
 			src_xy &= ~0xFFFF;
 		if (pipe->overfetch_disable & OVERFETCH_DISABLE_TOP)
@@ -1874,7 +1877,7 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	 * Software overfetch is used when scalar pixel extension is
 	 * not enabled
 	 */
-	if (pipe->overfetch_disable && !pipe->scale.enable_pxl_ext) {
+	if (pipe->overfetch_disable && !pipe->scaler.enable) {
 		if (pipe->overfetch_disable & OVERFETCH_DISABLE_BOTTOM) {
 			height = pipe->src.h;
 			if (!(pipe->overfetch_disable & OVERFETCH_DISABLE_TOP))
@@ -2006,7 +2009,7 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 			MDSS_MDP_FETCH_CONFIG_RESET_VALUE |
 				 mdata->highest_bank_bit << 18);
 	}
-	if (pipe->scale.enable_pxl_ext)
+	if (pipe->scaler.enable)
 		opmode |= (1 << 31);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, src_format);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
@@ -2063,7 +2066,7 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 	if (ret)
 		return ret;
 
-	if (pipe->overfetch_disable && !pipe->scale.enable_pxl_ext) {
+	if (pipe->overfetch_disable && !pipe->scaler.enable) {
 		u32 x = 0, y = 0;
 
 		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
@@ -2113,7 +2116,7 @@ static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 		pipe->bg_color);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_ADDR_SW_STATUS, secure);
-	if (pipe->scale.enable_pxl_ext)
+	if (pipe->scaler.enable)
 		opmode |= (1 << 31);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_OP_MODE, opmode);
 
@@ -2220,7 +2223,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata))
 			mdss_mdp_pipe_clk_force_off(pipe);
 
-		if (pipe->scale.enable_pxl_ext)
+		if (pipe->scaler.enable)
 			mdss_mdp_pipe_program_pixel_extn(pipe);
 	}
 
@@ -2334,6 +2337,7 @@ static inline void __mdss_mdp_pipe_program_pixel_extn_helper(
 	u32 src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
 	u32 mask = 0xFF;
 	u32 lr_pe, tb_pe, tot_req_pixels;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	/*
 	 * CB CR plane required pxls need to be accounted
@@ -2342,15 +2346,15 @@ static inline void __mdss_mdp_pipe_program_pixel_extn_helper(
 	if (plane == 1)
 		src_h >>= pipe->chroma_sample_v;
 
-	lr_pe = ((pipe->scale.right_ftch[plane] & mask) << 24)|
-		((pipe->scale.right_rpt[plane] & mask) << 16)|
-		((pipe->scale.left_ftch[plane] & mask) << 8)|
-		(pipe->scale.left_rpt[plane] & mask);
+	lr_pe = ((pipe->scaler.right_ftch[plane] & mask) << 24)|
+		((pipe->scaler.right_rpt[plane] & mask) << 16)|
+		((pipe->scaler.left_ftch[plane] & mask) << 8)|
+		(pipe->scaler.left_rpt[plane] & mask);
 
-	tb_pe = ((pipe->scale.btm_ftch[plane] & mask) << 24)|
-		((pipe->scale.btm_rpt[plane] & mask) << 16)|
-		((pipe->scale.top_ftch[plane] & mask) << 8)|
-		(pipe->scale.top_rpt[plane] & mask);
+	tb_pe = ((pipe->scaler.btm_ftch[plane] & mask) << 24)|
+		((pipe->scaler.btm_rpt[plane] & mask) << 16)|
+		((pipe->scaler.top_ftch[plane] & mask) << 8)|
+		(pipe->scaler.top_rpt[plane] & mask);
 
 	writel_relaxed(lr_pe, pipe->base +
 			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_LR + off);
@@ -2358,11 +2362,18 @@ static inline void __mdss_mdp_pipe_program_pixel_extn_helper(
 			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_TB + off);
 
 	mask = 0xFFFF;
-	tot_req_pixels = (((src_h + pipe->scale.num_ext_pxls_top[plane] +
-		pipe->scale.num_ext_pxls_btm[plane]) & mask) << 16) |
-		((pipe->scale.roi_w[plane] +
-		pipe->scale.num_ext_pxls_left[plane] +
-		pipe->scale.num_ext_pxls_right[plane]) & mask);
+	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map))
+		tot_req_pixels = ((pipe->scaler.num_ext_pxls_top[plane] &
+				mask) << 16 |
+			(pipe->scaler.num_ext_pxls_left[plane] & mask));
+	else
+		tot_req_pixels =
+			(((src_h + pipe->scaler.num_ext_pxls_top[plane] +
+			pipe->scaler.num_ext_pxls_btm[plane]) & mask) << 16) |
+			((pipe->scaler.roi_w[plane] +
+			pipe->scaler.num_ext_pxls_left[plane] +
+			pipe->scaler.num_ext_pxls_right[plane]) & mask);
+
 	writel_relaxed(tot_req_pixels, pipe->base +
 			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_REQ_PIXELS + off);
 
@@ -2443,32 +2454,32 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 		 * this
 		 */
 		if (pipe->src_fmt->is_yuv && (i == 1 || i == 2)) {
-			pipe->scale.phase_step_x[i] =
-				pipe->scale.phase_step_x[0]
+			pipe->scaler.phase_step_x[i] =
+				pipe->scaler.phase_step_x[0]
 					>> pipe->chroma_sample_h;
-			pipe->scale.phase_step_y[i] =
-				pipe->scale.phase_step_y[0]
+			pipe->scaler.phase_step_y[i] =
+				pipe->scaler.phase_step_y[0]
 					>> pipe->chroma_sample_v;
 		} else if (i > 0) {
-			pipe->scale.phase_step_x[i] =
-				pipe->scale.phase_step_x[0];
-			pipe->scale.phase_step_y[i] =
-				pipe->scale.phase_step_y[0];
+			pipe->scaler.phase_step_x[i] =
+				pipe->scaler.phase_step_x[0];
+			pipe->scaler.phase_step_y[i] =
+				pipe->scaler.phase_step_y[0];
 		}
 		/* Pixel extension calculations for X direction */
-		pipe->scale.roi_w[i] = DECIMATED_DIMENSION(pipe->src.w,
+		pipe->scaler.roi_w[i] = DECIMATED_DIMENSION(pipe->src.w,
 			pipe->horz_deci);
 
 		if (pipe->src_fmt->is_yuv)
-			pipe->scale.roi_w[i] &= ~0x1;
+			pipe->scaler.roi_w[i] &= ~0x1;
 
 		/* CAF filtering on only luma plane */
 		if (i == 0 && pipe->src_fmt->is_yuv)
 			caf = 1;
 		if (i == 1 || i == 2)
-			pipe->scale.roi_w[i] >>= pipe->chroma_sample_h;
+			pipe->scaler.roi_w[i] >>= pipe->chroma_sample_h;
 
-		pr_debug("roi_w[%d]=%d, caf=%d\n", i, pipe->scale.roi_w[i],
+		pr_debug("roi_w[%d]=%d, caf=%d\n", i, pipe->scaler.roi_w[i],
 			caf);
 		if (unity_scale_x) {
 			left = 0;
@@ -2476,10 +2487,10 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 		} else if (!upscale_x) {
 			left = 0;
 			right = (pipe->dst.w - 1) *
-				pipe->scale.phase_step_x[i];
-			right -= (pipe->scale.roi_w[i] - 1) *
+				pipe->scaler.phase_step_x[i];
+			right -= (pipe->scaler.roi_w[i] - 1) *
 				PHASE_STEP_UNIT_SCALE;
-			right += pipe->scale.phase_step_x[i];
+			right += pipe->scaler.phase_step_x[i];
 			right = -(right);
 		} else {
 			left = (1 << PHASE_RESIDUAL);
@@ -2487,15 +2498,15 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 
 			right = (1 << PHASE_RESIDUAL);
 			right += (pipe->dst.w - 1) *
-				pipe->scale.phase_step_x[i];
-			right -= ((pipe->scale.roi_w[i] - 1) *
+				pipe->scaler.phase_step_x[i];
+			right -= ((pipe->scaler.roi_w[i] - 1) *
 				PHASE_STEP_UNIT_SCALE);
 			right += (caf * PHASE_STEP_UNIT_SCALE);
 			right = -(right);
 		}
 		pr_debug("left=%lld, right=%lld\n", left, right);
-		pipe->scale.num_ext_pxls_left[i] = __pxl_extn_helper(left);
-		pipe->scale.num_ext_pxls_right[i] = __pxl_extn_helper(right);
+		pipe->scaler.num_ext_pxls_left[i] = __pxl_extn_helper(left);
+		pipe->scaler.num_ext_pxls_right[i] = __pxl_extn_helper(right);
 
 		/* Pixel extension calculations for Y direction */
 		unity_scale_y = false;
@@ -2519,9 +2530,9 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 		} else if (!upscale_y) {
 			top = 0;
 			bottom = (pipe->dst.h - 1) *
-				pipe->scale.phase_step_y[i];
+				pipe->scaler.phase_step_y[i];
 			bottom -= (src_h - 1) * PHASE_STEP_UNIT_SCALE;
-			bottom += pipe->scale.phase_step_y[i];
+			bottom += pipe->scaler.phase_step_y[i];
 			bottom = -(bottom);
 		} else {
 			top = (1 << PHASE_RESIDUAL);
@@ -2529,65 +2540,136 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 
 			bottom = (1 << PHASE_RESIDUAL);
 			bottom += (pipe->dst.h - 1) *
-				pipe->scale.phase_step_y[i];
+				pipe->scaler.phase_step_y[i];
 			bottom -= (src_h - 1) * PHASE_STEP_UNIT_SCALE;
 			bottom += (caf * PHASE_STEP_UNIT_SCALE);
 			bottom = -(bottom);
 		}
 
-		pipe->scale.num_ext_pxls_top[i] = __pxl_extn_helper(top);
-		pipe->scale.num_ext_pxls_btm[i] = __pxl_extn_helper(bottom);
+		pipe->scaler.num_ext_pxls_top[i] = __pxl_extn_helper(top);
+		pipe->scaler.num_ext_pxls_btm[i] = __pxl_extn_helper(bottom);
 
 		/* Single pixel rgb scale adjustment */
 		if ((!(pipe->src_fmt->is_yuv)) &&
 			((pipe->src.h - pipe->dst.h) == 1)) {
 
-			uint32_t residue = pipe->scale.phase_step_y[i] -
+			uint32_t residue = pipe->scaler.phase_step_y[i] -
 				PHASE_STEP_UNIT_SCALE;
 			uint32_t result = (pipe->dst.h * residue) + residue;
 			if (result < PHASE_STEP_UNIT_SCALE)
-				pipe->scale.num_ext_pxls_btm[i] -= 1;
+				pipe->scaler.num_ext_pxls_btm[i] -= 1;
 		}
 
-		if (pipe->scale.num_ext_pxls_left[i] >= 0)
-			pipe->scale.left_rpt[i] =
-				pipe->scale.num_ext_pxls_left[i];
+		if (pipe->scaler.num_ext_pxls_left[i] >= 0)
+			pipe->scaler.left_rpt[i] =
+				pipe->scaler.num_ext_pxls_left[i];
 		else
-			pipe->scale.left_ftch[i] =
-				pipe->scale.num_ext_pxls_left[i];
+			pipe->scaler.left_ftch[i] =
+				pipe->scaler.num_ext_pxls_left[i];
 
-		if (pipe->scale.num_ext_pxls_right[i] >= 0)
-			pipe->scale.right_rpt[i] =
-				pipe->scale.num_ext_pxls_right[i];
+		if (pipe->scaler.num_ext_pxls_right[i] >= 0)
+			pipe->scaler.right_rpt[i] =
+				pipe->scaler.num_ext_pxls_right[i];
 		else
-			pipe->scale.right_ftch[i] =
-				pipe->scale.num_ext_pxls_right[i];
+			pipe->scaler.right_ftch[i] =
+				pipe->scaler.num_ext_pxls_right[i];
 
-		if (pipe->scale.num_ext_pxls_top[i] >= 0)
-			pipe->scale.top_rpt[i] =
-				pipe->scale.num_ext_pxls_top[i];
+		if (pipe->scaler.num_ext_pxls_top[i] >= 0)
+			pipe->scaler.top_rpt[i] =
+				pipe->scaler.num_ext_pxls_top[i];
 		else
-			pipe->scale.top_ftch[i] =
-				pipe->scale.num_ext_pxls_top[i];
+			pipe->scaler.top_ftch[i] =
+				pipe->scaler.num_ext_pxls_top[i];
 
-		if (pipe->scale.num_ext_pxls_btm[i] >= 0)
-			pipe->scale.btm_rpt[i] =
-				pipe->scale.num_ext_pxls_btm[i];
+		if (pipe->scaler.num_ext_pxls_btm[i] >= 0)
+			pipe->scaler.btm_rpt[i] =
+				pipe->scaler.num_ext_pxls_btm[i];
 		else
-			pipe->scale.btm_ftch[i] =
-				pipe->scale.num_ext_pxls_btm[i];
+			pipe->scaler.btm_ftch[i] =
+				pipe->scaler.num_ext_pxls_btm[i];
 
 		pr_debug("plane repeat=%d, left=%d, right=%d, top=%d, btm=%d\n",
-				i, pipe->scale.left_rpt[i],
-				pipe->scale.right_rpt[i],
-				pipe->scale.top_rpt[i],
-				pipe->scale.btm_rpt[i]);
+				i, pipe->scaler.left_rpt[i],
+				pipe->scaler.right_rpt[i],
+				pipe->scaler.top_rpt[i],
+				pipe->scaler.btm_rpt[i]);
 		pr_debug("plane overfetch=%d, left=%d, right=%d, top=%d, btm=%d\n",
-				i, pipe->scale.left_ftch[i],
-				pipe->scale.right_ftch[i],
-				pipe->scale.top_ftch[i],
-				pipe->scale.btm_ftch[i]);
+				i, pipe->scaler.left_ftch[i],
+				pipe->scaler.right_ftch[i],
+				pipe->scaler.top_ftch[i],
+				pipe->scaler.btm_ftch[i]);
 	}
 
-	pipe->scale.enable_pxl_ext = 1;
+	pipe->scaler.enable = 1;
+}
+
+/**
+ * mdss_mdp_pipe_calc_qseed3_cfg - Calculate source pipe's sw qseed3 filter
+ * configuration
+ *
+ * @pipe:	Source pipe struct
+ *
+ * Function set the qseed3 filter configuration to bilenear configuration
+ * also calclulates pixel extension for qseed3
+ */
+void mdss_mdp_pipe_calc_qseed3_cfg(struct mdss_mdp_pipe *pipe)
+{
+	int i;
+	int roi_h;
+
+	/* calculate qseed3 pixel extension values */
+	for (i = 0; i < MAX_PLANES; i++) {
+
+		/* Pixel extension calculations for X direction */
+		pipe->scaler.roi_w[i] = DECIMATED_DIMENSION(pipe->src.w,
+			pipe->horz_deci);
+
+		if (pipe->src_fmt->is_yuv)
+			pipe->scaler.roi_w[i] &= ~0x1;
+		/*
+		 * phase step x,y for 0 plane should be calculated before
+		 * this
+		 */
+		if (pipe->src_fmt->is_yuv && (i == 1 || i == 2)) {
+			pipe->scaler.phase_step_x[i] =
+				pipe->scaler.phase_step_x[0]
+					>> pipe->chroma_sample_h;
+
+			pipe->scaler.phase_step_y[i] =
+				pipe->scaler.phase_step_y[0]
+					>> pipe->chroma_sample_v;
+
+			pipe->scaler.roi_w[i] >>= pipe->chroma_sample_h;
+		}
+
+		pipe->scaler.preload_x[i] = QSEED3_DEFAULT_PRELAOD_H;
+		pipe->scaler.src_width[i] = pipe->scaler.roi_w[i];
+		pipe->scaler.num_ext_pxls_left[i] = pipe->scaler.roi_w[i];
+
+		/* Pixel extension calculations for Y direction */
+		roi_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
+
+		/* Subsampling of chroma components is factored */
+		if (i == 1 || i == 2)
+			roi_h >>= pipe->chroma_sample_v;
+
+		pipe->scaler.preload_y[i] = QSEED3_DEFAULT_PRELAOD_V;
+		pipe->scaler.src_height[i] = roi_h;
+		pipe->scaler.num_ext_pxls_top[i] = roi_h;
+
+		pr_debug("QSEED3 params=%d, preload_x=%d, preload_y=%d,src_w=%d,src_h=%d\n",
+				i, pipe->scaler.preload_x[i],
+				pipe->scaler.preload_y[i],
+				pipe->scaler.src_width[i],
+				pipe->scaler.src_height[i]);
+	}
+
+	pipe->scaler.dst_width = pipe->dst.w;
+	pipe->scaler.dst_height = pipe->dst.h;
+	/* assign filters */
+	pipe->scaler.y_rgb_filter_cfg = FILTER_BILINEAR;
+	pipe->scaler.uv_filter_cfg = FILTER_BILINEAR;
+	pipe->scaler.alpha_filter_cfg = FILTER_ALPHA_BILINEAR;
+	pipe->scaler.lut_flag = 0;
+	pipe->scaler.enable = ENABLE_SCALE;
 }

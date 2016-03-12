@@ -48,6 +48,7 @@
 
 #define VALID_ROT_WB_FORMAT BIT(0)
 #define VALID_MDP_WB_INTF_FORMAT BIT(1)
+#define VALID_MDP_CURSOR_FORMAT BIT(2)
 
 #define C3_ALPHA	3	/* alpha */
 #define C2_R_Cr		2	/* R/Cr */
@@ -87,6 +88,8 @@
 #define HW_CURSOR_STAGE(mdata) \
 	(((mdata)->max_target_zorder + MDSS_MDP_STAGE_0) - 1)
 
+#define BITS_TO_BYTES(x) DIV_ROUND_UP(x, BITS_PER_BYTE)
+
 enum mdss_mdp_perf_state_type {
 	PERF_SW_COMMIT_STATE = 0,
 	PERF_HW_MDP_STATE,
@@ -124,6 +127,7 @@ enum mdss_mdp_block_type {
 	MDSS_MDP_BLOCK_DSPP,
 	MDSS_MDP_BLOCK_WB,
 	MDSS_MDP_BLOCK_CDM,
+	MDSS_MDP_BLOCK_SSPP_10,
 	MDSS_MDP_BLOCK_MAX
 };
 
@@ -241,6 +245,8 @@ struct mdss_mdp_writeback {
 	char __iomem *base;
 	u32 caps;
 	struct kref kref;
+	u8 supported_input_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT)];
+	u8 supported_output_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT)];
 };
 
 struct mdss_mdp_ctl_intfs_ops {
@@ -633,13 +639,14 @@ struct mdss_mdp_pipe {
 
 	struct mdp_overlay_pp_params pp_cfg;
 	struct mdss_pipe_pp_res pp_res;
-	struct mdp_scale_data scale;
+	struct mdp_scale_data_v2 scaler;
 	u8 chroma_sample_h;
 	u8 chroma_sample_v;
 
 	wait_queue_head_t free_waitq;
 	u32 frame_rate;
 	u8 csc_coeff_set;
+	u8 supported_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT)];
 };
 
 struct mdss_mdp_writeback_arg {
@@ -1481,6 +1488,7 @@ int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
 					struct mdp_mixer_cfg *mixer_cfg);
 
 void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe);
+void mdss_mdp_pipe_calc_qseed3_cfg(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable);
 int mdss_mdp_wb_get_secure(struct msm_fb_data_type *mfd, uint8_t *enable);
 void mdss_mdp_ctl_restore(bool locked);
@@ -1509,6 +1517,8 @@ void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
 
 void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_info *pinfo);
+
+void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata);
 
 #ifdef CONFIG_FB_MSM_MDP_NONE
 struct mdss_data_type *mdss_mdp_get_mdata(void)
