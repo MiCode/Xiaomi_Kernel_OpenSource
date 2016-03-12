@@ -1665,9 +1665,12 @@ static int isense_cot(struct adreno_device *adreno_dev)
 	unsigned int r, ret;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-
-	kgsl_regwrite(device, A5XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
-		AMP_SW_TRIM_START);
+	kgsl_regrmw(device, A5XX_GPU_CS_AMP_CALIBRATION_DONE,
+		SW_OPAMP_CAL_DONE, 0);
+	kgsl_regrmw(device, A5XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
+		AMP_SW_TRIM_START, 0);
+	kgsl_regrmw(device, A5XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
+		AMP_SW_TRIM_START, AMP_SW_TRIM_START);
 
 	for (ret = 0; ret < AMP_CALIBRATION_TIMEOUT; ret++) {
 		kgsl_regread(device, A5XX_GPU_CS_SENSOR_GENERAL_STATUS, &r);
@@ -1693,6 +1696,9 @@ static int isense_cot(struct adreno_device *adreno_dev)
 	kgsl_regread(device, A5XX_GPU_CS_AMP_CALIBRATION_STATUS1_4, &r);
 	if (r & AMP_CALIBRATION_ERR)
 		return -EIO;
+
+	kgsl_regrmw(device, A5XX_GPU_CS_AMP_CALIBRATION_DONE,
+		SW_OPAMP_CAL_DONE, 1);
 
 	return 0;
 }
