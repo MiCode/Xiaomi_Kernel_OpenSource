@@ -91,6 +91,10 @@ Optional Properties:
     from the endpoint.
   - linux,pci-domain: For details of pci-domains properties, please refer to:
     "Documentation/devicetree/bindings/pci/pci.txt"
+  - qcom,perst-delay-us-min: The minimum allowed time (unit: us) to sleep after
+    asserting or de-asserting PERST GPIO.
+  - qcom,perst-delay-us-max: The maximum allowed time (unit: us) to sleep after
+    asserting or de-asserting PERST GPIO.
   - qcom,tlp-rd-size: The max TLP read size (Calculation: 128 times 2 to the
     tlp-rd-size power).
   - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
