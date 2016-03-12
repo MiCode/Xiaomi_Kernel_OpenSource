@@ -1133,6 +1133,7 @@
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
 		qcom,sysmon-id = <1>;
+		status = "ok";
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
 		memory-region = <&peripheral_mem>;
@@ -1188,6 +1189,7 @@
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,override-acc;
 		qcom,qdsp6v62-1-2;
+		status = "ok";
 		memory-region = <&modem_mem>;
 		qcom,mem-protect-id = <0xF>;
 
@@ -1457,6 +1459,7 @@
 		qcom,sysmon-id = <3>;
 		qcom,ssctl-instance-id = <0x16>;
 		qcom,firmware-name = "slpi";
+		status = "ok";
 		memory-region = <&peripheral_mem>;
 
 		/* GPIO inputs from ssc */
@@ -1489,6 +1492,7 @@
 		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&peripheral_mem>;
+		status = "ok";
 	};
 
 	wdog: qcom,wdt@17817000 {
@@ -1520,6 +1524,7 @@
 		clock-names = "xo";
 		qcom,proxy-clock-names = "xo";
 		qcom,pil-generic-irq-handler;
+		status = "ok";
 
 		qcom,pas-id = <14>;
 		qcom,proxy-timeout-ms = <10000>;
