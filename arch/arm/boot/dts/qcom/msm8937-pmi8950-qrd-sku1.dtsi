@@ -66,6 +66,10 @@
 			synaptics,disable-gpios;
 			synaptics,button-map = <158 139 172>;
 			synaptics,resume-in-workqueue;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
 		};
 	};
 };

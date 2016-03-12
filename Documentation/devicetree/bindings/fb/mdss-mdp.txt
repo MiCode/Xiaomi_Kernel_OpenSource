@@ -577,6 +577,25 @@ Subnode properties:
 		       -- qcom,mdss-dspp-pgc-off: This 32 bit value provides the offset to
 		               PGC block from the DSPP base address.
 
+- qcom,mdss-scaler-offsets: A node that lists the offsets of scaler blocks
+		            from base module.
+		            -- qcom,mdss-vig-scaler-off: This 32 bit value provides the
+		                   offset to vig scaler from vig pipe base.
+		            -- qcom,mdss-vig-scaler-lut-off: This 32 bit value provides the
+		                   offset to vig scaler lut from vig pipe base.
+		            -- qcom,mdss-has-dest-scaler: Boolean property to indicate the
+		                   presence of destination scaler block.
+		            -- qcom,mdss-dest-block-off: This 32 bit value provides the
+		                   offset from mdp base to destination scaler block.
+		            -- qcom,mdss-dest-scaler-off: Array containing offsets of
+		                   destination scalar modules from the scaler block.
+		            -- qcom,mdss-dest-scaler-lut-off: Array containing offsets of destination
+		                   scaler lut tables from scalar block.
+
+- qcom,mdss-has-separate-rotator: Boolean property to indicate support of
+				  indpendent rotator. Indpendent rotator has
+				  separate DMA pipe working in block mode only.
+
 - smmu_mdp_***:	Child nodes representing the mdss smmu virtual devices.
 		Mandatory smmu v2 and not required for smmu v1.
 
@@ -775,6 +794,15 @@ Example:
 			qcom,mdss-dspp-gamut-off = <0x1600>;
 			qcom,mdss-dspp-pcc-off = <0x1700>;
 			qcom,mdss-dspp-pgc-off = <0x17C0>;
+		};
+
+		qcom,mdss-scaler-offsets {
+			qcom,mdss-vig-scaler-off = <0xA00>;
+			qcom,mdss-vig-scaler-lut-off = <0xB00>;
+			qcom,mdss-has-dest-scaler;
+			qcom,mdss-dest-block-off = <0x00061000>;
+			qcom,mdss-dest-scaler-off = <0x800 0x1000>;
+			qcom,mdss-dest-scaler-lut-off = <0x900 0x1100>;
 		};
 
 		qcom,mdss-reg-bus {

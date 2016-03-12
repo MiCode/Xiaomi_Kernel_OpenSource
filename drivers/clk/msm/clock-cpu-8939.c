@@ -30,6 +30,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
 #include <soc/qcom/clock-local2.h>
+#include <soc/qcom/pm.h>
 
 #include "clock.h"
 #include <dt-bindings/clock/msm-cpu-clocks-8939.h>
@@ -53,6 +54,8 @@ struct cpu_clk_8939 {
 	bool hw_low_power_ctrl;
 	struct pm_qos_request req;
 	struct clk c;
+	struct latency_level latency_lvl;
+	s32 cpu_latency_no_l2_pc_us;
 };
 
 static struct mux_div_clk a53ssmux_bc = {
@@ -113,7 +116,6 @@ static struct mux_div_clk a53ssmux_cci = {
 };
 
 static void do_nothing(void *unused) { }
-#define CPU_LATENCY_NO_L2_PC_US (300)
 
 static inline struct cpu_clk_8939 *to_cpu_clk_8939(struct clk *c)
 {
@@ -143,7 +145,7 @@ static int cpu_clk_8939_set_rate(struct clk *c, unsigned long rate)
 				(const struct cpumask *)&cpuclk->cpumask);
 		cpuclk->req.type = PM_QOS_REQ_AFFINE_CORES;
 		pm_qos_add_request(&cpuclk->req, PM_QOS_CPU_DMA_LATENCY,
-				CPU_LATENCY_NO_L2_PC_US);
+				cpuclk->cpu_latency_no_l2_pc_us - 1);
 		smp_call_function_any(&cpuclk->cpumask, do_nothing,
 				NULL, 1);
 	}
@@ -164,6 +166,12 @@ static struct clk_ops clk_ops_cpu = {
 
 static struct cpu_clk_8939 a53_bc_clk = {
 	.cpu_reg_mask = 0x3,
+	.latency_lvl = {
+		.affinity_level = LPM_AFF_LVL_L2,
+		.reset_level = LPM_RESET_LVL_GDHS,
+		.level_name = "perf",
+	},
+	.cpu_latency_no_l2_pc_us = 300,
 	.c = {
 		.parent = &a53ssmux_bc.c,
 		.ops = &clk_ops_cpu,
@@ -175,6 +183,12 @@ static struct cpu_clk_8939 a53_bc_clk = {
 
 static struct cpu_clk_8939 a53_lc_clk = {
 	.cpu_reg_mask = 0x103,
+	.latency_lvl = {
+		.affinity_level = LPM_AFF_LVL_L2,
+		.reset_level = LPM_RESET_LVL_GDHS,
+		.level_name = "pwr",
+	},
+	.cpu_latency_no_l2_pc_us = 300,
 	.c = {
 		.parent = &a53ssmux_lc.c,
 		.ops = &clk_ops_cpu,
@@ -807,6 +821,46 @@ static int __init clock_a53_init(void)
 	return platform_driver_register(&clock_a53_driver);
 }
 arch_initcall(clock_a53_init);
+
+static int __init clock_cpu_lpm_get_latency(void)
+{
+	bool single_cluster;
+	int rc = 0;
+	struct device_node *ofnode = of_find_compatible_node(NULL, NULL,
+					"qcom,cpu-clock-8939");
+
+	if (!ofnode)
+		ofnode = of_find_compatible_node(NULL, NULL,
+					"qcom,cpu-clock-gold");
+
+	if (!ofnode)
+		return 0;
+
+	single_cluster = of_property_read_bool(ofnode,
+					"qcom,num-cluster");
+
+	rc = lpm_get_latency(&a53_bc_clk.latency_lvl,
+			&a53_bc_clk.cpu_latency_no_l2_pc_us);
+	if (rc < 0)
+		pr_err("Failed to get the L2 PC value for perf\n");
+
+	if (!single_cluster) {
+		rc = lpm_get_latency(&a53_lc_clk.latency_lvl,
+				&a53_lc_clk.cpu_latency_no_l2_pc_us);
+		if (rc < 0)
+			pr_err("Failed to get the L2 PC value for pwr\n");
+
+		pr_debug("Latency for pwr/perf cluster %d : %d\n",
+			a53_lc_clk.cpu_latency_no_l2_pc_us,
+			a53_bc_clk.cpu_latency_no_l2_pc_us);
+	} else {
+		pr_debug("Latency for perf cluster %d\n",
+			a53_bc_clk.cpu_latency_no_l2_pc_us);
+	}
+
+	return rc;
+}
+late_initcall(clock_cpu_lpm_get_latency);
 
 #define APCS_C0_PLL			0xb116000
 #define C0_PLL_MODE			0x0

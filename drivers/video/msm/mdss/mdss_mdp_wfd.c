@@ -345,6 +345,12 @@ static int mdss_mdp_wfd_validate_out_configuration(struct mdss_mdp_wfd *wfd,
 				layer->buffer.format);
 			return -EINVAL;
 		}
+
+		if (!ctl->mdata->has_wb_ubwc && mdss_mdp_is_ubwc_format(fmt)) {
+			pr_err("wb=%d does not support UBWC fmt:%d\n", wb_idx,
+				layer->buffer.format);
+			return -EINVAL;
+		}
 	}
 	return 0;
 }

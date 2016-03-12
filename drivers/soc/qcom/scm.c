@@ -1200,3 +1200,39 @@ int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret)
 	return 0;
 }
 EXPORT_SYMBOL(scm_restore_sec_cfg);
+
+/*
+ * SCM call command ID to check secure mode
+ * Return zero for secure device.
+ * Return one for non secure device or secure
+ * device with debug enabled device.
+ */
+#define TZ_INFO_GET_SECURE_STATE	0x4
+bool scm_is_secure_device(void)
+{
+	struct scm_desc desc = {0};
+	int ret = 0, resp;
+
+	desc.args[0] = 0;
+	desc.arginfo = 0;
+	if (!is_scm_armv8()) {
+		ret = scm_call(SCM_SVC_INFO, TZ_INFO_GET_SECURE_STATE, NULL,
+			0, &resp, sizeof(resp));
+	} else {
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO,
+				TZ_INFO_GET_SECURE_STATE),
+				&desc);
+		resp = desc.ret[0];
+	}
+
+	if (ret) {
+		pr_err("%s: SCM call failed\n", __func__);
+		return false;
+	}
+
+	if ((resp & BIT(0)) || (resp & BIT(2)))
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(scm_is_secure_device);

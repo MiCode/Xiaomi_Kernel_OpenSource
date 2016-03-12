@@ -125,6 +125,7 @@ extern bool is_scm_armv8(void);
 extern int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret);
 extern u32 scm_io_read(phys_addr_t address);
 extern int scm_io_write(phys_addr_t address, u32 val);
+extern bool scm_is_secure_device(void);
 
 #define SCM_HDCP_MAX_REG 5
 
@@ -226,6 +227,11 @@ static inline u32 scm_io_read(phys_addr_t address)
 static inline int scm_io_write(phys_addr_t address, u32 val)
 {
 	return 0;
+}
+
+inline bool scm_is_secure_device(void)
+{
+	return false;
 }
 #endif
 #endif

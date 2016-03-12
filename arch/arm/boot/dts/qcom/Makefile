@@ -130,10 +130,10 @@ dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	apq8037-pmi8937-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8917) += msm8917-rumi.dtb \
-	apq8917-pmi8937-cdp.dtb \
-	apq8917-pmi8937-mtp.dtb \
-	apq8917-pmi8950-cdp.dtb \
-	apq8917-pmi8950-mtp.dtb \
+	apq8017-pmi8937-cdp.dtb \
+	apq8017-pmi8937-mtp.dtb \
+	apq8017-pmi8950-cdp.dtb \
+	apq8017-pmi8950-mtp.dtb \
 	msm8917-pmi8937-cdp.dtb \
 	msm8917-pmi8937-mtp.dtb \
 	msm8917-pmi8950-cdp.dtb \
@@ -151,8 +151,8 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	msm8953-qrd-sku3.dtb \
 	msm8953-rcm.dtb \
 	msm8953-ext-codec-rcm.dtb \
-	apq8953-cdp.dtb \
-	apq8953-mtp.dtb \
+	apq8053-cdp.dtb \
+	apq8053-mtp.dtb \
 	msm8953-cdp-1200p.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \

@@ -13,12 +13,28 @@
 
 /dts-v1/;
 
-#include "apq8917.dtsi"
-#include "msm8917-pmi8937-mtp.dtsi"
+#include "apq8053.dtsi"
+#include "msm8953-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8917-PMI8937 MTP";
-	compatible = "qcom,apq8917-mtp", "qcom,apq8917", "qcom,mtp";
+	model = "Qualcomm Technologies, Inc. APQ8053 MTP";
+	compatible = "qcom,apq8053-mtp", "qcom,apq8053", "qcom,mtp";
 	qcom,board-id= <8 0>;
-	qcom,pmic-id = <0x10019 0x020037 0x0 0x0>;
+};
+
+&i2c_2 {
+	/* Parallel-charger configuration */
+	smb135x-charger@1c {
+		compatible = "qcom,smb1358-charger";
+		reg = <0x1c>;
+		qcom,parallel-en-pin-polarity = <1>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+	};
+};
+
+&pmi8950_fg {
+	/* use external rsense for parallel charging */
+	qcom,ext-sense-type;
 };
