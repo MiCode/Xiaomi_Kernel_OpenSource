@@ -2436,7 +2436,7 @@
 				<55 512 3936000 393600>;
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
-		clocks = <&clock_gcc clk_ce1_clk>,
+		clocks = <&clock_gcc clk_qcrypto_ce1_clk>,
 			 <&clock_gcc clk_qcrypto_ce1_clk>,
 			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
 			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
@@ -2466,7 +2466,7 @@
 				<55 512 3936000 393600>;
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
-		clocks = <&clock_gcc clk_ce1_clk>,
+		clocks = <&clock_gcc clk_qcedev_ce1_clk>,
 			 <&clock_gcc clk_qcedev_ce1_clk>,
 			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
 			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
