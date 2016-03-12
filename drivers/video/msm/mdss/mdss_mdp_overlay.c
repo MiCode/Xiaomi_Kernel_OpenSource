@@ -1319,6 +1319,7 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	int rc;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 
 	if (mdss_mdp_ctl_is_power_on(ctl)) {
 		if (!mdp5_data->mdata->batfet)
@@ -1334,6 +1335,10 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 					mfd->index);
 			return 0;
 		}
+	} else if (mdata->handoff_pending) {
+		pr_warn("fb%d: commit while splash handoff pending\n",
+				mfd->index);
+		return -EPERM;
 	}
 
 	pr_debug("starting fb%d overlay\n", mfd->index);
