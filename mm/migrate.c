@@ -37,6 +37,8 @@
 #include <linux/gfp.h>
 #include <linux/balloon_compaction.h>
 #include <linux/mmu_notifier.h>
+#include <linux/hashtable.h>
+#include <linux/sched.h>
 
 #include <asm/tlbflush.h>
 
@@ -329,6 +331,111 @@ static inline bool buffer_migrate_lock_buffers(struct buffer_head *head,
 }
 #endif /* CONFIG_BLOCK */
 
+static void ease_free(struct mm_struct *mm)
+{
+	struct task_rmap *t;
+	int cpu;
+	int rcu_id;
+
+	for_each_online_cpu(cpu) {
+		t = NULL;
+		rcu_id = srcu_read_lock(&exit_boost_srcu);
+		hlist_for_each_entry_rcu(t,
+				&per_cpu(task_mm_hash,
+				cpu)[hash_min((unsigned long)mm,
+				TASK_MM_HLIST_BITS)], list) {
+			if (t->mm == mm) {
+				get_task_struct(t->task);
+				/*
+				 * Let the task holding the page inherit
+				 * the current task's priority, run and
+				 * release the page.
+				 */
+				if (cgroup_attach_task_to_root(t->task,
+					0) < 0) {
+					/*
+					 * Increase the prio as we have
+					 * failed to move it to root.
+					 */
+					set_user_nice(t->task, MIN_NICE);
+				}
+				rt_mutex_lock(&t->exit_boost_mutex);
+				rt_mutex_unlock(&t->exit_boost_mutex);
+				put_task_struct(t->task);
+				break;
+			}
+		}
+		srcu_read_unlock(&exit_boost_srcu, rcu_id);
+	}
+}
+
+static void page_ease_free(struct page *page)
+{
+	unsigned long anon_mapping;
+	struct anon_vma *anon_vma = NULL;
+	struct anon_vma *root_anon_vma;
+	pgoff_t pgoff;
+	struct anon_vma_chain *avc;
+	int root_locked = 0;
+
+	rcu_read_lock();
+	anon_mapping = (unsigned long) ACCESS_ONCE(page->mapping);
+
+	/* We are bothered about anon pages only */
+	if ((anon_mapping & PAGE_MAPPING_FLAGS) != PAGE_MAPPING_ANON)
+		goto exit;
+	/*
+	 * page_count == 1 implies that page is freed, so
+	 * nothing more to be done.
+	 * This function is called only when !page_mapped,
+	 * but check once.
+	 */
+	if (page_mapped(page) || (page_count(page) == 1))
+		goto exit;
+
+	anon_vma = (struct anon_vma *) (anon_mapping - PAGE_MAPPING_ANON);
+	root_anon_vma = ACCESS_ONCE(anon_vma->root);
+
+	if (down_read_trylock(&root_anon_vma->rwsem)) {
+		root_locked = 1;
+		rcu_read_unlock();
+		goto search;
+	}
+
+	/* Failed to get lock, start to wait for lock */
+	if (!atomic_inc_not_zero(&anon_vma->refcount))
+		/*
+		 * The anon_vma was freed, and thus
+		 * the page also (see exit_mmap)
+		 */
+		goto exit;
+
+	rcu_read_unlock();
+	anon_vma_lock_read(anon_vma);
+
+search:
+	if (!root_locked && atomic_dec_and_test(&anon_vma->refcount)) {
+		/* We alone hold the refcount, page should be freed then */
+		anon_vma_unlock_read(anon_vma);
+		__put_anon_vma(anon_vma);
+		return;
+	}
+
+	pgoff = page->index << (PAGE_CACHE_SHIFT - PAGE_SHIFT);
+	anon_vma_interval_tree_foreach(avc, &anon_vma->rb_root, pgoff, pgoff)
+		ease_free(avc->vma->vm_mm);
+
+	if (root_locked)
+		up_read(&root_anon_vma->rwsem);
+	else
+		anon_vma_unlock_read(anon_vma);
+
+	return;
+
+exit:
+	rcu_read_unlock();
+}
+
 /*
  * Replace the page in the mapping.
  *
@@ -347,8 +454,10 @@ int migrate_page_move_mapping(struct address_space *mapping,
 
 	if (!mapping) {
 		/* Anonymous page without mapping */
-		if (page_count(page) != expected_count)
+		if (page_count(page) != expected_count) {
+			page_ease_free(page);
 			return -EAGAIN;
+		}
 		return MIGRATEPAGE_SUCCESS;
 	}
 
