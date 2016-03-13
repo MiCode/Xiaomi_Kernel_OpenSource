@@ -136,7 +136,7 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 	[IPA_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
 		{14, 14}, {16, 16}, {5, 5}, {5, 5},  {0, 0}, {8, 8} },
 	[IPA_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
-		{19, 19}, {26, 26}, {5, 5}, {5, 5}, {0, 0}, {8, 8} },
+		{19, 19}, {26, 26}, {3, 3}, {7, 7}, {0, 0}, {8, 8} },
 	[IPA_RSRC_GRP_TYPE_SRC_HDRI2_BUFFERS] = {
 		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
 	[IPA_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
