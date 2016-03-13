@@ -29,13 +29,18 @@
 #include <linux/vmalloc.h>
 #include <linux/err.h>
 #include <linux/ratelimit.h>
+#include <linux/show_mem_notifier.h>
 
 #include "zram_drv.h"
 
 /* Globals */
 static int zram_major;
 static struct zram *zram_devices;
+#ifdef CONFIG_ZRAM_LZ4_COMPRESS
 static const char *default_compressor = "lz4";
+#else
+static const char *default_compressor = "lzo";
+#endif
 
 /*
  * We don't need to see memory allocation errors more than once every 1
@@ -46,22 +51,11 @@ static const char *default_compressor = "lz4";
 /* Module params (documentation at end) */
 static unsigned int num_devices = 1;
 
-static inline void deprecated_attr_warn(const char *name)
-{
-	pr_warn_once("%d (%s) Attribute %s (and others) will be removed. %s\n",
-			task_pid_nr(current),
-			current->comm,
-			name,
-			"See zram documentation.");
-}
-
 #define ZRAM_ATTR_RO(name)						\
 static ssize_t name##_show(struct device *d,		\
 				struct device_attribute *attr, char *b)	\
 {									\
 	struct zram *zram = dev_to_zram(d);				\
-									\
-	deprecated_attr_warn(__stringify(name));			\
 	return scnprintf(b, PAGE_SIZE, "%llu\n",			\
 		(u64)atomic64_read(&zram->stats.name));			\
 }									\
@@ -71,6 +65,45 @@ static inline bool init_done(struct zram *zram)
 {
 	return zram->disksize;
 }
+
+static int zram_show_mem_notifier(struct notifier_block *nb,
+				unsigned long action,
+				void *data)
+{
+	int i;
+
+	if (!zram_devices)
+		return 0;
+
+	for (i = 0; i < num_devices; i++) {
+		struct zram *zram = &zram_devices[i];
+
+		if (!down_read_trylock(&zram->init_lock))
+			continue;
+
+		if (init_done(zram)) {
+			struct zram_meta *meta = zram->meta;
+			u64 val;
+			u64 data_size;
+
+			val = zs_get_total_pages(meta->mem_pool);
+			data_size = atomic64_read(&zram->stats.compr_data_size);
+			pr_info("Zram[%d] mem_used_total = %llu\n", i, val);
+			pr_info("Zram[%d] compr_data_size = %llu\n", i,
+				(unsigned long long)data_size);
+			pr_info("Zram[%d] orig_data_size = %llu\n", i,
+				(u64)atomic64_read(&zram->stats.pages_stored));
+		}
+
+		up_read(&zram->init_lock);
+	}
+
+	return 0;
+}
+
+static struct notifier_block zram_show_mem_notifier_block = {
+	.notifier_call = zram_show_mem_notifier
+};
 
 static inline struct zram *dev_to_zram(struct device *dev)
 {
@@ -124,7 +157,6 @@ static ssize_t orig_data_size_show(struct device *dev,
 {
 	struct zram *zram = dev_to_zram(dev);
 
-	deprecated_attr_warn("orig_data_size");
 	return scnprintf(buf, PAGE_SIZE, "%llu\n",
 		(u64)(atomic64_read(&zram->stats.pages_stored)) << PAGE_SHIFT);
 }
@@ -135,7 +167,6 @@ static ssize_t mem_used_total_show(struct device *dev,
 	u64 val = 0;
 	struct zram *zram = dev_to_zram(dev);
 
-	deprecated_attr_warn("mem_used_total");
 	down_read(&zram->init_lock);
 	if (init_done(zram)) {
 		struct zram_meta *meta = zram->meta;
@@ -165,7 +196,6 @@ static ssize_t mem_limit_show(struct device *dev,
 	u64 val;
 	struct zram *zram = dev_to_zram(dev);
 
-	deprecated_attr_warn("mem_limit");
 	down_read(&zram->init_lock);
 	val = zram->limit_pages;
 	up_read(&zram->init_lock);
@@ -197,7 +227,6 @@ static ssize_t mem_used_max_show(struct device *dev,
 	u64 val = 0;
 	struct zram *zram = dev_to_zram(dev);
 
-	deprecated_attr_warn("mem_used_max");
 	down_read(&zram->init_lock);
 	if (init_done(zram))
 		val = atomic_long_read(&zram->stats.max_used_pages);
@@ -1154,6 +1183,7 @@ static int create_device(struct zram *zram, int device_id)
 	zram->disk->private_data = zram;
 	snprintf(zram->disk->disk_name, 16, "zram%d", device_id);
 
+	__set_bit(QUEUE_FLAG_FAST, &zram->disk->queue->queue_flags);
 	/* Actual capacity set using syfs (/sys/block/zram<id>/disksize */
 	set_capacity(zram->disk, 0);
 	/* zram devices sort of resembles non-rotational disks */
@@ -1261,6 +1291,7 @@ static int __init zram_init(void)
 			goto out_error;
 	}
 
+	show_mem_notifier_register(&zram_show_mem_notifier_block);
 	pr_info("Created %u device(s)\n", num_devices);
 	return 0;
 
