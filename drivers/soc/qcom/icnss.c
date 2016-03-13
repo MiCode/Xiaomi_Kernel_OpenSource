@@ -85,9 +85,9 @@ static struct {
 	struct work_struct qmi_event_work;
 	struct work_struct qmi_recv_msg_work;
 	struct workqueue_struct *qmi_event_wq;
-	phys_addr_t msa_phys;
+	phys_addr_t msa_pa;
 	uint32_t msa_mem_size;
-	void *msa_addr;
+	void *msa_va;
 	uint32_t state;
 	struct wlfw_rf_chip_info_s_v01 chip_info;
 	struct wlfw_rf_board_info_s_v01 board_info;
@@ -192,7 +192,7 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
-	req.msa_addr = penv->msa_phys;
+	req.msa_addr = penv->msa_pa;
 	req.size = penv->msa_mem_size;
 
 	req_desc.max_msg_len = WLFW_MSA_INFO_REQ_MSG_V01_MAX_MSG_LEN;
@@ -629,48 +629,39 @@ static int icnss_qmi_event_server_arrive(void *data)
 	if (ret < 0) {
 		pr_err("%s: Failed to send indication message: %d\n",
 		       __func__, ret);
-		goto out;
+		goto fail;
 	}
 
-	if (penv->msa_mem_size) {
-		penv->msa_addr = dma_alloc_coherent(&penv->pdev->dev,
-				    penv->msa_mem_size, &penv->msa_phys,
-				    GFP_KERNEL);
-
-		pr_debug("%s: MSA addr: %p, MSA phys: %pa\n", __func__,
-			penv->msa_addr, &penv->msa_phys);
-
-		if (penv->msa_addr) {
-			ret = wlfw_msa_mem_info_send_sync_msg();
-			if (ret < 0) {
-				pr_err("%s: Failed to send MSA info: %d\n",
-				       __func__, ret);
-				goto out;
-			}
-			ret = wlfw_msa_ready_send_sync_msg();
-			if (ret < 0) {
-				pr_err("%s: Failed to send MSA ready : %d\n",
-				       __func__, ret);
-				goto out;
-			}
+	if (penv->msa_va) {
+		ret = wlfw_msa_mem_info_send_sync_msg();
+		if (ret < 0) {
+			pr_err("%s: Failed to send MSA info: %d\n",
+			       __func__, ret);
+			goto fail;
 		}
+		ret = wlfw_msa_ready_send_sync_msg();
+		if (ret < 0) {
+			pr_err("%s: Failed to send MSA ready : %d\n",
+			       __func__, ret);
+			goto fail;
+		}
+	} else {
+		pr_err("%s: Invalid MSA address\n", __func__);
+		ret = -EINVAL;
+		goto fail;
 	}
 
 	ret = wlfw_cap_send_sync_msg();
 	if (ret < 0) {
 		pr_err("%s: Failed to get capability: %d\n",
 		       __func__, ret);
-		goto out;
+		goto fail;
 	}
 	return ret;
 fail:
 	qmi_handle_destroy(penv->wlfw_clnt);
 	penv->wlfw_clnt = NULL;
 out:
-	if (penv->msa_addr) {
-		dma_free_coherent(&penv->pdev->dev, penv->msa_mem_size,
-				  penv->msa_addr, penv->msa_phys);
-	}
 	ICNSS_ASSERT(0);
 	return ret;
 }
@@ -683,10 +674,7 @@ static int icnss_qmi_event_server_exit(void *data)
 	pr_info("%s: QMI Service Disconnected\n", __func__);
 
 	qmi_handle_destroy(penv->wlfw_clnt);
-	if (penv->msa_addr) {
-		dma_free_coherent(&penv->pdev->dev, penv->msa_mem_size,
-				  penv->msa_addr, penv->msa_phys);
-	}
+
 	penv->state = 0;
 	penv->wlfw_clnt = NULL;
 
@@ -1048,7 +1036,7 @@ int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
 
 	memset(&req, 0, sizeof(req));
 
-	if (mode == ICNSS_WALTEST)
+	if (mode == ICNSS_WALTEST || mode == ICNSS_CCPM)
 		goto skip;
 	else if (!config || !host_version) {
 		pr_err("%s: Invalid cfg pointer\n", __func__);
@@ -1130,13 +1118,44 @@ int icnss_get_ce_id(int irq)
 }
 EXPORT_SYMBOL(icnss_get_ce_id);
 
+static ssize_t icnss_wlan_mode_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf,
+				     size_t count)
+{
+	int val;
+	int ret;
+
+	if (!penv)
+		return -ENODEV;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	if (val == ICNSS_WALTEST || val == ICNSS_CCPM) {
+		pr_debug("%s: WLAN Test Mode -> %d\n", __func__, val);
+		ret = icnss_wlan_enable(NULL, val, NULL);
+		if (ret)
+			pr_err("%s: WLAN Test Mode %d failed with %d\n",
+			       __func__, val, ret);
+	} else {
+		pr_err("%s: Mode %d is not supported from command line\n",
+		       __func__, val);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static DEVICE_ATTR(icnss_wlan_mode, S_IWUSR, NULL, icnss_wlan_mode_store);
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct resource *res;
 	int i;
 	struct device *dev = &pdev->dev;
-	u32 msa_mem_size = 0;
 
 	if (penv)
 		return -EEXIST;
@@ -1173,10 +1192,22 @@ static int icnss_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_read_u32(dev->of_node, "qcom,wlan-msa-memory",
-				 &msa_mem_size) == 0) {
-		penv->msa_mem_size = msa_mem_size;
+				 &penv->msa_mem_size) == 0) {
+		if (penv->msa_mem_size) {
+			penv->msa_va = dma_alloc_coherent(&pdev->dev,
+							  penv->msa_mem_size,
+							  &penv->msa_pa,
+							  GFP_KERNEL);
+			if (!penv->msa_va) {
+				pr_err("%s: DMA alloc failed\n", __func__);
+				ret = -EINVAL;
+				goto out;
+			}
+			pr_debug("%s: MAS va: %p, MSA pa: %pa\n",
+				 __func__, penv->msa_va, &penv->msa_pa);
+		}
 	} else {
-		pr_err("icnss: Fail to get MSA Memory Size\n");
+		pr_err("%s: Fail to get MSA Memory Size\n", __func__);
 		ret = -ENODEV;
 		goto out;
 	}
@@ -1184,11 +1215,18 @@ static int icnss_probe(struct platform_device *pdev)
 	penv->skip_qmi = of_property_read_bool(dev->of_node,
 					       "qcom,skip-qmi");
 
+	ret = device_create_file(dev, &dev_attr_icnss_wlan_mode);
+	if (ret) {
+		pr_err("%s: wlan_mode sys file creation failed\n",
+		       __func__);
+		goto err_wlan_mode;
+	}
+
 	penv->qmi_event_wq = alloc_workqueue("icnss_qmi_event", 0, 0);
 	if (!penv->qmi_event_wq) {
 		pr_err("%s: workqueue creation failed\n", __func__);
 		ret = -EFAULT;
-		goto out;
+		goto err_workqueue;
 	}
 
 	INIT_WORK(&penv->qmi_event_work, icnss_qmi_wlfw_event_work);
@@ -1201,11 +1239,22 @@ static int icnss_probe(struct platform_device *pdev)
 					      &wlfw_clnt_nb);
 	if (ret < 0) {
 		pr_err("%s: notifier register failed\n", __func__);
-		destroy_workqueue(penv->qmi_event_wq);
-		goto out;
+		goto err_qmi;
 	}
 
 	pr_debug("icnss: Platform driver probed successfully\n");
+
+	return ret;
+
+err_qmi:
+	if (penv->qmi_event_wq)
+		destroy_workqueue(penv->qmi_event_wq);
+err_workqueue:
+	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
+err_wlan_mode:
+	if (penv->msa_va)
+		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
+				  penv->msa_va, penv->msa_pa);
 out:
 	return ret;
 }
@@ -1218,6 +1267,10 @@ static int icnss_remove(struct platform_device *pdev)
 					  &wlfw_clnt_nb);
 	if (penv->qmi_event_wq)
 		destroy_workqueue(penv->qmi_event_wq);
+	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
+	if (penv->msa_va)
+		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
+				  penv->msa_va, penv->msa_pa);
 
 	return 0;
 }
