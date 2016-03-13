@@ -34,9 +34,8 @@ struct sde_mdp_set_ot_params {
 	u32 num;
 	u32 width;
 	u32 height;
-	bool is_rot;
-	bool is_wb;
-	bool is_yuv;
+	u32 fps;
+	u32 fmt;
 	u32 reg_off_vbif_lim_conf;
 	u32 reg_off_mdp_clk_ctrl;
 	u32 bit_off_mdp_clk_ctrl;
@@ -142,6 +141,8 @@ int sde_update_reg_bus_vote(struct reg_bus_client *bus_client, u32 usecase_ndx);
 u32 sde_apply_comp_ratio_factor(u32 quota,
 	struct sde_mdp_format_params *fmt,
 	struct sde_mult_factor *factor);
+
+u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd);
 
 void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params);
 
