@@ -262,6 +262,9 @@
 };
 
 &mdss_hdmi_tx {
+	qcom,conti-splash-enabled;
+	qcom,hdmi-tx-hpd = <&tlmm 34 0>;
+
 	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active", "hdmi_cec_active",
 				"hdmi_active", "hdmi_sleep";
 	pinctrl-0 = <&mdss_hdmi_hpd_active &mdss_hdmi_ddc_suspend
