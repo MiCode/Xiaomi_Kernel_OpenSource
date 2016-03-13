@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,7 +131,7 @@ struct dsi_pll_input {
 
 	u32 pll_lpf_res1;	/* 3, reg: 0x0504, bit 0 - 3 */
 	u32 pll_lpf_cap1;	/* 11, reg: 0x0500, bit 0 - 3 */
-	u32 pll_lpf_cap2;	/* 14, reg: 0x0500, bit 4 - 7 */
+	u32 pll_lpf_cap2;	/* 1, reg: 0x0500, bit 4 - 7 */
 	u32 pll_c3ctrl;		/* 2, reg: 0x04c4 */
 	u32 pll_r3ctrl;		/* 1, reg: 0x04c4 */
 };
