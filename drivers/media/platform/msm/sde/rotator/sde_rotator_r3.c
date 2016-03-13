@@ -1228,16 +1228,15 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		memset(&ot_params, 0, sizeof(struct sde_mdp_set_ot_params));
 		ot_params.xin_id = XIN_SSPP;
 		ot_params.num = 0; /* not used */
-		ot_params.width = sspp_cfg.img_width;
-		ot_params.height = sspp_cfg.img_height;
+		ot_params.width = entry->perf->config.input.width;
+		ot_params.height = entry->perf->config.input.height;
+		ot_params.fps = entry->perf->config.frame_rate;
 		ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_RD_LIM_CONF;
 		ot_params.reg_off_mdp_clk_ctrl =
 				MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0;
 		ot_params.bit_off_mdp_clk_ctrl =
 				MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN0;
-		ot_params.is_rot = true;
-		ot_params.is_wb = true;
-		ot_params.is_yuv = sde_mdp_is_yuv_format(sspp_cfg.fmt);
+		ot_params.fmt = entry->perf->config.input.format;
 		sde_mdp_set_ot_limit(&ot_params);
 	}
 
@@ -1247,16 +1246,15 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		memset(&ot_params, 0, sizeof(struct sde_mdp_set_ot_params));
 		ot_params.xin_id = XIN_WRITEBACK;
 		ot_params.num = 0; /* not used */
-		ot_params.width = wb_cfg.img_width;
-		ot_params.height = wb_cfg.img_height;
+		ot_params.width = entry->perf->config.input.width;
+		ot_params.height = entry->perf->config.input.height;
+		ot_params.fps = entry->perf->config.frame_rate;
 		ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_WR_LIM_CONF;
 		ot_params.reg_off_mdp_clk_ctrl =
 				MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0;
 		ot_params.bit_off_mdp_clk_ctrl =
 				MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0_XIN1;
-		ot_params.is_rot = true;
-		ot_params.is_wb = true;
-		ot_params.is_yuv = sde_mdp_is_yuv_format(wb_cfg.fmt);
+		ot_params.fmt = entry->perf->config.input.format;
 		sde_mdp_set_ot_limit(&ot_params);
 	}
 

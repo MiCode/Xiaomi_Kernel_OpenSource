@@ -169,7 +169,6 @@ struct sde_rot_hw_resource {
 	atomic_t num_active;
 	int max_active;
 	wait_queue_head_t wait_queue;
-	struct sde_rot_entry *workload;
 };
 
 struct sde_rot_queue {
@@ -225,6 +224,8 @@ struct sde_rot_perf {
 	struct mutex work_dis_lock;
 	u32 *work_distribution;
 	int last_wb_idx; /* last known wb index, used when above count is 0 */
+	u32 rdot_limit;
+	u32 wrot_limit;
 };
 
 struct sde_rot_file_private {
@@ -275,6 +276,8 @@ struct sde_rot_mgr {
 	struct sde_rot_clk *rot_clk;
 	int num_rot_clk;
 	int core_clk_idx;
+	u32 rdot_limit;
+	u32 wrot_limit;
 
 	u32 hwacquire_timeout;
 	struct sde_mult_factor pixel_per_clk;
