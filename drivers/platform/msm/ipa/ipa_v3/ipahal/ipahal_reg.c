@@ -79,6 +79,8 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_RX_HPS_CLIENTS_MIN_DEPTH_1),
 	__stringify(IPA_RX_HPS_CLIENTS_MAX_DEPTH_0),
 	__stringify(IPA_RX_HPS_CLIENTS_MAX_DEPTH_1),
+	__stringify(IPA_QSB_MAX_WRITES),
+	__stringify(IPA_QSB_MAX_READS),
 };
 
 static void ipareg_construct_dummy(enum ipahal_reg_name reg,
@@ -797,6 +799,32 @@ static void ipareg_construct_route(enum ipahal_reg_name reg,
 		IPA_ROUTE_ROUTE_DEF_RETAIN_HDR_BMSK);
 }
 
+static void ipareg_construct_qsb_max_writes(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	int *qsb_max_writes = (int *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, qsb_max_writes[0],
+			    IPA_QSB_MAX_WRITES_GEN_QMB_0_MAX_WRITES_SHFT,
+			    IPA_QSB_MAX_WRITES_GEN_QMB_0_MAX_WRITES_BMSK);
+	IPA_SETFIELD_IN_REG(*val, qsb_max_writes[1],
+			    IPA_QSB_MAX_WRITES_GEN_QMB_1_MAX_WRITES_SHFT,
+			    IPA_QSB_MAX_WRITES_GEN_QMB_1_MAX_WRITES_BMSK);
+}
+
+static void ipareg_construct_qsb_max_reads(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	int *qsb_max_reads = (int *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, qsb_max_reads[0],
+			    IPA_QSB_MAX_READS_GEN_QMB_0_MAX_READS_SHFT,
+			    IPA_QSB_MAX_READS_GEN_QMB_0_MAX_READS_BMSK);
+	IPA_SETFIELD_IN_REG(*val, qsb_max_reads[1],
+			    IPA_QSB_MAX_READS_GEN_QMB_1_MAX_READS_SHFT,
+			    IPA_QSB_MAX_READS_GEN_QMB_1_MAX_READS_BMSK);
+}
+
 /*
  * struct ipahal_reg_obj - Register H/W information for specific IPA version
  * @construct - CB to construct register value from abstracted structure
@@ -1004,6 +1032,12 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_0][IPA_RX_HPS_CLIENTS_MAX_DEPTH_1] = {
 		ipareg_construct_rx_hps_clients_depth1, ipareg_parse_dummy,
 		0x000023D0, 0},
+	[IPA_HW_v3_0][IPA_QSB_MAX_WRITES] = {
+		ipareg_construct_qsb_max_writes, ipareg_parse_dummy,
+		0x00000074, 0},
+	[IPA_HW_v3_0][IPA_QSB_MAX_READS] = {
+		ipareg_construct_qsb_max_reads, ipareg_parse_dummy,
+		0x00000078, 0},
 
 
 	/* IPAv3.1 */
