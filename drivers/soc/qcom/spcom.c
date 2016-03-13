@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1846,10 +1846,10 @@ static char *file_to_filename(struct file *filp)
 	struct dentry *dentry = NULL;
 	char *filename = NULL;
 
-	if (!filp || !filp->f_dentry)
+	if (!filp || !filp->f_path.dentry)
 		return "unknown";
 
-	dentry = filp->f_dentry;
+	dentry = filp->f_path.dentry;
 	filename = dentry->d_iname;
 
 	return filename;
