@@ -5114,10 +5114,6 @@ int ipa3_generate_eq_from_hw_rule(
  */
 int ipa3_load_fws(const struct firmware *firmware)
 {
-	/*
-	 * TODO: Do we need to use a generic elf_hdr/elf_phdr
-	 * so we won't have issues with 64bit systems?
-	 */
 	const struct elf32_hdr *ehdr;
 	const struct elf32_phdr *phdr;
 	const uint8_t *elf_phdr_ptr;
@@ -5137,15 +5133,15 @@ int ipa3_load_fws(const struct firmware *firmware)
 		phdr = (struct elf32_phdr *)elf_phdr_ptr;
 
 		/*
-		 * p_addr will contain the physical address to which the
+		 * p_vaddr will contain the starting address to which the
 		 * FW needs to be loaded.
 		 * p_memsz will contain the size of the IRAM.
 		 * p_filesz will contain the size of the FW image.
 		 */
-		fw_mem_base = ioremap(phdr->p_paddr, phdr->p_memsz);
+		fw_mem_base = ioremap(phdr->p_vaddr, phdr->p_memsz);
 		if (!fw_mem_base) {
 			IPAERR("Failed to map 0x%x for the size of %u\n",
-				phdr->p_paddr, phdr->p_memsz);
+				phdr->p_vaddr, phdr->p_memsz);
 				return -ENOMEM;
 		}
 
