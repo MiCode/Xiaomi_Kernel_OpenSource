@@ -256,6 +256,8 @@ static struct rcg_clk csi0_clk_src = {
 
 static struct clk_freq_tbl ftbl_vfe_clk_src[] = {
 	F_MM( 200000000,    mmsscc_gpll0,    3,    0,     0),
+	F_MM( 300000000,    mmsscc_gpll0,    2,    0,     0),
+	F_MM( 320000000,  mmpll7_pll_out,    3,    0,     0),
 	F_MM( 384000000,  mmpll4_pll_out,    2,    0,     0),
 	F_MM( 576000000, mmpll10_pll_out,    1,    0,     0),
 	F_MM( 600000000,    mmsscc_gpll0,    1,    0,     0),
