@@ -208,8 +208,6 @@
 #define clk_gcc_hmss_rbcpr_clk			0x699183be
 #define clk_hmss_gpll0_clk_src			0x17eb05d0
 #define clk_hmss_gpll4_clk_src			0x20456cae
-#define clk_gcc_mmss_qm_ahb_clk			0xc759178c
-#define clk_gcc_mmss_qm_core_clk		0xa3412619
 #define clk_gcc_mmss_sys_noc_axi_clk		0x4467b15b
 #define clk_gcc_mss_at_clk			0x1692c5aa
 #define clk_nav_gcc_dbg_clk			0x2221c544
