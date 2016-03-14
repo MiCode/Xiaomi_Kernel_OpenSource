@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -524,6 +524,13 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		ret = -EINVAL;
 		goto end;
 	}
+
+	/*
+	 * unstage the pipe if it's current z_order does not match with new
+	 * z_order because client may only call the validate.
+	 */
+	if (pipe->mixer_stage != layer->z_order)
+		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 
 	/*
 	 * check if overlay span across two mixers and if source split is
