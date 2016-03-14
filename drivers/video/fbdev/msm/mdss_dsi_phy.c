@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,14 @@ struct dsi_phy_t_clk_param {
 	uint32_t escclk_denom;
 	uint32_t tlpx_numer_ns;
 	uint32_t treot_ns;
+	u32 clk_prep_buf;
+	u32 clk_zero_buf;
+	u32 clk_trail_buf;
+	u32 hs_prep_buf;
+	u32 hs_zero_buf;
+	u32 hs_trail_buf;
+	u32 hs_rqst_buf;
+	u32 hs_exit_buf;
 };
 
 static int  mdss_dsi_phy_common_validate_and_set(struct timing_entry *te,
@@ -95,6 +103,8 @@ static int mdss_dsi_phy_validate_and_set(struct timing_entry *te,
 static int mdss_dsi_phy_initialize_defaults(struct dsi_phy_t_clk_param *t_clk,
 		struct dsi_phy_timing *t_param, u32 phy_rev)
 {
+	if (!t_clk || !t_param)
+		return -EINVAL;
 
 	if (phy_rev <= DSI_PHY_REV_UNKNOWN || phy_rev >= DSI_PHY_REV_MAX) {
 		pr_err("Invalid PHY %d revision\n", phy_rev);
@@ -118,6 +128,15 @@ static int mdss_dsi_phy_initialize_defaults(struct dsi_phy_t_clk_param *t_clk,
 						(8 * t_clk->tlpx_numer_ns)), 1);
 		t_param->hs_rqst.mipi_min = HS_RQST_SPEC_MIN;
 		t_param->hs_rqst_clk.mipi_min = HS_RQST_SPEC_MIN;
+
+		t_clk->clk_prep_buf = 50;
+		t_clk->clk_zero_buf = 2;
+		t_clk->clk_trail_buf = 30;
+		t_clk->hs_prep_buf = 50;
+		t_clk->hs_zero_buf = 10;
+		t_clk->hs_trail_buf = 30;
+		t_clk->hs_rqst_buf = 0;
+		t_clk->hs_exit_buf = 10;
 	} else if (phy_rev == DSI_PHY_REV_10) {
 		t_param->clk_prepare.rec_min =
 			(DIV_ROUND_UP(t_param->clk_prepare.mipi_min *
@@ -135,302 +154,511 @@ static int mdss_dsi_phy_initialize_defaults(struct dsi_phy_t_clk_param *t_clk,
 	return 0;
 }
 
-static int mdss_dsi_phy_calc_param_phy_rev_2(struct dsi_phy_t_clk_param *t_clk,
-		struct dsi_phy_timing *t_param)
+/**
+ * calc_clk_prepare - calculates prepare timing params for clk lane.
+ */
+static int calc_clk_prepare(struct dsi_phy_t_clk_param *clk_params,
+			    struct dsi_phy_timing *desc,
+			    s32 *actual_frac,
+			    s64 *actual_intermediate)
 {
-	/* recommended fraction for PHY REV 2.0 */
-	u32 const min_prepare_frac = 50;
-	u32 const hs_exit_min_frac = 10;
-	u32 const phy_timing_frac = 30;
-	u32 const hs_zero_min_frac = 10;
-	u32 const clk_zero_min_frac = 2;
-	int tmp;
-	int t_hs_prep_actual;
-	int teot_clk_lane, teot_data_lane;
-	u64 dividend;
-	u64 temp, rc = 0;
-	u64 multiplier = BIT(20);
-	u64 temp_multiple;
-	s64 mipi_min, mipi_max, mipi_max_tr, rec_min, rec_prog;
+	u64 const multiplier = BIT(20);
+	struct timing_entry *t = &desc->clk_prepare;
+	int rc = 0;
+	u64 dividend, temp, temp_multiple;
+	s32 frac = 0;
+	s64 intermediate;
 	s64 clk_prep_actual;
-	s64 actual_intermediate;
-	s32 actual_frac;
-	s64 rec_temp1, rec_temp2, rec_temp3;
 
-	/* clk_prepare calculations */
-	dividend = ((t_param->clk_prepare.rec_max
-			- t_param->clk_prepare.rec_min)
-			* min_prepare_frac * multiplier);
-	temp = roundup(div_s64(dividend, 100), multiplier);
-	temp += (t_param->clk_prepare.rec_min * multiplier);
-	t_param->clk_prepare.rec = div_s64(temp, multiplier);
+	if (!clk_params || !desc || !actual_frac || !actual_intermediate) {
+		rc = -EINVAL;
+		goto error;
+	}
 
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->clk_prepare,
-			"clk prepare");
+	dividend = ((t->rec_max - t->rec_min) *
+		    clk_params->clk_prep_buf *
+		    multiplier);
+	temp  = roundup(div_s64(dividend, 100), multiplier);
+	temp += (t->rec_min * multiplier);
+	t->rec = div_s64(temp, multiplier);
+
+	rc = mdss_dsi_phy_common_validate_and_set(t, "clk_prepare");
 	if (rc)
 		goto error;
 
-	/* clk_ prepare theoretical value*/
-	temp_multiple = (8 * t_param->clk_prepare.program_value
-			* t_clk->tlpx_numer_ns * multiplier);
-	actual_intermediate = div_s64(temp_multiple, t_clk->bitclk_mbps);
-	div_s64_rem(temp_multiple, t_clk->bitclk_mbps, &actual_frac);
-	clk_prep_actual =
-		div_s64((actual_intermediate + actual_frac), multiplier);
+	/* calculate theoretical value */
+	temp_multiple = 8 * t->program_value * clk_params->tlpx_numer_ns
+			 * multiplier;
+	intermediate = div_s64(temp_multiple, clk_params->bitclk_mbps);
+	div_s64_rem(temp_multiple, clk_params->bitclk_mbps, &frac);
+	clk_prep_actual = div_s64((intermediate + frac), multiplier);
 
-	pr_debug("CLK PREPARE: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d",
-			t_param->clk_prepare.mipi_min,
-			t_param->clk_prepare.mipi_max,
-			t_param->clk_prepare.rec_min,
-			t_param->clk_prepare.rec_max);
-	pr_debug("prog value = %d, actual=%lld\n",
-			t_param->clk_prepare.rec, clk_prep_actual);
+	pr_debug("CLK_PREPARE:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max);
+	pr_debug(" program_value=%d, actual=%lld\n",
+		 t->program_value, clk_prep_actual);
 
-	/* clk zero calculations */
-	/* Mipi spec min*/
-	mipi_min = (300 * multiplier) - (actual_intermediate + actual_frac);
-	t_param->clk_zero.mipi_min = div_s64(mipi_min, multiplier);
+	*actual_frac = frac;
+	*actual_intermediate = intermediate;
 
-	/* recommended min */
-	rec_temp1 = div_s64(mipi_min * t_clk->bitclk_mbps,
-			t_clk->tlpx_numer_ns);
-	rec_temp2 = rec_temp1 - (11 * multiplier);
-	rec_temp3 = roundup(div_s64(rec_temp2, 8),  multiplier);
-	rec_min = div_s64(rec_temp3, multiplier) - 3;
-	t_param->clk_zero.rec_min = rec_min;
+error:
+	return rc;
+}
 
-	/* recommended max */
-	t_param->clk_zero.rec_max =
-			((t_param->clk_zero.rec_min > 255) ? 511 : 255);
+/**
+ * calc_clk_zero - calculates zero timing params for clk lane.
+ */
+static int calc_clk_zero(struct dsi_phy_t_clk_param *clk_params,
+			 struct dsi_phy_timing *desc,
+			 s32 actual_frac,
+			 s64 actual_intermediate)
+{
+	u64 const multiplier = BIT(20);
+	int rc = 0;
+	struct timing_entry *t = &desc->clk_zero;
+	s64 mipi_min, rec_temp1, rec_temp2, rec_temp3, rec_min;
 
-	/* Programmed value */
-	t_param->clk_zero.rec = DIV_ROUND_UP(
-			(t_param->clk_zero.rec_max - t_param->clk_zero.rec_min)
-				* clk_zero_min_frac
-				+ (t_param->clk_zero.rec_min * 100), 100);
+	if (!clk_params || !desc || !actual_frac || !actual_intermediate) {
+		rc = -EINVAL;
+		goto error;
+	}
 
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->clk_zero,
-			"clk zero");
+	mipi_min = ((300 * multiplier) - (actual_intermediate + actual_frac));
+	t->mipi_min = div_s64(mipi_min, multiplier);
+
+	rec_temp1 = div_s64((mipi_min * clk_params->bitclk_mbps),
+			    clk_params->tlpx_numer_ns);
+	rec_temp2 = (rec_temp1 - (11 * multiplier));
+	rec_temp3 = roundup(div_s64(rec_temp2, 8), multiplier);
+	rec_min = (div_s64(rec_temp3, multiplier) - 3);
+	t->rec_min = rec_min;
+	t->rec_max = ((t->rec_min > 255) ? 511 : 255);
+
+	t->rec = DIV_ROUND_UP(
+			(((t->rec_max - t->rec_min) *
+			  clk_params->clk_zero_buf) +
+			 (t->rec_min * 100)),
+			100);
+
+	rc = mdss_dsi_phy_common_validate_and_set(t, "clk_zero");
 	if (rc)
 		goto error;
 
-	pr_debug("CLK ZERO: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d, prog value = %d\n",
-			t_param->clk_zero.mipi_min, t_param->clk_zero.mipi_max,
-			t_param->clk_zero.rec_min, t_param->clk_zero.rec_max,
-			t_param->clk_zero.rec);
+	pr_debug("CLK_ZERO:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->program_value);
 
-	/* clk trail calculations */
-	temp_multiple = div_s64(12 * multiplier * t_clk->tlpx_numer_ns,
-						t_clk->bitclk_mbps);
-	div_s64_rem(temp_multiple, multiplier, &actual_frac);
+error:
+	return rc;
+}
 
-	mipi_max_tr = 105 * multiplier + (temp_multiple + actual_frac);
-	teot_clk_lane = div_s64(mipi_max_tr, multiplier);
+/**
+ * calc_clk_trail - calculates prepare trail params for clk lane.
+ */
+static int calc_clk_trail(struct dsi_phy_t_clk_param *clk_params,
+			  struct dsi_phy_timing *desc,
+			  s64 *teot_clk_lane)
+{
+	u64 const multiplier = BIT(20);
+	int rc = 0;
+	struct timing_entry *t = &desc->clk_trail;
+	u64 temp_multiple;
+	s32 frac;
+	s64 mipi_max_tr, rec_temp1, rec_temp2, rec_temp3, mipi_max;
+	s64 teot_clk_lane1;
 
-	mipi_max = mipi_max_tr - (t_clk->treot_ns * multiplier);
+	if (!clk_params || !desc || !teot_clk_lane) {
+		rc = -EINVAL;
+		goto error;
+	}
 
-	t_param->clk_trail.mipi_max =  div_s64(mipi_max, multiplier);
+	temp_multiple = div_s64(
+			(12 * multiplier * clk_params->tlpx_numer_ns),
+			clk_params->bitclk_mbps);
+	div_s64_rem(temp_multiple, multiplier, &frac);
 
-	/* recommended min*/
-	temp_multiple = div_s64(t_param->clk_trail.mipi_min * multiplier *
-			t_clk->bitclk_mbps, t_clk->tlpx_numer_ns);
-	div_s64_rem(temp_multiple, multiplier, &actual_frac);
-	rec_temp1 = temp_multiple + actual_frac + 3 * multiplier;
+	mipi_max_tr = ((105 * multiplier) +
+		       (temp_multiple + frac));
+	teot_clk_lane1 = div_s64(mipi_max_tr, multiplier);
+
+	mipi_max = (mipi_max_tr - (clk_params->treot_ns * multiplier));
+	t->mipi_max = div_s64(mipi_max, multiplier);
+
+	temp_multiple = div_s64(
+			(t->mipi_min * multiplier * clk_params->bitclk_mbps),
+			clk_params->tlpx_numer_ns);
+
+	div_s64_rem(temp_multiple, multiplier, &frac);
+	rec_temp1 = temp_multiple + frac + (3 * multiplier);
 	rec_temp2 = div_s64(rec_temp1, 8);
 	rec_temp3 = roundup(rec_temp2, multiplier);
 
-	t_param->clk_trail.rec_min = div_s64(rec_temp3, multiplier);
+	t->rec_min = div_s64(rec_temp3, multiplier);
 
 	/* recommended max */
-	rec_temp1 = div_s64(mipi_max * t_clk->bitclk_mbps,
-						t_clk->tlpx_numer_ns);
-	rec_temp2 = rec_temp1 + 3 * multiplier;
+	rec_temp1 = div_s64((mipi_max * clk_params->bitclk_mbps),
+			    clk_params->tlpx_numer_ns);
+	rec_temp2 = rec_temp1 + (3 * multiplier);
 	rec_temp3 = rec_temp2 / 8;
-	t_param->clk_trail.rec_max = div_s64(rec_temp3, multiplier);
+	t->rec_max = div_s64(rec_temp3, multiplier);
 
-	/* Programmed value */
-	t_param->clk_trail.rec = DIV_ROUND_UP(
-		(t_param->clk_trail.rec_max - t_param->clk_trail.rec_min)
-			* phy_timing_frac
-			+ (t_param->clk_trail.rec_min * 100), 100);
+	t->rec = DIV_ROUND_UP(
+		(((t->rec_max - t->rec_min) * clk_params->clk_trail_buf) +
+		 (t->rec_min * 100)),
+		 100);
 
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->clk_trail,
-			"clk trail");
+	rc = mdss_dsi_phy_common_validate_and_set(t, "clk_trail");
 	if (rc)
 		goto error;
 
-	pr_debug("CLK TRAIL: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d, prog value = %d\n",
-			t_param->clk_trail.mipi_min,
-			t_param->clk_trail.mipi_max,
-			t_param->clk_trail.rec_min,
-			t_param->clk_trail.rec_max,
-			t_param->clk_trail.rec);
-
-	/* hs prepare calculations */
-	/* mipi min */
-	temp_multiple = div_s64(4 * t_clk->tlpx_numer_ns * multiplier,
-			t_clk->bitclk_mbps);
-	div_s64_rem(temp_multiple, multiplier, &actual_frac);
-	mipi_min = 40 * multiplier + (temp_multiple + actual_frac);
-	t_param->hs_prepare.mipi_min = div_s64(mipi_min, multiplier);
-
-	/* mipi max */
-	temp_multiple = div_s64(6 * t_clk->tlpx_numer_ns * multiplier,
-			t_clk->bitclk_mbps);
-	div_s64_rem(temp_multiple, multiplier, &actual_frac);
-	mipi_max = 85 * multiplier + temp_multiple;
-	t_param->hs_prepare.mipi_max = div_s64(mipi_max, multiplier);
-
-	/* recommended min */
-	temp_multiple = div_s64(mipi_min * t_clk->bitclk_mbps,
-			t_clk->tlpx_numer_ns);
-	div_s64_rem(temp_multiple, multiplier, &actual_frac);
-	rec_temp1 = roundup((temp_multiple + actual_frac)/8, multiplier);
-	t_param->hs_prepare.rec_min = div_s64(rec_temp1, multiplier);
-
-	/* recommended max*/
-	temp_multiple = div_s64(mipi_max * t_clk->bitclk_mbps,
-			t_clk->tlpx_numer_ns);
-	div_s64_rem(temp_multiple, multiplier, &actual_frac);
-	rec_temp2 = rounddown((temp_multiple + actual_frac)/8, multiplier);
-	t_param->hs_prepare.rec_max = div_s64(rec_temp2, multiplier);
-
-	/* prog value*/
-	dividend = (rec_temp2 - rec_temp1) * min_prepare_frac;
-	temp = roundup(div_u64(dividend, 100), multiplier);
-	rec_prog = temp + rec_temp1;
-	t_param->hs_prepare.rec = div_s64(rec_prog, multiplier);
-
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->hs_prepare,
-			"HS prepare");
-	if (rc)
-		goto error;
-
-	/* theoretical Value */
-	temp_multiple = div_s64(8 * rec_prog * t_clk->tlpx_numer_ns,
-			t_clk->bitclk_mbps);
-	div_s64_rem(temp_multiple, multiplier, &actual_frac);
-	t_hs_prep_actual = div_s64(temp_multiple, multiplier);
-	pr_debug("HS PREPARE: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d, prog value = %d, actual=%d\n",
-			t_param->hs_prepare.mipi_min,
-			t_param->hs_prepare.mipi_max,
-			t_param->hs_prepare.rec_min,
-			t_param->hs_prepare.rec_max,
-			t_param->hs_prepare.rec, t_hs_prep_actual);
-
-	/* hs zero calculations */
-	/* mipi min*/
-	mipi_min = div_s64(10 * t_clk->tlpx_numer_ns * multiplier,
-			t_clk->bitclk_mbps);
-	rec_temp1 = (145 * multiplier) + mipi_min - temp_multiple;
-	t_param->hs_zero.mipi_min = div_s64(rec_temp1, multiplier);
-
-	/* recommended min */
-	rec_temp1 = div_s64(rec_temp1 * t_clk->bitclk_mbps,
-			t_clk->tlpx_numer_ns);
-	rec_temp2 = rec_temp1 - (11 * multiplier);
-	rec_temp3 = roundup((rec_temp2/8), multiplier);
-	rec_min = rec_temp3 - (3 * multiplier);
-	t_param->hs_zero.rec_min = div_s64(rec_min, multiplier);
-
-	t_param->hs_zero.rec_max =
-			((t_param->hs_zero.rec_min > 255) ? 511 : 255);
-
-	/* prog value */
-	t_param->hs_zero.rec = DIV_ROUND_UP(
-		(t_param->hs_zero.rec_max - t_param->hs_zero.rec_min)
-		* hs_zero_min_frac + (t_param->hs_zero.rec_min * 100),
-		100);
-
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->hs_zero, "HS zero");
-	if (rc)
-		goto error;
-
-	pr_debug("HS ZERO: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d, prog value = %d\n",
-			t_param->hs_zero.mipi_min, t_param->hs_zero.mipi_max,
-			t_param->hs_zero.rec_min, t_param->hs_zero.rec_max,
-			t_param->hs_zero.rec);
-
-	/* hs_trail calculations */
-	teot_data_lane  = teot_clk_lane;
-	t_param->hs_trail.mipi_min =  60 +
-		mult_frac(t_clk->tlpx_numer_ns, 4, t_clk->bitclk_mbps);
-	t_param->hs_trail.mipi_max =  teot_clk_lane - t_clk->treot_ns;
-	t_param->hs_trail.rec_min = DIV_ROUND_UP(
-		((t_param->hs_trail.mipi_min * t_clk->bitclk_mbps)
-		 + 3 * t_clk->tlpx_numer_ns), (8 * t_clk->tlpx_numer_ns));
-	tmp = ((t_param->hs_trail.mipi_max * t_clk->bitclk_mbps)
-		 + (3 * t_clk->tlpx_numer_ns));
-	t_param->hs_trail.rec_max = tmp/(8 * t_clk->tlpx_numer_ns);
-	tmp = DIV_ROUND_UP((t_param->hs_trail.rec_max
-			- t_param->hs_trail.rec_min) * phy_timing_frac,
-			100);
-	t_param->hs_trail.rec = tmp + t_param->hs_trail.rec_min;
-
-
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->hs_trail,
-			"HS trail");
-	if (rc)
-		goto error;
-
-	pr_debug("HS TRAIL: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d, prog value = %d\n",
-			t_param->hs_trail.mipi_min, t_param->hs_trail.mipi_max,
-			t_param->hs_trail.rec_min, t_param->hs_trail.rec_max,
-			t_param->hs_trail.rec);
-
-	/* hs rqst calculations for Data lane */
-	t_param->hs_rqst.rec = DIV_ROUND_UP(
-		(t_param->hs_rqst.mipi_min * t_clk->bitclk_mbps)
-		- (8 * t_clk->tlpx_numer_ns), (8 * t_clk->tlpx_numer_ns));
-
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->hs_rqst, "HS rqst");
-	if (rc)
-		goto error;
-
-	pr_debug("HS RQST-DATA: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d, prog value = %d\n",
-			t_param->hs_rqst.mipi_min, t_param->hs_rqst.mipi_max,
-			t_param->hs_rqst.rec_min, t_param->hs_rqst.rec_max,
-			t_param->hs_rqst.rec);
-
-	/* hs exit calculations */
-	t_param->hs_exit.rec_min = DIV_ROUND_UP(
-		(t_param->hs_exit.mipi_min * t_clk->bitclk_mbps),
-		(8 * t_clk->tlpx_numer_ns)) - 1;
-	t_param->hs_exit.rec = DIV_ROUND_UP(
-		(t_param->hs_exit.rec_max - t_param->hs_exit.rec_min)
-			* hs_exit_min_frac
-			+ (t_param->hs_exit.rec_min * 100), 100);
-
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->hs_exit, "HS exit");
-	if (rc)
-		goto error;
-
-	pr_debug("HS EXIT: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d, prog value = %d\n",
-			t_param->hs_exit.mipi_min, t_param->hs_exit.mipi_max,
-			t_param->hs_exit.rec_min, t_param->hs_exit.rec_max,
-			t_param->hs_exit.rec);
-
-	/* hs rqst calculations for Clock lane */
-	t_param->hs_rqst_clk.rec = DIV_ROUND_UP(
-		(t_param->hs_rqst_clk.mipi_min * t_clk->bitclk_mbps)
-		- (8 * t_clk->tlpx_numer_ns), (8 * t_clk->tlpx_numer_ns));
-
-	rc = mdss_dsi_phy_common_validate_and_set(&t_param->hs_rqst_clk,
-			"HS rqst clk");
-	if (rc)
-		goto error;
-
-	pr_debug("HS RQST-CLK: mipi_min=%d, max=%d, rec_min=%d, rec_max=%d, prog value = %d\n",
-			t_param->hs_rqst_clk.mipi_min,
-			t_param->hs_rqst_clk.mipi_max,
-			t_param->hs_rqst_clk.rec_min,
-			t_param->hs_rqst_clk.rec_max,
-			t_param->hs_rqst_clk.rec);
-	pr_debug("teot_clk=%d, data=%d\n", teot_clk_lane, teot_data_lane);
-	return 0;
+	*teot_clk_lane = teot_clk_lane1;
+	pr_debug("CLK_TRAIL:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->program_value);
 
 error:
-	return -EINVAL;
+	return rc;
+}
+
+/**
+ * calc_hs_prepare - calculates prepare timing params for data lanes in HS.
+ */
+static int calc_hs_prepare(struct dsi_phy_t_clk_param *clk_params,
+			   struct dsi_phy_timing *desc,
+			   u64 *temp_mul)
+{
+	u64 const multiplier = BIT(20);
+	int rc = 0;
+	struct timing_entry *t = &desc->hs_prepare;
+	u64 temp_multiple, dividend, temp;
+	s32 frac;
+	s64 rec_temp1, rec_temp2, mipi_max, mipi_min;
+	u32 low_clk_multiplier = 0;
+
+	if (!clk_params || !desc || !temp_mul) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (clk_params->bitclk_mbps <= 120)
+		low_clk_multiplier = 2;
+	/* mipi min */
+	temp_multiple = div_s64((4 * multiplier * clk_params->tlpx_numer_ns),
+				clk_params->bitclk_mbps);
+	div_s64_rem(temp_multiple, multiplier, &frac);
+	mipi_min = (40 * multiplier) + (temp_multiple + frac);
+	t->mipi_min = div_s64(mipi_min, multiplier);
+
+	/* mipi_max */
+	temp_multiple = div_s64(
+			(6 * multiplier * clk_params->tlpx_numer_ns),
+			clk_params->bitclk_mbps);
+	div_s64_rem(temp_multiple, multiplier, &frac);
+	mipi_max = (85 * multiplier) + temp_multiple;
+	t->mipi_max = div_s64(mipi_max, multiplier);
+
+	/* recommended min */
+	temp_multiple = div_s64((mipi_min * clk_params->bitclk_mbps),
+				clk_params->tlpx_numer_ns);
+	temp_multiple -= (low_clk_multiplier * multiplier);
+	div_s64_rem(temp_multiple, multiplier, &frac);
+	rec_temp1 = roundup(((temp_multiple + frac) / 8), multiplier);
+	t->rec_min = div_s64(rec_temp1, multiplier);
+
+	/* recommended max */
+	temp_multiple = div_s64((mipi_max * clk_params->bitclk_mbps),
+				clk_params->tlpx_numer_ns);
+	temp_multiple -= (low_clk_multiplier * multiplier);
+	div_s64_rem(temp_multiple, multiplier, &frac);
+	rec_temp2 = rounddown((temp_multiple / 8), multiplier);
+	t->rec_max = div_s64(rec_temp2, multiplier);
+
+	/* register value */
+	dividend = ((rec_temp2 - rec_temp1) * clk_params->hs_prep_buf);
+	temp = roundup(div_u64(dividend, 100), multiplier);
+	t->rec = div_s64((temp + rec_temp1), multiplier);
+
+	rc = mdss_dsi_phy_common_validate_and_set(t, "hs_prepare");
+	if (rc)
+		goto error;
+
+	temp_multiple = div_s64(
+			(8 * (temp + rec_temp1) * clk_params->tlpx_numer_ns),
+			clk_params->bitclk_mbps);
+
+	*temp_mul = temp_multiple;
+	pr_debug("HS_PREP:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->program_value);
+
+error:
+	return rc;
+}
+
+/**
+ * calc_hs_zero - calculates zero timing params for data lanes in HS.
+ */
+static int calc_hs_zero(struct dsi_phy_t_clk_param *clk_params,
+			struct dsi_phy_timing *desc,
+			u64 temp_multiple)
+{
+	u64 const multiplier = BIT(20);
+	int rc = 0;
+	struct timing_entry *t = &desc->hs_zero;
+	s64 rec_temp1, rec_temp2, rec_temp3, mipi_min;
+	s64 rec_min;
+
+	if (!clk_params || !desc) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	mipi_min = div_s64((10 * clk_params->tlpx_numer_ns * multiplier),
+			   clk_params->bitclk_mbps);
+	rec_temp1 = (145 * multiplier) + mipi_min - temp_multiple;
+	t->mipi_min = div_s64(rec_temp1, multiplier);
+
+	/* recommended min */
+	rec_temp1 = div_s64((rec_temp1 * clk_params->bitclk_mbps),
+			    clk_params->tlpx_numer_ns);
+	rec_temp2 = rec_temp1 - (11 * multiplier);
+	rec_temp3 = roundup((rec_temp2 / 8), multiplier);
+	rec_min = rec_temp3 - (3 * multiplier);
+	t->rec_min =  div_s64(rec_min, multiplier);
+	t->rec_max = ((t->rec_min > 255) ? 511 : 255);
+
+	t->rec = DIV_ROUND_UP(
+			(((t->rec_max - t->rec_min) * clk_params->hs_zero_buf) +
+			 (t->rec_min * 100)),
+			100);
+
+	rc = mdss_dsi_phy_common_validate_and_set(t, "hs_zero");
+	if (rc)
+		goto error;
+
+	pr_debug("HS_ZERO:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->program_value);
+
+error:
+	return rc;
+}
+
+/**
+ * calc_hs_trail - calculates trail timing params for data lanes in HS.
+ */
+static int calc_hs_trail(struct dsi_phy_t_clk_param *clk_params,
+			 struct dsi_phy_timing *desc,
+			 u64 teot_clk_lane)
+{
+	int rc = 0;
+	struct timing_entry *t = &desc->hs_trail;
+	s64 rec_temp1;
+
+	if (!clk_params || !desc) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	t->mipi_min = 60 +
+			mult_frac(clk_params->tlpx_numer_ns, 4,
+				  clk_params->bitclk_mbps);
+
+	t->mipi_max = teot_clk_lane - clk_params->treot_ns;
+
+	t->rec_min = DIV_ROUND_UP(
+		((t->mipi_min * clk_params->bitclk_mbps) +
+		 (3 * clk_params->tlpx_numer_ns)),
+		(8 * clk_params->tlpx_numer_ns));
+
+	rec_temp1 = ((t->mipi_max * clk_params->bitclk_mbps) +
+		     (3 * clk_params->tlpx_numer_ns));
+	t->rec_max = div_s64(rec_temp1, (8 * clk_params->tlpx_numer_ns));
+	rec_temp1 = DIV_ROUND_UP(
+			((t->rec_max - t->rec_min) * clk_params->hs_trail_buf),
+			100);
+	t->rec = rec_temp1 + t->rec_min;
+
+	rc = mdss_dsi_phy_common_validate_and_set(t, "hs_trail");
+	if (rc)
+		goto error;
+
+	pr_debug("HS_TRAIL:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->program_value);
+
+error:
+	return rc;
+}
+
+/**
+ * calc_hs_rqst - calculates rqst timing params for data lanes in HS.
+ */
+static int calc_hs_rqst(struct dsi_phy_t_clk_param *clk_params,
+			struct dsi_phy_timing *desc)
+{
+	int rc = 0;
+	struct timing_entry *t = &desc->hs_rqst;
+
+	if (!clk_params || !desc) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	t->rec = DIV_ROUND_UP(
+		((t->mipi_min * clk_params->bitclk_mbps) -
+		 (8 * clk_params->tlpx_numer_ns)),
+		(8 * clk_params->tlpx_numer_ns));
+
+	rc = mdss_dsi_phy_common_validate_and_set(t, "hs_rqst");
+	if (rc)
+		goto error;
+
+	pr_debug("HS_RQST:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->program_value);
+
+error:
+	return rc;
+}
+
+/**
+ * calc_hs_exit - calculates exit timing params for data lanes in HS.
+ */
+static int calc_hs_exit(struct dsi_phy_t_clk_param *clk_params,
+			struct dsi_phy_timing *desc)
+{
+	int rc = 0;
+	struct timing_entry *t = &desc->hs_exit;
+
+	if (!clk_params || !desc) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	t->rec_min = (DIV_ROUND_UP(
+			(t->mipi_min * clk_params->bitclk_mbps),
+			(8 * clk_params->tlpx_numer_ns)) - 1);
+
+	t->rec = DIV_ROUND_UP(
+		(((t->rec_max - t->rec_min) * clk_params->hs_exit_buf) +
+		 (t->rec_min * 100)),
+		100);
+
+	rc = mdss_dsi_phy_common_validate_and_set(t, "hs_exit");
+	if (rc)
+		goto error;
+
+	pr_debug("HS_EXIT:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->program_value);
+
+error:
+	return rc;
+}
+
+/**
+ * calc_hs_rqst_clk - calculates rqst timing params for clock lane..
+ */
+static int calc_hs_rqst_clk(struct dsi_phy_t_clk_param *clk_params,
+			    struct dsi_phy_timing *desc)
+{
+	int rc = 0;
+	struct timing_entry *t = &desc->hs_rqst_clk;
+
+	if (!clk_params || !desc) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	t->rec = DIV_ROUND_UP(
+		((t->mipi_min * clk_params->bitclk_mbps) -
+		 (8 * clk_params->tlpx_numer_ns)),
+		(8 * clk_params->tlpx_numer_ns));
+
+	rc = mdss_dsi_phy_common_validate_and_set(t, "hs_rqst_clk");
+	if (rc)
+		goto error;
+
+	pr_debug("HS_RQST_CLK:mipi_min=%d, mipi_max=%d, rec_min=%d, rec_max=%d, reg_val=%d\n",
+		 t->mipi_min, t->mipi_max, t->rec_min, t->rec_max,
+		 t->program_value);
+
+error:
+	return rc;
+}
+
+static int mdss_dsi_phy_calc_param_phy_rev_2(
+					struct dsi_phy_t_clk_param *clk_params,
+					struct dsi_phy_timing *desc)
+{
+	int rc = 0;
+	s32 actual_frac = 0;
+	s64 actual_intermediate = 0;
+	u64 temp_multiple;
+	s64 teot_clk_lane;
+
+	if (!clk_params || !desc) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	rc = calc_clk_prepare(clk_params, desc, &actual_frac,
+			      &actual_intermediate);
+	if (rc) {
+		pr_err("clk_prepare calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_clk_zero(clk_params, desc, actual_frac, actual_intermediate);
+	if (rc) {
+		pr_err("clk_zero calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_clk_trail(clk_params, desc, &teot_clk_lane);
+	if (rc) {
+		pr_err("clk_trail calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_hs_prepare(clk_params, desc, &temp_multiple);
+	if (rc) {
+		pr_err("hs_prepare calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_hs_zero(clk_params, desc, temp_multiple);
+	if (rc) {
+		pr_err("hs_zero calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_hs_trail(clk_params, desc, teot_clk_lane);
+	if (rc) {
+		pr_err("hs_trail calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_hs_rqst(clk_params, desc);
+	if (rc) {
+		pr_err("hs_rqst calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_hs_exit(clk_params, desc);
+	if (rc) {
+		pr_err("hs_exit calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = calc_hs_rqst_clk(clk_params, desc);
+	if (rc) {
+		pr_err("hs_rqst_clk calculations failed, rc=%d\n", rc);
+		goto error;
+	}
+error:
+	return rc;
 }
 
 static int mdss_dsi_phy_calc_hs_param_phy_rev_1(
@@ -780,25 +1008,18 @@ int mdss_dsi_phy_calc_timing_param(struct mdss_panel_info *pinfo, u32 phy_rev,
 			hsync_period, vsync_period, inter_num, lane_config);
 	pr_debug("x=%lu, y=%lu, bitrate=%d\n", x, y, t_clk.bitclk_mbps);
 
+	rc = mdss_dsi_phy_initialize_defaults(&t_clk, &t_param, phy_rev);
+	if (rc) {
+		pr_err("phy%d initialization failed\n", phy_rev);
+		goto timing_calc_end;
+	}
+
 	switch (phy_rev) {
 	case DSI_PHY_REV_10:
-		rc = mdss_dsi_phy_initialize_defaults(&t_clk, &t_param,
-				phy_rev);
-		if (rc) {
-			pr_err("phy%d initialization failed\n", phy_rev);
-			goto timing_calc_end;
-		}
-			mdss_dsi_phy_calc_param_phy_rev_1(&t_clk, &t_param);
+		mdss_dsi_phy_calc_param_phy_rev_1(&t_clk, &t_param);
 		mdss_dsi_phy_update_timing_param(pinfo, &t_param);
 		break;
 	case DSI_PHY_REV_20:
-		rc = mdss_dsi_phy_initialize_defaults(&t_clk, &t_param,
-				phy_rev);
-		if (rc) {
-			pr_err("phy%d initialization failed\n", phy_rev);
-			goto timing_calc_end;
-		}
-
 		rc = mdss_dsi_phy_calc_param_phy_rev_2(&t_clk, &t_param);
 		if (rc) {
 			pr_err("Phy timing calculations failed\n");
