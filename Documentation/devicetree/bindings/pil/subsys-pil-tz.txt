@@ -64,6 +64,9 @@ Optional properties:
 - qcom,pil-generic-irq-handler: generic interrupt handler used for communication with subsytem
 				based on bit values in scsr registers.
 - qcom,spss-scsr-bits: array of bit positions into the scsr registers used in generic handler.
+- qcom,complete-ramdump: Boolean. If set, complete ramdump i.e. region between start address of
+			first segment to end address of last segment will be collected without
+			leaving any hole in between.
 
 Example:
 	qcom,venus@fdce0000 {
