@@ -321,12 +321,12 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_video(struct mdss_mdp_prefill_params
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_prefill_data *prefill = &mdata->prefill_data;
-	u32 prefill_bytes;
-	u32 latency_buf_bytes;
+	u32 prefill_bytes = 0;
+	u32 latency_buf_bytes = 0;
 	u32 y_buf_bytes = 0;
 	u32 y_scaler_bytes = 0;
 	u32 pp_bytes = 0, pp_lines = 0;
-	u32 post_scaler_bytes;
+	u32 post_scaler_bytes = 0;
 	u32 fbc_bytes = 0;
 
 	prefill_bytes = prefill->ot_bytes;
@@ -946,7 +946,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	u32 prefill_val = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool apply_fudge = true;
-	struct mdss_mdp_format_params *fmt;
+	struct mdss_mdp_format_params *fmt = NULL;
 
 	BUG_ON(num_pipes > MAX_PIPES_PER_LM);
 
@@ -1526,7 +1526,7 @@ int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 {
 	struct mdss_data_type *mdata = pipe->mixer_left->ctl->mdata;
 	struct mdss_mdp_ctl *ctl = pipe->mixer_left->ctl;
-	u32 vbp_fac, threshold;
+	u32 vbp_fac = 0, threshold = 0;
 	u64 prefill_bw, pipe_bw, max_pipe_bw;
 
 	/* we only need bandwidth check on real-time clients (interfaces) */
@@ -4112,10 +4112,11 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	    (!l_roi->w && !l_roi->h && !r_roi->w && !r_roi->h) ||
 	    !ctl->panel_data->panel_info.partial_update_enabled) {
 
-		if (ctl->mixer_left)
+		if (ctl->mixer_left) {
 			*l_roi = (struct mdss_rect) {0, 0,
-				ctl->mixer_left->width,
-				ctl->mixer_left->height};
+					ctl->mixer_left->width,
+					ctl->mixer_left->height};
+		}
 
 		if (ctl->mixer_right)
 			*r_roi = (struct mdss_rect) {0, 0,
@@ -4134,7 +4135,8 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 
 		if (sctl && sctl->mixer_left) {
 			mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
-			sctl->roi = sctl->mixer_left->roi;
+			if (sctl->mixer_left)
+				sctl->roi = sctl->mixer_left->roi;
 		}
 	} else if (is_dual_lm_single_display(ctl->mfd) && ctl->mixer_right) {
 

@@ -2262,14 +2262,17 @@ static void mdss_mdp_cmd_autorefresh_done(void *arg)
 static u32 get_autorefresh_timeout(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_cmd_ctx *ctx, u32 frame_cnt)
 {
-	struct mdss_mdp_mixer *mixer =
-		mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
+	struct mdss_mdp_mixer *mixer;
 	struct mdss_panel_info *pinfo;
 	u32 line_count;
 	u32 fps, v_total;
 	unsigned long autorefresh_timeout;
 
 	pinfo = &ctl->panel_data->panel_info;
+	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
+
+	if (!mixer || !pinfo)
+		return -EINVAL;
 
 	if (!ctx->ignore_external_te)
 		line_count = ctl->mixer_left->roi.h;
@@ -2799,7 +2802,7 @@ static int mdss_mdp_cmd_stop_sub(struct mdss_mdp_ctl *ctl,
 int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 {
 	struct mdss_mdp_cmd_ctx *ctx = ctl->intf_ctx[MASTER_CTX];
-	struct mdss_mdp_cmd_ctx *sctx;
+	struct mdss_mdp_cmd_ctx *sctx = NULL;
 	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
 	bool panel_off = false;
 	bool turn_off_clocks = false;
