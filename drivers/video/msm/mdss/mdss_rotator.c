@@ -375,7 +375,7 @@ static bool mdss_rotator_is_work_pending(struct mdss_rot_mgr *mgr,
 
 static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 {
-	int ret, fd;
+	int ret = 0, fd;
 	u32 val;
 	struct sync_pt *sync_pt;
 	struct sync_fence *fence;

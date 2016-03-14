@@ -1965,7 +1965,7 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 
 int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 {
-	int rc;
+	int rc = 0;
 	void *vaddr;
 	int domain;
 
