@@ -74,3 +74,5 @@ config BUS_AUTO_SUSPEND
 	  during system pm.
 	  This config flag controls the feature per target based. The feature
 	  requires CNSS driver support.
+
+source "drivers/net/wireless/cnss/logger/Kconfig"
