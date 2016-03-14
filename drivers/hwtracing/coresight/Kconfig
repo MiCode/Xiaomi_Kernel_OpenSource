@@ -71,6 +71,22 @@ config CORESIGHT_SOURCE_ETM4X
 	  for instruction level tracing. Depending on the implemented version
 	  data tracing may also be available.
 
+config CORESIGHT_REMOTE_ETM
+	bool "Remote processor ETM trace support"
+	depends on MSM_QMI_INTERFACE
+	help
+	  Enables support for ETM trace collection on remote processor using
+	  CoreSight framework. Enabling this will allow turning on ETM
+	  tracing on remote processor via sysfs by configuring the required
+	  CoreSight components.
+
+config CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
+	int "default enable ETM for Remote processor based on instance id"
+	depends on CORESIGHT_REMOTE_ETM
+	help
+	  Support for enabling separated Remote processor ETM tracing. Depends
+	  on if instance id bit is set.
+
 config CORESIGHT_QCOM_REPLICATOR
 	bool "Qualcomm CoreSight Replicator driver"
 	depends on CORESIGHT_LINKS_AND_SINKS
