@@ -1,0 +1,179 @@
+Qualcomm Techonologies, Inc. QPNP PMIC Fuel Gauge Gen3 Device
+
+QPNP PMIC FG Gen3 device provides interface to the clients to read properties
+related to the battery. Its main function is to retrieve the State of Charge
+(SOC), in percentage scale representing the amount of charge left in the
+battery.
+
+=======================
+Required Node Structure
+=======================
+
+FG Gen3 device must be described in two levels of device nodes.  The first
+level describes the FG Gen3 device.  The second level describes one or more
+peripherals managed by FG Gen3 driver. All the peripheral specific parameters
+such as base address, interrupts etc., should be under second level node.
+
+====================================
+First Level Node - FG Gen3 device
+====================================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: Should be "qcom,fg-gen3".
+
+- qcom,pmic-revid
+	Usage:      required
+	Value type: <phandle>
+	Definition: Should specify the phandle of PMIC revid module. This is
+		    used to identify the PMIC subtype.
+
+- io-channels
+- io-channel-names
+	Usage:      required
+	Value type: <phandle>
+	Definition: For details about IIO bindings see:
+		    Documentation/devicetree/bindings/iio/iio-bindings.txt
+
+- qcom,fg-cutoff-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage (in mV) where the fuel gauge will steer the SOC
+		    to be zero. For example, if the cutoff voltage is set to
+		    3400mv, the fuel gauge will try to count SoC so that the
+		    battery SOC will be 0 when it is 3400mV. If this property
+		    is not specified, then the default value used will be
+		    3200mV.
+
+- qcom,fg-empty-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage threshold (in mV) based on which the empty soc
+		    interrupt will be triggered. When the empty soc interrupt
+		    fires, battery soc will be set to 0 and the userspace will
+		    be notified via the power supply framework. The userspace
+		    will read 0% soc and immediately shutdown. If this property
+		    is not specified, then the default value used will be
+		    3100mV.
+
+- qcom,fg-vbatt-low-thr
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage threshold (in mV) which upon set will be used
+		    for configuring the low battery voltage threshold.
+
+- qcom,fg-chg-term-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery current (in mA) at which the fuel gauge will issue
+		    an end of charge if the charger is configured to use the
+		    fuel gauge ADC for end of charge detection. If this
+		    property is not specified, then the default value used
+		    will be 100mA.
+
+- qcom,fg-sys-term-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery current (in mA) at which the fuel gauge will try to
+		    scale towards 100%. When the charge current goes above this
+		    the SOC should be at 100%. If this property is not
+		    specified, then the default value used will be 125mA.
+
+- qcom,fg-delta-soc-thr
+	Usage:      optional
+	Value type: <u32>
+	Definition: Percentage of monotonic SOC increase upon which the delta
+		    SOC interrupt will be triggered. If this property is not
+		    specified, then the default value will be 1.
+
+- qcom,fg-recharge-soc-thr
+	Usage:      optional
+	Value type: <u32>
+	Definition: Percentage of monotonic SOC upon which the charging will
+		    will be resumed once the charging is complete. If this
+		    property is not specified, then the default value will be
+		    95.
+
+- qcom,fg-rsense-sel
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the source of sense resistor.
+		    Allowed values are:
+		    0 - Rsense is from Battery FET
+		    1 - Rsense is external
+		    2 - Rsense is Battery FET and SMB
+		    Option 2 can be used only when a parallel charger is
+		    present. If this property is not specified, then the
+		    default value will be 2.
+
+- qcom,fg-jeita-thresholds
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which holds the jeita thresholds (degC)
+		    in the following order. Allowed size is 4.
+		    Element 0 - JEITA cold threshold
+		    Element 1 - JEITA cool threshold
+		    Element 2 - JEITA warm threshold
+		    Element 3 - JEITA hot threshold
+		    If these parameters are not specified, then the default
+		    values used will be 0, 5, 45, 50.
+
+==========================================================
+Second Level Nodes - Peripherals managed by FG Gen3 driver
+==========================================================
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Addresses and sizes for the specified peripheral
+
+- interrupts
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Interrupt mapping as per the interrupt encoding
+
+- interrupt-names
+	Usage:      optional
+	Value type: <stringlist>
+	Definition: Interrupt names.  This list must match up 1-to-1 with the
+		    interrupts specified in the 'interrupts' property.
+
+========
+Example
+========
+
+pmicobalt_fg: qpnp,fg {
+	compatible = "qcom,fg-gen3";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	qcom,pmic-revid = <&pmicobalt_revid>;
+	io-channels = <&pmicobalt_rradc 3>;
+	io-channel-names = "rradc_batt_id";
+	status = "okay";
+
+	qcom,fg-batt-soc@4000 {
+		status = "okay";
+		reg = <0x4000 0x100>;
+		interrupts = <0x2 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x40 0x2 IRQ_TYPE_EDGE_BOTH>,
+			     <0x2 0x40 0x3 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "soc-update",
+				  "soc-ready",
+				  "bsoc-delta",
+				  "msoc-delta";
+
+	};
+
+	qcom,fg-batt-info@4100 {
+		status = "okay";
+		reg = <0x4100 0x100>;
+		interrupts = <0x2 0x41 0x3 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "batt-missing";
+	};
+
+	qcom,fg-memif@4400 {
+		status = "okay";
+		reg = <0x4400 0x100>;
+	};
+};
