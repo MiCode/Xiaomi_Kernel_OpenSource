@@ -653,7 +653,7 @@ static void armv8pmu_read_num_pmnc_events(void *info)
 	*nb_cnt += 1;
 }
 
-static int armv8pmu_probe_num_events(struct arm_pmu *arm_pmu)
+int armv8pmu_probe_num_events(struct arm_pmu *arm_pmu)
 {
 	return smp_call_function_any(&arm_pmu->supported_cpus,
 				    armv8pmu_read_num_pmnc_events,

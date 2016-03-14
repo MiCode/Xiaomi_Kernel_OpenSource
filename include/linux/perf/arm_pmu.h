@@ -174,6 +174,7 @@ int armv8pmu_disable_counter(int idx);
 u32 armv8pmu_getreset_flags(void);
 void armv8pmu_pmcr_write(u32 val);
 void armv8pmu_write_evtype(int idx, u32 val);
+int armv8pmu_probe_num_events(struct arm_pmu *arm_pmu);
 
 int kryo_pmu_init(struct arm_pmu *cpu_pmu);
 
