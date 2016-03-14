@@ -73,12 +73,12 @@ void rndis_ipa_cleanup(void *private);
 
 #else /* CONFIG_RNDIS_IPA*/
 
-int rndis_ipa_init(struct ipa_usb_init_params *params)
+static inline int rndis_ipa_init(struct ipa_usb_init_params *params)
 {
 	return 0;
 }
 
-int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
+static inline int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 			u32 ipa_to_usb_hdl,
 			u32 max_xfer_size_bytes_to_dev,
 			u32 max_packet_number_to_dev,

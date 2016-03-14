@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rbtree.h>
+#include <linux/of_gpio.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
 #include <linux/msm-bus.h>
@@ -32,8 +33,19 @@
 #include <linux/delay.h>
 #include <linux/msm_gsi.h>
 #include <linux/qcom_iommu.h>
+#include <linux/time.h>
+#include <linux/hashtable.h>
+#include <linux/hash.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
+#include "ipahal/ipahal.h"
+
+#define CREATE_TRACE_POINTS
+#include "ipa_trace.h"
+
+#define IPA_GPIO_IN_QUERY_CLK_IDX 0
+#define IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX 0
+#define IPA_GPIO_OUT_CLK_VOTE_IDX 1
 
 #define IPA_SUMMING_THRESHOLD (0x10)
 #define IPA_PIPE_MEM_START_OFST (0x0)
@@ -52,6 +64,15 @@
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
 #define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
+
+#define IPA_IPC_LOG_PAGES 50
+
+#define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
+
+#define IPA3_ACTIVE_CLIENT_LOG_TYPE_EP 0
+#define IPA3_ACTIVE_CLIENT_LOG_TYPE_SIMPLE 1
+#define IPA3_ACTIVE_CLIENT_LOG_TYPE_RESOURCE 2
+#define IPA3_ACTIVE_CLIENT_LOG_TYPE_SPECIAL 3
 
 /* The relative location in /lib/firmware where the FWs will reside */
 #define IPA_FWS_PATH "ipa/ipa_fws.elf"
@@ -194,6 +215,236 @@ static bool smmu_present;
 static bool arm_smmu;
 static bool smmu_disable_htw;
 
+static char *active_clients_table_buf;
+
+const char *ipa3_clients_strings[IPA_CLIENT_MAX] = {
+	__stringify(IPA_CLIENT_HSIC1_PROD),
+	__stringify(IPA_CLIENT_WLAN1_PROD),
+	__stringify(IPA_CLIENT_USB2_PROD),
+	__stringify(IPA_CLIENT_HSIC3_PROD),
+	__stringify(IPA_CLIENT_HSIC2_PROD),
+	__stringify(IPA_CLIENT_USB3_PROD),
+	__stringify(IPA_CLIENT_HSIC4_PROD),
+	__stringify(IPA_CLIENT_USB4_PROD),
+	__stringify(IPA_CLIENT_HSIC5_PROD),
+	__stringify(IPA_CLIENT_USB_PROD),
+	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
+	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
+	__stringify(IPA_CLIENT_APPS_LAN_WAN_PROD),
+	__stringify(IPA_CLIENT_APPS_CMD_PROD),
+	__stringify(IPA_CLIENT_ODU_PROD),
+	__stringify(IPA_CLIENT_MHI_PROD),
+	__stringify(IPA_CLIENT_Q6_LAN_PROD),
+	__stringify(IPA_CLIENT_Q6_WAN_PROD),
+	__stringify(IPA_CLIENT_Q6_CMD_PROD),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD),
+	__stringify(IPA_CLIENT_Q6_DECOMP_PROD),
+	__stringify(IPA_CLIENT_Q6_DECOMP2_PROD),
+	__stringify(IPA_CLIENT_UC_USB_PROD),
+
+	/* Below PROD client type is only for test purpose */
+	__stringify(IPA_CLIENT_TEST_PROD),
+	__stringify(IPA_CLIENT_TEST1_PROD),
+	__stringify(IPA_CLIENT_TEST2_PROD),
+	__stringify(IPA_CLIENT_TEST3_PROD),
+	__stringify(IPA_CLIENT_TEST4_PROD),
+
+	__stringify(IPA_CLIENT_HSIC1_CONS),
+	__stringify(IPA_CLIENT_WLAN1_CONS),
+	__stringify(IPA_CLIENT_HSIC2_CONS),
+	__stringify(IPA_CLIENT_USB2_CONS),
+	__stringify(IPA_CLIENT_WLAN2_CONS),
+	__stringify(IPA_CLIENT_HSIC3_CONS),
+	__stringify(IPA_CLIENT_USB3_CONS),
+	__stringify(IPA_CLIENT_WLAN3_CONS),
+	__stringify(IPA_CLIENT_HSIC4_CONS),
+	__stringify(IPA_CLIENT_USB4_CONS),
+	__stringify(IPA_CLIENT_WLAN4_CONS),
+	__stringify(IPA_CLIENT_HSIC5_CONS),
+	__stringify(IPA_CLIENT_USB_CONS),
+	__stringify(IPA_CLIENT_USB_DPL_CONS),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_CONS),
+	__stringify(IPA_CLIENT_A2_TETHERED_CONS),
+	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
+	__stringify(IPA_CLIENT_APPS_LAN_CONS),
+	__stringify(IPA_CLIENT_APPS_WAN_CONS),
+	__stringify(IPA_CLIENT_ODU_EMB_CONS),
+	__stringify(IPA_CLIENT_ODU_TETH_CONS),
+	__stringify(IPA_CLIENT_MHI_CONS),
+	__stringify(IPA_CLIENT_Q6_LAN_CONS),
+	__stringify(IPA_CLIENT_Q6_WAN_CONS),
+	__stringify(IPA_CLIENT_Q6_DUN_CONS),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS),
+	__stringify(IPA_CLIENT_Q6_DECOMP_CONS),
+	__stringify(IPA_CLIENT_Q6_DECOMP2_CONS),
+	__stringify(IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS),
+	/* Below CONS client type is only for test purpose */
+	__stringify(IPA_CLIENT_TEST_CONS),
+	__stringify(IPA_CLIENT_TEST1_CONS),
+	__stringify(IPA_CLIENT_TEST2_CONS),
+	__stringify(IPA_CLIENT_TEST3_CONS),
+	__stringify(IPA_CLIENT_TEST4_CONS),
+};
+
+int ipa3_active_clients_log_print_buffer(char *buf, int size)
+{
+	int i;
+	int nbytes;
+	int cnt = 0;
+	int start_idx;
+	int end_idx;
+
+	start_idx = (ipa3_ctx->ipa3_active_clients_logging.log_tail + 1) %
+			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
+	end_idx = ipa3_ctx->ipa3_active_clients_logging.log_head;
+	for (i = start_idx; i != end_idx;
+		i = (i + 1) % IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES) {
+		nbytes = scnprintf(buf + cnt, size - cnt, "%s\n",
+				ipa3_ctx->ipa3_active_clients_logging
+				.log_buffer[i]);
+		cnt += nbytes;
+	}
+
+	return cnt;
+}
+
+int ipa3_active_clients_log_print_table(char *buf, int size)
+{
+	int i;
+	struct ipa3_active_client_htable_entry *iterator;
+	int cnt = 0;
+
+	cnt = scnprintf(buf, size, "\n---- Active Clients Table ----\n");
+	hash_for_each(ipa3_ctx->ipa3_active_clients_logging.htable, i,
+			iterator, list) {
+		switch (iterator->type) {
+		case IPA3_ACTIVE_CLIENT_LOG_TYPE_EP:
+			cnt += scnprintf(buf + cnt, size - cnt,
+					"%-40s %-3d ENDPOINT\n",
+					iterator->id_string, iterator->count);
+			break;
+		case IPA3_ACTIVE_CLIENT_LOG_TYPE_SIMPLE:
+			cnt += scnprintf(buf + cnt, size - cnt,
+					"%-40s %-3d SIMPLE\n",
+					iterator->id_string, iterator->count);
+			break;
+		case IPA3_ACTIVE_CLIENT_LOG_TYPE_RESOURCE:
+			cnt += scnprintf(buf + cnt, size - cnt,
+					"%-40s %-3d RESOURCE\n",
+					iterator->id_string, iterator->count);
+			break;
+		case IPA3_ACTIVE_CLIENT_LOG_TYPE_SPECIAL:
+			cnt += scnprintf(buf + cnt, size - cnt,
+					"%-40s %-3d SPECIAL\n",
+					iterator->id_string, iterator->count);
+			break;
+		default:
+			IPAERR("Trying to print illegal active_clients type");
+			break;
+		}
+	}
+	cnt += scnprintf(buf + cnt, size - cnt,
+			"\nTotal active clients count: %d\n",
+			ipa3_ctx->ipa3_active_clients.cnt);
+
+	return cnt;
+}
+
+static int ipa3_active_clients_panic_notifier(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	ipa3_active_clients_lock();
+	ipa3_active_clients_log_print_table(active_clients_table_buf,
+			IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE);
+	IPAERR("%s", active_clients_table_buf);
+	ipa3_active_clients_unlock();
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ipa3_active_clients_panic_blk = {
+	.notifier_call  = ipa3_active_clients_panic_notifier,
+};
+
+static int ipa3_active_clients_log_insert(const char *string)
+{
+	int head;
+	int tail;
+
+	if (!ipa3_ctx->ipa3_active_clients_logging.log_rdy)
+		return -EPERM;
+
+	head = ipa3_ctx->ipa3_active_clients_logging.log_head;
+	tail = ipa3_ctx->ipa3_active_clients_logging.log_tail;
+
+	memset(ipa3_ctx->ipa3_active_clients_logging.log_buffer[head], '_',
+			IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN);
+	strlcpy(ipa3_ctx->ipa3_active_clients_logging.log_buffer[head], string,
+			(size_t)IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN);
+	head = (head + 1) % IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
+	if (tail == head)
+		tail = (tail + 1) % IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
+
+	ipa3_ctx->ipa3_active_clients_logging.log_tail = tail;
+	ipa3_ctx->ipa3_active_clients_logging.log_head = head;
+
+	return 0;
+}
+
+static int ipa3_active_clients_log_init(void)
+{
+	int i;
+
+	ipa3_ctx->ipa3_active_clients_logging.log_buffer[0] = kzalloc(
+			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES *
+			sizeof(char[IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN]),
+			GFP_KERNEL);
+	active_clients_table_buf = kzalloc(sizeof(
+			char[IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE]), GFP_KERNEL);
+	if (ipa3_ctx->ipa3_active_clients_logging.log_buffer == NULL) {
+		pr_err("Active Clients Logging memory allocation failed");
+		goto bail;
+	}
+	for (i = 0; i < IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES; i++) {
+		ipa3_ctx->ipa3_active_clients_logging.log_buffer[i] =
+			ipa3_ctx->ipa3_active_clients_logging.log_buffer[0] +
+			(IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN * i);
+	}
+	ipa3_ctx->ipa3_active_clients_logging.log_head = 0;
+	ipa3_ctx->ipa3_active_clients_logging.log_tail =
+			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES - 1;
+	hash_init(ipa3_ctx->ipa3_active_clients_logging.htable);
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&ipa3_active_clients_panic_blk);
+	ipa3_ctx->ipa3_active_clients_logging.log_rdy = 1;
+
+	return 0;
+
+bail:
+	return -ENOMEM;
+}
+
+void ipa3_active_clients_log_clear(void)
+{
+	ipa3_active_clients_lock();
+	ipa3_ctx->ipa3_active_clients_logging.log_head = 0;
+	ipa3_ctx->ipa3_active_clients_logging.log_tail =
+			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES - 1;
+	ipa3_active_clients_unlock();
+}
+
+static void ipa3_active_clients_log_destroy(void)
+{
+	ipa3_ctx->ipa3_active_clients_logging.log_rdy = 0;
+	kfree(ipa3_ctx->ipa3_active_clients_logging.log_buffer[0]);
+	ipa3_ctx->ipa3_active_clients_logging.log_head = 0;
+	ipa3_ctx->ipa3_active_clients_logging.log_tail =
+			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES - 1;
+}
+
 enum ipa_smmu_cb_type {
 	IPA_SMMU_CB_AP,
 	IPA_SMMU_CB_WLAN,
@@ -255,7 +506,7 @@ static int ipa3_open(struct inode *inode, struct file *filp)
 {
 	struct ipa3_context *ctx = NULL;
 
-	IPADBG("ENTER\n");
+	IPADBG_LOW("ENTER\n");
 	ctx = container_of(inode->i_cdev, struct ipa3_context, cdev);
 	filp->private_data = ctx;
 
@@ -392,7 +643,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (_IOC_NR(cmd) >= IPA_IOCTL_MAX)
 		return -ENOTTY;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	switch (cmd) {
 	case IPA_IOC_ALLOC_NAT_MEM:
@@ -1157,12 +1408,11 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	default:        /* redundant, as cmd was checked against MAXNR */
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
 	}
 	kfree(param);
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return retval;
 }
@@ -1233,7 +1483,7 @@ static int ipa3_setup_exception_path(void)
 {
 	struct ipa_ioc_add_hdr *hdr;
 	struct ipa_hdr_add *hdr_entry;
-	struct ipa3_route route = { 0 };
+	struct ipahal_reg_route route = { 0 };
 	int ret;
 
 	/* install the basic exception header */
@@ -1286,7 +1536,8 @@ bail:
 static int ipa3_init_smem_region(int memory_region_size,
 				int memory_region_offset)
 {
-	struct ipa3_hw_imm_cmd_dma_shared_mem cmd;
+	struct ipahal_imm_cmd_dma_shared_mem cmd;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipa3_desc desc;
 	struct ipa3_mem_buffer mem;
 	int rc;
@@ -1307,15 +1558,22 @@ static int ipa3_init_smem_region(int memory_region_size,
 	}
 
 	memset(mem.base, 0, mem.size);
-	cmd.skip_pipeline_clear = 0;
-	cmd.pipeline_clear_options = IPA_HPS_CLEAR;
+	cmd.is_read = false;
+	cmd.skip_pipeline_clear = false;
+	cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
 	cmd.size = mem.size;
 	cmd.system_addr = mem.phys_base;
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 		memory_region_offset;
-	desc.opcode = IPA_DMA_SHARED_MEM;
-	desc.pyld = &cmd;
-	desc.len = sizeof(cmd);
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct dma_shared_mem imm cmd\n");
+		return -ENOMEM;
+	}
+	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	desc.type = IPA_IMM_CMD_DESC;
 
 	rc = ipa3_send_cmd(1, &desc);
@@ -1324,6 +1582,7 @@ static int ipa3_init_smem_region(int memory_region_size,
 		rc = -EFAULT;
 	}
 
+	ipahal_destroy_imm_cmd(cmd_pyld);
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
 		mem.phys_base);
 
@@ -1343,13 +1602,13 @@ int ipa3_init_q6_smem(void)
 {
 	int rc;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	rc = ipa3_init_smem_region(IPA_MEM_PART(modem_size),
 		IPA_MEM_PART(modem_ofst));
 	if (rc) {
 		IPAERR("failed to initialize Modem RAM memory\n");
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return rc;
 	}
 
@@ -1357,7 +1616,7 @@ int ipa3_init_q6_smem(void)
 		IPA_MEM_PART(modem_hdr_ofst));
 	if (rc) {
 		IPAERR("failed to initialize Modem HDRs RAM memory\n");
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return rc;
 	}
 
@@ -1365,7 +1624,7 @@ int ipa3_init_q6_smem(void)
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst));
 	if (rc) {
 		IPAERR("failed to initialize Modem proc ctx RAM memory\n");
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return rc;
 	}
 
@@ -1373,38 +1632,36 @@ int ipa3_init_q6_smem(void)
 		IPA_MEM_PART(modem_comp_decomp_ofst));
 	if (rc) {
 		IPAERR("failed to initialize Modem Comp/Decomp RAM memory\n");
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return rc;
 	}
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return rc;
 }
 
-static void ipa3_free_buffer(void *user1, int user2)
+static void ipa3_destroy_imm(void *user1, int user2)
 {
-	kfree(user1);
+	ipahal_destroy_imm_cmd(user1);
 }
 
 static int ipa3_q6_pipe_delay(void)
 {
-	u32 reg_val = 0;
 	int client_idx;
 	int ep_idx;
+	struct ipa_ep_cfg_ctrl ep_ctrl;
 
+	memset(&ep_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
 			ep_idx = ipa3_get_ep_mapping(client_idx);
 			if (ep_idx == -1)
 				continue;
 
-			IPA_SETFIELD_IN_REG(reg_val, 1,
-				IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_SHFT,
-				IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_BMSK);
+			ep_ctrl.ipa_ep_delay = 1;
 
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_ENDP_INIT_CTRL_N_OFST(ep_idx), reg_val);
+			ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n,
+				ep_idx, &ep_ctrl);
 		}
 	}
 
@@ -1413,12 +1670,13 @@ static int ipa3_q6_pipe_delay(void)
 
 static int ipa3_q6_avoid_holb(void)
 {
-	u32 reg_val;
 	int ep_idx;
 	int client_idx;
 	struct ipa_ep_cfg_ctrl avoid_holb;
+	struct ipa_ep_cfg_holb ep_holb;
 
 	memset(&avoid_holb, 0, sizeof(avoid_holb));
+	memset(&ep_holb, 0, sizeof(ep_holb));
 	avoid_holb.ipa_ep_suspend = true;
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
@@ -1433,23 +1691,14 @@ static int ipa3_q6_avoid_holb(void)
 			 * they are not valid, therefore, the above function
 			 * will fail.
 			 */
-			reg_val = 0;
-			IPA_SETFIELD_IN_REG(reg_val, 0,
-				IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_TIMER_SHFT,
-				IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_TIMER_BMSK);
-
-			ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v3_0(ep_idx),
-				reg_val);
-
-			reg_val = 0;
-			IPA_SETFIELD_IN_REG(reg_val, 1,
-				IPA_ENDP_INIT_HOL_BLOCK_EN_N_EN_SHFT,
-				IPA_ENDP_INIT_HOL_BLOCK_EN_N_EN_BMSK);
-
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v3_0(ep_idx),
-				reg_val);
+			ep_holb.tmr_val = 0;
+			ep_holb.en = 1;
+			ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
+				ep_idx, &ep_holb);
+			ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_HOL_BLOCK_EN_n,
+				ep_idx, &ep_holb);
 
 			ipa3_cfg_ep_ctrl(ep_idx, &avoid_holb);
 		}
@@ -1481,7 +1730,8 @@ static u32 ipa3_get_max_flt_rt_cmds(u32 num_pipes)
 static int ipa3_q6_clean_q6_tables(void)
 {
 	struct ipa3_desc *desc;
-	struct ipa3_hw_imm_cmd_dma_shared_mem *cmd = NULL;
+	struct ipahal_imm_cmd_dma_shared_mem cmd;
+	struct ipahal_imm_cmd_pyld **cmd_pyld;
 	int pipe_idx;
 	int num_cmds = 0;
 	int index;
@@ -1509,9 +1759,9 @@ static int ipa3_q6_clean_q6_tables(void)
 		goto bail_dma;
 	}
 
-	cmd = kcalloc(max_cmds, sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem),
+	cmd_pyld = kcalloc(max_cmds, sizeof(struct ipahal_imm_cmd_pyld *),
 		GFP_KERNEL);
-	if (!cmd) {
+	if (!cmd_pyld) {
 		IPAERR("failed to allocate memory\n");
 		retval = -ENOMEM;
 		goto bail_desc;
@@ -1531,37 +1781,53 @@ static int ipa3_q6_clean_q6_tables(void)
 			 * Need to point v4 and v6 hash fltr tables to an
 			 * empty table
 			 */
-			cmd[num_cmds].skip_pipeline_clear = 0;
-			cmd[num_cmds].pipeline_clear_options =
-				IPA_FULL_PIPELINE_CLEAR;
-			cmd[num_cmds].size = mem.size;
-			cmd[num_cmds].system_addr = mem.phys_base;
-			cmd[num_cmds].local_addr =
+			cmd.is_read = false;
+			cmd.skip_pipeline_clear = 0;
+			cmd.pipeline_clear_options =
+				IPAHAL_FULL_PIPELINE_CLEAR;
+			cmd.size = mem.size;
+			cmd.system_addr = mem.phys_base;
+			cmd.local_addr =
 				ipa3_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(v4_flt_hash_ofst) +
 				IPA_HW_TBL_HDR_WIDTH +
 				flt_idx * IPA_HW_TBL_HDR_WIDTH;
-
-			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
-			desc[num_cmds].pyld = &cmd[num_cmds];
-			desc[num_cmds].len = sizeof(*cmd);
+			cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+			if (!cmd_pyld[num_cmds]) {
+				IPAERR("fail construct dma_shared_mem cmd\n");
+				retval = -ENOMEM;
+				goto bail_cmd;
+			}
+			desc[num_cmds].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+			desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 			desc[num_cmds].type = IPA_IMM_CMD_DESC;
 			num_cmds++;
 
-			cmd[num_cmds].skip_pipeline_clear = 0;
-			cmd[num_cmds].pipeline_clear_options =
-				IPA_FULL_PIPELINE_CLEAR;
-			cmd[num_cmds].size = mem.size;
-			cmd[num_cmds].system_addr =  mem.phys_base;
-			cmd[num_cmds].local_addr =
+			cmd.is_read = false;
+			cmd.skip_pipeline_clear = false;
+			cmd.pipeline_clear_options =
+				IPAHAL_FULL_PIPELINE_CLEAR;
+			cmd.size = mem.size;
+			cmd.system_addr =  mem.phys_base;
+			cmd.local_addr =
 				ipa3_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(v6_flt_hash_ofst) +
 				IPA_HW_TBL_HDR_WIDTH +
 				flt_idx * IPA_HW_TBL_HDR_WIDTH;
-
-			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
-			desc[num_cmds].pyld = &cmd[num_cmds];
-			desc[num_cmds].len = sizeof(*cmd);
+			cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+			if (!cmd_pyld[num_cmds]) {
+				IPAERR("fail construct dma_shared_mem cmd\n");
+				retval = -ENOMEM;
+				goto bail_cmd;
+			}
+			desc[num_cmds].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+			desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 			desc[num_cmds].type = IPA_IMM_CMD_DESC;
 			num_cmds++;
 
@@ -1569,37 +1835,53 @@ static int ipa3_q6_clean_q6_tables(void)
 			 * Need to point v4 and v6 non-hash fltr tables to an
 			 * empty table
 			 */
-			cmd[num_cmds].skip_pipeline_clear = 0;
-			cmd[num_cmds].pipeline_clear_options =
-				IPA_FULL_PIPELINE_CLEAR;
-			cmd[num_cmds].size = mem.size;
-			cmd[num_cmds].system_addr = mem.phys_base;
-			cmd[num_cmds].local_addr =
+			cmd.is_read = false;
+			cmd.skip_pipeline_clear = false;
+			cmd.pipeline_clear_options =
+				IPAHAL_FULL_PIPELINE_CLEAR;
+			cmd.size = mem.size;
+			cmd.system_addr = mem.phys_base;
+			cmd.local_addr =
 				ipa3_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(v4_flt_nhash_ofst) +
 				IPA_HW_TBL_HDR_WIDTH +
 				flt_idx * IPA_HW_TBL_HDR_WIDTH;
-
-			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
-			desc[num_cmds].pyld = &cmd[num_cmds];
-			desc[num_cmds].len = sizeof(*cmd);
+			cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+			if (!cmd_pyld[num_cmds]) {
+				IPAERR("fail construct dma_shared_mem cmd\n");
+				retval = -ENOMEM;
+				goto bail_cmd;
+			}
+			desc[num_cmds].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+			desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 			desc[num_cmds].type = IPA_IMM_CMD_DESC;
 			num_cmds++;
 
-			cmd[num_cmds].skip_pipeline_clear = 0;
-			cmd[num_cmds].pipeline_clear_options =
-				IPA_FULL_PIPELINE_CLEAR;
-			cmd[num_cmds].size = mem.size;
-			cmd[num_cmds].system_addr =  mem.phys_base;
-			cmd[num_cmds].local_addr =
+			cmd.is_read = false;
+			cmd.skip_pipeline_clear = 0;
+			cmd.pipeline_clear_options =
+				IPAHAL_FULL_PIPELINE_CLEAR;
+			cmd.size = mem.size;
+			cmd.system_addr =  mem.phys_base;
+			cmd.local_addr =
 				ipa3_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(v6_flt_nhash_ofst) +
 				IPA_HW_TBL_HDR_WIDTH +
 				flt_idx * IPA_HW_TBL_HDR_WIDTH;
-
-			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
-			desc[num_cmds].pyld = &cmd[num_cmds];
-			desc[num_cmds].len = sizeof(*cmd);
+			cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+			if (!cmd_pyld[num_cmds]) {
+				IPAERR("fail construct dma_shared_mem cmd\n");
+				retval = -ENOMEM;
+				goto bail_cmd;
+			}
+			desc[num_cmds].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+			desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 			desc[num_cmds].type = IPA_IMM_CMD_DESC;
 			num_cmds++;
 		}
@@ -1611,33 +1893,47 @@ static int ipa3_q6_clean_q6_tables(void)
 	for (index = IPA_MEM_PART(v4_modem_rt_index_lo);
 		 index <= IPA_MEM_PART(v4_modem_rt_index_hi);
 		 index++) {
-		cmd[num_cmds].skip_pipeline_clear = 0;
-		cmd[num_cmds].pipeline_clear_options =
-			IPA_FULL_PIPELINE_CLEAR;
-		cmd[num_cmds].size = mem.size;
-		cmd[num_cmds].system_addr =  mem.phys_base;
-		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
+		cmd.is_read = false;
+		cmd.skip_pipeline_clear = false;
+		cmd.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
+		cmd.size = mem.size;
+		cmd.system_addr =  mem.phys_base;
+		cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 			IPA_MEM_PART(v4_rt_hash_ofst) +
 			index * IPA_HW_TBL_HDR_WIDTH;
-
-		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
-		desc[num_cmds].pyld = &cmd[num_cmds];
-		desc[num_cmds].len = sizeof(*cmd);
+		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+		if (!cmd_pyld[num_cmds]) {
+			IPAERR("failed to construct dma_shared_mem imm cmd\n");
+			retval = -ENOMEM;
+			goto bail_cmd;
+		}
+		desc[num_cmds].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+		desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 		desc[num_cmds].type = IPA_IMM_CMD_DESC;
 		num_cmds++;
 
-		cmd[num_cmds].skip_pipeline_clear = 0;
-		cmd[num_cmds].pipeline_clear_options =
-			IPA_FULL_PIPELINE_CLEAR;
-		cmd[num_cmds].size = mem.size;
-		cmd[num_cmds].system_addr =  mem.phys_base;
-		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
+		cmd.is_read = false;
+		cmd.skip_pipeline_clear = false;
+		cmd.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
+		cmd.size = mem.size;
+		cmd.system_addr =  mem.phys_base;
+		cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 			IPA_MEM_PART(v4_rt_nhash_ofst) +
 			index * IPA_HW_TBL_HDR_WIDTH;
-
-		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
-		desc[num_cmds].pyld = &cmd[num_cmds];
-		desc[num_cmds].len = sizeof(*cmd);
+		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+		if (!cmd_pyld[num_cmds]) {
+			IPAERR("failed to construct dma_shared_mem imm cmd\n");
+			retval = -ENOMEM;
+			goto bail_cmd;
+		}
+		desc[num_cmds].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+		desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 		desc[num_cmds].type = IPA_IMM_CMD_DESC;
 		num_cmds++;
 	}
@@ -1645,74 +1941,83 @@ static int ipa3_q6_clean_q6_tables(void)
 	for (index = IPA_MEM_PART(v6_modem_rt_index_lo);
 		 index <= IPA_MEM_PART(v6_modem_rt_index_hi);
 		 index++) {
-		cmd[num_cmds].skip_pipeline_clear = 0;
-		cmd[num_cmds].pipeline_clear_options =
-			IPA_FULL_PIPELINE_CLEAR;
-		cmd[num_cmds].size = mem.size;
-		cmd[num_cmds].system_addr =  mem.phys_base;
-		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
+		cmd.is_read = false;
+		cmd.skip_pipeline_clear = false;
+		cmd.pipeline_clear_options =
+			IPAHAL_FULL_PIPELINE_CLEAR;
+		cmd.size = mem.size;
+		cmd.system_addr =  mem.phys_base;
+		cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 			IPA_MEM_PART(v6_rt_hash_ofst) +
 			index * IPA_HW_TBL_HDR_WIDTH;
-
-		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
-		desc[num_cmds].pyld = &cmd[num_cmds];
-		desc[num_cmds].len = sizeof(*cmd);
+		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+		if (!cmd_pyld[num_cmds]) {
+			IPAERR("failed to construct dma_shared_mem imm cmd\n");
+			retval = -ENOMEM;
+			goto bail_cmd;
+		}
+		desc[num_cmds].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+		desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 		desc[num_cmds].type = IPA_IMM_CMD_DESC;
 		num_cmds++;
 
-		cmd[num_cmds].skip_pipeline_clear = 0;
-		cmd[num_cmds].pipeline_clear_options =
-			IPA_FULL_PIPELINE_CLEAR;
-		cmd[num_cmds].size = mem.size;
-		cmd[num_cmds].system_addr =  mem.phys_base;
-		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
+		cmd.is_read = false;
+		cmd.skip_pipeline_clear = false;
+		cmd.pipeline_clear_options =
+			IPAHAL_FULL_PIPELINE_CLEAR;
+		cmd.size = mem.size;
+		cmd.system_addr =  mem.phys_base;
+		cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 			IPA_MEM_PART(v6_rt_nhash_ofst) +
 			index * IPA_HW_TBL_HDR_WIDTH;
-
-		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
-		desc[num_cmds].pyld = &cmd[num_cmds];
-		desc[num_cmds].len = sizeof(*cmd);
+		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
+		if (!cmd_pyld[num_cmds]) {
+			IPAERR("failed to construct dma_shared_mem imm cmd\n");
+			retval = -ENOMEM;
+			goto bail_cmd;
+		}
+		desc[num_cmds].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+		desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 		desc[num_cmds].type = IPA_IMM_CMD_DESC;
 		num_cmds++;
 	}
 
 	retval = ipa3_send_cmd(num_cmds, desc);
 	if (retval) {
-		IPAERR("failed to send immediate command (error %d)\n", retval);
+		IPAERR("failed to send immediate command (err %d)\n", retval);
 		retval = -EFAULT;
 	}
 
-	kfree(cmd);
-
+bail_cmd:
+	for (index = 0; index < num_cmds; index++)
+		ipahal_destroy_imm_cmd(cmd_pyld[index]);
+	kfree(cmd_pyld);
 bail_desc:
 	kfree(desc);
-
 bail_dma:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 
 	return retval;
 }
 
-static void ipa3_q6_disable_agg_reg(struct ipa3_register_write *reg_write,
-				   int ep_idx)
+static void ipa3_q6_disable_agg_reg(
+	struct ipahal_imm_cmd_register_write *reg_write, int ep_idx)
 {
-	reg_write->skip_pipeline_clear = 0;
-	reg_write->pipeline_clear_options = IPA_FULL_PIPELINE_CLEAR;
+	struct ipahal_reg_valmask valmask;
 
-	reg_write->offset = IPA_ENDP_INIT_AGGR_N_OFST_v3_0(ep_idx);
-	reg_write->value =
-		(1 & IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_BMSK) <<
-		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_SHFT;
-	reg_write->value_mask =
-		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_BMSK <<
-		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_SHFT;
-
-	reg_write->value |=
-		((0 & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) <<
-		IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT);
-	reg_write->value_mask |=
-		((IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK <<
-		IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT));
+	reg_write->skip_pipeline_clear = false;
+	reg_write->pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
+	reg_write->offset =
+		ipahal_get_reg_n_ofst(IPA_ENDP_INIT_AGGR_n, ep_idx);
+	ipahal_get_disable_aggr_valmask(&valmask);
+	reg_write->value = valmask.val;
+	reg_write->value_mask = valmask.mask;
 }
 
 static int ipa3_q6_set_ex_path_dis_agg(void)
@@ -1722,8 +2027,10 @@ static int ipa3_q6_set_ex_path_dis_agg(void)
 	struct ipa3_desc *desc;
 	int num_descs = 0;
 	int index;
-	struct ipa3_register_write *reg_write;
+	struct ipahal_imm_cmd_register_write reg_write;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	int retval;
+	struct ipahal_reg_valmask valmask;
 
 	desc = kcalloc(ipa3_ctx->ipa_num_pipes, sizeof(struct ipa3_desc),
 			GFP_KERNEL);
@@ -1741,30 +2048,31 @@ static int ipa3_q6_set_ex_path_dis_agg(void)
 		if (ipa3_ctx->ep[ep_idx].valid &&
 			ipa3_ctx->ep[ep_idx].skip_ep_cfg) {
 			BUG_ON(num_descs >= ipa3_ctx->ipa_num_pipes);
-			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
 
-			if (!reg_write) {
-				IPAERR("failed to allocate memory\n");
+			reg_write.skip_pipeline_clear = false;
+			reg_write.pipeline_clear_options =
+				IPAHAL_FULL_PIPELINE_CLEAR;
+			reg_write.offset =
+				ipahal_get_reg_ofst(IPA_ENDP_STATUS_n);
+			ipahal_get_status_ep_valmask(
+				ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS),
+				&valmask);
+			reg_write.value = valmask.val;
+			reg_write.value_mask = valmask.mask;
+			cmd_pyld = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_REGISTER_WRITE, &reg_write, false);
+			if (!cmd_pyld) {
+				IPAERR("fail construct register_write cmd\n");
 				BUG();
 			}
-			reg_write->skip_pipeline_clear = 0;
-			reg_write->pipeline_clear_options =
-				IPA_FULL_PIPELINE_CLEAR;
-			reg_write->offset = IPA_ENDP_STATUS_n_OFST(ep_idx);
-			reg_write->value =
-				(ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) &
-				IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK) <<
-				IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
-			reg_write->value_mask =
-				IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK <<
-				IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
 
-			desc[num_descs].opcode = IPA_REGISTER_WRITE;
-			desc[num_descs].pyld = reg_write;
-			desc[num_descs].len = sizeof(*reg_write);
+			desc[num_descs].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_REGISTER_WRITE);
 			desc[num_descs].type = IPA_IMM_CMD_DESC;
-			desc[num_descs].callback = ipa3_free_buffer;
-			desc[num_descs].user1 = reg_write;
+			desc[num_descs].callback = ipa3_destroy_imm;
+			desc[num_descs].user1 = cmd_pyld;
+			desc[num_descs].pyld = cmd_pyld->data;
+			desc[num_descs].len = cmd_pyld->len;
 			num_descs++;
 		}
 	}
@@ -1772,35 +2080,38 @@ static int ipa3_q6_set_ex_path_dis_agg(void)
 	/* Disable AGGR on IPA->Q6 pipes */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
-			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
 
-			if (!reg_write) {
-				IPAERR("failed to allocate memory\n");
+			ipa3_q6_disable_agg_reg(&reg_write,
+				ipa3_get_ep_mapping(client_idx));
+			cmd_pyld = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_REGISTER_WRITE, &reg_write, false);
+			if (!cmd_pyld) {
+				IPAERR("fail construct register_write cmd\n");
 				BUG();
 			}
 
-			ipa3_q6_disable_agg_reg(reg_write,
-					       ipa3_get_ep_mapping(client_idx));
-
-			desc[num_descs].opcode = IPA_REGISTER_WRITE;
-			desc[num_descs].pyld = reg_write;
-			desc[num_descs].len = sizeof(*reg_write);
+			desc[num_descs].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_REGISTER_WRITE);
 			desc[num_descs].type = IPA_IMM_CMD_DESC;
-			desc[num_descs].callback = ipa3_free_buffer;
-			desc[num_descs].user1 = reg_write;
+			desc[num_descs].callback = ipa3_destroy_imm;
+			desc[num_descs].user1 = cmd_pyld;
+			desc[num_descs].pyld = cmd_pyld->data;
+			desc[num_descs].len = cmd_pyld->len;
 			num_descs++;
 		}
 	}
 
 	/* Will wait 150msecs for IPA tag process completion */
 	retval = ipa3_tag_process(desc, num_descs,
-				 msecs_to_jiffies(CLEANUP_TAG_PROCESS_TIMEOUT));
+		msecs_to_jiffies(CLEANUP_TAG_PROCESS_TIMEOUT));
 	if (retval) {
 		IPAERR("TAG process failed! (error %d)\n", retval);
-		/* For timeout error ipa3_free_buffer cb will free user1 */
+		/* For timeout error ipa3_destroy_imm cb will destroy user1 */
 		if (retval != -ETIME) {
 			for (index = 0; index < num_descs; index++)
-				kfree(desc[index].user1);
+				if (desc[index].callback)
+					desc[index].callback(desc[index].user1,
+						desc[index].user2);
 			retval = -EINVAL;
 		}
 	}
@@ -1827,7 +2138,7 @@ int ipa3_q6_cleanup(void)
 	if (ipa3_ctx->uc_ctx.uc_zip_error)
 		BUG();
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SPECIAL("Q6");
 
 	if (ipa3_q6_pipe_delay()) {
 		IPAERR("Failed to delay Q6 pipes\n");
@@ -1898,7 +2209,7 @@ int _ipa_init_sram_v3_0(void)
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n,
 			ipa3_ctx->smem_restricted_bytes / 4);
 
 	ipa_sram_mmio = ioremap(phys_addr, ipa3_ctx->smem_sz);
@@ -1950,8 +2261,9 @@ int _ipa_init_hdr_v3_0(void)
 {
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
-	struct ipa3_hdr_init_local cmd = { 0 };
-	struct ipa3_hw_imm_cmd_dma_shared_mem dma_cmd = { 0 };
+	struct ipahal_imm_cmd_hdr_init_local cmd = {0};
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_imm_cmd_dma_shared_mem dma_cmd = { 0 };
 
 	mem.size = IPA_MEM_PART(modem_hdr_size) + IPA_MEM_PART(apps_hdr_size);
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
@@ -1962,25 +2274,35 @@ int _ipa_init_hdr_v3_0(void)
 	}
 	memset(mem.base, 0, mem.size);
 
-	cmd.hdr_table_src_addr = mem.phys_base;
+	cmd.hdr_table_addr = mem.phys_base;
 	cmd.size_hdr_table = mem.size;
-	cmd.hdr_table_dst_addr = ipa3_ctx->smem_restricted_bytes +
+	cmd.hdr_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(modem_hdr_ofst);
-
-	desc.opcode = IPA_HDR_INIT_LOCAL;
-	desc.pyld = &cmd;
-	desc.len = sizeof(struct ipa3_hdr_init_local);
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_HDR_INIT_LOCAL, &cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("fail to construct hdr_init_local imm cmd\n");
+		dma_free_coherent(ipa3_ctx->pdev,
+			mem.size, mem.base,
+			mem.phys_base);
+		return -EFAULT;
+	}
+	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_HDR_INIT_LOCAL);
 	desc.type = IPA_IMM_CMD_DESC;
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
 
 	if (ipa3_send_cmd(1, &desc)) {
 		IPAERR("fail to send immediate command\n");
+		ipahal_destroy_imm_cmd(cmd_pyld);
 		dma_free_coherent(ipa3_ctx->pdev,
 			mem.size, mem.base,
 			mem.phys_base);
 		return -EFAULT;
 	}
 
+	ipahal_destroy_imm_cmd(cmd_pyld);
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 
 	mem.size = IPA_MEM_PART(modem_hdr_proc_ctx_size) +
@@ -1994,30 +2316,40 @@ int _ipa_init_hdr_v3_0(void)
 	memset(mem.base, 0, mem.size);
 	memset(&desc, 0, sizeof(desc));
 
-	dma_cmd.skip_pipeline_clear = 0;
-	dma_cmd.pipeline_clear_options = IPA_FULL_PIPELINE_CLEAR;
+	dma_cmd.is_read = false;
+	dma_cmd.skip_pipeline_clear = false;
+	dma_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
 	dma_cmd.system_addr = mem.phys_base;
 	dma_cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst);
 	dma_cmd.size = mem.size;
-	desc.opcode = IPA_DMA_SHARED_MEM;
-	desc.pyld = &dma_cmd;
-	desc.len = sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_DMA_SHARED_MEM, &dma_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("fail to construct dma_shared_mem imm\n");
+		dma_free_coherent(ipa3_ctx->pdev,
+			mem.size, mem.base,
+			mem.phys_base);
+		return -EFAULT;
+	}
+	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	desc.type = IPA_IMM_CMD_DESC;
 	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
 
 	if (ipa3_send_cmd(1, &desc)) {
 		IPAERR("fail to send immediate command\n");
+		ipahal_destroy_imm_cmd(cmd_pyld);
 		dma_free_coherent(ipa3_ctx->pdev,
 			mem.size,
 			mem.base,
 			mem.phys_base);
 		return -EFAULT;
 	}
+	ipahal_destroy_imm_cmd(cmd_pyld);
 
-	ipa_write_reg(ipa3_ctx->mmio,
-		IPA_LOCAL_PKT_PROC_CNTXT_BASE_OFST,
-		dma_cmd.local_addr);
+	ipahal_write_reg(IPA_LOCAL_PKT_PROC_CNTXT_BASE, dma_cmd.local_addr);
 
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 
@@ -2033,7 +2365,8 @@ int _ipa_init_rt4_v3(void)
 {
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
-	struct ipa3_ip_v4_routing_init v4_cmd;
+	struct ipahal_imm_cmd_ip_v4_routing_init v4_cmd;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	u64 *entry;
 	int i;
 	int rc = 0;
@@ -2058,7 +2391,6 @@ int _ipa_init_rt4_v3(void)
 		entry++;
 	}
 
-	desc.opcode = IPA_IP_V4_ROUTING_INIT;
 	v4_cmd.hash_rules_addr = mem.phys_base;
 	v4_cmd.hash_rules_size = mem.size;
 	v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -2071,10 +2403,19 @@ int _ipa_init_rt4_v3(void)
 				v4_cmd.hash_local_addr);
 	IPADBG("putting non-hashable routing IPv4 rules to phys 0x%x\n",
 				v4_cmd.nhash_local_addr);
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_V4_ROUTING_INIT, &v4_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("fail construct ip_v4_rt_init imm cmd\n");
+		rc = -EPERM;
+		goto free_mem;
+	}
 
-	desc.pyld = &v4_cmd;
-	desc.len = sizeof(struct ipa3_ip_v4_routing_init);
+	desc.opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V4_ROUTING_INIT);
 	desc.type = IPA_IMM_CMD_DESC;
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
 
 	if (ipa3_send_cmd(1, &desc)) {
@@ -2082,6 +2423,9 @@ int _ipa_init_rt4_v3(void)
 		rc = -EFAULT;
 	}
 
+	ipahal_destroy_imm_cmd(cmd_pyld);
+
+free_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
@@ -2095,7 +2439,8 @@ int _ipa_init_rt6_v3(void)
 {
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
-	struct ipa3_ip_v6_routing_init v6_cmd;
+	struct ipahal_imm_cmd_ip_v6_routing_init v6_cmd;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	u64 *entry;
 	int i;
 	int rc = 0;
@@ -2120,7 +2465,6 @@ int _ipa_init_rt6_v3(void)
 		entry++;
 	}
 
-	desc.opcode = IPA_IP_V6_ROUTING_INIT;
 	v6_cmd.hash_rules_addr = mem.phys_base;
 	v6_cmd.hash_rules_size = mem.size;
 	v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -2133,10 +2477,19 @@ int _ipa_init_rt6_v3(void)
 				v6_cmd.hash_local_addr);
 	IPADBG("putting non-hashable routing IPv6 rules to phys 0x%x\n",
 				v6_cmd.nhash_local_addr);
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_V6_ROUTING_INIT, &v6_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("fail construct ip_v6_rt_init imm cmd\n");
+		rc = -EPERM;
+		goto free_mem;
+	}
 
-	desc.pyld = &v6_cmd;
-	desc.len = sizeof(struct ipa3_ip_v6_routing_init);
+	desc.opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V6_ROUTING_INIT);
 	desc.type = IPA_IMM_CMD_DESC;
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
 
 	if (ipa3_send_cmd(1, &desc)) {
@@ -2144,6 +2497,9 @@ int _ipa_init_rt6_v3(void)
 		rc = -EFAULT;
 	}
 
+	ipahal_destroy_imm_cmd(cmd_pyld);
+
+free_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
@@ -2157,7 +2513,8 @@ int _ipa_init_flt4_v3(void)
 {
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
-	struct ipa3_ip_v4_filter_init v4_cmd;
+	struct ipahal_imm_cmd_ip_v4_filter_init v4_cmd;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	u64 *entry;
 	int i;
 	int rc = 0;
@@ -2202,7 +2559,6 @@ int _ipa_init_flt4_v3(void)
 		entry++;
 	}
 
-	desc.opcode = IPA_IP_V4_FILTER_INIT;
 	v4_cmd.hash_rules_addr = mem.phys_base;
 	v4_cmd.hash_rules_size = mem.size;
 	v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -2215,10 +2571,18 @@ int _ipa_init_flt4_v3(void)
 				v4_cmd.hash_local_addr);
 	IPADBG("putting non-hashable filtering IPv4 rules to phys 0x%x\n",
 				v4_cmd.nhash_local_addr);
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_V4_FILTER_INIT, &v4_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("fail construct ip_v4_flt_init imm cmd\n");
+		rc = -EPERM;
+		goto free_mem;
+	}
 
-	desc.pyld = &v4_cmd;
-	desc.len = sizeof(struct ipa3_ip_v4_filter_init);
+	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V4_FILTER_INIT);
 	desc.type = IPA_IMM_CMD_DESC;
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
 
 	if (ipa3_send_cmd(1, &desc)) {
@@ -2226,6 +2590,9 @@ int _ipa_init_flt4_v3(void)
 		rc = -EFAULT;
 	}
 
+	ipahal_destroy_imm_cmd(cmd_pyld);
+
+free_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
@@ -2239,7 +2606,8 @@ int _ipa_init_flt6_v3(void)
 {
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
-	struct ipa3_ip_v6_filter_init v6_cmd;
+	struct ipahal_imm_cmd_ip_v6_filter_init v6_cmd;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	u64 *entry;
 	int i;
 	int rc = 0;
@@ -2284,7 +2652,6 @@ int _ipa_init_flt6_v3(void)
 		entry++;
 	}
 
-	desc.opcode = IPA_IP_V6_FILTER_INIT;
 	v6_cmd.hash_rules_addr = mem.phys_base;
 	v6_cmd.hash_rules_size = mem.size;
 	v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
@@ -2298,9 +2665,18 @@ int _ipa_init_flt6_v3(void)
 	IPADBG("putting non-hashable filtering IPv6 rules to phys 0x%x\n",
 				v6_cmd.nhash_local_addr);
 
-	desc.pyld = &v6_cmd;
-	desc.len = sizeof(struct ipa3_ip_v6_filter_init);
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_V6_FILTER_INIT, &v6_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("fail construct ip_v6_flt_init imm cmd\n");
+		rc = -EPERM;
+		goto free_mem;
+	}
+
+	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V6_FILTER_INIT);
 	desc.type = IPA_IMM_CMD_DESC;
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
 
 	if (ipa3_send_cmd(1, &desc)) {
@@ -2308,6 +2684,9 @@ int _ipa_init_flt6_v3(void)
 		rc = -EFAULT;
 	}
 
+	ipahal_destroy_imm_cmd(cmd_pyld);
+
+free_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return rc;
 }
@@ -2315,9 +2694,9 @@ int _ipa_init_flt6_v3(void)
 static int ipa3_setup_flt_hash_tuple(void)
 {
 	int pipe_idx;
-	struct ipa3_hash_tuple tuple;
+	struct ipahal_reg_hash_tuple tuple;
 
-	memset(&tuple, 0, sizeof(struct ipa3_hash_tuple));
+	memset(&tuple, 0, sizeof(struct ipahal_reg_hash_tuple));
 
 	for (pipe_idx = 0; pipe_idx < ipa3_ctx->ipa_num_pipes ; pipe_idx++) {
 		if (!ipa_is_ep_support_flt(pipe_idx))
@@ -2338,9 +2717,9 @@ static int ipa3_setup_flt_hash_tuple(void)
 static int ipa3_setup_rt_hash_tuple(void)
 {
 	int tbl_idx;
-	struct ipa3_hash_tuple tuple;
+	struct ipahal_reg_hash_tuple tuple;
 
-	memset(&tuple, 0, sizeof(struct ipa3_hash_tuple));
+	memset(&tuple, 0, sizeof(struct ipahal_reg_hash_tuple));
 
 	for (tbl_idx = 0;
 		tbl_idx < max(IPA_MEM_PART(v6_rt_num_index),
@@ -2495,7 +2874,7 @@ static void ipa3_teardown_apps_pipes(void)
 }
 
 #ifdef CONFIG_COMPAT
-long compat_ipa_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+long compat_ipa3_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
 	struct ipa3_ioc_nat_alloc_mem32 nat_mem32;
@@ -2640,7 +3019,7 @@ static const struct file_operations ipa3_drv_fops = {
 	.write = ipa3_write,
 	.unlocked_ioctl = ipa3_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = compat_ipa_ioctl,
+	.compat_ioctl = compat_ipa3_ioctl,
 #endif
 };
 
@@ -2676,11 +3055,11 @@ static int ipa3_get_clks(struct device *dev)
  */
 void _ipa_enable_clks_v3_0(void)
 {
-	IPADBG("enabling gcc_ipa_clk\n");
+	IPADBG_LOW("enabling gcc_ipa_clk\n");
 	if (ipa3_clk) {
 		clk_prepare(ipa3_clk);
 		clk_enable(ipa3_clk);
-		IPADBG("curr_ipa_clk_rate=%d", ipa3_ctx->curr_ipa_clk_rate);
+		IPADBG_LOW("curr_ipa_clk_rate=%d", ipa3_ctx->curr_ipa_clk_rate);
 		clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
 		ipa3_uc_notify_clk_state(true);
 	} else {
@@ -2740,7 +3119,7 @@ void ipa3_enable_clks(void)
  */
 void _ipa_disable_clks_v3_0(void)
 {
-	IPADBG("disabling gcc_ipa_clk\n");
+	IPADBG_LOW("disabling gcc_ipa_clk\n");
 	ipa3_suspend_apps_pipes(true);
 	ipa3_uc_notify_clk_state(false);
 	if (ipa3_clk)
@@ -2790,10 +3169,100 @@ static void ipa3_start_tag_process(struct work_struct *work)
 	res = ipa3_tag_aggr_force_close(-1);
 	if (res)
 		IPAERR("ipa3_tag_aggr_force_close failed %d\n", res);
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SPECIAL("TAG_PROCESS");
 
 	IPADBG("TAG process done\n");
+}
+
+/**
+* ipa3_active_clients_log_mod() - Log a modification in the active clients
+* reference count
+*
+* This method logs any modification in the active clients reference count:
+* It logs the modification in the circular history buffer
+* It logs the modification in the hash table - looking for an entry,
+* creating one if needed and deleting one if needed.
+*
+* @id: ipa3_active client logging info struct to hold the log information
+* @inc: a boolean variable to indicate whether the modification is an increase
+* or decrease
+* @int_ctx: a boolean variable to indicate whether this call is being made from
+* an interrupt context and therefore should allocate GFP_ATOMIC memory
+*
+* Method process:
+* - Hash the unique identifier string
+* - Find the hash in the table
+*    1)If found, increase or decrease the reference count
+*    2)If not found, allocate a new hash table entry struct and initialize it
+* - Remove and deallocate unneeded data structure
+* - Log the call in the circular history buffer (unless it is a simple call)
+*/
+void ipa3_active_clients_log_mod(struct ipa3_active_client_logging_info *id,
+		bool inc, bool int_ctx)
+{
+	char temp_str[IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN];
+	unsigned long long t;
+	unsigned long nanosec_rem;
+	struct ipa3_active_client_htable_entry *hentry;
+	struct ipa3_active_client_htable_entry *hfound;
+	u32 hkey;
+	char str_to_hash[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
+
+	hfound = NULL;
+	memset(str_to_hash, 0, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN);
+	strlcpy(str_to_hash, id->id_string, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN);
+	hkey = arch_fast_hash(str_to_hash, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN,
+			0);
+	hash_for_each_possible(ipa3_ctx->ipa3_active_clients_logging.htable,
+			hentry, list, hkey) {
+		if (!strcmp(hentry->id_string, id->id_string)) {
+			hentry->count = hentry->count + (inc ? 1 : -1);
+			hfound = hentry;
+		}
+	}
+	if (hfound == NULL) {
+		hentry = NULL;
+		hentry = kzalloc(sizeof(
+				struct ipa3_active_client_htable_entry),
+				int_ctx ? GFP_ATOMIC : GFP_KERNEL);
+		if (hentry == NULL) {
+			IPAERR("failed allocating active clients hash entry");
+			return;
+		}
+		hentry->type = id->type;
+		strlcpy(hentry->id_string, id->id_string,
+				IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN);
+		INIT_HLIST_NODE(&hentry->list);
+		hentry->count = inc ? 1 : -1;
+		hash_add(ipa3_ctx->ipa3_active_clients_logging.htable,
+				&hentry->list, hkey);
+	} else if (hfound->count == 0) {
+		hash_del(&hfound->list);
+		kfree(hfound);
+	}
+
+	if (id->type != SIMPLE) {
+		t = local_clock();
+		nanosec_rem = do_div(t, 1000000000) / 1000;
+		snprintf(temp_str, IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN,
+				inc ? "[%5lu.%06lu] ^ %s, %s: %d" :
+						"[%5lu.%06lu] v %s, %s: %d",
+				(unsigned long)t, nanosec_rem,
+				id->id_string, id->file, id->line);
+		ipa3_active_clients_log_insert(temp_str);
+	}
+}
+
+void ipa3_active_clients_log_dec(struct ipa3_active_client_logging_info *id,
+		bool int_ctx)
+{
+	ipa3_active_clients_log_mod(id, false, int_ctx);
+}
+
+void ipa3_active_clients_log_inc(struct ipa3_active_client_logging_info *id,
+		bool int_ctx)
+{
+	ipa3_active_clients_log_mod(id, true, int_ctx);
 }
 
 /**
@@ -2803,13 +3272,14 @@ static void ipa3_start_tag_process(struct work_struct *work)
 * Return codes:
 * None
 */
-void ipa3_inc_client_enable_clks(void)
+void ipa3_inc_client_enable_clks(struct ipa3_active_client_logging_info *id)
 {
 	ipa3_active_clients_lock();
+	ipa3_active_clients_log_inc(id, false);
 	ipa3_ctx->ipa3_active_clients.cnt++;
 	if (ipa3_ctx->ipa3_active_clients.cnt == 1)
 		ipa3_enable_clks();
-	IPADBG("active clients = %d\n", ipa3_ctx->ipa3_active_clients.cnt);
+	IPADBG_LOW("active clients = %d\n", ipa3_ctx->ipa3_active_clients.cnt);
 	ipa3_active_clients_unlock();
 }
 
@@ -2821,7 +3291,8 @@ void ipa3_inc_client_enable_clks(void)
 * Return codes: 0 for success
 *		-EPERM if an asynchronous action should have been done
 */
-int ipa3_inc_client_enable_clks_no_block(void)
+int ipa3_inc_client_enable_clks_no_block(struct ipa3_active_client_logging_info
+		*id)
 {
 	int res = 0;
 	unsigned long flags;
@@ -2833,9 +3304,9 @@ int ipa3_inc_client_enable_clks_no_block(void)
 		res = -EPERM;
 		goto bail;
 	}
-
+	ipa3_active_clients_log_inc(id, true);
 	ipa3_ctx->ipa3_active_clients.cnt++;
-	IPADBG("active clients = %d\n", ipa3_ctx->ipa3_active_clients.cnt);
+	IPADBG_LOW("active clients = %d\n", ipa3_ctx->ipa3_active_clients.cnt);
 bail:
 	ipa3_active_clients_trylock_unlock(&flags);
 
@@ -2853,11 +3324,14 @@ bail:
  * Return codes:
  * None
  */
-void ipa3_dec_client_disable_clks(void)
+void ipa3_dec_client_disable_clks(struct ipa3_active_client_logging_info *id)
 {
+	struct ipa3_active_client_logging_info log_info;
+
 	ipa3_active_clients_lock();
+	ipa3_active_clients_log_dec(id, false);
 	ipa3_ctx->ipa3_active_clients.cnt--;
-	IPADBG("active clients = %d\n", ipa3_ctx->ipa3_active_clients.cnt);
+	IPADBG_LOW("active clients = %d\n", ipa3_ctx->ipa3_active_clients.cnt);
 	if (ipa3_ctx->ipa3_active_clients.cnt == 0) {
 		if (ipa3_ctx->tag_process_before_gating) {
 			ipa3_ctx->tag_process_before_gating = false;
@@ -2865,6 +3339,9 @@ void ipa3_dec_client_disable_clks(void)
 			 * When TAG process ends, active clients will be
 			 * decreased
 			 */
+			IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info,
+					"TAG_PROCESS");
+			ipa3_active_clients_log_inc(&log_info, false);
 			ipa3_ctx->ipa3_active_clients.cnt = 1;
 			queue_work(ipa3_ctx->power_mgmt_wq, &ipa3_tag_work);
 		} else {
@@ -2889,7 +3366,7 @@ void ipa3_inc_acquire_wakelock(void)
 	ipa3_ctx->wakelock_ref_cnt.cnt++;
 	if (ipa3_ctx->wakelock_ref_cnt.cnt == 1)
 		__pm_stay_awake(&ipa3_ctx->w_lock);
-	IPADBG("active wakelock ref cnt = %d\n",
+	IPADBG_LOW("active wakelock ref cnt = %d\n",
 		ipa3_ctx->wakelock_ref_cnt.cnt);
 	spin_unlock_irqrestore(&ipa3_ctx->wakelock_ref_cnt.spinlock, flags);
 }
@@ -2908,7 +3385,7 @@ void ipa3_dec_release_wakelock(void)
 
 	spin_lock_irqsave(&ipa3_ctx->wakelock_ref_cnt.spinlock, flags);
 	ipa3_ctx->wakelock_ref_cnt.cnt--;
-	IPADBG("active wakelock ref cnt = %d\n",
+	IPADBG_LOW("active wakelock ref cnt = %d\n",
 		ipa3_ctx->wakelock_ref_cnt.cnt);
 	if (ipa3_ctx->wakelock_ref_cnt.cnt == 0)
 		__pm_relax(&ipa3_ctx->w_lock);
@@ -2921,7 +3398,7 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	enum ipa_voltage_level needed_voltage;
 	u32 clk_rate;
 
-	IPADBG("floor_voltage=%d, bandwidth_mbps=%u",
+	IPADBG_LOW("floor_voltage=%d, bandwidth_mbps=%u",
 					floor_voltage, bandwidth_mbps);
 
 	if (floor_voltage < IPA_VOLTAGE_UNSPECIFIED ||
@@ -2931,7 +3408,7 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	}
 
 	if (ipa3_ctx->enable_clock_scaling) {
-		IPADBG("Clock scaling is enabled\n");
+		IPADBG_LOW("Clock scaling is enabled\n");
 		if (bandwidth_mbps >=
 			ipa3_ctx->ctrl->clock_scaling_bw_threshold_turbo)
 			needed_voltage = IPA_VOLTAGE_TURBO;
@@ -2941,7 +3418,7 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 		else
 			needed_voltage = IPA_VOLTAGE_SVS;
 	} else {
-		IPADBG("Clock scaling is disabled\n");
+		IPADBG_LOW("Clock scaling is disabled\n");
 		needed_voltage = IPA_VOLTAGE_NOMINAL;
 	}
 
@@ -2963,13 +3440,13 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	}
 
 	if (clk_rate == ipa3_ctx->curr_ipa_clk_rate) {
-		IPADBG("Same voltage\n");
+		IPADBG_LOW("Same voltage\n");
 		return 0;
 	}
 
 	ipa3_active_clients_lock();
 	ipa3_ctx->curr_ipa_clk_rate = clk_rate;
-	IPADBG("setting clock rate to %u\n", ipa3_ctx->curr_ipa_clk_rate);
+	IPADBG_LOW("setting clock rate to %u\n", ipa3_ctx->curr_ipa_clk_rate);
 	if (ipa3_ctx->ipa3_active_clients.cnt > 0) {
 		clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
 		if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
@@ -2977,10 +3454,10 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 			    ipa3_ctx->ipa_bus_hdl, ipa3_get_bus_vote()))
 				WARN_ON(1);
 	} else {
-		IPADBG("clocks are gated, not setting rate\n");
+		IPADBG_LOW("clocks are gated, not setting rate\n");
 	}
 	ipa3_active_clients_unlock();
-	IPADBG("Done\n");
+	IPADBG_LOW("Done\n");
 	return 0;
 }
 
@@ -3010,7 +3487,8 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 	int res;
 	struct ipa_ep_cfg_holb holb_cfg;
 
-	IPADBG("interrupt=%d, interrupt_data=%u\n", interrupt, suspend_data);
+	IPADBG("interrupt=%d, interrupt_data=%u\n",
+		interrupt, suspend_data);
 	memset(&holb_cfg, 0, sizeof(holb_cfg));
 	holb_cfg.tmr_val = 0;
 
@@ -3024,9 +3502,10 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				if (!atomic_read(
 					&ipa3_ctx->transport_pm.dec_clients)
 					) {
-					ipa3_inc_client_enable_clks();
-					IPADBG("Pipes un-suspended.\n");
-					IPADBG("Enter poll mode.\n");
+					IPA_ACTIVE_CLIENTS_INC_EP(
+						ipa3_ctx->ep[i].client);
+					IPADBG_LOW("Pipes un-suspended.\n");
+					IPADBG_LOW("Enter poll mode.\n");
 					atomic_set(
 					&ipa3_ctx->transport_pm.dec_clients,
 					1);
@@ -3101,7 +3580,7 @@ static void ipa3_sps_release_resource(struct work_struct *work)
 			ipa3_sps_process_irq_schedule_rel();
 		} else {
 			atomic_set(&ipa3_ctx->transport_pm.dec_clients, 0);
-			ipa3_dec_client_disable_clks();
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("SPS_RESOURCE");
 		}
 	}
 	atomic_set(&ipa3_ctx->transport_pm.eot_activity, 0);
@@ -3187,6 +3666,62 @@ static void ipa3_destroy_flt_tbl_idrs(void)
 	}
 }
 
+static void ipa3_freeze_clock_vote_and_notify_modem(void)
+{
+	int res;
+	u32 ipa_clk_state;
+	struct ipa3_active_client_logging_info log_info;
+
+	if (ipa3_ctx->smp2p_info.res_sent)
+		return;
+
+	IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, "FREEZE_VOTE");
+	res = ipa3_inc_client_enable_clks_no_block(&log_info);
+	if (res)
+		ipa_clk_state = 0;
+	else
+		ipa_clk_state = 1;
+
+	if (ipa3_ctx->smp2p_info.out_base_id) {
+		gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
+			IPA_GPIO_OUT_CLK_VOTE_IDX, ipa_clk_state);
+		gpio_set_value(ipa3_ctx->smp2p_info.out_base_id +
+			IPA_GPIO_OUT_CLK_RSP_CMPLT_IDX, 1);
+		ipa3_ctx->smp2p_info.res_sent = true;
+	} else {
+		IPAERR("smp2p out gpio not assigned\n");
+	}
+
+	IPADBG("IPA clocks are %s\n", ipa_clk_state ? "ON" : "OFF");
+}
+
+static int ipa3_panic_notifier(struct notifier_block *this,
+	unsigned long event, void *ptr)
+{
+	int res;
+
+	ipa3_freeze_clock_vote_and_notify_modem();
+
+	IPADBG("Calling uC panic handler\n");
+	res = ipa3_uc_panic_notifier(this, event, ptr);
+	if (res)
+		IPAERR("uC panic handler failed %d\n", res);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ipa3_panic_blk = {
+	.notifier_call = ipa3_panic_notifier,
+	/* IPA panic handler needs to run before modem shuts down */
+	.priority = INT_MAX,
+};
+
+static void ipa3_register_panic_hdlr(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+		&ipa3_panic_blk);
+}
+
 static void ipa3_trigger_ipa_ready_cbs(void)
 {
 	struct ipa3_ready_cb_info *info;
@@ -3205,8 +3740,7 @@ static int ipa3_gsi_pre_fw_load_init(void)
 {
 	int result;
 
-	/* Enable GSI */
-	ipa_write_reg(ipa3_ctx->mmio, IPA_ENABLE_GSI_OFST, 1);
+	/* GSI already enabled by TZ */
 
 	result = gsi_configure_regs(ipa3_res.transport_mem_base,
 		ipa3_res.transport_mem_size,
@@ -3325,12 +3859,6 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":wdi init failed (%d)\n", -result);
 	else
 		IPADBG(":wdi init ok\n");
-
-	result = ipa3_usb_init();
-	if (result)
-		IPAERR(":ipa_usb init failed (%d)\n", -result);
-	else
-		IPADBG(":ipa_usb init ok\n");
 
 	ipa3_register_panic_hdlr();
 
@@ -3501,6 +4029,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	int i;
 	struct ipa3_flt_tbl *flt_tbl;
 	struct ipa3_rt_tbl_set *rset;
+	struct ipa3_active_client_logging_info log_info;
 
 	IPADBG("IPA Driver initialization started\n");
 
@@ -3515,6 +4044,20 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":kzalloc err.\n");
 		result = -ENOMEM;
 		goto fail_mem_ctx;
+	}
+
+	ipa3_ctx->logbuf = ipc_log_context_create(IPA_IPC_LOG_PAGES, "ipa", 0);
+	if (ipa3_ctx->logbuf == NULL) {
+		IPAERR("failed to get logbuf\n");
+		result = -ENOMEM;
+		goto fail_logbuf;
+	}
+	ipa3_ctx->logbuf_low =
+		ipc_log_context_create(IPA_IPC_LOG_PAGES, "ipa_low", 0);
+	if (ipa3_ctx->logbuf_low == NULL) {
+		IPAERR("failed to get logbuf_low\n");
+		result = -ENOMEM;
+		goto fail_logbuf_low;
 	}
 
 	ipa3_ctx->pdev = ipa_dev;
@@ -3532,6 +4075,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->transport_prototype = resource_p->transport_prototype;
 	ipa3_ctx->ee = resource_p->ee;
 	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
+	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
 
 	/* default aggregation parameters */
 	ipa3_ctx->aggregation_type = IPA_MBIM_16;
@@ -3571,6 +4115,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPADBG("Skipping bus scaling registration on Virtual plat\n");
 	}
 
+	if (ipa3_active_clients_log_init())
+		goto fail_init_active_client;
+
 	/* get IPA clocks */
 	result = ipa3_get_clks(master_dev);
 	if (result)
@@ -3593,6 +4140,12 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":ipa-base ioremap err.\n");
 		result = -EFAULT;
 		goto fail_remap;
+	}
+
+	if (ipahal_init(ipa3_ctx->ipa_hw_type, ipa3_ctx->mmio)) {
+		IPAERR("fail to init ipahal\n");
+		result = -EFAULT;
+		goto fail_ipahal;
 	}
 
 	result = ipa3_init_hw();
@@ -3643,6 +4196,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	mutex_init(&ipa3_ctx->ipa3_active_clients.mutex);
 	spin_lock_init(&ipa3_ctx->ipa3_active_clients.spinlock);
+	IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, "PROXY_CLK_VOTE");
+	ipa3_active_clients_log_inc(&log_info, false);
 	ipa3_ctx->ipa3_active_clients.cnt = 1;
 
 	/* Assign resource limitation to each group */
@@ -3977,12 +4532,20 @@ fail_init_hw:
 fail_remap:
 	ipa3_disable_clks();
 fail_clk:
+	ipa3_active_clients_log_destroy();
+fail_init_active_client:
 	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
-fail_bus_reg:
+fail_ipahal:
 	ipa3_bus_scale_table = NULL;
+fail_bus_reg:
+	ipahal_destroy();
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
 fail_mem_ctrl:
+	ipc_log_context_destroy(ipa3_ctx->logbuf_low);
+fail_logbuf_low:
+	ipc_log_context_destroy(ipa3_ctx->logbuf);
+fail_logbuf:
 	kfree(ipa3_ctx);
 	ipa3_ctx = NULL;
 fail_mem_ctx:
@@ -4342,6 +4905,66 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	return result;
 }
 
+static irqreturn_t ipa3_smp2p_modem_clk_query_isr(int irq, void *ctxt)
+{
+	ipa3_freeze_clock_vote_and_notify_modem();
+
+	return IRQ_HANDLED;
+}
+
+static int ipa3_smp2p_probe(struct device *dev)
+{
+	struct device_node *node = dev->of_node;
+	int res;
+
+	IPADBG("node->name=%s\n", node->name);
+	if (strcmp("qcom,smp2pgpio_map_ipa_1_out", node->name) == 0) {
+		res = of_get_gpio(node, 0);
+		if (res < 0) {
+			IPADBG("of_get_gpio returned %d\n", res);
+			return res;
+		}
+
+		ipa3_ctx->smp2p_info.out_base_id = res;
+		IPADBG("smp2p out_base_id=%d\n",
+			ipa3_ctx->smp2p_info.out_base_id);
+	} else if (strcmp("qcom,smp2pgpio_map_ipa_1_in", node->name) == 0) {
+		int irq;
+
+		res = of_get_gpio(node, 0);
+		if (res < 0) {
+			IPADBG("of_get_gpio returned %d\n", res);
+			return res;
+		}
+
+		ipa3_ctx->smp2p_info.in_base_id = res;
+		IPADBG("smp2p in_base_id=%d\n",
+			ipa3_ctx->smp2p_info.in_base_id);
+
+		/* register for modem clk query */
+		irq = gpio_to_irq(ipa3_ctx->smp2p_info.in_base_id +
+			IPA_GPIO_IN_QUERY_CLK_IDX);
+		if (irq < 0) {
+			IPAERR("gpio_to_irq failed %d\n", irq);
+			return -ENODEV;
+		}
+		IPADBG("smp2p irq#=%d\n", irq);
+		res = request_irq(irq,
+			(irq_handler_t)ipa3_smp2p_modem_clk_query_isr,
+			IRQF_TRIGGER_RISING, "ipa_smp2p_clk_vote", dev);
+		if (res) {
+			IPAERR("fail to register smp2p irq=%d\n", irq);
+			return -ENODEV;
+		}
+		res = enable_irq_wake(ipa3_ctx->smp2p_info.in_base_id +
+			IPA_GPIO_IN_QUERY_CLK_IDX);
+		if (res)
+			IPAERR("failed to enable irq wake\n");
+	}
+
+	return 0;
+}
+
 int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	struct ipa_api_controller *api_ctrl, struct of_device_id *pdrv_match)
 {
@@ -4349,6 +4972,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	struct device *dev = &pdev_p->dev;
 
 	IPADBG("IPA driver probing started\n");
+	IPADBG("dev->of_node->name = %s\n", dev->of_node->name);
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb"))
 		return ipa_smmu_ap_cb_probe(dev);
@@ -4358,6 +4982,14 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 
 	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb"))
 		return ipa_smmu_uc_cb_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node,
+	    "qcom,smp2pgpio-map-ipa-1-in"))
+		return ipa3_smp2p_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node,
+	    "qcom,smp2pgpio-map-ipa-1-out"))
+		return ipa3_smp2p_probe(dev);
 
 	master_dev = dev;
 	if (!ipa3_pdev)
@@ -4375,10 +5007,15 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		return result;
 	}
 
+	result = of_platform_populate(pdev_p->dev.of_node,
+		pdrv_match, NULL, &pdev_p->dev);
+	if (result) {
+		IPAERR("failed to populate platform\n");
+		return result;
+	}
+
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		arm_smmu = true;
-		result = of_platform_populate(pdev_p->dev.of_node,
-				pdrv_match, NULL, &pdev_p->dev);
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
 		IPAERR("Legacy IOMMU not supported\n");
@@ -4390,16 +5027,16 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 			IPAERR("DMA set mask failed\n");
 			return -EOPNOTSUPP;
 		}
+	}
 
-		if (!ipa3_bus_scale_table)
-			ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
+	if (!ipa3_bus_scale_table)
+		ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
 
-		/* Proceed to real initialization */
-		result = ipa3_pre_init(&ipa3_res, dev);
-		if (result) {
-			IPAERR("ipa3_init failed\n");
-			return result;
-		}
+	/* Proceed to real initialization */
+	result = ipa3_pre_init(&ipa3_res, dev);
+	if (result) {
+		IPAERR("ipa3_init failed\n");
+		return result;
 	}
 
 	return result;
@@ -4464,7 +5101,7 @@ static void ipa_gsi_request_resource(struct work_struct *work)
 	int ret;
 
 	/* request IPA clocks */
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	/* mark transport resource as granted */
 	spin_lock_irqsave(&ipa3_ctx->transport_pm.lock, flags);
@@ -4481,6 +5118,7 @@ static void ipa_gsi_request_resource(struct work_struct *work)
 void ipa_gsi_req_res_cb(void *user_data, bool *granted)
 {
 	unsigned long flags;
+	struct ipa3_active_client_logging_info log_info;
 
 	spin_lock_irqsave(&ipa3_ctx->transport_pm.lock, flags);
 
@@ -4491,7 +5129,8 @@ void ipa_gsi_req_res_cb(void *user_data, bool *granted)
 	if (ipa3_ctx->transport_pm.res_granted) {
 		*granted = true;
 	} else {
-		if (ipa3_inc_client_enable_clks_no_block() == 0) {
+		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, "GSI_RESOURCE");
+		if (ipa3_inc_client_enable_clks_no_block(&log_info) == 0) {
 			ipa3_ctx->transport_pm.res_granted = true;
 			*granted = true;
 		} else {
@@ -4517,7 +5156,7 @@ static void ipa_gsi_release_resource(struct work_struct *work)
 	}
 	spin_unlock_irqrestore(&ipa3_ctx->transport_pm.lock, flags);
 	if (dec_clients)
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("GSI_RESOURCE");
 }
 
 int ipa_gsi_rel_res_cb(void *user_data)
@@ -4556,7 +5195,6 @@ static void ipa_gsi_notify_cb(struct gsi_per_notify *notify)
 		break;
 	case GSI_PER_EVT_GENERAL_BREAK_POINT:
 		IPAERR("Got GSI_PER_EVT_GENERAL_BREAK_POINT\n");
-		BUG();
 		break;
 	case GSI_PER_EVT_GENERAL_BUS_ERROR:
 		IPAERR("Got GSI_PER_EVT_GENERAL_BUS_ERROR\n");

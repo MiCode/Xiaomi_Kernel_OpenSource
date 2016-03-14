@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/msm_gsi.h>
 #include <linux/elf.h>
 #include "ipa_i.h"
+#include "ipahal/ipahal.h"
 
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
@@ -27,6 +28,9 @@
 
 #define IPA_V3_0_BW_THRESHOLD_TURBO_MBPS (1200)
 #define IPA_V3_0_BW_THRESHOLD_NOMINAL_MBPS (600)
+
+#define IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK 0xFF0000
+#define IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT 0x10
 
 /* Max pipes + ICs for TAG process */
 #define IPA_TAG_MAX_DESC (IPA3_MAX_NUM_PIPES + 6)
@@ -39,13 +43,6 @@
 #define IPA_AGGR_GRAN_MAX (32)
 #define IPA_EOT_COAL_GRAN_MIN (1)
 #define IPA_EOT_COAL_GRAN_MAX (16)
-
-#define IPA_AGGR_BYTE_LIMIT (\
-		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
-		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_SHFT)
-#define IPA_AGGR_PKT_LIMIT (\
-		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK >> \
-		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT)
 
 /* In IPAv3 only endpoints 0-3 can be configured to deaggregation */
 #define IPA_EP_SUPPORTS_DEAGGR(idx) ((idx) >= 0 && (idx) <= 3)
@@ -445,6 +442,9 @@ int ipa3_get_clients_from_rm_resource(
 	case IPA_RM_RESOURCE_USB_CONS:
 		clients->names[i++] = IPA_CLIENT_USB_CONS;
 		break;
+	case IPA_RM_RESOURCE_USB_DPL_CONS:
+		clients->names[i++] = IPA_CLIENT_USB_DPL_CONS;
+		break;
 	case IPA_RM_RESOURCE_HSIC_CONS:
 		clients->names[i++] = IPA_CLIENT_HSIC1_CONS;
 		break;
@@ -497,12 +497,13 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 	if (ep->keep_ipa_awake)
 		return false;
 
-	if (client == IPA_CLIENT_USB_CONS   ||
-	    client == IPA_CLIENT_MHI_CONS   ||
-	    client == IPA_CLIENT_HSIC1_CONS ||
-	    client == IPA_CLIENT_WLAN1_CONS ||
-	    client == IPA_CLIENT_WLAN2_CONS ||
-	    client == IPA_CLIENT_WLAN3_CONS ||
+	if (client == IPA_CLIENT_USB_CONS     ||
+	    client == IPA_CLIENT_USB_DPL_CONS ||
+	    client == IPA_CLIENT_MHI_CONS     ||
+	    client == IPA_CLIENT_HSIC1_CONS   ||
+	    client == IPA_CLIENT_WLAN1_CONS   ||
+	    client == IPA_CLIENT_WLAN2_CONS   ||
+	    client == IPA_CLIENT_WLAN3_CONS   ||
 	    client == IPA_CLIENT_WLAN4_CONS)
 		return true;
 
@@ -561,7 +562,7 @@ int ipa3_suspend_resource_sync(enum ipa_rm_resource_name resource)
 
 	/* before gating IPA clocks do TAG process */
 	ipa3_ctx->tag_process_before_gating = true;
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_RESOURCE(ipa3_rm_resource_str(resource));
 
 	return 0;
 }
@@ -584,6 +585,7 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	struct ipa_ep_cfg_ctrl suspend;
 	int ipa_ep_idx;
 	unsigned long flags;
+	struct ipa3_active_client_logging_info log_info;
 
 	if (ipa3_active_clients_trylock(&flags) == 0)
 		return -EPERM;
@@ -622,6 +624,9 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	}
 
 	if (res == 0) {
+		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
+				ipa3_rm_resource_str(resource));
+		ipa3_active_clients_log_dec(&log_info, true);
 		ipa3_ctx->ipa3_active_clients.cnt--;
 		IPADBG("active clients = %d\n",
 		       ipa3_ctx->ipa3_active_clients.cnt);
@@ -691,14 +696,15 @@ int ipa3_resume_resource(enum ipa_rm_resource_name resource)
  */
 void _ipa_sram_settings_read_v3_0(void)
 {
-	ipa3_ctx->smem_restricted_bytes = ipa_read_reg_field(ipa3_ctx->mmio,
-		IPA_SHARED_MEM_SIZE_OFST_v3_0,
-		IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_BMSK_v3_0,
-		IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_SHFT_v3_0);
-	ipa3_ctx->smem_sz = ipa_read_reg_field(ipa3_ctx->mmio,
-		IPA_SHARED_MEM_SIZE_OFST_v3_0,
-		IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_BMSK_v3_0,
-		IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_SHFT_v3_0);
+	struct ipahal_reg_shared_mem_size smem_sz;
+
+	memset(&smem_sz, 0, sizeof(smem_sz));
+
+	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
+
+	ipa3_ctx->smem_restricted_bytes = smem_sz.shared_mem_baddr;
+	ipa3_ctx->smem_sz = smem_sz.shared_mem_sz;
+
 	/* reg fields are in 8B units */
 	ipa3_ctx->smem_restricted_bytes *= 8;
 	ipa3_ctx->smem_sz *= 8;
@@ -725,50 +731,13 @@ void _ipa_sram_settings_read_v3_0(void)
 }
 
 /**
- * _ipa_cfg_route_v3_0() - Configure the IPA default route register
- * @route: IPA route
- *
- * Returns:	None
- */
-void _ipa_cfg_route_v3_0(struct ipa3_route *route)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, route->route_dis,
-			IPA_ROUTE_ROUTE_DIS_SHFT,
-			IPA_ROUTE_ROUTE_DIS_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, route->route_def_pipe,
-			IPA_ROUTE_ROUTE_DEF_PIPE_SHFT,
-			IPA_ROUTE_ROUTE_DEF_PIPE_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, route->route_def_hdr_table,
-			IPA_ROUTE_ROUTE_DEF_HDR_TABLE_SHFT,
-			IPA_ROUTE_ROUTE_DEF_HDR_TABLE_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, route->route_def_hdr_ofst,
-			IPA_ROUTE_ROUTE_DEF_HDR_OFST_SHFT,
-			IPA_ROUTE_ROUTE_DEF_HDR_OFST_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, route->route_frag_def_pipe,
-			IPA_ROUTE_ROUTE_FRAG_DEF_PIPE_SHFT,
-			IPA_ROUTE_ROUTE_FRAG_DEF_PIPE_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, route->route_def_retain_hdr,
-			IPA_ROUTE_ROUTE_DEF_RETAIN_HDR_SHFT,
-			IPA_ROUTE_ROUTE_DEF_RETAIN_HDR_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio, IPA_ROUTE_OFST_v3_0, reg_val);
-}
-
-/**
  * ipa3_cfg_route() - configure IPA route
  * @route: IPA route
  *
  * Return codes:
  * 0: success
  */
-int ipa3_cfg_route(struct ipa3_route *route)
+int ipa3_cfg_route(struct ipahal_reg_route *route)
 {
 
 	IPADBG("disable_route_block=%d, default_pipe=%d, default_hdr_tbl=%d\n",
@@ -779,16 +748,19 @@ int ipa3_cfg_route(struct ipa3_route *route)
 		route->route_def_hdr_ofst,
 		route->route_frag_def_pipe);
 
+	IPADBG("default_retain_hdr=%d\n",
+		route->route_def_retain_hdr);
+
 	if (route->route_dis) {
 		IPAERR("Route disable is not supported!\n");
 		return -EPERM;
 	}
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	ipa3_ctx->ctrl->ipa3_cfg_route(route);
+	ipahal_write_reg_fields(IPA_ROUTE, route);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -817,12 +789,12 @@ int ipa3_init_hw(void)
 	u32 ipa_version = 0;
 
 	/* Read IPA version and make sure we have access to the registers */
-	ipa_version = ipa_read_reg(ipa3_ctx->mmio, IPA_VERSION_OFST);
+	ipa_version = ipahal_read_reg(IPA_VERSION);
 	if (ipa_version == 0)
 		return -EFAULT;
 
 	/* using old BCR configuration(IPAv2.6)*/
-	ipa_write_reg(ipa3_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
+	ipahal_write_reg(IPA_BCR, IPA_BCR_REG_VAL);
 
 	return 0;
 }
@@ -1872,25 +1844,25 @@ int ipa3_generate_hw_rule(enum ipa_ip_type ip,
 	 * OFFSET_MEQ32_0 with mask of 0 and val of 0 and offset 0
 	 */
 	if (attrib->attrib_mask == 0) {
-		IPADBG("building default rule\n");
+		IPADBG_LOW("building default rule\n");
 		*en_rule |= ipa_ofst_meq32[0];
 		extra_wrd_i = ipa3_write_8(0, extra_wrd_i);  /* offset */
 		rest_wrd_i = ipa3_write_32(0, rest_wrd_i);   /* mask */
 		rest_wrd_i = ipa3_write_32(0, rest_wrd_i);   /* val */
 	}
 
-	IPADBG("extra_word_1 0x%llx\n", *(u64 *)extra_wrd_start);
-	IPADBG("extra_word_2 0x%llx\n",
+	IPADBG_LOW("extra_word_1 0x%llx\n", *(u64 *)extra_wrd_start);
+	IPADBG_LOW("extra_word_2 0x%llx\n",
 		*(u64 *)(extra_wrd_start + IPA_HW_TBL_WIDTH));
 
 	extra_wrd_i = ipa3_pad_to_64(extra_wrd_i);
 	sz = extra_wrd_i - extra_wrd_start;
-	IPADBG("extra words params sz %d\n", sz);
+	IPADBG_LOW("extra words params sz %d\n", sz);
 	*buf = ipa3_copy_mem(extra_wrd_start, *buf, sz);
 
 	rest_wrd_i = ipa3_pad_to_64(rest_wrd_i);
 	sz = rest_wrd_i - rest_wrd_start;
-	IPADBG("non extra words params sz %d\n", sz);
+	IPADBG_LOW("non extra words params sz %d\n", sz);
 	*buf = ipa3_copy_mem(rest_wrd_start, *buf, sz);
 
 fail_err_check:
@@ -2577,16 +2549,14 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl)
 			IPAERR("Configuring non-DMA SEQ type to DMA pipe\n");
 			BUG();
 		}
-
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 		/* Configure sequencers type*/
 
 		IPADBG("set sequencers to sequence 0x%x, ep = %d\n", type,
 				clnt_hdl);
-		ipa_write_reg(ipa3_ctx->mmio,
-				IPA_ENDP_INIT_SEQ_n_OFST(clnt_hdl), type);
+		ipahal_write_reg_n(IPA_ENDP_INIT_SEQ_n, clnt_hdl, type);
 
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	} else {
 		IPADBG("should not set sequencer type of ep = %d\n", clnt_hdl);
 	}
@@ -2675,20 +2645,6 @@ const char *ipa3_get_nat_en_str(enum ipa_nat_en_type nat_en)
 	return "undefined";
 }
 
-void _ipa_cfg_ep_nat_v3_0(u32 clnt_hdl,
-		const struct ipa_ep_cfg_nat *ep_nat)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_nat->nat_en,
-			IPA_ENDP_INIT_NAT_N_NAT_EN_SHFT,
-			IPA_ENDP_INIT_NAT_N_NAT_EN_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_NAT_N_OFST_v3_0(clnt_hdl),
-			reg_val);
-}
-
 /**
  * ipa3_cfg_ep_nat() - IPA end-point NAT configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -2721,36 +2677,15 @@ int ipa3_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.nat = *ep_nat;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_nat(clnt_hdl, ep_nat);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_NAT_n, clnt_hdl, ep_nat);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
 
-static void _ipa_cfg_ep_status_v3_0(u32 clnt_hdl,
-		const struct ipa3_ep_cfg_status *ep_status)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_status->status_en,
-			IPA_ENDP_STATUS_n_STATUS_EN_SHFT,
-			IPA_ENDP_STATUS_n_STATUS_EN_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_status->status_ep,
-			IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT,
-			IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_status->status_location,
-			IPA_ENDP_STATUS_n_STATUS_LOCATION_SHFT,
-			IPA_ENDP_STATUS_n_STATUS_LOCATION_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_STATUS_n_OFST(clnt_hdl),
-			reg_val);
-}
 
 /**
  * ipa3_cfg_ep_status() - IPA end-point status configuration
@@ -2761,7 +2696,8 @@ static void _ipa_cfg_ep_status_v3_0(u32 clnt_hdl,
  *
  * Note:	Should not be called from atomic context
  */
-int ipa3_cfg_ep_status(u32 clnt_hdl, const struct ipa3_ep_cfg_status *ep_status)
+int ipa3_cfg_ep_status(u32 clnt_hdl,
+	const struct ipahal_reg_ep_cfg_status *ep_status)
 {
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_status == NULL) {
@@ -2780,32 +2716,13 @@ int ipa3_cfg_ep_status(u32 clnt_hdl, const struct ipa3_ep_cfg_status *ep_status)
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].status = *ep_status;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_status(clnt_hdl, ep_status);
+	ipahal_write_reg_n_fields(IPA_ENDP_STATUS_n, clnt_hdl, ep_status);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
-}
-
-static void _ipa_cfg_ep_cfg_v3_0(u32 clnt_hdl,
-		const struct ipa_ep_cfg_cfg *cfg)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, cfg->frag_offload_en,
-			IPA_ENDP_INIT_CFG_n_FRAG_OFFLOAD_EN_SHFT,
-			IPA_ENDP_INIT_CFG_n_FRAG_OFFLOAD_EN_BMSK);
-	IPA_SETFIELD_IN_REG(reg_val, cfg->cs_offload_en,
-			IPA_ENDP_INIT_CFG_n_CS_OFFLOAD_EN_SHFT,
-			IPA_ENDP_INIT_CFG_n_CS_OFFLOAD_EN_BMSK);
-	IPA_SETFIELD_IN_REG(reg_val, cfg->cs_metadata_hdr_offset,
-			IPA_ENDP_INIT_CFG_n_CS_METADATA_HDR_OFFSET_SHFT,
-			IPA_ENDP_INIT_CFG_n_CS_METADATA_HDR_OFFSET_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio, IPA_ENDP_INIT_CFG_n_OFST(clnt_hdl),
-			reg_val);
 }
 
 /**
@@ -2832,31 +2749,19 @@ int ipa3_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *cfg)
 			cfg->frag_offload_en,
 			cfg->cs_offload_en,
 			cfg->cs_metadata_hdr_offset);
+	IPADBG("gen_qmb_master_sel=%d\n",
+		cfg->gen_qmb_master_sel);
 
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.cfg = *cfg;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_cfg(clnt_hdl, cfg);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_CFG_n, clnt_hdl, cfg);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
-}
-
-static void _ipa_cfg_ep_metadata_mask_v3_0(u32 clnt_hdl,
-		const struct ipa_ep_cfg_metadata_mask *metadata_mask)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, metadata_mask->metadata_mask,
-			IPA_ENDP_INIT_HDR_METADATA_MASK_n_METADATA_MASK_SHFT,
-			IPA_ENDP_INIT_HDR_METADATA_MASK_n_METADATA_MASK_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HDR_METADATA_MASK_n_OFST(clnt_hdl),
-			reg_val);
 }
 
 /**
@@ -2887,67 +2792,14 @@ int ipa3_cfg_ep_metadata_mask(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.metadata_mask = *metadata_mask;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_metadata_mask(clnt_hdl, metadata_mask);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HDR_METADATA_MASK_n,
+		clnt_hdl, metadata_mask);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
-}
-
-/**
- * ipa_cfg_ep_hdr_v3_0() -  IPA end-point header configuration
- * @pipe_number:[in] opaque client handle assigned by IPA to client
- * @ipa_ep_cfg:	[in] IPA end-point configuration params
- *
- * Returns:	0 on success, negative on failure
- *
- * Note:	Should not be called from atomic context
- */
-void _ipa_cfg_ep_hdr_v3_0(u32 pipe_number,
-		const struct ipa_ep_cfg_hdr *ep_hdr)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_metadata_reg_valid,
-			IPA_ENDP_INIT_HDR_N_HDR_METADATA_REG_VALID_SHFT_v2,
-			IPA_ENDP_INIT_HDR_N_HDR_METADATA_REG_VALID_BMSK_v2);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_remove_additional,
-			IPA_ENDP_INIT_HDR_N_HDR_LEN_INC_DEAGG_HDR_SHFT_v2,
-			IPA_ENDP_INIT_HDR_N_HDR_LEN_INC_DEAGG_HDR_BMSK_v2);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_a5_mux,
-			IPA_ENDP_INIT_HDR_N_HDR_A5_MUX_SHFT,
-			IPA_ENDP_INIT_HDR_N_HDR_A5_MUX_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_ofst_pkt_size,
-			IPA_ENDP_INIT_HDR_N_HDR_OFST_PKT_SIZE_SHFT,
-			IPA_ENDP_INIT_HDR_N_HDR_OFST_PKT_SIZE_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_ofst_pkt_size_valid,
-			IPA_ENDP_INIT_HDR_N_HDR_OFST_PKT_SIZE_VALID_SHFT,
-			IPA_ENDP_INIT_HDR_N_HDR_OFST_PKT_SIZE_VALID_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_additional_const_len,
-			IPA_ENDP_INIT_HDR_N_HDR_ADDITIONAL_CONST_LEN_SHFT,
-			IPA_ENDP_INIT_HDR_N_HDR_ADDITIONAL_CONST_LEN_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_ofst_metadata,
-			IPA_ENDP_INIT_HDR_N_HDR_OFST_METADATA_SHFT,
-			IPA_ENDP_INIT_HDR_N_HDR_OFST_METADATA_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_ofst_metadata_valid,
-			IPA_ENDP_INIT_HDR_N_HDR_OFST_METADATA_VALID_SHFT,
-			IPA_ENDP_INIT_HDR_N_HDR_OFST_METADATA_VALID_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr->hdr_len,
-			IPA_ENDP_INIT_HDR_N_HDR_LEN_SHFT,
-			IPA_ENDP_INIT_HDR_N_HDR_LEN_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HDR_N_OFST_v3_0(pipe_number), reg_val);
 }
 
 /**
@@ -2969,8 +2821,11 @@ int ipa3_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 				clnt_hdl, ipa3_ctx->ep[clnt_hdl].valid);
 		return -EINVAL;
 	}
-	IPADBG("pipe=%d remove_additional=%d, a5_mux=%d, ofst_pkt_size=0x%x\n",
+	IPADBG("pipe=%d metadata_reg_valid=%d\n",
 		clnt_hdl,
+		ep_hdr->hdr_metadata_reg_valid);
+
+	IPADBG("remove_additional=%d, a5_mux=%d, ofst_pkt_size=0x%x\n",
 		ep_hdr->hdr_remove_additional,
 		ep_hdr->hdr_a5_mux,
 		ep_hdr->hdr_ofst_pkt_size);
@@ -2989,56 +2844,13 @@ int ipa3_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 	/* copy over EP cfg */
 	ep->cfg.hdr = *ep_hdr;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_hdr(clnt_hdl, &ep->cfg.hdr);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HDR_n, clnt_hdl, &ep->cfg.hdr);
 
-	ipa3_dec_client_disable_clks();
-
-	return 0;
-}
-
-static int _ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
-		const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext, u32 reg_val)
-{
-	u8 hdr_endianness = ep_hdr_ext->hdr_little_endian ? 0 : 1;
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_total_len_or_pad_offset,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_payload_len_inc_padding,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAYLOAD_LEN_INC_PADDING_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAYLOAD_LEN_INC_PADDING_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_total_len_or_pad,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_total_len_or_pad_valid,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_VALID_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_VALID_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, hdr_endianness,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANNESS_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANNESS_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-		IPA_ENDP_INIT_HDR_EXT_n_OFST_v3_0(clnt_hdl), reg_val);
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
-}
-
-static int _ipa_cfg_ep_hdr_ext_v3_0(u32 clnt_hdl,
-				const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_pad_to_alignment,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_BMSK_v3_0);
-
-	return _ipa_cfg_ep_hdr_ext(clnt_hdl, ep_hdr_ext, reg_val);
 }
 
 /**
@@ -3082,17 +2894,18 @@ int ipa3_cfg_ep_hdr_ext(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ep->cfg.hdr_ext = *ep_hdr_ext;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_hdr_ext(clnt_hdl, &ep->cfg.hdr_ext);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HDR_EXT_n, clnt_hdl,
+		&ep->cfg.hdr_ext);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
 
 /**
- * ipa3_cfg_ep_hdr() -  IPA end-point Control configuration
+ * ipa3_cfg_ep_ctrl() -  IPA end-point Control configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  * @ipa_ep_cfg_ctrl:	[in] IPA end-point configuration params
  *
@@ -3100,8 +2913,6 @@ int ipa3_cfg_ep_hdr_ext(u32 clnt_hdl,
  */
 int ipa3_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 {
-	u32 reg_val = 0;
-
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes || ep_ctrl == NULL) {
 		IPAERR("bad parm, clnt_hdl = %d\n", clnt_hdl);
 		return -EINVAL;
@@ -3112,89 +2923,13 @@ int ipa3_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 		ep_ctrl->ipa_ep_suspend,
 		ep_ctrl->ipa_ep_delay);
 
-	IPA_SETFIELD_IN_REG(reg_val, ep_ctrl->ipa_ep_suspend,
-		IPA_ENDP_INIT_CTRL_N_ENDP_SUSPEND_SHFT,
-		IPA_ENDP_INIT_CTRL_N_ENDP_SUSPEND_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_ctrl->ipa_ep_delay,
-			IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_SHFT,
-			IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-		IPA_ENDP_INIT_CTRL_N_OFST(clnt_hdl), reg_val);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_CTRL_n, clnt_hdl, ep_ctrl);
 
 	if (ep_ctrl->ipa_ep_suspend == true &&
 			IPA_CLIENT_IS_CONS(ipa3_ctx->ep[clnt_hdl].client))
 		ipa3_suspend_active_aggr_wa(clnt_hdl);
 
 	return 0;
-}
-
-/**
- * ipa3_cfg_aggr_cntr_granularity() - granularity of the AGGR timer configuration
- * @aggr_granularity:     [in] defines the granularity of AGGR timers
- *			  number of units of 1/32msec
- *
- * Returns:	0 on success, negative on failure
- */
-int ipa3_cfg_aggr_cntr_granularity(u8 aggr_granularity)
-{
-	u32 reg_val = 0;
-
-	if (aggr_granularity <= IPA_AGGR_GRAN_MIN ||
-			aggr_granularity > IPA_AGGR_GRAN_MAX) {
-		IPAERR("bad param, aggr_granularity = %d\n",
-				aggr_granularity);
-		return -EINVAL;
-	}
-	IPADBG("aggr_granularity=%d\n", aggr_granularity);
-
-	reg_val = ipa_read_reg(ipa3_ctx->mmio, IPA_COUNTER_CFG_OFST);
-	reg_val = (reg_val & ~IPA_COUNTER_CFG_AGGR_GRAN_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, aggr_granularity - 1,
-			IPA_COUNTER_CFG_AGGR_GRAN_SHFT,
-			IPA_COUNTER_CFG_AGGR_GRAN_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_COUNTER_CFG_OFST, reg_val);
-
-	return 0;
-
-}
-
-/**
- * ipa3_cfg_eot_coal_cntr_granularity() - granularity of EOT_COAL timer
- *					 configuration
- * @eot_coal_granularity: defines the granularity of EOT_COAL timers
- *			  number of units of 1/32msec
- *
- * Returns:	0 on success, negative on failure
- */
-int ipa3_cfg_eot_coal_cntr_granularity(u8 eot_coal_granularity)
-{
-	u32 reg_val = 0;
-
-	if (eot_coal_granularity <= IPA_EOT_COAL_GRAN_MIN ||
-			eot_coal_granularity > IPA_EOT_COAL_GRAN_MAX) {
-		IPAERR("bad parm, eot_coal_granularity = %d\n",
-				eot_coal_granularity);
-		return -EINVAL;
-	}
-	IPADBG("eot_coal_granularity=%d\n", eot_coal_granularity);
-
-	reg_val = ipa_read_reg(ipa3_ctx->mmio, IPA_COUNTER_CFG_OFST);
-	reg_val = (reg_val & ~IPA_COUNTER_CFG_EOT_COAL_GRAN_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, eot_coal_granularity - 1,
-			IPA_COUNTER_CFG_EOT_COAL_GRAN_SHFT,
-			IPA_COUNTER_CFG_EOT_COAL_GRAN_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_COUNTER_CFG_OFST, reg_val);
-
-	return 0;
-
 }
 
 const char *ipa3_get_mode_type_str(enum ipa_mode_type mode)
@@ -3214,31 +2949,6 @@ const char *ipa3_get_mode_type_str(enum ipa_mode_type mode)
 }
 
 /**
- * _ipa_cfg_ep_mode_v3_0() - IPA end-point mode configuration
- * @pipe_number:[in] pipe number to set the mode on
- * @dst_pipe_number:[in] destination pipe, valid only when the mode is DMA
- * @ep_mode:	[in] IPA end-point configuration params
- *
- * Returns: None
- */
-void _ipa_cfg_ep_mode_v3_0(u32 pipe_number, u32 dst_pipe_number,
-		const struct ipa_ep_cfg_mode *ep_mode)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_mode->mode,
-			IPA_ENDP_INIT_MODE_N_MODE_SHFT,
-			IPA_ENDP_INIT_MODE_N_MODE_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, dst_pipe_number,
-			IPA_ENDP_INIT_MODE_N_DEST_PIPE_INDEX_SHFT_v3_0,
-			IPA_ENDP_INIT_MODE_N_DEST_PIPE_INDEX_BMSK_v3_0);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-		IPA_ENDP_INIT_MODE_N_OFST_v3_0(pipe_number), reg_val);
-}
-
-/**
  * ipa3_cfg_ep_mode() - IPA end-point mode configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  * @ipa_ep_cfg:	[in] IPA end-point configuration params
@@ -3251,6 +2961,7 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 {
 	int ep;
 	int type;
+	struct ipahal_reg_endp_init_mode init_mode;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_mode == NULL) {
@@ -3286,11 +2997,11 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 	ipa3_ctx->ep[clnt_hdl].cfg.mode = *ep_mode;
 	ipa3_ctx->ep[clnt_hdl].dst_pipe_index = ep;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_mode(clnt_hdl,
-			ipa3_ctx->ep[clnt_hdl].dst_pipe_index,
-			ep_mode);
+	init_mode.dst_pipe_number = ipa3_ctx->ep[clnt_hdl].dst_pipe_index;
+	init_mode.ep_mode = *ep_mode;
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_MODE_n, clnt_hdl, &init_mode);
 
 	 /* Configure sequencers type for test clients*/
 	if (IPA_CLIENT_IS_TEST(ipa3_ctx->ep[clnt_hdl].client)) {
@@ -3301,10 +3012,9 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 
 		IPADBG(" set sequencers to sequance 0x%x, ep = %d\n", type,
 				clnt_hdl);
-		ipa_write_reg(ipa3_ctx->mmio,
-				IPA_ENDP_INIT_SEQ_n_OFST(clnt_hdl), type);
+		ipahal_write_reg_n(IPA_ENDP_INIT_SEQ_n, clnt_hdl, type);
 	}
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3343,45 +3053,6 @@ const char *ipa3_get_aggr_type_str(enum ipa_aggr_type aggr_type)
 }
 
 /**
- * _ipa_cfg_ep_aggr_v3_0() - IPA end-point aggregation configuration
- * @pipe_number:[in] pipe number
- * @ep_aggr:[in] IPA end-point configuration params
- */
-void _ipa_cfg_ep_aggr_v3_0(u32 pipe_number,
-		const struct ipa_ep_cfg_aggr *ep_aggr)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_en,
-			IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT,
-			IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr,
-			IPA_ENDP_INIT_AGGR_N_AGGR_TYPE_SHFT,
-			IPA_ENDP_INIT_AGGR_N_AGGR_TYPE_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_byte_limit,
-			IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_SHFT,
-			IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_time_limit,
-			IPA_ENDP_INIT_AGGR_N_AGGR_TIME_LIMIT_SHFT,
-			IPA_ENDP_INIT_AGGR_N_AGGR_TIME_LIMIT_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_pkt_limit,
-			IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT,
-			IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK);
-
-	/* set byte-limit aggregation behavior to soft-byte limit */
-	IPA_SETFIELD_IN_REG(reg_val, 0,
-			IPA_ENDP_INIT_AGGR_N_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT,
-			IPA_ENDP_INIT_AGGR_N_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(pipe_number), reg_val);
-}
-
-/**
  * ipa3_cfg_ep_aggr() - IPA end-point aggregation configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  * @ipa_ep_cfg:	[in] IPA end-point configuration params
@@ -3414,39 +3085,19 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 			ipa3_get_aggr_type_str(ep_aggr->aggr),
 			ep_aggr->aggr_byte_limit,
 			ep_aggr->aggr_time_limit);
+	IPADBG("hard_byte_limit_en=%d\n",
+		ep_aggr->aggr_hard_byte_limit_en);
 
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.aggr = *ep_aggr;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_aggr(clnt_hdl, ep_aggr);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_AGGR_n, clnt_hdl, ep_aggr);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
-}
-
-/**
- * _ipa_cfg_ep_route_v3_0() - IPA end-point routing configuration
- * @pipe_index:[in] pipe index
- * @rt_tbl_index:[in] IPA end-point configuration params
- *
- * Returns:	0 on success, negative on failure
- *
- * Note:	Should not be called from atomic context
- */
-void _ipa_cfg_ep_route_v3_0(u32 pipe_index, u32 rt_tbl_index)
-{
-	int reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, rt_tbl_index,
-			IPA_ENDP_INIT_ROUTE_N_ROUTE_TABLE_INDEX_SHFT,
-			IPA_ENDP_INIT_ROUTE_N_ROUTE_TABLE_INDEX_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_ROUTE_N_OFST_v3_0(pipe_index),
-			reg_val);
 }
 
 /**
@@ -3460,6 +3111,8 @@ void _ipa_cfg_ep_route_v3_0(u32 pipe_index, u32 rt_tbl_index)
  */
 int ipa3_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 {
+	struct ipahal_reg_endp_init_route init_rt;
+
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_route == NULL) {
 		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
@@ -3494,40 +3147,14 @@ int ipa3_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 	ipa3_ctx->ep[clnt_hdl].rt_tbl_idx =
 		IPA_MEM_PART(v4_apps_rt_index_lo);
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_route(clnt_hdl,
-			ipa3_ctx->ep[clnt_hdl].rt_tbl_idx);
+	init_rt.route_table_index = ipa3_ctx->ep[clnt_hdl].rt_tbl_idx;
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_ROUTE_n, clnt_hdl, &init_rt);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
-}
-
-/**
- * _ipa_cfg_ep_holb_v3_0() - IPA end-point holb configuration
- *
- * If an IPA producer pipe is full, IPA HW by default will block
- * indefinitely till space opens up. During this time no packets
- * including those from unrelated pipes will be processed. Enabling
- * HOLB means IPA HW will be allowed to drop packets as/when needed
- * and indefinite blocking is avoided.
- *
- * @pipe_number	[in] pipe number
- * @ep_holb:	[in] IPA end-point configuration params
- *
- * Returns:	0 on success, negative on failure
- */
-void _ipa_cfg_ep_holb_v3_0(u32 pipe_number,
-			const struct ipa_ep_cfg_holb *ep_holb)
-{
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v3_0(pipe_number),
-			ep_holb->en);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v3_0(pipe_number),
-			(u16)ep_holb->tmr_val);
 }
 
 /**
@@ -3559,18 +3186,17 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 		return -EINVAL;
 	}
 
-	if (!ipa3_ctx->ctrl->ipa3_cfg_ep_holb) {
-		IPAERR("HOLB is not supported for this IPA core\n");
-		return -EINVAL;
-	}
-
 	ipa3_ctx->ep[clnt_hdl].holb = *ep_holb;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_holb(clnt_hdl, ep_holb);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n, clnt_hdl,
+		ep_holb);
 
-	ipa3_dec_client_disable_clks();
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n, clnt_hdl,
+		ep_holb);
+
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("cfg holb %u ep=%d tmr=%d\n", ep_holb->en, clnt_hdl,
 				ep_holb->tmr_val);
@@ -3594,33 +3220,6 @@ int ipa3_cfg_ep_holb_by_client(enum ipa_client_type client,
 				const struct ipa_ep_cfg_holb *ep_holb)
 {
 	return ipa3_cfg_ep_holb(ipa3_get_ep_mapping(client), ep_holb);
-}
-
-static int _ipa_cfg_ep_deaggr_v3_0(u32 clnt_hdl,
-				   const struct ipa_ep_cfg_deaggr *ep_deaggr)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_deaggr->deaggr_hdr_len,
-		IPA_ENDP_INIT_DEAGGR_n_DEAGGR_HDR_LEN_SHFT,
-		IPA_ENDP_INIT_DEAGGR_n_DEAGGR_HDR_LEN_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_deaggr->packet_offset_valid,
-		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_VALID_SHFT,
-		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_VALID_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_deaggr->packet_offset_location,
-		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_LOCATION_SHFT,
-		IPA_ENDP_INIT_DEAGGR_n_PACKET_OFFSET_LOCATION_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_deaggr->max_packet_len,
-		IPA_ENDP_INIT_DEAGGR_n_MAX_PACKET_LEN_SHFT,
-		IPA_ENDP_INIT_DEAGGR_n_MAX_PACKET_LEN_BMSK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-		IPA_ENDP_INIT_DEAGGR_n_OFST_v3_0(clnt_hdl), reg_val);
-
-	return 0;
 }
 
 /**
@@ -3660,27 +3259,14 @@ int ipa3_cfg_ep_deaggr(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ep->cfg.deaggr = *ep_deaggr;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_deaggr(clnt_hdl, &ep->cfg.deaggr);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_DEAGGR_n, clnt_hdl,
+		&ep->cfg.deaggr);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
-}
-
-static void _ipa_cfg_ep_metadata_v3_0(u32 pipe_number,
-					const struct ipa_ep_cfg_metadata *meta)
-{
-	u32 reg_val = 0;
-
-	IPA_SETFIELD_IN_REG(reg_val, meta->qmap_id,
-			IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT,
-			IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK);
-
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HDR_METADATA_n_OFST(pipe_number),
-			reg_val);
 }
 
 /**
@@ -3694,6 +3280,8 @@ static void _ipa_cfg_ep_metadata_v3_0(u32 pipe_number,
  */
 int ipa3_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 {
+	u32 qmap_id = 0;
+
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_md == NULL) {
 		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
@@ -3706,14 +3294,19 @@ int ipa3_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].cfg.meta = *ep_md;
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	ipa3_ctx->ctrl->ipa3_cfg_ep_metadata(clnt_hdl, ep_md);
+	qmap_id = (ep_md->qmap_id <<
+		IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT) &&
+		IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK;
+
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HDR_METADATA_n, clnt_hdl,
+		ep_md);
 	ipa3_ctx->ep[clnt_hdl].cfg.hdr.hdr_metadata_reg_valid = 1;
-	ipa3_ctx->ctrl->ipa3_cfg_ep_hdr(clnt_hdl,
-			&ipa3_ctx->ep[clnt_hdl].cfg.hdr);
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HDR_n, clnt_hdl,
+		&ipa3_ctx->ep[clnt_hdl].cfg.hdr);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3887,13 +3480,13 @@ int ipa3_pipe_mem_free(u32 ofst, u32 size)
  */
 int ipa3_set_aggr_mode(enum ipa_aggr_mode mode)
 {
-	u32 reg_val;
+	struct ipahal_reg_qcncm qcncm;
 
-	ipa3_inc_client_enable_clks();
-	reg_val = ipa_read_reg(ipa3_ctx->mmio, IPA_QCNCM_OFST);
-	ipa_write_reg(ipa3_ctx->mmio, IPA_QCNCM_OFST, (mode & 0x1) |
-			(reg_val & 0xfffffffe));
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	ipahal_read_reg_fields(IPA_QCNCM, &qcncm);
+	qcncm.mode_en = mode;
+	ipahal_write_reg_fields(IPA_QCNCM, &qcncm);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3911,18 +3504,17 @@ int ipa3_set_aggr_mode(enum ipa_aggr_mode mode)
  */
 int ipa3_set_qcncm_ndp_sig(char sig[3])
 {
-	u32 reg_val;
+	struct ipahal_reg_qcncm qcncm;
 
 	if (sig == NULL) {
 		IPAERR("bad argument for ipa3_set_qcncm_ndp_sig/n");
 		return -EINVAL;
 	}
-	ipa3_inc_client_enable_clks();
-	reg_val = ipa_read_reg(ipa3_ctx->mmio, IPA_QCNCM_OFST);
-	ipa_write_reg(ipa3_ctx->mmio, IPA_QCNCM_OFST, sig[0] << 20 |
-			(sig[1] << 12) | (sig[2] << 4) |
-			(reg_val & 0xf000000f));
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	ipahal_read_reg_fields(IPA_QCNCM, &qcncm);
+	qcncm.mode_val = ((sig[0] << 16) | (sig[1] << 8) | sig[2]);
+	ipahal_write_reg_fields(IPA_QCNCM, &qcncm);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3936,13 +3528,13 @@ int ipa3_set_qcncm_ndp_sig(char sig[3])
  */
 int ipa3_set_single_ndp_per_mbim(bool enable)
 {
-	u32 reg_val;
+	struct ipahal_reg_single_ndp_mode mode;
 
-	ipa3_inc_client_enable_clks();
-	reg_val = ipa_read_reg(ipa3_ctx->mmio, IPA_SINGLE_NDP_MODE_OFST);
-	ipa_write_reg(ipa3_ctx->mmio, IPA_SINGLE_NDP_MODE_OFST,
-			(enable & 0x1) | (reg_val & 0xfffffffe));
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	ipahal_read_reg_fields(IPA_SINGLE_NDP_MODE, &mode);
+	mode.single_ndp_en = enable;
+	ipahal_write_reg_fields(IPA_SINGLE_NDP_MODE, &mode);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3987,14 +3579,14 @@ void ipa3_bam_reg_dump(void)
 	static DEFINE_RATELIMIT_STATE(_rs, 500*HZ, 1);
 
 	if (__ratelimit(&_rs)) {
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 		pr_err("IPA BAM START\n");
 		sps_get_bam_debug_info(ipa3_ctx->bam_handle, 93,
 			(SPS_BAM_PIPE(ipa3_get_ep_mapping(IPA_CLIENT_USB_CONS))
 			|
 			SPS_BAM_PIPE(ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD))),
 			0, 2);
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	}
 }
 
@@ -4227,41 +3819,25 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->ipa_init_rt6 = _ipa_init_rt6_v3;
 	ctrl->ipa_init_flt4 = _ipa_init_flt4_v3;
 	ctrl->ipa_init_flt6 = _ipa_init_flt6_v3;
-	ctrl->ipa3_cfg_ep_hdr = _ipa_cfg_ep_hdr_v3_0;
-	ctrl->ipa3_cfg_ep_nat = _ipa_cfg_ep_nat_v3_0;
-	ctrl->ipa3_cfg_ep_aggr = _ipa_cfg_ep_aggr_v3_0;
-	ctrl->ipa3_cfg_ep_deaggr = _ipa_cfg_ep_deaggr_v3_0;
-	ctrl->ipa3_cfg_ep_mode = _ipa_cfg_ep_mode_v3_0;
-	ctrl->ipa3_cfg_ep_route = _ipa_cfg_ep_route_v3_0;
-	ctrl->ipa3_cfg_route = _ipa_cfg_route_v3_0;
-	ctrl->ipa3_cfg_ep_status = _ipa_cfg_ep_status_v3_0;
-	ctrl->ipa3_cfg_ep_cfg = _ipa_cfg_ep_cfg_v3_0;
-	ctrl->ipa3_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v3_0;
 	ctrl->ipa_clk_rate_turbo = IPA_V3_0_CLK_RATE_TURBO;
 	ctrl->ipa_clk_rate_nominal = IPA_V3_0_CLK_RATE_NOMINAL;
 	ctrl->ipa_clk_rate_svs = IPA_V3_0_CLK_RATE_SVS;
-	ctrl->ipa3_read_gen_reg = _ipa_read_gen_reg_v3_0;
 	ctrl->ipa3_read_ep_reg = _ipa_read_ep_reg_v3_0;
-	ctrl->ipa3_write_dbg_cnt = _ipa_write_dbg_cnt_v3_0;
-	ctrl->ipa3_read_dbg_cnt = _ipa_read_dbg_cnt_v3_0;
 	ctrl->ipa3_commit_flt = __ipa_commit_flt_v3;
 	ctrl->ipa3_commit_rt = __ipa_commit_rt_v3;
 	ctrl->ipa3_commit_hdr = __ipa_commit_hdr_v3_0;
 	ctrl->ipa3_enable_clks = _ipa_enable_clks_v3_0;
 	ctrl->ipa3_disable_clks = _ipa_disable_clks_v3_0;
 	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v3_0;
-	ctrl->ipa3_cfg_ep_metadata = _ipa_cfg_ep_metadata_v3_0;
 	ctrl->clock_scaling_bw_threshold_nominal =
 		IPA_V3_0_BW_THRESHOLD_NOMINAL_MBPS;
 	ctrl->clock_scaling_bw_threshold_turbo =
 		IPA_V3_0_BW_THRESHOLD_TURBO_MBPS;
-	ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v3_0;
+	ctrl->ipa_reg_base_ofst = ipahal_get_reg_base();
 	ctrl->ipa_init_sram = _ipa_init_sram_v3_0;
 	ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v3_0;
 
 	ctrl->ipa_init_hdr = _ipa_init_hdr_v3_0;
-	ctrl->ipa3_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v3_0;
-	ctrl->ipa3_cfg_ep_holb = _ipa_cfg_ep_holb_v3_0;
 	ctrl->ipa_generate_rt_hw_rule = __ipa_generate_rt_hw_rule_v3_0;
 
 	return 0;
@@ -4318,9 +3894,9 @@ void ipa3_id_remove(u32 id)
 	spin_unlock(&ipa3_ctx->idr_lock);
 }
 
-void ipa3_tag_free_buf(void *user1, int user2)
+void ipa3_tag_destroy_imm(void *user1, int user2)
 {
-	kfree(user1);
+	ipahal_destroy_imm_cmd(user1);
 }
 
 static void ipa3_tag_free_skb(void *user1, int user2)
@@ -4348,9 +3924,9 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	struct ipa3_sys_context *sys;
 	struct ipa3_desc *tag_desc;
 	int desc_idx = 0;
-	struct ipa3_ip_packet_init *pkt_init;
-	struct ipa3_register_write *reg_write_nop;
-	struct ipa3_ip_packet_tag_status *status;
+	struct ipahal_imm_cmd_ip_packet_init pktinit_cmd;
+	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
+	struct ipahal_imm_cmd_ip_packet_tag_status status;
 	int i;
 	struct sk_buff *dummy_skb;
 	int res;
@@ -4376,8 +3952,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	tag_desc = kzalloc(sizeof(*tag_desc) * IPA_TAG_MAX_DESC, GFP_KERNEL);
 	if (!tag_desc) {
 		IPAERR("failed to allocate memory\n");
-		res = -ENOMEM;
-		goto fail_alloc_desc;
+		return -ENOMEM;
 	}
 
 	/* Copy the required descriptors from the client now */
@@ -4388,60 +3963,57 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	}
 
 	/* NO-OP IC for ensuring that IPA pipeline is empty */
-	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
-	if (!reg_write_nop) {
-		IPAERR("no mem\n");
+	cmd_pyld = ipahal_construct_nop_imm_cmd(
+		false, IPAHAL_FULL_PIPELINE_CLEAR, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct NOP imm cmd\n");
 		res = -ENOMEM;
-		goto fail_free_desc;
+		goto fail_free_tag_desc;
 	}
-
-	reg_write_nop->skip_pipeline_clear = 0;
-	reg_write_nop->pipeline_clear_options = IPA_FULL_PIPELINE_CLEAR;
-	reg_write_nop->value_mask = 0x0;
-
-	tag_desc[desc_idx].opcode = IPA_REGISTER_WRITE;
-	tag_desc[desc_idx].pyld = reg_write_nop;
-	tag_desc[desc_idx].len = sizeof(*reg_write_nop);
+	tag_desc[desc_idx].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	tag_desc[desc_idx].pyld = cmd_pyld->data;
+	tag_desc[desc_idx].len = cmd_pyld->len;
 	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
-	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
-	tag_desc[desc_idx].user1 = reg_write_nop;
+	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
+	tag_desc[desc_idx].user1 = cmd_pyld;
 	desc_idx++;
 
 	/* IP_PACKET_INIT IC for tag status to be sent to apps */
-	pkt_init = kzalloc(sizeof(*pkt_init), GFP_KERNEL);
-	if (!pkt_init) {
-		IPAERR("failed to allocate memory\n");
-		res = -ENOMEM;
-		goto fail_alloc_pkt_init;
-	}
-
-	pkt_init->destination_pipe_index =
+	pktinit_cmd.destination_pipe_index =
 		ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
-
-	tag_desc[desc_idx].opcode = IPA_IP_PACKET_INIT;
-	tag_desc[desc_idx].pyld = pkt_init;
-	tag_desc[desc_idx].len = sizeof(*pkt_init);
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
-	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
-	tag_desc[desc_idx].user1 = pkt_init;
-	desc_idx++;
-
-	/* status IC */
-	status = kzalloc(sizeof(*status), GFP_KERNEL);
-	if (!status) {
-		IPAERR("no mem\n");
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_PACKET_INIT, &pktinit_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct ip_packet_init imm cmd\n");
 		res = -ENOMEM;
 		goto fail_free_desc;
 	}
-
-	status->tag = IPA_COOKIE;
-
-	tag_desc[desc_idx].opcode = IPA_IP_PACKET_TAG_STATUS;
-	tag_desc[desc_idx].pyld = status;
-	tag_desc[desc_idx].len = sizeof(*status);
+	tag_desc[desc_idx].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_INIT);
+	tag_desc[desc_idx].pyld = cmd_pyld->data;
+	tag_desc[desc_idx].len = cmd_pyld->len;
 	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
-	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
-	tag_desc[desc_idx].user1 = status;
+	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
+	tag_desc[desc_idx].user1 = cmd_pyld;
+	desc_idx++;
+
+	/* status IC */
+	status.tag = IPA_COOKIE;
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_IP_PACKET_TAG_STATUS, &status, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct ip_packet_tag_status imm cmd\n");
+		res = -ENOMEM;
+		goto fail_free_desc;
+	}
+	tag_desc[desc_idx].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
+	tag_desc[desc_idx].pyld = cmd_pyld->data;
+	tag_desc[desc_idx].len = cmd_pyld->len;
+	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	tag_desc[desc_idx].callback = ipa3_tag_destroy_imm;
+	tag_desc[desc_idx].user1 = cmd_pyld;
 	desc_idx++;
 
 	comp = kzalloc(sizeof(*comp), GFP_KERNEL);
@@ -4460,7 +4032,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	if (!dummy_skb) {
 		IPAERR("failed to allocate memory\n");
 		res = -ENOMEM;
-		goto fail_free_skb;
+		goto fail_free_comp;
 	}
 
 	memcpy(skb_put(dummy_skb, sizeof(comp)), &comp, sizeof(comp));
@@ -4477,7 +4049,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	if (res) {
 		IPAERR("failed to send TAG packets %d\n", res);
 		res = -ENOMEM;
-		goto fail_send;
+		goto fail_free_comp;
 	}
 	kfree(tag_desc);
 	tag_desc = NULL;
@@ -4502,26 +4074,24 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 
 	return 0;
 
-fail_send:
-	dev_kfree_skb_any(dummy_skb);
-	desc_idx--;
-fail_free_skb:
+fail_free_comp:
 	kfree(comp);
 fail_free_desc:
 	/*
 	 * Free only the first descriptors allocated here.
-	 * [pkt_init, status, nop]
+	 * [nop, pkt_init, status, dummy_skb]
 	 * The user is responsible to free his allocations
 	 * in case of failure.
 	 * The min is required because we may fail during
 	 * of the initial allocations above
 	 */
-	for (i = 0; i < min(REQUIRED_TAG_PROCESS_DESCRIPTORS-1, desc_idx); i++)
-		kfree(tag_desc[i].user1);
-
-fail_alloc_pkt_init:
+	for (i = descs_num;
+		i < min(REQUIRED_TAG_PROCESS_DESCRIPTORS, desc_idx); i++)
+		if (tag_desc[i].callback)
+			tag_desc[i].callback(tag_desc[i].user1,
+				tag_desc[i].user2);
+fail_free_tag_desc:
 	kfree(tag_desc);
-fail_alloc_desc:
 	return res;
 }
 
@@ -4540,16 +4110,16 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 	int desc_size, int start_pipe, int end_pipe)
 {
 	int i;
-	u32 aggr_init;
+	struct ipa_ep_cfg_aggr ep_aggr;
 	int desc_idx = 0;
 	int res;
-	struct ipa3_register_write *reg_write_agg_close;
+	struct ipahal_imm_cmd_register_write reg_write_agg_close;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_reg_valmask valmask;
 
 	for (i = start_pipe; i < end_pipe; i++) {
-		aggr_init = ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(i));
-		if (((aggr_init & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) >>
-			IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) != IPA_ENABLE_AGGR)
+		ipahal_read_reg_n_fields(IPA_ENDP_INIT_AGGR_n, i, &ep_aggr);
+		if (!ep_aggr.aggr_en)
 			continue;
 		IPADBG("Force close ep: %d\n", i);
 		if (desc_idx + 1 > desc_size) {
@@ -4558,32 +4128,29 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 			goto fail_no_desc;
 		}
 
-		reg_write_agg_close = kzalloc(sizeof(*reg_write_agg_close),
-			GFP_KERNEL);
-		if (!reg_write_agg_close) {
-			IPAERR("no mem\n");
+		reg_write_agg_close.skip_pipeline_clear = false;
+		reg_write_agg_close.pipeline_clear_options =
+			IPAHAL_FULL_PIPELINE_CLEAR;
+		reg_write_agg_close.offset =
+			ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(1<<i, &valmask);
+		reg_write_agg_close.value = valmask.val;
+		reg_write_agg_close.value_mask = valmask.mask;
+		cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_agg_close, false);
+		if (!cmd_pyld) {
+			IPAERR("failed to construct register_write imm cmd\n");
 			res = -ENOMEM;
 			goto fail_alloc_reg_write_agg_close;
 		}
 
-		reg_write_agg_close->skip_pipeline_clear = 0;
-		reg_write_agg_close->pipeline_clear_options =
-			IPA_FULL_PIPELINE_CLEAR;
-
-		reg_write_agg_close->offset = IPA_AGGR_FORCE_CLOSE_OFST;
-		IPA_SETFIELD_IN_REG(reg_write_agg_close->value, 1 << i,
-		   IPA_AGGR_FORCE_CLOSE_OFST_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT,
-		   IPA_AGGR_FORCE_CLOSE_OFST_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK);
-		reg_write_agg_close->value_mask =
-		IPA_AGGR_FORCE_CLOSE_OFST_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK <<
-		IPA_AGGR_FORCE_CLOSE_OFST_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT;
-
-		desc[desc_idx].opcode = IPA_REGISTER_WRITE;
-		desc[desc_idx].pyld = reg_write_agg_close;
-		desc[desc_idx].len = sizeof(*reg_write_agg_close);
+		desc[desc_idx].opcode =
+			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+		desc[desc_idx].pyld = cmd_pyld->data;
+		desc[desc_idx].len = cmd_pyld->len;
 		desc[desc_idx].type = IPA_IMM_CMD_DESC;
-		desc[desc_idx].callback = ipa3_tag_free_buf;
-		desc[desc_idx].user1 = reg_write_agg_close;
+		desc[desc_idx].callback = ipa3_tag_destroy_imm;
+		desc[desc_idx].user1 = cmd_pyld;
 		desc_idx++;
 	}
 
@@ -4591,7 +4158,9 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 
 fail_alloc_reg_write_agg_close:
 	for (i = 0; i < desc_idx; i++)
-		kfree(desc[desc_idx].user1);
+		if (desc[desc_idx].callback)
+			desc[desc_idx].callback(desc[desc_idx].user1,
+				desc[desc_idx].user2);
 fail_no_desc:
 	return res;
 }
@@ -4687,7 +4256,7 @@ bool ipa3_is_client_handle_valid(u32 clnt_hdl)
 void ipa3_proxy_clk_unvote(void)
 {
 	if (ipa3_is_ready() && ipa3_ctx->q6_proxy_clk_vote_valid) {
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PROXY_CLK_VOTE");
 		ipa3_ctx->q6_proxy_clk_vote_valid = false;
 	}
 }
@@ -4700,7 +4269,7 @@ void ipa3_proxy_clk_unvote(void)
 void ipa3_proxy_clk_vote(void)
 {
 	if (ipa3_is_ready() && !ipa3_ctx->q6_proxy_clk_vote_valid) {
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_SPECIAL("PROXY_CLK_VOTE");
 		ipa3_ctx->q6_proxy_clk_vote_valid = true;
 	}
 }
@@ -4751,7 +4320,7 @@ enum ipa_transport_type ipa3_get_transport_type(void)
 
 u32 ipa3_get_num_pipes(void)
 {
-	return ipa_read_reg(ipa3_ctx->mmio, IPA_ENABLED_PIPES_OFST);
+	return ipahal_read_reg(IPA_ENABLED_PIPES);
 }
 
 /**
@@ -4762,19 +4331,18 @@ u32 ipa3_get_num_pipes(void)
 int ipa3_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 {
 	int res = -1;
+	u32 limit;
 
 	/* checking if IPA-HW can support */
-	if ((agg_size >> 10) >
-		IPA_AGGR_BYTE_LIMIT) {
-		IPAERR("IPA-AGG byte limit %d\n",
-		IPA_AGGR_BYTE_LIMIT);
+	limit = ipahal_aggr_get_max_byte_limit();
+	if ((agg_size >> 10) > limit) {
+		IPAERR("IPA-AGG byte limit %d\n", limit);
 		IPAERR("exceed aggr_byte_limit\n");
 		return res;
-		}
-	if (agg_count >
-		IPA_AGGR_PKT_LIMIT) {
-		IPAERR("IPA-AGG pkt limit %d\n",
-		IPA_AGGR_PKT_LIMIT);
+	}
+	limit = ipahal_aggr_get_max_pkt_limit();
+	if (agg_count > limit) {
+		IPAERR("IPA-AGG pkt limit %d\n", limit);
 		IPAERR("exceed aggr_pkt_limit\n");
 		return res;
 	}
@@ -4866,6 +4434,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_smem_restr_bytes = ipa3_get_smem_restr_bytes;
 	api_ctrl->ipa_uc_wdi_get_dbpa = ipa3_uc_wdi_get_dbpa;
 	api_ctrl->ipa_uc_reg_rdyCB = ipa3_uc_reg_rdyCB;
+	api_ctrl->ipa_uc_dereg_rdyCB = ipa3_uc_dereg_rdyCB;
 	api_ctrl->ipa_rm_create_resource = ipa3_rm_create_resource;
 	api_ctrl->ipa_rm_delete_resource = ipa3_rm_delete_resource;
 	api_ctrl->ipa_rm_register = ipa3_rm_register;
@@ -4935,12 +4504,6 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_create_wdi_mapping = ipa3_create_wdi_mapping;
 	api_ctrl->ipa_get_gsi_ep_info = ipa3_get_gsi_ep_info;
 	api_ctrl->ipa_stop_gsi_channel = ipa3_stop_gsi_channel;
-	api_ctrl->ipa_usb_init_teth_prot = ipa3_usb_init_teth_prot;
-	api_ctrl->ipa_usb_xdci_connect = ipa3_usb_xdci_connect;
-	api_ctrl->ipa_usb_xdci_disconnect = ipa3_usb_xdci_disconnect;
-	api_ctrl->ipa_usb_deinit_teth_prot = ipa3_usb_deinit_teth_prot;
-	api_ctrl->ipa_usb_xdci_suspend = ipa3_usb_xdci_suspend;
-	api_ctrl->ipa_usb_xdci_resume = ipa3_usb_xdci_resume;
 	api_ctrl->ipa_register_ipa_ready_cb = ipa3_register_ipa_ready_cb;
 
 	return 0;
@@ -4973,24 +4536,28 @@ bool ipa_is_modem_pipe(int pipe_idx)
 }
 
 static void ipa3_write_rsrc_grp_type_reg(int group_index,
-			enum ipa_rsrc_grp_type_src n, bool src, u32 val) {
+			enum ipa_rsrc_grp_type_src n, bool src,
+			struct ipahal_reg_rsrc_grp_cfg *val) {
 
 	if (src) {
 		switch (group_index) {
 		case IPA_GROUP_UL:
 		case IPA_GROUP_DL:
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n(n), val);
+			ipahal_write_reg_n_fields(
+				IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n,
+				n, val);
 			break;
 		case IPA_GROUP_DIAG:
 		case IPA_GROUP_DMA:
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_SRC_RSRC_GRP_23_RSRC_TYPE_n(n), val);
+			ipahal_write_reg_n_fields(
+				IPA_SRC_RSRC_GRP_23_RSRC_TYPE_n,
+				n, val);
 			break;
 		case IPA_GROUP_Q6ZIP:
 		case IPA_GROUP_UC_RX_Q:
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_SRC_RSRC_GRP_45_RSRC_TYPE_n(n), val);
+			ipahal_write_reg_n_fields(
+				IPA_SRC_RSRC_GRP_45_RSRC_TYPE_n,
+				n, val);
 			break;
 		default:
 			IPAERR(
@@ -5002,18 +4569,21 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 		switch (group_index) {
 		case IPA_GROUP_UL:
 		case IPA_GROUP_DL:
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_DST_RSRC_GRP_01_RSRC_TYPE_n(n), val);
+			ipahal_write_reg_n_fields(
+				IPA_DST_RSRC_GRP_01_RSRC_TYPE_n,
+				n, val);
 			break;
 		case IPA_GROUP_DIAG:
 		case IPA_GROUP_DMA:
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_DST_RSRC_GRP_23_RSRC_TYPE_n(n), val);
+			ipahal_write_reg_n_fields(
+				IPA_DST_RSRC_GRP_23_RSRC_TYPE_n,
+				n, val);
 			break;
 		case IPA_GROUP_Q6ZIP_GENERAL:
 		case IPA_GROUP_Q6ZIP_ENGINE:
-			ipa_write_reg(ipa3_ctx->mmio,
-				IPA_DST_RSRC_GRP_45_RSRC_TYPE_n(n), val);
+			ipahal_write_reg_n_fields(
+				IPA_DST_RSRC_GRP_45_RSRC_TYPE_n,
+				n, val);
 			break;
 		default:
 			IPAERR(
@@ -5027,8 +4597,7 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 static void ipa3_configure_rx_hps_clients(int depth, bool min)
 {
 	int i;
-	int val;
-	u32 reg;
+	struct ipahal_reg_rx_hps_clients val;
 
 	/*
 	 * depth 0 contains 4 first clients out of 6
@@ -5036,28 +4605,24 @@ static void ipa3_configure_rx_hps_clients(int depth, bool min)
 	 */
 	for (i = 0 ; i < (depth ? 2 : 4) ; i++) {
 		if (min)
-			val = ipa3_rsrc_rx_grp_config
+			val.client_minmax[i] =
+				ipa3_rsrc_rx_grp_config
 				[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ]
 				[!depth ? i : 4 + i].min;
 		else
-			val = ipa3_rsrc_rx_grp_config
+			val.client_minmax[i] =
+				ipa3_rsrc_rx_grp_config
 				[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ]
 				[!depth ? i : 4 + i].max;
-
-		IPA_SETFIELD_IN_REG(reg, val,
-			IPA_RX_HPS_CLIENTS_MINMAX_DEPTH_X_CLIENT_n_SHFT(i),
-			IPA_RX_HPS_CLIENTS_MINMAX_DEPTH_X_CLIENT_n_BMSK(i));
 	}
 	if (depth) {
-		ipa_write_reg(ipa3_ctx->mmio,
-			min ? IPA_RX_HPS_CLIENTS_MIN_DEPTH_1 :
-			IPA_RX_HPS_CLIENTS_MAX_DEPTH_1,
-			reg);
+		ipahal_write_reg_fields(min ? IPA_RX_HPS_CLIENTS_MIN_DEPTH_1 :
+					IPA_RX_HPS_CLIENTS_MAX_DEPTH_1,
+					&val);
 	} else {
-		ipa_write_reg(ipa3_ctx->mmio,
-			min ? IPA_RX_HPS_CLIENTS_MIN_DEPTH_0 :
-			IPA_RX_HPS_CLIENTS_MAX_DEPTH_0,
-			reg);
+		ipahal_write_reg_fields(min ? IPA_RX_HPS_CLIENTS_MIN_DEPTH_0 :
+					IPA_RX_HPS_CLIENTS_MAX_DEPTH_0,
+					&val);
 	}
 }
 
@@ -5065,31 +4630,18 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 {
 	int i;
 	int j;
-	u32 reg;
+	struct ipahal_reg_rsrc_grp_cfg val;
 
 	IPADBG("ENTER\n");
 	IPADBG("Assign source rsrc groups min-max limits\n");
 
 	for (i = 0; i < IPA_RSRC_GRP_TYPE_SRC_MAX; i++) {
 		for (j = 0; j < IPA_GROUP_MAX; j = j + 2) {
-			reg = 0;
-			IPA_SETFIELD_IN_REG(reg,
-				ipa3_rsrc_src_grp_config[i][j].min,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MIN_LIM_SHFT,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MIN_LIM_BMSK);
-			IPA_SETFIELD_IN_REG(reg,
-				ipa3_rsrc_src_grp_config[i][j].max,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MAX_LIM_SHFT,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MAX_LIM_BMSK);
-			IPA_SETFIELD_IN_REG(reg,
-				ipa3_rsrc_src_grp_config[i][j + 1].min,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MIN_LIM_SHFT,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MIN_LIM_BMSK);
-			IPA_SETFIELD_IN_REG(reg,
-				ipa3_rsrc_src_grp_config[i][j + 1].max,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MAX_LIM_SHFT,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MAX_LIM_BMSK);
-			ipa3_write_rsrc_grp_type_reg(j, i, true, reg);
+			val.x_min = ipa3_rsrc_src_grp_config[i][j].min;
+			val.x_max = ipa3_rsrc_src_grp_config[i][j].max;
+			val.y_min = ipa3_rsrc_src_grp_config[i][j + 1].min;
+			val.y_max = ipa3_rsrc_src_grp_config[i][j + 1].max;
+			ipa3_write_rsrc_grp_type_reg(j, i, true, &val);
 		}
 	}
 
@@ -5097,24 +4649,11 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 
 	for (i = 0; i < IPA_RSRC_GRP_TYPE_DST_MAX; i++) {
 		for (j = 0; j < IPA_GROUP_MAX; j = j + 2) {
-			reg = 0;
-			IPA_SETFIELD_IN_REG(reg,
-				ipa3_rsrc_dst_grp_config[i][j].min,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MIN_LIM_SHFT,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MIN_LIM_BMSK);
-			IPA_SETFIELD_IN_REG(reg,
-				ipa3_rsrc_dst_grp_config[i][j].max,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MAX_LIM_SHFT,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MAX_LIM_BMSK);
-			IPA_SETFIELD_IN_REG(reg,
-				ipa3_rsrc_dst_grp_config[i][j + 1].min,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MIN_LIM_SHFT,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MIN_LIM_BMSK);
-			IPA_SETFIELD_IN_REG(reg,
-				ipa3_rsrc_dst_grp_config[i][j + 1].max,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MAX_LIM_SHFT,
-				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MAX_LIM_BMSK);
-			ipa3_write_rsrc_grp_type_reg(j, i, false, reg);
+			val.x_min = ipa3_rsrc_dst_grp_config[i][j].min;
+			val.x_max = ipa3_rsrc_dst_grp_config[i][j].max;
+			val.y_min = ipa3_rsrc_dst_grp_config[i][j + 1].min;
+			val.y_max = ipa3_rsrc_dst_grp_config[i][j + 1].max;
+			ipa3_write_rsrc_grp_type_reg(j, i, false, &val);
 		}
 	}
 
@@ -5196,7 +4735,8 @@ void ipa3_suspend_apps_pipes(bool suspend)
 int ipa3_inject_dma_task_for_gsi(void)
 {
 	static struct ipa3_mem_buffer mem = {0};
-	static struct ipa3_hw_imm_cmd_dma_task_32b_addr cmd = {0};
+	struct ipahal_imm_cmd_dma_task_32b_addr cmd = {0};
+	static struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipa3_desc desc = {0};
 
 	/* allocate the memory only for the very first time */
@@ -5211,16 +4751,24 @@ int ipa3_inject_dma_task_for_gsi(void)
 			IPAERR("no mem\n");
 			return -EFAULT;
 		}
-
+	}
+	if (!cmd_pyld) {
 		cmd.flsh = 1;
 		cmd.size1 = mem.size;
 		cmd.addr1 = mem.phys_base;
 		cmd.packet_size = mem.size;
+		cmd_pyld = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_TASK_32B_ADDR, &cmd, false);
+		if (!cmd_pyld) {
+			IPAERR("failed to construct dma_task_32b_addr cmd\n");
+			return -EFAULT;
+		}
 	}
 
-	desc.opcode = IPA_DMA_TASK_32B_ADDR(1);
-	desc.pyld = &cmd;
-	desc.len = sizeof(cmd);
+	desc.opcode = ipahal_imm_cmd_get_opcode_param(
+		IPA_IMM_CMD_DMA_TASK_32B_ADDR, 1);
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
 	desc.type = IPA_IMM_CMD_DESC;
 
 	IPADBG("sending 1B packet to IPA\n");
@@ -5256,7 +4804,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	memset(&mem, 0, sizeof(mem));
 
@@ -5288,7 +4836,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 	IPAERR("Failed  to stop GSI channel with retries\n");
 	res = -EFAULT;
 end_sequence:
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	return res;
 }
@@ -5318,7 +4866,7 @@ int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib)
 	if (attrib->ihl_offset_eq_16_present)
 		num++;
 
-	IPADBG("extra bytes number %d\n", num);
+	IPADBG_LOW("extra bytes number %d\n", num);
 
 	return num;
 }
@@ -5567,16 +5115,14 @@ int ipa3_load_fws(const struct firmware *firmware)
 		/*
 		 * The ELF program header will contain the starting
 		 * address to which the firmware needs to copied.
-		 * TODO: Shall we rely on that, or rely on the order
-		 * of which the FWs reside in the ELF, and use
-		 * registers/defines in here?
 		 */
 		phdr = (struct elf32_phdr *)elf_phdr_ptr;
 
 		/*
 		 * p_addr will contain the physical address to which the
 		 * FW needs to be loaded.
-		 * p_memsz will contain the size of the FW image.
+		 * p_memsz will contain the size of the IRAM.
+		 * p_filesz will contain the size of the FW image.
 		 */
 		fw_mem_base = ioremap(phdr->p_paddr, phdr->p_memsz);
 		if (!fw_mem_base) {
@@ -5584,6 +5130,9 @@ int ipa3_load_fws(const struct firmware *firmware)
 				phdr->p_paddr, phdr->p_memsz);
 				return -ENOMEM;
 		}
+
+		/* Set the entire region to 0s */
+		memset(fw_mem_base, 0, phdr->p_memsz);
 
 		/*
 		 * p_offset will contain and absolute offset from the beginning
@@ -5598,7 +5147,8 @@ int ipa3_load_fws(const struct firmware *firmware)
 			return -EFAULT;
 		}
 
-		for (index = 0; index < phdr->p_memsz/sizeof(uint32_t);
+		/* Write the FW */
+		for (index = 0; index < phdr->p_filesz/sizeof(uint32_t);
 			index++) {
 			writel_relaxed(*elf_data_ptr, &fw_mem_base[index]);
 			elf_data_ptr++;

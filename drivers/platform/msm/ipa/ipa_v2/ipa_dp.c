@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/list.h>
 #include <linux/netdevice.h>
 #include "ipa_i.h"
+#include "ipa_trace.h"
 
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
@@ -241,7 +242,6 @@ static void ipa_tx_switch_to_intr_mode(struct ipa_sys_context *sys)
 	}
 	atomic_set(&sys->curr_polling_state, 0);
 	ipa_handle_tx_core(sys, true, false);
-	ipa_dec_release_wakelock();
 	return;
 
 fail:
@@ -725,7 +725,6 @@ static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 				IPAERR("sps_set_config() failed %d\n", ret);
 				break;
 			}
-			ipa_inc_acquire_wakelock();
 			atomic_set(&sys->curr_polling_state, 1);
 			queue_work(sys->wq, &sys->work);
 		}
@@ -841,7 +840,7 @@ static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 	}
 	atomic_set(&sys->curr_polling_state, 0);
 	ipa_handle_rx_core(sys, true, false);
-	ipa_dec_release_wakelock();
+	ipa_dec_release_wakelock(sys->ep->wakelock_client);
 	return;
 
 fail:
@@ -856,6 +855,16 @@ fail:
 static void ipa_sps_irq_control(struct ipa_sys_context *sys, bool enable)
 {
 	int ret;
+
+	/*
+	 * Do not change sps config in case we are in polling mode as this
+	 * indicates that sps driver already notified EOT event and sps config
+	 * should not change until ipa driver processes the packet.
+	 */
+	if (atomic_read(&sys->curr_polling_state)) {
+		IPADBG("in polling mode, do not change config\n");
+		return;
+	}
 
 	if (enable) {
 		ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
@@ -959,8 +968,9 @@ static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 				IPAERR("sps_set_config() failed %d\n", ret);
 				break;
 			}
-			ipa_inc_acquire_wakelock();
+			ipa_inc_acquire_wakelock(sys->ep->wakelock_client);
 			atomic_set(&sys->curr_polling_state, 1);
+			trace_intr_to_poll(sys->ep->client);
 			queue_work(sys->wq, &sys->work);
 		}
 		break;
@@ -997,8 +1007,10 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 		cnt = ipa_handle_rx_core(sys, true, true);
 		if (cnt == 0) {
 			inactive_cycles++;
+			trace_idle_sleep_enter(sys->ep->client);
 			usleep_range(POLLING_MIN_SLEEP_RX,
 					POLLING_MAX_SLEEP_RX);
+			trace_idle_sleep_exit(sys->ep->client);
 		} else {
 			inactive_cycles = 0;
 		}
@@ -1012,6 +1024,7 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 
 	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
 
+	trace_poll_to_intr(sys->ep->client);
 	ipa_rx_switch_to_intr_mode(sys);
 	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
 }
@@ -1309,14 +1322,6 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	*clnt_hdl = ipa_ep_idx;
 
-	if (IPA_CLIENT_IS_CONS(sys_in->client))
-		ipa_replenish_rx_cache(ep->sys);
-
-	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
-		ipa_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
-		atomic_inc(&ipa_ctx->wc_memb.active_clnt_cnt);
-	}
-
 	if (nr_cpu_ids > 1 &&
 		(sys_in->client == IPA_CLIENT_APPS_LAN_CONS ||
 		 sys_in->client == IPA_CLIENT_APPS_WAN_CONS)) {
@@ -1332,6 +1337,14 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 			atomic_set(&ep->sys->repl.tail_idx, 0);
 			ipa_wq_repl_rx(&ep->sys->repl_work);
 		}
+	}
+
+	if (IPA_CLIENT_IS_CONS(sys_in->client))
+		ipa_replenish_rx_cache(ep->sys);
+
+	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
+		ipa_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
+		atomic_inc(&ipa_ctx->wc_memb.active_clnt_cnt);
 	}
 
 	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
@@ -1414,6 +1427,8 @@ int ipa2_teardown_sys_pipe(u32 clnt_hdl)
 		} while (1);
 	}
 
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
 	flush_workqueue(ep->sys->wq);
 	sps_disconnect(ep->ep_hdl);
 	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
@@ -2858,6 +2873,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		}
 	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		sys->ep->status.status_en = true;
+		sys->ep->wakelock_client = IPA_WAKELOCK_REF_CLIENT_MAX;
 		if (IPA_CLIENT_IS_PROD(in->client)) {
 			if (!sys->ep->skip_ep_cfg) {
 				sys->policy = IPA_POLICY_NOINTR_MODE;
@@ -2905,11 +2921,15 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 					IPA_GENERIC_AGGR_BYTE_LIMIT;
 					in->ipa_ep_cfg.aggr.aggr_pkt_limit =
 					IPA_GENERIC_AGGR_PKT_LIMIT;
+					sys->ep->wakelock_client =
+					IPA_WAKELOCK_REF_CLIENT_LAN_RX;
 				} else if (in->client ==
 						IPA_CLIENT_APPS_WAN_CONS) {
 					sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
 					sys->rx_pool_sz =
 						ipa_ctx->wan_rx_ring_size;
+					sys->ep->wakelock_client =
+					IPA_WAKELOCK_REF_CLIENT_WAN_RX;
 					if (ipa_ctx->
 					ipa_client_apps_wan_cons_agg_gro) {
 						IPAERR("get close-by %u\n",
@@ -2980,9 +3000,12 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				if (sys->rx_pool_sz > IPA_WLAN_RX_POOL_SZ)
 					sys->rx_pool_sz = IPA_WLAN_RX_POOL_SZ;
 				sys->pyld_hdlr = NULL;
+				sys->repl_hdlr = ipa_replenish_wlan_rx_cache;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
+				sys->ep->wakelock_client =
+					IPA_WAKELOCK_REF_CLIENT_WLAN_RX;
 			} else if (IPA_CLIENT_IS_ODU_CONS(in->client)) {
 				IPADBG("assigning policy to client:%d",
 					in->client);
@@ -3007,6 +3030,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				sys->repl_hdlr = ipa_replenish_rx_cache;
+				sys->ep->wakelock_client =
+					IPA_WAKELOCK_REF_CLIENT_ODU_RX;
 			} else if (in->client ==
 					IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS) {
 				IPADBG("assigning policy to client:%d",

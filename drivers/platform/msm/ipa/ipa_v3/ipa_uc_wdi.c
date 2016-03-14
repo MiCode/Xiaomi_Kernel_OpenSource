@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -339,7 +339,7 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 	if (ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsWDIInfoData_t) >=
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
 		ipa3_ctx->smem_sz) {
 			IPAERR("uc_wdi_stats 0x%x outside SRAM\n",
 				ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_ofst);
@@ -401,8 +401,7 @@ int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 			ipa3_ctx->uc_wdi_ctx.wdi_uc_stats_mmio);
 		return -EINVAL;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	TX_STATS(num_pkts_processed);
 	TX_STATS(copy_engine_doorbell_value);
@@ -444,7 +443,7 @@ int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	RX_STATS(reserved1);
 	RX_STATS(reserved2);
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -737,7 +736,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	}
 
 	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(in->sys.client);
 
 	IPADBG("client=%d ep=%d\n", in->sys.client, ipa_ep_idx);
 	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
@@ -825,10 +824,10 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		tx->num_tx_buffers = in->u.dl.num_tx_buffers;
 		tx->ipa_pipe_number = ipa_ep_idx;
 		out->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
-				IPA_REG_BASE_OFST_v3_0 +
-				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
-					IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
+				ipahal_get_reg_base() +
+				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
+				IPA_HW_WDI_TX_MBOX_START_INDEX/32,
+				IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
 		rx = (struct IpaHwWdiRxSetUpCmdData_t *)cmd.base;
 
@@ -868,8 +867,8 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 		rx->ipa_pipe_number = ipa_ep_idx;
 		out->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
-				IPA_REG_BASE_OFST_v3_0 +
-				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+				ipahal_get_reg_base() +
+				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
 					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
 					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}
@@ -921,7 +920,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		ipa3_install_dflt_flt_rules(ipa_ep_idx);
 
 	if (!ep->keep_ipa_awake)
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 	ep->wdi_state |= IPA_WDI_CONNECTED;
@@ -935,7 +934,7 @@ uc_timeout:
 	ipa_release_uc_smmu_mappings(in->sys.client);
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 dma_alloc_fail:
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 fail:
 	return result;
 }
@@ -974,7 +973,7 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 	}
 
 	if (!ep->keep_ipa_awake)
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	tear.params.ipa_pipe_number = clnt_hdl;
 
@@ -992,7 +991,7 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 	ipa_release_uc_smmu_mappings(ep->client);
 
 	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
@@ -1033,8 +1032,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
 		return -EFAULT;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 	enable.params.ipa_pipe_number = clnt_hdl;
 
 	result = ipa3_uc_send_cmd(enable.raw32b,
@@ -1053,8 +1051,7 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 		holb_cfg.tmr_val = 0;
 		result = ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->wdi_state |= IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) enabled\n", clnt_hdl);
 
@@ -1096,8 +1093,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
 		return -EFAULT;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	result = ipa3_disable_data_path(clnt_hdl);
 	if (result) {
@@ -1149,8 +1145,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->wdi_state &= ~IPA_WDI_ENABLED;
 	IPADBG("client (ep: %d) disabled\n", clnt_hdl);
 
@@ -1191,8 +1186,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
 		return -EFAULT;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 	resume.params.ipa_pipe_number = clnt_hdl;
 
 	result = ipa3_uc_send_cmd(resume.raw32b,
@@ -1303,7 +1297,7 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 	}
 
 	ipa3_ctx->tag_process_before_gating = true;
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	ep->wdi_state &= ~IPA_WDI_RESUMED;
 	IPADBG("client (ep: %d) suspended\n", clnt_hdl);
 
@@ -1335,8 +1329,7 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		IPAERR("WDI channel bad state %d\n", ep->wdi_state);
 		return -EFAULT;
 	}
-
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 	qmap.params.ipa_pipe_number = clnt_hdl;
 	qmap.params.qmap_id = qmap_id;
 
@@ -1349,8 +1342,7 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		result = -EFAULT;
 		goto uc_timeout;
 	}
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPADBG("client (ep: %d) qmap_id %d updated\n", clnt_hdl, qmap_id);
 
@@ -1389,6 +1381,20 @@ int ipa3_uc_reg_rdyCB(
 	return 0;
 }
 
+/**
+ * ipa3_uc_dereg_rdyCB() - To de-register uC ready CB
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ */
+int ipa3_uc_dereg_rdyCB(void)
+{
+	ipa3_ctx->uc_wdi_ctx.uc_ready_cb = NULL;
+	ipa3_ctx->uc_wdi_ctx.priv = NULL;
+
+	return 0;
+}
+
 
 /**
  * ipa3_uc_wdi_get_dbpa() - To retrieve
@@ -1411,14 +1417,14 @@ int ipa3_uc_wdi_get_dbpa(
 
 	if (IPA_CLIENT_IS_CONS(param->client)) {
 		param->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
-				IPA_REG_BASE_OFST_v3_0 +
-				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+				ipahal_get_reg_base() +
+				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
 					IPA_HW_WDI_TX_MBOX_START_INDEX/32,
 					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
 		param->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
-				IPA_REG_BASE_OFST_v3_0 +
-				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+				ipahal_get_reg_base() +
+				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
 					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
 					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}
@@ -1433,9 +1439,16 @@ static void ipa3_uc_wdi_loaded_handler(void)
 		return;
 	}
 
-	if (ipa3_ctx->uc_wdi_ctx.uc_ready_cb)
+	if (ipa3_ctx->uc_wdi_ctx.uc_ready_cb) {
 		ipa3_ctx->uc_wdi_ctx.uc_ready_cb(
 			ipa3_ctx->uc_wdi_ctx.priv);
+
+		ipa3_ctx->uc_wdi_ctx.uc_ready_cb =
+			NULL;
+		ipa3_ctx->uc_wdi_ctx.priv = NULL;
+	}
+
+	return;
 }
 
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)

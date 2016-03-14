@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1606,7 +1606,7 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	ch_props.ring_len = channel->ch_ctx_host.rlen;
 	ch_props.ring_base_addr = IPA_MHI_HOST_ADDR_COND(
 			channel->ch_ctx_host.rbase);
-	ch_props.use_db_eng = GSI_CHAN_DB_MODE;
+	ch_props.use_db_eng = GSI_CHAN_DIRECT_MODE;
 	ch_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	ch_props.low_weight = 1;
 	ch_props.err_cb = ipa_mhi_gsi_ch_err_cb;
@@ -2008,7 +2008,7 @@ int ipa3_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 	IPA_MHI_DBG("channel_context_addr 0x%llx\n",
 		channel->channel_context_addr);
 
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_EP(in->sys.client);
 
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		res = ipa_mhi_start_gsi_channel(channel, ipa_ep_idx);
@@ -2065,7 +2065,7 @@ int ipa3_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 		ipa3_install_dflt_flt_rules(ipa_ep_idx);
 
 	if (!ep->keep_ipa_awake)
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 
 	ipa3_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 	IPA_MHI_DBG("client %d (ep: %d) connected\n", in->sys.client,
@@ -2080,7 +2080,7 @@ fail_ep_cfg:
 fail_enable_dp:
 	ipa3_mhi_reset_channel(channel);
 fail_start_channel:
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(in->sys.client);
 fail_init_channel:
 	memset(ep, 0, offsetof(struct ipa3_ep_context, sys));
 	return -EPERM;
@@ -2137,8 +2137,7 @@ int ipa3_mhi_disconnect_pipe(u32 clnt_hdl)
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
 	if (!ep->keep_ipa_awake)
-		ipa3_inc_client_enable_clks();
-
+		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 	res = ipa3_mhi_reset_channel(channel);
 	if (res) {
 		IPA_MHI_ERR("ipa3_mhi_reset_channel failed %d\n", res);
@@ -2155,8 +2154,7 @@ int ipa3_mhi_disconnect_pipe(u32 clnt_hdl)
 
 	ep->valid = 0;
 	ipa3_delete_dflt_flt_rules(clnt_hdl);
-
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	IPA_MHI_DBG("client (ep: %d) disconnected\n", clnt_hdl);
 	IPA_MHI_FUNC_EXIT();
@@ -2164,7 +2162,7 @@ int ipa3_mhi_disconnect_pipe(u32 clnt_hdl)
 
 fail_reset_channel:
 	if (!ep->keep_ipa_awake)
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return res;
 }
 
@@ -2494,8 +2492,7 @@ static bool ipa3_mhi_has_open_aggr_frame(void)
 	int i;
 	int ipa_ep_idx;
 
-	aggr_state_active = ipa_read_reg(ipa3_ctx->mmio,
-		IPA_STATE_AGGR_ACTIVE_OFST);
+	aggr_state_active = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
 	IPA_MHI_DBG("IPA_STATE_AGGR_ACTIVE_OFST 0x%x\n", aggr_state_active);
 
 	for (i = 0; i < IPA_MHI_MAX_DL_CHANNELS; i++) {
@@ -2608,7 +2605,8 @@ int ipa3_mhi_suspend(bool force)
 	 * hold IPA clocks and release them after all
 	 * IPA RM resource are released to make sure tag process will not start
 	 */
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
 	IPA_MHI_DBG("release prod\n");
 	res = ipa3_mhi_release_prod();
 	if (res) {
@@ -2661,7 +2659,7 @@ int ipa3_mhi_suspend(bool force)
 		goto fail_release_cons;
 	}
 
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 
@@ -2671,7 +2669,7 @@ fail_suspend_dl_channel:
 fail_release_cons:
 	ipa3_mhi_request_prod();
 fail_release_prod:
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 fail_suspend_ul_channel:
 	ipa3_mhi_resume_ul_channels(true);
 	ipa3_mhi_set_state(IPA_MHI_STATE_STARTED);

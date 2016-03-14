@@ -395,13 +395,14 @@ enum ipa_tethering_stats_event {
 /**
  * enum ipa_rm_resource_name - IPA RM clients identification names
  *
- * Add new mapping to ipa_rm_dep_prod_index() / ipa_rm_dep_cons_index()
+ * Add new mapping to ipa_rm_prod_index() / ipa_rm_cons_index()
  * when adding new entry to this enum.
  */
 enum ipa_rm_resource_name {
 	IPA_RM_RESOURCE_PROD = 0,
 	IPA_RM_RESOURCE_Q6_PROD = IPA_RM_RESOURCE_PROD,
 	IPA_RM_RESOURCE_USB_PROD,
+	IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
 	IPA_RM_RESOURCE_HSIC_PROD,
 	IPA_RM_RESOURCE_STD_ECM_PROD,
 	IPA_RM_RESOURCE_RNDIS_PROD,
@@ -413,6 +414,7 @@ enum ipa_rm_resource_name {
 
 	IPA_RM_RESOURCE_Q6_CONS = IPA_RM_RESOURCE_PROD_MAX,
 	IPA_RM_RESOURCE_USB_CONS,
+	IPA_RM_RESOURCE_USB_DPL_CONS,
 	IPA_RM_RESOURCE_HSIC_CONS,
 	IPA_RM_RESOURCE_WLAN_CONS,
 	IPA_RM_RESOURCE_APPS_CONS,

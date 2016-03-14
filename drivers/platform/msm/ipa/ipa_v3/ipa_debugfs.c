@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,9 +19,9 @@
 #include "ipa_rm_i.h"
 
 #define IPA_MAX_MSG_LEN 4096
-#define IPA_DBG_CNTR_ON 127265
-#define IPA_DBG_CNTR_OFF 127264
 #define IPA_DBG_MAX_RULE_IN_TBL 128
+#define IPA_DBG_ACTIVE_CLIENT_BUF_SIZE ((IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN \
+	* IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES) + IPA_MAX_MSG_LEN)
 
 #define IPA_DUMP_STATUS_FIELD(f) \
 	pr_err(#f "=0x%x\n", status->f)
@@ -111,44 +111,37 @@ static struct dentry *dfile_msg;
 static struct dentry *dfile_ip4_nat;
 static struct dentry *dfile_rm_stats;
 static struct dentry *dfile_status_stats;
+static struct dentry *dfile_active_clients;
 static char dbg_buff[IPA_MAX_MSG_LEN];
+static char *active_clients_buf;
+
 static s8 ep_reg_idx;
 
-/**
- * _ipa_read_gen_reg_v3_0() - Reads and prints IPA general configuration
- *	registers
- *
- * Returns the number of characters printed
- */
-int _ipa_read_gen_reg_v3_0(char *buff, int max_len)
-{
-	return scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"IPA_VERSION=0x%x\n"
-			"IPA_COMP_HW_VERSION=0x%x\n"
-			"IPA_ROUTE=0x%x\n"
-			"IPA_SHARED_MEM_RESTRICTED=0x%x\n"
-			"IPA_SHARED_MEM_SIZE=0x%x\n",
-			ipa_read_reg(ipa3_ctx->mmio, IPA_VERSION_OFST),
-			ipa_read_reg(ipa3_ctx->mmio, IPA_COMP_HW_VERSION_OFST),
-			ipa_read_reg(ipa3_ctx->mmio, IPA_ROUTE_OFST_v3_0),
-			ipa_read_reg_field(ipa3_ctx->mmio,
-				IPA_SHARED_MEM_SIZE_OFST_v3_0,
-				IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_BMSK_v3_0,
-				IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_SHFT_v3_0),
-			ipa_read_reg_field(ipa3_ctx->mmio,
-				IPA_SHARED_MEM_SIZE_OFST_v3_0,
-				IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_BMSK_v3_0,
-				IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_SHFT_v3_0));
-}
 
 static ssize_t ipa3_read_gen_reg(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	int nbytes;
+	struct ipahal_reg_shared_mem_size smem_sz;
 
-	ipa3_inc_client_enable_clks();
-	nbytes = ipa3_ctx->ctrl->ipa3_read_gen_reg(dbg_buff, IPA_MAX_MSG_LEN);
-	ipa3_dec_client_disable_clks();
+	memset(&smem_sz, 0, sizeof(smem_sz));
+	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"IPA_VERSION=0x%x\n"
+			"IPA_COMP_HW_VERSION=0x%x\n"
+			"IPA_ROUTE=0x%x\n"
+			"IPA_SHARED_MEM_RESTRICTED=0x%x\n"
+			"IPA_SHARED_MEM_SIZE=0x%x\n",
+			ipahal_read_reg(IPA_VERSION),
+			ipahal_read_reg(IPA_COMP_HW_VERSION),
+			ipahal_read_reg(IPA_ROUTE),
+			smem_sz.shared_mem_baddr,
+			smem_sz.shared_mem_sz);
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -247,28 +240,17 @@ int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe)
 		"IPA_ENDP_INIT_HOL_TIMER_%u=0x%x\n"
 		"IPA_ENDP_INIT_DEAGGR_%u=0x%x\n"
 		"IPA_ENDP_INIT_CFG_%u=0x%x\n",
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_NAT_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HDR_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HDR_EXT_n_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_MODE_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_ROUTE_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_CTRL_N_OFST(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_DEAGGR_n_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_CFG_n_OFST(pipe)));
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_NAT_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HDR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HDR_EXT_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_MODE_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_AGGR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_ROUTE_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_CTRL_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HOL_BLOCK_EN_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_DEAGGR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_CFG_n, pipe));
 }
 
 static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
@@ -291,7 +273,7 @@ static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
 		end_idx = start_idx + 1;
 	}
 	pos = *ppos;
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	for (i = start_idx; i < end_idx; i++) {
 
 		nbytes = ipa3_ctx->ctrl->ipa3_read_ep_reg(dbg_buff,
@@ -301,7 +283,7 @@ static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
 		ret = simple_read_from_buffer(ubuf, count, ppos, dbg_buff,
 					      nbytes);
 		if (ret < 0) {
-			ipa3_dec_client_disable_clks();
+			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return ret;
 		}
 
@@ -309,7 +291,7 @@ static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
 		ubuf += nbytes;
 		count -= nbytes;
 	}
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	*ppos = pos + size;
 	return size;
@@ -333,9 +315,9 @@ static ssize_t ipa3_write_keep_awake(struct file *file, const char __user *buf,
 		return -EFAULT;
 
 	if (option == 1)
-		ipa3_inc_client_enable_clks();
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	else if (option == 0)
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	else
 		return -EFAULT;
 
@@ -1250,25 +1232,12 @@ static ssize_t ipa3_read_wdi(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
-/**
- * _ipa_write_dbg_cnt_v3_0() - Configure IPA debug counter register
- *
- */
-void _ipa_write_dbg_cnt_v3_0(int option)
-{
-	if (option == 1)
-		ipa_write_reg(ipa3_ctx->mmio, IPA_DEBUG_CNT_CTRL_N_OFST_v3_0(0),
-				IPA_DBG_CNTR_ON);
-	else
-		ipa_write_reg(ipa3_ctx->mmio, IPA_DEBUG_CNT_CTRL_N_OFST_v3_0(0),
-				IPA_DBG_CNTR_OFF);
-}
-
 static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 		size_t count, loff_t *ppos)
 {
 	unsigned long missing;
 	u32 option = 0;
+	struct ipahal_reg_debug_cnt_ctrl dbg_cnt_ctrl;
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -1281,36 +1250,36 @@ static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 	if (kstrtou32(dbg_buff, 0, &option))
 		return -EFAULT;
 
-	ipa3_inc_client_enable_clks();
-	ipa3_ctx->ctrl->ipa3_write_dbg_cnt(option);
-	ipa3_dec_client_disable_clks();
+	memset(&dbg_cnt_ctrl, 0, sizeof(dbg_cnt_ctrl));
+	dbg_cnt_ctrl.type = DBG_CNT_TYPE_GENERAL;
+	dbg_cnt_ctrl.product = true;
+	dbg_cnt_ctrl.src_pipe = 0x1f;
+	dbg_cnt_ctrl.rule_idx_pipe_rule = false;
+	dbg_cnt_ctrl.rule_idx = 0;
+	if (option == 1)
+		dbg_cnt_ctrl.en = true;
+	else
+		dbg_cnt_ctrl.en = false;
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	ipahal_write_reg_n_fields(IPA_DEBUG_CNT_CTRL_n, 0, &dbg_cnt_ctrl);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return count;
-}
-
-/**
- * _ipa_write_dbg_cnt_v3_0() - Read IPA debug counter register
- *
- */
-int _ipa_read_dbg_cnt_v3_0(char *buf, int max_len)
-{
-	int regval;
-
-	regval = ipa_read_reg(ipa3_ctx->mmio,
-			IPA_DEBUG_CNT_REG_N_OFST_v3_0(0));
-
-	return scnprintf(buf, max_len,
-			"IPA_DEBUG_CNT_REG_0=0x%x\n", regval);
 }
 
 static ssize_t ipa3_read_dbg_cnt(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	int nbytes;
+	u32 regval;
 
-	ipa3_inc_client_enable_clks();
-	nbytes = ipa3_ctx->ctrl->ipa3_read_dbg_cnt(dbg_buff, IPA_MAX_MSG_LEN);
-	ipa3_dec_client_disable_clks();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	regval =
+		ipahal_read_reg_n(IPA_DEBUG_CNT_REG_n, 0);
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"IPA_DEBUG_CNT_REG_0=0x%x\n", regval);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -1585,6 +1554,49 @@ static ssize_t ipa_status_stats_read(struct file *file, char __user *ubuf,
 	return 0;
 }
 
+static ssize_t ipa3_print_active_clients_log(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int cnt;
+	int table_size;
+
+	if (active_clients_buf == NULL) {
+		IPAERR("Active Clients buffer is not allocated");
+		return 0;
+	}
+	memset(active_clients_buf, 0, IPA_DBG_ACTIVE_CLIENT_BUF_SIZE);
+	ipa3_active_clients_lock();
+	cnt = ipa3_active_clients_log_print_buffer(active_clients_buf,
+			IPA_DBG_ACTIVE_CLIENT_BUF_SIZE - IPA_MAX_MSG_LEN);
+	table_size = ipa3_active_clients_log_print_table(active_clients_buf
+			+ cnt, IPA_MAX_MSG_LEN);
+	ipa3_active_clients_unlock();
+
+	return simple_read_from_buffer(ubuf, count, ppos,
+			active_clients_buf, cnt + table_size);
+}
+
+static ssize_t ipa3_clear_active_clients_log(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+		s8 option = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtos8(dbg_buff, 0, &option))
+		return -EFAULT;
+
+	ipa3_active_clients_log_clear();
+
+	return count;
+}
 
 const struct file_operations ipa3_gen_reg_ops = {
 	.read = ipa3_read_gen_reg,
@@ -1665,6 +1677,11 @@ const struct file_operations ipa3_rm_stats = {
 	.read = ipa3_rm_read_stats,
 };
 
+const struct file_operations ipa3_active_clients = {
+	.read = ipa3_print_active_clients_log,
+	.write = ipa3_clear_active_clients_log,
+};
+
 void ipa3_debugfs_init(void)
 {
 	const mode_t read_only_mode = S_IRUSR | S_IRGRP | S_IROTH;
@@ -1693,6 +1710,19 @@ void ipa3_debugfs_init(void)
 		IPAERR("fail to create file for debug_fs gen_reg\n");
 		goto fail;
 	}
+
+	dfile_active_clients = debugfs_create_file("active_clients",
+			read_write_mode, dent, 0, &ipa3_active_clients);
+	if (!dfile_active_clients || IS_ERR(dfile_active_clients)) {
+		IPAERR("fail to create file for debug_fs active_clients\n");
+		goto fail;
+	}
+
+	active_clients_buf = NULL;
+	active_clients_buf = kzalloc(IPA_DBG_ACTIVE_CLIENT_BUF_SIZE,
+			GFP_KERNEL);
+	if (active_clients_buf == NULL)
+		IPAERR("fail to allocate active clients memory buffer");
 
 	dfile_ep_reg = debugfs_create_file("ep_reg", read_write_mode, dent, 0,
 			&ipa3_ep_reg_ops);
@@ -1864,6 +1894,13 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	file = debugfs_create_u32("enable_low_prio_print", read_write_mode,
+		dent, &ipa3_ctx->enable_low_prio_print);
+	if (!file) {
+		IPAERR("could not create enable_low_prio_print file\n");
+		goto fail;
+	}
+
 	return;
 
 fail:
@@ -1875,6 +1912,10 @@ void ipa3_debugfs_remove(void)
 	if (IS_ERR(dent)) {
 		IPAERR("ipa3_debugfs_remove: folder was not created.\n");
 		return;
+	}
+	if (active_clients_buf != NULL) {
+		kfree(active_clients_buf);
+		active_clients_buf = NULL;
 	}
 	debugfs_remove_recursive(dent);
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,6 +181,8 @@ struct ipa_api_controller {
 
 	int (*ipa_uc_reg_rdyCB)(struct ipa_wdi_uc_ready_params *param);
 
+	int (*ipa_uc_dereg_rdyCB)(void);
+
 	int (*ipa_rm_create_resource)(
 		struct ipa_rm_create_params *create_params);
 
@@ -330,28 +332,6 @@ struct ipa_api_controller {
 		struct ipa_wdi_buffer_info *info);
 
 	struct ipa_gsi_ep_config *(*ipa_get_gsi_ep_info)(int ipa_ep_idx);
-
-	int (*ipa_usb_init_teth_prot)(enum ipa_usb_teth_prot teth_prot,
-		struct ipa_usb_teth_params *teth_params,
-		int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void*),
-		void *user_data);
-
-	int (*ipa_usb_xdci_connect)(
-		struct ipa_usb_xdci_chan_params *ul_chan_params,
-		struct ipa_usb_xdci_chan_params *dl_chan_params,
-		struct ipa_req_chan_out_params *ul_out_params,
-		struct ipa_req_chan_out_params *dl_out_params,
-		struct ipa_usb_xdci_connect_params *connect_params);
-
-	int (*ipa_usb_xdci_disconnect)(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-		enum ipa_usb_teth_prot teth_prot);
-
-	int (*ipa_usb_deinit_teth_prot)(enum ipa_usb_teth_prot teth_prot);
-
-	int (*ipa_usb_xdci_suspend)(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-		enum ipa_usb_teth_prot teth_prot);
-
-	int (*ipa_usb_xdci_resume)(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
 
 	int (*ipa_register_ipa_ready_cb)(void (*ipa_ready_cb)(void *user_data),
 		void *user_data);

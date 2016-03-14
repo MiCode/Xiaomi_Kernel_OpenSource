@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -235,7 +235,9 @@
 	} while (0)
 
 #define IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES 120
-#define IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN 100
+#define IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN 96
+#define IPA2_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE 50
+#define IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN 40
 
 extern const char *ipa2_clients_strings[];
 
@@ -254,11 +256,19 @@ struct ipa2_active_client_logging_info {
 	enum ipa2_active_client_log_type type;
 };
 
+struct ipa2_active_client_htable_entry {
+	struct hlist_node list;
+	char id_string[IPA2_ACTIVE_CLIENTS_LOG_NAME_LEN];
+	int count;
+	enum ipa2_active_client_log_type type;
+};
+
 struct ipa2_active_clients_log_ctx {
 	char *log_buffer[IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES];
 	int log_head;
 	int log_tail;
 	bool log_rdy;
+	struct hlist_head htable[IPA2_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE];
 };
 
 
@@ -596,6 +606,16 @@ struct ipa_status_stats {
 	int curr;
 };
 
+enum ipa_wakelock_ref_client {
+	IPA_WAKELOCK_REF_CLIENT_TX  = 0,
+	IPA_WAKELOCK_REF_CLIENT_LAN_RX = 1,
+	IPA_WAKELOCK_REF_CLIENT_WAN_RX = 2,
+	IPA_WAKELOCK_REF_CLIENT_WLAN_RX = 3,
+	IPA_WAKELOCK_REF_CLIENT_ODU_RX = 4,
+	IPA_WAKELOCK_REF_CLIENT_SPS = 5,
+	IPA_WAKELOCK_REF_CLIENT_MAX
+};
+
 /**
  * struct ipa_ep_context - IPA end point context
  * @valid: flag indicating id EP context is valid
@@ -655,6 +675,7 @@ struct ipa_ep_context {
 	u32 rx_replenish_threshold;
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
+	enum ipa_wakelock_ref_client wakelock_client;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -905,7 +926,7 @@ struct ipa_active_clients {
 
 struct ipa_wakelock_ref_cnt {
 	spinlock_t spinlock;
-	int cnt;
+	u32 cnt;
 };
 
 struct ipa_tag_completion {
@@ -1753,6 +1774,10 @@ int ipa2_uc_wdi_get_dbpa(struct ipa_wdi_db_params *out);
  * if uC not ready only, register callback
  */
 int ipa2_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
+/*
+ * To de-register uC ready callback
+ */
+int ipa2_uc_dereg_rdyCB(void);
 
 /*
  * Resource manager
@@ -1945,7 +1970,12 @@ void ipa2_inc_client_enable_clks(struct ipa2_active_client_logging_info *id);
 int ipa2_inc_client_enable_clks_no_block(struct ipa2_active_client_logging_info
 		*id);
 void ipa2_dec_client_disable_clks(struct ipa2_active_client_logging_info *id);
-void ipa2_active_clients_log_print_buffer(void);
+void ipa2_active_clients_log_dec(struct ipa2_active_client_logging_info *id,
+		bool int_ctx);
+void ipa2_active_clients_log_inc(struct ipa2_active_client_logging_info *id,
+		bool int_ctx);
+int ipa2_active_clients_log_print_buffer(char *buf, int size);
+int ipa2_active_clients_log_print_table(char *buf, int size);
 void ipa2_active_clients_log_clear(void);
 int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa_del_rt_rule(u32 rule_hdl);
@@ -2118,7 +2148,7 @@ void ipa_flow_control(enum ipa_client_type ipa_client, bool enable,
 			uint32_t qmap_id);
 int ipa2_restore_suspend_handler(void);
 void ipa_sps_irq_control_all(bool enable);
-void ipa_inc_acquire_wakelock(void);
-void ipa_dec_release_wakelock(void);
+void ipa_inc_acquire_wakelock(enum ipa_wakelock_ref_client ref_client);
+void ipa_dec_release_wakelock(enum ipa_wakelock_ref_client ref_client);
 const char *ipa_rm_resource_str(enum ipa_rm_resource_name resource_name);
 #endif /* _IPA_I_H_ */

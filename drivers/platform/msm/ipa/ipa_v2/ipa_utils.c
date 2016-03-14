@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -569,6 +569,7 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	struct ipa_ep_cfg_ctrl suspend;
 	int ipa_ep_idx;
 	unsigned long flags;
+	struct ipa2_active_client_logging_info log_info;
 
 	if (ipa_active_clients_trylock(&flags) == 0)
 		return -EPERM;
@@ -606,6 +607,9 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	}
 
 	if (res == 0) {
+		IPA2_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
+				ipa_rm_resource_str(resource));
+		ipa2_active_clients_log_dec(&log_info, true);
 		ipa_ctx->ipa_active_clients.cnt--;
 		IPADBG("active clients = %d\n",
 		       ipa_ctx->ipa_active_clients.cnt);
@@ -5004,6 +5008,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_smem_restr_bytes = ipa2_get_smem_restr_bytes;
 	api_ctrl->ipa_uc_wdi_get_dbpa = ipa2_uc_wdi_get_dbpa;
 	api_ctrl->ipa_uc_reg_rdyCB = ipa2_uc_reg_rdyCB;
+	api_ctrl->ipa_uc_dereg_rdyCB = ipa2_uc_dereg_rdyCB;
 	api_ctrl->ipa_create_wdi_mapping = ipa2_create_wdi_mapping;
 	api_ctrl->ipa_release_wdi_mapping = ipa2_release_wdi_mapping;
 	api_ctrl->ipa_rm_create_resource = ipa2_rm_create_resource;

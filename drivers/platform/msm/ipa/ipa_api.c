@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -408,7 +408,7 @@ int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 EXPORT_SYMBOL(ipa_cfg_ep_holb_by_client);
 
 /**
- * ipa_cfg_ep_hdr() -  IPA end-point Control configuration
+ * ipa_cfg_ep_ctrl() -  IPA end-point Control configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  * @ipa_ep_cfg_ctrl:	[in] IPA end-point configuration params
  *
@@ -1441,6 +1441,22 @@ int ipa_uc_reg_rdyCB(
 	return ret;
 }
 EXPORT_SYMBOL(ipa_uc_reg_rdyCB);
+
+/**
+ * ipa_uc_dereg_rdyCB() - To de-register uC ready CB
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ */
+int ipa_uc_dereg_rdyCB(void)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_dereg_rdyCB);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_uc_dereg_rdyCB);
 
 /**
  * ipa_rm_create_resource() - create resource
@@ -2632,6 +2648,8 @@ static struct of_device_id ipa_plat_drv_match[] = {
 	{ .compatible = "qcom,ipa-smmu-ap-cb", },
 	{ .compatible = "qcom,ipa-smmu-wlan-cb", },
 	{ .compatible = "qcom,ipa-smmu-uc-cb", },
+	{ .compatible = "qcom,smp2pgpio-map-ipa-1-in", },
+	{ .compatible = "qcom,smp2pgpio-map-ipa-1-out", },
 	{}
 };
 
@@ -2639,21 +2657,29 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 {
 	int result;
 
-	pr_debug("ipa: IPA driver probing started\n");
+	/*
+	* IPA probe function can be called for multiple times as the same probe
+	* function handles multiple compatibilities
+	*/
+	pr_debug("ipa: IPA driver probing started for %s\n",
+		pdev_p->dev.of_node->name);
 
-	ipa_api_ctrl = kzalloc(sizeof(*ipa_api_ctrl), GFP_KERNEL);
-	if (!ipa_api_ctrl)
-		return -ENOMEM;
+	if (!ipa_api_ctrl) {
+		ipa_api_ctrl = kzalloc(sizeof(*ipa_api_ctrl), GFP_KERNEL);
+		if (!ipa_api_ctrl)
+			return -ENOMEM;
 
-	/* Get IPA HW Version */
-	result = of_property_read_u32(pdev_p->dev.of_node, "qcom,ipa-hw-ver",
-		&ipa_api_hw_type);
-	if ((result) || (ipa_api_hw_type == 0)) {
-		pr_err("ipa: get resource failed for ipa-hw-ver!\n");
-		result = -ENODEV;
-		goto fail;
+		/* Get IPA HW Version */
+		result = of_property_read_u32(pdev_p->dev.of_node,
+			"qcom,ipa-hw-ver", &ipa_api_hw_type);
+		if ((result) || (ipa_api_hw_type == 0)) {
+			pr_err("ipa: get resource failed for ipa-hw-ver!\n");
+			kfree(ipa_api_ctrl);
+			ipa_api_ctrl = 0;
+			return -ENODEV;
+		}
+		pr_debug("ipa: ipa_api_hw_type = %d", ipa_api_hw_type);
 	}
-	pr_debug("ipa: ipa_api_hw_type = %d", ipa_api_hw_type);
 
 	/* call probe based on IPA HW version */
 	switch (ipa_api_hw_type) {
@@ -2663,30 +2689,20 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 	case IPA_HW_v2_6L:
 		result = ipa_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
-		if (result) {
-			pr_err("ipa: ipa_plat_drv_probe failed\n");
-			goto fail;
-		}
 		break;
 	case IPA_HW_v3_0:
 	case IPA_HW_v3_1:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
-		if (result) {
-			pr_err("ipa: ipa3_plat_drv_probe failed\n");
-			goto fail;
-		}
 		break;
 	default:
 		pr_err("ipa: unsupported version %d\n", ipa_api_hw_type);
-		result = -EPERM;
-		goto fail;
+		return -EPERM;
 	}
 
-	return 0;
-fail:
-	kfree(ipa_api_ctrl);
-	ipa_api_ctrl = 0;
+	if (result && result != -EPROBE_DEFER)
+		pr_err("ipa: ipa_plat_drv_probe failed\n");
+
 	return result;
 }
 
@@ -2707,79 +2723,6 @@ static int ipa_ap_resume(struct device *dev)
 
 	return ret;
 }
-
-int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
-	struct ipa_usb_teth_params *teth_params,
-	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *),
-	void *user_data)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_init_teth_prot, teth_prot, teth_params,
-		ipa_usb_notify_cb, user_data);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_init_teth_prot);
-
-int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
-	struct ipa_usb_xdci_chan_params *dl_chan_params,
-	struct ipa_req_chan_out_params *ul_out_params,
-	struct ipa_req_chan_out_params *dl_out_params,
-	struct ipa_usb_xdci_connect_params *connect_params)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_connect, ul_chan_params,
-		dl_chan_params, ul_out_params, dl_out_params, connect_params);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_xdci_connect);
-
-int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-	enum ipa_usb_teth_prot teth_prot)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_disconnect, ul_clnt_hdl,
-		dl_clnt_hdl, teth_prot);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_xdci_disconnect);
-
-int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_deinit_teth_prot, teth_prot);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_deinit_teth_prot);
-
-int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-	enum ipa_usb_teth_prot teth_prot)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_suspend, ul_clnt_hdl,
-		dl_clnt_hdl, teth_prot);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_xdci_suspend);
-
-int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_resume, ul_clnt_hdl, dl_clnt_hdl);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_xdci_resume);
 
 int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
 			      void *user_data)

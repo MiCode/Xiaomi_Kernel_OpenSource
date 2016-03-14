@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 static const char *ipa3_resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_Q6_PROD),
 	__stringify(IPA_RM_RESOURCE_USB_PROD),
+	__stringify(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD),
 	__stringify(IPA_RM_RESOURCE_HSIC_PROD),
 	__stringify(IPA_RM_RESOURCE_STD_ECM_PROD),
 	__stringify(IPA_RM_RESOURCE_RNDIS_PROD),
@@ -29,6 +30,7 @@ static const char *ipa3_resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_MHI_PROD),
 	__stringify(IPA_RM_RESOURCE_Q6_CONS),
 	__stringify(IPA_RM_RESOURCE_USB_CONS),
+	__stringify(IPA_RM_RESOURCE_USB_DPL_CONS),
 	__stringify(IPA_RM_RESOURCE_HSIC_CONS),
 	__stringify(IPA_RM_RESOURCE_WLAN_CONS),
 	__stringify(IPA_RM_RESOURCE_APPS_CONS),
@@ -394,6 +396,7 @@ bail:
 
 	return result;
 }
+
 /**
  * ipa3_rm_release_resource() - release resource
  * @resource_name: [in] name of the requested resource
@@ -530,6 +533,9 @@ int ipa3_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
 	unsigned long flags;
 	struct ipa_rm_resource *resource;
 
+	IPADBG("resource: %s ", ipa3_rm_resource_str(resource_name));
+	if (profile)
+		IPADBG("BW: %d\n", profile->max_supported_bandwidth_mbps);
 	IPA_RM_DBG("%s\n", ipa3_rm_resource_str(resource_name));
 
 	spin_lock_irqsave(&ipa3_rm_ctx->ipa_rm_lock, flags);
@@ -662,14 +668,16 @@ static void ipa3_rm_wq_resume_handler(struct work_struct *work)
 		IPA_RM_ERR("resource is not CONS\n");
 		return;
 	}
-	ipa3_inc_client_enable_clks();
+	IPA_ACTIVE_CLIENTS_INC_RESOURCE(ipa3_rm_resource_str(
+			ipa_rm_work->resource_name));
 	spin_lock_irqsave(&ipa3_rm_ctx->ipa_rm_lock, flags);
 	if (ipa3_rm_dep_graph_get_resource(ipa3_rm_ctx->dep_graph,
 					ipa_rm_work->resource_name,
 					&resource) != 0){
 		IPA_RM_ERR("resource does not exists\n");
 		spin_unlock_irqrestore(&ipa3_rm_ctx->ipa_rm_lock, flags);
-		ipa3_dec_client_disable_clks();
+		IPA_ACTIVE_CLIENTS_DEC_RESOURCE(ipa3_rm_resource_str(
+				ipa_rm_work->resource_name));
 		goto bail;
 	}
 	ipa3_rm_resource_consumer_request_work(

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -407,7 +407,8 @@ int ipa2_connect(const struct ipa_connect_params *in,
 	}
 
 	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
-		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_6L) &&
 		IPA_CLIENT_IS_USB_CONS(in->client))
 		ep->connect.event_thresh = IPA_USB_EVENT_THRESHOLD;
 	else
@@ -539,6 +540,7 @@ int ipa2_disconnect(u32 clnt_hdl)
 	struct iommu_domain *smmu_domain;
 	struct ipa_disable_force_clear_datapath_req_msg_v01 req = {0};
 	int res;
+	enum ipa_client_type client_type;
 
 	if (unlikely(!ipa_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
@@ -552,10 +554,9 @@ int ipa2_disconnect(u32 clnt_hdl)
 	}
 
 	ep = &ipa_ctx->ep[clnt_hdl];
-
+	client_type = ipa2_get_client_mapping(clnt_hdl);
 	if (!ep->keep_ipa_awake)
-		IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
-
+		IPA2_ACTIVE_CLIENTS_INC_EP(client_type);
 
 	/* Set Disconnect in Progress flag. */
 	spin_lock(&ipa_ctx->disconnect_lock);
@@ -662,7 +663,7 @@ int ipa2_disconnect(u32 clnt_hdl)
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 	spin_unlock(&ipa_ctx->disconnect_lock);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA2_ACTIVE_CLIENTS_DEC_EP(client_type);
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
