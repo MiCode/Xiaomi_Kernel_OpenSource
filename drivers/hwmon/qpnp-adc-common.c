@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -746,19 +746,23 @@ int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *vadc,
 
 	if (!chan_properties || !chan_properties->offset_gain_numerator ||
 		!chan_properties->offset_gain_denominator || !adc_properties
-		|| !adc_chan_result
-		|| !chan_properties->adc_graph[CALIB_ABSOLUTE].dy)
+		|| !adc_chan_result)
 		return -EINVAL;
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
-		pmic_voltage = (adc_code * adc_properties->adc_vdd_reference
-								* 1000);
+		pmic_voltage = (int64_t) adc_code;
+		pmic_voltage *= (int64_t) (adc_properties->adc_vdd_reference
+							* 1000);
 		pmic_voltage = div64_s64(pmic_voltage,
-					(QPNP_VADC_HC_VREF_CODE * 1000));
-	} else
+					QPNP_VADC_HC_VREF_CODE);
+	} else {
+		if (!chan_properties->adc_graph[CALIB_ABSOLUTE].dy)
+			return -EINVAL;
 		qpnp_adc_scale_with_calib_param(adc_code, adc_properties,
 					chan_properties, &pmic_voltage);
+	}
+
 	if (pmic_voltage > 0) {
 		/* 2mV/K */
 		adc_chan_result->measurement = pmic_voltage*
@@ -771,7 +775,7 @@ int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *vadc,
 
 	/* Change to .001 deg C */
 	adc_chan_result->measurement -= KELVINMIL_DEGMIL;
-	adc_chan_result->physical = (int32_t)adc_chan_result->measurement;
+	adc_chan_result->physical = (int32_t) adc_chan_result->measurement;
 
 	return 0;
 }
@@ -847,11 +851,11 @@ int32_t qpnp_adc_tdkntcg_therm(struct qpnp_vadc_chip *chip,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V) * 1000) / (0x4000 * 1000) */
-		xo_thm_voltage = (adc_code * adc_properties->adc_vdd_reference
+		xo_thm_voltage = (int64_t) adc_code;
+		xo_thm_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
 		xo_thm_voltage = div64_s64(xo_thm_voltage,
-					(QPNP_VADC_HC_VREF_CODE * 1000));
-
+					QPNP_VADC_HC_VREF_CODE * 1000);
 		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb_1875_vref,
 			ARRAY_SIZE(adcmap_100k_104ef_104fb_1875_vref),
 			xo_thm_voltage, &adc_chan_result->physical);
@@ -1044,7 +1048,8 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *chip,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V) * 1000) / (0x4000 * 1000) */
-		therm_voltage = (adc_code * adc_properties->adc_vdd_reference
+		therm_voltage = (int64_t) adc_code;
+		therm_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
 		therm_voltage = div64_s64(therm_voltage,
 					(QPNP_VADC_HC_VREF_CODE * 1000));
@@ -1179,8 +1184,8 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
-		scale_voltage = (adc_code * adc_properties->adc_vdd_reference
-								* 1000);
+		scale_voltage = (int64_t) adc_code;
+		scale_voltage *= (adc_properties->adc_vdd_reference * 1000);
 		scale_voltage = div64_s64(scale_voltage,
 						QPNP_VADC_HC_VREF_CODE);
 	} else {
@@ -1189,6 +1194,7 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 		if (!chan_properties->calib_type == CALIB_ABSOLUTE)
 			scale_voltage *= 1000;
 	}
+
 
 	scale_voltage *= chan_properties->offset_gain_denominator;
 	scale_voltage = div64_s64(scale_voltage,
