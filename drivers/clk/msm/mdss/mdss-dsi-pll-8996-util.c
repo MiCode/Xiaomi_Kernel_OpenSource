@@ -331,7 +331,7 @@ init_lock_err:
 
 static int dsi_pll_enable(struct clk *c)
 {
-	int i, rc;
+	int i, rc = 0;
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
 	struct mdss_pll_resources *pll = vco->priv;
 

@@ -1999,7 +1999,7 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 	const char *data;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
 	struct mdss_panel_info *pinfo;
-	bool phy_timings_present;
+	bool phy_timings_present = false;
 
 	pinfo = &panel_data->panel_info;
 
