@@ -296,23 +296,23 @@
 	};
 
 	uartblsp1dm1: serial@0c170000 {
-		compatible = "qcom,msm-lsuart-v14", "qcom,msm-uartdm";
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0xc170000 0x1000>;
 		interrupts = <0 108 0>;
 		status = "disabled";
 		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
-		clock-names = "core_clk", "iface_clk";
+		clock-names = "core", "iface";
 	};
 
 	uartblsp2dm1: serial@0c1b0000 {
-		compatible = "qcom,msm-lsuart-v14", "qcom,msm-uartdm";
+		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0xc1b0000 0x1000>;
 		interrupts = <0 114 0>;
 		status = "disabled";
 		clocks = <&clock_gcc clk_gcc_blsp2_uart2_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp2_ahb_clk>;
-		clock-names = "core_clk", "iface_clk";
+		clock-names = "core", "iface";
 	};
 
 	timer@17920000 {
