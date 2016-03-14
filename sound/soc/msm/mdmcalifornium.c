@@ -65,9 +65,13 @@
 #define I2S_SEL 0
 #define PCM_SEL 1
 #define I2S_PCM_SEL_OFFSET 0
+#define I2S_PCM_MASTER_MODE 1
+#define I2S_PCM_SLAVE_MODE 0
 
-#define TLMM_SCLK_EN 0x4
-#define SEC_TLMM_SCLK_EN 0x2
+#define PRI_TLMM_CLKS_EN_MASTER 0x4
+#define SEC_TLMM_CLKS_EN_MASTER 0x2
+#define PRI_TLMM_CLKS_EN_SLAVE 0x100000
+#define SEC_TLMM_CLKS_EN_SLAVE 0x800000
 #define CLOCK_ON  1
 #define CLOCK_OFF 0
 
@@ -75,12 +79,17 @@
 #define DRV_NAME "mdm9650-asoc-tasha"
 
 enum mi2s_pcm_mux {
-	PRI_MI2S_PCM = 1,
+	PRI_MI2S_PCM,
 	SEC_MI2S_PCM,
+	MI2S_PCM_MAX_INTF
 };
 
 struct mdm_machine_data {
 	u32 mclk_freq;
+	u16 prim_mi2s_mode;
+	u16 sec_mi2s_mode;
+	u16 prim_auxpcm_mode;
+	u16 sec_auxpcm_mode;
 	u32 prim_clk_usrs;
 	int hph_en1_gpio;
 	int hph_en0_gpio;
@@ -114,12 +123,15 @@ static void *lpass_gpio_mux_mic_ctl_virt_addr;
 static struct mutex cdc_mclk_mutex;
 static int mdm_mi2s_rx_ch = 1;
 static int mdm_mi2s_tx_ch = 1;
+static int mdm_sec_mi2s_rx_ch = 1;
+static int mdm_sec_mi2s_tx_ch = 1;
 static int mdm_mi2s_rx_rate = SAMPLE_RATE_48KHZ;
 static int mdm_mi2s_tx_rate = SAMPLE_RATE_48KHZ;
+static int mdm_sec_mi2s_rx_rate = SAMPLE_RATE_48KHZ;
+static int mdm_sec_mi2s_tx_rate = SAMPLE_RATE_48KHZ;
 
 static int mdm_spk_control = 1;
 static int mdm_hifi_control;
-static atomic_t mi2s_ref_count;
 
 static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
@@ -232,11 +244,9 @@ static void mdm_mi2s_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int ret;
 
-	if (atomic_dec_return(&mi2s_ref_count) == 0) {
-		ret = mdm_mi2s_clk_ctl(rtd, false);
-		if (ret < 0)
-			pr_err("%s Clock disable failed\n", __func__);
-	}
+	ret = mdm_mi2s_clk_ctl(rtd, false);
+	if (ret < 0)
+		pr_err("%s Clock disable failed\n", __func__);
 }
 
 static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
@@ -244,60 +254,246 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_card *card = rtd->card;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
-	if (atomic_inc_return(&mi2s_ref_count) == 1) {
-		if (lpaif_pri_muxsel_virt_addr != NULL) {
-			ret = afe_enable_lpass_core_shared_clock(MI2S_RX,
-								 CLOCK_ON);
-			if (ret < 0) {
-				ret = -EINVAL;
-				goto done;
-			}
-			iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
-				  lpaif_pri_muxsel_virt_addr);
-			if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL) {
-				iowrite32(TLMM_SCLK_EN,
-					  lpass_gpio_mux_spkr_ctl_virt_addr);
-				afe_enable_lpass_core_shared_clock(MI2S_RX,
-								   CLOCK_OFF);
-			} else {
-				pr_err("%s: mux spkr ctl virt addr is NULL\n",
-				       __func__);
 
-				afe_enable_lpass_core_shared_clock(MI2S_RX,
-								   CLOCK_OFF);
-				ret = -EINVAL;
-				goto done;
-			}
-
-		} else {
-			pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
-				__func__);
-
+	if (lpaif_pri_muxsel_virt_addr != NULL) {
+		ret = afe_enable_lpass_core_shared_clock(MI2S_RX,
+							 CLOCK_ON);
+		if (ret < 0) {
 			ret = -EINVAL;
 			goto done;
 		}
+		iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
+			  lpaif_pri_muxsel_virt_addr);
+		if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL) {
+			if (pdata->prim_mi2s_mode == 1) {
+				iowrite32(PRI_TLMM_CLKS_EN_MASTER,
+				  lpass_gpio_mux_spkr_ctl_virt_addr);
+			} else if (pdata->prim_mi2s_mode == 0) {
+				iowrite32(PRI_TLMM_CLKS_EN_SLAVE,
+				  lpass_gpio_mux_spkr_ctl_virt_addr);
+			} else {
+				dev_err(card->dev, "%s Invalid primary mi2s mode\n",
+					__func__);
+				ret = -EINVAL;
+				goto err;
+			}
+		} else {
+			dev_err(card->dev, "%s: mux spkr ctl virt addr is NULL\n",
+			       __func__);
+
+			ret = -EINVAL;
+			goto err;
+		}
+	} else {
+		dev_err(card->dev, "%s lpaif_pri_muxsel_virt_addr is NULL\n",
+			__func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	/*
+	 * This sets the CONFIG PARAMETER WS_SRC.
+	 * 1 means internal clock master mode.
+	 * 0 means external clock slave mode.
+	 */
+	if (pdata->prim_mi2s_mode == 1) {
 		ret = mdm_mi2s_clk_ctl(rtd, true);
 		if (ret < 0) {
-			pr_err("%s clock enable failed\n", __func__);
-
-			goto done;
+			dev_err(card->dev, "%s clock enable failed\n",
+					__func__);
+			goto err;
 		}
-		/*
-		 * This sets the CONFIG PARAMETER WS_SRC.
-		 * 1 means internal clock master mode.
-		 * 0 means external clock slave mode.
-		 */
-		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
+		ret = snd_soc_dai_set_fmt(cpu_dai,
+				SND_SOC_DAIFMT_CBS_CFS);
 		if (ret < 0) {
-			pr_err("%s Set fmt for cpu dai failed\n", __func__);
+			mdm_mi2s_clk_ctl(rtd, false);
+			dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
+				__func__);
+			goto err;
+		}
+		ret = snd_soc_dai_set_fmt(codec_dai,
+				SND_SOC_DAIFMT_CBS_CFS);
+		if (ret < 0) {
+			mdm_mi2s_clk_ctl(rtd, false);
+			dev_err(card->dev, "%s Set fmt for codec dai failed\n",
+				__func__);
+		}
+	} else if (pdata->prim_mi2s_mode == 0) {
+		/*
+		 * Disable bit clk in slave mode for QC codec.
+		 * Enable only mclk.
+		 */
+		ret = mdm_mi2s_clk_ctl(rtd, false);
+		if (ret < 0) {
+			dev_err(card->dev,
+				"%s clock enable failed\n", __func__);
+			goto err;
+		}
+		ret = snd_soc_dai_set_fmt(cpu_dai,
+				SND_SOC_DAIFMT_CBM_CFM);
+		if (ret < 0) {
+			dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
+				__func__);
+			goto err;
+		}
+		ret = snd_soc_dai_set_fmt(codec_dai,
+				SND_SOC_DAIFMT_CBM_CFM);
+		if (ret < 0)
+			dev_err(card->dev, "%s Set fmt for codec dai failed\n",
+				__func__);
+	} else {
+		dev_err(card->dev, "%s Invalid primary mi2s mode\n", __func__);
+		ret = -EINVAL;
+	}
+
+err:
+	afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
+done:
+	return ret;
+}
+
+static int mdm_sec_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
+{
+	struct snd_soc_card *card = rtd->card;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct afe_clk_cfg *lpass_clk = NULL;
+	int ret = 0;
+
+	if (pdata == NULL) {
+		dev_err(card->dev, "%s:platform data is null\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	lpass_clk = kzalloc(sizeof(struct afe_clk_cfg), GFP_KERNEL);
+	if (!lpass_clk) {
+		ret = -ENOMEM;
+		goto done;
+	}
+	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
+	dev_dbg(card->dev, "%s enable = %x\n", __func__, enable);
+
+	lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
+	if (enable) {
+		ret = afe_set_lpass_clock(SECONDARY_I2S_RX, lpass_clk);
+		if (ret < 0)
+			dev_err(card->dev,
+				"%s:afe_set_lpass_clock failed to enable\n",
+				__func__);
+	} else {
+		lpass_clk->clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
+		ret = afe_set_lpass_clock(SECONDARY_I2S_RX, lpass_clk);
+		if (ret < 0)
+			dev_err(card->dev,
+				"%s:afe_set_lpass_clock failed disable\n",
+				__func__);
+	}
+	dev_dbg(card->dev, "%s clk 1 = %x clk2 = %x mode = %x\n",
+		 __func__, lpass_clk->clk_val1, lpass_clk->clk_val2,
+		 lpass_clk->clk_set_mode);
+
+	kfree(lpass_clk);
+done:
+	return ret;
+}
+
+static void mdm_sec_mi2s_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int ret;
+
+	ret = mdm_sec_mi2s_clk_ctl(rtd, false);
+	if (ret < 0)
+		pr_err("%s Clock disable failed\n", __func__);
+}
+
+static int mdm_sec_mi2s_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_card *card = rtd->card;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret = 0;
+
+	if (lpaif_sec_muxsel_virt_addr != NULL) {
+		ret = afe_enable_lpass_core_shared_clock(
+				SECONDARY_I2S_RX, CLOCK_ON);
+		if (ret < 0) {
+			ret = -EINVAL;
 			goto done;
 		}
-		ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_CBS_CFS);
-		if (ret < 0)
-			pr_err("%s Set fmt for codec dai failed\n", __func__);
+		iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
+			  lpaif_sec_muxsel_virt_addr);
+
+		if (lpass_gpio_mux_mic_ctl_virt_addr != NULL) {
+			if (pdata->sec_mi2s_mode == 1) {
+				iowrite32(SEC_TLMM_CLKS_EN_MASTER,
+				      lpass_gpio_mux_mic_ctl_virt_addr);
+			} else if (pdata->sec_mi2s_mode == 0) {
+				iowrite32(SEC_TLMM_CLKS_EN_SLAVE,
+				      lpass_gpio_mux_mic_ctl_virt_addr);
+			} else {
+				dev_err(card->dev, "%s Invalid secondary mi2s mode\n",
+					__func__);
+				ret = -EINVAL;
+				goto err;
+			}
+		} else {
+			dev_err(card->dev, "%s: mux spkr ctl virt addr is NULL\n",
+			       __func__);
+			ret = -EINVAL;
+			goto err;
+		}
+
+	} else {
+		dev_err(card->dev, "%s lpaif_sec_muxsel_virt_addr is NULL\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
 	}
+	/*
+	 * This sets the CONFIG PARAMETER WS_SRC.
+	 * 1 means internal clock master mode.
+	 * 0 means external clock slave mode.
+	 */
+	if (pdata->sec_mi2s_mode == 1) {
+		ret = mdm_sec_mi2s_clk_ctl(rtd, true);
+		if (ret < 0) {
+			dev_err(card->dev, "%s clock enable failed\n",
+				__func__);
+			goto err;
+		}
+		ret = snd_soc_dai_set_fmt(cpu_dai,
+			SND_SOC_DAIFMT_CBS_CFS);
+		if (ret < 0) {
+			ret = mdm_sec_mi2s_clk_ctl(rtd, false);
+			dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
+				__func__);
+		}
+	} else if (pdata->sec_mi2s_mode == 0) {
+		/*
+		 * Enable mclk here, if needed for external codecs.
+		 * Optional. Refer primary mi2s slave interface.
+		 */
+		ret = snd_soc_dai_set_fmt(cpu_dai,
+		SND_SOC_DAIFMT_CBM_CFM);
+		if (ret < 0)
+			dev_err(card->dev,
+				"%s Set fmt for cpu dai failed\n",
+				__func__);
+	} else {
+		dev_err(card->dev,
+			"%s Invalid secondary mi2s mode\n",
+			__func__);
+		ret = -EINVAL;
+	}
+
+err:
+	afe_enable_lpass_core_shared_clock(SECONDARY_I2S_RX, CLOCK_OFF);
 done:
 	return ret;
 }
@@ -307,12 +503,26 @@ static struct snd_soc_ops mdm_mi2s_be_ops = {
 	.shutdown = mdm_mi2s_shutdown,
 };
 
+static struct snd_soc_ops mdm_sec_mi2s_be_ops = {
+	.startup = mdm_sec_mi2s_startup,
+	.shutdown = mdm_sec_mi2s_shutdown,
+};
+
 static int mdm_mi2s_rx_rate_get(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	pr_debug("%s: mdm_i2s_rate  = %d", __func__,
 		 mdm_mi2s_rx_rate);
 	ucontrol->value.integer.value[0] = mdm_mi2s_rx_rate;
+	return 0;
+}
+
+static int mdm_sec_mi2s_rx_rate_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: mdm_sec_i2s_rate  = %d", __func__,
+		 mdm_sec_mi2s_rx_rate);
+	ucontrol->value.integer.value[0] = mdm_sec_mi2s_rx_rate;
 	return 0;
 }
 
@@ -339,12 +549,44 @@ static int mdm_mi2s_rx_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mdm_sec_mi2s_rx_rate_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_sec_mi2s_rx_rate = SAMPLE_RATE_8KHZ;
+		break;
+	case 1:
+		mdm_sec_mi2s_rx_rate = SAMPLE_RATE_16KHZ;
+		break;
+	case 2:
+		mdm_sec_mi2s_rx_rate = SAMPLE_RATE_48KHZ;
+		break;
+	default:
+		mdm_sec_mi2s_rx_rate = SAMPLE_RATE_8KHZ;
+		break;
+	}
+	pr_debug("%s: mdm_sec_mi2s_rx_rate = %d ucontrol->value = %d\n",
+		 __func__, mdm_sec_mi2s_rx_rate,
+		 (int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
 static int mdm_mi2s_tx_rate_get(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	pr_debug("%s: mdm_i2s_rate  = %d", __func__,
 		 mdm_mi2s_tx_rate);
 	ucontrol->value.integer.value[0] = mdm_mi2s_tx_rate;
+	return 0;
+}
+
+static int mdm_sec_mi2s_tx_rate_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: mdm_sec_mi2s_rate  = %d", __func__,
+		 mdm_sec_mi2s_tx_rate);
+	ucontrol->value.integer.value[0] = mdm_sec_mi2s_tx_rate;
 	return 0;
 }
 
@@ -371,6 +613,29 @@ static int mdm_mi2s_tx_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mdm_sec_mi2s_tx_rate_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_sec_mi2s_tx_rate = SAMPLE_RATE_8KHZ;
+		break;
+	case 1:
+		mdm_sec_mi2s_tx_rate = SAMPLE_RATE_16KHZ;
+		break;
+	case 2:
+		mdm_sec_mi2s_tx_rate = SAMPLE_RATE_48KHZ;
+		break;
+	default:
+		mdm_sec_mi2s_tx_rate = SAMPLE_RATE_8KHZ;
+		break;
+	}
+	pr_debug("%s: mdm_sec_mi2s_tx_rate = %d ucontrol->value = %d\n",
+		 __func__, mdm_sec_mi2s_tx_rate,
+		 (int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
 static int mdm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 					      struct snd_pcm_hw_params *params)
 {
@@ -383,6 +648,18 @@ static int mdm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 	return 0;
 }
 
+static int mdm_sec_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
+					      struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						      SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+	rate->min = rate->max = mdm_sec_mi2s_rx_rate;
+	channels->min = channels->max = mdm_sec_mi2s_rx_ch;
+	return 0;
+}
+
 static int mdm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 					     struct snd_pcm_hw_params *params)
 {
@@ -392,6 +669,18 @@ static int mdm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 						SNDRV_PCM_HW_PARAM_CHANNELS);
 	rate->min = rate->max = mdm_mi2s_tx_rate;
 	channels->min = channels->max = mdm_mi2s_tx_ch;
+	return 0;
+}
+
+static int mdm_sec_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
+					     struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						      SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+	rate->min = rate->max = mdm_sec_mi2s_tx_rate;
+	channels->min = channels->max = mdm_sec_mi2s_tx_ch;
 	return 0;
 }
 
@@ -414,12 +703,32 @@ static int mdm_mi2s_rx_ch_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mdm_sec_mi2s_rx_ch_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s mdm_sec_mi2s_rx_ch %d\n", __func__,
+		 mdm_mi2s_rx_ch);
+
+	ucontrol->value.integer.value[0] = mdm_sec_mi2s_rx_ch - 1;
+	return 0;
+}
+
 static int mdm_mi2s_rx_ch_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	mdm_mi2s_rx_ch = ucontrol->value.integer.value[0] + 1;
 	pr_debug("%s mdm_mi2s_rx_ch %d\n", __func__,
 		 mdm_mi2s_rx_ch);
+
+	return 1;
+}
+
+static int mdm_sec_mi2s_rx_ch_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	mdm_mi2s_rx_ch = ucontrol->value.integer.value[0] + 1;
+	pr_debug("%s mdm_sec_mi2s_rx_ch %d\n", __func__,
+		 mdm_sec_mi2s_rx_ch);
 
 	return 1;
 }
@@ -434,12 +743,32 @@ static int mdm_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mdm_sec_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s mdm_sec_mi2s_tx_ch %d\n", __func__,
+		 mdm_mi2s_tx_ch);
+
+	ucontrol->value.integer.value[0] = mdm_sec_mi2s_tx_ch - 1;
+	return 0;
+}
+
 static int mdm_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
 	mdm_mi2s_tx_ch = ucontrol->value.integer.value[0] + 1;
 	pr_debug("%s mdm_mi2s_tx_ch %d\n", __func__,
 		 mdm_mi2s_tx_ch);
+
+	return 1;
+}
+
+static int mdm_sec_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	mdm_mi2s_tx_ch = ucontrol->value.integer.value[0] + 1;
+	pr_debug("%s mdm_sec_mi2s_tx_ch %d\n", __func__,
+		 mdm_sec_mi2s_tx_ch);
 
 	return 1;
 }
@@ -559,6 +888,9 @@ static int mdm_mclk_event(struct snd_soc_dapm_widget *w,
 static int mdm_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 
 	if (lpaif_pri_muxsel_virt_addr != NULL) {
 		ret = afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_ON);
@@ -568,17 +900,30 @@ static int mdm_auxpcm_startup(struct snd_pcm_substream *substream)
 		}
 		iowrite32(PCM_SEL << I2S_PCM_SEL_OFFSET,
 			  lpaif_pri_muxsel_virt_addr);
-		if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL)
-			iowrite32(TLMM_SCLK_EN,
+		if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL) {
+			if (pdata->prim_auxpcm_mode == 1) {
+				iowrite32(PRI_TLMM_CLKS_EN_MASTER,
 				  lpass_gpio_mux_spkr_ctl_virt_addr);
-		afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
+			} else if (pdata->prim_auxpcm_mode == 0) {
+					iowrite32(PRI_TLMM_CLKS_EN_SLAVE,
+				  lpass_gpio_mux_spkr_ctl_virt_addr);
+			} else {
+				dev_err(card->dev, "%s Invalid primary auxpcm mode\n",
+				__func__);
+				ret = -EINVAL;
+			}
+		} else {
+			dev_err(card->dev, "%s lpass_mux_spkr_ctl_virt_addr is NULL\n",
+			__func__);
+			ret = -EINVAL;
+		}
 	} else {
-		pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
+		dev_err(card->dev, "%s lpaif_pri_muxsel_virt_addr is NULL\n",
 		       __func__);
-
 		ret = -EINVAL;
 		goto done;
 	}
+	afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
 done:
 	return ret;
 }
@@ -590,6 +935,9 @@ static struct snd_soc_ops mdm_auxpcm_be_ops = {
 static int mdm_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 
 	if (lpaif_sec_muxsel_virt_addr != NULL) {
 		ret = afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_ON);
@@ -599,15 +947,31 @@ static int mdm_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 		}
 		iowrite32(PCM_SEL << I2S_PCM_SEL_OFFSET,
 			  lpaif_sec_muxsel_virt_addr);
-		if (lpass_gpio_mux_mic_ctl_virt_addr != NULL)
-			iowrite32(SEC_TLMM_SCLK_EN,
+		if (lpass_gpio_mux_mic_ctl_virt_addr != NULL) {
+			if (pdata->sec_auxpcm_mode == 1) {
+				iowrite32(SEC_TLMM_CLKS_EN_MASTER,
 				  lpass_gpio_mux_mic_ctl_virt_addr);
-		afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
+			} else if (pdata->sec_auxpcm_mode == 0) {
+					iowrite32(SEC_TLMM_CLKS_EN_SLAVE,
+					      lpass_gpio_mux_mic_ctl_virt_addr);
+			} else {
+				dev_err(card->dev, "%s Invalid primary auxpcm mode\n",
+						__func__);
+						ret = -EINVAL;
+			}
+		} else {
+			dev_err(card->dev,
+				"%s lpass_gpio_mux_mic_ctl_virt_addr is NULL\n",
+			__func__);
+			ret = -EINVAL;
+		}
 	} else {
-		pr_err("%s lpaif_sec_muxsel_virt_addr is NULL\n", __func__);
+		dev_err(card->dev,
+			"%s lpaif_sec_muxsel_virt_addr is NULL\n", __func__);
 		ret = -EINVAL;
 		goto done;
 	}
+	afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
 done:
 	return ret;
 }
@@ -728,6 +1092,18 @@ static const struct snd_kcontrol_new mdm_snd_controls[] = {
 	SOC_ENUM_EXT("MI2S Tx SampleRate", mdm_enum[5],
 				 mdm_mi2s_tx_rate_get,
 				 mdm_mi2s_tx_rate_put),
+	SOC_ENUM_EXT("SEC_MI2S_RX Channels",   mdm_enum[1],
+				 mdm_sec_mi2s_rx_ch_get,
+				 mdm_sec_mi2s_rx_ch_put),
+	SOC_ENUM_EXT("SEC_MI2S_TX Channels",   mdm_enum[2],
+				 mdm_sec_mi2s_tx_ch_get,
+				 mdm_sec_mi2s_tx_ch_put),
+	SOC_ENUM_EXT("SEC MI2S Rx SampleRate", mdm_enum[4],
+				 mdm_sec_mi2s_rx_rate_get,
+				 mdm_sec_mi2s_rx_rate_put),
+	SOC_ENUM_EXT("SEC MI2S Tx SampleRate", mdm_enum[5],
+				 mdm_sec_mi2s_tx_rate_get,
+				 mdm_sec_mi2s_tx_rate_put),
 	SOC_ENUM_EXT("HiFi Function", mdm_enum[6],
 				 mdm_hifi_get,
 				 mdm_hifi_put),
@@ -1398,6 +1774,36 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.be_hw_params_fixup = mdm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
+	{
+		.name = LPASS_BE_SEC_MI2S_RX,
+		.stream_name = "Secondary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.1",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_RX,
+		.be_hw_params_fixup = &mdm_sec_mi2s_rx_be_hw_params_fixup,
+		.ops = &mdm_sec_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_MI2S_TX,
+		.stream_name = "Secondary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.1",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_SECONDARY_MI2S_TX,
+		.be_hw_params_fixup = &mdm_sec_mi2s_tx_be_hw_params_fixup,
+		.ops = &mdm_sec_mi2s_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
 };
 
 static struct snd_soc_card snd_soc_card_mdm = {
@@ -1656,6 +2062,91 @@ static int mdm_init_wsa_dev(struct platform_device *pdev,
 	return 0;
 }
 
+static int mdm_populate_mi2s_interface_mode(
+					struct snd_soc_card *card)
+{
+	int size, ret = 0;
+	struct device *cdev = card->dev;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	const char *val_array[MI2S_PCM_MAX_INTF];
+
+	size = of_property_read_string_array(cdev->of_node,
+					"qcom,mi2s-interface-mode",
+					val_array, MI2S_PCM_MAX_INTF);
+	if (size <= 0) {
+		dev_info(cdev, "%s: Looking up %s property in node %s failed",
+			__func__, "qcom,mi2s-interface-mode",
+			cdev->of_node->full_name);
+		pdata->prim_mi2s_mode = I2S_PCM_MASTER_MODE;
+		pdata->sec_mi2s_mode = I2S_PCM_MASTER_MODE;
+	} else {
+		if (!strcmp(val_array[PRI_MI2S_PCM], "pri_mi2s_master")) {
+			pdata->prim_mi2s_mode = I2S_PCM_MASTER_MODE;
+		} else if (!strcmp(val_array[PRI_MI2S_PCM], "pri_mi2s_slave")) {
+			pdata->prim_mi2s_mode = I2S_PCM_SLAVE_MODE;
+		} else {
+			dev_err(cdev, "%s: invalid DT intf mode\n",
+					__func__);
+			ret = -EINVAL;
+			goto err_intf;
+		}
+
+		if (!strcmp(val_array[SEC_MI2S_PCM], "sec_mi2s_master")) {
+			pdata->sec_mi2s_mode = I2S_PCM_MASTER_MODE;
+		} else if (!strcmp(val_array[SEC_MI2S_PCM], "sec_mi2s_slave")) {
+			pdata->sec_mi2s_mode = I2S_PCM_SLAVE_MODE;
+		} else {
+			dev_err(cdev, "%s: invalid DT intf mode\n",
+				__func__);
+			ret = -EINVAL;
+		}
+	}
+err_intf:
+	return ret;
+}
+
+static int mdm_populate_auxpcm_interface_mode(
+					struct snd_soc_card *card)
+{
+	int size, ret = 0;
+	struct device *cdev = card->dev;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	const char *val_array[MI2S_PCM_MAX_INTF];
+
+	size = of_property_read_string_array(cdev->of_node,
+				"qcom,auxpcm-interface-mode",
+				val_array, MI2S_PCM_MAX_INTF);
+	if (size <= 0) {
+		dev_info(cdev, "%s: Looking up %s property in node %s failed",
+			__func__, "qcom,auxpcm-interface-mode",
+			cdev->of_node->full_name);
+		pdata->prim_auxpcm_mode = I2S_PCM_MASTER_MODE;
+		pdata->sec_auxpcm_mode = I2S_PCM_MASTER_MODE;
+	} else {
+		if (!strcmp(val_array[PRI_MI2S_PCM], "pri_pcm_master")) {
+			pdata->prim_auxpcm_mode = I2S_PCM_MASTER_MODE;
+		} else if (!strcmp(val_array[PRI_MI2S_PCM], "pri_pcm_slave")) {
+			pdata->prim_auxpcm_mode = I2S_PCM_SLAVE_MODE;
+		} else {
+			dev_err(cdev, "%s: invalid DT intf mode\n",
+				__func__);
+			ret = -EINVAL;
+			goto err_intf;
+		}
+		if (!strcmp(val_array[SEC_MI2S_PCM], "sec_pcm_master")) {
+			pdata->sec_auxpcm_mode = I2S_PCM_MASTER_MODE;
+		} else if (!strcmp(val_array[SEC_MI2S_PCM], "sec_pcm_slave")) {
+			pdata->sec_auxpcm_mode = I2S_PCM_SLAVE_MODE;
+		} else {
+			dev_err(cdev, "%s: invalid DT intf mode\n",
+				__func__);
+			ret = -EINVAL;
+		}
+	}
+err_intf:
+	return ret;
+}
+
 static int mdm_asoc_machine_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1694,7 +2185,6 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&cdc_mclk_mutex);
-	atomic_set(&mi2s_ref_count, 0);
 	pdata->prim_clk_usrs = 0;
 
 	card->dev = &pdev->dev;
@@ -1705,6 +2195,14 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 	ret = snd_soc_of_parse_audio_routing(card, "qcom,audio-routing");
+	if (ret)
+		goto err;
+
+	ret = mdm_populate_mi2s_interface_mode(card);
+	if (ret)
+		goto err;
+
+	ret = mdm_populate_auxpcm_interface_mode(card);
 	if (ret)
 		goto err;
 
