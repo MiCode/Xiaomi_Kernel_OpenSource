@@ -118,7 +118,7 @@
 #include "msm8917-iommu-domains.dtsi"
 #include "msm8917-smp2p.dtsi"
 #include "msm8917-coresight.dtsi"
-#include "msm8937-bus.dtsi"
+#include "msm8917-bus.dtsi"
 #include "msm8917-mdss.dtsi"
 #include "msm8917-mdss-pll.dtsi"
 #include "msm8917-vidc.dtsi"
