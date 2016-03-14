@@ -14,7 +14,7 @@
 #ifndef __ADRENO_IOMMU_H
 #define __ADRENO_IOMMU_H
 
-#ifdef CONFIG_MSM_KGSL_IOMMU
+#ifdef CONFIG_QCOM_KGSL_IOMMU
 int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt,
 			struct adreno_context *drawctxt);

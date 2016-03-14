@@ -613,7 +613,7 @@ static struct {
 	unsigned int type;
 	struct kgsl_mmu_ops *ops;
 } kgsl_mmu_subtypes[] = {
-#ifdef CONFIG_MSM_KGSL_IOMMU
+#ifdef CONFIG_QCOM_KGSL_IOMMU
 	{ "iommu", KGSL_MMU_TYPE_IOMMU, &kgsl_iommu_ops },
 #endif
 	{ "nommu", KGSL_MMU_TYPE_NONE, &kgsl_nommu_ops },

@@ -42,6 +42,6 @@ config QCOM_ADRENO_DEFAULT_GOVERNOR
 	default "simple_ondemand"
 	depends on QCOM_KGSL
 
-config MSM_KGSL_IOMMU
+config QCOM_KGSL_IOMMU
 	bool
-	default y if MSM_KGSL && (MSM_IOMMU || ARM_SMMU)
+	default y if QCOM_KGSL && (MSM_IOMMU || ARM_SMMU)

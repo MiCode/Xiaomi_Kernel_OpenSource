@@ -208,7 +208,7 @@ static void a5xx_preemption_save(struct adreno_device *adreno_dev,
 		PREEMPT_RECORD(rptr));
 }
 
-#ifdef CONFIG_MSM_KGSL_IOMMU
+#ifdef CONFIG_QCOM_KGSL_IOMMU
 static int a5xx_preemption_iommu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
