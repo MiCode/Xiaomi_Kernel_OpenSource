@@ -598,6 +598,13 @@
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
 	};
 
+	qcom,ipa_fws@1e08000 {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xF>;
+		qcom,firmware-name = "ipa_fws";
+		memory-region = <&peripheral_mem>;
+	};
+
 	qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		qcom,threshold-arr = <0x179880b0 0x179980b0
