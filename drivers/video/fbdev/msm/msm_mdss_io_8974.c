@@ -545,6 +545,9 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20)
 		return;
 
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+		return;
+
 	MIPI_OUTP(ctrl->phy_regulator_io.base + 0x018, 0x000);
 }
 
@@ -559,6 +562,8 @@ static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_PLL_CLKBUFLR_EN, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_GLBL_TEST_CTRL, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0);
+	} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+		mdss_dsi_phy_v3_shutdown(ctrl);
 	} else {
 		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
 	}
@@ -1117,6 +1122,8 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (enable) {
 		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_regulator_enable(ctrl);
+		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+			mdss_dsi_phy_v3_regulator_enable(ctrl);
 		} else {
 			switch (ctrl->shared_data->hw_rev) {
 			case MDSS_DSI_HW_REV_103:
@@ -1166,6 +1173,8 @@ static void mdss_dsi_phy_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 
 		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_config(ctrl);
+		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+			mdss_dsi_phy_v3_init(ctrl, DSI_PHY_MODE_DPHY);
 		} else {
 			switch (ctrl->shared_data->hw_rev) {
 			case MDSS_DSI_HW_REV_103:
@@ -2234,6 +2243,10 @@ int mdss_dsi_post_clkon_cb(void *priv,
 			mdss_dsi_phy_power_on(ctrl, mmss_clamp);
 	}
 	if (clk & MDSS_DSI_LINK_CLK) {
+		/* toggle the resync FIFO everytime clock changes */
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+			mdss_dsi_phy_v3_toggle_resync_fifo(ctrl);
+
 		if (ctrl->ulps) {
 			rc = mdss_dsi_ulps_config(ctrl, 0);
 			if (rc) {
