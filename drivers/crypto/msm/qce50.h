@@ -219,6 +219,7 @@ struct ce_request_info {
 	void *user;
 	void *areq;
 	int assoc_nents;
+	struct scatterlist *asg;        /* Formatted associated data sg  */
 	int src_nents;
 	int dst_nents;
 	dma_addr_t phy_iv_in;
