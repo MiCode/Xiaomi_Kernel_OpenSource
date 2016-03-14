@@ -344,9 +344,8 @@
 		compatible = "qcom,cpr4-msm8953-apss-regulator";
 		reg = <0xb018000 0x4000>, <0xa4000 0x1000>;
 		reg-names = "cpr_ctrl", "fuse_base";
-		interrupts = <GIC_SPI 15 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 282 IRQ_TYPE_EDGE_RISING>;
-		interrupt-names = "cpr", "ceiling";
+		interrupts = <GIC_SPI 15 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "cpr";
 
 		qcom,cpr-ctrl-name = "apc";
 
