@@ -257,6 +257,7 @@ struct tpdm_drvdata {
 	int			traceid;
 	uint32_t		version;
 	bool			msr_support;
+	bool			msr_fix_req;
 };
 
 static void __tpdm_enable_gpr(struct tpdm_drvdata *drvdata)
@@ -479,7 +480,8 @@ static void __tpdm_enable_dsb(struct tpdm_drvdata *drvdata)
 		val = val & ~BIT(1);
 	tpdm_writel(drvdata, val, TPDM_DSB_TIER);
 
-	__tpdm_config_dsb_msr(drvdata);
+	if (!drvdata->msr_fix_req)
+		__tpdm_config_dsb_msr(drvdata);
 
 	val = tpdm_readl(drvdata, TPDM_DSB_CR);
 	/* Set the cycle accurate mode */
@@ -501,6 +503,9 @@ static void __tpdm_enable_dsb(struct tpdm_drvdata *drvdata)
 	/* Set the enable bit */
 	val = val | BIT(0);
 	tpdm_writel(drvdata, val, TPDM_DSB_CR);
+
+	if (drvdata->msr_fix_req)
+		__tpdm_config_dsb_msr(drvdata);
 }
 
 static void __tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
@@ -3632,6 +3637,9 @@ static int tpdm_probe(struct platform_device *pdev)
 
 	drvdata->clk_enable = of_property_read_bool(pdev->dev.of_node,
 						    "qcom,clk-enable");
+
+	drvdata->msr_fix_req = of_property_read_bool(pdev->dev.of_node,
+						     "qcom,msr-fix-req");
 
 	mutex_init(&drvdata->lock);
 
