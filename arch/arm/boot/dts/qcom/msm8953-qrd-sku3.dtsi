@@ -142,3 +142,7 @@
 &wcd9335 {
 	status = "ok";
 };
+
+&wcd_rst_gpio {
+	status = "ok";
+};
