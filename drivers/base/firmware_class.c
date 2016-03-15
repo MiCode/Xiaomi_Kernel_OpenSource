@@ -855,13 +855,6 @@ out:
 	return retval;
 }
 
-static struct bin_attribute firmware_direct_attr_data = {
-	.attr = { .name = "data", .mode = 0644 },
-	.size = 0,
-	.read = firmware_direct_read,
-	.write = firmware_direct_write,
-};
-
 static ssize_t firmware_data_read(struct file *filp, struct kobject *kobj,
 				  struct bin_attribute *bin_attr,
 				  char *buffer, loff_t offset, size_t count)
@@ -1011,6 +1004,13 @@ static struct bin_attribute firmware_attr_data = {
 	.write = firmware_data_write,
 };
 
+static struct bin_attribute firmware_direct_attr_data = {
+	.attr = { .name = "data", .mode = 0644 },
+	.size = 0,
+	.read = firmware_direct_read,
+	.write = firmware_direct_write,
+};
+
 static struct attribute *fw_dev_attrs[] = {
 	&dev_attr_loading.attr,
 	NULL
@@ -1026,8 +1026,23 @@ static const struct attribute_group fw_dev_attr_group = {
 	.bin_attrs = fw_dev_bin_attrs,
 };
 
+static struct bin_attribute *fw_dev_direct_bin_attrs[] = {
+	&firmware_direct_attr_data,
+	NULL
+};
+
+static const struct attribute_group fw_dev_direct_attr_group = {
+	.attrs = fw_dev_attrs,
+	.bin_attrs = fw_dev_direct_bin_attrs,
+};
+
 static const struct attribute_group *fw_dev_attr_groups[] = {
 	&fw_dev_attr_group,
+	NULL
+};
+
+static  const struct attribute_group *fw_dev_direct_attr_groups[] = {
+	&fw_dev_direct_attr_group,
 	NULL
 };
 
@@ -1047,9 +1062,6 @@ fw_create_instance(struct firmware *firmware, struct fw_desc *desc)
 	fw_priv->nowait = !!(desc->opt_flags & FW_OPT_NOWAIT);
 	fw_priv->fw = firmware;
 
-	INIT_DELAYED_WORK(&fw_priv->timeout_work,
-		firmware_class_timeout_work);
-
 	f_dev = &fw_priv->dev;
 
 	device_initialize(f_dev);
@@ -1068,11 +1080,12 @@ static int _request_firmware_load(struct firmware_priv *fw_priv,
 	int retval = 0;
 	struct device *f_dev = &fw_priv->dev;
 	struct firmware_buf *buf = fw_priv->buf;
-	struct bin_attribute *fw_attr_data = buf->dest_addr ?
-			&firmware_direct_attr_data : &firmware_attr_data;
 
 	/* fall back on userspace loading */
 	buf->is_paged_buf = buf->dest_addr ? false : true;
+
+	if (buf->dest_addr)
+		f_dev->groups = fw_dev_direct_attr_groups;
 
 	dev_set_uevent_suppress(f_dev, true);
 
@@ -1080,12 +1093,6 @@ static int _request_firmware_load(struct firmware_priv *fw_priv,
 	if (retval) {
 		dev_err(f_dev, "%s: device_register failed\n", __func__);
 		goto err_put_dev;
-	}
-
-	retval = device_create_bin_file(f_dev, fw_attr_data);
-	if (retval) {
-		dev_err(f_dev, "%s: sysfs_create_bin_file failed\n", __func__);
-		goto err_del_dev;
 	}
 
 	mutex_lock(&fw_lock);
@@ -1548,7 +1555,6 @@ _request_firmware_nowait(
 
 	get_device(desc->device);
 	INIT_WORK(&desc->work, request_firmware_work_func);
-	schedule_work(&desc->work);
 	return 0;
 }
 
