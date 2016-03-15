@@ -413,6 +413,7 @@
 		vdd_dig-supply = <&pmcobalt_s1_level>;
 		vdd_mx-supply = <&pmcobalt_s9_level>;
 		vdd_gpu_mx-supply = <&pmcobalt_s9_level>;
+		qcom,gfx3d_clk_src-opp-store-vcorner = <&msm_gpu>;
 		clock-names = "xo_ao", "gpll0";
 		clocks = <&clock_gcc clk_cxo_clk_src_ao>,
 			<&clock_gcc clk_gpll0_out_main>;
