@@ -19,8 +19,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/msm_cam_sensor.h>
 #include "msm_sd.h"
-
-#define CSID_NUM_CLK_MAX  16
+#include "cam_soc_api.h"
 
 enum csiphy_lane_assign {
 	PHY_LANE_D0,
@@ -89,9 +88,7 @@ enum msm_csid_state_t {
 struct csid_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
-	struct resource *mem;
 	struct resource *irq;
-	struct resource *io;
 	struct regulator *csi_vdd;
 	void __iomem *base;
 	struct mutex mutex;
@@ -100,10 +97,10 @@ struct csid_device {
 	uint32_t hw_dts_version;
 	enum msm_csid_state_t csid_state;
 	struct csid_ctrl_t *ctrl_reg;
-	uint32_t num_clk;
-	uint32_t num_clk_src_info;
 	struct regulator *reg_ptr;
-	struct clk *csid_clk[CSID_NUM_CLK_MAX];
+	size_t num_clk;
+	struct clk **csid_clk;
+	struct msm_cam_clk_info *csid_clk_info;
 	uint32_t csid_clk_index;
 	uint32_t csid_max_clk;
 	uint32_t csid_3p_enabled;
