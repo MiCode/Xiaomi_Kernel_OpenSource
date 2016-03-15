@@ -250,6 +250,11 @@ Parent node optional properties:
 					If qcom,fg-dischg-voltage-gain-ctrl is
 					set, then this property should be
 					specified to apply the gain setting.
+- qcom,fg-use-vbat-low-empty-soc:	A boolean property to specify whether
+					vbatt-low interrupt is used to handle
+					empty battery condition. If this is
+					not specified, empty battery condition
+					is detected by empty-soc interrupt.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
