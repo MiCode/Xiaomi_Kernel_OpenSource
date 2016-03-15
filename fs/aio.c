@@ -1316,7 +1316,7 @@ static long read_events(struct kioctx *ctx, long min_nr, long nr,
 SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
 {
 	struct kioctx *ioctx = NULL;
-	unsigned long ctx;
+	unsigned long ctx = 0;
 	long ret;
 
 	ret = get_user(ctx, ctxp);

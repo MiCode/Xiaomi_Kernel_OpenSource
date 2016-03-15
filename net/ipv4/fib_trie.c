@@ -1694,7 +1694,7 @@ struct fib_table *fib_trie_unmerge(struct fib_table *oldtb)
 	lt = (struct trie *)local_tb->tb_data;
 
 	while ((l = leaf_walk_rcu(&tp, key)) != NULL) {
-		struct key_vector *local_l = NULL, *local_tp;
+		struct key_vector *local_l = NULL, *local_tp = NULL;
 
 		hlist_for_each_entry_rcu(fa, &l->leaf, fa_list) {
 			struct fib_alias *new_fa;

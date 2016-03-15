@@ -123,7 +123,7 @@ EXPORT_SYMBOL(nf_register_net_hook);
 void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
 {
 	struct list_head *hook_list;
-	struct nf_hook_entry *entry;
+	struct nf_hook_entry *entry = NULL;
 	struct nf_hook_ops *elem;
 
 	hook_list = nf_find_hook_list(net, reg);
