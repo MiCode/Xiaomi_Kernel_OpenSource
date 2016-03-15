@@ -432,7 +432,7 @@ int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_waiter *kwaiter)
 
 #ifdef CONFIG_ONESHOT_SYNC
 
-#include <linux/oneshot_sync.h>
+#include "oneshot_sync.h"
 
 struct kgsl_syncsource {
 	struct kref refcount;
