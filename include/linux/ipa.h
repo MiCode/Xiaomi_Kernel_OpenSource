@@ -1038,30 +1038,6 @@ struct ipa_wdi_buffer_info {
 };
 
 /**
- * struct odu_bridge_params - parameters for odu bridge initialization API
- *
- * @netdev_name: network interface name
- * @priv: private data that will be supplied to client's callback
- * @tx_dp_notify: callback for handling SKB. the following event are supported:
- *	IPA_WRITE_DONE:	will be called after client called to odu_bridge_tx_dp()
- *			Client is expected to free the skb.
- *	IPA_RECEIVE:	will be called for delivering skb to APPS.
- *			Client is expected to deliver the skb to network stack.
- * @send_dl_skb: callback for sending skb on downlink direction to adapter.
- *		Client is expected to free the skb.
- * @device_ethaddr: device Ethernet address in network order.
- * @ipa_desc_size: IPA Sys Pipe Desc Size
- */
-struct odu_bridge_params {
-	const char *netdev_name;
-	void *priv;
-	ipa_notify_cb tx_dp_notify;
-	int (*send_dl_skb)(void *priv, struct sk_buff *skb);
-	u8 device_ethaddr[ETH_ALEN];
-	u32 ipa_desc_size;
-};
-
-/**
  * enum ipa_mhi_event_type - event type for mhi callback
  *
  * @IPA_MHI_EVENT_READY: IPA MHI is ready and IPA uC is loaded. After getting
@@ -1422,20 +1398,6 @@ void ipa_set_client(int index, enum ipacm_client_enum client, bool uplink);
 enum ipacm_client_enum ipa_get_client(int pipe_idx);
 
 bool ipa_get_client_uplink(int pipe_idx);
-
-/*
- * ODU bridge
- */
-
-int odu_bridge_init(struct odu_bridge_params *params);
-
-int odu_bridge_connect(void);
-
-int odu_bridge_disconnect(void);
-
-int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata);
-
-int odu_bridge_cleanup(void);
 
 /*
  * IPADMA
@@ -2086,36 +2048,6 @@ static inline enum ipacm_client_enum ipa_get_client(int pipe_idx)
 }
 
 static inline bool ipa_get_client_uplink(int pipe_idx)
-{
-	return -EPERM;
-}
-
-
-/*
- * ODU bridge
- */
-static inline int odu_bridge_init(struct odu_bridge_params *params)
-{
-	return -EPERM;
-}
-
-static inline int odu_bridge_disconnect(void)
-{
-	return -EPERM;
-}
-
-static inline int odu_bridge_connect(void)
-{
-	return -EPERM;
-}
-
-static inline int odu_bridge_tx_dp(struct sk_buff *skb,
-						struct ipa_tx_meta *metadata)
-{
-	return -EPERM;
-}
-
-static inline int odu_bridge_cleanup(void)
 {
 	return -EPERM;
 }
