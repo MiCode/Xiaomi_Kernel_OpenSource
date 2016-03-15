@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -414,7 +414,7 @@ static int ipa3_check_qmi_response(int rc,
 			"Timeout for qmi request id %d\n", req_id);
 			return rc;
 		}
-		if (rc == -ENETRESET) {
+		if ((rc == -ENETRESET) || (rc == -ENODEV)) {
 			IPAWANERR(
 			"SSR while waiting for qmi request id %d\n", req_id);
 			return rc;
@@ -852,7 +852,7 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 	/* Initialize modem IPA-driver */
 	IPAWANDBG("send ipa3_qmi_init_modem_send_sync_msg to modem\n");
 	rc = ipa3_qmi_init_modem_send_sync_msg();
-	if (rc == -ENETRESET) {
+	if ((rc == -ENETRESET) || (rc == -ENODEV)) {
 		IPAWANERR(
 			"ipa3_qmi_init_modem_send_sync_msg failed due to SSR!\n");
 		/* Cleanup will take place when ipa3_wwan_remove is called */

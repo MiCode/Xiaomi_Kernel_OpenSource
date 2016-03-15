@@ -4220,21 +4220,21 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->transport_pm.res_rel_in_prog = false;
 
 	/* init the lookaside cache */
-	ipa3_ctx->flt_rule_cache = kmem_cache_create("IPA FLT",
+	ipa3_ctx->flt_rule_cache = kmem_cache_create("IPA_FLT",
 			sizeof(struct ipa3_flt_entry), 0, 0, NULL);
 	if (!ipa3_ctx->flt_rule_cache) {
 		IPAERR(":ipa flt cache create failed\n");
 		result = -ENOMEM;
 		goto fail_flt_rule_cache;
 	}
-	ipa3_ctx->rt_rule_cache = kmem_cache_create("IPA RT",
+	ipa3_ctx->rt_rule_cache = kmem_cache_create("IPA_RT",
 			sizeof(struct ipa3_rt_entry), 0, 0, NULL);
 	if (!ipa3_ctx->rt_rule_cache) {
 		IPAERR(":ipa rt cache create failed\n");
 		result = -ENOMEM;
 		goto fail_rt_rule_cache;
 	}
-	ipa3_ctx->hdr_cache = kmem_cache_create("IPA HDR",
+	ipa3_ctx->hdr_cache = kmem_cache_create("IPA_HDR",
 			sizeof(struct ipa3_hdr_entry), 0, 0, NULL);
 	if (!ipa3_ctx->hdr_cache) {
 		IPAERR(":ipa hdr cache create failed\n");
@@ -4242,14 +4242,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_hdr_cache;
 	}
 	ipa3_ctx->hdr_offset_cache =
-	   kmem_cache_create("IPA HDR OFFSET",
+	   kmem_cache_create("IPA_HDR_OFFSET",
 			   sizeof(struct ipa3_hdr_offset_entry), 0, 0, NULL);
 	if (!ipa3_ctx->hdr_offset_cache) {
 		IPAERR(":ipa hdr off cache create failed\n");
 		result = -ENOMEM;
 		goto fail_hdr_offset_cache;
 	}
-	ipa3_ctx->hdr_proc_ctx_cache = kmem_cache_create("IPA HDR PROC CTX",
+	ipa3_ctx->hdr_proc_ctx_cache = kmem_cache_create("IPA_HDR_PROC_CTX",
 		sizeof(struct ipa3_hdr_proc_ctx_entry), 0, 0, NULL);
 	if (!ipa3_ctx->hdr_proc_ctx_cache) {
 		IPAERR(":ipa hdr proc ctx cache create failed\n");
@@ -4257,14 +4257,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_hdr_proc_ctx_cache;
 	}
 	ipa3_ctx->hdr_proc_ctx_offset_cache =
-		kmem_cache_create("IPA HDR PROC CTX OFFSET",
+		kmem_cache_create("IPA_HDR_PROC_CTX_OFFSET",
 		sizeof(struct ipa3_hdr_proc_ctx_offset_entry), 0, 0, NULL);
 	if (!ipa3_ctx->hdr_proc_ctx_offset_cache) {
 		IPAERR(":ipa hdr proc ctx off cache create failed\n");
 		result = -ENOMEM;
 		goto fail_hdr_proc_ctx_offset_cache;
 	}
-	ipa3_ctx->rt_tbl_cache = kmem_cache_create("IPA RT TBL",
+	ipa3_ctx->rt_tbl_cache = kmem_cache_create("IPA_RT_TBL",
 			sizeof(struct ipa3_rt_tbl), 0, 0, NULL);
 	if (!ipa3_ctx->rt_tbl_cache) {
 		IPAERR(":ipa rt tbl cache create failed\n");
@@ -4272,7 +4272,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_rt_tbl_cache;
 	}
 	ipa3_ctx->tx_pkt_wrapper_cache =
-	   kmem_cache_create("IPA TX PKT WRAPPER",
+	   kmem_cache_create("IPA_TX_PKT_WRAPPER",
 			   sizeof(struct ipa3_tx_pkt_wrapper), 0, 0, NULL);
 	if (!ipa3_ctx->tx_pkt_wrapper_cache) {
 		IPAERR(":ipa tx pkt wrapper cache create failed\n");
@@ -4280,7 +4280,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_tx_pkt_wrapper_cache;
 	}
 	ipa3_ctx->rx_pkt_wrapper_cache =
-	   kmem_cache_create("IPA RX PKT WRAPPER",
+	   kmem_cache_create("IPA_RX_PKT_WRAPPER",
 			   sizeof(struct ipa3_rx_pkt_wrapper), 0, 0, NULL);
 	if (!ipa3_ctx->rx_pkt_wrapper_cache) {
 		IPAERR(":ipa rx pkt wrapper cache create failed\n");
