@@ -2333,7 +2333,6 @@ static struct snd_soc_dai_link msm8996_common_dai_links[] = {
 		.dynamic = 1,
 		.async_ops = ASYNC_DPCM_SND_SOC_HW_PARAMS,
 		.dpcm_playback = 1,
-		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
 		.codec_dai_name = "snd-soc-dummy-dai",
