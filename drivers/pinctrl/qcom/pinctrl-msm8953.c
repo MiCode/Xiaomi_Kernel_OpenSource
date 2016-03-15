@@ -676,7 +676,7 @@ static const char * const blsp_i2c2_groups[] = {
 	"gpio6", "gpio7",
 };
 static const char * const gcc_gp1_clk_b_groups[] = {
-	"gpio6",
+	"gpio6", "gpio41",
 };
 static const char * const atest_gpsadc_dtest0_native_groups[] = {
 	"gpio7",
@@ -1512,8 +1512,8 @@ static const struct msm_pingroup msm8953_groups[] = {
 	PINGROUP(38, cci_async, NA, qdss_tracedata_a, NA, NA, NA, NA, NA, NA),
 	PINGROUP(39, NA, NA, NA, qdss_tracedata_a, NA, dac_calib5, NA, NA, NA),
 	PINGROUP(40, NA, NA, qdss_tracedata_a, NA, dac_calib6, NA, NA, NA, NA),
-	PINGROUP(41, cci_timer4, blsp3_spi, NA, NA, NA, qdss_cti_trig_out_a0,
-		 NA, dac_calib7, NA),
+	PINGROUP(41, cci_timer4, blsp3_spi, gcc_gp1_clk_b, NA, NA,
+		 qdss_cti_trig_out_a0, NA, dac_calib7, NA),
 	PINGROUP(42, gcc_gp1_clk_a, qdss_tracedata_b, NA, dac_calib8, NA, NA,
 		 NA, NA, NA),
 	PINGROUP(43, gcc_gp2_clk_a, qdss_tracedata_b, NA, dac_calib9, NA, NA,
