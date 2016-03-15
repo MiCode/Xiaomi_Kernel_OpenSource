@@ -418,6 +418,27 @@ struct gsi_xfer_elem {
  * @mhi_host_wp_addr:    Valid only when UL/DL Sync En is asserted. Defines
  *                       address in host from which channel write pointer
  *                       should be read in polling mode
+ * @assert_bit40:        1: bit #41 in address should be asserted upon
+ *                       IPA_IF.ProcessDescriptor routine (for MHI over PCIe
+ *                       transfers)
+ *                       0: bit #41 in address should be deasserted upon
+ *                       IPA_IF.ProcessDescriptor routine (for non-MHI over
+ *                       PCIe transfers)
+ * @polling_configuration: Uplink channels: Defines timer to poll on MHI
+ *                       context. Range: 1 to 31 milliseconds.
+ *                       Downlink channel: Defines transfer ring buffer
+ *                       availability threshold to poll on MHI context in
+ *                       multiple of 8. Range: 0 to 31, meaning 0 to 258 ring
+ *                       elements. E.g., value of 2 indicates 16 ring elements.
+ *                       Valid only when Burst Mode Enabled is set to 1
+ * @burst_mode_enabled:  0: Burst mode is disabled for this channel
+ *                       1: Burst mode is enabled for this channel
+ * @polling_mode:        0: the channel is not in polling mode, meaning the
+ *                       host should ring DBs.
+ *                       1: the channel is in polling mode, meaning the host
+ * @oob_mod_threshold:   Defines OOB moderation threshold. Units are in 8
+ *                       ring elements.
+ *                       should not ring DBs until notified of DB mode/OOB mode
  * @max_outstanding_tre: Used for the prefetch management sequence by the
  *                       sequencer. Defines the maximum number of allowed
  *                       outstanding TREs in IPA/GSI (in Bytes). RE engine
@@ -427,15 +448,6 @@ struct gsi_xfer_elem {
  *                       doorbell mode (DB Mode=1) Maximum outstanding TREs
  *                       should be set to 64KB (or any value larger or equal
  *                       to ring length . RLEN)
- * @assert_bit40:        1: bit #41 in address should be asserted upon
- *                       IPA_IF.ProcessDescriptor routine (for MHI over PCIe
- *                       transfers)
- *                       0: bit #41 in address should be deasserted upon
- *                       IPA_IF.ProcessDescriptor routine (for non-MHI over
- *                       PCIe transfers)
- * @ul_dl_sync_en:       When asserted, UL/DL synchronization feature is
- *                       enabled for the channel. Supported only for predefined
- *                       UL/DL endpoint pair
  * @outstanding_threshold: Used for the prefetch management sequence by the
  *                       sequencer. Defines the threshold (in Bytes) as to when
  *                       to update the channel doorbell. Should be smaller than
@@ -443,11 +455,15 @@ struct gsi_xfer_elem {
  */
 struct __packed gsi_mhi_channel_scratch {
 	uint64_t mhi_host_wp_addr;
-	uint32_t ul_dl_sync_en:1;
+	uint32_t rsvd1:1;
 	uint32_t assert_bit40:1;
-	uint32_t resvd1:14;
+	uint32_t polling_configuration:5;
+	uint32_t burst_mode_enabled:1;
+	uint32_t polling_mode:1;
+	uint32_t oob_mod_threshold:5;
+	uint32_t resvd2:2;
 	uint32_t max_outstanding_tre:16;
-	uint32_t resvd2:16;
+	uint32_t resvd3:16;
 	uint32_t outstanding_threshold:16;
 };
 
@@ -510,14 +526,9 @@ union __packed gsi_channel_scratch {
 /**
  * gsi_mhi_evt_scratch - MHI protocol SW config area of
  * event scratch
- *
- * @ul_dl_sync_en: When asserted, UL/DL synchronization feature is enabled for
- *                 the channel. Supported only for predefined UL/DL endpoint
- *                 pair
  */
 struct __packed gsi_mhi_evt_scratch {
-	uint32_t resvd1:31;
-	uint32_t ul_dl_sync_en:1;
+	uint32_t resvd1;
 	uint32_t resvd2;
 };
 
