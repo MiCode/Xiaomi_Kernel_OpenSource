@@ -18,6 +18,7 @@ its hardware characteristcs.
 		- "arm,coresight-funnel", "arm,primecell";
 		- "arm,coresight-etm3x", "arm,primecell";
 		- "qcom,coresight-replicator1x", "arm,primecell";
+		- "arm,coresight-stm", "arm,primecell";
 
 	* reg: physical base address and length of the register
 	  set(s) of the component.
@@ -35,11 +36,19 @@ its hardware characteristcs.
 * Required properties for devices that don't show up on the AMBA bus, such as
   non-configurable replicators:
 
-	* compatible: Currently supported value is (note the absence of the
+	* compatible: Currently supported values are (note the absence of the
 	  AMBA markee):
 		- "arm,coresight-replicator"
+		- "qcom,coresight-csr"
+		- "arm,coresight-cti"
+		- "qcom,coresight-tpda"
+		- "qcom,coresight-tpdm"
 
 	* port or ports: same as above.
+
+* Optional properties for all components:
+	* coresight-name: unique descriptive name of the component.
+	* reg-names: names corresponding to each reg property value.
 
 * Optional properties for ETM/PTMs:
 
@@ -54,6 +63,32 @@ its hardware characteristcs.
 	* arm,buffer-size: size of contiguous buffer space for TMC ETR
 	 (embedded trace router)
 
+* Required property for TPDAs:
+
+	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.
+
+* Optional properties for TPDAs:
+
+	* qcom,bc-elem-size: specifies the BC element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+          in pairs (port, bc element size).
+
+	* qcom,tc-elem-size: specifies the TC element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, tc element size).
+
+	* qcom,dsb-elem-size: specifies the DSB element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, dsb element size).
+
+	* qcom,cmb-elem-size: specifies the CMB element size supported by each
+	  monitor connected to the aggregator on each port. Should be specified
+	  in pairs (port, cmb element size).
+
+* Optional property for TPDM:
+
+	* qcom,clk-enable: specifies whether additional clock bit needs to be
+	  set for M4M TPDM.
 
 Example:
 
@@ -170,6 +205,42 @@ Example:
 		};
 	};
 
+	tpda_mss: tpda@7043000 {
+		compatible = "qcom,coresight-tpda";
+		reg = <0x7043000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-name = "coresight-tpda-mss";
+
+		qcom,tpda-atid = <67>;
+		qcom,dsb-elem-size = <0 32>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				tpda_mss_out_funnel_in1: endpoint {
+					remote-endpoint =
+						<&funnel_in1_in_tpda_mss>;
+				};
+			};
+			port@1 {
+				reg = <0>;
+				tpda_mss_in_tpdm_mss: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&tpdm_mss_out_tpda_mss>;
+				};
+			};
+		};
+	};
+
 3. Sources
 	ptm@2201c000 {
 		compatible = "arm,coresight-etm3x", "arm,primecell";
@@ -197,4 +268,56 @@ Example:
 				remote-endpoint = <&funnel_in_port1>;
 			};
 		};
+	};
+
+	stm: stm@6002000 {
+		compatible = "arm,coresight-stm", "arm,primecell";
+		arm,primecell-periphid = <0x0003b962>;
+
+		reg = <0x6002000 0x1000>,
+		      <0x16280000 0x180000>;
+		reg-names = "stm-base", "stm-data-base";
+
+		coresight-name = "coresight-stm";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "apb_pclk", "core_a_clk";
+
+		port{
+			stm_out_funnel_in0: endpoint {
+				remote-endpoint = <&funnel_in0_in_stm>;
+			};
+		};
+	};
+
+	tpdm_mss: tpdm@7042000 {
+		compatible = "qcom,coresight-tpdm";
+		reg = <0x7042000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-name = "coresight-tpdm-mss";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		port{
+			tpdm_mss_out_tpda_mss: endpoint {
+				remote-endpoint = <&tpda_mss_in_tpdm_mss>;
+			};
+		};
+	};
+
+4. CTIs
+	cti0: cti@6010000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6010000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti0";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
 	};
