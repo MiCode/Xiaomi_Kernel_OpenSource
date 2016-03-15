@@ -4109,13 +4109,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		IPADBG("Skipping bus scaling registration on Virtual plat\n");
 	}
 
-	if (ipa3_active_clients_log_init())
-		goto fail_init_active_client;
-
 	/* get IPA clocks */
 	result = ipa3_get_clks(master_dev);
 	if (result)
 		goto fail_clk;
+
+	/* init active_clients_log after getting ipa-clk */
+	if (ipa3_active_clients_log_init())
+		goto fail_init_active_client;
 
 	/* Enable ipa3_ctx->enable_clock_scaling */
 	ipa3_ctx->enable_clock_scaling = 1;
@@ -4525,9 +4526,9 @@ fail_init_hw:
 	iounmap(ipa3_ctx->mmio);
 fail_remap:
 	ipa3_disable_clks();
-fail_clk:
-	ipa3_active_clients_log_destroy();
 fail_init_active_client:
+	ipa3_active_clients_log_destroy();
+fail_clk:
 	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
 fail_ipahal:
 	ipa3_bus_scale_table = NULL;
