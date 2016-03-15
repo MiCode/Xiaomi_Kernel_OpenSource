@@ -1995,6 +1995,8 @@ set_ops:
 		writel_relaxed(0, base_addr + PGC_OPMODE_OFF);
 	} else if (pgc_data->flags & MDP_PP_OPS_ENABLE) {
 		val = PGC_ENABLE;
+		val |= (pgc_data->flags & MDP_PP_PGC_ROUNDING_ENABLE)
+			? BIT(1) : 0;
 		writel_relaxed(val, base_addr + PGC_OPMODE_OFF);
 		*sts |= PP_STS_ENABLE;
 	}
