@@ -3976,38 +3976,6 @@ dec_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p) { }
 
 #endif	/* CONFIG_SCHED_HMP */
 
-#ifdef CONFIG_SCHED_HMP
-
-void init_new_task_load(struct task_struct *p)
-{
-	int i;
-	u32 init_load_windows = sched_init_task_load_windows;
-	u32 init_load_pelt = sched_init_task_load_pelt;
-	u32 init_load_pct = current->init_load_pct;
-
-	p->init_load_pct = 0;
-	memset(&p->ravg, 0, sizeof(struct ravg));
-
-	if (init_load_pct) {
-		init_load_pelt = div64_u64((u64)init_load_pct *
-			  (u64)LOAD_AVG_MAX, 100);
-		init_load_windows = div64_u64((u64)init_load_pct *
-			  (u64)sched_ravg_window, 100);
-	}
-
-	p->ravg.demand = init_load_windows;
-	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
-		p->ravg.sum_history[i] = init_load_windows;
-	p->se.avg.runnable_avg_sum_scaled = init_load_pelt;
-}
-
-#else /* CONFIG_SCHED_HMP */
-
-void init_new_task_load(struct task_struct *p)
-{
-}
-
-#endif /* CONFIG_SCHED_HMP */
 
 
 #if (SCHED_LOAD_SHIFT - SCHED_LOAD_RESOLUTION) != 10 || SCHED_CAPACITY_SHIFT != 10
@@ -4392,6 +4360,39 @@ static inline void
 dec_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra) { }
 
 #endif /* CONFIG_SMP */
+
+#ifdef CONFIG_SCHED_HMP
+
+void init_new_task_load(struct task_struct *p)
+{
+	int i;
+	u32 init_load_windows = sched_init_task_load_windows;
+	u32 init_load_pelt = sched_init_task_load_pelt;
+	u32 init_load_pct = current->init_load_pct;
+
+	p->init_load_pct = 0;
+	memset(&p->ravg, 0, sizeof(struct ravg));
+
+	if (init_load_pct) {
+		init_load_pelt = div64_u64((u64)init_load_pct *
+			  (u64)LOAD_AVG_MAX, 100);
+		init_load_windows = div64_u64((u64)init_load_pct *
+			  (u64)sched_ravg_window, 100);
+	}
+
+	p->ravg.demand = init_load_windows;
+	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
+		p->ravg.sum_history[i] = init_load_windows;
+	p->se.avg.runnable_avg_sum_scaled = init_load_pelt;
+}
+
+#else /* CONFIG_SCHED_HMP */
+
+void init_new_task_load(struct task_struct *p)
+{
+}
+
+#endif /* CONFIG_SCHED_HMP */
 
 #ifdef CONFIG_SCHED_HMP
 
