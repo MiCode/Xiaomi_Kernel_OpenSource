@@ -168,7 +168,7 @@ static inline struct f_mbim *func_to_mbim(struct usb_function *f)
 #define MBIM_FORMATS_SUPPORTED	USB_CDC_NCM_NTB16_SUPPORTED
 
 static struct usb_cdc_ncm_ntb_parameters mbim_ntb_parameters = {
-	.wLength = sizeof mbim_ntb_parameters,
+	.wLength = sizeof(mbim_ntb_parameters),
 	.bmNtbFormatsSupported = cpu_to_le16(MBIM_FORMATS_SUPPORTED),
 	.dwNtbInMaxSize = cpu_to_le32(MBIM_NTB_DEFAULT_IN_SIZE),
 	.wNdpInDivisor = cpu_to_le16(MBIM_NDP_IN_DIVISOR),
@@ -192,7 +192,7 @@ static struct usb_cdc_ncm_ntb_parameters mbim_ntb_parameters = {
 #define NCM_STATUS_BYTECOUNT		16	/* 8 byte header + data */
 
 static struct usb_interface_assoc_descriptor mbim_iad_desc = {
-	.bLength =		sizeof mbim_iad_desc,
+	.bLength =		sizeof(mbim_iad_desc),
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 
 	/* .bFirstInterface =	DYNAMIC, */
@@ -205,7 +205,7 @@ static struct usb_interface_assoc_descriptor mbim_iad_desc = {
 
 /* interface descriptor: */
 static struct usb_interface_descriptor mbim_control_intf = {
-	.bLength =		sizeof mbim_control_intf,
+	.bLength =		sizeof(mbim_control_intf),
 	.bDescriptorType =	USB_DT_INTERFACE,
 
 	/* .bInterfaceNumber = DYNAMIC */
@@ -217,7 +217,7 @@ static struct usb_interface_descriptor mbim_control_intf = {
 };
 
 static struct usb_cdc_header_desc mbim_header_desc = {
-	.bLength =		sizeof mbim_header_desc,
+	.bLength =		sizeof(mbim_header_desc),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_HEADER_TYPE,
 
@@ -233,7 +233,7 @@ static struct usb_cdc_union_desc mbim_union_desc = {
 };
 
 static struct usb_cdc_mbim_desc mbim_desc = {
-	.bLength =		sizeof mbim_desc,
+	.bLength =		sizeof(mbim_desc),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_MBIM_TYPE,
 
@@ -247,7 +247,7 @@ static struct usb_cdc_mbim_desc mbim_desc = {
 };
 
 static struct usb_cdc_mbim_extended_desc ext_mbb_desc = {
-	.bLength =	sizeof ext_mbb_desc,
+	.bLength =	sizeof(ext_mbb_desc),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_MBIM_EXTENDED_TYPE,
 
@@ -258,7 +258,7 @@ static struct usb_cdc_mbim_extended_desc ext_mbb_desc = {
 
 /* the default data interface has no endpoints ... */
 static struct usb_interface_descriptor mbim_data_nop_intf = {
-	.bLength =		sizeof mbim_data_nop_intf,
+	.bLength =		sizeof(mbim_data_nop_intf),
 	.bDescriptorType =	USB_DT_INTERFACE,
 
 	/* .bInterfaceNumber = DYNAMIC */
@@ -272,7 +272,7 @@ static struct usb_interface_descriptor mbim_data_nop_intf = {
 
 /* ... but the "real" data interface has two bulk endpoints */
 static struct usb_interface_descriptor mbim_data_intf = {
-	.bLength =		sizeof mbim_data_intf,
+	.bLength =		sizeof(mbim_data_intf),
 	.bDescriptorType =	USB_DT_INTERFACE,
 
 	/* .bInterfaceNumber = DYNAMIC */
@@ -400,7 +400,7 @@ static struct usb_endpoint_descriptor ss_mbim_in_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize =	__constant_cpu_to_le16(1024),
+	.wMaxPacketSize =	cpu_to_le16(1024),
 };
 
 static struct usb_ss_ep_comp_descriptor ss_mbim_in_comp_desc = {
@@ -417,7 +417,7 @@ static struct usb_endpoint_descriptor ss_mbim_out_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize =	__constant_cpu_to_le16(1024),
+	.wMaxPacketSize =	cpu_to_le16(1024),
 };
 
 static struct usb_ss_ep_comp_descriptor ss_mbim_out_comp_desc = {
@@ -514,9 +514,9 @@ static struct {
 	struct mbim_ext_config_desc_function    function;
 } mbim_ext_config_desc = {
 	.header = {
-		.dwLength = __constant_cpu_to_le32(sizeof mbim_ext_config_desc),
-		.bcdVersion = __constant_cpu_to_le16(0x0100),
-		.wIndex = __constant_cpu_to_le16(4),
+		.dwLength = cpu_to_le32(sizeof(mbim_ext_config_desc)),
+		.bcdVersion = cpu_to_le16(0x0100),
+		.wIndex = cpu_to_le16(4),
 		.bCount = 1,
 	},
 	.function = {
@@ -531,10 +531,9 @@ static inline int mbim_lock(atomic_t *excl)
 {
 	if (atomic_inc_return(excl) == 1) {
 		return 0;
-	} else {
-		atomic_dec(excl);
-		return -EBUSY;
-	}
+
+	atomic_dec(excl);
+	return -EBUSY;
 }
 
 static inline void mbim_unlock(atomic_t *excl)
@@ -572,6 +571,7 @@ static struct usb_request *mbim_alloc_req(struct usb_ep *ep, int buffer_size,
 		size_t extra_buf)
 {
 	struct usb_request *req = usb_ep_alloc_request(ep, GFP_KERNEL);
+
 	if (!req)
 		return NULL;
 
@@ -697,7 +697,7 @@ static void mbim_do_notify(struct f_mbim *mbim)
 		pr_debug("Notification %02x sent\n", event->bNotificationType);
 
 		if (atomic_read(&mbim->not_port.notify_count) <= 0) {
-			pr_debug("notify_response_avaliable: done\n");
+			pr_debug("notify_response_available: done\n");
 			return;
 		}
 
@@ -821,8 +821,6 @@ invalid:
 	usb_ep_set_halt(ep);
 
 	pr_err("dev:%p Failed\n", mbim);
-
-	return;
 }
 
 static void
@@ -874,8 +872,6 @@ fmbim_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 	/* wakeup read thread */
 	pr_debug("Wake up read queue\n");
 	wake_up(&dev->read_wq);
-
-	return;
 }
 
 static int
@@ -896,7 +892,7 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	 */
 
 	if (!atomic_read(&mbim->online)) {
-		pr_warning("usb cable is not connected\n");
+		pr_warn("usb cable is not connected\n");
 		return -ENOTCONN;
 	}
 
@@ -967,8 +963,8 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		if (w_length == 0 || w_value != 0 || w_index != mbim->ctrl_id)
 			break;
 
-		value = w_length > sizeof mbim_ntb_parameters ?
-			sizeof mbim_ntb_parameters : w_length;
+		value = w_length > sizeof(mbim_ntb_parameters) ?
+			sizeof(mbim_ntb_parameters) : w_length;
 		memcpy(req->buf, &mbim_ntb_parameters, value);
 		break;
 
@@ -1056,7 +1052,7 @@ static int mbim_ctrlrequest(struct usb_composite_dev *cdev,
 	u16	w_value = le16_to_cpu(ctrl->wValue);
 	u16	w_length = le16_to_cpu(ctrl->wLength);
 
-	/* only respond to OS desciptors when no configuration selected */
+	/* only respond to OS descriptors when no configuration selected */
 	if (cdev->config || !mbim_ext_config_desc.function.subCompatibleID[0])
 		return value;
 
@@ -1088,6 +1084,7 @@ static int mbim_ctrlrequest(struct usb_composite_dev *cdev,
 	/* respond with data transfer or status phase? */
 	if (value >= 0) {
 		int rc;
+
 		cdev->req->zero = value < w_length;
 		cdev->req->length = value;
 		rc = usb_ep_queue(cdev->gadget->ep0, cdev->req, GFP_ATOMIC);
@@ -1838,7 +1835,7 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 	}
 
 	if (!count || count > MAX_CTRL_PKT_SIZE) {
-		pr_err("error: ctrl pkt lenght %zu\n", count);
+		pr_err("error: ctrl pkt length %zu\n", count);
 		return -EINVAL;
 	}
 
@@ -2147,4 +2144,3 @@ static void fmbim_cleanup(void)
 
 	_mbim_dev = NULL;
 }
-

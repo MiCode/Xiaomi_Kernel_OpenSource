@@ -772,10 +772,8 @@ static int ipa_data_port_alloc(int portno)
 	}
 
 	port = kzalloc(sizeof(struct ipa_data_ch_info), GFP_KERNEL);
-	if (!port) {
-		pr_err("no memory to allocate port %d\n", portno);
+	if (!port)
 		return -ENOMEM;
-	}
 
 	ipa_data_ports[portno] = port;
 

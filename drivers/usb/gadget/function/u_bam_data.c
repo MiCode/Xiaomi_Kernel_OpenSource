@@ -338,9 +338,8 @@ static void bam_data_start_rx(struct bam_data_port *port)
 	struct sk_buff			*skb;
 	unsigned long			flags;
 
-	if (!port->port_usb) {
+	if (!port->port_usb)
 		return;
-	}
 
 	d = &port->data_ch;
 	ep = port->port_usb->out;
@@ -427,8 +426,8 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 			spin_unlock(&port->port_lock);
 			pr_err_ratelimited("usb bam prod is not granted.\n");
 			return;
-		} else
-			queue_work(bam_data_wq, &d->write_tobam_w);
+		}
+		queue_work(bam_data_wq, &d->write_tobam_w);
 	}
 
 	if (bam_mux_rx_fctrl_support &&
@@ -492,9 +491,8 @@ static int bam_data_sys2bam_alloc_req(struct bam_data_port *port, bool in)
 
 	ret = bam_data_alloc_requests(ep, idle, queue_size, ep_complete,
 			GFP_ATOMIC);
-	if (ret) {
+	if (ret)
 		pr_err("%s: allocation failed\n", __func__);
-	}
 
 	return ret;
 }
@@ -1233,10 +1231,8 @@ static int bam2bam_data_port_alloc(int portno)
 	}
 
 	port = kzalloc(sizeof(struct bam_data_port), GFP_KERNEL);
-	if (!port) {
-		pr_err("no memory to allocate port %d\n", portno);
+	if (!port)
 		return -ENOMEM;
-	}
 
 	bam2bam_data_ports[portno] = port;
 	d = &port->data_ch;
@@ -1746,7 +1742,7 @@ static int bam_data_wake_cb(void *param)
 
 	/*
 	 * In Super-Speed mode, remote wakeup is not allowed for suspended
-	 * functions which have been disallowed by the host to issue Funtion
+	 * functions which have been disallowed by the host to issue Function
 	 * Remote Wakeup.
 	 * Note - We deviate here from the USB 3.0 spec and allow
 	 * non-suspended functions to issue remote-wakeup even if they were not
@@ -1810,7 +1806,7 @@ static void bam_data_stop(void *param, enum usb_bam_pipe_dir dir)
 
 	if (dir == USB_TO_PEER_PERIPHERAL) {
 		/*
-		 * Only handling BAM2BAM, as there is no equivelant to
+		 * Only handling BAM2BAM, as there is no equivalent to
 		 * bam_data_stop_endless_rx() for the SYS2BAM use case
 		 */
 		if (port->data_ch.src_pipe_type == USB_BAM_PIPE_BAM2BAM)

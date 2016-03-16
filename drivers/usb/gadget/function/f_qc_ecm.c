@@ -126,7 +126,7 @@ static inline unsigned ecm_qc_bitrate(struct usb_gadget *g)
 /* interface descriptor: */
 
 static struct usb_interface_descriptor ecm_qc_control_intf = {
-	.bLength =		sizeof ecm_qc_control_intf,
+	.bLength =		sizeof(ecm_qc_control_intf),
 	.bDescriptorType =	USB_DT_INTERFACE,
 
 	/* .bInterfaceNumber = DYNAMIC */
@@ -139,7 +139,7 @@ static struct usb_interface_descriptor ecm_qc_control_intf = {
 };
 
 static struct usb_cdc_header_desc ecm_qc_header_desc = {
-	.bLength =		sizeof ecm_qc_header_desc,
+	.bLength =		sizeof(ecm_qc_header_desc),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_HEADER_TYPE,
 
@@ -155,7 +155,7 @@ static struct usb_cdc_union_desc ecm_qc_union_desc = {
 };
 
 static struct usb_cdc_ether_desc ecm_qc_desc = {
-	.bLength =		sizeof ecm_qc_desc,
+	.bLength =		sizeof(ecm_qc_desc),
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_ETHERNET_TYPE,
 
@@ -170,7 +170,7 @@ static struct usb_cdc_ether_desc ecm_qc_desc = {
 /* the default data interface has no endpoints ... */
 
 static struct usb_interface_descriptor ecm_qc_data_nop_intf = {
-	.bLength =		sizeof ecm_qc_data_nop_intf,
+	.bLength =		sizeof(ecm_qc_data_nop_intf),
 	.bDescriptorType =	USB_DT_INTERFACE,
 
 	.bInterfaceNumber =	1,
@@ -185,7 +185,7 @@ static struct usb_interface_descriptor ecm_qc_data_nop_intf = {
 /* ... but the "real" data interface has two bulk endpoints */
 
 static struct usb_interface_descriptor ecm_qc_data_intf = {
-	.bLength =		sizeof ecm_qc_data_intf,
+	.bLength =		sizeof(ecm_qc_data_intf),
 	.bDescriptorType =	USB_DT_INTERFACE,
 
 	.bInterfaceNumber =	1,
@@ -310,7 +310,7 @@ static struct usb_endpoint_descriptor ecm_qc_ss_in_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize =	__constant_cpu_to_le16(1024),
+	.wMaxPacketSize =	cpu_to_le16(1024),
 };
 
 static struct usb_ss_ep_comp_descriptor ecm_qc_ss_in_comp_desc = {
@@ -327,8 +327,8 @@ static struct usb_endpoint_descriptor ecm_qc_ss_out_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize =	__constant_cpu_to_le16(1024),
-};
+	.wMaxPacketSize =	cpu_to_le16(1024),
+}
 
 static struct usb_ss_ep_comp_descriptor ecm_qc_ss_out_comp_desc = {
 	.bLength =		sizeof(ecm_qc_ss_out_comp_desc),
@@ -404,7 +404,7 @@ static void ecm_qc_do_notify(struct f_ecm_qc *ecm)
 			ecm->notify_state = ECM_QC_NOTIFY_NONE;
 		}
 		event->wLength = 0;
-		req->length = sizeof *event;
+		req->length = sizeof(*event);
 
 		DBG(cdev, "notify connect %s\n",
 				ecm->is_open ? "true" : "false");
@@ -417,7 +417,7 @@ static void ecm_qc_do_notify(struct f_ecm_qc *ecm)
 		req->length = ECM_QC_STATUS_BYTECOUNT;
 
 		/* SPEED_CHANGE data is up/down speeds in bits/sec */
-		data = req->buf + sizeof *event;
+		data = req->buf + sizeof(*event);
 		data[0] = cpu_to_le32(ecm_qc_bitrate(cdev->gadget));
 		data[1] = data[0];
 
@@ -568,7 +568,7 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	/* Control interface has only altsetting 0 */
 	if (intf == ecm->ctrl_id) {
 		if (alt != 0) {
-			pr_warning("fail, alt setting is not 0\n");
+			pr_warn("fail, alt setting is not 0\n");
 			goto fail;
 		}
 
@@ -794,6 +794,7 @@ static void ecm_qc_resume(struct usb_function *f)
 static void ecm_qc_open(struct qc_gether *geth)
 {
 	struct f_ecm_qc		*ecm = func_to_ecm_qc(&geth->func);
+
 	DBG(ecm->port.func.config->cdev, "%s\n", __func__);
 
 	ecm->is_open = true;
@@ -1080,7 +1081,7 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	}
 
 	/* allocate and initialize one new instance */
-	ecm = kzalloc(sizeof *ecm, GFP_KERNEL);
+	ecm = kzalloc(sizeof(*ecm), GFP_KERNEL);
 	if (!ecm)
 		return -ENOMEM;
 	__ecm = ecm;
@@ -1092,14 +1093,14 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		gether_qc_get_macs(ipa_params.device_ethaddr,
 				ipa_params.host_ethaddr);
-		snprintf(ecm->ethaddr, sizeof ecm->ethaddr,
+		snprintf(ecm->ethaddr, sizeof(ecm->ethaddr),
 		"%02X%02X%02X%02X%02X%02X",
 		ipa_params.host_ethaddr[0], ipa_params.host_ethaddr[1],
 		ipa_params.host_ethaddr[2], ipa_params.host_ethaddr[3],
 		ipa_params.host_ethaddr[4], ipa_params.host_ethaddr[5]);
 		ipa_params.device_ready_notify = ecm_mdm_ready;
 	} else
-		snprintf(ecm->ethaddr, sizeof ecm->ethaddr,
+		snprintf(ecm->ethaddr, sizeof(ecm->ethaddr),
 		"%02X%02X%02X%02X%02X%02X",
 		ethaddr[0], ethaddr[1], ethaddr[2],
 		ethaddr[3], ethaddr[4], ethaddr[5]);

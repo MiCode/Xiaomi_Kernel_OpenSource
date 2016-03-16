@@ -94,7 +94,7 @@ static struct usb_endpoint_descriptor rmnet_fs_notify_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
-	.wMaxPacketSize =	__constant_cpu_to_le16(RMNET_MAX_NOTIFY_SIZE),
+	.wMaxPacketSize =	cpu_to_le16(RMNET_MAX_NOTIFY_SIZE),
 	.bInterval =		1 << RMNET_NOTIFY_INTERVAL,
 };
 
@@ -103,7 +103,7 @@ static struct usb_endpoint_descriptor rmnet_fs_in_desc  = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize   = __constant_cpu_to_le16(64),
+	.wMaxPacketSize   =	cpu_to_le16(64),
 };
 
 static struct usb_endpoint_descriptor rmnet_fs_out_desc = {
@@ -111,7 +111,7 @@ static struct usb_endpoint_descriptor rmnet_fs_out_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize   = __constant_cpu_to_le16(64),
+	.wMaxPacketSize   =	cpu_to_le16(64),
 };
 
 static struct usb_descriptor_header *rmnet_fs_function[] = {
@@ -128,7 +128,7 @@ static struct usb_endpoint_descriptor rmnet_hs_notify_desc  = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
-	.wMaxPacketSize =	__constant_cpu_to_le16(RMNET_MAX_NOTIFY_SIZE),
+	.wMaxPacketSize =	cpu_to_le16(RMNET_MAX_NOTIFY_SIZE),
 	.bInterval =		RMNET_NOTIFY_INTERVAL + 4,
 };
 
@@ -137,7 +137,7 @@ static struct usb_endpoint_descriptor rmnet_hs_in_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize =	__constant_cpu_to_le16(512),
+	.wMaxPacketSize =	cpu_to_le16(512),
 };
 
 static struct usb_endpoint_descriptor rmnet_hs_out_desc = {
@@ -145,7 +145,7 @@ static struct usb_endpoint_descriptor rmnet_hs_out_desc = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
-	.wMaxPacketSize =	__constant_cpu_to_le16(512),
+	.wMaxPacketSize =	cpu_to_le16(512),
 };
 
 static struct usb_descriptor_header *rmnet_hs_function[] = {
@@ -162,12 +162,12 @@ static struct usb_endpoint_descriptor rmnet_ss_notify_desc  = {
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
-	.wMaxPacketSize =	__constant_cpu_to_le16(RMNET_MAX_NOTIFY_SIZE),
+	.wMaxPacketSize =	cpu_to_le16(RMNET_MAX_NOTIFY_SIZE),
 	.bInterval =		RMNET_NOTIFY_INTERVAL + 4,
 };
 
 static struct usb_ss_ep_comp_descriptor rmnet_ss_notify_comp_desc = {
-	.bLength =		sizeof rmnet_ss_notify_comp_desc,
+	.bLength =		sizeof(rmnet_ss_notify_comp_desc),
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 3 values can be tweaked if necessary */
@@ -185,7 +185,7 @@ static struct usb_endpoint_descriptor rmnet_ss_in_desc = {
 };
 
 static struct usb_ss_ep_comp_descriptor rmnet_ss_in_comp_desc = {
-	.bLength =		sizeof rmnet_ss_in_comp_desc,
+	.bLength =		sizeof(rmnet_ss_in_comp_desc),
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 2 values can be tweaked if necessary */
@@ -202,7 +202,7 @@ static struct usb_endpoint_descriptor rmnet_ss_out_desc = {
 };
 
 static struct usb_ss_ep_comp_descriptor rmnet_ss_out_comp_desc = {
-	.bLength =		sizeof rmnet_ss_out_comp_desc,
+	.bLength =		sizeof(rmnet_ss_out_comp_desc),
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 2 values can be tweaked if necessary */
@@ -312,12 +312,16 @@ static int rmnet_gport_setup(void)
 	int	i;
 	u8 base;
 
-	pr_debug("%s: bam ports: %u bam2bam ports: %u data hsic ports: %u data hsuart ports: %u"
-		" smd ports: %u ctrl hsic ports: %u ctrl hsuart ports: %u"
-		" nr_rmnet_ports: %u\n",
+	pr_debug("%s: bam ports:%u bam2bam ports:%u data hsic ports:%u\n",
 		__func__, no_data_bam_ports, no_data_bam2bam_ports,
-		no_data_hsic_ports, no_data_hsuart_ports, no_ctrl_smd_ports,
-		no_ctrl_hsic_ports, no_ctrl_hsuart_ports, nr_rmnet_ports);
+		no_data_hsic_ports);
+
+	pr_debug("%s: data hsuart ports:%u smd ports:%u ctrl hsic ports:%u\n",
+		__func__, no_data_hsuart_ports, no_ctrl_smd_ports,
+		no_ctrl_hsic_ports);
+
+	pr_debug("%s: ctrl hsuart ports:%u nr_rmnet_ports:%u\n",
+		__func__, no_ctrl_hsuart_ports, nr_rmnet_ports);
 
 	if (no_data_bam_ports) {
 		ret = gbam_setup(no_data_bam_ports);
@@ -748,10 +752,9 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	if (!dev->port.in->desc || !dev->port.out->desc) {
 		if (config_ep_by_speed(cdev->gadget, f, dev->port.in) ||
 			config_ep_by_speed(cdev->gadget, f, dev->port.out)) {
-				pr_err("%s(): config_ep_by_speed failed.\n",
-								__func__);
-				ret = -EINVAL;
-				goto err_disable_ep;
+			pr_err("%s(): config_ep_by_speed failed.\n", __func__);
+			ret = -EINVAL;
+			goto err_disable_ep;
 		}
 		dev->port.gadget = dev->cdev->gadget;
 	}
@@ -765,8 +768,10 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	atomic_set(&dev->online, 1);
 
-	/* In case notifications were aborted, but there are pending control
-	   packets in the response queue, re-add the notifications */
+	/*
+	 * In case notifications were aborted, but there are pending control
+	 * packets in the response queue, re-add the notifications.
+	 */
 	list_for_each(cpkt, &dev->cpkt_resp_q)
 		frmnet_ctrl_response_available(dev);
 
@@ -1025,7 +1030,7 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	pr_debug("%s:dev:%p port#%d\n", __func__, dev, dev->port_num);
 
 	if (!atomic_read(&dev->online)) {
-		pr_warning("%s: usb cable is not connected\n", __func__);
+		pr_warn("%s: usb cable is not connected\n", __func__);
 		return -ENOTCONN;
 	}
 
@@ -1046,7 +1051,7 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		pr_debug("%s: USB_CDC_GET_ENCAPSULATED_RESPONSE\n", __func__);
 		if (w_value) {
 			pr_err("%s: invalid w_value = %04x\n",
-				   __func__ , w_value);
+				   __func__, w_value);
 			goto invalid;
 		} else {
 			unsigned len;
@@ -1054,8 +1059,8 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 			spin_lock(&dev->lock);
 			if (list_empty(&dev->cpkt_resp_q)) {
-				pr_err("ctrl resp queue empty "
-					" req%02x.%02x v%04x i%04x l%d\n",
+				pr_err("ctrl resp queue empty: ");
+				pr_err("req%02x.%02x v%04x i%04x l%d\n",
 					ctrl->bRequestType, ctrl->bRequest,
 					w_value, w_index, w_length);
 				ret = 0;
@@ -1115,6 +1120,7 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_ep			*ep;
 	struct usb_composite_dev	*cdev = c->cdev;
 	int				ret = -ENODEV;
+
 	pr_debug("%s: start binding\n", __func__);
 	dev->ifc_id = usb_interface_id(c, f);
 	if (dev->ifc_id < 0) {
@@ -1260,6 +1266,7 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 
 	if (rmnet_ports[portno].data_xport == USB_GADGET_XPORT_ETHER) {
 		struct net_device *net = gether_setup_name_default("usb_rmnet");
+
 		if (IS_ERR(net)) {
 			pr_err("%s: gether_setup failed\n", __func__);
 			return PTR_ERR(net);
@@ -1375,10 +1382,8 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name,
 		__func__, nr_rmnet_ports, ctrl_name, data_name);
 
 	dev = kzalloc(sizeof(struct f_rmnet), GFP_KERNEL);
-	if (!dev) {
-		pr_err("%s: Unable to allocate rmnet device\n", __func__);
+	if (!dev)
 		return -ENOMEM;
-	}
 
 	dev->port_num = nr_rmnet_ports;
 	spin_lock_init(&dev->lock);

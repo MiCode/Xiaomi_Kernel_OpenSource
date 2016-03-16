@@ -67,10 +67,8 @@ static inline int qti_ctrl_lock(atomic_t *excl)
 {
 	if (atomic_inc_return(excl) == 1) {
 		return 0;
-	} else {
-		atomic_dec(excl);
-		return -EBUSY;
-	}
+	atomic_dec(excl);
+	return -EBUSY;
 }
 
 static inline void qti_ctrl_unlock(atomic_t *excl)
@@ -480,7 +478,6 @@ qti_ctrl_write(struct file *fp, const char __user *buf, size_t count,
 
 	kbuf = kmalloc(count, GFP_KERNEL);
 	if (!kbuf) {
-		pr_err("failed to allocate ctrl pkt\n");
 		qti_ctrl_unlock(&port->write_excl);
 		return -ENOMEM;
 	}

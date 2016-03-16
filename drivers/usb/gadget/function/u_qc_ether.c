@@ -81,12 +81,12 @@ struct eth_qc_dev {
 #undef INFO
 
 #define xprintk(d, level, fmt, args...) \
-	printk(level "%s: " fmt , (d)->net->name , ## args)
+	printk(level "%s: " fmt, (d)->net->name, ## args)
 
 #ifdef DEBUG
 #undef DEBUG
 #define DBG(dev, fmt, args...) \
-	xprintk(dev , KERN_DEBUG , fmt , ## args)
+	xprintk(dev, KERN_DEBUG, fmt, ## args)
 #else
 #define DBG(dev, fmt, args...) \
 	do { } while (0)
@@ -100,9 +100,9 @@ struct eth_qc_dev {
 #endif /* DEBUG */
 
 #define ERROR(dev, fmt, args...) \
-	xprintk(dev , KERN_ERR , fmt , ## args)
+	xprintk(dev, KERN_ERR, fmt, ## args)
 #define INFO(dev, fmt, args...) \
-	xprintk(dev , KERN_INFO , fmt , ## args)
+	xprintk(dev, KERN_INFO, fmt, ## args)
 
 /*-------------------------------------------------------------------------*/
 
@@ -131,10 +131,10 @@ static void eth_qc_get_drvinfo(struct net_device *net,
 {
 	struct eth_qc_dev	*dev = netdev_priv(net);
 
-	strlcpy(p->driver, "g_qc_ether", sizeof p->driver);
-	strlcpy(p->version, UETH__VERSION, sizeof p->version);
-	strlcpy(p->fw_version, dev->gadget->name, sizeof p->fw_version);
-	strlcpy(p->bus_info, dev_name(&dev->gadget->dev), sizeof p->bus_info);
+	strlcpy(p->driver, "g_qc_ether", sizeof(p->driver));
+	strlcpy(p->version, UETH__VERSION, sizeof(p->version));
+	strlcpy(p->fw_version, dev->gadget->name, sizeof(p->fw_version));
+	strlcpy(p->bus_info, dev_name(&dev->gadget->dev), sizeof(p->bus_info));
 }
 
 static const struct ethtool_ops qc_ethtool_ops = {
@@ -183,7 +183,7 @@ static int eth_qc_stop(struct net_device *net)
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb && link->close)
-			link->close(link);
+		link->close(link);
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	return 0;
@@ -282,7 +282,7 @@ int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	struct net_device	*net;
 	int			status;
 
-	net = alloc_etherdev(sizeof *dev);
+	net = alloc_etherdev(sizeof(*dev));
 	if (!net)
 		return -ENOMEM;
 
@@ -301,7 +301,7 @@ int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 			"using random %s ethernet address\n", "host");
 
 	if (ethaddr)
-		memcpy(ethaddr, dev->host_mac, ETH_ALEN);
+		ether_addr_copy(ethaddr, dev->host_mac);
 
 	net->netdev_ops = &eth_qc_netdev_ops;
 	net->ethtool_ops = &qc_ethtool_ops;

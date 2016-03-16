@@ -230,6 +230,7 @@ static int gbam_alloc_requests(struct usb_ep *ep, struct list_head *head,
 {
 	int i;
 	struct usb_request *req;
+
 	pr_debug("%s: ep:%p head:%p num:%d cb:%p", __func__,
 			ep, head, num, cb);
 
@@ -276,14 +277,12 @@ static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 		pr_debug("%s: allocate skb\n", __func__);
 		skb = alloc_skb(bam_mux_rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
 
-		if (!skb) {
-			pr_err("%s: alloc skb failed\n", __func__);
+		if (!skb)
 			goto alloc_exit;
-		}
 
 		skb_reserve(skb, BAM_MUX_HDR);
 
-		if ((d->trans == USB_GADGET_XPORT_BAM2BAM_IPA)) {
+		if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 
 			gadget = port->port_usb->gadget;
 
@@ -504,7 +503,7 @@ void gbam_data_recv_cb(void *p, struct sk_buff *skb)
 
 	if (d->tx_skb_q.qlen > bam_mux_tx_pkt_drop_thld) {
 		d->tohost_drp_cnt++;
-		if (printk_ratelimit())
+		if (printk_ratelimited())
 			pr_err("%s: tx pkt dropped: tx_drop_cnt:%u\n",
 					__func__, d->tohost_drp_cnt);
 		spin_unlock_irqrestore(&port->port_lock_dl, flags);
@@ -725,10 +724,10 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 		usb_ep_free_request(ep, req);
 		return;
 	default:
-		if (printk_ratelimit())
+		if (printk_ratelimited())
 			pr_err("%s: %s response error %d, %d/%d\n",
 				__func__, ep->name, status,
-				req->actual, req->length);
+				req->ac_tual, req->length);
 		spin_lock(&port->port_lock_ul);
 		gbam_free_skb_to_pool(port, skb);
 		spin_unlock(&port->port_lock_ul);
@@ -745,8 +744,8 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 			list_add_tail(&req->list, &d->rx_idle);
 			spin_unlock(&port->port_lock_ul);
 			return;
-		} else
-			queue_work(gbam_wq, &d->write_tobam_w);
+		}
+		queue_work(gbam_wq, &d->write_tobam_w);
 	}
 
 	/* TODO: Handle flow control gracefully by having
@@ -1039,7 +1038,7 @@ static void gbam_stop(void *param, enum usb_bam_pipe_dir dir)
 
 	if (dir == USB_TO_PEER_PERIPHERAL) {
 		/*
-		 * Only handling BAM2BAM, as there is no equivelant to
+		 * Only handling BAM2BAM, as there is no equivalent to
 		 * gbam_stop_endless_rx() for the SYS2BAM use case
 		 */
 		if (port->data_ch.src_pipe_type == USB_BAM_PIPE_BAM2BAM)
@@ -1477,7 +1476,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	}
 
 	gqti_ctrl_update_ipa_pipes(port->port_usb, port->port_num,
-					d->ipa_params.ipa_prod_ep_idx ,
+					d->ipa_params.ipa_prod_ep_idx,
 					d->ipa_params.ipa_cons_ep_idx);
 
 	connect_params.ipa_usb_pipe_hdl = d->ipa_params.prod_clnt_hdl;
@@ -1627,15 +1626,15 @@ static void gbam2bam_resume_work(struct work_struct *w)
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		if (gadget_is_dwc3(gadget) &&
 			msm_dwc3_reset_ep_after_lpm(gadget)) {
-				configure_data_fifo(d->usb_bam_type,
-					d->src_connection_idx,
-					port->port_usb->out, d->src_pipe_type);
-				configure_data_fifo(d->usb_bam_type,
-					d->dst_connection_idx,
-					port->port_usb->in, d->dst_pipe_type);
-				spin_unlock_irqrestore(&port->port_lock, flags);
-				msm_dwc3_reset_dbm_ep(port->port_usb->in);
-				spin_lock_irqsave(&port->port_lock, flags);
+			configure_data_fifo(d->usb_bam_type,
+				d->src_connection_idx,
+				port->port_usb->out, d->src_pipe_type);
+			configure_data_fifo(d->usb_bam_type,
+				d->dst_connection_idx,
+				port->port_usb->in, d->dst_pipe_type);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			msm_dwc3_reset_dbm_ep(port->port_usb->in);
+			spin_lock_irqsave(&port->port_lock, flags);
 		}
 		usb_bam_resume(d->usb_bam_type, &d->ipa_params);
 	}
@@ -1733,10 +1732,8 @@ static void gbam_port_free(int portno)
 	struct gbam_port *port = bam_ports[portno].port;
 	struct platform_driver *pdrv = &bam_ports[portno].pdrv;
 
-	if (port) {
-		kfree(port);
-		platform_driver_unregister(pdrv);
-	}
+	kfree(port);
+	platform_driver_unregister(pdrv);
 }
 
 static void gbam2bam_port_free(int portno)
