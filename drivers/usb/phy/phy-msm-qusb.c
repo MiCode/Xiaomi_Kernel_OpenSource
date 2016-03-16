@@ -28,9 +28,6 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
 
-/* TCSR_PHY_CLK_SCHEME_SEL bit mask */
-#define PHY_CLK_SCHEME_SEL BIT(0)
-
 #define QUSB2PHY_PLL_STATUS	0x38
 #define QUSB2PHY_PLL_LOCK	BIT(5)
 
@@ -108,7 +105,6 @@ struct qusb_phy {
 	void __iomem		*qscratch_base;
 	void __iomem		*tune2_efuse_reg;
 	void __iomem		*ref_clk_base;
-	void __iomem		*tcsr_phy_clk_scheme_sel;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -520,19 +516,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 	/* Require to get phy pll lock successfully */
 	usleep_range(150, 160);
 
-	if (qphy->tcsr_phy_clk_scheme_sel) {
-		ret = readl_relaxed(qphy->tcsr_phy_clk_scheme_sel);
-		if (ret & PHY_CLK_SCHEME_SEL) {
-			pr_debug("%s:select single-ended clk src\n",
-				__func__);
-			is_se_clk = true;
-		} else {
-			pr_debug("%s:select differential clk src\n",
-				__func__);
-			is_se_clk = false;
-		}
-	}
-
 	if (!is_se_clk)
 		reset_val &= ~CLK_REF_SEL;
 	else
@@ -854,15 +837,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 				res->start, resource_size(res));
 		if (IS_ERR(qphy->ref_clk_base))
 			dev_dbg(dev, "ref_clk_address is not available.\n");
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"tcsr_phy_clk_scheme_sel");
-	if (res) {
-		qphy->tcsr_phy_clk_scheme_sel = devm_ioremap_nocache(dev,
-				res->start, resource_size(res));
-		if (IS_ERR(qphy->tcsr_phy_clk_scheme_sel))
-			dev_dbg(dev, "err reading tcsr_phy_clk_scheme_sel\n");
 	}
 
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");

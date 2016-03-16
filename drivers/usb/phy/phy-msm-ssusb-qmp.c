@@ -36,9 +36,6 @@
 /* USB3PHY_PCIE_USB3_PCS_PCS_STATUS bit */
 #define PHYSTATUS				BIT(6)
 
-/* TCSR_PHY_CLK_SCHEME_SEL bit mask */
-#define PHY_CLK_SCHEME_SEL BIT(0)
-
 /* PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL bits */
 #define ARCVR_DTCT_EN		BIT(0)
 #define ALFPS_DTCT_EN		BIT(1)
@@ -333,7 +330,6 @@ struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	void __iomem		*vls_clamp_reg;
-	void __iomem		*tcsr_phy_clk_scheme_sel;
 
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
@@ -491,21 +487,11 @@ static int configure_phy_regs(struct usb_phy *uphy,
 {
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
-	u32 val;
 	bool diff_clk_sel = true;
 
 	if (!reg) {
 		dev_err(uphy->dev, "NULL PHY configuration\n");
 		return -EINVAL;
-	}
-
-	if (phy->tcsr_phy_clk_scheme_sel) {
-		val = readl_relaxed(phy->tcsr_phy_clk_scheme_sel);
-		if (val & PHY_CLK_SCHEME_SEL) {
-			pr_debug("%s:Single Ended clk scheme is selected\n",
-				__func__);
-			diff_clk_sel = false;
-		}
 	}
 
 	while (reg->offset != -1) {
@@ -955,15 +941,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->vls_clamp_reg)) {
 		dev_err(dev, "couldn't find vls_clamp_reg address.\n");
 		return PTR_ERR(phy->vls_clamp_reg);
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"tcsr_phy_clk_scheme_sel");
-	if (res) {
-		phy->tcsr_phy_clk_scheme_sel = devm_ioremap_nocache(dev,
-				res->start, resource_size(res));
-		if (IS_ERR(phy->tcsr_phy_clk_scheme_sel))
-			dev_dbg(dev, "err reading tcsr_phy_clk_scheme_sel\n");
 	}
 
 	of_get_property(dev->of_node, "qcom,qmp-phy-init-seq", &size);
