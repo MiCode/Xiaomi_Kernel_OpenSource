@@ -939,7 +939,7 @@
 	};
 
 	ufs1: ufshc@1da4000 {
-		compatible = "jedec,ufs-1.1";
+		compatible = "qcom,ufshc";
 		reg = <0x1da4000 0x2500>;
 		interrupts = <0 265 0>;
 		phys = <&ufsphy1>;
