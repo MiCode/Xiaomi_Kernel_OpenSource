@@ -509,6 +509,9 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	}
 
 	drv->mba_dp_size = SZ_1M;
+
+	arch_setup_dma_ops(&md->mba_mem_dev, 0, 0, NULL, 0);
+
 	md->mba_mem_dev.coherent_dma_mask =
 		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 	init_dma_attrs(&md->attrs_dma);
