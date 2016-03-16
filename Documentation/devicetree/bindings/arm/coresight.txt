@@ -64,6 +64,8 @@ its hardware characteristcs.
 	* arm,buffer-size: size of contiguous buffer space for TMC ETR
 	 (embedded trace router)
 
+	* arm,default-sink: represents the default compile time CoreSight sink
+
 * Required property for TPDAs:
 
 	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.

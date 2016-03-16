@@ -795,6 +795,21 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	coresight_fixup_device_conns(csdev);
 	coresight_fixup_orphan_conns(csdev);
 
+	if (csdev->type == CORESIGHT_DEV_TYPE_SINK ||
+	    csdev->type == CORESIGHT_DEV_TYPE_LINKSINK) {
+		if (desc->pdata->default_sink) {
+			if (curr_sink) {
+				dev_warn(&csdev->dev,
+					 "overwritting curr sink %s",
+					 dev_name(&curr_sink->dev));
+				curr_sink->activated = false;
+			}
+
+			curr_sink = csdev;
+			curr_sink->activated = true;
+		}
+	}
+
 	mutex_unlock(&coresight_mutex);
 
 	return csdev;
