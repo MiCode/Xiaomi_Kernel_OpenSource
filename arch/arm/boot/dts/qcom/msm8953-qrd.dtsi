@@ -235,3 +235,15 @@
 &pm8953_vadc {
 	/delete-node/ chan@11;
 };
+
+&sdc2_cmd_on {
+	config {
+		drive-strength=<12>;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength=<12>;
+	};
+};
