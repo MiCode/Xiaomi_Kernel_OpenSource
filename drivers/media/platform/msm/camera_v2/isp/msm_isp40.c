@@ -433,8 +433,6 @@ static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 		break;
 	case VFE40_8937_VERSION:
 	case VFE40_8953_VERSION:
-		vfe_dev->is_camif_raw_crop_supported = 1;
-		break;
 	default:
 		ISP_DBG("%s: No special QOS\n", __func__);
 	}
@@ -1400,44 +1398,44 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 		msm_camera_io_w((subsample_cfg->line_skip << 16) |
 			subsample_cfg->pixel_skip,
 			vfe_dev->vfe_base + 0x30C);
-			if (vfe_dev->is_camif_raw_crop_supported) {
-				/* Pdaf output will be sent in PLAIN16 format*/
-				val = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
-				switch (subsample_cfg->output_format) {
-				case CAMIF_PLAIN_8:
-					val |= 4 << 9;
-					break;
-				case CAMIF_PLAIN_16:
-					val |= 5 << 9;
-					break;
-				case CAMIF_MIPI_RAW:
-					val |= 1 << 9;
-					break;
-				case CAMIF_QCOM_RAW:
-				default:
-					break;
-				}
-				msm_camera_io_w(val, vfe_dev->vfe_base + 0x54);
-				if (subsample_cfg->first_pixel ||
-					subsample_cfg->last_pixel ||
-					subsample_cfg->first_line ||
-					subsample_cfg->last_line) {
-					msm_camera_io_w(
-					subsample_cfg->first_pixel << 16 |
-						subsample_cfg->last_pixel,
-						vfe_dev->vfe_base + 0x8A4);
-					msm_camera_io_w(
-					subsample_cfg->first_line << 16 |
-						subsample_cfg->last_line,
-						vfe_dev->vfe_base + 0x8A8);
-					val = msm_camera_io_r(
-						vfe_dev->vfe_base + 0x2F8);
-					val |= 1 << 22;
-					msm_camera_io_w(val,
-						vfe_dev->vfe_base + 0x2F8);
-				}
-			}
+		if (subsample_cfg->first_pixel ||
+			subsample_cfg->last_pixel ||
+			subsample_cfg->first_line ||
+			subsample_cfg->last_line) {
+			msm_camera_io_w(
+			subsample_cfg->first_pixel << 16 |
+				subsample_cfg->last_pixel,
+				vfe_dev->vfe_base + 0x8A4);
+			msm_camera_io_w(
+			subsample_cfg->first_line << 16 |
+				subsample_cfg->last_line,
+				vfe_dev->vfe_base + 0x8A8);
+			val = msm_camera_io_r(
+				vfe_dev->vfe_base + 0x2F8);
+			val |= 1 << 22;
+			msm_camera_io_w(val,
+				vfe_dev->vfe_base + 0x2F8);
+		}
 
+		ISP_DBG("%s:camif raw op fmt %d\n",
+			__func__, subsample_cfg->output_format);
+		/* Pdaf output will be sent in PLAIN16 format*/
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
+		switch (subsample_cfg->output_format) {
+		case CAMIF_PLAIN_8:
+			val |= 4 << 9;
+			break;
+		case CAMIF_PLAIN_16:
+			val |= 5 << 9;
+			break;
+		case CAMIF_MIPI_RAW:
+			val |= 1 << 9;
+			break;
+		case CAMIF_QCOM_RAW:
+		default:
+			break;
+		}
+		msm_camera_io_w(val, vfe_dev->vfe_base + 0x54);
 	}
 }
 

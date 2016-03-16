@@ -1317,6 +1317,48 @@ static void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 		msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x49C);
 	}
 
+	if (subsample_cfg->first_pixel ||
+		subsample_cfg->last_pixel ||
+		subsample_cfg->first_line ||
+		subsample_cfg->last_line) {
+		msm_camera_io_w(
+		subsample_cfg->first_pixel << 16 |
+			subsample_cfg->last_pixel,
+			vfe_dev->vfe_base + 0xCE4);
+		msm_camera_io_w(
+		subsample_cfg->first_line << 16 |
+			subsample_cfg->last_line,
+			vfe_dev->vfe_base + 0xCE4);
+		val = msm_camera_io_r(
+			vfe_dev->vfe_base + 0x47C);
+		ISP_DBG("%s: camif raw crop enabled\n", __func__);
+		val |= 1 << 22;
+		msm_camera_io_w(val,
+			vfe_dev->vfe_base + 0x47C);
+	}
+
+	ISP_DBG("%s: camif raw op fmt %d\n",
+		__func__, subsample_cfg->output_format);
+	/* Pdaf output can be sent in below formats */
+	val = msm_camera_io_r(vfe_dev->vfe_base + 0x88);
+	switch (subsample_cfg->output_format) {
+	case CAMIF_PLAIN_8:
+		val |= PLAIN8 << 9;
+		break;
+	case CAMIF_PLAIN_16:
+		val |= PLAIN16 << 9;
+		break;
+	case CAMIF_MIPI_RAW:
+		val |= MIPI << 9;
+		break;
+	case CAMIF_QCOM_RAW:
+		val |= QCOM << 9;
+		break;
+	default:
+		break;
+	}
+	msm_camera_io_w(val, vfe_dev->vfe_base + 0x88);
+
 	val = msm_camera_io_r(vfe_dev->vfe_base + 0x46C);
 	val |= camif_cfg->camif_input;
 	msm_camera_io_w(val, vfe_dev->vfe_base + 0x46C);
