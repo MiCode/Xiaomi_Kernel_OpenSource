@@ -426,8 +426,8 @@ struct qcrypto_cipher_req_ctx {
 	struct aead_request *aead_req;
 	struct ahash_request *fb_hash_req;
 	uint8_t	fb_ahash_digest[SHA256_DIGEST_SIZE];
-	struct scatterlist fb_ahash_sg[3];
-	char *fb_ahash_assoc_iv;
+	struct scatterlist fb_ablkcipher_src_sg[2];
+	struct scatterlist fb_ablkcipher_dst_sg[2];
 	char *fb_aes_iv;
 	unsigned int  fb_ahash_length;
 	struct ablkcipher_request *fb_aes_req;
@@ -2971,7 +2971,6 @@ static void _qcrypto_aead_aes_192_fb_a_cb(struct qcrypto_cipher_req_ctx *rctx,
 		ahash_request_free(rctx->fb_hash_req);
 	rctx->fb_aes_req = NULL;
 	rctx->fb_hash_req = NULL;
-	kfree(rctx->fb_ahash_assoc_iv);
 	kfree(rctx->fb_aes_iv);
 	areq->complete(areq, res);
 }
@@ -2989,7 +2988,7 @@ static void _aead_aes_fb_stage2_ahash_complete(
 	/* copy icv */
 	if (err == 0)
 		scatterwalk_map_and_copy(rctx->fb_ahash_digest,
-					req->dst,
+					rctx->fb_aes_dst,
 					req->cryptlen,
 					ctx->authsize, 1);
 	_qcrypto_aead_aes_192_fb_a_cb(rctx, err);
@@ -3042,7 +3041,7 @@ static void _aead_aes_fb_stage1_ahash_complete(
 	if (err == 0) {
 		unsigned char tmp[ctx->authsize];
 
-		scatterwalk_map_and_copy(tmp, req->src,
+		scatterwalk_map_and_copy(tmp, rctx->fb_aes_src,
 			req->cryptlen - ctx->authsize, ctx->authsize, 0);
 		if (memcmp(rctx->fb_ahash_digest, tmp, ctx->authsize) != 0)
 			err = -EBADMSG;
@@ -3079,7 +3078,7 @@ static void _aead_aes_fb_stage1_encrypt_complete(
 	/* copy icv */
 	if (err == 0) {
 		scatterwalk_map_and_copy(rctx->fb_ahash_digest,
-					req->dst,
+					rctx->fb_aes_dst,
 					req->cryptlen,
 					ctx->authsize, 1);
 	}
@@ -3097,9 +3096,8 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 	struct ablkcipher_request *aes_req = NULL;
 	struct ahash_request *ahash_req = NULL;
 	int nbytes;
-	int num_sg;
+	struct scatterlist *src, *dst;
 
-	rctx->fb_ahash_assoc_iv = NULL;
 	rctx->fb_aes_iv = NULL;
 	aes_req = ablkcipher_request_alloc(ctx->cipher_aes192_fb, GFP_KERNEL);
 	if (!aes_req)
@@ -3110,31 +3108,19 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 	rctx->fb_aes_req = aes_req;
 	rctx->fb_hash_req = ahash_req;
 	rctx->aead_req = req;
-	/* get assoc and iv. They are sitting in the beginning of src */
-	num_sg = qcrypto_count_sg(req->src, req->assoclen);
-	rctx->fb_ahash_assoc_iv = kzalloc(req->assoclen, GFP_ATOMIC);
-	if (!rctx->fb_ahash_assoc_iv)
-		goto ret;
-
-	if (req->assoclen)
-		qcrypto_sg_copy_to_buffer(req->src, num_sg,
-			rctx->fb_ahash_assoc_iv, req->assoclen);
-	memset(rctx->fb_ahash_sg, 0, sizeof(rctx->fb_ahash_sg));
-	sg_set_buf(&rctx->fb_ahash_sg[0], rctx->fb_ahash_assoc_iv,
+	/* assoc and iv are sitting in the beginning of src sg list */
+	/* Similarly, assoc and iv are sitting in the beginning of dst list */
+	src = scatterwalk_ffwd(rctx->fb_ablkcipher_src_sg, req->src,
 				req->assoclen);
-	sg_mark_end(&rctx->fb_ahash_sg[1]);
+	dst = scatterwalk_ffwd(rctx->fb_ablkcipher_dst_sg, req->dst,
+				req->assoclen);
 
 	nbytes = req->cryptlen;
-	if (is_encrypt) {
-		sg_chain(&rctx->fb_ahash_sg[0], 2, req->dst);
-	} else {
-		sg_chain(&rctx->fb_ahash_sg[0], 2, req->src);
+	if (!is_encrypt)
 		nbytes -=  ctx->authsize;
-	}
-	rctx->fb_ahash_length = nbytes + crypto_aead_ivsize(aead_tfm)
-							+ req->assoclen;
-	rctx->fb_aes_src = req->src;
-	rctx->fb_aes_dst = req->dst;
+	rctx->fb_ahash_length = nbytes +  req->assoclen;
+	rctx->fb_aes_src = src;
+	rctx->fb_aes_dst = dst;
 	rctx->fb_aes_cryptlen = nbytes;
 	rctx->ivsize = crypto_aead_ivsize(aead_tfm);
 	rctx->fb_aes_iv = kzalloc(rctx->ivsize, GFP_ATOMIC);
@@ -3144,7 +3130,12 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 	ablkcipher_request_set_crypt(aes_req, rctx->fb_aes_src,
 					rctx->fb_aes_dst,
 					rctx->fb_aes_cryptlen, rctx->fb_aes_iv);
-	ahash_request_set_crypt(ahash_req, &rctx->fb_ahash_sg[0],
+	if (is_encrypt)
+		ahash_request_set_crypt(ahash_req, req->dst,
+					rctx->fb_ahash_digest,
+					rctx->fb_ahash_length);
+	else
+		ahash_request_set_crypt(ahash_req, req->src,
 					rctx->fb_ahash_digest,
 					rctx->fb_ahash_length);
 
@@ -3161,7 +3152,7 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 			if (rc == 0) {
 				/* copy icv */
 				scatterwalk_map_and_copy(rctx->fb_ahash_digest,
-					req->dst,
+					dst,
 					req->cryptlen,
 					ctx->authsize, 1);
 			}
@@ -3181,7 +3172,7 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 
 			/* compare icv */
 			scatterwalk_map_and_copy(tmp,
-				req->src, req->cryptlen - ctx->authsize,
+				src, req->cryptlen - ctx->authsize,
 				ctx->authsize, 0);
 			if (memcmp(rctx->fb_ahash_digest, tmp,
 							ctx->authsize) != 0)
@@ -3198,7 +3189,6 @@ ret:
 		ablkcipher_request_free(aes_req);
 	if (ahash_req)
 		ahash_request_free(ahash_req);
-	kfree(rctx->fb_ahash_assoc_iv);
 	kfree(rctx->fb_aes_iv);
 	return rc;
 }
