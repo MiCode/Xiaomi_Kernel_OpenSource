@@ -1422,9 +1422,9 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 			&mdss_debugfs_safe_stats_fops);
 	debugfs_create_u32("serialize_wait4pp", 0644, mdd->root,
 		(u32 *)&mdata->serialize_wait4pp);
-	debugfs_create_bool("wait4autorefresh", 0644, mdd->root,
+	debugfs_create_u32("wait4autorefresh", 0644, mdd->root,
 		(u32 *)&mdata->wait4autorefresh);
-	debugfs_create_bool("enable_gate", 0644, mdd->root,
+	debugfs_create_u32("enable_gate", 0644, mdd->root,
 		(u32 *)&mdata->enable_gate);
 
 	debugfs_create_u32("color0", 0644, mdd->bordercolor,
