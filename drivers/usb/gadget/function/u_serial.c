@@ -1020,7 +1020,7 @@ static void gs_flush_chars(struct tty_struct *tty)
 	unsigned long	flags;
 
 	if (!port)
-		return 0;
+		return;
 	pr_vdebug("gs_flush_chars: (%d,%p)\n", port->port_num, tty);
 
 	spin_lock_irqsave(&port->port_lock, flags);
