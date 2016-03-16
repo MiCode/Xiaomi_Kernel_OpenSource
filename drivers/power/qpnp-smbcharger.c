@@ -40,6 +40,7 @@
 #include <linux/of_batterydata.h>
 #include <linux/msm_bcl.h>
 #include <linux/ktime.h>
+#include <linux/extcon.h>
 #include "pmic-voter.h"
 
 /* Mask/Bit helpers */
@@ -280,6 +281,9 @@ struct smbchg_chip {
 	struct votable			*hw_aicl_rerun_disable_votable;
 	struct votable			*hw_aicl_rerun_enable_indirect_votable;
 	struct votable			*aicl_deglitch_short_votable;
+
+	/* extcon for VBUS / ID notification to USB */
+	struct extcon_dev		*extcon;
 };
 
 enum qpnp_schg {
@@ -419,6 +423,13 @@ enum aicl_short_deglitch_voters {
 	HVDCP_SHORT_DEGLITCH_VOTER,
 	NUM_HW_SHORT_DEGLITCH_VOTERS,
 };
+
+static const unsigned int smbchg_extcon_cable[] = {
+	EXTCON_USB,
+	EXTCON_USB_HOST,
+	EXTCON_NONE,
+};
+
 static int smbchg_debug_mask;
 module_param_named(
 	debug_mask, smbchg_debug_mask, int, S_IRUSR | S_IWUSR
@@ -4524,6 +4535,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		power_supply_set_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_PRESENT, &pval);
 	}
+	extcon_set_cable_state_(chip->extcon, EXTCON_USB, chip->usb_present);
 	set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPR_DMR);
 	schedule_work(&chip->usb_set_online_work);
 
@@ -4614,6 +4626,12 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		power_supply_set_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_PRESENT, &pval);
 	}
+
+	/* Only notify USB if it's not a charger */
+	if (usb_supply_type == POWER_SUPPLY_TYPE_USB ||
+			usb_supply_type == POWER_SUPPLY_TYPE_USB_CDP)
+		extcon_set_cable_state_(chip->extcon, EXTCON_USB,
+				chip->usb_present);
 
 	/* Notify the USB psy if OV condition is not present */
 	if (!chip->usb_ov_det) {
@@ -5524,6 +5542,8 @@ static void update_typec_otg_status(struct smbchg_chip *chip, int mode,
 		pval.intval = 1;
 		power_supply_set_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_USB_OTG, &pval);
+		extcon_set_cable_state_(chip->extcon, EXTCON_USB_HOST,
+				chip->typec_dfp);
 		/* update FG */
 		set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
 				get_prop_batt_status(chip));
@@ -5532,6 +5552,8 @@ static void update_typec_otg_status(struct smbchg_chip *chip, int mode,
 		pval.intval = 0;
 		power_supply_set_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_USB_OTG, &pval);
+		extcon_set_cable_state_(chip->extcon, EXTCON_USB_HOST,
+				chip->typec_dfp);
 		/* update FG */
 		set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
 				get_prop_batt_status(chip));
@@ -6418,6 +6440,9 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 		power_supply_set_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_USB_OTG, &pval);
 	}
+
+	extcon_set_cable_state_(chip->extcon, EXTCON_USB_HOST, otg_present);
+
 	if (otg_present)
 		pr_smb(PR_STATUS, "OTG detected\n");
 
@@ -8015,6 +8040,18 @@ static int smbchg_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev,
 			"Couldn't initialize regulator rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->extcon = devm_extcon_dev_allocate(chip->dev, smbchg_extcon_cable);
+	if (IS_ERR(chip->extcon)) {
+		dev_err(chip->dev, "failed to allocate extcon device\n");
+		return PTR_ERR(chip->extcon);
+	}
+
+	rc = devm_extcon_dev_register(chip->dev, chip->extcon);
+	if (rc) {
+		dev_err(chip->dev, "failed to register extcon device\n");
 		return rc;
 	}
 

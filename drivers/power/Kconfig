@@ -523,6 +523,7 @@ config AXP20X_POWER
 config QPNP_SMBCHARGER
 	tristate "QPNP SMB Charger driver"
 	depends on SPMI
+	depends on EXTCON
 	help
 	  Say Y here to enable the dual path switch mode battery charger which
 	  supports USB detection and battery charging up to 3A.
