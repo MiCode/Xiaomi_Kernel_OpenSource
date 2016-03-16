@@ -43,9 +43,9 @@ static int sharedmem_mmap(struct uio_info *info, struct vm_area_struct *vma)
 	mem = info->mem + mem_index;
 
 	if (vma->vm_end - vma->vm_start > mem->size) {
-		pr_err("vm_end[%lu] - vm_start[%lu] [%lu] > mem->size[%lu]\n",
+		pr_err("vm_end[%lu] - vm_start[%lu] [%lu] > mem->size[%pa]\n",
 			vma->vm_end, vma->vm_start,
-			(vma->vm_end - vma->vm_start), mem->size);
+			(vma->vm_end - vma->vm_start), &mem->size);
 		return -EINVAL;
 	}
 	pr_debug("Attempting to setup mmap.\n");
