@@ -510,7 +510,6 @@ static int mmc_devfreq_set_target(struct device *dev,
 	clk_scaling->need_freq_change = false;
 
 	mmc_host_clk_hold(host);
-	mmc_get_card(host->card);
 	err = mmc_clk_update_freq(host, *freq, clk_scaling->state);
 	if (err && err != -EAGAIN)
 		pr_err("%s: clock scale to %lu failed with error %d\n",
@@ -519,7 +518,6 @@ static int mmc_devfreq_set_target(struct device *dev,
 		pr_debug("%s: clock change to %lu finished successfully (%s)\n",
 			mmc_hostname(host), *freq, current->comm);
 
-	mmc_put_card(host->card);
 
 	mmc_host_clk_release(host);
 	mmc_release_host(host);
