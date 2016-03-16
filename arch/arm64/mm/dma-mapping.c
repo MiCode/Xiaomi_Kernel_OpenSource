@@ -541,6 +541,7 @@ static void *__dummy_alloc(struct device *dev, size_t size,
 			   dma_addr_t *dma_handle, gfp_t flags,
 			   struct dma_attrs *attrs)
 {
+	WARN(1, "dma alloc failure, device may be missing a call to arch_setup_dma_ops");
 	return NULL;
 }
 
