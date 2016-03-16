@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3242,7 +3242,8 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	}
 
 	size = img->width * img->height * 4;
-	if (size != mfd->cursor_buf_size) {
+	if ((size != mfd->cursor_buf_size) ||
+			(cursor->set & FB_CUR_SETIMAGE)) {
 		pr_debug("allocating cursor mem size:%zd\n", size);
 
 		if (!ion_client) {
