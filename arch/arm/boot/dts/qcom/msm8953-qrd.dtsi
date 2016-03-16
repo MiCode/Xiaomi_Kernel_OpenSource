@@ -62,6 +62,10 @@
 	};
 };
 
+&wled {
+	qcom,cons-sync-write-delay-us = <1000>;
+};
+
 &spmi_bus {
 	qcom,pmi8950@2 {
 		qcom,leds@a100 {
