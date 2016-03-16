@@ -1903,6 +1903,7 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 			}
 
 		data->mapped = true;
+		data->skip_detach = false;
 	}
 done:
 	if (!ret && (img->offset < data->len)) {

@@ -1171,6 +1171,7 @@ static int mdp3_overlay_queue_buffer(struct msm_fb_data_type *mfd,
 	struct mdp3_img_data data;
 	struct mdp3_dma *dma = mdp3_session->dma;
 
+	memset(&data, 0, sizeof(struct mdp3_img_data));
 	rc = mdp3_get_img(img, &data, MDP3_CLIENT_DMA_P);
 	if (rc) {
 		pr_err("fail to get overlay buffer\n");
