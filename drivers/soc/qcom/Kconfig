@@ -229,6 +229,15 @@ config MSM_IPC_ROUTER_SMD_XPRT
 	  this layer registers a transport with IPC Router and enable
 	  message exchange.
 
+config MSM_SYSMON_GLINK_COMM
+	bool "MSM System Monitor communication support using GLINK transport"
+	depends on MSM_GLINK && MSM_SUBSYSTEM_RESTART
+	help
+	  This option adds support for MSM System Monitor APIs using the GLINK
+	  transport layer. The APIs provided may be used for notifying
+	  subsystems within the SoC about other subsystems' power-up/down
+	  state-changes.
+
 config MSM_IPC_ROUTER_HSIC_XPRT
 	depends on USB_QCOM_IPC_BRIDGE
 	depends on IPC_ROUTER
