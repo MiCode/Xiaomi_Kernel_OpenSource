@@ -485,13 +485,34 @@ config ARM64_ICACHE_DISABLE
 
 	  If you are not sure what to do, select 'N' here.
 
+config MSM_APP_API
+	bool "API support to enable / disable app settings for MSM8996"
+	depends on ARCH_MSM8996 && (ENABLE_FP_SIMD_SETTINGS || MSM_APP_SETTINGS)
+	help
+	  Add API support to enable / disable the app settings to be used
+	  at runtime. These APIs are used to enable / disable app setting
+	  when specific aarch32 or aarch64 processes are running.
+
+	  If you are not sure what to do, select 'N' here.
+
 config ENABLE_FP_SIMD_SETTINGS
 	bool "Enable FP(Floating Point) Settings for Qualcomm MSM8996"
 	depends on ARCH_MSM8996
+	select MSM_APP_API
 	help
 	  Enable FP(Floating Point) and SIMD settings for the MSM8996 during
 	  the execution of the aarch32 processes and disable these settings
 	  when you switch to the aarch64 processes.
+
+	  If you are not sure what to do, select 'N' here.
+
+config MSM_APP_SETTINGS
+	bool "Support to enable / disable app settings for MSM8996"
+	depends on ARCH_MSM8996
+	select MSM_APP_API
+	help
+	  Expose an interface used by the userspace at runtime to
+	  enable / disable the app specific settings.
 
 	  If you are not sure what to do, select 'N' here.
 
