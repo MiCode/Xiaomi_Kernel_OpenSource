@@ -20,7 +20,6 @@
 #include <sound/msm-dts-eagle.h>
 
 #define MAX_CHANNELS_SUPPORTED		8
-#define MAX_PP_PARAMS_SZ		128
 #define WAIT_TIMEDOUT_DURATION_SECS	1
 
 struct q6audio_effects {
