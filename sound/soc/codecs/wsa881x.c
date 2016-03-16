@@ -757,14 +757,14 @@ static void wsa881x_ocp_ctl_work(struct work_struct *work)
 	struct wsa881x_priv *wsa881x;
 	struct delayed_work *dwork;
 	struct snd_soc_codec *codec;
-	unsigned long temp_val;
+	int temp_val;
 
 	dwork = to_delayed_work(work);
 	wsa881x = container_of(dwork, struct wsa881x_priv, ocp_ctl_work);
 
 	codec = wsa881x->codec;
 	wsa881x_get_temp(wsa881x->tz_pdata.tz_dev, &temp_val);
-	dev_dbg(codec->dev, " temp = %ld\n", temp_val);
+	dev_dbg(codec->dev, " temp = %d\n", temp_val);
 
 	if (temp_val <= WSA881X_OCP_CTL_TEMP_CELSIUS)
 		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0xC0, 0x00);

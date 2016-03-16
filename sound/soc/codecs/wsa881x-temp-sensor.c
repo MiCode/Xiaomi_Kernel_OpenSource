@@ -34,14 +34,14 @@
  * Return: 0 on success or negative error code on failure.
  */
 int wsa881x_get_temp(struct thermal_zone_device *thermal,
-		     unsigned long *temp)
+		     int *temp)
 {
 	struct wsa881x_tz_priv *pdata;
 	struct snd_soc_codec *codec;
 	struct wsa_temp_register reg;
 	int dmeas, d1, d2;
 	int ret = 0;
-	long temp_val;
+	int temp_val;
 	int t1 = T1_TEMP;
 	int t2 = T2_TEMP;
 
@@ -98,13 +98,13 @@ int wsa881x_get_temp(struct thermal_zone_device *thermal,
 
 	if (temp_val <= LOW_TEMP_THRESHOLD ||
 		temp_val >= HIGH_TEMP_THRESHOLD) {
-		printk_ratelimited("%s: T0: %ld is out of range[%d, %d]\n",
+		printk_ratelimited("%s: T0: %d is out of range[%d, %d]\n",
 				   __func__, temp_val, LOW_TEMP_THRESHOLD,
 				   HIGH_TEMP_THRESHOLD);
 	}
 	if (temp)
 		*temp = temp_val;
-	pr_debug("%s: t0 measured: %ld dmeas = %d, d1 = %d, d2 = %d\n",
+	pr_debug("%s: t0 measured: %d dmeas = %d, d1 = %d, d2 = %d\n",
 		  __func__, temp_val, dmeas, d1, d2);
 	return ret;
 }
