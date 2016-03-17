@@ -1479,9 +1479,16 @@ int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **right_plist, int right_cnt);
 int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 		struct mdss_mdp_pipe *pipe);
+u32 mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
+	struct mdss_rect *roi, u32 flags);
+int mdss_mdp_get_panel_params(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer, u32 *fps, u32 *v_total,
+	u32 *h_total, u32 *xres);
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_perf_params *perf, struct mdss_rect *roi,
 	u32 flags);
+bool mdss_mdp_is_amortizable_pipe(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer, struct mdss_data_type *mdata);
 u32 mdss_mdp_calc_latency_buf_bytes(bool is_yuv, bool is_bwc,
 	bool is_tile, u32 src_w, u32 bpp, bool use_latency_buf_percentage,
 	u32 smp_bytes, bool is_ubwc, bool is_nv12, bool is_hflip);

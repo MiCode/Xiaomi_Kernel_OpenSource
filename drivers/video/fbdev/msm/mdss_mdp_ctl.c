@@ -560,8 +560,13 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer;
 	u32 rate, src_h;
 
+	/*
+	 * when doing vertical decimation lines will be skipped, hence there is
+	 * no need to account for these lines in MDP clock or request bus
+	 * bandwidth to fetch them.
+	 */
 	mixer = pipe->mixer_left;
-	src_h = src.h >> pipe->vert_deci;
+	src_h = DECIMATED_DIMENSION(src.h, pipe->vert_deci);
 
 	if (mixer->rotator_mode) {
 
@@ -594,6 +599,144 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	return rate;
 }
 
+static u32 mdss_mdp_get_rotator_fps(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 fps;
+
+	if (pipe->src.w >= 3840 || pipe->src.h >= 3840)
+		fps = ROTATOR_LOW_FRAME_RATE;
+	else if (mdata->traffic_shaper_en)
+		fps = DEFAULT_ROTATOR_FRAME_RATE;
+	else if (pipe->frame_rate)
+		fps = pipe->frame_rate;
+	else
+		fps = DEFAULT_FRAME_RATE;
+
+	pr_debug("rotator fps:%d\n", fps);
+
+	return fps;
+}
+
+int mdss_mdp_get_panel_params(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer, u32 *fps, u32 *v_total,
+	u32 *h_total, u32 *xres)
+{
+
+	if (mixer->rotator_mode) {
+		*fps = mdss_mdp_get_rotator_fps(pipe);
+	} else if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+		struct mdss_panel_info *pinfo;
+
+		if (!mixer->ctl)
+			return -EINVAL;
+
+		pinfo = &mixer->ctl->panel_data->panel_info;
+		if (pinfo->type == MIPI_VIDEO_PANEL) {
+			*fps = pinfo->panel_max_fps;
+			*v_total = pinfo->panel_max_vtotal;
+		} else {
+			*fps = mdss_panel_get_framerate(pinfo);
+			*v_total = mdss_panel_get_vtotal(pinfo);
+		}
+		*xres = get_panel_width(mixer->ctl);
+		*h_total = mdss_panel_get_htotal(pinfo, false);
+
+		if (is_pingpong_split(mixer->ctl->mfd))
+			*h_total += mdss_panel_get_htotal(
+				&mixer->ctl->panel_data->next->panel_info,
+				false);
+	} else {
+		*v_total = mixer->height;
+		*xres = mixer->width;
+		*h_total = mixer->width;
+	}
+
+	return 0;
+}
+
+u32 mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
+	struct mdss_rect *roi, u32 flags)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_mixer *mixer = pipe->mixer_left;
+	struct mdss_rect src, dst;
+	u32 v_total, fps, h_total, xres;
+	u32 quota, src_h;
+
+	if (mdss_mdp_get_panel_params(pipe, mixer, &fps, &v_total,
+			&h_total, &xres)) {
+		pr_err(" error retreiving the panel params!\n");
+		return -EINVAL;
+	}
+
+	dst = pipe->dst;
+	src = pipe->src;
+
+	/* crop rectangles */
+	if (roi && !mixer->ctl->is_video_mode && !pipe->src_split_req)
+		mdss_mdp_crop_rect(&src, &dst, roi);
+
+	/*
+	 * when doing vertical decimation lines will be skipped, hence there is
+	 * no need to account for these lines in MDP clock or request bus
+	 * bandwidth to fetch them.
+	 */
+	src_h = DECIMATED_DIMENSION(src.h, pipe->vert_deci);
+
+	quota = fps * src.w * src_h;
+
+	if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
+		/*
+		 * with decimation, chroma is not downsampled, this means we
+		 * need to allocate bw for extra lines that will be fetched
+		 */
+		if (pipe->vert_deci)
+			quota *= 2;
+		else
+			quota = (quota * 3) / 2;
+	else
+		quota *= pipe->src_fmt->bpp;
+
+	if (mixer->rotator_mode) {
+		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
+				mdata->mdss_qos_map)) {
+			/* rotator read */
+			quota = apply_comp_ratio_factor(quota,
+				pipe->src_fmt, &pipe->comp_ratio);
+			/*
+			 * rotator write: here we are using src_fmt since
+			 * current implementation only supports calculate
+			 * bandwidth based in the source parameters.
+			 * The correct fine-tuned calculation should use
+			 * destination format and destination rectangles to
+			 * calculate the bandwidth, but leaving this
+			 * calculation as per current support.
+			 */
+			quota += apply_comp_ratio_factor(quota,
+				pipe->src_fmt, &pipe->comp_ratio);
+		} else {
+			quota *= 2; /* bus read + write */
+		}
+	} else {
+
+		quota = mult_frac(quota, v_total, dst.h);
+		if (!mixer->ctl->is_video_mode)
+			quota = mult_frac(quota, h_total, xres);
+
+		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
+				mdata->mdss_qos_map))
+			quota = apply_comp_ratio_factor(quota,
+				pipe->src_fmt, &pipe->comp_ratio);
+	}
+
+	pr_debug("quota:%d src.w:%d src.h%d comp:[%d, %d]\n",
+		quota, src.w, src_h, pipe->comp_ratio.numer,
+		pipe->comp_ratio.denom);
+
+	return quota;
+}
+
 static inline bool validate_comp_ratio(struct mult_factor *factor)
 {
 	return factor->numer && factor->denom;
@@ -615,25 +758,6 @@ u32 apply_comp_ratio_factor(u32 quota,
 		quota = apply_inverse_fudge_factor(quota , factor);
 
 	return quota;
-}
-
-static u32 mdss_mdp_get_rotator_fps(struct mdss_mdp_pipe *pipe)
-{
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	u32 fps = DEFAULT_FRAME_RATE;
-
-	if (pipe->frame_rate)
-		fps = pipe->frame_rate;
-
-	if (mdata->traffic_shaper_en)
-		fps = DEFAULT_ROTATOR_FRAME_RATE;
-
-	if (pipe->src.w >= 3840 || pipe->src.h >= 3840)
-		fps = ROTATOR_LOW_FRAME_RATE;
-
-	pr_debug("rotator fps:%d\n", fps);
-
-	return fps;
 }
 
 u64 mdss_mdp_perf_calc_simplified_prefill(struct mdss_mdp_pipe *pipe,
@@ -712,13 +836,14 @@ exit:
  * fetches (bandwidth requirement) and processes data through MDP pipeline
  * (MDP clock requirement) based on frame size and scaling requirements.
  */
+
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_perf_params *perf, struct mdss_rect *roi,
 	u32 flags)
 {
 	struct mdss_mdp_mixer *mixer;
 	int fps = DEFAULT_FRAME_RATE;
-	u32 quota, v_total = 0, src_h, xres = 0, h_total = 0;
+	u32 v_total = 0, src_h, xres = 0, h_total = 0;
 	struct mdss_rect src, dst;
 	bool is_fbc = false;
 	struct mdss_mdp_prefill_params prefill_params;
@@ -733,43 +858,6 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	dst = pipe->dst;
 	src = pipe->src;
 
-	if (mixer->rotator_mode) {
-		fps = mdss_mdp_get_rotator_fps(pipe);
-	} else if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
-		struct mdss_panel_info *pinfo;
-
-		if (!mixer->ctl)
-			return -EINVAL;
-
-		pinfo = &mixer->ctl->panel_data->panel_info;
-		if (pinfo->type == MIPI_VIDEO_PANEL) {
-			fps = pinfo->panel_max_fps;
-			v_total = pinfo->panel_max_vtotal;
-		} else {
-			fps = mdss_panel_get_framerate(pinfo);
-			v_total = mdss_panel_get_vtotal(pinfo);
-		}
-		xres = get_panel_width(mixer->ctl);
-		is_fbc = pinfo->fbc.enabled;
-		h_total = mdss_panel_get_htotal(pinfo, false);
-
-		if (is_pingpong_split(mixer->ctl->mfd))
-			h_total += mdss_panel_get_htotal(
-				&mixer->ctl->panel_data->next->panel_info,
-				false);
-	} else {
-		v_total = mixer->height;
-		xres = mixer->width;
-		h_total = mixer->width;
-	}
-
-	mixer->ctl->frame_rate = fps;
-
-	if (roi && !mixer->ctl->is_video_mode && !pipe->src_split_req)
-		mdss_mdp_crop_rect(&src, &dst, roi);
-
-	pr_debug("v_total=%d, xres=%d fps=%d\n", v_total, xres, fps);
-
 	/*
 	 * when doing vertical decimation lines will be skipped, hence there is
 	 * no need to account for these lines in MDP clock or request bus
@@ -777,60 +865,37 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	 */
 	src_h = DECIMATED_DIMENSION(src.h, pipe->vert_deci);
 
-	quota = fps * src.w * src_h;
+	if (mdss_mdp_get_panel_params(pipe, mixer, &fps, &v_total,
+			&h_total, &xres)) {
+		pr_err(" error retreiving the panel params!\n");
+		return -EINVAL;
+	}
 
+	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+		if (!mixer->ctl)
+			return -EINVAL;
+		is_fbc = mixer->ctl->panel_data->panel_info.fbc.enabled;
+	}
+
+	mixer->ctl->frame_rate = fps;
+
+	/* crop rectangles */
+	if (roi && !mixer->ctl->is_video_mode && !pipe->src_split_req)
+		mdss_mdp_crop_rect(&src, &dst, roi);
+
+	pr_debug("v_total=%d, xres=%d fps=%d\n", v_total, xres, fps);
 	pr_debug("src(w,h)(%d,%d) dst(w,h)(%d,%d) dst_y=%d bpp=%d yuv=%d\n",
 		 pipe->src.w, src_h, pipe->dst.w, pipe->dst.h, pipe->dst.y,
 		 pipe->src_fmt->bpp, pipe->src_fmt->is_yuv);
 
-	if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
-		/*
-		 * with decimation, chroma is not downsampled, this means we
-		 * need to allocate bw for extra lines that will be fetched
-		 */
-		if (pipe->vert_deci)
-			quota *= 2;
-		else
-			quota = (quota * 3) / 2;
-	else
-		quota *= pipe->src_fmt->bpp;
-
-	if (mixer->rotator_mode) {
-		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
-				mdata->mdss_qos_map)) {
-			/* rotator read */
-			quota = apply_comp_ratio_factor(quota,
-				pipe->src_fmt, &pipe->comp_ratio);
-			/*
-			 * rotator write: here we are using src_fmt since
-			 * current implementation only supports calculate
-			 * bandwidth based in the source parameters.
-			 * The correct fine-tuned calculation should use
-			 * destination format and destination rectangles to
-			 * calculate the bandwidth, but leaving this
-			 * calculation as per current support.
-			 */
-			quota += apply_comp_ratio_factor(quota,
-				pipe->src_fmt, &pipe->comp_ratio);
-		} else {
-			quota *= 2; /* bus read + write */
-		}
-	} else {
-
-		quota = mult_frac(quota, v_total, dst.h);
-		if (!mixer->ctl->is_video_mode)
-			quota = mult_frac(quota, h_total, xres);
-
-		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
-				mdata->mdss_qos_map))
-			quota = apply_comp_ratio_factor(quota,
-				pipe->src_fmt, &pipe->comp_ratio);
-	}
-
-	perf->bw_overlap = quota;
+	perf->bw_overlap = mdss_mdp_get_pipe_overlap_bw(pipe, roi,
+		flags);
 
 	perf->mdp_clk_rate = get_pipe_mdp_clk_rate(pipe, src, dst,
 		fps, v_total, flags);
+
+	pr_debug("bw:%llu clk:%d\n", perf->bw_overlap,
+		perf->mdp_clk_rate);
 
 	if (pipe->flags & MDP_SOLID_FILL) {
 		perf->bw_overlap = 0;

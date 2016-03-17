@@ -110,6 +110,10 @@ struct mdss_prefill_data {
 	u32 post_scaler_pixels;
 	u32 pp_pixels;
 	u32 fbc_lines;
+	u32 ts_threshold;
+	u32 ts_end;
+	u32 ts_overhead;
+	struct mult_factor ts_rate;
 	struct simplified_prefill_factors prefill_factors;
 };
 
@@ -185,6 +189,7 @@ enum mdss_qos_settings {
 	MDSS_QOS_PER_PIPE_LUT,
 	MDSS_QOS_SIMPLIFIED_PREFILL,
 	MDSS_QOS_VBLANK_PANIC_CTRL,
+	MDSS_QOS_TS_PREFILL,
 	MDSS_QOS_MAX,
 };
 

@@ -39,8 +39,8 @@
 #define PANIC_LUT_NRT_READ	0x0
 #define ROBUST_LUT_NRT_READ	0xFFFF
 
-/* Priority 2, no panic */
-#define VBLANK_PANIC_DEFAULT_CONFIG 0x200000
+#define VBLANK_PANIC_DEFAULT_CONFIG 0x200000 /* Priority 2, no panic */
+#define VBLANK_PANIC_CREQ_MASK 0x300030
 
 #define QSEED3_DEFAULT_PRELAOD_H  0x4
 #define QSEED3_DEFAULT_PRELAOD_V  0x3
@@ -59,6 +59,20 @@ static int mdss_mdp_calc_stride(struct mdss_mdp_pipe *pipe,
 static u32 mdss_mdp_calc_per_plane_num_blks(u32 ystride,
 	struct mdss_mdp_pipe *pipe);
 static int mdss_mdp_pipe_program_pixel_extn(struct mdss_mdp_pipe *pipe);
+
+/**
+ * enum mdss_mdp_pipe_qos - Different qos configurations for each pipe
+ *
+ * @MDSS_MDP_PIPE_QOS_VBLANK_CTRL: Setup VBLANK qos for the pipe.
+ * @MDSS_MDP_PIPE_QOS_VBLANK_AMORTIZE: Enables Amortization within pipe.
+ *	this configuration is mutually exclusive from VBLANK_CTRL.
+ * @MDSS_MDP_PIPE_QOS_PANIC_CTRL: Setup panic for the pipe.
+ */
+enum mdss_mdp_pipe_qos {
+	MDSS_MDP_PIPE_QOS_VBLANK_CTRL = BIT(0),
+	MDSS_MDP_PIPE_QOS_VBLANK_AMORTIZE = BIT(1),
+	MDSS_MDP_PIPE_QOS_PANIC_CTRL = BIT(2),
+};
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
@@ -222,6 +236,39 @@ static void mdss_mdp_config_pipe_panic_lut(struct mdss_mdp_pipe *pipe)
 		panic_lut, robust_lut);
 }
 
+static void mdss_mdp_pipe_qos_ctrl(struct mdss_mdp_pipe *pipe,
+	bool enable, u32 flags)
+{
+	u32 per_pipe_qos;
+
+	per_pipe_qos = mdss_mdp_pipe_read(pipe, MDSS_MDP_REG_SSPP_QOS_CTRL);
+
+	if (flags & MDSS_MDP_PIPE_QOS_VBLANK_CTRL) {
+		per_pipe_qos |= VBLANK_PANIC_DEFAULT_CONFIG;
+
+		if (enable)
+			per_pipe_qos |= BIT(16);
+		else
+			per_pipe_qos &= ~BIT(16);
+	}
+
+	if (flags & MDSS_MDP_PIPE_QOS_VBLANK_AMORTIZE) {
+		/* this feature overrules previous VBLANK_CTRL */
+		per_pipe_qos &= ~BIT(16);
+		per_pipe_qos &= ~VBLANK_PANIC_CREQ_MASK; /* clear vblank bits */
+	}
+
+	if (flags & MDSS_MDP_PIPE_QOS_PANIC_CTRL) {
+		if (enable)
+			per_pipe_qos |= BIT(0);
+		else
+			per_pipe_qos &= ~BIT(0);
+	}
+
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_QOS_CTRL,
+		per_pipe_qos);
+}
+
 /**
  * @mdss_mdp_pipe_panic_vblank_signal_ctrl -
  * @pipe: pointer to a pipe
@@ -233,7 +280,6 @@ static void mdss_mdp_config_pipe_panic_lut(struct mdss_mdp_pipe *pipe)
 static int mdss_mdp_pipe_panic_vblank_signal_ctrl(struct mdss_mdp_pipe *pipe,
 	bool enable)
 {
-	uint32_t panic_ctrl;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if (!mdata->has_panic_ctrl)
@@ -247,17 +293,7 @@ static int mdss_mdp_pipe_panic_vblank_signal_ctrl(struct mdss_mdp_pipe *pipe,
 
 	mutex_lock(&mdata->reg_lock);
 
-	panic_ctrl = mdss_mdp_pipe_read(pipe,
-			MDSS_MDP_REG_SSPP_QOS_CTRL);
-
-	panic_ctrl |= VBLANK_PANIC_DEFAULT_CONFIG;
-
-	if (enable)
-		panic_ctrl |= BIT(16);
-	else
-		panic_ctrl &= ~BIT(16);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_QOS_CTRL,
-				panic_ctrl);
+	mdss_mdp_pipe_qos_ctrl(pipe, enable, MDSS_MDP_PIPE_QOS_VBLANK_CTRL);
 
 	mutex_unlock(&mdata->reg_lock);
 
@@ -292,14 +328,10 @@ int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 		break;
 	case MDSS_MDP_PANIC_PER_PIPE_CFG:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-		panic_robust_ctrl = mdss_mdp_pipe_read(pipe,
-				MDSS_MDP_REG_SSPP_QOS_CTRL);
-		if (enable)
-			panic_robust_ctrl |= BIT(0);
-		else
-			panic_robust_ctrl &= ~BIT(0);
-		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_QOS_CTRL,
-					panic_robust_ctrl);
+
+		mdss_mdp_pipe_qos_ctrl(pipe, enable,
+			MDSS_MDP_PIPE_QOS_PANIC_CTRL);
+
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 		break;
 	}
@@ -2305,6 +2337,215 @@ static void mdss_mdp_set_ot_limit_pipe(struct mdss_mdp_pipe *pipe)
 	mdss_mdp_set_ot_limit(&ot_params);
 }
 
+bool mdss_mdp_is_amortizable_pipe(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer, struct mdss_data_type *mdata)
+{
+	/* do not apply for rotator or WB */
+	return ((pipe->src.y > mdata->prefill_data.ts_threshold) &&
+		(mixer->type == MDSS_MDP_MIXER_TYPE_INTF));
+}
+
+static inline void __get_ordered_rects(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_pipe **low_pipe,
+	struct mdss_mdp_pipe **high_pipe)
+{
+	*low_pipe = pipe;
+
+	if (pipe->multirect.mode == MDSS_MDP_PIPE_MULTIRECT_NONE) {
+		*high_pipe = NULL;
+		return;
+	}
+
+	*high_pipe = pipe->multirect.next;
+
+	/* if pipes are not in order, order them according to position */
+	if ((*low_pipe)->src.y > (*high_pipe)->src.y) {
+		*low_pipe = pipe->multirect.next;
+		*high_pipe = pipe;
+	}
+}
+
+static u32 __get_ts_count(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer, bool is_low_pipe)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 ts_diff, ts_ypos;
+	struct mdss_mdp_pipe *low_pipe, *high_pipe;
+	u32 ts_count = 0;
+	u32 v_total, fps, h_total, xres;
+
+	if (mdss_mdp_get_panel_params(pipe, mixer, &fps, &v_total,
+			&h_total, &xres)) {
+		pr_err(" error retreiving the panel params!\n");
+		return -EINVAL;
+	}
+
+	if (is_low_pipe) {
+		/* only calculate count if lower pipe is amortizable */
+		if (mdss_mdp_is_amortizable_pipe(pipe, mixer, mdata)) {
+			ts_diff = mdata->prefill_data.ts_threshold -
+					mdata->prefill_data.ts_end;
+			ts_ypos = pipe->src.y - ts_diff;
+			ts_count = mult_frac(ts_ypos, 19200000, fps * v_total);
+		}
+	} else { /* high pipe */
+
+		/* only calculate count for high pipe in serial mode */
+		if (pipe &&
+		    pipe->multirect.mode == MDSS_MDP_PIPE_MULTIRECT_SERIAL) {
+			__get_ordered_rects(pipe, &low_pipe, &high_pipe);
+			ts_count = high_pipe->src.y - low_pipe->src.y - 1;
+			ts_count = mult_frac(ts_count, 19200000, fps * v_total);
+		}
+	}
+
+	return ts_count;
+}
+
+static u32 __calc_ts_bytes(struct mdss_rect *src, u32 fps, u32 bpp)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 ts_bytes;
+
+	ts_bytes = src->h * src->w *
+		bpp * fps;
+	ts_bytes = mult_frac(ts_bytes,
+		mdata->prefill_data.ts_rate.numer,
+		mdata->prefill_data.ts_rate.denom);
+	ts_bytes /= 19200000;
+
+	return ts_bytes;
+}
+
+static u32 __get_ts_bytes(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_pipe *low_pipe, *high_pipe;
+	u32 v_total, fps, h_total, xres;
+	u32 low_pipe_bw, high_pipe_bw;
+	u32 ts_bytes_low, ts_bytes_high;
+	u64 ts_bytes = 0;
+
+	if (mdss_mdp_get_panel_params(pipe, mixer, &fps, &v_total,
+			&h_total, &xres)) {
+		pr_err(" error retreiving the panel params!\n");
+		return -EINVAL;
+	}
+
+	switch (pipe->multirect.mode) {
+	case MDSS_MDP_PIPE_MULTIRECT_NONE:
+
+		/* do not amortize if pipe is not amortizable */
+		if (!mdss_mdp_is_amortizable_pipe(pipe, mixer, mdata)) {
+			ts_bytes = 0;
+			goto exit;
+		}
+
+		ts_bytes = __calc_ts_bytes(&pipe->src, fps,
+			pipe->src_fmt->bpp);
+
+		break;
+	case MDSS_MDP_PIPE_MULTIRECT_PARALLEL:
+
+		__get_ordered_rects(pipe, &low_pipe, &high_pipe);
+
+		/* do not amortize if low_pipe is not amortizable */
+		if (!mdss_mdp_is_amortizable_pipe(low_pipe, mixer, mdata)) {
+			ts_bytes = 0;
+			goto exit;
+		}
+
+		/* calculate ts bytes as the sum of both rects */
+		ts_bytes_low = __calc_ts_bytes(&low_pipe->src, fps,
+			low_pipe->src_fmt->bpp);
+		ts_bytes_high = __calc_ts_bytes(&low_pipe->src, fps,
+			high_pipe->src_fmt->bpp);
+
+		ts_bytes = ts_bytes_low + ts_bytes_high;
+		break;
+	case MDSS_MDP_PIPE_MULTIRECT_SERIAL:
+
+		__get_ordered_rects(pipe, &low_pipe, &high_pipe);
+
+		/* calculate amortization using per-pipe bw */
+		low_pipe_bw = mdss_mdp_get_pipe_overlap_bw(low_pipe,
+			&low_pipe->mixer_left->roi, 0);
+		high_pipe_bw = mdss_mdp_get_pipe_overlap_bw(high_pipe,
+			&high_pipe->mixer_left->roi, 0);
+
+		/* amortize depending on the lower pipe amortization */
+		if (mdss_mdp_is_amortizable_pipe(low_pipe, mixer, mdata))
+			ts_bytes = max(low_pipe_bw, high_pipe_bw) /
+			     19200000;
+		else
+			ts_bytes = high_pipe_bw / 19200000;
+		break;
+	default:
+		pr_err("unknown multirect mode!\n");
+		goto exit;
+	break;
+	};
+
+	ts_bytes &= 0xFF;
+	ts_bytes |= BIT(27) | BIT(31);
+exit:
+	return (u32) ts_bytes;
+}
+
+static int mdss_mdp_set_ts_pipe(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_mixer *mixer;
+	u32 ts_count_low = 0, ts_count_high = 0;
+	u32 ts_rec0, ts_rec1;
+	u32 ts_bytes = 0;
+	struct mdss_mdp_pipe *low_pipe = NULL;
+	struct mdss_mdp_pipe *high_pipe = NULL;
+
+	if (!test_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map))
+		return 0;
+
+	mixer = pipe->mixer_left;
+	if (!mixer)
+		return -EINVAL;
+
+	if (!mixer->ctl)
+		return -EINVAL;
+
+	if (!mdata->prefill_data.ts_threshold ||
+	    (mdata->prefill_data.ts_threshold < mdata->prefill_data.ts_end)) {
+		pr_err("invalid ts data!\n");
+		return -EINVAL;
+	}
+
+	/* high pipe will be null for non-multi rect cases */
+	__get_ordered_rects(pipe, &low_pipe, &high_pipe);
+
+	ts_count_low  = __get_ts_count(low_pipe, mixer, true);
+	ts_count_high = __get_ts_count(high_pipe, mixer, false);
+	ts_bytes = __get_ts_bytes(pipe, mixer);
+
+	if (low_pipe->multirect.num == MDSS_MDP_PIPE_RECT0) {
+		ts_rec0 = ts_count_low;
+		ts_rec1 = ts_count_high;
+	} else {
+		ts_rec0 = ts_count_high;
+		ts_rec1 = ts_count_low;
+	}
+
+	mdss_mdp_pipe_qos_ctrl(pipe, false, MDSS_MDP_PIPE_QOS_VBLANK_AMORTIZE);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_TRAFFIC_SHAPER, ts_bytes);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_TRAFFIC_SHAPER_PREFILL,
+		ts_rec0);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_TRAFFIC_SHAPER_REC1_PREFILL,
+		ts_rec1);
+	MDSS_XLOG(pipe->num, ts_bytes, ts_rec0, ts_rec1);
+	pr_debug("ts: pipe:%d bytes=0x%x count0=0x%x count1=0x%x\n",
+		pipe->num, ts_bytes, ts_rec0, ts_rec1);
+	return 0;
+}
+
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			     struct mdss_mdp_data *src_data)
 {
@@ -2432,6 +2673,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 				mdss_mdp_pipe_panic_vblank_signal_ctrl(pipe, 1);
 				mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
 				mdss_mdp_set_ot_limit_pipe(pipe);
+				mdss_mdp_set_ts_pipe(pipe);
 			}
 		}
 	}
