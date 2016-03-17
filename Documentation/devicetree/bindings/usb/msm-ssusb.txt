@@ -41,6 +41,12 @@ Optional properties :
 - qcom,disable-dev-mode-pm: If present, it disables PM runtime functionality for device mode.
 - qcom,disable-host-mode-pm: If present, it disables XHCI PM runtime functionality when USB
   host mode is used.
+- extcon: phandles to external connector devices. First phandle should point to
+	  external connector, which provide "USB" cable events, the second
+	  should point to external connector device, which provide "USB-HOST"
+	  cable events. A single phandle may be specified if a single connector
+	  device provides both "USB" and "USB-HOST" events.
+
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
   This sub node is required property for device node. The properties of this subnode

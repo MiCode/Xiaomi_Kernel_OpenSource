@@ -44,6 +44,7 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/msm-bus.h>
 #include <linux/irq.h>
+#include <linux/extcon.h>
 
 #include "power.h"
 #include "core.h"
@@ -198,7 +199,7 @@ struct dwc3_msm {
 	atomic_t                pm_suspended;
 	int			hs_phy_irq;
 	int			ss_phy_irq;
-	struct delayed_work	resume_work;
+	struct work_struct	resume_work;
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
 	struct workqueue_struct *dwc3_wq;
@@ -238,7 +239,12 @@ struct dwc3_msm {
 	unsigned int		irq_to_affin;
 	struct notifier_block	dwc3_cpu_notifier;
 
-	int  pwr_event_irq;
+	struct extcon_dev	*extcon_vbus;
+	struct extcon_dev	*extcon_id;
+	struct notifier_block	vbus_nb;
+	struct notifier_block	id_nb;
+
+	int			pwr_event_irq;
 	atomic_t                in_p3;
 	unsigned int		lpm_to_suspend_delay;
 	bool			init;
@@ -1463,7 +1469,7 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	chg_type = mdwc->chg_type;
 
 	/* Reset active USB connection */
-	dwc3_resume_work(&mdwc->resume_work.work);
+	dwc3_resume_work(&mdwc->resume_work);
 
 	/* Make sure disconnect is processed before sending connect */
 	while (--timeout && !pm_runtime_suspended(mdwc->dev))
@@ -1481,7 +1487,7 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	if (mdwc->vbus_active) {
 		mdwc->chg_type = chg_type;
 		mdwc->in_restart = false;
-		dwc3_resume_work(&mdwc->resume_work.work);
+		dwc3_resume_work(&mdwc->resume_work);
 	}
 
 	dwc->err_evt_seen = false;
@@ -1700,8 +1706,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
 		if (dwc->enable_bus_suspend) {
 			mdwc->suspend = dwc->b_suspend;
-			queue_delayed_work(mdwc->dwc3_wq,
-					&mdwc->resume_work, 0);
+			queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 		}
 		break;
 	case DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT:
@@ -2150,8 +2155,7 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 
 static void dwc3_resume_work(struct work_struct *w)
 {
-	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
-							resume_work.work);
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, resume_work);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
@@ -2242,7 +2246,7 @@ static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
 	if (atomic_read(&dwc->in_lpm))
-		dwc3_resume_work(&mdwc->resume_work.work);
+		dwc3_resume_work(&mdwc->resume_work);
 	else
 		dwc3_pwr_event_handler(mdwc);
 
@@ -2317,46 +2321,11 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 				  const union power_supply_propval *val)
 {
 	struct dwc3_msm *mdwc = power_supply_get_drvdata(psy);
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_USB_OTG:
-		/* Let OTG know about ID detection */
-		mdwc->id_state = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
-		dbg_event(0xFF, "id_state", mdwc->id_state);
-		if (dwc->is_drd)
-			queue_delayed_work(mdwc->dwc3_wq,
-					&mdwc->resume_work, 0);
-		break;
-	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:
-		dev_dbg(mdwc->dev, "%s: notify xceiv event with val:%d\n",
-							__func__, val->intval);
-		/*
-		 * Now otg_sm_work() state machine waits for USB cable status.
-		 * Hence here it makes sure that schedule resume work only if
-		 * there is change in USB cable also if there is no USB cable
-		 * notification.
-		 */
-		if (mdwc->otg_state == OTG_STATE_UNDEFINED) {
-			mdwc->vbus_active = val->intval;
-			dwc3_ext_event_notify(mdwc);
-			break;
-		}
-
-		if (mdwc->vbus_active == val->intval)
-			break;
-
-		mdwc->vbus_active = val->intval;
-		if (dwc->is_drd && !mdwc->in_restart) {
-			/*
-			 * Set debouncing delay to 120ms. Otherwise battery
-			 * charging CDP complaince test fails if delay > 120ms.
-			 */
-			dbg_event(0xFF, "Q RW (vbus)", val->intval);
-			queue_delayed_work(mdwc->dwc3_wq,
-					&mdwc->resume_work, 12);
-		}
+		/* no-op; extcon handles VBUS & ID notification */
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		mdwc->online = val->intval;
@@ -2554,6 +2523,97 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static int dwc3_msm_id_notifier(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, id_nb);
+	enum dwc3_id_state id;
+
+	id = event ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
+
+	dev_dbg(mdwc->dev, "host:%ld (id:%d) event received\n", event, id);
+
+	if (mdwc->id_state != id) {
+		mdwc->id_state = id;
+		dbg_event(0xFF, "id_state", mdwc->id_state);
+		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+	}
+
+	return NOTIFY_DONE;
+}
+
+static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
+	unsigned long event, void *ptr)
+{
+	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, vbus_nb);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dev_dbg(mdwc->dev, "vbus:%ld event received\n", event);
+
+	if (mdwc->vbus_active == event)
+		return NOTIFY_DONE;
+
+	mdwc->vbus_active = event;
+	if (dwc->is_drd && !mdwc->in_restart) {
+		dbg_event(0xFF, "Q RW (vbus)", mdwc->vbus_active);
+		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
+	}
+
+	return NOTIFY_DONE;
+}
+
+static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
+{
+	struct device_node *node = mdwc->dev->of_node;
+	struct extcon_dev *edev;
+	int ret = 0;
+
+	if (!of_property_read_bool(node, "extcon"))
+		return 0;
+
+	edev = extcon_get_edev_by_phandle(mdwc->dev, 0);
+	if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV)
+		return PTR_ERR(edev);
+
+	if (!IS_ERR(edev)) {
+		mdwc->extcon_vbus = edev;
+		mdwc->vbus_nb.notifier_call = dwc3_msm_vbus_notifier;
+		ret = extcon_register_notifier(edev, EXTCON_USB,
+				&mdwc->vbus_nb);
+		if (ret < 0) {
+			dev_err(mdwc->dev, "failed to register notifier for USB\n");
+			return ret;
+		}
+	}
+
+	/* if a second phandle was provided, use it to get a separate edev */
+	if (of_count_phandle_with_args(node, "extcon", NULL) > 1) {
+		edev = extcon_get_edev_by_phandle(mdwc->dev, 1);
+		if (IS_ERR(edev) && PTR_ERR(edev) != -ENODEV) {
+			ret = PTR_ERR(edev);
+			goto err;
+		}
+	}
+
+	if (!IS_ERR(edev)) {
+		mdwc->extcon_id = edev;
+		mdwc->id_nb.notifier_call = dwc3_msm_id_notifier;
+		ret = extcon_register_notifier(edev, EXTCON_USB_HOST,
+				&mdwc->id_nb);
+		if (ret < 0) {
+			dev_err(mdwc->dev, "failed to register notifier for USB-HOST\n");
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	if (mdwc->extcon_vbus)
+		extcon_unregister_notifier(mdwc->extcon_vbus, EXTCON_USB,
+				&mdwc->vbus_nb);
+	return ret;
+}
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -2583,7 +2643,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->dev = &pdev->dev;
 
 	INIT_LIST_HEAD(&mdwc->req_complete_list);
-	INIT_DELAYED_WORK(&mdwc->resume_work, dwc3_resume_work);
+	INIT_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
 	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
 	init_completion(&mdwc->dwc3_xcvr_vbus_init);
@@ -2791,12 +2851,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
+	ret = dwc3_msm_extcon_register(mdwc);
+	if (ret)
+		goto err;
+
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
 		dev_err(&pdev->dev, "failed to find dwc3 child\n");
 		ret = -ENODEV;
-		goto err;
+		goto put_extcon;
 	}
 
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
@@ -2804,7 +2868,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 				"failed to add create dwc3 core\n");
 		of_node_put(dwc3_node);
-		goto err;
+		goto put_extcon;
 	}
 
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
@@ -2889,6 +2953,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
 		pm_runtime_get_noresume(mdwc->dev);
 
+	/* Update initial VBUS/ID state from extcon */
+	if (mdwc->extcon_vbus && extcon_get_cable_state_(mdwc->extcon_vbus,
+							EXTCON_USB))
+		dwc3_msm_vbus_notifier(&mdwc->vbus_nb, true, NULL);
+	if (mdwc->extcon_id && extcon_get_cable_state_(mdwc->extcon_id,
+							EXTCON_USB_HOST))
+		dwc3_msm_id_notifier(&mdwc->id_nb, true, NULL);
+
 	schedule_delayed_work(&mdwc->sm_work, 0);
 
 	if (!dwc->is_drd && host_mode) {
@@ -2903,6 +2975,13 @@ put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
+put_extcon:
+	if (mdwc->extcon_vbus)
+		extcon_unregister_notifier(mdwc->extcon_vbus, EXTCON_USB,
+				&mdwc->vbus_nb);
+	if (mdwc->extcon_id)
+		extcon_unregister_notifier(mdwc->extcon_id, EXTCON_USB_HOST,
+				&mdwc->id_nb);
 err:
 	return ret;
 }
@@ -3611,7 +3690,7 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	atomic_set(&mdwc->pm_suspended, 0);
 
 	/* kick in otg state machine */
-	queue_delayed_work(mdwc->dwc3_wq, &mdwc->resume_work, 0);
+	queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
 	return 0;
 }
