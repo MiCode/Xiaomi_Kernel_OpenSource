@@ -21,21 +21,29 @@
 	reg = <0x1da7000 0xda8>, /* PHY regs */
 		<0x1db8000 0x100>; /* U11 user regs */
 	reg-names = "phy_mem", "u11_user";
-	vdda-phy-supply = <&pmcobalt_l28>;
+	vdda-phy-supply = <&pmcobalt_l1>;
 	vdda-pll-supply = <&pmcobalt_l2>;
 	vddp-ref-clk-supply = <&pmcobalt_l26>;
+	vdda-phy-max-microamp = <51400>;
+	vdda-pll-max-microamp = <14600>;
+	vddp-ref-clk-max-microamp = <100>;
+	vddp-ref-clk-always-on;
 	status = "ok";
 };
 
 &ufs1 {
+	vdd-hba-supply = <&gdsc_ufs>;
+	vdd-hba-fixed-regulator;
 	vcc-supply = <&pmcobalt_l20>;
 	vccq-supply = <&pmcobalt_l26>;
 	vccq2-supply = <&pmcobalt_s4>;
+	vcc-max-microamp = <750000>;
+	vccq-max-microamp = <560000>;
+	vccq2-max-microamp = <750000>;
 
 	qcom,disable-lpm;
 	rpm-level = <0>;
 	spm-level = <0>;
-
 	status = "ok";
 };
 
