@@ -504,6 +504,10 @@
 	};
 };
 
+&pmi8994_charger {
+	dpdm-supply = <&qusb_phy0>;
+};
+
 &pmi8994_fg {
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,ext-sense-type;

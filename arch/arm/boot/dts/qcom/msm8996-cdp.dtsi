@@ -110,6 +110,7 @@
 
 &pmi8994_charger {
 	qcom,charging-disabled;
+	dpdm-supply = <&qusb_phy0>;
 };
 
 &pm8994_vadc {
