@@ -490,6 +490,10 @@
 	};
 };
 
+&usb3 {
+	extcon = <&pmi8994_charger>;
+};
+
 &i2c_7 {
 	smb1351-charger@1d {
 		compatible = "qcom,smb1351-charger";
