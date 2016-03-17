@@ -790,24 +790,6 @@ sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
 	rq->wakeup_latency = wakeup_latency;
 }
 
-/*
- * Note D-state for (idle) cluster.
- *
- * @dstate = dstate index, 0 -> active state
- * @wakeup_energy = energy spent in waking up cluster
- * @wakeup_latency = latency to wakeup from cluster
- *
- */
-void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
-			int wakeup_energy, int wakeup_latency)
-{
-	struct sched_cluster *cluster =
-		cpu_rq(cpumask_first(cluster_cpus))->cluster;
-	cluster->dstate = dstate;
-	cluster->dstate_wakeup_energy = wakeup_energy;
-	cluster->dstate_wakeup_latency = wakeup_latency;
-}
-
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_SCHED_HMP
@@ -862,7 +844,116 @@ static inline void set_task_last_switch_out(struct task_struct *p,
 {
 	p->last_switch_out_ts = wallclock;
 }
-#else
+
+/*
+ * Note D-state for (idle) cluster.
+ *
+ * @dstate = dstate index, 0 -> active state
+ * @wakeup_energy = energy spent in waking up cluster
+ * @wakeup_latency = latency to wakeup from cluster
+ *
+ */
+void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
+			int wakeup_energy, int wakeup_latency)
+{
+	struct sched_cluster *cluster =
+		cpu_rq(cpumask_first(cluster_cpus))->cluster;
+	cluster->dstate = dstate;
+	cluster->dstate_wakeup_energy = wakeup_energy;
+	cluster->dstate_wakeup_latency = wakeup_latency;
+}
+
+u32 __weak get_freq_max_load(int cpu, u32 freq)
+{
+	/* 100% by default */
+	return 100;
+}
+
+DEFINE_PER_CPU(struct freq_max_load *, freq_max_load);
+static DEFINE_SPINLOCK(freq_max_load_lock);
+
+int sched_update_freq_max_load(const cpumask_t *cpumask)
+{
+	int i, cpu, ret;
+	unsigned int freq;
+	struct cpu_pstate_pwr *costs;
+	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
+	struct freq_max_load *max_load, *old_max_load;
+	struct freq_max_load_entry *entry;
+	u64 max_demand_capacity, max_demand;
+	unsigned long flags;
+	u32 hfreq;
+	int hpct;
+
+	if (!per_cpu_info || !sysctl_sched_enable_power_aware)
+		return 0;
+
+	spin_lock_irqsave(&freq_max_load_lock, flags);
+	max_demand_capacity = div64_u64(max_task_load(), max_possible_capacity);
+	for_each_cpu(cpu, cpumask) {
+		if (!per_cpu_info[cpu].ptable) {
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		old_max_load = rcu_dereference(per_cpu(freq_max_load, cpu));
+
+		/*
+		 * allocate len + 1 and leave the last power cost as 0 for
+		 * power_cost() can stop iterating index when
+		 * per_cpu_info[cpu].len > len of max_load due to race between
+		 * cpu power stats update and get_cpu_pwr_stats().
+		 */
+		max_load = kzalloc(sizeof(struct freq_max_load) +
+				   sizeof(struct freq_max_load_entry) *
+				   (per_cpu_info[cpu].len + 1), GFP_ATOMIC);
+		if (unlikely(!max_load)) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+
+		max_load->length = per_cpu_info[cpu].len;
+
+		max_demand = max_demand_capacity *
+			     cpu_max_possible_capacity(cpu);
+
+		i = 0;
+		costs = per_cpu_info[cpu].ptable;
+		while (costs[i].freq) {
+			entry = &max_load->freqs[i];
+			freq = costs[i].freq;
+			hpct = get_freq_max_load(cpu, freq);
+			if (hpct <= 0 && hpct > 100)
+				hpct = 100;
+			hfreq = div64_u64((u64)freq * hpct, 100);
+			entry->hdemand =
+			    div64_u64(max_demand * hfreq,
+				      cpu_max_possible_freq(cpu));
+			i++;
+		}
+
+		rcu_assign_pointer(per_cpu(freq_max_load, cpu), max_load);
+		if (old_max_load)
+			kfree_rcu(old_max_load, rcu);
+	}
+
+	spin_unlock_irqrestore(&freq_max_load_lock, flags);
+	return 0;
+
+fail:
+	for_each_cpu(cpu, cpumask) {
+		max_load = rcu_dereference(per_cpu(freq_max_load, cpu));
+		if (max_load) {
+			rcu_assign_pointer(per_cpu(freq_max_load, cpu), NULL);
+			kfree_rcu(max_load, rcu);
+		}
+	}
+
+	spin_unlock_irqrestore(&freq_max_load_lock, flags);
+	return ret;
+}
+
+#else /* CONFIG_SCHED_HMP */
 u64 sched_ktime_clock(void)
 {
 	return 0;
@@ -872,7 +963,9 @@ static inline void clear_ed_task(struct task_struct *p, struct rq *rq) {}
 static inline void set_task_last_wake(struct task_struct *p, u64 wallclock) {}
 static inline void set_task_last_switch_out(struct task_struct *p,
 					    u64 wallclock) {}
-#endif
+void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
+			int wakeup_energy, int wakeup_latency) {}
+#endif /* CONFIG_SCHED_HMP */
 
 #if defined(CONFIG_RT_GROUP_SCHED) || (defined(CONFIG_FAIR_GROUP_SCHED) && \
 			(defined(CONFIG_SMP) || defined(CONFIG_CFS_BANDWIDTH)))
@@ -1614,7 +1707,7 @@ unsigned int sched_get_static_cluster_pwr_cost(int cpu)
 	return cpu_rq(cpu)->cluster->static_cluster_pwr_cost;
 }
 
-#else
+#else /* CONFIG_SCHED_HMP */
 
 static inline int got_boost_kick(void)
 {
@@ -1624,6 +1717,8 @@ static inline int got_boost_kick(void)
 static inline void clear_boost_kick(int cpu) { }
 
 static inline void clear_hmp_request(int cpu) { }
+
+static void update_cluster_topology(void) { }
 
 #endif	/* CONFIG_SCHED_HMP */
 
@@ -2394,96 +2489,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	}
 
 	BUG();
-}
-
-u32 __weak get_freq_max_load(int cpu, u32 freq)
-{
-	/* 100% by default */
-	return 100;
-}
-
-DEFINE_PER_CPU(struct freq_max_load *, freq_max_load);
-static DEFINE_SPINLOCK(freq_max_load_lock);
-
-int sched_update_freq_max_load(const cpumask_t *cpumask)
-{
-	int i, cpu, ret;
-	unsigned int freq;
-	struct cpu_pstate_pwr *costs;
-	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
-	struct freq_max_load *max_load, *old_max_load;
-	struct freq_max_load_entry *entry;
-	u64 max_demand_capacity, max_demand;
-	unsigned long flags;
-	u32 hfreq;
-	int hpct;
-
-	if (!per_cpu_info || !sysctl_sched_enable_power_aware)
-		return 0;
-
-	spin_lock_irqsave(&freq_max_load_lock, flags);
-	max_demand_capacity = div64_u64(max_task_load(), max_possible_capacity);
-	for_each_cpu(cpu, cpumask) {
-		if (!per_cpu_info[cpu].ptable) {
-			ret = -EINVAL;
-			goto fail;
-		}
-
-		old_max_load = rcu_dereference(per_cpu(freq_max_load, cpu));
-
-		/*
-		 * allocate len + 1 and leave the last power cost as 0 for
-		 * power_cost() can stop iterating index when
-		 * per_cpu_info[cpu].len > len of max_load due to race between
-		 * cpu power stats update and get_cpu_pwr_stats().
-		 */
-		max_load = kzalloc(sizeof(struct freq_max_load) +
-				   sizeof(struct freq_max_load_entry) *
-				   (per_cpu_info[cpu].len + 1), GFP_ATOMIC);
-		if (unlikely(!max_load)) {
-			ret = -ENOMEM;
-			goto fail;
-		}
-
-		max_load->length = per_cpu_info[cpu].len;
-
-		max_demand = max_demand_capacity *
-			     cpu_max_possible_capacity(cpu);
-
-		i = 0;
-		costs = per_cpu_info[cpu].ptable;
-		while (costs[i].freq) {
-			entry = &max_load->freqs[i];
-			freq = costs[i].freq;
-			hpct = get_freq_max_load(cpu, freq);
-			if (hpct <= 0 && hpct > 100)
-				hpct = 100;
-			hfreq = div64_u64((u64)freq * hpct , 100);
-			entry->hdemand =
-			    div64_u64(max_demand * hfreq,
-				      cpu_max_possible_freq(cpu));
-			i++;
-		}
-
-		rcu_assign_pointer(per_cpu(freq_max_load, cpu), max_load);
-		if (old_max_load)
-			kfree_rcu(old_max_load, rcu);
-	}
-
-	spin_unlock_irqrestore(&freq_max_load_lock, flags);
-	return 0;
-
-fail:
-	for_each_cpu(cpu, cpumask) {
-		max_load = rcu_dereference(per_cpu(freq_max_load, cpu));
-		if (max_load) {
-			rcu_assign_pointer(per_cpu(freq_max_load, cpu), NULL);
-			kfree_rcu(max_load, rcu);
-		}
-	}
-
-	spin_unlock_irqrestore(&freq_max_load_lock, flags);
-	return ret;
 }
 
 static inline u32 predict_and_update_buckets(struct rq *rq,

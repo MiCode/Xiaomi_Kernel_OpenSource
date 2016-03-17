@@ -2670,6 +2670,11 @@ static u32 __compute_runnable_contrib(u64 n)
 static void add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta);
 static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods);
 
+struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
+{
+	return NULL;
+}
+
 #ifdef CONFIG_SCHED_HMP
 
 /* Initial task load. Newly created tasks are assigned this load. */
@@ -3041,11 +3046,6 @@ int group_will_fit(struct sched_cluster *cluster,
 	return 0;
 }
 
-struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
-{
-	return NULL;
-}
-
 /*
  * Return the cost of running task p on CPU cpu. This function
  * currently assumes that task p is the only task which will run on
@@ -3170,6 +3170,11 @@ preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 
 	rcu_read_unlock();
 	return rc;
+}
+
+static inline struct sched_cluster *rq_cluster(struct rq *rq)
+{
+	return rq->cluster;
 }
 
 static int
@@ -4212,6 +4217,9 @@ unsigned int cpu_temp(int cpu)
 
 #define sysctl_sched_enable_power_aware 0
 
+struct cpu_select_env;
+struct sched_cluster;
+
 static inline int task_will_fit(struct task_struct *p, int cpu)
 {
 	return 1;
@@ -4279,6 +4287,11 @@ static inline int
 preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 {
 	return 1;
+}
+
+static inline struct sched_cluster *rq_cluster(struct rq *rq)
+{
+	return NULL;
 }
 
 #endif	/* CONFIG_SCHED_HMP */
@@ -7740,7 +7753,7 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		return 0;
 
 	if (env->flags & LBF_IGNORE_PREFERRED_CLUSTER_TASKS &&
-			!preferred_cluster(cpu_rq(env->dst_cpu)->cluster, p))
+	    !preferred_cluster(rq_cluster(cpu_rq(env->dst_cpu)), p))
 		return 0;
 
 	/*
@@ -9825,7 +9838,7 @@ static inline int find_new_hmp_ilb(int type)
 	return nr_cpu_ids;
 }
 #else	/* CONFIG_SCHED_HMP */
-static inline int find_new_hmp_ilb(void)
+static inline int find_new_hmp_ilb(int type)
 {
 	return 0;
 }
