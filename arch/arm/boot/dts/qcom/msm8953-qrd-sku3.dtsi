@@ -96,6 +96,18 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&int_codec {
+	status = "disabled";
+};
+
+&pm8953_diangu_dig {
+	status = "disabled";
+};
+
+&pm8953_diangu_analog {
+	status = "disabled";
+};
+
 &ext_codec {
 	status = "ok";
 	qcom,model = "msm8953-sku3-tasha-snd-card";
