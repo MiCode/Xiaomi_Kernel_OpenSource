@@ -152,6 +152,7 @@ Required properties:
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
    property. Required clocks are "cfg_ahb_clk" and "phy_reset".
  - phy_type: Should be one of "ulpi" or "utmi". ChipIdea core uses "ulpi" mode.
+ - qcom,phy-clk-scheme: Should be one of "cml" or "cmos".
 
 Optional properties:
  - reg: Address and length register set to control QUSB2 PHY

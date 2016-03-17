@@ -128,6 +128,7 @@ struct qusb_phy {
 	bool			suspended;
 	bool			ulpi_mode;
 	bool			rm_pulldown;
+	bool			is_se_clk;
 
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
@@ -409,7 +410,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	int ret, reset_val = 0;
-	bool is_se_clk = true;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
@@ -516,13 +516,13 @@ static int qusb_phy_init(struct usb_phy *phy)
 	/* Require to get phy pll lock successfully */
 	usleep_range(150, 160);
 
-	if (!is_se_clk)
+	if (!qphy->is_se_clk)
 		reset_val &= ~CLK_REF_SEL;
 	else
 		reset_val |= CLK_REF_SEL;
 
 	/* Turn on phy ref_clk if DIFF_CLK else select SE_CLK */
-	if (!is_se_clk && qphy->ref_clk_base)
+	if (!qphy->is_se_clk && qphy->ref_clk_base)
 		writel_relaxed((readl_relaxed(qphy->ref_clk_base) |
 					QUSB2PHY_REFCLK_ENABLE),
 					qphy->ref_clk_base);
@@ -956,6 +956,22 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	hold_phy_reset = of_property_read_bool(dev->of_node, "qcom,hold-reset");
+	ret = of_property_read_string(dev->of_node,
+			"qcom,phy-clk-scheme", &phy_type);
+	if (ret) {
+		dev_err(dev, "error need qsub_phy_clk_scheme.\n");
+		return ret;
+	}
+
+	if (!strcasecmp(phy_type, "cml")) {
+		qphy->is_se_clk = false;
+	} else if (!strcasecmp(phy_type, "cmos")) {
+		qphy->is_se_clk = true;
+	} else {
+		dev_err(dev, "erro invalid qusb_phy_clk_scheme\n");
+		return -EINVAL;
+	}
+
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) qphy->vdd_levels,
 					 ARRAY_SIZE(qphy->vdd_levels));
