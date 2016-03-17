@@ -300,7 +300,7 @@ static int __update_sensor_thresholds(struct sensor_info *sensor)
 		}
 	}
 
-	pr_debug("sensor %d: Thresholds: max of low: %d min of high: %d\n",
+	pr_debug("sensor %d: Thresholds: max of low: %ld min of high: %ld\n",
 			sensor->sensor_id, max_of_low_thresh,
 			min_of_high_thresh);
 
