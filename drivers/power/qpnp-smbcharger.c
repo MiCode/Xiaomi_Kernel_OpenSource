@@ -25,6 +25,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 #include <linux/bitops.h>
+#include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
@@ -250,6 +251,7 @@ struct smbchg_chip {
 	const char			*bms_psy_name;
 	const char			*battery_psy_name;
 
+	struct regulator		*dpdm_reg;
 	struct smbchg_regulator		otg_vreg;
 	struct smbchg_regulator		ext_otg_vreg;
 	struct work_struct		usb_set_online_work;
@@ -4418,7 +4420,8 @@ static int set_usb_psy_dp_dm(struct smbchg_chip *chip, int state)
 	if (!rc && !(reg & USBIN_UV_BIT) && !(reg & USBIN_SRC_DET_BIT)) {
 		pr_smb(PR_MISC, "overwriting state = %d with %d\n",
 				state, POWER_SUPPLY_DP_DM_DPF_DMF);
-		state = POWER_SUPPLY_DP_DM_DPF_DMF;
+		if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
+			return regulator_enable(chip->dpdm_reg);
 	}
 	pr_smb(PR_MISC, "setting usb psy dp dm = %d\n", state);
 	pval.intval = state;
@@ -4515,7 +4518,8 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		chip->typec_current_ma = 0;
 	smbchg_change_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
 	extcon_set_cable_state_(chip->extcon, EXTCON_USB, chip->usb_present);
-	set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPR_DMR);
+	if (chip->dpdm_reg)
+		regulator_disable(chip->dpdm_reg);
 	schedule_work(&chip->usb_set_online_work);
 
 	pr_smb(PR_MISC, "setting usb psy health UNKNOWN\n");
@@ -5064,7 +5068,12 @@ static int smbchg_unprepare_for_pulsing(struct smbchg_chip *chip)
 {
 	int rc = 0;
 
-	set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPF_DMF);
+	if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
+		rc = regulator_enable(chip->dpdm_reg);
+	if (rc < 0) {
+		pr_err("Couldn't enable DP/DM for pulsing rc=%d\n", rc);
+		return rc;
+	}
 
 	/* switch to 9V HVDCP */
 	pr_smb(PR_MISC, "Switch to 9V HVDCP\n");
@@ -6211,7 +6220,6 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 	int aicl_level = smbchg_get_aicl_level_ma(chip);
-	union power_supply_propval pval = {0, };
 	int rc;
 	u8 reg;
 
@@ -6232,10 +6240,13 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 	 * not already src_detected and usbin_uv is seen falling
 	 */
 	if (!(reg & USBIN_UV_BIT) && !(reg & USBIN_SRC_DET_BIT)) {
-		pr_smb(PR_MISC, "setting usb psy dp=f dm=f\n");
-		pval.intval = POWER_SUPPLY_DP_DM_DPF_DMF;
-		power_supply_set_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_DP_DM, &pval);
+		pr_smb(PR_MISC, "setting usb dp=f dm=f\n");
+		if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
+			rc = regulator_enable(chip->dpdm_reg);
+		if (rc < 0) {
+			pr_err("Couldn't enable DP/DM for pulsing rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	if (reg & USBIN_UV_BIT)
@@ -6456,7 +6467,6 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 static int determine_initial_status(struct smbchg_chip *chip)
 {
 	union power_supply_propval type = {0, };
-	union power_supply_propval pval = {0, };
 
 	/*
 	 * It is okay to read the interrupt status here since
@@ -6482,10 +6492,14 @@ static int determine_initial_status(struct smbchg_chip *chip)
 	chip->dc_present = is_dc_present(chip);
 
 	if (chip->usb_present) {
-		pr_smb(PR_MISC, "setting usb psy dp=f dm=f\n");
-		pval.intval = POWER_SUPPLY_DP_DM_DPF_DMF;
-		power_supply_set_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_DP_DM, &pval);
+		int rc = 0;
+		pr_smb(PR_MISC, "setting usb dp=f dm=f\n");
+		if (chip->dpdm_reg && !regulator_is_enabled(chip->dpdm_reg))
+			rc = regulator_enable(chip->dpdm_reg);
+		if (rc < 0) {
+			pr_err("Couldn't enable DP/DM for pulsing rc=%d\n", rc);
+			return rc;
+		}
 		handle_usb_insertion(chip);
 	} else {
 		handle_usb_removal(chip);
@@ -8066,6 +8080,12 @@ static int smbchg_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Unable to register usb_psy rc = %ld\n",
 			PTR_ERR(chip->usb_psy));
 		return PTR_ERR(chip->usb_psy);
+	}
+
+	if (of_find_property(chip->dev->of_node, "dpdm-supply", NULL)) {
+		chip->dpdm_reg = devm_regulator_get(chip->dev, "dpdm");
+		if (IS_ERR(chip->dpdm_reg))
+			return PTR_ERR(chip->dpdm_reg);
 	}
 
 	rc = smbchg_hw_init(chip);
