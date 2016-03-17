@@ -627,6 +627,67 @@ static struct kobj_attribute virtual_key_map_attr = {
 	.show = synaptics_rmi4_virtual_key_map_show,
 };
 
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
+static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
+{
+	init_completion(&data->st_powerdown);
+	init_completion(&data->st_irq_processed);
+}
+
+static void synaptics_secure_touch_notify(struct synaptics_rmi4_data *rmi4_data)
+{
+	sysfs_notify(&rmi4_data->input_dev->dev.kobj, NULL, "secure_touch");
+}
+
+static irqreturn_t synaptics_filter_interrupt(
+	struct synaptics_rmi4_data *rmi4_data)
+{
+	if (atomic_read(&rmi4_data->st_enabled)) {
+		if (atomic_cmpxchg(&rmi4_data->st_pending_irqs, 0, 1) == 0) {
+			reinit_completion(&rmi4_data->st_irq_processed);
+			synaptics_secure_touch_notify(rmi4_data);
+			wait_for_completion_interruptible(
+				&rmi4_data->st_irq_processed);
+		}
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+
+/*
+ * 'blocking' variable will have value 'true' when we want to prevent the driver
+ * from accessing the xPU/SMMU protected HW resources while the session is
+ * active.
+ */
+static void synaptics_secure_touch_stop(struct synaptics_rmi4_data *rmi4_data,
+					bool blocking)
+{
+	if (atomic_read(&rmi4_data->st_enabled)) {
+		atomic_set(&rmi4_data->st_pending_irqs, -1);
+		synaptics_secure_touch_notify(rmi4_data);
+		if (blocking)
+			wait_for_completion_interruptible(
+				&rmi4_data->st_powerdown);
+	}
+}
+
+#else
+static void synaptics_secure_touch_init(struct synaptics_rmi4_data *rmi4_data)
+{
+}
+
+static irqreturn_t synaptics_filter_interrupt(
+				struct synaptics_rmi4_data *rmi4_data)
+{
+	return IRQ_NONE;
+}
+
+static void synaptics_secure_touch_stop(struct synaptics_rmi4_data *rmi4_data,
+					bool blocking)
+{
+}
+#endif
+
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1511,6 +1572,9 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 	struct synaptics_rmi4_data *rmi4_data = data;
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
+
+	if (IRQ_HANDLED == synaptics_filter_interrupt(data))
+		return IRQ_HANDLED;
 
 	if (gpio_get_value(bdata->irq_gpio) != bdata->irq_on_state)
 		goto exit;
@@ -3866,6 +3930,10 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	queue_work(rmi4_data->reset_workqueue, &rmi4_data->reset_work);
 #endif
 
+	/* Initialize secure touch */
+	synaptics_secure_touch_init(rmi4_data);
+	synaptics_secure_touch_stop(rmi4_data, true);
+
 	return retval;
 
 err_sysfs:
@@ -4106,7 +4174,9 @@ static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 			fb_notifier);
 
 	if (evdata && evdata->data && rmi4_data) {
-		if (event == FB_EVENT_BLANK) {
+		if (event == FB_EARLY_EVENT_BLANK) {
+			synaptics_secure_touch_stop(rmi4_data, false);
+		} else if (event == FB_EVENT_BLANK) {
 			transition = evdata->data;
 			if (*transition == FB_BLANK_POWERDOWN) {
 				synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
@@ -4132,6 +4202,14 @@ static void synaptics_rmi4_early_suspend(struct early_suspend *h)
 
 	if (rmi4_data->stay_awake)
 		return;
+
+	/*
+	 * During early suspend/late resume, the driver doesn't access xPU/SMMU
+	 * protected HW resources. So, there is no compelling need to block,
+	 * but notifying the userspace that a power event has occurred is
+	 * enough. Hence 'blocking' variable can be set to false.
+	 */
+	synaptics_secure_touch_stop(rmi4_data, false);
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, true);
@@ -4169,6 +4247,8 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h)
 
 	if (rmi4_data->stay_awake)
 		return;
+
+	synaptics_secure_touch_stop(rmi4_data, false);
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, false);
@@ -4216,6 +4296,8 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	if (rmi4_data->stay_awake)
 		return 0;
 
+	synaptics_secure_touch_stop(rmi4_data, true);
+
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, true);
 		enable_irq_wake(rmi4_data->irq);
@@ -4252,6 +4334,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 
 	if (rmi4_data->stay_awake)
 		return 0;
+
+	synaptics_secure_touch_stop(rmi4_data, true);
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, false);

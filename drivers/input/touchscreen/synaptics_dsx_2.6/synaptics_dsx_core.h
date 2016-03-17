@@ -48,6 +48,12 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
+#include <linux/completion.h>
+#include <linux/atomic.h>
+#include <linux/pm_runtime.h>
+#endif
+
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38))
 #define KERNEL_ABOVE_2_6_38
 #endif
@@ -374,6 +380,12 @@ struct synaptics_rmi4_data {
 			bool enable);
 	void (*report_touch)(struct synaptics_rmi4_data *rmi4_data,
 			struct synaptics_rmi4_fn *fhandler);
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
+	atomic_t st_enabled;
+	atomic_t st_pending_irqs;
+	struct completion st_powerdown;
+	struct completion st_irq_processed;
+#endif
 };
 
 struct synaptics_dsx_bus_access {
