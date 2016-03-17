@@ -425,17 +425,19 @@ static void rndis_response_available(void *_rndis)
 
 static void rndis_response_complete(struct usb_ep *ep, struct usb_request *req)
 {
-	struct f_rndis			*rndis = __rndis;
-	struct usb_composite_dev	*cdev = rndis->port.func.config->cdev;
+	struct f_rndis			*rndis;
+	struct usb_composite_dev	*cdev;
 	int				status = req->status;
 	struct usb_ep *notify_ep;
 
 	spin_lock(&_rndis_lock);
+	rndis = __rndis;
 	if (!rndis || !rndis->notify) {
 		spin_unlock(&_rndis_lock);
 		return;
 	}
 
+	cdev = rndis->port.func.config->cdev;
 	/* after TX:
 	 *  - USB_CDC_GET_ENCAPSULATED_RESPONSE (ep0/control)
 	 *  - RNDIS_RESPONSE_AVAILABLE (status/irq)
@@ -481,17 +483,19 @@ out:
 
 static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 {
-	struct f_rndis			*rndis = __rndis;
-	struct usb_composite_dev	*cdev = rndis->port.func.config->cdev;
+	struct f_rndis			*rndis;
+	struct usb_composite_dev	*cdev;
 	int				status;
 	rndis_init_msg_type		*buf;
 
 	spin_lock(&_rndis_lock);
+	rndis = __rndis;
 	if (!rndis || !rndis->notify) {
 		spin_unlock(&_rndis_lock);
 		return;
 	}
 
+	cdev = rndis->port.func.config->cdev;
 	/* received RNDIS command from USB_CDC_SEND_ENCAPSULATED_COMMAND */
 //	spin_lock(&dev->lock);
 	status = rndis_msg_parser(rndis->params, (u8 *) req->buf);

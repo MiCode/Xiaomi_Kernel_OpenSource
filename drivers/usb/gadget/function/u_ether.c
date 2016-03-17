@@ -1533,6 +1533,7 @@ void gether_cleanup(struct eth_dev *dev)
 	uether_debugfs_exit(dev);
 	unregister_netdev(dev->net);
 	flush_work(&dev->work);
+	cancel_work_sync(&dev->rx_work);
 	free_netdev(dev->net);
 }
 EXPORT_SYMBOL_GPL(gether_cleanup);
