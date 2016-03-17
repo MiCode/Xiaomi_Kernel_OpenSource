@@ -634,7 +634,8 @@ static void ipa_disconnect_work_handler(struct gsi_data_port *d_port)
 	gsi->d_port.in_channel_handle = -EINVAL;
 	gsi->d_port.out_channel_handle = -EINVAL;
 
-	usb_gsi_ep_op(gsi->d_port.in_ep, NULL, GSI_EP_OP_FREE_TRBS);
+	if (gsi->d_port.in_ep)
+		usb_gsi_ep_op(gsi->d_port.in_ep, NULL, GSI_EP_OP_FREE_TRBS);
 
 	if (gsi->d_port.out_ep)
 		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_FREE_TRBS);
