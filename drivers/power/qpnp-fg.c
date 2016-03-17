@@ -403,6 +403,14 @@ enum slope_limit_status {
 	SLOPE_LIMIT_MAX,
 };
 
+#define VOLT_GAIN_MAX		3
+struct dischg_gain_soc {
+	bool			enable;
+	u32			soc[VOLT_GAIN_MAX];
+	u32			medc_gain[VOLT_GAIN_MAX];
+	u32			highc_gain[VOLT_GAIN_MAX];
+};
+
 #define THERMAL_COEFF_N_BYTES		6
 struct fg_chip {
 	struct device		*dev;
@@ -473,6 +481,8 @@ struct fg_chip {
 	bool			bad_batt_detection_en;
 	bool			bcl_lpm_disabled;
 	bool			charging_disabled;
+	bool			use_vbat_low_empty_soc;
+	bool			fg_shutdown;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -532,6 +542,10 @@ struct fg_chip {
 	enum slope_limit_status	slope_limit_sts;
 	u32			slope_limit_temp;
 	u32			slope_limit_coeffs[SLOPE_LIMIT_MAX];
+	/* Discharge soc gain */
+	struct work_struct	dischg_gain_work;
+	struct fg_wakeup_source	dischg_gain_wakeup_source;
+	struct dischg_gain_soc	dischg_gain;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -1091,39 +1105,86 @@ out:
 #define IMA_RD_ACS_ERR			BIT(5)
 #define IMA_IACS_CLR			BIT(2)
 #define IMA_IACS_RDY			BIT(1)
+static int fg_run_iacs_clear_sequence(struct fg_chip *chip)
+{
+	int rc = 0;
+	u8 temp;
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Running IACS clear sequence\n");
+
+	/* clear the error */
+	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
+				IMA_IACS_CLR, IMA_IACS_CLR, 1);
+	if (rc) {
+		pr_err("Error writing to IMA_CFG, rc=%d\n", rc);
+		return rc;
+	}
+
+	temp = 0x4;
+	rc = fg_write(chip, &temp, MEM_INTF_ADDR_LSB(chip) + 1, 1);
+	if (rc) {
+		pr_err("Error writing to MEM_INTF_ADDR_MSB, rc=%d\n", rc);
+		return rc;
+	}
+
+	temp = 0x0;
+	rc = fg_write(chip, &temp, MEM_INTF_WR_DATA0(chip) + 3, 1);
+	if (rc) {
+		pr_err("Error writing to WR_DATA3, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_read(chip, &temp, MEM_INTF_RD_DATA0(chip) + 3, 1);
+	if (rc) {
+		pr_err("Error writing to RD_DATA3, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
+				IMA_IACS_CLR, 0, 1);
+	if (rc) {
+		pr_err("Error writing to IMA_CFG, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("IACS clear sequence complete!\n");
+	return rc;
+}
+
 static int fg_check_ima_exception(struct fg_chip *chip)
 {
 	int rc = 0, ret = 0;
-	u8 err_sts, exp_sts = 0, hw_sts = 0;
+	u8 err_sts = 0, exp_sts = 0, hw_sts = 0;
 
 	rc = fg_read(chip, &err_sts,
 			chip->mem_base + MEM_INTF_IMA_ERR_STS, 1);
 	if (rc) {
-		pr_err("failed to read beat count rc=%d\n", rc);
+		pr_err("failed to read IMA_ERR_STS, rc=%d\n", rc);
 		return rc;
 	}
 
 	if (err_sts & (IMA_ADDR_STBL_ERR | IMA_WR_ACS_ERR | IMA_RD_ACS_ERR)) {
-		u8 temp;
+		rc = fg_read(chip, &exp_sts,
+				chip->mem_base + MEM_INTF_IMA_EXP_STS, 1);
+		if (rc) {
+			pr_err("Error in reading IMA_EXP_STS, rc=%d\n", rc);
+			return rc;
+		}
 
-		fg_read(chip, &exp_sts,
-			chip->mem_base + MEM_INTF_IMA_EXP_STS, 1);
-		fg_read(chip, &hw_sts,
-			chip->mem_base + MEM_INTF_IMA_HW_STS, 1);
+		rc = fg_read(chip, &hw_sts,
+				chip->mem_base + MEM_INTF_IMA_HW_STS, 1);
+		if (rc) {
+			pr_err("Error in reading IMA_HW_STS, rc=%d\n", rc);
+			return rc;
+		}
+
 		pr_err("IMA access failed ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
 				err_sts, exp_sts, hw_sts);
 		rc = err_sts;
 
-		/* clear the error */
-		ret |= fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
-					IMA_IACS_CLR, IMA_IACS_CLR, 1);
-		temp = 0x4;
-		ret |= fg_write(chip, &temp, MEM_INTF_ADDR_LSB(chip) + 1, 1);
-		temp = 0x0;
-		ret |= fg_write(chip, &temp, MEM_INTF_WR_DATA0(chip) + 3, 1);
-		ret |= fg_read(chip, &temp, MEM_INTF_RD_DATA0(chip) + 3, 1);
-		ret |= fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
-					IMA_IACS_CLR, 0, 1);
+		ret = fg_run_iacs_clear_sequence(chip);
 		if (!ret)
 			return -EAGAIN;
 		else
@@ -1376,6 +1437,9 @@ static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 	u8 start_beat_count, end_beat_count, count = 0;
 	bool retry = false;
 
+	if (chip->fg_shutdown)
+		return -EINVAL;
+
 	if (offset > 3) {
 		pr_err("offset too large %d\n", offset);
 		return -EINVAL;
@@ -1398,6 +1462,9 @@ static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 	}
 
 	mutex_lock(&chip->rw_lock);
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("Read for %d bytes is attempted @ 0x%x[%d]\n",
+			len, address, offset);
 
 retry:
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 0);
@@ -1468,6 +1535,9 @@ static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	int rc = 0, orig_address = address;
 	u8 count = 0;
 
+	if (chip->fg_shutdown)
+		return -EINVAL;
+
 	if (address < RAM_OFFSET)
 		return -EINVAL;
 
@@ -1481,6 +1551,9 @@ static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	offset = (orig_address + offset) % 4;
 
 	mutex_lock(&chip->rw_lock);
+	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
+		pr_info("Write for %d bytes is attempted @ 0x%x[%d]\n",
+			len, address, offset);
 
 retry:
 	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 1);
@@ -1705,14 +1778,37 @@ out:
 	return rc;
 }
 
+#define VBATT_LOW_STS_BIT BIT(2)
+static int fg_get_vbatt_status(struct fg_chip *chip, bool *vbatt_low_sts)
+{
+	int rc = 0;
+	u8 fg_batt_sts;
+
+	rc = fg_read(chip, &fg_batt_sts, INT_RT_STS(chip->batt_base), 1);
+	if (rc)
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->batt_base), rc);
+	else
+		*vbatt_low_sts = !!(fg_batt_sts & VBATT_LOW_STS_BIT);
+
+	return rc;
+}
+
 #define SOC_EMPTY	BIT(3)
 static bool fg_is_batt_empty(struct fg_chip *chip)
 {
 	u8 fg_soc_sts;
 	int rc;
+	bool vbatt_low_sts;
 
-	rc = fg_read(chip, &fg_soc_sts,
-				 INT_RT_STS(chip->soc_base), 1);
+	if (chip->use_vbat_low_empty_soc) {
+		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
+			return false;
+
+		return vbatt_low_sts;
+	}
+
+	rc = fg_read(chip, &fg_soc_sts, INT_RT_STS(chip->soc_base), 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n",
 				INT_RT_STS(chip->soc_base), rc);
@@ -2255,18 +2351,6 @@ static int fg_set_resume_soc(struct fg_chip *chip, u8 threshold)
 	else
 		pr_debug("setting resume-soc to %x\n", threshold);
 
-	return rc;
-}
-
-#define VBATT_LOW_STS_BIT BIT(2)
-static int fg_get_vbatt_status(struct fg_chip *chip, bool *vbatt_low_sts)
-{
-	int rc = 0;
-	u8 fg_batt_sts;
-
-	rc = fg_read(chip, &fg_batt_sts, INT_RT_STS(chip->batt_base), 1);
-	if (!rc)
-		*vbatt_low_sts = !!(fg_batt_sts & VBATT_LOW_STS_BIT);
 	return rc;
 }
 
@@ -3505,7 +3589,8 @@ static void status_change_work(struct work_struct *work)
 	}
 	if (chip->status == POWER_SUPPLY_STATUS_FULL ||
 			chip->status == POWER_SUPPLY_STATUS_CHARGING) {
-		if (!chip->vbat_low_irq_enabled) {
+		if (!chip->vbat_low_irq_enabled &&
+				!chip->use_vbat_low_empty_soc) {
 			enable_irq(chip->batt_irq[VBATT_LOW].irq);
 			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = true;
@@ -3513,7 +3598,8 @@ static void status_change_work(struct work_struct *work)
 		if (!!(chip->wa_flag & PULSE_REQUEST_WA) && capacity == 100)
 			fg_configure_soc(chip);
 	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
-		if (chip->vbat_low_irq_enabled) {
+		if (chip->vbat_low_irq_enabled &&
+				!chip->use_vbat_low_empty_soc) {
 			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = false;
@@ -3539,6 +3625,11 @@ static void status_change_work(struct work_struct *work)
 			cancel_delayed_work_sync(&chip->update_temp_work);
 			schedule_delayed_work(&chip->update_temp_work,
 				msecs_to_jiffies(0));
+		}
+
+		if (chip->dischg_gain.enable) {
+			fg_stay_awake(&chip->dischg_gain_wakeup_source);
+			schedule_work(&chip->dischg_gain_work);
 		}
 
 		get_current_time(&current_time);
@@ -4001,21 +4092,40 @@ static bool is_first_est_done(struct fg_chip *chip)
 	return (fg_soc_sts & SOC_FIRST_EST_DONE) ? true : false;
 }
 
+#define FG_EMPTY_DEBOUNCE_MS	1500
 static irqreturn_t fg_vbatt_low_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
-	int rc;
 	bool vbatt_low_sts;
 
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("vbatt-low triggered\n");
 
-	if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
-		rc = fg_get_vbatt_status(chip, &vbatt_low_sts);
-		if (rc) {
-			pr_err("error in reading vbatt_status, rc:%d\n", rc);
+	/* handle empty soc based on vbatt-low interrupt */
+	if (chip->use_vbat_low_empty_soc) {
+		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
 			goto out;
+
+		if (vbatt_low_sts) {
+			if (fg_debug_mask & FG_IRQS)
+				pr_info("Vbatt is low\n");
+			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = false;
+			fg_stay_awake(&chip->empty_check_wakeup_source);
+			schedule_delayed_work(&chip->check_empty_work,
+				msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
+		} else {
+			if (fg_debug_mask & FG_IRQS)
+				pr_info("Vbatt is high\n");
+			chip->soc_empty = false;
 		}
+		goto out;
+	}
+
+	if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
+			goto out;
 		if (!vbatt_low_sts && chip->vbat_low_irq_enabled) {
 			if (fg_debug_mask & FG_IRQS)
 				pr_info("disabling vbatt_low irq\n");
@@ -4104,7 +4214,7 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
 	u8 soc_rt_sts;
-	int rc;
+	int rc, msoc;
 
 	rc = fg_read(chip, &soc_rt_sts, INT_RT_STS(chip->soc_base), 1);
 	if (rc) {
@@ -4115,9 +4225,23 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("triggered 0x%x\n", soc_rt_sts);
 
+	if (chip->dischg_gain.enable) {
+		fg_stay_awake(&chip->dischg_gain_wakeup_source);
+		schedule_work(&chip->dischg_gain_work);
+	}
+
 	if (chip->soc_slope_limiter_en) {
 		fg_stay_awake(&chip->slope_limit_wakeup_source);
 		schedule_work(&chip->slope_limiter_work);
+	}
+
+	if (chip->use_vbat_low_empty_soc) {
+		msoc = get_monotonic_soc_raw(chip);
+		if (msoc == 0 || chip->soc_empty) {
+			fg_stay_awake(&chip->empty_check_wakeup_source);
+			schedule_delayed_work(&chip->check_empty_work,
+				msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
+		}
 	}
 
 	schedule_work(&chip->battery_age_work);
@@ -4158,7 +4282,6 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
-#define FG_EMPTY_DEBOUNCE_MS	1500
 static irqreturn_t fg_empty_soc_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
@@ -4766,6 +4889,58 @@ static void esr_extract_config_work(struct work_struct *work)
 	fg_relax(&chip->esr_extract_wakeup_source);
 }
 
+#define KI_COEFF_MEDC_REG		0x400
+#define KI_COEFF_MEDC_OFFSET		0
+#define KI_COEFF_HIGHC_REG		0x404
+#define KI_COEFF_HIGHC_OFFSET		0
+#define DEFAULT_MEDC_VOLTAGE_GAIN	3
+#define DEFAULT_HIGHC_VOLTAGE_GAIN	2
+static void discharge_gain_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+						dischg_gain_work);
+	u8 buf[2];
+	int capacity, rc, i;
+	int64_t medc_val = DEFAULT_MEDC_VOLTAGE_GAIN;
+	int64_t highc_val = DEFAULT_HIGHC_VOLTAGE_GAIN;
+
+	capacity = get_prop_capacity(chip);
+	if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
+		for (i = VOLT_GAIN_MAX - 1; i >= 0; i--) {
+			if (capacity <= chip->dischg_gain.soc[i]) {
+				medc_val = chip->dischg_gain.medc_gain[i];
+				highc_val = chip->dischg_gain.highc_gain[i];
+			}
+		}
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Capacity: %d, medc_gain: %lld highc_gain: %lld\n",
+			capacity, medc_val, highc_val);
+
+	medc_val *= MICRO_UNIT;
+	half_float_to_buffer(medc_val, buf);
+	rc = fg_mem_write(chip, buf, KI_COEFF_MEDC_REG, 2,
+				KI_COEFF_MEDC_OFFSET, 0);
+	if (rc)
+		pr_err("Couldn't write to ki_coeff_medc_reg, rc=%d\n", rc);
+	else if (fg_debug_mask & FG_STATUS)
+		pr_info("Value [%x %x] written to ki_coeff_medc\n", buf[0],
+			buf[1]);
+
+	highc_val *= MICRO_UNIT;
+	half_float_to_buffer(highc_val, buf);
+	rc = fg_mem_write(chip, buf, KI_COEFF_HIGHC_REG, 2,
+				KI_COEFF_HIGHC_OFFSET, 0);
+	if (rc)
+		pr_err("Couldn't write to ki_coeff_highc_reg, rc=%d\n", rc);
+	else if (fg_debug_mask & FG_STATUS)
+		pr_info("Value [%x %x] written to ki_coeff_highc\n", buf[0],
+			buf[1]);
+
+	fg_relax(&chip->dischg_gain_wakeup_source);
+}
+
 #define LOW_LATENCY			BIT(6)
 #define BATT_PROFILE_OFFSET		0x4C0
 #define PROFILE_INTEGRITY_REG		0x53C
@@ -5312,14 +5487,41 @@ static void check_empty_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				check_empty_work.work);
+	bool vbatt_low_sts;
+	int msoc;
 
-	if (fg_is_batt_empty(chip)) {
+	/* handle empty soc based on vbatt-low interrupt */
+	if (chip->use_vbat_low_empty_soc) {
+		if (fg_get_vbatt_status(chip, &vbatt_low_sts))
+			goto out;
+
+		msoc = get_monotonic_soc_raw(chip);
+
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("Vbatt_low: %d, msoc: %d\n", vbatt_low_sts,
+				msoc);
+		if (vbatt_low_sts || (msoc == 0))
+			chip->soc_empty = true;
+		else
+			chip->soc_empty = false;
+
+		if (chip->power_supply_registered)
+			power_supply_changed(&chip->bms_psy);
+
+		if (!chip->vbat_low_irq_enabled) {
+			enable_irq(chip->batt_irq[VBATT_LOW].irq);
+			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = true;
+		}
+	} else if (fg_is_batt_empty(chip)) {
 		if (fg_debug_mask & FG_STATUS)
 			pr_info("EMPTY SOC high\n");
 		chip->soc_empty = true;
 		if (chip->power_supply_registered)
 			power_supply_changed(&chip->bms_psy);
 	}
+
+out:
 	fg_relax(&chip->empty_check_wakeup_source);
 }
 
@@ -5574,6 +5776,99 @@ do {									\
 	}								\
 } while (0)
 
+static int fg_dischg_gain_dt_init(struct fg_chip *chip)
+{
+	struct device_node *node = chip->spmi->dev.of_node;
+	struct property *prop;
+	int i, rc = 0;
+	size_t size;
+
+	prop = of_find_property(node, "qcom,fg-dischg-voltage-gain-soc",
+			NULL);
+	if (!prop) {
+		pr_err("qcom-fg-dischg-voltage-gain-soc not specified\n");
+		goto out;
+	}
+
+	size = prop->length / sizeof(u32);
+	if (size != VOLT_GAIN_MAX) {
+		pr_err("Voltage gain SOC specified is of incorrect size\n");
+		goto out;
+	}
+
+	rc = of_property_read_u32_array(node,
+		"qcom,fg-dischg-voltage-gain-soc", chip->dischg_gain.soc, size);
+	if (rc < 0) {
+		pr_err("Reading qcom-fg-dischg-voltage-gain-soc failed, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	for (i = 0; i < VOLT_GAIN_MAX; i++) {
+		if (chip->dischg_gain.soc[i] < 0 ||
+				chip->dischg_gain.soc[i] > 100) {
+			pr_err("Incorrect dischg-voltage-gain-soc\n");
+			goto out;
+		}
+	}
+
+	prop = of_find_property(node, "qcom,fg-dischg-med-voltage-gain",
+			NULL);
+	if (!prop) {
+		pr_err("qcom-fg-dischg-med-voltage-gain not specified\n");
+		goto out;
+	}
+
+	size = prop->length / sizeof(u32);
+	if (size != VOLT_GAIN_MAX) {
+		pr_err("med-voltage-gain specified is of incorrect size\n");
+		goto out;
+	}
+
+	rc = of_property_read_u32_array(node,
+		"qcom,fg-dischg-med-voltage-gain", chip->dischg_gain.medc_gain,
+		size);
+	if (rc < 0) {
+		pr_err("Reading qcom-fg-dischg-med-voltage-gain failed, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	prop = of_find_property(node, "qcom,fg-dischg-high-voltage-gain",
+			NULL);
+	if (!prop) {
+		pr_err("qcom-fg-dischg-high-voltage-gain not specified\n");
+		goto out;
+	}
+
+	size = prop->length / sizeof(u32);
+	if (size != VOLT_GAIN_MAX) {
+		pr_err("high-voltage-gain specified is of incorrect size\n");
+		goto out;
+	}
+
+	rc = of_property_read_u32_array(node,
+		"qcom,fg-dischg-high-voltage-gain",
+		chip->dischg_gain.highc_gain, size);
+	if (rc < 0) {
+		pr_err("Reading qcom-fg-dischg-high-voltage-gain failed, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	if (fg_debug_mask & FG_STATUS) {
+		for (i = 0; i < VOLT_GAIN_MAX; i++)
+			pr_info("SOC:%d MedC_Gain:%d HighC_Gain: %d\n",
+				chip->dischg_gain.soc[i],
+				chip->dischg_gain.medc_gain[i],
+				chip->dischg_gain.highc_gain[i]);
+	}
+	return 0;
+out:
+	chip->dischg_gain.enable = false;
+	return rc;
+}
+
 #define DEFAULT_EVALUATION_CURRENT_MA	1000
 static int fg_of_init(struct fg_chip *chip)
 {
@@ -5750,6 +6045,20 @@ static int fg_of_init(struct fg_chip *chip)
 
 	OF_READ_PROPERTY(chip->rconn_mohm, "fg-rconn-mohm", rc, 0);
 
+	chip->dischg_gain.enable = of_property_read_bool(node,
+					"qcom,fg-dischg-voltage-gain-ctrl");
+	if (chip->dischg_gain.enable) {
+		rc = fg_dischg_gain_dt_init(chip);
+		if (rc) {
+			pr_err("Error in reading dischg_gain parameters, rc=%d\n",
+				rc);
+			rc = 0;
+		}
+	}
+
+	chip->use_vbat_low_empty_soc = of_property_read_bool(node,
+					"qcom,fg-use-vbat-low-empty-soc");
+
 	return rc;
 }
 
@@ -5798,7 +6107,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 			chip->soc_irq[EMPTY_SOC].irq = spmi_get_irq_byname(
 					chip->spmi, spmi_resource, "empty-soc");
 			if (chip->soc_irq[EMPTY_SOC].irq < 0) {
-				pr_err("Unable to get low-soc irq\n");
+				pr_err("Unable to get empty-soc irq\n");
 				return rc;
 			}
 			chip->soc_irq[DELTA_SOC].irq = spmi_get_irq_byname(
@@ -5823,16 +6132,22 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->soc_irq[FULL_SOC].irq, rc);
 				return rc;
 			}
-			rc = devm_request_irq(chip->dev,
-				chip->soc_irq[EMPTY_SOC].irq,
-				fg_empty_soc_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"empty-soc", chip);
-			if (rc < 0) {
-				pr_err("Can't request %d empty-soc: %d\n",
-					chip->soc_irq[EMPTY_SOC].irq, rc);
-				return rc;
+
+			if (!chip->use_vbat_low_empty_soc) {
+				rc = devm_request_irq(chip->dev,
+					chip->soc_irq[EMPTY_SOC].irq,
+					fg_empty_soc_irq_handler,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING,
+					"empty-soc", chip);
+				if (rc < 0) {
+					pr_err("Can't request %d empty-soc: %d\n",
+						chip->soc_irq[EMPTY_SOC].irq,
+						rc);
+					return rc;
+				}
 			}
+
 			rc = devm_request_irq(chip->dev,
 				chip->soc_irq[DELTA_SOC].irq,
 				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
@@ -5854,7 +6169,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 
 			enable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
 			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
-			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
+			if (!chip->use_vbat_low_empty_soc)
+				enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
 			break;
 		case FG_MEMIF:
 			chip->mem_irq[FG_MEM_AVAIL].irq = spmi_get_irq_byname(
@@ -5916,8 +6232,14 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->batt_irq[VBATT_LOW].irq, rc);
 				return rc;
 			}
-			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
-			chip->vbat_low_irq_enabled = false;
+			if (chip->use_vbat_low_empty_soc) {
+				enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+				chip->vbat_low_irq_enabled = true;
+			} else {
+				disable_irq_nosync(
+					chip->batt_irq[VBATT_LOW].irq);
+				chip->vbat_low_irq_enabled = false;
+			}
 			break;
 		case FG_ADC:
 			break;
@@ -5930,7 +6252,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 	return rc;
 }
 
-static void fg_cleanup(struct fg_chip *chip)
+static void fg_cancel_all_works(struct fg_chip *chip)
 {
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
@@ -5949,8 +6271,15 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->gain_comp_work);
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
+	cancel_work_sync(&chip->bcl_hi_power_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
 	cancel_work_sync(&chip->slope_limiter_work);
+	cancel_work_sync(&chip->dischg_gain_work);
+}
+
+static void fg_cleanup(struct fg_chip *chip)
+{
+	fg_cancel_all_works(chip);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -5967,6 +6296,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
 	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
+	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
 }
 
 static int fg_remove(struct spmi_device *spmi)
@@ -6449,8 +6779,9 @@ static int fg_common_hw_init(struct fg_chip *chip)
 
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
-	update_irq_volt_empty(chip);
 	update_bcl_thresholds(chip);
+	if (!chip->use_vbat_low_empty_soc)
+		update_irq_volt_empty(chip);
 
 	resume_soc_raw = settings[FG_MEM_RESUME_SOC].value;
 	if (resume_soc_raw > 0) {
@@ -6479,6 +6810,11 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		pr_err("failed to write delta soc rc=%d\n", rc);
 		return rc;
 	}
+
+	/* Override the voltage threshold for vbatt_low with empty_volt */
+	if (chip->use_vbat_low_empty_soc)
+		settings[FG_MEM_BATT_LOW].value =
+			settings[FG_MEM_IRQ_VOLT_EMPTY].value;
 
 	rc = fg_mem_masked_write(chip, settings[FG_MEM_BATT_LOW].address, 0xFF,
 			batt_to_setpoint_8b(settings[FG_MEM_BATT_LOW].value),
@@ -6959,6 +7295,8 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_esr_extract");
 	wakeup_source_init(&chip->slope_limit_wakeup_source.source,
 			"qpnp_fg_slope_limit");
+	wakeup_source_init(&chip->dischg_gain_wakeup_source.source,
+			"qpnp_fg_dischg_gain");
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
 	mutex_init(&chip->learning_data.learning_lock);
@@ -6984,6 +7322,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->bcl_hi_power_work, bcl_hi_power_work);
 	INIT_WORK(&chip->esr_extract_config_work, esr_extract_config_work);
 	INIT_WORK(&chip->slope_limiter_work, slope_limiter_work);
+	INIT_WORK(&chip->dischg_gain_work, discharge_gain_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -7134,26 +7473,7 @@ static int fg_probe(struct spmi_device *spmi)
 power_supply_unregister:
 	power_supply_unregister(&chip->bms_psy);
 cancel_work:
-	cancel_delayed_work_sync(&chip->update_jeita_setting);
-	cancel_delayed_work_sync(&chip->update_sram_data);
-	cancel_delayed_work_sync(&chip->update_temp_work);
-	cancel_delayed_work_sync(&chip->check_empty_work);
-	cancel_delayed_work_sync(&chip->batt_profile_init);
-	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
-	cancel_work_sync(&chip->set_resume_soc_work);
-	cancel_work_sync(&chip->fg_cap_learning_work);
-	cancel_work_sync(&chip->dump_sram);
-	cancel_work_sync(&chip->status_change_work);
-	cancel_work_sync(&chip->cycle_count_work);
-	cancel_work_sync(&chip->update_esr_work);
-	cancel_work_sync(&chip->rslow_comp_work);
-	cancel_work_sync(&chip->sysfs_restart_work);
-	cancel_work_sync(&chip->gain_comp_work);
-	cancel_work_sync(&chip->init_work);
-	cancel_work_sync(&chip->charge_full_work);
-	cancel_work_sync(&chip->bcl_hi_power_work);
-	cancel_work_sync(&chip->esr_extract_config_work);
-	cancel_work_sync(&chip->slope_limiter_work);
+	fg_cancel_all_works(chip);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -7170,6 +7490,7 @@ of_init_fail:
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
 	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
+	wakeup_source_trash(&chip->dischg_gain_wakeup_source.source);
 	return rc;
 }
 
@@ -7224,6 +7545,47 @@ static int fg_resume(struct device *dev)
 
 	check_and_update_sram_data(chip);
 	return 0;
+}
+
+static void fg_check_ima_idle(struct fg_chip *chip)
+{
+	bool rif_mem_sts = true;
+	int rc, time_count = 0;
+
+	mutex_lock(&chip->rw_lock);
+	/* Make sure IMA is idle */
+	while (1) {
+		rc = fg_check_rif_mem_access(chip, &rif_mem_sts);
+		if (rc)
+			break;
+
+		if (!rif_mem_sts)
+			break;
+
+		if  (time_count > 4) {
+			pr_err("Waited for ~16ms polling RIF_MEM_ACCESS_REQ\n");
+			fg_run_iacs_clear_sequence(chip);
+			break;
+		}
+
+		/* Wait for 4ms before reading RIF_MEM_ACCESS_REQ again */
+		usleep_range(4000, 4100);
+		time_count++;
+	}
+	mutex_unlock(&chip->rw_lock);
+}
+
+static void fg_shutdown(struct spmi_device *spmi)
+{
+	struct fg_chip *chip = dev_get_drvdata(&spmi->dev);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_emerg("FG shutdown started\n");
+	fg_cancel_all_works(chip);
+	fg_check_ima_idle(chip);
+	chip->fg_shutdown = true;
+	if (fg_debug_mask & FG_STATUS)
+		pr_emerg("FG shutdown complete\n");
 }
 
 static const struct dev_pm_ops qpnp_fg_pm_ops = {
@@ -7313,6 +7675,7 @@ static struct spmi_driver fg_driver = {
 	},
 	.probe		= fg_probe,
 	.remove		= fg_remove,
+	.shutdown	= fg_shutdown,
 };
 
 static int __init fg_init(void)
