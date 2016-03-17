@@ -83,11 +83,10 @@ unsigned int qmp_phy_rev2[] = {
 	[USB3_PHY_START] = 0x608,
 };
 
-/* reg values to write based on the phy clk scheme selected */
+/* reg values to write */
 struct qmp_reg_val {
 	u32 offset;
-	u32 diff_clk_sel_val;
-	u32 se_clk_sel_val;
+	u32 val;
 	u32 delay;
 };
 
@@ -487,7 +486,6 @@ static int configure_phy_regs(struct usb_phy *uphy,
 {
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
-	bool diff_clk_sel = true;
 
 	if (!reg) {
 		dev_err(uphy->dev, "NULL PHY configuration\n");
@@ -495,9 +493,7 @@ static int configure_phy_regs(struct usb_phy *uphy,
 	}
 
 	while (reg->offset != -1) {
-		writel_relaxed(diff_clk_sel ?
-				reg->diff_clk_sel_val : reg->se_clk_sel_val,
-				phy->base + reg->offset);
+		writel_relaxed(reg->val, phy->base + reg->offset);
 		if (reg->delay)
 			usleep_range(reg->delay, reg->delay + 10);
 		reg++;

@@ -115,8 +115,8 @@ Optional properties:
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
  - qcom,emulation: Indicates that we are running on emulation platform.
- - qcom,qmp-phy-init-seq: QMP PHY initialization sequence with reg, diff clk
-   value, single ended clk value, delay after register write.
+ - qcom,qmp-phy-init-seq: QMP PHY initialization sequence with reg offset, its
+   value, delay after register write.
  - qcom,qmp-phy-reg-offset: If present stores phy register offsets in an order
    defined in the phy driver.
 
