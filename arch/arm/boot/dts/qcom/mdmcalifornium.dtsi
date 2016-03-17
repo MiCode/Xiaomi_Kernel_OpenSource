@@ -880,6 +880,20 @@
 				<45 512 207108 1146880>, <1 512 207108 3124992>;
 	};
 
+	qcom,cnss_sdio {
+		compatible = "qcom,cnss_sdio";
+		subsys-name = "AR6320_SDIO";
+		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-xtal-supply = <&pmdcalifornium_l5>;
+		vdd-wlan-io-supply = <&pmdcalifornium_l6>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&cnss_sdio_active>;
+		pinctrl-1 = <&cnss_sdio_sleep>;
+		qcom,is-antenna-shared;
+		status = "disabled";
+	};
+
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <3>;
