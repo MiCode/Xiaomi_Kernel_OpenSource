@@ -1100,6 +1100,7 @@
 		vdda33-supply = <&pmcobalt_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		phy_type= "utmi";
+		qcom,phy-clk-scheme = "cml";
 
 		clocks = <&clock_gcc clk_ln_bb_clk1>,
 			 <&clock_gcc clk_gcc_rx1_usb2_clkref_clk>,

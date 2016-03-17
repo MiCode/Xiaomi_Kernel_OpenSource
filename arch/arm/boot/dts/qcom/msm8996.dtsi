@@ -2080,6 +2080,7 @@
 					0x9F 0x1C
 					0x00 0x18>;
 		phy_type= "utmi";
+		qcom,phy-clk-scheme = "cmos";
 
 		clocks = <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_gcc_qusb2phy_prim_reset>,
@@ -2115,6 +2116,7 @@
 					0x9F 0x1C
 					0x00 0x18>;
 		phy_type = "utmi";
+		qcom,phy-clk-scheme = "cmos";
 		qcom,hold-reset;
 
 		clocks = <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
