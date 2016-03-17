@@ -1391,6 +1391,14 @@ void mdss_mdp_init_default_prefill_factors(struct mdss_data_type *mdata)
 	mdata->prefill_data.prefill_factors.fmt_linear_factor = 1;
 	mdata->prefill_data.prefill_factors.scale_factor = 1;
 	mdata->prefill_data.prefill_factors.xtra_ff_factor = 2;
+
+	if (test_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map)) {
+		mdata->prefill_data.ts_threshold = 25;
+		mdata->prefill_data.ts_end = 8;
+		mdata->prefill_data.ts_rate.numer = 1;
+		mdata->prefill_data.ts_rate.denom = 4;
+		mdata->prefill_data.ts_overhead = 2;
+	}
 }
 
 static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
@@ -1517,7 +1525,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->per_pipe_ib_factor.denom = 5;
 		mdata->apply_post_scale_bytes = false;
 		mdata->hflip_buffer_reused = false;
-		mdata->min_prefill_lines = 21;
+		mdata->min_prefill_lines = 25;
 		mdata->has_ubwc = true;
 		mdata->pixel_ram_size = 50 * 1024;
 		mdata->rects_per_sspp[MDSS_MDP_PIPE_TYPE_DMA] = 2;
@@ -1528,6 +1536,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map);
 		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED,
 			mdata->mdss_caps_map);
@@ -1989,6 +1998,13 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 			mdata->prefill_data.prefill_factors.scale_factor);
 		SPRINT("xtra_ff_factor=%d\n",
 			mdata->prefill_data.prefill_factors.xtra_ff_factor);
+	}
+
+	if (test_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map)) {
+		SPRINT("amortizable_threshold=%d\n",
+			mdata->prefill_data.ts_threshold);
+		SPRINT("system_overhead_lines=%d\n",
+			mdata->prefill_data.ts_overhead);
 	}
 
 	if (mdata->props)
