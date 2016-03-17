@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -635,6 +635,7 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_ASPECT_RATIO:
 	case HAL_EXTRADATA_INPUT_CROP:
 	case HAL_EXTRADATA_DIGITAL_ZOOM:
+	case HAL_EXTRADATA_OUTPUT_CROP:
 		ret = HFI_PROPERTY_PARAM_INDEX_EXTRADATA;
 		break;
 	case HAL_EXTRADATA_MPEG2_SEQDISP:
@@ -683,6 +684,9 @@ static int get_hfi_extradata_id(enum hal_extradata_id index)
 		break;
 	case HAL_EXTRADATA_DIGITAL_ZOOM:
 		ret = MSM_VIDC_EXTRADATA_DIGITAL_ZOOM;
+		break;
+	case HAL_EXTRADATA_OUTPUT_CROP:
+		ret = MSM_VIDC_EXTRADATA_OUTPUT_CROP;
 		break;
 	default:
 		ret = get_hfi_extradata_index(index);
