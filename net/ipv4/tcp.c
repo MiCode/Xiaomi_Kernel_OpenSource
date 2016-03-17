@@ -2724,6 +2724,14 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
 	rate = READ_ONCE(sk->sk_max_pacing_rate);
 	info->tcpi_max_pacing_rate = rate != ~0U ? rate : ~0ULL;
 
+	/* Expose reference count for socket */
+	if (sk->sk_socket) {
+		struct file *filep = sk->sk_socket->file;
+
+		if (filep)
+			info->tcpi_count = file_count(filep);
+	}
+
 	do {
 		start = u64_stats_fetch_begin_irq(&tp->syncp);
 		info->tcpi_bytes_acked = tp->bytes_acked;
