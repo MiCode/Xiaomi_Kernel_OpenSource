@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,6 +86,6 @@
 		qcom,mdss-dsi-fbc-h-line-budget = <1200>;
 		qcom,mdss-dsi-fbc-lossless-threshold = <0x200>;
 		qcom,mdss-dsi-fbc-lossy-threshold = <192>;
-		qcom,mdss-dsi-fbc-rgb-threshold = <4>;
+		qcom,mdss-dsi-fbc-rgb-threshold = <0>;
 	};
 };

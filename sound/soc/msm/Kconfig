@@ -307,6 +307,31 @@ config SND_SOC_MDM9630
 	help
 	 To add support for SoC audio on MDM9630 boards.
 
+config SND_SOC_MSM8992
+	tristate "SoC Machine driver for MSM8992 boards"
+	depends on ARCH_MSM8994
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_DYNAMIC_MINORS
+	select MSM_QDSP6_APRV2
+	select MSM_QDSP6V2_CODECS
+	select SND_SOC_WCD9330
+	select SND_SOC_MSM_HDMI_CODEC_RX
+	select QTI_PP
+	select DTS_SRS_TM
+	select SND_SOC_CPE
+	select MSM_ULTRASOUND
+	select DOLBY_DS2
+	select SND_HWDEP
+	select DTS_EAGLE
+	help
+	 To add support for SoC audio on MSM8992.
+	 This will enable sound soc drivers which
+	 interfaces with DSP, also it will enable
+	 the machine drivers and the corresponding
+	 DAI-links.
+
 config SND_SOC_MSM8994
 	tristate "SoC Machine driver for MSM8994 boards"
 	depends on ARCH_MSM8994
@@ -317,6 +342,7 @@ config SND_SOC_MSM8994
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select SND_SOC_WCD9330
+	select SND_SOC_TAS2552
 	select SND_SOC_MSM_HDMI_CODEC_RX
 	select QTI_PP
 	select DTS_SRS_TM

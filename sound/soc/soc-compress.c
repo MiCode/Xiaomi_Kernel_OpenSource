@@ -2,6 +2,7 @@
  * soc-compress.c  --  ALSA SoC Compress
  *
  * Copyright (C) 2012 Intel Corp.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Authors: Namarta Kohli <namartax.kohli@intel.com>
  *          Ramesh Babu K V <ramesh.babu@linux.intel.com>
@@ -540,7 +541,7 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 				goto out;
 		}
 
-		memset(&fe->dpcm[fe_substream->stream].hw_params, 0,
+		memcpy(&fe->dpcm[fe_substream->stream].hw_params, params,
 				sizeof(struct snd_pcm_hw_params));
 
 		fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
@@ -553,7 +554,7 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 		if (ret < 0)
 			goto out;
 	} else {
-		memset(&fe->dpcm[fe_substream->stream].hw_params, 0,
+		memcpy(&fe->dpcm[fe_substream->stream].hw_params, params,
 				sizeof(struct snd_pcm_hw_params));
 
 		fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
@@ -848,7 +849,7 @@ int soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 		}
 	}
 
-	printk(KERN_INFO "compress asoc: %s <-> %s mapping ok\n", codec_dai->name,
+	printk(KERN_DEBUG "compress asoc: %s <-> %s mapping ok\n", codec_dai->name,
 		cpu_dai->name);
 	return ret;
 

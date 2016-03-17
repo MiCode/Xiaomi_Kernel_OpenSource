@@ -1,5 +1,6 @@
 
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -539,9 +540,17 @@
 	qcom,use-otp-profile;
 };
 
+&usb_otg_switch {
+	status = "disabled";
+};
+
 &pmi8994_charger {
+	/delete-property/ otg-parent-supply;
 	qcom,dc-psy-type = "Wipower";
 	qcom,charge-unknown-battery;
+	smbcharger_charger_otg {
+		parent-supply = <&pmi8994_boost_5v>;
+	};
 };
 
 &slim_msm {

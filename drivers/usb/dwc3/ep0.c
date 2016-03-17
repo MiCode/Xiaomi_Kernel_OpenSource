@@ -2,6 +2,7 @@
  * ep0.c - DesignWare USB3 DRD Controller Endpoint 0 Handling
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -773,6 +774,7 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 	struct usb_ctrlrequest *ctrl = dwc->ctrl_req;
 	int ret = -EINVAL;
 	u32 len;
+	u8 *sys_state = &(dwc->gadget.usb_sys_state);
 
 	if (!dwc->gadget_driver)
 		goto out;
@@ -789,6 +791,33 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 	}
 
 	dbg_setup(0x00, ctrl);
+
+	if (!GADGET_STATE_DONE(*sys_state)) {
+		switch (GADGET_STATE_PROCESS(*sys_state)) {
+		case GADGET_STATE_PROCESS_GET:
+			if (ctrl->bRequest == USB_REQ_SET_CONFIGURATION)
+				*sys_state = GADGET_STATE_PROCESS_SET;
+			else if (ctrl->bRequest == USB_REQ_CLEAR_FEATURE) {
+				pr_info("[%s]host system may be windows", __func__);
+				*sys_state = GADGET_STATE_DONE_RESET;
+			}
+			break;
+		case GADGET_STATE_PROCESS_SET:
+			if (ctrl->bRequest == USB_REQ_CLEAR_FEATURE) {
+				pr_info("[%s]host system may be windows", __func__);
+				*sys_state = GADGET_STATE_DONE_RESET;
+			} else {
+				pr_info("[%s]host system may be mac os or linux", __func__);
+				*sys_state = GADGET_STATE_DONE_SET;
+			}
+			break;
+		default:
+			if (ctrl->bRequest == USB_REQ_GET_DESCRIPTOR)
+				*sys_state = GADGET_STATE_PROCESS_GET;
+			break;
+		}
+	}
+
 	if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_STANDARD)
 		ret = dwc3_ep0_std_request(dwc, ctrl);
 	else

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -152,6 +153,9 @@ struct input_dev {
 
 	unsigned int repeat_key;
 	struct timer_list timer;
+	u64 input_active_start;
+	u64 input_active_count;
+	struct timer_list counter;
 
 	int rep[REP_CNT];
 

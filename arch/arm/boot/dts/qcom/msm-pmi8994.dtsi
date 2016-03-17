@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +28,7 @@
 			reg = <0x100 0x100>;
 		};
 
-		qcom,power-on@800 {
+		pmi8994_pon: qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 			qcom,secondary-pon-reset;
@@ -201,19 +202,15 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <100>;
-			qcom,fastchg-current-ma = <2000>;
-			qcom,float-voltage-mv = <4350>;
+			qcom,fastchg-current-ma = <2300>;
+			qcom,float-voltage-mv = <4400>;
 			qcom,resume-delta-mv = <200>;
 			qcom,chg-inhibit-fg;
-			qcom,dc-psy-type = "Mains";
-			qcom,dc-psy-ma = <1500>;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
-			qcom,thermal-mitigation = <1500 700 600 0>;
-			qcom,parallel-usb-min-current-ma = <1400>;
-			qcom,parallel-usb-9v-min-current-ma = <900>;
-			qcom,parallel-allowed-lowering-ma = <500>;
-			qcom,autoadjust-vfloat;
+
+			qcom,float-voltage-comp = <16>;
+			qcom,fastchg-current-comp = <900>;
 			qcom,pmic-revid = <&pmi8994_revid>;
 
 			qcom,chgr@1000 {
@@ -313,15 +310,19 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qcom,resume-soc = <95>;
+			qcom,resume-soc = <99>;
 			status = "okay";
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
 			qcom,fg-iterm-ma = <125>;
 			qcom,fg-chg-iterm-ma = <100>;
+			fg-cutoff-voltage-mv = <3400>;
+			qcom,thermal-coefficients = [dd 85 63 4a e6 35];
+			qcom,fg-vbat-estimate-diff-mv = <100>;
 			qcom,cycle-counter-en;
+			qcom,cycle-counter-low-soc = <15>;
+			qcom,cycle-counter-high-soc = <85>;
 			qcom,capacity-learning-on;
-			qcom,fg-cc-cv-threshold-mv = <4340>;
 			qcom,pmic-revid = <&pmi8994_revid>;
 
 			qcom,fg-soc@4000 {
@@ -530,7 +531,7 @@
 			linux,default-trigger = "bkl-trigger";
 			qcom,fdbk-output = "auto";
 			qcom,vref-mv = <350>;
-			qcom,switch-freq-khz = <800>;
+			qcom,switch-freq-khz = <600>;
 			qcom,ovp-mv = <29500>;
 			qcom,ilim-ma = <980>;
 			qcom,boost-duty-ns = <26>;
@@ -538,9 +539,10 @@
 			qcom,dim-mode = "hybrid";
 			qcom,hyb-thres = <625>;
 			qcom,sync-dly-us = <800>;
-			qcom,fs-curr-ua = <16000>;
+			qcom,fs-curr-ua = <20000>;
+			qcom,en-cabc;
 			qcom,en-phase-stag;
-			qcom,led-strings-list = [00 01 02 03];
+			qcom,led-strings-list = [00 01];
 			qcom,en-ext-pfet-sc-pro;
 		};
 
@@ -583,8 +585,19 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "red";
-				linux,default-trigger =
-					"battery-charging";
+				qcom,use-blink;
+				qcom,idx-len = <22>;
+				qcom,duty-pcts = [
+					00 00 03 0b 19 2a
+					3b 4b 59 61 64
+					64 61 59 4b 3b
+					2a 19 0b 03 00
+					00];
+				qcom,lut-flags = <3>;
+				qcom,pause-lo = <0>;
+				qcom,pause-hi = <0>;
+				qcom,start-idx = <1>;
+				qcom,ramp-step-ms = <150>;
 			};
 
 			qcom,rgb_1 {
@@ -596,7 +609,19 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "green";
-				linux,default-trigger = "battery-full";
+				qcom,use-blink;
+				qcom,idx-len = <22>;
+				qcom,duty-pcts = [
+					00 00 03 0b 19 2a
+					3b 4b 59 61 64
+					64 61 59 4b 3b
+					2a 19 0b 03 00
+					00];
+				qcom,lut-flags = <3>;
+				qcom,pause-lo = <0>;
+				qcom,pause-hi = <0>;
+				qcom,start-idx = <1>;
+				qcom,ramp-step-ms = <150>;
 			};
 
 			qcom,rgb_2 {
@@ -608,7 +633,19 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "blue";
-				linux,default-trigger = "boot-indication";
+				qcom,use-blink;
+				qcom,idx-len = <22>;
+				qcom,duty-pcts = [
+					00 00 03 0b 19 2a
+					3b 4b 59 61 64
+					64 61 59 4b 3b
+					2a 19 0b 03 00
+					00];
+				qcom,lut-flags = <3>;
+				qcom,pause-lo = <0>;
+				qcom,pause-hi = <0>;
+				qcom,start-idx = <1>;
+				qcom,ramp-step-ms = <150>;
 			};
 		};
 
@@ -631,6 +668,7 @@
 			qcom,vph-pwr-droop-enabled;
 			qcom,vph-pwr-droop-threshold = <3000>;
 			qcom,vph-pwr-droop-debounce-time = <10>;
+			qcom,pon-dev = <&pmi8994_pon>;
 			qcom,headroom-sense-ch0-enabled;
 			qcom,headroom-sense-ch1-enabled;
 			qcom,power-detect-enabled;

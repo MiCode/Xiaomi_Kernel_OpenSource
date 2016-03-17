@@ -100,6 +100,12 @@ config TOUCHSCREEN_ATMEL_MXT
 	  To compile this driver as a module, choose M here: the
 	  module will be called atmel_mxt_ts.
 
+config TOUCHSCREEN_ATMEL_MXT_EDGE_SUPPORT
+	tristate "Atmel mXT I2C Touchscreen edge support"
+	depends on TOUCHSCREEN_ATMEL_MXT
+	help
+	  Say Y here is your Atmel mXT support edge touch.
+
 config TOUCHSCREEN_ATMEL_MAXTOUCH_TS
 	tristate "Atmel Maxtouch Touchscreen Family"
 	depends on I2C
@@ -180,6 +186,17 @@ config TOUCHSCREEN_CYTTSP_SPI
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called cyttsp_spi.
+
+config TOUCHSCREEN_CYTTSP_BUTTON
+	tristate "Cypress I2C button"
+	depends on I2C
+	help
+	  Say Y here if you have Cypressseries I2C button,
+	  such as 3155 or 3175, connected to your system.
+
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here: the
+	  module will be called CYTTSP BUTTON.
 
 config TOUCHSCREEN_DA9034
 	tristate "Touchscreen support for Dialog Semiconductor DA9034"
@@ -1039,6 +1056,8 @@ config TOUCHSCREEN_GT9XX
           If unsure, say N.
 
 source "drivers/input/touchscreen/gt9xx/Kconfig"
+
+source "drivers/input/touchscreen/ft5x46/Kconfig"
 
 config TOUCHSCREEN_BU21150
 	tristate "JDI AFE BU21150"

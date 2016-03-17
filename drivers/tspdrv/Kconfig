@@ -1,0 +1,17 @@
+menu "TouchSense driver support"
+
+config TSPDRV
+	bool
+
+config TSPDRV_DRV2604
+	tristate "TouchSense TI DRV2604 driver support"
+	depends on I2C
+	select TSPDRV
+	default n
+
+config TSPDRV_ISA1000
+	tristate "TouchSense ISA1000 driver support"
+	select TSPDRV
+	default n
+
+endmenu

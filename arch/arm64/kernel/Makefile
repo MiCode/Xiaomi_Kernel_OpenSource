@@ -17,6 +17,7 @@ arm64-obj-y		:= cputable.o debug-monitors.o entry.o irq.o fpsimd.o	\
 			   sys.o stacktrace.o time.o traps.o io.o vdso.o	\
 			   hyp-stub.o psci.o cpu_ops.o insn.o opcodes.o		\
 			   return_address.o
+arm64-obj-$(CONFIG_BOOT_INFO)           += bootinfo.o
 
 arm64-obj-$(CONFIG_COMPAT)		+= sys32.o kuser32.o signal32.o		\
 					   sys_compat.o

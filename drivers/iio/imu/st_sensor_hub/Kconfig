@@ -1,0 +1,79 @@
+#
+# STMicroelectronics sensor-hub core driver
+#
+
+menuconfig IIO_ST_HUB_DRIVERS
+	tristate "STMicroelectronics sensor-hub Driver"
+	depends on (I2C || SPI_MASTER) && SYSFS
+	select IIO_BUFFER
+	select IIO_BUFFER_CB
+	select IIO_TRIGGERED_BUFFER
+	select IIO_ST_HUB_I2C if I2C
+	select IIO_ST_HUB_SPI if SPI_MASTER
+	help
+	  Say yes here to build support for STMicroelectronics sensor-hub
+	  sensors: LIS331EB, LIS332EB, LSM6DB0.
+
+	  This driver can also be built as a module. If so, will be created
+	  these modules:
+	  - st_sensor_hub_core;
+	  - st_hub_ymodem;
+	  - st_hub_accel;
+	  - st_hub_magn;
+	  - st_hub_magn_uncalib;
+	  - st_hub_gyro;
+	  - st_hub_gyro_uncalib;
+	  - st_hub_sensor_events;
+	  - st_hub_quaternion;
+	  - st_hub_step_detector;
+	  - st_hub_step_counter;
+	  - st_hub_euler;
+	  - st_hub_linear;
+	  - st_hub_gravity;
+	  - st_hub_activity;
+
+if IIO_ST_HUB_DRIVERS
+config IIO_ST_HUB_RESET_GPIO
+	bool "Reset pin control"
+	help
+	  Say yes here to use reset GPIO pin control.
+
+	  If this feature is enabled, drivers needs a GPIO to reset the sensor
+	  at boot-time.
+	  To use Ram loaded this parameter is needed.
+
+config IIO_ST_HUB_RAM_LOADER
+	bool "RAM loader"
+	select IIO_ST_HUB_RESET_GPIO
+	help
+	  Say yes here to support Ram Loader feature.
+
+	  If this feature is enabled, the firmware will be download every time
+	  at boot-time.
+
+config IIO_ST_HUB_DISABLE_ALL_SENSORS_ON_SUSPEND
+	bool "Disable all sensors during suspend"
+	help
+	  Say yes here to disable all sensors during suspend. Say no here
+	  to disable only sensors not in batch mode.
+
+	  If this feature is enabled, all sensors are disabled during suspend.
+
+config IIO_ST_HUB_BUILTIN_FIRMWARE
+	depends on IIO_ST_HUB_RAM_LOADER
+	bool "Use built-in firmware"
+	help
+	  Say yes here to use the built-in firmware (st-sensor-hub.fw)
+
+	  If this feature is disabled and ram loader is enabled driver get
+	  firmware from filesystem.
+
+config IIO_ST_HUB_I2C
+	tristate
+	depends on IIO_ST_HUB_DRIVERS
+
+config IIO_ST_HUB_SPI
+	tristate
+	depends on IIO_ST_HUB_DRIVERS
+
+endif

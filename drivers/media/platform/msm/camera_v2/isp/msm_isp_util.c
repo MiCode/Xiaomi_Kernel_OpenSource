@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,6 +182,10 @@ int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 			path->vectors[0].ib +=
 				isp_bandwidth_mgr.client_info[i].ib;
 		}
+	}
+	if (path->vectors[0].ab > 0 && path->vectors[0].ib > 0) {
+		path->vectors[0].ab += MSM_ISP_MIN_AB;
+		path->vectors[0].ib += MSM_ISP_MIN_IB;
 	}
 	msm_bus_scale_client_update_request(isp_bandwidth_mgr.bus_client,
 		isp_bandwidth_mgr.bus_vector_active_idx);

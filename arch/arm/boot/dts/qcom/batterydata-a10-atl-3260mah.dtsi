@@ -1,0 +1,47 @@
+qcom,a10_atl {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3260>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <4250>;
+	qcom,battery-type = "a10_atl";
+	qcom,chg-rslow-comp-c1 = <2744320>;
+	qcom,chg-rslow-comp-c2 = <3210490>;
+	qcom,chg-rs-to-rslow = <1047015>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0x7C43>;
+	qcom,gui-version = "PMI8994GUI - 2.1.6.8";
+	qcom,fg-profile-data = [
+		 E0 83 DC 7C
+		 38 81 96 77
+		 5E 83 D5 6D
+		 7D 88 65 8F
+		 58 82 22 98
+		 96 B5 11 C1
+		 52 18 0E 88
+		 AB 7E 86 82
+		 03 7D 56 83
+		 47 68 5A 7B
+		 04 8C 4A 82
+		 D1 99 2E BD
+		 47 CA 59 0E
+		 D7 0C 44 5A
+		 14 70 4F FE
+		 9A 37 E7 3E
+		 6E 33 00 00
+		 09 4D DA 29
+		 7B 48 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 6B 70 FA 6A
+		 9D 72 0D 89
+		 FC 6F 3D 68
+		 A3 6A 89 81
+		 98 6D 34 61
+		 8F 6D 26 A3
+		 1A 68 68 A3
+		 66 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

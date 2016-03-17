@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -206,6 +207,10 @@ static inline void arch_read_unlock(arch_rwlock_t *rw)
 	"1:	ldxr	%w0, %2\n"
 	"	sub	%w0, %w0, #1\n"
 	"	stlxr	%w1, %w0, %2\n"
+#ifdef CONFIG_ARM64_SEV_IN_LOCK_UNLOCK
+	"	dsb sy\n"
+	"	sev\n"
+#endif
 	"	cbnz	%w1, 1b\n"
 #ifdef CONFIG_ARM64_SEV_IN_LOCK_UNLOCK
 	"	dsb sy\n"

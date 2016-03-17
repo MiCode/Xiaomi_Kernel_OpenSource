@@ -1,6 +1,7 @@
 /*
  *  Digital Audio (PCM) abstract layer
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -592,7 +593,12 @@ static int snd_pcm_sw_params_user(struct snd_pcm_substream *substream,
 int snd_pcm_status(struct snd_pcm_substream *substream,
 		   struct snd_pcm_status *status)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (substream == NULL || substream->runtime == NULL)
+		return -EFAULT;
+	else
+		runtime = substream->runtime;
 
 	snd_pcm_stream_lock_irq(substream);
 	status->state = runtime->status->state;
@@ -691,7 +697,12 @@ static int snd_pcm_channel_info_user(struct snd_pcm_substream *substream,
 
 static void snd_pcm_trigger_tstamp(struct snd_pcm_substream *substream)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (substream == NULL || substream->runtime == NULL)
+		return;
+	else
+		runtime = substream->runtime;
 	if (runtime->trigger_master == NULL)
 		return;
 	if (runtime->trigger_master == substream) {
@@ -723,6 +734,8 @@ static int snd_pcm_action_group(struct action_ops *ops,
 	struct snd_pcm_substream *s1;
 	int res = 0;
 
+	if (!ops || !substream)
+		return 0;
 	snd_pcm_group_for_each_entry(s, substream) {
 		if (do_lock && s != substream)
 			spin_lock_nested(&s->self_group.lock,
@@ -770,6 +783,8 @@ static int snd_pcm_action_single(struct action_ops *ops,
 {
 	int res;
 	
+	if (!ops || !substream)
+		return 0;
 	res = ops->pre_action(substream, state);
 	if (res < 0)
 		return res;
@@ -790,6 +805,8 @@ static int snd_pcm_action(struct action_ops *ops,
 {
 	int res;
 
+	if (!ops || !substream)
+		return 0;
 	if (snd_pcm_stream_linked(substream)) {
 		if (!spin_trylock(&substream->group->lock)) {
 			spin_unlock(&substream->self_group.lock);
@@ -813,6 +830,8 @@ static int snd_pcm_action_lock_irq(struct action_ops *ops,
 {
 	int res;
 
+	if (!ops || !substream)
+		return 0;
 	read_lock_irq(&snd_pcm_link_rwlock);
 	if (snd_pcm_stream_linked(substream)) {
 		spin_lock(&substream->group->lock);
@@ -837,6 +856,8 @@ static int snd_pcm_action_nonatomic(struct action_ops *ops,
 {
 	int res;
 
+	if (!ops || !substream)
+		return 0;
 	down_read(&snd_pcm_link_rwsem);
 	if (snd_pcm_stream_linked(substream))
 		res = snd_pcm_action_group(ops, substream, state, 0);
@@ -851,7 +872,13 @@ static int snd_pcm_action_nonatomic(struct action_ops *ops,
  */
 static int snd_pcm_pre_start(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime || !substream->runtime->status)
+		return 0;
+	else
+		runtime = substream->runtime;
+
 	if (runtime->status->state != SNDRV_PCM_STATE_PREPARED)
 		return -EBADFD;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
@@ -864,6 +891,8 @@ static int snd_pcm_pre_start(struct snd_pcm_substream *substream, int state)
 
 static int snd_pcm_do_start(struct snd_pcm_substream *substream, int state)
 {
+	if (!substream || !substream->runtime || !substream->ops || !substream->ops->trigger)
+		return 0;
 	if (substream->runtime->trigger_master != substream)
 		return 0;
 	return substream->ops->trigger(substream, SNDRV_PCM_TRIGGER_START);
@@ -871,13 +900,21 @@ static int snd_pcm_do_start(struct snd_pcm_substream *substream, int state)
 
 static void snd_pcm_undo_start(struct snd_pcm_substream *substream, int state)
 {
+	if (!substream || !substream->runtime || !substream->ops || !substream->ops->trigger)
+		return;
 	if (substream->runtime->trigger_master == substream)
 		substream->ops->trigger(substream, SNDRV_PCM_TRIGGER_STOP);
 }
 
 static void snd_pcm_post_start(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime)
+		return;
+	else
+		runtime = substream->runtime;
+
 	snd_pcm_trigger_tstamp(substream);
 	runtime->hw_ptr_jiffies = jiffies;
 	runtime->hw_ptr_buffer_jiffies = (runtime->buffer_size * HZ) / 
@@ -915,7 +952,15 @@ int snd_pcm_start(struct snd_pcm_substream *substream)
  */
 static int snd_pcm_pre_stop(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime)
+		return 0;
+	else
+		runtime = substream->runtime;
+
+	if (!runtime->status || !virt_addr_valid((u64 *)(runtime->status)))
+		return 0;
 	if (runtime->status->state == SNDRV_PCM_STATE_OPEN)
 		return -EBADFD;
 	runtime->trigger_master = substream;
@@ -924,6 +969,8 @@ static int snd_pcm_pre_stop(struct snd_pcm_substream *substream, int state)
 
 static int snd_pcm_do_stop(struct snd_pcm_substream *substream, int state)
 {
+	if (!substream || !substream->runtime || !substream->ops->trigger)
+		return 0;
 	if (substream->runtime->trigger_master == substream &&
 	    snd_pcm_running(substream))
 		substream->ops->trigger(substream, SNDRV_PCM_TRIGGER_STOP);
@@ -932,7 +979,15 @@ static int snd_pcm_do_stop(struct snd_pcm_substream *substream, int state)
 
 static void snd_pcm_post_stop(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime)
+		return;
+	else
+		runtime = substream->runtime;
+
+	if (!runtime->status || !virt_addr_valid((u64 *)(runtime->status)))
+		return;
 	if (runtime->status->state != state) {
 		snd_pcm_trigger_tstamp(substream);
 		if (substream->timer)
@@ -986,7 +1041,15 @@ int snd_pcm_drain_done(struct snd_pcm_substream *substream)
  */
 static int snd_pcm_pre_pause(struct snd_pcm_substream *substream, int push)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime)
+		return 0;
+	else
+		runtime = substream->runtime;
+
+	if (!runtime->status || !virt_addr_valid((u64 *)(runtime->status)))
+		return 0;
 	if (!(runtime->info & SNDRV_PCM_INFO_PAUSE))
 		return -ENOSYS;
 	if (push) {
@@ -1000,6 +1063,8 @@ static int snd_pcm_pre_pause(struct snd_pcm_substream *substream, int push)
 
 static int snd_pcm_do_pause(struct snd_pcm_substream *substream, int push)
 {
+	if (!substream || !substream->runtime)
+		return 0;
 	if (substream->runtime->trigger_master != substream)
 		return 0;
 	/* some drivers might use hw_ptr to recover from the pause -
@@ -1026,7 +1091,15 @@ static void snd_pcm_undo_pause(struct snd_pcm_substream *substream, int push)
 
 static void snd_pcm_post_pause(struct snd_pcm_substream *substream, int push)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime)
+		return;
+	else
+		runtime = substream->runtime;
+
+	if (!runtime->status || !virt_addr_valid((u64 *)(runtime->status)))
+		return;
 	snd_pcm_trigger_tstamp(substream);
 	if (push) {
 		runtime->status->state = SNDRV_PCM_STATE_PAUSED;
@@ -1062,10 +1135,17 @@ static int snd_pcm_pause(struct snd_pcm_substream *substream, int push)
 
 #ifdef CONFIG_PM
 /* suspend */
-
 static int snd_pcm_pre_suspend(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime)
+		return 0;
+	else
+		runtime = substream->runtime;
+
+	if (!runtime->status || !virt_addr_valid((u64 *)(runtime->status)))
+		return 0;
 	if (runtime->status->state == SNDRV_PCM_STATE_SUSPENDED)
 		return -EBUSY;
 	runtime->trigger_master = substream;
@@ -1074,7 +1154,12 @@ static int snd_pcm_pre_suspend(struct snd_pcm_substream *substream, int state)
 
 static int snd_pcm_do_suspend(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime || !substream->ops || !substream->ops->trigger)
+		return 0;
+	else
+		runtime = substream->runtime;
 	if (runtime->trigger_master != substream)
 		return 0;
 	if (! snd_pcm_running(substream))
@@ -1085,7 +1170,14 @@ static int snd_pcm_do_suspend(struct snd_pcm_substream *substream, int state)
 
 static void snd_pcm_post_suspend(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime)
+		return;
+	else
+		runtime = substream->runtime;
+	if (!runtime->status || !virt_addr_valid((u64 *)(runtime->status)))
+		return;
 	snd_pcm_trigger_tstamp(substream);
 	if (substream->timer)
 		snd_timer_notify(substream->timer, SNDRV_TIMER_EVENT_MSUSPEND,
@@ -1163,7 +1255,13 @@ EXPORT_SYMBOL(snd_pcm_suspend_all);
 
 static int snd_pcm_pre_resume(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime)
+		return 0;
+	else
+		runtime = substream->runtime;
+
 	if (!(runtime->info & SNDRV_PCM_INFO_RESUME))
 		return -ENOSYS;
 	runtime->trigger_master = substream;
@@ -1172,7 +1270,13 @@ static int snd_pcm_pre_resume(struct snd_pcm_substream *substream, int state)
 
 static int snd_pcm_do_resume(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime || !substream->runtime->status)
+		return 0;
+	else
+		runtime = substream->runtime;
+
 	if (runtime->trigger_master != substream)
 		return 0;
 	/* DMA not running previously? */
@@ -1185,6 +1289,8 @@ static int snd_pcm_do_resume(struct snd_pcm_substream *substream, int state)
 
 static void snd_pcm_undo_resume(struct snd_pcm_substream *substream, int state)
 {
+	if (!substream || !substream->runtime || !substream->ops)
+		return;
 	if (substream->runtime->trigger_master == substream &&
 	    snd_pcm_running(substream))
 		substream->ops->trigger(substream, SNDRV_PCM_TRIGGER_SUSPEND);
@@ -1192,7 +1298,13 @@ static void snd_pcm_undo_resume(struct snd_pcm_substream *substream, int state)
 
 static void snd_pcm_post_resume(struct snd_pcm_substream *substream, int state)
 {
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_runtime *runtime = NULL;
+
+	if (!substream || !substream->runtime || !substream->runtime->status)
+		return;
+	else
+		runtime = substream->runtime;
+
 	snd_pcm_trigger_tstamp(substream);
 	if (substream->timer)
 		snd_timer_notify(substream->timer, SNDRV_TIMER_EVENT_MRESUME,
@@ -1209,9 +1321,11 @@ static struct action_ops snd_pcm_action_resume = {
 
 static int snd_pcm_resume(struct snd_pcm_substream *substream)
 {
-	struct snd_card *card = substream->pcm->card;
+	struct snd_card *card = NULL;
 	int res;
-
+	if (!substream || !substream->pcm)
+		return 0;
+	card = substream->pcm->card;
 	snd_power_lock(card);
 	if ((res = snd_power_wait(card, SNDRV_CTL_POWER_D0)) >= 0)
 		res = snd_pcm_action_lock_irq(&snd_pcm_action_resume, substream, 0);

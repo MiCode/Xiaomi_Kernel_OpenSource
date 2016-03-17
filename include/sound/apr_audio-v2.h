@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+* Copyright (C) 2016 XiaoMi, Inc.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -7311,6 +7312,7 @@ struct afe_param_id_clip_bank_sel {
 #define Q6AFE_LPASS_OSR_CLK_DISABLE		     0x0
 
 /* Supported Bit clock values */
+#define Q6AFE_LPASS_IBIT_CLK_12_P288_MHZ	0xBB8000
 #define Q6AFE_LPASS_IBIT_CLK_8_P192_MHZ		0x7D0000
 #define Q6AFE_LPASS_IBIT_CLK_6_P144_MHZ		0x5DC000
 #define Q6AFE_LPASS_IBIT_CLK_4_P096_MHZ		0x3E8000
@@ -7798,4 +7800,46 @@ struct adm_set_compressed_device_latency {
 	struct adm_param_data_v5 params;
 	u32    latency;
 } __packed;
+
+/* Structures for AFE communication */
+struct afe_custom_opalum_set_config_t {
+	struct apr_hdr					 hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2    data;
+} __packed;
+
+struct afe_custom_opalum_get_config_t {
+       struct apr_hdr					 hdr;
+	struct afe_port_cmd_get_param_v2 param;
+	struct afe_port_param_data_v2	 data;
+} __packed;
+
+struct opalum_dual_data_ctrl_t {
+	uint32_t		data1;		/* Low Temp threshold */
+	uint32_t		data2;		/* High Temp threshold */
+};
+
+struct opalum_process_enable_ctrl_t {
+	uint32_t	enable_flag; /**< Enable flag: 0 = disabled; nonzero = enabled. */
+};
+
+struct opalum_set_preset_ctrl_t {
+	uint32_t	preset; /**< Enable flag: 0 = disabled; nonzero = enabled. */
+};
+
+struct opalum_f0_calib_data_t {
+	int			f0;
+	int			ref_diff;
+};
+
+struct opalum_temp_calib_data_t {
+	int			acc;
+	int			count;
+};
+
+int opalum_afe_set_calibration_data(int lowTemp, int highTemp);
+int opalum_afe_set_param(int command);
+int opalum_afe_get_param(int command);
+void opalum_get_f0_values(int *f0, int *ref_diff);
+void opalum_get_temp_values(int *acc, int *count);
 #endif /*_APR_AUDIO_V2_H_ */

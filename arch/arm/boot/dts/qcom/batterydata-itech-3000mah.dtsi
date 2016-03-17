@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +16,7 @@ qcom,itech-3000mah {
 	qcom,max-voltage-uv = <4350000>;
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
-	qcom,batt-id-kohm = <100>;
+	qcom,batt-id-kohm = <10>;
 	qcom,battery-type = "itech_3000mah";
 	qcom,chg-rslow-comp-c1 = <4365000>;
 	qcom,chg-rslow-comp-c2 = <8609000>;

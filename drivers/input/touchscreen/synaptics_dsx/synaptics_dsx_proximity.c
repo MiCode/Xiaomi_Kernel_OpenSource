@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,10 +24,10 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/platform_device.h>
-#include <linux/input/synaptics_dsx_v2.h>
+#include <linux/input/synaptics_dsx.h>
 #include "synaptics_dsx_core.h"
 
-#define PROX_PHYS_NAME "synaptics_dsx/input1"
+#define PROX_PHYS_NAME "synaptics_dsx/proximity"
 
 #define HOVER_Z_MAX (255)
 
@@ -336,7 +337,7 @@ static int prox_scan_pdt(void)
 				break;
 			}
 
-			intr_count += (fd.intr_src_count & MASK_3BIT);
+			intr_count += fd.intr_src_count;
 		}
 	}
 
@@ -363,8 +364,7 @@ f12_found:
 	intr_src = fd.intr_src_count;
 	intr_off = intr_count % 8;
 	for (ii = intr_off;
-			ii < ((intr_src & MASK_3BIT) +
-			intr_off);
+			ii < (intr_src + intr_off);
 			ii++) {
 		prox->intr_mask |= 1 << ii;
 	}
@@ -462,6 +462,13 @@ static int synaptics_rmi4_prox_init(struct synaptics_rmi4_data *rmi4_data)
 	int retval;
 	unsigned char attr_count;
 
+	if (prox) {
+		dev_dbg(rmi4_data->pdev->dev.parent,
+				"%s: Handle already exists\n",
+				__func__);
+		return 0;
+	}
+
 	prox = kzalloc(sizeof(*prox), GFP_KERNEL);
 	if (!prox) {
 		dev_err(rmi4_data->pdev->dev.parent,
@@ -501,7 +508,7 @@ static int synaptics_rmi4_prox_init(struct synaptics_rmi4_data *rmi4_data)
 		goto exit_free_finger_data;
 	}
 
-	prox->prox_dev->name = PLATFORM_DRIVER_NAME;
+	prox->prox_dev->name = PROXIMITY_DRIVER_NAME;
 	prox->prox_dev->phys = PROX_PHYS_NAME;
 	prox->prox_dev->id.product = SYNAPTICS_DSX_DRIVER_PRODUCT;
 	prox->prox_dev->id.version = SYNAPTICS_DSX_DRIVER_VERSION;
@@ -588,8 +595,10 @@ exit:
 
 static void synaptics_rmi4_prox_reset(struct synaptics_rmi4_data *rmi4_data)
 {
-	if (!prox)
+	if (!prox) {
+		synaptics_rmi4_prox_init(rmi4_data);
 		return;
+	}
 
 	prox_hover_finger_lift();
 
@@ -649,14 +658,14 @@ static struct synaptics_rmi4_exp_fn proximity_module = {
 
 static int __init rmi4_proximity_module_init(void)
 {
-	synaptics_rmi4_dsx_new_function(&proximity_module, true);
+	synaptics_rmi4_new_function(&proximity_module, true);
 
 	return 0;
 }
 
 static void __exit rmi4_proximity_module_exit(void)
 {
-	synaptics_rmi4_dsx_new_function(&proximity_module, false);
+	synaptics_rmi4_new_function(&proximity_module, false);
 
 	wait_for_completion(&prox_remove_complete);
 

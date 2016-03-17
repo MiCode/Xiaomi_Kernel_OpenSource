@@ -15,6 +15,7 @@
  *
  *  Portions derived from Patrick Mochel's sysfs code.
  *  sysfs is Copyright (c) 2001-3 Patrick Mochel
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *  2003-10-10 Written by Simon Derr.
  *  2003-10-22 Updates by Stephen Hemminger.
@@ -2153,8 +2154,9 @@ retry_find_task:
 		 */
 		tcred = __task_cred(tsk);
 		if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
-		    !uid_eq(cred->euid, tcred->uid) &&
-		    !uid_eq(cred->euid, tcred->suid)) {
+			!uid_eq(cred->euid, GLOBAL_SYSTEM_UID) &&
+			!uid_eq(cred->euid, tcred->uid) &&
+			!uid_eq(cred->euid, tcred->suid)) {
 			/*
 			 * if the default permission check fails, give each
 			 * cgroup a chance to extend the permission check

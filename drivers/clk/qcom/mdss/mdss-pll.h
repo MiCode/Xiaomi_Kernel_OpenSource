@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,6 +144,11 @@ struct mdss_pll_resources {
 	 * caching the pll trim codes in the case of dynamic refresh
 	 */
 	int		cache_pll_trim_codes[2];
+
+	/*
+	 * for maintaining the status of saving trim codes
+	 */
+	bool		reg_upd;
 
 	/*
 	 * Notifier callback for MDSS gdsc regulator events

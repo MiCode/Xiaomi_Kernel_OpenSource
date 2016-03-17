@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +35,7 @@
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
 
 		qcom,max-mixer-width = <2048>;
+		qcom,max-pipe-width = <2048>;
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
@@ -54,6 +56,8 @@
 					  0x00019000 0x0001B000>;
 		qcom,mdss-pipe-dma-off = <0x00025000 0x00027000>;
 		qcom,mdss-pipe-cursor-off = <0x00035000 0x00037000>;
+		qcom,mdss-ppb-off = <0x00000334>;
+		qcom,mdss-slave-pingpong-off = <0x00073000>;
 
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7 19>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18 22>;
@@ -118,9 +122,10 @@
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-rotator-downscale;
 		qcom,mdss-has-bwc;
+		qcom,mdss-has-source-split;
+		qcom,mdss-has-dst-split;
 
 		qcom,mdss-wfd-mode = "intf";
-		qcom,mdss-has-source-split;
 
 		qcom,mdss-ctl-len = <0x00000200>;
 
@@ -133,7 +138,7 @@
 				"core_clk", "vsync_clk";
 
 		/* These Offsets are relative to "mdp_phys" address */
-		qcom,mdp-settings = <0x0117c 0x00005555>,
+		qcom,mdp-settings = <0x0117c 0x0000FFFF>,
 				    <0x01184 0xC000ff00>,
 				    <0x011e0 0x000000a4>,
 				    <0x011e4 0x00000000>,
@@ -189,7 +194,8 @@
 				     <0x6c000 0x6c254>,
 				     <0x6c800 0x6ca54>,
 				     <0x71000 0x710d0>,
-				     <0x71800 0x718d0>;
+				     <0x71800 0x718d0>,
+				     <0x73000 0x730d0>;
 
 		qcom,regs-dump-names-mdp = "MDP",
 			"CTL_0",    "CTL_1", "CTL_2",   "CTL_3", "CTL_4",
@@ -203,7 +209,7 @@
 			"DSPP_0",  "DSPP_1",  "DSPP_2", "DSPP_3",
 			"WB_0",    "WB_1",    "WB_2",   "WB_3",   "WB_4",
 			"INTF_1",  "INTF_2", "INTF_3",
-			"PP_0",    "PP_1";
+			"PP_0",    "PP_1",   "PP_4";
 
 		/* buffer parameters to calculate prefill bandwidth */
 		qcom,mdss-prefill-outstanding-buffer-bytes = <2048>;
@@ -243,10 +249,11 @@
 			<0xfd828000 0x108>;
 		reg-names = "dsi_ctrl", "dsi_phy", "dsi_phy_regulator", "mmss_misc_phys";
 		gdsc-supply = <&gdsc_mdss>;
-		vdd-supply = <&pm8994_l14>;
-		vddio-supply = <&pm8994_l12>;
+		vddio-supply = <&pm8994_l14>;
+		vddts-supply = <&disp_vddts_vreg>;
 		vdda-supply = <&pm8994_l2>;
 		vcca-supply = <&pm8994_l28>;
+		vcc-supply = <&pm8994_l12>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		clocks = <&clock_mmss clk_mdss_mdp_clk>,
@@ -339,7 +346,27 @@
 
 			qcom,panel-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "vdd";
+				qcom,supply-name = "vddts";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <5>;
+			};
+
+			qcom,ctrl-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <5>;
+			};
+
+			qcom,panel-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vcc";
 				qcom,supply-min-voltage = <1800000>;
 				qcom,supply-max-voltage = <1800000>;
 				qcom,supply-enable-load = <100000>;
@@ -361,8 +388,10 @@
 		gdsc-supply = <&gdsc_mdss>;
 		vdd-supply = <&pm8994_l14>;
 		vddio-supply = <&pm8994_l12>;
+		vddts-supply = <&disp_vddts_vreg>;
 		vdda-supply = <&pm8994_l2>;
 		vcca-supply = <&pm8994_l28>;
+		vcc-supply = <&pm8994_l12>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		clocks = <&clock_mmss clk_mdss_mdp_clk>,
@@ -462,6 +491,25 @@
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
 				qcom,supply-post-on-sleep = <5>;
+			};
+
+			qcom,panel-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vcc";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <5>;
+			};
+			qcom,panel-supply-entry@2 {
+				reg = <2>;
+				qcom,supply-name = "vddts";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
 			};
 		};
 	};

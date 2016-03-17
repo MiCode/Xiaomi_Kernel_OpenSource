@@ -1,0 +1,48 @@
+qcom,x11_atl {
+	/* #2004766_Xiaomi_X11_3000mAh_averaged_MasterSlave_May18th2015*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3080>;
+	qcom,batt-id-kohm = <50>;
+	qcom,battery-beta = <4085>;
+	qcom,battery-type = "x11_atl";
+	qcom,chg-rslow-comp-c1 = <2673217>;
+	qcom,chg-rslow-comp-c2 = <3005214>;
+	qcom,chg-rs-to-rslow = <1064531>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0x84DD>;
+	qcom,gui-version = "PMI8994GUI - 2.1.6.5";
+	qcom,fg-profile-data = [
+		 F0 83 77 7D
+		 B2 81 45 7C
+		 57 83 81 5D
+		 A4 81 79 8C
+		 23 82 D1 99
+		 B8 BC 3C C9
+		 5C 0E 0D 88
+		 9D 7E 7F 82
+		 00 7D 54 83
+		 73 69 F3 79
+		 02 87 4D 82
+		 BA 99 15 BD
+		 24 CA 5A 0D
+		 FF 0B B0 5A
+		 14 70 77 FE
+		 49 3E 4C 45
+		 93 41 00 00
+		 A9 4C EB 3A
+		 97 40 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 B8 70 59 6B
+		 B4 70 A7 89
+		 52 75 AD 69
+		 C5 58 89 80
+		 55 6F 97 62
+		 D4 74 DF A2
+		 1B D5 63 E7
+		 65 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2002 ARM Limited, All Rights Reserved.
  *  Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -44,6 +45,7 @@
 #include <linux/irqchip/arm-gic.h>
 #include <linux/syscore_ops.h>
 #include <linux/msm_rtb.h>
+#include <linux/wakeup_reason.h>
 
 #include <asm/irq.h>
 #include <asm/exception.h>
@@ -316,6 +318,16 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 
 		pr_warning("%s: %d triggered %s\n", __func__,
 					i + gic->irq_offset, name);
+		if (i + gic->irq_offset == 200)
+			continue;
+		if (i + gic->irq_offset == 222)
+			continue;
+		if (i + gic->irq_offset == 240)
+			continue;
+		if (i + gic->irq_offset == 203)
+			continue;
+
+		log_wakeup_reason(i + gic->irq_offset);
 	}
 }
 

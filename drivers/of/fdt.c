@@ -2,6 +2,7 @@
  * Functions for working with the Flattened Device Tree data format
  *
  * Copyright 2009 Benjamin Herrenschmidt, IBM Corp
+ * Copyright (C) 2016 XiaoMi, Inc.
  * benh@kernel.crashing.org
  *
  * This program is free software; you can redistribute it and/or
@@ -653,6 +654,37 @@ const void * __init of_flat_dt_match_machine(const void *default_match,
 	return best_data;
 }
 
+void __init early_init_dt_check_for_powerup_reason(unsigned long node)
+{
+	int pu_reason, len;
+	const __be32 *prop;
+
+	pr_debug("Looking for powerup reason properties... \n");
+
+	prop = of_get_flat_dt_prop(node, "pureason", &len);
+	if (!prop)
+		return;
+	pu_reason = of_read_ulong(prop, len/4);
+	early_init_dt_setup_pureason_arch(pu_reason);
+
+	pr_debug("Powerup reason %d\n", pu_reason);
+}
+
+void __init early_init_dt_check_for_hw_version(unsigned long node)
+{
+	int hw_version, len;
+	const __be32 *prop;
+
+	pr_debug("Looking for hw version properties... \n");
+
+	prop = of_get_flat_dt_prop(node, "hwversion", &len);
+	if (!prop)
+		return;
+	hw_version = of_read_ulong(prop, len/4);
+	early_init_dt_setup_hwversion_arch(hw_version);
+	pr_debug("hw version %d\n", hw_version);
+}
+
 #ifdef CONFIG_BLK_DEV_INITRD
 /**
  * early_init_dt_check_for_initrd - Decode initrd location from flat tree
@@ -888,6 +920,10 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 	}
 
 	pr_debug("Command line is: %s\n", (char*)data);
+
+	early_init_dt_check_for_powerup_reason(node);
+
+	early_init_dt_check_for_hw_version(node);
 
 	/* break now */
 	return 1;

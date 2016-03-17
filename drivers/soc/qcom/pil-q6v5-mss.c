@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +31,8 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/smem.h>
-#include <soc/qcom/smsm.h>
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -41,26 +43,31 @@
 #define MAX_SSR_REASON_LEN	81U
 #define STOP_ACK_TIMEOUT_MS	1000
 
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct proc_dir_entry *last_modem_sfr_entry;
+
 #define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
 
 static void log_modem_sfr(void)
 {
 	u32 size;
-	char *smem_reason, reason[MAX_SSR_REASON_LEN];
+	char *smem_reason;
 
 	smem_reason = smem_get_entry_no_rlock(SMEM_SSR_REASON_MSS0, &size, 0,
 							SMEM_ANY_HOST_FLAG);
 	if (!smem_reason || !size) {
 		pr_err("modem subsystem failure reason: (unknown, smem_get_entry_no_rlock failed).\n");
+		strlcpy(last_modem_sfr_reason, "unknown", min(8u, MAX_SSR_REASON_LEN));
 		return;
 	}
 	if (!smem_reason[0]) {
 		pr_err("modem subsystem failure reason: (unknown, empty string found).\n");
+		strlcpy(last_modem_sfr_reason, "unknown", min(8u, MAX_SSR_REASON_LEN));
 		return;
 	}
 
-	strlcpy(reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
-	pr_err("modem subsystem failure reason: %s.\n", reason);
+	strlcpy(last_modem_sfr_reason, smem_reason, min(size, MAX_SSR_REASON_LEN));
+	pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
 
 	smem_reason[0] = '\0';
 	wmb();
@@ -396,14 +403,41 @@ static struct platform_driver pil_mss_driver = {
 	},
 };
 
+static int last_modem_sfr_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_modem_sfr_reason);
+	return 0;
+}
+
+static int last_modem_sfr_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_modem_sfr_proc_show, NULL);
+}
+
+static const struct file_operations last_modem_sfr_file_ops = {
+	.owner   = THIS_MODULE,
+	.open    = last_modem_sfr_proc_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
 static int __init pil_mss_init(void)
 {
+  last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
 	return platform_driver_register(&pil_mss_driver);
 }
 module_init(pil_mss_init);
 
 static void __exit pil_mss_exit(void)
 {
+	if (last_modem_sfr_entry) {
+		remove_proc_entry("last_mcrash", NULL);
+		last_modem_sfr_entry = NULL;
+	}
 	platform_driver_unregister(&pil_mss_driver);
 }
 module_exit(pil_mss_exit);

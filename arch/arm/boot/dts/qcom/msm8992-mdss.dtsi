@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -441,7 +442,7 @@
 	};
 
 	mdss_hdmi_tx: qcom,hdmi_tx@fd9a0000{
-		status = "ok";
+		status = "disable";
 		cell-index = <0>;
 		compatible = "qcom,hdmi-tx";
 
@@ -473,3 +474,9 @@
 		};
 	};
 };
+#include "dsi-panel-sharp-rsp61322-1080p-video.dtsi"
+#include "dsi-panel-auo-nt35596-1080p-video.dtsi"
+#include "dsi-panel-lgd-nt35596-1080p-video.dtsi"
+#include "dsi-panel-sharp-nt35595-1080p-video-ram.dtsi"
+#include "dsi-panel-jdi-nt35595-1080p-video-ram.dtsi"
+#include "dsi-panel-sharp-nt35595-1080p-command.dtsi"

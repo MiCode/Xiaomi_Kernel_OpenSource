@@ -4,11 +4,13 @@
  * Opportunistic sleep support.
  *
  * Copyright (C) 2012 Rafael J. Wysocki <rjw@sisk.pl>
+ * Copyright (C) 2016 XiaoMi, Inc.
  */
 
 #include <linux/device.h>
 #include <linux/mutex.h>
 #include <linux/pm_wakeup.h>
+#include <linux/rtc.h>
 
 #include "power.h"
 
@@ -88,6 +90,17 @@ void pm_autosleep_unlock(void)
 
 int pm_autosleep_set_state(suspend_state_t state)
 {
+
+	struct timespec ts;
+	struct rtc_time tm;
+
+	getnstimeofday(&ts);
+	rtc_time_to_tm(ts.tv_sec, &tm);
+	pr_info("request_suspend_state: %s at "
+		"(%d-%02d-%02d %02d:%02d:%02d.%09lu UTC)\n",
+		state != PM_SUSPEND_ON ? "sleep" : "wakeup",
+		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+		tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 
 #ifndef CONFIG_HIBERNATION
 	if (state >= PM_SUSPEND_MAX)

@@ -1,0 +1,44 @@
+
+qcom,bm34_samsung_3090mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3090>;
+	qcom,batt-id-kohm = <30>;
+	qcom,battery-beta = <4085>;
+	qcom,battery-type = "bm34_samsung_3090mah";
+	qcom,checksum = <0x1B7F>;
+	qcom,gui-version = "PMI8994GUI - 2.1.5.10";
+	qcom,fg-profile-data = [
+		E1 83 D5 7C
+		31 81 B3 77
+		71 83 C7 77
+		98 8B 19 96
+		36 82 15 99
+		6E B7 41 C3
+		56 16 FE 83
+		9A 7D C4 81
+		67 7C 6D 83
+		C2 74 4F 8A
+		89 95 73 82
+		56 98 97 B6
+		B4 C2 52 14
+		00 0C C9 5A
+		14 70 71 FD
+		FB 35 4E 45
+		DE 2B 00 00
+		C2 45 0A 30
+		00 00 00 00
+		00 00 00 00
+		00 00 00 00
+		1C 71 06 70
+		18 67 C3 88
+		00 77 9D 6B
+		90 5F 55 7B
+		B1 74 A4 63
+		0F 76 83 99
+		1F 8B 5B 15
+		5E A0 71 0C
+		28 00 FF 36
+		F0 11 30 03
+		00 00 00 00
+	];
+};

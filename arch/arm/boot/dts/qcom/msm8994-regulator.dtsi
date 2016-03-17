@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -317,6 +318,7 @@
 			regulator-max-microvolt = <3000000>;
 			qcom,init-voltage = <3000000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 
@@ -966,6 +968,22 @@
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&pm8994_gpios 9 0>;
+	};
+
+	disp_vddio_vreg: disp_vddio_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddio_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&msm_gpio 26 0>;
+	};
+
+	disp_vddts_vreg: disp_vddts_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddts_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&msm_gpio 96 0>;
 	};
 
 	usb_otg_switch: usb-otg-switch {

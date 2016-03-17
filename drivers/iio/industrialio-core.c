@@ -1,6 +1,7 @@
 /* The industrial I/O core
  *
  * Copyright (c) 2008 Jonathan Cameron
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -66,6 +67,17 @@ static const char * const iio_chan_type_name_spec[] = {
 	[IIO_ALTVOLTAGE] = "altvoltage",
 	[IIO_CCT] = "cct",
 	[IIO_PRESSURE] = "pressure",
+	[IIO_SIGN_MOTION] = "sign_motion",
+	[IIO_QUATERNION] = "quaternion",
+	[IIO_STEP_DETECTOR] = "step_detector",
+	[IIO_STEP_COUNTER] = "step_counter",
+	[IIO_EULER_ANGLES] = "euler",
+	[IIO_LINEAR_ACCEL] = "linear_accel",
+	[IIO_GRAVITY] = "gravity",
+	[IIO_CUSTOM] = "custom",
+	[IIO_TAP_TAP] = "tap_tap",
+	[IIO_TILT] = "tilt",
+	[IIO_ACTIVITY] = "activity",
 };
 
 static const char * const iio_modifier_names[] = {
@@ -80,6 +92,8 @@ static const char * const iio_modifier_names[] = {
 	[IIO_MOD_LIGHT_RED] = "red",
 	[IIO_MOD_LIGHT_GREEN] = "green",
 	[IIO_MOD_LIGHT_BLUE] = "blue",
+	[IIO_MOD_MODULE] = "module",
+	[IIO_MOD_ACCURACY] = "accuracy",
 };
 
 /* relies on pairs of these shared then separate */

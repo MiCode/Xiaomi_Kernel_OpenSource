@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1934,6 +1935,11 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 				new_frame->num_strips * stripe_size + 1));
 			return -EINVAL;
 		}
+	}
+
+	if (cpp_dev->iommu_state != CPP_IOMMU_STATE_ATTACHED) {
+		pr_info("IOMMU is not attached\n");
+		return -EAGAIN;
 	}
 
 	if (cpp_dev->iommu_state != CPP_IOMMU_STATE_ATTACHED) {

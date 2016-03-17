@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -624,6 +625,10 @@ static void msm_sensor_fill_sensor_info(struct msm_sensor_ctrl_t *s_ctrl,
 	strlcpy(entity_name, s_ctrl->msm_sd.sd.entity.name, MAX_SENSOR_NAME);
 }
 
+extern int x7_get_back_sensor_name(char *);
+extern int x11_get_back_sensor_name(char *);
+extern int x11_get_front_sensor_name(char *);
+extern int x7_get_front_sensor_name(char *);
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_sensor_info_t *probed_info, char *entity_name)
@@ -635,6 +640,10 @@ int32_t msm_sensor_driver_probe(void *setting,
 	struct msm_camera_slave_info        *camera_info = NULL;
 
 	unsigned long                        mount_pos = 0;
+	char x7_back_sensor_name[32];
+	char x11_back_sensor_name[32];
+	char x7_front_sensor_name[32];
+	char x11_front_sensor_name[32];
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -713,6 +722,51 @@ int32_t msm_sensor_driver_probe(void *setting,
 		if (copy_from_user(slave_info,
 					(void *)setting, sizeof(*slave_info))) {
 			pr_err("failed: copy_from_user");
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+
+	if (strcmp(slave_info->eeprom_name, "sony_imx214") == 0) {
+		x7_get_back_sensor_name(x7_back_sensor_name);
+		CDBG("slave_info sensor_name = %s, back_sensor_name - %s\n",
+				slave_info->sensor_name, x7_back_sensor_name);
+		if (strcmp(slave_info->sensor_name, x7_back_sensor_name) != 0) {
+			CDBG("%s %d: x7 sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+	if ((strncmp(slave_info->eeprom_name, "imx258",
+				strlen("imx258")) == 0) ||
+	    (strncmp(slave_info->eeprom_name, "s5k3m2xm",
+				strlen("s5k3m2xm")) == 0)) {
+		x11_get_back_sensor_name(x11_back_sensor_name);
+		CDBG("slave_info sensor_name = %s, back_sensor_name - %s\n",
+				slave_info->sensor_name, x11_back_sensor_name);
+		if (strcmp(slave_info->sensor_name, x11_back_sensor_name) != 0) {
+			CDBG("%s %d: x11 sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+	if (strcmp(slave_info->eeprom_name, "ov4688") == 0) {
+		x7_get_front_sensor_name(x7_front_sensor_name);
+		CDBG("slave_info sensor_name = %s, front_sensor_name - %s\n",
+				slave_info->sensor_name, x7_front_sensor_name);
+		if (strcmp(slave_info->sensor_name, x7_front_sensor_name) != 0) {
+			CDBG("%s %d: x7 sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto free_slave_info;
+		}
+	}
+	if (strncmp(slave_info->eeprom_name, "ov5670",
+				strlen("ov5670")) == 0) {
+		x11_get_front_sensor_name(x11_front_sensor_name);
+		CDBG("slave_info sensor_name = %s, front_sensor_name - %s\n",
+				slave_info->sensor_name, x11_front_sensor_name);
+		if (strcmp(slave_info->sensor_name, x11_front_sensor_name) != 0) {
+			CDBG("%s %d: x11 sensor name not match!\n", __func__, __LINE__);
 			rc = -EFAULT;
 			goto free_slave_info;
 		}

@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -219,6 +220,9 @@
 
 #define	MSM_BUS_INT_TEST_ID	20000
 #define	MSM_BUS_INT_TEST_LAST	20050
+
+#define MSM_BUS_INT_TEST_ID	20000
+#define MSM_BUS_INT_TEST_LAST	20050
 
 #define	MSM_BUS_SLAVE_FIRST 512
 #define	MSM_BUS_SLAVE_EBI_CH0 512

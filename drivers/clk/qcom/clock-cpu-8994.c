@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +66,7 @@ static char *base_names[] = {
 static void *vbases[NUM_BASES];
 u32 cci_phys_base = 0xF9112000;
 static void sanity_check_clock_tree(u32 regval, struct mux_clk *mux);
+static struct mux_clk a53_hf_mux_v2;
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
@@ -909,6 +911,7 @@ static struct cpu_clk_8994 a57_clk = {
 
 #define LFMUX_SHIFT 1
 #define HFMUX_SHIFT 3
+#define LFDIV_SHIFT 5
 
 #define LFMUX_SEL 0
 #define PLL0_MAIN_SEL 2

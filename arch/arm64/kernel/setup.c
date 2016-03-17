@@ -3,6 +3,7 @@
  *
  * Copyright (C) 1995-2001 Russell King
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -60,6 +61,7 @@
 #include <asm/memblock.h>
 #include <asm/psci.h>
 #include <asm/efi.h>
+#include <asm/bootinfo.h>
 
 unsigned int processor_id;
 EXPORT_SYMBOL(processor_id);
@@ -370,6 +372,50 @@ static void __init request_standard_resources(void)
 			request_resource(res, &kernel_data);
 	}
 }
+
+void __init early_init_dt_setup_smeminfo_arch(unsigned long smem_info)
+{
+	unsigned int ddr_info;
+
+	switch (smem_info) {
+	case 0x01:
+		ddr_info = 0x01;
+		break;
+	case 0x03:
+		ddr_info = 0x03;
+		break;
+	case 0x06:
+		ddr_info = 0x02;
+		break;
+	case 0xff:
+		ddr_info = 0x04;
+		break;
+	case 0x05:
+		ddr_info = 0x05;
+		break;
+	case 0x0e:
+		ddr_info = 0x06;
+		break;
+	default:
+		ddr_info = 0x00;
+		break;
+	}
+	pr_info("Smem info=0x%x\n", ddr_info);
+}
+
+#ifdef CONFIG_OF_EARLY_FLATTREE
+void __init early_init_dt_setup_pureason_arch(unsigned long pu_reason)
+{
+	set_powerup_reason(pu_reason);
+	pr_info("Powerup reason=0x%x\n", get_powerup_reason());
+}
+
+void __init early_init_dt_setup_hwversion_arch(unsigned long hw_version)
+{
+	set_hw_version(hw_version);
+	pr_info("Hw version=0x%x\n", get_hw_version());
+}
+#endif
 
 u64 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = INVALID_HWID };
 

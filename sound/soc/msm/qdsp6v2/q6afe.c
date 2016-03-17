@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +26,10 @@
 #include <sound/q6audio-v2.h>
 #include "msm-pcm-routing-v2.h"
 #include <sound/audio_cal_utils.h>
+
+/* Include for /proc/ support */
+#include <linux/proc_fs.h>
+#include <linux/syscalls.h>
 
 #define WAKELOCK_TIMEOUT	5000
 enum {
@@ -106,6 +111,9 @@ static unsigned long afe_configured_cmd;
 
 static struct afe_ctl this_afe;
 
+static int opalum_f0_calib_data[2] = {0, 0};
+static int opalum_temp_calib_data[2] = {0, 0};
+
 #define TIMEOUT_MS 1000
 #define Q6AFE_MAX_VOLUME 0x3FFF
 
@@ -182,12 +190,27 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		return 0;
 	}
 	afe_callback_debug_print(data);
+	if (rtac_make_afe_callback(data->payload, data->payload_size))
+		return 0;
 	if (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V2) {
 		u8 *payload = data->payload;
+		uint32_t *payload32 = data->payload;
 
-		if (rtac_make_afe_callback(data->payload, data->payload_size))
-			return 0;
-
+	/* Callback for Opalum communication */
+		if (payload32[1] == 0x00A1BF00/*MODULE_ID_OPALUM_FB*/) {
+			switch (payload32[2]) {
+			case 0x00A1BF05:
+				opalum_f0_calib_data[0] = (int32_t)payload32[4];
+				opalum_f0_calib_data[1] = (int32_t)payload32[5];
+				break;
+			case 0x00A1BF06:
+				opalum_temp_calib_data[0] = (int32_t)payload32[4];
+				opalum_temp_calib_data[1] = (int32_t)payload32[5];
+				break;
+			default:
+				break;
+			}
+		} else {
 		if ((data->payload_size < sizeof(this_afe.calib_data))
 			|| !payload || (data->token >= AFE_MAX_PORTS)) {
 			pr_err("%s: Error: size %d payload %p token %d\n",
@@ -206,6 +229,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		} else
 			atomic_set(&this_afe.state, -1);
 		wake_up(&this_afe.wait[data->token]);
+		}
 	} else if (data->payload_size) {
 		uint32_t *payload;
 		uint16_t port_id = 0;
@@ -468,6 +492,298 @@ static int afe_apr_send_pkt(void *data, wait_queue_head_t *wait)
 
 	pr_debug("%s: leave %d\n", __func__, ret);
 	return ret;
+}
+
+int opalum_afe_set_preset(int preset)
+{
+	int result = 0;
+	int index = 0;
+	unsigned int port_id = 0;
+	unsigned int module_id = 0;
+	unsigned int param_id = 0;
+	int size = 0;
+	struct afe_custom_opalum_set_config_t *config = NULL;
+	struct opalum_set_preset_ctrl_t *settings = NULL;
+
+	/* Destination settings for first message */
+	port_id = AFE_PORT_ID_TERTIARY_MI2S_RX;
+	module_id = 0x00A1AF00;
+	param_id = 0x00A1AF05;
+	index = q6audio_get_port_index(port_id);
+
+	/* Allocate memory for the message */
+	size = sizeof(struct afe_custom_opalum_set_config_t) + sizeof(struct opalum_set_preset_ctrl_t);
+       config = kzalloc(size, GFP_KERNEL);
+	if (config == NULL) {
+		pr_err("%s: Memory allocation failed!\n", __func__);
+		return 1;
+	}
+
+	settings = (struct opalum_set_preset_ctrl_t *)((u8 *)config + sizeof(struct afe_custom_opalum_set_config_t));
+
+	/* Configure actual parameter settings */
+	settings->preset = preset;
+
+	/* Set header section */
+	config->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config->hdr.pkt_size = size;
+       config->hdr.src_port = 0;
+       config->hdr.dest_port = 0;
+	config->hdr.token = index;
+	config->hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+
+	/* Set param section */
+	config->param.port_id = port_id;
+	config->param.payload_size = sizeof(struct afe_port_param_data_v2) + sizeof(struct opalum_set_preset_ctrl_t);
+	config->param.payload_address_lsw = 0;
+	config->param.payload_address_msw = 0;
+	config->param.mem_map_handle = 0;
+
+	/* Set data section */
+	config->data.module_id = module_id;
+	config->data.param_id = param_id;
+	config->data.param_size = sizeof(struct opalum_set_preset_ctrl_t);
+	config->data.reserved = 0;
+
+	pr_debug("%s: Preparing to send apr packet.\n", __func__);
+	result = afe_apr_send_pkt(config, &this_afe.wait[index]);
+	if (result)
+		pr_err("%s: Opalum set_preset for port %d failed with code %d\n", __func__, port_id, result);
+	else
+		pr_debug("%s: Opalum set_preset sent packet with param id 0x%08x to module 0x%08x.\n", __func__, param_id, module_id);
+
+	kfree(config);
+	return result;
+}
+
+int opalum_afe_set_calibration_data(int lowTemp, int highTemp)
+{
+	int result = 0;
+	int index = 0;
+	unsigned int port_id = 0;
+	unsigned int module_id = 0;
+	unsigned int param_id = 0;
+	int size = 0;
+	struct afe_custom_opalum_set_config_t *config = NULL;
+	struct opalum_dual_data_ctrl_t *settings = NULL;
+
+	if (lowTemp == 0 || highTemp == 0) {
+		pr_err("opalum_afe_set_calibration_data, error for sending smartPA calibration data\n");
+		return 0;
+	}
+
+	/* Destination settings for first message */
+	port_id = AFE_PORT_ID_TERTIARY_MI2S_RX;
+	module_id = 0x00A1AF00;
+	param_id = 0x00A1AF28;
+	index = q6audio_get_port_index(port_id);
+
+	/* Allocate memory for the message */
+	size = sizeof(struct afe_custom_opalum_set_config_t) + sizeof(struct opalum_dual_data_ctrl_t);
+	config = kzalloc(size, GFP_KERNEL);
+	if (config == NULL) {
+		pr_err("%s: Memory allocation failed!\n", __func__);
+		return 1;
+	}
+
+	settings = (struct opalum_dual_data_ctrl_t *)((u8 *)config + sizeof(struct afe_custom_opalum_set_config_t));
+	settings->data1 = lowTemp;
+	settings->data2 = highTemp;
+	pr_info("opalum_afe_set_calibration_data, set smartPA cali low:%d, high:%d", settings->data1, settings->data2);
+
+	/* Set header section */
+	config->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config->hdr.pkt_size = size;
+	config->hdr.src_port = 0;
+	config->hdr.dest_port = 0;
+	config->hdr.token = index;
+	config->hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+
+	/* Set param section */
+	config->param.port_id = port_id;
+	config->param.payload_size = sizeof(struct afe_port_param_data_v2) + sizeof(struct opalum_dual_data_ctrl_t);
+	config->param.payload_address_lsw = 0;
+	config->param.payload_address_msw = 0;
+	config->param.mem_map_handle = 0;
+
+	/* Set data section */
+	config->data.module_id = module_id;
+	config->data.param_id = param_id;
+	config->data.param_size = sizeof(struct opalum_dual_data_ctrl_t);
+	config->data.reserved = 0;
+	pr_info("prepare to send smartPA's calibration APR command\n");
+	pr_debug("%s: Preparing to send apr packet.\n", __func__);
+	result = afe_apr_send_pkt(config, &this_afe.wait[index]);
+	if (result)
+		pr_err("%s: Opalum set_param for port %d failed with code %d\n", __func__, port_id, result);
+	else
+		pr_debug("%s: Opalum set_param sent packet with param id 0x%08x to module 0x%08x.\n", __func__, param_id, module_id);
+
+	kfree(config);
+	return result;
+}
+
+
+int opalum_afe_set_param(int command)
+{
+	int result = 0;
+	int index = 0;
+	unsigned int port_id = 0;
+	unsigned int module_id = 0;
+	unsigned int param_id = 0;
+	int size = 0;
+	struct afe_custom_opalum_set_config_t *config = NULL;
+	struct opalum_process_enable_ctrl_t *settings = NULL;
+	/* Destination settings for first message */
+	port_id = AFE_PORT_ID_TERTIARY_MI2S_RX;
+	module_id = 0x00A1AF00;
+	param_id = 0x00A1AF03;
+	index = q6audio_get_port_index(port_id);
+
+	/* Allocate memory for the message */
+	size = sizeof(struct afe_custom_opalum_set_config_t) + sizeof(struct opalum_process_enable_ctrl_t);
+       config = kzalloc(size, GFP_KERNEL);
+	if (config == NULL) {
+		pr_err("%s: Memory allocation failed!\n", __func__);
+		return 1;
+	}
+
+	settings = (struct opalum_process_enable_ctrl_t *)((u8 *)config + sizeof(struct afe_custom_opalum_set_config_t));
+
+	/* Configure actual parameter settings */
+	settings->enable_flag = 1;
+
+	/* Set header section */
+	config->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config->hdr.pkt_size = size;
+       config->hdr.src_port = 0;
+       config->hdr.dest_port = 0;
+	config->hdr.token = index;
+	config->hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+
+	/* Set param section */
+	config->param.port_id = port_id;
+	config->param.payload_size = sizeof(struct afe_port_param_data_v2) + sizeof(struct opalum_process_enable_ctrl_t);
+	config->param.payload_address_lsw = 0;
+	config->param.payload_address_msw = 0;
+	config->param.mem_map_handle = 0;
+
+	/* Set data section */
+	config->data.module_id = module_id;
+	config->data.param_id = param_id;
+	config->data.param_size = sizeof(struct opalum_process_enable_ctrl_t);
+	config->data.reserved = 0;
+
+	pr_debug("%s: Preparing to send apr packet.\n", __func__);
+	result = afe_apr_send_pkt(config, &this_afe.wait[index]);
+	if (result)
+		pr_err("%s: Opalum set_param for port %d failed with code %d\n", __func__, port_id, result);
+	else
+		pr_debug("%s: Opalum set_param sent packet with param id 0x%08x to module 0x%08x.\n", __func__, param_id, module_id);
+
+	/* Prepare and send second message */
+	port_id = AFE_PORT_ID_TERTIARY_MI2S_TX;
+	module_id = 0x00A1BF00;
+	param_id = 0x00A1BF03;
+	index = q6audio_get_port_index(port_id);
+
+	config->hdr.token = index;
+	config->data.module_id = module_id;
+	config->data.param_id = param_id;
+	config->param.port_id = port_id;
+
+	pr_info("%s: Preparing to send apr packet.\n", __func__);
+	result = afe_apr_send_pkt(config, &this_afe.wait[index]);
+	if (result)
+		pr_err("%s: Opalum set_param for port %d failed with code %d\n", __func__, port_id, result);
+	else
+		pr_debug("%s: Opalum set_param sent packet with param id 0x%08x to module 0x%08x.\n", __func__, param_id, module_id);
+
+	kfree(config);
+	return result;
+}
+
+int opalum_afe_get_param(int command)
+{
+	int result = 0;
+	int index = 0;
+	unsigned int port_id = AFE_PORT_ID_TERTIARY_MI2S_TX;
+	unsigned int module_id = 0x00A1BF00;
+	unsigned int param_id = 0;
+	int size = 0;
+	struct afe_custom_opalum_get_config_t *config = NULL;
+
+	index = q6audio_get_port_index(port_id);
+
+	switch (command) {
+	case 0:
+		param_id = 0x00A1BF05;
+		break;
+	case 1:
+		param_id = 0x00A1BF06;
+		break;
+	default:
+		break;
+	}
+
+	/* All  ocate memory for the message */
+	size = sizeof(struct afe_custom_opalum_get_config_t);
+	config = kzalloc(size, GFP_KERNEL);
+	if (config == NULL) {
+		pr_err("%s: Memory allocation failed!\n", __func__);
+		return 1;
+	}
+
+	/*
+	 * Set header section
+	 * Note that for get_param this is part of the param struct
+	 */
+	config->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config->hdr.pkt_size = size;
+	config->hdr.src_port = 0;
+	config->hdr.dest_port = 0;
+	config->hdr.token = index;
+	config->hdr.opcode = AFE_PORT_CMD_GET_PARAM_V2;
+
+	/* Set param section */
+	config->param.port_id = port_id;
+	config->param.payload_address_lsw = 0;
+	config->param.payload_address_msw = 0;
+	config->param.mem_map_handle = 0;
+	config->param.module_id = module_id;
+	config->param.param_id = param_id;
+	config->param.payload_size = sizeof(struct afe_port_param_data_v2) + sizeof(struct opalum_f0_calib_data_t);
+
+	/* Set data section */
+	config->data.module_id = module_id;
+	config->data.param_id = param_id;
+	config->data.param_size = sizeof(struct opalum_f0_calib_data_t);
+	config->data.reserved = 0;
+
+	pr_debug("%s: Preparing to send apr packet.\n", __func__);
+	result = afe_apr_send_pkt(config, &this_afe.wait[index]);
+	if (result) {
+		pr_err("%s: Opalum get_param for port %d failed with code %d\n", __func__, port_id, result);
+	} else {
+		pr_debug("%s: Opalum get_param sent packet with param id 0x%08x to module 0x%08x.\n", __func__, param_id, module_id);
+	}
+
+	kfree(config);
+	return result;
+}
+
+void opalum_get_f0_values(int *f0, int *ref_diff)
+{
+	*f0 = opalum_f0_calib_data[0];
+	*ref_diff = opalum_f0_calib_data[1];
+	return;
+}
+
+void opalum_get_temp_values(int *acc, int *count)
+{
+	*acc = opalum_temp_calib_data[0];
+	*count = opalum_temp_calib_data[1];
+	return;
 }
 
 static int afe_send_cal_block(u16 port_id, struct cal_block_data *cal_block)
@@ -3448,6 +3764,7 @@ int afe_validate_port(u16 port_id)
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 	case AFE_PORT_ID_TERTIARY_MI2S_TX:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX:
 	{
 		ret = 0;
 		break;

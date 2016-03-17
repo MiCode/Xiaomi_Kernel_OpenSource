@@ -1,4 +1,5 @@
 /* Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,8 @@
 #include "msm_cci.h"
 
 DEFINE_MSM_MUTEX(msm_ois_mutex);
+
+/*#define OIS_IC_ONSEMI*/
 /*#define MSM_OIS_DEBUG*/
 #undef CDBG
 #ifdef MSM_OIS_DEBUG
@@ -34,6 +37,46 @@ static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl);
 
 static struct i2c_driver msm_ois_i2c_driver;
 
+#ifdef OIS_IC_ONSEMI
+static uint32_t msm_ois_osm_i2c_write(
+		struct msm_ois_ctrl_t *a_ctrl,
+		uint16_t byte1, uint16_t byte2)
+{
+	int rc = 0;
+	uint8_t out[4];
+	uint16_t addrout;
+
+	addrout = 0xF012;
+	out[0] = 0x00;
+	out[1] = 0x00;
+	out[2] = byte1 & 0xFF;
+	out[3] = byte2 & 0xFF;
+
+	a_ctrl->i2c_client.addr_type = MSM_CAMERA_I2C_WORD_ADDR;
+	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+			&a_ctrl->i2c_client, addrout, out, sizeof(out));
+	if (rc < 0) {
+		pr_err("write 0xF012 failed!\n");
+		return rc;
+	}
+
+	addrout = 0xF013;
+	out[0] = 0x00;
+	out[1] = 0x00;
+	out[2] = 0x00;
+	out[3] = 0x01;
+
+	a_ctrl->i2c_client.addr_type = MSM_CAMERA_I2C_WORD_ADDR;
+	rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(
+			&a_ctrl->i2c_client, addrout, out, sizeof(out));
+	if (rc < 0) {
+		pr_err("write 0xF013 failed!\n");
+		return rc;
+	}
+	return rc;
+}
+#endif
+
 static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 	uint16_t size, struct reg_settings_ois_t *settings)
 {
@@ -41,6 +84,13 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 	int32_t i = 0;
 	struct msm_camera_i2c_seq_reg_array reg_setting;
 	CDBG("Enter\n");
+
+#ifdef OIS_IC_ONSEMI
+	rc = msm_ois_osm_i2c_write(o_ctrl, 0, 1);
+	if (rc < 0)
+		pr_err("msm_ois_write_settings failed!\n");
+	return rc;
+#endif
 
 	for (i = 0; i < size; i++) {
 		switch (settings[i].i2c_operation) {

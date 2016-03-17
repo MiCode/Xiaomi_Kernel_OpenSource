@@ -2,6 +2,7 @@
  * The input core
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2016 XiaoMi, Inc.
  */
 
 /*
@@ -430,6 +431,10 @@ void input_event(struct input_dev *dev,
 		spin_lock_irqsave(&dev->event_lock, flags);
 		input_handle_event(dev, type, code, value);
 		spin_unlock_irqrestore(&dev->event_lock, flags);
+		if (code == BTN_TOUCH) {
+			if (!mod_timer(&dev->counter, jiffies + 1 * HZ))
+				dev->input_active_start = get_jiffies_64();
+		}
 	}
 }
 EXPORT_SYMBOL(input_event);
@@ -1380,12 +1385,24 @@ static ssize_t input_dev_show_properties(struct device *dev,
 }
 static DEVICE_ATTR(properties, S_IRUGO, input_dev_show_properties, NULL);
 
+static ssize_t input_dev_show_active(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct input_dev *input_dev = to_input_dev(dev);
+	return snprintf(buf, PAGE_SIZE, "Active %lld seconds\n",
+				input_dev->input_active_count / HZ);
+}
+
+static DEVICE_ATTR(active, S_IRUGO, input_dev_show_active, NULL);
+
 static struct attribute *input_dev_attrs[] = {
 	&dev_attr_name.attr,
 	&dev_attr_phys.attr,
 	&dev_attr_uniq.attr,
 	&dev_attr_modalias.attr,
 	&dev_attr_properties.attr,
+	&dev_attr_active.attr,
 	NULL
 };
 
@@ -2002,6 +2019,12 @@ static void devm_input_device_unregister(struct device *dev, void *res)
 	__input_unregister_device(input);
 }
 
+static void input_active_counter(unsigned long data)
+{
+	struct input_dev *dev = (void *) data;
+	dev->input_active_count += get_jiffies_64() - dev->input_active_start;
+}
+
 /**
  * input_register_device - register device with input core
  * @dev: device to be registered
@@ -2074,6 +2097,12 @@ int input_register_device(struct input_dev *dev)
 		dev->rep[REP_DELAY] = 250;
 		dev->rep[REP_PERIOD] = 33;
 	}
+
+	init_timer(&dev->counter);
+	dev->input_active_count = 0;
+	dev->input_active_start = 0;
+	dev->counter.data = (long) dev;
+	dev->counter.function = input_active_counter;
 
 	if (!dev->getkeycode)
 		dev->getkeycode = input_default_getkeycode;

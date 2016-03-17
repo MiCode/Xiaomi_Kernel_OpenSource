@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1432,7 +1433,7 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 
 	ctl->intf_ctx[MASTER_CTX] = ctx;
 
-	ret = mdss_mdp_cmd_ctx_setup(ctl, ctx, session, false);
+	ret = mdss_mdp_cmd_ctx_setup(ctl, ctx, is_pingpong_split(ctl->mfd) ? session : mixer->num, false);
 	if (ret) {
 		pr_err("mdss_mdp_cmd_ctx_setup failed for ping ping: %d\n",
 				mixer->num);
