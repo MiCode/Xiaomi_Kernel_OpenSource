@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,22 @@
 #include <linux/hrtimer.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include <trace/events/power.h>
 #include <soc/qcom/core_ctl.h>
+
+void core_ctl_trace(int type, int cpu, int arg1, int arg2, int arg3)
+{
+	switch (type) {
+	case CORE_CTL_EVAL_NEED:
+		trace_core_ctl_eval_need(cpu, arg1, arg2, arg3);
+	break;
+
+	case CORE_CTL_SET_BUSY:
+		 trace_core_ctl_set_busy(cpu, arg1, arg2, arg3);
+	break;
+	};
+}
+EXPORT_SYMBOL(core_ctl_trace);
 
 void core_ctl_block_hotplug(void)
 {

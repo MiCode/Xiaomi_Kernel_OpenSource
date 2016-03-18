@@ -14,6 +14,12 @@
 #ifndef __SOC_QCOM_CORE_CTL_H
 #define __SOC_QCOM_CORE_CTL_H
 
+enum {
+	CORE_CTL_EVAL_NEED,
+	CORE_CTL_SET_BUSY,
+	CORE_CTL_N_TRACE_EVENTS,
+};
+
 extern void core_ctl_block_hotplug(void);
 extern void core_ctl_unblock_hotplug(void);
 extern s64 core_ctl_get_time(void);
@@ -22,5 +28,8 @@ extern void core_ctl_put_policy(struct cpufreq_policy *policy);
 extern struct device *core_ctl_find_cpu_device(unsigned cpu);
 extern int core_ctl_online_core(unsigned int cpu);
 extern int core_ctl_offline_core(unsigned int cpu);
+
+#define USE_CORE_CTL_TRACE
+extern void core_ctl_trace(int type, int cpu, int arg1, int arg2, int arg3);
 
 #endif
