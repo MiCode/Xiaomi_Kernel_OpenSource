@@ -39,6 +39,8 @@
 #define PANEL_CMD_MIN_TX_COUNT 2
 #define PANEL_DATA_NODE_LEN 80
 
+#define INVALID_XIN_ID     0xFF
+
 static char panel_reg[2] = {DEFAULT_READ_PANEL_POWER_MODE_REG, 0x00};
 
 static int panel_debug_base_open(struct inode *inode, struct file *file)
@@ -633,12 +635,37 @@ error:
 }
 
 static int parse_dt_xlog_dump_list(const u32 *arr, int count,
-	struct list_head *xlog_dump_list, int total_names,
-	struct platform_device *pdev, const char *name_prop)
+	struct list_head *xlog_dump_list, struct platform_device *pdev,
+	const char *name_prop, const char *xin_prop)
 {
 	struct range_dump_node *xlog_node;
 	u32 len;
-	int i;
+	int i, total_names, total_xin_ids, rc;
+	u32 *offsets = NULL;
+
+	/* Get the property with the name of the ranges */
+	total_names = of_property_count_strings(pdev->dev.of_node,
+		name_prop);
+	if (total_names < 0) {
+		pr_warn("dump names not found. rc=%d\n", total_names);
+		total_names = 0;
+	}
+
+	of_find_property(pdev->dev.of_node, xin_prop, &total_xin_ids);
+	if (total_xin_ids > 0) {
+		total_xin_ids /= sizeof(u32);
+		offsets = kcalloc(total_xin_ids, sizeof(u32), GFP_KERNEL);
+		if (offsets) {
+			rc = of_property_read_u32_array(pdev->dev.of_node,
+				xin_prop, offsets, total_xin_ids);
+			if (rc)
+				total_xin_ids = 0;
+		} else {
+			total_xin_ids = 0;
+		}
+	} else {
+		total_xin_ids = 0;
+	}
 
 	for (i = 0, len = count * 2; i < len; i += 2) {
 		xlog_node = kzalloc(sizeof(*xlog_node), GFP_KERNEL);
@@ -647,33 +674,32 @@ static int parse_dt_xlog_dump_list(const u32 *arr, int count,
 
 		xlog_node->offset.start = be32_to_cpu(arr[i]);
 		xlog_node->offset.end = be32_to_cpu(arr[i + 1]);
+
 		parse_dump_range_name(pdev->dev.of_node, total_names, i/2,
 			xlog_node->range_name,
 			ARRAY_SIZE(xlog_node->range_name), name_prop);
 
+		if ((i / 2) < total_xin_ids)
+			xlog_node->xin_id = offsets[i / 2];
+		else
+			xlog_node->xin_id = INVALID_XIN_ID;
+
 		list_add_tail(&xlog_node->head, xlog_dump_list);
 	}
 
+	kfree(offsets);
 	return 0;
 }
 
 void mdss_debug_register_dump_range(struct platform_device *pdev,
 	struct mdss_debug_base *blk_base, const char *ranges_prop,
-	const char *name_prop)
+	const char *name_prop, const char *xin_prop)
 {
-	int total_dump_names, mdp_len;
+	int mdp_len;
 	const u32 *mdp_arr;
 
 	if (!blk_base || !ranges_prop || !name_prop)
 		return;
-
-	/* Get the property with the name of the ranges */
-	total_dump_names = of_property_count_strings(pdev->dev.of_node,
-		name_prop);
-	if (total_dump_names < 0) {
-		pr_warn("dump names not found. rc=%d\n", total_dump_names);
-		total_dump_names = 0;
-	}
 
 	mdp_arr = of_get_property(pdev->dev.of_node, ranges_prop,
 			&mdp_len);
@@ -683,9 +709,8 @@ void mdss_debug_register_dump_range(struct platform_device *pdev,
 	} else {
 		/* 2 is the number of entries per row to calculate the rows */
 		mdp_len /= 2 * sizeof(u32);
-		parse_dt_xlog_dump_list(mdp_arr, mdp_len,
-			&blk_base->dump_list, total_dump_names, pdev,
-				name_prop);
+		parse_dt_xlog_dump_list(mdp_arr, mdp_len, &blk_base->dump_list,
+			pdev, name_prop, xin_prop);
 	}
 }
 

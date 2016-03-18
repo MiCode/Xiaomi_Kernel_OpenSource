@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include "mdss_debug.h"
 
 #define MDSS_SMMU_COMPATIBLE "qcom,smmu"
+#define SMMU_CBN_FSYNR1		0x6c
 
 struct mdss_iommu_map_type {
 	char *client_name;

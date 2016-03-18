@@ -390,6 +390,10 @@ Optional properties:
 				Note that each tag matches with one of the
 				regs-dump entries in the same order as they
 				are defined.
+- qcom,regs-dump-xin-id-mdp:	Array of VBIF clients ids (xins) corresponding
+				to mdp block. Xin id property is not valid for mdp
+				internal blocks like ctl, lm, dspp. It should set
+				to 0xff for such blocks.
 
 Fudge Factors:			Fudge factors are used to boost demand for
 				resources like bus bandswidth, clk rate etc. to
@@ -591,6 +595,8 @@ Subnode properties:
 			"qcom,smmu_arm_mdp_sec"	- arm smmu context bank device for
 						secure mdp domain.
 - gdsc-mmagic-mdss-supply: Phandle for mmagic mdss supply regulator device node.
+- reg :			offset and length of the register set for the device.
+- reg-names :		names to refer to register sets related to this device
 - clocks:		List of Phandles for clock device nodes
 			needed by the device.
 - clock-names:		List of clock names needed by the device.
@@ -611,6 +617,8 @@ Example:
 			<0xfd925000 0x1000>;
 		reg-names = "mdp_phys", "vbif_phys", "vbif_nrt_phys";
 		interrupts = <0 72 0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
 		batfet-supply = <&pm8941_chg_batif>;
 		vdd-cx-supply = <&pm8841_s2_corner>;
@@ -750,6 +758,7 @@ Example:
 		qcom,mdss-prefill-fbc-lines = <2>;
 		qcom,mdss-idle-power-collapse-enabled;
 
+		qcom,regs-dump-xin-id-mdp = <0xff 0xff 0xff 0xff 0x0 0x0>;
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
@@ -775,6 +784,8 @@ Example:
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
 			compatible = "qcom,smmu_mdp_sec";
 			iommus = <&mdp_smmu 1>;
+			reg = <0xd09000 0x000d00>,
+			reg-names = "mmu_cb";
 			gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 			clocks = <&clock_mmss clk_smmu_mdp_ahb_clk>,
 				<&clock_mmss clk_smmu_mdp_axi_clk>;
