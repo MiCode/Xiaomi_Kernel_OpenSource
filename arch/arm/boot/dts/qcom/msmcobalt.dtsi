@@ -42,6 +42,7 @@
 			qcom,limits-info = <&mitigation_profile0>;
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			qcom,ea = <&ea0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -64,6 +65,7 @@
 			qcom,limits-info = <&mitigation_profile1>;
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			qcom,ea = <&ea1>;
 			L1_I_1: l1-icache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9040>;
@@ -81,6 +83,7 @@
 			qcom,limits-info = <&mitigation_profile2>;
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			qcom,ea = <&ea2>;
 			L1_I_2: l1-icache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9040>;
@@ -98,6 +101,7 @@
 			qcom,limits-info = <&mitigation_profile3>;
 			enable-method = "psci";
 			next-level-cache = <&L2_0>;
+			qcom,ea = <&ea3>;
 			L1_I_3: l1-icache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x9040>;
@@ -115,6 +119,7 @@
 			qcom,limits-info = <&mitigation_profile4>;
 			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			qcom,ea = <&ea4>;
 			L2_1: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -136,6 +141,7 @@
 			qcom,limits-info = <&mitigation_profile5>;
 			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			qcom,ea = <&ea5>;
 			L1_I_101: l1-icache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
@@ -153,6 +159,7 @@
 			qcom,limits-info = <&mitigation_profile6>;
 			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			qcom,ea = <&ea6>;
 			L1_I_102: l1-icache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
@@ -170,6 +177,7 @@
 			qcom,limits-info = <&mitigation_profile7>;
 			enable-method = "psci";
 			next-level-cache = <&L2_1>;
+			qcom,ea = <&ea7>;
 			L1_I_103: l1-icache {
 				compatible = "arm,arch-cache";
 				qcom,dump-size = <0x12000>;
@@ -1817,6 +1825,47 @@
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 		status = "ok";
+	};
+
+	qcom,msm-core@780000 {
+		compatible = "qcom,apss-core-ea";
+		reg = <0x780000 0x1000>;
+		qcom,low-hyst-temp = <10>;
+		qcom,high-hyst-temp = <5>;
+		qcom,polling-interval = <50>;
+
+		ea0: ea0 {
+			sensor = <&sensor_information1>;
+		};
+
+		ea1: ea1 {
+			sensor = <&sensor_information2>;
+		};
+
+		ea2: ea2 {
+			sensor = <&sensor_information3>;
+		};
+
+		ea3: ea3 {
+			sensor = <&sensor_information4>;
+		};
+
+		ea4: ea4 {
+			sensor = <&sensor_information7>;
+		};
+
+		ea5: ea5 {
+			sensor = <&sensor_information8>;
+		};
+
+		ea6: ea6 {
+			sensor = <&sensor_information9>;
+		};
+
+		ea7: ea7 {
+			sensor = <&sensor_information10>;
+		};
+
 	};
 };
 
