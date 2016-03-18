@@ -801,6 +801,11 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 		&& !(cmdbatch->flags & KGSL_CMDBATCH_SYNC))
 		device->flags &= ~KGSL_FLAG_WAKE_ON_TOUCH;
 
+	/* A3XX does not have support for command batch profiling */
+	if (adreno_is_a3xx(adreno_dev) &&
+			(cmdbatch->flags & KGSL_CMDBATCH_PROFILING))
+		return -EOPNOTSUPP;
+
 	/* Queue the command in the ringbuffer */
 	ret = adreno_dispatcher_queue_cmd(adreno_dev, drawctxt, cmdbatch,
 		timestamp);
