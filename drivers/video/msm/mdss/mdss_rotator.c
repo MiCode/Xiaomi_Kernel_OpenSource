@@ -1701,11 +1701,13 @@ static int mdss_rotator_config_hw(struct mdss_rot_hw_resource *hw,
 {
 	struct mdss_mdp_pipe *pipe;
 	struct mdp_rotation_item *item;
+	struct mdss_rot_perf *perf;
 	int ret;
 
 	ATRACE_BEGIN(__func__);
 	pipe = hw->pipe;
 	item = &entry->item;
+	perf = entry->perf;
 
 	pipe->flags = mdss_rotator_translate_flags(item->flags);
 	pipe->src_fmt = mdss_mdp_get_format_params(item->input.format);
@@ -1714,6 +1716,7 @@ static int mdss_rotator_config_hw(struct mdss_rot_hw_resource *hw,
 	mdss_rotator_translate_rect(&pipe->src, &item->src_rect);
 	mdss_rotator_translate_rect(&pipe->dst, &item->src_rect);
 	pipe->scaler.enable = 0;
+	pipe->frame_rate = perf->config.frame_rate;
 
 	pipe->params_changed++;
 
