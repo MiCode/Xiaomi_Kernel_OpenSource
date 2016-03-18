@@ -87,7 +87,9 @@ static int audio_ext_clk_prepare(struct clk *clk)
 	struct audio_ext_ap_clk *audio_clk = to_audio_ap_clk(clk);
 
 	pr_debug("%s: gpio: %d\n", __func__, audio_clk->gpio);
-	return gpio_direction_output(audio_clk->gpio, 1);
+	if (gpio_is_valid(audio_clk->gpio))
+		return gpio_direction_output(audio_clk->gpio, 1);
+	return 0;
 }
 
 static void audio_ext_clk_unprepare(struct clk *clk)
@@ -95,7 +97,8 @@ static void audio_ext_clk_unprepare(struct clk *clk)
 	struct audio_ext_ap_clk *audio_clk = to_audio_ap_clk(clk);
 
 	pr_debug("%s: gpio: %d\n", __func__, audio_clk->gpio);
-	gpio_direction_output(audio_clk->gpio, 0);
+	if (gpio_is_valid(audio_clk->gpio))
+		gpio_direction_output(audio_clk->gpio, 0);
 }
 
 static inline struct audio_ext_ap_clk2 *to_audio_ap_clk2(struct clk *clk)
@@ -237,6 +240,7 @@ static struct clk_ops audio_ext_lpass_mclk_ops = {
 };
 
 static struct audio_ext_pmi_clk audio_pmi_clk = {
+	.gpio = -EINVAL,
 	.c = {
 		.dbg_name = "audio_ext_pmi_clk",
 		.ops = &clk_ops_dummy,
@@ -245,6 +249,7 @@ static struct audio_ext_pmi_clk audio_pmi_clk = {
 };
 
 static struct audio_ext_ap_clk audio_ap_clk = {
+	.gpio = -EINVAL,
 	.c = {
 		.dbg_name = "audio_ext_ap_clk",
 		.ops = &audio_ext_ap_clk_ops,
