@@ -34,6 +34,7 @@
 #include "mdss.h"
 #include "mdss_mdp.h"
 #include "mdss_smmu.h"
+#include "mdss_debug.h"
 
 static DEFINE_MUTEX(mdp_iommu_lock);
 
@@ -433,7 +434,34 @@ static void mdss_smmu_dsi_unmap_buffer_v2(dma_addr_t dma_addr, int domain,
 		dma_unmap_single(mdss_smmu->dev, dma_addr, size, dir);
 }
 
+int mdss_smmu_fault_handler(struct iommu_domain *domain, struct device *dev,
+	unsigned long iova, int flags, void *user_data)
+{
+	struct mdss_smmu_client *mdss_smmu =
+		(struct mdss_smmu_client *)user_data;
+	u32 fsynr1, mid, i;
 
+	if (!mdss_smmu || !mdss_smmu->mmu_base)
+		goto end;
+
+	fsynr1 = readl_relaxed(mdss_smmu->mmu_base + SMMU_CBN_FSYNR1);
+	mid = fsynr1 & 0xff;
+	pr_err("mdss_smmu: iova:0x%lx flags:0x%x fsynr1: 0x%x mid: 0x%x\n",
+		iova, flags, fsynr1, mid);
+
+	/* get domain id information */
+	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
+		if (mdss_smmu == mdss_smmu_get_cb(i))
+			break;
+	}
+
+	if (i == MDSS_IOMMU_MAX_DOMAIN)
+		goto end;
+
+	mdss_mdp_debug_mid(mid);
+end:
+	return -ENOSYS;
+}
 
 static void mdss_smmu_deinit_v2(struct mdss_data_type *mdata)
 {
@@ -536,6 +564,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	struct dss_module_power *mp;
 	int disable_htw = 1;
 	char name[MAX_CLIENT_NAME_LEN];
+	const __be32 *address = NULL, *size = NULL;
 
 	if (!mdata) {
 		pr_err("probe failed as mdata is not initialized\n");
@@ -651,6 +680,19 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		mdss_smmu->handoff_pending = true;
 
 	mdss_smmu->dev = dev;
+
+	address = of_get_address_by_name(pdev->dev.of_node, "mmu_cb", 0, 0);
+	if (address) {
+		size = address + 1;
+		mdss_smmu->mmu_base = ioremap(be32_to_cpu(*address),
+			be32_to_cpu(*size));
+		if (mdss_smmu->mmu_base)
+			iommu_set_fault_handler(mdss_smmu->mmu_mapping->domain,
+				mdss_smmu_fault_handler, mdss_smmu);
+	} else {
+		pr_debug("unable to map context bank base\n");
+	}
+
 	pr_info("iommu v2 domain[%d] mapping and clk register successful!\n",
 			smmu_domain.domain);
 	return 0;
