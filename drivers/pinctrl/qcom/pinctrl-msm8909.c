@@ -1256,7 +1256,7 @@ static const struct msm_pinctrl_soc_data msm8909_pinctrl = {
 	.nfunctions = ARRAY_SIZE(msm8909_functions),
 	.groups = msm8909_groups,
 	.ngroups = ARRAY_SIZE(msm8909_groups),
-	.ngpios = 112,
+	.ngpios = 113,
 };
 
 static int msm8909_pinctrl_probe(struct platform_device *pdev)

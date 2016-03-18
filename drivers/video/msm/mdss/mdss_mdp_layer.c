@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,8 @@
 	((pipe_ndx >= (1 << MDSS_MDP_SSPP_DMA0)) &&\
 	(pipe_ndx <= (1 << MDSS_MDP_SSPP_DMA1)))
 
+#define SCALER_ENABLED \
+	(MDP_LAYER_ENABLE_PIXEL_EXT | MDP_LAYER_ENABLE_QSEED3_SCALE)
 enum {
 	MDSS_MDP_RELEASE_FENCE = 0,
 	MDSS_MDP_RETIRE_FENCE,
@@ -308,7 +310,7 @@ static int __layer_param_check(struct msm_fb_data_type *mfd,
 	}
 
 	if ((layer->flags & MDP_LAYER_DEINTERLACE) &&
-		!(layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT)) {
+		!(layer->flags & SCALER_ENABLED)) {
 		if (layer->flags & MDP_SOURCE_ROTATED_90) {
 			if ((layer->src_rect.w % 4) != 0) {
 				pr_err("interlaced rect not h/4\n");
@@ -329,6 +331,28 @@ static int __layer_param_check(struct msm_fb_data_type *mfd,
 	}
 
 	return 0;
+}
+
+/* compare all reconfiguration parameter validation in this API */
+static int __validate_layer_reconfig(struct mdp_input_layer *layer,
+	struct mdss_mdp_pipe *pipe)
+{
+	int status = 0;
+	struct mdss_mdp_format_params *src_fmt;
+
+	/*
+	 * csc registers are not double buffered. It is not permitted
+	 * to change them on staged pipe with YUV layer.
+	 */
+	if (pipe->csc_coeff_set != layer->color_space) {
+		src_fmt = mdss_mdp_get_format_params(layer->buffer.format);
+		if (pipe->src_fmt->is_yuv && src_fmt->is_yuv) {
+			status = -EPERM;
+			pr_err("csc change is not permitted on used pipe\n");
+		}
+	}
+
+	return status;
 }
 
 static int __validate_single_layer(struct msm_fb_data_type *mfd,
@@ -479,7 +503,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	if (layer->flags & MDP_LAYER_PP)
 		pipe->flags |= MDP_OVERLAY_PP_CFG_EN;
 
-	pipe->scale.enable_pxl_ext = layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT;
+	pipe->scaler.enable = (layer->flags & SCALER_ENABLED);
 	pipe->is_fg = layer->flags & MDP_LAYER_FORGROUND;
 	pipe->img_width = layer->buffer.width & 0x3fff;
 	pipe->img_height = layer->buffer.height & 0x3fff;
@@ -499,6 +523,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	pipe->blend_op = layer->blend_op;
 	pipe->is_handed_off = false;
 	pipe->async_update = (layer->flags & MDP_LAYER_ASYNC) ? true : false;
+	pipe->csc_coeff_set = layer->color_space;
 
 	if (mixer->ctl) {
 		pipe->dst.x += mixer->ctl->border_x_off;
@@ -524,6 +549,13 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		ret = -EINVAL;
 		goto end;
 	}
+
+	/*
+	 * unstage the pipe if it's current z_order does not match with new
+	 * z_order because client may only call the validate.
+	 */
+	if (pipe->mixer_stage != layer->z_order)
+		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 
 	/*
 	 * check if overlay span across two mixers and if source split is
@@ -595,7 +627,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 			BLEND_OP_PREMULTIPLIED : BLEND_OP_OPAQUE;
 
 	if (pipe->src_fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90) &&
-			!pipe->scale.enable_pxl_ext) {
+			!pipe->scaler.enable) {
 		pipe->overfetch_disable = OVERFETCH_DISABLE_BOTTOM;
 
 	if (pipe->dst.x >= left_lm_w)
@@ -609,7 +641,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	 * When scaling is enabled src crop and image
 	 * width and height is modified by user
 	 */
-	if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scale.enable_pxl_ext) {
+	if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scaler.enable) {
 		if (pipe->flags & MDP_SOURCE_ROTATED_90) {
 			pipe->src.x = DIV_ROUND_UP(pipe->src.x, 2);
 			pipe->src.x &= ~1;
@@ -622,9 +654,9 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	if (layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT)
-		memcpy(&pipe->scale, layer->scale,
-			sizeof(struct mdp_scale_data));
+	if (layer->flags & SCALER_ENABLED)
+		memcpy(&pipe->scaler, layer->scale,
+			sizeof(struct mdp_scale_data_v2));
 	ret = mdss_mdp_overlay_setup_scaling(pipe);
 	if (ret) {
 		pr_err("scaling setup failed %d\n", ret);
@@ -852,7 +884,6 @@ static struct mdss_mdp_data *__map_layer_buffer(struct msm_fb_data_type *mfd,
 	flags = (pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
 				MDP_SECURE_DISPLAY_OVERLAY_SESSION));
 
-	/* current implementation only supports one plane mapping */
 	if (buffer->planes[0].fd < 0) {
 		pr_err("invalid file descriptor for layer buffer\n");
 		src_data = ERR_PTR(-EINVAL);
@@ -899,6 +930,7 @@ static inline bool __compare_layer_config(struct mdp_input_layer *validate,
 		validate->horz_deci == layer->horz_deci &&
 		validate->vert_deci == layer->vert_deci &&
 		validate->alpha == layer->alpha &&
+		validate->color_space == layer->color_space &&
 		validate->z_order == (layer->z_order - MDSS_MDP_STAGE_0) &&
 		validate->transp_mask == layer->transp_mask &&
 		validate->bg_color == layer->bg_color &&
@@ -907,9 +939,9 @@ static inline bool __compare_layer_config(struct mdp_input_layer *validate,
 		validate->buffer.height == layer->buffer.height &&
 		validate->buffer.format == layer->buffer.format;
 
-	if (status && (validate->flags & MDP_LAYER_ENABLE_PIXEL_EXT))
-		status = !memcmp(validate->scale, &pipe->scale,
-			sizeof(pipe->scale));
+	if (status && (validate->flags & SCALER_ENABLED))
+		status = !memcmp(validate->scale, &pipe->scaler,
+			sizeof(pipe->scaler));
 
 	return status;
 }
@@ -1281,6 +1313,21 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 				pipe->num, pipe->ndx);
 			layer->error_code = ret;
 			goto validate_exit;
+		}
+
+		if (pipe_q_type == LAYER_USES_USED_PIPE_Q) {
+			/*
+			 * reconfig is allowed on new/destroy pipes. Only used
+			 * pipe needs this extra validation.
+			 */
+			ret = __validate_layer_reconfig(layer, pipe);
+			if (ret) {
+				pr_err("layer reconfig validation failed=%d\n",
+					ret);
+				mdss_mdp_pipe_unmap(pipe);
+				layer->error_code = ret;
+				goto validate_exit;
+			}
 		}
 
 		ret = __configure_pipe_params(mfd, layer, pipe,

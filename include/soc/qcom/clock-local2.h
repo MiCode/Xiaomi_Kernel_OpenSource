@@ -57,6 +57,9 @@ struct clk_freq_tbl {
  * @current_freq: current RCG frequency
  * @c: generic clock data
  * @non_local_children: set if RCG has at least one branch owned by a diff EE
+ * @non_local_control_timeout: configurable RCG timeout needed when all RCG
+ *			 children can be controlled by an entity outside of
+			 HLOS.
  * @force_enable_rcgr: set if RCG needs to be force enabled/disabled during
  * power sequence
  * @base: pointer to base address of ioremapped registers.
@@ -71,6 +74,7 @@ struct rcg_clk {
 	struct clk	c;
 
 	bool non_local_children;
+	int non_local_control_timeout;
 	bool force_enable_rcgr;
 	void *const __iomem *base;
 };

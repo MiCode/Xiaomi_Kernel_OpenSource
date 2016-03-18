@@ -19,12 +19,6 @@ Optional properties :
   happening and it is OK to have higher DMA latency to save power.
   Third value represents DMA latency to vote when USB BUS is IDLE and absolutely
   no transfers are happening. It should allow transition to lowest power state.
-- qcom,streaming-func : add list of usb function name. If mention usb function
-  is being enable as part of USB composition, streaming mode is enable with
-  usb device controller to get better throughput. NOTE: Inverted CRC and
-  turnaround timeout is observed on enabling streaming. Hence it is required
-  to see these errors and number of erros on enabling this at USB level to make
-  final decision to enable this feature or not.
 - qcom,usb-core-id: Index to refer USB hardware core to bind android gadget driver
   with UDC if multiple USB peripheral controllers are present. If unspecified,
   core is set to zero by default.
@@ -37,7 +31,6 @@ Example Android USB device node :
 		compatible = "qcom,android-usb";
 		reg = <0xfc42b0c8 0xc8>;
 		qcom,pm-qos-latency = <2 1001 12701>;
-		qcom,streaming-func = "rndis","mtp";
 		qcom,supported-func = "rndis_gsi","ecm_gsi","rmnet_gsi";
 		qcom,usb-core-id = <1>;
 	};

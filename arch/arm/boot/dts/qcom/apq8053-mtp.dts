@@ -1,0 +1,40 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "apq8053.dtsi"
+#include "msm8953-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8053 MTP";
+	compatible = "qcom,apq8053-mtp", "qcom,apq8053", "qcom,mtp";
+	qcom,board-id= <8 0>;
+};
+
+&i2c_2 {
+	/* Parallel-charger configuration */
+	smb135x-charger@1c {
+		compatible = "qcom,smb1358-charger";
+		reg = <0x1c>;
+		qcom,parallel-en-pin-polarity = <1>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+	};
+};
+
+&pmi8950_fg {
+	/* use external rsense for parallel charging */
+	qcom,ext-sense-type;
+};

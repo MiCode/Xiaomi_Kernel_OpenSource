@@ -129,11 +129,10 @@ static size_t snapshot_os(struct kgsl_device *device,
 {
 	struct kgsl_snapshot_linux *header = (struct kgsl_snapshot_linux *)buf;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct task_struct *task;
-	pid_t pid;
 	int ctxtcount = 0;
 	size_t size = sizeof(*header);
 	u64 temp_ptbase;
+	struct kgsl_context *context;
 
 	/* Figure out how many active contexts there are - these will
 	 * be appended on the end of the structure */
@@ -176,19 +175,20 @@ static size_t snapshot_os(struct kgsl_device *device,
 	kgsl_sharedmem_readl(&device->memstore, &header->current_context,
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
 
+	context = kgsl_context_get(device, header->current_context);
 
 	/* Get the current PT base */
 	temp_ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
 	/* Truncate to 32 bits in case LPAE is used */
 	header->ptbase = (__u32)temp_ptbase;
 	/* And the PID for the task leader */
-	pid = header->pid = kgsl_mmu_get_ptname_from_ptbase(&device->mmu,
-								temp_ptbase);
-
-	task = find_task_by_vpid(pid);
-
-	if (task)
-		get_task_comm(header->comm, task);
+	if (context) {
+		header->pid = context->tid;
+		strlcpy(header->comm, context->proc_priv->comm,
+				sizeof(header->comm));
+		kgsl_context_put(context);
+		context = NULL;
+	}
 
 	header->ctxtcount = ctxtcount;
 

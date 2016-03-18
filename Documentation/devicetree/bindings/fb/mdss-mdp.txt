@@ -510,6 +510,11 @@ Fudge Factors:			Fudge factors are used to boost demand for
 - qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
 				the device supports. If not specified, a default value
 				of 2048 will be applied.
+- qcom,mdss-reg-bus:		Property to provide Bus scaling for register access for
+				MDP and DSI Blocks.
+
+- qcom,mdss-rot-reg-bus:	Property to provide Bus scaling for register access for
+				Rotator Block.
 
 Optional subnodes:
 - mdss_fb:		Child nodes representing the frame buffer virtual devices.
@@ -571,6 +576,25 @@ Subnode properties:
 		               to gamut block from DSPP base address.
 		       -- qcom,mdss-dspp-pgc-off: This 32 bit value provides the offset to
 		               PGC block from the DSPP base address.
+
+- qcom,mdss-scaler-offsets: A node that lists the offsets of scaler blocks
+		            from base module.
+		            -- qcom,mdss-vig-scaler-off: This 32 bit value provides the
+		                   offset to vig scaler from vig pipe base.
+		            -- qcom,mdss-vig-scaler-lut-off: This 32 bit value provides the
+		                   offset to vig scaler lut from vig pipe base.
+		            -- qcom,mdss-has-dest-scaler: Boolean property to indicate the
+		                   presence of destination scaler block.
+		            -- qcom,mdss-dest-block-off: This 32 bit value provides the
+		                   offset from mdp base to destination scaler block.
+		            -- qcom,mdss-dest-scaler-off: Array containing offsets of
+		                   destination scalar modules from the scaler block.
+		            -- qcom,mdss-dest-scaler-lut-off: Array containing offsets of destination
+		                   scaler lut tables from scalar block.
+
+- qcom,mdss-has-separate-rotator: Boolean property to indicate support of
+				  indpendent rotator. Indpendent rotator has
+				  separate DMA pipe working in block mode only.
 
 - smmu_mdp_***:	Child nodes representing the mdss smmu virtual devices.
 		Mandatory smmu v2 and not required for smmu v1.
@@ -772,6 +796,28 @@ Example:
 			qcom,mdss-dspp-pgc-off = <0x17C0>;
 		};
 
+		qcom,mdss-scaler-offsets {
+			qcom,mdss-vig-scaler-off = <0xA00>;
+			qcom,mdss-vig-scaler-lut-off = <0xB00>;
+			qcom,mdss-has-dest-scaler;
+			qcom,mdss-dest-block-off = <0x00061000>;
+			qcom,mdss-dest-scaler-off = <0x800 0x1000>;
+			qcom,mdss-dest-scaler-lut-off = <0x900 0x1100>;
+		};
+
+		qcom,mdss-reg-bus {
+		    /* Reg Bus Scale Settings */
+		    qcom,msm-bus,name = "mdss_reg";
+		    qcom,msm-bus,num-cases = <4>;
+		    qcom,msm-bus,num-paths = <1>;
+		    qcom,msm-bus,active-only;
+		    qcom,msm-bus,vectors-KBps =
+			    <1 590 0 0>,
+			    <1 590 0 76800>,
+			    <1 590 0 160000>,
+			    <1 590 0 320000>;
+		};
+
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
 			compatible = "qcom,smmu_mdp_sec";
 			iommus = <&mdp_smmu 1>;
@@ -786,6 +832,17 @@ Example:
 			qcom,mdss_pan_res = <1280 720>;
 			qcom,mdss_pan_bpp = <24>;
 			qcom,mdss-fb-map = <&mdss_fb1>;
+		};
+
+		qcom,mdss-rot-reg-bus {
+		    /* Reg Bus Scale Settings */
+		    qcom,msm-bus,name = "mdss_rot_reg";
+		    qcom,msm-bus,num-cases = <2>;
+		    qcom,msm-bus,num-paths = <1>;
+		    qcom,msm-bus,active-only;
+		    qcom,msm-bus,vectors-KBps =
+			    <1 590 0 0>,
+			    <1 590 0 76800>;
 		};
 	};
 

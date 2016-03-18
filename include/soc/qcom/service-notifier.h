@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,7 +53,7 @@ static void *service_notif_register_notifier(const char *service_path,
 				int instance_id, struct notifier_block *nb,
 				int *curr_state)
 {
-	return -ENODEV;
+	return ERR_PTR(-ENODEV);
 }
 
 static int service_notif_unregister_notifier(void *service_notif_handle,

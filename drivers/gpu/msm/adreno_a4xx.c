@@ -744,7 +744,7 @@ static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 		 * Return the word address of the erroring register so that it
 		 * matches the register specification
 		 */
-		KGSL_DRV_CRIT(device,
+		KGSL_DRV_CRIT_RATELIMIT(device,
 			"RBBM | AHB bus error | %s | addr=%x | ports=%x:%x\n",
 			reg & (1 << 28) ? "WRITE" : "READ",
 			(reg & 0xFFFFF) >> 2, (reg >> 20) & 0x3,
@@ -752,7 +752,7 @@ static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 
 		/* Clear the error */
 		kgsl_regwrite(device, A4XX_RBBM_AHB_CMD, (1 << 4));
-		return;
+		break;
 	}
 	case A4XX_INT_RBBM_REG_TIMEOUT:
 		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: AHB register timeout\n");
@@ -798,11 +798,11 @@ static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	}
 	case A4XX_INT_CP_REG_PROTECT_FAULT:
 		kgsl_regread(device, A4XX_CP_PROTECT_STATUS, &reg);
-		KGSL_DRV_CRIT(device,
+		KGSL_DRV_CRIT_RATELIMIT(device,
 			"CP | Protected mode error| %s | addr=%x\n",
 			reg & (1 << 24) ? "WRITE" : "READ",
 			(reg & 0xFFFFF) >> 2);
-		return;
+		break;
 	case A4XX_INT_CP_AHB_ERROR_HALT:
 		KGSL_DRV_CRIT_RATELIMIT(device,
 			"ringbuffer AHB error interrupt\n");
@@ -1439,7 +1439,7 @@ static const unsigned int _a4xx_pwron_fixup_fs_instructions[] = {
 };
 
 /**
- * adreno_a4xx_pwron_fixup_init() - Initalize a special command buffer to run a
+ * _a4xx_pwron_fixup() - Initialize a special command buffer to run a
  * post-power collapse shader workaround
  * @adreno_dev: Pointer to a adreno_device struct
  *
@@ -1449,7 +1449,7 @@ static const unsigned int _a4xx_pwron_fixup_fs_instructions[] = {
  *
  * Returns: 0 on success or negative on error
  */
-int adreno_a4xx_pwron_fixup_init(struct adreno_device *adreno_dev)
+static int _a4xx_pwron_fixup(struct adreno_device *adreno_dev)
 {
 	unsigned int *cmds;
 	unsigned int count = ARRAY_SIZE(_a4xx_pwron_fixup_fs_instructions);
@@ -1560,23 +1560,17 @@ int adreno_a4xx_pwron_fixup_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static int a4xx_hw_init(struct adreno_device *adreno_dev)
+/*
+ * a4xx_init() - Initialize gpu specific data
+ * @adreno_dev: Pointer to adreno device
+ */
+static void a4xx_init(struct adreno_device *adreno_dev)
 {
-	a4xx_enable_pc(adreno_dev);
-	a4xx_enable_ppd(adreno_dev);
-
-	return 0;
+	if ((adreno_is_a405(adreno_dev)) || (adreno_is_a420(adreno_dev)))
+		_a4xx_pwron_fixup(adreno_dev);
 }
 
-/*
- * a4xx_rb_init() - Initialize ringbuffer
- * @adreno_dev: Pointer to adreno device
- * @rb: Pointer to the ringbuffer of device
- *
- * Submit commands for ME initialization, common function shared between
- * a4xx devices
- */
-static int a4xx_rb_init(struct adreno_device *adreno_dev,
+static int a4xx_send_me_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
@@ -1626,6 +1620,47 @@ static int a4xx_rb_init(struct adreno_device *adreno_dev,
 
 		dev_err(device->dev, "CP initialization failed to idle\n");
 		kgsl_device_snapshot(device, NULL);
+	}
+
+	return ret;
+}
+
+/*
+ * a4xx_rb_start() - Start the ringbuffer
+ * @adreno_dev: Pointer to adreno device
+ * @start_type: Warm or cold start
+ */
+static int a4xx_rb_start(struct adreno_device *adreno_dev,
+			 unsigned int start_type)
+{
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
+	int ret;
+
+	/*
+	 * The size of the ringbuffer in the hardware is the log2
+	 * representation of the size in quadwords (sizedwords / 2).
+	 * Also disable the host RPTR shadow register as it might be unreliable
+	 * in certain circumstances.
+	 */
+
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_CNTL,
+		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F) |
+		(1 << 27));
+
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
+			  rb->buffer_desc.gpuaddr);
+
+	ret = a3xx_microcode_load(adreno_dev, start_type);
+	if (ret)
+		return ret;
+
+	/* clear ME_HALT to start micro engine */
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, 0);
+
+	ret = a4xx_send_me_init(adreno_dev, rb);
+	if (ret == 0) {
+		a4xx_enable_pc(adreno_dev);
+		a4xx_enable_ppd(adreno_dev);
 	}
 
 	return ret;
@@ -2238,10 +2273,9 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 
 	.perfcounter_init = a4xx_perfcounter_init,
 	.perfcounter_close = a4xx_perfcounter_close,
-	.rb_init = a4xx_rb_init,
-	.hw_init = a4xx_hw_init,
+	.rb_start = a4xx_rb_start,
+	.init = a4xx_init,
 	.microcode_read = a3xx_microcode_read,
-	.microcode_load = a3xx_microcode_load,
 	.coresight = &a4xx_coresight,
 	.start = a4xx_start,
 	.snapshot = a4xx_snapshot,

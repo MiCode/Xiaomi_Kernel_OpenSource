@@ -5,7 +5,7 @@
 
 /*************************************************************************
  * -----------------------------------------------------------------------
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,9 +90,14 @@ static int handle_multicast_stream(struct sk_buff *skb)
 		embms_debug("Tunneling Disabled. Can't process packets\n");
 		return 0;
 	}
+	if (unlikely(!skb->dev)) {
+		embms_error("Can't get skb dev name\n");
+		return 0;
+	}
 
 	if (unlikely(memcmp(skb->dev->name, embms_conf.embms_iface,
-			    strlen(embms_conf.embms_iface)) != 0)) {
+		     MIN(strlen(embms_conf.embms_iface),
+			 sizeof(skb->dev->name))) != 0)) {
 		embms_error("Packet received on %s iface. NOT an EMBMS Iface\n",
 			    skb->dev->name);
 		return 0;
@@ -951,7 +956,8 @@ static int __init start_embms(void)
 	udph_global = (struct udphdr *)(hdr_buff + sizeof(struct iphdr));
 
 	embms_device.name = kzalloc(sizeof(EMBMS_DEVICE_NAME), GFP_KERNEL);
-
+	if (embms_device.name == NULL)
+		return 1;
 	strlcpy(embms_device.name, EMBMS_DEVICE_NAME,
 		sizeof(EMBMS_DEVICE_NAME));
 	embms_device.fops = &embms_device_fops;

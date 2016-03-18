@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -554,7 +554,7 @@ static void ipa3_uc_mhi_event_log_info_hdlr(
 	if (ipa3_uc_mhi_ctx->mhi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsMhiInfoData_t) >=
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
 		ipa3_ctx->smem_sz) {
 		IPAERR("uc_mhi_stats 0x%x outside SRAM\n",
 			ipa3_uc_mhi_ctx->mhi_uc_stats_ofst);
@@ -602,13 +602,15 @@ int ipa3_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
 
 void ipa3_uc_mhi_cleanup(void)
 {
+	struct ipa3_uc_hdlrs null_hdlrs = { 0 };
+
 	IPADBG("Enter\n");
 
 	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("ipa3_uc_mhi_ctx is not initialized\n");
 		return;
 	}
-	ipa3_uc_register_handlers(IPA_HW_FEATURE_MHI, NULL);
+	ipa3_uc_register_handlers(IPA_HW_FEATURE_MHI, &null_hdlrs);
 	kfree(ipa3_uc_mhi_ctx);
 	ipa3_uc_mhi_ctx = NULL;
 

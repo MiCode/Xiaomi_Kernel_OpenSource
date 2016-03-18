@@ -36,6 +36,12 @@ struct private_data {
 	unsigned int voltage_tolerance; /* in percentage */
 };
 
+static struct freq_attr *cpufreq_dt_attr[] = {
+	&cpufreq_freq_attr_scaling_available_freqs,
+	NULL,   /* Extra space for boost-attr if required */
+	NULL,
+};
+
 static int set_target(struct cpufreq_policy *policy, unsigned int index)
 {
 	struct dev_pm_opp *opp;
@@ -58,6 +64,8 @@ static int set_target(struct cpufreq_policy *policy, unsigned int index)
 	old_freq = clk_get_rate(cpu_clk) / 1000;
 
 	if (!IS_ERR(cpu_reg)) {
+		unsigned long opp_freq;
+
 		rcu_read_lock();
 		opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_Hz);
 		if (IS_ERR(opp)) {
@@ -67,13 +75,16 @@ static int set_target(struct cpufreq_policy *policy, unsigned int index)
 			return PTR_ERR(opp);
 		}
 		volt = dev_pm_opp_get_voltage(opp);
+		opp_freq = dev_pm_opp_get_freq(opp);
 		rcu_read_unlock();
 		tol = volt * priv->voltage_tolerance / 100;
 		volt_old = regulator_get_voltage(cpu_reg);
+		dev_dbg(cpu_dev, "Found OPP: %ld kHz, %ld uV\n",
+			opp_freq / 1000, volt);
 	}
 
 	dev_dbg(cpu_dev, "%u MHz, %ld mV --> %u MHz, %ld mV\n",
-		old_freq / 1000, volt_old ? volt_old / 1000 : -1,
+		old_freq / 1000, (volt_old > 0) ? volt_old / 1000 : -1,
 		new_freq / 1000, volt ? volt / 1000 : -1);
 
 	/* scaling up?  scale voltage before frequency */
@@ -89,7 +100,7 @@ static int set_target(struct cpufreq_policy *policy, unsigned int index)
 	ret = clk_set_rate(cpu_clk, freq_exact);
 	if (ret) {
 		dev_err(cpu_dev, "failed to set clock rate: %d\n", ret);
-		if (!IS_ERR(cpu_reg))
+		if (!IS_ERR(cpu_reg) && volt_old > 0)
 			regulator_set_voltage_tol(cpu_reg, volt_old, tol);
 		return ret;
 	}
@@ -179,21 +190,21 @@ try_again:
 
 static int cpufreq_init(struct cpufreq_policy *policy)
 {
-	struct cpufreq_dt_platform_data *pd;
 	struct cpufreq_frequency_table *freq_table;
-	struct thermal_cooling_device *cdev;
 	struct device_node *np;
 	struct private_data *priv;
 	struct device *cpu_dev;
 	struct regulator *cpu_reg;
 	struct clk *cpu_clk;
+	struct dev_pm_opp *suspend_opp;
 	unsigned long min_uV = ~0, max_uV = 0;
 	unsigned int transition_latency;
+	bool need_update = false;
 	int ret;
 
 	ret = allocate_resources(policy->cpu, &cpu_dev, &cpu_reg, &cpu_clk);
 	if (ret) {
-		pr_err("%s: Failed to allocate resources\n: %d", __func__, ret);
+		pr_err("%s: Failed to allocate resources: %d\n", __func__, ret);
 		return ret;
 	}
 
@@ -204,18 +215,71 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 		goto out_put_reg_clk;
 	}
 
-	/* OPPs might be populated at runtime, don't check for error here */
-	of_init_opp_table(cpu_dev);
+	/* Get OPP-sharing information from "operating-points-v2" bindings */
+	ret = of_get_cpus_sharing_opps(cpu_dev, policy->cpus);
+	if (ret) {
+		/*
+		 * operating-points-v2 not supported, fallback to old method of
+		 * finding shared-OPPs for backward compatibility.
+		 */
+		if (ret == -ENOENT)
+			need_update = true;
+		else
+			goto out_node_put;
+	}
+
+	/*
+	 * Initialize OPP tables for all policy->cpus. They will be shared by
+	 * all CPUs which have marked their CPUs shared with OPP bindings.
+	 *
+	 * For platforms not using operating-points-v2 bindings, we do this
+	 * before updating policy->cpus. Otherwise, we will end up creating
+	 * duplicate OPPs for policy->cpus.
+	 *
+	 * OPPs might be populated at runtime, don't check for error here
+	 */
+	of_cpumask_init_opp_table(policy->cpus);
+
+	/*
+	 * But we need OPP table to function so if it is not there let's
+	 * give platform code chance to provide it for us.
+	 */
+	ret = dev_pm_opp_get_opp_count(cpu_dev);
+	if (ret <= 0) {
+		pr_debug("OPP table is not ready, deferring probe\n");
+		ret = -EPROBE_DEFER;
+		goto out_free_opp;
+	}
+
+	if (need_update) {
+		struct cpufreq_dt_platform_data *pd = cpufreq_get_driver_data();
+
+		if (!pd || !pd->independent_clocks)
+			cpumask_setall(policy->cpus);
+
+		/*
+		 * OPP tables are initialized only for policy->cpu, do it for
+		 * others as well.
+		 */
+		ret = set_cpus_sharing_opps(cpu_dev, policy->cpus);
+		if (ret)
+			dev_err(cpu_dev, "%s: failed to mark OPPs as shared: %d\n",
+				__func__, ret);
+
+		of_property_read_u32(np, "clock-latency", &transition_latency);
+	} else {
+		transition_latency = dev_pm_opp_get_max_clock_latency(cpu_dev);
+	}
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		ret = -ENOMEM;
-		goto out_put_node;
+		goto out_free_opp;
 	}
 
 	of_property_read_u32(np, "voltage-tolerance", &priv->voltage_tolerance);
 
-	if (of_property_read_u32(np, "clock-latency", &transition_latency))
+	if (!transition_latency)
 		transition_latency = CPUFREQ_ETERNAL;
 
 	if (!IS_ERR(cpu_reg)) {
@@ -240,7 +304,8 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 			rcu_read_unlock();
 
 			tol_uV = opp_uV * priv->voltage_tolerance / 100;
-			if (regulator_is_supported_voltage(cpu_reg, opp_uV,
+			if (regulator_is_supported_voltage(cpu_reg,
+							   opp_uV - tol_uV,
 							   opp_uV + tol_uV)) {
 				if (opp_uV < min_uV)
 					min_uV = opp_uV;
@@ -264,48 +329,47 @@ static int cpufreq_init(struct cpufreq_policy *policy)
 		goto out_free_priv;
 	}
 
-	/*
-	 * For now, just loading the cooling device;
-	 * thermal DT code takes care of matching them.
-	 */
-	if (of_find_property(np, "#cooling-cells", NULL)) {
-		cdev = of_cpufreq_cooling_register(np, cpu_present_mask);
-		if (IS_ERR(cdev))
-			dev_err(cpu_dev,
-				"running cpufreq without cooling device: %ld\n",
-				PTR_ERR(cdev));
-		else
-			priv->cdev = cdev;
-	}
-
 	priv->cpu_dev = cpu_dev;
 	priv->cpu_reg = cpu_reg;
 	policy->driver_data = priv;
 
 	policy->clk = cpu_clk;
+
+	rcu_read_lock();
+	suspend_opp = dev_pm_opp_get_suspend_opp(cpu_dev);
+	if (suspend_opp)
+		policy->suspend_freq = dev_pm_opp_get_freq(suspend_opp) / 1000;
+	rcu_read_unlock();
+
 	ret = cpufreq_table_validate_and_show(policy, freq_table);
 	if (ret) {
 		dev_err(cpu_dev, "%s: invalid frequency table: %d\n", __func__,
 			ret);
-		goto out_cooling_unregister;
+		goto out_free_cpufreq_table;
+	}
+
+	/* Support turbo/boost mode */
+	if (policy_has_boost_freq(policy)) {
+		/* This gets disabled by core on driver unregister */
+		ret = cpufreq_enable_boost_support();
+		if (ret)
+			goto out_free_cpufreq_table;
+		cpufreq_dt_attr[1] = &cpufreq_freq_attr_scaling_boost_freqs;
 	}
 
 	policy->cpuinfo.transition_latency = transition_latency;
-
-	pd = cpufreq_get_driver_data();
-	if (!pd || !pd->independent_clocks)
-		cpumask_setall(policy->cpus);
 
 	of_node_put(np);
 
 	return 0;
 
-out_cooling_unregister:
-	cpufreq_cooling_unregister(priv->cdev);
+out_free_cpufreq_table:
 	dev_pm_opp_free_cpufreq_table(cpu_dev, &freq_table);
 out_free_priv:
 	kfree(priv);
-out_put_node:
+out_free_opp:
+	of_cpumask_free_opp_table(policy->cpus);
+out_node_put:
 	of_node_put(np);
 out_put_reg_clk:
 	clk_put(cpu_clk);
@@ -321,12 +385,40 @@ static int cpufreq_exit(struct cpufreq_policy *policy)
 
 	cpufreq_cooling_unregister(priv->cdev);
 	dev_pm_opp_free_cpufreq_table(priv->cpu_dev, &policy->freq_table);
+	of_cpumask_free_opp_table(policy->related_cpus);
 	clk_put(policy->clk);
 	if (!IS_ERR(priv->cpu_reg))
 		regulator_put(priv->cpu_reg);
 	kfree(priv);
 
 	return 0;
+}
+
+static void cpufreq_ready(struct cpufreq_policy *policy)
+{
+	struct private_data *priv = policy->driver_data;
+	struct device_node *np = of_node_get(priv->cpu_dev->of_node);
+
+	if (WARN_ON(!np))
+		return;
+
+	/*
+	 * For now, just loading the cooling device;
+	 * thermal DT code takes care of matching them.
+	 */
+	if (of_find_property(np, "#cooling-cells", NULL)) {
+		priv->cdev = of_cpufreq_cooling_register(np,
+							 policy->related_cpus);
+		if (IS_ERR(priv->cdev)) {
+			dev_err(priv->cpu_dev,
+				"running cpufreq without cooling device: %ld\n",
+				PTR_ERR(priv->cdev));
+
+			priv->cdev = NULL;
+		}
+	}
+
+	of_node_put(np);
 }
 
 static struct cpufreq_driver dt_cpufreq_driver = {
@@ -336,8 +428,10 @@ static struct cpufreq_driver dt_cpufreq_driver = {
 	.get = cpufreq_generic_get,
 	.init = cpufreq_init,
 	.exit = cpufreq_exit,
+	.ready = cpufreq_ready,
 	.name = "cpufreq-dt",
-	.attr = cpufreq_generic_attr,
+	.attr = cpufreq_dt_attr,
+	.suspend = cpufreq_generic_suspend,
 };
 
 static int dt_cpufreq_probe(struct platform_device *pdev)
@@ -380,13 +474,13 @@ static int dt_cpufreq_remove(struct platform_device *pdev)
 static struct platform_driver dt_cpufreq_platdrv = {
 	.driver = {
 		.name	= "cpufreq-dt",
-		.owner	= THIS_MODULE,
 	},
 	.probe		= dt_cpufreq_probe,
 	.remove		= dt_cpufreq_remove,
 };
 module_platform_driver(dt_cpufreq_platdrv);
 
+MODULE_ALIAS("platform:cpufreq-dt");
 MODULE_AUTHOR("Viresh Kumar <viresh.kumar@linaro.org>");
 MODULE_AUTHOR("Shawn Guo <shawn.guo@linaro.org>");
 MODULE_DESCRIPTION("Generic cpufreq driver");

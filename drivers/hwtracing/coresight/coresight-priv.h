@@ -32,6 +32,7 @@
 #define CORESIGHT_DEVTYPE	0xfcc
 
 #define TIMEOUT_US		100
+#define BM(lsb, msb)		((BIT(msb) - BIT(lsb)) + BIT(msb))
 #define BMVAL(val, lsb, msb)	((val & GENMASK(msb, lsb)) >> lsb)
 #define BVAL(val, n)		((val & BIT(n)) >> n)
 

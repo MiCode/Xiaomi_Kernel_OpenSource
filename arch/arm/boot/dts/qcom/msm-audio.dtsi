@@ -454,10 +454,10 @@
 			"MIC BIAS4", "Digital Mic4",
 			"DMIC5", "MIC BIAS4",
 			"MIC BIAS4", "Digital Mic5",
-			"MIC_BIAS1", "MICBIAS_REGULATOR",
-			"MIC_BIAS2", "MICBIAS_REGULATOR",
-			"MIC_BIAS3", "MICBIAS_REGULATOR",
-			"MIC_BIAS4", "MICBIAS_REGULATOR",
+			"MIC BIAS1", "MICBIAS_REGULATOR",
+			"MIC BIAS2", "MICBIAS_REGULATOR",
+			"MIC BIAS3", "MICBIAS_REGULATOR",
+			"MIC BIAS4", "MICBIAS_REGULATOR",
 			"SpkrLeft IN", "SPK1 OUT",
 			"SpkrRight IN", "SPK2 OUT";
 
@@ -617,6 +617,13 @@
 		pinctrl-0 = <&wcd_intr_default>;
 	};
 
+	wcd_rst_gpio: wcd_gpio_ctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
 	clock_audio: audio_ext_clk {
 		status = "disabled";
 		compatible = "qcom,audio-ref-clk";
@@ -649,11 +656,7 @@
 			17 18 19 20 21 22 23 24 25 26 27 28 29
 			30>;
 
-		qcom,cdc-reset-gpio = <&tlmm 68 0>;
-
-		pinctrl-names = "default", "idle";
-		pinctrl-0 = <&cdc_reset_active>;
-		pinctrl-1 = <&cdc_reset_sleep>;
+		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
 
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;

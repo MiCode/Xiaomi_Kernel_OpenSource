@@ -19,8 +19,6 @@
 #include "ipa_rm_i.h"
 
 #define IPA_MAX_MSG_LEN 4096
-#define IPA_DBG_CNTR_ON 127265
-#define IPA_DBG_CNTR_OFF 127264
 #define IPA_DBG_MAX_RULE_IN_TBL 128
 #define IPA_DBG_ACTIVE_CLIENT_BUF_SIZE ((IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN \
 	* IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES) + IPA_MAX_MSG_LEN)
@@ -37,17 +35,6 @@ const char *ipa3_excp_name[] = {
 	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_SW_FLT),
 	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_NAT),
 	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_IP),
-};
-
-const char *ipa3_status_excp_name[] = {
-	__stringify_1(IPA_EXCP_DEAGGR),
-	__stringify_1(IPA_EXCP_REPLICATION),
-	__stringify_1(IPA_EXCP_IP),
-	__stringify_1(IPA_EXCP_IHL),
-	__stringify_1(IPA_EXCP_FRAG_MISS),
-	__stringify_1(IPA_EXCP_SW),
-	__stringify_1(IPA_EXCP_NAT),
-	__stringify_1(IPA_EXCP_NONE),
 };
 
 const char *ipa3_event_name[] = {
@@ -114,46 +101,35 @@ static struct dentry *dfile_ip4_nat;
 static struct dentry *dfile_rm_stats;
 static struct dentry *dfile_status_stats;
 static struct dentry *dfile_active_clients;
-static struct dentry *dfile_ipa_usb;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static char *active_clients_buf;
 
 static s8 ep_reg_idx;
 
-/**
- * _ipa_read_gen_reg_v3_0() - Reads and prints IPA general configuration
- *	registers
- *
- * Returns the number of characters printed
- */
-int _ipa_read_gen_reg_v3_0(char *buff, int max_len)
-{
-	return scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"IPA_VERSION=0x%x\n"
-			"IPA_COMP_HW_VERSION=0x%x\n"
-			"IPA_ROUTE=0x%x\n"
-			"IPA_SHARED_MEM_RESTRICTED=0x%x\n"
-			"IPA_SHARED_MEM_SIZE=0x%x\n",
-			ipa_read_reg(ipa3_ctx->mmio, IPA_VERSION_OFST),
-			ipa_read_reg(ipa3_ctx->mmio, IPA_COMP_HW_VERSION_OFST),
-			ipa_read_reg(ipa3_ctx->mmio, IPA_ROUTE_OFST_v3_0),
-			ipa_read_reg_field(ipa3_ctx->mmio,
-				IPA_SHARED_MEM_SIZE_OFST_v3_0,
-				IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_BMSK_v3_0,
-				IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_SHFT_v3_0),
-			ipa_read_reg_field(ipa3_ctx->mmio,
-				IPA_SHARED_MEM_SIZE_OFST_v3_0,
-				IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_BMSK_v3_0,
-				IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_SHFT_v3_0));
-}
 
 static ssize_t ipa3_read_gen_reg(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	int nbytes;
+	struct ipahal_reg_shared_mem_size smem_sz;
+
+	memset(&smem_sz, 0, sizeof(smem_sz));
+	ipahal_read_reg_fields(IPA_SHARED_MEM_SIZE, &smem_sz);
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	nbytes = ipa3_ctx->ctrl->ipa3_read_gen_reg(dbg_buff, IPA_MAX_MSG_LEN);
+
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"IPA_VERSION=0x%x\n"
+			"IPA_COMP_HW_VERSION=0x%x\n"
+			"IPA_ROUTE=0x%x\n"
+			"IPA_SHARED_MEM_RESTRICTED=0x%x\n"
+			"IPA_SHARED_MEM_SIZE=0x%x\n",
+			ipahal_read_reg(IPA_VERSION),
+			ipahal_read_reg(IPA_COMP_HW_VERSION),
+			ipahal_read_reg(IPA_ROUTE),
+			smem_sz.shared_mem_baddr,
+			smem_sz.shared_mem_sz);
+
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
@@ -253,28 +229,17 @@ int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe)
 		"IPA_ENDP_INIT_HOL_TIMER_%u=0x%x\n"
 		"IPA_ENDP_INIT_DEAGGR_%u=0x%x\n"
 		"IPA_ENDP_INIT_CFG_%u=0x%x\n",
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_NAT_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HDR_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HDR_EXT_n_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_MODE_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_ROUTE_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_CTRL_N_OFST(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_DEAGGR_n_OFST_v3_0(pipe)),
-		pipe, ipa_read_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_CFG_n_OFST(pipe)));
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_NAT_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HDR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HDR_EXT_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_MODE_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_AGGR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_ROUTE_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_CTRL_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HOL_BLOCK_EN_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_DEAGGR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_CFG_n, pipe));
 }
 
 static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
@@ -953,47 +918,47 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++)
 		connect |= (ipa3_ctx->ep[i].valid << i);
 
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"sw_tx=%u\n"
-			"hw_tx=%u\n"
-			"tx_compl=%u\n"
-			"wan_rx=%u\n"
-			"stat_compl=%u\n"
-			"lan_aggr_close=%u\n"
-			"wan_aggr_close=%u\n"
-			"act_clnt=%u\n"
-			"con_clnt_bmap=0x%x\n"
-			"wan_rx_empty=%u\n"
-			"wan_repl_rx_empty=%u\n"
-			"lan_rx_empty=%u\n"
-			"lan_repl_rx_empty=%u\n"
-			"flow_enable=%u\n"
-			"flow_disable=%u\n",
-			ipa3_ctx->stats.tx_sw_pkts,
-			ipa3_ctx->stats.tx_hw_pkts,
-			ipa3_ctx->stats.tx_pkts_compl,
-			ipa3_ctx->stats.rx_pkts,
-			ipa3_ctx->stats.stat_compl,
-			ipa3_ctx->stats.aggr_close,
-			ipa3_ctx->stats.wan_aggr_close,
-			ipa3_ctx->ipa3_active_clients.cnt,
-			connect,
-			ipa3_ctx->stats.wan_rx_empty,
-			ipa3_ctx->stats.wan_repl_rx_empty,
-			ipa3_ctx->stats.lan_rx_empty,
-			ipa3_ctx->stats.lan_repl_rx_empty,
-			ipa3_ctx->stats.flow_enable,
-			ipa3_ctx->stats.flow_disable);
-		cnt += nbytes;
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+		"sw_tx=%u\n"
+		"hw_tx=%u\n"
+		"tx_compl=%u\n"
+		"wan_rx=%u\n"
+		"stat_compl=%u\n"
+		"lan_aggr_close=%u\n"
+		"wan_aggr_close=%u\n"
+		"act_clnt=%u\n"
+		"con_clnt_bmap=0x%x\n"
+		"wan_rx_empty=%u\n"
+		"wan_repl_rx_empty=%u\n"
+		"lan_rx_empty=%u\n"
+		"lan_repl_rx_empty=%u\n"
+		"flow_enable=%u\n"
+		"flow_disable=%u\n",
+		ipa3_ctx->stats.tx_sw_pkts,
+		ipa3_ctx->stats.tx_hw_pkts,
+		ipa3_ctx->stats.tx_pkts_compl,
+		ipa3_ctx->stats.rx_pkts,
+		ipa3_ctx->stats.stat_compl,
+		ipa3_ctx->stats.aggr_close,
+		ipa3_ctx->stats.wan_aggr_close,
+		ipa3_ctx->ipa3_active_clients.cnt,
+		connect,
+		ipa3_ctx->stats.wan_rx_empty,
+		ipa3_ctx->stats.wan_repl_rx_empty,
+		ipa3_ctx->stats.lan_rx_empty,
+		ipa3_ctx->stats.lan_repl_rx_empty,
+		ipa3_ctx->stats.flow_enable,
+		ipa3_ctx->stats.flow_disable);
+	cnt += nbytes;
 
-		for (i = 0; i < MAX_NUM_EXCP; i++) {
-			nbytes = scnprintf(dbg_buff + cnt,
-				IPA_MAX_MSG_LEN - cnt,
-				"lan_rx_excp[%u:%20s]=%u\n", i,
-				ipa3_status_excp_name[i],
-				ipa3_ctx->stats.rx_excp_pkts[i]);
-			cnt += nbytes;
-		}
+	for (i = 0; i < IPAHAL_PKT_STATUS_EXCEPTION_MAX; i++) {
+		nbytes = scnprintf(dbg_buff + cnt,
+			IPA_MAX_MSG_LEN - cnt,
+			"lan_rx_excp[%u:%20s]=%u\n", i,
+			ipahal_pkt_status_exception_str(i),
+			ipa3_ctx->stats.rx_excp_pkts[i]);
+		cnt += nbytes;
+	}
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
@@ -1256,25 +1221,12 @@ static ssize_t ipa3_read_wdi(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
-/**
- * _ipa_write_dbg_cnt_v3_0() - Configure IPA debug counter register
- *
- */
-void _ipa_write_dbg_cnt_v3_0(int option)
-{
-	if (option == 1)
-		ipa_write_reg(ipa3_ctx->mmio, IPA_DEBUG_CNT_CTRL_N_OFST_v3_0(0),
-				IPA_DBG_CNTR_ON);
-	else
-		ipa_write_reg(ipa3_ctx->mmio, IPA_DEBUG_CNT_CTRL_N_OFST_v3_0(0),
-				IPA_DBG_CNTR_OFF);
-}
-
 static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 		size_t count, loff_t *ppos)
 {
 	unsigned long missing;
 	u32 option = 0;
+	struct ipahal_reg_debug_cnt_ctrl dbg_cnt_ctrl;
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -1286,35 +1238,36 @@ static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 	dbg_buff[count] = '\0';
 	if (kstrtou32(dbg_buff, 0, &option))
 		return -EFAULT;
+
+	memset(&dbg_cnt_ctrl, 0, sizeof(dbg_cnt_ctrl));
+	dbg_cnt_ctrl.type = DBG_CNT_TYPE_GENERAL;
+	dbg_cnt_ctrl.product = true;
+	dbg_cnt_ctrl.src_pipe = 0x1f;
+	dbg_cnt_ctrl.rule_idx_pipe_rule = false;
+	dbg_cnt_ctrl.rule_idx = 0;
+	if (option == 1)
+		dbg_cnt_ctrl.en = true;
+	else
+		dbg_cnt_ctrl.en = false;
+
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	ipa3_ctx->ctrl->ipa3_write_dbg_cnt(option);
+	ipahal_write_reg_n_fields(IPA_DEBUG_CNT_CTRL_n, 0, &dbg_cnt_ctrl);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return count;
-}
-
-/**
- * _ipa_write_dbg_cnt_v3_0() - Read IPA debug counter register
- *
- */
-int _ipa_read_dbg_cnt_v3_0(char *buf, int max_len)
-{
-	int regval;
-
-	regval = ipa_read_reg(ipa3_ctx->mmio,
-			IPA_DEBUG_CNT_REG_N_OFST_v3_0(0));
-
-	return scnprintf(buf, max_len,
-			"IPA_DEBUG_CNT_REG_0=0x%x\n", regval);
 }
 
 static ssize_t ipa3_read_dbg_cnt(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	int nbytes;
+	u32 regval;
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	nbytes = ipa3_ctx->ctrl->ipa3_read_dbg_cnt(dbg_buff, IPA_MAX_MSG_LEN);
+	regval =
+		ipahal_read_reg_n(IPA_DEBUG_CNT_REG_n, 0);
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"IPA_DEBUG_CNT_REG_0=0x%x\n", regval);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
@@ -1512,75 +1465,6 @@ static ssize_t ipa3_read_nat4(struct file *file,
 	return 0;
 }
 
-static ssize_t ipa3_read_ipa_usb(struct file *file, char __user *ubuf,
-		size_t count, loff_t *ppos)
-{
-	struct ipa3_usb_status_dbg_info status;
-	int result;
-	int nbytes;
-	int cnt = 0;
-	int i;
-
-	result = ipa3_usb_get_status_dbg_info(&status);
-	if (result) {
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-				"Fail to read IPA USB status\n");
-		cnt += nbytes;
-	} else {
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"Tethering Data State: %s\n"
-			"DPL State: %s\n"
-			"Protocols in Initialized State: ",
-			status.teth_state,
-			status.dpl_state);
-		cnt += nbytes;
-
-		for (i = 0 ; i < status.num_init_prot ; i++) {
-			nbytes = scnprintf(dbg_buff + cnt,
-					IPA_MAX_MSG_LEN - cnt,
-					"%s ", status.inited_prots[i]);
-			cnt += nbytes;
-		}
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				status.num_init_prot ? "\n" : "None\n");
-		cnt += nbytes;
-
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"Protocols in Connected State: ");
-		cnt += nbytes;
-		if (status.teth_connected_prot) {
-			nbytes = scnprintf(dbg_buff + cnt,
-				IPA_MAX_MSG_LEN - cnt,
-				"%s ", status.teth_connected_prot);
-			cnt += nbytes;
-		}
-		if (status.dpl_connected_prot) {
-			nbytes = scnprintf(dbg_buff + cnt,
-				IPA_MAX_MSG_LEN - cnt,
-				"%s ", status.dpl_connected_prot);
-			cnt += nbytes;
-		}
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				(status.teth_connected_prot ||
-				status.dpl_connected_prot) ? "\n" : "None\n");
-		cnt += nbytes;
-
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"USB Tethering Consumer State: %s\n",
-				status.teth_cons_state ?
-				status.teth_cons_state : "Invalid");
-		cnt += nbytes;
-
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"DPL Consumer State: %s\n",
-				status.dpl_cons_state ? status.dpl_cons_state :
-				"Invalid");
-		cnt += nbytes;
-	}
-
-	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
-}
-
 static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -1597,7 +1481,7 @@ static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
-static void ipa_dump_status(struct ipa3_hw_pkt_status *status)
+static void ipa_dump_status(struct ipahal_pkt_status *status)
 {
 	IPA_DUMP_STATUS_FIELD(status_opcode);
 	IPA_DUMP_STATUS_FIELD(exception);
@@ -1606,22 +1490,24 @@ static void ipa_dump_status(struct ipa3_hw_pkt_status *status)
 	IPA_DUMP_STATUS_FIELD(endp_src_idx);
 	IPA_DUMP_STATUS_FIELD(endp_dest_idx);
 	IPA_DUMP_STATUS_FIELD(metadata);
-	IPA_DUMP_STATUS_FIELD(filt_local);
-	IPA_DUMP_STATUS_FIELD(filt_hash);
-	IPA_DUMP_STATUS_FIELD(filt_global);
-	IPA_DUMP_STATUS_FIELD(ret_hdr);
-	IPA_DUMP_STATUS_FIELD(filt_rule_id);
-	IPA_DUMP_STATUS_FIELD(route_local);
-	IPA_DUMP_STATUS_FIELD(route_hash);
+	IPA_DUMP_STATUS_FIELD(flt_local);
+	IPA_DUMP_STATUS_FIELD(flt_hash);
+	IPA_DUMP_STATUS_FIELD(flt_global);
+	IPA_DUMP_STATUS_FIELD(flt_ret_hdr);
+	IPA_DUMP_STATUS_FIELD(flt_miss);
+	IPA_DUMP_STATUS_FIELD(flt_rule_id);
+	IPA_DUMP_STATUS_FIELD(rt_local);
+	IPA_DUMP_STATUS_FIELD(rt_hash);
 	IPA_DUMP_STATUS_FIELD(ucp);
-	IPA_DUMP_STATUS_FIELD(route_tbl_idx);
-	IPA_DUMP_STATUS_FIELD(route_rule_id);
+	IPA_DUMP_STATUS_FIELD(rt_tbl_idx);
+	IPA_DUMP_STATUS_FIELD(rt_miss);
+	IPA_DUMP_STATUS_FIELD(rt_rule_id);
 	IPA_DUMP_STATUS_FIELD(nat_hit);
-	IPA_DUMP_STATUS_FIELD(nat_tbl_idx);
+	IPA_DUMP_STATUS_FIELD(nat_entry_idx);
 	IPA_DUMP_STATUS_FIELD(nat_type);
-	pr_err("tag = 0x%llx\n", (u64)status->tag & 0xFFFFFFFFFFFF);
+	pr_err("tag = 0x%llx\n", (u64)status->tag_info & 0xFFFFFFFFFFFF);
 	IPA_DUMP_STATUS_FIELD(seq_num);
-	IPA_DUMP_STATUS_FIELD(time_day_ctr);
+	IPA_DUMP_STATUS_FIELD(time_of_day_ctr);
 	IPA_DUMP_STATUS_FIELD(hdr_local);
 	IPA_DUMP_STATUS_FIELD(hdr_offset);
 	IPA_DUMP_STATUS_FIELD(frag_hit);
@@ -1643,8 +1529,6 @@ static ssize_t ipa_status_stats_read(struct file *file, char __user *ubuf,
 			continue;
 
 		memcpy(stats, ipa3_ctx->ep[i].sys->status_stat, sizeof(*stats));
-		stats->curr = (stats->curr + IPA_MAX_STATUS_STAT_NUM - 1)
-			% IPA_MAX_STATUS_STAT_NUM;
 		pr_err("Statuses for pipe %d\n", i);
 		for (j = 0; j < IPA_MAX_STATUS_STAT_NUM; j++) {
 			pr_err("curr=%d\n", stats->curr);
@@ -1780,10 +1664,6 @@ const struct file_operations ipa3_nat4_ops = {
 
 const struct file_operations ipa3_rm_stats = {
 	.read = ipa3_rm_read_stats,
-};
-
-const struct file_operations ipa3_ipa_usb_ops = {
-	.read = ipa3_read_ipa_usb,
 };
 
 const struct file_operations ipa3_active_clients = {
@@ -1977,13 +1857,6 @@ void ipa3_debugfs_init(void)
 			read_only_mode, dent, 0, &ipa3_status_stats_ops);
 	if (!dfile_status_stats || IS_ERR(dfile_status_stats)) {
 		IPAERR("fail to create file for debug_fs status_stats\n");
-		goto fail;
-	}
-
-	dfile_ipa_usb = debugfs_create_file("ipa_usb", read_only_mode, dent, 0,
-		&ipa3_ipa_usb_ops);
-	if (!dfile_ipa_usb || IS_ERR(dfile_ipa_usb)) {
-		IPAERR("fail to create file for debug_fs ipa_usb\n");
 		goto fail;
 	}
 

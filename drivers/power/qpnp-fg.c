@@ -148,6 +148,8 @@ struct fg_learning_data {
 	int			min_temp;
 	int			max_temp;
 	int			vbat_est_thr_uv;
+	int			max_cap_limit;
+	int			min_cap_limit;
 };
 
 struct fg_rslow_data {
@@ -393,6 +395,14 @@ static void fg_relax(struct fg_wakeup_source *source)
 	}
 }
 
+enum slope_limit_status {
+	LOW_TEMP_CHARGE,
+	HIGH_TEMP_CHARGE,
+	LOW_TEMP_DISCHARGE,
+	HIGH_TEMP_DISCHARGE,
+	SLOPE_LIMIT_MAX,
+};
+
 #define THERMAL_COEFF_N_BYTES		6
 struct fg_chip {
 	struct device		*dev;
@@ -494,6 +504,7 @@ struct fg_chip {
 	struct fg_cc_soc_data	sw_cc_soc_data;
 	/* rslow compensation */
 	struct fg_rslow_data	rslow_comp;
+	int			rconn_mohm;
 	/* cycle counter */
 	struct fg_cyc_ctr_data	cyc_ctr;
 	/* iadc compensation */
@@ -514,6 +525,13 @@ struct fg_chip {
 	bool			esr_extract_disabled;
 	bool			imptr_pulse_slow_en;
 	bool			esr_pulse_tune_en;
+	/* Slope limiter */
+	struct work_struct	slope_limiter_work;
+	struct fg_wakeup_source	slope_limit_wakeup_source;
+	bool			soc_slope_limiter_en;
+	enum slope_limit_status	slope_limit_sts;
+	u32			slope_limit_temp;
+	u32			slope_limit_coeffs[SLOPE_LIMIT_MAX];
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -2183,6 +2201,11 @@ wait:
 
 	get_current_time(&chip->last_temp_update_time);
 
+	if (chip->soc_slope_limiter_en) {
+		fg_stay_awake(&chip->slope_limit_wakeup_source);
+		schedule_work(&chip->slope_limiter_work);
+	}
+
 out:
 	if (chip->sw_rbias_ctrl) {
 		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
@@ -2425,6 +2448,62 @@ static int bcap_uah_2b(u8 *buffer)
 	return ((int)val) * 1000;
 }
 
+#define SLOPE_LIMITER_COEFF_REG		0x430
+#define SLOPE_LIMITER_COEFF_OFFSET	3
+#define SLOPE_LIMIT_TEMP_THRESHOLD	100
+#define SLOPE_LIMIT_LOW_TEMP_CHG	45
+#define SLOPE_LIMIT_HIGH_TEMP_CHG	2
+#define SLOPE_LIMIT_LOW_TEMP_DISCHG	45
+#define SLOPE_LIMIT_HIGH_TEMP_DISCHG	2
+static void slope_limiter_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work, struct fg_chip,
+				slope_limiter_work);
+	enum slope_limit_status status;
+	int batt_temp, rc;
+	u8 buf[2];
+	int64_t val;
+
+	batt_temp = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
+
+	if (chip->status == POWER_SUPPLY_STATUS_CHARGING ||
+			chip->status == POWER_SUPPLY_STATUS_FULL) {
+		if (batt_temp < chip->slope_limit_temp)
+			status = LOW_TEMP_CHARGE;
+		else
+			status = HIGH_TEMP_CHARGE;
+	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
+		if (batt_temp < chip->slope_limit_temp)
+			status = LOW_TEMP_DISCHARGE;
+		else
+			status = HIGH_TEMP_DISCHARGE;
+	} else {
+		goto out;
+	}
+
+	if (status == chip->slope_limit_sts)
+		goto out;
+
+	val = chip->slope_limit_coeffs[status];
+	val *= MICRO_UNIT;
+	half_float_to_buffer(val, buf);
+	rc = fg_mem_write(chip, buf,
+			SLOPE_LIMITER_COEFF_REG, 2,
+			SLOPE_LIMITER_COEFF_OFFSET, 0);
+	if (rc) {
+		pr_err("Couldn't write to slope_limiter_coeff_reg, rc=%d\n",
+			rc);
+		goto out;
+	}
+
+	chip->slope_limit_sts = status;
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Slope limit sts: %d val: %lld buf[%x %x] written\n",
+			status, val, buf[0], buf[1]);
+out:
+	fg_relax(&chip->slope_limit_wakeup_source);
+}
+
 static int lookup_ocv_for_soc(struct fg_chip *chip, int soc)
 {
 	int64_t *coeffs;
@@ -2490,6 +2569,7 @@ static int lookup_soc_for_ocv(struct fg_chip *chip, int ocv)
 #define ESR_ACTUAL_REG		0x554
 #define BATTERY_ESR_REG		0x4F4
 #define TEMP_RS_TO_RSLOW_REG	0x514
+#define ESR_OFFSET		2
 static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 {
 	int64_t ocv_cutoff_new, ocv_cutoff_aged, temp_rs_to_rslow;
@@ -2530,7 +2610,7 @@ static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 
 	rc = fg_mem_read(chip, buffer, ESR_ACTUAL_REG, 2, 2, 0);
 	esr_actual = half_float(buffer);
-	rc |= fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, 2, 0);
+	rc |= fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, ESR_OFFSET, 0);
 	battery_esr = half_float(buffer);
 
 	if (rc) {
@@ -2930,11 +3010,34 @@ static int fg_get_cc_soc(struct fg_chip *chip, int *cc_soc)
 	return 0;
 }
 
+#define BATT_MISSING_STS BIT(6)
+static bool is_battery_missing(struct fg_chip *chip)
+{
+	int rc;
+	u8 fg_batt_sts;
+
+	rc = fg_read(chip, &fg_batt_sts,
+				 INT_RT_STS(chip->batt_base), 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->batt_base), rc);
+		return false;
+	}
+
+	return (fg_batt_sts & BATT_MISSING_STS) ? true : false;
+}
+
 static int fg_cap_learning_process_full_data(struct fg_chip *chip)
 {
 	int cc_pc_val, rc = -EINVAL;
 	unsigned int cc_soc_delta_pc;
 	int64_t delta_cc_uah;
+	bool batt_missing = is_battery_missing(chip);
+
+	if (batt_missing) {
+		pr_err("Battery is missing!\n");
+		goto fail;
+	}
 
 	if (!chip->learning_data.active)
 		goto fail;
@@ -3055,6 +3158,12 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 {
 	int16_t cc_mah;
 	int rc;
+	bool batt_missing = is_battery_missing(chip);
+
+	if (batt_missing) {
+		pr_err("Battery is missing!\n");
+		return;
+	}
 
 	cc_mah = div64_s64(chip->learning_data.learned_cc_uah, 1000);
 
@@ -3076,6 +3185,12 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 static void fg_cap_learning_post_process(struct fg_chip *chip)
 {
 	int64_t max_inc_val, min_dec_val, old_cap;
+	bool batt_missing = is_battery_missing(chip);
+
+	if (batt_missing) {
+		pr_err("Battery is missing!\n");
+		return;
+	}
 
 	max_inc_val = chip->learning_data.learned_cc_uah
 			* (1000 + chip->learning_data.max_increment);
@@ -3093,6 +3208,32 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 	else
 		chip->learning_data.learned_cc_uah =
 			chip->learning_data.cc_uah;
+
+	if (chip->learning_data.max_cap_limit) {
+		max_inc_val = (int64_t)chip->nom_cap_uah * (1000 +
+				chip->learning_data.max_cap_limit);
+		do_div(max_inc_val, 1000);
+		if (chip->learning_data.cc_uah > max_inc_val) {
+			if (fg_debug_mask & FG_AGING)
+				pr_info("learning capacity %lld goes above max limit %lld\n",
+					chip->learning_data.cc_uah,
+					max_inc_val);
+			chip->learning_data.learned_cc_uah = max_inc_val;
+		}
+	}
+
+	if (chip->learning_data.min_cap_limit) {
+		min_dec_val = (int64_t)chip->nom_cap_uah * (1000 -
+				chip->learning_data.min_cap_limit);
+		do_div(min_dec_val, 1000);
+		if (chip->learning_data.cc_uah < min_dec_val) {
+			if (fg_debug_mask & FG_AGING)
+				pr_info("learning capacity %lld goes below min limit %lld\n",
+					chip->learning_data.cc_uah,
+					min_dec_val);
+			chip->learning_data.learned_cc_uah = min_dec_val;
+		}
+	}
 
 	fg_cap_learning_save_data(chip);
 	if (fg_debug_mask & FG_AGING)
@@ -3153,7 +3294,7 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 		if (battery_soc * 100 / FULL_PERCENT_3B
 				> chip->learning_data.max_start_soc) {
 			if (fg_debug_mask & FG_AGING)
-				pr_info("battery soc too low (%d < %d), aborting\n",
+				pr_info("battery soc too high (%d > %d), aborting\n",
 					battery_soc * 100 / FULL_PERCENT_3B,
 					chip->learning_data.max_start_soc);
 			fg_mem_release(chip);
@@ -3338,6 +3479,13 @@ static void status_change_work(struct work_struct *work)
 				status_change_work);
 	unsigned long current_time = 0;
 	int cc_soc, rc, capacity = get_prop_capacity(chip);
+	bool batt_missing = is_battery_missing(chip);
+
+	if (batt_missing) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("Battery is missing\n");
+		return;
+	}
 
 	if (chip->esr_pulse_tune_en) {
 		fg_stay_awake(&chip->esr_extract_wakeup_source);
@@ -3382,6 +3530,17 @@ static void status_change_work(struct work_struct *work)
 	}
 
 	if (chip->prev_status != chip->status && chip->last_sram_update_time) {
+		/*
+		 * Schedule the update_temp_work whenever there is a status
+		 * change. This is essential for applying the slope limiter
+		 * coefficients when that feature is enabled.
+		 */
+		if (chip->last_temp_update_time && chip->soc_slope_limiter_en) {
+			cancel_delayed_work_sync(&chip->update_temp_work);
+			schedule_delayed_work(&chip->update_temp_work,
+				msecs_to_jiffies(0));
+		}
+
 		get_current_time(&current_time);
 		/*
 		 * When charging status changes, update SRAM parameters if it
@@ -3392,8 +3551,10 @@ static void status_change_work(struct work_struct *work)
 			schedule_delayed_work(&chip->update_sram_data,
 				msecs_to_jiffies(0));
 		}
+
 		if (chip->cyc_ctr.en)
 			schedule_work(&chip->cycle_count_work);
+
 		if ((chip->wa_flag & USE_CC_SOC_REG) &&
 				chip->bad_batt_detection_en &&
 				chip->status == POWER_SUPPLY_STATUS_CHARGING) {
@@ -3823,23 +3984,6 @@ done:
 	fg_relax(&chip->gain_comp_wakeup_source);
 }
 
-#define BATT_MISSING_STS BIT(6)
-static bool is_battery_missing(struct fg_chip *chip)
-{
-	int rc;
-	u8 fg_batt_sts;
-
-	rc = fg_read(chip, &fg_batt_sts,
-				 INT_RT_STS(chip->batt_base), 1);
-	if (rc) {
-		pr_err("spmi read failed: addr=%03X, rc=%d\n",
-				INT_RT_STS(chip->batt_base), rc);
-		return false;
-	}
-
-	return (fg_batt_sts & BATT_MISSING_STS) ? true : false;
-}
-
 #define SOC_FIRST_EST_DONE	BIT(5)
 static bool is_first_est_done(struct fg_chip *chip)
 {
@@ -3892,6 +4036,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 	bool batt_missing = is_battery_missing(chip);
 
 	if (batt_missing) {
+		fg_cap_learning_stop(chip);
 		chip->battery_missing = true;
 		chip->profile_loaded = false;
 		chip->batt_type = default_batt_type;
@@ -3970,6 +4115,11 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("triggered 0x%x\n", soc_rt_sts);
 
+	if (chip->soc_slope_limiter_en) {
+		fg_stay_awake(&chip->slope_limit_wakeup_source);
+		schedule_work(&chip->slope_limiter_work);
+	}
+
 	schedule_work(&chip->battery_age_work);
 
 	if (chip->power_supply_registered)
@@ -3979,11 +4129,15 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 			chip->rslow_comp.chg_rslow_comp_c1 > 0 &&
 			chip->rslow_comp.chg_rslow_comp_c2 > 0)
 		schedule_work(&chip->rslow_comp_work);
+
 	if (chip->cyc_ctr.en)
 		schedule_work(&chip->cycle_count_work);
+
 	schedule_work(&chip->update_esr_work);
+
 	if (chip->charge_full)
 		schedule_work(&chip->charge_full_work);
+
 	if (chip->wa_flag & IADC_GAIN_COMP_WA
 			&& chip->iadc_comp_data.gain_active) {
 		fg_stay_awake(&chip->gain_comp_wakeup_source);
@@ -4116,7 +4270,6 @@ done:
 	fg_relax(&chip->resume_soc_wakeup_source);
 }
 
-
 #define OCV_COEFFS_START_REG		0x4C0
 #define OCV_JUNCTION_REG		0x4D8
 #define NOM_CAP_REG			0x4F4
@@ -4125,15 +4278,18 @@ done:
 #define RSLOW_CFG_OFFSET		2
 #define RSLOW_THRESH_REG		0x52C
 #define RSLOW_THRESH_OFFSET		0
-#define TEMP_RS_TO_RSLOW_OFFSET		2
+#define RS_TO_RSLOW_CHG_OFFSET		2
+#define RS_TO_RSLOW_DISCHG_OFFSET	0
 #define RSLOW_COMP_REG			0x528
 #define RSLOW_COMP_C1_OFFSET		0
 #define RSLOW_COMP_C2_OFFSET		2
+#define CAPACITY_DELTA_DECIPCT		500
 static int populate_system_data(struct fg_chip *chip)
 {
 	u8 buffer[24];
 	int rc, i;
 	int16_t cc_mah;
+	int64_t delta_cc_uah, pct_nom_cap_uah;
 
 	fg_mem_lock(chip);
 	rc = fg_mem_read(chip, buffer, OCV_COEFFS_START_REG, 24, 0, 0);
@@ -4173,10 +4329,32 @@ static int populate_system_data(struct fg_chip *chip)
 		chip->learning_data.learned_cc_uah = chip->nom_cap_uah;
 		fg_cap_learning_save_data(chip);
 	} else if (chip->learning_data.feedback_on) {
-		cc_mah = div64_s64(chip->learning_data.learned_cc_uah, 1000);
-		rc = fg_calc_and_store_cc_soc_coeff(chip, cc_mah);
-		if (rc)
-			pr_err("Error in restoring cc_soc_coeff, rc:%d\n", rc);
+		delta_cc_uah = abs(chip->learning_data.learned_cc_uah -
+					chip->nom_cap_uah);
+		pct_nom_cap_uah = div64_s64((int64_t)chip->nom_cap_uah *
+				CAPACITY_DELTA_DECIPCT, 1000);
+		/*
+		 * If the learned capacity is out of range, say by 50%
+		 * from the nominal capacity, then overwrite the learned
+		 * capacity with the nominal capacity.
+		 */
+		if (chip->nom_cap_uah && delta_cc_uah > pct_nom_cap_uah) {
+			if (fg_debug_mask & FG_AGING) {
+				pr_info("learned_cc_uah: %lld is higher than expected\n",
+					chip->learning_data.learned_cc_uah);
+				pr_info("Capping it to nominal:%d\n",
+					chip->nom_cap_uah);
+			}
+			chip->learning_data.learned_cc_uah = chip->nom_cap_uah;
+			fg_cap_learning_save_data(chip);
+		} else {
+			cc_mah = div64_s64(chip->learning_data.learned_cc_uah,
+					1000);
+			rc = fg_calc_and_store_cc_soc_coeff(chip, cc_mah);
+			if (rc)
+				pr_err("Error in restoring cc_soc_coeff, rc:%d\n",
+					rc);
+		}
 	}
 	rc = fg_mem_read(chip, buffer, CUTOFF_VOLTAGE_REG, 2, 0, 0);
 	if (rc) {
@@ -4204,9 +4382,9 @@ static int populate_system_data(struct fg_chip *chip)
 	}
 	chip->rslow_comp.rslow_thr = buffer[0];
 	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
-			RSLOW_THRESH_OFFSET, 0);
+			RS_TO_RSLOW_CHG_OFFSET, 0);
 	if (rc) {
-		pr_err("unable to read rs to rslow: %d\n", rc);
+		pr_err("unable to read rs to rslow_chg: %d\n", rc);
 		goto done;
 	}
 	memcpy(chip->rslow_comp.rs_to_rslow, buffer, 2);
@@ -4220,6 +4398,68 @@ static int populate_system_data(struct fg_chip *chip)
 
 done:
 	fg_mem_release(chip);
+	return rc;
+}
+
+static int fg_update_batt_rslow_settings(struct fg_chip *chip)
+{
+	int64_t rs_to_rslow_chg, rs_to_rslow_dischg, batt_esr, rconn_uohm;
+	u8 buffer[2];
+	int rc;
+
+	rc = fg_mem_read(chip, buffer, BATTERY_ESR_REG, 2, ESR_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read battery_esr: %d\n", rc);
+		goto done;
+	}
+	batt_esr = half_float(buffer);
+
+	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_DISCHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rs to rslow dischg: %d\n", rc);
+		goto done;
+	}
+	rs_to_rslow_dischg = half_float(buffer);
+
+	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_CHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rs to rslow chg: %d\n", rc);
+		goto done;
+	}
+	rs_to_rslow_chg = half_float(buffer);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("rs_rslow_chg: %lld, rs_rslow_dischg: %lld, esr: %lld\n",
+			rs_to_rslow_chg, rs_to_rslow_dischg, batt_esr);
+
+	rconn_uohm = chip->rconn_mohm * 1000;
+	rs_to_rslow_dischg = div64_s64(rs_to_rslow_dischg * batt_esr,
+					batt_esr + rconn_uohm);
+	rs_to_rslow_chg = div64_s64(rs_to_rslow_chg * batt_esr,
+					batt_esr + rconn_uohm);
+
+	half_float_to_buffer(rs_to_rslow_chg, buffer);
+	rc = fg_mem_write(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_CHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rs_to_rslow_chg: %d\n", rc);
+		goto done;
+	}
+
+	half_float_to_buffer(rs_to_rslow_dischg, buffer);
+	rc = fg_mem_write(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RS_TO_RSLOW_DISCHG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rs_to_rslow_dischg: %d\n", rc);
+		goto done;
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Modified rs_rslow_chg: %lld, rs_rslow_dischg: %lld\n",
+			rs_to_rslow_chg, rs_to_rslow_dischg);
+done:
 	return rc;
 }
 
@@ -4249,7 +4489,7 @@ static int fg_rslow_charge_comp_set(struct fg_chip *chip)
 
 	half_float_to_buffer(chip->rslow_comp.chg_rs_to_rslow, buffer);
 	rc = fg_mem_write(chip, buffer,
-			TEMP_RS_TO_RSLOW_REG, 2, TEMP_RS_TO_RSLOW_OFFSET, 0);
+			TEMP_RS_TO_RSLOW_REG, 2, RS_TO_RSLOW_CHG_OFFSET, 0);
 	if (rc) {
 		pr_err("unable to write rs to rslow: %d\n", rc);
 		goto done;
@@ -4302,7 +4542,7 @@ static int fg_rslow_charge_comp_clear(struct fg_chip *chip)
 	}
 
 	rc = fg_mem_write(chip, chip->rslow_comp.rs_to_rslow,
-			TEMP_RS_TO_RSLOW_REG, 2, TEMP_RS_TO_RSLOW_OFFSET, 0);
+			TEMP_RS_TO_RSLOW_REG, 2, RS_TO_RSLOW_CHG_OFFSET, 0);
 	if (rc) {
 		pr_err("unable to write rs to rslow: %d\n", rc);
 		goto done;
@@ -5010,6 +5250,11 @@ wait:
 		}
 	}
 
+	if (chip->rconn_mohm > 0) {
+		rc = fg_update_batt_rslow_settings(chip);
+		if (rc)
+			pr_err("Error in updating ESR, rc=%d\n", rc);
+	}
 done:
 	if (chip->charging_disabled) {
 		rc = set_prop_enable_charging(chip, true);
@@ -5410,6 +5655,10 @@ static int fg_of_init(struct fg_chip *chip)
 			"cl-max-start-capacity", rc, 15);
 	OF_READ_PROPERTY(chip->learning_data.vbat_est_thr_uv,
 			"cl-vbat-est-thr-uv", rc, 40000);
+	OF_READ_PROPERTY(chip->learning_data.max_cap_limit,
+			"cl-max-limit-deciperc", rc, 0);
+	OF_READ_PROPERTY(chip->learning_data.min_cap_limit,
+			"cl-min-limit-deciperc", rc, 0);
 	OF_READ_PROPERTY(chip->evaluation_current,
 			"aging-eval-current-ma", rc,
 			DEFAULT_EVALUATION_CURRENT_MA);
@@ -5470,6 +5719,40 @@ static int fg_of_init(struct fg_chip *chip)
 
 	chip->esr_pulse_tune_en = of_property_read_bool(node,
 					"qcom,esr-pulse-tuning-en");
+
+	chip->soc_slope_limiter_en = of_property_read_bool(node,
+					"qcom,fg-control-slope-limiter");
+	if (chip->soc_slope_limiter_en) {
+		OF_READ_PROPERTY(chip->slope_limit_temp,
+			"fg-slope-limit-temp-threshold", rc,
+			SLOPE_LIMIT_TEMP_THRESHOLD);
+
+		OF_READ_PROPERTY(chip->slope_limit_coeffs[LOW_TEMP_CHARGE],
+			"fg-slope-limit-low-temp-chg", rc,
+			SLOPE_LIMIT_LOW_TEMP_CHG);
+
+		OF_READ_PROPERTY(chip->slope_limit_coeffs[HIGH_TEMP_CHARGE],
+			"fg-slope-limit-high-temp-chg", rc,
+			SLOPE_LIMIT_HIGH_TEMP_CHG);
+
+		OF_READ_PROPERTY(chip->slope_limit_coeffs[LOW_TEMP_DISCHARGE],
+			"fg-slope-limit-low-temp-dischg", rc,
+			SLOPE_LIMIT_LOW_TEMP_DISCHG);
+
+		OF_READ_PROPERTY(chip->slope_limit_coeffs[HIGH_TEMP_DISCHARGE],
+			"fg-slope-limit-high-temp-dischg", rc,
+			SLOPE_LIMIT_HIGH_TEMP_DISCHG);
+
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("slope-limiter, temp: %d coeffs: [%d %d %d %d]\n",
+				chip->slope_limit_temp,
+				chip->slope_limit_coeffs[LOW_TEMP_CHARGE],
+				chip->slope_limit_coeffs[HIGH_TEMP_CHARGE],
+				chip->slope_limit_coeffs[LOW_TEMP_DISCHARGE],
+				chip->slope_limit_coeffs[HIGH_TEMP_DISCHARGE]);
+	}
+
+	OF_READ_PROPERTY(chip->rconn_mohm, "fg-rconn-mohm", rc, 0);
 
 	return rc;
 }
@@ -5671,6 +5954,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
+	cancel_work_sync(&chip->slope_limiter_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -5686,6 +5970,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->gain_comp_wakeup_source.source);
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
+	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
 }
 
 static int fg_remove(struct spmi_device *spmi)
@@ -6268,6 +6553,20 @@ static int fg_common_hw_init(struct fg_chip *chip)
 				chip->imptr_pulse_slow_en ? "en" : "dis");
 	}
 
+	rc = fg_mem_read(chip, &val, RSLOW_CFG_REG, 1, RSLOW_CFG_OFFSET,
+			0);
+	if (rc) {
+		pr_err("unable to read rslow cfg: %d\n", rc);
+		return rc;
+	}
+
+	if (val & RSLOW_CFG_ON_VAL)
+		chip->rslow_comp.active = true;
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("rslow_comp active is %sabled\n",
+			chip->rslow_comp.active ? "en" : "dis");
+
 	return 0;
 }
 
@@ -6648,6 +6947,8 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_cap_learning");
 	wakeup_source_init(&chip->esr_extract_wakeup_source.source,
 			"qpnp_fg_esr_extract");
+	wakeup_source_init(&chip->slope_limit_wakeup_source.source,
+			"qpnp_fg_slope_limit");
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
 	mutex_init(&chip->learning_data.learning_lock);
@@ -6672,6 +6973,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->gain_comp_work, iadc_gain_comp_work);
 	INIT_WORK(&chip->bcl_hi_power_work, bcl_hi_power_work);
 	INIT_WORK(&chip->esr_extract_config_work, esr_extract_config_work);
+	INIT_WORK(&chip->slope_limiter_work, slope_limiter_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -6841,6 +7143,7 @@ cancel_work:
 	cancel_work_sync(&chip->charge_full_work);
 	cancel_work_sync(&chip->bcl_hi_power_work);
 	cancel_work_sync(&chip->esr_extract_config_work);
+	cancel_work_sync(&chip->slope_limiter_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -6856,6 +7159,7 @@ of_init_fail:
 	wakeup_source_trash(&chip->gain_comp_wakeup_source.source);
 	wakeup_source_trash(&chip->capacity_learning_wakeup_source.source);
 	wakeup_source_trash(&chip->esr_extract_wakeup_source.source);
+	wakeup_source_trash(&chip->slope_limit_wakeup_source.source);
 	return rc;
 }
 

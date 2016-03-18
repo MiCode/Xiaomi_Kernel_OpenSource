@@ -443,6 +443,7 @@ EXPORT_SYMBOL(netdev_alloc_frag);
  *
  *	%NULL is returned if there is no free memory.
  */
+#ifndef CONFIG_DISABLE_NET_SKB_FRAG_CACHE
 struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
 				   unsigned int length, gfp_t gfp_mask)
 {
@@ -473,6 +474,22 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
 	}
 	return skb;
 }
+#else
+struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
+				   unsigned int length, gfp_t gfp_mask)
+{
+	struct sk_buff *skb = NULL;
+
+	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask,
+			  SKB_ALLOC_RX, NUMA_NO_NODE);
+	if (likely(skb)) {
+		skb_reserve(skb, NET_SKB_PAD);
+		skb->dev = dev;
+	}
+	return skb;
+}
+#endif
+
 EXPORT_SYMBOL(__netdev_alloc_skb);
 
 void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page, int off,

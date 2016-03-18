@@ -19,7 +19,11 @@ The following properties are common to the Ethernet controllers:
 - phy: the same as "phy-handle" property, not recommended for new bindings.
 - phy-device: the same as "phy-handle" property, not recommended for new
   bindings.
+- managed: string, specifies the PHY management type. Supported values are:
+  "auto", "in-band-status". "auto" is the default, it usess MDIO for
+  management if fixed-link is not specified.
 
 Child nodes of the Ethernet controller are typically the individual PHY devices
 connected via the MDIO bus (sometimes the MDIO bus controller is separate).
 They are described in the phy.txt file in this same directory.
+For non-MDIO PHY management see fixed-link.txt.

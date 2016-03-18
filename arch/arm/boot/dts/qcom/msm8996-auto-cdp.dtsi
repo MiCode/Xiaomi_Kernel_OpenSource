@@ -83,14 +83,16 @@
 	qcom,vdd-io-current-level = <200 22000>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
-	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on
+		     &sdc2_cd_on_sbc>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+		     &sdc2_cd_on_sbc>;
 
 	qcom,clk-rates = <400000 20000000 25000000
 				50000000 100000000 200000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
-	cd-gpios = <&tlmm 95 0x1>;
+	cd-gpios = <&tlmm 38 0x1>;
 
 	status = "ok";
 };
@@ -293,46 +295,63 @@
 
 #include "msm8996-mdss-panels.dtsi"
 
+&pmx_mdss {
+	mdss_dsi_active: mdss_dsi_active {
+		mux {
+			pins = "gpio8",  "gpio70";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio8",  "gpio70";
+			drive-strength = <8>; /* 8 mA */
+			bias-disable = <0>; /* no pull */
+			output-high;
+		};
+	};
+
+	mdss_dsi_suspend: mdss_dsi_suspend {
+		mux {
+			pins = "gpio8",  "gpio70";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio8",  "gpio70";
+			drive-strength = <2>; /* 2 mA */
+			bias-pull-down; /* pull down */
+		};
+	};
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
 &mdss_dsi {
-	hw-config = "single_dsi";
+	hw-config = "split_dsi";
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_adv7533_720p>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-
-	qcom,panel-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			qcom,panel-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "vdd";
-				qcom,supply-min-voltage = <3300000>;
-				qcom,supply-max-voltage = <3300000>;
-				qcom,supply-enable-load = <100000>;
-				qcom,supply-disable-load = <100>;
-			};
-
-			qcom,panel-supply-entry@1 {
-				reg = <1>;
-				qcom,supply-name = "vddio";
-				qcom,supply-min-voltage = <1800000>;
-				qcom,supply-max-voltage = <1800000>;
-				qcom,supply-enable-load = <100000>;
-				qcom,supply-disable-load = <100>;
-			};
-	};
+	qcom,platform-enable-gpio = <&tlmm 70 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 8 0>;
+	qcom,platform-bklight-en-gpio = <&pm8994_gpios 10 0>;
 };
 
 &mdss_dsi1 {
-	status = "disabled";
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-enable-gpio = <&tlmm 70 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 8 0>;
+	qcom,platform-bklight-en-gpio = <&pm8994_gpios 10 0>;
 };
 
 &dsi_dual_sharp_video {
@@ -402,6 +421,25 @@
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
 		qcom,invert = <0>;
+		status = "okay";
+	};
+
+	mpp@a500 { /* MPP 6 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+
+	mpp@a700 { /* MPP 8 */
+		/* USB 5V regulator enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
 		status = "okay";
 	};
 };
@@ -575,6 +613,21 @@
 		interrupt-names = "vbus_det_irq";
 	};
 
+	usb_vbus_vreg: usb_vbus_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_vbus_vreg";
+		gpio = <&pm8994_mpps 8 0>;
+		enable-active-high;
+	};
+
+	usb2_otg_switch: usb2_otg_switch {
+		compatible = "regulator-fixed";
+		vin-supply = <&usb_vbus_vreg>;
+		regulator-name = "usb2_otg_vreg";
+		gpio = <&pm8994_gpios 12 0>;
+		enable-active-high;
+	};
+
 	qcom,msm-dai-mi2s {
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
 			pinctrl-names = "default", "sleep";
@@ -623,15 +676,7 @@
 		status = "okay";
 	};
 
-	gpio@c900 { /* GPIO 10 - NFC CLK _REQ*/
-		qcom,mode = <0>;
-		qcom,vin-sel = <2>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		status = "okay";
-	};
-
-	gpio@cd00 { /* GPIO 14 - lcd_bklt_reg_en */
+	gpio@c900 { /* GPIO 10 - lcd_bklt_reg_en */
 		qcom,mode = <1>;	/* DIGITAL OUT */
 		qcom,output-type = <0>;		/* CMOS logic */
 		qcom,invert = <1>;	/* output hight initially */
@@ -666,6 +711,14 @@
 	};
 
 	gpio@ca00 { /* GPIO 11 - USB enb1 (otg switch) */
+		qcom,mode = <1>;	/* DIGITAL OUT */
+		qcom,vin-sel = <2>;	/* 1.8 */
+		qcom,src-sel = <0>;	/* GPIO */
+		qcom,master-en = <1>;	/* Enable GPIO */
+		status = "okay";
+	};
+
+	gpio@cb00 { /* GPIO 12 - USB enb2 (otg switch) */
 		qcom,mode = <1>;	/* DIGITAL OUT */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* GPIO */
@@ -728,6 +781,7 @@
 
 &usb2s {
 	status = "ok";
+	vbus_dwc3-supply = <&usb2_otg_switch>;
 	dwc3@7600000 {
 		dr_mode = "host";
 	};
@@ -735,17 +789,17 @@
 
 &usb3 {
 	interrupt-parent = <&usb3>;
-	interrupts = <0 1 2>;
+	interrupts = <0 1 2 3>;
 	#interrupt-cells = <1>;
 	interrupt-map-mask = <0x0 0xffffffff>;
-	interrupt-map = <0x0 0 &intc 0 133 0
-			 0x0 1 &intc 0 180 0
-			 0x0 2 &spmi_bus 0x0 0x0 0x9 0x0>;
-	interrupt-names = "hs_phy_irq", "pwr_event_irq", "pmic_id_irq";
+	interrupt-map = <0x0 0 &intc 0 0 347 0
+			 0x0 1 &intc 0 0 243 0
+			 0x0 2 &intc 0 0 180 0
+			 0x0 3 &spmi_bus 0x0 0x0 0x9 0x0>;
+	interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq",
+				"pmic_id_irq";
 
 	vbus_dwc3-supply = <&usb_otg_switch>;
-	vdda33-supply = <&pm8994_l24>;
-	vdda18-supply = <&pm8994_l12>;
 };
 
 &blsp1_uart2 {
@@ -761,7 +815,7 @@
 
 &i2c_7 {
 	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
-		status = "ok";
+		status = "disabled";
 		compatible = "silabs,si4705";
 		reg = <0x11>;
 		vdd-supply = <&pm8994_s4>;
@@ -795,7 +849,6 @@
 		qcom,nq-irq = <&tlmm 9 0x00>;
 		qcom,nq-ven = <&tlmm 12 0x00>;
 		qcom,nq-firm = <&pm8994_gpios 7 0x00>;
-		qcom,nq-clkreq = <&pm8994_gpios 10 0x00>;
 		interrupt-parent = <&tlmm>;
 		qcom,clk-src = "BBCLK2";
 		interrupts = <9 0>;
@@ -857,4 +910,89 @@
 
 &wsa881x_214 {
 	/delete-property/ qcom,spkr-sd-n-gpio;
+};
+
+&hl7509_en_vreg {
+	status = "ok";
+};
+
+&hl7509_vreg {
+	status = "ok";
+};
+
+&gfx_cpr {
+	vdd-supply = <&hl7509_vreg>;
+	qcom,cpr-step-quot-init-min = <20>;
+	qcom,cpr-step-quot-init-max = <26>;
+	qcom,voltage-step = <10000>;
+	/delete-property/ qcom,cpr-enable;
+};
+
+&gfx_vreg {
+	qcom,cpr-voltage-ceiling =
+		<600000  670000  670000  750000  830000
+		 910000  960000 1020000>;
+	qcom,cpr-voltage-floor =
+		<600000  600000  600000  600000  600000
+		 600000  600000  600000>;
+};
+
+&pm8994_l3 {
+	regulator-min-microvolt = <875000>;
+	regulator-max-microvolt = <875000>;
+	qcom,init-voltage = <875000>;
+};
+
+&pm8994_l11 {
+	regulator-min-microvolt = <850000>;
+	regulator-max-microvolt = <850000>;
+	qcom,init-voltage = <850000>;
+};
+
+&pm8994_l17 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	qcom,init-voltage = <1800000>;
+};
+
+&pm8994_l23 {
+	regulator-min-microvolt = <1100000>;
+	regulator-max-microvolt = <1100000>;
+	qcom,init-voltage = <1100000>;
+};
+
+&pm8994_l27 {
+	regulator-min-microvolt = <800000>;
+	regulator-max-microvolt = <800000>;
+	qcom,init-voltage = <800000>;
+};
+
+&pm8994_l29 {
+	regulator-min-microvolt = <2500000>;
+	regulator-max-microvolt = <2500000>;
+	qcom,init-voltage = <2500000>;
+};
+
+&rpm_bus {
+	rpm-regulator-ldoa26 {
+		/delete-node/ pm8994_l26_corner;
+		/delete-node/ pm8994_l26_floor_corner;
+
+		pm8994_l26: regulator-l26 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa31 {
+		status = "okay";
+		pm8994_l31: regulator-l31 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
+	};
 };

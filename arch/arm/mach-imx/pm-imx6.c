@@ -209,7 +209,7 @@ void imx6q_set_int_mem_clk_lpm(bool enable)
 	writel_relaxed(val, ccm_base + CGPR);
 }
 
-static void imx6q_enable_rbc(bool enable)
+void imx6_enable_rbc(bool enable)
 {
 	u32 val;
 
@@ -261,7 +261,6 @@ static void imx6q_enable_wb(bool enable)
 
 int imx6q_set_lpm(enum mxc_cpu_pwr_mode mode)
 {
-	struct irq_data *iomuxc_irq_data = irq_get_irq_data(32);
 	u32 val = readl_relaxed(ccm_base + CLPCR);
 
 	val &= ~BM_CLPCR_LPM;
@@ -315,10 +314,12 @@ int imx6q_set_lpm(enum mxc_cpu_pwr_mode mode)
 	 *    Low-Power mode.
 	 * 3) Software should mask IRQ #32 right after CCM Low-Power mode
 	 *    is set (set bits 0-1 of CCM_CLPCR).
+	 *
+	 * Note that IRQ #32 is GIC SPI #0.
 	 */
-	imx_gpc_irq_unmask(iomuxc_irq_data);
+	imx_gpc_hwirq_unmask(0);
 	writel_relaxed(val, ccm_base + CLPCR);
-	imx_gpc_irq_mask(iomuxc_irq_data);
+	imx_gpc_hwirq_mask(0);
 
 	return 0;
 }
@@ -364,7 +365,7 @@ static int imx6q_pm_enter(suspend_state_t state)
 		 * RBC setting, so we do NOT need to do that here.
 		 */
 		if (!imx6_suspend_in_ocram_fn)
-			imx6q_enable_rbc(true);
+			imx6_enable_rbc(true);
 		imx_gpc_pre_suspend(true);
 		imx_anatop_pre_suspend();
 		imx_set_cpu_jump(0, v7_cpu_resume);
@@ -374,7 +375,7 @@ static int imx6q_pm_enter(suspend_state_t state)
 			imx_smp_prepare();
 		imx_anatop_post_resume();
 		imx_gpc_post_resume();
-		imx6q_enable_rbc(false);
+		imx6_enable_rbc(false);
 		imx6q_enable_wb(false);
 		imx6q_set_int_mem_clk_lpm(true);
 		imx6q_set_lpm(WAIT_CLOCKED);

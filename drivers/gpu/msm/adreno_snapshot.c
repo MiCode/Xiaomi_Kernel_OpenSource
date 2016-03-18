@@ -293,7 +293,7 @@ static void dump_all_ibs(struct kgsl_device *device,
  * @snapshot: Pointer to information about the current snapshot being taken
  */
 static void snapshot_rb_ibs(struct kgsl_device *device,
-		struct adreno_ringbuffer *rb, unsigned int *data,
+		struct adreno_ringbuffer *rb,
 		struct kgsl_snapshot *snapshot)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -356,7 +356,6 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 	 */
 
 	if (index == rb->wptr) {
-		memcpy(data, rb->buffer_desc.hostptr, KGSL_RB_SIZE);
 		dump_all_ibs(device, rb, snapshot);
 		return;
 	}
@@ -399,14 +398,12 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 	ib_parse_start = index;
 
 	/*
-	 * Loop through the RB, copying the data and looking for indirect
-	 * buffers and MMU pagetable changes
+	 * Loop through the RB, looking for indirect buffers and MMU pagetable
+	 * changes
 	 */
 
 	index = rb->wptr;
 	for (i = 0; i < KGSL_RB_DWORDS; i++) {
-		*data = rbptr[index];
-
 		/*
 		 * Only parse IBs between the start and the rptr or the next
 		 * context switch, whichever comes first
@@ -443,12 +440,7 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 				ibaddr, ibsize);
 		}
 
-		index = index + 1;
-
-		if (index == KGSL_RB_DWORDS)
-			index = 0;
-
-		data++;
+		index = (index + 1) % KGSL_RB_DWORDS;
 	}
 
 }
@@ -475,8 +467,8 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	}
 
 	/* Write the sub-header for the section */
-	header->start = rb->wptr;
-	header->end = rb->wptr;
+	header->start = 0;
+	header->end = KGSL_RB_DWORDS;
 	header->wptr = rb->wptr;
 	header->rptr = rb->rptr;
 	header->rbsize = KGSL_RB_DWORDS;
@@ -488,12 +480,12 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	header->gpuaddr = rb->buffer_desc.gpuaddr;
 	header->id = rb->id;
 
-	if (rb == adreno_dev->cur_rb) {
-		snapshot_rb_ibs(device, rb, data, snapshot);
-	} else {
-		/* Just copy the ringbuffer, there are no active IBs */
-		memcpy(data, rb->buffer_desc.hostptr, KGSL_RB_SIZE);
-	}
+	if (rb == adreno_dev->cur_rb)
+		snapshot_rb_ibs(device, rb, snapshot);
+
+	/* Just copy the ringbuffer, there are no active IBs */
+	memcpy(data, rb->buffer_desc.hostptr, KGSL_RB_SIZE);
+
 	/* Return the size of the section */
 	return KGSL_RB_SIZE + sizeof(*header);
 }
@@ -817,6 +809,21 @@ static void adreno_snapshot_iommu(struct kgsl_device *device,
 			snapshot, snapshot_global, &iommu->smmu_info);
 }
 
+static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot, struct adreno_ringbuffer *rb)
+{
+	struct snapshot_rb_params params = {
+		.snapshot = snapshot,
+		.rb = rb,
+	};
+
+	if (rb == NULL)
+		return;
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB_V2, snapshot,
+		snapshot_rb, &params);
+}
+
 /* adreno_snapshot - Snapshot the Adreno GPU state
  * @device - KGSL device to snapshot
  * @snapshot - Pointer to the snapshot instance
@@ -834,7 +841,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
-	struct snapshot_rb_params snap_rb_params;
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
@@ -845,25 +851,17 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	setup_fault_process(device, snapshot,
 			context ? context->proc_priv : NULL);
 
-	/* Dump the current ringbuffer */
-	snap_rb_params.snapshot = snapshot;
-	snap_rb_params.rb = adreno_dev->cur_rb;
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB_V2, snapshot,
-			snapshot_rb, &snap_rb_params);
+	adreno_snapshot_ringbuffer(device, snapshot, adreno_dev->cur_rb);
 
 	/* Dump the prev ringbuffer */
-	if (adreno_dev->prev_rb) {
-		snap_rb_params.rb = adreno_dev->prev_rb;
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB_V2,
-			snapshot, snapshot_rb, &snap_rb_params);
-	}
+	if (adreno_dev->prev_rb != adreno_dev->cur_rb)
+		adreno_snapshot_ringbuffer(device, snapshot,
+			adreno_dev->prev_rb);
 
-	/* Dump next ringbuffer */
-	if (adreno_dev->next_rb) {
-		snap_rb_params.rb = adreno_dev->next_rb;
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB_V2,
-			snapshot, snapshot_rb, &snap_rb_params);
-	}
+	if ((adreno_dev->next_rb != adreno_dev->prev_rb) &&
+		 (adreno_dev->next_rb != adreno_dev->cur_rb))
+		adreno_snapshot_ringbuffer(device, snapshot,
+			adreno_dev->next_rb);
 
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &ib1base);

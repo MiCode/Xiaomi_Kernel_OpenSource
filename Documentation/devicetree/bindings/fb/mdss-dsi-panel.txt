@@ -455,6 +455,8 @@ Optional properites:
 					instead of standard dcs type 0x0A.
 - qcom,dba-panel:	Indicates whether the current panel is used as a display bridge
 					to a non-DSI interface.
+- qcom,bridge-name:			A string to indicate the name of the bridge chip connected to DSI. qcom,bridge-name
+					is required if qcom,dba-panel is defined for the panel.
 - qcom,adjust-timer-wakeup-ms:		An integer value to indicate the timer delay(in ms) to accommodate
 					s/w delay while configuring the event timer wakeup logic.
 
@@ -671,6 +673,7 @@ Example:
 
 		qcom,config-select = <&dsi_sim_vid_config0>;
 		qcom,dba-panel;
+		qcom,bridge-name = "adv7533";
 
 		dsi_sim_vid_config0: config0 {
 			qcom,lm-split = <360 360>;

@@ -1,0 +1,114 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8953.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8953 RUMI";
+	compatible = "qcom,msm8953-rumi", "qcom,msm8953", "qcom,rumi";
+	qcom,board-id= <15 0>;
+};
+
+&soc {
+	timer {
+		clock-frequency = <10000000>;
+	};
+};
+
+&blsp1_uart0 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&sdhc_1 {
+	/* device core power supply */
+	vdd-supply = <&pm8953_l8>;
+	qcom,vdd-voltage-level = <2900000 2900000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm8953_l5>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+
+	qcom,nonremovable;
+	qcom,clk-rates = <400000 25000000 50000000>;
+
+	status = "ok";
+};
+
+&usb3 {
+	qcom,disable-dev-mode-pm;
+	/delete-property/ USB3_GDSC-supply;
+	dwc3@7000000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&ssphy {
+	qcom,emulation;
+};
+
+&qusb_phy {
+	reg = <0x00079000 0x180>,
+	      <0x070f8800 0x400>,
+	      <0x0700cd00 0x40>;
+	reg-names = "qusb_phy_base",
+		    "qscratch_base",
+		    "emu_phy_base";
+	qcom,emulation;
+	qcom,qusb-phy-init-seq = <0x19 0x404
+				0x20 0x414
+				0x79 0x410
+				0x00 0x418
+				0x99 0x404
+				0x04 0x408
+				0xd9 0x404>;
+	qcom,emu-dcm-reset-seq = <0x100000 0x20
+				0x0 0x20
+				0x1e0 0x20
+				0x5 0x14>;
+};
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+};
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+};
+
+&clock_gcc_gfx {
+	compatible = "qcom,dummycc";
+};
+
+&pm8953_vadc {
+	status = "disabled";
+};
+
+&pm8953_adc_tm {
+	status = "disabled";
+};
+
+&clock_cpu {
+	compatible = "qcom,dummycc";
+};

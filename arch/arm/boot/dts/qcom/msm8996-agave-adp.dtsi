@@ -308,6 +308,7 @@
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,display-id = "primary";
+	qcom,bridge-index = <0>;
 
 	qcom,panel-supply-entries {
 			#address-cells = <1>;
@@ -339,6 +340,7 @@
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,display-id = "tertiary";
+	qcom,bridge-index = <1>;
 
 	qcom,panel-supply-entries {
 		#address-cells = <1>;
@@ -643,6 +645,14 @@
 	};
 
 	qcom,msm-dai-mi2s {
+		dai_mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&sec_mi2s_active &sec_mi2s_sd0_active
+				&sec_mi2s_sd1_active>;
+			pinctrl-1 = <&sec_mi2s_sleep &sec_mi2s_sd0_sleep
+				&sec_mi2s_sd1_sleep>;
+		};
+
 		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active>;

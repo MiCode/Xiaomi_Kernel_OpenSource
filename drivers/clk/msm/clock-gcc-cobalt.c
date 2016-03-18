@@ -826,7 +826,7 @@ static struct rcg_clk gp3_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_hmss_rbcpr_clk_src[] = {
-	F(  19200000,    cxo_clk_src,    1,    0,     0),
+	F(  19200000,    cxo_clk_src_ao,    1,    0,     0),
 	F_END
 };
 
@@ -839,7 +839,6 @@ static struct rcg_clk hmss_rbcpr_clk_src = {
 	.c = {
 		.dbg_name = "hmss_rbcpr_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOWER, 19200000, NOMINAL, 50000000),
 		CLK_INIT(hmss_rbcpr_clk_src.c),
 	},
 };

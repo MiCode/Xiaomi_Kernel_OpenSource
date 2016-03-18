@@ -17,7 +17,6 @@
 #ifndef	__LINUX_USB_ANDROID_H
 #define	__LINUX_USB_ANDROID_H
 
-#define MAX_STREAMING_FUNCS 6
 #define FUNC_NAME_LEN 15
 
 enum android_function_index {
@@ -127,8 +126,6 @@ struct android_usb_platform_data {
 	int (*update_pid_and_serial_num)(uint32_t, const char *);
 	u32 pm_qos_latency[MAX_VOTES];
 	u8 usb_core_id;
-	char streaming_func[MAX_STREAMING_FUNCS][FUNC_NAME_LEN];
-	int  streaming_func_count;
 };
 
 extern int gport_setup(struct usb_configuration *c);

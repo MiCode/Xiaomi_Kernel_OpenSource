@@ -58,6 +58,14 @@ Required properties:
 
  - compatible : "qcom,msm-compress-dsp"
 
+Optional properties
+ - qcom,adsp-version:
+	This property can be used to specify the ADSP version/name.
+	Based on ADSP version, we decide if we have to use older
+	ADSP APIs or newer. Right now we are adding "MDSP 1.2" for
+	8909 purpose.If the ADSP version is anything other than this
+	we use new ADSP APIs.
+
 * msm-voip-dsp
 
 Required properties:
@@ -355,6 +363,18 @@ Required properties:
 
  - elemental-addr:                         slimbus slave enumeration address.
 
+* wcd_gpio_ctrl
+
+Required properties:
+
+ - compatible :                            "qcom,wcd-gpio-ctrl"
+
+ - qcom,cdc-rst-n-gpio :                   TLMM GPIO number
+
+ - pinctrl-names:                          Pinctrl state names for each pin
+                                           group configuration.
+ - pinctrl-x:                              Defines pinctrl state for each pin
+                                           group.
 Example:
 
 	qcom,msm-pcm {
@@ -494,6 +514,11 @@ Example:
 			qcom,msm-dai-q6-dev-id = <12288>;
 		};
 
+		bt_a2dp_rx: qcom,msm-dai-q6-bt-a2dp-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12290>;
+		};
+
 		qcom,msm-dai-q6-bt-sco-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12289>;
@@ -611,6 +636,15 @@ Example:
 		compatible = "qcom,msm_dai_slim";
 		elemental-addr = [ff ff ff fe 17 02];
 	};
+
+	wcd_gpio_ctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		qcom,cdc-rst-n-gpio = <&tlmm 64 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
 * MSM8916 ASoC Machine driver
 
 Required properties:
@@ -724,8 +758,9 @@ Example:
 				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
-				<&bt_sco_rx>, <&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>,
-				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&bt_sco_rx>, <&bt_sco_tx>, <&bt_a2dp_rx>,
+				<&int_fm_rx>, <&int_fm_tx>,<&afe_pcm_rx>,
+				<&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
 				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
 				<&incall_music_2_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
@@ -736,11 +771,12 @@ Example:
 				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
 				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
 				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
-				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
-				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
-				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
-				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
-				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
+				"msm-dai-q6-dev.12290", "msm-dai-q6-dev.12292",
+				"msm-dai-q6-dev.12293", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770";
 		asoc-codec = <&stub>, <&pm8916_tombak_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 	};
@@ -1402,6 +1438,7 @@ the flavor.
 Optional properties:
 - qcom,msm-afe-clk-ver: Provides detail of AFE clock API version.
 - qcom,hdmi-dba-codec-rx: Boolean. specifies if HDMI DBA audio support is enabled or not.
+- qcom,split-a2dp: Boolean. specifies if split a2dp audio support is enabled or not.
 - qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
 - qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
 - qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
@@ -1467,6 +1504,7 @@ Example:
 		qcom,msm-afe-clk-ver = <1>;
 		qcom,msm-ext-pa = "primary";
 		qcom,hdmi-dba-codec-rx;
+		qcom,split-a2dp;
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -1710,8 +1748,6 @@ Each entry is a pair of strings, the first being the connection's sink,
 the second being the connection's source.
 - qcom,tomtom-mclk-clk-freq : Master clock value given to codec. Some WCD9XXX
 codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
-- pinctrl-names : pinctrl state names for each pin group configuration.
-- pinctrl-x : defines pinctrl state for each pin group
 - asoc-platform: This is phandle list containing the references to platform device
 		 nodes that are used as part of the sound card dai-links.
 - asoc-platform-names: This property contains list of platform names. The order of
@@ -1729,6 +1765,14 @@ codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
 - asoc-codec-names: This property contains list of codec dai names. The order of the
 		    codec dai names should match to that of the phandle order given
 		    in "asoc-codec".
+
+Optional Properties:
+- qcom,mi2s-interface-mode: This property contains mi2s interface modes master/ slave.
+			    Entry is a pair of strings, the first being for primary mi2s
+			    and the second for secondary mi2s and so on
+- qcom,auxpcm-interface-mode: This property contains auxpcm interface modes master/ slave.
+			      Entry is a pair of strings, the first being for primary auxpcm
+			      and the second for secondary auxpcm and so on
 
 Example:
 
@@ -1753,6 +1797,8 @@ sound {
 			"MIC BIAS3 External", "Digital Mic3";
 
 		qcom,tomtom-mclk-clk-freq = <12288000>;
+		qcom,mi2s-interface-mode = "pri_mi2s_master", "sec_mi2s_master";
+		qcom,auxpcm-interface-mode = "pri_pcm_master", "sec_pcm_master";
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>;

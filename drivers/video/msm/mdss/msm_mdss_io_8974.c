@@ -2167,6 +2167,10 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 		}
 	}
 
+	/* Disable dynamic clock gating*/
+	if (ctrl->mdss_util->dyn_clk_gating_ctrl)
+		ctrl->mdss_util->dyn_clk_gating_ctrl(0);
+
 	return rc;
 }
 

@@ -1411,7 +1411,8 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 		/* CBA2R */
 #ifdef CONFIG_64BIT
 		reg = CBA2R_RW64_64BIT;
-		if (!arm_smmu_has_secure_vmid(smmu_domain))
+		if (!arm_smmu_has_secure_vmid(smmu_domain) &&
+			arm_smmu_is_static_cb(smmu))
 			msm_tz_set_cb_format(smmu->sec_id, cfg->cbndx);
 #else
 		reg = CBA2R_RW64_32BIT;

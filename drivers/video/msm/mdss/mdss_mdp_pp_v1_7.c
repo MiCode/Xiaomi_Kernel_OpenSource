@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -530,6 +530,7 @@ static int pp_dither_set_config(char __iomem *base_addr,
 	u32 data;
 	struct mdp_dither_cfg_data *dither_cfg_data = NULL;
 	struct mdp_dither_data_v1_7 *dither_data = NULL;
+	uint32_t *pdata = NULL;
 
 	if (!base_addr || !cfg_data || !pp_sts) {
 		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
@@ -565,23 +566,27 @@ static int pp_dither_set_config(char __iomem *base_addr,
 
 	if ((dither_data->g_y_depth >= DITHER_DEPTH_MAP_INDEX) ||
 		(dither_data->b_cb_depth >= DITHER_DEPTH_MAP_INDEX) ||
-		(dither_data->r_cr_depth >= DITHER_DEPTH_MAP_INDEX)) {
-		pr_err("invalid data for dither, g_y_depth %d y_cb_depth %d r_cr_depth %d\n",
+		(dither_data->r_cr_depth >= DITHER_DEPTH_MAP_INDEX) ||
+		(dither_data->len > DITHER_MATRIX_INDEX)) {
+		pr_err("invalid data for dither, g_y_depth %d y_cb_depth %d r_cr_depth %d\n len %d",
 			dither_data->g_y_depth, dither_data->b_cb_depth,
-			dither_data->r_cr_depth);
+			dither_data->r_cr_depth, dither_data->len);
 		return -EINVAL;
 	}
+	if (!dither_data->len)
+		pdata = dither_matrix;
+	else
+		pdata = dither_data->data;
+
 	data = dither_depth_map[dither_data->g_y_depth];
 	data |= dither_depth_map[dither_data->b_cb_depth] << 2;
 	data |= dither_depth_map[dither_data->r_cr_depth] << 4;
-	data |= dither_cfg_data->mode << 8;
+	data |= (dither_data->temporal_en) ? (1  << 8) : 0;
 	writel_relaxed(data, base_addr);
 	base_addr += DITHER_MATRIX_OFF;
 	for (i = 0; i < DITHER_MATRIX_INDEX; i += 4) {
-		data = dither_matrix[i] |
-			(dither_matrix[i + 1] << 4) |
-			(dither_matrix[i + 2] << 8) |
-			(dither_matrix[i + 3] << 12);
+		data = pdata[i] | (pdata[i + 1] << 4) |
+		       (pdata[i + 2] << 8) | (pdata[i + 3] << 12);
 		writel_relaxed(data, base_addr);
 		base_addr += 4;
 	}
@@ -1513,9 +1518,9 @@ static void pp_pa_get_mem_col(char __iomem *base_addr,
 		pp_pa_get_mem_col_regs(mem_col_p0_addr, mem_col_p2_addr,
 				       &pa_data->fol_cfg);
 		mem_col_hold = pa_hold >> PA_HOLD_FOL_SHIFT;
-		pa_data->sky_cfg.sat_hold = (mem_col_hold >>
+		pa_data->fol_cfg.sat_hold = (mem_col_hold >>
 				PA_HOLD_SAT_SHIFT) & PA_HOLD_MASK;
-		pa_data->sky_cfg.val_hold = (mem_col_hold >>
+		pa_data->fol_cfg.val_hold = (mem_col_hold >>
 				PA_HOLD_VAL_SHIFT) & PA_HOLD_MASK;
 	}
 }

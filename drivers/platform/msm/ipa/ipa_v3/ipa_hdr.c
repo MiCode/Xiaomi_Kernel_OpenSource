@@ -11,6 +11,7 @@
  */
 
 #include "ipa_i.h"
+#include "ipahal/ipahal.h"
 
 static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36, 60};
 static const u32 ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN_MAX] = { 32, 64};
@@ -177,10 +178,12 @@ int __ipa_commit_hdr_v3_0(void)
 	struct ipa3_mem_buffer hdr_mem;
 	struct ipa3_mem_buffer ctx_mem;
 	struct ipa3_mem_buffer aligned_ctx_mem;
-	struct ipa3_hdr_init_system hdr_init_cmd = {0};
-	struct ipa3_hw_imm_cmd_dma_shared_mem dma_cmd_hdr = {0};
-	struct ipa3_hw_imm_cmd_dma_shared_mem dma_cmd_ctx = {0};
-	struct ipa3_register_write reg_write_cmd = {0};
+	struct ipahal_imm_cmd_dma_shared_mem dma_cmd_hdr = {0};
+	struct ipahal_imm_cmd_dma_shared_mem dma_cmd_ctx = {0};
+	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
+	struct ipahal_imm_cmd_hdr_init_system hdr_init_cmd = {0};
+	struct ipahal_imm_cmd_pyld *hdr_cmd_pyld = NULL;
+	struct ipahal_imm_cmd_pyld *ctx_cmd_pyld = NULL;
 	int rc = -EFAULT;
 	u32 proc_ctx_size;
 	u32 proc_ctx_ofst;
@@ -205,17 +208,25 @@ int __ipa_commit_hdr_v3_0(void)
 				IPA_MEM_PART(apps_hdr_size));
 			goto end;
 		} else {
-			dma_cmd_hdr.skip_pipeline_clear = 0;
-			dma_cmd_hdr.pipeline_clear_options = IPA_HPS_CLEAR;
+			dma_cmd_hdr.is_read = false; /* write operation */
+			dma_cmd_hdr.skip_pipeline_clear = false;
+			dma_cmd_hdr.pipeline_clear_options = IPAHAL_HPS_CLEAR;
 			dma_cmd_hdr.system_addr = hdr_mem.phys_base;
 			dma_cmd_hdr.size = hdr_mem.size;
 			dma_cmd_hdr.local_addr =
 				ipa3_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(apps_hdr_ofst);
-			desc[0].opcode = IPA_DMA_SHARED_MEM;
-			desc[0].pyld = &dma_cmd_hdr;
-			desc[0].len =
-				sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
+			hdr_cmd_pyld = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_DMA_SHARED_MEM,
+				&dma_cmd_hdr, false);
+			if (!hdr_cmd_pyld) {
+				IPAERR("fail construct dma_shared_mem cmd\n");
+				goto end;
+			}
+			desc[0].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[0].pyld = hdr_cmd_pyld->data;
+			desc[0].len = hdr_cmd_pyld->len;
 		}
 	} else {
 		if (hdr_mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
@@ -224,9 +235,17 @@ int __ipa_commit_hdr_v3_0(void)
 			goto end;
 		} else {
 			hdr_init_cmd.hdr_table_addr = hdr_mem.phys_base;
-			desc[0].opcode = IPA_HDR_INIT_SYSTEM;
-			desc[0].pyld = &hdr_init_cmd;
-			desc[0].len = sizeof(struct ipa3_hdr_init_system);
+			hdr_cmd_pyld = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_HDR_INIT_SYSTEM,
+				&hdr_init_cmd, false);
+			if (!hdr_cmd_pyld) {
+				IPAERR("fail construct hdr_init_system cmd\n");
+				goto end;
+			}
+			desc[0].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_HDR_INIT_SYSTEM);
+			desc[0].pyld = hdr_cmd_pyld->data;
+			desc[0].len = hdr_cmd_pyld->len;
 		}
 	}
 	desc[0].type = IPA_IMM_CMD_DESC;
@@ -241,17 +260,25 @@ int __ipa_commit_hdr_v3_0(void)
 				proc_ctx_size);
 			goto end;
 		} else {
-			dma_cmd_ctx.skip_pipeline_clear = 0;
-			dma_cmd_ctx.pipeline_clear_options = IPA_HPS_CLEAR;
+			dma_cmd_ctx.is_read = false; /* Write operation */
+			dma_cmd_ctx.skip_pipeline_clear = false;
+			dma_cmd_ctx.pipeline_clear_options = IPAHAL_HPS_CLEAR;
 			dma_cmd_ctx.system_addr = aligned_ctx_mem.phys_base;
 			dma_cmd_ctx.size = aligned_ctx_mem.size;
 			dma_cmd_ctx.local_addr =
 				ipa3_ctx->smem_restricted_bytes +
 				proc_ctx_ofst;
-			desc[1].opcode = IPA_DMA_SHARED_MEM;
-			desc[1].pyld = &dma_cmd_ctx;
-			desc[1].len =
-				sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
+			ctx_cmd_pyld = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_DMA_SHARED_MEM,
+				&dma_cmd_ctx, false);
+			if (!ctx_cmd_pyld) {
+				IPAERR("fail construct dma_shared_mem cmd\n");
+				goto end;
+			}
+			desc[1].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[1].pyld = ctx_cmd_pyld->data;
+			desc[1].len = ctx_cmd_pyld->len;
 		}
 	} else {
 		proc_ctx_size_ddr = IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr);
@@ -261,15 +288,26 @@ int __ipa_commit_hdr_v3_0(void)
 				proc_ctx_size_ddr);
 			goto end;
 		} else {
-			reg_write_cmd.skip_pipeline_clear = 0;
-			reg_write_cmd.pipeline_clear_options = IPA_HPS_CLEAR;
-			reg_write_cmd.offset = IPA_SYS_PKT_PROC_CNTXT_BASE_OFST;
+			reg_write_cmd.skip_pipeline_clear = false;
+			reg_write_cmd.pipeline_clear_options =
+				IPAHAL_HPS_CLEAR;
+			reg_write_cmd.offset =
+				ipahal_get_reg_ofst(
+				IPA_SYS_PKT_PROC_CNTXT_BASE);
 			reg_write_cmd.value = aligned_ctx_mem.phys_base;
 			reg_write_cmd.value_mask =
 				~(IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1);
-			desc[1].pyld = &reg_write_cmd;
-			desc[1].opcode = IPA_REGISTER_WRITE;
-			desc[1].len = sizeof(reg_write_cmd);
+			ctx_cmd_pyld = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_REGISTER_WRITE,
+				&reg_write_cmd, false);
+			if (!ctx_cmd_pyld) {
+				IPAERR("fail construct register_write cmd\n");
+				goto end;
+			}
+			desc[1].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_REGISTER_WRITE);
+			desc[1].pyld = ctx_cmd_pyld->data;
+			desc[1].len = ctx_cmd_pyld->len;
 		}
 	}
 	desc[1].type = IPA_IMM_CMD_DESC;
@@ -309,6 +347,12 @@ int __ipa_commit_hdr_v3_0(void)
 	}
 
 end:
+	if (ctx_cmd_pyld)
+		ipahal_destroy_imm_cmd(ctx_cmd_pyld);
+
+	if (hdr_cmd_pyld)
+		ipahal_destroy_imm_cmd(hdr_cmd_pyld);
+
 	return rc;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,11 @@
 	qcom,chg-led-sw-controls;
 	qcom,chg-led-support;
 	status = "okay";
+};
+
+&usb_otg {
+	qcom,hsusb-otg-phy-init-seq =
+		<0x39 0x81 0x37 0x82 0xffffffff>;
 };
 
 &pmi8950_fg {

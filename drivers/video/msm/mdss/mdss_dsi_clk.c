@@ -99,7 +99,7 @@ static int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 		}
 	}
 
-	rc = mdss_update_reg_bus_vote(mngr->reg_bus_clt, VOTE_INDEX_19_MHZ);
+	rc = mdss_update_reg_bus_vote(mngr->reg_bus_clt, VOTE_INDEX_LOW);
 	if (rc) {
 		pr_err("failed to vote for reg bus\n");
 		goto disable_mmss_misc_clk;

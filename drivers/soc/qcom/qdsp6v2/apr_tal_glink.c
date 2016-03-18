@@ -92,6 +92,20 @@ static int apr_get_free_buf(int len, void **buf)
 	return 0;
 }
 
+static void apr_buf_add_tail(const void *buf)
+{
+	struct apr_tx_buf *list;
+	unsigned long flags;
+
+	if (!buf)
+		return;
+
+	spin_lock_irqsave(&buf_list.lock, flags);
+	list = container_of((void *)buf, struct apr_tx_buf, buf);
+	list_add_tail(&list->list, &buf_list.list);
+	spin_unlock_irqrestore(&buf_list.lock, flags);
+}
+
 static int __apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 			   struct apr_pkt_priv *pkt_priv, int len)
 {
@@ -137,8 +151,11 @@ int apr_tal_write(struct apr_svc_ch_dev *apr_ch, void *data,
 		rc = __apr_tal_write(apr_ch, pkt_data, pkt_priv, len);
 	} while (rc == -EAGAIN && retries++ < APR_MAXIMUM_NUM_OF_RETRIES);
 
-	if (rc == -EAGAIN)
-		pr_err("%s: TIMEOUT for write\n", __func__);
+	if (rc < 0) {
+		pr_err("%s: Unable to send the packet, rc:%d\n", __func__, rc);
+		if (pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER)
+			apr_buf_add_tail(pkt_data);
+	}
 exit:
 	return rc;
 }
@@ -166,9 +183,7 @@ void apr_tal_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 void apr_tal_notify_tx_done(void *handle, const void *priv,
 			    const void *pkt_priv, const void *ptr)
 {
-	struct apr_tx_buf *buf = NULL;
 	struct apr_pkt_priv *apr_pkt_priv = (struct apr_pkt_priv *)pkt_priv;
-	unsigned long flags;
 
 	if (!pkt_priv || !ptr) {
 		pr_err("%s: Invalid pkt_priv or ptr\n", __func__);
@@ -177,12 +192,8 @@ void apr_tal_notify_tx_done(void *handle, const void *priv,
 
 	pr_debug("%s: tx_done received\n", __func__);
 
-	if (apr_pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER) {
-		spin_lock_irqsave(&buf_list.lock, flags);
-		buf = container_of(ptr, struct apr_tx_buf, list);
-		list_add_tail(&buf->list, &buf_list.list);
-		spin_unlock_irqrestore(&buf_list.lock, flags);
-	}
+	if (apr_pkt_priv->pkt_owner == APR_PKT_OWNER_DRIVER)
+		apr_buf_add_tail(ptr);
 }
 
 bool apr_tal_notify_rx_intent_req(void *handle, const void *priv,
@@ -256,7 +267,7 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	mutex_lock(&apr_ch->m_lock);
 	if (apr_ch->handle) {
 		pr_err("%s: This channel is already opened\n", __func__);
-		apr_ch = NULL;
+		rc = -EBUSY;
 		goto unlock;
 	}
 
@@ -285,6 +296,14 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	open_cfg.notify_state = apr_tal_notify_state;
 	open_cfg.notify_rx_intent_req = apr_tal_notify_rx_intent_req;
 	open_cfg.priv = apr_ch;
+	/*
+	 * The transport name "smd_trans" is required if far end is using SMD.
+	 * In that case Glink will fall back to SMD and the client (APR in this
+	 * case) will still work as if Glink is the communication channel.
+	 * If far end is already using Glink, this property will be ignored in
+	 * Glink layer and communication will be through Glink.
+	 */
+	open_cfg.transport = "smd_trans";
 
 	apr_ch->channel_state = GLINK_REMOTE_DISCONNECTED;
 	apr_ch->handle = glink_open(&open_cfg);
@@ -299,30 +318,28 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	if (rc == 0) {
 		pr_err("%s: TIMEOUT for OPEN event\n", __func__);
 		rc = -ETIMEDOUT;
-		goto unlock;
+		goto close_link;
 	}
 
 	rc = apr_tal_rx_intents_config(apr_ch, APR_DEFAULT_NUM_OF_INTENTS,
 				       APR_MAX_BUF);
 	if (rc) {
 		pr_err("%s: Unable to queue intents\n", __func__);
-		goto unlock;
+		goto close_link;
 	}
 
 	apr_ch->func = func;
 	apr_ch->priv = priv;
 
-unlock:
-	if (rc && apr_ch) {
-		if (apr_ch->handle) {
-			glink_close(apr_ch->handle);
-			apr_ch->handle = NULL;
-		}
-		apr_ch = NULL;
+close_link:
+	if (rc) {
+		glink_close(apr_ch->handle);
+		apr_ch->handle = NULL;
 	}
+unlock:
 	mutex_unlock(&apr_ch->m_lock);
 
-	return apr_ch;
+	return rc ? NULL : apr_ch;
 }
 
 int apr_tal_close(struct apr_svc_ch_dev *apr_ch)

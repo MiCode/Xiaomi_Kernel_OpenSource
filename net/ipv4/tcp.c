@@ -3205,7 +3205,7 @@ int tcp_nuke_addr(struct net *net, struct sockaddr *addr)
 		return -EAFNOSUPPORT;
 	}
 
-	for (bucket = 0; bucket < tcp_hashinfo.ehash_mask; bucket++) {
+	for (bucket = 0; bucket <= tcp_hashinfo.ehash_mask; bucket++) {
 		struct hlist_nulls_node *node;
 		struct sock *sk;
 		spinlock_t *lock = inet_ehash_lockp(&tcp_hashinfo, bucket);
@@ -3215,11 +3215,19 @@ restart:
 		sk_nulls_for_each(sk, node, &tcp_hashinfo.ehash[bucket].chain) {
 			struct inet_sock *inet = inet_sk(sk);
 
-			if (sk->sk_state == TCP_TIME_WAIT)
+			if (sk->sk_state == TCP_TIME_WAIT) {
+				/*
+				 * Sockets that are in TIME_WAIT state are
+				 * instances of lightweight inet_timewait_sock,
+				 * we should simply skip them (or we'll try to
+				 * access non-existing fields and crash).
+				 */
 				continue;
+			}
 
 			if (sysctl_ip_dynaddr && sk->sk_state == TCP_SYN_SENT)
 				continue;
+
 			if (sock_flag(sk, SOCK_DEAD))
 				continue;
 
@@ -3237,6 +3245,8 @@ restart:
 #if defined(CONFIG_IPV6)
 			if (family == AF_INET6) {
 				struct in6_addr *s6;
+				if (!inet->pinet6)
+					continue;
 
 				if (sk->sk_family == AF_INET)
 					continue;

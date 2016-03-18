@@ -44,7 +44,7 @@ Example:
 			0xB0B809C 0xB18809C 0xB19809C 0xB1A809C 0xB1B809C>;
 	};
 
-  For msmtitanium:
+  For msm8953:
 	qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		qcom,threshold-arr = <0xB1880B0 0xB1980B0 0xB1A80B0

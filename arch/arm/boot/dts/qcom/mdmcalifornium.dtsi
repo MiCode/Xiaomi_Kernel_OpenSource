@@ -386,6 +386,7 @@
 
 		linux,pci-domain = <0>;
 
+		qcom,phy-ver = <0x10>;
 		qcom,use-19p2mhz-aux-clk;
 
 		qcom,msm-bus,name = "pcie0";
@@ -524,7 +525,7 @@
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
 		clock-names = "core_clk";
-		clocks = <&clock_gcc clk_ipa_a_clk>;
+		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;

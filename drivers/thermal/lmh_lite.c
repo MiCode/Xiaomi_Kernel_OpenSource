@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -704,7 +704,8 @@ static int lmh_get_sensor_list(void)
 	} while (next < size);
 
 get_exit:
-	dma_free_attrs(&dev, size, payload, payload_phys, &attrs);
+	dma_free_attrs(&dev, PAGE_ALIGN(sizeof(struct lmh_sensor_packet)),
+		payload, payload_phys, &attrs);
 	return ret;
 }
 

@@ -37,15 +37,13 @@
 
 			qcom,pm-cluster-level@1{ /* E3 */
 				reg = <1>;
-				label = "system-ret";
-				qcom,spm-cbf-mode = "pc";
-				qcom,spm-l3-mode = "pc";
+				label = "system-pc";
 				qcom,psci-mode = <0x3>;
 				qcom,latency-us = <350>;
 				qcom,ss-power = <530>;
 				qcom,energy-overhead = <160000>;
 				qcom,time-overhead = <550>;
-				qcom,min-child-idx = <1>;
+				qcom,min-child-idx = <3>;
 				qcom,is-reset;
 			};
 
@@ -68,16 +66,37 @@
 					qcom,energy-overhead = <65000>;
 					qcom,time-overhead = <85>;
 				};
-
-				qcom,pm-cluster-level@1{ /* D4 */
+				qcom,pm-cluster-level@1{ /* D2D */
 					reg = <1>;
+					label = "pwr-l2-dynret";
+					qcom,psci-mode = <0x2>;
+					qcom,latency-us = <60>;
+					qcom,ss-power = <700>;
+					qcom,energy-overhead = <85000>;
+					qcom,time-overhead = <85>;
+					qcom,min-child-idx = <1>;
+				};
+
+				qcom,pm-cluster-level@2{ /* D2E */
+					reg = <2>;
+					label = "pwr-l2-ret";
+					qcom,psci-mode = <0x3>;
+					qcom,latency-us = <100>;
+					qcom,ss-power = <640>;
+					qcom,energy-overhead = <135000>;
+					qcom,time-overhead = <85>;
+					qcom,min-child-idx = <2>;
+				};
+
+				qcom,pm-cluster-level@3{ /* D4 */
+					reg = <3>;
 					label = "pwr-l2-pc";
 					qcom,psci-mode = <0x4>;
 					qcom,latency-us = <700>;
 					qcom,ss-power = <450>;
 					qcom,energy-overhead = <210000>;
 					qcom,time-overhead = <11500>;
-					qcom,min-child-idx = <1>;
+					qcom,min-child-idx = <2>;
 					qcom,is-reset;
 				};
 
@@ -97,8 +116,18 @@
 						qcom,time-overhead = <60>;
 					};
 
-					qcom,pm-cpu-level@1 {  /* C3 */
+					qcom,pm-cpu-level@1 { /* C2D */
 						reg = <1>;
+						qcom,psci-cpu-mode = <2>;
+						qcom,spm-cpu-mode = "ret";
+						qcom,latency-us = <40>;
+						qcom,ss-power = <730>;
+						qcom,energy-overhead = <85500>;
+						qcom,time-overhead = <110>;
+					};
+
+					qcom,pm-cpu-level@2 {  /* C3 */
+						reg = <2>;
 						qcom,spm-cpu-mode = "pc";
 						qcom,psci-cpu-mode = <0x3>;
 						qcom,latency-us = <80>;
@@ -130,15 +159,37 @@
 					qcom,time-overhead = <80>;
 				};
 
-				qcom,pm-cluster-level@1{ /* D4 */
+				qcom,pm-cluster-level@1{ /* D2D */
 					reg = <1>;
+					label = "perf-l2-ret";
+					qcom,psci-mode = <2>;
+					qcom,latency-us = <60>;
+					qcom,ss-power = <700>;
+					qcom,energy-overhead = <85000>;
+					qcom,time-overhead = <85>;
+					qcom,min-child-idx = <1>;
+				};
+
+				qcom,pm-cluster-level@2{ /* D2E */
+					reg = <2>;
+					label = "perf-l2-memret";
+					qcom,psci-mode = <3>;
+					qcom,latency-us = <100>;
+					qcom,ss-power = <640>;
+					qcom,energy-overhead = <135000>;
+					qcom,time-overhead = <85>;
+					qcom,min-child-idx = <2>;
+				};
+
+				qcom,pm-cluster-level@3{ /* D4 */
+					reg = <3>;
 					label = "perf-l2-pc";
 					qcom,psci-mode = <0x4>;
 					qcom,latency-us = <800>;
 					qcom,ss-power = <450>;
 					qcom,energy-overhead = <240000>;
 					qcom,time-overhead = <11500>;
-					qcom,min-child-idx = <1>;
+					qcom,min-child-idx = <2>;
 					qcom,is-reset;
 				};
 
@@ -158,8 +209,18 @@
 						qcom,time-overhead = <50>;
 					};
 
-					qcom,pm-cpu-level@1 { /* C3 */
+					qcom,pm-cpu-level@1 { /* C2D */
 						reg = <1>;
+						qcom,psci-cpu-mode = <2>;
+						qcom,spm-cpu-mode = "ret";
+						qcom,latency-us = <40>;
+						qcom,ss-power = <730>;
+						qcom,energy-overhead = <85500>;
+						qcom,time-overhead = <110>;
+					};
+
+					qcom,pm-cpu-level@2 { /* C3 */
+						reg = <2>;
 						qcom,spm-cpu-mode = "pc";
 						qcom,psci-cpu-mode = <0x3>;
 						qcom,latency-us = <80>;

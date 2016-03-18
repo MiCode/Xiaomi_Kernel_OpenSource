@@ -1409,12 +1409,18 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			max_curr_avail_ma += flash_node->max_current;
 
 		psy_prop.intval = true;
-		rc = led->battery_psy->set_property(led->battery_psy,
+		if (led->battery_psy) {
+			rc = led->battery_psy->set_property(led->battery_psy,
 						POWER_SUPPLY_PROP_FLASH_ACTIVE,
-								&psy_prop);
-		if (rc) {
+						&psy_prop);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Failed to setup OTG pulse skip enable\n");
+				goto exit_flash_led_work;
+			}
+		} else {
 			dev_err(&led->spmi_dev->dev,
-				"Failed to setup OTG pulse skip enable\n");
+					"led->battery_psy is NULL\n");
 			goto exit_flash_led_work;
 		}
 

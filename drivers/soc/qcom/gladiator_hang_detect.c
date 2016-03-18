@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,7 +33,7 @@
 
 #define NR_GLA_REG 6
 #define MODULE_NAME	"gladiator_hang_detect"
-#define MAX_THRES	10000
+#define MAX_THRES	0xFFFFFFFF
 
 struct hang_detect {
 	phys_addr_t threshold[NR_GLA_REG];

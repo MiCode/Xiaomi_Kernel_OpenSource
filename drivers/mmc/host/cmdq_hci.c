@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -876,8 +876,8 @@ skip_cqterri:
 			 * exception once the queue is empty
 			 */
 			BUG_ON(!mmc->card);
-			if (mmc_card_configured_manual_bkops(mmc->card) &&
-			    !mmc_card_configured_auto_bkops(mmc->card))
+			if (mmc_card_configured_manual_bkops(mmc->card) ||
+			    mmc_card_configured_auto_bkops(mmc->card))
 				mmc->card->bkops.needs_check = true;
 
 			mrq->cmdq_req->resp_err = true;

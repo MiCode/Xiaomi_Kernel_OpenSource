@@ -82,6 +82,10 @@
 			focaltech,fw-delay-era-flsh-ms = <2000>;
 			focaltech,fw-auto-cal;
 			focaltech,ignore-id-check;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
 		};
 	};
 

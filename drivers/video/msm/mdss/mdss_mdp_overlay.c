@@ -57,6 +57,8 @@ static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val);
 static int __vsync_set_vsync_handler(struct msm_fb_data_type *mfd);
 static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 		int mode, int dest_ctrl);
+static int mdss_mdp_set_cfg(struct msm_fb_data_type *mfd,
+		struct mdp_set_cfg *cfg);
 
 static inline bool is_ov_right_blend(struct mdp_rect *left_blend,
 	struct mdp_rect *right_blend, u32 left_lm_w)
@@ -427,7 +429,7 @@ int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 		 * mdp clock requirement
 		 */
 		if (mdata->has_decimation && (pipe->vert_deci < MAX_DECIMATION)
-			&& !pipe->bwc_mode && !pipe->scale.enable_pxl_ext &&
+			&& !pipe->bwc_mode && !pipe->scaler.enable &&
 			mdss_mdp_is_linear_format(pipe->src_fmt))
 			pipe->vert_deci++;
 		else
@@ -472,32 +474,32 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 		     (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_H1V2)))
 			src_h >>= 1;
 
-		hor_req_pixels = pipe->scale.roi_w[plane] +
-			pipe->scale.num_ext_pxls_left[plane] +
-			pipe->scale.num_ext_pxls_right[plane];
+		hor_req_pixels = pipe->scaler.roi_w[plane] +
+			pipe->scaler.num_ext_pxls_left[plane] +
+			pipe->scaler.num_ext_pxls_right[plane];
 
 		hor_fetch_pixels = src_w +
-			(pipe->scale.left_ftch[plane] >> pipe->horz_deci) +
-			pipe->scale.left_rpt[plane] +
-			(pipe->scale.right_ftch[plane] >> pipe->horz_deci) +
-			pipe->scale.right_rpt[plane];
+			(pipe->scaler.left_ftch[plane] >> pipe->horz_deci) +
+			pipe->scaler.left_rpt[plane] +
+			(pipe->scaler.right_ftch[plane] >> pipe->horz_deci) +
+			pipe->scaler.right_rpt[plane];
 
 		hor_ov_fetch = src_w +
-			(pipe->scale.left_ftch[plane] >> pipe->horz_deci)+
-			(pipe->scale.right_ftch[plane] >> pipe->horz_deci);
+			(pipe->scaler.left_ftch[plane] >> pipe->horz_deci)+
+			(pipe->scaler.right_ftch[plane] >> pipe->horz_deci);
 
-		vert_req_pixels = pipe->scale.num_ext_pxls_top[plane] +
-			pipe->scale.num_ext_pxls_btm[plane];
+		vert_req_pixels = pipe->scaler.num_ext_pxls_top[plane] +
+			pipe->scaler.num_ext_pxls_btm[plane];
 
 		vert_fetch_pixels =
-			(pipe->scale.top_ftch[plane] >> pipe->vert_deci) +
-			pipe->scale.top_rpt[plane] +
-			(pipe->scale.btm_ftch[plane] >> pipe->vert_deci)+
-			pipe->scale.btm_rpt[plane];
+			(pipe->scaler.top_ftch[plane] >> pipe->vert_deci) +
+			pipe->scaler.top_rpt[plane] +
+			(pipe->scaler.btm_ftch[plane] >> pipe->vert_deci)+
+			pipe->scaler.btm_rpt[plane];
 
 		vert_ov_fetch = src_h +
-			(pipe->scale.top_ftch[plane] >> pipe->vert_deci)+
-			(pipe->scale.btm_ftch[plane] >> pipe->vert_deci);
+			(pipe->scaler.top_ftch[plane] >> pipe->vert_deci)+
+			(pipe->scaler.btm_ftch[plane] >> pipe->vert_deci);
 
 		if ((hor_req_pixels != hor_fetch_pixels) ||
 			(hor_ov_fetch > pipe->img_width) ||
@@ -508,9 +510,9 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 					hor_req_pixels, hor_fetch_pixels,
 					vert_req_pixels, vert_fetch_pixels);
 			pr_err("roi_w[%d]=%d, src_img:[%d, %d]\n",
-					plane, pipe->scale.roi_w[plane],
+					plane, pipe->scaler.roi_w[plane],
 					pipe->img_width, pipe->img_height);
-			pipe->scale.enable_pxl_ext = 0;
+			pipe->scaler.enable = 0;
 			return -EINVAL;
 		}
 	}
@@ -521,18 +523,20 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 {
 	u32 src;
-	int rc;
+	int rc = 0;
+	struct mdss_data_type *mdata;
 
-	src = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
-
-	if (pipe->scale.enable_pxl_ext) {
-		rc = __mdss_mdp_validate_pxl_extn(pipe);
+	mdata = mdss_mdp_get_mdata();
+	if (pipe->scaler.enable) {
+		if (!test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map))
+			rc = __mdss_mdp_validate_pxl_extn(pipe);
 		return rc;
 	}
 
-	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
+	memset(&pipe->scaler, 0, sizeof(struct mdp_scale_data_v2));
+	src = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
 	rc = mdss_mdp_calc_phase_step(src, pipe->dst.w,
-			&pipe->scale.phase_step_x[0]);
+			&pipe->scaler.phase_step_x[0]);
 	if (rc == -EOVERFLOW) {
 		/* overflow on horizontal direction is acceptable */
 		rc = 0;
@@ -544,7 +548,7 @@ int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 
 	src = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
 	rc = mdss_mdp_calc_phase_step(src, pipe->dst.h,
-			&pipe->scale.phase_step_y[0]);
+			&pipe->scaler.phase_step_y[0]);
 
 	if ((rc == -EOVERFLOW) && (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)) {
 		/* overflow on Qseed2 scaler is acceptable */
@@ -557,7 +561,10 @@ int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 				rc, src, pipe->dst.h);
 	}
 
-	mdss_mdp_pipe_calc_pixel_extn(pipe);
+	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map))
+		mdss_mdp_pipe_calc_qseed3_cfg(pipe);
+	else
+		mdss_mdp_pipe_calc_pixel_extn(pipe);
 
 	return rc;
 }
@@ -873,7 +880,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	memcpy(&pipe->scale, &req->scale, sizeof(struct mdp_scale_data));
+	memcpy(&pipe->scaler, &req->scale, sizeof(struct mdp_scale_data));
 	pipe->src_fmt = fmt;
 	mdss_mdp_overlay_set_chroma_sample(pipe);
 
@@ -892,7 +899,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 			pipe->blend_op);
 
 	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90) &&
-			!pipe->scale.enable_pxl_ext) {
+			!pipe->scaler.enable) {
 		pipe->overfetch_disable = OVERFETCH_DISABLE_BOTTOM;
 
 		if (!(pipe->flags & MDSS_MDP_DUAL_PIPE) ||
@@ -927,7 +934,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	 * When scaling is enabled src crop and image
 	 * width and height is modified by user
 	 */
-	if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scale.enable_pxl_ext) {
+	if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scaler.enable) {
 		if (pipe->flags & MDP_SOURCE_ROTATED_90) {
 			pipe->src.x = DIV_ROUND_UP(pipe->src.x, 2);
 			pipe->src.x &= ~1;
@@ -1641,7 +1648,7 @@ static bool __is_roi_valid(struct mdss_mdp_pipe *pipe,
 		dst.x -= left_lm_w;
 
 	/* condition #1 above */
-	if ((pipe->scale.enable_pxl_ext) ||
+	if ((pipe->scaler.enable) ||
 	    (pipe->src.w != dst.w) || (pipe->src.h != dst.h)) {
 		struct mdss_rect res;
 
@@ -3114,6 +3121,106 @@ static ssize_t mdss_mdp_cmd_autorefresh_store(struct device *dev,
 }
 
 
+/* Print the last CRC Value read for batch mode */
+static ssize_t mdss_mdp_misr_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_mdp_ctl *ctl;
+
+	if (!mfd) {
+		pr_err("Invalid mfd structure\n");
+		return -EINVAL;
+	}
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl structure\n");
+		return -EINVAL;
+	}
+
+	ret = mdss_dump_misr_data(&buf, PAGE_SIZE);
+
+	return ret;
+}
+
+/*
+ * Enable crc batch mode. By enabling this mode through sysfs
+ * driver will keep collecting the misr in ftrace during interrupts,
+ * until disabled.
+ */
+static ssize_t mdss_mdp_misr_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t len)
+{
+	int enable_misr, rc;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_ctl *ctl;
+	struct mdp_misr req, sreq;
+
+	if (!mfd) {
+		pr_err("Invalid mfd structure\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl structure\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	rc = kstrtoint(buf, 10, &enable_misr);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("intf_type:%d enable:%d\n", ctl->intf_type, enable_misr);
+	if (ctl->intf_type == MDSS_INTF_DSI) {
+
+		req.block_id = DISPLAY_MISR_DSI0;
+		req.crc_op_mode = MISR_OP_BM;
+		req.frame_count = 1;
+		if (is_panel_split(mfd)) {
+
+			sreq.block_id = DISPLAY_MISR_DSI1;
+			sreq.crc_op_mode = MISR_OP_BM;
+			sreq.frame_count = 1;
+		}
+	} else if (ctl->intf_type == MDSS_INTF_HDMI) {
+
+		req.block_id = DISPLAY_MISR_HDMI;
+		req.crc_op_mode = MISR_OP_BM;
+		req.frame_count = 1;
+	} else {
+		pr_err("misr not supported fo this fb:%d\n", mfd->index);
+	}
+
+	if (enable_misr) {
+		mdss_misr_set(mdata, &req , ctl);
+
+		if (is_panel_split(mfd))
+			mdss_misr_set(mdata, &sreq , ctl);
+
+	} else {
+		mdss_misr_disable(mdata, &req, ctl);
+
+		if (is_panel_split(mfd))
+			mdss_misr_disable(mdata, &sreq , ctl);
+	}
+
+	pr_debug("misr %s\n", enable_misr ? "enabled" : "disabled");
+
+	return len;
+}
+
+static DEVICE_ATTR(msm_misr_en, S_IRUGO | S_IWUSR,
+	mdss_mdp_misr_show, mdss_mdp_misr_store);
 static DEVICE_ATTR(msm_cmd_autorefresh_en, S_IRUGO | S_IWUSR,
 	mdss_mdp_cmd_autorefresh_show, mdss_mdp_cmd_autorefresh_store);
 static DEVICE_ATTR(vsync_event, S_IRUGO, mdss_mdp_vsync_show_event, NULL);
@@ -3130,6 +3237,7 @@ static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_vsync_event.attr,
 	&dev_attr_ad.attr,
 	&dev_attr_dyn_pu.attr,
+	&dev_attr_msm_misr_en.attr,
 	&dev_attr_msm_cmd_autorefresh_en.attr,
 	&dev_attr_hist_event.attr,
 	&dev_attr_bl_event.attr,
@@ -3954,7 +4062,8 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		ctl = mfd_to_ctl(mfd);
 		if (!ctl || mdss_fb_is_power_off(mfd))
 			return -EPERM;
-		ret = mdss_misr_get(mdata, &metadata->data.misr_request, ctl);
+		ret = mdss_misr_get(mdata, &metadata->data.misr_request, ctl,
+			ctl->is_video_mode);
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");
@@ -4315,6 +4424,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 	struct msmfb_metadata metadata;
 	struct mdp_pp_feature_version pp_feature_version;
 	struct msmfb_overlay_data data;
+	struct mdp_set_cfg cfg;
 
 	switch (cmd) {
 	case MSMFB_MDP_PP:
@@ -4418,6 +4528,15 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 
 	case MSMFB_OVERLAY_PREPARE:
 		ret = __handle_ioctl_overlay_prepare(mfd, argp);
+		break;
+	case MSMFB_MDP_SET_CFG:
+		ret = copy_from_user(&cfg, argp, sizeof(cfg));
+		if (ret) {
+			pr_err("copy failed MSMFB_MDP_SET_CFG ret %d\n", ret);
+			ret = -EFAULT;
+			break;
+		}
+		ret = mdss_mdp_set_cfg(mfd, &cfg);
 		break;
 
 	default:
@@ -4580,7 +4699,7 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		goto panel_on;
 
 	if (!mfd->panel_info->cont_splash_enabled &&
-		(mfd->panel_info->type != DTV_PANEL)) {
+			(mfd->panel_info->type != DTV_PANEL)) {
 		rc = mdss_mdp_overlay_start(mfd);
 		if (rc)
 			goto end;
@@ -5300,10 +5419,13 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	mdss_irq = mdss_intr_line();
 
-	mdp5_data->cpu_pm_hdl = add_event_timer(mdss_irq->irq, NULL,
+	/* Adding event timer only for primary panel */
+	if ((mfd->index == 0) && (mfd->panel_info->type != WRITEBACK_PANEL)) {
+		mdp5_data->cpu_pm_hdl = add_event_timer(mdss_irq->irq, NULL,
 							(void *)mdp5_data);
-	if (!mdp5_data->cpu_pm_hdl)
-		pr_warn("%s: unable to add event timer\n", __func__);
+		if (!mdp5_data->cpu_pm_hdl)
+			pr_warn("%s: unable to add event timer\n", __func__);
+	}
 
 	if (mfd->panel_info->cont_splash_enabled) {
 		rc = mdss_mdp_overlay_handoff(mfd);
@@ -5343,4 +5465,119 @@ static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd)
 	}
 
 	return rc;
+}
+
+static int mdss_mdp_scaler_lut_init(struct mdss_data_type *mdata,
+		struct mdp_scale_luts_info *lut_tbl)
+{
+	struct mdss_mdp_qseed3_lut_tbl *qseed3_lut_tbl;
+	int ret;
+
+	if (!mdata->scaler_off)
+		return -EFAULT;
+
+	qseed3_lut_tbl = &mdata->scaler_off->lut_tbl;
+	if ((lut_tbl->dir_lut_size !=
+		DIR_LUT_IDX * DIR_LUT_COEFFS * sizeof(uint32_t)) ||
+		(lut_tbl->cir_lut_size !=
+		 CIR_LUT_IDX * CIR_LUT_COEFFS * sizeof(uint32_t)) ||
+		(lut_tbl->sep_lut_size !=
+		 SEP_LUT_IDX * SEP_LUT_COEFFS * sizeof(uint32_t)))
+			return -EINVAL;
+
+	if (!qseed3_lut_tbl->dir_lut) {
+		qseed3_lut_tbl->dir_lut = devm_kzalloc(&mdata->pdev->dev,
+				lut_tbl->dir_lut_size,
+				GFP_KERNEL);
+		if (!qseed3_lut_tbl->dir_lut) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+	}
+
+	if (!qseed3_lut_tbl->cir_lut) {
+		qseed3_lut_tbl->cir_lut = devm_kzalloc(&mdata->pdev->dev,
+				lut_tbl->cir_lut_size,
+				GFP_KERNEL);
+		if (!qseed3_lut_tbl->cir_lut) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+	}
+
+	if (!qseed3_lut_tbl->sep_lut) {
+		qseed3_lut_tbl->sep_lut = devm_kzalloc(&mdata->pdev->dev,
+				lut_tbl->sep_lut_size,
+				GFP_KERNEL);
+		if (!qseed3_lut_tbl->sep_lut) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+	}
+
+	/* Invalidate before updating */
+	qseed3_lut_tbl->valid = false;
+
+
+	if (copy_from_user(qseed3_lut_tbl->dir_lut,
+				(void *)(unsigned long)lut_tbl->dir_lut,
+				lut_tbl->dir_lut_size)) {
+			ret = -EINVAL;
+			goto err;
+	}
+
+	if (copy_from_user(qseed3_lut_tbl->cir_lut,
+				(void *)(unsigned long)lut_tbl->cir_lut,
+				lut_tbl->cir_lut_size)) {
+			ret = -EINVAL;
+			goto err;
+	}
+
+	if (copy_from_user(qseed3_lut_tbl->sep_lut,
+				(void *)(unsigned long)lut_tbl->sep_lut,
+				lut_tbl->sep_lut_size)) {
+			ret = -EINVAL;
+			goto err;
+	}
+
+	qseed3_lut_tbl->valid = true;
+	return ret;
+
+fail:
+	kfree(qseed3_lut_tbl->dir_lut);
+	kfree(qseed3_lut_tbl->cir_lut);
+	kfree(qseed3_lut_tbl->sep_lut);
+err:
+	qseed3_lut_tbl->valid = false;
+	return ret;
+}
+
+static int mdss_mdp_set_cfg(struct msm_fb_data_type *mfd,
+		struct mdp_set_cfg *cfg)
+{
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
+	int ret = -EINVAL;
+	struct mdp_scale_luts_info luts_info;
+
+	switch (cfg->flags) {
+	case MDP_QSEED3_LUT_CFG:
+		if (cfg->len != sizeof(luts_info)) {
+			pr_err("invalid length %d expected %zd\n", cfg->len,
+				sizeof(luts_info));
+			ret = -EINVAL;
+			break;
+		}
+		ret = copy_from_user(&luts_info,
+				(void *)(unsigned long)cfg->payload, cfg->len);
+		if (ret) {
+			pr_err("qseed3 lut copy failed ret %d\n", ret);
+			ret = -EFAULT;
+			break;
+		}
+		ret = mdss_mdp_scaler_lut_init(mdata, &luts_info);
+		break;
+	default:
+		break;
+	}
+	return ret;
 }

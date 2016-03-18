@@ -1277,6 +1277,7 @@ static int swrm_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 	swr_unregister_master(&swrm->master);
 	mutex_destroy(&swrm->mlock);
+	mutex_destroy(&swrm->reslock);
 	kfree(swrm);
 	return 0;
 }
@@ -1447,12 +1448,16 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 	case SWR_DEVICE_UP:
 		dev_dbg(swrm->dev, "%s: swr master up called\n", __func__);
 		mutex_lock(&swrm->mlock);
+		mutex_lock(&swrm->reslock);
 		if ((swrm->state == SWR_MSTR_RESUME) ||
 		    (swrm->state == SWR_MSTR_UP)) {
 			dev_dbg(swrm->dev, "%s: SWR master is already UP: %d\n",
 				__func__, swrm->state);
 		} else {
+			pm_runtime_mark_last_busy(&pdev->dev);
+			mutex_unlock(&swrm->reslock);
 			pm_runtime_get_sync(&pdev->dev);
+			mutex_lock(&swrm->reslock);
 			list_for_each_entry(swr_dev, &mstr->devices, dev_list) {
 				ret = swr_reset_device(swr_dev);
 				if (ret) {
@@ -1465,6 +1470,7 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 			pm_runtime_mark_last_busy(&pdev->dev);
 			pm_runtime_put_autosuspend(&pdev->dev);
 		}
+		mutex_unlock(&swrm->reslock);
 		mutex_unlock(&swrm->mlock);
 		break;
 	case SWR_SET_NUM_RX_CH:

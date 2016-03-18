@@ -27,6 +27,11 @@
 	qcom,model = "msm8952-sku2-snd-card";
 };
 
+&usb_otg {
+	qcom,hsusb-otg-phy-init-seq =
+		<0x39 0x81 0x37 0x82 0xffffffff>;
+};
+
 &i2c_2 {
 	pericom-type-c@1d {
 		status="disabled";

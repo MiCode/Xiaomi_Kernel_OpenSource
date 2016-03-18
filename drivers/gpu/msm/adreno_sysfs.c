@@ -190,6 +190,17 @@ static unsigned int _preemption_show(struct adreno_device *adreno_dev)
 	return adreno_is_preemption_enabled(adreno_dev);
 }
 
+static int _hwcg_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	return _pwrctrl_store(adreno_dev, val, ADRENO_HWCG_CTRL);
+}
+
+static unsigned int _hwcg_show(struct adreno_device *adreno_dev)
+{
+	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
 static int _sptp_pc_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
@@ -303,6 +314,8 @@ static DEVICE_INT_ATTR(wake_timeout, 0644, adreno_wake_timeout);
 static ADRENO_SYSFS_BOOL(sptp_pc);
 static ADRENO_SYSFS_BOOL(lm);
 static ADRENO_SYSFS_BOOL(preemption);
+static ADRENO_SYSFS_BOOL(hwcg);
+
 
 static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_ft_policy.attr,
@@ -315,6 +328,7 @@ static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_sptp_pc.attr,
 	&adreno_attr_lm.attr,
 	&adreno_attr_preemption.attr,
+	&adreno_attr_hwcg.attr,
 	NULL,
 };
 

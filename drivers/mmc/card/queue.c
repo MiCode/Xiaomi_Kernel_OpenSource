@@ -96,7 +96,8 @@ static inline void mmc_cmdq_ready_wait(struct mmc_host *host,
 	 * 4. cmdq state shouldn't be in error state.
 	 * 5. free tag available to process the new request.
 	 */
-	wait_event(ctx->wait, mmc_peek_request(mq) &&
+	wait_event(ctx->wait, kthread_should_stop()
+		|| (mmc_peek_request(mq) &&
 		!((mq->cmdq_req_peeked->cmd_flags & (REQ_FLUSH | REQ_DISCARD))
 		  && test_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx->curr_state))
 		&& !(!host->card->part_curr && !mmc_card_suspended(host->card)
@@ -104,7 +105,7 @@ static inline void mmc_cmdq_ready_wait(struct mmc_host *host,
 		&& !(!host->card->part_curr && mmc_host_cq_disable(host) &&
 			!mmc_card_suspended(host->card))
 		&& !test_bit(CMDQ_STATE_ERR, &ctx->curr_state)
-		&& !mmc_check_blk_queue_start_tag(q, mq->cmdq_req_peeked));
+		&& !mmc_check_blk_queue_start_tag(q, mq->cmdq_req_peeked)));
 }
 
 static int mmc_cmdq_thread(void *d)
@@ -121,6 +122,8 @@ static int mmc_cmdq_thread(void *d)
 		int ret = 0;
 
 		mmc_cmdq_ready_wait(host, mq);
+		if (kthread_should_stop())
+			break;
 
 		ret = mq->cmdq_issue_fn(mq, mq->cmdq_req_peeked);
 		/*
@@ -656,6 +659,7 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 
 	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
 	INIT_WORK(&mq->cmdq_err_work, mmc_cmdq_error_work);
+	init_completion(&mq->cmdq_shutdown_complete);
 	init_completion(&mq->cmdq_pending_req_done);
 
 	blk_queue_rq_timed_out(mq->queue, mmc_cmdq_rq_timed_out);
@@ -712,7 +716,22 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 			goto out;
 
 		if (wait) {
-			blk_cleanup_queue(q);
+
+			/*
+			 * After blk_stop_queue is called, wait for all
+			 * active_reqs to complete.
+			 * Then wait for cmdq thread to exit before calling
+			 * cmdq shutdown to avoid race between issuing
+			 * requests and shutdown of cmdq.
+			 */
+			spin_lock_irqsave(q->queue_lock, flags);
+			blk_stop_queue(q);
+			spin_unlock_irqrestore(q->queue_lock, flags);
+
+			if (host->cmdq_ctx.active_reqs)
+				wait_for_completion(
+						&mq->cmdq_shutdown_complete);
+			kthread_stop(mq->thread);
 			mq->cmdq_shutdown(mq);
 		} else {
 			spin_lock_irqsave(q->queue_lock, flags);

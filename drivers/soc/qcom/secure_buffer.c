@@ -374,6 +374,10 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_CP_SEC_DISPLAY";
 	case VMID_CP_APP:
 		return "VMID_CP_APP";
+	case VMID_WLAN:
+		return "VMID_WLAN";
+	case VMID_WLAN_CE:
+		return "VMID_WLAN_CE";
 	case VMID_INVAL:
 		return "VMID_INVAL";
 	default:

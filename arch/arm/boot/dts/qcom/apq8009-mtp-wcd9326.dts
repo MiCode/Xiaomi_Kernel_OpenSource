@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015,2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,3 +25,14 @@
 	qcom,board-id= <8 0x105>;
 };
 
+&external_image_mem {
+	reg = <0x0 0x87a00000 0x0 0x0600000>;
+};
+
+&modem_adsp_mem {
+	reg = <0x0 0x88000000 0x0 0x02c00000>;
+};
+
+&peripheral_mem {
+	reg = <0x0 0x8ac00000 0x0 0x0500000>;
+};

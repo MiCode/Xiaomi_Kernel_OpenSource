@@ -58,6 +58,19 @@ enum usb_bus_vote {
 };
 
 /**
+ * Requested USB votes for NOC frequency
+ *
+ * USB_NOC_NOM_VOTE    Vote for NOM set of NOC frequencies
+ * USB_NOC_SVS_VOTE    Vote for SVS set of NOC frequencies
+ *
+ */
+enum usb_noc_mode {
+	USB_NOC_NOM_VOTE = 0,
+	USB_NOC_SVS_VOTE,
+	USB_NOC_NUM_VOTE,
+};
+
+/**
  * Supported USB modes
  *
  * USB_PERIPHERAL       Only peripheral mode is supported.
@@ -314,7 +327,6 @@ struct msm_otg_platform_data {
 	bool enable_streaming;
 	bool enable_axi_prefetch;
 	bool enable_sdp_typec_current_limit;
-	struct clk *system_clk;
 };
 
 /* phy related flags */
@@ -347,6 +359,7 @@ struct msm_otg_platform_data {
  * @phy_csr_clk: clock struct of phy_csr_clk for USB PHY. This clock is
 		required to access PHY CSR registers via AHB2PHY interface.
  * @bus_clks: bimc/snoc/pcnoc clock struct.
+ * @default_noc_mode: default frequency for NOC clocks - SVS or NOM
  * @core_clk_rate: core clk max frequency
  * @regs: ioremapped register base address.
  * @usb_phy_ctrl_reg: relevant PHY_CTRL_REG register base address.
@@ -409,6 +422,9 @@ struct msm_otg {
 	struct clk *bus_clks[USB_NUM_BUS_CLOCKS];
 	struct clk *phy_ref_clk;
 	long core_clk_rate;
+	long core_clk_svs_rate;
+	long core_clk_nominal_rate;
+	enum usb_noc_mode default_noc_mode;
 	struct resource *io_res;
 	void __iomem *regs;
 	void __iomem *phy_csr_regs;
@@ -530,8 +546,11 @@ struct msm_otg {
 	rwlock_t dbg_lock;
 
 	char (buf[DEBUG_MAX_MSG])[DEBUG_MSG_LEN];   /* buffer */
-	u32 max_nominal_system_clk_rate;
 	unsigned int vbus_state;
+	unsigned int usb_irq_count;
+	int pm_qos_latency;
+	struct pm_qos_request pm_qos_req_dma;
+	struct delayed_work perf_vote_work;
 };
 
 struct ci13xxx_platform_data {
@@ -547,9 +566,6 @@ struct ci13xxx_platform_data {
 	bool l1_supported;
 	bool enable_ahb2ahb_bypass;
 	bool enable_streaming;
-	struct clk *system_clk;
-	u32 max_nominal_system_clk_rate;
-	u32 default_system_clk_rate;
 	bool enable_axi_prefetch;
 };
 

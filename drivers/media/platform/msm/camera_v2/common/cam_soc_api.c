@@ -395,32 +395,33 @@ cam_clk_set_err:
 EXPORT_SYMBOL(msm_camera_clk_enable);
 
 /* Set rate on a specific clock */
-int msm_camera_clk_set_rate(struct device *dev,
+long msm_camera_clk_set_rate(struct device *dev,
 			struct clk *clk,
 			long clk_rate)
 {
 	int rc = 0;
+	long rate = 0;
 
-	if (!dev || !clk)
+	if (!dev || !clk || (clk_rate < 0))
 		return -EINVAL;
 
 	CDBG("clk : %p, enable : %ld\n", clk, clk_rate);
 
 	if (clk_rate > 0) {
-		clk_rate = clk_round_rate(clk, clk_rate);
-		if (clk_rate < 0) {
+		rate = clk_round_rate(clk, clk_rate);
+		if (rate < 0) {
 			pr_err("round rate failed\n");
 			return -EINVAL;
 		}
 
-		rc = clk_set_rate(clk, clk_rate);
+		rc = clk_set_rate(clk, rate);
 		if (rc < 0) {
 			pr_err("set rate failed\n");
 			return -EINVAL;
 		}
 	}
 
-	return 0;
+	return rate;
 }
 EXPORT_SYMBOL(msm_camera_clk_set_rate);
 

@@ -1496,7 +1496,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	struct resource		*irq, *bam_irq;
 	bool			rxreg_access = false;
 	bool			slim_mdm = false;
-	const char		*ext_modem_id = NULL;
+	const char		*ext_modem_id = NULL, *subsys_name = NULL;
 
 	slim_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_physical");
@@ -1679,9 +1679,17 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	pm_runtime_set_suspended(dev->dev);
 	pm_runtime_enable(dev->dev);
 
-	dev->dsp.nb.notifier_call = dsp_ssr_notify_cb;
-	dev->dsp.ssr = subsys_notif_register_notifier("adsp",
-						&dev->dsp.nb);
+	ret = of_property_read_string(pdev->dev.of_node,
+				"qcom,subsys-name", &subsys_name);
+	if (ret) {
+		dev->dsp.nb.notifier_call = dsp_ssr_notify_cb;
+		dev->dsp.ssr = subsys_notif_register_notifier("adsp",
+							&dev->dsp.nb);
+	} else {
+		dev->dsp.nb.notifier_call = dsp_ssr_notify_cb;
+		dev->dsp.ssr = subsys_notif_register_notifier(subsys_name,
+							&dev->dsp.nb);
+	}
 	if (IS_ERR_OR_NULL(dev->dsp.ssr))
 		dev_err(dev->dev,
 			"subsys_notif_register_notifier failed %p",

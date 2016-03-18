@@ -668,32 +668,6 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 								gfp_flags);
 	}
 
-	if (!dep->endpoint.desc) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue request %p to disabled ep %s\n",
-			__func__, request, ep->name);
-		return -EPERM;
-	}
-
-	if (dep->number == 0 || dep->number == 1) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue dbm request %p to control ep %s\n",
-			__func__, request, ep->name);
-		return -EPERM;
-	}
-
-
-	if (dep->busy_slot != dep->free_slot || !list_empty(&dep->request_list)
-					 || !list_empty(&dep->req_queued)) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue dbm request %p tp ep %s\n",
-			__func__, request, ep->name);
-		return -EPERM;
-	} else {
-		dep->busy_slot = 0;
-		dep->free_slot = 0;
-	}
-
 	/* HW restriction regarding TRB size (8KB) */
 	if (req->request.length < 0x2000) {
 		dev_err(mdwc->dev, "%s: Min TRB size is 8KB\n", __func__);
@@ -730,18 +704,52 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	 * as soon as possible so we will release back the lock.
 	 */
 	spin_lock_irqsave(&dwc->lock, flags);
+	if (!dep->endpoint.desc) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue request %p to disabled ep %s\n",
+			__func__, request, ep->name);
+		ret = -EPERM;
+		goto err;
+	}
+
+	if (dep->number == 0 || dep->number == 1) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue dbm request %p to control ep %s\n",
+			__func__, request, ep->name);
+		ret = -EPERM;
+		goto err;
+	}
+
+
+	if (dep->busy_slot != dep->free_slot || !list_empty(&dep->request_list)
+					 || !list_empty(&dep->req_queued)) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue dbm request %p tp ep %s\n",
+			__func__, request, ep->name);
+		ret = -EPERM;
+		goto err;
+	} else {
+		dep->busy_slot = 0;
+		dep->free_slot = 0;
+	}
+
 	ret = __dwc3_msm_ep_queue(dep, req);
-	spin_unlock_irqrestore(&dwc->lock, flags);
 	if (ret < 0) {
 		dev_err(mdwc->dev,
 			"error %d after calling __dwc3_msm_ep_queue\n", ret);
-		return ret;
+		goto err;
 	}
 
+	spin_unlock_irqrestore(&dwc->lock, flags);
 	superspeed = dwc3_msm_is_dev_superspeed(mdwc);
 	dbm_set_speed(mdwc->dbm, (u8)superspeed);
 
 	return 0;
+
+err:
+	spin_unlock_irqrestore(&dwc->lock, flags);
+	kfree(req_complete);
+	return ret;
 }
 
 /*
@@ -1203,7 +1211,7 @@ static void gsi_set_clear_dbell(struct usb_ep *ep,
 *
 * @usb_ep - pointer to usb_ep instance to access DWC3 regs
 */
-static bool gsi_check_ready_to_suspend(struct usb_ep *ep)
+static bool gsi_check_ready_to_suspend(struct usb_ep *ep, bool f_suspend)
 {
 	u32	timeout = 1500;
 	u32	reg = 0;
@@ -1219,11 +1227,13 @@ static bool gsi_check_ready_to_suspend(struct usb_ep *ep)
 			return false;
 		}
 	}
-
-	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
-	if (DWC3_DSTS_USBLNKST(reg) != DWC3_LINK_STATE_U3) {
-		dev_err(mdwc->dev, "Unable to suspend GSI ch\n");
-		return false;
+	/* Check for U3 only if we are not handling Function Suspend */
+	if (!f_suspend) {
+		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
+		if (DWC3_DSTS_USBLNKST(reg) != DWC3_LINK_STATE_U3) {
+			dev_err(mdwc->dev, "Unable to suspend GSI ch\n");
+			return false;
+		}
 	}
 
 	return true;
@@ -1249,7 +1259,7 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct usb_gsi_request *request;
 	struct gsi_channel_info *ch_info;
-	bool block_db;
+	bool block_db, f_suspend;
 
 	switch (op) {
 	case GSI_EP_OP_PREPARE_TRBS:
@@ -1309,7 +1319,8 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		break;
 	case GSI_EP_OP_CHECK_FOR_SUSPEND:
 		dev_dbg(mdwc->dev, "EP_OP_CHECK_FOR_SUSPEND\n");
-		ret = gsi_check_ready_to_suspend(ep);
+		f_suspend = *((bool *)op_data);
+		ret = gsi_check_ready_to_suspend(ep, f_suspend);
 		break;
 	default:
 		dev_err(mdwc->dev, "%s: Invalid opcode GSI EP\n", __func__);
@@ -1982,6 +1993,15 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			enable_irq_wake(mdwc->ss_phy_irq);
 			enable_irq(mdwc->ss_phy_irq);
 		}
+		/*
+		 * Enable power event irq during bus suspend in host mode for
+		 * mapping MPM pin for DP so that wakeup can happen in system
+		 * suspend.
+		 */
+		if (mdwc->in_host_mode) {
+			enable_irq(mdwc->pwr_event_irq);
+			enable_irq_wake(mdwc->pwr_event_irq);
+		}
 		mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 	}
 
@@ -2063,9 +2083,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	atomic_set(&dwc->in_lpm, 0);
 
-	/* enable power evt irq for IN P3 detection */
-	enable_irq(mdwc->pwr_event_irq);
-
 	/* Disable HSPHY auto suspend */
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 		dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
@@ -2080,10 +2097,17 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			disable_irq_wake(mdwc->ss_phy_irq);
 			disable_irq_nosync(mdwc->ss_phy_irq);
 		}
+		if (mdwc->in_host_mode) {
+			disable_irq_wake(mdwc->pwr_event_irq);
+			disable_irq(mdwc->pwr_event_irq);
+		}
 		mdwc->lpm_flags &= ~MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 	}
 
 	dev_info(mdwc->dev, "DWC3 exited from low power mode\n");
+
+	/* enable power evt irq for IN P3 detection */
+	enable_irq(mdwc->pwr_event_irq);
 
 	/* Enable core irq */
 	if (dwc->irq)
@@ -2318,11 +2342,16 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 								usb_psy);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int ret;
+	enum dwc3_id_state id;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_USB_OTG:
+		id = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
+		if (mdwc->id_state == id)
+			break;
+
 		/* Let OTG know about ID detection */
-		mdwc->id_state = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
+		mdwc->id_state = id;
 		dbg_event(0xFF, "id_state", mdwc->id_state);
 		if (dwc->is_drd)
 			queue_delayed_work(mdwc->dwc3_wq,
@@ -2779,6 +2808,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			 * turning on usb gdsc regulator clk is stuck off.
 			 */
 			dwc3_msm_config_gdsc(mdwc, 1);
+			clk_prepare_enable(mdwc->iface_clk);
 			clk_prepare_enable(mdwc->cfg_ahb_clk);
 			/* Configure AHB2PHY for one wait state read/write*/
 			val = readl_relaxed(mdwc->ahb2phy_base +
@@ -2791,6 +2821,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				mb();
 			}
 			clk_disable_unprepare(mdwc->cfg_ahb_clk);
+			clk_disable_unprepare(mdwc->iface_clk);
 			dwc3_msm_config_gdsc(mdwc, 0);
 		}
 	}

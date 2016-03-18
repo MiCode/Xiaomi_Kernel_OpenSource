@@ -117,6 +117,7 @@
 #define QPNP_VADC_RATIOMETRIC_RECALIB_OFFSET			12
 #define QPNP_VADC_RECALIB_MAXCNT				10
 #define QPNP_VADC_OFFSET_DUMP					8
+#define QPNP_VADC_REG_DUMP					14
 
 /* QPNP VADC refreshed register set */
 #define QPNP_VADC_HC1_STATUS1					0x8
@@ -198,6 +199,7 @@ struct qpnp_vadc_chip {
 	struct qpnp_vadc_thermal_data	*vadc_therm_chan;
 	struct power_supply		*vadc_chg_vote;
 	bool				vadc_hc;
+	int				vadc_debug_count;
 	struct sensor_device_attribute	sens_attr[0];
 };
 
@@ -343,17 +345,22 @@ static int32_t qpnp_vadc_status_debug(struct qpnp_vadc_chip *vadc)
 	int rc = 0, i = 0;
 	u8 buf[8], offset = 0;
 
-	for (i = 0; i < QPNP_VADC_OFFSET_DUMP; i++) {
-		rc = qpnp_vadc_read_reg(vadc, offset, buf, 8);
-		if (rc) {
-			pr_err("debug register dump failed\n");
-			return rc;
+	if (vadc->vadc_debug_count < 3) {
+		for (i = 0; i < QPNP_VADC_REG_DUMP; i++) {
+			rc = qpnp_vadc_read_reg(vadc, offset, buf, 8);
+			if (rc) {
+				pr_err("debug register dump failed\n");
+				return rc;
+			}
+			offset += QPNP_VADC_OFFSET_DUMP;
+			pr_err("row%d: 0%x 0%x 0%x 0%x 0%x 0%x 0%x 0%x\n",
+				i, buf[0], buf[1], buf[2], buf[3], buf[4],
+				buf[5], buf[6], buf[7]);
 		}
-		offset += QPNP_VADC_OFFSET_DUMP;
-		pr_err("row%d: 0%x 0%x 0%x 0%x 0%x 0%x 0%x 0x%x\n",
-			i, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5],
-			buf[6], buf[7]);
-	}
+	} else
+		pr_debug("VADC peripheral dumps got printed before\n");
+
+	vadc->vadc_debug_count++;
 
 	rc = qpnp_vadc_enable(vadc, false);
 	if (rc < 0) {

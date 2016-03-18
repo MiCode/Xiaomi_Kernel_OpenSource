@@ -1,0 +1,148 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8953.dtsi"
+#include "msm8953-cdp.dtsi"
+#include "msm8953-audio-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8953 CDP";
+	compatible = "qcom,msm8953-cdp", "qcom,msm8953", "qcom,cdp";
+	qcom,board-id= <1 1>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_truly_wuxga_vid>;
+	qcom,platform-enable-gpio = <&tlmm 12 0>;
+};
+
+
+&pm8953_pwm {
+	status = "ok";
+};
+
+&pmx_mdss {
+	mdss_dsi_active: mdss_dsi_active {
+		mux {
+			pins = "gpio12", "gpio61", "gpio59";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12", "gpio61", "gpio59";
+			drive-strength = <8>; /* 8 mA */
+			bias-disable = <0>; /* no pull */
+			output-high;
+		};
+	};
+
+	mdss_dsi_suspend: mdss_dsi_suspend {
+		mux {
+			pins = "gpio12", "gpio61", "gpio59";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio12", "gpio61", "gpio59";
+			drive-strength = <2>; /* 2 mA */
+			bias-pull-down; /* pull down */
+		};
+	};
+};
+
+&hsuart_active {
+		mux {
+			pins = "gpio13", "gpio14", "gpio15";
+			function = "blsp_uart4";
+		};
+
+		config {
+			pins = "gpio13", "gpio14", "gpio15";
+			drive-strength = <16>;
+			bias-disable;
+		};
+};
+
+&hsuart_sleep {
+	      mux {
+		      pins = "gpio13", "gpio14", "gpio15";
+		      function = "gpio";
+	      };
+
+	      config {
+		      pins = "gpio13", "gpio14", "gpio15";
+		      drive-strength = <2>;
+		      bias-disable;
+	      };
+};
+
+&pm8953_mpps {
+	mpp@a300 {
+		/* MPP4 - PWM config */
+		qcom,mode = <1>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		qcom,vin-sel = <0>;
+	};
+};
+
+&pm8953_vadc {
+	chan@13 {
+		status = "disabled";
+	};
+};
+
+&i2c_3 {
+	status = "okay";
+	focaltech@38 {
+		compatible = "focaltech,5x06";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8953_l10>;
+		vcc_i2c-supply = <&pm8953_l5>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+						"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		focaltech,name = "ft5606";
+		focaltech,family-id = <0x08>;
+		focaltech,reset-gpio = <&tlmm 64 0x0>;
+		focaltech,irq-gpio = <&tlmm 65 0x2008>;
+		focaltech,display-coords = <0 0 1919 1199>;
+		focaltech,panel-coords = <0 0 1919 1199>;
+		focaltech,no-force-update;
+		focaltech,i2c-pull-up;
+		focaltech,group-id = <1>;
+		focaltech,hard-reset-delay-ms = <20>;
+		focaltech,soft-reset-delay-ms = <200>;
+		focaltech,num-max-touches = <5>;
+		focaltech,fw-delay-aa-ms = <30>;
+		focaltech,fw-delay-55-ms = <30>;
+		focaltech,fw-upgrade-id1 = <0x79>;
+		focaltech,fw-upgrade-id2 = <0x08>;
+		focaltech,fw-delay-readid-ms = <10>;
+		focaltech,fw-delay-era-flsh-ms = <2000>;
+		focaltech,fw-auto-cal;
+		focaltech,resume-in-workqueue;
+	};
+};
+
+&soc {
+	/delete-node/ hbtp;
+};

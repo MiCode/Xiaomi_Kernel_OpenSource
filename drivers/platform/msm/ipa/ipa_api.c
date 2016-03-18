@@ -408,7 +408,7 @@ int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 EXPORT_SYMBOL(ipa_cfg_ep_holb_by_client);
 
 /**
- * ipa_cfg_ep_hdr() -  IPA end-point Control configuration
+ * ipa_cfg_ep_ctrl() -  IPA end-point Control configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  * @ipa_ep_cfg_ctrl:	[in] IPA end-point configuration params
  *
@@ -1868,108 +1868,6 @@ bool ipa_get_client_uplink(int pipe_idx)
 EXPORT_SYMBOL(ipa_get_client_uplink);
 
 /**
- * odu_bridge_init() - Initialize the ODU bridge driver
- * @params: initialization parameters
- *
- * This function initialize all bridge internal data and register odu bridge to
- * kernel for IOCTL and debugfs.
- * Header addition and properties are registered to IPA driver.
- *
- * Return codes: 0: success,
- *		-EINVAL - Bad parameter
- *		Other negative value - Failure
- */
-int odu_bridge_init(struct odu_bridge_params *params)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(odu_bridge_init, params);
-
-	return ret;
-}
-EXPORT_SYMBOL(odu_bridge_init);
-
-/**
- * odu_bridge_disconnect() - Disconnect odu bridge
- *
- * Disconnect all pipes and deletes IPA RM dependencies on bridge mode
- *
- * Return codes: 0- success, error otherwise
- */
-int odu_bridge_disconnect(void)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(odu_bridge_disconnect);
-
-	return ret;
-}
-EXPORT_SYMBOL(odu_bridge_disconnect);
-
-/**
- * odu_bridge_connect() - Connect odu bridge.
- *
- * Call to the mode-specific connect function for connection IPA pipes
- * and adding IPA RM dependencies
-
- * Return codes: 0: success
- *		-EINVAL: invalid parameters
- *		-EPERM: Operation not permitted as the bridge is already
- *		connected
- */
-int odu_bridge_connect(void)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(odu_bridge_connect);
-
-	return ret;
-}
-EXPORT_SYMBOL(odu_bridge_connect);
-
-/**
- * odu_bridge_tx_dp() - Send skb to ODU bridge
- * @skb: skb to send
- * @metadata: metadata on packet
- *
- * This function handles uplink packet.
- * In Router Mode:
- *	packet is sent directly to IPA.
- * In Router Mode:
- *	packet is classified if it should arrive to network stack.
- *	QMI IP packet should arrive to APPS network stack
- *	IPv6 Multicast packet should arrive to APPS network stack and Q6
- *
- * Return codes: 0- success, error otherwise
- */
-int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(odu_bridge_tx_dp, skb, metadata);
-
-	return ret;
-}
-EXPORT_SYMBOL(odu_bridge_tx_dp);
-
-/**
- * odu_bridge_cleanup() - De-Initialize the ODU bridge driver
- *
- * Return codes: 0: success,
- *		-EINVAL - Bad parameter
- *		Other negative value - Failure
- */
-int odu_bridge_cleanup(void)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(odu_bridge_cleanup);
-
-	return ret;
-}
-EXPORT_SYMBOL(odu_bridge_cleanup);
-
-/**
  * ipa_dma_init() -Initialize IPADMA.
  *
  * This function initialize all IPADMA internal data and connect in dma:
@@ -2723,81 +2621,6 @@ static int ipa_ap_resume(struct device *dev)
 
 	return ret;
 }
-
-int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
-	struct ipa_usb_teth_params *teth_params,
-	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *),
-	void *user_data)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_init_teth_prot, teth_prot, teth_params,
-		ipa_usb_notify_cb, user_data);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_init_teth_prot);
-
-int ipa_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
-	struct ipa_usb_xdci_chan_params *dl_chan_params,
-	struct ipa_req_chan_out_params *ul_out_params,
-	struct ipa_req_chan_out_params *dl_out_params,
-	struct ipa_usb_xdci_connect_params *connect_params)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_connect, ul_chan_params,
-		dl_chan_params, ul_out_params, dl_out_params, connect_params);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_xdci_connect);
-
-int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-	enum ipa_usb_teth_prot teth_prot)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_disconnect, ul_clnt_hdl,
-		dl_clnt_hdl, teth_prot);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_xdci_disconnect);
-
-int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_deinit_teth_prot, teth_prot);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_deinit_teth_prot);
-
-int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-	enum ipa_usb_teth_prot teth_prot)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_suspend, ul_clnt_hdl,
-		dl_clnt_hdl, teth_prot);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_xdci_suspend);
-
-int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-	enum ipa_usb_teth_prot teth_prot)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_resume, ul_clnt_hdl,
-		dl_clnt_hdl, teth_prot);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_usb_xdci_resume);
 
 int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
 			      void *user_data)

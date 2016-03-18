@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -367,6 +367,111 @@
 			};
 		};
 
+		pmx_sec_mi2s {
+			sec_mi2s_ws_active: sec_mi2s_ws_active {
+				mux {
+					pins = "gpio79";
+					function = "sec_mi2s";
+				};
+				config {
+					pins = "gpio79";
+					drive-strength = <8>;   /* 8 MA */
+					bias-disable;           /* No PULL */
+					output-high;
+				};
+			};
+
+			sec_mi2s_sck_active: sec_mi2s_sck_active {
+				mux {
+					pins = "gpio78";
+					function = "sec_mi2s";
+				};
+
+				config {
+					pins = "gpio78";
+					drive-strength = <8>;   /* 8 MA */
+					bias-disable;           /* No PULL */
+					output-high;
+				};
+			};
+
+			sec_mi2s_dout_active: sec_mi2s_dout_active {
+				mux {
+					pins = "gpio77";
+					function = "sec_mi2s";
+				};
+				config {
+					pins = "gpio77";
+					drive-strength = <8>;   /* 8 MA */
+					bias-disable;           /* No PULL */
+					output-high;
+				};
+			};
+
+			sec_mi2s_ws_sleep: sec_mi2s_ws_sleep {
+				mux {
+					pins = "gpio79";
+					function = "sec_mi2s";
+				};
+				config {
+					pins = "gpio79";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;	        /* PULL DOWN */
+				};
+			};
+
+			sec_mi2s_sck_sleep: sec_mi2s_sck_sleep {
+				mux {
+					pins = "gpio78";
+					function = "sec_mi2s";
+				};
+				config {
+					pins = "gpio78";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;	        /* PULL DOWN */
+				};
+			};
+
+			sec_mi2s_dout_sleep: sec_mi2s_dout_sleep {
+				mux {
+					pins = "gpio77";
+					function = "sec_mi2s";
+				};
+
+				config {
+					pins = "gpio77";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;	        /* PULL DOWN */
+				};
+			};
+		};
+
+		pmx_sec_mi2s_din {
+			sec_mi2s_din_active: sec_mi2s_din_active {
+				mux {
+					pins = "gpio76";
+					function = "sec_mi2s";
+				};
+				config {
+					pins = "gpio76";
+					drive-strength = <8>;   /* 8 MA */
+					bias-disable;	        /* No PULL */
+				};
+			};
+
+			sec_mi2s_din_sleep: sec_mi2s_din_sleep {
+				mux {
+					pins = "gpio76";
+					function = "sec_mi2s";
+				};
+				config {
+					pins = "gpio76";
+					drive-strength = <2>;   /* 2 MA */
+					bias-pull-down;	        /* PULL DOWN */
+				};
+			};
+		};
+
 		pmx_qdsd_clk {
 			qdsd_clk_sdcard: clk_sdcard {
 				config {
@@ -686,7 +791,7 @@
 		};
 
 		emac0 {
-			emac0_active: emac0_active {
+			emac0_mdio_active: emac0_mdio_active {
 				/* active state */
 				mux {
 					/* MDC MDIO */
@@ -701,7 +806,7 @@
 				};
 			};
 
-			emac0_sleep: emac0_sleep {
+			emac0_mdio_sleep: emac0_mdio_sleep {
 				/* suspended state */
 				mux {
 					/* MDC MDIO */
@@ -716,25 +821,26 @@
 				};
 			};
 
-			emac0_rst_active: emac0_rst_active {
+			emac0_ephy_active: emac0_ephy_active {
 				/* active state */
 				mux {
-					/* ETH RST */
+					/* EPHY RST */
 					pins = "gpio29";
 					function = "gpio";
 				};
 
 				config {
 					pins = "gpio29";
-					drive-strength = <16>; /* 8 MA */
+					drive-strength = <16>; /* 16 MA */
 					bias-pull-up;
+					output-high;
 				};
 			};
 
-			emac0_rst_sleep: emac0_rst_sleep {
+			emac0_ephy_sleep: emac0_ephy_sleep {
 				/* suspended state */
 				mux {
-					/* ETH RST */
+					/* EPHY RST */
 					pins = "gpio29";
 					function = "gpio";
 				};
@@ -742,7 +848,8 @@
 				config {
 					pins = "gpio29";
 					drive-strength = <2>; /* 2 MA */
-					bias-pull-down;
+					bias-disable;
+					output-low;
 				};
 			};
 		};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,10 +22,6 @@ static struct qseecom_handle *sdmx_qseecom_handles[SDMX_MAX_SESSIONS];
 static struct mutex sdmx_lock[SDMX_MAX_SESSIONS];
 
 #define QSEECOM_SBUFF_SIZE	SZ_128K
-#define QSEECOM_ALIGN_SIZE	0x40
-#define QSEECOM_ALIGN_MASK	(QSEECOM_ALIGN_SIZE - 1)
-#define QSEECOM_ALIGN(x)	\
-	((x + QSEECOM_ALIGN_SIZE) & (~QSEECOM_ALIGN_MASK))
 
 enum sdmx_cmd_id {
 	SDMX_OPEN_SESSION_CMD,

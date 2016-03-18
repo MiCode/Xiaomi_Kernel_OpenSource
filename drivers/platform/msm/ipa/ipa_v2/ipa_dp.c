@@ -574,7 +574,7 @@ failure:
 	for (j = 0; j < i; j++) {
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
-		if (desc[i].type != IPA_DATA_DESC_SKB_PAGED) {
+		if (desc[j].type != IPA_DATA_DESC_SKB_PAGED) {
 			dma_unmap_single(ipa_ctx->pdev, tx_pkt->mem.phys_base,
 				tx_pkt->mem.size,
 				DMA_TO_DEVICE);
@@ -586,7 +586,7 @@ failure:
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}
-	if (i < num_desc)
+	if (j < num_desc)
 		/* last desc failed */
 		if (fail_dma_wrap)
 			kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
@@ -1322,14 +1322,6 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	*clnt_hdl = ipa_ep_idx;
 
-	if (IPA_CLIENT_IS_CONS(sys_in->client))
-		ipa_replenish_rx_cache(ep->sys);
-
-	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
-		ipa_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
-		atomic_inc(&ipa_ctx->wc_memb.active_clnt_cnt);
-	}
-
 	if (nr_cpu_ids > 1 &&
 		(sys_in->client == IPA_CLIENT_APPS_LAN_CONS ||
 		 sys_in->client == IPA_CLIENT_APPS_WAN_CONS)) {
@@ -1345,6 +1337,14 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 			atomic_set(&ep->sys->repl.tail_idx, 0);
 			ipa_wq_repl_rx(&ep->sys->repl_work);
 		}
+	}
+
+	if (IPA_CLIENT_IS_CONS(sys_in->client))
+		ipa_replenish_rx_cache(ep->sys);
+
+	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
+		ipa_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
+		atomic_inc(&ipa_ctx->wc_memb.active_clnt_cnt);
 	}
 
 	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
@@ -1427,6 +1427,8 @@ int ipa2_teardown_sys_pipe(u32 clnt_hdl)
 		} while (1);
 	}
 
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
 	flush_workqueue(ep->sys->wq);
 	sps_disconnect(ep->ep_hdl);
 	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
@@ -2928,6 +2930,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						ipa_ctx->wan_rx_ring_size;
 					sys->ep->wakelock_client =
 					IPA_WAKELOCK_REF_CLIENT_WAN_RX;
+					in->ipa_ep_cfg.aggr.aggr_sw_eof_active
+						= true;
 					if (ipa_ctx->
 					ipa_client_apps_wan_cons_agg_gro) {
 						IPAERR("get close-by %u\n",
@@ -2998,6 +3002,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				if (sys->rx_pool_sz > IPA_WLAN_RX_POOL_SZ)
 					sys->rx_pool_sz = IPA_WLAN_RX_POOL_SZ;
 				sys->pyld_hdlr = NULL;
+				sys->repl_hdlr = ipa_replenish_wlan_rx_cache;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;

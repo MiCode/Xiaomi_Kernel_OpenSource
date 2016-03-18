@@ -1,0 +1,411 @@
+Qualcomm Technologies, Inc. CPRh Regulator - KBSS Specific Bindings
+
+KBSS CPRh controllers each support one CPR thread that monitors the voltage
+of a single Kryo-B CPU subystem (KBSS) cluster that is powered by a single
+regulator supply. The DCVSh block interacts with the CPRh controller for full
+hardware DCVS support.
+
+Both CPR open-loop voltages and CPR target quotients are stored in hardware
+fuses for KBSS CPRh controllers.
+
+This document describes the KBSS specific CPRh bindings.
+
+=======================
+Required Node Structure
+=======================
+
+CPRh regulators must be described in three levels of devices nodes.  The first
+level describes the CPRh controller.  The second level describes one hardware
+thread managed by the controller.  The third level describes one regulator
+handled by the CPR thread.
+
+All platform independent cpr3-regulator binding guidelines defined in
+cpr3-regulator.txt also apply to cprh-kbss-regulator devices.
+
+====================================
+First Level Nodes - CPR3 Controllers
+====================================
+
+KBSS specific properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: "qcom,cprh-msmcobalt-kbss-regulator".
+
+- qcom,cpr-controller-id
+	Usage:      required
+	Value type: <u32>
+	Definition: Identifies the controller number for subsystems that are managed
+		    by multiple CPR controllers. For KBSS, the supported values are 0
+		    and 1, corresponding to each cluster.
+
+- qcom,apm-threshold-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the APM threshold voltage in microvolts.  If the
+		    VDD_APCC supply voltage is above this level, then the APM is
+		    switched to use VDD_APCC.  If VDD_APCC is below this level,
+		    then the APM is switched to use VDD_MX.
+
+- qcom,apm-hysteresis-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the voltage delta in microvolts between the APM
+		    threshold voltage and the highest corner open-loop voltage
+		    which may be used as the ceiling for the corner.  If this
+		    property is not specified, then a value of 0 is assumed.
+
+- qcom,voltage-base
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the voltage in microvolts used by the CRR controller
+		    to resolve open-loop and floor voltages. In particular, this
+		    voltage is added to the programmed open-loop and floor voltages
+		    and it corresponds to the minimum supported setpoint of the
+		    vdd-supply.
+
+- qcom,cpr-saw-use-unit-mV
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the unit used in SAW PVC
+		    interface is mV. Use this for vdd-supply regulators which
+		    do not use PMIC voltage control register LSBs per actually
+		    unique PMIC regulator output voltage.
+
+- qcom,cpr-up-down-delay-time
+	Usage:      required
+	Value type: <u32>
+	Definition: The time to delay in nanoseconds between consecutive CPR
+		    measurements when the last measurement recommended
+		    increasing or decreasing the vdd-supply voltage.
+
+- qcom,cpr-down-error-step-limit
+	Usage:      required
+	Value type: <u32>
+	Definition: CPRh hardware closed-loop down error step limit which
+		    defines the maximum number of vdd-supply regulator steps
+		    that the voltage may be reduced as the result of a single
+		    CPR measurement.
+
+- qcom,cpr-up-error-step-limit
+	Usage:      required
+	Value type: <u32>
+	Definition: CPRh hardware closed-loop up error step limit which defines
+		    the maximum number of vdd-supply regulator steps that the
+                    voltage may be increased as the result of a single
+		    CPR measurement.
+
+- qcom,cpr-voltage-settling-time
+	Usage:      optional
+	Value type: <u32>
+		    The time in nanoseconds that it takes for the vdd-supply
+		    voltage to settle after being increased or decreased by
+		    qcom,voltage-step microvolts. This is used as the wait
+		    time after applying SDELTA voltage margin adjustments.
+
+- qcom,cpr-corner-switch-delay-time
+	Usage:      optional
+	Value type: <u32>
+		    The time in nanoseconds that the CPR controller must delay
+		    to allow voltage settling after a corner change.
+
+- qcom,cpr-hw-closed-loop
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the KBSS CPRh controller
+		    should operate in hardware closed-loop mode as opposed to
+		    open-loop.
+
+- qcom,cpr-temp-point-map
+	Usage:      required if qcom,corner-band-allow-temp-adjustment is specified
+		    for at least one of the CPR3 regulators.
+	Value type: <prop-encoded-array>
+	Definition: The temperature points in decidegrees Celsius which indicate
+		    the range of temperature bands supported. If t1, t2, and t3
+		    are the temperature points, then the temperature bands are:
+		    (-inf, t1], (t1, t2], (t2, t3], and (t3, inf). A maximum of
+		    three temperature points can be specified to define a total
+		    of four different temperature bands.
+
+- qcom,cpr-initial-temp-band
+	Usage:      required if qcom,corner-band-allow-temp-adjustment is specified
+		    for at least one of the CPR3 regulators.
+	Value type: <u32>
+	Definition: The initial temp band considering 0-based index at which
+		    the baseline target quotients are derived and fused.
+
+=================================================
+Second Level Nodes - CPR Threads for a Controller
+=================================================
+
+KBSS specific properties:
+N/A
+
+===============================================
+Third Level Nodes - CPR Regulators for a Thread
+===============================================
+
+KBSS specific properties:
+- qcom,cpr-fuse-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse corners.  This value must be 4
+		    for KBSS.  These fuse corners are: LowSVS, SVS, Nominal,
+		    and Turbo.
+
+- qcom,cpr-fuse-combos
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse combinations being supported by
+		    the device.  This value is utilized by several other
+		    properties.  Supported values are 1 up to the maximum
+		    possible for a given regulator type.  For KBSS the maximum
+		    supported value is 8.  These combos correspond to CPR
+		    revision fuse values 0 to 7 in order.
+
+- qcom,allow-quotient-interpolation
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that it is acceptable to use
+		    interpolated CPR target quotient values.  These values are
+		    interpolated between the target quotient Fmax fuse values.
+
+- qcom,cpr-corner-bands
+	Usage:      required if qcom,corner-band-allow-core-count-adjustment
+		    or qcom,corner-band-allow-temp-adjustment is specified
+		    for this CPR3 regulator.
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines how many corner bands
+		    exist for each fuse combination. Supported values are 1 to 4.
+		    The list must contain either qcom,cpr-fuse-combos number of
+		    elements in which case the corner band counts are applied to
+		    fuse combinations 1-to-1 or the list must contain exactly 1
+		    element which is used regardless of the fuse combination
+		    found on a given chip.
+
+- qcom,cpr-speed-bin-corner-bands
+	Usage:      required if qcom,cpr-speed-bins and
+		    qcom,corner-band-allow-core-count-adjustment or
+		    qcom,corner-band-allow-temp-adjustment are specified for
+		    this CPR3 regulator.
+	Value type: <prop-encded-array>
+	Definition: A list of integers which defines how many corner bands
+		    are to be used for each speed bin. The list must contain
+		    qcom,cpr-speed-bins number of elements.
+
+- qcom,corner-band-allow-core-count-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR core
+		    count adjustment feature enable state for each corner band
+		    in order from lowest to highest. Each element in the tuple
+		    should be either 0 (per-core-count adjustment not allowed)
+		    or 1 (per-core-count adjustment allowed). A maximum of four
+		    corner bands may be used to partition the corner space into
+		    contiguous corner ranges. For all corners within a corner band,
+		    the same per-core-count adjustments are applied.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the corresponding
+		    element of the qcom,cpr-corner-bands property.
+
+- qcom,max-core-count
+	Usage:      required if qcom,corner-band-allow-core-count-adjustment is
+		    specified for this CPR3 regulator.
+	Value type: <u32>
+	Definition: The maximum number of cores considered for core-count vmin
+		    adjustments specified for this regulator's corner bands.
+
+- qcom,corner-band-allow-temp-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the temperature
+		    adjustment feature enable state for each corner band
+		    in order from lowest to highest. Each element in the tuple
+		    should be either 0 (temperature adjustment not allowed)
+		    or 1 (temperature adjustment allowed). A maximum of four
+		    corner bands may be used to partition the corner space into
+		    contiguous corner ranges. For all corners within a corner band,
+		    the same temperature adjustments are applied.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the corresponding
+		    element of the qcom,cpr-corner-bands property.
+
+- qcom,cpr-corner-band-map
+	Usage:      required if qcom,corner-band-allow-core-count-adjustment
+		    or qcom,corner-band-allow-temp-adjustment is specified
+		    for this CPR3 regulator.
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which correspond to corner numbers
+		    and define the corner bands to be used for temperature or
+		    per-core-count adjustments. The corner numbers must be specified
+		    in increasing order to result in partitioning the corner space
+		    into contiguous corner ranges. The supported tuple size is 1
+		    to 4 elements. For example, a tuple with corners defined as
+		    c1, c2, c3, c4 results in the following corner band mapping:
+
+		    [c1, c2) -> Corner Band 1
+		    [c2, c3) -> Corner Band 2
+		    [c3, c4) -> Corner Band 3
+		    [c4, inf)-> Corner Band 4
+
+		    Corners less than c1 will have no per-core-count or temperature
+		    adjustments. Adjustments associated with each corner band X are
+		    defined in the corresponding
+		    qcom,cpr-corner-bandX-temp-core-voltage-adjustment property.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the corresponding
+		    element of the qcom,cpr-corner-bands property.
+
+- qcom,cpr-corner-bandX-temp-core-voltage-adjustment
+	Usage:      required if qcom,corner-band-allow-core-count-adjustment
+		    is specified for this CPR3 regulator.
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists for corner bandX. The possible
+		    values for X are 1 to 4. Each tuple defines the temperature based
+		    voltage adjustment in microvolts for each temperature band
+		    from lowest to highest for a given number of online cores. Each
+		    tuple must have a number of elements equal to either (the number
+		    of elements in qcom,cpr-temp-point-map + 1), if
+		    qcom,cpr-temp-point-map is specified, or 1.
+
+		    Each tuple list must contain a number of tuples equal to
+		    either qcom,max-core-count, if qcom,max-core-count is
+		    specified, or 1. The tuples should be ordered from lowest
+		    to highest core count.
+
+		    The tuple list grouping must contain qcom,cpr-fuse-combos
+		    number of tuple lists in which case the lists are matched to
+		    fuse combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    tuple lists in which case the lists are matched to
+		    speed bins 1-to-1 or exactly 1 list which is used regardless
+		    of the fuse combination and speed bin found on a given chip.
+
+=======
+Example
+=======
+
+apc0_cpr: cprh-ctrl@179c8000 {
+	compatible = "qcom,cprh-msmcobalt-kbss-regulator";
+	reg = <0x179c8000 0x4000>, <0x00784000 0x1000>;
+	reg-names = "cpr_ctrl", "fuse_base";
+	clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
+	clock-names = "core_clk";
+	qcom,cpr-ctrl-name = "apc0";
+	qcom,cpr-controller-id = <0>;
+
+	qcom,cpr-sensor-time = <1000>;
+	qcom,cpr-loop-time = <5000000>;
+	qcom,cpr-idle-cycles = <15>;
+	qcom,cpr-up-down-delay-time = <3000>;
+	qcom,cpr-step-quot-init-min = <11>;
+	qcom,cpr-step-quot-init-max = <13>;
+	qcom,cpr-count-mode = <2>;		/* Staggered */
+	qcom,cpr-down-error-step-limit = <1>;
+	qcom,cpr-up-error-step-limit = <1>;
+	qcom,cpr-corner-switch-delay-time = <1600>;
+	qcom,cpr-voltage-settling-time = <1600>;
+
+	qcom,apm-threshold-voltage = <800000>;
+	qcom,apm-hysteresis-voltage = <4000>;
+	qcom,voltage-step = <4000>;
+	qcom,voltage-base = <352000>;
+	qcom,cpr-saw-use-unit-mV;
+
+	qcom,cpr-enable;
+	qcom,cpr-hw-closed-loop;
+
+	qcom,cpr-initial-temp-band = <3>;
+	qcom,cpr-temp-point-map = <0 25 85>;
+
+	thread@0 {
+		qcom,cpr-thread-id = <0>;
+		qcom,cpr-consecutive-up = <2>;
+		qcom,cpr-consecutive-down = <2>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <0>;
+
+		apc0_pwrcl_vreg: regulator-pwrcl {
+			regulator-name = "apc0_pwrcl_corner";
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <24>;
+
+			qcom,cpr-fuse-corners = <4>;
+			qcom,cpr-fuse-combos = <1>;
+			qcom,cpr-corners = <23>;
+
+			qcom,cpr-corner-fmax-map = <7 10 17 23>;
+
+			qcom,cpr-voltage-ceiling =
+				<632000  632000  632000  632000  632000
+				 632000  632000  700000  700000  700000
+				 828000  828000  828000  828000  828000
+				 828000  828000 1024000 1024000 1024000
+				1024000 1024000 1024000>;
+
+			qcom,cpr-voltage-floor =
+				<572000  572000  572000  572000  572000
+				 572000  572000  568000  568000  568000
+				 684000  684000  684000  684000  684000
+				 684000  684000  856000  856000  856000
+				 856000  856000  856000>;
+
+			qcom,corner-frequencies =
+				<300000000  345600000  422400000
+				 499200000  576000000  633600000
+				 710400000  806400000  883200000
+				 960000000 1036800000 1113600000
+				1190400000 1248000000 1324800000
+				1401600000 1478400000 1497600000
+				1574400000 1651200000 1728000000
+				1804800000 1881600000>;
+			};
+
+			qcom,cpr-corner-bands = <4>;
+			qcom,corner-band-allow-core-count-adjustment = <1 1 1 1>;
+			qcom,corner-band-allow-temp-adjustment = <1 0 0 0>;
+			qcom,cpr-corner-band-map = <7 14 18 20>;
+			qcom,max-core-count = <4>;
+			qcom,cpr-corner-band1-temp-core-voltage-adjustment =
+				<(-24000) (-20000) (-20000) (-16000)>,
+				<(-16000) (-16000) (-12000) (-8000)>,
+				<(-8000)  (-8000)  (-4000)  (-4000)>,
+				<0     0     0     0>;
+			qcom,cpr-corner-band2-temp-core-voltage-adjustment =
+				<(-36000) 0 0 0>,
+				<(-32000) 0 0 0>,
+				<(-24000) 0 0 0>,
+				<    0 0 0 0>;
+			qcom,cpr-corner-band3-temp-core-voltage-adjustment =
+				<(-40000) 0 0 0>,
+				<(-36000) 0 0 0>,
+				<(-32000) 0 0 0>,
+				<    0 0 0 0>;
+			qcom,cpr-corner-band4-temp-core-voltage-adjustment =
+				<(-44000) 0 0 0>,
+				<(-32000) 0 0 0>,
+				<(-24000) 0 0 0>,
+				<    0 0 0 0>;
+		};
+	};
+}

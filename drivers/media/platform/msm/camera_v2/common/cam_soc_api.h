@@ -134,19 +134,19 @@ int msm_camera_clk_enable(struct device *dev,
 /**
  * @brief      : Set clock rate
  *
- * This function sets the rate for a specified clock
+ * This function sets the rate for a specified clock and
+ * returns the rounded value
  *
  * @param dev   : Device to get clocks information
  * @param clk   : Pointer to clock to set rate
  * @param clk_rate   : Rate to be set
  *
- * @return Status of operation. Negative in case of error. Zero otherwise.
+ * @return Status of operation. Negative in case of error. clk rate otherwise.
  */
 
-int msm_camera_clk_set_rate(struct device *dev,
+long msm_camera_clk_set_rate(struct device *dev,
 				struct clk *clk,
 				long clk_rate);
-
 /**
  * @brief      : Gets regulator info
  *

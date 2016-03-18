@@ -80,3 +80,23 @@
 		};
 	};
 };
+
+&qcom_crypto {
+	qcom,msm-bus,vectors-KBps =
+		<55 512 0 0>,
+		<55 512 393600 393600>; /* 49.2MHz & 49.2MHz */
+};
+
+&qcom_cedev {
+	qcom,msm-bus,vectors-KBps =
+		<55 512 0 0>,
+		<55 512 393600 393600>; /* 49.2MHz & 49.2MHz */
+};
+
+&qcom_seecom {
+	qcom,msm-bus,vectors-KBps =
+		<55 512 0 0>,
+		<55 512 0 0>,
+		<55 512 196800 196800>,
+		<55 512 393600 393600>;
+};

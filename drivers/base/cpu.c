@@ -586,7 +586,7 @@ static ssize_t print_cpu_modalias(struct device *dev,
 #define print_cpu_modalias	arch_print_cpu_modalias
 #endif
 
-#ifdef CONFIG_ARCH_HAS_CPU_AUTOPROBE
+#ifdef CONFIG_HAVE_CPU_AUTOPROBE
 static int cpu_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	char *buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
@@ -597,7 +597,7 @@ static int cpu_uevent(struct device *dev, struct kobj_uevent_env *env)
 	}
 	return 0;
 }
-#endif /*CONFIG_ARCH_HAS_CPU_AUTOPROBE*/
+#endif /*CONFIG_HAVE_CPU_AUTOPROBE*/
 #endif
 
 /*
@@ -620,7 +620,7 @@ int register_cpu(struct cpu *cpu, int num)
 	cpu->dev.offline_disabled = !cpu->hotpluggable;
 	cpu->dev.offline = !cpu_online(num);
 	cpu->dev.of_node = of_get_cpu_node(num, NULL);
-#ifdef CONFIG_ARCH_HAS_CPU_AUTOPROBE
+#ifdef CONFIG_HAVE_CPU_AUTOPROBE
 	cpu->dev.bus->uevent = cpu_uevent;
 #endif
 	cpu->dev.groups = common_cpu_attr_groups;

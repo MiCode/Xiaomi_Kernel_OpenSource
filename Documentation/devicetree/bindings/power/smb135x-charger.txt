@@ -75,6 +75,10 @@ Optional Properties:
 				The possible range for fastcharge current is
 				from 300mA to 3000mA.
 - qcom,id-line-not-connected:	Specifies if smb135x charger is not monitoring the USB_ID line.
+- qcom,parallel-en-pin-polarity Specify the polarity of enable signal controlled
+				via pin in a parallel-charger configuration.
+				0 - Active low and 1  - Active high.
+				If not specified the default value is active-low.
 
 Example:
 	i2c@f9967000 {

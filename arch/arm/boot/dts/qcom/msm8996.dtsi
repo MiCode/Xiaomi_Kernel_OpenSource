@@ -171,6 +171,14 @@
 			reg = <0 0x8ea00000 0 0x2b00000>;
 		};
 
+		adsp_mem: adsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x100000>;
+			size = <0 0x400000>;
+		};
+
 		qseecom_mem: qseecom_region {
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>;
@@ -194,8 +202,6 @@
 		};
 
 		dfps_data_mem: dfps_data_mem@83400000 {
-		       compatible = "shared-dma-pool";
-		       no-map;
 		       reg = <0 0x83400000 0 0x1000>;
 		       label = "dfps_data_mem";
 		};
@@ -892,6 +898,14 @@
 			&tsif1_sync_active>;		/* dual-tsif-mode2 */
 	};
 
+	wcd_rst_gpio: wcd_gpio_ctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		qcom,cdc-rst-n-gpio = <&tlmm 64 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_reset_active>;
+		pinctrl-1 = <&cdc_reset_sleep>;
+	};
+
 	slim_msm: slim@91c0000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
@@ -917,10 +931,7 @@
 				      17 18 19 20 21 22 23 24 25 26 27 28 29
 				      30>;
 
-			qcom,cdc-reset-gpio = <&tlmm 64 0>;
-			pinctrl-names = "default", "idle";
-			pinctrl-0 = <&cdc_reset_active>;
-			pinctrl-1 = <&cdc_reset_sleep>;
+			qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
 
 			clock-names = "wcd_clk", "wcd_native_clk";
 			clocks = <&clock_audio clk_audio_pmi_clk>,
@@ -1881,7 +1892,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 					<61 512 0 0>,
-					<61 512 240000 960000>;
+					<61 512 240000 800000>;
 
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 
@@ -2036,7 +2047,7 @@
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l12>;
 		vdda33-supply = <&pm8994_l24>;
-		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,vdd-voltage-level = <1 4 7>;
 		qcom,tune2-efuse-bit-pos = <21>;
 		qcom,tune2-efuse-num-bits = <4>;
 		qcom,enable-dpdm-pulsing;
@@ -2072,7 +2083,7 @@
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l12>;
 		vdda33-supply = <&pm8994_l24>;
-		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,vdd-voltage-level = <1 4 7>;
 		qcom,tune2-efuse-bit-pos = <25>;
 		qcom,tune2-efuse-num-bits = <4>;
 		qcom,qusb-phy-init-seq = <0xF8 0x80
@@ -2425,7 +2436,7 @@
 				<55 512 3936000 393600>;
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
-		clocks = <&clock_gcc clk_ce1_clk>,
+		clocks = <&clock_gcc clk_qcrypto_ce1_clk>,
 			 <&clock_gcc clk_qcrypto_ce1_clk>,
 			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
 			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
@@ -2455,7 +2466,7 @@
 				<55 512 3936000 393600>;
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
-		clocks = <&clock_gcc clk_ce1_clk>,
+		clocks = <&clock_gcc clk_qcedev_ce1_clk>,
 			 <&clock_gcc clk_qcedev_ce1_clk>,
 			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
 			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
@@ -3189,6 +3200,13 @@
 
 	qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
+		dai_mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <1>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <0>;
+		};
+
 		dai_mi2s: qcom,msm-dai-q6-mi2s-tert {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <2>;
@@ -3422,6 +3440,11 @@
 
 	qcom,msm-pacman {
 		compatible = "qcom,msm-pacman";
+	};
+
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
 	};
 
 	qcom,msm_fastrpc {

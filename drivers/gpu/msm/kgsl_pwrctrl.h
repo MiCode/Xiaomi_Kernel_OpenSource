@@ -132,6 +132,7 @@ struct kgsl_regulator {
  * @l2pc_cpus_qos - qos structure to avoid L2PC on CPUs
  * @pm_qos_req_dma - the power management quality of service structure
  * @pm_qos_active_latency - allowed CPU latency in microseconds when active
+ * @pm_qos_cpu_mask_latency - allowed CPU mask latency in microseconds
  * @pm_qos_wakeup_latency - allowed CPU latency in microseconds during wakeup
  * @bus_control - true if the bus calculation is independent
  * @bus_mod - modifier from the current power level for the bus vote
@@ -160,6 +161,7 @@ struct kgsl_pwrctrl {
 	int interrupt_num;
 	struct clk *grp_clks[KGSL_MAX_CLKS];
 	struct clk *dummy_mx_clk;
+	struct clk *gpu_bimc_int_clk;
 	unsigned long power_flags;
 	unsigned long ctrl_flags;
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];
@@ -182,6 +184,7 @@ struct kgsl_pwrctrl {
 	struct pm_qos_request l2pc_cpus_qos;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_active_latency;
+	unsigned int pm_qos_cpu_mask_latency;
 	unsigned int pm_qos_wakeup_latency;
 	bool bus_control;
 	int bus_mod;
@@ -204,6 +207,8 @@ struct kgsl_pwrctrl {
 	struct timer_list deep_nap_timer;
 	uint32_t deep_nap_timeout;
 	bool gx_retention;
+	unsigned int gpu_bimc_int_clk_freq;
+	bool gpu_bimc_interface_enabled;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);

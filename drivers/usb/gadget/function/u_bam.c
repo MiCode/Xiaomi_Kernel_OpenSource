@@ -2235,6 +2235,10 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 			pr_err("%s:usb_bam_get_pipe_type() failed\n",
 				__func__);
 			ret = -EINVAL;
+			usb_ep_free_request(port->port_usb->out, d->rx_req);
+			d->rx_req = NULL;
+			usb_ep_free_request(port->port_usb->in, d->tx_req);
+			d->tx_req = NULL;
 			goto exit;
 		}
 		/*
@@ -2255,6 +2259,15 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
 			__func__, gr->in);
+		usb_ep_free_request(port->port_usb->out, d->rx_req);
+		d->rx_req = NULL;
+		usb_ep_free_request(port->port_usb->in, d->tx_req);
+		d->tx_req = NULL;
+		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			port->port_usb->in->endless = false;
+
+		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+			port->port_usb->out->endless = false;
 		goto exit;
 	}
 	gr->in->driver_data = port;
@@ -2270,6 +2283,16 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 			pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
 					__func__, gr->out);
 			gr->in->driver_data = 0;
+			usb_ep_disable(gr->in);
+			usb_ep_free_request(port->port_usb->out, d->rx_req);
+			d->rx_req = NULL;
+			usb_ep_free_request(port->port_usb->in, d->tx_req);
+			d->tx_req = NULL;
+			if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+				port->port_usb->in->endless = false;
+
+			if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+				port->port_usb->out->endless = false;
 			goto exit;
 		}
 		gr->out->driver_data = port;

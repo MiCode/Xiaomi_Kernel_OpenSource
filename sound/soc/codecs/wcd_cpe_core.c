@@ -1682,7 +1682,7 @@ done:
 
 static int wcd_cpe_debugfs_init(struct wcd_cpe_core *core)
 {
-	int rc;
+	int rc = 0;
 
 	struct dentry *dir = debugfs_create_dir("wcd_cpe", NULL);
 	if (IS_ERR_OR_NULL(dir)) {

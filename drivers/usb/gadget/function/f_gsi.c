@@ -13,7 +13,9 @@
 #include <linux/kernel.h>
 #include <linux/usb/usb_ctrl_qti.h>
 #include <linux/etherdevice.h>
+#include <linux/usb/composite.h>
 #include <linux/debugfs.h>
+#include <linux/ipa_usb.h>
 #include "f_gsi.h"
 #include "rndis.h"
 #include "debug.h"
@@ -654,10 +656,11 @@ static void ipa_disconnect_work_handler(struct gsi_data_port *d_port)
 static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 {
 	int ret = 0;
-	bool block_db;
+	bool block_db, f_suspend;
 	struct f_gsi *gsi = d_port_to_gsi(d_port);
 
-	if (!usb_gsi_ep_op(gsi->d_port.in_ep, NULL,
+	f_suspend = gsi->function.func_wakeup_allowed;
+	if (!usb_gsi_ep_op(gsi->d_port.in_ep, (void *) &f_suspend,
 				GSI_EP_OP_CHECK_FOR_SUSPEND)) {
 		ret = -EFAULT;
 		goto done;
@@ -737,6 +740,22 @@ static void ipa_work_handler(struct work_struct *w)
 			ipa_connect_channels(d_port);
 			d_port->sm_state = STATE_CONNECT_IN_PROGRESS;
 			log_event_dbg("%s: ST_INIT_EVT_CONN_IN_PROG",
+					__func__);
+		} else if (event == EVT_HOST_READY) {
+			/*
+			 * When in a composition such as RNDIS + ADB,
+			 * RNDIS host sends a GEN_CURRENT_PACKET_FILTER msg
+			 * to enable/disable flow control eg. during RNDIS
+			 * adaptor disable/enable from device manager.
+			 * In the case of the msg to disable flow control,
+			 * connect IPA channels and enable data path.
+			 * EVT_HOST_READY is posted to the state machine
+			 * in the handler for this msg.
+			 */
+			ipa_connect_channels(d_port);
+			ipa_data_path_enable(d_port);
+			d_port->sm_state = STATE_CONNECTED;
+			log_event_dbg("%s: ST_INIT_EVT_HOST_READY",
 					__func__);
 		}
 		break;
@@ -2227,6 +2246,14 @@ static void gsi_resume(struct usb_function *f)
 	log_event_dbg("%s: completed", __func__);
 }
 
+static int gsi_get_status(struct usb_function *f)
+{
+	unsigned remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+
+	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
+		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
+}
+
 static int gsi_func_suspend(struct usb_function *f, u8 options)
 {
 	bool func_wakeup_allowed;
@@ -2854,6 +2881,7 @@ int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 	gsi->function.setup = gsi_setup;
 	gsi->function.disable = gsi_disable;
 	gsi->function.suspend = gsi_suspend;
+	gsi->function.get_status = gsi_get_status;
 	gsi->function.func_suspend = gsi_func_suspend;
 	gsi->function.resume = gsi_resume;
 

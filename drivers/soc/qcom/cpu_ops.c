@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  * Copyright (c) 2013 ARM Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -126,12 +126,12 @@ static int __init msm_cpu_prepare(unsigned int cpu)
 	return 0;
 }
 
-static int msmtitanium_cpu_boot(unsigned int cpu)
+static int msm8953_cpu_boot(unsigned int cpu)
 {
 	int ret = 0;
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
-		ret = msmtitanium_unclamp_secondary_arm_cpu(cpu);
+		ret = msm8953_unclamp_secondary_arm_cpu(cpu);
 		if (ret)
 			return ret;
 
@@ -141,7 +141,7 @@ static int msmtitanium_cpu_boot(unsigned int cpu)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
-static void msmtitanium_wfi_cpu_die(unsigned int cpu)
+static void msm8953_wfi_cpu_die(unsigned int cpu)
 {
 	if (unlikely(cpu != smp_processor_id())) {
 		pr_crit("%s: running on %u, should be %u\n",
@@ -263,21 +263,21 @@ static struct cpu_operations msm_cortex_a_ops = {
 CPU_METHOD_OF_DECLARE(msm_cortex_a_ops,
 		"qcom,arm-cortex-acc", &msm_cortex_a_ops);
 
-static struct cpu_operations msmtitanium_cortex_a_ops = {
-	.name		= "qcom,titanium-arm-cortex-acc",
+static struct cpu_operations msm8953_cortex_a_ops = {
+	.name		= "qcom,8953-arm-cortex-acc",
 	.cpu_init	= msm_cpu_init,
 	.cpu_prepare	= msm_cpu_prepare,
-	.cpu_boot	= msmtitanium_cpu_boot,
+	.cpu_boot	= msm8953_cpu_boot,
 	.cpu_postboot	= msm_cpu_postboot,
 #ifdef CONFIG_HOTPLUG_CPU
-	.cpu_die        = msmtitanium_wfi_cpu_die,
+	.cpu_die        = msm8953_wfi_cpu_die,
 #endif
 #ifdef CONFIG_ARM64_CPU_SUSPEND
 	.cpu_suspend       = msm_pm_collapse,
 #endif
 };
-CPU_METHOD_OF_DECLARE(msmtitanium_cortex_a_ops,
-	"qcom,titanium-arm-cortex-acc", &msmtitanium_cortex_a_ops);
+CPU_METHOD_OF_DECLARE(msm8953_cortex_a_ops,
+	"qcom,8953-arm-cortex-acc", &msm8953_cortex_a_ops);
 
 static struct cpu_operations msm8937_cortex_a_ops = {
 	.name		= "qcom,8937-arm-cortex-acc",

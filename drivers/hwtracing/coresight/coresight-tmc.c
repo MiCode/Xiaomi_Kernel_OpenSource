@@ -23,7 +23,7 @@
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
 #include <linux/spinlock.h>
-#include <linux/clk.h>
+#include <linux/pm_runtime.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/coresight.h>
@@ -153,7 +153,6 @@ struct tmc_etr_bam_data {
  * @dev:	the device entity associated to this component.
  * @csdev:	component vitals needed by the framework.
  * @miscdev:	specifics to handle "/dev/xyz.tmc" entry.
- * @clk:	the clock this component is associated to.
  * @spinlock:	only one at a time pls.
  * @read_count:	manages preparation of buffer for reading.
  * @buf:	area of memory where trace data get sent.
@@ -169,7 +168,6 @@ struct tmc_drvdata {
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	struct miscdevice	miscdev;
-	struct clk		*clk;
 	spinlock_t		spinlock;
 	int			read_count;
 	bool			reading;
@@ -743,9 +741,7 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 	int ret;
 	unsigned long flags;
 
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
-		return ret;
+	pm_runtime_get_sync(drvdata->dev);
 
 	mutex_lock(&drvdata->mem_lock);
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR &&
@@ -766,7 +762,7 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		}
 		ret = tmc_etr_alloc_mem(drvdata);
 		if (ret) {
-			clk_disable_unprepare(drvdata->clk);
+			pm_runtime_put(drvdata->dev);
 			mutex_unlock(&drvdata->mem_lock);
 			return ret;
 		}
@@ -777,7 +773,7 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		if (IS_ERR(drvdata->usbch)) {
 			dev_err(drvdata->dev, "usb_qdss_open failed\n");
 			ret = PTR_ERR(drvdata->usbch);
-			clk_disable_unprepare(drvdata->clk);
+			pm_runtime_put(drvdata->dev);
 			mutex_unlock(&drvdata->mem_lock);
 			return ret;
 		}
@@ -790,7 +786,7 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		if (drvdata->config_type == TMC_CONFIG_TYPE_ETR
 		    && drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
 			usb_qdss_close(drvdata->usbch);
-		clk_disable_unprepare(drvdata->clk);
+		pm_runtime_put(drvdata->dev);
 		return -EBUSY;
 	}
 
@@ -1001,7 +997,7 @@ out:
 		usb_qdss_close(drvdata->usbch);
 	}
 
-	clk_disable_unprepare(drvdata->clk);
+	pm_runtime_put(drvdata->dev);
 
 	dev_info(drvdata->dev, "TMC disabled\n");
 }
@@ -1352,17 +1348,13 @@ static const struct file_operations tmc_fops = {
 static ssize_t status_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
-	int ret;
 	unsigned long flags;
 	u32 tmc_rsz, tmc_sts, tmc_rrp, tmc_rwp, tmc_trg;
 	u32 tmc_ctl, tmc_ffsr, tmc_ffcr, tmc_mode, tmc_pscr;
 	u32 devid;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
-		goto out;
-
+	pm_runtime_get_sync(drvdata->dev);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	CS_UNLOCK(drvdata->base);
 
@@ -1380,8 +1372,7 @@ static ssize_t status_show(struct device *dev,
 
 	CS_LOCK(drvdata->base);
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
-
-	clk_disable_unprepare(drvdata->clk);
+	pm_runtime_put(drvdata->dev);
 
 	return sprintf(buf,
 		       "Depth:\t\t0x%x\n"
@@ -1397,7 +1388,7 @@ static ssize_t status_show(struct device *dev,
 		       "DEVID:\t\t0x%x\n",
 			tmc_rsz, tmc_sts, tmc_rrp, tmc_rwp, tmc_trg,
 			tmc_ctl, tmc_ffsr, tmc_ffcr, tmc_mode, tmc_pscr, devid);
-out:
+
 	return -EINVAL;
 }
 static DEVICE_ATTR_RO(status);
@@ -1649,11 +1640,6 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	spin_lock_init(&drvdata->spinlock);
 	mutex_init(&drvdata->mem_lock);
 
-	drvdata->clk = adev->pclk;
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
-		return ret;
-
 	devid = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);
 
@@ -1673,7 +1659,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
 
-	clk_disable_unprepare(drvdata->clk);
+	pm_runtime_put(&adev->dev);
 
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		ret = tmc_etr_bam_init(adev, drvdata);

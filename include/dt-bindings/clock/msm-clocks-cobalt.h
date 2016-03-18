@@ -397,7 +397,9 @@
 #define clk_mmss_mdss_ahb_clk			0x85d37ab5
 #define clk_mmss_mdss_axi_clk			0xdf04fc1d
 #define clk_mmss_mdss_byte0_clk			0x38105d25
+#define clk_mmss_mdss_byte0_intf_clk		0x38e5aa79
 #define clk_mmss_mdss_byte1_clk			0xe0c21354
+#define clk_mmss_mdss_byte1_intf_clk		0xcf654d8e
 #define clk_mmss_mdss_dp_aux_clk		0x23125eb6
 #define clk_mmss_mdss_dp_gtc_clk		0xb59c151a
 #define clk_mmss_mdss_esc0_clk			0x5721ff83
@@ -456,5 +458,11 @@
 #define clk_gpu_pll1_postdiv_clk		0xdf546700
 #define clk_gpucc_mx_clk			0x1edbb879
 #define clk_gpucc_gcc_dbg_clk			0x9ae8cd3c
+
+/* CPU clocks */
+#define clk_pwrcl_clk				0xc554130e
+#define clk_perfcl_clk				0x58869997
+#define clk_sys_apcsaux_clk_gcc			0xf905e862
+#define clk_xo_ao				0x428c856d
 
 #endif

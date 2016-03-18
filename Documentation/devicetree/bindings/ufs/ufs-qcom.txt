@@ -28,6 +28,8 @@ Optional properties:
 - vddp-ref-clk-supply   : phandle to UFS device ref_clk pad power supply
 - vddp-ref-clk-max-microamp : specifies max. load that can be drawn from this supply
 - vddp-ref-clk-always-on : specifies if this supply needs to be kept always on
+- qcom,disable-lpm : disable various LPM mechanisms in UFS for platform compatibility
+  (limit link to PWM Gear-1, 1-lane slow mode; disable hibernate, and avoid suspend/resume)
 
 Example:
 

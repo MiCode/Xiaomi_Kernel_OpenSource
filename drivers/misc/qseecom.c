@@ -47,10 +47,8 @@
 #include "qseecom_kernel.h"
 #include <crypto/ice.h>
 
-#ifdef CONFIG_COMPAT
 #include <linux/compat.h>
-#include <linux/compat_qseecom.h>
-#endif
+#include "compat_qseecom.h"
 
 #define QSEECOM_DEV			"qseecom"
 #define QSEOS_VERSION_14		0x14
@@ -647,7 +645,9 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			if (!tzbuf)
 				return -ENOMEM;
 			memset(tzbuf, 0, tzbuflen);
-			memcpy(tzbuf, req_buf + sizeof(uint32_t), tzbuflen);
+			memcpy(tzbuf, req_buf + sizeof(uint32_t),
+				(sizeof(struct qseecom_key_generate_ireq) -
+				sizeof(uint32_t)));
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_KS_GEN_KEY_ID;
 			desc.arginfo = TZ_OS_KS_GEN_KEY_ID_PARAM_ID;
@@ -669,7 +669,9 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 				return -ENOMEM;
 			}
 			memset(tzbuf, 0, tzbuflen);
-			memcpy(tzbuf, req_buf + sizeof(uint32_t), tzbuflen);
+			memcpy(tzbuf, req_buf + sizeof(uint32_t),
+				(sizeof(struct qseecom_key_delete_ireq) -
+				sizeof(uint32_t)));
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_KS_DEL_KEY_ID;
 			desc.arginfo = TZ_OS_KS_DEL_KEY_ID_PARAM_ID;
@@ -691,7 +693,9 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 				return -ENOMEM;
 			}
 			memset(tzbuf, 0, tzbuflen);
-			memcpy(tzbuf, req_buf + sizeof(uint32_t), tzbuflen);
+			memcpy(tzbuf, req_buf + sizeof(uint32_t),
+				(sizeof(struct qseecom_key_select_ireq) -
+				sizeof(uint32_t)));
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_KS_SET_PIPE_KEY_ID;
 			desc.arginfo = TZ_OS_KS_SET_PIPE_KEY_ID_PARAM_ID;
@@ -713,7 +717,9 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 				return -ENOMEM;
 			}
 			memset(tzbuf, 0, tzbuflen);
-			memcpy(tzbuf, req_buf + sizeof(uint32_t), tzbuflen);
+			memcpy(tzbuf, req_buf + sizeof(uint32_t), (sizeof
+				(struct qseecom_key_userinfo_update_ireq) -
+				sizeof(uint32_t)));
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_KS_UPDATE_KEY_ID;
 			desc.arginfo = TZ_OS_KS_UPDATE_KEY_ID_PARAM_ID;
@@ -2087,9 +2093,14 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 	bool found_app = false;
 	bool found_dead_app = false;
 
+	if (!data) {
+		pr_err("Invalid/uninitialized device handle\n");
+		return -EINVAL;
+	}
+
 	if (!memcmp(data->client.app_name, "keymaste", strlen("keymaste"))) {
 		pr_debug("Do not unload keymaster app from tz\n");
-		goto unload_exit;
+		return 0;
 	}
 
 	if (data->client.app_id > 0) {
@@ -2115,7 +2126,8 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 			pr_err("Cannot find app with id = %d (%s)\n",
 				data->client.app_id,
 				(char *)data->client.app_name);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto unload_exit;
 		}
 	}
 
@@ -2138,14 +2150,16 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		if (ret) {
 			pr_err("scm_call to unload app (id = %d) failed\n",
 								req.app_id);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto not_release_exit;
 		} else {
 			pr_warn("App id %d now unloaded\n", req.app_id);
 		}
 		if (resp.result == QSEOS_RESULT_FAILURE) {
 			pr_err("app (%d) unload_failed!!\n",
 					data->client.app_id);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto not_release_exit;
 		}
 		if (resp.result == QSEOS_RESULT_SUCCESS)
 			pr_debug("App (%d) is unloaded!!\n",
@@ -2156,7 +2170,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 			if (ret) {
 				pr_err("process_incomplete_cmd fail err: %d\n",
 									ret);
-				return ret;
+				goto not_release_exit;
 			}
 		}
 	}
@@ -2186,6 +2200,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 unload_exit:
 	qseecom_unmap_ion_allocated_memory(data);
 	data->released = true;
+not_release_exit:
 	return ret;
 }
 
@@ -3847,7 +3862,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	data->client.ihandle = NULL;
 
 	init_waitqueue_head(&data->abort_wq);
-	atomic_set(&data->ioctl_count, 0);
 
 	data->client.ihandle = ion_alloc(qseecom.ion_clnt, size, 4096,
 				ION_HEAP(ION_QSECOM_HEAP_ID), 0);
@@ -3979,7 +3993,6 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	}
 	data =	(struct qseecom_dev_handle *) ((*handle)->dev);
 	mutex_lock(&app_access_lock);
-	atomic_inc(&data->ioctl_count);
 
 	spin_lock_irqsave(&qseecom.registered_kclient_list_lock, flags);
 	list_for_each_entry(kclient, &qseecom.registered_kclient_list_head,
@@ -3996,25 +4009,6 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	else
 		ret = qseecom_unload_app(data, false);
 
-	if (qseecom.support_bus_scaling) {
-		mutex_lock(&qsee_bw_mutex);
-		if (data->mode != INACTIVE) {
-			qseecom_unregister_bus_bandwidth_needs(data);
-			if (qseecom.cumulative_mode == INACTIVE) {
-				ret = __qseecom_set_msm_bus_request(INACTIVE);
-				if (ret)
-					pr_err("Fail to scale down bus\n");
-			}
-		}
-		mutex_unlock(&qsee_bw_mutex);
-	} else {
-		if (data->fast_load_enabled == true)
-			qsee_disable_clock_vote(data, CLK_SFPB);
-		if (data->perf_enabled == true)
-			qsee_disable_clock_vote(data, CLK_DFAB);
-	}
-
-	atomic_dec(&data->ioctl_count);
 	mutex_unlock(&app_access_lock);
 	if (ret == 0) {
 		kzfree(data);
@@ -4056,12 +4050,10 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 		return -EINVAL;
 
 	mutex_lock(&app_access_lock);
-	atomic_inc(&data->ioctl_count);
 	if (qseecom.support_bus_scaling) {
 		ret = qseecom_scale_bus_bandwidth_timer(INACTIVE);
 		if (ret) {
 			pr_err("Failed to set bw.\n");
-			atomic_dec(&data->ioctl_count);
 			mutex_unlock(&app_access_lock);
 			return ret;
 		}
@@ -4079,7 +4071,6 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 		if (ret) {
 			pr_err("Failed to vote for clock with err %d\n",
 						ret);
-			atomic_dec(&data->ioctl_count);
 			mutex_unlock(&app_access_lock);
 			return -EINVAL;
 		}
@@ -4096,7 +4087,6 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 		qsee_disable_clock_vote(data, CLK_SFPB);
 	}
 
-	atomic_dec(&data->ioctl_count);
 	mutex_unlock(&app_access_lock);
 
 	if (ret)
@@ -4121,8 +4111,6 @@ int qseecom_set_bandwidth(struct qseecom_handle *handle, bool high)
 			__qseecom_register_bus_bandwidth_needs(handle->dev,
 									HIGH);
 			mutex_unlock(&qsee_bw_mutex);
-			if (ret)
-				pr_err("Failed to scale bus (med) %d\n", ret);
 		} else {
 			ret = qseecom_perf_enable(handle->dev);
 			if (ret)

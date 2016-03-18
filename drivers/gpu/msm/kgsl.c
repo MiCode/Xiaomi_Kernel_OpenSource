@@ -41,6 +41,7 @@
 #include "kgsl_trace.h"
 #include "kgsl_sync.h"
 #include "kgsl_compat.h"
+#include "kgsl_pool.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
@@ -2252,6 +2253,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpuobj_import *param = data;
 	struct kgsl_mem_entry *entry;
 	int ret, fd = -1;
+	struct kgsl_mmu *mmu = &dev_priv->device->mmu;
 
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
@@ -2265,6 +2267,9 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMFLAGS_FORCE_32BIT;
 
 	entry->memdesc.flags = param->flags;
+
+	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE))
+		entry->memdesc.priv |= KGSL_MEMDESC_GUARD_PAGE;
 
 	if (param->type == KGSL_USER_MEM_TYPE_ADDR)
 		ret = _gpuobj_map_useraddr(dev_priv->device, private->pagetable,
@@ -3942,13 +3947,16 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	}
 
 
-	device->events_wq = create_workqueue("kgsl-events");
+	device->events_wq = create_singlethread_workqueue("kgsl-events");
 
 	/* Initalize the snapshot engine */
 	kgsl_device_snapshot_init(device);
 
 	/* Initialize common sysfs entries */
 	kgsl_pwrctrl_init_sysfs(device);
+
+	/* Initialize the memory pools */
+	kgsl_init_page_pools();
 
 	return 0;
 
@@ -3967,6 +3975,8 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 	destroy_workqueue(device->events_wq);
 
 	kgsl_device_snapshot_close(device);
+
+	kgsl_exit_page_pools();
 
 	kgsl_pwrctrl_uninit_sysfs(device);
 

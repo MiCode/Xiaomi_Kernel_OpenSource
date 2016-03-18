@@ -972,20 +972,31 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 #elif defined(CONFIG_ARM_PSCI)
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 {
-	int affinity_level = 0;
-	int state_id = get_cluster_id(cluster, &affinity_level);
-	int power_state = PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
-
-	affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
 	if (!idx) {
+		stop_critical_timings();
 		wfi();
+		start_critical_timings();
 		return 1;
+	} else {
+		int affinity_level = 0;
+		int state_id = get_cluster_id(cluster, &affinity_level);
+		int power_state =
+			PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
+		bool success = false;
+
+		affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
+		state_id |= (power_state | affinity_level
+			| cluster->cpu->levels[idx].psci_id);
+
+		update_debug_pc_event(CPU_ENTER, state_id,
+						0xdeaffeed, 0xdeaffeed, true);
+		stop_critical_timings();
+		success = !cpu_suspend(state_id);
+		start_critical_timings();
+		update_debug_pc_event(CPU_EXIT, state_id,
+						success, 0xdeaffeed, true);
+		return success;
 	}
-
-	state_id |= (power_state | affinity_level
-				| cluster->cpu->levels[idx].psci_id);
-
-	return !cpu_suspend(state_id);
 }
 #else
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
@@ -1265,7 +1276,6 @@ static int lpm_suspend_enter(suspend_state_t state)
 	struct lpm_cpu *lpm_cpu = cluster->cpu;
 	const struct cpumask *cpumask = get_cpu_mask(cpu);
 	int idx;
-	int64_t time = ktime_to_ns(ktime_get());
 
 	for (idx = lpm_cpu->nlevels - 1; idx >= 0; idx--) {
 
@@ -1277,7 +1287,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 		return 0;
 	}
 	cpu_prepare(cluster, idx, false);
-	cluster_prepare(cluster, cpumask, idx, false, time);
+	cluster_prepare(cluster, cpumask, idx, false, 0);
 	if (idx > 0)
 		update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed,
 					0xdeaffeed, false);
@@ -1299,8 +1309,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 		update_debug_pc_event(CPU_EXIT, idx, true, 0xdeaffeed,
 					false);
 
-	time = ktime_to_ns(ktime_get());
-	cluster_unprepare(cluster, cpumask, idx, false, time);
+	cluster_unprepare(cluster, cpumask, idx, false, 0);
 	cpu_unprepare(cluster, idx, false);
 	return 0;
 }

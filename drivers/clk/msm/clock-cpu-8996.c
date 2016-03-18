@@ -535,6 +535,7 @@ struct cpu_clk_8996 {
 	struct pm_qos_request req;
 	bool do_half_rate;
 	bool has_acd;
+	int postdiv;
 };
 
 static inline struct cpu_clk_8996 *to_cpu_clk_8996(struct clk *c)
@@ -551,7 +552,13 @@ static enum handoff cpu_clk_8996_handoff(struct clk *c)
 
 static long cpu_clk_8996_round_rate(struct clk *c, unsigned long rate)
 {
-	return clk_round_rate(c->parent, rate);
+	int i;
+
+	for (i = 0; i < c->num_fmax; i++)
+		if (rate <= c->fmax[i])
+			return clk_round_rate(c->parent, c->fmax[i]);
+
+	return clk_round_rate(c->parent, c->fmax[c->num_fmax - 1]);
 }
 
 static unsigned long alt_pll_perfcl_freqs[] = {
@@ -705,12 +712,12 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 		&& c->rate > 600000000 && rate < 600000000) {
 		if (!cpu_clocks_v3)
 			mutex_lock(&scm_lmh_lock);
-		ret = clk_set_rate(c->parent, c->rate/2);
+		ret = clk_set_rate(c->parent, c->rate/cpuclk->postdiv);
 		if (!cpu_clocks_v3)
 			mutex_unlock(&scm_lmh_lock);
 		if (ret) {
 			pr_err("failed to set rate %lu on %s (%d)\n",
-				c->rate/2, c->dbg_name, ret);
+				c->rate/cpuclk->postdiv, c->dbg_name, ret);
 			goto fail;
 		}
 	}
@@ -781,6 +788,7 @@ static struct cpu_clk_8996 pwrcl_clk = {
 	.cpu_reg_mask = 0x3,
 	.pm_qos_latency = PWRCL_LATENCY_NO_L2_PC_US,
 	.do_half_rate = true,
+	.postdiv = 2,
 	.c = {
 		.parent = &pwrcl_hf_mux.c,
 		.dbg_name = "pwrcl_clk",
@@ -800,6 +808,7 @@ static struct cpu_clk_8996 perfcl_clk = {
 	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_perfcl_freqs),
 	.pm_qos_latency = PERFCL_LATENCY_NO_L2_PC_US,
 	.do_half_rate = true,
+	.postdiv = 2,
 	.c = {
 		.parent = &perfcl_hf_mux.c,
 		.dbg_name = "perfcl_clk",
@@ -945,7 +954,7 @@ static struct pll_clk cbf_pll = {
 	},
 	.min_rate =  600000000,
 	.max_rate = 3000000000,
-	.src_rate = 19200000,
+	.src_rate =   19200000,
 	.base = &vbases[CBF_PLL_BASE],
 	.c = {
 		.parent = &xo_ao.c,
@@ -984,6 +993,7 @@ static struct mux_clk cbf_hf_mux = {
 
 static struct cpu_clk_8996 cbf_clk = {
 	.do_half_rate = true,
+	.postdiv = 2,
 	.c = {
 		.parent = &cbf_hf_mux.c,
 		.dbg_name = "cbf_clk",
@@ -1038,6 +1048,7 @@ static struct clk_lookup cpu_clocks_8996[] = {
 	CLK_LIST(perfcl_lf_mux),
 
 	CLK_LIST(cbf_pll),
+	CLK_LIST(cbf_pll_main),
 	CLK_LIST(cbf_hf_mux),
 	CLK_LIST(cbf_clk),
 
@@ -1273,6 +1284,15 @@ static void populate_opp_table(struct platform_device *pdev)
 	    "Failed to add OPP levels for CBF\n");
 }
 
+static void cpu_clock_8996_pro_fixup(void)
+{
+	cbf_pll.vals.post_div_masked = 0x300;
+	cbf_pll_main.data.max_div = 4;
+	cbf_pll_main.data.min_div = 4;
+	cbf_pll_main.data.div = 4;
+	cbf_clk.postdiv = 4;
+}
+
 static int perfclspeedbin;
 
 unsigned long pwrcl_early_boot_rate = 883200000;
@@ -1457,6 +1477,7 @@ module_exit(cpu_clock_8996_exit);
 #define CBF_BASE_PHY 0x09A11000
 #define CBF_PLL_BASE_PHY 0x09A20000
 #define AUX_BASE_PHY 0x09820050
+#define APCC_RECAL_DLY_BASE 0x099E00C8
 
 #define CLK_CTL_OFFSET 0x44
 #define PSCTL_OFFSET 0x164
@@ -1464,6 +1485,10 @@ module_exit(cpu_clock_8996_exit);
 #define CBF_AUTO_CLK_SEL_BIT BIT(6)
 #define AUTO_CLK_SEL_ALWAYS_ON_MASK BM(5, 4)
 #define AUTO_CLK_SEL_ALWAYS_ON_GPLL0_SEL (0x3 << 4)
+#define APCC_RECAL_DLY_SIZE 0x10
+#define APCC_RECAL_VCTL_OFFSET 0x8
+#define APCC_RECAL_CPR_DLY_SETTING 0x00000000
+#define APCC_RECAL_VCTL_DLY_SETTING 0x800003ff
 
 #define HF_MUX_MASK 0x3
 #define LF_MUX_MASK 0x3
@@ -1502,7 +1527,7 @@ static struct notifier_block __refdata clock_cpu_8996_cpu_notifier = {
 int __init cpu_clock_8996_early_init(void)
 {
 	int ret = 0;
-	void __iomem *auxbase;
+	void __iomem *auxbase, *acd_recal_base;
 	u32 regval;
 
 	if (of_find_compatible_node(NULL, NULL,
@@ -1534,6 +1559,9 @@ int __init cpu_clock_8996_early_init(void)
 		perfcl_pll.vals.test_ctl_lo_val = 0x1C000000;
 		cbf_pll.vals.test_ctl_lo_val = 0x1C000000;
 	}
+
+	if (cpu_clocks_pro)
+		cpu_clock_8996_pro_fixup();
 
 	/*
 	 * We definitely don't want to parse DT here - this is too early and in
@@ -1575,6 +1603,13 @@ int __init cpu_clock_8996_early_init(void)
 		WARN(1, "Unable to ioremap aux base. Can't configure CPU clocks\n");
 		ret = -ENOMEM;
 		goto auxbase_fail;
+	}
+
+	acd_recal_base = ioremap(APCC_RECAL_DLY_BASE, APCC_RECAL_DLY_SIZE);
+	if (!acd_recal_base) {
+		WARN(1, "Unable to ioremap ACD recal base. Can't configure ACD\n");
+		ret = -ENOMEM;
+		goto acd_recal_base_fail;
 	}
 
 	/*
@@ -1768,6 +1803,21 @@ int __init cpu_clock_8996_early_init(void)
 			writel_relaxed(0x3, vbases[APC1_BASE] +
 							MDD_DROOP_CODE);
 			/*
+			 * Ensure that the writes go through before going
+			 * forward.
+			 */
+			wmb();
+
+			/*
+			 * Program the DLY registers to set a voltage settling
+			 * delay time for HW based ACD recalibration.
+			 */
+			writel_relaxed(APCC_RECAL_CPR_DLY_SETTING,
+						acd_recal_base);
+			writel_relaxed(APCC_RECAL_VCTL_DLY_SETTING,
+						acd_recal_base +
+						APCC_RECAL_VCTL_OFFSET);
+			/*
 			 * Ensure that the writes go through before enabling
 			 * ACD.
 			 */
@@ -1812,6 +1862,8 @@ int __init cpu_clock_8996_early_init(void)
 	 */
 	pr_info("%s: finished CPU clock configuration\n", __func__);
 
+	iounmap(acd_recal_base);
+acd_recal_base_fail:
 	iounmap(auxbase);
 auxbase_fail:
 	iounmap(vbases[CBF_PLL_BASE]);

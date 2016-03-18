@@ -795,13 +795,13 @@
 				"xo";
 		qcom,bus-clk-rate = <400000000 200000000 100000000>;
 		qcom,max-nominal-sysclk-rate = <100000000>;
+		qcom,boost-sysclk-with-streaming;
 	};
 
 	android_usb: android_usb@086000c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <2 1001 12701>;
-		qcom,streaming-func = "rndis","mtp";
 	};
 
 	qcom,usbbam@78c4000 {
@@ -1268,6 +1268,7 @@
 
 	compress: qcom,msm-compress-dsp {
 		compatible = "qcom,msm-compress-dsp";
+		qcom,adsp-version = "MDSP 1.2";
 	};
 
 	voip: qcom,msm-voip-dsp {
@@ -1359,6 +1360,11 @@
 		bt_sco_tx: qcom,msm-dai-q6-bt-sco-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12289>;
+		};
+
+		bt_a2dp_rx: qcom,msm-dai-q6-bt-a2dp-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12290>;
 		};
 
 		int_fm_rx: qcom,msm-dai-q6-int-fm-rx {

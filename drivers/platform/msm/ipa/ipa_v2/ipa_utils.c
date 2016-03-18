@@ -3232,6 +3232,10 @@ void _ipa_cfg_ep_aggr_v2_0(u32 pipe_number,
 			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT,
 			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK);
 
+	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_sw_eof_active,
+			IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_SHFT,
+			IPA_ENDP_INIT_AGGR_n_AGGR_SW_EOF_ACTIVE_BMSK);
+
 	ipa_write_reg(ipa_ctx->mmio,
 			IPA_ENDP_INIT_AGGR_N_OFST_v2_0(pipe_number), reg_val);
 }
@@ -5035,11 +5039,6 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_set_client = ipa2_set_client;
 	api_ctrl->ipa_get_client = ipa2_get_client;
 	api_ctrl->ipa_get_client_uplink = ipa2_get_client_uplink;
-	api_ctrl->odu_bridge_init = ipa2_odu_bridge_init;
-	api_ctrl->odu_bridge_connect = ipa2_odu_bridge_connect;
-	api_ctrl->odu_bridge_disconnect = ipa2_odu_bridge_disconnect;
-	api_ctrl->odu_bridge_tx_dp = ipa2_odu_bridge_tx_dp;
-	api_ctrl->odu_bridge_cleanup = ipa2_odu_bridge_cleanup;
 	api_ctrl->ipa_dma_init = ipa2_dma_init;
 	api_ctrl->ipa_dma_enable = ipa2_dma_enable;
 	api_ctrl->ipa_dma_disable = ipa2_dma_disable;

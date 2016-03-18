@@ -128,8 +128,8 @@ config ARCH_MSM8937
 	select ARM_HAS_SG_CHAIN
 	select MSM_JTAGV8 if CORESIGHT_ETMV4
 
-config ARCH_MSMGOLD
-	bool "MSMGOLD"
+config ARCH_MSM8917
+	bool "MSM8917"
 	select MSM_CORTEX_A53
 	select ARCH_MSM_CORTEXMP
 	select CPU_V7
@@ -158,8 +158,8 @@ config ARCH_MSMGOLD
 	select MSM_RPM_SMD
 	select MSM_JTAGV8 if CORESIGHT_ETMV4
 
-config ARCH_MSMTITANIUM
-	bool "MSMTITANIUM"
+config ARCH_MSM8953
+	bool "MSM8953"
 	select MSM_CORTEX_A53
 	select ARCH_MSM_CORTEXMP
 	select CPU_V7

@@ -528,3 +528,152 @@
 	};
 };
 
+&soc {
+/* CPR controller regulators */
+	apc0_cpr: cprh-ctrl@179c8000 {
+		compatible = "qcom,cprh-msmcobalt-kbss-regulator";
+		reg = <0x179c8000 0x4000>, <0x00784000 0x1000>;
+		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
+		clock-names = "core_clk";
+		qcom,cpr-ctrl-name = "apc0";
+		qcom,cpr-controller-id = <0>;
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-up-down-delay-time = <3000>;
+		qcom,cpr-step-quot-init-min = <11>;
+		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-down-error-step-limit = <1>;
+		qcom,cpr-up-error-step-limit = <1>;
+		qcom,cpr-corner-switch-delay-time = <1600>;
+		qcom,cpr-voltage-settling-time = <1600>;
+
+		qcom,apm-threshold-voltage = <800000>;
+		qcom,apm-hysteresis-voltage = <4000>;
+		qcom,voltage-step = <4000>;
+		qcom,voltage-base = <352000>;
+		qcom,cpr-saw-use-unit-mV;
+
+		thread@0 {
+			qcom,cpr-thread-id = <0>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-down-threshold = <2>;
+
+			apc0_pwrcl_vreg: regulator-pwrcl {
+				regulator-name = "apc0_pwrcl_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <24>;
+
+				qcom,cpr-fuse-corners = <4>;
+				qcom,cpr-fuse-combos = <1>;
+				qcom,cpr-corners = <23>;
+
+				qcom,cpr-corner-fmax-map = <7 10 17 23>;
+
+				qcom,cpr-voltage-ceiling =
+					<632000  632000  632000  632000  632000
+					 632000  632000  700000  700000  700000
+					 828000  828000  828000  828000  828000
+					 828000  828000 1024000 1024000 1024000
+					1024000 1024000 1024000>;
+
+				qcom,cpr-voltage-floor =
+					<572000  572000  572000  572000  572000
+					 572000  572000  568000  568000  568000
+					 684000  684000  684000  684000  684000
+					 684000  684000  856000  856000  856000
+					 856000  856000  856000>;
+
+				qcom,corner-frequencies =
+					<300000000  345600000  422400000
+					 499200000  576000000  633600000
+					 710400000  806400000  883200000
+					 960000000 1036800000 1113600000
+					1190400000 1248000000 1324800000
+					1401600000 1478400000 1497600000
+					1574400000 1651200000 1728000000
+					1804800000 1881600000>;
+			};
+		};
+	};
+
+	apc1_cpr: cprh-ctrl@179c4000{
+		compatible = "qcom,cprh-msmcobalt-kbss-regulator";
+		reg = <0x179c4000 0x4000>, <0x00784000 0x1000>;
+		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
+		clock-names = "core_clk";
+		qcom,cpr-ctrl-name = "apc1";
+		qcom,cpr-controller-id = <1>;
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-up-down-delay-time = <3000>;
+		qcom,cpr-step-quot-init-min = <11>;
+		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-down-error-step-limit = <1>;
+		qcom,cpr-up-error-step-limit = <1>;
+		qcom,cpr-corner-switch-delay-time = <1600>;
+		qcom,cpr-voltage-settling-time = <1600>;
+
+		qcom,apm-threshold-voltage = <800000>;
+		qcom,apm-hysteresis-voltage = <4000>;
+		qcom,voltage-step = <4000>;
+		qcom,voltage-base = <352000>;
+		qcom,cpr-saw-use-unit-mV;
+
+		thread@0 {
+			qcom,cpr-thread-id = <0>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-down-threshold = <2>;
+
+			apc1_perfcl_vreg: regulator-pwrcl {
+				regulator-name = "apc1_perfcl_corner";
+				regulator-min-microvolt = <1>;
+				regulator-max-microvolt = <27>;
+
+				qcom,cpr-fuse-corners = <4>;
+				qcom,cpr-fuse-combos = <1>;
+				qcom,cpr-corners = <26>;
+
+				qcom,cpr-corner-fmax-map = <8 12 19 26>;
+
+				qcom,cpr-voltage-ceiling =
+					<632000  632000  632000  632000  632000
+					 632000  632000  632000  700000  700000
+					 700000  700000  828000  828000  828000
+					 828000  828000  828000  828000 1024000
+					1024000 1024000 1024000 1024000 1024000
+					1024000>;
+
+				qcom,cpr-voltage-floor =
+					<572000  572000  572000  572000  572000
+					 572000  572000  572000  568000  568000
+					 568000  568000  684000  684000  684000
+					 684000  684000  684000  684000  856000
+					 856000  856000  856000  856000  856000
+					 856000>;
+
+				qcom,corner-frequencies =
+					<300000000  345600000  422400000
+					 480000000  556800000  633600000
+					 710400000  787200000  844800000
+					 902400000  979200000 1056000000
+					1094400000 1171200000 1248000000
+					1324800000 1401600000 1478400000
+					1536000000 1632000000 1708800000
+					1785600000 1862400000 1939200000
+					2016000000 2092800000>;
+			};
+		};
+	};
+};

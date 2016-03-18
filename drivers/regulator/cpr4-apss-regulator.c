@@ -35,10 +35,10 @@
 
 #include "cpr3-regulator.h"
 
-#define MSMTITANIUM_APSS_FUSE_CORNERS	4
+#define MSM8953_APSS_FUSE_CORNERS	4
 
 /**
- * struct cpr4_msmtitanium_apss_fuses - APSS specific fuse data for MSMTITANIUM
+ * struct cpr4_msm8953_apss_fuses - APSS specific fuse data for MSM8953
  * @ro_sel:		Ring oscillator select fuse parameter value for each
  *			fuse corner
  * @init_voltage:	Initial (i.e. open-loop) voltage fuse parameter value
@@ -57,42 +57,43 @@
  *
  * This struct holds the values for all of the fuses read from memory.
  */
-struct cpr4_msmtitanium_apss_fuses {
-	u64	ro_sel[MSMTITANIUM_APSS_FUSE_CORNERS];
-	u64	init_voltage[MSMTITANIUM_APSS_FUSE_CORNERS];
-	u64	target_quot[MSMTITANIUM_APSS_FUSE_CORNERS];
-	u64	quot_offset[MSMTITANIUM_APSS_FUSE_CORNERS];
+struct cpr4_msm8953_apss_fuses {
+	u64	ro_sel[MSM8953_APSS_FUSE_CORNERS];
+	u64	init_voltage[MSM8953_APSS_FUSE_CORNERS];
+	u64	target_quot[MSM8953_APSS_FUSE_CORNERS];
+	u64	quot_offset[MSM8953_APSS_FUSE_CORNERS];
 	u64	speed_bin;
 	u64	cpr_fusing_rev;
 	u64	boost_cfg;
 	u64	boost_voltage;
+	u64	misc;
 };
 
 /*
  * fuse combo = fusing revision + 8 * (speed bin)
  * where: fusing revision = 0 - 7 and speed bin = 0 - 7
  */
-#define CPR4_MSMTITANIUM_APSS_FUSE_COMBO_COUNT	64
+#define CPR4_MSM8953_APSS_FUSE_COMBO_COUNT	64
 
 /*
  * Constants which define the name of each fuse corner.
  */
-enum cpr4_msmtitanium_apss_fuse_corner {
-	CPR4_MSMTITANIUM_APSS_FUSE_CORNER_LOWSVS	= 0,
-	CPR4_MSMTITANIUM_APSS_FUSE_CORNER_SVS		= 1,
-	CPR4_MSMTITANIUM_APSS_FUSE_CORNER_NOM		= 2,
-	CPR4_MSMTITANIUM_APSS_FUSE_CORNER_TURBO_L1	= 3,
+enum cpr4_msm8953_apss_fuse_corner {
+	CPR4_MSM8953_APSS_FUSE_CORNER_LOWSVS	= 0,
+	CPR4_MSM8953_APSS_FUSE_CORNER_SVS		= 1,
+	CPR4_MSM8953_APSS_FUSE_CORNER_NOM		= 2,
+	CPR4_MSM8953_APSS_FUSE_CORNER_TURBO_L1	= 3,
 };
 
-static const char * const cpr4_msmtitanium_apss_fuse_corner_name[] = {
-	[CPR4_MSMTITANIUM_APSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
-	[CPR4_MSMTITANIUM_APSS_FUSE_CORNER_SVS]		= "SVS",
-	[CPR4_MSMTITANIUM_APSS_FUSE_CORNER_NOM]		= "NOM",
-	[CPR4_MSMTITANIUM_APSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
+static const char * const cpr4_msm8953_apss_fuse_corner_name[] = {
+	[CPR4_MSM8953_APSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
+	[CPR4_MSM8953_APSS_FUSE_CORNER_SVS]		= "SVS",
+	[CPR4_MSM8953_APSS_FUSE_CORNER_NOM]		= "NOM",
+	[CPR4_MSM8953_APSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
 };
 
 /*
- * MSMTITANIUM APSS fuse parameter locations:
+ * MSM8953 APSS fuse parameter locations:
  *
  * Structs are organized with the following dimensions:
  *	Outer: 0 to 3 for fuse corners from lowest to highest corner
@@ -104,7 +105,7 @@ static const char * const cpr4_msmtitanium_apss_fuse_corner_name[] = {
  *		a given parameter may correspond to different fuse rows.
  */
 static const struct cpr3_fuse_param
-msmtitanium_apss_ro_sel_param[MSMTITANIUM_APSS_FUSE_CORNERS][2] = {
+msm8953_apss_ro_sel_param[MSM8953_APSS_FUSE_CORNERS][2] = {
 	{{73, 12, 15}, {} },
 	{{73,  8, 11}, {} },
 	{{73,  4,  7}, {} },
@@ -112,7 +113,7 @@ msmtitanium_apss_ro_sel_param[MSMTITANIUM_APSS_FUSE_CORNERS][2] = {
 };
 
 static const struct cpr3_fuse_param
-msmtitanium_apss_init_voltage_param[MSMTITANIUM_APSS_FUSE_CORNERS][2] = {
+msm8953_apss_init_voltage_param[MSM8953_APSS_FUSE_CORNERS][2] = {
 	{{71, 24, 29}, {} },
 	{{71, 18, 23}, {} },
 	{{71, 12, 17}, {} },
@@ -120,7 +121,7 @@ msmtitanium_apss_init_voltage_param[MSMTITANIUM_APSS_FUSE_CORNERS][2] = {
 };
 
 static const struct cpr3_fuse_param
-msmtitanium_apss_target_quot_param[MSMTITANIUM_APSS_FUSE_CORNERS][2] = {
+msm8953_apss_target_quot_param[MSM8953_APSS_FUSE_CORNERS][2] = {
 	{{72, 44, 55}, {} },
 	{{72, 32, 43}, {} },
 	{{72, 20, 31}, {} },
@@ -128,65 +129,76 @@ msmtitanium_apss_target_quot_param[MSMTITANIUM_APSS_FUSE_CORNERS][2] = {
 };
 
 static const struct cpr3_fuse_param
-msmtitanium_apss_quot_offset_param[MSMTITANIUM_APSS_FUSE_CORNERS][2] = {
+msm8953_apss_quot_offset_param[MSM8953_APSS_FUSE_CORNERS][2] = {
 	{{} },
 	{{71, 46, 52}, {} },
 	{{71, 39, 45}, {} },
 	{{71, 32, 38}, {} },
 };
 
-static const struct cpr3_fuse_param msmtitanium_cpr_fusing_rev_param[] = {
+static const struct cpr3_fuse_param msm8953_cpr_fusing_rev_param[] = {
 	{71, 53, 55},
 	{},
 };
 
-static const struct cpr3_fuse_param msmtitanium_apss_speed_bin_param[] = {
+static const struct cpr3_fuse_param msm8953_apss_speed_bin_param[] = {
 	{36, 40, 42},
 	{},
 };
 
-static const struct cpr3_fuse_param msmtitanium_cpr_boost_fuse_cfg_param[] = {
+static const struct cpr3_fuse_param msm8953_cpr_boost_fuse_cfg_param[] = {
 	{36, 43, 45},
 	{},
 };
 
-static const struct cpr3_fuse_param msmtitanium_apss_boost_fuse_volt_param[] = {
+static const struct cpr3_fuse_param msm8953_apss_boost_fuse_volt_param[] = {
 	{71, 0, 5},
 	{},
 };
 
+static const struct cpr3_fuse_param msm8953_misc_fuse_volt_adj_param[] = {
+	{36, 54, 54},
+	{},
+};
+
 /*
- * Open loop voltage fuse reference voltages in microvolts for MSMTITANIUM
+ * The number of possible values for misc fuse is
+ * 2^(#bits defined for misc fuse)
  */
-static const int msmtitanium_apss_fuse_ref_volt
-	[MSMTITANIUM_APSS_FUSE_CORNERS] = {
+#define MSM8953_MISC_FUSE_VAL_COUNT		BIT(1)
+
+/*
+ * Open loop voltage fuse reference voltages in microvolts for MSM8953
+ */
+static const int msm8953_apss_fuse_ref_volt
+	[MSM8953_APSS_FUSE_CORNERS] = {
 	645000,
 	720000,
 	865000,
 	1065000,
 };
 
-#define MSMTITANIUM_APSS_FUSE_STEP_VOLT		10000
-#define MSMTITANIUM_APSS_VOLTAGE_FUSE_SIZE	6
-#define MSMTITANIUM_APSS_QUOT_OFFSET_SCALE	5
+#define MSM8953_APSS_FUSE_STEP_VOLT		10000
+#define MSM8953_APSS_VOLTAGE_FUSE_SIZE	6
+#define MSM8953_APSS_QUOT_OFFSET_SCALE	5
 
-#define MSMTITANIUM_APSS_CPR_SENSOR_COUNT	13
+#define MSM8953_APSS_CPR_SENSOR_COUNT	13
 
-#define MSMTITANIUM_APSS_CPR_CLOCK_RATE		19200000
+#define MSM8953_APSS_CPR_CLOCK_RATE		19200000
 
-#define MSMTITANIUM_APSS_MAX_TEMP_POINTS	3
-#define MSMTITANIUM_APSS_TEMP_SENSOR_ID_START	4
-#define MSMTITANIUM_APSS_TEMP_SENSOR_ID_END	13
+#define MSM8953_APSS_MAX_TEMP_POINTS	3
+#define MSM8953_APSS_TEMP_SENSOR_ID_START	4
+#define MSM8953_APSS_TEMP_SENSOR_ID_END	13
 /*
  * Boost voltage fuse reference and ceiling voltages in microvolts for
- * MSMTITANIUM.
+ * MSM8953.
  */
-#define MSMTITANIUM_APSS_BOOST_FUSE_REF_VOLT	1140000
-#define MSMTITANIUM_APSS_BOOST_CEILING_VOLT	1140000
-#define MSMTITANIUM_APSS_BOOST_FLOOR_VOLT	900000
+#define MSM8953_APSS_BOOST_FUSE_REF_VOLT	1140000
+#define MSM8953_APSS_BOOST_CEILING_VOLT	1140000
+#define MSM8953_APSS_BOOST_FLOOR_VOLT	900000
 #define MAX_BOOST_CONFIG_FUSE_VALUE		8
 
-#define MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT	15
+#define MSM8953_APSS_CPR_SDELTA_CORE_COUNT	15
 
 /*
  * Array of integer values mapped to each of the boost config fuse values to
@@ -195,26 +207,26 @@ static const int msmtitanium_apss_fuse_ref_volt
 static bool boost_fuse[MAX_BOOST_CONFIG_FUSE_VALUE] = {0, 1, 1, 1, 1, 1, 1, 1};
 
 /**
- * cpr4_msmtitanium_apss_read_fuse_data() - load APSS specific fuse parameter values
+ * cpr4_msm8953_apss_read_fuse_data() - load APSS specific fuse parameter values
  * @vreg:		Pointer to the CPR3 regulator
  *
- * This function allocates a cpr4_msmtitanium_apss_fuses struct, fills it with
+ * This function allocates a cpr4_msm8953_apss_fuses struct, fills it with
  * values read out of hardware fuses, and finally copies common fuse values
  * into the CPR3 regulator struct.
  *
  * Return: 0 on success, errno on failure
  */
-static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
+static int cpr4_msm8953_apss_read_fuse_data(struct cpr3_regulator *vreg)
 {
 	void __iomem *base = vreg->thread->ctrl->fuse_base;
-	struct cpr4_msmtitanium_apss_fuses *fuse;
+	struct cpr4_msm8953_apss_fuses *fuse;
 	int i, rc;
 
 	fuse = devm_kzalloc(vreg->thread->ctrl->dev, sizeof(*fuse), GFP_KERNEL);
 	if (!fuse)
 		return -ENOMEM;
 
-	rc = cpr3_read_fuse_param(base, msmtitanium_apss_speed_bin_param,
+	rc = cpr3_read_fuse_param(base, msm8953_apss_speed_bin_param,
 				&fuse->speed_bin);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read speed bin fuse, rc=%d\n", rc);
@@ -222,7 +234,7 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 	cpr3_info(vreg, "speed bin = %llu\n", fuse->speed_bin);
 
-	rc = cpr3_read_fuse_param(base, msmtitanium_cpr_fusing_rev_param,
+	rc = cpr3_read_fuse_param(base, msm8953_cpr_fusing_rev_param,
 				&fuse->cpr_fusing_rev);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read CPR fusing revision fuse, rc=%d\n",
@@ -231,9 +243,23 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 	cpr3_info(vreg, "CPR fusing revision = %llu\n", fuse->cpr_fusing_rev);
 
-	for (i = 0; i < MSMTITANIUM_APSS_FUSE_CORNERS; i++) {
+	rc = cpr3_read_fuse_param(base, msm8953_misc_fuse_volt_adj_param,
+				&fuse->misc);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read misc voltage adjustment fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+	cpr3_info(vreg, "CPR misc fuse value = %llu\n", fuse->misc);
+	if (fuse->misc >= MSM8953_MISC_FUSE_VAL_COUNT) {
+		cpr3_err(vreg, "CPR misc fuse value = %llu, should be < %lu\n",
+			fuse->misc, MSM8953_MISC_FUSE_VAL_COUNT);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < MSM8953_APSS_FUSE_CORNERS; i++) {
 		rc = cpr3_read_fuse_param(base,
-				msmtitanium_apss_init_voltage_param[i],
+				msm8953_apss_init_voltage_param[i],
 				&fuse->init_voltage[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d initial voltage fuse, rc=%d\n",
@@ -242,7 +268,7 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 		rc = cpr3_read_fuse_param(base,
-				msmtitanium_apss_target_quot_param[i],
+				msm8953_apss_target_quot_param[i],
 				&fuse->target_quot[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d target quotient fuse, rc=%d\n",
@@ -251,7 +277,7 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 		rc = cpr3_read_fuse_param(base,
-				msmtitanium_apss_ro_sel_param[i],
+				msm8953_apss_ro_sel_param[i],
 				&fuse->ro_sel[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d RO select fuse, rc=%d\n",
@@ -260,7 +286,7 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 
 		rc = cpr3_read_fuse_param(base,
-				msmtitanium_apss_quot_offset_param[i],
+				msm8953_apss_quot_offset_param[i],
 				&fuse->quot_offset[i]);
 		if (rc) {
 			cpr3_err(vreg, "Unable to read fuse-corner %d quotient offset fuse, rc=%d\n",
@@ -269,7 +295,7 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 	}
 
-	rc = cpr3_read_fuse_param(base, msmtitanium_cpr_boost_fuse_cfg_param,
+	rc = cpr3_read_fuse_param(base, msm8953_cpr_boost_fuse_cfg_param,
 				&fuse->boost_cfg);
 	if (rc) {
 		cpr3_err(vreg, "Unable to read CPR boost config fuse, rc=%d\n",
@@ -281,7 +307,7 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 			? "enable" : "disable");
 
 	rc = cpr3_read_fuse_param(base,
-				msmtitanium_apss_boost_fuse_volt_param,
+				msm8953_apss_boost_fuse_volt_param,
 				&fuse->boost_voltage);
 	if (rc) {
 		cpr3_err(vreg, "failed to read boost fuse voltage, rc=%d\n",
@@ -290,7 +316,7 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 	}
 
 	vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
-	if (vreg->fuse_combo >= CPR4_MSMTITANIUM_APSS_FUSE_COMBO_COUNT) {
+	if (vreg->fuse_combo >= CPR4_MSM8953_APSS_FUSE_COMBO_COUNT) {
 		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
 			vreg->fuse_combo);
 		return -EINVAL;
@@ -298,7 +324,7 @@ static int cpr4_msmtitanium_apss_read_fuse_data(struct cpr3_regulator *vreg)
 
 	vreg->speed_bin_fuse	= fuse->speed_bin;
 	vreg->cpr_rev_fuse	= fuse->cpr_fusing_rev;
-	vreg->fuse_corner_count	= MSMTITANIUM_APSS_FUSE_CORNERS;
+	vreg->fuse_corner_count	= MSM8953_APSS_FUSE_CORNERS;
 	vreg->platform_fuses	= fuse;
 
 	return 0;
@@ -325,7 +351,79 @@ static int cpr4_apss_parse_corner_data(struct cpr3_regulator *vreg)
 }
 
 /**
- * cpr4_msmtitanium_apss_calculate_open_loop_voltages() - calculate the open-loop
+ * cpr4_apss_parse_misc_fuse_voltage_adjustments() - fill an array from a
+ *		portion of the voltage adjustments specified based on
+ *		miscellaneous fuse bits.
+ * @vreg:		Pointer to the CPR3 regulator
+ * @volt_adjust:	Voltage adjustment output data array which must be
+ *			of size vreg->corner_count
+ *
+ * cpr3_parse_common_corner_data() must be called for vreg before this function
+ * is called so that speed bin size elements are initialized.
+ *
+ * Two formats are supported for the device tree property:
+ * 1. Length == tuple_list_size * vreg->corner_count
+ *	(reading begins at index 0)
+ * 2. Length == tuple_list_size * vreg->speed_bin_corner_sum
+ *	(reading begins at index tuple_list_size * vreg->speed_bin_offset)
+ *
+ * Here, tuple_list_size is the number of possible values for misc fuse.
+ * All other property lengths are treated as errors.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_apss_parse_misc_fuse_voltage_adjustments(
+	struct cpr3_regulator *vreg, u32 *volt_adjust)
+{
+	struct device_node *node = vreg->of_node;
+	struct cpr4_msm8953_apss_fuses *fuse = vreg->platform_fuses;
+	int tuple_list_size = MSM8953_MISC_FUSE_VAL_COUNT;
+	int i, offset, rc, len = 0;
+	const char *prop_name = "qcom,cpr-misc-fuse-voltage-adjustment";
+
+	if (!of_find_property(node, prop_name, &len)) {
+		cpr3_err(vreg, "property %s is missing\n", prop_name);
+		return -EINVAL;
+	}
+
+	if (len == tuple_list_size * vreg->corner_count * sizeof(u32)) {
+		offset = 0;
+	} else if (vreg->speed_bin_corner_sum > 0 &&
+			len == tuple_list_size * vreg->speed_bin_corner_sum
+			* sizeof(u32)) {
+		offset = tuple_list_size * vreg->speed_bin_offset
+			+ fuse->misc * vreg->corner_count;
+	} else {
+		if (vreg->speed_bin_corner_sum > 0)
+			cpr3_err(vreg, "property %s has invalid length=%d, should be %zu or %zu\n",
+				prop_name, len,
+				tuple_list_size * vreg->corner_count
+					* sizeof(u32),
+				tuple_list_size * vreg->speed_bin_corner_sum
+					* sizeof(u32));
+		else
+			cpr3_err(vreg, "property %s has invalid length=%d, should be %zu\n",
+				prop_name, len,
+				tuple_list_size * vreg->corner_count
+				* sizeof(u32));
+		return -EINVAL;
+	}
+
+	for (i = 0; i < vreg->corner_count; i++) {
+		rc = of_property_read_u32_index(node, prop_name, offset + i,
+						&volt_adjust[i]);
+		if (rc) {
+			cpr3_err(vreg, "error reading property %s, rc=%d\n",
+				prop_name, rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * cpr4_msm8953_apss_calculate_open_loop_voltages() - calculate the open-loop
  *		voltage for each corner of a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
  *
@@ -341,15 +439,15 @@ static int cpr4_apss_parse_corner_data(struct cpr3_regulator *vreg)
  *
  * Return: 0 on success, errno on failure
  */
-static int cpr4_msmtitanium_apss_calculate_open_loop_voltages(
+static int cpr4_msm8953_apss_calculate_open_loop_voltages(
 			struct cpr3_regulator *vreg)
 {
 	struct device_node *node = vreg->of_node;
-	struct cpr4_msmtitanium_apss_fuses *fuse = vreg->platform_fuses;
+	struct cpr4_msm8953_apss_fuses *fuse = vreg->platform_fuses;
 	int i, j, rc = 0;
 	bool allow_interpolation;
 	u64 freq_low, volt_low, freq_high, volt_high;
-	int *fuse_volt;
+	int *fuse_volt, *misc_adj_volt;
 	int *fmax_corner;
 
 	fuse_volt = kcalloc(vreg->fuse_corner_count, sizeof(*fuse_volt),
@@ -363,13 +461,13 @@ static int cpr4_msmtitanium_apss_calculate_open_loop_voltages(
 
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(
-			msmtitanium_apss_fuse_ref_volt[i],
-			MSMTITANIUM_APSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
-			MSMTITANIUM_APSS_VOLTAGE_FUSE_SIZE);
+			msm8953_apss_fuse_ref_volt[i],
+			MSM8953_APSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
+			MSM8953_APSS_VOLTAGE_FUSE_SIZE);
 
 		/* Log fused open-loop voltage values for debugging purposes. */
 		cpr3_info(vreg, "fused %8s: open-loop=%7d uV\n",
-			  cpr4_msmtitanium_apss_fuse_corner_name[i],
+			  cpr4_msm8953_apss_fuse_corner_name[i],
 			  fuse_volt[i]);
 	}
 
@@ -445,15 +543,41 @@ done:
 		if (rc)
 			cpr3_err(vreg, "open-loop voltage adjustment failed, rc=%d\n",
 				rc);
+
+		if (of_find_property(node,
+			"qcom,cpr-misc-fuse-voltage-adjustment",
+			NULL)) {
+			misc_adj_volt = kcalloc(vreg->corner_count,
+					sizeof(*misc_adj_volt), GFP_KERNEL);
+			if (!misc_adj_volt) {
+				rc = -ENOMEM;
+				goto _exit;
+			}
+
+			rc = cpr4_apss_parse_misc_fuse_voltage_adjustments(vreg,
+				misc_adj_volt);
+			if (rc) {
+				cpr3_err(vreg, "qcom,cpr-misc-fuse-voltage-adjustment reading failed, rc=%d\n",
+					rc);
+				kfree(misc_adj_volt);
+				goto _exit;
+			}
+
+			for (i = 0; i < vreg->corner_count; i++)
+				vreg->corner[i].open_loop_volt
+						+= misc_adj_volt[i];
+			kfree(misc_adj_volt);
+		}
 	}
 
+_exit:
 	kfree(fuse_volt);
 	kfree(fmax_corner);
 	return rc;
 }
 
 /**
- * cpr4_msmtitanium_apss_set_no_interpolation_quotients() - use the fused target
+ * cpr4_msm8953_apss_set_no_interpolation_quotients() - use the fused target
  *		quotient values for lower frequencies.
  * @vreg:		Pointer to the CPR3 regulator
  * @volt_adjust:	Pointer to array of per-corner closed-loop adjustment
@@ -465,11 +589,11 @@ done:
  *
  * Return: 0 on success, errno on failure
  */
-static int cpr4_msmtitanium_apss_set_no_interpolation_quotients(
+static int cpr4_msm8953_apss_set_no_interpolation_quotients(
 			struct cpr3_regulator *vreg, int *volt_adjust,
 			int *volt_adjust_fuse, int *ro_scale)
 {
-	struct cpr4_msmtitanium_apss_fuses *fuse = vreg->platform_fuses;
+	struct cpr4_msm8953_apss_fuses *fuse = vreg->platform_fuses;
 	u32 quot, ro;
 	int quot_adjust;
 	int i, fuse_corner;
@@ -496,7 +620,7 @@ static int cpr4_msmtitanium_apss_set_no_interpolation_quotients(
 }
 
 /**
- * cpr4_msmtitanium_apss_calculate_target_quotients() - calculate the CPR target
+ * cpr4_msm8953_apss_calculate_target_quotients() - calculate the CPR target
  *		quotient for each corner of a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
  *
@@ -512,10 +636,10 @@ static int cpr4_msmtitanium_apss_set_no_interpolation_quotients(
  *
  * Return: 0 on success, errno on failure
  */
-static int cpr4_msmtitanium_apss_calculate_target_quotients(
+static int cpr4_msm8953_apss_calculate_target_quotients(
 			struct cpr3_regulator *vreg)
 {
-	struct cpr4_msmtitanium_apss_fuses *fuse = vreg->platform_fuses;
+	struct cpr4_msm8953_apss_fuses *fuse = vreg->platform_fuses;
 	int rc;
 	bool allow_interpolation;
 	u64 freq_low, freq_high, prev_quot;
@@ -525,18 +649,19 @@ static int cpr4_msmtitanium_apss_calculate_target_quotients(
 	int i, j, fuse_corner, quot_adjust;
 	int *fmax_corner;
 	int *volt_adjust, *volt_adjust_fuse, *ro_scale;
+	int *voltage_adj_misc;
 
 	/* Log fused quotient values for debugging purposes. */
 	cpr3_info(vreg, "fused   LowSVS: quot[%2llu]=%4llu\n",
-		fuse->ro_sel[CPR4_MSMTITANIUM_APSS_FUSE_CORNER_LOWSVS],
-		fuse->target_quot[CPR4_MSMTITANIUM_APSS_FUSE_CORNER_LOWSVS]);
-	for (i = CPR4_MSMTITANIUM_APSS_FUSE_CORNER_SVS;
-		i <= CPR4_MSMTITANIUM_APSS_FUSE_CORNER_TURBO_L1; i++)
+		fuse->ro_sel[CPR4_MSM8953_APSS_FUSE_CORNER_LOWSVS],
+		fuse->target_quot[CPR4_MSM8953_APSS_FUSE_CORNER_LOWSVS]);
+	for (i = CPR4_MSM8953_APSS_FUSE_CORNER_SVS;
+		i <= CPR4_MSM8953_APSS_FUSE_CORNER_TURBO_L1; i++)
 		cpr3_info(vreg, "fused %8s: quot[%2llu]=%4llu, quot_offset[%2llu]=%4llu\n",
-			cpr4_msmtitanium_apss_fuse_corner_name[i],
+			cpr4_msm8953_apss_fuse_corner_name[i],
 			fuse->ro_sel[i], fuse->target_quot[i],
 			fuse->ro_sel[i], fuse->quot_offset[i] *
-			MSMTITANIUM_APSS_QUOT_OFFSET_SCALE);
+			MSM8953_APSS_QUOT_OFFSET_SCALE);
 
 	allow_interpolation = of_property_read_bool(vreg->of_node,
 					"qcom,allow-quotient-interpolation");
@@ -567,9 +692,33 @@ static int cpr4_msmtitanium_apss_calculate_target_quotients(
 		goto done;
 	}
 
+	if (of_find_property(vreg->of_node,
+		"qcom,cpr-misc-fuse-voltage-adjustment", NULL)) {
+		voltage_adj_misc = kcalloc(vreg->corner_count,
+				sizeof(*voltage_adj_misc), GFP_KERNEL);
+		if (!voltage_adj_misc) {
+			rc = -ENOMEM;
+			goto done;
+		}
+
+		rc = cpr4_apss_parse_misc_fuse_voltage_adjustments(vreg,
+			voltage_adj_misc);
+		if (rc) {
+			cpr3_err(vreg, "qcom,cpr-misc-fuse-voltage-adjustment reading failed, rc=%d\n",
+				rc);
+			kfree(voltage_adj_misc);
+			goto done;
+		}
+
+		for (i = 0; i < vreg->corner_count; i++)
+			volt_adjust[i] += voltage_adj_misc[i];
+
+		kfree(voltage_adj_misc);
+	}
+
 	if (!allow_interpolation) {
 		/* Use fused target quotients for lower frequencies. */
-		return cpr4_msmtitanium_apss_set_no_interpolation_quotients(
+		return cpr4_msm8953_apss_set_no_interpolation_quotients(
 				vreg, volt_adjust, volt_adjust_fuse, ro_scale);
 	}
 
@@ -591,7 +740,7 @@ static int cpr4_msmtitanium_apss_calculate_target_quotients(
 	 * Interpolation is not possible for corners mapped to the lowest fuse
 	 * corner so use the fuse corner value directly.
 	 */
-	i = CPR4_MSMTITANIUM_APSS_FUSE_CORNER_LOWSVS;
+	i = CPR4_MSM8953_APSS_FUSE_CORNER_LOWSVS;
 	quot_adjust = cpr3_quot_adjustment(ro_scale[i], volt_adjust_fuse[i]);
 	quot = fuse->target_quot[i] + quot_adjust;
 	quot_high[i] = quot_low[i] = quot;
@@ -600,11 +749,11 @@ static int cpr4_msmtitanium_apss_calculate_target_quotients(
 		cpr3_debug(vreg, "adjusted fuse corner %d RO%u target quot: %llu --> %u (%d uV)\n",
 			i, ro, fuse->target_quot[i], quot, volt_adjust_fuse[i]);
 
-	for (i = 0; i <= fmax_corner[CPR4_MSMTITANIUM_APSS_FUSE_CORNER_LOWSVS];
+	for (i = 0; i <= fmax_corner[CPR4_MSM8953_APSS_FUSE_CORNER_LOWSVS];
 		i++)
 		vreg->corner[i].target_quot[ro] = quot;
 
-	for (i = CPR4_MSMTITANIUM_APSS_FUSE_CORNER_SVS;
+	for (i = CPR4_MSM8953_APSS_FUSE_CORNER_SVS;
 	     i < vreg->fuse_corner_count; i++) {
 		quot_high[i] = fuse->target_quot[i];
 		if (fuse->ro_sel[i] == fuse->ro_sel[i - 1])
@@ -612,7 +761,7 @@ static int cpr4_msmtitanium_apss_calculate_target_quotients(
 		else
 			quot_low[i] = quot_high[i]
 					- fuse->quot_offset[i]
-					  * MSMTITANIUM_APSS_QUOT_OFFSET_SCALE;
+					  * MSM8953_APSS_QUOT_OFFSET_SCALE;
 		if (quot_high[i] < quot_low[i]) {
 			cpr3_debug(vreg, "quot_high[%d]=%llu < quot_low[%d]=%llu; overriding: quot_high[%d]=%llu\n",
 				i, quot_high[i], i, quot_low[i],
@@ -770,9 +919,9 @@ static int cpr4_apss_parse_temp_adj_properties(struct cpr3_controller *ctrl)
 
 	temp_point_count = len / sizeof(u32);
 	if (temp_point_count <= 0
-		|| temp_point_count > MSMTITANIUM_APSS_MAX_TEMP_POINTS) {
+		|| temp_point_count > MSM8953_APSS_MAX_TEMP_POINTS) {
 		cpr3_err(ctrl, "invalid number of temperature points %d > %d (max)\n",
-			 temp_point_count, MSMTITANIUM_APSS_MAX_TEMP_POINTS);
+			 temp_point_count, MSM8953_APSS_MAX_TEMP_POINTS);
 		return -EINVAL;
 	}
 
@@ -814,191 +963,9 @@ static int cpr4_apss_parse_temp_adj_properties(struct cpr3_controller *ctrl)
 		return -EINVAL;
 	}
 
-	ctrl->temp_sensor_id_start = MSMTITANIUM_APSS_TEMP_SENSOR_ID_START;
-	ctrl->temp_sensor_id_end = MSMTITANIUM_APSS_TEMP_SENSOR_ID_END;
+	ctrl->temp_sensor_id_start = MSM8953_APSS_TEMP_SENSOR_ID_START;
+	ctrl->temp_sensor_id_end = MSM8953_APSS_TEMP_SENSOR_ID_END;
 	ctrl->allow_temp_adj = true;
-	return rc;
-}
-
-/**
- * cpr4_load_corner_core_and_temp_adj() - parse amount of voltage adjustment for
- *		per-online-core and per-temperature voltage adjustment for a
- *		given corner from device tree.
- * @vreg:	Pointer to the CPR3 regulator
- *
- * Return: 0 on success, errno on failure
- */
-static int cpr4_load_corner_core_and_temp_adj(struct cpr3_regulator *vreg,
-					int corner_num)
-{
-	struct cpr3_controller *ctrl = vreg->thread->ctrl;
-	struct cpr3_corner *corner = &vreg->corner[corner_num];
-	struct cpr4_sdelta *sdelta = corner->sdelta;
-	int sdelta_size, i, rc = 0;
-	char prop_str[60];
-
-	if (!sdelta->allow_core_count_adj && !sdelta->allow_temp_adj) {
-		/* corner doesn't need sdelta table */
-		sdelta->max_core_count = 0;
-		sdelta->temp_band_count = 0;
-		return rc;
-	}
-
-	sdelta_size = sdelta->max_core_count * sdelta->temp_band_count;
-	cpr3_debug(vreg, "corner=%d core_config_count=%d temp_band_count=%d sdelta_size=%d\n",
-			corner_num, sdelta->max_core_count,
-			sdelta->temp_band_count, sdelta_size);
-
-	sdelta->table = devm_kcalloc(ctrl->dev, sdelta_size,
-				sizeof(*sdelta->table), GFP_KERNEL);
-	if (!sdelta->table)
-		return -ENOMEM;
-
-	snprintf(prop_str, sizeof(prop_str),
-		"qcom,cpr-corner%d-temp-core-voltage-adjustment",
-		corner_num + CPR3_CORNER_OFFSET);
-
-	rc = cpr3_parse_array_property(vreg, prop_str, sdelta_size,
-				sdelta->table);
-	if (rc) {
-		cpr3_err(vreg, "could not load %s, rc=%d\n", prop_str, rc);
-		return rc;
-	}
-
-	/*
-	 * Convert sdelta margins from uV to PMIC steps and apply negation to
-	 * follow the SDELTA register semantics.
-	 */
-	for (i = 0; i < sdelta_size; i++)
-		sdelta->table[i] = -(sdelta->table[i] / ctrl->step_volt);
-
-	return rc;
-}
-
-/**
- * cpr4_apss_parse_core_count_temp_voltage_adj() - parse configuration data for
- *		per-online-core and per-temperature voltage adjustment for CPR3
- *		regulator from device tree.
- * @vreg:	Pointer to the CPR3 regulator
- *
- * Return: 0 on success, errno on failure
- */
-static int cpr4_apss_parse_core_count_temp_voltage_adj(
-			struct cpr3_regulator *vreg)
-{
-	struct cpr3_controller *ctrl = vreg->thread->ctrl;
-	struct device_node *node = vreg->of_node;
-	struct cpr3_corner *corner;
-	struct cpr4_sdelta *sdelta;
-	int i, rc = 0;
-	int *allow_core_count_adj = NULL, *allow_temp_adj = NULL;
-
-	if (of_find_property(node, "qcom,corner-allow-temp-adjustment", NULL)) {
-		if (!ctrl->allow_temp_adj) {
-			cpr3_err(ctrl, "Temperature adjustment configurations missing\n");
-			return -EINVAL;
-		}
-
-		vreg->allow_temp_adj = true;
-	}
-
-	if (of_find_property(node, "qcom,corner-allow-core-count-adjustment",
-				NULL)) {
-		rc = of_property_read_u32(node, "qcom,max-core-count",
-				&vreg->max_core_count);
-		if (rc) {
-			cpr3_err(vreg, "error reading qcom,max-num-cpus, rc=%d\n",
-				rc);
-			return -EINVAL;
-		}
-
-		if (vreg->max_core_count <= 0 || vreg->max_core_count
-				> MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT) {
-			cpr3_err(vreg, "qcom,max-core-count has invalid value = %d\n",
-				vreg->max_core_count);
-			return -EINVAL;
-		}
-
-		vreg->allow_core_count_adj = true;
-		ctrl->allow_core_count_adj = true;
-	}
-
-	if (!vreg->allow_temp_adj && !vreg->allow_core_count_adj) {
-		/*
-		 * Both per-online-core and temperature based adjustments are
-		 * disabled for this regualtor.
-		 */
-		return 0;
-	} else if (!vreg->allow_core_count_adj) {
-		/*
-		 * Only per-temperature voltage adjusments are allowed.
-		 * Keep max core count value as 1 to allocate SDELTA.
-		 */
-		vreg->max_core_count = 1;
-	}
-
-	if (vreg->allow_core_count_adj) {
-		allow_core_count_adj = kcalloc(vreg->corner_count,
-					sizeof(*allow_core_count_adj),
-					GFP_KERNEL);
-		if (!allow_core_count_adj)
-			return -ENOMEM;
-
-		rc = cpr3_parse_corner_array_property(vreg,
-				"qcom,corner-allow-core-count-adjustment",
-				1, allow_core_count_adj);
-		if (rc) {
-			cpr3_err(vreg, "qcom,corner-allow-core-count-adjustment reading failed, rc=%d\n",
-				rc);
-			goto done;
-		}
-	}
-
-	if (vreg->allow_temp_adj) {
-		allow_temp_adj = kcalloc(vreg->corner_count,
-					sizeof(*allow_temp_adj), GFP_KERNEL);
-		if (!allow_temp_adj) {
-			rc = -ENOMEM;
-			goto done;
-		}
-
-		rc = cpr3_parse_corner_array_property(vreg,
-					"qcom,corner-allow-temp-adjustment",
-					1, allow_temp_adj);
-		if (rc) {
-			cpr3_err(vreg, "qcom,corner-allow-temp-adjustment reading failed, rc=%d\n",
-				rc);
-			goto done;
-		}
-	}
-
-	for (i = 0; i < vreg->corner_count; i++) {
-		corner = &vreg->corner[i];
-		sdelta = devm_kzalloc(ctrl->dev, sizeof(*corner->sdelta),
-					GFP_KERNEL);
-		if (!sdelta) {
-			rc = -ENOMEM;
-			goto done;
-		}
-
-		if (allow_core_count_adj)
-			sdelta->allow_core_count_adj = allow_core_count_adj[i];
-		if (allow_temp_adj)
-			sdelta->allow_temp_adj = allow_temp_adj[i];
-		sdelta->max_core_count = vreg->max_core_count;
-		sdelta->temp_band_count = ctrl->temp_band_count;
-		corner->sdelta = sdelta;
-		rc = cpr4_load_corner_core_and_temp_adj(vreg, i);
-		if (rc) {
-			cpr3_err(vreg, "corner %d core and temp adjustment loading failed: rc=%d\n",
-				i, rc);
-			goto done;
-		}
-	}
-
-done:
-	kfree(allow_core_count_adj);
-	kfree(allow_temp_adj);
 	return rc;
 }
 
@@ -1012,7 +979,7 @@ done:
 static int cpr4_apss_parse_boost_properties(struct cpr3_regulator *vreg)
 {
 	struct cpr3_controller *ctrl = vreg->thread->ctrl;
-	struct cpr4_msmtitanium_apss_fuses *fuse = vreg->platform_fuses;
+	struct cpr4_msm8953_apss_fuses *fuse = vreg->platform_fuses;
 	struct cpr3_corner *corner;
 	int i, boost_voltage, final_boost_volt, rc = 0;
 	int *boost_table = NULL, *boost_temp_adj = NULL;
@@ -1036,10 +1003,10 @@ static int cpr4_apss_parse_boost_properties(struct cpr3_regulator *vreg)
 	}
 
 	boost_voltage = cpr3_convert_open_loop_voltage_fuse(
-				MSMTITANIUM_APSS_BOOST_FUSE_REF_VOLT,
-				MSMTITANIUM_APSS_FUSE_STEP_VOLT,
+				MSM8953_APSS_BOOST_FUSE_REF_VOLT,
+				MSM8953_APSS_FUSE_STEP_VOLT,
 				fuse->boost_voltage,
-				MSMTITANIUM_APSS_VOLTAGE_FUSE_SIZE);
+				MSM8953_APSS_VOLTAGE_FUSE_SIZE);
 
 	/* Log boost voltage value for debugging purposes. */
 	cpr3_info(vreg, "Boost open-loop=%7d uV\n", boost_voltage);
@@ -1062,8 +1029,8 @@ static int cpr4_apss_parse_boost_properties(struct cpr3_regulator *vreg)
 	}
 
 	/* Limit boost voltage value between ceiling and floor voltage limits */
-	boost_voltage = min(boost_voltage, MSMTITANIUM_APSS_BOOST_CEILING_VOLT);
-	boost_voltage = max(boost_voltage, MSMTITANIUM_APSS_BOOST_FLOOR_VOLT);
+	boost_voltage = min(boost_voltage, MSM8953_APSS_BOOST_CEILING_VOLT);
+	boost_voltage = max(boost_voltage, MSM8953_APSS_BOOST_FLOOR_VOLT);
 
 	/*
 	 * The boost feature can only be used for the highest voltage corner.
@@ -1093,7 +1060,7 @@ static int cpr4_apss_parse_boost_properties(struct cpr3_regulator *vreg)
 	}
 
 	if (boost_num_cores <= 0
-		|| boost_num_cores > MSMTITANIUM_APSS_CPR_SDELTA_CORE_COUNT) {
+		|| boost_num_cores > MSM8953_APSS_CPR_SDELTA_CORE_COUNT) {
 		cpr3_err(vreg, "Invalid boost number of cores = %d\n",
 			boost_num_cores);
 		return -EINVAL;
@@ -1132,9 +1099,9 @@ static int cpr4_apss_parse_boost_properties(struct cpr3_regulator *vreg)
 		 * and floor voltage limits
 		 */
 		final_boost_volt = min(final_boost_volt,
-					MSMTITANIUM_APSS_BOOST_CEILING_VOLT);
+					MSM8953_APSS_BOOST_CEILING_VOLT);
 		final_boost_volt = max(final_boost_volt,
-					MSMTITANIUM_APSS_BOOST_FLOOR_VOLT);
+					MSM8953_APSS_BOOST_FLOOR_VOLT);
 
 		boost_table[i] = (corner->open_loop_volt - final_boost_volt)
 					/ ctrl->step_volt;
@@ -1142,7 +1109,7 @@ static int cpr4_apss_parse_boost_properties(struct cpr3_regulator *vreg)
 			i, boost_table[i]);
 	}
 
-	corner->ceiling_volt = MSMTITANIUM_APSS_BOOST_CEILING_VOLT;
+	corner->ceiling_volt = MSM8953_APSS_BOOST_CEILING_VOLT;
 	corner->sdelta->boost_table = boost_table;
 	corner->sdelta->allow_boost = true;
 	corner->sdelta->allow_core_count_adj = false;
@@ -1162,10 +1129,10 @@ done:
  */
 static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 {
-	struct cpr4_msmtitanium_apss_fuses *fuse;
+	struct cpr4_msm8953_apss_fuses *fuse;
 	int rc;
 
-	rc = cpr4_msmtitanium_apss_read_fuse_data(vreg);
+	rc = cpr4_msm8953_apss_read_fuse_data(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to read CPR fuse data, rc=%d\n", rc);
 		return rc;
@@ -1188,7 +1155,7 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	rc = cpr4_msmtitanium_apss_calculate_open_loop_voltages(vreg);
+	rc = cpr4_msm8953_apss_calculate_open_loop_voltages(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate open-loop voltages, rc=%d\n",
 			rc);
@@ -1210,18 +1177,26 @@ static int cpr4_apss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	rc = cpr4_msmtitanium_apss_calculate_target_quotients(vreg);
+	rc = cpr4_msm8953_apss_calculate_target_quotients(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate target quotients, rc=%d\n",
 			rc);
 		return rc;
 	}
 
-	rc = cpr4_apss_parse_core_count_temp_voltage_adj(vreg);
+	rc = cpr4_parse_core_count_temp_voltage_adj(vreg, false);
 	if (rc) {
 		cpr3_err(vreg, "unable to parse temperature and core count voltage adjustments, rc=%d\n",
 			 rc);
 		return rc;
+	}
+
+	if (vreg->allow_core_count_adj && (vreg->max_core_count <= 0
+				   || vreg->max_core_count >
+				   MSM8953_APSS_CPR_SDELTA_CORE_COUNT)) {
+		cpr3_err(vreg, "qcom,max-core-count has invalid value = %d\n",
+			 vreg->max_core_count);
+		return -EINVAL;
 	}
 
 	rc = cpr4_apss_parse_boost_properties(vreg);
@@ -1312,7 +1287,7 @@ static int cpr4_apss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
-	ctrl->sensor_count = MSMTITANIUM_APSS_CPR_SENSOR_COUNT;
+	ctrl->sensor_count = MSM8953_APSS_CPR_SENSOR_COUNT;
 
 	/*
 	 * APSS only has one thread (0) per controller so the zeroed
@@ -1323,7 +1298,7 @@ static int cpr4_apss_init_controller(struct cpr3_controller *ctrl)
 	if (!ctrl->sensor_owner)
 		return -ENOMEM;
 
-	ctrl->cpr_clock_rate = MSMTITANIUM_APSS_CPR_CLOCK_RATE;
+	ctrl->cpr_clock_rate = MSM8953_APSS_CPR_CLOCK_RATE;
 	ctrl->ctrl_type = CPR_CTRL_TYPE_CPR4;
 	ctrl->supports_hw_closed_loop = true;
 	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
@@ -1428,7 +1403,7 @@ static int cpr4_apss_regulator_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id cpr4_regulator_match_table[] = {
-	{ .compatible = "qcom,cpr4-msmtitanium-apss-regulator", },
+	{ .compatible = "qcom,cpr4-msm8953-apss-regulator", },
 	{}
 };
 

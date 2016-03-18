@@ -236,17 +236,6 @@ struct ipa_api_controller {
 
 	bool (*ipa_get_client_uplink)(int pipe_idx);
 
-	int (*odu_bridge_init)(struct odu_bridge_params *params);
-
-	int (*odu_bridge_connect)(void);
-
-	int (*odu_bridge_disconnect)(void);
-
-	int (*odu_bridge_tx_dp)(struct sk_buff *skb,
-		struct ipa_tx_meta *metadata);
-
-	int (*odu_bridge_cleanup)(void);
-
 	int (*ipa_dma_init)(void);
 
 	int (*ipa_dma_enable)(void);
@@ -332,29 +321,6 @@ struct ipa_api_controller {
 		struct ipa_wdi_buffer_info *info);
 
 	struct ipa_gsi_ep_config *(*ipa_get_gsi_ep_info)(int ipa_ep_idx);
-
-	int (*ipa_usb_init_teth_prot)(enum ipa_usb_teth_prot teth_prot,
-		struct ipa_usb_teth_params *teth_params,
-		int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void*),
-		void *user_data);
-
-	int (*ipa_usb_xdci_connect)(
-		struct ipa_usb_xdci_chan_params *ul_chan_params,
-		struct ipa_usb_xdci_chan_params *dl_chan_params,
-		struct ipa_req_chan_out_params *ul_out_params,
-		struct ipa_req_chan_out_params *dl_out_params,
-		struct ipa_usb_xdci_connect_params *connect_params);
-
-	int (*ipa_usb_xdci_disconnect)(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-		enum ipa_usb_teth_prot teth_prot);
-
-	int (*ipa_usb_deinit_teth_prot)(enum ipa_usb_teth_prot teth_prot);
-
-	int (*ipa_usb_xdci_suspend)(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-		enum ipa_usb_teth_prot teth_prot);
-
-	int (*ipa_usb_xdci_resume)(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-		enum ipa_usb_teth_prot teth_prot);
 
 	int (*ipa_register_ipa_ready_cb)(void (*ipa_ready_cb)(void *user_data),
 		void *user_data);

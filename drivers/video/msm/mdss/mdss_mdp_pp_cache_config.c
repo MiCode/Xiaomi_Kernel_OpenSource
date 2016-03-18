@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -340,6 +340,12 @@ int pp_dither_cache_params_v1_7(struct mdp_dither_cfg_data *config,
 			goto dither_config_exit;
 		}
 		memcpy(v17_cache_data, &v17_usr_config, sizeof(v17_usr_config));
+	}
+	if (v17_cache_data->len &&
+		v17_cache_data->len != MDP_DITHER_DATA_V1_7_SZ) {
+		pr_err("invalid dither len %d expected %d\n",
+			   v17_cache_data->len, MDP_DITHER_DATA_V1_7_SZ);
+		ret = -EINVAL;
 	}
 
 dither_config_exit:

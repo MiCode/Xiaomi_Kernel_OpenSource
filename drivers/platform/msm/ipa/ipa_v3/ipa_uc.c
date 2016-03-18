@@ -79,47 +79,6 @@ enum ipa3_hw_2_cpu_responses {
 };
 
 /**
- * enum ipa3_hw_2_cpu_events - Values that represent HW event to be sent to CPU.
- * @IPA_HW_2_CPU_EVENT_ERROR : Event specify a system error is detected by the
- * device
- * @IPA_HW_2_CPU_EVENT_LOG_INFO : Event providing logging specific information
- */
-enum ipa3_hw_2_cpu_events {
-	IPA_HW_2_CPU_EVENT_ERROR     =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
-	IPA_HW_2_CPU_EVENT_LOG_INFO  =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
-};
-
-/**
- * enum ipa3_hw_errors - Common error types.
- * @IPA_HW_ERROR_NONE : No error persists
- * @IPA_HW_INVALID_DOORBELL_ERROR : Invalid data read from doorbell
- * @IPA_HW_DMA_ERROR : Unexpected DMA error
- * @IPA_HW_FATAL_SYSTEM_ERROR : HW has crashed and requires reset.
- * @IPA_HW_INVALID_OPCODE : Invalid opcode sent
- * @IPA_HW_ZIP_ENGINE_ERROR : ZIP engine error
- */
-enum ipa3_hw_errors {
-	IPA_HW_ERROR_NONE              =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 0),
-	IPA_HW_INVALID_DOORBELL_ERROR  =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
-	IPA_HW_DMA_ERROR               =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
-	IPA_HW_FATAL_SYSTEM_ERROR      =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 3),
-	IPA_HW_INVALID_OPCODE          =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4),
-	IPA_HW_ZIP_ENGINE_ERROR        =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5),
-	IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 6),
-	IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7)
-};
-
-/**
  * struct IpaHwResetPipeCmdData_t - Structure holding the parameters
  * for IPA_CPU_2_HW_CMD_MEMCPY command.
  *
@@ -181,20 +140,6 @@ union IpaHwCpuCmdCompletedResponseData_t {
 } __packed;
 
 /**
- * union IpaHwErrorEventData_t - HW->CPU Common Events
- * @errorType : Entered when a system error is detected by the HW. Type of
- * error is specified by IPA_HW_ERRORS
- * @reserved : Reserved
- */
-union IpaHwErrorEventData_t {
-	struct IpaHwErrorEventParams_t {
-		u32 errorType:8;
-		u32 reserved:24;
-	} __packed params;
-	u32 raw32b;
-} __packed;
-
-/**
  * union IpaHwUpdateFlagsCmdData_t - Structure holding the parameters for
  * IPA_CPU_2_HW_CMD_UPDATE_FLAGS command
  * @newFlags: SW flags defined the behavior of HW.
@@ -230,7 +175,7 @@ do {									      \
 
 struct ipa3_uc_hdlrs ipa3_uc_hdlrs[IPA_HW_NUM_FEATURES] = { { 0 } };
 
-static inline const char *ipa_hw_error_str(enum ipa3_hw_errors err_type)
+const char *ipa_hw_error_str(enum ipa3_hw_errors err_type)
 {
 	const char *str;
 
@@ -267,7 +212,7 @@ static void ipa3_log_evt_hdlr(void)
 		if (ipa3_ctx->uc_ctx.uc_event_top_ofst +
 			sizeof(struct IpaHwEventLogInfoData_t) >=
 			ipa3_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
+			ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
 			ipa3_ctx->smem_sz) {
 				IPAERR("uc_top 0x%x outside SRAM\n",
 					ipa3_ctx->uc_ctx.uc_event_top_ofst);
@@ -383,6 +328,8 @@ static void ipa3_uc_event_handler(enum ipa_irq_type interrupt,
 			IPAERR("IPA has encountered a ZIP engine error\n");
 			ipa3_ctx->uc_ctx.uc_zip_error = true;
 		}
+		ipa3_ctx->uc_ctx.uc_error_timestamp =
+			ipahal_read_reg(IPA_TAG_TIMER);
 		BUG();
 	} else if (ipa3_ctx->uc_ctx.uc_sram_mmio->eventOp ==
 		IPA_HW_2_CPU_EVENT_LOG_INFO) {
@@ -420,11 +367,11 @@ int ipa3_uc_panic_notifier(struct notifier_block *this,
 	wmb();
 
 	if (ipa3_ctx->apply_rg10_wa)
-		ipa_write_reg(ipa3_ctx->mmio,
-			IPA_UC_MAILBOX_m_n_OFFS_v3_0(IPA_CPU_2_HW_CMD_MBOX_m,
-			IPA_CPU_2_HW_CMD_MBOX_n), 0x1);
+		ipahal_write_reg_mn(IPA_UC_MAILBOX_m_n,
+			IPA_CPU_2_HW_CMD_MBOX_m,
+			IPA_CPU_2_HW_CMD_MBOX_n, 0x1);
 	else
-		ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
+		ipahal_write_reg_n(IPA_IRQ_EE_UC_n, 0, 0x1);
 
 	/* give uc enough time to save state */
 	udelay(IPA_PKT_FLUSH_TO_US);
@@ -549,11 +496,11 @@ send_cmd:
 	wmb();
 
 	if (ipa3_ctx->apply_rg10_wa)
-		ipa_write_reg(ipa3_ctx->mmio,
-			IPA_UC_MAILBOX_m_n_OFFS_v3_0(IPA_CPU_2_HW_CMD_MBOX_m,
-			IPA_CPU_2_HW_CMD_MBOX_n), 0x1);
+		ipahal_write_reg_mn(IPA_UC_MAILBOX_m_n,
+			IPA_CPU_2_HW_CMD_MBOX_m,
+			IPA_CPU_2_HW_CMD_MBOX_n, 0x1);
 	else
-		ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
+		ipahal_write_reg_n(IPA_IRQ_EE_UC_n, 0, 0x1);
 
 	if (polling_mode) {
 		for (index = 0; index < IPA_UC_POLL_MAX_RETRY; index++) {
@@ -652,7 +599,7 @@ int ipa3_uc_interface_init(void)
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0);
+		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0);
 	ipa3_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr,
 					       IPA_RAM_UC_SMEM_SIZE);
 	if (!ipa3_ctx->uc_ctx.uc_sram_mmio) {
@@ -891,20 +838,21 @@ int ipa3_uc_update_hw_flags(u32 flags)
  * to a register will be proxied by the uC due to H/W limitation.
  * This func should be called for RG10 registers only
  *
- * @Parameters: Like ipa_write_reg() parameters
+ * @Parameters: Like ipahal_write_reg_n() parameters
  *
  */
-void ipa3_uc_rg10_write_reg(void *base, u32 offset, u32 val)
+void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val)
 {
 	int ret;
 	u32 paddr;
 
 	if (!ipa3_ctx->apply_rg10_wa)
-		return ipa_write_reg(base, offset, val);
+		return ipahal_write_reg_n(reg, n, val);
+
 
 	/* calculate register physical address */
 	paddr = ipa3_ctx->ipa_wrapper_base + ipa3_ctx->ctrl->ipa_reg_base_ofst;
-	paddr += offset;
+	paddr += ipahal_get_reg_n_ofst(reg, n);
 
 	IPADBG("Sending uC cmd to reg write: addr=0x%x val=0x%x\n",
 		paddr, val);

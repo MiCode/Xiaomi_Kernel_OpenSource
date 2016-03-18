@@ -99,6 +99,7 @@ static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 64 * 1024, NULL},
 	{0, 64 * 1024, NULL},
 	{0, 128 * 1024, NULL},
+	{0, 128 * 1024, NULL},
 };
 
 int wcnss_prealloc_init(void)
@@ -169,6 +170,7 @@ void *wcnss_prealloc_get(unsigned int size)
 
 	pr_err("wcnss: %s: prealloc not available for size: %d\n",
 			__func__, size);
+	WARN_ON(1);
 
 	return NULL;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 #define QSEECOM_ALIGN_SIZE	0x40
 #define QSEECOM_ALIGN_MASK	(QSEECOM_ALIGN_SIZE - 1)
 #define QSEECOM_ALIGN(x)	\
-	((x + QSEECOM_ALIGN_SIZE) & (~QSEECOM_ALIGN_MASK))
+	((x + QSEECOM_ALIGN_MASK) & (~QSEECOM_ALIGN_MASK))
 
 /*
  * struct qseecom_handle -

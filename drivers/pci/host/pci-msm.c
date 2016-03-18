@@ -585,6 +585,7 @@ struct msm_pcie_dev_t {
 	uint32_t			current_bdf;
 	short				current_short_bdf;
 	uint32_t			tlp_rd_size;
+	bool				linkdown_panic;
 	bool				 ep_wakeirq;
 
 	uint32_t			   rc_idx;
@@ -1790,6 +1791,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->phy_ver);
 	PCIE_DBG_FS(dev, "drv_ready is %d\n",
 		dev->drv_ready);
+	PCIE_DBG_FS(dev, "linkdown_panic is %d\n",
+		dev->linkdown_panic);
 	PCIE_DBG_FS(dev, "the link is %s suspending\n",
 		dev->suspending ? "" : "not");
 	PCIE_DBG_FS(dev, "shadow is %s enabled\n",
@@ -2333,9 +2336,11 @@ static struct dentry *dent_msm_pcie;
 static struct dentry *dfile_rc_sel;
 static struct dentry *dfile_case;
 static struct dentry *dfile_base_sel;
+static struct dentry *dfile_linkdown_panic;
 static struct dentry *dfile_wr_offset;
 static struct dentry *dfile_wr_mask;
 static struct dentry *dfile_wr_value;
+static struct dentry *dfile_ep_wakeirq;
 static struct dentry *dfile_corr_counter_limit;
 
 static u32 rc_sel_max;
@@ -2474,6 +2479,52 @@ const struct file_operations msm_pcie_base_sel_ops = {
 	.write = msm_pcie_set_base_sel,
 };
 
+static ssize_t msm_pcie_set_linkdown_panic(struct file *file,
+				const char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	unsigned long ret;
+	char str[MAX_MSG_LEN];
+	u32 new_linkdown_panic = 0;
+	int i;
+
+	memset(str, 0, sizeof(str));
+	ret = copy_from_user(str, buf, sizeof(str));
+	if (ret)
+		return -EFAULT;
+
+	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+		new_linkdown_panic = (new_linkdown_panic * 10) + (str[i] - '0');
+
+	if (new_linkdown_panic <= 1) {
+		for (i = 0; i < MAX_RC_NUM; i++) {
+			if (!rc_sel) {
+				msm_pcie_dev[0].linkdown_panic =
+					new_linkdown_panic;
+				PCIE_DBG_FS(&msm_pcie_dev[0],
+					"PCIe: RC0: linkdown_panic is now %d\n",
+					msm_pcie_dev[0].linkdown_panic);
+				break;
+			} else if (rc_sel & (1 << i)) {
+				msm_pcie_dev[i].linkdown_panic =
+					new_linkdown_panic;
+				PCIE_DBG_FS(&msm_pcie_dev[i],
+					"PCIe: RC%d: linkdown_panic is now %d\n",
+					i, msm_pcie_dev[i].linkdown_panic);
+			}
+		}
+	} else {
+		pr_err("PCIe: Invalid input for linkdown_panic: %d. Please enter 0 or 1.\n",
+			new_linkdown_panic);
+	}
+
+	return count;
+}
+
+const struct file_operations msm_pcie_linkdown_panic_ops = {
+	.write = msm_pcie_set_linkdown_panic,
+};
+
 static ssize_t msm_pcie_set_wr_offset(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -2551,6 +2602,50 @@ const struct file_operations msm_pcie_wr_value_ops = {
 	.write = msm_pcie_set_wr_value,
 };
 
+static ssize_t msm_pcie_set_ep_wakeirq(struct file *file,
+				const char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	unsigned long ret;
+	char str[MAX_MSG_LEN];
+	u32 new_ep_wakeirq = 0;
+	int i;
+
+	memset(str, 0, sizeof(str));
+	ret = copy_from_user(str, buf, sizeof(str));
+	if (ret)
+		return -EFAULT;
+
+	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+		new_ep_wakeirq = (new_ep_wakeirq * 10) + (str[i] - '0');
+
+	if (new_ep_wakeirq <= 1) {
+		for (i = 0; i < MAX_RC_NUM; i++) {
+			if (!rc_sel) {
+				msm_pcie_dev[0].ep_wakeirq = new_ep_wakeirq;
+				PCIE_DBG_FS(&msm_pcie_dev[0],
+					"PCIe: RC0: ep_wakeirq is now %d\n",
+					msm_pcie_dev[0].ep_wakeirq);
+				break;
+			} else if (rc_sel & (1 << i)) {
+				msm_pcie_dev[i].ep_wakeirq = new_ep_wakeirq;
+				PCIE_DBG_FS(&msm_pcie_dev[i],
+					"PCIe: RC%d: ep_wakeirq is now %d\n",
+					i, msm_pcie_dev[i].ep_wakeirq);
+			}
+		}
+	} else {
+		pr_err("PCIe: Invalid input for ep_wakeirq: %d. Please enter 0 or 1.\n",
+			new_ep_wakeirq);
+	}
+
+	return count;
+}
+
+const struct file_operations msm_pcie_ep_wakeirq_ops = {
+	.write = msm_pcie_set_ep_wakeirq,
+};
+
 static ssize_t msm_pcie_set_corr_counter_limit(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -2612,6 +2707,14 @@ static void msm_pcie_debugfs_init(void)
 		goto base_sel_error;
 	}
 
+	dfile_linkdown_panic = debugfs_create_file("linkdown_panic", 0644,
+					dent_msm_pcie, 0,
+					&msm_pcie_linkdown_panic_ops);
+	if (!dfile_linkdown_panic || IS_ERR(dfile_linkdown_panic)) {
+		pr_err("PCIe: fail to create the file for debug_fs linkdown_panic.\n");
+		goto linkdown_panic_error;
+	}
+
 	dfile_wr_offset = debugfs_create_file("wr_offset", 0664,
 					dent_msm_pcie, 0,
 					&msm_pcie_wr_offset_ops);
@@ -2636,6 +2739,14 @@ static void msm_pcie_debugfs_init(void)
 		goto wr_value_error;
 	}
 
+	dfile_ep_wakeirq = debugfs_create_file("ep_wakeirq", 0664,
+					dent_msm_pcie, 0,
+					&msm_pcie_ep_wakeirq_ops);
+	if (!dfile_ep_wakeirq || IS_ERR(dfile_ep_wakeirq)) {
+		pr_err("PCIe: fail to create the file for debug_fs ep_wakeirq.\n");
+		goto ep_wakeirq_error;
+	}
+
 	dfile_corr_counter_limit = debugfs_create_file("corr_counter_limit",
 					0664, dent_msm_pcie, 0,
 					&msm_pcie_corr_counter_limit_ops);
@@ -2646,12 +2757,16 @@ static void msm_pcie_debugfs_init(void)
 	return;
 
 corr_counter_limit_error:
+	debugfs_remove(dfile_ep_wakeirq);
+ep_wakeirq_error:
 	debugfs_remove(dfile_wr_value);
 wr_value_error:
 	debugfs_remove(dfile_wr_mask);
 wr_mask_error:
 	debugfs_remove(dfile_wr_offset);
 wr_offset_error:
+	debugfs_remove(dfile_linkdown_panic);
+linkdown_panic_error:
 	debugfs_remove(dfile_base_sel);
 base_sel_error:
 	debugfs_remove(dfile_case);
@@ -2666,9 +2781,11 @@ static void msm_pcie_debugfs_exit(void)
 	debugfs_remove(dfile_rc_sel);
 	debugfs_remove(dfile_case);
 	debugfs_remove(dfile_base_sel);
+	debugfs_remove(dfile_linkdown_panic);
 	debugfs_remove(dfile_wr_offset);
 	debugfs_remove(dfile_wr_mask);
 	debugfs_remove(dfile_wr_value);
+	debugfs_remove(dfile_ep_wakeirq);
 	debugfs_remove(dfile_corr_counter_limit);
 }
 #else
@@ -4899,6 +5016,9 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 		pcie_phy_dump(dev);
 		pcie_parf_dump(dev);
 
+		if (dev->linkdown_panic)
+			panic("User has chosen to panic on linkdown\n");
+
 		/* assert PERST */
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
@@ -4959,15 +5079,15 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 	unsigned long irqsave_flags;
 	u32 status;
 
-	PCIE_DBG2(dev, "RC%d: Global IRQ %d received: 0x%x\n",
-		dev->rc_idx, irq, status);
-
 	spin_lock_irqsave(&dev->global_irq_lock, irqsave_flags);
 
 	status = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_STATUS) &
 			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK);
 
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_CLEAR, 0, status);
+
+	PCIE_DBG2(dev, "RC%d: Global IRQ %d received: 0x%x\n",
+		dev->rc_idx, irq, status);
 
 	for (i = 0; i <= MSM_PCIE_INT_EVT_MAX; i++) {
 		if (status & BIT(i)) {
@@ -5654,6 +5774,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].current_short_bdf = 0;
 	msm_pcie_dev[rc_idx].use_msi = false;
 	msm_pcie_dev[rc_idx].use_pinctrl = false;
+	msm_pcie_dev[rc_idx].linkdown_panic = false;
 	msm_pcie_dev[rc_idx].bridge_found = false;
 	memcpy(msm_pcie_dev[rc_idx].vreg, msm_pcie_vreg_info,
 				sizeof(msm_pcie_vreg_info));

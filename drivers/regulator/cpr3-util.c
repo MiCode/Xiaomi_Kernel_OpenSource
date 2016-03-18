@@ -434,6 +434,89 @@ int cpr3_parse_corner_array_property(struct cpr3_regulator *vreg,
 }
 
 /**
+ * cpr3_parse_corner_band_array_property() - fill a per-corner band array
+ *		from a portion of the values specified for a device tree
+ *		property
+ * @vreg:		Pointer to the CPR3 regulator
+ * @prop_name:		The name of the device tree property to read from
+ * @tuple_size:		The number of elements in each per-corner band tuple
+ * @out:		Output data array which must be of size:
+ *			tuple_size * vreg->corner_band_count
+ *
+ * cpr3_parse_common_corner_data() must be called for vreg before this function
+ * is called so that fuse combo and speed bin size elements are initialized.
+ * In addition, corner band fuse combo and speed bin sum and offset elements
+ * must be initialized prior to executing this function.
+ *
+ * Three formats are supported for the device tree property:
+ * 1. Length == tuple_size * vreg->corner_band_count
+ *	(reading begins at index 0)
+ * 2. Length == tuple_size * vreg->fuse_combo_corner_band_sum
+ *	(reading begins at index tuple_size *
+ *		vreg->fuse_combo_corner_band_offset)
+ * 3. Length == tuple_size * vreg->speed_bin_corner_band_sum
+ *	(reading begins at index tuple_size *
+ *		vreg->speed_bin_corner_band_offset)
+ *
+ * All other property lengths are treated as errors.
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr3_parse_corner_band_array_property(struct cpr3_regulator *vreg,
+		const char *prop_name, int tuple_size, u32 *out)
+{
+	struct device_node *node = vreg->of_node;
+	int len = 0;
+	int i, offset, rc;
+
+	if (!of_find_property(node, prop_name, &len)) {
+		cpr3_err(vreg, "property %s is missing\n", prop_name);
+		return -EINVAL;
+	}
+
+	if (len == tuple_size * vreg->corner_band_count * sizeof(u32)) {
+		offset = 0;
+	} else if (len == tuple_size * vreg->fuse_combo_corner_band_sum
+				     * sizeof(u32)) {
+		offset = tuple_size * vreg->fuse_combo_corner_band_offset;
+	} else if (vreg->speed_bin_corner_band_sum > 0 &&
+		 len == tuple_size * vreg->speed_bin_corner_band_sum *
+		   sizeof(u32)) {
+		offset = tuple_size * vreg->speed_bin_corner_band_offset;
+	} else {
+		if (vreg->speed_bin_corner_band_sum > 0)
+			cpr3_err(vreg, "property %s has invalid length=%d, should be %zu, %zu, or %zu\n",
+				prop_name, len,
+				tuple_size * vreg->corner_band_count *
+				 sizeof(u32),
+				tuple_size * vreg->speed_bin_corner_band_sum
+					   * sizeof(u32),
+				tuple_size * vreg->fuse_combo_corner_band_sum
+					   * sizeof(u32));
+		else
+			cpr3_err(vreg, "property %s has invalid length=%d, should be %zu or %zu\n",
+				prop_name, len,
+				tuple_size * vreg->corner_band_count *
+				 sizeof(u32),
+				tuple_size * vreg->fuse_combo_corner_band_sum
+					   * sizeof(u32));
+		return -EINVAL;
+	}
+
+	for (i = 0; i < tuple_size * vreg->corner_band_count; i++) {
+		rc = of_property_read_u32_index(node, prop_name, offset + i,
+						&out[i]);
+		if (rc) {
+			cpr3_err(vreg, "error reading property %s, rc=%d\n",
+				prop_name, rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * cpr3_parse_common_corner_data() - parse common CPR3 properties relating to
  *		the corners supported by a CPR3 regulator from device tree
  * @vreg:		Pointer to the CPR3 regulator
@@ -445,9 +528,9 @@ int cpr3_parse_corner_array_property(struct cpr3_regulator *vreg,
  * and qcom,cpr-corner-fmax-map.
  *
  * It initializes these CPR3 regulator elements: corner, corner_count,
- * fuse_combos_supported, and speed_bins_supported.  It initializes these
- * elements for each corner: ceiling_volt, floor_volt, proc_freq, and
- * cpr_fuse_corner.
+ * fuse_combos_supported, fuse_corner_map, and speed_bins_supported.  It
+ * initializes these elements for each corner: ceiling_volt, floor_volt,
+ * proc_freq, and cpr_fuse_corner.
  *
  * It requires that the following CPR3 regulator elements be initialized before
  * being called: fuse_corner_count, fuse_combo, and speed_bin_fuse.
@@ -595,8 +678,15 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 		kfree(speed_bin_corners);
 	}
 
-	vreg->corner = devm_kcalloc(ctrl->dev, vreg->corner_count,
-			sizeof(*vreg->corner), GFP_KERNEL);
+	/*
+	 * In CPRh compliant controllers an additional corner is
+	 * allocated to correspond to the APM crossover voltage
+	 */
+	vreg->corner = devm_kcalloc(ctrl->dev, ctrl->ctrl_type ==
+				    CPR_CTRL_TYPE_CPRH ?
+				    vreg->corner_count + 1 :
+				    vreg->corner_count,
+				    sizeof(*vreg->corner), GFP_KERNEL);
 	temp = kcalloc(vreg->corner_count, sizeof(*temp), GFP_KERNEL);
 	if (!vreg->corner || !temp)
 		return -ENOMEM;
@@ -605,9 +695,11 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 			1, temp);
 	if (rc)
 		goto free_temp;
-	for (i = 0; i < vreg->corner_count; i++)
+	for (i = 0; i < vreg->corner_count; i++) {
 		vreg->corner[i].ceiling_volt
 			= CPR3_ROUND(temp[i], ctrl->step_volt);
+		vreg->corner[i].abs_ceiling_volt = vreg->corner[i].ceiling_volt;
+	}
 
 	rc = cpr3_parse_corner_array_property(vreg, "qcom,cpr-voltage-floor",
 			1, temp);
@@ -658,11 +750,19 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 		}
 	}
 
+	vreg->fuse_corner_map = devm_kcalloc(ctrl->dev, vreg->fuse_corner_count,
+				    sizeof(*vreg->fuse_corner_map), GFP_KERNEL);
+	if (!vreg->fuse_corner_map) {
+		rc = -ENOMEM;
+		goto free_temp;
+	}
+
 	rc = cpr3_parse_array_property(vreg, "qcom,cpr-corner-fmax-map",
 		vreg->fuse_corner_count, temp);
 	if (rc)
 		goto free_temp;
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
+		vreg->fuse_corner_map[i] = temp[i] - CPR3_CORNER_OFFSET;
 		if (temp[i] < CPR3_CORNER_OFFSET
 		    || temp[i] > vreg->corner_count + CPR3_CORNER_OFFSET) {
 			cpr3_err(vreg, "invalid corner value specified in qcom,cpr-corner-fmax-map: %u\n",
@@ -676,19 +776,25 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 			goto free_temp;
 		}
 	}
-	if (temp[vreg->fuse_corner_count - 1] != vreg->corner_count) {
-		cpr3_err(vreg, "highest Fmax corner %u in qcom,cpr-corner-fmax-map does not match highest supported corner %d\n",
+	if (temp[vreg->fuse_corner_count - 1] != vreg->corner_count)
+		cpr3_debug(vreg, "Note: highest Fmax corner %u in qcom,cpr-corner-fmax-map does not match highest supported corner %d\n",
 			temp[vreg->fuse_corner_count - 1],
 			vreg->corner_count);
-		rc = -EINVAL;
-		goto free_temp;
-	}
+
 	for (i = 0; i < vreg->corner_count; i++) {
 		for (j = 0; j < vreg->fuse_corner_count; j++) {
 			if (i + CPR3_CORNER_OFFSET <= temp[j]) {
 				vreg->corner[i].cpr_fuse_corner = j;
 				break;
 			}
+		}
+		if (j == vreg->fuse_corner_count) {
+			/*
+			 * Handle the case where the highest fuse corner maps
+			 * to a corner below the highest corner.
+			 */
+			vreg->corner[i].cpr_fuse_corner
+				= vreg->fuse_corner_count - 1;
 		}
 	}
 
@@ -701,6 +807,17 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 			goto free_temp;
 
 		vreg->aging_allowed = aging_allowed;
+	}
+
+	if (of_find_property(vreg->of_node,
+		       "qcom,allow-aging-open-loop-voltage-adjustment", NULL)) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,allow-aging-open-loop-voltage-adjustment",
+			1, &aging_allowed);
+		if (rc)
+			goto free_temp;
+
+		vreg->aging_allow_open_loop_adj = aging_allowed;
 	}
 
 	if (vreg->aging_allowed) {
@@ -933,15 +1050,6 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-aging-ref-voltage",
 			&ctrl->aging_ref_volt);
 
-	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
-	if (IS_ERR(ctrl->vdd_regulator)) {
-		rc = PTR_ERR(ctrl->vdd_regulator);
-		if (rc != -EPROBE_DEFER)
-			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
-				rc);
-		return rc;
-	}
-
 	if (of_find_property(ctrl->dev->of_node, "clock-names", NULL)) {
 		ctrl->core_clk = devm_clk_get(ctrl->dev, "core_clk");
 		if (IS_ERR(ctrl->core_clk)) {
@@ -951,6 +1059,23 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 				rc);
 			return rc;
 		}
+	}
+
+	/*
+	 * Regulator device handles are not necessary for CPRh controllers
+	 * since communication with the regulators is completely managed
+	 * in hardware.
+	 */
+	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPRH)
+		return rc;
+
+	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
+	if (IS_ERR(ctrl->vdd_regulator)) {
+		rc = PTR_ERR(ctrl->vdd_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
+				 rc);
+		return rc;
 	}
 
 	ctrl->system_regulator = devm_regulator_get_optional(ctrl->dev,
@@ -1501,5 +1626,236 @@ int cpr3_mem_acc_init(struct cpr3_regulator *vreg)
 	}
 
 	kfree(temp);
+	return rc;
+}
+
+/**
+ * cpr4_load_core_and_temp_adj() - parse amount of voltage adjustment for
+ *		per-online-core and per-temperature voltage adjustment for a
+ *		given corner or corner band from device tree.
+ * @vreg:	Pointer to the CPR3 regulator
+ * @num:	Corner number or corner band number
+ * @use_corner_band:	Boolean indicating if the CPR3 regulator supports
+ *			adjustments per corner band
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr4_load_core_and_temp_adj(struct cpr3_regulator *vreg,
+					int num, bool use_corner_band)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct cpr4_sdelta *sdelta;
+	int sdelta_size, i, j, pos, rc = 0;
+	char str[75];
+	size_t buflen;
+	char *buf;
+
+	sdelta = use_corner_band ? vreg->corner_band[num].sdelta :
+		vreg->corner[num].sdelta;
+
+	if (!sdelta->allow_core_count_adj && !sdelta->allow_temp_adj) {
+		/* corner doesn't need sdelta table */
+		sdelta->max_core_count = 0;
+		sdelta->temp_band_count = 0;
+		return rc;
+	}
+
+	sdelta_size = sdelta->max_core_count * sdelta->temp_band_count;
+	snprintf(str, sizeof(str), use_corner_band ?
+	 "corner_band=%d core_config_count=%d temp_band_count=%d sdelta_size=%d\n"
+	 : "corner=%d core_config_count=%d temp_band_count=%d sdelta_size=%d\n",
+		 num, sdelta->max_core_count,
+		 sdelta->temp_band_count, sdelta_size);
+
+	cpr3_debug(vreg, "%s", str);
+
+	sdelta->table = devm_kcalloc(ctrl->dev, sdelta_size,
+				sizeof(*sdelta->table), GFP_KERNEL);
+	if (!sdelta->table)
+		return -ENOMEM;
+
+	snprintf(str, sizeof(str), use_corner_band ?
+		 "qcom,cpr-corner-band%d-temp-core-voltage-adjustment" :
+		 "qcom,cpr-corner%d-temp-core-voltage-adjustment",
+		 num + CPR3_CORNER_OFFSET);
+
+	rc = cpr3_parse_array_property(vreg, str, sdelta_size,
+				sdelta->table);
+	if (rc) {
+		cpr3_err(vreg, "could not load %s, rc=%d\n", str, rc);
+		return rc;
+	}
+
+	/*
+	 * Convert sdelta margins from uV to PMIC steps and apply negation to
+	 * follow the SDELTA register semantics.
+	 */
+	for (i = 0; i < sdelta_size; i++)
+		sdelta->table[i] = -(sdelta->table[i] / ctrl->step_volt);
+
+	buflen = sizeof(*buf) * sdelta_size * (MAX_CHARS_PER_INT + 2);
+	buf = kzalloc(buflen, GFP_KERNEL);
+	if (!buf)
+		return rc;
+
+	for (i = 0; i < sdelta->max_core_count; i++) {
+		for (j = 0, pos = 0; j < sdelta->temp_band_count; j++)
+			pos += scnprintf(buf + pos, buflen - pos, " %u",
+			 sdelta->table[i * sdelta->max_core_count + j]);
+		cpr3_debug(vreg, "sdelta[%d]:%s\n", i, buf);
+	}
+
+	kfree(buf);
+	return rc;
+}
+
+/**
+ * cpr4_parse_core_count_temp_voltage_adj() - parse configuration data for
+ *		per-online-core and per-temperature voltage adjustment for
+ *		a CPR3 regulator from device tree.
+ * @vreg:	Pointer to the CPR3 regulator
+ * @use_corner_band:	Boolean indicating if the CPR3 regulator supports
+ *			adjustments per corner band
+ *
+ * This function supports parsing of per-online-core and per-temperature
+ * adjustments per corner or per corner band. CPR controllers which support
+ * corner bands apply the same adjustments to all corners within a corner band.
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr4_parse_core_count_temp_voltage_adj(
+			struct cpr3_regulator *vreg, bool use_corner_band)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct device_node *node = vreg->of_node;
+	struct cpr3_corner *corner;
+	struct cpr4_sdelta *sdelta;
+	int i, sdelta_table_count, rc = 0;
+	int *allow_core_count_adj = NULL, *allow_temp_adj = NULL;
+	char prop_str[75];
+
+	if (of_find_property(node, use_corner_band ?
+			     "qcom,corner-band-allow-temp-adjustment"
+			     : "qcom,corner-allow-temp-adjustment", NULL)) {
+		if (!ctrl->allow_temp_adj) {
+			cpr3_err(ctrl, "Temperature adjustment configurations missing\n");
+			return -EINVAL;
+		}
+
+		vreg->allow_temp_adj = true;
+	}
+
+	if (of_find_property(node, use_corner_band ?
+			     "qcom,corner-band-allow-core-count-adjustment"
+			     : "qcom,corner-allow-core-count-adjustment",
+			     NULL)) {
+		rc = of_property_read_u32(node, "qcom,max-core-count",
+				&vreg->max_core_count);
+		if (rc) {
+			cpr3_err(vreg, "error reading qcom,max-core-count, rc=%d\n",
+				rc);
+			return -EINVAL;
+		}
+
+		vreg->allow_core_count_adj = true;
+		ctrl->allow_core_count_adj = true;
+	}
+
+	if (!vreg->allow_temp_adj && !vreg->allow_core_count_adj) {
+		/*
+		 * Both per-online-core and temperature based adjustments are
+		 * disabled for this regulator.
+		 */
+		return 0;
+	} else if (!vreg->allow_core_count_adj) {
+		/*
+		 * Only per-temperature voltage adjusments are allowed.
+		 * Keep max core count value as 1 to allocate SDELTA.
+		 */
+		vreg->max_core_count = 1;
+	}
+
+	if (vreg->allow_core_count_adj) {
+		allow_core_count_adj = kcalloc(vreg->corner_count,
+					sizeof(*allow_core_count_adj),
+					GFP_KERNEL);
+		if (!allow_core_count_adj)
+			return -ENOMEM;
+
+		snprintf(prop_str, sizeof(prop_str), use_corner_band ?
+			 "qcom,corner-band-allow-core-count-adjustment" :
+			 "qcom,corner-allow-core-count-adjustment");
+
+		rc = use_corner_band ?
+			cpr3_parse_corner_band_array_property(vreg, prop_str,
+					      1, allow_core_count_adj) :
+			cpr3_parse_corner_array_property(vreg, prop_str,
+						 1, allow_core_count_adj);
+		if (rc) {
+			cpr3_err(vreg, "error reading %s, rc=%d\n", prop_str,
+				 rc);
+			goto done;
+		}
+	}
+
+	if (vreg->allow_temp_adj) {
+		allow_temp_adj = kcalloc(vreg->corner_count,
+					sizeof(*allow_temp_adj), GFP_KERNEL);
+		if (!allow_temp_adj) {
+			rc = -ENOMEM;
+			goto done;
+		}
+
+		snprintf(prop_str, sizeof(prop_str), use_corner_band ?
+			 "qcom,corner-band-allow-temp-adjustment" :
+			 "qcom,corner-allow-temp-adjustment");
+
+		rc = use_corner_band ?
+			cpr3_parse_corner_band_array_property(vreg, prop_str,
+						      1, allow_temp_adj) :
+			cpr3_parse_corner_array_property(vreg, prop_str,
+						 1, allow_temp_adj);
+		if (rc) {
+			cpr3_err(vreg, "error reading %s, rc=%d\n", prop_str,
+				 rc);
+			goto done;
+		}
+	}
+
+	sdelta_table_count = use_corner_band ? vreg->corner_band_count :
+		vreg->corner_count;
+
+	for (i = 0; i < sdelta_table_count; i++) {
+		sdelta = devm_kzalloc(ctrl->dev, sizeof(*corner->sdelta),
+				      GFP_KERNEL);
+		if (!sdelta) {
+			rc = -ENOMEM;
+			goto done;
+		}
+
+		if (allow_core_count_adj)
+			sdelta->allow_core_count_adj = allow_core_count_adj[i];
+		if (allow_temp_adj)
+			sdelta->allow_temp_adj = allow_temp_adj[i];
+		sdelta->max_core_count = vreg->max_core_count;
+		sdelta->temp_band_count = ctrl->temp_band_count;
+
+		if (use_corner_band)
+			vreg->corner_band[i].sdelta = sdelta;
+		else
+			vreg->corner[i].sdelta = sdelta;
+
+		rc = cpr4_load_core_and_temp_adj(vreg, i, use_corner_band);
+		if (rc) {
+			cpr3_err(vreg, "corner/band %d core and temp adjustment loading failed, rc=%d\n",
+				 i, rc);
+			goto done;
+		}
+	}
+
+done:
+	kfree(allow_core_count_adj);
+	kfree(allow_temp_adj);
+
 	return rc;
 }

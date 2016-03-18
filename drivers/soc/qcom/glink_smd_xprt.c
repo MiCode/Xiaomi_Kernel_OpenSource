@@ -157,8 +157,6 @@ struct channel {
 	bool remote_legacy;
 	size_t intent_req_size;
 	spinlock_t rx_data_lock;
-	uint32_t priority;
-	bool open_ack_received;
 	bool streaming_ch;
 	bool tx_resume_needed;
 };
@@ -413,9 +411,13 @@ static void process_ctl_event(struct work_struct *work)
 				continue;
 			}
 
-			ch->open_ack_received = true;
-			ch->priority = cmd.priority;
 			add_platform_driver(ch);
+			mutex_lock(&einfo->rx_cmd_lock);
+			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
+								&einfo->xprt_if,
+								cmd.id,
+								cmd.priority);
+			mutex_unlock(&einfo->rx_cmd_lock);
 		} else if (cmd.cmd == CMD_CLOSE) {
 			SMDXPRT_INFO(einfo, "%s RX REMOTE CLOSE rcid %u\n",
 					__func__, cmd.id);
@@ -598,15 +600,6 @@ static void process_open_event(struct work_struct *work)
 							ch->rcid,
 							ch->name,
 							SMD_TRANS_XPRT_ID);
-		mutex_unlock(&einfo->rx_cmd_lock);
-	} else if (ch->open_ack_received) {
-		SMDXPRT_INFO(einfo, "%s RX OPEN ACK lcid %u; xprt_req %u\n",
-			__func__, ch->lcid, ch->priority);
-		mutex_lock(&einfo->rx_cmd_lock);
-		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
-			&einfo->xprt_if,
-			ch->lcid,
-			ch->priority);
 		mutex_unlock(&einfo->rx_cmd_lock);
 	}
 	kfree(ch_work);
@@ -1234,7 +1227,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	ch->tx_resume_needed = false;
 	ch->lcid = lcid;
-	ch->open_ack_received = false;
+
 	if (einfo->smd_ctl_ch_open) {
 		SMDXPRT_INFO(einfo, "%s TX OPEN '%s' lcid %u reqxprt %u\n",
 				__func__, name, lcid, req_xprt);

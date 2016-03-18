@@ -81,6 +81,10 @@
 #define KGSL_CMDBATCH_SUBMIT_IB_LIST	KGSL_CONTEXT_SUBMIT_IB_LIST /* 0x004 */
 #define KGSL_CMDBATCH_CTX_SWITCH	KGSL_CONTEXT_CTX_SWITCH     /* 0x008 */
 #define KGSL_CMDBATCH_PROFILING		0x00000010
+/*
+ * KGSL_CMDBATCH_PROFILING must also be set for KGSL_CMDBATCH_PROFILING_KTIME
+ * to take effect, as the latter only affects the time data returned.
+ */
 #define KGSL_CMDBATCH_PROFILING_KTIME	0x00000020
 #define KGSL_CMDBATCH_END_OF_FRAME	KGSL_CONTEXT_END_OF_FRAME   /* 0x100 */
 #define KGSL_CMDBATCH_SYNC		KGSL_CONTEXT_SYNC           /* 0x400 */
@@ -302,6 +306,7 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_SP_GENERIC_MEM	0x14
 #define KGSL_PROP_UCODE_VERSION		0x15
 #define KGSL_PROP_GPMU_VERSION		0x16
+#define KGSL_PROP_HIGHEST_BANK_BIT	0x17
 
 struct kgsl_shadowprop {
 	unsigned long gpuaddr;

@@ -569,10 +569,17 @@ static int zcache_store_zaddr(struct zcache_pool *zpool,
 	/* Insert zcache_ra_handle to ratree */
 	ret = radix_tree_insert(&rbnode->ratree, ra_index,
 				(void *)zaddr);
-	if (unlikely(ret))
-		if (zcache_rbnode_empty(rbnode))
-			zcache_rbnode_isolate(zpool, rbnode, 0);
 	spin_unlock_irqrestore(&rbnode->ra_lock, flags);
+	if (unlikely(ret)) {
+		write_lock_irqsave(&zpool->rb_lock, flags);
+		spin_lock(&rbnode->ra_lock);
+
+		if (zcache_rbnode_empty(rbnode))
+			zcache_rbnode_isolate(zpool, rbnode, 1);
+
+		spin_unlock(&rbnode->ra_lock);
+		write_unlock_irqrestore(&zpool->rb_lock, flags);
+	}
 
 	kref_put(&rbnode->refcount, zcache_rbnode_release);
 	return ret;
@@ -598,9 +605,15 @@ static void *zcache_load_delete_zaddr(struct zcache_pool *zpool,
 
 	spin_lock_irqsave(&rbnode->ra_lock, flags);
 	zaddr = radix_tree_delete(&rbnode->ratree, ra_index);
-	if (zcache_rbnode_empty(rbnode))
-		zcache_rbnode_isolate(zpool, rbnode, 0);
 	spin_unlock_irqrestore(&rbnode->ra_lock, flags);
+
+	/* rb_lock and ra_lock must be taken again in the given sequence */
+	write_lock_irqsave(&zpool->rb_lock, flags);
+	spin_lock(&rbnode->ra_lock);
+	if (zcache_rbnode_empty(rbnode))
+		zcache_rbnode_isolate(zpool, rbnode, 1);
+	spin_unlock(&rbnode->ra_lock);
+	write_unlock_irqrestore(&zpool->rb_lock, flags);
 
 	kref_put(&rbnode->refcount, zcache_rbnode_release);
 out:

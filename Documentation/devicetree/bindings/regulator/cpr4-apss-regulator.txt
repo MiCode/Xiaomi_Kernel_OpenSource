@@ -36,20 +36,19 @@ APSS specific properties:
 	Usage:      required
 	Value type: <string>
 	Definition: should be one of the following:
-		    "qcom,cpr4-msmtitanium-apss-regulator";
+		    "qcom,cpr4-msm8953-apss-regulator";
 
 - interrupts
 	Usage:      required
 	Value type: <prop-encoded-array>
-	Definition: CPR interrupt specifier and a hardware closed-loop ceiling
-		    interrupt specifier.
+	Definition: CPR interrupt specifier.
 
 - interrupt-names
 	Usage:      required
 	Value type: <stringlist>
 	Definition: Interrupt names.  This list must match up 1-to-1 with the
 		    interrupts specified in the 'interrupts' property. "cpr"
-		    and "ceiling" must be specified.
+		    must be specified.
 
 - qcom,apm-ctrl
 	Usage:      required on systems that need APM management
@@ -348,17 +347,37 @@ APSS specific properties:
 		    regardless of the fuse combination and speed bin found
 		    on a given chip.
 
+- qcom,cpr-misc-fuse-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists where each tuple defines
+		    the voltage adjustments in microvolts for each voltage
+		    corner in order from lowest to highest. This adjustment is
+		    applied to both open-loop and closed-loop voltages.
+
+		    Each tuple list must contain a number of tuples equal to
+		    2 to the power of the number of bits selected for misc
+		    voltage adj fuse definition. For MSM8953 the tuple
+		    list must contain 2 tuples for the 1-bit misc fuse.
+		    Tuples in a list should be specified in ascending order
+		    according to the misc fuse value assuming that the fuse
+		    is treated like an unsigned integer.
+
+		    The tuple list grouping must contain qcom,cpr-speed-bins
+		    number of tuple lists in which case the lists are matched to
+		    speed bins 1-to-1 or exactly 1 list which is used regardless
+		    of the speed bin found on a given chip.
+
 =======
 Example
 =======
 
 apc_cpr: cpr4-ctrl@b018000 {
-	compatible = "qcom,cpr4-msmtitanium-apss-regulator";
+	compatible = "qcom,cpr4-msm8953-apss-regulator";
 	reg = <0xb018000 0x4000>, <0xa4000 0x1000>;
 	reg-names = "cpr_ctrl", "fuse_base";
-	interrupts = <GIC_SPI 15 IRQ_TYPE_EDGE_RISING>,
-		<GIC_SPI 282 IRQ_TYPE_EDGE_RISING>;
-	interrupt-names = "cpr", "ceiling";
+	interrupts = <GIC_SPI 15 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "cpr";
 
 	qcom,cpr-ctrl-name = "apc";
 
@@ -375,9 +394,9 @@ apc_cpr: cpr4-ctrl@b018000 {
 	qcom,apm-threshold-voltage = <848000>;
 	qcom,apm-hysteresis-voltage = <5000>;
 
-	vdd-supply = <&pmtitanium_s5>;
+	vdd-supply = <&pm8953_s5>;
 	qcom,voltage-step = <5000>;
-	vdd-limit-supply = <&pmtitanium_s5_limit>;
+	vdd-limit-supply = <&pm8953_s5_limit>;
 	mem-acc-supply = <&apc_mem_acc_vreg>;
 
 	qcom,cpr-enable;
@@ -421,6 +440,13 @@ apc_cpr: cpr4-ctrl@b018000 {
 				<652800000 1036800000 1401600000
 				1689600000 1843200000 1958400000
 				2150400000 2208000000>;
+
+			qcom,cpr-misc-fuse-voltage-adjustment =
+				/* Speed bin 0; misc fuse 0..1 */
+				<    0     0     0     0
+				     0     0     0     0>,
+				<    0     0 30000     0
+				     0     0     0     0>;
 
 			qcom,allow-voltage-interpolation;
 			qcom,allow-quotient-interpolation;

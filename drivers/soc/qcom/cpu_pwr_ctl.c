@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,7 +53,7 @@ struct msm_l2ccc_of_info {
 };
 
 
-static int power_on_l2_msmtitanium(struct device_node *l2ccc_node, u32 pon_mask,
+static int power_on_l2_msm8953(struct device_node *l2ccc_node, u32 pon_mask,
 				int cpu)
 {
 	u32 pon_status;
@@ -272,8 +272,8 @@ static const struct msm_l2ccc_of_info l2ccc_info[] = {
 		.l2_power_on_mask = BIT(9),
 	},
 	{
-		.compat = "qcom,titanium-l2ccc",
-		.l2_power_on = power_on_l2_msmtitanium,
+		.compat = "qcom,8953-l2ccc",
+		.l2_power_on = power_on_l2_msm8953,
 		.l2_power_on_mask = BIT(9) | BIT(28),
 	},
 	{
@@ -303,7 +303,7 @@ static int power_on_l2_cache(struct device_node *l2ccc_node, int cpu)
 	return -EIO;
 }
 
-static inline void msmtitanium_unclamp_cpu(void __iomem *reg)
+static inline void msm8953_unclamp_cpu(void __iomem *reg)
 {
 	/* Deassert CPU in sleep state */
 	writel_relaxed(0x00000033, reg + CPU_PWR_CTL);
@@ -352,7 +352,7 @@ static inline void msmtitanium_unclamp_cpu(void __iomem *reg)
 	mb();
 }
 
-int msmtitanium_unclamp_secondary_arm_cpu(unsigned int cpu)
+int msm8953_unclamp_secondary_arm_cpu(unsigned int cpu)
 {
 
 	int ret = 0;
@@ -397,7 +397,7 @@ int msmtitanium_unclamp_secondary_arm_cpu(unsigned int cpu)
 		goto out_acc_reg;
 	}
 
-	msmtitanium_unclamp_cpu(reg);
+	msm8953_unclamp_cpu(reg);
 
 	/* Secondary CPU-N is now alive */
 	iounmap(reg);

@@ -273,6 +273,7 @@ header-y += mroute.h
 header-y += mroute6.h
 header-y += msdos_fs.h
 header-y += msg.h
+header-y += msm_adc.h
 header-y += msm_adsp.h
 header-y += msm_audio.h
 header-y += msm_audio_aac.h

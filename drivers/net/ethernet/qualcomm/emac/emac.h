@@ -723,10 +723,12 @@ struct emac_adapter {
 	u16             msg_enable;
 	unsigned long   flags;
 	struct pinctrl	*pinctrl;
-	struct pinctrl_state	*pins_active;
-	struct pinctrl_state	*pins_sleep;
-	int	(*gpio_on)(struct emac_adapter *adpt);
-	int	(*gpio_off)(struct emac_adapter *adpt);
+	struct pinctrl_state	*mdio_pins_active;
+	struct pinctrl_state	*mdio_pins_sleep;
+	struct pinctrl_state	*ephy_pins_active;
+	struct pinctrl_state	*ephy_pins_sleep;
+	int	(*gpio_on)(struct emac_adapter *adpt, bool mdio, bool ephy);
+	int	(*gpio_off)(struct emac_adapter *adpt, bool mdio, bool ephy);
 	struct wakeup_source link_wlock;
 };
 

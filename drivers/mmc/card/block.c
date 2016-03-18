@@ -3209,12 +3209,16 @@ out:
 
 	mmc_cmdq_clk_scaling_stop_busy(host, true, is_dcmd);
 	if (!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state)) {
+		mmc_host_clk_release(host);
 		wake_up(&ctx_info->wait);
 		mmc_put_card(host->card);
 	}
 
 	if (!ctx_info->active_reqs)
 		wake_up_interruptible(&host->cmdq_ctx.queue_empty_wq);
+
+	if (blk_queue_stopped(mq->queue) && !ctx_info->active_reqs)
+		complete(&mq->cmdq_shutdown_complete);
 
 	return;
 }
@@ -4094,14 +4098,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 	}
 
 	pm_runtime_set_autosuspend_delay(&card->dev, MMC_AUTOSUSPEND_DELAY_MS);
-	/*
-	 * If there is a runtime_idle function, it should take care of
-	 * suspending the card
-	 */
-	if (card->host->bus_ops->runtime_idle)
-		pm_runtime_dont_use_autosuspend(&card->dev);
-	else
-		pm_runtime_use_autosuspend(&card->dev);
+	pm_runtime_use_autosuspend(&card->dev);
 
 	/*
 	 * Don't enable runtime PM for SD-combo cards here. Leave that

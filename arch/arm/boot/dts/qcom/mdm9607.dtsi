@@ -564,8 +564,11 @@
 		clock-names = "iface_clk", "core_clk", "sleep_clk",
 				"bimc_clk", "pcnoc_clk", "phy_reset_clk",
 				"phy_por_clk", "phy_csr_clk", "xo";
-		qcom,bus-clk-rate = <240000000 0 100000000>;
+		qcom,bus-clk-rate = <240000000 0 100000000
+				     120000000 0  50000000>;
 		qcom,max-nominal-sysclk-rate = <133330000>;
+		qcom,max-svs-sysclk-rate = <69500000>;
+		qcom,default-mode-svs;
 
 		qcom,usbbam@78c4000 {
 			compatible = "qcom,usb-bam-msm";
@@ -761,6 +764,8 @@
 			"MIC BIAS3 External", "Digital Mic3";
 
 		qcom,tomtom-mclk-clk-freq = <12288000>;
+		qcom,mi2s-interface-mode = "pri_mi2s_master", "sec_mi2s_master";
+		qcom,auxpcm-interface-mode = "pri_pcm_master", "sec_pcm_master";
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>;
@@ -769,13 +774,15 @@
 				"msm-pcm-loopback", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-pcm-routing",
 				"msm-pcm-dtmf", "msm-voice-host-pcm";
-		asoc-cpu = <&dai_pri_auxpcm>, <&mi2s_prim>, <&dtmf_tx>,
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+				<&mi2s_prim>, <&mi2s_sec>, <&dtmf_tx>,
 				<&rx_capture_tx>, <&rx_playback_rx>,
 				<&tx_capture_tx>, <&tx_playback_rx>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
 				<&afe_proxy_tx>, <&incall_record_rx>,
 				<&incall_record_tx>, <&incall_music_rx>;
-		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-mi2s.0",
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-stub-dev.4", "msm-dai-stub-dev.5",
 				"msm-dai-stub-dev.6", "msm-dai-stub-dev.7",
 				"msm-dai-stub-dev.8", "msm-dai-q6-dev.224",
@@ -932,6 +939,19 @@
 		qcom,msm-auxpcm-interface = "primary";
 	};
 
+	dai_sec_auxpcm: qcom,msm-sec-auxpcm {
+		compatible = "qcom,msm-auxpcm-dev";
+		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-frame = <5>, <4>;
+		qcom,msm-cpudai-auxpcm-quant = <2>, <2>;
+		qcom,msm-cpudai-auxpcm-num-slots = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-slot-mapping = <1>, <1>;
+		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
+		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
+		qcom,msm-auxpcm-interface = "secondary";
+	};
+
 	qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
 		mi2s_prim: qcom,msm-dai-q6-mi2s-prim {
@@ -949,6 +969,12 @@
 					&pri_mi2s_dout_sleep
 					&pri_mi2s_din_sleep>;
 		};
+		mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <1>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+		};
 	};
 
 	qcom,msm-thermal {
@@ -963,9 +989,13 @@
 		qcom,freq-mitigation-value = <800000>;
 		qcom,disable-cx-phase-ctrl;
 		qcom,disable-gfx-phase-ctrl;
-		qcom,disable-vdd-mx;
 		qcom,disable-psm;
 		qcom,disable-ocr;
+		qcom,mx-restriction-temp = <10>;
+		qcom,mx-restriction-temp-hysteresis = <5>;
+		qcom,mx-retention-min =
+			<RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>;
+		vdd-mx-supply = <&mdm9607_l12_floor_level>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd-dig-supply = <&mdm9607_s3_floor_level>;
@@ -1342,9 +1372,12 @@
 			 <&clock_gcc clk_gcc_emac_0_sys_clk>;
 		clock-names = "axi_clk", "cfg_ahb_clk", "125m_clk",
 			"25m_clk", "tx_clk", "rx_clk", "sys_clk";
-		pinctrl-names = "emac_active", "emac_sleep";
-		pinctrl-0 = <&emac0_active &emac0_rst_active>;
-		pinctrl-1 = <&emac0_sleep &emac0_rst_sleep>;
+		pinctrl-names = "emac_mdio_active", "emac_mdio_sleep",
+			"emac_ephy_active", "emac_ephy_sleep";
+		pinctrl-0 = <&emac0_mdio_active>;
+		pinctrl-1 = <&emac0_mdio_sleep>;
+		pinctrl-2 = <&emac0_ephy_active>;
+		pinctrl-3 = <&emac0_ephy_sleep>;
 		qcom,emac-tstamp-en;
 		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
 		phy-mode = "sgmii";

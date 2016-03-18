@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,7 +54,9 @@ struct cec_msg {
  * @enable: function pointer to enable CEC
  * @send_msg: function pointer to send CEC message
  * @wt_logical_addr: function pointer to write logical address
- * @wakeup_en: function pointer to enable wakup feature
+ * @wakeup_en: function pointer to enable wakeup feature
+ * @is_wakeup_en: function pointer to query wakeup feature state
+ * @device_suspend: function pointer to update device suspend state
  * @data: pointer to the data needed to send with operation functions
  *
  * Defines all the operations that abstract module can call
@@ -65,7 +67,9 @@ struct cec_ops {
 	int (*send_msg)(void *data,
 		struct cec_msg *msg);
 	void (*wt_logical_addr)(void *data, u8 addr);
-	int (*wakeup_en)(void *data, bool en);
+	void (*wakeup_en)(void *data, bool en);
+	bool (*is_wakeup_en)(void *data);
+	void (*device_suspend)(void *data, bool suspend);
 	void *data;
 };
 

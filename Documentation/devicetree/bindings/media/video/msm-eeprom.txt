@@ -112,6 +112,8 @@ Required properties if eeprom probe is kernel probe:
 - qcom,cam-vreg-max-voltage : should specify maximum voltage level
     for eeprom in uV.
 - qcom,cam-vreg-op-mode : should specify current level for eeprom in uA.
+- pinctrl-names : should specify the pin control groups followed by
+    the definition of each group
 - qcom,gpio-no-mux : should specify the gpio mux type.
 - gpios : should specify the gpios to be used for the eeprom.
 - qcom,gpio-reset : should specify the reset gpio index.

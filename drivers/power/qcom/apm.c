@@ -90,7 +90,7 @@ enum {
 enum {
 	MSM8996_ID,
 	MSM8996PRO_ID,
-	MSMTITANIUM_ID,
+	MSM8953_ID,
 };
 
 struct msm_apm_ctrl_dev {
@@ -239,8 +239,8 @@ free_events:
 	return ret;
 }
 
-/* Titanium register offset definition */
-#define MSMTITANIUM_APM_DLY_CNTR	0x2ac
+/* 8953 register offset definition */
+#define MSM8953_APM_DLY_CNTR	0x2ac
 
 /* Register field shift definitions */
 #define APM_CTL_SEL_SWITCH_DLY_SHIFT	0
@@ -255,11 +255,11 @@ free_events:
 #define APM_CTL_POST_HALT_DLY_MASK	GENMASK(31, 24)
 
 /*
- * Get the resources associated with the msmtitanium APM controller from
+ * Get the resources associated with the msm8953 APM controller from
  * device tree, remap all I/O addresses, and program the initial
- * register configuration required for the titanium APM controller device.
+ * register configuration required for the 8953 APM controller device.
  */
-static int msmtitanium_apm_ctrl_init(struct platform_device *pdev,
+static int msm8953_apm_ctrl_init(struct platform_device *pdev,
 				     struct msm_apm_ctrl_dev *ctrl)
 {
 	struct device *dev = &pdev->dev;
@@ -282,7 +282,7 @@ static int msmtitanium_apm_ctrl_init(struct platform_device *pdev,
 	 * Initial APM register configuration required before starting
 	 * APM HW controller.
 	 */
-	regval = readl_relaxed(ctrl->reg_base + MSMTITANIUM_APM_DLY_CNTR);
+	regval = readl_relaxed(ctrl->reg_base + MSM8953_APM_DLY_CNTR);
 	val = regval;
 
 	if (of_find_property(dev->of_node, "qcom,apm-post-halt-delay", NULL)) {
@@ -342,7 +342,7 @@ static int msmtitanium_apm_ctrl_init(struct platform_device *pdev,
 	}
 
 	if (val != regval) {
-		writel_relaxed(val, ctrl->reg_base + MSMTITANIUM_APM_DLY_CNTR);
+		writel_relaxed(val, ctrl->reg_base + MSM8953_APM_DLY_CNTR);
 		/* make sure write completes before return */
 		mb();
 	}
@@ -619,17 +619,17 @@ done:
 	return ret;
 }
 
-/* Titanium register value definitions */
-#define MSMTITANIUM_APM_MX_MODE_VAL            0x00
-#define MSMTITANIUM_APM_APCC_MODE_VAL          0x02
-#define MSMTITANIUM_APM_MX_DONE_VAL            0x00
-#define MSMTITANIUM_APM_APCC_DONE_VAL          0x03
+/* 8953 register value definitions */
+#define MSM8953_APM_MX_MODE_VAL            0x00
+#define MSM8953_APM_APCC_MODE_VAL          0x02
+#define MSM8953_APM_MX_DONE_VAL            0x00
+#define MSM8953_APM_APCC_DONE_VAL          0x03
 
-/* Titanium register offset definitions */
-#define MSMTITANIUM_APCC_APM_MODE              0x000002a8
-#define MSMTITANIUM_APCC_APM_CTL_STS           0x000002b0
+/* 8953 register offset definitions */
+#define MSM8953_APCC_APM_MODE              0x000002a8
+#define MSM8953_APCC_APM_CTL_STS           0x000002b0
 
-static int msmtitanium_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
+static int msm8953_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 {
 	int timeout = MSM_APM_SWITCH_TIMEOUT_US;
 	u32 regval;
@@ -639,17 +639,17 @@ static int msmtitanium_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 	spin_lock_irqsave(&ctrl_dev->lock, flags);
 
 	/* Switch arrays to MX supply and wait for its completion */
-	writel_relaxed(MSMTITANIUM_APM_MX_MODE_VAL, ctrl_dev->reg_base +
-		       MSMTITANIUM_APCC_APM_MODE);
+	writel_relaxed(MSM8953_APM_MX_MODE_VAL, ctrl_dev->reg_base +
+		       MSM8953_APCC_APM_MODE);
 
 	/* Ensure write above completes before delaying */
 	mb();
 
 	while (timeout > 0) {
 		regval = readl_relaxed(ctrl_dev->reg_base +
-					MSMTITANIUM_APCC_APM_CTL_STS);
+					MSM8953_APCC_APM_CTL_STS);
 		if ((regval & MSM_APM_CTL_STS_MASK) ==
-				MSMTITANIUM_APM_MX_DONE_VAL)
+				MSM8953_APM_MX_DONE_VAL)
 			break;
 
 		udelay(1);
@@ -670,7 +670,7 @@ static int msmtitanium_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 	return ret;
 }
 
-static int msmtitanium_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
+static int msm8953_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 {
 	int timeout = MSM_APM_SWITCH_TIMEOUT_US;
 	u32 regval;
@@ -680,17 +680,17 @@ static int msmtitanium_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 	spin_lock_irqsave(&ctrl_dev->lock, flags);
 
 	/* Switch arrays to APCC supply and wait for its completion */
-	writel_relaxed(MSMTITANIUM_APM_APCC_MODE_VAL, ctrl_dev->reg_base +
-		       MSMTITANIUM_APCC_APM_MODE);
+	writel_relaxed(MSM8953_APM_APCC_MODE_VAL, ctrl_dev->reg_base +
+		       MSM8953_APCC_APM_MODE);
 
 	/* Ensure write above completes before delaying */
 	mb();
 
 	while (timeout > 0) {
 		regval = readl_relaxed(ctrl_dev->reg_base +
-					MSMTITANIUM_APCC_APM_CTL_STS);
+					MSM8953_APCC_APM_CTL_STS);
 		if ((regval & MSM_APM_CTL_STS_MASK) ==
-				MSMTITANIUM_APM_APCC_DONE_VAL)
+				MSM8953_APM_APCC_DONE_VAL)
 			break;
 
 		udelay(1);
@@ -722,8 +722,8 @@ static int msm_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 	case MSM8996PRO_ID:
 		ret = msm8996pro_apm_switch_to_mx(ctrl_dev);
 		break;
-	case MSMTITANIUM_ID:
-		ret = msmtitanium_apm_switch_to_mx(ctrl_dev);
+	case MSM8953_ID:
+		ret = msm8953_apm_switch_to_mx(ctrl_dev);
 		break;
 	}
 
@@ -741,8 +741,8 @@ static int msm_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 	case MSM8996PRO_ID:
 		ret = msm8996pro_apm_switch_to_apcc(ctrl_dev);
 		break;
-	case MSMTITANIUM_ID:
-		ret = msmtitanium_apm_switch_to_apcc(ctrl_dev);
+	case MSM8953_ID:
+		ret = msm8953_apm_switch_to_apcc(ctrl_dev);
 		break;
 	}
 
@@ -942,8 +942,8 @@ static struct of_device_id msm_apm_match_table[] = {
 		.data = (void *)(uintptr_t)MSM8996PRO_ID,
 	},
 	{
-		.compatible = "qcom,msmtitanium-apm",
-		.data = (void *)(uintptr_t)MSMTITANIUM_ID,
+		.compatible = "qcom,msm8953-apm",
+		.data = (void *)(uintptr_t)MSM8953_ID,
 	},
 	{}
 };
@@ -987,8 +987,8 @@ static int msm_apm_probe(struct platform_device *pdev)
 			return ret;
 		}
 		break;
-	case MSMTITANIUM_ID:
-		ret = msmtitanium_apm_ctrl_init(pdev, ctrl);
+	case MSM8953_ID:
+		ret = msm8953_apm_ctrl_init(pdev, ctrl);
 		if (ret) {
 			dev_err(dev, "Failed to initialize APM controller device: ret=%d\n",
 				ret);

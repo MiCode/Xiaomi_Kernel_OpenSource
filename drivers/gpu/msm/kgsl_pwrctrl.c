@@ -387,6 +387,28 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 			pwr->active_pwrlevel, pwrlevel->gpu_freq,
 			pwr->previous_pwrlevel,
 			pwr->pwrlevels[old_level].gpu_freq);
+
+	/*
+	 * Some targets do not support the bandwidth requirement of
+	 * GPU at TURBO, for such targets we need to set GPU-BIMC
+	 * interface clocks to TURBO directly whenever GPU runs at
+	 * TURBO. The TURBO frequency of gfx-bimc need to be defined
+	 * in target device tree.
+	 */
+	if (pwr->gpu_bimc_int_clk) {
+			if (pwr->active_pwrlevel == 0 &&
+					!pwr->gpu_bimc_interface_enabled) {
+				clk_set_rate(pwr->gpu_bimc_int_clk,
+						pwr->gpu_bimc_int_clk_freq);
+				clk_prepare_enable(pwr->gpu_bimc_int_clk);
+				pwr->gpu_bimc_interface_enabled = 1;
+			} else if (pwr->previous_pwrlevel == 0
+					&& pwr->gpu_bimc_interface_enabled) {
+				clk_disable_unprepare(pwr->gpu_bimc_int_clk);
+				pwr->gpu_bimc_interface_enabled = 0;
+		}
+	}
+
 	/* Change register settings if any AFTER pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 
@@ -463,7 +485,7 @@ void kgsl_pwrctrl_update_l2pc(struct kgsl_device *device)
 	if ((1 << cpu) & device->pwrctrl.l2pc_cpus_mask) {
 		pm_qos_update_request_timeout(
 				&device->pwrctrl.l2pc_cpus_qos,
-				device->pwrctrl.pm_qos_active_latency,
+				device->pwrctrl.pm_qos_cpu_mask_latency,
 				KGSL_L2PC_CPU_TIMEOUT);
 	}
 }
@@ -1310,6 +1332,13 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			&pwr->power_flags)) {
 			trace_kgsl_clk(device, state,
 					kgsl_pwrctrl_active_freq(pwr));
+			/* Disable gpu-bimc-interface clocks */
+			if (pwr->gpu_bimc_int_clk &&
+					pwr->gpu_bimc_interface_enabled) {
+				clk_disable_unprepare(pwr->gpu_bimc_int_clk);
+				pwr->gpu_bimc_interface_enabled = 0;
+			}
+
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 				clk_disable(pwr->grp_clks[i]);
 			/* High latency clock maintenance. */
@@ -1352,6 +1381,17 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			   this is to let GPU interrupt to come */
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 				clk_enable(pwr->grp_clks[i]);
+			/* Enable the gpu-bimc-interface clocks */
+			if (pwr->gpu_bimc_int_clk) {
+				if (pwr->active_pwrlevel == 0 &&
+					!pwr->gpu_bimc_interface_enabled) {
+					clk_set_rate(pwr->gpu_bimc_int_clk,
+						pwr->gpu_bimc_int_clk_freq);
+					clk_prepare_enable(
+						pwr->gpu_bimc_int_clk);
+					pwr->gpu_bimc_interface_enabled = 1;
+				}
+			}
 		}
 	}
 }
@@ -1662,6 +1702,13 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		}
 	}
 
+	/* Getting gfx-bimc-interface-clk frequency */
+	if (!of_property_read_u32(pdev->dev.of_node,
+			"qcom,gpu-bimc-interface-clk-freq",
+			&pwr->gpu_bimc_int_clk_freq))
+		pwr->gpu_bimc_int_clk = devm_clk_get(&pdev->dev,
+					"bimc_gpu_clk");
+
 	pwr->power_flags = BIT(KGSL_PWRFLAGS_RETENTION_ON);
 
 	if (pwr->num_pwrlevels == 0) {
@@ -1697,14 +1744,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		return result;
 
 	pwr->power_flags = 0;
-
-	if (kgsl_property_read_u32(device, "qcom,pm-qos-active-latency",
-		&pwr->pm_qos_active_latency))
-		pwr->pm_qos_active_latency = 501;
-
-	if (kgsl_property_read_u32(device, "qcom,pm-qos-wakeup-latency",
-		&pwr->pm_qos_wakeup_latency))
-		pwr->pm_qos_wakeup_latency = 101;
 
 	kgsl_property_read_u32(device, "qcom,l2pc-cpu-mask",
 			&pwr->l2pc_cpus_mask);
@@ -1842,6 +1881,9 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 
 	for (i = 0; i < KGSL_MAX_REGULATORS; i++)
 		pwr->grp_clks[i] = NULL;
+
+	if (pwr->gpu_bimc_int_clk)
+		devm_clk_put(&device->pdev->dev, pwr->gpu_bimc_int_clk);
 
 	pwr->power_flags = 0;
 

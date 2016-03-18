@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,14 @@
 #define A57_L2MERRSR_RAMID(a)	(((a) >> 24) & 0x7f)
 #define A57_L2MERRSR_CPUID(a)	(((a) >> 18) & 0x0f)
 #define A57_L2MERRSR_INDEX(a)	((a) & 0x1ffff)
+
+#define KRYO2XX_GOLD_L2MERRSR_FATAL(a)	((a) & (1LL << 63))
+#define KRYO2XX_GOLD_L2MERRSR_OTHER(a)	(((a) >> 40) & 0x3f)
+#define KRYO2XX_GOLD_L2MERRSR_REPT(a)	(((a) >> 32) & 0x3f)
+#define KRYO2XX_GOLD_L2MERRSR_VALID(a)	((a) & (1 << 31))
+#define KRYO2XX_GOLD_L2MERRSR_RAMID(a)	((a) & (1 << 24))
+#define KRYO2XX_GOLD_L2MERRSR_WAY(a)	(((a) >> 18) & 0x0f)
+#define KRYO2XX_GOLD_L2MERRSR_INDEX(a)	(((a) >> 3) & 0x3fff)
 
 #define L2ECTLR_INT_ERR		(1 << 30)
 #define L2ECTLR_EXT_ERR		(1 << 29)
@@ -211,6 +219,32 @@ static void ca53_ca57_print_error_state_regs(void)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %#llx\n",
 								cpumerrsr);
+	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %#llx\n", l2merrsr);
+
+	edac_printk(KERN_CRIT, EDAC_CPU, "ESR value = %#x\n", esr_el1);
+	edac_printk(KERN_CRIT, EDAC_CPU, "L2ECTLR value = %#x\n", l2ectlr);
+	if (ESR_L2_DBE(esr_el1))
+		edac_printk(KERN_CRIT, EDAC_CPU,
+			"Double bit error on dirty L2 cacheline\n");
+}
+
+static void kryo2xx_gold_print_error_state_regs(void)
+{
+	u64 l2merrsr;
+	u32 esr_el1;
+	u32 l2ectlr;
+
+	l2merrsr = read_l2merrsr_el1;
+	esr_el1 = read_esr_el1;
+	l2ectlr = read_l2ectlr_el1;
+
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
+				(void *)l2merrsr);
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
+				(void *)((u64)esr_el1));
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
+				(void *)((u64)l2ectlr));
+
 	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %#llx\n", l2merrsr);
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "ESR value = %#x\n", esr_el1);
@@ -480,6 +514,50 @@ static void ca57_parse_l2merrsr(struct erp_local_data *ed)
 	write_l2merrsr_el1(0);
 }
 
+
+static void kryo2xx_gold_parse_l2merrsr(struct erp_local_data *ed)
+{
+	u64 l2merrsr;
+	int ramid, way;
+
+	l2merrsr = read_l2merrsr_el1;
+
+	if (!KRYO2XX_GOLD_L2MERRSR_VALID(l2merrsr))
+		return;
+
+	if (KRYO2XX_GOLD_L2MERRSR_FATAL(l2merrsr))
+		ed->err = DBE;
+
+	edac_printk(KERN_CRIT, EDAC_CPU, "Gold L2 %s Error detected\n",
+							err_name[ed->err]);
+	kryo2xx_gold_print_error_state_regs();
+	if (ed->err == DBE)
+		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
+
+	way = KRYO2XX_GOLD_L2MERRSR_WAY(l2merrsr);
+	ramid = KRYO2XX_GOLD_L2MERRSR_RAMID(l2merrsr);
+
+	edac_printk(KERN_CRIT, EDAC_CPU,
+				"L2 %s RAM error in way 0x%02x, index 0x%04x\n",
+				ramid ? "data" : "tag",
+				(int) KRYO2XX_GOLD_L2MERRSR_WAY(l2merrsr),
+				(int) KRYO2XX_GOLD_L2MERRSR_INDEX(l2merrsr));
+
+	edac_printk(KERN_CRIT, EDAC_CPU, "Repeated error count: %d\n",
+					 (int) KRYO2XX_GOLD_L2MERRSR_REPT(l2merrsr));
+	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
+					 (int) KRYO2XX_GOLD_L2MERRSR_OTHER(l2merrsr));
+
+	if (ed->err == SBE) {
+		errors[A57_L2_CE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L2_CACHE, errors[A57_L2_CE].msg);
+	} else if (ed->err == DBE) {
+		errors[A57_L2_UE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L2_CACHE, errors[A57_L2_UE].msg);
+	}
+	write_l2merrsr_el1(0);
+}
+
 static DEFINE_SPINLOCK(local_handler_lock);
 static DEFINE_SPINLOCK(l2ectlr_lock);
 
@@ -497,6 +575,7 @@ static void arm64_erp_local_handler(void *info)
 
 	switch (partnum) {
 	case ARM_CPU_PART_CORTEX_A53:
+	case ARM_CPU_PART_KRYO2XX_SILVER:
 		ca53_parse_cpumerrsr(errdata);
 		ca53_parse_l2merrsr(errdata);
 	break;
@@ -505,6 +584,10 @@ static void arm64_erp_local_handler(void *info)
 	case ARM_CPU_PART_CORTEX_A57:
 		ca57_parse_cpumerrsr(errdata);
 		ca57_parse_l2merrsr(errdata);
+	break;
+
+	case ARM_CPU_PART_KRYO2XX_GOLD:
+		kryo2xx_gold_parse_l2merrsr(errdata);
 	break;
 
 	default:
@@ -663,6 +746,7 @@ static void check_sbe_event(struct erp_drvdata *drv)
 	spin_lock_irqsave(&local_handler_lock, flags);
 	switch (partnum) {
 	case ARM_CPU_PART_CORTEX_A53:
+	case ARM_CPU_PART_KRYO2XX_SILVER:
 		ca53_parse_cpumerrsr(&errdata);
 		ca53_parse_l2merrsr(&errdata);
 	break;
@@ -671,6 +755,10 @@ static void check_sbe_event(struct erp_drvdata *drv)
 	case ARM_CPU_PART_CORTEX_A57:
 		ca57_parse_cpumerrsr(&errdata);
 		ca57_parse_l2merrsr(&errdata);
+	break;
+
+	case ARM_CPU_PART_KRYO2XX_GOLD:
+		kryo2xx_gold_parse_l2merrsr(&errdata);
 	break;
 	};
 	spin_unlock_irqrestore(&local_handler_lock, flags);

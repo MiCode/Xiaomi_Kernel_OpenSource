@@ -12,7 +12,6 @@
 
 #include "msm8909.dtsi"
 #include "msm8909-pinctrl.dtsi"
-#include "msm8909-camera-sensor-cdp.dtsi"
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
@@ -160,25 +159,6 @@
 		};
 	};
 
-	i2c@78b6000 { /* BLSP1 QUP2 */
-		nfc-nci@e {
-			compatible = "qcom,nfc-nci";
-			reg = <0x0e>;
-			qcom,irq-gpio = <&msm_gpio 21 0x00>;
-			qcom,dis-gpio = <&msm_gpio 20 0x00>;
-			qcom,clk-src = "BBCLK2";
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <21 0>;
-			interrupt-names = "nfc_irq";
-			pinctrl-names = "nfc_active","nfc_suspend";
-			pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
-			pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
-			qcom,clk-gpio = <&pm8909_gpios 2 0>;
-			clocks = <&clock_rpm clk_bb_clk2_pin>;
-			clock-names = "ref_clk";
-		};
-	};
-
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -214,85 +194,6 @@
 		};
 	};
 
-	audio_codec: sound {
-		compatible = "qcom,msm8x16-audio-codec";
-		qcom,model = "msm8909-snd-card";
-		qcom,msm-snd-card-id = <0>;
-		qcom,msm-codec-type = "internal";
-		qcom,msm-ext-pa = "primary";
-		qcom,msm-mclk-freq = <9600000>;
-		qcom,msm-mbhc-hphl-swh = <0>;
-		qcom,msm-mbhc-gnd-swh = <0>;
-		qcom,msm-hs-micbias-type = "internal";
-		qcom,msm-micbias1-ext-cap;
-		qcom,audio-routing =
-			"RX_BIAS", "MCLK",
-			"SPK_RX_BIAS", "MCLK",
-			"INT_LDO_H", "MCLK",
-			"MIC BIAS Internal1", "Handset Mic",
-			"MIC BIAS Internal2", "Headset Mic",
-			"MIC BIAS Internal1", "Secondary Mic",
-			"AMIC1", "MIC BIAS Internal1",
-			"AMIC2", "MIC BIAS Internal2",
-			"AMIC3", "MIC BIAS Internal1";
-		pinctrl-names = "cdc_lines_act",
-				"cdc_lines_sus",
-				"cross_conn_det_act",
-				"cross_conn_det_sus",
-				"cdc_lines_sec_ext_act",
-				"cdc_lines_sec_ext_sus",
-				"cdc_lines_quat_ext_act",
-				"cdc_lines_quat_ext_sus";
-		pinctrl-0 = <&cdc_pdm_lines_act>;
-		pinctrl-1 = <&cdc_pdm_lines_sus>;
-		pinctrl-2 = <&cross_conn_det_act>;
-		pinctrl-3 = <&cross_conn_det_sus>;
-		pinctrl-4 = <&cdc_pdm_lines_act &cdc_ext_pa_act
-				&cdc_ext_pa_d0_act &cdc_ext_mclk_act
-				&cross_conn_det_act &vdd_spkdrv_act>;
-		pinctrl-5 = <&cdc_pdm_lines_sus &cdc_ext_pa_sus
-				&cdc_ext_pa_d0_sus &cdc_ext_mclk_sus
-				&cross_conn_det_sus &vdd_spkdrv_sus>;
-		pinctrl-6 = <&cdc_pdm_lines_act &cdc_ext_tlmm_act
-				&cdc_ext_mclk_act &cross_conn_det_act
-				&vdd_spkdrv_act>;
-		pinctrl-7 = <&cdc_pdm_lines_sus &cdc_ext_tlmm_sus
-				&cdc_ext_mclk_sus &cross_conn_det_sus
-				&vdd_spkdrv_sus>;
-		qcom,cdc-us-euro-gpios = <&msm_gpio 97 0>;
-		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
-				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&lpa>,
-				<&voice_svc>;
-		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
-				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
-				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
-				"msm-lsm-client", "msm-pcm-routing", "msm-pcm-lpa",
-				"msm-voice-svc";
-		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>,
-				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
-				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
-				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
-				<&bt_sco_rx>, <&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>,
-				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
-				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
-				<&incall_music_2_rx>;
-		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
-				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
-				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
-				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
-				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
-				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
-				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
-				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
-				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
-				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
-				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
-				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
-				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
-		asoc-codec = <&stub_codec>, <&pm8909_conga_dig>;
-		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
-	};
 };
 
 &blsp1_uart1 {
@@ -362,18 +263,47 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-&pmx_mdss {
-	qcom,num-grp-pins = <2>;
-	qcom,pins = <&gp 25>, <&gp 37>;
-};
-
-&pmx_mdss_te {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 24>;
+&msm_gpio {
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio25", "gpio37";
+			};
+			config {
+				pins = "gpio25", "gpio37";
+			};
+		};
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio25", "gpio37";
+			};
+			config {
+				pins = "gpio25", "gpio37";
+			};
+		};
+	};
+	pmx_mdss_te {
+		mdss_te_active: mdss_te_active {
+			mux {
+				pins = "gpio24";
+			};
+			config {
+				pins = "gpio24";
+			};
+		};
+		mdss_te_suspend: mdss_te_suspend {
+			mux {
+				pins = "gpio24";
+			};
+			config {
+				pins = "gpio24";
+			};
+		};
+	};
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_hx8394d_720_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_auo_cx_qvga_cmd>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -486,105 +416,3 @@
 	pinctrl-7 = <&qdsd_clk_spmi &qdsd_cmd_spmi
 		    &qdsd_data0_spmi &qdsd_data3_spmi>;
 };
-
-&tlmm_pinmux {
-	mpu6050_int_pin {
-		qcom,pins = <&gp 96>;
-		qcom,pin-func = <0>;
-		qcom,num-grp-pins = <1>;
-		label = "mpu6050-irq";
-		mpu6050_default: mpu6050_default {
-			drive-strength = <6>;
-			bias-pull-down;
-		};
-
-		mpu6050_sleep: mpu6050_sleep {
-			drive-strength = <2>;
-			bias-pull-down;
-		};
-	};
-
-	apds99xx_int_pin {
-		qcom,pins = <&gp 94>;
-		qcom,pin-func = <0>;
-		qcom,num-grp-pins = <1>;
-		label = "apds99xx-irq";
-		apds99xx_default: apds99xx_default {
-			drive-strength = <6>;
-			bias-pull-up;
-		};
-
-		apds99xx_sleep: apds99xx_sleep {
-			drive-strength = <2>;
-			bias-pull-down;
-		};
-	};
-
-	ak8963_int_pin {
-		qcom,pins = <&gp 65>;
-		qcom,pin-func = <0>;
-		qcom,num-grp-pins = <1>;
-		label = "ak8963-irq";
-		ak8963_default: ak8963_default {
-			drive-strength = <6>;
-			bias-pull-up;
-		};
-
-		ak8963_sleep: ak8963_sleep {
-			drive-strength = <2>;
-			bias-pull-down;
-		};
-	};
-};
-
-&i2c_1 { /* BLSP1 QUP1 */
-	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
-		compatible = "invn,mpu6050";
-		reg = <0x68>;
-		pinctrl-names = "mpu_default","mpu_sleep";
-		pinctrl-0 = <&mpu6050_default>;
-		pinctrl-1 = <&mpu6050_sleep>;
-		interrupt-parent = <&msm_gpio>;
-		interrupts = <96 0x1>;
-		vdd-supply = <&pm8909_l17>;
-		vlogic-supply = <&pm8909_l6>;
-		invn,gpio-int = <&msm_gpio 96 0x1>;
-		invn,place = "Portrait Down Back Side";
-	};
-
-	avago@39 { /* Ambient light and proximity sensor */
-		compatible = "avago,apds9900";
-		reg = <0x39>;
-		pinctrl-names = "default","sleep";
-		pinctrl-0 = <&apds99xx_default>;
-		pinctrl-1 = <&apds99xx_sleep>;
-		interrupt-parent = <&msm_gpio>;
-		interrupts = <94 0x2002>;
-		vdd-supply = <&pm8909_l17>;
-		vio-supply = <&pm8909_l6>;
-		avago,irq-gpio = <&msm_gpio 94 0x2002>;
-		avago,ps-threshold = <600>;
-		avago,ps-hysteresis-threshold = <500>;
-		avago,ps-pulse = <8>;
-		avago,ps-pgain = <0>;
-		avago,als-B = <186>;
-		avago,als-C = <75>;
-		avago,als-D = <129>;
-		avago,ga-value = <256>;
-	};
-
-	akm@c { /* Magnetic field sensor */
-		compatible = "ak,ak8963";
-		reg = <0x0c>;
-		pinctrl-names = "ak8963_default", "ak8963_sleep";
-		pinctrl-0 = <&ak8963_default>;
-		pinctrl-1 = <&ak8963_sleep>;
-		interrupt-parent = <&msm_gpio>;
-		interrupts = <65 0x2>;
-		vdd-supply = <&pm8909_l17>;
-		vio-supply = <&pm8909_l6>;
-		ak,layout = <0x6>;
-		ak,auto-report;
-	};
-};
-
