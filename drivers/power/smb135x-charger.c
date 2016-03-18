@@ -185,6 +185,9 @@
 #define USING_USB_BIT			BIT(1)
 #define USING_DC_BIT			BIT(0)
 
+#define STATUS_2_REG			0x48
+#define HARD_LIMIT_STS_BIT		BIT(6)
+
 #define STATUS_4_REG			0x4A
 #define BATT_NET_CHG_CURRENT_BIT	BIT(7)
 #define BATT_LESS_THAN_2V		BIT(4)
@@ -1728,7 +1731,22 @@ static enum power_supply_property smb135x_parallel_properties[] = {
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 };
+
+static bool smb135x_is_input_current_limited(struct smb135x_chg *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smb135x_read(chip, STATUS_2_REG, &reg);
+	if (rc) {
+		pr_debug("Couldn't read _REG for ICL status rc = %d\n", rc);
+		return false;
+	}
+
+	return !!(reg & HARD_LIMIT_STS_BIT);
+}
 
 static int smb135x_parallel_set_chg_present(struct smb135x_chg *chip,
 						int present)
@@ -1968,6 +1986,12 @@ static int smb135x_parallel_get_property(struct power_supply *psy,
 			val->intval = smb135x_get_prop_batt_status(chip);
 		else
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
+		if (chip->parallel_charger_present)
+			val->intval = smb135x_is_input_current_limited(chip);
+		else
+			val->intval = 0;
 		break;
 	default:
 		return -EINVAL;
