@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,7 @@
 #include "swr-wcd-ctrl.h"
 
 #define SWR_BROADCAST_CMD_ID            0x0F
-#define SWR_AUTO_SUSPEND_DELAY		3 /* delay in sec */
+#define SWR_AUTO_SUSPEND_DELAY          3 /* delay in sec */
 #define SWR_DEV_ID_MASK			0xFFFFFFFF
 #define SWR_REG_VAL_PACK(data, dev, id, reg)	\
 			((reg) | ((id) << 16) | ((dev) << 20) | ((data) << 24))
@@ -162,7 +162,7 @@ enum {
 
 #define SWR_MSTR_MAX_REG_ADDR	0x1740
 #define SWR_MSTR_START_REG_ADDR	0x00
-#define SWR_MSTR_MAX_BUF_LEN     20
+#define SWR_MSTR_MAX_BUF_LEN     32
 #define BYTES_PER_LINE          12
 #define SWR_MSTR_RD_BUF_LEN      8
 #define SWR_MSTR_WR_BUF_LEN      32
@@ -391,6 +391,7 @@ static int swrm_get_port_config(struct swr_master *master)
 static int swrm_get_master_port(u8 *mstr_port_id, u8 slv_port_id)
 {
 	int i;
+
 	for (i = 0; i < SWR_MSTR_PORT_LEN; i++) {
 		if (mstr_ports[i] == slv_port_id) {
 			*mstr_port_id = i;
@@ -480,6 +481,7 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
 		return -EINVAL;
 	}
+
 	if (dev_num)
 		ret = swrm_cmd_fifo_rd_cmd(swrm, &val, dev_num, 0, reg_addr,
 					   len);
@@ -503,10 +505,12 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u16 reg_addr,
 		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
 		return -EINVAL;
 	}
+
 	if (dev_num)
 		ret = swrm_cmd_fifo_wr_cmd(swrm, reg_val, dev_num, 0, reg_addr);
 	else
 		ret = swrm->write(swrm->handle, reg_addr, reg_val);
+
 	pm_runtime_mark_last_busy(&swrm->pdev->dev);
 
 	return ret;
@@ -612,7 +616,14 @@ static void swrm_apply_port_config(struct swr_master *master)
 	int len = 0;
 
 	int mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
-		SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK);
+		    SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK |
+		    SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_BMSK);
+
+	if (!swrm) {
+		pr_err("%s: Invalid handle to swr controller\n",
+			__func__);
+		return;
+	}
 
 	bank = get_inactive_bank_num(swrm);
 	dev_dbg(swrm->dev, "%s: enter bank: %d master_ports: %d\n",
@@ -622,7 +633,8 @@ static void swrm_apply_port_config(struct swr_master *master)
 	value = swrm->read(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank));
 	value &= (~mask);
 	value |= ((0 << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
-		(7 << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT));
+		  (7 << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT) |
+		  (0 << SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_SHFT));
 	swrm->write(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
 	dev_dbg(swrm->dev, "%s: regaddr: 0x%x, value: 0x%x\n", __func__,
 		SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
@@ -707,9 +719,10 @@ static int swrm_connect_port(struct swr_master *master,
 	if (!portinfo)
 		return -EINVAL;
 
-	if (swrm == NULL) {
-		dev_err(&master->dev, "%s: invalid soundwire master pointer",
-				__func__);
+	if (!swrm) {
+		dev_err(&master->dev,
+			"%s: Invalid handle to swr controller\n",
+			__func__);
 		return -EINVAL;
 	}
 
@@ -750,7 +763,13 @@ static int swrm_connect_port(struct swr_master *master,
 
 	swrm_get_port_config(master);
 	swr_port_response(master, portinfo->tid);
-	swrm_apply_port_config(master);
+	if (swrm->num_rx_chs > 1) {
+		swrm->num_cfg_devs += 1;
+		if (swrm->num_rx_chs == swrm->num_cfg_devs)
+			swrm_apply_port_config(master);
+	} else {
+		swrm_apply_port_config(master);
+	}
 	mutex_unlock(&swrm->mlock);
 	return 0;
 
@@ -776,6 +795,13 @@ static int swrm_disconnect_port(struct swr_master *master,
 	u32 reg[SWRM_MAX_PORT_REG];
 	u32 val[SWRM_MAX_PORT_REG];
 	int len = 0;
+
+	if (!swrm) {
+		dev_err(&master->dev,
+			"%s: Invalid handle to swr controller\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	if (!portinfo) {
 		dev_err(&master->dev, "%s: portinfo is NULL\n", __func__);
@@ -831,6 +857,8 @@ static int swrm_disconnect_port(struct swr_master *master,
 
 	master->num_port -= portinfo->num_port;
 	swr_port_response(master, portinfo->tid);
+	if (swrm->num_rx_chs > 1)
+		swrm->num_cfg_devs -= 1;
 	mutex_unlock(&swrm->mlock);
 
 	dev_dbg(&master->dev, "%s: master active ports: %d\n",
@@ -919,7 +947,7 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 			}
 			break;
 		case SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET:
-			dev_err(swrm->dev, "SWR bus clash detected\n");
+			dev_err_ratelimited(swrm->dev, "SWR bus clash detected\n");
 			break;
 		case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
 			dev_dbg(swrm->dev, "SWR read FIFO overflow\n");
@@ -932,9 +960,9 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 			break;
 		case SWRM_INTERRUPT_STATUS_CMD_ERROR:
 			value = swrm->read(swrm->handle, SWRM_CMD_FIFO_STATUS);
-			dev_err(swrm->dev,
-			"SWR CMD error, CMD fifo status 0x%x, flushing fifo\n",
-			value);
+			dev_err_ratelimited(swrm->dev,
+			"SWR CMD error, fifo status 0x%x, flushing fifo\n",
+					    value);
 			swrm->write(swrm->handle, SWRM_CMD_FIFO_CMD, 0x1);
 			break;
 		case SWRM_INTERRUPT_STATUS_DOUT_PORT_COLLISION:
@@ -959,7 +987,7 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 		case SWRM_INTERRUPT_STATUS_CLK_STOP_FINISHED:
 			break;
 		default:
-			dev_err(swrm->dev, "SWR unkown interrupt\n");
+			dev_err_ratelimited(swrm->dev, "SWR unknown interrupt\n");
 			ret = IRQ_NONE;
 			break;
 		}
@@ -987,15 +1015,19 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 	int ret = -EINVAL;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(mstr);
 
+	if (!swrm) {
+		pr_err("%s: Invalid handle to swr controller\n",
+			__func__);
+		return ret;
+	}
+
 	pm_runtime_get_sync(&swrm->pdev->dev);
 	for (i = 1; i < (mstr->num_dev + 1); i++) {
 		id = ((u64)(swrm->read(swrm->handle,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_2(i))) << 32);
 		id |= swrm->read(swrm->handle,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_1(i));
-		id = id & SWR_DEV_ID_MASK;
-
-		if (id == dev_id) {
+		if ((id & SWR_DEV_ID_MASK) == dev_id) {
 			if (swrm_get_device_status(swrm, i) == 0x01) {
 				*dev_num = i;
 				ret = 0;
@@ -1019,6 +1051,7 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 	u32 val;
 	u8 row_ctrl = SWR_MAX_ROW;
 	u8 col_ctrl = SWR_MIN_COL;
+	u8 ssp_period = 1;
 	u8 retry_cmd_num = 3;
 	u32 reg[SWRM_MAX_INIT_REG];
 	u32 value[SWRM_MAX_INIT_REG];
@@ -1026,7 +1059,8 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 
 	/* Clear Rows and Cols */
 	val = ((row_ctrl << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
-		(col_ctrl << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT));
+		(col_ctrl << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT) |
+		(ssp_period << SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_SHFT));
 
 	reg[len] = SWRM_MCP_FRAME_CTRL_BANK_ADDR(0);
 	value[len++] = val;
@@ -1055,11 +1089,12 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 	reg[len] = SWRM_COMP_CFG_ADDR;
 	value[len++] = 0x02;
 
-	reg[len] = SWRM_MCP_BUS_CTRL_ADDR;
-	value[len++] = 0x02;
-
 	reg[len] = SWRM_COMP_CFG_ADDR;
 	value[len++] = 0x03;
+
+	reg[len] = SWRM_INTERRUPT_CLEAR;
+	value[len++] = 0x08;
+
 	swrm->bulk_write(swrm->handle, reg, value, len);
 
 	return ret;
@@ -1146,6 +1181,7 @@ static int swrm_probe(struct platform_device *pdev)
 	swrm->rcmd_id = 0;
 	swrm->wcmd_id = 0;
 	swrm->slave_status = 0;
+	swrm->num_rx_chs = 0;
 	swrm->state = SWR_MSTR_RESUME;
 	init_completion(&swrm->reset);
 	init_completion(&swrm->broadcast);
@@ -1241,6 +1277,7 @@ static int swrm_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 	swr_unregister_master(&swrm->master);
 	mutex_destroy(&swrm->mlock);
+	mutex_destroy(&swrm->reslock);
 	kfree(swrm);
 	return 0;
 }
@@ -1335,12 +1372,13 @@ exit:
 
 static int swrm_runtime_idle(struct device *dev)
 {
-	if (pm_runtime_autosuspend_expiration(dev)) {
+	 if (pm_runtime_autosuspend_expiration(dev)) {
 		pm_runtime_autosuspend(dev);
 		return -EAGAIN;
 	}
 	return 0;
 }
+
 #endif /* CONFIG_PM_RUNTIME */
 
 static int swrm_device_down(struct device *dev)
@@ -1420,12 +1458,16 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 	case SWR_DEVICE_UP:
 		dev_dbg(swrm->dev, "%s: swr master up called\n", __func__);
 		mutex_lock(&swrm->mlock);
+		mutex_lock(&swrm->reslock);
 		if ((swrm->state == SWR_MSTR_RESUME) ||
 		    (swrm->state == SWR_MSTR_UP)) {
 			dev_dbg(swrm->dev, "%s: SWR master is already UP: %d\n",
 				__func__, swrm->state);
 		} else {
+			pm_runtime_mark_last_busy(&pdev->dev);
+			mutex_unlock(&swrm->reslock);
 			pm_runtime_get_sync(&pdev->dev);
+			mutex_lock(&swrm->reslock);
 			list_for_each_entry(swr_dev, &mstr->devices, dev_list) {
 				ret = swr_reset_device(swr_dev);
 				if (ret) {
@@ -1438,7 +1480,39 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 			pm_runtime_mark_last_busy(&pdev->dev);
 			pm_runtime_put_autosuspend(&pdev->dev);
 		}
+		mutex_unlock(&swrm->reslock);
 		mutex_unlock(&swrm->mlock);
+		break;
+	case SWR_SET_NUM_RX_CH:
+		if (!data) {
+			dev_err(swrm->dev, "%s: data is NULL\n", __func__);
+			ret = -EINVAL;
+		} else {
+			mutex_lock(&swrm->mlock);
+			swrm->num_rx_chs = *(int *)data;
+			if (swrm->num_rx_chs > 1) {
+				list_for_each_entry(swr_dev, &mstr->devices,
+						    dev_list) {
+					ret = swr_set_device_group(swr_dev,
+								SWR_BROADCAST);
+					if (ret)
+						dev_err(swrm->dev,
+							"%s: set num ch failed\n",
+							__func__);
+				}
+			} else {
+				list_for_each_entry(swr_dev, &mstr->devices,
+						    dev_list) {
+					ret = swr_set_device_group(swr_dev,
+								SWR_GROUP_NONE);
+					if (ret)
+						dev_err(swrm->dev,
+							"%s: set num ch failed\n",
+							__func__);
+				}
+			}
+			mutex_unlock(&swrm->mlock);
+		}
 		break;
 	default:
 		dev_err(swrm->dev, "%s: swr master unknown id %d\n",

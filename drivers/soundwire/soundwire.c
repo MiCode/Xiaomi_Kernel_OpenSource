@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -476,6 +476,15 @@ int swr_bulk_write(struct swr_device *dev, u8 dev_num, void *reg,
 		return -EINVAL;
 
 	master = dev->master;
+	if (dev->group_id) {
+		if (master->gr_sid != dev_num) {
+			if (!master->gr_sid)
+				master->gr_sid = dev_num;
+			else
+				return 0;
+		}
+		dev_num = dev->group_id;
+	}
 	if (master->bulk_write)
 		return master->bulk_write(master, dev_num, reg, buf, len);
 
@@ -499,6 +508,16 @@ int swr_write(struct swr_device *dev, u8 dev_num, u16 reg_addr,
 	struct swr_master *master = dev->master;
 	if (!master)
 		return -EINVAL;
+
+	if (dev->group_id) {
+		if (master->gr_sid != dev_num) {
+			if (!master->gr_sid)
+				master->gr_sid = dev_num;
+			else
+				return 0;
+		}
+		dev_num = dev->group_id;
+	}
 	return master->write(master, dev_num, reg_addr, buf);
 }
 EXPORT_SYMBOL(swr_write);
@@ -587,6 +606,31 @@ int swr_reset_device(struct swr_device *swr_dev)
 	return -ENODEV;
 }
 EXPORT_SYMBOL(swr_reset_device);
+
+/**
+ * swr_set_device_group - Assign group id to the slave devices
+ * @swr_dev: pointer to soundwire slave device
+ * @id: group id to be assigned to slave device
+ * Context: can sleep
+ *
+ * This API will be called either from soundwire master or slave
+ * device to assign group id.
+ */
+int swr_set_device_group(struct swr_device *swr_dev, u8 id)
+{
+	struct swr_master *master;
+
+	if (!swr_dev)
+		return -EINVAL;
+
+	swr_dev->group_id = id;
+	master = swr_dev->master;
+	if (!id && master)
+		master->gr_sid = 0;
+
+	return 0;
+}
+EXPORT_SYMBOL(swr_set_device_group);
 
 static int swr_drv_probe(struct device *dev)
 {
