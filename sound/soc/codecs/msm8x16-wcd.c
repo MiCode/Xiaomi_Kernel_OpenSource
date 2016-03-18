@@ -648,6 +648,9 @@ static void msm8x16_wcd_mbhc_common_micb_ctrl(struct snd_soc_codec *codec,
 		mask = 0x04;
 		val = (enable ? 0x04 : 0x00);
 		break;
+	default:
+		pr_err("%s: Invalid event received\n", __func__);
+		return;
 	};
 	snd_soc_update_bits(codec, reg, mask, val);
 }
