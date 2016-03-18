@@ -2957,6 +2957,8 @@ STREAM_BUFF_END:
 	}
 	case MSM_SD_NOTIFY_FREEZE:
 		break;
+	case MSM_SD_UNNOTIFY_FREEZE:
+		break;
 	case MSM_SD_SHUTDOWN:
 		CPP_DBG("MSM_SD_SHUTDOWN\n");
 		mutex_unlock(&cpp_dev->mutex);
@@ -3700,6 +3702,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		break;
 	case MSM_SD_NOTIFY_FREEZE:
 		break;
+	case MSM_SD_UNNOTIFY_FREEZE:
+		break;
 	case MSM_SD_SHUTDOWN:
 		cmd = MSM_SD_SHUTDOWN;
 		break;
@@ -3731,6 +3735,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_CPP_GET_INST_INFO:
 		break;
 	case MSM_SD_NOTIFY_FREEZE:
+		break;
+	case MSM_SD_UNNOTIFY_FREEZE:
 		break;
 	default:
 		pr_err_ratelimited("%s: unsupported compat type :%d\n",
