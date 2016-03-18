@@ -1031,10 +1031,6 @@
 		qcom,cpu-dma-latency-us = <301>;
 
 		status = "disabled";
-
-		ufs_variant {
-			compatible = "qcom,ufs_variant";
-		};
 	};
 
 	usb3: ssusb@a800000 {
