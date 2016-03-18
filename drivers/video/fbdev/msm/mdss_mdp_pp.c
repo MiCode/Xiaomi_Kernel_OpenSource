@@ -7443,6 +7443,9 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	int ret = 0;
 	void *pp_cfg = NULL;
 
+	mdss_pp_res->pp_data_v1_7 = NULL;
+	mdss_pp_res->pp_data_v3 = NULL;
+
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_107:
 	case MDSS_MDP_HW_REV_107_1:
@@ -7463,8 +7466,6 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 		 * Get the driver ops for both the versions and update the
 		 * payload/function pointers.
 		 */
-		mdss_pp_res->pp_data_v1_7 = NULL;
-		mdss_pp_res->pp_data_v3 = NULL;
 		pp_cfg = pp_get_driver_ops_v1_7(ops);
 		if (IS_ERR_OR_NULL(pp_cfg)) {
 			ret = -EINVAL;
@@ -7479,8 +7480,29 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 			mdss_pp_res->pp_data_v3 = pp_cfg;
 		}
 		break;
-	default:
+	case MDSS_MDP_HW_REV_100:
+	case MDSS_MDP_HW_REV_101:
+	case MDSS_MDP_HW_REV_101_1:
+	case MDSS_MDP_HW_REV_101_2:
+	case MDSS_MDP_HW_REV_102:
+	case MDSS_MDP_HW_REV_102_1:
+	case MDSS_MDP_HW_REV_103:
+	case MDSS_MDP_HW_REV_103_1:
+	case MDSS_MDP_HW_REV_105:
+	case MDSS_MDP_HW_REV_106:
+	case MDSS_MDP_HW_REV_108:
+	case MDSS_MDP_HW_REV_109:
+	case MDSS_MDP_HW_REV_110:
+	case MDSS_MDP_HW_REV_200:
+	case MDSS_MDP_HW_REV_112:
 		memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
+		break;
+	default:
+		pp_cfg = pp_get_driver_ops_stub(ops);
+		if (IS_ERR(pp_cfg)) {
+			ret = -EINVAL;
+			break;
+		}
 		break;
 	}
 	return ret;
