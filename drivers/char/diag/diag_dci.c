@@ -2798,8 +2798,9 @@ fail_alloc:
 		}
 		kfree(new_entry->dci_event_mask);
 		kfree(new_entry->dci_log_mask);
+		kfree(new_entry->buffers);
+		kfree(new_entry);
 	}
-	kfree(new_entry);
 	mutex_unlock(&driver->dci_mutex);
 	return DIAG_DCI_NO_REG;
 }
@@ -2917,6 +2918,7 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	}
 	mutex_destroy(&entry->write_buf_mutex);
 
+	kfree(entry->buffers);
 	kfree(entry);
 
 	if (driver->num_dci_client == 0) {
