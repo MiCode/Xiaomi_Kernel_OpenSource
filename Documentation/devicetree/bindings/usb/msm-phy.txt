@@ -110,6 +110,14 @@ Required properties:
    microvolts or a value corresponding to voltage corner
  - qcom,qmp-phy-init-seq: QMP PHY initialization sequence with reg offset, its
    value, delay after register write. It is not must property to have for emulation.
+ - qcom,qmp-phy-reg-offset: Provides important phy register offsets in an order
+   defined in the phy driver. Provide below mentioned register offsets in order:
+   USB3_PHY_PCS_STATUS,
+   USB3_PHY_AUTONOMOUS_MODE_CTRL,
+   USB3_PHY_LFPS_RXTERM_IRQ_CLEAR,
+   USB3_PHY_POWER_DOWN_CONTROL,
+   USB3_PHY_SW_RESET,
+   USB3_PHY_START
 
 Optional properties:
  - reg: Additional register set of address and length to control QMP PHY
@@ -117,8 +125,6 @@ Optional properties:
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
  - qcom,emulation: Indicates that we are running on emulation platform.
- - qcom,qmp-phy-reg-offset: If present stores phy register offsets in an order
-   defined in the phy driver.
 
 Example:
 	ssphy0: ssphy@f9b38000 {

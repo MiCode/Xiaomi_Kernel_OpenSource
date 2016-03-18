@@ -42,10 +42,6 @@
 #define ARCVR_DTCT_EVENT_SEL	BIT(4)
 
 enum qmp_phy_rev_reg {
-	USB3_REVISION_ID0,
-	USB3_REVISION_ID1,
-	USB3_REVISION_ID2,
-	USB3_REVISION_ID3,
 	USB3_PHY_PCS_STATUS,
 	USB3_PHY_AUTONOMOUS_MODE_CTRL,
 	USB3_PHY_LFPS_RXTERM_IRQ_CLEAR,
@@ -53,34 +49,6 @@ enum qmp_phy_rev_reg {
 	USB3_PHY_SW_RESET,
 	USB3_PHY_START,
 	USB3_PHY_REG_MAX,
-};
-
-/* QMP PHY register offset for rev1 */
-unsigned int qmp_phy_rev1[] = {
-	[USB3_REVISION_ID0] = 0x730,
-	[USB3_REVISION_ID1] = 0x734,
-	[USB3_REVISION_ID2] = 0x738,
-	[USB3_REVISION_ID3] = 0x73c,
-	[USB3_PHY_PCS_STATUS] = 0x728,
-	[USB3_PHY_AUTONOMOUS_MODE_CTRL] = 0x6BC,
-	[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR] = 0x6C0,
-	[USB3_PHY_POWER_DOWN_CONTROL] = 0x604,
-	[USB3_PHY_SW_RESET] = 0x600,
-	[USB3_PHY_START] = 0x608,
-};
-
-/* QMP PHY register offset for rev2 */
-unsigned int qmp_phy_rev2[] = {
-	[USB3_REVISION_ID0] = 0x788,
-	[USB3_REVISION_ID1] = 0x78C,
-	[USB3_REVISION_ID2] = 0x790,
-	[USB3_REVISION_ID3] = 0x794,
-	[USB3_PHY_PCS_STATUS] = 0x77C,
-	[USB3_PHY_AUTONOMOUS_MODE_CTRL] = 0x6D4,
-	[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR] = 0x6D8,
-	[USB3_PHY_POWER_DOWN_CONTROL] = 0x604,
-	[USB3_PHY_SW_RESET] = 0x600,
-	[USB3_PHY_START] = 0x608,
 };
 
 /* reg values to write */
@@ -124,11 +92,9 @@ static const struct of_device_id msm_usb_id_table[] = {
 	},
 	{
 		.compatible = "qcom,usb-ssphy-qmp-v1",
-		.data = qmp_phy_rev1,
 	},
 	{
 		.compatible = "qcom,usb-ssphy-qmp-v2",
-		.data = qmp_phy_rev2,
 	},
 	{ },
 };
@@ -529,7 +495,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int ret = 0, size = 0;
-	const struct of_device_id *phy_ver;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy)
@@ -604,29 +569,13 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 				phy->reg_offset_cnt);
 		} else {
 			dev_err(dev, "err mem alloc for qmp_phy_reg_offset\n");
+			return -ENOMEM;
 		}
-	}
-
-	phy_ver = of_match_device(msm_usb_id_table, &pdev->dev);
-	if (phy_ver) {
-		dev_dbg(dev, "Found QMP PHY version as:%s.\n",
-						phy_ver->compatible);
-		if (phy_ver->data) {
-			phy->phy_reg = (unsigned int *)phy_ver->data;
-		} else if (phy->qmp_phy_reg_offset) {
-			phy->phy_reg = phy->qmp_phy_reg_offset;
-		} else {
-			dev_err(dev,
-				"QMP PHY version match but wrong data val.\n");
-			ret = -EINVAL;
-		}
+		phy->phy_reg = phy->qmp_phy_reg_offset;
 	} else {
-		dev_err(dev, "QMP PHY version mismatch.\n");
-		ret = -ENODEV;
+		dev_err(dev, "err provide qcom,qmp-phy-reg-offset\n");
+		return -EINVAL;
 	}
-
-	if (ret)
-		goto err;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qmp_phy_base");
