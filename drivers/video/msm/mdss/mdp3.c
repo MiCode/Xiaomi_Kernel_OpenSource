@@ -2087,11 +2087,8 @@ __ref int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
 		goto error;
 	}
 
-	mfd->fbi->fix.smem_start = offsets[0];
-	mfd->fbi->fix.smem_len = offsets[1];
-	mdp3_res->splash_mem_addr = mfd->fbi->fix.smem_start;
-	mdp3_res->splash_mem_size = mfd->fbi->fix.smem_len;
-
+	mdp3_res->splash_mem_addr = offsets[0];
+	mdp3_res->splash_mem_size = offsets[1];
 error:
 	if (rc && mfd->panel_info->cont_splash_enabled)
 		pr_err("no rsvd mem found in DT for splash screen\n");
