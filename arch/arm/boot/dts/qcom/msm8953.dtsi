@@ -1872,6 +1872,7 @@
 		qcom,scm_core_clk_src-freq = <80000000>;
 
 		qcom,pas-id = <1>;
+		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
 		qcom,sysmon-id = <1>;
