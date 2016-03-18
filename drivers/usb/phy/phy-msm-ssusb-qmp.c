@@ -76,9 +76,7 @@ struct msm_ssphy_qmp {
 	bool			clk_enabled;
 	bool			cable_connected;
 	bool			in_suspend;
-	bool			override_pll_cal;
 	bool			emulation;
-	bool			misc_config;
 	unsigned int		*phy_reg; /* revision based offset */
 	unsigned int		*qmp_phy_init_seq;
 	int			init_seq_len;
@@ -681,16 +679,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
-
-	phy->override_pll_cal = of_property_read_bool(dev->of_node,
-					"qcom,override-pll-calibration");
-	if (phy->override_pll_cal)
-		dev_dbg(dev, "Override PHY PLL calibration is enabled.\n");
-
-	phy->misc_config = of_property_read_bool(dev->of_node,
-					"qcom,qmp-misc-config");
-	if (phy->misc_config)
-		dev_dbg(dev, "Miscellaneous configurations are enabled.\n");
 
 	phy->phy.dev			= dev;
 	phy->phy.init			= msm_ssphy_qmp_init;
