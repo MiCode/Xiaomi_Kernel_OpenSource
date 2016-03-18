@@ -60,8 +60,8 @@
 #define FABIA_PLL_RUN		0x1
 #define FABIA_PLL_OUT_MAIN	0x7
 #define FABIA_RATE_MARGIN	500
-#define FABIA_PLL_ACK_LATCH	BIT(29)
-#define FABIA_PLL_HW_UPDATE_LOGIC_BYPASS	BIT(23)
+#define ALPHA_PLL_ACK_LATCH	BIT(29)
+#define ALPHA_PLL_HW_UPDATE_LOGIC_BYPASS	BIT(23)
 
 /*
  * Even though 40 bits are present, use only 32 for ease of calculation.
@@ -562,6 +562,34 @@ static int __calibrate_alpha_pll(struct alpha_pll_clk *pll)
 	return 0;
 }
 
+static int alpha_pll_dynamic_update(struct alpha_pll_clk *pll)
+{
+	u32 regval;
+
+	/* Latch the input to the PLL */
+	regval = readl_relaxed(MODE_REG(pll));
+	regval |= pll->masks->update_mask;
+	writel_relaxed(regval, MODE_REG(pll));
+
+	/* Wait for 2 reference cycle before checking ACK bit */
+	udelay(1);
+	if (!(readl_relaxed(MODE_REG(pll)) & ALPHA_PLL_ACK_LATCH)) {
+		WARN(1, "%s: PLL latch failed. Output may be unstable!\n",
+						pll->c.dbg_name);
+		return -EINVAL;
+	}
+
+	/* Return latch input to 0 */
+	regval = readl_relaxed(MODE_REG(pll));
+	regval &= ~pll->masks->update_mask;
+	writel_relaxed(regval, MODE_REG(pll));
+
+	/* Wait for PLL output to stabilize */
+	udelay(100);
+
+	return 0;
+}
+
 static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
@@ -584,12 +612,13 @@ static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	}
 
 	/*
-	 * Ensure PLL is off before changing rate. For optimization reasons,
-	 * assume no downstream clock is actively using it. No support
-	 * for dynamic update at the moment.
+	 * For PLLs that do not support dynamic programming (dynamic_update
+	 * is not set), ensure PLL is off before changing rate. For
+	 * optimization reasons, assume no downstream clock is actively
+	 * using it.
 	 */
 	spin_lock_irqsave(&c->lock, flags);
-	if (c->count)
+	if (c->count && !pll->dynamic_update)
 		c->ops->disable(c);
 
 	a_val = a_val << (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
@@ -608,7 +637,10 @@ static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	regval |= masks->alpha_en_mask;
 	writel_relaxed(regval, ALPHA_EN_REG(pll));
 
-	if (c->count)
+	if (c->count && pll->dynamic_update)
+		alpha_pll_dynamic_update(pll);
+
+	if (c->count && !pll->dynamic_update)
 		c->ops->enable(c);
 
 	spin_unlock_irqrestore(&c->lock, flags);
@@ -754,7 +786,14 @@ static enum handoff alpha_pll_handoff(struct clk *c)
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_masks *masks = pll->masks;
 	u64 a_val;
-	u32 alpha_en, l_val;
+	u32 alpha_en, l_val, regval;
+
+	/* Set the PLL_HW_UPDATE_LOGIC_BYPASS bit before continuing */
+	if (pll->dynamic_update) {
+		regval = readl_relaxed(MODE_REG(pll));
+		regval |= ALPHA_PLL_HW_UPDATE_LOGIC_BYPASS;
+		writel_relaxed(regval, MODE_REG(pll));
+	}
 
 	update_vco_tbl(pll);
 
@@ -911,7 +950,7 @@ static int fabia_alpha_pll_set_rate(struct clk *c, unsigned long rate)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	unsigned long flags, freq_hz;
-	u32 regval, l_val;
+	u32 l_val;
 	u64 a_val;
 
 	freq_hz = round_rate_up(pll, rate, &l_val, &a_val);
@@ -926,24 +965,8 @@ static int fabia_alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	writel_relaxed(l_val, FABIA_L_REG(pll));
 	writel_relaxed(a_val, FABIA_FRAC_REG(pll));
 
-	/* Latch the input to the PLL */
-	regval = readl_relaxed(MODE_REG(pll));
-	regval |= pll->masks->update_mask;
-	writel_relaxed(regval, MODE_REG(pll));
+	alpha_pll_dynamic_update(pll);
 
-	/* Wait for 2 reference cycle before checking ACK bit */
-	udelay(1);
-	if (!(readl_relaxed(MODE_REG(pll)) & FABIA_PLL_ACK_LATCH)) {
-		pr_err("%s: PLL latch failed. Leaving PLL disabled\n",
-						c->dbg_name);
-		goto ret;
-	}
-
-	/* Return latch input to 0 */
-	regval = readl_relaxed(MODE_REG(pll));
-	regval &= ~pll->masks->update_mask;
-	writel_relaxed(regval, MODE_REG(pll));
-ret:
 	spin_unlock_irqrestore(&c->lock, flags);
 	return 0;
 }
@@ -1005,7 +1028,7 @@ static enum handoff fabia_alpha_pll_handoff(struct clk *c)
 
 	/* Set the PLL_HW_UPDATE_LOGIC_BYPASS bit before continuing */
 	regval = readl_relaxed(MODE_REG(pll));
-	regval |= FABIA_PLL_HW_UPDATE_LOGIC_BYPASS;
+	regval |= ALPHA_PLL_HW_UPDATE_LOGIC_BYPASS;
 	writel_relaxed(regval, MODE_REG(pll));
 
 	if (!is_locked(pll)) {
