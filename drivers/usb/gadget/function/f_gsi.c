@@ -30,6 +30,11 @@ module_param(gsi_out_aggr_size, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(gsi_out_aggr_size,
 		"Aggr size of bus transfer to device");
 
+static unsigned int gsi_in_rndis_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
+module_param(gsi_in_rndis_aggr_size, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(gsi_in_rndis_aggr_size,
+		"Aggr size of bus transfer to host for RNDIS");
+
 static unsigned int num_in_bufs = GSI_NUM_IN_BUFFERS;
 module_param(num_in_bufs, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(num_in_bufs,
@@ -419,6 +424,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 				&d_port->ipa_conn_pms;
 	struct usb_composite_dev *cdev = gsi->function.config->cdev;
 	struct gsi_channel_info gsi_channel_info;
+	u32 dl_aggr_size;
 	struct ipa_req_chan_out_params ipa_in_channel_out_params;
 	struct ipa_req_chan_out_params ipa_out_channel_out_params;
 
@@ -508,12 +514,20 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	else
 		conn_params->teth_prot_params.max_xfer_size_bytes_to_dev
 				= d_port->out_aggr_size;
-	if (gsi_in_aggr_size)
+	if (gsi_in_aggr_size) {
 		conn_params->teth_prot_params.max_xfer_size_bytes_to_host
 					= gsi_in_aggr_size;
-	else
+	} else {
+
+		if (gsi->prot_id == IPA_USB_RNDIS) {
+			dl_aggr_size = min_t(u32, d_port->in_aggr_size,
+				rndis_get_dl_max_xfer_size(gsi->config));
+		} else {
+			dl_aggr_size = d_port->in_aggr_size;
+		}
 		conn_params->teth_prot_params.max_xfer_size_bytes_to_host
-					= d_port->in_aggr_size;
+					= dl_aggr_size;
+	}
 	conn_params->teth_prot_params.max_packet_number_to_dev =
 		DEFAULT_MAX_PKT_PER_XFER;
 	conn_params->max_supported_bandwidth_mbps =
@@ -2064,7 +2078,14 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			 */
 			usb_gadget_autopm_get_noresume(gsi->d_port.gadget);
 
-			post_event(&gsi->d_port, EVT_CONNECT_IN_PROGRESS);
+			/*
+			 * For RNDIS the event is posted from the flow control
+			 * handler which is invoked when the host sends the
+			 * GEN_CURRENT_PACKET_FILTER message.
+			 */
+			if (gsi->prot_id != IPA_USB_RNDIS)
+				post_event(&gsi->d_port,
+						EVT_CONNECT_IN_PROGRESS);
 			queue_work(gsi->d_port.ipa_usb_wq,
 					&gsi->d_port.usb_ipa_w);
 		}
@@ -2566,7 +2587,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.in_epname = "gsi-epin";
 		info.out_epname = "gsi-epout";
 		info.in_req_buf_len = GSI_IN_BUFF_SIZE;
-		gsi->d_port.in_aggr_size = GSI_IN_RNDIS_AGGR_SIZE;
+		gsi->d_port.in_aggr_size = gsi_in_rndis_aggr_size;
 		info.in_req_num_buf = num_in_bufs;
 		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_AGGR_SIZE;
