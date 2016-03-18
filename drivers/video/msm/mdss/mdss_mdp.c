@@ -1363,7 +1363,7 @@ static int mdss_mdp_debug_init(struct platform_device *pdev,
 
 	mdss_debug_register_io("mdp", &mdata->mdss_io, &dbg_blk);
 	mdss_debug_register_dump_range(pdev, dbg_blk, "qcom,regs-dump-mdp",
-		"qcom,regs-dump-names-mdp");
+		"qcom,regs-dump-names-mdp", "qcom,regs-dump-xin-id-mdp");
 
 	mdss_debug_register_io("vbif", &mdata->vbif_io, NULL);
 	mdss_debug_register_io("vbif_nrt", &mdata->vbif_nrt_io, NULL);

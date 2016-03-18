@@ -200,6 +200,7 @@ struct mdss_smmu_client {
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
 	bool handoff_pending;
+	char __iomem *mmu_base;
 };
 
 struct mdss_mdp_qseed3_lut_tbl {
