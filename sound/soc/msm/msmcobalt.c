@@ -584,13 +584,15 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 static int msm_mclk_event(struct snd_soc_dapm_widget *w,
 				 struct snd_kcontrol *kcontrol, int event)
 {
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+
 	pr_debug("%s: event = %d\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		return msm_snd_enable_codec_ext_clk(w->codec, 1, true);
+		return msm_snd_enable_codec_ext_clk(codec, 1, true);
 	case SND_SOC_DAPM_POST_PMD:
-		return msm_snd_enable_codec_ext_clk(w->codec, 0, true);
+		return msm_snd_enable_codec_ext_clk(codec, 0, true);
 	}
 	return 0;
 }
@@ -897,7 +899,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	int ret = 0;
 	void *config_data;
 	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
@@ -2398,7 +2400,7 @@ static int msm_wsa881x_init(struct snd_soc_component *component)
 		return -EINVAL;
 	}
 
-	dapm = &codec->dapm;
+	dapm = snd_soc_codec_get_dapm(codec);
 
 	if (!strcmp(component->name_prefix, "SpkrLeft")) {
 		dev_dbg(codec->dev, "%s: setting left ch map to codec %s\n",

@@ -116,7 +116,8 @@ config SND_SOC_MSM8996
 
 config SND_SOC_MSMCOBALT
 	tristate "SoC Machine driver for MSMCOBALT boards"
-	depends on ARCH_MSMCOBALT
+	depends on ARCH_QCOM
+	select SND_SOC_COMPRESS
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
