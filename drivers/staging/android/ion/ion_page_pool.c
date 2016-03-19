@@ -34,16 +34,11 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 	if (!page)
 		return NULL;
 
-	ion_page_pool_alloc_set_cache_policy(pool, page);
-
-/* TODO QCOM - Identify if this sync is needed */
-	ion_pages_sync_for_device(NULL, page, PAGE_SIZE << pool->order,
-						DMA_BIDIRECTIONAL);
-
-	if (pool->gfp_mask & __GFP_ZERO) {
+	if (pool->gfp_mask & __GFP_ZERO)
 		if (msm_ion_heap_high_order_page_zero(page, pool->order))
 			goto error_free_pages;
-	}
+
+	ion_page_pool_alloc_set_cache_policy(pool, page);
 
 	return page;
 error_free_pages:
