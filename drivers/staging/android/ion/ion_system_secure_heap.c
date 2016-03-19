@@ -263,7 +263,7 @@ static void ion_system_secure_heap_unmap_dma(struct ion_heap *heap,
 						struct ion_system_secure_heap,
 						heap);
 
-	secure_heap->sys_heap->ops->map_dma(secure_heap->sys_heap,
+	secure_heap->sys_heap->ops->unmap_dma(secure_heap->sys_heap,
 							buffer);
 }
 
