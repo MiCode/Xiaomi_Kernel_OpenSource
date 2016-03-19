@@ -1715,12 +1715,12 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 
 	if (fl) {
 		cid = fl->cid;
-		fastrpc_file_free(fl);
-		file->private_data = 0;
 		if (fl->sctx) {
 			session = fl->sctx - &me->channel[cid].session[0];
 			fastrpc_session_free(&me->channel[cid], session);
 		}
+		fastrpc_file_free(fl);
+		file->private_data = 0;
 	}
 	return 0;
 }
