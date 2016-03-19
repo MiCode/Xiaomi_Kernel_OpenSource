@@ -708,12 +708,11 @@ err_create_cached_pools:
 err_create_uncached_pools:
 	kfree(heap->cached_pools);
 err_create_secure_pools:
-	 while (i >= 0) {
+	for (i = 0; i < VMID_LAST; i++) {
 		if (heap->secure_pools[i]) {
 			ion_system_heap_destroy_pools(heap->secure_pools[i]);
 			kfree(heap->secure_pools[i]);
 		}
-		i--;
 	}
 err_alloc_cached_pools:
 	kfree(heap->uncached_pools);
