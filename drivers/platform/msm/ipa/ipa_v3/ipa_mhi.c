@@ -36,7 +36,7 @@
 
 #define IPA_MHI_RM_TIMEOUT_MSEC 10000
 
-#define IPA_MHI_CH_EMPTY_TIMEOUT_MSEC 5
+#define IPA_MHI_CH_EMPTY_TIMEOUT_MSEC 10
 
 #define IPA_MHI_MAX_UL_CHANNELS 1
 #define IPA_MHI_MAX_DL_CHANNELS 1
@@ -82,9 +82,34 @@ enum ipa_mhi_dma_dir {
 	IPA_MHI_DMA_FROM_HOST,
 };
 
+/**
+ * enum ipa3_mhi_burst_mode - MHI channel burst mode state
+ *
+ * Values are according to MHI specification
+ * @IPA_MHI_BURST_MODE_DEFAULT: burst mode enabled for HW channels,
+ * disabled for SW channels
+ * @IPA_MHI_BURST_MODE_RESERVED:
+ * @IPA_MHI_BURST_MODE_DISABLE: Burst mode is disabled for this channel
+ * @IPA_MHI_BURST_MODE_ENABLE: Burst mode is enabled for this channel
+ *
+ */
+enum ipa3_mhi_burst_mode {
+	IPA_MHI_BURST_MODE_DEFAULT,
+	IPA_MHI_BURST_MODE_RESERVED,
+	IPA_MHI_BURST_MODE_DISABLE,
+	IPA_MHI_BURST_MODE_ENABLE,
+};
+
+enum ipa3_mhi_polling_mode {
+	IPA_MHI_POLLING_MODE_DB_MODE,
+	IPA_MHI_POLLING_MODE_POLL_MODE,
+};
 
 struct ipa3_mhi_ch_ctx {
-	u32 chstate;
+	u8 chstate;/*0-7*/
+	u8 brstmode:2;/*8-9*/
+	u8 pollcfg:6;/*10-15*/
+	u16 rsvd;/*16-31*/
 	u32 chtype;
 	u32 erindex;
 	u64 rbase;
@@ -118,6 +143,8 @@ struct ipa3_mhi_ev_ctx {
  * @event_context_addr: the event context address in host address space
  * @ev_ctx_host: MHI event context
  * @cached_gsi_evt_ring_hdl: GSI channel event ring handle
+ * @brstmode_enabled: is burst mode enabled for this channel?
+ * @ch_scratch: the channel scratch configuration
  */
 struct ipa3_mhi_channel_ctx {
 	bool valid;
@@ -132,6 +159,8 @@ struct ipa3_mhi_channel_ctx {
 	u64 event_context_addr;
 	struct ipa3_mhi_ev_ctx ev_ctx_host;
 	unsigned long cached_gsi_evt_ring_hdl;
+	bool brstmode_enabled;
+	union __packed gsi_channel_scratch ch_scratch;
 };
 
 enum ipa3_mhi_rm_state {
@@ -349,6 +378,8 @@ static int ipa3_mhi_print_host_channel_ctx_info(
 		"ch_id: %d\n", channel->id);
 	nbytes += scnprintf(&buff[nbytes], len - nbytes,
 		"chstate: 0x%x\n", ch_ctx_host.chstate);
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"brstmode: 0x%x\n", ch_ctx_host.brstmode);
 	nbytes += scnprintf(&buff[nbytes], len - nbytes,
 		"chtype: 0x%x\n", ch_ctx_host.chtype);
 	nbytes += scnprintf(&buff[nbytes], len - nbytes,
@@ -1037,7 +1068,6 @@ static bool ipa3_mhi_sps_channel_empty(struct ipa3_mhi_channel_ctx *channel)
 static bool ipa3_mhi_gsi_channel_empty(struct ipa3_mhi_channel_ctx *channel)
 {
 	int res;
-
 	IPA_MHI_FUNC_ENTRY();
 
 	if (!channel->stop_in_proc) {
@@ -1102,7 +1132,13 @@ static bool ipa3_mhi_wait_for_ul_empty_timeout(unsigned int msecs)
 			IPA_MHI_DBG("timeout waiting for UL empty\n");
 			break;
 		}
+
+		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI &&
+		    IPA_MHI_MAX_UL_CHANNELS == 1)
+			usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
+			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
 	}
+
 	IPA_MHI_DBG("IPA UL is %s\n", (empty) ? "empty" : "not empty");
 
 	IPA_MHI_FUNC_EXIT();
@@ -1354,7 +1390,7 @@ static int ipa3_mhi_reset_channel(struct ipa3_mhi_channel_ctx *channel)
 		res = ipa_mhi_read_write_host(IPA_MHI_DMA_TO_HOST,
 			&channel->state, channel->channel_context_addr +
 				offsetof(struct ipa3_mhi_ch_ctx, chstate),
-				sizeof(channel->state));
+				sizeof(((struct ipa3_mhi_ch_ctx *)0)->chstate));
 		if (res) {
 			IPAERR("ipa_mhi_read_write_host failed %d\n", res);
 			return res;
@@ -1407,6 +1443,8 @@ static void ipa_mhi_dump_ch_ctx(struct ipa3_mhi_channel_ctx *channel)
 {
 	IPA_MHI_DBG("ch_id %d\n", channel->id);
 	IPA_MHI_DBG("chstate 0x%x\n", channel->ch_ctx_host.chstate);
+	IPA_MHI_DBG("brstmode 0x%x\n", channel->ch_ctx_host.brstmode);
+	IPA_MHI_DBG("pollcfg 0x%x\n", channel->ch_ctx_host.pollcfg);
 	IPA_MHI_DBG("chtype 0x%x\n", channel->ch_ctx_host.chtype);
 	IPA_MHI_DBG("erindex 0x%x\n", channel->ch_ctx_host.erindex);
 	IPA_MHI_DBG("rbase 0x%llx\n", channel->ch_ctx_host.rbase);
@@ -1518,6 +1556,22 @@ static void ipa_mhi_gsi_ch_err_cb(struct gsi_chan_err_notify *notify)
 	IPA_MHI_ERR("err_desc=0x%x\n", notify->err_desc);
 }
 
+static int ipa3_mhi_get_ch_poll_cfg(struct ipa3_mhi_channel_ctx *channel,
+	int ring_size)
+{
+	switch (channel->ch_ctx_host.pollcfg) {
+	case 0:
+	/*set default polling configuration according to MHI spec*/
+		if (IPA_CLIENT_IS_PROD(channel->ep->client))
+			return 7;
+		else
+			return (ring_size/2)/8;
+		break;
+	default:
+		return channel->ch_ctx_host.pollcfg;
+	}
+}
+
 static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	int ipa_ep_idx)
 {
@@ -1525,7 +1579,6 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	struct ipa3_ep_context *ep;
 	struct gsi_evt_ring_props ev_props;
 	struct ipa_mhi_msi_info msi;
-	union __packed gsi_evt_scratch ev_scratch;
 	struct gsi_chan_props ch_props;
 	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa_gsi_ep_config *ep_cfg;
@@ -1588,14 +1641,6 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 		channel->cached_gsi_evt_ring_hdl =
 			channel->ep->gsi_evt_ring_hdl;
 
-		memset(&ev_scratch, 0, sizeof(ev_scratch));
-		res = gsi_write_evt_ring_scratch(channel->ep->gsi_evt_ring_hdl,
-					ev_scratch);
-		if (res) {
-			IPA_MHI_ERR("gsi_write_evt_ring_scratch failed %d\n",
-				res);
-			goto fail_evt_scratch;
-		}
 	}
 
 	memset(&ch_props, 0, sizeof(ch_props));
@@ -1608,7 +1653,7 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	ch_props.ring_len = channel->ch_ctx_host.rlen;
 	ch_props.ring_base_addr = IPA_MHI_HOST_ADDR_COND(
 			channel->ch_ctx_host.rbase);
-	ch_props.use_db_eng = GSI_CHAN_DIRECT_MODE;
+	ch_props.use_db_eng = GSI_CHAN_DB_MODE;
 	ch_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	ch_props.low_weight = 1;
 	ch_props.err_cb = ipa_mhi_gsi_ch_err_cb;
@@ -1626,10 +1671,20 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 			channel->channel_context_addr +
 			offsetof(struct ipa3_mhi_ch_ctx, wp));
 	ch_scratch.mhi.assert_bit40 = ipa3_mhi_ctx->assert_bit40;
-	ch_scratch.mhi.max_outstanding_tre = ep_cfg->ipa_if_aos *
-		GSI_CHAN_RE_SIZE_16B;
+	ch_scratch.mhi.max_outstanding_tre = 0;
 	ch_scratch.mhi.outstanding_threshold =
 		4 * GSI_CHAN_RE_SIZE_16B;
+	ch_scratch.mhi.oob_mod_threshold = 4;
+	if (channel->ch_ctx_host.brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
+		channel->ch_ctx_host.brstmode == IPA_MHI_BURST_MODE_ENABLE) {
+		ch_scratch.mhi.burst_mode_enabled = true;
+		ch_scratch.mhi.polling_configuration =
+			ipa3_mhi_get_ch_poll_cfg(channel,
+				(ch_props.ring_len / ch_props.re_size));
+		ch_scratch.mhi.polling_mode = IPA_MHI_POLLING_MODE_DB_MODE;
+	} else {
+		ch_scratch.mhi.burst_mode_enabled = false;
+	}
 	res = gsi_write_channel_scratch(channel->ep->gsi_chan_hdl,
 		ch_scratch);
 	if (res) {
@@ -1637,6 +1692,8 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 			res);
 		goto fail_ch_scratch;
 	}
+	channel->brstmode_enabled = ch_scratch.mhi.burst_mode_enabled;
+	channel->ch_scratch.mhi = ch_scratch.mhi;
 
 	IPA_MHI_DBG("Starting channel\n");
 	res = gsi_start_channel(channel->ep->gsi_chan_hdl);
@@ -1652,7 +1709,6 @@ fail_ch_start:
 fail_ch_scratch:
 	gsi_dealloc_channel(channel->ep->gsi_chan_hdl);
 fail_alloc_ch:
-fail_evt_scratch:
 	gsi_dealloc_evt_ring(channel->ep->gsi_evt_ring_hdl);
 	channel->ep->gsi_evt_ring_hdl = ~0;
 fail_alloc_evt:
@@ -1724,7 +1780,7 @@ int ipa3_mhi_init(struct ipa_mhi_init_params *params)
 	ipa3_mhi_ctx->cb_priv = params->priv;
 	ipa3_mhi_ctx->rm_cons_state = IPA_MHI_RM_STATE_RELEASED;
 	ipa3_mhi_ctx->qmi_req_id = 0;
-	ipa3_mhi_ctx->use_ipadma = 1;
+	ipa3_mhi_ctx->use_ipadma = true;
 	ipa3_mhi_ctx->assert_bit40 = !!params->assert_bit40;
 	ipa3_mhi_ctx->test_mode = params->test_mode;
 	init_completion(&ipa3_mhi_ctx->rm_prod_granted_comp);
@@ -2021,7 +2077,7 @@ int ipa3_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 		res = ipa_mhi_read_write_host(IPA_MHI_DMA_TO_HOST,
 			&channel->state, channel->channel_context_addr +
 				offsetof(struct ipa3_mhi_ch_ctx, chstate),
-				sizeof(channel->state));
+				sizeof(((struct ipa3_mhi_ch_ctx *)0)->chstate));
 		if (res) {
 			IPAERR("ipa_mhi_read_write_host failed\n");
 			return res;
@@ -2200,11 +2256,11 @@ static int ipa3_mhi_suspend_ul_channels(void)
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 }
-
 static int ipa3_mhi_resume_ul_channels(bool LPTransitionRejected)
 {
 	int i;
 	int res;
+	struct ipa3_mhi_channel_ctx *channel;
 
 	IPA_MHI_FUNC_ENTRY();
 	for (i = 0; i < IPA_MHI_MAX_UL_CHANNELS; i++) {
@@ -2213,16 +2269,30 @@ static int ipa3_mhi_resume_ul_channels(bool LPTransitionRejected)
 		if (ipa3_mhi_ctx->ul_channels[i].state !=
 		    IPA_HW_MHI_CHANNEL_STATE_SUSPEND)
 			continue;
-		IPA_MHI_DBG("resuming channel %d\n",
-			ipa3_mhi_ctx->ul_channels[i].id);
+		channel = &ipa3_mhi_ctx->ul_channels[i];
+		IPA_MHI_DBG("resuming channel %d\n", channel->id);
 
-		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
-			res = gsi_start_channel(
-				ipa3_mhi_ctx->ul_channels[i].ep->gsi_chan_hdl);
-		else
-			res = ipa3_uc_mhi_resume_channel(
-				ipa3_mhi_ctx->ul_channels[i].index,
+		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+			if (channel->brstmode_enabled &&
+			     !LPTransitionRejected) {
+				/*
+				 * set polling mode bit to DB mode before
+				 * resuming the channel
+				 */
+				res = gsi_write_channel_scratch(
+					channel->ep->gsi_chan_hdl,
+					channel->ch_scratch);
+				if (res) {
+					IPA_MHI_ERR("write ch scratch fail %d\n"
+						, res);
+					return res;
+				}
+			}
+			res = gsi_start_channel(channel->ep->gsi_chan_hdl);
+		} else {
+			res = ipa3_uc_mhi_resume_channel(channel->index,
 				LPTransitionRejected);
+		}
 
 		if (res) {
 			IPA_MHI_ERR("failed to resume channel %d error %d\n",
@@ -2230,9 +2300,8 @@ static int ipa3_mhi_resume_ul_channels(bool LPTransitionRejected)
 			return res;
 		}
 
-		ipa3_mhi_ctx->ul_channels[i].stop_in_proc = false;
-		ipa3_mhi_ctx->ul_channels[i].state =
-			IPA_HW_MHI_CHANNEL_STATE_RUN;
+		channel->stop_in_proc = false;
+		channel->state = IPA_HW_MHI_CHANNEL_STATE_RUN;
 	}
 
 	IPA_MHI_FUNC_EXIT();
@@ -2306,6 +2375,7 @@ static int ipa3_mhi_resume_dl_channels(bool LPTransitionRejected)
 {
 	int i;
 	int res;
+	struct ipa3_mhi_channel_ctx *channel;
 
 	IPA_MHI_FUNC_ENTRY();
 	for (i = 0; i < IPA_MHI_MAX_DL_CHANNELS; i++) {
@@ -2314,23 +2384,37 @@ static int ipa3_mhi_resume_dl_channels(bool LPTransitionRejected)
 		if (ipa3_mhi_ctx->dl_channels[i].state !=
 		    IPA_HW_MHI_CHANNEL_STATE_SUSPEND)
 			continue;
-		IPA_MHI_DBG("resuming channel %d\n",
-			ipa3_mhi_ctx->dl_channels[i].id);
-		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
-			res = gsi_start_channel(
-				ipa3_mhi_ctx->dl_channels[i].ep->gsi_chan_hdl);
-		else
-			res = ipa3_uc_mhi_resume_channel(
-				ipa3_mhi_ctx->dl_channels[i].index,
+		channel = &ipa3_mhi_ctx->dl_channels[i];
+		IPA_MHI_DBG("resuming channel %d\n", channel->id);
+
+		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+			if (channel->brstmode_enabled &&
+			    !LPTransitionRejected) {
+				/*
+				 * set polling mode bit to DB mode before
+				 * resuming the channel
+				 */
+				res = gsi_write_channel_scratch(
+					channel->ep->gsi_chan_hdl,
+					channel->ch_scratch);
+				if (res) {
+					IPA_MHI_ERR("write ch scratch fail %d\n"
+						, res);
+					return res;
+				}
+			}
+			res = gsi_start_channel(channel->ep->gsi_chan_hdl);
+		} else {
+			res = ipa3_uc_mhi_resume_channel(channel->index,
 				LPTransitionRejected);
+		}
 		if (res) {
-			IPA_MHI_ERR("failed to suspend channel %d error %d\n",
+			IPA_MHI_ERR("failed to resume channel %d error %d\n",
 				i, res);
 			return res;
 		}
-		ipa3_mhi_ctx->dl_channels[i].stop_in_proc = false;
-		ipa3_mhi_ctx->dl_channels[i].state =
-			IPA_HW_MHI_CHANNEL_STATE_RUN;
+		channel->stop_in_proc = false;
+		channel->state = IPA_HW_MHI_CHANNEL_STATE_RUN;
 	}
 
 	IPA_MHI_FUNC_EXIT();
@@ -2439,7 +2523,7 @@ static void ipa3_mhi_update_host_ch_state(bool update_rp)
 		res = ipa_mhi_read_write_host(IPA_MHI_DMA_TO_HOST,
 			&channel->state, channel->channel_context_addr +
 				offsetof(struct ipa3_mhi_ch_ctx, chstate),
-			sizeof(channel->state));
+			sizeof(((struct ipa3_mhi_ch_ctx *)0)->chstate));
 		if (res) {
 			IPAERR("ipa_mhi_read_write_host failed\n");
 			BUG();
@@ -2476,7 +2560,7 @@ static void ipa3_mhi_update_host_ch_state(bool update_rp)
 		res = ipa_mhi_read_write_host(IPA_MHI_DMA_TO_HOST,
 			&channel->state, channel->channel_context_addr +
 			offsetof(struct ipa3_mhi_ch_ctx, chstate),
-			sizeof(channel->state));
+			sizeof(((struct ipa3_mhi_ch_ctx *)0)->chstate));
 		if (res) {
 			IPAERR("ipa_mhi_read_write_host failed\n");
 			BUG();
@@ -2567,6 +2651,16 @@ int ipa3_mhi_suspend(bool force)
 			empty = ipa3_mhi_wait_for_ul_empty_timeout(
 				IPA_MHI_CH_EMPTY_TIMEOUT_MSEC);
 			IPADBG("empty=%d\n", empty);
+			if (!empty && ipa3_ctx->transport_prototype
+				== IPA_TRANSPORT_TYPE_GSI) {
+				IPA_MHI_ERR("Failed to suspend UL channels\n");
+				if (ipa3_mhi_ctx->test_mode) {
+					res = -EAGAIN;
+					goto fail_suspend_ul_channel;
+				}
+
+				BUG();
+			}
 		} else {
 			IPA_MHI_DBG("IPA not empty\n");
 			res = -EAGAIN;
@@ -2672,6 +2766,14 @@ fail_release_prod:
 fail_suspend_ul_channel:
 	ipa3_mhi_resume_ul_channels(true);
 	ipa3_mhi_set_state(IPA_MHI_STATE_STARTED);
+	if (force_clear) {
+		if (ipa3_mhi_disable_force_clear(ipa3_mhi_ctx->qmi_req_id)) {
+			IPA_MHI_ERR("failed to disable force clear\n");
+			BUG();
+		}
+		IPA_MHI_DBG("force clear datapath disabled\n");
+		ipa3_mhi_ctx->qmi_req_id++;
+	}
 	return res;
 }
 
@@ -2731,7 +2833,7 @@ int ipa3_mhi_resume(void)
 	}
 
 	if (!dl_channel_resumed) {
-		res = ipa3_mhi_resume_dl_channels(true);
+		res = ipa3_mhi_resume_dl_channels(false);
 		if (res) {
 			IPA_MHI_ERR("ipa3_mhi_resume_dl_channels failed %d\n",
 				res);
