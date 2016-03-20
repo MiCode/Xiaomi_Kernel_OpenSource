@@ -291,21 +291,10 @@ static int ecryptfs_flush(struct file *file, fl_owner_t td)
 
 static int ecryptfs_release(struct inode *inode, struct file *file)
 {
-
-	int ret;
-	ret = vfs_fsync(file, false);
-
-	if (ret)
-		pr_err("failed to sync file ret = %d.\n", ret);
-
 	ecryptfs_put_lower_file(inode);
 	kmem_cache_free(ecryptfs_file_info_cache,
 			ecryptfs_file_to_private(file));
 
-	clean_inode_pages(inode->i_mapping, 0, -1);
-	clean_inode_pages(ecryptfs_inode_to_lower(inode)->i_mapping, 0, -1);
-	truncate_inode_pages(inode->i_mapping, 0);
-	truncate_inode_pages(ecryptfs_inode_to_lower(inode)->i_mapping, 0);
 	return 0;
 }
 
