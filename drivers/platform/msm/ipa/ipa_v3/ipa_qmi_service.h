@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,8 @@
 	pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define IPAWANERR(fmt, args...) \
 	pr_err(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+#define IPAWANINFO(fmt, args...) \
+	pr_info(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
 extern struct ipa3_qmi_context *ipa3_qmi_ctx;
 
