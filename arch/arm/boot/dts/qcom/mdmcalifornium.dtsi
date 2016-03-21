@@ -43,7 +43,7 @@
 		audio_mem: audio_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0 0x400000>;
+			size = <0x400000>;
 		 };
 	};
 
