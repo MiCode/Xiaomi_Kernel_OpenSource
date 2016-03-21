@@ -52,6 +52,7 @@
 #include <linux/completion.h>
 #include <linux/atomic.h>
 #include <linux/pm_runtime.h>
+#include <linux/clk.h>
 #endif
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38))
@@ -385,6 +386,9 @@ struct synaptics_rmi4_data {
 	atomic_t st_pending_irqs;
 	struct completion st_powerdown;
 	struct completion st_irq_processed;
+	bool st_initialized;
+	struct clk *core_clk;
+	struct clk *iface_clk;
 #endif
 };
 
