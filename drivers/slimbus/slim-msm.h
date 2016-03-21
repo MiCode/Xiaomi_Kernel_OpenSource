@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -284,6 +284,7 @@ struct msm_slim_ctrl {
 	struct clk		*rclk;
 	struct clk		*hclk;
 	struct mutex		tx_lock;
+	struct mutex		ssr_lock;
 	spinlock_t		tx_buf_lock;
 	u8			pgdla;
 	enum msm_slim_msgq	use_rx_msgqs;
