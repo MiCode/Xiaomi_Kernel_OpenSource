@@ -1827,7 +1827,7 @@ static void unset_module_core_ro_nx(struct module *mod) { }
 static void unset_module_init_ro_nx(struct module *mod) { }
 #endif
 
-void __weak module_free(struct module *mod, void *module_region)
+void __weak module_memfree(void *module_region)
 {
 	vfree(module_region);
 }
@@ -1868,7 +1868,7 @@ static void free_module(struct module *mod)
 
 	/* This may be NULL, but that's OK */
 	unset_module_init_ro_nx(mod);
-	module_free(mod, mod->module_init);
+	module_memfree(mod->module_init);
 	kfree(mod->args);
 	percpu_modfree(mod);
 
@@ -1877,7 +1877,7 @@ static void free_module(struct module *mod)
 
 	/* Finally, free the core (containing the module structure) */
 	unset_module_core_ro_nx(mod);
-	module_free(mod, mod->module_core);
+	module_memfree(mod->module_core);
 
 #ifdef CONFIG_MPU
 	update_protections(current->mm);
@@ -2835,7 +2835,7 @@ static int move_module(struct module *mod, struct load_info *info)
 		 */
 		kmemleak_ignore(ptr);
 		if (!ptr) {
-			module_free(mod, mod->module_core);
+			module_memfree(mod->module_core);
 			return -ENOMEM;
 		}
 		memset(ptr, 0, mod->init_size);
@@ -2980,8 +2980,8 @@ static struct module *layout_and_allocate(struct load_info *info, int flags)
 static void module_deallocate(struct module *mod, struct load_info *info)
 {
 	percpu_modfree(mod);
-	module_free(mod, mod->module_init);
-	module_free(mod, mod->module_core);
+	module_memfree(mod->module_init);
+	module_memfree(mod->module_core);
 }
 
 int __weak module_finalize(const Elf_Ehdr *hdr,
@@ -3102,7 +3102,7 @@ static int do_init_module(struct module *mod)
 	rcu_assign_pointer(mod->kallsyms, &mod->core_kallsyms);
 #endif
 	unset_module_init_ro_nx(mod);
-	module_free(mod, mod->module_init);
+	module_memfree(mod->module_init);
 	mod->module_init = NULL;
 	mod->init_size = 0;
 	mod->init_ro_size = 0;
