@@ -198,7 +198,7 @@ static void linear_dax_flush(struct dm_target *ti, pgoff_t pgoff, void *addr,
 	dax_flush(dax_dev, pgoff, addr, size);
 }
 
-static struct target_type linear_target = {
+struct target_type linear_target = {
 	.name   = "linear",
 	.version = {1, 4, 0},
 	.features = DM_TARGET_PASSES_INTEGRITY | DM_TARGET_ZONED_HM,
