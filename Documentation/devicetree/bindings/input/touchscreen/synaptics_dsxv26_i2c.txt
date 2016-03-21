@@ -25,6 +25,9 @@ Optional property:
  - synaptics,y-flip		       : modify orientation of the y axis.
  - synaptics,reset-delay-ms	   : reset delay for controller (ms), default 100.
  - synaptics,max-y-for-2d	   : maximal y value of the panel.
+ - clock-names			: Clock names used for secure touch. They are: "iface_clk", "core_clk"
+ - clocks			: Defined if 'clock-names' DT property is defined. These clocks
+				  are associated with the underlying I2C bus.
 
 Example:
 	i2c@78b7000 {
@@ -46,5 +49,9 @@ Example:
 			synaptics,max-y-for-2d = <1919>; /* remove if no virtual buttons */
 			synaptics,cap-button-codes = <139 172 158>;
 			synaptics,vir-button-codes = <139 180 2000 320 160 172 540 2000 320 160 158 900 2000 320 160>;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
 		};
 	};
