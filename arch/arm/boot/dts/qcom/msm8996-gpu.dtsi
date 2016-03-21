@@ -77,6 +77,8 @@
 
 		qcom,highest-bank-bit = <15>;
 
+		qcom,snapshot-size = <1048576>; //bytes
+
 		/* Trace bus */
 		coresight-id = <300>;
 		coresight-name = "coresight-gfx";
