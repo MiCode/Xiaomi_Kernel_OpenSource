@@ -454,7 +454,7 @@ int __init psci_init(void)
 
 static int __init cpu_psci_cpu_init(struct device_node *dn, unsigned int cpu)
 {
-	pr_info("Initializing psco_cpu_init\n");
+	pr_info("Initializing psci_cpu_init\n");
 	return 0;
 }
 
