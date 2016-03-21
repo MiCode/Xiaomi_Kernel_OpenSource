@@ -1470,11 +1470,13 @@ static void ngd_adsp_down(struct msm_slim_ctrl *dev)
 	struct slim_controller *ctrl = &dev->ctrl;
 	struct slim_device *sbdev;
 
+	mutex_lock(&dev->ssr_lock);
 	ngd_slim_enable(dev, false);
 	/* device up should be called again after SSR */
 	list_for_each_entry(sbdev, &ctrl->devs, dev_list)
 		slim_report_absent(sbdev);
 	SLIM_INFO(dev, "SLIM ADSP SSR (DOWN) done\n");
+	mutex_unlock(&dev->ssr_lock);
 }
 
 static void ngd_adsp_up(struct work_struct *work)
@@ -1483,7 +1485,9 @@ static void ngd_adsp_up(struct work_struct *work)
 		container_of(work, struct msm_slim_qmi, ssr_up);
 	struct msm_slim_ctrl *dev =
 		container_of(qmi, struct msm_slim_ctrl, qmi);
+	mutex_lock(&dev->ssr_lock);
 	ngd_slim_enable(dev, true);
+	mutex_unlock(&dev->ssr_lock);
 }
 
 static ssize_t show_mask(struct device *device, struct device_attribute *attr,
@@ -1647,6 +1651,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	init_completion(&dev->reconf);
 	init_completion(&dev->ctrl_up);
 	mutex_init(&dev->tx_lock);
+	mutex_init(&dev->ssr_lock);
 	spin_lock_init(&dev->tx_buf_lock);
 	spin_lock_init(&dev->rx_lock);
 	dev->ee = 1;
