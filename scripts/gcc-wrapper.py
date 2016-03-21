@@ -1,7 +1,7 @@
 #! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+# Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -40,10 +40,10 @@ import subprocess
 # force LANG to be set to en_US.UTF-8 to get consistent warnings.
 
 allowed_warnings = set([
-    "fdt.c:932",
-    "hid-magicmouse.c:579",
-    "sysrq.c:956",
-    "hci_sock.c:980",
+    "core.c:144",
+    "inet_connection_sock.c:430",
+    "inet_connection_sock.c:467",
+    "inet6_connection_sock.c:89",
  ])
 
 # Capture the name of the object file, can find it.
