@@ -44,6 +44,10 @@
 #define VERITY_DEBUG 0
 
 #define DM_MSG_PREFIX                   "android-verity"
+
+#define DM_LINEAR_ARGS 2
+#define DM_LINEAR_TARGET_OFFSET "0"
+
 /*
  * There can be two formats.
  * if fec is present
@@ -89,4 +93,17 @@ struct bio_read {
 	int number_of_pages;
 };
 
+extern struct target_type linear_target;
+
+extern void dm_linear_dtr(struct dm_target *ti);
+extern int dm_linear_map(struct dm_target *ti, struct bio *bio);
+extern void dm_linear_status(struct dm_target *ti, status_type_t type,
+			unsigned status_flags, char *result, unsigned maxlen);
+extern int dm_linear_ioctl(struct dm_target *ti, unsigned int cmd,
+		unsigned long arg);
+extern int dm_linear_merge(struct dm_target *ti, struct bvec_merge_data *bvm,
+		struct bio_vec *biovec, int max_size);
+extern int dm_linear_iterate_devices(struct dm_target *ti,
+			iterate_devices_callout_fn fn, void *data);
+extern int dm_linear_ctr(struct dm_target *ti, unsigned int argc, char **argv);
 #endif /* DM_ANDROID_VERITY_H */
