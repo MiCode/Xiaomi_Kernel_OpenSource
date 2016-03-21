@@ -728,6 +728,10 @@
 		qcom,red-fsm-en;
 		qcom,boost-fsm-en;
 		qcom,safe-fsm-en;
+		qcom,ps-fsm-en;
+		qcom,droop-fsm-en;
+		qcom,wfx-fsm-en;
+		qcom,pc-fsm-en;
 
 		qcom,pwrcl-apcs-mem-acc-cfg =
 			<0x179d1360 0x179d1364 0x179d1364>;
