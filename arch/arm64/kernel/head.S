@@ -666,7 +666,7 @@ ENDPROC(__secondary_switched)
  */
 	.section	".idmap.text", "ax"
 __enable_mmu:
-	mrs	x18, sctlr_el1			// preserve old SCTLR_EL1 value
+	mrs	x22, sctlr_el1			// preserve old SCTLR_EL1 value
 	mrs	x1, ID_AA64MMFR0_EL1
 	ubfx	x2, x1, #ID_AA64MMFR0_TGRAN_SHIFT, 4
 	cmp	x2, #ID_AA64MMFR0_TGRAN_SUPPORTED
@@ -693,7 +693,7 @@ __enable_mmu:
 	 * to take into account by discarding the current kernel mapping and
 	 * creating a new one.
 	 */
-	msr	sctlr_el1, x18			// disable the MMU
+	msr	sctlr_el1, x22			// disable the MMU
 	isb
 	bl	__create_page_tables		// recreate kernel mapping
 
