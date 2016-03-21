@@ -176,7 +176,7 @@ static int audio_ext_lpass_mclk_prepare(struct clk *clk)
 	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
 	lpass_clk->clk_val2 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
 	lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK2_VALID;
-	ret = afe_set_lpass_clock(MI2S_TX, lpass_clk);
+	ret = afe_set_lpass_clock(AFE_PORT_ID_SECONDARY_MI2S_RX, lpass_clk);
 	if (ret < 0) {
 		pr_err("%s afe_set_lpass_clock failed, ret = %d\n",
 			__func__, ret);
@@ -216,7 +216,7 @@ static void audio_ext_lpass_mclk_unprepare(struct clk *clk)
 	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
 	lpass_clk->clk_val2 = 0;
 	lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK2_VALID;
-	ret = afe_set_lpass_clock(MI2S_TX, lpass_clk);
+	ret = afe_set_lpass_clock(AFE_PORT_ID_SECONDARY_MI2S_RX, lpass_clk);
 	if (ret < 0)
 		pr_err("%s: afe_set_lpass_clock failed, ret = %d\n",
 			__func__, ret);
