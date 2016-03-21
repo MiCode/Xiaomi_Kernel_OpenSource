@@ -2169,7 +2169,7 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 {
 	char perfclspeedbinstr[] = "qcom,perfcl-speedbin0-v0";
 	char pwrclspeedbinstr[] = "qcom,pwrcl-speedbin0-v0";
-	int rc;
+	int rc, cpu;
 
 	rc = clk_osm_resources_init(pdev);
 	if (rc) {
@@ -2347,11 +2347,13 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	get_online_cpus();
+
 	/* Enable OSM */
-	WARN(clk_prepare_enable(&pwrcl_clk.c),
-	     "Failed to enable power cluster clock\n");
-	WARN(clk_prepare_enable(&perfcl_clk.c),
-	     "Failed to enable perf cluster clock\n");
+	for_each_online_cpu(cpu) {
+		WARN(clk_prepare_enable(logical_cpu_to_clk(cpu)),
+		     "Failed to enable clock for cpu %d\n", cpu);
+	}
 
 	populate_opp_table(pdev);
 	populate_debugfs_dir(&pwrcl_clk);
@@ -2360,6 +2362,8 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 
 	pr_info("OSM driver inited\n");
+	put_online_cpus();
+
 	return 0;
 
 exit:
