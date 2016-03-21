@@ -117,6 +117,7 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 	if (driver->logging_mode != DIAG_MEMORY_DEVICE_MODE)
 		return;
 
+	mutex_lock(&driver->diag_file_mutex);
 	memset(&info, 0, sizeof(struct siginfo));
 	info.si_code = SI_QUEUE;
 	info.si_int = (PERIPHERAL_MASK(peripheral) | data);
@@ -129,7 +130,7 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 			pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
 			       info.si_int, stat);
 	}
-
+	mutex_unlock(&driver->diag_file_mutex);
 }
 
 static void process_pd_status(uint8_t *buf, uint32_t len,
