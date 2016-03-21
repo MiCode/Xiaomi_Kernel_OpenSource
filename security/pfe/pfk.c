@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,6 +64,29 @@ static int g_events_handle;
 #define PFK_SUPPORTED_CIPHER "aes_xts"
 #define PFK_SUPPORTED_KEY_SIZE 32
 #define PFK_SUPPORTED_SALT_SIZE 32
+
+
+/**
+ * inode_to_filename() - get the filename from inode pointer.
+ * @inode: inode pointer
+ *
+ * it is used for debug prints.
+ *
+ * Return: filename string or "unknown".
+ */
+static char *inode_to_filename(struct inode *inode)
+{
+	struct dentry *dentry = NULL;
+	char *filename = NULL;
+
+	if (hlist_empty(&inode->i_dentry))
+		return "unknown";
+
+	dentry = hlist_entry(inode->i_dentry.first, struct dentry, d_u.d_alias);
+	filename = dentry->d_iname;
+
+	return filename;
+}
 
 static int pfk_inode_alloc_security(struct inode *inode)
 {
@@ -369,6 +392,8 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 		ret = -EINVAL;
 		goto end;
 	}
+
+	pr_debug("loading key for file %s\n", inode_to_filename(inode));
 
 	ret = pfk_get_page_index(bio, &offset);
 	if (ret != 0) {
