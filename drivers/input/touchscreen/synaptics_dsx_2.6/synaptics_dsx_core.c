@@ -172,6 +172,19 @@ static ssize_t synaptics_rmi4_wake_gesture_store(struct device *dev,
 static ssize_t synaptics_rmi4_virtual_key_map_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf);
 
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
+static ssize_t synaptics_rmi4_secure_touch_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+
+static ssize_t synaptics_rmi4_secure_touch_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t synaptics_rmi4_secure_touch_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+#endif
+
+static irqreturn_t synaptics_rmi4_irq(int irq, void *data);
+
 struct synaptics_rmi4_f01_device_status {
 	union {
 		struct {
@@ -617,6 +630,14 @@ static struct device_attribute attrs[] = {
 	__ATTR(wake_gesture, (S_IRUGO | S_IWUSR | S_IWGRP),
 			synaptics_rmi4_wake_gesture_show,
 			synaptics_rmi4_wake_gesture_store),
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
+	__ATTR(secure_touch_enable, (S_IRUGO | S_IWUSR | S_IWGRP),
+			synaptics_rmi4_secure_touch_enable_show,
+			synaptics_rmi4_secure_touch_enable_store),
+	__ATTR(secure_touch, S_IRUGO ,
+			synaptics_rmi4_secure_touch_show,
+			NULL),
+#endif
 };
 
 static struct kobj_attribute virtual_key_map_attr = {
@@ -626,6 +647,182 @@ static struct kobj_attribute virtual_key_map_attr = {
 	},
 	.show = synaptics_rmi4_virtual_key_map_show,
 };
+
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
+static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
+{
+	init_completion(&data->st_powerdown);
+	init_completion(&data->st_irq_processed);
+}
+
+static void synaptics_secure_touch_notify(struct synaptics_rmi4_data *rmi4_data)
+{
+	sysfs_notify(&rmi4_data->input_dev->dev.kobj, NULL, "secure_touch");
+}
+
+static irqreturn_t synaptics_filter_interrupt(
+	struct synaptics_rmi4_data *rmi4_data)
+{
+	if (atomic_read(&rmi4_data->st_enabled)) {
+		if (atomic_cmpxchg(&rmi4_data->st_pending_irqs, 0, 1) == 0) {
+			reinit_completion(&rmi4_data->st_irq_processed);
+			synaptics_secure_touch_notify(rmi4_data);
+			wait_for_completion_interruptible(
+				&rmi4_data->st_irq_processed);
+		}
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+
+/*
+ * 'blocking' variable will have value 'true' when we want to prevent the driver
+ * from accessing the xPU/SMMU protected HW resources while the session is
+ * active.
+ */
+static void synaptics_secure_touch_stop(struct synaptics_rmi4_data *rmi4_data,
+					bool blocking)
+{
+	if (atomic_read(&rmi4_data->st_enabled)) {
+		atomic_set(&rmi4_data->st_pending_irqs, -1);
+		synaptics_secure_touch_notify(rmi4_data);
+		if (blocking)
+			wait_for_completion_interruptible(
+				&rmi4_data->st_powerdown);
+	}
+}
+
+#else
+static void synaptics_secure_touch_init(struct synaptics_rmi4_data *rmi4_data)
+{
+}
+
+static irqreturn_t synaptics_filter_interrupt(
+				struct synaptics_rmi4_data *rmi4_data)
+{
+	return IRQ_NONE;
+}
+
+static void synaptics_secure_touch_stop(struct synaptics_rmi4_data *rmi4_data,
+					bool blocking)
+{
+}
+#endif
+
+#if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
+static ssize_t synaptics_rmi4_secure_touch_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			atomic_read(&rmi4_data->st_enabled));
+}
+/*
+ * Accept only "0" and "1" valid values.
+ * "0" will reset the st_enabled flag, then wake up the reading process and
+ * the interrupt handler.
+ * The bus driver is notified via pm_runtime that it is not required to stay
+ * awake anymore.
+ * It will also make sure the queue of events is emptied in the controller,
+ * in case a touch happened in between the secure touch being disabled and
+ * the local ISR being ungated.
+ * "1" will set the st_enabled flag and clear the st_pending_irqs flag.
+ * The bus driver is requested via pm_runtime to stay awake.
+ */
+static ssize_t synaptics_rmi4_secure_touch_enable_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	unsigned long value;
+	int err = 0;
+
+	if (count > 2)
+		return -EINVAL;
+
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	err = count;
+
+	switch (value) {
+	case 0:
+		if (atomic_read(&rmi4_data->st_enabled) == 0)
+			break;
+
+		synaptics_rmi4_bus_put(rmi4_data);
+		atomic_set(&rmi4_data->st_enabled, 0);
+		synaptics_secure_touch_notify(rmi4_data);
+		complete(&rmi4_data->st_irq_processed);
+		synaptics_rmi4_irq(rmi4_data->irq, rmi4_data);
+		complete(&rmi4_data->st_powerdown);
+
+		break;
+	case 1:
+		if (atomic_read(&rmi4_data->st_enabled)) {
+			err = -EBUSY;
+			break;
+		}
+
+		synchronize_irq(rmi4_data->irq);
+
+		if (synaptics_rmi4_bus_get(rmi4_data) < 0) {
+			dev_err(
+				rmi4_data->pdev->dev.parent,
+				"synaptics_rmi4_bus_get failed\n");
+			err = -EIO;
+			break;
+		}
+		reinit_completion(&rmi4_data->st_powerdown);
+		reinit_completion(&rmi4_data->st_irq_processed);
+		atomic_set(&rmi4_data->st_enabled, 1);
+		atomic_set(&rmi4_data->st_pending_irqs,  0);
+		break;
+	default:
+		dev_err(
+			rmi4_data->pdev->dev.parent,
+			"unsupported value: %lu\n", value);
+		err = -EINVAL;
+		break;
+	}
+	return err;
+}
+
+/*
+ * This function returns whether there are pending interrupts, or
+ * other error conditions that need to be signaled to the userspace library,
+ * according tot he following logic:
+ * - st_enabled is 0 if secure touch is not enabled, returning -EBADF
+ * - st_pending_irqs is -1 to signal that secure touch is in being stopped,
+ *   returning -EINVAL
+ * - st_pending_irqs is 1 to signal that there is a pending irq, returning
+ *   the value "1" to the sysfs read operation
+ * - st_pending_irqs is 0 (only remaining case left) if the pending interrupt
+ *   has been processed, so the interrupt handler can be allowed to continue.
+ */
+static ssize_t synaptics_rmi4_secure_touch_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	int val = 0;
+
+	if (atomic_read(&rmi4_data->st_enabled) == 0)
+		return -EBADF;
+
+	if (atomic_cmpxchg(&rmi4_data->st_pending_irqs, -1, 0) == -1)
+		return -EINVAL;
+
+	if (atomic_cmpxchg(&rmi4_data->st_pending_irqs, 1, 0) == 1)
+		val = 1;
+	else
+		complete(&rmi4_data->st_irq_processed);
+
+	return scnprintf(buf, PAGE_SIZE, "%u", val);
+
+}
+#endif
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -1511,6 +1708,9 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 	struct synaptics_rmi4_data *rmi4_data = data;
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
+
+	if (IRQ_HANDLED == synaptics_filter_interrupt(data))
+		return IRQ_HANDLED;
 
 	if (gpio_get_value(bdata->irq_gpio) != bdata->irq_on_state)
 		goto exit;
@@ -3866,6 +4066,10 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	queue_work(rmi4_data->reset_workqueue, &rmi4_data->reset_work);
 #endif
 
+	/* Initialize secure touch */
+	synaptics_secure_touch_init(rmi4_data);
+	synaptics_secure_touch_stop(rmi4_data, true);
+
 	return retval;
 
 err_sysfs:
@@ -4106,7 +4310,9 @@ static int synaptics_rmi4_fb_notifier_cb(struct notifier_block *self,
 			fb_notifier);
 
 	if (evdata && evdata->data && rmi4_data) {
-		if (event == FB_EVENT_BLANK) {
+		if (event == FB_EARLY_EVENT_BLANK) {
+			synaptics_secure_touch_stop(rmi4_data, false);
+		} else if (event == FB_EVENT_BLANK) {
 			transition = evdata->data;
 			if (*transition == FB_BLANK_POWERDOWN) {
 				synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
@@ -4132,6 +4338,14 @@ static void synaptics_rmi4_early_suspend(struct early_suspend *h)
 
 	if (rmi4_data->stay_awake)
 		return;
+
+	/*
+	 * During early suspend/late resume, the driver doesn't access xPU/SMMU
+	 * protected HW resources. So, there is no compelling need to block,
+	 * but notifying the userspace that a power event has occurred is
+	 * enough. Hence 'blocking' variable can be set to false.
+	 */
+	synaptics_secure_touch_stop(rmi4_data, false);
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, true);
@@ -4169,6 +4383,8 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h)
 
 	if (rmi4_data->stay_awake)
 		return;
+
+	synaptics_secure_touch_stop(rmi4_data, false);
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, false);
@@ -4216,6 +4432,8 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	if (rmi4_data->stay_awake)
 		return 0;
 
+	synaptics_secure_touch_stop(rmi4_data, true);
+
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, true);
 		enable_irq_wake(rmi4_data->irq);
@@ -4252,6 +4470,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 
 	if (rmi4_data->stay_awake)
 		return 0;
+
+	synaptics_secure_touch_stop(rmi4_data, true);
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, false);
