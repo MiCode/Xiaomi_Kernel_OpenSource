@@ -533,6 +533,8 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 
 	stat->current_frequency = kgsl_pwrctrl_active_freq(&device->pwrctrl);
 
+	stat->private_data = &device->active_context_count;
+
 	/*
 	 * keep the latest devfreq_dev_status values
 	 * and vbif counters data
@@ -552,7 +554,8 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 	}
 
 	kgsl_pwrctrl_busy_time(device, stat->total_time, stat->busy_time);
-	trace_kgsl_pwrstats(device, stat->total_time, &pwrscale->accum_stats);
+	trace_kgsl_pwrstats(device, stat->total_time,
+		&pwrscale->accum_stats, device->active_context_count);
 	memset(&pwrscale->accum_stats, 0, sizeof(pwrscale->accum_stats));
 
 	mutex_unlock(&device->mutex);
@@ -786,6 +789,27 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 
 	data->disable_busy_time_burst = of_property_read_bool(
 		device->pdev->dev.of_node, "qcom,disable-busy-time-burst");
+
+	data->ctxt_aware_enable =
+		of_property_read_bool(device->pdev->dev.of_node,
+			"qcom,enable-ca-jump");
+
+	if (data->ctxt_aware_enable) {
+		if (of_property_read_u32(device->pdev->dev.of_node,
+				"qcom,ca-target-pwrlevel",
+				&data->bin.ctxt_aware_target_pwrlevel))
+			data->bin.ctxt_aware_target_pwrlevel = 1;
+
+		if ((data->bin.ctxt_aware_target_pwrlevel < 0) ||
+			(data->bin.ctxt_aware_target_pwrlevel >
+						pwr->num_pwrlevels))
+			data->bin.ctxt_aware_target_pwrlevel = 1;
+
+		if (of_property_read_u32(device->pdev->dev.of_node,
+				"qcom,ca-busy-penalty",
+				&data->bin.ctxt_aware_busy_penalty))
+			data->bin.ctxt_aware_busy_penalty = 12000;
+	}
 
 	/*
 	 * If there is a separate GX power rail, allow
