@@ -1763,7 +1763,7 @@ static int pp_igc_set_config(char __iomem *base_addr,
 	lut_cfg_data = (struct mdp_igc_lut_data *) cfg_data;
 	if (lut_cfg_data->version != mdp_igc_v1_7 ||
 	    !lut_cfg_data->cfg_payload) {
-		pr_err("invalid igc version %d payload %p\n",
+		pr_err_once("invalid igc version %d payload %p\n",
 		       lut_cfg_data->version, lut_cfg_data->cfg_payload);
 		return -EINVAL;
 	}
