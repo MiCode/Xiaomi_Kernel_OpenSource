@@ -47,12 +47,6 @@ Optional properties :
 - hsic,resume-gpio : if present then periperal connected to hsic controller
   cannot wakeup from XO shutdown using in-band hsic resume. Use resume
   gpio to wakeup peripheral
-- hsic,ignore-cal-pad-config : If present then HSIC CAL PAD configuration
-  using TLMM is not performed.
-- hsic,strobe-pad-offset : Offset of TLMM register for configuring HSIC
-  STROBE GPIO PAD.
-- hsic,data-pad-offset : Offset of TLMM register for configuring HSIC
-  DATA GPIO PAD.
 - qcom,phy-sof-workaround : If present then HSIC PHY has h/w BUGs related to
   SOFs. All the relevant software workarounds are required for the same during
   suspend, reset and resume.
