@@ -967,18 +967,6 @@ static inline int adreno_is_a540v1(struct adreno_device *adreno_dev)
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A540) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
 }
-/**
- * adreno_context_timestamp() - Return the last queued timestamp for the context
- * @k_ctxt: Pointer to the KGSL context to query
- *
- * Return the last queued context for the given context. This is used to verify
- * that incoming requests are not using an invalid (unsubmitted) timestamp
- */
-static inline int adreno_context_timestamp(struct kgsl_context *k_ctxt)
-{
-	struct adreno_context *drawctxt = ADRENO_CONTEXT(k_ctxt);
-	return drawctxt->timestamp;
-}
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
