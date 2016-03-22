@@ -112,6 +112,7 @@
 	qcom,chg-led-support;
 	qcom,external-typec;
 	qcom,typec-psy-name = "typec";
+	qcom,thermal-mitigation = <3000 2500 2000 1500 1000 500 0>;
 	status = "okay";
 };
 
