@@ -27,6 +27,12 @@
 	status = "disabled";
 };
 
+&clock_cpu {
+	qcom,cc-factor = <1>;
+	qcom,osm-clk-rate = <19200000>;
+	qcom,xo-clk-rate = <19200000>;
+};
+
 &ufsphy1 {
 	status = "ok";
 };

@@ -33,6 +33,27 @@
 
 #include "msm8953-mdss-panels.dtsi"
 
+&tlmm {
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio61";
+			};
+			config {
+				pins = "gpio61";
+			};
+		};
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio61";
+			};
+			config {
+				pins = "gpio61";
+			};
+		};
+	};
+};
+
 &dsi_r69006_1080p_cmd {
 	qcom,esd-check-enabled;
 };
@@ -48,6 +69,7 @@
 &mdss_dsi0 {
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
+	/delete-property/ vdd-supply;
 
 	qcom,dsi-pref-prim-pan = <&dsi_r69006_1080p_cmd>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
@@ -85,8 +107,8 @@
 		"MIC BIAS1", "Digital Mic0",
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Headset Mic",
-		"DMIC1", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic1",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
 		"MIC BIAS1", "MICBIAS_REGULATOR",
 		"MIC BIAS2", "MICBIAS_REGULATOR",
 		"MIC BIAS3", "MICBIAS_REGULATOR",
@@ -118,5 +140,9 @@
 };
 
 &wcd9335 {
+	status = "ok";
+};
+
+&wcd_rst_gpio {
 	status = "ok";
 };

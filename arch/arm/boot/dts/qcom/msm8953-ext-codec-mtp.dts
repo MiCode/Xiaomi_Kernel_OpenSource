@@ -70,6 +70,10 @@
 	status = "okay";
 };
 
+&wcd_rst_gpio {
+	status = "okay";
+};
+
 &ext_codec {
 	qcom,model = "msm8953-tasha-snd-card";
 	status = "okay";

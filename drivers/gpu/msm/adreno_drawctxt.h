@@ -83,9 +83,6 @@ struct adreno_context {
 
 /* Flag definitions for flag field in adreno_context */
 
-/* Set when sync timer of cmdbatch belonging to the context times out */
-#define ADRENO_CONTEXT_CMDBATCH_FLAG_FENCE_LOG	BIT(0)
-
 /**
  * enum adreno_context_priv - Private flags for an adreno draw context
  * @ADRENO_CONTEXT_FAULT - set if the context has faulted (and recovered)

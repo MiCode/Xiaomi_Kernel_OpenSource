@@ -510,7 +510,6 @@ static int mmc_devfreq_set_target(struct device *dev,
 	clk_scaling->need_freq_change = false;
 
 	mmc_host_clk_hold(host);
-	mmc_get_card(host->card);
 	err = mmc_clk_update_freq(host, *freq, clk_scaling->state);
 	if (err && err != -EAGAIN)
 		pr_err("%s: clock scale to %lu failed with error %d\n",
@@ -519,7 +518,6 @@ static int mmc_devfreq_set_target(struct device *dev,
 		pr_debug("%s: clock change to %lu finished successfully (%s)\n",
 			mmc_hostname(host), *freq, current->comm);
 
-	mmc_put_card(host->card);
 
 	mmc_host_clk_release(host);
 	mmc_release_host(host);
@@ -1892,9 +1890,11 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 	 * Address this by setting the read timeout to a "reasonably high"
 	 * value. For the cards tested, 300ms has proven enough. If necessary,
 	 * this value can be increased if other problematic cards require this.
+	 * Certain Hynix 5.x cards giving read timeout even with 300ms.
+	 * Increasing further to max value (4s).
 	 */
 	if (mmc_card_long_read_time(card) && data->flags & MMC_DATA_READ) {
-		data->timeout_ns = 300000000;
+		data->timeout_ns = 4000000000u;
 		data->timeout_clks = 0;
 	}
 

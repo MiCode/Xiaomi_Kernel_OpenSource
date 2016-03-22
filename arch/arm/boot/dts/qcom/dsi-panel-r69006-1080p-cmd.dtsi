@@ -56,7 +56,7 @@
 				C1 84 00 10 EF 8B F1 FF
 				FF DF 9C C5 9A 73 8D AD
 				63 FE FF FF CB F8 01 00
-				AA 40 00 C2 01 08 00 01
+				AA 40 02 C2 01 08 00 01
 			29 01 00 00 00 00 0A
 				CB 0D FE 1F 2C 00 00 00
 				00 00
@@ -111,9 +111,9 @@
 			39 01 00 00 00 00 02 35 00
 			39 01 00 00 00 00 02 51 FF
 			39 01 00 00 00 00 02 53 2C
-			39 01 00 00 14 00 02 55 00
-			05 01 00 00 14 00 02 29 00
-			05 01 00 00 78 00 02 11 00];
+			39 01 00 00 00 00 02 55 00
+			05 01 00 00 78 00 02 11 00
+			05 01 00 00 14 00 02 29 00];
 		qcom,mdss-dsi-off-command = [05 01 00 00 32 00 02 28 00
 			05 01 00 00 78 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
@@ -140,7 +140,7 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-		qcom,mdss-dsi-reset-sequence = <1 20>, <0 2>, <1 20>;
+		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
 		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 01 0A];
 		qcom,mdss-dsi-panel-status-command-mode = "dsi_lp_mode";
 		qcom,mdss-dsi-panel-status-check-mode = "reg_read";

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,10 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef __MSM_SDE_ROTATOR__
+#define __MSM_SDE_ROTATOR__
 
-#ifndef __MSM_JPEG_DMA__
-#define __MSM_JPEG_DMA__
+#include <uapi/media/msm_sde_rotator.h>
 
-#include <uapi/media/msm_jpeg_dma.h>
-
-#endif /* __MSM_JPEG_DMA__ */
+#endif /* __MSM_SDE_ROTATOR__ */

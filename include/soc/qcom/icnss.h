@@ -72,6 +72,8 @@ enum icnss_driver_mode {
 	ICNSS_EPPING,
 	ICNSS_WALTEST,
 	ICNSS_OFF,
+	ICNSS_CCPM,
+	ICNSS_QVIT,
 };
 
 struct icnss_soc_info {

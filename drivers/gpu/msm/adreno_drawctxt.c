@@ -21,8 +21,6 @@
 #include "adreno.h"
 #include "adreno_trace.h"
 
-#define KGSL_INIT_REFTIMESTAMP		0x7FFFFFFF
-
 static void wait_callback(struct kgsl_device *device,
 		struct kgsl_event_group *group, void *priv, int result)
 {

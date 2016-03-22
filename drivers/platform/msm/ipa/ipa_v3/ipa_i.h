@@ -2150,6 +2150,8 @@ enum ipa_rm_resource_name ipa3_get_rm_resource_from_ep(int pipe_idx);
 
 bool ipa3_get_modem_cfg_emb_pipe_flt(void);
 
+u8 ipa3_get_qmb_master_sel(enum ipa_client_type client);
+
 /* internal functions */
 
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,

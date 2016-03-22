@@ -118,7 +118,7 @@
 #include "msm8917-iommu-domains.dtsi"
 #include "msm8917-smp2p.dtsi"
 #include "msm8917-coresight.dtsi"
-#include "msm8937-bus.dtsi"
+#include "msm8917-bus.dtsi"
 #include "msm8917-mdss.dtsi"
 #include "msm8917-mdss-pll.dtsi"
 #include "msm8917-vidc.dtsi"
@@ -1559,6 +1559,7 @@
 		qcom,scm_core_clk_src-freq = <80000000>;
 
 		qcom,pas-id = <1>;
+		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
 		qcom,sysmon-id = <1>;

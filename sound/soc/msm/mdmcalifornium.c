@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,12 +59,14 @@
 #define LPAIF_SEC_MODE_MUXSEL (LPAIF_OFFSET + 0x200c)
 
 #define LPASS_CSR_GP_IO_MUX_SPKR_CTL (LPAIF_OFFSET + 0x2004)
+#define LPASS_CSR_GP_IO_MUX_MIC_CTL  (LPAIF_OFFSET + 0x2000)
 
 #define I2S_SEL 0
-#define I2S_PCM_SEL 1
-#define I2S_PCM_SEL_OFFSET 1
+#define PCM_SEL 1
+#define I2S_PCM_SEL_OFFSET 0
 
 #define TLMM_SCLK_EN 0x4
+#define SEC_TLMM_SCLK_EN 0x2
 #define CLOCK_ON  1
 #define CLOCK_OFF 0
 
@@ -96,7 +98,9 @@ static const struct afe_clk_cfg lpass_default = {
 
 static int mdm_auxpcm_rate = 8000;
 static void *lpaif_pri_muxsel_virt_addr;
+static void *lpaif_sec_muxsel_virt_addr;
 static void *lpass_gpio_mux_spkr_ctl_virt_addr;
+static void *lpass_gpio_mux_mic_ctl_virt_addr;
 
 static struct mutex cdc_mclk_mutex;
 static int mdm_mi2s_rx_ch = 1;
@@ -106,7 +110,6 @@ static int mdm_mi2s_tx_rate = SAMPLE_RATE_48KHZ;
 
 static int mdm_spk_control = 1;
 static int mdm_hifi_control;
-static atomic_t aux_ref_count;
 static atomic_t mi2s_ref_count;
 
 static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
@@ -499,25 +502,24 @@ static int mdm_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 
-	if (atomic_inc_return(&aux_ref_count) == 1) {
-		if (lpaif_pri_muxsel_virt_addr != NULL) {
-			ret = afe_enable_lpass_core_shared_clock(MI2S_RX,
-								 CLOCK_ON);
-			if (ret < 0) {
-				ret = -EINVAL;
-				goto done;
-			}
-			iowrite32(I2S_PCM_SEL << I2S_PCM_SEL_OFFSET,
-				  lpaif_pri_muxsel_virt_addr);
-			afe_enable_lpass_core_shared_clock(MI2S_RX,
-							   CLOCK_OFF);
-		} else {
-			pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
-			       __func__);
-
+	if (lpaif_pri_muxsel_virt_addr != NULL) {
+		ret = afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_ON);
+		if (ret < 0) {
 			ret = -EINVAL;
 			goto done;
 		}
+		iowrite32(PCM_SEL << I2S_PCM_SEL_OFFSET,
+			  lpaif_pri_muxsel_virt_addr);
+		if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL)
+			iowrite32(TLMM_SCLK_EN,
+				  lpass_gpio_mux_spkr_ctl_virt_addr);
+		afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
+	} else {
+		pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
+		       __func__);
+
+		ret = -EINVAL;
+		goto done;
 	}
 done:
 	return ret;
@@ -525,6 +527,35 @@ done:
 
 static struct snd_soc_ops mdm_auxpcm_be_ops = {
 	.startup = mdm_auxpcm_startup,
+};
+
+static int mdm_sec_auxpcm_startup(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+
+	if (lpaif_sec_muxsel_virt_addr != NULL) {
+		ret = afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_ON);
+		if (ret < 0) {
+			ret = -EINVAL;
+			goto done;
+		}
+		iowrite32(PCM_SEL << I2S_PCM_SEL_OFFSET,
+			  lpaif_sec_muxsel_virt_addr);
+		if (lpass_gpio_mux_mic_ctl_virt_addr != NULL)
+			iowrite32(SEC_TLMM_SCLK_EN,
+				  lpass_gpio_mux_mic_ctl_virt_addr);
+		afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
+	} else {
+		pr_err("%s lpaif_sec_muxsel_virt_addr is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+done:
+	return ret;
+}
+
+static struct snd_soc_ops mdm_sec_auxpcm_be_ops = {
+	.startup = mdm_sec_auxpcm_startup,
 };
 
 static int mdm_auxpcm_rate_get(struct snd_kcontrol *kcontrol,
@@ -1154,6 +1185,35 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.ops = &mdm_auxpcm_be_ops,
 		.ignore_suspend = 1,
 	},
+	{
+		.name = LPASS_BE_SEC_AUXPCM_RX,
+		.stream_name = "Sec AUX PCM Playback",
+		.cpu_dai_name = "msm-dai-q6-auxpcm.2",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_RX,
+		.be_hw_params_fixup = mdm_auxpcm_be_params_fixup,
+		.ops = &mdm_sec_auxpcm_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_SEC_AUXPCM_TX,
+		.stream_name = "Sec AUX PCM Capture",
+		.cpu_dai_name = "msm-dai-q6-auxpcm.2",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+		.be_hw_params_fixup = mdm_auxpcm_be_params_fixup,
+		.ops = &mdm_sec_auxpcm_be_ops,
+		.ignore_suspend = 1,
+	},
 	/* Incall Record Uplink BACK END DAI Link */
 	{
 		.name = LPASS_BE_INCALL_RECORD_TX,
@@ -1328,7 +1388,6 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&cdc_mclk_mutex);
-	atomic_set(&aux_ref_count, 0);
 	atomic_set(&mi2s_ref_count, 0);
 	pdata->prim_clk_usrs = 0;
 
@@ -1373,7 +1432,27 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
+	lpaif_sec_muxsel_virt_addr = ioremap(LPAIF_SEC_MODE_MUXSEL, 4);
+	if (lpaif_sec_muxsel_virt_addr == NULL) {
+		pr_err("%s Sec muxsel virt addr is null\n", __func__);
+		ret = -EINVAL;
+		goto err2;
+	}
+
+	lpass_gpio_mux_mic_ctl_virt_addr =
+				ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL, 4);
+	if (lpass_gpio_mux_mic_ctl_virt_addr == NULL) {
+		pr_err("%s lpass_gpio_mux_mic_ctl_virt_addr is null\n",
+		       __func__);
+		ret = -EINVAL;
+		goto err3;
+	}
+
 	return 0;
+err3:
+	iounmap(lpaif_sec_muxsel_virt_addr);
+err2:
+	iounmap(lpass_gpio_mux_spkr_ctl_virt_addr);
 err1:
 	iounmap(lpaif_pri_muxsel_virt_addr);
 err:
@@ -1391,6 +1470,8 @@ static int mdm_asoc_machine_remove(struct platform_device *pdev)
 	gpio_free(pdata->hph_en0_gpio);
 	iounmap(lpaif_pri_muxsel_virt_addr);
 	iounmap(lpass_gpio_mux_spkr_ctl_virt_addr);
+	iounmap(lpaif_sec_muxsel_virt_addr);
+	iounmap(lpass_gpio_mux_mic_ctl_virt_addr);
 	snd_soc_unregister_card(card);
 
 	return 0;

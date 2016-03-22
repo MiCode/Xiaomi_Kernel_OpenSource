@@ -1268,16 +1268,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		}
 	}
 
-	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE)
-			&& (kgsl_guard_page == NULL)) {
-		kgsl_guard_page = alloc_page(GFP_KERNEL | __GFP_ZERO |
-				__GFP_HIGHMEM);
-		if (kgsl_guard_page == NULL) {
-			status = -ENOMEM;
-			goto done;
-		}
-	}
-
 	kgsl_iommu_add_global(mmu, &iommu->setstate);
 
 done:
@@ -1466,8 +1456,16 @@ static int _iommu_map_guard_page(struct kgsl_pagetable *pt,
 
 		sg = kgsl_secure_guard_page_memdesc.sgt->sgl;
 		physaddr = page_to_phys(sg_page(sg));
-	} else
+	} else {
+		if (kgsl_guard_page == NULL) {
+			kgsl_guard_page = alloc_page(GFP_KERNEL | __GFP_ZERO |
+					__GFP_HIGHMEM);
+			if (kgsl_guard_page == NULL)
+				return -ENOMEM;
+		}
+
 		physaddr = page_to_phys(kgsl_guard_page);
+	}
 
 	return _iommu_map_sync_pc(pt, memdesc, gpuaddr, physaddr,
 			kgsl_memdesc_guard_page_size(pt->mmu, memdesc),

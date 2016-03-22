@@ -2215,14 +2215,20 @@ static void gsi_resume(struct usb_function *f)
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
 
 	if (!remote_wakeup_allowed) {
-		gsi->d_port.in_ep->desc = gsi->in_ep_desc_backup;
-		gsi->d_port.out_ep->desc = gsi->out_ep_desc_backup;
 
 		/* Configure EPs for GSI */
-		gsi->d_port.out_ep->ep_intr_num = 1;
-		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
-				GSI_EP_OP_CONFIG);
-		gsi->d_port.in_ep->ep_intr_num = 2;
+		if (gsi->d_port.out_ep) {
+			gsi->d_port.out_ep->desc = gsi->out_ep_desc_backup;
+			gsi->d_port.out_ep->ep_intr_num = 1;
+			usb_gsi_ep_op(gsi->d_port.out_ep,
+				&gsi->d_port.out_request, GSI_EP_OP_CONFIG);
+		}
+		gsi->d_port.in_ep->desc = gsi->in_ep_desc_backup;
+		if (gsi->prot_id != IPA_USB_DIAG)
+			gsi->d_port.in_ep->ep_intr_num = 2;
+		else
+			gsi->d_port.in_ep->ep_intr_num = 3;
+
 		usb_gsi_ep_op(gsi->d_port.in_ep, &gsi->d_port.in_request,
 				GSI_EP_OP_CONFIG);
 		post_event(&gsi->d_port, EVT_CONNECT_IN_PROGRESS);
@@ -2239,7 +2245,7 @@ static void gsi_resume(struct usb_function *f)
 
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
 
-	if (!gsi->c_port.notify->desc)
+	if (gsi->c_port.notify && !gsi->c_port.notify->desc)
 		config_ep_by_speed(cdev->gadget, f, gsi->c_port.notify);
 
 	atomic_set(&gsi->c_port.notify_count, 0);

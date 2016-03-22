@@ -282,9 +282,10 @@ static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 
 	pr_debug("%s: yres=%d vclks=%x height=%d init=%d rd=%d start=%d\n",
 		__func__, pinfo->yres, vclks_line, te->sync_cfg_height,
-			te->vsync_init_val, te->rd_ptr_irq, te->start_pos);
-	pr_debug("thrd_start =%d thrd_cont=%d\n",
-		te->sync_threshold_start, te->sync_threshold_continue);
+		te->vsync_init_val, te->rd_ptr_irq, te->start_pos);
+	pr_debug("thrd_start =%d thrd_cont=%d pp_split=%d\n",
+		te->sync_threshold_start, te->sync_threshold_continue,
+		ctx->pingpong_split_slave);
 
 	pingpong_base = mixer->pingpong_base;
 
@@ -2460,7 +2461,10 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 	mdss_mdp_resource_control(ctl, MDP_RSRC_CTL_EVENT_STOP);
 
 	flush_work(&ctx->pp_done_work);
-	mdss_mdp_tearcheck_enable(ctl, false);
+
+	if (mdss_panel_is_power_off(panel_power_state) ||
+	    mdss_panel_is_power_on_ulp(panel_power_state))
+		mdss_mdp_tearcheck_enable(ctl, false);
 
 	if (mdss_panel_is_power_on(panel_power_state)) {
 		pr_debug("%s: intf stopped with panel on\n", __func__);

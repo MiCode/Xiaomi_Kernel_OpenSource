@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundatation. All rights reserved.
+/* Copyright (c) 2011-2014, 2016, The Linux Foundatation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,19 +40,6 @@ static int msm_i2c_mux_init(struct i2c_mux_device *mux_device)
 {
 	int rc = 0, val = 0;
 	if (mux_device->use_count == 0) {
-		mux_device->ctl_base = ioremap(mux_device->ctl_mem->start,
-			resource_size(mux_device->ctl_mem));
-		if (!mux_device->ctl_base) {
-			rc = -ENOMEM;
-			return rc;
-		}
-		mux_device->rw_base = ioremap(mux_device->rw_mem->start,
-			resource_size(mux_device->rw_mem));
-		if (!mux_device->rw_base) {
-			rc = -ENOMEM;
-			iounmap(mux_device->ctl_base);
-			return rc;
-		}
 		val = msm_camera_io_r(mux_device->rw_base);
 		msm_camera_io_w((val | 0x200), mux_device->rw_base);
 	}
@@ -67,8 +54,6 @@ static int msm_i2c_mux_release(struct i2c_mux_device *mux_device)
 	if (mux_device->use_count == 0) {
 		val = msm_camera_io_r(mux_device->rw_base);
 		msm_camera_io_w((val & ~0x200), mux_device->rw_base);
-		iounmap(mux_device->rw_base);
-		iounmap(mux_device->ctl_base);
 	}
 	return 0;
 }
@@ -125,45 +110,54 @@ static int i2c_mux_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &mux_device->subdev);
 	mutex_init(&mux_device->mutex);
 
-	mux_device->ctl_mem = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "i2c_mux_ctl");
-	if (!mux_device->ctl_mem) {
+	mux_device->ctl_base = msm_camera_get_reg_base(pdev,
+		"i2c_mux_ctl", true);
+	if (!mux_device->ctl_base) {
 		pr_err("%s: no mem resource?\n", __func__);
 		rc = -ENODEV;
-		goto i2c_mux_no_resource;
+		goto ctl_base_failed;
 	}
-	mux_device->ctl_io = request_mem_region(mux_device->ctl_mem->start,
-		resource_size(mux_device->ctl_mem), pdev->name);
-	if (!mux_device->ctl_io) {
-		pr_err("%s: no valid mem region\n", __func__);
-		rc = -EBUSY;
-		goto i2c_mux_no_resource;
-	}
-	mux_device->rw_mem = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "i2c_mux_rw");
+	mux_device->rw_base = msm_camera_get_reg_base(pdev, "i2c_mux_rw", true);
 	if (!mux_device->rw_mem) {
 		pr_err("%s: no mem resource?\n", __func__);
 		rc = -ENODEV;
-		goto i2c_mux_no_resource;
-	}
-	mux_device->rw_io = request_mem_region(mux_device->rw_mem->start,
-		resource_size(mux_device->rw_mem), pdev->name);
-	if (!mux_device->rw_io) {
-		pr_err("%s: no valid mem region\n", __func__);
-		rc = -EBUSY;
-		goto i2c_mux_no_resource;
+		goto rw_base_failed;
 	}
 	mux_device->pdev = pdev;
 	return 0;
 
-i2c_mux_no_resource:
+rw_base_failed:
+	msm_camera_put_reg_base(pdev, mux_device->ctl_base,
+		"i2c_mux_ctl", true);
+ctl_base_failed:
 	mutex_destroy(&mux_device->mutex);
 	kfree(mux_device);
 	return 0;
 }
 
+static int i2c_mux_remove(struct platform_device *pdev)
+{
+	struct v4l2_subdev *sub_dev = platform_get_drvdata(pdev);
+	struct i2c_mux_device *mux_device;
+
+	if (!sub_dev) {
+		pr_err("%s: sub device is NULL\n", __func__);
+		return 0;
+	}
+
+	mux_device = (struct mux_device *)v4l2_get_subdevdata(sub_dev);
+	if (!mux_device) {
+		pr_err("%s: sub device is NULL\n", __func__);
+		return 0;
+	}
+
+	msm_camera_put_reg_base(pdev, mux_device->rw_base, "i2c_mux_ctl", true);
+	msm_camera_put_reg_base(pdev, mux_device->ctl_base, "i2c_mux_rw", true);
+}
+
 static struct platform_driver i2c_mux_driver = {
 	.probe = i2c_mux_probe,
+	.remove = i2c_mux_remove,
 	.driver = {
 		.name = MSM_I2C_MUX_DRV_NAME,
 		.owner = THIS_MODULE,

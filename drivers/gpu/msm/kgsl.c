@@ -411,6 +411,11 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 	ret = kgsl_process_private_get(process);
 	if (!ret)
 		return -EBADF;
+
+	ret = kgsl_mem_entry_track_gpuaddr(process, entry);
+	if (ret)
+		goto err_put_proc_priv;
+
 	idr_preload(GFP_KERNEL);
 	spin_lock(&process->mem_lock);
 	id = idr_alloc(&process->mem_idr, entry, 1, 0, GFP_NOWAIT);
@@ -419,19 +424,12 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 
 	if (id < 0) {
 		ret = id;
+		kgsl_mem_entry_untrack_gpuaddr(process, entry);
 		goto err_put_proc_priv;
 	}
 
 	entry->id = id;
 	entry->priv = process;
-
-	ret = kgsl_mem_entry_track_gpuaddr(process, entry);
-	if (ret) {
-		spin_lock(&process->mem_lock);
-		idr_remove(&process->mem_idr, entry->id);
-		spin_unlock(&process->mem_lock);
-		goto err_put_proc_priv;
-	}
 
 	/* map the memory after unlocking if gpuaddr has been assigned */
 	if (entry->memdesc.gpuaddr) {
@@ -465,11 +463,10 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 	if (entry == NULL)
 		return;
 
-	/* Unmap here so that below we can call kgsl_mmu_put_gpuaddr */
-	kgsl_mmu_unmap(entry->memdesc.pagetable, &entry->memdesc);
-
-	kgsl_mem_entry_untrack_gpuaddr(entry->priv, entry);
-
+	/*
+	 * First remove the entry from mem_idr list
+	 * so that no one can operate on obsolete values
+	 */
 	spin_lock(&entry->priv->mem_lock);
 	if (entry->id != 0)
 		idr_remove(&entry->priv->mem_idr, entry->id);
@@ -478,6 +475,11 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 	type = kgsl_memdesc_usermem_type(&entry->memdesc);
 	entry->priv->stats[type].cur -= entry->memdesc.size;
 	spin_unlock(&entry->priv->mem_lock);
+
+	kgsl_mmu_unmap(entry->memdesc.pagetable, &entry->memdesc);
+
+	kgsl_mem_entry_untrack_gpuaddr(entry->priv, entry);
+
 	kgsl_process_private_put(entry->priv);
 
 	entry->priv = NULL;
@@ -1072,25 +1074,28 @@ static void device_release_contexts(struct kgsl_device_private *dev_priv)
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
 	int next = 0;
+	int result = 0;
 
 	while (1) {
 		read_lock(&device->context_lock);
 		context = idr_get_next(&device->context_idr, &next);
-		read_unlock(&device->context_lock);
 
-		if (context == NULL)
+		if (context == NULL) {
+			read_unlock(&device->context_lock);
 			break;
-
-		if (context->dev_priv == dev_priv) {
+		} else if (context->dev_priv == dev_priv) {
 			/*
 			 * Hold a reference to the context in case somebody
 			 * tries to put it while we are detaching
 			 */
+			result = _kgsl_context_get(context);
+		}
+		read_unlock(&device->context_lock);
 
-			if (_kgsl_context_get(context)) {
-				kgsl_context_detach(context);
-				kgsl_context_put(context);
-			}
+		if (result) {
+			kgsl_context_detach(context);
+			kgsl_context_put(context);
+			result = 0;
 		}
 
 		next = next + 1;

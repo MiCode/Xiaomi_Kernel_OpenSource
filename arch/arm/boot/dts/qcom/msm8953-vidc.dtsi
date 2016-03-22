@@ -38,6 +38,7 @@
 			<0x9181000 0x1000>;
 		qcom,max-hw-load = <1044480>; /* 4096 x 2176 @ 30 fps */
 		qcom,slave-side-cp;
+		qcom,sw-power-collapse;
 		qcom,firmware-name = "venus";
 		qcom,dcvs-tbl =
 			/* Dec UHD@30 H.264, HEVC, VP8, VP9 - NOM to NOM+*/
@@ -134,7 +135,6 @@
 				qcom,codec-mask = <0xffffffff>;
 				qcom,load-busfreq-tbl =
 					<979200 2365000>,  /* UHD30D     */
-					<979200 2241000>,  /* 1080p120D  */
 					<864000 1978000>,  /* 720p240D   */
 					<489600 1133000>,  /* 1080p60D   */
 					<432000 994000>,   /* 720p120D   */
@@ -148,7 +148,6 @@
 				qcom,ubwc-mode;
 				qcom,load-busfreq-tbl =
 					<979200 1892000>,  /* UHD30D     */
-					<979200 1763000>,  /* 1080p120D  */
 					<864000 1554000>,  /* 720p240D   */
 					<489600 895000>,   /* 1080p60D   */
 					<432000 781000>,   /* 720p120D   */

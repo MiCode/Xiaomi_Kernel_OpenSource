@@ -455,6 +455,21 @@ struct wil_tid_ampdu_rx {
 	bool first_time; /* is it 1-st time this buffer used? */
 };
 
+/**
+ * struct wil_tid_crypto_rx_single - TID crypto information (Rx).
+ *
+ * @pn: GCMP PN for the session
+ * @key_set: valid key present
+ */
+struct wil_tid_crypto_rx_single {
+	u8 pn[IEEE80211_GCMP_PN_LEN];
+	bool key_set;
+};
+
+struct wil_tid_crypto_rx {
+	struct wil_tid_crypto_rx_single key_id[4];
+};
+
 enum wil_sta_status {
 	wil_sta_unused = 0,
 	wil_sta_conn_pending = 1,
@@ -474,6 +489,7 @@ struct wil_net_stats {
 	unsigned long	rx_non_data_frame;
 	unsigned long	rx_short_frame;
 	unsigned long	rx_large_frame;
+	unsigned long	rx_replay;
 	u16 last_mcs_rx;
 	u64 rx_per_mcs[WIL_MCS_MAX + 1];
 };
@@ -495,6 +511,8 @@ struct wil_sta_info {
 	spinlock_t tid_rx_lock; /* guarding tid_rx array */
 	unsigned long tid_rx_timer_expired[BITS_TO_LONGS(WIL_STA_TID_NUM)];
 	unsigned long tid_rx_stop_requested[BITS_TO_LONGS(WIL_STA_TID_NUM)];
+	struct wil_tid_crypto_rx tid_crypto_rx[WIL_STA_TID_NUM];
+	struct wil_tid_crypto_rx group_crypto_rx;
 };
 
 enum {
@@ -505,24 +523,6 @@ enum {
 
 enum {
 	hw_capability_last
-};
-
-struct wil_back_rx {
-	struct list_head list;
-	/* request params, converted to CPU byte order - what we asked for */
-	u8 cidxtid;
-	u8 dialog_token;
-	u16 ba_param_set;
-	u16 ba_timeout;
-	u16 ba_seq_ctrl;
-};
-
-struct wil_back_tx {
-	struct list_head list;
-	/* request params, converted to CPU byte order - what we asked for */
-	u8 ringid;
-	u8 agg_wsize;
-	u16 agg_timeout;
 };
 
 struct wil_probe_client_req {
@@ -595,13 +595,6 @@ struct wil6210_priv {
 	spinlock_t wmi_ev_lock;
 	struct napi_struct napi_rx;
 	struct napi_struct napi_tx;
-	/* BACK */
-	struct list_head back_rx_pending;
-	struct mutex back_rx_mutex; /* protect @back_rx_pending */
-	struct work_struct back_rx_worker;
-	struct list_head back_tx_pending;
-	struct mutex back_tx_mutex; /* protect @back_tx_pending */
-	struct work_struct back_tx_worker;
 	/* keep alive */
 	struct list_head probe_client_pending;
 	struct mutex probe_client_mutex; /* protect @probe_client_pending */
@@ -761,11 +754,7 @@ int wmi_addba_rx_resp(struct wil6210_priv *wil, u8 cid, u8 tid, u8 token,
 int wil_addba_rx_request(struct wil6210_priv *wil, u8 cidxtid,
 			 u8 dialog_token, __le16 ba_param_set,
 			 __le16 ba_timeout, __le16 ba_seq_ctrl);
-void wil_back_rx_worker(struct work_struct *work);
-void wil_back_rx_flush(struct wil6210_priv *wil);
 int wil_addba_tx_request(struct wil6210_priv *wil, u8 ringid, u16 wsize);
-void wil_back_tx_worker(struct work_struct *work);
-void wil_back_tx_flush(struct wil6210_priv *wil);
 
 void wil6210_clear_irq(struct wil6210_priv *wil);
 int wil6210_init_irq(struct wil6210_priv *wil, int irq, bool use_msi);

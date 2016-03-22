@@ -3203,7 +3203,7 @@ static int arm_smmu_init_clocks(struct arm_smmu_device *smmu)
 		if (IS_ERR(c)) {
 			dev_err(dev, "Couldn't get clock: %s",
 				cname);
-			return -ENODEV;
+			return PTR_ERR(c);
 		}
 
 		if (clk_get_rate(c) == 0) {

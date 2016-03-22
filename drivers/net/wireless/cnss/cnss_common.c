@@ -21,7 +21,14 @@
 #include <linux/mutex.h>
 #include <linux/rwsem.h>
 #include <net/cnss.h>
+#include <net/cnss_common.h>
 #include <net/cfg80211.h>
+
+enum cnss_dev_bus_type {
+	CNSS_BUS_NONE = -1,
+	CNSS_BUS_PCI,
+	CNSS_BUS_SDIO
+};
 
 static DEFINE_MUTEX(unsafe_channel_list_lock);
 static DEFINE_MUTEX(dfs_nol_info_lock);
@@ -234,3 +241,136 @@ void cnss_dump_stack(struct task_struct *task)
 	show_stack(task, NULL);
 }
 EXPORT_SYMBOL(cnss_dump_stack);
+
+enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev)
+{
+	if (!dev && !dev->bus)
+		return CNSS_BUS_NONE;
+
+	if (memcmp(dev->bus->name, "sdio", 4) == 0)
+		return CNSS_BUS_SDIO;
+	else if (memcmp(dev->bus->name, "pci", 3) == 0)
+		return CNSS_BUS_PCI;
+	else
+		return CNSS_BUS_NONE;
+}
+
+#ifdef CONFIG_CNSS_SDIO
+int cnss_common_request_bus_bandwidth(struct device *dev, int bandwidth)
+{
+	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
+		return cnss_sdio_request_bus_bandwidth(bandwidth);
+	else
+		return 0;
+}
+EXPORT_SYMBOL(cnss_common_request_bus_bandwidth);
+
+void *cnss_common_get_virt_ramdump_mem(struct device *dev, unsigned long *size)
+{
+	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
+		return cnss_sdio_get_virt_ramdump_mem(size);
+	else
+		return NULL;
+}
+EXPORT_SYMBOL(cnss_common_get_virt_ramdump_mem);
+
+void cnss_common_device_self_recovery(struct device *dev)
+{
+	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
+		cnss_sdio_device_self_recovery();
+}
+EXPORT_SYMBOL(cnss_common_device_self_recovery);
+
+void cnss_common_schedule_recovery_work(struct device *dev)
+{
+	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
+		cnss_sdio_schedule_recovery_work();
+}
+EXPORT_SYMBOL(cnss_common_schedule_recovery_work);
+
+void cnss_common_device_crashed(struct device *dev)
+{
+	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
+		cnss_sdio_device_crashed();
+}
+EXPORT_SYMBOL(cnss_common_device_crashed);
+
+u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num)
+{
+	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
+		return cnss_sdio_get_wlan_mac_address(num);
+	else
+		return NULL;
+}
+EXPORT_SYMBOL(cnss_common_get_wlan_mac_address);
+
+int cnss_common_set_wlan_mac_address(
+		struct device *dev, const u8 *in, uint32_t len)
+{
+	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
+		return cnss_sdio_set_wlan_mac_address(in, len);
+	else
+		return -EINVAL;
+}
+EXPORT_SYMBOL(cnss_common_set_wlan_mac_address);
+#endif
+
+#ifdef CONFIG_CNSS_PCI
+int cnss_common_request_bus_bandwidth(struct device *dev, int bandwidth)
+{
+	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+		return cnss_pci_request_bus_bandwidth(bandwidth);
+	else
+		return 0;
+}
+EXPORT_SYMBOL(cnss_common_request_bus_bandwidth);
+
+void *cnss_common_get_virt_ramdump_mem(struct device *dev, unsigned long *size)
+{
+	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+		return cnss_pci_get_virt_ramdump_mem(size);
+	else
+		return NULL;
+}
+EXPORT_SYMBOL(cnss_common_get_virt_ramdump_mem);
+
+void cnss_common_device_self_recovery(struct device *dev)
+{
+	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+		cnss_pci_device_self_recovery();
+}
+EXPORT_SYMBOL(cnss_common_device_self_recovery);
+
+void cnss_common_schedule_recovery_work(struct device *dev)
+{
+	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+		cnss_pci_schedule_recovery_work();
+}
+EXPORT_SYMBOL(cnss_common_schedule_recovery_work);
+
+void cnss_common_device_crashed(struct device *dev)
+{
+	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+		cnss_pci_device_crashed();
+}
+EXPORT_SYMBOL(cnss_common_device_crashed);
+
+u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num)
+{
+	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+		return cnss_pci_get_wlan_mac_address(num);
+	else
+		return NULL;
+}
+EXPORT_SYMBOL(cnss_common_get_wlan_mac_address);
+
+int cnss_common_set_wlan_mac_address(
+		struct device *dev, const u8 *in, uint32_t len)
+{
+	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+		return cnss_pcie_set_wlan_mac_address(in, len);
+	else
+		return -EINVAL;
+}
+EXPORT_SYMBOL(cnss_common_set_wlan_mac_address);
+#endif

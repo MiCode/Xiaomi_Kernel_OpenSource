@@ -8123,7 +8123,8 @@ static int tasha_config_compander(struct snd_soc_codec *codec, int interp_n,
 
 static int tasha_codec_config_mad(struct snd_soc_codec *codec)
 {
-	int ret, idx;
+	int ret = 0;
+	int idx;
 	const struct firmware *fw;
 	struct firmware_cal *hwdep_cal = NULL;
 	struct wcd_mad_audio_cal *mad_cal = NULL;
@@ -10727,6 +10728,8 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 			tasha->dai[dai->id].bit_width = 24;
 			i2s_bit_mode = 0x00;
 			break;
+		default:
+			return -EINVAL;
 		}
 		tasha->dai[dai->id].rate = params_rate(params);
 		if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
@@ -11326,6 +11329,8 @@ static ssize_t tasha_codec_version_read(struct snd_info_entry *entry,
 			len = snprintf(buffer, sizeof(buffer), "WCD9335_1_0\n");
 		else if (TASHA_IS_1_1(wcd9xxx->version))
 			len = snprintf(buffer, sizeof(buffer), "WCD9335_1_1\n");
+		else
+			snprintf(buffer, sizeof(buffer), "VER_UNDEFINED\n");
 	} else if (wcd9xxx->codec_type->id_major == TASHA2P0_MAJOR) {
 			len = snprintf(buffer, sizeof(buffer), "WCD9335_2_0\n");
 	} else
@@ -12877,6 +12882,38 @@ err:
 	return ret;
 }
 
+static int tasha_swrm_i2s_bulk_write(struct wcd9xxx *wcd9xxx,
+				struct wcd9xxx_reg_val *bulk_reg,
+				size_t len)
+{
+	int i, ret = 0;
+	unsigned short swr_wr_addr_base;
+	unsigned short swr_wr_data_base;
+
+	swr_wr_addr_base = WCD9335_SWR_AHB_BRIDGE_WR_ADDR_0;
+	swr_wr_data_base = WCD9335_SWR_AHB_BRIDGE_WR_DATA_0;
+
+	for (i = 0; i < (len * 2); i += 2) {
+		/* First Write the Data to register */
+		ret = wcd9xxx_bulk_write(&wcd9xxx->core_res,
+			swr_wr_data_base, 4, bulk_reg[i].buf);
+		if (ret < 0) {
+			dev_err(wcd9xxx->dev, "%s: WR Data Failure\n",
+				__func__);
+			break;
+		}
+		/* Next Write Address */
+		ret = wcd9xxx_bulk_write(&wcd9xxx->core_res,
+			swr_wr_addr_base, 4, bulk_reg[i+1].buf);
+		if (ret < 0) {
+			dev_err(wcd9xxx->dev, "%s: WR Addr Failure\n",
+				__func__);
+			break;
+		}
+	}
+	return ret;
+}
+
 static int tasha_swrm_bulk_write(void *handle, u32 *reg, u32 *val, size_t len)
 {
 	struct tasha_priv *tasha;
@@ -12914,10 +12951,22 @@ static int tasha_swrm_bulk_write(void *handle, u32 *reg, u32 *val, size_t len)
 		bulk_reg[i+1].bytes = 4;
 	}
 	mutex_lock(&tasha->swr_write_lock);
-	ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg, (len * 2), false);
-	if (ret)
-		dev_err(tasha->dev, "%s: swrm bulk write failed, ret: %d\n",
-			__func__, ret);
+
+	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
+		ret = tasha_swrm_i2s_bulk_write(wcd9xxx, bulk_reg, len);
+		if (ret) {
+			dev_err(tasha->dev, "%s: i2s bulk write failed, ret: %d\n",
+				__func__, ret);
+		}
+	} else {
+		ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg,
+				 (len * 2), false);
+		if (ret) {
+			dev_err(tasha->dev, "%s: swrm bulk write failed, ret: %d\n",
+				__func__, ret);
+		}
+	}
+
 	mutex_unlock(&tasha->swr_write_lock);
 	kfree(bulk_reg);
 
@@ -12952,9 +13001,19 @@ static int tasha_swrm_write(void *handle, int reg, int val)
 	bulk_reg[1].bytes = 4;
 
 	mutex_lock(&tasha->swr_write_lock);
-	ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg, 2, false);
-	if (ret < 0)
-		pr_err("%s: WR Data Failure\n", __func__);
+
+	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
+		ret = tasha_swrm_i2s_bulk_write(wcd9xxx, bulk_reg, 1);
+		if (ret) {
+			dev_err(tasha->dev, "%s: i2s swrm write failed, ret: %d\n",
+				__func__, ret);
+		}
+	} else {
+		ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg, 2, false);
+		if (ret < 0)
+			pr_err("%s: WR Data Failure\n", __func__);
+	}
+
 	mutex_unlock(&tasha->swr_write_lock);
 	return ret;
 }

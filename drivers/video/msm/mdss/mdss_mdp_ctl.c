@@ -868,6 +868,10 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	perf->mdp_clk_rate = get_pipe_mdp_clk_rate(pipe, src, dst,
 		fps, v_total, flags);
 
+	if (pipe->flags & MDP_SOLID_FILL) {
+		perf->bw_overlap = 0;
+	}
+
 	if (mixer->ctl->intf_num == MDSS_MDP_NO_INTF ||
 		mdata->disable_prefill ||
 		mixer->ctl->disable_prefill ||
@@ -3648,7 +3652,10 @@ void mdss_mdp_ctl_restore(bool locked)
 		if (sctl) {
 			mdss_mdp_ctl_restore_sub(sctl);
 			mdss_mdp_ctl_split_display_enable(1, ctl, sctl);
+		} else if (is_pingpong_split(ctl->mfd)) {
+			mdss_mdp_ctl_pp_split_display_enable(1, ctl);
 		}
+
 		if (ctl->ops.restore_fnc)
 			ctl->ops.restore_fnc(ctl, locked);
 	}

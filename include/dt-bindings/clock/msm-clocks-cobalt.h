@@ -208,8 +208,6 @@
 #define clk_gcc_hmss_rbcpr_clk			0x699183be
 #define clk_hmss_gpll0_clk_src			0x17eb05d0
 #define clk_hmss_gpll4_clk_src			0x20456cae
-#define clk_gcc_mmss_qm_ahb_clk			0xc759178c
-#define clk_gcc_mmss_qm_core_clk		0xa3412619
 #define clk_gcc_mmss_sys_noc_axi_clk		0x4467b15b
 #define clk_gcc_mss_at_clk			0x1692c5aa
 #define clk_nav_gcc_dbg_clk			0x2221c544
@@ -261,6 +259,7 @@
 #define clk_gcc_qusb2phy_sec_reset		0x3f3a87d0
 #define clk_gcc_mmss_noc_cfg_ahb_clk		0xb41a9d99
 #define clk_gcc_wcss_shdreg_ahb_clk		0x33459c85
+#define clk_gcc_dcc_ahb_clk			0xfa14a88c
 #define clk_hlos1_vote_lpass_core_smmu_clk	0x3aaa1743
 #define clk_hlos1_vote_lpass_adsp_smmu_clk	0xc76f702f
 #define clk_gcc_mss_cfg_ahb_clk			0x111cde81

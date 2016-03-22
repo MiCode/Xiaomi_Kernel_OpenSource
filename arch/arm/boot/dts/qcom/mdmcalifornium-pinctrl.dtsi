@@ -170,6 +170,34 @@
 					bias-pull-down;
 				};
 			};
+
+			cnss_sdio_active: cnss_sdio_active {
+				mux {
+					pins = "gpio38";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio38";
+					drive-strength = <16>;
+					output-high;
+					bias-pull-up;
+				};
+			};
+
+			cnss_sdio_sleep: cnss_sdio_sleep {
+				mux {
+					pins = "gpio38";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio38";
+					drive-strength = <2>;
+					output-low;
+					bias-pull-down;
+				};
+			};
 		};
 
 		/* SPI CONFIGURATION */
@@ -800,5 +828,36 @@
 				drive-strength = <2>;	/* 2 MA */
 			};
 		};
+
+		sdc1_wlan_gpio {
+			sdc1_wlan_gpio_active: sdc1_wlan_gpio_active {
+				mux {
+					pins = "gpio80";
+					function  = "gpio";
+				};
+
+				config {
+					pins  = "gpio80";
+					output-high;
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+
+			sdc1_wlan_gpio_sleep: sdc1_wlan_gpio_sleep {
+				mux {
+					pins = "gpio80";
+					function  = "gpio";
+				};
+
+				config {
+					pins  = "gpio80";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+		};
+
 	};
 };

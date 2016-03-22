@@ -2812,6 +2812,7 @@ static int qce_sps_get_bam(struct qce_device *pce_dev)
 
 	bam.ee = pce_dev->ce_bam_info.bam_ee;
 	bam.ipc_loglevel = QCE_BAM_DEFAULT_IPC_LOGLVL;
+	bam.options |= SPS_BAM_CACHED_WP;
 	pr_debug("bam physical base=0x%lx\n", (uintptr_t)bam.phys_addr);
 	pr_debug("bam virtual base=0x%p\n", bam.virt_addr);
 

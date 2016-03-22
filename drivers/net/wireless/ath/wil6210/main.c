@@ -149,7 +149,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	might_sleep();
 	wil_dbg_misc(wil, "%s(CID %d, status %d)\n", __func__, cid,
 		     sta->status);
-
+	/* inform upper/lower layers */
 	if (sta->status != wil_sta_unused) {
 		if (!from_event)
 			wmi_disconnect_sta(wil, sta->addr, reason_code, true);
@@ -165,7 +165,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 		}
 		sta->status = wil_sta_unused;
 	}
-
+	/* reorder buffers */
 	for (i = 0; i < WIL_STA_TID_NUM; i++) {
 		struct wil_tid_ampdu_rx *r;
 
@@ -177,10 +177,15 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 
 		spin_unlock_bh(&sta->tid_rx_lock);
 	}
+	/* crypto context */
+	memset(sta->tid_crypto_rx, 0, sizeof(sta->tid_crypto_rx));
+	memset(&sta->group_crypto_rx, 0, sizeof(sta->group_crypto_rx));
+	/* release vrings */
 	for (i = 0; i < ARRAY_SIZE(wil->vring_tx); i++) {
 		if (wil->vring2cid_tid[i][0] == cid)
 			wil_vring_fini_tx(wil, i);
 	}
+	/* statistics */
 	memset(&sta->stats, 0, sizeof(sta->stats));
 }
 
@@ -440,8 +445,6 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	mutex_init(&wil->mutex);
 	mutex_init(&wil->wmi_mutex);
-	mutex_init(&wil->back_rx_mutex);
-	mutex_init(&wil->back_tx_mutex);
 	mutex_init(&wil->probe_client_mutex);
 
 	init_completion(&wil->wmi_ready);
@@ -454,13 +457,9 @@ int wil_priv_init(struct wil6210_priv *wil)
 	INIT_WORK(&wil->disconnect_worker, wil_disconnect_worker);
 	INIT_WORK(&wil->wmi_event_worker, wmi_event_worker);
 	INIT_WORK(&wil->fw_error_worker, wil_fw_error_worker);
-	INIT_WORK(&wil->back_rx_worker, wil_back_rx_worker);
-	INIT_WORK(&wil->back_tx_worker, wil_back_tx_worker);
 	INIT_WORK(&wil->probe_client_worker, wil_probe_client_worker);
 
 	INIT_LIST_HEAD(&wil->pending_wmi_ev);
-	INIT_LIST_HEAD(&wil->back_rx_pending);
-	INIT_LIST_HEAD(&wil->back_tx_pending);
 	INIT_LIST_HEAD(&wil->probe_client_pending);
 	spin_lock_init(&wil->wmi_ev_lock);
 	init_waitqueue_head(&wil->wq);
@@ -520,10 +519,6 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 	wil6210_disconnect(wil, NULL, WLAN_REASON_DEAUTH_LEAVING, false);
 	mutex_unlock(&wil->mutex);
 	wmi_event_flush(wil);
-	wil_back_rx_flush(wil);
-	cancel_work_sync(&wil->back_rx_worker);
-	wil_back_tx_flush(wil);
-	cancel_work_sync(&wil->back_tx_worker);
 	wil_probe_client_flush(wil);
 	cancel_work_sync(&wil->probe_client_worker);
 	destroy_workqueue(wil->wq_service);
@@ -637,6 +632,7 @@ void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)
 static int wil_get_bl_info(struct wil6210_priv *wil)
 {
 	struct net_device *ndev = wil_to_ndev(wil);
+	struct wiphy *wiphy = wil_to_wiphy(wil);
 	union {
 		struct bl_dedicated_registers_v0 bl0;
 		struct bl_dedicated_registers_v1 bl1;
@@ -681,6 +677,7 @@ static int wil_get_bl_info(struct wil6210_priv *wil)
 	}
 
 	ether_addr_copy(ndev->perm_addr, mac);
+	ether_addr_copy(wiphy->perm_addr, mac);
 	if (!is_valid_ether_addr(ndev->dev_addr))
 		ether_addr_copy(ndev->dev_addr, mac);
 

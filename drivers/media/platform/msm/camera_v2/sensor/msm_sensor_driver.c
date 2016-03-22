@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1093,13 +1093,23 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 		goto FREE_SENSOR_DATA;
 	}
 
+	/*Get clocks information*/
+	rc = msm_camera_get_clk_info(s_ctrl->pdev,
+		&s_ctrl->sensordata->power_info.clk_info,
+		&s_ctrl->sensordata->power_info.clk_ptr,
+		&s_ctrl->sensordata->power_info.clk_info_size);
+	if (rc < 0) {
+		pr_err("failed: msm_camera_get_clk_info rc %d", rc);
+		goto FREE_SUB_MODULE_DATA;
+	}
+
 	/* Read vreg information */
 	rc = msm_camera_get_dt_vreg_data(of_node,
 		&sensordata->power_info.cam_vreg,
 		&sensordata->power_info.num_vreg);
 	if (rc < 0) {
 		pr_err("failed: msm_camera_get_dt_vreg_data rc %d", rc);
-		goto FREE_SUB_MODULE_DATA;
+		goto FREE_CLK_DATA;
 	}
 
 	/* Read gpio information */
@@ -1157,6 +1167,12 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 
 FREE_VREG_DATA:
 	kfree(sensordata->power_info.cam_vreg);
+FREE_CLK_DATA:
+	msm_camera_put_clk_info(s_ctrl->pdev,
+		&s_ctrl->sensordata->power_info.clk_info,
+		&s_ctrl->sensordata->power_info.clk_ptr,
+		s_ctrl->sensordata->power_info.clk_info_size);
+
 FREE_SUB_MODULE_DATA:
 	kfree(sensordata->sensor_info);
 FREE_SENSOR_DATA:
@@ -1249,15 +1265,17 @@ static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev)
 	s_ctrl->sensor_device_type = MSM_CAMERA_PLATFORM_DEVICE;
 	s_ctrl->of_node = pdev->dev.of_node;
 
+	/*fill in platform device*/
+	s_ctrl->pdev = pdev;
+
 	rc = msm_sensor_driver_parse(s_ctrl);
 	if (rc < 0) {
 		pr_err("failed: msm_sensor_driver_parse rc %d", rc);
 		goto FREE_S_CTRL;
 	}
 
-	/* Fill platform device */
+	/* Fill platform device id*/
 	pdev->id = s_ctrl->id;
-	s_ctrl->pdev = pdev;
 
 	/* Fill device in power info */
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;

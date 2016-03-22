@@ -2970,6 +2970,9 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		return ret;
 	}
 
+	/* Don't update BL = 0 to AD */
+	if (bl_in == 0)
+		return 0;
 	mutex_lock(&ad->lock);
 	if (!mfd->ad_bl_level)
 		mfd->ad_bl_level = bl_in;
@@ -5709,6 +5712,8 @@ static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
 		writel_relaxed(ad->ad_data, base + MDSS_MDP_REG_AD_AL);
 		break;
 	case MDSS_AD_MODE_AUTO_STR:
+		pr_debug("bl_data = %d, ad_data = %d\n", ad->bl_data,
+				ad->ad_data);
 		ad->last_ad_data = ad->ad_data;
 		ad->last_ad_data_valid = true;
 		writel_relaxed(ad->bl_data, base + MDSS_MDP_REG_AD_BL);
@@ -5727,6 +5732,8 @@ static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
 			ad->last_ad_data = ad->ad_data;
 			ad->last_ad_data_valid = true;
 		}
+		pr_debug("bl_data = %d, last_ad_data = %d, last_str = %d\n",
+				ad->bl_data, ad->last_ad_data, ad->last_str);
 		writel_relaxed(ad->bl_data, base + MDSS_MDP_REG_AD_BL);
 		writel_relaxed(ad->last_ad_data, base + MDSS_MDP_REG_AD_AL);
 		writel_relaxed(ad->last_str, base + MDSS_MDP_REG_AD_STR_MAN);
@@ -6320,9 +6327,9 @@ static int pp_ad_linearize_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out,
 	}
 
 	pr_debug("bl_in = %d, inv = %d\n", bl, inv);
-	if (inv == MDP_PP_AD_BL_LINEAR_INV) {
+	if (inv == MDP_PP_AD_BL_LINEAR) {
 		bl_lut = ad->bl_lin;
-	} else if (inv == MDP_PP_AD_BL_LINEAR) {
+	} else if (inv == MDP_PP_AD_BL_LINEAR_INV) {
 		bl_lut = ad->bl_lin_inv;
 	} else {
 		pr_err("invalid inv param: inv = %d\n", inv);

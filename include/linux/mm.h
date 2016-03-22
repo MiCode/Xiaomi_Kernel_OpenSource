@@ -19,6 +19,7 @@
 #include <linux/bit_spinlock.h>
 #include <linux/shrinker.h>
 #include <linux/resource.h>
+#include <linux/rtmutex.h>
 
 struct mempolicy;
 struct anon_vma;
@@ -282,6 +283,16 @@ struct vm_operations_struct {
 	int (*remap_pages)(struct vm_area_struct *vma, unsigned long addr,
 			   unsigned long size, pgoff_t pgoff);
 };
+
+#define TASK_MM_HLIST_BITS 7
+DECLARE_PER_CPU(struct hlist_head[1 << TASK_MM_HLIST_BITS], task_mm_hash);
+struct task_rmap {
+	struct mm_struct *mm;
+	struct task_struct *task;
+	struct rt_mutex exit_boost_mutex;
+	struct hlist_node list;
+};
+extern struct srcu_struct exit_boost_srcu;
 
 struct mmu_gather;
 struct inode;
