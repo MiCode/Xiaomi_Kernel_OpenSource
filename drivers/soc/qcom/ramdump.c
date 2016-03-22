@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 #include <linux/wait.h>
 #include <soc/qcom/ramdump.h>
 #include <linux/dma-mapping.h>
+#include <linux/of.h>
 
 #define RAMDUMP_WAIT_MSECS	120000
 
@@ -45,6 +46,7 @@ struct ramdump_device {
 	size_t elfcore_size;
 	char *elfcore_buf;
 	struct dma_attrs attrs;
+	bool complete_ramdump;
 };
 
 static int ramdump_open(struct inode *inode, struct file *filep)
@@ -272,6 +274,13 @@ void *create_ramdump_device(const char *dev_name, struct device *parent)
 	rd_dev->device.name = rd_dev->name;
 	rd_dev->device.fops = &ramdump_file_ops;
 	rd_dev->device.parent = parent;
+	if (parent) {
+		rd_dev->complete_ramdump = of_property_read_bool(
+				parent->of_node, "qcom,complete-ramdump");
+		if (!rd_dev->complete_ramdump)
+			dev_info(parent,
+			"for %s segments only will be dumped.", dev_name);
+	}
 
 	init_waitqueue_head(&rd_dev->dump_wait_q);
 
@@ -314,8 +323,17 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 		return -EPIPE;
 	}
 
-	for (i = 0; i < nsegments; i++)
-		segments[i].size = PAGE_ALIGN(segments[i].size);
+	if (rd_dev->complete_ramdump) {
+		for (i = 0; i < nsegments-1; i++)
+			segments[i].size =
+			PAGE_ALIGN(segments[i+1].address - segments[i].address);
+
+		segments[nsegments-1].size =
+			PAGE_ALIGN(segments[nsegments-1].size);
+	} else {
+		for (i = 0; i < nsegments; i++)
+			segments[i].size = PAGE_ALIGN(segments[i].size);
+	}
 
 	rd_dev->segments = segments;
 	rd_dev->nsegments = nsegments;
