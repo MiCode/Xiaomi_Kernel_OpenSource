@@ -685,7 +685,6 @@
 			< 2016000000 0x04040069 0x15540054 0x4>,
 			< 2092800000 0x0404006d 0x16570057 0x4>;
 
-		qcom,osm-no-tz;
 		qcom,osm-pll-setup;
 
 		qcom,up-timer =
