@@ -1589,8 +1589,6 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 			channel->ep->gsi_evt_ring_hdl;
 
 		memset(&ev_scratch, 0, sizeof(ev_scratch));
-		ev_scratch.mhi.ul_dl_sync_en =
-			ipa3_cached_dl_ul_sync_info.params.isDlUlSyncEnabled;
 		res = gsi_write_evt_ring_scratch(channel->ep->gsi_evt_ring_hdl,
 					ev_scratch);
 		if (res) {
@@ -1627,8 +1625,6 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	ch_scratch.mhi.mhi_host_wp_addr = IPA_MHI_HOST_ADDR_COND(
 			channel->channel_context_addr +
 			offsetof(struct ipa3_mhi_ch_ctx, wp));
-	ch_scratch.mhi.ul_dl_sync_en = ipa3_cached_dl_ul_sync_info.
-			params.isDlUlSyncEnabled;
 	ch_scratch.mhi.assert_bit40 = ipa3_mhi_ctx->assert_bit40;
 	ch_scratch.mhi.max_outstanding_tre = ep_cfg->ipa_if_aos *
 		GSI_CHAN_RE_SIZE_16B;
