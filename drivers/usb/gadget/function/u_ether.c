@@ -573,8 +573,16 @@ static void rx_fill(struct eth_dev *dev, gfp_t gfp_flags)
 	unsigned long		flags;
 	int			req_cnt = 0;
 
+	if (!dev)
+		return;
+
 	/* fill unused rxq slots with some skb */
 	spin_lock_irqsave(&dev->req_lock, flags);
+	if (!dev->port_usb) {
+		spin_unlock_irqrestore(&dev->req_lock, flags);
+		return;
+	}
+
 	while (!list_empty(&dev->rx_reqs)) {
 		/* break the nexus of continuous completion and re-submission*/
 		if (++req_cnt > qlen(dev->gadget, dev->qmult))
@@ -588,6 +596,10 @@ static void rx_fill(struct eth_dev *dev, gfp_t gfp_flags)
 		if (rx_submit(dev, req, gfp_flags) < 0) {
 			spin_lock_irqsave(&dev->req_lock, flags);
 			list_add(&req->list, &dev->rx_reqs);
+			if (!dev->port_usb) {
+				spin_unlock_irqrestore(&dev->req_lock, flags);
+				return;
+			}
 			spin_unlock_irqrestore(&dev->req_lock, flags);
 			defer_kevent(dev, WORK_RX_MEMORY);
 			return;
@@ -1957,6 +1969,8 @@ void gether_cleanup(struct eth_dev *dev)
 	uether_debugfs_exit(dev);
 	unregister_netdev(dev->net);
 	flush_work(&dev->work);
+	cancel_work_sync(&dev->rx_work);
+	cancel_work_sync(&dev->tx_work);
 	free_netdev(dev->net);
 }
 EXPORT_SYMBOL_GPL(gether_cleanup);
