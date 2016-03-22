@@ -4630,17 +4630,12 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 			j = i * MAX_PIPES_PER_STAGE;
 
 			/*
-			 * 1. If pipe is on the right side of the blending
-			 *    stage, on either left LM or right LM but it is not
-			 *    crossing LM boundry then right_blend ndx is used.
-			 * 2. If pipe is on the right side of the blending
-			 *    stage on left LM and it is crossing LM boundry
-			 *    then for left LM it is placed into right_blend
-			 *    index but for right LM it still placed into
-			 *    left_blend index.
+			 * this could lead to cases where left blend index is
+			 * not populated. For instance, where pipe is spanning
+			 * across layer mixers. But this is handled properly
+			 * within mixer programming code.
 			 */
-			if (pipe->is_right_blend && (!pipe->src_split_req ||
-			    (pipe->src_split_req && !mixer->is_right_mixer)))
+			if (pipe->is_right_blend)
 				j++;
 
 			/* First clear all blend containers for current stage */
@@ -4694,26 +4689,43 @@ void mdss_mdp_mixer_unstage_all(struct mdss_mdp_mixer *mixer)
 int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer)
 {
-	int index;
-	u8 right_blend_index;
+	int i, right_blend;
 
 	if (!pipe)
 		return -EINVAL;
 	if (!mixer)
 		return -EINVAL;
 
-	right_blend_index = pipe->is_right_blend &&
-		!(pipe->src_split_req && mixer->is_right_mixer);
-	index = (pipe->mixer_stage * MAX_PIPES_PER_STAGE) + right_blend_index;
-
-	if (index < MAX_PIPES_PER_LM && pipe == mixer->stage_pipe[index]) {
+	right_blend = pipe->is_right_blend ? 1 : 0;
+	i = (pipe->mixer_stage * MAX_PIPES_PER_STAGE) + right_blend;
+	if ((i < MAX_PIPES_PER_LM) && (pipe == mixer->stage_pipe[i])) {
 		pr_debug("unstage p%d from %s side of stage=%d lm=%d ndx=%d\n",
-			pipe->num, pipe->is_right_blend ? "right" : "left",
-			pipe->mixer_stage, mixer->num, index);
+				pipe->num, right_blend ? "right" : "left",
+				pipe->mixer_stage, mixer->num, i);
+	} else {
+		int stage;
 
-		mixer->params_changed++;
-		mixer->stage_pipe[index] = NULL;
+		for (i = 0; i < MAX_PIPES_PER_LM; i++) {
+			if (pipe != mixer->stage_pipe[i])
+				continue;
+
+			stage = i / MAX_PIPES_PER_STAGE;
+			right_blend = i & 1;
+
+			pr_warn("lm=%d pipe #%d stage=%d with %s blend, unstaged from %s side of stage=%d!\n",
+				mixer->num, pipe->num, pipe->mixer_stage,
+				pipe->is_right_blend ? "right" : "left",
+				right_blend ? "right" : "left", stage);
+			break;
+		}
+
+		/* pipe not found, not a failure */
+		if (i == MAX_PIPES_PER_LM)
+			return 0;
 	}
+
+	mixer->params_changed++;
+	mixer->stage_pipe[i] = NULL;
 
 	return 0;
 }

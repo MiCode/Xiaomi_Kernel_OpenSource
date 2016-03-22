@@ -113,12 +113,70 @@ enum mdss_mdp_mixer_mux {
 };
 
 enum mdss_mdp_pipe_type {
-	MDSS_MDP_PIPE_TYPE_UNUSED,
+	MDSS_MDP_PIPE_TYPE_INVALID,
 	MDSS_MDP_PIPE_TYPE_VIG,
 	MDSS_MDP_PIPE_TYPE_RGB,
 	MDSS_MDP_PIPE_TYPE_DMA,
 	MDSS_MDP_PIPE_TYPE_CURSOR,
 };
+
+static inline enum mdss_mdp_sspp_index get_pipe_num_from_ndx(u32 ndx)
+{
+	u32 id;
+
+	if (unlikely(!ndx))
+		return MDSS_MDP_MAX_SSPP;
+
+	id = fls(ndx) - 1;
+
+	if (unlikely(ndx ^ BIT(id)))
+		return MDSS_MDP_MAX_SSPP;
+
+	return id;
+}
+
+static inline enum mdss_mdp_pipe_type
+get_pipe_type_from_num(enum mdss_mdp_sspp_index pnum)
+{
+	enum mdss_mdp_pipe_type ptype;
+
+	switch (pnum) {
+	case MDSS_MDP_SSPP_VIG0:
+	case MDSS_MDP_SSPP_VIG1:
+	case MDSS_MDP_SSPP_VIG2:
+	case MDSS_MDP_SSPP_VIG3:
+		ptype = MDSS_MDP_PIPE_TYPE_VIG;
+		break;
+	case MDSS_MDP_SSPP_RGB0:
+	case MDSS_MDP_SSPP_RGB1:
+	case MDSS_MDP_SSPP_RGB2:
+	case MDSS_MDP_SSPP_RGB3:
+		ptype = MDSS_MDP_PIPE_TYPE_RGB;
+		break;
+	case MDSS_MDP_SSPP_DMA0:
+	case MDSS_MDP_SSPP_DMA1:
+		ptype = MDSS_MDP_PIPE_TYPE_DMA;
+		break;
+	case MDSS_MDP_SSPP_CURSOR0:
+	case MDSS_MDP_SSPP_CURSOR1:
+		ptype = MDSS_MDP_PIPE_TYPE_CURSOR;
+		break;
+	default:
+		ptype = MDSS_MDP_PIPE_TYPE_INVALID;
+		break;
+	}
+
+	return ptype;
+}
+
+static inline enum mdss_mdp_pipe_type get_pipe_type_from_ndx(u32 ndx)
+{
+	enum mdss_mdp_sspp_index pnum;
+
+	pnum = get_pipe_num_from_ndx(ndx);
+
+	return get_pipe_type_from_num(pnum);
+}
 
 enum mdss_mdp_block_type {
 	MDSS_MDP_BLOCK_UNUSED,
