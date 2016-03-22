@@ -91,8 +91,6 @@ static inline u64 apply_inverse_fudge_factor(u64 val,
 
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
-static u32 mdss_mdp_get_vbp_factor_max(struct mdss_mdp_ctl *ctl);
-
 static inline u32 mdss_mdp_get_pclk_rate(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
@@ -761,6 +759,174 @@ u32 apply_comp_ratio_factor(u32 quota,
 	return quota;
 }
 
+static u32 mdss_mdp_get_vbp_factor(struct mdss_mdp_ctl *ctl)
+{
+	u32 fps, v_total, vbp, vbp_fac;
+	struct mdss_panel_info *pinfo;
+
+	if (!ctl || !ctl->panel_data)
+		return 0;
+
+	pinfo = &ctl->panel_data->panel_info;
+	fps = mdss_panel_get_framerate(pinfo);
+	v_total = mdss_panel_get_vtotal(pinfo);
+	vbp = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
+	vbp += pinfo->prg_fet;
+
+	vbp_fac = (vbp) ? fps * v_total / vbp : 0;
+	pr_debug("vbp_fac=%d vbp=%d v_total=%d\n", vbp_fac, vbp, v_total);
+
+	return vbp_fac;
+}
+
+static u32 mdss_mdp_get_vbp_factor_max(struct mdss_mdp_ctl *ctl)
+{
+	u32 vbp_max = 0;
+	int i;
+	struct mdss_data_type *mdata;
+
+	if (!ctl || !ctl->mdata)
+		return 0;
+
+	mdata = ctl->mdata;
+	for (i = 0; i < mdata->nctl; i++) {
+		struct mdss_mdp_ctl *ctl = mdata->ctl_off + i;
+		u32 vbp_fac;
+
+		/* skip command mode interfaces */
+		if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map)
+				&& !ctl->is_video_mode)
+			continue;
+
+		if (mdss_mdp_ctl_is_power_on(ctl)) {
+			vbp_fac = mdss_mdp_get_vbp_factor(ctl);
+			vbp_max = max(vbp_max, vbp_fac);
+		}
+	}
+
+	return vbp_max;
+}
+
+static u32 __calc_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
+{
+	u32 fps, v_total, vbp, vbp_fac;
+	struct mdss_panel_info *pinfo;
+
+	if (!ctl || !ctl->panel_data)
+		return 0;
+
+	pinfo = &ctl->panel_data->panel_info;
+	fps = mdss_panel_get_framerate(pinfo);
+	v_total = mdss_panel_get_vtotal(pinfo);
+	vbp = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
+	vbp += pinfo->prg_fet;
+
+	vbp_fac = mult_frac(USEC_PER_SEC, vbp, fps * v_total); /* use uS */
+	pr_debug("vbp_fac=%d vbp=%d v_total=%d fps=%d\n",
+		vbp_fac, vbp, v_total, fps);
+
+	return vbp_fac;
+}
+
+static u32 __get_min_prefill_line_time_us(struct mdss_mdp_ctl *ctl)
+{
+	u32 vbp_min = 0;
+	int i;
+	struct mdss_data_type *mdata;
+
+	if (!ctl || !ctl->mdata)
+		return 0;
+
+	mdata = ctl->mdata;
+	for (i = 0; i < mdata->nctl; i++) {
+		struct mdss_mdp_ctl *tmp_ctl = mdata->ctl_off + i;
+		u32 vbp_fac;
+
+		/* skip command mode interfaces */
+		if (!tmp_ctl->is_video_mode)
+			continue;
+
+		if (mdss_mdp_ctl_is_power_on(tmp_ctl)) {
+			vbp_fac = __calc_prefill_line_time_us(tmp_ctl);
+			vbp_min = min(vbp_min, vbp_fac);
+		}
+	}
+
+	return vbp_min;
+}
+
+static u32 mdss_mdp_calc_prefill_line_time(struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_pipe *pipe)
+{
+	u32 prefill_us = 0;
+	u32 prefill_amortized = 0;
+	struct mdss_data_type *mdata;
+	struct mdss_mdp_mixer *mixer;
+	struct mdss_panel_info *pinfo;
+	u32 fps, v_total;
+
+	if (!ctl || !ctl->mdata)
+		return 0;
+
+	mixer = pipe->mixer_left;
+	if (!mixer)
+		return -EINVAL;
+
+	pinfo = &ctl->panel_data->panel_info;
+	fps = mdss_panel_get_framerate(pinfo);
+	v_total = mdss_panel_get_vtotal(pinfo);
+
+	/* calculate the minimum prefill */
+	prefill_us = __get_min_prefill_line_time_us(ctl);
+
+	/* if pipe is amortizable, add the amortized prefill contribution */
+	if (mdss_mdp_is_amortizable_pipe(pipe, mixer, mdata)) {
+		prefill_amortized = mult_frac(USEC_PER_SEC, pipe->src.y,
+			fps * v_total);
+		prefill_us += prefill_amortized;
+	}
+
+	return prefill_us;
+}
+
+static inline bool __is_multirect_high_pipe(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_mdp_pipe *next_pipe = pipe->multirect.next;
+
+	return (pipe->src.y > next_pipe->src.y);
+}
+
+static u64 mdss_mdp_apply_prefill_factor(u64 prefill_bw,
+	struct mdss_mdp_ctl *ctl, struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u64 total_prefill_bw;
+	u32 prefill_time_us;
+
+	if (test_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map)) {
+
+		/*
+		 * for multi-rect serial mode, only take the contribution from
+		 * pipe that belongs to the rect closest to the origin.
+		 */
+		if (pipe->multirect.mode == MDSS_MDP_PIPE_MULTIRECT_SERIAL &&
+			__is_multirect_high_pipe(pipe)) {
+			total_prefill_bw = 0;
+			goto exit;
+		}
+
+		prefill_time_us = mdss_mdp_calc_prefill_line_time(ctl, pipe);
+		total_prefill_bw = prefill_time_us ? DIV_ROUND_UP_ULL(
+			USEC_PER_SEC * prefill_bw, prefill_time_us) : 0;
+	} else {
+		total_prefill_bw = prefill_bw *
+			mdss_mdp_get_vbp_factor_max(ctl);
+	}
+
+exit:
+	return total_prefill_bw;
+}
+
 u64 mdss_mdp_perf_calc_simplified_prefill(struct mdss_mdp_pipe *pipe,
 	u32 v_total, u32 fps, struct mdss_mdp_ctl *ctl)
 {
@@ -796,7 +962,9 @@ u64 mdss_mdp_perf_calc_simplified_prefill(struct mdss_mdp_pipe *pipe,
 			pipe->dst.h);
 	}
 
-	prefill_per_pipe *= prefill_lines * mdss_mdp_get_vbp_factor_max(ctl);
+	prefill_per_pipe *= prefill_lines;
+	prefill_per_pipe = mdss_mdp_apply_prefill_factor(prefill_per_pipe,
+		ctl, pipe);
 
 	pr_debug("pipe src: %dx%d bpp:%d\n",
 		pipe->src.w, pipe->src.h, pipe->src_fmt->bpp);
@@ -1244,54 +1412,6 @@ int mdss_mdp_get_prefetch_lines(struct mdss_panel_info *pinfo)
 		prefetch_avail = prefetch_needed;
 
 	return prefetch_avail;
-}
-
-static u32 mdss_mdp_get_vbp_factor(struct mdss_mdp_ctl *ctl)
-{
-	u32 fps, v_total, vbp, vbp_fac;
-	struct mdss_panel_info *pinfo;
-
-	if (!ctl || !ctl->panel_data)
-		return 0;
-
-	pinfo = &ctl->panel_data->panel_info;
-	fps = mdss_panel_get_framerate(pinfo);
-	v_total = mdss_panel_get_vtotal(pinfo);
-	vbp = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
-	vbp += pinfo->prg_fet;
-
-	vbp_fac = (vbp) ? fps * v_total / vbp : 0;
-	pr_debug("vbp_fac=%d vbp=%d v_total=%d\n", vbp_fac, vbp, v_total);
-
-	return vbp_fac;
-}
-
-static u32 mdss_mdp_get_vbp_factor_max(struct mdss_mdp_ctl *ctl)
-{
-	u32 vbp_max = 0;
-	int i;
-	struct mdss_data_type *mdata;
-
-	if (!ctl || !ctl->mdata)
-		return 0;
-
-	mdata = ctl->mdata;
-	for (i = 0; i < mdata->nctl; i++) {
-		struct mdss_mdp_ctl *ctl = mdata->ctl_off + i;
-		u32 vbp_fac;
-
-		/* skip command mode interfaces */
-		if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map)
-				&& !ctl->is_video_mode)
-			continue;
-
-		if (mdss_mdp_ctl_is_power_on(ctl)) {
-			vbp_fac = mdss_mdp_get_vbp_factor(ctl);
-			vbp_max = max(vbp_max, vbp_fac);
-		}
-	}
-
-	return vbp_max;
 }
 
 static bool mdss_mdp_video_mode_intf_connected(struct mdss_mdp_ctl *ctl)
