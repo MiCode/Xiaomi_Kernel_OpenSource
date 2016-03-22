@@ -53,31 +53,31 @@
 				reg = <0>;
 				label = "system-active";
 				qcom,psci-mode = <0>;
-				qcom,latency-us = <750>;
-				qcom,ss-power = <575>;
-				qcom,energy-overhead = <955000>;
-				qcom,time-overhead = <1540>;
+				qcom,latency-us = <423>;
+				qcom,ss-power = <349>;
+				qcom,energy-overhead = <299110>;
+				qcom,time-overhead = <719>;
 			};
 
 			qcom,pm-cluster-level@1{
 				reg = <1>;
 				label = "system-wfi";
 				qcom,psci-mode = <1>;
-				qcom,latency-us = <820>;
-				qcom,ss-power = <560>;
-				qcom,energy-overhead = <1135000>;
-				qcom,time-overhead = <1800>;
-				qcom,min-child-idx = <2>;
+				qcom,latency-us = <480>;
+				qcom,ss-power = <348>;
+				qcom,energy-overhead = <313989>;
+				qcom,time-overhead = <753>;
+				qcom,min-child-idx = <3>;
 			};
 
 			qcom,pm-cluster-level@2{
 				reg = <2>;
 				label = "system-pc";
 				qcom,psci-mode = <3>;
-				qcom,latency-us = <11500>;
-				qcom,ss-power = <530>;
-				qcom,energy-overhead = <2470000>;
-				qcom,time-overhead = <3700>;
+				qcom,latency-us = <11027>;
+				qcom,ss-power = <340>;
+				qcom,energy-overhead = <616035>;
+				qcom,time-overhead = <1495>;
 				qcom,min-child-idx = <3>;
 				qcom,notify-rpm;
 				qcom,is-reset;
@@ -99,20 +99,20 @@
 					reg = <0>;
 					label = "pwr-l2-wfi";
 					qcom,psci-mode = <1>;
-					qcom,latency-us = <365>;
-					qcom,ss-power = <610>;
-					qcom,energy-overhead = <461276>;
-					qcom,time-overhead = <680>;
+					qcom,latency-us = <180>;
+					qcom,ss-power = <361>;
+					qcom,energy-overhead = <113215>;
+					qcom,time-overhead = <270>;
 				};
 
 				qcom,pm-cluster-level@1{
 					reg = <1>;
 					label = "pwr-l2-retention";
 					qcom,psci-mode = <3>;
-					qcom,latency-us = <480>;
-					qcom,ss-power = <585>;
-					qcom,energy-overhead = <530000>;
-					qcom,time-overhead = <850>;
+					qcom,latency-us = <188>;
+					qcom,ss-power = <360>;
+					qcom,energy-overhead = <121271>;
+					qcom,time-overhead = <307>;
 					qcom,min-child-idx = <1>;
 					qcom,reset-level =
 						<LPM_RESET_LVL_RET>;
@@ -122,10 +122,10 @@
 					reg = <2>;
 					label = "pwr-l2-gdhs";
 					qcom,psci-mode = <4>;
-					qcom,latency-us = <600>;
-					qcom,ss-power = <583>;
-					qcom,energy-overhead = <650000>;
-					qcom,time-overhead = <1000>;
+					qcom,latency-us = <212>;
+					qcom,ss-power = <354>;
+					qcom,energy-overhead = <150748>;
+					qcom,time-overhead = <363>;
 					qcom,min-child-idx = <1>;
 					qcom,reset-level =
 						<LPM_RESET_LVL_GDHS>;
@@ -135,10 +135,10 @@
 					reg = <3>;
 					label = "pwr-l2-pc";
 					qcom,psci-mode = <5>;
-					qcom,latency-us = <750>;
-					qcom,ss-power = <575>;
-					qcom,energy-overhead = <955000>;
-					qcom,time-overhead = <1540>;
+					qcom,latency-us = <421>;
+					qcom,ss-power = <350>;
+					qcom,energy-overhead = <277479>;
+					qcom,time-overhead = <690>;
 					qcom,min-child-idx = <1>;
 					qcom,is-reset;
 					qcom,reset-level =
@@ -156,19 +156,19 @@
 						qcom,spm-cpu-mode = "wfi";
 						qcom,psci-cpu-mode = <1>;
 						qcom,latency-us = <1>;
-						qcom,ss-power = <640>;
-						qcom,energy-overhead = <100000>;
-						qcom,time-overhead = <60>;
+						qcom,ss-power = <395>;
+						qcom,energy-overhead = <30424>;
+						qcom,time-overhead = <61>;
 					};
 
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,spm-cpu-mode = "pc";
 						qcom,psci-cpu-mode = <3>;
-						qcom,latency-us = <365>;
-						qcom,ss-power = <610>;
-						qcom,energy-overhead = <461276>;
-						qcom,time-overhead = <680>;
+						qcom,latency-us = <180>;
+						qcom,ss-power = <361>;
+						qcom,energy-overhead = <113215>;
+						qcom,time-overhead = <270>;
 						qcom,use-broadcast-timer;
 						qcom,is-reset;
 						qcom,reset-level =
@@ -192,20 +192,20 @@
 					reg = <0>;
 					label = "perf-l2-wfi";
 					qcom,psci-mode = <1>;
-					qcom,latency-us = <320>;
-					qcom,ss-power = <655>;
-					qcom,energy-overhead = <458673>;
-					qcom,time-overhead = <550>;
+					qcom,latency-us = <179>;
+					qcom,ss-power = <362>;
+					qcom,energy-overhead = <113242>;
+					qcom,time-overhead = <268>;
 				};
 
 				qcom,pm-cluster-level@1{
 					reg = <1>;
 					label = "perf-l2-retention";
 					qcom,psci-mode = <3>;
-					qcom,latency-us = <400>;
-					qcom,ss-power = <595>;
-					qcom,energy-overhead = <550000>;
-					qcom,time-overhead = <700>;
+					qcom,latency-us = <186>;
+					qcom,ss-power = <362>;
+					qcom,energy-overhead = <124342>;
+					qcom,time-overhead = <306>;
 					qcom,min-child-idx = <1>;
 					qcom,reset-level =
 						<LPM_RESET_LVL_RET>;
@@ -215,10 +215,10 @@
 					reg = <2>;
 					label = "perf-l2-gdhs";
 					qcom,psci-mode = <4>;
-					qcom,latency-us = <500>;
-					qcom,ss-power = <583>;
-					qcom,energy-overhead = <650000>;
-					qcom,time-overhead = <900>;
+					qcom,latency-us = <210>;
+					qcom,ss-power = <355>;
+					qcom,energy-overhead = <155728>;
+					qcom,time-overhead = <361>;
 					qcom,min-child-idx = <1>;
 					qcom,reset-level =
 						<LPM_RESET_LVL_GDHS>;
@@ -228,10 +228,10 @@
 					reg = <3>;
 					label = "perf-l2-pc";
 					qcom,psci-mode = <5>;
-					qcom,latency-us = <600>;
-					qcom,ss-power = <574>;
-					qcom,energy-overhead = <970000>;
-					qcom,time-overhead = <1260>;
+					qcom,latency-us = <423>;
+					qcom,ss-power = <349>;
+					qcom,energy-overhead = <299110>;
+					qcom,time-overhead = <719>;
 					qcom,min-child-idx = <1>;
 					qcom,is-reset;
 					qcom,reset-level =
@@ -249,19 +249,19 @@
 						qcom,spm-cpu-mode = "wfi";
 						qcom,psci-cpu-mode = <1>;
 						qcom,latency-us = <1>;
-						qcom,ss-power = <710>;
-						qcom,energy-overhead = <180000>;
-						qcom,time-overhead = <20>;
+						qcom,ss-power = <397>;
+						qcom,energy-overhead = <30424>;
+						qcom,time-overhead = <61>;
 					};
 
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,spm-cpu-mode = "pc";
 						qcom,psci-cpu-mode = <3>;
-						qcom,latency-us = <320>;
-						qcom,ss-power = <655>;
-						qcom,energy-overhead = <458673>;
-						qcom,time-overhead = <550>;
+						qcom,latency-us = <179>;
+						qcom,ss-power = <362>;
+						qcom,energy-overhead = <113242>;
+						qcom,time-overhead = <268>;
 						qcom,use-broadcast-timer;
 						qcom,is-reset;
 						qcom,reset-level =
