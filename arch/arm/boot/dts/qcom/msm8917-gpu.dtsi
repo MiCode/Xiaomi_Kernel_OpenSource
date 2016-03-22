@@ -62,11 +62,12 @@
 			<&clock_gcc clk_gcc_bimc_gpu_clk>,
 			<&clock_gcc clk_gcc_gtcu_ahb_clk>,
 			<&clock_gcc clk_gcc_gfx_tcu_clk>,
+			<&clock_gcc clk_gcc_gfx_tbu_clk>,
 			<&clock_gcc clk_bimc_gpu_clk>;
 
 		clock-names = "core_clk", "iface_clk", "mem_iface_clk",
 				"alt_mem_iface_clk", "gtcu_iface_clk",
-				"gtcu_clk", "bimc_gpu_clk";
+				"gtcu_clk", "gtbu_clk", "bimc_gpu_clk";
 
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
