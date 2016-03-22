@@ -750,8 +750,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdp3_session->lock);
 
 	panel = mdp3_session->panel;
-	pr_err("%s %d in_splash_screen %d\n", __func__, __LINE__,
-		mdp3_session->in_splash_screen);
 	/* make sure DSI host is initialized properly */
 	if (panel) {
 		pr_debug("%s : dsi host init, power state = %d Splash %d\n",
@@ -760,7 +758,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		if (mdss_fb_is_power_on_lp(mfd) ||
 			mdp3_session->in_splash_screen) {
 			/* Turn on panel so that it can exit low power mode */
-		pr_err("%s %d\n", __func__, __LINE__);
 			mdp3_clk_enable(1, 0);
 		rc = panel->event_handler(panel,
 				MDSS_EVENT_LINK_READY, NULL);
@@ -773,7 +770,7 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	}
 
 	if (mdp3_session->status) {
-		pr_err("fb%d is on already\n", mfd->index);
+		pr_debug("fb%d is on already\n", mfd->index);
 		goto end;
 	}
 
@@ -2494,7 +2491,7 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 		break;
 	case MSMFB_ASYNC_BLIT:
 		if (mdp3_session->in_splash_screen || mdp3_res->idle_pc) {
-			pr_err("%s: reset- in_splash = %d, idle_pc = %d",
+			pr_debug("%s: reset- in_splash = %d, idle_pc = %d",
 				__func__, mdp3_session->in_splash_screen,
 				mdp3_res->idle_pc);
 			mdp3_ctrl_reset(mfd);
