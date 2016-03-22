@@ -3,7 +3,7 @@
  * MSM 7k High speed uart driver
  *
  * Copyright (c) 2008 Google Inc.
- * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  * Modified: Nick Pelly <npelly@google.com>
  *
  * All source code in this file is licensed under the following license
@@ -216,7 +216,6 @@ struct msm_hs_port {
 	struct msm_hs_rx rx;
 	atomic_t clk_count;
 	struct msm_hs_wakeup wakeup;
-	struct wakeup_source ws;
 
 	struct dentry *loopback_dir;
 	struct work_struct clock_off_w; /* work for actual clock off */
@@ -292,13 +291,16 @@ static int msm_hs_ioctl(struct uart_port *uport, unsigned int cmd,
 	int ret = 0, state = 1;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
+	if (!msm_uport)
+		return -ENODEV;
+
 	switch (cmd) {
 	case MSM_ENABLE_UART_CLOCK: {
-		msm_hs_request_clock_on(&msm_uport->uport);
+		ret = msm_hs_request_clock_on(&msm_uport->uport);
 		break;
 	}
 	case MSM_DISABLE_UART_CLOCK: {
-		msm_hs_request_clock_off(&msm_uport->uport);
+		ret = msm_hs_request_clock_off(&msm_uport->uport);
 		break;
 	}
 	case MSM_GET_UART_CLOCK_STATUS: {
@@ -398,8 +400,8 @@ static void msm_hs_resource_vote(struct msm_hs_port *msm_uport)
 	struct uart_port *uport = &(msm_uport->uport);
 	ret = pm_runtime_get_sync(uport->dev);
 	if (ret < 0 || msm_uport->pm_state != MSM_HS_PM_ACTIVE) {
-		MSM_HS_WARN("%s(): %p runtime PM callback not invoked",
-			__func__, uport->dev);
+		MSM_HS_WARN("%s(): %p runtime PM callback not invoked(%d)",
+			__func__, uport->dev, ret);
 		msm_hs_pm_resume(uport->dev);
 	}
 
@@ -719,7 +721,6 @@ static int msm_hs_remove(struct platform_device *pdev)
 	msm_uport->rx.buffer = NULL;
 	msm_uport->rx.rbuffer = 0;
 
-	wakeup_source_trash(&msm_uport->ws);
 	destroy_workqueue(msm_uport->hsuart_wq);
 	mutex_destroy(&msm_uport->mtx);
 
@@ -2262,14 +2263,30 @@ void msm_hs_resource_on(struct msm_hs_port *msm_uport)
 }
 
 /* Request to turn off uart clock once pending TX is flushed */
-void msm_hs_request_clock_off(struct uart_port *uport)
+int msm_hs_request_clock_off(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	int ret = 0;
+
+	mutex_lock(&msm_uport->mtx);
+	/*
+	 * If we're in the middle of a system suspend, don't process these
+	 * userspace/kernel API commands.
+	 */
+	if (msm_uport->pm_state == MSM_HS_PM_SYS_SUSPENDED) {
+		MSM_HS_WARN("%s:Can't process clk request during suspend",
+			__func__);
+		ret = -EIO;
+	}
+	mutex_unlock(&msm_uport->mtx);
+	if (ret)
+		goto exit_request_clock_off;
 
 	if (atomic_read(&msm_uport->client_count) <= 0) {
 		MSM_HS_WARN("%s(): ioctl count -ve, client check voting",
 			__func__);
-		return;
+		ret = -EPERM;
+		goto exit_request_clock_off;
 	}
 	/* Set the flag to disable flow control and wakeup irq */
 	if (msm_uport->obs)
@@ -2278,23 +2295,42 @@ void msm_hs_request_clock_off(struct uart_port *uport)
 	atomic_dec(&msm_uport->client_count);
 	MSM_HS_INFO("%s():DISABLE UART CLOCK: ioc %d\n",
 			__func__, atomic_read(&msm_uport->client_count));
+exit_request_clock_off:
+	return ret;
 }
 EXPORT_SYMBOL(msm_hs_request_clock_off);
 
-void msm_hs_request_clock_on(struct uart_port *uport)
+int msm_hs_request_clock_on(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	int client_count;
+	int ret = 0;
 
+	mutex_lock(&msm_uport->mtx);
+	/*
+	 * If we're in the middle of a system suspend, don't process these
+	 * userspace/kernel API commands.
+	 */
+	if (msm_uport->pm_state == MSM_HS_PM_SYS_SUSPENDED) {
+		MSM_HS_WARN("%s:Can't process clk request during suspend",
+			__func__);
+		ret = -EIO;
+	}
+	mutex_unlock(&msm_uport->mtx);
+	if (ret)
+		goto exit_request_clock_on;
+
+	msm_hs_resource_vote(UARTDM_TO_MSM(uport));
 	atomic_inc(&msm_uport->client_count);
 	client_count = atomic_read(&msm_uport->client_count);
 	MSM_HS_INFO("%s():ENABLE UART CLOCK: ioc %d\n",
 		__func__, client_count);
-	msm_hs_resource_vote(UARTDM_TO_MSM(uport));
 
 	/* Clear the flag */
 	if (msm_uport->obs)
 		atomic_set(&msm_uport->client_req_state, 0);
+exit_request_clock_on:
+	return ret;
 }
 EXPORT_SYMBOL(msm_hs_request_clock_on);
 
@@ -2548,7 +2584,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	ret = msm_hs_config_uart_gpios(uport);
 	if (ret) {
 		MSM_HS_ERR("Uart GPIO request failed\n");
-		goto deinit_ws;
+		goto free_uart_irq;
 	}
 
 	msm_hs_write(uport, UART_DM_DMEN, 0);
@@ -2651,8 +2687,6 @@ sps_disconnect_tx:
 	sps_disconnect(sps_pipe_handle_tx);
 unconfig_uart_gpios:
 	msm_hs_unconfig_uart_gpios(uport);
-deinit_ws:
-	wakeup_source_trash(&msm_uport->ws);
 free_uart_irq:
 	free_irq(uport->irq, msm_uport);
 unvote_exit:
@@ -3061,6 +3095,7 @@ static void msm_hs_pm_suspend(struct device *dev)
 
 	if (!msm_uport)
 		goto err_suspend;
+	mutex_lock(&msm_uport->mtx);
 
 	/* For OBS, don't use wakeup interrupt, set gpio to suspended state */
 	if (msm_uport->obs) {
@@ -3077,8 +3112,8 @@ static void msm_hs_pm_suspend(struct device *dev)
 	msm_hs_clk_bus_unvote(msm_uport);
 	if (!atomic_read(&msm_uport->client_req_state))
 		toggle_wakeup_interrupt(msm_uport);
-	__pm_relax(&msm_uport->ws);
 	MSM_HS_DBG("%s(): return suspend\n", __func__);
+	mutex_unlock(&msm_uport->mtx);
 	return;
 err_suspend:
 	pr_err("%s(): invalid uport", __func__);
@@ -3093,12 +3128,13 @@ static int msm_hs_pm_resume(struct device *dev)
 
 	if (!msm_uport)
 		goto err_resume;
+
+	mutex_lock(&msm_uport->mtx);
 	if (msm_uport->pm_state == MSM_HS_PM_ACTIVE)
-		return 0;
+		goto exit_pm_resume;
 	if (!atomic_read(&msm_uport->client_req_state))
 		toggle_wakeup_interrupt(msm_uport);
 	msm_hs_clk_bus_vote(msm_uport);
-	__pm_stay_awake(&msm_uport->ws);
 	obs_manage_irq(msm_uport, true);
 	msm_uport->pm_state = MSM_HS_PM_ACTIVE;
 	msm_hs_resource_on(msm_uport);
@@ -3113,6 +3149,8 @@ static int msm_hs_pm_resume(struct device *dev)
 	}
 
 	MSM_HS_DBG("%s(): return resume\n", __func__);
+exit_pm_resume:
+	mutex_unlock(&msm_uport->mtx);
 	return 0;
 err_resume:
 	pr_err("%s(): invalid uport", __func__);
@@ -3125,36 +3163,34 @@ static int msm_hs_pm_sys_suspend_noirq(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
 	enum msm_hs_pm_state prev_pwr_state;
-	struct uart_port *uport;
+	int clk_cnt, client_count, ret = 0;
 
 	if (IS_ERR_OR_NULL(msm_uport))
 		return -ENODEV;
 
-	/* client vote is active, fail sys suspend */
-	if (atomic_read(&msm_uport->client_count))
-		return -EBUSY;
-
-	MSM_HS_DBG("%s(): suspending", __func__);
-	prev_pwr_state = msm_uport->pm_state;
-	uport	= &(msm_uport->uport);
 	mutex_lock(&msm_uport->mtx);
-	msm_uport->pm_state = MSM_HS_PM_SYS_SUSPENDED;
-	mutex_unlock(&msm_uport->mtx);
 
-	if (prev_pwr_state == MSM_HS_PM_ACTIVE) {
-		msm_hs_pm_suspend(dev);
-		/*
-		 * Synchronize runtime pm and system pm states:
-		 * at this point we are already suspended. However
-		 * the RT PM framework still thinks that we are active.
-		 * The calls below let RT PM know that we are suspended
-		 * without re-invoking the suspend callback
-		 */
-		pm_runtime_disable(uport->dev);
-		pm_runtime_set_suspended(uport->dev);
-		pm_runtime_enable(uport->dev);
+	/*
+	 * If there is an active clk request or an impending userspace request
+	 * fail the suspend callback.
+	 */
+	clk_cnt = atomic_read(&msm_uport->clk_count);
+	client_count = atomic_read(&msm_uport->client_count);
+	if (clk_cnt || (pm_runtime_enabled(dev) &&
+				!pm_runtime_suspended(dev))) {
+		MSM_HS_WARN("%s:Fail Suspend.clk_cnt:%d,clnt_count:%d,RPM:%d\n",
+				 __func__, clk_cnt, client_count,
+				dev->power.runtime_status);
+		ret = -EBUSY;
+		goto exit_suspend_noirq;
 	}
-	return 0;
+
+	prev_pwr_state = msm_uport->pm_state;
+	msm_uport->pm_state = MSM_HS_PM_SYS_SUSPENDED;
+	MSM_HS_DBG("%s(): suspending", __func__);
+exit_suspend_noirq:
+	mutex_unlock(&msm_uport->mtx);
+	return ret;
 };
 
 static int msm_hs_pm_sys_resume_noirq(struct device *dev)
@@ -3169,8 +3205,12 @@ static int msm_hs_pm_sys_resume_noirq(struct device *dev)
 	 * variable. Resource activation will be done
 	 * when transfer is requested.
 	 */
+
+	mutex_lock(&msm_uport->mtx);
 	MSM_HS_DBG("%s(): system resume", __func__);
-	msm_uport->pm_state = MSM_HS_PM_SUSPENDED;
+	if (msm_uport->pm_state == MSM_HS_PM_SYS_SUSPENDED)
+		msm_uport->pm_state = MSM_HS_PM_SUSPENDED;
+	mutex_unlock(&msm_uport->mtx);
 	return 0;
 }
 #endif
@@ -3440,7 +3480,6 @@ static int msm_hs_probe(struct platform_device *pdev)
 		uport->line = pdata->userid;
 	ret = uart_add_one_port(&msm_hs_driver, uport);
 	if (!ret) {
-		wakeup_source_init(&msm_uport->ws, dev_name(&pdev->dev));
 		msm_hs_clk_bus_unvote(msm_uport);
 		msm_serial_hs_rt_init(uport);
 		return ret;
@@ -3592,6 +3631,10 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	if (atomic_read(&msm_uport->client_req_state)) {
 		MSM_HS_WARN("%s: Client clock vote imbalance\n", __func__);
 		atomic_set(&msm_uport->client_req_state, 0);
+	}
+	if (atomic_read(&msm_uport->client_count)) {
+		MSM_HS_WARN("%s: Client vote on, forcing to 0\n", __func__);
+		atomic_set(&msm_uport->client_count, 0);
 	}
 	msm_hs_unconfig_uart_gpios(uport);
 	MSM_HS_INFO("%s:UART port closed successfully\n", __func__);
