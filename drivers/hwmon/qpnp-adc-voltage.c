@@ -2604,8 +2604,10 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 	}
 
 	vadc->vadc_therm_chan = adc_thermal;
-	if (!strcmp(id->compatible, "qcom,qpnp-vadc-hc"))
+	if (!strcmp(id->compatible, "qcom,qpnp-vadc-hc")) {
 		vadc->vadc_hc = true;
+		vadc->adc->adc_hc = true;
+	}
 
 	rc = qpnp_adc_get_devicetree_data(spmi, vadc->adc);
 	if (rc) {
