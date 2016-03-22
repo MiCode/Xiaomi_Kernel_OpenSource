@@ -62,6 +62,10 @@
 	};
 };
 
+&wled {
+	qcom,cons-sync-write-delay-us = <1000>;
+};
+
 &spmi_bus {
 	qcom,pmi8950@2 {
 		qcom,leds@a100 {
@@ -230,4 +234,16 @@
 
 &pm8953_vadc {
 	/delete-node/ chan@11;
+};
+
+&sdc2_cmd_on {
+	config {
+		drive-strength=<12>;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength=<12>;
+	};
 };
