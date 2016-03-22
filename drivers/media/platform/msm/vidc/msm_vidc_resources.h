@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,10 @@
 #include <media/msm_vidc.h>
 #define MAX_BUFFER_TYPES 32
 
+struct platform_version_table {
+	u32 version_mask;
+	u32 version_shift;
+};
 
 struct load_freq_table {
 	u32 load;
@@ -151,6 +155,7 @@ struct msm_vidc_platform_resources {
 	phys_addr_t register_base;
 	uint32_t register_size;
 	uint32_t irq;
+	struct platform_version_table *pf_ver_tbl;
 	struct allowed_clock_rates_table *allowed_clks_tbl;
 	u32 allowed_clks_tbl_size;
 	struct clock_freq_table clock_freq_tbl;
