@@ -725,6 +725,11 @@ static bool ipa_flt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
 {
 	u16 avail;
 
+	if (!bdy) {
+		IPAERR("Bad parameters, bdy = NULL\n");
+		return false;
+	}
+
 	if (ipt == IPA_IP_v4)
 		avail = (rlt == IPA_RULE_HASHABLE) ?
 			IPA_MEM_PART(apps_v4_flt_hash_size) :
@@ -734,11 +739,11 @@ static bool ipa_flt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
 			IPA_MEM_PART(apps_v6_flt_hash_size) :
 			IPA_MEM_PART(apps_v6_flt_nhash_size);
 
-	if (bdy && bdy->size <= avail)
+	if (bdy->size <= avail)
 		return true;
 
 	IPAERR("tbl too big, needed %d avail %d ipt %d rlt %d\n",
-		bdy->size, avail, ipt, rlt);
+	       bdy->size, avail, ipt, rlt);
 	return false;
 }
 

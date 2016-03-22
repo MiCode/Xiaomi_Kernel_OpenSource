@@ -602,13 +602,15 @@ int ipa3_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
 
 void ipa3_uc_mhi_cleanup(void)
 {
+	struct ipa3_uc_hdlrs null_hdlrs = { 0 };
+
 	IPADBG("Enter\n");
 
 	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("ipa3_uc_mhi_ctx is not initialized\n");
 		return;
 	}
-	ipa3_uc_register_handlers(IPA_HW_FEATURE_MHI, NULL);
+	ipa3_uc_register_handlers(IPA_HW_FEATURE_MHI, &null_hdlrs);
 	kfree(ipa3_uc_mhi_ctx);
 	ipa3_uc_mhi_ctx = NULL;
 
