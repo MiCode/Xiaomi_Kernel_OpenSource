@@ -1247,11 +1247,6 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 			buff_mgr_info.stream_id = (iden & 0xFFFF);
 			buff_mgr_info.frame_id = processed_frame->frame_id;
 			buff_mgr_info.timestamp = processed_frame->timestamp;
-			/*
-			 * Update the reserved field (cds information) to buffer
-			 * manager structure so it is propogated back to HAL
-			 */
-			buff_mgr_info.reserved = processed_frame->reserved;
 			if (processed_frame->batch_info.batch_mode ==
 				BATCH_MODE_VIDEO ||
 				(IS_BATCH_BUFFER_ON_PREVIEW(
@@ -1298,11 +1293,6 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 			buff_mgr_info.timestamp = processed_frame->timestamp;
 			buff_mgr_info.index =
 				processed_frame->duplicate_buffer_info.index;
-			/*
-			 * Update the reserved field (cds information) to buffer
-			 * manager structure so it is propogated back to HAL
-			 */
-			buff_mgr_info.reserved = processed_frame->reserved;
 			if (put_buf) {
 				rc = msm_cpp_buffer_ops(cpp_dev,
 					VIDIOC_MSM_BUF_MNGR_PUT_BUF,
@@ -3257,7 +3247,6 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 	new_frame->we_disable = new_frame32->we_disable;
 	new_frame->duplicate_identity = new_frame32->duplicate_identity;
 	new_frame->feature_mask = new_frame32->feature_mask;
-	new_frame->reserved = new_frame32->reserved;
 	new_frame->partial_frame_indicator =
 		new_frame32->partial_frame_indicator;
 	new_frame->first_payload = new_frame32->first_payload;
@@ -3357,7 +3346,6 @@ static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	k32_frame->we_disable = frame->we_disable;
 	k32_frame->duplicate_identity = frame->duplicate_identity;
 	k32_frame->feature_mask = frame->feature_mask;
-	k32_frame->reserved = frame->reserved;
 	k32_frame->cookie = ptr_to_compat(frame->cookie);
 	k32_frame->partial_frame_indicator = frame->partial_frame_indicator;
 	k32_frame->first_payload = frame->first_payload;
@@ -3657,13 +3645,6 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 			&u32_queue_buf->buff_mgr_info.timestamp.tv_sec);
 		get_user(k_queue_buf.buff_mgr_info.timestamp.tv_usec,
 			&u32_queue_buf->buff_mgr_info.timestamp.tv_usec);
-
-		/*
-		 * Update the reserved field (cds information) to buffer
-		 * manager structure so that it is propogated back to HAL
-		 */
-		get_user(k_queue_buf.buff_mgr_info.reserved,
-			&u32_queue_buf->buff_mgr_info.reserved);
 
 		kp_ioctl.ioctl_ptr = (void *)&k_queue_buf;
 		kp_ioctl.len = sizeof(struct msm_pproc_queue_buf_info);
