@@ -2048,7 +2048,7 @@ static struct msm_vfe_axi_hardware_info msm_vfe46_axi_hw_info = {
 	.num_rdi = 3,
 	.num_rdi_master = 3,
 	.min_wm_ub = 96,
-	.scratch_buf_range = SZ_32M,
+	.scratch_buf_range = SZ_32M + SZ_4M,
 };
 
 static struct msm_vfe_stats_hardware_info msm_vfe46_stats_hw_info = {
