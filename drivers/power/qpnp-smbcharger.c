@@ -6665,9 +6665,10 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	}
 
 	rc = smbchg_sec_masked_write(chip, chip->misc_base + TRIM_OPTIONS_7_0,
-			INPUT_MISSING_POLLER_EN_BIT, 0);
+			INPUT_MISSING_POLLER_EN_BIT,
+			INPUT_MISSING_POLLER_EN_BIT);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't disable input missing poller rc=%d\n",
+		dev_err(chip->dev, "Couldn't enable input missing poller rc=%d\n",
 				rc);
 		return rc;
 	}
