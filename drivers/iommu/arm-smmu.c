@@ -359,7 +359,6 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG (1 << 5)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 6)
 #define ARM_SMMU_OPT_ERRATA_TZ_ATOS	(1 << 7)
-#define ARM_SMMU_OPT_NO_M		(1 << 8)
 #define ARM_SMMU_OPT_NO_SMR_CHECK	(1 << 9)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 10)
 #define ARM_SMMU_OPT_HALT		(1 << 11)
@@ -480,7 +479,6 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG, "qcom,errata-ctx-fault-hang" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_ERRATA_TZ_ATOS, "qcom,errata-tz-atos" },
-	{ ARM_SMMU_OPT_NO_M, "qcom,no-mmu-enable" },
 	{ ARM_SMMU_OPT_NO_SMR_CHECK, "qcom,no-smr-check" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
@@ -1470,9 +1468,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	}
 
 	/* SCTLR */
-	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_EAE_SBOP;
-	if (!(smmu->options & ARM_SMMU_OPT_NO_M))
-		reg |= SCTLR_M;
+	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_M | SCTLR_EAE_SBOP;
 	if (stage1)
 		reg |= SCTLR_S1_ASIDPNE;
 #ifdef __BIG_ENDIAN
