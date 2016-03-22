@@ -10,6 +10,9 @@ Required properties
 - reg :			offset and length of the register set for the device.
 - reg-names :		names to refer to register sets related to this device
 - interrupts :		Interrupt associated with MDSS.
+- interrupt-controller:	Mark the device node as an interrupt controller.
+			This is an empty, boolean property.
+- #interrupt-cells: 	Should be one. The first cell is interrupt number.
 - vdd-supply :		Phandle for vdd regulator device node.
 - qcom,max-clk-rate:	Specify maximum MDP core clock rate in hz that this
 			device supports.
@@ -635,6 +638,8 @@ Example:
 			<0xfd925000 0x1000>;
 		reg-names = "mdp_phys", "vbif_phys", "vbif_nrt_phys";
 		interrupts = <0 72 0>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
 		batfet-supply = <&pm8941_chg_batif>;
 		vdd-cx-supply = <&pm8841_s2_corner>;

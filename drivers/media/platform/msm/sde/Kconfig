@@ -1,0 +1,8 @@
+config MSM_SDE_ROTATOR
+	bool "QTI V4L2 based SDE Rotator"
+	depends on ARCH_MSM && VIDEO_V4L2
+	select V4L2_MEM2MEM_DEV
+	select VIDEOBUF2_CORE
+	select SW_SYNC if SYNC
+	---help---
+	  Enable support of V4L2 rotator driver.
