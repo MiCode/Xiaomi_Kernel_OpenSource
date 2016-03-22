@@ -1676,9 +1676,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		arm_smmu_secure_domain_unlock(smmu_domain);
 	}
 
-	/* Update our support page sizes to reflect the page table format */
-	arm_smmu_ops.pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
-
 	/* Initialise the context bank with our page table cfg */
 	arm_smmu_init_context_bank(smmu_domain, &smmu_domain->pgtbl_cfg);
 
@@ -3030,6 +3027,23 @@ static int arm_smmu_dma_supported(struct iommu_domain *domain,
 	return ret;
 }
 
+static unsigned long arm_smmu_get_pgsize_bitmap(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+
+	/*
+	 * if someone is calling map before attach just return the
+	 * supported page sizes for the hardware itself.
+	 */
+	if (!smmu_domain->pgtbl_cfg.pgsize_bitmap)
+		return arm_smmu_ops.pgsize_bitmap;
+	/*
+	 * otherwise return the page sizes supported by this specific page
+	 * table configuration
+	 */
+	return smmu_domain->pgtbl_cfg.pgsize_bitmap;
+}
+
 static struct iommu_ops arm_smmu_ops = {
 	.capable		= arm_smmu_capable,
 	.domain_init		= arm_smmu_domain_init,
@@ -3046,6 +3060,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.domain_get_attr	= arm_smmu_domain_get_attr,
 	.domain_set_attr	= arm_smmu_domain_set_attr,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+	.get_pgsize_bitmap	= arm_smmu_get_pgsize_bitmap,
 	.dma_supported		= arm_smmu_dma_supported,
 	.trigger_fault		= arm_smmu_trigger_fault,
 	.reg_read		= arm_smmu_reg_read,
