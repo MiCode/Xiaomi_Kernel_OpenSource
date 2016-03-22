@@ -387,6 +387,10 @@ struct hc_driver {
 	void	(*dump_regs)(struct usb_hcd *);
 	void	(*set_autosuspend_delay)(struct usb_device *);
 	void	(*reset_sof_bug_handler)(struct usb_hcd *hcd, u32 val);
+
+	int	(*sec_event_ring_setup)(struct usb_hcd *hcd, unsigned intr_num);
+	int	(*sec_event_ring_cleanup)(struct usb_hcd *hcd,
+						unsigned intr_num);
 };
 
 static inline int hcd_giveback_urb_in_bh(struct usb_hcd *hcd)
@@ -425,6 +429,10 @@ extern int usb_hcd_alloc_bandwidth(struct usb_device *udev,
 		struct usb_host_interface *old_alt,
 		struct usb_host_interface *new_alt);
 extern int usb_hcd_get_frame_number(struct usb_device *udev);
+extern int usb_hcd_sec_event_ring_setup(struct usb_device *udev,
+	unsigned intr_num);
+extern int usb_hcd_sec_event_ring_cleanup(struct usb_device *udev,
+	unsigned intr_num);
 
 extern struct usb_hcd *usb_create_hcd(const struct hc_driver *driver,
 		struct device *dev, const char *bus_name);
