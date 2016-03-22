@@ -41,6 +41,7 @@ struct camera_v4l2_private {
 	unsigned int is_vb2_valid; /*0 if no vb2 buffers on stream, else 1*/
 	struct vb2_queue vb2_q;
 	bool stream_created;
+	struct mutex lock;
 };
 
 static void camera_pack_event(struct file *filep, int evt_id,
@@ -224,9 +225,9 @@ static int camera_v4l2_reqbufs(struct file *filep, void *fh,
 	session = msm_session_find(session_id);
 	if (WARN_ON(!session))
 		return -EIO;
-	mutex_lock(&session->lock_q);
+	mutex_lock(&sp->lock);
 	ret = vb2_reqbufs(&sp->vb2_q, req);
-	mutex_unlock(&session->lock_q);
+	mutex_unlock(&sp->lock);
 	return ret;
 }
 
@@ -247,9 +248,9 @@ static int camera_v4l2_qbuf(struct file *filep, void *fh,
 	session = msm_session_find(session_id);
 	if (WARN_ON(!session))
 		return -EIO;
-	mutex_lock(&session->lock_q);
+	mutex_lock(&sp->lock);
 	ret = vb2_qbuf(&sp->vb2_q, pb);
-	mutex_unlock(&session->lock_q);
+	mutex_unlock(&sp->lock);
 	return ret;
 }
 
@@ -264,9 +265,9 @@ static int camera_v4l2_dqbuf(struct file *filep, void *fh,
 	session = msm_session_find(session_id);
 	if (WARN_ON(!session))
 		return -EIO;
-	mutex_lock(&session->lock_q);
+	mutex_lock(&sp->lock);
 	ret = vb2_dqbuf(&sp->vb2_q, pb, filep->f_flags & O_NONBLOCK);
-	mutex_unlock(&session->lock_q);
+	mutex_unlock(&sp->lock);
 	return ret;
 }
 
@@ -277,7 +278,9 @@ static int camera_v4l2_streamon(struct file *filep, void *fh,
 	int rc;
 	struct camera_v4l2_private *sp = fh_to_private(fh);
 
+	mutex_lock(&sp->lock);
 	rc = vb2_streamon(&sp->vb2_q, buf_type);
+	mutex_unlock(&sp->lock);
 	camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 		MSM_CAMERA_PRIV_STREAM_ON, -1, &event);
 
@@ -304,7 +307,9 @@ static int camera_v4l2_streamoff(struct file *filep, void *fh,
 		return rc;
 
 	rc = camera_check_event_status(&event);
+	mutex_lock(&sp->lock);
 	vb2_streamoff(&sp->vb2_q, buf_type);
+	mutex_unlock(&sp->lock);
 	return rc;
 }
 
@@ -494,6 +499,8 @@ static int camera_v4l2_fh_open(struct file *filep)
 		(const unsigned long *)&stream_id, MSM_CAMERA_STREAM_CNT_BITS);
 	pr_debug("%s: Found stream_id=%d\n", __func__, sp->stream_id);
 
+	mutex_init(&sp->lock);
+
 	v4l2_fh_init(&sp->fh, pvdev->vdev);
 	v4l2_fh_add(&sp->fh);
 
@@ -509,6 +516,7 @@ static int camera_v4l2_fh_release(struct file *filep)
 		v4l2_fh_exit(&sp->fh);
 	}
 
+	mutex_destroy(&sp->lock);
 	kzfree(sp);
 	return 0;
 }
@@ -545,7 +553,9 @@ static void camera_v4l2_vb2_q_release(struct file *filep)
 	struct camera_v4l2_private *sp = filep->private_data;
 
 	kzfree(sp->vb2_q.drv_priv);
+	mutex_lock(&sp->lock);
 	vb2_queue_release(&sp->vb2_q);
+	mutex_unlock(&sp->lock);
 }
 
 static int camera_v4l2_open(struct file *filep)
