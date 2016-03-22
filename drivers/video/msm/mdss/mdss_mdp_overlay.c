@@ -2619,6 +2619,30 @@ static void mdss_mdp_overlay_handle_vsync(struct mdss_mdp_ctl *ctl,
 	sysfs_notify_dirent(mdp5_data->vsync_event_sd);
 }
 
+/* function is called in irq context should have minimum processing */
+static void mdss_mdp_overlay_handle_lineptr(struct mdss_mdp_ctl *ctl,
+						ktime_t t)
+{
+	struct mdss_overlay_private *mdp5_data = NULL;
+
+	if (!ctl || !ctl->mfd) {
+		pr_warn("Invalid handle for lineptr\n");
+		return;
+	}
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	if (!mdp5_data) {
+		pr_err("mdp5_data is NULL\n");
+		return;
+	}
+
+	pr_debug("lineptr irq on fb%d play_cnt=%d\n",
+			ctl->mfd->index, ctl->play_cnt);
+
+	mdp5_data->lineptr_time = t;
+	sysfs_notify_dirent(mdp5_data->lineptr_event_sd);
+}
+
 int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -2889,6 +2913,78 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 	ret = scnprintf(buf, PAGE_SIZE, "VSYNC=%llu\n", vsync_ticks);
 
 	return ret;
+}
+
+static ssize_t mdss_mdp_lineptr_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	u64 lineptr_ticks;
+	int ret;
+
+	if (!mdp5_data->ctl ||
+		(!mdp5_data->ctl->panel_data->panel_info.cont_splash_enabled
+			&& !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)))
+		return -EAGAIN;
+
+	lineptr_ticks = ktime_to_ns(mdp5_data->lineptr_time);
+
+	pr_debug("fb%d lineptr=%llu\n", mfd->index, lineptr_ticks);
+	ret = scnprintf(buf, PAGE_SIZE, "LINEPTR=%llu\n", lineptr_ticks);
+
+	return ret;
+}
+
+static ssize_t mdss_mdp_lineptr_show_value(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	int ret, lineptr_val;
+
+	if (!mdp5_data->ctl ||
+		(!mdp5_data->ctl->panel_data->panel_info.cont_splash_enabled
+			&& !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)))
+		return -EAGAIN;
+
+	lineptr_val = mfd->panel_info->te.wr_ptr_irq;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", lineptr_val);
+
+	return ret;
+}
+
+static ssize_t mdss_mdp_lineptr_set_value(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	int ret, lineptr_value;
+
+	ret = kstrtoint(buf, 10, &lineptr_value);
+	if (ret) {
+		pr_err("Invalid input for ad\n");
+		return -EINVAL;
+	}
+
+	if (!mdp5_data->ctl ||
+		(!mdp5_data->ctl->panel_data->panel_info.cont_splash_enabled
+			&& !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)))
+		return -EAGAIN;
+
+	if (!mdss_mdp_is_lineptr_supported(mdp5_data->ctl)) {
+		pr_err("lineptr not supported\n");
+		return -ENOTSUPP;
+	}
+
+	/* the new lineptr value will take effect in the next kickoff */
+	mfd->panel_info->te.wr_ptr_irq = lineptr_value;
+
+	return count;
 }
 
 static ssize_t mdss_mdp_bl_show_event(struct device *dev,
@@ -3224,6 +3320,9 @@ static DEVICE_ATTR(msm_misr_en, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(msm_cmd_autorefresh_en, S_IRUGO | S_IWUSR,
 	mdss_mdp_cmd_autorefresh_show, mdss_mdp_cmd_autorefresh_store);
 static DEVICE_ATTR(vsync_event, S_IRUGO, mdss_mdp_vsync_show_event, NULL);
+static DEVICE_ATTR(lineptr_event, S_IRUGO, mdss_mdp_lineptr_show_event, NULL);
+static DEVICE_ATTR(lineptr_value, S_IRUGO | S_IWUSR | S_IWGRP,
+		mdss_mdp_lineptr_show_value, mdss_mdp_lineptr_set_value);
 static DEVICE_ATTR(ad, S_IRUGO | S_IWUSR | S_IWGRP, mdss_mdp_ad_show,
 	mdss_mdp_ad_store);
 static DEVICE_ATTR(dyn_pu, S_IRUGO | S_IWUSR | S_IWGRP, mdss_mdp_dyn_pu_show,
@@ -3235,6 +3334,8 @@ static DEVICE_ATTR(ad_bl_event, S_IRUGO, mdss_mdp_ad_bl_show_event, NULL);
 
 static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_vsync_event.attr,
+	&dev_attr_lineptr_event.attr,
+	&dev_attr_lineptr_value.attr,
 	&dev_attr_ad.attr,
 	&dev_attr_dyn_pu.attr,
 	&dev_attr_msm_misr_en.attr,
@@ -4597,6 +4698,9 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 			mdss_mdp_recover_underrun_handler;
 	ctl->recover_underrun_handler.cmd_post_flush = false;
 
+	ctl->lineptr_handler.lineptr_handler =
+					mdss_mdp_overlay_handle_lineptr;
+
 	INIT_WORK(&ctl->remove_underrun_handler,
 				remove_underrun_vsync_handler);
 
@@ -5357,6 +5461,14 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 						     "vsync_event");
 	if (!mdp5_data->vsync_event_sd) {
 		pr_err("vsync_event sysfs lookup failed\n");
+		rc = -ENODEV;
+		goto init_fail;
+	}
+
+	mdp5_data->lineptr_event_sd = sysfs_get_dirent(dev->kobj.sd,
+						     "lineptr_event");
+	if (!mdp5_data->lineptr_event_sd) {
+		pr_err("lineptr_event sysfs lookup failed\n");
 		rc = -ENODEV;
 		goto init_fail;
 	}

@@ -538,6 +538,7 @@ struct mdss_mdp_pp_tear_check {
 	u32 sync_threshold_continue;
 	u32 start_pos;
 	u32 rd_ptr_irq;
+	u32 wr_ptr_irq;
 	u32 refx100;
 };
 
