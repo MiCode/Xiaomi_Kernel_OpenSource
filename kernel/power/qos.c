@@ -280,7 +280,11 @@ int pm_qos_update_target(struct pm_qos_constraints *c,
 	spin_unlock_irqrestore(&pm_qos_lock, flags);
 
 	trace_pm_qos_update_target(action, prev_value, curr_value);
-	if (prev_value != curr_value) {
+	/*
+	 * if cpu mask bits are set, call the notifier call chain
+	 * to update the new qos restriction for the cores
+	 */
+	if (!cpumask_empty(&cpus)) {
 		ret = 1;
 		if (c->notifiers)
 			blocking_notifier_call_chain(c->notifiers,
