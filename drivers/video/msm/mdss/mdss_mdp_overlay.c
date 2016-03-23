@@ -2968,26 +2968,30 @@ static ssize_t mdss_mdp_lineptr_set_value(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = fbi->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
 	int ret, lineptr_value;
 
+	if (!ctl || (!ctl->panel_data->panel_info.cont_splash_enabled
+		&& !mdss_mdp_ctl_is_power_on(ctl)))
+		return -EAGAIN;
+
 	ret = kstrtoint(buf, 10, &lineptr_value);
-	if (ret) {
-		pr_err("Invalid input for ad\n");
+	if (ret || (lineptr_value < 0)
+		|| (lineptr_value > mfd->panel_info->yres)) {
+		pr_err("Invalid input for lineptr\n");
 		return -EINVAL;
 	}
 
-	if (!mdp5_data->ctl ||
-		(!mdp5_data->ctl->panel_data->panel_info.cont_splash_enabled
-			&& !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)))
-		return -EAGAIN;
-
-	if (!mdss_mdp_is_lineptr_supported(mdp5_data->ctl)) {
+	if (!mdss_mdp_is_lineptr_supported(ctl)) {
 		pr_err("lineptr not supported\n");
 		return -ENOTSUPP;
 	}
 
-	/* the new lineptr value will take effect in the next kickoff */
+	mutex_lock(&mdp5_data->ov_lock);
 	mfd->panel_info->te.wr_ptr_irq = lineptr_value;
+	if (ctl && ctl->ops.update_lineptr)
+		ctl->ops.update_lineptr(ctl, true);
+	mutex_unlock(&mdp5_data->ov_lock);
 
 	return count;
 }

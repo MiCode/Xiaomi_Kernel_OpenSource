@@ -259,6 +259,9 @@ static inline u32 is_mdp_irq_enabled(void)
 	if (mdata->mdp_hist_irq_mask)
 		return 1;
 
+	if (mdata->mdp_intf_irq_mask)
+		return 1;
+
 	return 0;
 }
 
@@ -720,6 +723,17 @@ u32 mdss_mdp_get_irq_mask(u32 intr_type, u32 intf_num)
 	return (idx < 0) ? 0 : mdp_irq_map[idx].irq_mask;
 }
 
+void mdss_mdp_enable_hw_irq(struct mdss_data_type *mdata)
+{
+	mdata->mdss_util->enable_irq(&mdss_mdp_hw);
+}
+
+void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata)
+{
+	if (!is_mdp_irq_enabled())
+		mdata->mdss_util->disable_irq(&mdss_mdp_hw);
+}
+
 /* function assumes that mdp is clocked to access hw registers */
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num)
@@ -1046,6 +1060,8 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 		if (hist_isr != 0)
 			mdss_mdp_hist_intr_done(hist_isr);
 	}
+
+	mdss_mdp_video_isr(mdata->video_intf, mdata->nintf);
 	return IRQ_HANDLED;
 }
 

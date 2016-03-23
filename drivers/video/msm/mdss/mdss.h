@@ -323,6 +323,7 @@ struct mdss_data_type {
 	struct irq_domain *irq_domain;
 	u32 *mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
+	u32 mdp_intf_irq_mask;
 
 	int suspend_fs_ena;
 	u8 clk_ena;
