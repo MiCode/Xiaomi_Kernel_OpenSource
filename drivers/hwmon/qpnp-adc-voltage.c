@@ -1375,10 +1375,19 @@ int32_t qpnp_get_vadc_gain_and_offset(struct qpnp_vadc_chip *vadc,
 				enum qpnp_adc_calib_type calib_type)
 {
 	int rc = 0;
+	struct qpnp_vadc_result result;
 
 	rc = qpnp_vadc_is_valid(vadc);
 	if (rc < 0)
 		return rc;
+
+	if (!vadc->vadc_init_calib) {
+		rc = qpnp_vadc_read(vadc, REF_125V, &result);
+		if (rc) {
+			pr_debug("vadc read failed with rc = %d\n", rc);
+			return rc;
+		}
+	}
 
 	switch (calib_type) {
 	case CALIB_RATIOMETRIC:
