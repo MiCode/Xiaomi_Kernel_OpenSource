@@ -158,22 +158,17 @@ struct mdss_pp_res_type {
 	/* physical info */
 	struct pp_hist_col_info *dspp_hist;
 	/*
-	 * The pp_data_res will be a pointer to newer MDP revisions of the
+	 * The pp_data_v1_7 will be a pointer to newer MDP revisions of the
 	 * pp_res, which will hold the cfg_payloads of each feature in a single
 	 * struct.
 	 */
-	void *pp_data_res;
+	void *pp_data_v1_7;
+	void *pp_data_v3;
 };
 
-#if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8937)
-void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
-#else
-static inline void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
-{
-	memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
-	return NULL;
-}
-#endif
+void *pp_get_driver_ops_v1_7(struct mdp_pp_driver_ops *ops);
+void *pp_get_driver_ops_v3(struct mdp_pp_driver_ops *ops);
+
 
 static inline void pp_sts_set_split_bits(u32 *sts, u32 bits)
 {
