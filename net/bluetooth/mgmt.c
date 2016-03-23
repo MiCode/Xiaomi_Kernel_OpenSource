@@ -248,7 +248,7 @@ static int cmd_status(struct sock *sk, u16 index, u16 cmd, u8 status)
 	struct mgmt_ev_cmd_status *ev;
 	int err;
 
-	BT_DBG("sock %p, index %u, cmd %u, status %u", sk, index, cmd, status);
+	BT_DBG("sock %pK, index %u, cmd %u, status %u", sk, index, cmd, status);
 
 	skb = alloc_skb(sizeof(*hdr) + sizeof(*ev), GFP_KERNEL);
 	if (!skb)
@@ -279,7 +279,7 @@ static int cmd_complete(struct sock *sk, u16 index, u16 cmd, u8 status,
 	struct mgmt_ev_cmd_complete *ev;
 	int err;
 
-	BT_DBG("sock %p", sk);
+	BT_DBG("sock %pK", sk);
 
 	skb = alloc_skb(sizeof(*hdr) + sizeof(*ev) + rp_len, GFP_KERNEL);
 	if (!skb)
@@ -310,7 +310,7 @@ static int read_version(struct sock *sk, struct hci_dev *hdev, void *data,
 {
 	struct mgmt_rp_read_version rp;
 
-	BT_DBG("sock %p", sk);
+	BT_DBG("sock %pK", sk);
 
 	rp.version = MGMT_VERSION;
 	rp.revision = cpu_to_le16(MGMT_REVISION);
@@ -329,7 +329,7 @@ static int read_commands(struct sock *sk, struct hci_dev *hdev, void *data,
 	size_t rp_size;
 	int i, err;
 
-	BT_DBG("sock %p", sk);
+	BT_DBG("sock %pK", sk);
 
 	rp_size = sizeof(*rp) + ((num_commands + num_events) * sizeof(u16));
 
@@ -362,7 +362,7 @@ static int read_index_list(struct sock *sk, struct hci_dev *hdev, void *data,
 	u16 count;
 	int err;
 
-	BT_DBG("sock %p", sk);
+	BT_DBG("sock %pK", sk);
 
 	read_lock(&hci_dev_list_lock);
 
@@ -422,7 +422,7 @@ static int read_unconf_index_list(struct sock *sk, struct hci_dev *hdev,
 	u16 count;
 	int err;
 
-	BT_DBG("sock %p", sk);
+	BT_DBG("sock %pK", sk);
 
 	read_lock(&hci_dev_list_lock);
 
@@ -523,7 +523,7 @@ static int read_config_info(struct sock *sk, struct hci_dev *hdev,
 	struct mgmt_rp_read_config_info rp;
 	u32 options = 0;
 
-	BT_DBG("sock %p %s", sk, hdev->name);
+	BT_DBG("sock %pK %s", sk, hdev->name);
 
 	hci_dev_lock(hdev);
 
@@ -1157,7 +1157,7 @@ static int read_controller_info(struct sock *sk, struct hci_dev *hdev,
 {
 	struct mgmt_rp_read_info rp;
 
-	BT_DBG("sock %p %s", sk, hdev->name);
+	BT_DBG("sock %pK %s", sk, hdev->name);
 
 	hci_dev_lock(hdev);
 
