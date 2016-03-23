@@ -331,12 +331,12 @@ static inline int msm_ipc_router_unregister_server(
 	return -ENODEV;
 }
 
-int register_ipcrtr_af_notifier(struct notifier_block *nb)
+int register_ipcrtr_af_init_notifier(struct notifier_block *nb)
 {
 	return -ENODEV;
 }
 
-int register_ipcrtr_af_notifier(struct notifier_block *nb)
+int unregister_ipcrtr_af_init_notifier(struct notifier_block *nb)
 {
 	return -ENODEV;
 }
