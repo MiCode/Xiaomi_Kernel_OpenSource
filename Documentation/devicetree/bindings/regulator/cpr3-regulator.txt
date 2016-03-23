@@ -183,6 +183,19 @@ Platform independent properties:
 		    This is the voltage that vdd-supply must be set to when
 		    performing an aging measurement.
 
+- qcom,cpr-panic-reg-addr-list
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of register addresses to be dumped when device resets.
+
+- qcom,cpr-panic-reg-name-list
+	Usage:      optional, though only meaningful if
+		    qcom,cpr-panic-reg-addr-list is specified
+	Value type: <prop-encoded-array>
+	Definition: Address names. Must be specified in the same order
+		    as the corresponding addresses are specified in
+		    the qcom,cpr-panic-reg-addr-list property.
+
 =================================================
 Second Level Nodes - CPR Threads for a Controller
 =================================================
