@@ -2908,7 +2908,7 @@ preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
 
 	rcu_read_lock();
 
-	grp = p->grp;
+	grp = task_related_thread_group(p);
 	if (!grp || !sysctl_sched_enable_colocation)
 		rc = 1;
 	else
@@ -3281,7 +3281,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 
 	rcu_read_lock();
 
-	grp = p->grp;
+	grp = task_related_thread_group(p);
 
 	if (grp && grp->preferred_cluster) {
 		pref_cluster = grp->preferred_cluster;
@@ -3815,6 +3815,7 @@ static inline void reset_balance_interval(int cpu)
 static inline int migration_needed(struct task_struct *p, int cpu)
 {
 	int nice;
+	struct related_thread_group *grp;
 
 	if (!sched_enable_hmp || p->state != TASK_RUNNING)
 		return 0;
@@ -3827,12 +3828,19 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 		return IRQLOAD_MIGRATION;
 
 	nice = task_nice(p);
-	if (!p->grp && (nice > sched_upmigrate_min_nice ||
-		 upmigrate_discouraged(p)) && cpu_capacity(cpu) > min_capacity)
+	rcu_read_lock();
+	grp = task_related_thread_group(p);
+	if (!grp && (nice > sched_upmigrate_min_nice ||
+	       upmigrate_discouraged(p)) && cpu_capacity(cpu) > min_capacity) {
+		rcu_read_unlock();
 		return DOWN_MIGRATION;
+	}
 
-	if (!p->grp && !task_will_fit(p, cpu))
+	if (!grp && !task_will_fit(p, cpu)) {
+		rcu_read_unlock();
 		return UP_MIGRATION;
+	}
+	rcu_read_unlock();
 
 	return 0;
 }
@@ -3990,7 +3998,7 @@ void init_new_task_load(struct task_struct *p)
 	p->init_load_pct = 0;
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->se.avg.decay_count	= 0;
-	p->grp = NULL;
+	rcu_assign_pointer(p->grp, NULL);
 	INIT_LIST_HEAD(&p->grp_list);
 
 	if (init_load_pct) {

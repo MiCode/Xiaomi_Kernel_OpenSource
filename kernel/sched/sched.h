@@ -1127,7 +1127,7 @@ static inline int sched_cpu_high_irqload(int cpu)
 static inline
 struct related_thread_group *task_related_thread_group(struct task_struct *p)
 {
-	return p->grp;
+	return rcu_dereference(p->grp);
 }
 
 #else	/* CONFIG_SCHED_HMP */
