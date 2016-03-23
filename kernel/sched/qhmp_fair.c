@@ -3038,13 +3038,11 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	int i = task_cpu(p), prev_cpu;
 	int hmp_capable;
 	u64 tload, cpu_load, min_load = ULLONG_MAX;
-	cpumask_t temp;
 	cpumask_t search_cpu;
 	cpumask_t fb_search_cpu = CPU_MASK_NONE;
 	struct rq *rq;
 
-	cpumask_and(&temp, &mpc_mask, cpu_possible_mask);
-	hmp_capable = !cpumask_full(&temp);
+	hmp_capable = !cpumask_equal(&mpc_mask, cpu_possible_mask);
 
 	cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
 	if (unlikely(!cpumask_test_cpu(i, &search_cpu))) {

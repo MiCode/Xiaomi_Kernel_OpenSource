@@ -604,7 +604,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 
 	snprintf(name, MAX_CLIENT_NAME_LEN, "smmu:%u", smmu_domain.domain);
 	mdss_smmu->reg_bus_clt = mdss_reg_bus_vote_client_create(name);
-	if (IS_ERR_OR_NULL(mdss_smmu->reg_bus_clt)) {
+	if (IS_ERR(mdss_smmu->reg_bus_clt)) {
 		pr_err("mdss bus client register failed\n");
 		msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
 			false);

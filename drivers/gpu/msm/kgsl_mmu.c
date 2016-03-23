@@ -476,6 +476,31 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 }
 EXPORT_SYMBOL(kgsl_mmu_unmap);
 
+int kgsl_mmu_map_offset(struct kgsl_pagetable *pagetable,
+			uint64_t virtaddr, uint64_t virtoffset,
+			struct kgsl_memdesc *memdesc, uint64_t physoffset,
+			uint64_t size, uint64_t flags)
+{
+	if (PT_OP_VALID(pagetable, mmu_map_offset))
+		return pagetable->pt_ops->mmu_map_offset(pagetable, virtaddr,
+				virtoffset, memdesc, physoffset, size, flags);
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(kgsl_mmu_map_offset);
+
+int kgsl_mmu_unmap_offset(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc, uint64_t addr, uint64_t offset,
+		uint64_t size)
+{
+	if (PT_OP_VALID(pagetable, mmu_unmap_offset))
+		return pagetable->pt_ops->mmu_unmap_offset(pagetable, memdesc,
+				addr, offset, size);
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(kgsl_mmu_unmap_offset);
+
 void kgsl_mmu_remove_global(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc)
 {

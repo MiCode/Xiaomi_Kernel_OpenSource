@@ -2695,6 +2695,7 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_dig.regulator[0]);
 	}
 
+	bimc_clk.c.parent = &cxo_clk_src.c;
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_rpm_cobalt,
 				    ARRAY_SIZE(msm_clocks_rpm_cobalt));
 	if (ret)

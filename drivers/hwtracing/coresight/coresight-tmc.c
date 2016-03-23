@@ -1671,6 +1671,8 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 			return -ENOMEM;
 	}
 
+	pdata->default_sink = of_property_read_bool(np, "arm,default-sink");
+
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;

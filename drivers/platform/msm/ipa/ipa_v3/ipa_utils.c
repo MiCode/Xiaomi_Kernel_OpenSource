@@ -3362,6 +3362,7 @@ int ipa3_cfg_ep_deaggr(u32 clnt_hdl,
 int ipa3_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 {
 	u32 qmap_id = 0;
+	struct ipa_ep_cfg_metadata ep_md_reg_wrt;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_md == NULL) {
@@ -3377,12 +3378,14 @@ int ipa3_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
+	ep_md_reg_wrt = *ep_md;
 	qmap_id = (ep_md->qmap_id <<
-		IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT) &&
+		IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT) &
 		IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK;
 
+	ep_md_reg_wrt.qmap_id = qmap_id;
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HDR_METADATA_n, clnt_hdl,
-		ep_md);
+		&ep_md_reg_wrt);
 	ipa3_ctx->ep[clnt_hdl].cfg.hdr.hdr_metadata_reg_valid = 1;
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HDR_n, clnt_hdl,
 		&ipa3_ctx->ep[clnt_hdl].cfg.hdr);

@@ -38,6 +38,8 @@
 
 #define MDSS_MAX_PANEL_LEN      256
 #define EDID_SEG_SIZE 0x100
+/* size of audio and speaker info Block */
+#define AUDIO_DATA_SIZE 32
 
 /* 0x94 interrupts */
 #define HPD_INT_ENABLE           BIT(7)
@@ -129,6 +131,7 @@ struct adv7533 {
 	bool is_power_on;
 	void *edid_data;
 	u8 edid_buf[EDID_SEG_SIZE];
+	u8 audio_spkr_data[AUDIO_DATA_SIZE];
 	struct workqueue_struct *workq;
 	struct delayed_work adv7533_intr_work_id;
 	struct msm_dba_device_info dev_info;
@@ -1274,6 +1277,44 @@ static int adv7533_cec_enable(void *client, bool cec_on, u32 flags)
 end:
 	return ret;
 }
+static void adv7533_set_audio_block(void *client, u32 size, void *buf)
+{
+	struct adv7533 *pdata =
+		adv7533_get_platform_data(client);
+
+	if (!pdata || !buf) {
+		pr_err("%s: invalid data\n", __func__);
+		return;
+	}
+
+	mutex_lock(&pdata->ops_mutex);
+
+	size = min_t(u32, size, AUDIO_DATA_SIZE);
+
+	memset(pdata->audio_spkr_data, 0, AUDIO_DATA_SIZE);
+	memcpy(pdata->audio_spkr_data, buf, size);
+
+	mutex_unlock(&pdata->ops_mutex);
+}
+
+static void adv7533_get_audio_block(void *client, u32 size, void *buf)
+{
+	struct adv7533 *pdata =
+		adv7533_get_platform_data(client);
+
+	if (!pdata || !buf) {
+		pr_err("%s: invalid data\n", __func__);
+		return;
+	}
+
+	mutex_lock(&pdata->ops_mutex);
+
+	size = min_t(u32, size, AUDIO_DATA_SIZE);
+
+	memcpy(buf, pdata->audio_spkr_data, size);
+
+	mutex_unlock(&pdata->ops_mutex);
+}
 
 static int adv7533_check_hpd(void *client, u32 flags)
 {
@@ -1880,6 +1921,8 @@ static int adv7533_register_dba(struct adv7533 *pdata)
 	client_ops->get_edid_size   = adv7533_get_edid_size;
 	client_ops->get_raw_edid    = adv7533_get_raw_edid;
 	client_ops->check_hpd	    = adv7533_check_hpd;
+	client_ops->get_audio_block = adv7533_get_audio_block;
+	client_ops->set_audio_block = adv7533_set_audio_block;
 
 	dev_ops->write_reg = adv7533_write_reg;
 	dev_ops->read_reg = adv7533_read_reg;

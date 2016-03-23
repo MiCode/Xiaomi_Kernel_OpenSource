@@ -1325,6 +1325,7 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
 	te->rd_ptr_irq = (!rc ? tmp : timing->yres + 1);
+	te->wr_ptr_irq = 0;
 }
 
 

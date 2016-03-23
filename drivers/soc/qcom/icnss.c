@@ -759,6 +759,7 @@ static int icnss_qmi_event_server_arrive(void *data)
 			pr_err("%s: Failed to send MSA ready : %d\n",
 			       __func__, ret);
 			goto err_power_on;
+		}
 	} else {
 		pr_err("%s: Invalid MSA address\n", __func__);
 		ret = -EINVAL;
@@ -1291,7 +1292,7 @@ static int icnss_dt_parse_vreg_info(struct device *dev,
 				const char *vreg_name)
 {
 	int ret = 0;
-	u32 voltage_levels[MAX_VOLTAGE_LEVEL]
+	u32 voltage_levels[MAX_VOLTAGE_LEVEL];
 	char prop_name[MAX_PROP_SIZE];
 	struct device_node *np = dev->of_node;
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,7 +149,7 @@ int ipa2_dma_init(void)
 	}
 
 	ipa_dma_ctx_t->ipa_dma_xfer_wrapper_cache =
-		kmem_cache_create("IPA DMA XFER WRAPPER",
+		kmem_cache_create("IPA_DMA_XFER_WRAPPER",
 			sizeof(struct ipa_dma_xfer_wrapper), 0, 0, NULL);
 	if (!ipa_dma_ctx_t->ipa_dma_xfer_wrapper_cache) {
 		IPAERR(":failed to create ipa dma xfer wrapper cache.\n");

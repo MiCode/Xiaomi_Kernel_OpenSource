@@ -474,12 +474,13 @@ static void rndis_response_available(void *_rndis)
 
 static void rndis_response_complete(struct usb_ep *ep, struct usb_request *req)
 {
-	struct f_rndis			*rndis = __rndis;
+	struct f_rndis			*rndis;
 	struct usb_composite_dev	*cdev;
 	int				status = req->status;
 	struct usb_ep *notify_ep;
 
 	spin_lock(&_rndis_lock);
+	rndis = __rndis;
 	if (!rndis || !rndis->notify || !rndis->notify->driver_data) {
 		spin_unlock(&_rndis_lock);
 		return;
@@ -537,12 +538,13 @@ out:
 
 static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 {
-	struct f_rndis			*rndis = __rndis;
+	struct f_rndis			*rndis;
 	struct usb_composite_dev	*cdev;
 	int				status;
 	rndis_init_msg_type		*buf;
 
 	spin_lock(&_rndis_lock);
+	rndis = __rndis;
 	if (!rndis || !rndis->notify || !rndis->notify->driver_data) {
 		spin_unlock(&_rndis_lock);
 		return;

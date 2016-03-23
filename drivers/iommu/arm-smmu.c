@@ -359,7 +359,6 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG (1 << 5)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 6)
 #define ARM_SMMU_OPT_ERRATA_TZ_ATOS	(1 << 7)
-#define ARM_SMMU_OPT_NO_M		(1 << 8)
 #define ARM_SMMU_OPT_NO_SMR_CHECK	(1 << 9)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 10)
 #define ARM_SMMU_OPT_HALT		(1 << 11)
@@ -480,7 +479,6 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG, "qcom,errata-ctx-fault-hang" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_ERRATA_TZ_ATOS, "qcom,errata-tz-atos" },
-	{ ARM_SMMU_OPT_NO_M, "qcom,no-mmu-enable" },
 	{ ARM_SMMU_OPT_NO_SMR_CHECK, "qcom,no-smr-check" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
@@ -1471,7 +1469,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_EAE_SBOP;
-	if (!(smmu->options & ARM_SMMU_OPT_NO_M))
+	if (!stage1 || !(smmu_domain->attributes & DOMAIN_ATTR_S1_BYPASS))
 		reg |= SCTLR_M;
 	if (stage1)
 		reg |= SCTLR_S1_ASIDPNE;
@@ -2869,6 +2867,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    & (1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_S1_BYPASS:
+		*((int *)data) = !!(smmu_domain->attributes
+				    & (1 << DOMAIN_ATTR_S1_BYPASS));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -2980,6 +2983,18 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		smmu_domain->non_fatal_faults = *((int *)data);
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_S1_BYPASS: {
+		int bypass = *((int *)data);
+
+		if (bypass)
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_S1_BYPASS;
+		else
+			smmu_domain->attributes &=
+					~(1 << DOMAIN_ATTR_S1_BYPASS);
+
+		ret = 0;
+		break;
+	}
 	default:
 		ret = -ENODEV;
 		break;
