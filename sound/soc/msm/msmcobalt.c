@@ -2332,9 +2332,133 @@ err:
 	return ret;
 }
 
+static int msm_audrx_stub_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
+
+	ret = snd_soc_add_codec_controls(codec, msm_snd_controls,
+					 ARRAY_SIZE(msm_snd_controls));
+	if (ret < 0) {
+		dev_err(codec->dev, "%s: add_codec_controls failed, err%d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	snd_soc_dapm_new_controls(dapm, msm_dapm_widgets,
+				ARRAY_SIZE(msm_dapm_widgets));
+
+	return 0;
+}
+
+static int msm_snd_stub_hw_params(struct snd_pcm_substream *substream,
+			     struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	int ret = 0;
+	unsigned int rx_ch[] = {144, 145, 146, 147, 148, 149, 150,
+				151, 152, 153, 154, 155, 156};
+	unsigned int tx_ch[] = {128, 129, 130, 131, 132, 133,
+				134, 135, 136, 137, 138, 139,
+				140, 141, 142, 143};
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0,
+						  slim_rx_cfg[0].channels,
+						  rx_ch);
+		if (ret < 0)
+			pr_err("%s: RX failed to set cpu chan map error %d\n",
+				__func__, ret);
+	} else {
+		ret = snd_soc_dai_set_channel_map(cpu_dai,
+						  slim_tx_cfg[0].channels,
+						  tx_ch, 0, 0);
+		if (ret < 0)
+			pr_err("%s: TX failed to set cpu chan map error %d\n",
+				__func__, ret);
+	}
+
+	return ret;
+}
+
+static struct snd_soc_ops msm_stub_be_ops = {
+	.hw_params = msm_snd_stub_hw_params,
+};
+
+static struct snd_soc_dai_link msm_stub_fe_dai_links[] = {
+
+	/* FrontEnd DAI Links */
+	{
+		.name = "MSMSTUB Media1",
+		.stream_name = "MultiMedia1",
+		.cpu_dai_name = "MultiMedia1",
+		.platform_name = "msm-pcm-dsp.0",
+		.dynamic = 1,
+		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA1
+	},
+};
+
+static struct snd_soc_dai_link msm_stub_be_dai_links[] = {
+
+	/* Backend DAI Links */
+	{
+		.name = LPASS_BE_SLIMBUS_0_RX,
+		.stream_name = "Slimbus Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16384",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
+		.init = &msm_audrx_stub_init,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+		.ops = &msm_stub_be_ops,
+	},
+	{
+		.name = LPASS_BE_SLIMBUS_0_TX,
+		.stream_name = "Slimbus Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16385",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
+		.ops = &msm_stub_be_ops,
+	},
+};
+
+static struct snd_soc_dai_link msm_stub_dai_links[
+			 ARRAY_SIZE(msm_stub_fe_dai_links) +
+			 ARRAY_SIZE(msm_stub_be_dai_links)];
+
+struct snd_soc_card snd_soc_card_stub_msm = {
+	.name		= "msmcobalt-stub-snd-card",
+};
+
 static const struct of_device_id msmcobalt_asoc_machine_of_match[]  = {
 	{ .compatible = "qcom,msmcobalt-asoc-snd-tasha",
 	  .data = "tasha_codec"},
+	{ .compatible = "qcom,msmcobalt-asoc-snd-stub",
+	  .data = "stub_codec"},
 	{},
 };
 
@@ -2373,6 +2497,21 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 
 		dailink = msm_tasha_dai_links;
 		len_4 = len_3 + ARRAY_SIZE(msm_tasha_be_dai_links);
+
+	} else if (!strcmp(match->data, "stub_codec")) {
+		card = &snd_soc_card_stub_msm;
+		len_1 = ARRAY_SIZE(msm_stub_fe_dai_links);
+		len_2 = len_1 + ARRAY_SIZE(msm_stub_be_dai_links);
+
+		memcpy(msm_stub_dai_links,
+		       msm_stub_fe_dai_links,
+		       sizeof(msm_stub_fe_dai_links));
+		memcpy(msm_stub_dai_links + len_1,
+		       msm_stub_be_dai_links,
+		       sizeof(msm_stub_be_dai_links));
+
+		dailink = msm_stub_dai_links;
+		len_4 = len_2;
 	}
 	dev_dbg(dev, "%s(): No hdmi audio support\n", __func__);
 
