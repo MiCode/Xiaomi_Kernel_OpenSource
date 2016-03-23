@@ -2915,7 +2915,7 @@ struct cluster_cpu_stats {
 	int best_capacity_cpu, best_cpu, best_sibling_cpu;
 	int min_cost, best_sibling_cpu_cost;
 	int best_cpu_cstate;
-	u64 min_load, best_sibling_cpu_load;
+	u64 min_load, max_load, best_sibling_cpu_load;
 	s64 highest_spare_capacity;
 };
 
@@ -3170,10 +3170,11 @@ static void update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 		}
 	}
 
+	cpu_cstate = cpu_rq(cpu)->cstate;
+
 	if (env->need_idle) {
 		stats->min_cost = cpu_cost;
 		if (idle_cpu(cpu)) {
-			cpu_cstate = cpu_rq(cpu)->cstate;
 			if (cpu_cstate < stats->best_cpu_cstate ||
 				(cpu_cstate == stats->best_cpu_cstate &&
 							cpu == prev_cpu)) {
@@ -3192,11 +3193,34 @@ static void update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 		return;
 	}
 
-	if ((cpu_cost < stats->min_cost) ||
-	    ((stats->best_cpu != prev_cpu && stats->min_load > env->cpu_load) ||
-	     cpu == prev_cpu)) {
+	if (cpu_cost < stats->min_cost)  {
 		stats->min_cost = cpu_cost;
-		stats->min_load = env->cpu_load;
+		stats->best_cpu_cstate = cpu_cstate;
+		stats->max_load = env->cpu_load;
+		stats->best_cpu = cpu;
+		return;
+	}
+
+	/* CPU cost is the same. Start breaking the tie by C-state */
+
+	if (cpu_cstate > stats->best_cpu_cstate)
+		return;
+
+	if (cpu_cstate < stats->best_cpu_cstate) {
+		stats->best_cpu_cstate = cpu_cstate;
+		stats->max_load = env->cpu_load;
+		stats->best_cpu = cpu;
+		return;
+	}
+
+	/* C-state is the same. Use prev CPU to break the tie */
+	if (cpu == prev_cpu) {
+		stats->best_cpu = cpu;
+		return;
+	}
+
+	if (stats->best_cpu != prev_cpu && env->cpu_load > stats->max_load) {
+		stats->max_load = env->cpu_load;
 		stats->best_cpu = cpu;
 	}
 }
@@ -3240,6 +3264,7 @@ static inline void init_cluster_cpu_stats(struct cluster_cpu_stats *stats)
 	stats->best_capacity_cpu = stats->best_sibling_cpu  = -1;
 	stats->min_cost = stats->best_sibling_cpu_cost = INT_MAX;
 	stats->min_load	= stats->best_sibling_cpu_load = ULLONG_MAX;
+	stats->max_load = 0;
 	stats->highest_spare_capacity = 0;
 	stats->least_loaded_cpu = -1;
 	stats->best_cpu_cstate = INT_MAX;
