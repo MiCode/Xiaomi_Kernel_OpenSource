@@ -123,6 +123,7 @@ static struct alpha_pll_masks pll_masks_b = {
 	.alpha_en_mask = BIT(24),
 	.output_mask = 0xf,
 	.post_div_mask = BM(11, 8),
+	.update_mask = BIT(22),
 };
 
 static struct alpha_pll_vco_tbl mmpll_t_vco[] = {
@@ -317,6 +318,7 @@ static struct alpha_pll_clk mmpll9 = {
 	.num_vco = ARRAY_SIZE(mmpll_t_vco),
 	.post_div_config = 0x100,
 	.enable_config = 0x1,
+	.dynamic_update = true,
 	.c = {
 		.parent = &mmsscc_xo.c,
 		.rate = 960000000,
