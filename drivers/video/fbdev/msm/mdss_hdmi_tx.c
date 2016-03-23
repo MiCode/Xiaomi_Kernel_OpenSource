@@ -77,6 +77,7 @@
 #define HDMI_DEFAULT_MAX_PCLK_RATE         148500
 #define HDMI_TX_3_MAX_PCLK_RATE            297000
 #define HDMI_TX_4_MAX_PCLK_RATE            600000
+#define HDMI_TX_KHZ_TO_HZ                  1000U
 
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
@@ -89,6 +90,9 @@ static bool hdcp_feature_on = true;
 #define AVI_IFRAME_LINE_NUMBER 1
 #define VENDOR_IFRAME_LINE_NUMBER 3
 #define MAX_EDID_READ_RETRY	5
+
+#define HDMI_TX_MIN_FPS 20000
+#define HDMI_TX_MAX_FPS 120000
 
 enum {
 	DATA_BYTE_1,
@@ -162,6 +166,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl);
 static void hdmi_tx_set_vendor_specific_infoframe(
 	struct hdmi_tx_ctrl *hdmi_ctrl);
+static void hdmi_tx_fps_work(struct work_struct *work);
 
 static struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -390,12 +395,15 @@ static int hdmi_tx_get_vic_from_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl,
 			new_vic = pinfo->vic;
 			DEV_DBG("%s: %s is supported\n", __func__,
 				msm_hdmi_mode_2string(new_vic));
+			pinfo->lcdc.frame_rate = info.refresh_rate;
 		} else {
 			DEV_ERR("%s: invalid or not supported vic %d\n",
 				__func__, pinfo->vic);
 			return -EPERM;
 		}
 	} else {
+		u64 pclk;
+
 		timing.active_h = pinfo->xres;
 		timing.back_porch_h = pinfo->lcdc.h_back_porch;
 		timing.front_porch_h = pinfo->lcdc.h_front_porch;
@@ -416,7 +424,10 @@ static int hdmi_tx_get_vic_from_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl,
 			timing.active_v, timing.back_porch_v,
 			timing.front_porch_v, timing.pulse_width_v, v_total);
 
-		timing.pixel_freq = ((unsigned long int)pinfo->clk_rate / 1000);
+		pclk = pinfo->clk_rate;
+		do_div(pclk, HDMI_TX_KHZ_TO_HZ);
+
+		timing.pixel_freq = (unsigned long) pclk;
 		if (h_total && v_total) {
 			timing.refresh_rate = ((timing.pixel_freq * 1000) /
 				(h_total * v_total)) * 1000;
@@ -740,6 +751,41 @@ static ssize_t hdmi_tx_sysfs_wta_audio_cb(struct device *dev,
 			ack, hdmi_ctrl->hpd_state);
 end:
 	return ret;
+}
+
+static int hdmi_tx_update_pixel_clk(struct hdmi_tx_ctrl *hdmi_ctrl, int fps)
+{
+	struct dss_module_power *power_data = NULL;
+	struct mdss_panel_info *pinfo;
+	int rc = 0;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	pinfo = &hdmi_ctrl->panel_data.panel_info;
+
+	power_data = &hdmi_ctrl->pdata.power_data[HDMI_TX_CORE_PM];
+	if (!power_data) {
+		DEV_ERR("%s: Error: invalid power data\n", __func__);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (power_data->clk_config->rate == pinfo->clk_rate) {
+		rc = -EINVAL;
+		goto end;
+	}
+
+	power_data->clk_config->rate = pinfo->clk_rate;
+
+	DEV_DBG("%s: rate %ld\n", __func__, power_data->clk_config->rate);
+
+	msm_dss_clk_set_rate(power_data->clk_config, power_data->num_clk);
+end:
+	return rc;
 }
 
 static ssize_t hdmi_tx_sysfs_wta_hot_plug(struct device *dev,
@@ -1908,12 +1954,16 @@ static int hdmi_tx_init_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	pinfo->lcdc.v_back_porch = timing.back_porch_v;
 	pinfo->lcdc.v_front_porch = timing.front_porch_v;
 	pinfo->lcdc.v_pulse_width = timing.pulse_width_v;
+	pinfo->lcdc.frame_rate = timing.refresh_rate;
 
 	pinfo->type = DTV_PANEL;
 	pinfo->pdest = DISPLAY_3;
 	pinfo->wait_cycle = 0;
 	pinfo->bpp = 24;
 	pinfo->fb_num = 1;
+
+	pinfo->min_fps = HDMI_TX_MIN_FPS;
+	pinfo->max_fps = HDMI_TX_MAX_FPS;
 
 	pinfo->lcdc.border_clr = 0; /* blk */
 	pinfo->lcdc.underflow_clr = 0xff; /* blue */
@@ -2108,6 +2158,18 @@ end:
 	return ret;
 } /* hdmi_tx_check_capability */
 
+static void hdmi_tx_update_panel_data(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	struct mdss_panel_info *pinfo = &hdmi_ctrl->panel_data.panel_info;
+
+	pinfo->saved_total = mdss_panel_get_htotal(pinfo, true);
+	pinfo->saved_fporch = hdmi_ctrl->vid_cfg.timing.front_porch_h;
+
+	pinfo->current_fps = hdmi_ctrl->vid_cfg.timing.refresh_rate;
+	pinfo->default_fps = hdmi_ctrl->vid_cfg.timing.refresh_rate;
+	pinfo->lcdc.frame_rate = hdmi_ctrl->vid_cfg.timing.refresh_rate;
+}
+
 static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 	struct mdss_panel_info *pinfo)
 {
@@ -2186,8 +2248,26 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
 		vid_cfg->vic, false);
 
+	hdmi_tx_update_panel_data(hdmi_ctrl);
+
 	return res_changed;
 } /* hdmi_tx_set_video_fmt */
+
+static bool hdmi_tx_check_for_video_update(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	struct msm_hdmi_mode_timing_info *timing = &hdmi_ctrl->vid_cfg.timing;
+	struct mdss_panel_info *pinfo = &hdmi_ctrl->panel_data.panel_info;
+
+	if (timing->back_porch_h != pinfo->lcdc.h_back_porch ||
+		timing->front_porch_h != pinfo->lcdc.h_front_porch ||
+		timing->pulse_width_h != pinfo->lcdc.h_pulse_width ||
+		timing->back_porch_v != pinfo->lcdc.v_back_porch ||
+		timing->front_porch_v != pinfo->lcdc.v_front_porch ||
+		timing->pulse_width_v != pinfo->lcdc.v_pulse_width)
+		return true;
+
+	return false;
+}
 
 static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
@@ -2200,6 +2280,7 @@ static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 	u32 div       = 0;
 	struct dss_io_data *io = NULL;
 	struct msm_hdmi_mode_timing_info *timing = NULL;
+	struct mdss_panel_info *pinfo;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -2217,12 +2298,44 @@ static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_ERR("%s: Core io is not initialized\n", __func__);
 		return -EPERM;
 	}
+
+	pinfo = &hdmi_ctrl->panel_data.panel_info;
+
 	/*
 	 * In case of YUV420 output, Horizontal timing parameters should be
 	 * reduced by half
 	 */
 	if (hdmi_ctrl->vid_cfg.avi_iframe.pixel_format == MDP_Y_CBCR_H2V2)
 		div = 1;
+
+	if (pinfo->dynamic_fps) {
+		if (!hdmi_tx_check_for_video_update(hdmi_ctrl))
+			return -EINVAL;
+
+		if (pinfo->dfps_update ==
+			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
+			pinfo->dfps_update ==
+				DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
+			DEV_DBG("%s: hfp=%d, hbp=%d, hpw=%d\n", __func__,
+				pinfo->lcdc.h_front_porch,
+				pinfo->lcdc.h_back_porch,
+				pinfo->lcdc.h_pulse_width);
+
+			timing->back_porch_h = pinfo->lcdc.h_back_porch;
+			timing->front_porch_h = pinfo->lcdc.h_front_porch;
+			timing->pulse_width_h = pinfo->lcdc.h_pulse_width;
+		} else if (pinfo->dfps_update ==
+			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) {
+			DEV_DBG("%s: vfp=%d, vbp=%d, vpw=%d\n", __func__,
+				pinfo->lcdc.v_front_porch,
+				pinfo->lcdc.v_back_porch,
+				pinfo->lcdc.v_pulse_width);
+
+			timing->back_porch_v = pinfo->lcdc.v_back_porch;
+			timing->front_porch_v = pinfo->lcdc.v_front_porch;
+			timing->pulse_width_v = pinfo->lcdc.v_pulse_width;
+		}
+	}
 
 	total_h = (hdmi_tx_get_h_total(timing) >> div) - 1;
 	total_v = hdmi_tx_get_v_total(timing) - 1;
@@ -3962,6 +4075,7 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	init_completion(&hdmi_ctrl->hpd_int_done);
 
 	INIT_WORK(&hdmi_ctrl->hpd_int_work, hdmi_tx_hpd_int_work);
+	INIT_WORK(&hdmi_ctrl->fps_work, hdmi_tx_fps_work);
 	INIT_WORK(&hdmi_ctrl->cable_notify_work, hdmi_tx_cable_notify_work);
 	INIT_DELAYED_WORK(&hdmi_ctrl->hdcp_cb_work, hdmi_tx_hdcp_cb_work);
 
@@ -4093,6 +4207,127 @@ static char *hdmi_tx_get_event_name(int event)
 	}
 }
 
+static void hdmi_tx_update_fps(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int rc = 0, vic = 0;
+	u64 pclk;
+	struct mdss_panel_data *pdata;
+	struct mdss_panel_info *pinfo;
+	struct msm_hdmi_mode_timing_info timing = {0};
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	pdata = &hdmi_ctrl->panel_data;
+	pinfo = &pdata->panel_info;
+
+	if (!pinfo->dynamic_fps) {
+		DEV_DBG("%s: Dynamic fps not enabled\n", __func__);
+		return;
+	}
+
+	if (hdmi_ctrl->dynamic_fps == pinfo->current_fps) {
+		DEV_DBG("%s: Panel is already at this FPS: %d\n",
+			__func__, hdmi_ctrl->dynamic_fps);
+		return;
+	}
+
+	if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl))
+		hdmi_tx_hdcp_off(hdmi_ctrl);
+
+	if (pinfo->dfps_update == DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
+		if (hdmi_tx_video_setup(hdmi_ctrl)) {
+			DEV_DBG("%s: no change in video timing\n", __func__);
+			return;
+		}
+
+		if (hdmi_tx_update_pixel_clk(hdmi_ctrl,
+			hdmi_ctrl->dynamic_fps)) {
+			DEV_DBG("%s: no change in clk\n", __func__);
+			return;
+		}
+
+		pinfo->saved_total = mdss_panel_get_htotal(pinfo, true);
+		pinfo->saved_fporch = pinfo->lcdc.h_front_porch;
+	} else if (pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
+		if (hdmi_tx_video_setup(hdmi_ctrl)) {
+			DEV_DBG("%s: no change in video timing\n", __func__);
+			return;
+		}
+
+		pinfo->saved_total = mdss_panel_get_htotal(pinfo, true);
+		pinfo->saved_fporch = pinfo->lcdc.h_front_porch;
+	} else if (pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) {
+		if (hdmi_tx_video_setup(hdmi_ctrl)) {
+			DEV_DBG("%s: no change in video timing\n", __func__);
+			return;
+		}
+
+		pinfo->saved_total = mdss_panel_get_vtotal(pinfo);
+		pinfo->saved_fporch = pinfo->lcdc.v_front_porch;
+	} else if (pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
+		if (hdmi_tx_update_pixel_clk(hdmi_ctrl,
+			hdmi_ctrl->dynamic_fps)) {
+			DEV_DBG("%s: no change in clk\n", __func__);
+			return;
+		}
+	}
+
+	pinfo->current_fps = hdmi_ctrl->dynamic_fps;
+	pinfo->default_fps = hdmi_ctrl->dynamic_fps;
+	pinfo->lcdc.frame_rate = hdmi_ctrl->dynamic_fps;
+	pinfo->dynamic_fps = false;
+
+	rc = hdmi_get_supported_mode(&timing, &hdmi_ctrl->ds_data,
+		hdmi_ctrl->vid_cfg.vic);
+
+	if (rc || !timing.supported) {
+		DEV_ERR("%s: timing details\n", __func__);
+		return;
+	}
+
+	timing.back_porch_h = pinfo->lcdc.h_back_porch;
+	timing.front_porch_h = pinfo->lcdc.h_front_porch;
+	timing.pulse_width_h = pinfo->lcdc.h_pulse_width;
+
+	timing.back_porch_v = pinfo->lcdc.v_back_porch;
+	timing.front_porch_v = pinfo->lcdc.v_front_porch;
+	timing.pulse_width_v = pinfo->lcdc.v_pulse_width;
+
+	timing.refresh_rate = hdmi_ctrl->dynamic_fps;
+
+	pclk = pinfo->clk_rate;
+	do_div(pclk, HDMI_TX_KHZ_TO_HZ);
+	timing.pixel_freq = (unsigned long) pclk;
+
+	hdmi_ctrl->vid_cfg.timing = timing;
+
+	vic = hdmi_get_video_id_code(&timing, &hdmi_ctrl->ds_data);
+
+	if (vic > 0 && hdmi_ctrl->vid_cfg.vic != vic) {
+		hdmi_ctrl->vid_cfg.vic = vic;
+		DEV_DBG("%s: switched to new resolution id %d\n",
+			__func__, vic);
+	}
+
+	hdmi_tx_start_hdcp(hdmi_ctrl);
+}
+
+static void hdmi_tx_fps_work(struct work_struct *work)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+
+	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, fps_work);
+	if (!hdmi_ctrl) {
+		DEV_DBG("%s: invalid input\n", __func__);
+		return;
+	}
+
+	hdmi_tx_update_fps(hdmi_ctrl);
+}
+
 static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 	int event, void *arg)
 {
@@ -4103,6 +4338,13 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
+	}
+
+	/* UPDATE FPS is called from atomic context */
+	if (event == MDSS_EVENT_PANEL_UPDATE_FPS) {
+		hdmi_ctrl->dynamic_fps = (u32) (unsigned long)arg;
+		queue_work(hdmi_ctrl->workq, &hdmi_ctrl->fps_work);
+		return rc;
 	}
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
