@@ -288,7 +288,7 @@ static void synaptics_rmi4_i2c_check_addr(struct synaptics_rmi4_data *rmi4_data,
 static int synaptics_rmi4_i2c_set_page(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr)
 {
-	int retval;
+	int retval = 0;
 	unsigned char retry;
 	unsigned char buf[PAGE_SELECT_LEN];
 	unsigned char page;
