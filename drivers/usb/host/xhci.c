@@ -5300,6 +5300,89 @@ static void xhci_clear_tt_buffer_complete(struct usb_hcd *hcd,
 	spin_unlock_irqrestore(&xhci->lock, flags);
 }
 
+phys_addr_t xhci_get_sec_event_ring_phys_addr(struct usb_device *udev,
+	unsigned int intr_num, dma_addr_t *dma)
+{
+	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	struct device *dev = hcd->self.sysdev;
+	struct sg_table sgt;
+	phys_addr_t pa;
+
+	if (udev->state == USB_STATE_NOTATTACHED || !HCD_RH_RUNNING(hcd))
+		return 0;
+
+	if (intr_num >= xhci->max_interrupters) {
+		xhci_err(xhci, "intr num %d >= max intrs %d\n", intr_num,
+			xhci->max_interrupters);
+		return 0;
+	}
+
+	if (!(xhci->xhc_state & XHCI_STATE_HALTED) &&
+		xhci->sec_event_ring && xhci->sec_event_ring[intr_num]
+		&& xhci->sec_event_ring[intr_num]->first_seg) {
+
+		dma_get_sgtable(dev, &sgt,
+			xhci->sec_event_ring[intr_num]->first_seg->trbs,
+			xhci->sec_event_ring[intr_num]->first_seg->dma,
+			TRB_SEGMENT_SIZE);
+
+		*dma = xhci->sec_event_ring[intr_num]->first_seg->dma;
+
+		pa = page_to_phys(sg_page(sgt.sgl));
+		sg_free_table(&sgt);
+
+		return pa;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(xhci_get_sec_event_ring_phys_addr);
+
+phys_addr_t xhci_get_xfer_ring_phys_addr(struct usb_device *udev,
+		struct usb_host_endpoint *ep, dma_addr_t *dma)
+{
+	int ret;
+	unsigned int ep_index;
+	struct xhci_virt_device *virt_dev;
+	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
+	struct device *dev = hcd->self.sysdev;
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	struct sg_table sgt;
+	phys_addr_t pa;
+
+	if (udev->state == USB_STATE_NOTATTACHED || !HCD_RH_RUNNING(hcd))
+		return 0;
+
+	ret = xhci_check_args(hcd, udev, ep, 1, true, __func__);
+	if (ret <= 0) {
+		xhci_err(xhci, "%s: invalid args\n", __func__);
+		return 0;
+	}
+
+	virt_dev = xhci->devs[udev->slot_id];
+	ep_index = xhci_get_endpoint_index(&ep->desc);
+
+	if (virt_dev->eps[ep_index].ring &&
+		virt_dev->eps[ep_index].ring->first_seg) {
+
+		dma_get_sgtable(dev, &sgt,
+			virt_dev->eps[ep_index].ring->first_seg->trbs,
+			virt_dev->eps[ep_index].ring->first_seg->dma,
+			TRB_SEGMENT_SIZE);
+
+		*dma = virt_dev->eps[ep_index].ring->first_seg->dma;
+
+		pa = page_to_phys(sg_page(sgt.sgl));
+		sg_free_table(&sgt);
+
+		return pa;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(xhci_get_xfer_ring_phys_addr);
+
 static const struct hc_driver xhci_hc_driver = {
 	.description =		"xhci-hcd",
 	.product_desc =		"xHCI Host Controller",
