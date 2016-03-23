@@ -2066,6 +2066,12 @@ static void wcd_mbhc_moisture_config(struct wcd_mbhc *mbhc)
 	if (mbhc->mbhc_cfg->moist_cfg.m_vref_ctl == V_OFF)
 		return;
 
+	/* Donot enable moisture detection if jack type is NC */
+	if (!mbhc->hphl_swh) {
+		pr_debug("%s: disable moisture detection for NC\n", __func__);
+		return;
+	}
+
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MOISTURE_VREF,
 				 mbhc->mbhc_cfg->moist_cfg.m_vref_ctl);
 	if (mbhc->mbhc_cb->hph_pull_up_control)
