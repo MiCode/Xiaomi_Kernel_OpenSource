@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -151,6 +151,7 @@ struct swr_master {
 			  const void *buf, size_t len);
 	int (*get_logical_dev_num)(struct swr_master *mstr, u64 dev_id,
 				u8 *dev_num);
+	void (*slvdev_datapath_control)(struct swr_master *mstr, bool enable);
 };
 
 static inline struct swr_master *to_swr_master(struct device *dev)
@@ -304,4 +305,6 @@ extern int swr_device_down(struct swr_device *swr_dev);
 
 extern int swr_reset_device(struct swr_device *swr_dev);
 
+extern int swr_slvdev_datapath_control(struct swr_device *swr_dev, u8 dev_num,
+				       bool enable);
 #endif /* _LINUX_SOUNDWIRE_H */
