@@ -4895,6 +4895,9 @@ static int msm8x16_wcd_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 		if (get_codec_version(msm8x16_wcd) < CONGA)
 			snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_WG_TIME, 0xFF, 0x2A);
+		if (get_codec_version(msm8x16_wcd) >= DIANGU)
+			snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC, 0x08, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		dev_dbg(w->codec->dev,
@@ -4928,6 +4931,9 @@ static int msm8x16_wcd_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 		if (get_codec_version(msm8x16_wcd) < CONGA)
 			snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_WG_TIME, 0xFF, 0x16);
+		if (get_codec_version(msm8x16_wcd) >= DIANGU)
+			snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC, 0x08, 0x08);
 		break;
 	}
 	return 0;
