@@ -965,7 +965,7 @@ void msm_fd_hw_put(struct msm_fd_device *fd)
  */
 static int msm_fd_hw_attach_iommu(struct msm_fd_device *fd)
 {
-	int ret;
+	int ret = -EINVAL;
 
 	mutex_lock(&fd->lock);
 
