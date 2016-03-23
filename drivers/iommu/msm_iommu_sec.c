@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -374,7 +374,7 @@ static int msm_iommu_sec_ptbl_init(void)
 		unsigned int spare;
 	} pinit = {0};
 	int psize[2] = {0, 0};
-	unsigned int spare;
+	unsigned int spare = 0;
 	int ret, ptbl_ret = 0;
 	int version;
 	/* Use a dummy device for dma_alloc_attrs allocation */
