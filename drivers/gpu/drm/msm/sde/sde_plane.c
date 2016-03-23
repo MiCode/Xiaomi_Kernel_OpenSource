@@ -1021,13 +1021,9 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 				DBG("%s: still pending!", psde->pipe_name);
 				full_modeset = true;
 			}
-			if (full_modeset) {
-				struct drm_crtc_state *crtc_state =
-					drm_atomic_get_crtc_state(state->state,
-							state->crtc);
-				crtc_state->mode_changed = true;
+			if (full_modeset)
 				to_sde_plane_state(state)->mode_changed = true;
-			}
+
 		} else {
 			to_sde_plane_state(state)->mode_changed = true;
 		}
