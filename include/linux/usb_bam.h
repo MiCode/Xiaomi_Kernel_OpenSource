@@ -226,7 +226,7 @@ struct msm_usb_bam_platform_data {
 	enum usb_ctrl bam_type;
 };
 
-#ifdef CONFIG_USB_BAM
+#if  IS_ENABLED(CONFIG_USB_BAM)
 /**
  * Connect USB-to-Peripheral SPS connection.
  *

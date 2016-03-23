@@ -19,7 +19,6 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/composite.h>
-#include <linux/usb_bam.h>
 #include <linux/usb/usb_qdss.h>
 
 struct usb_qdss_bam_connect_info {
