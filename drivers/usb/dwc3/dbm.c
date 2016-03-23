@@ -188,7 +188,7 @@ static int find_matching_dbm_ep(struct dbm *dbm, u8 usb_ep)
 		if (dbm->ep_num_mapping[i] == usb_ep)
 			return i;
 
-	pr_err("%s: No DBM EP matches USB EP %d", __func__, usb_ep);
+	pr_debug("%s: No DBM EP matches USB EP %d", __func__, usb_ep);
 	return -ENODEV; /* Not found */
 }
 
@@ -374,7 +374,7 @@ int dbm_ep_unconfig(struct dbm *dbm, u8 usb_ep)
 	dbm_ep = find_matching_dbm_ep(dbm, usb_ep);
 
 	if (dbm_ep < 0) {
-		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
+		pr_debug("usb ep index %d has no corespondng dbm ep\n", usb_ep);
 		return -ENODEV;
 	}
 
