@@ -240,6 +240,43 @@ void swr_port_response(struct swr_master *mstr, u8 tid)
 EXPORT_SYMBOL(swr_port_response);
 
 /**
+ * swr_slvdev_datapath_control - Enables/Disables soundwire slave device
+ *                               data path
+ * @dev: pointer to soundwire slave device
+ * @dev_num: device number of the soundwire slave device
+ *
+ * Returns error code for failure and 0 for success
+ */
+int swr_slvdev_datapath_control(struct swr_device *dev, u8 dev_num,
+				bool enable)
+{
+	struct swr_master *master;
+
+	if (!dev)
+		return -ENODEV;
+
+	master = dev->master;
+	if (!master)
+		return -EINVAL;
+
+	if (dev->group_id) {
+		/* Broadcast */
+		if (master->gr_sid != dev_num) {
+			if (!master->gr_sid)
+				master->gr_sid = dev_num;
+			else
+				return 0;
+		}
+	}
+
+	if (master->slvdev_datapath_control)
+		master->slvdev_datapath_control(master, enable);
+
+	return 0;
+}
+EXPORT_SYMBOL(swr_slvdev_datapath_control);
+
+/**
  * swr_connect_port - enable soundwire slave port(s)
  * @dev: pointer to soundwire slave device
  * @port_id: logical port id(s) of soundwire slave device
