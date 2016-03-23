@@ -407,6 +407,13 @@ apc_cpr: cpr4-ctrl@b018000 {
 	qcom,cpr-step-quot-fixed = <16>;
 	qcom,cpr-voltage-settling-time = <1600>;
 
+	qcom,cpr-panic-reg-addr-list =
+			<0xb1d2c18 0xb1d2900 0x0b1112b0 0xb018798>;
+	qcom,cpr-panic-reg-name-list =
+			"CCI_SAW4_PMIC_STS", "CCI_SAW4_VCTL",
+			"APCS_ALIAS0_APM_CTLER_STATUS",
+			"APCS0_CPR_CORE_ADJ_MODE_REG";
+
 	thread@0 {
 		qcom,cpr-thread-id = <0>;
 		qcom,cpr-consecutive-up = <1>;
