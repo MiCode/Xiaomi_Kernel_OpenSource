@@ -48,7 +48,7 @@
 			synaptics,power-delay-ms = <200>;
 			synaptics,reset-delay-ms = <200>;
 			synaptics,max-y-for-2d = <1919>;
-			synaptics,cap-button-codes = <139 172 158>;
+			synaptics,cap-button-codes = <139 158 172>;
 			synaptics,vir-button-codes = <139 180 2000 320 160
 						      158 540 2000 320 160
 						      172 900 2000 320 160>;
