@@ -618,7 +618,8 @@ static int msm_compr_get_partial_drain_delay(int frame_sz, int sample_rate)
 	delay_time_ms = delay_time_ms > PARTIAL_DRAIN_ACK_EARLY_BY_MSEC ?
 			delay_time_ms - PARTIAL_DRAIN_ACK_EARLY_BY_MSEC : 0;
 
-	pr_debug("%s: partial drain delay %d\n", __func__, delay_time_ms);
+	pr_debug("%s: frame_sz %d, sample_rate %d, partial drain delay %d\n",
+		__func__, frame_sz, sample_rate, delay_time_ms);
 	return delay_time_ms;
 }
 
@@ -1254,6 +1255,12 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	if (i == num_rates)
 		return -EINVAL;
 
+	memcpy(&prtd->codec_param, params, sizeof(struct snd_compr_params));
+	/* ToDo: remove duplicates */
+	prtd->num_channels = prtd->codec_param.codec.ch_in;
+	prtd->sample_rate = prtd->codec_param.codec.sample_rate;
+	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
+
 	if (prtd->codec_param.codec.compr_passthr >= 0 &&
 		prtd->codec_param.codec.compr_passthr <= 2)
 		prtd->compr_passthr = prtd->codec_param.codec.compr_passthr;
@@ -1371,12 +1378,6 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	prtd->partial_drain_delay =
 		msm_compr_get_partial_drain_delay(frame_sz, prtd->sample_rate);
 
-	memcpy(&prtd->codec_param, params, sizeof(struct snd_compr_params));
-
-	/* ToDo: remove duplicates */
-	prtd->num_channels = prtd->codec_param.codec.ch_in;
-	prtd->sample_rate = prtd->codec_param.codec.sample_rate;
-	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
 	ret = msm_compr_configure_dsp(cstream);
 
 	return ret;
