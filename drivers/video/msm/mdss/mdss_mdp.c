@@ -493,6 +493,19 @@ static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
 	return 1 << (intr_type + intf_num);
 }
 
+void mdss_mdp_enable_hw_irq(struct mdss_data_type *mdata)
+{
+	mdata->mdss_util->enable_irq(&mdss_mdp_hw);
+}
+
+void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata)
+{
+	if ((mdata->mdp_irq_mask == 0) &&
+		(mdata->mdp_intf_irq_mask == 0) &&
+		(mdata->mdp_hist_irq_mask == 0))
+		mdata->mdss_util->disable_irq(&mdss_mdp_hw);
+}
+
 /* function assumes that mdp is clocked to access hw registers */
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num)
@@ -577,7 +590,8 @@ void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 		writel_relaxed(mdata->mdp_irq_mask, mdata->mdp_base +
 			MDSS_MDP_REG_INTR_EN);
 		if ((mdata->mdp_irq_mask == 0) &&
-			(mdata->mdp_hist_irq_mask == 0))
+			(mdata->mdp_hist_irq_mask == 0) &&
+			(mdata->mdp_intf_irq_mask == 0))
 			mdata->mdss_util->disable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
@@ -618,7 +632,8 @@ void mdss_mdp_hist_irq_disable(u32 irq)
 		writel_relaxed(mdata->mdp_hist_irq_mask, mdata->mdp_base +
 			MDSS_MDP_REG_HIST_INTR_EN);
 		if ((mdata->mdp_irq_mask == 0) &&
-			(mdata->mdp_hist_irq_mask == 0))
+			(mdata->mdp_hist_irq_mask == 0) &&
+			(mdata->mdp_intf_irq_mask == 0))
 			mdata->mdss_util->disable_irq(&mdss_mdp_hw);
 	}
 }
@@ -648,7 +663,8 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 		writel_relaxed(mdata->mdp_irq_mask, mdata->mdp_base +
 			MDSS_MDP_REG_INTR_EN);
 		if ((mdata->mdp_irq_mask == 0) &&
-			(mdata->mdp_hist_irq_mask == 0))
+			(mdata->mdp_hist_irq_mask == 0) &&
+			(mdata->mdp_intf_irq_mask == 0))
 			mdata->mdss_util->disable_irq_nosync(&mdss_mdp_hw);
 	}
 }
