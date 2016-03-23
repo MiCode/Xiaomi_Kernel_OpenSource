@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,9 @@
 #include <linux/types.h>	/* uint32_t, bool */
 #ifndef BIT
 	#define BIT(x) (1 << x)
+#endif
+#ifndef PAGE_SIZE
+	#define PAGE_SIZE 4096
 #endif
 
 /**
@@ -43,6 +46,9 @@ enum spcom_cmd_id {
 	SPCOM_CMD_LOAD_APP	= 0x4C4F4144, /* "LOAD" = 0x4C4F4144 */
 	SPCOM_CMD_RESET_SP	= 0x52455354, /* "REST" = 0x52455354 */
 	SPCOM_CMD_SEND		= 0x53454E44, /* "SEND" = 0x53454E44 */
+	SPCOM_CMD_SEND_MODIFIED	= 0x534E444D, /* "SNDM" = 0x534E444D */
+	SPCOM_CMD_LOCK_ION_BUF  = 0x4C4F434B, /* "LOCK" = 0x4C4F434B */
+	SPCOM_CMD_UNLOCK_ION_BUF = 0x554C434B, /* "ULCK" = 0x4C4F434B */
 	SPCOM_CMD_FSSR		= 0x46535352, /* "FSSR" = 0x46535352 */
 	SPCOM_CMD_CREATE_CHANNEL = 0x43524554, /* "CRET" = 0x43524554 */
 };
@@ -65,15 +71,6 @@ struct spcom_user_command {
 	uint32_t arg;
 } __packed;
 
-/* Command structure between userspace spcomlib and spcom driver, on write() */
-struct spcom_user_load_app_command {
-	enum spcom_cmd_id cmd_id;
-	char ch_name[SPCOM_CHANNEL_NAME_SIZE];
-	uint32_t app_image_size;
-	char *app_buf_ptr;
-	uint32_t app_buf_size;
-} __packed;
-
 /* Command structure between User Space and spcom driver, on write() */
 struct spcom_send_command {
 	enum spcom_cmd_id cmd_id;
@@ -87,5 +84,30 @@ struct spcom_user_create_channel_command {
 	enum spcom_cmd_id cmd_id;
 	char ch_name[SPCOM_CHANNEL_NAME_SIZE];
 } __packed;
+
+/* maximum ION buf for send-modfied-command */
+#define SPCOM_MAX_ION_BUF 4
+
+struct spcom_ion_info {
+	int32_t fd; /* ION buffer File Descriptor, set -1 for invalid fd */
+	uint32_t buf_offset; /* virtual address offset in request/response */
+};
+
+/* Pass this FD to unlock all ION buffer for the specific channel */
+#define SPCOM_ION_FD_UNLOCK_ALL	0xFFFF
+
+struct spcom_ion_handle {
+	int32_t fd;		/* File Descriptor associated with the buffer */
+};
+
+/* Command structure between User Space and spcom driver, on write() */
+struct spcom_user_send_modified_command {
+	enum spcom_cmd_id cmd_id;
+	struct spcom_ion_info ion_info[SPCOM_MAX_ION_BUF];
+	uint32_t timeout_msec;
+	uint32_t buf_size;
+	char buf[0]; /* Variable buffer size - must be last field */
+} __packed;
+
 
 #endif /* _UAPI_SPCOM_H_ */
