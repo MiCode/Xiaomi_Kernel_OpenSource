@@ -52,7 +52,7 @@ static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
 static u32 mdss_mdp_get_vbp_factor_max(struct mdss_mdp_ctl *ctl);
 
-static void __mdss_mdp_reset_mixercfg(struct mdss_mdp_ctl *ctl)
+void mdss_mdp_reset_mixercfg(struct mdss_mdp_ctl *ctl)
 {
 	u32 off;
 	int i, nmixers;
@@ -3815,10 +3815,10 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_TOP, 0);
 	if (sctl) {
 		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP, 0);
-		__mdss_mdp_reset_mixercfg(sctl);
+		mdss_mdp_reset_mixercfg(sctl);
 	}
 
-	__mdss_mdp_reset_mixercfg(ctl);
+	mdss_mdp_reset_mixercfg(ctl);
 
 	ctl->play_cnt = 0;
 
@@ -4120,7 +4120,7 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 
 	/* check if mixer setup for rotator is needed */
 	if (mixer_hw->rotator_mode) {
-		__mdss_mdp_reset_mixercfg(ctl_hw);
+		mdss_mdp_reset_mixercfg(ctl_hw);
 		return;
 	}
 
@@ -4145,7 +4145,7 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 	    is_dsc_compression(&ctl->panel_data->panel_info) &&
 	    ctl->panel_data->panel_info.partial_update_enabled &&
 	    mdss_has_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU))
-		__mdss_mdp_reset_mixercfg(ctl_hw);
+		mdss_mdp_reset_mixercfg(ctl_hw);
 
 	if (!mixer->valid_roi) {
 		/*
