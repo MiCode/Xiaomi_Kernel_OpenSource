@@ -2108,7 +2108,7 @@
 
 	ssphy: ssphy@7410000 {
 		compatible = "qcom,usb-ssphy-qmp-v2";
-		reg = <0x7410000 0x45c>,
+		reg = <0x7410000 0x7a8>,
 		      <0x007ab244 0x4>;
 		reg-names = "qmp_phy_base",
 			    "vls_clamp_reg";
