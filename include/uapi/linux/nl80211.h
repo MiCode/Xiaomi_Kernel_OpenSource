@@ -1642,6 +1642,11 @@ enum nl80211_commands {
  * @NL80211_ATTR_SMPS_MODE: SMPS mode to use (ap mode). see
  *	&enum nl80211_smps_mode.
  *
+ * @NL80211_ATTR_PBSS: flag attribute. If set it means operate
+ *	in a PBSS. Specified in %NL80211_CMD_CONNECT to request
+ *	connecting to a PCP, and in %NL80211_CMD_START_AP to start
+ *	a PCP instead of AP. Relevant for DMG networks only.
+ *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
  */
@@ -1993,6 +1998,29 @@ enum nl80211_attrs {
 	NL80211_ATTR_ADMITTED_TIME,
 
 	NL80211_ATTR_SMPS_MODE,
+
+	NL80211_ATTR_OPER_CLASS,
+
+	NL80211_ATTR_MAC_MASK,
+
+	NL80211_ATTR_WIPHY_SELF_MANAGED_REG,
+
+	NL80211_ATTR_EXT_FEATURES,
+
+	NL80211_ATTR_SURVEY_RADIO_STATS,
+
+	NL80211_ATTR_NETNS_FD,
+
+	NL80211_ATTR_SCHED_SCAN_DELAY,
+
+	NL80211_ATTR_REG_INDOOR,
+
+	NL80211_ATTR_MAX_NUM_SCHED_SCAN_PLANS,
+	NL80211_ATTR_MAX_SCAN_PLAN_INTERVAL,
+	NL80211_ATTR_MAX_SCAN_PLAN_ITERATIONS,
+	NL80211_ATTR_SCHED_SCAN_PLANS,
+
+	NL80211_ATTR_PBSS,
 
 	/* add attributes here, update the policy in nl80211.c */
 

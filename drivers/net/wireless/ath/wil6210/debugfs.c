@@ -37,6 +37,7 @@ enum dbg_off_type {
 	doff_x32 = 1,
 	doff_ulong = 2,
 	doff_io32 = 3,
+	doff_u8 = 4
 };
 
 /* offset to "wil" */
@@ -350,6 +351,10 @@ static void wil6210_debugfs_init_offset(struct wil6210_priv *wil,
 			f = wil_debugfs_create_iomem_x32(tbl[i].name,
 							 tbl[i].mode, dbg,
 							 base + tbl[i].off);
+			break;
+		case doff_u8:
+			f = debugfs_create_u8(tbl[i].name, tbl[i].mode, dbg,
+					      base + tbl[i].off);
 			break;
 		default:
 			f = ERR_PTR(-EINVAL);
@@ -832,9 +837,9 @@ static ssize_t wil_write_file_wmi(struct file *file, const char __user *buf,
 				  size_t len, loff_t *ppos)
 {
 	struct wil6210_priv *wil = file->private_data;
-	struct wil6210_mbox_hdr_wmi *wmi;
+	struct wmi_cmd_hdr *wmi;
 	void *cmd;
-	int cmdlen = len - sizeof(struct wil6210_mbox_hdr_wmi);
+	int cmdlen = len - sizeof(struct wmi_cmd_hdr);
 	u16 cmdid;
 	int rc, rc1;
 
@@ -852,7 +857,7 @@ static ssize_t wil_write_file_wmi(struct file *file, const char __user *buf,
 	}
 
 	cmd = &wmi[1];
-	cmdid = le16_to_cpu(wmi->id);
+	cmdid = le16_to_cpu(wmi->command_id);
 
 	rc1 = wmi_send(wil, cmdid, cmd, cmdlen);
 	kfree(wmi);
@@ -1012,7 +1017,7 @@ static int wil_bf_debugfs_show(struct seq_file *s, void *data)
 		.interval_usec = 0,
 	};
 	struct {
-		struct wil6210_mbox_hdr_wmi wmi;
+		struct wmi_cmd_hdr wmi;
 		struct wmi_notify_req_done_event evt;
 	} __packed reply;
 
@@ -1549,6 +1554,7 @@ static const struct dbg_off dbg_wil_off[] = {
 	WIL_FIELD(hw_version,	S_IRUGO,		doff_x32),
 	WIL_FIELD(recovery_count, S_IRUGO,		doff_u32),
 	WIL_FIELD(ap_isolate,	S_IRUGO,		doff_u32),
+	WIL_FIELD(discovery_mode, S_IRUGO | S_IWUSR,	doff_u8),
 	{},
 };
 

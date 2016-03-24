@@ -119,7 +119,7 @@ int wil_cid_fill_sinfo(struct wil6210_priv *wil, int cid,
 		.interval_usec = 0,
 	};
 	struct {
-		struct wil6210_mbox_hdr_wmi wmi;
+		struct wmi_cmd_hdr wmi;
 		struct wmi_notify_req_done_event evt;
 	} __packed reply;
 	struct wil_net_stats *stats = &wil->sta[cid].stats;
@@ -319,6 +319,7 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 	mod_timer(&wil->scan_timer, jiffies + WIL6210_SCAN_TO);
 
 	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd.scan_type = WMI_ACTIVE_SCAN;
 	cmd.cmd.num_channels = 0;
 	n = min(request->n_channels, 4U);
 	for (i = 0; i < n; i++) {
@@ -345,6 +346,11 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 	rc = wmi_set_ie(wil, WMI_FRAME_PROBE_REQ, request->ie_len, request->ie);
 	if (rc)
 		goto out;
+
+	if (wil->discovery_mode && cmd.cmd.scan_type == WMI_ACTIVE_SCAN) {
+		cmd.cmd.discovery_mode = 1;
+		wil_dbg_misc(wil, "active scan with discovery_mode=1\n");
+	}
 
 	rc = wmi_send(wil, WMI_START_SCAN_CMDID, &cmd, sizeof(cmd.cmd) +
 			cmd.cmd.num_channels * sizeof(cmd.cmd.channel_list[0]));
@@ -428,9 +434,14 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	if (sme->privacy && !rsn_eid)
 		wil_info(wil, "WSC connection\n");
 
+	if (sme->pbss) {
+		wil_err(wil, "connect - PBSS not yet supported\n");
+		return -EOPNOTSUPP;
+	}
+
 	bss = cfg80211_get_bss(wiphy, sme->channel, sme->bssid,
 			       sme->ssid, sme->ssid_len,
-			       WLAN_CAPABILITY_ESS, WLAN_CAPABILITY_ESS);
+			       IEEE80211_BSS_TYPE_ESS, IEEE80211_PRIVACY_ANY);
 	if (!bss) {
 		wil_err(wil, "Unable to find BSS\n");
 		return -ENOENT;
@@ -569,7 +580,7 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	struct ieee80211_mgmt *mgmt_frame = (void *)buf;
 	struct wmi_sw_tx_req_cmd *cmd;
 	struct {
-		struct wil6210_mbox_hdr_wmi wmi;
+		struct wmi_cmd_hdr wmi;
 		struct wmi_sw_tx_complete_event evt;
 	} __packed evt;
 
@@ -1025,6 +1036,11 @@ static int wil_cfg80211_start_ap(struct wiphy *wiphy,
 	if (!channel) {
 		wil_err(wil, "AP: No channel???\n");
 		return -EINVAL;
+	}
+
+	if (info->pbss) {
+		wil_err(wil, "AP: PBSS not yet supported\n");
+		return -EOPNOTSUPP;
 	}
 
 	switch (info->hidden_ssid) {
