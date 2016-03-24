@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -620,6 +620,18 @@ int ion_heap_allow_heap_secure(enum ion_heap_type type)
 	return false;
 }
 
+bool is_secure_vmid_valid(int vmid)
+{
+
+	return (vmid == VMID_CP_TOUCH ||
+		vmid == VMID_CP_BITSTREAM ||
+		vmid == VMID_CP_PIXEL ||
+		vmid == VMID_CP_NON_PIXEL ||
+		vmid == VMID_CP_CAMERA ||
+		vmid == VMID_CP_SEC_DISPLAY ||
+		vmid == VMID_CP_APP);
+}
+
 int get_secure_vmid(unsigned long flags)
 {
 	if (flags & ION_FLAG_CP_TOUCH)
@@ -725,16 +737,34 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 	}
 	case ION_IOC_PREFETCH:
 	{
-		ion_walk_heaps(client, data.prefetch_data.heap_id,
+		int ret;
+
+		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
+			ION_HEAP_TYPE_SECURE_DMA,
 			(void *)data.prefetch_data.len,
 			ion_secure_cma_prefetch);
+		if (ret)
+			return ret;
+
+		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
+			ION_HEAP_TYPE_SYSTEM_SECURE,
+			(void *)&data.prefetch_data,
+			ion_system_secure_heap_prefetch);
+		if (ret)
+			return ret;
 		break;
 	}
 	case ION_IOC_DRAIN:
 	{
-		ion_walk_heaps(client, data.prefetch_data.heap_id,
+		int ret;
+
+		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
+			ION_HEAP_TYPE_SECURE_DMA,
 			(void *)data.prefetch_data.len,
 			ion_secure_cma_drain_pool);
+
+		if (ret)
+			return ret;
 		break;
 	}
 
