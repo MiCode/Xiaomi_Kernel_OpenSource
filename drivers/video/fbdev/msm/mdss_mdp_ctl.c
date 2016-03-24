@@ -27,6 +27,7 @@
 #include "mdss_mdp_trace.h"
 #include "mdss_debug.h"
 
+#define MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM 2
 #define NUM_MIXERCFG_REGS 3
 #define MDSS_MDP_WB_OUTPUT_BPP	3
 struct mdss_mdp_mixer_cfg {
@@ -551,12 +552,59 @@ exit:
 	return;
 }
 
+static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
+	struct mdss_rect src, struct mdss_rect dst, u32 src_h,
+	u32 fps, u32 v_total)
+{
+	u32 active_line_cycle, backfill_cycle, total_cycle;
+	u32 ver_dwnscale;
+	u32 active_line;
+	u32 backfill_line;
+
+	ver_dwnscale = (src_h << PHASE_STEP_SHIFT) / dst.h;
+
+	if (ver_dwnscale > (MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM
+			<< PHASE_STEP_SHIFT)) {
+		active_line = MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM
+			<< PHASE_STEP_SHIFT;
+		backfill_line = ver_dwnscale - active_line;
+	} else {
+		/* active line same as downscale and no backfill */
+		active_line = ver_dwnscale;
+		backfill_line = 0;
+	}
+
+	active_line_cycle = mult_frac(active_line, src.w,
+		4) >> PHASE_STEP_SHIFT; /* 4pix/clk */
+	if (active_line_cycle < dst.w)
+		active_line_cycle = dst.w;
+
+	backfill_cycle = mult_frac(backfill_line, src.w, 4) /* 4pix/clk */
+		>> PHASE_STEP_SHIFT;
+
+	total_cycle = active_line_cycle + backfill_cycle;
+
+	pr_debug("line: active=%d backfill=%d vds=%d\n",
+		active_line, backfill_line, ver_dwnscale);
+	pr_debug("cycle: total=%d active=%d backfill=%d\n",
+		total_cycle, active_line_cycle, backfill_cycle);
+
+	return total_cycle * (fps * v_total);
+}
+
+static inline bool __is_vert_downscaling(u32 src_h,
+	struct mdss_rect dst){
+
+	return (src_h > dst.h);
+}
+
 static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	struct mdss_rect src, struct mdss_rect dst,
 	u32 fps, u32 v_total, u32 flags)
 {
 	struct mdss_mdp_mixer *mixer;
 	u32 rate, src_h;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	/*
 	 * when doing vertical decimation lines will be skipped, hence there is
@@ -570,6 +618,11 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 
 		rate = pipe->src.w * pipe->src.h * fps;
 		rate /= 4; /* block mode fetch at 4 pix/clk */
+	} else if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map) &&
+		pipe->scaler.enable && __is_vert_downscaling(src_h, dst)) {
+
+		rate = __calc_qseed3_mdp_clk_rate(pipe, src, dst, src_h,
+			fps, v_total);
 	} else {
 
 		rate = dst.w;
