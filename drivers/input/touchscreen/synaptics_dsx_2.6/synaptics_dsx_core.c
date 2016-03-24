@@ -4483,6 +4483,10 @@ exit:
 	}
 	mutex_unlock(&exp_data.mutex);
 
+	if (!rmi4_data->suspend) {
+		synaptics_rmi4_enable_reg(rmi4_data, false);
+		synaptics_rmi4_get_reg(rmi4_data, false);
+	}
 	rmi4_data->suspend = true;
 
 	return 0;
@@ -4508,6 +4512,11 @@ static int synaptics_rmi4_resume(struct device *dev)
 	}
 
 	rmi4_data->current_page = MASK_8BIT;
+
+	if(rmi4_data->suspend) {
+		synaptics_rmi4_get_reg(rmi4_data, true);
+		synaptics_rmi4_enable_reg(rmi4_data, true);
+	}
 
 	synaptics_rmi4_sleep_enable(rmi4_data, false);
 	synaptics_rmi4_irq_enable(rmi4_data, true, false);
