@@ -48,6 +48,7 @@ its hardware characteristcs.
 		- "qcom,coresight-tpda"
 		- "qcom,coresight-tpdm"
 		- "qcom,coresight-remote-etm"
+		- "qcom,coresight-qpdi"
 
 	* port or ports: same as above.
 
@@ -103,6 +104,11 @@ its hardware characteristcs.
 * Required property for Remote ETMs:
 
 	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
+
+* Optional property for QPDI:
+
+	* qcom,pmic-carddetect-gpio: indicates the hotplug capabilities of the
+	  qpdi driver
 
 Example:
 
