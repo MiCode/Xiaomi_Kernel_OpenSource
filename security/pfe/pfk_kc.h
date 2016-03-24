@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,12 +17,15 @@
 
 int pfk_kc_init(void);
 int pfk_kc_deinit(void);
-int pfk_kc_load_key(const unsigned char *key, size_t key_size,
-		const unsigned char *salt, size_t salt_size, u32 *key_index);
+int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size, u32 *key_index,
+		bool async);
+void pfk_kc_load_key_end(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size);
 int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 		const unsigned char *salt, size_t salt_size);
 int pfk_kc_remove_key(const unsigned char *key, size_t key_size);
-void pfk_kc_clear(void);
+int pfk_kc_clear(void);
 
 
 
