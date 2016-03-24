@@ -106,10 +106,12 @@ its hardware characteristcs.
 
 	* qcom,inst-id: must be present. QMI instance id for remote ETMs.
 
-* Optional property for QPDI:
+* Optional properties for QPDI:
 
 	* qcom,pmic-carddetect-gpio: indicates the hotplug capabilities of the
 	  qpdi driver
+
+	* qcom,skip-ldo: set to skip LDO management.
 
 Example:
 

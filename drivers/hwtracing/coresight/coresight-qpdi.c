@@ -53,6 +53,7 @@ struct qpdi_drvdata {
 	unsigned int		reg_lpm_io;
 	unsigned int		reg_hpm_io;
 	int			pmic_gpio_vote;
+	bool			skip_ldo;
 	bool			enable;
 };
 
@@ -125,7 +126,7 @@ static int qpdi_enable(struct qpdi_drvdata *drvdata)
 	if (drvdata->enable)
 		goto out;
 
-	if (drvdata->pmic_gpio_vote < 0) {
+	if (!drvdata->skip_ldo) {
 		ret = __qpdi_enable(drvdata);
 		if (ret)
 			goto err;
@@ -165,7 +166,7 @@ static void qpdi_disable(struct qpdi_drvdata *drvdata)
 
 	qpdi_writel(drvdata, 0x3, QPDI_DISABLE_CFG);
 
-	if (drvdata->pmic_gpio_vote < 0)
+	if (!drvdata->skip_ldo)
 		__qpdi_disable(drvdata);
 
 	drvdata->enable = false;
@@ -228,6 +229,32 @@ static int qpdi_parse_of_data(struct platform_device *pdev,
 	const __be32 *prop;
 	int len, ret;
 
+	drvdata->skip_ldo = of_property_read_bool(node, "qcom,skip-ldo");
+	if (drvdata->skip_ldo)
+		return 0;
+
+	drvdata->pmic_gpio_vote = of_get_named_gpio(pdev->dev.of_node,
+						"qcom,pmic-carddetect-gpio", 0);
+	if (drvdata->pmic_gpio_vote < 0)
+		dev_info(dev, "QPDI hotplug card detection is not supported\n");
+	else {
+		ret = gpio_request(drvdata->pmic_gpio_vote, "qpdi_gpio_hp");
+		if (ret) {
+			dev_err(dev, "failed to allocate the GPIO\n");
+			return ret;
+		}
+
+		ret = gpio_direction_input(drvdata->pmic_gpio_vote);
+		if (ret) {
+			dev_err(dev, "failed to set the gpio to input\n");
+			gpio_free(drvdata->pmic_gpio_vote);
+			return ret;
+		}
+
+		drvdata->skip_ldo = 1;
+		return 0;
+	}
+
 	reg_node = of_parse_phandle(node, "vdd-supply", 0);
 	if (reg_node) {
 		drvdata->reg = devm_regulator_get(dev, "vdd");
@@ -281,24 +308,6 @@ static int qpdi_parse_of_data(struct platform_device *pdev,
 			"sdc io voltage supply not specified or available\n");
 	}
 
-	drvdata->pmic_gpio_vote = of_get_named_gpio(pdev->dev.of_node,
-						"qcom,pmic-carddetect-gpio", 0);
-	if (drvdata->pmic_gpio_vote < 0)
-		dev_info(dev, "QPDI hotplug card detection is not supported\n");
-	else {
-		ret = gpio_request(drvdata->pmic_gpio_vote, "qpdi_gpio_hp");
-		if (ret) {
-			dev_err(dev, "failed to allocate the GPIO\n");
-			return ret;
-		}
-
-		ret = gpio_direction_input(drvdata->pmic_gpio_vote);
-		if (ret) {
-			dev_err(dev, "failed to set the gpio to input\n");
-			gpio_free(drvdata->pmic_gpio_vote);
-			return ret;
-		}
-	}
 	return 0;
 }
 
