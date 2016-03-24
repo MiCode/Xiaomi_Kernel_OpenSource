@@ -111,6 +111,16 @@ config CORESIGHT_STM
 	  instrumentation based tracing. This is primarily useful for
 	  logging useful software events or data.
 
+config CORESIGHT_HWEVENT
+	bool "CoreSight Hardware Event driver"
+	depends on CORESIGHT_STM
+	select CORESIGHT_CSR
+	help
+	  This driver provides support for monitoring and tracing CoreSight
+	  Hardware Event across STM interface. It configures Coresight
+	  Hardware Event mux control registers to select hardware events
+	  based on user input.
+
 config CORESIGHT_CTI
 	bool "CoreSight Cross Trigger Interface driver"
 	help

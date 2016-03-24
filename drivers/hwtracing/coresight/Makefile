@@ -18,3 +18,4 @@ obj-$(CONFIG_CORESIGHT_TPDA) += coresight-tpda.o
 obj-$(CONFIG_CORESIGHT_TPDM) += coresight-tpdm.o
 obj-$(CONFIG_CORESIGHT_REMOTE_ETM) += coresight-remote-etm.o
 obj-$(CONFIG_CORESIGHT_QPDI) += coresight-qpdi.o
+obj-$(CONFIG_CORESIGHT_HWEVENT) += coresight-hwevent.o
