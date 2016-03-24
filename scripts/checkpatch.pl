@@ -14,6 +14,7 @@ use Term::ANSIColor qw(:constants);
 use constant BEFORE_SHORTTEXT => 0;
 use constant IN_SHORTTEXT => 1;
 use constant AFTER_SHORTTEXT => 2;
+use constant CHECK_NEXT_SHORTTEXT => 3;
 use constant SHORTTEXT_LIMIT => 75;
 
 my $P = $0;
@@ -2093,6 +2094,8 @@ sub process {
 	my $prevrawline="";
 	my $stashline="";
 	my $stashrawline="";
+	my $subjectline="";
+	my $sublinenr="";
 
 	my $length;
 	my $indent;
@@ -2355,8 +2358,21 @@ sub process {
 					     SHORTTEXT_LIMIT .
 					     " characters\n" . $herecurr);
 				}
-			} elsif ($line=~/^Subject: \[[^\]]*\] (.*)/) {
+			} elsif ($shorttext == CHECK_NEXT_SHORTTEXT) {
 				$shorttext = IN_SHORTTEXT;
+# Check for Subject line followed by a blank line.
+				if (length($line) != 0) {
+					WARN("NONBLANK_AFTER_SUMMARY",
+					     "non-blank line after summary " .
+					     "line\n" . $sublinenr . $here .
+					     "\n" . $subjectline . "\n" .
+					     $line . "\n");
+				}
+			} elsif ($line=~/^Subject: \[[^\]]*\] (.*)/) {
+				$shorttext = CHECK_NEXT_SHORTTEXT;
+				$subjectline = $line;
+				$sublinenr = "#$linenr & ";
+# Check for Subject line less than line limit
 				if (length($1) > SHORTTEXT_LIMIT) {
 					WARN("LONG_SUMMARY_LINE",
 					     "summary line over " .
