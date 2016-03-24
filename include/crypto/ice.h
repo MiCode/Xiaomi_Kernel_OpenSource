@@ -69,8 +69,8 @@ struct qcom_ice_variant_ops {
 	int	(*reset)(struct platform_device *);
 	int	(*resume)(struct platform_device *);
 	int	(*suspend)(struct platform_device *);
-	int	(*config)(struct platform_device *, struct request *,
-				struct ice_data_setting *);
+	int	(*config_start)(struct platform_device *, struct request *,
+				struct ice_data_setting *, bool);
 	int	(*config_end)(struct request *);
 	int	(*status)(struct platform_device *);
 	void	(*debug)(struct platform_device *);
