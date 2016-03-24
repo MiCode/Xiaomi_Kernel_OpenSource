@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/clock.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1173,7 +1173,7 @@ static void populate_clock_opp_table(struct device_node *np,
 	char clk_handle_name[MAX_LEN_OPP_HANDLE];
 	char clk_store_volt_corner[MAX_LEN_OPP_HANDLE];
 	size_t i;
-	int n, len, count, uv;
+	int n, len, count, uv = 0;
 	unsigned long rate, ret = 0;
 	bool store_vcorner;
 
