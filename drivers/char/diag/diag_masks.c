@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -639,7 +639,6 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 	struct diag_msg_build_mask_t *req = NULL;
 	struct diag_msg_build_mask_t rsp;
 	struct diag_mask_info *mask_info = NULL;
-	struct diag_msg_mask_t *mask_next = NULL;
 	uint32_t *temp = NULL;
 
 	mask_info = (!info) ? &msg_mask : info->msg_mask;
@@ -656,18 +655,11 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 	mutex_lock(&mask_info->lock);
 	mask = (struct diag_msg_mask_t *)mask_info->ptr;
 	for (i = 0; i < driver->msg_mask_tbl_count; i++, mask++) {
-		if (i < (driver->msg_mask_tbl_count - 1)) {
-			mask_next = mask;
-			mask_next++;
-		} else
-			mask_next = NULL;
-
 		if ((req->ssid_first < mask->ssid_first) ||
-		    (req->ssid_first > mask->ssid_first + MAX_SSID_PER_RANGE) ||
-		    (mask_next && (req->ssid_first >= mask_next->ssid_first))) {
+		    (req->ssid_first > (mask->ssid_first +
+					MAX_SSID_PER_RANGE))) {
 			continue;
 		}
-		mask_next = NULL;
 		found = 1;
 		mutex_lock(&mask->lock);
 		mask_size = req->ssid_last - req->ssid_first + 1;
@@ -1259,7 +1251,7 @@ int diag_create_msg_mask_table_entry(struct diag_msg_mask_t *msg_mask,
 	msg_mask->ssid_last = range->ssid_last;
 	msg_mask->ssid_last_tools = range->ssid_last;
 	msg_mask->range = msg_mask->ssid_last - msg_mask->ssid_first + 1;
-	if (msg_mask->range > MAX_SSID_PER_RANGE)
+	if (msg_mask->range < MAX_SSID_PER_RANGE)
 		msg_mask->range = MAX_SSID_PER_RANGE;
 	msg_mask->range_tools = msg_mask->range;
 	mutex_init(&msg_mask->lock);
