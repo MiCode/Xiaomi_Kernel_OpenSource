@@ -2195,8 +2195,8 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 	}
 
 	mdp3_res->splash_mem_addr = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_ADDR);
-
-	rc = mdp3_clk_enable(0, 0);
+	if (pdata->panel_info.type == MIPI_CMD_PANEL)
+		rc = mdp3_clk_enable(0, 0);
 	if (rc)
 		pr_err("fail to turn off MDP core clks\n");
 	return rc;
@@ -2648,10 +2648,12 @@ int mdp3_panel_get_intf_status(u32 disp_num, u32 intf_type)
 	status = (MDP3_REG_READ(MDP3_REG_DMA_P_CONFIG) & 0x180000);
 	/* DSI video mode or command mode */
 	rc = (status == 0x180000) || (status == 0x080000);
-
-	rc = mdp3_clk_enable(0, 0);
-	if (rc)
-		pr_err("fail to turn off MDP core clks\n");
+	/* For Video mode panel do not disable clock */
+	if (status == 0x80000) {
+		rc = mdp3_clk_enable(0, 0);
+		if (rc)
+			pr_err("fail to turn off MDP core clks\n");
+	}
 	return rc;
 }
 
