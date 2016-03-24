@@ -628,7 +628,12 @@ static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 		table_size = 1UL << data->pg_shift;
 
 	start = ptep;
-	end = (void *)ptep + table_size;
+
+	/* Only leaf entries at the last level */
+	if (lvl == ARM_LPAE_MAX_LEVELS - 1)
+		end = ptep;
+	else
+		end = (void *)ptep + table_size;
 
 	/* Only leaf entries at the last level */
 	if (lvl == ARM_LPAE_MAX_LEVELS - 1)
