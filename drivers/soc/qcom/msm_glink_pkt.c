@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1050,6 +1050,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	devp->open_cfg.notify_state = glink_pkt_notify_state;
 	devp->open_cfg.notify_rx_intent_req = glink_pkt_rmt_rx_intent_req_cb;
 	devp->open_cfg.notify_rx_sigs = glink_pkt_notify_rx_sigs;
+	devp->open_cfg.options |= GLINK_OPT_INITIAL_XPORT;
 	devp->open_cfg.priv = devp;
 
 	devp->i = i;
