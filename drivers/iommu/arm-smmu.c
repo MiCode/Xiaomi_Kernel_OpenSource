@@ -1515,7 +1515,7 @@ static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
 
 static unsigned long arm_smmu_pgtbl_lock(struct arm_smmu_domain *smmu_domain)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	if (arm_smmu_is_slave_side_secure(smmu_domain))
 		mutex_lock(&smmu_domain->pgtbl_mutex_lock);
