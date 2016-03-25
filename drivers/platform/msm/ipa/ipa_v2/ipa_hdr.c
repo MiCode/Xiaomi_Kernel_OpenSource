@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -785,7 +785,11 @@ int __ipa_del_hdr(u32 hdr_hdl)
 		return -EINVAL;
 	}
 
-	IPADBG("del hdr of sz=%d hdr_cnt=%d ofst=%d\n", entry->hdr_len,
+	if (entry->is_hdr_proc_ctx)
+		IPADBG("del hdr of sz=%d hdr_cnt=%d phys_base=%pa\n",
+			entry->hdr_len, htbl->hdr_cnt, &entry->phys_base);
+	else
+		IPADBG("del hdr of sz=%d hdr_cnt=%d ofst=%d\n", entry->hdr_len,
 			htbl->hdr_cnt, entry->offset_entry->offset);
 
 	if (--entry->ref_cnt) {
