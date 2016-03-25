@@ -285,6 +285,9 @@ Optional Properties:
 				detected based on GPIO.
 - qcom,vchg_sns-adc			Phandle of the VADC node.
 - qcom,vchg-adc-channel-id		The ADC channel to which the VCHG is routed.
+- qcom,override-usb-current		A boolean property to override the ICL limit
+					for USB charger(SDP) based on the current
+					reported by USB driver.
 
 Example:
 	qcom,qpnp-smbcharger {
