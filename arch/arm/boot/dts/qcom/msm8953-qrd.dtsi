@@ -52,6 +52,7 @@
 			synaptics,vir-button-codes = <139 180 2000 320 160
 						      158 540 2000 320 160
 						      172 900 2000 320 160>;
+			synaptics,resume-in-workqueue;
 		};
 	};
 
