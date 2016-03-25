@@ -1054,9 +1054,16 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	int rc;
 	struct wireless_dev *wdev = ndev->ieee80211_ptr;
 	u8 wmi_nettype = wil_iftype_nl2wmi(wdev->iftype);
+	u8 is_go = (wdev->iftype == NL80211_IFTYPE_P2P_GO);
 
 	if (pbss)
 		wmi_nettype = WMI_NETTYPE_P2P;
+
+	wil_dbg_misc(wil, "%s: is_go=%d\n", __func__, is_go);
+	if (is_go && !pbss) {
+		wil_err(wil, "%s: P2P GO must be in PBSS\n", __func__);
+		return -ENOTSUPP;
+	}
 
 	wil_set_recovery_state(wil, fw_recovery_idle);
 
@@ -1082,7 +1089,7 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 
 	netif_carrier_on(ndev);
 
-	rc = wmi_pcp_start(wil, bi, wmi_nettype, chan, hidden_ssid);
+	rc = wmi_pcp_start(wil, bi, wmi_nettype, chan, hidden_ssid, is_go);
 	if (rc)
 		goto err_pcp_start;
 
