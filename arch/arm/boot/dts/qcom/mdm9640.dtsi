@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -808,7 +808,7 @@
 
 	ssphy: ssphy@78000 {
 		compatible = "qcom,usb-ssphy-qmp-v1";
-		reg = <0x00078000 0x45c>,
+		reg = <0x00078000 0x750>,
 		     <0x01947244 0x4>;
 		reg-names = "qmp_phy_base",
 			"vls_clamp_reg";
