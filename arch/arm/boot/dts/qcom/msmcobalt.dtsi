@@ -237,19 +237,25 @@
 		removed_regions: removed_regions@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x85800000 0 0x4f00000>;
+			reg = <0 0x85800000 0 0x5300000>;
 		};
 
-		peripheral_mem: peripheral_region@91400000 {
+		peripheral_mem: peripheral_region@91900000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x91400000 0 0x2d00000>;
+			reg = <0 0x91900000 0 0x2b00000>;
 		};
 
-		modem_mem: modem_region@8a700000 {
+		modem_mem: modem_region@8ac00000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8a700000 0 0x6d00000>;
+			reg = <0 0x8ac00000 0 0x6d00000>;
+		};
+
+		spss_mem: spss_region@8ab00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8ab00000 0 0x100000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -1756,7 +1762,7 @@
 		qcom,pas-id = <14>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "spss";
-		memory-region = <&peripheral_mem>;
+		memory-region = <&spss_mem>;
 		qcom,spss-scsr-bits = <0 1 2 3 16 17 24 25>;
 	};
 
