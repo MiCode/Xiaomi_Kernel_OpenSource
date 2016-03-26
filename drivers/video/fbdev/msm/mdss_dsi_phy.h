@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@ enum phy_rev {
 	DSI_PHY_REV_UNKNOWN = 0x00,
 	DSI_PHY_REV_10 = 0x01,	/* REV 1.0 - 20nm, 28nm */
 	DSI_PHY_REV_20 = 0x02,	/* REV 2.0 - 14nm */
+	DSI_PHY_REV_30 = 0x03,  /* REV 3.0 */
 	DSI_PHY_REV_MAX,
 };
 

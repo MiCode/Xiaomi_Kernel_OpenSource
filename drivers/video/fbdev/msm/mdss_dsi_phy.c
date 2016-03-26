@@ -61,6 +61,7 @@ struct dsi_phy_timing {
 };
 
 struct dsi_phy_t_clk_param {
+	u32 phy_rev;
 	uint32_t bitclk_mbps;
 	uint32_t escclk_numer;
 	uint32_t escclk_denom;
@@ -117,15 +118,20 @@ static int mdss_dsi_phy_initialize_defaults(struct dsi_phy_t_clk_param *t_clk,
 	t_param->hs_exit.mipi_min = HS_EXIT_SPEC_MIN;
 	t_param->hs_exit.rec_max = HS_EXIT_RECO_MAX;
 
-	if (phy_rev == DSI_PHY_REV_20) {
-		t_param->clk_prepare.rec_min =
-			DIV_ROUND_UP((t_param->clk_prepare.mipi_min
-						* t_clk->bitclk_mbps),
-					(8 * t_clk->tlpx_numer_ns));
-		t_param->clk_prepare.rec_max =
-			rounddown(mult_frac(t_param->clk_prepare.mipi_max
-						* t_clk->bitclk_mbps, 1,
-						(8 * t_clk->tlpx_numer_ns)), 1);
+	t_clk->phy_rev = phy_rev;
+	if (phy_rev == DSI_PHY_REV_30) {
+		t_param->hs_rqst.mipi_min = HS_RQST_SPEC_MIN;
+		t_param->hs_rqst_clk.mipi_min = HS_RQST_SPEC_MIN;
+
+		t_clk->clk_prep_buf = 0;
+		t_clk->clk_zero_buf = 0;
+		t_clk->clk_trail_buf = 0;
+		t_clk->hs_prep_buf = 0;
+		t_clk->hs_zero_buf = 0;
+		t_clk->hs_trail_buf = 0;
+		t_clk->hs_rqst_buf = 0;
+		t_clk->hs_exit_buf = 0;
+	} else if (phy_rev == DSI_PHY_REV_20) {
 		t_param->hs_rqst.mipi_min = HS_RQST_SPEC_MIN;
 		t_param->hs_rqst_clk.mipi_min = HS_RQST_SPEC_MIN;
 
@@ -174,6 +180,13 @@ static int calc_clk_prepare(struct dsi_phy_t_clk_param *clk_params,
 		rc = -EINVAL;
 		goto error;
 	}
+
+	t->rec_min = DIV_ROUND_UP((t->mipi_min * clk_params->bitclk_mbps),
+				(8 * clk_params->tlpx_numer_ns));
+	t->rec_max = rounddown(mult_frac(t->mipi_max * clk_params->bitclk_mbps,
+					 1,
+					(8 * clk_params->tlpx_numer_ns)),
+			       1);
 
 	dividend = ((t->rec_max - t->rec_min) *
 		    clk_params->clk_prep_buf *
@@ -228,9 +241,15 @@ static int calc_clk_zero(struct dsi_phy_t_clk_param *clk_params,
 
 	rec_temp1 = div_s64((mipi_min * clk_params->bitclk_mbps),
 			    clk_params->tlpx_numer_ns);
-	rec_temp2 = (rec_temp1 - (11 * multiplier));
-	rec_temp3 = roundup(div_s64(rec_temp2, 8), multiplier);
-	rec_min = (div_s64(rec_temp3, multiplier) - 3);
+	if (clk_params->phy_rev == DSI_PHY_REV_30) {
+		rec_temp2 = (rec_temp1 - multiplier);
+		rec_temp3 = roundup(div_s64(rec_temp2, 8), multiplier);
+		rec_min = (div_s64(rec_temp3, multiplier) - 1);
+	} else {
+		rec_temp2 = (rec_temp1 - (11 * multiplier));
+		rec_temp3 = roundup(div_s64(rec_temp2, 8), multiplier);
+		rec_min = (div_s64(rec_temp3, multiplier) - 3);
+	}
 	t->rec_min = rec_min;
 	t->rec_max = ((t->rec_min > 255) ? 511 : 255);
 
@@ -289,18 +308,30 @@ static int calc_clk_trail(struct dsi_phy_t_clk_param *clk_params,
 			clk_params->tlpx_numer_ns);
 
 	div_s64_rem(temp_multiple, multiplier, &frac);
-	rec_temp1 = temp_multiple + frac + (3 * multiplier);
-	rec_temp2 = div_s64(rec_temp1, 8);
-	rec_temp3 = roundup(rec_temp2, multiplier);
+	if (clk_params->phy_rev == DSI_PHY_REV_30) {
+		rec_temp1 = temp_multiple + frac;
+		rec_temp2 = div_s64(rec_temp1, 8);
+		rec_temp3 = roundup(rec_temp2, multiplier);
+		t->rec_min = div_s64(rec_temp3, multiplier) - 1;
+	} else {
+		rec_temp1 = temp_multiple + frac + (3 * multiplier);
+		rec_temp2 = div_s64(rec_temp1, 8);
+		rec_temp3 = roundup(rec_temp2, multiplier);
+		t->rec_min = div_s64(rec_temp3, multiplier);
+	}
 
-	t->rec_min = div_s64(rec_temp3, multiplier);
 
 	/* recommended max */
 	rec_temp1 = div_s64((mipi_max * clk_params->bitclk_mbps),
 			    clk_params->tlpx_numer_ns);
-	rec_temp2 = rec_temp1 + (3 * multiplier);
-	rec_temp3 = rec_temp2 / 8;
-	t->rec_max = div_s64(rec_temp3, multiplier);
+	if (clk_params->phy_rev == DSI_PHY_REV_30) {
+		rec_temp3 = rec_temp1 / 8;
+		t->rec_max = div_s64(rec_temp3, multiplier) - 1;
+	} else {
+		rec_temp2 = rec_temp1 + (3 * multiplier);
+		rec_temp3 = rec_temp2 / 8;
+		t->rec_max = div_s64(rec_temp3, multiplier);
+	}
 
 	t->rec = DIV_ROUND_UP(
 		(((t->rec_max - t->rec_min) * clk_params->clk_trail_buf) +
@@ -421,9 +452,14 @@ static int calc_hs_zero(struct dsi_phy_t_clk_param *clk_params,
 	/* recommended min */
 	rec_temp1 = div_s64((rec_temp1 * clk_params->bitclk_mbps),
 			    clk_params->tlpx_numer_ns);
-	rec_temp2 = rec_temp1 - (11 * multiplier);
-	rec_temp3 = roundup((rec_temp2 / 8), multiplier);
-	rec_min = rec_temp3 - (3 * multiplier);
+	if (clk_params->phy_rev == DSI_PHY_REV_30) {
+		rec_temp3 = roundup((rec_temp1 / 8), multiplier);
+		rec_min = rec_temp3 - (1 * multiplier);
+	} else {
+		rec_temp2 = rec_temp1 - (11 * multiplier);
+		rec_temp3 = roundup((rec_temp2 / 8), multiplier);
+		rec_min = rec_temp3 - (3 * multiplier);
+	}
 	t->rec_min =  div_s64(rec_min, multiplier);
 	t->rec_max = ((t->rec_min > 255) ? 511 : 255);
 
@@ -466,14 +502,25 @@ static int calc_hs_trail(struct dsi_phy_t_clk_param *clk_params,
 
 	t->mipi_max = teot_clk_lane - clk_params->treot_ns;
 
-	t->rec_min = DIV_ROUND_UP(
-		((t->mipi_min * clk_params->bitclk_mbps) +
-		 (3 * clk_params->tlpx_numer_ns)),
-		(8 * clk_params->tlpx_numer_ns));
+	if (clk_params->phy_rev == DSI_PHY_REV_30) {
+		t->rec_min = DIV_ROUND_UP(
+			(t->mipi_min * clk_params->bitclk_mbps),
+			(8 * clk_params->tlpx_numer_ns)) - 1;
 
-	rec_temp1 = ((t->mipi_max * clk_params->bitclk_mbps) +
-		     (3 * clk_params->tlpx_numer_ns));
-	t->rec_max = div_s64(rec_temp1, (8 * clk_params->tlpx_numer_ns));
+		rec_temp1 = (t->mipi_max * clk_params->bitclk_mbps);
+		t->rec_max =
+		     (div_s64(rec_temp1, (8 * clk_params->tlpx_numer_ns))) - 1;
+	} else {
+		t->rec_min = DIV_ROUND_UP(
+			((t->mipi_min * clk_params->bitclk_mbps) +
+			 (3 * clk_params->tlpx_numer_ns)),
+			(8 * clk_params->tlpx_numer_ns));
+		rec_temp1 = ((t->mipi_max * clk_params->bitclk_mbps) +
+			     (3 * clk_params->tlpx_numer_ns));
+		t->rec_max =
+			div_s64(rec_temp1, (8 * clk_params->tlpx_numer_ns));
+	}
+
 	rec_temp1 = DIV_ROUND_UP(
 			((t->rec_max - t->rec_min) * clk_params->hs_trail_buf),
 			100);
@@ -588,7 +635,7 @@ error:
 	return rc;
 }
 
-static int mdss_dsi_phy_calc_param_phy_rev_2(
+static int mdss_dsi_phy_calc_param_phy_cmn(
 					struct dsi_phy_t_clk_param *clk_params,
 					struct dsi_phy_timing *desc)
 {
@@ -932,8 +979,7 @@ static void mdss_dsi_phy_update_timing_param(struct mdss_panel_info *pinfo,
 		reg->timing[11]);
 }
 
-static void mdss_dsi_phy_update_timing_param_rev_2(
-		struct mdss_panel_info *pinfo,
+static void mdss_dsi_phy_update_timing_param_v2(struct mdss_panel_info *pinfo,
 		struct dsi_phy_timing *t_param)
 {
 	struct mdss_dsi_phy_ctrl *reg;
@@ -964,6 +1010,27 @@ static void mdss_dsi_phy_update_timing_param_rev_2(
 		reg->timing_8996[i + 6] = 0x4;
 		reg->timing_8996[i + 7] = 0xA0;
 	}
+}
+
+static void mdss_dsi_phy_update_timing_param_v3(struct mdss_panel_info *pinfo,
+		struct dsi_phy_timing *t_param)
+{
+	struct mdss_dsi_phy_ctrl *pd;
+
+	pd = &(pinfo->mipi.dsi_phy_db);
+
+	pd->timing[0] = 0x00;
+	pd->timing[1] = t_param->clk_zero.program_value;
+	pd->timing[2] = t_param->clk_prepare.program_value;
+	pd->timing[3] = t_param->clk_trail.program_value;
+	pd->timing[4] = t_param->hs_exit.program_value;
+	pd->timing[5] = t_param->hs_zero.program_value;
+	pd->timing[6] = t_param->hs_prepare.program_value;
+	pd->timing[7] = t_param->hs_trail.program_value;
+	pd->timing[8] = t_param->hs_rqst.program_value;
+	pd->timing[9] = 0x03;
+	pd->timing[10] = 0x04;
+	pd->timing[11] = 0x00;
 }
 
 int mdss_dsi_phy_calc_timing_param(struct mdss_panel_info *pinfo, u32 phy_rev,
@@ -1020,12 +1087,20 @@ int mdss_dsi_phy_calc_timing_param(struct mdss_panel_info *pinfo, u32 phy_rev,
 		mdss_dsi_phy_update_timing_param(pinfo, &t_param);
 		break;
 	case DSI_PHY_REV_20:
-		rc = mdss_dsi_phy_calc_param_phy_rev_2(&t_clk, &t_param);
+		rc = mdss_dsi_phy_calc_param_phy_cmn(&t_clk, &t_param);
 		if (rc) {
 			pr_err("Phy timing calculations failed\n");
 			goto timing_calc_end;
 		}
-		mdss_dsi_phy_update_timing_param_rev_2(pinfo, &t_param);
+		mdss_dsi_phy_update_timing_param_v2(pinfo, &t_param);
+		break;
+	case DSI_PHY_REV_30:
+		rc = mdss_dsi_phy_calc_param_phy_cmn(&t_clk, &t_param);
+		if (rc) {
+			pr_err("Phy timing calculations failed\n");
+			goto timing_calc_end;
+		}
+		mdss_dsi_phy_update_timing_param_v3(pinfo, &t_param);
 		break;
 	default:
 		pr_err("phy rev %d not supported\n", phy_rev);
