@@ -287,13 +287,13 @@ static int pfk_set_ecryptfs_data(struct inode *inode, void *ecryptfs_data)
 
 
 /**
- * pfk_parse_cipher() - translate string cipher to enum
- * @cipher: cipher in string as received from ecryptfs
+ * pfk_parse_cipher() - parse cipher from ecryptfs to enum
+ * @ecryptfs_data: ecrypfs data
  * @algo: pointer to store the output enum (can be null)
  *
  * return 0 in case of success, error otherwise (i.e not supported cipher)
  */
-static int pfk_parse_cipher(const unsigned char *cipher,
+static int pfk_parse_cipher(const void *ecryptfs_data,
 	enum ice_cryto_algo_mode *algo)
 {
 	/*
@@ -302,11 +302,12 @@ static int pfk_parse_cipher(const unsigned char *cipher,
 	 * be introduced
 	 */
 
-	if (!cipher)
-		return -EPERM;
+	if (!ecryptfs_data)
+		return -EINVAL;
 
-	if (!strcmp(cipher, PFK_SUPPORTED_CIPHER) == 0) {
-		pr_debug("not supported alghoritm %s\n", cipher);
+	if (!ecryptfs_cipher_match(ecryptfs_data,
+			PFK_SUPPORTED_CIPHER, sizeof(PFK_SUPPORTED_CIPHER))) {
+		pr_debug("ecryptfs alghoritm is not supported by pfk\n");
 		return -EINVAL;
 	}
 
@@ -434,13 +435,6 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 	salt_size = ecryptfs_get_salt_size(ecryptfs_data);
 	if (!salt_size) {
 		pr_err("could not parse salt size from ecryptfs\n");
-		ret = -EINVAL;
-		goto end;
-	}
-
-	cipher = ecryptfs_get_cipher(ecryptfs_data);
-	if (!cipher) {
-		pr_err("could not parse key from ecryptfs\n");
 		ret = -EINVAL;
 		goto end;
 	}
@@ -594,7 +588,6 @@ end:
 static void pfk_open_cb(struct inode *inode, void *ecryptfs_data)
 {
 	size_t key_size;
-	const unsigned char *cipher = NULL;
 
 	if (!pfk_is_ready())
 		return;
@@ -610,13 +603,7 @@ static void pfk_open_cb(struct inode *inode, void *ecryptfs_data)
 		return;
 	}
 
-	cipher = ecryptfs_get_cipher(ecryptfs_data);
-	if (!cipher) {
-		pr_err("could not parse key from ecryptfs\n");
-		return;
-	}
-
-	if (0 != pfk_parse_cipher(cipher, NULL)) {
+	if (0 != pfk_parse_cipher(ecryptfs_data, NULL)) {
 		pr_debug("open_cb: not supported cipher\n");
 		return;
 	}
@@ -684,20 +671,21 @@ static void pfk_release_cb(struct inode *inode)
 
 	pfk_kc_remove_key_with_salt(key, key_size, salt, salt_size);
 
+
 	mutex_lock(&pfk_lock);
 	pfk_set_ecryptfs_data(inode, NULL);
 	mutex_unlock(&pfk_lock);
 }
 
-static bool pfk_is_cipher_supported_cb(const char *cipher)
+static bool pfk_is_cipher_supported_cb(const void *ecryptfs_data)
 {
 	if (!pfk_is_ready())
 		return false;
 
-	if (!cipher)
+	if (!ecryptfs_data)
 		return false;
 
-	return (pfk_parse_cipher(cipher, NULL)) == 0;
+	return (pfk_parse_cipher(ecryptfs_data, NULL)) == 0;
 }
 
 static bool pfk_is_hw_crypt_cb(void)
@@ -708,12 +696,12 @@ static bool pfk_is_hw_crypt_cb(void)
 	return true;
 }
 
-static size_t pfk_get_salt_key_size_cb(const char *cipher)
+static size_t pfk_get_salt_key_size_cb(const void *ecryptfs_data)
 {
 	if (!pfk_is_ready())
 		return 0;
 
-	if (!pfk_is_cipher_supported_cb(cipher))
+	if (!pfk_is_cipher_supported_cb(ecryptfs_data))
 		return 0;
 
 	return PFK_SUPPORTED_SALT_SIZE;
