@@ -70,7 +70,13 @@ static int set_name(const char *str, struct kernel_param *kp)
 
 	mutex_lock(&mutex);
 	if (count < MAX_ENTRIES) {
-		lib_names[count++] = name;
+		lib_names[count] = name;
+		/*
+		 * mb to ensure that the new lib_names entry is present
+		 * before updating the view presented by get_lib_names
+		 */
+		mb();
+		count++;
 	} else {
 		pr_err("app_setting: set name failed. Max entries reached\n");
 		mutex_unlock(&mutex);
