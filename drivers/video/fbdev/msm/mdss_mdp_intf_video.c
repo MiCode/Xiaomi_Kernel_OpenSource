@@ -827,10 +827,10 @@ static int mdss_mdp_video_fps_update(struct mdss_mdp_video_ctx *ctx,
 	int rc;
 
 	if (pdata->panel_info.dfps_update ==
-				DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP)
-		rc = mdss_mdp_video_hfp_fps_update(ctx, pdata);
-	else
+				DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP)
 		rc = mdss_mdp_video_vfp_fps_update(ctx, pdata);
+	else
+		rc = mdss_mdp_video_hfp_fps_update(ctx, pdata);
 
 	return rc;
 }
@@ -985,7 +985,9 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 		} else if (pdata->panel_info.dfps_update
 				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP ||
 				pdata->panel_info.dfps_update
-				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
+				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
+				pdata->panel_info.dfps_update
+				== DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
 			unsigned long flags;
 			if (!ctx->timegen_en) {
 				pr_err("TG is OFF. DFPS mode invalid\n");
@@ -1644,6 +1646,7 @@ static void early_wakeup_dfps_update_work(struct work_struct *work)
 	struct mdss_panel_info *pinfo;
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_ctl *ctl;
+	struct dynamic_fps_data data = {0};
 	int ret = 0;
 	int dfps;
 
@@ -1680,7 +1683,8 @@ static void early_wakeup_dfps_update_work(struct work_struct *work)
 		goto exit;
 	}
 
-	if (mdss_mdp_dfps_update_params(mfd, pdata, dfps))
+	data.fps = dfps;
+	if (mdss_mdp_dfps_update_params(mfd, pdata, &data))
 		pr_err("failed to set dfps params!\n");
 
 	/* update the HW with the new fps */
