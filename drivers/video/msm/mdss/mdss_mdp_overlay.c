@@ -2750,7 +2750,9 @@ static void cache_initial_timings(struct mdss_panel_data *pdata)
 				pdata->panel_info.lcdc.v_front_porch;
 
 		} else if (pdata->panel_info.dfps_update ==
-					DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
+				DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
+			pdata->panel_info.dfps_update ==
+				DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
 			pdata->panel_info.saved_total =
 				mdss_panel_get_htotal(&pdata->panel_info, true);
 			pdata->panel_info.saved_fporch =
@@ -2768,8 +2770,10 @@ static inline void dfps_update_fps(struct mdss_panel_info *pinfo, u32 fps)
 }
 
 static void dfps_update_panel_params(struct mdss_panel_data *pdata,
-	u32 new_fps)
+	struct dynamic_fps_data *data)
 {
+	u32 new_fps = data->fps;
+
 	/* Keep initial values before any dfps update */
 	cache_initial_timings(pdata);
 
@@ -2805,7 +2809,20 @@ static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 				pdata->panel_info.saved_fporch - add_h_pixels;
 
 		dfps_update_fps(&pdata->panel_info, new_fps);
+	} else if (pdata->panel_info.dfps_update ==
+		DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
 
+		pr_debug("hfp=%d, hbp=%d, hpw=%d, clk=%d, fps=%d\n",
+			data->hfp, data->hbp, data->hpw,
+			data->clk_rate, data->fps);
+
+		pdata->panel_info.lcdc.h_front_porch = data->hfp;
+		pdata->panel_info.lcdc.h_back_porch  = data->hbp;
+		pdata->panel_info.lcdc.h_pulse_width = data->hpw;
+
+		pdata->panel_info.clk_rate = data->clk_rate;
+
+		dfps_update_fps(&pdata->panel_info, new_fps);
 	} else {
 		dfps_update_fps(&pdata->panel_info, new_fps);
 		mdss_panel_update_clk_rate(&pdata->panel_info, new_fps);
@@ -2813,10 +2830,11 @@ static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 }
 
 int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
-	struct mdss_panel_data *pdata, int dfps)
+	struct mdss_panel_data *pdata, struct dynamic_fps_data *dfps_data)
 {
 	struct fb_var_screeninfo *var = &mfd->fbi->var;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	u32 dfps = dfps_data->fps;
 
 	mutex_lock(&mdp5_data->dfps_lock);
 
@@ -2833,9 +2851,9 @@ int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
 		dfps = pdata->panel_info.max_fps;
 	}
 
-	dfps_update_panel_params(pdata, dfps);
+	dfps_update_panel_params(pdata, dfps_data);
 	if (pdata->next)
-		dfps_update_panel_params(pdata->next, dfps);
+		dfps_update_panel_params(pdata->next, dfps_data);
 
 	/*
 	 * Update the panel info in the upstream
@@ -2854,17 +2872,12 @@ int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
 static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	int dfps, panel_fps, rc = 0;
+	int panel_fps, rc = 0;
 	struct mdss_panel_data *pdata;
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-
-	rc = kstrtoint(buf, 10, &dfps);
-	if (rc) {
-		pr_err("%s: kstrtoint failed. rc=%d\n", __func__, rc);
-		return rc;
-	}
+	struct dynamic_fps_data data = {0};
 
 	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
 		pr_debug("panel is off\n");
@@ -2883,15 +2896,31 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		return -EINVAL;
 	}
 
+	if (pdata->panel_info.dfps_update ==
+		DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
+		if (sscanf(buf, "%d %d %d %d %d",
+		    &data.hfp, &data.hbp, &data.hpw,
+		    &data.clk_rate, &data.fps) != 5) {
+			pr_err("could not read input\n");
+			return -EINVAL;
+		}
+	} else {
+		rc = kstrtoint(buf, 10, &data.fps);
+		if (rc) {
+			pr_err("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+			return rc;
+		}
+	}
+
 	panel_fps = mdss_panel_get_framerate(&pdata->panel_info);
 
-	if (dfps == panel_fps) {
+	if (data.fps == panel_fps) {
 		pr_debug("%s: FPS is already %d\n",
-			__func__, dfps);
+			__func__, data.fps);
 		return count;
 	}
 
-	rc = mdss_mdp_dfps_update_params(mfd, pdata, dfps);
+	rc = mdss_mdp_dfps_update_params(mfd, pdata, &data);
 	if (rc) {
 		pr_err("failed to set dfps params\n");
 		return rc;
