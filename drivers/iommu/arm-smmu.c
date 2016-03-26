@@ -452,6 +452,7 @@ struct arm_smmu_domain {
 	enum arm_smmu_domain_stage	stage;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	u32				attributes;
+	bool				slave_side_secure;
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
@@ -1491,14 +1492,14 @@ static bool arm_smmu_has_secure_vmid(struct arm_smmu_domain *smmu_domain)
 
 static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain)
 {
-	return arm_smmu_has_secure_vmid(smmu_domain) &&
-			arm_smmu_is_static_cb(smmu_domain->smmu);
+	return arm_smmu_has_secure_vmid(smmu_domain)
+		&& smmu_domain->slave_side_secure;
 }
 
 static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain)
 {
 	return arm_smmu_has_secure_vmid(smmu_domain)
-		&& !arm_smmu_is_static_cb(smmu_domain->smmu);
+		&& !smmu_domain->slave_side_secure;
 }
 
 static void arm_smmu_secure_domain_lock(struct arm_smmu_domain *smmu_domain)
@@ -2110,6 +2111,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			dev_err(dev, "Failed to get valid context bank\n");
 			goto err_disable_clocks;
 		}
+		smmu_domain->slave_side_secure = true;
 	}
 
 	/* Ensure that the domain is finalised */
