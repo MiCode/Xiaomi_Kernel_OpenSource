@@ -414,11 +414,38 @@ struct edp_panel_info {
 	char frame_rate;	/* fps */
 };
 
+/**
+ * struct dynamic_fps_data - defines dynamic fps related data
+ * @hfp: horizontal front porch
+ * @hbp: horizontal back porch
+ * @hpw: horizontal pulse width
+ * @clk_rate: panel clock rate in HZ
+ * @fps: frames per second
+ */
+struct dynamic_fps_data {
+	u32 hfp;
+	u32 hbp;
+	u32 hpw;
+	u32 clk_rate;
+	u32 fps;
+};
+
+/**
+ * enum dynamic_fps_update - defines fps update modes
+ * @DFPS_SUSPEND_RESUME_MODE: suspend/resume mode
+ * @DFPS_IMMEDIATE_CLK_UPDATE_MODE: update fps using clock
+ * @DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP: update fps using vertical timings
+ * @DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP: update fps using horizontal timings
+ * @DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP: update fps using both horizontal
+ *    timings and clock.
+ * @DFPS_MODE_MAX: defines maximum limit of supported modes.
+ */
 enum dynamic_fps_update {
 	DFPS_SUSPEND_RESUME_MODE,
 	DFPS_IMMEDIATE_CLK_UPDATE_MODE,
 	DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP,
 	DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP,
+	DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP,
 	DFPS_MODE_MAX
 };
 
