@@ -1050,4 +1050,11 @@ config FSM9900_GSM_NL
 	  The serial port connection can be established to communicate with the
 	  GSM NL module.
 
+config FORCE_FAST_CHARGE
+	bool "Increase input current limit to 900mA when charging via USB"
+	default y
+	help
+	  A simple sysfs interface to increase input current limit to
+	  900mA when charging via USB.
+
 endif
