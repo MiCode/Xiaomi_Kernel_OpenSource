@@ -294,6 +294,9 @@ Optional Properties:
 				a required property.
 - qcom,otg-pinctrl:		A boolean property to be used when OTG enable
 				control is configured in pin control mode.
+- qcom,override-usb-current	A boolean property to override the ICL limit
+				for USB charger(SDP) based on the current
+				reported by USB driver.
 
 Example:
 	qcom,qpnp-smbcharger {

@@ -13,7 +13,10 @@
 &soc {
 	qcom,vidc@1d00000 {
 		compatible = "qcom,msm-vidc";
-		reg = <0x01d00000 0xff000>;
+		reg = <0x01d00000 0xff000>,
+			<0x000a4124 0x4>;
+		reg-names = "vidc", "efuse";
+		qcom,platform-version = <0x00180000 0x13>;
 		interrupts = <0 44 0>;
 		/* Regulators */
 		venus-supply = <&gdsc_venus>;
@@ -45,10 +48,10 @@
 			<816000 816000 979200 0x3f00000c>,
 
 			/* Enc UHD@30 H.264/HEVC Turbo to Nom+ */
-			<897600 897600 979200 0x4000004>,
+			<897600 821100 979200 0x4000004>,
 
 			/* Enc True4K@24 H.264/HEVC Nom to Nom+ */
-			<816000 816000 835584 0x4000004>;
+			<816000 720000 835584 0x4000004>;
 		qcom,dcvs-limit =
 			<32400 24>, /* Encoder UHD */
 			<32400 24>; /* Decoder UHD */

@@ -149,14 +149,14 @@
 	st-fg@70 {
 		compatible = "st,stc3117";
 		reg = <0x70>;
-		st,rbatt-mohm = <427>;
+		st,rbatt-mohm = <477>;
 		st,nom-capacity-mah = <450>;
 		st,rsense-mohm = <25>;
 		st,float-voltage-mv = <4200>;
 		st,alarm-soc = <10>;
 		st,alarm-voltage-mv = <3400>;
 		st,term-current-ma = <50>;
-		st,relax-current-ma = <25>;
+		st,relax-current-ma = <100>;
 		st,adaptive-capacity-tbl =
 			/bits/ 16 <0x00 0x00 0x00 0x05 0x0d 0x2a 0x47>;
 		st,ocv-tbl =
@@ -170,5 +170,9 @@
 			/bits/ 16 <0x55 0x5a 0x64 0xa0 0x140 0x1b8 0x348>;
 		st,temp-tbl =
 			/bits/ 16 <60 40 25 10 0 (-10) (-20)>;
+
+		st,empty-soc-uv = <3300000>;
+		qcom,fg-vadc = <&pm8916_vadc>;
+		qcom,fg-adc_tm = <&pm8916_adc_tm>;
 	};
 };

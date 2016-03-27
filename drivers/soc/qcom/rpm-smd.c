@@ -525,6 +525,33 @@ static int msm_rpm_read_sleep_ack(void)
 	if (glink_enabled)
 		ret = msm_rpm_glink_rx_poll(glink_data->glink_handle);
 	else {
+		int timeout = 10;
+
+		while (timeout) {
+			if (smd_is_pkt_avail(msm_rpm_data.ch_info))
+				break;
+			/*
+			 * Sleep for 50us at a time before checking
+			 * for packet availability. The 50us is based
+			 * on the the max time rpm could take to process
+			 * and send an ack for sleep set request.
+			 */
+			udelay(50);
+			timeout--;
+		}
+
+		/*
+		 * On timeout return an error and exit the spinlock
+		 * control on this cpu. This will allow any other
+		 * core that has wokenup and trying to acquire the
+		 * spinlock from being locked out.
+		 */
+
+		if (!timeout) {
+			pr_err("Timed out waiting for RPM ACK\n");
+			return -EAGAIN;
+		}
+
 		ret = msm_rpm_read_smd_data(buf);
 		if (!ret)
 			ret = smd_is_pkt_avail(msm_rpm_data.ch_info);

@@ -750,46 +750,6 @@ static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
 	return memdesc->size + sizeof(*header);
 }
 
-/* Snapshot a preemption record buffer */
-static size_t snapshot_preemption_record(struct kgsl_device *device, u8 *buf,
-	size_t remain, void *priv)
-{
-	struct kgsl_memdesc *memdesc = priv;
-	struct a5xx_cp_preemption_record record;
-	int size = sizeof(record);
-
-	struct kgsl_snapshot_gpu_object_v2 *header =
-		(struct kgsl_snapshot_gpu_object_v2 *)buf;
-
-	u8 *ptr = buf + sizeof(*header);
-
-	if (size == 0)
-		return 0;
-
-	if (remain < (size + sizeof(*header))) {
-		KGSL_CORE_ERR(
-			"snapshot: Not enough memory for preemption record\n");
-		return 0;
-	}
-
-	if (memdesc->hostptr == NULL) {
-		KGSL_CORE_ERR(
-		"snapshot: no kernel mapping for preemption record 0x%016llX\n",
-				memdesc->gpuaddr);
-		return 0;
-	}
-
-	header->size = size >> 2;
-	header->gpuaddr = memdesc->gpuaddr;
-	header->ptbase =
-		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
-	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
-
-	memcpy(ptr, memdesc->hostptr, size);
-
-	return size + sizeof(*header);
-}
-
 /* Snapshot IOMMU specific buffers */
 static void adreno_snapshot_iommu(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
@@ -837,7 +797,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	unsigned int ib1size, ib2size;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct adreno_ringbuffer *rb;
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
@@ -881,15 +840,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_IOMMU)
 		adreno_snapshot_iommu(device, snapshot);
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
-		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-			kgsl_snapshot_add_section(device,
-				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-				snapshot, snapshot_preemption_record,
-				&rb->preemption_desc);
-		}
-	}
 
 	/*
 	 * Add a section that lists (gpuaddr, size, memtype) tuples of the

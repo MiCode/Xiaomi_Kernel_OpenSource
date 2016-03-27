@@ -506,6 +506,8 @@ static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 static int pp_mfd_release_all(struct msm_fb_data_type *mfd);
 static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd);
 static int mdss_mdp_ad_ipc_reset(struct msm_fb_data_type *mfd);
+static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
+
 static u32 last_sts, last_state;
 
 static inline void mdss_mdp_pp_get_dcm_state(struct mdss_mdp_pipe *pipe,
@@ -1817,6 +1819,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 current_opmode, location;
 	u32 dcm_state = DCM_UNINIT;
+	struct mdss_mdp_pipe *pipe_list;
 
 	if (pipe == NULL)
 		return -EINVAL;
@@ -1840,53 +1843,19 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	case MDSS_MDP_PIPE_TYPE_VIG:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_VIG_BASE;
 		pipe_cnt = mdata->nvig_pipes;
+		pipe_list = mdata->vig_pipes;
 		location = SSPP_VIG;
-		switch (pipe->num) {
-		case MDSS_MDP_SSPP_VIG0:
-			pipe_num = 0;
-		break;
-		case MDSS_MDP_SSPP_VIG1:
-			pipe_num = 1;
-		break;
-		case MDSS_MDP_SSPP_VIG2:
-			pipe_num = 2;
-		break;
-		case MDSS_MDP_SSPP_VIG3:
-			pipe_num = 3;
-		break;
-		default:
-			pr_err("Invalid pipe num %d pipe type %d\n",
-			       pipe->num, pipe->type);
-			return -EINVAL;
-		}
 		break;
 	case MDSS_MDP_PIPE_TYPE_RGB:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_RGB_BASE;
 		pipe_cnt = mdata->nrgb_pipes;
+		pipe_list = mdata->rgb_pipes;
 		location = SSPP_RGB;
-		switch (pipe->num) {
-		case MDSS_MDP_SSPP_RGB0:
-			pipe_num = 0;
-		break;
-		case MDSS_MDP_SSPP_RGB1:
-			pipe_num = 1;
-		break;
-		case MDSS_MDP_SSPP_RGB2:
-			pipe_num = 2;
-		break;
-		case MDSS_MDP_SSPP_RGB3:
-			pipe_num = 3;
-		break;
-		default:
-			pr_err("Invalid pipe num %d pipe type %d\n",
-			       pipe->num, pipe->type);
-			return -EINVAL;
-		}
 		break;
 	case MDSS_MDP_PIPE_TYPE_DMA:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_DMA_BASE;
-		pipe_num = pipe->num - MDSS_MDP_SSPP_DMA0;
 		pipe_cnt = mdata->ndma_pipes;
+		pipe_list = mdata->dma_pipes;
 		location = SSPP_DMA;
 		break;
 	case MDSS_MDP_PIPE_TYPE_CURSOR:
@@ -1894,6 +1863,17 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		return 0;
 	default:
 		pr_err("Invalid pipe type %d\n", pipe->type);
+		return -EINVAL;
+	}
+
+	for (pipe_num = 0; pipe_num < pipe_cnt; pipe_num++) {
+		if (pipe == (pipe_list + pipe_num))
+			break;
+	}
+
+	if (pipe_num == pipe_cnt) {
+		pr_err("Invalid pipe num %d pipe type %d\n",
+				pipe->num, pipe->type);
 		return -EINVAL;
 	}
 
@@ -2047,6 +2027,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 			goto error;
 		}
 	} else if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG &&
+		(pp_driver_ops.is_sspp_hist_supp) &&
 		(pp_driver_ops.is_sspp_hist_supp())) {
 		pipe = __get_hist_pipe(PP_BLOCK(block));
 		if (IS_ERR_OR_NULL(pipe)) {
@@ -2790,7 +2771,6 @@ int mdss_mdp_pp_init(struct device *dev)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *vig;
 	struct pp_hist_col_info *hist;
-	void *ret_ptr = NULL;
 	u32 ctl_off = 0;
 
 	if (!mdata)
@@ -2812,17 +2792,13 @@ int mdss_mdp_pp_init(struct device *dev)
 			if (mdss_mdp_pp_dt_parse(dev))
 				pr_info("No PP info in device tree\n");
 
-			ret_ptr = pp_get_driver_ops(&pp_driver_ops);
-			if (IS_ERR(ret_ptr)) {
+			ret = pp_get_driver_ops(&pp_driver_ops);
+			if (ret) {
 				pr_err("pp_get_driver_ops failed, ret=%d\n",
-						(int) PTR_ERR(ret_ptr));
-				ret = PTR_ERR(ret_ptr);
+						ret);
 				goto pp_exit;
-			} else {
-				mdss_pp_res->pp_data_res = ret_ptr;
-				pp_ops = pp_driver_ops.pp_ops;
 			}
-
+			pp_ops = pp_driver_ops.pp_ops;
 			hist = devm_kzalloc(dev,
 					sizeof(struct pp_hist_col_info) *
 					mdata->ndspp,
@@ -7295,4 +7271,44 @@ static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 	}
 
 	return 0;
+}
+
+static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int ret = 0;
+	void *pp_cfg = NULL;
+
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_107:
+	case MDSS_MDP_HW_REV_107_1:
+	case MDSS_MDP_HW_REV_107_2:
+	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_115:
+	case MDSS_MDP_HW_REV_116:
+		pp_cfg = pp_get_driver_ops_v1_7(ops);
+		if (IS_ERR_OR_NULL(pp_cfg))
+			ret = -EINVAL;
+		else
+			mdss_pp_res->pp_data_v1_7 = pp_cfg;
+		break;
+	case MDSS_MDP_HW_REV_300:
+	case MDSS_MDP_HW_REV_301:
+		pp_cfg = pp_get_driver_ops_v3(ops);
+		if (IS_ERR_OR_NULL(pp_cfg)) {
+			ret = -EINVAL;
+		} else {
+			mdss_pp_res->pp_data_v1_7 = pp_cfg;
+			/* Currently all caching data is used from v17 for V3
+			 * hence setting the pointer to NULL. Will be used if we
+			 * have to add any caching specific to V3.
+			 */
+			mdss_pp_res->pp_data_v3 = NULL;
+		}
+		break;
+	default:
+		memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
+		break;
+	}
+	return ret;
 }
