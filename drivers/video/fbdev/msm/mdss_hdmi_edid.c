@@ -2365,7 +2365,8 @@ bool hdmi_edid_get_sink_scrambler_support(void *input)
 	return scramble_support;
 }
 
-int hdmi_edid_get_audio_blk(void *input, struct msm_hdmi_audio_edid_blk *blk)
+int hdmi_edid_get_audio_blk(void *input,
+				struct msm_ext_disp_audio_edid_blk *blk)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
 

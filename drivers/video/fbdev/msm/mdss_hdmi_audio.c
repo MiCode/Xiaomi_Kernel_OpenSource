@@ -64,7 +64,7 @@ enum hdmi_audio_sample_rates {
 
 struct hdmi_audio {
 	struct dss_io_data *io;
-	struct msm_hdmi_audio_setup_params params;
+	struct msm_ext_disp_audio_setup_params params;
 	struct switch_dev sdev;
 	u32 pclk;
 	bool ack_enabled;
@@ -145,7 +145,7 @@ static void hdmi_audio_acr_enable(struct hdmi_audio *audio)
 {
 	struct dss_io_data *io;
 	struct hdmi_audio_acr acr;
-	struct msm_hdmi_audio_setup_params *params;
+	struct msm_ext_disp_audio_setup_params *params;
 	u32 pclk, layout, multiplier, sample_rate;
 	u32 acr_pkt_ctl, aud_pkt_ctl2, acr_reg_cts, acr_reg_n;
 
@@ -327,7 +327,7 @@ end:
 }
 
 static int hdmi_audio_on(void *ctx, u32 pclk,
-	struct msm_hdmi_audio_setup_params *params)
+	struct msm_ext_disp_audio_setup_params *params)
 {
 	struct hdmi_audio *audio = ctx;
 	int rc = 0;

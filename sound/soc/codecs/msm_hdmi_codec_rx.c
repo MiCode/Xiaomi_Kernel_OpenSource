@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
-#include <linux/msm_hdmi.h>
+#include <linux/msm_ext_display.h>
 
 #define MSM_HDMI_PCM_RATES	SNDRV_PCM_RATE_48000
 
@@ -25,7 +25,7 @@ static int msm_hdmi_audio_codec_return_value;
 
 struct msm_hdmi_audio_codec_rx_data {
 	struct platform_device *hdmi_core_pdev;
-	struct msm_hdmi_audio_codec_ops hdmi_ops;
+	struct msm_ext_disp_audio_codec_ops hdmi_ops;
 };
 
 static int msm_hdmi_edid_ctl_info(struct snd_kcontrol *kcontrol,
@@ -33,7 +33,7 @@ static int msm_hdmi_edid_ctl_info(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct msm_hdmi_audio_codec_rx_data *codec_data;
-	struct msm_hdmi_audio_edid_blk edid_blk;
+	struct msm_ext_disp_audio_edid_blk edid_blk;
 	int rc;
 
 	codec_data = snd_soc_codec_get_drvdata(codec);
@@ -52,7 +52,7 @@ static int msm_hdmi_edid_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol) {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct msm_hdmi_audio_codec_rx_data *codec_data;
-	struct msm_hdmi_audio_edid_blk edid_blk;
+	struct msm_ext_disp_audio_edid_blk edid_blk;
 	int rc;
 
 	codec_data = snd_soc_codec_get_drvdata(codec);
@@ -91,7 +91,7 @@ static int msm_hdmi_audio_codec_rx_dai_startup(
 			dev_get_drvdata(dai->codec->dev);
 
 	msm_hdmi_audio_codec_return_value =
-		codec_data->hdmi_ops.hdmi_cable_status(
+		codec_data->hdmi_ops.cable_status(
 		codec_data->hdmi_core_pdev, 1);
 	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
 		dev_err(dai->dev,
@@ -118,7 +118,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 	bool down_mix = 0;
 	u32 num_channels = params_channels(params);
 	int rc = 0;
-	struct msm_hdmi_audio_setup_params audio_setup_params = {0};
+	struct msm_ext_disp_audio_setup_params audio_setup_params = {0};
 
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
@@ -200,7 +200,7 @@ static void msm_hdmi_audio_codec_rx_dai_shutdown(
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
-	rc = codec_data->hdmi_ops.hdmi_cable_status(
+	rc = codec_data->hdmi_ops.cable_status(
 			codec_data->hdmi_core_pdev, 0);
 	if (IS_ERR_VALUE(rc)) {
 		dev_err(dai->dev,

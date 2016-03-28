@@ -245,7 +245,7 @@ fail:
 	return rc;
 }
 
-int register_hdmi_cable_notification(struct hdmi_cable_notify *handler)
+int register_hdmi_cable_notification(struct ext_disp_cable_notify *handler)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
 	struct list_head *pos;
@@ -271,7 +271,7 @@ int register_hdmi_cable_notification(struct hdmi_cable_notify *handler)
 	return handler->status;
 } /* register_hdmi_cable_notification */
 
-int unregister_hdmi_cable_notification(struct hdmi_cable_notify *handler)
+int unregister_hdmi_cable_notification(struct ext_disp_cable_notify *handler)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
 
@@ -297,7 +297,7 @@ int unregister_hdmi_cable_notification(struct hdmi_cable_notify *handler)
 static void hdmi_tx_cable_notify_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
-	struct hdmi_cable_notify *pos;
+	struct ext_disp_cable_notify *pos;
 
 	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, cable_notify_work);
 
@@ -3060,7 +3060,7 @@ static void hdmi_tx_phy_reset(struct hdmi_tx_ctrl *hdmi_ctrl)
 } /* hdmi_tx_phy_reset */
 
 static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
-	struct msm_hdmi_audio_setup_params *params)
+	struct msm_ext_disp_audio_setup_params *params)
 {
 	int rc = 0;
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
@@ -3077,7 +3077,7 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 
 	if (!is_mode_dvi && hdmi_tx_is_panel_on(hdmi_ctrl)) {
 		memcpy(&hdmi_ctrl->audio_params, params,
-			sizeof(struct msm_hdmi_audio_setup_params));
+			sizeof(struct msm_ext_disp_audio_setup_params));
 
 		hdmi_tx_audio_setup(hdmi_ctrl);
 	} else {
@@ -3103,7 +3103,7 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 }
 
 static int hdmi_tx_get_audio_edid_blk(struct platform_device *pdev,
-	struct msm_hdmi_audio_edid_blk *blk)
+	struct msm_ext_disp_audio_edid_blk *blk)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
 
@@ -3217,7 +3217,7 @@ static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
 }
 
 int msm_hdmi_register_audio_codec(struct platform_device *pdev,
-	struct msm_hdmi_audio_codec_ops *ops)
+	struct msm_ext_disp_audio_codec_ops *ops)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
 
@@ -3228,7 +3228,7 @@ int msm_hdmi_register_audio_codec(struct platform_device *pdev,
 
 	ops->audio_info_setup = hdmi_tx_audio_info_setup;
 	ops->get_audio_edid_blk = hdmi_tx_get_audio_edid_blk;
-	ops->hdmi_cable_status = hdmi_tx_get_cable_status;
+	ops->cable_status = hdmi_tx_get_cable_status;
 
 	return 0;
 } /* hdmi_tx_audio_register */
@@ -3473,7 +3473,7 @@ static inline void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_ctrl->audio_ops.off(hdmi_ctrl->audio_data);
 
 	memset(&hdmi_ctrl->audio_params, 0,
-		sizeof(struct msm_hdmi_audio_setup_params));
+		sizeof(struct msm_ext_disp_audio_setup_params));
 }
 
 static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
