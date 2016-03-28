@@ -1222,7 +1222,7 @@ static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 	if (!adreno_is_a540(adreno_dev))
 		return;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return;
 
 	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {
@@ -1260,7 +1260,7 @@ static uint64_t _read_throttling_counters(struct adreno_device *adreno_dev)
 	if (!adreno_is_a540(adreno_dev))
 		return 0;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return 0;
 
 	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {

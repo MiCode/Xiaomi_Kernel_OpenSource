@@ -1845,7 +1845,7 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	uint32_t agc_lm_config =
-		((ADRENO_CHIPID_PATCH(adreno_dev->chipid) | 0x3)
+		((ADRENO_CHIPID_PATCH(adreno_dev->chipid) & 0x3)
 		<< AGC_GPU_VERSION_SHIFT);
 	unsigned int r, i;
 
@@ -1855,8 +1855,8 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 			AGC_THROTTLE_SEL_DCS;
 
 		kgsl_regread(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, &r);
-		if (r & GPMU_BCL_ENABLED)
-			agc_lm_config |= AGC_BCL_ENABLED;
+		if (!(r & GPMU_BCL_ENABLED))
+			agc_lm_config |= AGC_BCL_DISABLED;
 
 		if (r & GPMU_LLM_ENABLED)
 			agc_lm_config |= AGC_LLM_ENABLED;
@@ -1904,6 +1904,9 @@ start_agc:
 
 	kgsl_regwrite(device, A5XX_GPMU_GPMU_PWR_THRESHOLD,
 		PWR_THRESHOLD_VALID | lm_limit(adreno_dev));
+
+	kgsl_regwrite(device, A5XX_GPMU_GPMU_VOLTAGE_INTR_EN_MASK,
+		VOLTAGE_INTR_EN);
 
 	if (lm_on(adreno_dev))
 		wake_llm(adreno_dev);
@@ -1953,7 +1956,10 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 {
 	int on = 0;
 
-	/* Only call through if PPD or LM is supported and enabled */
+	/*
+	 * On pre A540 HW only call through if PPD or LMx
+	 * is supported and enabled
+	 */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PPD) &&
 		test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag))
 		on = ADRENO_PPD;
@@ -1961,6 +1967,12 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		on = ADRENO_LM;
+
+	/* On 540+ HW call through unconditionally as long as GPMU is enabled */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+		if (adreno_is_a540(adreno_dev))
+			on = ADRENO_GPMU;
+	}
 
 	if (!on)
 		return;
