@@ -354,10 +354,12 @@ struct sched_cluster {
 	int efficiency; /* Differentiate cpus with different IPC capability */
 	int load_scale_factor;
 	/*
-	 * max_freq = user or thermal defined maximum
+	 * max_freq = user maximum
+	 * max_mitigated_freq = thermal defined maximum
 	 * max_possible_freq = maximum supported by hardware
 	 */
-	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
+	unsigned int cur_freq, max_freq, max_mitigated_freq, min_freq;
+	unsigned int max_possible_freq;
 	/*
 	 * cpu_cycle_max_scale_factor represents number of cycles per NSEC at
 	 * CPU's fmax.
@@ -1015,9 +1017,19 @@ static inline unsigned int cpu_min_freq(int cpu)
 	return cpu_rq(cpu)->cluster->min_freq;
 }
 
+static inline unsigned int cluster_max_freq(struct sched_cluster *cluster)
+{
+	/*
+	 * Governor and thermal driver don't know the other party's mitigation
+	 * voting. So struct cluster saves both and return min() for current
+	 * cluster fmax.
+	 */
+	return min(cluster->max_mitigated_freq, cluster->max_freq);
+}
+
 static inline unsigned int cpu_max_freq(int cpu)
 {
-	return cpu_rq(cpu)->cluster->max_freq;
+	return cluster_max_freq(cpu_rq(cpu)->cluster);
 }
 
 static inline unsigned int cpu_max_possible_freq(int cpu)

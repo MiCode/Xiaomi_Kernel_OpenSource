@@ -1231,7 +1231,7 @@ capacity_scale_cpu_efficiency(struct sched_cluster *cluster)
  */
 static unsigned long capacity_scale_cpu_freq(struct sched_cluster *cluster)
 {
-	return (1024 * cluster->max_freq) / min_max_freq;
+	return (1024 * cluster_max_freq(cluster)) / min_max_freq;
 }
 
 /*
@@ -1252,7 +1252,8 @@ load_scale_cpu_efficiency(struct sched_cluster *cluster)
  */
 static inline unsigned long load_scale_cpu_freq(struct sched_cluster *cluster)
 {
-	return DIV_ROUND_UP(1024 * max_possible_freq, cluster->max_freq);
+	return DIV_ROUND_UP(1024 * max_possible_freq,
+			   cluster_max_freq(cluster));
 }
 
 static int compute_capacity(struct sched_cluster *cluster)
@@ -1318,6 +1319,7 @@ static struct sched_cluster init_cluster = {
 	.load_scale_factor	=	1024,
 	.cur_freq		=	1,
 	.max_freq		=	1,
+	.max_mitigated_freq	=	UINT_MAX,
 	.min_freq		=	1,
 	.max_possible_freq	=	1,
 	.cpu_cycle_max_scale_factor	= 1,
@@ -1467,6 +1469,7 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 	cluster->load_scale_factor	=	1024;
 	cluster->cur_freq		=	1;
 	cluster->max_freq		=	1;
+	cluster->max_mitigated_freq	=	UINT_MAX;
 	cluster->min_freq		=	1;
 	cluster->max_possible_freq	=	1;
 	cluster->cpu_cycle_max_scale_factor =	1;
@@ -1912,7 +1915,7 @@ static int send_notification(struct rq *rq, int check_pred)
 		u64 prev = rq->old_busy_time;
 		u64 predicted = rq->hmp_stats.pred_demands_sum;
 
-		if (rq->cluster->cur_freq == rq->cluster->max_freq)
+		if (rq->cluster->cur_freq == cpu_max_freq(cpu_of(rq)))
 			return 0;
 
 		prev = max(prev, rq->old_estimated_time);
@@ -3638,6 +3641,53 @@ unsigned int sched_get_group_id(struct task_struct *p)
 	return group_id;
 }
 
+static void update_cpu_cluster_capacity(const cpumask_t *cpus)
+{
+	int i;
+	struct sched_cluster *cluster;
+	struct cpumask cpumask;
+
+	cpumask_copy(&cpumask, cpus);
+	pre_big_task_count_change(cpu_possible_mask);
+
+	for_each_cpu(i, &cpumask) {
+		cluster = cpu_rq(i)->cluster;
+		cpumask_andnot(&cpumask, &cpumask, &cluster->cpus);
+
+		cluster->capacity = compute_capacity(cluster);
+		cluster->load_scale_factor = compute_load_scale_factor(cluster);
+
+		/* 'cpus' can contain cpumask more than one cluster */
+		check_for_up_down_migrate_update(&cluster->cpus);
+	}
+
+	__update_min_max_capacity();
+
+	post_big_task_count_change(cpu_possible_mask);
+}
+
+void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax)
+{
+	struct cpumask cpumask;
+	struct sched_cluster *cluster;
+	unsigned int orig_max_freq;
+	int i, update_capacity = 0;
+
+	cpumask_copy(&cpumask, cpus);
+	for_each_cpu(i, &cpumask) {
+		cluster = cpu_rq(i)->cluster;
+		cpumask_andnot(&cpumask, &cpumask, &cluster->cpus);
+
+		orig_max_freq = cpu_max_freq(i);
+		cluster->max_mitigated_freq = fmax;
+
+		update_capacity += (orig_max_freq != cpu_max_freq(i));
+	}
+
+	if (update_capacity)
+		update_cpu_cluster_capacity(cpus);
+}
+
 static int cpufreq_notifier_policy(struct notifier_block *nb,
 		unsigned long val, void *data)
 {
@@ -3668,7 +3718,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 		cpumask_andnot(&policy_cluster, &policy_cluster,
 						&cluster->cpus);
 
-		orig_max_freq = cluster->max_freq;
+		orig_max_freq = cpu_max_freq(i);
 		cluster->min_freq = policy->min;
 		cluster->max_freq = policy->max;
 		cluster->cur_freq = policy->cur;
@@ -3690,27 +3740,11 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 			continue;
 		}
 
-		update_capacity += (orig_max_freq != policy->max);
+		update_capacity += (orig_max_freq != cpu_max_freq(i));
 	}
 
-	if (!update_capacity)
-		return 0;
-
-	policy_cluster = *policy->related_cpus;
-	pre_big_task_count_change(cpu_possible_mask);
-
-	for_each_cpu(i, &policy_cluster) {
-		cluster = cpu_rq(i)->cluster;
-		cpumask_andnot(&policy_cluster, &policy_cluster,
-						&cluster->cpus);
-		cluster->capacity = compute_capacity(cluster);
-		cluster->load_scale_factor = compute_load_scale_factor(cluster);
-	}
-
-	__update_min_max_capacity();
-
-	check_for_up_down_migrate_update(policy->related_cpus);
-	post_big_task_count_change(cpu_possible_mask);
+	if (update_capacity)
+		update_cpu_cluster_capacity(policy->related_cpus);
 
 	return 0;
 }
