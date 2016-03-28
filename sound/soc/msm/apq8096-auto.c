@@ -51,6 +51,8 @@ static int msm_proxy_rx_ch = 2;
 static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int msm_tert_mi2s_tx_ch = 2;
 static int msm_quat_mi2s_rx_ch = 2;
+static int msm_tert_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int msm_quat_mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
 /* TDM default channels */
 static int msm_tert_tdm_rx_0_ch = 2; /* ICC STREAM */
@@ -237,6 +239,8 @@ static char const *tdm_ch_text[] = {"One", "Two", "Three", "Four",
 	"Five", "Six", "Seven", "Eight"};
 
 static char const *tdm_bit_format_text[] = {"S16_LE", "S24_LE"};
+
+static char const *mi2s_bit_format_text[] = {"S16_LE", "S24_LE"};
 
 static struct afe_clk_set mi2s_tx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
@@ -434,6 +438,74 @@ static int msm_proxy_rx_ch_put(struct snd_kcontrol *kcontrol,
 	msm_proxy_rx_ch = ucontrol->value.integer.value[0] + 1;
 	pr_debug("%s: msm_proxy_rx_ch = %d\n", __func__, msm_proxy_rx_ch);
 	return 1;
+}
+
+static int msm_quat_mi2s_rx_bit_format_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (msm_quat_mi2s_rx_bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+	pr_debug("%s: msm_quat_mi2s_rx_bit_format = %ld\n",
+		 __func__, ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_quat_mi2s_rx_bit_format_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		msm_quat_mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		msm_quat_mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: msm_quat_mi2s_rx_bit_format = %d\n",
+		 __func__, msm_quat_mi2s_rx_bit_format);
+	return 0;
+}
+
+static int msm_tert_mi2s_tx_bit_format_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (msm_tert_mi2s_tx_bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+	pr_debug("%s: msm_tert_mi2s_tx_bit_format = %ld\n",
+		 __func__, ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_tert_mi2s_tx_bit_format_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		msm_tert_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		msm_tert_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: msm_tert_mi2s_tx_bit_format = %d\n",
+		 __func__, msm_tert_mi2s_tx_bit_format);
+	return 0;
 }
 
 static int msm_tert_tdm_rx_0_ch_get(struct snd_kcontrol *kcontrol,
@@ -1342,6 +1414,9 @@ static int msm_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s: channel:%d\n", __func__, msm_quat_mi2s_rx_ch);
 	rate->min = rate->max = SAMPLING_RATE_48KHZ;
 	channels->min = channels->max = msm_quat_mi2s_rx_ch;
+	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+		msm_quat_mi2s_rx_bit_format);
+
 	return 0;
 }
 
@@ -1356,6 +1431,9 @@ static int msm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s: channel:%d\n", __func__, msm_tert_mi2s_tx_ch);
 	rate->min = rate->max = SAMPLING_RATE_48KHZ;
 	channels->min = channels->max = msm_tert_mi2s_tx_ch;
+	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+		msm_tert_mi2s_tx_bit_format);
+
 	return 0;
 }
 
@@ -1801,6 +1879,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(3, hdmi_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(8, tdm_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, tdm_bit_format_text),
+	SOC_ENUM_SINGLE_EXT(2, mi2s_bit_format_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -1894,6 +1973,12 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("QUAT_TDM_TX_3 Bit Format", msm_snd_enum[6],
 			msm_quat_tdm_tx_3_bit_format_get,
 			msm_quat_tdm_tx_3_bit_format_put),
+	SOC_ENUM_EXT("QUAT_MI2S_RX Bit Format", msm_snd_enum[7],
+			msm_quat_mi2s_rx_bit_format_get,
+			msm_quat_mi2s_rx_bit_format_put),
+	SOC_ENUM_EXT("TERT_MI2S_TX Bit Format", msm_snd_enum[7],
+			msm_tert_mi2s_tx_bit_format_get,
+			msm_tert_mi2s_tx_bit_format_put),
 };
 
 static int apq8096_get_ll_qos_val(struct snd_pcm_runtime *runtime)
