@@ -1290,7 +1290,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.qmenu = NULL,
 	},
-
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8,
+		.name = "Transform 8x8",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8_DISABLE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8_ENABLE,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8_ENABLE,
+		.step = 1,
+	},
 };
 
 static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
@@ -3289,6 +3297,24 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &enable;
 		break;
 	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8:
+		property_id = HAL_PARAM_VENC_H264_TRANSFORM_8x8;
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8_ENABLE:
+			enable.enable = 1;
+			break;
+		case V4L2_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8_DISABLE:
+			enable.enable = 0;
+			break;
+		default:
+			dprintk(VIDC_ERR,
+				"Invalid H264 8x8 transform control value %d\n",
+				ctrl->val);
+			rc = -ENOTSUPP;
+			break;
+		}
+		pdata = &enable;
+		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
 		rc = -ENOTSUPP;
