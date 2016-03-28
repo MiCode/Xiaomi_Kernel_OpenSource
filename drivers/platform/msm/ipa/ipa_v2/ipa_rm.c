@@ -707,7 +707,7 @@ static void ipa_rm_wq_resume_handler(struct work_struct *work)
 		IPA_RM_ERR("resource is not CONS\n");
 		return;
 	}
-	IPA2_ACTIVE_CLIENTS_INC_RESOURCE(ipa_rm_resource_str(
+	IPA_ACTIVE_CLIENTS_INC_RESOURCE(ipa_rm_resource_str(
 			ipa_rm_work->resource_name));
 	spin_lock_irqsave(&ipa_rm_ctx->ipa_rm_lock, flags);
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
@@ -715,7 +715,7 @@ static void ipa_rm_wq_resume_handler(struct work_struct *work)
 					&resource) != 0){
 		IPA_RM_ERR("resource does not exists\n");
 		spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);
-		IPA2_ACTIVE_CLIENTS_DEC_RESOURCE(ipa_rm_resource_str(
+		IPA_ACTIVE_CLIENTS_DEC_RESOURCE(ipa_rm_resource_str(
 				ipa_rm_work->resource_name));
 		goto bail;
 	}
@@ -1000,7 +1000,7 @@ void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
 		bw_ptr = &ipa_rm_ctx->prof_vote.bw_cons[
 				resource_name - IPA_RM_RESOURCE_PROD_MAX];
 	} else {
-		IPAERR("Invalid resource_name\n");
+		IPA_RM_ERR("Invalid resource_name\n");
 		return;
 	}
 

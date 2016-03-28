@@ -631,7 +631,7 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	struct ipa_ep_cfg_ctrl suspend;
 	int ipa_ep_idx;
 	unsigned long flags;
-	struct ipa3_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	if (ipa3_active_clients_trylock(&flags) == 0)
 		return -EPERM;
@@ -4584,6 +4584,16 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_gsi_ep_info = ipa3_get_gsi_ep_info;
 	api_ctrl->ipa_stop_gsi_channel = ipa3_stop_gsi_channel;
 	api_ctrl->ipa_register_ipa_ready_cb = ipa3_register_ipa_ready_cb;
+	api_ctrl->ipa_inc_client_enable_clks = ipa3_inc_client_enable_clks;
+	api_ctrl->ipa_dec_client_disable_clks = ipa3_dec_client_disable_clks;
+	api_ctrl->ipa_inc_client_enable_clks_no_block =
+		ipa3_inc_client_enable_clks_no_block;
+	api_ctrl->ipa_suspend_resource_no_block =
+		ipa3_suspend_resource_no_block;
+	api_ctrl->ipa_resume_resource = ipa3_resume_resource;
+	api_ctrl->ipa_suspend_resource_sync = ipa3_suspend_resource_sync;
+	api_ctrl->ipa_set_required_perf_profile =
+		ipa3_set_required_perf_profile;
 
 	return 0;
 }

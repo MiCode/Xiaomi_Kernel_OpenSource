@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -151,7 +151,7 @@ int ipa3_rm_resource_consumer_request(
 {
 	int result = 0;
 	enum ipa3_rm_resource_state prev_state;
-	struct ipa3_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	IPA_RM_DBG("%s state: %d\n",
 			ipa3_rm_resource_str(consumer->resource.name),

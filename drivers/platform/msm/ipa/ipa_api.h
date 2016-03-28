@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "ipa_common_i.h"
+
 #ifndef _IPA_API_H_
 #define _IPA_API_H_
 
@@ -324,6 +326,25 @@ struct ipa_api_controller {
 
 	int (*ipa_register_ipa_ready_cb)(void (*ipa_ready_cb)(void *user_data),
 		void *user_data);
+
+	void (*ipa_inc_client_enable_clks)(
+		struct ipa_active_client_logging_info *id);
+
+	void (*ipa_dec_client_disable_clks)(
+		struct ipa_active_client_logging_info *id);
+
+	int (*ipa_inc_client_enable_clks_no_block)(
+		struct ipa_active_client_logging_info *id);
+
+	int (*ipa_suspend_resource_no_block)(
+		enum ipa_rm_resource_name resource);
+
+	int (*ipa_resume_resource)(enum ipa_rm_resource_name name);
+
+	int (*ipa_suspend_resource_sync)(enum ipa_rm_resource_name resource);
+
+	int (*ipa_set_required_perf_profile)(
+		enum ipa_voltage_level floor_voltage, u32 bandwidth_mbps);
 
 };
 
