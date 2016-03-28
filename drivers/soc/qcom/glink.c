@@ -1148,6 +1148,7 @@ int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 {
 	struct glink_core_rx_intent *intent;
 	struct glink_core_rx_intent *intent_tmp;
+	struct glink_core_rx_intent *best_intent = NULL;
 	unsigned long flags;
 
 	if (GLINK_MAX_PKT_SIZE < size) {
@@ -1170,20 +1171,28 @@ int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 	list_for_each_entry_safe(intent, intent_tmp, &ctx->rmt_rx_intent_list,
 			list) {
 		if (intent->intent_size >= size) {
-			list_del(&intent->list);
-			GLINK_DBG_CH(ctx,
-					"%s: R[%u]:%zu Removed remote intent\n",
-					__func__,
-					intent->id,
-					intent->intent_size);
-			*riid_ptr = intent->id;
-			*intent_size = intent->intent_size;
-			*cookie = intent->cookie;
-			kfree(intent);
-			spin_unlock_irqrestore(
-				&ctx->rmt_rx_intent_lst_lock_lhc2, flags);
-			return 0;
+			if (!best_intent)
+				best_intent = intent;
+			else if (best_intent->intent_size > intent->intent_size)
+				best_intent = intent;
+			if (best_intent->intent_size == size)
+				break;
 		}
+	}
+	if (best_intent) {
+		list_del(&best_intent->list);
+		GLINK_DBG_CH(ctx,
+				"%s: R[%u]:%zu Removed remote intent\n",
+				__func__,
+				best_intent->id,
+				best_intent->intent_size);
+		*riid_ptr = best_intent->id;
+		*intent_size = best_intent->intent_size;
+		*cookie = best_intent->cookie;
+		kfree(best_intent);
+		spin_unlock_irqrestore(
+			&ctx->rmt_rx_intent_lst_lock_lhc2, flags);
+		return 0;
 	}
 	spin_unlock_irqrestore(&ctx->rmt_rx_intent_lst_lock_lhc2, flags);
 	return -EAGAIN;
