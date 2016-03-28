@@ -2376,6 +2376,8 @@ extern unsigned int sched_get_static_cpu_pwr_cost(int cpu);
 extern int sched_set_static_cluster_pwr_cost(int cpu, unsigned int cost);
 extern unsigned int sched_get_static_cluster_pwr_cost(int cpu);
 extern int sched_update_freq_max_load(const cpumask_t *cpumask);
+extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32
+					  fmax);
 #else
 static inline int sched_set_boost(int enable)
 {
@@ -2386,6 +2388,9 @@ static inline int sched_update_freq_max_load(const cpumask_t *cpumask)
 {
 	return 0;
 }
+
+static inline void sched_update_cpu_freq_min_max(const cpumask *cpus, u32 fmin,
+						 u32 fmax) { }
 #endif
 
 #ifdef CONFIG_NO_HZ_COMMON
