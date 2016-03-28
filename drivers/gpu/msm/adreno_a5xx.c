@@ -1170,7 +1170,7 @@ static const struct {
 	{ adreno_is_a506, a50x_hwcg_regs, ARRAY_SIZE(a50x_hwcg_regs) },
 };
 
-static void a5xx_hwcg_init(struct adreno_device *adreno_dev)
+void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct kgsl_hwcg_reg *regs;
@@ -1187,11 +1187,11 @@ static void a5xx_hwcg_init(struct adreno_device *adreno_dev)
 	regs = a5xx_hwcg_registers[i].regs;
 
 	for (j = 0; j < a5xx_hwcg_registers[i].count; j++)
-		kgsl_regwrite(device, regs[j].off, regs[j].val);
+		kgsl_regwrite(device, regs[j].off, on ? regs[j].val : 0);
 
 	/* enable top level HWCG */
-	kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, 0xAAA8AA00);
-	kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, 0x00000182);
+	kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, on ? 0xAAA8AA00 : 0);
+	kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, on ? 0x00000182 : 0x00000180);
 }
 
 static int _read_fw2_block_header(uint32_t *header, uint32_t id,
@@ -2023,7 +2023,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 		/* if not in ISDB mode enable ME/PFP split notification */
 		kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL1, 0xA6FFFFFF);
 		/* enable HWCG */
-		a5xx_hwcg_init(adreno_dev);
+		a5xx_hwcg_set(adreno_dev, true);
 	}
 
 	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL2, 0x0000003F);
