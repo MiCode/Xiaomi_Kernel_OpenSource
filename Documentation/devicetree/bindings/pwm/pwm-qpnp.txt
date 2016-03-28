@@ -1,0 +1,211 @@
+Qualcomm Technologies, Inc. QPNP PWM/LPG controller
+
+qpnp-pwm driver supports Pulse Width Module (PWM) functionality. PWM feature is
+used in range of applications such as varying Display brightness, LED dimming,
+etc. QTI PMICs have a physical device called Light Pulse Generator (LPG). In
+addition to support PWM functionality, the LPG module provides a rich set of
+user defined PWM pattern configurations, such as sawtooth, linear up, linear
+down, triangular patterns etc. The PWM patterns are used in applications such as
+charger driver where the driver uses these patterns to indicate various states
+of charging.
+
+Required device bindings:
+- compatible:		should be "qcom,qpnp-pwm"
+- reg:			Offset and length of the controller's LPG channel register.
+- reg-names:		Name for the above register.
+			"qpnp-lpg-channel-base" = physical base address of the
+			controller's LPG channel register.
+- qcom,channel-id:	channel Id for the PWM.
+- qcom,supported-sizes:	Supported PWM sizes.
+			Following three pwm sizes lists are supported by PWM/LPG controllers.
+			<6>, <9>;
+			<7>, <8>;
+			<6>, <7>, <9>;
+- qcom,ramp-index:	Ramp index in LUT ramp control register.
+			Each LPG has an index in the LUT ramp control register.
+			One exception is that, if LPG does not support LUT mode
+			and supports only PWM mode then there is no need to
+			provide the ramp-index.
+
+Optional device bindings:
+- qcom,force-pwm-size:	For certain LPG channels, PWM size can be forced.
+			Possible values  6, 7, 8 and 9.
+- qcom,channel-owner:	A string value to supply owner information.
+- qcom,mode-select:	0 = PWM mode
+			1 = LPG mode
+- qcom,lpg-dtest-line:  indicates which DTEST line to be configured for LPG
+			output. Possible values are 1, 2, 3 and 4.
+- qcom,dtest-output:	indicates the output configuration for DTEST line.
+			0 = Disabled
+			1 = LPG output low
+			2 = LPG output high
+			3,4,5 = DTEST line specific configuration
+			6,7 = Not used
+If this binding is specified along with the required bindings of PWM/LPG then
+in addition to configure PWM/LPG the qpnp-pwm driver also enables the feature
+at the probe time. In the case where the binding is not specified the qpnp-pwm
+driver does not enable the feature. Also, it is considered an error to specify
+a particular mode using this binding but not the respective feature subnode.
+
+All PWM devices support both PWM and LPG features within the same device.
+To support each feature, there are some required and optional bindings passed
+through device tree.
+
+The PWM device can enable one feature (either PWM or LPG) at any given time.
+Therefore, the qpnp-pwm driver applies the last PWM or LPG feature configuration
+and enables that feature.
+
+Required bindings to support PWM feature:
+- qcom,period:	PWM period time in microseconds.
+- qcom,duty:	PWM duty time in microseconds.
+- label:	"pwm"
+
+Required bindings to support LPG feature:
+The following bindings are needed to configure LPG mode, where a list of
+duty cycle percentages is populated. The size of the list cannot exceed
+the size of the LPG look-up table.
+
+- reg:			Offset and length of LPG look-up table (LUT). The LPG look-up table is a
+			contiguous address space that is populated with PWM values.
+			The size of PWM value is 9 bit and the size of each
+			entry of the table is 8 bit. Thus, two entries are used
+			to fill each PWM value. The lower entry is used for PWM
+			LSB byte and higher entry is used for PWM MSB bit.
+- reg-names:		Name for the above register.
+			"qpnp-lpg-lut-base" = physical base address of LPG LUT.
+- qcom,period:		PWM period time in microseconds.
+- qcom,duty-percents:	List of entries for look-up table
+- cell-index:		Index of look-up table that should be used to start
+			filling up the duty-pct list. start-idx + size of list
+			cannot exceed the size of look-up table.
+- label:		"lpg"
+
+
+Optional bindings to support LPG feature:
+- qcom,ramp-step-duration:	Time (in ms) to wait before loading next entry of LUT
+- qcom,lpg-lut-pause-hi:	Time (in ms) to wait once pattern reaches to hi
+				index.
+- qcom,lpg-lut-pause-lo:	Time (in ms) to wait once pattern reaches to lo
+				index.
+- qcom,lpg-lut-ramp-direction:	1 = Start the pattern from lo index to hi index.
+				0 = Start the pattern from hi index to lo index.
+- qcom,lpg-lut-pattern-repeat:	1 = Repeat the pattern after the pause once it
+				reaches to last duty cycle.
+				0 = Do not repeat the pattern.
+- qcom,lpg-lut-ramp-toggle:	1 = Toggle the direction of the pattern.
+				0 = Do not toggle the direction.
+- qcom,lpg-lut-enable-pause-hi:	1 = Enable pause time at hi index.
+				0 = Disable pause time at hi index.
+- qcom,lpg-lut-enable-pause-lo:	1 = Enable pause time at lo index.
+				0 = Disable pause time at lo index.
+
+
+Example:
+	qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm8941@1 {
+			spmi-slave-container;
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			pwm@b100 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-pwm";
+				reg = <0xb100 0x100>, <0xb040 0x80>;
+				reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+				qcom,channel-id = <0>;
+				qcom,supported-sizes = <6>, <7>, <9>;
+				qcom,ramp-index = <0>;
+				status = "okay";
+			};
+
+			pwm@b200 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-pwm";
+				reg = <0xb200 0x100>, <0xb040 0x80>;
+				reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+				qcom,channel-id = <1>;
+				qcom,supported-sizes = <6>, <7>, <9>;
+				qcom,ramp-index = <1>;
+				qcom,force-pwm-size = <9>;
+				qcom,period = <6000000>;
+				status = "okay";
+
+				qcom,pwm {
+					qcom,duty = <4000000>;
+					label = "pwm";
+				};
+			};
+
+			pwm@b500 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-pwm"
+				reg = <0xb500 0x100>, <0xb040 0x80>;
+				reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+				qcom,channel-id = <4>;
+				qcom,supported-sizes = <6>, <7>, <9>;
+				qcom,ramp-index = <4>;
+				qcom,period = <6000000>;
+				qcom,mode-select = <0>;
+				qcom,channel-owner = "RGB-led";
+				status = "okay";
+
+				qcom,pwm {
+					qcom,duty = <4000000>;
+					label = "pwm";
+				};
+
+				qcom,lpg {
+					qcom,duty-percents = <1 14 28 42 56 84 100
+							100 84 56 42 28 14 1>;
+					cell-index = <0>;
+					qcom,ramp-step-duration = <20>;
+					label = "lpg";
+				};
+			};
+
+			pwm@b300 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "qcom,qpnp-pwm";
+				reg = <0xb200 0x100>, <0xb040 0x80>;
+				reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+				qcom,channel-id = <2>;
+				qcom,supported-sizes = <6>, <7>, <9>;
+				qcom,ramp-index = <1>;
+				qcom,force-pwm-size = <9>;
+				qcom,period = <6000000>;
+				qcom,lpg-dtest-line = <3>;
+				qcom,dtest-output = <1>;
+				status = "okay";
+
+				qcom,pwm {
+					qcom,duty = <4000000>;
+					label = "pwm";
+				};
+			};
+		};
+	};
+
+There are couple of ways to configure PWM device channels as shown in above
+example,
+1. The PWM device channel #0 is configured with only required device bindings.
+In this case, the qpnp-pwm driver does not configure any mode by default.
+
+2. The qpnp-pwm driver configures PWM device channel #1 with PWM feature
+configuration, but does not enable the channel since "qcom,mode-select" binding
+is not specified in the devicetree.
+
+3. Both the PWM and LPG configurations are provided for PWM device channel #4.
+The qpnp-pwm driver configures both the modes, but enables PWM mode at the probe
+time. It also sets the channel owner information for the channel.
+
+4. This configuration is pretty similar to #2 above except in this case channel
+#3 is configured for PWM mode. Also it's DTEST3 line is configured to output
+LPG OUT low.
