@@ -133,6 +133,8 @@ wcd_enable_clsh_block(struct snd_soc_codec *codec,
 	    (!enable && --clsh_d->clsh_users == 0))
 		snd_soc_update_bits(codec, WCD9XXX_A_CDC_CLSH_CRC, 0x01,
 				    (u8) enable);
+	if (clsh_d->clsh_users < 0)
+		clsh_d->clsh_users = 0;
 	dev_dbg(codec->dev, "%s: clsh_users %d, enable %d", __func__,
 		clsh_d->clsh_users, enable);
 }
@@ -549,22 +551,53 @@ static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
 		if (req_state == WCD_CLSH_STATE_LO)
 			wcd_clsh_set_buck_regulator_mode(codec, CLS_AB);
 		else {
-			wcd_clsh_set_flyback_mode(codec, mode);
-			wcd_clsh_set_buck_mode(codec, mode);
-			if ((req_state == WCD_CLSH_STATE_HPHL) ||
-			    (req_state == WCD_CLSH_STATE_HPHR))
+			if (!wcd_clsh_enable_status(codec)) {
+				wcd_enable_clsh_block(codec, clsh_d, true);
+				snd_soc_update_bits(codec,
+						WCD9XXX_A_CDC_CLSH_K1_MSB,
+						0x0F, 0x00);
+				snd_soc_update_bits(codec,
+						WCD9XXX_A_CDC_CLSH_K1_LSB,
+						0xFF, 0xC0);
+				wcd_clsh_set_flyback_mode(codec, mode);
+				wcd_clsh_set_buck_mode(codec, mode);
+				wcd_clsh_set_hph_mode(codec, mode);
 				wcd_clsh_set_gain_path(codec, mode);
+			} else {
+				dev_dbg(codec->dev, "%s:clsh is already enabled\n",
+					__func__);
+			}
+			if (req_state == WCD_CLSH_STATE_HPHL)
+				snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_RX1_RX_PATH_CFG0,
+					0x40, 0x40);
+			if (req_state == WCD_CLSH_STATE_HPHR)
+				snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_RX2_RX_PATH_CFG0,
+					0x40, 0x40);
 		}
 	} else {
 		if ((req_state == WCD_CLSH_STATE_HPHL) ||
 		    (req_state == WCD_CLSH_STATE_HPHR)) {
+			if (req_state == WCD_CLSH_STATE_HPHL)
+				snd_soc_update_bits(codec,
+					    WCD9XXX_A_CDC_RX1_RX_PATH_CFG0,
+					    0x40, 0x00);
+			if (req_state == WCD_CLSH_STATE_HPHR)
+				snd_soc_update_bits(codec,
+					    WCD9XXX_A_CDC_RX2_RX_PATH_CFG0,
+					    0x40, 0x00);
 			/*
-			 * If HPH is powering down first, then set the
-			 * buck/flyback mode to default and keep the
+			 * If HPH is powering down first, then disable clsh,
+			 * set the buck/flyback mode to default and keep the
 			 * regulator at Class-AB
 			 */
-			wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
-			wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
+			if ((clsh_d->state & WCD_CLSH_STATE_HPH_ST)
+				!= WCD_CLSH_STATE_HPH_ST) {
+				wcd_enable_clsh_block(codec, clsh_d, false);
+				wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
+				wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
+			}
 		} else {
 			/* LO powerdown.
 			 * If HPH mode also is CLS-AB, no need
@@ -577,6 +610,9 @@ static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
 			else if (clsh_d->state & WCD_CLSH_STATE_HPHR)
 				hph_mode = wcd_clsh_get_int_mode(clsh_d,
 						WCD_CLSH_STATE_HPHR);
+			dev_dbg(codec->dev, "%s: hph_mode = %d\n", __func__,
+				hph_mode);
+
 			if ((hph_mode == CLS_AB) ||
 			   (hph_mode == CLS_NONE))
 				goto end;
@@ -590,6 +626,9 @@ static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
 				wcd_clsh_set_buck_regulator_mode(codec,
 								 hph_mode);
 				goto end;
+			} else {
+				dev_dbg(codec->dev, "%s: clsh is not enabled\n",
+					__func__);
 			}
 
 			wcd_enable_clsh_block(codec, clsh_d, true);
