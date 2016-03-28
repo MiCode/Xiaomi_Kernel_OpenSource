@@ -49,7 +49,7 @@
 		qcom,clock-freq-tbl {
 			qcom,profile-enc {
 				qcom,codec-mask = <0x55555555>;
-				qcom,cycles-per-mb = <2316>;
+				qcom,cycles-per-mb = <2470>;
 				qcom,low-power-mode-factor = <32768>;
 			};
 			qcom,profile-dec {
