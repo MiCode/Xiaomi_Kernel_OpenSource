@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,7 +147,7 @@ int ipa_rm_resource_consumer_request(
 {
 	int result = 0;
 	enum ipa_rm_resource_state prev_state;
-	struct ipa2_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	IPA_RM_DBG("%s state: %d\n",
 			ipa_rm_resource_str(consumer->resource.name),
@@ -160,7 +160,7 @@ int ipa_rm_resource_consumer_request(
 	case IPA_RM_RELEASE_IN_PROGRESS:
 		reinit_completion(&consumer->request_consumer_in_progress);
 		consumer->resource.state = IPA_RM_REQUEST_IN_PROGRESS;
-		IPA2_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
+		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
 				ipa_rm_resource_str(consumer->resource.name));
 		if (prev_state == IPA_RM_RELEASE_IN_PROGRESS ||
 			ipa2_inc_client_enable_clks_no_block(&log_info) != 0) {

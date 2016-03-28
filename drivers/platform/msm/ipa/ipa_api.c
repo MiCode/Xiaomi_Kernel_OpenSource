@@ -76,6 +76,78 @@
 static enum ipa_hw_type ipa_api_hw_type;
 static struct ipa_api_controller *ipa_api_ctrl;
 
+const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
+	__stringify(IPA_CLIENT_HSIC1_PROD),
+	__stringify(IPA_CLIENT_WLAN1_PROD),
+	__stringify(IPA_CLIENT_HSIC2_PROD),
+	__stringify(IPA_CLIENT_USB2_PROD),
+	__stringify(IPA_CLIENT_HSIC3_PROD),
+	__stringify(IPA_CLIENT_USB3_PROD),
+	__stringify(IPA_CLIENT_HSIC4_PROD),
+	__stringify(IPA_CLIENT_USB4_PROD),
+	__stringify(IPA_CLIENT_HSIC5_PROD),
+	__stringify(IPA_CLIENT_USB_PROD),
+	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
+	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
+	__stringify(IPA_CLIENT_APPS_LAN_WAN_PROD),
+	__stringify(IPA_CLIENT_APPS_CMD_PROD),
+	__stringify(IPA_CLIENT_ODU_PROD),
+	__stringify(IPA_CLIENT_MHI_PROD),
+	__stringify(IPA_CLIENT_Q6_LAN_PROD),
+	__stringify(IPA_CLIENT_Q6_WAN_PROD),
+	__stringify(IPA_CLIENT_Q6_CMD_PROD),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD),
+	__stringify(IPA_CLIENT_Q6_DECOMP_PROD),
+	__stringify(IPA_CLIENT_Q6_DECOMP2_PROD),
+	__stringify(IPA_CLIENT_UC_USB_PROD),
+
+	/* Below PROD client type is only for test purpose */
+	__stringify(IPA_CLIENT_TEST_PROD),
+	__stringify(IPA_CLIENT_TEST1_PROD),
+	__stringify(IPA_CLIENT_TEST2_PROD),
+	__stringify(IPA_CLIENT_TEST3_PROD),
+	__stringify(IPA_CLIENT_TEST4_PROD),
+
+	__stringify(IPA_CLIENT_HSIC1_CONS),
+	__stringify(IPA_CLIENT_WLAN1_CONS),
+	__stringify(IPA_CLIENT_HSIC2_CONS),
+	__stringify(IPA_CLIENT_USB2_CONS),
+	__stringify(IPA_CLIENT_WLAN2_CONS),
+	__stringify(IPA_CLIENT_HSIC3_CONS),
+	__stringify(IPA_CLIENT_USB3_CONS),
+	__stringify(IPA_CLIENT_WLAN3_CONS),
+	__stringify(IPA_CLIENT_HSIC4_CONS),
+	__stringify(IPA_CLIENT_USB4_CONS),
+	__stringify(IPA_CLIENT_WLAN4_CONS),
+	__stringify(IPA_CLIENT_HSIC5_CONS),
+	__stringify(IPA_CLIENT_USB_CONS),
+	__stringify(IPA_CLIENT_USB_DPL_CONS),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_CONS),
+	__stringify(IPA_CLIENT_A2_TETHERED_CONS),
+	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
+	__stringify(IPA_CLIENT_APPS_LAN_CONS),
+	__stringify(IPA_CLIENT_APPS_WAN_CONS),
+	__stringify(IPA_CLIENT_ODU_EMB_CONS),
+	__stringify(IPA_CLIENT_ODU_TETH_CONS),
+	__stringify(IPA_CLIENT_MHI_CONS),
+	__stringify(IPA_CLIENT_Q6_LAN_CONS),
+	__stringify(IPA_CLIENT_Q6_WAN_CONS),
+	__stringify(IPA_CLIENT_Q6_DUN_CONS),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS),
+	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS),
+	__stringify(IPA_CLIENT_Q6_DECOMP_CONS),
+	__stringify(IPA_CLIENT_Q6_DECOMP2_CONS),
+	__stringify(IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS),
+	/* Below CONS client type is only for test purpose */
+	__stringify(IPA_CLIENT_TEST_CONS),
+	__stringify(IPA_CLIENT_TEST1_CONS),
+	__stringify(IPA_CLIENT_TEST2_CONS),
+	__stringify(IPA_CLIENT_TEST3_CONS),
+	__stringify(IPA_CLIENT_TEST4_CONS),
+};
+
 
 /**
  * ipa_connect() - low-level IPA client connect
@@ -2633,6 +2705,136 @@ int ipa_register_ipa_ready_cb(void (*ipa_ready_cb)(void *user_data),
 	return ret;
 }
 EXPORT_SYMBOL(ipa_register_ipa_ready_cb);
+
+/**
+ * ipa_inc_client_enable_clks() - Increase active clients counter, and
+ * enable ipa clocks if necessary
+ *
+ * Please do not use this API, use the wrapper macros instead (ipa_i.h)
+ * IPA_ACTIVE_CLIENTS_INC_XXX();
+ *
+ * Return codes:
+ * None
+*/
+void ipa_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
+{
+	IPA_API_DISPATCH(ipa_inc_client_enable_clks, id);
+}
+EXPORT_SYMBOL(ipa_inc_client_enable_clks);
+
+/**
+ * ipa_dec_client_disable_clks() - Increase active clients counter, and
+ * enable ipa clocks if necessary
+ *
+ * Please do not use this API, use the wrapper macros instead (ipa_i.h)
+ * IPA_ACTIVE_CLIENTS_DEC_XXX();
+ *
+ * Return codes:
+ * None
+*/
+void ipa_dec_client_disable_clks(struct ipa_active_client_logging_info *id)
+{
+	IPA_API_DISPATCH(ipa_dec_client_disable_clks, id);
+}
+EXPORT_SYMBOL(ipa_dec_client_disable_clks);
+
+/**
+ * ipa_inc_client_enable_clks_no_block() - Only increment the number of active
+ * clients if no asynchronous actions should be done.Asynchronous actions are
+ * locking a mutex and waking up IPA HW.
+ *
+ * Please do not use this API, use the wrapper macros instead(ipa_i.h)
+ *
+ *
+ * Return codes : 0 for success
+ *		-EPERM if an asynchronous action should have been done
+ */
+int ipa_inc_client_enable_clks_no_block(
+	struct ipa_active_client_logging_info *id)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_inc_client_enable_clks_no_block, id);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_inc_client_enable_clks_no_block);
+
+/**
+* ipa_suspend_resource_no_block() - suspend client endpoints related to the
+* IPA_RM resource and decrement active clients counter. This function is
+* guaranteed to avoid sleeping.
+*
+* @resource: [IN] IPA Resource Manager resource
+*
+* Return codes: 0 on success, negative on failure.
+*/
+int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_suspend_resource_no_block, resource);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_suspend_resource_no_block);
+/**
+ * ipa_resume_resource() - resume client endpoints related to the IPA_RM
+ * resource.
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_resume_resource(enum ipa_rm_resource_name resource)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_resume_resource, resource);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_resume_resource);
+
+/**
+ * ipa_suspend_resource_sync() - suspend client endpoints related to the IPA_RM
+ * resource and decrement active clients counter, which may result in clock
+ * gating of IPA clocks.
+ *
+ * @resource: [IN] IPA Resource Manager resource
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_suspend_resource_sync, resource);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_suspend_resource_sync);
+
+/**
+ * ipa_set_required_perf_profile() - set IPA to the specified performance
+ *	profile based on the bandwidth, unless minimum voltage required is
+ *	higher. In this case the floor_voltage specified will be used.
+ * @floor_voltage: minimum voltage to operate
+ * @bandwidth_mbps: needed bandwidth from IPA
+ *
+ * Return codes: 0 on success, negative on failure.
+ */
+int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
+	u32 bandwidth_mbps)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_set_required_perf_profile, floor_voltage,
+		bandwidth_mbps);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_set_required_perf_profile);
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
