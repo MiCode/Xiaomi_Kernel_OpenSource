@@ -172,7 +172,7 @@ static void mdp3_dispatch_clk_off(struct work_struct *work)
 
 	mutex_lock(&session->lock);
 	if (session->vsync_enabled ||
-		atomic_read(&session->vsync_countdown) != 0) {
+		atomic_read(&session->vsync_countdown) > 0) {
 		mutex_unlock(&session->lock);
 		pr_debug("Ignoring clk shut down\n");
 		return;
@@ -201,7 +201,6 @@ retry_dma_done:
 			}
 		}
 	}
-
 	mdp3_ctrl_vsync_enable(session->mfd, 0);
 	mdp3_ctrl_clk_enable(session->mfd, 0);
 	mutex_unlock(&session->lock);
@@ -226,7 +225,8 @@ void vsync_count_down(void *arg)
 {
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
 	/* We are counting down to turn off clocks */
-	atomic_dec(&session->vsync_countdown);
+	if (atomic_read(&session->vsync_countdown) > 0)
+		atomic_dec(&session->vsync_countdown);
 	if (atomic_read(&session->vsync_countdown) == 0)
 		schedule_work(&session->clk_off_work);
 }
@@ -243,6 +243,7 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 	struct mdp3_session_data *mdp3_session;
 	struct mdp3_notification vsync_client;
 	struct mdp3_notification *arg = NULL;
+	bool mod_vsync_timer = false;
 
 	pr_debug("mdp3_ctrl_vsync_enable =%d\n", enable);
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
@@ -258,7 +259,7 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 		vsync_client.handler = vsync_notify_handler;
 		vsync_client.arg = mdp3_session;
 		arg = &vsync_client;
-	} else if (atomic_read(&mdp3_session->vsync_countdown)) {
+	} else if (atomic_read(&mdp3_session->vsync_countdown) > 0) {
 		/*
 		 * Now that vsync is no longer needed we will
 		 * shutdown dsi clocks as soon as cnt down == 0
@@ -270,6 +271,18 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 		enable = 1;
 	}
 
+	if (enable) {
+		if (mdp3_session->status == 1 &&
+			(mdp3_session->vsync_before_commit ||
+			!mdp3_session->intf->active)) {
+			mod_vsync_timer = true;
+		} else if (!mdp3_session->clk_on) {
+			/* Enable clocks before enabling the vsync interrupt */
+			mdp3_ctrl_reset_countdown(mdp3_session, mfd);
+			mdp3_ctrl_clk_enable(mfd, 1);
+		}
+	}
+
 	mdp3_clk_enable(1, 0);
 	mdp3_session->dma->vsync_enable(mdp3_session->dma, arg);
 	mdp3_clk_enable(0, 0);
@@ -278,14 +291,9 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable)
 	 * Need to fake vsync whenever dsi interface is not
 	 * active or when dsi clocks are currently off
 	 */
-	if (enable && mdp3_session->status == 1
-			&& (mdp3_session->vsync_before_commit ||
-			!mdp3_session->intf->active)) {
+	if (mod_vsync_timer) {
 		mod_timer(&mdp3_session->vsync_timer,
 			jiffies + msecs_to_jiffies(mdp3_session->vsync_period));
-	} else if (enable && !mdp3_session->clk_on) {
-		mdp3_ctrl_reset_countdown(mdp3_session, mfd);
-		mdp3_ctrl_clk_enable(mfd, 1);
 	} else if (!enable) {
 		del_timer(&mdp3_session->vsync_timer);
 	}

@@ -159,7 +159,6 @@ static irqreturn_t mdp3_irq_handler(int irq, void *ptr)
 		spin_unlock(&mdata->irq_lock);
 		return IRQ_HANDLED;
 	}
-
 	mdp_status = MDP3_REG_READ(MDP3_REG_INTR_STATUS);
 	mdp_interrupt = mdp_status;
 	pr_debug("mdp3_irq_handler irq=%d\n", mdp_interrupt);
@@ -2293,10 +2292,30 @@ static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 	return rc;
 }
 
+/* mdp3_clear_irq() - Clear interrupt
+ * @ interrupt_mask : interrupt mask
+ *
+ * This function clear sync irq for command mode panel.
+ * When system is entering in idle screen state.
+ */
+void mdp3_clear_irq(u32 interrupt_mask)
+{
+	unsigned long flag;
+	u32 irq_status = 0;
+
+	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
+	irq_status = interrupt_mask &
+		MDP3_REG_READ(MDP3_REG_INTR_STATUS);
+	if (irq_status)
+		MDP3_REG_WRITE(MDP3_REG_INTR_CLEAR, irq_status);
+	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
+
+}
+
 /* mdp3_autorefresh_disable() - Disable Auto refresh
  * @ panel_info : pointer to panel configuration structure
  *
- * This function displable Auto refresh block for command mode panel.
+ * This function disable Auto refresh block for command mode panel.
  */
 int mdp3_autorefresh_disable(struct mdss_panel_info *panel_info)
 {
