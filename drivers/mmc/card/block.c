@@ -4097,14 +4097,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 	}
 
 	pm_runtime_set_autosuspend_delay(&card->dev, MMC_AUTOSUSPEND_DELAY_MS);
-	/*
-	 * If there is a runtime_idle function, it should take care of
-	 * suspending the card
-	 */
-	if (card->host->bus_ops->runtime_idle)
-		pm_runtime_dont_use_autosuspend(&card->dev);
-	else
-		pm_runtime_use_autosuspend(&card->dev);
+	pm_runtime_use_autosuspend(&card->dev);
 
 	/*
 	 * Don't enable runtime PM for SD-combo cards here. Leave that
