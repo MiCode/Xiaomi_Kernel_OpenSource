@@ -26,10 +26,10 @@ module_param_named(dbg_flags, remoteqdss_dbg_flags, ulong, 0644);
 static struct dentry *remoteqdss_dir;
 
 #define REMOTEQDSS_ERR(fmt, ...) \
-	pr_err("%s: " fmt, __func__, ## __VA_ARGS__)
+	pr_debug("%s: " fmt, __func__, ## __VA_ARGS__)
 
 #define REMOTEQDSS_ERR_CALLER(fmt, ...) \
-	pr_err("%pf: " fmt, __builtin_return_address(0), ## __VA_ARGS__)
+	pr_debug("%pf: " fmt, __builtin_return_address(1), ## __VA_ARGS__)
 
 struct qdss_msg_translation {
 	u64 val;
@@ -159,6 +159,27 @@ static void free_remoteqdss_data(struct remoteqdss_data *data)
 	kfree(data);
 }
 
+static int remoteqdss_do_scm_call(struct scm_desc *desc,
+		dma_addr_t addr, size_t size)
+{
+	int ret;
+
+	memset(desc, 0, sizeof(*desc));
+	desc->args[0] = dma_to_phys(NULL, addr);
+	desc->args[1] = size;
+	desc->arginfo = SCM_ARGS(2, SCM_RO, SCM_VAL);
+
+	ret = scm_call2(
+		SCM_SIP_FNID(SCM_SVC_QDSS, SCM_CMD_ID),
+		desc);
+	if (ret)
+		return ret;
+
+	remoteqdss_err_translation(remoteqdss_scm_msgs, desc->ret[0]);
+	ret = desc->ret[0] ? -EINVAL : 0;
+	return ret;
+}
+
 static int remoteqdss_scm_query_swtrace(void *priv, u64 *val)
 {
 	struct remoteqdss_data *data = priv;
@@ -173,21 +194,9 @@ static int remoteqdss_scm_query_swtrace(void *priv, u64 *val)
 	fmt->subsys_id = data->id;
 	fmt->cmd_id = CMD_ID_QUERY_SWTRACE_STATE;
 
-	memset(&desc, 0, sizeof(desc));
-	desc.args[0] = dma_to_phys(NULL, addr);
-	desc.args[1] = sizeof(*fmt);
-	desc.arginfo = SCM_ARGS(2, SCM_RO, SCM_VAL);
-
-	ret = scm_call2(
-		SCM_SIP_FNID(SCM_SVC_QDSS, SCM_CMD_ID),
-		&desc);
-	if (ret)
-		goto out;
-
-	remoteqdss_err_translation(remoteqdss_scm_msgs, desc.ret[0]);
-	ret = desc.ret[0] ? -EINVAL : 0;
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
 	*val = desc.ret[1];
-out:
+
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
 	return ret;
 }
@@ -207,26 +216,139 @@ static int remoteqdss_scm_filter_swtrace(void *priv, u64 val)
 	fmt->h.cmd_id = CMD_ID_FILTER_SWTRACE_STATE;
 	fmt->state = (uint32_t)val;
 
-	memset(&desc, 0, sizeof(desc));
-	desc.args[0] = dma_to_phys(NULL, addr);
-	desc.args[1] = sizeof(*fmt);
-	desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL);
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
 
-	ret = scm_call2(
-		SCM_SIP_FNID(SCM_SVC_QDSS, SCM_CMD_ID),
-		&desc);
-	if (ret)
-		goto out;
-
-	remoteqdss_err_translation(remoteqdss_scm_msgs, desc.ret[0]);
-	ret = desc.ret[0] ? -EINVAL : 0;
-out:
 	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
 	return ret;
 }
+
 DEFINE_SIMPLE_ATTRIBUTE(fops_sw_trace_output,
 			remoteqdss_scm_query_swtrace,
 			remoteqdss_scm_filter_swtrace,
+			"0x%llx\n");
+
+static int remoteqdss_scm_query_tag(void *priv, u64 *val)
+{
+	struct remoteqdss_data *data = priv;
+	int ret;
+	struct scm_desc desc;
+	struct remoteqdss_header_fmt *fmt;
+	dma_addr_t addr;
+
+	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	if (!fmt)
+		return -ENOMEM;
+	fmt->subsys_id = data->id;
+	fmt->cmd_id = CMD_ID_QUERY_SWEVENT_TAG;
+
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	*val = desc.ret[1];
+
+	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_tag,
+			remoteqdss_scm_query_tag,
+			NULL,
+			"0x%llx\n");
+
+static int remoteqdss_scm_query_swevent(void *priv, u64 *val)
+{
+	struct remoteqdss_data *data = priv;
+	int ret;
+	struct scm_desc desc;
+	struct remoteqdss_query_swevent_fmt *fmt;
+	dma_addr_t addr;
+
+	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	if (!fmt)
+		return -ENOMEM;
+	fmt->h.subsys_id = data->id;
+	fmt->h.cmd_id = CMD_ID_QUERY_SWEVENT;
+	fmt->event_group = data->sw_event_group;
+
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	*val = desc.ret[1];
+
+	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	return ret;
+}
+
+static int remoteqdss_scm_filter_swevent(void *priv, u64 val)
+{
+	struct remoteqdss_data *data = priv;
+	int ret;
+	struct scm_desc desc;
+	struct remoteqdss_filter_swevent_fmt *fmt;
+	dma_addr_t addr;
+
+	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	if (!fmt)
+		return -ENOMEM;
+	fmt->h.subsys_id = data->id;
+	fmt->h.cmd_id = CMD_ID_FILTER_SWEVENT;
+	fmt->event_group = data->sw_event_group;
+	fmt->event_mask = (uint32_t)val;
+
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+
+	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_swevent,
+			remoteqdss_scm_query_swevent,
+			remoteqdss_scm_filter_swevent,
+			"0x%llx\n");
+
+static int remoteqdss_scm_query_swentity(void *priv, u64 *val)
+{
+	struct remoteqdss_data *data = priv;
+	int ret;
+	struct scm_desc desc;
+	struct remoteqdss_query_swentity_fmt *fmt;
+	dma_addr_t addr;
+
+	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	if (!fmt)
+		return -ENOMEM;
+	fmt->h.subsys_id = data->id;
+	fmt->h.cmd_id = CMD_ID_QUERY_SWENTITY;
+	fmt->entity_group = data->sw_entity_group;
+
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+	*val = desc.ret[1];
+
+	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	return ret;
+}
+
+static int remoteqdss_scm_filter_swentity(void *priv, u64 val)
+{
+	struct remoteqdss_data *data = priv;
+	int ret;
+	struct scm_desc desc;
+	struct remoteqdss_filter_swentity_fmt *fmt;
+	dma_addr_t addr;
+
+	fmt = dma_alloc_coherent(&dma_dev, sizeof(*fmt), &addr, GFP_KERNEL);
+	if (!fmt)
+		return -ENOMEM;
+	fmt->h.subsys_id = data->id;
+	fmt->h.cmd_id = CMD_ID_FILTER_SWENTITY;
+	fmt->entity_group = data->sw_entity_group;
+	fmt->entity_mask = (uint32_t)val;
+
+	ret = remoteqdss_do_scm_call(&desc, addr, sizeof(*fmt));
+
+	dma_free_coherent(&dma_dev, sizeof(*fmt), fmt, addr);
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_swentity,
+			remoteqdss_scm_query_swentity,
+			remoteqdss_scm_filter_swentity,
 			"0x%llx\n");
 
 static void __init enumerate_scm_devices(struct dentry *parent)
@@ -264,6 +386,21 @@ static void __init enumerate_scm_devices(struct dentry *parent)
 
 	dentry = debugfs_create_u32("sw_event_group", S_IRUGO | S_IWUSR,
 			data->dir, &data->sw_event_group);
+	if (IS_ERR_OR_NULL(dentry))
+		goto out;
+
+	dentry = debugfs_create_file("tag", S_IRUGO,
+			data->dir, data, &fops_tag);
+	if (IS_ERR_OR_NULL(dentry))
+		goto out;
+
+	dentry = debugfs_create_file("swevent", S_IRUGO | S_IWUSR,
+			data->dir, data, &fops_swevent);
+	if (IS_ERR_OR_NULL(dentry))
+		goto out;
+
+	dentry = debugfs_create_file("swentity", S_IRUGO | S_IWUSR,
+			data->dir, data, &fops_swentity);
 	if (IS_ERR_OR_NULL(dentry))
 		goto out;
 
