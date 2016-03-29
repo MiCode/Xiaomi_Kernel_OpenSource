@@ -514,6 +514,19 @@
 	};
 };
 
+&spmi_bus {
+	qcom,pm8005@5 {
+		/* PM8005 S1 + S4 = 2 phase VDD_GFX supply */
+		pm8005_s1: regulator@1400 {
+			regulator-name = "pm8005_s1";
+			status = "okay";
+			regulator-min-microvolt = <524000>;
+			regulator-max-microvolt = <1032000>;
+			qcom,enable-time = <500>;
+		};
+	};
+};
+
 /* Stub regulators */
 
 / {
@@ -534,15 +547,6 @@
 	pmcobalt_s13: regulator-pmcobalt-s13 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmcobalt_s13";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <352000>;
-		regulator-max-microvolt = <952000>;
-	};
-
-	/* PM8005 S1 + S4 = 2 phase VDD_GFX supply */
-	pm8005_s1: regulator-pm8005-s1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8005_s1";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <352000>;
 		regulator-max-microvolt = <952000>;
