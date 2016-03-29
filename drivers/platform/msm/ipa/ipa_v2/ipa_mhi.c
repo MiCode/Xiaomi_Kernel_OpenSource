@@ -409,7 +409,7 @@ static int ipa_mhi_set_state(enum ipa_mhi_state new_state)
 			ipa_mhi_ctx->wakeup_notified = false;
 			if (ipa_mhi_ctx->rm_cons_state ==
 				IPA_MHI_RM_STATE_REQUESTED) {
-				ipa2_rm_notify_completion(
+				ipa_rm_notify_completion(
 					IPA_RM_RESOURCE_GRANTED,
 					IPA_RM_RESOURCE_MHI_CONS);
 				ipa_mhi_ctx->rm_cons_state =
@@ -435,7 +435,7 @@ static int ipa_mhi_set_state(enum ipa_mhi_state new_state)
 			ipa_mhi_ctx->wakeup_notified = false;
 			if (ipa_mhi_ctx->rm_cons_state ==
 				IPA_MHI_RM_STATE_REQUESTED) {
-				ipa2_rm_notify_completion(
+				ipa_rm_notify_completion(
 					IPA_RM_RESOURCE_GRANTED,
 					IPA_RM_RESOURCE_MHI_CONS);
 				ipa_mhi_ctx->rm_cons_state =
@@ -592,7 +592,7 @@ static int ipa_mhi_request_prod(void)
 
 	reinit_completion(&ipa_mhi_ctx->rm_prod_granted_comp);
 	IPA_MHI_DBG("requesting mhi prod\n");
-	res = ipa2_rm_request_resource(IPA_RM_RESOURCE_MHI_PROD);
+	res = ipa_rm_request_resource(IPA_RM_RESOURCE_MHI_PROD);
 	if (res) {
 		if (res != -EINPROGRESS) {
 			IPA_MHI_ERR("failed to request mhi prod %d\n", res);
@@ -619,7 +619,7 @@ static int ipa_mhi_release_prod(void)
 
 	IPA_MHI_FUNC_ENTRY();
 
-	res = ipa2_rm_release_resource(IPA_RM_RESOURCE_MHI_PROD);
+	res = ipa_rm_release_resource(IPA_RM_RESOURCE_MHI_PROD);
 
 	IPA_MHI_FUNC_EXIT();
 	return res;
@@ -1037,7 +1037,7 @@ int ipa2_mhi_init(struct ipa_mhi_init_params *params)
 	mhi_prod_params.name = IPA_RM_RESOURCE_MHI_PROD;
 	mhi_prod_params.floor_voltage = IPA_VOLTAGE_SVS;
 	mhi_prod_params.reg_params.notify_cb = ipa_mhi_rm_prod_notify;
-	res = ipa2_rm_create_resource(&mhi_prod_params);
+	res = ipa_rm_create_resource(&mhi_prod_params);
 	if (res) {
 		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_PROD\n");
 		goto fail_create_rm_prod;
@@ -1049,7 +1049,7 @@ int ipa2_mhi_init(struct ipa_mhi_init_params *params)
 	mhi_cons_params.floor_voltage = IPA_VOLTAGE_SVS;
 	mhi_cons_params.request_resource = ipa_mhi_rm_cons_request;
 	mhi_cons_params.release_resource = ipa_mhi_rm_cons_release;
-	res = ipa2_rm_create_resource(&mhi_cons_params);
+	res = ipa_rm_create_resource(&mhi_cons_params);
 	if (res) {
 		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_CONS\n");
 		goto fail_create_rm_cons;
@@ -1065,7 +1065,7 @@ int ipa2_mhi_init(struct ipa_mhi_init_params *params)
 	return 0;
 
 fail_create_rm_cons:
-	ipa2_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
 fail_create_rm_prod:
 	destroy_workqueue(ipa_mhi_ctx->wq);
 fail_create_wq:
@@ -1122,14 +1122,14 @@ int ipa2_mhi_start(struct ipa_mhi_start_params *params)
 	ipa_mhi_ctx->host_data_addr = params->host_data_addr;
 
 	/* Add MHI <-> Q6 dependencies to IPA RM */
-	res = ipa2_rm_add_dependency(IPA_RM_RESOURCE_MHI_PROD,
+	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_MHI_PROD,
 		IPA_RM_RESOURCE_Q6_CONS);
 	if (res && res != -EINPROGRESS) {
 		IPA_MHI_ERR("failed to add dependency %d\n", res);
 		goto fail_add_mhi_q6_dep;
 	}
 
-	res = ipa2_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
 		IPA_RM_RESOURCE_MHI_CONS);
 	if (res && res != -EINPROGRESS) {
 		IPA_MHI_ERR("failed to add dependency %d\n", res);
@@ -1164,10 +1164,10 @@ int ipa2_mhi_start(struct ipa_mhi_start_params *params)
 fail_init_engine:
 	ipa_mhi_release_prod();
 fail_request_prod:
-	ipa2_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
 		IPA_RM_RESOURCE_MHI_CONS);
 fail_add_q6_mhi_dep:
-	ipa2_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
 		IPA_RM_RESOURCE_Q6_CONS);
 fail_add_mhi_q6_dep:
 	ipa_mhi_set_state(IPA_MHI_STATE_INITIALIZED);
@@ -1762,7 +1762,7 @@ int ipa2_mhi_resume(void)
 		}
 		dl_channel_resumed = true;
 
-		ipa2_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
+		ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
 			IPA_RM_RESOURCE_MHI_CONS);
 		ipa_mhi_ctx->rm_cons_state = IPA_MHI_RM_STATE_GRANTED;
 	}

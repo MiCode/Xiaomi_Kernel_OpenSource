@@ -185,45 +185,6 @@ struct ipa_api_controller {
 
 	int (*ipa_uc_dereg_rdyCB)(void);
 
-	int (*ipa_rm_create_resource)(
-		struct ipa_rm_create_params *create_params);
-
-	int (*ipa_rm_delete_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_register)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_register_params *reg_params);
-
-	int (*ipa_rm_deregister)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_register_params *reg_params);
-
-	int (*ipa_rm_set_perf_profile)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_perf_profile *profile);
-
-	int (*ipa_rm_add_dependency)(enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
-
-	int (*ipa_rm_delete_dependency)(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-	int (*ipa_rm_request_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_release_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_notify_completion)(enum ipa_rm_event event,
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_init)(enum ipa_rm_resource_name
-		resource_name, unsigned long msecs);
-
-	int (*ipa_rm_inactivity_timer_destroy)(
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_request_resource)(
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_release_resource)(
-				enum ipa_rm_resource_name resource_name);
-
 	int (*teth_bridge_init)(struct teth_bridge_init_params *params);
 
 	int (*teth_bridge_disconnect)(enum ipa_client_type client);
@@ -309,10 +270,6 @@ struct ipa_api_controller {
 
 	int (*ipa_disable_apps_wan_cons_deaggr)(uint32_t agg_size,
 						uint32_t agg_count);
-
-	int (*ipa_rm_add_dependency_sync)(
-		enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
 
 	struct device *(*ipa_get_dma_dev)(void);
 

@@ -1064,7 +1064,7 @@ int vote_for_bus_bw(uint32_t *bw_mbps)
 
 	memset(&profile, 0, sizeof(profile));
 	profile.max_supported_bandwidth_mbps = *bw_mbps;
-	ret = ipa2_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
+	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
 			&profile);
 	if (ret)
 		IPAWANERR("Failed to set perf profile to BW %u\n",

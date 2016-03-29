@@ -1931,46 +1931,6 @@ int ipa3_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
 int ipa3_uc_dereg_rdyCB(void);
 
 /*
- * Resource manager
- */
-int ipa3_rm_create_resource(struct ipa_rm_create_params *create_params);
-
-int ipa3_rm_delete_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_register(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params);
-
-int ipa3_rm_deregister(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params);
-
-int ipa3_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_perf_profile *profile);
-
-int ipa3_rm_add_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-int ipa3_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-int ipa3_rm_request_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_release_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_notify_completion(enum ipa_rm_event event,
-		enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
-				 unsigned long msecs);
-
-int ipa3_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_inactivity_timer_request_resource(
-				enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_inactivity_timer_release_resource(
-				enum ipa_rm_resource_name resource_name);
-
-/*
  * Tethering bridge (Rmnet / MBIM)
  */
 int ipa3_teth_bridge_init(struct teth_bridge_init_params *params);
@@ -2257,8 +2217,6 @@ int ipa3_ap_suspend(struct device *dev);
 int ipa3_ap_resume(struct device *dev);
 int ipa3_init_interrupts(void);
 struct iommu_domain *ipa3_get_smmu_domain(void);
-int ipa3_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
 int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipahal_reg_hash_tuple *tuple);
@@ -2280,7 +2238,6 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	struct ipa3_debugfs_rt_entry entry[],
 	int *num_entry);
 int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
-const char *ipa3_rm_resource_str(enum ipa_rm_resource_name resource_name);
 int ipa3_restore_suspend_handler(void);
 int ipa3_inject_dma_task_for_gsi(void);
 int ipa3_uc_panic_notifier(struct notifier_block *this,

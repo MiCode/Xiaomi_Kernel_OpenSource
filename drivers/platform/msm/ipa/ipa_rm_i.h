@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,8 @@
 
 #define IPA_RM_DRV_NAME "ipa_rm"
 
+#define IPA_RM_DBG_LOW(fmt, args...) \
+	pr_debug(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define IPA_RM_DBG(fmt, args...) \
 	pr_debug(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define IPA_RM_ERR(fmt, args...) \
@@ -33,18 +35,18 @@
 #define IPA_RM_INDEX_INVALID	(-1)
 #define IPA_RM_RELEASE_DELAY_IN_MSEC 1000
 
-int ipa3_rm_prod_index(enum ipa_rm_resource_name resource_name);
-int ipa3_rm_cons_index(enum ipa_rm_resource_name resource_name);
+int ipa_rm_prod_index(enum ipa_rm_resource_name resource_name);
+int ipa_rm_cons_index(enum ipa_rm_resource_name resource_name);
 
 /**
- * struct ipa3_rm_delayed_release_work_type - IPA RM delayed resource release
+ * struct ipa_rm_delayed_release_work_type - IPA RM delayed resource release
  *				work type
  * @delayed_work: work struct
  * @ipa_rm_resource_name: name of the resource on which this work should be done
  * @needed_bw: bandwidth required for resource in Mbps
  * @dec_usage_count: decrease usage count on release ?
  */
-struct ipa3_rm_delayed_release_work_type {
+struct ipa_rm_delayed_release_work_type {
 	struct delayed_work		work;
 	enum ipa_rm_resource_name	resource_name;
 	u32				needed_bw;
@@ -53,16 +55,16 @@ struct ipa3_rm_delayed_release_work_type {
 };
 
 /**
- * enum ipa3_rm_wq_cmd - workqueue commands
+ * enum ipa_rm_wq_cmd - workqueue commands
  */
-enum ipa3_rm_wq_cmd {
+enum ipa_rm_wq_cmd {
 	IPA_RM_WQ_NOTIFY_PROD,
 	IPA_RM_WQ_NOTIFY_CONS,
 	IPA_RM_WQ_RESOURCE_CB
 };
 
 /**
- * struct ipa3_rm_wq_work_type - IPA RM worqueue specific
+ * struct ipa_rm_wq_work_type - IPA RM worqueue specific
  *				work type
  * @work: work struct
  * @wq_cmd: command that should be processed in workqueue context
@@ -71,18 +73,18 @@ enum ipa3_rm_wq_cmd {
  * @dep_graph: data structure to search for resource if exists
  * @event: event to notify
  * @notify_registered_only: notify only clients registered by
- *	ipa3_rm_register()
+ *	ipa_rm_register()
  */
-struct ipa3_rm_wq_work_type {
+struct ipa_rm_wq_work_type {
 	struct work_struct		work;
-	enum ipa3_rm_wq_cmd		wq_cmd;
+	enum ipa_rm_wq_cmd		wq_cmd;
 	enum ipa_rm_resource_name	resource_name;
 	enum ipa_rm_event		event;
 	bool				notify_registered_only;
 };
 
 /**
- * struct ipa3_rm_wq_suspend_resume_work_type - IPA RM worqueue resume or
+ * struct ipa_rm_wq_suspend_resume_work_type - IPA RM worqueue resume or
  *				suspend work type
  * @work: work struct
  * @resource_name: name of the resource on which this work
@@ -90,40 +92,39 @@ struct ipa3_rm_wq_work_type {
  * @prev_state:
  * @needed_bw:
  */
-struct ipa3_rm_wq_suspend_resume_work_type {
+struct ipa_rm_wq_suspend_resume_work_type {
 	struct work_struct		work;
 	enum ipa_rm_resource_name	resource_name;
-	enum ipa3_rm_resource_state	prev_state;
+	enum ipa_rm_resource_state	prev_state;
 	u32				needed_bw;
 
 };
 
-int ipa3_rm_wq_send_cmd(enum ipa3_rm_wq_cmd wq_cmd,
+int ipa_rm_wq_send_cmd(enum ipa_rm_wq_cmd wq_cmd,
 		enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_event event,
 		bool notify_registered_only);
 
-int ipa3_rm_wq_send_resume_cmd(enum ipa_rm_resource_name resource_name,
-		enum ipa3_rm_resource_state prev_state,
+int ipa_rm_wq_send_resume_cmd(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_state prev_state,
 		u32 needed_bw);
 
-int ipa3_rm_wq_send_suspend_cmd(enum ipa_rm_resource_name resource_name,
-		enum ipa3_rm_resource_state prev_state,
+int ipa_rm_wq_send_suspend_cmd(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_state prev_state,
 		u32 needed_bw);
 
-int ipa3_rm_initialize(void);
+int ipa_rm_initialize(void);
 
-int ipa3_rm_stat(char *buf, int size);
+int ipa_rm_stat(char *buf, int size);
 
-const char *ipa3_rm_resource_str(enum ipa_rm_resource_name resource_name);
+const char *ipa_rm_resource_str(enum ipa_rm_resource_name resource_name);
 
-void ipa3_rm_perf_profile_change(enum ipa_rm_resource_name resource_name);
+void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name);
 
-int ipa3_rm_request_resource_with_timer(enum ipa_rm_resource_name
-		resource_name);
+int ipa_rm_request_resource_with_timer(enum ipa_rm_resource_name resource_name);
 
-void ipa3_delayed_release_work_func(struct work_struct *work);
+void delayed_release_work_func(struct work_struct *work);
 
-void ipa3_rm_exit(void);
+void ipa_rm_exit(void);
 
 #endif /* _IPA_RM_I_H_ */

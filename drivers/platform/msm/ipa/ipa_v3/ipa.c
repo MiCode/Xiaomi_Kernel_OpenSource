@@ -39,7 +39,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #define IPA_SUBSYSTEM_NAME "ipa_fws"
 #include "ipa_i.h"
-#include "ipa_rm_i.h"
+#include "../ipa_rm_i.h"
 #include "ipahal/ipahal.h"
 
 #define CREATE_TRACE_POINTS
@@ -1172,7 +1172,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		retval = ipa3_rm_add_dependency(rm_depend.resource_name,
+		retval = ipa_rm_add_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_RM_DEL_DEPENDENCY:
@@ -1181,7 +1181,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		retval = ipa3_rm_delete_dependency(rm_depend.resource_name,
+		retval = ipa_rm_delete_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_GENERATE_FLT_EQ:
@@ -3394,7 +3394,7 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 			} else {
 				resource = ipa3_get_rm_resource_from_ep(i);
 				res =
-				ipa3_rm_request_resource_with_timer(resource);
+				ipa_rm_request_resource_with_timer(resource);
 				if (res == -EPERM &&
 					IPA_CLIENT_IS_CONS(
 					   ipa3_ctx->ep[i].client)) {
@@ -3479,14 +3479,14 @@ int ipa3_create_apps_resource(void)
 		ipa3_apps_cons_request_resource;
 	apps_cons_create_params.release_resource =
 		ipa3_apps_cons_release_resource;
-	result = ipa3_rm_create_resource(&apps_cons_create_params);
+	result = ipa_rm_create_resource(&apps_cons_create_params);
 	if (result) {
-		IPAERR("ipa3_rm_create_resource failed\n");
+		IPAERR("ipa_rm_create_resource failed\n");
 		return result;
 	}
 
 	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
-	ipa3_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
+	ipa_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
 
 	return result;
 }
@@ -3760,8 +3760,8 @@ fail_setup_apps_pipes:
 	else
 		sps_deregister_bam_device(ipa3_ctx->bam_handle);
 fail_register_device:
-	ipa3_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
-	ipa3_rm_exit();
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+	ipa_rm_exit();
 	cdev_del(&ipa3_ctx->cdev);
 	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
@@ -4341,7 +4341,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	spin_lock_init(&ipa3_ctx->wakelock_ref_cnt.spinlock);
 
 	/* Initialize IPA RM (resource manager) */
-	result = ipa3_rm_initialize();
+	result = ipa_rm_initialize();
 	if (result) {
 		IPAERR("RM initialization failed (%d)\n", -result);
 		result = -ENODEV;
@@ -4396,9 +4396,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	return 0;
 
 fail_ipa_init_interrupts:
-	ipa3_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
-	ipa3_rm_exit();
+	ipa_rm_exit();
 fail_ipa_rm_init:
 fail_nat_dev_add:
 	cdev_del(&ipa3_ctx->cdev);
