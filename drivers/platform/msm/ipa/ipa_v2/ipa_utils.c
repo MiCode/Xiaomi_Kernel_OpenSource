@@ -17,6 +17,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include "ipa_i.h"
+#include "../ipa_rm_i.h"
 
 #define IPA_V1_CLK_RATE (92.31 * 1000 * 1000UL)
 #define IPA_V1_1_CLK_RATE (100 * 1000 * 1000UL)
@@ -5015,24 +5016,6 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_uc_dereg_rdyCB = ipa2_uc_dereg_rdyCB;
 	api_ctrl->ipa_create_wdi_mapping = ipa2_create_wdi_mapping;
 	api_ctrl->ipa_release_wdi_mapping = ipa2_release_wdi_mapping;
-	api_ctrl->ipa_rm_create_resource = ipa2_rm_create_resource;
-	api_ctrl->ipa_rm_delete_resource = ipa2_rm_delete_resource;
-	api_ctrl->ipa_rm_register = ipa2_rm_register;
-	api_ctrl->ipa_rm_deregister = ipa2_rm_deregister;
-	api_ctrl->ipa_rm_set_perf_profile = ipa2_rm_set_perf_profile;
-	api_ctrl->ipa_rm_add_dependency = ipa2_rm_add_dependency;
-	api_ctrl->ipa_rm_delete_dependency = ipa2_rm_delete_dependency;
-	api_ctrl->ipa_rm_request_resource = ipa2_rm_request_resource;
-	api_ctrl->ipa_rm_release_resource = ipa2_rm_release_resource;
-	api_ctrl->ipa_rm_notify_completion = ipa2_rm_notify_completion;
-	api_ctrl->ipa_rm_inactivity_timer_init =
-		ipa2_rm_inactivity_timer_init;
-	api_ctrl->ipa_rm_inactivity_timer_destroy =
-		ipa2_rm_inactivity_timer_destroy;
-	api_ctrl->ipa_rm_inactivity_timer_request_resource =
-		ipa2_rm_inactivity_timer_request_resource;
-	api_ctrl->ipa_rm_inactivity_timer_release_resource =
-		ipa2_rm_inactivity_timer_release_resource;
 	api_ctrl->teth_bridge_init = ipa2_teth_bridge_init;
 	api_ctrl->teth_bridge_disconnect = ipa2_teth_bridge_disconnect;
 	api_ctrl->teth_bridge_connect = ipa2_teth_bridge_connect;
@@ -5073,7 +5056,6 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_smmu_domain = ipa2_get_smmu_domain;
 	api_ctrl->ipa_disable_apps_wan_cons_deaggr =
 		ipa2_disable_apps_wan_cons_deaggr;
-	api_ctrl->ipa_rm_add_dependency_sync = ipa2_rm_add_dependency_sync;
 	api_ctrl->ipa_get_dma_dev = ipa2_get_dma_dev;
 	api_ctrl->ipa_get_gsi_ep_info = ipa2_get_gsi_ep_info;
 	api_ctrl->ipa_stop_gsi_channel = ipa2_stop_gsi_channel;

@@ -19,6 +19,7 @@
 #include <linux/rndis_ipa.h>
 #include <linux/ecm_ipa.h>
 #include "../ipa_v3/ipa_i.h"
+#include "../ipa_rm_i.h"
 
 #define IPA_USB_RM_TIMEOUT_MSEC 10000
 #define IPA_USB_DEV_READY_TIMEOUT_MSEC 10000
@@ -394,7 +395,7 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state, bool err_permit,
 		}
 		/* Notify RM that consumer is granted */
 		if (rm_ctx->cons_requested) {
-			ipa3_rm_notify_completion(
+			ipa_rm_notify_completion(
 				IPA_RM_RESOURCE_GRANTED,
 				rm_ctx->cons_params.name);
 			rm_ctx->cons_state = IPA_USB_CONS_GRANTED;
@@ -529,12 +530,12 @@ static void ipa3_usb_prod_notify_cb_do(enum ipa_rm_event event,
 	switch (event) {
 	case IPA_RM_RESOURCE_GRANTED:
 		IPA_USB_DBG(":%s granted\n",
-			ipa3_rm_resource_str(rm_ctx->prod_params.name));
+			ipa_rm_resource_str(rm_ctx->prod_params.name));
 		complete_all(&rm_ctx->prod_comp);
 		break;
 	case IPA_RM_RESOURCE_RELEASED:
 		IPA_USB_DBG(":%s released\n",
-			ipa3_rm_resource_str(rm_ctx->prod_params.name));
+			ipa_rm_resource_str(rm_ctx->prod_params.name));
 		complete_all(&rm_ctx->prod_comp);
 		break;
 	}
@@ -824,13 +825,13 @@ static int ipa3_usb_create_rm_resources(enum ipa3_usb_transport_type ttype)
 		result = ipa_rm_create_resource(&rm_ctx->prod_params);
 		if (result) {
 			IPA_USB_ERR("Failed to create %s RM resource\n",
-				ipa3_rm_resource_str(rm_ctx->prod_params.name));
+				ipa_rm_resource_str(rm_ctx->prod_params.name));
 			return result;
 		}
 		rm_ctx->prod_valid = true;
 		created = true;
 		IPA_USB_DBG("Created %s RM resource\n",
-			ipa3_rm_resource_str(rm_ctx->prod_params.name));
+			ipa_rm_resource_str(rm_ctx->prod_params.name));
 	}
 
 	/* Create CONS */
@@ -852,12 +853,12 @@ static int ipa3_usb_create_rm_resources(enum ipa3_usb_transport_type ttype)
 		result = ipa_rm_create_resource(&rm_ctx->cons_params);
 		if (result) {
 			IPA_USB_ERR("Failed to create %s RM resource\n",
-				ipa3_rm_resource_str(rm_ctx->cons_params.name));
+				ipa_rm_resource_str(rm_ctx->cons_params.name));
 			goto create_cons_rsc_fail;
 		}
 		rm_ctx->cons_valid = true;
 		IPA_USB_DBG("Created %s RM resource\n",
-			ipa3_rm_resource_str(rm_ctx->cons_params.name));
+			ipa_rm_resource_str(rm_ctx->cons_params.name));
 	}
 
 	return 0;
@@ -1298,11 +1299,11 @@ static int ipa3_usb_request_prod(enum ipa3_usb_transport_type ttype)
 	const char *rsrc_str;
 
 	rm_ctx = &ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx;
-	rsrc_str = ipa3_rm_resource_str(rm_ctx->prod_params.name);
+	rsrc_str = ipa_rm_resource_str(rm_ctx->prod_params.name);
 
 	IPA_USB_DBG_LOW("requesting %s\n", rsrc_str);
 	init_completion(&rm_ctx->prod_comp);
-	result = ipa3_rm_request_resource(rm_ctx->prod_params.name);
+	result = ipa_rm_request_resource(rm_ctx->prod_params.name);
 	if (result) {
 		if (result != -EINPROGRESS) {
 			IPA_USB_ERR("failed to request %s: %d\n",
@@ -1328,7 +1329,7 @@ static int ipa3_usb_release_prod(enum ipa3_usb_transport_type ttype)
 	const char *rsrc_str;
 
 	rm_ctx = &ipa3_usb_ctx->ttype_ctx[ttype].rm_ctx;
-	rsrc_str = ipa3_rm_resource_str(rm_ctx->prod_params.name);
+	rsrc_str = ipa_rm_resource_str(rm_ctx->prod_params.name);
 
 	IPA_USB_DBG_LOW("releasing %s\n", rsrc_str);
 
@@ -1408,10 +1409,10 @@ static int ipa3_usb_connect_dpl(void)
 	 * is sync in order to make sure the IPA clocks are up before we
 	 * continue and notify the USB driver it may continue.
 	 */
-	res = ipa3_rm_add_dependency_sync(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
+	res = ipa_rm_add_dependency_sync(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
 				    IPA_RM_RESOURCE_Q6_CONS);
 	if (res < 0) {
-		IPA_USB_ERR("ipa3_rm_add_dependency_sync() failed.\n");
+		IPA_USB_ERR("ipa_rm_add_dependency_sync() failed.\n");
 		return res;
 	}
 
@@ -1420,11 +1421,11 @@ static int ipa3_usb_connect_dpl(void)
 	 * status is connected (which can happen only later in the flow),
 	 * the clocks are already up so the call doesn't need to block.
 	 */
-	res = ipa3_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
 				    IPA_RM_RESOURCE_USB_DPL_CONS);
 	if (res < 0 && res != -EINPROGRESS) {
-		IPA_USB_ERR("ipa3_rm_add_dependency() failed.\n");
-		ipa3_rm_delete_dependency(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
+		IPA_USB_ERR("ipa_rm_add_dependency() failed.\n");
+		ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
 				IPA_RM_RESOURCE_Q6_CONS);
 		return res;
 	}
@@ -1590,12 +1591,12 @@ static int ipa3_usb_disconnect_dpl(void)
 	int res;
 
 	/* Remove DPL RM dependency */
-	res = ipa3_rm_delete_dependency(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
+	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD,
 				    IPA_RM_RESOURCE_Q6_CONS);
 	if (res)
 		IPA_USB_ERR("deleting DPL_DUMMY_PROD rsrc dependency fail\n");
 
-	res = ipa3_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
 				 IPA_RM_RESOURCE_USB_DPL_CONS);
 	if (res)
 		IPA_USB_ERR("deleting DPL_CONS rsrc dependencty fail\n");
@@ -1716,7 +1717,7 @@ static int ipa3_usb_xdci_connect_internal(
 		&profile);
 	if (result) {
 		IPA_USB_ERR("failed to set %s perf profile\n",
-			ipa3_rm_resource_str(ipa3_usb_ctx->ttype_ctx[ttype].
+			ipa_rm_resource_str(ipa3_usb_ctx->ttype_ctx[ttype].
 				rm_ctx.prod_params.name));
 		return result;
 	}
@@ -1725,7 +1726,7 @@ static int ipa3_usb_xdci_connect_internal(
 		&profile);
 	if (result) {
 		IPA_USB_ERR("failed to set %s perf profile\n",
-			ipa3_rm_resource_str(ipa3_usb_ctx->ttype_ctx[ttype].
+			ipa_rm_resource_str(ipa3_usb_ctx->ttype_ctx[ttype].
 				rm_ctx.cons_params.name));
 		return result;
 	}

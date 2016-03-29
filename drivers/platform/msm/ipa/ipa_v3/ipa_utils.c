@@ -20,6 +20,7 @@
 #include <linux/elf.h>
 #include "ipa_i.h"
 #include "ipahal/ipahal.h"
+#include "../ipa_rm_i.h"
 
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
@@ -608,7 +609,7 @@ int ipa3_suspend_resource_sync(enum ipa_rm_resource_name resource)
 
 	/* before gating IPA clocks do TAG process */
 	ipa3_ctx->tag_process_before_gating = true;
-	IPA_ACTIVE_CLIENTS_DEC_RESOURCE(ipa3_rm_resource_str(resource));
+	IPA_ACTIVE_CLIENTS_DEC_RESOURCE(ipa_rm_resource_str(resource));
 
 	return 0;
 }
@@ -671,7 +672,7 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 
 	if (res == 0) {
 		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
-				ipa3_rm_resource_str(resource));
+				ipa_rm_resource_str(resource));
 		ipa3_active_clients_log_dec(&log_info, true);
 		ipa3_ctx->ipa3_active_clients.cnt--;
 		IPADBG("active clients = %d\n",
@@ -4519,24 +4520,6 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_uc_wdi_get_dbpa = ipa3_uc_wdi_get_dbpa;
 	api_ctrl->ipa_uc_reg_rdyCB = ipa3_uc_reg_rdyCB;
 	api_ctrl->ipa_uc_dereg_rdyCB = ipa3_uc_dereg_rdyCB;
-	api_ctrl->ipa_rm_create_resource = ipa3_rm_create_resource;
-	api_ctrl->ipa_rm_delete_resource = ipa3_rm_delete_resource;
-	api_ctrl->ipa_rm_register = ipa3_rm_register;
-	api_ctrl->ipa_rm_deregister = ipa3_rm_deregister;
-	api_ctrl->ipa_rm_set_perf_profile = ipa3_rm_set_perf_profile;
-	api_ctrl->ipa_rm_add_dependency = ipa3_rm_add_dependency;
-	api_ctrl->ipa_rm_delete_dependency = ipa3_rm_delete_dependency;
-	api_ctrl->ipa_rm_request_resource = ipa3_rm_request_resource;
-	api_ctrl->ipa_rm_release_resource = ipa3_rm_release_resource;
-	api_ctrl->ipa_rm_notify_completion = ipa3_rm_notify_completion;
-	api_ctrl->ipa_rm_inactivity_timer_init =
-		ipa3_rm_inactivity_timer_init;
-	api_ctrl->ipa_rm_inactivity_timer_destroy =
-		ipa3_rm_inactivity_timer_destroy;
-	api_ctrl->ipa_rm_inactivity_timer_request_resource =
-		ipa3_rm_inactivity_timer_request_resource;
-	api_ctrl->ipa_rm_inactivity_timer_release_resource =
-		ipa3_rm_inactivity_timer_release_resource;
 	api_ctrl->teth_bridge_init = ipa3_teth_bridge_init;
 	api_ctrl->teth_bridge_disconnect = ipa3_teth_bridge_disconnect;
 	api_ctrl->teth_bridge_connect = ipa3_teth_bridge_connect;
@@ -4577,7 +4560,6 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_smmu_domain = ipa3_get_smmu_domain;
 	api_ctrl->ipa_disable_apps_wan_cons_deaggr =
 		ipa3_disable_apps_wan_cons_deaggr;
-	api_ctrl->ipa_rm_add_dependency_sync = ipa3_rm_add_dependency_sync;
 	api_ctrl->ipa_get_dma_dev = ipa3_get_dma_dev;
 	api_ctrl->ipa_release_wdi_mapping = ipa3_release_wdi_mapping;
 	api_ctrl->ipa_create_wdi_mapping = ipa3_create_wdi_mapping;

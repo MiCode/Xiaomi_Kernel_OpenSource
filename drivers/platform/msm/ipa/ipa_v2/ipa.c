@@ -35,7 +35,7 @@
 #include <linux/hashtable.h>
 #include <linux/hash.h>
 #include "ipa_i.h"
-#include "ipa_rm_i.h"
+#include "../ipa_rm_i.h"
 
 #define CREATE_TRACE_POINTS
 #include "ipa_trace.h"
@@ -1091,7 +1091,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		retval = ipa2_rm_add_dependency(rm_depend.resource_name,
+		retval = ipa_rm_add_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_RM_DEL_DEPENDENCY:
@@ -1100,7 +1100,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		retval = ipa2_rm_delete_dependency(rm_depend.resource_name,
+		retval = ipa_rm_delete_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_GENERATE_FLT_EQ:
@@ -3496,14 +3496,14 @@ int ipa_create_apps_resource(void)
 	apps_cons_create_params.name = IPA_RM_RESOURCE_APPS_CONS;
 	apps_cons_create_params.request_resource = apps_cons_request_resource;
 	apps_cons_create_params.release_resource = apps_cons_release_resource;
-	result = ipa2_rm_create_resource(&apps_cons_create_params);
+	result = ipa_rm_create_resource(&apps_cons_create_params);
 	if (result) {
-		IPAERR("ipa2_rm_create_resource failed\n");
+		IPAERR("ipa_rm_create_resource failed\n");
 		return result;
 	}
 
 	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
-	ipa2_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
+	ipa_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
 
 	return result;
 }
@@ -4011,7 +4011,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 fail_add_interrupt_handler:
 	free_irq(resource_p->ipa_irq, master_dev);
 fail_ipa_interrupts_init:
-	ipa2_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
 	ipa_rm_exit();
 fail_ipa_rm_init:
