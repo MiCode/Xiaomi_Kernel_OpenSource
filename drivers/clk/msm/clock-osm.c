@@ -34,6 +34,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/uaccess.h>
 
+#include <soc/qcom/scm.h>
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-alpha-pll.h>
@@ -303,26 +304,22 @@ static inline void clk_osm_masked_write_reg(struct clk_osm *c, u32 val,
 {
 	u32 val2, orig_val;
 
-	val2 = orig_val = readl_relaxed((char *)c->vbases[OSM_BASE] + offset
-			+ c->cluster_num * OSM_CORE_TABLE_SIZE);
+	val2 = orig_val = readl_relaxed((char *)c->vbases[OSM_BASE] + offset);
 	val2 &= ~mask;
 	val2 |= val & mask;
 
 	if (val2 != orig_val)
-		writel_relaxed(val2, (char *)c->vbases[OSM_BASE] + offset
-			+ c->cluster_num * OSM_CORE_TABLE_SIZE);
+		writel_relaxed(val2, (char *)c->vbases[OSM_BASE] + offset);
 }
 
 static inline void clk_osm_write_reg(struct clk_osm *c, u32 val, u32 offset)
 {
-	writel_relaxed(val , (char *)c->vbases[OSM_BASE] + offset
-		       + c->cluster_num * OSM_CORE_TABLE_SIZE);
+	writel_relaxed(val , (char *)c->vbases[OSM_BASE] + offset);
 }
 
 static inline int clk_osm_read_reg(struct clk_osm *c, u32 offset)
 {
-	return readl_relaxed((char *)c->vbases[OSM_BASE] + offset +
-			     c->cluster_num * OSM_CORE_TABLE_SIZE);
+	return readl_relaxed((char *)c->vbases[OSM_BASE] + offset);
 }
 
 static inline int clk_osm_count_us(struct clk_osm *c, u32 usec)
@@ -784,8 +781,10 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	perfcl_clk.pbases[OSM_BASE] = pwrcl_clk.pbases[OSM_BASE];
-	perfcl_clk.vbases[OSM_BASE] = pwrcl_clk.vbases[OSM_BASE];
+	perfcl_clk.pbases[OSM_BASE] = pwrcl_clk.pbases[OSM_BASE] +
+		perfcl_clk.cluster_num * OSM_CORE_TABLE_SIZE;
+	perfcl_clk.vbases[OSM_BASE] = pwrcl_clk.vbases[OSM_BASE]  +
+		perfcl_clk.cluster_num * OSM_CORE_TABLE_SIZE;
 
 	for (i = 0; i < MAX_CLUSTER_CNT; i++) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -1347,8 +1346,7 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 	if (!c->secure_init)
 		return;
 
-	clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(50) +
-			  c->cluster_num * OSM_CORE_TABLE_SIZE,
+	clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(50),
 			  SEQ_REG(49));
 	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(1), SEQ_REG(50));
 	clk_osm_write_reg(c, MEM_ACC_SEQ_CONST(1), SEQ_REG(51));
@@ -1406,23 +1404,27 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 {
 	u32 val;
 
-	clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(42) +
-			  c->cluster_num *
-			  OSM_CORE_TABLE_SIZE, SEQ_REG(40));
-	clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(43) +
-			  c->cluster_num *
-			  OSM_CORE_TABLE_SIZE, SEQ_REG(41));
-	clk_osm_write_reg(c, 0x1, SEQ_REG(44));
-	clk_osm_write_reg(c, 0x0, SEQ_REG(45));
-	clk_osm_write_reg(c, c->pbases[OSM_BASE] + PDN_FSM_CTRL_REG +
-			  c->cluster_num *
-			  OSM_CORE_TABLE_SIZE, SEQ_REG(46));
-
 	val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 	val |= IGNORE_PLL_LOCK_MASK;
-	clk_osm_write_reg(c, val, SEQ_REG(47));
-	val &= ~IGNORE_PLL_LOCK_MASK;
-	clk_osm_write_reg(c, val, SEQ_REG(48));
+
+	if (c->secure_init) {
+		clk_osm_write_reg(c, val, SEQ_REG(47));
+		val &= ~IGNORE_PLL_LOCK_MASK;
+		clk_osm_write_reg(c, val, SEQ_REG(48));
+
+		clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(42),
+				  SEQ_REG(40));
+		clk_osm_write_reg(c, c->pbases[OSM_BASE] + SEQ_REG(43),
+				  SEQ_REG(41));
+		clk_osm_write_reg(c, 0x1, SEQ_REG(44));
+		clk_osm_write_reg(c, 0x0, SEQ_REG(45));
+		clk_osm_write_reg(c, c->pbases[OSM_BASE] + PDN_FSM_CTRL_REG,
+				  SEQ_REG(46));
+	} else {
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(47), val);
+		val &= ~IGNORE_PLL_LOCK_MASK;
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(48), val);
+	}
 }
 
 static void clk_osm_do_additional_setup(struct clk_osm *c,
@@ -1583,10 +1585,15 @@ static void clk_osm_apm_vc_setup(struct clk_osm *c)
 	 * APM crossover virtual corner at which the switch
 	 * from APC to MX and vice-versa should take place.
 	 */
-	clk_osm_write_reg(c, c->apm_crossover_vc, SEQ_REG(1));
+	if (c->secure_init) {
+		clk_osm_write_reg(c, c->apm_crossover_vc, SEQ_REG(1));
 
-	/* Ensure writes complete before delaying */
-	mb();
+		/* Ensure writes complete before returning */
+		mb();
+	} else {
+		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(1),
+			     c->apm_crossover_vc);
+	}
 }
 
 static irqreturn_t clk_osm_debug_irq_cb(int irq, void *data)
