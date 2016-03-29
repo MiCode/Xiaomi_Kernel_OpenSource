@@ -2253,3 +2253,4 @@
 #include "msm-audio-lpass.dtsi"
 #include "msmcobalt-audio.dtsi"
 #include "msmcobalt-mdss.dtsi"
+#include "msmcobalt-mdss-pll.dtsi"
