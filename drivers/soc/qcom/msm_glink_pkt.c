@@ -984,6 +984,7 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 {
 	int ret = 0;
 	struct glink_pkt_dev *devp = file->private_data;
+	unsigned long flags;
 	GLINK_PKT_INFO("%s() on dev id:%d by [%s] ref_cnt[%d]\n",
 			__func__, devp->i, current->comm, devp->ref_cnt);
 
@@ -1011,7 +1012,12 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 			mutex_lock(&devp->ch_lock);
 		}
 		devp->poll_mode = 0;
-		devp->ws_locked = 0;
+		spin_lock_irqsave(&devp->pa_spinlock, flags);
+		if (devp->ws_locked) {
+			__pm_relax(&devp->pa_ws);
+			devp->ws_locked = 0;
+		}
+		spin_unlock_irqrestore(&devp->pa_spinlock, flags);
 		devp->sigs_updated = false;
 		devp->in_reset = 0;
 	}
