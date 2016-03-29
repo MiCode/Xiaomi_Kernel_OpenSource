@@ -501,6 +501,9 @@
 				qcom,duration = <1280>;
 				qcom,id = <2>;
 				qcom,current = <625>;
+				reg0 {
+					regulator-name = "pon_spare_reg";
+				};
 			};
 		};
 
