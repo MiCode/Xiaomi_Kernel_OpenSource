@@ -5429,26 +5429,6 @@ out:
 	return ret;
 }
 
-static void tasha_set_anc_dmic_mode(struct snd_soc_codec *codec,
-				u8 dmic_ctl_val)
-{
-	u8 anc_ctl_value;
-
-	if (dmic_ctl_val == WCD9335_DMIC_CLK_DIV_2)
-		anc_ctl_value = WCD9335_ANC_DMIC_X2_FULL_RATE;
-	else
-		anc_ctl_value = WCD9335_ANC_DMIC_X2_HALF_RATE;
-
-	snd_soc_update_bits(codec, WCD9335_CDC_ANC0_MODE_2_CTL,
-			    0x40, anc_ctl_value << 6);
-	snd_soc_update_bits(codec, WCD9335_CDC_ANC0_MODE_2_CTL,
-			    0x20, anc_ctl_value << 5);
-	snd_soc_update_bits(codec, WCD9335_CDC_ANC1_MODE_2_CTL,
-			    0x40, anc_ctl_value << 6);
-	snd_soc_update_bits(codec, WCD9335_CDC_ANC1_MODE_2_CTL,
-			    0x20, anc_ctl_value << 5);
-}
-
 static u32 tasha_get_dmic_sample_rate(struct snd_soc_codec *codec,
 				unsigned int dmic, struct wcd9xxx_pdata *pdata)
 {
@@ -5470,6 +5450,7 @@ static u32 tasha_get_dmic_sample_rate(struct snd_soc_codec *codec,
 			adc_mux_sel = ((snd_soc_read(codec, adc_mux_ctl_reg) &
 						0x38) >> 3) - 1;
 		} else if (adc_mux_index == 9) {
+			++adc_mux_index;
 			continue;
 		}
 		if (adc_mux_sel == dmic)
@@ -5622,9 +5603,6 @@ static int tasha_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 			tasha_get_dmic_clk_val(codec,
 					pdata->mclk_rate,
 					dmic_sample_rate);
-
-		/* Set ANC dmic control bits to match dmic rate */
-		tasha_set_anc_dmic_mode(codec, dmic_rate_val);
 
 		(*dmic_clk_cnt)++;
 		if (*dmic_clk_cnt == 1) {
@@ -11977,6 +11955,7 @@ static int tasha_handle_pdata(struct tasha_priv *tasha,
 {
 	struct snd_soc_codec *codec = tasha->codec;
 	u8 dmic_ctl_val, mad_dmic_ctl_val;
+	u8 anc_ctl_value;
 	u32 def_dmic_rate, dmic_clk_drv;
 	int vout_ctl_1, vout_ctl_2, vout_ctl_3, vout_ctl_4;
 	int rc = 0;
@@ -12086,8 +12065,19 @@ static int tasha_handle_pdata(struct tasha_priv *tasha,
 				pdata->mclk_rate,
 				pdata->dmic_sample_rate);
 
-	tasha_set_anc_dmic_mode(codec, dmic_ctl_val);
+	if (dmic_ctl_val == WCD9335_DMIC_CLK_DIV_2)
+		anc_ctl_value = WCD9335_ANC_DMIC_X2_FULL_RATE;
+	else
+		anc_ctl_value = WCD9335_ANC_DMIC_X2_HALF_RATE;
 
+	snd_soc_update_bits(codec, WCD9335_CDC_ANC0_MODE_2_CTL,
+			    0x40, anc_ctl_value << 6);
+	snd_soc_update_bits(codec, WCD9335_CDC_ANC0_MODE_2_CTL,
+			    0x20, anc_ctl_value << 5);
+	snd_soc_update_bits(codec, WCD9335_CDC_ANC1_MODE_2_CTL,
+			    0x40, anc_ctl_value << 6);
+	snd_soc_update_bits(codec, WCD9335_CDC_ANC1_MODE_2_CTL,
+			    0x20, anc_ctl_value << 5);
 done:
 	return rc;
 }
