@@ -69,6 +69,7 @@ Required properties:
 			"qcom,gpucc-cobalt"
 			"qcom,gfxcc-cobalt"
 			"qcom,mmsscc-cobalt"
+			"qcom,mmsscc-hamster"
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
