@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,11 @@ struct hdmi_pll_vco_clk {
 	struct clk	c;
 };
 
+static inline struct hdmi_pll_vco_clk *to_hdmi_vco_clk(struct clk *clk)
+{
+	return container_of(clk, struct hdmi_pll_vco_clk, c);
+}
+
 int hdmi_pll_clock_register(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 
@@ -50,4 +55,7 @@ int hdmi_8996_v3_pll_clock_register(struct platform_device *pdev,
 
 int hdmi_8996_v3_1p8_pll_clock_register(struct platform_device *pdev,
 				 struct mdss_pll_resources *pll_res);
+
+int hdmi_cobalt_pll_clock_register(struct platform_device *pdev,
+				   struct mdss_pll_resources *pll_res);
 #endif

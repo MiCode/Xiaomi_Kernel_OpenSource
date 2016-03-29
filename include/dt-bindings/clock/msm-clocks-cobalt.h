@@ -457,6 +457,7 @@
 #define clk_dp_link_2x_clk_divsel_ten		0xfeb9924d
 #define clk_dp_link_2x_clk_mux			0xce4c4fc6
 #define clk_vco_divided_clk_src			0x3da6cb51
+#define clk_hdmi_vco_clk			0xbb7dc20d
 
 /* clock_gpu controlled clocks*/
 #define clk_gpucc_xo				0xc4e1a890
