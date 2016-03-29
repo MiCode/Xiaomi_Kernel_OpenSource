@@ -715,7 +715,6 @@
 			< 2016000000 0x04040069 0x15540054 0x4>,
 			< 2092800000 0x0404006d 0x16570057 0x4>;
 
-		qcom,osm-no-tz;
 		qcom,osm-pll-setup;
 
 		qcom,up-timer =
@@ -758,6 +757,10 @@
 		qcom,red-fsm-en;
 		qcom,boost-fsm-en;
 		qcom,safe-fsm-en;
+		qcom,ps-fsm-en;
+		qcom,droop-fsm-en;
+		qcom,wfx-fsm-en;
+		qcom,pc-fsm-en;
 
 		qcom,pwrcl-apcs-mem-acc-cfg =
 			<0x179d1360 0x179d1364 0x179d1364>;
