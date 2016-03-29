@@ -963,8 +963,6 @@ static inline void clear_ed_task(struct task_struct *p, struct rq *rq) {}
 static inline void set_task_last_wake(struct task_struct *p, u64 wallclock) {}
 static inline void set_task_last_switch_out(struct task_struct *p,
 					    u64 wallclock) {}
-void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
-			int wakeup_energy, int wakeup_latency) {}
 #endif /* CONFIG_SCHED_HMP */
 
 #if defined(CONFIG_RT_GROUP_SCHED) || (defined(CONFIG_FAIR_GROUP_SCHED) && \
@@ -1580,6 +1578,7 @@ static void add_cluster(const struct cpumask *cpus, struct list_head *head)
 	num_clusters++;
 }
 
+#ifdef CONFIG_SMP
 static void update_cluster_topology(void)
 {
 	struct cpumask cpus = *cpu_possible_mask;
@@ -1604,6 +1603,7 @@ static void update_cluster_topology(void)
 	 */
 	move_list(&cluster_head, &new_head, false);
 }
+#endif
 
 static void init_clusters(void)
 {
@@ -1718,7 +1718,9 @@ static inline void clear_boost_kick(int cpu) { }
 
 static inline void clear_hmp_request(int cpu) { }
 
+#ifdef CONFIG_SMP
 static void update_cluster_topology(void) { }
+#endif
 
 #endif	/* CONFIG_SCHED_HMP */
 
