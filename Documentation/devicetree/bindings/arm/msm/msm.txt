@@ -83,6 +83,9 @@ SoCs:
 - MSMCOBALT
   compatible = "qcom,msmcobalt"
 
+- MSMHAMSTER
+  compatible = "qcom,msmhamster"
+
 - MSM8952
   compatible = "qcom,msm8952"
 
@@ -239,6 +242,9 @@ compatible = "qcom,msm8996-mtp"
 compatible = "qcom,msm8996-adp"
 compatible = "qcom,msmcobalt-sim"
 compatible = "qcom,msmcobalt-rumi"
+compatible = "qcom,msmhamster-rumi"
+compatible = "qcom,msmhamster-cdp"
+compatible = "qcom,msmhamster-mtp"
 compatible = "qcom,msm8952-rumi"
 compatible = "qcom,msm8952-sim"
 compatible = "qcom,msm8952-qrd"

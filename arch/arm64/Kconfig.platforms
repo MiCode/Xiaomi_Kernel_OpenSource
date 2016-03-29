@@ -73,6 +73,14 @@ config ARCH_MSMCOBALT
 	This enables support for the MSMCOBALT chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_MSMHAMSTER
+	bool "Enable Support for Qualcomm Technologies Inc MSMHAMSTER"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the MSMHAMSTER chipset.
+	  If you do not wish to build a kernel that runs
+	  on this chipset,say 'N' here.
+
 config ARCH_ROCKCHIP
 	bool "Rockchip Platforms"
 	select ARCH_HAS_RESET_CONTROLLER

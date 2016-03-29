@@ -99,6 +99,8 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-v2-mtp.dtb \
 	msmcobalt-v2-cdp.dtb
 
+dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
+
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
 clean-files	:= *.dtb
