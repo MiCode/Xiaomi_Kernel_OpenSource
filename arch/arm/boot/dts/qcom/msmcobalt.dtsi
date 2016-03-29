@@ -2154,18 +2154,20 @@
 	status = "ok";
 };
 
+#include "msm-pmcobalt.dtsi"
+#include "msm-pmicobalt.dtsi"
+#include "msm-pm8005.dtsi"
+#include "msm-pmcobalt-rpm-regulator.dtsi"
+#include "msmcobalt-regulator.dtsi"
+
 #include "msmcobalt-pm.dtsi"
 #include "msm-arm-smmu-cobalt.dtsi"
 #include "msmcobalt-ion.dtsi"
-#include "msm-pmcobalt-rpm-regulator.dtsi"
-#include "msmcobalt-regulator.dtsi"
 #include "msmcobalt-camera.dtsi"
 #include "msmcobalt-vidc.dtsi"
 #include "msmcobalt-coresight.dtsi"
 #include "msmcobalt-bus.dtsi"
 #include "msmcobalt-gpu.dtsi"
-#include "msm-pmcobalt.dtsi"
-#include "msm-pmicobalt.dtsi"
 #include "msmcobalt-pinctrl.dtsi"
 #include "msm-audio-lpass.dtsi"
 #include "msmcobalt-audio.dtsi"
