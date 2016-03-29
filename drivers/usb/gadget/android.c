@@ -532,6 +532,7 @@ static void android_disable(struct android_dev *dev)
 	struct android_configuration *conf;
 
 	if (dev->disable_depth++ == 0) {
+		usb_gadget_autopm_get(cdev->gadget);
 		if (gadget_is_dwc3(cdev->gadget)) {
 			/* Cancel pending control requests */
 			usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
@@ -550,6 +551,7 @@ static void android_disable(struct android_dev *dev)
 			list_for_each_entry(conf, &dev->configs, list_item)
 				usb_remove_config(cdev, &conf->usb_config);
 		}
+		usb_gadget_autopm_put_async(cdev->gadget);
 	}
 }
 
