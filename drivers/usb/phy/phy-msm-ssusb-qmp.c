@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -273,6 +273,9 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	writel_relaxed(0x03, phy->base + phy->phy_reg[USB3_PHY_START]);
 	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);
+
+	/* Make sure above write completed to bring PHY out of reset */
+	mb();
 
 	/* Wait for PHY initialization to be done */
 	do {
