@@ -1432,10 +1432,10 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 			}
 		} else {
 			for (i = 0; i < input_msg->events; i++) {
+				id = input_msg->event[i].id;
 				switch (input_msg->event[i].tool_type) {
 				case DR_INPUT_FINGER:
 					inp = 0;
-					id = input_msg->event[i].id;
 					if (pdata->mt_type_b_enabled) {
 						input_mt_slot(
 							dd->input_dev[inp], id);
