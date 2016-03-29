@@ -830,7 +830,8 @@ static int tcp_v4_send_synack(const struct sock *sk, struct dst_entry *dst,
 	struct sk_buff *skb;
 
 	/* First, grab a route. */
-	if (!dst && (dst = inet_csk_route_req(sk, &fl4, req)) == NULL)
+	if (!dst && (dst = inet_csk_route_req(
+					(struct sock *)sk, &fl4, req)) == NULL)
 		return -1;
 
 	skb = tcp_make_synack(sk, dst, req, foc, attach_req);
@@ -1189,7 +1190,8 @@ static struct dst_entry *tcp_v4_route_req(const struct sock *sk,
 					  const struct request_sock *req,
 					  bool *strict)
 {
-	struct dst_entry *dst = inet_csk_route_req(sk, &fl->u.ip4, req);
+	struct dst_entry *dst = inet_csk_route_req(
+					(struct sock *)sk, &fl->u.ip4, req);
 
 	if (strict) {
 		if (fl->u.ip4.daddr == inet_rsk(req)->ir_rmt_addr)
