@@ -2675,6 +2675,12 @@ struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
 	return NULL;
 }
 
+enum sched_boost_type {
+	SCHED_BOOST_NONE,
+	SCHED_BOOST_ON_BIG,
+	SCHED_BOOST_ON_ALL,
+};
+
 #ifdef CONFIG_SCHED_HMP
 
 /* Initial task load. Newly created tasks are assigned this load. */
@@ -2995,31 +3001,46 @@ done:
  * tasks with load close to the upmigrate threshold
  */
 
-static int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu)
+static int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu,
+			      enum sched_boost_type boost_type)
 {
 	int upmigrate;
 
 	if (cpu_capacity(cpu) == max_capacity)
 		return 1;
 
-	if (task_nice(p) > sched_upmigrate_min_nice || upmigrate_discouraged(p))
-		return 1;
+	if (boost_type != SCHED_BOOST_ON_BIG) {
+		if (task_nice(p) > sched_upmigrate_min_nice ||
+		    upmigrate_discouraged(p))
+			return 1;
 
-	upmigrate = sched_upmigrate;
-	if (cpu_capacity(task_cpu(p)) > cpu_capacity(cpu))
-		upmigrate = sched_downmigrate;
+		upmigrate = sched_upmigrate;
+		if (cpu_capacity(task_cpu(p)) > cpu_capacity(cpu))
+			upmigrate = sched_downmigrate;
 
-	if (task_load < upmigrate)
-		return 1;
+		if (task_load < upmigrate)
+			return 1;
+	}
 
 	return 0;
+}
+
+static enum sched_boost_type sched_boost_type(void)
+{
+	if (sched_boost()) {
+		if (min_possible_efficiency != max_possible_efficiency)
+			return SCHED_BOOST_ON_BIG;
+		else
+			return SCHED_BOOST_ON_ALL;
+	}
+	return SCHED_BOOST_NONE;
 }
 
 static int task_will_fit(struct task_struct *p, int cpu)
 {
 	u64 tload = scale_load_to_cpu(task_load(p), cpu);
 
-	return task_load_will_fit(p, tload, cpu);
+	return task_load_will_fit(p, tload, cpu, sched_boost_type());
 }
 
 int group_will_fit(struct sched_cluster *cluster,
@@ -3123,9 +3144,9 @@ struct cpu_select_env {
 	u8 reason;
 	u8 need_idle:1;
 	u8 need_waker_cluster:1;
-	u8 boost:1;
 	u8 sync:1;
 	u8 ignore_prev_cpu:1;
+	enum sched_boost_type boost_type;
 	int prev_cpu;
 	DECLARE_BITMAP(candidate_list, NR_CPUS);
 	DECLARE_BITMAP(backup_list, NR_CPUS);
@@ -3272,7 +3293,8 @@ select_least_power_cluster(struct cpu_select_env *env)
 
 			env->task_load = scale_load_to_cpu(task_load(env->p),
 									 cpu);
-			if (task_load_will_fit(env->p, env->task_load, cpu))
+			if (task_load_will_fit(env->p, env->task_load, cpu,
+					       env->boost_type))
 				return cluster;
 
 			__set_bit(cluster->id, env->backup_list);
@@ -3507,7 +3529,8 @@ static void find_best_cpu_in_cluster(struct sched_cluster *c,
 		update_spare_capacity(stats, env, i, c->capacity,
 				      env->cpu_load);
 
-		if (env->boost || env->need_waker_cluster ||
+		if (env->boost_type == SCHED_BOOST_ON_ALL ||
+		    env->need_waker_cluster ||
 		    sched_cpu_high_irqload(i) ||
 		    spill_threshold_crossed(env, cpu_rq(i)))
 			continue;
@@ -3550,8 +3573,8 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 	struct task_struct *task = env->p;
 	struct sched_cluster *cluster;
 
-	if (env->boost || env->reason || env->need_idle ||
-				!sched_short_sleep_task_threshold)
+	if (env->boost_type != SCHED_BOOST_NONE || env->reason ||
+	    env->need_idle || !sched_short_sleep_task_threshold)
 		return false;
 
 	prev_cpu = env->prev_cpu;
@@ -3572,7 +3595,8 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 	env->task_load = scale_load_to_cpu(task_load(task), prev_cpu);
 	cluster = cpu_rq(prev_cpu)->cluster;
 
-	if (!task_load_will_fit(task, env->task_load, prev_cpu)) {
+	if (!task_load_will_fit(task, env->task_load, prev_cpu,
+				sched_boost_type())) {
 
 		__set_bit(cluster->id, env->backup_list);
 		__clear_bit(cluster->id, env->candidate_list);
@@ -3625,7 +3649,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		.reason			= reason,
 		.need_idle		= wake_to_idle(p),
 		.need_waker_cluster	= 0,
-		.boost			= sched_boost(),
+		.boost_type		= sched_boost_type(),
 		.sync			= sync,
 		.prev_cpu		= target,
 		.ignore_prev_cpu	= 0,
@@ -4203,6 +4227,12 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	if (task_will_be_throttled(p))
 		return 0;
 
+	if (sched_boost_type() == SCHED_BOOST_ON_BIG) {
+		if (cpu_capacity(cpu) != max_capacity)
+			return UP_MIGRATION;
+		return 0;
+	}
+
 	if (sched_cpu_high_irqload(cpu))
 		return IRQLOAD_MIGRATION;
 
@@ -4297,7 +4327,8 @@ unsigned int cpu_temp(int cpu)
 struct cpu_select_env;
 struct sched_cluster;
 
-static inline int task_will_fit(struct task_struct *p, int cpu)
+static inline int task_will_fit(struct task_struct *p, int cpu,
+				enum sched_boost_type boost_type)
 {
 	return 1;
 }
