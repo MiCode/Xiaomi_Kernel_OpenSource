@@ -874,17 +874,7 @@ static void ipa_work_handler(struct work_struct *w)
 		} else	if (event == EVT_RESUMED) {
 			ipa_resume_work_handler(d_port);
 			d_port->sm_state = STATE_CONNECTED;
-			/*
-			 * Increment usage count here to disallow gadget
-			 * parent suspend. This counter will decrement
-			 * after IPA disconnect is done in disconnect work
-			 * (due to cable disconnect) or in suspended state.
-			 */
-			usb_gadget_autopm_get_noresume(d_port->gadget);
 			log_event_dbg("%s: ST_SUS_IN_PROG_EVT_RES", __func__);
-			log_event_dbg("%s: get_nores1 = %d", __func__,
-					atomic_read(
-						&gad_dev->power.usage_count));
 		} else if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
@@ -900,17 +890,7 @@ static void ipa_work_handler(struct work_struct *w)
 		if (event == EVT_RESUMED) {
 			ipa_resume_work_handler(d_port);
 			d_port->sm_state = STATE_CONNECTED;
-			/*
-			 * Increment usage count here to disallow gadget
-			 * parent suspend. This counter will decrement
-			 * after IPA handshake is done in disconnect work
-			 * (due to cable disconnect) or in suspended state.
-			 */
-			usb_gadget_autopm_get_noresume(d_port->gadget);
 			log_event_dbg("%s: ST_SUS_EVT_RES", __func__);
-			log_event_dbg("%s: get_nores2 = %d", __func__,
-					atomic_read(
-						&gad_dev->power.usage_count));
 		} else if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
@@ -2230,6 +2210,16 @@ static void gsi_resume(struct usb_function *f)
 		f->func_is_suspended)
 		return;
 
+	/*
+	 * Increment usage count here to disallow gadget
+	 * parent suspend. This counter will decrement
+	 * after IPA disconnect is done in disconnect work
+	 * (due to cable disconnect) or in suspended state.
+	 */
+	usb_gadget_autopm_get_noresume(gsi->d_port.gadget);
+	log_event_dbg("%s: get_noresume2 = %d", __func__,
+			atomic_read(
+			&gsi->d_port.gadget->dev.power.usage_count));
 	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
 	else
