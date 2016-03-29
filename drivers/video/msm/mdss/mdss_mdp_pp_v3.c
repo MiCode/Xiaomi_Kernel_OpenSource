@@ -21,7 +21,7 @@
 #include "mdss_mdp_pp_common.h"
 
 #define IGC_DSPP_OP_MODE_EN BIT(0)
-
+#define ENHIST_BIT_SHIFT 16
 /* PA related define */
 
 /* Offsets from DSPP/VIG base to PA block */
@@ -55,6 +55,24 @@
 #define PA_SZONE_REG_OFF 0x100
 #define PA_LUTV_REG_OFF 0x200
 #define PA_HIST_RAM_REG_OFF 0x400
+
+/* histogram prototypes */
+static int pp_get_hist_offset(u32 block, u32 *ctl_off);
+static int pp_hist_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
+		u32 block_type, u32 disp_num);
+
+/* PA LUT prototypes */
+static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num);
+static int pp_hist_lut_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+static int pp_hist_lut_get_version(u32 *version);
+static void pp_hist_lut_opmode_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts);
 
 static int pp_pa_set_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts, void *cfg_data,
@@ -103,6 +121,16 @@ void *pp_get_driver_ops_v3(struct mdp_pp_driver_ops *ops)
 	ops->pp_ops[PA].pp_get_config = pp_pa_get_config;
 	ops->pp_ops[PA].pp_get_version = pp_pa_get_version;
 
+	/* HIST_LUT ops */
+	ops->pp_ops[HIST_LUT].pp_set_config = pp_hist_lut_set_config;
+	ops->pp_ops[HIST_LUT].pp_get_config = pp_hist_lut_get_config;
+	ops->pp_ops[HIST_LUT].pp_get_version = pp_hist_lut_get_version;
+
+	/* HIST ops */
+	ops->pp_ops[HIST].pp_set_config = pp_hist_set_config;
+	ops->pp_ops[HIST].pp_get_config = pp_hist_get_config;
+	ops->pp_ops[HIST].pp_get_version = NULL;
+
 	/* Dither ops */
 	ops->pp_ops[DITHER].pp_set_config = pp_dither_set_config;
 	ops->pp_ops[DITHER].pp_get_config = pp_dither_get_config;
@@ -111,8 +139,276 @@ void *pp_get_driver_ops_v3(struct mdp_pp_driver_ops *ops)
 	/* Set opmode pointers */
 	ops->pp_opmode_config = pp_opmode_config;
 
+	ops->get_hist_offset = pp_get_hist_offset;
 	ops->gamut_clk_gate_en = NULL;
+
 	return pp_cfg;
+}
+
+static int pp_get_hist_offset(u32 block, u32 *ctl_off)
+{
+	int ret = 0;
+
+	if (!ctl_off) {
+		pr_err("invalid params ctl_off %p\n", ctl_off);
+		return -EINVAL;
+	}
+
+	switch (block) {
+	case SSPP_VIG:
+		*ctl_off = PA_VIG_BLOCK_REG_OFF + PA_HIST_REG_OFF;
+		break;
+	case DSPP:
+		*ctl_off = PA_DSPP_BLOCK_REG_OFF + PA_HIST_REG_OFF;
+		break;
+	default:
+		pr_err("Invalid block type %d\n", block);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
+static int pp_hist_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data, u32 block_type)
+{
+	u32 opmode = 0;
+	struct pp_hist_col_info *hist_info = NULL;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		      base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+
+	if (block_type != DSPP) {
+		pr_err("Invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+
+	hist_info = (struct pp_hist_col_info *)cfg_data;
+	opmode = readl_relaxed(base_addr + PA_DSPP_BLOCK_REG_OFF +
+				PA_OP_MODE_REG_OFF);
+	/* set the hist_en bit */
+	if (hist_info->col_en) {
+		pp_sts->hist_sts |= PP_STS_ENABLE;
+		opmode |= BIT(16);
+	} else {
+		pp_sts->hist_sts &= ~PP_STS_ENABLE;
+		opmode &= ~BIT(16);
+	}
+
+	writel_relaxed(opmode, base_addr + PA_DSPP_BLOCK_REG_OFF +
+			PA_OP_MODE_REG_OFF);
+	return 0;
+}
+
+static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num)
+{
+	int i = 0;
+	u32 sum = 0;
+	struct pp_hist_col_info *hist_info = NULL;
+	char __iomem *hist_addr;
+
+	if (!base_addr || !cfg_data) {
+		pr_err("invalid params base_addr %p cfg_data %p\n",
+		       base_addr, cfg_data);
+		return -EINVAL;
+	}
+
+	if (block_type != DSPP) {
+		pr_err("Invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+
+	hist_info = (struct pp_hist_col_info *) cfg_data;
+	hist_addr = base_addr + PA_DSPP_BLOCK_REG_OFF + PA_HIST_RAM_REG_OFF;
+
+	for (i = 0; i < HIST_V_SIZE; i++) {
+		hist_info->data[i] = readl_relaxed(hist_addr) & REG_MASK(24);
+		hist_addr += 0x4;
+		sum += hist_info->data[i];
+	}
+	hist_info->hist_cnt_read++;
+	return sum;
+}
+
+static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num)
+{
+
+	int ret = 0, i = 0;
+	char __iomem *hist_lut_addr;
+	u32 sz = 0, temp = 0, *data = NULL;
+	struct mdp_hist_lut_data_v1_7 *lut_data = NULL;
+	struct mdp_hist_lut_data *lut_cfg_data = NULL;
+
+	if (!base_addr || !cfg_data) {
+		pr_err("invalid params base_addr %p cfg_data %p\n",
+		       base_addr, cfg_data);
+		return -EINVAL;
+	}
+
+	if (block_type != DSPP) {
+		pr_err("Invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+
+	lut_cfg_data = (struct mdp_hist_lut_data *) cfg_data;
+	if (!(lut_cfg_data->ops & MDP_PP_OPS_READ)) {
+		pr_err("read ops not set for hist_lut %d\n", lut_cfg_data->ops);
+		return 0;
+	}
+	if (lut_cfg_data->version != mdp_hist_lut_v1_7 ||
+		!lut_cfg_data->cfg_payload) {
+		pr_err("invalid hist_lut version %d payload %p\n",
+		       lut_cfg_data->version, lut_cfg_data->cfg_payload);
+		return -EINVAL;
+	}
+	lut_data = lut_cfg_data->cfg_payload;
+	if (lut_data->len != ENHIST_LUT_ENTRIES) {
+		pr_err("invalid hist_lut len %d", lut_data->len);
+		return -EINVAL;
+	}
+	sz = ENHIST_LUT_ENTRIES * sizeof(u32);
+	if (!access_ok(VERIFY_WRITE, lut_data->data, sz)) {
+		pr_err("invalid lut address for hist_lut sz %d\n", sz);
+		return -EFAULT;
+	}
+
+	hist_lut_addr = base_addr + PA_DSPP_BLOCK_REG_OFF + PA_LUTV_REG_OFF;
+
+	data = kzalloc(sz, GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	for (i = 0; i < ENHIST_LUT_ENTRIES; i += 2) {
+		temp = readl_relaxed(hist_lut_addr);
+		data[i] = temp & REG_MASK(10);
+		data[i + 1] =
+			(temp & REG_MASK_SHIFT(10, 16)) >> ENHIST_BIT_SHIFT;
+		hist_lut_addr += 4;
+	}
+	if (copy_to_user(lut_data->data, data, sz)) {
+		pr_err("failed to copy the hist_lut back to user\n");
+		ret = -EFAULT;
+	}
+	kfree(data);
+	return ret;
+}
+
+static int pp_hist_lut_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type)
+{
+	int ret = 0, i = 0;
+	u32 temp = 0;
+	struct mdp_hist_lut_data *lut_cfg_data = NULL;
+	struct mdp_hist_lut_data_v1_7 *lut_data = NULL;
+	char __iomem *hist_lut_addr = NULL, *swap_addr = NULL;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		      base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+
+	if (block_type != DSPP) {
+		pr_err("Invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+
+	lut_cfg_data = (struct mdp_hist_lut_data *) cfg_data;
+	if (lut_cfg_data->version != mdp_hist_lut_v1_7) {
+		pr_err("invalid hist_lut version %d\n", lut_cfg_data->version);
+		return -EINVAL;
+	}
+
+	if (!(lut_cfg_data->ops & ~(MDP_PP_OPS_READ))) {
+		pr_err("only read ops set for lut\n");
+		return ret;
+	}
+	if (lut_cfg_data->ops & MDP_PP_OPS_DISABLE ||
+		!(lut_cfg_data->ops & MDP_PP_OPS_WRITE)) {
+		pr_debug("non write ops set %d\n", lut_cfg_data->ops);
+		goto hist_lut_set_sts;
+	}
+	lut_data = lut_cfg_data->cfg_payload;
+	if (!lut_data) {
+		pr_err("invalid hist_lut cfg_payload %p\n", lut_data);
+		return -EINVAL;
+	}
+
+	if (lut_data->len != ENHIST_LUT_ENTRIES || !lut_data->data) {
+		pr_err("invalid hist_lut len %d data %p\n",
+		       lut_data->len, lut_data->data);
+		return -EINVAL;
+	}
+
+	hist_lut_addr = base_addr + PA_DSPP_BLOCK_REG_OFF + PA_LUTV_REG_OFF;
+	swap_addr = base_addr + PA_DSPP_BLOCK_REG_OFF + PA_LUTV_SWAP_REG_OFF;
+
+	for (i = 0; i < ENHIST_LUT_ENTRIES; i += 2) {
+		temp = (lut_data->data[i] & REG_MASK(10)) |
+			((lut_data->data[i + 1] & REG_MASK(10))
+			 << ENHIST_BIT_SHIFT);
+
+		writel_relaxed(temp, hist_lut_addr);
+		hist_lut_addr += 4;
+	}
+
+	writel_relaxed(1, swap_addr);
+
+hist_lut_set_sts:
+	if (lut_cfg_data->ops & MDP_PP_OPS_DISABLE) {
+		pp_sts->enhist_sts &= ~(PP_STS_ENABLE | PP_STS_PA_LUT_FIRST);
+	} else if (lut_cfg_data->ops & MDP_PP_OPS_ENABLE) {
+		pp_sts->enhist_sts |= PP_STS_ENABLE;
+		if (lut_cfg_data->hist_lut_first)
+			pp_sts->enhist_sts |= PP_STS_PA_LUT_FIRST;
+		else
+			pp_sts->enhist_sts &= ~PP_STS_PA_LUT_FIRST;
+	}
+
+	pp_hist_lut_opmode_config(base_addr + PA_DSPP_BLOCK_REG_OFF, pp_sts);
+	return ret;
+}
+
+static int pp_hist_lut_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		return -EINVAL;
+	}
+	*version = mdp_hist_lut_v1_7;
+	return 0;
+}
+
+static void pp_hist_lut_opmode_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts)
+{
+	u32 opmode = 0;
+
+	if (!base_addr || !pp_sts) {
+		pr_err("invalid params base_addr %p pp_sts_type %p\n",
+			base_addr, pp_sts);
+		return;
+	}
+	opmode = readl_relaxed(base_addr + PA_OP_MODE_REG_OFF);
+
+	/* set the hist_lutv_en and hist_lutv_first_en bits */
+	if (pp_sts->enhist_sts & PP_STS_ENABLE) {
+		opmode |= BIT(19) | BIT(20);
+		opmode |= (pp_sts->enhist_sts & PP_STS_PA_LUT_FIRST) ?
+				BIT(21) : 0;
+	} else {
+		opmode &= ~(BIT(19) | BIT(21));
+		if (!(pp_sts->pa_sts & PP_STS_ENABLE))
+			opmode &= ~BIT(20);
+	}
+
+	writel_relaxed(opmode, base_addr + PA_OP_MODE_REG_OFF);
 }
 
 static int pp_pa_set_config(char __iomem *base_addr,
@@ -427,9 +723,15 @@ static void pp_pa_opmode_config(char __iomem *base_addr,
 			opmode |= BIT(17);
 	}
 
-	/* TODO: reset hist_en, hist_lutv_en and hist_lutv_first_en
+	/* reset hist_en, hist_lutv_en and hist_lutv_first_en
 	   bits based on the pp_sts
 	 */
+	if (pp_sts->hist_sts & PP_STS_ENABLE)
+		opmode |= BIT(16);
+	if (pp_sts->enhist_sts & PP_STS_ENABLE)
+		opmode |= BIT(19) | BIT(20);
+	if (pp_sts->enhist_sts & PP_STS_PA_LUT_FIRST)
+		opmode |= BIT(21);
 
 	writel_relaxed(opmode, base_addr + PA_OP_MODE_REG_OFF);
 }
