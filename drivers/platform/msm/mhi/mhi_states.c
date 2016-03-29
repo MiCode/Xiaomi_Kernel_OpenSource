@@ -909,27 +909,31 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 	case MHI_STATE_M0:
 	case MHI_STATE_M1:
 	case MHI_STATE_M2:
+		write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 		mhi_log(MHI_MSG_INFO,
 			"Triggering wake out of M2\n");
-		write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 		mhi_dev_ctxt->flags.pending_M3 = 1;
 		if ((atomic_read(&mhi_dev_ctxt->flags.m2_transition)) == 0) {
 			mhi_log(MHI_MSG_INFO,
 				"M2 transition not set\n");
 			mhi_assert_device_wake(mhi_dev_ctxt);
 		}
-		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
-		r = wait_event_interruptible_timeout(
+
+		if (mhi_dev_ctxt->mhi_state == MHI_STATE_M2) {
+			write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock,
+				flags);
+			r = wait_event_interruptible_timeout(
 				*mhi_dev_ctxt->mhi_ev_wq.m0_event,
-				mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
-				mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
+				mhi_dev_ctxt->mhi_state == MHI_STATE_M0,
 				msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
-		if (0 == r || -ERESTARTSYS == r) {
-			mhi_log(MHI_MSG_CRITICAL,
-				"MDM failed to come out of M2.\n");
-			mhi_dev_ctxt->counters.m2_event_timeouts++;
-			r = -EAGAIN;
-			goto exit;
+			write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+			if (0 == r || -ERESTARTSYS == r) {
+				mhi_log(MHI_MSG_CRITICAL,
+					"MDM failed to come out of M2.\n");
+				mhi_dev_ctxt->counters.m2_event_timeouts++;
+				r = -EAGAIN;
+				goto unlock;
+			}
 		}
 		break;
 	case MHI_STATE_M3:
@@ -943,13 +947,15 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 			r = 0;
 		goto exit;
 	default:
+		write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 		mhi_log(MHI_MSG_INFO,
 			"MHI state %s, link state %d.\n",
 			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
 			mhi_dev_ctxt->flags.link_up);
 		break;
 	}
-	while (atomic_read(&mhi_dev_ctxt->counters.outbound_acks)) {
+
+	if (atomic_read(&mhi_dev_ctxt->counters.outbound_acks)) {
 		mhi_log(MHI_MSG_INFO,
 			"There are still %d acks pending from device\n",
 			atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
@@ -957,25 +963,23 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 			__pm_relax(&mhi_dev_ctxt->w_lock);
 		abort_m3 = 1;
 		r = -EAGAIN;
-		goto exit;
+		goto unlock;
 	}
 
 	if (atomic_read(&mhi_dev_ctxt->flags.data_pending)) {
 		abort_m3 = 1;
 		r = -EAGAIN;
-		goto exit;
+		goto unlock;
 	}
-	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+
 	if (mhi_dev_ctxt->flags.pending_M0) {
-		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 		r = -EAGAIN;
-		goto exit;
+		goto unlock;
 	}
 	mhi_dev_ctxt->flags.pending_M3 = 1;
 
 	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M3);
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
-
 	mhi_log(MHI_MSG_INFO,
 			"Waiting for M3 completion.\n");
 	r = wait_event_interruptible_timeout(*mhi_dev_ctxt->mhi_ev_wq.m3_event,
@@ -998,16 +1002,20 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 	r = mhi_set_bus_request(mhi_dev_ctxt, 0);
 	if (r)
 		mhi_log(MHI_MSG_INFO, "Failed to set bus freq ret %d\n", r);
-exit:
+	goto exit;
+unlock:
+	mhi_dev_ctxt->flags.pending_M3 = 0;
 	if (abort_m3) {
-		write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 		atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 		ring_all_chan_dbs(mhi_dev_ctxt);
 		ring_all_cmd_dbs(mhi_dev_ctxt);
 		atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 		mhi_deassert_device_wake(mhi_dev_ctxt);
+	} else {
+		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 	}
+exit:
 	mhi_dev_ctxt->flags.pending_M3 = 0;
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
 	return r;
