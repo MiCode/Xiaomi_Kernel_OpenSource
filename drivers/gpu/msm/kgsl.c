@@ -2199,7 +2199,7 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 		return -EINVAL;
 
 	return kgsl_setup_useraddr(device, pagetable, entry,
-		(unsigned long) useraddr.virtaddr, 0, 0);
+		(unsigned long) useraddr.virtaddr, 0, param->priv_len);
 }
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
