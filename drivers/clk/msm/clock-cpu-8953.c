@@ -563,7 +563,7 @@ static void print_opp_table(int a53_pwr_cpu, int a53_perf_cpu)
 static void populate_opp_table(struct platform_device *pdev)
 {
 	unsigned long apc0_fmax;
-	int cpu, a53_pwr_cpu, a53_perf_cpu;
+	int cpu, a53_pwr_cpu = 0, a53_perf_cpu = 0;
 
 	apc0_fmax = a53_pwr_clk.c.fmax[a53_pwr_clk.c.num_fmax - 1];
 
