@@ -1751,10 +1751,6 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 	if (cnt < 0)
 		return cnt;
 
-	rc = output_buffer_cache_invalidate(inst, binfo);
-	if (rc)
-		return rc;
-
 	if (release_buf) {
 		/*
 		* We can not delete binfo here as we need to set the user
