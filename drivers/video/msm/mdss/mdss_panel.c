@@ -30,10 +30,14 @@
  */
 static u32 dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
 		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
-static char dsc_rc_range_min_qp[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
+static char dsc_rc_range_min_qp_1_1[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
 				5, 5, 7, 13};
-static char dsc_rc_range_max_qp[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11,
+static char dsc_rc_range_min_qp_1_1_scr1[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
+				5, 5, 9, 12};
+static char dsc_rc_range_max_qp_1_1[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11,
 			 12, 13, 13, 15};
+static char dsc_rc_range_max_qp_1_1_scr1[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 10,
+			 11, 11, 12, 13};
 static char dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
 			-8, -10, -10, -12, -12, -12, -12};
 
@@ -668,7 +672,10 @@ void mdss_panel_dsc_parameters_calc(struct dsc_desc *dsc)
 	int final_value, final_scale;
 
 	dsc->rc_model_size = 8192;	/* rate_buffer_size */
-	dsc->first_line_bpg_offset = 12;
+	if (dsc->version == 0x11 && dsc->scr_rev == 0x1)
+		dsc->first_line_bpg_offset = 15;
+	else
+		dsc->first_line_bpg_offset = 12;
 	dsc->min_qp_flatness = 3;
 	dsc->max_qp_flatness = 12;
 	dsc->line_buf_depth = 9;
@@ -680,8 +687,13 @@ void mdss_panel_dsc_parameters_calc(struct dsc_desc *dsc)
 	dsc->tgt_offset_lo = 3;
 
 	dsc->buf_thresh = dsc_rc_buf_thresh;
-	dsc->range_min_qp = dsc_rc_range_min_qp;
-	dsc->range_max_qp = dsc_rc_range_max_qp;
+	if (dsc->version == 0x11 && dsc->scr_rev == 0x1) {
+		dsc->range_min_qp = dsc_rc_range_min_qp_1_1_scr1;
+		dsc->range_max_qp = dsc_rc_range_max_qp_1_1_scr1;
+	} else {
+		dsc->range_min_qp = dsc_rc_range_min_qp_1_1;
+		dsc->range_max_qp = dsc_rc_range_max_qp_1_1;
+	}
 	dsc->range_bpg_offset = dsc_rc_range_bpg_offset;
 
 	bpp = dsc->bpp;
@@ -858,14 +870,14 @@ void mdss_panel_dsc_pclk_param_calc(struct dsc_desc *dsc, int intf_width)
 }
 
 int mdss_panel_dsc_prepare_pps_buf(struct dsc_desc *dsc, char *buf,
-	int pps_id, int major, int minor)
+	int pps_id)
 {
 	char *bp;
 	char data;
 	int i, bpp;
 
 	bp = buf;
-	*bp++ = (((major & 0xf) << 4) | (minor & 0xf));	/* pps0 */
+	*bp++ = (dsc->version & 0xff);	/* pps0 */
 	*bp++ = (pps_id & 0xff);		/* pps1 */
 	bp++;					/* pps2, reserved */
 
