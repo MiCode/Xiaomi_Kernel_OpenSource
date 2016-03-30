@@ -223,6 +223,10 @@ struct index_file {
 	u8 file_name[13];
 };
 
+struct cnss_dual_wifi {
+	bool is_dual_wifi_enabled;
+};
+
 /**
  * struct wlan_mac_addr - Structure to hold WLAN MAC Address
  * @mac_addr: MAC address
@@ -300,6 +304,7 @@ static struct cnss_data {
 	int wlan_bootstrap_gpio;
 	atomic_t auto_suspended;
 	bool monitor_wake_intr;
+	struct cnss_dual_wifi dual_wifi_info;
 } *penv;
 
 static unsigned int pcie_link_down_panic;
@@ -573,6 +578,11 @@ static void cnss_wlan_gpio_set(struct cnss_wlan_gpio_info *info, bool state)
 	if (info->state == state) {
 		pr_debug("Already %s gpio is %s\n",
 			 info->name, state ? "high" : "low");
+		return;
+	}
+
+	if (state == WLAN_EN_LOW && penv->dual_wifi_info.is_dual_wifi_enabled) {
+		pr_debug("%s Dual WiFi enabled\n", __func__);
 		return;
 	}
 
@@ -2898,6 +2908,9 @@ static int cnss_probe(struct platform_device *pdev)
 	}
 
 	penv->subsys_handle = subsystem_get(penv->subsysdesc.name);
+
+	if (of_property_read_bool(dev->of_node, "qcom,is-dual-wifi-enabled"))
+		penv->dual_wifi_info.is_dual_wifi_enabled = true;
 
 	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
 				&ramdump_size) == 0) {
