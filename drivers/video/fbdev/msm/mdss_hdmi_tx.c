@@ -3561,6 +3561,12 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		panel_info->xres, panel_info->yres,
 		panel_info->cont_splash_enabled ? " (handoff underway)" : "");
 
+	rc = hdmi_tx_core_on(hdmi_ctrl);
+	if (rc) {
+		DEV_ERR("%s: hdmi_msm_core_on failed\n", __func__);
+		goto end;
+	}
+
 	if (hdmi_ctrl->pdata.cont_splash_enabled) {
 		hdmi_ctrl->pdata.cont_splash_enabled = false;
 		panel_data->panel_info.cont_splash_enabled = false;
@@ -3574,14 +3580,12 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			if (!hdmi_tx_is_hdcp_enabled(hdmi_ctrl))
 				hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1);
 
+			if (hdmi_tx_setup_scrambler(hdmi_ctrl))
+				DEV_WARN("%s: Scrambler setup failed\n",
+						__func__);
+
 			goto end;
 		}
-	}
-
-	rc = hdmi_tx_core_on(hdmi_ctrl);
-	if (rc) {
-		DEV_ERR("%s: hdmi_msm_core_on failed\n", __func__);
-		goto end;
 	}
 
 	rc = hdmi_tx_start(hdmi_ctrl);
