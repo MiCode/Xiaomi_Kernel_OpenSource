@@ -39,6 +39,8 @@ static void __iomem *virt_base_gfx;
 #define gpucc_gpll0_source_val			5
 #define gpu_pll0_pll_out_even_source_val	1
 #define gpu_pll0_pll_out_odd_source_val		2
+#define gpu_pll1_pll_out_even_source_val	3
+#define gpu_pll1_pll_out_odd_source_val		4
 
 #define SW_COLLAPSE_MASK			BIT(0)
 #define GPU_CX_GDSCR_OFFSET			0x1004
@@ -107,8 +109,7 @@ static struct alpha_pll_clk gpu_pll0_pll = {
 		.parent = &gpucc_xo.c,
 		.dbg_name = "gpu_pll0_pll",
 		.ops = &clk_ops_fabia_alpha_pll,
-		VDD_GPU_PLL_FMAX_MAP3(MIN, 252000000, LOWER, 504000000,
-					NOMINAL, 1300000500),
+		VDD_GPU_PLL_FMAX_MAP1(NOMINAL, 1300000500),
 		CLK_INIT(gpu_pll0_pll.c),
 	},
 };
@@ -156,6 +157,65 @@ static struct div_clk gpu_pll0_pll_out_odd = {
 	},
 };
 
+static struct alpha_pll_clk gpu_pll1_pll = {
+	.masks = &pll_masks_p,
+	.base = &virt_base_gfx,
+	.offset = GPUCC_GPU_PLL1_PLL_MODE,
+	.enable_config = 0x1,
+	.is_fabia = true,
+	.c = {
+		.rate = 0,
+		.parent = &gpucc_xo.c,
+		.dbg_name = "gpu_pll1_pll",
+		.ops = &clk_ops_fabia_alpha_pll,
+		VDD_GPU_PLL_FMAX_MAP1(NOMINAL, 1300000500),
+		CLK_INIT(gpu_pll1_pll.c),
+	},
+};
+
+static struct div_clk gpu_pll1_pll_out_even = {
+	.base = &virt_base_gfx,
+	.offset = GPUCC_GPU_PLL1_USER_CTL_MODE,
+	.mask = 0xf,
+	.shift = 8,
+	.data = {
+		.max_div = 8,
+		.min_div = 1,
+		.skip_odd_div = true,
+		.allow_div_one = true,
+		.rate_margin = 500,
+	},
+	.ops = &postdiv_reg_ops,
+	.c = {
+		.parent = &gpu_pll1_pll.c,
+		.dbg_name = "gpu_pll1_pll_out_even",
+		.ops = &clk_ops_div,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(gpu_pll1_pll_out_even.c),
+	},
+};
+
+static struct div_clk gpu_pll1_pll_out_odd = {
+	.base = &virt_base_gfx,
+	.offset = GPUCC_GPU_PLL0_USER_CTL_MODE,
+	.mask = 0xf,
+	.shift = 12,
+	.data = {
+		.max_div = 7,
+		.min_div = 3,
+		.skip_even_div = true,
+		.rate_margin = 500,
+	},
+	.ops = &postdiv_reg_ops,
+	.c = {
+		.parent = &gpu_pll1_pll.c,
+		.dbg_name = "gpu_pll1_pll_out_odd",
+		.ops = &clk_ops_div,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(gpu_pll1_pll_out_odd.c),
+	},
+};
+
 static struct clk_freq_tbl ftbl_gfx3d_clk_src[] = {
 	F_SLEW( 171000000,  342000000, gpu_pll0_pll_out_even,    1, 0, 0),
 	F_SLEW( 251000000,  502000000, gpu_pll0_pll_out_even,    1, 0, 0),
@@ -163,6 +223,18 @@ static struct clk_freq_tbl ftbl_gfx3d_clk_src[] = {
 	F_SLEW( 403000000,  806000000, gpu_pll0_pll_out_even,    1, 0, 0),
 	F_SLEW( 504000000, 1008000000, gpu_pll0_pll_out_even,    1, 0, 0),
 	F_SLEW( 650000000, 1300000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gfx3d_clk_src_vq[] = {
+	F_SLEW( 185000000,  370000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 285000000,  570000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 358000000,  716000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 434000000,  868000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 542000000, 1084000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 630000000, 1260000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 670000000, 1340000000, gpu_pll1_pll_out_even,    1, 0, 0),
+	F_SLEW( 710000000, 1420000000, gpu_pll1_pll_out_even,    1, 0, 0),
 	F_END
 };
 
@@ -407,6 +479,12 @@ static struct clk_lookup msm_clocks_gpucc_cobalt[] = {
 	CLK_LIST(gpucc_gcc_dbg_clk),
 };
 
+static void msm_gpucc_hamster_fixup(void)
+{
+	gfx3d_isense_clk_src.c.ops = &clk_ops_dummy;
+	gpucc_gfx3d_isense_clk.c.ops = &clk_ops_dummy;
+}
+
 static struct platform_driver msm_clock_gfxcc_driver;
 int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 {
@@ -416,6 +494,7 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 	struct regulator *reg;
 	u32 regval;
 	struct clk *tmp;
+	bool is_vq = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -455,6 +534,11 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 	regval &= ~BM(18, 17);
 	writel_relaxed(regval, virt_base + gpucc_gcc_dbg_clk.offset);
 
+	is_vq = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gpucc-hamster");
+	if (is_vq)
+		msm_gpucc_hamster_fixup();
+
 	rc = of_msm_clock_register(of_node, msm_clocks_gpucc_cobalt,
 					ARRAY_SIZE(msm_clocks_gpucc_cobalt));
 	if (rc)
@@ -472,6 +556,7 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 
 static const struct of_device_id msm_clock_gpucc_match_table[] = {
 	{ .compatible = "qcom,gpucc-cobalt" },
+	{ .compatible = "qcom,gpucc-hamster" },
 	{},
 };
 
@@ -488,11 +573,21 @@ static struct clk_lookup msm_clocks_gfxcc_cobalt[] = {
 	CLK_LIST(gpu_pll0_pll),
 	CLK_LIST(gpu_pll0_pll_out_even),
 	CLK_LIST(gpu_pll0_pll_out_odd),
+	CLK_LIST(gpu_pll1_pll),
+	CLK_LIST(gpu_pll1_pll_out_even),
+	CLK_LIST(gpu_pll1_pll_out_odd),
 	CLK_LIST(gfx3d_clk_src),
 	CLK_LIST(gpucc_gfx3d_clk),
 	CLK_LIST(gpucc_mx_clk),
 	CLK_LIST(gfxcc_dbg_clk),
 };
+
+static void msm_gfxcc_hamster_fixup(void)
+{
+	gpu_pll0_pll.c.fmax[VDD_DIG_NOMINAL] = 1420000500;
+	gpu_pll1_pll.c.fmax[VDD_DIG_NOMINAL] = 1420000500;
+	gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_vq;
+}
 
 int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 {
@@ -501,6 +596,7 @@ int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 	int rc;
 	struct regulator *reg;
 	u32 regval;
+	bool is_vq = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -552,13 +648,19 @@ int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	is_vq = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gfxcc-hamster");
+	if (is_vq)
+		msm_gfxcc_hamster_fixup();
+
+
 	rc = of_msm_clock_register(of_node, msm_clocks_gfxcc_cobalt,
 					ARRAY_SIZE(msm_clocks_gfxcc_cobalt));
 	if (rc)
 		return rc;
 
 	/* CRC ENABLE SEQUENCE */
-	clk_set_rate(&gpucc_gfx3d_clk.c, 251000000);
+	clk_set_rate(&gpucc_gfx3d_clk.c, gfx3d_clk_src.c.fmax[2]);
 	/* Turn on the GPU_CX GDSC */
 	regval = readl_relaxed(virt_base_gfx + GPU_CX_GDSCR_OFFSET);
 	regval &= ~SW_COLLAPSE_MASK;
@@ -597,7 +699,8 @@ int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 	writel_relaxed(0x00800000, virt_base_gfx + CRC_SID_FSM_OFFSET);
 	/* Wait for 16 cycles before continuing */
 	udelay(1);
-	clk_set_rate(&gpucc_gfx3d_clk.c, 650000000);
+	clk_set_rate(&gpucc_gfx3d_clk.c,
+			gfx3d_clk_src.c.fmax[gfx3d_clk_src.c.num_fmax - 1]);
 	/* Disable the graphics clock */
 	clk_disable_unprepare(&gpucc_gfx3d_clk.c);
 	/* Turn off the gpu_cx and gpu_gx GDSCs */
@@ -622,6 +725,7 @@ int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 
 static const struct of_device_id msm_clock_gfxcc_match_table[] = {
 	{ .compatible = "qcom,gfxcc-cobalt" },
+	{ .compatible = "qcom,gfxcc-hamster" },
 	{},
 };
 

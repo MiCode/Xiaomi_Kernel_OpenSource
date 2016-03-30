@@ -58,11 +58,10 @@
 	},					\
 	.num_fmax = VDD_DIG_NUM
 
-#define VDD_GPU_PLL_FMAX_MAP2(l1, f1, l2, f2)  \
+#define VDD_GPU_PLL_FMAX_MAP1(l1, f1)  \
 	.vdd_class = &vdd_gpucc_mx,		\
 	.fmax = (unsigned long[VDD_DIG_NUM]) {	\
 		[VDD_DIG_##l1] = (f1),		\
-		[VDD_DIG_##l2] = (f2),		\
 	},					\
 	.num_fmax = VDD_DIG_NUM
 
