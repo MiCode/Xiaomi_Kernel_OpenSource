@@ -20,7 +20,6 @@
 #include <linux/clk.h>
 #include <linux/bitmap.h>
 #include <linux/of.h>
-#include <linux/of_coresight.h>
 #include <linux/coresight.h>
 
 #include "coresight-priv.h"

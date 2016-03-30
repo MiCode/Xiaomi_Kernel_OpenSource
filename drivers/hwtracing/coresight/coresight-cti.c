@@ -23,7 +23,6 @@
 #include <linux/cpu_pm.h>
 #include <linux/topology.h>
 #include <linux/of.h>
-#include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <linux/coresight-cti.h>
 
