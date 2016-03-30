@@ -170,7 +170,8 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909w-wtp.dtb \
 	apq8009w-wtp.dtb \
 	apq8009w-cdp.dtb \
-	msm8909w-pm8916-mtp-ext-chg-fg.dtb \
+	msm8909w-swoctp.dtb \
+	apq8009w-swoctp.dtb \
 	msm8909-pm8916-cdp.dtb \
 	msm8909w-cdp.dtb
 
