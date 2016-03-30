@@ -5595,6 +5595,7 @@ static int energy_diff(struct energy_env *eenv)
 	struct sched_domain *sd;
 	struct sched_group *sg;
 	int sd_cpu = -1, energy_before = 0, energy_after = 0;
+	int diff, margin;
 
 	struct energy_env eenv_before = {
 		.util_delta	= 0,
@@ -5627,7 +5628,18 @@ static int energy_diff(struct energy_env *eenv)
 		}
 	} while (sg = sg->next, sg != sd->groups);
 
-	return energy_after-energy_before;
+	/*
+	 * Dead-zone margin preventing too many migrations.
+	 */
+
+	margin = energy_before >> 6; /* ~1.56% */
+
+	diff = energy_after-energy_before;
+
+	if (abs(diff) < margin)
+		return 0;
+
+	return diff;
 }
 
 /*
