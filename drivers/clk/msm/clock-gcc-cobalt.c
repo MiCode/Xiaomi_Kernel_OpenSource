@@ -1725,6 +1725,7 @@ static struct local_vote_clk gcc_bimc_hmss_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "gcc_bimc_hmss_axi_clk",
+		.always_on = true,
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_bimc_hmss_axi_clk.c),
 	},
@@ -1737,6 +1738,7 @@ static struct local_vote_clk gcc_hmss_ahb_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "gcc_hmss_ahb_clk",
+		.always_on = true,
 		.parent = &hmss_ahb_clk_src.c,
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_hmss_ahb_clk.c),
@@ -1749,6 +1751,7 @@ static struct branch_clk gcc_hmss_dvm_bus_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "gcc_hmss_dvm_bus_clk",
+		.always_on = true,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_hmss_dvm_bus_clk.c),
 	},
