@@ -919,6 +919,10 @@
 	};
 };
 
+&slim_msm {
+	status = "disabled";
+};
+
 /delete-node/  &led_flash0;
 
 &mdss_dsi0 {
