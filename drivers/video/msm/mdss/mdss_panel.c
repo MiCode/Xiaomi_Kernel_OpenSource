@@ -865,79 +865,73 @@ int mdss_panel_dsc_prepare_pps_buf(struct dsc_desc *dsc, char *buf,
 	int i, bpp;
 
 	bp = buf;
-	*bp++ = ((major << 4) | minor);		/* pps0 */
-	*bp++ = pps_id;				/* pps1 */
+	*bp++ = (((major & 0xf) << 4) | (minor & 0xf));	/* pps0 */
+	*bp++ = (pps_id & 0xff);		/* pps1 */
 	bp++;					/* pps2, reserved */
 
 	data = dsc->line_buf_depth & 0x0f;
-	data |= (dsc->bpc << 4);
+	data |= ((dsc->bpc & 0xf) << 4);
 	*bp++ = data;				 /* pps3 */
 
 	bpp = dsc->bpp;
 	bpp <<= 4;	/* 4 fraction bits */
 	data = (bpp >> 8);
 	data &= 0x03;		/* upper two bits */
-	data |= (dsc->block_pred_enable << 5);
-	data |= (dsc->convert_rgb << 4);
-	data |= (dsc->enable_422 << 3);
-	data |= (dsc->vbr_enable << 2);
+	data |= ((dsc->block_pred_enable & 0x1) << 5);
+	data |= ((dsc->convert_rgb & 0x1) << 4);
+	data |= ((dsc->enable_422 & 0x1) << 3);
+	data |= ((dsc->vbr_enable & 0x1) << 2);
 	*bp++ = data;				/* pps4 */
-	*bp++ = bpp;				/* pps5 */
+	*bp++ = (bpp & 0xff);			/* pps5 */
 
-	*bp++ = (dsc->pic_height >> 8);		/* pps6 */
+	*bp++ = ((dsc->pic_height >> 8) & 0xff); /* pps6 */
 	*bp++ = (dsc->pic_height & 0x0ff);	/* pps7 */
-	*bp++ = (dsc->pic_width >> 8);		/* pps8 */
+	*bp++ = ((dsc->pic_width >> 8) & 0xff);	/* pps8 */
 	*bp++ = (dsc->pic_width & 0x0ff);	/* pps9 */
 
-	*bp++ = (dsc->slice_height >> 8);	/* pps10 */
+	*bp++ = ((dsc->slice_height >> 8) & 0xff);/* pps10 */
 	*bp++ = (dsc->slice_height & 0x0ff);	/* pps11 */
-	*bp++ = (dsc->slice_width >> 8);	/* pps12 */
+	*bp++ = ((dsc->slice_width >> 8) & 0xff); /* pps12 */
 	*bp++ = (dsc->slice_width & 0x0ff);	/* pps13 */
 
-	*bp++ = (dsc->chunk_size >> 8);		/* pps14 */
+	*bp++ = ((dsc->chunk_size >> 8) & 0xff);/* pps14 */
 	*bp++ = (dsc->chunk_size & 0x0ff);	/* pps15 */
 
-	data = dsc->initial_xmit_delay >> 8;
-	data &= 0x03;
-	*bp++ = data;				/* pps16, bit 0, 1 */
-	*bp++ = dsc->initial_xmit_delay;	/* pps17 */
+	*bp++ = (dsc->initial_xmit_delay >> 8) & 0x3; /* pps16, bit 0, 1 */
+	*bp++ = (dsc->initial_xmit_delay & 0xff);/* pps17 */
 
-	*bp++ = (dsc->initial_dec_delay >> 8);	/* pps18 */
-	*bp++ = dsc->initial_dec_delay;		/* pps19 */
+	*bp++ = ((dsc->initial_dec_delay >> 8) & 0xff);	/* pps18 */
+	*bp++ = (dsc->initial_dec_delay & 0xff);/* pps19 */
 
 	bp++;					/* pps20, reserved */
 
 	*bp++ = (dsc->initial_scale_value & 0x3f); /* pps21 */
 
-	data = (dsc->scale_increment_interval >> 8);
-	data &= 0x0f;
-	*bp++ =  data;				/* pps22 */
-	*bp++ = dsc->scale_increment_interval;	/* pps23 */
+	*bp++ = ((dsc->scale_increment_interval >> 8) & 0xff); /* pps22 */
+	*bp++ = (dsc->scale_increment_interval & 0xff);	/* pps23 */
 
-	data = (dsc->scale_decrement_interval >> 8);
-	data &= 0x0f;
-	*bp++ = data;				/* pps24 */
+	*bp++ = ((dsc->scale_decrement_interval >> 8) & 0xf); /* pps24 */
 	*bp++ = (dsc->scale_decrement_interval & 0x0ff);/* pps25 */
 
 	bp++;			/* pps26, reserved */
 
 	*bp++ = (dsc->first_line_bpg_offset & 0x1f);/* pps27 */
 
-	*bp++ = (dsc->nfl_bpg_offset >> 8);	/* pps28 */
+	*bp++ = ((dsc->nfl_bpg_offset >> 8) & 0xff);/* pps28 */
 	*bp++ = (dsc->nfl_bpg_offset & 0x0ff);	/* pps29 */
-	*bp++ = (dsc->slice_bpg_offset >> 8);	/* pps30 */
+	*bp++ = ((dsc->slice_bpg_offset >> 8) & 0xff);/* pps30 */
 	*bp++ = (dsc->slice_bpg_offset & 0x0ff);/* pps31 */
 
-	*bp++ = (dsc->initial_offset >> 8);	/* pps32 */
+	*bp++ = ((dsc->initial_offset >> 8) & 0xff);/* pps32 */
 	*bp++ = (dsc->initial_offset & 0x0ff);	/* pps33 */
 
-	*bp++ = (dsc->final_offset >> 8);	/* pps34 */
+	*bp++ = ((dsc->final_offset >> 8) & 0xff);/* pps34 */
 	*bp++ = (dsc->final_offset & 0x0ff);	/* pps35 */
 
 	*bp++ = (dsc->min_qp_flatness & 0x1f);	/* pps36 */
 	*bp++ = (dsc->max_qp_flatness & 0x1f);	/* pps37 */
 
-	*bp++ = (dsc->rc_model_size >> 8);	/* pps38 */
+	*bp++ = ((dsc->rc_model_size >> 8) & 0xff);/* pps38 */
 	*bp++ = (dsc->rc_model_size & 0x0ff);	/* pps39 */
 
 	*bp++ = (dsc->edge_factor & 0x0f);	/* pps40 */
@@ -945,12 +939,12 @@ int mdss_panel_dsc_prepare_pps_buf(struct dsc_desc *dsc, char *buf,
 	*bp++ = (dsc->quant_incr_limit0 & 0x1f);	/* pps41 */
 	*bp++ = (dsc->quant_incr_limit1 & 0x1f);	/* pps42 */
 
-	data = (dsc->tgt_offset_hi << 4);
+	data = ((dsc->tgt_offset_hi & 0xf) << 4);
 	data |= (dsc->tgt_offset_lo & 0x0f);
 	*bp++ = data;				/* pps43 */
 
 	for (i = 0; i < 14; i++)
-		*bp++ = dsc->buf_thresh[i];	/* pps44 - pps57 */
+		*bp++ = (dsc->buf_thresh[i] & 0xff);/* pps44 - pps57 */
 
 	for (i = 0; i < 15; i++) {		/* pps58 - pps87 */
 		data = (dsc->range_min_qp[i] & 0x1f); /* 5 bits */
