@@ -143,7 +143,7 @@ void ion_page_pool_free_immediate(struct ion_page_pool *pool, struct page *page)
 	ion_page_pool_free_pages(pool, page);
 }
 
-static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
+int ion_page_pool_total(struct ion_page_pool *pool, bool high)
 {
 	int count = pool->low_count;
 
