@@ -312,5 +312,29 @@
 			qcom,led-strings-list = [00 01 02 03];
 			qcom,en-ext-pfet-sc-pro;
 		};
+
+		pmicobalt_haptics: qcom,haptic@c000 {
+			status = "disabled";
+			compatible = "qcom,qpnp-haptic";
+			reg = <0xc000 0x100>;
+			interrupts = <0x3 0xc0 0x0>,
+				     <0x3 0xc0 0x1>;
+			interrupt-names = "sc-irq", "play-irq";
+			qcom,actuator-type = "lra";
+			qcom,play-mode = "direct";
+			qcom,vmax-mv = <3200>;
+			qcom,ilim-ma = <800>;
+			qcom,wave-shape = "square";
+			qcom,wave-play-rate-us = <6667>;
+			qcom,int-pwm-freq-khz = <505>;
+			qcom,sc-deb-cycles = <8>;
+			qcom,en-brake;
+			qcom,brake-pattern = [03 03 00 00];
+			qcom,use-play-irq;
+			qcom,use-sc-irq;
+			qcom,lra-high-z = "opt1";
+			qcom,lra-auto-res-mode = "qwd";
+			qcom,lra-res-cal-period = <4>;
+		};
 	};
 };

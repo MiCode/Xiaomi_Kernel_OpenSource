@@ -138,3 +138,7 @@
 		synaptics,fw-name = "PR1702898-s3528t_60QHD_00400001.img";
 	};
 };
+
+&pmicobalt_haptics {
+	status = "okay";
+};
