@@ -113,10 +113,10 @@ static struct dcs_command resume_sequence[] = {
 
 static struct device_attribute attrs[] = {
 	__ATTR(dcs_write, S_IWUGO,
-			synaptics_rmi4_show_error,
+			NULL,
 			video_sysfs_dcs_write_store),
 	__ATTR(param, S_IWUGO,
-			synaptics_rmi4_show_error,
+			NULL,
 			video_sysfs_param_store),
 };
 
