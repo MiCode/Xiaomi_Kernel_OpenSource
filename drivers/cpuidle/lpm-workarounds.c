@@ -25,6 +25,7 @@ static struct regulator *lpm_cx_reg;
 static struct work_struct dummy_vote_work;
 static struct workqueue_struct *lpm_wa_wq;
 static bool lpm_wa_cx_turbo_unvote;
+static bool skip_l2_spm;
 
 /* While exiting from RPM assisted power collapse on some targets like MSM8939
  * the CX is bumped to turbo mode by RPM. To reduce the power impact, APSS
@@ -81,6 +82,12 @@ static int lpm_wa_cx_unvote_exit(void)
 	return 0;
 }
 
+bool lpm_wa_get_skip_l2_spm(void)
+{
+	return skip_l2_spm;
+}
+EXPORT_SYMBOL(lpm_wa_get_skip_l2_spm);
+
 static int lpm_wa_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -95,6 +102,9 @@ static int lpm_wa_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+
+	skip_l2_spm = of_property_read_bool(pdev->dev.of_node,
+						"qcom,lpm-wa-skip-l2-spm");
 
 	return ret;
 }

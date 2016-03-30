@@ -346,7 +346,11 @@ int set_l2_mode(struct low_power_ops *ops, int mode,
 		break;
 	}
 
-	rc = msm_spm_config_low_power_mode(ops->spm, lpm, notify_rpm);
+	if (lpm_wa_get_skip_l2_spm())
+		rc = msm_spm_config_low_power_mode_addr(ops->spm, lpm,
+							notify_rpm);
+	else
+		rc = msm_spm_config_low_power_mode(ops->spm, lpm, notify_rpm);
 
 	if (rc)
 		pr_err("%s: Failed to set L2 low power mode %d, ERR %d",
