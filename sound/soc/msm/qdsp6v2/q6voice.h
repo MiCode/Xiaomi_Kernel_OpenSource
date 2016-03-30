@@ -1281,7 +1281,7 @@ struct vss_ivocproc_cmd_topology_set_dev_channels_t {
 #define VSS_IVPCM_SAMPLING_RATE_16K	16000
 
 /* RX and TX */
-#define MAX_TAP_POINTS_SUPPORTED	1
+#define MAX_TAP_POINTS_SUPPORTED	2
 
 struct vss_ivpcm_tap_point {
 	uint32_t tap_point;
