@@ -762,12 +762,6 @@ static void *f2fs_encrypted_follow_link(struct dentry *dentry,
 		goto errout;
 	}
 
-	/* this is broken symlink case */
-	if (unlikely(cstr.name[0] == 0)) {
-		res = -ENOENT;
-		goto errout;
-	}
-
 	if ((cstr.len + sizeof(struct fscrypt_symlink_data) - 1) > max_size) {
 		/* Symlink data on the disk is corrupted */
 		res = -EIO;
@@ -780,6 +774,12 @@ static void *f2fs_encrypted_follow_link(struct dentry *dentry,
 	res = fscrypt_fname_disk_to_usr(inode, 0, 0, &cstr, &pstr);
 	if (res < 0)
 		goto errout;
+
+	/* this is broken symlink case */
+	if (unlikely(pstr.name[0] == 0)) {
+		res = -ENOENT;
+		goto errout;
+	}
 
 	paddr = pstr.name;
 
