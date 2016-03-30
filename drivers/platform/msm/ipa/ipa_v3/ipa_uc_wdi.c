@@ -510,6 +510,10 @@ static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 		IPAERR("No SMMU CB setup\n");
 		return -EINVAL;
 	}
+	if (!sgt) {
+		IPAERR("Bad parameters, scatter / gather list is NULL\n");
+		return -EINVAL;
+	}
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
 		phys = page_to_phys(sg_page(sg));
@@ -596,6 +600,11 @@ static void ipa_save_uc_smmu_mapping_sgt(int res_idx, struct sg_table *sgt,
 	int i;
 	struct scatterlist *sg;
 	unsigned long curr_iova = iova;
+
+	if (!sgt) {
+		IPAERR("Bad parameters, scatter / gather list is NULL\n");
+		return;
+	}
 
 	wdi_res[res_idx].res = kcalloc(sgt->nents, sizeof(struct ipa_wdi_res),
 			GFP_KERNEL);
