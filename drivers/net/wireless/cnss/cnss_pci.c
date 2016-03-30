@@ -109,6 +109,7 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_IO_NAME	"vdd-wlan-io"
 #define WLAN_VREG_XTAL_NAME	"vdd-wlan-xtal"
+#define WLAN_VREG_XTAL_AON_NAME	"vdd-wlan-xtal-aon"
 #define WLAN_VREG_CORE_NAME	"vdd-wlan-core"
 #define WLAN_VREG_SP2T_NAME	"vdd-wlan-sp2t"
 #define WLAN_SWREG_NAME		"wlan-soc-swreg"
@@ -181,6 +182,7 @@ struct cnss_wlan_vreg_info {
 	struct regulator *ant_switch;
 	struct regulator *wlan_reg_io;
 	struct regulator *wlan_reg_xtal;
+	struct regulator *wlan_reg_xtal_aon;
 	struct regulator *wlan_reg_core;
 	struct regulator *wlan_reg_sp2t;
 	bool state;
@@ -334,6 +336,15 @@ static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 		}
 	}
 
+	if (vreg_info->wlan_reg_xtal_aon) {
+		ret = regulator_enable(vreg_info->wlan_reg_xtal_aon);
+		if (ret) {
+			pr_err("%s: wlan_reg_xtal_aon enable failed\n",
+			       __func__);
+			goto error_enable_reg_xtal_aon;
+		}
+	}
+
 	if (vreg_info->wlan_reg_xtal) {
 		ret = regulator_enable(vreg_info->wlan_reg_xtal);
 		if (ret) {
@@ -382,6 +393,9 @@ error_enable_reg_sp2t:
 	if (vreg_info->wlan_reg_xtal)
 		regulator_disable(vreg_info->wlan_reg_xtal);
 error_enable_reg_xtal:
+	if (vreg_info->wlan_reg_xtal_aon)
+		regulator_disable(vreg_info->wlan_reg_xtal_aon);
+error_enable_reg_xtal_aon:
 	if (vreg_info->wlan_reg_io)
 		regulator_disable(vreg_info->wlan_reg_io);
 error_enable_reg_io:
@@ -429,6 +443,15 @@ static int cnss_wlan_vreg_off(struct cnss_wlan_vreg_info *vreg_info)
 		if (ret) {
 			pr_err("%s: regulator disable failed for wlan_reg_xtal\n",
 				__func__);
+			goto error_disable;
+		}
+	}
+
+	if (vreg_info->wlan_reg_xtal_aon) {
+		ret = regulator_disable(vreg_info->wlan_reg_xtal_aon);
+		if (ret) {
+			pr_err("%s: wlan_reg_xtal_aon disable failed\n",
+			       __func__);
 			goto error_disable;
 		}
 	}
@@ -583,6 +606,89 @@ static int cnss_pinctrl_init(struct cnss_wlan_gpio_info *gpio_info,
 	return ret;
 }
 
+static void cnss_disable_xtal_ldo(struct platform_device *pdev)
+{
+	struct cnss_wlan_vreg_info *info = &penv->vreg_info;
+
+	if (info->wlan_reg_xtal) {
+		regulator_disable(info->wlan_reg_xtal);
+		regulator_put(info->wlan_reg_xtal);
+	}
+
+	if (info->wlan_reg_xtal_aon) {
+		regulator_disable(info->wlan_reg_xtal_aon);
+		regulator_put(info->wlan_reg_xtal_aon);
+	}
+}
+
+static int cnss_enable_xtal_ldo(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct cnss_wlan_vreg_info *info = &penv->vreg_info;
+
+	if (!of_get_property(pdev->dev.of_node,
+			     WLAN_VREG_XTAL_AON_NAME "-supply", NULL))
+		goto enable_xtal;
+
+	info->wlan_reg_xtal_aon = regulator_get(&pdev->dev,
+						WLAN_VREG_XTAL_AON_NAME);
+	if (IS_ERR(info->wlan_reg_xtal_aon)) {
+		ret = PTR_ERR(info->wlan_reg_xtal_aon);
+		pr_err("%s: XTAL AON Regulator get failed err:%d\n", __func__,
+		       ret);
+		return ret;
+	}
+
+	ret = regulator_enable(info->wlan_reg_xtal_aon);
+	if (ret) {
+		pr_err("%s: VREG_XTAL_ON enable failed\n", __func__);
+		goto end;
+	}
+
+enable_xtal:
+
+	if (!of_get_property(pdev->dev.of_node,
+			     WLAN_VREG_XTAL_NAME "-supply", NULL))
+		goto out_disable_xtal_aon;
+
+	info->wlan_reg_xtal = regulator_get(&pdev->dev, WLAN_VREG_XTAL_NAME);
+
+	if (IS_ERR(info->wlan_reg_xtal)) {
+		ret = PTR_ERR(info->wlan_reg_xtal);
+		pr_err("%s XTAL Regulator get failed err:%d\n", __func__, ret);
+		goto out_disable_xtal_aon;
+	}
+
+	ret = regulator_set_voltage(info->wlan_reg_xtal, WLAN_VREG_XTAL_MIN,
+				    WLAN_VREG_XTAL_MAX);
+	if (ret) {
+		pr_err("%s: Set wlan_vreg_xtal failed!\n", __func__);
+		goto out_put_xtal;
+	}
+
+	ret = regulator_enable(info->wlan_reg_xtal);
+	if (ret) {
+		pr_err("%s: Enable wlan_vreg_xtal failed!\n", __func__);
+		goto out_put_xtal;
+	}
+
+	return 0;
+
+out_put_xtal:
+	if (info->wlan_reg_xtal)
+		regulator_put(info->wlan_reg_xtal);
+
+out_disable_xtal_aon:
+	if (info->wlan_reg_xtal_aon)
+		regulator_disable(info->wlan_reg_xtal_aon);
+
+end:
+	if (info->wlan_reg_xtal_aon)
+		regulator_put(info->wlan_reg_xtal_aon);
+
+	return ret;
+}
+
 static int cnss_wlan_get_resources(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -660,27 +766,8 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 		}
 	}
 
-	if (of_get_property(pdev->dev.of_node,
-		WLAN_VREG_XTAL_NAME"-supply", NULL)) {
-		vreg_info->wlan_reg_xtal =
-			regulator_get(&pdev->dev, WLAN_VREG_XTAL_NAME);
-		if (!IS_ERR(vreg_info->wlan_reg_xtal)) {
-			ret = regulator_set_voltage(vreg_info->wlan_reg_xtal,
-				WLAN_VREG_XTAL_MIN, WLAN_VREG_XTAL_MAX);
-			if (ret) {
-				pr_err("%s: Set wlan_vreg_xtal failed!\n",
-					__func__);
-				goto err_reg_xtal_set;
-			}
-
-			ret = regulator_enable(vreg_info->wlan_reg_xtal);
-			if (ret) {
-				pr_err("%s: Enable wlan_vreg_xtal failed!\n",
-					__func__);
-				goto err_reg_xtal_enable;
-			}
-		}
-	}
+	if (cnss_enable_xtal_ldo(pdev))
+		goto err_reg_xtal_enable;
 
 	if (of_get_property(pdev->dev.of_node,
 		WLAN_VREG_SP2T_NAME"-supply", NULL)) {
@@ -850,13 +937,10 @@ err_reg_sp2t_enable:
 err_reg_sp2t_set:
 	if (vreg_info->wlan_reg_sp2t)
 		regulator_put(vreg_info->wlan_reg_sp2t);
-	if (vreg_info->wlan_reg_xtal)
-		regulator_disable(vreg_info->wlan_reg_xtal);
+
+	cnss_disable_xtal_ldo(pdev);
 
 err_reg_xtal_enable:
-err_reg_xtal_set:
-	if (vreg_info->wlan_reg_xtal)
-		regulator_put(vreg_info->wlan_reg_xtal);
 	if (vreg_info->wlan_reg_io)
 		regulator_disable(vreg_info->wlan_reg_io);
 
@@ -901,6 +985,8 @@ static void cnss_wlan_release_resources(void)
 		regulator_put(vreg_info->wlan_reg_sp2t);
 	if (vreg_info->wlan_reg_xtal)
 		regulator_put(vreg_info->wlan_reg_xtal);
+	if (vreg_info->wlan_reg_xtal_aon)
+		regulator_put(vreg_info->wlan_reg_xtal_aon);
 	if (vreg_info->wlan_reg_io)
 		regulator_put(vreg_info->wlan_reg_io);
 	regulator_put(vreg_info->wlan_reg);
