@@ -3471,18 +3471,21 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 
 		output_buf = get_buff_req_buffer(inst,
 				msm_comm_get_hal_output_buffer(inst));
-		if (!output_buf) {
+		if (output_buf) {
+			if (dec) {
+				ptr = (u32 *)dec->raw.data;
+				ptr[0] = output_buf->buffer_size;
+				ptr[1] = output_buf->buffer_count_actual;
+				dprintk(VIDC_DBG,
+					"Reconfig hint, size is %u, count is %u\n",
+					ptr[0], ptr[1]);
+			} else {
+				dprintk(VIDC_ERR, "Null decoder\n");
+			}
+		} else {
 			dprintk(VIDC_DBG,
 					"This output buffer not required, buffer_type: %x\n",
 					HAL_BUFFER_OUTPUT);
-		} else {
-			ptr = (u32 *)dec->raw.data;
-			ptr[0] = output_buf->buffer_size;
-			ptr[1] = output_buf->buffer_count_actual;
-			dprintk(VIDC_DBG,
-				"Reconfig hint, size is %u, count is %u\n",
-				ptr[0], ptr[1]);
-
 		}
 		break;
 	}
