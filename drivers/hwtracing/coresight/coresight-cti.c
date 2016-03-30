@@ -158,7 +158,7 @@ void coresight_cti_ctx_save(void)
 		if (!drvdata->cti_save)
 			continue;
 
-		for_each_cpu_mask(cpuid, *topology_core_cpumask(cpu)) {
+		for_each_cpu(cpuid, topology_core_cpumask(cpu)) {
 			if (drvdata->cpu == cpuid)
 				goto out;
 		}
@@ -202,7 +202,7 @@ void coresight_cti_ctx_restore(void)
 		if (!drvdata->cti_save)
 			continue;
 
-		for_each_cpu_mask(cpuid, *topology_core_cpumask(cpu)) {
+		for_each_cpu(cpuid, topology_core_cpumask(cpu)) {
 			if (drvdata->cpu == cpuid)
 				goto out;
 		}
