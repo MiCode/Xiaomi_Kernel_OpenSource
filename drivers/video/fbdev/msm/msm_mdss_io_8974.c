@@ -1416,6 +1416,8 @@ error:
 void mdss_dsi_link_clk_deinit(struct device *dev,
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	if (ctrl->byte_intf_clk)
+		devm_clk_put(dev, ctrl->byte_intf_clk);
 	if (ctrl->vco_dummy_clk)
 		devm_clk_put(dev, ctrl->vco_dummy_clk);
 	if (ctrl->pixel_clk_rcg)
@@ -1489,6 +1491,13 @@ int mdss_dsi_link_clk_init(struct platform_device *pdev,
 		pr_debug("%s: can't find vco dummy clk. rc=%d\n", __func__, rc);
 		ctrl->vco_dummy_clk = NULL;
 	}
+
+	ctrl->byte_intf_clk = devm_clk_get(dev, "byte_intf_clk");
+	if (IS_ERR(ctrl->byte_intf_clk)) {
+		pr_debug("%s: can't find byte int clk. rc=%d\n", __func__, rc);
+		ctrl->byte_intf_clk = NULL;
+	}
+
 
 error:
 	if (rc)

@@ -2788,6 +2788,7 @@ static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
 	info.link_clks.esc_clk = ctrl_pdata->esc_clk;
 	info.link_clks.byte_clk = ctrl_pdata->byte_clk;
 	info.link_clks.pixel_clk = ctrl_pdata->pixel_clk;
+	info.link_clks.byte_intf_clk = ctrl_pdata->byte_intf_clk;
 
 	info.pre_clkoff_cb = mdss_dsi_pre_clkoff_cb;
 	info.post_clkon_cb = mdss_dsi_post_clkon_cb;
@@ -2950,6 +2951,24 @@ end:
 	return rc;
 }
 
+static int mdss_dsi_ctrl_validate_config(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc = 0;
+
+	/*
+	 * check to make sure that the byte interface clock is specified for
+	 * DSI ctrl version 2 and above.
+	 */
+	if ((ctrl->shared_data->hw_rev >= MDSS_DSI_HW_REV_200) &&
+		(!ctrl->byte_intf_clk)) {
+		pr_err("%s: byte intf clk must be defined for hw rev 0x%08x\n",
+			__func__, ctrl->shared_data->hw_rev);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -3098,6 +3117,12 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&ctrl_pdata->dba_work, mdss_dsi_dba_work);
+
+	rc = mdss_dsi_ctrl_validate_config(ctrl_pdata);
+	if (rc) {
+		pr_err("%s: invalid controller configuration\n", __func__);
+		goto error_shadow_clk_deinit;
+	}
 
 	pr_info("%s: Dsi Ctrl->%d initialized, DSI rev:0x%x, PHY rev:0x%x\n",
 		__func__, index, ctrl_pdata->shared_data->hw_rev,

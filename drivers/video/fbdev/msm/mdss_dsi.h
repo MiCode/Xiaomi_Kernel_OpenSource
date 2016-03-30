@@ -57,6 +57,7 @@
 #define MDSS_DSI_HW_REV_104             0x10040000      /* 8996   */
 #define MDSS_DSI_HW_REV_104_1           0x10040001      /* 8996   */
 #define MDSS_DSI_HW_REV_104_2           0x10040002      /* 8937   */
+#define MDSS_DSI_HW_REV_200		0x20000000	/* cobalt */
 
 #define MDSS_DSI_HW_REV_STEP_0		0x0
 #define MDSS_DSI_HW_REV_STEP_1		0x1
@@ -419,6 +420,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct clk *byte_clk_rcg;
 	struct clk *pixel_clk_rcg;
 	struct clk *vco_dummy_clk;
+	struct clk *byte_intf_clk;
 	u8 ctrl_state;
 	int panel_mode;
 	int irq_cnt;
