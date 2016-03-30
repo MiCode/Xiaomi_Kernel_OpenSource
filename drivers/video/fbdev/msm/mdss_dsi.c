@@ -3748,9 +3748,9 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-regulator-settings", &len);
 	if (!data) {
-		pr_err("%s:%d, Unable to read Phy regulator settings\n",
+		pr_debug("%s:%d, Unable to read Phy regulator settings\n",
 			__func__, __LINE__);
-		return -EINVAL;
+		pinfo->mipi.dsi_phy_db.regulator_len = 0;
 	} else {
 		pinfo->mipi.dsi_phy_db.regulator_len = len;
 		for (i = 0; i < len; i++)
