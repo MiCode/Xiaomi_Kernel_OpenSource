@@ -20,6 +20,7 @@
 #include <linux/pm_opp.h>
 #include <linux/rculist.h>
 #include <linux/rcupdate.h>
+#include <linux/limits.h>
 
 /* Lock to allow exclusive modification to the device and opp lists */
 extern struct mutex dev_opp_list_lock;
