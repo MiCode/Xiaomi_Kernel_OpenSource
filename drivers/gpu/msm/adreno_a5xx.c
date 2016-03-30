@@ -317,10 +317,6 @@ static int a5xx_preemption_token(struct adreno_device *adreno_dev,
 {
 	unsigned int *cmds_orig = cmds;
 
-	/* Enable yield in RB only */
-	*cmds++ = cp_type7_packet(CP_YIELD_ENABLE, 1);
-	*cmds++ = 1;
-
 	*cmds++ = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
 	cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
 	*cmds++ = 1;
@@ -411,18 +407,11 @@ static int a5xx_preemption_pre_ibsubmit(
 }
 
 /*
- * a5xx_preemption_post_ibsubmit() - Below PM4 commands are
+ * a5xx_preemption_yield_enable() - Below PM4 commands are
  * added after every cmdbatch submission.
  */
-static int a5xx_preemption_post_ibsubmit(
-			struct adreno_device *adreno_dev,
-			struct adreno_ringbuffer *rb, unsigned int *cmds,
-			struct kgsl_context *context)
+static int a5xx_preemption_yield_enable(unsigned int *cmds)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int *cmds_orig = cmds;
-	unsigned int ctx_id = context ? context->id : 0;
-
 	/*
 	 * SRM -- set render mode (ex binning, direct render etc)
 	 * SRM is set by UMD usually at start of IB to tell CP the type of
@@ -437,11 +426,27 @@ static int a5xx_preemption_post_ibsubmit(
 	*cmds++ = 0;
 	*cmds++ = 0;
 
-	cmds += a5xx_preemption_token(adreno_dev, rb, cmds,
+	*cmds++ = cp_type7_packet(CP_YIELD_ENABLE, 1);
+	*cmds++ = 1;
+
+	return 8;
+}
+
+/*
+ * a5xx_preemption_post_ibsubmit() - Below PM4 commands are
+ * added after every cmdbatch submission.
+ */
+static int a5xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
+			struct adreno_ringbuffer *rb, unsigned int *cmds,
+			struct kgsl_context *context)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int ctx_id = context ? context->id : 0;
+
+	return a5xx_preemption_token(adreno_dev, rb, cmds,
 				device->memstore.gpuaddr +
 				KGSL_MEMSTORE_OFFSET(ctx_id, preempted));
 
-	return cmds - cmds_orig;
 }
 
 static void a5xx_platform_setup(struct adreno_device *adreno_dev)
@@ -4182,8 +4187,10 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.regulator_disable = a5xx_regulator_disable,
 	.pwrlevel_change_settings = a5xx_pwrlevel_change_settings,
 	.preemption_pre_ibsubmit = a5xx_preemption_pre_ibsubmit,
+	.preemption_yield_enable =
+				a5xx_preemption_yield_enable,
 	.preemption_post_ibsubmit =
-				a5xx_preemption_post_ibsubmit,
+			a5xx_preemption_post_ibsubmit,
 	.preemption_token = a5xx_preemption_token,
 	.preemption_init = a5xx_preemption_init,
 	.preemption_schedule = a5xx_preemption_schedule,
