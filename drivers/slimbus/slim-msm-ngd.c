@@ -711,7 +711,6 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
 	int i, ret;
 	struct msm_slim_endp *endpoint = &dev->tx_msgq;
-	struct sps_pipe *pipe = endpoint->sps;
 	u32 *header;
 	DECLARE_COMPLETION_ONSTACK(done);
 
@@ -808,8 +807,8 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 		goto retpath;
 	}
 
-	ret = sps_transfer_one(pipe, dev->bulk.wr_dma, dev->bulk.size, NULL,
-				SPS_IOVEC_FLAG_EOT);
+	ret = sps_transfer_one(endpoint->sps, dev->bulk.wr_dma, dev->bulk.size,
+						NULL, SPS_IOVEC_FLAG_EOT);
 	if (ret) {
 		SLIM_WARN(dev, "sps transfer one returned error:%d", ret);
 		goto retpath;
