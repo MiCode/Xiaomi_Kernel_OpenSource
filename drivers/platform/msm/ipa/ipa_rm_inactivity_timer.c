@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 #include <linux/unistd.h>
 #include <linux/workqueue.h>
 #include <linux/ipa.h>
-#include "ipa_i.h"
+#include "ipa_rm_i.h"
 
 /**
  * struct ipa_rm_it_private - IPA RM Inactivity Timer private
@@ -53,9 +53,9 @@ static struct ipa_rm_it_private ipa_rm_it_handles[IPA_RM_RESOURCE_MAX];
  * ipa_rm_inactivity_timer_func() - called when timer expired in
  * the context of the shared workqueue. Checks internally if
  * reschedule_work flag is set. In case it is not set this function calls to
- * ipa2_rm_release_resource(). In case reschedule_work is set this function
+ * ipa_rm_release_resource(). In case reschedule_work is set this function
  * reschedule the work. This flag is cleared cleared when
- * calling to ipa2_rm_inactivity_timer_release_resource().
+ * calling to ipa_rm_inactivity_timer_release_resource().
  *
  * @work: work object provided by the work queue
  *
@@ -70,24 +70,24 @@ static void ipa_rm_inactivity_timer_func(struct work_struct *work)
 						    work);
 	unsigned long flags;
 
-	IPADBG("%s: timer expired for resource %d!\n", __func__,
+	IPA_RM_DBG_LOW("%s: timer expired for resource %d!\n", __func__,
 	    me->resource_name);
 
 	spin_lock_irqsave(
 		&ipa_rm_it_handles[me->resource_name].lock, flags);
 	if (ipa_rm_it_handles[me->resource_name].reschedule_work) {
-		IPADBG("%s: setting delayed work\n", __func__);
+		IPA_RM_DBG_LOW("%s: setting delayed work\n", __func__);
 		ipa_rm_it_handles[me->resource_name].reschedule_work = false;
 		schedule_delayed_work(
 			&ipa_rm_it_handles[me->resource_name].work,
 			ipa_rm_it_handles[me->resource_name].jiffies);
 	} else if (ipa_rm_it_handles[me->resource_name].resource_requested) {
-		IPADBG("%s: not calling release\n", __func__);
+		IPA_RM_DBG_LOW("%s: not calling release\n", __func__);
 		ipa_rm_it_handles[me->resource_name].work_in_progress = false;
 	} else {
-		IPADBG("%s: calling release_resource on resource %d!\n",
+		IPA_RM_DBG_LOW("%s: calling release_resource on resource %d!\n",
 			__func__, me->resource_name);
-		ipa2_rm_release_resource(me->resource_name);
+		ipa_rm_release_resource(me->resource_name);
 		ipa_rm_it_handles[me->resource_name].work_in_progress = false;
 	}
 	spin_unlock_irqrestore(
@@ -95,31 +95,31 @@ static void ipa_rm_inactivity_timer_func(struct work_struct *work)
 }
 
 /**
-* ipa2_rm_inactivity_timer_init() - Init function for IPA RM
+* ipa_rm_inactivity_timer_init() - Init function for IPA RM
 * inactivity timer. This function shall be called prior calling
 * any other API of IPA RM inactivity timer.
 *
 * @resource_name: Resource name. @see ipa_rm.h
 * @msecs: time in miliseccond, that IPA RM inactivity timer
-* shall wait prior calling to ipa2_rm_release_resource().
+* shall wait prior calling to ipa_rm_release_resource().
 *
 * Return codes:
 * 0: success
 * -EINVAL: invalid parameters
 */
-int ipa2_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
+int ipa_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 				 unsigned long msecs)
 {
-	IPADBG("%s: resource %d\n", __func__, resource_name);
+	IPA_RM_DBG_LOW("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
 	    resource_name >= IPA_RM_RESOURCE_MAX) {
-		IPAERR("%s: Invalid parameter\n", __func__);
+		IPA_RM_ERR("%s: Invalid parameter\n", __func__);
 		return -EINVAL;
 	}
 
 	if (ipa_rm_it_handles[resource_name].initied) {
-		IPAERR("%s: resource %d already inited\n",
+		IPA_RM_ERR("%s: resource %d already inited\n",
 		    __func__, resource_name);
 		return -EINVAL;
 	}
@@ -137,9 +137,10 @@ int ipa2_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 
 	return 0;
 }
+EXPORT_SYMBOL(ipa_rm_inactivity_timer_init);
 
 /**
-* ipa2_rm_inactivity_timer_destroy() - De-Init function for IPA
+* ipa_rm_inactivity_timer_destroy() - De-Init function for IPA
 * RM inactivity timer.
 *
 * @resource_name: Resource name. @see ipa_rm.h
@@ -148,18 +149,18 @@ int ipa2_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 * 0: success
 * -EINVAL: invalid parameters
 */
-int ipa2_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
+int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 {
-	IPADBG("%s: resource %d\n", __func__, resource_name);
+	IPA_RM_DBG_LOW("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
 	    resource_name >= IPA_RM_RESOURCE_MAX) {
-		IPAERR("%s: Invalid parameter\n", __func__);
+		IPA_RM_ERR("%s: Invalid parameter\n", __func__);
 		return -EINVAL;
 	}
 
 	if (!ipa_rm_it_handles[resource_name].initied) {
-		IPAERR("%s: resource %d already inited\n",
+		IPA_RM_ERR("%s: resource %d already inited\n",
 		    __func__, resource_name);
 		return -EINVAL;
 	}
@@ -171,13 +172,13 @@ int ipa2_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 
 	return 0;
 }
-
+EXPORT_SYMBOL(ipa_rm_inactivity_timer_destroy);
 
 /**
-* ipa2_rm_inactivity_timer_request_resource() - Same as
-* ipa2_rm_request_resource(), with a difference that calling to
+* ipa_rm_inactivity_timer_request_resource() - Same as
+* ipa_rm_request_resource(), with a difference that calling to
 * this function will also cancel the inactivity timer, if
-* ipa2_rm_inactivity_timer_release_resource() was called earlier.
+* ipa_rm_inactivity_timer_release_resource() was called earlier.
 *
 * @resource_name: Resource name. @see ipa_rm.h
 *
@@ -185,40 +186,42 @@ int ipa2_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 * 0: success
 * -EINVAL: invalid parameters
 */
-int ipa2_rm_inactivity_timer_request_resource(
+int ipa_rm_inactivity_timer_request_resource(
 				enum ipa_rm_resource_name resource_name)
 {
 	int ret;
 	unsigned long flags;
 
-	IPADBG("%s: resource %d\n", __func__, resource_name);
+	IPA_RM_DBG_LOW("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
 	    resource_name >= IPA_RM_RESOURCE_MAX) {
-		IPAERR("%s: Invalid parameter\n", __func__);
+		IPA_RM_ERR("%s: Invalid parameter\n", __func__);
 		return -EINVAL;
 	}
 
 	if (!ipa_rm_it_handles[resource_name].initied) {
-		IPAERR("%s: Not initialized\n", __func__);
+		IPA_RM_ERR("%s: Not initialized\n", __func__);
 		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&ipa_rm_it_handles[resource_name].lock, flags);
 	ipa_rm_it_handles[resource_name].resource_requested = true;
 	spin_unlock_irqrestore(&ipa_rm_it_handles[resource_name].lock, flags);
-	ret = ipa2_rm_request_resource(resource_name);
-	IPADBG("%s: resource %d: returning %d\n", __func__, resource_name, ret);
+	ret = ipa_rm_request_resource(resource_name);
+	IPA_RM_DBG_LOW("%s: resource %d: returning %d\n", __func__,
+		resource_name, ret);
 
 	return ret;
 }
+EXPORT_SYMBOL(ipa_rm_inactivity_timer_request_resource);
 
 /**
-* ipa2_rm_inactivity_timer_release_resource() - Sets the
+* ipa_rm_inactivity_timer_release_resource() - Sets the
 * inactivity timer to the timeout set by
-* ipa2_rm_inactivity_timer_init(). When the timeout expires, IPA
-* RM inactivity timer will call to ipa2_rm_release_resource().
-* If a call to ipa2_rm_inactivity_timer_request_resource() was
+* ipa_rm_inactivity_timer_init(). When the timeout expires, IPA
+* RM inactivity timer will call to ipa_rm_release_resource().
+* If a call to ipa_rm_inactivity_timer_request_resource() was
 * made BEFORE the timout has expired, rge timer will be
 * cancelled.
 *
@@ -228,28 +231,28 @@ int ipa2_rm_inactivity_timer_request_resource(
 * 0: success
 * -EINVAL: invalid parameters
 */
-int ipa2_rm_inactivity_timer_release_resource(
+int ipa_rm_inactivity_timer_release_resource(
 				enum ipa_rm_resource_name resource_name)
 {
 	unsigned long flags;
 
-	IPADBG("%s: resource %d\n", __func__, resource_name);
+	IPA_RM_DBG_LOW("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
 	    resource_name >= IPA_RM_RESOURCE_MAX) {
-		IPAERR("%s: Invalid parameter\n", __func__);
+		IPA_RM_ERR("%s: Invalid parameter\n", __func__);
 		return -EINVAL;
 	}
 
 	if (!ipa_rm_it_handles[resource_name].initied) {
-		IPAERR("%s: Not initialized\n", __func__);
+		IPA_RM_ERR("%s: Not initialized\n", __func__);
 		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&ipa_rm_it_handles[resource_name].lock, flags);
 	ipa_rm_it_handles[resource_name].resource_requested = false;
 	if (ipa_rm_it_handles[resource_name].work_in_progress) {
-		IPADBG("%s: Timer already set, not scheduling again %d\n",
+		IPA_RM_DBG_LOW("%s: Timer already set, no sched again %d\n",
 		    __func__, resource_name);
 		ipa_rm_it_handles[resource_name].reschedule_work = true;
 		spin_unlock_irqrestore(
@@ -258,11 +261,12 @@ int ipa2_rm_inactivity_timer_release_resource(
 	}
 	ipa_rm_it_handles[resource_name].work_in_progress = true;
 	ipa_rm_it_handles[resource_name].reschedule_work = false;
-	IPADBG("%s: setting delayed work\n", __func__);
+	IPA_RM_DBG_LOW("%s: setting delayed work\n", __func__);
 	schedule_delayed_work(&ipa_rm_it_handles[resource_name].work,
 			      ipa_rm_it_handles[resource_name].jiffies);
 	spin_unlock_irqrestore(&ipa_rm_it_handles[resource_name].lock, flags);
 
 	return 0;
 }
+EXPORT_SYMBOL(ipa_rm_inactivity_timer_release_resource);
 

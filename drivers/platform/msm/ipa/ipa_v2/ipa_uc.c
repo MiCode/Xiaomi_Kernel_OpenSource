@@ -329,7 +329,7 @@ static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
 
 	WARN_ON(private_data != ipa_ctx);
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	IPADBG("uC evt opcode=%u\n",
 		ipa_ctx->uc_ctx.uc_sram_mmio->eventOp);
@@ -340,7 +340,7 @@ static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
 	if (0 > feature || IPA_HW_FEATURE_MAX <= feature) {
 		IPAERR("Invalid feature %u for event %u\n",
 			feature, ipa_ctx->uc_ctx.uc_sram_mmio->eventOp);
-		IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return;
 	}
 	/* Feature specific handling */
@@ -370,7 +370,7 @@ static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
 		IPADBG("unsupported uC evt opcode=%u\n",
 				ipa_ctx->uc_ctx.uc_sram_mmio->eventOp);
 	}
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 }
 
@@ -378,14 +378,14 @@ static int ipa_uc_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
 	int result = 0;
-	struct ipa2_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	IPADBG("this=%p evt=%lu ptr=%p\n", this, event, ptr);
 
 	result = ipa_uc_state_check();
 	if (result)
 		goto fail;
-	IPA2_ACTIVE_CLIENTS_PREP_SIMPLE(log_info);
+	IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info);
 	if (ipa2_inc_client_enable_clks_no_block(&log_info))
 		goto fail;
 
@@ -397,7 +397,7 @@ static int ipa_uc_panic_notifier(struct notifier_block *this,
 	/* give uc enough time to save state */
 	udelay(IPA_PKT_FLUSH_TO_US);
 
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	IPADBG("err_fatal issued\n");
 
 fail:
@@ -425,7 +425,7 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 
 	WARN_ON(private_data != ipa_ctx);
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	IPADBG("uC rsp opcode=%u\n",
 			ipa_ctx->uc_ctx.uc_sram_mmio->responseOp);
 
@@ -434,7 +434,7 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 	if (0 > feature || IPA_HW_FEATURE_MAX <= feature) {
 		IPAERR("Invalid feature %u for event %u\n",
 			feature, ipa_ctx->uc_ctx.uc_sram_mmio->eventOp);
-		IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return;
 	}
 
@@ -447,7 +447,7 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 			IPADBG("feature %d specific response handler\n",
 				feature);
 			complete_all(&ipa_ctx->uc_ctx.uc_completion);
-			IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+			IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 			return;
 		}
 	}
@@ -490,7 +490,7 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 		IPAERR("Unsupported uC rsp opcode = %u\n",
 		       ipa_ctx->uc_ctx.uc_sram_mmio->responseOp);
 	}
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 }
 
 /**
@@ -816,9 +816,9 @@ EXPORT_SYMBOL(ipa_uc_monitor_holb);
 static void ipa_start_monitor_holb(struct work_struct *work)
 {
 	IPADBG("starting holb monitoring on IPA_CLIENT_USB_CONS\n");
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	ipa_uc_monitor_holb(IPA_CLIENT_USB_CONS, true);
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 }
 
 
