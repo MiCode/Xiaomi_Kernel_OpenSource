@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,10 +68,10 @@ static int regmap_swr_raw_multi_reg_write(void *context, const void *data,
 	struct device *dev = context;
 	struct swr_device *swr = to_swr_device(dev);
 	struct regmap *map = dev_get_regmap(dev, NULL);
-	size_t addr_bytes = map->format.reg_bytes;
-	size_t val_bytes = map->format.val_bytes;
-	size_t pad_bytes = map->format.pad_bytes;
-	size_t num_regs = (count / (addr_bytes + val_bytes + pad_bytes));
+	size_t addr_bytes;
+	size_t val_bytes;
+	size_t pad_bytes;
+	size_t num_regs;
 	int i = 0;
 	int ret = 0;
 	u16 *reg;
@@ -82,6 +82,21 @@ static int regmap_swr_raw_multi_reg_write(void *context, const void *data,
 		dev_err(dev, "%s: swr device is NULL\n", __func__);
 		return -EINVAL;
 	}
+
+	if (map == NULL) {
+		dev_err(dev, "%s: regmap is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	addr_bytes = map->format.reg_bytes;
+	val_bytes = map->format.val_bytes;
+	pad_bytes = map->format.pad_bytes;
+
+	if (addr_bytes + val_bytes + pad_bytes == 0) {
+		dev_err(dev, "%s: sum of addr, value and pad is 0\n", __func__);
+		return -EINVAL;
+	}
+	num_regs = count / (addr_bytes + val_bytes + pad_bytes);
 
 	reg = kcalloc(num_regs, sizeof(u16), GFP_KERNEL);
 	if (!reg)
