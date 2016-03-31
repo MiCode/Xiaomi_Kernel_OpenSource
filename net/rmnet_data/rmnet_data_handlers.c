@@ -45,6 +45,11 @@ module_param(dump_pkt_tx, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(dump_pkt_tx, "Dump packets exiting egress handler");
 #endif /* CONFIG_RMNET_DATA_DEBUG_PKT */
 
+/* Time in nano seconds. This number must be less that a second. */
+long gro_flush_time __read_mostly = 10000L;
+module_param(gro_flush_time, long, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(gro_flush_time, "Flush GRO when spaced more than this");
+
 #define RMNET_DATA_IP_VERSION_4 0x40
 #define RMNET_DATA_IP_VERSION_6 0x60
 
@@ -217,6 +222,35 @@ static int rmnet_check_skb_can_gro(struct sk_buff *skb)
 }
 
 /**
+ * rmnet_optional_gro_flush() - Check if GRO handler needs to flush now
+ *
+ * Determines whether GRO handler needs to flush packets which it has
+ * coalesced so far.
+ *
+ * Tuning this parameter will trade TCP slow start performance for GRO coalesce
+ * ratio.
+ */
+static void rmnet_optional_gro_flush(struct napi_struct *napi,
+				     struct rmnet_logical_ep_conf_s *ep)
+{
+	struct timespec curr_time, diff;
+
+	if (!gro_flush_time)
+		return;
+
+	if (unlikely(ep->flush_time.tv_sec == 0)) {
+		getnstimeofday(&ep->flush_time);
+	} else {
+		getnstimeofday(&(curr_time));
+		diff = timespec_sub(curr_time, ep->flush_time);
+		if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_time)) {
+			napi_gro_flush(napi, false);
+			getnstimeofday(&ep->flush_time);
+		}
+	}
+}
+
+/**
  * __rmnet_deliver_skb() - Deliver skb
  *
  * Determines where to deliver skb. Options are: consume by network stack,
@@ -256,6 +290,7 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 				if (napi != NULL) {
 					gro_res = napi_gro_receive(napi, skb);
 					trace_rmnet_gro_downlink(gro_res);
+					rmnet_optional_gro_flush(napi, ep);
 				} else {
 					WARN_ONCE(1, "current napi is NULL\n");
 					netif_receive_skb(skb);
