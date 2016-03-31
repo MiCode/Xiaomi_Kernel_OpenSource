@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -474,7 +474,8 @@ static int qusb_phy_init(struct usb_phy *phy)
 		writel_relaxed(0x0, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
 
 	/* save reset value to override based on clk scheme */
-	reset_val = readl_relaxed(qphy->base + QUSB2PHY_PLL_TEST);
+	if (qphy->ref_clk_base)
+		reset_val = readl_relaxed(qphy->base + QUSB2PHY_PLL_TEST);
 
 	if (qphy->qusb_phy_init_seq)
 		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
@@ -516,18 +517,19 @@ static int qusb_phy_init(struct usb_phy *phy)
 	/* Require to get phy pll lock successfully */
 	usleep_range(150, 160);
 
-	if (!qphy->is_se_clk)
-		reset_val &= ~CLK_REF_SEL;
-	else
-		reset_val |= CLK_REF_SEL;
-
 	/* Turn on phy ref_clk if DIFF_CLK else select SE_CLK */
-	if (!qphy->is_se_clk && qphy->ref_clk_base)
-		writel_relaxed((readl_relaxed(qphy->ref_clk_base) |
+	if (qphy->ref_clk_base) {
+		if (!qphy->is_se_clk) {
+			reset_val &= ~CLK_REF_SEL;
+			writel_relaxed((readl_relaxed(qphy->ref_clk_base) |
 					QUSB2PHY_REFCLK_ENABLE),
 					qphy->ref_clk_base);
-	else
-		writel_relaxed(reset_val, qphy->base + QUSB2PHY_PLL_TEST);
+		} else {
+			reset_val |= CLK_REF_SEL;
+			writel_relaxed(reset_val,
+					qphy->base + QUSB2PHY_PLL_TEST);
+		}
+	}
 
 	/* Make sure that above write is completed to get PLL source clock */
 	wmb();
@@ -835,8 +837,26 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (res) {
 		qphy->ref_clk_base = devm_ioremap_nocache(dev,
 				res->start, resource_size(res));
-		if (IS_ERR(qphy->ref_clk_base))
+		if (IS_ERR(qphy->ref_clk_base)) {
 			dev_dbg(dev, "ref_clk_address is not available.\n");
+			return PTR_ERR(qphy->ref_clk_base);
+		}
+
+		ret = of_property_read_string(dev->of_node,
+				"qcom,phy-clk-scheme", &phy_type);
+		if (ret) {
+			dev_err(dev, "error need qsub_phy_clk_scheme.\n");
+			return ret;
+		}
+
+		if (!strcasecmp(phy_type, "cml")) {
+			qphy->is_se_clk = false;
+		} else if (!strcasecmp(phy_type, "cmos")) {
+			qphy->is_se_clk = true;
+		} else {
+			dev_err(dev, "erro invalid qusb_phy_clk_scheme\n");
+			return -EINVAL;
+		}
 	}
 
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
@@ -956,22 +976,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	hold_phy_reset = of_property_read_bool(dev->of_node, "qcom,hold-reset");
-	ret = of_property_read_string(dev->of_node,
-			"qcom,phy-clk-scheme", &phy_type);
-	if (ret) {
-		dev_err(dev, "error need qsub_phy_clk_scheme.\n");
-		return ret;
-	}
-
-	if (!strcasecmp(phy_type, "cml")) {
-		qphy->is_se_clk = false;
-	} else if (!strcasecmp(phy_type, "cmos")) {
-		qphy->is_se_clk = true;
-	} else {
-		dev_err(dev, "erro invalid qusb_phy_clk_scheme\n");
-		return -EINVAL;
-	}
-
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) qphy->vdd_levels,
 					 ARRAY_SIZE(qphy->vdd_levels));
