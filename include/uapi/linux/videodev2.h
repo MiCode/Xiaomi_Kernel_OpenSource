@@ -2207,8 +2207,10 @@ struct v4l2_streamparm {
 		(V4L2_EVENT_MSM_BA_START + 8)
 #define V4L2_EVENT_MSM_BA_CP	\
 		(V4L2_EVENT_MSM_BA_START + 9)
-#define V4L2_EVENT_MSM_BA_ERROR	\
+#define V4L2_EVENT_MSM_BA_CABLE_DETECT	\
 		(V4L2_EVENT_MSM_BA_START + 10)
+#define V4L2_EVENT_MSM_BA_ERROR	\
+		(V4L2_EVENT_MSM_BA_START + 11)
 
 /* Payload for V4L2_EVENT_VSYNC */
 struct v4l2_event_vsync {
@@ -2464,5 +2466,12 @@ struct v4l2_create_buffers {
    drivers/media/v4l2-core/v4l2-compat-ioctl32.c as well! */
 
 #define BASE_VIDIOC_PRIVATE	192		/* 192-255 are private */
+
+/* HDMI rx provide ioctls */
+#define VIDIOC_HDMI_RX_CEC_S_LOGICAL _IOW('V', BASE_VIDIOC_PRIVATE + 0, int)
+#define VIDIOC_HDMI_RX_CEC_CLEAR_LOGICAL _IO('V', BASE_VIDIOC_PRIVATE + 1)
+#define VIDIOC_HDMI_RX_CEC_G_PHYSICAL _IOR('V', BASE_VIDIOC_PRIVATE + 2, int)
+#define VIDIOC_HDMI_RX_CEC_G_CONNECTED _IOR('V', BASE_VIDIOC_PRIVATE + 3, int)
+#define VIDIOC_HDMI_RX_CEC_S_ENABLE _IOR('V', BASE_VIDIOC_PRIVATE + 4, int)
 
 #endif /* _UAPI__LINUX_VIDEODEV2_H */

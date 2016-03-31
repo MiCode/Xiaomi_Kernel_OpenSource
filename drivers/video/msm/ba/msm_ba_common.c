@@ -20,15 +20,22 @@
 #include "msm_ba_common.h"
 
 struct msm_ba_input_config msm_ba_inp_cfg[] = {
-	/* type, index, name, adv inp, dev id, sd name, signal status */
-	{BA_INPUT_CVBS, 0, "CVBS-0", BA_IP_CVBS_0, 0, "adv7180", 1},
+	/* type, index, name, adv inp, dev id, sd name, dev node,
+	 * input user type
+	 */
+	{BA_INPUT_CVBS, 0, "CVBS-0", BA_IP_CVBS_0, 0, "adv7180", -1,
+		BA_INPUT_USERTYPE_KERNEL},
 #ifdef CONFIG_MSM_S_PLATFORM
-	{BA_INPUT_CVBS, 1, "CVBS-1", BA_IP_CVBS_0, 0, "adv7180", 1},
+	{BA_INPUT_CVBS, 1, "CVBS-1", BA_IP_CVBS_0, 0, "adv7180", 0,
+		BA_INPUT_USERTYPE_USER},
 #else
-	{BA_INPUT_CVBS, 1, "CVBS-1", BA_IP_CVBS_0, 1, "adv7180", 1},
-	{BA_INPUT_CVBS, 2, "CVBS-2", BA_IP_CVBS_1, 1, "adv7180", 1},
+	{BA_INPUT_CVBS, 1, "CVBS-1", BA_IP_CVBS_0, 1, "adv7180", 0,
+		BA_INPUT_USERTYPE_USER},
+	{BA_INPUT_CVBS, 2, "CVBS-2", BA_IP_CVBS_1, 1, "adv7180", 0,
+		BA_INPUT_USERTYPE_USER},
 #endif
-	{BA_INPUT_HDMI, 1, "HDMI-1", BA_IP_HDMI_1, 2, "adv7481", 1},
+	{BA_INPUT_HDMI, 1, "HDMI-1", BA_IP_HDMI_1, 2, "adv7481", 2,
+		BA_INPUT_USERTYPE_USER},
 };
 
 static struct msm_ba_ctrl msm_ba_ctrls[] = {
@@ -82,7 +89,7 @@ struct msm_ba_dev *get_ba_dev(void)
 }
 
 void msm_ba_queue_v4l2_event(struct msm_ba_inst *inst,
-		const struct v4l2_event *sd_event)
+		struct v4l2_event *sd_event)
 {
 	v4l2_event_queue_fh(&inst->event_handler, sd_event);
 	wake_up(&inst->kernel_event_queue);
@@ -91,6 +98,10 @@ void msm_ba_queue_v4l2_event(struct msm_ba_inst *inst,
 static void msm_ba_print_event(struct v4l2_event *sd_event)
 {
 	switch (sd_event->type) {
+	case V4L2_EVENT_MSM_BA_PORT_SETTINGS_CHANGED:
+		dprintk(BA_DBG, "Port settings changed for ip_idx %d",
+			((int *)sd_event->u.data)[0]);
+		break;
 	case V4L2_EVENT_MSM_BA_SIGNAL_IN_LOCK:
 		dprintk(BA_DBG, "Signal in lock for ip_idx %d",
 			((int *)sd_event->u.data)[0]);
@@ -112,6 +123,11 @@ static void msm_ba_print_event(struct v4l2_event *sd_event)
 	case V4L2_EVENT_MSM_BA_CP:
 		dprintk(BA_DBG, "Content protection detected!");
 		break;
+	case V4L2_EVENT_MSM_BA_CABLE_DETECT:
+		dprintk(BA_DBG, "Cable detected: %d on ip_idx %d",
+			((int *)sd_event->u.data)[1],
+			((int *)sd_event->u.data)[0]);
+		break;
 	case V4L2_EVENT_MSM_BA_ERROR:
 		dprintk(BA_DBG, "Subdev error %d!",
 			((int *)sd_event->u.data)[1]);
@@ -126,27 +142,18 @@ static void msm_ba_signal_sessions_event(struct v4l2_event *sd_event)
 {
 	struct msm_ba_inst *inst = NULL;
 	struct msm_ba_dev *dev_ctxt = NULL;
-	unsigned int *ptr;
-
-	uintptr_t arg;
-
-	const struct v4l2_event event = {
-		.id = 0,
-		.type = sd_event->type,
-		.u = sd_event->u};
+	int *ptr;
 
 	msm_ba_print_event(sd_event);
 	dev_ctxt = get_ba_dev();
-	ptr = (unsigned int *)sd_event->u.data;
+	ptr = (int *)sd_event->u.data;
 
 	list_for_each_entry(inst, &(dev_ctxt->instances), list) {
-		if (inst->ext_ops && inst->ext_ops->msm_ba_cb) {
-			arg = ptr[1];
+		if (inst->ext_ops && inst->ext_ops->msm_ba_cb)
 			inst->ext_ops->msm_ba_cb(
-					inst, sd_event->id, (void *)arg);
-		} else {
-			msm_ba_queue_v4l2_event(inst, &event);
-		}
+					inst, sd_event->id, (void *)&ptr[1]);
+		else
+			msm_ba_queue_v4l2_event(inst, sd_event);
 	}
 }
 
@@ -224,8 +231,11 @@ void msm_ba_add_inputs(struct v4l2_subdev *sd)
 				sizeof(input->name));
 			input->bridge_chip_ip = msm_ba_inp_cfg[i].ba_ip;
 			input->ba_out = msm_ba_inp_cfg[i].ba_out;
+			input->ba_node_addr = msm_ba_inp_cfg[i].ba_node;
 			input->ba_ip_idx = i;
 			input->prio = V4L2_PRIORITY_DEFAULT;
+			input->input_user_type =
+				msm_ba_inp_cfg[i].input_user_type;
 			input->sd = sd;
 			rc = v4l2_subdev_call(
 				sd, video, g_input_status, &status);
@@ -582,7 +592,6 @@ int msm_ba_ctrl_init(struct msm_ba_inst *inst)
 	}
 	for (; idx < BA_NUM_CTRLS; idx++) {
 		struct v4l2_ctrl *ctrl = NULL;
-
 		if (BA_IS_PRIV_CTRL(msm_ba_ctrls[idx].id)) {
 			/* add private control */
 			ctrl_cfg.def = msm_ba_ctrls[idx].default_value;
@@ -620,12 +629,9 @@ int msm_ba_ctrl_init(struct msm_ba_inst *inst)
 			}
 		}
 
-		switch (msm_ba_ctrls[idx].id) {
-		case MSM_BA_PRIV_SD_NODE_ADDR:
-		case MSM_BA_PRIV_FPS:
-			if (ctrl)
-				ctrl->flags |= msm_ba_ctrls[idx].flags;
-			break;
+		if (!ctrl) {
+			dprintk(BA_ERR, "%s - invalid ctrl", __func__);
+			return -EINVAL;
 		}
 
 		rc = inst->ctrl_handler.error;
@@ -635,6 +641,13 @@ int msm_ba_ctrl_init(struct msm_ba_inst *inst)
 					msm_ba_ctrls[idx].name,
 					inst->ctrl_handler.error);
 			return rc;
+		}
+
+		switch (msm_ba_ctrls[idx].id) {
+		case MSM_BA_PRIV_SD_NODE_ADDR:
+		case MSM_BA_PRIV_FPS:
+			ctrl->flags |= msm_ba_ctrls[idx].flags;
+			break;
 		}
 
 		inst->ctrls[idx] = ctrl;

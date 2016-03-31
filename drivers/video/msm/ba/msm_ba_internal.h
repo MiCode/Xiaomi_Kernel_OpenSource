@@ -44,6 +44,7 @@
 
 enum ba_dev_state {
 	BA_DEV_UNINIT = 0,
+	BA_DEV_LOADED,
 	BA_DEV_INIT,
 	BA_DEV_INIT_DONE,
 	BA_DEV_INVALID
@@ -111,6 +112,12 @@ enum msm_ba_ip_type {
 	BA_INPUT_MAX = 0xffffffff
 };
 
+enum msm_ba_input_usr_type {
+	BA_INPUT_USERTYPE_KERNEL = 0,
+	BA_INPUT_USERTYPE_USER,
+	BA_INPUT_USERTYPE_MAX = 0xffffffff
+};
+
 struct msm_ba_input_config {
 	enum msm_ba_ip_type inputType;
 	unsigned int index;
@@ -118,7 +125,8 @@ struct msm_ba_input_config {
 	int ba_ip;
 	int ba_out;
 	const char *sd_name;
-	int signal_status;
+	int ba_node;
+	enum msm_ba_input_usr_type input_user_type;
 };
 
 struct msm_ba_sd_event {
@@ -140,6 +148,7 @@ struct msm_ba_input {
 	int in_use;
 	int ba_out_in_use;
 	enum v4l2_priority prio;
+	enum msm_ba_input_usr_type input_user_type;
 };
 
 struct msm_ba_dev {
