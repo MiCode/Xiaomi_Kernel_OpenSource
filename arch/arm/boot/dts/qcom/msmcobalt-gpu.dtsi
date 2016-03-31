@@ -75,7 +75,7 @@
 		qcom,deep-nap-timeout = <2>; //<HZ/50>
 		qcom,strtstp-sleepwake;
 
-		clocks = <&clock_gpu clk_gpucc_gfx3d_clk>,
+		clocks = <&clock_gfx clk_gpucc_gfx3d_clk>,
 			<&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
 			<&clock_gpu clk_gpucc_rbbmtimer_clk>,
 			<&clock_gcc clk_gcc_bimc_gfx_clk>,
