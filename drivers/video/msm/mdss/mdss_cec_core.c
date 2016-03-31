@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -445,10 +445,7 @@ static ssize_t cec_wta_enable(struct device *dev,
 		ctl->cec_wakeup_en = false;
 
 	if (ops && ops->wakeup_en)
-		ret = ops->wakeup_en(ops->data, ctl->cec_wakeup_en);
-
-	if (ret)
-		goto end;
+		ops->wakeup_en(ops->data, ctl->cec_wakeup_en);
 
 	if (ctl->enabled == cec_en) {
 		pr_debug("cec is already %s\n",
