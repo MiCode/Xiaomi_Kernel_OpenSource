@@ -2054,6 +2054,8 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->prop.fps = 30;
+	inst->operating_rate = 0;
+
 	return rc;
 }
 
@@ -2557,9 +2559,25 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_CONFIG_REALTIME;
 		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE:
+			inst->flags &= ~VIDC_REALTIME;
+			break;
+		case V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_ENABLE:
+			inst->flags |= VIDC_REALTIME;
+			break;
+		default:
+			dprintk(VIDC_WARN,
+				"invalid ctrl value 0x%x\n", ctrl->val);
+			break;
+		}
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
 		property_id = 0;
+		inst->operating_rate = ctrl->val;
+		dprintk(VIDC_DBG, "inst(%p) operating rate changed to %d",
+			inst, inst->operating_rate >> 16);
+		msm_comm_scale_clocks_and_bus(inst);
 		break;
 	default:
 		break;

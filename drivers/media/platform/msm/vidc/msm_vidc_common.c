@@ -81,6 +81,11 @@ static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_THUMBNAIL);
 }
 
+static inline bool is_realtime_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_REALTIME);
+}
+
 int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
 {
 	int rc = 0;
@@ -90,16 +95,6 @@ int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
 
 	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
 	return rc ?: ctrl.value;
-}
-
-static inline bool is_non_realtime_session(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	struct v4l2_control ctrl = {
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY
-	};
-	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
-	return (!rc && ctrl.value);
 }
 
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
@@ -119,26 +114,25 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 {
 	int output_port_mbs, capture_port_mbs;
-	int fps, rc;
-	struct v4l2_control ctrl;
+	int fps;
 
 	output_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
 		inst->prop.height[OUTPUT_PORT]);
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
-	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE;
-	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
-	if (!rc && ctrl.value) {
-		fps = (ctrl.value >> 16)? ctrl.value >> 16: 1;
+	if (inst->operating_rate) {
+		fps = (inst->operating_rate >> 16) ?
+			inst->operating_rate >> 16 : 1;
 		/*
 		 * Check if operating rate is less than fps.
 		 * If Yes, then use fps to scale the clocks
 		*/
 		fps = fps > inst->prop.fps ? fps : inst->prop.fps;
 		return max(output_port_mbs, capture_port_mbs) * fps;
-	} else
+	} else {
 		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
+	}
 }
 
 int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
@@ -162,7 +156,7 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			load = inst->core->resources.max_load;
 	}
 
-	if (!is_thumbnail_session(inst) && is_non_realtime_session(inst) &&
+	if (!is_thumbnail_session(inst) && !is_realtime_session(inst) &&
 		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD)) {
 		if (!inst->prop.fps) {
 			dprintk(VIDC_INFO, "%s: instance:%p prop->fps is set 0\n", __func__, inst);
@@ -171,6 +165,13 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
 		}
 	}
+
+	dprintk(VIDC_DBG,
+		"inst[%p]: load %d, wxh %dx%d, fps %d, operating_rate %d, flags 0x%x, quirks 0x%x\n",
+		inst, load, inst->prop.width[OUTPUT_PORT],
+		inst->prop.height[OUTPUT_PORT], inst->prop.fps,
+		inst->operating_rate >> 16, inst->flags, quirks);
+
 	return load;
 }
 

@@ -224,6 +224,7 @@ enum msm_vidc_modes {
 	VIDC_THUMBNAIL = 1 << 2,
 	VIDC_POWER_SAVE = 1 << 3,
 	VIDC_LOW_LATENCY = 1 << 4,
+	VIDC_REALTIME = 1 << 5,
 };
 
 struct msm_vidc_idle_stats {
@@ -299,6 +300,7 @@ struct msm_vidc_inst {
 	atomic_t seq_hdr_reqs;
 	struct v4l2_ctrl **ctrls;
 	bool dcvs_mode;
+	u32 operating_rate;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
