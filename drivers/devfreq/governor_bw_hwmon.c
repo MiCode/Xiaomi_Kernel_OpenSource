@@ -63,8 +63,6 @@ struct hwmon_node {
 	unsigned long hyst_trig_win;
 	unsigned long hyst_en;
 	unsigned long prev_req;
-	unsigned long up_wake_mbps;
-	unsigned long down_wake_mbps;
 	unsigned int wake;
 	unsigned int down_cnt;
 	ktime_t prev_ts;
@@ -189,7 +187,7 @@ static unsigned int mbps_to_bytes(unsigned long mbps, unsigned int ms)
 	return mbps;
 }
 
-static int __bw_hwmon_sample_end(struct bw_hwmon *hwmon)
+static int __bw_hwmon_sw_sample_end(struct bw_hwmon *hwmon)
 {
 	struct devfreq *df;
 	struct hwmon_node *node;
@@ -218,9 +216,9 @@ static int __bw_hwmon_sample_end(struct bw_hwmon *hwmon)
 	 * bandwidth usage and do the bandwidth calculation based on just
 	 * this micro sample.
 	 */
-	if (mbps > node->up_wake_mbps) {
+	if (mbps > node->hw->up_wake_mbps) {
 		wake = UP_WAKE;
-	} else if (mbps < node->down_wake_mbps) {
+	} else if (mbps < node->hw->down_wake_mbps) {
 		if (node->down_cnt)
 			node->down_cnt--;
 		if (node->down_cnt <= 0)
@@ -237,6 +235,50 @@ static int __bw_hwmon_sample_end(struct bw_hwmon *hwmon)
 				wake);
 
 	return wake;
+}
+
+static int __bw_hwmon_hw_sample_end(struct bw_hwmon *hwmon)
+{
+	struct devfreq *df;
+	struct hwmon_node *node;
+	unsigned long bytes, mbps;
+	int wake = 0;
+
+	df = hwmon->df;
+	node = df->data;
+
+	/*
+	 * If this read is in response to an IRQ, the HW monitor should
+	 * return the measurement in the micro sample that triggered the IRQ.
+	 * Otherwise, it should return the maximum measured value in any
+	 * micro sample since the last time we called get_bytes_and_clear()
+	 */
+	bytes = hwmon->get_bytes_and_clear(hwmon);
+	mbps = bytes_to_mbps(bytes, node->sample_ms * USEC_PER_MSEC);
+	node->max_mbps = mbps;
+
+	if (mbps > node->hw->up_wake_mbps)
+		wake = UP_WAKE;
+	else if (mbps < node->hw->down_wake_mbps)
+		wake = DOWN_WAKE;
+
+	node->wake = wake;
+	node->sampled = true;
+
+	trace_bw_hwmon_meas(dev_name(df->dev.parent),
+				mbps,
+				node->sample_ms * USEC_PER_MSEC,
+				wake);
+
+	return 1;
+}
+
+static int __bw_hwmon_sample_end(struct bw_hwmon *hwmon)
+{
+	if (hwmon->set_hw_events)
+		return __bw_hwmon_hw_sample_end(hwmon);
+	else
+		return __bw_hwmon_sw_sample_end(hwmon);
 }
 
 int bw_hwmon_sample_end(struct bw_hwmon *hwmon)
@@ -273,12 +315,14 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	struct bw_hwmon *hw = node->hw;
 	unsigned int new_bw, io_percent = node->io_percent;
 	ktime_t ts;
-	unsigned int ms;
+	unsigned int ms = 0;
 
 	spin_lock_irqsave(&irq_lock, flags);
 
-	ts = ktime_get();
-	ms = ktime_to_ms(ktime_sub(ts, node->prev_ts));
+	if (!hw->set_hw_events) {
+		ts = ktime_get();
+		ms = ktime_to_ms(ktime_sub(ts, node->prev_ts));
+	}
 	if (!node->sampled || ms >= node->sample_ms)
 		__bw_hwmon_sample_end(node->hw);
 	node->sampled = false;
@@ -375,9 +419,10 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 
 	/* Stretch the short sample window size, if the traffic is too low */
 	if (meas_mbps < MIN_MBPS) {
-		node->up_wake_mbps = (max(MIN_MBPS, req_mbps)
+		hw->up_wake_mbps = (max(MIN_MBPS, req_mbps)
 					* (100 + node->up_thres)) / 100;
-		node->down_wake_mbps = 0;
+		hw->down_wake_mbps = 0;
+		hw->undo_over_req_mbps = 0;
 		thres = mbps_to_bytes(max(MIN_MBPS, req_mbps / 2),
 					node->sample_ms);
 	} else {
@@ -388,13 +433,22 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 		 * reduce the vote based on the measured mbps being less than
 		 * the previous measurement that caused the "over request".
 		 */
-		node->up_wake_mbps = (req_mbps * (100 + node->up_thres)) / 100;
-		node->down_wake_mbps = (meas_mbps * node->down_thres) / 100;
+		hw->up_wake_mbps = (req_mbps * (100 + node->up_thres)) / 100;
+		hw->down_wake_mbps = (meas_mbps * node->down_thres) / 100;
+		if (node->wake == UP_WAKE)
+			hw->undo_over_req_mbps = min(req_mbps, meas_mbps_zone);
+		else
+			hw->undo_over_req_mbps = 0;
 		thres = mbps_to_bytes(meas_mbps, node->sample_ms);
 	}
-	node->down_cnt = node->down_count;
 
-	node->bytes = hw->set_thres(hw, thres);
+	if (hw->set_hw_events) {
+		hw->down_cnt = node->down_count;
+		hw->set_hw_events(hw, node->sample_ms);
+	} else {
+		node->down_cnt = node->down_count;
+		node->bytes = hw->set_thres(hw, thres);
+	}
 
 	node->wake = 0;
 	node->prev_req = req_mbps;
@@ -419,8 +473,8 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	trace_bw_hwmon_update(dev_name(node->hw->df->dev.parent),
 				new_bw,
 				*freq,
-				node->up_wake_mbps,
-				node->down_wake_mbps);
+				hw->up_wake_mbps,
+				hw->down_wake_mbps);
 	return req_mbps;
 }
 
@@ -490,6 +544,9 @@ static int start_monitor(struct devfreq *df, bool init)
 		node->resume_freq = 0;
 		node->resume_ab = 0;
 		mbps = (df->previous_freq * node->io_percent) / 100;
+		hw->up_wake_mbps = mbps;
+		hw->down_wake_mbps = MIN_MBPS;
+		hw->undo_over_req_mbps = 0;
 		ret = hw->start_hwmon(hw, mbps);
 	} else {
 		ret = hw->resume_hwmon(hw);
