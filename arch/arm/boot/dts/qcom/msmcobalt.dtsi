@@ -1328,11 +1328,9 @@
 	qusb_phy0: qusb@c012000 {
 		compatible = "qcom,qusb2phy";
 		reg = <0x0c012000 0x2a8>,
-		      <0x0a8f8800 0x400>,
-			<0x0078024c 0x4>;
+		      <0x0a8f8800 0x400>;
 		reg-names = "qusb_phy_base",
-			"qscratch_base",
-			"tune2_efuse_addr";
+			"qscratch_base";
 		vdd-supply = <&pmcobalt_l1>;
 		vdda18-supply = <&pmcobalt_l12>;
 		vdda33-supply = <&pmcobalt_l24>;
