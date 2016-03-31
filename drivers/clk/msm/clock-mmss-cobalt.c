@@ -1746,13 +1746,36 @@ static struct branch_clk mmss_mdss_byte0_clk = {
 	},
 };
 
+static struct div_clk mmss_mdss_byte0_intf_div_clk = {
+	.offset = MMSS_MDSS_BYTE0_INTF_DIV,
+	.mask = 0x3,
+	.shift = 0,
+	.data = {
+		.min_div = 1,
+		.max_div = 4,
+	},
+	.base = &virt_base,
+	/*
+	 * NOTE: Op does not work for div-3. Current assumption is that div-3
+	 * is not a recommended setting for this divider.
+	 */
+	.ops = &postdiv_reg_ops,
+	.c = {
+		.dbg_name = "mmss_mdss_byte0_intf_div_clk",
+		.parent = &byte0_clk_src.c,
+		.ops = &clk_ops_slave_div,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(mmss_mdss_byte0_intf_div_clk.c),
+	},
+};
+
 static struct branch_clk mmss_mdss_byte0_intf_clk = {
 	.cbcr_reg = MMSS_MDSS_BYTE0_INTF_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "mmss_mdss_byte0_intf_clk",
-		.parent = &byte0_clk_src.c,
+		.parent = &mmss_mdss_byte0_intf_div_clk.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_mdss_byte0_intf_clk.c),
 	},
@@ -1770,13 +1793,36 @@ static struct branch_clk mmss_mdss_byte1_clk = {
 	},
 };
 
+static struct div_clk mmss_mdss_byte1_intf_div_clk = {
+	.offset = MMSS_MDSS_BYTE1_INTF_DIV,
+	.mask = 0x3,
+	.shift = 0,
+	.data = {
+		.min_div = 1,
+		.max_div = 4,
+	},
+	.base = &virt_base,
+	/*
+	 * NOTE: Op does not work for div-3. Current assumption is that div-3
+	 * is not a recommended setting for this divider.
+	 */
+	.ops = &postdiv_reg_ops,
+	.c = {
+		.dbg_name = "mmss_mdss_byte1_intf_div_clk",
+		.parent = &byte1_clk_src.c,
+		.ops = &clk_ops_slave_div,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(mmss_mdss_byte1_intf_div_clk.c),
+	},
+};
+
 static struct branch_clk mmss_mdss_byte1_intf_clk = {
 	.cbcr_reg = MMSS_MDSS_BYTE1_INTF_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "mmss_mdss_byte1_intf_clk",
-		.parent = &byte1_clk_src.c,
+		.parent = &mmss_mdss_byte1_intf_div_clk.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_mdss_byte1_intf_clk.c),
 	},
@@ -2406,8 +2452,10 @@ static struct clk_lookup msm_clocks_mmss_cobalt[] = {
 	CLK_LIST(mmss_mdss_ahb_clk),
 	CLK_LIST(mmss_mdss_axi_clk),
 	CLK_LIST(mmss_mdss_byte0_clk),
+	CLK_LIST(mmss_mdss_byte0_intf_div_clk),
 	CLK_LIST(mmss_mdss_byte0_intf_clk),
 	CLK_LIST(mmss_mdss_byte1_clk),
+	CLK_LIST(mmss_mdss_byte0_intf_div_clk),
 	CLK_LIST(mmss_mdss_byte1_intf_clk),
 	CLK_LIST(mmss_mdss_dp_aux_clk),
 	CLK_LIST(mmss_mdss_dp_gtc_clk),
