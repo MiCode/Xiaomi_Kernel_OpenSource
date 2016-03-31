@@ -1224,6 +1224,7 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 {
 	int rc;
 
+	ctrl->ctrl_type = CPR_CTRL_TYPE_CPRH;
 	rc = cpr3_parse_common_ctrl_data(ctrl);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
@@ -1313,7 +1314,6 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 		return -ENOMEM;
 
 	ctrl->cpr_clock_rate = MSMCOBALT_KBSS_CPR_CLOCK_RATE;
-	ctrl->ctrl_type = CPR_CTRL_TYPE_CPRH;
 	ctrl->supports_hw_closed_loop = true;
 	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
 						 "qcom,cpr-hw-closed-loop");
