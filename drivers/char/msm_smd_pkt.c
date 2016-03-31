@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1061,6 +1061,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 {
 	int r = 0;
 	struct smd_pkt_dev *smd_pkt_devp = file->private_data;
+	unsigned long flags;
 
 	if (!smd_pkt_devp) {
 		pr_err_ratelimited("%s on a NULL device\n", __func__);
@@ -1086,7 +1087,12 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 			subsystem_put(smd_pkt_devp->pil);
 		smd_pkt_devp->has_reset = 0;
 		smd_pkt_devp->do_reset_notification = 0;
-		smd_pkt_devp->ws_locked = 0;
+		spin_lock_irqsave(&smd_pkt_devp->pa_spinlock, flags);
+		if (smd_pkt_devp->ws_locked) {
+			__pm_relax(&smd_pkt_devp->pa_ws);
+			smd_pkt_devp->ws_locked = 0;
+		}
+		spin_unlock_irqrestore(&smd_pkt_devp->pa_spinlock, flags);
 	}
 	mutex_unlock(&smd_pkt_devp->tx_lock);
 	mutex_unlock(&smd_pkt_devp->rx_lock);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -238,7 +238,7 @@ static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
 {
 	uint32_t i;
 	int ret = -EINVAL;
-	uint32_t ctl;
+	uint32_t ctl = 0;
 
 	if (!dev) {
 		pr_err("dev is NULL\n");

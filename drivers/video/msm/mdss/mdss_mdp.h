@@ -84,6 +84,8 @@
 
 #define XIN_HALT_TIMEOUT_US	0x4000
 
+#define MAX_LAYER_COUNT		0xC
+
 /* hw cursor can only be setup in highest mixer stage */
 #define HW_CURSOR_STAGE(mdata) \
 	(((mdata)->max_target_zorder + MDSS_MDP_STAGE_0) - 1)
@@ -616,6 +618,7 @@ struct pp_sts_type {
 	u32 gamut_sts;
 	u32 pgc_sts;
 	u32 sharp_sts;
+	u32 hist_sts;
 	u32 side_sts;
 };
 

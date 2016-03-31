@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/stringify.h>
 #include "ipa_i.h"
-#include "ipa_rm_i.h"
+#include "../ipa_rm_i.h"
 
 #define IPA_MAX_MSG_LEN 4096
 #define IPA_DBG_MAX_RULE_IN_TBL 128
@@ -1470,7 +1470,7 @@ static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 {
 	int result, nbytes, cnt = 0;
 
-	result = ipa3_rm_stat(dbg_buff, IPA_MAX_MSG_LEN);
+	result = ipa_rm_stat(dbg_buff, IPA_MAX_MSG_LEN);
 	if (result < 0) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"Error in printing RM stat %d\n", result);

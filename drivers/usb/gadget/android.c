@@ -3144,6 +3144,7 @@ static int android_init_functions(struct android_usb_function **functions,
 			* index 1 is for android1 device
 			*/
 
+	cdev->use_os_string = true;
 	for (; (f = *functions++); index++) {
 		f->dev_name = kasprintf(GFP_KERNEL, "f_%s", f->name);
 		f->android_dev = NULL;

@@ -711,6 +711,7 @@ struct adreno_gpudev {
 				struct adreno_ringbuffer *, unsigned int *,
 				struct kgsl_context *, uint64_t cond_addr,
 				struct kgsl_memobj_node *);
+	int (*preemption_yield_enable)(unsigned int *);
 	int (*preemption_post_ibsubmit)(struct adreno_device *,
 				struct adreno_ringbuffer *, unsigned int *,
 				struct kgsl_context *);

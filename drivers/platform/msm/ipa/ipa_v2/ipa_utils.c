@@ -17,6 +17,7 @@
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include "ipa_i.h"
+#include "../ipa_rm_i.h"
 
 #define IPA_V1_CLK_RATE (92.31 * 1000 * 1000UL)
 #define IPA_V1_1_CLK_RATE (100 * 1000 * 1000UL)
@@ -495,7 +496,7 @@ bool ipa_should_pipe_be_suspended(enum ipa_client_type client)
 }
 
 /**
- * ipa_suspend_resource_sync() - suspend client endpoints related to the IPA_RM
+ * ipa2_suspend_resource_sync() - suspend client endpoints related to the IPA_RM
  * resource and decrement active clients counter, which may result in clock
  * gating of IPA clocks.
  *
@@ -503,7 +504,7 @@ bool ipa_should_pipe_be_suspended(enum ipa_client_type client)
  *
  * Return codes: 0 on success, negative on failure.
  */
-int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
+int ipa2_suspend_resource_sync(enum ipa_rm_resource_name resource)
 {
 	struct ipa_client_names clients;
 	int res;
@@ -546,13 +547,13 @@ int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
 
 	/* before gating IPA clocks do TAG process */
 	ipa_ctx->tag_process_before_gating = true;
-	IPA2_ACTIVE_CLIENTS_DEC_RESOURCE(ipa_rm_resource_str(resource));
+	IPA_ACTIVE_CLIENTS_DEC_RESOURCE(ipa_rm_resource_str(resource));
 
 	return 0;
 }
 
 /**
- * ipa_suspend_resource_no_block() - suspend client endpoints related to the
+ * ipa2_suspend_resource_no_block() - suspend client endpoints related to the
  * IPA_RM resource and decrement active clients counter. This function is
  * guaranteed to avoid sleeping.
  *
@@ -560,7 +561,7 @@ int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
  *
  * Return codes: 0 on success, negative on failure.
  */
-int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
+int ipa2_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 {
 	int res;
 	struct ipa_client_names clients;
@@ -569,7 +570,7 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	struct ipa_ep_cfg_ctrl suspend;
 	int ipa_ep_idx;
 	unsigned long flags;
-	struct ipa2_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	if (ipa_active_clients_trylock(&flags) == 0)
 		return -EPERM;
@@ -607,7 +608,7 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	}
 
 	if (res == 0) {
-		IPA2_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
+		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
 				ipa_rm_resource_str(resource));
 		ipa2_active_clients_log_dec(&log_info, true);
 		ipa_ctx->ipa_active_clients.cnt--;
@@ -621,14 +622,14 @@ bail:
 }
 
 /**
- * ipa_resume_resource() - resume client endpoints related to the IPA_RM
+ * ipa2_resume_resource() - resume client endpoints related to the IPA_RM
  * resource.
  *
  * @resource: [IN] IPA Resource Manager resource
  *
  * Return codes: 0 on success, negative on failure.
  */
-int ipa_resume_resource(enum ipa_rm_resource_name resource)
+int ipa2_resume_resource(enum ipa_rm_resource_name resource)
 {
 
 	struct ipa_client_names clients;
@@ -821,11 +822,11 @@ int ipa_cfg_route(struct ipa_route *route)
 		route->route_def_hdr_ofst,
 		route->route_frag_def_pipe);
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	ipa_ctx->ctrl->ipa_cfg_route(route);
 
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -841,12 +842,12 @@ int ipa_cfg_filter(u32 disable)
 {
 	u32 ipa_filter_ofst = IPA_FILTER_OFST_v1_1;
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	ipa_write_reg(ipa_ctx->mmio, ipa_filter_ofst,
 			IPA_SETFIELD(!disable,
 					IPA_FILTER_FILTER_EN_SHFT,
 					IPA_FILTER_FILTER_EN_BMSK));
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -2496,11 +2497,11 @@ int ipa2_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.nat = *ep_nat;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_nat(clnt_hdl, ep_nat);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2556,11 +2557,11 @@ int ipa2_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ep_status)
 	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].status = *ep_status;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_status(clnt_hdl, ep_status);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2618,11 +2619,11 @@ int ipa2_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *cfg)
 	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.cfg = *cfg;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_cfg(clnt_hdl, cfg);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2674,11 +2675,11 @@ int ipa2_cfg_ep_metadata_mask(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.metadata_mask = *metadata_mask;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_metadata_mask(clnt_hdl, metadata_mask);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2797,11 +2798,11 @@ int ipa2_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 	/* copy over EP cfg */
 	ep->cfg.hdr = *ep_hdr;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_hdr(clnt_hdl, &ep->cfg.hdr);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -2923,11 +2924,11 @@ int ipa2_cfg_ep_hdr_ext(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ep->cfg.hdr_ext = *ep_hdr_ext;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_hdr_ext(clnt_hdl, &ep->cfg.hdr_ext);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3138,13 +3139,13 @@ int ipa2_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 	ipa_ctx->ep[clnt_hdl].cfg.mode = *ep_mode;
 	ipa_ctx->ep[clnt_hdl].dst_pipe_index = ep;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_mode(clnt_hdl,
 			ipa_ctx->ep[clnt_hdl].dst_pipe_index,
 			ep_mode);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3270,11 +3271,11 @@ int ipa2_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.aggr = *ep_aggr;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_aggr(clnt_hdl, ep_aggr);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3353,12 +3354,12 @@ int ipa2_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 	else
 		ipa_ctx->ep[clnt_hdl].rt_tbl_idx = 0;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_route(clnt_hdl,
 			ipa_ctx->ep[clnt_hdl].rt_tbl_idx);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3447,11 +3448,11 @@ int ipa2_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	ipa_ctx->ep[clnt_hdl].holb = *ep_holb;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_holb(clnt_hdl, ep_holb);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	IPADBG("cfg holb %u ep=%d tmr=%d\n", ep_holb->en, clnt_hdl,
 				ep_holb->tmr_val);
@@ -3548,11 +3549,11 @@ int ipa2_cfg_ep_deaggr(u32 clnt_hdl,
 	/* copy over EP cfg */
 	ep->cfg.deaggr = *ep_deaggr;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_deaggr(clnt_hdl, &ep->cfg.deaggr);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3600,13 +3601,13 @@ int ipa2_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.meta = *ep_md;
 
-	IPA2_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	ipa_ctx->ctrl->ipa_cfg_ep_metadata(clnt_hdl, ep_md);
 	ipa_ctx->ep[clnt_hdl].cfg.hdr.hdr_metadata_reg_valid = 1;
 	ipa_ctx->ctrl->ipa_cfg_ep_hdr(clnt_hdl, &ipa_ctx->ep[clnt_hdl].cfg.hdr);
 
-	IPA2_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa2_get_client_mapping(clnt_hdl));
 
 	return 0;
 }
@@ -3788,11 +3789,11 @@ int ipa2_set_aggr_mode(enum ipa_aggr_mode mode)
 {
 	u32 reg_val;
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_QCNCM_OFST);
 	ipa_write_reg(ipa_ctx->mmio, IPA_QCNCM_OFST, (mode & 0x1) |
 			(reg_val & 0xfffffffe));
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3816,12 +3817,12 @@ int ipa2_set_qcncm_ndp_sig(char sig[3])
 		IPAERR("bad argument for ipa_set_qcncm_ndp_sig/n");
 		return -EINVAL;
 	}
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_QCNCM_OFST);
 	ipa_write_reg(ipa_ctx->mmio, IPA_QCNCM_OFST, sig[0] << 20 |
 			(sig[1] << 12) | (sig[2] << 4) |
 			(reg_val & 0xf000000f));
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3837,11 +3838,11 @@ int ipa2_set_single_ndp_per_mbim(bool enable)
 {
 	u32 reg_val;
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_SINGLE_NDP_MODE_OFST);
 	ipa_write_reg(ipa_ctx->mmio, IPA_SINGLE_NDP_MODE_OFST,
 			(enable & 0x1) | (reg_val & 0xfffffffe));
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -3857,12 +3858,12 @@ int ipa_set_hw_timer_fix_for_mbim_aggr(bool enable)
 {
 	u32 reg_val;
 
-	IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST);
 	ipa_write_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST,
 		(enable << IPA_AGGREGATION_HW_TIMER_FIX_MBIM_AGGR_SHFT) |
 		(reg_val & ~IPA_AGGREGATION_HW_TIMER_FIX_MBIM_AGGR_BMSK));
-	IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return 0;
 }
 EXPORT_SYMBOL(ipa_set_hw_timer_fix_for_mbim_aggr);
@@ -3905,7 +3906,7 @@ void ipa2_bam_reg_dump(void)
 {
 	static DEFINE_RATELIMIT_STATE(_rs, 500*HZ, 1);
 	if (__ratelimit(&_rs)) {
-		IPA2_ACTIVE_CLIENTS_INC_SIMPLE();
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 		pr_err("IPA BAM START\n");
 		if (ipa_ctx->ipa_hw_type < IPA_HW_v2_0) {
 			sps_get_bam_debug_info(ipa_ctx->bam_handle, 5,
@@ -3919,7 +3920,7 @@ void ipa2_bam_reg_dump(void)
 			SPS_BAM_PIPE(ipa_get_ep_mapping(IPA_CLIENT_USB_PROD))),
 			0, 2);
 		}
-		IPA2_ACTIVE_CLIENTS_DEC_SIMPLE();
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	}
 }
 
@@ -4821,7 +4822,7 @@ bool ipa2_is_client_handle_valid(u32 clnt_hdl)
 void ipa2_proxy_clk_unvote(void)
 {
 	if (ipa2_is_ready() && ipa_ctx->q6_proxy_clk_vote_valid) {
-		IPA2_ACTIVE_CLIENTS_DEC_SPECIAL("PROXY_CLK_VOTE");
+		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PROXY_CLK_VOTE");
 		ipa_ctx->q6_proxy_clk_vote_valid = false;
 	}
 }
@@ -4834,7 +4835,7 @@ void ipa2_proxy_clk_unvote(void)
 void ipa2_proxy_clk_vote(void)
 {
 	if (ipa2_is_ready() && !ipa_ctx->q6_proxy_clk_vote_valid) {
-		IPA2_ACTIVE_CLIENTS_INC_SPECIAL("PROXY_CLK_VOTE");
+		IPA_ACTIVE_CLIENTS_INC_SPECIAL("PROXY_CLK_VOTE");
 		ipa_ctx->q6_proxy_clk_vote_valid = true;
 	}
 }
@@ -5015,24 +5016,6 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_uc_dereg_rdyCB = ipa2_uc_dereg_rdyCB;
 	api_ctrl->ipa_create_wdi_mapping = ipa2_create_wdi_mapping;
 	api_ctrl->ipa_release_wdi_mapping = ipa2_release_wdi_mapping;
-	api_ctrl->ipa_rm_create_resource = ipa2_rm_create_resource;
-	api_ctrl->ipa_rm_delete_resource = ipa2_rm_delete_resource;
-	api_ctrl->ipa_rm_register = ipa2_rm_register;
-	api_ctrl->ipa_rm_deregister = ipa2_rm_deregister;
-	api_ctrl->ipa_rm_set_perf_profile = ipa2_rm_set_perf_profile;
-	api_ctrl->ipa_rm_add_dependency = ipa2_rm_add_dependency;
-	api_ctrl->ipa_rm_delete_dependency = ipa2_rm_delete_dependency;
-	api_ctrl->ipa_rm_request_resource = ipa2_rm_request_resource;
-	api_ctrl->ipa_rm_release_resource = ipa2_rm_release_resource;
-	api_ctrl->ipa_rm_notify_completion = ipa2_rm_notify_completion;
-	api_ctrl->ipa_rm_inactivity_timer_init =
-		ipa2_rm_inactivity_timer_init;
-	api_ctrl->ipa_rm_inactivity_timer_destroy =
-		ipa2_rm_inactivity_timer_destroy;
-	api_ctrl->ipa_rm_inactivity_timer_request_resource =
-		ipa2_rm_inactivity_timer_request_resource;
-	api_ctrl->ipa_rm_inactivity_timer_release_resource =
-		ipa2_rm_inactivity_timer_release_resource;
 	api_ctrl->teth_bridge_init = ipa2_teth_bridge_init;
 	api_ctrl->teth_bridge_disconnect = ipa2_teth_bridge_disconnect;
 	api_ctrl->teth_bridge_connect = ipa2_teth_bridge_connect;
@@ -5073,10 +5056,19 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_smmu_domain = ipa2_get_smmu_domain;
 	api_ctrl->ipa_disable_apps_wan_cons_deaggr =
 		ipa2_disable_apps_wan_cons_deaggr;
-	api_ctrl->ipa_rm_add_dependency_sync = ipa2_rm_add_dependency_sync;
 	api_ctrl->ipa_get_dma_dev = ipa2_get_dma_dev;
 	api_ctrl->ipa_get_gsi_ep_info = ipa2_get_gsi_ep_info;
 	api_ctrl->ipa_stop_gsi_channel = ipa2_stop_gsi_channel;
+	api_ctrl->ipa_inc_client_enable_clks = ipa2_inc_client_enable_clks;
+	api_ctrl->ipa_dec_client_disable_clks = ipa2_dec_client_disable_clks;
+	api_ctrl->ipa_inc_client_enable_clks_no_block =
+		ipa2_inc_client_enable_clks_no_block;
+	api_ctrl->ipa_suspend_resource_no_block =
+		ipa2_suspend_resource_no_block;
+	api_ctrl->ipa_resume_resource = ipa2_resume_resource;
+	api_ctrl->ipa_suspend_resource_sync = ipa2_suspend_resource_sync;
+	api_ctrl->ipa_set_required_perf_profile =
+		ipa2_set_required_perf_profile;
 
 	return 0;
 }
