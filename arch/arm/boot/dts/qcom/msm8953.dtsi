@@ -490,7 +490,7 @@
 		qcom,hotplug-temp-hysteresis = <15>;
 		qcom,freq-mitigation-temp = <105>;
 		qcom,freq-mitigation-temp-hysteresis = <15>;
-		qcom,freq-mitigation-value = <800000>;
+		qcom,freq-mitigation-value = <1036800>;
 		qcom,therm-reset-temp = <115>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
