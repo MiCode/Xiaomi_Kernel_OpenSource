@@ -284,6 +284,21 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: task_name = %s pid = %d\n",
 			__func__,
 			this_afe.task->comm, this_afe.task->pid);
+
+		/*
+		 * Pass reset events to proxy driver, if cb is registered
+		 */
+		if (this_afe.tx_cb) {
+			this_afe.tx_cb(data->opcode, data->token,
+					data->payload,
+					this_afe.tx_private_data);
+		}
+		if (this_afe.rx_cb) {
+			this_afe.rx_cb(data->opcode, data->token,
+					data->payload,
+					this_afe.rx_private_data);
+		}
+
 		return 0;
 	}
 	afe_callback_debug_print(data);
