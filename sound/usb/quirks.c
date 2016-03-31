@@ -138,7 +138,9 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
 		usb_audio_err(chip, "cannot memdup\n");
 		return -ENOMEM;
 	}
+	INIT_LIST_HEAD(&fp->list);
 	if (fp->nr_rates > MAX_NR_RATES) {
+		list_del(&fp->list);
 		kfree(fp);
 		return -EINVAL;
 	}
@@ -146,6 +148,7 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
 		rate_table = kmemdup(fp->rate_table,
 				     sizeof(int) * fp->nr_rates, GFP_KERNEL);
 		if (!rate_table) {
+			list_del(&fp->list);
 			kfree(fp);
 			return -ENOMEM;
 		}
@@ -156,12 +159,14 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
 		? SNDRV_PCM_STREAM_CAPTURE : SNDRV_PCM_STREAM_PLAYBACK;
 	err = snd_usb_add_audio_stream(chip, stream, fp);
 	if (err < 0) {
+		list_del(&fp->list);
 		kfree(fp);
 		kfree(rate_table);
 		return err;
 	}
 	if (fp->iface != get_iface_desc(&iface->altsetting[0])->bInterfaceNumber ||
 	    fp->altset_idx >= iface->num_altsetting) {
+		list_del(&fp->list);
 		kfree(fp);
 		kfree(rate_table);
 		return -EINVAL;
@@ -169,6 +174,7 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
 	alts = &iface->altsetting[fp->altset_idx];
 	altsd = get_iface_desc(alts);
 	if (altsd->bNumEndpoints < 1) {
+		list_del(&fp->list);
 		kfree(fp);
 		kfree(rate_table);
 		return -EINVAL;
@@ -456,6 +462,7 @@ static int create_uaxx_quirk(struct snd_usb_audio *chip,
 	fp->ep_attr = get_endpoint(alts, 0)->bmAttributes;
 	fp->datainterval = 0;
 	fp->maxpacksize = le16_to_cpu(get_endpoint(alts, 0)->wMaxPacketSize);
+	INIT_LIST_HEAD(&fp->list);
 
 	switch (fp->maxpacksize) {
 	case 0x120:
@@ -479,6 +486,7 @@ static int create_uaxx_quirk(struct snd_usb_audio *chip,
 		? SNDRV_PCM_STREAM_CAPTURE : SNDRV_PCM_STREAM_PLAYBACK;
 	err = snd_usb_add_audio_stream(chip, stream, fp);
 	if (err < 0) {
+		list_del(&fp->list); /* unlink for avoiding double-free */
 		kfree(fp);
 		return err;
 	}
