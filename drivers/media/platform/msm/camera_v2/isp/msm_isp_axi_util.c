@@ -1444,8 +1444,7 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt,
 			pingpong_bit);
 		if (rc == -EFAULT) {
-			msm_isp_halt_send_error(vfe_dev,
-				ISP_EVENT_BUF_FATAL_ERROR);
+			pr_err("%s: get_buf fail\n", __func__);
 			return rc;
 		}
 		if (rc < 0 || buf == NULL) {
@@ -3180,6 +3179,11 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				&vfe_dev->common_data->common_dev_axi_lock,
 				axi_flags);
 
+			if (rc == -EFAULT) {
+				msm_isp_halt_send_error(vfe_dev,
+					ISP_EVENT_BUF_FATAL_ERROR);
+				return;
+			}
 			if (done_buf && !rc)
 				msm_isp_process_done_buf(vfe_dev, stream_info,
 					done_buf, ts);
