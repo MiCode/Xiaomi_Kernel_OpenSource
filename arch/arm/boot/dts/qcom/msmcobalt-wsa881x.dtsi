@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-&slim_msm {
+&slim_aud {
 	tasha_codec {
 		swr_master {
 			compatible = "qcom,swr-wcd";

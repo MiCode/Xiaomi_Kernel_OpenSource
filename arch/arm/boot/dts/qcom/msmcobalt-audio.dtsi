@@ -117,7 +117,7 @@
 	};
 };
 
-&slim_msm {
+&slim_aud {
 	msm_dai_slim {
 		compatible = "qcom,msm-dai-slim";
 		elemental-addr = [ff ff ff fe 17 02];
