@@ -1478,8 +1478,8 @@ DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_err_state,
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 	if (!hba) {
-		dev_err(hba->dev, "%s: NULL hba, exiting", __func__);
-		goto err_no_root;
+		pr_err("%s: NULL hba, exiting", __func__);
+		return;
 	}
 
 	hba->debugfs_files.debugfs_root = debugfs_create_dir(dev_name(hba->dev),
