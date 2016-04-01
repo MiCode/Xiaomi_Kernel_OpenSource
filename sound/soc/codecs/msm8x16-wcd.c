@@ -5048,9 +5048,12 @@ static void msm8x16_wcd_codec_init_reg(struct snd_soc_codec *codec)
 
 static int msm8x16_wcd_bringup(struct snd_soc_codec *codec)
 {
+	u8 val = 0;
+
 	snd_soc_write(codec,
 		MSM8X16_WCD_A_DIGITAL_SEC_ACCESS,
 		0xA5);
+	val = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_BOOST_TEST1_1);
 	snd_soc_write(codec, MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL4, 0x01);
 	snd_soc_write(codec,
 		MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
@@ -5064,6 +5067,12 @@ static int msm8x16_wcd_bringup(struct snd_soc_codec *codec)
 		MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
 		0xA5);
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL4, 0x00);
+
+	if (val) {
+		pr_debug("%s writing reg = %x val = %x\n", __func__,
+					MSM8X16_WCD_A_ANALOG_BOOST_TEST1_1, val);
+		snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_BOOST_TEST1_1, val);
+	}
 	return 0;
 }
 

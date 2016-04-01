@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -326,7 +327,19 @@ static ssize_t aw2013_store_blink(struct device *dev,
 
 	return len;
 }
+static ssize_t aw2013_led_status_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	u8 val_status;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct aw2013_led *led =
+			container_of(led_cdev, struct aw2013_led, cdev);
 
+	aw2013_read(led, AW_REG_LED_ENABLE, &val_status);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", val_status);
+
+}
 static ssize_t aw2013_led_time_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -368,10 +381,12 @@ static ssize_t aw2013_led_time_store(struct device *dev,
 
 static DEVICE_ATTR(blink, 0664, NULL, aw2013_store_blink);
 static DEVICE_ATTR(led_time, 0664, aw2013_led_time_show, aw2013_led_time_store);
+static DEVICE_ATTR(led_status, 0664, aw2013_led_status_show, NULL);
 
 static struct attribute *aw2013_led_attributes[] = {
 	&dev_attr_blink.attr,
 	&dev_attr_led_time.attr,
+	&dev_attr_led_status.attr,
 	NULL,
 };
 
@@ -546,7 +561,6 @@ static int aw2013_led_probe(struct i2c_client *client,
 	struct aw2013_led *led_array;
 	struct device_node *node;
 	int ret, num_leds = 0;
-
 	node = client->dev.of_node;
 	if (node == NULL)
 		return -EINVAL;
@@ -567,6 +581,17 @@ static int aw2013_led_probe(struct i2c_client *client,
 
 	mutex_init(&led_array->lock);
 
+	ret = aw2013_power_init(led_array, true);
+	if (ret) {
+		dev_err(&client->dev, "power init failed");
+		goto fail_parsed_node;
+	}
+	ret = aw2013_power_on(led_array, true);
+	if (ret) {
+	    return -EINVAL;
+	    printk("tsx_aw2013_power_on_fail\n");
+	}
+
 	ret = aw_2013_check_chipid(led_array);
 	if (ret) {
 		dev_err(&client->dev, "Check chip id error\n");
@@ -581,12 +606,13 @@ static int aw2013_led_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, led_array);
 
-	ret = aw2013_power_init(led_array, true);
+	ret = aw2013_power_on(led_array, false);
 	if (ret) {
-		dev_err(&client->dev, "power init failed");
-		goto fail_parsed_node;
+	    return -EINVAL;
+	    printk("tsx_aw2013_power_off_fail\n");
 	}
 
+	printk("tsx_aw2013_led_probe_ok\n");
 	return 0;
 
 fail_parsed_node:

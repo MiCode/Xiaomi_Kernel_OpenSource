@@ -3754,8 +3754,6 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 	int ret = 0;
 	int new_fps;
 
-	mutex_lock(&ctl->offlock);
-
 	pinfo = &ctl->panel_data->panel_info;
 	if (!pinfo) {
 		ret = -ENODEV;
@@ -3795,7 +3793,6 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 	ATRACE_END("config_fps");
 
 exit:
-	mutex_unlock(&ctl->offlock);
 
 	return ret;
 }

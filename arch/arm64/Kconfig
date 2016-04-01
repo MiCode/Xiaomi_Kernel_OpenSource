@@ -163,6 +163,24 @@ config ARCH_HAS_CPUFREQ
 config FIX_EARLYCON_MEM
 	def_bool y
 
+config SPEAKER_EXT_PA
+	default n
+	bool "Speaker external PA"
+	help
+	  Support for external PA.
+
+config SPEAKER_EXT_PA_AW8738
+	default n
+	bool "Speaker external PA AW8738"
+	help
+	  Support for the AW8738.
+
+config WCD9335_CODEC_MCLK_USE_MSM_GPIO
+	default n
+	bool "TASHA WCD9335 audio CODEC uses MSM8956 GPIO116"
+	help
+	  Support for the TASHA WCD9335 audio CODEC which uses MSM8956 GPIO116.
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,13 +132,11 @@ static struct pll_clk a72ss_hf_pll = {
 		.vco_mask = BM(29, 28),
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
-		.mn_en_mask = BIT(24),
 		.early_output_mask =  BIT(3),
 		.main_output_mask = BIT(0),
 	},
 	.vals = {
 		.config_ctl_val = 0x04E0405D,
-		.enable_mn = true,
 		.post_div_masked = BVAL(9, 8, (1)),
 		.vco_mode_masked = BVAL(21, 20, 1),
 	},
@@ -174,13 +172,11 @@ static struct pll_clk a53ss_sr_pll = {
 		.vco_mask = BM(21, 20),
 		.pre_div_mask = BM(14, 12),
 		.post_div_mask = BM(9, 8),
-		.mn_en_mask = BIT(24),
 		.early_output_mask =  BIT(3),
 		.main_output_mask = BIT(0),
 	},
 	.vals = {
 		.config_ctl_val = 0x00341600,
-		.enable_mn = true,
 		.post_div_masked =  BVAL(9, 8, (1)),
 	},
 	.data = {
@@ -221,13 +217,11 @@ static struct pll_clk cci_sr_pll = {
 		.vco_mask = BM(21, 20),
 		.pre_div_mask = BM(14, 12),
 		.post_div_mask = BM(9, 8),
-		.mn_en_mask = BIT(24),
 		.early_output_mask =  BIT(3),
 		.main_output_mask = BIT(0),
 	},
 	.vals = {
 		.config_ctl_val = 0x00141400,
-		.enable_mn = true,
 		.post_div_masked = BVAL(9, 8, (1)),
 		.vco_mode_masked = BVAL(21, 20, 1),
 	},

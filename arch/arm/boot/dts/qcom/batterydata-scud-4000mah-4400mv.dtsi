@@ -1,0 +1,49 @@
+
+qcom,2162464_longcheer_ct865scud_4000mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <85>;
+	qcom,battery-beta = <4150>;
+	qcom,battery-type = "longcheer_ct865scud_4000mah";
+	qcom,chg-rslow-comp-c1 = <2905279>;
+	qcom,chg-rslow-comp-c2 = <3467482>;
+	qcom,chg-rs-to-rslow = <911611>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,fastchg-current-ma = <2000>;
+	qcom,checksum = <0x43DE>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.14";
+	qcom,fg-profile-data = [
+		F1 83 7D 7D
+		99 81 1C 7C
+		5E 83 EC 6C
+		BF 83 11 8E
+		21 82 C9 99
+		98 BC F1 C8
+		5B 0F 14 88
+		0F 7F B1 82
+		1B 7D 4B 83
+		67 71 AC 67
+		F3 76 56 82
+		5A 99 8F BC
+		44 C9 5E 0D
+		ED 0F B5 5A
+		14 70 EE FC
+		04 36 D6 45
+		DE 3B 00 00
+		1C 47 94 3B
+		3F 21 00 00
+		00 00 00 00
+		00 00 00 00
+		AA 6B 27 6A
+		31 6A 65 88
+		B9 74 5A 69
+		E8 62 9A 80
+		88 6E 96 62
+		DC 7F FB A0
+		1D 5D 63 18
+		65 A0 71 0C
+		28 00 FF 36
+		F0 11 30 03
+		00 00 00 0C
+	];
+};

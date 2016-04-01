@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1010,6 +1011,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	int total_curr_ma = 0;
 	int i;
 	u8 val;
+	pr_err("current_ma qpnp_flash_led_work brightness %d\n", brightness);
 
 	mutex_lock(&led->flash_led_lock);
 
@@ -1109,6 +1111,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			val = (u8)(flash_node->prgm_current *
 						FLASH_TORCH_MAX_LEVEL
 						/ flash_node->max_current);
+			pr_err("led1_torch current_ma = %d,value= %d\n", flash_node->prgm_current, val);
 			rc = qpnp_led_masked_write(led->spmi_dev,
 						led->current_addr,
 						FLASH_CURRENT_MASK, val);
@@ -1121,6 +1124,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			val = (u8)(flash_node->prgm_current2 *
 						FLASH_TORCH_MAX_LEVEL
 						/ flash_node->max_current);
+			pr_err("led2_torch current_ma = %d,value= %d\n", flash_node->prgm_current2, val);
 			rc = qpnp_led_masked_write(led->spmi_dev,
 					led->current2_addr,
 					FLASH_CURRENT_MASK, val);
@@ -1297,6 +1301,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 			val = (u8)(flash_node->prgm_current *
 				FLASH_MAX_LEVEL / flash_node->max_current);
+			pr_err("led1_flash current_ma = %d,value= %d\n", flash_node->prgm_current, val);
 			rc = qpnp_led_masked_write(led->spmi_dev,
 				led->current_addr, FLASH_CURRENT_MASK, val);
 			if (rc) {
@@ -1307,6 +1312,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 			val = (u8)(flash_node->prgm_current2 *
 				FLASH_MAX_LEVEL / flash_node->max_current);
+			pr_err("led2_flash current_ma = %d,value= %d\n", flash_node->prgm_current2, val);
 			rc = qpnp_led_masked_write(led->spmi_dev,
 				led->current2_addr, FLASH_CURRENT_MASK, val);
 			if (rc) {
@@ -1538,6 +1544,79 @@ error_regulator_enable:
 	return;
 }
 
+
+static void qpnp_flashlight_led_brightness_set(struct led_classdev *led_cdev,
+						enum led_brightness value)
+{
+	struct flash_node_data *flash_node;
+	struct qpnp_flash_led *led;
+	int i ;
+
+	flash_node = container_of(led_cdev, struct flash_node_data, cdev);
+	led = dev_get_drvdata(&flash_node->spmi_dev->dev);
+
+	if (value < LED_OFF) {
+		pr_err("Invalid brightness value\n");
+		return;
+	}
+
+	pr_err("current_ma qpnp_flashlight_led_brightness_set value %d\n", value);
+
+	if (value == 1 || value == 0) {
+		queue_work(led->ordered_workq, &flash_node->work);
+		return;
+	} else {
+		if (value > flash_node->cdev.max_brightness)
+			value = flash_node->cdev.max_brightness;
+
+		led->flash_node[led->num_leds - 1].cdev.brightness = value;
+		led->flash_node[led->num_leds - 1].type = TORCH;
+		if (100 == value) {
+			led->flash_node[led->num_leds - 1].max_current
+						= 200;
+		} else {
+		led->flash_node[led->num_leds - 1].max_current
+					= flash_node->max_current;
+			}
+
+		for (i = 0 ; i < 2; i++) {
+			if (value < FLASH_LED_MIN_CURRENT_MA && value != 0)
+					value = FLASH_LED_MIN_CURRENT_MA;
+
+			led->flash_node[i + 2].prgm_current = value;
+			led->flash_node[i + 2].flash_on = value ? true : false;
+			if (value)
+				led->flash_node[led->num_leds - 1].trigger |=
+							(0x80 >> led->flash_node[i + 2].id);
+			else
+				led->flash_node[led->num_leds - 1].trigger &=
+							~(0x80 >> led->flash_node[i + 2].id);
+			if (led->flash_node[i + 2].id == FLASH_LED_0) {
+				if (100 == value) {
+					led->flash_node[led->num_leds - 1].
+					prgm_current = 195;
+				} else {
+					led->flash_node[led->num_leds - 1].
+					prgm_current = led->flash_node[i + 2].prgm_current;
+				}
+			} else if (led->flash_node[i + 2].id == FLASH_LED_1) {
+				if (100 == value) {
+					led->flash_node[led->num_leds - 1].
+					prgm_current2 = 78;
+				} else {
+					led->flash_node[led->num_leds - 1].
+					prgm_current2 =
+						led->flash_node[i + 2].prgm_current;
+				}
+			}
+		}
+
+		queue_work(led->ordered_workq, &flash_node->work);
+
+	return;
+	}
+}
+
 static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 						enum led_brightness value)
 {
@@ -1586,7 +1665,7 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 				led->flash_node[led->num_leds - 1].
 				prgm_current2 =
 				flash_node->prgm_current;
-
+		if (value != 100 && value != 0)
 			return;
 		} else if (flash_node->id == FLASH_LED_SWITCH) {
 			if (!value) {
@@ -2332,8 +2411,12 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 					"Unable to read max current\n");
 			return rc;
 		}
+		if (strcmp(led->flash_node[i].cdev.name, "flashlight") == 0) {
+			led->flash_node[i].cdev.brightness_set =
+					qpnp_flashlight_led_brightness_set;
+		}
 		rc = led_classdev_register(&spmi->dev,
-						&led->flash_node[i].cdev);
+					&led->flash_node[i].cdev);
 		if (rc) {
 			dev_err(&spmi->dev, "Unable to register led\n");
 			goto error_led_register;

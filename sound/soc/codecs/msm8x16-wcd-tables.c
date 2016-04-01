@@ -311,6 +311,7 @@ const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE] = {
 		[MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL] = 1,
 		/* To detect cajon codec */
 		[MSM8X16_WCD_A_ANALOG_NCP_FBCTRL] = 1,
+		[MSM8X16_WCD_A_ANALOG_BOOST_TEST1_1] = 1,
 
 };
 

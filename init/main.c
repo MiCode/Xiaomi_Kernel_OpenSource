@@ -2,6 +2,7 @@
  *  linux/init/main.c
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
+ *  Copyright (C) 2016 XiaoMi, Inc.
  *
  *  GK 2/5/95  -  Changed to support mounting root fs via NFS
  *  Added initrd & change_root: Werner Almesberger & Hans Lermen, Feb '96
@@ -471,11 +472,13 @@ static void __init mm_init(void)
 	pgtable_cache_init();
 	vmalloc_init();
 }
+int lct_hardwareid = 2;
 
 asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
 	extern const struct kernel_param __start___param[], __stop___param[];
+	char *p = NULL;
 
 	/*
 	 * Need to run as early as possible, to initialize the
@@ -513,6 +516,21 @@ asmlinkage void __init start_kernel(void)
 	page_alloc_init();
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
+	p = strstr(boot_command_line, "androidboot.boardID=0");
+	if (p) {
+		lct_hardwareid = 0;
+	}
+	p = NULL;
+	p = strstr(boot_command_line, "androidboot.boardID=2");
+	if (p) {
+		lct_hardwareid = 2;
+	}
+	p = NULL;
+	p = strstr(boot_command_line, "androidboot.boardID=3");
+	if (p) {
+		lct_hardwareid = 3;
+	}
+
 	parse_early_param();
 	parse_args("Booting kernel", static_command_line, __start___param,
 		   __stop___param - __start___param,

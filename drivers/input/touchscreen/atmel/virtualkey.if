@@ -1,0 +1,116 @@
+
+/*
+0x01: A version code. Must always be 0x01.
+<Linux key code>: The Linux key code of the virtual key.
+<centerX>: The X pixel coordinate of the center of the virtual key.
+<centerY>: The Y pixel coordinate of the center of the virtual key.
+<width>: The width of the virtual key in pixels.
+<height>: The height of the virtual key in pixels.
+0x01:158:32:906:63:57:
+0x01:139:162:906:89:57:
+0x01:102:292:906:89:57:
+0x01:217:439:906:63:57
+*/
+
+static ssize_t cust_virtual_keys_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf) {
+	struct mxt_data *data = mxt_g_data;
+
+	struct mxt_platform_data *pdata;
+	struct mxt_virtual_key_space *v_ratio;
+	int x_rage,x_edge,x_space,y_top,y_rage;
+	int center_x,center_y,width,height;
+	int i, j;
+	int num_keys;
+
+	/* do not use the data if input device not yet registered */
+	if  (!data)  {
+		printk(KERN_ERR "[mxt]cust_virtual_keys_show: mxt_g_data is not prepared \n");
+		return 0;
+	}
+
+	if (!data->pdata->keymap || !data->pdata->num_keys)
+		return 0;
+
+	if (!data->pdata->num_keys[T15_T97_KEY] )
+		return 0;
+
+	pdata = data->pdata;
+	v_ratio = &pdata->vkey_space_ratio;
+
+	num_keys = pdata->num_keys[T15_T97_KEY];
+#if (CONFIG_MXT_REPORT_VIRTUAL_KEY_SLOT_NUM > 0)
+	if (num_keys < CONFIG_MXT_REPORT_VIRTUAL_KEY_SLOT_NUM)
+		num_keys = CONFIG_MXT_REPORT_VIRTUAL_KEY_SLOT_NUM;
+#endif
+	x_edge = (data->max_x + 1) * v_ratio->x_edge / 100;
+	x_space = (data->max_x + 1) * v_ratio->x_space / 100;
+	x_rage = (data->max_x + 1) * (100 - v_ratio->x_edge * 2 - v_ratio->x_space * (num_keys - 1)) / 100;
+	x_rage /= pdata->num_keys[T15_T97_KEY] ;
+
+	y_top = (data->max_y - data->max_y_t) * v_ratio->y_top / 100;
+	y_rage = (data->max_y - data->max_y_t) * (100 - v_ratio->y_top - v_ratio->y_bottom) / 100;
+
+	printk(KERN_ERR "[mxt] x edge %d space %d rage %d, y top %d rage %d (%d %d)\n",x_edge,x_space,x_rage,y_top,y_rage,data->max_y,data->max_y_t);
+
+	for  (i = 0, j = 0; i < num_keys; i++)  {
+		center_x = x_edge + (x_rage + x_space) * i + (x_rage >> 1);
+		width = x_rage;
+		if (data->max_y_t > data->max_y) {
+			center_y = data->max_y_t + 1;
+			height = 1;
+		}else{
+			center_y = data->max_y_t + 1 + y_top + (y_rage >> 1);
+			height = y_rage;
+		}
+
+		printk(KERN_ERR "[mxt] %d %d %d %d\n",center_x,center_y,width,height);
+
+		j += snprintf(buf + j, PAGE_SIZE -j, "%s:%d:%d:%d:%d:%d%c\t", __stringify(EV_KEY),pdata->keymap[T15_T97_KEY][i],
+			center_x,center_y,width,height, (i == num_keys - 1) ? '\n' : ':');
+	}
+
+	return j;
+}
+
+static struct kobj_attribute cust_virtual_keys_attr = {
+	.attr = {
+		.name = "virtualkeys.atmel_mxt_ts_T100_touchscreen",
+		.mode = S_IRUGO,
+	},
+	.show = &cust_virtual_keys_show,
+};
+
+
+static struct attribute *cust_properties_attrs[] = {
+	&cust_virtual_keys_attr.attr,
+	NULL
+};
+
+
+static struct attribute_group cust_properties_attr_group = {
+	.attrs = cust_properties_attrs,
+};
+
+struct kobject * create_virtual_key_object(struct device *dev)
+{
+	struct kobject *properties_kobj;
+	int ret;
+
+	properties_kobj = kobject_create_and_add("board_properties", NULL);
+	if (!properties_kobj) {
+		dev_err(dev, "virtualkey_init kobject_create_and_add failed\n");
+		return properties_kobj;
+	}
+
+	ret = sysfs_create_group(properties_kobj,&cust_properties_attr_group);
+	if (ret) {
+		dev_info(dev, "virtualkey_init sysfs_create_group failed %d\n", ret);
+		kobject_del(properties_kobj);
+		properties_kobj = NULL;
+	}
+
+	return properties_kobj;
+}
+
+

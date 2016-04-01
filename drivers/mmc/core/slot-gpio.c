@@ -2,6 +2,7 @@
  * Generic GPIO card-detect helper
  *
  * Copyright (C) 2011, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,6 +17,12 @@
 #include <linux/mmc/slot-gpio.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+
+#define SD_VDD_IS_NOT_OPEN_IF_SLOT_NOT_INSERT 1
+
+int sd_slot_plugoutt = 0;
+extern int  sdhci_msm_disable_sd_vdd(void);
+
 
 struct mmc_gpio {
 	int ro_gpio;
@@ -61,6 +68,10 @@ static irqreturn_t mmc_gpio_cd_irqt(int irq, void *dev_id)
 	status = mmc_gpio_get_status(host);
 	if (unlikely(status < 0))
 		goto out;
+	#if SD_VDD_IS_NOT_OPEN_IF_SLOT_NOT_INSERT
+	sd_slot_plugoutt = gpio_get_value_cansleep(ctx->cd_gpio);
+	#endif
+	pr_err(" mmc_gpio_cd_irqt sd_slot_plugoutt = %d\n", sd_slot_plugoutt);
 
 	if (status ^ ctx->status) {
 		pr_info("%s: slot status change detected (%d -> %d), GPIO_ACTIVE_%s\n",
@@ -70,7 +81,13 @@ static irqreturn_t mmc_gpio_cd_irqt(int irq, void *dev_id)
 		ctx->status = status;
 
 		/* Schedule a card detection after a debounce timeout */
-		mmc_detect_change(host, msecs_to_jiffies(200));
+		if (sd_slot_plugoutt == 1) {
+
+			if ((sd_slot_plugoutt == 1) && (mmc_hostname(host) != NULL) && (!strcmp(mmc_hostname(host), "mmc1")))
+				sdhci_msm_disable_sd_vdd();
+			mmc_detect_change(host, msecs_to_jiffies(0));
+		} else
+			mmc_detect_change(host, msecs_to_jiffies(200));
 	}
 out:
 

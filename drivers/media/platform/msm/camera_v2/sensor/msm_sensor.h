@@ -128,4 +128,7 @@ long msm_sensor_subdev_fops_ioctl(struct file *file,
 	unsigned int cmd,
 	unsigned long arg);
 #endif
+int32_t msm_sensor_init_device_name(void);
+void msm_sensor_set_module_info(struct msm_sensor_ctrl_t *s_ctrl);
+
 #endif

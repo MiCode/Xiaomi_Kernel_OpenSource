@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +25,9 @@
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+
+
+extern int lct_hardwareid;
 
 int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 	int num_vreg, struct msm_sensor_power_setting *power_setting,
@@ -457,7 +461,9 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	int count = 0;
 	const char *seq_name = NULL;
 	uint32_t *array = NULL;
+	char seq_name_bak[128] = {0};
 	struct msm_sensor_power_setting *ps;
+	bool is_back_camera = false;
 
 	struct msm_sensor_power_setting *power_setting;
 	uint16_t *power_setting_size, size = 0;
@@ -476,6 +482,9 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 
 	if (count <= 0)
 		return 0;
+
+	is_back_camera = of_property_read_bool(of_node, "qcom,is-back-camera");
+	CDBG("%s is_back_camera %d,lct_hardwareid %d\n", __func__, is_back_camera, lct_hardwareid);
 
 	ps = kzalloc(sizeof(*ps) * count, GFP_KERNEL);
 	if (!ps) {
@@ -517,7 +526,10 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 			goto ERROR1;
 		}
 	}
-
+	if ((is_back_camera == true) && (lct_hardwareid == 0)) {
+		if (ps[0].seq_type != SENSOR_VREG)
+			ps[0].seq_type = SENSOR_VREG;
+	}
 
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node,
@@ -529,11 +541,22 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 			pr_err("%s failed %d\n", __func__, __LINE__);
 			goto ERROR1;
 		}
+
 		switch (ps[i].seq_type) {
 		case SENSOR_VREG:
-			for (j = 0; j < num_vreg; j++) {
-				if (!strcmp(seq_name, cam_vreg[j].reg_name))
-					break;
+			if ((is_back_camera == true) && (lct_hardwareid == 0)) {
+				strcpy(seq_name_bak, seq_name);
+				if (strcmp("sensor_gpio_vana", seq_name) == 0)
+					strcpy(seq_name_bak, "cam_vana");
+				for (j = 0; j < num_vreg; j++) {
+					if (!strcmp(seq_name_bak, cam_vreg[j].reg_name))
+						break;
+				}
+			} else {
+				for (j = 0; j < num_vreg; j++) {
+					if (!strcmp(seq_name, cam_vreg[j].reg_name))
+						break;
+				}
 			}
 			if (j < num_vreg)
 				ps[i].seq_val = j;

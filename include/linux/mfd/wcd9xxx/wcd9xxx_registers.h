@@ -335,4 +335,5 @@
 #define WCD9XXX_HPH_R_EN				(0x6D6)
 #define WCD9XXX_HPH_REFBUFF_UHQA_CTL			(0x6DD)
 #define WCD9XXX_CLASSH_CTRL_VCL_2                       (0x69B)
+#define WCD9XXX_CLASSH_CTRL_CCL_1                       (0x69C)
 #endif

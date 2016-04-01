@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,8 +27,13 @@
 #include "mdss_dba_utils.h"
 
 #define DT_CMD_HDR 6
+#define WRITE_REGISTER
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
+#define LCM_SUPPORT_READ_VERSION
+#ifdef LCM_SUPPORT_READ_VERSION
+char g_lcm_id[128];
+#endif
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
@@ -151,7 +157,7 @@ u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 	return 0;
 }
 
-static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+ void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_panel_cmds *pcmds)
 {
 	struct dcs_cmd_req cmdreq;
@@ -203,6 +209,31 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
 	cmdreq.cmds = &backlight_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
+
+static char lcd_reg1[2] = {0x0, 0x0};	/* DTYPE_DCS_WRITE1 */
+static struct dsi_cmd_desc lcd_write_register = {
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(lcd_reg1)},
+	lcd_reg1
+};
+
+static void mdss_dsi_write_reg_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int cmd, int level)
+{
+	struct dcs_cmd_req cmdreq;
+
+	pr_debug("%s: level=%d\n", __func__, level);
+
+	lcd_reg1[0] = (unsigned char)cmd;
+	lcd_reg1[1] = (unsigned char)level;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &lcd_write_register;
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
 	cmdreq.rlen = 0;
@@ -611,13 +642,13 @@ static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 
 	return;
 }
-
+struct mdss_dsi_ctrl_pdata *w_reg;
 static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
-
+	static u32 old_bl_level;
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -626,6 +657,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
+	w_reg = ctrl_pdata;
 	/*
 	 * Some backlight controllers specify a minimum duty cycle
 	 * for the backlight brightness. If the brightness is less
@@ -671,6 +703,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			__func__);
 		break;
 	}
+	old_bl_level = bl_level;
 }
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
@@ -1627,6 +1660,9 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 				"qcom,dcs-cmd-by-left");
 	}
 
+	pinfo->sharp_panel_module = of_property_read_bool(np,
+		"qcom,sharp-panel");
+
 	pinfo->ulps_feature_enabled = of_property_read_bool(np,
 		"qcom,ulps-enabled");
 	pr_info("%s: ulps feature %s\n", __func__,
@@ -2166,7 +2202,93 @@ static void mdss_dsi_set_prim_panel(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		}
 	}
 }
+#ifdef WRITE_REGISTER
 
+static ssize_t r_lcd_write_register(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned long reg;
+	unsigned long cmd;
+	unsigned long data;
+	ssize_t ret = -EINVAL;
+
+	ret = kstrtoul(buf, 16, &reg);
+	if (ret)
+		return ret;
+	cmd = (reg&0xff00) >> 8;
+	data = reg&0x00ff;
+	printk("tsx_cmd=%ld,data=%ld,reg=%ld\n", cmd, data, reg);
+	mdss_dsi_write_reg_dcs(w_reg, cmd, data);
+
+	return size;
+}
+static DEVICE_ATTR(lcd_register, 0644, NULL, r_lcd_write_register);
+
+
+static struct kobject *msm_lcd_write_reg;
+
+static int msm_lcd_write_reg_create_sysfs(void)
+{
+	int ret ;
+
+	msm_lcd_write_reg = kobject_create_and_add("android_write_lcd", NULL);
+	if (msm_lcd_write_reg == NULL) {
+		pr_info("msm_lcd_name_create_sysfs	failed!\n");
+		ret = -ENOMEM;
+		return ret ;
+	}
+
+	ret = sysfs_create_file(msm_lcd_write_reg, &dev_attr_lcd_register.attr);
+	if (ret) {
+		pr_info("%s failed\n", __func__);
+		kobject_del(msm_lcd_write_reg);
+	}
+	return 0 ;
+}
+
+#endif
+#ifdef LCM_SUPPORT_READ_VERSION
+static int mdss_panel_parse_panel_name(struct device_node *node)
+{
+	const char *name;
+
+	name = of_get_property(node,
+				"qcom,mdss-dsi-panel-name", NULL);
+	strcpy(g_lcm_id, name);
+	return 0;
+}
+static ssize_t msm_fb_lcd_name(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+
+	sprintf(buf, "%s\n", g_lcm_id);
+	ret = strlen(buf) + 1;
+
+	return ret;
+}
+
+static DEVICE_ATTR(lcd_name, 0644, msm_fb_lcd_name, NULL);
+static struct kobject *msm_lcd_name;
+static int msm_lcd_name_create_sysfs(void)
+{
+	int ret ;
+
+	msm_lcd_name = kobject_create_and_add("android_lcd", NULL);
+	if (msm_lcd_name == NULL) {
+		pr_info("msm_lcd_name_create_sysfs	failed!\n");
+		ret = -ENOMEM;
+		return ret ;
+	}
+
+	ret = sysfs_create_file(msm_lcd_name, &dev_attr_lcd_name.attr);
+	if (ret) {
+		pr_info("%s failed\n", __func__);
+		kobject_del(msm_lcd_name);
+	}
+	return 0 ;
+}
+#endif
 int mdss_dsi_panel_init(struct device_node *node,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -2191,6 +2313,13 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
 	}
+	#ifdef LCM_SUPPORT_READ_VERSION
+		rc = mdss_panel_parse_panel_name(node);
+		if (rc) {
+			pr_err("fail to parse panel label\n");
+			return rc;
+		}
+#endif
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
@@ -2208,6 +2337,11 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->low_power_config = mdss_dsi_panel_low_power_config;
 	ctrl_pdata->panel_data.set_backlight = mdss_dsi_panel_bl_ctrl;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
-
+#ifdef LCM_SUPPORT_READ_VERSION
+	msm_lcd_name_create_sysfs();
+#endif
+#ifdef WRITE_REGISTER
+	msm_lcd_write_reg_create_sysfs();
+#endif
 	return 0;
 }

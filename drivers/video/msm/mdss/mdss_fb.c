@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007 Google Incorporated
  * Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -51,6 +52,7 @@
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
 
+#include "mdss_dsi.h"
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
 #define CREATE_TRACE_POINTS
@@ -639,7 +641,7 @@ static ssize_t mdss_fb_force_panel_dead(struct device *dev,
  * This Function dynamically switches to and from video mode. This
  * swtich involves the panel turning off backlight during trantision.
  */
-static int mdss_fb_blanking_mode_switch(struct msm_fb_data_type *mfd, int mode)
+static int mdss_fb_blanking_mode_switch (struct msm_fb_data_type *mfd, int mode)
 {
 	int ret = 0;
 	u32 bl_lvl = 0;
@@ -774,6 +776,8 @@ static ssize_t mdss_fb_get_dfps_mode(struct device *dev,
 
 	return ret;
 }
+extern  void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+			struct dsi_panel_cmds *pcmds);
 
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO | S_IWUSR, mdss_fb_show_split,
@@ -1281,7 +1285,6 @@ static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 	(*bl_lvl) = temp;
 }
 
-/* must call this function from within mfd->bl_lock */
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 {
 	struct mdss_panel_data *pdata;
@@ -1300,7 +1303,6 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	}
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
-
 	if ((pdata) && (pdata->set_backlight)) {
 		if (mfd->mdp.ad_calc_bl)
 			(*mfd->mdp.ad_calc_bl)(mfd, temp, &temp,
@@ -1465,7 +1467,7 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 
 	return ret;
 }
-
+int esd_backlight = 0;
 static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
@@ -1517,23 +1519,19 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 		if (!mfd->bl_updated) {
 			mfd->bl_updated = 1;
 			/*
-			 * 1.) If in AD calibration mode then frameworks would
-			 * not be allowed to update backlight hence post unblank
+			 * If in AD calibration mode then frameworks would not
+			 * be allowed to update backlight hence post unblank
 			 * the backlight would remain 0 (0 is set in blank).
 			 * Hence resetting back to calibration mode value
-			 *
-			 * 2.) If the panel is recovering from ESD attack, then
-			 * the frameworks might not set the backlight post
-			 * unblank, hence the backlight might remain zero. Set
-			 * the backlight in such cases to the unset_bl_level
-			 * value which will be stored prior to ESD recovery
-			 * during blank.
 			 */
 			if (IS_CALIB_MODE_BL(mfd))
 				mdss_fb_set_backlight(mfd, mfd->calib_mode_bl);
-			else if (!mfd->panel_info->mipi.post_init_delay ||
-				cur_panel_dead)
-				mdss_fb_set_backlight(mfd, mfd->unset_bl_level);
+			else if (!mfd->panel_info->mipi.post_init_delay || cur_panel_dead) {
+				if (esd_backlight) {
+					mdss_fb_set_backlight(mfd, mfd->unset_bl_level);
+					esd_backlight = 0;
+				}
+			}
 		}
 		mutex_unlock(&mfd->bl_lock);
 	}
@@ -3042,7 +3040,7 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 
 	if (dynamic_dsi_switch) {
 		pr_debug("Triggering dyn mode switch to %d\n", new_dsi_mode);
-		ret = mfd->mdp.mode_switch(mfd, new_dsi_mode);
+		ret = mfd->mdp.mode_switch (mfd, new_dsi_mode);
 		if (ret)
 			pr_err("DSI mode switch has failed");
 		else
@@ -3686,7 +3684,7 @@ static int mdss_fb_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 	if (pinfo->mipi.dms_mode == DYNAMIC_MODE_SWITCH_SUSPEND_RESUME) {
 		ret = mdss_fb_blanking_mode_switch(mfd, mode);
 	} else if (pinfo->mipi.dms_mode == DYNAMIC_MODE_SWITCH_IMMEDIATE) {
-		ret = mdss_fb_immediate_mode_switch(mfd, mode);
+	ret = mdss_fb_immediate_mode_switch(mfd, mode);
 	} else {
 		pr_warn("Panel does not support dynamic mode switch!\n");
 		ret = -EPERM;

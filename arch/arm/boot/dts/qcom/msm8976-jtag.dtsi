@@ -18,6 +18,13 @@
 		reg-names = "fuse-base";
 	};
 
+	sn_fuse: snfuse@0xA4128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0xA4128 0x4>,
+		<0xA6034 0x4>;
+		reg-names = "sn-base","fuse-state";
+	};
+
 	jtag_mm0: jtagmm@6840000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x6840000 0x1000>,

@@ -159,7 +159,7 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			qcom,mdss-fb-splash-logo-enabled;
+			/*qcom,mdss-fb-splash-logo-enabled;*/  /*disable fb splash logo*/
 			qcom,cont-splash-memory {
 				linux,contiguous-region = <&cont_splash_mem>;
 			};

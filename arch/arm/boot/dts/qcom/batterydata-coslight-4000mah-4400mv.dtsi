@@ -1,0 +1,49 @@
+
+qcom,ct865_coslight_4000mah_averaged_masterslave_oct2nd2015 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <0>;
+	qcom,battery-beta = <4150>;
+	qcom,battery-type = "ct865_coslight_4000mah_averaged_masterslave_oct2nd2015";
+	qcom,chg-rslow-comp-c1 = <2733744>;
+	qcom,chg-rslow-comp-c2 = <3185429>;
+	qcom,chg-rs-to-rslow = <896437>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,fastchg-current-ma = <2000>;
+	qcom,checksum = <0xA7BE>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.14";
+	qcom,fg-profile-data = [
+		DB 83 8C 7C
+		CD 80 94 76
+		68 83 49 75
+		F5 89 E2 94
+		11 82 0A 9A
+		B1 BC E5 C8
+		56 12 F0 83
+		CB 7C DC 80
+		7F 76 5A 83
+		F1 60 60 81
+		E3 8D 55 82
+		79 99 B6 BC
+		7C C9 54 0E
+		86 10 D1 59
+		14 70 F4 FD
+		EA 3C 35 46
+		56 42 00 00
+		0A 45 09 3B
+		8D 3E 00 00
+		00 00 00 00
+		00 00 00 00
+		00 70 2C 6A
+		1C 57 EA 88
+		70 75 FD 6A
+		25 65 C2 7B
+		1F 6F 29 68
+		E2 6D 66 A3
+		1E D7 61 12
+		65 A0 71 0C
+		28 00 FF 36
+		F0 11 30 03
+		00 00 00 0C
+	];
+};

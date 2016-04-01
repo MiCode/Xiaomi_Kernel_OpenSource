@@ -1,0 +1,4 @@
+config FINGERPRINT_GOODIX_GF318M
+	tristate "Goodix GFX18M fingerprint drvier support"
+	help
+	  Say Y here to enable goodix fingerprint driver support!

@@ -1,4 +1,5 @@
 /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -192,21 +193,24 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,iterm-ma = <100>;
-			qcom,float-voltage-mv = <4200>;
+			qcom,iterm-ma = <150>;
+			qcom,float-voltage-mv = <4400>;
 			qcom,resume-delta-mv = <200>;
 			qcom,chg-inhibit-fg;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
-			qcom,thermal-mitigation = <1500 700 600 0>;
-			qcom,parallel-usb-min-current-ma = <1400>;
-			qcom,parallel-usb-9v-min-current-ma = <900>;
-			qcom,parallel-allowed-lowering-ma = <500>;
+			qcom,thermal-mitigation = <2000 1500 700 600 0>;
+			qcom,fastchg-current-comp = <900>;
+			qcom,float-voltage-comp = <11>;
+			/*11 for 4.2V, 16 for 4.1V*/
+
+			qcom,force-aicl-rerun;
+			qcom,aicl-rerun-period-s = <180>;
 			qcom,autoadjust-vfloat;
-			qcom,enable-hvdcp-9v;
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,charge-unknown-battery;
-
+			qcom,board_ntc-vadc = <&pm8950_vadc>;
+			ntc_vdd-supply = <&pm8950_l16>;
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
 				interrupts =	<0x2 0x10 0x0>,
@@ -303,17 +307,25 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qcom,resume-soc = <95>;
+			qcom,resume-soc = <99>;
+			qcom,resume-soc-raw = <254>;
+			qcom,fg-delta-soc = <1>;
+			qcom,vbat-estimate-diff-mv = <100>;
 			status = "okay";
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
-			qcom,fg-iterm-ma = <150>;
-			qcom,fg-chg-iterm-ma = <100>;
+			qcom,fg-iterm-ma = <200>;
+			qcom,fg-chg-iterm-ma = <150>;
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
-			qcom,fg-cutoff-voltage-mv = <3500>;
-
+			qcom,fg-cutoff-voltage-mv = <3400>;
+			qcom,cold-bat-decidegc = <0>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,hot-bat-decidegc = <540>;
+			qcom,cold-hot-jeita-hysteresis = <0 10>;/*60->58 recharge*/
+			qcom,thermal-coefficients = [67 85 FC 4A E0 3D];
 			qcom,fg-soc@4000 {
 			status = "okay";
 				reg = <0x4000 0x100>;
@@ -405,14 +417,23 @@
 		#size-cells = <1>;
 
 		pmi8950_pwm: pwm@b000 {
-			status = "disabled";
-			compatible = "qcom,qpnp-pwm";
+		compatible = "qcom,qpnp-pwm";
 			reg = <0xb000 0x100>;
 			reg-names = "qpnp-lpg-channel-base";
-			qcom,channel-id = <0>;
-			qcom,supported-sizes = <6>, <9>;
-			#pwm-cells = <2>;
+			qcom,channel-id = <0>;	/*channel Id for the PWM*/
+			qcom,supported-sizes = <6>,<9>;
+		qcom,period = <4000000>;	/*PWM period time in microseconds */
+		qcom,mode-select = <0>;		/*Enable pwm signal by default*/
+		qcom,lpg-dtest-line = <1>;	/*DTEST be configured LPG output*/
+		qcom,dtest-output = <1>;	/*LPG output low*/
+		#pwm-cells = <2>;
+			status = "okay";
+
+		qcom,pwm {
+			qcom,duty = <2000000>;		/*PWM duty time in microseconds*/
+			label = "pwm";
 		};
+	};
 
 		labibb: qpnp-labibb-regulator {
 			status = "disabled";
@@ -586,7 +607,7 @@
 
 			pmi8950_switch: qcom,switch {
 				label = "switch";
-				qcom,led-name = "led:switch";
+				qcom,led-name = "flashlight";
 				qcom,default-led-trigger =
 						"switch_trigger";
 				qcom,max-current = <1000>;
@@ -594,6 +615,7 @@
 				qcom,id = <2>;
 				qcom,current = <625>;
 			};
+
 		};
 
 		pmi8950_haptic: qcom,haptic@c000 {

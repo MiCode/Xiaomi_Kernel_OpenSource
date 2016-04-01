@@ -697,6 +697,12 @@ config MSM_VSENS
 
 	  Say yes to support these devices.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	  Provide a interface for reading CPU serial number
+
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
