@@ -209,10 +209,13 @@ enum {
 	MDP_RGBX_1010102_UBWC,
 	MDP_Y_CBCR_H2V2_P010,
 	MDP_Y_CBCR_H2V2_TP10_UBWC,
+	MDP_CRYCBY_H2V1,  /* CrYCbY interleave */
 	MDP_IMGTYPE_LIMIT1 = MDP_IMGTYPE_END,
 	MDP_FB_FORMAT = MDP_IMGTYPE2_START,    /* framebuffer format */
 	MDP_IMGTYPE_LIMIT2 /* Non valid image type after this enum */
 };
+
+#define MDP_CRYCBY_H2V1 MDP_CRYCBY_H2V1
 
 enum {
 	PMEM_IMG,
