@@ -445,3 +445,5 @@
 		};
 	};
 };
+
+#include "msmcobalt-mdss-panels.dtsi"
