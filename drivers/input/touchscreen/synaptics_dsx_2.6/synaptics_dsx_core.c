@@ -652,8 +652,6 @@ static struct kobj_attribute virtual_key_map_attr = {
 #if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
 static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
 {
-	int ret = 0;
-
 	data->st_initialized = 0;
 	init_completion(&data->st_powerdown);
 	init_completion(&data->st_irq_processed);
@@ -661,24 +659,21 @@ static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
 	/* Get clocks */
 	data->core_clk = devm_clk_get(data->pdev->dev.parent, "core_clk");
 	if (IS_ERR(data->core_clk)) {
-		ret = PTR_ERR(data->core_clk);
-		data->core_clk = NULL;
 		dev_warn(data->pdev->dev.parent,
-			"%s: error on clk_get(core_clk): %d\n", __func__, ret);
-		return;
+			"%s: error on clk_get(core_clk): %ld\n", __func__,
+			PTR_ERR(data->core_clk));
+		data->core_clk = NULL;
 	}
 
 	data->iface_clk = devm_clk_get(data->pdev->dev.parent, "iface_clk");
 	if (IS_ERR(data->iface_clk)) {
-		ret = PTR_ERR(data->iface_clk);
-		data->iface_clk = NULL;
 		dev_warn(data->pdev->dev.parent,
-			"%s: error on clk_get(iface_clk): %d\n", __func__, ret);
-		return;
+			"%s: error on clk_get(iface_clk): %ld\n", __func__,
+			PTR_ERR(data->iface_clk));
+		data->iface_clk = NULL;
 	}
 
 	data->st_initialized = 1;
-	return;
 }
 
 static void synaptics_secure_touch_notify(struct synaptics_rmi4_data *rmi4_data)
