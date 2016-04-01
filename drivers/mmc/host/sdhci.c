@@ -2984,8 +2984,9 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 
 	/* CMD19 generates _only_ Buffer Read Ready interrupt */
 	if (intmask & SDHCI_INT_DATA_AVAIL) {
-		if (command == MMC_SEND_TUNING_BLOCK ||
-		    command == MMC_SEND_TUNING_BLOCK_HS200) {
+		if (!(host->quirks2 & SDHCI_QUIRK2_NON_STANDARD_TUNING) &&
+			(command == MMC_SEND_TUNING_BLOCK ||
+			command == MMC_SEND_TUNING_BLOCK_HS200)) {
 			host->tuning_done = 1;
 			wake_up(&host->buf_ready_int);
 			return;
@@ -3590,7 +3591,7 @@ static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
 	if (host->version >= SDHCI_SPEC_200) {
 		ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
 		ctrl &= ~SDHCI_CTRL_DMA_MASK;
-		if (host->flags & SDHCI_USE_ADMA_64BIT)
+		if (host->flags & SDHCI_USE_64_BIT_DMA)
 			ctrl |= SDHCI_CTRL_ADMA64;
 		else
 			ctrl |= SDHCI_CTRL_ADMA32;
