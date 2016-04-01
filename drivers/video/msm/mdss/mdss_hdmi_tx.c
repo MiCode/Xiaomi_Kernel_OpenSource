@@ -5009,6 +5009,8 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 			msm_dss_enable_clk(
 				hdmi_ctrl->pdata.power_data[i].clk_config,
 				hdmi_ctrl->pdata.power_data[i].num_clk, 1);
+
+			hdmi_ctrl->power_data_enable[i] = true;
 		}
 	}
 
