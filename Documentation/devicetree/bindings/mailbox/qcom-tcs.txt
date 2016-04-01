@@ -1,0 +1,160 @@
+TCS Mailbox:
+------------
+
+Trigger Command Set (TCS) is the mailbox mechanism for communicating with
+the hardened resource accelerators. Requests to the resources can be written
+to the mailbox registers and using a (addr, val) pair and triggered. Messages
+in the mailbox are then sent in sequence over an internal bus.
+
+The implementation of the TCS mailbox, follows the mailbox controller
+architecture [1]. The logical block (DRV) is a part of the h/w entity
+(Resource State Coordinator a.k.a RSC) that can handle a multiple sleep and
+active/wake resource request related functionality including the mailbox.
+Multiple such DRVs can exist in a SoC and can be written to from Linux. The
+structure of each DRV follows the same template with a few variations that are
+captured by the properties here.
+
+Each DRV could have 'm' TCS instances. Each TCS could have 'n' slots. Each
+slot has a header (u32), address (u32), data (u32), status (u32) and a
+read-response (u32). A TCS when triggered will send all the enabled commands
+of the 'n' commands in that slot in sequence.
+
+A TCS may be triggered from Linux or triggered by the F/W after all the CPUs
+have powered off to faciliate idle power saving. TCS could be classified as -
+
+	SLEEP,  /* Triggered by F/W and not by Linux */
+	WAKE,   /* Triggered by F/W, may be used by Linux */
+	ACTIVE, /* Triggered by Linux */
+	CONTROL /* Triggered by F/W */
+
+Requests can be made for the state of a resource, when the subsystem is active
+or idle. When all subsystems like Modem, GPU, CPU are idle, the resource state
+will be an aggregeate of the sleep votes from each of those subsystem. Drivers
+may request a sleep value for their shared resources in addition to the active
+mode requests.
+
+Control requests are instance specific requests that may or may not reach an
+accelerator. Only one platform device in Linux can request a control channel
+on a DRV.
+
+CONTROLLER:
+----------
+
+PROPERTIES:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: Should be "qcom,tcs-drv".
+
+- reg:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: the first element specifies the base address of the DRV,
+	            the second element specifies the size of the region.
+
+- #mbox-cells:
+	Usage: required
+	Value type: <u32>
+	Definition: the number of mail-box cells. Must be 1.
+
+- interrupts:
+	Usage: required
+	Value type: <prop-encoded-interrupt>
+	Definition: the interrupt that trips when a message complete/response
+	           is received for this DRV from the accelertors.
+
+- qcom,drv-id:
+	Usage: required
+	Value type: <u32>
+	Definition: the id of the DRV in the RSC block.
+
+- qcom, tcs-config:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: the tuple definining the configuration of TCS.
+	            Must have 2 cells which describe each TCS type.
+	            <type number_of_tcs>
+	- Cell #1 (TCS Type): Only the TCS types can be specified -
+		SLEEP_TCS
+		WAKE_TCS
+		ACTIVE_TCS
+		CONTROL_TCS
+	- Cell #2 (Number of TCS): <u32>
+
+EXAMPLE 1:
+
+For a TCS whose RSC base address is is 0x179C0000 and is at a DRV of 2, the
+register offsets for DRV2 start at 0D00, the register calculations are like
+this -
+First tuple: 0x179C0000 + 0x10000 * 2 = 0x179E0000
+Second tuple: 0x179E0000 + 0xD00  = 0x179E0D00
+
+	apps_rsc: mailbox@179e000 {
+		compatible = "qcom,tcs_drv";
+		reg = <0x179E0000 0x10000>, <0x179E0D00 0x3000>;
+		interrupts = <0 5 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <SLEEP_TCS   3>,
+				  <WAKE_TCS    3>,
+				  <ACTIVE_TCS  2>,
+				  <CONTROL_TCS 1>;
+	};
+
+EXAMPLE 2:
+
+For a TCS whose RSC base address is 0xAF20000 and is at DRV of 0, the register
+offsets for DRV0 start at 01C00, the register calculations are like this -
+First tuple: 0xAF20000
+Second tuple: 0xAF20000 + 0x1C00
+
+	disp_rsc: mailbox@af20000 {
+			status = "disabled";
+			compatible = "qcom,tcs-drv";
+			reg = <0xAF20000 0x10000>, <0xAF21C00 0x3000>;
+			interrupts = <0 129 0>;
+			#mbox-cells = <1>;
+			qcom,drv-id = <0>;
+			qcom,tcs-config = <SLEEP_TCS 1>,
+					<WAKE_TCS    1>,
+					<ACTIVE_TCS  0>,
+					<CONTROL_TCS 1>;
+		};
+
+
+CLIENT:
+-------
+
+A device needing to communicate with the accelerators should specify the
+common mailbox client properties described in [1]. mbox-names can be used to
+provide a string name optionally for driver to lookup by name.
+
+- mboxes:
+	Usage: required, if the device wants to communicate with the mailbox
+	Value type: <prop-encoded-array>
+	Definition: The tuple has an handle to the mailbox instance the client
+	            as the first argument, the second argument must be 0. This
+		    is one per MBOX controller addressed.
+
+EXAMPLE:
+
+	leaky_device@0 {
+		<...>;
+		mbox-names = <"leaky-channel">;
+		mboxes = <&tcs_box 0>;
+	};
+
+	leaky_device@1 {
+		<...>;
+		mbox-names = <"apps", "display">;
+		mboxes = <&tcs_box 0>, <&dsp_box 0>;
+	};
+
+	power_ctrl@0 {
+		<...>;
+		mbox-names = <"rpmh">;
+		mboxes = <&tcs_box 0>;
+	};
+
+[1]. Documentation/mailbox.txt
