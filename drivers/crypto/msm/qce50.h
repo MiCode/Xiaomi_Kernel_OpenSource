@@ -38,6 +38,9 @@
 #define QCE_MAX_NUM_DESC    128
 #define SPS_MAX_PKT_SIZE  (32 * 1024  - 64)
 
+/* default bam ipc log level */
+#define QCE_BAM_DEFAULT_IPC_LOGLVL 2
+
 /* State of consumer/producer Pipe */
 enum qce_pipe_st_enum {
 	QCE_PIPE_STATE_IDLE = 0,
