@@ -619,6 +619,7 @@ struct ipa_sys_context {
 	unsigned int len_rem;
 	unsigned int len_pad;
 	unsigned int len_partial;
+	bool drop_packet;
 	struct work_struct work;
 	void (*sps_callback)(struct sps_event_notify *notify);
 	enum sps_option sps_option;
