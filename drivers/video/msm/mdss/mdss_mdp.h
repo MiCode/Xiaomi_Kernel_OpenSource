@@ -1297,6 +1297,20 @@ static inline bool mdss_mdp_is_lineptr_supported(struct mdss_mdp_ctl *ctl)
 			&& (pinfo->te.tear_check_en)) ? true : false);
 }
 
+static inline bool mdss_mdp_is_map_needed(struct mdss_data_type *mdata,
+						struct mdss_mdp_img_data *data)
+{
+	u32 is_secure_ui = data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION;
+
+     /*
+      * For ULT Targets we need SMMU Map, to issue map call for secure Display.
+      */
+	if (is_secure_ui && !mdss_has_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP))
+		return false;
+
+	return true;
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
