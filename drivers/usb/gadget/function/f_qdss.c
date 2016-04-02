@@ -25,6 +25,7 @@
 #include "usb_gadget_xport.h"
 #include "u_data_ipa.h"
 #include "u_rmnet.h"
+#include "u_ether.h"
 
 static unsigned int nr_qdss_ports;
 static unsigned int no_data_bam_ports;
@@ -41,6 +42,7 @@ static struct qdss_ports {
 	struct f_qdss			*port;
 	struct gadget_ipa_port		ipa_port;
 	struct grmnet			bam_dmux_port;
+	struct gether			gether_port;
 } qdss_ports[NR_QDSS_PORTS];
 
 
@@ -355,9 +357,13 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_gadget *gadget = c->cdev->gadget;
 	struct f_qdss *qdss = func_to_qdss(f);
 	struct usb_ep *ep;
-	int iface;
+	int iface, ret = -ENOTSUPP;
+	struct eth_dev *edev;
+	enum transport_type dxport;
 
 	pr_debug("qdss_bind\n");
+
+	dxport = qdss_ports[qdss->port_num].data_xport;
 
 	if (!gadget_is_dualspeed(gadget) && !gadget_is_superspeed(gadget)) {
 		pr_err("qdss_bind: full-speed is not supported\n");
@@ -391,6 +397,14 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		goto fail;
 	}
 	qdss->port.data = ep;
+
+	/*
+	 * Populate same for u_ether(gether_connect()) which uses
+	 * gether_port struct
+	 */
+	if (dxport == USB_GADGET_XPORT_ETHER)
+		qdss_ports[qdss->port_num].gether_port.in_ep = ep;
+
 	ep->driver_data = qdss;
 
 	if (qdss->debug_inface_enabled) {
@@ -444,11 +458,23 @@ static int qdss_bind(struct usb_configuration *c, struct usb_function *f)
 		}
 	}
 
+	if (dxport == USB_GADGET_XPORT_ETHER) {
+		pr_debug("USB_GADGET_XPORT_ETHER\n");
+		edev = gether_setup_name(c->cdev->gadget, NULL, NULL, NULL,
+				QMULT_DEFAULT, "dpl_usb");
+		if (IS_ERR(edev)) {
+			pr_err("%s: gether_setup failed\n", __func__);
+			ret = PTR_ERR(edev);
+			goto fail;
+		}
+		qdss_ports[qdss->port_num].gether_port.ioport = edev;
+	}
+
 	return 0;
 fail:
 	clear_eps(f);
 	clear_desc(gadget, f);
-	return -ENOTSUPP;
+	return ret;
 }
 
 
@@ -456,6 +482,7 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_qdss  *qdss = func_to_qdss(f);
 	struct usb_gadget *gadget = c->cdev->gadget;
+	int i;
 
 	pr_debug("qdss_unbind\n");
 
@@ -463,11 +490,22 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	clear_eps(f);
 	clear_desc(gadget, f);
+
+	for (i = 0; i < nr_qdss_ports; i++) {
+		if (qdss_ports[i].data_xport == USB_GADGET_XPORT_ETHER) {
+			gether_cleanup(qdss_ports[i].gether_port.ioport);
+			qdss_ports[i].gether_port.ioport = NULL;
+		}
+	}
+
 }
 
 static void qdss_eps_disable(struct usb_function *f)
 {
 	struct f_qdss  *qdss = func_to_qdss(f);
+	enum transport_type dxport;
+
+	dxport = qdss_ports[qdss->port_num].data_xport;
 
 	pr_debug("qdss_eps_disable\n");
 
@@ -481,7 +519,14 @@ static void qdss_eps_disable(struct usb_function *f)
 		qdss->ctrl_out_enabled = 0;
 	}
 
-	if (qdss->data_enabled) {
+	/*
+	 * In case of data transport is uether, endpoint will be disabled
+	 * in gether_disconnect() too. This will lead to disabling of the
+	 * same endpoint twice and will print a warning message.
+	 * So for uether data transport disable endpoint only in
+	 * gether_disconnect()
+	 */
+	if (qdss->data_enabled && (dxport != USB_GADGET_XPORT_ETHER)) {
 		usb_ep_disable(qdss->port.data);
 		qdss->data_enabled = 0;
 	}
@@ -548,6 +593,10 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	case USB_GADGET_XPORT_HSIC:
 		pr_debug("usb_qdss_disconnect_work: HSIC transport\n");
 		ghsic_data_disconnect(&qdss->port, portno);
+		break;
+	case USB_GADGET_XPORT_ETHER:
+		pr_debug("usb_qdss_disconnect_work: ETHER transport\n");
+		gether_disconnect(&qdss_ports[portno].gether_port);
 		break;
 	case USB_GADGET_XPORT_NONE:
 		break;
@@ -661,6 +710,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	unsigned char port_num;
 	enum transport_type	dxport;
 	enum transport_type     ctrl_xport;
+	struct net_device *net;
 
 	qdss = container_of(work, struct f_qdss, connect_w);
 	dxport = qdss_ports[qdss->port_num].data_xport;
@@ -749,6 +799,15 @@ static void usb_qdss_connect_work(struct work_struct *work)
 			return;
 		}
 		break;
+	case USB_GADGET_XPORT_ETHER:
+		pr_debug("usb_qdss_connect_work: ETHER transport\n");
+		net = gether_connect(&qdss_ports[port_num].gether_port);
+		if (IS_ERR(net)) {
+			pr_err("%s: gether_connect failed: err:%ld\n", __func__,
+				PTR_ERR(net));
+			return;
+		}
+		break;
 	case USB_GADGET_XPORT_NONE:
 		break;
 	default:
@@ -790,6 +849,13 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			goto fail;
 		}
 
+		/*
+		 * In case of data transport is uether, endpoint will be enabled
+		 * in gether_connect() too. This will lead to enabling of the
+		 * same endpoint twice and will print a warning message.
+		 * So for uether data transport disable endpoint only in
+		 * gether_connect()
+		 */
 		if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA ||
 				dxport == USB_GADGET_XPORT_BAM_DMUX) {
 			qdss->usb_connected = 1;
@@ -797,9 +863,11 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			return 0;
 		}
 
-		ret = usb_ep_enable(qdss->port.data);
-		if (ret)
-			goto fail;
+		if (dxport != USB_GADGET_XPORT_ETHER) {
+			ret = usb_ep_enable(qdss->port.data);
+			if (ret)
+				goto fail;
+		}
 
 		qdss->port.data->driver_data = qdss;
 		qdss->data_enabled = 1;
@@ -847,7 +915,8 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		}
 	}
 	if (qdss->usb_connected && (ch->app_conn ||
-		(dxport == USB_GADGET_XPORT_HSIC))) {
+		(dxport == USB_GADGET_XPORT_HSIC) ||
+		(dxport == USB_GADGET_XPORT_ETHER))) {
 		queue_work(qdss->wq, &qdss->connect_w);
 	}
 	return 0;
@@ -867,6 +936,10 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 	struct usb_qdss_ch *ch;
 	unsigned long flags;
 	char *name;
+	enum transport_type dxport;
+	struct usb_function *f;
+
+	dxport = qdss_ports[portno].data_xport;
 
 	pr_debug("qdss_bind_config\n");
 	if (portno >= nr_qdss_ports) {
@@ -891,10 +964,14 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 		}
 	}
 
-	if (qdss_ports[portno].data_xport == USB_GADGET_XPORT_BAM2BAM)
+	if (qdss_ports[portno].data_xport == USB_GADGET_XPORT_BAM2BAM) {
 		name = kasprintf(GFP_ATOMIC, "qdss");
-	else
+	} else if (dxport == USB_GADGET_XPORT_ETHER) {
+		pr_debug("qdss_bind_config: USB_GADGET_XPORT_ETHER\n");
+		name = kasprintf(GFP_KERNEL, "qdss_dpl");
+	} else {
 		name = kasprintf(GFP_ATOMIC, "qdss%d", portno);
+	}
 
 	if (!name)
 		return -ENOMEM;
@@ -915,6 +992,7 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 		spin_unlock_irqrestore(&qdss_lock, flags);
 		qdss->wq = create_singlethread_workqueue(name);
 		if (!qdss->wq) {
+			kfree(name);
 			kfree(qdss);
 			return -ENOMEM;
 		}
@@ -938,6 +1016,17 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 	qdss->port.function.name = name;
 	qdss->port.function.fs_descriptors = qdss_hs_desc;
 	qdss->port.function.hs_descriptors = qdss_hs_desc;
+	/*
+	 * Populate the gether_port->usb_function which is needed by
+	 * u_ether transport when the interface is brought 'down' by calling
+	 * eth_stop()
+	 */
+	if (dxport == USB_GADGET_XPORT_ETHER) {
+		f = &qdss_ports[portno].gether_port.func;
+		f->fs_descriptors = qdss_hs_data_only_desc;
+		f->hs_descriptors = qdss_hs_data_only_desc;
+		f->ss_descriptors = qdss_ss_data_only_desc;
+	}
 	qdss->port.function.strings = qdss_strings;
 	qdss->port.function.bind = qdss_bind;
 	qdss->port.function.unbind = qdss_unbind;
@@ -952,6 +1041,7 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 	if (status) {
 		pr_err("qdss usb_add_function failed\n");
 		ch->priv_usb = NULL;
+		kfree(name);
 		kfree(qdss);
 	}
 
@@ -1237,6 +1327,9 @@ static int qdss_init_port(const char *ctrl_name, const char *data_name,
 		qdss_port->data_xport_num = no_bam_dmux_ports;
 		no_bam_dmux_ports++;
 		pr_debug("USB_GADGET_XPORT_BAM_DMUX %u\n", no_bam_dmux_ports);
+		break;
+	case USB_GADGET_XPORT_ETHER:
+		pr_debug("%s USB_GADGET_XPORT_ETHER\n", __func__);
 		break;
 	case USB_GADGET_XPORT_NONE:
 		break;
