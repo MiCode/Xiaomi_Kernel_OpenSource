@@ -19,14 +19,13 @@
 #include <linux/errno.h>
 #include <linux/uaccess.h>
 #include <linux/miscdevice.h>
-#include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/list.h>
 
 struct msmbus_coresight_adhoc_clock_drvdata {
-	int				 id;
+	const char			*csdev_name;
 	struct clk			*clk;
 	struct list_head		 list;
 };
@@ -46,7 +45,7 @@ static int msmbus_coresight_enable_adhoc(struct coresight_device *csdev)
 	long rate;
 
 	list_for_each_entry(clk, &drvdata->clocks, list) {
-		if (clk->id == csdev->id) {
+		if (!strcmp(dev_name(&csdev->dev), clk->csdev_name)) {
 			rate = clk_round_rate(clk->clk, 1L);
 			clk_set_rate(clk->clk, rate);
 			return clk_prepare_enable(clk->clk);
@@ -63,7 +62,7 @@ static void msmbus_coresight_disable_adhoc(struct coresight_device *csdev)
 		dev_get_drvdata(csdev->dev.parent);
 
 	list_for_each_entry(clk, &drvdata->clocks, list) {
-		if (clk->id == csdev->id)
+		if (!strcmp(dev_name(&csdev->dev), clk->csdev_name))
 			clk_disable_unprepare(clk->clk);
 	}
 }
@@ -96,7 +95,7 @@ void msmbus_coresight_remove_adhoc(struct platform_device *pdev)
 EXPORT_SYMBOL(msmbus_coresight_remove_adhoc);
 
 static int buspm_of_get_clk_adhoc(struct device_node *of_node,
-	struct msmbus_coresight_adhoc_drvdata *drvdata, int id)
+	struct msmbus_coresight_adhoc_drvdata *drvdata, const char *name)
 {
 	struct msmbus_coresight_adhoc_clock_drvdata *clk;
 	clk = devm_kzalloc(drvdata->dev, sizeof(*clk), GFP_KERNEL);
@@ -104,12 +103,12 @@ static int buspm_of_get_clk_adhoc(struct device_node *of_node,
 	if (!clk)
 		return -ENOMEM;
 
-	clk->id = id;
+	clk->csdev_name = name;
 
 	clk->clk = of_clk_get_by_name(of_node, "bus_clk");
 	if (IS_ERR(clk->clk)) {
-		pr_err("Error: unable to get clock for coresight node %d\n",
-			id);
+		pr_err("Error: unable to get clock for coresight node %s\n",
+			name);
 		goto err;
 	}
 
@@ -145,7 +144,7 @@ int msmbus_coresight_init_adhoc(struct platform_device *pdev,
 		drvdata->dev = &pdev->dev;
 		platform_set_drvdata(pdev, drvdata);
 	}
-	ret = buspm_of_get_clk_adhoc(of_node, drvdata, pdata->id);
+	ret = buspm_of_get_clk_adhoc(of_node, drvdata, pdata->name);
 	if (ret) {
 		pr_err("Error getting clocks\n");
 		ret = -ENXIO;
@@ -164,7 +163,6 @@ int msmbus_coresight_init_adhoc(struct platform_device *pdev,
 	desc->ops = &msmbus_coresight_cs_ops;
 	desc->pdata = pdata;
 	desc->dev = &pdev->dev;
-	desc->owner = THIS_MODULE;
 	drvdata->desc = desc;
 	drvdata->csdev = coresight_register(desc);
 	if (IS_ERR(drvdata->csdev)) {
