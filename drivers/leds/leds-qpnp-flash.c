@@ -1253,6 +1253,18 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		}
 	}
 
+	if (led->flash_node[led->num_leds - 1].id == FLASH_LED_SWITCH &&
+					flash_node->id != FLASH_LED_SWITCH) {
+		led->flash_node[led->num_leds - 1].trigger |=
+						(0x80 >> flash_node->id);
+		if (flash_node->id == FLASH_LED_0)
+			led->flash_node[led->num_leds - 1].prgm_current =
+						flash_node->prgm_current;
+		else if (flash_node->id == FLASH_LED_1)
+			led->flash_node[led->num_leds - 1].prgm_current2 =
+						flash_node->prgm_current;
+	}
+
 	if (flash_node->type == TORCH) {
 		rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_LED_UNLOCK_SECURE(led->base),
@@ -1662,6 +1674,10 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	return;
 
 turn_off:
+	if (led->flash_node[led->num_leds - 1].id == FLASH_LED_SWITCH &&
+					flash_node->id != FLASH_LED_SWITCH)
+		led->flash_node[led->num_leds - 1].trigger &=
+						~(0x80 >> flash_node->id);
 	if (flash_node->type == TORCH) {
 		/*
 		 * Checking LED fault status detects hardware open fault.
@@ -1773,22 +1789,6 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 
 			flash_node->prgm_current = value;
 			flash_node->flash_on = value ? true : false;
-			if (value)
-				led->flash_node[led->num_leds - 1].trigger |=
-						(0x80 >> flash_node->id);
-			else
-				led->flash_node[led->num_leds - 1].trigger &=
-						~(0x80 >> flash_node->id);
-
-			if (flash_node->id == FLASH_LED_0)
-				led->flash_node[led->num_leds - 1].
-				prgm_current = flash_node->prgm_current;
-			else if (flash_node->id == FLASH_LED_1)
-				led->flash_node[led->num_leds - 1].
-				prgm_current2 =
-				flash_node->prgm_current;
-
-			return;
 		} else if (flash_node->id == FLASH_LED_SWITCH) {
 			if (!value) {
 				flash_node->prgm_current = 0;

@@ -1856,6 +1856,12 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	 * frequency before enabling OSM. LUT index 0 is always sourced from
 	 * this clock.
 	 */
+	rc = clk_set_rate(&sys_apcsaux_clk_gcc.c, init_rate);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to set init rate on hmss_gpll0, rc=%d\n",
+			rc);
+		return rc;
+	}
 	clk_prepare_enable(&sys_apcsaux_clk_gcc.c);
 
 	/* Set 300MHz index */
@@ -1863,6 +1869,7 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set init rate on pwr cluster, rc=%d\n",
 			rc);
+		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
 		return rc;
 	}
 
@@ -1870,6 +1877,7 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set init rate on perf cluster, rc=%d\n",
 			rc);
+		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
 		return rc;
 	}
 

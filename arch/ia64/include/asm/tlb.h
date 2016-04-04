@@ -233,6 +233,11 @@ static inline void tlb_flush_mmu(struct mmu_gather *tlb)
 	ia64_tlb_flush_mmu(tlb, tlb->start_addr, tlb->end_addr);
 }
 
+static inline void tlb_free_pages_early(struct mmu_gather *tlb)
+{
+	tlb_flush_mmu(tlb);
+}
+
 static inline void tlb_remove_page(struct mmu_gather *tlb, struct page *page)
 {
 	if (!__tlb_remove_page(tlb, page))

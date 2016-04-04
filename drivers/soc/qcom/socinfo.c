@@ -549,8 +549,8 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* MSM8917 IDs */
 	[303] = {MSM_CPU_8917, "MSM8917"},
 	[307] = {MSM_CPU_8917, "APQ8017"},
-	[308] = {MSM_CPU_8917, "MSM8917"},
-	[309] = {MSM_CPU_8917, "MSM8917"},
+	[308] = {MSM_CPU_8917, "MSM8217"},
+	[309] = {MSM_CPU_8917, "MSM8617"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are

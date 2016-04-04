@@ -506,6 +506,8 @@ static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 static int pp_mfd_release_all(struct msm_fb_data_type *mfd);
 static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd);
 static int mdss_mdp_ad_ipc_reset(struct msm_fb_data_type *mfd);
+static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
+
 static u32 last_sts, last_state;
 
 static inline void mdss_mdp_pp_get_dcm_state(struct mdss_mdp_pipe *pipe,
@@ -527,6 +529,26 @@ inline int linear_map(int in, int *out, int in_max, int out_max)
 		*out = 1;
 	return 0;
 
+}
+
+/**
+ * __get_hist_pipe() - get a pipe only if histogram is supported on it
+ * @pnum: pipe number desired
+ *
+ * returns the pipe with id only if the pipe supports sspp histogram
+ */
+static inline struct mdss_mdp_pipe *__get_hist_pipe(int pnum)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	enum mdss_mdp_pipe_type ptype;
+
+	ptype = get_pipe_type_from_num(pnum);
+
+	/* only VIG pipes support histogram */
+	if (ptype != MDSS_MDP_PIPE_TYPE_VIG)
+		return NULL;
+
+	return mdss_mdp_pipe_get(mdata, BIT(pnum));
 }
 
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
@@ -1797,6 +1819,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 current_opmode, location;
 	u32 dcm_state = DCM_UNINIT;
+	struct mdss_mdp_pipe *pipe_list;
 
 	if (pipe == NULL)
 		return -EINVAL;
@@ -1820,53 +1843,19 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	case MDSS_MDP_PIPE_TYPE_VIG:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_VIG_BASE;
 		pipe_cnt = mdata->nvig_pipes;
+		pipe_list = mdata->vig_pipes;
 		location = SSPP_VIG;
-		switch (pipe->num) {
-		case MDSS_MDP_SSPP_VIG0:
-			pipe_num = 0;
-		break;
-		case MDSS_MDP_SSPP_VIG1:
-			pipe_num = 1;
-		break;
-		case MDSS_MDP_SSPP_VIG2:
-			pipe_num = 2;
-		break;
-		case MDSS_MDP_SSPP_VIG3:
-			pipe_num = 3;
-		break;
-		default:
-			pr_err("Invalid pipe num %d pipe type %d\n",
-			       pipe->num, pipe->type);
-			return -EINVAL;
-		}
 		break;
 	case MDSS_MDP_PIPE_TYPE_RGB:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_RGB_BASE;
 		pipe_cnt = mdata->nrgb_pipes;
+		pipe_list = mdata->rgb_pipes;
 		location = SSPP_RGB;
-		switch (pipe->num) {
-		case MDSS_MDP_SSPP_RGB0:
-			pipe_num = 0;
-		break;
-		case MDSS_MDP_SSPP_RGB1:
-			pipe_num = 1;
-		break;
-		case MDSS_MDP_SSPP_RGB2:
-			pipe_num = 2;
-		break;
-		case MDSS_MDP_SSPP_RGB3:
-			pipe_num = 3;
-		break;
-		default:
-			pr_err("Invalid pipe num %d pipe type %d\n",
-			       pipe->num, pipe->type);
-			return -EINVAL;
-		}
 		break;
 	case MDSS_MDP_PIPE_TYPE_DMA:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_DMA_BASE;
-		pipe_num = pipe->num - MDSS_MDP_SSPP_DMA0;
 		pipe_cnt = mdata->ndma_pipes;
+		pipe_list = mdata->dma_pipes;
 		location = SSPP_DMA;
 		break;
 	case MDSS_MDP_PIPE_TYPE_CURSOR:
@@ -1874,6 +1863,17 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		return 0;
 	default:
 		pr_err("Invalid pipe type %d\n", pipe->type);
+		return -EINVAL;
+	}
+
+	for (pipe_num = 0; pipe_num < pipe_cnt; pipe_num++) {
+		if (pipe == (pipe_list + pipe_num))
+			break;
+	}
+
+	if (pipe_num == pipe_cnt) {
+		pr_err("Invalid pipe num %d pipe type %d\n",
+				pipe->num, pipe->type);
 		return -EINVAL;
 	}
 
@@ -2027,11 +2027,12 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 			goto error;
 		}
 	} else if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG &&
+		(pp_driver_ops.is_sspp_hist_supp) &&
 		(pp_driver_ops.is_sspp_hist_supp())) {
-		pipe = mdss_mdp_pipe_get(mdata, BIT(PP_BLOCK(block)));
+		pipe = __get_hist_pipe(PP_BLOCK(block));
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_debug("pipe DNE (%d)\n",
-					(u32) BIT(PP_BLOCK(block)));
+					(u32) PP_BLOCK(block));
 			ret = -ENODEV;
 			goto error;
 		}
@@ -2770,7 +2771,6 @@ int mdss_mdp_pp_init(struct device *dev)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *vig;
 	struct pp_hist_col_info *hist;
-	void *ret_ptr = NULL;
 	u32 ctl_off = 0;
 
 	if (!mdata)
@@ -2778,7 +2778,7 @@ int mdss_mdp_pp_init(struct device *dev)
 
 
 	mdata->pp_reg_bus_clt = mdss_reg_bus_vote_client_create("pp\0");
-	if (IS_ERR_OR_NULL(mdata->pp_reg_bus_clt))
+	if (IS_ERR(mdata->pp_reg_bus_clt))
 		pr_err("bus client register failed\n");
 
 	mutex_lock(&mdss_pp_mutex);
@@ -2792,17 +2792,13 @@ int mdss_mdp_pp_init(struct device *dev)
 			if (mdss_mdp_pp_dt_parse(dev))
 				pr_info("No PP info in device tree\n");
 
-			ret_ptr = pp_get_driver_ops(&pp_driver_ops);
-			if (IS_ERR(ret_ptr)) {
+			ret = pp_get_driver_ops(&pp_driver_ops);
+			if (ret) {
 				pr_err("pp_get_driver_ops failed, ret=%d\n",
-						(int) PTR_ERR(ret_ptr));
-				ret = PTR_ERR(ret_ptr);
+						ret);
 				goto pp_exit;
-			} else {
-				mdss_pp_res->pp_data_res = ret_ptr;
-				pp_ops = pp_driver_ops.pp_ops;
 			}
-
+			pp_ops = pp_driver_ops.pp_ops;
 			hist = devm_kzalloc(dev,
 					sizeof(struct pp_hist_col_info) *
 					mdata->ndspp,
@@ -2970,6 +2966,9 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		return ret;
 	}
 
+	/* Don't update BL = 0 to AD */
+	if (bl_in == 0)
+		return 0;
 	mutex_lock(&ad->lock);
 	if (!mfd->ad_bl_level)
 		mfd->ad_bl_level = bl_in;
@@ -4643,16 +4642,9 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 		for (i = 0; i < MDSS_PP_ARG_NUM; i++) {
 			if (!PP_ARG(i, req->block))
 				continue;
-			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
+			pipe = __get_hist_pipe(i);
 			if (IS_ERR_OR_NULL(pipe))
 				continue;
-			if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
-				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
-				ret = -EINVAL;
-				pr_warn("Invalid Hist pipe (%d)\n", i);
-				mdss_mdp_pipe_unmap(pipe);
-				goto hist_stop_clk;
-			}
 			hist_info = &pipe->pp_res.hist;
 			ret = pp_hist_enable(hist_info, req, NULL);
 			intr_mask = 1 << hist_info->intr_shift;
@@ -4777,15 +4769,9 @@ int mdss_mdp_hist_stop(u32 block)
 		for (i = 0; i < MDSS_PP_ARG_NUM; i++) {
 			if (!PP_ARG(i, block))
 				continue;
-			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
+			pipe = __get_hist_pipe(i);
 			if (IS_ERR_OR_NULL(pipe)) {
 				pr_warn("Invalid Hist pipe (%d)\n", i);
-				continue;
-			} else if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
-				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
-				mdss_mdp_pipe_unmap(pipe);
-				pr_warn("Invalid Hist pipe (%d) pipe->num (%d)\n",
-					i, pipe->num);
 				continue;
 			}
 			hist_info = &pipe->pp_res.hist;
@@ -5139,7 +5125,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			}
 		}
 
-		pipe = mdss_mdp_pipe_get(mdata, BIT(pipe_num));
+		pipe = __get_hist_pipe(pipe_num);
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_warn("Invalid starting hist pipe, %d\n", pipe_num);
 			ret = -ENODEV;
@@ -5151,13 +5137,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			if (!PP_ARG(i, hist->block))
 				continue;
 			pipe_cnt++;
-			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
+			pipe = __get_hist_pipe(i);
 			if (IS_ERR_OR_NULL(pipe)) {
-				pr_warn("Invalid Hist pipe (%d)\n", i);
-				continue;
-			} else if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
-				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
-				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
 			}
@@ -5168,13 +5149,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			if (!PP_ARG(i, hist->block))
 				continue;
 			pipe_cnt++;
-			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
+			pipe = __get_hist_pipe(i);
 			if (IS_ERR_OR_NULL(pipe)) {
-				pr_warn("Invalid Hist pipe (%d)\n", i);
-				continue;
-			} else if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
-				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
-				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
 			}
@@ -5194,13 +5170,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			if (!PP_ARG(i, hist->block))
 				continue;
 			pipe_cnt++;
-			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
+			pipe = __get_hist_pipe(i);
 			if (IS_ERR_OR_NULL(pipe)) {
-				pr_warn("Invalid Hist pipe (%d)\n", i);
-				continue;
-			} else if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
-				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
-				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
 			}
@@ -5230,7 +5201,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			for (i = pipe_num; i < MDSS_PP_ARG_NUM; i++) {
 				if (!PP_ARG(i, hist->block))
 					continue;
-				pipe = mdss_mdp_pipe_get(mdata, BIT(i));
+				pipe = __get_hist_pipe(i);
 				if (IS_ERR_OR_NULL(pipe)) {
 					pr_warn("Invalid Hist pipe (%d)\n", i);
 					continue;
@@ -5709,6 +5680,8 @@ static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
 		writel_relaxed(ad->ad_data, base + MDSS_MDP_REG_AD_AL);
 		break;
 	case MDSS_AD_MODE_AUTO_STR:
+		pr_debug("bl_data = %d, ad_data = %d\n", ad->bl_data,
+				ad->ad_data);
 		ad->last_ad_data = ad->ad_data;
 		ad->last_ad_data_valid = true;
 		writel_relaxed(ad->bl_data, base + MDSS_MDP_REG_AD_BL);
@@ -5727,6 +5700,8 @@ static void pp_ad_input_write(struct mdss_mdp_ad *ad_hw,
 			ad->last_ad_data = ad->ad_data;
 			ad->last_ad_data_valid = true;
 		}
+		pr_debug("bl_data = %d, last_ad_data = %d, last_str = %d\n",
+				ad->bl_data, ad->last_ad_data, ad->last_str);
 		writel_relaxed(ad->bl_data, base + MDSS_MDP_REG_AD_BL);
 		writel_relaxed(ad->last_ad_data, base + MDSS_MDP_REG_AD_AL);
 		writel_relaxed(ad->last_str, base + MDSS_MDP_REG_AD_STR_MAN);
@@ -6320,9 +6295,9 @@ static int pp_ad_linearize_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out,
 	}
 
 	pr_debug("bl_in = %d, inv = %d\n", bl, inv);
-	if (inv == MDP_PP_AD_BL_LINEAR_INV) {
+	if (inv == MDP_PP_AD_BL_LINEAR) {
 		bl_lut = ad->bl_lin;
-	} else if (inv == MDP_PP_AD_BL_LINEAR) {
+	} else if (inv == MDP_PP_AD_BL_LINEAR_INV) {
 		bl_lut = ad->bl_lin_inv;
 	} else {
 		pr_err("invalid inv param: inv = %d\n", inv);
@@ -7296,4 +7271,44 @@ static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 	}
 
 	return 0;
+}
+
+static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int ret = 0;
+	void *pp_cfg = NULL;
+
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_107:
+	case MDSS_MDP_HW_REV_107_1:
+	case MDSS_MDP_HW_REV_107_2:
+	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_115:
+	case MDSS_MDP_HW_REV_116:
+		pp_cfg = pp_get_driver_ops_v1_7(ops);
+		if (IS_ERR_OR_NULL(pp_cfg))
+			ret = -EINVAL;
+		else
+			mdss_pp_res->pp_data_v1_7 = pp_cfg;
+		break;
+	case MDSS_MDP_HW_REV_300:
+	case MDSS_MDP_HW_REV_301:
+		pp_cfg = pp_get_driver_ops_v3(ops);
+		if (IS_ERR_OR_NULL(pp_cfg)) {
+			ret = -EINVAL;
+		} else {
+			mdss_pp_res->pp_data_v1_7 = pp_cfg;
+			/* Currently all caching data is used from v17 for V3
+			 * hence setting the pointer to NULL. Will be used if we
+			 * have to add any caching specific to V3.
+			 */
+			mdss_pp_res->pp_data_v3 = NULL;
+		}
+		break;
+	default:
+		memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
+		break;
+	}
+	return ret;
 }

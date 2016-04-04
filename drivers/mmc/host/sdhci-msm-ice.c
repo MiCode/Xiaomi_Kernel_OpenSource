@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,7 +102,7 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int err = 0;
 
-	if (msm_host->ice.vops->config) {
+	if (msm_host->ice.vops->init) {
 		err = msm_host->ice.vops->init(msm_host->ice.pdev,
 					msm_host,
 					sdhci_msm_ice_error_cb);
@@ -148,9 +148,10 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	req = mrq->req;
 	if (req) {
 		lba = req->__sector;
-		if (msm_host->ice.vops->config) {
-			err = msm_host->ice.vops->config(msm_host->ice.pdev,
-							req, &ice_set);
+		if (msm_host->ice.vops->config_start) {
+			err = msm_host->ice.vops->config_start(
+							msm_host->ice.pdev,
+							req, &ice_set, false);
 			if (err) {
 				pr_err("%s: ice config failed %d\n",
 						mmc_hostname(host->mmc), err);

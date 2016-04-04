@@ -11,7 +11,9 @@
  */
 
 #include "dsi-panel-sim-video.dtsi"
+#include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
+#include "dsi-panel-sim-dualmipi-cmd.dtsi"
 #include "dsi-panel-truly-1080p-video.dtsi"
 #include "dsi-panel-truly-1080p-cmd.dtsi"
 #include "dsi-adv7533-1080p.dtsi"

@@ -55,6 +55,7 @@
 #define HDMI_300MHZ_BIT_CLK_HZ                   300000000
 #define HDMI_282MHZ_BIT_CLK_HZ                   282000000
 #define HDMI_250MHZ_BIT_CLK_HZ                   250000000
+#define HDMI_KHZ_TO_HZ                           1000
 
 /* PLL REGISTERS */
 #define QSERDES_COM_ATB_SEL1                     (0x000)
@@ -1413,7 +1414,7 @@ static int hdmi_8996_v3_calculate(u32 pix_clk,
 	cfg->com_lock_cmp1_mode0 = (pll_cmp & 0xFF);
 	cfg->com_lock_cmp2_mode0 = ((pll_cmp & 0xFF00) >> 8);
 	cfg->com_lock_cmp3_mode0 = ((pll_cmp & 0x30000) >> 16);
-	cfg->com_lock_cmp_en = 0x0;
+	cfg->com_lock_cmp_en = 0x04;
 	cfg->com_core_clk_en = 0x2C;
 	cfg->com_coreclk_div = HDMI_CORECLK_DIV;
 	cfg->phy_mode = (bclk > HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD) ? 0x10 : 0x0;
@@ -2207,14 +2208,82 @@ static int hdmi_8996_v3_1p8_vco_enable(struct clk *c)
 	return hdmi_8996_vco_enable(c, HDMI_VERSION_8996_V3_1_8);
 }
 
+static int hdmi_8996_vco_get_lock_range(struct clk *c, unsigned long pixel_clk)
+{
+	u32 rng = 64, cmp_cnt = 1024;
+	u32 coreclk_div = 5, clks_pll_divsel = 2;
+	u32 vco_freq, vco_ratio, ppm_range;
+	u64 bclk;
+	struct hdmi_8996_v3_post_divider pd;
+
+	bclk = ((u64)pixel_clk) * HDMI_BIT_CLK_TO_PIX_CLK_RATIO;
+
+	DEV_DBG("%s: rate=%ld\n", __func__, pixel_clk);
+
+	if (hdmi_8996_v3_get_post_div(&pd, bclk) ||
+		pd.vco_ratio <= 0 || pd.vco_freq <= 0) {
+		DEV_ERR("%s: couldn't get post div\n", __func__);
+		return -EINVAL;
+	}
+
+	do_div(pd.vco_freq, HDMI_KHZ_TO_HZ * HDMI_KHZ_TO_HZ);
+
+	vco_freq  = (u32) pd.vco_freq;
+	vco_ratio = (u32) pd.vco_ratio;
+
+	DEV_DBG("%s: freq %d, ratio %d\n", __func__,
+		vco_freq, vco_ratio);
+
+	ppm_range = (rng * HDMI_REF_CLOCK) / cmp_cnt;
+	ppm_range /= vco_freq / vco_ratio;
+	ppm_range *= coreclk_div * clks_pll_divsel;
+
+	DEV_DBG("%s: ppm range: %d\n", __func__, ppm_range);
+
+	return ppm_range;
+}
+
+static int hdmi_8996_vco_rate_atomic_update(struct clk *c,
+	unsigned long rate, u32 ver)
+{
+	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
+	struct mdss_pll_resources *io = vco->priv;
+	void __iomem *pll;
+	struct hdmi_8996_phy_pll_reg_cfg cfg = {0};
+	int rc = 0;
+
+	rc = hdmi_8996_calculate(rate, &cfg, ver);
+	if (rc) {
+		DEV_ERR("%s: PLL calculation failed\n", __func__);
+		goto end;
+	}
+
+	pll = io->pll_base;
+
+	MDSS_PLL_REG_W(pll, QSERDES_COM_DEC_START_MODE0,
+		       cfg.com_dec_start_mode0);
+	MDSS_PLL_REG_W(pll, QSERDES_COM_DIV_FRAC_START1_MODE0,
+		       cfg.com_div_frac_start1_mode0);
+	MDSS_PLL_REG_W(pll, QSERDES_COM_DIV_FRAC_START2_MODE0,
+		       cfg.com_div_frac_start2_mode0);
+	MDSS_PLL_REG_W(pll, QSERDES_COM_DIV_FRAC_START3_MODE0,
+		       cfg.com_div_frac_start3_mode0);
+
+	MDSS_PLL_REG_W(pll, QSERDES_COM_FREQ_UPDATE, 0x01);
+	MDSS_PLL_REG_W(pll, QSERDES_COM_FREQ_UPDATE, 0x00);
+
+	DEV_DBG("%s: updated to rate %ld\n", __func__, rate);
+end:
+	return rc;
+}
+
 static int hdmi_8996_vco_set_rate(struct clk *c, unsigned long rate, u32 ver)
 {
 	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
-	void __iomem		*pll_base;
-	void __iomem		*phy_base;
 	unsigned int set_power_dwn = 0;
-	int rc;
+	bool atomic_update = false;
+	int rc, pll_lock_range;
 
 	rc = mdss_pll_resource_enable(io, true);
 	if (rc) {
@@ -2222,17 +2291,36 @@ static int hdmi_8996_vco_set_rate(struct clk *c, unsigned long rate, u32 ver)
 		return rc;
 	}
 
-	if (io->pll_on)
+	DEV_DBG("%s: rate %ld\n", __func__, rate);
+
+	if (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_C_READY_STATUS) & BIT(0) &&
+		MDSS_PLL_REG_R(io->phy_base, HDMI_PHY_STATUS) & BIT(0)) {
+		pll_lock_range = hdmi_8996_vco_get_lock_range(c, vco->rate);
+
+		if (pll_lock_range > 0 && vco->rate) {
+			u32 range_limit;
+
+			range_limit  = vco->rate *
+				(pll_lock_range / HDMI_KHZ_TO_HZ);
+			range_limit /= HDMI_KHZ_TO_HZ;
+
+			DEV_DBG("%s: range limit %d\n", __func__, range_limit);
+
+			if (abs(rate - vco->rate) < range_limit)
+				atomic_update = true;
+		}
+	}
+
+	if (io->pll_on && !atomic_update)
 		set_power_dwn = 1;
 
-	pll_base = io->pll_base;
-	phy_base = io->phy_base;
-
-	DEV_DBG("HDMI PIXEL CLK rate=%ld\n", rate);
-
-	rc = hdmi_8996_phy_pll_set_clk_rate(c, rate, ver);
-	if (rc)
-		DEV_ERR("%s: Failed to set clk rate\n", __func__);
+	if (atomic_update) {
+		hdmi_8996_vco_rate_atomic_update(c, rate, ver);
+	} else {
+		rc = hdmi_8996_phy_pll_set_clk_rate(c, rate, ver);
+		if (rc)
+			DEV_ERR("%s: Failed to set clk rate\n", __func__);
+	}
 
 	mdss_pll_resource_enable(io, false);
 

@@ -96,6 +96,18 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&int_codec {
+	status = "disabled";
+};
+
+&pm8953_diangu_dig {
+	status = "disabled";
+};
+
+&pm8953_diangu_analog {
+	status = "disabled";
+};
+
 &ext_codec {
 	status = "ok";
 	qcom,model = "msm8953-sku3-tasha-snd-card";
@@ -107,8 +119,8 @@
 		"MIC BIAS1", "Digital Mic0",
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Headset Mic",
-		"DMIC1", "MIC BIAS1",
-		"MIC BIAS1", "Digital Mic1",
+		"DMIC2", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic2",
 		"MIC BIAS1", "MICBIAS_REGULATOR",
 		"MIC BIAS2", "MICBIAS_REGULATOR",
 		"MIC BIAS3", "MICBIAS_REGULATOR",

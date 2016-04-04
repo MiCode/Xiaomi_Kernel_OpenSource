@@ -58,6 +58,25 @@ config PANIC_ON_GLADIATOR_ERROR
 
 	  If unsure, say N.
 
+config MSM_GLADIATOR_ERP_V2
+	tristate "GLADIATOR coherency interconnect error reporting driver v2"
+	help
+	  Support dumping debug information for the GLADIATOR
+	  cache interconnect in the error interrupt handler.
+	  Meant to be used for debug scenarios only.
+
+	  If unsure, say N.
+
+config PANIC_ON_GLADIATOR_ERROR_V2
+	depends on MSM_GLADIATOR_ERP_V2
+	bool "Panic on GLADIATOR error report v2"
+	help
+	  Panic upon detection of an Gladiator coherency interconnect error
+	  in order to support dumping debug information.
+	  Meant to be used for debug scenarios only.
+
+	  If unsure, say N.
+
 config MSM_QDSP6_APRV3
 	bool "Audio QDSP6 APRv3 support"
 	depends on MSM_SMD

@@ -19,7 +19,6 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/cpu.h>
-#include <linux/cpu_pm.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/debugfs.h>
@@ -40,106 +39,26 @@
 
 #include "clock.h"
 
-#define APCS_PLL_MODE			0x0
-#define APCS_PLL_L_VAL			0x8
-#define APCS_PLL_ALPHA_VAL		0x10
-#define APCS_PLL_USER_CTL		0x18
-#define APCS_PLL_CONFIG_CTL_LO		0x20
-#define APCS_PLL_CONFIG_CTL_HI		0x24
-#define APCS_PLL_STATUS			0x28
-#define APCS_PLL_TEST_CTL_LO		0x30
-#define APCS_PLL_TEST_CTL_HI		0x34
+#define APCS_PLL_MODE		0x0
+#define APCS_PLL_L_VAL		0x8
+#define APCS_PLL_ALPHA_VAL	0x10
+#define APCS_PLL_USER_CTL	0x18
+#define APCS_PLL_CONFIG_CTL_LO	0x20
+#define APCS_PLL_CONFIG_CTL_HI	0x24
+#define APCS_PLL_STATUS		0x28
+#define APCS_PLL_TEST_CTL_LO	0x30
+#define APCS_PLL_TEST_CTL_HI	0x34
 
-#define FREQ_BOOST_MODE_EN		0x200
-#define FREQ_BOOST_FSM_CTRL		0x204
-#define FREQ_PLL_CLK_SRC		0x208
-#define FREQ_BOOST_RATIO_REGS_CORE0	0x20C
-#define FREQ_BOOST_SAFE_PLL_L_VAL	0x21C
-#define FREQ_BOOST_TIMER1_CNT_VAL	0x224
-#define FREQ_BOOST_TIMER2_CNT_VAL	0x228
-#define FREQ_BOOST_TIMER3_CNT_VAL	0x22C
-#define FREQ_BOOST_TIMER4_CNT_VAL	0x230
-#define FREQ_BOOST_STATUS_REGISTER	0x234
-#define HW_MODE_CTRL			0x300
-#define CORE_COUNT_THRESHOLD		0x304
-#define HYST_TIMEOUT			0x308
-#define HYST_TIMER_CONFIG		0x30C
-#define PERF_BOOST_L_VALUE		0x310
-#define VMIN_STATUS_REGISTER		0x314
-#define PERF_BOOST_SH_STATUS_REG	0x31C
-#define PERF_BOOST_DEEP_STATUS_REG	0x320
-
-#define APCS0_CPR_CORE_ADJ_MODE_REG	0x0b018798
-#define APCS0_CPR_MARGIN_ADJ_CTL_REG	0x0b0187F8
-#define GLB_DIAG			0x0b11101c
-
-#define VMIN_FEATURE_EN_BIT		BIT(0)
-#define PERF_BOOST_FEATURE_EN_BIT	BIT(1)
-#define SW_DCVS_EN_BIT			BIT(6)
-#define CPR_MODE_CHANGE_BIT		BIT(0)
-#define CPR_MODE_CHANGE_READY_BIT	BIT(31)
-
-#define CC_UNIFIED_UPPER_LIMIT_MSB	15
-#define CC_UNIFIED_UPPER_LIMIT_LSB	12
-#define CC_UNIFIED_THRESHOLD_MSB	11
-#define CC_UNIFIED_THRESHOLD_LSB	 8
-#define CC_SPLIT_UPPER_LIMIT_MSB	 7
-#define CC_SPLIT_UPPER_LIMIT_LSB	 4
-#define CC_SPLIT_THRESHOLD_MSB		 3
-#define CC_SPLIT_THRESHOLD_LSB		 0
-
-#define UNIFIED_CPR_MUX_SEL_MSB		 9
-#define UNIFIED_CPR_MUX_SEL_LSB		 8
-
-#define CPR_MARGIN_CORE_ADJ_EN		 1
-#define CPR_MARGIN_TEMP_ADJ_EN		 2
-
-#define BOTH_FSM			 2
-#define PLL_CLK_SRC			 1
-
-#define SPLIT_UPL			 4
-#define SPLIT_THRESHOLD			 3
-
-#define MAX_L_VAL			156
-#define MAX_SAFE_L_VAL			104
-#define TIMER3_DELAY_VAL		0x4
-#define TIMER3_E3_DELAY_VAL		0x1809
-#define CCI_AFFINITY_LEVEL		2
-
-#define UPDATE_CHECK_MAX_LOOPS	5000
-#define MAX_DEBUG_BUF_LEN	500
+#define UPDATE_CHECK_MAX_LOOPS 5000
 #define CCI_RATE(rate)		(div_u64((rate * 10ULL), 25))
 #define PLL_MODE(x)		(*(x)->base + (unsigned long) (x)->mode_reg)
-#define VALUE(val, msb, lsb)	((val & BM(msb, lsb)) >> lsb)
 
-#define B_VAL(msb, lsb, val, reg)     { \
-	reg &= ~BM(msb, lsb); \
-	reg |= (((val) << lsb) & BM(msb, lsb)); \
-}
-
-#define HZ_TO_LVAL(val, fmax, src_rate) { \
-	val = val * 1000000; \
-	val = val + fmax; \
-	val = val / src_rate; \
-}
-
-static DEFINE_MUTEX(debug_buf_mutex);
-static char debug_buf[MAX_DEBUG_BUF_LEN];
-
+#define GLB_DIAG		0x0b11101c
 
 enum {
 	APCS_C0_PLL_BASE,
-	APCS_C1_PLL_BASE,
 	APCS0_DBG_BASE,
-	APCS0_CPR_CORE_BASE,
-	APCS0_CPR_MARGIN_BASE,
 	N_BASES,
-};
-
-enum vmin_boost_mode {
-	VMIN,
-	PBOOST,
-	VMIN_BOOST_NONE,
 };
 
 static void __iomem *virt_bases[N_BASES];
@@ -289,45 +208,20 @@ static struct mux_div_clk ccissmux = {
 	),
 };
 
-struct core_count_thresh {
-	u8 both_thres;
-	u8 split_upl;
-	u8 split_thres;
-	u8 unified_upl;
-	u8 unified_thres;
-};
-
-struct apcs_pll_ctrl {
-	int *boost_safe_l_val;
-	u32 timer3_cnt_val;
-	u32 hw_mode_ctrl;
-	u32 pll_clk_src;
-
-	u32 pboost_l_val;
-
-	/* Boot time enable flags for modes */
-	bool vmin_enable;
-	bool perfb_enable;
-
-	struct core_count_thresh vmin_cc;
-	struct core_count_thresh pb_cc;
-};
-
 struct cpu_clk_8953 {
 	u32 cpu_reg_mask;
 	cpumask_t cpumask;
 	bool hw_low_power_ctrl;
-	bool set_rate_done;
-	enum vmin_boost_mode curr_mode;
-	s32 cpu_latency_no_l2_pc_us;
 	struct pm_qos_request req;
 	struct clk c;
-	struct apcs_pll_ctrl ctrl;
+	bool set_rate_done;
+	s32 cpu_latency_no_l2_pc_us;
 };
 
 static struct cpu_clk_8953 a53_pwr_clk;
 static struct cpu_clk_8953 a53_perf_clk;
 static struct cpu_clk_8953 cci_clk;
+static void do_nothing(void *unused) { }
 
 static inline struct cpu_clk_8953 *to_cpu_clk_8953(struct clk *c)
 {
@@ -345,188 +239,11 @@ static long cpu_clk_8953_round_rate(struct clk *c, unsigned long rate)
 	return clk_round_rate(c->parent, rate);
 }
 
-static int cpr_mode_check(bool enable)
+static int cpu_clk_8953_set_rate(struct clk *c, unsigned long rate)
 {
-	u32 regval, rval_core, count;
-
-	if (!virt_bases[APCS0_CPR_MARGIN_BASE] ||
-			!virt_bases[APCS0_CPR_CORE_BASE])
-		return -EINVAL;
-
-	regval = readl_relaxed(virt_bases[APCS0_CPR_CORE_BASE]);
-
-	/* Enable == 0 clear cpr mode bit */
-	if (!enable) {
-		if (regval) {
-			regval &= ~CPR_MODE_CHANGE_BIT;
-			writel_relaxed(regval, virt_bases[APCS0_CPR_CORE_BASE]);
-		}
-		return 0;
-	}
-
-	rval_core = readl_relaxed(virt_bases[APCS0_CPR_MARGIN_BASE]);
-	rval_core &= BM(CPR_MARGIN_TEMP_ADJ_EN, CPR_MARGIN_CORE_ADJ_EN);
-	if (!rval_core) {
-		pr_debug("Check the TEMP_ADJ_EN & CORE_ADJ_EN bits %d!!!\n",
-							rval_core);
-		return -EINVAL;
-	}
-
-	/* Enable == 1 set cpr mode bit */
-	regval |= CPR_MODE_CHANGE_BIT;
-	writel_relaxed(regval, virt_bases[APCS0_CPR_CORE_BASE]);
-
-	for (count = UPDATE_CHECK_MAX_LOOPS; count > 0; count--) {
-		regval = readl_relaxed(virt_bases[APCS0_CPR_CORE_BASE]);
-		regval &= CPR_MODE_CHANGE_READY_BIT;
-		if (regval) {
-			pr_debug("CPR Mode Ready 0x%x\n",
-			readl_relaxed(virt_bases[APCS0_CPR_CORE_BASE]));
-			break;
-		}
-		udelay(1);
-	}
-
-	BUG_ON(count == 0);
-
-	return 0;
-}
-
-static void sw_dcvs_enable(void)
-{
-	u32 regval;
-
-	regval = readl_relaxed(virt_bases[APCS_C0_PLL_BASE] + HW_MODE_CTRL);
-	regval &= ~SW_DCVS_EN_BIT;
-	writel_relaxed(regval, virt_bases[APCS_C0_PLL_BASE] + HW_MODE_CTRL);
-
-	/* Make sure the registers are update before enable */
-	mb();
-}
-
-static void sw_dcvs_disable(void)
-{
-	u32 regval;
-
-	regval = readl_relaxed(virt_bases[APCS_C0_PLL_BASE] + HW_MODE_CTRL);
-	regval |= SW_DCVS_EN_BIT;
-	writel_relaxed(regval, virt_bases[APCS_C0_PLL_BASE] + HW_MODE_CTRL);
-
-	/* Make sure the registers are update before enable */
-	mb();
-}
-
-static int update_mode(bool enable, enum vmin_boost_mode boost_mode)
-{
-	u32 regval_c0, regval_c1;
-
-	regval_c0 = readl_relaxed(virt_bases[APCS_C0_PLL_BASE] + HW_MODE_CTRL);
-	regval_c1 = readl_relaxed(virt_bases[APCS_C1_PLL_BASE] + HW_MODE_CTRL);
-
-	switch (boost_mode) {
-	case VMIN:
-		if (enable) {
-			regval_c0 |= VMIN_FEATURE_EN_BIT;
-			regval_c1 |= VMIN_FEATURE_EN_BIT;
-		} else {
-			regval_c0 &= ~VMIN_FEATURE_EN_BIT;
-			regval_c1 &= ~VMIN_FEATURE_EN_BIT;
-		}
-		break;
-	case PBOOST:
-		if (enable) {
-			regval_c0 |= PERF_BOOST_FEATURE_EN_BIT;
-			regval_c1 |= PERF_BOOST_FEATURE_EN_BIT;
-		} else {
-			regval_c0 &= ~PERF_BOOST_FEATURE_EN_BIT;
-			regval_c1 &= ~PERF_BOOST_FEATURE_EN_BIT;
-		}
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	writel_relaxed(regval_c0, virt_bases[APCS_C0_PLL_BASE] + HW_MODE_CTRL);
-	writel_relaxed(regval_c1, virt_bases[APCS_C1_PLL_BASE] + HW_MODE_CTRL);
-
-	/* Make sure the registers are updated */
-	mb();
-
-	return 0;
-}
-
-static int fsm_hardware_init(struct cpu_clk_8953 *cpuclk,
-	struct core_count_thresh mode_cc, u32 l_val,
-	enum vmin_boost_mode boost_mode)
-{
-	int regval = 0, i = 0;
-	void __iomem *base;
-
-	switch (boost_mode) {
-	case VMIN:
-		for (i = 0; i < APCS0_DBG_BASE; i++) {
-			base = virt_bases[i];
-			writel_relaxed(l_val,
-					base + FREQ_BOOST_SAFE_PLL_L_VAL);
-		}
-		break;
-	case PBOOST:
-		for (i = 0; i < APCS0_DBG_BASE; i++) {
-			base = virt_bases[i];
-			writel_relaxed(l_val,
-					base + FREQ_BOOST_SAFE_PLL_L_VAL);
-			writel_relaxed(cpuclk->ctrl.pboost_l_val,
-					base + PERF_BOOST_L_VALUE);
-		}
-		break;
-	default:
-		return -EINVAL;
-	};
-
-	/* Make sure the registers are updated */
-	mb();
-
-	/* configure the core count for C0 & C1 */
-	for (i = 0; i < APCS0_DBG_BASE; i++) {
-		base = virt_bases[i];
-
-		regval = readl_relaxed(base + CORE_COUNT_THRESHOLD);
-		B_VAL(CC_UNIFIED_UPPER_LIMIT_MSB, CC_UNIFIED_UPPER_LIMIT_LSB,
-				mode_cc.unified_upl, regval);
-		B_VAL(CC_UNIFIED_THRESHOLD_MSB, CC_UNIFIED_THRESHOLD_LSB,
-				mode_cc.unified_thres, regval);
-		B_VAL(CC_SPLIT_UPPER_LIMIT_MSB, CC_SPLIT_UPPER_LIMIT_LSB,
-				mode_cc.split_upl, regval);
-		B_VAL(CC_SPLIT_THRESHOLD_MSB, CC_SPLIT_THRESHOLD_LSB,
-				mode_cc.split_thres, regval);
-		writel_relaxed(regval, base + CORE_COUNT_THRESHOLD);
-
-		regval = readl_relaxed(base + HW_MODE_CTRL);
-		B_VAL(UNIFIED_CPR_MUX_SEL_MSB, UNIFIED_CPR_MUX_SEL_LSB,
-				cpuclk->ctrl.hw_mode_ctrl, regval);
-		writel_relaxed(regval, base + HW_MODE_CTRL);
-
-		regval = readl_relaxed(base + FREQ_PLL_CLK_SRC);
-		regval |= cpuclk->ctrl.pll_clk_src;
-		writel_relaxed(regval, base + FREQ_PLL_CLK_SRC);
-
-		regval = TIMER3_DELAY_VAL;
-		writel_relaxed(regval, base + FREQ_BOOST_TIMER3_CNT_VAL);
-		cpuclk->ctrl.timer3_cnt_val = readl_relaxed(base +
-						FREQ_BOOST_TIMER3_CNT_VAL);
-
-		/* Make sure the registers are updated */
-		mb();
-	};
-
-	return 0;
-}
-
-static int cpu_clk_8953_pre_rate(struct clk *c, unsigned long new_rate)
-{
+	int ret = 0;
 	struct cpu_clk_8953 *cpuclk = to_cpu_clk_8953(c);
 	bool hw_low_power_ctrl = cpuclk->hw_low_power_ctrl;
-	unsigned long fmax = c->fmax[c->num_fmax - 1];
 
 	/*
 	 * If hardware control of the clock tree is enabled during power
@@ -541,32 +258,9 @@ static int cpu_clk_8953_pre_rate(struct clk *c, unsigned long new_rate)
 		cpuclk->req.type = PM_QOS_REQ_AFFINE_CORES;
 		pm_qos_add_request(&cpuclk->req, PM_QOS_CPU_DMA_LATENCY,
 					cpuclk->cpu_latency_no_l2_pc_us);
+		smp_call_function_any(&cpuclk->cpumask, do_nothing,
+				NULL, 1);
 	}
-
-	cpr_mode_check(true);
-
-	switch (cpuclk->curr_mode) {
-	case VMIN:
-	case PBOOST:
-		sw_dcvs_disable();
-		update_mode(false, cpuclk->curr_mode);
-		if (new_rate == fmax || !cpuclk->ctrl.vmin_enable)
-			cpuclk->curr_mode = VMIN_BOOST_NONE;
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
-static int cpu_clk_8953_set_rate(struct clk *c, unsigned long rate)
-{
-	int ret = 0;
-	struct cpu_clk_8953 *cpuclk = to_cpu_clk_8953(c);
-	unsigned long fmax = c->fmax[c->num_fmax - 1];
-	int level = find_vdd_level(c, rate);
-	u32 safe_l = 0;
 
 	ret = clk_set_rate(c->parent, rate);
 	if (!ret) {
@@ -578,44 +272,11 @@ static int cpu_clk_8953_set_rate(struct clk *c, unsigned long rate)
 		cci_clk.c.rate = CCI_RATE(rate);
 	}
 
-	if (cpuclk->ctrl.vmin_enable && (rate != fmax)) {
-		safe_l = cpuclk->ctrl.boost_safe_l_val[level];
-		if (!safe_l) {
-			cpuclk->curr_mode = VMIN_BOOST_NONE;
-			goto out;
-		}
-
-		fsm_hardware_init(cpuclk, cpuclk->ctrl.vmin_cc, safe_l, VMIN);
-		update_mode(true, VMIN);
-		sw_dcvs_enable();
-		cpuclk->curr_mode = VMIN;
-	} else if (cpuclk->ctrl.perfb_enable && (rate == fmax)) {
-		safe_l = cpuclk->ctrl.boost_safe_l_val[level];
-		if (!safe_l || !cpuclk->ctrl.pboost_l_val) {
-			cpuclk->curr_mode = VMIN_BOOST_NONE;
-			goto out;
-		}
-
-		fsm_hardware_init(cpuclk, cpuclk->ctrl.pb_cc, safe_l, PBOOST);
-		update_mode(true, PBOOST);
-		sw_dcvs_enable();
-		cpuclk->curr_mode = PBOOST;
-	}
-
-out:
-	return ret;
-}
-
-void cpu_clk_8953_post_rate(struct clk *c, unsigned long old_rate)
-{
-	struct cpu_clk_8953 *cpuclk = to_cpu_clk_8953(c);
-	bool hw_low_power_ctrl = cpuclk->hw_low_power_ctrl;
-
-	cpr_mode_check(false);
-
 	/* Remove PM QOS request */
 	if (hw_low_power_ctrl)
 		pm_qos_remove_request(&cpuclk->req);
+
+	return ret;
 }
 
 static int cpu_clk_cci_set_rate(struct clk *c, unsigned long rate)
@@ -654,9 +315,7 @@ static void __iomem *variable_pll_list_registers(struct clk *c, int n,
 }
 
 static struct clk_ops clk_ops_cpu = {
-	.pre_set_rate = cpu_clk_8953_pre_rate,
 	.set_rate = cpu_clk_8953_set_rate,
-	.post_set_rate = cpu_clk_8953_post_rate,
 	.round_rate = cpu_clk_8953_round_rate,
 	.handoff = cpu_clk_8953_handoff,
 };
@@ -803,333 +462,6 @@ static struct mux_div_clk *cpussmux[] = { &a53ssmux_pwr, &a53ssmux_perf,
 						&ccissmux };
 static struct cpu_clk_8953 *cpuclk[] = { &a53_pwr_clk, &a53_perf_clk,
 						&cci_clk};
-/* Fast forward declaration */
-static void initialize_mode_control(enum vmin_boost_mode bmode, u8 uni_upl,
-		u8 uni_thres, enum vmin_boost_mode cur_mode);
-
-/* Debugfs support */
-static ssize_t boost_mode_get(struct file *file, char __user *buf,
-					size_t count, loff_t *ppos)
-{
-	struct cpu_clk_8953 *clk;
-	int rc = 0, output = 0;
-	u32 mode = 0;
-
-	if (IS_ERR(file) || file == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(file));
-		return -ENOMEM;
-	}
-
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-	mode = clk->curr_mode;
-
-	output = snprintf(debug_buf, MAX_DEBUG_BUF_LEN-1, "Current Mode: %s\n",
-		(mode) ? (mode == VMIN_BOOST_NONE) ? "VMIN_BOOST_NONE" :
-						"PBOOST" : "VMIN");
-
-	rc = simple_read_from_buffer((void __user *) buf, output, ppos,
-					(void *) debug_buf, output);
-	return rc;
-}
-
-static const struct file_operations boost_mode_fops = {
-	.read = boost_mode_get,
-	.open = simple_open,
-};
-
-static int boost_enable_set(void *data, u64 val)
-{
-	struct clk clock;
-	struct cpu_clk_8953 *clk;
-	unsigned long numfmax;
-	u32 mode = 0;
-
-	clock = cpuclk[0]->c;
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-	mode = clk->curr_mode;
-	numfmax = clock.num_fmax - 1;
-
-	if (mode == PBOOST) {
-		pr_err("pboost registers can't be configured in current mode %s\n",
-			(mode) ? (mode == VMIN_BOOST_NONE) ? "VMIN_BOOST_NONE" :
-							"PBOOST" : "VMIN");
-		return -EINVAL;
-	}
-
-	if (!val) {
-		clk->ctrl.perfb_enable = false;
-		pr_info("Perf Boost feature disabled\n");
-		return -EINVAL;
-	}
-
-	if (!clk->ctrl.boost_safe_l_val[numfmax]) {
-		pr_err("safe_L value can't be 'zero'\n");
-		return -EINVAL;
-	}
-
-	if (!clk->ctrl.pboost_l_val) {
-		pr_err("boost_L value can't be 'zero'\n");
-		return -EINVAL;
-	}
-
-	if (!(clk->ctrl.pb_cc.unified_upl) ||
-			!(clk->ctrl.pb_cc.unified_thres)) {
-		pr_err("Unified limit/threshold can't be 'zero'\n");
-		return -EINVAL;
-	}
-
-	initialize_mode_control(PBOOST, clk->ctrl.pb_cc.unified_upl,
-			clk->ctrl.pb_cc.unified_thres, mode);
-
-	if (clk->ctrl.perfb_enable)
-		pr_info("Perf Boost feature enabled\n");
-
-	return 0;
-}
-
-static int boost_enable_get(void *data, u64 *val)
-{
-	struct cpu_clk_8953 *clk;
-	u32 enable = 0;
-
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-	enable = clk->ctrl.perfb_enable;
-
-	*val = enable;
-
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(boost_enable_fops, boost_enable_get,
-				boost_enable_set, "%lld\n");
-
-static int boost_safe_l_set(void *data, u64 val)
-{
-	struct clk clock;
-	struct cpu_clk_8953 *clk;
-	unsigned long numfmax;
-	u32 mode = 0;
-
-	clock = cpuclk[0]->c;
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-	mode = clk->curr_mode;
-	numfmax = clock.num_fmax - 1;
-
-	if (!val) {
-		pr_info("Perf Boost safe_L value can't be 'zero'\n");
-		return -EINVAL;
-	}
-
-	if (val > MAX_SAFE_L_VAL) {
-		pr_info("Perf Boost safe_L value can't be > than %d\n",
-				MAX_SAFE_L_VAL);
-		return -EINVAL;
-	}
-
-	if (mode == PBOOST) {
-		pr_err("pboost registers can't be configured in current mode %s\n",
-			(mode) ? (mode == VMIN_BOOST_NONE) ? "VMIN_BOOST_NONE" :
-							"PBOOST" : "VMIN");
-		return -EINVAL;
-	}
-
-	clk->ctrl.boost_safe_l_val[numfmax] = val;
-
-	return 0;
-}
-
-static int boost_safe_l_get(void *data, u64 *val)
-{
-	struct clk clock;
-	struct cpu_clk_8953 *clk;
-	unsigned long numfmax;
-
-	clock = cpuclk[0]->c;
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-	numfmax = clock.num_fmax - 1;
-
-	*val = clk->ctrl.boost_safe_l_val[numfmax];
-
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(boost_safe_l_fops, boost_safe_l_get,
-				boost_safe_l_set, "%lld\n");
-
-static int boost_l_set(void *data, u64 val)
-{
-	struct clk clock;
-	struct cpu_clk_8953 *clk;
-	unsigned long numfmax;
-	u32 mode = 0;
-
-	clock = cpuclk[0]->c;
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-	mode = clk->curr_mode;
-	numfmax = clock.num_fmax - 1;
-
-	if (!val) {
-		pr_info("Perf Boost boost-l value can't be 'zero'\n");
-		return -EINVAL;
-	}
-
-	if (mode == PBOOST) {
-		pr_err("pboost registers can't be configured in current mode %s\n",
-			(mode) ? (mode == VMIN_BOOST_NONE) ? "VMIN_BOOST_NONE" :
-							"PBOOST" : "VMIN");
-		return -EINVAL;
-	}
-
-	if (val > MAX_L_VAL) {
-		pr_err("boost_L value can't be > than %x\n", MAX_L_VAL);
-		return -EINVAL;
-	}
-
-	clk->ctrl.pboost_l_val = val;
-
-	return 0;
-}
-
-static int boost_l_get(void *data, u64 *val)
-{
-	struct cpu_clk_8953 *clk;
-
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-
-	*val = clk->ctrl.pboost_l_val;
-
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(boost_l_fops, boost_l_get,
-				boost_l_set, "%lld\n");
-
-static ssize_t num_cores_set(struct file *file, const char __user *buf,
-					size_t count, loff_t *ppos)
-{
-	int filled;
-	struct cpu_clk_8953 *clk;
-	u32 upl = 0, thres = 0, mode = 0;
-
-	if (IS_ERR(file) || file == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(file));
-		return -ENOMEM;
-	}
-
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-	mode = clk->curr_mode;
-
-	if (mode == PBOOST) {
-		pr_err("pboost registers can't be configured in current mode %s\n",
-			(mode) ? (mode == VMIN_BOOST_NONE) ? "VMIN_BOOST_NONE" :
-							"PBOOST" : "VMIN");
-		return -EINVAL;
-	}
-
-
-	if (count < MAX_DEBUG_BUF_LEN) {
-		if (copy_from_user(debug_buf, (void __user *) buf, count))
-			return -EFAULT;
-
-		debug_buf[count] = '\0';
-		filled = sscanf(debug_buf, "%u %u", &upl, &thres);
-
-		/* check that user entered two numbers */
-		if (filled < 2) {
-			pr_err("Error: 'echo \"UNIFIED_UPPER_LIMIT UNIFIED_THRESHOLD > num_cores\n");
-			return -EINVAL;
-		} else if (upl == 0 || thres == 0) {
-			pr_err("Error, values can not be 0\n");
-			return -EINVAL;
-		}
-	}
-
-	clk->ctrl.pb_cc.unified_upl = upl;
-	clk->ctrl.pb_cc.unified_thres = thres;
-
-	return count;
-}
-
-static ssize_t num_cores_get(struct file *file, char __user *buf,
-					size_t count, loff_t *ppos)
-{
-	struct cpu_clk_8953 *clk;
-	int rc = 0, output = 0;
-	u32 cores = 0;
-
-	if (IS_ERR(file) || file == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(file));
-		return -ENOMEM;
-	}
-
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-
-	cores = clk->ctrl.pb_cc.unified_upl - clk->ctrl.pb_cc.unified_thres;
-
-	output = snprintf(debug_buf, MAX_DEBUG_BUF_LEN-1,
-		"Max no. of cores in Perf Boost Mode: %d\n", cores);
-
-	rc = simple_read_from_buffer((void __user *) buf, output, ppos,
-					(void *) debug_buf, output);
-	return rc;
-}
-
-static const struct file_operations max_cores_fops = {
-	.write = num_cores_set,
-	.read  = num_cores_get,
-	.open  = simple_open,
-};
-
-static ssize_t hardware_status_get(struct file *file, char __user *buf,
-					size_t count, loff_t *ppos)
-{
-	struct cpu_clk_8953 *clk;
-	u32 mode = 0, regval = 0, feature = 0, fsm_state = 0;
-	int rc = 0, output = 0;
-
-
-	if (IS_ERR(file) || file == NULL) {
-		pr_err("Function Input Error %ld\n", PTR_ERR(file));
-		return -ENOMEM;
-	}
-
-	clk = to_cpu_clk_8953(&cpuclk[0]->c);
-	mode = clk->curr_mode;
-
-	if (mode == VMIN) {
-		regval = readl_relaxed(virt_bases[APCS_C0_PLL_BASE] +
-				VMIN_STATUS_REGISTER);
-		/* 0 --> HW Indicates feature is enabled, SW indicates as 1 */
-		feature = !(VALUE(regval, 19, 19));
-		fsm_state = VALUE(regval, 6, 4);
-		output = snprintf(debug_buf, MAX_DEBUG_BUF_LEN-1,
-		"Feature enabled: %d fsm_state %d max_core_allowed %d\n",
-			feature, fsm_state, VALUE(regval, 12, 10));
-
-	} else if (mode == PBOOST) {
-		regval = readl_relaxed(virt_bases[APCS_C0_PLL_BASE] +
-				PERF_BOOST_SH_STATUS_REG);
-		fsm_state = VALUE(regval, 7, 4);
-		regval = readl_relaxed(virt_bases[APCS_C0_PLL_BASE] +
-				PERF_BOOST_DEEP_STATUS_REG);
-		/* 0 --> HW Indicates feature is enabled, SW indicates as 1 */
-		feature = !(VALUE(regval, 27, 27));
-		output = snprintf(debug_buf, MAX_DEBUG_BUF_LEN-1,
-		"Feature enabled: %d fsm_state %d\n", feature, fsm_state);
-
-	} else
-		output = snprintf(debug_buf, MAX_DEBUG_BUF_LEN-1,
-				"Currently mode is VMIN_BOOST_NONE\n");
-
-	rc = simple_read_from_buffer((void __user *) buf, output, ppos,
-					(void *) debug_buf, output);
-	return rc;
-}
-
-static const struct file_operations hardware_status_fops = {
-	.read = hardware_status_get,
-	.open = simple_open,
-};
 
 static struct clk *logical_cpu_to_clk(int cpu)
 {
@@ -1258,31 +590,25 @@ static void populate_opp_table(struct platform_device *pdev)
 }
 
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
-		char *prop_name, bool vmin, bool pboost, u32 boost_index)
+								char *prop_name)
 {
 	struct device_node *of = pdev->dev.of_node;
-	int prop_len, i, len, temp = 0, rc = 0;
+	int prop_len, i;
 	struct clk_vdd_class *vdd = c->vdd_class;
-	struct cpu_clk_8953 *cpuclk = to_cpu_clk_8953(c);
-	u32 *array, delta;
+	u32 *array;
 
 	if (!of_find_property(of, prop_name, &prop_len)) {
 		dev_err(&pdev->dev, "missing %s\n", prop_name);
 		return -EINVAL;
 	}
 
-	if (vmin || pboost)
-		len = vdd->num_regulators + 2;
-	else
-		len = vdd->num_regulators + 1;
-
 	prop_len /= sizeof(u32);
-	if (prop_len % len) {
+	if (prop_len % 2) {
 		dev_err(&pdev->dev, "bad length %d\n", prop_len);
 		return -EINVAL;
 	}
 
-	prop_len /= len;
+	prop_len /= 2;
 	vdd->level_votes = devm_kzalloc(&pdev->dev,
 				prop_len * sizeof(*vdd->level_votes),
 					GFP_KERNEL);
@@ -1299,42 +625,15 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 	if (!c->fmax)
 		return -ENOMEM;
 
-	if (vmin || pboost) {
-		cpuclk->ctrl.boost_safe_l_val = devm_kzalloc(&pdev->dev,
-			prop_len * sizeof(unsigned long), GFP_KERNEL);
-		if (!cpuclk->ctrl.boost_safe_l_val)
-			return -ENOMEM;
-	}
-
 	array = devm_kzalloc(&pdev->dev,
-			prop_len * sizeof(u32) * len, GFP_KERNEL);
+			prop_len * sizeof(u32) * 2, GFP_KERNEL);
 	if (!array)
 		return -ENOMEM;
 
-	of_property_read_u32_array(of, prop_name, array, prop_len * len);
+	of_property_read_u32_array(of, prop_name, array, prop_len * 2);
 	for (i = 0; i < prop_len; i++) {
-		c->fmax[i] = array[len * i];
-		vdd->vdd_uv[i] = array[len * i + 1];
-		if (vmin) {
-			temp = array[len * i + 2];
-			if (temp > 0 && (i < (prop_len - 1)))
-				cpuclk->ctrl.boost_safe_l_val[i] = temp;
-		}
-	}
-
-	if (pboost) {
-		temp = array[(len * --i) + 2];
-		if (temp > 0)
-			cpuclk->ctrl.boost_safe_l_val[i] = temp;
-
-		rc = of_property_read_u32_index(of, "qcom,pboost-delta",
-				boost_index, &delta);
-		if (!rc) {
-			HZ_TO_LVAL(delta, c->fmax[i], apcs_hf_pll.src_rate);
-			if (delta <= MAX_L_VAL)
-				cpuclk->ctrl.pboost_l_val = delta;
-		} else
-			dev_err(&pdev->dev, "No Boost L Val defined\n");
+		c->fmax[i] = array[2 * i];
+		vdd->vdd_uv[i] = array[2 * i + 1];
 	}
 
 	devm_kfree(&pdev->dev, array);
@@ -1347,7 +646,7 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 }
 
 static void get_speed_bin(struct platform_device *pdev, int *bin,
-					int *version, int *pboost_freq)
+								int *version)
 {
 	struct resource *res;
 	void __iomem *base;
@@ -1355,7 +654,6 @@ static void get_speed_bin(struct platform_device *pdev, int *bin,
 
 	*bin = 0;
 	*version = 0;
-	*pboost_freq = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
 	if (!res) {
@@ -1376,10 +674,8 @@ static void get_speed_bin(struct platform_device *pdev, int *bin,
 
 	*bin = (pte_efuse >> 8) & 0x7;
 
-	*pboost_freq = (pte_efuse >> 11) & 0x3;
-
-	dev_info(&pdev->dev, "Speed bin: %d PVS Version: %d Boost: %d\n", *bin,
-							*version, *pboost_freq);
+	dev_info(&pdev->dev, "Speed bin: %d PVS Version: %d\n", *bin,
+								*version);
 }
 
 static int cpu_parse_devicetree(struct platform_device *pdev)
@@ -1387,33 +683,21 @@ static int cpu_parse_devicetree(struct platform_device *pdev)
 	struct resource *res;
 	int mux_id = 0;
 	char rcg_name[] = "xxx-mux";
+	char pll_name[] = "xxx-pll";
 	struct clk *c;
 
 	res = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "c0-pll");
 	if (!res) {
-		dev_err(&pdev->dev, "missing c0-pll\n");
+		dev_err(&pdev->dev, "missing %s\n", pll_name);
 		return -EINVAL;
 	}
 
 	virt_bases[APCS_C0_PLL_BASE] = devm_ioremap(&pdev->dev, res->start,
 							resource_size(res));
 	if (!virt_bases[APCS_C0_PLL_BASE]) {
-		dev_err(&pdev->dev, "ioremap failed for c0-pll\n");
-		return -ENOMEM;
-	}
-
-	res = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "c1-pll");
-	if (!res) {
-		dev_err(&pdev->dev, "missing c1-pll\n");
-		return -EINVAL;
-	}
-
-	virt_bases[APCS_C1_PLL_BASE] = devm_ioremap(&pdev->dev, res->start,
-							resource_size(res));
-	if (!virt_bases[APCS_C1_PLL_BASE]) {
-		dev_err(&pdev->dev, "ioremap failed for c1-pll\n");
+		dev_err(&pdev->dev, "ioremap failed for %s\n",
+				pll_name);
 		return -ENOMEM;
 	}
 
@@ -1469,156 +753,31 @@ static int cpu_parse_devicetree(struct platform_device *pdev)
 	return 0;
 }
 
-static void initialize_mode_control(enum vmin_boost_mode bmode, u8 uni_upl,
-		u8 uni_thres, enum vmin_boost_mode cur_mode)
-{
-	int mux_id;
-	struct cpu_clk_8953 *clk;
-
-	for (mux_id = 0; mux_id < A53SS_MUX_CCI; mux_id++) {
-		clk = to_cpu_clk_8953(&cpuclk[mux_id]->c);
-
-		if (bmode == VMIN) {
-			clk->ctrl.vmin_cc.split_upl = SPLIT_UPL;
-			clk->ctrl.vmin_cc.split_thres = SPLIT_THRESHOLD;
-			clk->ctrl.vmin_cc.unified_upl = uni_upl;
-			clk->ctrl.vmin_cc.unified_thres = uni_thres;
-			clk->ctrl.vmin_enable = true;
-		}
-
-		if (bmode == PBOOST) {
-			clk->ctrl.pb_cc.split_upl = SPLIT_UPL;
-			clk->ctrl.pb_cc.split_thres = SPLIT_THRESHOLD;
-			clk->ctrl.pb_cc.unified_upl = uni_upl;
-			clk->ctrl.pb_cc.unified_thres = uni_thres;
-			clk->ctrl.perfb_enable = true;
-		}
-
-		clk->ctrl.hw_mode_ctrl = BOTH_FSM;
-		clk->ctrl.pll_clk_src = PLL_CLK_SRC;
-		clk->curr_mode = cur_mode;
-	}
-}
-
-static void debugfs_init(struct platform_device *pdev)
-{
-	static struct dentry *debugfs_base;
-
-	/* Debugfs for Perf Boost */
-	debugfs_base = debugfs_create_dir("hardware_boost", NULL);
-	if (debugfs_base) {
-		if (!debugfs_create_file("curr_mode", S_IRUGO,
-				debugfs_base, NULL, &boost_mode_fops))
-			goto debugfs_fail;
-
-		if (!debugfs_create_file("safe_L", S_IRUGO, debugfs_base,
-					NULL, &boost_safe_l_fops))
-			goto debugfs_fail;
-
-		if (!debugfs_create_file("boost_L", S_IRUGO, debugfs_base,
-					NULL, &boost_l_fops))
-			goto debugfs_fail;
-
-		if (!debugfs_create_file("max_cores", S_IRUGO, debugfs_base,
-					NULL, &max_cores_fops))
-			goto debugfs_fail;
-
-		if (!debugfs_create_file("boost_en", S_IRUGO, debugfs_base,
-					NULL, &boost_enable_fops))
-			goto debugfs_fail;
-
-		if (!debugfs_create_file("hw_status", S_IRUGO, debugfs_base,
-					NULL, &hardware_status_fops))
-			goto debugfs_fail;
-	} else
-		dev_err(&pdev->dev, "Failed to create debugfs entry\n");
-
-	return;
-
-debugfs_fail:
-	dev_err(&pdev->dev, "Remove debugfs as failed debugfs entry\n");
-	debugfs_remove_recursive(debugfs_base);
-}
-
-static int cpuclk_notifier(struct notifier_block *self, unsigned long cmd,
-			void *aff_level)
-{
-	struct cpu_clk_8953 *cclk;
-	int i;
-	void __iomem *base;
-	u32 mode_ctrl = 0;
-
-	if (!((unsigned long)aff_level == CCI_AFFINITY_LEVEL))
-		return NOTIFY_OK;
-
-	pr_debug("Notification received for aff level %ld, cmd %lu\n",
-			(unsigned long)aff_level, cmd);
-
-	mode_ctrl = a53_pwr_clk.ctrl.hw_mode_ctrl;
-	mode_ctrl &= BM(UNIFIED_CPR_MUX_SEL_MSB, UNIFIED_CPR_MUX_SEL_LSB);
-
-	if (mode_ctrl != BOTH_FSM)
-		return NOTIFY_OK;
-
-	switch (cmd) {
-	case CPU_CLUSTER_PM_ENTER:
-		for (i = 0; i < APCS0_DBG_BASE; i++) {
-			base = virt_bases[i];
-			writel_relaxed(TIMER3_E3_DELAY_VAL,
-					base + FREQ_BOOST_TIMER3_CNT_VAL);
-		}
-		break;
-	case CPU_CLUSTER_PM_ENTER_FAILED:
-	case CPU_CLUSTER_PM_EXIT:
-		for (i = 0; i < APCS0_DBG_BASE; i++) {
-			base = virt_bases[i];
-			cclk = to_cpu_clk_8953(&cpuclk[i]->c);
-			writel_relaxed(cclk->ctrl.timer3_cnt_val,
-					base + FREQ_BOOST_TIMER3_CNT_VAL);
-		}
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block cpuclk_notifier_block = {
-	.notifier_call = cpuclk_notifier,
-};
-
 static int clock_cpu_probe(struct platform_device *pdev)
 {
-	int speed_bin, version, rc, cpu, mux_id, pboost_freq;
+	int speed_bin, version, rc, cpu, mux_id;
 	char prop_name[] = "qcom,speedX-bin-vX-XXX";
 	unsigned long ccirate, pwrcl_boot_rate = 883200000;
-	bool vmin_en = false, pboost_en = false;
 
-	get_speed_bin(pdev, &speed_bin, &version, &pboost_freq);
-
-	vmin_en = of_property_read_bool(pdev->dev.of_node,
-						"qcom,enable-vmin");
-
-	if ((of_property_read_bool(pdev->dev.of_node, "qcom,enable-boost"))
-		       && (pboost_freq > 0))
-		pboost_en = true;
+	get_speed_bin(pdev, &speed_bin, &version);
 
 	rc = cpu_parse_devicetree(pdev);
 	if (rc)
 		return rc;
 
 	snprintf(prop_name, ARRAY_SIZE(prop_name),
-				"qcom,speed%d-bin-v%d-cl",
+			"qcom,speed%d-bin-v%d-cl",
 					speed_bin, version);
 	for (mux_id = 0; mux_id < A53SS_MUX_CCI; mux_id++) {
 		rc = of_get_fmax_vdd_class(pdev, &cpuclk[mux_id]->c,
-				prop_name, vmin_en, pboost_en, pboost_freq);
+						prop_name);
 		if (rc) {
 			dev_err(&pdev->dev, "Loading safe voltage plan %s!\n",
 							prop_name);
 			snprintf(prop_name, ARRAY_SIZE(prop_name),
 						"qcom,speed0-bin-v0-cl");
 			rc = of_get_fmax_vdd_class(pdev, &cpuclk[mux_id]->c,
-				prop_name, vmin_en, pboost_en, pboost_freq);
+								prop_name);
 			if (rc) {
 				dev_err(&pdev->dev, "safe voltage plan load failed for clusters\n");
 				return rc;
@@ -1626,28 +785,16 @@ static int clock_cpu_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (vmin_en)
-		initialize_mode_control(VMIN, 0x4, 0x1, VMIN_BOOST_NONE);
-
-	if (pboost_en)
-		initialize_mode_control(PBOOST, 0x8, 0x4, VMIN_BOOST_NONE);
-
-	if (!vmin_en || !pboost_en) {
-		a53_pwr_clk.curr_mode = VMIN_BOOST_NONE;
-		a53_perf_clk.curr_mode = VMIN_BOOST_NONE;
-	}
-
 	snprintf(prop_name, ARRAY_SIZE(prop_name),
 			"qcom,speed%d-bin-v%d-cci", speed_bin, version);
-	rc = of_get_fmax_vdd_class(pdev, &cpuclk[mux_id]->c, prop_name, false,
-								false, 0);
+	rc = of_get_fmax_vdd_class(pdev, &cpuclk[mux_id]->c, prop_name);
 	if (rc) {
 		dev_err(&pdev->dev, "Loading safe voltage plan %s!\n",
 							prop_name);
 		snprintf(prop_name, ARRAY_SIZE(prop_name),
 						"qcom,speed0-bin-v0-cci");
 		rc = of_get_fmax_vdd_class(pdev, &cpuclk[mux_id]->c,
-						prop_name, false, false, 0);
+								prop_name);
 		if (rc) {
 			dev_err(&pdev->dev, "safe voltage plan load failed for CCI\n");
 			return rc;
@@ -1658,22 +805,6 @@ static int clock_cpu_probe(struct platform_device *pdev)
 	virt_bases[APCS0_DBG_BASE] = devm_ioremap(&pdev->dev, GLB_DIAG, SZ_8);
 	if (!virt_bases[APCS0_DBG_BASE]) {
 		dev_err(&pdev->dev, "Failed to ioremap GLB_DIAG registers\n");
-		return -ENOMEM;
-	}
-
-	/* CPR Core Adjust */
-	virt_bases[APCS0_CPR_CORE_BASE] = devm_ioremap(&pdev->dev,
-					APCS0_CPR_CORE_ADJ_MODE_REG, SZ_4);
-	if (!virt_bases[APCS0_CPR_CORE_BASE]) {
-		dev_err(&pdev->dev, "Failed to ioremap CPR_ADJ Mode register\n");
-		return -ENOMEM;
-	}
-
-	/* CPR Core Adjust */
-	virt_bases[APCS0_CPR_MARGIN_BASE] = devm_ioremap(&pdev->dev,
-					APCS0_CPR_MARGIN_ADJ_CTL_REG, SZ_4);
-	if (!virt_bases[APCS0_CPR_MARGIN_BASE]) {
-		dev_err(&pdev->dev, "Failed to ioremap CPR_ADJ Ctl register\n");
 		return -ENOMEM;
 	}
 
@@ -1743,15 +874,6 @@ static int clock_cpu_probe(struct platform_device *pdev)
 		a53_pwr_clk.hw_low_power_ctrl = true;
 		a53_perf_clk.hw_low_power_ctrl = true;
 	}
-
-	debugfs_init(pdev);
-
-	dev_info(&pdev->dev, "CPU clock driver initialized Vmin %s, HW Perf Boost %s\n",
-			vmin_en ? "yes" : "no",
-			pboost_en ? "yes" : "no");
-
-	/* Register for cpu_cluster notification */
-	cpu_pm_register_notifier(&cpuclk_notifier_block);
 
 	return 0;
 }

@@ -529,6 +529,17 @@
 			qcom,mas-rpm-id = <ICBID_MASTER_VFE>;
 		};
 
+		mas_venus_vmem: mas-venus-vmem {
+			cell-id = <MSM_BUS_MASTER_VIDEO_P0_OCMEM>;
+			label = "mas-venus-vmem";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,connections = <&slv_vmem>;
+			qcom,bus-dev = <&fab_mnoc>;
+			qcom,mas-rpm-id = <ICBID_MASTER_VENUS_VMEM>;
+		};
+
 		mas_hmss: mas-hmss {
 			cell-id = <MSM_BUS_MASTER_HMSS>;
 			label = "mas-hmss";
@@ -1160,6 +1171,9 @@
 			qcom,ap-owned;
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_VMEM_CFG>;
+			qcom,enable-only-clk;
+			clock-names = "node_clk";
+			clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>;
 		};
 
 		slv_mmss_clk_xpu_cfg:slv-mmss-clk-xpu-cfg {
@@ -1221,6 +1235,21 @@
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,connections = <&mas_mnoc_bimc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_MNOC_BIMC>;
+			qcom,enable-only-clk;
+			clock-names = "node_clk";
+			clocks = <&clock_gcc clk_mmssnoc_axi_clk>;
+		};
+
+		slv_vmem: slv-vmem {
+			cell-id = <MSM_BUS_SLAVE_VMEM>;
+			label = "slv-vmem";
+			qcom,buswidth = <32>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,bus-dev = <&fab_mnoc>;
+			qcom,slv-rpm-id = <ICBID_SLAVE_VMEM>;
+			clock-names = "node_clk";
+			clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>;
 		};
 
 		slv_srvc_mnoc:slv-srvc-mnoc {

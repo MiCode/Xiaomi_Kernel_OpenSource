@@ -48,10 +48,11 @@
 			synaptics,power-delay-ms = <200>;
 			synaptics,reset-delay-ms = <200>;
 			synaptics,max-y-for-2d = <1919>;
-			synaptics,cap-button-codes = <139 172 158>;
+			synaptics,cap-button-codes = <139 158 172>;
 			synaptics,vir-button-codes = <139 180 2000 320 160
 						      158 540 2000 320 160
 						      172 900 2000 320 160>;
+			synaptics,resume-in-workqueue;
 		};
 	};
 
@@ -60,6 +61,10 @@
 		status = "ok";
 		regulator-name = "vdd_vreg";
 	};
+};
+
+&wled {
+	qcom,cons-sync-write-delay-us = <1000>;
 };
 
 &spmi_bus {
@@ -110,7 +115,7 @@
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,cold-bat-decidegc = <(-100)>;
 	qcom,cool-bat-decidegc = <0>;
-	qcom,warm-bat-decidegc = <450>;
+	qcom,warm-bat-decidegc = <550>;
 	qcom,hot-bat-decidegc = <550>;
 	qcom,bad-battery-detection-enable;
 	qcom,hold-soc-while-full;
@@ -174,7 +179,7 @@
 	cd-gpios = <&tlmm 133 0x1>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
-								192000000>;
+								200000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 
 	status = "ok";
@@ -230,4 +235,16 @@
 
 &pm8953_vadc {
 	/delete-node/ chan@11;
+};
+
+&sdc2_cmd_on {
+	config {
+		drive-strength=<12>;
+	};
+};
+
+&sdc2_data_on {
+	config {
+		drive-strength=<12>;
+	};
 };

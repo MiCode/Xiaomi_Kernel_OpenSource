@@ -149,7 +149,7 @@
 
 	ssphy: ssphy@78000 {
 		compatible = "qcom,usb-ssphy-qmp";
-		reg = <0x00078000 0x45c>,
+		reg = <0x00078000 0x9f8>,
 		      <0x01947244 0x4>,
 		      <0x01956044 0x4>;
 		reg-names = "qmp_phy_base",

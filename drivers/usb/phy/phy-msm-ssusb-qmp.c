@@ -614,6 +614,8 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	writel_relaxed(0x03, phy->base + phy->phy_reg[USB3_PHY_START]);
 	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);
 
+	/* Make sure above write completed to bring PHY out of reset */
+	mb();
 
 	/* Wait for PHY initialization to be done */
 	do {

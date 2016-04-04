@@ -359,7 +359,6 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG (1 << 5)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 6)
 #define ARM_SMMU_OPT_ERRATA_TZ_ATOS	(1 << 7)
-#define ARM_SMMU_OPT_NO_M		(1 << 8)
 #define ARM_SMMU_OPT_NO_SMR_CHECK	(1 << 9)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 10)
 #define ARM_SMMU_OPT_HALT		(1 << 11)
@@ -453,6 +452,7 @@ struct arm_smmu_domain {
 	enum arm_smmu_domain_stage	stage;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	u32				attributes;
+	bool				slave_side_secure;
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
@@ -480,7 +480,6 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG, "qcom,errata-ctx-fault-hang" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_ERRATA_TZ_ATOS, "qcom,errata-tz-atos" },
-	{ ARM_SMMU_OPT_NO_M, "qcom,no-mmu-enable" },
 	{ ARM_SMMU_OPT_NO_SMR_CHECK, "qcom,no-smr-check" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
@@ -1471,7 +1470,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_EAE_SBOP;
-	if (!(smmu->options & ARM_SMMU_OPT_NO_M))
+	if (!stage1 || !(smmu_domain->attributes & DOMAIN_ATTR_S1_BYPASS))
 		reg |= SCTLR_M;
 	if (stage1)
 		reg |= SCTLR_S1_ASIDPNE;
@@ -1493,14 +1492,14 @@ static bool arm_smmu_has_secure_vmid(struct arm_smmu_domain *smmu_domain)
 
 static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain)
 {
-	return arm_smmu_has_secure_vmid(smmu_domain) &&
-			arm_smmu_is_static_cb(smmu_domain->smmu);
+	return arm_smmu_has_secure_vmid(smmu_domain)
+		&& smmu_domain->slave_side_secure;
 }
 
 static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain)
 {
 	return arm_smmu_has_secure_vmid(smmu_domain)
-		&& !arm_smmu_is_static_cb(smmu_domain->smmu);
+		&& !smmu_domain->slave_side_secure;
 }
 
 static void arm_smmu_secure_domain_lock(struct arm_smmu_domain *smmu_domain)
@@ -1517,7 +1516,7 @@ static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
 
 static unsigned long arm_smmu_pgtbl_lock(struct arm_smmu_domain *smmu_domain)
 {
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	if (arm_smmu_is_slave_side_secure(smmu_domain))
 		mutex_lock(&smmu_domain->pgtbl_mutex_lock);
@@ -2112,6 +2111,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			dev_err(dev, "Failed to get valid context bank\n");
 			goto err_disable_clocks;
 		}
+		smmu_domain->slave_side_secure = true;
 	}
 
 	/* Ensure that the domain is finalised */
@@ -2869,6 +2869,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    & (1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_S1_BYPASS:
+		*((int *)data) = !!(smmu_domain->attributes
+				    & (1 << DOMAIN_ATTR_S1_BYPASS));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -2980,6 +2985,18 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		smmu_domain->non_fatal_faults = *((int *)data);
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_S1_BYPASS: {
+		int bypass = *((int *)data);
+
+		if (bypass)
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_S1_BYPASS;
+		else
+			smmu_domain->attributes &=
+					~(1 << DOMAIN_ATTR_S1_BYPASS);
+
+		ret = 0;
+		break;
+	}
 	default:
 		ret = -ENODEV;
 		break;
@@ -3203,7 +3220,7 @@ static int arm_smmu_init_clocks(struct arm_smmu_device *smmu)
 		if (IS_ERR(c)) {
 			dev_err(dev, "Couldn't get clock: %s",
 				cname);
-			return -ENODEV;
+			return PTR_ERR(c);
 		}
 
 		if (clk_get_rate(c) == 0) {

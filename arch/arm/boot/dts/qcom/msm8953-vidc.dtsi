@@ -13,7 +13,10 @@
 &soc {
 	qcom,vidc@1d00000 {
 		compatible = "qcom,msm-vidc";
-		reg = <0x01d00000 0xff000>;
+		reg = <0x01d00000 0xff000>,
+			<0x000a4124 0x4>;
+		reg-names = "vidc", "efuse";
+		qcom,platform-version = <0x00180000 0x13>;
 		interrupts = <0 44 0>;
 		/* Regulators */
 		venus-supply = <&gdsc_venus>;
@@ -38,16 +41,17 @@
 			<0x9181000 0x1000>;
 		qcom,max-hw-load = <1044480>; /* 4096 x 2176 @ 30 fps */
 		qcom,slave-side-cp;
+		qcom,sw-power-collapse;
 		qcom,firmware-name = "venus";
 		qcom,dcvs-tbl =
 			/* Dec UHD@30 H.264, HEVC, VP8, VP9 - NOM to NOM+*/
 			<816000 816000 979200 0x3f00000c>,
 
 			/* Enc UHD@30 H.264/HEVC Turbo to Nom+ */
-			<897600 897600 979200 0x4000004>,
+			<897600 821100 979200 0x4000004>,
 
 			/* Enc True4K@24 H.264/HEVC Nom to Nom+ */
-			<816000 816000 835584 0x4000004>;
+			<816000 720000 835584 0x4000004>;
 		qcom,dcvs-limit =
 			<32400 24>, /* Encoder UHD */
 			<32400 24>; /* Decoder UHD */
@@ -134,7 +138,6 @@
 				qcom,codec-mask = <0xffffffff>;
 				qcom,load-busfreq-tbl =
 					<979200 2365000>,  /* UHD30D     */
-					<979200 2241000>,  /* 1080p120D  */
 					<864000 1978000>,  /* 720p240D   */
 					<489600 1133000>,  /* 1080p60D   */
 					<432000 994000>,   /* 720p120D   */
@@ -148,7 +151,6 @@
 				qcom,ubwc-mode;
 				qcom,load-busfreq-tbl =
 					<979200 1892000>,  /* UHD30D     */
-					<979200 1763000>,  /* 1080p120D  */
 					<864000 1554000>,  /* 720p240D   */
 					<489600 895000>,   /* 1080p60D   */
 					<432000 781000>,   /* 720p120D   */

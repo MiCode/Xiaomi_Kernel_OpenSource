@@ -846,14 +846,13 @@
 		compatible = "qcom,cpu-clock-8953";
 		reg =   <0xb114000  0x68>,
 			<0xb014000  0x68>,
-			<0xb116000  0x330>,
-			<0xb016000  0x330>,
+			<0xb116000  0x400>,
 			<0xb111050  0x08>,
 			<0xb011050  0x08>,
 			<0xb1d1050  0x08>,
 			<0x00a4124  0x08>;
 		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
-			    "c0-pll", "c1-pll", "c0-mux", "c1-mux",
+			    "c0-pll", "c0-mux", "c1-mux",
 			    "cci-mux", "efuse";
 		vdd-mx-supply = <&pm8953_s7_level_ao>;
 		vdd-cl-supply = <&apc_vreg>;
@@ -1199,7 +1198,6 @@
 		      <0x6190000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
-		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1213,7 +1211,6 @@
 		      <0x6192000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
-		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1227,7 +1224,6 @@
 		      <0x6194000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
-		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU2>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1241,7 +1237,6 @@
 		      <0x6196000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
-		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1255,7 +1250,6 @@
 		      <0x61b0000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
-		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU4>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1269,7 +1263,6 @@
 		      <0x61b2000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
-		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU5>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1283,7 +1276,6 @@
 		      <0x61b4000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
-		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU6>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1297,7 +1289,6 @@
 		      <0x61b6000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
-		qcom,save-restore-disable;
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
@@ -1705,12 +1696,12 @@
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <2 200>;
+		qcom,pm-qos-irq-latency = <2 213>;
 
 		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
-		qcom,pm-qos-cmdq-latency-us = <2 200>, <2 200>;
+		qcom,pm-qos-cmdq-latency-us = <2 213>, <2 213>;
 
-		qcom,pm-qos-legacy-latency-us = <2 200>, <2 200>;
+		qcom,pm-qos-legacy-latency-us = <2 213>, <2 213>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -1748,10 +1739,10 @@
 		qcom,bus-width = <4>;
 
 		qcom,pm-qos-irq-type = "affine_irq";
-		qcom,pm-qos-irq-latency = <2 200>;
+		qcom,pm-qos-irq-latency = <2 213>;
 
 		qcom,pm-qos-cpu-groups = <0x0f 0xf0>;
-		qcom,pm-qos-legacy-latency-us = <2 200>, <2 200>;
+		qcom,pm-qos-legacy-latency-us = <2 213>, <2 213>;
 
 		qcom,devfreq,freq-table = <50000000 200000000>;
 
@@ -1890,6 +1881,7 @@
 		qcom,scm_core_clk_src-freq = <80000000>;
 
 		qcom,pas-id = <1>;
+		qcom,complete-ramdump;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
 		qcom,sysmon-id = <1>;

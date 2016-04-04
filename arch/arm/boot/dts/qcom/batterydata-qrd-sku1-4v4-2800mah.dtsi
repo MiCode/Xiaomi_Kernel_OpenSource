@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@ qcom,qrd_msm8937_sku1_2920mah {
 	qcom,batt-id-kohm = <90>;
 	qcom,battery-beta = <3380>;
 	qcom,battery-type = "qrd_msm8937_sku1_2800mah";
-	qcom,fastchg-current-ma = <3000>;
+	qcom,fastchg-current-ma = <2600>;
 	qcom,fg-cc-cv-threshold-mv = <4390>;
 	qcom,chg-rslow-comp-c1 = <6733839>;
 	qcom,chg-rslow-comp-c2 = <23336040>;

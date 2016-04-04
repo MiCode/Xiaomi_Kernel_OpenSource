@@ -75,14 +75,14 @@ enum cprh_msmcobalt_kbss_fuse_corner {
 	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS		= 0,
 	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_SVS		= 1,
 	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_NOM		= 2,
-	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L2	= 3,
+	CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L1	= 3,
 };
 
 static const char * const cprh_msmcobalt_kbss_fuse_corner_name[] = {
 	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
 	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_SVS]		= "SVS",
 	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_NOM]		= "NOM",
-	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L2]	= "TURBO_L2",
+	[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L1]	= "TURBO_L1",
 };
 
 /* KBSS cluster IDs */
@@ -185,10 +185,10 @@ static const struct cpr3_fuse_param msmcobalt_kbss_speed_bin_param[] = {
  * Open loop voltage fuse reference voltages in microvolts for MSMCOBALT v1
  */
 static const int msmcobalt_kbss_fuse_ref_volt[MSMCOBALT_KBSS_FUSE_CORNERS] = {
-	632000,
-	700000,
-	828000,
-	1024000,
+	696000,
+	768000,
+	896000,
+	1112000,
 };
 
 #define MSMCOBALT_KBSS_FUSE_STEP_VOLT		10000
@@ -906,7 +906,7 @@ static int cprh_msmcobalt_kbss_calculate_target_quotients(
 		fuse->ro_sel[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS],
 		fuse->target_quot[CPRH_MSMCOBALT_KBSS_FUSE_CORNER_LOWSVS]);
 	for (i = CPRH_MSMCOBALT_KBSS_FUSE_CORNER_SVS;
-		i <= CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L2; i++)
+		i <= CPRH_MSMCOBALT_KBSS_FUSE_CORNER_TURBO_L1; i++)
 		cpr3_info(vreg, "fused %8s: quot[%2llu]=%4llu, quot_offset[%2llu]=%4llu\n",
 			cprh_msmcobalt_kbss_fuse_corner_name[i],
 			fuse->ro_sel[i], fuse->target_quot[i],

@@ -12,6 +12,10 @@ Required properties:
   - reg-names: Names of the memory regions defined in reg entry
   - interrupts: Copy engine interrupt table
   - qcom,wlan-msa-memory: MSA memory size
+  - <supply-name>-supply: phandle to the regulator device tree node
+                          Required "supply-name" is "vdd-io".
+  - qcom,<supply>-voltage-level - specifies voltage levels for supply. Should be
+                                  specified in pairs (min, max), units uV.
 
 Optional properties:
   - qcom,skip-qmi: Boolean property to decide whether to use QMI or not
@@ -37,4 +41,6 @@ Example:
 		   <0 141 0 /* CE11 */ >;
         qcom,wlan-msa-memory = <0x200000>;
         qcom,skip-qmi;
+	vdd-io-supply = <&pmcobalt_l5>;
+	qcom,vdd-io-voltage-level = <800000 800000>;
     };

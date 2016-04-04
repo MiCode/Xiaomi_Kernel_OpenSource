@@ -92,6 +92,13 @@ struct kgsl_mmu_pt_ops {
 	int (*svm_range)(struct kgsl_pagetable *, uint64_t *, uint64_t *,
 			uint64_t);
 	bool (*addr_in_range)(struct kgsl_pagetable *pagetable, uint64_t);
+	int (*mmu_map_offset)(struct kgsl_pagetable *pt,
+			uint64_t virtaddr, uint64_t virtoffset,
+			struct kgsl_memdesc *memdesc, uint64_t physoffset,
+			uint64_t size, uint64_t flags);
+	int (*mmu_unmap_offset)(struct kgsl_pagetable *pt,
+			struct kgsl_memdesc *memdesc, uint64_t addr,
+			uint64_t offset, uint64_t size);
 };
 
 /*
@@ -205,6 +212,14 @@ struct kgsl_pagetable *kgsl_get_pagetable(unsigned long name);
 
 struct kgsl_pagetable *
 kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int name);
+
+int kgsl_mmu_map_offset(struct kgsl_pagetable *pagetable,
+		uint64_t virtaddr, uint64_t virtoffset,
+		struct kgsl_memdesc *memdesc, uint64_t physoffset,
+		uint64_t size, uint64_t flags);
+int kgsl_mmu_unmap_offset(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc, uint64_t addr, uint64_t offset,
+		uint64_t size);
 
 /*
  * Static inline functions of MMU that simply call the SMMU specific

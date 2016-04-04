@@ -117,6 +117,7 @@ struct mdss_hw mdss_misc_hw = {
 	.irq_handler = NULL,
 };
 
+#ifdef CONFIG_MSM_BUS_SCALING
 #define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)	\
 	{						\
 		.src = MSM_BUS_MASTER_AMPSS_M0,		\
@@ -143,6 +144,7 @@ static struct msm_bus_scale_pdata mdp_reg_bus_scale_table = {
 	.name = "mdss_reg",
 	.active_only = true,
 };
+#endif
 
 u32 invalid_mdp107_wb_output_fmts[] = {
 	MDP_XRGB_8888,
@@ -294,6 +296,7 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_MSM_BUS_SCALING
 static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 {
 	struct msm_bus_scale_pdata *reg_bus_pdata;
@@ -571,6 +574,42 @@ int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 
 	return rc;
 }
+#else
+static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
+{
+	return 0;
+}
+
+static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
+{
+}
+
+int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
+{
+	pr_debug("No bus scaling! client=%d ab=%llu ib=%llu\n",
+			client, ab_quota, ib_quota);
+
+	return 0;
+}
+
+struct reg_bus_client *mdss_reg_bus_vote_client_create(char *client_name)
+{
+	return NULL;
+}
+
+void mdss_reg_bus_vote_client_destroy(struct reg_bus_client *client)
+{
+}
+
+int mdss_update_reg_bus_vote(struct reg_bus_client *bus_client, u32 usecase_ndx)
+{
+	pr_debug("%pS: No reg scaling! usecase=%u\n",
+			__builtin_return_address(0), usecase_ndx);
+
+	return 0;
+}
+#endif
+
 
 static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
 {
@@ -1271,7 +1310,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	}
 
 	mdata->reg_bus_clt = mdss_reg_bus_vote_client_create("mdp\0");
-	if (IS_ERR_OR_NULL(mdata->reg_bus_clt)) {
+	if (IS_ERR(mdata->reg_bus_clt)) {
 		pr_err("bus client register failed\n");
 		return PTR_ERR(mdata->reg_bus_clt);
 	}
@@ -1831,11 +1870,11 @@ static int mdss_mdp_get_cmdline_config(struct platform_device *pdev)
 	rc = mdss_mdp_parse_dt_pan_intf(pdev);
 	/* if pref pan intf is not present */
 	if (rc)
-		pr_err("unable to parse device tree for pan intf\n");
-	else
-		pan_cfg->init_done = true;
+		pr_warn("unable to parse device tree for pan intf\n");
 
-	return rc;
+	pan_cfg->init_done = true;
+
+	return 0;
 }
 
 static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
@@ -2217,11 +2256,6 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		pr_err("unable to initialize mdss mdp resources\n");
 		goto probe_done;
 	}
-	rc = mdss_mdp_pp_init(&pdev->dev);
-	if (rc) {
-		pr_err("unable to initialize mdss pp resources\n");
-		goto probe_done;
-	}
 	rc = mdss_mdp_bus_scale_register(mdata);
 	if (rc) {
 		pr_err("unable to register bus scaling\n");
@@ -2277,6 +2311,10 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	 */
 	mdss_mdp_footswitch_ctrl_splash(true);
 	mdss_hw_init(mdata);
+
+	rc = mdss_mdp_pp_init(&pdev->dev);
+	if (rc)
+		pr_err("unable to initialize mdss pp resources\n");
 
 	/* Restoring Secure configuration during boot-up */
 	if (mdss_mdp_req_init_restore_cfg(mdata))
@@ -2962,7 +3000,6 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	u32 *mixer_offsets = NULL, *dspp_offsets = NULL,
 	    *pingpong_offsets = NULL;
 	u32 is_virtual_mixer_req = false;
-	u32 supports_separate_rotator = 0;
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
@@ -3017,7 +3054,7 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
-	supports_separate_rotator = of_property_read_bool(pdev->dev.of_node,
+	mdata->has_separate_rotator = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-separate-rotator");
 	if (mdata->nmixers_wb) {
 		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
@@ -3025,7 +3062,7 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 				mdata->nmixers_wb);
 		if (rc)
 			goto parse_done;
-	} else if (!supports_separate_rotator) {
+	} else if (!mdata->has_separate_rotator) {
 		/*
 		 * If writeback mixers are not available, put the number of
 		 * writeback mixers equal to number of DMA pipes so that
@@ -3899,6 +3936,7 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev)
 	return -EINVAL;
 }
 
+#ifdef CONFIG_MSM_BUS_SCALING
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 {
 	int rc, paths;
@@ -3957,6 +3995,13 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 
 	return rc;
 }
+#else
+static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
+{
+	return 0;
+}
+
+#endif
 
 static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
 		char *prop_name, u32 *offsets, int len)
@@ -4148,9 +4193,9 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 
 	res = params->width * params->height;
 
-	pr_debug("w:%d h:%d rot:%d yuv:%d wb:%d res:%d\n",
+	pr_debug("w:%d h:%d rot:%d yuv:%d wb:%d res:%d fps:%d\n",
 		params->width, params->height, params->is_rot,
-		params->is_yuv, params->is_wb, res);
+		params->is_yuv, params->is_wb, res, params->frame_rate);
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_114:

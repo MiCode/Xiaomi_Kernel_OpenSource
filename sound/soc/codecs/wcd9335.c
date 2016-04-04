@@ -5419,6 +5419,67 @@ out:
 	return ret;
 }
 
+static void tasha_set_anc_dmic_mode(struct snd_soc_codec *codec,
+				u8 dmic_ctl_val)
+{
+	u8 anc_ctl_value;
+
+	if (dmic_ctl_val == WCD9335_DMIC_CLK_DIV_2)
+		anc_ctl_value = WCD9335_ANC_DMIC_X2_FULL_RATE;
+	else
+		anc_ctl_value = WCD9335_ANC_DMIC_X2_HALF_RATE;
+
+	snd_soc_update_bits(codec, WCD9335_CDC_ANC0_MODE_2_CTL,
+			    0x40, anc_ctl_value << 6);
+	snd_soc_update_bits(codec, WCD9335_CDC_ANC0_MODE_2_CTL,
+			    0x20, anc_ctl_value << 5);
+	snd_soc_update_bits(codec, WCD9335_CDC_ANC1_MODE_2_CTL,
+			    0x40, anc_ctl_value << 6);
+	snd_soc_update_bits(codec, WCD9335_CDC_ANC1_MODE_2_CTL,
+			    0x20, anc_ctl_value << 5);
+}
+
+static u32 tasha_get_dmic_sample_rate(struct snd_soc_codec *codec,
+				unsigned int dmic, struct wcd9xxx_pdata *pdata)
+{
+	u8 tx_stream_fs;
+	u8 adc_mux_index = 0, adc_mux_sel = 0;
+	bool dec_found = false;
+	u16 adc_mux_ctl_reg, tx_fs_reg;
+	u32 dmic_fs;
+
+	while (dec_found == 0 && adc_mux_index < WCD9335_MAX_VALID_ADC_MUX) {
+		if (adc_mux_index < 4) {
+			adc_mux_ctl_reg = WCD9335_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
+						(adc_mux_index * 2);
+			adc_mux_sel = ((snd_soc_read(codec, adc_mux_ctl_reg) &
+						0x78) >> 3) - 1;
+		} else if (adc_mux_index < 9) {
+			adc_mux_ctl_reg = WCD9335_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
+						((adc_mux_index - 4) * 1);
+			adc_mux_sel = ((snd_soc_read(codec, adc_mux_ctl_reg) &
+						0x38) >> 3) - 1;
+		} else if (adc_mux_index == 9) {
+			continue;
+		}
+		if (adc_mux_sel == dmic)
+			dec_found = true;
+		else
+			++adc_mux_index;
+	}
+
+	if (dec_found == true && adc_mux_index <= 8) {
+		tx_fs_reg = WCD9335_CDC_TX0_TX_PATH_CTL + (16 * adc_mux_index);
+		tx_stream_fs = snd_soc_read(codec, tx_fs_reg) & 0x0F;
+		dmic_fs = tx_stream_fs <= 4 ? WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ :
+					WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ;
+	} else {
+		dmic_fs = pdata->dmic_sample_rate;
+	}
+
+	return dmic_fs;
+}
+
 static u8 tasha_get_dmic_clk_val(struct snd_soc_codec *codec,
 				 u32 mclk_rate, u32 dmic_clk_rate)
 {
@@ -5502,6 +5563,7 @@ static int tasha_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	s32 *dmic_clk_cnt;
 	u8 dmic_rate_val, dmic_rate_shift = 1;
 	unsigned int dmic;
+	u32 dmic_sample_rate;
 	int ret;
 	char *wname;
 
@@ -5544,10 +5606,15 @@ static int tasha_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dmic_sample_rate = tasha_get_dmic_sample_rate(codec, dmic,
+						pdata);
 		dmic_rate_val =
 			tasha_get_dmic_clk_val(codec,
 					pdata->mclk_rate,
-					pdata->dmic_sample_rate);
+					dmic_sample_rate);
+
+		/* Set ANC dmic control bits to match dmic rate */
+		tasha_set_anc_dmic_mode(codec, dmic_rate_val);
 
 		(*dmic_clk_cnt)++;
 		if (*dmic_clk_cnt == 1) {
@@ -8123,7 +8190,8 @@ static int tasha_config_compander(struct snd_soc_codec *codec, int interp_n,
 
 static int tasha_codec_config_mad(struct snd_soc_codec *codec)
 {
-	int ret, idx;
+	int ret = 0;
+	int idx;
 	const struct firmware *fw;
 	struct firmware_cal *hwdep_cal = NULL;
 	struct wcd_mad_audio_cal *mad_cal = NULL;
@@ -10727,6 +10795,8 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 			tasha->dai[dai->id].bit_width = 24;
 			i2s_bit_mode = 0x00;
 			break;
+		default:
+			return -EINVAL;
 		}
 		tasha->dai[dai->id].rate = params_rate(params);
 		if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
@@ -11326,6 +11396,8 @@ static ssize_t tasha_codec_version_read(struct snd_info_entry *entry,
 			len = snprintf(buffer, sizeof(buffer), "WCD9335_1_0\n");
 		else if (TASHA_IS_1_1(wcd9xxx->version))
 			len = snprintf(buffer, sizeof(buffer), "WCD9335_1_1\n");
+		else
+			snprintf(buffer, sizeof(buffer), "VER_UNDEFINED\n");
 	} else if (wcd9xxx->codec_type->id_major == TASHA2P0_MAJOR) {
 			len = snprintf(buffer, sizeof(buffer), "WCD9335_2_0\n");
 	} else
@@ -11893,7 +11965,6 @@ static int tasha_handle_pdata(struct tasha_priv *tasha,
 {
 	struct snd_soc_codec *codec = tasha->codec;
 	u8 dmic_ctl_val, mad_dmic_ctl_val;
-	u8 anc_ctl_value;
 	u32 def_dmic_rate, dmic_clk_drv;
 	int vout_ctl_1, vout_ctl_2, vout_ctl_3, vout_ctl_4;
 	int rc = 0;
@@ -12003,19 +12074,8 @@ static int tasha_handle_pdata(struct tasha_priv *tasha,
 				pdata->mclk_rate,
 				pdata->dmic_sample_rate);
 
-	if (dmic_ctl_val == WCD9335_DMIC_CLK_DIV_2)
-		anc_ctl_value = WCD9335_ANC_DMIC_X2_FULL_RATE;
-	else
-		anc_ctl_value = WCD9335_ANC_DMIC_X2_HALF_RATE;
+	tasha_set_anc_dmic_mode(codec, dmic_ctl_val);
 
-	snd_soc_update_bits(codec, WCD9335_CDC_ANC0_MODE_2_CTL,
-			    0x40, anc_ctl_value << 6);
-	snd_soc_update_bits(codec, WCD9335_CDC_ANC0_MODE_2_CTL,
-			    0x20, anc_ctl_value << 5);
-	snd_soc_update_bits(codec, WCD9335_CDC_ANC1_MODE_2_CTL,
-			    0x40, anc_ctl_value << 6);
-	snd_soc_update_bits(codec, WCD9335_CDC_ANC1_MODE_2_CTL,
-			    0x20, anc_ctl_value << 5);
 done:
 	return rc;
 }
@@ -12877,6 +12937,38 @@ err:
 	return ret;
 }
 
+static int tasha_swrm_i2s_bulk_write(struct wcd9xxx *wcd9xxx,
+				struct wcd9xxx_reg_val *bulk_reg,
+				size_t len)
+{
+	int i, ret = 0;
+	unsigned short swr_wr_addr_base;
+	unsigned short swr_wr_data_base;
+
+	swr_wr_addr_base = WCD9335_SWR_AHB_BRIDGE_WR_ADDR_0;
+	swr_wr_data_base = WCD9335_SWR_AHB_BRIDGE_WR_DATA_0;
+
+	for (i = 0; i < (len * 2); i += 2) {
+		/* First Write the Data to register */
+		ret = wcd9xxx_bulk_write(&wcd9xxx->core_res,
+			swr_wr_data_base, 4, bulk_reg[i].buf);
+		if (ret < 0) {
+			dev_err(wcd9xxx->dev, "%s: WR Data Failure\n",
+				__func__);
+			break;
+		}
+		/* Next Write Address */
+		ret = wcd9xxx_bulk_write(&wcd9xxx->core_res,
+			swr_wr_addr_base, 4, bulk_reg[i+1].buf);
+		if (ret < 0) {
+			dev_err(wcd9xxx->dev, "%s: WR Addr Failure\n",
+				__func__);
+			break;
+		}
+	}
+	return ret;
+}
+
 static int tasha_swrm_bulk_write(void *handle, u32 *reg, u32 *val, size_t len)
 {
 	struct tasha_priv *tasha;
@@ -12914,10 +13006,22 @@ static int tasha_swrm_bulk_write(void *handle, u32 *reg, u32 *val, size_t len)
 		bulk_reg[i+1].bytes = 4;
 	}
 	mutex_lock(&tasha->swr_write_lock);
-	ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg, (len * 2), false);
-	if (ret)
-		dev_err(tasha->dev, "%s: swrm bulk write failed, ret: %d\n",
-			__func__, ret);
+
+	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
+		ret = tasha_swrm_i2s_bulk_write(wcd9xxx, bulk_reg, len);
+		if (ret) {
+			dev_err(tasha->dev, "%s: i2s bulk write failed, ret: %d\n",
+				__func__, ret);
+		}
+	} else {
+		ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg,
+				 (len * 2), false);
+		if (ret) {
+			dev_err(tasha->dev, "%s: swrm bulk write failed, ret: %d\n",
+				__func__, ret);
+		}
+	}
+
 	mutex_unlock(&tasha->swr_write_lock);
 	kfree(bulk_reg);
 
@@ -12952,9 +13056,19 @@ static int tasha_swrm_write(void *handle, int reg, int val)
 	bulk_reg[1].bytes = 4;
 
 	mutex_lock(&tasha->swr_write_lock);
-	ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg, 2, false);
-	if (ret < 0)
-		pr_err("%s: WR Data Failure\n", __func__);
+
+	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
+		ret = tasha_swrm_i2s_bulk_write(wcd9xxx, bulk_reg, 1);
+		if (ret) {
+			dev_err(tasha->dev, "%s: i2s swrm write failed, ret: %d\n",
+				__func__, ret);
+		}
+	} else {
+		ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg, 2, false);
+		if (ret < 0)
+			pr_err("%s: WR Data Failure\n", __func__);
+	}
+
 	mutex_unlock(&tasha->swr_write_lock);
 	return ret;
 }

@@ -411,6 +411,11 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 	ret = kgsl_process_private_get(process);
 	if (!ret)
 		return -EBADF;
+
+	ret = kgsl_mem_entry_track_gpuaddr(process, entry);
+	if (ret)
+		goto err_put_proc_priv;
+
 	idr_preload(GFP_KERNEL);
 	spin_lock(&process->mem_lock);
 	id = idr_alloc(&process->mem_idr, entry, 1, 0, GFP_NOWAIT);
@@ -419,19 +424,12 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 
 	if (id < 0) {
 		ret = id;
+		kgsl_mem_entry_untrack_gpuaddr(process, entry);
 		goto err_put_proc_priv;
 	}
 
 	entry->id = id;
 	entry->priv = process;
-
-	ret = kgsl_mem_entry_track_gpuaddr(process, entry);
-	if (ret) {
-		spin_lock(&process->mem_lock);
-		idr_remove(&process->mem_idr, entry->id);
-		spin_unlock(&process->mem_lock);
-		goto err_put_proc_priv;
-	}
 
 	/* map the memory after unlocking if gpuaddr has been assigned */
 	if (entry->memdesc.gpuaddr) {
@@ -465,11 +463,10 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 	if (entry == NULL)
 		return;
 
-	/* Unmap here so that below we can call kgsl_mmu_put_gpuaddr */
-	kgsl_mmu_unmap(entry->memdesc.pagetable, &entry->memdesc);
-
-	kgsl_mem_entry_untrack_gpuaddr(entry->priv, entry);
-
+	/*
+	 * First remove the entry from mem_idr list
+	 * so that no one can operate on obsolete values
+	 */
 	spin_lock(&entry->priv->mem_lock);
 	if (entry->id != 0)
 		idr_remove(&entry->priv->mem_idr, entry->id);
@@ -478,6 +475,11 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 	type = kgsl_memdesc_usermem_type(&entry->memdesc);
 	entry->priv->stats[type].cur -= entry->memdesc.size;
 	spin_unlock(&entry->priv->mem_lock);
+
+	kgsl_mmu_unmap(entry->memdesc.pagetable, &entry->memdesc);
+
+	kgsl_mem_entry_untrack_gpuaddr(entry->priv, entry);
+
 	kgsl_process_private_put(entry->priv);
 
 	entry->priv = NULL;
@@ -1072,25 +1074,28 @@ static void device_release_contexts(struct kgsl_device_private *dev_priv)
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
 	int next = 0;
+	int result = 0;
 
 	while (1) {
 		read_lock(&device->context_lock);
 		context = idr_get_next(&device->context_idr, &next);
-		read_unlock(&device->context_lock);
 
-		if (context == NULL)
+		if (context == NULL) {
+			read_unlock(&device->context_lock);
 			break;
-
-		if (context->dev_priv == dev_priv) {
+		} else if (context->dev_priv == dev_priv) {
 			/*
 			 * Hold a reference to the context in case somebody
 			 * tries to put it while we are detaching
 			 */
+			result = _kgsl_context_get(context);
+		}
+		read_unlock(&device->context_lock);
 
-			if (_kgsl_context_get(context)) {
-				kgsl_context_detach(context);
-				kgsl_context_put(context);
-			}
+		if (result) {
+			kgsl_context_detach(context);
+			kgsl_context_put(context);
+			result = 0;
 		}
 
 		next = next + 1;
@@ -1781,12 +1786,8 @@ long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 	long ret;
 
 	entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-	if (entry == NULL) {
-		KGSL_MEM_INFO(dev_priv->device,
-			"Invalid GPU address 0x%016llx\n",
-			(uint64_t) param->gpuaddr);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	ret = gpumem_free_entry(entry);
 	kgsl_mem_entry_put(entry);
@@ -1803,11 +1804,8 @@ long kgsl_ioctl_gpumem_free_id(struct kgsl_device_private *dev_priv,
 	long ret;
 
 	entry = kgsl_sharedmem_find_id(private, param->id);
-	if (entry == NULL) {
-		KGSL_MEM_INFO(dev_priv->device,
-			"Invalid GPU memory object ID %d\n", param->id);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	ret = gpumem_free_entry(entry);
 	kgsl_mem_entry_put(entry);
@@ -1896,11 +1894,8 @@ long kgsl_ioctl_gpuobj_free(struct kgsl_device_private *dev_priv,
 	long ret;
 
 	entry = kgsl_sharedmem_find_id(private, param->id);
-	if (entry == NULL) {
-		KGSL_MEM_ERR(dev_priv->device,
-			"Invalid GPU memory object ID %d\n", param->id);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	/* If no event is specified then free immediately */
 	if (!(param->flags & KGSL_GPUOBJ_FREE_ON_EVENT))
@@ -1935,17 +1930,14 @@ long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
 	entry = kgsl_sharedmem_find(dev_priv->process_priv,
 		(uint64_t) param->gpuaddr);
 	if (entry == NULL) {
-		KGSL_MEM_ERR(dev_priv->device,
-			"Invalid GPU address 0x%016llx\n",
-			(uint64_t) param->gpuaddr);
-		goto out;
+		kgsl_context_put(context);
+		return -EINVAL;
 	}
 
 	ret = gpumem_free_entry_on_timestamp(dev_priv->device, entry,
 		context, param->timestamp);
 
 	kgsl_mem_entry_put(entry);
-out:
 	kgsl_context_put(context);
 
 	return ret;
@@ -1956,6 +1948,20 @@ static inline int _check_region(unsigned long start, unsigned long size,
 {
 	uint64_t end = ((uint64_t) start) + size;
 	return (end > len);
+}
+
+static int check_vma_flags(struct vm_area_struct *vma,
+		unsigned int flags)
+{
+	unsigned long flags_requested = (VM_READ | VM_WRITE);
+
+	if (flags & KGSL_MEMFLAGS_GPUREADONLY)
+		flags_requested &= ~VM_WRITE;
+
+	if ((vma->vm_flags & flags_requested) == flags_requested)
+		return 0;
+
+	return -EFAULT;
 }
 
 static int check_vma(struct vm_area_struct *vma, struct file *vmfile,
@@ -1971,7 +1977,7 @@ static int check_vma(struct vm_area_struct *vma, struct file *vmfile,
 	if (vma->vm_start != memdesc->useraddr ||
 		(memdesc->useraddr + memdesc->size) != vma->vm_end)
 		return -EINVAL;
-	return 0;
+	return check_vma_flags(vma, memdesc->flags);
 }
 
 static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
@@ -1980,7 +1986,7 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
 	long npages = 0, i;
 	size_t sglen = (size_t) (memdesc->size / PAGE_SIZE);
 	struct page **pages = NULL;
-	int write = (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY) != 0;
+	int write = ((memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY) ? 0 : 1);
 
 	if (sglen == 0 || sglen >= LONG_MAX)
 		return -EINVAL;
@@ -2098,6 +2104,12 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 
 	if (vma && vma->vm_file) {
 		int fd;
+
+		ret = check_vma_flags(vma, entry->memdesc.flags);
+		if (ret) {
+			up_read(&current->mm->mmap_sem);
+			return ret;
+		}
 
 		/*
 		 * Check to see that this isn't our own memory that we have
@@ -2529,7 +2541,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 				private->pagetable, entry, param->fd);
 		break;
 	default:
-		KGSL_CORE_ERR("Invalid memory type: %x\n", memtype);
 		result = -EOPNOTSUPP;
 		break;
 	}
@@ -2539,10 +2550,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	if ((param->flags & KGSL_MEMFLAGS_SECURE) &&
 		(entry->memdesc.size & mmu->secure_align_mask)) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Secure buffer size %lld not aligned to %x alignment",
-				entry->memdesc.size,
-				mmu->secure_align_mask + 1);
 		result = -EINVAL;
 		goto error_attach;
 	}
@@ -2644,24 +2651,13 @@ long kgsl_ioctl_gpumem_sync_cache(struct kgsl_device_private *dev_priv,
 	struct kgsl_mem_entry *entry = NULL;
 	long ret;
 
-	if (param->id != 0) {
+	if (param->id != 0)
 		entry = kgsl_sharedmem_find_id(private, param->id);
-		if (entry == NULL) {
-			KGSL_MEM_INFO(dev_priv->device, "can't find id %d\n",
-					param->id);
-			return -EINVAL;
-		}
-	} else if (param->gpuaddr != 0) {
+	else if (param->gpuaddr != 0)
 		entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-		if (entry == NULL) {
-			KGSL_MEM_INFO(dev_priv->device,
-					"can't find gpuaddr 0x%08lX\n",
-					param->gpuaddr);
-			return -EINVAL;
-		}
-	} else {
+
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	ret = _kgsl_gpumem_sync_cache(entry, (uint64_t) param->offset,
 					(uint64_t) param->length, param->op);
@@ -2789,12 +2785,8 @@ long kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 	long ret;
 
 	entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-	if (entry == NULL) {
-		KGSL_MEM_INFO(dev_priv->device,
-				"can't find gpuaddr 0x%08lX\n",
-				param->gpuaddr);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	ret = _kgsl_gpumem_sync_cache(entry, 0, entry->memdesc.size,
 					KGSL_GPUMEM_CACHE_FLUSH);
@@ -3082,15 +3074,12 @@ long kgsl_ioctl_gpumem_get_info(struct kgsl_device_private *dev_priv,
 	struct kgsl_mem_entry *entry = NULL;
 	int result = 0;
 
-	if (param->id != 0) {
+	if (param->id != 0)
 		entry = kgsl_sharedmem_find_id(private, param->id);
-		if (entry == NULL)
-			return -EINVAL;
-	} else if (param->gpuaddr != 0) {
+	else if (param->gpuaddr != 0)
 		entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-		if (entry == NULL)
-			return -EINVAL;
-	} else
+
+	if (entry == NULL)
 		return -EINVAL;
 
 	/*

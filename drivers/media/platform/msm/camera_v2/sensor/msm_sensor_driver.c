@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -982,70 +982,6 @@ free_slave_info:
 	return rc;
 }
 
-static int32_t msm_sensor_driver_get_gpio_data(
-	struct msm_camera_sensor_board_info *sensordata,
-	struct device_node *of_node)
-{
-	int32_t                      rc = 0, i = 0;
-	struct msm_camera_gpio_conf *gconf = NULL;
-	uint16_t                    *gpio_array = NULL;
-	uint16_t                     gpio_array_size = 0;
-
-	/* Validate input paramters */
-	if (!sensordata || !of_node) {
-		pr_err("failed: invalid params sensordata %p of_node %p",
-			sensordata, of_node);
-		return -EINVAL;
-	}
-
-	sensordata->power_info.gpio_conf = kzalloc(
-			sizeof(struct msm_camera_gpio_conf), GFP_KERNEL);
-	if (!sensordata->power_info.gpio_conf) {
-		pr_err("failed");
-		return -ENOMEM;
-	}
-	gconf = sensordata->power_info.gpio_conf;
-
-	gpio_array_size = of_gpio_count(of_node);
-	CDBG("gpio count %d", gpio_array_size);
-	if (!gpio_array_size)
-		return 0;
-
-	gpio_array = kzalloc(sizeof(uint16_t) * gpio_array_size, GFP_KERNEL);
-	if (!gpio_array) {
-		pr_err("failed");
-		goto FREE_GPIO_CONF;
-	}
-	for (i = 0; i < gpio_array_size; i++) {
-		gpio_array[i] = of_get_gpio(of_node, i);
-		CDBG("gpio_array[%d] = %d", i, gpio_array[i]);
-	}
-
-	rc = msm_camera_get_dt_gpio_req_tbl(of_node, gconf, gpio_array,
-		gpio_array_size);
-	if (rc < 0) {
-		pr_err("failed");
-		goto FREE_GPIO_CONF;
-	}
-
-	rc = msm_camera_init_gpio_pin_tbl(of_node, gconf, gpio_array,
-		gpio_array_size);
-	if (rc < 0) {
-		pr_err("failed");
-		goto FREE_GPIO_REQ_TBL;
-	}
-
-	kfree(gpio_array);
-	return rc;
-
-FREE_GPIO_REQ_TBL:
-	kfree(sensordata->power_info.gpio_conf->cam_gpio_req_tbl);
-FREE_GPIO_CONF:
-	kfree(sensordata->power_info.gpio_conf);
-	kfree(gpio_array);
-	return rc;
-}
-
 static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t                              rc = 0;
@@ -1093,17 +1029,28 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 		goto FREE_SENSOR_DATA;
 	}
 
+	/*Get clocks information*/
+	rc = msm_camera_get_clk_info(s_ctrl->pdev,
+		&s_ctrl->sensordata->power_info.clk_info,
+		&s_ctrl->sensordata->power_info.clk_ptr,
+		&s_ctrl->sensordata->power_info.clk_info_size);
+	if (rc < 0) {
+		pr_err("failed: msm_camera_get_clk_info rc %d", rc);
+		goto FREE_SUB_MODULE_DATA;
+	}
+
 	/* Read vreg information */
 	rc = msm_camera_get_dt_vreg_data(of_node,
 		&sensordata->power_info.cam_vreg,
 		&sensordata->power_info.num_vreg);
 	if (rc < 0) {
 		pr_err("failed: msm_camera_get_dt_vreg_data rc %d", rc);
-		goto FREE_SUB_MODULE_DATA;
+		goto FREE_CLK_DATA;
 	}
 
 	/* Read gpio information */
-	rc = msm_sensor_driver_get_gpio_data(sensordata, of_node);
+	rc = msm_sensor_driver_get_gpio_data
+		(&(sensordata->power_info.gpio_conf), of_node);
 	if (rc < 0) {
 		pr_err("failed: msm_sensor_driver_get_gpio_data rc %d", rc);
 		goto FREE_VREG_DATA;
@@ -1157,6 +1104,12 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 
 FREE_VREG_DATA:
 	kfree(sensordata->power_info.cam_vreg);
+FREE_CLK_DATA:
+	msm_camera_put_clk_info(s_ctrl->pdev,
+		&s_ctrl->sensordata->power_info.clk_info,
+		&s_ctrl->sensordata->power_info.clk_ptr,
+		s_ctrl->sensordata->power_info.clk_info_size);
+
 FREE_SUB_MODULE_DATA:
 	kfree(sensordata->sensor_info);
 FREE_SENSOR_DATA:
@@ -1249,15 +1202,17 @@ static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev)
 	s_ctrl->sensor_device_type = MSM_CAMERA_PLATFORM_DEVICE;
 	s_ctrl->of_node = pdev->dev.of_node;
 
+	/*fill in platform device*/
+	s_ctrl->pdev = pdev;
+
 	rc = msm_sensor_driver_parse(s_ctrl);
 	if (rc < 0) {
 		pr_err("failed: msm_sensor_driver_parse rc %d", rc);
 		goto FREE_S_CTRL;
 	}
 
-	/* Fill platform device */
+	/* Fill platform device id*/
 	pdev->id = s_ctrl->id;
-	s_ctrl->pdev = pdev;
 
 	/* Fill device in power info */
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;

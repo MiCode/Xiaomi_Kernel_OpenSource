@@ -103,6 +103,25 @@ a 0-100 percentage representing the amount of charge left in the battery.
 	Value type:	Boolean
 	Definition:	This is to enable soc correction algorithm.
 
+-st,empty-soc-uv
+	Usage:		Optional
+	Value type:	<u32> in uV
+	Definition:	This is the battery voltage threshold to reporting 0%
+			SOC. If this property is present then 'qcom,fg-adc_tm'
+			and 'qcom,fg-vadc' are required properties.
+
+-qcom,fg-adc_tm
+	Usage:		Optional
+	Value type:	<phandle>
+	Definition:	ADC_TM device's phandle to receive notifications when
+			battery voltage crosses configured thresholds.
+
+- qcom,fg-vadc
+	Usage:		Optional
+	Value type:	<phandle>
+	Definition:	VADC device's phandle to read battery voltage using
+			ADC channel.
+
 Example:
 	st-fg@70 {
 		compatible = "st,stc3117";
@@ -127,5 +146,9 @@ Example:
 					70 80 90 100>;
 		st,vmtemp-tbl = /bits/ 16 <85 90 100 160 320 440 840>
 		st,temp-tbl = /bits/ 16 <60 40 25 10 0 (-10) (-20)>;
+
+		st,empty-soc-uv = <3300000>;
+		qcom,fg-vadc = <&pm8916_vadc>;
+		qcom,fg-adc_tm = <&pm8916_adc_tm>;
 	};
 

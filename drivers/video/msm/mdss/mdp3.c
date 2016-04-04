@@ -950,24 +950,23 @@ static int mdp3_check_version(void)
 {
 	int rc;
 
-	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
-	rc |= mdp3_clk_update(MDP3_CLK_AXI, 1);
-	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
-	if (rc)
+	rc = mdp3_clk_enable(1, 0);
+	if (rc) {
+		pr_err("fail to turn on MDP core clks\n");
 		return rc;
+	}
 
 	mdp3_res->mdp_rev = MDP3_REG_READ(MDP3_REG_HW_VERSION);
-
-	rc = mdp3_clk_update(MDP3_CLK_AHB, 0);
-	rc |= mdp3_clk_update(MDP3_CLK_AXI, 0);
-	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
-	if (rc)
-		pr_err("fail to turn off the MDP3_CLK_AHB clk\n");
 
 	if (mdp3_res->mdp_rev != MDP_CORE_HW_VERSION) {
 		pr_err("mdp_hw_revision=%x mismatch\n", mdp3_res->mdp_rev);
 		rc = -ENODEV;
 	}
+
+	rc = mdp3_clk_enable(0, 0);
+	if (rc)
+		pr_err("fail to turn off MDP core clks\n");
+
 	return rc;
 }
 
@@ -1903,6 +1902,7 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 			}
 
 		data->mapped = true;
+		data->skip_detach = false;
 	}
 done:
 	if (!ret && (img->offset < data->len)) {
@@ -2087,11 +2087,8 @@ __ref int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
 		goto error;
 	}
 
-	mfd->fbi->fix.smem_start = offsets[0];
-	mfd->fbi->fix.smem_len = offsets[1];
-	mdp3_res->splash_mem_addr = mfd->fbi->fix.smem_start;
-	mdp3_res->splash_mem_size = mfd->fbi->fix.smem_len;
-
+	mdp3_res->splash_mem_addr = offsets[0];
+	mdp3_res->splash_mem_size = offsets[1];
 error:
 	if (rc && mfd->panel_info->cont_splash_enabled)
 		pr_err("no rsvd mem found in DT for splash screen\n");
@@ -2183,10 +2180,11 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 	int rc = 0;
 	u32 status;
 
-	mdp3_clk_update(MDP3_CLK_AHB, 1);
-	mdp3_clk_update(MDP3_CLK_AXI, 1);
-	mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
-
+	rc = mdp3_clk_enable(1, 0);
+	if (rc) {
+		pr_err("fail to turn on MDP core clks\n");
+		return rc;
+	}
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
 		status = MDP3_REG_READ(MDP3_REG_DSI_VIDEO_EN);
 		rc = status & 0x1;
@@ -2198,9 +2196,9 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 
 	mdp3_res->splash_mem_addr = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_ADDR);
 
-	mdp3_clk_update(MDP3_CLK_AHB, 0);
-	mdp3_clk_update(MDP3_CLK_AXI, 0);
-	mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
+	rc = mdp3_clk_enable(0, 0);
+	if (rc)
+		pr_err("fail to turn off MDP core clks\n");
 	return rc;
 }
 
@@ -2641,18 +2639,19 @@ int mdp3_panel_get_intf_status(u32 disp_num, u32 intf_type)
 	if (intf_type != MDSS_PANEL_INTF_DSI)
 		return 0;
 
-	mdp3_clk_update(MDP3_CLK_AHB, 1);
-	mdp3_clk_update(MDP3_CLK_AXI, 1);
-	mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
+	rc = mdp3_clk_enable(1, 0);
+	if (rc) {
+		pr_err("fail to turn on MDP core clks\n");
+		return rc;
+	}
 
 	status = (MDP3_REG_READ(MDP3_REG_DMA_P_CONFIG) & 0x180000);
 	/* DSI video mode or command mode */
 	rc = (status == 0x180000) || (status == 0x080000);
 
-	mdp3_clk_update(MDP3_CLK_AHB, 0);
-	mdp3_clk_update(MDP3_CLK_AXI, 0);
-	mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
-
+	rc = mdp3_clk_enable(0, 0);
+	if (rc)
+		pr_err("fail to turn off MDP core clks\n");
 	return rc;
 }
 
@@ -2729,12 +2728,6 @@ static int mdp3_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	rc = mdp3_check_version();
-	if (rc) {
-		pr_err("mdp3 check version failed\n");
-		goto probe_done;
-	}
-
 	rc = mdp3_debug_init(pdev);
 	if (rc) {
 		pr_err("unable to initialize mdp debugging\n");
@@ -2758,6 +2751,11 @@ static int mdp3_probe(struct platform_device *pdev)
 		}
 	}
 
+	rc = mdp3_check_version();
+	if (rc) {
+		pr_err("mdp3 check version failed\n");
+		goto probe_done;
+	}
 	rc = mdp3_register_sysfs(pdev);
 	if (rc)
 		pr_err("unable to register mdp sysfs nodes\n");

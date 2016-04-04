@@ -25,6 +25,8 @@
 #include <linux/slab.h>
 #include <linux/power_supply.h>
 
+#include <linux/qpnp/qpnp-adc.h>
+
 #define MODE_REG		0x0
 #define VMODE_BIT		BIT(0)
 #define FORCE_CD_BIT		BIT(2)
@@ -119,7 +121,7 @@ do {									\
 struct fg_data {
 	int soc;
 	int hr_soc;
-	u16 voltage_mv;
+	s16 voltage_mv;
 	s16 current_ma;
 	s16 avg_current_ma;
 	s16 temperature;
@@ -172,6 +174,7 @@ struct stc311x_chip  {
 	int				cfg_rbatt_mohm;
 	int				cfg_term_current_ma;
 	int				cfg_float_voltage_mv;
+	int				cfg_empty_soc_uv;
 	bool				cfg_force_vmode;
 	bool				cfg_enable_soc_correction;
 
@@ -192,10 +195,17 @@ struct stc311x_chip  {
 	struct i2c_client		*client;
 	struct device			*dev;
 	struct delayed_work		soc_calc_work;
+	struct delayed_work		cutoff_check_work;
 	struct fg_wakeup_source		soc_calc_wake_source;
+	struct fg_wakeup_source		cutoff_wake_source;
 	struct dentry			*debug_root;
 	struct mutex			read_write_lock;
 	struct power_supply		bms_psy;
+
+	/* ADC notification */
+	struct qpnp_adc_tm_chip         *adc_tm_dev;
+	struct qpnp_vadc_chip		*vadc_dev;
+	struct qpnp_adc_tm_btm_param	vbat_cutoff_params;
 };
 
 static char *fg_supplicants[] = {
@@ -658,11 +668,145 @@ static int stc311x_start(struct stc311x_chip *chip)
 	return rc;
 }
 
+static int stc311x_force_soc(struct stc311x_chip *chip, int soc, int vbat_uv)
+{
+	int rc;
+
+	rc = stc311x_write_param(chip, SOC_REG, soc);
+	if (rc)
+		pr_err("Failed to set SOC to %d rc=%d\n", soc, rc);
+	else
+		pr_warn("forcing SOC = %d vbat = %duV\n", soc, vbat_uv);
+
+	return rc;
+}
+
+static int get_battery_voltage_adc(struct stc311x_chip *chip, int *result_uv)
+{
+	int rc;
+	struct qpnp_vadc_result adc_result;
+
+	if (!chip->vadc_dev)
+		return -EINVAL;
+
+	rc = qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &adc_result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+							VBAT_SNS, rc);
+		return rc;
+	}
+	pr_debug("mvolts phy=%lld meas=0x%llx\n", adc_result.physical,
+						adc_result.measurement);
+	*result_uv = (int)adc_result.physical;
+
+	return 0;
+}
+
+#define VBATT_ERROR_MARGIN_UV	20000
+#define CUTOFF_MARGIN_UV	100000
+#define CUTOFF_DELAY		30000
+static void btm_notify_vbat(enum qpnp_tm_state state, void *ctx)
+{
+	struct stc311x_chip *chip = ctx;
+	int vbat_uv;
+	int rc;
+
+	rc = get_battery_voltage_adc(chip, &vbat_uv);
+	if (rc) {
+		pr_err("failed to read battery voltage rc=%d\n", rc);
+		goto out;
+	}
+
+	pr_debug("vbat is at %duV\n", vbat_uv);
+
+	if (state == ADC_TM_LOW_STATE) {
+		pr_debug("low voltage btm notification triggered\n");
+		if (vbat_uv < (chip->vbat_cutoff_params.low_thr
+					+ VBATT_ERROR_MARGIN_UV)) {
+			fg_stay_awake(&chip->cutoff_wake_source);
+			schedule_delayed_work(&chip->cutoff_check_work,
+					msecs_to_jiffies(CUTOFF_DELAY));
+			chip->vbat_cutoff_params.state_request =
+						ADC_TM_HIGH_THR_ENABLE;
+		} else {
+			pr_debug("faulty btm trigger, discarding\n");
+		}
+	} else if (state == ADC_TM_HIGH_STATE) {
+		pr_debug("high voltage btm notification triggered\n");
+		if (vbat_uv >= chip->vbat_cutoff_params.high_thr) {
+			chip->vbat_cutoff_params.state_request =
+						ADC_TM_LOW_THR_ENABLE;
+			cancel_delayed_work_sync(&chip->cutoff_check_work);
+			fg_relax(&chip->cutoff_wake_source);
+		} else {
+			pr_debug("faulty btm trigger, discarding\n");
+		}
+	} else {
+		pr_debug("unknown voltage notification state: %d\n", state);
+	}
+
+out:
+	qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+					&chip->vbat_cutoff_params);
+}
+
+static int stc311x_vbat_cutoff_monitor(struct stc311x_chip *chip)
+{
+	int rc;
+
+	chip->vbat_cutoff_params.low_thr =
+			chip->cfg_empty_soc_uv + CUTOFF_MARGIN_UV;
+	chip->vbat_cutoff_params.high_thr =
+			chip->cfg_empty_soc_uv + CUTOFF_MARGIN_UV
+						+ VBATT_ERROR_MARGIN_UV;
+	chip->vbat_cutoff_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
+	chip->vbat_cutoff_params.channel = VBAT_SNS;
+	chip->vbat_cutoff_params.btm_ctx = chip;
+	chip->vbat_cutoff_params.timer_interval = ADC_MEAS1_INTERVAL_16S;
+	chip->vbat_cutoff_params.threshold_notification = &btm_notify_vbat;
+	rc = qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+						&chip->vbat_cutoff_params);
+	if (rc) {
+		pr_err("adc-tm setup failed: %d\n", rc);
+		return rc;
+	}
+
+	pr_debug("set low thr to %d and high to %d\n",
+					chip->vbat_cutoff_params.low_thr,
+					chip->vbat_cutoff_params.high_thr);
+	return 0;
+}
+
 int stc311x_parse_dt(struct stc311x_chip *chip)
 {
 	int rc = 0;
 	int prop_len;
 
+	chip->cfg_empty_soc_uv = -EINVAL;
+	OF_PROP_READ(chip, chip->cfg_empty_soc_uv,
+				"empty-soc-uv", rc, 1);
+	if (chip->cfg_empty_soc_uv > 0) {
+		chip->vadc_dev = qpnp_get_vadc(chip->dev, "fg");
+		if (IS_ERR(chip->vadc_dev)) {
+			rc = PTR_ERR(chip->vadc_dev);
+			if (rc != -EPROBE_DEFER)
+				pr_err("vadc not found defer probe\n");
+			return rc;
+		}
+
+		chip->adc_tm_dev = qpnp_get_adc_tm(chip->dev, "fg");
+		if (IS_ERR(chip->adc_tm_dev)) {
+			rc = PTR_ERR(chip->adc_tm_dev);
+			if (rc != -EPROBE_DEFER)
+				pr_err("adc-tm property missing, rc=%d\n", rc);
+			return rc;
+		}
+
+		rc =  stc311x_vbat_cutoff_monitor(chip);
+		if (rc)
+			pr_err("failed to configure vbat cutoff monitor rc=%d\n",
+						rc);
+	}
 	OF_PROP_READ(chip, chip->cfg_rbatt_mohm,
 					"rbatt-mohm", rc, 0);
 	OF_PROP_READ(chip, chip->cfg_cnom_mah,
@@ -1283,6 +1427,45 @@ static void soc_calc_work_fn(struct work_struct *work)
 	schedule_delayed_work(&chip->soc_calc_work, msecs_to_jiffies(delay));
 }
 
+static void cutoff_check_work_fn(struct work_struct *work)
+{
+	int rc;
+	int vbat_uv;
+	struct stc311x_chip *chip = container_of(work, struct stc311x_chip,
+					cutoff_check_work.work);
+
+	rc = get_battery_voltage_adc(chip, &vbat_uv);
+	if (rc) {
+		pr_err("failed to read VBAT rc=%d\n", rc);
+		goto out;
+	}
+	pr_debug("vbat is at %duV\n", vbat_uv);
+
+	/*
+	 * release wakeup source and return if battery voltage crosses high
+	 * threhold limit.
+	 */
+	if (vbat_uv >=
+		(chip->vbat_cutoff_params.high_thr + VBATT_ERROR_MARGIN_UV)) {
+		fg_relax(&chip->cutoff_wake_source);
+		return;
+	}
+
+	if (vbat_uv <= (chip->cfg_empty_soc_uv)) {
+		rc = stc311x_force_soc(chip, 0, vbat_uv);
+		if (rc)
+			goto out;
+		stc311x_process_fg_task(chip);
+
+		return;
+	}
+
+out:
+	schedule_delayed_work(&chip->cutoff_check_work,
+					msecs_to_jiffies(CUTOFF_DELAY));
+}
+
+
 static enum power_supply_property stc311x_bms_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -1546,6 +1729,7 @@ static int stc311x_probe(struct i2c_client *client,
 	chip->client = client;
 	mutex_init(&chip->read_write_lock);
 	INIT_DELAYED_WORK(&chip->soc_calc_work, soc_calc_work_fn);
+	INIT_DELAYED_WORK(&chip->cutoff_check_work, cutoff_check_work_fn);
 
 	/* read chip id */
 	rc = stc311x_read_raw(chip, ID_REG, &reg, 1);
@@ -1568,6 +1752,9 @@ static int stc311x_probe(struct i2c_client *client,
 	chip->soc_calc_wake_source.disabled = 1;
 	wakeup_source_init(&chip->soc_calc_wake_source.source,
 				"fg_soc_calc_wake");
+	chip->cutoff_wake_source.disabled = 1;
+	wakeup_source_init(&chip->cutoff_wake_source.source,
+				"fg_cutoff_wake");
 	rc = stc311x_start(chip);
 	if (rc) {
 		pr_err("failed to start rc=%d\n", rc);
@@ -1597,6 +1784,7 @@ static int stc311x_probe(struct i2c_client *client,
 
 fail:
 	wakeup_source_trash(&chip->soc_calc_wake_source.source);
+	wakeup_source_trash(&chip->cutoff_wake_source.source);
 	return rc;
 }
 

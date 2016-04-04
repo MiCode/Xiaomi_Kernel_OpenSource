@@ -1976,6 +1976,7 @@ enum ieee80211_key_len {
 #define IEEE80211_TKIP_IV_LEN		8
 #define IEEE80211_TKIP_ICV_LEN		4
 #define IEEE80211_CMAC_PN_LEN		6
+#define IEEE80211_GCMP_PN_LEN		6
 
 /* Public action codes */
 enum ieee80211_pub_actioncode {

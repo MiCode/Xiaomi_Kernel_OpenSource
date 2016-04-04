@@ -114,4 +114,14 @@ config TOUCHSCREEN_SYNAPTICS_DSX_VIDEO_v26
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_dsx_video.
 
+config SECURE_TOUCH_SYNAPTICS_DSX_V26
+	bool "Secure Touch support for Synaptics V2.6 Touchscreen"
+	depends on TOUCHSCREEN_SYNAPTICS_DSX_I2C_v26
+	help
+	  Say Y here
+	  -Synaptics DSX V2.6 touch driver is connected
+	  -To enable secure touch for Synaptics DSX V2.6 touch driver
+
+	  If unsure, say N.
+
 endif

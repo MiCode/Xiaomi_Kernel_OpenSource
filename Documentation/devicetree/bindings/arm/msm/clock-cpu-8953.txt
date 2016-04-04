@@ -37,20 +37,6 @@ Required properties:
 			the table for the clusters or cci.
 
 Optional Properties:
-- qcom,pboost-delta:    Array of performance boost frequencies (in MHz). If
-			defined, the "safe_l" value column is required to be
-			defined along with speedX-bin-vY-cl as indicated in
-			below example.
-- qcom,enable-vmin:     Boolean property if defined denotes presence of VMin
-			reduction available for clusters.
-			If defined, the "safe_l" value column is required to be
-			defined along with speedX-bin-vY-cl as indicated in
-			below example.
-- qcom,enable-boost:    Boolean property if defined denotes presence of boost
-			available for clusters.
-			If defined, the "safe_l" value column is required to be
-			defined along with speedX-bin-vY-cl as indicated in
-			below example.
 - qcom,enable-qos:      Boolean property to indicate the pm qos is required
 			during set rate of the cluster clocks, which would not
 			allow the cluster cores to go to low power mode.
@@ -79,42 +65,6 @@ Example:
 		qcom,speed0-bin-v0-cci =
 			<          0 0>,
 			<  883200000 7>;
-		#address-cells = <1>;
-		#size-cells = <1>;
-	};
-
-In case vmin & boost delta defined.
-
-	clock_cpu: qcom,cpu-clock-8953@b116000 {
-		compatible = "qcom,cpu-clock-8953";
-		reg =   <0xb114000  0x68>,
-			<0xb014000  0x68>,
-			<0xb116000  0x400>,
-			<0xb111050  0x08>,
-			<0xb011050  0x08>,
-			<0xb1d1050  0x08>,
-			<0x00a412c  0x08>;
-		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
-			    "c0-pll", "c0-mux", "c1-mux",
-			    "cci-mux", "efuse";
-		vdd-mx-supply = <&pm8953_s7_level_ao>;
-		vdd-cl-supply = <&apc_vreg_corner>;
-		clocks = <&clock_gcc clk_xo_a_clk_src>;
-		clock-names = "xo_a";
-		qcom,enable-vmin;
-		qcom,num-clusters = <2>;
-		qcom,speed0-bin-v0-cl =
-			/*            safe_L */
-			<          0 0 0>,
-			< 652800000  1 (-1)>,
-			< 2150400000 6 102 >,
-			< 2208000000 7 104 >;
-		qcom,speed0-bin-v0-cci =
-			<          0 0>,
-			<  261120000 1>,
-			<  860160000 6>,
-			<  883200000 7>;
-		qcom,pboost-delta = <0 50 100>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 	};

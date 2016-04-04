@@ -105,6 +105,7 @@ struct coresight_dev_subtype {
 		connected  to.
  * @nr_outport:	number of output ports for this component.
  * @clk:	The clock this component is associated to.
+ * @default_sink: Flag to set default sink
  */
 struct coresight_platform_data {
 	int cpu;
@@ -115,6 +116,7 @@ struct coresight_platform_data {
 	int *child_ports;
 	int nr_outport;
 	struct clk *clk;
+	bool default_sink;
 };
 
 /**

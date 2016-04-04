@@ -576,6 +576,7 @@ struct msm_pcie_dev_t {
 	bool				common_clk_en;
 	bool				clk_power_manage_en;
 	bool				 aux_clk_sync;
+	bool				aer_enable;
 	bool				smmu_exist;
 	uint32_t			   n_fts;
 	bool				 ext_ref_clk;
@@ -1783,6 +1784,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->clk_power_manage_en);
 	PCIE_DBG_FS(dev, "aux_clk_sync is %d\n",
 		dev->aux_clk_sync);
+	PCIE_DBG_FS(dev, "AER is %s enable\n",
+		dev->aer_enable ? "" : "not");
 	PCIE_DBG_FS(dev, "ext_ref_clk is %d\n",
 		dev->ext_ref_clk);
 	PCIE_DBG_FS(dev, "ep_wakeirq is %d\n",
@@ -2341,6 +2344,7 @@ static struct dentry *dfile_wr_offset;
 static struct dentry *dfile_wr_mask;
 static struct dentry *dfile_wr_value;
 static struct dentry *dfile_ep_wakeirq;
+static struct dentry *dfile_aer_enable;
 static struct dentry *dfile_corr_counter_limit;
 
 static u32 rc_sel_max;
@@ -2646,6 +2650,62 @@ const struct file_operations msm_pcie_ep_wakeirq_ops = {
 	.write = msm_pcie_set_ep_wakeirq,
 };
 
+static ssize_t msm_pcie_set_aer_enable(struct file *file,
+				const char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	unsigned long ret;
+	char str[MAX_MSG_LEN];
+	u32 new_aer_enable = 0;
+	u32 temp_rc_sel;
+	int i;
+
+	memset(str, 0, sizeof(str));
+	ret = copy_from_user(str, buf, sizeof(str));
+	if (ret)
+		return -EFAULT;
+
+	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+		new_aer_enable = (new_aer_enable * 10) + (str[i] - '0');
+
+	if (new_aer_enable > 1) {
+		pr_err(
+			"PCIe: Invalid input for aer_enable: %d. Please enter 0 or 1.\n",
+			new_aer_enable);
+		return count;
+	}
+
+	if (rc_sel)
+		temp_rc_sel = rc_sel;
+	else
+		temp_rc_sel = 0x1;
+
+	for (i = 0; i < MAX_RC_NUM; i++) {
+		if (temp_rc_sel & (1 << i)) {
+			msm_pcie_dev[i].aer_enable = new_aer_enable;
+			PCIE_DBG_FS(&msm_pcie_dev[i],
+				"PCIe: RC%d: aer_enable is now %d\n",
+				i, msm_pcie_dev[i].aer_enable);
+
+			msm_pcie_write_mask(msm_pcie_dev[i].dm_core +
+					PCIE20_BRIDGE_CTRL,
+					new_aer_enable ? 0 : BIT(16),
+					new_aer_enable ? BIT(16) : 0);
+
+			PCIE_DBG_FS(&msm_pcie_dev[i],
+				"RC%d: PCIE20_BRIDGE_CTRL: 0x%x\n", i,
+				readl_relaxed(msm_pcie_dev[i].dm_core +
+					PCIE20_BRIDGE_CTRL));
+		}
+	}
+
+	return count;
+}
+
+const struct file_operations msm_pcie_aer_enable_ops = {
+	.write = msm_pcie_set_aer_enable,
+};
+
 static ssize_t msm_pcie_set_corr_counter_limit(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -2747,6 +2807,14 @@ static void msm_pcie_debugfs_init(void)
 		goto ep_wakeirq_error;
 	}
 
+	dfile_aer_enable = debugfs_create_file("aer_enable", 0664,
+					dent_msm_pcie, 0,
+					&msm_pcie_aer_enable_ops);
+	if (!dfile_aer_enable || IS_ERR(dfile_aer_enable)) {
+		pr_err("PCIe: fail to create the file for debug_fs aer_enable.\n");
+		goto aer_enable_error;
+	}
+
 	dfile_corr_counter_limit = debugfs_create_file("corr_counter_limit",
 					0664, dent_msm_pcie, 0,
 					&msm_pcie_corr_counter_limit_ops);
@@ -2757,6 +2825,8 @@ static void msm_pcie_debugfs_init(void)
 	return;
 
 corr_counter_limit_error:
+	debugfs_remove(dfile_aer_enable);
+aer_enable_error:
 	debugfs_remove(dfile_ep_wakeirq);
 ep_wakeirq_error:
 	debugfs_remove(dfile_wr_value);
@@ -2786,6 +2856,7 @@ static void msm_pcie_debugfs_exit(void)
 	debugfs_remove(dfile_wr_mask);
 	debugfs_remove(dfile_wr_value);
 	debugfs_remove(dfile_ep_wakeirq);
+	debugfs_remove(dfile_aer_enable);
 	debugfs_remove(dfile_corr_counter_limit);
 }
 #else
@@ -3503,13 +3574,15 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 					0xf, dev->cpl_timeout);
 
 	/* Enable AER on RC */
-	msm_pcie_write_mask(dev->dm_core + PCIE20_BRIDGE_CTRL, 0,
-					BIT(16)|BIT(17));
-	msm_pcie_write_mask(dev->dm_core +  PCIE20_CAP_DEVCTRLSTATUS, 0,
-					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+	if (dev->aer_enable) {
+		msm_pcie_write_mask(dev->dm_core + PCIE20_BRIDGE_CTRL, 0,
+						BIT(16)|BIT(17));
+		msm_pcie_write_mask(dev->dm_core +  PCIE20_CAP_DEVCTRLSTATUS, 0,
+						BIT(3)|BIT(2)|BIT(1)|BIT(0));
 
-	PCIE_DBG(dev, "RC's PCIE20_CAP_DEVCTRLSTATUS:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS));
+		PCIE_DBG(dev, "RC's PCIE20_CAP_DEVCTRLSTATUS:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS));
+	}
 
 	/* configure SMMU registers */
 	if (dev->smmu_exist) {
@@ -5770,6 +5843,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].ep_fatal_counter = 0;
 	msm_pcie_dev[rc_idx].suspending = false;
 	msm_pcie_dev[rc_idx].wake_counter = 0;
+	msm_pcie_dev[rc_idx].aer_enable = true;
 	msm_pcie_dev[rc_idx].power_on = false;
 	msm_pcie_dev[rc_idx].current_short_bdf = 0;
 	msm_pcie_dev[rc_idx].use_msi = false;

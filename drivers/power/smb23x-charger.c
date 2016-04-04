@@ -2257,6 +2257,16 @@ static int smb23x_probe(struct i2c_client *client,
 
 	smb23x_irq_polling_wa_check(chip);
 
+	/*
+	 * Enable register based battery charging as the hw_init moves CHG_EN
+	 * control from pin-based to register based.
+	 */
+	rc = smb23x_charging_disable(chip, USER, false);
+	if (rc < 0) {
+		pr_err("Register control based charging enable failed\n");
+		goto destroy_mutex;
+	}
+
 	rc = smb23x_hw_init(chip);
 	if (rc < 0) {
 		pr_err("Initialize hardware failed!\n");

@@ -13,13 +13,6 @@
 
 &soc {
 	/* GCC GDSCs */
-	gdsc_mmss: qcom,gdsc@109004 {
-		compatible = "qcom,gdsc";
-		regulator-name = "gdsc_mmss";
-		reg = <0x109004 0x4>;
-		status = "disabled";
-	};
-
 	gdsc_usb30: qcom,gdsc@10f004 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_usb30";

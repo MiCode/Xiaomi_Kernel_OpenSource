@@ -18,6 +18,36 @@
 #include "msm8909w.dtsi"
 
 &soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		/delete-node/ synaptics@20;
+
+		it7260@46 {
+			compatible = "ite,it7260_ts";
+			reg = <0x46>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2008>;
+			avdd-supply = <&pm8916_l17>;
+			vdd-supply = <&pm8916_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+							"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_ite_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_ite_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			ite,reset-gpio = <&msm_gpio 12 0x00>;
+			ite,irq-gpio = <&msm_gpio 13 0x2008>;
+			ite,panel-coords = <0 0 320 320>;
+			ite,display-coords = <0 0 320 320>;
+			ite,reset-delay = <20>;
+			ite,num-fingers = <2>;
+			ite,wakeup;
+			ite,palm-detect-en;
+			ite,palm-detect-keycode = <142>;
+			ite,fw-name = "it7260_fw_050D0014.bin";
+			ite,cfg-name = "it7260_cfg_62011E01.bin";
+			ite,avdd-lpm-cur = <3000>;
+		};
+	};
 };
 
 &external_image_mem {
@@ -119,14 +149,14 @@
 	st-fg@70 {
 		compatible = "st,stc3117";
 		reg = <0x70>;
-		st,rbatt-mohm = <427>;
+		st,rbatt-mohm = <477>;
 		st,nom-capacity-mah = <450>;
 		st,rsense-mohm = <25>;
 		st,float-voltage-mv = <4200>;
 		st,alarm-soc = <10>;
 		st,alarm-voltage-mv = <3400>;
 		st,term-current-ma = <50>;
-		st,relax-current-ma = <25>;
+		st,relax-current-ma = <100>;
 		st,adaptive-capacity-tbl =
 			/bits/ 16 <0x00 0x00 0x00 0x05 0x0d 0x2a 0x47>;
 		st,ocv-tbl =
@@ -140,5 +170,9 @@
 			/bits/ 16 <0x55 0x5a 0x64 0xa0 0x140 0x1b8 0x348>;
 		st,temp-tbl =
 			/bits/ 16 <60 40 25 10 0 (-10) (-20)>;
+
+		st,empty-soc-uv = <3300000>;
+		qcom,fg-vadc = <&pm8916_vadc>;
+		qcom,fg-adc_tm = <&pm8916_adc_tm>;
 	};
 };

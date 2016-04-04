@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -890,7 +890,6 @@ struct clk_ops clk_ops_variable_rate_pll_hwfsm = {
 	.set_rate = variable_rate_pll_set_rate,
 	.round_rate = variable_rate_pll_round_rate,
 	.handoff = variable_rate_pll_handoff,
-	.list_registers = variable_rate_pll_list_registers,
 };
 
 struct clk_ops clk_ops_variable_rate_pll = {

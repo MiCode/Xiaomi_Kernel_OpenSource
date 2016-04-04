@@ -313,6 +313,7 @@ struct mdss_data_type {
 	bool needs_hist_vote;
 	bool has_ubwc;
 	bool has_wb_ubwc;
+	bool has_separate_rotator;
 
 	u32 default_ot_rd_limit;
 	u32 default_ot_wr_limit;

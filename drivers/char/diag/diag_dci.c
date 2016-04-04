@@ -1321,6 +1321,7 @@ void diag_dci_channel_open_work(struct work_struct *work)
 	 * which log entries in the cumulative logs that need
 	 * to be updated on the peripheral.
 	 */
+	mutex_lock(&driver->dci_mutex);
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
 		if (entry->client_info.token != DCI_LOCAL_PROC)
@@ -1332,6 +1333,7 @@ void diag_dci_channel_open_work(struct work_struct *work)
 			client_log_mask_ptr += 514;
 		}
 	}
+	mutex_unlock(&driver->dci_mutex);
 
 	mutex_lock(&dci_log_mask_mutex);
 	/* Update the appropriate dirty bits in the cumulative mask */
@@ -2802,8 +2804,9 @@ fail_alloc:
 		}
 		kfree(new_entry->dci_event_mask);
 		kfree(new_entry->dci_log_mask);
+		kfree(new_entry->buffers);
+		kfree(new_entry);
 	}
-	kfree(new_entry);
 	mutex_unlock(&driver->dci_mutex);
 	return DIAG_DCI_NO_REG;
 }
@@ -2819,8 +2822,6 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 
 	if (!entry)
 		return DIAG_DCI_NOT_SUPPORTED;
-
-	mutex_lock(&driver->dci_mutex);
 
 	token = entry->client_info.token;
 	/*
@@ -2921,6 +2922,7 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	}
 	mutex_destroy(&entry->write_buf_mutex);
 
+	kfree(entry->buffers);
 	kfree(entry);
 
 	if (driver->num_dci_client == 0) {
@@ -2930,8 +2932,6 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 		diag_update_real_time_vote(DIAG_PROC_DCI, real_time, token);
 	}
 	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
-
-	mutex_unlock(&driver->dci_mutex);
 
 	return DIAG_DCI_NO_ERROR;
 }

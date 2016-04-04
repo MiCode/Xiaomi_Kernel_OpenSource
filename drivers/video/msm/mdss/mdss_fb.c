@@ -3181,7 +3181,7 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 
 	if (!mfd || (!mfd->op_enable)) {
 		pr_err("mfd is NULL or operation not permitted\n");
-		goto end;
+		return -EPERM;
 	}
 
 	if ((mdss_fb_is_power_off(mfd)) &&

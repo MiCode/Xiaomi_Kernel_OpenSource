@@ -52,6 +52,7 @@
 #include <net/cfg80211.h>
 #include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
+#include <net/cnss_common.h>
 
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include <net/cnss_prealloc.h>
@@ -1767,7 +1768,7 @@ static DEVICE_ATTR(fw_image_setup, S_IRUSR | S_IWUSR,
 
 void cnss_pci_recovery_work_handler(struct work_struct *recovery)
 {
-	cnss_device_self_recovery();
+	cnss_pci_device_self_recovery();
 }
 
 DECLARE_WORK(recovery_work, cnss_pci_recovery_work_handler);
@@ -1939,6 +1940,41 @@ release_fw:
 end:
 	return;
 }
+
+/**
+ * cnss_get_wlan_mac_address() - API to return MAC addresses buffer
+ * @dev: struct device pointer
+ * @num: buffer for number of mac addresses supported
+ *
+ * API returns the pointer to the buffer filled with mac addresses and
+ * updates num with the number of mac addresses the buffer contains.
+ *
+ * Return: pointer to mac address buffer.
+ */
+u8 *cnss_pci_get_wlan_mac_address(uint32_t *num)
+{
+	struct cnss_wlan_mac_addr *addr = NULL;
+
+	if (!penv) {
+		pr_err("%s: Invalid Platform Driver Context\n", __func__);
+		goto end;
+	}
+
+	if (!penv->is_wlan_mac_set) {
+		pr_info("%s: Platform Driver doesn't have any mac address\n",
+			__func__);
+		goto end;
+	}
+
+	addr = &penv->wlan_mac_addr;
+	*num = addr->no_of_mac_addr_set;
+	return &addr->mac_addr[0][0];
+
+end:
+	*num = 0;
+	return NULL;
+}
+EXPORT_SYMBOL(cnss_pci_get_wlan_mac_address);
 
 /**
  * cnss_get_wlan_mac_address() - API to return MAC addresses buffer
@@ -2296,7 +2332,6 @@ void cnss_pci_schedule_recovery_work(void)
 {
 	schedule_work(&recovery_work);
 }
-EXPORT_SYMBOL(cnss_pci_schedule_recovery_work);
 
 void *cnss_pci_get_virt_ramdump_mem(unsigned long *size)
 {
@@ -2307,7 +2342,6 @@ void *cnss_pci_get_virt_ramdump_mem(unsigned long *size)
 
 	return penv->ramdump_addr;
 }
-EXPORT_SYMBOL(cnss_pci_get_virt_ramdump_mem);
 
 void cnss_pci_device_crashed(void)
 {
@@ -2316,19 +2350,6 @@ void cnss_pci_device_crashed(void)
 		subsystem_restart_dev(penv->subsys);
 	}
 }
-EXPORT_SYMBOL(cnss_pci_device_crashed);
-
-int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
-{
-	if (!penv || !penv->pldev)
-		return -ENODEV;
-
-	*address = penv->ramdump_phys;
-	*size = penv->ramdump_size;
-
-	return 0;
-}
-EXPORT_SYMBOL(cnss_get_ramdump_mem);
 
 void *cnss_get_virt_ramdump_mem(unsigned long *size)
 {
@@ -2517,7 +2538,6 @@ void cnss_pci_device_self_recovery(void)
 	cnss_pm_wake_lock_release(&penv->ws);
 	penv->recovery_in_progress = false;
 }
-EXPORT_SYMBOL(cnss_pci_device_self_recovery);
 
 static int cnss_ramdump(int enable, const struct subsys_desc *subsys)
 {
@@ -3029,7 +3049,6 @@ int cnss_pci_request_bus_bandwidth(int bandwidth)
 	}
 	return ret;
 }
-EXPORT_SYMBOL(cnss_pci_request_bus_bandwidth);
 
 int cnss_request_bus_bandwidth(int bandwidth)
 {

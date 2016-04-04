@@ -1554,8 +1554,8 @@ static struct clk_freq_tbl ftbl_sdcc1_apps_clk_src[] = {
 	F(    400000,              xo,   12,    1,     4),
 	F(  20000000, gpll0_main_div2,    5,    1,     4),
 	F(  25000000, gpll0_main_div2,   16,    0,     0),
-	F(  50000000, gpll0_main_div2,    8,    0,     0),
-	F( 100000000, gpll0_main_div2,    4,    0,     0),
+	F(  50000000,           gpll0,   16,    0,     0),
+	F( 100000000,           gpll0,    8,    0,     0),
 	F( 177770000,           gpll0,  4.5,    0,     0),
 	F( 192000000,           gpll4,    6,    0,     0),
 	F( 384000000,           gpll4,    3,    0,     0),
@@ -1604,10 +1604,11 @@ static struct clk_freq_tbl ftbl_sdcc2_apps_clk_src[] = {
 	F(    400000,              xo,   12,    1,     4),
 	F(  20000000, gpll0_main_div2,    5,    1,     4),
 	F(  25000000, gpll0_main_div2,   16,    0,     0),
-	F(  50000000, gpll0_main_div2,    8,    0,     0),
-	F( 100000000, gpll0_main_div2,    4,    0,     0),
+	F(  50000000,           gpll0,   16,    0,     0),
+	F( 100000000,           gpll0,    8,    0,     0),
 	F( 177770000,           gpll0,  4.5,    0,     0),
 	F( 192000000,       gpll4_aux,    6,    0,     0),
+	F( 200000000,           gpll0,    4,    0,     0),
 	F_END
 };
 

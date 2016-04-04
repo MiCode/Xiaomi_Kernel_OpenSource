@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,7 @@
 #include <linux/of.h>		/* of_property_count_strings() */
 #include <linux/workqueue.h>
 #include <linux/delay.h>	/* msleep() */
+#include <linux/msm_ion.h>	/* msm_ion_client_create() */
 
 #include <soc/qcom/glink.h>
 #include <soc/qcom/smem.h>
@@ -153,45 +154,6 @@ struct spcom_msg_hdr {
 } __packed;
 
 /**
- * struct spcom_load_app_req - Load App Request sent to SP
- *
- * The application image binary is placed on DDR buffer.
- * The application image is encrypted and signed.
- * The DDR buffer address and size should be 4K aligned for XPU protection.
- * The size of the app DDR buffer is larger than the image size to allow saving
- * the app heap and stack on swap in/out.
- */
-struct spcom_load_app_req {
-	uint32_t cmd_id;	/* SPCOM_CMD_LOAD_APP */
-	uint32_t image_size;
-	uint64_t buf_phys_addr;
-	char ch_name[16];
-	uint32_t buf_size;
-} __packed;
-
-/**
- * struct spcom_load_app_resp - Load App Response from SP.
- */
-struct spcom_load_app_resp {
-	 uint32_t error_code; /* 0 for success, errors based on errno.h */
-} __packed;
-
-/**
- * struct spcom_reset_cmd_req - Reset Request sent to SP
- */
-struct spcom_reset_cmd_req {
-	 uint32_t cmd_id;
-} __packed;
-
-/**
- * struct spcom_reset_resp - Reset Response from SP.
- */
-struct spcom_reset_resp {
-	 uint32_t error_code; /* 0 for success, errors based on errno.h */
-} __packed;
-
-
-/**
  * struct spcom_client - Client handle
  */
 struct spcom_client {
@@ -251,6 +213,10 @@ struct spcom_channel {
 	bool rx_buf_ready;
 	int actual_rx_size;	/* actual data size received */
 	const void *glink_rx_buf;
+
+	/* ION lock/unlock support */
+	int ion_fd_table[SPCOM_MAX_ION_BUF];
+	struct ion_handle *ion_handle_table[SPCOM_MAX_ION_BUF];
 };
 
 /**
@@ -275,6 +241,9 @@ struct spcom_device {
 	/* Link state */
 	struct completion link_state_changed;
 	enum glink_link_state link_state;
+
+	/* ION support */
+	struct ion_client *ion_client;
 };
 
 #ifdef SPCOM_TEST_HLOS_WITH_MODEM
@@ -1290,168 +1259,6 @@ EXPORT_SYMBOL(spcom_server_send_response);
 /*======================================================================*/
 
 /**
- * spcom_handle_load_app_command() - Handle Load app command from user space.
- *
- * @cmd_buf:	command buffer.
- * @cmd_size:	command buffer size.
- *
- * Return: 0 on successful operation, negative value otherwise.
- */
-static int spcom_handle_load_app_command(struct spcom_channel *ch,
-					  void *cmd_buf,
-					  int cmd_size)
-{
-	int ret = 0;
-	struct spcom_msg_hdr *hdr;
-	struct spcom_load_app_req *req;
-	struct spcom_load_app_resp *resp;
-	uint32_t rx_timeout_msec = 0; /* Block until data ready */
-	void *tx_buf;
-	int tx_buf_size;
-	void *rx_buf;
-	int rx_buf_size;
-	struct spcom_user_load_app_command *cmd = cmd_buf;
-	const char *ch_name;
-	uint32_t app_buf_size;
-	uint32_t app_image_size;
-	char *app_buf;
-	int ddr_buf_size = 0;
-	char *ddr_buf = NULL;
-	uint64_t phys_addr = 0;
-	dma_addr_t dma_addr = 0;
-	uint32_t txn_id = 0;
-	uint32_t offset = 0;
-
-	/* parse command buffer */
-	ch_name = cmd->ch_name;
-	app_image_size = cmd->app_image_size;
-	app_buf_size = cmd->app_buf_size;
-	app_buf = cmd->app_buf_ptr;
-
-	pr_debug("Load app [%s], app_image_size [%d].\n",
-		 ch_name, app_image_size);
-
-	if (cmd_size != sizeof(*cmd)) {
-		pr_err("Load app cmd size [%d] expected size [%d].\n",
-		       cmd_size, (int) sizeof(*cmd));
-		return -EINVAL;
-	}
-
-	if (app_buf_size > SPCOM_MAX_APP_SIZE) {
-		pr_err("app_buf_size [%d] > max size [%d].\n",
-		       app_buf_size, SPCOM_MAX_APP_SIZE);
-		return -EINVAL;
-	}
-
-	/* Check if remote side connect */
-	if (!spcom_is_channel_connected(ch)) {
-		pr_err("ch [%s] remote side not connect.\n", ch->name);
-		return -ENOTCONN;
-	}
-
-	/* Allocate Buffers*/
-	tx_buf_size = sizeof(*hdr) + sizeof(*req);
-	rx_buf_size = sizeof(*hdr) + sizeof(*resp);
-	tx_buf = kzalloc(tx_buf_size, GFP_KERNEL);
-	if (!tx_buf)
-		return -ENOMEM;
-	rx_buf = kzalloc(rx_buf_size, GFP_KERNEL);
-	if (!rx_buf) {
-		kfree(tx_buf);
-		return -ENOMEM;
-	}
-
-	/* Allocate DDR buffer for the App binary */
-	ddr_buf_size = round_up(app_buf_size, PAGE_SIZE);
-	ddr_buf = dma_alloc_coherent(spcom_dev->class_dev,
-				     ddr_buf_size,
-				     &dma_addr,
-				     GFP_KERNEL);
-	if (!ddr_buf) {
-		pr_err("fail to allocate DDR buffer.\n");
-		return -ENOMEM;
-	}
-
-	phys_addr = dma_to_phys(spcom_dev->class_dev, dma_addr);
-
-	/* Align DDR buf to 4K, for SPSS XPU */
-	offset = ((int) phys_addr) % PAGE_SIZE;
-	if (offset != 0) {
-		ddr_buf += (PAGE_SIZE - offset); /* round up*/
-		phys_addr += (PAGE_SIZE - offset); /* round up*/
-	}
-
-	memcpy(ddr_buf, app_buf, app_image_size);
-
-	/* Prepare Tx Buf */
-	hdr = tx_buf;
-	req = (void *) &hdr->buf[0];
-
-	/* Header */
-	txn_id = ch->txn_id++;
-	hdr->txn_id = txn_id;
-
-	/* Request */
-	req->cmd_id = SPCOM_CMD_LOAD_APP;
-	req->buf_phys_addr = phys_addr;
-	req->image_size = app_image_size;
-	req->buf_size = app_buf_size;
-	strlcpy(req->ch_name, cmd->ch_name, sizeof(req->ch_name));
-
-	pr_debug("send request.\n");
-
-	ret = spcom_tx(ch, tx_buf, tx_buf_size, TX_DONE_TIMEOUT_MSEC);
-	if (ret < 0) {
-		pr_err("tx error %d.\n", ret);
-		goto exit_err;
-	}
-
-	pr_debug("get response.\n");
-
-	ret = spcom_rx(ch, rx_buf, rx_buf_size, rx_timeout_msec);
-	if (ret < 0) {
-		pr_err("rx error %d.\n", ret);
-		goto exit_err;
-	}
-
-	/* check response from SP */
-	hdr = rx_buf;
-	resp = (void *) &hdr->buf[0];
-
-	if (resp->error_code != 0) {
-		pr_err("response error code [%d].\n", (int) resp->error_code);
-		goto exit_err;
-	}
-	pr_debug("rx txn_id = 0x%x .\n", hdr->txn_id);
-	if (hdr->txn_id != txn_id) {
-		pr_err("request txn_id [0x%x] != response txn_id [0x%x].\n",
-		       (int) txn_id, (int) hdr->txn_id);
-		goto exit_err;
-	}
-
-	kfree(tx_buf);
-	kfree(rx_buf);
-
-	/* HACK !! Don't free DDR buf, required by SPSS for swap in/out */
-
-	pr_debug("Load app completed OK.\n");
-
-	/* After remote app is loaded, create /dev/<ch_name> */
-	spcom_create_channel_chardev(ch_name);
-
-	return 0;
-exit_err:
-	kfree(tx_buf);
-	kfree(rx_buf);
-
-	memset(ddr_buf, 0xDEADBEEF, ddr_buf_size);
-	dmam_free_coherent(spcom_dev->class_dev, ddr_buf_size,
-			   ddr_buf, dma_addr);
-
-	return -EFAULT;
-}
-
-/**
  * spcom_handle_create_channel_command() - Handle Create Channel command from
  * user space.
  *
@@ -1479,90 +1286,6 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 	ret = spcom_create_channel_chardev(ch_name);
 
 	return ret;
-}
-
-/**
- * spcom_handle_reset_command() - Handle RESET-SP command from user space.
- *
- * @buf:	command buffer.
- * @buf_size:	command buffer size.
- *
- * Return: 0 on successful operation, negative value otherwise.
- */
-static int spcom_handle_reset_command(struct spcom_channel *ch,
-				      void *cmd_buf, int cmd_size)
-{
-	int ret = 0;
-	struct spcom_msg_hdr *hdr;
-	struct spcom_reset_cmd_req *req;
-	struct spcom_reset_resp *resp;
-	uint32_t rx_timeout_msec = 0; /* Block until data ready */
-	void *tx_buf;
-	int tx_buf_size;
-	void *rx_buf;
-	int rx_buf_size;
-
-	/* Check if remote side connect */
-	if (!spcom_is_channel_connected(ch)) {
-		pr_err("ch [%s] remote side not connect.\n", ch->name);
-		return -ENOTCONN;
-	}
-
-	/* Allocate Buffers*/
-	tx_buf_size = sizeof(*hdr) + sizeof(*req);
-	rx_buf_size = sizeof(*hdr) + sizeof(*resp);
-	tx_buf = kzalloc(tx_buf_size, GFP_KERNEL);
-	if (!tx_buf)
-		return -ENOMEM;
-	rx_buf = kzalloc(rx_buf_size, GFP_KERNEL);
-	if (!rx_buf) {
-		kfree(tx_buf);
-		return -ENOMEM;
-	}
-
-	/* Prepare Tx Buf */
-	hdr = tx_buf;
-	req = (void *) &hdr->buf[0];
-
-	/* Header */
-	hdr->txn_id = ch->txn_id++;
-
-	/* Request */
-	req->cmd_id = SPCOM_CMD_RESET_SP;
-
-	pr_debug("send request.\n");
-
-	ret = spcom_tx(ch, tx_buf, tx_buf_size, TX_DONE_TIMEOUT_MSEC);
-	if (ret < 0) {
-		pr_err("tx error %d.\n", ret);
-		goto exit_err;
-	}
-
-	pr_debug("get response.\n");
-
-	ret = spcom_rx(ch, rx_buf, rx_buf_size, rx_timeout_msec);
-	if (ret < 0) {
-		pr_err("rx error %d.\n", ret);
-		goto exit_err;
-	}
-
-	/* check response from SP */
-	hdr = rx_buf;
-	resp = (void *) &hdr->buf[0];
-
-	if (resp->error_code != 0) {
-		pr_err("response error code [%d].\n", (int) resp->error_code);
-		goto exit_err;
-	}
-
-	kfree(tx_buf);
-	kfree(rx_buf);
-
-	return 0;
-exit_err:
-	kfree(tx_buf);
-	kfree(rx_buf);
-	return -EFAULT;
 }
 
 /**
@@ -1631,6 +1354,246 @@ static int spcom_handle_send_command(struct spcom_channel *ch,
 }
 
 /**
+ * modify_ion_addr() - replace the ION buffer virtual address with physical
+ * address in a request or response buffer.
+ *
+ * @buf: buffer to modify
+ * @buf_size: buffer size
+ * @ion_info: ION buffer info such as FD and offset in buffer.
+ *
+ * Return: 0 on successful operation, negative value otherwise.
+ */
+static int modify_ion_addr(void *buf,
+			    uint32_t buf_size,
+			    struct spcom_ion_info ion_info)
+{
+	struct ion_handle *handle = NULL;
+	ion_phys_addr_t ion_phys_addr;
+	size_t len;
+	int fd;
+	uint32_t buf_offset;
+	uint64_t *addr;
+	int ret;
+
+	fd = ion_info.fd;
+	buf_offset = ion_info.buf_offset;
+
+	if (fd < 0) {
+		pr_err("invalid fd [%d].\n", fd);
+		return -ENODEV;
+	}
+
+	if (buf_offset > buf_size - sizeof(uint64_t)) {
+		pr_err("invalid buf_offset [%d].\n", buf_offset);
+		return -ENODEV;
+	}
+
+	/* Get ION handle from fd */
+	handle = ion_import_dma_buf(spcom_dev->ion_client, fd);
+	if (handle == NULL) {
+		pr_err("fail to get ion handle.\n");
+		return -EINVAL;
+	}
+	pr_debug("ion handle ok.\n");
+
+	/* Get the ION buffer Physical Address */
+	ret = ion_phys(spcom_dev->ion_client, handle, &ion_phys_addr, &len);
+	if (ret < 0) {
+		pr_err("fail to get ion phys addr.\n");
+		ion_free(spcom_dev->ion_client, handle);
+		return -EINVAL;
+	}
+	pr_debug("buf_offset [%d].\n", buf_offset);
+	addr = (uint64_t *) ((char *) buf + buf_offset);
+
+	/* Replace the user ION Virtual Address with the Physical Address */
+	pr_debug("ion user vaddr = [0x%lx].\n", (long int) *addr);
+	*addr = (uint64_t) ion_phys_addr;
+	pr_debug("ion phys addr = [0x%lx].\n", (long int) *addr);
+
+	/* Release the ION handle */
+	ion_free(spcom_dev->ion_client, handle);
+
+	return 0;
+}
+
+/**
+ * spcom_handle_send_modified_command() - send a request/response with ION
+ * buffer address. Modify the request/response by replacing the ION buffer
+ * virtual address with the physical address.
+ *
+ * @ch: channel pointer
+ * @cmd_buf: User space command buffer
+ * @size: size of user command buffer
+ *
+ * Return: 0 on successful operation, negative value otherwise.
+ */
+static int spcom_handle_send_modified_command(struct spcom_channel *ch,
+					       void *cmd_buf, int size)
+{
+	int ret = 0;
+	struct spcom_user_send_modified_command *cmd = cmd_buf;
+	uint32_t buf_size;
+	void *buf;
+	struct spcom_msg_hdr *hdr;
+	void *tx_buf;
+	int tx_buf_size;
+	uint32_t timeout_msec;
+	struct spcom_ion_info ion_info[SPCOM_MAX_ION_BUF];
+	int i;
+
+	pr_debug("send req/resp ch [%s] size [%d] .\n", ch->name, size);
+
+	/* Check if remote side connect */
+	if (!spcom_is_channel_connected(ch)) {
+		pr_err("ch [%s] remote side not connect.\n", ch->name);
+		return -ENOTCONN;
+	}
+
+	/* parse command buffer */
+	buf = &cmd->buf;
+	buf_size = cmd->buf_size;
+	timeout_msec = cmd->timeout_msec;
+	memcpy(ion_info, cmd->ion_info, sizeof(ion_info));
+
+	/* Allocate Buffers*/
+	tx_buf_size = sizeof(*hdr) + buf_size;
+	tx_buf = kzalloc(tx_buf_size, GFP_KERNEL);
+	if (!tx_buf)
+		return -ENOMEM;
+
+	/* Prepare Tx Buf */
+	hdr = tx_buf;
+
+	/* Header */
+	hdr->txn_id = ch->txn_id;
+	if (!ch->is_server) {
+		ch->txn_id++;   /* client sets the request txn_id */
+		ch->response_timeout_msec = timeout_msec;
+	}
+
+	/* user buf */
+	memcpy(hdr->buf, buf, buf_size);
+
+	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+		if (ion_info[i].fd >= 0) {
+			ret = modify_ion_addr(hdr->buf, buf_size, ion_info[i]);
+			if (ret < 0) {
+				pr_err("modify_ion_addr() error [%d].\n", ret);
+				kfree(tx_buf);
+				return -EFAULT;
+			}
+		}
+	}
+
+	/*
+	 * remote side should have rx buffer ready.
+	 * tx_done is expected to be received quickly.
+	 */
+	ret = spcom_tx(ch, tx_buf, tx_buf_size, TX_DONE_TIMEOUT_MSEC);
+	if (ret < 0)
+		pr_err("tx error %d.\n", ret);
+
+	kfree(tx_buf);
+
+	return ret;
+}
+
+
+/**
+ * spcom_handle_lock_ion_buf_command() - Lock an ION buffer.
+ *
+ * Lock an ION buffer, prevent it from being free if the user space App crash,
+ * while it is used by the remote subsystem.
+ */
+static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
+					      void *cmd_buf, int size)
+{
+	struct spcom_user_command *cmd = cmd_buf;
+	int fd = cmd->arg;
+	struct ion_handle *ion_handle;
+	int i;
+
+	/* Check ION client */
+	if (spcom_dev->ion_client == NULL) {
+		pr_err("invalid ion client.\n");
+		return -ENODEV;
+	}
+
+	/* Check if this FD is already locked */
+	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++)
+		if (ch->ion_fd_table[i] == fd) {
+			pr_debug("fd [%d] is already locked.\n", fd);
+			return -EINVAL;
+	       }
+
+	/* Get ION handle from fd - this increments the ref count */
+	ion_handle = ion_import_dma_buf(spcom_dev->ion_client, fd);
+	if (ion_handle == NULL) {
+		pr_err("fail to get ion handle.\n");
+		return -EINVAL;
+	}
+	pr_debug("ion handle ok.\n");
+
+	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+		if (ch->ion_handle_table[i] == NULL) {
+			ch->ion_handle_table[i] = ion_handle;
+			ch->ion_fd_table[i] = fd;
+			pr_debug("locked ion buf#[%d], fd [%d].\n", i, fd);
+			return 0;
+		}
+	}
+
+	return -EFAULT;
+}
+
+/**
+ * spcom_handle_unlock_ion_buf_command() - Unlock an ION buffer.
+ *
+ * Unlock an ION buffer, let it be free, when it is no longer being used by
+ * the remote subsystem.
+ */
+static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
+					      void *cmd_buf, int size)
+{
+	struct spcom_user_command *cmd = cmd_buf;
+	int fd = cmd->arg;
+	struct ion_client *ion_client = spcom_dev->ion_client;
+	int i;
+
+	/* Check ION client */
+	if (ion_client == NULL) {
+		pr_err("fail to create ion client.\n");
+		return -ENODEV;
+	}
+
+	if (fd == (int) SPCOM_ION_FD_UNLOCK_ALL) {
+		/* unlock all ION buf */
+		for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+			if (ch->ion_handle_table[i] != NULL) {
+				ion_free(ion_client, ch->ion_handle_table[i]);
+				ch->ion_handle_table[i] = NULL;
+				ch->ion_fd_table[i] = -1;
+				pr_debug("unlocked ion buf#[%d].\n", i);
+			}
+		}
+	} else {
+		/* unlock specific ION buf */
+		for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+			if (ch->ion_fd_table[i] == fd) {
+				ion_free(ion_client, ch->ion_handle_table[i]);
+				ch->ion_handle_table[i] = NULL;
+				ch->ion_fd_table[i] = -1;
+				pr_debug("unlocked ion buf#[%d].\n", i);
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/**
  * spcom_handle_fake_ssr_command() - Handle fake ssr command from user space.
  */
 static int spcom_handle_fake_ssr_command(struct spcom_channel *ch, int arg)
@@ -1669,20 +1632,23 @@ static int spcom_handle_write(struct spcom_channel *ch,
 	cmd = (struct spcom_user_command *)buf;
 	cmd_id = (int) cmd->cmd_id;
 	swap_id = htonl(cmd->cmd_id);
-	memcpy(cmd_name, &swap_id, 4);
+	memcpy(cmd_name, &swap_id, sizeof(int));
 
 	pr_debug("cmd_id [0x%x] cmd_name [%s].\n", cmd_id, cmd_name);
 
 	switch (cmd_id) {
-	case SPCOM_CMD_LOAD_APP:
-		ret = spcom_handle_load_app_command(ch, buf, buf_size);
-		break;
-	case SPCOM_CMD_RESET_SP:
-		ret = spcom_handle_reset_command(ch, buf, buf_size);
-		break;
 	case SPCOM_CMD_SEND:
 		ret = spcom_handle_send_command(ch, buf, buf_size);
 		break;
+	case SPCOM_CMD_SEND_MODIFIED:
+	       ret = spcom_handle_send_modified_command(ch, buf, buf_size);
+	       break;
+	case SPCOM_CMD_LOCK_ION_BUF:
+	      ret = spcom_handle_lock_ion_buf_command(ch, buf, buf_size);
+	      break;
+	case SPCOM_CMD_UNLOCK_ION_BUF:
+		ret = spcom_handle_unlock_ion_buf_command(ch, buf, buf_size);
+	     break;
 	case SPCOM_CMD_FSSR:
 		ret = spcom_handle_fake_ssr_command(ch, cmd->arg);
 		break;
@@ -1846,10 +1812,10 @@ static char *file_to_filename(struct file *filp)
 	struct dentry *dentry = NULL;
 	char *filename = NULL;
 
-	if (!filp || !filp->f_dentry)
+	if (!filp || !filp->f_path.dentry)
 		return "unknown";
 
-	dentry = filp->f_dentry;
+	dentry = filp->f_path.dentry;
 	filename = dentry->d_iname;
 
 	return filename;
@@ -2371,6 +2337,12 @@ static int spcom_probe(struct platform_device *pdev)
 	notif_handle = glink_register_link_state_cb(&link_info, spcom_dev);
 	if (!notif_handle) {
 		pr_err("glink_register_link_state_cb(), err [%d]\n", ret);
+		goto fail_reg_chardev;
+	}
+
+	spcom_dev->ion_client = msm_ion_client_create(DEVICE_NAME);
+	if (spcom_dev->ion_client == NULL) {
+		pr_err("fail to create ion client.\n");
 		goto fail_reg_chardev;
 	}
 

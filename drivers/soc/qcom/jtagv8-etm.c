@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@
 #include <soc/qcom/jtag.h>
 #include <asm/smp_plat.h>
 #include <asm/etmv4x.h>
+#include <soc/qcom/socinfo.h>
 
 #define CORESIGHT_LAR		(0xFB0)
 
@@ -180,6 +181,7 @@
 
 #define TZ_DBG_ETM_FEAT_ID	(0x8)
 #define TZ_DBG_ETM_VER		(0x400000)
+#define HW_SOC_ID_M8953		(293)
 
 #define etm_writel(etm, val, off)	\
 		   __raw_writel(val, etm->base + off)
@@ -1545,6 +1547,21 @@ static struct notifier_block jtag_mm_etm_notifier = {
 	.notifier_call = jtag_mm_etm_callback,
 };
 
+static bool skip_etm_save_restore(void)
+{
+	uint32_t id;
+	uint32_t version;
+
+	id = socinfo_get_id();
+	version = socinfo_get_version();
+
+	if (HW_SOC_ID_M8953 == id && 1 == SOCINFO_VERSION_MAJOR(version) &&
+		0 == SOCINFO_VERSION_MINOR(version))
+		return true;
+
+	return false;
+}
+
 static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 {
 	struct etm_ctx *etmdata;
@@ -1570,6 +1587,9 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 	etmdata->save_restore_disabled = of_property_read_bool(
 					 pdev->dev.of_node,
 					 "qcom,save-restore-disable");
+
+	if (skip_etm_save_restore())
+		etmdata->save_restore_disabled = 1;
 
 	/* Allocate etm state save space per core */
 	etmdata->state = devm_kzalloc(dev,

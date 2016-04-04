@@ -2290,47 +2290,54 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 			   unsigned long code,
 			   void *data)
 {
-	if (ipa3_rmnet_ctx.ipa_rmnet_ssr) {
-		if (SUBSYS_BEFORE_SHUTDOWN == code) {
-			pr_info("IPA received MPSS BEFORE_SHUTDOWN\n");
-			atomic_set(&rmnet_ipa3_ctx->is_ssr, 1);
-			ipa3_q6_cleanup();
-			if (IPA_NETDEV())
-				netif_stop_queue(IPA_NETDEV());
-			ipa3_qmi_stop_workqueues();
-			ipa3_wan_ioctl_stop_qmi_messages();
-			ipa_stop_polling_stats();
-			atomic_set(&rmnet_ipa3_ctx->is_ssr, 1);
-			if (atomic_read(&rmnet_ipa3_ctx->is_initialized))
-				platform_driver_unregister(&rmnet_ipa_driver);
-			pr_info("IPA BEFORE_SHUTDOWN handling is complete\n");
-			return NOTIFY_DONE;
-		}
-		if (SUBSYS_AFTER_SHUTDOWN == code) {
-			pr_info("IPA received MPSS AFTER_SHUTDOWN\n");
-			if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
-				ipa3_q6_pipe_reset();
-			pr_info("IPA AFTER_SHUTDOWN handling is complete\n");
-			return NOTIFY_DONE;
-		}
-		if (SUBSYS_AFTER_POWERUP == code) {
-			pr_info("IPA received MPSS AFTER_POWERUP\n");
-			if (!atomic_read(&rmnet_ipa3_ctx->is_initialized)
-				&& atomic_read(&rmnet_ipa3_ctx->is_ssr))
-				platform_driver_register(&rmnet_ipa_driver);
-			pr_info("IPA AFTER_POWERUP handling is complete\n");
-			return NOTIFY_DONE;
-		}
-		if (SUBSYS_BEFORE_POWERUP == code) {
-			pr_info("IPA received MPSS BEFORE_POWERUP\n");
-			if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
-				/* clean up cached QMI msg/handlers */
-				ipa3_qmi_service_exit();
-			ipa3_proxy_clk_vote();
-			pr_info("IPA BEFORE_POWERUP handling is complete\n");
-			return NOTIFY_DONE;
-		}
+	if (!ipa3_rmnet_ctx.ipa_rmnet_ssr)
+		return NOTIFY_DONE;
+
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		IPAWANINFO("IPA received MPSS BEFORE_SHUTDOWN\n");
+		atomic_set(&rmnet_ipa3_ctx->is_ssr, 1);
+		ipa3_q6_cleanup();
+		if (IPA_NETDEV())
+			netif_stop_queue(IPA_NETDEV());
+		ipa3_qmi_stop_workqueues();
+		ipa3_wan_ioctl_stop_qmi_messages();
+		ipa_stop_polling_stats();
+		if (atomic_read(&rmnet_ipa3_ctx->is_initialized))
+			platform_driver_unregister(&rmnet_ipa_driver);
+		IPAWANINFO("IPA BEFORE_SHUTDOWN handling is complete\n");
+		break;
+	case SUBSYS_AFTER_SHUTDOWN:
+		IPAWANINFO("IPA Received MPSS AFTER_SHUTDOWN\n");
+		if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
+			ipa3_validate_q6_gsi_channel_empty();
+		IPAWANINFO("IPA AFTER_SHUTDOWN handling is complete\n");
+		break;
+	case SUBSYS_BEFORE_POWERUP:
+		IPAWANINFO("IPA received MPSS BEFORE_POWERUP\n");
+		if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
+			/* clean up cached QMI msg/handlers */
+			ipa3_qmi_service_exit();
+		/*hold a proxy vote for the modem*/
+		ipa3_proxy_clk_vote();
+		IPAWANINFO("IPA BEFORE_POWERUP handling is complete\n");
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		IPAWANINFO("%s:%d IPA received MPSS AFTER_POWERUP\n",
+			__func__, __LINE__);
+		if (!atomic_read(&rmnet_ipa3_ctx->is_initialized) &&
+		       atomic_read(&rmnet_ipa3_ctx->is_ssr))
+			platform_driver_register(&rmnet_ipa_driver);
+
+		IPAWANINFO("IPA AFTER_POWERUP handling is complete\n");
+		break;
+	default:
+		IPAWANDBG("Unsupported subsys notification, IPA received: %lu",
+			code);
+		break;
 	}
+
+	IPAWANDBG("Exit\n");
 	return NOTIFY_DONE;
 }
 

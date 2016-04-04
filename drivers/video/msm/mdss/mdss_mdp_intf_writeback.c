@@ -397,6 +397,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	struct mdss_mdp_writeback_arg *wb_args;
 	struct mdss_rot_entry *entry;
 	struct mdp_rotation_item *item;
+	struct mdss_rot_perf *perf;
 	struct mdss_data_type *mdata;
 	u32 format;
 
@@ -413,6 +414,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 		return -ENODEV;
 	}
 	item = &entry->item;
+	perf = entry->perf;
 	mdata = ctl->mdata;
 	if (!mdata) {
 		pr_err("no mdata attached to ctl=%d", ctl->num);
@@ -433,6 +435,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	ctx->height = ctx->dst_rect.h = item->dst_rect.h;
 	ctx->dst_rect.x = item->dst_rect.x;
 	ctx->dst_rect.y = item->dst_rect.y;
+	ctx->frame_rate = perf->config.frame_rate;
 	ctx->dnsc_factor_w = entry->dnsc_factor_w;
 	ctx->dnsc_factor_h = entry->dnsc_factor_h;
 
