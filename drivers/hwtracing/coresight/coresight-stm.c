@@ -653,7 +653,7 @@ static ssize_t stm_store_hwevent_enable(struct device *dev,
 	unsigned long val;
 	int ret = 0;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	if (val)
@@ -685,7 +685,7 @@ static ssize_t stm_store_port_enable(struct device *dev,
 	unsigned long val;
 	int ret = 0;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	if (val)

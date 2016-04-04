@@ -253,7 +253,7 @@ static ssize_t tpda_store_trig_async_enable(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->lock);
@@ -286,7 +286,7 @@ static ssize_t tpda_store_trig_flag_ts_enable(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->lock);
@@ -319,7 +319,7 @@ static ssize_t tpda_store_trig_freq_enable(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->lock);
@@ -351,7 +351,7 @@ static ssize_t tpda_store_freq_ts_enable(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->lock);
@@ -383,7 +383,7 @@ static ssize_t tpda_store_freq_req_val(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->lock);
@@ -412,7 +412,7 @@ static ssize_t tpda_store_freq_req(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->lock);
@@ -456,7 +456,7 @@ static ssize_t tpda_store_global_flush_req(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->lock);
@@ -510,7 +510,7 @@ static ssize_t tpda_store_port_flush_req(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->lock);

@@ -1439,7 +1439,7 @@ static ssize_t mem_size_store(struct device *dev,
 	unsigned long val;
 
 	mutex_lock(&drvdata->mem_lock);
-	if (kstrtoul(buf, 16, &val) != 1) {
+	if (kstrtoul(buf, 16, &val)) {
 		return -EINVAL;
 		mutex_unlock(&drvdata->mem_lock);
 	}
