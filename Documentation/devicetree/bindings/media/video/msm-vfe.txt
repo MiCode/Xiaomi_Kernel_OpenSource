@@ -1,4 +1,4 @@
-* Qualcomm MSM VFE
+* Qualcomm Technologies, Inc. MSM VFE
 
 Required properties for parent node:
 - compatible :

@@ -1,4 +1,4 @@
-* Qualcomm MSM ISPIF
+* Qualcomm Technologies, Inc. MSM ISPIF
 
 Required properties:
 - cell-index: ispif hardware core index
