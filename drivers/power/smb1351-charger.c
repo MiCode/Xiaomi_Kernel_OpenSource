@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -682,7 +682,7 @@ static int smb1351_battchg_disable(struct smb1351_charger *chip,
 	rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_CHG_EN_BIT,
 					disabled ? 0 : CMD_CHG_ENABLE);
 	if (rc)
-		pr_err("Couldn't %s charging rc=%d\n",
+		pr_err("Couldn't %s battery-charging rc=%d\n",
 					disable ? "disable" : "enable", rc);
 	else
 		chip->battchg_disabled_status = disabled;
@@ -961,6 +961,11 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		pr_err("Couldn't configure volatile writes rc=%d\n", rc);
 		return rc;
 	}
+
+	/* Enable charging before we move into register based CHG_EN control */
+	rc = smb1351_battchg_disable(chip, USER, chip->usb_suspended_status);
+	if (rc)
+		return rc;
 
 	/* setup battery missing source */
 	reg = BATT_MISSING_THERM_PIN_SOURCE_BIT;
