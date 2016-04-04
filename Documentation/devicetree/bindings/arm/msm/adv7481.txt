@@ -1,0 +1,20 @@
+ADV7481 chip driver (VIDEO_ADV7481)
+
+VIDEO_ADV7481 is a kernel platform driver that is used for video decoder
+and dual mode HDMI/MHL receiver.
+
+The devicetree representation of the VIDEO_ADV7481 block should be:
+
+Required properties
+
+- compatible: "qcom,adv7481"
+- qcom,slave-addr: The i2c slave address of adv7481 driver.
+- qcom,cci-master: The i2c master id to be used for adv7481 driver.
+
+Example:
+
+	qcom,adv7481@0 {
+		compatible = "qcom,adv7481";
+		qcom,cci-master = <0>;
+		qcom,slave-addr = <0x70>;
+	};
