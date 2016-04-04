@@ -764,6 +764,12 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 	struct dma_buf_attachment *attach = NULL;
 	struct sg_table *table = NULL;
 
+	if (!paddr_ptr) {
+		pr_err("Error: Input pointer invalid\n");
+		rc = -EINVAL;
+		goto err_out;
+	}
+
 	/* allocate memory for each buffer information */
 	buf = dma_buf_get(ion_fd);
 	if (IS_ERR_OR_NULL(buf)) {
