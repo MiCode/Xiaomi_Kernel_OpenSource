@@ -110,7 +110,8 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-emmc-cdp.dtb \
 	mdmcalifornium-nand-cdp.dtb \
 	mdmcalifornium-emmc-mtp.dtb \
-	mdmcalifornium-nand-mtp.dtb
+	mdmcalifornium-nand-mtp.dtb \
+	mdmcalifornium-nand-dualwifi-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
