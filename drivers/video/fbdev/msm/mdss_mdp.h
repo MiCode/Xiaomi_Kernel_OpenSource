@@ -86,6 +86,36 @@
 
 #define MAX_LAYER_COUNT		0xC
 
+/**
+ * Destination Scaler control flags setting
+ *
+ * @DS_ENABLE: Setting the bit indicates Destination Scaler is enabled. Unset
+ *             the bit indicates Destination Scaler is disable.
+ * @DS_DUAL_MODE: Setting the bit indicates Left and Right Destination Scaler
+ *                are operated in Dual mode.
+ * @DS_LEFT: Setting the bit indicates current Destination Scaler is assigned
+ *           with the Left LM. DS_LEFT and DS_DUAL_MODE can be used
+ *           together.
+ * @DS_RIGHT: Setting the bit indicates current Destination Scaler is assigned
+ *            with the Right LM. DS_RIGHT and DS_DUAL_MODE can be used
+ *            together.
+ * @DS_SCALE_UPDATE: Setting the bit indicates current Destination Scaler
+ *                   QSEED3 parameters needs to be updated.
+ * @DS_ENHANCER_UPDATE: Setting this bit indicates current Desitnation Scaler
+ *                      QSEED3 Detial enhancer parameters need to be updated.
+ */
+#define DS_ENABLE           BIT(0)
+#define DS_DUAL_MODE        BIT(1)
+#define DS_LEFT             BIT(2)
+#define DS_RIGHT            BIT(3)
+#define DS_SCALE_UPDATE     BIT(4)
+#define DS_ENHANCER_UPDATE  BIT(5)
+
+/**
+ * Destination Scaler DUAL mode overfetch pixel count
+ */
+#define MDSS_MDP_DS_OVERFETCH_SIZE 5
+
 /* hw cursor can only be setup in highest mixer stage */
 #define HW_CURSOR_STAGE(mdata) \
 	(((mdata)->max_target_zorder + MDSS_MDP_STAGE_0) - 1)
@@ -310,6 +340,25 @@ struct mdss_mdp_writeback {
 	u8 supported_output_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];
 };
 
+/*
+ * Destination scaler info
+ * destination scaler is hard wired to DSPP0/1 and LM0/1
+ * Input dimension is always matching to LM output dimension
+ * Output dimension is the Panel/WB dimension
+ * In bypass mode (off), input and output dimension is the same
+ */
+struct mdss_mdp_destination_scaler {
+	u32 num;
+	char __iomem *ds_base;
+	char __iomem *scaler_base;
+	char __iomem *lut_base;
+	u16 src_width;
+	u16 src_height;
+	u32 flags;
+	struct mdp_scale_data_v2 scaler;
+};
+
+
 struct mdss_mdp_ctl_intfs_ops {
 	int (*start_fnc)(struct mdss_mdp_ctl *ctl);
 	int (*stop_fnc)(struct mdss_mdp_ctl *ctl, int panel_power_state);
@@ -462,6 +511,8 @@ struct mdss_mdp_mixer {
 	char __iomem *base;
 	char __iomem *dspp_base;
 	char __iomem *pingpong_base;
+	/* Destination Scaler is hard wired to each mixer */
+	struct mdss_mdp_destination_scaler *ds;
 	u8 type;
 	u8 params_changed;
 	u16 width;
@@ -1049,12 +1100,63 @@ static inline int mdss_mdp_line_buffer_width(void)
 	return MAX_LINE_BUFFER_WIDTH;
 }
 
+static inline int is_dest_scaling_enable(struct mdss_mdp_mixer *mixer)
+{
+	return (test_bit(MDSS_CAPS_DEST_SCALER, mdss_res->mdss_caps_map) &&
+			mixer && mixer->ds && (mixer->ds->flags & DS_ENABLE));
+}
+
+static inline u32 get_ds_input_width(struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_destination_scaler *ds;
+
+	ds = mixer->ds;
+	if (ds)
+		return ds->src_width;
+
+	return 0;
+}
+
+static inline u32 get_ds_input_height(struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_destination_scaler *ds;
+
+	ds = mixer->ds;
+	if (ds)
+		return ds->src_height;
+
+	return 0;
+}
+
+static inline u32 get_ds_output_width(struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_destination_scaler *ds;
+
+	ds = mixer->ds;
+	if (ds)
+		return ds->scaler.dst_width;
+
+	return 0;
+}
+
+static inline u32 get_ds_output_height(struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_destination_scaler *ds;
+
+	ds = mixer->ds;
+	if (ds)
+		return ds->scaler.dst_height;
+
+	return 0;
+}
+
 static inline u32 get_panel_yres(struct mdss_panel_info *pinfo)
 {
 	u32 yres;
 
 	yres = pinfo->yres + pinfo->lcdc.border_top +
 				pinfo->lcdc.border_bottom;
+
 	return yres;
 }
 
@@ -1064,6 +1166,7 @@ static inline u32 get_panel_xres(struct mdss_panel_info *pinfo)
 
 	xres = pinfo->xres + pinfo->lcdc.border_left +
 				pinfo->lcdc.border_right;
+
 	return xres;
 }
 
@@ -1653,6 +1756,7 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
 	u32 len);
 int mdss_mdp_wb_addr_setup(struct mdss_data_type *mdata,
 	u32 num_wb, u32 num_intf_wb);
+int mdss_mdp_ds_addr_setup(struct mdss_data_type *mdata);
 
 void mdss_mdp_pipe_clk_force_off(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe, bool is_recovery);

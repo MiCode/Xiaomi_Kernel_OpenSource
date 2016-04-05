@@ -116,6 +116,17 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
+
+static inline void __user *to_user_ptr(uint64_t address)
+{
+	return (void __user *)(uintptr_t)address;
+}
+
+static inline uint64_t __user to_user_u64(void *ptr)
+{
+	return (uint64_t)((uintptr_t)ptr);
+}
+
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -4269,6 +4280,101 @@ err:
 	return ret;
 }
 
+static int __mdss_fb_copy_destscaler_data(struct fb_info *info,
+		struct mdp_layer_commit *commit)
+{
+	int    i;
+	int    ret = 0;
+	u32    data_size;
+	struct mdp_destination_scaler_data __user *ds_data_user;
+	struct mdp_destination_scaler_data *ds_data = NULL;
+	void __user *scale_data_user;
+	struct mdp_scale_data_v2 *scale_data = NULL;
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct mdss_data_type *mdata;
+
+	if (!mfd || !mfd->mdp.private1) {
+		pr_err("mfd is NULL or operation not permitted\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	mdata = mfd_to_mdata(mfd);
+	if (!mdata) {
+		pr_err("mdata is NULL or not initialized\n");
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (commit->commit_v1.dest_scaler_cnt >
+			mdata->scaler_off->ndest_scalers) {
+		pr_err("Commit destination scaler cnt larger than HW setting, commit cnt=%d\n",
+				commit->commit_v1.dest_scaler_cnt);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	ds_data_user = (struct mdp_destination_scaler_data *)
+		commit->commit_v1.dest_scaler;
+	data_size = commit->commit_v1.dest_scaler_cnt *
+		sizeof(struct mdp_destination_scaler_data);
+	ds_data = kzalloc(data_size, GFP_KERNEL);
+	if (!ds_data) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = copy_from_user(ds_data, ds_data_user, data_size);
+	if (ret) {
+		pr_err("dest scaler data copy from user failed\n");
+		goto err;
+	}
+
+	commit->commit_v1.dest_scaler = ds_data;
+
+	for (i = 0; i < commit->commit_v1.dest_scaler_cnt; i++) {
+		scale_data = NULL;
+
+		if (ds_data[i].scale) {
+			scale_data_user = to_user_ptr(ds_data[i].scale);
+			data_size = sizeof(struct mdp_scale_data_v2);
+
+			scale_data = kzalloc(data_size, GFP_KERNEL);
+			if (!scale_data) {
+				ds_data[i].scale = 0;
+				ret = -ENOMEM;
+				goto err;
+			}
+
+			ds_data[i].scale = to_user_u64(scale_data);
+		}
+
+		if (scale_data && (ds_data[i].flags &
+					(MDP_DESTSCALER_SCALE_UPDATE |
+					MDP_DESTSCALER_ENHANCER_UPDATE))) {
+			ret = copy_from_user(scale_data, scale_data_user,
+					data_size);
+			if (ret) {
+				pr_err("scale data copy from user failed\n");
+				goto err;
+			}
+		}
+	}
+
+	return ret;
+
+err:
+	if (ds_data) {
+		for (i = 0; i < commit->commit_v1.dest_scaler_cnt; i++) {
+			scale_data = to_user_ptr(ds_data[i].scale);
+			kfree(scale_data);
+		}
+		kfree(ds_data);
+	}
+
+	return ret;
+}
+
 static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	unsigned long *argp, struct file *file)
 {
@@ -4279,6 +4385,8 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	struct mdp_input_layer __user *input_layer_list;
 	struct mdp_output_layer *output_layer = NULL;
 	struct mdp_output_layer __user *output_layer_user;
+	struct mdp_destination_scaler_data *ds_data = NULL;
+	struct mdp_destination_scaler_data __user *ds_data_user;
 
 	ret = copy_from_user(&commit, argp, sizeof(struct mdp_layer_commit));
 	if (ret) {
@@ -4356,6 +4464,16 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		}
 	}
 
+	ds_data_user = commit.commit_v1.dest_scaler;
+	if (ds_data_user) {
+		ret = __mdss_fb_copy_destscaler_data(info, &commit);
+		if (ret) {
+			pr_err("copy dest scaler failed\n");
+			goto err;
+		}
+		ds_data = commit.commit_v1.dest_scaler;
+	}
+
 	ATRACE_BEGIN("ATOMIC_COMMIT");
 	ret = mdss_fb_atomic_commit(info, &commit, file);
 	if (ret)
@@ -4372,6 +4490,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 
 		commit.commit_v1.input_layers = input_layer_list;
 		commit.commit_v1.output_layer = output_layer_user;
+		commit.commit_v1.dest_scaler  = ds_data_user;
 		rc = copy_to_user(argp, &commit,
 			sizeof(struct mdp_layer_commit));
 		if (rc) {
@@ -4397,6 +4516,11 @@ err:
 	}
 	kfree(layer_list);
 	kfree(output_layer);
+	if (ds_data) {
+		for (i = 0; i < commit.commit_v1.dest_scaler_cnt; i++)
+			kfree(to_user_ptr(ds_data[i].scale));
+		kfree(ds_data);
+	}
 
 	return ret;
 }

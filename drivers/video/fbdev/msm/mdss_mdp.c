@@ -1940,9 +1940,10 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 static u32 mdss_mdp_scaler_init(struct mdss_data_type *mdata,
 				struct device *dev)
 {
-	int ret;
+	int ret = -EINVAL;
 	struct device_node *node;
 	u32 prop_val;
+	int len = 0;
 
 	if (!dev)
 		return -EPERM;
@@ -1978,8 +1979,7 @@ static u32 mdss_mdp_scaler_init(struct mdss_data_type *mdata,
 	}
 	mdata->scaler_off->vig_scaler_lut_off = prop_val;
 	mdata->scaler_off->has_dest_scaler =
-		of_property_read_bool(mdata->pdev->dev.of_node,
-				"qcom,mdss-has-dest-scaler");
+		of_property_read_bool(node, "qcom,mdss-has-dest-scaler");
 	if (mdata->scaler_off->has_dest_scaler) {
 		ret = of_property_read_u32(node,
 				"qcom,mdss-dest-block-off",
@@ -1991,40 +1991,65 @@ static u32 mdss_mdp_scaler_init(struct mdss_data_type *mdata,
 		}
 		mdata->scaler_off->dest_base = mdata->mdss_io.base +
 			prop_val;
-		mdata->scaler_off->ndest_scalers =
-			mdss_mdp_parse_dt_prop_len(mdata->pdev,
-					"qcom,mdss-dest-scalers-off");
+
+		if (!of_find_property(node, "qcom,mdss-dest-scaler-off", &len)
+				|| (len < 1)) {
+			pr_err("find property %s failed ret %d\n",
+					"qcom,mdss-dest-scaler-off", ret);
+			return -EINVAL;
+		}
+		mdata->scaler_off->ndest_scalers = len/sizeof(u32);
+
 		mdata->scaler_off->dest_scaler_off =
-			devm_kzalloc(&mdata->pdev->dev, sizeof(u32) *
+			devm_kzalloc(dev, sizeof(u32) *
 					mdata->scaler_off->ndest_scalers,
 					GFP_KERNEL);
 		if  (!mdata->scaler_off->dest_scaler_off) {
-			kfree(mdata->scaler_off->dest_scaler_off);
 			return -ENOMEM;
 		}
-		ret = mdss_mdp_parse_dt_handler(mdata->pdev,
+		ret = of_property_read_u32_array(node,
 				"qcom,mdss-dest-scaler-off",
 				mdata->scaler_off->dest_scaler_off,
 				mdata->scaler_off->ndest_scalers);
 		if (ret)
-			return -EINVAL;
+			return ret;
+
 		mdata->scaler_off->dest_scaler_lut_off =
-			devm_kzalloc(&mdata->pdev->dev, sizeof(u32) *
+			devm_kzalloc(dev, sizeof(u32) *
 					mdata->scaler_off->ndest_scalers,
 					GFP_KERNEL);
 		if  (!mdata->scaler_off->dest_scaler_lut_off) {
-			kfree(mdata->scaler_off->dest_scaler_lut_off);
 			return -ENOMEM;
 		}
-		ret = mdss_mdp_parse_dt_handler(mdata->pdev,
-				"qcom,mdss-dest-scalers-lut-off",
+		ret = of_property_read_u32_array(node,
+				"qcom,mdss-dest-scaler-lut-off",
 				mdata->scaler_off->dest_scaler_lut_off,
 				mdata->scaler_off->ndest_scalers);
 		if (ret)
-			return -EINVAL;
+			return ret;
+
+		ret = of_property_read_u32(dev->of_node,
+				"qcom,max-dest-scaler-input-width",
+				&mdata->max_dest_scaler_input_width);
+		if (ret) {
+			pr_debug("read property %s failed ret %d\n",
+					"qcom,max-dest-scaler-input-width",
+					ret);
+		}
+
+		ret = of_property_read_u32(dev->of_node,
+				"qcom,max-dest-scaler-output-width",
+				&mdata->max_dest_scaler_output_width);
+		if (ret) {
+			pr_debug("read property %s failed ret %d\n",
+					"qcom,max-dest-scaler-output-width",
+					ret);
+		}
+
+		ret = mdss_mdp_ds_addr_setup(mdata);
 	}
 
-	return 0;
+	return ret;
 }
 
 /**
@@ -2322,6 +2347,16 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	if (mdata->clk_factor.numer)
 		SPRINT("clk_fudge_factor=%u,%u\n", mdata->clk_factor.numer,
 			mdata->clk_factor.denom);
+	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map)) {
+		SPRINT("max_dest_scaler_input_width=%u\n",
+				mdata->max_dest_scaler_input_width);
+		SPRINT("max_dest_scaler_output_width=%u\n",
+				mdata->max_dest_scaler_output_width);
+		SPRINT("dest_scaler_count=%u\n",
+				mdata->scaler_off->ndest_scalers);
+		SPRINT("max_dest_scale_up=%u\n", MAX_UPSCALE_RATIO);
+	}
+
 	SPRINT("features=");
 	if (mdata->has_bwc)
 		SPRINT(" bwc");

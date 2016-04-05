@@ -62,6 +62,208 @@ struct mdss_mdp_validate_info_t {
 	struct mdss_mdp_pipe_multirect_params multirect;
 };
 
+static inline void *u64_to_ptr(uint64_t address)
+{
+	return (void *)(uintptr_t)address;
+}
+
+static int __dest_scaler_data_setup(struct mdp_destination_scaler_data *ds_data,
+		struct mdss_mdp_destination_scaler *ds,
+		u32 max_input_width, u32 max_output_width)
+{
+	struct mdp_scale_data_v2 *scale;
+
+	ds->flags = (ds_data->flags & MDP_DESTSCALER_ENABLE) ? DS_ENABLE : 0;
+
+	if (ds_data->flags & (MDP_DESTSCALER_SCALE_UPDATE |
+				MDP_DESTSCALER_ENHANCER_UPDATE)) {
+		if (!ds_data->scale) {
+			pr_err("NULL scale data\n");
+			return -EFAULT;
+		}
+		scale = u64_to_ptr(ds_data->scale);
+
+		if (scale->src_width[0] > max_input_width) {
+			pr_err("Exceed max input width for dest scaler-%d: %d\n",
+					ds_data->dest_scaler_ndx,
+					scale->src_width[0]);
+			return -EINVAL;
+		}
+		if (scale->dst_width > max_output_width) {
+			pr_err("Exceed max output width for dest scaler-%d: %d\n",
+					ds_data->dest_scaler_ndx,
+					scale->dst_width);
+			return -EINVAL;
+		}
+
+		memcpy(&ds->scaler, scale, sizeof(*scale));
+		if (ds_data->flags & MDP_DESTSCALER_SCALE_UPDATE)
+			ds->flags |= DS_SCALE_UPDATE;
+		if (ds_data->flags & MDP_DESTSCALER_ENHANCER_UPDATE)
+			ds->flags |= DS_ENHANCER_UPDATE;
+		ds->src_width = scale->src_width[0];
+		ds->src_height = scale->src_height[0];
+	}
+
+	if (ds_data->flags == 0) {
+		pr_debug("Disabling destination scaler-%d\n",
+				ds_data->dest_scaler_ndx);
+	}
+
+	return 0;
+}
+
+static int mdss_mdp_destination_scaler_pre_validate(struct mdss_mdp_ctl *ctl,
+		struct mdp_destination_scaler_data *ds_data)
+{
+	struct mdss_data_type *mdata;
+	struct mdss_panel_info *pinfo;
+
+	mdata = ctl->mdata;
+
+	/*
+	 * we need to quickly check for any scale update, and adjust the mixer
+	 * width and height accordingly. Otherwise, layer validate will fail
+	 * when we switch between scaling factor or disabling scaling.
+	 */
+	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) && ds_data) {
+		if (ctl->mixer_left) {
+			/*
+			 * Any scale update from usermode, we will update the
+			 * mixer width and height with the given LM width and
+			 * height.
+			 */
+			pinfo = &ctl->panel_data->panel_info;
+			if ((ds_data->lm_width > get_panel_xres(pinfo)) ||
+				(ds_data->lm_height >  get_panel_yres(pinfo)) ||
+				(ds_data->lm_width == 0) ||
+				(ds_data->lm_height == 0)) {
+				pr_err("Invalid LM width / height setting\n");
+				return -EINVAL;
+			}
+
+			ctl->width = ds_data->lm_width;
+			ctl->height = ds_data->lm_height;
+
+			ctl->mixer_left->width  = ds_data->lm_width;
+			ctl->mixer_left->height = ds_data->lm_height;
+			pr_debug("Update mixer-left width/height: %dx%d\n",
+					ds_data->lm_width, ds_data->lm_width);
+
+		}
+
+		if (ctl->mixer_right) {
+			/*
+			 * Split display both left and right should have the
+			 * same width and height
+			 */
+			ctl->mixer_right->width  = ds_data->lm_width;
+			ctl->mixer_right->height = ds_data->lm_height;
+			pr_info("Update mixer-right width/height: %dx%d\n",
+					ds_data->lm_width, ds_data->lm_height);
+
+			/*
+			 * For split display, CTL width should be equal to
+			 * whole panel size
+			 */
+			ctl->width += ds_data->lm_width;
+		}
+
+		pr_debug("Updated CTL width:%d, height:%d\n",
+				ctl->width, ctl->height);
+	}
+
+	return 0;
+}
+
+static int mdss_mdp_validate_destination_scaler(struct msm_fb_data_type *mfd,
+		struct mdp_destination_scaler_data *ds_data,
+		u32 ds_mode)
+{
+	int ret = 0;
+	struct mdss_data_type *mdata;
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_mdp_destination_scaler *ds_left  = NULL;
+	struct mdss_mdp_destination_scaler *ds_right = NULL;
+
+	if (ds_data) {
+		mdata = mfd_to_mdata(mfd);
+		ctl   = mfd_to_ctl(mfd);
+
+		if (ctl->mixer_left)
+			ds_left = ctl->mixer_left->ds;
+
+		if (ctl->mixer_right)
+			ds_right = ctl->mixer_right->ds;
+
+		switch (ds_mode) {
+		case DS_DUAL_MODE:
+			if (!ds_left || !ds_right) {
+				pr_err("Cannot support DUAL mode dest scaling\n");
+				return -EINVAL;
+			}
+
+			ret = __dest_scaler_data_setup(&ds_data[0], ds_left,
+					mdata->max_dest_scaler_input_width -
+					MDSS_MDP_DS_OVERFETCH_SIZE,
+					mdata->max_dest_scaler_output_width);
+			if (ret)
+				return ret;
+
+			ret = __dest_scaler_data_setup(&ds_data[1], ds_right,
+					mdata->max_dest_scaler_input_width -
+					MDSS_MDP_DS_OVERFETCH_SIZE,
+					mdata->max_dest_scaler_output_width);
+			if (ret)
+				return ret;
+
+			ds_left->flags  &= ~(DS_LEFT|DS_RIGHT);
+			ds_left->flags  |= DS_DUAL_MODE;
+			ds_right->flags &= ~(DS_LEFT|DS_RIGHT);
+			ds_right->flags |= DS_DUAL_MODE;
+			break;
+
+		case DS_LEFT:
+			if (!ds_left) {
+				pr_err("LM in ctl does not support Destination Scaler\n");
+				return -EINVAL;
+			}
+			ds_left->flags &= ~(DS_DUAL_MODE|DS_RIGHT);
+			ds_left->flags |= DS_LEFT;
+
+			ret = __dest_scaler_data_setup(&ds_data[0], ds_left,
+					mdata->max_dest_scaler_input_width,
+					mdata->max_dest_scaler_output_width);
+			break;
+
+		case DS_RIGHT:
+			if (!ds_right) {
+				pr_err("Cannot setup DS_RIGHT because only single DS assigned to ctl\n");
+				return -EINVAL;
+			}
+
+			ds_right->flags &= ~(DS_DUAL_MODE|DS_LEFT);
+			ds_right->flags |= DS_RIGHT;
+
+			ret = __dest_scaler_data_setup(&ds_data[0], ds_right,
+					mdata->max_dest_scaler_input_width,
+					mdata->max_dest_scaler_output_width);
+			break;
+		}
+
+	} else {
+		pr_err("NULL destionation scaler data\n");
+		return -EFAULT;
+	}
+
+	if (ds_left)
+		pr_debug("DS_LEFT: flags=0x%X\n", ds_left->flags);
+	if (ds_right)
+		pr_debug("DS_RIGHT: flags=0x%X\n", ds_right->flags);
+
+	return ret;
+}
+
 /*
  * __layer_needs_src_split() - check needs source split configuration
  * @layer:	input layer
@@ -1605,11 +1807,13 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
 	u32 mixer_mux, dst_x;
 	int layer_count = commit->input_layer_cnt;
+	u32 ds_mode = 0;
 
 	struct mdss_mdp_pipe *pipe, *tmp, *left_blend_pipe;
 	struct mdss_mdp_pipe *right_plist[MAX_PIPES_PER_LM] = {0};
 	struct mdss_mdp_pipe *left_plist[MAX_PIPES_PER_LM] = {0};
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 
 	struct mdss_mdp_mixer *mixer = NULL;
 	struct mdp_input_layer *layer, *prev_layer, *layer_list;
@@ -1861,6 +2065,37 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 		pr_debug("id:0x%x flags:0x%x dst_x:%d\n",
 			layer->pipe_ndx, layer->flags, layer->dst_rect.x);
 		layer->z_order -= MDSS_MDP_STAGE_0;
+	}
+
+	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
+			commit->dest_scaler) {
+		/*
+		 * Find out which DS block to use based on LM assignment
+		 */
+		if ((left_cnt > 0) && (right_cnt > 0) &&
+				(commit->dest_scaler_cnt == 2))
+			ds_mode = DS_DUAL_MODE;
+		else if ((left_cnt > 0) && (right_cnt == 0) &&
+				(commit->dest_scaler_cnt == 1))
+			ds_mode = DS_LEFT;
+		else if ((left_cnt == 0) && (right_cnt > 0) &&
+				(commit->dest_scaler_cnt == 1))
+			ds_mode = DS_RIGHT;
+		else {
+			pr_err("Commit destination scaler count not matching with LM assignment, DS-cnt:%d\n",
+					commit->dest_scaler_cnt);
+			ret = -EINVAL;
+			goto validate_exit;
+		}
+
+		ret = mdss_mdp_validate_destination_scaler(mfd,
+				commit->dest_scaler,
+				ds_mode);
+		if (ret) {
+			pr_err("fail to validate destination scaler\n");
+			layer->error_code = ret;
+			goto validate_exit;
+		}
 	}
 
 	ret = mdss_mdp_perf_bw_check(mdp5_data->ctl, left_plist, left_cnt,
@@ -2128,6 +2363,12 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 				return rc;
 			}
 		}
+	}
+
+	if (mdss_mdp_destination_scaler_pre_validate(mdp5_data->ctl,
+				commit->dest_scaler)) {
+		pr_err("Destination scaler pre-validate failed\n");
+		return -EINVAL;
 	}
 
 	return __validate_layers(mfd, file, commit);
