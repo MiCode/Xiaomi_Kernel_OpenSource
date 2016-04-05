@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -908,6 +908,8 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 		}
 		return retries ? 0 : -ETIMEDOUT;
 	} else {
+		if (cq_host->ops->set_block_size)
+			cq_host->ops->set_block_size(mmc);
 		if (cq_host->ops->set_data_timeout)
 			cq_host->ops->set_data_timeout(mmc, 0xf);
 		if (cq_host->ops->clear_set_irqs)
