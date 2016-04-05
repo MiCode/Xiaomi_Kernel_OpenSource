@@ -103,3 +103,24 @@
 		status = "okay";
 	};
 };
+
+&i2c_5 {
+	status = "okay";
+	synaptics@20 {
+		compatible = "synaptics,dsx";
+		reg = <0x20>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0x2008>;
+		vdd-supply = <&pmcobalt_l6>;
+		avdd-supply = <&pmcobalt_l28>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_suspend>;
+		synaptics,display-coords = <0 0 1599 2559>;
+		synaptics,panel-coords = <0 0 1599 2703>;
+		synaptics,reset-gpio = <&tlmm 89 0x00>;
+		synaptics,irq-gpio = <&tlmm 125 0x2008>;
+		synaptics,disable-gpios;
+		synaptics,fw-name = "PR1702898-s3528t_60QHD_00400001.img";
+	};
+};

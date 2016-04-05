@@ -1322,5 +1322,33 @@
 				bias-disable;
 			};
 		};
+
+		ts_mux {
+			ts_active: ts_active {
+				mux {
+					pins = "gpio89", "gpio125";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio89", "gpio125";
+					drive-strength = <16>;
+					bias-pull-up;
+				};
+			};
+
+			ts_suspend: ts_suspend {
+				mux {
+					pins = "gpio89", "gpio125";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio89", "gpio125";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
 	};
 };
