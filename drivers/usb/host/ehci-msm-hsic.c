@@ -1558,6 +1558,7 @@ static struct hc_driver msm_hsic_driver = {
 	.bus_suspend		= ehci_hsic_bus_suspend,
 	.bus_resume		= ehci_hsic_bus_resume,
 
+	.log_urb		= dbg_log_event,
 	.dump_regs		= dump_hsic_regs,
 
 	.set_autosuspend_delay = ehci_msm_set_autosuspend_delay,
