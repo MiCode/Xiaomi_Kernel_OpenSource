@@ -43,6 +43,7 @@
 		qcom,slave-side-cp;
 		qcom,sw-power-collapse;
 		qcom,firmware-name = "venus";
+		qcom,pm-qos-latency-us = <213>;
 		qcom,dcvs-tbl =
 			/* Dec UHD@30 H.264, HEVC, VP8, VP9 - NOM to NOM+*/
 			<816000 816000 979200 0x3f00000c>,
