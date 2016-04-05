@@ -883,7 +883,7 @@ static void gbam_start_endless_rx(struct gbam_port *port)
 	unsigned long flags;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
-	if (!port->port_usb) {
+	if (!port->port_usb || !d->rx_req) {
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		pr_err("%s: port->port_usb is NULL", __func__);
 		return;
@@ -905,7 +905,7 @@ static void gbam_start_endless_tx(struct gbam_port *port)
 	unsigned long flags;
 
 	spin_lock_irqsave(&port->port_lock_dl, flags);
-	if (!port->port_usb) {
+	if (!port->port_usb || !d->tx_req) {
 		spin_unlock_irqrestore(&port->port_lock_dl, flags);
 		pr_err("%s: port->port_usb is NULL", __func__);
 		return;
@@ -1512,8 +1512,13 @@ static void gbam2bam_connect_work(struct work_struct *w)
 
 ep_unconfig:
 	if (gadget_is_dwc3(gadget)) {
-		msm_ep_unconfig(port->port_usb->in);
-		msm_ep_unconfig(port->port_usb->out);
+		spin_lock_irqsave(&port->port_lock, flags);
+		/* check if USB cable is disconnected or not */
+		if (port->port_usb) {
+			msm_ep_unconfig(port->port_usb->in);
+			msm_ep_unconfig(port->port_usb->out);
+		}
+		spin_unlock_irqrestore(&port->port_lock, flags);
 	}
 free_fifos:
 	usb_bam_free_fifos(d->usb_bam_type, d->src_connection_idx);
