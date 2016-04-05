@@ -1056,6 +1056,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	devp->open_cfg.notify_state = glink_pkt_notify_state;
 	devp->open_cfg.notify_rx_intent_req = glink_pkt_rmt_rx_intent_req_cb;
 	devp->open_cfg.notify_rx_sigs = glink_pkt_notify_rx_sigs;
+	devp->open_cfg.options |= GLINK_OPT_INITIAL_XPORT;
 	devp->open_cfg.priv = devp;
 
 	devp->i = i;
