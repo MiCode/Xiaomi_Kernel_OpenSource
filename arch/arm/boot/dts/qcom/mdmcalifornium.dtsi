@@ -850,6 +850,7 @@
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-xtal-supply = <&pmdcalifornium_l5>;
 		vdd-wlan-io-supply = <&pmdcalifornium_l6>;
+		vdd-wlan-xtal-aon-supply = <&pmdcalifornium_l4>;
 		qcom,notify-modem-status;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cnss_default>;
