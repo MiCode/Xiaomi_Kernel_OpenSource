@@ -127,6 +127,8 @@ extern struct dentry *iommu_debugfs_top;
  * @domain_set_attr: Change domain attributes
  * @of_xlate: add OF master IDs to iommu grouping
  * @pgsize_bitmap: bitmap of supported page sizes
+ * @get_pgsize_bitmap: gets a bitmap of supported page sizes for a domain
+ *                     This takes precedence over @pgsize_bitmap.
  * @trigger_fault: trigger a fault on the device attached to an iommu domain
  * @reg_read: read an IOMMU register
  * @reg_write: write an IOMMU register
@@ -180,6 +182,7 @@ struct iommu_ops {
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
 #endif
 
+	unsigned long (*get_pgsize_bitmap)(struct iommu_domain *domain);
 	unsigned long pgsize_bitmap;
 	void *priv;
 };
