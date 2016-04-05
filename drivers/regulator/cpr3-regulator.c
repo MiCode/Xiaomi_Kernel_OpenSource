@@ -5840,8 +5840,7 @@ int cpr3_regulator_register(struct platform_device *pdev,
 		}
 	}
 
-	if (ctrl->supports_hw_closed_loop && ctrl->ctrl_type !=
-	    CPR_CTRL_TYPE_CPRH) {
+	if (ctrl->supports_hw_closed_loop) {
 		rc = msm_spm_probe_done();
 		if (rc) {
 			if (rc != -EPROBE_DEFER)
