@@ -6247,11 +6247,6 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	if ((PP_AD_STATE_RUN & ad->state) && ad->calc_itr > 0)
 		ad->calc_itr--;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	ad->last_str = 0xFF & readl_relaxed(base + MDSS_MDP_REG_AD_STR_OUT);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	if (mdata->ad_debugen)
-		pr_debug("itr number %d str %d\n", ad->calc_itr, ad->last_str);
 	mdp5_data->ad_events++;
 	sysfs_notify_dirent(mdp5_data->ad_event_sd);
 	if (!ad->calc_itr) {
@@ -6259,6 +6254,11 @@ static void pp_ad_calc_worker(struct work_struct *work)
 		ctl->ops.remove_vsync_handler(ctl, &ad->handle);
 	}
 	mutex_unlock(&ad->lock);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	ad->last_str = 0xFF & readl_relaxed(base + MDSS_MDP_REG_AD_STR_OUT);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	pr_debug("itr number %d str %d\n", ad->calc_itr, ad->last_str);
 }
 
 #define PP_AD_LUT_LEN 33
