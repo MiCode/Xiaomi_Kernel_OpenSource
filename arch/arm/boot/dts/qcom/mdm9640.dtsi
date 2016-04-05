@@ -595,6 +595,8 @@
 		      <0x07984000 0x1a000>;
 		reg-names = "nand_phys",
 			    "bam_phys";
+		qcom,reg-adjustment-offset = <0>;
+
 		interrupts = <0 247 0>;
 		interrupt-names = "bam_irq";
 
