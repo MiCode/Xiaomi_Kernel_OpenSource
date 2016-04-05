@@ -529,10 +529,24 @@ static int qpnp_vibrator_probe(struct spmi_device *spmi)
 	if (rc < 0)
 		return rc;
 
-        device_create_file(vib->timed_dev.dev, &dev_attr_vtg_level);
-	device_create_file(vib->timed_dev.dev, &dev_attr_vtg_min);
-	device_create_file(vib->timed_dev.dev, &dev_attr_vtg_max);
+	rc = device_create_file(vib->timed_dev.dev, &dev_attr_vtg_level);
+	if (rc < 0)
+		goto error_create_level;
+	rc = device_create_file(vib->timed_dev.dev, &dev_attr_vtg_min);
+	if (rc < 0)
+		goto error_create_min;
+	rc = device_create_file(vib->timed_dev.dev, &dev_attr_vtg_max);
+	if (rc < 0)
+		goto error_create_max;
 
+	return 0;
+
+error_create_max:
+	device_remove_file(vib->timed_dev.dev, &dev_attr_vtg_min);
+error_create_min:
+	device_remove_file(vib->timed_dev.dev, &dev_attr_vtg_level);
+error_create_level:
+	timed_output_dev_unregister(&vib->timed_dev);
 	return rc;
 }
 
@@ -541,6 +555,9 @@ static int qpnp_vibrator_remove(struct spmi_device *spmi)
 	struct qpnp_vib *vib = dev_get_drvdata(&spmi->dev);
 
 	hrtimer_cancel(&vib->vib_timer);
+	device_remove_file(vib->timed_dev.dev, &dev_attr_vtg_level);
+	device_remove_file(vib->timed_dev.dev, &dev_attr_vtg_min);
+	device_remove_file(vib->timed_dev.dev, &dev_attr_vtg_max);
 	timed_output_dev_unregister(&vib->timed_dev);
 
 	return 0;
