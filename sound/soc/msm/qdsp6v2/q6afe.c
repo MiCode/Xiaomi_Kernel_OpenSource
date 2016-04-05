@@ -26,6 +26,7 @@
 #include "msm-pcm-routing-v2.h"
 #include <sound/audio_cal_utils.h>
 #include <sound/adsp_err.h>
+#include <linux/qdsp6v2/apr_tal.h>
 
 #define WAKELOCK_TIMEOUT	5000
 enum {
@@ -1503,53 +1504,75 @@ static int afe_send_codec_reg_page_config(
 static int afe_send_codec_reg_config(
 	struct afe_param_cdc_reg_cfg_data *cdc_reg_cfg)
 {
-	int i, ret;
-	int pkt_size, payload_size;
+	int i, j, ret;
+	int pkt_size, payload_size, reg_per_pkt, num_pkts, num_regs;
 	struct afe_svc_cmd_cdc_reg_cfg *config;
 	struct afe_svc_cmd_set_param *param;
 
-	payload_size = sizeof(struct afe_param_cdc_reg_cfg_payload) *
-		       cdc_reg_cfg->num_registers;
-	pkt_size = sizeof(*config) + payload_size;
-
-	pr_debug("%s: pkt_size %d, payload_size %d\n", __func__, pkt_size,
-		 payload_size);
-	config = kzalloc(pkt_size, GFP_KERNEL);
-	if (!config) {
-		pr_warn("%s: Not enought memory, pkt_size %d\n", __func__,
-			pkt_size);
-		return -ENOMEM;
+	reg_per_pkt = (APR_MAX_BUF - sizeof(*config)) /
+			sizeof(struct afe_param_cdc_reg_cfg_payload);
+	if (reg_per_pkt > 0) {
+		num_pkts = (cdc_reg_cfg->num_registers / reg_per_pkt) +
+			(cdc_reg_cfg->num_registers % reg_per_pkt == 0 ? 0 : 1);
+	} else {
+		pr_err("%s: Failed to build codec reg config APR packet\n",
+			__func__);
+		return -EINVAL;
 	}
 
-	config->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-					      APR_HDR_LEN(APR_HDR_SIZE),
-					      APR_PKT_VER);
-	config->hdr.pkt_size = pkt_size;
-	config->hdr.src_port = 0;
-	config->hdr.dest_port = 0;
-	config->hdr.token = IDX_GLOBAL_CFG;
-	config->hdr.opcode = AFE_SVC_CMD_SET_PARAM;
+	for (j = 0; j < num_pkts; ++j) {
+		/*
+		 * num_regs is set to reg_per_pkt on each pass through the loop
+		 * except the last, when it is set to the number of registers
+		 * remaining from the total
+		 */
+		num_regs = (j < (num_pkts - 1) ? reg_per_pkt :
+				cdc_reg_cfg->num_registers - (reg_per_pkt * j));
+		payload_size = sizeof(struct afe_param_cdc_reg_cfg_payload) *
+				num_regs;
+		pkt_size = sizeof(*config) + payload_size;
+		pr_debug("%s: pkt_size %d, payload_size %d\n", __func__,
+			 pkt_size, payload_size);
+		config = kzalloc(pkt_size, GFP_KERNEL);
+		if (!config)
+			return -ENOMEM;
 
-	param = &config->param;
-	param->payload_size = payload_size;
-	param->payload_address_lsw = 0x00;
-	param->payload_address_msw = 0x00;
-	param->mem_map_handle = 0x00;
+		config->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						      APR_HDR_LEN(APR_HDR_SIZE),
+						      APR_PKT_VER);
+		config->hdr.pkt_size = pkt_size;
+		config->hdr.src_port = 0;
+		config->hdr.dest_port = 0;
+		config->hdr.token = IDX_GLOBAL_CFG;
+		config->hdr.opcode = AFE_SVC_CMD_SET_PARAM;
 
-	for (i = 0; i < cdc_reg_cfg->num_registers; i++) {
-		config->reg_data[i].common.module_id = AFE_MODULE_CDC_DEV_CFG;
-		config->reg_data[i].common.param_id = AFE_PARAM_ID_CDC_REG_CFG;
-		config->reg_data[i].common.param_size =
-		    sizeof(config->reg_data[i].reg_cfg);
-		config->reg_data[i].reg_cfg = cdc_reg_cfg->reg_data[i];
+		param = &config->param;
+		param->payload_size = payload_size;
+		param->payload_address_lsw = 0x00;
+		param->payload_address_msw = 0x00;
+		param->mem_map_handle = 0x00;
+
+		for (i = 0; i < num_regs; i++) {
+			config->reg_data[i].common.module_id =
+						AFE_MODULE_CDC_DEV_CFG;
+			config->reg_data[i].common.param_id =
+						AFE_PARAM_ID_CDC_REG_CFG;
+			config->reg_data[i].common.param_size =
+			    sizeof(config->reg_data[i].reg_cfg);
+			config->reg_data[i].reg_cfg =
+				cdc_reg_cfg->reg_data[i + (j * reg_per_pkt)];
+		}
+
+		ret = afe_apr_send_pkt(config, &this_afe.wait[IDX_GLOBAL_CFG]);
+		if (ret) {
+			pr_err("%s: AFE_PARAM_ID_CDC_REG_CFG failed %d\n",
+				__func__, ret);
+			kfree(config);
+			break;
+		}
+		kfree(config);
 	}
 
-	ret = afe_apr_send_pkt(config, &this_afe.wait[IDX_GLOBAL_CFG]);
-	if (ret)
-		pr_err("%s: AFE_PARAM_ID_CDC_REG_CFG failed %d\n", __func__,
-		       ret);
-
-	kfree(config);
 	return ret;
 }
 
