@@ -72,7 +72,7 @@ These properties are defined only when synaptics,detect-device property is defin
 Example:
 	i2c@f9927000 {
 		synaptics@20 {
-			compatible = "synaptics,dsx"
+			compatible = "synaptics,dsx";
 			reg = <0x20>;
 			interrupt-parent = <&msmgpio>;
 			interrupts = <17 0x2>;
