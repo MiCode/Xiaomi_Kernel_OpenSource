@@ -13,10 +13,10 @@
 
 /dts-v1/;
 
-#include "msm8909w-pm8916-mtp-ext-chg-fg.dtsi"
+#include "msm8909w-swoctp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8909-PM8916 EXT CHG FG MTP";
+	model = "Qualcomm Technologies, Inc. MSM8909W-PM8916 SWOC MTP";
 	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
 	qcom,msm-id =   <245 0>,
 			<258 0>,
