@@ -929,6 +929,11 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA))
 		host->flags |= SDHCI_REQ_USE_DMA;
 
+	if ((host->quirks2 & SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING) &&
+		(cmd->opcode ==  MMC_SEND_TUNING_BLOCK_HS200 ||
+		cmd->opcode == MMC_SEND_TUNING_BLOCK_HS400))
+		host->flags &= ~SDHCI_REQ_USE_DMA;
+
 	/*
 	 * FIXME: This doesn't account for merging when mapping the
 	 * scatterlist.
