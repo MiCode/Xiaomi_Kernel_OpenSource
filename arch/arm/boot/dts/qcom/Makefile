@@ -143,6 +143,13 @@ dtb-$(CONFIG_ARCH_MSM8917) += msm8917-rumi.dtb \
 	msm8917-pmi8950-rcm.dtb \
 	msm8917-pmi8937-qrd-sku5.dtb
 
+dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \
+	msm8940-pmi8937-mtp.dtb \
+	msm8940-pmi8950-cdp.dtb \
+	msm8940-pmi8950-mtp.dtb \
+	msm8940-pmi8937-rcm.dtb \
+	msm8940-pmi8950-rcm.dtb
+
 dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	msm8953-rumi.dtb \
 	msm8953-cdp.dtb \
