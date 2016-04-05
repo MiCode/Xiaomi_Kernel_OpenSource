@@ -2457,7 +2457,7 @@ static u32 __get_ts_bytes(struct mdss_mdp_pipe *pipe,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *low_pipe, *high_pipe;
 	u32 v_total, fps, h_total, xres;
-	u32 low_pipe_bw, high_pipe_bw;
+	u64 low_pipe_bw, high_pipe_bw, temp;
 	u32 ts_bytes_low, ts_bytes_high;
 	u64 ts_bytes = 0;
 
@@ -2503,17 +2503,19 @@ static u32 __get_ts_bytes(struct mdss_mdp_pipe *pipe,
 		__get_ordered_rects(pipe, &low_pipe, &high_pipe);
 
 		/* calculate amortization using per-pipe bw */
-		low_pipe_bw = mdss_mdp_get_pipe_overlap_bw(low_pipe,
-			&low_pipe->mixer_left->roi, 0);
-		high_pipe_bw = mdss_mdp_get_pipe_overlap_bw(high_pipe,
-			&high_pipe->mixer_left->roi, 0);
+		mdss_mdp_get_pipe_overlap_bw(low_pipe,
+			&low_pipe->mixer_left->roi,
+			&low_pipe_bw, &temp, 0);
+		mdss_mdp_get_pipe_overlap_bw(high_pipe,
+			&high_pipe->mixer_left->roi,
+			&high_pipe_bw, &temp, 0);
 
 		/* amortize depending on the lower pipe amortization */
 		if (mdss_mdp_is_amortizable_pipe(low_pipe, mixer, mdata))
-			ts_bytes = max(low_pipe_bw, high_pipe_bw) /
-			     19200000;
+			ts_bytes = DIV_ROUND_UP_ULL(max(low_pipe_bw,
+				high_pipe_bw), 19200000);
 		else
-			ts_bytes = high_pipe_bw / 19200000;
+			ts_bytes = DIV_ROUND_UP_ULL(high_pipe_bw, 19200000);
 		break;
 	default:
 		pr_err("unknown multirect mode!\n");

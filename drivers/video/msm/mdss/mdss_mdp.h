@@ -291,6 +291,7 @@ enum perf_calc_vote_mode {
 
 struct mdss_mdp_perf_params {
 	u64 bw_overlap;
+	u64 bw_overlap_nocr;
 	u64 bw_writeback;
 	u64 bw_prefill;
 	u64 max_per_pipe_ib;
@@ -1479,8 +1480,8 @@ int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **right_plist, int right_cnt);
 int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 		struct mdss_mdp_pipe *pipe);
-u32 mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
-	struct mdss_rect *roi, u32 flags);
+int mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
+	struct mdss_rect *roi, u64 *quota, u64 *quota_nocr, u32 flags);
 int mdss_mdp_get_panel_params(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer, u32 *fps, u32 *v_total,
 	u32 *h_total, u32 *xres);

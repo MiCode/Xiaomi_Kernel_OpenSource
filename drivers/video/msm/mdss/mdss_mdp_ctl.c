@@ -707,14 +707,15 @@ int mdss_mdp_get_panel_params(struct mdss_mdp_pipe *pipe,
 	return 0;
 }
 
-u32 mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
-	struct mdss_rect *roi, u32 flags)
+int mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
+	struct mdss_rect *roi, u64 *quota, u64 *quota_nocr, u32 flags)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_mixer *mixer = pipe->mixer_left;
 	struct mdss_rect src, dst;
-	u32 v_total, fps, h_total, xres;
-	u32 quota, src_h;
+	u32 v_total, fps, h_total, xres, src_h;
+	*quota = 0;
+	*quota_nocr = 0;
 
 	if (mdss_mdp_get_panel_params(pipe, mixer, &fps, &v_total,
 			&h_total, &xres)) {
@@ -736,7 +737,7 @@ u32 mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
 	 */
 	src_h = DECIMATED_DIMENSION(src.h, pipe->vert_deci);
 
-	quota = fps * src.w * src_h;
+	*quota = fps * src.w * src_h;
 
 	if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
 		/*
@@ -744,17 +745,18 @@ u32 mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
 		 * need to allocate bw for extra lines that will be fetched
 		 */
 		if (pipe->vert_deci)
-			quota *= 2;
+			*quota *= 2;
 		else
-			quota = (quota * 3) / 2;
+			*quota = (*quota * 3) / 2;
 	else
-		quota *= pipe->src_fmt->bpp;
+		*quota *= pipe->src_fmt->bpp;
 
 	if (mixer->rotator_mode) {
 		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
 				mdata->mdss_qos_map)) {
 			/* rotator read */
-			quota = apply_comp_ratio_factor(quota,
+			*quota_nocr += (*quota * 2);
+			*quota = apply_comp_ratio_factor(*quota,
 				pipe->src_fmt, &pipe->comp_ratio);
 			/*
 			 * rotator write: here we are using src_fmt since
@@ -765,28 +767,31 @@ u32 mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
 			 * calculate the bandwidth, but leaving this
 			 * calculation as per current support.
 			 */
-			quota += apply_comp_ratio_factor(quota,
+			*quota += apply_comp_ratio_factor(*quota,
 				pipe->src_fmt, &pipe->comp_ratio);
 		} else {
-			quota *= 2; /* bus read + write */
+			*quota *= 2; /* bus read + write */
 		}
 	} else {
 
-		quota = mult_frac(quota, v_total, dst.h);
+		*quota = DIV_ROUND_UP_ULL(*quota * v_total, dst.h);
 		if (!mixer->ctl->is_video_mode)
-			quota = mult_frac(quota, h_total, xres);
+			*quota = DIV_ROUND_UP_ULL(*quota * h_total, xres);
+
+		*quota_nocr = *quota;
 
 		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
 				mdata->mdss_qos_map))
-			quota = apply_comp_ratio_factor(quota,
+			*quota = apply_comp_ratio_factor(*quota,
 				pipe->src_fmt, &pipe->comp_ratio);
 	}
 
-	pr_debug("quota:%d src.w:%d src.h%d comp:[%d, %d]\n",
-		quota, src.w, src_h, pipe->comp_ratio.numer,
+
+	pr_debug("quota:%llu nocr:%llu src.w:%d src.h%d comp:[%d, %d]\n",
+		*quota, *quota_nocr, src.w, src_h, pipe->comp_ratio.numer,
 		pipe->comp_ratio.denom);
 
-	return quota;
+	return 0;
 }
 
 static inline bool validate_comp_ratio(struct mult_factor *factor)
@@ -1110,14 +1115,15 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		 pipe->src.w, src_h, pipe->dst.w, pipe->dst.h, pipe->dst.y,
 		 pipe->src_fmt->bpp, pipe->src_fmt->is_yuv);
 
-	perf->bw_overlap = mdss_mdp_get_pipe_overlap_bw(pipe, roi,
-		flags);
+	if (mdss_mdp_get_pipe_overlap_bw(pipe, roi, &perf->bw_overlap,
+			&perf->bw_overlap_nocr, flags))
+		pr_err("failure calculating overlap bw!\n");
 
 	perf->mdp_clk_rate = get_pipe_mdp_clk_rate(pipe, src, dst,
 		fps, v_total, flags);
 
-	pr_debug("bw:%llu clk:%d\n", perf->bw_overlap,
-		perf->mdp_clk_rate);
+	pr_debug("bw:%llu bw_nocr:%llu clk:%d\n", perf->bw_overlap,
+		perf->bw_overlap_nocr, perf->mdp_clk_rate);
 
 	if (pipe->flags & MDP_SOLID_FILL) {
 		perf->bw_overlap = 0;
@@ -1326,9 +1332,14 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 			flags))
 			continue;
 
-		if (!mdss_mdp_is_nrt_ctl_path(mixer->ctl))
+		if (!mdss_mdp_is_nrt_ctl_path(mixer->ctl)) {
+			u64 per_pipe_ib =
+			    test_bit(MDSS_QOS_IB_NOCR, mdata->mdss_qos_map) ?
+			    tmp.bw_overlap_nocr : tmp.bw_overlap;
+
 			perf->max_per_pipe_ib = max(perf->max_per_pipe_ib,
-			    tmp.bw_overlap);
+			    per_pipe_ib);
+		}
 
 		bitmap_or(perf->bw_vote_mode, perf->bw_vote_mode,
 			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
