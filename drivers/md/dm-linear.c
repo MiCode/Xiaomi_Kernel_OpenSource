@@ -25,7 +25,7 @@ struct linear_c {
 /*
  * Construct a linear mapping: <dev_path> <offset>
  */
-static int linear_ctr(struct dm_target *ti, unsigned int argc, char **argv)
+int dm_linear_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 {
 	struct linear_c *lc;
 	unsigned long long tmp;
@@ -64,7 +64,7 @@ static int linear_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	return -EINVAL;
 }
 
-static void linear_dtr(struct dm_target *ti)
+void dm_linear_dtr(struct dm_target *ti)
 {
 	struct linear_c *lc = (struct linear_c *) ti->private;
 
@@ -89,14 +89,14 @@ static void linear_map_bio(struct dm_target *ti, struct bio *bio)
 			linear_map_sector(ti, bio->bi_iter.bi_sector);
 }
 
-static int linear_map(struct dm_target *ti, struct bio *bio)
+int dm_linear_map(struct dm_target *ti, struct bio *bio)
 {
 	linear_map_bio(ti, bio);
 
 	return DM_MAPIO_REMAPPED;
 }
 
-static void linear_status(struct dm_target *ti, status_type_t type,
+void dm_linear_status(struct dm_target *ti, status_type_t type,
 			  unsigned status_flags, char *result, unsigned maxlen)
 {
 	struct linear_c *lc = (struct linear_c *) ti->private;
@@ -113,7 +113,7 @@ static void linear_status(struct dm_target *ti, status_type_t type,
 	}
 }
 
-static int linear_ioctl(struct dm_target *ti, unsigned int cmd,
+int dm_linear_ioctl(struct dm_target *ti, unsigned int cmd,
 			unsigned long arg)
 {
 	struct linear_c *lc = (struct linear_c *) ti->private;
@@ -130,7 +130,7 @@ static int linear_ioctl(struct dm_target *ti, unsigned int cmd,
 	return r ? : __blkdev_driver_ioctl(dev->bdev, dev->mode, cmd, arg);
 }
 
-static int linear_merge(struct dm_target *ti, struct bvec_merge_data *bvm,
+int dm_linear_merge(struct dm_target *ti, struct bvec_merge_data *bvm,
 			struct bio_vec *biovec, int max_size)
 {
 	struct linear_c *lc = ti->private;
@@ -145,7 +145,7 @@ static int linear_merge(struct dm_target *ti, struct bvec_merge_data *bvm,
 	return min(max_size, q->merge_bvec_fn(q, bvm, biovec));
 }
 
-static int linear_iterate_devices(struct dm_target *ti,
+int dm_linear_iterate_devices(struct dm_target *ti,
 				  iterate_devices_callout_fn fn, void *data)
 {
 	struct linear_c *lc = ti->private;
@@ -153,17 +153,17 @@ static int linear_iterate_devices(struct dm_target *ti,
 	return fn(ti, lc->dev, lc->start, ti->len, data);
 }
 
-struct target_type linear_target = {
+static struct target_type linear_target = {
 	.name   = "linear",
 	.version = {1, 2, 1},
 	.module = THIS_MODULE,
-	.ctr    = linear_ctr,
-	.dtr    = linear_dtr,
-	.map    = linear_map,
-	.status = linear_status,
-	.ioctl  = linear_ioctl,
-	.merge  = linear_merge,
-	.iterate_devices = linear_iterate_devices,
+	.ctr    = dm_linear_ctr,
+	.dtr    = dm_linear_dtr,
+	.map    = dm_linear_map,
+	.status = dm_linear_status,
+	.ioctl  = dm_linear_ioctl,
+	.merge  = dm_linear_merge,
+	.iterate_devices = dm_linear_iterate_devices,
 };
 
 int __init dm_linear_init(void)
