@@ -935,22 +935,6 @@
 		rpm-channel-name = "rpm_requests";
 	};
 
-	qcom,smdpkt {
-		compatible = "qcom,smdpkt";
-
-		qcom,smdpkt-apr-apps2 {
-			qcom,smdpkt-remote = "adsp";
-			qcom,smdpkt-port-name = "apr_apps2";
-			qcom,smdpkt-dev-name = "apr_apps2";
-		};
-
-		qcom,smdpkt-loopback {
-			qcom,smdpkt-remote = "modem";
-			qcom,smdpkt-port-name = "LOOPBACK";
-			qcom,smdpkt-dev-name = "smd_pkt_loopback";
-		};
-	};
-
 	glink_mpss: qcom,glink-ssr-modem {
 		compatible = "qcom,glink_ssr";
 		label = "modem";
@@ -1055,7 +1039,7 @@
 		compatible = "qcom,glinkpkt";
 
 		qcom,glinkpkt-at-mdm0 {
-			qcom,glinkpkt-transport = "smd_trans";
+			qcom,glinkpkt-transport = "smem";
 			qcom,glinkpkt-edge = "mpss";
 			qcom,glinkpkt-ch-name = "DS";
 			qcom,glinkpkt-dev-name = "at_mdm0";
@@ -1073,6 +1057,20 @@
 			qcom,glinkpkt-edge = "local";
 			qcom,glinkpkt-ch-name = "glink_pkt_lloop_CLNT";
 			qcom,glinkpkt-dev-name = "glink_pkt_loopback";
+		};
+
+		qcom,glinkpkt-apr-apps2 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "adsp";
+			qcom,glinkpkt-ch-name = "apr_apps2";
+			qcom,glinkpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,glinkpkt-data40-cntl {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA40_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl8";
 		};
 	};
 
