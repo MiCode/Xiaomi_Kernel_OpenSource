@@ -426,7 +426,6 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			smc_id = TZ_OS_APP_SHUTDOWN_ID;
 			desc.arginfo = TZ_OS_APP_SHUTDOWN_ID_PARAM_ID;
 			desc.args[0] = req->app_id;
-			__qseecom_reentrancy_check_if_no_app_blocked(smc_id);
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
@@ -2199,6 +2198,9 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		goto unload_exit;
 	}
 
+	__qseecom_cleanup_app(data);
+	__qseecom_reentrancy_check_if_no_app_blocked(TZ_OS_APP_SHUTDOWN_ID);
+
 	if (data->client.app_id > 0) {
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
@@ -2226,11 +2228,9 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		}
 	}
 
-	if (found_dead_app) {
+	if (found_dead_app)
 		pr_warn("cleanup app_id %d(%s)\n", data->client.app_id,
 			(char *)data->client.app_name);
-		__qseecom_cleanup_app(data);
-	}
 
 	if (unload) {
 		struct qseecom_unload_app_ireq req;
@@ -2257,7 +2257,6 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 		if (resp.result == QSEOS_RESULT_SUCCESS)
 			pr_debug("App (%d) is unloaded!!\n",
 					data->client.app_id);
-		__qseecom_cleanup_app(data);
 		if (resp.result == QSEOS_RESULT_INCOMPLETE) {
 			ret = __qseecom_process_incomplete_cmd(data, &resp);
 			if (ret) {
