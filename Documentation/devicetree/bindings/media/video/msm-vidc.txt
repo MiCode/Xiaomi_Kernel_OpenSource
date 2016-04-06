@@ -130,6 +130,8 @@ value is typically max(latencies of every cluster at all power levels) + 1
 - qcom,max-secure-instances = An int containing max number of concurrent secure
   instances supported, accounting for venus and system wide limitations like
   memory, performance etc.
+- qcom,debug-timeout = A bool indicating that FW errors such as SYS_ERROR,
+  SESSION_ERROR and timeouts will be treated as Fatal.
 
 [Second level nodes]
 Context Banks

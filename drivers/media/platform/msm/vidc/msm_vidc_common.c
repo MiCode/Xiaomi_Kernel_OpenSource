@@ -86,6 +86,7 @@ struct getprop_buf {
 static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);
+static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
 
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst)
 {
@@ -879,11 +880,13 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 	enum hal_command_response cmd)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
 
 	if (!IS_HAL_SESSION_CMD(cmd)) {
 		dprintk(VIDC_ERR, "Invalid inst cmd response: %d\n", cmd);
 		return -EINVAL;
 	}
+	hdev = (struct hfi_device *)(inst->core->device);
 	rc = wait_for_completion_timeout(
 		&inst->completions[SESSION_MSG_INDEX(cmd)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
@@ -891,7 +894,11 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "Wait interrupted or timed out: %d\n",
 				SESSION_MSG_INDEX(cmd));
 		msm_comm_kill_session(inst);
-		BUG_ON(msm_vidc_debug_timeout);
+		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+		dprintk(VIDC_ERR,
+			"sess resp timeout can potentially crash the system\n");
+
+		BUG_ON(inst->core->resources.debug_timeout);
 		rc = -EIO;
 	} else {
 		rc = 0;
@@ -1623,6 +1630,13 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		core->state = VIDC_CORE_UNINIT;
 	}
 	mutex_unlock(&core->lock);
+
+	msm_vidc_print_running_insts(core);
+	call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+	dprintk(VIDC_ERR,
+		"SYS_ERROR can potentially crash the system\n");
+
+	BUG_ON(core->resources.debug_timeout);
 }
 
 void msm_comm_session_clean(struct msm_vidc_inst *inst)
@@ -2393,7 +2407,11 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR,
 				"%s: Wait interrupted or timed out [%p]: %d\n",
 				__func__, inst, abort_completion);
-		BUG_ON(msm_vidc_debug_timeout);
+		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+		dprintk(VIDC_ERR,
+			"ABORT timeout can potentially crash the system\n");
+
+		BUG_ON(inst->core->resources.debug_timeout);
 		rc = -EBUSY;
 	} else {
 		rc = 0;
@@ -2463,6 +2481,7 @@ void msm_comm_handle_thermal_event()
 int msm_comm_check_core_init(struct msm_vidc_core *core)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
 
 	mutex_lock(&core->lock);
 	if (core->state >= VIDC_CORE_INIT_DONE) {
@@ -2471,13 +2490,18 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 		goto exit;
 	}
 	dprintk(VIDC_DBG, "Waiting for SYS_INIT_DONE\n");
+	hdev = (struct hfi_device *)core->device;
 	rc = wait_for_completion_timeout(
 		&core->completions[SYS_MSG_INDEX(HAL_SYS_INIT_DONE)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "%s: Wait interrupted or timed out: %d\n",
 				__func__, SYS_MSG_INDEX(HAL_SYS_INIT_DONE));
-		BUG_ON(msm_vidc_debug_timeout);
+		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+		dprintk(VIDC_ERR,
+			"SYS_INIT timeout can potentially crash the system\n");
+
+		BUG_ON(core->resources.debug_timeout);
 		rc = -EIO;
 		goto exit;
 	} else {
@@ -3944,7 +3968,11 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO));
 		inst->state = MSM_VIDC_CORE_INVALID;
 		msm_comm_kill_session(inst);
-		BUG_ON(msm_vidc_debug_timeout);
+		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+		dprintk(VIDC_ERR,
+			"SESS_PROP timeout can potentially crash the system\n");
+
+		BUG_ON(inst->core->resources.debug_timeout);
 		rc = -ETIMEDOUT;
 		goto exit;
 	} else {
