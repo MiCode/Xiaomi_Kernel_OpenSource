@@ -552,6 +552,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	[308] = {MSM_CPU_8917, "MSM8217"},
 	[309] = {MSM_CPU_8917, "MSM8617"},
 
+	/* MSM8940 IDs */
+	[313] = {MSM_CPU_8940, "MSM8940"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -1168,6 +1171,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msm8917()) {
 		dummy_socinfo.id = 303;
 		strlcpy(dummy_socinfo.build_id, "msm8917 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8940()) {
+		dummy_socinfo.id = 313;
+		strlcpy(dummy_socinfo.build_id, "msm8940 - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
