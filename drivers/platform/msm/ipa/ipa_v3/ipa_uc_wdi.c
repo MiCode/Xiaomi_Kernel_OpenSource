@@ -12,6 +12,7 @@
 #include "ipa_i.h"
 #include <linux/dmapool.h>
 #include <linux/delay.h>
+#include <linux/mm.h>
 
 #define IPA_HOLB_TMR_DIS 0x0
 
@@ -804,9 +805,50 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 			cmd.size = sizeof(*rx_2);
 		else
 			cmd.size = sizeof(*rx);
-		IPADBG("rx_ring_base_pa=0x%pa\n", &in->u.ul.rdy_ring_base_pa);
-		IPADBG("rx_ring_size=%d\n", in->u.ul.rdy_ring_size);
-		IPADBG("rx_ring_rp_pa=0x%pa\n", &in->u.ul.rdy_ring_rp_pa);
+		IPADBG("rx_ring_base_pa=0x%pa\n",
+			&in->u.ul.rdy_ring_base_pa);
+		IPADBG("rx_ring_size=%d\n",
+			in->u.ul.rdy_ring_size);
+		IPADBG("rx_ring_rp_pa=0x%pa\n",
+			&in->u.ul.rdy_ring_rp_pa);
+		IPADBG("rdy_ring_rp value =%d\n",
+			*in->u.ul.rdy_ring_rp_va);
+		IPADBG("rx_comp_ring_base_pa=0x%pa\n",
+			&in->u.ul.rdy_comp_ring_base_pa);
+		IPADBG("rx_comp_ring_size=%d\n",
+			in->u.ul.rdy_comp_ring_size);
+		IPADBG("rx_comp_ring_wp_pa=0x%pa\n",
+			&in->u.ul.rdy_comp_ring_wp_pa);
+		IPADBG("rx_comp_ring_wp value=%d\n",
+			*in->u.ul.rdy_comp_ring_wp_va);
+		ipa3_ctx->uc_ctx.rdy_ring_base_pa =
+			in->u.ul.rdy_ring_base_pa;
+		ipa3_ctx->uc_ctx.rdy_ring_rp_pa =
+			in->u.ul.rdy_ring_rp_pa;
+		ipa3_ctx->uc_ctx.rdy_ring_size =
+			in->u.ul.rdy_ring_size;
+		ipa3_ctx->uc_ctx.rdy_comp_ring_base_pa =
+			in->u.ul.rdy_comp_ring_base_pa;
+		ipa3_ctx->uc_ctx.rdy_comp_ring_wp_pa =
+			in->u.ul.rdy_comp_ring_wp_pa;
+		ipa3_ctx->uc_ctx.rdy_comp_ring_size =
+			in->u.ul.rdy_comp_ring_size;
+		ipa3_ctx->uc_ctx.rdy_ring_rp_va =
+			in->u.ul.rdy_ring_rp_va;
+		ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va =
+			in->u.ul.rdy_comp_ring_wp_va;
+		/* check if the VA is empty */
+		if (!in->u.ul.rdy_ring_rp_va && ipa3_ctx->ipa_wdi2) {
+			IPAERR("rdy_ring_rp_va is empty, wdi2.0(%d)\n",
+			ipa3_ctx->ipa_wdi2);
+			goto dma_alloc_fail;
+		}
+		if (!in->u.ul.rdy_comp_ring_wp_va &&
+			ipa3_ctx->ipa_wdi2) {
+			IPAERR("comp_ring_wp_va is empty, wdi2.0(%d)\n",
+			ipa3_ctx->ipa_wdi2);
+			goto dma_alloc_fail;
+		}
 	}
 
 	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
@@ -1299,6 +1341,7 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t disable;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 prod_hdl;
+	int i;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1309,6 +1352,28 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 	result = ipa3_uc_state_check();
 	if (result)
 		return result;
+
+	/* checking rdy_ring_rp_pa matches the rdy_comp_ring_wp_pa on WDI2.0 */
+	if (ipa3_ctx->ipa_wdi2) {
+		for (i = 0; i < IPA_UC_FINISH_MAX; i++) {
+			IPADBG("(%d) rp_value(%u), comp_wp_value(%u)\n",
+					i,
+					*ipa3_ctx->uc_ctx.rdy_ring_rp_va,
+					*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va);
+			if (*ipa3_ctx->uc_ctx.rdy_ring_rp_va !=
+				*ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va) {
+				usleep_range(IPA_UC_WAIT_MIN_SLEEP,
+					IPA_UC_WAII_MAX_SLEEP);
+			} else {
+				break;
+			}
+		}
+		/* In case ipa_uc still haven't processed all
+		 * pending descriptors, we have to assert
+		 */
+		if (i == IPA_UC_FINISH_MAX)
+			BUG();
+	}
 
 	IPADBG("ep=%d\n", clnt_hdl);
 

@@ -50,6 +50,9 @@
 #define IPA_DL_CHECKSUM_LENGTH (8)
 #define IPA_NUM_DESC_PER_SW_TX (3)
 #define IPA_GENERIC_RX_POOL_SZ 192
+#define IPA_UC_FINISH_MAX 6
+#define IPA_UC_WAIT_MIN_SLEEP 1000
+#define IPA_UC_WAII_MAX_SLEEP 1200
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 
@@ -1286,6 +1289,14 @@ struct ipa3_uc_ctx {
 	u32 uc_status;
 	u32 uc_error_type;
 	u32 uc_error_timestamp;
+	phys_addr_t rdy_ring_base_pa;
+	phys_addr_t rdy_ring_rp_pa;
+	u32 rdy_ring_size;
+	phys_addr_t rdy_comp_ring_base_pa;
+	phys_addr_t rdy_comp_ring_wp_pa;
+	u32 rdy_comp_ring_size;
+	u32 *rdy_ring_rp_va;
+	u32 *rdy_comp_ring_wp_va;
 };
 
 /**
