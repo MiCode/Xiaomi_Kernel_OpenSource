@@ -16,6 +16,9 @@
 #include <linux/leds.h>
 #include "leds.h"
 
+#define ENABLE_REGULATOR	BIT(0)
+#define QUERY_MAX_CURRENT	BIT(1)
+
 /*
  * Configurations for each individual LED
  */
@@ -45,5 +48,7 @@ struct flash_switch_data {
 	struct platform_device		*pdev;
 	struct led_classdev		cdev;
 };
+
+int qpnp_flash_led_prepare(struct led_classdev *led_cdev, int options);
 
 #endif

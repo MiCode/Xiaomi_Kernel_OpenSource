@@ -193,6 +193,18 @@ static int qpnp_flash_led_hw_strobe_enable(struct flash_node_data *fnode,
 	return rc;
 }
 
+static int qpnp_flash_led_regulator_enable(struct qpnp_flash_led *led,
+				struct flash_switch_data *snode, bool on)
+{
+	return 0;
+}
+
+static int qpnp_flash_led_get_max_avail_current(struct flash_switch_data *snode,
+						struct qpnp_flash_led *led)
+{
+	return 3750;
+}
+
 static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 {
 	int prgm_current_ma = value;
@@ -340,6 +352,39 @@ leds_turn_off:
 	}
 
 	return 0;
+}
+
+int qpnp_flash_led_prepare(struct led_classdev *led_cdev, int options)
+{
+	struct flash_switch_data *snode =
+			container_of(led_cdev, struct flash_switch_data, cdev);
+	struct qpnp_flash_led *led = dev_get_drvdata(&snode->pdev->dev);
+	int rc, val = 0;
+
+	if (!(options & (ENABLE_REGULATOR | QUERY_MAX_CURRENT))) {
+		dev_err(&led->pdev->dev, "Invalid options %d\n", options);
+		return -EINVAL;
+	}
+
+	if (options & ENABLE_REGULATOR) {
+		rc = qpnp_flash_led_regulator_enable(led, snode, true);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev,
+				"enable regulator failed, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (options & QUERY_MAX_CURRENT) {
+		val = qpnp_flash_led_get_max_avail_current(snode, led);
+		if (val < 0) {
+			dev_err(&led->pdev->dev,
+				"query max current failed, rc=%d\n", val);
+			return val;
+		}
+	}
+
+	return val;
 }
 
 static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
