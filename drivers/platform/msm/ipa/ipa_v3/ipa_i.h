@@ -34,6 +34,7 @@
 #include "ipa_qmi_service.h"
 #include "../ipa_api.h"
 #include "ipahal/ipahal_reg.h"
+#include "ipahal/ipahal.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -90,25 +91,20 @@
 #define WLAN3_CONS_RX_EP  17
 #define WLAN4_CONS_RX_EP  18
 
-#define MAX_NUM_EXCP     8
-
 #define IPA_STATS
 
 #ifdef IPA_STATS
 #define IPA_STATS_INC_CNT(val) (++val)
 #define IPA_STATS_DEC_CNT(val) (--val)
-#define IPA_STATS_EXCP_CNT(flags, base) do {			\
-			int i;					\
-			for (i = 0; i < MAX_NUM_EXCP; i++)	\
-				if (flags & BIT(i))		\
-					++base[i];		\
-			if (flags == 0)				\
-				++base[MAX_NUM_EXCP - 1];	\
-			} while (0)
+#define IPA_STATS_EXCP_CNT(__excp, __base) do {				\
+	if (__excp < 0 || __excp >= IPAHAL_PKT_STATUS_EXCEPTION_MAX)	\
+		break;							\
+	++__base[__excp];						\
+	} while (0)
 #else
 #define IPA_STATS_INC_CNT(x) do { } while (0)
 #define IPA_STATS_DEC_CNT(x)
-#define IPA_STATS_EXCP_CNT(flags, base) do { } while (0)
+#define IPA_STATS_EXCP_CNT(__excp, __base) do { } while (0)
 #endif
 
 #define IPA_TOS_EQ			BIT(0)
@@ -207,6 +203,10 @@
 #define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)
+
+#define IPA_GSI_CHANNEL_EMPTY_MAX_RETRY 15
+#define IPA_GSI_CHANNEL_EMPTY_SLEEP_MIN_USEC (1000)
+#define IPA_GSI_CHANNEL_EMPTY_SLEEP_MAX_USEC (2000)
 
 #define IPA_SLEEP_CLK_RATE_KHZ (32)
 
@@ -665,7 +665,7 @@ struct ipa_gsi_ep_mem_info {
 };
 
 struct ipa3_status_stats {
-	struct ipa3_hw_pkt_status status[IPA_MAX_STATUS_STAT_NUM];
+	struct ipahal_pkt_status status[IPA_MAX_STATUS_STAT_NUM];
 	int curr;
 };
 
@@ -1008,7 +1008,7 @@ struct ipa3_stats {
 	u32 tx_sw_pkts;
 	u32 tx_hw_pkts;
 	u32 rx_pkts;
-	u32 rx_excp_pkts[MAX_NUM_EXCP];
+	u32 rx_excp_pkts[IPAHAL_PKT_STATUS_EXCEPTION_MAX];
 	u32 rx_repl_repost;
 	u32 tx_pkts_compl;
 	u32 rx_q_len;
@@ -1085,22 +1085,29 @@ struct ipa3_controller;
  * enum ipa3_hw_features - Values that represent the features supported in IPA HW
  * @IPA_HW_FEATURE_COMMON : Feature related to common operation of IPA HW
  * @IPA_HW_FEATURE_MHI : Feature related to MHI operation in IPA HW
+ * @IPA_HW_FEATURE_POWER_COLLAPSE: Feature related to IPA Power collapse
  * @IPA_HW_FEATURE_WDI : Feature related to WDI operation in IPA HW
+ * @IPA_HW_FEATURE_ZIP: Feature related to CMP/DCMP operation in IPA HW
 */
 enum ipa3_hw_features {
-	IPA_HW_FEATURE_COMMON = 0x0,
-	IPA_HW_FEATURE_MHI    = 0x1,
-	IPA_HW_FEATURE_WDI    = 0x3,
-	IPA_HW_FEATURE_MAX    = IPA_HW_NUM_FEATURES
+	IPA_HW_FEATURE_COMMON		=	0x0,
+	IPA_HW_FEATURE_MHI		=	0x1,
+	IPA_HW_FEATURE_POWER_COLLAPSE	=	0x2,
+	IPA_HW_FEATURE_WDI		=	0x3,
+	IPA_HW_FEATURE_ZIP		=	0x4,
+	IPA_HW_FEATURE_MAX		=	IPA_HW_NUM_FEATURES
 };
 
 /**
  * enum ipa3_hw_2_cpu_events - Values that represent HW event to be sent to CPU.
+ * @IPA_HW_2_CPU_EVENT_NO_OP : No event present
  * @IPA_HW_2_CPU_EVENT_ERROR : Event specify a system error is detected by the
- * device
+ *  device
  * @IPA_HW_2_CPU_EVENT_LOG_INFO : Event providing logging specific information
  */
 enum ipa3_hw_2_cpu_events {
+	IPA_HW_2_CPU_EVENT_NO_OP     =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 0),
 	IPA_HW_2_CPU_EVENT_ERROR     =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
 	IPA_HW_2_CPU_EVENT_LOG_INFO  =
@@ -1114,7 +1121,8 @@ enum ipa3_hw_2_cpu_events {
  * @IPA_HW_DMA_ERROR : Unexpected DMA error
  * @IPA_HW_FATAL_SYSTEM_ERROR : HW has crashed and requires reset.
  * @IPA_HW_INVALID_OPCODE : Invalid opcode sent
- * @IPA_HW_ZIP_ENGINE_ERROR : ZIP engine error
+ * @IPA_HW_INVALID_PARAMS : Invalid params for the requested command
+ * @IPA_HW_GSI_CH_NOT_EMPTY_FAILURE : GSI channel emptiness validation failed
  */
 enum ipa3_hw_errors {
 	IPA_HW_ERROR_NONE              =
@@ -1127,12 +1135,14 @@ enum ipa3_hw_errors {
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 3),
 	IPA_HW_INVALID_OPCODE          =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4),
-	IPA_HW_ZIP_ENGINE_ERROR        =
+	IPA_HW_INVALID_PARAMS        =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5),
 	IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 6),
 	IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7)
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7),
+	IPA_HW_GSI_CH_NOT_EMPTY_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 8)
 };
 
 /**
@@ -1166,14 +1176,13 @@ struct IpaHwSharedMemCommonMapping_t {
 	u32 cmdParams;
 	u32 cmdParams_hi;
 	u8  responseOp;
-	u8  reserved_09;
-	u16 reserved_0B_0A;
+	u8  reserved_0D;
+	u16 reserved_0F_0E;
 	u32 responseParams;
 	u8  eventOp;
-	u8  reserved_11;
-	u16 reserved_13_12;
+	u8  reserved_15;
+	u16 reserved_17_16;
 	u32 eventParams;
-	u32 reserved_1B_18;
 	u32 firstErrorAddress;
 	u8  hwState;
 	u8  warningCounter;
@@ -1359,7 +1368,6 @@ union IpaHwMhiDlUlSyncCmdData_t {
  * @uc_sram_mmio: Pointer to uC mapped memory
  * @pending_cmd: The last command sent waiting to be ACKed
  * @uc_status: The last status provided by the uC
- * @uc_zip_error: uC has notified the APPS upon a ZIP engine error
  * @uc_error_type: error type from uC error event
  * @uc_error_timestamp: tag timer sampled after uC crashed
  */
@@ -1375,7 +1383,6 @@ struct ipa3_uc_ctx {
 	u32 uc_event_top_ofst;
 	u32 pending_cmd;
 	u32 uc_status;
-	bool uc_zip_error;
 	u32 uc_error_type;
 	u32 uc_error_timestamp;
 };
@@ -2311,8 +2318,8 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 		    unsigned long timeout);
 
-int ipa3_q6_cleanup(void);
-int ipa3_q6_pipe_reset(void);
+void ipa3_q6_cleanup(void);
+void ipa3_validate_q6_gsi_channel_empty(void);
 int ipa3_init_q6_smem(void);
 
 int ipa3_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
@@ -2322,6 +2329,7 @@ int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
 
 int ipa3_uc_interface_init(void);
 int ipa3_uc_reset_pipe(enum ipa_client_type ipa_client);
+int ipa3_uc_is_gsi_channel_empty(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
 int ipa3_uc_loaded_check(void);
 void ipa3_uc_load_notify(void);

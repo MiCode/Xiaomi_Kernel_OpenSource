@@ -11,6 +11,7 @@ Required properties:
   - reg: Memory regions defined as starting address and size
   - reg-names: Names of the memory regions defined in reg entry
   - interrupts: Copy engine interrupt table
+  - qcom,wlan-msa-memory: MSA memory size
 
 Optional properties:
 
@@ -33,4 +34,5 @@ Example:
 		   <0 139 0 /* CE9 */ >,
 		   <0 140 0 /* CE10 */ >,
 		   <0 141 0 /* CE11 */ >;
+        qcom,wlan-msa-memory = <0x200000>;
     };

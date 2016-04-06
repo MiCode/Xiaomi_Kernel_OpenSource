@@ -2424,6 +2424,42 @@ err:
 	return ret;
 }
 
+static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	if (mdwc->vbus_active)
+		return snprintf(buf, PAGE_SIZE, "peripheral\n");
+	if (mdwc->id_state == DWC3_ID_GROUND)
+		return snprintf(buf, PAGE_SIZE, "host\n");
+
+	return snprintf(buf, PAGE_SIZE, "none\n");
+}
+
+static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	if (sysfs_streq(buf, "peripheral")) {
+		mdwc->vbus_active = true;
+		mdwc->id_state = DWC3_ID_FLOAT;
+	} else if (sysfs_streq(buf, "host")) {
+		mdwc->vbus_active = false;
+		mdwc->id_state = DWC3_ID_GROUND;
+	} else {
+		mdwc->vbus_active = false;
+		mdwc->id_state = DWC3_ID_FLOAT;
+	}
+
+	dwc3_ext_event_notify(mdwc);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(mode);
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -2738,6 +2774,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
 		pm_runtime_get_noresume(mdwc->dev);
 
+	device_create_file(&pdev->dev, &dev_attr_mode);
+
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_cable_state_(mdwc->extcon_vbus,
 							EXTCON_USB))
@@ -2782,6 +2820,8 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 {
 	struct dwc3_msm	*mdwc = platform_get_drvdata(pdev);
 	int ret_pm;
+
+	device_remove_file(&pdev->dev, &dev_attr_mode);
 
 	if (cpu_to_affin)
 		unregister_cpu_notifier(&mdwc->dwc3_cpu_notifier);
