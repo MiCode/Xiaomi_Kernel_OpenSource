@@ -1178,23 +1178,12 @@ dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
 	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
 
-#ifdef CONFIG_SCHED_QHMP
 static void
 fixup_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p,
 			 u32 new_task_load)
 {
 	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, new_task_load);
 }
-#else
-static void
-fixup_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p,
-			 u32 new_task_load)
-{
-	s64 task_load_delta = (s64)new_task_load - task_load(p);
-
-	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta);
-}
-#endif
 
 #else	/* CONFIG_SCHED_HMP */
 
@@ -1679,18 +1668,12 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 		cpu_load = scale_load_to_cpu(
 			cpu_rq(i)->hmp_stats.cumulative_runnable_avg, i);
 
-#ifdef CONFIG_SCHED_QHMP
 		cpu_cost = power_cost(cpu_load, i);
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), mostly_idle_cpu(i),
 				     sched_irqload(i), cpu_cost, cpu_temp(i));
 
 		if (sched_boost() && capacity(cpu_rq(i)) != max_capacity)
 			continue;
-#else
-		cpu_cost = power_cost(i, cpu_cravg_sync(i, 0));
-		trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
-			sched_irqload(i), cpu_cost, cpu_temp(i));
-#endif
 
 		if (power_delta_exceeded(cpu_cost, min_cost)) {
 			if (cpu_cost > min_cost)
