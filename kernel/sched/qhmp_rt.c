@@ -1642,6 +1642,8 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	int best_cpu = -1;
 	int prev_cpu = task_cpu(task);
 	int i;
+	int restrict_tasks_spread = sched_boost() ? 0 :
+			sysctl_sched_restrict_tasks_spread;
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1687,7 +1689,18 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 		if (sched_cpu_high_irqload(i))
 			continue;
 
-		if (cpu_load < min_load ||
+		if (restrict_tasks_spread) {
+			if (best_cpu == -1) {
+				best_cpu = i;
+				continue;
+
+			}
+
+			if (cpu_cost < min_cost) {
+				min_cost = cpu_cost;
+				best_cpu = i;
+			}
+		} else if (cpu_load < min_load ||
 		    (cpu_load == min_load &&
 		     (i == prev_cpu || (best_cpu != prev_cpu &&
 					cpus_share_cache(prev_cpu, i))))) {

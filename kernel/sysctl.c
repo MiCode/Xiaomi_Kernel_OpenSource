@@ -383,6 +383,15 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler   = sched_hmp_proc_update_handler,
 	},
+	{
+		.procname	= "sched_restrict_tasks_spread",
+		.data		= &sysctl_sched_restrict_tasks_spread,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one,
+	},
 #endif
 	{
 		.procname	= "sched_spill_load",
