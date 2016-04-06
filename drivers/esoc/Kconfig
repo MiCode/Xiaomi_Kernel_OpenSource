@@ -49,4 +49,13 @@ config ESOC_MDM_DRV
 	  such as mdm9x25/mdm9x35/mdm9x45/mdm9x55/QSC. Allows the primary soc to put the
 	  external modem in a specific mode. Also listens for events on the
 	  external modem.
+
+config ESOC_MDM_DBG_ENG
+	tristate "debug engine for 4x series external modems"
+	depends on ESOC_MDM_DRV
+	help
+	  Provides a user interface to mask out certain commands sent
+	  by command engine to the external modem. Also allows masking
+	  of certain notifications being sent to the external modem.
+
 endif
