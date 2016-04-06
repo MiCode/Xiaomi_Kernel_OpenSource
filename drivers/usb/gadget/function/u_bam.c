@@ -1319,6 +1319,12 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		return;
 	}
 
+	if (port->is_connected) {
+		pr_debug("%s: Port already connected. Bail out.\n",
+			__func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
 	port->is_connected = true;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags_ul);
@@ -1351,7 +1357,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	*/
 	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
-	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	d->ipa_params.usb_connection_speed = gadget->speed;
 
@@ -1366,15 +1371,18 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			&d->src_pipe_type) ||
 		usb_bam_get_pipe_type(d->usb_bam_type, d->ipa_params.dst_idx,
 				&d->dst_pipe_type)) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_err("%s:usb_bam_get_pipe_type() failed\n", __func__);
 		return;
 	}
 	if (d->dst_pipe_type != USB_BAM_PIPE_BAM2BAM) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_err("%s: no software preparation for DL not using bam2bam\n",
 				__func__);
 		return;
 	}
 
+	spin_unlock_irqrestore(&port->port_lock, flags);
 	usb_bam_alloc_fifos(d->usb_bam_type, d->src_connection_idx);
 	usb_bam_alloc_fifos(d->usb_bam_type, d->dst_connection_idx);
 	gadget->bam2bam_func_enabled = true;
@@ -1419,11 +1427,11 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		d->tx_req->udc_priv = sps_params;
 
 	}
-	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	teth_bridge_params.client = d->ipa_params.src_client;
 	ret = teth_bridge_init(&teth_bridge_params);
 	if (ret) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_err("%s:teth_bridge_init() failed\n", __func__);
 		goto ep_unconfig;
 	}
@@ -1450,10 +1458,20 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
 	d->ipa_params.skip_ep_cfg = teth_bridge_params.skip_ep_cfg;
 	d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
+	spin_unlock_irqrestore(&port->port_lock, flags);
 	ret = usb_bam_connect_ipa(d->usb_bam_type, &d->ipa_params);
 	if (ret) {
 		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
 			__func__, ret);
+		goto ep_unconfig;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	/* check if USB cable is disconnected or not */
+	if (port->last_event ==  U_BAM_DISCONNECT_E) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		pr_debug("%s:%d: cable is disconnected.\n",
+						 __func__, __LINE__);
 		goto ep_unconfig;
 	}
 
@@ -1469,6 +1487,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	else
 		d->ipa_params.reset_pipe_after_lpm = false;
 	d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
+	spin_unlock_irqrestore(&port->port_lock, flags);
 	ret = usb_bam_connect_ipa(d->usb_bam_type, &d->ipa_params);
 	if (ret) {
 		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
@@ -1476,6 +1495,16 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		goto ep_unconfig;
 	}
 
+	spin_lock_irqsave(&port->port_lock, flags);
+	/* check if USB cable is disconnected or not */
+	if (port->last_event ==  U_BAM_DISCONNECT_E) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		pr_debug("%s:%d: cable is disconnected.\n",
+						 __func__, __LINE__);
+		goto ep_unconfig;
+	}
+
+	spin_unlock_irqrestore(&port->port_lock, flags);
 	gqti_ctrl_update_ipa_pipes(port->port_usb, port->port_num,
 					d->ipa_params.ipa_prod_ep_idx ,
 					d->ipa_params.ipa_cons_ep_idx);
