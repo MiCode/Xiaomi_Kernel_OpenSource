@@ -193,7 +193,7 @@
 
 				qcom,pm-cluster-level@1{ /* D2D */
 					reg = <1>;
-					label = "perf-l2-ret";
+					label = "perf-l2-dynret";
 					qcom,psci-mode = <2>;
 					qcom,latency-us = <60>;
 					qcom,ss-power = <700>;
@@ -204,7 +204,7 @@
 
 				qcom,pm-cluster-level@2{ /* D2E */
 					reg = <2>;
-					label = "perf-l2-memret";
+					label = "perf-l2-ret";
 					qcom,psci-mode = <3>;
 					qcom,latency-us = <100>;
 					qcom,ss-power = <640>;
