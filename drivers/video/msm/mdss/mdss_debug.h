@@ -122,6 +122,7 @@ struct range_dump_node {
 	u32 *reg_dump; /* address for the mem dump */
 	char range_name[40]; /* name of this range */
 	struct dump_offset offset; /* range to dump */
+	uint32_t xin_id; /* client xin id */
 };
 
 #define DEFINE_MDSS_DEBUGFS_SEQ_FOPS(__prefix)				\
@@ -143,7 +144,7 @@ int mdss_debug_register_base(const char *name, void __iomem *base,
 	size_t max_offset, struct mdss_debug_base **dbg_blk);
 void mdss_debug_register_dump_range(struct platform_device *pdev,
 	struct mdss_debug_base *blk_base, const char *ranges_prop,
-	const char *name_prop);
+	const char *name_prop, const char *xin_prop);
 int panel_debug_register_base(const char *name, void __iomem *base,
 				    size_t max_offset);
 int mdss_misr_set(struct mdss_data_type *mdata,
@@ -162,8 +163,13 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id,
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
 void mdss_xlog(const char *name, int line, int flag, ...);
 void mdss_xlog_tout_handler_default(bool queue, const char *name, ...);
+u32 get_dump_range(struct dump_offset *range_node, size_t max_offset);
+void mdss_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
+	int len, u32 **dump_mem, bool from_isr);
+void mdss_mdp_debug_mid(u32 mid);
 #else
 struct mdss_debug_base;
+struct dump_offset;
 
 static inline int mdss_debugfs_init(struct mdss_data_type *mdata) { return 0; }
 static inline int mdss_debugfs_remove(struct mdss_data_type *mdata)
@@ -174,7 +180,7 @@ static inline int mdss_debug_register_base(const char *name, void __iomem *base,
 	size_t max_offset, struct mdss_debug_base **dbg_blk) { return 0; }
 static inline void mdss_debug_register_dump_range(struct platform_device *pdev,
 	struct mdss_debug_base *blk_base, const char *ranges_prop,
-	const char *name_prop) { }
+	const char *name_prop, const char *xin_prop) { }
 static inline int panel_debug_register_base(const char *name,
 					void __iomem *base,
 					size_t max_offset)
@@ -203,6 +209,11 @@ static inline void mdss_xlog(const char *name, int line, int flag, ...) { }
 static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
 static inline void mdss_xlog_tout_handler_default(bool queue,
 	const char *name, ...) { }
+u32 get_dump_range(struct dump_offset *range_node, size_t max_offset)
+	{ return 0; }
+void mdss_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
+	int len, u32 **dump_mem, bool from_isr) { }
+void mdss_mdp_debug_mid(u32 mid) { }
 #endif
 
 int mdss_dump_misr_data(char **buf, u32 size);

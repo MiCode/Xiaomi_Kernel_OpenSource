@@ -678,7 +678,15 @@ static int slim0_rx_bit_format_put(struct snd_kcontrol *kcontrol,
 static int msm_vi_feed_tx_ch_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	ucontrol->value.integer.value[0] = (msm_vi_feed_tx_ch/2 - 1);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+
+	if (!strcmp(dev_name(codec->dev), "tasha_codec"))
+		ucontrol->value.integer.value[0] =
+					(msm_vi_feed_tx_ch - 1);
+	else
+		ucontrol->value.integer.value[0] =
+					(msm_vi_feed_tx_ch/2 - 1);
+
 	pr_debug("%s: msm_vi_feed_tx_ch = %ld\n", __func__,
 				ucontrol->value.integer.value[0]);
 	return 0;
@@ -687,8 +695,15 @@ static int msm_vi_feed_tx_ch_get(struct snd_kcontrol *kcontrol,
 static int msm_vi_feed_tx_ch_put(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
-	msm_vi_feed_tx_ch =
-		roundup_pow_of_two(ucontrol->value.integer.value[0] + 2);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+
+	if (!strcmp(dev_name(codec->dev), "tasha_codec"))
+		msm_vi_feed_tx_ch =
+			ucontrol->value.integer.value[0] + 1;
+	else
+		msm_vi_feed_tx_ch =
+			roundup_pow_of_two(
+				ucontrol->value.integer.value[0] + 2);
 
 	pr_debug("%s: msm_vi_feed_tx_ch = %d\n", __func__, msm_vi_feed_tx_ch);
 	return 1;
@@ -869,6 +884,24 @@ static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_proxy_rx_ch_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_proxy_rx_ch = %d\n", __func__,
+						msm_proxy_rx_ch);
+	ucontrol->value.integer.value[0] = msm_proxy_rx_ch - 1;
+	return 0;
+}
+
+static int msm_proxy_rx_ch_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	msm_proxy_rx_ch = ucontrol->value.integer.value[0] + 1;
+	pr_debug("%s: msm_proxy_rx_ch = %d\n", __func__,
+						msm_proxy_rx_ch);
+	return 1;
+}
+
 static const char *const spk_function[] = {"Off", "On"};
 static const char *const slim0_rx_ch_text[] = {"One", "Two"};
 static const char *const slim0_tx_ch_text[] = {"One", "Two", "Three", "Four",
@@ -882,6 +915,8 @@ static const char *const slim5_rx_ch_text[] = {"One", "Two"};
 static char const *slim5_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 	"KHZ_192", "KHZ_44P1"};
 static char const *slim5_rx_bit_format_text[] = {"S16_LE", "S24_LE"};
+static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
+	"Five", "Six", "Seven", "Eight"};
 
 static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
@@ -893,6 +928,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, slim5_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(2, slim5_rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(2, slim5_rx_ch_text),
+	SOC_ENUM_SINGLE_EXT(8, proxy_rx_ch_text),
 };
 
 static const char *const btsco_rate_text[] = {"BTSCO_RATE_8KHZ",
@@ -930,6 +966,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim0_tx_bit_format_get, slim0_tx_bit_format_put),
 	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
 		     msm_btsco_rate_get, msm_btsco_rate_put),
+	SOC_ENUM_EXT("PROXY_RX Channels", msm_snd_enum[9],
+			msm_proxy_rx_ch_get, msm_proxy_rx_ch_put),
 };
 
 int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
@@ -1235,16 +1273,11 @@ int msm_slim_4_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
 	pr_debug("%s: codec name: %s", __func__, codec_dai->name);
-	if (!strcmp(dev_name(codec_dai->dev), "tomtom_codec")) {
-		rate->min = rate->max = SAMPLING_RATE_48KHZ;
-		channels->min = channels->max = msm_vi_feed_tx_ch;
-		pr_debug("%s: tomtom vi sample rate = %d\n",
-				__func__, rate->min);
-	} else if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 			SNDRV_PCM_FORMAT_S32_LE);
 		rate->min = rate->max = SAMPLING_RATE_8KHZ;
-		channels->min = channels->max = msm_vi_feed_tx_ch/2;
+		channels->min = channels->max = msm_vi_feed_tx_ch;
 		pr_debug("%s: tasha vi sample rate = %d\n",
 				__func__, rate->min);
 	} else {

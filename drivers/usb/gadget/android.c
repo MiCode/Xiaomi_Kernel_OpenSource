@@ -697,18 +697,17 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 	struct android_dev *dev = ffs_function.android_dev;
 	struct functionfs_config *config = ffs_function.config;
 
-	if (dev)
-		mutex_lock(&dev->mutex);
+	if (!dev)
+		return -ENODEV;
 
+	mutex_lock(&dev->mutex);
 	config->data = ffs;
 	config->opened = true;
 
 	if (config->enabled && dev)
 		android_enable(dev);
 
-	if (dev)
-		mutex_unlock(&dev->mutex);
-
+	mutex_unlock(&dev->mutex);
 	return 0;
 }
 
@@ -3514,7 +3513,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		if (err < 0) {
 			pr_err("%s: android_enable failed\n", __func__);
 			dev->connected = 0;
-			dev->enabled = false;
+			dev->enabled = true;
 			mutex_unlock(&dev->mutex);
 			return size;
 		}

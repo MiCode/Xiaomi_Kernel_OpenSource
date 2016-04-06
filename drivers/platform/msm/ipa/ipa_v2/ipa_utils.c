@@ -662,11 +662,14 @@ int ipa2_resume_resource(enum ipa_rm_resource_name resource)
 		IPADBG("%d will be resumed on connect.\n", client);
 		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
 		    ipa_should_pipe_be_suspended(client)) {
-			if (ipa_ctx->ep[ipa_ep_idx].valid) {
+			spin_lock(&ipa_ctx->disconnect_lock);
+			if (ipa_ctx->ep[ipa_ep_idx].valid &&
+			!ipa_ctx->ep[ipa_ep_idx].disconnect_in_progress) {
 				memset(&suspend, 0, sizeof(suspend));
 				suspend.ipa_ep_suspend = false;
 				ipa2_cfg_ep_ctrl(ipa_ep_idx, &suspend);
 			}
+			spin_unlock(&ipa_ctx->disconnect_lock);
 		}
 	}
 

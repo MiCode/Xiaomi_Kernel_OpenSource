@@ -157,6 +157,8 @@ get_pipe_type_from_num(enum mdss_mdp_sspp_index pnum)
 		break;
 	case MDSS_MDP_SSPP_DMA0:
 	case MDSS_MDP_SSPP_DMA1:
+	case MDSS_MDP_SSPP_DMA2:
+	case MDSS_MDP_SSPP_DMA3:
 		ptype = MDSS_MDP_PIPE_TYPE_DMA;
 		break;
 	case MDSS_MDP_SSPP_CURSOR0:
@@ -1297,6 +1299,20 @@ static inline bool mdss_mdp_is_lineptr_supported(struct mdss_mdp_ctl *ctl)
 			&& (pinfo->te.tear_check_en)) ? true : false);
 }
 
+static inline bool mdss_mdp_is_map_needed(struct mdss_data_type *mdata,
+						struct mdss_mdp_img_data *data)
+{
+	u32 is_secure_ui = data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION;
+
+     /*
+      * For ULT Targets we need SMMU Map, to issue map call for secure Display.
+      */
+	if (is_secure_ui && !mdss_has_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP))
+		return false;
+
+	return true;
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
@@ -1523,8 +1539,8 @@ void mdss_mdp_smp_unreserve(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_smp_release(struct mdss_mdp_pipe *pipe);
 
 int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
-	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_y_id, u32 *xin_id,
-	u32 type, u32 num_base, u32 len, u8 priority_base);
+	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_id, u32 *xin_id,
+	u32 type, const int *pnums, u32 len, u8 priority_base);
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata, u32 *mixer_offsets,
 		u32 *dspp_offsets, u32 *pingpong_offsets, u32 type, u32 len);
 int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
@@ -1583,9 +1599,8 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd,
 int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 
 int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id);
-u32 mdss_mdp_get_mixer_mask(u32 pipe_num, u32 stage);
-u32 mdss_mdp_get_mixer_extn_mask(u32 pipe_num, u32 stage);
-u32 mdss_mdp_get_mixercfg(struct mdss_mdp_mixer *mixer, bool extn);
+bool mdss_mdp_mixer_reg_has_pipe(struct mdss_mdp_mixer *mixer,
+		struct mdss_mdp_pipe *pipe);
 u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp);
 void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval);
 

@@ -119,8 +119,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 	bool prefetch = buffer->flags & ION_FLAG_POOL_PREFETCH;
 	int vmid = get_secure_vmid(buffer->flags);
 
-	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) &&
-	    !(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)) {
+	if (!(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC)) {
 		struct ion_page_pool *pool;
 		if (vmid > 0)
 			pool = heap->secure_pools[vmid][order_to_index(order)];
@@ -128,7 +127,11 @@ static void free_buffer_page(struct ion_system_heap *heap,
 			pool = heap->cached_pools[order_to_index(order)];
 		else
 			pool = heap->uncached_pools[order_to_index(order)];
-		ion_page_pool_free(pool, page, prefetch);
+
+		if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE)
+			ion_page_pool_free_immediate(pool, page);
+		else
+			ion_page_pool_free(pool, page, prefetch);
 	} else {
 		__free_pages(page, order);
 	}
@@ -692,12 +695,11 @@ err_create_cached_pools:
 err_create_uncached_pools:
 	kfree(heap->cached_pools);
 err_create_secure_pools:
-	 while (i >= 0) {
+	for (i = 0; i < VMID_LAST; i++) {
 		if (heap->secure_pools[i]) {
 			ion_system_heap_destroy_pools(heap->secure_pools[i]);
 			kfree(heap->secure_pools[i]);
 		}
-		i--;
 	}
 err_alloc_cached_pools:
 	kfree(heap->uncached_pools);

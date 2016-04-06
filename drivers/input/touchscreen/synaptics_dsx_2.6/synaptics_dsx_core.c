@@ -610,23 +610,23 @@ static struct synaptics_rmi4_exp_fn_data exp_data;
 static struct synaptics_dsx_button_map *vir_button_map;
 
 static struct device_attribute attrs[] = {
-	__ATTR(reset, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(reset, S_IWUSR | S_IWGRP,
+			NULL,
 			synaptics_rmi4_f01_reset_store),
 	__ATTR(productinfo, S_IRUGO,
 			synaptics_rmi4_f01_productinfo_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(buildid, S_IRUGO,
 			synaptics_rmi4_f01_buildid_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(flashprog, S_IRUGO,
 			synaptics_rmi4_f01_flashprog_show,
-			synaptics_rmi4_store_error),
+			NULL),
 	__ATTR(0dbutton, (S_IRUGO | S_IWUSR | S_IWGRP),
 			synaptics_rmi4_0dbutton_show,
 			synaptics_rmi4_0dbutton_store),
-	__ATTR(suspend, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(suspend, S_IWUSR | S_IWGRP,
+			NULL,
 			synaptics_rmi4_suspend_store),
 	__ATTR(wake_gesture, (S_IRUGO | S_IWUSR | S_IWGRP),
 			synaptics_rmi4_wake_gesture_show,
@@ -652,8 +652,6 @@ static struct kobj_attribute virtual_key_map_attr = {
 #if defined(CONFIG_SECURE_TOUCH_SYNAPTICS_DSX_V26)
 static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
 {
-	int ret = 0;
-
 	data->st_initialized = 0;
 	init_completion(&data->st_powerdown);
 	init_completion(&data->st_irq_processed);
@@ -661,24 +659,21 @@ static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
 	/* Get clocks */
 	data->core_clk = devm_clk_get(data->pdev->dev.parent, "core_clk");
 	if (IS_ERR(data->core_clk)) {
-		ret = PTR_ERR(data->core_clk);
-		data->core_clk = NULL;
 		dev_warn(data->pdev->dev.parent,
-			"%s: error on clk_get(core_clk): %d\n", __func__, ret);
-		return;
+			"%s: error on clk_get(core_clk): %ld\n", __func__,
+			PTR_ERR(data->core_clk));
+		data->core_clk = NULL;
 	}
 
 	data->iface_clk = devm_clk_get(data->pdev->dev.parent, "iface_clk");
 	if (IS_ERR(data->iface_clk)) {
-		ret = PTR_ERR(data->iface_clk);
-		data->iface_clk = NULL;
 		dev_warn(data->pdev->dev.parent,
-			"%s: error on clk_get(iface_clk): %d\n", __func__, ret);
-		return;
+			"%s: error on clk_get(iface_clk): %ld\n", __func__,
+			PTR_ERR(data->iface_clk));
+		data->iface_clk = NULL;
 	}
 
 	data->st_initialized = 1;
-	return;
 }
 
 static void synaptics_secure_touch_notify(struct synaptics_rmi4_data *rmi4_data)

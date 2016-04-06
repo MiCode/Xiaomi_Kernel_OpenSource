@@ -224,7 +224,7 @@ struct msm_fd_device {
 	int irq_num;
 	void __iomem *iomem_base[MSM_FD_IOMEM_LAST];
 	struct msm_cam_clk_info *clk_info;
-	struct regulator **vdd;
+	struct msm_cam_regulator *vdd_info;
 	int num_reg;
 	struct resource *irq;
 

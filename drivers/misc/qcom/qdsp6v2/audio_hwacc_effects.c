@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,7 +20,6 @@
 #include <sound/msm-dts-eagle.h>
 
 #define MAX_CHANNELS_SUPPORTED		8
-#define MAX_PP_PARAMS_SZ		128
 #define WAIT_TIMEDOUT_DURATION_SECS	1
 
 struct q6audio_effects {

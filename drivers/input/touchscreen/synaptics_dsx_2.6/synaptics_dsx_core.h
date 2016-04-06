@@ -464,22 +464,6 @@ static inline void synaptics_rmi4_bus_put(struct synaptics_rmi4_data *rmi4_data)
 }
 #endif
 
-static inline ssize_t synaptics_rmi4_show_error(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	dev_warn(dev, "%s Attempted to read from write-only attribute %s\n",
-			__func__, attr->attr.name);
-	return -EPERM;
-}
-
-static inline ssize_t synaptics_rmi4_store_error(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	dev_warn(dev, "%s Attempted to write to read-only attribute %s\n",
-			__func__, attr->attr.name);
-	return -EPERM;
-}
-
 static inline int secure_memcpy(unsigned char *dest, unsigned int dest_size,
 		const unsigned char *src, unsigned int src_size,
 		unsigned int count)
