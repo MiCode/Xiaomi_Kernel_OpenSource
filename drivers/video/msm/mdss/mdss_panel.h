@@ -439,6 +439,9 @@ enum {
 };
 
 struct dsc_desc {
+	u8 version; /* top 4 bits major and lower 4 bits minor version */
+	u8 scr_rev; /* 8 bit value for dsc scr revision */
+
 	/*
 	 * Following parameters can change per frame if partial update is on
 	 */
@@ -1012,13 +1015,11 @@ void mdss_panel_dsc_pclk_param_calc(struct dsc_desc *dsc, int intf_width);
  * @dsc: pointer to DSC structure associated with panel_info
  * @buf: buffer that holds PPS
  * @pps_id: pps_identifier
- * @major: major version of the DSC encoder
- * @minot: minor version of the DSC encoder
  *
  * returns length of the PPS buffer.
  */
 int mdss_panel_dsc_prepare_pps_buf(struct dsc_desc *dsc, char *buf,
-	int pps_id, int major, int minor);
+	int pps_id);
 #ifdef CONFIG_FB_MSM_MDSS
 int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info,
 		char const *panel_name);
