@@ -84,6 +84,8 @@
 
 #define XIN_HALT_TIMEOUT_US	0x4000
 
+#define MAX_LAYER_COUNT		0xC
+
 /* hw cursor can only be setup in highest mixer stage */
 #define HW_CURSOR_STAGE(mdata) \
 	(((mdata)->max_target_zorder + MDSS_MDP_STAGE_0) - 1)
@@ -113,12 +115,72 @@ enum mdss_mdp_mixer_mux {
 };
 
 enum mdss_mdp_pipe_type {
-	MDSS_MDP_PIPE_TYPE_UNUSED,
+	MDSS_MDP_PIPE_TYPE_INVALID,
 	MDSS_MDP_PIPE_TYPE_VIG,
 	MDSS_MDP_PIPE_TYPE_RGB,
 	MDSS_MDP_PIPE_TYPE_DMA,
 	MDSS_MDP_PIPE_TYPE_CURSOR,
 };
+
+static inline enum mdss_mdp_sspp_index get_pipe_num_from_ndx(u32 ndx)
+{
+	u32 id;
+
+	if (unlikely(!ndx))
+		return MDSS_MDP_MAX_SSPP;
+
+	id = fls(ndx) - 1;
+
+	if (unlikely(ndx ^ BIT(id)))
+		return MDSS_MDP_MAX_SSPP;
+
+	return id;
+}
+
+static inline enum mdss_mdp_pipe_type
+get_pipe_type_from_num(enum mdss_mdp_sspp_index pnum)
+{
+	enum mdss_mdp_pipe_type ptype;
+
+	switch (pnum) {
+	case MDSS_MDP_SSPP_VIG0:
+	case MDSS_MDP_SSPP_VIG1:
+	case MDSS_MDP_SSPP_VIG2:
+	case MDSS_MDP_SSPP_VIG3:
+		ptype = MDSS_MDP_PIPE_TYPE_VIG;
+		break;
+	case MDSS_MDP_SSPP_RGB0:
+	case MDSS_MDP_SSPP_RGB1:
+	case MDSS_MDP_SSPP_RGB2:
+	case MDSS_MDP_SSPP_RGB3:
+		ptype = MDSS_MDP_PIPE_TYPE_RGB;
+		break;
+	case MDSS_MDP_SSPP_DMA0:
+	case MDSS_MDP_SSPP_DMA1:
+	case MDSS_MDP_SSPP_DMA2:
+	case MDSS_MDP_SSPP_DMA3:
+		ptype = MDSS_MDP_PIPE_TYPE_DMA;
+		break;
+	case MDSS_MDP_SSPP_CURSOR0:
+	case MDSS_MDP_SSPP_CURSOR1:
+		ptype = MDSS_MDP_PIPE_TYPE_CURSOR;
+		break;
+	default:
+		ptype = MDSS_MDP_PIPE_TYPE_INVALID;
+		break;
+	}
+
+	return ptype;
+}
+
+static inline enum mdss_mdp_pipe_type get_pipe_type_from_ndx(u32 ndx)
+{
+	enum mdss_mdp_sspp_index pnum;
+
+	pnum = get_pipe_num_from_ndx(ndx);
+
+	return get_pipe_type_from_num(pnum);
+}
 
 enum mdss_mdp_block_type {
 	MDSS_MDP_BLOCK_UNUSED,
@@ -187,6 +249,12 @@ struct mdss_mdp_vsync_handler {
 	bool enabled;
 	bool cmd_post_flush;
 	mdp_vsync_handler_t vsync_handler;
+	struct list_head list;
+};
+
+struct mdss_mdp_lineptr_handler {
+	bool enabled;
+	mdp_vsync_handler_t lineptr_handler;
 	struct list_head list;
 };
 
@@ -341,6 +409,8 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_vsync_handler recover_underrun_handler;
 	struct work_struct recover_work;
 	struct work_struct remove_underrun_handler;
+
+	struct mdss_mdp_lineptr_handler lineptr_handler;
 
 	/*
 	 * This ROI is aligned to as per following guidelines and
@@ -550,6 +620,7 @@ struct pp_sts_type {
 	u32 gamut_sts;
 	u32 pgc_sts;
 	u32 sharp_sts;
+	u32 hist_sts;
 	u32 side_sts;
 };
 
@@ -659,7 +730,9 @@ struct mdss_mdp_wfd;
 
 struct mdss_overlay_private {
 	ktime_t vsync_time;
+	ktime_t lineptr_time;
 	struct kernfs_node *vsync_event_sd;
+	struct kernfs_node *lineptr_event_sd;
 	struct kernfs_node *hist_event_sd;
 	struct kernfs_node *bl_event_sd;
 	struct kernfs_node *ad_event_sd;
@@ -1186,6 +1259,60 @@ static inline int mdss_mdp_get_display_id(struct mdss_mdp_pipe *pipe)
 	return (pipe && pipe->mfd) ? pipe->mfd->index : -1;
 }
 
+static inline bool mdss_mdp_is_full_frame_update(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_mixer *mixer;
+	struct mdss_rect *roi;
+
+	if (mdss_mdp_get_pu_type(ctl) != MDSS_MDP_DEFAULT_UPDATE)
+		return false;
+
+	if (ctl->mixer_left->valid_roi) {
+		mixer = ctl->mixer_left;
+		roi = &mixer->roi;
+		if ((roi->x != 0) || (roi->y != 0) || (roi->w != mixer->width)
+			|| (roi->h != mixer->height))
+			return false;
+	}
+
+	if (ctl->mixer_right && ctl->mixer_right->valid_roi) {
+		mixer = ctl->mixer_right;
+		roi = &mixer->roi;
+		if ((roi->x != 0) || (roi->y != 0) || (roi->w != mixer->width)
+			|| (roi->h != mixer->height))
+			return false;
+	}
+
+	return true;
+}
+
+static inline bool mdss_mdp_is_lineptr_supported(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_panel_info *pinfo;
+
+	if (!ctl || !ctl->mixer_left || !ctl->is_master)
+		return false;
+
+	pinfo = &ctl->panel_data->panel_info;
+
+	return (((pinfo->type == MIPI_CMD_PANEL)
+			&& (pinfo->te.tear_check_en)) ? true : false);
+}
+
+static inline bool mdss_mdp_is_map_needed(struct mdss_data_type *mdata,
+						struct mdss_mdp_img_data *data)
+{
+	u32 is_secure_ui = data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION;
+
+     /*
+      * For ULT Targets we need SMMU Map, to issue map call for secure Display.
+      */
+	if (is_secure_ui && !mdss_has_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP))
+		return false;
+
+	return true;
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
@@ -1412,8 +1539,8 @@ void mdss_mdp_smp_unreserve(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_smp_release(struct mdss_mdp_pipe *pipe);
 
 int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
-	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_y_id, u32 *xin_id,
-	u32 type, u32 num_base, u32 len, u8 priority_base);
+	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_id, u32 *xin_id,
+	u32 type, const int *pnums, u32 len, u8 priority_base);
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata, u32 *mixer_offsets,
 		u32 *dspp_offsets, u32 *pingpong_offsets, u32 type, u32 len);
 int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
@@ -1472,9 +1599,8 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd,
 int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 
 int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id);
-u32 mdss_mdp_get_mixer_mask(u32 pipe_num, u32 stage);
-u32 mdss_mdp_get_mixer_extn_mask(u32 pipe_num, u32 stage);
-u32 mdss_mdp_get_mixercfg(struct mdss_mdp_mixer *mixer, bool extn);
+bool mdss_mdp_mixer_reg_has_pipe(struct mdss_mdp_mixer *mixer,
+		struct mdss_mdp_pipe *pipe);
 u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp);
 void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval);
 

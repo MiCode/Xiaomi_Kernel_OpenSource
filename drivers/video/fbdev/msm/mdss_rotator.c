@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -375,7 +375,7 @@ static bool mdss_rotator_is_work_pending(struct mdss_rot_mgr *mgr,
 
 static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 {
-	int ret, fd;
+	int ret = 0, fd;
 	u32 val;
 	struct sync_pt *sync_pt;
 	struct sync_fence *fence;
@@ -1123,6 +1123,7 @@ static void mdss_rotator_release_from_work_distribution(
 				entry->perf->work_distribution);
 			devm_kfree(&mgr->pdev->dev, entry->perf);
 			mdss_rotator_update_perf(mgr);
+			mdss_rotator_clk_ctrl(mgr, false);
 			entry->perf = NULL;
 		}
 	}
@@ -1700,11 +1701,13 @@ static int mdss_rotator_config_hw(struct mdss_rot_hw_resource *hw,
 {
 	struct mdss_mdp_pipe *pipe;
 	struct mdp_rotation_item *item;
+	struct mdss_rot_perf *perf;
 	int ret;
 
 	ATRACE_BEGIN(__func__);
 	pipe = hw->pipe;
 	item = &entry->item;
+	perf = entry->perf;
 
 	pipe->flags = mdss_rotator_translate_flags(item->flags);
 	pipe->src_fmt = mdss_mdp_get_format_params(item->input.format);
@@ -1713,6 +1716,7 @@ static int mdss_rotator_config_hw(struct mdss_rot_hw_resource *hw,
 	mdss_rotator_translate_rect(&pipe->src, &item->src_rect);
 	mdss_rotator_translate_rect(&pipe->dst, &item->src_rect);
 	pipe->scaler.enable = 0;
+	pipe->frame_rate = perf->config.frame_rate;
 
 	pipe->params_changed++;
 
@@ -2142,6 +2146,7 @@ static int mdss_rotator_handle_request(struct mdss_rot_mgr *mgr,
 	struct mdp_rotation_item *items = NULL;
 	struct mdss_rot_entry_container *req = NULL;
 	int size, ret;
+	uint32_t req_count;
 
 	if (mdss_get_sd_client_cnt()) {
 		pr_err("rot request not permitted during secure display session\n");
@@ -2155,12 +2160,18 @@ static int mdss_rotator_handle_request(struct mdss_rot_mgr *mgr,
 		return ret;
 	}
 
+	req_count = user_req.count;
+	if ((!req_count) || (req_count > MAX_LAYER_COUNT)) {
+		pr_err("invalid rotator req count :%d\n", req_count);
+		return -EINVAL;
+	}
+
 	/*
 	 * here, we make a copy of the items so that we can copy
 	 * all the output fences to the client in one call.   Otherwise,
 	 * we will have to call multiple copy_to_user
 	 */
-	size = sizeof(struct mdp_rotation_item) * user_req.count;
+	size = sizeof(struct mdp_rotation_item) * req_count;
 	items = devm_kzalloc(&mgr->pdev->dev, size, GFP_KERNEL);
 	if (!items) {
 		pr_err("fail to allocate rotation items\n");
@@ -2299,6 +2310,7 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 	struct mdp_rotation_item *items = NULL;
 	struct mdss_rot_entry_container *req = NULL;
 	int size, ret;
+	uint32_t req_count;
 
 	if (mdss_get_sd_client_cnt()) {
 		pr_err("rot request not permitted during secure display session\n");
@@ -2312,13 +2324,19 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 		return ret;
 	}
 
-	size = sizeof(struct mdp_rotation_item) * user_req32.count;
+	req_count = user_req32.count;
+	if ((!req_count) || (req_count > MAX_LAYER_COUNT)) {
+		pr_err("invalid rotator req count :%d\n", req_count);
+		return -EINVAL;
+	}
+
+	size = sizeof(struct mdp_rotation_item) * req_count;
 	items = devm_kzalloc(&mgr->pdev->dev, size, GFP_KERNEL);
 	if (!items) {
 		pr_err("fail to allocate rotation items\n");
 		return -ENOMEM;
 	}
-	ret = copy_from_user(items, user_req32.list, size);
+	ret = copy_from_user(items, compat_ptr(user_req32.list), size);
 	if (ret) {
 		pr_err("fail to copy rotation items\n");
 		goto handle_request32_err;
@@ -2345,7 +2363,7 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 		goto handle_request32_err1;
 	}
 
-	ret = copy_to_user(user_req32.list, items, size);
+	ret = copy_to_user(compat_ptr(user_req32.list), items, size);
 	if (ret) {
 		pr_err("fail to copy output fence to user\n");
 		mdss_rotator_remove_request(mgr, private, req);
@@ -2503,6 +2521,7 @@ static const struct file_operations mdss_rotator_fops = {
 static int mdss_rotator_parse_dt_bus(struct mdss_rot_mgr *mgr,
 	struct platform_device *dev)
 {
+	struct device_node *node;
 	int ret = 0, i;
 	bool register_bus_needed;
 	int usecases;
@@ -2520,12 +2539,26 @@ static int mdss_rotator_parse_dt_bus(struct mdss_rot_mgr *mgr,
 	register_bus_needed = of_property_read_bool(dev->dev.of_node,
 		"qcom,mdss-has-reg-bus");
 	if (register_bus_needed) {
-		mgr->reg_bus.bus_scale_pdata = &rot_reg_bus_scale_table;
-		usecases = mgr->reg_bus.bus_scale_pdata->num_usecases;
-		for (i = 0; i < usecases; i++) {
-			rot_reg_bus_usecases[i].num_paths = 1;
-			rot_reg_bus_usecases[i].vectors =
-				&rot_reg_bus_vectors[i];
+		node = of_get_child_by_name(
+			    dev->dev.of_node, "qcom,mdss-rot-reg-bus");
+		if (!node) {
+			mgr->reg_bus.bus_scale_pdata = &rot_reg_bus_scale_table;
+			usecases = mgr->reg_bus.bus_scale_pdata->num_usecases;
+			for (i = 0; i < usecases; i++) {
+				rot_reg_bus_usecases[i].num_paths = 1;
+				rot_reg_bus_usecases[i].vectors =
+					&rot_reg_bus_vectors[i];
+			}
+		} else {
+			mgr->reg_bus.bus_scale_pdata =
+				msm_bus_pdata_from_node(dev, node);
+			if (IS_ERR_OR_NULL(mgr->reg_bus.bus_scale_pdata)) {
+				ret = PTR_ERR(mgr->reg_bus.bus_scale_pdata);
+				if (!ret)
+					ret = -EINVAL;
+				pr_err("reg_rot_bus failed rc=%d\n", ret);
+				mgr->reg_bus.bus_scale_pdata = NULL;
+			}
 		}
 	}
 	return ret;

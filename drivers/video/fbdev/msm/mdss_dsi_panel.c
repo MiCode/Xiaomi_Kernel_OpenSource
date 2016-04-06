@@ -731,10 +731,9 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if (pinfo->compression_mode == COMPRESSION_DSC)
 		mdss_dsi_panel_dsc_pps_send(ctrl, pinfo);
 
-	if (ctrl->ds_registered && pinfo->is_pluggable)
+	if (ctrl->ds_registered)
 		mdss_dba_utils_video_on(pinfo->dba_data, pinfo);
 end:
-	pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
 	pr_debug("%s:-\n", __func__);
 	return ret;
 }
@@ -808,7 +807,6 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	}
 
 end:
-	pinfo->blank_state = MDSS_PANEL_BLANK_BLANK;
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
@@ -832,10 +830,6 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 		enable);
 
 	/* Any panel specific low power commands/config */
-	if (enable)
-		pinfo->blank_state = MDSS_PANEL_BLANK_LOW_POWER;
-	else
-		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
 
 	pr_debug("%s:-\n", __func__);
 	return 0;
@@ -1331,6 +1325,7 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
 	te->rd_ptr_irq = (!rc ? tmp : timing->yres + 1);
+	te->wr_ptr_irq = 0;
 }
 
 
@@ -1789,6 +1784,13 @@ static void mdss_dsi_parse_panel_horizintal_line_idle(struct device_node *np,
 		ctrl->horizontal_idle_cnt++;
 	}
 
+	/*
+	 * idle is enabled for this controller, this will be used to
+	 * enable/disable burst mode since both features are mutually
+	 * exclusive.
+	 */
+	ctrl->idle_enabled = true;
+
 	pr_debug("%s: horizontal_idle_cnt=%d\n", __func__,
 				ctrl->horizontal_idle_cnt);
 }
@@ -1997,7 +1999,7 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 	const char *data;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
 	struct mdss_panel_info *pinfo;
-	bool phy_timings_present;
+	bool phy_timings_present = false;
 
 	pinfo = &panel_data->panel_info;
 
@@ -2211,9 +2213,10 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	u32 tmp;
-	int rc;
+	int rc, len = 0;
 	const char *data;
 	static const char *pdest;
+	const char *bridge_chip_name;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data))
@@ -2419,6 +2422,19 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	pinfo->is_dba_panel = of_property_read_bool(np,
 			"qcom,dba-panel");
+
+	if (pinfo->is_dba_panel) {
+		bridge_chip_name = of_get_property(np,
+			"qcom,bridge-name", &len);
+		if (!bridge_chip_name || len <= 0) {
+			pr_err("%s:%d Unable to read qcom,bridge_name, data=%p,len=%d\n",
+				__func__, __LINE__, bridge_chip_name, len);
+			rc = -EINVAL;
+			goto error;
+		}
+		strlcpy(ctrl_pdata->bridge_name, bridge_chip_name,
+			MSM_DBA_CHIP_NAME_MAX_LEN);
+	}
 
 	return 0;
 

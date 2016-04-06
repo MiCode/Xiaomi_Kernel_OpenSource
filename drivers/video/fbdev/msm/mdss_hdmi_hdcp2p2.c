@@ -47,6 +47,11 @@ enum hdmi_hdcp2p2_sink_status {
 	SINK_CONNECTED
 };
 
+enum hdmi_auth_status {
+	HDMI_HDCP_AUTH_STATUS_FAILURE,
+	HDMI_HDCP_AUTH_STATUS_SUCCESS
+};
+
 struct hdmi_hdcp2p2_ctrl {
 	atomic_t auth_state;
 	bool tethered;
@@ -60,6 +65,7 @@ struct hdmi_hdcp2p2_ctrl {
 	struct hdcp_txmtr_ops *lib; /* Ops for driver to call into TZ */
 
 	enum hdmi_hdcp_wakeup_cmd wakeup_cmd;
+	enum hdmi_auth_status auth_status;
 	char *send_msg_buf;
 	uint32_t send_msg_len;
 	uint32_t timeout;
@@ -155,6 +161,11 @@ static int hdmi_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 
 	if (hdmi_hdcp2p2_copy_buf(ctrl, data))
 		goto exit;
+
+	if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS)
+		ctrl->auth_status = HDMI_HDCP_AUTH_STATUS_SUCCESS;
+	else if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_STATUS_FAILED)
+		ctrl->auth_status = HDMI_HDCP_AUTH_STATUS_FAILURE;
 
 	if (ctrl->tethered)
 		goto exit;
@@ -820,9 +831,7 @@ static void hdmi_hdcp2p2_auth_status(struct hdmi_hdcp2p2_ctrl *ctrl)
 		return;
 	}
 
-	if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_STATUS_FAILED) {
-		hdmi_hdcp2p2_auth_failed(ctrl);
-	} else if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS) {
+	if (ctrl->auth_status == HDMI_HDCP_AUTH_STATUS_SUCCESS) {
 		ctrl->init_data.notify_status(ctrl->init_data.cb_data,
 			HDCP_STATE_AUTHENTICATED);
 
@@ -830,6 +839,8 @@ static void hdmi_hdcp2p2_auth_status(struct hdmi_hdcp2p2_ctrl *ctrl)
 
 		if (ctrl->tethered)
 			hdmi_hdcp2p2_link_check(ctrl);
+	} else {
+		hdmi_hdcp2p2_auth_failed(ctrl);
 	}
 }
 

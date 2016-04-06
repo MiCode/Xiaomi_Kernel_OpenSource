@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,7 +138,7 @@ static int mdss_smmu_enable_power(struct mdss_smmu_client *mdss_smmu,
 			goto end;
 		}
 		mdss_update_reg_bus_vote(mdss_smmu->reg_bus_clt,
-			VOTE_INDEX_19_MHZ);
+			VOTE_INDEX_LOW);
 		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, true);
 		if (rc) {
 			pr_err("clock enable failed - rc:%d\n", rc);
@@ -604,7 +604,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 
 	snprintf(name, MAX_CLIENT_NAME_LEN, "smmu:%u", smmu_domain.domain);
 	mdss_smmu->reg_bus_clt = mdss_reg_bus_vote_client_create(name);
-	if (IS_ERR_OR_NULL(mdss_smmu->reg_bus_clt)) {
+	if (IS_ERR(mdss_smmu->reg_bus_clt)) {
 		pr_err("mdss bus client register failed\n");
 		msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
 			false);
