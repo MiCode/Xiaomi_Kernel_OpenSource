@@ -595,6 +595,9 @@ config SERIAL_NUM
 	help
 	  Provide a interface for reading CPU serial number
 
+config STATE_NOTIFIER
+        bool "State Notifier"
+
 config SECBOOT_FUSE
 	bool "Enable Secure boot fuse Proc Interface"
 	help
