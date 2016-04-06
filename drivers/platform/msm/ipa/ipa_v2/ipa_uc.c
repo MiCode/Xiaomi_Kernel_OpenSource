@@ -17,7 +17,9 @@
 #define IPA_PKT_FLUSH_TO_US 100
 #define IPA_UC_POLL_SLEEP_USEC 100
 #define IPA_UC_POLL_MAX_RETRY 10000
+#define HOLB_WORKQUEUE_NAME "ipa_holb_wq"
 
+static struct workqueue_struct *ipa_holb_wq;
 static void ipa_start_monitor_holb(struct work_struct *work);
 static DECLARE_WORK(ipa_holb_work, ipa_start_monitor_holb);
 
@@ -470,7 +472,7 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 		 * pipe if valid.
 		 */
 		if (ipa_ctx->ipa_hw_type == IPA_HW_v2_6L)
-			queue_work(ipa_ctx->power_mgmt_wq, &ipa_holb_work);
+			queue_work(ipa_holb_wq, &ipa_holb_work);
 	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
 		   IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED) {
 		uc_rsp.raw32b = ipa_ctx->uc_ctx.uc_sram_mmio->responseParams;
@@ -506,6 +508,13 @@ int ipa_uc_interface_init(void)
 	if (ipa_ctx->uc_ctx.uc_inited) {
 		IPADBG("uC interface already initialized\n");
 		return 0;
+	}
+
+	ipa_holb_wq = create_singlethread_workqueue(
+			HOLB_WORKQUEUE_NAME);
+	if (!ipa_holb_wq) {
+		IPAERR("HOLB workqueue creation failed\n");
+		return -ENOMEM;
 	}
 
 	mutex_init(&ipa_ctx->uc_ctx.uc_lock);
