@@ -3509,7 +3509,8 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 					if (comp_info->stream_composite_mask &
 						(1 << wm))
 						msm_isp_cfg_wm_scratch(vfe_dev,
-							wm, pingpong_status);
+							wm, (pingpong_status >>
+								wm) & 0x1);
 				continue;
 			}
 			stream_idx = HANDLE_TO_IDX(comp_info->stream_handle);
@@ -3529,7 +3530,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				pr_err("%s: Invalid handle for wm irq\n",
 					__func__);
 				msm_isp_cfg_wm_scratch(vfe_dev, i,
-					pingpong_status);
+					(pingpong_status >> i) & 0x1);
 				continue;
 			}
 			stream_info = &axi_data->stream_info[stream_idx];
