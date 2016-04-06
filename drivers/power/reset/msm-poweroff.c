@@ -517,7 +517,7 @@ static int msm_restart_probe(struct platform_device *pdev)
 			pr_err("unable to map imem KASLR offset\n");
 	}
 
-	if (kaslr_imem_addr && scm_is_secure_device()) {
+	if (kaslr_imem_addr) {
 		__raw_writel(0xdead4ead, kaslr_imem_addr);
 		__raw_writel(KASLR_OFFSET_BIT_MASK &
 		(kimage_vaddr - KIMAGE_VADDR), kaslr_imem_addr + 4);
@@ -587,7 +587,6 @@ skip_sysfs_create:
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
 
-	download_mode = scm_is_secure_device();
 	set_dload_mode(download_mode);
 	if (!download_mode)
 		scm_disable_sdi();
