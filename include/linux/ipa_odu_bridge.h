@@ -13,6 +13,8 @@
 #ifndef _IPA_ODO_BRIDGE_H_
 #define _IPA_ODO_BRIDGE_H_
 
+#include <linux/ipa.h>
+
 /**
  * struct odu_bridge_params - parameters for odu bridge initialization API
  *
