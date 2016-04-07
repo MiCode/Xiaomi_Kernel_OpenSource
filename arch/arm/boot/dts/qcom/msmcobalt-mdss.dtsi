@@ -17,6 +17,8 @@
 		      <0x0c9b0000 0x1040>;
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 83 0>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
 
 		/* Bus Scale Settings */
@@ -221,4 +223,60 @@
 		qcom,mdss-fb-map = <&mdss_fb1>;
 	};
 
+	mdss_rotator: qcom,mdss_rotator {
+		compatible = "qcom,sde_rotator";
+		reg = <0x0c900000 0xab100>,
+		      <0x0c9b8000 0x1040>;
+		reg-names = "mdp_phys",
+			"rot_vbif_phys";
+
+		qcom,mdss-rot-mode = <1>;
+		qcom,mdss-highest-bank-bit = <0x2>;
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_rotator";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<25 512 0 0>,
+			<25 512 0 6400000>,
+			<25 512 0 6400000>;
+
+		rot-vdd-supply = <&gdsc_mdss>;
+		qcom,supply-names = "rot-vdd";
+
+		clocks = <&clock_mmss clk_mmss_mdss_ahb_clk>,
+			<&clock_mmss clk_rot_clk_src>,
+			<&clock_mmss clk_mmss_mdss_rot_clk>,
+			<&clock_mmss clk_mmss_mdss_axi_clk>;
+		clock-names = "iface_clk", "rot_core_clk",
+			"rot_clk", "axi_clk";
+
+		interrupt-parent = <&mdss_mdp>;
+		interrupts = <2 0>;
+
+		/* VBIF QoS remapper settings*/
+		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
+
+		qcom,mdss-default-ot-rd-limit = <32>;
+		qcom,mdss-default-ot-wr-limit = <32>;
+
+		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
+			compatible = "qcom,smmu_sde_rot_unsec";
+			iommus = <&mmss_smmu 0xe00>;
+			gdsc-mdss-supply = <&gdsc_bimc_smmu>;
+			clocks = <&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+				<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
+			clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
+		};
+
+		smmu_rot_sec: qcom,smmu_rot_sec_cb {
+			compatible = "qcom,smmu_sde_rot_sec";
+			iommus = <&mmss_smmu 0xe01>;
+			gdsc-mdss-supply = <&gdsc_bimc_smmu>;
+			clocks = <&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+				<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
+			clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
+		};
+	};
 };
