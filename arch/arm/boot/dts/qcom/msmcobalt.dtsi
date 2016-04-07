@@ -1697,7 +1697,6 @@
 		sensor_information1: qcom,sensor-information-1 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor1";
-			qcom,alias-name = "pop_mem";
 			qcom,scaling-factor = <10>;
 		};
 		sensor_information2: qcom,sensor-information-2 {
