@@ -596,8 +596,8 @@
 		qcom,cpr-corner-switch-delay-time = <1600>;
 		qcom,cpr-voltage-settling-time = <1600>;
 
-		qcom,apm-threshold-voltage = <852000>;
-		qcom,apm-hysteresis-voltage = <4000>;
+		qcom,apm-threshold-voltage = <832000>;
+		qcom,apm-hysteresis-voltage = <32000>;
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <352000>;
 		qcom,cpr-saw-use-unit-mV;
@@ -682,8 +682,8 @@
 		qcom,cpr-corner-switch-delay-time = <1600>;
 		qcom,cpr-voltage-settling-time = <1600>;
 
-		qcom,apm-threshold-voltage = <852000>;
-		qcom,apm-hysteresis-voltage = <4000>;
+		qcom,apm-threshold-voltage = <832000>;
+		qcom,apm-hysteresis-voltage = <32000>;
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <352000>;
 		qcom,cpr-saw-use-unit-mV;
