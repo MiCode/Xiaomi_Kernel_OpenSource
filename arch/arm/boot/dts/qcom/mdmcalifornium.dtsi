@@ -423,6 +423,8 @@
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pmdcalifornium_gpios 8 0>; /* BT_EN */
 		qca,bt-vdd-pa-supply = <&rome_vreg>;
+		qca,bt-vdd-xtal-supply = <&pmdcalifornium_l4>;
+		qca,bt-vdd-core-supply = <&pmdcalifornium_l5>;
 	};
 
 	qcom,sps {
