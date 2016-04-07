@@ -29,6 +29,10 @@
 
 #include <linux/types.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #define DRM_DISPLAY_INFO_LEN	32
 #define DRM_CONNECTOR_NAME_LEN	32
 #define DRM_DISPLAY_MODE_LEN	32
@@ -598,5 +602,9 @@ struct drm_mode_create_blob {
 struct drm_mode_destroy_blob {
 	__u32 blob_id;
 };
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
