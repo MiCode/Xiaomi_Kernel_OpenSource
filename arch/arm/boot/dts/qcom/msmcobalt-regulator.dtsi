@@ -653,6 +653,10 @@
 					1401600000 1478400000 1574400000
 					1651200000 1728000000 1804800000
 					1881600000>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,allow-quotient-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 			};
 		};
 	};
@@ -739,6 +743,10 @@
 					1632000000 1708800000 1785600000
 					1862400000 1939200000 2016000000
 					2092800000>;
+
+				qcom,allow-voltage-interpolation;
+				qcom,allow-quotient-interpolation;
+				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 			};
 		};
 	};
