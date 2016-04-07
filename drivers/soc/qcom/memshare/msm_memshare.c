@@ -203,6 +203,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	int dest_vmids[1] = {VMID_HLOS};
 	int dest_perms[1] = {PERM_READ|PERM_WRITE};
 
+	mutex_lock(&memsh_drv->mem_share);
 	switch (code) {
 
 	case SUBSYS_BEFORE_SHUTDOWN:
@@ -264,6 +265,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		break;
 	}
 
+	mutex_unlock(&memsh_drv->mem_share);
 	return NOTIFY_DONE;
 }
 
