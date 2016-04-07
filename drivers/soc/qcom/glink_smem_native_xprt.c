@@ -313,7 +313,7 @@ static void *memcpy32_toio(void *dest, const void *src, size_t num_bytes)
 	num_bytes /= sizeof(uint32_t);
 
 	while (num_bytes--)
-		__raw_writel(*src_local++, dest_local++);
+		__raw_writel_no_log(*src_local++, dest_local++);
 
 	return dest;
 }
@@ -339,7 +339,7 @@ static void *memcpy32_fromio(void *dest, const void *src, size_t num_bytes)
 	num_bytes /= sizeof(uint32_t);
 
 	while (num_bytes--)
-		*dest_local++ = __raw_readl(src_local++);
+		*dest_local++ = __raw_readl_no_log(src_local++);
 
 	return dest;
 }
