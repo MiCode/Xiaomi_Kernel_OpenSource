@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,6 +139,7 @@
 #define VIDC_VBIF_AT_OLD_HIGH           (VIDC_VBIF_BASE_OFFS + 0xC08)
 #define VIDC_VBIF_AT_NEW_BASE           (VIDC_VBIF_BASE_OFFS + 0xC10)
 #define VIDC_VBIF_AT_NEW_HIGH           (VIDC_VBIF_BASE_OFFS + 0xC18)
+#define VENUS_VBIF_XIN_HALT_CTRL1   (VIDC_VBIF_BASE_OFFS + 0x204)
 #define VENUS_VBIF_AXI_HALT_CTRL0   (VIDC_VBIF_BASE_OFFS + 0x208)
 #define VENUS_VBIF_AXI_HALT_CTRL1   (VIDC_VBIF_BASE_OFFS + 0x20C)
 
@@ -150,6 +151,8 @@
 	(VIDC_WRAPPER_BASE_OFFS + 0x20)
 #define VIDC_VENUS0_WRAPPER_VBIF_PRIORITY_LEVEL \
 	(VIDC_WRAPPER_BASE_OFFS + 0x24)
+#define VIDC_VENUS_WRAPPER_MMCC_VENUS0_POWER_STATUS \
+	(VIDC_WRAPPER_BASE_OFFS + 0x44)
 
 #define VIDC_CTRL_INIT 0x000D2048
 #define VIDC_CTRL_INIT_RESERVED_BITS31_1__M 0xFFFFFFFE
