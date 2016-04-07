@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -764,6 +764,8 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 {
 	int ret;
 	unsigned int sample_ms;
+	struct hwmon_node *node;
+	struct bw_hwmon *hw;
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
@@ -790,7 +792,22 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		sample_ms = *(unsigned int *)data;
 		sample_ms = max(MIN_MS, sample_ms);
 		sample_ms = min(MAX_MS, sample_ms);
+		/*
+		 * Suspend/resume the HW monitor around the interval update
+		 * to prevent the HW monitor IRQ from trying to change
+		 * stop/start the delayed workqueue while the interval update
+		 * is happening.
+		 */
+		node = df->data;
+		hw = node->hw;
+		hw->suspend_hwmon(hw);
 		devfreq_interval_update(df, &sample_ms);
+		ret = hw->resume_hwmon(hw);
+		if (ret) {
+			dev_err(df->dev.parent,
+				"Unable to resume HW monitor (%d)\n", ret);
+			return ret;
+		}
 		break;
 
 	case DEVFREQ_GOV_SUSPEND:
