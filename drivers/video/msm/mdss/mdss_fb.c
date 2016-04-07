@@ -1140,6 +1140,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
+	mdss_fb_create_sysfs(mfd);
+	mdss_fb_send_panel_event(mfd, MDSS_EVENT_FB_REGISTERED, fbi);
+
 	if (mfd->mdp.init_fnc) {
 		rc = mfd->mdp.init_fnc(mfd);
 		if (rc) {
@@ -1164,9 +1167,6 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	}
 
 	mdss_fb_init_panel_modes(mfd, pdata);
-
-	mdss_fb_create_sysfs(mfd);
-	mdss_fb_send_panel_event(mfd, MDSS_EVENT_FB_REGISTERED, fbi);
 
 	mfd->mdp_sync_pt_data.fence_name = "mdp-fence";
 	if (mfd->mdp_sync_pt_data.timeline == NULL) {

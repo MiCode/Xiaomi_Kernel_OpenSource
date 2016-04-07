@@ -27,6 +27,7 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996-v3-dtp.dtb \
 	msm8996-v3-pm8004-mmxf-adp.dtb \
 	msm8996-v3-pm8004-agave-adp.dtb \
+	msm8996pro-auto-cdp.dtb \
 	msm8996pro-pmi8994-cdp.dtb \
 	msm8996pro-pmi8994-mtp.dtb \
 	msm8996pro-pmi8994-pmk8001-cdp.dtb \
@@ -142,6 +143,7 @@ dtb-$(CONFIG_ARCH_MSM8917) += msm8917-rumi.dtb \
 	msm8917-pmi8950-mtp.dtb \
 	msm8917-pmi8937-rcm.dtb \
 	msm8917-pmi8950-rcm.dtb \
+	msm8917-qgp-tmo.dtb \
 	msm8917-pmi8937-qrd-sku5.dtb
 
 dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \

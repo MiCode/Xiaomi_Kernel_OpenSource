@@ -93,6 +93,10 @@
 	qcom,follow-otst2-rb-disabled;
 };
 
+&wled {
+	qcom,cons-sync-write-delay-us = <1000>;
+};
+
 &pmi_haptic{
 	qcom,actuator-type = "lra";
 	qcom,wave-play-rate-us = <4165>;

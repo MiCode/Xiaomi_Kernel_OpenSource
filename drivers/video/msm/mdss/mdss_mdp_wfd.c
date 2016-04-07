@@ -89,6 +89,8 @@ void mdss_mdp_wfd_destroy(struct mdss_mdp_wfd *wfd)
 	if (ctl->ops.stop_fnc)
 		ctl->ops.stop_fnc(ctl, 0);
 
+	mdss_mdp_reset_mixercfg(ctl);
+
 	if (ctl->wb)
 		mdss_mdp_wb_free(ctl->wb);
 

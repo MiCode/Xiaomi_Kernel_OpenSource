@@ -22,6 +22,7 @@
 #include <linux/srcu.h>
 #include <linux/termios.h>
 #include <linux/workqueue.h>
+#include <linux/completion.h>
 #include <soc/qcom/smd.h>
 #include <soc/qcom/glink.h>
 #include "glink_core_if.h"
@@ -162,6 +163,7 @@ struct channel {
 	bool streaming_ch;
 	bool tx_resume_needed;
 	bool is_tasklet_enabled;
+	struct completion open_notifier;
 };
 
 /**
@@ -328,6 +330,7 @@ static void process_ctl_event(struct work_struct *work)
 				ch->edge = einfo;
 				mutex_init(&ch->ch_probe_lock);
 				mutex_init(&ch->ch_tasklet_lock);
+				init_completion(&ch->open_notifier);
 				INIT_LIST_HEAD(&ch->intents);
 				INIT_LIST_HEAD(&ch->used_intents);
 				spin_lock_init(&ch->intents_lock);
@@ -420,7 +423,7 @@ static void process_ctl_event(struct work_struct *work)
 						__func__, cmd.id);
 				continue;
 			}
-
+			reinit_completion(&ch->open_notifier);
 			add_platform_driver(ch);
 			mutex_lock(&einfo->rx_cmd_lock);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
@@ -428,6 +431,7 @@ static void process_ctl_event(struct work_struct *work)
 								cmd.id,
 								cmd.priority);
 			mutex_unlock(&einfo->rx_cmd_lock);
+			complete_all(&ch->open_notifier);
 		} else if (cmd.cmd == CMD_CLOSE) {
 			SMDXPRT_INFO(einfo, "%s RX REMOTE CLOSE rcid %u\n",
 					__func__, cmd.id);
@@ -618,6 +622,7 @@ static void process_open_event(struct work_struct *work)
 		ch->is_tasklet_enabled = true;
 	}
 	mutex_unlock(&ch->ch_tasklet_lock);
+	wait_for_completion(&ch->open_notifier);
 	kfree(ch_work);
 }
 
@@ -1215,6 +1220,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		ch->edge = einfo;
 		mutex_init(&ch->ch_probe_lock);
 		mutex_init(&ch->ch_tasklet_lock);
+		init_completion(&ch->open_notifier);
 		INIT_LIST_HEAD(&ch->intents);
 		INIT_LIST_HEAD(&ch->used_intents);
 		spin_lock_init(&ch->intents_lock);
@@ -1285,6 +1291,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		ch->rcid = lcid + LEGACY_RCID_CHANNEL_OFFSET;
 		ch->local_legacy = true;
 		ch->remote_legacy = true;
+		reinit_completion(&ch->open_notifier);
 		ret = add_platform_driver(ch);
 		if (!ret) {
 			mutex_lock(&einfo->rx_cmd_lock);
@@ -1293,6 +1300,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 						ch->lcid, SMD_TRANS_XPRT_ID);
 			mutex_unlock(&einfo->rx_cmd_lock);
 		}
+		complete_all(&ch->open_notifier);
 	}
 
 	srcu_read_unlock(&einfo->ssr_sync, rcu_id);

@@ -167,6 +167,9 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 #define AMP_CALIBRATION_RETRY_CNT	3
 #define AMP_CALIBRATION_TIMEOUT		6
 
+/* A5XX_GPMU_GPMU_VOLTAGE_INTR_EN_MASK */
+#define VOLTAGE_INTR_EN			BIT(0)
+
 /* A5XX_GPMU_GPMU_PWR_THRESHOLD */
 #define PWR_THRESHOLD_VALID		0x80000000
 /* AGC */
@@ -192,7 +195,7 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 #define AGC_LLM_ENABLED			(1 << 16)
 #define	AGC_GPU_VERSION_MASK		GENMASK(18, 17)
 #define AGC_GPU_VERSION_SHIFT		17
-#define AGC_BCL_ENABLED			(1 << 24)
+#define AGC_BCL_DISABLED		(1 << 24)
 
 
 #define AGC_LEVEL_CONFIG		(140/4)
