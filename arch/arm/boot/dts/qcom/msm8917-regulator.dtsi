@@ -438,8 +438,11 @@
 			<(-1)   (-1)     1    (-1)    (-1)    (-1)>,
 			<(-1)   (-1)   (-1)   (-1)    (-1)    (-1)>;
 		qcom,cpr-quotient-adjustment =
-				<0      20      100>,
-				<0       0        0>;
+				<50      40       100>,
+				<0       0          0>;
+		qcom,cpr-init-voltage-adjustment =
+				<30000   5000   35000>,
+				<0       0          0>;
 		qcom,cpr-enable;
 	};
 };
