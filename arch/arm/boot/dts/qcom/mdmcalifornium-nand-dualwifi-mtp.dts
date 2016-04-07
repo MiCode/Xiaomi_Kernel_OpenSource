@@ -21,3 +21,10 @@
 	qcom,board-id = <8 3>;
 };
 
+&cnss_pcie {
+	qcom,is-dual-wifi-enabled;
+};
+
+&cnss_sdio {
+	status = "ok";
+};
