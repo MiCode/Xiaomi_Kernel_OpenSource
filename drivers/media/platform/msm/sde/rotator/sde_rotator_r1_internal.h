@@ -116,6 +116,7 @@ struct sde_mdp_pipe {
 	struct sde_mdp_plane_sizes src_planes;
 	struct sde_mdp_mixer *mixer_left;
 	struct sde_mdp_mixer *mixer_right;
+	struct sde_mdp_shared_reg_ctrl clk_ctrl;
 	u32 params_changed;
 	u32 offset;
 };
