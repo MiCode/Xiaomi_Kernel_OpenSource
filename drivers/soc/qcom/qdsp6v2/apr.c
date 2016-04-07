@@ -836,6 +836,7 @@ static int lpass_notifier_cb(struct notifier_block *this, unsigned long code,
 }
 
 static struct notifier_block lnb = {
+	.priority = 0,
 	.notifier_call = lpass_notifier_cb,
 };
 
