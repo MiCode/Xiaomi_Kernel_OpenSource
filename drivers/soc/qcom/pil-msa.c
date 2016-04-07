@@ -572,7 +572,8 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	mba_dp_virt = dma_alloc_attrs(&md->mba_mem_dev, drv->mba_dp_size,
 			&mba_dp_phys, GFP_KERNEL, &md->attrs_dma);
 	if (!mba_dp_virt) {
-		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
+		dev_err(pil->dev, "%s MBA metadata buffer allocation %zx bytes failed\n",
+				 __func__, drv->mba_dp_size);
 		ret = -ENOMEM;
 		goto err_invalid_fw;
 	}
@@ -585,8 +586,8 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	drv->mba_dp_virt = mba_dp_virt;
 	mba_dp_phys_end = mba_dp_phys + drv->mba_dp_size;
 
-	dev_info(pil->dev, "Loading MBA and DP (if present) from %pa to %pa\n",
-					&mba_dp_phys, &mba_dp_phys_end);
+	dev_info(pil->dev, "Loading MBA and DP (if present) from %pa to %pa size %zx\n",
+			&mba_dp_phys, &mba_dp_phys_end, drv->mba_dp_size);
 
 	/* Load the MBA image into memory */
 	count = fw->size;
@@ -654,7 +655,8 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	mdata_virt = dma_alloc_attrs(&drv->mba_mem_dev, size, &mdata_phys,
 					GFP_KERNEL, &attrs);
 	if (!mdata_virt) {
-		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
+		dev_err(pil->dev, "%s MBA metadata buffer allocation %zx bytes failed\n",
+			 __func__, size);
 		ret = -ENOMEM;
 		goto fail;
 	}
