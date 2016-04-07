@@ -578,9 +578,9 @@ static void populate_opp_table(struct platform_device *pdev,
 					bool single_cluster)
 {
 	struct platform_device *apc0_dev, *apc1_dev;
-	struct device_node *apc0_node, *apc1_node;
+	struct device_node *apc0_node = NULL, *apc1_node;
 	unsigned long apc0_fmax, apc1_fmax;
-	int cpu, a53_c0_cpu, a53_c1_cpu;
+	int cpu, a53_c0_cpu = 0, a53_c1_cpu = 0;
 
 	if (!single_cluster)
 		apc0_node = of_parse_phandle(pdev->dev.of_node,
