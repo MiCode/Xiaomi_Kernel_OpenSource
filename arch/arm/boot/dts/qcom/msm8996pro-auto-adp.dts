@@ -12,6 +12,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/gpio/gpio.h>
 #include "msm8996pro.dtsi"
 #include "msm8996-pm8994.dtsi"
 #include "msm8996-agave-adp.dtsi"
@@ -57,6 +58,19 @@
 
 &hl7509_vreg {
 	status = "ok";
+};
+
+&sdhc_2 {
+	cd-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on_sbc>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_cd_on_sbc>;
+};
+
+&i2c_7 {
+	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
+		status = "disabled";
+	};
 };
 
 &gfx_cpr {
