@@ -117,6 +117,10 @@
 	qcom,wave-play-rate-us = <4165>;
 };
 
+&wled {
+	qcom,cons-sync-write-delay-us = <1000>;
+};
+
 &flash_led {
 	compatible = "qcom,qpnp-flash-led";
 	reg = <0xd300 0x100>;
