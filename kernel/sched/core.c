@@ -788,6 +788,8 @@ void sched_avg_update(struct rq *rq)
 	}
 }
 
+#ifdef CONFIG_SCHED_HMP
+
 /*
  * Note C-state for (idle) cpus.
  *
@@ -823,6 +825,8 @@ void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
 	cluster->dstate_wakeup_energy = wakeup_energy;
 	cluster->dstate_wakeup_latency = wakeup_latency;
 }
+
+#endif /* CONFIG_SCHED_HMP */
 
 #endif /* CONFIG_SMP */
 
@@ -1630,6 +1634,8 @@ static inline int got_boost_kick(void)
 static inline void clear_boost_kick(int cpu) { }
 
 static inline void clear_hmp_request(int cpu) { }
+
+static inline void update_cluster_topology(void) {}
 
 #endif	/* CONFIG_SCHED_HMP */
 
