@@ -935,6 +935,9 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 			hdmi_tx_config_5v(hdmi_ctrl, false);
 		} else {
 			hdmi_tx_hpd_off(hdmi_ctrl);
+
+			hdmi_ctrl->sdev.state = 0;
+			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
 		}
 
 		break;
