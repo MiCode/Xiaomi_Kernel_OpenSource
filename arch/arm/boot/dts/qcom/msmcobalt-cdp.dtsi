@@ -11,6 +11,7 @@
  */
 
 #include "msmcobalt-pinctrl.dtsi"
+#include "msmcobalt-camera-sensor-cdp.dtsi"
 / {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";

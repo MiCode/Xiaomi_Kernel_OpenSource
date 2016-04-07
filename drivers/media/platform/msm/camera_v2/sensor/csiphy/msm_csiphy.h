@@ -126,6 +126,14 @@ struct csiphy_reg_3ph_parms_t {
 	struct csiphy_reg_t mipi_csiphy_2ph_lnn_test_force;
 	struct csiphy_reg_t mipi_csiphy_2ph_lnn_ctrl5;
 	struct csiphy_reg_t mipi_csiphy_3ph_lnck_cfg1;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl20;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl55;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_ctrl11;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_ctrl13;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnck_ctrl10;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_ctrl0;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnck_ctrl3;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_ctrl14;
 };
 
 struct csiphy_ctrl_t {
