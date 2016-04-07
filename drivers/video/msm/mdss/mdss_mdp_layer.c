@@ -30,7 +30,6 @@
 #include "mdss_debug.h"
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
-#include "mdss_mdp_rotator.h"
 #include "mdss_mdp_wfd.h"
 
 #define CHECK_LAYER_BOUNDS(offset, size, max_size) \

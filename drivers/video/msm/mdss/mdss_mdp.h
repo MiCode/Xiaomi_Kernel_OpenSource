@@ -1313,6 +1313,37 @@ static inline bool mdss_mdp_is_map_needed(struct mdss_data_type *mdata,
 	return true;
 }
 
+static inline u32 mdss_mdp_get_rotator_dst_format(u32 in_format, u32 in_rot90,
+	u32 bwc)
+{
+	switch (in_format) {
+	case MDP_RGB_565:
+	case MDP_BGR_565:
+		if (in_rot90)
+			return MDP_RGB_888;
+		else
+			return in_format;
+	case MDP_RGBA_8888:
+		if (bwc)
+			return MDP_BGRA_8888;
+		else
+			return in_format;
+	case MDP_Y_CBCR_H2V2_VENUS:
+	case MDP_Y_CRCB_H2V2_VENUS:
+	case MDP_Y_CBCR_H2V2:
+		if (in_rot90)
+			return MDP_Y_CRCB_H2V2;
+		else
+			return in_format;
+	case MDP_Y_CB_CR_H2V2:
+	case MDP_Y_CR_CB_GH2V2:
+	case MDP_Y_CR_CB_H2V2:
+		return MDP_Y_CRCB_H2V2;
+	default:
+		return in_format;
+	}
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
@@ -1595,9 +1626,6 @@ bool mdss_rect_overlap_check(struct mdss_rect *rect1, struct mdss_rect *rect2);
 void mdss_rect_split(struct mdss_rect *in_roi, struct mdss_rect *l_roi,
 	struct mdss_rect *r_roi, u32 splitpoint);
 
-int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd,
-		struct mdss_mdp_commit_cb *commit_cb);
-int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 
 int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id);
 bool mdss_mdp_mixer_reg_has_pipe(struct mdss_mdp_mixer *mixer,
@@ -1617,14 +1645,9 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	struct mdss_rect *l_roi, struct mdss_rect *r_roi);
 void mdss_mdp_mixer_update_pipe_map(struct mdss_mdp_ctl *master_ctl,
 		int mixer_mux);
-int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, u32 dst_format);
-int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
-					struct mdp_mixer_cfg *mixer_cfg);
 
 void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_calc_qseed3_cfg(struct mdss_mdp_pipe *pipe);
-int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable);
-int mdss_mdp_wb_get_secure(struct msm_fb_data_type *mfd, uint8_t *enable);
 void mdss_mdp_ctl_restore(bool locked);
 int  mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery);
 int mdss_mdp_wait_for_xin_halt(u32 xin_id, bool is_vbif_nrt);
