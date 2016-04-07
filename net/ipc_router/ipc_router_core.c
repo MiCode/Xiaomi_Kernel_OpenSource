@@ -147,6 +147,8 @@ struct msm_ipc_router_xprt_info {
 	struct work_struct read_data;
 	struct workqueue_struct *workqueue;
 	void *log_ctx;
+	struct kref ref;
+	struct completion ref_complete;
 };
 
 #define RT_HASH_SIZE 4
@@ -194,6 +196,9 @@ static void *ipc_router_get_log_ctx(char *sub_name);
 static int process_resume_tx_msg(union rr_control_msg *msg,
 				 struct rr_packet *pkt);
 static void ipc_router_reset_conn(struct msm_ipc_router_remote_port *rport_ptr);
+static int ipc_router_get_xprt_info_ref(
+		struct msm_ipc_router_xprt_info *xprt_info);
+static void ipc_router_release_xprt_info_ref(struct kref *ref);
 
 struct pil_vote_info {
 	void *pil_handle;
@@ -1918,6 +1923,11 @@ static int ipc_router_send_ctl_msg(
 		ret = process_resume_tx_msg(msg, pkt);
 	} else if (xprt_info && (msg->cmd == IPC_ROUTER_CTRL_CMD_HELLO ||
 		   xprt_info->initialized)) {
+		ret = ipc_router_get_xprt_info_ref(xprt_info);
+		if (ret < 0) {
+			IPC_RTR_ERR("%s: Abort invalid xprt\n", __func__);
+			return ret;
+		}
 		mutex_lock(&xprt_info->tx_lock_lhb2);
 		ipc_router_log_msg(xprt_info->log_ctx,
 				IPC_ROUTER_LOG_EVENT_TX, msg, hdr, NULL, NULL);
@@ -1926,11 +1936,14 @@ static int ipc_router_send_ctl_msg(
 			mutex_unlock(&xprt_info->tx_lock_lhb2);
 			IPC_RTR_ERR("%s: Prepend Header failed\n", __func__);
 			release_pkt(pkt);
+			kref_put(&xprt_info->ref,
+				 ipc_router_release_xprt_info_ref);
 			return ret;
 		}
 
 		ret = xprt_info->xprt->write(pkt, pkt->length, xprt_info->xprt);
 		mutex_unlock(&xprt_info->tx_lock_lhb2);
+		kref_put(&xprt_info->ref, ipc_router_release_xprt_info_ref);
 	}
 
 	release_pkt(pkt);
@@ -2037,6 +2050,11 @@ static int forward_msg(struct msm_ipc_router_xprt_info *xprt_info,
 
 	down_read(&rt_entry->lock_lha4);
 	fwd_xprt_info = rt_entry->xprt_info;
+	ret = ipc_router_get_xprt_info_ref(fwd_xprt_info);
+	if (ret < 0) {
+		IPC_RTR_ERR("%s: Abort invalid xprt\n", __func__);
+		goto fm_error_xprt;
+	}
 	ret = prepend_header(pkt, fwd_xprt_info);
 	if (ret < 0) {
 		IPC_RTR_ERR("%s: Prepend Header failed\n", __func__);
@@ -2071,6 +2089,8 @@ static int forward_msg(struct msm_ipc_router_xprt_info *xprt_info,
 fm_error3:
 	mutex_unlock(&fwd_xprt_info->tx_lock_lhb2);
 fm_error2:
+	kref_put(&fwd_xprt_info->ref, ipc_router_release_xprt_info_ref);
+fm_error_xprt:
 	up_read(&rt_entry->lock_lha4);
 fm_error1:
 	if (rt_entry)
@@ -3037,6 +3057,13 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 	}
 	down_read(&rt_entry->lock_lha4);
 	xprt_info = rt_entry->xprt_info;
+	ret = ipc_router_get_xprt_info_ref(xprt_info);
+	if (ret < 0) {
+		IPC_RTR_ERR("%s: Abort invalid xprt\n", __func__);
+		up_read(&rt_entry->lock_lha4);
+		kref_put(&rt_entry->ref, ipc_router_release_rtentry);
+		return ret;
+	}
 	ret = prepend_header(pkt, xprt_info);
 	if (ret < 0) {
 		IPC_RTR_ERR("%s: Prepend Header failed\n", __func__);
@@ -3065,6 +3092,7 @@ out_write_pkt:
 		ipc_router_log_msg(xprt_info->log_ctx,
 			IPC_ROUTER_LOG_EVENT_TX_ERR, pkt, hdr, src, rport_ptr);
 
+		kref_put(&xprt_info->ref, ipc_router_release_xprt_info_ref);
 		return ret;
 	}
 	update_comm_mode_info(&src->mode_info, xprt_info);
@@ -3082,6 +3110,7 @@ out_write_pkt:
 			(hdr->size & 0xffff));
 	}
 
+	kref_put(&xprt_info->ref, ipc_router_release_xprt_info_ref);
 	return hdr->size;
 }
 
@@ -3939,6 +3968,49 @@ static void *ipc_router_get_log_ctx(char *sub_name)
 	return log_ctx;
 }
 
+/**
+ * ipc_router_get_xprt_info_ref() - Get a reference to the xprt_info structure
+ * @xprt_info: pointer to the xprt_info.
+ *
+ * @return: Zero on success, -ENODEV on failure.
+ *
+ * This function is used to obtain a reference to the xprt_info structure
+ * corresponding to the requested @xprt_info pointer.
+ */
+static int ipc_router_get_xprt_info_ref(
+		struct msm_ipc_router_xprt_info *xprt_info)
+{
+	int ret = -ENODEV;
+	struct msm_ipc_router_xprt_info *tmp_xprt_info;
+
+	down_read(&xprt_info_list_lock_lha5);
+	list_for_each_entry(tmp_xprt_info, &xprt_info_list, list) {
+		if (tmp_xprt_info == xprt_info) {
+			kref_get(&xprt_info->ref);
+			ret = 0;
+			break;
+		}
+	}
+	up_read(&xprt_info_list_lock_lha5);
+
+	return ret;
+}
+
+/**
+ * ipc_router_release_xprt_info_ref() - release the xprt_info last reference
+ * @ref: Reference to the xprt_info structure.
+ *
+ * This function is called when all references to the xprt_info structure
+ * are released.
+ */
+static void ipc_router_release_xprt_info_ref(struct kref *ref)
+{
+	struct msm_ipc_router_xprt_info *xprt_info =
+		container_of(ref, struct msm_ipc_router_xprt_info, ref);
+
+	complete_all(&xprt_info->ref_complete);
+}
+
 static int msm_ipc_router_add_xprt(struct msm_ipc_router_xprt *xprt)
 {
 	struct msm_ipc_router_xprt_info *xprt_info;
@@ -3959,6 +4031,8 @@ static int msm_ipc_router_add_xprt(struct msm_ipc_router_xprt *xprt)
 	xprt_info->abort_data_read = 0;
 	INIT_WORK(&xprt_info->read_data, do_read_data);
 	INIT_LIST_HEAD(&xprt_info->list);
+	kref_init(&xprt_info->ref);
+	init_completion(&xprt_info->ref_complete);
 
 	xprt_info->workqueue = create_singlethread_workqueue(xprt->name);
 	if (!xprt_info->workqueue) {
@@ -4021,6 +4095,10 @@ static void msm_ipc_router_remove_xprt(struct msm_ipc_router_xprt *xprt)
 		msm_ipc_cleanup_routing_table(xprt_info);
 
 		wakeup_source_trash(&xprt_info->ws);
+
+		kref_put(&xprt_info->ref,
+			 ipc_router_release_xprt_info_ref);
+		wait_for_completion(&xprt_info->ref_complete);
 
 		xprt->priv = 0;
 		kfree(xprt_info);
