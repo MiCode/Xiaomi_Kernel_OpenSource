@@ -2512,12 +2512,23 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 static int _me_init_ucode_workarounds(struct adreno_device *adreno_dev)
 {
 	switch (ADRENO_GPUREV(adreno_dev)) {
-	case ADRENO_REV_A505:
-	case ADRENO_REV_A506:
 	case ADRENO_REV_A510:
 		return 0x00000001; /* Ucode workaround for token end syncs */
+	case ADRENO_REV_A505:
+	case ADRENO_REV_A506:
 	case ADRENO_REV_A530:
-		return 0x00000003; /* Ucode default workarounds */
+		/*
+		 * Ucode workarounds for token end syncs,
+		 * WFI after every direct-render 3D mode draw and
+		 * WFI after every 2D Mode 3 draw.
+		 */
+		return 0x0000000B;
+	case ADRENO_REV_A540:
+		/*
+		 * WFI after every direct-render 3D mode draw and
+		 * WFI after every 2D Mode 3 draw.
+		 */
+		return 0x0000000A;
 	default:
 		return 0x00000000; /* No ucode workarounds enabled */
 	}
