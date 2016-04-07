@@ -949,6 +949,8 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 	if (xhci_handshake(xhci, &xhci->op_regs->status,
 		      STS_HALT, STS_HALT, delay)) {
 		xhci_warn(xhci, "WARN: xHC CMD_RUN timeout\n");
+		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+		set_bit(HCD_FLAG_HW_ACCESSIBLE, &xhci->shared_hcd->flags);
 		spin_unlock_irq(&xhci->lock);
 		return -ETIMEDOUT;
 	}
@@ -964,6 +966,8 @@ int xhci_suspend(struct xhci_hcd *xhci, bool do_wakeup)
 	if (xhci_handshake(xhci, &xhci->op_regs->status,
 				STS_SAVE, 0, 10 * 1000)) {
 		xhci_warn(xhci, "WARN: xHC save state timeout\n");
+		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+		set_bit(HCD_FLAG_HW_ACCESSIBLE, &xhci->shared_hcd->flags);
 		spin_unlock_irq(&xhci->lock);
 		return -ETIMEDOUT;
 	}
