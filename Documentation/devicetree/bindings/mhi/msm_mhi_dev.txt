@@ -1,0 +1,34 @@
+MSM MHI DEV
+
+MSM MHI DEV enables communication with the host over a PCIe link using the
+Modem Host Interface protocol. The driver interfaces with the IPA for
+enabling the HW acceleration channel path and provides interface for
+software channels to communicate between Host and device.
+
+Required properties:
+  - compatible: should be "qcom,msm-mhi-dev" for MHI device driver.
+  - reg: MHI MMIO physical register space.
+  - reg-names: resource names used for the MHI MMIO physical address region,
+	       IPA uC command and event ring doorbell mail box address.
+	       Should be "mhi_mmio_base" for MHI MMIO physical address,
+	       "ipa_uc_mbox_crdb" for IPA uC Command Ring doorbell,
+	       "ipa_uc_mbox_erdb" for IPA uC Event Ring doorbell passed to
+	       the IPA driver.
+  - qcom,mhi-ifc-id: ID of HW interface via which MHI on device side
+		communicates with host side.
+  - qcom,mhi-ep-msi: End point MSI number.
+  - qcom,mhi-version: MHI specification version supported by the device.
+
+Example:
+
+	mhi: qcom,msm-mhi-dev {
+		compatible = "qcom,msm-mhi-dev";
+		reg = <0xfc527000 0x1000>,
+		     <0xfd4fa000 0x1>,
+		     <0xfd4fa080 0x1>;
+		reg-names = "mhi_mmio_base", "ipa_uc_mbox_crdb",
+			    "ipa_uc_mbox_erdb";
+		qcom,mhi-ifc-id = <0x030017cb>;
+		qcom,mhi-ep-msi = <1>;
+		qcom,mhi-version = <0x1000000>;
+	};
