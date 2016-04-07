@@ -1013,13 +1013,14 @@ static void _adreno_free_memories(struct adreno_device *adreno_dev)
 static int adreno_remove(struct platform_device *pdev)
 {
 	struct adreno_device *adreno_dev = adreno_get_dev(pdev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct adreno_gpudev *gpudev;
 	struct kgsl_device *device;
 
 	if (adreno_dev == NULL)
 		return 0;
 
 	device = KGSL_DEVICE(adreno_dev);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->remove != NULL)
 		gpudev->remove(adreno_dev);

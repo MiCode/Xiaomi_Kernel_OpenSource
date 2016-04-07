@@ -40,8 +40,6 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 
 	ion_page_pool_alloc_set_cache_policy(pool, page);
 
-	ion_pages_sync_for_device(NULL, page, PAGE_SIZE << pool->order,
-						DMA_BIDIRECTIONAL);
 	return page;
 error_free_pages:
 	__free_pages(page, pool->order);

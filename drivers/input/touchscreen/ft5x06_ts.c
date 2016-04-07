@@ -156,9 +156,6 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *data);
 #define FT_FW_FILE_MAJ_VER_FT6X36(x)	((x)->data[0x10a])
 #define FT_FW_FILE_VENDOR_ID_FT6X36(x)	((x)->data[0x108])
 
-#define FT_SYSFS_TS_INFO		"ts_info"
-
-
 /**
 * Application data verification will be run before upgrade flow.
 * Firmware image stores some flags with negative and positive value
@@ -225,8 +222,17 @@ enum {
 	FT_FT5336_FAMILY_ID_0x14 = 0x14,
 };
 
-#define FT_STORE_TS_INFO(buf, id, name, max_tch, group_id, fw_vkey_support, \
-			fw_name, fw_maj, fw_min, fw_sub_min) \
+#define FT_STORE_TS_INFO(buf, id, fw_maj, fw_min, fw_sub_min) \
+			snprintf(buf, FT_INFO_MAX_LEN, \
+				"vendor name = Focaltech\n" \
+				"model = 0x%x\n" \
+				"fw_version = %d.%d.%d\n", \
+				id, fw_maj, fw_min, fw_sub_min)
+#define FT_TS_INFO_SYSFS_DIR_NAME "ts_info"
+static char *ts_info_buff;
+
+#define FT_STORE_TS_DBG_INFO(buf, id, name, max_tch, group_id, \
+			fw_vkey_support, fw_name, fw_maj, fw_min, fw_sub_min) \
 			snprintf(buf, FT_INFO_MAX_LEN, \
 				"controller\t= focaltech\n" \
 				"model\t\t= 0x%x\n" \
@@ -262,7 +268,7 @@ struct ft5x06_ts_data {
 	u32 tch_data_len;
 	u8 fw_ver[3];
 	u8 fw_vendor_id;
-	struct kobject ts_info_kobj;
+	struct kobject *ts_info_kobj;
 #if defined(CONFIG_FB)
 	struct work_struct fb_notify_work;
 	struct notifier_block fb_notif;
@@ -1784,11 +1790,13 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 
 	ft5x06_update_fw_ver(data);
 
-	FT_STORE_TS_INFO(data->ts_info, data->family_id, data->pdata->name,
+	FT_STORE_TS_DBG_INFO(data->ts_info, data->family_id, data->pdata->name,
 			data->pdata->num_max_touches, data->pdata->group_id,
 			data->pdata->fw_vkey_support ? "yes" : "no",
 			data->pdata->fw_name, data->fw_ver[0],
 			data->fw_ver[1], data->fw_ver[2]);
+	FT_STORE_TS_INFO(ts_info_buff, data->family_id, data->fw_ver[0],
+			 data->fw_ver[1], data->fw_ver[2]);
 rel_fw:
 	release_firmware(fw);
 	return rc;
@@ -1891,22 +1899,13 @@ static ssize_t ft5x06_fw_name_store(struct device *dev,
 
 static DEVICE_ATTR(fw_name, 0664, ft5x06_fw_name_show, ft5x06_fw_name_store);
 
-
-static ssize_t ft5x06_ts_info_show(struct kobject *kobj,
+static ssize_t ts_info_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	struct ft5x06_ts_data *data = container_of(kobj,
-			struct ft5x06_ts_data, ts_info_kobj);
-	return snprintf(buf, FT_INFO_MAX_LEN,
-			"vendor name = Focaltech\n"
-			"model = 0x%x\n"
-			"fw_verion = %d.%d.%d\n",
-			data->family_id, data->fw_ver[0],
-			data->fw_ver[1], data->fw_ver[2]);
+	strlcpy(buf, ts_info_buff, FT_INFO_MAX_LEN);
+	return strnlen(buf, FT_INFO_MAX_LEN);
 }
-
-static struct kobj_attribute ts_info_attribute = __ATTR(ts_info,
-					0664, ft5x06_ts_info_show, NULL);
+static struct kobj_attribute ts_info_attr = __ATTR_RO(ts_info);
 
 static bool ft5x06_debug_addr_is_valid(int addr)
 {
@@ -2546,16 +2545,20 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	dev_dbg(&client->dev, "touch threshold = %d\n", reg_value * 4);
 
 	/*creation touch panel info kobj*/
-	data->ts_info_kobj = *(kobject_create_and_add(FT_SYSFS_TS_INFO,
-					kernel_kobj));
-	if (!&(data->ts_info_kobj)) {
-		dev_err(&client->dev, "kob creation failed .\n");
+	data->ts_info_kobj = kobject_create_and_add(FT_TS_INFO_SYSFS_DIR_NAME,
+					kernel_kobj);
+	if (!data->ts_info_kobj) {
+		dev_err(&client->dev, "kobject creation failed.\n");
 	} else {
-		err = sysfs_create_file(&(data->ts_info_kobj),
-					&ts_info_attribute.attr);
+		err = sysfs_create_file(data->ts_info_kobj, &ts_info_attr.attr);
 		if (err) {
-			kobject_put(&(data->ts_info_kobj));
-			dev_err(&client->dev, "sysfs create fail .\n");
+			kobject_put(data->ts_info_kobj);
+			dev_err(&client->dev, "sysfs creation failed.\n");
+		} else {
+			ts_info_buff = devm_kzalloc(&client->dev,
+						 FT_INFO_MAX_LEN, GFP_KERNEL);
+			if (!ts_info_buff)
+				goto free_debug_dir;
 		}
 	}
 
@@ -2579,12 +2582,13 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	ft5x06_update_fw_ver(data);
 	ft5x06_update_fw_vendor_id(data);
 
-	FT_STORE_TS_INFO(data->ts_info, data->family_id, data->pdata->name,
+	FT_STORE_TS_DBG_INFO(data->ts_info, data->family_id, data->pdata->name,
 			data->pdata->num_max_touches, data->pdata->group_id,
 			data->pdata->fw_vkey_support ? "yes" : "no",
 			data->pdata->fw_name, data->fw_ver[0],
 			data->fw_ver[1], data->fw_ver[2]);
-
+	FT_STORE_TS_INFO(ts_info_buff, data->family_id, data->fw_ver[0],
+			 data->fw_ver[1], data->fw_ver[2]);
 #if defined(CONFIG_FB)
 	INIT_WORK(&data->fb_notify_work, fb_notify_resume_work);
 	data->fb_notif.notifier_call = fb_notifier_callback;
@@ -2727,7 +2731,7 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 		ft5x06_power_init(data, false);
 
 	input_unregister_device(data->input_dev);
-	kobject_put(&(data->ts_info_kobj));
+	kobject_put(data->ts_info_kobj);
 	return 0;
 }
 
