@@ -1278,10 +1278,11 @@
 			reg = <0x0a800000 0xcd00>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 131 0>;
-			usb-phy = <&qusb_phy0>, <&ssphy>;
+			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
 			snps,hird_thresh = <0x10>;
+			maximum-speed = "high-speed";
 		};
 
 		qcom,usbbam@a904000 {
@@ -1494,6 +1495,10 @@
 		compatible = "qcom,usb-dbm-1p5";
 		reg = <0xa8f8000 0x300>;
 		qcom,reset-ep-after-lpm-resume;
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
 	};
 
 	qcom,lpass@17300000 {
