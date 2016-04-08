@@ -177,8 +177,13 @@
 			   <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
 			   <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
 		vdd-supply = <&gdsc_gpu_cx>;
-		clocks = <&clock_gcc clk_gcc_bimc_gfx_clk>;
-		clock-name = "kgsl_smmu_clk";
+		clocks = <&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>,
+			<&clock_gcc clk_gcc_gpu_bimc_gfx_clk>;
+
+		clock-names = "gcc_gpu_cfg_ahb_clk",
+			"gcc_bimc_gfx_clk",
+			"gcc_gpu_bimc_gfx_clk";
 		#clock-cells = <1>;
 	};
 };
