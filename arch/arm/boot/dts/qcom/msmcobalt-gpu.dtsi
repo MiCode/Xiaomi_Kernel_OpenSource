@@ -67,7 +67,7 @@
 
 		qcom,initial-pwrlevel = <4>;
 
-		qcom,idle-timeout = <8>; //<HZ/12>
+		qcom,idle-timeout = <80>; //<HZ/12>
 		/*
 		 * Timeout to enter deeper power saving state
 		 * from NAP.
