@@ -3311,15 +3311,17 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	rate = hdmi_tx_setup_tmds_clk_rate(hdmi_ctrl);
 
-	if (rate > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
-		scrambler_on = true;
-		tmds_clock_ratio = 1;
-	} else {
-		if (hdmi_edid_get_sink_scrambler_support(edid_data))
+	scrambler_on = hdmi_edid_get_sink_scrambler_support(edid_data);
+
+	if (!hdmi_edid_sink_scramble_override(edid_data)) {
+		if (rate > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ)
 			scrambler_on = true;
 	}
 
 	if (scrambler_on) {
+		if (rate > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ)
+			tmds_clock_ratio = 1;
+
 		rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
 			HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
 			tmds_clock_ratio);
