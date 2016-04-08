@@ -214,74 +214,6 @@ void cnss_sdio_remove_pm_qos(void)
 }
 EXPORT_SYMBOL(cnss_sdio_remove_pm_qos);
 
-int cnss_request_bus_bandwidth(int bandwidth)
-{
-	int ret;
-	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
-
-	if (!cnss_pdata)
-		return -ENODEV;
-
-	bus_bandwidth = &cnss_pdata->bus_bandwidth;
-	if (!bus_bandwidth->bus_client)
-		return -ENOSYS;
-
-	switch (bandwidth) {
-	case CNSS_BUS_WIDTH_NONE:
-	case CNSS_BUS_WIDTH_LOW:
-	case CNSS_BUS_WIDTH_MEDIUM:
-	case CNSS_BUS_WIDTH_HIGH:
-		ret = msm_bus_scale_client_update_request(
-				bus_bandwidth->bus_client, bandwidth);
-		if (!ret) {
-			bus_bandwidth->current_bandwidth_vote = bandwidth;
-		} else {
-			pr_debug(
-			"%s: could not set bus bandwidth %d, ret = %d\n",
-			__func__, bandwidth, ret);
-		}
-		break;
-	default:
-		pr_debug("%s: Invalid request %d", __func__, bandwidth);
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-EXPORT_SYMBOL(cnss_request_bus_bandwidth);
-
-void cnss_request_pm_qos_type(int latency_type, u32 qos_val)
-{
-	if (!cnss_pdata)
-		return;
-
-	pr_debug("%s: PM QoS value: %d\n", __func__, qos_val);
-	pm_qos_add_request(&cnss_pdata->qos_request, latency_type, qos_val);
-}
-EXPORT_SYMBOL(cnss_request_pm_qos_type);
-
-void cnss_request_pm_qos(u32 qos_val)
-{
-	if (!cnss_pdata)
-		return;
-
-	pr_debug("%s: PM QoS value: %d\n", __func__, qos_val);
-	pm_qos_add_request(
-		&cnss_pdata->qos_request,
-		PM_QOS_CPU_DMA_LATENCY, qos_val);
-}
-EXPORT_SYMBOL(cnss_request_pm_qos);
-
-void cnss_remove_pm_qos(void)
-{
-	if (!cnss_pdata)
-		return;
-
-	pm_qos_remove_request(&cnss_pdata->qos_request);
-	pr_debug("%s: PM QoS removed\n", __func__);
-}
-EXPORT_SYMBOL(cnss_remove_pm_qos);
-
 static int cnss_sdio_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
 	struct cnss_sdio_info *cnss_info;
@@ -578,56 +510,17 @@ void cnss_sdio_device_crashed(void)
 	}
 }
 
-void *cnss_get_virt_ramdump_mem(unsigned long *size)
-{
-	if (!cnss_pdata || !cnss_pdata->pdev)
-		return NULL;
-
-	*size = cnss_pdata->ssr_info.ramdump_size;
-
-	return cnss_pdata->ssr_info.ramdump_addr;
-}
-EXPORT_SYMBOL(cnss_get_virt_ramdump_mem);
-
-void cnss_device_self_recovery(void)
-{
-	cnss_sdio_shutdown(NULL, false);
-	msleep(WLAN_RECOVERY_DELAY);
-	cnss_sdio_powerup(NULL);
-}
-EXPORT_SYMBOL(cnss_device_self_recovery);
-
 static void cnss_sdio_recovery_work_handler(struct work_struct *recovery)
 {
 	cnss_sdio_device_self_recovery();
 }
 
-DECLARE_WORK(recovery_work, cnss_sdio_recovery_work_handler);
+DECLARE_WORK(cnss_sdio_recovery_work, cnss_sdio_recovery_work_handler);
 
 void cnss_sdio_schedule_recovery_work(void)
 {
-	schedule_work(&recovery_work);
+	schedule_work(&cnss_sdio_recovery_work);
 }
-
-void cnss_schedule_recovery_work(void)
-{
-	schedule_work(&recovery_work);
-}
-EXPORT_SYMBOL(cnss_schedule_recovery_work);
-
-void cnss_device_crashed(void)
-{
-	struct cnss_ssr_info *ssr_info;
-
-	if (!cnss_pdata)
-		return;
-	ssr_info = &cnss_pdata->ssr_info;
-	if (ssr_info->subsys) {
-		subsys_set_crash_status(ssr_info->subsys, true);
-		subsystem_restart_dev(ssr_info->subsys);
-	}
-}
-EXPORT_SYMBOL(cnss_device_crashed);
 
 /**
  * cnss_get_restart_level() - cnss get restart level API
@@ -1276,13 +1169,6 @@ u8 *cnss_sdio_get_wlan_mac_address(uint32_t *num)
 	return NULL;
 }
 EXPORT_SYMBOL(cnss_sdio_get_wlan_mac_address);
-
-u8 *cnss_get_wlan_mac_address(struct device *dev, uint32_t *num)
-{
-	*num = 0;
-	return NULL;
-}
-EXPORT_SYMBOL(cnss_get_wlan_mac_address);
 
 static const struct of_device_id cnss_sdio_dt_match[] = {
 	{.compatible = "qcom,cnss_sdio"},
