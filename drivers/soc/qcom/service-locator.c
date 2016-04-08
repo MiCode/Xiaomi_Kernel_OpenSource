@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,9 @@
 
 static u32 locator_status = LOCATOR_UNKNOWN;
 static bool service_inited;
+
+int enable = 0;
+module_param(enable, int, 0);
 
 DECLARE_COMPLETION(locator_status_known);
 
@@ -506,6 +509,9 @@ static struct dentry *test_servloc_file;
 
 static int __init service_locator_init(void)
 {
+	if (!enable)
+		locator_status = LOCATOR_NOT_PRESENT;
+
 	class_register(&service_locator_class);
 	test_servloc_file = debugfs_create_file("test_servloc",
 				S_IRUGO | S_IWUSR, NULL, NULL,
