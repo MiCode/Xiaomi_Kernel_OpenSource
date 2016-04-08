@@ -236,17 +236,6 @@ struct ipa_api_controller {
 
 	bool (*ipa_get_client_uplink)(int pipe_idx);
 
-	int (*odu_bridge_init)(struct odu_bridge_params *params);
-
-	int (*odu_bridge_connect)(void);
-
-	int (*odu_bridge_disconnect)(void);
-
-	int (*odu_bridge_tx_dp)(struct sk_buff *skb,
-		struct ipa_tx_meta *metadata);
-
-	int (*odu_bridge_cleanup)(void);
-
 	int (*ipa_dma_init)(void);
 
 	int (*ipa_dma_enable)(void);

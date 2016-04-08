@@ -11,3 +11,27 @@
  */
 
 #include "msmcobalt-pinctrl.dtsi"
+/ {
+	bluetooth: bt_wcn3990 {
+		compatible = "qca,wcn3990";
+		qca,bt-vdd-io-supply = <&pmcobalt_s3>;
+		qca,bt-vdd-xtal-supply = <&pmcobalt_s5>;
+		qca,bt-vdd-core-supply = <&pmcobalt_l7_pin_ctrl>;
+		qca,bt-vdd-ldo-supply = <&pmcobalt_l17_pin_ctrl>;
+		qca,bt-vdd-pa-supply = <&pmcobalt_l25_pin_ctrl>;
+		qca,bt-chip-pwd-supply = <&pmicobalt_bob_pin1>;
+
+		qca,bt-vdd-io-voltage-level = <1350000 1350000>;
+		qca,bt-vdd-xtal-voltage-level = <2050000 2050000>;
+		qca,bt-vdd-core-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-ldo-voltage-level = <1300000 1300000>;
+		qca,bt-vdd-pa-voltage-level = <3300000 3300000>;
+		qca,bt-chip-pwd-voltage-level = <3600000 3600000>;
+
+		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-xtal-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
+		qca,bt-vdd-ldo-current-level = <0>; /* LPM/PFM */
+		qca,bt-vdd-pa-current-level = <0>; /* LPM/PFM */
+	};
+};

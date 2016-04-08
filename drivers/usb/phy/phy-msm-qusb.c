@@ -46,6 +46,13 @@
 #define FREEZIO_N			BIT(1)
 #define POWER_DOWN			BIT(0)
 
+#define QUSB2PHY_PWR_CTRL1		0x210
+#define PWR_CTRL1_CLAMP_N_EN		BIT(1)
+#define PWR_CTRL1_POWR_DOWN		BIT(0)
+
+#define QUSB2PHY_PLL_COMMON_STATUS_ONE	0x1A0
+#define CORE_READY_STATUS		BIT(0)
+
 #define QUSB2PHY_PORT_UTMI_CTRL1	0xC0
 #define TERM_SELECT			BIT(4)
 #define XCVR_SELECT_FS			BIT(2)
@@ -117,6 +124,7 @@ struct qusb_phy {
 	int			vdd_levels[3]; /* none, low, high */
 	int			init_seq_len;
 	int			*qusb_phy_init_seq;
+	u32			major_rev;
 
 	u32			tune2_val;
 	int			tune2_efuse_bit_pos;
@@ -410,6 +418,8 @@ static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	int ret, reset_val = 0;
+	u8 reg;
+	bool pll_lock_fail = false;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
@@ -466,8 +476,13 @@ static int qusb_phy_init(struct usb_phy *phy)
 	}
 
 	/* Disable the PHY */
-	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
-			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	if (qphy->major_rev < 2)
+		writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	else
+		writel_relaxed(readl_relaxed(qphy->base + QUSB2PHY_PWR_CTRL1) |
+				PWR_CTRL1_POWR_DOWN,
+				qphy->base + QUSB2PHY_PWR_CTRL1);
 
 	/* configure for ULPI mode if requested */
 	if (qphy->ulpi_mode)
@@ -508,8 +523,13 @@ static int qusb_phy_init(struct usb_phy *phy)
 	wmb();
 
 	/* Enable the PHY */
-	writel_relaxed(CLAMP_N_EN | FREEZIO_N,
-		qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	if (qphy->major_rev < 2)
+		writel_relaxed(CLAMP_N_EN | FREEZIO_N,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	else
+		writel_relaxed(readl_relaxed(qphy->base + QUSB2PHY_PWR_CTRL1) &
+				~PWR_CTRL1_POWR_DOWN,
+				qphy->base + QUSB2PHY_PWR_CTRL1);
 
 	/* Ensure above write is completed before turning ON ref clk */
 	wmb();
@@ -529,18 +549,29 @@ static int qusb_phy_init(struct usb_phy *phy)
 			writel_relaxed(reset_val,
 					qphy->base + QUSB2PHY_PLL_TEST);
 		}
+
+		/* Make sure above write is completed to get PLL source clock */
+		wmb();
+
+		/* Required to get PHY PLL lock successfully */
+		usleep_range(100, 110);
 	}
 
-	/* Make sure that above write is completed to get PLL source clock */
-	wmb();
+	if (qphy->major_rev < 2) {
+		reg = readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS);
+		dev_dbg(phy->dev, "QUSB2PHY_PLL_STATUS:%x\n", reg);
+		if (!(reg & QUSB2PHY_PLL_LOCK))
+			pll_lock_fail = true;
+	} else {
+		reg = readb_relaxed(qphy->base +
+				QUSB2PHY_PLL_COMMON_STATUS_ONE);
+		dev_dbg(phy->dev, "QUSB2PHY_PLL_COMMON_STATUS_ONE:%x\n", reg);
+		if (!(reg & CORE_READY_STATUS))
+			pll_lock_fail = true;
+	}
 
-	/* Required to get PHY PLL lock successfully */
-	usleep_range(100, 110);
-
-	if (!(readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS) &
-					QUSB2PHY_PLL_LOCK)) {
-		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n",
-			readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS));
+	if (pll_lock_fail) {
+		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n", reg);
 		WARN_ON(1);
 	}
 
@@ -556,8 +587,13 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 	qusb_phy_enable_clocks(qphy, true);
 
 	/* Disable the PHY */
-	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
-			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	if (qphy->major_rev < 2)
+		writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	else
+		writel_relaxed(readl_relaxed(qphy->base + QUSB2PHY_PWR_CTRL1) |
+				PWR_CTRL1_POWR_DOWN,
+				qphy->base + QUSB2PHY_PWR_CTRL1);
 	wmb();
 
 	qusb_phy_enable_clocks(qphy, false);
@@ -976,6 +1012,12 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	hold_phy_reset = of_property_read_bool(dev->of_node, "qcom,hold-reset");
+
+	/* use default major revision as 2 */
+	qphy->major_rev = 2;
+	ret = of_property_read_u32(dev->of_node, "qcom,major-rev",
+						&qphy->major_rev);
+
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) qphy->vdd_levels,
 					 ARRAY_SIZE(qphy->vdd_levels));

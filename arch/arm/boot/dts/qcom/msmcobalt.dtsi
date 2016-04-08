@@ -521,55 +521,10 @@
 		qcom,governor-per-policy;
 
 		qcom,cpufreq-table-0 =
-			<  300000 >,
-			<  345600 >,
-			<  422400 >,
-			<  499200 >,
-			<  576000 >,
-			<  633600 >,
-			<  710400 >,
-			<  806400 >,
-			<  883200 >,
-			<  960000 >,
-			< 1036800 >,
-			< 1113600 >,
-			< 1190400 >,
-			< 1248000 >,
-			< 1324800 >,
-			< 1401600 >,
-			< 1478400 >,
-			< 1574400 >,
-			< 1651200 >,
-			< 1728000 >,
-			< 1804800 >,
-			< 1881600 >;
+			<  300000 >;
 
 		qcom,cpufreq-table-4 =
-			<  300000 >,
-			<  345600 >,
-			<  422400 >,
-			<  480000 >,
-			<  556800 >,
-			<  633600 >,
-			<  710400 >,
-			<  787200 >,
-			<  844800 >,
-			<  902400 >,
-			<  979200 >,
-			< 1056000 >,
-			< 1171200 >,
-			< 1248000 >,
-			< 1324800 >,
-			< 1401600 >,
-			< 1478400 >,
-			< 1536000 >,
-			< 1632000 >,
-			< 1708800 >,
-			< 1785600 >,
-			< 1862400 >,
-			< 1939200 >,
-			< 2016000 >,
-			< 2092800 >;
+			<  300000 >;
 	};
 
 	arm64-cpu-erp {
@@ -653,55 +608,10 @@
 		interrupt-names = "pwrcl-irq", "perfcl-irq";
 
 		qcom,pwrcl-speedbin0-v0 =
-			< 300000000  0x0004000f 0x031e001e 0x1>,
-			< 345600000  0x05040012 0x04200020 0x1>,
-			< 422400000  0x05040016 0x04200020 0x1>,
-			< 499200000  0x0504001a 0x05200020 0x1>,
-			< 576000000  0x0504001e 0x06200020 0x1>,
-			< 633600000  0x04040021 0x07200020 0x1>,
-			< 710400000  0x04040025 0x07200020 0x1>,
-			< 806400000  0x0404002a 0x08220022 0x2>,
-			< 883200000  0x0404002e 0x09250025 0x2>,
-			< 960000000  0x04040032 0x0a280028 0x2>,
-			< 1036800000 0x04040036 0x0b2b002b 0x3>,
-			< 1113600000 0x0404003a 0x0c2e002e 0x3>,
-			< 1190400000 0x0404003e 0x0c320032 0x3>,
-			< 1248000000 0x04040041 0x0d340034 0x3>,
-			< 1324800000 0x04040045 0x0e370037 0x3>,
-			< 1401600000 0x04040049 0x0f3a003a 0x3>,
-			< 1478400000 0x0404004d 0x103e003e 0x3>,
-			< 1574400000 0x04040052 0x10420042 0x4>,
-			< 1651200000 0x04040056 0x11450045 0x4>,
-			< 1728000000 0x0404005a 0x12480048 0x4>,
-			< 1804800000 0x0404005e 0x134b004b 0x4>,
-			< 1881600000 0x04040062 0x144e004e 0x4>;
+			< 300000000  0x0004000f 0x031e001e 0x1>;
 
 		qcom,perfcl-speedbin0-v0 =
-			< 300000000  0x0004000f 0x03200020 0x1>,
-			< 345600000  0x05040012 0x04200020 0x1>,
-			< 422400000  0x05040016 0x04200020 0x1>,
-			< 480000000  0x05040019 0x05200020 0x1>,
-			< 556800000  0x0504001d 0x06200020 0x1>,
-			< 633600000  0x04040021 0x07200020 0x1>,
-			< 710400000  0x04040025 0x07200020 0x1>,
-			< 787200000  0x04040029 0x08210021 0x1>,
-			< 844800000  0x0404002c 0x09240024 0x2>,
-			< 902400000  0x0404002f 0x09260026 0x2>,
-			< 979200000  0x04040033 0x0a290029 0x2>,
-			< 1056000000 0x04040037 0x0b2c002c 0x2>,
-			< 1171200000 0x0404003d 0x0c300030 0x3>,
-			< 1248000000 0x04040041 0x0d340034 0x3>,
-			< 1324800000 0x04040045 0x0e370037 0x3>,
-			< 1401600000 0x04040049 0x0f3b003b 0x3>,
-			< 1478400000 0x0404004d 0x0f3e003e 0x3>,
-			< 1536000000 0x04040050 0x10400040 0x3>,
-			< 1632000000 0x04040055 0x11440044 0x4>,
-			< 1708800000 0x04040059 0x12480048 0x4>,
-			< 1785600000 0x0404005d 0x134a004a 0x4>,
-			< 1862400000 0x04040061 0x134e004e 0x4>,
-			< 1939200000 0x04040065 0x14510051 0x4>,
-			< 2016000000 0x04040069 0x15540054 0x4>,
-			< 2092800000 0x0404006d 0x16570057 0x4>;
+			< 300000000  0x0004000f 0x03200020 0x1>;
 
 		qcom,osm-pll-setup;
 
@@ -813,6 +723,7 @@
 		qcom,use-gsi;
 		qcom,use-ipa-tethering-bridge;
 		qcom,modem-cfg-emb-pipe-flt;
+		qcom,ipa-wdi2;
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,msm-bus,name = "ipa";
@@ -899,22 +810,6 @@
 		compatible = "qcom,rpm-glink";
 		qcom,glink-edge = "rpm";
 		rpm-channel-name = "rpm_requests";
-	};
-
-	qcom,smdpkt {
-		compatible = "qcom,smdpkt";
-
-		qcom,smdpkt-apr-apps2 {
-			qcom,smdpkt-remote = "adsp";
-			qcom,smdpkt-port-name = "apr_apps2";
-			qcom,smdpkt-dev-name = "apr_apps2";
-		};
-
-		qcom,smdpkt-loopback {
-			qcom,smdpkt-remote = "modem";
-			qcom,smdpkt-port-name = "LOOPBACK";
-			qcom,smdpkt-dev-name = "smd_pkt_loopback";
-		};
 	};
 
 	glink_mpss: qcom,glink-ssr-modem {
@@ -1021,7 +916,7 @@
 		compatible = "qcom,glinkpkt";
 
 		qcom,glinkpkt-at-mdm0 {
-			qcom,glinkpkt-transport = "smd_trans";
+			qcom,glinkpkt-transport = "smem";
 			qcom,glinkpkt-edge = "mpss";
 			qcom,glinkpkt-ch-name = "DS";
 			qcom,glinkpkt-dev-name = "at_mdm0";
@@ -1039,6 +934,20 @@
 			qcom,glinkpkt-edge = "local";
 			qcom,glinkpkt-ch-name = "glink_pkt_lloop_CLNT";
 			qcom,glinkpkt-dev-name = "glink_pkt_loopback";
+		};
+
+		qcom,glinkpkt-apr-apps2 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "adsp";
+			qcom,glinkpkt-ch-name = "apr_apps2";
+			qcom,glinkpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,glinkpkt-data40-cntl {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DATA40_CNTL";
+			qcom,glinkpkt-dev-name = "smdcntl8";
 		};
 	};
 
@@ -1549,7 +1458,7 @@
 		clocks = <&clock_gcc clk_cxo_clk_src>,
 			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
 			 <&clock_gcc clk_pnoc_clk>,
-			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
+			 <&clock_gcc clk_gcc_bimc_mss_q6_axi_clk>,
 			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>,
 			 <&clock_gcc clk_gpll0_out_msscc>,
 			 <&clock_gcc clk_gcc_mss_snoc_axi_clk>,
@@ -1589,6 +1498,18 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+	};
+
+	slim_msm: slim@91c0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x91c0000 0x2C000>,
+			<0x9184000 0x32000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x600000>;
+		qcom,ea-pc = <0x160>;
 	};
 
 	tsens0: tsens@10aa000 {
@@ -1898,9 +1819,10 @@
 		reg = <0x1d0101c 0x4>,
 		      <0x1d01024 0x4>,
 		      <0x1d01028 0x4>,
-		      <0x1d0103c 0x4>;
+		      <0x1d0103c 0x4>,
+		      <0x1d02030 0x4>;
 		reg-names = "sp2soc_irq_status", "sp2soc_irq_clr",
-			    "sp2soc_irq_mask","rmb_err";
+			    "sp2soc_irq_mask", "rmb_err", "rmb_err_spare2";
 		interrupts = <0 352 1>;
 
 		vdd_cx-supply = <&pmcobalt_s1_level>;
@@ -1917,7 +1839,7 @@
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "spss";
 		memory-region = <&peripheral_mem>;
-		qcom,spss-scsr-bits = <0 1 2 3 16 17 24 25>;
+		qcom,spss-scsr-bits = <24 25>;
 	};
 
 	qcom,msm-rtb {
@@ -2199,3 +2121,6 @@
 #include "msmcobalt-gpu.dtsi"
 #include "msm-pmcobalt.dtsi"
 #include "msm-pmicobalt.dtsi"
+#include "msmcobalt-pinctrl.dtsi"
+#include "msm-audio-lpass.dtsi"
+#include "msmcobalt-audio.dtsi"

@@ -2094,6 +2094,9 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 	unsigned long		flags;
 	int			irq;
 
+	pm_runtime_get_sync(dwc->dev);
+	dbg_event(0xFF, "Stop gsync",
+		atomic_read(&dwc->dev->power.usage_count));
 	dwc3_gadget_disable_irq(dwc);
 
 	tasklet_kill(&dwc->bh);
@@ -2106,6 +2109,10 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 	dwc->gadget_driver	= NULL;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	pm_runtime_mark_last_busy(dwc->dev);
+	pm_runtime_put_autosuspend(dwc->dev);
+	dbg_event(0xFF, "Auto_susgsync", 0);
 
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
 	free_irq(irq, dwc);

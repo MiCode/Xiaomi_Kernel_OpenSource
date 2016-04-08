@@ -1788,6 +1788,33 @@ connect_ul_fail:
 	return result;
 }
 
+static int ipa_usb_ipc_logging_init(void)
+{
+	int result;
+
+	ipa3_usb_ctx->logbuf = ipc_log_context_create(IPA_USB_IPC_LOG_PAGES,
+							"ipa_usb", 0);
+	if (ipa3_usb_ctx->logbuf == NULL) {
+		/* we can't use ipa_usb print macros on failures */
+		pr_err("ipa_usb: failed to get logbuf\n");
+		return -ENOMEM;
+	}
+
+	ipa3_usb_ctx->logbuf_low = ipc_log_context_create(IPA_USB_IPC_LOG_PAGES,
+							"ipa_usb_low", 0);
+	if (ipa3_usb_ctx->logbuf_low == NULL) {
+		pr_err("ipa_usb: failed to get logbuf_low\n");
+		result = -ENOMEM;
+		goto fail_logbuf_low;
+	}
+
+	return 0;
+
+fail_logbuf_low:
+	ipc_log_context_destroy(ipa3_usb_ctx->logbuf);
+	return result;
+}
+
 #ifdef CONFIG_DEBUG_FS
 static char dbg_buff[IPA_USB_MAX_MSG_LEN];
 
@@ -1949,7 +1976,7 @@ const struct file_operations ipa3_ipa_usb_ops = {
 	.read = ipa3_read_usb_state_info,
 };
 
-void ipa_usb_debugfs_init(void)
+static void ipa_usb_debugfs_init(void)
 {
 	const mode_t read_only_mode = S_IRUSR | S_IRGRP | S_IROTH;
 	const mode_t read_write_mode = S_IRUSR | S_IRGRP | S_IROTH |
@@ -1987,45 +2014,18 @@ fail:
 	ipa3_usb_ctx->dent = NULL;
 }
 
-static int ipa_usb_ipc_logging_init(void)
-{
-	int result;
-
-	ipa3_usb_ctx->logbuf = ipc_log_context_create(IPA_USB_IPC_LOG_PAGES,
-							"ipa_usb", 0);
-	if (ipa3_usb_ctx->logbuf == NULL) {
-		/* we can't use ipa_usb print macros on failures */
-		pr_err("ipa_usb: failed to get logbuf\n");
-		return -ENOMEM;
-	}
-
-	ipa3_usb_ctx->logbuf_low = ipc_log_context_create(IPA_USB_IPC_LOG_PAGES,
-							"ipa_usb_low", 0);
-	if (ipa3_usb_ctx->logbuf_low == NULL) {
-		pr_err("ipa_usb: failed to get logbuf_low\n");
-		result = -ENOMEM;
-		goto fail_logbuf_low;
-	}
-
-	return 0;
-
-fail_logbuf_low:
-	ipc_log_context_destroy(ipa3_usb_ctx->logbuf);
-	return result;
-}
-
-void ipa_usb_debugfs_remove(void)
+static void ipa_usb_debugfs_remove(void)
 {
 	if (IS_ERR(ipa3_usb_ctx->dent)) {
-		IPA_USB_ERR("ipa_debugfs_remove: folder was not created.\n");
+		IPA_USB_ERR("ipa_usb debugfs folder was not created.\n");
 		return;
 	}
 
 	debugfs_remove_recursive(ipa3_usb_ctx->dent);
 }
 #else /* CONFIG_DEBUG_FS */
-void ipa_usb_debugfs_init(void){}
-void ipa_usb_debugfs_remove(void){}
+static void ipa_usb_debugfs_init(void){}
+static void ipa_usb_debugfs_remove(void){}
 #endif /* CONFIG_DEBUG_FS */
 
 

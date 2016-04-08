@@ -210,6 +210,15 @@ config QCOM_SMEM
 	  The driver provides an interface to items in a heap shared among all
 	  processors in a Qualcomm platform.
 
+config MSM_SERVICE_LOCATOR
+	bool "Service Locator"
+	depends on MSM_QMI_INTERFACE
+	help
+	  The Service Locator provides a library to retrieve location
+	  information given a service identifier. Location here translates
+	  to what process domain exports the service, and which subsystem
+	  that process domain will execute in.
+
 config MSM_HVC
 	bool "MSM Hypervisor Call Support"
 	help

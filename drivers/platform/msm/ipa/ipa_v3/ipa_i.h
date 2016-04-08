@@ -49,6 +49,9 @@
 #define IPA_DL_CHECKSUM_LENGTH (8)
 #define IPA_NUM_DESC_PER_SW_TX (3)
 #define IPA_GENERIC_RX_POOL_SZ 192
+#define IPA_UC_FINISH_MAX 6
+#define IPA_UC_WAIT_MIN_SLEEP 1000
+#define IPA_UC_WAII_MAX_SLEEP 1200
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 #define __FILENAME__ \
@@ -1385,6 +1388,14 @@ struct ipa3_uc_ctx {
 	u32 uc_status;
 	u32 uc_error_type;
 	u32 uc_error_timestamp;
+	phys_addr_t rdy_ring_base_pa;
+	phys_addr_t rdy_ring_rp_pa;
+	u32 rdy_ring_size;
+	phys_addr_t rdy_comp_ring_base_pa;
+	phys_addr_t rdy_comp_ring_wp_pa;
+	u32 rdy_comp_ring_size;
+	u32 *rdy_ring_rp_va;
+	u32 *rdy_comp_ring_wp_va;
 };
 
 /**
@@ -1514,6 +1525,7 @@ struct ipa3_ready_cb_info {
  * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
  * @logbuf: ipc log buffer for high priority messages
  * @logbuf_low: ipc log buffer for low priority messages
+ * @ipa_wdi2: using wdi-2.0
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
@@ -1610,6 +1622,7 @@ struct ipa3_context {
 	bool use_ipa_teth_bridge;
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
+	bool ipa_wdi2;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa3_stats stats;
 	void *smem_pipe_mem;
@@ -1685,6 +1698,7 @@ struct ipa3_plat_drv_res {
 	u32 ee;
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
+	bool ipa_wdi2;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
@@ -2086,20 +2100,6 @@ void ipa3_set_client(int index, enum ipacm_client_enum client, bool uplink);
 enum ipacm_client_enum ipa3_get_client(int pipe_idx);
 
 bool ipa3_get_client_uplink(int pipe_idx);
-
-/*
- * ODU bridge
- */
-
-int ipa3_odu_bridge_init(struct odu_bridge_params *params);
-
-int ipa3_odu_bridge_connect(void);
-
-int ipa3_odu_bridge_disconnect(void);
-
-int ipa3_odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata);
-
-int ipa3_odu_bridge_cleanup(void);
 
 /*
  * IPADMA

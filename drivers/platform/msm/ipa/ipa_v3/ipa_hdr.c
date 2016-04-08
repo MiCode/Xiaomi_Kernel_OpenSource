@@ -657,7 +657,11 @@ int __ipa3_del_hdr(u32 hdr_hdl)
 		return -EINVAL;
 	}
 
-	IPADBG("del hdr of sz=%d hdr_cnt=%d ofst=%d\n", entry->hdr_len,
+	if (entry->is_hdr_proc_ctx)
+		IPADBG("del hdr of sz=%d hdr_cnt=%d phys_base=%pa\n",
+			entry->hdr_len, htbl->hdr_cnt, &entry->phys_base);
+	else
+		IPADBG("del hdr of sz=%d hdr_cnt=%d ofst=%d\n", entry->hdr_len,
 			htbl->hdr_cnt, entry->offset_entry->offset);
 
 	if (--entry->ref_cnt) {

@@ -1681,13 +1681,14 @@ static u32 find_voltage(struct clk_osm *c, unsigned long rate)
 	return -EINVAL;
 }
 
-static int add_opp(struct clk_osm *c, struct device *dev,
-	   unsigned long max_rate, unsigned long min_rate)
+static int add_opp(struct clk_osm *c, struct device *dev)
 {
 	unsigned long rate = 0;
 	u32 uv;
 	long rc;
-	int j = 1;
+	int j = 0;
+	unsigned long min_rate = c->c.fmax[0];
+	unsigned long max_rate = c->c.fmax[c->c.num_fmax - 1];
 
 	while (1) {
 		rate = c->c.fmax[j++];
@@ -1712,11 +1713,15 @@ static int add_opp(struct clk_osm *c, struct device *dev,
 		if (rate == min_rate)
 			pr_info("Set OPP pair (%lu Hz, %d uv) on %s\n",
 				rate, uv, dev_name(dev));
-		if (rate == max_rate) {
+
+		if (rate == max_rate && max_rate != min_rate) {
 			pr_info("Set OPP pair (%lu Hz, %d uv) on %s\n",
 				rate, uv, dev_name(dev));
 			break;
 		}
+
+		if (min_rate == max_rate)
+			break;
 	}
 
 	return 0;
@@ -1762,15 +1767,11 @@ static void populate_opp_table(struct platform_device *pdev)
 
 	for_each_possible_cpu(cpu) {
 		if (logical_cpu_to_clk(cpu) == &pwrcl_clk.c) {
-			WARN(add_opp(&pwrcl_clk, get_cpu_device(cpu),
-			     pwrcl_clk.c.fmax[pwrcl_clk.c.num_fmax - 1],
-			     pwrcl_clk.c.fmax[1]),
+			WARN(add_opp(&pwrcl_clk, get_cpu_device(cpu)),
 			     "Failed to add OPP levels for power cluster\n");
 		}
 		if (logical_cpu_to_clk(cpu) == &perfcl_clk.c) {
-			WARN(add_opp(&perfcl_clk, get_cpu_device(cpu),
-			     perfcl_clk.c.fmax[perfcl_clk.c.num_fmax - 1],
-			     perfcl_clk.c.fmax[1]),
+			WARN(add_opp(&perfcl_clk, get_cpu_device(cpu)),
 			     "Failed to add OPP levels for perf cluster\n");
 		}
 	}

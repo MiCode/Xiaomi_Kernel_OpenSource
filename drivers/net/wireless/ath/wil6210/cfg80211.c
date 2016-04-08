@@ -82,6 +82,12 @@ static const u32 wil_cipher_suites[] = {
 	WLAN_CIPHER_SUITE_GCMP,
 };
 
+static const char * const key_usage_str[] = {
+	[WMI_KEY_USE_PAIRWISE]	= "PTK",
+	[WMI_KEY_USE_RX_GROUP]	= "RX_GTK",
+	[WMI_KEY_USE_TX_GROUP]	= "TX_GTK",
+};
+
 int wil_iftype_nl2wmi(enum nl80211_iftype type)
 {
 	static const struct {
@@ -113,7 +119,7 @@ int wil_cid_fill_sinfo(struct wil6210_priv *wil, int cid,
 		.interval_usec = 0,
 	};
 	struct {
-		struct wil6210_mbox_hdr_wmi wmi;
+		struct wmi_cmd_hdr wmi;
 		struct wmi_notify_req_done_event evt;
 	} __packed reply;
 	struct wil_net_stats *stats = &wil->sta[cid].stats;
@@ -313,6 +319,7 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 	mod_timer(&wil->scan_timer, jiffies + WIL6210_SCAN_TO);
 
 	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd.scan_type = WMI_ACTIVE_SCAN;
 	cmd.cmd.num_channels = 0;
 	n = min(request->n_channels, 4U);
 	for (i = 0; i < n; i++) {
@@ -339,6 +346,11 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 	rc = wmi_set_ie(wil, WMI_FRAME_PROBE_REQ, request->ie_len, request->ie);
 	if (rc)
 		goto out;
+
+	if (wil->discovery_mode && cmd.cmd.scan_type == WMI_ACTIVE_SCAN) {
+		cmd.cmd.discovery_mode = 1;
+		wil_dbg_misc(wil, "active scan with discovery_mode=1\n");
+	}
 
 	rc = wmi_send(wil, WMI_START_SCAN_CMDID, &cmd, sizeof(cmd.cmd) +
 			cmd.cmd.num_channels * sizeof(cmd.cmd.channel_list[0]));
@@ -421,6 +433,11 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 			NULL;
 	if (sme->privacy && !rsn_eid)
 		wil_info(wil, "WSC connection\n");
+
+	if (sme->pbss) {
+		wil_err(wil, "connect - PBSS not yet supported\n");
+		return -EOPNOTSUPP;
+	}
 
 	bss = cfg80211_get_bss(wiphy, sme->channel, sme->bssid,
 			       sme->ssid, sme->ssid_len,
@@ -535,7 +552,18 @@ static int wil_cfg80211_disconnect(struct wiphy *wiphy,
 
 	wil_dbg_misc(wil, "%s(reason=%d)\n", __func__, reason_code);
 
-	rc = wmi_send(wil, WMI_DISCONNECT_CMDID, NULL, 0);
+	if (!(test_bit(wil_status_fwconnecting, wil->status) ||
+	      test_bit(wil_status_fwconnected, wil->status))) {
+		wil_err(wil, "%s: Disconnect was called while disconnected\n",
+			__func__);
+		return 0;
+	}
+
+	rc = wmi_call(wil, WMI_DISCONNECT_CMDID, NULL, 0,
+		      WMI_DISCONNECT_EVENTID, NULL, 0,
+		      WIL6210_DISCONNECT_TO_MS);
+	if (rc)
+		wil_err(wil, "%s: disconnect error %d\n", __func__, rc);
 
 	return rc;
 }
@@ -552,7 +580,7 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	struct ieee80211_mgmt *mgmt_frame = (void *)buf;
 	struct wmi_sw_tx_req_cmd *cmd;
 	struct {
-		struct wil6210_mbox_hdr_wmi wmi;
+		struct wmi_cmd_hdr wmi;
 		struct wmi_sw_tx_complete_event evt;
 	} __packed evt;
 
@@ -594,11 +622,6 @@ static enum wmi_key_usage wil_detect_key_usage(struct wil6210_priv *wil,
 {
 	struct wireless_dev *wdev = wil->wdev;
 	enum wmi_key_usage rc;
-	static const char * const key_usage_str[] = {
-		[WMI_KEY_USE_PAIRWISE]	= "WMI_KEY_USE_PAIRWISE",
-		[WMI_KEY_USE_RX_GROUP]	= "WMI_KEY_USE_RX_GROUP",
-		[WMI_KEY_USE_TX_GROUP]	= "WMI_KEY_USE_TX_GROUP",
-	};
 
 	if (pairwise) {
 		rc = WMI_KEY_USE_PAIRWISE;
@@ -622,20 +645,86 @@ static enum wmi_key_usage wil_detect_key_usage(struct wil6210_priv *wil,
 	return rc;
 }
 
+static struct wil_tid_crypto_rx_single *
+wil_find_crypto_ctx(struct wil6210_priv *wil, u8 key_index,
+		    enum wmi_key_usage key_usage, const u8 *mac_addr)
+{
+	int cid = -EINVAL;
+	int tid = 0;
+	struct wil_sta_info *s;
+	struct wil_tid_crypto_rx *c;
+
+	if (key_usage == WMI_KEY_USE_TX_GROUP)
+		return NULL; /* not needed */
+
+	/* supplicant provides Rx group key in STA mode with NULL MAC address */
+	if (mac_addr)
+		cid = wil_find_cid(wil, mac_addr);
+	else if (key_usage == WMI_KEY_USE_RX_GROUP)
+		cid = wil_find_cid_by_idx(wil, 0);
+	if (cid < 0) {
+		wil_err(wil, "No CID for %pM %s[%d]\n", mac_addr,
+			key_usage_str[key_usage], key_index);
+		return ERR_PTR(cid);
+	}
+
+	s = &wil->sta[cid];
+	if (key_usage == WMI_KEY_USE_PAIRWISE)
+		c = &s->tid_crypto_rx[tid];
+	else
+		c = &s->group_crypto_rx;
+
+	return &c->key_id[key_index];
+}
+
 static int wil_cfg80211_add_key(struct wiphy *wiphy,
 				struct net_device *ndev,
 				u8 key_index, bool pairwise,
 				const u8 *mac_addr,
 				struct key_params *params)
 {
+	int rc;
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 	enum wmi_key_usage key_usage = wil_detect_key_usage(wil, pairwise);
+	struct wil_tid_crypto_rx_single *cc = wil_find_crypto_ctx(wil,
+								  key_index,
+								  key_usage,
+								  mac_addr);
 
-	wil_dbg_misc(wil, "%s(%pM[%d] %s)\n", __func__, mac_addr, key_index,
-		     pairwise ? "PTK" : "GTK");
+	wil_dbg_misc(wil, "%s(%pM %s[%d] PN %*phN)\n", __func__,
+		     mac_addr, key_usage_str[key_usage], key_index,
+		     params->seq_len, params->seq);
 
-	return wmi_add_cipher_key(wil, key_index, mac_addr, params->key_len,
-				  params->key, key_usage);
+	if (IS_ERR(cc)) {
+		wil_err(wil, "Not connected, %s(%pM %s[%d] PN %*phN)\n",
+			__func__, mac_addr, key_usage_str[key_usage], key_index,
+			params->seq_len, params->seq);
+		return -EINVAL;
+	}
+
+	if (cc)
+		cc->key_set = false;
+
+	if (params->seq && params->seq_len != IEEE80211_GCMP_PN_LEN) {
+		wil_err(wil,
+			"Wrong PN len %d, %s(%pM %s[%d] PN %*phN)\n",
+			params->seq_len, __func__, mac_addr,
+			key_usage_str[key_usage], key_index,
+			params->seq_len, params->seq);
+		return -EINVAL;
+	}
+
+	rc = wmi_add_cipher_key(wil, key_index, mac_addr, params->key_len,
+				params->key, key_usage);
+	if ((rc == 0) && cc) {
+		if (params->seq)
+			memcpy(cc->pn, params->seq, IEEE80211_GCMP_PN_LEN);
+		else
+			memset(cc->pn, 0, IEEE80211_GCMP_PN_LEN);
+		cc->key_set = true;
+	}
+
+	return rc;
 }
 
 static int wil_cfg80211_del_key(struct wiphy *wiphy,
@@ -645,9 +734,20 @@ static int wil_cfg80211_del_key(struct wiphy *wiphy,
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 	enum wmi_key_usage key_usage = wil_detect_key_usage(wil, pairwise);
+	struct wil_tid_crypto_rx_single *cc = wil_find_crypto_ctx(wil,
+								  key_index,
+								  key_usage,
+								  mac_addr);
 
-	wil_dbg_misc(wil, "%s(%pM[%d] %s)\n", __func__, mac_addr, key_index,
-		     pairwise ? "PTK" : "GTK");
+	wil_dbg_misc(wil, "%s(%pM %s[%d])\n", __func__, mac_addr,
+		     key_usage_str[key_usage], key_index);
+
+	if (IS_ERR(cc))
+		wil_info(wil, "Not connected, %s(%pM %s[%d])\n", __func__,
+			 mac_addr, key_usage_str[key_usage], key_index);
+
+	if (!IS_ERR_OR_NULL(cc))
+		cc->key_set = false;
 
 	return wmi_del_cipher_key(wil, key_index, mac_addr, key_usage);
 }
@@ -936,6 +1036,11 @@ static int wil_cfg80211_start_ap(struct wiphy *wiphy,
 	if (!channel) {
 		wil_err(wil, "AP: No channel???\n");
 		return -EINVAL;
+	}
+
+	if (info->pbss) {
+		wil_err(wil, "AP: PBSS not yet supported\n");
+		return -EOPNOTSUPP;
 	}
 
 	switch (info->hidden_ssid) {
