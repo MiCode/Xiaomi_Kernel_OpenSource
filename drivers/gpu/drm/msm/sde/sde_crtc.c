@@ -808,6 +808,7 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 
 	sde_crtc->id = id;
 	sde_crtc->encoder = encoder;
+	spin_lock_init(&sde_crtc->lm_lock);
 
 	sde_crtc_install_properties(crtc, &crtc->base);
 
