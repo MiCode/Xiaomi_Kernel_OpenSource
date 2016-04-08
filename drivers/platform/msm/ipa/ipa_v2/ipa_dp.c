@@ -2115,7 +2115,6 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 	int pad_len_byte;
 	int len;
 	unsigned char *buf;
-	bool drop_packet;
 	int src_pipe;
 	unsigned int used = *(unsigned int *)skb->cb;
 	unsigned int used_align = ALIGN(used, 32);
@@ -2135,6 +2134,7 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 		memcpy(buf, sys->prev_skb->data, sys->len_partial);
 		sys->len_partial = 0;
 		sys->free_skb(sys->prev_skb);
+		sys->prev_skb = NULL;
 		goto begin;
 	}
 
@@ -2154,9 +2154,13 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 						skb2->len - sys->len_pad);
 					skb2->truesize = skb2->len +
 						sizeof(struct sk_buff);
-					sys->ep->client_notify(sys->ep->priv,
-						IPA_RECEIVE,
-						(unsigned long)(skb2));
+					if (sys->drop_packet)
+						dev_kfree_skb_any(skb2);
+					else
+						sys->ep->client_notify(
+							sys->ep->priv,
+							IPA_RECEIVE,
+							(unsigned long)(skb2));
 				} else {
 					IPAERR("copy expand failed\n");
 				}
@@ -2187,7 +2191,7 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 
 begin:
 	while (skb->len) {
-		drop_packet = false;
+		sys->drop_packet = false;
 		IPADBG("LEN_REM %d\n", skb->len);
 
 		if (skb->len < IPA_PKT_STATUS_SIZE) {
@@ -2226,9 +2230,11 @@ begin:
 		IPA_STATS_EXCP_CNT(status->exception,
 				ipa_ctx->stats.rx_excp_pkts);
 		if (status->endp_dest_idx >= ipa_ctx->ipa_num_pipes ||
-			status->endp_src_idx >= ipa_ctx->ipa_num_pipes ||
-			status->pkt_len > IPA_GENERIC_AGGR_BYTE_LIMIT * 1024) {
+			status->endp_src_idx >= ipa_ctx->ipa_num_pipes) {
 			IPAERR("status fields invalid\n");
+			IPAERR("STATUS opcode=%d src=%d dst=%d len=%d\n",
+				status->status_opcode, status->endp_src_idx,
+				status->endp_dest_idx, status->pkt_len);
 			WARN_ON(1);
 			BUG();
 		}
@@ -2270,7 +2276,7 @@ begin:
 			 * there was no route match.
 			 */
 			if (!status->exception && !status->route_match)
-				drop_packet = true;
+				sys->drop_packet = true;
 
 			if (skb->len == IPA_PKT_STATUS_SIZE &&
 					!status->exception) {
@@ -2292,8 +2298,7 @@ begin:
 			if (status->exception ==
 					IPA_HW_PKT_STATUS_EXCEPTION_DEAGGR) {
 				IPADBG("Dropping packet on DeAggr Exception\n");
-				skb_pull(skb, len + IPA_PKT_STATUS_SIZE);
-				continue;
+				sys->drop_packet = true;
 			}
 
 			skb2 = skb_clone(skb, GFP_KERNEL);
@@ -2311,9 +2316,20 @@ begin:
 							IPA_PKT_STATUS_SIZE);
 					IPADBG("rx avail for %d\n",
 							status->endp_dest_idx);
-					if (drop_packet)
+					if (sys->drop_packet) {
 						dev_kfree_skb_any(skb2);
-					else {
+					} else if (status->pkt_len >
+						   IPA_GENERIC_AGGR_BYTE_LIMIT *
+						   1024) {
+						IPAERR("packet size invalid\n");
+						IPAERR("STATUS opcode=%d\n",
+							status->status_opcode);
+						IPAERR("src=%d dst=%d len=%d\n",
+							status->endp_src_idx,
+							status->endp_dest_idx,
+							status->pkt_len);
+						BUG();
+					} else {
 					skb2->truesize = skb2->len +
 						sizeof(struct sk_buff) +
 						(ALIGN(len +
