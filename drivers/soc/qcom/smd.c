@@ -1332,6 +1332,13 @@ static void do_smd_probe(unsigned remote_pid)
 	}
 }
 
+static void remote_processed_close(struct smd_channel *ch)
+{
+	/* The remote side has observed our close, we can allow a reopen */
+	list_move(&ch->ch_list, &smd_ch_to_close_list);
+	queue_work(channel_close_wq, &finalize_channel_close_work);
+}
+
 static void smd_state_change(struct smd_channel *ch,
 			     unsigned last, unsigned next)
 {
@@ -1341,7 +1348,11 @@ static void smd_state_change(struct smd_channel *ch,
 
 	switch (next) {
 	case SMD_SS_OPENING:
-		if (ch->half_ch->get_state(ch->send) == SMD_SS_CLOSING ||
+		if (last == SMD_SS_OPENED &&
+		    ch->half_ch->get_state(ch->send) == SMD_SS_CLOSED) {
+			/* We missed the CLOSING and CLOSED states */
+			remote_processed_close(ch);
+		} else if (ch->half_ch->get_state(ch->send) == SMD_SS_CLOSING ||
 		    ch->half_ch->get_state(ch->send) == SMD_SS_CLOSED) {
 			ch->half_ch->set_tail(ch->recv, 0);
 			ch->half_ch->set_head(ch->send, 0);
@@ -1366,14 +1377,13 @@ static void smd_state_change(struct smd_channel *ch,
 			ch->pending_pkt_sz = 0;
 			ch->notify(ch->priv, SMD_EVENT_CLOSE);
 		}
+		/* We missed the CLOSING state */
+		if (ch->half_ch->get_state(ch->send) == SMD_SS_CLOSED)
+			remote_processed_close(ch);
 		break;
 	case SMD_SS_CLOSING:
-		if (ch->half_ch->get_state(ch->send) == SMD_SS_CLOSED) {
-			list_move(&ch->ch_list,
-					&smd_ch_to_close_list);
-			queue_work(channel_close_wq,
-						&finalize_channel_close_work);
-		}
+		if (ch->half_ch->get_state(ch->send) == SMD_SS_CLOSED)
+			remote_processed_close(ch);
 		break;
 	}
 }
