@@ -445,6 +445,7 @@ struct smb1351_charger {
 	bool			irq_waiting;
 	struct delayed_work	chg_remove_work;
 	struct delayed_work	hvdcp_det_work;
+	struct delayed_work	rerun_apsd_work;
 
 	/* status tracking */
 	bool			batt_full;
@@ -1928,18 +1929,22 @@ static void smb1351_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		pr_err("request ADC error\n");
 }
 
-static int rerun_apsd(struct smb1351_charger *chip)
+static void smb1351_rerun_apsd_work(struct work_struct *work)
 {
 	int rc;
+	struct smb1351_charger *chip = container_of(work,
+						struct smb1351_charger,
+						rerun_apsd_work.work);
 
-	pr_debug("Reruning APSD\nDisabling APSD\n");
+	pr_debug("Rerunning APSD\n");
 
+	chip->apsd_rerun = true;
 	rc = smb1351_masked_write(chip, CMD_HVDCP_REG, CMD_APSD_RE_RUN_BIT,
 						CMD_APSD_RE_RUN_BIT);
 	if (rc)
-		pr_err("Couldn't re-run APSD algo\n");
+		pr_err("Couldn't re-run APSD algo, rc = %d\n", rc);
 
-	return 0;
+	pm_relax(chip->dev);
 }
 
 static void smb1351_hvdcp_det_work(struct work_struct *work)
@@ -1952,7 +1957,7 @@ static void smb1351_hvdcp_det_work(struct work_struct *work)
 
 	rc = smb1351_read_reg(chip, STATUS_7_REG, &reg);
 	if (rc) {
-		pr_err("Couldn't read STATUS_7_REG rc == %d\n", rc);
+		pr_err("Couldn't read STATUS_7_REG rc = %d\n", rc);
 		goto end;
 	}
 	pr_debug("STATUS_7_REG = 0x%02X\n", reg);
@@ -1972,7 +1977,6 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 {
 	int rc;
 	u8 reg = 0;
-	union power_supply_propval prop = {0, };
 	enum power_supply_type type = POWER_SUPPLY_TYPE_UNKNOWN;
 
 	/*
@@ -2022,19 +2026,6 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		chip->chg_present = true;
 		pr_debug("APSD complete. USB type detected=%d chg_present=%d\n",
 						type, chip->chg_present);
-		if (!chip->battery_missing && !chip->apsd_rerun) {
-			if (type == POWER_SUPPLY_TYPE_USB) {
-				pr_debug("Setting usb psy dp=f dm=f SDP and rerun\n");
-				power_supply_set_dp_dm(chip->usb_psy,
-						POWER_SUPPLY_DP_DM_DPF_DMF);
-				chip->apsd_rerun = true;
-				rerun_apsd(chip);
-				return 0;
-			}
-			pr_debug("Set usb psy dp=f dm=f DCP and no rerun\n");
-			power_supply_set_dp_dm(chip->usb_psy,
-					POWER_SUPPLY_DP_DM_DPF_DMF);
-		}
 		/*
 		 * If defined force hvdcp 2p0 property,
 		 * we force to hvdcp 2p0 in the APSD handler.
@@ -2062,18 +2053,6 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		pr_debug("updating usb_psy present=%d\n", chip->chg_present);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
 		chip->apsd_rerun = false;
-	} else if (!chip->apsd_rerun) {
-		/* Handle Charger removal */
-		chip->usb_psy->get_property(chip->usb_psy,
-					POWER_SUPPLY_PROP_TYPE, &prop);
-		chip->chg_present = false;
-		power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_UNKNOWN);
-		power_supply_set_present(chip->usb_psy,
-						chip->chg_present);
-		pr_debug("Set usb psy dm=r df=r\n");
-		power_supply_set_dp_dm(chip->usb_psy,
-				POWER_SUPPLY_DP_DM_DPR_DMR);
 	}
 
 	return 0;
@@ -2084,8 +2063,9 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
  * we need to schedule a work for checking source detect status after
  * charger UV interrupt fired.
  */
-#define FIRST_CHECK_DELAY	100
-#define SECOND_CHECK_DELAY	1000
+#define FIRST_CHECK_DELAY_MS		100
+#define SECOND_CHECK_DELAY_MS		1000
+#define RERUN_CHG_REMOVE_DELAY_MS	1500
 static void smb1351_chg_remove_work(struct work_struct *work)
 {
 	int rc;
@@ -2101,7 +2081,15 @@ static void smb1351_chg_remove_work(struct work_struct *work)
 
 	if (!(reg & IRQ_SOURCE_DET_BIT)) {
 		pr_debug("chg removed\n");
-		smb1351_apsd_complete_handler(chip, 0);
+		chip->chg_present = false;
+		power_supply_set_supply_type(chip->usb_psy,
+						POWER_SUPPLY_TYPE_UNKNOWN);
+		power_supply_set_present(chip->usb_psy,
+						chip->chg_present);
+		pr_debug("Set usb psy dp=r dm=r\n");
+		power_supply_set_dp_dm(chip->usb_psy,
+				POWER_SUPPLY_DP_DM_DPR_DMR);
+		chip->apsd_rerun = false;
 	} else if (!chip->chg_remove_work_scheduled) {
 		chip->chg_remove_work_scheduled = true;
 		goto reschedule;
@@ -2116,11 +2104,13 @@ end:
 reschedule:
 	pr_debug("reschedule after 1s\n");
 	schedule_delayed_work(&chip->chg_remove_work,
-				msecs_to_jiffies(SECOND_CHECK_DELAY));
+				msecs_to_jiffies(SECOND_CHECK_DELAY_MS));
 }
 
 static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 {
+	int chg_remove_delay = FIRST_CHECK_DELAY_MS;
+
 	/* use this to detect USB insertion only if !apsd */
 	if (chip->disable_apsd) {
 		/*
@@ -2151,9 +2141,17 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 		cancel_delayed_work_sync(&chip->hvdcp_det_work);
 		pm_relax(chip->dev);
 		pr_debug("schedule charger remove worker\n");
-		schedule_delayed_work(&chip->chg_remove_work,
-					msecs_to_jiffies(FIRST_CHECK_DELAY));
+		if (chip->apsd_rerun)
+			chg_remove_delay = RERUN_CHG_REMOVE_DELAY_MS;
 		pm_stay_awake(chip->dev);
+		schedule_delayed_work(&chip->chg_remove_work,
+					msecs_to_jiffies(chg_remove_delay));
+	} else {
+		cancel_delayed_work_sync(&chip->chg_remove_work);
+		pm_relax(chip->dev);
+		pr_debug("Set usb psy dp=f dm=f\n");
+		power_supply_set_dp_dm(chip->usb_psy,
+					POWER_SUPPLY_DP_DM_DPF_DMF);
 	}
 
 	pr_debug("chip->chg_present = %d\n", chip->chg_present);
@@ -2806,6 +2804,7 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 	return 0;
 }
 
+#define RERUN_APSD_DELAY_MS	1000
 static int smb1351_determine_initial_state(struct smb1351_charger *chip)
 {
 	int rc;
@@ -2857,8 +2856,9 @@ static int smb1351_determine_initial_state(struct smb1351_charger *chip)
 	if (reg & IRQ_USBIN_UV_BIT) {
 		smb1351_usbin_uv_handler(chip, 1);
 	} else {
-		smb1351_usbin_uv_handler(chip, 0);
-		smb1351_apsd_complete_handler(chip, 1);
+		pm_stay_awake(chip->dev);
+		schedule_delayed_work(&chip->rerun_apsd_work,
+				msecs_to_jiffies(RERUN_APSD_DELAY_MS));
 	}
 
 	rc = smb1351_read_reg(chip, IRQ_G_REG, &reg);
@@ -2964,6 +2964,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	chip->fake_battery_soc = -EINVAL;
 	INIT_DELAYED_WORK(&chip->chg_remove_work, smb1351_chg_remove_work);
 	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smb1351_hvdcp_det_work);
+	INIT_DELAYED_WORK(&chip->rerun_apsd_work, smb1351_rerun_apsd_work);
 	device_init_wakeup(chip->dev, true);
 
 	/* probe the device to check if its actually connected */
