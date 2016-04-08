@@ -2019,15 +2019,15 @@ static int msm_cci_probe(struct platform_device *pdev)
 		goto cci_no_resource;
 	}
 	new_cci_dev->irq = msm_camera_get_irq(pdev, "cci");
-	CDBG("%s line %d cci irq start %d end %d\n", __func__,
-		__LINE__,
-		(int) new_cci_dev->irq->start,
-		(int) new_cci_dev->irq->end);
 	if (!new_cci_dev->irq) {
 		pr_err("%s: no irq resource?\n", __func__);
 		rc = -ENODEV;
 		goto cci_no_resource;
 	}
+	CDBG("%s line %d cci irq start %d end %d\n", __func__,
+		__LINE__,
+		(int) new_cci_dev->irq->start,
+		(int) new_cci_dev->irq->end);
 	rc = msm_camera_register_irq(pdev, new_cci_dev->irq,
 		msm_cci_irq, IRQF_TRIGGER_RISING, "cci", new_cci_dev);
 	if (rc < 0) {
