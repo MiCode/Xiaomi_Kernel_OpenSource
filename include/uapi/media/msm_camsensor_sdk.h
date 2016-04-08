@@ -367,9 +367,9 @@ struct region_params_t {
 
 struct reg_settings_t {
 	unsigned short reg_addr;
-	enum msm_actuator_addr_type addr_type;
+	enum msm_camera_i2c_reg_addr_type addr_type;
 	unsigned short reg_data;
-	enum msm_actuator_data_type data_type;
+	enum msm_camera_i2c_data_type data_type;
 	enum msm_actuator_i2c_operation i2c_operation;
 	unsigned int delay;
 };
