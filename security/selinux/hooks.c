@@ -1230,6 +1230,8 @@ static inline u16 socket_type_to_security_class(int family, int type, int protoc
 		return SECCLASS_KEY_SOCKET;
 	case PF_APPLETALK:
 		return SECCLASS_APPLETALK_SOCKET;
+	case PF_CAN:
+		return SECCLASS_CAN_SOCKET;
 	}
 
 	return SECCLASS_SOCKET;
