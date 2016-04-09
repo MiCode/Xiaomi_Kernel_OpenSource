@@ -94,6 +94,11 @@
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+				<&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					  "SpkrLeft", "SpkrRight";
 	};
 
 	cpe: qcom,msm-cpe-lsm {
@@ -105,13 +110,18 @@
 		compatible = "qcom,wcd9xxx-irq";
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		interrupt-names = "cdc-int";
+		interrupt-parent = <&tlmm>;
+		qcom,gpio-connect = <&tlmm 54 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_intr_default>;
 	};
 
 	clock_audio: audio_ext_clk {
 		status = "ok";
 		compatible = "qcom,audio-ref-clk";
+		qcom,audio-ref-clk-gpio = <&pmcobalt_gpios 13 0>;
 		clock-names = "osr_clk";
+		clocks = <&clock_gcc clk_div_clk1>;
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
 	};
@@ -136,6 +146,10 @@
 		pinctrl-names = "default", "idle";
 		pinctrl-0 = <&cdc_reset_active>;
 		pinctrl-1 = <&cdc_reset_sleep>;
+
+		clock-names = "wcd_clk", "wcd_native_clk";
+		clocks = <&clock_audio clk_audio_pmi_clk>,
+			 <&clock_audio clk_audio_ap_clk2>;
 
 		cdc-vdd-buck-supply = <&pmcobalt_s4>;
 		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
