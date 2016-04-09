@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 #include <linux/cpu.h>
 #include <linux/cpu_pm.h>
 #include <linux/platform_device.h>
+#include <linux/wait.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/watchdog.h>
@@ -77,7 +78,8 @@ struct msm_watchdog_data {
 	bool enabled;
 	struct task_struct *watchdog_task;
 	struct timer_list pet_timer;
-	struct completion pet_complete;
+	wait_queue_head_t pet_complete;
+	bool timer_expired;
 };
 
 /*
@@ -298,7 +300,8 @@ static void pet_task_wakeup(unsigned long data)
 {
 	struct msm_watchdog_data *wdog_dd =
 		(struct msm_watchdog_data *)data;
-	complete(&wdog_dd->pet_complete);
+	wdog_dd->timer_expired = true;
+	wake_up(&wdog_dd->pet_complete);
 }
 
 static __ref int watchdog_kthread(void *arg)
@@ -310,10 +313,11 @@ static __ref int watchdog_kthread(void *arg)
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 	while (!kthread_should_stop()) {
-		while (wait_for_completion_interruptible(
-			&wdog_dd->pet_complete) != 0)
+		while (wait_event_interruptible(
+			wdog_dd->pet_complete,
+			wdog_dd->timer_expired) != 0)
 			;
-		reinit_completion(&wdog_dd->pet_complete);
+		wdog_dd->timer_expired = false;
 		if (enable) {
 			delay_time = msecs_to_jiffies(wdog_dd->pet_time);
 			if (wdog_dd->do_ipi_ping)
@@ -561,7 +565,8 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &wdog_dd->panic_blk);
 	mutex_init(&wdog_dd->disable_lock);
-	init_completion(&wdog_dd->pet_complete);
+	init_waitqueue_head(&wdog_dd->pet_complete);
+	wdog_dd->timer_expired = false;
 	wake_up_process(wdog_dd->watchdog_task);
 	init_timer(&wdog_dd->pet_timer);
 	wdog_dd->pet_timer.data = (unsigned long)wdog_dd;
