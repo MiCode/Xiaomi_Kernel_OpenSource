@@ -54,6 +54,11 @@ static struct msm_watchdog_data *wdog_data;
 
 static int cpu_idle_pc_state[NR_CPUS];
 
+/*
+ * user_pet_enable:
+ *	Require userspace to write to a sysfs file every pet_time milliseconds.
+ *	Disabled by default on boot.
+ */
 struct msm_watchdog_data {
 	unsigned int __iomem phys_base;
 	size_t size;
@@ -75,11 +80,16 @@ struct msm_watchdog_data {
 	bool irq_ppi;
 	struct msm_watchdog_data __percpu **wdog_cpu_dd;
 	struct notifier_block panic_blk;
+
 	bool enabled;
+	bool user_pet_enabled;
+
 	struct task_struct *watchdog_task;
 	struct timer_list pet_timer;
 	wait_queue_head_t pet_complete;
+
 	bool timer_expired;
+	bool user_pet_complete;
 };
 
 /*
@@ -247,6 +257,65 @@ static ssize_t wdog_disable_set(struct device *dev,
 static DEVICE_ATTR(disable, S_IWUSR | S_IRUSR, wdog_disable_get,
 							wdog_disable_set);
 
+/*
+ * Userspace Watchdog Support:
+ * Write 1 to the "user_pet_enabled" file to enable hw support for a
+ * userspace watchdog.
+ * Userspace is required to pet the watchdog by continuing to write 1
+ * to this file in the expected interval.
+ * Userspace may disable this requirement by writing 0 to this same
+ * file.
+ */
+static void __wdog_user_pet(struct msm_watchdog_data *wdog_dd)
+{
+	wdog_dd->user_pet_complete = true;
+	wake_up(&wdog_dd->pet_complete);
+}
+
+static ssize_t wdog_user_pet_enabled_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret;
+	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",
+			wdog_dd->user_pet_enabled);
+	return ret;
+}
+
+static ssize_t wdog_user_pet_enabled_set(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int ret;
+	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
+
+	ret = strtobool(buf, &wdog_dd->user_pet_enabled);
+	if (ret) {
+		dev_err(wdog_dd->dev, "invalid user input\n");
+		return ret;
+	}
+
+	__wdog_user_pet(wdog_dd);
+
+	return count;
+}
+
+static DEVICE_ATTR(user_pet_enabled, S_IWUSR | S_IRUSR,
+		wdog_user_pet_enabled_get, wdog_user_pet_enabled_set);
+
+static ssize_t wdog_pet_time_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret;
+	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", wdog_dd->pet_time);
+	return ret;
+}
+
+static DEVICE_ATTR(pet_time, S_IRUSR, wdog_pet_time_get, NULL);
+
 static void pet_watchdog(struct msm_watchdog_data *wdog_dd)
 {
 	int slack, i, count, prev_count = 0;
@@ -317,11 +386,20 @@ static __ref int watchdog_kthread(void *arg)
 			wdog_dd->pet_complete,
 			wdog_dd->timer_expired) != 0)
 			;
+
+		if (wdog_dd->do_ipi_ping)
+			ping_other_cpus(wdog_dd);
+
+		while (wait_event_interruptible(
+			wdog_dd->pet_complete,
+			wdog_dd->user_pet_complete) != 0)
+			;
+
 		wdog_dd->timer_expired = false;
+		wdog_dd->user_pet_complete = !wdog_dd->user_pet_enabled;
+
 		if (enable) {
 			delay_time = msecs_to_jiffies(wdog_dd->pet_time);
-			if (wdog_dd->do_ipi_ping)
-				ping_other_cpus(wdog_dd);
 			pet_watchdog(wdog_dd);
 		}
 		/* Check again before scheduling *
@@ -513,12 +591,29 @@ out0:
 	return;
 }
 
+static int init_watchdog_sysfs(struct msm_watchdog_data *wdog_dd)
+{
+	int error = 0;
+
+	error |= device_create_file(wdog_dd->dev, &dev_attr_disable);
+
+	if (of_property_read_bool(wdog_dd->dev->of_node,
+					"qcom,userspace-watchdog")) {
+		error |= device_create_file(wdog_dd->dev, &dev_attr_pet_time);
+		error |= device_create_file(wdog_dd->dev,
+					    &dev_attr_user_pet_enabled);
+	}
+
+	if (error)
+		dev_err(wdog_dd->dev, "cannot create sysfs attribute\n");
+
+	return error;
+}
 
 static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 {
 	unsigned long delay_time;
 	uint32_t val;
-	int error;
 	u64 timeout;
 	int ret;
 
@@ -567,6 +662,8 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	mutex_init(&wdog_dd->disable_lock);
 	init_waitqueue_head(&wdog_dd->pet_complete);
 	wdog_dd->timer_expired = false;
+	wdog_dd->user_pet_complete = true;
+	wdog_dd->user_pet_enabled = false;
 	wake_up_process(wdog_dd->watchdog_task);
 	init_timer(&wdog_dd->pet_timer);
 	wdog_dd->pet_timer.data = (unsigned long)wdog_dd;
@@ -581,9 +678,9 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	wdog_dd->last_pet = sched_clock();
 	wdog_dd->enabled = true;
-	error = device_create_file(wdog_dd->dev, &dev_attr_disable);
-	if (error)
-		dev_err(wdog_dd->dev, "cannot create sysfs attribute\n");
+
+	init_watchdog_sysfs(wdog_dd);
+
 	if (wdog_dd->irq_ppi)
 		enable_percpu_irq(wdog_dd->bark_irq, 0);
 	if (ipi_opt_en)
