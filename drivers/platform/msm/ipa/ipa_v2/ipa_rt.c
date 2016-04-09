@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -660,7 +660,9 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	return 0;
 
 proc_err:
-	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
+	if (mem->size)
+		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
+			mem->phys_base);
 base_err:
 	dma_free_coherent(ipa_ctx->pdev, head->size, head->base,
 			head->phys_base);
