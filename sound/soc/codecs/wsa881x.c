@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include <linux/regmap.h>
 #include <linux/debugfs.h>
 #include <linux/soundwire/soundwire.h>
+#include <linux/mfd/msm-cdc-pinctrl.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -101,6 +102,7 @@ struct wsa881x_priv {
 	struct snd_info_entry *version_entry;
 	int state;
 	struct delayed_work ocp_ctl_work;
+	struct device_node *wsa_rst_np;
 };
 
 #define SWR_SLV_MAX_REG_ADDR	0x390
@@ -1130,13 +1132,31 @@ err:
 
 static int wsa881x_gpio_ctrl(struct wsa881x_priv *wsa881x, bool enable)
 {
+	int ret = 0;
+
 	if (wsa881x->pd_gpio < 0) {
 		dev_err(wsa881x->dev, "%s: gpio is not valid %d\n",
 			__func__, wsa881x->pd_gpio);
 		return -EINVAL;
 	}
-	gpio_direction_output(wsa881x->pd_gpio, enable);
-	return 0;
+
+	if (wsa881x->wsa_rst_np) {
+		if (enable)
+			ret = msm_cdc_pinctrl_select_active_state(
+							wsa881x->wsa_rst_np);
+		else
+			ret = msm_cdc_pinctrl_select_sleep_state(
+							wsa881x->wsa_rst_np);
+		if (ret != 0)
+			dev_err(wsa881x->dev,
+				"%s: Failed to turn state %d; ret=%d\n",
+				__func__, enable, ret);
+	} else {
+		if (gpio_is_valid(wsa881x->pd_gpio))
+			gpio_direction_output(wsa881x->pd_gpio, enable);
+	}
+
+	return ret;
 }
 
 static int wsa881x_gpio_init(struct swr_device *pdev)
@@ -1179,21 +1199,33 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 			__func__);
 		return -ENOMEM;
 	}
-	wsa881x->pd_gpio = of_get_named_gpio(pdev->dev.of_node,
-				"qcom,spkr-sd-n-gpio", 0);
-	if (wsa881x->pd_gpio < 0) {
-		dev_err(&pdev->dev, "%s: %s property is not found %d\n",
-			__func__, "qcom,spkr-sd-n-gpio", wsa881x->pd_gpio);
-		goto err;
+	wsa881x->wsa_rst_np = of_parse_phandle(pdev->dev.of_node,
+					     "qcom,spkr-sd-n-node", 0);
+	if (!wsa881x->wsa_rst_np) {
+		dev_dbg(&pdev->dev, "%s: Not using pinctrl, fallback to gpio\n",
+			__func__);
+		wsa881x->pd_gpio = of_get_named_gpio(pdev->dev.of_node,
+						     "qcom,spkr-sd-n-gpio", 0);
+		if (wsa881x->pd_gpio < 0) {
+			dev_err(&pdev->dev, "%s: %s property is not found %d\n",
+				__func__, "qcom,spkr-sd-n-gpio",
+				wsa881x->pd_gpio);
+			goto err;
+		}
+		dev_dbg(&pdev->dev, "%s: reset gpio %d\n", __func__,
+			wsa881x->pd_gpio);
 	}
-	dev_dbg(&pdev->dev, "%s: reset gpio %d\n", __func__, wsa881x->pd_gpio);
 	swr_set_dev_data(pdev, wsa881x);
 
 	wsa881x->swr_slave = pdev;
-	ret = wsa881x_gpio_init(pdev);
-	if (ret)
-		goto err;
+
+	if (!wsa881x->wsa_rst_np) {
+		ret = wsa881x_gpio_init(pdev);
+		if (ret)
+			goto err;
+	}
 	wsa881x_gpio_ctrl(wsa881x, true);
+
 	if (!debugfs_wsa881x_dent) {
 		dbgwsa881x = wsa881x;
 		debugfs_wsa881x_dent = debugfs_create_dir(

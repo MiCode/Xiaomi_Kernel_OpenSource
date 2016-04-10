@@ -725,6 +725,7 @@ config SND_SOC_WCD9335
 
 config SND_SOC_WSA881X
         tristate
+	select MSM_CDC_PINCTRL
 	select REGMAP_SWR
 
 config SND_SOC_WSA881X_ANALOG
