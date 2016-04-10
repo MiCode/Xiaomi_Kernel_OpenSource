@@ -9,4 +9,5 @@ header-y += g_printer.h
 header-y += gadgetfs.h
 header-y += midi.h
 header-y += tmc.h
+header-y += usb_ctrl_qti.h
 header-y += video.h
