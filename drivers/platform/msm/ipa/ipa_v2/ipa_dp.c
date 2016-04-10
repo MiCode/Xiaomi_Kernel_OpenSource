@@ -815,6 +815,11 @@ static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 {
 	int ret;
 
+	if (!sys->ep || !sys->ep->valid) {
+		IPAERR("EP Not Valid, no need to cleanup.\n");
+		return;
+	}
+
 	if (!atomic_read(&sys->curr_polling_state)) {
 		IPAERR("already in intr mode\n");
 		goto fail;
@@ -1427,8 +1432,11 @@ int ipa2_teardown_sys_pipe(u32 clnt_hdl)
 		} while (1);
 	}
 
-	if (IPA_CLIENT_IS_CONS(ep->client))
+	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
+		cancel_delayed_work_sync(&ep->sys->switch_to_intr_work);
+	}
+
 	flush_workqueue(ep->sys->wq);
 	sps_disconnect(ep->ep_hdl);
 	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
