@@ -46,7 +46,6 @@ static struct workqueue_struct *ipa_clnt_req_workqueue;
 static struct workqueue_struct *ipa_clnt_resp_workqueue;
 static void *curr_conn;
 static bool qmi_modem_init_fin, qmi_indication_fin;
-static struct work_struct ipa_qmi_service_init_work;
 static uint32_t ipa_wan_platform;
 struct ipa_qmi_context *ipa_qmi_ctx;
 static bool first_time_handshake;
@@ -871,7 +870,7 @@ static struct notifier_block ipa_q6_clnt_nb = {
 	.notifier_call = ipa_q6_clnt_svc_event_notify,
 };
 
-static void ipa_qmi_service_init_worker(struct work_struct *work)
+static void ipa_qmi_service_init_worker(void)
 {
 	int rc;
 
@@ -968,9 +967,7 @@ int ipa_qmi_service_init(uint32_t wan_platform_type)
 	atomic_set(&workqueues_stopped, 0);
 
 	if (0 == atomic_read(&ipa_qmi_initialized)) {
-		INIT_WORK(&ipa_qmi_service_init_work,
-			ipa_qmi_service_init_worker);
-		schedule_work(&ipa_qmi_service_init_work);
+		ipa_qmi_service_init_worker();
 	}
 	return 0;
 }
