@@ -100,7 +100,7 @@ Required properties:
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
-	"vdda18" : 1.8v high-voltage analog supply for SSPHY
+	"core" : high-voltage analog supply for SSPHY
  - qcom,vdd-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner
@@ -121,6 +121,9 @@ Optional properties:
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
  - qcom,emulation: Indicates that we are running on emulation platform.
+ - qcom,core-voltage-level: This property must be a list of three integer
+   values (no, min, max) where each value represents either a voltage in
+   microvolts or a value corresponding to voltage corner.
 
 Example:
 	ssphy0: ssphy@f9b38000 {

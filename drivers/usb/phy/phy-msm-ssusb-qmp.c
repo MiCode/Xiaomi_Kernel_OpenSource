@@ -26,12 +26,18 @@
 #include <linux/clk.h>
 #include <linux/clk/msm-clk.h>
 
+enum core_ldo_levels {
+	CORE_LEVEL_NONE = 0,
+	CORE_LEVEL_MIN,
+	CORE_LEVEL_MAX,
+};
+
 #define INIT_MAX_TIME_USEC			1000
 
-#define USB_SSPHY_1P8_VOL_MIN		1800000 /* uV */
-#define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
-#define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
-
+/* default CORE votlage and load values */
+#define USB_SSPHY_1P2_VOL_MIN		1200000 /* uV */
+#define USB_SSPHY_1P2_VOL_MAX		1200000 /* uV */
+#define USB_SSPHY_HPM_LOAD		23000	/* uA */
 
 /* USB3PHY_PCIE_USB3_PCS_PCS_STATUS bit */
 #define PHYSTATUS				BIT(6)
@@ -64,8 +70,9 @@ struct msm_ssphy_qmp {
 	void __iomem		*vls_clamp_reg;
 
 	struct regulator	*vdd;
-	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
+	struct regulator	*core_ldo;
+	int			core_voltage_levels[3];
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*aux_clk;
@@ -171,41 +178,44 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 		goto disable_regulators;
 
 
-	rc = regulator_set_load(phy->vdda18, USB_SSPHY_1P8_HPM_LOAD);
+	rc = regulator_set_load(phy->core_ldo, USB_SSPHY_HPM_LOAD);
 	if (rc < 0) {
-		dev_err(phy->phy.dev, "Unable to set HPM of vdda18\n");
+		dev_err(phy->phy.dev, "Unable to set HPM of core_ldo\n");
 		return rc;
 	}
 
-	rc = regulator_set_voltage(phy->vdda18, USB_SSPHY_1P8_VOL_MIN,
-						USB_SSPHY_1P8_VOL_MAX);
+	rc = regulator_set_voltage(phy->core_ldo,
+			phy->core_voltage_levels[CORE_LEVEL_MIN],
+			phy->core_voltage_levels[CORE_LEVEL_MAX]);
 	if (rc) {
-		dev_err(phy->phy.dev, "unable to set voltage for vdda18\n");
-		goto put_vdda18_lpm;
+		dev_err(phy->phy.dev, "unable to set voltage for core_ldo\n");
+		goto put_core_ldo_lpm;
 	}
 
-	rc = regulator_enable(phy->vdda18);
+	rc = regulator_enable(phy->core_ldo);
 	if (rc) {
-		dev_err(phy->phy.dev, "Unable to enable vdda18\n");
-		goto unset_vdda18;
+		dev_err(phy->phy.dev, "Unable to enable core_ldo\n");
+		goto unset_core_ldo;
 	}
 
 	return 0;
 
 disable_regulators:
-	rc = regulator_disable(phy->vdda18);
+	rc = regulator_disable(phy->core_ldo);
 	if (rc)
-		dev_err(phy->phy.dev, "Unable to disable vdda18\n");
+		dev_err(phy->phy.dev, "Unable to disable core_ldo\n");
 
-unset_vdda18:
-	rc = regulator_set_voltage(phy->vdda18, 0, USB_SSPHY_1P8_VOL_MAX);
+unset_core_ldo:
+	rc = regulator_set_voltage(phy->core_ldo,
+			phy->core_voltage_levels[CORE_LEVEL_NONE],
+			phy->core_voltage_levels[CORE_LEVEL_MAX]);
 	if (rc)
-		dev_err(phy->phy.dev, "unable to set voltage for vdda18\n");
+		dev_err(phy->phy.dev, "unable to set voltage for core_ldo\n");
 
-put_vdda18_lpm:
-	rc = regulator_set_load(phy->vdda18, 0);
+put_core_ldo_lpm:
+	rc = regulator_set_load(phy->core_ldo, 0);
 	if (rc < 0)
-		dev_err(phy->phy.dev, "Unable to set LPM of vdda18\n");
+		dev_err(phy->phy.dev, "Unable to set LPM of core_ldo\n");
 
 	return rc < 0 ? rc : 0;
 }
@@ -495,7 +505,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	struct msm_ssphy_qmp *phy;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret = 0, size = 0;
+	int ret = 0, size = 0, len;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy)
@@ -631,11 +641,36 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
-					 (u32 *) phy->vdd_levels,
-					 ARRAY_SIZE(phy->vdd_levels));
-	if (ret) {
-		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
+	/* Set default core voltage values */
+	phy->core_voltage_levels[CORE_LEVEL_NONE] = 0;
+	phy->core_voltage_levels[CORE_LEVEL_MIN] = USB_SSPHY_1P2_VOL_MIN;
+	phy->core_voltage_levels[CORE_LEVEL_MAX] = USB_SSPHY_1P2_VOL_MAX;
+
+	if (of_get_property(dev->of_node, "qcom,core-voltage-level", &len) &&
+		len == sizeof(phy->core_voltage_levels)) {
+		ret = of_property_read_u32_array(dev->of_node,
+				"qcom,core-voltage-level",
+				(u32 *)phy->core_voltage_levels,
+				len / sizeof(u32));
+		if (ret) {
+			dev_err(dev, "err qcom,core-voltage-level property\n");
+			goto err;
+		}
+	}
+
+	if (of_get_property(dev->of_node, "qcom,vdd-voltage-level", &len) &&
+		len == sizeof(phy->vdd_levels)) {
+		ret = of_property_read_u32_array(dev->of_node,
+				"qcom,vdd-voltage-level",
+				(u32 *) phy->vdd_levels,
+				len / sizeof(u32));
+		if (ret) {
+			dev_err(dev, "err qcom,vdd-voltage-level property\n");
+			goto err;
+		}
+	} else {
+		ret = -EINVAL;
+		dev_err(dev, "error invalid inputs for vdd-voltage-level\n");
 		goto err;
 	}
 
@@ -646,10 +681,10 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	phy->vdda18 = devm_regulator_get(dev, "vdda18");
-	if (IS_ERR(phy->vdda18)) {
-		dev_err(dev, "unable to get vdda18 supply\n");
-		ret = PTR_ERR(phy->vdda18);
+	phy->core_ldo = devm_regulator_get(dev, "core");
+	if (IS_ERR(phy->core_ldo)) {
+		dev_err(dev, "unable to get core ldo supply\n");
+		ret = PTR_ERR(phy->core_ldo);
 		goto err;
 	}
 
