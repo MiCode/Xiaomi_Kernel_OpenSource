@@ -538,7 +538,7 @@ static long msm_fd_private_ioctl(struct file *file, void *fh,
 	struct fd_ctx *ctx = msm_fd_ctx_from_fh(fh);
 	struct msm_fd_stats *stats;
 	int stats_idx;
-	int ret = -EINVAL;
+	int ret = 0;
 	int i;
 
 	switch (cmd) {
