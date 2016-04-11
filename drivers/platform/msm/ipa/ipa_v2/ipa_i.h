@@ -1111,10 +1111,12 @@ struct ipa_uc_wdi_ctx {
  * @dec_clients: true if need to decrease active clients count
  * @eot_activity: represent EOT interrupt activity to determine to reset
  *  the inactivity timer
+ * @sps_pm_lock: Lock to protect the sps_pm functionality.
  */
 struct ipa_sps_pm {
 	atomic_t dec_clients;
 	atomic_t eot_activity;
+	struct mutex sps_pm_lock;
 };
 
 /**
