@@ -454,7 +454,7 @@ static int rmnet_vnd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	default:
-		LOGH("Unkown IOCTL 0x%08X", cmd);
+		LOGM("Unknown IOCTL 0x%08X", cmd);
 		rc = -EINVAL;
 	}
 
