@@ -3486,6 +3486,10 @@ static int synaptics_dsx_regulator_configure(struct synaptics_rmi4_data
 			*rmi4_data)
 {
 	int retval;
+	u32 voltage_supply[2];
+	u32 current_supply;
+
+	/* Regulator VDD */
 	rmi4_data->regulator_vdd = regulator_get(rmi4_data->pdev->dev.parent,
 			"vdd");
 	if (IS_ERR(rmi4_data->regulator_vdd)) {
@@ -3495,6 +3499,50 @@ static int synaptics_dsx_regulator_configure(struct synaptics_rmi4_data
 		retval = PTR_ERR(rmi4_data->regulator_vdd);
 		return retval;
 	}
+
+	/* Read and set vdd regulator voltage and current */
+	retval = of_property_read_u32(rmi4_data->pdev->dev.parent->of_node,
+				"synaptics,vdd-current", &current_supply);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to get regulator vdd current\n",
+				__func__);
+		goto err_vdd_regulator;
+	}
+	rmi4_data->regulator_vdd_current = current_supply;
+
+	retval = regulator_set_load(rmi4_data->regulator_vdd,
+			rmi4_data->regulator_vdd_current);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to set regulator current vdd\n",
+				__func__);
+		goto err_vdd_regulator;
+	}
+
+	retval = of_property_read_u32_array(
+				rmi4_data->pdev->dev.parent->of_node,
+				"synaptics,vdd-voltage", voltage_supply, 2);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to get regulator vdd voltage\n",
+				__func__);
+		goto err_vdd_regulator;
+	}
+	rmi4_data->regulator_vdd_vmin = voltage_supply[0];
+	rmi4_data->regulator_vdd_vmax = voltage_supply[1];
+
+	retval = regulator_set_voltage(rmi4_data->regulator_vdd,
+			rmi4_data->regulator_vdd_vmin,
+			rmi4_data->regulator_vdd_vmax);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to set regulator voltage vdd\n",
+				__func__);
+		goto err_vdd_regulator;
+	}
+
+	/* Regulator AVDD */
 	rmi4_data->regulator_avdd = regulator_get(rmi4_data->pdev->dev.parent,
 			"avdd");
 	if (IS_ERR(rmi4_data->regulator_avdd)) {
@@ -3502,11 +3550,59 @@ static int synaptics_dsx_regulator_configure(struct synaptics_rmi4_data
 				"%s: Failed to get regulator avdd\n",
 				__func__);
 		retval = PTR_ERR(rmi4_data->regulator_avdd);
-		regulator_put(rmi4_data->regulator_vdd);
-		return retval;
+		goto err_vdd_regulator;
+	}
+
+	/* Read and set avdd regulator voltage and current */
+	retval = of_property_read_u32(rmi4_data->pdev->dev.parent->of_node,
+				"synaptics,avdd-current", &current_supply);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to get regulator avdd current\n",
+				__func__);
+		goto err_avdd_regulator;
+	}
+	rmi4_data->regulator_avdd_current = current_supply;
+
+	retval = regulator_set_load(rmi4_data->regulator_avdd,
+			rmi4_data->regulator_avdd_current);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to set regulator current avdd\n",
+				__func__);
+		goto err_avdd_regulator;
+	}
+
+	retval = of_property_read_u32_array(
+				rmi4_data->pdev->dev.parent->of_node,
+				"synaptics,avdd-voltage", voltage_supply, 2);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to get regulator avdd voltage\n",
+				__func__);
+		goto err_avdd_regulator;
+	}
+	rmi4_data->regulator_avdd_vmin = voltage_supply[0];
+	rmi4_data->regulator_avdd_vmax = voltage_supply[1];
+
+	retval = regulator_set_voltage(rmi4_data->regulator_avdd,
+			rmi4_data->regulator_avdd_vmin,
+			rmi4_data->regulator_avdd_vmax);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+			"%s: Failed to set regultor voltage avdd\n",
+			__func__);
+		goto err_avdd_regulator;
 	}
 
 	return 0;
+
+err_avdd_regulator:
+	regulator_put(rmi4_data->regulator_avdd);
+err_vdd_regulator:
+	regulator_put(rmi4_data->regulator_vdd);
+
+	return retval;
 };
 
 static int synaptics_dsx_regulator_enable(struct synaptics_rmi4_data
