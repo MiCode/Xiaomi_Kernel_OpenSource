@@ -155,8 +155,6 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 		host->ops->dump_vendor_regs(host);
 	sdhci_dump_state(host);
 	pr_info(DRIVER_NAME ": ===========================================\n");
-	if (host->slot_no == 1)
-		BUG_ON(1);
 }
 
 /*****************************************************************************\
