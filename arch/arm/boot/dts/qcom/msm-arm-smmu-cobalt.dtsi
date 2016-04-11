@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/clock/msm-clocks-cobalt.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 &soc {
@@ -150,6 +151,7 @@
 			"mmss_bimc_smmu_ahb_clk",
 			"mmss_bimc_smmu_axi_clk";
 		#clock-cells = <1>;
+		qcom,bus-master-id = <MSM_BUS_MNOC_BIMC_MAS>;
 		/*
 		 * The iommu test framework requires at least one iommu
 		 * client to populate debugfs. The presence of a device
