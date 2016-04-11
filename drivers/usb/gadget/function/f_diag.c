@@ -657,7 +657,16 @@ static void diag_function_disable(struct usb_function *f)
 
 static void diag_free_func(struct usb_function *f)
 {
-	kfree(func_to_diag(f));
+	struct diag_context *ctxt = func_to_diag(f);
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctxt->lock, flags);
+	list_del(&ctxt->list_item);
+	if (kref_put(&ctxt->kref, diag_context_release))
+		/* diag_context_release called spin_unlock already */
+		local_irq_restore(flags);
+	else
+		spin_unlock_irqrestore(&ctxt->lock, flags);
 }
 
 static int diag_function_set_alt(struct usb_function *f,
@@ -734,16 +743,11 @@ static void diag_function_unbind(struct usb_configuration *c,
 	 */
 	if (ctxt->ch && ctxt->ch->priv_usb == ctxt)
 		ctxt->ch->priv_usb = NULL;
-	list_del(&ctxt->list_item);
-	/* Free any pending USB requests from last session */
-	spin_lock_irqsave(&ctxt->lock, flags);
-	free_reqs(ctxt);
 
-	if (kref_put(&ctxt->kref, diag_context_release))
-		/* diag_context_release called spin_unlock already */
-		local_irq_restore(flags);
-	else
-		spin_unlock_irqrestore(&ctxt->lock, flags);
+	spin_lock_irqsave(&ctxt->lock, flags);
+	/* Free any pending USB requests from last session */
+	free_reqs(ctxt);
+	spin_unlock_irqrestore(&ctxt->lock, flags);
 }
 
 static int diag_function_bind(struct usb_configuration *c,
