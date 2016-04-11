@@ -572,6 +572,7 @@ static void qpnp_lpg_calc_pwm_value(struct _qpnp_pwm_config *pwm_config,
 	max_pwm_value = (1 << pwm_config->period.pwm_size) - 1;
 	if (pwm_config->pwm_value > max_pwm_value)
 		pwm_config->pwm_value = max_pwm_value;
+	pr_debug("pwm_value: %d\n", pwm_config->pwm_value);
 }
 
 static int qpnp_lpg_change_table(struct qpnp_pwm_chip *chip,
@@ -690,6 +691,7 @@ static int qpnp_lpg_save_pwm_value(struct qpnp_pwm_chip *chip)
 	value = pwm_config->pwm_value;
 	mask = QPNP_PWM_VALUE_LSB_MASK;
 
+	pr_debug("pwm_lsb value:%d\n", value & mask);
 	rc = qpnp_lpg_save_and_write(value, mask,
 			&chip->qpnp_lpg_registers[QPNP_PWM_VALUE_LSB],
 			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
@@ -702,6 +704,7 @@ static int qpnp_lpg_save_pwm_value(struct qpnp_pwm_chip *chip)
 
 	mask = QPNP_PWM_VALUE_MSB_MASK;
 
+	pr_debug("pwm_msb value:%d\n", value);
 	rc = qpnp_lpg_save_and_write(value, mask,
 			&chip->qpnp_lpg_registers[QPNP_PWM_VALUE_MSB],
 			SPMI_LPG_REG_ADDR(lpg_config->base_addr,
@@ -745,6 +748,8 @@ static int qpnp_lpg_configure_pwm(struct qpnp_pwm_chip *chip)
 	int			rc;
 	u8			value, mask;
 
+	pr_debug("pwm_size_clk: %d\n",
+		chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]);
 	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
 		SPMI_LPG_REG_ADDR(lpg_config->base_addr, QPNP_LPG_PWM_SIZE_CLK),
 		&chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK], 1);
@@ -752,6 +757,8 @@ static int qpnp_lpg_configure_pwm(struct qpnp_pwm_chip *chip)
 	if (rc)
 		return rc;
 
+	pr_debug("pwm_freq_prediv_clk: %d\n",
+		chip->qpnp_lpg_registers[QPNP_LPG_PWM_FREQ_PREDIV_CLK]);
 	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl, chip->spmi_dev->sid,
 		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 		QPNP_LPG_PWM_FREQ_PREDIV_CLK),
@@ -764,6 +771,7 @@ static int qpnp_lpg_configure_pwm(struct qpnp_pwm_chip *chip)
 	mask = QPNP_EN_GLITCH_REMOVAL_MASK | QPNP_EN_FULL_SCALE_MASK |
 			QPNP_EN_PHASE_STAGGER_MASK | QPNP_PHASE_STAGGER_MASK;
 
+	pr_debug("pwm_type_config: %d\n", value);
 	return qpnp_lpg_save_and_write(value, mask,
 		&chip->qpnp_lpg_registers[QPNP_LPG_PWM_TYPE_CONFIG],
 		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
@@ -1154,6 +1162,7 @@ static int qpnp_lpg_configure_pwm_state(struct qpnp_pwm_chip *chip,
 			pr_err("Failed to configure TEST mode\n");
 	}
 
+	pr_debug("pwm_enable_control: %d\n", value);
 	rc = qpnp_lpg_save_and_write(value, mask,
 		&chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
 		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
@@ -1686,6 +1695,17 @@ static int qpnp_parse_pwm_dt_config(struct device_node *of_pwm_node,
 		return rc;
 	}
 
+	if (period < chip->pwm_config.pwm_duty || period > PM_PWM_PERIOD_MAX ||
+		period < PM_PWM_PERIOD_MIN) {
+		pr_err("Invalid pwm period(%d) or duty(%d)\n", period,
+			chip->pwm_config.pwm_duty);
+		return -EINVAL;
+	}
+
+	qpnp_lpg_calc_period(LVL_USEC, period, chip);
+	qpnp_lpg_save_period(chip);
+	chip->pwm_config.pwm_period = period;
+
 	rc = _pwm_config(chip, LVL_USEC, chip->pwm_config.pwm_duty, period);
 
 	return rc;
@@ -2055,8 +2075,10 @@ static int qpnp_pwm_probe(struct spmi_device *spmi)
 
 	rc = qpnp_parse_dt_config(spmi, pwm_chip);
 
-	if (rc)
+	if (rc) {
+		pr_err("Failed parsing DT parameters, rc=%d\n", rc);
 		goto failed_config;
+	}
 
 	pwm_chip->chip.dev = &spmi->dev;
 	pwm_chip->chip.ops = &qpnp_pwm_ops;
@@ -2072,6 +2094,8 @@ static int qpnp_pwm_probe(struct spmi_device *spmi)
 	if (pwm_chip->channel_owner)
 		pwm_chip->chip.pwms[0].label = pwm_chip->channel_owner;
 
+	pr_debug("PWM device sid:%d channel:%d probed successfully\n",
+		spmi->sid, pwm_chip->channel_id);
 	return 0;
 
 failed_insert:
