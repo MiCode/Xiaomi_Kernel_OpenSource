@@ -1,6 +1,6 @@
 /*
  *
- *  Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *  Copyright (C) 2000-2004 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
@@ -134,6 +134,8 @@ static void free_memmap(unsigned long start_pfn, unsigned long end_pfn)
 	struct page *start_pg, *end_pg;
 	unsigned long pg, pgend;
 
+	start_pfn = ALIGN(start_pfn, pageblock_nr_pages);
+	end_pfn = round_down(end_pfn, pageblock_nr_pages);
 	/*
 	 * Convert start_pfn/end_pfn to a struct page pointer.
 	 */
