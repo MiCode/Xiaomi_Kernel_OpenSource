@@ -1219,7 +1219,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.desc.size = sys_in->desc_fifo_sz;
 		ep->connect.desc.base = dma_alloc_coherent(ipa3_ctx->pdev,
 				ep->connect.desc.size, &dma_addr, 0);
-		if (!ipa3_ctx->smmu_present) {
+		if (ipa3_ctx->smmu_s1_bypass) {
 			ep->connect.desc.phys_base = dma_addr;
 		} else {
 			ep->connect.desc.iova = dma_addr;
