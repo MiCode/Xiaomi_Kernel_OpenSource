@@ -168,7 +168,7 @@
 			qcom,wave-samp-rep-cnt = <1>;
 			qcom,lra-auto-res-mode="qwd";
 			qcom,lra-high-z="opt1";
-			qcom,lra-res-cal-period = <0>;
+			qcom,lra-res-cal-period = <4>;
 			qcom,correct-lra-drive-freq;
 			qcom,misc-trim-error-rc19p2-clk-reg-present;
 		};
