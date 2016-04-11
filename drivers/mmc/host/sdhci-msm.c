@@ -3953,10 +3953,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			goto pltfm_free;
 		}
 
-		if (ret <= 2) {
+		if (ret <= 2)
 			sdhci_slot[ret-1] = msm_host;
-			host->slot_no = ret;
-		}
 
 		msm_host->pdata = sdhci_msm_populate_pdata(&pdev->dev,
 							   msm_host);
