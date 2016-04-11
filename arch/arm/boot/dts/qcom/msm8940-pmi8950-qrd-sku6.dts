@@ -51,7 +51,7 @@
 
 &soc {
 	sound {
-		qcom,model = "msm8952-sku1-snd-card";
+		qcom,model = "msm8940-sku6-snd-card";
 		qcom,msm-hs-micbias-type = "internal";
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
