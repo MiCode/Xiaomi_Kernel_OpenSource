@@ -1554,6 +1554,7 @@ struct ipa3_context {
 	u32 ee;
 	bool apply_rg10_wa;
 	bool smmu_present;
+	bool smmu_s1_bypass;
 	unsigned long peer_bam_iova;
 	phys_addr_t peer_bam_pa;
 	u32 peer_bam_map_size;

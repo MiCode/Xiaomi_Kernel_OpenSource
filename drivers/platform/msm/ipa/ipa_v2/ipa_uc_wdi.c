@@ -636,19 +636,19 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		unsigned long *iova)
 {
 	/* support for SMMU on WLAN but no SMMU on IPA */
-	if (wlan_smmu_en && !ipa_ctx->smmu_present) {
+	if (wlan_smmu_en && ipa_ctx->smmu_s1_bypass) {
 		IPAERR("Unsupported SMMU pairing\n");
 		return -EINVAL;
 	}
 
 	/* legacy: no SMMUs on either end */
-	if (!wlan_smmu_en && !ipa_ctx->smmu_present) {
+	if (!wlan_smmu_en && ipa_ctx->smmu_s1_bypass) {
 		*iova = pa;
 		return 0;
 	}
 
 	/* no SMMU on WLAN but SMMU on IPA */
-	if (!wlan_smmu_en && ipa_ctx->smmu_present) {
+	if (!wlan_smmu_en && !ipa_ctx->smmu_s1_bypass) {
 		if (ipa_create_uc_smmu_mapping_pa(pa, len,
 			(res_idx == IPA_WDI_CE_DB_RES) ? true : false, iova)) {
 			IPAERR("Fail to create mapping res %d\n", res_idx);
@@ -659,7 +659,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	}
 
 	/* SMMU on WLAN and SMMU on IPA */
-	if (wlan_smmu_en && ipa_ctx->smmu_present) {
+	if (wlan_smmu_en && !ipa_ctx->smmu_s1_bypass) {
 		switch (res_idx) {
 		case IPA_WDI_RX_RING_RP_RES:
 		case IPA_WDI_CE_DB_RES:

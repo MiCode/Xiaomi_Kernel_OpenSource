@@ -1299,6 +1299,7 @@ struct ipa_context {
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool smmu_present;
+	bool smmu_s1_bypass;
 	unsigned long peer_bam_iova;
 	phys_addr_t peer_bam_pa;
 	u32 peer_bam_map_size;
