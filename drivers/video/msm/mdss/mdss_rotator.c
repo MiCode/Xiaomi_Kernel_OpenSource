@@ -1123,6 +1123,7 @@ static void mdss_rotator_release_from_work_distribution(
 				entry->perf->work_distribution);
 			devm_kfree(&mgr->pdev->dev, entry->perf);
 			mdss_rotator_update_perf(mgr);
+			mdss_rotator_clk_ctrl(mgr, false);
 			entry->perf = NULL;
 		}
 	}
