@@ -2183,6 +2183,51 @@ static int msm8x16_wcd_boost_option_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm8x16_wcd_spk_boost_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	if (msm8x16_wcd->spk_boost_set == false) {
+		ucontrol->value.integer.value[0] = 0;
+	} else if (msm8x16_wcd->spk_boost_set == true) {
+		ucontrol->value.integer.value[0] = 1;
+	} else  {
+		dev_err(codec->dev, "%s: ERROR: Unsupported Speaker Boost = %d\n",
+				__func__, msm8x16_wcd->spk_boost_set);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n", __func__,
+			msm8x16_wcd->spk_boost_set);
+	return 0;
+}
+
+static int msm8x16_wcd_spk_boost_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+			__func__, ucontrol->value.integer.value[0]);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm8x16_wcd->spk_boost_set = false;
+		break;
+	case 1:
+		msm8x16_wcd->spk_boost_set = true;
+		break;
+	default:
+		return -EINVAL;
+	}
+	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n",
+		__func__, msm8x16_wcd->spk_boost_set);
+	return 0;
+}
+
 static int msm8x16_wcd_ext_spk_boost_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -2545,6 +2590,9 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("EAR PA Gain", msm8x16_wcd_ear_pa_gain_enum[0],
 		msm8x16_wcd_pa_gain_get, msm8x16_wcd_pa_gain_put),
+
+	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
+		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
 
 	SOC_ENUM_EXT("Ext Spk Boost", msm8x16_wcd_ext_spk_boost_ctl_enum[0],
 		msm8x16_wcd_ext_spk_boost_get, msm8x16_wcd_ext_spk_boost_set),
