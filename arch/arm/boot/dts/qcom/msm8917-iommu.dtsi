@@ -23,11 +23,9 @@
 		interrupt-names = "global_cfg_NS_irq", "global_cfg_S_irq";
 		label = "gfx_iommu";
 		qcom,iommu-secure-id = <18>;
-		qcom,needs-alt-core-clk;
 		clocks = <&clock_gcc clk_gcc_smmu_cfg_clk>,
-			 <&clock_gcc clk_gcc_gfx_tcu_clk>,
-			 <&clock_gcc clk_gcc_gfx_tbu_clk>;
-		clock-names = "iface_clk", "core_clk", "alt_core_clk";
+			 <&clock_gcc clk_gcc_gfx_tcu_clk>;
+		clock-names = "iface_clk", "core_clk";
 		status = "ok";
 
 		qcom,iommu-ctx@1f08000 {
