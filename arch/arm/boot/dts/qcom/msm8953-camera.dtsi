@@ -384,7 +384,7 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
-			<62 512 666675 666675>;
+			<62 512 800000 800000>;
 	};
 
 	qcom,irqrouter@1b00000 {
