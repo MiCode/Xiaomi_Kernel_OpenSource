@@ -720,8 +720,6 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	cq_host->mrq_slot[tag] = mrq;
-	if (cq_host->ops->set_tranfer_params)
-		cq_host->ops->set_tranfer_params(mmc);
 
 	/* PM QoS */
 	sdhci_msm_pm_qos_irq_vote(host);
@@ -986,6 +984,8 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 		}
 		ret = retries ? 0 : -ETIMEDOUT;
 	} else {
+		if (cq_host->ops->set_transfer_params)
+			cq_host->ops->set_transfer_params(mmc);
 		if (cq_host->ops->set_block_size)
 			cq_host->ops->set_block_size(mmc);
 		if (cq_host->ops->set_data_timeout)
