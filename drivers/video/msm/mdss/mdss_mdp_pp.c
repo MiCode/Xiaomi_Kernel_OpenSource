@@ -5423,7 +5423,7 @@ static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad,
 						struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
-	u32 temp;
+	u32 temp, cfg_buf_mode;
 	u32 frame_start, frame_end, procs_start, procs_end, tile_ctrl;
 	u32 num;
 	int side;
@@ -5509,20 +5509,22 @@ static void pp_ad_init_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad,
 			}
 			procs_end -= 1;
 			frame_end -= 1;
+			cfg_buf_mode = 0x3;
 		} else {
 			frame_start = 0x0;
 			frame_end = 0xFFFF;
 			procs_start = 0x0;
 			procs_end = 0xFFFF;
 			tile_ctrl = 0x0;
+			cfg_buf_mode = 0x2;
 		}
-
 
 		writel_relaxed(frame_start, base + MDSS_MDP_REG_AD_FRAME_START);
 		writel_relaxed(frame_end, base + MDSS_MDP_REG_AD_FRAME_END);
 		writel_relaxed(procs_start, base + MDSS_MDP_REG_AD_PROCS_START);
 		writel_relaxed(procs_end, base + MDSS_MDP_REG_AD_PROCS_END);
 		writel_relaxed(tile_ctrl, base + MDSS_MDP_REG_AD_TILE_CTRL);
+		writel_relaxed(cfg_buf_mode , base + MDSS_MDP_REG_AD_CFG_BUF);
 	}
 }
 
