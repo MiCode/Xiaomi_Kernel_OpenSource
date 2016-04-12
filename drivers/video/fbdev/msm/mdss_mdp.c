@@ -114,7 +114,7 @@ struct mdss_hw mdss_misc_hw = {
 	.irq_handler = NULL,
 };
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 #define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)	\
 	{						\
 		.src = MSM_BUS_MASTER_AMPSS_M0,		\
@@ -387,7 +387,7 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 {
 	struct msm_bus_scale_pdata *reg_bus_pdata;
@@ -4125,7 +4125,7 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 {
 	int rc, paths;
