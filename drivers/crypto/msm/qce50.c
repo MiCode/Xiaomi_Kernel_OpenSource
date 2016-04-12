@@ -213,8 +213,13 @@ static int count_sg(struct scatterlist *sg, int nbytes)
 {
 	int i;
 
-	for (i = 0; nbytes > 0; i++, sg = scatterwalk_sg_next(sg))
+	for (i = 0; nbytes > 0; i++, sg = scatterwalk_sg_next(sg)) {
+		if (NULL == sg) {
+			pr_err("qce50.c: count_sg, sg = NULL");
+			break;
+		}
 		nbytes -= sg->length;
+	}
 	return i;
 }
 
@@ -224,6 +229,10 @@ static int qce_dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
 	int i;
 
 	for (i = 0; i < nents; ++i) {
+		if (NULL == sg) {
+			pr_err("qce50.c: qce_dma_map_sg, sg = NULL");
+			break;
+		}
 		dma_map_sg(dev, sg, 1, direction);
 		sg = scatterwalk_sg_next(sg);
 	}
@@ -237,6 +246,10 @@ static int qce_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
 	int i;
 
 	for (i = 0; i < nents; ++i) {
+		if (NULL == sg) {
+			pr_err("qce50.c: qce_dma_unmap_sg, sg = NULL");
+			break;
+		}
 		dma_unmap_sg(dev, sg, 1, direction);
 		sg = scatterwalk_sg_next(sg);
 	}
@@ -339,7 +352,7 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 				struct qce_sha_req *sreq,
 				struct qce_cmdlist_info *cmdlistinfo)
 {
-	uint32_t auth32[SHA256_DIGEST_SIZE / sizeof(uint32_t)];
+	uint32_t auth32[(SHA256_DIGEST_SIZE / sizeof(uint32_t))+1];
 	uint32_t diglen;
 	int i;
 	uint32_t mackey32[SHA_HMAC_KEY_SIZE/sizeof(uint32_t)] = {
@@ -1174,7 +1187,7 @@ static void _qce_dump_descr_fifos_dbg(struct qce_device *pce_dev, int req_info)
 static int _ce_setup_hash_direct(struct qce_device *pce_dev,
 				struct qce_sha_req *sreq)
 {
-	uint32_t auth32[SHA256_DIGEST_SIZE / sizeof(uint32_t)];
+	uint32_t auth32[(SHA256_DIGEST_SIZE / sizeof(uint32_t))+1];
 	uint32_t diglen;
 	bool use_hw_key = false;
 	bool use_pipe_key = false;
@@ -2428,6 +2441,10 @@ static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
 						sps_bam_pipe->iovec_count;
 
 	while (nbytes > 0) {
+		if (NULL == sg_src) {
+			pr_err("qce50.c: _qce_sps_add_sg_data, sg_src = NULL");
+			break;
+		}
 		len = min(nbytes, sg_dma_len(sg_src));
 		nbytes -= len;
 		addr = sg_dma_address(sg_src);

@@ -742,6 +742,10 @@ static size_t qcrypto_sg_copy_from_buffer(struct scatterlist *sgl,
 	size_t offset, len;
 
 	for (i = 0, offset = 0; i < nents; ++i) {
+		if (NULL == sgl) {
+			pr_err("qcrypto.c: qcrypto_sg_copy_from_buffer, sgl = NULL");
+			break;
+		}
 		len = sg_copy_from_buffer(sgl, 1, buf, buflen);
 		buf += len;
 		buflen -= len;
@@ -759,6 +763,10 @@ static size_t qcrypto_sg_copy_to_buffer(struct scatterlist *sgl,
 	size_t offset, len;
 
 	for (i = 0, offset = 0; i < nents; ++i) {
+		if (NULL == sgl) {
+			pr_err("qcrypto.c: qcrypto_sg_copy_from_buffer, sgl = NULL");
+			break;
+		}
 		len = sg_copy_to_buffer(sgl, 1, buf, buflen);
 		buf += len;
 		buflen -= len;
@@ -4010,6 +4018,10 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 			break;
 		len += sg_last->length;
 		sg_last = scatterwalk_sg_next(sg_last);
+		if (NULL == sg_last) {
+			pr_err("qcrypto.c: _sha_update, sg_last = NULL");
+			break;
+		}
 	}
 	if (rctx->trailing_buf_len) {
 		if (cp->ce_support.aligned_only)  {
@@ -4031,7 +4043,10 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 			req->src = rctx->sg;
 			sg_mark_end(&rctx->sg[0]);
 		} else {
-			sg_mark_end(sg_last);
+			if (sg_last)
+				sg_mark_end(sg_last);
+			else
+				pr_err("qcrypto: _sha_update, sg_last= NULL");
 			memset(rctx->sg, 0, sizeof(rctx->sg));
 			sg_set_buf(&rctx->sg[0], staging,
 						rctx->trailing_buf_len);
@@ -4040,7 +4055,10 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 			req->src = rctx->sg;
 		}
 	} else
-		sg_mark_end(sg_last);
+		if (sg_last)
+			sg_mark_end(sg_last);
+		else
+			pr_err("qcrypto.c: _sha_update, sg_last = NULL");
 
 	req->nbytes = nbytes;
 	rctx->trailing_buf_len = trailing_buf_len;
