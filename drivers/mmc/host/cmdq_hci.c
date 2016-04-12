@@ -647,8 +647,6 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	BUG_ON(cmdq_readl(cq_host, CQTDBR) & (1 << tag));
 
 	cq_host->mrq_slot[tag] = mrq;
-	if (cq_host->ops->set_tranfer_params)
-		cq_host->ops->set_tranfer_params(mmc);
 
 ring_doorbell:
 	/* Ensure the task descriptor list is flushed before ringing doorbell */
@@ -908,6 +906,8 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 		}
 		return retries ? 0 : -ETIMEDOUT;
 	} else {
+		if (cq_host->ops->set_transfer_params)
+			cq_host->ops->set_transfer_params(mmc);
 		if (cq_host->ops->set_block_size)
 			cq_host->ops->set_block_size(mmc);
 		if (cq_host->ops->set_data_timeout)
