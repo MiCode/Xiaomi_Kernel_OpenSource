@@ -22,3 +22,20 @@
 	soc: soc { };
 
 };
+
+&ad_hoc_bus {
+	mas_ipa: mas-ipa {
+		cell-id = <MSM_BUS_MASTER_IPA>;
+		label = "mas-ipa";
+		qcom,buswidth = <8>;
+		qcom,agg-ports = <1>;
+		qcom,ap-owned;
+		qcom,qport = <14>;
+		qcom,qos-mode = "fixed";
+		qcom,connections = <&snoc_int_1 &slv_snoc_bimc_1>;
+		qcom,prio1 = <0>;
+		qcom,prio0 = <0>;
+		qcom,bus-dev = <&fab_snoc>;
+		qcom,mas-rpm-id = <ICBID_MASTER_IPA>;
+	};
+};
