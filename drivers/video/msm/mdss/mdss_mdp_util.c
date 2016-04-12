@@ -292,7 +292,10 @@ mdp_isr_done:
 	if (hist_isr == 0)
 		goto hist_isr_done;
 	mdss_mdp_hist_intr_done(hist_isr);
+
 hist_isr_done:
+	mdss_mdp_video_isr(mdata->video_intf, mdata->nintf);
+
 	return IRQ_HANDLED;
 }
 

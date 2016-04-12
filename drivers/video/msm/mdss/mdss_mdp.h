@@ -273,6 +273,9 @@ struct mdss_mdp_ctl_intfs_ops {
 			enum dynamic_switch_modes mode, bool pre);
 	/* called before do any register programming  from commit thread */
 	void (*pre_programming)(struct mdss_mdp_ctl *ctl);
+
+	/* to update lineptr, [1..yres] - enable, 0 - disable */
+	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
 };
 
 struct mdss_mdp_ctl {
@@ -1217,7 +1220,7 @@ static inline bool mdss_mdp_is_lineptr_supported(struct mdss_mdp_ctl *ctl)
 
 	pinfo = &ctl->panel_data->panel_info;
 
-	return (((pinfo->type == MIPI_CMD_PANEL)
+	return (ctl->is_video_mode || ((pinfo->type == MIPI_CMD_PANEL)
 			&& (pinfo->te.tear_check_en)) ? true : false);
 }
 
@@ -1559,6 +1562,10 @@ void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
 
 void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_info *pinfo);
+
+void mdss_mdp_video_isr(void *ptr, u32 count);
+void mdss_mdp_enable_hw_irq(struct mdss_data_type *mdata);
+void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata);
 
 #ifdef CONFIG_FB_MSM_MDP_NONE
 struct mdss_data_type *mdss_mdp_get_mdata(void)
