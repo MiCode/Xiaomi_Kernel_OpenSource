@@ -1062,6 +1062,7 @@ static int ngd_get_laddr(struct slim_controller *ctrl, const u8 *ea,
 
 static void ngd_slim_setup(struct msm_slim_ctrl *dev)
 {
+	u32 new_cfg = NGD_CFG_ENABLE;
 	u32 cfg = readl_relaxed(dev->base +
 				 NGD_BASE(dev->ctrl.nr, dev->ver));
 	if (dev->state == MSM_CTRL_DOWN) {
@@ -1080,11 +1081,9 @@ static void ngd_slim_setup(struct msm_slim_ctrl *dev)
 	} else {
 		if (dev->use_rx_msgqs == MSM_MSGQ_DISABLED)
 			goto setup_tx_msg_path;
-		if (cfg & NGD_CFG_RX_MSGQ_EN) {
-			SLIM_WARN(dev, "RX msgq status HW:0x%x, SW:%d:", cfg,
-				  dev->use_rx_msgqs);
+		if ((dev->use_rx_msgqs == MSM_MSGQ_ENABLED) &&
+			(cfg & NGD_CFG_RX_MSGQ_EN))
 			goto setup_tx_msg_path;
-		}
 
 		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
 			msm_slim_disconnect_endp(dev, &dev->rx_msgq,
@@ -1094,11 +1093,9 @@ static void ngd_slim_setup(struct msm_slim_ctrl *dev)
 setup_tx_msg_path:
 		if (dev->use_tx_msgqs == MSM_MSGQ_DISABLED)
 			goto ngd_enable;
-		if (cfg & NGD_CFG_TX_MSGQ_EN) {
-			SLIM_WARN(dev, "TX msgq status HW:0x%x, SW:%d:", cfg,
-				  dev->use_tx_msgqs);
+		if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED &&
+			cfg & NGD_CFG_TX_MSGQ_EN)
 			goto ngd_enable;
-		}
 
 		if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED)
 			msm_slim_disconnect_endp(dev, &dev->tx_msgq,
@@ -1106,19 +1103,19 @@ setup_tx_msg_path:
 		msm_slim_connect_endp(dev, &dev->tx_msgq);
 	}
 ngd_enable:
+
 	if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
-		cfg |= NGD_CFG_RX_MSGQ_EN;
+		new_cfg |= NGD_CFG_RX_MSGQ_EN;
 	if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED)
-		cfg |= NGD_CFG_TX_MSGQ_EN;
+		new_cfg |= NGD_CFG_TX_MSGQ_EN;
 
-	/* Enable NGD if it's not already enabled*/
-	if (!(cfg & NGD_CFG_ENABLE))
-		cfg |= NGD_CFG_ENABLE;
+	/* Enable NGD, and program MSGQs if not already */
+	if (cfg == new_cfg)
+		return;
 
-	writel_relaxed(cfg, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
+	writel_relaxed(new_cfg, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
 	/* make sure NGD MSG-Q config goes through */
 	mb();
-
 }
 
 static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
@@ -1196,7 +1193,7 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 	u32 ngd_int = (NGD_INT_TX_NACKED_2 |
 			NGD_INT_MSG_BUF_CONTE | NGD_INT_MSG_TX_INVAL |
 			NGD_INT_IE_VE_CHG | NGD_INT_DEV_ERR |
-			NGD_INT_TX_MSG_SENT | NGD_INT_RX_MSG_RCVD);
+			NGD_INT_TX_MSG_SENT);
 
 	if (!mdm_restart && cur_state == MSM_CTRL_DOWN) {
 		int timeout = wait_for_completion_timeout(&dev->qmi.qmi_comp,
@@ -1225,6 +1222,8 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 	ngd = dev->base + NGD_BASE(dev->ctrl.nr, dev->ver);
 	laddr = readl_relaxed(ngd + NGD_STATUS);
 	if (laddr & NGD_LADDR) {
+		u32 int_en = readl_relaxed(ngd + NGD_INT_EN);
+
 		/*
 		 * external MDM restart case where ADSP itself was active framer
 		 * For example, modem restarted when playback was active
@@ -1236,6 +1235,29 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 		/*
 		 * ADSP power collapse case, where HW wasn't reset.
 		 */
+		if (int_en != 0)
+			return 0;
+
+		/* Retention */
+		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
+			msm_slim_disconnect_endp(dev, &dev->rx_msgq,
+						 &dev->use_rx_msgqs);
+		if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED)
+			msm_slim_disconnect_endp(dev, &dev->tx_msgq,
+						 &dev->use_tx_msgqs);
+
+		writel_relaxed(ngd_int, (dev->base + NGD_INT_EN +
+					NGD_BASE(dev->ctrl.nr, dev->ver)));
+
+		rx_msgq = readl_relaxed(ngd + NGD_RX_MSGQ_CFG);
+		/**
+		 * Program with minimum value so that signal get
+		 * triggered immediately after receiving the message
+		 */
+		writel_relaxed((rx_msgq | SLIM_RX_MSGQ_TIMEOUT_VAL),
+						(ngd + NGD_RX_MSGQ_CFG));
+		/* reconnect BAM pipes if needed and enable NGD */
+		ngd_slim_setup(dev);
 		return 0;
 	}
 
