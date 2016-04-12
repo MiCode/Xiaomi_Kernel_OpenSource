@@ -3370,6 +3370,14 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 		pinfo->clk_rate = var->pixclock;
 	else
 		pinfo->clk_rate = PICOS2KHZ(var->pixclock) * 1000;
+
+	/*
+	 * if it is a DBA panel i.e. HDMI TV connected through
+	 * DSI interface, then store the pixel clock value in
+	 * DSI specific variable.
+	 */
+	if (pinfo->is_dba_panel)
+		pinfo->mipi.dsi_pclk_rate = pinfo->clk_rate;
 }
 
 void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
