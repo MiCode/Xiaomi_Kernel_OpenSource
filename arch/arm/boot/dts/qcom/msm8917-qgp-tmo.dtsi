@@ -73,3 +73,7 @@
 	qcom,bad-battery-detection-enable;
 	qcom,hold-soc-while-full;
 };
+
+&int_codec {
+	qcom,model = "msm8917-tmo-snd-card";
+};
