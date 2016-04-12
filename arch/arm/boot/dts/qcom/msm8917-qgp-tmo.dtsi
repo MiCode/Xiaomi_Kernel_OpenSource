@@ -21,6 +21,16 @@
 };
 
 &soc {
+	gpio_keys {
+		vol_down {
+			label = "volume_down";
+			gpios = <&tlmm 128 0x1>;
+			linux,input-type = <1>;
+			linux,code = <114>;
+			debounce-interval = <15>;
+		};
+	};
+
 	led_flash0: qcom,camera-flash {
 	};
 };
