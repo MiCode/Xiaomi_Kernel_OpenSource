@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 
 /* pmu event min and max value */
 #define PMU_EVENT_MIN			0
-#define PMU_EVENT_MAX			7
+#define PMU_EVENT_MAX			0x1F
 
 #define PMU_MUX_OFFSET			4
 #define PMU_MUX_MASK_BITS		0xF
