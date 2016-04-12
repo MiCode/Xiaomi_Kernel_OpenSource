@@ -959,7 +959,7 @@ static int diag_process_userspace_remote(int proc, void *buf, int len)
 	int bridge_index = proc - 1;
 
 	if (!buf || len < 0) {
-		pr_err("diag: Invalid input in %s, buf: %p, len: %d\n",
+		pr_err("diag: Invalid input in %s, buf: %pK, len: %d\n",
 		       __func__, buf, len);
 		return -EINVAL;
 	}
@@ -2175,7 +2175,7 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 	const uint32_t max_encoded_size = ((2 * len) + 3);
 
 	if (!buf || len <= 0) {
-		pr_err("diag: In %s, invalid buf: %p len: %d\n",
+		pr_err("diag: In %s, invalid buf: %pK len: %d\n",
 		       __func__, buf, len);
 		return -EIO;
 	}
@@ -2294,7 +2294,7 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 	const uint32_t max_pkt_size = sizeof(header) + len + 1;
 
 	if (!buf || len <= 0) {
-		pr_err("diag: In %s, invalid buf: %p len: %d\n",
+		pr_err("diag: In %s, invalid buf: %pK len: %d\n",
 		       __func__, buf, len);
 		return -EIO;
 	}
@@ -2365,7 +2365,7 @@ static int diag_user_process_dci_data(const char __user *buf, int len)
 	unsigned char *user_space_data = NULL;
 
 	if (!buf || len <= 0 || len > diag_mempools[mempool].itemsize) {
-		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+		pr_err_ratelimited("diag: In %s, invalid buf %pK len: %d\n",
 				   __func__, buf, len);
 		return -EBADMSG;
 	}
@@ -2397,7 +2397,7 @@ static int diag_user_process_dci_apps_data(const char __user *buf, int len,
 	unsigned char *user_space_data = NULL;
 
 	if (!buf || len <= 0 || len > diag_mempools[mempool].itemsize) {
-		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+		pr_err_ratelimited("diag: In %s, invalid buf %pK len: %d\n",
 				   __func__, buf, len);
 		return -EBADMSG;
 	}
@@ -2438,7 +2438,7 @@ static int diag_user_process_raw_data(const char __user *buf, int len)
 	struct diag_md_session_t *info = NULL;
 
 	if (!buf || len <= 0 || len > CALLBACK_BUF_SIZE) {
-		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+		pr_err_ratelimited("diag: In %s, invalid buf %pK len: %d\n",
 				   __func__, buf, len);
 		return -EBADMSG;
 	}
@@ -2508,7 +2508,7 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 	uint8_t hdlc_disabled;
 
 	if (!buf || len <= 0 || len > USER_SPACE_DATA) {
-		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+		pr_err_ratelimited("diag: In %s, invalid buf %pK len: %d\n",
 				   __func__, buf, len);
 		return -EBADMSG;
 	}
@@ -2597,7 +2597,7 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	uint8_t hdlc_disabled;
 
 	if (!buf || len <= 0 || len > DIAG_MAX_RSP_SIZE) {
-		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+		pr_err_ratelimited("diag: In %s, invalid buf %pK len: %d\n",
 				   __func__, buf, len);
 		return -EBADMSG;
 	}

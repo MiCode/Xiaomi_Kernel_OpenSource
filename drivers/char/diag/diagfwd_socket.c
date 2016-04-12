@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -249,7 +249,7 @@ static void socket_data_ready(struct sock *sk_ptr)
 static void cntl_socket_data_ready(struct sock *sk_ptr)
 {
 	if (!sk_ptr || !cntl_socket) {
-		pr_err_ratelimited("diag: In %s, invalid ptrs. sk_ptr: %p cntl_socket: %p\n",
+		pr_err_ratelimited("diag: In %s, invalid ptrs. sk_ptr: %pK cntl_socket: %pK\n",
 				   __func__, sk_ptr, cntl_socket);
 		return;
 	}
