@@ -52,7 +52,6 @@
 #define IPA_SIZE_DL_CSUM_META_TRAILER 8
 
 #define IPA_GSI_EVT_RING_LEN 4096
-#define IPA_GSI_CHANNEL_RING_LEN 4096
 #define IPA_GSI_MAX_CH_LOW_WEIGHT 15
 #define IPA_GSI_EVT_RING_INT_MODT 3200 /* 0.1s under 32KHz clock */
 
@@ -75,7 +74,8 @@ static void ipa3_cleanup_wlan_rx_common_cache(void);
 static void ipa3_wq_repl_rx(struct work_struct *work);
 static void ipa3_dma_memcpy_notify(struct ipa3_sys_context *sys,
 		struct ipa3_mem_buffer *mem_info);
-static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep);
+static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
+	struct ipa3_ep_context *ep);
 static int ipa_populate_tag_field(struct ipa3_desc *desc,
 		struct ipa3_tx_pkt_wrapper *tx_pkt,
 		struct ipahal_imm_cmd_pyld **tag_pyld_ret);
@@ -1174,7 +1174,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	}
 
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
-		result = ipa_gsi_setup_channel(ep);
+		result = ipa_gsi_setup_channel(sys_in, ep);
 		if (result) {
 			IPAERR("Failed to setup GSI channel\n");
 			goto fail_gen2;
@@ -3569,7 +3569,8 @@ static void ipa_dma_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 }
 
 
-static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
+static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
+	struct ipa3_ep_context *ep)
 {
 	struct gsi_evt_ring_props gsi_evt_ring_props;
 	struct gsi_chan_props gsi_channel_props;
@@ -3642,10 +3643,19 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 	gsi_channel_props.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	gsi_channel_props.re_size = GSI_CHAN_RE_SIZE_16B;
 
-	gsi_channel_props.ring_len = IPA_GSI_CHANNEL_RING_LEN;
+	/*
+	 * GSI ring length is calculated based on the desc_fifo_sz which was
+	 * meant to define the BAM desc fifo. GSI descriptors are 16B as opposed
+	 * to 8B for BAM. For PROD pipes there is also an additional descriptor
+	 * for TAG STATUS immediate command.
+	 */
+	if (IPA_CLIENT_IS_PROD(ep->client))
+		gsi_channel_props.ring_len = 4 * in->desc_fifo_sz;
+	else
+		gsi_channel_props.ring_len = 2 * in->desc_fifo_sz;
 	gsi_channel_props.ring_base_vaddr =
-		dma_alloc_coherent(ipa3_ctx->pdev, IPA_GSI_CHANNEL_RING_LEN,
-		&dma_addr, 0);
+		dma_alloc_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
+			&dma_addr, 0);
 	gsi_channel_props.ring_base_addr = dma_addr;
 
 	/* copy mem info */

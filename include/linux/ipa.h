@@ -524,7 +524,11 @@ struct ipa_ext_intf {
  * in system-BAM mode
  * @ipa_ep_cfg:	IPA EP configuration
  * @client:	the type of client who "owns" the EP
- * @desc_fifo_sz:	size of desc FIFO
+ * @desc_fifo_sz: size of desc FIFO. This number is used to allocate the desc
+ *		fifo for BAM. For GSI, this size is used by IPA driver as a
+ *		baseline to calculate the GSI ring size in the following way:
+ *		For PROD pipes, GSI ring is 4 * desc_fifo_sz.
+		For PROD pipes, GSI ring is 2 * desc_fifo_sz.
  * @priv:	callback cookie
  * @notify:	callback
  *		priv - callback cookie
