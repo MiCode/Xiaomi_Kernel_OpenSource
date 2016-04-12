@@ -1768,10 +1768,10 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 			 * the backlight would remain 0 (0 is set in blank).
 			 * Hence resetting back to calibration mode value
 			 */
-			if (!IS_CALIB_MODE_BL(mfd))
-				mdss_fb_set_backlight(mfd, mfd->unset_bl_level);
-			else
+			if (IS_CALIB_MODE_BL(mfd))
 				mdss_fb_set_backlight(mfd, mfd->calib_mode_bl);
+			else if (!mfd->panel_info->mipi.post_init_delay)
+				mdss_fb_set_backlight(mfd, mfd->unset_bl_level);
 
 			/*
 			 * it blocks the backlight update between unblank and
@@ -1965,7 +1965,7 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 
 int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 {
-	int rc;
+	int rc = 0;
 	void *vaddr;
 	int domain;
 
@@ -3911,8 +3911,8 @@ static int mdss_fb_async_position_update_ioctl(struct fb_info *info,
 	input_layer_list = update_pos.input_layers;
 
 	layer_cnt = update_pos.input_layer_cnt;
-	if (!layer_cnt) {
-		pr_err("no async layers to update\n");
+	if ((!layer_cnt) || (layer_cnt > MAX_LAYER_COUNT)) {
+		pr_err("invalid async layers :%d to update\n", layer_cnt);
 		return -EINVAL;
 	}
 

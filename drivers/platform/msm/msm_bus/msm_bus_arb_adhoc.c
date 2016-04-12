@@ -1351,6 +1351,7 @@ static void unregister_adhoc(struct msm_bus_client_handle *cl)
 				cl->first_hop, cl->active_only);
 	commit_data();
 	msm_bus_dbg_remove_client(cl);
+	kfree(cl->name);
 	kfree(cl);
 exit_unregister_client:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);

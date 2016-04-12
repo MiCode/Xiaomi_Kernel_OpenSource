@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
- *
+ * Copyright (C) 2016, The Linux Foundation.  All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -77,6 +77,9 @@ static int parse_dt(struct device *dev, struct synaptics_dsx_board_data *bdata)
 		bdata->irq_on_state = 0;
 	else
 		bdata->irq_on_state = value;
+
+	bdata->resume_in_workqueue = of_property_read_bool(np,
+			"synaptics,resume-in-workqueue");
 
 	retval = of_property_read_string(np, "synaptics,pwr-reg-name", &name);
 	if (retval < 0)
@@ -288,7 +291,7 @@ static void synaptics_rmi4_i2c_check_addr(struct synaptics_rmi4_data *rmi4_data,
 static int synaptics_rmi4_i2c_set_page(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr)
 {
-	int retval;
+	int retval = 0;
 	unsigned char retry;
 	unsigned char buf[PAGE_SELECT_LEN];
 	unsigned char page;

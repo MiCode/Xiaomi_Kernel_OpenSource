@@ -2160,7 +2160,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	u32 ad_flags, flags, dspp_num, opmode = 0, ad_bypass;
 	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
-	char __iomem *base, *addr;
+	char __iomem *base, *addr = NULL;
 	int ret = 0;
 	struct mdss_data_type *mdata;
 	struct mdss_ad_info *ad = NULL;
@@ -2770,7 +2770,7 @@ int mdss_mdp_pp_init(struct device *dev)
 	int i, ret = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *vig;
-	struct pp_hist_col_info *hist;
+	struct pp_hist_col_info *hist = NULL;
 	u32 ctl_off = 0;
 
 	if (!mdata)

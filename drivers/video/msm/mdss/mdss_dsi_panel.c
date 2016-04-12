@@ -1999,7 +1999,7 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 	const char *data;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
 	struct mdss_panel_info *pinfo;
-	bool phy_timings_present;
+	bool phy_timings_present = false;
 
 	pinfo = &panel_data->panel_info;
 
@@ -2389,6 +2389,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 					"qcom,mdss-dsi-lp11-init");
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-init-delay-us", &tmp);
 	pinfo->mipi.init_delay = (!rc ? tmp : 0);
+
+	rc = of_property_read_u32(np, "qcom,mdss-dsi-post-init-delay", &tmp);
+	pinfo->mipi.post_init_delay = (!rc ? tmp : 0);
 
 	mdss_dsi_parse_roi_alignment(np, pinfo);
 

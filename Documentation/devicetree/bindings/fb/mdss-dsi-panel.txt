@@ -462,6 +462,8 @@ Optional properites:
 
 - qcom,mdss-dsi-display-timings:	Parent node that lists the different resolutions that the panel supports.
 					Each child represents timings settings for a specific resolution.
+- qcom,mdss-dsi-post-init-delay:        Specifies required number of frames to wait so that panel can be functional
+					to show proper display.
 
 Additional properties added to the second level nodes that represent timings properties:
 - qcom,mdss-dsi-timing-default:		Property that specifies the current child as the default

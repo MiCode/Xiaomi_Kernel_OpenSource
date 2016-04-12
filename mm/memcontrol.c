@@ -2262,10 +2262,10 @@ again:
  * @flags: value received from mem_cgroup_begin_page_stat()
  */
 void mem_cgroup_end_page_stat(struct mem_cgroup *memcg, bool *locked,
-			      unsigned long flags)
+			      unsigned long *flags)
 {
 	if (memcg && *locked)
-		move_unlock_mem_cgroup(memcg, &flags);
+		move_unlock_mem_cgroup(memcg, flags);
 
 	rcu_read_unlock();
 }
@@ -4483,7 +4483,7 @@ static int mem_cgroup_swappiness_write(struct cgroup_subsys_state *css,
 {
 	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
 
-	if (val > 100)
+	if ((val > 200) || ((val > 100) && !css->parent))
 		return -EINVAL;
 
 	if (css->parent)
