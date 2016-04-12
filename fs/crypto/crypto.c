@@ -28,6 +28,7 @@
 #include <linux/ratelimit.h>
 #include <linux/bio.h>
 #include <linux/dcache.h>
+#include <linux/namei.h>
 #include <linux/fscrypto.h>
 
 static unsigned int num_prealloc_crypto_pages = 32;
@@ -351,6 +352,9 @@ static int fscrypt_d_revalidate(struct dentry *dentry, unsigned int flags)
 	struct dentry *dir;
 	struct fscrypt_info *ci;
 	int dir_has_key, cached_with_key;
+
+	if (flags & LOOKUP_RCU)
+		return -ECHILD;
 
 	dir = dget_parent(dentry);
 	if (!d_inode(dir)->i_sb->s_cop->is_encrypted(d_inode(dir))) {
