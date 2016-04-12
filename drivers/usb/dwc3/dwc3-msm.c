@@ -699,11 +699,34 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	int ret = 0, size;
 	bool superspeed;
 
+	/*
+	 * We must obtain the lock of the dwc3 core driver,
+	 * including disabling interrupts, so we will be sure
+	 * that we are the only ones that configure the HW device
+	 * core and ensure that we queuing the request will finish
+	 * as soon as possible so we will release back the lock.
+	 */
+	spin_lock_irqsave(&dwc->lock, flags);
+	if (!dep->endpoint.desc) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue request %pK to disabled ep %s\n",
+			__func__, request, ep->name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EPERM;
+	}
+
+	if (!request) {
+		dev_err(mdwc->dev, "%s: request is NULL\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
+	}
+
 	if (!(request->udc_priv & MSM_SPS_MODE)) {
 		/* Not SPS mode, call original queue */
 		dev_vdbg(mdwc->dev, "%s: not sps mode, use regular queue\n",
 					__func__);
 
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return (mdwc->original_ep_ops[dep->number])->queue(ep,
 								request,
 								gfp_flags);
@@ -712,16 +735,41 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	/* HW restriction regarding TRB size (8KB) */
 	if (req->request.length < 0x2000) {
 		dev_err(mdwc->dev, "%s: Min TRB size is 8KB\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EINVAL;
 	}
+
+	if (dep->number == 0 || dep->number == 1) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue dbm request %pK to ep %s\n",
+			__func__, request, ep->name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EPERM;
+	}
+
+	if (dep->trb_dequeue != dep->trb_enqueue
+					|| !list_empty(&dep->pending_list)
+					|| !list_empty(&dep->started_list)) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue dbm request %pK tp ep %s\n",
+			__func__, request, ep->name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EPERM;
+	}
+	dep->trb_dequeue = 0;
+	dep->trb_enqueue = 0;
 
 	/*
 	 * Override req->complete function, but before doing that,
 	 * store it's original pointer in the req_complete_list.
 	 */
 	req_complete = kzalloc(sizeof(*req_complete), gfp_flags);
-	if (!req_complete)
+
+	if (!req_complete) {
+		dev_err(mdwc->dev, "%s: not enough memory\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ENOMEM;
+	}
 
 	req_complete->req = request;
 	req_complete->orig_complete = request->complete;
@@ -735,44 +783,6 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
 		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
 		DWC3_GEVNTSIZ_SIZE(size));
-
-	/*
-	 * We must obtain the lock of the dwc3 core driver,
-	 * including disabling interrupts, so we will be sure
-	 * that we are the only ones that configure the HW device
-	 * core and ensure that we queuing the request will finish
-	 * as soon as possible so we will release back the lock.
-	 */
-	spin_lock_irqsave(&dwc->lock, flags);
-	if (!dep->endpoint.desc) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue request %p to disabled ep %s\n",
-			__func__, request, ep->name);
-		ret = -EPERM;
-		goto err;
-	}
-
-	if (dep->number == 0 || dep->number == 1) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue dbm request %p to control ep %s\n",
-			__func__, request, ep->name);
-		ret = -EPERM;
-		goto err;
-	}
-
-
-	if (dep->trb_dequeue != dep->trb_enqueue ||
-			!list_empty(&dep->pending_list)
-			|| !list_empty(&dep->started_list)) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue dbm request %p tp ep %s\n",
-			__func__, request, ep->name);
-		ret = -EPERM;
-		goto err;
-	} else {
-		dep->trb_dequeue = 0;
-		dep->trb_enqueue = 0;
-	}
 
 	ret = __dwc3_msm_ep_queue(dep, req);
 	if (ret < 0) {
