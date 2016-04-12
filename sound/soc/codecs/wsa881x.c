@@ -431,7 +431,7 @@ static const struct reg_default wsa881x_vi_txfe_en[] = {
 static const struct reg_default wsa881x_vi_txfe_en_2_0[] = {
 	{WSA881X_SPKR_PROT_FE_VSENSE_VCM, 0x85},
 	{WSA881X_SPKR_PROT_ATEST2, 0x0A},
-	{WSA881X_SPKR_PROT_FE_GAIN, 0xCF},
+	{WSA881X_SPKR_PROT_FE_GAIN, 0x47},
 };
 
 static int wsa881x_boost_ctrl(struct snd_soc_codec *codec, bool enable)
@@ -460,14 +460,26 @@ static int wsa881x_visense_txfe_ctrl(struct snd_soc_codec *codec, bool enable,
 		__func__, enable, isense1_gain, isense2_gain, vsense_gain);
 
 	if (enable) {
-		if (WSA881X_IS_2_0(wsa881x->version))
+		if (WSA881X_IS_2_0(wsa881x->version)) {
 			regmap_multi_reg_write(wsa881x->regmap,
 					wsa881x_vi_txfe_en_2_0,
 					ARRAY_SIZE(wsa881x_vi_txfe_en_2_0));
-		else
+			if (!wsa881x->comp_enable) {
+				if (((snd_soc_read(codec, WSA881X_SPKR_DRV_GAIN)
+						  & 0xF0) >> 4) < G_15DB)
+					snd_soc_update_bits(codec,
+						WSA881X_SPKR_PROT_FE_GAIN,
+						0xF8, 0xC8);
+				else
+					snd_soc_update_bits(codec,
+						WSA881X_SPKR_PROT_FE_GAIN,
+						0xF8, 0x40);
+			}
+		} else {
 			regmap_multi_reg_write(wsa881x->regmap,
 					       wsa881x_vi_txfe_en,
 					       ARRAY_SIZE(wsa881x_vi_txfe_en));
+		}
 	} else {
 		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_FE_VSENSE_VCM,
 				    0x08, 0x08);
@@ -919,9 +931,12 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, WSA881X_CDC_RST_CTL, 0x01, 0x01);
 
 	if (WSA881X_IS_2_0(wsa881x->version)) {
+		snd_soc_update_bits(codec, WSA881X_CLOCK_CONFIG, 0x10, 0x10);
+		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0x02, 0x02);
 		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0xC0, 0x80);
 		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0x06, 0x06);
-		snd_soc_update_bits(codec, WSA881X_SPKR_PA_INT, 0xF0, 0x20);
+		snd_soc_update_bits(codec, WSA881X_SPKR_BIAS_INT, 0xFF, 0x00);
+		snd_soc_update_bits(codec, WSA881X_SPKR_PA_INT, 0xF0, 0x40);
 		snd_soc_update_bits(codec, WSA881X_SPKR_PA_INT, 0x0E, 0x0E);
 		snd_soc_update_bits(codec, WSA881X_BOOST_LOOP_STABILITY,
 				    0x03, 0x03);
@@ -932,8 +947,12 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 				    0x0C, 0x04);
 		snd_soc_update_bits(codec, WSA881X_BOOST_SLOPE_COMP_ISENSE_FB,
 				    0x03, 0x00);
+		if (snd_soc_read(codec, WSA881X_OTP_REG_0))
+			snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1,
+					    0xF0, 0x70);
+		snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT2,
+				    0xF0, 0x30);
 		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_EN, 0x08, 0x08);
-		snd_soc_update_bits(codec, WSA881X_BOOST_PS_CTL, 0x80, 0x00);
 		snd_soc_update_bits(codec, WSA881X_BOOST_CURRENT_LIMIT,
 				    0x0F, 0x08);
 		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0x30, 0x30);
