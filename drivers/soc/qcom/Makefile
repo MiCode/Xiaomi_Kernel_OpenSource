@@ -50,3 +50,4 @@ endif
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QCOM_GLINK) += glink_probe.o
 obj-$(CONFIG_QCOM_QDSS_BRIDGE) += qdss_bridge.o
+obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_stats.o
