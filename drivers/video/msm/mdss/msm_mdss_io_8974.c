@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -378,11 +378,11 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			mdss_dsi_20nm_phy_regulator_enable(ctrl);
 		} else {
 			/*
-			 * For dual dsi case, do not reconfigure dsi phy
-			 * regulator if the other dsi controller is still
-			 * active.
+			 * For dsi configurations other than single mode,
+			 * do not reconfigure dsi phy regulator if the
+			 * other dsi controller is still active.
 			 */
-			if (!mdss_dsi_is_hw_config_dual(sdata) ||
+			if (mdss_dsi_is_hw_config_single(sdata) ||
 				(other_ctrl && !other_ctrl->is_phyreg_enabled))
 				mdss_dsi_28nm_phy_regulator_enable(ctrl);
 		}
