@@ -3123,8 +3123,10 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 
 	if (!host->clock && host->mmc->card &&
 			mmc_card_sdio(host->mmc->card)) {
-		if (!mmc_card_and_host_support_async_int(host->mmc))
+		if (!mmc_card_and_host_support_async_int(host->mmc)) {
+			spin_unlock(&host->lock);
 			return IRQ_NONE;
+		}
 		/*
 		 * async card interrupt is level sensitive and received
 		 * when clocks are off.
