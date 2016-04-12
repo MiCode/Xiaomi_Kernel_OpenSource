@@ -280,6 +280,7 @@ struct lcd_panel_info {
 	u32 xres_pad;
 	/* Pad height */
 	u32 yres_pad;
+	u32 frame_rate;
 };
 
 
@@ -770,6 +771,11 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 	case WRITEBACK_PANEL:
 		frame_rate = DEFAULT_FRAME_RATE;
 		break;
+	case DTV_PANEL:
+		if (panel_info->dynamic_fps) {
+			frame_rate = panel_info->lcdc.frame_rate;
+			break;
+		}
 	default:
 		pixel_total = (panel_info->lcdc.h_back_porch +
 			  panel_info->lcdc.h_front_porch +
@@ -912,6 +918,31 @@ static inline bool mdss_panel_is_power_on_lp(int panel_power_state)
 static inline bool mdss_panel_is_power_on_ulp(int panel_power_state)
 {
 	return panel_power_state == MDSS_PANEL_POWER_LP2;
+}
+
+/**
+ * mdss_panel_update_clk_rate() - update the clock rate based on panel timing
+ *				information.
+ * @panel_info:	Pointer to panel info containing all panel information
+ * @fps: frame rate of the panel
+ */
+static inline void mdss_panel_update_clk_rate(struct mdss_panel_info *pinfo,
+	u32 fps)
+{
+	struct lcd_panel_info *lcdc = &pinfo->lcdc;
+	u32 htotal, vtotal;
+
+	if (pinfo->type == DTV_PANEL) {
+		htotal = pinfo->xres + lcdc->h_front_porch +
+				lcdc->h_back_porch + lcdc->h_pulse_width;
+		vtotal = pinfo->yres + lcdc->v_front_porch +
+				lcdc->v_back_porch + lcdc->v_pulse_width;
+
+		pinfo->clk_rate = mult_frac(htotal * vtotal, fps, 1000);
+
+		pr_debug("vtotal %d, htotal %d, rate %llu\n",
+			vtotal, htotal, pinfo->clk_rate);
+	}
 }
 
 /**
