@@ -4338,6 +4338,9 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	list_del_init(&l_ctx->port_list_node);
 	spin_unlock_irqrestore(&l_ctx->transport_ptr->xprt_ctx_lock_lhb1,
 									flags);
+	mutex_lock(&l_ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
+	glink_debugfs_remove_channel(l_ctx, l_ctx->transport_ptr);
+	mutex_unlock(&l_ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
 
 	memcpy(ctx_clone, l_ctx, sizeof(*ctx_clone));
 	ctx_clone->local_xprt_req = 0;
@@ -4372,11 +4375,13 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	l_ctx->transport_ptr = xprt;
 	l_ctx->local_xprt_req = 0;
 	l_ctx->local_xprt_resp = 0;
-	if (new_xprt != r_ctx->transport_ptr->id) {
-		r_ctx->local_xprt_req = 0;
-		r_ctx->local_xprt_resp = 0;
-		r_ctx->remote_xprt_req = 0;
-		r_ctx->remote_xprt_resp = 0;
+	if (new_xprt != r_ctx->transport_ptr->id || l_ctx == r_ctx) {
+		if (new_xprt != r_ctx->transport_ptr->id) {
+			r_ctx->local_xprt_req = 0;
+			r_ctx->local_xprt_resp = 0;
+			r_ctx->remote_xprt_req = 0;
+			r_ctx->remote_xprt_resp = 0;
+		}
 
 		l_ctx->remote_xprt_req = 0;
 		l_ctx->remote_xprt_resp = 0;
@@ -4409,6 +4414,9 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 		spin_unlock_irqrestore(&xprt->xprt_ctx_lock_lhb1, flags);
 	}
 
+	mutex_lock(&xprt->xprt_dbgfs_lock_lhb3);
+	glink_debugfs_add_channel(l_ctx, xprt);
+	mutex_unlock(&xprt->xprt_dbgfs_lock_lhb3);
 
 	mutex_lock(&transport_list_lock_lha0);
 	list_for_each_entry(xprt, &transport_list, list_node)
