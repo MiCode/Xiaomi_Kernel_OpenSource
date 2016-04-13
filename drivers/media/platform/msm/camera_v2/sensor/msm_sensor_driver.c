@@ -338,9 +338,6 @@ static int32_t msm_sensor_fill_slave_info_init_params(
 	if (!slave_info ||  !sensor_info)
 		return -EINVAL;
 
-	if (!slave_info->is_init_params_valid)
-		return 0;
-
 	sensor_init_params = &slave_info->sensor_init_params;
 	if (INVALID_CAMERA_B != sensor_init_params->position)
 		sensor_info->position =
@@ -711,8 +708,6 @@ int32_t msm_sensor_driver_probe(void *setting,
 		slave_info->power_setting_array.power_down_setting =
 			compat_ptr(slave_info32->
 				power_setting_array.power_down_setting);
-		slave_info->is_init_params_valid =
-			slave_info32->is_init_params_valid;
 		slave_info->sensor_init_params =
 			slave_info32->sensor_init_params;
 		slave_info->output_format =
@@ -740,13 +735,10 @@ int32_t msm_sensor_driver_probe(void *setting,
 	CDBG("power up size %d power down size %d\n",
 		slave_info->power_setting_array.size,
 		slave_info->power_setting_array.size_down);
-
-	if (slave_info->is_init_params_valid) {
-		CDBG("position %d",
-			slave_info->sensor_init_params.position);
-		CDBG("mount %d",
-			slave_info->sensor_init_params.sensor_mount_angle);
-	}
+	CDBG("position %d",
+		slave_info->sensor_init_params.position);
+	CDBG("mount %d",
+		slave_info->sensor_init_params.sensor_mount_angle);
 
 	/* Validate camera id */
 	if (slave_info->camera_id >= MAX_CAMERAS) {
