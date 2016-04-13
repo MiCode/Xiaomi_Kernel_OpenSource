@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1298,6 +1298,8 @@ _exit:
 	/* Program the delay count for the timer */
 	val = (cpr_vreg->ref_clk_khz * cpr_vreg->timer_delay_us) / 1000;
 	cpr_write(cpr_vreg, REG_RBCPR_TIMER_INTERVAL, val);
+
+	kfree(quot_delta_results);
 
 	return rc;
 }
@@ -3807,8 +3809,8 @@ static int cpr_aging_init(struct platform_device *pdev,
 			i, cpr_vreg->cpr_fuse_target_quot[i]);
 	}
 
-err:
 	kfree(fuse_sel_orig);
+err:
 	kfree(aging_sensor_id);
 	return rc;
 }
