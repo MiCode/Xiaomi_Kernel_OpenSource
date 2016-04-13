@@ -572,7 +572,7 @@ int wait_for_shutdown_ack(struct subsys_desc *desc)
 {
 	int count;
 
-	if (desc && !desc->shutdown_ack_gpio)
+	if (!desc || !desc->shutdown_ack_gpio)
 		return 0;
 
 	for (count = SHUTDOWN_ACK_MAX_LOOPS; count > 0; count--) {
