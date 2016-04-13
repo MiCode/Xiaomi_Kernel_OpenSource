@@ -755,25 +755,6 @@ static struct rcg_clk blsp2_uart3_apps_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_glm_clk_src[] = {
-	F( 100000000, gpll0_out_main,    6,    0,     0),
-	F_END
-};
-
-static struct rcg_clk glm_clk_src = {
-	.cmd_rcgr_reg = GCC_GLM_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_glm_clk_src,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "glm_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP1(LOWER, 100000000),
-		CLK_INIT(glm_clk_src.c),
-	},
-};
-
 static struct clk_freq_tbl ftbl_gp_clk_src[] = {
 	F(  19200000,    cxo_clk_src,    1,    0,     0),
 	F( 100000000, gpll0_out_main,    6,    0,     0),
@@ -1602,41 +1583,6 @@ static struct branch_clk gcc_bimc_gfx_clk = {
 		.dbg_name = "gcc_bimc_gfx_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_bimc_gfx_clk.c),
-	},
-};
-
-static struct branch_clk gcc_glm_ahb_clk = {
-	.cbcr_reg = GCC_GLM_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_glm_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_glm_ahb_clk.c),
-	},
-};
-
-static struct branch_clk gcc_glm_clk = {
-	.cbcr_reg = GCC_GLM_CBCR,
-	.has_sibling = 0,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_glm_clk",
-		.parent = &glm_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_glm_clk.c),
-	},
-};
-
-static struct branch_clk gcc_glm_xo_clk = {
-	.cbcr_reg = GCC_GLM_XO_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_glm_xo_clk",
-		.parent = &cxo_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_glm_xo_clk.c),
 	},
 };
 
@@ -2539,7 +2485,6 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(blsp2_uart1_apps_clk_src),
 	CLK_LIST(blsp2_uart2_apps_clk_src),
 	CLK_LIST(blsp2_uart3_apps_clk_src),
-	CLK_LIST(glm_clk_src),
 	CLK_LIST(gp1_clk_src),
 	CLK_LIST(gp2_clk_src),
 	CLK_LIST(gp3_clk_src),
@@ -2597,9 +2542,6 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_blsp2_uart3_apps_clk),
 	CLK_LIST(gcc_cfg_noc_usb3_axi_clk),
 	CLK_LIST(gcc_bimc_gfx_clk),
-	CLK_LIST(gcc_glm_ahb_clk),
-	CLK_LIST(gcc_glm_clk),
-	CLK_LIST(gcc_glm_xo_clk),
 	CLK_LIST(gcc_gp1_clk),
 	CLK_LIST(gcc_gp2_clk),
 	CLK_LIST(gcc_gp3_clk),
