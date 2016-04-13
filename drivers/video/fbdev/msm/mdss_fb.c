@@ -1091,6 +1091,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	mfd->pdev = pdev;
 
+	mfd->split_fb_left = mfd->split_fb_right = 0;
 	mfd->split_mode = MDP_SPLIT_MODE_NONE;
 	if (pdata->panel_info.is_split_display) {
 		struct mdss_panel_data *pnext = pdata->next;
@@ -1961,7 +1962,7 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 
 int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 {
-	int rc;
+	int rc = 0;
 	void *vaddr;
 	int domain;
 
@@ -3907,8 +3908,8 @@ static int mdss_fb_async_position_update_ioctl(struct fb_info *info,
 	input_layer_list = update_pos.input_layers;
 
 	layer_cnt = update_pos.input_layer_cnt;
-	if (!layer_cnt) {
-		pr_err("no async layers to update\n");
+	if ((!layer_cnt) || (layer_cnt > MAX_LAYER_COUNT)) {
+		pr_err("invalid async layers :%d to update\n", layer_cnt);
 		return -EINVAL;
 	}
 

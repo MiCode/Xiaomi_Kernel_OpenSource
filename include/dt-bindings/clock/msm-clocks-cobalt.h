@@ -97,6 +97,7 @@
 #define clk_debug_rpm_clk			0x8e2b07ca
 #define clk_debug_cpu_clk			0x0e696b2b
 #define clk_gpu_gcc_debug_clk			0x3eb88190
+#define clk_gfx_gcc_debug_clk			0xa3a64fec
 #define clk_gpll0				0x1ebe3bc4
 #define clk_gpll0_out_main			0xe9374de7
 #define clk_gpll0_ao				0xa1368304
@@ -457,6 +458,7 @@
 #define clk_gpu_pll1_postdiv_clk		0xdf546700
 #define clk_gpucc_mx_clk			0x1edbb879
 #define clk_gpucc_gcc_dbg_clk			0x9ae8cd3c
+#define clk_gfxcc_dbg_clk			0x3ed47625
 
 /* CPU clocks */
 #define clk_pwrcl_clk				0xc554130e

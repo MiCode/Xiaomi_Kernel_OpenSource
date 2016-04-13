@@ -181,7 +181,8 @@ static ssize_t panel_debug_base_reg_write(struct file *file,
 	if (mdata->debug_inf.debug_enable_clock)
 		mdata->debug_inf.debug_enable_clock(1);
 
-	mdss_dsi_cmdlist_put(ctrl_pdata, &cmdreq);
+	if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT)
+		mdss_dsi_cmdlist_put(ctrl_pdata, &cmdreq);
 
 	if (mdata->debug_inf.debug_enable_clock)
 		mdata->debug_inf.debug_enable_clock(0);
@@ -994,7 +995,7 @@ static ssize_t mdss_debug_perf_bw_limit_write(struct file *file,
 {
 	struct mdss_data_type *mdata = file->private_data;
 	char buf[32];
-	u32 mode, val;
+	u32 mode = 0, val = 0;
 	u32 cnt;
 	struct mdss_max_bw_settings *temp_settings;
 

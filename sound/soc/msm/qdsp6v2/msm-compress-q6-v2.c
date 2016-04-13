@@ -68,12 +68,6 @@
 const DECLARE_TLV_DB_LINEAR(msm_compr_vol_gain, 0,
 				COMPRESSED_LR_VOL_MAX_STEPS);
 
-/*
- * LSB 8 bits is used as stream id for some DSP
- * commands for compressed playback.
- */
-#define STREAM_ID_FROM_TOKEN(i) (i & 0xFF)
-
 /* Stream id switches between 1 and 2 */
 #define NEXT_STREAM_ID(stream_id) ((stream_id & 1) + 1)
 
@@ -386,6 +380,12 @@ static void compr_event_handler(uint32_t opcode,
 	cstream = prtd->cstream;
 	ac = prtd->audio_client;
 
+	/*
+	 * Token for rest of the compressed commands use to set
+	 * session id, stream id, dir etc.
+	 */
+	stream_id = q6asm_get_stream_id_from_token(token);
+
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE_V2:
@@ -412,6 +412,12 @@ static void compr_event_handler(uint32_t opcode,
 			pr_debug("ASM_DATA_EVENT_WRITE_DONE_V2 offset %d, length %d\n",
 				 prtd->byte_offset, token);
 		}
+
+		/*
+		 * Token for WRITE command represents the amount of data
+		 * written to ADSP in the last write, update offset and
+		 * total copied data accordingly.
+		 */
 
 		prtd->byte_offset += token;
 		prtd->copied_total += token;
@@ -454,8 +460,7 @@ static void compr_event_handler(uint32_t opcode,
 	case ASM_DATA_EVENT_RENDERED_EOS:
 		spin_lock_irqsave(&prtd->lock, flags);
 		pr_debug("%s: ASM_DATA_CMDRSP_EOS token 0x%x,stream id %d\n",
-			  __func__, token, STREAM_ID_FROM_TOKEN(token));
-		stream_id = STREAM_ID_FROM_TOKEN(token);
+			  __func__, token, stream_id);
 		if (atomic_read(&prtd->eos) &&
 		    !prtd->gapless_state.set_next_stream_id) {
 			pr_debug("ASM_DATA_CMDRSP_EOS wake up\n");
@@ -539,25 +544,25 @@ static void compr_event_handler(uint32_t opcode,
 		case ASM_STREAM_CMD_FLUSH:
 			pr_debug("%s: ASM_STREAM_CMD_FLUSH:", __func__);
 			pr_debug("token 0x%x, stream id %d\n", token,
-				  STREAM_ID_FROM_TOKEN(token));
+				  stream_id);
 			prtd->cmd_ack = 1;
 			break;
 		case ASM_DATA_CMD_REMOVE_INITIAL_SILENCE:
 			pr_debug("%s: ASM_DATA_CMD_REMOVE_INITIAL_SILENCE:",
 				   __func__);
 			pr_debug("token 0x%x, stream id = %d\n", token,
-				  STREAM_ID_FROM_TOKEN(token));
+				  stream_id);
 			break;
 		case ASM_DATA_CMD_REMOVE_TRAILING_SILENCE:
 			pr_debug("%s: ASM_DATA_CMD_REMOVE_TRAILING_SILENCE:",
 				  __func__);
 			pr_debug("token = 0x%x,	stream id = %d\n", token,
-				  STREAM_ID_FROM_TOKEN(token));
+				  stream_id);
 			break;
 		case ASM_STREAM_CMD_CLOSE:
 			pr_debug("%s: ASM_DATA_CMD_CLOSE:", __func__);
 			pr_debug("token 0x%x, stream id %d\n", token,
-				  STREAM_ID_FROM_TOKEN(token));
+				  stream_id);
 			/*
 			 * wakeup wait for stream avail on stream 3
 			 * after stream 1 ends.

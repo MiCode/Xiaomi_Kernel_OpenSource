@@ -17,7 +17,6 @@
 #include <sound/apr_audio-v2.h>
 #include <linux/list.h>
 #include <linux/msm_ion.h>
-#include <linux/spinlock.h>
 
 #define IN                      0x000
 #define OUT                     0x001
@@ -87,8 +86,9 @@
 #define SOFT_PAUSE_ENABLE	1
 #define SOFT_PAUSE_DISABLE	0
 
-#define SESSION_MAX		0x08
-#define ASM_CONTROL_SESSION	0x0F
+#define ASM_ACTIVE_STREAMS_ALLOWED	0x8
+/* Control session is used for mapping calibration memory */
+#define ASM_CONTROL_SESSION	(ASM_ACTIVE_STREAMS_ALLOWED + 1)
 
 #define ASM_SHIFT_GAPLESS_MODE_FLAG	31
 #define ASM_SHIFT_LAST_BUFFER_FLAG	30
@@ -174,8 +174,6 @@ struct audio_client {
 	/* Relative or absolute TS */
 	atomic_t	       time_flag;
 	atomic_t	       nowait_cmd_cnt;
-	struct list_head       no_wait_que;
-	spinlock_t             no_wait_que_spinlock;
 	atomic_t               mem_state;
 	void		       *priv;
 	uint32_t               io_mode;
@@ -488,5 +486,9 @@ int q6asm_send_mtmx_strtr_window(struct audio_client *ac,
 
 /* Retrieve the current DSP path delay */
 int q6asm_get_path_delay(struct audio_client *ac);
+
+/* Helper functions to retrieve data from token */
+uint8_t q6asm_get_buf_index_from_token(uint32_t token);
+uint8_t q6asm_get_stream_id_from_token(uint32_t token);
 
 #endif /* __Q6_ASM_H__ */

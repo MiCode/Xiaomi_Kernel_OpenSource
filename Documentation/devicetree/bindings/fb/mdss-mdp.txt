@@ -9,6 +9,9 @@ Required properties
 - reg :			offset and length of the register set for the device.
 - reg-names :		names to refer to register sets related to this device
 - interrupts :		Interrupt associated with MDSS.
+- interrupt-controller:	Mark the device node as an interrupt controller.
+			This is an empty, boolean property.
+- #interrupt-cells: 	Should be one. The first cell is interrupt number.
 - vdd-supply :		Phandle for vdd regulator device node.
 - qcom,max-clk-rate:	Specify maximum MDP core clock rate in hz that this
 			device supports.
@@ -509,6 +512,11 @@ Fudge Factors:			Fudge factors are used to boost demand for
 - qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
 				the device supports. If not specified, a default value
 				of 2048 will be applied.
+- qcom,mdss-reg-bus:		Property to provide Bus scaling for register access for
+				MDP and DSI Blocks.
+
+- qcom,mdss-rot-reg-bus:	Property to provide Bus scaling for register access for
+				Rotator Block.
 
 Optional subnodes:
 - mdss_fb:		Child nodes representing the frame buffer virtual devices.
@@ -621,6 +629,8 @@ Example:
 			<0xfd925000 0x1000>;
 		reg-names = "mdp_phys", "vbif_phys", "vbif_nrt_phys";
 		interrupts = <0 72 0>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
 		vdd-supply = <&gdsc_mdss>;
 		batfet-supply = <&pm8941_chg_batif>;
 		vdd-cx-supply = <&pm8841_s2_corner>;
@@ -811,6 +821,17 @@ Example:
 			clocks = <&clock_mmss clk_smmu_mdp_ahb_clk>,
 				<&clock_mmss clk_smmu_mdp_axi_clk>;
 			clock-names = "dummy_clk", "dummy_clk";
+		};
+
+		qcom,mdss-rot-reg-bus {
+		    /* Reg Bus Scale Settings */
+		    qcom,msm-bus,name = "mdss_rot_reg";
+		    qcom,msm-bus,num-cases = <2>;
+		    qcom,msm-bus,num-paths = <1>;
+		    qcom,msm-bus,active-only;
+		    qcom,msm-bus,vectors-KBps =
+			    <1 590 0 0>,
+			    <1 590 0 76800>;
 		};
 	};
 

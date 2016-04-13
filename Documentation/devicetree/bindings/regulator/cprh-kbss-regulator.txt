@@ -50,10 +50,12 @@ KBSS specific properties:
 - qcom,apm-hysteresis-voltage
 	Usage:      optional
 	Value type: <u32>
-	Definition: Specifies the voltage delta in microvolts between the APM
-		    threshold voltage and the highest corner open-loop voltage
-		    which may be used as the ceiling for the corner.  If this
-		    property is not specified, then a value of 0 is assumed.
+	Definition: Specifies the voltage in microvolts used to adjust floor
+		    voltages with respect to the APM threshold voltage. This
+		    voltage is used to reduce the number of corners whose floor
+		    must be raised to ensure stable operation with manual APM
+		    switching. If this property is not specified, then a value
+		    of 0 is assumed.
 
 - qcom,voltage-base
 	Usage:      required

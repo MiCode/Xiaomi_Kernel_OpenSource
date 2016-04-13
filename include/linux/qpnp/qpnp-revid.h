@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -176,6 +176,9 @@
 
 /* PMI8998 */
 #define PMI8998_SUBTYPE		0x15
+
+/* PM8005 */
+#define PM8005_SUBTYPE		0x18
 
 /* PM8937 */
 #define PM8937_SUBTYPE		0x19

@@ -1,0 +1,72 @@
+* Qualcomm Technologies, Inc. MSM CAMERA FLASH
+
+Required properties:
+- cell-index : Should contain flash source index to diffentiate
+    between different flash devices. These indexes represent flash devices
+    for multiple flashes.
+    - 0, 1, 2, 3
+- compatible :
+    - "qcom,camera-led-flash"
+    - "qcom,camera-flash"
+    - "qcom,led-flash"
+    - "qcom,led-flash1"
+- qcom,flash-type : Should contain type flash device
+    - 1 for LED flash
+    - 2 for strobe flash
+    - 3 for simple led flash controlled by one gpio
+      This is a low cost led used for camera flash, the led is driven by
+      system power, and use a transistor controlled by external pin to
+      gate its on/off state.
+- qcom,flash-source : Should contain array of phandles to flash source nodes.
+    - pm8941_flash0 pm8941_flash1
+
+Optional properties:
+-qcom,torch-source : Should contain phandle to torch source node.
+    -pm8941_torch
+- qcom,slave-id : should contain i2c slave address, device id address
+    and expected id read value.
+- qcom,max-current: Max current in mA supported by flash
+- qcom,max-duration: Max duration in milliseconds the flash can glow.
+-qcom,switch-source : Should contain phandle to switch source node.
+      This is used to trigger dual led at same time to avoid sync issues.
+- qcom,cci-master : should contain i2c master id to be used for this flash.
+    - 0 -> MASTER 0
+    - 1 -> MASTER 1
+- reg : offset and length of the register set for the device.
+    for the flash operating in compatible mode.
+- gpios : should contain phandle to gpio controller node and array of
+    #gpio-cells specifying specific gpio (controller specific)
+- qcom,gpio-req-tbl-num : should contain index to gpios specific to this flash
+- qcom,gpio-req-tbl-flags : should contain direction of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-req-tbl-label : should contain name of gpios present in
+    qcom,gpio-req-tbl-num property (in the same order)
+- qcom,gpio-flash-reset : should contain index to gpio used by flash's "flash reset" pin.
+- qcom,gpio-flash-en : should contain index to gpio used by flash's "flash enable" pin.
+- qcom,gpio-flash-now : should contain index to gpio used by flash's "flash now" pin.
+- label : should contain unique flash name to differentiate from other flash
+    - "adp1660"
+    - "bd7710"
+Example:
+
+qcom,led-flash@60 {
+		reg = <0x60>;
+		cell-index = <0>;
+		qcom,slave-id = <0x60 0x00 0x0011>;
+		compatible = "qcom,led-flash";
+		label = "adp1660";
+		qcom,flash-type = <1>;
+		qcom,cci-master = <0>;
+		gpios = <&msmgpio 23 0>,
+			<&msmgpio 24 0>;
+			<&msmgpio 25 0>;
+		qcom,gpio-flash-reset = <0>;
+		qcom,gpio-flash-en = <0>;
+		qcom,gpio-flash-now = <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <0 0>;
+		qcom,gpio-req-tbl-label = "FLASH_EN",
+			"FLASH_NOW";
+		qcom,max-current = <750>;
+		qcom,max-duration = <1600>;
+	};

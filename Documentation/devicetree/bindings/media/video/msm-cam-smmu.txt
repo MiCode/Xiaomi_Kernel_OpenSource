@@ -1,0 +1,37 @@
+* Qualcomm Technologies, Inc. MSM Camera SMMU
+
+[Root level node]
+The complete set of context banks for camera are encapsulated under this
+root node. Each second level node encapsulates the information related to
+the corresponding context bank. During the kernel initialization all
+the devices are probed recursively and a device pointer is created for
+each context bank keeping track of the virtual address mapping information.
+
+Required properties:
+- compatible :
+    - "qcom,msm-cam-smmu"
+
+[Second level nodes]
+Required properties:
+- compatible : one of:
+    - "qcom,msm-cam-smmu-cb"
+    - "qcom,qsmmu-cam-cb"
+- iommus : Handle parsed by smmu driver. Number of entries will vary
+  across targets.
+- label - string describing iommu domain usage.
+
+Optional properties:
+- qcom,scratch-buf-support : Enables iommu scratch buffer support in
+  that context bank.
+
+Example:
+  qcom,cam_smmu@0 {
+    compatible = "qcom,msm-cam-smmu";
+    msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
+      compatible = "qcom,msm-cam-smmu-cb";
+      iommus = <&vfe_iommu 0>;
+      label = "vfe";
+      qcom,scratch-buf-support;
+    }
+  }
+

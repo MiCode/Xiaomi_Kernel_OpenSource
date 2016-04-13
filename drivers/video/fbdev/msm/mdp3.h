@@ -21,18 +21,28 @@
 
 #include <linux/msm_iommu_domains.h>
 
+#include "mdss_dsi_clk.h"
 #include "mdp3_dma.h"
 #include "mdss_fb.h"
 #include "mdss.h"
 
 #define MDP_VSYNC_CLK_RATE	19200000
-#define MDP_CORE_CLK_RATE_SVS	150000000
+#define MDP_CORE_CLK_RATE_SVS	160000000
+#define MDP_CORE_CLK_RATE_SUPER_SVS	200000000
 #define MDP_CORE_CLK_RATE_MAX	307200000
 
 /* PPP cant work at SVS for panel res above qHD */
 #define SVS_MAX_PIXEL		(540 * 960)
 
 #define KOFF_TIMEOUT msecs_to_jiffies(84)
+#define WAIT_DMA_TIMEOUT msecs_to_jiffies(84)
+
+/*
+ * MDP_DEINTERLACE & MDP_SHARPENING Flags are not valid for MDP3
+ * so using them together for MDP_SMART_BLIT.
+ */
+#define MDP_SMART_BLIT                 0xC0000000
+
 
 enum  {
 	MDP3_CLK_AHB,
@@ -50,8 +60,8 @@ enum {
 };
 
 enum {
-	MDP3_IOMMU_DOMAIN_SECURE,
 	MDP3_IOMMU_DOMAIN_UNSECURE,
+	MDP3_IOMMU_DOMAIN_SECURE,
 	MDP3_IOMMU_DOMAIN_MAX,
 };
 
@@ -67,7 +77,14 @@ enum {
 	MDP3_CLIENT_DMA_P,
 	MDP3_CLIENT_DSI = 1,
 	MDP3_CLIENT_PPP,
+	MDP3_CLIENT_IOMMU,
 	MDP3_CLIENT_MAX,
+};
+
+enum {
+	DI_PARTITION_NUM = 0,
+	DI_DOMAIN_NUM = 1,
+	DI_MAX,
 };
 
 struct mdp3_bus_handle_map {
@@ -100,12 +117,28 @@ struct mdp3_iommu_ctx_map {
 	int attached;
 };
 
+struct mdp3_iommu_meta {
+	struct rb_node node;
+	struct ion_handle *handle;
+	struct rb_root iommu_maps;
+	struct kref ref;
+	struct sg_table *table;
+	struct dma_buf *dbuf;
+	int mapped_size;
+	unsigned long size;
+	dma_addr_t iova_addr;
+	unsigned long flags;
+};
+
 #define MDP3_MAX_INTR 28
 
 struct mdp3_intr_cb {
 	void (*cb)(int type, void *);
 	void *data;
 };
+
+#define SMART_BLIT_RGB_EN	1
+#define SMART_BLIT_YUV_EN	2
 
 struct mdp3_hw_resource {
 	struct platform_device *pdev;
@@ -123,6 +156,9 @@ struct mdp3_hw_resource {
 	char __iomem *mdp_base;
 	size_t mdp_reg_size;
 
+	char __iomem *vbif_base;
+	size_t vbif_reg_size;
+
 	struct mdp3_bus_handle_map *bus_handle;
 
 	struct ion_client *ion_client;
@@ -136,6 +172,7 @@ struct mdp3_hw_resource {
 	struct mdp3_dma dma[MDP3_DMA_MAX];
 	struct mdp3_intf intf[MDP3_DMA_OUTPUT_SEL_MAX];
 
+	struct rb_root iommu_root;
 	spinlock_t irq_lock;
 	u32 irq_ref_count[MDP3_MAX_INTR];
 	u32 irq_mask;
@@ -157,16 +194,32 @@ struct mdp3_hw_resource {
 	struct regulator *vdd_cx;
 	struct regulator *fs;
 	bool fs_ena;
+	int  clk_ena;
+	bool idle_pc_enabled;
+	bool idle_pc;
+	atomic_t active_intf_cnt;
+	u8 smart_blit_en;
+	bool solid_fill_vote_en;
+	struct list_head reg_bus_clist;
+	struct mutex reg_bus_lock;
 };
 
 struct mdp3_img_data {
 	dma_addr_t addr;
-	u32 len;
+	unsigned long len;
+	u32 offset;
 	u32 flags;
+	u32 padding;
 	int p_need;
-	struct file *srcp_file;
 	struct ion_handle *srcp_ihdl;
+	u32 dir;
+	u32 domain;
+	bool mapped;
+	bool skip_detach;
 	struct fd srcp_f;
+	struct dma_buf *srcp_dma_buf;
+	struct dma_buf_attachment *srcp_attachment;
+	struct sg_table *srcp_table;
 };
 
 extern struct mdp3_hw_resource *mdp3_res;
@@ -183,10 +236,11 @@ int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate, int client);
 int mdp3_clk_enable(int enable, int dsi_clk);
 int mdp3_res_update(int enable, int dsi_clk, int client);
 int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
-int mdp3_put_img(struct mdp3_img_data *data);
-int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data);
-int mdp3_iommu_enable(void);
-int mdp3_iommu_disable(void);
+int mdp3_put_img(struct mdp3_img_data *data, int client);
+int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data,
+		int client);
+int mdp3_iommu_enable(int client);
+int mdp3_iommu_disable(int client);
 int mdp3_iommu_is_attached(void);
 void mdp3_free(struct msm_fb_data_type *mfd);
 int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd);
@@ -201,9 +255,20 @@ int mdp3_misr_get(struct mdp_misr *misr_resp);
 void mdp3_enable_regulator(int enable);
 void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 				uint32_t interval);
+int mdp3_dynamic_clock_gating_ctrl(int enable);
 int mdp3_footswitch_ctrl(int enable);
+int mdp3_qos_remapper_setup(struct mdss_panel_data *panel);
+int mdp3_splash_done(struct mdss_panel_info *panel_info);
+int mdp3_autorefresh_disable(struct mdss_panel_info *panel_info);
+u64 mdp3_clk_round_off(u64 clk_rate);
+
+void mdp3_calc_dma_res(struct mdss_panel_info *panel_info, u64 *clk_rate,
+		u64 *ab, u64 *ib, uint32_t bpp);
+
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
+#define VBIF_REG_WRITE(off, val) writel_relaxed(val, mdp3_res->vbif_base + off)
+#define VBIF_REG_READ(off) readl_relaxed(mdp3_res->vbif_base + off)
 
 #endif /* MDP3_H */

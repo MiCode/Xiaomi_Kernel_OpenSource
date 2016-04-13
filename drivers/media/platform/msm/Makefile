@@ -4,3 +4,4 @@
 #
 obj-$(CONFIG_MSMB_CAMERA) += camera_v2/
 obj-$(CONFIG_MSM_VIDC_V4L2) += vidc/
+obj-y += sde/

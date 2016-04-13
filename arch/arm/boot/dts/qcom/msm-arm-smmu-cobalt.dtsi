@@ -141,9 +141,14 @@
 			   <GIC_SPI 275 IRQ_TYPE_LEVEL_HIGH>,
 			   <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
 		vdd-supply = <&gdsc_bimc_smmu>;
-		clocks = <&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			<&clock_gcc clk_mmssnoc_axi_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
-		clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
+		clock-names = "mmss_mnoc_ahb_clk",
+			"mmssnoc_axi_clk",
+			"mmss_bimc_smmu_ahb_clk",
+			"mmss_bimc_smmu_axi_clk";
 		#clock-cells = <1>;
 		/*
 		 * The iommu test framework requires at least one iommu

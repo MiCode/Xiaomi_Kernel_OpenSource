@@ -433,7 +433,7 @@ static int cprh_msmcobalt_kbss_calculate_open_loop_voltages(
 		vreg->corner[i].open_loop_volt = fuse_volt[0];
 
 	/* Interpolate voltages for the higher fuse corners. */
-	for (i = 1; i < vreg->fuse_corner_count - 1; i++) {
+	for (i = 1; i < vreg->fuse_corner_count; i++) {
 		freq_low = vreg->corner[fmax_corner[i - 1]].proc_freq;
 		volt_low = fuse_volt[i - 1];
 		freq_high = vreg->corner[fmax_corner[i]].proc_freq;
@@ -771,10 +771,11 @@ static int cprh_kbss_apm_threshold_as_corner(struct cpr3_regulator *vreg)
  *
  * The following algorithm is applied in the case that
  * floor < threshold <= ceiling:
- *	if open_loop >= threshold - adj, then floor = threshold
+ *	if open_loop >= threshold, then floor = threshold - adj
  *	else ceiling = threshold - step
- * where adj = an adjustment factor to ensure sufficient voltage margin and
- * step = VDD output step size
+ * where adj = APM hysteresis voltage established to minimize number
+ * of corners with artificially increased floor voltages
+ * and step = voltage in microvolts of a single step of the VDD supply
  *
  * The open-loop voltage is also bounded by the new floor or ceiling value as
  * needed.
@@ -810,8 +811,9 @@ static int cprh_kbss_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
 		prev_ceiling = corner->ceiling_volt;
 		prev_open_loop = corner->open_loop_volt;
 
-		if (corner->open_loop_volt >= threshold - adj) {
-			corner->floor_volt = threshold;
+		if (corner->open_loop_volt >= threshold) {
+			corner->floor_volt = max(corner->floor_volt,
+						 threshold - adj);
 			if (corner->open_loop_volt < corner->floor_volt)
 				corner->open_loop_volt = corner->floor_volt;
 		} else {
@@ -1224,6 +1226,7 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 {
 	int rc;
 
+	ctrl->ctrl_type = CPR_CTRL_TYPE_CPRH;
 	rc = cpr3_parse_common_ctrl_data(ctrl);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
@@ -1288,6 +1291,10 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 	if (rc)
 		cpr3_debug(ctrl, "qcom,apm-threshold-voltage not specified\n");
 
+	of_property_read_u32(ctrl->dev->of_node, "qcom,apm-hysteresis-voltage",
+				&ctrl->apm_adj_volt);
+	ctrl->apm_adj_volt = CPR3_ROUND(ctrl->apm_adj_volt, ctrl->step_volt);
+
 	ctrl->saw_use_unit_mV = of_property_read_bool(ctrl->dev->of_node,
 					"qcom,cpr-saw-use-unit-mV");
 
@@ -1313,7 +1320,6 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 		return -ENOMEM;
 
 	ctrl->cpr_clock_rate = MSMCOBALT_KBSS_CPR_CLOCK_RATE;
-	ctrl->ctrl_type = CPR_CTRL_TYPE_CPRH;
 	ctrl->supports_hw_closed_loop = true;
 	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
 						 "qcom,cpr-hw-closed-loop");

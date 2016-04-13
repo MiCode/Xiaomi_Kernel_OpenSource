@@ -99,7 +99,7 @@ static int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 		}
 	}
 
-	rc = mdss_update_reg_bus_vote(mngr->reg_bus_clt, VOTE_INDEX_19_MHZ);
+	rc = mdss_update_reg_bus_vote(mngr->reg_bus_clt, VOTE_INDEX_LOW);
 	if (rc) {
 		pr_err("failed to vote for reg bus\n");
 		goto disable_mmss_misc_clk;
@@ -876,7 +876,7 @@ void *mdss_dsi_clk_init(struct mdss_dsi_clk_info *info)
 	mngr->post_clkoff_cb = info->post_clkoff_cb;
 	mngr->priv_data = info->priv_data;
 	mngr->reg_bus_clt = mdss_reg_bus_vote_client_create(info->name);
-	if (IS_ERR_OR_NULL(mngr->reg_bus_clt)) {
+	if (IS_ERR(mngr->reg_bus_clt)) {
 		pr_err("Unable to get handle for reg bus vote\n");
 		kfree(mngr);
 		mngr = ERR_PTR(-EINVAL);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,7 @@ static const char *const pmic_names[] = {
 	[PMI8996_SUBTYPE] = "PMI8996",
 	[PM8998_SUBTYPE] = "PM8998",
 	[PMI8998_SUBTYPE] = "PMI8998",
+	[PM8005_SUBTYPE] = "PM8005",
 	[PM8937_SUBTYPE] = "PM8937",
 	[PMI8937_SUBTYPE] = "PMI8937",
 };
