@@ -599,11 +599,11 @@
 		qcom,cpr-up-down-delay-time = <3000>;
 		qcom,cpr-step-quot-init-min = <11>;
 		qcom,cpr-step-quot-init-max = <13>;
-		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-count-mode = <0>;		/* All at once */
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
-		qcom,cpr-corner-switch-delay-time = <1600>;
-		qcom,cpr-voltage-settling-time = <1600>;
+		qcom,cpr-corner-switch-delay-time = <209>;
+		qcom,cpr-voltage-settling-time = <1760>;
 
 		qcom,apm-threshold-voltage = <832000>;
 		qcom,apm-hysteresis-voltage = <32000>;
@@ -614,8 +614,8 @@
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <2>;
-			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-consecutive-down = <0>;
+			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <2>;
 
 			apc0_pwrcl_vreg: regulator-pwrcl {
@@ -685,11 +685,11 @@
 		qcom,cpr-up-down-delay-time = <3000>;
 		qcom,cpr-step-quot-init-min = <11>;
 		qcom,cpr-step-quot-init-max = <13>;
-		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-count-mode = <0>;		/* All at once */
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
-		qcom,cpr-corner-switch-delay-time = <1600>;
-		qcom,cpr-voltage-settling-time = <1600>;
+		qcom,cpr-corner-switch-delay-time = <209>;
+		qcom,cpr-voltage-settling-time = <1760>;
 
 		qcom,apm-threshold-voltage = <832000>;
 		qcom,apm-hysteresis-voltage = <32000>;
@@ -700,8 +700,8 @@
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <2>;
-			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-consecutive-down = <0>;
+			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <2>;
 
 			apc1_perfcl_vreg: regulator-pwrcl {
