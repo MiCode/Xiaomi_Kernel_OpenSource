@@ -1098,6 +1098,14 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		}
 	}
 
+	/* Enable HVDCP */
+	rc = smb1351_masked_write(chip, HVDCP_BATT_MISSING_CTRL_REG,
+			HVDCP_EN_BIT, HVDCP_EN_BIT);
+	if (rc) {
+		pr_err("Failed to enable HVDCP, rc=%d\n", rc);
+		return rc;
+	}
+
 	/* enable/disable charging by suspending usb */
 	rc = smb1351_usb_suspend(chip, USER, chip->usb_suspended_status);
 	if (rc) {
