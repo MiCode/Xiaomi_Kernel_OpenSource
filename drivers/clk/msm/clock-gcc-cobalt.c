@@ -59,10 +59,13 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_clk_src_ao, RPM_MISC_CLK_TYPE,
 			  CXO_CLK_SRC_ID, 19200000);
-DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(cnoc_clk, cnoc_a_clk, RPM_BUS_CLK_TYPE, CNOC_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_CLK_ID, NULL);
+DEFINE_CLK_RPM_SMD(cnoc_periph_clk, cnoc_periph_a_clk, RPM_BUS_CLK_TYPE,
+			CNOC_PERIPH_CLK_ID, NULL);
+static DEFINE_CLK_VOTER(cnoc_periph_keepalive_a_clk, &cnoc_periph_a_clk.c,
+			LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_clk, &bimc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, &bimc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(cnoc_msmbus_clk, &cnoc_clk.c, LONG_MAX);
@@ -91,17 +94,12 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(ln_bb_clk3_pin, ln_bb_clk3_pin_ao,
 				     LN_BB_CLK3_PIN_ID);
 static DEFINE_CLK_VOTER(mcd_ce1_clk, &ce1_clk.c, 85710000);
 DEFINE_CLK_DUMMY(measure_only_bimc_hmss_axi_clk, 0);
-DEFINE_CLK_RPM_SMD(mmssnoc_axi_clk, mmssnoc_axi_a_clk, RPM_BUS_CLK_TYPE,
-		   MMSSNOC_AXI_CLK_ID, NULL);
+DEFINE_CLK_RPM_SMD(mmssnoc_axi_clk, mmssnoc_axi_a_clk,
+			RPM_MMAXI_CLK_TYPE, MMSSNOC_AXI_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD_BRANCH(aggre1_noc_clk, aggre1_noc_a_clk,
 				RPM_AGGR_CLK_TYPE, AGGR1_NOC_ID, 1000);
 DEFINE_CLK_RPM_SMD_BRANCH(aggre2_noc_clk, aggre2_noc_a_clk,
 				RPM_AGGR_CLK_TYPE, AGGR2_NOC_ID, 1000);
-static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, LONG_MAX);
-static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, LONG_MAX);
-static DEFINE_CLK_VOTER(pnoc_msmbus_a_clk, &pnoc_a_clk.c, LONG_MAX);
-static DEFINE_CLK_VOTER(pnoc_pm_clk, &pnoc_clk.c, LONG_MAX);
-static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, 0);
 static DEFINE_CLK_VOTER(qcedev_ce1_clk, &ce1_clk.c, 85710000);
 static DEFINE_CLK_VOTER(qcrypto_ce1_clk, &ce1_clk.c, 85710000);
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE,
@@ -2468,14 +2466,15 @@ static struct mux_clk gcc_debug_mux = {
 
 static struct clk_lookup msm_clocks_rpm_cobalt[] = {
 	CLK_LIST(cxo_clk_src),
-	CLK_LIST(pnoc_clk),
-	CLK_LIST(pnoc_a_clk),
 	CLK_LIST(bimc_clk),
 	CLK_LIST(bimc_a_clk),
 	CLK_LIST(cnoc_clk),
 	CLK_LIST(cnoc_a_clk),
 	CLK_LIST(snoc_clk),
 	CLK_LIST(snoc_a_clk),
+	CLK_LIST(cnoc_periph_clk),
+	CLK_LIST(cnoc_periph_a_clk),
+	CLK_LIST(cnoc_periph_keepalive_a_clk),
 	CLK_LIST(bimc_msmbus_clk),
 	CLK_LIST(bimc_msmbus_a_clk),
 	CLK_LIST(ce1_clk),
@@ -2517,11 +2516,6 @@ static struct clk_lookup msm_clocks_rpm_cobalt[] = {
 	CLK_LIST(aggre1_noc_a_clk),
 	CLK_LIST(aggre2_noc_clk),
 	CLK_LIST(aggre2_noc_a_clk),
-	CLK_LIST(pnoc_keepalive_a_clk),
-	CLK_LIST(pnoc_msmbus_clk),
-	CLK_LIST(pnoc_msmbus_a_clk),
-	CLK_LIST(pnoc_pm_clk),
-	CLK_LIST(pnoc_sps_clk),
 	CLK_LIST(qcedev_ce1_clk),
 	CLK_LIST(qcrypto_ce1_clk),
 	CLK_LIST(qdss_clk),
@@ -2797,11 +2791,9 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	/*
-	 * Hold an active set vote for the PNOC AHB source. Sleep set vote is 0.
-	 */
-	clk_set_rate(&pnoc_keepalive_a_clk.c, 19200000);
-	clk_prepare_enable(&pnoc_keepalive_a_clk.c);
+	/* Hold an active set vote for the cnoc_periph resource */
+	clk_set_rate(&cnoc_periph_keepalive_a_clk.c, 19200000);
+	clk_prepare_enable(&cnoc_periph_keepalive_a_clk.c);
 
 	/* This clock is used for all MMSSCC register access */
 	clk_prepare_enable(&gcc_mmss_noc_cfg_ahb_clk.c);
