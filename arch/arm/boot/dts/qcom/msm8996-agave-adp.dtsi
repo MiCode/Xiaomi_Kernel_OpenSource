@@ -1110,6 +1110,19 @@
 			<&pm8994_gpios 6 0>,   /* INT2    */
 			<&pm8994_gpios 7 0>;   /* INT3    */
 	};
+
+	qcom,msm-ba {
+		compatible = "qcom,msm-ba";
+		qcom,ba-input-profile-0 {
+			qcom,type = <4>;          /* input type   */
+			qcom,name = "HDMI-1";     /* input name   */
+			qcom,ba-input = <13>;     /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "adv7481"; /* sd name      */
+			qcom,ba-node = <0>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
+	};
 };
 
 &pm8994_gpios {
