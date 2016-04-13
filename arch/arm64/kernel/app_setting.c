@@ -31,21 +31,6 @@ static struct kparam_string kps = {
 static int set_name(const char *str, struct kernel_param *kp);
 module_param_call(lib_name, set_name, param_get_string, &kps, S_IWUSR);
 
-void get_lib_names(char *names[], unsigned int *cnt)
-{
-	int i;
-
-	/*
-	 * set_name is expected to be called before we
-	 * access lib_names and count variable here for
-	 * specific processes.
-	 */
-	*cnt = count;
-	for (i = 0; i < count; i++)
-		names[i] = lib_names[i];
-}
-EXPORT_SYMBOL(get_lib_names);
-
 static int set_name(const char *str, struct kernel_param *kp)
 {
 	int len = strlen(str);
@@ -87,6 +72,41 @@ static int set_name(const char *str, struct kernel_param *kp)
 
 	return 0;
 }
+
+void switch_app_setting_bit(struct task_struct *prev, struct task_struct *next)
+{
+	if (prev->mm && unlikely(prev->mm->app_setting))
+		clear_app_setting_bit(APP_SETTING_BIT);
+
+	if (next->mm && unlikely(next->mm->app_setting))
+		set_app_setting_bit(APP_SETTING_BIT);
+}
+EXPORT_SYMBOL(switch_app_setting_bit);
+
+void apply_app_setting_bit(struct file *file)
+{
+	bool found = false;
+	int i;
+
+	if (file && file->f_path.dentry) {
+		const char *name = file->f_path.dentry->d_name.name;
+
+		for (i = 0; i < count; i++) {
+			if (unlikely(!strcmp(name, lib_names[i]))) {
+				found = true;
+				break;
+			}
+		}
+		if (found) {
+			preempt_disable();
+			set_app_setting_bit(APP_SETTING_BIT);
+			/* This will take care of child processes as well */
+			current->mm->app_setting = 1;
+			preempt_enable();
+		}
+	}
+}
+EXPORT_SYMBOL(apply_app_setting_bit);
 
 static int __init app_setting_init(void)
 {
