@@ -2716,7 +2716,7 @@ static int calc_extra_blanking(struct mdss_panel_data *pdata, u32 new_fps)
 	int add_porches, diff;
 
 	/* calculate extra: lines for vfp-method, pixels for hfp-method */
-	diff = pdata->panel_info.default_fps - new_fps;
+	diff = abs(pdata->panel_info.default_fps - new_fps);
 	add_porches = mult_frac(pdata->panel_info.saved_total,
 		diff, new_fps);
 
@@ -2759,6 +2759,14 @@ static void cache_initial_timings(struct mdss_panel_data *pdata)
 	}
 }
 
+static inline void dfps_update_fps(struct mdss_panel_info *pinfo, u32 fps)
+{
+	if (pinfo->type == DTV_PANEL)
+		pinfo->lcdc.frame_rate = fps;
+	else
+		pinfo->mipi.frame_rate = fps;
+}
+
 static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 	u32 new_fps)
 {
@@ -2775,7 +2783,9 @@ static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 		/* update panel info with new values */
 		pdata->panel_info.lcdc.v_front_porch =
 			pdata->panel_info.saved_fporch + add_v_lines;
-		pdata->panel_info.mipi.frame_rate = new_fps;
+
+		dfps_update_fps(&pdata->panel_info, new_fps);
+
 		pdata->panel_info.prg_fet =
 			mdss_mdp_get_prefetch_lines(&pdata->panel_info);
 
@@ -2787,11 +2797,18 @@ static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 		add_h_pixels = calc_extra_blanking(pdata, new_fps);
 
 		/* update panel info */
-		pdata->panel_info.lcdc.h_front_porch =
-			pdata->panel_info.saved_fporch + add_h_pixels;
-		pdata->panel_info.mipi.frame_rate = new_fps;
+		if (pdata->panel_info.default_fps > new_fps)
+			pdata->panel_info.lcdc.h_front_porch =
+				pdata->panel_info.saved_fporch + add_h_pixels;
+		else
+			pdata->panel_info.lcdc.h_front_porch =
+				pdata->panel_info.saved_fporch - add_h_pixels;
+
+		dfps_update_fps(&pdata->panel_info, new_fps);
+
 	} else {
-		pdata->panel_info.mipi.frame_rate = new_fps;
+		dfps_update_fps(&pdata->panel_info, new_fps);
+		mdss_panel_update_clk_rate(&pdata->panel_info, new_fps);
 	}
 }
 
@@ -2837,7 +2854,7 @@ int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
 static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	int dfps, rc = 0;
+	int dfps, panel_fps, rc = 0;
 	struct mdss_panel_data *pdata;
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
@@ -2866,7 +2883,9 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (dfps == pdata->panel_info.mipi.frame_rate) {
+	panel_fps = mdss_panel_get_framerate(&pdata->panel_info);
+
+	if (dfps == panel_fps) {
 		pr_debug("%s: FPS is already %d\n",
 			__func__, dfps);
 		return count;
@@ -5396,7 +5415,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	if (rc)
 		pr_warn("problem creating link to mdss_fb sysfs\n");
 
-	if (mfd->panel_info->type == MIPI_VIDEO_PANEL) {
+	if (mfd->panel_info->type == MIPI_VIDEO_PANEL ||
+	    mfd->panel_info->type == DTV_PANEL) {
 		rc = sysfs_create_group(&dev->kobj,
 			&dynamic_fps_fs_attrs_group);
 		if (rc) {
