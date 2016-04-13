@@ -3573,6 +3573,7 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 {
 	struct gsi_evt_ring_props gsi_evt_ring_props;
 	struct gsi_chan_props gsi_channel_props;
+	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa_gsi_ep_config *gsi_ep_info;
 	dma_addr_t dma_addr;
 	int result;
@@ -3672,6 +3673,16 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 		&ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS)
 		goto fail_alloc_channel;
+
+	memset(&ch_scratch, 0, sizeof(ch_scratch));
+	ch_scratch.gpi.max_outstanding_tre = gsi_ep_info->ipa_if_tlv *
+		GSI_CHAN_RE_SIZE_16B;
+	ch_scratch.gpi.outstanding_threshold = 2 * GSI_CHAN_RE_SIZE_16B;
+	result = gsi_write_channel_scratch(ep->gsi_chan_hdl, ch_scratch);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("failed to write scratch %d\n", result);
+		goto fail_start_channel;
+	}
 
 	result = gsi_start_channel(ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS)
