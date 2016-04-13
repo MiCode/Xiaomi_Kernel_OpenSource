@@ -2404,6 +2404,9 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_mss_q6_bimc_axi_clk.c, 0x0124 },
 		{ &gcc_mss_mnoc_bimc_axi_clk.c, 0x0120 },
 		{ &gcc_mss_snoc_axi_clk.c, 0x0123 },
+		{ &gcc_gpu_cfg_ahb_clk.c, 0x013b },
+		{ &gcc_gpu_bimc_gfx_src_clk.c, 0x013e },
+		{ &gcc_gpu_bimc_gfx_clk.c, 0x013f },
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
