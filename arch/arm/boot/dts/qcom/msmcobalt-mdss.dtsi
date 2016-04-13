@@ -219,18 +219,28 @@
 			compatible = "qcom,smmu_mdp_unsec";
 			iommus = <&mmss_smmu 0>;
 			gdsc-mmagic-mdss-supply = <&gdsc_bimc_smmu>;
-			clocks = <&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
+				<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+				<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 				<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
-			clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
+			clock-names = "mmss_noc_axi_clk",
+					"mmss_noc_ahb_clk",
+					"mmss_smmu_ahb_clk",
+					"mmss_smmu_axi_clk";
 		};
 
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
 			compatible = "qcom,smmu_mdp_sec";
 			iommus = <&mmss_smmu 1>;
 			gdsc-mmagic-mdss-supply = <&gdsc_bimc_smmu>;
-			clocks = <&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
+				<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+				<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 				<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
-			clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
+			clock-names = "mmss_noc_axi_clk",
+					"mmss_noc_ahb_clk",
+					"mmss_smmu_ahb_clk",
+					"mmss_smmu_axi_clk";
 		};
 
 		mdss_fb0: qcom,mdss_fb_primary {
