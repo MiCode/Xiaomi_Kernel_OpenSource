@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -536,8 +536,6 @@ int wcd9xxx_request_irq(struct wcd9xxx_core_resource *wcd9xxx_res,
 
 	virq = phyirq_to_virq(wcd9xxx_res, irq);
 
-	irq_modify_status(virq, IRQ_NOREQUEST, (IRQ_NOPROBE | IRQ_NOAUTOEN));
-
 	return request_threaded_irq(virq, NULL, handler, IRQF_TRIGGER_RISING,
 				    name, data);
 }
@@ -590,17 +588,18 @@ static int wcd9xxx_map_irq(
 	return phyirq_to_virq(wcd9xxx_core_res, irq);
 }
 #else
-int __init wcd9xxx_irq_of_init(struct device_node *node,
+static struct wcd9xxx_irq_drv_data *
+wcd9xxx_irq_add_domain(struct device_node *node,
 			       struct device_node *parent)
 {
-	struct wcd9xxx_irq_drv_data *data;
+	struct wcd9xxx_irq_drv_data *data = NULL;
 
 	pr_debug("%s: node %s, node parent %s\n", __func__,
 		 node->name, node->parent->name);
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
-		return -ENOMEM;
+		return NULL;
 
 	/*
 	 * wcd9xxx_intc interrupt controller supports N to N irq mapping with
@@ -612,10 +611,10 @@ int __init wcd9xxx_irq_of_init(struct device_node *node,
 					     &irq_domain_simple_ops, data);
 	if (!data->domain) {
 		kfree(data);
-		return -ENOMEM;
+		return NULL;
 	}
 
-	return 0;
+	return data;
 }
 
 static struct wcd9xxx_irq_drv_data *
@@ -693,7 +692,6 @@ static int wcd9xxx_map_irq(struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
 static int wcd9xxx_irq_probe(struct platform_device *pdev)
 {
 	int irq;
-	struct irq_domain *domain;
 	struct wcd9xxx_irq_drv_data *data;
 	struct device_node *node = pdev->dev.of_node;
 	int ret = -EINVAL;
@@ -709,12 +707,11 @@ static int wcd9xxx_irq_probe(struct platform_device *pdev)
 			return irq;
 		}
 		dev_dbg(&pdev->dev, "%s: virq = %d\n", __func__, irq);
-		domain = irq_find_host(pdev->dev.of_node);
-		if (unlikely(!domain)) {
-			pr_err("%s: domain is NULL", __func__);
+		data = wcd9xxx_irq_add_domain(node, node->parent);
+		if (!data) {
+			pr_err("%s: irq_add_domain failed\n", __func__);
 			return -EINVAL;
 		}
-		data = (struct wcd9xxx_irq_drv_data *)domain->host_data;
 		data->irq = irq;
 		wmb();
 		ret = 0;
@@ -736,6 +733,8 @@ static int wcd9xxx_irq_remove(struct platform_device *pdev)
 	data = (struct wcd9xxx_irq_drv_data *)domain->host_data;
 	data->irq = 0;
 	wmb();
+	irq_domain_remove(data->domain);
+	kfree(data);
 
 	return 0;
 }

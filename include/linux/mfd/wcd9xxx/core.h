@@ -319,21 +319,12 @@ int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
 			    struct wcd9xxx_reg_val *bulk_reg,
 			    unsigned int size, bool interface);
 
-#if defined(CONFIG_WCD9310_CODEC) || \
-	defined(CONFIG_WCD9304_CODEC) || \
-	defined(CONFIG_WCD9320_CODEC) || \
-	defined(CONFIG_WCD9330_CODEC) || \
-	defined(CONFIG_WCD9335_CODEC) || \
-	defined(CONFIG_WCD9306_CODEC)
-int __init wcd9xxx_irq_of_init(struct device_node *node,
-			       struct device_node *parent);
-#else
 static inline int __init wcd9xxx_irq_of_init(struct device_node *node,
 			       struct device_node *parent)
 {
 	return 0;
 }
-#endif	/* CONFIG_OF */
+
 static inline void wcd9xxx_reg_update(struct wcd9xxx *core,
 				      unsigned short reg,
 				      u8 mask, u8 val)
