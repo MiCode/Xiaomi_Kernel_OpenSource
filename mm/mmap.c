@@ -1277,28 +1277,7 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	*populate = 0;
 
 #ifdef CONFIG_MSM_APP_SETTINGS
-	if (file && file->f_path.dentry) {
-		const char *name = file->f_path.dentry->d_name.name;
-		char *libs[10] = {0};
-		unsigned int count;
-		bool found = false;
-		int i;
-
-		get_lib_names(libs, &count);
-		for (i = 0; i < count; i++) {
-			if (unlikely(!strcmp(name, libs[i]))) {
-				found = true;
-				break;
-			}
-		}
-		if (found) {
-			preempt_disable();
-			set_app_setting_bit(APP_SETTING_BIT);
-			/* This will take care of child processes as well */
-			current->mm->app_setting = 1;
-			preempt_enable();
-		}
-	}
+	apply_app_setting_bit(file);
 #endif
 
 	/*
