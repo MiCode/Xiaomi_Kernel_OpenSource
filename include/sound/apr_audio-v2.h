@@ -2752,6 +2752,8 @@ struct asm_softvolume_params {
 
 #define ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2 0x00010DA5
 
+#define ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3 0x00010DDC
+
 #define ASM_MEDIA_FMT_EVRCB_FS 0x00010BEF
 
 #define ASM_MEDIA_FMT_EVRCWB_FS 0x00010BF0
@@ -2816,6 +2818,41 @@ struct asm_multi_channel_pcm_fmt_blk_v2 {
  * Channel[i] mapping describes channel I. Each element i of the
  * array describes channel I inside the buffer where 0 @le I <
  * num_channels. An unused channel is set to zero.
+ */
+} __packed;
+
+struct asm_multi_channel_pcm_fmt_blk_v3 {
+	uint16_t                num_channels;
+/*
+ * Number of channels
+ * Supported values: 1 to 8
+ */
+
+	uint16_t                bits_per_sample;
+/*
+ * Number of bits per sample per channel
+ * Supported values: 16, 24
+ */
+
+	uint32_t                sample_rate;
+/*
+ * Number of samples per second
+ * Supported values: 2000 to 48000, 96000,192000 Hz
+ */
+
+	uint16_t                is_signed;
+/* Flag that indicates that PCM samples are signed (1) */
+
+	uint16_t                sample_word_size;
+/*
+ * Size in bits of the word that holds a sample of a channel.
+ * Supported values: 12,24,32
+ */
+
+	uint8_t                 channel_mapping[8];
+/*
+ * Each element, i, in the array describes channel i inside the buffer where
+ * 0 <= i < num_channels. Unused channels are set to 0.
  */
 } __packed;
 
@@ -4248,7 +4285,76 @@ struct asm_stream_cmd_open_write_v3 {
  */
 } __packed;
 
-#define ASM_STREAM_CMD_OPEN_READ_V2                 0x00010D8C
+#define ASM_STREAM_CMD_OPEN_PULL_MODE_WRITE    0x00010DD9
+
+/* Bitmask for the stream_perf_mode subfield. */
+#define ASM_BIT_MASK_STREAM_PERF_FLAG_PULL_MODE_WRITE 0xE0000000UL
+
+/* Bitmask for the stream_perf_mode subfield. */
+#define ASM_SHIFT_STREAM_PERF_FLAG_PULL_MODE_WRITE 29
+
+#define ASM_STREAM_CMD_OPEN_PUSH_MODE_READ  0x00010DDA
+
+#define ASM_BIT_MASK_STREAM_PERF_FLAG_PUSH_MODE_READ 0xE0000000UL
+
+#define ASM_SHIFT_STREAM_PERF_FLAG_PUSH_MODE_READ 29
+
+#define ASM_DATA_EVENT_WATERMARK 0x00010DDB
+
+struct asm_shared_position_buffer {
+	volatile uint32_t               frame_counter;
+/* Counter used to handle interprocessor synchronization issues.
+ * When frame_counter is 0: read_index, wall_clock_us_lsw, and
+ * wall_clock_us_msw are invalid.
+ * Supported values: >= 0.
+ */
+
+	volatile uint32_t               index;
+/* Index in bytes from where the aDSP is reading/writing.
+ * Supported values: 0 to circular buffer size - 1
+ */
+
+	volatile uint32_t               wall_clock_us_lsw;
+/* Lower 32 bits of the 64-bit wall clock time in microseconds when the
+ * read index was updated.
+ * Supported values: >= 0
+ */
+
+	volatile uint32_t               wall_clock_us_msw;
+/* Upper 32 bits of the 64 bit wall clock time in microseconds when the
+ * read index was updated
+ * Supported values: >= 0
+ */
+} __packed;
+
+struct asm_shared_watermark_level {
+	uint32_t                watermark_level_bytes;
+} __packed;
+
+struct asm_stream_cmd_open_shared_io {
+	struct apr_hdr          hdr;
+	uint32_t                mode_flags;
+	uint16_t                endpoint_type;
+	uint16_t                topo_bits_per_sample;
+	uint32_t                topo_id;
+	uint32_t                fmt_id;
+	uint32_t                shared_pos_buf_phy_addr_lsw;
+	uint32_t                shared_pos_buf_phy_addr_msw;
+	uint16_t                shared_pos_buf_mem_pool_id;
+	uint16_t                shared_pos_buf_num_regions;
+	uint32_t                shared_pos_buf_property_flag;
+	uint32_t                shared_circ_buf_start_phy_addr_lsw;
+	uint32_t                shared_circ_buf_start_phy_addr_msw;
+	uint32_t                shared_circ_buf_size;
+	uint16_t                shared_circ_buf_mem_pool_id;
+	uint16_t                shared_circ_buf_num_regions;
+	uint32_t                shared_circ_buf_property_flag;
+	uint32_t                num_watermark_levels;
+	struct asm_multi_channel_pcm_fmt_blk_v3         fmt;
+	struct avs_shared_map_region_payload            map_region_pos_buf;
+	struct avs_shared_map_region_payload            map_region_circ_buf;
+	struct asm_shared_watermark_level watermark[0];
+} __packed;
 
 #define ASM_STREAM_CMD_OPEN_READ_V3                 0x00010DB4
 
