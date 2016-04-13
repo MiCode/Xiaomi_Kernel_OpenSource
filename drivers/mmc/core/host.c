@@ -563,7 +563,7 @@ static ssize_t store_enable(struct device *dev,
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	unsigned long value;
 
-	if (!host || kstrtoul(buf, 0, &value))
+	if (!host || !host->card || kstrtoul(buf, 0, &value))
 		return -EINVAL;
 
 	mmc_get_card(host->card);
