@@ -1083,13 +1083,6 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		return -EINVAL;
 	}
 
-	rc = msm_comm_try_get_bufreqs(inst);
-	if (rc) {
-		dprintk(VIDC_ERR, "Getting buffer requirements failed: %d\n",
-				rc);
-		return rc;
-	}
-
 	hdev = inst->core->device;
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		fmt = inst->fmts[CAPTURE_PORT];
@@ -1132,13 +1125,6 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	stride = inst->prop.width[CAPTURE_PORT];
 	scanlines = inst->prop.height[CAPTURE_PORT];
 
-	rc = msm_comm_try_get_bufreqs(inst);
-	if (rc) {
-		dprintk(VIDC_ERR,
-				"%s: Failed : Buffer requirements\n", __func__);
-		goto exit;
-	}
-
 	if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		plane_sizes = &inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[0];
 		for (i = 0; i < fmt->num_planes; ++i) {
@@ -1173,10 +1159,9 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		scanlines = VENUS_Y_SCANLINES(color_format,
 				inst->prop.height[CAPTURE_PORT]);
 
-		bufreq = get_buff_req_buffer(inst,
-				msm_comm_get_hal_output_buffer(inst));
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			bufreq ? bufreq->buffer_size : 0;
+			fmt->get_frame_size(0,
+			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
 
 		extra_idx = EXTRADATA_IDX(fmt->num_planes);
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
@@ -1313,28 +1298,6 @@ static int update_output_buffer_size(struct msm_vidc_inst *inst,
 			goto exit;
 	}
 
-	/* Query buffer requirements from firmware */
-	rc = msm_comm_try_get_bufreqs(inst);
-	if (rc)
-		dprintk(VIDC_WARN,
-			"Failed to get buf req, %d\n", rc);
-
-	/* Read back updated firmware size */
-	for (i = 0; i < num_planes; ++i) {
-		enum hal_buffer type = msm_comm_get_hal_output_buffer(inst);
-
-		if (EXTRADATA_IDX(num_planes) &&
-			i == EXTRADATA_IDX(num_planes)) {
-			type = HAL_BUFFER_EXTRADATA_OUTPUT;
-		}
-
-		bufreq = get_buff_req_buffer(inst, type);
-		f->fmt.pix_mp.plane_fmt[i].sizeimage = bufreq ?
-					bufreq->buffer_size : 0;
-		dprintk(VIDC_DBG,
-				"updated buffer size for plane[%d] = %d\n",
-				i, f->fmt.pix_mp.plane_fmt[i].sizeimage);
-	}
 exit:
 	return rc;
 }
@@ -1374,10 +1337,12 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
 	struct hal_frame_size frame_sz;
+	unsigned int extra_idx = 0;
 	int rc = 0;
 	int ret = 0;
 	int i;
 	int max_input_size = 0;
+	struct hal_buffer_requirements *bufreq;
 
 	if (!inst || !f) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1422,22 +1387,21 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				HAL_PARAM_FRAME_SIZE, &frame_sz);
 		}
 
-		ret = ret || msm_comm_try_get_bufreqs(inst);
-		if (ret) {
-			for (i = 0; i < fmt->num_planes; ++i) {
-				f->fmt.pix_mp.plane_fmt[i].sizeimage =
-					get_frame_size(inst, fmt, f->type, i);
-			}
-		} else {
-			rc = update_output_buffer_size(inst, f,
-				fmt->num_planes);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"%s - failed to update buffer size: %d\n",
-					__func__, rc);
-				goto err_invalid_fmt;
-			}
+		f->fmt.pix_mp.plane_fmt[0].sizeimage =
+			fmt->get_frame_size(0,
+			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+
+		extra_idx = EXTRADATA_IDX(fmt->num_planes);
+		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
+			bufreq = get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_OUTPUT);
+			f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
+				bufreq ? bufreq->buffer_size : 0;
 		}
+
+		for (i = 0; i < fmt->num_planes; ++i)
+			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
+				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		for (i = 0; i < fmt->num_planes; ++i) {
@@ -1615,6 +1579,15 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		return -EINVAL;
 	}
 
+	rc = msm_comm_try_get_bufreqs(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"%s: Failed : Buffer requirements\n", __func__);
+		goto exit;
+	}
+
+
+
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		*num_planes = inst->fmts[OUTPUT_PORT]->num_planes;
@@ -1689,7 +1662,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				inst->buff_req.buffer[1].buffer_count_actual,
 				inst->buff_req.buffer[1].buffer_size,
 				inst->buff_req.buffer[1].buffer_alignment);
-		sizes[0] = bufreq->buffer_size;
+		sizes[0] = inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[0];
 
 		/*
 		 * Set actual buffer count to firmware for DPB buffers.
@@ -1730,6 +1703,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		rc = -EINVAL;
 		break;
 	}
+exit:
 	return rc;
 }
 
