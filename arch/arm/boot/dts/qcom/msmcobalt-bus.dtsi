@@ -35,13 +35,24 @@
 			label = "fab-a1noc";
 			qcom,fab-dev;
 			qcom,base-name = "a1noc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <36864>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc clk_aggre1_noc_clk>,
 				<&clock_gcc clk_aggre1_noc_a_clk>;
+			qcom,node-qos-clks {
+				clock-names =
+				"clk-ufs-axi-clk",
+				"clk-aggre1-ufs-axi-no-rate",
+				"clk-aggre1-usb3-axi-cfg-no-rate",
+				"clk-blsp2-ahb-no-rate";
+				clocks =
+				<&clock_gcc clk_gcc_ufs_axi_clk>,
+				<&clock_gcc clk_gcc_aggre1_ufs_axi_clk>,
+				<&clock_gcc clk_gcc_aggre1_usb3_axi_clk>,
+				<&clock_gcc clk_gcc_blsp2_ahb_clk>;
+			};
 		};
 
 		fab_a2noc: fab-a2noc {
@@ -49,13 +60,24 @@
 			label = "fab-a2noc";
 			qcom,fab-dev;
 			qcom,base-name = "a2noc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <20480>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc clk_aggre2_noc_clk>,
 				<&clock_gcc clk_aggre2_noc_a_clk>;
+			qcom,node-qos-clks {
+				clock-names =
+				"clk-ipa-clk",
+				"clk-sdcc2-ahb-no-rate",
+				"clk-sdcc4-ahb-no-rate",
+				"clk-blsp1-ahb-no-rate";
+				clocks =
+				<&clock_gcc clk_ipa_clk>,
+				<&clock_gcc clk_gcc_sdcc2_ahb_clk>,
+				<&clock_gcc clk_gcc_sdcc4_ahb_clk>,
+				<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+			};
 		};
 
 		fab_bimc: fab-bimc {
@@ -64,7 +86,6 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
 			qcom,util-fact = <153>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc clk_bimc_msmbus_clk>,
@@ -76,7 +97,6 @@
 			label = "fab-cnoc";
 			qcom,fab-dev;
 			qcom,base-name = "cnoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc clk_cnoc_clk>,
@@ -108,7 +128,6 @@
 			label = "fab-mnoc";
 			qcom,fab-dev;
 			qcom,base-name = "mnoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <16384>;
@@ -116,6 +135,25 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
 				<&clock_gcc clk_mmssnoc_axi_a_clk>;
+			qcom,node-qos-clks {
+				clock-names =
+				"clk-noc-cfg-ahb-no-rate",
+				"clk-mnoc-ahb-no-rate",
+				"clk-mdss-ahb-no-rate",
+				"clk-mdss-axi-no-rate",
+				"clk-camss-ahb-no-rate",
+				"clk-video-ahb-no-rate",
+				"clk-video-axi-no-rate";
+				clocks =
+				<&clock_gcc clk_gcc_mmss_noc_cfg_ahb_clk>,
+				<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+				<&clock_mmss clk_mmss_mdss_ahb_clk>,
+				<&clock_mmss clk_mmss_mdss_axi_clk>,
+				<&clock_mmss clk_mmss_camss_ahb_clk>,
+				<&clock_mmss clk_mmss_video_ahb_clk>,
+				<&clock_mmss clk_mmss_video_axi_clk>;
+			};
+
 		};
 
 		fab_snoc: fab-snoc {
@@ -123,7 +161,6 @@
 			label = "fab-snoc";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <20480>;
@@ -169,7 +206,7 @@
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <3>;
+			qcom,qport = <2>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_a1noc_snoc>;
 			qcom,prio1 = <1>;
@@ -198,7 +235,7 @@
 			label = "mas-blsp-2";
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
-			qcom,qport = <3>;
+			qcom,qport = <4>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_a1noc_snoc>;
 			qcom,bus-dev = <&fab_a1noc>;
