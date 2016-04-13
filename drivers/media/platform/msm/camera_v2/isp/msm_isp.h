@@ -722,7 +722,6 @@ struct vfe_device {
 	uint32_t isp_raw0_debug;
 	uint32_t isp_raw1_debug;
 	uint32_t isp_raw2_debug;
-	uint8_t is_camif_raw_crop_supported;
 
 	/* irq info */
 	uint32_t irq0_mask;
