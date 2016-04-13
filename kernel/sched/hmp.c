@@ -454,6 +454,12 @@ compare_clusters(void *priv, struct list_head *a, struct list_head *b)
 	cluster1 = container_of(a, struct sched_cluster, list);
 	cluster2 = container_of(b, struct sched_cluster, list);
 
+	/*
+	 * Don't assume higher capacity means higher power. If the
+	 * power cost is same, sort the higher capacity cluster before
+	 * the lower capacity cluster to start placing the tasks
+	 * on the higher capacity cluster.
+	 */
 	ret = cluster1->max_power_cost > cluster2->max_power_cost ||
 		(cluster1->max_power_cost == cluster2->max_power_cost &&
 		cluster1->max_possible_capacity <

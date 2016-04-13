@@ -11380,8 +11380,15 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	nice = task_nice(p);
 	rcu_read_lock();
 	grp = task_related_thread_group(p);
+	/*
+	 * Don't assume higher capacity means higher power. If the task
+	 * is running on the power efficient CPU, avoid migrating it
+	 * to a lower capacity cluster.
+	 */
 	if (!grp && (nice > SCHED_UPMIGRATE_MIN_NICE ||
-	       upmigrate_discouraged(p)) && cpu_capacity(cpu) > min_capacity) {
+			upmigrate_discouraged(p)) &&
+			cpu_capacity(cpu) > min_capacity &&
+			cpu_max_power_cost(cpu) == max_power_cost) {
 		rcu_read_unlock();
 		return DOWN_MIGRATION;
 	}
