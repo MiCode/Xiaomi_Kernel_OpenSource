@@ -60,7 +60,7 @@ static int h4_open(struct hci_uart *hu)
 {
 	struct h4_struct *h4;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	h4 = kzalloc(sizeof(*h4), GFP_KERNEL);
 	if (!h4)
@@ -77,7 +77,7 @@ static int h4_flush(struct hci_uart *hu)
 {
 	struct h4_struct *h4 = hu->priv;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	skb_queue_purge(&h4->txq);
 
@@ -91,7 +91,7 @@ static int h4_close(struct hci_uart *hu)
 
 	hu->priv = NULL;
 
-	BT_DBG("hu %p", hu);
+	BT_DBG("hu %pK", hu);
 
 	skb_queue_purge(&h4->txq);
 
@@ -108,7 +108,7 @@ static int h4_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 {
 	struct h4_struct *h4 = hu->priv;
 
-	BT_DBG("hu %p skb %p", hu, skb);
+	BT_DBG("hu %pK skb %pK", hu, skb);
 
 	/* Prepend skb with frame type */
 	memcpy(skb_push(skb, 1), &bt_cb(skb)->pkt_type, 1);
