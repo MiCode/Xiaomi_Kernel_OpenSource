@@ -186,6 +186,8 @@
 	qcom,cpr-aging-ro-scaling-factor = <3200>;
 	qcom,allow-aging-voltage-adjustment = <1>;
 	qcom,allow-aging-open-loop-voltage-adjustment = <1>;
+
+	qcom,ldo-min-headroom-voltage = <80000>;
 };
 
 &apc0_cbf_vreg {
@@ -481,6 +483,7 @@
 	qcom,allow-aging-open-loop-voltage-adjustment = <1>;
 
 	qcom,cpr-dynamic-floor-corner = <1>;
+	qcom,ldo-min-headroom-voltage = <130000>;
 };
 
 &pmi8994_s2 {
@@ -630,6 +633,14 @@
 	qcom,cpr-aging-ro-scaling-factor = <2950>;
 	qcom,allow-aging-voltage-adjustment = <1>;
 	qcom,allow-aging-open-loop-voltage-adjustment = <1>;
+};
+
+&kryo0_vreg {
+	qcom,ldo-headroom-voltage = <80000>;
+};
+
+&kryo1_vreg {
+	qcom,ldo-headroom-voltage = <130000>;
 };
 
 &clock_cpu {
