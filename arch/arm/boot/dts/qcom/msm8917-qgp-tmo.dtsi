@@ -14,6 +14,11 @@
 #include "msm-pmi8937.dtsi"
 #include "msm8917-qrd.dtsi"
 
+&flash_led {
+	/delete-node/ qcom,flash_1;
+	/delete-node/ qcom,torch_1;
+};
+
 &soc {
 	led_flash0: qcom,camera-flash {
 	};
