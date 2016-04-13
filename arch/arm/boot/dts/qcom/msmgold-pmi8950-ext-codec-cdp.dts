@@ -65,6 +65,10 @@
 	status = "okay";
 };
 
+&wcd_rst_gpio {
+	status = "okay";
+};
+
 &ext_codec {
 	status = "okay";
 };
