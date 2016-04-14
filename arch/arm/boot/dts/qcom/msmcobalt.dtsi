@@ -808,6 +808,7 @@
 		compatible = "qcom,rmnet-ipa3";
 		qcom,rmnet-ipa-ssr;
 		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
 	};
 
 	ipa_hw: qcom,ipa@01e00000 {
