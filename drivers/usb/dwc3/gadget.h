@@ -96,6 +96,7 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 		gfp_t gfp_flags);
 int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol);
 void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force);
+irqreturn_t dwc3_interrupt(int irq, void *_dwc);
 
 static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
 		struct dwc3_trb *trb)
