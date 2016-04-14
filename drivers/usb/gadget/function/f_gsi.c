@@ -2562,6 +2562,11 @@ static void ipa_ready_callback(void *user_data)
 	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
 }
 
+static void gsi_free_func(struct usb_function *f)
+{
+	pr_debug("%s\n", __func__);
+}
+
 int gsi_bind_config(struct f_gsi *gsi)
 {
 	int status = 0;
@@ -2602,6 +2607,7 @@ int gsi_bind_config(struct f_gsi *gsi)
 	gsi->function.get_alt = gsi_get_alt;
 	gsi->function.setup = gsi_setup;
 	gsi->function.disable = gsi_disable;
+	gsi->function.free_func = gsi_free_func;
 	gsi->function.suspend = gsi_suspend;
 	gsi->function.func_suspend = gsi_func_suspend;
 	gsi->function.resume = gsi_resume;
