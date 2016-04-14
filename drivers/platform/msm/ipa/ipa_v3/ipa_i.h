@@ -703,7 +703,8 @@ struct ipa3_sys_context {
 enum ipa3_desc_type {
 	IPA_DATA_DESC,
 	IPA_DATA_DESC_SKB,
-	IPA_IMM_CMD_DESC
+	IPA_DATA_DESC_SKB_PAGED,
+	IPA_IMM_CMD_DESC,
 };
 
 /**
@@ -767,6 +768,7 @@ struct ipa3_dma_xfer_wrapper {
  * struct ipa3_desc - IPA descriptor
  * @type: skb or immediate command or plain old data
  * @pyld: points to skb
+ * @frag: points to paged fragment
  * or kmalloc'ed immediate command parameters/plain old data
  * @dma_address: dma mapped address of pyld
  * @dma_address_valid: valid field for dma_address
@@ -780,6 +782,7 @@ struct ipa3_dma_xfer_wrapper {
 struct ipa3_desc {
 	enum ipa3_desc_type type;
 	void *pyld;
+	skb_frag_t *frag;
 	dma_addr_t dma_address;
 	bool dma_address_valid;
 	u16 len;
@@ -889,6 +892,7 @@ struct ipa3_stats {
 	u32 lan_repl_rx_empty;
 	u32 flow_enable;
 	u32 flow_disable;
+	u32 tx_non_linear;
 };
 
 struct ipa3_active_clients {
