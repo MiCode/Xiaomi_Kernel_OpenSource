@@ -2143,7 +2143,7 @@ skip_string_id_alloc:
 	dev_dbg(&cdev->gadget->dev, "%zu %zu\n", gsi->d_port.in_request.buf_len,
 			gsi->d_port.in_request.num_bufs);
 	gsi->d_port.in_request.buf_base_addr =
-		dma_zalloc_coherent(&cdev->gadget->dev, len,
+		dma_zalloc_coherent(cdev->gadget->dev.parent, len,
 				&gsi->d_port.in_request.dma, GFP_KERNEL);
 	if (!gsi->d_port.in_request.buf_base_addr) {
 		dev_err(&cdev->gadget->dev,
@@ -2162,7 +2162,7 @@ skip_string_id_alloc:
 				gsi->d_port.out_request.buf_len,
 				gsi->d_port.out_request.num_bufs);
 		gsi->d_port.out_request.buf_base_addr =
-			dma_zalloc_coherent(&cdev->gadget->dev, len,
+			dma_zalloc_coherent(cdev->gadget->dev.parent, len,
 				&gsi->d_port.out_request.dma, GFP_KERNEL);
 		if (!gsi->d_port.out_request.buf_base_addr) {
 			dev_err(&cdev->gadget->dev,
@@ -2241,11 +2241,11 @@ fail:
 	if (gsi->d_port.in_ep && gsi->d_port.in_ep->desc)
 		gsi->d_port.in_ep->driver_data = NULL;
 	if (len && gsi->d_port.in_request.buf_base_addr)
-		dma_free_coherent(&cdev->gadget->dev, len,
+		dma_free_coherent(cdev->gadget->dev.parent, len,
 			gsi->d_port.in_request.buf_base_addr,
 			gsi->d_port.in_request.dma);
 	if (len && gsi->d_port.out_request.buf_base_addr)
-		dma_free_coherent(&cdev->gadget->dev, len,
+		dma_free_coherent(cdev->gadget->dev.parent, len,
 			gsi->d_port.out_request.buf_base_addr,
 			gsi->d_port.out_request.dma);
 	log_event_err("%s: bind failed for %s", __func__, f->name);
