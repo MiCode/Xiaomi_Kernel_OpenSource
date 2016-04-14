@@ -4,7 +4,6 @@ export USE_CCACHE=1
 export CCACHE_DIR=~/android/cache
 export ARCH=arm
 export SUBARCH=arm
-#make msm8916-perf_defconfig ARCH=arm CROSS_COMPILE=arm-eabi-
 make custom_elixir_defconfig ARCH=arm CROSS_COMPILE=arm-eabi-
 make menuconfig
 cp .config /home/abhi/Xiaomi_Kernel_OpenSource/arch/arm/configs/custom_elixir_defconfig
