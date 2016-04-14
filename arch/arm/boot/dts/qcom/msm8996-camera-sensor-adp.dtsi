@@ -125,6 +125,8 @@
 		cam_vdig-supply = <&pm8994_s3>;
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pm8994_l17>;
+		qcom,vdd-cx-supply = <&pm8994_s1_corner>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
 		qcom,cam-vreg-min-voltage = <1300000 0 2500000>;
 		qcom,cam-vreg-max-voltage = <1300000 0 2500000>;
@@ -163,6 +165,8 @@
 		cam_vdig-supply = <&pm8994_l27>;
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pmi8994_boostbypass>;
+		qcom,vdd-cx-supply = <&pm8994_s1_corner>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
 		qcom,cam-vreg-min-voltage = <1000000 0 3150000>;
 		qcom,cam-vreg-max-voltage = <1000000 0 3600000>;
@@ -203,6 +207,8 @@
 		cam_vdig-supply = <&pm8994_l27>;
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pm8994_l29>;
+		qcom,vdd-cx-supply = <&pm8994_s1_corner>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
 		qcom,cam-vreg-min-voltage = <1000000 0 2800000>;
 		qcom,cam-vreg-max-voltage = <1000000 0 2800000>;
