@@ -436,7 +436,7 @@ static int msm_ba_remove(struct platform_device *pdev)
 
 	dprintk(BA_INFO, "Enter %s", __func__);
 	if (!pdev) {
-		dprintk(BA_ERR, "%s invalid input %p", __func__, pdev);
+		dprintk(BA_ERR, "%s invalid input 0x%p", __func__, pdev);
 		rc = -EINVAL;
 	} else {
 		dev_ctxt = pdev->dev.platform_data;
