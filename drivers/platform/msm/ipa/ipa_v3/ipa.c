@@ -216,6 +216,7 @@ struct platform_device *ipa3_pdev;
 static bool smmu_present;
 static bool arm_smmu;
 static bool smmu_disable_htw;
+static bool smmu_s1_bypass;
 
 static char *active_clients_table_buf;
 
@@ -3690,7 +3691,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 			bam_props.options |= SPS_BAM_OPT_IRQ_WAKEUP;
 		if (ipa3_ctx->ipa_bam_remote_mode == true)
 			bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
-		if (ipa3_ctx->smmu_present)
+		if (!ipa3_ctx->smmu_s1_bypass)
 			bam_props.options |= SPS_BAM_SMMU_EN;
 		bam_props.ee = resource_p->ee;
 		bam_props.ipc_loglevel = 3;
@@ -3968,6 +3969,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->pdev = ipa_dev;
 	ipa3_ctx->uc_pdev = ipa_dev;
 	ipa3_ctx->smmu_present = smmu_present;
+	if (!ipa3_ctx->smmu_present)
+		ipa3_ctx->smmu_s1_bypass = true;
+	else
+		ipa3_ctx->smmu_s1_bypass = smmu_s1_bypass;
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa3_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa3_ctx->ipa3_hw_mode = resource_p->ipa3_hw_mode;
@@ -4674,6 +4679,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_WLAN];
 	int disable_htw = 1;
 	int atomic_ctx = 1;
+	int bypass = 1;
 	int ret;
 
 	IPADBG("sub pdev=%p\n", dev);
@@ -4696,16 +4702,29 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 		}
 	}
 
-	if (iommu_domain_set_attr(cb->iommu,
-				DOMAIN_ATTR_ATOMIC,
-				&atomic_ctx)) {
-		IPAERR("couldn't disable coherent HTW\n");
-		return -EIO;
+	if (smmu_s1_bypass) {
+		if (iommu_domain_set_attr(cb->iommu,
+					DOMAIN_ATTR_S1_BYPASS,
+					&bypass)) {
+			IPAERR("couldn't set bypass\n");
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU S1 BYPASS\n");
+	} else {
+		if (iommu_domain_set_attr(cb->iommu,
+					DOMAIN_ATTR_ATOMIC,
+					&atomic_ctx)) {
+			IPAERR("couldn't disable coherent HTW\n");
+			return -EIO;
+		}
+		IPADBG("SMMU ATTR ATOMIC\n");
 	}
 
 	ret = iommu_attach_device(cb->iommu, dev);
 	if (ret) {
 		IPAERR("could not attach device ret=%d\n", ret);
+		cb->valid = false;
 		return ret;
 	}
 
@@ -4718,6 +4737,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_UC];
 	int disable_htw = 1;
+	int bypass = 1;
 	int ret;
 
 	IPADBG("sub pdev=%p\n", dev);
@@ -4746,10 +4766,26 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		}
 	}
 
+	IPADBG("UC CB PROBE sub pdev=%p set attribute\n", dev);
+	if (smmu_s1_bypass) {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_S1_BYPASS,
+				&bypass)) {
+			IPAERR("couldn't set bypass\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU S1 BYPASS\n");
+	}
+	IPADBG("UC CB PROBE sub pdev=%p attaching IOMMU device\n", dev);
+
 
 	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (ret) {
 		IPAERR("could not attach device ret=%d\n", ret);
+		arm_iommu_release_mapping(cb->mapping);
+		cb->valid = false;
 		return ret;
 	}
 
@@ -4766,6 +4802,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	int result;
 	int disable_htw = 1;
 	int atomic_ctx = 1;
+	int bypass = 1;
 
 	IPADBG("sub pdev=%p\n", dev);
 
@@ -4793,13 +4830,25 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 			return -EIO;
 		}
 	}
-
-	if (iommu_domain_set_attr(cb->mapping->domain,
-				  DOMAIN_ATTR_ATOMIC,
-				  &atomic_ctx)) {
-		IPAERR("couldn't set domain as atomic\n");
-		arm_iommu_detach_device(cb->dev);
-		return -EIO;
+	if (smmu_s1_bypass) {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_S1_BYPASS,
+				&bypass)) {
+			IPAERR("couldn't set bypass\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU S1 BYPASS\n");
+	} else {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_ATOMIC,
+				&atomic_ctx)) {
+			IPAERR("couldn't set domain as atomic\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
 	}
 
 	result = arm_iommu_attach_device(cb->dev, cb->mapping);
@@ -4936,6 +4985,9 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
+		if (of_property_read_bool(pdev_p->dev.of_node,
+		    "qcom,smmu-s1-bypass"))
+			smmu_s1_bypass = true;
 		arm_smmu = true;
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
