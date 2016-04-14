@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4710,6 +4710,9 @@ int cpr3_regulator_unregister(struct cpr3_controller *ctrl)
 	list_del(&ctrl->list);
 	cpr3_regulator_debugfs_ctrl_remove(ctrl);
 	mutex_unlock(&cpr3_controller_list_mutex);
+
+	if (ctrl->irq && !cpumask_empty(&ctrl->irq_affinity_mask))
+		unregister_hotcpu_notifier(&ctrl->cpu_hotplug_notifier);
 
 	cpr3_ctrl_loop_disable(ctrl);
 	cpr3_closed_loop_disable(ctrl);
