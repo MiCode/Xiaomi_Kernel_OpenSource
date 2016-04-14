@@ -126,7 +126,7 @@ static const struct adreno_debugbus_block a5xx_debugbus_blocks[] = {
 };
 
 #define A5XX_NUM_AXI_ARB_BLOCKS	2
-#define A5XX_NUM_XIN_BLOCKS	5
+#define A5XX_NUM_XIN_BLOCKS	4
 
 /* a5xx_snapshot_cp_pm4() - Dump PM4 data in snapshot */
 static size_t a5xx_snapshot_cp_pm4(struct kgsl_device *device, u8 *buf,
@@ -202,11 +202,11 @@ static size_t a5xx_snapshot_vbif_debugbus(struct kgsl_device *device,
 	/*
 	 * Total number of VBIF data words considering 3 sections:
 	 * 2 arbiter blocks of 16 words
-	 * 5 AXI XIN blocks of 4 dwords each
-	 * 5 core clock side XIN blocks of 5 dwords each
+	 * 4 AXI XIN blocks of 18 dwords each
+	 * 4 core clock side XIN blocks of 12 dwords each
 	 */
 	unsigned int dwords = (16 * A5XX_NUM_AXI_ARB_BLOCKS) +
-			(4 * A5XX_NUM_XIN_BLOCKS) + (5 * A5XX_NUM_XIN_BLOCKS);
+			(18 * A5XX_NUM_XIN_BLOCKS) + (12 * A5XX_NUM_XIN_BLOCKS);
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	size_t size;
 	unsigned int reg_clk;
@@ -244,7 +244,7 @@ static size_t a5xx_snapshot_vbif_debugbus(struct kgsl_device *device,
 	/* XIN blocks AXI side */
 	for (i = 0; i < A5XX_NUM_XIN_BLOCKS; i++) {
 		kgsl_regwrite(device, A5XX_VBIF_TEST_BUS2_CTRL0, 1 << i);
-		for (j = 0; j < 4; j++) {
+		for (j = 0; j < 18; j++) {
 			kgsl_regwrite(device, A5XX_VBIF_TEST_BUS2_CTRL1,
 				((j & A5XX_VBIF_TEST_BUS2_CTRL1_DATA_SEL_MASK)
 				<< A5XX_VBIF_TEST_BUS2_CTRL1_DATA_SEL_SHIFT));
@@ -257,7 +257,7 @@ static size_t a5xx_snapshot_vbif_debugbus(struct kgsl_device *device,
 	/* XIN blocks core clock side */
 	for (i = 0; i < A5XX_NUM_XIN_BLOCKS; i++) {
 		kgsl_regwrite(device, A5XX_VBIF_TEST_BUS1_CTRL0, 1 << i);
-		for (j = 0; j < 5; j++) {
+		for (j = 0; j < 12; j++) {
 			kgsl_regwrite(device, A5XX_VBIF_TEST_BUS1_CTRL1,
 				((j & A5XX_VBIF_TEST_BUS1_CTRL1_DATA_SEL_MASK)
 				<< A5XX_VBIF_TEST_BUS1_CTRL1_DATA_SEL_SHIFT));
