@@ -1340,14 +1340,14 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->dev.bus = &subsys_bus_type;
 	subsys->dev.release = subsys_device_release;
 
-	if (0 == strncmp(WT_SUBSYSTEM_REASTART_LEVEL, "system", 6)) {
+	/*if (0 == strncmp(WT_SUBSYSTEM_REASTART_LEVEL, "system", 6)) {
 		subsys->restart_level = RESET_SOC;
 	}
 
 	if (0 == strncmp(WT_SUBSYSTEM_REASTART_LEVEL, "related", 7)) {
 		subsys->restart_level = RESET_SUBSYS_COUPLED;
 	}
-
+         */
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 
 	snprintf(subsys->wlname, sizeof(subsys->wlname), "ssr(%s)", desc->name);
