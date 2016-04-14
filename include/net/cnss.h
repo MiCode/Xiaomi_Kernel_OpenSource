@@ -122,6 +122,7 @@ extern int cnss_get_fw_files(struct cnss_fw_files *pfw_files);
 extern int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 					u32 target_type, u32 target_version);
 
+extern int cnss_request_bus_bandwidth(int bandwidth);
 extern int cnss_get_sha_hash(const u8 *data, u32 data_len,
 					u8 *hash_idx, u8 *out);
 extern void *cnss_get_fw_ptr(void);
@@ -134,6 +135,10 @@ extern int cnss_wlan_pm_control(bool vote);
 #endif
 extern void cnss_lock_pm_sem(void);
 extern void cnss_release_pm_sem(void);
+
+extern void cnss_request_pm_qos_type(int latency_type, u32 qos_val);
+extern void cnss_request_pm_qos(u32 qos_val);
+extern void cnss_remove_pm_qos(void);
 
 extern void cnss_pci_request_pm_qos_type(int latency_type, u32 qos_val);
 extern void cnss_pci_request_pm_qos(u32 qos_val);
@@ -168,7 +173,14 @@ extern int cnss_pm_runtime_request(struct device *dev, enum
 extern void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name);
 extern void cnss_pm_wake_lock(struct wakeup_source *ws);
 
+extern void cnss_device_crashed(void);
+extern void cnss_device_self_recovery(void);
+extern void *cnss_get_virt_ramdump_mem(unsigned long *size);
+
 extern void cnss_schedule_recovery_work(void);
+extern int cnss_pcie_set_wlan_mac_address(const u8 *in, uint32_t len);
+extern u8 *cnss_get_wlan_mac_address(struct device *dev, uint32_t *num);
+extern int cnss_sdio_set_wlan_mac_address(const u8 *in, uint32_t len);
 
 enum {
 	CNSS_RESET_SOC = 0,
