@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 10
 SUBLEVEL = 28
-EXTRAVERSION =
+EXTRAVERSION = -ELiX1R_GiFT
 NAME = TOSSUG Baby Fish
 
 # *DOCUMENTATION*
@@ -15,6 +15,11 @@ NAME = TOSSUG Baby Fish
 #    (this increases performance and avoids hard-to-debug behaviour);
 # o  print "Entering directory ...";
 MAKEFLAGS += -rR --no-print-directory
+
+
+#Fixes by me
+#ccflags-y += -D__CHECK_ENDIAN__
+#CFLAGS_trace.o := -I$(src)
 
 # Avoid funny character set dependencies
 unexport LC_ALL
