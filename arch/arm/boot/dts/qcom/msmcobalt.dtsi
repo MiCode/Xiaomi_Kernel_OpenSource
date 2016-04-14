@@ -2141,8 +2141,9 @@
 
 	 qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
-		reg = <0x18800000 0x800000>;
-		reg-names = "membase";
+		reg = <0x18800000 0x800000>,
+		      <0x10AC000 0x20>;
+		reg-names = "membase", "mpm_config";
 		interrupts = <0 413 0 /* CE0 */ >,
 			     <0 414 0 /* CE1 */ >,
 			     <0 415 0 /* CE2 */ >,

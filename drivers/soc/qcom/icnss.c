@@ -68,6 +68,8 @@ struct icnss_qmi_event {
 	} while (0)
 #endif
 
+#define MPM2_MPM_WCSSAON_CONFIG_OFFSET 0x18
+
 struct ce_irq_list {
 	int irq;
 	irqreturn_t (*handler)(int, void *);
@@ -80,6 +82,8 @@ static struct {
 	u32 ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
 	phys_addr_t mem_base_pa;
 	void __iomem *mem_base_va;
+	phys_addr_t mpm_config_pa;
+	void __iomem *mpm_config_va;
 	struct qmi_handle *wlfw_clnt;
 	struct list_head qmi_event_list;
 	spinlock_t qmi_event_lock;
@@ -163,11 +167,26 @@ out:
 }
 
 
+static void icnss_adrastea_reset(void)
+{
+	uint32_t rdata = 0;
+
+	if (penv->mpm_config_va) {
+		writel_relaxed(0x1,
+			       penv->mpm_config_va +
+			       MPM2_MPM_WCSSAON_CONFIG_OFFSET);
+		while (rdata != 0x1)
+			rdata = readl_relaxed(penv->mpm_config_va +
+					      MPM2_MPM_WCSSAON_CONFIG_OFFSET);
+	}
+}
+
 static int icnss_adrastea_power_on(void)
 {
 	int ret = 0;
 
-	/* TZ API of power on adrastea */
+	/* Top level adrastea reset */
+	icnss_adrastea_reset();
 
 	return ret;
 }
@@ -1176,9 +1195,24 @@ static int icnss_probe(struct platform_device *pdev)
 	penv->mem_base_pa = res->start;
 	penv->mem_base_va = ioremap(penv->mem_base_pa, resource_size(res));
 	if (!penv->mem_base_va) {
-		pr_err("icnss: ioremap failed\n");
+		pr_err("%s: mem_base ioremap failed\n", __func__);
 		ret = -EINVAL;
 		goto out;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "mpm_config");
+	if (!res) {
+		pr_err("%s: mpm_config not found\n", __func__);
+		ret = -EINVAL;
+		goto unmap_mem_base;
+	}
+	penv->mpm_config_pa = res->start;
+	penv->mpm_config_va = ioremap(penv->mpm_config_pa, resource_size(res));
+	if (!penv->mpm_config_va) {
+		pr_err("%s: mpm_config ioremap failed\n", __func__);
+		ret = -EINVAL;
+		goto unmap_mem_base;
 	}
 
 	for (i = 0; i < ICNSS_MAX_IRQ_REGISTRATIONS; i++) {
@@ -1186,7 +1220,7 @@ static int icnss_probe(struct platform_device *pdev)
 		if (!res) {
 			pr_err("icnss: Fail to get IRQ-%d\n", i);
 			ret = -ENODEV;
-			goto out;
+			goto unmap_mpm_config;
 		} else {
 			penv->ce_irqs[i] = res->start;
 		}
@@ -1202,7 +1236,7 @@ static int icnss_probe(struct platform_device *pdev)
 			if (!penv->msa_va) {
 				pr_err("%s: DMA alloc failed\n", __func__);
 				ret = -EINVAL;
-				goto out;
+				goto unmap_mpm_config;
 			}
 			pr_debug("%s: MAS va: %p, MSA pa: %pa\n",
 				 __func__, penv->msa_va, &penv->msa_pa);
@@ -1210,7 +1244,7 @@ static int icnss_probe(struct platform_device *pdev)
 	} else {
 		pr_err("%s: Fail to get MSA Memory Size\n", __func__);
 		ret = -ENODEV;
-		goto out;
+		goto unmap_mpm_config;
 	}
 
 	penv->skip_qmi = of_property_read_bool(dev->of_node,
@@ -1258,6 +1292,12 @@ err_wlan_mode:
 	if (penv->msa_va)
 		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
 				  penv->msa_va, penv->msa_pa);
+unmap_mpm_config:
+	if (penv->mpm_config_va)
+		iounmap(penv->mpm_config_va);
+unmap_mem_base:
+	if (penv->mem_base_va)
+		iounmap(penv->mem_base_va);
 out:
 	return ret;
 }
@@ -1274,6 +1314,10 @@ static int icnss_remove(struct platform_device *pdev)
 	if (penv->msa_va)
 		dma_free_coherent(&pdev->dev, penv->msa_mem_size,
 				  penv->msa_va, penv->msa_pa);
+	if (penv->mpm_config_va)
+		iounmap(penv->mpm_config_va);
+	if (penv->mem_base_va)
+		iounmap(penv->mem_base_va);
 
 	return 0;
 }
