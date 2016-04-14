@@ -155,7 +155,6 @@
 
 	cpuss_dump {
 		compatible = "qcom,cpuss-dump";
-		status = "disabled";
 		qcom,l2_dump1 {
 			/* L2 cache dump for A53 cluster */
 			qcom,dump-node = <&L2_1>;
