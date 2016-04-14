@@ -68,6 +68,9 @@
 #define Q6AFE_LPASS_OSR_CLK_9_P600_MHZ	0x927C00
 #define MAX_AUX_CODECS		4
 
+#define WSA8810_NAME_1 "wsa881x.20170211"
+#define WSA8810_NAME_2 "wsa881x.20170212"
+
 enum btsco_rates {
 	RATE_8KHZ_ID,
 	RATE_16KHZ_ID,
@@ -1903,6 +1906,7 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_info_entry *entry;
 	struct msm8952_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(rtd->card);
+	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
 
 	/* Codec SLIMBUS configuration
 	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
@@ -2033,6 +2037,14 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		err = -EFAULT;
 		goto out;
 	}
+
+	if (rtd_aux && rtd_aux->component)
+		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
+		!strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+			tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+			tasha_set_spkr_gain_offset(rtd->codec,
+				RX_GAIN_OFFSET_M1P5_DB);
+		}
 
 	if (!strcmp(dev_name(codec_dai->dev), "tomtom_codec")) {
 		/* start mbhc */
