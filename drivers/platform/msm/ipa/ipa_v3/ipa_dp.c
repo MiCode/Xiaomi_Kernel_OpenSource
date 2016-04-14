@@ -109,11 +109,19 @@ static void ipa3_wq_write_done_common(struct ipa3_sys_context *sys,
 		list_del(&tx_pkt->link);
 		sys->len--;
 		spin_unlock_bh(&sys->spinlock);
-		if (!tx_pkt->no_unmap_dma)
-			dma_unmap_single(ipa3_ctx->pdev,
+		if (!tx_pkt->no_unmap_dma) {
+			if (tx_pkt->type != IPA_DATA_DESC_SKB_PAGED) {
+				dma_unmap_single(ipa3_ctx->pdev,
 					tx_pkt->mem.phys_base,
 					tx_pkt->mem.size,
 					DMA_TO_DEVICE);
+			} else {
+				dma_unmap_page(ipa3_ctx->pdev,
+					next_pkt->mem.phys_base,
+					next_pkt->mem.size,
+					DMA_TO_DEVICE);
+			}
+		}
 		if (tx_pkt->callback)
 			tx_pkt->callback(tx_pkt->user1, tx_pkt->user2);
 
@@ -522,25 +530,48 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		}
 
 		tx_pkt->type = desc[i].type;
-		tx_pkt->mem.base = desc[i].pyld;
-		tx_pkt->mem.size = desc[i].len;
 
-		if (!desc[i].dma_address_valid) {
-			tx_pkt->mem.phys_base =
-				dma_map_single(ipa3_ctx->pdev,
-				tx_pkt->mem.base,
-				tx_pkt->mem.size,
-				DMA_TO_DEVICE);
-			if (!tx_pkt->mem.phys_base) {
-				IPAERR("failed to do dma map.\n");
-				fail_dma_wrap = 1;
-				goto failure;
+		if (desc[i].type != IPA_DATA_DESC_SKB_PAGED) {
+			tx_pkt->mem.base = desc[i].pyld;
+			tx_pkt->mem.size = desc[i].len;
+
+			if (!desc[i].dma_address_valid) {
+				tx_pkt->mem.phys_base =
+					dma_map_single(ipa3_ctx->pdev,
+					tx_pkt->mem.base,
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
+				if (!tx_pkt->mem.phys_base) {
+					IPAERR("failed to do dma map.\n");
+					fail_dma_wrap = 1;
+					goto failure;
+				}
+			} else {
+					tx_pkt->mem.phys_base =
+						desc[i].dma_address;
+					tx_pkt->no_unmap_dma = true;
 			}
 		} else {
-			tx_pkt->mem.phys_base = desc[i].dma_address;
-			tx_pkt->no_unmap_dma = true;
-		}
+			tx_pkt->mem.base = desc[i].frag;
+			tx_pkt->mem.size = desc[i].len;
 
+			if (!desc[i].dma_address_valid) {
+				tx_pkt->mem.phys_base =
+					skb_frag_dma_map(ipa3_ctx->pdev,
+					desc[i].frag,
+					0, tx_pkt->mem.size,
+					DMA_TO_DEVICE);
+				if (!tx_pkt->mem.phys_base) {
+					IPAERR("dma map failed\n");
+					fail_dma_wrap = 1;
+					goto failure;
+				}
+			} else {
+				tx_pkt->mem.phys_base =
+					desc[i].dma_address;
+				tx_pkt->no_unmap_dma = true;
+			}
+		}
 		tx_pkt->sys = sys;
 		tx_pkt->callback = desc[i].callback;
 		tx_pkt->user1 = desc[i].user1;
@@ -639,9 +670,15 @@ failure:
 	for (j = 0; j < i; j++) {
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
-		dma_unmap_single(ipa3_ctx->pdev, tx_pkt->mem.phys_base,
+		if (desc[i].type != IPA_DATA_DESC_SKB_PAGED) {
+			dma_unmap_single(ipa3_ctx->pdev, tx_pkt->mem.phys_base,
 				tx_pkt->mem.size,
 				DMA_TO_DEVICE);
+		} else {
+			dma_unmap_page(ipa3_ctx->pdev, tx_pkt->mem.phys_base,
+				tx_pkt->mem.size,
+				DMA_TO_DEVICE);
+		}
 		kmem_cache_free(ipa3_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}
@@ -650,9 +687,9 @@ failure:
 		if (fail_dma_wrap)
 			kmem_cache_free(ipa3_ctx->tx_pkt_wrapper_cache, tx_pkt);
 
-	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		kfree(gsi_xfer_elem_array);
-	else {
+	} else {
 		if (transfer.iovec_phys) {
 			if (num_desc == IPA_NUM_DESC_PER_SW_TX) {
 				dma_pool_free(ipa3_ctx->dma_pool,
@@ -1501,18 +1538,40 @@ static void ipa3_tx_cmd_comp(void *user1, int user2)
 int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *meta)
 {
-	struct ipa3_desc desc[3];
+	struct ipa3_desc *desc;
+	struct ipa3_desc _desc[3];
 	int dst_ep_idx;
 	struct ipahal_imm_cmd_ip_packet_init cmd;
 	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
 	struct ipa3_sys_context *sys;
 	int src_ep_idx;
+	int num_frags, f;
 
-	memset(desc, 0, 3 * sizeof(struct ipa3_desc));
+	if (unlikely(!ipa3_ctx)) {
+		IPAERR("IPA3 driver was not initialized\n");
+		return -EINVAL;
+	}
 
 	if (skb->len == 0) {
 		IPAERR("packet size is 0\n");
 		return -EINVAL;
+	}
+
+	num_frags = skb_shinfo(skb)->nr_frags;
+	if (num_frags) {
+		/* 1 desc for tag to resolve status out-of-order issue;
+		 * 1 desc is needed for the linear portion of skb;
+		 * 1 desc may be needed for the PACKET_INIT;
+		 * 1 desc for each frag
+		 */
+		desc = kzalloc(sizeof(*desc) * (num_frags + 3), GFP_ATOMIC);
+		if (!desc) {
+			IPAERR("failed to alloc desc array\n");
+			goto fail_mem;
+		}
+	} else {
+		memset(_desc, 0, 3 * sizeof(struct ipa3_desc));
+		desc = &_desc[0];
 	}
 
 	/*
@@ -1529,14 +1588,14 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n",
 				IPA_CLIENT_APPS_LAN_WAN_PROD);
-			return -EFAULT;
+			goto fail_gen;
 		}
 		dst_ep_idx = ipa3_get_ep_mapping(dst);
 	} else {
 		src_ep_idx = ipa3_get_ep_mapping(dst);
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n", dst);
-			return -EFAULT;
+			goto fail_gen;
 		}
 		if (meta && meta->pkt_init_dst_ep_valid)
 			dst_ep_idx = meta->pkt_init_dst_ep;
@@ -1574,7 +1633,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		desc[1].callback = ipa3_tx_cmd_comp;
 		desc[1].user1 = cmd_pyld;
 		desc[2].pyld = skb->data;
-		desc[2].len = skb->len;
+		desc[2].len = skb_headlen(skb);
 		desc[2].type = IPA_DATA_DESC_SKB;
 		desc[2].callback = ipa3_tx_comp_usr_notify_release;
 		desc[2].user1 = skb;
@@ -1587,8 +1646,22 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			desc[2].dma_address = meta->dma_address;
 		}
 
-		if (ipa3_send(sys, 3, desc, true)) {
-			IPAERR("fail to send immediate command\n");
+		for (f = 0; f < num_frags; f++) {
+			desc[3+f].frag = &skb_shinfo(skb)->frags[f];
+			desc[3+f].type = IPA_DATA_DESC_SKB_PAGED;
+			desc[3+f].len = skb_frag_size(desc[3+f].frag);
+		}
+		/* don't free skb till frag mappings are released */
+		if (num_frags) {
+			desc[3+f-1].callback = desc[2].callback;
+			desc[3+f-1].user1 = desc[2].user1;
+			desc[3+f-1].user2 = desc[2].user2;
+			desc[2].callback = NULL;
+		}
+
+		if (ipa3_send(sys, num_frags + 3, desc, true)) {
+			IPAERR("fail to send skb %p num_frags %u SWP\n",
+				skb, num_frags);
 			goto fail_send;
 		}
 		IPA_STATS_INC_CNT(ipa3_ctx->stats.tx_sw_pkts);
@@ -1600,7 +1673,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		desc[0].type = IPA_IMM_CMD_DESC;
 		desc[0].callback = ipa3_tag_destroy_imm;
 		desc[1].pyld = skb->data;
-		desc[1].len = skb->len;
+		desc[1].len = skb_headlen(skb);
 		desc[1].type = IPA_DATA_DESC_SKB;
 		desc[1].callback = ipa3_tx_comp_usr_notify_release;
 		desc[1].user1 = skb;
@@ -1610,19 +1683,44 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			desc[1].dma_address_valid = true;
 			desc[1].dma_address = meta->dma_address;
 		}
+		if (num_frags == 0) {
+			if (ipa3_send(sys, 2, desc, true)) {
+				IPAERR("fail to send skb %p HWP\n", skb);
+				goto fail_gen;
+			}
+		} else {
+			for (f = 0; f < num_frags; f++) {
+				desc[2+f].frag = &skb_shinfo(skb)->frags[f];
+				desc[2+f].type = IPA_DATA_DESC_SKB_PAGED;
+				desc[2+f].len = skb_frag_size(desc[2+f].frag);
+			}
+			/* don't free skb till frag mappings are released */
+			desc[2+f-1].callback = desc[1].callback;
+			desc[2+f-1].user1 = desc[1].user1;
+			desc[2+f-1].user2 = desc[1].user2;
+			desc[1].callback = NULL;
 
-		if (ipa3_send(sys, 2, desc, true)) {
-			IPAERR("fail to send skb\n");
-			goto fail_gen;
+			if (ipa3_send(sys, num_frags + 2, desc, true)) {
+				IPAERR("fail to send skb %p num_frags %u HWP\n",
+					skb, num_frags);
+				goto fail_gen;
+			}
 		}
 		IPA_STATS_INC_CNT(ipa3_ctx->stats.tx_hw_pkts);
 	}
 
+	if (num_frags) {
+		kfree(desc);
+		IPA_STATS_INC_CNT(ipa3_ctx->stats.tx_non_linear);
+	}
 	return 0;
 
 fail_send:
 	ipahal_destroy_imm_cmd(cmd_pyld);
 fail_gen:
+	if (num_frags)
+		kfree(desc);
+fail_mem:
 	return -EFAULT;
 }
 

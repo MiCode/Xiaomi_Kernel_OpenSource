@@ -921,6 +921,7 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 		"sw_tx=%u\n"
 		"hw_tx=%u\n"
+		"tx_non_linear=%u\n"
 		"tx_compl=%u\n"
 		"wan_rx=%u\n"
 		"stat_compl=%u\n"
@@ -936,6 +937,7 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 		"flow_disable=%u\n",
 		ipa3_ctx->stats.tx_sw_pkts,
 		ipa3_ctx->stats.tx_hw_pkts,
+		ipa3_ctx->stats.tx_non_linear,
 		ipa3_ctx->stats.tx_pkts_compl,
 		ipa3_ctx->stats.rx_pkts,
 		ipa3_ctx->stats.stat_compl,
