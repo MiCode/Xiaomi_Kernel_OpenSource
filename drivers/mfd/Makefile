@@ -189,6 +189,7 @@ obj-$(CONFIG_MFD_HI6421_PMIC)	+= hi6421-pmic-core.o
 obj-$(CONFIG_MFD_DLN2)		+= dln2.o
 obj-$(CONFIG_MFD_RT5033)	+= rt5033.o
 obj-$(CONFIG_MFD_SKY81452)	+= sky81452.o
+obj-$(CONFIG_MSM_CDC_PINCTRL)	+= msm-cdc-pinctrl.o
 obj-$(CONFIG_WCD9330_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o\
 						wcd9xxx-core-resource.o wcd9330-regmap.o
 obj-$(CONFIG_WCD9335_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o\
