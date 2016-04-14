@@ -2486,6 +2486,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	status = gsi_update_function_bind_params(gsi, cdev, &info);
+	if (status)
+		goto dereg_rndis;
 
 	post_event(&gsi->d_port, EVT_INITIALIZED);
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
