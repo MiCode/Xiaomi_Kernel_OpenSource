@@ -114,8 +114,11 @@
 			39 01 00 00 00 00 02 55 00
 			05 01 00 00 78 00 02 11 00
 			05 01 00 00 14 00 02 29 00];
-		qcom,mdss-dsi-off-command = [05 01 00 00 32 00 02 28 00
-			05 01 00 00 78 00 02 10 00];
+		qcom,mdss-dsi-off-command = [05 01 00 00 0A 00 02 28 00
+			29 01 00 00 00 00 1d D3 13 3B BB A5 A5 33 33 33
+				00 80 A4 A8 37 33 33 33 33 F7 F2 1F 7D
+				7C FF 0F 99 00 FF FF
+			05 01 00 00 5A 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-traffic-mode = "burst_mode";
