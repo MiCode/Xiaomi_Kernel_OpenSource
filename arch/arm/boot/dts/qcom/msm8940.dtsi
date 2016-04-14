@@ -39,3 +39,15 @@
 		qcom,mas-rpm-id = <ICBID_MASTER_IPA>;
 	};
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-8940";
+};
+
+&clock_debug {
+	compatible = "qcom,cc-debug-8940";
+};
+
+&clock_gcc_mdss {
+	compatible = "qcom,gcc-mdss-8940";
+};
