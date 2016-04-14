@@ -59,6 +59,8 @@ Optional properties:
 - qcom,store-hard-reset-reason	Boolean property which if set will store the hardware
 				reset reason to SOFT_RB_SPARE register of the core PMIC
 				PON peripheral.
+- qcom,pon-reset-off Boolean property which if set will store the hardware
+				power off in the system shut-down state, instead of reset state.
 - qcom,warm-reset-poweroff-type		Poweroff type required to be configured on
 					PS_HOLD reset control register when the system
 					goes for warm reset. If this property is not
