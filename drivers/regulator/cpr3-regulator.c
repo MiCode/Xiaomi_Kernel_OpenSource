@@ -4483,6 +4483,31 @@ int cpr3_regulator_resume(struct cpr3_controller *ctrl)
 }
 
 /**
+ * cpr3_regulator_cpu_hotplug_callback() - reset CPR IRQ affinity when a CPU is
+ *		brought online via hotplug
+ * @nb:			Pointer to the notifier block
+ * @action:		hotplug action
+ * @hcpu:		long value corresponding to the CPU number
+ *
+ * Return: NOTIFY_OK
+ */
+static int cpr3_regulator_cpu_hotplug_callback(struct notifier_block *nb,
+					    unsigned long action, void *hcpu)
+{
+	struct cpr3_controller *ctrl = container_of(nb, struct cpr3_controller,
+					cpu_hotplug_notifier);
+	int cpu = (long)hcpu;
+
+	action &= ~CPU_TASKS_FROZEN;
+
+	if (action == CPU_ONLINE
+	    && cpumask_test_cpu(cpu, &ctrl->irq_affinity_mask))
+		irq_set_affinity(ctrl->irq, &ctrl->irq_affinity_mask);
+
+	return NOTIFY_OK;
+}
+
+/**
  * cpr3_regulator_validate_controller() - verify the data passed in via the
  *		cpr3_controller data structure
  * @ctrl:		Pointer to the CPR3 controller
@@ -4644,6 +4669,14 @@ int cpr3_regulator_register(struct platform_device *pdev,
 				ctrl->ceiling_irq, rc);
 			goto free_regulators;
 		}
+	}
+
+	if (ctrl->irq && !cpumask_empty(&ctrl->irq_affinity_mask)) {
+		irq_set_affinity(ctrl->irq, &ctrl->irq_affinity_mask);
+
+		ctrl->cpu_hotplug_notifier.notifier_call
+			= cpr3_regulator_cpu_hotplug_callback;
+		register_hotcpu_notifier(&ctrl->cpu_hotplug_notifier);
 	}
 
 	mutex_lock(&cpr3_controller_list_mutex);

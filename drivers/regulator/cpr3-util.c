@@ -18,6 +18,7 @@
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
+#include <linux/cpumask.h>
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -890,6 +891,46 @@ int cpr3_parse_common_thread_data(struct cpr3_thread *thread)
 }
 
 /**
+ * cpr3_parse_irq_affinity() - parse CPR IRQ affinity information
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_parse_irq_affinity(struct cpr3_controller *ctrl)
+{
+	struct device_node *cpu_node;
+	int i, cpu;
+	int len = 0;
+
+	if (!of_find_property(ctrl->dev->of_node, "qcom,cpr-interrupt-affinity",
+				&len)) {
+		/* No IRQ affinity required */
+		return 0;
+	}
+
+	len /= sizeof(u32);
+
+	for (i = 0; i < len; i++) {
+		cpu_node = of_parse_phandle(ctrl->dev->of_node,
+					    "qcom,cpr-interrupt-affinity", i);
+		if (!cpu_node) {
+			cpr3_err(ctrl, "could not find CPU node %d\n", i);
+			return -EINVAL;
+		}
+
+		for_each_possible_cpu(cpu) {
+			if (of_get_cpu_node(cpu, NULL) == cpu_node) {
+				cpumask_set_cpu(cpu, &ctrl->irq_affinity_mask);
+				break;
+			}
+		}
+		of_node_put(cpu_node);
+	}
+
+	return 0;
+}
+
+/**
  * cpr3_parse_common_ctrl_data() - parse common CPR3 controller properties from
  *		device tree
  * @ctrl:		Pointer to the CPR3 controller
@@ -954,6 +995,10 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 
 	ctrl->cpr_allowed_sw = of_property_read_bool(ctrl->dev->of_node,
 			"qcom,cpr-enable");
+
+	rc = cpr3_parse_irq_affinity(ctrl);
+	if (rc)
+		return rc;
 
 	/* Aging reference voltage is optional */
 	ctrl->aging_ref_volt = 0;
