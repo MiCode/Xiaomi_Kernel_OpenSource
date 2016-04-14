@@ -4,10 +4,10 @@ config SND_SOC_MSM_HOSTLESS_PCM
 	tristate
 
 config SND_SOC_MSM_QDSP6V2_INTF
-	bool "SoC Q6 audio driver for APQ8084"
-	depends on MSM_QDSP6_APRV2
+	bool "SoC Q6 audio driver for MSM/APQ"
+	depends on MSM_QDSP6_APRV2_GLINK
 	help
-	 To add support for SoC audio on APQ8084.
+	 To add support for SoC audio on MSM/APQ.
 	 This will enable all the platform specific
 	 interactions towards DSP. It includes asm,
 	 adm and afe interfaces on the DSP.
@@ -122,7 +122,7 @@ config SND_SOC_MSMCOBALT
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_DYNAMIC_MINORS
-	select MSM_QDSP6_APRV2
+	select MSM_QDSP6_APRV2_GLINK
 	select MSM_QDSP6V2_CODECS
 	select SND_SOC_WCD9335
 	select SND_SOC_WSA881X
