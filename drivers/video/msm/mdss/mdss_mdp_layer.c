@@ -345,7 +345,7 @@ static int __validate_layer_reconfig(struct mdp_input_layer *layer,
 	 */
 	if (pipe->csc_coeff_set != layer->color_space) {
 		src_fmt = mdss_mdp_get_format_params(layer->buffer.format);
-		if (pipe->src_fmt->is_yuv && src_fmt->is_yuv) {
+		if (pipe->src_fmt->is_yuv && src_fmt && src_fmt->is_yuv) {
 			status = -EPERM;
 			pr_err("csc change is not permitted on used pipe\n");
 		}
