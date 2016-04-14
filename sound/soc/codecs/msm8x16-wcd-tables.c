@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <msm8x16_wcd_registers.h>
+#include "msm8x16_wcd_registers.h"
 #include "msm8x16-wcd.h"
 
 const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE] = {
