@@ -3998,20 +3998,21 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	    (!l_roi->w && !l_roi->h && !r_roi->w && !r_roi->h) ||
 	    !ctl->panel_data->panel_info.partial_update_enabled) {
 
-		*l_roi = (struct mdss_rect) {0, 0,
+		if (ctl->mixer_left)
+			*l_roi = (struct mdss_rect) {0, 0,
 				ctl->mixer_left->width,
 				ctl->mixer_left->height};
 
-		if (ctl->mixer_right) {
+		if (ctl->mixer_right)
 			*r_roi = (struct mdss_rect) {0, 0,
 					ctl->mixer_right->width,
 					ctl->mixer_right->height};
-		}
 	}
 
 	previous_frame_pu_type = mdss_mdp_get_pu_type(ctl);
 	mdss_mdp_set_mixer_roi(ctl->mixer_left, l_roi);
-	ctl->roi = ctl->mixer_left->roi;
+	if (ctl->mixer_left)
+		ctl->roi = ctl->mixer_left->roi;
 
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
