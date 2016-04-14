@@ -377,6 +377,7 @@
 			<0xff 207>, /* rpm_ipc(27) */
 			<0xff 212>, /* lpass_slimbus_bam_ee1_irq */
 			<0xff 215>, /* o_bimc_intr[0] */
+			<0xff 224>, /* spdm_realtime_irq[1] */
 			<0xff 231>, /* arm-smmu global fault */
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
