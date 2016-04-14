@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -972,7 +972,7 @@ static int lmh_dbgfs_data_read(struct seq_file *seq_fp, void *data)
 {
 	static uint32_t *read_buf;
 	static int read_buf_size;
-	int idx = 0, ret = 0, print_ret = 0;
+	int idx = 0, ret = 0;
 
 	if (!read_buf_size) {
 		ret = lmh_mon_data->debug_ops->debug_read(
@@ -988,17 +988,16 @@ static int lmh_dbgfs_data_read(struct seq_file *seq_fp, void *data)
 	}
 
 	do {
-		print_ret = seq_printf(seq_fp, "0x%x ", read_buf[idx]);
-		if (print_ret) {
-			pr_err("Seq print error. idx:%d err:%d\n",
-				idx, print_ret);
+		seq_printf(seq_fp, "0x%x ", read_buf[idx]);
+		if (seq_has_overflowed(seq_fp)) {
+			pr_err("Seq overflow. idx:%d\n", idx);
 			goto dfs_read_exit;
 		}
 		idx++;
 		if ((idx % LMH_READ_LINE_LENGTH) == 0) {
-			print_ret = seq_puts(seq_fp, "\n");
-			if (print_ret) {
-				pr_err("Seq print error. err:%d\n", print_ret);
+			seq_puts(seq_fp, "\n");
+			if (seq_has_overflowed(seq_fp)) {
+				pr_err("Seq overflow. idx:%d\n", idx);
 				goto dfs_read_exit;
 			}
 		}
