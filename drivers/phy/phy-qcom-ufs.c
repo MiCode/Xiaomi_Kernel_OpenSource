@@ -29,13 +29,24 @@ static int ufs_qcom_phy_init_vreg(struct phy *, struct ufs_qcom_phy_vreg *,
 static int ufs_qcom_phy_base_init(struct platform_device *pdev,
 				  struct ufs_qcom_phy *phy_common);
 
+void ufs_qcom_phy_write_tbl(struct ufs_qcom_phy *ufs_qcom_phy,
+			   struct ufs_qcom_phy_calibration *tbl,
+			   int tbl_size)
+{
+	int i;
+
+	for (i = 0; i < tbl_size; i++)
+		writel_relaxed(tbl[i].cfg_value,
+			       ufs_qcom_phy->mmio + tbl[i].reg_offset);
+}
+EXPORT_SYMBOL(ufs_qcom_phy_write_tbl);
+
 int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_A,
 			   int tbl_size_A,
 			   struct ufs_qcom_phy_calibration *tbl_B,
 			   int tbl_size_B, bool is_rate_B)
 {
-	int i;
 	int ret = 0;
 
 	if (!tbl_A) {
@@ -44,9 +55,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 		goto out;
 	}
 
-	for (i = 0; i < tbl_size_A; i++)
-		writel_relaxed(tbl_A[i].cfg_value,
-			       ufs_qcom_phy->mmio + tbl_A[i].reg_offset);
+	ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl_A, tbl_size_A);
 
 	/*
 	 * In case we would like to work in rate B, we need
@@ -62,9 +71,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			goto out;
 		}
 
-		for (i = 0; i < tbl_size_B; i++)
-			writel_relaxed(tbl_B[i].cfg_value,
-				ufs_qcom_phy->mmio + tbl_B[i].reg_offset);
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl_B, tbl_size_B);
 	}
 
 	/* flush buffered writes */
@@ -763,3 +770,21 @@ int ufs_qcom_phy_power_off(struct phy *generic_phy)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ufs_qcom_phy_power_off);
+
+int ufs_qcom_phy_configure_lpm(struct phy *generic_phy, bool enable)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+	int ret = 0;
+
+	if (ufs_qcom_phy->phy_spec_ops->configure_lpm) {
+		ret = ufs_qcom_phy->phy_spec_ops->
+				configure_lpm(ufs_qcom_phy, enable);
+		if (ret)
+			dev_err(ufs_qcom_phy->dev,
+				"%s: configure_lpm(%s) failed %d\n",
+				__func__, enable ? "enable" : "disable", ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(ufs_qcom_phy_configure_lpm);

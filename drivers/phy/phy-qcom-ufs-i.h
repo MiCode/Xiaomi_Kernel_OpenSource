@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,6 +150,8 @@ struct ufs_qcom_phy {
  * state.
  * @power_control: pointer to a function that controls analog rail of phy
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
+ * @configure_lpm: pointer to a function that configures the phy
+ * for low power mode.
  */
 struct ufs_qcom_phy_specific_ops {
 	int (*calibrate_phy)(struct ufs_qcom_phy *phy, bool is_rate_B);
@@ -158,6 +160,7 @@ struct ufs_qcom_phy_specific_ops {
 	void (*set_tx_lane_enable)(struct ufs_qcom_phy *phy, u32 val);
 	void (*ctrl_rx_linecfg)(struct ufs_qcom_phy *phy, bool ctrl);
 	void (*power_control)(struct ufs_qcom_phy *phy, bool val);
+	int (*configure_lpm)(struct ufs_qcom_phy *phy, bool enable);
 };
 
 struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy);
@@ -178,4 +181,8 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			struct ufs_qcom_phy_calibration *tbl_A, int tbl_size_A,
 			struct ufs_qcom_phy_calibration *tbl_B, int tbl_size_B,
 			bool is_rate_B);
+void ufs_qcom_phy_write_tbl(struct ufs_qcom_phy *ufs_qcom_phy,
+				struct ufs_qcom_phy_calibration *tbl,
+				int tbl_size);
+
 #endif

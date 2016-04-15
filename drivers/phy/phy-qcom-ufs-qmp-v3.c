@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,39 @@ out:
 	return err;
 }
 
+static
+int ufs_qcom_phy_qmp_v3_configure_lpm(struct ufs_qcom_phy *ufs_qcom_phy,
+					bool enable)
+{
+	int err = 0;
+	int tbl_size;
+	struct ufs_qcom_phy_calibration *tbl = NULL;
+
+	/* The default low power mode configuration is SVS2 */
+	if (enable) {
+		tbl_size = ARRAY_SIZE(phy_cal_table_svs2_enable);
+		tbl = phy_cal_table_svs2_enable;
+	} else {
+		tbl_size = ARRAY_SIZE(phy_cal_table_svs2_disable);
+		tbl = phy_cal_table_svs2_disable;
+	}
+
+	if (!tbl) {
+		dev_err(ufs_qcom_phy->dev, "%s: tbl for SVS2 %s is NULL",
+			__func__, enable ? "enable" : "disable");
+		err = -EINVAL;
+		goto out;
+	}
+
+	ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl, tbl_size);
+
+	/* flush buffered writes */
+	mb();
+
+out:
+	return err;
+}
+
 struct phy_ops ufs_qcom_phy_qmp_v3_phy_ops = {
 	.init		= ufs_qcom_phy_qmp_v3_init,
 	.exit		= ufs_qcom_phy_exit,
@@ -160,6 +193,7 @@ struct ufs_qcom_phy_specific_ops phy_v3_ops = {
 	.set_tx_lane_enable	= ufs_qcom_phy_qmp_v3_set_tx_lane_enable,
 	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_v3_ctrl_rx_linecfg,
 	.power_control		= ufs_qcom_phy_qmp_v3_power_control,
+	.configure_lpm		= ufs_qcom_phy_qmp_v3_configure_lpm,
 };
 
 static int ufs_qcom_phy_qmp_v3_probe(struct platform_device *pdev)
