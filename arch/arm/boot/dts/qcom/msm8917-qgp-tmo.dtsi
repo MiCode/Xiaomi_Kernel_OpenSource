@@ -40,3 +40,7 @@
 &dsi_lead_fl10802_fwvga_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&int_codec {
+	qcom,model = "msm8917-tmo-snd-card";
+};
