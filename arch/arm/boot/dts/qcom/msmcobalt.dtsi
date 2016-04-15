@@ -1876,49 +1876,41 @@
 
 	mitigation_profile0: qcom,limit_info-0 {
 		qcom,temperature-sensor = <&sensor_information1>;
-		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
 	};
 
 	mitigation_profile1: qcom,limit_info-1 {
 		qcom,temperature-sensor = <&sensor_information2>;
-		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
 	};
 
 	mitigation_profile2: qcom,limit_info-2 {
 		qcom,temperature-sensor = <&sensor_information3>;
-		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
 	};
 
 	mitigation_profile3: qcom,limit_info-3 {
 		qcom,temperature-sensor = <&sensor_information4>;
-		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
 	};
 
 	mitigation_profile4: qcom,limit_info-4 {
 		qcom,temperature-sensor = <&sensor_information7>;
-		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
 	};
 
 	mitigation_profile5: qcom,limit_info-5 {
 		qcom,temperature-sensor = <&sensor_information8>;
-		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
 	};
 
 	mitigation_profile6: qcom,limit_info-6 {
 		qcom,temperature-sensor = <&sensor_information9>;
-		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
 	};
 
 	mitigation_profile7: qcom,limit_info-7 {
 		qcom,temperature-sensor = <&sensor_information10>;
-		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
 	};
 
@@ -1926,10 +1918,7 @@
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <1>;
 		qcom,poll-ms = <100>;
-		qcom,limit-temp = <60>;
-		qcom,temp-hysteresis = <10>;
 		qcom,therm-reset-temp = <115>;
-		qcom,freq-step = <4>;
 		qcom,core-limit-temp = <70>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,hotplug-temp = <70>;
