@@ -915,6 +915,7 @@ static void rmnet_mhi_cb(struct mhi_cb_info *cb_info)
 	} else {
 		rmnet_log(MSG_CRITICAL,
 			"Invalid data in MHI callback, quitting\n");
+		return;
 	}
 
 	switch (cb_info->cb_reason) {

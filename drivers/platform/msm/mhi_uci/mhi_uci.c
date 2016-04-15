@@ -623,17 +623,20 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		struct file *file_handle)
 {
 	struct uci_client *uci_handle = file_handle->private_data;
-	struct mhi_uci_ctxt_t *uci_ctxt = uci_handle->uci_ctxt;
+	struct mhi_uci_ctxt_t *uci_ctxt;
 	u32 nr_in_bufs = 0;
 	int in_chan = 0;
 	int i = 0;
 	u32 buf_size = 0;
+
+	if (uci_handle == NULL)
+		return -EINVAL;
+
+	uci_ctxt = uci_handle->uci_ctxt;
 	in_chan = iminor(mhi_inode) + 1;
 	nr_in_bufs = uci_ctxt->chan_attrib[in_chan].nr_trbs;
 	buf_size = uci_ctxt->chan_attrib[in_chan].max_packet_size;
 
-	if (uci_handle == NULL)
-		return -EINVAL;
 	if (atomic_sub_return(1, &uci_handle->ref_count) == 0) {
 		uci_log(UCI_DBG_ERROR,
 				"Last client left, closing channel 0x%x\n",
@@ -1021,14 +1024,15 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 	u32 client_index;
 	struct mhi_result *result;
 
-	if (!cb_info)
+	if (!cb_info || !cb_info->result) {
 		uci_log(UCI_DBG_CRITICAL, "Bad CB info from MHI.\n");
-	if (cb_info->result) {
-		chan_nr = (uintptr_t)cb_info->result->user_data;
-		client_index = CHAN_TO_CLIENT(chan_nr);
-		uci_handle =
-			&uci_ctxt.client_handles[client_index];
+		return;
 	}
+
+	chan_nr = (uintptr_t)cb_info->result->user_data;
+	client_index = CHAN_TO_CLIENT(chan_nr);
+	uci_handle = &uci_ctxt.client_handles[client_index];
+
 	switch (cb_info->cb_reason) {
 	case MHI_CB_MHI_ENABLED:
 		atomic_set(&uci_handle->mhi_disabled, 0);
