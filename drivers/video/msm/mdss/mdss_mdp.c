@@ -89,6 +89,7 @@ struct msm_mdp_interface mdp5 = {
 #define MEM_PROTECT_SD_CTRL_FLAT 0x14
 
 static DEFINE_SPINLOCK(mdp_lock);
+static DEFINE_SPINLOCK(mdss_mdp_intr_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(mdp_iommu_ref_cnt_lock);
 static DEFINE_MUTEX(mdp_fs_idle_pc_lock);
@@ -148,6 +149,83 @@ u32 invalid_mdp107_wb_output_fmts[] = {
 	MDP_BGRX_8888,
 };
 
+/*
+ * struct intr_call - array of intr handlers
+ * @func: intr handler
+ * @arg: requested argument to the handler
+ */
+struct intr_callback {
+	void (*func)(void *);
+	void *arg;
+};
+
+/*
+ * struct mdss_mdp_intr_reg - array of MDP intr register sets
+ * @clr_off: offset to CLEAR reg
+ * @en_off: offset to ENABLE reg
+ * @status_off: offset to STATUS reg
+ */
+struct mdss_mdp_intr_reg {
+	u32 clr_off;
+	u32 en_off;
+	u32 status_off;
+};
+
+/*
+ * struct mdss_mdp_irq - maps each irq with i/f
+ * @intr_type: type of interface
+ * @intf_num: i/f the irq is associated with
+ * @irq_mask: corresponding bit in the reg set
+ * @reg_idx: which reg set to program
+ */
+struct mdss_mdp_irq {
+	u32 intr_type;
+	u32 intf_num;
+	u32 irq_mask;
+	u32 reg_idx;
+};
+
+static struct mdss_mdp_intr_reg mdp_intr_reg[] = {
+	{ MDSS_MDP_REG_INTR_CLEAR, MDSS_MDP_REG_INTR_EN,
+		MDSS_MDP_REG_INTR_STATUS },
+	{ MDSS_MDP_REG_INTR2_CLEAR, MDSS_MDP_REG_INTR2_EN,
+		MDSS_MDP_REG_INTR2_STATUS }
+};
+
+static struct mdss_mdp_irq mdp_irq_map[] =  {
+	{ MDSS_MDP_IRQ_TYPE_INTF_UNDER_RUN, 1, MDSS_MDP_INTR_INTF_0_UNDERRUN, 0},
+	{ MDSS_MDP_IRQ_TYPE_INTF_UNDER_RUN, 2, MDSS_MDP_INTR_INTF_1_UNDERRUN, 0},
+	{ MDSS_MDP_IRQ_TYPE_INTF_UNDER_RUN, 3, MDSS_MDP_INTR_INTF_2_UNDERRUN, 0},
+	{ MDSS_MDP_IRQ_TYPE_INTF_UNDER_RUN, 4, MDSS_MDP_INTR_INTF_3_UNDERRUN, 0},
+	{ MDSS_MDP_IRQ_TYPE_INTF_VSYNC, 1, MDSS_MDP_INTR_INTF_0_VSYNC, 0},
+	{ MDSS_MDP_IRQ_TYPE_INTF_VSYNC, 2, MDSS_MDP_INTR_INTF_1_VSYNC, 0},
+	{ MDSS_MDP_IRQ_TYPE_INTF_VSYNC, 3, MDSS_MDP_INTR_INTF_2_VSYNC, 0},
+	{ MDSS_MDP_IRQ_TYPE_INTF_VSYNC, 4, MDSS_MDP_INTR_INTF_3_VSYNC, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_COMP, 0, MDSS_MDP_INTR_PING_PONG_0_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_COMP, 1, MDSS_MDP_INTR_PING_PONG_1_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_COMP, 2, MDSS_MDP_INTR_PING_PONG_2_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_COMP, 3, MDSS_MDP_INTR_PING_PONG_3_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_RD_PTR, 0, MDSS_MDP_INTR_PING_PONG_0_RD_PTR, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_RD_PTR, 1, MDSS_MDP_INTR_PING_PONG_1_RD_PTR, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_RD_PTR, 2, MDSS_MDP_INTR_PING_PONG_2_RD_PTR, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_RD_PTR, 3, MDSS_MDP_INTR_PING_PONG_3_RD_PTR, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_WR_PTR, 0, MDSS_MDP_INTR_PING_PONG_0_WR_PTR, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_WR_PTR, 1, MDSS_MDP_INTR_PING_PONG_1_WR_PTR, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_WR_PTR, 2, MDSS_MDP_INTR_PING_PONG_2_WR_PTR, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_WR_PTR, 3, MDSS_MDP_INTR_PING_PONG_3_WR_PTR, 0},
+	{ MDSS_MDP_IRQ_TYPE_WB_ROT_COMP, 0, MDSS_MDP_INTR_WB_0_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_WB_ROT_COMP, 1, MDSS_MDP_INTR_WB_1_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_WB_WFD_COMP, 0, MDSS_MDP_INTR_WB_2_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_AUTO_REF, 0, MDSS_MDP_INTR_PING_PONG_0_AUTOREFRESH_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_AUTO_REF, 1, MDSS_MDP_INTR_PING_PONG_1_AUTOREFRESH_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_AUTO_REF, 2, MDSS_MDP_INTR_PING_PONG_2_AUTOREFRESH_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_PING_PONG_AUTO_REF, 3, MDSS_MDP_INTR_PING_PONG_3_AUTOREFRESH_DONE, 0},
+	{ MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, 2, MDSS_MDP_INTR2_PING_PONG_2_CWB_OVERFLOW, 1},
+	{ MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, 3, MDSS_MDP_INTR2_PING_PONG_2_CWB_OVERFLOW, 1}
+};
+
+static struct intr_callback *mdp_intr_cb;
+
 static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on);
 static int mdss_mdp_parse_dt(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev);
@@ -156,9 +234,9 @@ static int mdss_mdp_parse_dt_wb(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ctl(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_video_intf(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
-				      char *prop_name, u32 *offsets, int len);
+				char *prop_name, u32 *offsets, int len);
 static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
-				       char *prop_name);
+				char *prop_name);
 static int mdss_mdp_parse_dt_smp(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
@@ -167,6 +245,24 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev);
+
+static inline u32 is_mdp_irq_enabled(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mdp_intr_reg); i++)
+		if (mdata->mdp_irq_mask[i] != 0)
+			return 1;
+
+	if (mdata->mdp_hist_irq_mask)
+		return 1;
+
+	if (mdata->mdp_intf_irq_mask)
+		return 1;
+
+	return 0;
+}
 
 u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
 {
@@ -613,12 +709,34 @@ int mdss_update_reg_bus_vote(struct reg_bus_client *bus_client, u32 usecase_ndx)
 #endif
 
 
-static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
+static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 {
-	if (intr_type == MDSS_MDP_IRQ_INTF_UNDER_RUN ||
-	    intr_type == MDSS_MDP_IRQ_INTF_VSYNC)
-		intf_num = (intf_num - MDSS_MDP_INTF0) * 2;
-	return 1 << (intr_type + intf_num);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mdp_irq_map); i++) {
+		if (intr_type == mdp_irq_map[i].intr_type &&
+			intf_num == mdp_irq_map[i].intf_num)
+			return i;
+	}
+	return -EINVAL;
+}
+
+u32 mdss_mdp_get_irq_mask(u32 intr_type, u32 intf_num)
+{
+	int idx = mdss_mdp_intr2index(intr_type, intf_num);
+
+	return (idx < 0) ? 0 : mdp_irq_map[idx].irq_mask;
+}
+
+void mdss_mdp_enable_hw_irq(struct mdss_data_type *mdata)
+{
+	mdata->mdss_util->enable_irq(&mdss_mdp_hw);
+}
+
+void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata)
+{
+	if (!is_mdp_irq_enabled())
+		mdata->mdss_util->disable_irq(&mdss_mdp_hw);
 }
 
 /* function assumes that mdp is clocked to access hw registers */
@@ -626,38 +744,55 @@ void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num)
 {
 	unsigned long irq_flags;
-	u32 irq;
+	int irq_idx;
+	struct mdss_mdp_intr_reg reg;
+	struct mdss_mdp_irq irq;
 
-	irq = mdss_mdp_irq_mask(intr_type, intf_num);
+	irq_idx = mdss_mdp_intr2index(intr_type, intf_num);
+	if (irq_idx < 0) {
+		pr_err("invalid irq request\n");
+		return;
+	}
 
-	pr_debug("clearing mdp irq mask=%x\n", irq);
+	irq = mdp_irq_map[irq_idx];
+	reg = mdp_intr_reg[irq.reg_idx];
+
+	pr_debug("clearing mdp irq mask=%x\n", irq.irq_mask);
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	writel_relaxed(irq, mdata->mdp_base + MDSS_MDP_REG_INTR_CLEAR);
+	writel_relaxed(irq.irq_mask, mdata->mdp_base + reg.clr_off);
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
 int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num)
 {
-	u32 irq;
+	int irq_idx, idx;
 	unsigned long irq_flags;
 	int ret = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_intr_reg reg;
+	struct mdss_mdp_irq irq;
 
-	irq = mdss_mdp_irq_mask(intr_type, intf_num);
+	irq_idx = mdss_mdp_intr2index(intr_type, intf_num);
+	if (irq_idx < 0) {
+		pr_err("invalid irq request\n");
+		return -EINVAL;
+	}
+
+	irq = mdp_irq_map[irq_idx];
+	reg = mdp_intr_reg[irq.reg_idx];
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	if (mdata->mdp_irq_mask & irq) {
+	if (mdata->mdp_irq_mask[irq.reg_idx] & irq.irq_mask) {
 		pr_warn("MDSS MDP IRQ-0x%x is already set, mask=%x\n",
-				irq, mdata->mdp_irq_mask);
+				irq.irq_mask, mdata->mdp_irq_mask[idx]);
 		ret = -EBUSY;
 	} else {
 		pr_debug("MDP IRQ mask old=%x new=%x\n",
-				mdata->mdp_irq_mask, irq);
-		mdata->mdp_irq_mask |= irq;
-		writel_relaxed(irq, mdata->mdp_base +
-			MDSS_MDP_REG_INTR_CLEAR);
-		writel_relaxed(mdata->mdp_irq_mask, mdata->mdp_base +
-			MDSS_MDP_REG_INTR_EN);
+				mdata->mdp_irq_mask[irq.reg_idx], irq.irq_mask);
+		mdata->mdp_irq_mask[irq.reg_idx] |= irq.irq_mask;
+		writel_relaxed(irq.irq_mask, mdata->mdp_base + reg.clr_off);
+		writel_relaxed(mdata->mdp_irq_mask[irq.reg_idx],
+				mdata->mdp_base + reg.en_off);
 		mdata->mdss_util->enable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
@@ -674,7 +809,7 @@ int mdss_mdp_hist_irq_enable(u32 irq)
 				irq, mdata->mdp_hist_irq_mask);
 		ret = -EBUSY;
 	} else {
-		pr_debug("MDP IRQ mask old=%x new=%x\n",
+		pr_debug("mask old=%x new=%x\n",
 				mdata->mdp_hist_irq_mask, irq);
 		mdata->mdp_hist_irq_mask |= irq;
 		writel_relaxed(irq, mdata->mdp_base +
@@ -689,47 +824,61 @@ int mdss_mdp_hist_irq_enable(u32 irq)
 
 void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 {
-	u32 irq;
+	int irq_idx;
 	unsigned long irq_flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_intr_reg reg;
+	struct mdss_mdp_irq irq;
 
-	irq = mdss_mdp_irq_mask(intr_type, intf_num);
+	irq_idx = mdss_mdp_intr2index(intr_type, intf_num);
+	if (irq_idx < 0) {
+		pr_err("invalid irq request\n");
+		return;
+	}
+
+	irq =  mdp_irq_map[irq_idx];
+	reg = mdp_intr_reg[irq.reg_idx];
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	if (!(mdata->mdp_irq_mask & irq)) {
+	if (!(mdata->mdp_irq_mask[irq.reg_idx] & irq.irq_mask)) {
 		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
-				irq, mdata->mdp_irq_mask);
+				irq.irq_mask, mdata->mdp_irq_mask[irq.reg_idx]);
 	} else {
-		mdata->mdp_irq_mask &= ~irq;
-
-		writel_relaxed(mdata->mdp_irq_mask, mdata->mdp_base +
-			MDSS_MDP_REG_INTR_EN);
-		if ((mdata->mdp_irq_mask == 0) &&
-			(mdata->mdp_hist_irq_mask == 0))
+		mdata->mdp_irq_mask[irq.reg_idx] &= ~irq.irq_mask;
+		writel_relaxed(mdata->mdp_irq_mask[irq.reg_idx],
+				mdata->mdp_base + reg.en_off);
+		if (!is_mdp_irq_enabled())
 			mdata->mdss_util->disable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
-/*
- * This function is used to check and clear the status of
- * INTR and does not handle INTR2 and HIST_INTR
- */
+/* This function is used to check and clear the status of MDP interrupts */
 void mdss_mdp_intr_check_and_clear(u32 intr_type, u32 intf_num)
 {
-	u32 status, irq;
+	u32 status;
+	int irq_idx;
 	unsigned long irq_flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_intr_reg reg;
+	struct mdss_mdp_irq irq;
 
-	irq = mdss_mdp_irq_mask(intr_type, intf_num);
+	irq_idx = mdss_mdp_intr2index(intr_type, intf_num);
+	if (irq_idx < 0) {
+		pr_err("invalid irq request\n");
+		return;
+	}
+
+	irq =  mdp_irq_map[irq_idx];
+	reg = mdp_intr_reg[irq.reg_idx];
 
 	spin_lock_irqsave(&mdp_lock, irq_flags);
-	status = irq & readl_relaxed(mdata->mdp_base +
-			MDSS_MDP_REG_INTR_STATUS);
+	status = irq.irq_mask & readl_relaxed(mdata->mdp_base +
+			reg.status_off);
 	if (status) {
 		pr_debug("clearing irq: intr_type:%d, intf_num:%d\n",
 				intr_type, intf_num);
-		writel_relaxed(irq, mdata->mdp_base + MDSS_MDP_REG_INTR_CLEAR);
+		writel_relaxed(irq.irq_mask, mdata->mdp_base + reg.clr_off);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
@@ -745,8 +894,7 @@ void mdss_mdp_hist_irq_disable(u32 irq)
 		mdata->mdp_hist_irq_mask &= ~irq;
 		writel_relaxed(mdata->mdp_hist_irq_mask, mdata->mdp_base +
 			MDSS_MDP_REG_HIST_INTR_EN);
-		if ((mdata->mdp_irq_mask == 0) &&
-			(mdata->mdp_hist_irq_mask == 0))
+		if (!is_mdp_irq_enabled())
 			mdata->mdss_util->disable_irq(&mdss_mdp_hw);
 	}
 }
@@ -763,22 +911,163 @@ void mdss_mdp_hist_irq_disable(u32 irq)
 */
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 {
-	u32 irq;
+	int irq_idx;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_intr_reg reg;
+	struct mdss_mdp_irq irq;
 
-	irq = mdss_mdp_irq_mask(intr_type, intf_num);
+	irq_idx = mdss_mdp_intr2index(intr_type, intf_num);
+	if (irq_idx < 0) {
+		pr_err("invalid irq request\n");
+		return;
+	}
 
-	if (!(mdata->mdp_irq_mask & irq)) {
+	irq = mdp_irq_map[irq_idx];
+	reg = mdp_intr_reg[irq.reg_idx];
+
+	if (!(mdata->mdp_irq_mask[irq.reg_idx] & irq.irq_mask)) {
 		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
-				irq, mdata->mdp_irq_mask);
+				irq.irq_mask, mdata->mdp_irq_mask[irq.reg_idx]);
 	} else {
-		mdata->mdp_irq_mask &= ~irq;
-		writel_relaxed(mdata->mdp_irq_mask, mdata->mdp_base +
-			MDSS_MDP_REG_INTR_EN);
-		if ((mdata->mdp_irq_mask == 0) &&
-			(mdata->mdp_hist_irq_mask == 0))
+		mdata->mdp_irq_mask[irq.reg_idx] &= ~irq.irq_mask;
+		writel_relaxed(mdata->mdp_irq_mask[irq.reg_idx],
+				mdata->mdp_base + reg.en_off);
+		if (!is_mdp_irq_enabled())
 			mdata->mdss_util->disable_irq_nosync(&mdss_mdp_hw);
 	}
+}
+
+int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
+		       void (*fnc_ptr)(void *), void *arg)
+{
+	unsigned long flags;
+	int index;
+
+	index = mdss_mdp_intr2index(intr_type, intf_num);
+	if (index < 0) {
+		pr_warn("invalid intr type=%u intf_numf_num=%u\n",
+				intr_type, intf_num);
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&mdss_mdp_intr_lock, flags);
+	WARN(mdp_intr_cb[index].func && fnc_ptr,
+			"replacing current intr callback for ndx=%d\n", index);
+	mdp_intr_cb[index].func = fnc_ptr;
+	mdp_intr_cb[index].arg = arg;
+	spin_unlock_irqrestore(&mdss_mdp_intr_lock, flags);
+
+	return 0;
+}
+
+int mdss_mdp_set_intr_callback_nosync(u32 intr_type, u32 intf_num,
+		       void	  (*fnc_ptr)(void *), void *arg)
+{
+	int index;
+
+	index = mdss_mdp_intr2index(intr_type, intf_num);
+	if (index < 0) {
+		pr_warn("invalid intr Typee=%u intf_num=%u\n",
+				intr_type, intf_num);
+		return -EINVAL;
+	}
+
+	WARN(mdp_intr_cb[index].func && fnc_ptr,
+			"replacing current intr callbackack for ndx=%d\n",
+			index);
+	mdp_intr_cb[index].func = fnc_ptr;
+	mdp_intr_cb[index].arg = arg;
+
+	return 0;
+}
+
+static inline void mdss_mdp_intr_done(int index)
+{
+	void (*fnc)(void *);
+	void *arg;
+
+	spin_lock(&mdss_mdp_intr_lock);
+	fnc = mdp_intr_cb[index].func;
+	arg = mdp_intr_cb[index].arg;
+	spin_unlock(&mdss_mdp_intr_lock);
+	if (fnc)
+		fnc(arg);
+}
+
+irqreturn_t mdss_mdp_isr(int irq, void *ptr)
+{
+	struct mdss_data_type *mdata = ptr;
+	u32 isr, mask, hist_isr, hist_mask;
+	int i, j;
+
+	if (!mdata->clk_ena)
+		return IRQ_HANDLED;
+
+	for (i = 0; i < ARRAY_SIZE(mdp_intr_reg); i++) {
+		struct mdss_mdp_intr_reg reg = mdp_intr_reg[i];
+
+		isr = readl_relaxed(mdata->mdp_base + reg.status_off);
+		if (isr == 0)
+			continue;
+
+		mask = readl_relaxed(mdata->mdp_base + reg.en_off);
+		writel_relaxed(isr, mdata->mdp_base + reg.clr_off);
+
+		pr_debug("%s: reg:%d isr=%x mask=%x\n",
+				__func__, i+1, isr, mask);
+
+		isr &= mask;
+		if (isr == 0)
+			continue;
+
+		for (j = 0; j < ARRAY_SIZE(mdp_irq_map); j++)
+			if (mdp_irq_map[j].reg_idx == i &&
+					(isr & mdp_irq_map[j].irq_mask))
+				mdss_mdp_intr_done(j);
+		if (!i) {
+			if (isr & MDSS_MDP_INTR_PING_PONG_0_DONE)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI0, false);
+
+			if (isr & MDSS_MDP_INTR_PING_PONG_1_DONE)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI1, false);
+
+			if (isr & MDSS_MDP_INTR_INTF_0_VSYNC)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_EDP, true);
+
+			if (isr & MDSS_MDP_INTR_INTF_1_VSYNC)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI0, true);
+
+			if (isr & MDSS_MDP_INTR_INTF_2_VSYNC)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_DSI1, true);
+
+			if (isr & MDSS_MDP_INTR_INTF_3_VSYNC)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_HDMI, true);
+
+			if (isr & MDSS_MDP_INTR_WB_0_DONE)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
+
+			if (isr & MDSS_MDP_INTR_WB_1_DONE)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
+
+			if (isr &  MDSS_MDP_INTR_WB_2_DONE)
+				mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP, true);
+		}
+	}
+
+	hist_isr = readl_relaxed(mdata->mdp_base +
+			MDSS_MDP_REG_HIST_INTR_STATUS);
+	if (hist_isr != 0) {
+		hist_mask = readl_relaxed(mdata->mdp_base +
+				MDSS_MDP_REG_HIST_INTR_EN);
+		writel_relaxed(hist_isr, mdata->mdp_base +
+				MDSS_MDP_REG_HIST_INTR_CLEAR);
+		hist_isr &= hist_mask;
+		if (hist_isr != 0)
+			mdss_mdp_hist_intr_done(hist_isr);
+	}
+
+	mdss_mdp_video_isr(mdata->video_intf, mdata->nintf);
+	return IRQ_HANDLED;
 }
 
 static int mdss_mdp_clk_update(u32 clk_idx, u32 enable)
@@ -2345,6 +2634,16 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		MDSS_MDP_REG_DISP_INTF_SEL);
 	if (!display_on)
 		mdss_mdp_footswitch_ctrl_splash(false);
+
+	mdp_intr_cb  = kcalloc(ARRAY_SIZE(mdp_irq_map),
+			sizeof(struct intr_callback), GFP_KERNEL);
+	if (mdp_intr_cb == NULL)
+		return -ENOMEM;
+
+	mdss_res->mdp_irq_mask = kcalloc(ARRAY_SIZE(mdp_intr_reg),
+			sizeof(u32), GFP_KERNEL);
+	if (mdss_res->mdp_irq_mask == NULL)
+		return -ENOMEM;
 
 	pr_info("mdss version = 0x%x, bootloader display is %s\n",
 		mdata->mdp_rev, display_on ? "on" : "off");
