@@ -322,6 +322,8 @@ struct ufs_pwr_mode_info {
  * @full_reset:  called during link recovery for handling variant specific
  *		 implementations of resetting the hci
  * @update_sec_cfg: called to restore host controller secure configuration
+ * @get_scale_down_gear: called to get the minimum supported gear to
+ *			 scale down
  * @phy_initialization: used to initialize phys
  */
 struct ufs_hba_variant_ops {
@@ -351,6 +353,7 @@ struct ufs_hba_variant_ops {
 	int	(*full_reset)(struct ufs_hba *);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
+	u32	(*get_scale_down_gear)(struct ufs_hba *);
 	int	(*phy_initialization)(struct ufs_hba *);
 #ifdef CONFIG_DEBUG_FS
 	void	(*add_debugfs)(struct ufs_hba *hba, struct dentry *root);
@@ -1023,6 +1026,8 @@ void ufshcd_remove(struct ufs_hba *);
 int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
 				u32 val, unsigned long interval_us,
 				unsigned long timeout_ms, bool can_sleep);
+int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
+int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 
 static inline void check_upiu_size(void)
 {
@@ -1322,6 +1327,14 @@ static inline int ufshcd_vops_update_sec_cfg(struct ufs_hba *hba,
 	if (hba->var && hba->var->vops && hba->var->vops->update_sec_cfg)
 		return hba->var->vops->update_sec_cfg(hba, restore_sec_cfg);
 	return 0;
+}
+
+static inline u32 ufshcd_vops_get_scale_down_gear(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->get_scale_down_gear)
+		return hba->var->vops->get_scale_down_gear(hba);
+	/* Default to lowest high speed gear */
+	return UFS_HS_G1;
 }
 
 #ifdef CONFIG_DEBUG_FS
