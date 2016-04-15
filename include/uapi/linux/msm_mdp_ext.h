@@ -103,6 +103,18 @@ DESTINATION SCALER FLAG CONFIGURATION
  */
 #define MDP_DESTSCALER_ENHANCER_UPDATE	0x4
 
+/*
+ * layer will work in multirect mode, where single hardware should
+ * fetch multiple rectangles with a single hardware
+ */
+#define MDP_LAYER_MULTIRECT_ENABLE		0x1000
+
+/*
+ * if flag present and multirect is enabled, multirect will work in parallel
+ * fetch mode, otherwise it will default to serial fetch mode.
+ */
+#define MDP_LAYER_MULTIRECT_PARALLEL_MODE	0x2000
+
 /**********************************************************************
 VALIDATE/COMMIT FLAG CONFIGURATION
 **********************************************************************/

@@ -1211,12 +1211,37 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	bool recovery_mode = false;
+	bool skip_fetch_halt, pair_found;
 	struct mdss_mdp_data *buf, *tmpbuf;
 
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry(pipe, destroy_pipes, list) {
+		pair_found = false;
+		skip_fetch_halt = false;
+		tmp = pipe;
+
+		/*
+		 * Find if second rect is in the destroy list from the current
+		 * position. So if both rects are part of the destroy list then
+		 * fetch halt will be skipped for the 1st rect.
+		 */
+		list_for_each_entry_from(tmp, destroy_pipes, list) {
+			if (tmp->num == pipe->num) {
+				pair_found = true;
+				break;
+			}
+		}
+
+		/* skip fetch halt if pipe's other rect is still in use */
+		if (!pair_found) {
+			tmp = (struct mdss_mdp_pipe *)pipe->multirect.next;
+			if (tmp)
+				skip_fetch_halt =
+					atomic_read(&tmp->kref.refcount);
+		}
+
 		/* make sure pipe fetch has been halted before freeing buffer */
-		if (mdss_mdp_pipe_fetch_halt(pipe, false)) {
+		if (!skip_fetch_halt && mdss_mdp_pipe_fetch_halt(pipe, false)) {
 			/*
 			 * if pipe is not able to halt. Enter recovery mode,
 			 * by un-staging any pipes that are attached to mixer
@@ -1255,9 +1280,16 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 			pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 		}
 		__overlay_pipe_cleanup(mfd, pipe);
-		ctl->mixer_left->next_pipe_map &= ~pipe->ndx;
-		if (ctl->mixer_right)
-			ctl->mixer_right->next_pipe_map &= ~pipe->ndx;
+
+		if (pipe->multirect.num == MDSS_MDP_PIPE_RECT0) {
+			/*
+			 * track only RECT0, since at any given point there
+			 * can only be RECT0 only or RECT0 + RECT1
+			 */
+			ctl->mixer_left->next_pipe_map &= ~pipe->ndx;
+			if (ctl->mixer_right)
+				ctl->mixer_right->next_pipe_map &= ~pipe->ndx;
+		}
 	}
 	mutex_unlock(&mdp5_data->list_lock);
 }
@@ -1266,22 +1298,21 @@ void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
 	u32 type)
 {
 	u32 i, npipes;
-	struct mdss_mdp_pipe *pipes;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 
 	switch (type) {
 	case MDSS_MDP_PIPE_TYPE_VIG:
-		pipes = mdata->vig_pipes;
+		pipe = mdata->vig_pipes;
 		npipes = mdata->nvig_pipes;
 		break;
 	case MDSS_MDP_PIPE_TYPE_RGB:
-		pipes = mdata->rgb_pipes;
+		pipe = mdata->rgb_pipes;
 		npipes = mdata->nrgb_pipes;
 		break;
 	case MDSS_MDP_PIPE_TYPE_DMA:
-		pipes = mdata->dma_pipes;
+		pipe = mdata->dma_pipes;
 		npipes = mdata->ndma_pipes;
 		break;
 	default:
@@ -1289,13 +1320,14 @@ void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
 	}
 
 	for (i = 0; i < npipes; i++) {
-		pipe = &pipes[i];
+		/* only check for first rect and ignore additional */
 		if (pipe->is_handed_off) {
 			pr_debug("Unmapping handed off pipe %d\n", pipe->num);
 			list_move(&pipe->list, &mdp5_data->pipes_cleanup);
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 			pipe->is_handed_off = false;
 		}
+		pipe += pipe->multirect.max_rects;
 	}
 }
 
@@ -2156,7 +2188,7 @@ done:
 static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
 	struct file *file)
 {
-	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_pipe *pipe, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	u32 unset_ndx = 0;
 	int cnt = 0;
@@ -2166,28 +2198,25 @@ static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
 
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mdp5_data->list_lock);
-	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
-		if (!file || pipe->file == file) {
-			unset_ndx |= pipe->ndx;
-			cnt++;
-		}
-	}
-
 	if (!mfd->ref_cnt && !list_empty(&mdp5_data->pipes_cleanup)) {
 		pr_debug("fb%d:: free pipes present in cleanup list",
 			mfd->index);
 		cnt++;
 	}
 
+	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
+		if (!file || pipe->file == file) {
+			unset_ndx |= pipe->ndx;
+			pipe->file = NULL;
+			list_move(&pipe->list, &mdp5_data->pipes_cleanup);
+			cnt++;
+		}
+	}
+
 	pr_debug("mfd->ref_cnt=%d unset_ndx=0x%x cnt=%d\n",
 		mfd->ref_cnt, unset_ndx, cnt);
 
 	mutex_unlock(&mdp5_data->list_lock);
-
-	if (unset_ndx) {
-		pr_debug("%d pipes need cleanup (%x)\n", cnt, unset_ndx);
-		mdss_mdp_overlay_release(mfd, unset_ndx);
-	}
 	mutex_unlock(&mdp5_data->ov_lock);
 
 	return cnt;
@@ -5049,7 +5078,9 @@ static int __mdss_mdp_ctl_handoff(struct msm_fb_data_type *mfd,
 			}
 			if (mixercfg & (0x7 << cfg)) {
 				pr_debug("Pipe %d staged\n", j);
-				pipe = mdss_mdp_pipe_search(mdata, BIT(j));
+				/* bootloader display always uses RECT0 */
+				pipe = mdss_mdp_pipe_search(mdata, BIT(j),
+					MDSS_MDP_PIPE_RECT0);
 				if (!pipe) {
 					pr_warn("Invalid pipe %d staged\n", j);
 					continue;

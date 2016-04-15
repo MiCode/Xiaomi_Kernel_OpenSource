@@ -48,11 +48,12 @@
 						<0xff00>;
 
 		qcom,mdss-mdp-reg-offset = <0x00001000>;
-		qcom,max-bandwidth-low-kbps = <9600000>;
-		qcom,max-bandwidth-high-kbps = <9600000>;
-		qcom,max-bandwidth-per-pipe-kbps = <4500000>;
+		qcom,max-bandwidth-low-kbps = <6700000>;
+		qcom,max-bandwidth-high-kbps = <6700000>;
+		qcom,max-bandwidth-per-pipe-kbps = <2400000>;
 		qcom,max-clk-rate = <412500000>;
-		qcom,mdss-default-ot-rd-limit = <32>;
+		/* OT settings and bw for v1, revisit for v2 */
+		qcom,mdss-default-ot-rd-limit = <16>;
 		qcom,mdss-default-ot-wr-limit = <16>;
 		qcom,mdss-dram-channels = <2>;
 

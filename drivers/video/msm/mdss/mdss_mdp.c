@@ -1680,6 +1680,14 @@ void mdss_mdp_init_default_prefill_factors(struct mdss_data_type *mdata)
 	mdata->prefill_data.prefill_factors.fmt_linear_factor = 1;
 	mdata->prefill_data.prefill_factors.scale_factor = 1;
 	mdata->prefill_data.prefill_factors.xtra_ff_factor = 2;
+
+	if (test_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map)) {
+		mdata->prefill_data.ts_threshold = 25;
+		mdata->prefill_data.ts_end = 8;
+		mdata->prefill_data.ts_rate.numer = 1;
+		mdata->prefill_data.ts_rate.denom = 4;
+		mdata->prefill_data.ts_overhead = 2;
+	}
 }
 
 static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
@@ -1804,15 +1812,20 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->per_pipe_ib_factor.denom = 5;
 		mdata->apply_post_scale_bytes = false;
 		mdata->hflip_buffer_reused = false;
-		mdata->min_prefill_lines = 21;
+		mdata->min_prefill_lines = 25;
 		mdata->has_ubwc = true;
 		mdata->pixel_ram_size = 50 * 1024;
+		mdata->rects_per_sspp[MDSS_MDP_PIPE_TYPE_DMA] = 2;
+
 		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_IB_NOCR, mdata->mdss_qos_map);
 		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED,
 			mdata->mdss_caps_map);
@@ -1823,6 +1836,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
+		mdss_set_quirk(mdata, MDSS_QUIRK_SRC_SPLIT_ALWAYS);
 		mdata->has_wb_ubwc = true;
 		set_bit(MDSS_CAPS_10_BIT_SUPPORTED, mdata->mdss_caps_map);
 		break;
@@ -2186,14 +2200,14 @@ static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
 		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
 
 	for (i = 0; i < pipe_cnt; i++) {
-		SPRINT("pipe_num:%d pipe_type:%s pipe_ndx:%d pipe_is_handoff:%d display_id:%d ",
-			pipe->num, type, pipe->ndx, pipe->is_handed_off,
-			mdss_mdp_get_display_id(pipe));
+		SPRINT("pipe_num:%d pipe_type:%s pipe_ndx:%d rects:%d pipe_is_handoff:%d display_id:%d ",
+			pipe->num, type, pipe->ndx, pipe->multirect.max_rects,
+			pipe->is_handed_off, mdss_mdp_get_display_id(pipe));
 		SPRINT("fmts_supported:");
 		for (j = 0; j < num_bytes && pipe; j++)
 			SPRINT("%d,", pipe->supported_formats[j]);
 		SPRINT("\n");
-		pipe++;
+		pipe += pipe->multirect.max_rects;
 	}
 #undef SPRINT
 }
@@ -2276,6 +2290,13 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 			mdata->prefill_data.prefill_factors.scale_factor);
 		SPRINT("xtra_ff_factor=%d\n",
 			mdata->prefill_data.prefill_factors.xtra_ff_factor);
+	}
+
+	if (test_bit(MDSS_QOS_TS_PREFILL, mdata->mdss_qos_map)) {
+		SPRINT("amortizable_threshold=%d\n",
+			mdata->prefill_data.ts_threshold);
+		SPRINT("system_overhead_lines=%d\n",
+			mdata->prefill_data.ts_overhead);
 	}
 
 	if (mdata->props)
@@ -2950,6 +2971,7 @@ static int mdss_mdp_parse_dt_pipe_helper(struct platform_device *pdev,
 	struct mdss_mdp_pipe *pipe_list;
 	char prop_name[64];
 	int i, cnt, rc;
+	u32 rects_per_sspp;
 
 	if (!out_plist)
 		return -EINVAL;
@@ -2970,8 +2992,12 @@ static int mdss_mdp_parse_dt_pipe_helper(struct platform_device *pdev,
 		return 0;
 	}
 
+	/* by default works in single rect mode unless otherwise noted */
+	rects_per_sspp = mdata->rects_per_sspp[ptype] ? : 1;
+
 	pipe_list = devm_kzalloc(&pdev->dev,
-			(sizeof(struct mdss_mdp_pipe) * cnt), GFP_KERNEL);
+			(sizeof(struct mdss_mdp_pipe) * cnt * rects_per_sspp),
+			GFP_KERNEL);
 	if (!pipe_list)
 		return -ENOMEM;
 
@@ -3000,7 +3026,8 @@ static int mdss_mdp_parse_dt_pipe_helper(struct platform_device *pdev,
 		goto parse_fail;
 
 	rc = mdss_mdp_pipe_addr_setup(mdata, pipe_list, offsets, ftch_id,
-			xin_id, ptype, pnums, cnt, priority_base);
+			xin_id, ptype, pnums, cnt, rects_per_sspp,
+			priority_base);
 	if (rc)
 		goto parse_fail;
 
