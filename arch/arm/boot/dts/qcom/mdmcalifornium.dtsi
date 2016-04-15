@@ -361,7 +361,7 @@
 			&pcie0_wake_default>;
 
 		perst-gpio = <&tlmm_pinmux 60 0>;
-		wake-gpio = <&tlmm_pinmux 65 0>;
+		wake-gpio = <&tlmm_pinmux 61 0>;
 
 		gdsc-vdd-supply = <&gdsc_pcie>;
 		vreg-1.8-supply = <&pmdcalifornium_l5>;
