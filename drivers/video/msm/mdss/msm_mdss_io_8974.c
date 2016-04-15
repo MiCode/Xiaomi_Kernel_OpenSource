@@ -1936,7 +1936,11 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 {
 	int rc = 0;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
-	int i;
+	int i, *vote_cnt;
+
+	void *m_clk_handle;
+	bool is_ecg = false;
+	int state = MDSS_DSI_CLK_OFF;
 
 	if (!ctrl) {
 		pr_err("%s: Invalid arg\n", __func__);
@@ -1968,6 +1972,18 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 	}
 
 	/*
+	 * it should add and remove extra votes based on voting clients to avoid
+	 * removal of legitimate vote from DSI client.
+	 */
+	if (mctrl && (clk_handle == ctrl->dsi_clk_handle)) {
+		m_clk_handle = mctrl->dsi_clk_handle;
+		vote_cnt = &mctrl->m_dsi_vote_cnt;
+	} else if (mctrl) {
+		m_clk_handle = mctrl->mdp_clk_handle;
+		vote_cnt = &mctrl->m_mdp_vote_cnt;
+	}
+
+	/*
 	 * When DSI is used in split mode, the link clock for master controller
 	 * has to be turned on first before the link clock for slave can be
 	 * turned on. In case the current controller is a slave, an ON vote is
@@ -1979,18 +1995,24 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 		 __func__, ctrl->ndx, clk_type, clk_state,
 		 __builtin_return_address(0), mctrl ? 1 : 0);
 	if (mctrl && (clk_type & MDSS_DSI_LINK_CLK)) {
-		rc = mdss_dsi_clk_req_state(mctrl->dsi_clk_handle,
-					     MDSS_DSI_ALL_CLKS,
-					     MDSS_DSI_CLK_ON);
+		if (clk_state != MDSS_DSI_CLK_ON) {
+			/* preserve clk state; do not turn off forcefully */
+			is_ecg = is_dsi_clk_in_ecg_state(m_clk_handle);
+			if (is_ecg)
+				state = MDSS_DSI_CLK_EARLY_GATE;
+		}
+
+		rc = mdss_dsi_clk_req_state(m_clk_handle,
+			MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON, mctrl->ndx);
 		if (rc) {
 			pr_err("%s: failed to turn on mctrl clocks, rc=%d\n",
 				 __func__, rc);
 			goto error;
 		}
-		ctrl->m_vote_cnt++;
+		(*vote_cnt)++;
 	}
 
-	rc = mdss_dsi_clk_req_state(clk_handle, clk_type, clk_state);
+	rc = mdss_dsi_clk_req_state(clk_handle, clk_type, clk_state, ctrl->ndx);
 	if (rc) {
 		pr_err("%s: failed set clk state, rc = %d\n", __func__, rc);
 		goto error;
@@ -2019,24 +2041,24 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 		 *	   for ON, since the previous ECG state must have
 		 *	   removed two votes to let clocks turn off.
 		 *
-		 * To satisfy the above requirement, m_vote_cnt keeps track of
+		 * To satisfy the above requirement, vote_cnt keeps track of
 		 * the number of ON votes for master requested by slave. For
-		 * every OFF/ECG state request, Either 2 or m_vote_cnt number of
+		 * every OFF/ECG state request, Either 2 or vote_cnt number of
 		 * votes are removed depending on which is lower.
 		 */
-		for (i = 0; (i < ctrl->m_vote_cnt && i < 2); i++) {
-			rc = mdss_dsi_clk_req_state(mctrl->dsi_clk_handle,
-						     MDSS_DSI_ALL_CLKS,
-						     MDSS_DSI_CLK_OFF);
+		for (i = 0; (i < *vote_cnt && i < 2); i++) {
+			rc = mdss_dsi_clk_req_state(m_clk_handle,
+				MDSS_DSI_ALL_CLKS, state, mctrl->ndx);
 			if (rc) {
 				pr_err("%s: failed to set mctrl clk state, rc = %d\n",
 				       __func__, rc);
 				goto error;
 			}
 		}
-		ctrl->m_vote_cnt -= i;
-		pr_debug("%s: ctrl=%d, m_vote_cnt=%d\n", __func__, ctrl->ndx,
-			 ctrl->m_vote_cnt);
+		(*vote_cnt) -= i;
+		pr_debug("%s: ctrl=%d, vote_cnt=%d dsi_vote_cnt=%d mdp_vote_cnt:%d\n",
+			__func__, ctrl->ndx, *vote_cnt, mctrl->m_dsi_vote_cnt,
+			mctrl->m_mdp_vote_cnt);
 	}
 
 error:
