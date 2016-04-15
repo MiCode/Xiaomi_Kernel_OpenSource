@@ -151,8 +151,7 @@ static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 
 		/* buffer->heap used by free() */
 		buffer->heap = &secure_heap->heap;
-		buffer->flags = ION_FLAG_POOL_PREFETCH;
-		buffer->flags |= vmid_flags;
+		buffer->flags = vmid_flags;
 		ret = sys_heap->ops->allocate(sys_heap, buffer, size,
 						PAGE_SIZE, 0);
 		if (ret) {

@@ -110,8 +110,6 @@ enum cp_mem_usage {
  */
 #define ION_FLAG_POOL_FORCE_ALLOC (1 << 16)
 
-#define ION_FLAG_POOL_PREFETCH (1 << 27)
-
 /**
 * Deprecated! Please use the corresponding ION_FLAG_*
 */
