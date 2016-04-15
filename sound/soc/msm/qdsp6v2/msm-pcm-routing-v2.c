@@ -496,7 +496,7 @@ static unsigned long session_copp_map[MSM_FRONTEND_DAI_MM_SIZE][2]
 				     [MSM_BACKEND_DAI_MAX];
 static struct msm_pcm_routing_app_type_data app_type_cfg[MAX_APP_TYPES];
 static struct msm_pcm_stream_app_type_cfg
-			 fe_dai_app_type_cfg[MSM_FRONTEND_DAI_MM_SIZE];
+			 fe_dai_app_type_cfg[MSM_FRONTEND_DAI_MM_SIZE][2];
 
 /* The caller of this should aqcuire routing lock */
 void msm_pcm_routing_get_bedai_info(int be_idx,
@@ -540,34 +540,43 @@ static int msm_pcm_routing_get_app_type_idx(int app_type)
 }
 
 void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
-	int acdb_dev_id, int sample_rate)
+	int acdb_dev_id, int sample_rate, int session_type)
 {
-	pr_debug("%s: fedai_id %d, app_type %d, sample_rate %d\n",
-		__func__, fedai_id, app_type, sample_rate);
+	pr_debug("%s: fedai_id %d, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fedai_id, session_type, app_type,
+		acdb_dev_id, sample_rate);
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		pr_err("%s: Invalid machine driver ID %d\n",
 			__func__, fedai_id);
 		return;
 	}
-	fe_dai_app_type_cfg[fedai_id].app_type = app_type;
-	fe_dai_app_type_cfg[fedai_id].acdb_dev_id = acdb_dev_id;
-	fe_dai_app_type_cfg[fedai_id].sample_rate = sample_rate;
+	if (session_type != SESSION_TYPE_RX &&
+		session_type != SESSION_TYPE_TX) {
+		pr_err("%s: Invalid session type %d\n",
+			__func__, session_type);
+		return;
+	}
+	fe_dai_app_type_cfg[fedai_id][session_type].app_type = app_type;
+	fe_dai_app_type_cfg[fedai_id][session_type].acdb_dev_id = acdb_dev_id;
+	fe_dai_app_type_cfg[fedai_id][session_type].sample_rate = sample_rate;
 }
 
 /**
  * msm_pcm_routing_get_stream_app_type_cfg
  *
- * Receives fedai_id and populates app_type, acdb_dev_id, &
+ * Receives fedai_id, session_type and populates app_type, acdb_dev_id, &
  * sample rate. Returns 0 on success. On failure returns
  * -EINVAL and does not alter passed values.
  *
  * fedai_id - Passed value, front end ID for which app type config is wanted
+ * session_type - Passed value, session type for which app type config
+ *                is wanted
  * app_type - Returned value, app type used by app type config
  * acdb_dev_id - Returned value, ACDB device ID used by app type config
  * sample_rate - Returned value, sample rate used by app type config
  */
-int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int *app_type,
-					    int *acdb_dev_id, int *sample_rate)
+int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int session_type,
+	int *app_type, int *acdb_dev_id, int *sample_rate)
 {
 	int ret = 0;
 
@@ -588,13 +597,20 @@ int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int *app_type,
 			__func__, fedai_id);
 		ret = -EINVAL;
 		goto done;
+	} else if (session_type != SESSION_TYPE_RX &&
+		session_type != SESSION_TYPE_TX) {
+		pr_err("%s: Invalid session type %d\n",
+			__func__, session_type);
+		ret = -EINVAL;
+		goto done;
 	}
-	*app_type = fe_dai_app_type_cfg[fedai_id].app_type;
-	*acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
-	*sample_rate = fe_dai_app_type_cfg[fedai_id].sample_rate;
+	*app_type = fe_dai_app_type_cfg[fedai_id][session_type].app_type;
+	*acdb_dev_id = fe_dai_app_type_cfg[fedai_id][session_type].acdb_dev_id;
+	*sample_rate = fe_dai_app_type_cfg[fedai_id][session_type].sample_rate;
 
-	pr_debug("%s: fedai_id %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
-		__func__, fedai_id, *app_type, *acdb_dev_id, *sample_rate);
+	pr_debug("%s: fedai_id %d, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fedai_id, session_type,
+		*app_type, *acdb_dev_id, *sample_rate);
 done:
 	return ret;
 }
@@ -651,7 +667,8 @@ static struct cal_block_data *msm_routing_find_topology(int path,
 	return msm_routing_find_topology_by_path(path);
 }
 
-static int msm_routing_get_adm_topology(int path, int fedai_id)
+static int msm_routing_get_adm_topology(int path, int fedai_id,
+					int session_type)
 {
 	int				topology = NULL_COPP_TOPOLOGY;
 	struct cal_block_data		*cal_block = NULL;
@@ -664,11 +681,10 @@ static int msm_routing_get_adm_topology(int path, int fedai_id)
 
 	mutex_lock(&cal_data->lock);
 
-	if (path == RX_DEVICE) {
-		app_type = fe_dai_app_type_cfg[fedai_id].app_type;
-		acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
-		sample_rate = fe_dai_app_type_cfg[fedai_id].sample_rate;
-	}
+	app_type = fe_dai_app_type_cfg[fedai_id][session_type].app_type;
+	acdb_dev_id = fe_dai_app_type_cfg[fedai_id][session_type].acdb_dev_id;
+	sample_rate = fe_dai_app_type_cfg[fedai_id][session_type].sample_rate;
+
 	cal_block = msm_routing_find_topology(path, app_type,
 					      acdb_dev_id, sample_rate);
 	if (cal_block == NULL)
@@ -724,9 +740,12 @@ static void msm_pcm_routing_build_matrix(int fedai_id, int sess_type,
 	if (num_copps) {
 		payload.num_copps = num_copps;
 		payload.session_id = fe_dai_map[fedai_id][sess_type].strm_id;
-		payload.app_type = fe_dai_app_type_cfg[fedai_id].app_type;
-		payload.acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
-		payload.sample_rate = fe_dai_app_type_cfg[fedai_id].sample_rate;
+		payload.app_type =
+			fe_dai_app_type_cfg[fedai_id][sess_type].app_type;
+		payload.acdb_dev_id =
+			fe_dai_app_type_cfg[fedai_id][sess_type].acdb_dev_id;
+		payload.sample_rate =
+			fe_dai_app_type_cfg[fedai_id][sess_type].sample_rate;
 		adm_matrix_map(path_type, payload, perf_mode);
 		msm_pcm_routng_cfg_matrix_map_pp(payload, path_type, perf_mode);
 	}
@@ -826,8 +845,8 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 
 			bit_width = msm_routing_get_bit_width(
 						msm_bedais[i].format);
-			app_type = (stream_type == SNDRV_PCM_STREAM_PLAYBACK) ?
-				   fe_dai_app_type_cfg[fe_id].app_type : 0;
+			app_type =
+			fe_dai_app_type_cfg[fe_id][session_type].app_type;
 			if (app_type) {
 				app_type_idx =
 					msm_pcm_routing_get_app_type_idx(
@@ -839,9 +858,10 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 			} else {
 				sample_rate = msm_bedais[i].sample_rate;
 			}
-			acdb_dev_id = fe_dai_app_type_cfg[fe_id].acdb_dev_id;
+			acdb_dev_id =
+			fe_dai_app_type_cfg[fe_id][session_type].acdb_dev_id;
 			topology = msm_routing_get_adm_topology(path_type,
-								fe_id);
+						fe_id, session_type);
 			pr_err("%s: Before adm open topology %d\n", __func__,
 				topology);
 
@@ -886,8 +906,10 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 	if (num_copps) {
 		payload.num_copps = num_copps;
 		payload.session_id = fe_dai_map[fe_id][session_type].strm_id;
-		payload.app_type = fe_dai_app_type_cfg[fe_id].app_type;
-		payload.acdb_dev_id = fe_dai_app_type_cfg[fe_id].acdb_dev_id;
+		payload.app_type =
+			fe_dai_app_type_cfg[fe_id][session_type].app_type;
+		payload.acdb_dev_id =
+			fe_dai_app_type_cfg[fe_id][session_type].acdb_dev_id;
 		adm_matrix_map(path_type, payload, perf_mode);
 		msm_pcm_routng_cfg_matrix_map_pp(payload, path_type, perf_mode);
 	}
@@ -977,21 +999,23 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 			bits_per_sample = msm_routing_get_bit_width(
 						msm_bedais[i].format);
 
-			app_type = (stream_type == SNDRV_PCM_STREAM_PLAYBACK) ?
-				   fe_dai_app_type_cfg[fedai_id].app_type : 0;
+			app_type =
+			fe_dai_app_type_cfg[fedai_id][session_type].app_type;
 			if (app_type) {
 				app_type_idx =
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
-				fe_dai_app_type_cfg[fedai_id].sample_rate;
+				fe_dai_app_type_cfg[fedai_id][session_type].
+					sample_rate;
 				bits_per_sample =
 					app_type_cfg[app_type_idx].bit_width;
 			} else
 				sample_rate = msm_bedais[i].sample_rate;
 
-			acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
+			acdb_dev_id =
+			fe_dai_app_type_cfg[fedai_id][session_type].acdb_dev_id;
 			topology = msm_routing_get_adm_topology(path_type,
-								fedai_id);
+						fedai_id, session_type);
 			copp_idx = adm_open(msm_bedais[i].port_id, path_type,
 					    sample_rate, channels, topology,
 					    perf_mode, bits_per_sample,
@@ -1036,9 +1060,12 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 	if (num_copps) {
 		payload.num_copps = num_copps;
 		payload.session_id = fe_dai_map[fedai_id][session_type].strm_id;
-		payload.app_type = fe_dai_app_type_cfg[fedai_id].app_type;
-		payload.acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
-		payload.sample_rate = fe_dai_app_type_cfg[fedai_id].sample_rate;
+		payload.app_type =
+			fe_dai_app_type_cfg[fedai_id][session_type].app_type;
+		payload.acdb_dev_id =
+			fe_dai_app_type_cfg[fedai_id][session_type].acdb_dev_id;
+		payload.sample_rate =
+			fe_dai_app_type_cfg[fedai_id][session_type].sample_rate;
 		adm_matrix_map(path_type, payload, perf_mode);
 		msm_pcm_routng_cfg_matrix_map_pp(payload, path_type, perf_mode);
 	}
@@ -1199,20 +1226,23 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			bits_per_sample = msm_routing_get_bit_width(
 						msm_bedais[reg].format);
 
-			app_type = (session_type == SESSION_TYPE_RX) ?
-				   fe_dai_app_type_cfg[val].app_type : 0;
+			app_type =
+				fe_dai_app_type_cfg[val][session_type].app_type;
 			if (app_type) {
 				app_type_idx =
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
-					fe_dai_app_type_cfg[val].sample_rate;
+				fe_dai_app_type_cfg[val][session_type].
+					sample_rate;
 				bits_per_sample =
 					app_type_cfg[app_type_idx].bit_width;
 			} else
 				sample_rate = msm_bedais[reg].sample_rate;
 
-			topology = msm_routing_get_adm_topology(path_type, val);
-			acdb_dev_id = fe_dai_app_type_cfg[val].acdb_dev_id;
+			topology = msm_routing_get_adm_topology(path_type, val,
+						session_type);
+			acdb_dev_id =
+			fe_dai_app_type_cfg[val][session_type].acdb_dev_id;
 			copp_idx = adm_open(msm_bedais[reg].port_id, path_type,
 					    sample_rate, channels, topology,
 					    fdai->perf_mode, bits_per_sample,
@@ -9054,7 +9084,6 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	int i, path_type, session_type, topology;
 	struct msm_pcm_routing_bdai_data *bedai;
 	u32 channels, sample_rate;
-	bool playback, capture;
 	uint16_t bits_per_sample = 16, voc_path_type;
 	struct msm_pcm_routing_fdai_data *fdai;
 	u32 session_id;
@@ -9090,8 +9119,6 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	 * is started.
 	 */
 	bedai->active = 1;
-	playback = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
-	capture = substream->stream == SNDRV_PCM_STREAM_CAPTURE;
 
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		fdai = &fe_dai_map[i][session_type];
@@ -9113,20 +9140,23 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			bits_per_sample = msm_routing_get_bit_width(
 						bedai->format);
 
-			app_type = playback ?
-				   fe_dai_app_type_cfg[i].app_type : 0;
+			app_type =
+				fe_dai_app_type_cfg[i][session_type].app_type;
 			if (app_type) {
 				app_type_idx =
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
-					fe_dai_app_type_cfg[i].sample_rate;
+					fe_dai_app_type_cfg[i][session_type].
+						sample_rate;
 				bits_per_sample =
 					app_type_cfg[app_type_idx].bit_width;
 			} else
 				sample_rate = bedai->sample_rate;
 			channels = bedai->channel;
-			acdb_dev_id = fe_dai_app_type_cfg[i].acdb_dev_id;
-			topology = msm_routing_get_adm_topology(path_type, i);
+			acdb_dev_id =
+			fe_dai_app_type_cfg[i][session_type].acdb_dev_id;
+			topology = msm_routing_get_adm_topology(path_type, i,
+						session_type);
 			copp_idx = adm_open(bedai->port_id, path_type,
 					    sample_rate, channels, topology,
 					    fdai->perf_mode, bits_per_sample,
