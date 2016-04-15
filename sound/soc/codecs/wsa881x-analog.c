@@ -899,7 +899,8 @@ static int wsa881x_startup(struct wsa881x_pdata *pdata)
 	if (pdata->enable_mclk) {
 		ret = pdata->enable_mclk(card, true);
 		if (ret < 0) {
-			pr_err("%s: mclk enable failed %d\n",
+			dev_err_ratelimited(codec->dev,
+				"%s: mclk enable failed %d\n",
 				__func__, ret);
 			return ret;
 		}
@@ -962,7 +963,8 @@ static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
 	if (enable) {
 		ret = wsa881x_startup(wsa881x);
 		if (ret < 0) {
-			pr_err("%s: failed to startup\n", __func__);
+			dev_err_ratelimited(codec->dev,
+				"%s: failed to startup\n", __func__);
 			return ret;
 		}
 	}
@@ -971,7 +973,8 @@ static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
 	if (!enable) {
 		ret = wsa881x_shutdown(wsa881x);
 		if (ret < 0)
-			pr_err("%s: failed to shutdown\n", __func__);
+			dev_err_ratelimited(codec->dev,
+				"%s: failed to shutdown\n", __func__);
 	}
 	return ret;
 }
@@ -980,12 +983,18 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 				     struct wsa_temp_register *wsa_temp_reg)
 {
 	struct wsa881x_pdata *wsa881x = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
 
 	if (!wsa881x) {
 		dev_err(codec->dev, "%s: wsa881x is NULL\n", __func__);
 		return -EINVAL;
 	}
-	wsa881x_resource_acquire(codec, true);
+	ret = wsa881x_resource_acquire(codec, true);
+	if (ret) {
+		dev_err_ratelimited(codec->dev,
+			"%s: resource acquire fail\n", __func__);
+		return ret;
+	}
 
 	if (WSA881X_IS_2_0(wsa881x->version)) {
 		snd_soc_update_bits(codec, WSA881X_TADC_VALUE_CTL, 0x01, 0x00);
@@ -1003,9 +1012,12 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 	wsa_temp_reg->d2_msb = snd_soc_read(codec, WSA881X_OTP_REG_3);
 	wsa_temp_reg->d2_lsb = snd_soc_read(codec, WSA881X_OTP_REG_4);
 
-	wsa881x_resource_acquire(codec, false);
+	ret = wsa881x_resource_acquire(codec, false);
+	if (ret)
+		dev_err_ratelimited(codec->dev,
+			"%s: resource release fail\n", __func__);
 
-	return 0;
+	return ret;
 }
 
 static int wsa881x_probe(struct snd_soc_codec *codec)
