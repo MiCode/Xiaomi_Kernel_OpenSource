@@ -1570,6 +1570,16 @@ static void ufshcd_exit_clk_gating(struct ufs_hba *hba)
 	cancel_delayed_work_sync(&hba->clk_gating.gate_work);
 }
 
+static void ufshcd_set_auto_hibern8_timer(struct ufs_hba *hba, u32 delay)
+{
+	ufshcd_rmwl(hba, AUTO_HIBERN8_TIMER_SCALE_MASK |
+			 AUTO_HIBERN8_IDLE_TIMER_MASK,
+			AUTO_HIBERN8_TIMER_SCALE_1_MS | delay,
+			REG_AUTO_HIBERN8_IDLE_TIMER);
+	/* Make sure the timer gets applied before further operations */
+	mb();
+}
+
 /**
  * ufshcd_hibern8_hold - Make sure that link is not in hibern8.
  *
@@ -1799,6 +1809,13 @@ static ssize_t ufshcd_hibern8_on_idle_delay_store(struct device *dev,
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->hibern8_on_idle.delay_ms = value;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	/* Update auto hibern8 timer value if supported */
+	if (ufshcd_is_auto_hibern8_supported(hba) &&
+	    hba->hibern8_on_idle.is_enabled)
+		ufshcd_set_auto_hibern8_timer(hba,
+					      hba->hibern8_on_idle.delay_ms);
+
 	return count;
 }
 
@@ -1825,6 +1842,13 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 	if (value == hba->hibern8_on_idle.is_enabled)
 		goto out;
 
+	/* Update auto hibern8 timer value if supported */
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		ufshcd_set_auto_hibern8_timer(hba,
+			value ? hba->hibern8_on_idle.delay_ms : value);
+		goto update;
+	}
+
 	if (value) {
 		/*
 		 * As clock gating work would wait for the hibern8 enter work
@@ -1838,6 +1862,7 @@ static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
+update:
 	hba->hibern8_on_idle.is_enabled = value;
 out:
 	return count;
@@ -1848,12 +1873,23 @@ static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 	/* initialize the state variable here */
 	hba->hibern8_on_idle.state = HIBERN8_EXITED;
 
-	if (!ufshcd_is_hibern8_on_idle_allowed(hba))
+	if (!ufshcd_is_hibern8_on_idle_allowed(hba) &&
+	    !ufshcd_is_auto_hibern8_supported(hba))
 		return;
 
-	INIT_DELAYED_WORK(&hba->hibern8_on_idle.enter_work,
-			  ufshcd_hibern8_enter_work);
-	INIT_WORK(&hba->hibern8_on_idle.exit_work, ufshcd_hibern8_exit_work);
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		hba->hibern8_on_idle.state = AUTO_HIBERN8;
+		/*
+		 * Disable SW hibern8 enter on idle in case
+		 * auto hibern8 is supported
+		 */
+		hba->caps &= ~UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
+	} else {
+		INIT_DELAYED_WORK(&hba->hibern8_on_idle.enter_work,
+				  ufshcd_hibern8_enter_work);
+		INIT_WORK(&hba->hibern8_on_idle.exit_work,
+			  ufshcd_hibern8_exit_work);
+	}
 
 	hba->hibern8_on_idle.delay_ms = 10;
 	hba->hibern8_on_idle.is_enabled = true;
@@ -1881,7 +1917,8 @@ static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 
 static void ufshcd_exit_hibern8_on_idle(struct ufs_hba *hba)
 {
-	if (!ufshcd_is_hibern8_on_idle_allowed(hba))
+	if (!ufshcd_is_hibern8_on_idle_allowed(hba) &&
+	    !ufshcd_is_auto_hibern8_supported(hba))
 		return;
 	device_remove_file(hba->dev, &hba->hibern8_on_idle.delay_attr);
 	device_remove_file(hba->dev, &hba->hibern8_on_idle.enable_attr);
@@ -6701,6 +6738,11 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	ret = ufshcd_link_startup(hba);
 	if (ret)
 		goto out;
+
+	/* Enable auto hibern8 if supported */
+	if (ufshcd_is_auto_hibern8_supported(hba))
+		ufshcd_set_auto_hibern8_timer(hba,
+					      hba->hibern8_on_idle.delay_ms);
 
 	/* Debug counters initialization */
 	ufshcd_clear_dbg_ufs_stats(hba);
