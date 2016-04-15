@@ -445,6 +445,7 @@ enum ufshcd_hibern8_on_idle_state {
 	HIBERN8_EXITED,
 	REQ_HIBERN8_ENTER,
 	REQ_HIBERN8_EXIT,
+	AUTO_HIBERN8,
 };
 
 /**
@@ -981,6 +982,11 @@ static inline bool ufshcd_is_intr_aggr_allowed(struct ufs_hba *hba)
 #else
 return true;
 #endif
+}
+
+static inline bool ufshcd_is_auto_hibern8_supported(struct ufs_hba *hba)
+{
+	return !!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT);
 }
 
 static inline bool ufshcd_is_crypto_supported(struct ufs_hba *hba)
