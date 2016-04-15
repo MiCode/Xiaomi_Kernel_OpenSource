@@ -88,7 +88,7 @@ static int smp_e(struct crypto_blkcipher *tfm, const u8 *k, u8 *r)
 	int err;
 
 	if (tfm == NULL) {
-		BT_ERR("tfm %p", tfm);
+		BT_ERR("tfm %pK", tfm);
 		return -EINVAL;
 	}
 
@@ -545,7 +545,7 @@ static u8 smp_confirm(struct smp_chan *smp)
 	struct smp_cmd_pairing_confirm cp;
 	int ret;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	ret = smp_c1(smp, smp->tk, smp->prnd, smp->preq, smp->prsp,
 		     conn->hcon->init_addr_type, &conn->hcon->init_addr,
@@ -576,7 +576,7 @@ static u8 smp_random(struct smp_chan *smp)
 	if (IS_ERR_OR_NULL(smp->tfm_aes))
 		return SMP_UNSPECIFIED;
 
-	BT_DBG("conn %p %s", conn, conn->hcon->out ? "master" : "slave");
+	BT_DBG("conn %pK %s", conn, conn->hcon->out ? "master" : "slave");
 
 	ret = smp_c1(smp, smp->tk, smp->rrnd, smp->preq, smp->prsp,
 		     hcon->init_addr_type, &hcon->init_addr,
@@ -723,7 +723,7 @@ static void smp_distribute_keys(struct smp_chan *smp)
 	struct hci_dev *hdev = hcon->hdev;
 	__u8 *keydist;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	rsp = (void *) &smp->prsp[1];
 
@@ -833,7 +833,7 @@ static void smp_timeout(struct work_struct *work)
 					    security_timer.work);
 	struct l2cap_conn *conn = smp->conn;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	hci_disconnect(conn->hcon, HCI_ERROR_REMOTE_USER_TERM);
 }
@@ -935,7 +935,7 @@ static u8 smp_cmd_pairing_req(struct l2cap_conn *conn, struct sk_buff *skb)
 	u8 key_size, auth, sec_level;
 	int ret;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (skb->len < sizeof(*req))
 		return SMP_INVALID_PARAMS;
@@ -1010,7 +1010,7 @@ static u8 smp_cmd_pairing_rsp(struct l2cap_conn *conn, struct sk_buff *skb)
 	u8 key_size, auth;
 	int ret;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (skb->len < sizeof(*rsp))
 		return SMP_INVALID_PARAMS;
@@ -1068,7 +1068,7 @@ static u8 smp_cmd_pairing_confirm(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct l2cap_chan *chan = conn->smp;
 	struct smp_chan *smp = chan->data;
 
-	BT_DBG("conn %p %s", conn, conn->hcon->out ? "master" : "slave");
+	BT_DBG("conn %pK %s", conn, conn->hcon->out ? "master" : "slave");
 
 	if (skb->len < sizeof(smp->pcnf))
 		return SMP_INVALID_PARAMS;
@@ -1096,7 +1096,7 @@ static u8 smp_cmd_pairing_random(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct l2cap_chan *chan = conn->smp;
 	struct smp_chan *smp = chan->data;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (skb->len < sizeof(smp->rrnd))
 		return SMP_INVALID_PARAMS;
@@ -1162,7 +1162,7 @@ static u8 smp_cmd_security_req(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct smp_chan *smp;
 	u8 sec_level, auth;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (skb->len < sizeof(*rp))
 		return SMP_INVALID_PARAMS;
@@ -1216,7 +1216,7 @@ int smp_conn_security(struct hci_conn *hcon, __u8 sec_level)
 	__u8 authreq;
 	int ret;
 
-	BT_DBG("conn %p hcon %p level 0x%2.2x", conn, hcon, sec_level);
+	BT_DBG("conn %pK hcon %pK level 0x%2.2x", conn, hcon, sec_level);
 
 	/* This may be NULL if there's an unexpected disconnection */
 	if (!conn)
@@ -1290,7 +1290,7 @@ static int smp_cmd_encrypt_info(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct l2cap_chan *chan = conn->smp;
 	struct smp_chan *smp = chan->data;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (skb->len < sizeof(*rp))
 		return SMP_INVALID_PARAMS;
@@ -1314,7 +1314,7 @@ static int smp_cmd_master_ident(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct smp_ltk *ltk;
 	u8 authenticated;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (skb->len < sizeof(*rp))
 		return SMP_INVALID_PARAMS;
@@ -1430,7 +1430,7 @@ static int smp_cmd_sign_info(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct hci_dev *hdev = conn->hcon->hdev;
 	struct smp_csrk *csrk;
 
-	BT_DBG("conn %p", conn);
+	BT_DBG("conn %pK", conn);
 
 	if (skb->len < sizeof(*rp))
 		return SMP_INVALID_PARAMS;
@@ -1563,7 +1563,7 @@ static void smp_teardown_cb(struct l2cap_chan *chan, int err)
 {
 	struct l2cap_conn *conn = chan->conn;
 
-	BT_DBG("chan %p", chan);
+	BT_DBG("chan %pK", chan);
 
 	if (chan->data)
 		smp_chan_destroy(conn);
@@ -1578,7 +1578,7 @@ static void smp_resume_cb(struct l2cap_chan *chan)
 	struct l2cap_conn *conn = chan->conn;
 	struct hci_conn *hcon = conn->hcon;
 
-	BT_DBG("chan %p", chan);
+	BT_DBG("chan %pK", chan);
 
 	if (!smp)
 		return;
@@ -1595,7 +1595,7 @@ static void smp_ready_cb(struct l2cap_chan *chan)
 {
 	struct l2cap_conn *conn = chan->conn;
 
-	BT_DBG("chan %p", chan);
+	BT_DBG("chan %pK", chan);
 
 	conn->smp = chan;
 	l2cap_chan_hold(chan);
@@ -1605,7 +1605,7 @@ static int smp_recv_cb(struct l2cap_chan *chan, struct sk_buff *skb)
 {
 	int err;
 
-	BT_DBG("chan %p", chan);
+	BT_DBG("chan %pK", chan);
 
 	err = smp_sig_channel(chan, skb);
 	if (err) {
@@ -1658,7 +1658,7 @@ static inline struct l2cap_chan *smp_new_conn_cb(struct l2cap_chan *pchan)
 {
 	struct l2cap_chan *chan;
 
-	BT_DBG("pchan %p", pchan);
+	BT_DBG("pchan %pK", pchan);
 
 	chan = l2cap_chan_create();
 	if (!chan)
@@ -1672,7 +1672,7 @@ static inline struct l2cap_chan *smp_new_conn_cb(struct l2cap_chan *pchan)
 	chan->omtu	= pchan->omtu;
 	chan->mode	= pchan->mode;
 
-	BT_DBG("created chan %p", chan);
+	BT_DBG("created chan %pK", chan);
 
 	return chan;
 }
@@ -1742,7 +1742,7 @@ void smp_unregister(struct hci_dev *hdev)
 	if (!chan)
 		return;
 
-	BT_DBG("%s chan %p", hdev->name, chan);
+	BT_DBG("%s chan %pK", hdev->name, chan);
 
 	tfm_aes = chan->data;
 	if (tfm_aes) {
