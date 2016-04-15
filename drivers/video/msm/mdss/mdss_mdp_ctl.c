@@ -1221,8 +1221,13 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	memset(perf, 0, sizeof(*perf));
 
 	if (!mixer->rotator_mode) {
+		pinfo = &mixer->ctl->panel_data->panel_info;
+		if (!pinfo) {
+			pr_err("pinfo is NULL\n");
+			goto exit;
+		}
+
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
-			pinfo = &mixer->ctl->panel_data->panel_info;
 			if (pinfo->type == MIPI_VIDEO_PANEL) {
 				fps = pinfo->panel_max_fps;
 				v_total = pinfo->panel_max_vtotal;
@@ -1230,16 +1235,17 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 				fps = mdss_panel_get_framerate(pinfo);
 				v_total = mdss_panel_get_vtotal(pinfo);
 			}
-
-			if (pinfo->type == WRITEBACK_PANEL) {
-				fmt = mdss_mdp_get_format_params(
-					mixer->ctl->dst_format);
-				if (fmt)
-					bpp = fmt->bpp;
-				pinfo = NULL;
-			}
 		} else {
 			v_total = mixer->height;
+		}
+
+		/* For writeback panel, mixer type can be other than intf */
+		if (pinfo->type == WRITEBACK_PANEL) {
+			fmt = mdss_mdp_get_format_params(
+				mixer->ctl->dst_format);
+			if (fmt)
+				bpp = fmt->bpp;
+			pinfo = NULL;
 		}
 
 		perf->mdp_clk_rate = mixer->width * v_total * fps;
