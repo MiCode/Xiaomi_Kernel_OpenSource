@@ -397,6 +397,10 @@ Optional properties:
 - qcom,cmd-to-video-mode-switch-commands:	List of commands that need to be sent
 					to panel in order to switch from command mode to video mode dynamically.
 					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
+- qcom,send-pps-before-switch:		Boolean propety to indicate when PPS commands should be sent,
+					either before or after switch commands during dynamic resolution
+					switch in DSC panels. If the property is not present, the default
+					behavior is to send PPS commands after the switch commands.
 - qcom,mdss-dsi-panel-orientation:	String used to indicate orientation of panel
 					"180" = panel is flipped in both horizontal and vertical directions
 					"hflip" = panel is flipped in horizontal direction
@@ -620,6 +624,7 @@ Example:
 		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
 						15 01 00 00 00 00 02 C2 08];
 		qcom,cmd-to-video-mode-switch-commands = [15 01 00 00 00 00 02 C2 03];
+		qcom,send-pps-before-switch;
 		qcom,panel-ack-disabled;
 		qcom,mdss-dsi-horizontal-line-idle = <0 40 256>,
 						<40 120 128>,
@@ -651,6 +656,19 @@ Example:
 					29 00 00 00 00 00 02 B0 04
 					29 00 00 00 00 00 02 F1 00];
 				qcom,mdss-dsi-timing-switch-command-state = "dsi_lp_mode";
+
+				qcom,config-select = <&dsi_sim_vid_config0>;
+				dsi_sim_vid_config0: config0 {
+					qcom,lm-split = <360 360>;
+					qcom,mdss-dsc-encoders = <2>;
+					qcom,mdss-dsc-slice-height = <16>;
+					qcom,mdss-dsc-slice-width = <360>;
+					qcom,mdss-dsc-slice-per-pkt = <2>;
+					qcom,mdss-dsc-bit-per-component = <8>;
+					qcom,mdss-dsc-bit-per-pixel = <8>;
+					qcom,mdss-dsc-block-prediction-enable;
+					qcom,mdss-dsc-config-by-manufacture-cmd;
+				};
 			};
 		};
 		qcom,panel-supply-entries {

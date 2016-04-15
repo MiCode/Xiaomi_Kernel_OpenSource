@@ -2081,10 +2081,11 @@ static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl,
 			WARN(rc, "intf %d panel on error (%d)\n",
 					ctl->intf_num, rc);
 
-			rc = mdss_mdp_tearcheck_enable(ctl, true);
-			WARN(rc, "intf %d tearcheck enable error (%d)\n",
-					ctl->intf_num, rc);
 		}
+
+		rc = mdss_mdp_tearcheck_enable(ctl, true);
+		WARN(rc, "intf %d tearcheck enable error (%d)\n",
+				ctl->intf_num, rc);
 
 		ctx->panel_power_state = MDSS_PANEL_POWER_ON;
 		if (sctx)
@@ -3373,9 +3374,6 @@ void mdss_mdp_switch_to_vid_mode(struct mdss_mdp_ctl *ctl, int prep)
 static int mdss_mdp_cmd_reconfigure(struct mdss_mdp_ctl *ctl,
 		enum dynamic_switch_modes mode, bool prep)
 {
-	struct dsi_panel_clk_ctrl clk_ctrl;
-	int ret, rc = 0;
-
 	if (mdss_mdp_ctl_is_power_off(ctl))
 		return 0;
 
@@ -3386,41 +3384,19 @@ static int mdss_mdp_cmd_reconfigure(struct mdss_mdp_ctl *ctl,
 		mdss_mdp_switch_to_vid_mode(ctl, prep);
 	} else if (mode == SWITCH_RESOLUTION) {
 		if (prep) {
-			/* make sure any pending transfer is finished */
-			ret = mdss_mdp_cmd_wait4pingpong(ctl, NULL);
-			if (ret)
-				return ret;
-
-			/*
-			 * keep a ref count on clocks to prevent them from
-			 * being disabled while switch happens
-			 */
-			mdss_bus_bandwidth_ctrl(true);
-			rc = mdss_iommu_ctrl(1);
-			if (IS_ERR_VALUE(rc))
-				pr_err("IOMMU attach failed\n");
-
-			clk_ctrl.state = MDSS_DSI_CLK_ON;
-			clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-			mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-					(void *)&clk_ctrl,
-					CTL_INTF_EVENT_FLAG_DEFAULT);
+			/*
+			 * Setup DSC conifg early, as DSI configuration during
+			 * resolution switch would rely on DSC params for
+			 * stream configs.
+			 */
+			mdss_mdp_cmd_dsc_reconfig(ctl);
 
 			mdss_mdp_ctl_stop(ctl, MDSS_PANEL_POWER_OFF);
 			mdss_mdp_ctl_intf_event(ctl,
-					MDSS_EVENT_DSI_DYNAMIC_SWITCH,
-					(void *) mode,
-					CTL_INTF_EVENT_FLAG_DEFAULT);
+				MDSS_EVENT_DSI_DYNAMIC_SWITCH,
+				(void *) mode, CTL_INTF_EVENT_FLAG_DEFAULT);
 		} else {
-			/* release ref count after switch is complete */
-			clk_ctrl.state = MDSS_DSI_CLK_OFF;
-			clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
-			mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-					(void *)&clk_ctrl,
-					CTL_INTF_EVENT_FLAG_DEFAULT);
-			mdss_iommu_ctrl(0);
-			mdss_bus_bandwidth_ctrl(false);
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 		}
 	}

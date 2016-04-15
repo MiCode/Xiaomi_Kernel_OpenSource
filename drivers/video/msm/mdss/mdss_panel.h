@@ -691,6 +691,12 @@ struct mdss_panel_info {
 	u8 dsc_enc_total; /* max 2 */
 	struct dsc_desc dsc;
 
+	/*
+	 * To determine, if DSC panel requires the pps to be sent
+	 * before or after the switch, during dynamic resolution switching
+	 */
+	bool send_pps_before_switch;
+
 	struct lcd_panel_info lcdc;
 	struct fbc_panel_info fbc;
 	struct mipi_panel_info mipi;
@@ -766,7 +772,8 @@ struct mdss_panel_data {
 	struct mdss_panel_timing *current_timing;
 	bool active;
 
-	struct device_node *cfg_np; /* NULL if config node is not present */
+	/* To store dsc cfg name passed by bootloader */
+	char dsc_cfg_np_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_panel_data *next;
 };
 

@@ -1710,6 +1710,7 @@ int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 {
 	struct mdss_rect l_roi, r_roi;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *sctl;
 	int rc;
 
@@ -1724,9 +1725,42 @@ int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 	/* No need for mode validation. It has been done in ioctl call */
 	if (mode == SWITCH_RESOLUTION) {
 		if (ctl->ops.reconfigure) {
-			rc = ctl->ops.reconfigure(ctl, mode, 1);
-			if (rc)
+			/* wait for previous frame to complete before switch */
+			if (ctl->ops.wait_pingpong)
+				rc = ctl->ops.wait_pingpong(ctl, NULL);
+			if (!rc && sctl && sctl->ops.wait_pingpong)
+				rc = sctl->ops.wait_pingpong(sctl, NULL);
+			if (rc) {
+				pr_err("wait for pp failed before resolution switch\n");
 				return rc;
+			}
+
+			/*
+			* Configure the mixer parameters before the switch as
+			* the DSC parameter calculation is based on the mixer
+			* ROI. And set it to full ROI as driver expects the
+			* first frame after the resolution switch to be a
+			* full frame update.
+			*/
+			if (ctl->mixer_left) {
+				l_roi = (struct mdss_rect) {0, 0,
+					ctl->mixer_left->width,
+					ctl->mixer_left->height};
+				ctl->mixer_left->roi_changed = true;
+				ctl->mixer_left->valid_roi = true;
+			}
+			if (ctl->mixer_right) {
+				r_roi = (struct mdss_rect) {0, 0,
+					ctl->mixer_right->width,
+					ctl->mixer_right->height};
+				ctl->mixer_right->roi_changed = true;
+				ctl->mixer_right->valid_roi = true;
+			}
+			mdss_mdp_set_roi(ctl, &l_roi, &r_roi);
+
+			mutex_lock(&mdp5_data->ov_lock);
+			ctl->ops.reconfigure(ctl, mode, 1);
+			mutex_unlock(&mdp5_data->ov_lock);
 		/*
 		 * For Video mode panels, reconfigure is not defined.
 		 * So doing an explicit ctrl stop during resolution switch
@@ -1849,7 +1883,13 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 		l_roi.x, l_roi.y, l_roi.w, l_roi.h,
 		r_roi.x, r_roi.y, r_roi.w, r_roi.h);
 
-	if (!ctl->panel_data->panel_info.partial_update_enabled)
+	/*
+	 * Configure full ROI
+	 * - If partial update is disabled
+	 * - If it is the first frame update after dynamic resolution switch
+	 */
+	if (!ctl->panel_data->panel_info.partial_update_enabled
+			|| (ctl->pending_mode_switch == SWITCH_RESOLUTION))
 		goto set_roi;
 
 	skip_partial_update = false;
