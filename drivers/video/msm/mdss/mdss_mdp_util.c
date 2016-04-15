@@ -1128,6 +1128,9 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 	int ret = -EINVAL;
 	int domain;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct scatterlist *sg;
+	unsigned int i;
+	struct sg_table *table;
 
 	if (data->addr && data->len)
 		return 0;
@@ -1149,7 +1152,11 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 			data->mapped = true;
 		} else {
 			data->addr = sg_phys(data->srcp_table->sgl);
-			data->len = data->srcp_table->sgl->length;
+			data->len = 0;
+			table = data->srcp_table;
+			for_each_sg(table->sgl, sg, table->nents, i) {
+				data->len += sg->length;
+			}
 			ret = 0;
 		}
 	}
