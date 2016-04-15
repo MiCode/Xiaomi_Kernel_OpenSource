@@ -977,6 +977,8 @@ struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
 	if (ret)
 		goto out_free;
 
+	iommu_debug_domain_add(domain);
+
 	return domain;
 
 out_free:
@@ -990,6 +992,8 @@ void iommu_domain_free(struct iommu_domain *domain)
 {
 	if (likely(domain->ops->domain_destroy != NULL))
 		domain->ops->domain_destroy(domain);
+
+	iommu_debug_domain_remove(domain);
 
 	kfree(domain);
 }
