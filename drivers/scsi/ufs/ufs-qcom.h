@@ -336,6 +336,10 @@ struct ufs_qcom_host {
 	 */
 	#define UFS_QCOM_CAP_QUNIPRO_CLK_GATING		UFS_BIT(2)
 
+	/*
+	 * Set this capability if host controller supports SVS2 frequencies.
+	 */
+	#define UFS_QCOM_CAP_SVS2	UFS_BIT(3)
 	u32 caps;
 
 	struct phy *generic_phy;
@@ -398,6 +402,11 @@ static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
 static inline bool ufs_qcom_cap_qunipro_clk_gating(struct ufs_qcom_host *host)
 {
 	return !!(host->caps & UFS_QCOM_CAP_QUNIPRO_CLK_GATING);
+}
+
+static inline bool ufs_qcom_cap_svs2(struct ufs_qcom_host *host)
+{
+	return !!(host->caps & UFS_QCOM_CAP_SVS2);
 }
 
 #endif /* UFS_QCOM_H_ */
