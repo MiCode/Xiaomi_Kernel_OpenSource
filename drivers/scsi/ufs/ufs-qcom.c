@@ -1370,8 +1370,20 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 		host->caps = UFS_QCOM_CAP_QUNIPRO |
 			     UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE;
 	}
-	if (host->hw_ver.major >= 0x3)
+	if (host->hw_ver.major >= 0x3) {
 		host->caps |= UFS_QCOM_CAP_QUNIPRO_CLK_GATING;
+		/*
+		 * The UFS PHY attached to v3.0.0 controller supports entering
+		 * deeper low power state of SVS2. This lets the controller
+		 * run at much lower clock frequencies for saving power.
+		 * Assuming this and any future revisions of the controller
+		 * support this capability. Need to revist this assumption if
+		 * any future platform with this core doesn't support the
+		 * capability, as there will be no benefit running at lower
+		 * frequencies then.
+		 */
+		host->caps |= UFS_QCOM_CAP_SVS2;
+	}
 }
 
 /**
@@ -1659,10 +1671,41 @@ out:
 	return err;
 }
 
+static inline int ufs_qcom_configure_lpm(struct ufs_hba *hba, bool enable)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+	int err = 0;
+
+	/* The default low power mode configuration is SVS2 */
+	if (!ufs_qcom_cap_svs2(host))
+		goto out;
+
+	/*
+	 * The link should be put in hibern8 state before
+	 * configuring the PHY to enter/exit SVS2 mode.
+	 */
+	err = ufshcd_uic_hibern8_enter(hba);
+	if (err)
+		goto out;
+
+	err = ufs_qcom_phy_configure_lpm(phy, enable);
+	if (err)
+		goto out;
+
+	err = ufshcd_uic_hibern8_exit(hba);
+out:
+	return err;
+}
+
 static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 {
-	/* nothing to do as of now */
-	return 0;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (!ufs_qcom_cap_qunipro(host))
+		return 0;
+
+	return ufs_qcom_configure_lpm(hba, false);
 }
 
 static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
@@ -1679,11 +1722,15 @@ static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
 static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	int err;
 	u32 core_clk_ctrl_reg;
+	int err = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
-		return 0;
+		goto out;
+
+	err = ufs_qcom_configure_lpm(hba, true);
+	if (err)
+		goto out;
 
 	err = ufshcd_dme_get(hba,
 			    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
@@ -1697,19 +1744,32 @@ static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
 				    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
 				    core_clk_ctrl_reg);
 	}
-
+out:
 	return err;
 }
 
 static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int err = 0;
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
 
-	/* set unipro core clock cycles to 75 and clear clock divider */
-	return ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75);
+	if (ufs_qcom_cap_svs2(host))
+		/*
+		 * For SVS2 set unipro core clock cycles to 37 and
+		 * clear clock divider
+		 */
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 37);
+	else
+		/*
+		 * For SVS set unipro core clock cycles to 75 and
+		 * clear clock divider
+		 */
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75);
+
+	return err;
 }
 
 static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
@@ -1719,12 +1779,14 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
 	int err = 0;
 
-	if (status == PRE_CHANGE) {
+	switch (status) {
+	case PRE_CHANGE:
 		if (scale_up)
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
 		else
 			err = ufs_qcom_clk_scale_down_pre_change(hba);
-	} else {
+		break;
+	case POST_CHANGE:
 		if (scale_up)
 			err = ufs_qcom_clk_scale_up_post_change(hba);
 		else
@@ -1739,6 +1801,11 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 				    dev_req_params->hs_rate,
 				    false);
 		ufs_qcom_update_bus_bw_vote(host);
+		break;
+	default:
+		dev_err(hba->dev, "%s: invalid status %d\n", __func__, status);
+		err = -EINVAL;
+		break;
 	}
 
 out:
@@ -1756,6 +1823,16 @@ out:
 static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 {
 	return 0;
+}
+
+static inline u32 ufs_qcom_get_scale_down_gear(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (ufs_qcom_cap_svs2(host))
+		return UFS_HS_G1;
+	/* Default SVS support @ HS G2 frequencies*/
+	return UFS_HS_G2;
 }
 
 void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
@@ -2004,6 +2081,7 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.resume			= ufs_qcom_resume,
 	.full_reset		= ufs_qcom_full_reset,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
+	.get_scale_down_gear	= ufs_qcom_get_scale_down_gear,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 #ifdef CONFIG_DEBUG_FS
 	.add_debugfs		= ufs_qcom_dbg_add_debugfs,
