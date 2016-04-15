@@ -1,0 +1,28 @@
+* Neutrino Ethernet *
+This driver implements Ethernet driver for Neutrino ethernet controller
+Required properties:
+  - compatible: Should be "qcom,ntn_avb"
+  - ntn-rst-gpio: Neutrino reset GPIO
+  - vdd-ntn-hsic-supply: neutrino HSIC power supply
+  - vdd-ntn-pci-supply: PCIe core power supply
+  - vdd-ntn-io-supply:  Neutrino IO power supply
+  - vdd-ntn-phy-supply: Ethernet Phy power supply
+  - vdd-ntn-core-supply:  Neutrino core power supply
+  - pinctrl-names: should contain GPIO details
+  - pinctrl-0: Neutrino reset GPIO [this is from MSM]
+  - ntn-rst-delay-msec: dealy (msec) required after PCIe reset for stabilization
+  - ntn-rc-num: PCIe root complex number on which Neutrino is connected
+Example:
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+		ntn-rst-gpio = <&pm8994_gpios 13 0>;
+		vdd-ntn-hsic-supply = <&pm8994_l25>;
+		vdd-ntn-pci-supply = <&pm8994_s4>;
+		vdd-ntn-io-supply = <&pm8994_s4>;
+		vdd-ntn-phy-supply = <&pm8994_l9>;
+		vdd-ntn-core-supply = <&pm8994_l19>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ntn_default>;
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <1>;
+	};
