@@ -2730,7 +2730,7 @@ static void __dsc_setup_dual_lm_single_display(struct mdss_mdp_ctl *ctl,
 			/* left + right */
 			pr_debug("full line (4 slices) or middle 2 slice partial update\n");
 			writel_relaxed(0x0,
-				mdata->mdp_base + mdata->ppb[0].ctl_off);
+				mdata->mdp_base + mdata->ppb_ctl[0]);
 			writel_relaxed(0x0,
 				mdata->mdp_base + MDSS_MDP_REG_DCE_SEL);
 		} else if (valid_l || valid_r) {
@@ -2745,13 +2745,13 @@ static void __dsc_setup_dual_lm_single_display(struct mdss_mdp_ctl *ctl,
 				valid_l = true;
 
 				writel_relaxed(0x2 << 4, mdata->mdp_base +
-					mdata->ppb[0].ctl_off);
+					mdata->ppb_ctl[0]);
 				writel_relaxed(BIT(0),
 					mdata->mdp_base + MDSS_MDP_REG_DCE_SEL);
 			} else {
 				pr_debug("only one slice partial update\n");
 				writel_relaxed(0x0, mdata->mdp_base +
-					mdata->ppb[0].ctl_off);
+					mdata->ppb_ctl[0]);
 				writel_relaxed(0x0, mdata->mdp_base +
 					MDSS_MDP_REG_DCE_SEL);
 			}
@@ -3485,7 +3485,7 @@ static void mdss_mdp_ctl_pp_split_display_enable(bool enable,
 {
 	u32 cfg = 0, cntl = 0;
 
-	if (ctl->mdata->nppb == 0) {
+	if (!ctl->mdata->nppb_ctl || !ctl->mdata->nppb_cfg) {
 		pr_err("No PPB to enable PP split\n");
 		BUG();
 	}
@@ -3498,8 +3498,8 @@ static void mdss_mdp_ctl_pp_split_display_enable(bool enable,
 		cntl = BIT(5);			 /* enable dst split */
 	}
 
-	writel_relaxed(cfg, ctl->mdata->mdp_base + ctl->mdata->ppb[0].cfg_off);
-	writel_relaxed(cntl, ctl->mdata->mdp_base + ctl->mdata->ppb[0].ctl_off);
+	writel_relaxed(cfg, ctl->mdata->mdp_base + ctl->mdata->ppb_cfg[0]);
+	writel_relaxed(cntl, ctl->mdata->mdp_base + ctl->mdata->ppb_ctl[0]);
 }
 
 int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)

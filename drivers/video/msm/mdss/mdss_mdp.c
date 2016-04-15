@@ -4068,24 +4068,32 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev)
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 	u32 len, index;
 	const u32 *arr;
-	arr = of_get_property(pdev->dev.of_node, "qcom,mdss-ppb-off", &len);
+	arr = of_get_property(pdev->dev.of_node, "qcom,mdss-ppb-ctl-off", &len);
 	if (arr) {
-		mdata->nppb = len / sizeof(u32);
-		mdata->ppb = devm_kzalloc(&mdata->pdev->dev,
-				sizeof(struct mdss_mdp_ppb) *
-				mdata->nppb, GFP_KERNEL);
+		mdata->nppb_ctl = len / sizeof(u32);
+		mdata->ppb_ctl = devm_kzalloc(&mdata->pdev->dev,
+				sizeof(u32) * mdata->nppb_ctl, GFP_KERNEL);
 
-		if (mdata->ppb == NULL)
+		if (mdata->ppb_ctl == NULL)
 			return -ENOMEM;
 
-		for (index = 0; index <  mdata->nppb; index++) {
-			mdata->ppb[index].ctl_off = be32_to_cpu(arr[index]);
-			mdata->ppb[index].cfg_off =
-				mdata->ppb[index].ctl_off + 4;
-		}
-		return 0;
+		for (index = 0; index <  mdata->nppb_ctl; index++)
+			mdata->ppb_ctl[index] = be32_to_cpu(arr[index]);
 	}
-	return -EINVAL;
+
+	arr = of_get_property(pdev->dev.of_node, "qcom,mdss-ppb-cfg-off", &len);
+	if (arr) {
+		mdata->nppb_cfg = len / sizeof(u32);
+		mdata->ppb_cfg = devm_kzalloc(&mdata->pdev->dev,
+				sizeof(u32) * mdata->nppb_cfg, GFP_KERNEL);
+
+		if (mdata->ppb_cfg == NULL)
+			return -ENOMEM;
+
+		for (index = 0; index <  mdata->nppb_cfg; index++)
+			mdata->ppb_cfg[index] = be32_to_cpu(arr[index]);
+	}
+	return 0;
 }
 
 #ifdef CONFIG_MSM_BUS_SCALING
