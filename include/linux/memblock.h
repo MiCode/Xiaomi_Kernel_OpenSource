@@ -93,8 +93,8 @@ int memblock_clear_hotplug(phys_addr_t base, phys_addr_t size);
 int memblock_mark_mirror(phys_addr_t base, phys_addr_t size);
 int memblock_mark_nomap(phys_addr_t base, phys_addr_t size);
 ulong choose_memblock_flags(void);
-void memblock_region_resize_late_begin(void);
-void memblock_region_resize_late_end(void);
+unsigned long memblock_region_resize_late_begin(void);
+void memblock_region_resize_late_end(unsigned long);
 
 /* Low level functions */
 int memblock_add_range(struct memblock_type *type,
