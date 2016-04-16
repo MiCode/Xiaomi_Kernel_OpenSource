@@ -179,15 +179,16 @@ static void removed_region_fixup(struct removed_region *dma_mem, int index)
 {
 	unsigned long fixup_size;
 	unsigned long base_pfn;
+	unsigned long flags;
 
 	if (index > dma_mem->nr_pages)
 		return;
 
 	/* carve-out */
-	memblock_region_resize_late_begin();
+	flags = memblock_region_resize_late_begin();
 	memblock_free(dma_mem->base, dma_mem->nr_pages * PAGE_SIZE);
 	memblock_remove(dma_mem->base, index * PAGE_SIZE);
-	memblock_region_resize_late_end();
+	memblock_region_resize_late_end(flags);
 
 	/* clear page-mappings */
 	base_pfn = dma_mem->base >> PAGE_SHIFT;
