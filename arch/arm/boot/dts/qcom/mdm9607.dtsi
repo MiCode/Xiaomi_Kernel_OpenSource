@@ -640,6 +640,36 @@
 		status = "disabled";
 	};
 
+	hsic_host: hsic_host@7c00000 {
+		compatible = "qcom,hsic-host";
+		reg = <0x7c00000 0x352>,
+		      <0x1100000 0x1200c>;
+		interrupts = <0 141 0>, <0 142 0>;
+		interrupt-names = "core_irq", "async_irq";
+		hsic_vdd_dig-supply = <&mdm9607_l9>;
+		hsic,vdd-voltage-level = <0 1225000 1225000>;
+		qcom,hsic-tlmm-init-seq =
+			<0x12008 0x5 0x12004 0x5 0x12000 0x1>;
+		qcom,phy-susp-sof-workaround;
+		qcom,disable-internal-clk-gating;
+
+		clocks = <&clock_gcc clk_gcc_usb_hsic_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_hsic_system_clk>,
+			 <&clock_gcc clk_gcc_usb_hsic_clk>,
+			 <&clock_gcc clk_gcc_usb_hsic_io_cal_clk>,
+			 <&clock_gcc clk_gcc_usb_hsic_io_cal_sleep_clk>;
+		clock-names = "iface_clk", "core_clk", "phy_clk",
+				"cal_clk", "inactivity_clk";
+
+		qcom,msm-bus,name = "hsic";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<85 512 0 0>,
+				<85 512 60000 800000>;
+		status = "disabled";
+	};
+
 	qnand_1: nand@7980000 {
 		compatible = "qcom,msm-nand";
 		reg = <0x07980000 0x1000>,
