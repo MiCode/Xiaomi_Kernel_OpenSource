@@ -1522,7 +1522,7 @@ static struct hc_driver msm_hsic_driver = {
 	 * generic hardware linkage
 	 */
 	.irq			= msm_hsic_irq,
-	.flags			= HCD_USB2 | HCD_MEMORY,
+	.flags			= HCD_USB2 | HCD_MEMORY | HCD_RT_OLD_ENUM,
 
 	.reset			= ehci_hsic_reset,
 	.start			= ehci_run,
@@ -1558,6 +1558,7 @@ static struct hc_driver msm_hsic_driver = {
 	.bus_suspend		= ehci_hsic_bus_suspend,
 	.bus_resume		= ehci_hsic_bus_resume,
 
+	.log_urb		= dbg_log_event,
 	.dump_regs		= dump_hsic_regs,
 
 	.set_autosuspend_delay = ehci_msm_set_autosuspend_delay,
