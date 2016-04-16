@@ -280,6 +280,7 @@ static void __init parse_dt_cpu_power(void)
 	for_each_possible_cpu(cpu) {
 		const u32 *rate;
 		int len;
+		u32 efficiency;
 
 		/* Too early to use cpu->of_node */
 		cn = of_get_cpu_node(cpu, NULL);
@@ -288,16 +289,29 @@ static void __init parse_dt_cpu_power(void)
 			continue;
 		}
 
-		for (cpu_eff = table_efficiency; cpu_eff->compatible; cpu_eff++)
-			if (of_device_is_compatible(cn, cpu_eff->compatible))
-				break;
+		/*
+		 * The CPU efficiency value passed from the device tree
+		 * overrides the value defined in the table_efficiency[]
+		 */
+		if (of_property_read_u32(cn, "efficiency", &efficiency) < 0) {
 
-		if (cpu_eff->compatible == NULL) {
-			pr_warn("%s: Unknown CPU type\n", cn->full_name);
-			continue;
+			for (cpu_eff = table_efficiency;
+					cpu_eff->compatible; cpu_eff++)
+
+				if (of_device_is_compatible(cn,
+						cpu_eff->compatible))
+					break;
+
+			if (cpu_eff->compatible == NULL) {
+				pr_warn("%s: Unknown CPU type\n",
+						cn->full_name);
+				continue;
+			}
+
+			efficiency = cpu_eff->efficiency;
 		}
 
-		per_cpu(cpu_efficiency, cpu) = cpu_eff->efficiency;
+		per_cpu(cpu_efficiency, cpu) = efficiency;
 
 		rate = of_get_property(cn, "clock-frequency", &len);
 		if (!rate || len != 4) {
@@ -306,7 +320,7 @@ static void __init parse_dt_cpu_power(void)
 			continue;
 		}
 
-		capacity = ((be32_to_cpup(rate)) >> 20) * cpu_eff->efficiency;
+		capacity = ((be32_to_cpup(rate)) >> 20) * efficiency;
 
 		/* Save min capacity of the system */
 		if (capacity < min_capacity)

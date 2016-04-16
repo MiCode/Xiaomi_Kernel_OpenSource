@@ -190,6 +190,13 @@ static int __init parse_cluster(struct device_node *cluster, int depth)
 	return 0;
 }
 
+static DEFINE_PER_CPU(unsigned long, cpu_efficiency) = SCHED_CAPACITY_SCALE;
+
+unsigned long arch_get_cpu_efficiency(int cpu)
+{
+	return per_cpu(cpu_efficiency, cpu);
+}
+
 #ifdef CONFIG_OF
 struct cpu_efficiency {
 	const char *compatible;
@@ -266,6 +273,7 @@ static int __init parse_dt_topology(void)
 	for_each_possible_cpu(cpu) {
 		const u32 *rate;
 		int len;
+		u32 efficiency;
 
 		/* too early to use cpu->of_node */
 		cn = of_get_cpu_node(cpu, NULL);
@@ -274,12 +282,26 @@ static int __init parse_dt_topology(void)
 			continue;
 		}
 
-		for (cpu_eff = table_efficiency; cpu_eff->compatible; cpu_eff++)
-			if (of_device_is_compatible(cn, cpu_eff->compatible))
-				break;
+		/*
+		 * The CPU efficiency value passed from the device tree
+		 * overrides the value defined in the table_efficiency[]
+		 */
+		if (of_property_read_u32(cn, "efficiency", &efficiency) < 0) {
 
-		if (cpu_eff->compatible == NULL)
-			continue;
+			for (cpu_eff = table_efficiency;
+					cpu_eff->compatible; cpu_eff++)
+
+				if (of_device_is_compatible(cn,
+						cpu_eff->compatible))
+					break;
+
+			if (cpu_eff->compatible == NULL)
+				continue;
+
+			efficiency = cpu_eff->efficiency;
+		}
+
+		per_cpu(cpu_efficiency, cpu) = efficiency;
 
 		rate = of_get_property(cn, "clock-frequency", &len);
 		if (!rate || len != 4) {
@@ -288,7 +310,7 @@ static int __init parse_dt_topology(void)
 			continue;
 		}
 
-		capacity = ((be32_to_cpup(rate)) >> 20) * cpu_eff->efficiency;
+		capacity = ((be32_to_cpup(rate)) >> 20) * efficiency;
 
 		/* Save min capacity of the system */
 		if (capacity < min_capacity)
