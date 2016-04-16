@@ -585,6 +585,8 @@ struct msm_pcie_dev_t {
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
 	short				current_short_bdf;
+	uint32_t			perst_delay_us_min;
+	uint32_t			perst_delay_us_max;
 	uint32_t			tlp_rd_size;
 	bool				linkdown_panic;
 	bool				 ep_wakeirq;
@@ -1822,6 +1824,10 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
 		dev->current_bdf);
+	PCIE_DBG_FS(dev, "perst_delay_us_min: %dus\n",
+		dev->perst_delay_us_min);
+	PCIE_DBG_FS(dev, "perst_delay_us_max: %dus\n",
+		dev->perst_delay_us_max);
 	PCIE_DBG_FS(dev, "tlp_rd_size: 0x%x\n",
 		dev->tlp_rd_size);
 	PCIE_DBG_FS(dev, "rc_corr_counter: %lu\n",
@@ -4256,8 +4262,7 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		dev->rc_idx);
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_PERST].on);
-	usleep_range(PERST_PROPAGATION_DELAY_US_MIN,
-				 PERST_PROPAGATION_DELAY_US_MAX);
+	usleep_range(dev->perst_delay_us_min, dev->perst_delay_us_max);
 
 	/* set max tlp read size */
 	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
@@ -5121,7 +5126,7 @@ static irqreturn_t handle_msi_irq(int irq, void *data)
 	struct msm_pcie_dev_t *dev = data;
 	void __iomem *ctrl_status;
 
-	PCIE_DBG(dev, "irq=%d\n", irq);
+	PCIE_DUMP(dev, "irq: %d\n", irq);
 
 	/* check for set bits, clear it by setting that bit
 	   and trigger corresponding irq */
@@ -5771,6 +5776,34 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: cpl-timeout: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].cpl_timeout);
+
+	msm_pcie_dev[rc_idx].perst_delay_us_min =
+		PERST_PROPAGATION_DELAY_US_MIN;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,perst-delay-us-min",
+				&msm_pcie_dev[rc_idx].perst_delay_us_min);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-min does not exist. Use default value %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_min);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-min: %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_min);
+
+	msm_pcie_dev[rc_idx].perst_delay_us_max =
+		PERST_PROPAGATION_DELAY_US_MAX;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,perst-delay-us-max",
+				&msm_pcie_dev[rc_idx].perst_delay_us_max);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-max does not exist. Use default value %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_max);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: perst-delay-us-max: %dus.\n",
+			rc_idx, msm_pcie_dev[rc_idx].perst_delay_us_max);
 
 	msm_pcie_dev[rc_idx].tlp_rd_size = PCIE_TLP_RD_SIZE;
 	ret = of_property_read_u32(pdev->dev.of_node,
