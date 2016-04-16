@@ -457,6 +457,19 @@
 };
 
 &soc {
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+
+		ntn-rst-gpio = <&pm8994_gpios 13 0>;
+
+		vdd-ntn-hsic-supply = <&pm8994_l25>;
+		vdd-ntn-pci-supply = <&pm8994_s4>;
+		vdd-ntn-io-supply = <&pm8994_s4>;
+
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <1>;
+	};
+
 	i2c@75ba000 {
 		synaptics@20 {
 			compatible = "synaptics,dsx";
@@ -785,14 +798,14 @@
 		status = "okay";
 	};
 
-	gpio@cc00 { /* GPIO 13 - HPH_EN0 */
-		qcom,mode = <1>;
-		qcom,output-type = <0>;
+	gpio@cc00 { /* GPIO 13 - NTN_RST */
+		qcom,mode = <1>; /* DIGITAL OUT */
+		qcom,output-type = <0>; /* CMOS logic */
 		qcom,pull = <5>;
-		qcom,vin-sel = <2>;
+		qcom,vin-sel = <2>; /* 1.8 */
 		qcom,out-strength = <1>;
-		qcom,src-sel = <2>;
-		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* GPIO */
+		qcom,master-en = <1>; /* Enable GPIO */
 		status = "okay";
 	};
 
@@ -924,6 +937,10 @@
 	sound-9335 {
 		/delete-property/ qcom,hph-en1-gpio;
 	};
+};
+
+&slim_msm {
+	status = "disabled";
 };
 
 /delete-node/  &led_flash0;

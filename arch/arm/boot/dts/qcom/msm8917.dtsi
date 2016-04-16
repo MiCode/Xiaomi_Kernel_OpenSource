@@ -806,7 +806,7 @@
 	android_usb: android_usb@86000c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
-		qcom,pm-qos-latency = <2 191 12701>;
+		qcom,pm-qos-latency = <13 191 12701>;
 	};
 
 	cpubw: qcom,cpubw {

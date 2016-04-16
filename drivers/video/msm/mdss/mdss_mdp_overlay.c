@@ -34,7 +34,6 @@
 #include "mdss_debug.h"
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
-#include "mdss_mdp_rotator.h"
 #include "mdss_smmu.h"
 #include "mdss_mdp_wfd.h"
 #include "mdss_dsi_clk.h"
@@ -1015,11 +1014,6 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	int ret;
 
-	if (req->flags & MDSS_MDP_ROT_ONLY) {
-		ret = mdss_mdp_rotator_setup(mfd, req);
-		return ret;
-	}
-
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
 	if (ret)
 		return ret;
@@ -1217,12 +1211,37 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	bool recovery_mode = false;
+	bool skip_fetch_halt, pair_found;
 	struct mdss_mdp_data *buf, *tmpbuf;
 
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry(pipe, destroy_pipes, list) {
+		pair_found = false;
+		skip_fetch_halt = false;
+		tmp = pipe;
+
+		/*
+		 * Find if second rect is in the destroy list from the current
+		 * position. So if both rects are part of the destroy list then
+		 * fetch halt will be skipped for the 1st rect.
+		 */
+		list_for_each_entry_from(tmp, destroy_pipes, list) {
+			if (tmp->num == pipe->num) {
+				pair_found = true;
+				break;
+			}
+		}
+
+		/* skip fetch halt if pipe's other rect is still in use */
+		if (!pair_found) {
+			tmp = (struct mdss_mdp_pipe *)pipe->multirect.next;
+			if (tmp)
+				skip_fetch_halt =
+					atomic_read(&tmp->kref.refcount);
+		}
+
 		/* make sure pipe fetch has been halted before freeing buffer */
-		if (mdss_mdp_pipe_fetch_halt(pipe, false)) {
+		if (!skip_fetch_halt && mdss_mdp_pipe_fetch_halt(pipe, false)) {
 			/*
 			 * if pipe is not able to halt. Enter recovery mode,
 			 * by un-staging any pipes that are attached to mixer
@@ -1261,9 +1280,16 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 			pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 		}
 		__overlay_pipe_cleanup(mfd, pipe);
-		ctl->mixer_left->next_pipe_map &= ~pipe->ndx;
-		if (ctl->mixer_right)
-			ctl->mixer_right->next_pipe_map &= ~pipe->ndx;
+
+		if (pipe->multirect.num == MDSS_MDP_PIPE_RECT0) {
+			/*
+			 * track only RECT0, since at any given point there
+			 * can only be RECT0 only or RECT0 + RECT1
+			 */
+			ctl->mixer_left->next_pipe_map &= ~pipe->ndx;
+			if (ctl->mixer_right)
+				ctl->mixer_right->next_pipe_map &= ~pipe->ndx;
+		}
 	}
 	mutex_unlock(&mdp5_data->list_lock);
 }
@@ -1272,22 +1298,21 @@ void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
 	u32 type)
 {
 	u32 i, npipes;
-	struct mdss_mdp_pipe *pipes;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 
 	switch (type) {
 	case MDSS_MDP_PIPE_TYPE_VIG:
-		pipes = mdata->vig_pipes;
+		pipe = mdata->vig_pipes;
 		npipes = mdata->nvig_pipes;
 		break;
 	case MDSS_MDP_PIPE_TYPE_RGB:
-		pipes = mdata->rgb_pipes;
+		pipe = mdata->rgb_pipes;
 		npipes = mdata->nrgb_pipes;
 		break;
 	case MDSS_MDP_PIPE_TYPE_DMA:
-		pipes = mdata->dma_pipes;
+		pipe = mdata->dma_pipes;
 		npipes = mdata->ndma_pipes;
 		break;
 	default:
@@ -1295,13 +1320,14 @@ void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
 	}
 
 	for (i = 0; i < npipes; i++) {
-		pipe = &pipes[i];
+		/* only check for first rect and ignore additional */
 		if (pipe->is_handed_off) {
 			pr_debug("Unmapping handed off pipe %d\n", pipe->num);
 			list_move(&pipe->list, &mdp5_data->pipes_cleanup);
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 			pipe->is_handed_off = false;
 		}
+		pipe += pipe->multirect.max_rects;
 	}
 }
 
@@ -2123,11 +2149,6 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 	if (!mdp5_data || !mdp5_data->ctl)
 		return -ENODEV;
 
-	if (ndx & MDSS_MDP_ROT_SESSION_MASK) {
-		ret = mdss_mdp_rotator_unset(ndx);
-		return ret;
-	}
-
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
 	if (ret)
 		return ret;
@@ -2167,7 +2188,7 @@ done:
 static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
 	struct file *file)
 {
-	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_pipe *pipe, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	u32 unset_ndx = 0;
 	int cnt = 0;
@@ -2177,28 +2198,25 @@ static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
 
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mdp5_data->list_lock);
-	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
-		if (!file || pipe->file == file) {
-			unset_ndx |= pipe->ndx;
-			cnt++;
-		}
-	}
-
 	if (!mfd->ref_cnt && !list_empty(&mdp5_data->pipes_cleanup)) {
 		pr_debug("fb%d:: free pipes present in cleanup list",
 			mfd->index);
 		cnt++;
 	}
 
+	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
+		if (!file || pipe->file == file) {
+			unset_ndx |= pipe->ndx;
+			pipe->file = NULL;
+			list_move(&pipe->list, &mdp5_data->pipes_cleanup);
+			cnt++;
+		}
+	}
+
 	pr_debug("mfd->ref_cnt=%d unset_ndx=0x%x cnt=%d\n",
 		mfd->ref_cnt, unset_ndx, cnt);
 
 	mutex_unlock(&mdp5_data->list_lock);
-
-	if (unset_ndx) {
-		pr_debug("%d pipes need cleanup (%x)\n", cnt, unset_ndx);
-		mdss_mdp_overlay_release(mfd, unset_ndx);
-	}
 	mutex_unlock(&mdp5_data->ov_lock);
 
 	return cnt;
@@ -2271,11 +2289,6 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 	int ret = 0;
 
 	pr_debug("play req id=%x\n", req->id);
-
-	if (req->id & MDSS_MDP_ROT_SESSION_MASK) {
-		ret = mdss_mdp_rotator_play(mfd, req);
-		return ret;
-	}
 
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
 	if (ret)
@@ -2721,7 +2734,7 @@ static int calc_extra_blanking(struct mdss_panel_data *pdata, u32 new_fps)
 	int add_porches, diff;
 
 	/* calculate extra: lines for vfp-method, pixels for hfp-method */
-	diff = pdata->panel_info.default_fps - new_fps;
+	diff = abs(pdata->panel_info.default_fps - new_fps);
 	add_porches = mult_frac(pdata->panel_info.saved_total,
 		diff, new_fps);
 
@@ -2755,7 +2768,9 @@ static void cache_initial_timings(struct mdss_panel_data *pdata)
 				pdata->panel_info.lcdc.v_front_porch;
 
 		} else if (pdata->panel_info.dfps_update ==
-					DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
+				DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
+			pdata->panel_info.dfps_update ==
+				DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
 			pdata->panel_info.saved_total =
 				mdss_panel_get_htotal(&pdata->panel_info, true);
 			pdata->panel_info.saved_fporch =
@@ -2764,9 +2779,19 @@ static void cache_initial_timings(struct mdss_panel_data *pdata)
 	}
 }
 
-static void dfps_update_panel_params(struct mdss_panel_data *pdata,
-	u32 new_fps)
+static inline void dfps_update_fps(struct mdss_panel_info *pinfo, u32 fps)
 {
+	if (pinfo->type == DTV_PANEL)
+		pinfo->lcdc.frame_rate = fps;
+	else
+		pinfo->mipi.frame_rate = fps;
+}
+
+static void dfps_update_panel_params(struct mdss_panel_data *pdata,
+	struct dynamic_fps_data *data)
+{
+	u32 new_fps = data->fps;
+
 	/* Keep initial values before any dfps update */
 	cache_initial_timings(pdata);
 
@@ -2780,7 +2805,9 @@ static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 		/* update panel info with new values */
 		pdata->panel_info.lcdc.v_front_porch =
 			pdata->panel_info.saved_fporch + add_v_lines;
-		pdata->panel_info.mipi.frame_rate = new_fps;
+
+		dfps_update_fps(&pdata->panel_info, new_fps);
+
 		pdata->panel_info.prg_fet =
 			mdss_mdp_get_prefetch_lines(&pdata->panel_info);
 
@@ -2792,19 +2819,40 @@ static void dfps_update_panel_params(struct mdss_panel_data *pdata,
 		add_h_pixels = calc_extra_blanking(pdata, new_fps);
 
 		/* update panel info */
-		pdata->panel_info.lcdc.h_front_porch =
-			pdata->panel_info.saved_fporch + add_h_pixels;
-		pdata->panel_info.mipi.frame_rate = new_fps;
+		if (pdata->panel_info.default_fps > new_fps)
+			pdata->panel_info.lcdc.h_front_porch =
+				pdata->panel_info.saved_fporch + add_h_pixels;
+		else
+			pdata->panel_info.lcdc.h_front_porch =
+				pdata->panel_info.saved_fporch - add_h_pixels;
+
+		dfps_update_fps(&pdata->panel_info, new_fps);
+	} else if (pdata->panel_info.dfps_update ==
+		DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
+
+		pr_debug("hfp=%d, hbp=%d, hpw=%d, clk=%d, fps=%d\n",
+			data->hfp, data->hbp, data->hpw,
+			data->clk_rate, data->fps);
+
+		pdata->panel_info.lcdc.h_front_porch = data->hfp;
+		pdata->panel_info.lcdc.h_back_porch  = data->hbp;
+		pdata->panel_info.lcdc.h_pulse_width = data->hpw;
+
+		pdata->panel_info.clk_rate = data->clk_rate;
+
+		dfps_update_fps(&pdata->panel_info, new_fps);
 	} else {
-		pdata->panel_info.mipi.frame_rate = new_fps;
+		dfps_update_fps(&pdata->panel_info, new_fps);
+		mdss_panel_update_clk_rate(&pdata->panel_info, new_fps);
 	}
 }
 
 int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
-	struct mdss_panel_data *pdata, int dfps)
+	struct mdss_panel_data *pdata, struct dynamic_fps_data *dfps_data)
 {
 	struct fb_var_screeninfo *var = &mfd->fbi->var;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	u32 dfps = dfps_data->fps;
 
 	mutex_lock(&mdp5_data->dfps_lock);
 
@@ -2821,9 +2869,9 @@ int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
 		dfps = pdata->panel_info.max_fps;
 	}
 
-	dfps_update_panel_params(pdata, dfps);
+	dfps_update_panel_params(pdata, dfps_data);
 	if (pdata->next)
-		dfps_update_panel_params(pdata->next, dfps);
+		dfps_update_panel_params(pdata->next, dfps_data);
 
 	/*
 	 * Update the panel info in the upstream
@@ -2842,17 +2890,12 @@ int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
 static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	int dfps, rc = 0;
+	int panel_fps, rc = 0;
 	struct mdss_panel_data *pdata;
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-
-	rc = kstrtoint(buf, 10, &dfps);
-	if (rc) {
-		pr_err("%s: kstrtoint failed. rc=%d\n", __func__, rc);
-		return rc;
-	}
+	struct dynamic_fps_data data = {0};
 
 	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
 		pr_debug("panel is off\n");
@@ -2871,13 +2914,31 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (dfps == pdata->panel_info.mipi.frame_rate) {
+	if (pdata->panel_info.dfps_update ==
+		DFPS_IMMEDIATE_MULTI_UPDATE_MODE_CLK_HFP) {
+		if (sscanf(buf, "%d %d %d %d %d",
+		    &data.hfp, &data.hbp, &data.hpw,
+		    &data.clk_rate, &data.fps) != 5) {
+			pr_err("could not read input\n");
+			return -EINVAL;
+		}
+	} else {
+		rc = kstrtoint(buf, 10, &data.fps);
+		if (rc) {
+			pr_err("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+			return rc;
+		}
+	}
+
+	panel_fps = mdss_panel_get_framerate(&pdata->panel_info);
+
+	if (data.fps == panel_fps) {
 		pr_debug("%s: FPS is already %d\n",
-			__func__, dfps);
+			__func__, data.fps);
 		return count;
 	}
 
-	rc = mdss_mdp_dfps_update_params(mfd, pdata, dfps);
+	rc = mdss_mdp_dfps_update_params(mfd, pdata, &data);
 	if (rc) {
 		pr_err("failed to set dfps params\n");
 		return rc;
@@ -2968,26 +3029,30 @@ static ssize_t mdss_mdp_lineptr_set_value(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = fbi->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
 	int ret, lineptr_value;
 
+	if (!ctl || (!ctl->panel_data->panel_info.cont_splash_enabled
+		&& !mdss_mdp_ctl_is_power_on(ctl)))
+		return -EAGAIN;
+
 	ret = kstrtoint(buf, 10, &lineptr_value);
-	if (ret) {
-		pr_err("Invalid input for ad\n");
+	if (ret || (lineptr_value < 0)
+		|| (lineptr_value > mfd->panel_info->yres)) {
+		pr_err("Invalid input for lineptr\n");
 		return -EINVAL;
 	}
 
-	if (!mdp5_data->ctl ||
-		(!mdp5_data->ctl->panel_data->panel_info.cont_splash_enabled
-			&& !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)))
-		return -EAGAIN;
-
-	if (!mdss_mdp_is_lineptr_supported(mdp5_data->ctl)) {
+	if (!mdss_mdp_is_lineptr_supported(ctl)) {
 		pr_err("lineptr not supported\n");
 		return -ENOTSUPP;
 	}
 
-	/* the new lineptr value will take effect in the next kickoff */
+	mutex_lock(&mdp5_data->ov_lock);
 	mfd->panel_info->te.wr_ptr_irq = lineptr_value;
+	if (ctl && ctl->ops.update_lineptr)
+		ctl->ops.update_lineptr(ctl, true);
+	mutex_unlock(&mdp5_data->ov_lock);
 
 	return count;
 }
@@ -4988,9 +5053,7 @@ ctl_stop:
 				mdp5_data->ctl = NULL;
 			}
 
-			if (atomic_dec_return(
-				&mdp5_data->mdata->active_intf_cnt) == 0)
-				mdss_mdp_rotator_release_all();
+			atomic_dec(&mdp5_data->mdata->active_intf_cnt);
 
 			if (!mdp5_data->mdata->idle_pc_enabled ||
 				(mfd->panel_info->type != MIPI_CMD_PANEL)) {
@@ -5044,7 +5107,9 @@ static int __mdss_mdp_ctl_handoff(struct msm_fb_data_type *mfd,
 			}
 			if (mixercfg & (0x7 << cfg)) {
 				pr_debug("Pipe %d staged\n", j);
-				pipe = mdss_mdp_pipe_search(mdata, BIT(j));
+				/* bootloader display always uses RECT0 */
+				pipe = mdss_mdp_pipe_search(mdata, BIT(j),
+					MDSS_MDP_PIPE_RECT0);
 				if (!pipe) {
 					pr_warn("Invalid pipe %d staged\n", j);
 					continue;
@@ -5396,7 +5461,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->mode_switch = mdss_mode_switch;
 	mdp5_interface->mode_switch_post = mdss_mode_switch_post;
 	mdp5_interface->pre_commit_fnc = mdss_mdp_overlay_precommit;
-	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
 	mdp5_interface->configure_panel = mdss_mdp_update_panel_info;
 	mdp5_interface->input_event_handler = mdss_mdp_input_event_handler;
@@ -5512,7 +5576,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	if (rc)
 		pr_warn("problem creating link to mdss_fb sysfs\n");
 
-	if (mfd->panel_info->type == MIPI_VIDEO_PANEL) {
+	if (mfd->panel_info->type == MIPI_VIDEO_PANEL ||
+	    mfd->panel_info->type == DTV_PANEL) {
 		rc = sysfs_create_group(&dev->kobj,
 			&dynamic_fps_fs_attrs_group);
 		if (rc) {

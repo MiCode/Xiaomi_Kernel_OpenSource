@@ -1683,6 +1683,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	pm_runtime_set_suspended(dev->dev);
 	pm_runtime_enable(dev->dev);
 
+	dev->dsp.nb.priority = 4;
 	ret = of_property_read_string(pdev->dev.of_node,
 				"qcom,subsys-name", &subsys_name);
 	if (ret) {

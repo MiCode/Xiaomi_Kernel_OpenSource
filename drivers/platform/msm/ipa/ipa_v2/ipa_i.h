@@ -619,6 +619,7 @@ struct ipa_sys_context {
 	unsigned int len_rem;
 	unsigned int len_pad;
 	unsigned int len_partial;
+	bool drop_packet;
 	struct work_struct work;
 	void (*sps_callback)(struct sps_event_notify *notify);
 	enum sps_option sps_option;
@@ -1110,10 +1111,12 @@ struct ipa_uc_wdi_ctx {
  * @dec_clients: true if need to decrease active clients count
  * @eot_activity: represent EOT interrupt activity to determine to reset
  *  the inactivity timer
+ * @sps_pm_lock: Lock to protect the sps_pm functionality.
  */
 struct ipa_sps_pm {
 	atomic_t dec_clients;
 	atomic_t eot_activity;
+	struct mutex sps_pm_lock;
 };
 
 /**
@@ -1298,6 +1301,7 @@ struct ipa_context {
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool smmu_present;
+	bool smmu_s1_bypass;
 	unsigned long peer_bam_iova;
 	phys_addr_t peer_bam_pa;
 	u32 peer_bam_map_size;

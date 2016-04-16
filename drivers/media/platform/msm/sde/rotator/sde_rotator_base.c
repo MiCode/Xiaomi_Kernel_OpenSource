@@ -138,47 +138,16 @@ static bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
 	return clk_forced_on;
 }
 
-static void apply_dynamic_ot_limit(u32 *ot_lim,
-	struct sde_mdp_set_ot_params *params)
+u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	struct sde_mdp_format_params *fmt;
+	u32 ot_lim;
+	u32 is_yuv;
 	u32 res;
 
-	if (false == test_bit(SDE_QOS_OTLIM, mdata->sde_qos_map))
-		return;
-
-	res = params->width * params->height;
-
-	SDEROT_DBG("w:%d h:%d rot:%d yuv:%d wb:%d res:%d\n",
-		params->width, params->height, params->is_rot,
-		params->is_yuv, params->is_wb, res);
-
-	if ((params->is_rot && params->is_yuv) ||
-		params->is_wb) {
-		if (res <= RES_1080p) {
-			*ot_lim = 2;
-		} else if (res <= RES_UHD) {
-			if (params->is_rot && params->is_yuv)
-				*ot_lim = 8;
-			else
-				*ot_lim = 16;
-		}
-	}
-}
-
-static u32 get_ot_limit(u32 reg_off, u32 bit_off,
-	struct sde_mdp_set_ot_params *params)
-{
-	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
-	u32 ot_lim = 0;
-	u32 val;
-
-	if (mdata->default_ot_wr_limit &&
-		(params->reg_off_vbif_lim_conf == MMSS_VBIF_WR_LIM_CONF))
-		ot_lim = mdata->default_ot_wr_limit;
-	else if (mdata->default_ot_rd_limit &&
-		(params->reg_off_vbif_lim_conf == MMSS_VBIF_RD_LIM_CONF))
-		ot_lim = mdata->default_ot_rd_limit;
+	ot_lim = (is_rd) ? mdata->default_ot_rd_limit :
+				mdata->default_ot_wr_limit;
 
 	/*
 	 * If default ot is not set from dt,
@@ -188,7 +157,56 @@ static u32 get_ot_limit(u32 reg_off, u32 bit_off,
 		goto exit;
 
 	/* Modify the limits if the target and the use case requires it */
-	apply_dynamic_ot_limit(&ot_lim, params);
+	if (false == test_bit(SDE_QOS_OTLIM, mdata->sde_qos_map))
+		goto exit;
+
+	res = width * height;
+
+	fmt = sde_get_format_params(pixfmt);
+
+	if (!fmt) {
+		SDEROT_WARN("invalid format %8.8x\n", pixfmt);
+		goto exit;
+	}
+
+	is_yuv = sde_mdp_is_yuv_format(fmt);
+
+	SDEROT_DBG("w:%d h:%d fps:%d pixfmt:%8.8x yuv:%d res:%d rd:%d\n",
+		width, height, fps, pixfmt, is_yuv, res, is_rd);
+
+	if (!is_yuv)
+		goto exit;
+
+	if ((res <= RES_1080p) && (fps <= 30))
+		ot_lim = 2;
+	else if ((res <= RES_1080p) && (fps <= 60))
+		ot_lim = 4;
+	else if ((res <= RES_UHD) && (fps <= 30))
+		ot_lim = 8;
+
+exit:
+	SDEROT_DBG("ot_lim=%d\n", ot_lim);
+	return ot_lim;
+}
+
+static u32 get_ot_limit(u32 reg_off, u32 bit_off,
+	struct sde_mdp_set_ot_params *params)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	u32 ot_lim;
+	u32 val;
+
+	ot_lim = sde_mdp_get_ot_limit(
+			params->width, params->height,
+			params->fmt, params->fps,
+			params->reg_off_vbif_lim_conf == MMSS_VBIF_RD_LIM_CONF);
+
+	/*
+	 * If default ot is not set from dt,
+	 * then do not configure it.
+	 */
+	if (ot_lim == 0)
+		goto exit;
 
 	val = SDE_VBIF_READ(mdata, reg_off);
 	val &= (0xFF << bit_off);

@@ -664,19 +664,19 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 		unsigned long *iova)
 {
 	/* support for SMMU on WLAN but no SMMU on IPA */
-	if (wlan_smmu_en && !ipa3_ctx->smmu_present) {
+	if (wlan_smmu_en && ipa3_ctx->smmu_s1_bypass) {
 		IPAERR("Unsupported SMMU pairing\n");
 		return -EINVAL;
 	}
 
 	/* legacy: no SMMUs on either end */
-	if (!wlan_smmu_en && !ipa3_ctx->smmu_present) {
+	if (!wlan_smmu_en && ipa3_ctx->smmu_s1_bypass) {
 		*iova = pa;
 		return 0;
 	}
 
 	/* no SMMU on WLAN but SMMU on IPA */
-	if (!wlan_smmu_en && ipa3_ctx->smmu_present) {
+	if (!wlan_smmu_en && !ipa3_ctx->smmu_s1_bypass) {
 		if (ipa_create_uc_smmu_mapping_pa(pa, len,
 			(res_idx == IPA_WDI_CE_DB_RES) ? true : false, iova)) {
 			IPAERR("Fail to create mapping res %d\n", res_idx);
@@ -687,7 +687,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	}
 
 	/* SMMU on WLAN and SMMU on IPA */
-	if (wlan_smmu_en && ipa3_ctx->smmu_present) {
+	if (wlan_smmu_en && !ipa3_ctx->smmu_s1_bypass) {
 		switch (res_idx) {
 		case IPA_WDI_RX_RING_RP_RES:
 		case IPA_WDI_RX_COMP_RING_WP_RES:
@@ -801,26 +801,32 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 				&in->u.dl.ce_door_bell_pa);
 		IPADBG("num_tx_buffers=%d\n", in->u.dl.num_tx_buffers);
 	} else {
-		if (ipa3_ctx->ipa_wdi2)
+		if (ipa3_ctx->ipa_wdi2) {
+			/* WDI2.0 feature */
 			cmd.size = sizeof(*rx_2);
-		else
+			IPADBG("rdy_ring_rp value =%d\n",
+			*in->u.ul.rdy_ring_rp_va);
+			IPADBG("rx_comp_ring_wp value=%d\n",
+			*in->u.ul.rdy_comp_ring_wp_va);
+			ipa3_ctx->uc_ctx.rdy_ring_rp_va =
+				in->u.ul.rdy_ring_rp_va;
+			ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va =
+				in->u.ul.rdy_comp_ring_wp_va;
+		} else {
 			cmd.size = sizeof(*rx);
+		}
 		IPADBG("rx_ring_base_pa=0x%pa\n",
 			&in->u.ul.rdy_ring_base_pa);
 		IPADBG("rx_ring_size=%d\n",
 			in->u.ul.rdy_ring_size);
 		IPADBG("rx_ring_rp_pa=0x%pa\n",
 			&in->u.ul.rdy_ring_rp_pa);
-		IPADBG("rdy_ring_rp value =%d\n",
-			*in->u.ul.rdy_ring_rp_va);
 		IPADBG("rx_comp_ring_base_pa=0x%pa\n",
 			&in->u.ul.rdy_comp_ring_base_pa);
 		IPADBG("rx_comp_ring_size=%d\n",
 			in->u.ul.rdy_comp_ring_size);
 		IPADBG("rx_comp_ring_wp_pa=0x%pa\n",
 			&in->u.ul.rdy_comp_ring_wp_pa);
-		IPADBG("rx_comp_ring_wp value=%d\n",
-			*in->u.ul.rdy_comp_ring_wp_va);
 		ipa3_ctx->uc_ctx.rdy_ring_base_pa =
 			in->u.ul.rdy_ring_base_pa;
 		ipa3_ctx->uc_ctx.rdy_ring_rp_pa =
@@ -833,10 +839,6 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 			in->u.ul.rdy_comp_ring_wp_pa;
 		ipa3_ctx->uc_ctx.rdy_comp_ring_size =
 			in->u.ul.rdy_comp_ring_size;
-		ipa3_ctx->uc_ctx.rdy_ring_rp_va =
-			in->u.ul.rdy_ring_rp_va;
-		ipa3_ctx->uc_ctx.rdy_comp_ring_wp_va =
-			in->u.ul.rdy_comp_ring_wp_va;
 		/* check if the VA is empty */
 		if (!in->u.ul.rdy_ring_rp_va && ipa3_ctx->ipa_wdi2) {
 			IPAERR("rdy_ring_rp_va is empty, wdi2.0(%d)\n",

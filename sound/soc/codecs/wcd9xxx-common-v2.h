@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -136,6 +136,12 @@ struct vbat_monitor_reg {
 	u32 writes[MAX_VBAT_MONITOR_WRITES];
 } __packed;
 
+struct wcd_reg_mask_val {
+	u16	reg;
+	u8	mask;
+	u8	val;
+};
+
 extern void wcd_clsh_fsm(struct snd_soc_codec *codec,
 		struct wcd_clsh_cdc_data *cdc_clsh_d,
 		u8 clsh_event, u8 req_state,
@@ -143,6 +149,8 @@ extern void wcd_clsh_fsm(struct snd_soc_codec *codec,
 
 extern void wcd_clsh_init(struct wcd_clsh_cdc_data *clsh);
 extern int wcd_clsh_get_clsh_state(struct wcd_clsh_cdc_data *clsh);
+extern void wcd_clsh_imped_config(struct snd_soc_codec *codec, int imped,
+		bool reset);
 
 enum {
 	RESERVED = 0,

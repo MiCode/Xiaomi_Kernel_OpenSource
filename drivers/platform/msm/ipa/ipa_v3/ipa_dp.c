@@ -1219,7 +1219,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.desc.size = sys_in->desc_fifo_sz;
 		ep->connect.desc.base = dma_alloc_coherent(ipa3_ctx->pdev,
 				ep->connect.desc.size, &dma_addr, 0);
-		if (!ipa3_ctx->smmu_present) {
+		if (ipa3_ctx->smmu_s1_bypass) {
 			ep->connect.desc.phys_base = dma_addr;
 		} else {
 			ep->connect.desc.iova = dma_addr;
@@ -2225,7 +2225,6 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 	int pad_len_byte;
 	int len;
 	unsigned char *buf;
-	bool drop_packet;
 	int src_pipe;
 	unsigned int used = *(unsigned int *)skb->cb;
 	unsigned int used_align = ALIGN(used, 32);
@@ -2247,6 +2246,7 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 		memcpy(buf, sys->prev_skb->data, sys->len_partial);
 		sys->len_partial = 0;
 		sys->free_skb(sys->prev_skb);
+		sys->prev_skb = NULL;
 		goto begin;
 	}
 
@@ -2266,9 +2266,13 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 						skb2->len - sys->len_pad);
 					skb2->truesize = skb2->len +
 						sizeof(struct sk_buff);
-					sys->ep->client_notify(sys->ep->priv,
-						IPA_RECEIVE,
-						(unsigned long)(skb2));
+					if (sys->drop_packet)
+						dev_kfree_skb_any(skb2);
+					else
+						sys->ep->client_notify(
+							sys->ep->priv,
+							IPA_RECEIVE,
+							(unsigned long)(skb2));
 				} else {
 					IPAERR("copy expand failed\n");
 				}
@@ -2300,7 +2304,7 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 begin:
 	pkt_status_sz = ipahal_pkt_status_get_size();
 	while (skb->len) {
-		drop_packet = false;
+		sys->drop_packet = false;
 		IPADBG_LOW("LEN_REM %d\n", skb->len);
 
 		if (skb->len < pkt_status_sz) {
@@ -2339,9 +2343,11 @@ begin:
 		IPA_STATS_EXCP_CNT(status.exception,
 				ipa3_ctx->stats.rx_excp_pkts);
 		if (status.endp_dest_idx >= ipa3_ctx->ipa_num_pipes ||
-			status.endp_src_idx >= ipa3_ctx->ipa_num_pipes ||
-			status.pkt_len > IPA_GENERIC_AGGR_BYTE_LIMIT * 1024) {
+			status.endp_src_idx >= ipa3_ctx->ipa_num_pipes) {
 			IPAERR("status fields invalid\n");
+			IPAERR("STATUS opcode=%d src=%d dst=%d len=%d\n",
+				status.status_opcode, status.endp_src_idx,
+				status.endp_dest_idx, status.pkt_len);
 			WARN_ON(1);
 			BUG();
 		}
@@ -2389,7 +2395,7 @@ begin:
 			if (status.exception ==
 				IPAHAL_PKT_STATUS_EXCEPTION_NONE &&
 				status.rt_rule_id == IPA_RULE_ID_INVALID)
-				drop_packet = true;
+				sys->drop_packet = true;
 
 			if (skb->len == pkt_status_sz &&
 				status.exception ==
@@ -2413,8 +2419,7 @@ begin:
 					IPAHAL_PKT_STATUS_EXCEPTION_DEAGGR) {
 				IPADBG_LOW(
 					"Dropping packet on DeAggr Exception\n");
-				skb_pull(skb, len + pkt_status_sz);
-				continue;
+				sys->drop_packet = true;
 			}
 
 			skb2 = ipa3_skb_copy_for_client(skb,
@@ -2433,9 +2438,20 @@ begin:
 							pkt_status_sz);
 					IPADBG_LOW("rx avail for %d\n",
 							status.endp_dest_idx);
-					if (drop_packet)
+					if (sys->drop_packet) {
 						dev_kfree_skb_any(skb2);
-					else {
+					} else if (status.pkt_len >
+						   IPA_GENERIC_AGGR_BYTE_LIMIT *
+						   1024) {
+						IPAERR("packet size invalid\n");
+						IPAERR("STATUS opcode=%d\n",
+							status.status_opcode);
+						IPAERR("src=%d dst=%d len=%d\n",
+							status.endp_src_idx,
+							status.endp_dest_idx,
+							status.pkt_len);
+						BUG();
+					} else {
 					skb2->truesize = skb2->len +
 						sizeof(struct sk_buff) +
 						(ALIGN(len +
@@ -3557,6 +3573,7 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 {
 	struct gsi_evt_ring_props gsi_evt_ring_props;
 	struct gsi_chan_props gsi_channel_props;
+	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa_gsi_ep_config *gsi_ep_info;
 	dma_addr_t dma_addr;
 	int result;
@@ -3656,6 +3673,16 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 		&ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS)
 		goto fail_alloc_channel;
+
+	memset(&ch_scratch, 0, sizeof(ch_scratch));
+	ch_scratch.gpi.max_outstanding_tre = gsi_ep_info->ipa_if_tlv *
+		GSI_CHAN_RE_SIZE_16B;
+	ch_scratch.gpi.outstanding_threshold = 2 * GSI_CHAN_RE_SIZE_16B;
+	result = gsi_write_channel_scratch(ep->gsi_chan_hdl, ch_scratch);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("failed to write scratch %d\n", result);
+		goto fail_start_channel;
+	}
 
 	result = gsi_start_channel(ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS)

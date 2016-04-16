@@ -635,6 +635,7 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_ASPECT_RATIO:
 	case HAL_EXTRADATA_INPUT_CROP:
 	case HAL_EXTRADATA_DIGITAL_ZOOM:
+	case HAL_EXTRADATA_OUTPUT_CROP:
 		ret = HFI_PROPERTY_PARAM_INDEX_EXTRADATA;
 		break;
 	case HAL_EXTRADATA_MPEG2_SEQDISP:
@@ -683,6 +684,9 @@ static int get_hfi_extradata_id(enum hal_extradata_id index)
 		break;
 	case HAL_EXTRADATA_DIGITAL_ZOOM:
 		ret = MSM_VIDC_EXTRADATA_DIGITAL_ZOOM;
+		break;
+	case HAL_EXTRADATA_OUTPUT_CROP:
+		ret = MSM_VIDC_EXTRADATA_OUTPUT_CROP;
 		break;
 	default:
 		ret = get_hfi_extradata_index(index);
@@ -2068,6 +2072,14 @@ int create_pkt_cmd_session_set_property(
 	{
 		create_pkt_enable(pkt->rg_property_data,
 			HFI_PROPERTY_PARAM_VENC_BITRATE_TYPE,
+			((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+		break;
+	}
+	case HAL_PARAM_VENC_CONSTRAINED_INTRA_PRED:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_CONSTRAINED_INTRA_PRED,
 			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 
 struct msm_ba_dev *get_ba_dev(void);
 void msm_ba_queue_v4l2_event(struct msm_ba_inst *inst,
-		const struct v4l2_event *sd_event);
+		struct v4l2_event *sd_event);
 struct v4l2_subdev *msm_ba_sd_find(const char *name);
 void msm_ba_add_inputs(struct v4l2_subdev *sd);
 void msm_ba_del_inputs(struct v4l2_subdev *sd);

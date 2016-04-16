@@ -46,7 +46,7 @@
 		reloc_mem: reloc_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x8d600000 0x0 0x1b00000>;
+			reg = <0x0 0x8d600000 0x0 0x1800000>;
 		};
 
 		venus_mem: venus_region@0 {
@@ -490,7 +490,7 @@
 		qcom,hotplug-temp-hysteresis = <15>;
 		qcom,freq-mitigation-temp = <105>;
 		qcom,freq-mitigation-temp-hysteresis = <15>;
-		qcom,freq-mitigation-value = <800000>;
+		qcom,freq-mitigation-value = <1036800>;
 		qcom,therm-reset-temp = <115>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
@@ -2141,7 +2141,7 @@
 
 	ssphy: ssphy@78000 {
 		compatible = "qcom,usb-ssphy-qmp";
-		reg = <0x78000 0x45c>,
+		reg = <0x78000 0x9f8>,
 		      <0x0193f244 0x4>,
 		      <0x0193f044 0x4>;
 		reg-names = "qmp_phy_base",

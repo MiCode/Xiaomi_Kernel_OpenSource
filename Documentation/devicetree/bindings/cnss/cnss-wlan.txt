@@ -42,6 +42,8 @@ Optional properties:
   - reg-names: Names of the memory regions defined in reg entry
   - wlan-bootstrap-gpio: WLAN_BOOTSTRAP GPIO signal specified by QCA6174
                          which should be drived depending on platforms
+  - qcom,is-dual-wifi-enabled: Boolean property to control wlan enable(wlan-en)
+                               gpio on dual-wifi platforms.
 
 Example:
 

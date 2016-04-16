@@ -203,6 +203,7 @@ struct platform_device *ipa_pdev;
 static bool smmu_present;
 static bool arm_smmu;
 static bool smmu_disable_htw;
+static bool smmu_s1_bypass;
 
 static char *active_clients_table_buf;
 
@@ -3472,6 +3473,7 @@ static int apps_cons_request_resource(void)
 
 static void ipa_sps_release_resource(struct work_struct *work)
 {
+	mutex_lock(&ipa_ctx->sps_pm.sps_pm_lock);
 	/* check whether still need to decrease client usage */
 	if (atomic_read(&ipa_ctx->sps_pm.dec_clients)) {
 		if (atomic_read(&ipa_ctx->sps_pm.eot_activity)) {
@@ -3483,6 +3485,7 @@ static void ipa_sps_release_resource(struct work_struct *work)
 		}
 	}
 	atomic_set(&ipa_ctx->sps_pm.eot_activity, 0);
+	mutex_unlock(&ipa_ctx->sps_pm.sps_pm_lock);
 }
 
 int ipa_create_apps_resource(void)
@@ -3570,6 +3573,10 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->pdev = ipa_dev;
 	ipa_ctx->uc_pdev = ipa_dev;
 	ipa_ctx->smmu_present = smmu_present;
+	if (!ipa_ctx->smmu_present)
+		ipa_ctx->smmu_s1_bypass = true;
+	else
+		ipa_ctx->smmu_s1_bypass = smmu_s1_bypass;
 	ipa_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa_ctx->ipa_hw_mode = resource_p->ipa_hw_mode;
@@ -3707,7 +3714,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		bam_props.options |= SPS_BAM_OPT_IRQ_WAKEUP;
 	if (ipa_ctx->ipa_bam_remote_mode == true)
 		bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
-	if (ipa_ctx->smmu_present)
+	if (!ipa_ctx->smmu_s1_bypass)
 		bam_props.options |= SPS_BAM_SMMU_EN;
 	bam_props.options |= SPS_BAM_CACHED_WP;
 	bam_props.ee = resource_p->ee;
@@ -3940,6 +3947,9 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	/* Create a wakeup source. */
 	wakeup_source_init(&ipa_ctx->w_lock, "IPA_WS");
 	spin_lock_init(&ipa_ctx->wakelock_ref_cnt.spinlock);
+
+	/* Initialize the SPS PM lock. */
+	mutex_init(&ipa_ctx->sps_pm.sps_pm_lock);
 
 	/* Initialize IPA RM (resource manager) */
 	result = ipa_rm_initialize();
@@ -4238,6 +4248,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_WLAN];
 	int disable_htw = 1;
 	int atomic_ctx = 1;
+	int bypass = 1;
 	int ret;
 
 	IPADBG("sub pdev=%p\n", dev);
@@ -4260,27 +4271,43 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 		}
 	}
 
-	if (iommu_domain_set_attr(cb->iommu,
-				DOMAIN_ATTR_ATOMIC,
-				&atomic_ctx)) {
-		IPAERR("couldn't disable coherent HTW\n");
-		return -EIO;
+	if (smmu_s1_bypass) {
+		if (iommu_domain_set_attr(cb->iommu,
+			DOMAIN_ATTR_S1_BYPASS,
+			&bypass)) {
+			IPAERR("couldn't set bypass\n");
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU S1 BYPASS\n");
+	} else {
+		if (iommu_domain_set_attr(cb->iommu,
+			DOMAIN_ATTR_ATOMIC,
+			&atomic_ctx)) {
+			IPAERR("couldn't set domain as atomic\n");
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU atomic set\n");
 	}
 
 	ret = iommu_attach_device(cb->iommu, dev);
 	if (ret) {
 		IPAERR("could not attach device ret=%d\n", ret);
+		cb->valid = false;
 		return ret;
 	}
 
-	IPAERR("map IPA region to WLAN_CB IOMMU\n");
-	ret = iommu_map(cb->iommu, 0x680000, 0x680000,
+	if (!smmu_s1_bypass) {
+		IPAERR("map IPA region to WLAN_CB IOMMU\n");
+		ret = iommu_map(cb->iommu, 0x680000, 0x680000,
 			0x64000,
 			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
-	if (ret) {
-		IPAERR("map IPA to WLAN_CB IOMMU failed ret=%d\n",
-			ret);
-		return ret;
+		if (ret) {
+			IPAERR("map IPA to WLAN_CB IOMMU failed ret=%d\n",
+				ret);
+			return ret;
+		}
 	}
 
 	cb->valid = true;
@@ -4293,6 +4320,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_UC];
 	int disable_htw = 1;
 	int ret;
+	int bypass = 1;
 
 	IPADBG("sub pdev=%p\n", dev);
 
@@ -4320,10 +4348,25 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		}
 	}
 
+	IPADBG("UC CB PROBE sub pdev=%p set attribute\n", dev);
+	if (smmu_s1_bypass) {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+			DOMAIN_ATTR_S1_BYPASS,
+			&bypass)) {
+			IPAERR("couldn't set bypass\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU S1 BYPASS\n");
+	}
 
+	IPADBG("UC CB PROBE sub pdev=%p attaching IOMMU device\n", dev);
 	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (ret) {
 		IPAERR("could not attach device ret=%d\n", ret);
+		arm_iommu_release_mapping(cb->mapping);
+		cb->valid = false;
 		return ret;
 	}
 
@@ -4331,6 +4374,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	cb->next_addr = IPA_SMMU_UC_VA_END;
 	ipa_ctx->uc_pdev = dev;
 
+	IPADBG("UC CB PROBE pdev=%p attached\n", dev);
 	return 0;
 }
 
@@ -4340,6 +4384,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	int result;
 	int disable_htw = 1;
 	int atomic_ctx = 1;
+	int bypass = 1;
 
 	IPADBG("sub pdev=%p\n", dev);
 
@@ -4358,15 +4403,6 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		return -EPROBE_DEFER;
 	}
 
-	IPAERR("map IPA region to AP_CB IOMMU\n");
-	result = iommu_map(cb->mapping->domain, 0x680000, 0x680000,
-		0x64000,
-			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
-	if (result) {
-		IPAERR("map IPA region to AP_CB IOMMU failed ret=%d\n",
-			result);
-		return result;
-	}
 
 	if (smmu_disable_htw) {
 		if (iommu_domain_set_attr(cb->mapping->domain,
@@ -4378,12 +4414,36 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		}
 	}
 
-	if (iommu_domain_set_attr(cb->mapping->domain,
-				  DOMAIN_ATTR_ATOMIC,
-				  &atomic_ctx)) {
-		IPAERR("couldn't set domain as atomic\n");
-		arm_iommu_detach_device(cb->dev);
-		return -EIO;
+	if (smmu_s1_bypass) {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+			DOMAIN_ATTR_S1_BYPASS,
+			&bypass)) {
+			IPAERR("couldn't set bypass\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU S1 BYPASS\n");
+	} else {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+			DOMAIN_ATTR_ATOMIC,
+			&atomic_ctx)) {
+			IPAERR("couldn't set domain as atomic\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU atomic set\n");
+
+		IPADBG("map IPA region to AP_CB IOMMU\n");
+		result = iommu_map(cb->mapping->domain, 0x680000, 0x680000,
+			0x64000,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+		if (result) {
+			IPAERR("map IPA region to AP_CB IOMMU failed ret=%d\n",
+				result);
+			return result;
+		}
 	}
 
 	result = arm_iommu_attach_device(cb->dev, cb->mapping);
@@ -4444,6 +4504,9 @@ int ipa_plat_drv_probe(struct platform_device *pdev_p,
 	}
 
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
+		if (of_property_read_bool(pdev_p->dev.of_node,
+		    "qcom,smmu-s1-bypass"))
+			smmu_s1_bypass = true;
 		arm_smmu = true;
 		result = of_platform_populate(pdev_p->dev.of_node,
 				pdrv_match, NULL, &pdev_p->dev);

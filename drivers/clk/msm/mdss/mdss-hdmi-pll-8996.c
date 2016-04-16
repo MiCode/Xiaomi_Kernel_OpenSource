@@ -2607,6 +2607,7 @@ static struct hdmi_pll_vco_clk hdmi_vco_clk = {
 	.c = {
 		.dbg_name = "hdmi_8996_vco_clk",
 		.ops = &hdmi_8996_v1_vco_clk_ops,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(hdmi_vco_clk.c),
 	},
 };

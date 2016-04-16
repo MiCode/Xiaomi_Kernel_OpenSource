@@ -104,6 +104,12 @@ Platform independent properties:
 		    must be specified.  "ceiling" may be specified for some
 		    platforms.
 
+- qcom,cpr-interrupt-affinity
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of CPU phandles which correspond to the cores that
+		    the "cpr" interrupt should have affinity for.
+
 - qcom,cpr-sensor-time
 	Usage:      required
 	Value type: <u32>

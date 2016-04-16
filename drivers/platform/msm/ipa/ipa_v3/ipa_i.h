@@ -714,6 +714,7 @@ struct ipa3_sys_context {
 	unsigned int len_rem;
 	unsigned int len_pad;
 	unsigned int len_partial;
+	bool drop_packet;
 	struct work_struct work;
 	void (*sps_callback)(struct sps_event_notify *notify);
 	enum sps_option sps_option;
@@ -1553,6 +1554,7 @@ struct ipa3_context {
 	u32 ee;
 	bool apply_rg10_wa;
 	bool smmu_present;
+	bool smmu_s1_bypass;
 	unsigned long peer_bam_iova;
 	phys_addr_t peer_bam_pa;
 	u32 peer_bam_map_size;

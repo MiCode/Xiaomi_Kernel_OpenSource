@@ -21,6 +21,7 @@
 #include "wcd9xxx-common-v2.h"
 
 #define WCD_USLEEP_RANGE 50
+#define MAX_IMPED_PARAMS 6
 
 enum {
 	DAC_GAIN_0DB = 0,
@@ -49,9 +50,160 @@ enum {
 	DELTA_I_50MA,
 };
 
+struct wcd_imped_val {
+	u32 imped_val;
+	u8 index;
+};
+
+static const struct wcd_reg_mask_val imped_table[][MAX_IMPED_PARAMS] = {
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xf5},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xf5},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xf5},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xf5},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xf7},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xf7},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xf7},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xf7},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xf9},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xf9},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x0},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xf9},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xf9},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x0},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfa},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfa},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xfa},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfa},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfb},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfb},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xfb},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfb},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfc},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfc},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xfc},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfc},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xfd},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfd},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xfe},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xfe},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x01},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xfe},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xfe},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x01},
+	},
+	{
+		{WCD9XXX_CDC_RX1_RX_VOL_CTL, 0xff, 0xff},
+		{WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL, 0xff, 0xff},
+		{WCD9XXX_CDC_RX1_RX_PATH_SEC1, 0x01, 0x00},
+		{WCD9XXX_CDC_RX2_RX_VOL_CTL , 0xff, 0xff},
+		{WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL, 0xff, 0xff},
+		{WCD9XXX_CDC_RX2_RX_PATH_SEC1, 0x01, 0x00},
+	},
+};
+
+static const struct wcd_imped_val imped_index[] = {
+	{4, 0},
+	{5, 1},
+	{6, 2},
+	{7, 3},
+	{8, 4},
+	{9, 5},
+	{10, 6},
+	{11, 7},
+	{12, 8},
+	{13, 9},
+};
+
 static void (*clsh_state_fp[NUM_CLSH_STATES_V2])(struct snd_soc_codec *,
 					      struct wcd_clsh_cdc_data *,
 					      u8 req_state, bool en, int mode);
+
+static int get_impedance_index(int imped)
+{
+	int i = 0;
+
+	if (imped < imped_index[i].imped_val) {
+		pr_debug("%s, detected impedance is less than 4 Ohm\n",
+				__func__);
+		i = 0;
+		goto ret;
+	}
+	if (imped >= imped_index[ARRAY_SIZE(imped_index) - 1].imped_val) {
+		pr_debug("%s, detected impedance is greater than 12 Ohm\n",
+				__func__);
+		i = ARRAY_SIZE(imped_index) - 1;
+		goto ret;
+	}
+	for (i = 0; i < ARRAY_SIZE(imped_index) - 1; i++) {
+		if (imped >= imped_index[i].imped_val &&
+			imped < imped_index[i + 1].imped_val)
+			break;
+	}
+ret:
+	pr_debug("%s: selected impedance index = %d\n",
+			__func__, imped_index[i].index);
+	return imped_index[i].index;
+}
+
+/*
+ * Function: wcd_clsh_imped_config
+ * Params: codec, imped, reset
+ * Description:
+ * This function updates HPHL and HPHR gain settings
+ * according to the impedance value.
+ */
+void wcd_clsh_imped_config(struct snd_soc_codec *codec, int imped, bool reset)
+{
+	int i;
+	int index = 0;
+
+	/* reset = 1, which means request is to reset the register values */
+	if (reset) {
+		for (i = 0; i < MAX_IMPED_PARAMS; i++)
+			snd_soc_update_bits(codec, imped_table[index][i].reg,
+				imped_table[index][i].mask, 0);
+		return;
+	}
+	index = get_impedance_index(imped);
+	if (index >= ARRAY_SIZE(imped_index)) {
+		pr_debug("%s, impedance not in range = %d\n", __func__, imped);
+		return;
+	}
+	for (i = 0; i < MAX_IMPED_PARAMS; i++)
+		snd_soc_update_bits(codec, imped_table[index][i].reg,
+				imped_table[index][i].mask,
+				imped_table[index][i].val);
+}
+EXPORT_SYMBOL(wcd_clsh_imped_config);
 
 static bool is_native_44_1_active(struct snd_soc_codec *codec)
 {

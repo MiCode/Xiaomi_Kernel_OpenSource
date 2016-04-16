@@ -423,6 +423,8 @@
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pmdcalifornium_gpios 8 0>; /* BT_EN */
 		qca,bt-vdd-pa-supply = <&rome_vreg>;
+		qca,bt-vdd-xtal-supply = <&pmdcalifornium_l4>;
+		qca,bt-vdd-core-supply = <&pmdcalifornium_l5>;
 	};
 
 	qcom,sps {
@@ -844,7 +846,7 @@
 		qcom,sensor-id = <0 1 2 3 6>;
 	};
 
-	qcom,cnss {
+	cnss_pcie: qcom,cnss {
 		compatible = "qcom,cnss";
 		wlan-en-gpio = <&tlmm_pinmux 95 0>;
 		vdd-wlan-supply = <&rome_vreg>;
@@ -870,7 +872,7 @@
 				<45 512 207108 1146880>, <1 512 207108 3124992>;
 	};
 
-	qcom,cnss_sdio {
+	cnss_sdio: qcom,cnss_sdio {
 		compatible = "qcom,cnss_sdio";
 		subsys-name = "AR6320_SDIO";
 		vdd-wlan-supply = <&rome_vreg>;

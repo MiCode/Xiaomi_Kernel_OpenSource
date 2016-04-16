@@ -2183,10 +2183,6 @@ extern void do_set_cpus_allowed(struct task_struct *p,
 
 extern int set_cpus_allowed_ptr(struct task_struct *p,
 				const struct cpumask *new_mask);
-extern void sched_set_cpu_cstate(int cpu, int cstate,
-			 int wakeup_energy, int wakeup_latency);
-extern void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
-				int wakeup_energy, int wakeup_latency);
 #else
 static inline void do_set_cpus_allowed(struct task_struct *p,
 				      const struct cpumask *new_mask)
@@ -2198,15 +2194,6 @@ static inline int set_cpus_allowed_ptr(struct task_struct *p,
 	if (!cpumask_test_cpu(0, new_mask))
 		return -EINVAL;
 	return 0;
-}
-static inline void
-sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
-{
-}
-
-static inline void sched_set_cluster_dstate(const cpumask_t *cluster_cpus,
-			int dstate, int wakeup_energy, int wakeup_latency)
-{
 }
 #endif
 
@@ -2224,6 +2211,10 @@ extern int sched_set_static_cpu_pwr_cost(int cpu, unsigned int cost);
 extern unsigned int sched_get_static_cpu_pwr_cost(int cpu);
 extern int sched_set_static_cluster_pwr_cost(int cpu, unsigned int cost);
 extern unsigned int sched_get_static_cluster_pwr_cost(int cpu);
+extern void sched_set_cpu_cstate(int cpu, int cstate,
+			 int wakeup_energy, int wakeup_latency);
+extern void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
+				int wakeup_energy, int wakeup_latency);
 #ifdef CONFIG_SCHED_QHMP
 extern int sched_set_cpu_prefer_idle(int cpu, int prefer_idle);
 extern int sched_get_cpu_prefer_idle(int cpu);
@@ -2240,6 +2231,15 @@ extern unsigned int sched_get_cpu_mostly_idle_freq(int cpu);
 static inline int sched_set_boost(int enable)
 {
 	return -EINVAL;
+}
+static inline void
+sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
+{
+}
+
+static inline void sched_set_cluster_dstate(const cpumask_t *cluster_cpus,
+			int dstate, int wakeup_energy, int wakeup_latency)
+{
 }
 #endif
 

@@ -1217,6 +1217,9 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 	return 0;
 }
 
+static inline void
+add_new_task_to_grp(struct task_struct *new) {}
+
 #endif	/* CONFIG_SCHED_HMP */
 
 /*
@@ -1318,6 +1321,7 @@ extern int sched_boost(void);
 
 #define sched_enable_hmp 0
 #define sched_freq_legacy_mode 1
+#define sched_use_pelt 1
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 static inline void pre_big_task_count_change(void) { }

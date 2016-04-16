@@ -94,8 +94,6 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8937")
 #define early_machine_is_msm8996()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996")
-#define early_machine_is_msm8996_auto()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996-cdp")
 #define early_machine_is_msm8929()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8929")
 #define early_machine_is_mdm9607()	\

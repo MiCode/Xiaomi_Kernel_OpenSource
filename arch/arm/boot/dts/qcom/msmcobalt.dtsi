@@ -1692,6 +1692,14 @@
 		qcom,qsee-reentrancy-support = <2>;
 	};
 
+	qcom_tzlog: tz-log@146BF720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146BF720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>; /* 0x066BFB30 */
+		hyplog-size-offset = <0x414>;    /* 0x066BFB34 */
+	};
+
 	mitigation_profile0: qcom,limit_info-0 {
 		qcom,temperature-sensor = <&sensor_information1>;
 		qcom,boot-frequency-mitigate;

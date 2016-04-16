@@ -131,6 +131,10 @@ struct sde_mdp_pipe *sde_mdp_pipe_assign(struct sde_rot_data_type *mdata,
 	static struct sde_mdp_pipe sde_pipe[16];
 	static const u32 offset[] = {0x00025000, 0x00027000};
 	static const u32 xin_id[] = {2, 10};
+	static const struct sde_mdp_shared_reg_ctrl clk_ctrl[] = {
+		{0x2AC, 8},
+		{0x2B4, 8}
+	};
 
 	if (ndx >= ARRAY_SIZE(offset)) {
 		SDEROT_ERR("invalid parameters\n");
@@ -144,6 +148,7 @@ struct sde_mdp_pipe *sde_mdp_pipe_assign(struct sde_rot_data_type *mdata,
 	pipe->base = mdata->sde_io.base + pipe->offset;
 	pipe->type = SDE_MDP_PIPE_TYPE_DMA;
 	pipe->mixer_left = mixer;
+	pipe->clk_ctrl = clk_ctrl[pipe->num - SDE_MDP_SSPP_DMA0];
 
 	return pipe;
 }
@@ -343,6 +348,24 @@ static int sde_mdp_src_addr_setup(struct sde_mdp_pipe *pipe,
 	return 0;
 }
 
+static void sde_mdp_set_ot_limit_pipe(struct sde_mdp_pipe *pipe)
+{
+	struct sde_mdp_set_ot_params ot_params;
+
+	ot_params.xin_id = pipe->xin_id;
+	ot_params.num = pipe->num;
+	ot_params.width = pipe->src.w;
+	ot_params.height = pipe->src.h;
+	ot_params.fps = 60;
+	ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_RD_LIM_CONF;
+	ot_params.reg_off_mdp_clk_ctrl = pipe->clk_ctrl.reg_off;
+	ot_params.bit_off_mdp_clk_ctrl = pipe->clk_ctrl.bit_off +
+		CLK_FORCE_ON_OFFSET;
+	ot_params.fmt = (pipe->src_fmt) ? pipe->src_fmt->format : 0;
+
+	sde_mdp_set_ot_limit(&ot_params);
+}
+
 int sde_mdp_pipe_queue_data(struct sde_mdp_pipe *pipe,
 			     struct sde_mdp_data *src_data)
 {
@@ -390,6 +413,8 @@ int sde_mdp_pipe_queue_data(struct sde_mdp_pipe *pipe,
 
 		if (test_bit(SDE_QOS_PER_PIPE_LUT, mdata->sde_qos_map))
 			sde_mdp_pipe_qos_lut(pipe);
+
+		sde_mdp_set_ot_limit_pipe(pipe);
 	}
 
 	ret = sde_mdp_src_addr_setup(pipe, src_data);

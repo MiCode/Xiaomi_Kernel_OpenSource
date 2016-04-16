@@ -341,4 +341,13 @@
 #define WCD9XXX_CDC_RX2_RX_PATH_CTL			(0xB69)
 #define WCD9XXX_CDC_CLK_RST_CTRL_MCLK_CONTROL		(0xD41)
 #define WCD9XXX_CLASSH_CTRL_CCL_1                       (0x69C)
+
+/* RX Gain control registers of codecs from and above WCD9335 */
+#define WCD9XXX_CDC_RX1_RX_VOL_CTL			(0xB59)
+#define WCD9XXX_CDC_RX1_RX_VOL_MIX_CTL			(0xB5C)
+#define WCD9XXX_CDC_RX1_RX_PATH_SEC1			(0xB5E)
+#define WCD9XXX_CDC_RX2_RX_VOL_CTL			(0xB6D)
+#define WCD9XXX_CDC_RX2_RX_VOL_MIX_CTL			(0xB70)
+#define WCD9XXX_CDC_RX2_RX_PATH_SEC1			(0xB72)
+
 #endif
