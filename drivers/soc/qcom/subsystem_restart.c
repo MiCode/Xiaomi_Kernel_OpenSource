@@ -70,17 +70,20 @@ enum p_subsys_state {
 
 /**
  * enum subsys_state - state of a subsystem (public)
+ * @SUBSYS_OFFLINING: subsystem is offlining
  * @SUBSYS_OFFLINE: subsystem is offline
  * @SUBSYS_ONLINE: subsystem is online
  *
  * The 'public' side of the subsytem state, exposed to userspace.
  */
 enum subsys_state {
+	SUBSYS_OFFLINING,
 	SUBSYS_OFFLINE,
 	SUBSYS_ONLINE,
 };
 
 static const char * const subsys_states[] = {
+	[SUBSYS_OFFLINING] = "OFFLINING",
 	[SUBSYS_OFFLINE] = "OFFLINE",
 	[SUBSYS_ONLINE] = "ONLINE",
 };
@@ -728,6 +731,7 @@ static void subsys_stop(struct subsys_device *subsys)
 
 	if (!of_property_read_bool(subsys->desc->dev->of_node,
 					"qcom,pil-force-shutdown")) {
+		subsys_set_state(subsys, SUBSYS_OFFLINING);
 		subsys->desc->sysmon_shutdown_ret =
 				sysmon_send_shutdown(subsys->desc);
 		if (subsys->desc->sysmon_shutdown_ret)
