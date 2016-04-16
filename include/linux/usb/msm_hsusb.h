@@ -599,6 +599,8 @@ struct msm_hsic_host_platform_data {
 
 	/* gpio used to resume peripheral */
 	unsigned resume_gpio;
+	int *tlmm_init_seq;
+	int tlmm_seq_count;
 
 	/*swfi latency is required while driving resume on to the bus */
 	u32 swfi_latency;

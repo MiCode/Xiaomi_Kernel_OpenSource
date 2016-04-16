@@ -1,6 +1,6 @@
 /* ehci-msm-hsic.c - HSUSB Host Controller Driver Implementation
  *
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * Partly derived from ehci-fsl.c and ehci-hcd.c
  * Copyright (c) 2000-2004 by David Brownell
@@ -92,6 +92,7 @@ struct msm_hsic_hcd {
 	int			wakeup_irq;
 	bool			wakeup_irq_enabled;
 	int			async_irq;
+	void __iomem		*tlmm_regs;
 	uint32_t		async_int_cnt;
 	atomic_t		pm_usage_cnt;
 	uint32_t		bus_perf_client;
@@ -642,14 +643,7 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 	}
 }
 
-#define IOMEM(x)        ((void __force __iomem *)(x))
-#define MSM_TLMM_BASE                   IOMEM(0xFA017000)
-#define HSIC_STROBE_GPIO_PAD_CTL	(MSM_TLMM_BASE+0x20C0)
-#define HSIC_DATA_GPIO_PAD_CTL		(MSM_TLMM_BASE+0x20C4)
-#define HSIC_CAL_PAD_CTL       (MSM_TLMM_BASE+0x20C8)
-#define HSIC_LV_MODE		0x04
 #define HSIC_PAD_CALIBRATION	0xA8
-#define HSIC_GPIO_PAD_VAL	0x0A0AAA10
 #define LINK_RESET_TIMEOUT_USEC		(250 * 1000)
 
 static void msm_hsic_phy_reset(struct msm_hsic_hcd *mehci)
@@ -666,8 +660,8 @@ static void msm_hsic_phy_reset(struct msm_hsic_hcd *mehci)
 static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 {
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
-	int ret;
-	void __iomem *reg;
+	int ret, *seq, seq_count;
+	u32 val;
 
 	if (mehci->hsic_pinctrl) {
 		ret = msm_hsic_config_pinctrl(mehci, 1);
@@ -687,13 +681,22 @@ static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 	}
 
 	/* HSIC init sequence when HSIC signals (Strobe/Data) are
-	routed via GPIOs */
-	if (pdata && ((pdata->strobe && pdata->data) || mehci->hsic_pinctrl)) {
-
-		if (!pdata->ignore_cal_pad_config) {
-			/* Enable LV_MODE in HSIC_CAL_PAD_CTL register */
-			writel_relaxed(HSIC_LV_MODE, HSIC_CAL_PAD_CTL);
-			mb();
+	routed via TLMM */
+	if (mehci->tlmm_regs) {
+		/* Program TLMM pad configuration for HSIC */
+		seq = pdata->tlmm_init_seq;
+		seq_count = pdata->tlmm_seq_count;
+		if (seq && seq_count) {
+			while (seq[0] >= 0 && seq_count > 0) {
+				val = readl_relaxed(mehci->tlmm_regs + seq[0]);
+				val |= seq[1];
+				dev_dbg(mehci->dev, "%s: writing %x to %p\n",
+						__func__,
+						val, mehci->tlmm_regs + seq[0]);
+				writel_relaxed(val, mehci->tlmm_regs + seq[0]);
+				seq += 2;
+				seq_count -= 2;
+			}
 		}
 
 		/*set periodic calibration interval to ~2.048sec in
@@ -703,30 +706,13 @@ static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 		/* Enable periodic IO calibration in HSIC_CFG register */
 		ulpi_write(mehci, HSIC_PAD_CALIBRATION, 0x30);
 
-		/* Configure GPIO pins for HSIC functionality mode */
-		ret = msm_hsic_config_gpios(mehci, 1);
-		if (ret) {
-			dev_err(mehci->dev, " gpio configuarion failed\n");
-			goto free_resume_gpio;
-		}
-		if (pdata->strobe_pad_offset) {
-			/* Set CORE_CTL_EN in STROBE GPIO PAD_CTL register */
-			reg = MSM_TLMM_BASE + pdata->strobe_pad_offset;
-			writel_relaxed(readl_relaxed(reg) | 0x2000000, reg);
-		} else {
-			/* Set LV_MODE=0x1 and DCC=0x2 in STROBE GPIO PAD_CTL */
-			reg = HSIC_STROBE_GPIO_PAD_CTL;
-			writel_relaxed(HSIC_GPIO_PAD_VAL, reg);
-		}
-
-		if (pdata->data_pad_offset) {
-			/* Set CORE_CTL_EN in HSIC_DATA GPIO PAD_CTL register */
-			reg = MSM_TLMM_BASE + pdata->data_pad_offset;
-			writel_relaxed(readl_relaxed(reg) | 0x2000000, reg);
-		} else {
-			/* Set LV_MODE=0x1 and DCC=0x2 in STROBE GPIO PAD_CTL */
-			reg = HSIC_DATA_GPIO_PAD_CTL;
-			writel_relaxed(HSIC_GPIO_PAD_VAL, reg);
+		if (pdata->strobe && pdata->data) {
+			/* Configure GPIO pins for HSIC functionality mode */
+			ret = msm_hsic_config_gpios(mehci, 1);
+			if (ret) {
+				dev_err(mehci->dev, " gpio configuarion failed\n");
+				goto free_resume_gpio;
+			}
 		}
 
 		mb();
@@ -1629,15 +1615,6 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 	if (IS_ERR(mehci->inactivity_clk))
 		dev_dbg(mehci->dev, "failed to get inactivity_clk\n");
 
-	/*
-	 * alt_core_clk is for LINK to be used during PHY RESET in
-	 * targets on which link does NOT use asynchronous reset methodology.
-	 * clock rate appropriately set by target specific clock driver
-	 */
-	mehci->alt_core_clk = devm_clk_get(mehci->dev, "alt_core_clk");
-	if (IS_ERR(mehci->alt_core_clk))
-		dev_dbg(mehci->dev, "failed to get alt_core_clk\n");
-
 	ret = clk_set_rate(mehci->core_clk,
 			clk_round_rate(mehci->core_clk, LONG_MAX));
 	if (ret)
@@ -1647,13 +1624,6 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 			clk_round_rate(mehci->phy_clk, LONG_MAX));
 	if (ret)
 		dev_err(mehci->dev, "failed to set phy_clk rate\n");
-
-	if (!IS_ERR(mehci->alt_core_clk)) {
-		ret = clk_set_rate(mehci->alt_core_clk,
-			clk_round_rate(mehci->alt_core_clk, LONG_MAX));
-		if (ret)
-			dev_err(mehci->dev, "failed to set_rate alt_core_clk\n");
-	}
 
 	ret = clk_set_rate(mehci->cal_clk,
 			clk_round_rate(mehci->cal_clk, LONG_MAX));
@@ -1990,12 +1960,6 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 					"qcom,phy-susp-sof-workaround");
 	pdata->phy_reset_sof_workaround = of_property_read_bool(node,
 					"qcom,phy-reset-sof-workaround");
-	pdata->ignore_cal_pad_config = of_property_read_bool(node,
-					"hsic,ignore-cal-pad-config");
-	of_property_read_u32(node, "hsic,strobe-pad-offset",
-					&pdata->strobe_pad_offset);
-	of_property_read_u32(node, "hsic,data-pad-offset",
-					&pdata->data_pad_offset);
 	of_property_read_u32(node, "hsic,reset-delay",
 					&pdata->reset_delay);
 	of_property_read_u32(node, "hsic,log2-itc",
@@ -2029,7 +1993,7 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	struct msm_hsic_hcd *mehci;
 	struct msm_hsic_host_platform_data *pdata;
 	unsigned long wakeup_irq_flags = 0;
-	int ret;
+	int ret, len;
 
 	dev_dbg(&pdev->dev, "ehci_msm-hsic probe\n");
 
@@ -2094,6 +2058,19 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	pdata = mehci->dev->platform_data;
 	platform_set_drvdata(pdev, hcd);
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res && pdata->tlmm_init_seq) {
+		dev_err(&pdev->dev, "Unable to get TLMM memory resource\n");
+		ret = -ENODEV;
+		goto unmap;
+	} else if (res) {
+		mehci->tlmm_regs = ioremap(res->start,	resource_size(res));
+		if (IS_ERR(mehci->tlmm_regs)) {
+			ret = PTR_ERR(mehci->tlmm_regs);
+			goto unmap;
+		}
+	}
+
 	spin_lock_init(&mehci->wakeup_lock);
 
 	if (pdata->phy_sof_workaround) {
@@ -2144,6 +2121,22 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize clocks\n");
 		goto unmap;
+	}
+
+	of_get_property(mehci->dev->of_node, "qcom,hsic-tlmm-init-seq", &len);
+	if (len) {
+		pdata->tlmm_init_seq = devm_kzalloc(&pdev->dev, len,
+			GFP_KERNEL);
+		if (!pdata->tlmm_init_seq)
+			return -ENODEV;
+		pdata->tlmm_seq_count = len / sizeof(*pdata->tlmm_init_seq);
+		ret = of_property_read_u32_array(mehci->dev->of_node,
+				"qcom,hsic-tlmm-init-seq",
+				pdata->tlmm_init_seq, pdata->tlmm_seq_count);
+		if (ret) {
+			dev_err(&pdev->dev, "hsic init-seq failed:%d\n", ret);
+			pdata->tlmm_seq_count = 0;
+		}
 	}
 
 	ret = msm_hsic_init_vddcx(mehci, 1);
