@@ -2290,7 +2290,7 @@ static int mmc_test_awake_ext_csd(struct mmc_host *host)
 	struct mmc_card *card = host->card;
 
 	err = mmc_get_ext_csd(card, &ext_csd);
-	if (err) {
+	if (err || !ext_csd) {
 		pr_err("%s: %s: mmc_get_ext_csd failed (%d)\n",
 			mmc_hostname(host), __func__, err);
 		return err;

@@ -3926,7 +3926,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	/* Extract platform data */
 	if (pdev->dev.of_node) {
 		ret = of_alias_get_id(pdev->dev.of_node, "sdhc");
-		if (ret < 0) {
+		if (ret <= 0) {
 			dev_err(&pdev->dev, "Failed to get slot index %d\n",
 				ret);
 			goto pltfm_free;
