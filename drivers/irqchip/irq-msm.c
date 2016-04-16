@@ -39,20 +39,8 @@ static int __init irq_msm_gpio_init(struct device_node *node,
 	return 0;
 }
 
-static int __init pinctrl_irq_dummy(struct device_node *node,
-			struct device_node *parent)
-{
-	/*
-	 * Initialize the mpm after gpio (and gic) are initialized. Note that
-	 * gpio irq controller is the child of gic irq controller, hence gic's
-	 * init function will be called prior to gpio.
-	 */
-	of_mpm_init();
-	return 0;
-}
 #ifdef CONFIG_USE_PINCTRL_IRQ
 IRQCHIP_DECLARE(tlmmv3_irq, "qcom,msm-tlmm-gp", irq_msm_gpio_init);
 #else
 IRQCHIP_DECLARE(tlmm_irq, "qcom,msm-gpio", irq_msm_gpio_init);
 #endif
-IRQCHIP_DECLARE(8996_pinctrl, "qcom,msm8996-pinctrl", pinctrl_irq_dummy);
