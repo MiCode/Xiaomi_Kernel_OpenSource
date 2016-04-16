@@ -130,6 +130,10 @@ Optional Properties:
 				rendering thread is running on masked CPUs.
 				Bit 0 is for CPU-0, bit 1 is for CPU-1...
 
+- qcom,snapshot-size:
+				Specify the size of snapshot in bytes. This will override
+				snapshot size defined in the driver code.
+
 GPU Quirks:
 - qcom,gpu-quirk-two-pass-use-wfi:
 				Signal the GPU to set Set TWOPASSUSEWFI bit in
