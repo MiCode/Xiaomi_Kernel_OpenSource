@@ -425,6 +425,7 @@
 			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,cons-sync-write-delay-us = <1000>;
 		};
 
 		flash_led: qcom,leds@d300 {
