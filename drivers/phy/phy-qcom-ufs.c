@@ -18,7 +18,7 @@
 #define VDDA_PHY_MIN_UV            1000000
 #define VDDA_PHY_MAX_UV            1000000
 #define VDDA_PLL_MIN_UV            1200000
-#define VDDA_PLL_MAX_UV            1200000
+#define VDDA_PLL_MAX_UV            1800000
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
 
