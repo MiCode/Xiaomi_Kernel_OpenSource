@@ -184,7 +184,7 @@ struct hdmi_tx_ctrl {
 	void *downstream_data;
 	void *audio_data;
 
-	void *feature_data[HDMI_TX_FEAT_MAX];
+	void *feature_data[hweight8(HDMI_TX_FEAT_MAX)];
 	struct hdmi_hdcp_ops *hdcp_ops;
 	void *hdcp_data;
 	bool hdcp22_present;
