@@ -4726,7 +4726,8 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
 	prepare_arch_switch(next);
 
 #ifdef CONFIG_MSM_APP_SETTINGS
-	switch_app_setting_bit(prev, next);
+	if (use_app_setting)
+		switch_app_setting_bit(prev, next);
 #endif
 }
 

@@ -31,6 +31,10 @@ static struct kparam_string kps = {
 static int set_name(const char *str, struct kernel_param *kp);
 module_param_call(lib_name, set_name, param_get_string, &kps, S_IWUSR);
 
+bool use_app_setting = true;
+module_param(use_app_setting, bool, 0644);
+MODULE_PARM_DESC(use_app_setting, "control use of app specific settings");
+
 static int set_name(const char *str, struct kernel_param *kp)
 {
 	int len = strlen(str);
