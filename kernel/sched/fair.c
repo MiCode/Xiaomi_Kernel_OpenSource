@@ -2480,6 +2480,13 @@ unsigned int __read_mostly sched_big_waker_task_load;
 unsigned int __read_mostly sysctl_sched_big_waker_task_load_pct = 25;
 
 /*
+ * Prefer the waker CPU for sync wakee task, if the CPU has only 1 runnable
+ * task. This eliminates the LPM exit latency associated with the idle
+ * CPUs in the waker cluster.
+ */
+unsigned int __read_mostly sysctl_sched_prefer_sync_wakee_to_waker;
+
+/*
  * CPUs with load greater than the sched_spill_load_threshold are not
  * eligible for task placement. When all CPUs in a cluster achieve a
  * load higher than this level, tasks becomes eligible for inter
@@ -2547,6 +2554,9 @@ unsigned int sysctl_sched_boost;
 static unsigned int __read_mostly
 sched_short_sleep_task_threshold = 2000 * NSEC_PER_USEC;
 unsigned int __read_mostly sysctl_sched_select_prev_cpu_us = 2000;
+
+static unsigned int __read_mostly
+sched_long_cpu_selection_threshold = 100 * NSEC_PER_MSEC;
 
 unsigned int __read_mostly sysctl_sched_restrict_cluster_spill;
 
@@ -3239,12 +3249,17 @@ bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 	struct sched_cluster *cluster;
 
 	if (env->boost || env->reason || env->need_idle ||
+				!task->ravg.mark_start ||
 				!sched_short_sleep_task_threshold)
 		return false;
 
 	prev_cpu = env->prev_cpu;
 	if (!cpumask_test_cpu(prev_cpu, tsk_cpus_allowed(task)) ||
 					unlikely(!cpu_active(prev_cpu)))
+		return false;
+
+	if (task->ravg.mark_start - task->last_cpu_selected_ts >=
+				sched_long_cpu_selection_threshold)
 		return false;
 
 	/*
@@ -3307,6 +3322,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	struct cluster_cpu_stats stats;
 	bool fast_path = false;
 	struct related_thread_group *grp;
+	int cpu = raw_smp_processor_id();
 
 	struct cpu_select_env env = {
 		.p			= p,
@@ -3336,12 +3352,20 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		else
 			env.rtg = grp;
 	} else {
-		cluster = cpu_rq(smp_processor_id())->cluster;
-		if (wake_to_waker_cluster(&env) &&
-		    cluster_allowed(p, cluster)) {
-			env.need_waker_cluster = 1;
-			bitmap_zero(env.candidate_list, NR_CPUS);
-			__set_bit(cluster->id, env.candidate_list);
+		cluster = cpu_rq(cpu)->cluster;
+		if (wake_to_waker_cluster(&env)) {
+			if (sysctl_sched_prefer_sync_wakee_to_waker &&
+				cpu_rq(cpu)->nr_running == 1 &&
+				cpumask_test_cpu(cpu, tsk_cpus_allowed(p)) &&
+				cpu_active(cpu)) {
+				fast_path = true;
+				target = cpu;
+				goto out;
+			} else if (cluster_allowed(p, cluster)) {
+				env.need_waker_cluster = 1;
+				bitmap_zero(env.candidate_list, NR_CPUS);
+				__set_bit(cluster->id, env.candidate_list);
+			}
 		} else if (bias_to_prev_cpu(&env, &stats)) {
 			fast_path = true;
 			goto out;
@@ -3384,6 +3408,7 @@ retry:
 		if (stats.best_capacity_cpu >= 0)
 			target = stats.best_capacity_cpu;
 	}
+	p->last_cpu_selected_ts = sched_ktime_clock();
 
 out:
 	rcu_read_unlock();
