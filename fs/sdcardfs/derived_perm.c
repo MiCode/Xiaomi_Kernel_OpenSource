@@ -111,7 +111,7 @@ void get_derived_permission(struct dentry *parent, struct dentry *dentry)
 
 void get_derive_permissions_recursive(struct dentry *parent) {
 	struct dentry *dentry;
-	list_for_each_entry(dentry, &parent->d_subdirs, d_u.d_child) {
+	list_for_each_entry(dentry, &parent->d_subdirs, d_child) {
 		if (dentry && dentry->d_inode) {
 			mutex_lock(&dentry->d_inode->i_mutex);
 			get_derived_permission(parent, dentry);
