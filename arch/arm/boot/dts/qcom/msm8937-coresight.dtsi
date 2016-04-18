@@ -887,7 +887,7 @@
 		qcom,inst-id = <5>;
 	};
 
-	modem_etm0 {
+	modem_etm0: modem_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <51>;
