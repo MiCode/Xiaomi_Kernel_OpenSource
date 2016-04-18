@@ -390,6 +390,15 @@
 	clkname##_clk_src.c.fmax[VDD_DIG_##l4] = (f4);\
 	clkname##_clk_src.c.fmax[VDD_DIG_##l5] = (f5)
 
+#define OVERRIDE_FMAX6(clkname, \
+		l1, f1, l2, f2, l3, f3, l4, f4, l5, f5, l6, f6) \
+	clkname##_clk_src.c.fmax[VDD_DIG_##l1] = (f1);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l2] = (f2);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l3] = (f3);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l4] = (f4);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l5] = (f5);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l6] = (f6)
+
 #define OVERRIDE_FTABLE(clkname, ftable, name) \
 	clkname##_clk_src.freq_tbl = ftable##_##name
 
