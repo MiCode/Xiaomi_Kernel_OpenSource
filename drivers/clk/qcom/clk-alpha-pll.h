@@ -16,6 +16,7 @@
 
 #include <linux/clk-provider.h>
 #include "clk-regmap.h"
+#include "clk-pll.h"
 
 struct pll_vco {
 	unsigned long min_freq;
@@ -36,6 +37,12 @@ struct clk_alpha_pll {
 	size_t num_vco;
 
 	struct clk_regmap clkr;
+	u32 config_ctl_val;
+#define PLLOUT_MAIN	BIT(0)
+#define PLLOUT_AUX	BIT(1)
+#define PLLOUT_AUX2	BIT(2)
+#define PLLOUT_EARLY	BIT(3)
+	u32 pllout_flags;
 };
 
 /**
@@ -52,6 +59,10 @@ struct clk_alpha_pll_postdiv {
 };
 
 extern const struct clk_ops clk_alpha_pll_ops;
+extern const struct clk_ops clk_alpha_pll_hwfsm_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_ops;
+
+void clk_alpha_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+		const struct pll_config *config);
 
 #endif

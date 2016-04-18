@@ -79,6 +79,9 @@ struct pll_config {
 	u32 mn_ena_mask;
 	u32 main_output_mask;
 	u32 aux_output_mask;
+	u32 aux2_output_mask;
+	u32 early_output_mask;
+	u32 config_ctl_val;
 };
 
 void clk_pll_configure_sr(struct clk_pll *pll, struct regmap *regmap,
