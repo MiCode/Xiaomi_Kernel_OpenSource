@@ -113,7 +113,7 @@ int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 		goto err_qdss_vote;
 	}
 
-	ret = regulator_set_voltage(drv->vreg_cx, uv, uv);
+	ret = regulator_set_voltage(drv->vreg_cx, uv, INT_MAX);
 	if (ret) {
 		dev_err(pil->dev, "Failed to request vdd_cx voltage.\n");
 		goto err_cx_voltage;
