@@ -105,6 +105,9 @@ enum clk_osm_trace_packet_id {
 #define OSM_CORE_TABLE_SIZE 8192
 #define OSM_REG_SIZE 32
 
+#define WDOG_DOMAIN_PSTATE_STATUS	0x1c00
+#define WDOG_PROGRAM_COUNTER		0x1c74
+
 #define OSM_CYCLE_COUNTER_USE_XO_EDGE_EN BIT(8)
 #define PLL_MODE		0x0
 #define PLL_L_VAL		0x4
@@ -323,6 +326,7 @@ struct clk_osm {
 
 	enum clk_osm_trace_method trace_method;
 	enum clk_osm_trace_packet_id trace_id;
+	struct notifier_block panic_notifier;
 	u32 trace_periodic_timer;
 	bool trace_en;
 };
@@ -2248,6 +2252,45 @@ exit:
 		debugfs_remove_recursive(c->debugfs);
 }
 
+static int clk_osm_panic_callback(struct notifier_block *nfb,
+				  unsigned long event,
+				  void *data)
+{
+	void __iomem *virt_addr;
+	u32 value, reg;
+	struct clk_osm *c = container_of(nfb,
+					 struct clk_osm,
+					 panic_notifier);
+
+	reg = c->pbases[OSM_BASE] + WDOG_DOMAIN_PSTATE_STATUS;
+	virt_addr = ioremap(reg, 0x4);
+	if (virt_addr != NULL) {
+		value = readl_relaxed(virt_addr);
+		pr_err("DOM%d_PSTATE_STATUS[0x%08x]=0x%08x\n", c->cluster_num,
+		       reg, value);
+		iounmap(virt_addr);
+	}
+
+	reg = c->pbases[OSM_BASE] + WDOG_PROGRAM_COUNTER;
+	virt_addr = ioremap(reg, 0x4);
+	if (virt_addr != NULL) {
+		value = readl_relaxed(virt_addr);
+		pr_err("DOM%d_PROGRAM_COUNTER[0x%08x]=0x%08x\n", c->cluster_num,
+		       reg, value);
+		iounmap(virt_addr);
+	}
+
+	virt_addr = ioremap(c->apm_ctrl_status, 0x4);
+	if (virt_addr != NULL) {
+		value = readl_relaxed(virt_addr);
+		pr_err("APM_CTLER_STATUS_%d[0x%08x]=0x%08x\n", c->cluster_num,
+		       c->apm_ctrl_status, value);
+		iounmap(virt_addr);
+	}
+
+	return NOTIFY_OK;
+}
+
 static unsigned long init_rate = 300000000;
 static unsigned long osm_clk_init_rate = 200000000;
 
@@ -2392,6 +2435,13 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 
 	spin_lock_init(&pwrcl_clk.lock);
 	spin_lock_init(&perfcl_clk.lock);
+
+	pwrcl_clk.panic_notifier.notifier_call = clk_osm_panic_callback;
+	atomic_notifier_chain_register(&panic_notifier_list,
+				       &pwrcl_clk.panic_notifier);
+	perfcl_clk.panic_notifier.notifier_call = clk_osm_panic_callback;
+	atomic_notifier_chain_register(&panic_notifier_list,
+				       &perfcl_clk.panic_notifier);
 
 	rc = of_msm_clock_register(pdev->dev.of_node, cpu_clocks_osm,
 				   ARRAY_SIZE(cpu_clocks_osm));
