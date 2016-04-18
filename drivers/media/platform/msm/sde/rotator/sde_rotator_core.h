@@ -390,7 +390,7 @@ static inline void sde_rot_mgr_unlock(struct sde_rot_mgr *mgr)
 	mutex_unlock(&mgr->lock);
 }
 
-#if defined(CONFIG_PM_RUNTIME)
+#if defined(CONFIG_PM)
 int sde_rotator_runtime_resume(struct device *dev);
 int sde_rotator_runtime_suspend(struct device *dev);
 int sde_rotator_runtime_idle(struct device *dev);

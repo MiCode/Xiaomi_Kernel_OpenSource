@@ -14,6 +14,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 
 #include "sde_rotator_io_util.h"
@@ -197,7 +198,7 @@ int sde_rot_config_vreg(struct device *dev, struct sde_vreg *in_vreg,
 
 vreg_unconfig:
 if (type == SDE_REG_LDO)
-	regulator_set_optimum_mode(curr_vreg->vreg, 0);
+	regulator_set_load(curr_vreg->vreg, 0);
 
 vreg_set_voltage_fail:
 	regulator_put(curr_vreg->vreg);
@@ -237,7 +238,7 @@ int sde_rot_enable_vreg(struct sde_vreg *in_vreg, int num_vreg, int enable)
 			if (in_vreg[i].pre_on_sleep && need_sleep)
 				usleep_range(in_vreg[i].pre_on_sleep * 1000,
 					in_vreg[i].pre_on_sleep * 1000);
-			rc = regulator_set_optimum_mode(in_vreg[i].vreg,
+			rc = regulator_set_load(in_vreg[i].vreg,
 				in_vreg[i].enable_load);
 			if (rc < 0) {
 				DEV_ERR("%pS->%s: %s set opt m fail\n",
@@ -261,7 +262,7 @@ int sde_rot_enable_vreg(struct sde_vreg *in_vreg, int num_vreg, int enable)
 			if (in_vreg[i].pre_off_sleep)
 				usleep_range(in_vreg[i].pre_off_sleep * 1000,
 					in_vreg[i].pre_off_sleep * 1000);
-			regulator_set_optimum_mode(in_vreg[i].vreg,
+			regulator_set_load(in_vreg[i].vreg,
 				in_vreg[i].disable_load);
 			regulator_disable(in_vreg[i].vreg);
 			if (in_vreg[i].post_off_sleep)
@@ -272,14 +273,14 @@ int sde_rot_enable_vreg(struct sde_vreg *in_vreg, int num_vreg, int enable)
 	return rc;
 
 disable_vreg:
-	regulator_set_optimum_mode(in_vreg[i].vreg, in_vreg[i].disable_load);
+	regulator_set_load(in_vreg[i].vreg, in_vreg[i].disable_load);
 
 vreg_set_opt_mode_fail:
 	for (i--; i >= 0; i--) {
 		if (in_vreg[i].pre_off_sleep)
 			usleep_range(in_vreg[i].pre_off_sleep * 1000,
 				in_vreg[i].pre_off_sleep * 1000);
-		regulator_set_optimum_mode(in_vreg[i].vreg,
+		regulator_set_load(in_vreg[i].vreg,
 			in_vreg[i].disable_load);
 		regulator_disable(in_vreg[i].vreg);
 		if (in_vreg[i].post_off_sleep)

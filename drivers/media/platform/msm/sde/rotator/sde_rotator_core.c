@@ -2345,7 +2345,7 @@ static void sde_rotator_suspend_cancel_rot_work(struct sde_rot_mgr *mgr)
 	}
 }
 
-#if defined(CONFIG_PM_RUNTIME)
+#if defined(CONFIG_PM)
 /*
  * sde_rotator_runtime_suspend - Turn off power upon runtime suspend event
  * @dev: Pointer to device structure
