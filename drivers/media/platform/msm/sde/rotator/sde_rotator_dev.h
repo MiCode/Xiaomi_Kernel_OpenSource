@@ -80,7 +80,6 @@ struct sde_rotator_vbinfo {
  * @kobj: kernel object of this context
  * @rot_dev: Pointer to rotator device.
  * @fh: V4l2 file handle.
- * @m2m_ctx: Memory to memory context.
  * @ctrl_handler: control handler
  * @format_cap: Current capture format.
  * @format_out: Current output format.
@@ -91,7 +90,6 @@ struct sde_rotator_vbinfo {
  * @hflip: horizontal flip (1-flip)
  * @vflip: vertical flip (1-flip)
  * @rotate: rotation angle (0,90,180,270)
- * @priority: Priority of this context
  * @secure: Non-secure (0) / Secure processing
  * @command_pending: Number of pending transaction in h/w
  * @abort_pending: True if abort is requested for async handling.
@@ -110,7 +108,6 @@ struct sde_rotator_ctx {
 	struct kobject kobj;
 	struct sde_rotator_device *rot_dev;
 	struct v4l2_fh fh;
-	struct v4l2_m2m_ctx *m2m_ctx;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_format format_cap;
 	struct v4l2_format format_out;
@@ -121,7 +118,6 @@ struct sde_rotator_ctx {
 	s32 hflip;
 	s32 vflip;
 	s32 rotate;
-	enum v4l2_priority priority;
 	s32 secure;
 	atomic_t command_pending;
 	int abort_pending;
