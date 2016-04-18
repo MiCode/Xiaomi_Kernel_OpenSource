@@ -362,14 +362,20 @@ struct ufs_hba_variant_ops {
  * struct ufs_hba_crypto_variant_ops - variant specific crypto callbacks
  * @crypto_req_setup:	retreieve the necessary cryptographic arguments to setup
 			a requests's transfer descriptor.
- * @crypto_engine_cfg: configure cryptographic engine according to tag parameter
+ * @crypto_engine_cfg_start: start configuring cryptographic engine
+ *							 according to tag
+ *							 parameter
+ * @crypto_engine_cfg_end: end configuring cryptographic engine
+ *						   according to tag parameter
  * @crypto_engine_reset: perform reset to the cryptographic engine
  * @crypto_engine_get_status: get errors status of the cryptographic engine
  */
 struct ufs_hba_crypto_variant_ops {
 	int	(*crypto_req_setup)(struct ufs_hba *, struct ufshcd_lrb *lrbp,
 				    u8 *cc_index, bool *enable, u64 *dun);
-	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
+	int	(*crypto_engine_cfg_start)(struct ufs_hba *, unsigned int);
+	int	(*crypto_engine_cfg_end)(struct ufs_hba *, struct ufshcd_lrb *,
+			struct request *);
 	int	(*crypto_engine_reset)(struct ufs_hba *);
 	int	(*crypto_engine_get_status)(struct ufs_hba *, u32 *);
 };
@@ -1319,12 +1325,24 @@ static inline int ufshcd_vops_crypto_req_setup(struct ufs_hba *hba,
 	return 0;
 }
 
-static inline int ufshcd_vops_crypto_engine_cfg(struct ufs_hba *hba,
-		unsigned int task_tag)
+static inline int ufshcd_vops_crypto_engine_cfg_start(struct ufs_hba *hba,
+						unsigned int task_tag)
 {
 	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_engine_cfg)
-		return hba->var->crypto_vops->crypto_engine_cfg(hba, task_tag);
+	    hba->var->crypto_vops->crypto_engine_cfg_start)
+		return hba->var->crypto_vops->crypto_engine_cfg_start
+				(hba, task_tag);
+	return 0;
+}
+
+static inline int ufshcd_vops_crypto_engine_cfg_end(struct ufs_hba *hba,
+						struct ufshcd_lrb *lrbp,
+						struct request *req)
+{
+	if (hba->var && hba->var->crypto_vops &&
+	    hba->var->crypto_vops->crypto_engine_cfg_end)
+		return hba->var->crypto_vops->crypto_engine_cfg_end
+				(hba, lrbp, req);
 	return 0;
 }
 
