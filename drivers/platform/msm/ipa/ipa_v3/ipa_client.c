@@ -1152,7 +1152,8 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 
 	memcpy(&ep->chan_scratch, &params->chan_scratch,
 		sizeof(union __packed gsi_channel_scratch));
-	ep->chan_scratch.xdci.max_outstanding_tre = gsi_ep_cfg_ptr->ipa_if_aos;
+	ep->chan_scratch.xdci.max_outstanding_tre =
+		params->chan_params.re_size * gsi_ep_cfg_ptr->ipa_if_tlv;
 	gsi_res = gsi_write_channel_scratch(ep->gsi_chan_hdl,
 		params->chan_scratch);
 	if (gsi_res != GSI_STATUS_SUCCESS) {
