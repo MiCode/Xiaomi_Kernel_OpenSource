@@ -84,3 +84,11 @@
 		qcom,ipa-advertise-sg-support;
 	};
 };
+
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x6a00000>;
+};
+
+&reloc_mem {
+	reg = <0x0 0x8d200000 0x0 0x1800000>;
+};
