@@ -1363,8 +1363,9 @@ static int qcom_ice_reset(struct  platform_device *pdev)
 	return qcom_ice_finish_power_collapse(ice_dev);
 }
 
-static int qcom_ice_config(struct platform_device *pdev, struct request *req,
-		struct ice_data_setting *setting)
+static int qcom_ice_config_start(struct platform_device *pdev,
+		struct request *req,
+		struct ice_data_setting *setting, bool async)
 {
 	struct ice_crypto_setting *crypto_data;
 	struct ice_crypto_setting pfk_crypto_data = {0};
@@ -1392,7 +1393,7 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 		return 0;
 	}
 
-	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, false);
+	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, async);
 	if (is_pfe) {
 		if (ret) {
 			if (ret != -EBUSY && ret != -EAGAIN)
@@ -1436,6 +1437,7 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 	 */
 	return 0;
 }
+EXPORT_SYMBOL(qcom_ice_config_start);
 
 static int qcom_ice_config_end(struct request *req)
 {
@@ -1497,7 +1499,7 @@ struct qcom_ice_variant_ops qcom_ice_ops = {
 	.reset            = qcom_ice_reset,
 	.resume           = qcom_ice_resume,
 	.suspend          = qcom_ice_suspend,
-	.config		  = qcom_ice_config,
+	.config_start     = qcom_ice_config_start,
 	.config_end       = qcom_ice_config_end,
 	.status           = qcom_ice_status,
 	.debug            = qcom_ice_debug,
