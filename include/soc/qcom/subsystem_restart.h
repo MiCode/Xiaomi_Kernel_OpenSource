@@ -173,7 +173,7 @@ static inline void notify_proxy_vote(struct device *device) { }
 static inline void notify_proxy_unvote(struct device *device) { }
 static inline int wait_for_shutdown_ack(struct subsys_desc *desc)
 {
-	return 0;
+	return -ENOSYS;
 }
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
