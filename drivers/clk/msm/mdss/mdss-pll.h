@@ -134,8 +134,14 @@ struct mdss_pll_resources {
 
 	/*
 	 * caching the pll trim codes in the case of dynamic refresh
+	 * or cmd mode idle screen.
 	 */
 	int		cache_pll_trim_codes[2];
+
+	/*
+	 * caching the pll trim codes rate
+	 */
+	s64		cache_pll_trim_codes_rate;
 
 	/*
 	 * for maintaining the status of saving trim codes
