@@ -746,6 +746,26 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8937[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8937_475MHz[] = {
+	F_SLEW( 19200000,  FIXED_CLK_SRC, xo,		1,	0,	0),
+	F_SLEW( 50000000,  FIXED_CLK_SRC, gpll0,	16,	0,	0),
+	F_SLEW( 80000000,  FIXED_CLK_SRC, gpll0,	10,	0,	0),
+	F_SLEW( 100000000, FIXED_CLK_SRC, gpll0,	8,	0,	0),
+	F_SLEW( 160000000, FIXED_CLK_SRC, gpll0,	5,	0,	0),
+	F_SLEW( 200000000, FIXED_CLK_SRC, gpll0,	4,	0,	0),
+	F_SLEW( 216000000, FIXED_CLK_SRC, gpll6_aux,	5,	0,	0),
+	F_SLEW( 228570000, FIXED_CLK_SRC, gpll0,	3.5,	0,	0),
+	F_SLEW( 240000000, FIXED_CLK_SRC, gpll6_aux,	4.5,	0,	0),
+	F_SLEW( 266670000, FIXED_CLK_SRC, gpll0,	3,	0,	0),
+	F_SLEW( 300000000, 600000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 320000000, FIXED_CLK_SRC, gpll0,	2.5,	0,	0),
+	F_SLEW( 375000000, 750000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
+	F_SLEW( 450000000, 900000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 475000000, 950000000,	  gpll3,	1,	0,	0),
+	F_END
+};
+
 static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8917[] = {
 	F_SLEW( 19200000,  FIXED_CLK_SRC, xo,		1,	0,	0),
 	F_SLEW( 50000000,  FIXED_CLK_SRC, gpll0,	16,	0,	0),
@@ -4102,7 +4122,7 @@ static void override_for_8917(void)
 			HIGH, 177780000);
 }
 
-static void override_for_8937(void)
+static void override_for_8937(int speed_bin)
 {
 	gpll3_clk_src.c.rate = 900000000;
 	gpll3_clk_src.vco_tbl = p_vco_8937;
@@ -4127,10 +4147,21 @@ static void override_for_8937(void)
 		LOWER, 160000000, LOW, 308570000, NOMINAL, 400000000,
 		NOM_PLUS, 432000000);
 	OVERRIDE_FTABLE(vfe1, ftbl_gcc_camss_vfe0_1_clk, 8937);
-	OVERRIDE_FMAX5(gfx3d,
-		LOWER, 216000000, LOW, 300000000, NOMINAL, 375000000,
-		NOM_PLUS, 400000000, HIGH, 450000000);
-	OVERRIDE_FTABLE(gfx3d, ftbl_gcc_oxili_gfx3d_clk, 8937);
+
+	if (speed_bin) {
+		OVERRIDE_FMAX6(gfx3d,
+			LOWER, 216000000, LOW, 300000000,
+			NOMINAL, 375000000, NOM_PLUS, 400000000,
+			HIGH, 450000000, SUPER_TUR, 475000000);
+		OVERRIDE_FTABLE(gfx3d, ftbl_gcc_oxili_gfx3d_clk, 8937_475MHz);
+	} else {
+		OVERRIDE_FMAX5(gfx3d,
+			LOWER, 216000000, LOW, 300000000,
+			NOMINAL, 375000000, NOM_PLUS, 400000000,
+			HIGH, 450000000);
+		OVERRIDE_FTABLE(gfx3d, ftbl_gcc_oxili_gfx3d_clk, 8937);
+	}
+
 	OVERRIDE_FMAX5(cpp,
 		LOWER, 160000000, LOW, 266670000, NOMINAL, 320000000,
 		NOM_PLUS, 342860000, HIGH, 360000000);
@@ -4160,10 +4191,40 @@ static void override_for_8937(void)
 		NOMINAL, 400000000);
 }
 
+static void get_speed_bin(struct platform_device *pdev, int *bin)
+{
+	struct resource *res;
+	void __iomem *base;
+	u32 config_efuse;
+
+	*bin = 0;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
+	if (!res) {
+		dev_info(&pdev->dev,
+			"No GPU speed binning available. Defaulting to 0.\n");
+		return;
+	}
+
+	base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!base) {
+		dev_warn(&pdev->dev,
+			"Unable to ioremap efuse reg address. Defaulting to 0.\n");
+		return;
+	}
+
+	config_efuse = readl_relaxed(base);
+	devm_iounmap(&pdev->dev, base);
+	*bin = (config_efuse >> 31) & 0x1;
+
+	dev_info(&pdev->dev, "GPU speed bin: %d\n", *bin);
+}
+
 static int msm_gcc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret;
+	int speed_bin;
 	u32 regval, nbases = N_BASES;
 	bool compat_bin = false;
 	bool compat_bin2 = false;
@@ -4260,7 +4321,8 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		regval = readl_relaxed(GCC_REG_BASE(GX_DOMAIN_MISC));
 		regval &= ~BIT(0);
 		writel_relaxed(regval, GCC_REG_BASE(GX_DOMAIN_MISC));
-		override_for_8937();
+		get_speed_bin(pdev, &speed_bin);
+		override_for_8937(speed_bin);
 	} else if (compat_bin2) {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
