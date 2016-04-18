@@ -39,7 +39,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #define IPA_SUBSYSTEM_NAME "ipa_fws"
 #include "ipa_i.h"
-#include "ipa_rm_i.h"
+#include "../ipa_rm_i.h"
 #include "ipahal/ipahal.h"
 
 #define CREATE_TRACE_POINTS
@@ -218,78 +218,6 @@ static bool arm_smmu;
 static bool smmu_disable_htw;
 
 static char *active_clients_table_buf;
-
-const char *ipa3_clients_strings[IPA_CLIENT_MAX] = {
-	__stringify(IPA_CLIENT_HSIC1_PROD),
-	__stringify(IPA_CLIENT_WLAN1_PROD),
-	__stringify(IPA_CLIENT_USB2_PROD),
-	__stringify(IPA_CLIENT_HSIC3_PROD),
-	__stringify(IPA_CLIENT_HSIC2_PROD),
-	__stringify(IPA_CLIENT_USB3_PROD),
-	__stringify(IPA_CLIENT_HSIC4_PROD),
-	__stringify(IPA_CLIENT_USB4_PROD),
-	__stringify(IPA_CLIENT_HSIC5_PROD),
-	__stringify(IPA_CLIENT_USB_PROD),
-	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
-	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
-	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
-	__stringify(IPA_CLIENT_APPS_LAN_WAN_PROD),
-	__stringify(IPA_CLIENT_APPS_CMD_PROD),
-	__stringify(IPA_CLIENT_ODU_PROD),
-	__stringify(IPA_CLIENT_MHI_PROD),
-	__stringify(IPA_CLIENT_Q6_LAN_PROD),
-	__stringify(IPA_CLIENT_Q6_WAN_PROD),
-	__stringify(IPA_CLIENT_Q6_CMD_PROD),
-	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD),
-	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD),
-	__stringify(IPA_CLIENT_Q6_DECOMP_PROD),
-	__stringify(IPA_CLIENT_Q6_DECOMP2_PROD),
-	__stringify(IPA_CLIENT_UC_USB_PROD),
-
-	/* Below PROD client type is only for test purpose */
-	__stringify(IPA_CLIENT_TEST_PROD),
-	__stringify(IPA_CLIENT_TEST1_PROD),
-	__stringify(IPA_CLIENT_TEST2_PROD),
-	__stringify(IPA_CLIENT_TEST3_PROD),
-	__stringify(IPA_CLIENT_TEST4_PROD),
-
-	__stringify(IPA_CLIENT_HSIC1_CONS),
-	__stringify(IPA_CLIENT_WLAN1_CONS),
-	__stringify(IPA_CLIENT_HSIC2_CONS),
-	__stringify(IPA_CLIENT_USB2_CONS),
-	__stringify(IPA_CLIENT_WLAN2_CONS),
-	__stringify(IPA_CLIENT_HSIC3_CONS),
-	__stringify(IPA_CLIENT_USB3_CONS),
-	__stringify(IPA_CLIENT_WLAN3_CONS),
-	__stringify(IPA_CLIENT_HSIC4_CONS),
-	__stringify(IPA_CLIENT_USB4_CONS),
-	__stringify(IPA_CLIENT_WLAN4_CONS),
-	__stringify(IPA_CLIENT_HSIC5_CONS),
-	__stringify(IPA_CLIENT_USB_CONS),
-	__stringify(IPA_CLIENT_USB_DPL_CONS),
-	__stringify(IPA_CLIENT_A2_EMBEDDED_CONS),
-	__stringify(IPA_CLIENT_A2_TETHERED_CONS),
-	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
-	__stringify(IPA_CLIENT_APPS_LAN_CONS),
-	__stringify(IPA_CLIENT_APPS_WAN_CONS),
-	__stringify(IPA_CLIENT_ODU_EMB_CONS),
-	__stringify(IPA_CLIENT_ODU_TETH_CONS),
-	__stringify(IPA_CLIENT_MHI_CONS),
-	__stringify(IPA_CLIENT_Q6_LAN_CONS),
-	__stringify(IPA_CLIENT_Q6_WAN_CONS),
-	__stringify(IPA_CLIENT_Q6_DUN_CONS),
-	__stringify(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS),
-	__stringify(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS),
-	__stringify(IPA_CLIENT_Q6_DECOMP_CONS),
-	__stringify(IPA_CLIENT_Q6_DECOMP2_CONS),
-	__stringify(IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS),
-	/* Below CONS client type is only for test purpose */
-	__stringify(IPA_CLIENT_TEST_CONS),
-	__stringify(IPA_CLIENT_TEST1_CONS),
-	__stringify(IPA_CLIENT_TEST2_CONS),
-	__stringify(IPA_CLIENT_TEST3_CONS),
-	__stringify(IPA_CLIENT_TEST4_CONS),
-};
 
 int ipa3_active_clients_log_print_buffer(char *buf, int size)
 {
@@ -1244,7 +1172,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		retval = ipa3_rm_add_dependency(rm_depend.resource_name,
+		retval = ipa_rm_add_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_RM_DEL_DEPENDENCY:
@@ -1253,7 +1181,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		retval = ipa3_rm_delete_dependency(rm_depend.resource_name,
+		retval = ipa_rm_delete_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_GENERATE_FLT_EQ:
@@ -3149,7 +3077,7 @@ static void ipa3_start_tag_process(struct work_struct *work)
 * - Remove and deallocate unneeded data structure
 * - Log the call in the circular history buffer (unless it is a simple call)
 */
-void ipa3_active_clients_log_mod(struct ipa3_active_client_logging_info *id,
+void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 		bool inc, bool int_ctx)
 {
 	char temp_str[IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN];
@@ -3205,13 +3133,13 @@ void ipa3_active_clients_log_mod(struct ipa3_active_client_logging_info *id,
 	}
 }
 
-void ipa3_active_clients_log_dec(struct ipa3_active_client_logging_info *id,
+void ipa3_active_clients_log_dec(struct ipa_active_client_logging_info *id,
 		bool int_ctx)
 {
 	ipa3_active_clients_log_mod(id, false, int_ctx);
 }
 
-void ipa3_active_clients_log_inc(struct ipa3_active_client_logging_info *id,
+void ipa3_active_clients_log_inc(struct ipa_active_client_logging_info *id,
 		bool int_ctx)
 {
 	ipa3_active_clients_log_mod(id, true, int_ctx);
@@ -3224,7 +3152,7 @@ void ipa3_active_clients_log_inc(struct ipa3_active_client_logging_info *id,
 * Return codes:
 * None
 */
-void ipa3_inc_client_enable_clks(struct ipa3_active_client_logging_info *id)
+void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id)
 {
 	ipa3_active_clients_lock();
 	ipa3_active_clients_log_inc(id, false);
@@ -3243,7 +3171,7 @@ void ipa3_inc_client_enable_clks(struct ipa3_active_client_logging_info *id)
 * Return codes: 0 for success
 *		-EPERM if an asynchronous action should have been done
 */
-int ipa3_inc_client_enable_clks_no_block(struct ipa3_active_client_logging_info
+int ipa3_inc_client_enable_clks_no_block(struct ipa_active_client_logging_info
 		*id)
 {
 	int res = 0;
@@ -3276,9 +3204,9 @@ bail:
  * Return codes:
  * None
  */
-void ipa3_dec_client_disable_clks(struct ipa3_active_client_logging_info *id)
+void ipa3_dec_client_disable_clks(struct ipa_active_client_logging_info *id)
 {
-	struct ipa3_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	ipa3_active_clients_lock();
 	ipa3_active_clients_log_dec(id, false);
@@ -3466,7 +3394,7 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 			} else {
 				resource = ipa3_get_rm_resource_from_ep(i);
 				res =
-				ipa3_rm_request_resource_with_timer(resource);
+				ipa_rm_request_resource_with_timer(resource);
 				if (res == -EPERM &&
 					IPA_CLIENT_IS_CONS(
 					   ipa3_ctx->ep[i].client)) {
@@ -3551,14 +3479,14 @@ int ipa3_create_apps_resource(void)
 		ipa3_apps_cons_request_resource;
 	apps_cons_create_params.release_resource =
 		ipa3_apps_cons_release_resource;
-	result = ipa3_rm_create_resource(&apps_cons_create_params);
+	result = ipa_rm_create_resource(&apps_cons_create_params);
 	if (result) {
-		IPAERR("ipa3_rm_create_resource failed\n");
+		IPAERR("ipa_rm_create_resource failed\n");
 		return result;
 	}
 
 	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
-	ipa3_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
+	ipa_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
 
 	return result;
 }
@@ -3622,7 +3550,7 @@ static void ipa3_freeze_clock_vote_and_notify_modem(void)
 {
 	int res;
 	u32 ipa_clk_state;
-	struct ipa3_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	if (ipa3_ctx->smp2p_info.res_sent)
 		return;
@@ -3832,8 +3760,8 @@ fail_setup_apps_pipes:
 	else
 		sps_deregister_bam_device(ipa3_ctx->bam_handle);
 fail_register_device:
-	ipa3_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
-	ipa3_rm_exit();
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+	ipa_rm_exit();
 	cdev_del(&ipa3_ctx->cdev);
 	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
@@ -4012,7 +3940,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	int i;
 	struct ipa3_flt_tbl *flt_tbl;
 	struct ipa3_rt_tbl_set *rset;
-	struct ipa3_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	IPADBG("IPA Driver initialization started\n");
 
@@ -4414,7 +4342,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	spin_lock_init(&ipa3_ctx->wakelock_ref_cnt.spinlock);
 
 	/* Initialize IPA RM (resource manager) */
-	result = ipa3_rm_initialize();
+	result = ipa_rm_initialize();
 	if (result) {
 		IPAERR("RM initialization failed (%d)\n", -result);
 		result = -ENODEV;
@@ -4469,9 +4397,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	return 0;
 
 fail_ipa_init_interrupts:
-	ipa3_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
-	ipa3_rm_exit();
+	ipa_rm_exit();
 fail_ipa_rm_init:
 fail_nat_dev_add:
 	cdev_del(&ipa3_ctx->cdev);
@@ -5111,7 +5039,7 @@ static void ipa_gsi_request_resource(struct work_struct *work)
 void ipa_gsi_req_res_cb(void *user_data, bool *granted)
 {
 	unsigned long flags;
-	struct ipa3_active_client_logging_info log_info;
+	struct ipa_active_client_logging_info log_info;
 
 	spin_lock_irqsave(&ipa3_ctx->transport_pm.lock, flags);
 

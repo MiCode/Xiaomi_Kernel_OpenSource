@@ -2140,7 +2140,8 @@
 		reg-names = "qmp_phy_base",
 			    "vls_clamp_reg";
 		vdd-supply = <&pm8994_l28>;
-		vdda18-supply = <&pm8994_l12>;
+		core-supply = <&pm8994_l12>;
+		qcom,core-voltage-level = <0 1800000 1800000>;
 		qcom,vdd-voltage-level = <0 925000 925000>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =

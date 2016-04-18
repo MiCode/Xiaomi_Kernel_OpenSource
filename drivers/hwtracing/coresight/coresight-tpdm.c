@@ -727,8 +727,8 @@ static ssize_t tpdm_show_enable_datasets(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	ssize_t size;
 
-	size = bitmap_scnprintf(buf, PAGE_SIZE, drvdata->enable_ds,
-				TPDM_DATASETS);
+	size = scnprintf(buf, PAGE_SIZE, "%*pb\n", TPDM_DATASETS,
+			 drvdata->enable_ds);
 
 	if (PAGE_SIZE - size < 2)
 		size = -EINVAL;

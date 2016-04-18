@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 &soc {
 	qcom,spm@178120000 {
@@ -77,6 +78,7 @@
 				qcom,time-overhead = <550>;
 				qcom,min-child-idx = <3>;
 				qcom,is-reset;
+				qcom,notify-rpm;
 			};
 
 			qcom,pm-cluster@0{
@@ -277,4 +279,259 @@
 		qcom,sleep-stats-version = <2>;
 	};
 
+	qcom,mpm@7781b8 {
+		compatible = "qcom,mpm-v2";
+		reg = <0x7781b8 0x1000>, /* MSM_RPM_MPM_BASE 4K */
+		    <0x17911008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
+		clocks = <&clock_gcc clk_cxo_lpm_clk>;
+		clock-names = "xo";
+		qcom,num-mpm-irqs = <96>;
+
+		qcom,ipc-bit-offset = <1>;
+
+		qcom,gic-parent = <&intc>;
+		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
+			<79 379>,   /* qusb2phy_dmse_hv_prim */
+			<80 384>,   /* qusb2phy_dmse_hv_sec */
+			<52 275>,   /* qmp_usb3_lfps_rxterm_irq */
+			<87 358>,   /* ee0_krait_hlos_spmi_periph_irq */
+			<0xff 16>,  /* APCj_qgicdrCpu0HwFaultIrptReq */
+			<0xff 23>,  /* APCj_qgicdrCpu0PerfMonIrptReq */
+			<0xff 27>,  /* APCj_qgicdrCpu0QTmrVirtIrptReq */
+			<0xff 32>,  /* APCj_qgicdrL2PerfMonIrptReq */
+			<0xff 33>,  /* APCC_qgicL2PerfMonIrptReq */
+			<0xff 34>,  /* APCC_qgicL2ErrorIrptReq */
+			<0xff 35>,  /* WDT_barkInt */
+			<0xff 40>,  /* qtimer_phy_irq */
+			<0xff 41>,  /* APCj_qgicdrL2HwFaultNonFatalIrptReq */
+			<0xff 42>,  /* APCj_qgicdrL2HwFaultFatalIrptReq */
+			<0xff 49>,  /* L3UX_qgicL3ErrorIrptReq */
+			<0xff 54>,  /* M4M_sysErrorInterrupt */
+			<0xff 55>,  /* M4M_sysDlmInterrupt */
+			<0xff 57>,  /* mss_to_apps_irq(0) */
+			<0xff 58>,  /* mss_to_apps_irq(1) */
+			<0xff 59>,  /* mss_to_apps_irq(2) */
+			<0xff 60>,  /* mss_to_apps_irq(3) */
+			<0xff 61>,  /* mss_a2_bam_irq */
+			<0xff 62>,  /* QTMR_qgicFrm0VirtIrq */
+			<0xff 63>,  /* QTMR_qgicFrm1PhysIrq */
+			<0xff 64>,  /* QTMR_qgicFrm2PhysIrq */
+			<0xff 65>,  /* QTMR_qgicFrm3PhysIrq */
+			<0xff 66>,  /* QTMR_qgicFrm4PhysIrq */
+			<0xff 67>,  /* QTMR_qgicFrm5PhysIrq */
+			<0xff 68>,  /* QTMR_qgicFrm6PhysIrq */
+			<0xff 69>,  /* QTMR_qgicFrm7PhysIrq */
+			<0xff 70>,  /* iommu_pmon_nonsecure_irq */
+			<0xff 74>,  /* osmmu_CIrpt[1] */
+			<0xff 75>,  /* osmmu_CIrpt[0] */
+			<0xff 77>,  /* osmmu_CIrpt[0] */
+			<0xff 78>,  /* osmmu_CIrpt[0] */
+			<0xff 79>,  /* osmmu_CIrpt[0] */
+			<0xff 80>,  /* CPR3_irq */
+			<0xff 94>,  /* osmmu_CIrpt[0] */
+			<0xff 97>,  /* iommu_nonsecure_irq */
+			<0xff 99>,  /* msm_iommu_pmon_nonsecure_irq */
+			<0xff 102>, /* osmmu_CIrpt[1] */
+			<0xff 105>, /* iommu_pmon_nonsecure_irq */
+			<0xff 108>, /* osmmu_PMIrpt */
+			<0xff 109>, /* ocmem_dm_nonsec_irq */
+			<0xff 110>, /* csiphy_0_irq */
+			<0xff 111>, /* csiphy_1_irq */
+			<0xff 112>, /* csiphy_2_irq */
+			<0xff 115>, /* mdss_irq */
+			<0xff 126>, /* bam_irq[0] */
+			<0xff 127>, /* blsp1_qup_irq(0) */
+			<0xff 132>, /* blsp1_qup_irq(5) */
+			<0xff 133>, /* blsp2_qup_irq(0) */
+			<0xff 134>, /* blsp2_qup_irq(1) */
+			<0xff 138>, /* blsp2_qup_irq(5) */
+			<0xff 140>, /* blsp1_uart_irq(1) */
+			<0xff 146>, /* blsp2_uart_irq(1) */
+			<0xff 155>, /* sdcc_irq[0] */
+			<0xff 157>, /* sdc2_irq[0] */
+			<0xff 163>, /* usb30_ee1_irq */
+			<0xff 164>, /* usb30_bam_irq(0) */
+			<0xff 165>, /* usb30_hs_phy_irq */
+			<0xff 166>, /* sdc1_pwr_cmd_irq */
+			<0xff 170>, /* sdcc_pwr_cmd_irq */
+			<0xff 173>, /* sdc1_irq[0] */
+			<0xff 174>, /* o_wcss_apss_smd_med */
+			<0xff 175>, /* o_wcss_apss_smd_low */
+			<0xff 176>, /* o_wcss_apss_smsm_irq */
+			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
+			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
+			<0xff 179>, /* o_wcss_apss_asic_intr */
+			<0xff 180>, /* pcie20_2_int_pls_err */
+			<0xff 181>, /* wcnss watchdog */
+			<0xff 188>, /* lpass_irq_out_apcs(0) */
+			<0xff 189>, /* lpass_irq_out_apcs(1) */
+			<0xff 190>, /* lpass_irq_out_apcs(2) */
+			<0xff 191>, /* lpass_irq_out_apcs(3) */
+			<0xff 192>, /* lpass_irq_out_apcs(4) */
+			<0xff 193>, /* lpass_irq_out_apcs(5) */
+			<0xff 194>, /* lpass_irq_out_apcs(6) */
+			<0xff 195>, /* lpass_irq_out_apcs(7) */
+			<0xff 196>, /* lpass_irq_out_apcs(8) */
+			<0xff 197>, /* lpass_irq_out_apcs(9) */
+			<0xff 198>, /* coresight-tmc-etr interrupt */
+			<0xff 200>, /* rpm_ipc(4) */
+			<0xff 201>, /* rpm_ipc(5) */
+			<0xff 202>, /* rpm_ipc(6) */
+			<0xff 203>, /* rpm_ipc(7) */
+			<0xff 204>, /* rpm_ipc(24) */
+			<0xff 205>, /* rpm_ipc(25) */
+			<0xff 206>, /* rpm_ipc(26) */
+			<0xff 207>, /* rpm_ipc(27) */
+			<0xff 208>,
+			<0xff 210>,
+			<0xff 211>, /* usb_dwc3_otg */
+			<0xff 215>, /* o_bimc_intr(0) */
+			<0xff 224>, /* spdm_realtime_irq[1] */
+			<0xff 238>, /* crypto_bam_irq[0] */
+			<0xff 240>, /* summary_irq_kpss */
+			<0xff 253>, /* sdc2_pwr_cmd_irq */
+			<0xff 258>, /* lpass_irq_out_apcs[21] */
+			<0xff 268>, /* bam_irq[1] */
+			<0xff 270>, /* bam_irq[0] */
+			<0xff 271>, /* bam_irq[0] */
+			<0xff 276>, /* wlan_pci */
+			<0xff 283>, /* pcie20_0_int_pls_err */
+			<0xff 284>, /* pcie20_0_int_aer_legacy */
+			<0xff 286>, /* pcie20_0_int_pls_link_down */
+			<0xff 290>, /* ufs_ice_nonsec_level_irq */
+			<0xff 293>, /* pcie20_2_int_pls_link_down */
+			<0xff 295>, /* camss_cpp_mmu_cirpt[0] */
+			<0xff 296>, /* camss_cpp_mmu_pmirpt */
+			<0xff 297>, /* ufs_intrq */
+			<0xff 302>, /* qdss_etrbytecnt_irq */
+			<0xff 310>, /* pcie20_1_int_pls_err */
+			<0xff 311>, /* pcie20_1_int_aer_legacy */
+			<0xff 313>, /* pcie20_1_int_pls_link_down */
+			<0xff 318>, /* venus0_mmu_pmirpt */
+			<0xff 319>, /* venus0_irq */
+			<0xff 325>, /* camss_irq18 */
+			<0xff 326>, /* camss_irq0 */
+			<0xff 327>, /* camss_irq1 */
+			<0xff 328>, /* camss_irq2 */
+			<0xff 329>, /* camss_irq3 */
+			<0xff 330>, /* camss_irq4 */
+			<0xff 331>, /* camss_irq5 */
+			<0xff 332>, /* sps */
+			<0xff 346>, /* camss_irq8 */
+			<0xff 347>, /* camss_irq9 */
+			<0xff 352>, /* mdss_mmu_cirpt[0] */
+			<0xff 353>, /* mdss_mmu_cirpt[1] */
+			<0xff 361>, /* ogpu_mmu_cirpt[0] */
+			<0xff 362>, /* ogpu_mmu_cirpt[1] */
+			<0xff 365>, /* ipa_irq[0] */
+			<0xff 366>, /* ogpu_mmu_pmirpt */
+			<0xff 367>, /* venus0_mmu_cirpt[0] */
+			<0xff 368>, /* venus0_mmu_cirpt[1] */
+			<0xff 369>, /* venus0_mmu_cirpt[2] */
+			<0xff 370>, /* venus0_mmu_cirpt[3] */
+			<0xff 375>, /* camss_vfe_mmu_cirpt[0] */
+			<0xff 376>, /* camss_vfe_mmu_cirpt[1] */
+			<0xff 380>, /* mdss_dma_mmu_cirpt[0] */
+			<0xff 381>, /* mdss_dma_mmu_cirpt[1] */
+			<0xff 385>, /* mdss_dma_mmu_pmirpt */
+			<0xff 387>, /* osmmu_CIrpt[0] */
+			<0xff 394>, /* osmmu_PMIrpt */
+			<0xff 403>, /* osmmu_PMIrpt */
+			<0xff 405>, /* osmmu_CIrpt[0] */
+			<0xff 413>, /* osmmu_PMIrpt */
+			<0xff 422>, /* ssc_irq_out_apcs[5] */
+			<0xff 424>, /* ipa_irq[2] */
+			<0xff 425>, /* lpass_irq_out_apcs[22] */
+			<0xff 426>, /* lpass_irq_out_apcs[23] */
+			<0xff 427>, /* lpass_irq_out_apcs[24] */
+			<0xff 428>, /* lpass_irq_out_apcs[25] */
+			<0xff 429>, /* lpass_irq_out_apcs[26] */
+			<0xff 430>, /* lpass_irq_out_apcs[27] */
+			<0xff 431>, /* lpass_irq_out_apcs[28] */
+			<0xff 432>, /* lpass_irq_out_apcs[29] */
+			<0xff 436>, /* lpass_irq_out_apcs[37] */
+			<0xff 437>, /* pcie20_0_int_msi_dev0 */
+			<0xff 445>, /* pcie20_1_int_msi_dev0 */
+			<0xff 453>, /* pcie20_2_int_msi_dev0 */
+			<0xff 461>, /* o_vmem_nonsec_irq */
+			<0xff 462>, /* tsens1_tsens_critical_int */
+			<0xff 464>, /* ipa_bam_irq[0] */
+			<0xff 465>, /* ipa_bam_irq[2] */
+			<0xff 477>, /* tsens0_tsens_critical_int */
+			<0xff 480>, /* q6_wdog_expired_irq */
+			<0xff 481>, /* mss_ipc_out_irq(4) */
+			<0xff 483>, /* mss_ipc_out_irq(6) */
+			<0xff 484>, /* mss_ipc_out_irq(7) */
+			<0xff 487>, /* mss_ipc_out_irq(30) */
+			<0xff 490>, /* tsens0_tsens_upper_lower_int */
+			<0xff 493>; /* sdc1_ice_nonsec_level_irq */
+
+		qcom,gpio-parent = <&tlmm>;
+		qcom,gpio-map = <3  1>,
+			<4  5>,
+			<5  9>,
+			<6  11>,
+			<7  66>,
+			<8  22>,
+			<9  24>,
+			<10  26>,
+			<11  34>,
+			<12  36>,
+			<13  37>, /* PCIe0 */
+			<14  38>,
+			<15  40>,
+			<16  42>,
+			<17  46>,
+			<18  50>,
+			<19  53>,
+			<20  54>,
+			<21  56>,
+			<22  57>,
+			<23  58>,
+			<24  59>,
+			<25  60>,
+			<26  61>,
+			<27  62>,
+			<28  63>,
+			<29  64>,
+			<30  71>,
+			<31  73>,
+			<32  77>,
+			<33  78>,
+			<34  79>,
+			<35  80>,
+			<36  82>,
+			<37  86>,
+			<38  91>,
+			<39  92>,
+			<40  95>,
+			<41  97>,
+			<42  101>,
+			<43  104>,
+			<44  106>,
+			<45  108>,
+			<46  112>,
+			<47  113>,
+			<48  110>,
+			<50  127>,
+			<51  115>,
+			<54  116>, /* PCIe2 */
+			<55  117>,
+			<56  118>,
+			<57  119>,
+			<58  120>,
+			<59  121>,
+			<60  122>,
+			<61  123>,
+			<62  124>,
+			<63  125>,
+			<64  126>,
+			<65  129>,
+			<66  131>,
+			<67  132>, /* PCIe1 */
+			<68  133>,
+			<69  145>;
+	};
 };

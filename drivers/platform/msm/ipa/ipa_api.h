@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "ipa_common_i.h"
+
 #ifndef _IPA_API_H_
 #define _IPA_API_H_
 
@@ -183,45 +185,6 @@ struct ipa_api_controller {
 
 	int (*ipa_uc_dereg_rdyCB)(void);
 
-	int (*ipa_rm_create_resource)(
-		struct ipa_rm_create_params *create_params);
-
-	int (*ipa_rm_delete_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_register)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_register_params *reg_params);
-
-	int (*ipa_rm_deregister)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_register_params *reg_params);
-
-	int (*ipa_rm_set_perf_profile)(enum ipa_rm_resource_name resource_name,
-		struct ipa_rm_perf_profile *profile);
-
-	int (*ipa_rm_add_dependency)(enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
-
-	int (*ipa_rm_delete_dependency)(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-	int (*ipa_rm_request_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_release_resource)(enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_notify_completion)(enum ipa_rm_event event,
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_init)(enum ipa_rm_resource_name
-		resource_name, unsigned long msecs);
-
-	int (*ipa_rm_inactivity_timer_destroy)(
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_request_resource)(
-		enum ipa_rm_resource_name resource_name);
-
-	int (*ipa_rm_inactivity_timer_release_resource)(
-				enum ipa_rm_resource_name resource_name);
-
 	int (*teth_bridge_init)(struct teth_bridge_init_params *params);
 
 	int (*teth_bridge_disconnect)(enum ipa_client_type client);
@@ -308,10 +271,6 @@ struct ipa_api_controller {
 	int (*ipa_disable_apps_wan_cons_deaggr)(uint32_t agg_size,
 						uint32_t agg_count);
 
-	int (*ipa_rm_add_dependency_sync)(
-		enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
-
 	struct device *(*ipa_get_dma_dev)(void);
 
 	int (*ipa_release_wdi_mapping)(u32 num_buffers,
@@ -324,6 +283,25 @@ struct ipa_api_controller {
 
 	int (*ipa_register_ipa_ready_cb)(void (*ipa_ready_cb)(void *user_data),
 		void *user_data);
+
+	void (*ipa_inc_client_enable_clks)(
+		struct ipa_active_client_logging_info *id);
+
+	void (*ipa_dec_client_disable_clks)(
+		struct ipa_active_client_logging_info *id);
+
+	int (*ipa_inc_client_enable_clks_no_block)(
+		struct ipa_active_client_logging_info *id);
+
+	int (*ipa_suspend_resource_no_block)(
+		enum ipa_rm_resource_name resource);
+
+	int (*ipa_resume_resource)(enum ipa_rm_resource_name name);
+
+	int (*ipa_suspend_resource_sync)(enum ipa_rm_resource_name resource);
+
+	int (*ipa_set_required_perf_profile)(
+		enum ipa_voltage_level floor_voltage, u32 bandwidth_mbps);
 
 };
 

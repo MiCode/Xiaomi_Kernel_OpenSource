@@ -35,6 +35,7 @@
 #include "../ipa_api.h"
 #include "ipahal/ipahal_reg.h"
 #include "ipahal/ipahal.h"
+#include "../ipa_common_i.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -54,9 +55,6 @@
 #define IPA_UC_WAII_MAX_SLEEP 1200
 
 #define IPA_MAX_STATUS_STAT_NUM 30
-#define __FILENAME__ \
-	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-
 
 #define IPA_IPC_LOGGING(buf, fmt, args...) \
 	ipc_log_string((buf), \
@@ -213,113 +211,16 @@
 
 #define IPA_SLEEP_CLK_RATE_KHZ (32)
 
-#define IPA_ACTIVE_CLIENTS_PREP_EP(log_info, client) \
-		log_info.file = __FILENAME__; \
-		log_info.line = __LINE__; \
-		log_info.type = EP; \
-		log_info.id_string = ipa3_clients_strings[client]
-
-#define IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info) \
-		log_info.file = __FILENAME__; \
-		log_info.line = __LINE__; \
-		log_info.type = SIMPLE; \
-		log_info.id_string = __func__
-
-#define IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name) \
-		log_info.file = __FILENAME__; \
-		log_info.line = __LINE__; \
-		log_info.type = RESOURCE; \
-		log_info.id_string = resource_name
-
-#define IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str) \
-		log_info.file = __FILENAME__; \
-		log_info.line = __LINE__; \
-		log_info.type = SPECIAL; \
-		log_info.id_string = id_str
-
-#define IPA_ACTIVE_CLIENTS_INC_EP(client) \
-	do { \
-		struct ipa3_active_client_logging_info log_info; \
-		IPA_ACTIVE_CLIENTS_PREP_EP(log_info, client); \
-		ipa3_inc_client_enable_clks(&log_info); \
-	} while (0)
-
-#define IPA_ACTIVE_CLIENTS_DEC_EP(client) \
-	do { \
-		struct ipa3_active_client_logging_info log_info; \
-		IPA_ACTIVE_CLIENTS_PREP_EP(log_info, client); \
-		ipa3_dec_client_disable_clks(&log_info); \
-	} while (0)
-
-#define IPA_ACTIVE_CLIENTS_INC_SIMPLE() \
-	do { \
-		struct ipa3_active_client_logging_info log_info; \
-		IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info); \
-		ipa3_inc_client_enable_clks(&log_info); \
-	} while (0)
-
-#define IPA_ACTIVE_CLIENTS_DEC_SIMPLE() \
-	do { \
-		struct ipa3_active_client_logging_info log_info; \
-		IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info); \
-		ipa3_dec_client_disable_clks(&log_info); \
-	} while (0)
-
-#define IPA_ACTIVE_CLIENTS_INC_RESOURCE(resource_name) \
-	do { \
-		struct ipa3_active_client_logging_info log_info; \
-		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name); \
-		ipa3_inc_client_enable_clks(&log_info); \
-	} while (0)
-
-#define IPA_ACTIVE_CLIENTS_DEC_RESOURCE(resource_name) \
-	do { \
-		struct ipa3_active_client_logging_info log_info; \
-		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info, resource_name); \
-		ipa3_dec_client_disable_clks(&log_info); \
-	} while (0)
-
-#define IPA_ACTIVE_CLIENTS_INC_SPECIAL(id_str) \
-	do { \
-		struct ipa3_active_client_logging_info log_info; \
-		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str); \
-		ipa3_inc_client_enable_clks(&log_info); \
-	} while (0)
-
-#define IPA_ACTIVE_CLIENTS_DEC_SPECIAL(id_str) \
-	do { \
-		struct ipa3_active_client_logging_info log_info; \
-		IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log_info, id_str); \
-		ipa3_dec_client_disable_clks(&log_info); \
-	} while (0)
-
 #define IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES 120
 #define IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN 96
 #define IPA3_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE 50
 #define IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN 40
 
-extern const char *ipa3_clients_strings[];
-
-enum ipa3_active_client_log_type {
-	EP,
-	SIMPLE,
-	RESOURCE,
-	SPECIAL,
-	INVALID
-};
-
-struct ipa3_active_client_logging_info {
-	const char *id_string;
-	char *file;
-	int line;
-	enum ipa3_active_client_log_type type;
-};
-
 struct ipa3_active_client_htable_entry {
 	struct hlist_node list;
 	char id_string[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
 	int count;
-	enum ipa3_active_client_log_type type;
+	enum ipa_active_client_log_type type;
 };
 
 struct ipa3_active_clients_log_ctx {
@@ -813,6 +714,7 @@ struct ipa3_sys_context {
 	unsigned int len_rem;
 	unsigned int len_pad;
 	unsigned int len_partial;
+	bool drop_packet;
 	struct work_struct work;
 	void (*sps_callback)(struct sps_event_notify *notify);
 	enum sps_option sps_option;
@@ -2044,46 +1946,6 @@ int ipa3_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
 int ipa3_uc_dereg_rdyCB(void);
 
 /*
- * Resource manager
- */
-int ipa3_rm_create_resource(struct ipa_rm_create_params *create_params);
-
-int ipa3_rm_delete_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_register(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params);
-
-int ipa3_rm_deregister(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_register_params *reg_params);
-
-int ipa3_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
-			struct ipa_rm_perf_profile *profile);
-
-int ipa3_rm_add_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-int ipa3_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
-			enum ipa_rm_resource_name depends_on_name);
-
-int ipa3_rm_request_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_release_resource(enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_notify_completion(enum ipa_rm_event event,
-		enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
-				 unsigned long msecs);
-
-int ipa3_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_inactivity_timer_request_resource(
-				enum ipa_rm_resource_name resource_name);
-
-int ipa3_rm_inactivity_timer_release_resource(
-				enum ipa_rm_resource_name resource_name);
-
-/*
  * Tethering bridge (Rmnet / MBIM)
  */
 int ipa3_teth_bridge_init(struct teth_bridge_init_params *params);
@@ -2228,13 +2090,13 @@ int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary);
 struct ipa3_context *ipa3_get_ctx(void);
 void ipa3_enable_clks(void);
 void ipa3_disable_clks(void);
-void ipa3_inc_client_enable_clks(struct ipa3_active_client_logging_info *id);
-int ipa3_inc_client_enable_clks_no_block(struct ipa3_active_client_logging_info
+void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id);
+int ipa3_inc_client_enable_clks_no_block(struct ipa_active_client_logging_info
 		*id);
-void ipa3_dec_client_disable_clks(struct ipa3_active_client_logging_info *id);
-void ipa3_active_clients_log_dec(struct ipa3_active_client_logging_info *id,
+void ipa3_dec_client_disable_clks(struct ipa_active_client_logging_info *id);
+void ipa3_active_clients_log_dec(struct ipa_active_client_logging_info *id,
 		bool int_ctx);
-void ipa3_active_clients_log_inc(struct ipa3_active_client_logging_info *id,
+void ipa3_active_clients_log_inc(struct ipa_active_client_logging_info *id,
 		bool int_ctx);
 int ipa3_active_clients_log_print_buffer(char *buf, int size);
 int ipa3_active_clients_log_print_table(char *buf, int size);
@@ -2370,8 +2232,6 @@ int ipa3_ap_suspend(struct device *dev);
 int ipa3_ap_resume(struct device *dev);
 int ipa3_init_interrupts(void);
 struct iommu_domain *ipa3_get_smmu_domain(void);
-int ipa3_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
-		enum ipa_rm_resource_name depends_on_name);
 int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipahal_reg_hash_tuple *tuple);
@@ -2393,7 +2253,6 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	struct ipa3_debugfs_rt_entry entry[],
 	int *num_entry);
 int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
-const char *ipa3_rm_resource_str(enum ipa_rm_resource_name resource_name);
 int ipa3_restore_suspend_handler(void);
 int ipa3_inject_dma_task_for_gsi(void);
 int ipa3_uc_panic_notifier(struct notifier_block *this,

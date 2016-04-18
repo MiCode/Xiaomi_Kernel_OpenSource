@@ -280,9 +280,9 @@
 };
 &pmcobalt_gpios {
 	gpio@c800 { /* GPIO 9 - CAMERA SENSOR 2 VDIG */
-		qcom,mode = <1>;		/* Output*/
-		qcom,pull = <4>;		/* Pulldown 10uA */
-		qcom,vin-sel = <1>;		/* VIN1 GPIO_MV */
+		qcom,mode = <1>;		/* Output */
+		qcom,pull = <5>;		/* No Pull */
+		qcom,vin-sel = <0>;		/* VIN1 GPIO_LV */
 		qcom,src-sel = <0>;		/* GPIO */
 		qcom,invert = <0>;		/* Invert */
 		qcom,master-en = <1>;		/* Enable GPIO */
@@ -290,9 +290,9 @@
 	};
 
 	gpio@d300 { /* GPIO 20 - CAMERA SENSOR 0 VDIG */
-		qcom,mode = <1>;		/* Output*/
-		qcom,pull = <4>;		/* Pulldown 10uA */
-		qcom,vin-sel = <1>;		/* VIN1 GPIO_MV*/
+		qcom,mode = <1>;		/* Output */
+		qcom,pull = <5>;		/* No Pull */
+		qcom,vin-sel = <1>;		/* VIN1 GPIO_MV */
 		qcom,src-sel = <0>;		/* GPIO */
 		qcom,invert = <0>;		/* Invert */
 		qcom,master-en = <1>;		/* Enable GPIO */

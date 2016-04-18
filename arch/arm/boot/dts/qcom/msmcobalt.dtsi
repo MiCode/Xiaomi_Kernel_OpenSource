@@ -780,6 +780,17 @@
 		<90 512 206000 960000>, <90 585 206000 960000>,    /* NOMINAL */
 		<90 512 206000 3600000>, <90 585 206000 3600000>;    /* TURBO */
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+
+		/* smp2p gpio information */
+		qcom,smp2pgpio_map_ipa_1_out {
+			compatible = "qcom,smp2pgpio-map-ipa-1-out";
+			gpios = <&smp2pgpio_ipa_1_out 0 0>;
+		};
+
+		qcom,smp2pgpio_map_ipa_1_in {
+			compatible = "qcom,smp2pgpio-map-ipa-1-in";
+			gpios = <&smp2pgpio_ipa_1_in 0 0>;
+		};
 	};
 
 	qcom,ipa_fws@1e08000 {
@@ -848,6 +859,52 @@
 			qcom,smd-irq-bitmask = <0x2000000>;
 			interrupts = <0 176 1>;
 			label = "dsps";
+		};
+	};
+
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-adsp";
+		qcom,fastrpc-glink;
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 8>;
+		};
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 9>;
+		};
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 10>;
+		};
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 11>;
+		};
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 12>;
+		};
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 5>;
+		};
+		qcom,msm_fastrpc_compute_cb7 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 6>;
+		};
+		qcom,msm_fastrpc_compute_cb8 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 7>;
 		};
 	};
 
@@ -1221,10 +1278,11 @@
 			reg = <0x0a800000 0xcd00>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 131 0>;
-			usb-phy = <&qusb_phy0>, <&ssphy>;
+			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
 			snps,hird_thresh = <0x10>;
+			maximum-speed = "high-speed";
 		};
 
 		qcom,usbbam@a904000 {
@@ -1295,13 +1353,14 @@
 		reg-names = "qmp_phy_base",
 			    "vls_clamp_reg";
 		vdd-supply = <&pmcobalt_l1>;
-		vdda18-supply = <&pmcobalt_l12>;
+		core-supply = <&pmcobalt_l2>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
 		qcom,vbus-valid-override;
 		qcom,qmp-phy-init-seq =
 			/* <reg_offset, value, delay> */
 				   <0x138 0x30 0x00 /* Common block */
 				    0x3c  0x06 0x00
+				    0x80  0x14 0x00 /* SYSCLK_EN_SEL */
 				    0x8c  0x08 0x00
 				    0x15c 0x06 0x00
 				    0x164 0x01 0x00
@@ -1417,7 +1476,7 @@
 				 0xcd8 /* USB3_PHY_AUTONOMOUS_MODE_CTRL */
 				 0xcdc /* USB3_PHY_LFPS_RXTERM_IRQ_CLEAR */
 				 0xc04 /* USB3_PHY_POWER_DOWN_CONTROL */
-				 0x000 /* USB3_PHY_SW_RESET */
+				 0xc00 /* USB3_PHY_SW_RESET */
 				 0xc08>; /* USB3_PHY_START */
 
 		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
@@ -1436,6 +1495,10 @@
 		compatible = "qcom,usb-dbm-1p5";
 		reg = <0xa8f8000 0x300>;
 		qcom,reset-ep-after-lpm-resume;
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
 	};
 
 	qcom,lpass@17300000 {

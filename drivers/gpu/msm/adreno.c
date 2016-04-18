@@ -1012,13 +1012,14 @@ static void _adreno_free_memories(struct adreno_device *adreno_dev)
 static int adreno_remove(struct platform_device *pdev)
 {
 	struct adreno_device *adreno_dev = adreno_get_dev(pdev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct adreno_gpudev *gpudev;
 	struct kgsl_device *device;
 
 	if (adreno_dev == NULL)
 		return 0;
 
 	device = KGSL_DEVICE(adreno_dev);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->remove != NULL)
 		gpudev->remove(adreno_dev);
@@ -1221,7 +1222,7 @@ static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 	if (!adreno_is_a540(adreno_dev))
 		return;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return;
 
 	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {
@@ -1259,7 +1260,7 @@ static uint64_t _read_throttling_counters(struct adreno_device *adreno_dev)
 	if (!adreno_is_a540(adreno_dev))
 		return 0;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return 0;
 
 	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {

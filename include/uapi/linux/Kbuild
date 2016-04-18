@@ -271,6 +271,7 @@ header-y += membarrier.h
 header-y += memfd.h
 header-y += mempolicy.h
 header-y += meye.h
+header-y += mhi.h
 header-y += mic_common.h
 header-y += mic_ioctl.h
 header-y += mii.h

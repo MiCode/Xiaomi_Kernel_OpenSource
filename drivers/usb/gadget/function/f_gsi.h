@@ -24,6 +24,8 @@
 #include <linux/usb/usb_ctrl_qti.h>
 #include <linux/etherdevice.h>
 #include <linux/debugfs.h>
+#include <linux/ipa_usb.h>
+#include <linux/usb/msm_hsusb.h>
 
 #define GSI_RMNET_CTRL_NAME "rmnet_ctrl"
 #define GSI_MBIM_CTRL_NAME "android_mbim"
