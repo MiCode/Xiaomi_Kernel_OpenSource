@@ -3119,7 +3119,7 @@ static int wcd_cpe_lsm_set_params(struct wcd_cpe_core *core,
 	if (ret) {
 		pr_err("%s: fail to sent acdb cal, err = %d",
 			__func__, ret);
-		return ret;
+		goto err_ret;
 	}
 
 	/* Send operation mode */
@@ -3129,22 +3129,11 @@ static int wcd_cpe_lsm_set_params(struct wcd_cpe_core *core,
 	det_mode.detect_failure = detect_failure;
 	ret = wcd_cpe_send_param_opmode(core, session,
 					&det_mode, &ids);
-	if (ret) {
+	if (ret)
 		dev_err(core->dev,
 			"%s: Failed to set opmode, err=%d\n",
 			__func__, ret);
-		goto err_ret;
-	}
 
-	/* Send connect to port */
-	ids.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
-	ids.param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
-	ret = wcd_cpe_send_param_connectport(core, session,
-					     NULL, &ids, CPE_AFE_PORT_1_TX);
-	if (ret)
-		dev_err(core->dev,
-			"%s: Failed to set connectPort, err=%d\n",
-			__func__, ret);
 err_ret:
 	return ret;
 }
@@ -3354,7 +3343,19 @@ static int wcd_cpe_cmd_lsm_start(void *core_handle,
 	if (ret)
 		return ret;
 
-	/* Send connect to port */
+	/* Send connect to port (input) */
+	ids.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
+	ids.param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
+	ret = wcd_cpe_send_param_connectport(core, session,
+					     NULL, &ids, CPE_AFE_PORT_1_TX);
+	if (ret) {
+		dev_err(core->dev,
+			"%s: Failed to set connectPort, err=%d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	/* Send connect to port (output) */
 	ids.module_id = CPE_LSM_MODULE_FRAMEWORK;
 	ids.param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
 	ret = wcd_cpe_send_param_connectport(core, session,
