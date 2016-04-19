@@ -7824,6 +7824,7 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 		chip->schg_version = QPNP_SCHG;
 		break;
 	case PMI8950:
+		chip->wa_flags |= SMBCHG_RESTART_WA;
 	case PMI8937:
 		chip->wa_flags |= SMBCHG_BATT_OV_WA;
 		if (pmic_rev_id->rev4 < 2) /* PMI8950 1.0 */ {
