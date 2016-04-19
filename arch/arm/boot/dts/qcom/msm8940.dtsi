@@ -23,6 +23,58 @@
 
 };
 
+&usb_otg {
+	qcom,usbbam@78c4000 {
+		qcom,enable-hsusb-bam-on-boot;
+
+		/delete-node/ qcom,pipe0;
+		qcom,pipe0 {
+			label = "hsusb-ipa-out-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-pipe-index = <1>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+		qcom,pipe1 {
+			label = "hsusb-ipa-in-0";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+		qcom,pipe2 {
+			label = "hsusb-qdss-in-0";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <0>;
+			qcom,peer-bam-physical-address = <0x6044000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0x0>;
+			qcom,data-fifo-size = <0xe00>;
+			qcom,descriptor-fifo-offset = <0xe00>;
+			qcom,descriptor-fifo-size = <0x200>;
+		};
+		qcom,pipe3 {
+			label = "hsusb-dpl-ipa-in-1";
+			qcom,usb-bam-mem-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <1>;
+			qcom,peer-bam = <1>;
+			qcom,dst-bam-pipe-index = <3>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
+		};
+	};
+};
+
 &ad_hoc_bus {
 	mas_ipa: mas-ipa {
 		cell-id = <MSM_BUS_MASTER_IPA>;
