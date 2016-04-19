@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1438,8 +1438,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	char root_name[sizeof("ufshcd00")];
 
 	if (!hba) {
-		dev_err(hba->dev, "%s: NULL hba, exiting", __func__);
-		goto err_no_root;
+		pr_err("%s: NULL hba, exiting", __func__);
+		return;
 	}
 
 	snprintf(root_name, ARRAY_SIZE(root_name), "%s%d", UFSHCD,
