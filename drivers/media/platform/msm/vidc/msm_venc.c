@@ -3015,17 +3015,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		atomic_inc(&inst->seq_hdr_reqs);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
-		if (ctrl->val < inst->capability.ltr_count.min ||
-			ctrl->val >= inst->capability.ltr_count.max) {
-			dprintk(VIDC_ERR,
-				"Error setting useltr %d range: [%d,%d)\n",
-				ctrl->val, inst->capability.ltr_count.min,
-				inst->capability.ltr_count.max);
-			rc = -ENOTSUPP;
-			break;
-		}
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
-		use_ltr.ref_ltr = (0x1 << ctrl->val);
+		use_ltr.ref_ltr = ctrl->val;
 		use_ltr.use_constraint = false;
 		use_ltr.frames = 0;
 		pdata = &use_ltr;
