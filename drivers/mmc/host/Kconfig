@@ -395,18 +395,13 @@ config MMC_ATMELMCI
 
 	  If unsure, say N.
 
-config MMC_SDHCI_MSM
-	tristate "Qualcomm SDHCI Controller Support"
-	depends on ARCH_QCOM || ARCH_MSM || (ARM && COMPILE_TEST)
-	depends on MMC_SDHCI_PLTFM
+config MMC_MSM
+	tristate "Qualcomm SDCC Controller Support"
+	depends on MMC && (ARCH_MSM7X00A || ARCH_MSM7X30 || ARCH_QSD8X50)
 	help
-	  This selects the Secure Digital Host Controller Interface (SDHCI)
-	  support present in Qualcomm SOCs. The controller supports
-	  SD/MMC/SDIO devices.
-
-	  If you have a controller with this interface, say Y or M here.
-
-	  If unsure, say N.
+	  This provides support for the SD/MMC cell found in the
+	  MSM and QSD SOCs from Qualcomm. The controller also has
+	  support for SDIO devices.
 
 config MMC_MXC
 	tristate "Freescale i.MX21/27/31 or MPC512x Multimedia Card support"
