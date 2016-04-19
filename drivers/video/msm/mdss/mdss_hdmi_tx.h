@@ -121,6 +121,9 @@ struct hdmi_video_config {
 	struct hdmi_avi_infoframe_config avi_iframe;
 };
 
+struct hdmi_tx_ctrl;
+typedef int (*hdmi_tx_evt_handler) (struct hdmi_tx_ctrl *);
+
 struct hdmi_tx_ctrl {
 	struct platform_device *pdev;
 	u32 hdmi_tx_ver;
@@ -200,6 +203,9 @@ struct hdmi_tx_ctrl {
 
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 	bool power_data_enable[HDMI_TX_MAX_PM];
+
+	hdmi_tx_evt_handler evt_handler[MDSS_EVENT_MAX];
+	void *evt_arg;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */
