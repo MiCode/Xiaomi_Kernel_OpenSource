@@ -981,6 +981,8 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 					DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 		substream->dma_buffer.private_data = NULL;
 
+		arch_setup_dma_ops(substream->dma_buffer.dev.dev,
+				   0, 0, NULL, 0);
 		ret = snd_pcm_lib_malloc_pages(substream, PAGE_SIZE);
 		if (ret < 0)
 			goto platform_err;
