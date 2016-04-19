@@ -172,6 +172,16 @@
 				<1 590 0 320000>;
 		};
 
+		qcom,mdss-hw-rt-bus {
+			/* Bus Scale Settings */
+			qcom,msm-bus,name = "mdss_hw_rt";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<22 512 0 0>,
+				<22 512 0 1000>;
+		};
+
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
 			compatible = "qcom,smmu_mdp_unsec";
 		};
