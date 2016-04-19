@@ -103,6 +103,9 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 #define WAKEUP_ACK			BIT(1)
 #define IDLE_FULL_ACK			BIT(0)
 
+/* A5XX_GPMU_GPMU_ISENSE_CTRL */
+#define	ISENSE_CGC_EN_DISABLE		BIT(0)
+
 /* A5XX_GPMU_TEMP_SENSOR_CONFIG */
 #define GPMU_BCL_ENABLED		BIT(4)
 #define GPMU_LLM_ENABLED		BIT(9)
