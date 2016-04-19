@@ -56,32 +56,35 @@
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 
-#define IPA_IPC_LOGGING(buf, fmt, args...) \
-	ipc_log_string((buf), \
-		DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+#define IPA_IPC_LOG_PAGES 50
 
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
 		if (ipa3_ctx) { \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf, fmt, ## args); \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
 		} \
 	} while (0)
 
 #define IPADBG_LOW(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
-		if (ipa3_ctx && ipa3_ctx->enable_low_prio_print) \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+		if (ipa3_ctx) \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPAERR(fmt, args...) \
 	do { \
 		pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
 		if (ipa3_ctx) { \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf, fmt, ## args); \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
 		} \
 	} while (0)
 
@@ -1432,7 +1435,6 @@ struct ipa3_ready_cb_info {
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
  * @enable_clock_scaling: clock scaling is enabled ?
- * @enable_low_prio_print: enable low priority prints
  * @curr_ipa_clk_rate: ipa3_clk current rate
  * @wcstats: wlan common buffer stats
  * @uc_ctx: uC interface context
@@ -1537,7 +1539,6 @@ struct ipa3_context {
 	struct device *uc_pdev;
 	spinlock_t idr_lock;
 	u32 enable_clock_scaling;
-	u32 enable_low_prio_print;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
 	u32 ipa_num_pipes;
