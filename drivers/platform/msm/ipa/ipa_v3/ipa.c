@@ -67,8 +67,6 @@
 
 #define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
 
-#define IPA_IPC_LOG_PAGES 50
-
 #define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
 
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_EP 0
@@ -3958,13 +3956,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		result = -ENOMEM;
 		goto fail_logbuf;
 	}
-	ipa3_ctx->logbuf_low =
-		ipc_log_context_create(IPA_IPC_LOG_PAGES, "ipa_low", 0);
-	if (ipa3_ctx->logbuf_low == NULL) {
-		IPAERR("failed to get logbuf_low\n");
-		result = -ENOMEM;
-		goto fail_logbuf_low;
-	}
 
 	ipa3_ctx->pdev = ipa_dev;
 	ipa3_ctx->uc_pdev = ipa_dev;
@@ -4460,8 +4451,6 @@ fail_bus_reg:
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
 fail_mem_ctrl:
-	ipc_log_context_destroy(ipa3_ctx->logbuf_low);
-fail_logbuf_low:
 	ipc_log_context_destroy(ipa3_ctx->logbuf);
 fail_logbuf:
 	kfree(ipa3_ctx);
