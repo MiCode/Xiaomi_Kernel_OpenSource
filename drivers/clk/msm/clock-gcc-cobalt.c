@@ -1168,6 +1168,7 @@ static struct branch_clk gcc_bimc_mss_q6_axi_clk = {
 
 static struct local_vote_clk gcc_blsp1_ahb_clk = {
 	.cbcr_reg = GCC_BLSP1_AHB_CBCR,
+	.bcr_reg = GCC_BLSP1_BCR,
 	.vote_reg = GCC_APCS_CLOCK_BRANCH_ENA_VOTE,
 	.en_mask = BIT(17),
 	.base = &virt_base,
@@ -1360,6 +1361,7 @@ static struct branch_clk gcc_blsp1_uart3_apps_clk = {
 
 static struct local_vote_clk gcc_blsp2_ahb_clk = {
 	.cbcr_reg = GCC_BLSP2_AHB_CBCR,
+	.bcr_reg = GCC_BLSP2_BCR,
 	.vote_reg = GCC_APCS_CLOCK_BRANCH_ENA_VOTE,
 	.en_mask = BIT(15),
 	.base = &virt_base,
@@ -1958,6 +1960,7 @@ static struct branch_clk gcc_ufs_ahb_clk = {
 
 static struct branch_clk gcc_ufs_axi_clk = {
 	.cbcr_reg = GCC_UFS_AXI_CBCR,
+	.bcr_reg = GCC_UFS_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
