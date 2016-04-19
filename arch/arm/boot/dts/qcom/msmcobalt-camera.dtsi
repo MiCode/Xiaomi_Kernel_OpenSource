@@ -439,25 +439,29 @@
 		camss-vdd-supply = <&gdsc_camss_top>;
 		smmu-vdd-supply = <&gdsc_bimc_smmu>;
 		qcom,vdd-names = "vdd", "camss-vdd", "smmu-vdd";
-		clocks = <&clock_mmss clk_mmss_camss_top_ahb_clk>,
+		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
 			<&clock_mmss clk_mmss_camss_ahb_clk>,
-			<&clock_mmss clk_vfe0_clk_src>,
+			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_vfe0_clk>,
-			<&clock_mmss clk_mmss_camss_csi_vfe0_clk>,
+			<&clock_mmss clk_mmss_camss_vfe0_stream_clk>,
 			<&clock_mmss clk_mmss_camss_vfe0_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_vfe_vbif_ahb_clk>,
-			<&clock_mmss clk_mmss_camss_vfe0_stream_clk>,
 			<&clock_mmss clk_mmss_camss_vfe_vbif_axi_clk>,
-			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
-		clock-names = "camss_top_ahb_clk" , "camss_ahb_clk",
-			"vfe_clk_src", "camss_vfe_clk",
-			"camss_csi_vfe_clk",
-			"vfe_ahb_clk", "vfe_vbif_ahb_clk",
-			"vfe_stream_clk", "vfe_vbif_axi_clk",
-			"mmss_smmu_axi_clk";
-		qcom,clock-rates = <0 0 384000000 0 0 0 0 0 0 0
-					0 0 576000000 0 0 0 0 0 0 0
-					0 0 600000000 0 0 0 0 0 0 0>;
+			<&clock_mmss clk_vfe0_clk_src>,
+			<&clock_mmss clk_mmss_camss_csi_vfe0_clk>;
+		clock-names = "mnoc_maxi_clk", "mnoc_ahb_clk",
+			"bimc_smmu_ahb_clk", "bimc_smmu_axi_clk",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"camss_vfe_clk", "camss_vfe_stream_clk",
+			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
+			"camss_vfe_vbif_axi_clk", "vfe_clk_src",
+			"camss_csi_vfe_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 384000000 0
+					0 0 0 0 0 0 0 0 0 0 0 576000000 0
+					0 0 0 0 0 0 0 0 0 0 0 600000000 0>;
 		status = "disabled";
 		qos-entries = <8>;
 		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
@@ -515,25 +519,29 @@
 		camss-vdd-supply = <&gdsc_camss_top>;
 		smmu-vdd-supply = <&gdsc_bimc_smmu>;
 		qcom,vdd-names = "vdd", "camss-vdd", "smmu-vdd";
-		clocks = <&clock_mmss clk_mmss_camss_top_ahb_clk>,
+		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
+			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
 			<&clock_mmss clk_mmss_camss_ahb_clk>,
-			<&clock_mmss clk_vfe1_clk_src>,
+			<&clock_mmss clk_mmss_camss_top_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_vfe1_clk>,
-			<&clock_mmss clk_mmss_camss_csi_vfe1_clk>,
+			<&clock_mmss clk_mmss_camss_vfe1_stream_clk>,
 			<&clock_mmss clk_mmss_camss_vfe1_ahb_clk>,
 			<&clock_mmss clk_mmss_camss_vfe_vbif_ahb_clk>,
-			<&clock_mmss clk_mmss_camss_vfe1_stream_clk>,
 			<&clock_mmss clk_mmss_camss_vfe_vbif_axi_clk>,
-			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
-		clock-names = "camss_top_ahb_clk" , "camss_ahb_clk",
-			"vfe_clk_src", "camss_vfe_clk",
-			"camss_csi_vfe_clk",
-			"vfe_ahb_clk", "vfe_vbif_ahb_clk",
-			"vfe_stream_clk", "vfe_vbif_axi_clk",
-			"mmss_smmu_axi_clk";
-		qcom,clock-rates = <0 0 384000000 0 0 0 0 0 0 0
-					0 0 576000000 0 0 0 0 0 0 0
-					0 0 600000000 0 0 0 0 0 0 0>;
+			<&clock_mmss clk_vfe1_clk_src>,
+			<&clock_mmss clk_mmss_camss_csi_vfe1_clk>;
+		clock-names = "mnoc_maxi_clk", "mnoc_ahb_clk",
+			"bimc_smmu_ahb_clk", "bimc_smmu_axi_clk",
+			"camss_ahb_clk", "camss_top_ahb_clk",
+			"camss_vfe_clk", "camss_vfe_stream_clk",
+			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
+			"camss_vfe_vbif_axi_clk", "vfe_clk_src",
+			"camss_csi_vfe_clk";
+		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 384000000 0
+					0 0 0 0 0 0 0 0 0 0 0 576000000 0
+					0 0 0 0 0 0 0 0 0 0 0 600000000 0>;
 		status = "disabled";
 		qos-entries = <8>;
 		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
