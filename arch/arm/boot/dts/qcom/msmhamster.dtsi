@@ -26,3 +26,7 @@
 &clock_gcc {
 	compatible = "qcom,gcc-hamster";
 };
+
+&clock_mmss {
+	compatible = "qcom,mmsscc-hamster";
+};
