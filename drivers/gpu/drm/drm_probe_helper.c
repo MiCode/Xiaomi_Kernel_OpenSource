@@ -205,10 +205,8 @@ static int drm_helper_probe_single_connector_modes_merge_bits(struct drm_connect
 		count = drm_add_edid_modes(connector, edid);
 		drm_edid_to_eld(connector, edid);
 	} else {
-#ifdef CONFIG_DRM_LOAD_EDID_FIRMWARE
 		count = drm_load_edid_firmware(connector);
 		if (count == 0)
-#endif
 			count = (*connector_funcs->get_modes)(connector);
 	}
 
