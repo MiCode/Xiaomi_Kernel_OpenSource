@@ -63,6 +63,8 @@
 
 struct wiphy;
 
+#define CFG80211_SCAN_BSSID 1
+
 /*
  * wireless hardware capability structures
  */
