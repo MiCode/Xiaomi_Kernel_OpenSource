@@ -1486,16 +1486,27 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		pr_debug("%s: SNDRV_PCM_TRIGGER_START\n", __func__);
 		atomic_set(&prtd->start, 1);
 
-		/* set volume for the stream before RUN */
-		rc = msm_compr_set_volume(cstream, volume[0], volume[1]);
-		if (rc)
-			pr_err("%s : Set Volume failed : %d\n",
-				__func__, rc);
+		/*
+		* compr_set_volume and compr_init_pp_params
+		* are used to configure ASM volume hence not
+		* needed for compress passthrough playback.
+		*
+		* compress passthrough volume is controlled in
+		* ADM by adm_send_compressed_device_mute()
+		*/
+		if (prtd->compr_passthr == LEGACY_PCM) {
+			/* set volume for the stream before RUN */
+			rc = msm_compr_set_volume(cstream,
+				volume[0], volume[1]);
+			if (rc)
+				pr_err("%s : Set Volume failed : %d\n",
+					__func__, rc);
 
-		rc = msm_compr_init_pp_params(cstream, ac);
-		if (rc)
-			pr_err("%s : init PP params failed : %d\n",
-				__func__, rc);
+			rc = msm_compr_init_pp_params(cstream, ac);
+			if (rc)
+				pr_err("%s : init PP params failed : %d\n",
+					__func__, rc);
+		}
 
 		/* issue RUN command for the stream */
 		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
