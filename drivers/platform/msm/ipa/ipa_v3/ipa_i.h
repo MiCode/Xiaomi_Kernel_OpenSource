@@ -27,7 +27,6 @@
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
-#include <linux/ipc_logging.h>
 #include <linux/firmware.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"

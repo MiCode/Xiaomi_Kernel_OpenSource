@@ -4936,6 +4936,18 @@ static int ipa2_stop_gsi_channel(u32 clnt_hdl)
 	return -EFAULT;
 }
 
+static void *ipa2_get_ipc_logbuf(void)
+{
+	/* no support for IPC logging in IPAv2 */
+	return NULL;
+}
+
+static void *ipa2_get_ipc_logbuf_low(void)
+{
+	/* no support for IPC logging in IPAv2 */
+	return NULL;
+}
+
 
 int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
@@ -5072,6 +5084,9 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_suspend_resource_sync = ipa2_suspend_resource_sync;
 	api_ctrl->ipa_set_required_perf_profile =
 		ipa2_set_required_perf_profile;
+	api_ctrl->ipa_get_ipc_logbuf = ipa2_get_ipc_logbuf;
+	api_ctrl->ipa_get_ipc_logbuf_low = ipa2_get_ipc_logbuf_low;
+
 
 	return 0;
 }
