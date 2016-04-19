@@ -912,13 +912,22 @@ static void mdss_dsi_8996_phy_power_off(
 static void mdss_dsi_phy_power_off(
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	struct mdss_panel_info *pinfo;
+
 	if (ctrl->phy_power_off)
 		return;
 
-	/* supported for phy rev 2.0 */
-	if (ctrl->shared_data->phy_rev != DSI_PHY_REV_20)
-		return;
+	pinfo = &ctrl->panel_data.panel_info;
 
+	if ((ctrl->shared_data->phy_rev != DSI_PHY_REV_20) ||
+		!pinfo->allow_phy_power_off) {
+		pr_debug("%s: ctrl%d phy rev:%d panel support for phy off:%d\n",
+			__func__, ctrl->ndx, ctrl->shared_data->phy_rev,
+			pinfo->allow_phy_power_off);
+		return;
+	}
+
+	/* supported for phy rev 2.0 and if panel allows it*/
 	mdss_dsi_8996_phy_power_off(ctrl);
 
 	ctrl->phy_power_off = true;
@@ -955,7 +964,7 @@ static void mdss_dsi_8996_phy_power_on(
 static void mdss_dsi_phy_power_on(
 	struct mdss_dsi_ctrl_pdata *ctrl, bool mmss_clamp)
 {
-	if (mmss_clamp && (ctrl->shared_data->phy_rev != DSI_PHY_REV_20))
+	if (mmss_clamp && !ctrl->phy_power_off)
 		mdss_dsi_phy_init(ctrl);
 	else if ((ctrl->shared_data->phy_rev == DSI_PHY_REV_20) &&
 	    ctrl->phy_power_off)
