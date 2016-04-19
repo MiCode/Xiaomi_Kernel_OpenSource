@@ -22,3 +22,7 @@
 	model = "Qualcomm Technologies, Inc. MSM HAMSTER";
 	qcom,msm-id = <306 0x0>;
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-hamster";
+};
