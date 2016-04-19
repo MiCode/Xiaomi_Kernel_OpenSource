@@ -1657,7 +1657,14 @@ static int msm8996_wcd93xx_codec_up(struct snd_soc_codec *codec)
 
 	do {
 		if (!q6core_is_adsp_ready()) {
-			pr_err("%s: ADSP Audio isn't ready\n", __func__);
+			pr_err_ratelimited("%s: ADSP Audio isn't ready\n",
+					   __func__);
+			/*
+			 * ADSP will be coming up after subsystem restart and
+			 * it might not be fully up when the control reaches
+			 * here. So, wait for 50msec before checking ADSP state
+			 */
+			msleep(50);
 		} else {
 			pr_debug("%s: ADSP Audio is ready\n", __func__);
 			adsp_ready = 1;
