@@ -64,6 +64,7 @@ Required properties:
 			"qcom,gcc-mdm9607"
 			"qcom,cc-debug-mdm9607"
 			"qcom,gcc-cobalt"
+			"qcom,gcc-hamster"
 			"qcom,cc-debug-cobalt"
 			"qcom,gpucc-cobalt"
 			"qcom,gfxcc-cobalt"

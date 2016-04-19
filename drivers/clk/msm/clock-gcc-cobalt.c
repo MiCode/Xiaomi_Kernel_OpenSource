@@ -2004,6 +2004,18 @@ static struct gate_clk gcc_ufs_rx_symbol_0_clk = {
 	},
 };
 
+static struct gate_clk gcc_ufs_rx_symbol_1_clk = {
+	.en_reg = GCC_UFS_RX_SYMBOL_1_CBCR,
+	.en_mask = BIT(0),
+	.delay_us = 500,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_ufs_rx_symbol_1_clk",
+		.ops = &clk_ops_gate,
+		CLK_INIT(gcc_ufs_rx_symbol_1_clk.c),
+	},
+};
+
 static struct gate_clk gcc_ufs_tx_symbol_0_clk = {
 	.en_reg = GCC_UFS_TX_SYMBOL_0_CBCR,
 	.en_mask = BIT(0),
@@ -2345,6 +2357,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_ufs_ahb_clk.c, 0x00eb },
 		{ &gcc_ufs_tx_symbol_0_clk.c, 0x00ec },
 		{ &gcc_ufs_rx_symbol_0_clk.c, 0x00ed },
+		{ &gcc_ufs_rx_symbol_1_clk.c, 0x0162 },
 		{ &gcc_ufs_unipro_core_clk.c, 0x00f0 },
 		{ &gcc_ufs_ice_core_clk.c, 0x00f1 },
 		{ &gcc_dcc_ahb_clk.c, 0x0119 },
@@ -2578,6 +2591,7 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_ufs_ice_core_clk),
 	CLK_LIST(gcc_ufs_phy_aux_clk),
 	CLK_LIST(gcc_ufs_rx_symbol_0_clk),
+	CLK_LIST(gcc_ufs_rx_symbol_1_clk),
 	CLK_LIST(gcc_ufs_tx_symbol_0_clk),
 	CLK_LIST(gcc_ufs_unipro_core_clk),
 	CLK_LIST(gcc_usb30_master_clk),
@@ -2611,6 +2625,7 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 	struct resource *res;
 	u32 regval;
 	int ret;
+	bool is_vq = 0;
 
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
@@ -2659,6 +2674,10 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	is_vq = of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-hamster");
+	if (!is_vq)
+		gcc_ufs_rx_symbol_1_clk.c.ops = &clk_ops_dummy;
+
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_gcc_cobalt,
 				    ARRAY_SIZE(msm_clocks_gcc_cobalt));
 	if (ret)
@@ -2687,6 +2706,7 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-cobalt" },
+	{ .compatible = "qcom,gcc-hamster" },
 	{}
 };
 
