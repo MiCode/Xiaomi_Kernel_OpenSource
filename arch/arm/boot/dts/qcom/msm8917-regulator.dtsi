@@ -434,14 +434,18 @@
 		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-fuse-revision = <69 39 3 0>;
+		qcom,pvs-version-fuse-sel = <37 40 3 0>; /* foundry */
 		qcom,cpr-fuse-version-map =
-			<(-1)   (-1)     1    (-1)    (-1)    (-1)>,
+			<(-1)     0      1    (-1)    (-1)    (-1)>,
+			<(-1)     5      1    (-1)    (-1)    (-1)>,
 			<(-1)   (-1)   (-1)   (-1)    (-1)    (-1)>;
 		qcom,cpr-quotient-adjustment =
 				<50      40       100>,
+				<0       0         40>,
 				<0       0          0>;
 		qcom,cpr-init-voltage-adjustment =
 				<30000   5000   35000>,
+				<0       0      20000>,
 				<0       0          0>;
 		qcom,cpr-enable;
 	};
