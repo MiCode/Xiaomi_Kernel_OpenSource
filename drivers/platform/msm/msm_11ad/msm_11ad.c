@@ -572,6 +572,7 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 	int disable_htw = 1;
 	int atomic_ctx = 1;
 	int rc;
+	int bypass_enable = 1;
 
 	if (!ctx->use_smmu)
 		return 0;
@@ -601,6 +602,15 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 				   &atomic_ctx);
 	if (rc) {
 		dev_err(ctx->dev, "Set atomic attribute to SMMU failed (%d)\n",
+			rc);
+		goto release_mapping;
+	}
+
+	rc = iommu_domain_set_attr(ctx->mapping->domain,
+				   DOMAIN_ATTR_S1_BYPASS,
+				   &bypass_enable);
+	if (rc) {
+		dev_err(ctx->dev, "Set bypass attribute to SMMU failed (%d)\n",
 			rc);
 		goto release_mapping;
 	}

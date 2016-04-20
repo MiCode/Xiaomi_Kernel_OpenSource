@@ -1,7 +1,7 @@
 /*
  * Register map access API - SPMI support
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013,2016 The Linux Foundation. All rights reserved.
  *
  * Based on regmap-i2c.c:
  * Copyright 2011 Wolfson Microelectronics plc
@@ -142,7 +142,7 @@ static int regmap_spmi_ext_read(void *context,
 	while (val_size) {
 		len = min_t(size_t, val_size, 8);
 
-		err = spmi_ext_register_readl(context, addr, val, val_size);
+		err = spmi_ext_register_readl(context, addr, val, len);
 		if (err)
 			goto err_out;
 

@@ -564,6 +564,11 @@ static void mdss_dsi_28nm_phy_regulator_enable(
 	struct mdss_dsi_phy_ctrl *pd;
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
 
+	if (pd->regulator_len == 0) {
+		pr_warn("%s: invalid regulator settings\n", __func__);
+		return;
+	}
+
 	if (pd->reg_ldo_mode) {
 		/* Regulator ctrl 0 */
 		MIPI_OUTP(ctrl_pdata->phy_regulator_io.base, 0x0);
@@ -855,6 +860,12 @@ static void mdss_dsi_8996_phy_regulator_enable(
 	void __iomem *base;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
+
+	if (pd->regulator_len != 5) {
+		pr_warn("%s: invalid regulator settings\n", __func__);
+		return;
+	}
+
 	/* 4 lanes + clk lane configuration */
 	for (ln = 0; ln < 5; ln++) {
 		/*

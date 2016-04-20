@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/clock/msm-clocks-cobalt.h>
+#include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 &soc {
@@ -150,12 +151,7 @@
 			"mmss_bimc_smmu_ahb_clk",
 			"mmss_bimc_smmu_axi_clk";
 		#clock-cells = <1>;
-		/*
-		 * The iommu test framework requires at least one iommu
-		 * client to populate debugfs. The presence of a device
-		 * "qcom,smmu-v2" alone is not sufficient.
-		 */
-		iommus = <&mmss_smmu 1>;
+		qcom,bus-master-id = <MSM_BUS_MNOC_BIMC_MAS>;
 	};
 
 	kgsl_smmu: arm,smmu-kgsl@5040000 {
@@ -177,8 +173,13 @@
 			   <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
 			   <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
 		vdd-supply = <&gdsc_gpu_cx>;
-		clocks = <&clock_gcc clk_gcc_bimc_gfx_clk>;
-		clock-name = "kgsl_smmu_clk";
+		clocks = <&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>,
+			<&clock_gcc clk_gcc_gpu_bimc_gfx_clk>;
+
+		clock-names = "gcc_gpu_cfg_ahb_clk",
+			"gcc_bimc_gfx_clk",
+			"gcc_gpu_bimc_gfx_clk";
 		#clock-cells = <1>;
 	};
 };

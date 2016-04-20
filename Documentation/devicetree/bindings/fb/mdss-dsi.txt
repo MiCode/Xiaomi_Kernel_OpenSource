@@ -84,8 +84,6 @@ Required properties:
 - qcom,mdss-fb-map-prim:		pHandle that specifies the framebuffer to which the
 					primary interface is mapped.
 - qcom,mdss-mdp:			pHandle that specifies the mdss-mdp device.
-- qcom,platform-regulator-settings:	An array of length 7 or 5 that specifies the PHY
-					regulator settings. It use 5 bytes for 8996 pll.
 - qcom,platform-strength-ctrl:		An array of length 2 or 10 that specifies the PHY
 					strengthCtrl settings. It use 10 bytes for 8996 pll.
 - qcom,platform-lane-config:		An array of length 45 or 20 that specifies the PHY
@@ -113,6 +111,8 @@ Optional properties:
 					controller. These pin configurations are installed in the pinctrl
 					device node. Refer to pinctrl-bindings.txt
 - qcom,regulator-ldo-mode:		Boolean to enable ldo mode for the dsi phy regulator
+- qcom,platform-regulator-settings:	An array of length 7 or 5 that specifies the PHY
+					regulator settings. It use 5 bytes for 8996 pll.
 - qcom,null-insertion-enabled:		Boolean to enable NULL packet insertion
 					feature for DSI controller.
 - qcom,dsi-irq-line:			Boolean specifies if DSI has a different irq line than mdp.
