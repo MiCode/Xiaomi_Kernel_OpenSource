@@ -73,6 +73,7 @@ extern unsigned int sysctl_sched_big_waker_task_load_pct;
 #ifdef CONFIG_SCHED_QHMP
 extern unsigned int sysctl_sched_min_runtime;
 extern unsigned int sysctl_sched_small_task_pct;
+extern unsigned int sysctl_sched_restrict_tasks_spread;
 #else
 extern unsigned int sysctl_sched_select_prev_cpu_us;
 extern unsigned int sysctl_sched_enable_colocation;
