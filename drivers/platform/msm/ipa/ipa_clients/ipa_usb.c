@@ -1229,7 +1229,7 @@ static int ipa3_usb_request_xdci_channel(
 	chan_params.chan_params.ring_base_addr =
 		params->xfer_ring_base_addr;
 	chan_params.chan_params.ring_base_vaddr = NULL;
-	chan_params.chan_params.use_db_eng = GSI_CHAN_DIRECT_MODE;
+	chan_params.chan_params.use_db_eng = GSI_CHAN_DB_MODE;
 	chan_params.chan_params.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	if (params->dir == GSI_CHAN_DIR_FROM_GSI)
 		chan_params.chan_params.low_weight =
@@ -1250,6 +1250,9 @@ static int ipa3_usb_request_xdci_channel(
 		params->xfer_scratch.depcmd_low_addr;
 	chan_params.chan_scratch.xdci.depcmd_hi_addr =
 		params->xfer_scratch.depcmd_hi_addr;
+	chan_params.chan_scratch.xdci.outstanding_threshold =
+		((params->teth_prot == IPA_USB_MBIM) ? 1 : 2) *
+		chan_params.chan_params.re_size;
 	/* max_outstanding_tre is set in ipa3_request_gsi_channel() */
 	result = ipa3_request_gsi_channel(&chan_params, out_params);
 	if (result) {
