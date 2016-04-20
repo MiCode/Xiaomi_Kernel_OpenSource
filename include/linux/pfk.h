@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,13 +19,20 @@ struct ice_crypto_setting;
 
 #ifdef CONFIG_PFK
 
-int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting);
+int pfk_load_key_start(const struct bio *bio,
+		struct ice_crypto_setting *ice_setting, bool *is_pfe, bool);
+int pfk_load_key_end(const struct bio *bio, bool *is_pfe);
 int pfk_remove_key(const unsigned char *key, size_t key_size);
 bool pfk_allow_merge_bio(struct bio *bio1, struct bio *bio2);
 
 #else
-static inline int pfk_load_key(const struct bio *bio,
-		struct ice_crypto_setting *ice_setting)
+static inline int pfk_load_key_start(const struct bio *bio,
+	struct ice_crypto_setting *ice_setting, bool *is_pfe, bool async)
+{
+	return -ENODEV;
+}
+
+static inline int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
 {
 	return -ENODEV;
 }
