@@ -281,3 +281,11 @@ config TRACER_PKT
 	  Tracer Packet helps in profiling the performance of inter-
 	  processor communication protocols. The profiling information
 	  can be logged into the tracer packet itself.
+
+config QTI_RPMH_API
+	bool "QTI RPMH (h/w accelerators) Communication API"
+	select MAILBOX
+	select QTI_RPMH_MBOX
+	help
+	  This option enables RPMH hardware communication for making shared
+	  resource requests on Qualcomm Technologies Inc SoCs.
