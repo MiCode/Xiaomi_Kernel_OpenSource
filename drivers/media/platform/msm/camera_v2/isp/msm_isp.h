@@ -616,6 +616,7 @@ struct dual_vfe_resource {
 	struct msm_vfe_stats_shared_data *stats_data[MAX_VFE];
 	struct msm_vfe_axi_shared_data *axi_data[MAX_VFE];
 	uint32_t wm_reload_mask[MAX_VFE];
+	uint32_t epoch_sync_mask;
 };
 
 struct master_slave_resource_info {
