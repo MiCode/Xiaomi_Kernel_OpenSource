@@ -1051,7 +1051,7 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ipa_tx_meta meta;
 
 	if (skb->protocol != htons(ETH_P_MAP)) {
-		IPAWANDBG
+		IPAWANDBG_LOW
 		("SW filtering out none QMAP packet received from %s",
 		current->comm);
 		return NETDEV_TX_OK;
@@ -1074,11 +1074,11 @@ static int ipa3_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (atomic_read(&wwan_ptr->outstanding_pkts) >=
 					wwan_ptr->outstanding_high) {
 		if (!qmap_check) {
-			IPAWANDBG("pending(%d)/(%d)- stop(%d), qmap_chk(%d)\n",
+			IPAWANDBG_LOW("pending(%d)/(%d)- stop(%d)\n",
 				atomic_read(&wwan_ptr->outstanding_pkts),
 				wwan_ptr->outstanding_high,
-				netif_queue_stopped(dev),
-				qmap_check);
+				netif_queue_stopped(dev));
+			IPAWANDBG_LOW("qmap_chk(%d)\n", qmap_check);
 			netif_stop_queue(dev);
 			return NETDEV_TX_BUSY;
 		}
@@ -1165,7 +1165,7 @@ static void apps_ipa_tx_complete_notify(void *priv,
 		netif_queue_stopped(wwan_ptr->net) &&
 		atomic_read(&wwan_ptr->outstanding_pkts) <
 					(wwan_ptr->outstanding_low)) {
-		IPAWANDBG("Outstanding low (%d) - waking up queue\n",
+		IPAWANDBG_LOW("Outstanding low (%d) - waking up queue\n",
 				wwan_ptr->outstanding_low);
 		netif_wake_queue(wwan_ptr->net);
 	}
@@ -1193,7 +1193,7 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	int result;
 	unsigned int packet_len = skb->len;
 
-	IPAWANDBG("Rx packet was received");
+	IPAWANDBG_LOW("Rx packet was received");
 	if (evt != IPA_RECEIVE) {
 		IPAWANERR("A none IPA_RECEIVE event in wan_ipa_receive\n");
 		return;
@@ -1733,10 +1733,10 @@ static void ipa3_q6_rm_notify_cb(void *user_data,
 {
 	switch (event) {
 	case IPA_RM_RESOURCE_GRANTED:
-		IPAWANDBG("%s: Q6_PROD GRANTED CB\n", __func__);
+		IPAWANDBG_LOW("%s: Q6_PROD GRANTED CB\n", __func__);
 		break;
 	case IPA_RM_RESOURCE_RELEASED:
-		IPAWANDBG("%s: Q6_PROD RELEASED CB\n", __func__);
+		IPAWANDBG_LOW("%s: Q6_PROD RELEASED CB\n", __func__);
 		break;
 	default:
 		return;
@@ -1843,7 +1843,7 @@ static void ipa3_wake_tx_queue(struct work_struct *work)
  */
 static void ipa3_rm_resource_granted(void *dev)
 {
-	IPAWANDBG("Resource Granted - starting queue\n");
+	IPAWANDBG_LOW("Resource Granted - starting queue\n");
 	schedule_work(&ipa3_tx_wakequeue_work);
 }
 
@@ -2209,7 +2209,7 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	struct net_device *netdev = IPA_NETDEV();
 	struct ipa3_wwan_private *wwan_ptr;
 
-	IPAWANDBG("Enter...\n");
+	IPAWANDBG_LOW("Enter...\n");
 	if (netdev == NULL) {
 		IPAWANERR("netdev is NULL.\n");
 		return 0;
@@ -2231,7 +2231,7 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	netif_tx_lock_bh(netdev);
 	ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
 	netif_tx_unlock_bh(netdev);
-	IPAWANDBG("Exit\n");
+	IPAWANDBG_LOW("Exit\n");
 
 	return 0;
 }
@@ -2250,10 +2250,10 @@ static int rmnet_ipa_ap_resume(struct device *dev)
 {
 	struct net_device *netdev = IPA_NETDEV();
 
-	IPAWANDBG("Enter...\n");
+	IPAWANDBG_LOW("Enter...\n");
 	if (netdev)
 		netif_wake_queue(netdev);
-	IPAWANDBG("Exit\n");
+	IPAWANDBG_LOW("Exit\n");
 
 	return 0;
 }
@@ -2337,7 +2337,7 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 		break;
 	}
 
-	IPAWANDBG("Exit\n");
+	IPAWANDBG_LOW("Exit\n");
 	return NOTIFY_DONE;
 }
 
@@ -2614,7 +2614,7 @@ int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 		IPAWANERR("reset the pipe stats\n");
 	} else {
 		/* print tethered-client enum */
-		IPAWANDBG("Tethered-client enum(%d)\n", data->ipa_client);
+		IPAWANDBG_LOW("Tethered-client enum(%d)\n", data->ipa_client);
 	}
 
 	rc = ipa3_qmi_get_data_stats(req, resp);
@@ -2632,16 +2632,17 @@ int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	if (resp->dl_dst_pipe_stats_list_valid) {
 		for (pipe_len = 0; pipe_len < resp->dl_dst_pipe_stats_list_len;
 			pipe_len++) {
-			IPAWANDBG("Check entry(%d) dl_dst_pipe(%d)\n",
+			IPAWANDBG_LOW("Check entry(%d) dl_dst_pipe(%d)\n",
 				pipe_len, resp->dl_dst_pipe_stats_list
 					[pipe_len].pipe_index);
-			IPAWANDBG("dl_p_v4(%lu)v6(%lu) dl_b_v4(%lu)v6(%lu)\n",
+			IPAWANDBG_LOW("dl_p_v4(%lu)v6(%lu)\n",
 				(unsigned long int) resp->
 				dl_dst_pipe_stats_list[pipe_len].
 				num_ipv4_packets,
 				(unsigned long int) resp->
 				dl_dst_pipe_stats_list[pipe_len].
-				num_ipv6_packets,
+				num_ipv6_packets);
+			IPAWANDBG_LOW("dl_b_v4(%lu)v6(%lu)\n",
 				(unsigned long int) resp->
 				dl_dst_pipe_stats_list[pipe_len].
 				num_ipv4_bytes,
@@ -2671,7 +2672,7 @@ int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 			}
 		}
 	}
-	IPAWANDBG("v4_rx_p(%lu) v6_rx_p(%lu) v4_rx_b(%lu) v6_rx_b(%lu)\n",
+	IPAWANDBG_LOW("v4_rx_p(%lu) v6_rx_p(%lu) v4_rx_b(%lu) v6_rx_b(%lu)\n",
 		(unsigned long int) data->ipv4_rx_packets,
 		(unsigned long int) data->ipv6_rx_packets,
 		(unsigned long int) data->ipv4_rx_bytes,
@@ -2680,17 +2681,18 @@ int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	if (resp->ul_src_pipe_stats_list_valid) {
 		for (pipe_len = 0; pipe_len < resp->ul_src_pipe_stats_list_len;
 			pipe_len++) {
-			IPAWANDBG("Check entry(%d) ul_dst_pipe(%d)\n",
+			IPAWANDBG_LOW("Check entry(%d) ul_dst_pipe(%d)\n",
 				pipe_len,
 				resp->ul_src_pipe_stats_list[pipe_len].
 				pipe_index);
-			IPAWANDBG("ul_p_v4(%lu)v6(%lu)ul_b_v4(%lu)v6(%lu)\n",
+			IPAWANDBG_LOW("ul_p_v4(%lu)v6(%lu)\n",
 				(unsigned long int) resp->
 				ul_src_pipe_stats_list[pipe_len].
 				num_ipv4_packets,
 				(unsigned long int) resp->
 				ul_src_pipe_stats_list[pipe_len].
-				num_ipv6_packets,
+				num_ipv6_packets);
+			IPAWANDBG_LOW("ul_b_v4(%lu)v6(%lu)\n",
 				(unsigned long int) resp->
 				ul_src_pipe_stats_list[pipe_len].
 				num_ipv4_bytes,
@@ -2720,7 +2722,7 @@ int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 			}
 		}
 	}
-	IPAWANDBG("tx_p_v4(%lu)v6(%lu)tx_b_v4(%lu) v6(%lu)\n",
+	IPAWANDBG_LOW("tx_p_v4(%lu)v6(%lu)tx_b_v4(%lu) v6(%lu)\n",
 		(unsigned long int) data->ipv4_tx_packets,
 		(unsigned long  int) data->ipv6_tx_packets,
 		(unsigned long int) data->ipv4_tx_bytes,
