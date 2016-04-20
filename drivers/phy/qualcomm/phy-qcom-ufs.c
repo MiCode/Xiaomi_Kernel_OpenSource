@@ -391,9 +391,26 @@ static int ufs_qcom_phy_enable_ref_clk(struct ufs_qcom_phy *phy)
 		goto out_disable_parent;
 	}
 
+	/*
+	 * "ref_aux_clk" is optional clock and only supported by certain
+	 * phy versions, hence make sure that clk reference is available
+	 * before trying to enable the clock.
+	 */
+	if (phy->ref_aux_clk) {
+		ret = clk_prepare_enable(phy->ref_aux_clk);
+		if (ret) {
+			dev_err(phy->dev, "%s: ref_aux_clk enable failed %d\n",
+					__func__, ret);
+			goto out_disable_ref;
+		}
+	}
+
 	phy->is_ref_clk_enabled = true;
 	goto out;
 
+out_disable_ref:
+	if (phy->ref_clk)
+		clk_disable_unprepare(phy->ref_clk);
 out_disable_parent:
 	if (phy->ref_clk_parent)
 		clk_disable_unprepare(phy->ref_clk_parent);
