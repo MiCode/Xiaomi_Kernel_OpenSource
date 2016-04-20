@@ -85,6 +85,7 @@ struct msm_isp_bufq *msm_isp_get_bufq(
 
 	/* bufq_handle cannot be 0 */
 	if ((bufq_handle == 0) ||
+		bufq_index >= BUF_MGR_NUM_BUF_Q ||
 		(bufq_index > buf_mgr->num_buf_q))
 		return NULL;
 
@@ -1329,8 +1330,6 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr,
 
 	for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++) {
 		bufq = &buf_mgr->bufq[i];
-		if (!bufq)
-			continue;
 
 		spin_lock_irqsave(&bufq->bufq_lock, flags);
 		if (!bufq->bufq_handle) {
