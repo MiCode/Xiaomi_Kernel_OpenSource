@@ -29,6 +29,7 @@
 #include <linux/clk.h>
 #include <linux/spinlock_types.h>
 #include <linux/kthread.h>
+#include <linux/msm_ext_display.h>
 
 #include "mdss.h"
 #include "mdss_dp.h"
@@ -827,6 +828,112 @@ int mdss_dp_wait4train(struct mdss_dp_drv_pdata *dp_drv)
 	return ret;
 }
 
+static int dp_get_cable_status(struct platform_device *pdev, u32 vote)
+{
+	struct mdss_dp_drv_pdata *dp_ctrl = platform_get_drvdata(pdev);
+	u32 hpd;
+
+	if (!dp_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	mutex_lock(&dp_ctrl->pd_msg_mutex);
+	hpd = dp_ctrl->cable_connected;
+	mutex_unlock(&dp_ctrl->pd_msg_mutex);
+
+	return hpd;
+}
+
+static int dp_audio_info_setup(struct platform_device *pdev,
+	struct msm_ext_disp_audio_setup_params *params)
+{
+	int rc = 0;
+	struct mdss_dp_drv_pdata *dp_ctrl = platform_get_drvdata(pdev);
+
+	if (!dp_ctrl || !params) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	mdss_dp_audio_enable(&dp_ctrl->ctrl_io, true);
+	mdss_dp_config_audio_acr_ctrl(&dp_ctrl->ctrl_io,
+					dp_ctrl->link_rate);
+	mdss_dp_audio_setup_sdps(&dp_ctrl->ctrl_io);
+
+	return rc;
+} /* dp_audio_info_setup */
+
+static int dp_get_audio_edid_blk(struct platform_device *pdev,
+	struct msm_ext_disp_audio_edid_blk *blk)
+{
+	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
+	int rc = 0;
+
+	if (!dp) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	rc = hdmi_edid_get_audio_blk
+			(dp->panel_data.panel_info.edid_data, blk);
+	if (rc)
+		DEV_ERR("%s:edid_get_audio_blk failed\n", __func__);
+
+	return rc;
+} /* dp_get_audio_edid_blk */
+
+static int mdss_dp_init_ext_disp(struct mdss_dp_drv_pdata *dp)
+{
+	int ret = 0;
+	struct device_node *pd_np;
+	const char *phandle = "qcom,msm_ext_disp";
+
+	if (!dp) {
+		pr_err("%s: invalid input\n", __func__);
+		ret = -ENODEV;
+		goto end;
+	}
+
+	dp->ext_audio_data.type = EXT_DISPLAY_TYPE_DP;
+	dp->ext_audio_data.kobj = dp->kobj;
+	dp->ext_audio_data.pdev = dp->pdev;
+	dp->ext_audio_data.codec_ops.audio_info_setup =
+		dp_audio_info_setup;
+	dp->ext_audio_data.codec_ops.get_audio_edid_blk =
+		dp_get_audio_edid_blk;
+	dp->ext_audio_data.codec_ops.cable_status =
+		dp_get_cable_status;
+
+	if (!dp->pdev->dev.of_node) {
+		pr_err("%s cannot find dp dev.of_node\n", __func__);
+		ret = -ENODEV;
+		goto end;
+	}
+
+	pd_np = of_parse_phandle(dp->pdev->dev.of_node, phandle, 0);
+	if (!pd_np) {
+		pr_err("%s cannot find %s dev\n", __func__, phandle);
+		ret = -ENODEV;
+		goto end;
+	}
+
+	dp->ext_pdev = of_find_device_by_node(pd_np);
+	if (!dp->ext_pdev) {
+		pr_err("%s cannot find %s pdev\n", __func__, phandle);
+		ret = -ENODEV;
+		goto end;
+	}
+
+	ret = msm_ext_disp_register_intf(dp->ext_pdev,
+			&dp->ext_audio_data);
+	if (ret)
+		pr_err("%s: failed to register disp\n", __func__);
+
+end:
+	return ret;
+}
+
 #define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
 
 static int dp_init_panel_info(struct mdss_dp_drv_pdata *dp_drv, u32 vic)
@@ -1036,42 +1143,26 @@ int mdss_dp_off(struct mdss_panel_data *pdata)
 	return 0;
 }
 
+static inline void mdss_dp_set_audio_switch_node(
+	struct mdss_dp_drv_pdata *dp, int val)
+{
+	if (dp && dp->ext_audio_data.intf_ops.notify)
+		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev,
+				val);
+}
+
 static void mdss_dp_send_cable_notification(
 	struct mdss_dp_drv_pdata *dp, int val)
 {
-	int state = 0;
 
 	if (!dp) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
-	state = dp->sdev.state;
 
-	switch_set_state(&dp->sdev, val);
-
-	DEV_INFO("%s: cable state %s %d\n", __func__,
-		dp->sdev.state == state ?
-			"is same" : "switched to",
-		dp->sdev.state);
-}
-
-static int mdss_dp_register_switch_event(struct mdss_dp_drv_pdata *dp)
-{
-	int rc = -EINVAL;
-
-	if (!dp) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		goto end;
-	}
-
-	dp->sdev.name = "hdmi";
-	rc = switch_dev_register(&dp->sdev);
-	if (rc) {
-		DEV_ERR("%s: display switch registration failed\n", __func__);
-		goto end;
-	}
-end:
-	return rc;
+	if (dp && dp->ext_audio_data.intf_ops.hpd)
+		dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
+				dp->ext_audio_data.type, val);
 }
 
 static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
@@ -1170,7 +1261,9 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	}
 
 	mdss_dp_send_cable_notification(dp_drv, true);
+	mdss_dp_set_audio_switch_node(dp_drv, true);
 	dp_drv->dp_initialized = true;
+
 	return ret;
 
 edid_error:
@@ -1421,7 +1514,12 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		mdss_dp_sysfs_create(dp, fbi);
 		mdss_dp_edid_init(pdata);
 		mdss_dp_hdcp_init(pdata);
-		mdss_dp_register_switch_event(dp);
+
+		rc = mdss_dp_init_ext_disp(dp);
+		if (rc)
+			pr_err("failed to initialize ext disp data, ret=%d\n",
+					rc);
+
 		break;
 	case MDSS_EVENT_CHECK_PARAMS:
 		rc = mdss_dp_check_params(dp, arg);
@@ -1738,6 +1836,7 @@ static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
 	dp_drv->cable_connected = false;
 	mutex_unlock(&dp_drv->pd_msg_mutex);
 	mdss_dp_send_cable_notification(dp_drv, false);
+	mdss_dp_set_audio_switch_node(dp_drv, false);
 }
 
 static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
@@ -1998,8 +2097,12 @@ static int mdss_dp_probe(struct platform_device *pdev)
 probe_err:
 	iounmap(dp_drv->ctrl_io.base);
 	iounmap(dp_drv->phy_io.base);
-	if (dp_drv)
+	if (dp_drv) {
+		if (dp_drv->pd)
+			usbpd_unregister_svid(dp_drv->pd,
+					&dp_drv->svid_handler);
 		devm_kfree(&pdev->dev, dp_drv);
+	}
 	return ret;
 
 }

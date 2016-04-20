@@ -56,6 +56,75 @@
 #define	DP_MAINLINK_READY			(0x00000440)
 #define	DP_TU					(0x0000044C)
 
+#define	MMSS_DP_AUDIO_TIMING_GEN		(0x00000480)
+#define	MMSS_DP_AUDIO_TIMING_RBR_32		(0x00000484)
+#define	MMSS_DP_AUDIO_TIMING_HBR_32		(0x00000488)
+#define	MMSS_DP_AUDIO_TIMING_RBR_44		(0x0000048C)
+#define	MMSS_DP_AUDIO_TIMING_HBR_44		(0x00000490)
+#define	MMSS_DP_AUDIO_TIMING_RBR_48		(0x00000494)
+#define	MMSS_DP_AUDIO_TIMING_HBR_48		(0x00000498)
+
+#define	MMSS_DP_AUDIO_CFG			(0x00000600)
+#define	MMSS_DP_AUDIO_STATUS			(0x00000604)
+#define	MMSS_DP_AUDIO_PKT_CTRL			(0x00000608)
+#define	MMSS_DP_AUDIO_PKT_CTRL2			(0x0000060C)
+#define	MMSS_DP_AUDIO_ACR_CTRL			(0x00000610)
+#define	MMSS_DP_AUDIO_CTRL_RESET		(0x00000614)
+
+#define	MMSS_DP_SDP_CFG				(0x00000628)
+#define	MMSS_DP_SDP_CFG2			(0x0000062C)
+#define	MMSS_DP_AUDIO_TIMESTAMP_0		(0x00000630)
+#define	MMSS_DP_AUDIO_TIMESTAMP_1		(0x00000634)
+
+#define	MMSS_DP_AUDIO_STREAM_0			(0x00000640)
+#define	MMSS_DP_AUDIO_STREAM_1			(0x00000644)
+
+#define	MMSS_DP_EXTENSION_0			(0x00000650)
+#define	MMSS_DP_EXTENSION_1			(0x00000654)
+#define	MMSS_DP_EXTENSION_2			(0x00000658)
+#define	MMSS_DP_EXTENSION_3			(0x0000065C)
+#define	MMSS_DP_EXTENSION_4			(0x00000660)
+#define	MMSS_DP_EXTENSION_5			(0x00000664)
+#define	MMSS_DP_EXTENSION_6			(0x00000668)
+#define	MMSS_DP_EXTENSION_7			(0x0000066C)
+#define	MMSS_DP_EXTENSION_8			(0x00000670)
+#define	MMSS_DP_EXTENSION_9			(0x00000674)
+#define	MMSS_DP_AUDIO_COPYMANAGEMENT_0		(0x00000678)
+#define	MMSS_DP_AUDIO_COPYMANAGEMENT_1		(0x0000067C)
+#define	MMSS_DP_AUDIO_COPYMANAGEMENT_2		(0x00000680)
+#define	MMSS_DP_AUDIO_COPYMANAGEMENT_3		(0x00000684)
+#define	MMSS_DP_AUDIO_COPYMANAGEMENT_4		(0x00000688)
+#define	MMSS_DP_AUDIO_COPYMANAGEMENT_5		(0x0000068C)
+#define	MMSS_DP_AUDIO_ISRC_0			(0x00000690)
+#define	MMSS_DP_AUDIO_ISRC_1			(0x00000694)
+#define	MMSS_DP_AUDIO_ISRC_2			(0x00000698)
+#define	MMSS_DP_AUDIO_ISRC_3			(0x0000069C)
+#define	MMSS_DP_AUDIO_ISRC_4			(0x000006A0)
+#define	MMSS_DP_AUDIO_ISRC_5			(0x000006A4)
+#define	MMSS_DP_AUDIO_INFOFRAME_0		(0x000006A8)
+#define	MMSS_DP_AUDIO_INFOFRAME_1		(0x000006B0)
+
+#define	MMSS_DP_GENERIC0_0			(0x00000700)
+#define	MMSS_DP_GENERIC0_1			(0x00000704)
+#define	MMSS_DP_GENERIC0_2			(0x00000708)
+#define	MMSS_DP_GENERIC0_3			(0x0000070C)
+#define	MMSS_DP_GENERIC0_4			(0x00000710)
+#define	MMSS_DP_GENERIC0_5			(0x00000714)
+#define	MMSS_DP_GENERIC0_6			(0x00000718)
+#define	MMSS_DP_GENERIC0_7			(0x0000071C)
+#define	MMSS_DP_GENERIC0_8			(0x00000720)
+#define	MMSS_DP_GENERIC0_9			(0x00000724)
+#define	MMSS_DP_GENERIC1_0			(0x00000728)
+#define	MMSS_DP_GENERIC1_1			(0x0000072C)
+#define	MMSS_DP_GENERIC1_2			(0x00000730)
+#define	MMSS_DP_GENERIC1_3			(0x00000734)
+#define	MMSS_DP_GENERIC1_4			(0x00000738)
+#define	MMSS_DP_GENERIC1_5			(0x0000073C)
+#define	MMSS_DP_GENERIC1_6			(0x00000740)
+#define	MMSS_DP_GENERIC1_7			(0x00000744)
+#define	MMSS_DP_GENERIC1_8			(0x00000748)
+#define	MMSS_DP_GENERIC1_9			(0x0000074C)
+
 /*DP PHY Register offsets */
 #define DP_PHY_REVISION_ID0                     (0x00000000)
 #define DP_PHY_REVISION_ID1                     (0x00000004)
@@ -162,5 +231,9 @@ void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status);
 u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp);
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io,
 					struct lane_mapping l_map);
+void mdss_dp_config_audio_acr_ctrl(struct dss_io_data *ctrl_io,
+						char link_rate);
+void mdss_dp_audio_setup_sdps(struct dss_io_data *ctrl_io);
+void mdss_dp_audio_enable(struct dss_io_data *ctrl_io, bool enable);
 
 #endif /* __DP_UTIL_H__ */
