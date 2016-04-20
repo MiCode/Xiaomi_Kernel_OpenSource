@@ -37,6 +37,10 @@
 	};
 };
 
+&blsp1_uart3_hs {
+	status = "ok";
+};
+
 &ufsphy1 {
 	vdda-phy-supply = <&pmcobalt_l1>;
 	vdda-pll-supply = <&pmcobalt_l2>;
