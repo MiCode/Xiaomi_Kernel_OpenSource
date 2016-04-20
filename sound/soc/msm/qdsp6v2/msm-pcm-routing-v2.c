@@ -48,12 +48,6 @@
 
 static int get_cal_path(int path_type);
 
-#define EC_PORT_ID_PRIMARY_MI2S_TX    1
-#define EC_PORT_ID_SECONDARY_MI2S_TX  2
-#define EC_PORT_ID_TERTIARY_MI2S_TX   3
-#define EC_PORT_ID_QUATERNARY_MI2S_TX 4
-#define EC_PORT_ID_SLIMBUS_1_TX       5
-
 static struct mutex routing_lock;
 
 static struct cal_type_data *cal_data;
@@ -67,9 +61,9 @@ static int quat_mi2s_switch_enable;
 static int fm_pcmrx_switch_enable;
 static int lsm_mux_slim_port;
 static int slim0_rx_aanc_fb_port;
-static int msm_route_ec_ref_rx = 9; /* NONE */
+static int msm_route_ec_ref_rx;
 static uint32_t voc_session_id = ALL_SESSION_VSID;
-static int msm_route_ext_ec_ref = AFE_PORT_INVALID;
+static int msm_route_ext_ec_ref;
 static bool is_custom_stereo_on;
 static bool is_ds2_on;
 
@@ -2051,41 +2045,44 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	int mux = ucontrol->value.enumerated.item[0];
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	int ret = 0;
-	bool state = false;
+	int ret = 1;
+	bool state = true;
+	uint16_t ext_ec_ref_port_id;
 	struct snd_soc_dapm_update *update = NULL;
 
-	pr_debug("%s: msm_route_ec_ref_rx = %d value = %ld\n",
-		 __func__, msm_route_ext_ec_ref,
-		 ucontrol->value.integer.value[0]);
-
 	mutex_lock(&routing_lock);
-	switch (ucontrol->value.integer.value[0]) {
-	case EC_PORT_ID_PRIMARY_MI2S_TX:
-		msm_route_ext_ec_ref = AFE_PORT_ID_PRIMARY_MI2S_TX;
-		state = true;
+	msm_route_ext_ec_ref = ucontrol->value.integer.value[0];
+
+	switch (msm_route_ext_ec_ref) {
+	case EXT_EC_REF_PRI_MI2S_TX:
+		ext_ec_ref_port_id = AFE_PORT_ID_PRIMARY_MI2S_TX;
 		break;
-	case EC_PORT_ID_SECONDARY_MI2S_TX:
-		msm_route_ext_ec_ref = AFE_PORT_ID_SECONDARY_MI2S_TX;
-		state = true;
+	case EXT_EC_REF_SEC_MI2S_TX:
+		ext_ec_ref_port_id = AFE_PORT_ID_SECONDARY_MI2S_TX;
 		break;
-	case EC_PORT_ID_TERTIARY_MI2S_TX:
-		msm_route_ext_ec_ref = AFE_PORT_ID_TERTIARY_MI2S_TX;
-		state = true;
+	case EXT_EC_REF_TERT_MI2S_TX:
+		ext_ec_ref_port_id = AFE_PORT_ID_TERTIARY_MI2S_TX;
 		break;
-	case EC_PORT_ID_QUATERNARY_MI2S_TX:
-		msm_route_ext_ec_ref = AFE_PORT_ID_QUATERNARY_MI2S_TX;
-		state = true;
+	case EXT_EC_REF_QUAT_MI2S_TX:
+		ext_ec_ref_port_id = AFE_PORT_ID_QUATERNARY_MI2S_TX;
 		break;
-	case EC_PORT_ID_SLIMBUS_1_TX:
-		msm_route_ext_ec_ref = SLIMBUS_1_TX;
-		state = true;
+	case EXT_EC_REF_QUIN_MI2S_TX:
+		ext_ec_ref_port_id = AFE_PORT_ID_QUINARY_MI2S_TX;
 		break;
+	case EXT_EC_REF_SLIM_1_TX:
+		ext_ec_ref_port_id = SLIMBUS_1_TX;
+		break;
+	case EXT_EC_REF_NONE:
 	default:
-		msm_route_ext_ec_ref = AFE_PORT_INVALID;
+		ext_ec_ref_port_id = AFE_PORT_INVALID;
+		state = false;
 		break;
 	}
-	if (!voc_set_ext_ec_ref(msm_route_ext_ec_ref, state)) {
+
+	pr_debug("%s: val = %d ext_ec_ref_port_id = 0x%0x state = %d\n",
+		__func__, msm_route_ext_ec_ref, ext_ec_ref_port_id, state);
+
+	if (!voc_set_ext_ec_ref(ext_ec_ref_port_id, state)) {
 		mutex_unlock(&routing_lock);
 		snd_soc_dapm_mux_update_power(widget->dapm, kcontrol, mux, e, update);
 	} else {
@@ -2096,11 +2093,12 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 }
 
 static const char * const ext_ec_ref_rx[] = {"NONE", "PRI_MI2S_TX",
-					     "SEC_MI2S_TX", "TERT_MI2S_TX",
-					     "QUAT_MI2S_TX", "SLIM_1_TX"};
+					"SEC_MI2S_TX", "TERT_MI2S_TX",
+					"QUAT_MI2S_TX", "QUIN_MI2S_TX",
+					"SLIM_1_TX"};
 
 static const struct soc_enum msm_route_ext_ec_ref_rx_enum[] = {
-	SOC_ENUM_SINGLE_EXT(6, ext_ec_ref_rx),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(ext_ec_ref_rx), ext_ec_ref_rx),
 };
 
 static const struct snd_kcontrol_new voc_ext_ec_mux =
