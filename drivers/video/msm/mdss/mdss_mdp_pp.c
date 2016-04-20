@@ -7102,6 +7102,8 @@ int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
 			pr_err("Failed to copy IGC payload, ret = %d\n", ret);
 			goto exit_pp_info;
 		}
+	} else {
+		pp_info->igc_cfg.cfg_payload = NULL;
 	}
 	if (ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
 		ret = pp_copy_layer_hist_lut_payload(pp_info);
@@ -7110,6 +7112,8 @@ int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
 				ret);
 			goto exit_igc;
 		}
+	} else {
+		pp_info->hist_lut_cfg.cfg_payload = NULL;
 	}
 	if (ops & MDP_OVERLAY_PP_PA_V2_CFG) {
 		ret = pp_copy_layer_pa_payload(pp_info);
@@ -7117,6 +7121,8 @@ int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
 			pr_err("Failed to copy PA payload, ret = %d\n", ret);
 			goto exit_hist_lut;
 		}
+	} else {
+		pp_info->pa_v2_cfg_data.cfg_payload = NULL;
 	}
 	if (ops & MDP_OVERLAY_PP_PCC_CFG) {
 		ret = pp_copy_layer_pcc_payload(pp_info);
@@ -7124,6 +7130,8 @@ int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
 			pr_err("Failed to copy PCC payload, ret = %d\n", ret);
 			goto exit_pa;
 		}
+	} else {
+		pp_info->pcc_cfg_data.cfg_payload = NULL;
 	}
 
 	layer->pp_info = pp_info;
