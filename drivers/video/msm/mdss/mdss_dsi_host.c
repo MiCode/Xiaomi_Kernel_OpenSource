@@ -132,7 +132,7 @@ void mdss_dsi_ctrl_init(struct device *ctrl_dev,
 	}
 }
 
-static void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
+void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
 						u32 mask, u32 val)
 {
 	u32 data;
@@ -2952,7 +2952,7 @@ bool mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl, bool print_en)
 
 static bool mdss_dsi_fifo_status(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	u32 status, isr;
+	u32 status;
 	unsigned char *base;
 	bool ret = false;
 
@@ -2964,17 +2964,7 @@ static bool mdss_dsi_fifo_status(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (status & 0xcccc4409) {
 		MIPI_OUTP(base + 0x000c, status);
 
-		/*
-		 * When dynamic refresh operation is under progress, it is
-		 * expected to have FIFO underflow error sometimes. In such
-		 * cases, do not trigger the underflow recovery process and
-		 * avoid printing the error status on console.
-		 */
-		isr = MIPI_INP(ctrl->ctrl_base + 0x0110);
-		if (isr & DSI_INTR_DYNAMIC_REFRESH_MASK)
-			status &= ~(0x88880000);
-		else
-			pr_err("%s: status=%x\n", __func__, status);
+		pr_err("%s: status=%x\n", __func__, status);
 
 		if (status & 0x44440000) {/* DLNx_HS_FIFO_OVERFLOW */
 			dsi_send_events(ctrl, DSI_EV_DLNx_FIFO_OVERFLOW, 0);
@@ -3022,6 +3012,10 @@ static bool mdss_dsi_clk_status(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	if (status & 0x10000) { /* DSI_CLK_PLL_UNLOCKED */
 		MIPI_OUTP(base + 0x0120, status);
+		/* If PLL unlock is masked, do not report error */
+		if (MIPI_INP(base + 0x10c) & BIT(28))
+			return false;
+
 		dsi_send_events(ctrl, DSI_EV_PLL_UNLOCKED, 0);
 		pr_err("%s: status=%x\n", __func__, status);
 		ret = true;
