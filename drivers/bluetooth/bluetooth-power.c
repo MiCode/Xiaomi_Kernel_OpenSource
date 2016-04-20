@@ -248,7 +248,7 @@ static int bluetooth_power(int on)
 				goto chip_pwd_fail;
 			}
 		}
-		if (bt_power_pdata->bt_gpio_sys_rst) {
+		if (bt_power_pdata->bt_gpio_sys_rst > 0) {
 			rc = bt_configure_gpios(on);
 			if (rc < 0) {
 				BT_PWR_ERR("bt_power gpio config failed");
@@ -258,7 +258,7 @@ static int bluetooth_power(int on)
 	} else {
 		bt_configure_gpios(on);
 gpio_fail:
-		if (bt_power_pdata->bt_gpio_sys_rst)
+		if (bt_power_pdata->bt_gpio_sys_rst > 0)
 			gpio_free(bt_power_pdata->bt_gpio_sys_rst);
 		bt_vreg_disable(bt_power_pdata->bt_chip_pwd);
 chip_pwd_fail:
@@ -440,46 +440,44 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 		bt_power_pdata->bt_gpio_sys_rst =
 			of_get_named_gpio(pdev->dev.of_node,
 						"qca,bt-reset-gpio", 0);
-		if (bt_power_pdata->bt_gpio_sys_rst < 0) {
+		if (bt_power_pdata->bt_gpio_sys_rst < 0)
 			BT_PWR_ERR("bt-reset-gpio not provided in device tree");
-			return bt_power_pdata->bt_gpio_sys_rst;
-		}
+
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_core,
 					"qca,bt-vdd-core");
 		if (rc < 0)
-			return rc;
+			BT_PWR_ERR("bt-vdd-core not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_io,
 					"qca,bt-vdd-io");
 		if (rc < 0)
-			return rc;
+			BT_PWR_ERR("bt-vdd-io not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_xtal,
 					"qca,bt-vdd-xtal");
 		if (rc < 0)
-			return rc;
+			BT_PWR_ERR("bt-vdd-xtal not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_pa,
 					"qca,bt-vdd-pa");
 		if (rc < 0)
-			return rc;
+			BT_PWR_ERR("bt-vdd-pa not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_ldo,
 					"qca,bt-vdd-ldo");
 		if (rc < 0)
-			return rc;
+			BT_PWR_ERR("bt-vdd-ldo not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_pwd,
 					"qca,bt-chip-pwd");
 		if (rc < 0)
-			return rc;
-
+			BT_PWR_ERR("bt-chip-pwd not provided in device tree");
 	}
 
 	bt_power_pdata->bt_power_setup = bluetooth_power;
