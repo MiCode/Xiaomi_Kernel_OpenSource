@@ -44,6 +44,15 @@ struct sde_connector_ops {
 			void *display);
 
 	/**
+	 * pre_deinit - perform additional deinitialization steps
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 * Returns: Zero on success
+	 */
+	int (*pre_deinit)(struct drm_connector *connector,
+			void *display);
+
+	/**
 	 * detect - determine if connector is connected
 	 * @connector: Pointer to drm connector structure
 	 * @force: Force detect setting from drm framework

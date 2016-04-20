@@ -64,8 +64,12 @@ static void sde_connector_destroy(struct drm_connector *connector)
 
 	c_conn = to_sde_connector(connector);
 
+	if (c_conn->ops.pre_deinit)
+		c_conn->ops.pre_deinit(connector, c_conn->display);
+
 	if (c_conn->blob_caps)
 		drm_property_unreference_blob(c_conn->blob_caps);
+
 	msm_property_destroy(&c_conn->property_info);
 
 	drm_connector_unregister(connector);

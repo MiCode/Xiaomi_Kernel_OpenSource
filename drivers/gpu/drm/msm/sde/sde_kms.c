@@ -701,6 +701,14 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	MSM_EVT(dev, 0, 0);
 
 	/*
+	 * intr_block needs to be initialized before modeset_init, otherwise,
+	 * irq functions will have NULL pointer dereference.
+	 */
+	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
+	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
+		goto fail;
+
+	/*
 	 * modeset_init should create the DRM related objects i.e. CRTCs,
 	 * planes, encoders, connectors and so forth
 	 */
@@ -720,10 +728,6 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	 * Support format modifiers for compression etc.
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
-
-	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
-	if (IS_ERR_OR_NULL(sde_kms->hw_intr))
-		goto fail;
 
 	return msm_kms;
 
