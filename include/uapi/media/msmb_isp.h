@@ -719,7 +719,7 @@ struct msm_isp_output_info {
 /* This structure is piggybacked with SOF event */
 struct msm_isp_sof_info {
 	uint8_t regs_not_updated;
-	/* mask with AXI_SRC for regs not updated */
+	/* mask with bufq_handle for regs not updated */
 	uint16_t reg_update_fail_mask;
 	/* mask with bufq_handle for get_buf failed */
 	uint32_t stream_get_buf_fail_mask;
@@ -727,7 +727,17 @@ struct msm_isp_sof_info {
 	uint16_t stats_get_buf_fail_mask;
 	/* delta between master and slave */
 	struct msm_isp_ms_delta_info ms_delta_info;
+	/*
+	 * mask with AXI_SRC in paused state. In PAUSED
+	 * state there is no Buffer output. So this mask is used
+	 * to report drop.
+	 */
+	uint16_t axi_updating_mask;
+	/* extended mask with bufq_handle for regs not updated */
+	uint32_t reg_update_fail_mask_ext;
 };
+#define AXI_UPDATING_MASK 1
+#define REG_UPDATE_FAIL_MASK_EXT 1
 
 struct msm_isp_event_data {
 	/*Wall clock except for buffer divert events
