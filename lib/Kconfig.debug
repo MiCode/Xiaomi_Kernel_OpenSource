@@ -255,6 +255,13 @@ config PAGE_OWNER
 
 	  If unsure, say N.
 
+config PAGE_OWNER_ENABLE_DEFAULT
+	bool "Enable Track page owner by default"
+	depends on PAGE_OWNER
+	---help---
+	  Enable track page owner by default? This value
+	  can be overridden by page_owner_disabled=off|on.
+
 config DEBUG_FS
 	bool "Debug Filesystem"
 	help
