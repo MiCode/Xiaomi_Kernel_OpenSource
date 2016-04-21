@@ -167,6 +167,11 @@ int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
 int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *vaddr, unsigned long len, unsigned int cmd);
 
+int msm_ion_do_cache_offset_op(
+		struct ion_client *client, struct ion_handle *handle,
+		void *vaddr, unsigned int offset, unsigned long len,
+		unsigned int cmd);
+
 #else
 static inline struct ion_client *msm_ion_client_create(const char *name)
 {
@@ -183,6 +188,14 @@ static inline int msm_ion_do_cache_op(
 			struct ion_client *client,
 			struct ion_handle *handle, void *vaddr,
 			unsigned long len, unsigned int cmd)
+{
+	return -ENODEV;
+}
+
+int msm_ion_do_cache_offset_op(
+		struct ion_client *client, struct ion_handle *handle,
+		void *vaddr, unsigned int offset, unsigned long len,
+		unsigned int cmd)
 {
 	return -ENODEV;
 }
