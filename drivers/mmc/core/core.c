@@ -1800,8 +1800,13 @@ int mmc_read_bkops_status(struct mmc_card *card)
 	if (err)
 		goto out;
 
-	card->ext_csd.raw_bkops_status = ext_csd[EXT_CSD_BKOPS_STATUS];
-	card->ext_csd.raw_exception_status = ext_csd[EXT_CSD_EXP_EVENTS_STATUS];
+	card->ext_csd.raw_bkops_status = ext_csd[EXT_CSD_BKOPS_STATUS] &
+		MMC_BKOPS_URGENCY_MASK;
+	card->ext_csd.raw_exception_status =
+		ext_csd[EXT_CSD_EXP_EVENTS_STATUS] & (EXT_CSD_URGENT_BKOPS |
+						      EXT_CSD_DYNCAP_NEEDED |
+						      EXT_CSD_SYSPOOL_EXHAUSTED
+						      | EXT_CSD_PACKED_FAILURE);
 out:
 	kfree(ext_csd);
 	return err;
