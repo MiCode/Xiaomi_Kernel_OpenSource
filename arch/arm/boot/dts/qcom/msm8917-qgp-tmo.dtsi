@@ -21,6 +21,29 @@
 };
 
 &soc {
+
+	i2c@78b7000 {
+		status = "ok";
+		goodix@5d{
+			compatible = "goodix,gt9xx";
+			reg = <0x5d>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x02>;
+			avdd-supply = <&pm8917_l17>;
+			vdd-supply = <&pm8917_l17>;
+			vcc_i2c-supply = <&pm8917_l6>;
+			reset-gpios = <&tlmm 64 0x00>;
+			interrupt-gpios = <&tlmm 65 0x2008>;
+			goodix,panel-coords = <0 0 720 1200>;
+			goodix,display-coords = <0 0 720 1080>;
+			goodix,button-map= <139 172 158>;
+			goodix,product-id = "5668";
+			goodix,fw_name = "gtp_fw.bin";
+			goodix,have-touch-key;
+			goodix,driver-send-cfg;
+		};
+	};
+
 	gpio_keys {
 		vol_down {
 			label = "volume_down";
