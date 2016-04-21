@@ -248,7 +248,7 @@ static inline struct qpnp_pin_spec *qpnp_chip_gpio_get_spec(
 						struct qpnp_pin_chip *q_chip,
 						uint32_t chip_gpio)
 {
-	if (chip_gpio > q_chip->gpio_chip.ngpio)
+	if (chip_gpio >= q_chip->gpio_chip.ngpio)
 		return NULL;
 
 	return q_chip->chip_gpios[chip_gpio];
@@ -1117,11 +1117,10 @@ static int qpnp_pin_apply_config(struct qpnp_pin_chip *q_chip,
 
 static int qpnp_pin_free_chip(struct qpnp_pin_chip *q_chip)
 {
-	struct platform_device *pdev = q_chip->pdev;
 	int i, rc = 0;
 
 	if (q_chip->chip_gpios)
-		for (i = 0; i < of_get_child_count(pdev->dev.of_node); i++)
+		for (i = 0; i < q_chip->gpio_chip.ngpio; i++)
 			kfree(q_chip->chip_gpios[i]);
 
 	mutex_lock(&qpnp_pin_chips_lock);
@@ -1457,7 +1456,6 @@ static int qpnp_pin_probe(struct platform_device *pdev)
 	u32 gpio;
 	char version[Q_REG_SUBTYPE - Q_REG_DIG_MAJOR_REV + 1];
 	const char *pin_dev_name;
-	int num_dev_node;
 
 	pin_dev_name = dev_name(&pdev->dev);
 	if (!pin_dev_name) {
@@ -1486,9 +1484,7 @@ static int qpnp_pin_probe(struct platform_device *pdev)
 
 	/* first scan through nodes to find the range required for allocation */
 	i = 0;
-	for_each_child_of_node(pdev->dev.of_node, child) {
-		if (!of_device_is_available(child))
-			continue;
+	for_each_available_child_of_node(pdev->dev.of_node, child) {
 		rc = of_property_read_u32(child, "qcom,pin-num", &gpio);
 		if (rc) {
 			dev_err(&pdev->dev,
@@ -1503,7 +1499,7 @@ static int qpnp_pin_probe(struct platform_device *pdev)
 			highest_gpio = gpio;
 		i++;
 	}
-	num_dev_node = i;
+	q_chip->gpio_chip.ngpio = i;
 
 	if (highest_gpio < lowest_gpio) {
 		dev_err(&pdev->dev,
@@ -1526,7 +1522,7 @@ static int qpnp_pin_probe(struct platform_device *pdev)
 					(highest_gpio - lowest_gpio + 1),
 					GFP_KERNEL);
 	q_chip->chip_gpios = kzalloc(sizeof(struct qpnp_pin_spec *) *
-					num_dev_node,
+					q_chip->gpio_chip.ngpio,
 					GFP_KERNEL);
 	if (!q_chip->pmic_pins || !q_chip->chip_gpios) {
 		dev_err(&pdev->dev, "%s: unable to allocate memory\n",
@@ -1545,9 +1541,7 @@ static int qpnp_pin_probe(struct platform_device *pdev)
 	}
 	i = 0;
 	/* now scan through again and populate the lookup table */
-	for_each_child_of_node(pdev->dev.of_node, child) {
-		if (!of_device_is_available(child))
-			continue;
+	for_each_available_child_of_node(pdev->dev.of_node, child) {
 		rc = of_property_read_u32(child, "reg", &base);
 		if (rc < 0) {
 			dev_err(&pdev->dev,
@@ -1609,7 +1603,6 @@ static int qpnp_pin_probe(struct platform_device *pdev)
 	}
 
 	q_chip->gpio_chip.base = -1;
-	q_chip->gpio_chip.ngpio = num_dev_node;
 	q_chip->gpio_chip.label = pin_dev_name;
 	q_chip->gpio_chip.direction_input = qpnp_pin_direction_input;
 	q_chip->gpio_chip.direction_output = qpnp_pin_direction_output;
@@ -1630,7 +1623,7 @@ static int qpnp_pin_probe(struct platform_device *pdev)
 
 	q_chip->chip_registered = true;
 	/* now configure gpio config defaults if they exist */
-	for (i = 0; i < num_dev_node; i++) {
+	for (i = 0; i < q_chip->gpio_chip.ngpio; i++) {
 		q_spec = qpnp_chip_gpio_get_spec(q_chip, i);
 		if (WARN_ON(!q_spec)) {
 			rc = -ENODEV;
