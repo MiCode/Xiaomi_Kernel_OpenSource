@@ -418,15 +418,6 @@
 #define clk_mmss_misc_cxo_clk			0xe620cd80
 #define clk_mmss_mnoc_ahb_clk			0x49a394f4
 #define clk_mmss_mnoc_maxi_clk			0xd8b7278f
-#define clk_mmss_throttle_camss_ahb_clk		0x0382ef47
-#define clk_mmss_throttle_camss_axi_clk		0x26271bf4
-#define clk_mmss_throttle_camss_cxo_clk		0xa3d15f10
-#define clk_mmss_throttle_mdss_ahb_clk		0x1ab259f7
-#define clk_mmss_throttle_mdss_axi_clk		0x80067438
-#define clk_mmss_throttle_mdss_cxo_clk		0x8a8daaf7
-#define clk_mmss_throttle_video_ahb_clk		0x9efb223e
-#define clk_mmss_throttle_video_axi_clk		0xe160287c
-#define clk_mmss_throttle_video_cxo_clk		0x7aa7d641
 #define clk_mmss_video_subcore0_clk		0x23fae359
 #define clk_mmss_video_subcore1_clk		0x5213a0c7
 #define clk_mmss_video_ahb_clk			0x94334ae9
