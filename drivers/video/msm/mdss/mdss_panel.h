@@ -575,6 +575,15 @@ struct mdss_mdp_pp_tear_check {
 	u32 refx100;
 };
 
+struct mdss_panel_roi_alignment {
+	u32 xstart_pix_align;
+	u32 width_pix_align;
+	u32 ystart_pix_align;
+	u32 height_pix_align;
+	u32 min_width;
+	u32 min_height;
+};
+
 struct mdss_panel_info {
 	u32 xres;
 	u32 yres;
@@ -623,15 +632,10 @@ struct mdss_panel_info {
 	int panel_max_fps;
 	int panel_max_vtotal;
 	u32 mode_gpio_state;
-	u32 xstart_pix_align;
-	u32 width_pix_align;
-	u32 ystart_pix_align;
-	u32 height_pix_align;
-	u32 min_width;
-	u32 min_height;
 	u32 min_fps;
 	u32 max_fps;
 	u32 prg_fet;
+	struct mdss_panel_roi_alignment roi_alignment;
 
 	u32 cont_splash_enabled;
 	bool esd_rdy;
@@ -746,6 +750,7 @@ struct mdss_panel_timing {
 	u32 compression_mode;
 
 	struct mdss_mdp_pp_tear_check te;
+	struct mdss_panel_roi_alignment roi_alignment;
 };
 
 struct mdss_panel_data {
