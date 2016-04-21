@@ -143,7 +143,7 @@ Example:
 QUSB2 High-Speed PHY
 
 Required properties:
- - compatible: Should be "qcom,qusb2phy"
+ - compatible: Should be "qcom,qusb2phy" or "qcom,qusb2phy-v2"
  - reg: Address and length of the QUSB2 PHY register set
  - reg-names: Should be "qusb_phy_base".
  - <supply-name>-supply: phandle to the regulator device tree node
