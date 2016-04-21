@@ -1734,7 +1734,7 @@
 	};
 
 	qusb_phy0: qusb@c012000 {
-		compatible = "qcom,qusb2phy";
+		compatible = "qcom,qusb2phy-v2";
 		reg = <0x0c012000 0x2a8>,
 		      <0x0a8f8800 0x400>;
 		reg-names = "qusb_phy_base",
