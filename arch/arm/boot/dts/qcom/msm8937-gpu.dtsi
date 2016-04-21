@@ -43,8 +43,9 @@
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		status = "ok";
-		reg = <0x1c00000 0x40000>;
-		reg-names = "kgsl_3d0_reg_memory";
+		reg = <0x1c00000 0x40000
+		       0xa0000 0x6fff>;
+		reg-names = "kgsl_3d0_reg_memory", "qfprom_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
