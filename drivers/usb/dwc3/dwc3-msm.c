@@ -3140,13 +3140,6 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			break;
 
 		dbg_event(0xFF, "Exit UNDEF", 0);
-
-		/*
-		 * The first call to msm_resume will enable this IRQ which
-		 * needs to first be disabled else it will be unbalanced.
-		 */
-		if (dwc->irq)
-			disable_irq(dwc->irq);
 		mdwc->otg_state = OTG_STATE_B_IDLE;
 		/* fall-through */
 	case OTG_STATE_B_IDLE:
