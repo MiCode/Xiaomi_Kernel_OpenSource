@@ -416,7 +416,11 @@ Optional properties:
 					fields in the supply entry, refer to the qcom,ctrl-supply-entries
 					binding above.
 - qcom,config-select:			Optional property to select default configuration.
-
+- qcom,panel-allow-phy-poweroff:	A boolean property indicates that panel allows to turn off the phy power
+					supply during idle screen. A panel should able to handle the dsi lanes
+					in floating state(not LP00 or LP11) to turn on this property. Software
+					turns off PHY pmic power supply, phy ldo and DSI Lane ldo during
+					idle screen (footswitch control off) when this property is enabled.
 [[Optional config sub-nodes]]		These subnodes provide different configurations for a given same panel.
 					Default configuration can be chosen by specifying phandle of the
 					selected subnode in the qcom,config-select.
@@ -602,6 +606,7 @@ Example:
 		qcom,suspend-ulps-enabled;
 		qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 		qcom,esd-check-enabled;
+		qcom,panel-allow-phy-poweroff;
 		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 0A 08];
 		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
