@@ -52,6 +52,10 @@
 	compatible = "qcom,gcc-mdss-8940";
 };
 
+&bam_dmux {
+	status = "disabled";
+};
+
 &soc {
 	ipa_hw: qcom,ipa@07900000 {
 		compatible = "qcom,ipa";
