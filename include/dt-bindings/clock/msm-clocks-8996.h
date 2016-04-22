@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,8 @@
 
 #ifndef __MSM_CLOCKS_8996_H
 #define __MSM_CLOCKS_8996_H
+
+#include "audio-ext-clk.h"
 
 /* clock_gcc controlled clocks */
 #define clk_cxo_clk_src			0x79e95308
@@ -538,8 +540,4 @@
 #define clk_sys_apcsaux_clk 0x0b0dd513
 #define clk_cpu_debug_mux 0xc7acaa31
 
-/* Audio External Clocks */
-#define clk_audio_ap_clk 0x312ac429
-#define clk_audio_pmi_clk 0xb7ba2274
-#define clk_audio_ap_clk2 0xf0fbaf5b
 #endif
