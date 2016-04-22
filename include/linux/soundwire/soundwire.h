@@ -152,6 +152,7 @@ struct swr_master {
 	int (*get_logical_dev_num)(struct swr_master *mstr, u64 dev_id,
 				u8 *dev_num);
 	void (*slvdev_datapath_control)(struct swr_master *mstr, bool enable);
+	bool (*remove_from_group)(struct swr_master *mstr);
 };
 
 static inline struct swr_master *to_swr_master(struct device *dev)
@@ -307,4 +308,5 @@ extern int swr_reset_device(struct swr_device *swr_dev);
 
 extern int swr_slvdev_datapath_control(struct swr_device *swr_dev, u8 dev_num,
 				       bool enable);
+extern int swr_remove_from_group(struct swr_device *dev, u8 dev_num);
 #endif /* _LINUX_SOUNDWIRE_H */
