@@ -298,8 +298,8 @@ static struct rcg_clk vfe1_clk_src = {
 static struct clk_freq_tbl ftbl_mdp_clk_src[] = {
 	F_MM(  85714286,   mmsscc_gpll0,    7,    0,     0),
 	F_MM( 100000000,   mmsscc_gpll0,    6,    0,     0),
-	F_MM( 171428571,   mmsscc_gpll0,  3.5,    0,     0),
 	F_MM( 150000000,   mmsscc_gpll0,    4,    0,     0),
+	F_MM( 171428571,   mmsscc_gpll0,  3.5,    0,     0),
 	F_MM( 200000000,   mmsscc_gpll0,    3,    0,     0),
 	F_MM( 275000000, mmpll5_pll_out,    3,    0,     0),
 	F_MM( 300000000,   mmsscc_gpll0,    2,    0,     0),
@@ -765,8 +765,8 @@ static struct rcg_clk mclk0_clk_src = {
 	.c = {
 		.dbg_name = "mclk0_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOWER, 33330000, LOW, 66670000,
-					NOMINAL, 68570000),
+		VDD_DIG_FMAX_MAP3(LOWER, 33333333, LOW, 66666667,
+					NOMINAL, 68571429),
 		CLK_INIT(mclk0_clk_src.c),
 	},
 };
@@ -780,8 +780,8 @@ static struct rcg_clk mclk1_clk_src = {
 	.c = {
 		.dbg_name = "mclk1_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOWER, 33330000, LOW, 66670000,
-					NOMINAL, 68570000),
+		VDD_DIG_FMAX_MAP3(LOWER, 33333333, LOW, 66666667,
+					NOMINAL, 68571429),
 		CLK_INIT(mclk1_clk_src.c),
 	},
 };
@@ -795,8 +795,8 @@ static struct rcg_clk mclk2_clk_src = {
 	.c = {
 		.dbg_name = "mclk2_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOWER, 33330000, LOW, 66670000,
-					NOMINAL, 68570000),
+		VDD_DIG_FMAX_MAP3(LOWER, 33333333, LOW, 66666667,
+					NOMINAL, 68571429),
 		CLK_INIT(mclk2_clk_src.c),
 	},
 };
@@ -810,8 +810,8 @@ static struct rcg_clk mclk3_clk_src = {
 	.c = {
 		.dbg_name = "mclk3_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOWER, 33330000, LOW, 66670000,
-					NOMINAL, 68570000),
+		VDD_DIG_FMAX_MAP3(LOWER, 33333333, LOW, 66666667,
+					NOMINAL, 68571429),
 		CLK_INIT(mclk3_clk_src.c),
 	},
 };
@@ -832,7 +832,7 @@ static struct rcg_clk csi0phytimer_clk_src = {
 		.dbg_name = "csi0phytimer_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOWER, 100000000, LOW, 200000000,
-					NOMINAL, 269330000),
+					NOMINAL, 269333333),
 		CLK_INIT(csi0phytimer_clk_src.c),
 	},
 };
@@ -847,7 +847,7 @@ static struct rcg_clk csi1phytimer_clk_src = {
 		.dbg_name = "csi1phytimer_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOWER, 100000000, LOW, 200000000,
-					NOMINAL, 269330000),
+					NOMINAL, 269333333),
 		CLK_INIT(csi1phytimer_clk_src.c),
 	},
 };
@@ -862,7 +862,7 @@ static struct rcg_clk csi2phytimer_clk_src = {
 		.dbg_name = "csi2phytimer_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOWER, 100000000, LOW, 200000000,
-					NOMINAL, 269330000),
+					NOMINAL, 269333333),
 		CLK_INIT(csi2phytimer_clk_src.c),
 	},
 };
