@@ -34,52 +34,42 @@
 
 #define IPA_USB_DRV_NAME "ipa_usb"
 
-#define IPA_USB_IPC_LOG_PAGES 10
-#define IPA_USB_IPC_LOG(buf, fmt, args...) \
-	ipc_log_string((buf), \
-		DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define IPA_USB_DBG(fmt, args...) \
 	do { \
 		pr_debug(IPA_USB_DRV_NAME " %s:%d " fmt, \
 			__func__, __LINE__, ## args); \
-		if (ipa3_usb_ctx) { \
-			IPA_USB_IPC_LOG(ipa3_usb_ctx->logbuf, fmt, ## args); \
-			IPA_USB_IPC_LOG(ipa3_usb_ctx->logbuf_low, \
-					fmt, ## args); \
-		} \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPA_USB_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_USB_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPA_USB_DBG_LOW(fmt, args...) \
 	do { \
 		pr_debug(IPA_USB_DRV_NAME " %s:%d " fmt, \
 			__func__, __LINE__, ## args); \
-		if (ipa3_usb_ctx && \
-			ipa3_usb_ctx->enable_low_prio_print) { \
-			IPA_USB_IPC_LOG(ipa3_usb_ctx->logbuf_low, \
-			fmt, ## args); \
-		} \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_USB_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPA_USB_ERR(fmt, args...) \
 	do { \
 		pr_err(IPA_USB_DRV_NAME " %s:%d " fmt, \
 			__func__, __LINE__, ## args); \
-		if (ipa3_usb_ctx) { \
-			IPA_USB_IPC_LOG(ipa3_usb_ctx->logbuf, fmt, ## args); \
-			IPA_USB_IPC_LOG(ipa3_usb_ctx->logbuf_low, \
-					fmt, ## args); \
-		} \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPA_USB_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_USB_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPA_USB_INFO(fmt, args...) \
 	do { \
 		pr_info(IPA_USB_DRV_NAME " %s:%d " fmt, \
 			__func__, __LINE__, ## args); \
-		if (ipa3_usb_ctx) { \
-			IPA_USB_IPC_LOG(ipa3_usb_ctx->logbuf, fmt, ## args); \
-			IPA_USB_IPC_LOG(ipa3_usb_ctx->logbuf_low, \
-					fmt, ## args); \
-		} \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPA_USB_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_USB_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 struct ipa_usb_xdci_connect_params_internal {
@@ -189,10 +179,6 @@ struct ipa3_usb_context {
 		ttype_ctx[IPA_USB_TRANSPORT_MAX];
 	struct dentry *dfile_state_info;
 	struct dentry *dent;
-	struct dentry *dfile_enable_low_prio;
-	void *logbuf;
-	void *logbuf_low;
-	u32 enable_low_prio_print;
 };
 
 enum ipa3_usb_op {
@@ -492,7 +478,7 @@ static void ipa3_usb_notify_do(enum ipa3_usb_transport_type ttype,
 	void *user_data;
 	int res;
 
-	IPA_USB_DBG_LOW("Trying to notify USB with %s\n",
+	IPA_USB_DBG("Trying to notify USB with %s\n",
 		ipa3_usb_notify_event_to_string(event));
 
 	cb = ipa3_usb_ctx->ttype_ctx[ttype].ipa_usb_notify_cb;
@@ -500,7 +486,7 @@ static void ipa3_usb_notify_do(enum ipa3_usb_transport_type ttype,
 
 	if (cb) {
 		res = cb(event, user_data);
-		IPA_USB_DBG_LOW("Notified USB with %s. is_dpl=%d result=%d\n",
+		IPA_USB_DBG("Notified USB with %s. is_dpl=%d result=%d\n",
 			ipa3_usb_notify_event_to_string(event),
 			IPA3_USB_IS_TTYPE_DPL(ttype), res);
 	}
@@ -1792,33 +1778,6 @@ connect_ul_fail:
 	return result;
 }
 
-static int ipa_usb_ipc_logging_init(void)
-{
-	int result;
-
-	ipa3_usb_ctx->logbuf = ipc_log_context_create(IPA_USB_IPC_LOG_PAGES,
-							"ipa_usb", 0);
-	if (ipa3_usb_ctx->logbuf == NULL) {
-		/* we can't use ipa_usb print macros on failures */
-		pr_err("ipa_usb: failed to get logbuf\n");
-		return -ENOMEM;
-	}
-
-	ipa3_usb_ctx->logbuf_low = ipc_log_context_create(IPA_USB_IPC_LOG_PAGES,
-							"ipa_usb_low", 0);
-	if (ipa3_usb_ctx->logbuf_low == NULL) {
-		pr_err("ipa_usb: failed to get logbuf_low\n");
-		result = -ENOMEM;
-		goto fail_logbuf_low;
-	}
-
-	return 0;
-
-fail_logbuf_low:
-	ipc_log_context_destroy(ipa3_usb_ctx->logbuf);
-	return result;
-}
-
 #ifdef CONFIG_DEBUG_FS
 static char dbg_buff[IPA_USB_MAX_MSG_LEN];
 
@@ -1983,8 +1942,6 @@ const struct file_operations ipa3_ipa_usb_ops = {
 static void ipa_usb_debugfs_init(void)
 {
 	const mode_t read_only_mode = S_IRUSR | S_IRGRP | S_IROTH;
-	const mode_t read_write_mode = S_IRUSR | S_IRGRP | S_IROTH |
-			S_IWUSR | S_IWGRP;
 
 	ipa3_usb_ctx->dent = debugfs_create_dir("ipa_usb", 0);
 	if (IS_ERR(ipa3_usb_ctx->dent)) {
@@ -1998,16 +1955,6 @@ static void ipa_usb_debugfs_init(void)
 	if (!ipa3_usb_ctx->dfile_state_info ||
 		IS_ERR(ipa3_usb_ctx->dfile_state_info)) {
 		IPA_USB_ERR("failed to create file for state_info\n");
-		goto fail;
-	}
-
-	ipa3_usb_ctx->dfile_enable_low_prio =
-			debugfs_create_u32("enable_low_prio_print",
-		read_write_mode, ipa3_usb_ctx->dent,
-		&ipa3_usb_ctx->enable_low_prio_print);
-	if (!ipa3_usb_ctx->dfile_enable_low_prio ||
-			IS_ERR(ipa3_usb_ctx->dfile_enable_low_prio)) {
-		IPA_USB_ERR("could not create enable_low_prio_print file\n");
 		goto fail;
 	}
 
@@ -2623,14 +2570,6 @@ static int __init ipa3_usb_init(void)
 	}
 	memset(ipa3_usb_ctx, 0, sizeof(struct ipa3_usb_context));
 
-	res = ipa_usb_ipc_logging_init();
-	if (res) {
-		/* IPA_USB_ERR will crash on NULL dereference if we use macro*/
-		pr_err("ipa_usb: failed to initialize ipc logging\n");
-		res = -EFAULT;
-		goto ipa_usb_init_ipc_log_fail;
-	}
-
 	for (i = 0; i < IPA_USB_MAX_TETH_PROT_SIZE; i++)
 		ipa3_usb_ctx->teth_prot_ctx[i].state =
 			IPA_USB_TETH_PROT_INVALID;
@@ -2671,9 +2610,6 @@ static int __init ipa3_usb_init(void)
 
 ipa_usb_workqueue_fail:
 	IPA_USB_ERR(":init failed (%d)\n", -res);
-	ipc_log_context_destroy(ipa3_usb_ctx->logbuf);
-	ipc_log_context_destroy(ipa3_usb_ctx->logbuf_low);
-ipa_usb_init_ipc_log_fail:
 	kfree(ipa3_usb_ctx);
 	return res;
 }
