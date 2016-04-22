@@ -614,7 +614,7 @@
 		vdd-supply = <&mdm9607_l9>;
 		qcom,vdd-voltage-level = <0 1225000 1225000>;
 		qcom,hsic-tlmm-init-seq =
-			<0x12008 0x5 0x12004 0x5 0x12000 0x1 0x8 0x400000>;
+			<0x12008 0x5 0x12004 0x5 0x12000 0x1>;
 		qcom,hsic-disable-on-boot;
 
 		clocks = <&clock_gcc clk_gcc_usb_hsic_ahb_clk>,
