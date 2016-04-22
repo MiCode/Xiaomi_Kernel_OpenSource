@@ -1,7 +1,7 @@
 /* drivers/input/touchscreen/gt9xx_update.c
  *
  * 2010 - 2012 Goodix Technology.
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -389,7 +389,7 @@ s32 gup_enter_update_mode(struct i2c_client *client)
 
 	/* step1:RST output low last at least 2ms */
 	gpio_direction_output(ts->pdata->reset_gpio, 0);
-	usleep(20000);
+	msleep(20);
 
 	/* step2:select I2C slave addr,INT:0--0xBA;1--0x28. */
 	gpio_direction_output(ts->pdata->irq_gpio,
