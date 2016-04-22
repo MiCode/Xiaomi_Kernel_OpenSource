@@ -433,6 +433,18 @@ static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 					mdata->reg_bus_hdl);
 	}
 
+	if (mdata->hw_rt_bus_scale_table && !mdata->hw_rt_bus_hdl) {
+		mdata->hw_rt_bus_hdl =
+			msm_bus_scale_register_client(
+			      mdata->hw_rt_bus_scale_table);
+		if (!mdata->hw_rt_bus_hdl)
+			/* Continue without reg_bus scaling */
+			pr_warn("hw_rt_bus client register failed\n");
+		else
+			pr_debug("register hw_rt_bus=%x\n",
+					mdata->hw_rt_bus_hdl);
+	}
+
 	/*
 	 * Following call will not result in actual vote rather update the
 	 * current index and ab/ib value. When continuous splash is enabled,
@@ -453,6 +465,11 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 	if (mdata->reg_bus_hdl) {
 		msm_bus_scale_unregister_client(mdata->reg_bus_hdl);
 		mdata->reg_bus_hdl = 0;
+	}
+
+	if (mdata->hw_rt_bus_hdl) {
+		msm_bus_scale_unregister_client(mdata->hw_rt_bus_hdl);
+		mdata->hw_rt_bus_hdl = 0;
 	}
 }
 
@@ -1155,6 +1172,54 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx, bool locked)
 }
 
 /**
+ * mdss_bus_rt_bw_vote() -- place bus bandwidth request
+ * @enable: value of enable or disable
+ *
+ * hw_rt table has two entries, 0 and Min Vote (1Mhz)
+ * while attaching SMMU and for few TZ operations which
+ * happen at very early stage, we will request Min Vote
+ * thru this handle.
+ *
+ */
+static int mdss_bus_rt_bw_vote(bool enable)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int rc = 0;
+	bool changed = false;
+
+	if (!mdata->hw_rt_bus_hdl)
+		return 0;
+
+	if (enable) {
+		if (mdata->hw_rt_bus_ref_cnt == 0)
+			changed = true;
+		mdata->hw_rt_bus_ref_cnt++;
+	} else {
+		if (mdata->hw_rt_bus_ref_cnt != 0) {
+			mdata->hw_rt_bus_ref_cnt--;
+			if (mdata->hw_rt_bus_ref_cnt == 0)
+				changed = true;
+		} else {
+			pr_warn("%s: bus bw votes are not balanced\n",
+				__func__);
+		}
+	}
+
+	pr_debug("%pS: task:%s bw_cnt=%d changed=%d enable=%d\n",
+		__builtin_return_address(0), current->group_leader->comm,
+		mdata->hw_rt_bus_ref_cnt, changed, enable);
+
+	if (changed) {
+		rc = msm_bus_scale_client_update_request(mdata->hw_rt_bus_hdl,
+							 enable ? 1 : 0);
+		if (rc)
+			pr_err("%s: Bus bandwidth vote failed\n", __func__);
+	}
+
+	return rc;
+}
+
+/**
  * __mdss_mdp_reg_access_clk_enable - Enable minimum MDSS clocks required
  * for register access
  */
@@ -1164,9 +1229,7 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 	if (enable) {
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_LOW);
-		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
-				mdss_bus_scale_set_quota(MDSS_HW_RT,
-					SZ_1M, SZ_1M);
+		mdss_bus_rt_bw_vote(true);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
@@ -1174,8 +1237,7 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
-		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
-			mdss_bus_scale_set_quota(MDSS_HW_RT, 0, 0);
+		mdss_bus_rt_bw_vote(false);
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_DISABLE);
 	}
@@ -1255,9 +1317,7 @@ int mdss_iommu_ctrl(int enable)
 		 * finished handoff, as it may still be working with phys addr
 		 */
 		if (!mdata->iommu_attached && !mdata->handoff_pending) {
-			if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
-				mdss_bus_scale_set_quota(MDSS_HW_RT,
-					 SZ_1M, SZ_1M);
+			mdss_bus_rt_bw_vote(true);
 			rc = mdss_smmu_attach(mdata);
 		}
 		mdata->iommu_ref_cnt++;
@@ -1266,10 +1326,7 @@ int mdss_iommu_ctrl(int enable)
 			mdata->iommu_ref_cnt--;
 			if (mdata->iommu_ref_cnt == 0) {
 				rc = mdss_smmu_detach(mdata);
-				if (mdss_has_quirk(mdata,
-					MDSS_QUIRK_MIN_BUS_VOTE))
-					mdss_bus_scale_set_quota(MDSS_HW_RT,
-								0, 0);
+				mdss_bus_rt_bw_vote(false);
 			}
 		} else {
 			pr_err("unbalanced iommu ref\n");
@@ -1780,7 +1837,6 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
-		mdss_set_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP);
 		break;
 	case MDSS_MDP_HW_REV_115:
@@ -1801,7 +1857,6 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
-		mdss_set_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE);
 		mdss_set_quirk(mdata, MDSS_QUIRK_NEED_SECURE_MAP);
 		break;
 	case MDSS_MDP_HW_REV_300:
@@ -4181,6 +4236,23 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 		rc = 0;
 		mdata->reg_bus_scale_table = NULL;
 		pr_debug("mdss-reg-bus not found\n");
+	}
+
+	node = of_get_child_by_name(pdev->dev.of_node, "qcom,mdss-hw-rt-bus");
+	if (node) {
+		mdata->hw_rt_bus_scale_table =
+			msm_bus_pdata_from_node(pdev, node);
+		if (IS_ERR_OR_NULL(mdata->hw_rt_bus_scale_table)) {
+			rc = PTR_ERR(mdata->hw_rt_bus_scale_table);
+			if (!rc)
+				pr_err("hw_rt_bus_scale failed rc=%d\n", rc);
+			rc = 0;
+			mdata->hw_rt_bus_scale_table = NULL;
+		}
+	} else {
+		rc = 0;
+		mdata->hw_rt_bus_scale_table = NULL;
+		pr_debug("mdss-hw-rt-bus not found\n");
 	}
 
 	return rc;
