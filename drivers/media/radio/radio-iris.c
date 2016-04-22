@@ -618,14 +618,16 @@ int radio_hci_register_dev(struct radio_hci_dev *hdev)
 }
 EXPORT_SYMBOL(radio_hci_register_dev);
 
-int radio_hci_unregister_dev(struct radio_hci_dev *hdev)
+int radio_hci_unregister_dev(void)
 {
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	struct radio_hci_dev *hdev = NULL;
 
-	if (!radio) {
-		FMDERR(":radio is null");
+	if (!radio && !radio->fm_hdev) {
+		FMDERR("radio/hdev is null");
 		return -EINVAL;
 	}
+	hdev = radio->fm_hdev;
 
 	tasklet_kill(&hdev->rx_task);
 	tasklet_kill(&hdev->cmd_task);
