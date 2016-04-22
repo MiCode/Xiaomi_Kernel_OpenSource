@@ -705,22 +705,22 @@
 		qcom,osm-pll-setup;
 
 		qcom,up-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,down-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,pc-override-index =
 			<0 0>;
 		qcom,set-ret-inactive;
 		qcom,enable-llm-freq-vote;
 		qcom,llm-freq-up-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,llm-freq-down-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,enable-llm-volt-vote;
 		qcom,llm-volt-up-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,llm-volt-down-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,cc-reads = <10>;
 		qcom,cc-delay = <5>;
 		qcom,cc-factor = <100>;
