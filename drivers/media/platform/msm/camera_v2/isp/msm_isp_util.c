@@ -968,7 +968,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			reg_cfg_cmd->u.rw_info.len) >
 			vfe_dev->vfe_base_size) ||
 			(reg_cfg_cmd->u.rw_info.reg_offset & 0x3)) {
-			pr_err("%s:%d reg_offset %d len %d res %d\n",
+			pr_err_ratelimited("%s:%d regoffset %d len %d res %d\n",
 				__func__, __LINE__,
 				reg_cfg_cmd->u.rw_info.reg_offset,
 				reg_cfg_cmd->u.rw_info.len,
@@ -980,7 +980,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			(UINT_MAX - reg_cfg_cmd->u.rw_info.len)) ||
 			((reg_cfg_cmd->u.rw_info.cmd_data_offset +
 			reg_cfg_cmd->u.rw_info.len) > cmd_len)) {
-			pr_err("%s:%d cmd_data_offset %d len %d cmd_len %d\n",
+			pr_err_ratelimited("%s:%d cmd_data_offset %d len %d cmd_len %d\n",
 				__func__, __LINE__,
 				reg_cfg_cmd->u.rw_info.cmd_data_offset,
 				reg_cfg_cmd->u.rw_info.len, cmd_len);
