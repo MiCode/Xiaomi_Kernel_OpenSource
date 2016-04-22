@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -276,7 +276,8 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	struct msm_plat_data *pdata;
 	struct snd_pcm_hw_params *params;
 	int ret;
-	uint16_t bits_per_sample = 16;
+	uint16_t bits_per_sample;
+	uint16_t sample_word_size;
 
 	pdata = (struct msm_plat_data *)
 		dev_get_drvdata(soc_prtd->platform->dev);
@@ -299,11 +300,21 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	prtd->audio_client->perf_mode = pdata->perf_mode;
 	pr_debug("%s: perf: %x\n", __func__, pdata->perf_mode);
 
-	if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S24_LE:
 		bits_per_sample = 24;
+		sample_word_size = 32;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		bits_per_sample = 16;
+		sample_word_size = 16;
+		break;
+	}
 
-	ret = q6asm_open_write_v2(prtd->audio_client,
-			FORMAT_LINEAR_PCM, bits_per_sample);
+	ret = q6asm_open_write_v3(prtd->audio_client,
+				  FORMAT_LINEAR_PCM, bits_per_sample);
+
 	if (ret < 0) {
 		pr_err("%s: q6asm_open_write_v2 failed\n", __func__);
 		q6asm_audio_client_free(prtd->audio_client);
@@ -322,19 +333,11 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		return ret;
 	}
 
-	switch (runtime->format) {
-	case SNDRV_PCM_FORMAT_S16_LE:
-		bits_per_sample = 16;
-		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
-		bits_per_sample = 24;
-		break;
-	}
-
-	ret = q6asm_media_format_block_multi_ch_pcm_v2(
-			prtd->audio_client, runtime->rate,
-			runtime->channels, !prtd->set_channel_map,
-			prtd->channel_map, bits_per_sample);
+	ret = q6asm_media_format_block_multi_ch_pcm_v3(
+				prtd->audio_client, runtime->rate,
+				runtime->channels, !prtd->set_channel_map,
+				prtd->channel_map, bits_per_sample,
+				sample_word_size);
 	if (ret < 0)
 		pr_info("%s: CMD Format block failed\n", __func__);
 
@@ -357,8 +360,9 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	struct msm_pcm_routing_evt event;
 	int ret = 0;
 	int i = 0;
-	uint16_t bits_per_sample = 16;
+	uint16_t bits_per_sample;
 	unsigned int be_id = soc_prtd->dai_link->be_id;
+	uint16_t sample_word_size;
 
 	pdata = (struct msm_plat_data *)
 		dev_get_drvdata(soc_prtd->platform->dev);
@@ -384,7 +388,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 				__func__, params_channels(params),
 				prtd->audio_client->perf_mode);
 
-		ret = q6asm_open_read_v2(prtd->audio_client, FORMAT_LINEAR_PCM,
+		ret = q6asm_open_read_v3(prtd->audio_client, FORMAT_LINEAR_PCM,
 				bits_per_sample);
 		if (ret < 0) {
 			pr_err("%s: q6asm_open_read failed\n", __func__);
@@ -426,18 +430,25 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		return 0;
 
 	switch (runtime->format) {
-	case SNDRV_PCM_FORMAT_S16_LE:
-		bits_per_sample = 16;
-		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bits_per_sample = 24;
+		sample_word_size = 32;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		bits_per_sample = 16;
+		sample_word_size = 16;
 		break;
 	}
-	pr_debug("Samp_rate = %d\n", prtd->samp_rate);
-	pr_debug("Channel = %d\n", prtd->channel_mode);
-	ret = q6asm_enc_cfg_blk_pcm_format_support(prtd->audio_client,
-					prtd->samp_rate, prtd->channel_mode,
-					bits_per_sample);
+
+	pr_debug("%s: Samp_rate = %d Channel = %d bit width = %d, word size = %d\n",
+			__func__, prtd->samp_rate, prtd->channel_mode,
+			bits_per_sample, sample_word_size);
+	ret = q6asm_enc_cfg_blk_pcm_format_support_v3(prtd->audio_client,
+						prtd->samp_rate,
+						prtd->channel_mode,
+						bits_per_sample,
+						sample_word_size);
 	if (ret < 0)
 		pr_debug("%s: cmd cfg pcm was block failed", __func__);
 
