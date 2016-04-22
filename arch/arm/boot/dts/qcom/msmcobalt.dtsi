@@ -1292,6 +1292,7 @@
 			snps,nominal-elastic-buffer;
 			snps,hird_thresh = <0x10>;
 			maximum-speed = "high-speed";
+			snps,num-gsi-evt-buffs = <0x3>;
 		};
 
 		qcom,usbbam@a904000 {
