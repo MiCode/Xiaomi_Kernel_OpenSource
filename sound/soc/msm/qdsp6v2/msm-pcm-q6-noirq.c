@@ -87,7 +87,8 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 				SNDRV_PCM_INFO_NO_PERIOD_WAKEUP |
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE),
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE),
 	.rates =                SNDRV_PCM_RATE_8000_192000,
 	.rate_min =             8000,
 	.rate_max =             192000,
@@ -110,7 +111,8 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 				SNDRV_PCM_INFO_NO_PERIOD_WAKEUP |
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE),
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE),
 	.rates =                SNDRV_PCM_RATE_8000_48000,
 	.rate_min =             8000,
 	.rate_max =             48000,
@@ -253,7 +255,7 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct audio_buffer *buf;
 	struct shared_io_config config;
 	uint16_t sample_word_size;
-	uint16_t bits_per_sample = 16;
+	uint16_t bits_per_sample;
 	int ret;
 	int dir = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? IN : OUT;
 
@@ -280,15 +282,20 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		return 0;
 
 	switch (runtime->format) {
-	case SNDRV_PCM_FORMAT_S16_LE:
-		bits_per_sample = 16;
-		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bits_per_sample = 24;
+		sample_word_size = 32;
+		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		bits_per_sample = 24;
+		sample_word_size = 24;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		bits_per_sample = 16;
+		sample_word_size = 16;
 		break;
 	}
-
-	sample_word_size = (bits_per_sample == 16) ? 16 : 32;
 
 	config.format = FORMAT_LINEAR_PCM;
 	config.bits_per_sample = bits_per_sample;
