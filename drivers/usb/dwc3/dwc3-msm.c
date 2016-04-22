@@ -2723,15 +2723,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	mdwc->bus_scale_table = msm_bus_cl_get_pdata(pdev);
-	if (!mdwc->bus_scale_table) {
-		dev_err(&pdev->dev, "bus scaling is disabled\n");
-	} else {
+	if (mdwc->bus_scale_table) {
 		mdwc->bus_perf_client =
 			msm_bus_scale_register_client(mdwc->bus_scale_table);
-		ret = msm_bus_scale_client_update_request(
-						mdwc->bus_perf_client, 1);
-		if (ret)
-			dev_err(&pdev->dev, "Failed to vote for bus scaling\n");
 	}
 
 	dwc = platform_get_drvdata(mdwc->dwc3);
