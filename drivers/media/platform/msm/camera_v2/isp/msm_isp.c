@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include "msm_isp_axi_util.h"
 #include "msm_isp_stats_util.h"
 #include "msm_sd.h"
+#include "msm_isp48.h"
 #include "msm_isp47.h"
 #include "msm_isp46.h"
 #include "msm_isp44.h"
@@ -330,6 +331,17 @@ void msm_isp_update_req_history(uint32_t client, uint64_t ab,
 	spin_unlock(&req_history_lock);
 }
 
+void msm_isp_update_last_overflow_ab_ib(struct vfe_device *vfe_dev)
+{
+	spin_lock(&req_history_lock);
+	vfe_dev->msm_isp_last_overflow_ab =
+	msm_isp_bw_request_history[msm_isp_bw_request_history_idx].total_ab;
+	vfe_dev->msm_isp_last_overflow_ib =
+	msm_isp_bw_request_history[msm_isp_bw_request_history_idx].total_ib;
+	spin_unlock(&req_history_lock);
+}
+
+
 #ifdef CONFIG_COMPAT
 static long msm_isp_dqevent(struct file *file, struct v4l2_fh *vfh, void *arg)
 {
@@ -581,8 +593,7 @@ int vfe_hw_probe(struct platform_device *pdev)
 
 	vfe_dev->pdev = pdev;
 
-
-	rc = vfe_dev->hw_info->vfe_ops.core_ops.get_platform_data(vfe_dev);
+	rc = vfe_dev->hw_info->vfe_ops.platform_ops.get_platform_data(vfe_dev);
 	if (rc < 0) {
 		pr_err("%s: failed to get platform resources\n", __func__);
 		rc = -ENOMEM;
