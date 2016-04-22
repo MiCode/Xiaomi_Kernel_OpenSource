@@ -629,12 +629,9 @@ done:
 #define MSM8953_APCC_APM_MODE              0x000002a8
 #define MSM8953_APCC_APM_CTL_STS           0x000002b0
 
-/* 8953 constants */
-#define MSM8953_APM_SWITCH_TIMEOUT_US      20
-
 static int msm8953_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 {
-	int timeout = MSM8953_APM_SWITCH_TIMEOUT_US;
+	int timeout = MSM_APM_SWITCH_TIMEOUT_US;
 	u32 regval;
 	int ret = 0;
 	unsigned long flags;
@@ -675,7 +672,7 @@ static int msm8953_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 
 static int msm8953_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 {
-	int timeout = MSM8953_APM_SWITCH_TIMEOUT_US;
+	int timeout = MSM_APM_SWITCH_TIMEOUT_US;
 	u32 regval;
 	int ret = 0;
 	unsigned long flags;
