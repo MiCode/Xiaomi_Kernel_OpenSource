@@ -3365,18 +3365,20 @@ static ssize_t mdss_mdp_misr_store(struct device *dev,
 		req.frame_count = 1;
 	} else {
 		pr_err("misr not supported fo this fb:%d\n", mfd->index);
+		rc = -ENODEV;
+		return rc;
 	}
 
 	if (enable_misr) {
 		mdss_misr_set(mdata, &req , ctl);
 
-		if (is_panel_split(mfd))
+		if ((ctl->intf_type == MDSS_INTF_DSI) && is_panel_split(mfd))
 			mdss_misr_set(mdata, &sreq , ctl);
 
 	} else {
 		mdss_misr_disable(mdata, &req, ctl);
 
-		if (is_panel_split(mfd))
+		if ((ctl->intf_type == MDSS_INTF_DSI) && is_panel_split(mfd))
 			mdss_misr_disable(mdata, &sreq , ctl);
 	}
 

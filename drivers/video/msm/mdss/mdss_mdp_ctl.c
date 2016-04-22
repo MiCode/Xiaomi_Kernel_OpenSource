@@ -1161,7 +1161,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_hflip = pipe->flags & MDP_FLIP_LR;
 	prefill_params.is_cmd = !mixer->ctl->is_video_mode;
 	prefill_params.pnum = pipe->num;
-	prefill_params.is_bwc = mdss_mdp_is_ubwc_format(pipe->src_fmt);
+	prefill_params.is_ubwc = mdss_mdp_is_ubwc_format(pipe->src_fmt);
 	prefill_params.is_nv12 = mdss_mdp_is_nv12_format(pipe->src_fmt);
 
 	mdss_mdp_get_bw_vote_mode(mixer, mdata->mdp_rev, perf,
@@ -4276,16 +4276,16 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	}
 
 	previous_frame_pu_type = mdss_mdp_get_pu_type(ctl);
-	mdss_mdp_set_mixer_roi(ctl->mixer_left, l_roi);
-	if (ctl->mixer_left)
+	if (ctl->mixer_left) {
+		mdss_mdp_set_mixer_roi(ctl->mixer_left, l_roi);
 		ctl->roi = ctl->mixer_left->roi;
+	}
 
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
 
-		if (sctl) {
-			mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
-			if (sctl->mixer_left)
+		if (sctl && sctl->mixer_left) {
+				mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
 				sctl->roi = sctl->mixer_left->roi;
 		}
 	} else if (is_dual_lm_single_display(ctl->mfd) && ctl->mixer_right) {
