@@ -567,13 +567,6 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 
 			chroma_samp = fmt->chroma_sample;
 
-			if (rotation) {
-				if (chroma_samp == MDSS_MDP_CHROMA_H2V1)
-					chroma_samp = MDSS_MDP_CHROMA_H1V2;
-				else if (chroma_samp == MDSS_MDP_CHROMA_H1V2)
-					chroma_samp = MDSS_MDP_CHROMA_H2V1;
-			}
-
 			mdss_mdp_get_v_h_subsample_rate(chroma_samp,
 				&v_subsample, &h_subsample);
 
