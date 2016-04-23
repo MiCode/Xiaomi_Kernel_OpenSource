@@ -220,7 +220,7 @@
 		/* SUPER TURBO */
 		qcom,gpu-pwrlevel@0 {
 			reg = <0>;
-			qcom,gpu-freq = <475000000>;
+			qcom,gpu-freq = <450000000>;
 			qcom,bus-freq = <10>;
 			qcom,bus-min = <10>;
 			qcom,bus-max = <10>;
