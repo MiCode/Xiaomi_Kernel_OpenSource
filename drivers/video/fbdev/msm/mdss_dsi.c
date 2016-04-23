@@ -2788,6 +2788,7 @@ static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
 	info.link_clks.esc_clk = ctrl_pdata->esc_clk;
 	info.link_clks.byte_clk = ctrl_pdata->byte_clk;
 	info.link_clks.pixel_clk = ctrl_pdata->pixel_clk;
+	info.link_clks.byte_intf_clk = ctrl_pdata->byte_intf_clk;
 
 	info.pre_clkoff_cb = mdss_dsi_pre_clkoff_cb;
 	info.post_clkon_cb = mdss_dsi_post_clkon_cb;
@@ -2950,6 +2951,24 @@ end:
 	return rc;
 }
 
+static int mdss_dsi_ctrl_validate_config(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc = 0;
+
+	/*
+	 * check to make sure that the byte interface clock is specified for
+	 * DSI ctrl version 2 and above.
+	 */
+	if ((ctrl->shared_data->hw_rev >= MDSS_DSI_HW_REV_200) &&
+		(!ctrl->byte_intf_clk)) {
+		pr_err("%s: byte intf clk must be defined for hw rev 0x%08x\n",
+			__func__, ctrl->shared_data->hw_rev);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -3098,6 +3117,12 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&ctrl_pdata->dba_work, mdss_dsi_dba_work);
+
+	rc = mdss_dsi_ctrl_validate_config(ctrl_pdata);
+	if (rc) {
+		pr_err("%s: invalid controller configuration\n", __func__);
+		goto error_shadow_clk_deinit;
+	}
 
 	pr_info("%s: Dsi Ctrl->%d initialized, DSI rev:0x%x, PHY rev:0x%x\n",
 		__func__, index, ctrl_pdata->shared_data->hw_rev,
@@ -3816,8 +3841,6 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
-
 	/*
 	 * If disp_en_gpio has been set previously (disp_en_gpio > 0)
 	 *  while parsing the panel node, then do not override it
@@ -3850,16 +3873,11 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
 
-	if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
-
-		ctrl_pdata->mode_gpio = of_get_named_gpio(
-					ctrl_pdev->dev.of_node,
-					"qcom,platform-mode-gpio", 0);
-		if (!gpio_is_valid(ctrl_pdata->mode_gpio))
-			pr_info("%s:%d, mode gpio not specified\n",
-							__func__, __LINE__);
-	} else {
-		ctrl_pdata->mode_gpio = -EINVAL;
+	ctrl_pdata->lcd_mode_sel_gpio = of_get_named_gpio(
+			ctrl_pdev->dev.of_node, "qcom,panel-mode-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
+		pr_debug("%s:%d mode gpio not specified\n", __func__, __LINE__);
+		ctrl_pdata->lcd_mode_sel_gpio = -EINVAL;
 	}
 
 	return 0;

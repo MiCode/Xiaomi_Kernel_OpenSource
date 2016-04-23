@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2016, The Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
  *
@@ -560,10 +560,8 @@ static int port_notify_serial_state(struct cserial *cser)
 {
 	struct f_cdev *port = cser_to_port(cser);
 	int status;
-	unsigned long flags;
 	struct usb_composite_dev *cdev = port->port_usb.func.config->cdev;
 
-	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb.notify_req) {
 		dev_dbg(&cdev->gadget->dev, "port %d serial state %04x\n",
 				port->port_num, port->port_usb.serial_state);
@@ -574,7 +572,7 @@ static int port_notify_serial_state(struct cserial *cser)
 		port->port_usb.pending = true;
 		status = 0;
 	}
-	spin_unlock_irqrestore(&port->port_lock, flags);
+
 	return status;
 }
 
@@ -582,13 +580,10 @@ static void usb_cser_notify_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_cdev *port = req->context;
 	u8	      doit = false;
-	unsigned long flags;
 
-	spin_lock_irqsave(&port->port_lock, flags);
 	if (req->status != -ESHUTDOWN)
 		doit = port->port_usb.pending;
 	port->port_usb.notify_req = req;
-	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (doit && port->is_connected)
 		port_notify_serial_state(&port->port_usb);
@@ -802,8 +797,11 @@ static void cser_free_inst(struct usb_function_instance *fi)
 	struct f_cdev_opts *opts;
 
 	opts = container_of(fi, struct f_cdev_opts, func_inst);
-	kfree(opts->port);
+
+	device_destroy(fcdev_classp, MKDEV(major, opts->port->minor));
+	cdev_del(&opts->port->fcdev_cdev);
 	usb_cser_chardev_deinit();
+	kfree(opts->port);
 	kfree(opts);
 }
 
@@ -914,15 +912,15 @@ static void usb_cser_write_complete(struct usb_ep *ep, struct usb_request *req)
 	pr_debug("ep:(%p)(%s) port:%p req_stats:%d\n",
 			ep, ep->name, port, req->status);
 
-	spin_lock_irqsave(&port->port_lock, flags);
 	if (!port) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_err("port is null\n");
 		return;
 	}
 
+	spin_lock_irqsave(&port->port_lock, flags);
 	port->nbytes_to_host += req->actual;
 	list_add_tail(&req->list, &port->write_pool);
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	switch (req->status) {
 	default:
@@ -938,7 +936,6 @@ static void usb_cser_write_complete(struct usb_ep *ep, struct usb_request *req)
 		break;
 	}
 
-	spin_unlock_irqrestore(&port->port_lock, flags);
 	return;
 }
 
@@ -991,10 +988,9 @@ static void usb_cser_stop_io(struct f_cdev *port)
 	unsigned long	flags;
 
 	pr_debug("port:%p\n", port);
-	spin_lock_irqsave(&port->port_lock, flags);
+
 	in = port->port_usb.in;
 	out = port->port_usb.out;
-	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	/* disable endpoints, aborting down any active I/O */
 	usb_ep_disable(out);
@@ -1282,14 +1278,12 @@ static int f_cdev_tiocmget(struct f_cdev *port)
 {
 	struct cserial	*cser;
 	unsigned int result = 0;
-	unsigned long flags;
 
 	if (!port) {
 		pr_err("port is NULL.\n");
 		return -ENODEV;
 	}
 
-	spin_lock_irqsave(&port->port_lock, flags);
 	cser = &port->port_usb;
 	if (cser->get_dtr)
 		result |= (cser->get_dtr(cser) ? TIOCM_DTR : 0);
@@ -1302,7 +1296,6 @@ static int f_cdev_tiocmget(struct f_cdev *port)
 
 	if (cser->serial_state & TIOCM_RI)
 		result |= TIOCM_RI;
-	spin_unlock_irqrestore(&port->port_lock, flags);
 	return result;
 }
 
@@ -1311,14 +1304,12 @@ static int f_cdev_tiocmset(struct f_cdev *port,
 {
 	struct cserial *cser;
 	int status = 0;
-	unsigned long flags;
 
 	if (!port) {
 		pr_err("port is NULL.\n");
 		return -ENODEV;
 	}
 
-	spin_lock_irqsave(&port->port_lock, flags);
 	cser = &port->port_usb;
 	if (set & TIOCM_RI) {
 		if (cser->send_ring_indicator) {
@@ -1345,7 +1336,6 @@ static int f_cdev_tiocmset(struct f_cdev *port,
 		}
 	}
 
-	spin_unlock_irqrestore(&port->port_lock, flags);
 	return status;
 }
 
@@ -1395,7 +1385,6 @@ static long f_cdev_ioctl(struct file *fp, unsigned cmd,
 static void usb_cser_notify_modem(void *fport, int ctrl_bits)
 {
 	int temp;
-	unsigned long flags;
 	struct f_cdev *port = fport;
 
 	if (!port) {
@@ -1404,17 +1393,15 @@ static void usb_cser_notify_modem(void *fport, int ctrl_bits)
 	}
 
 	pr_debug("port(%s): ctrl_bits:%x\n", port->name, ctrl_bits);
-	spin_lock_irqsave(&port->port_lock, flags);
+
 	temp = convert_acm_sigs_to_uart(ctrl_bits);
 
-	if (temp == port->cbits_to_modem) {
-		spin_unlock_irqrestore(&port->port_lock, flags);
+	if (temp == port->cbits_to_modem)
 		return;
-	}
 
 	port->cbits_to_modem = temp;
 	port->cbits_updated = true;
-	spin_unlock_irqrestore(&port->port_lock, flags);
+
 	wake_up(&port->read_wq);
 }
 
@@ -1430,10 +1417,9 @@ int usb_cser_connect(struct f_cdev *port)
 	}
 
 	pr_debug("port(%s) (%p)\n", port->name, port);
-	spin_lock_irqsave(&port->port_lock, flags);
+
 	cser = &port->port_usb;
 	cser->notify_modem = usb_cser_notify_modem;
-	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	ret = usb_ep_enable(cser->in);
 	if (ret) {

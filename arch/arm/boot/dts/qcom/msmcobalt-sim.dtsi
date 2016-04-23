@@ -78,3 +78,31 @@
 &gdsc_gpu_gx {
 	parent-supply = <&gfx_stub_vreg>;
 };
+
+&soc {
+	sound_sim {
+		compatible = "qcom,msmcobalt-asoc-snd-stub";
+		qcom,model = "msmcobalt-stub-snd-card";
+
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK";
+
+		qcom,tasha-mclk-clk-freq = <9600000>;
+		asoc-platform = <&pcm0>, <&routing>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-routing";
+		asoc-cpu = <&sb_0_rx>, <&sb_0_tx>;
+		asoc-cpu-names = "msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+		qcom,wsa-max-devs = <0>;
+	};
+};
+
+&wcd9xxx_intc {
+	status = "disabled";
+	compatible = "qcom,wcd9xxx-irq";
+	interrupt-controller;
+	#interrupt-cells = <1>;
+	interrupt-names = "cdc-int";
+};

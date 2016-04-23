@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +50,6 @@ struct bus_rule_type {
 	void *client_data;
 };
 
-#if (defined(CONFIG_QCOM_BUS_TOPOLOGY_ADHOC))
 void msm_rule_register(int num_rules, struct bus_rule_type *rule,
 				struct notifier_block *nb);
 void msm_rule_unregister(int num_rules, struct bus_rule_type *rule,
@@ -61,31 +60,4 @@ bool msm_rule_update(struct bus_rule_type *old_rule,
 void msm_rule_evaluate_rules(int node);
 void print_rules_buf(char *buf, int count);
 bool msm_rule_are_rules_registered(void);
-#else
-static inline void msm_rule_register(int num_rules, struct bus_rule_type *rule,
-				struct notifier_block *nb)
-{
-}
-static inline void msm_rule_unregister(int num_rules,
-					struct bus_rule_type *rule,
-					struct notifier_block *nb)
-{
-}
-static inline void print_rules_buf(char *buf, int count)
-{
-}
-static inline bool msm_rule_are_rules_registered(void)
-{
-	return false;
-}
-static inline bool msm_rule_update(struct bus_rule_type *old_rule,
-					struct bus_rule_type *new_rule,
-					struct notifier_block *nb)
-{
-	return false;
-}
-static inline void msm_rule_evaluate_rules(int node)
-{
-}
-#endif /* defined(CONFIG_BUS_TOPOLOGY_ADHOC) */
 #endif /* _ARCH_ARM_MACH_MSM_BUS_RULES_H */

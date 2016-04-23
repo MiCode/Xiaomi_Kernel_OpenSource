@@ -44,7 +44,7 @@ static inline long do_strncpy_from_user(char *dst, const char __user *src, long 
 
 		ret = __get_user(c, src + res);
 		if (ret)
-			return -ret;
+			return -EFAULT;
 		dst[res] = c;
 		if (!c)
 			return res;

@@ -17,7 +17,7 @@
 #include <linux/iopoll.h>
 #include <linux/platform_device.h>
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 #include <linux/msm-bus.h>
 #endif
 
@@ -851,7 +851,7 @@ static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 	return 0;
 }
 
-#ifdef CONFIG_MSM_BUS_SCALING
+#ifdef CONFIG_QCOM_BUS_SCALING
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
 		const char *speed_mode)
 {
@@ -1017,7 +1017,7 @@ static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
 out:
 	return err;
 }
-#else /* CONFIG_MSM_BUS_SCALING */
+#else /* CONFIG_QCOM_BUS_SCALING */
 static int ufs_qcom_update_bus_bw_vote(struct ufs_qcom_host *host)
 {
 	return 0;
@@ -1035,7 +1035,7 @@ static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
 static inline void msm_bus_scale_unregister_client(uint32_t cl)
 {
 }
-#endif /* CONFIG_MSM_BUS_SCALING */
+#endif /* CONFIG_QCOM_BUS_SCALING */
 
 static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 {

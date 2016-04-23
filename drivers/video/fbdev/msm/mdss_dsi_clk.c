@@ -178,6 +178,21 @@ static int dsi_link_clk_set_rate(struct dsi_link_clks *l_clks)
 		goto error;
 	}
 
+	/*
+	 * If byte_intf_clk is present, set rate for that too.
+	 *  For DPHY:
+	 *        byte_intf_clk_rate = byte_clk_rate / 2
+	 *  todo: this needs to be revisited when support for CPHY is added
+	 */
+	if (l_clks->clks.byte_intf_clk) {
+		rc = clk_set_rate(l_clks->clks.byte_intf_clk,
+			l_clks->byte_clk_rate / 2);
+		if (rc) {
+			pr_err("set rate failed for byte intf clk rc=%d\n", rc);
+			goto error;
+		}
+	}
+
 error:
 	return rc;
 }
@@ -204,8 +219,19 @@ static int dsi_link_clk_prepare(struct dsi_link_clks *l_clks)
 		goto pixel_clk_err;
 	}
 
+	if (l_clks->clks.byte_intf_clk) {
+		rc = clk_prepare(l_clks->clks.byte_intf_clk);
+		if (rc) {
+			pr_err("%s: Failed to prepare dsi byte_intf clk\n",
+				__func__);
+			goto byte_intf_clk_err;
+		}
+	}
+
 	return rc;
 
+byte_intf_clk_err:
+	clk_unprepare(l_clks->clks.pixel_clk);
 pixel_clk_err:
 	clk_unprepare(l_clks->clks.byte_clk);
 byte_clk_err:
@@ -218,6 +244,8 @@ static int dsi_link_clk_unprepare(struct dsi_link_clks *l_clks)
 {
 	int rc = 0;
 
+	if (l_clks->clks.byte_intf_clk)
+		clk_unprepare(l_clks->clks.byte_intf_clk);
 	clk_unprepare(l_clks->clks.pixel_clk);
 	clk_unprepare(l_clks->clks.byte_clk);
 	clk_unprepare(l_clks->clks.esc_clk);
@@ -247,8 +275,19 @@ static int dsi_link_clk_enable(struct dsi_link_clks *l_clks)
 		goto pixel_clk_err;
 	}
 
+	if (l_clks->clks.byte_intf_clk) {
+		rc = clk_enable(l_clks->clks.byte_intf_clk);
+		if (rc) {
+			pr_err("%s: Failed to enable dsi byte_intf clk\n",
+				__func__);
+			goto byte_intf_clk_err;
+		}
+	}
+
 	return rc;
 
+byte_intf_clk_err:
+	clk_disable(l_clks->clks.pixel_clk);
 pixel_clk_err:
 	clk_disable(l_clks->clks.byte_clk);
 byte_clk_err:
@@ -261,6 +300,8 @@ static int dsi_link_clk_disable(struct dsi_link_clks *l_clks)
 {
 	int rc = 0;
 
+	if (l_clks->clks.byte_intf_clk)
+		clk_disable(l_clks->clks.byte_intf_clk);
 	clk_disable(l_clks->clks.esc_clk);
 	clk_disable(l_clks->clks.pixel_clk);
 	clk_disable(l_clks->clks.byte_clk);
@@ -622,9 +663,27 @@ static int dsi_set_clk_rate(struct mdss_dsi_clk_mngr *mngr, int clk, u32 rate,
 		mngr->link_clks.byte_clk_rate = rate;
 		if (!flags) {
 			rc = clk_set_rate(mngr->link_clks.clks.byte_clk, rate);
-			if (rc)
+			if (rc) {
 				pr_err("set rate failed for byte clk rc=%d\n",
 				       rc);
+				goto error;
+			}
+
+			/*
+			 * If byte_intf_clk is present, set rate for that too.
+			 *  For DPHY:
+			 *        byte_intf_clk_rate = byte_clk_rate / 2
+			 *  todo: this needs to be revisited when support for
+			 *  CPHY is added.
+			 */
+			if (mngr->link_clks.clks.byte_intf_clk) {
+				rc = clk_set_rate(
+					mngr->link_clks.clks.byte_intf_clk,
+					rate / 2);
+				if (rc)
+					pr_err("set rate failed for byte intf clk rc=%d\n",
+					       rc);
+			}
 		}
 		break;
 	case MDSS_DSI_LINK_PIX_CLK:
@@ -642,6 +701,7 @@ static int dsi_set_clk_rate(struct mdss_dsi_clk_mngr *mngr, int clk, u32 rate,
 		break;
 	}
 
+error:
 	return rc;
 }
 

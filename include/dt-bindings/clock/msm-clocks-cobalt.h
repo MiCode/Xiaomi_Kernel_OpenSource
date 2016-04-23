@@ -138,7 +138,6 @@
 #define clk_blsp2_uart1_apps_clk_src		0x562c66dc
 #define clk_blsp2_uart2_apps_clk_src		0xdd448080
 #define clk_blsp2_uart3_apps_clk_src		0x46b2e90f
-#define clk_glm_clk_src				0x532bf9ac
 #define clk_gp1_clk_src				0xad85b97a
 #define clk_gp2_clk_src				0xfb1f0065
 #define clk_gp3_clk_src				0x63b693d6
@@ -193,9 +192,6 @@
 #define clk_gcc_boot_rom_ahb_clk		0xde2adeb1
 #define clk_gcc_bimc_gfx_clk			0x3edd69ad
 #define clk_gcc_cfg_noc_usb3_axi_clk		0x9ea4c2d9
-#define clk_gcc_glm_ahb_clk			0x9fa410cc
-#define clk_gcc_glm_clk				0x8170c540
-#define clk_gcc_glm_xo_clk			0x3f1df8b2
 #define clk_gcc_gp1_clk				0x057f7b69
 #define clk_gcc_gp2_clk				0x9bf83ffd
 #define clk_gcc_gp3_clk				0xec6539ee
@@ -418,15 +414,6 @@
 #define clk_mmss_misc_cxo_clk			0xe620cd80
 #define clk_mmss_mnoc_ahb_clk			0x49a394f4
 #define clk_mmss_mnoc_maxi_clk			0xd8b7278f
-#define clk_mmss_throttle_camss_ahb_clk		0x0382ef47
-#define clk_mmss_throttle_camss_axi_clk		0x26271bf4
-#define clk_mmss_throttle_camss_cxo_clk		0xa3d15f10
-#define clk_mmss_throttle_mdss_ahb_clk		0x1ab259f7
-#define clk_mmss_throttle_mdss_axi_clk		0x80067438
-#define clk_mmss_throttle_mdss_cxo_clk		0x8a8daaf7
-#define clk_mmss_throttle_video_ahb_clk		0x9efb223e
-#define clk_mmss_throttle_video_axi_clk		0xe160287c
-#define clk_mmss_throttle_video_cxo_clk		0x7aa7d641
 #define clk_mmss_video_subcore0_clk		0x23fae359
 #define clk_mmss_video_subcore1_clk		0x5213a0c7
 #define clk_mmss_video_ahb_clk			0x94334ae9

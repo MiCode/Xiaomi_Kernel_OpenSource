@@ -427,7 +427,7 @@ static void mdss_dsi_ctrl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	wmb();	/* maek sure reset cleared */
 }
 
-void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
+static void mdss_dsi_phy_sw_reset_sub(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
 	struct dsi_shared_data *sdata;
@@ -484,7 +484,39 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	}
 	mutex_unlock(&sdata->phy_reg_lock);
+}
 
+void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+	struct dsi_shared_data *sdata;
+
+	if (ctrl == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	sdata = ctrl->shared_data;
+
+	/*
+	 * When operating in split display mode, make sure that the PHY reset
+	 * is only done from the clock master. This will ensure that the PLL is
+	 * off when PHY reset is called.
+	 */
+	if (mdss_dsi_is_ctrl_clk_slave(ctrl))
+		return;
+
+	mdss_dsi_phy_sw_reset_sub(ctrl);
+
+	if (mdss_dsi_is_ctrl_clk_master(ctrl)) {
+		sctrl = mdss_dsi_get_ctrl_clk_slave();
+		if (sctrl)
+			mdss_dsi_phy_sw_reset_sub(sctrl);
+		else
+			pr_warn("%s: unable to get slave ctrl\n", __func__);
+	}
+
+	/* All other quirks go here */
 	if ((sdata->hw_rev == MDSS_DSI_HW_REV_103) &&
 		!mdss_dsi_is_hw_config_dual(sdata) &&
 		mdss_dsi_is_right_ctrl(ctrl)) {
@@ -513,6 +545,9 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20)
 		return;
 
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+		return;
+
 	MIPI_OUTP(ctrl->phy_regulator_io.base + 0x018, 0x000);
 }
 
@@ -527,6 +562,8 @@ static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_PLL_CLKBUFLR_EN, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_GLBL_TEST_CTRL, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0);
+	} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+		mdss_dsi_phy_v3_shutdown(ctrl);
 	} else {
 		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
 	}
@@ -1085,6 +1122,8 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (enable) {
 		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_regulator_enable(ctrl);
+		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+			mdss_dsi_phy_v3_regulator_enable(ctrl);
 		} else {
 			switch (ctrl->shared_data->hw_rev) {
 			case MDSS_DSI_HW_REV_103:
@@ -1134,6 +1173,8 @@ static void mdss_dsi_phy_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 
 		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_config(ctrl);
+		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+			mdss_dsi_phy_v3_init(ctrl, DSI_PHY_MODE_DPHY);
 		} else {
 			switch (ctrl->shared_data->hw_rev) {
 			case MDSS_DSI_HW_REV_103:
@@ -1179,10 +1220,34 @@ void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 	wmb();
 }
 
-void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
+static void mdss_dsi_phy_init_sub(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	mdss_dsi_phy_regulator_ctrl(ctrl, true);
 	mdss_dsi_phy_ctrl(ctrl, true);
+}
+
+void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+
+	/*
+	 * When operating in split display mode, make sure that both the PHY
+	 * blocks are initialized together prior to the PLL being enabled. This
+	 * is achieved by calling the phy_init function for the clk_slave from
+	 * the clock_master.
+	 */
+	if (mdss_dsi_is_ctrl_clk_slave(ctrl))
+		return;
+
+	mdss_dsi_phy_init_sub(ctrl);
+
+	if (mdss_dsi_is_ctrl_clk_master(ctrl)) {
+		sctrl = mdss_dsi_get_ctrl_clk_slave();
+		if (sctrl)
+			mdss_dsi_phy_init_sub(sctrl);
+		else
+			pr_warn("%s: unable to get slave ctrl\n", __func__);
+	}
 }
 
 void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
@@ -1360,6 +1425,8 @@ error:
 void mdss_dsi_link_clk_deinit(struct device *dev,
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	if (ctrl->byte_intf_clk)
+		devm_clk_put(dev, ctrl->byte_intf_clk);
 	if (ctrl->vco_dummy_clk)
 		devm_clk_put(dev, ctrl->vco_dummy_clk);
 	if (ctrl->pixel_clk_rcg)
@@ -1433,6 +1500,13 @@ int mdss_dsi_link_clk_init(struct platform_device *pdev,
 		pr_debug("%s: can't find vco dummy clk. rc=%d\n", __func__, rc);
 		ctrl->vco_dummy_clk = NULL;
 	}
+
+	ctrl->byte_intf_clk = devm_clk_get(dev, "byte_intf_clk");
+	if (IS_ERR(ctrl->byte_intf_clk)) {
+		pr_debug("%s: can't find byte int clk. rc=%d\n", __func__, rc);
+		ctrl->byte_intf_clk = NULL;
+	}
+
 
 error:
 	if (rc)
@@ -2169,6 +2243,10 @@ int mdss_dsi_post_clkon_cb(void *priv,
 			mdss_dsi_phy_power_on(ctrl, mmss_clamp);
 	}
 	if (clk & MDSS_DSI_LINK_CLK) {
+		/* toggle the resync FIFO everytime clock changes */
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+			mdss_dsi_phy_v3_toggle_resync_fifo(ctrl);
+
 		if (ctrl->ulps) {
 			rc = mdss_dsi_ulps_config(ctrl, 0);
 			if (rc) {

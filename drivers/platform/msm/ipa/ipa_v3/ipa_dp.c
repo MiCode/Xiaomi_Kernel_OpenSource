@@ -1219,7 +1219,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.desc.size = sys_in->desc_fifo_sz;
 		ep->connect.desc.base = dma_alloc_coherent(ipa3_ctx->pdev,
 				ep->connect.desc.size, &dma_addr, 0);
-		if (!ipa3_ctx->smmu_present) {
+		if (ipa3_ctx->smmu_s1_bypass) {
 			ep->connect.desc.phys_base = dma_addr;
 		} else {
 			ep->connect.desc.iova = dma_addr;
@@ -3573,6 +3573,7 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 {
 	struct gsi_evt_ring_props gsi_evt_ring_props;
 	struct gsi_chan_props gsi_channel_props;
+	union __packed gsi_channel_scratch ch_scratch;
 	struct ipa_gsi_ep_config *gsi_ep_info;
 	dma_addr_t dma_addr;
 	int result;
@@ -3654,7 +3655,7 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 	ep->gsi_mem_info.chan_ring_base_vaddr =
 		gsi_channel_props.ring_base_vaddr;
 
-	gsi_channel_props.use_db_eng = GSI_CHAN_DIRECT_MODE;
+	gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
 	gsi_channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	if (ep->client == IPA_CLIENT_APPS_CMD_PROD)
 		gsi_channel_props.low_weight = IPA_GSI_MAX_CH_LOW_WEIGHT;
@@ -3672,6 +3673,16 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 		&ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS)
 		goto fail_alloc_channel;
+
+	memset(&ch_scratch, 0, sizeof(ch_scratch));
+	ch_scratch.gpi.max_outstanding_tre = gsi_ep_info->ipa_if_tlv *
+		GSI_CHAN_RE_SIZE_16B;
+	ch_scratch.gpi.outstanding_threshold = 2 * GSI_CHAN_RE_SIZE_16B;
+	result = gsi_write_channel_scratch(ep->gsi_chan_hdl, ch_scratch);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("failed to write scratch %d\n", result);
+		goto fail_start_channel;
+	}
 
 	result = gsi_start_channel(ep->gsi_chan_hdl);
 	if (result != GSI_STATUS_SUCCESS)

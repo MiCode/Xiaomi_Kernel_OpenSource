@@ -12,14 +12,14 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/clock/msm-clocks-cobalt.h>
 
 &soc {
 	msm_vidc: qcom,vidc@cc00000 {
 		compatible = "qcom,msm-vidc";
-		status = "disabled";
+		status = "ok";
 		reg = <0xcc00000 0x100000>;
 		interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
-		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
 		qcom,hfi = "venus";
 		qcom,hfi-version = "3xx";
 		qcom,firmware-name = "venus";
@@ -33,6 +33,105 @@
 			<0x80580 0x2222221>,
 			<0x80588 0x3333331>;
 
+		qcom,imem-size = <524288>; /* 512 kB */
+		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
+		qcom,load-freq-tbl =
+			/* Encoders */
+			<972000 490000000 0x55555555>, /* 4k UHD @ 30 */
+			<489600 320000000 0x55555555>, /* 1080p @ 60 */
+			<244800 150000000 0x55555555>, /* 1080p @ 30 */
+			<108000  75000000 0x55555555>, /* 720p @ 30 */
+
+			/* Decoders */
+			<1944000 490000000 0xffffffff>, /* 4k UHD @ 60 */
+			< 972000 320000000 0xffffffff>, /* 4k UHD @ 30 */
+			< 489600 150000000 0xffffffff>, /* 1080p @ 60 */
+			< 244800  75000000 0xffffffff>; /* 1080p @ 30 */
+
+		qcom,dcvs-tbl =
+			<972000 972000 19944000 0x3f00000c>, /* UHD 30 */
+			<489600 489600   972000 0x3f00000c>, /* 1080p 60 */
+			<244800 244800   489600 0x3f00000c>, /* 1080p 30 */
+			<829440 489600   972000 0x04000004>; /* DCI 24 */
+
+		qcom,dcvs-limit =
+			<32400 30>, /* Encoder UHD */
+			<14400 30>; /* Decoder WQHD */
+
+		/* Table lists <video_core_freq imem_ab> pairs.
+		* imem_ab value determines the imem clock frequency for the
+		* corresponding video core frequency.
+		*/
+		qcom,imem-ab-tbl =
+			<75000000  1500000>, /* imem @ svs2 freq 75 Mhz */
+			<150000000 1500000>, /* imem @ svs2 freq 75 Mhz */
+			<320000000 2500000>, /* imem @ svs freq 171 Mhz */
+			<490000000 6000000>; /* imem @ noimal freq 320 Mhz */
+
+		/* Regulators */
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		venus-core1-supply = <&gdsc_venus_core1>;
+
+		/* Clocks */
+		clock-names = "clk_gcc_mmss_sys_noc_axi_clk",
+			"smmu_ahb_clk", "smmu_axi_clk",
+			"mnoc_ahb_clk", "mmss_maxi_clk",
+			"core_clk", "iface_clk", "bus_clk",
+			"maxi_clk", "core0_clk", "core1_clk";
+		clocks = <&clock_gcc clk_gcc_mmss_sys_noc_axi_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
+			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			<&clock_mmss clk_mmss_mnoc_maxi_clk>,
+			<&clock_mmss clk_mmss_video_core_clk>,
+			<&clock_mmss clk_mmss_video_ahb_clk>,
+			<&clock_mmss clk_mmss_video_axi_clk>,
+			<&clock_mmss clk_mmss_video_maxi_clk>,
+			<&clock_mmss clk_mmss_video_subcore0_clk>,
+			<&clock_mmss clk_mmss_video_subcore1_clk>;
+		qcom,clock-configs = <0x0 0x0 0x0 0x0 0x0
+				0x1 0x0 0x0 0x0 0x1 0x1>;
+
+		/* Buses */
+		bus_cnoc {
+			compatible = "qcom,msm-vidc,bus";
+			label = "cnoc";
+			qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+
+		venus_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,bus-range-kbps = <1000 3388000>;
+		};
+
+		venus_bus_vmem {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-vmem";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0_OCMEM>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_VMEM>;
+			qcom,bus-governor = "powersave";
+			qcom,bus-range-kbps = <1000 6776000>;
+		};
+
+		arm9_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-arm9-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+
+
+		/* MMUs */
 		non_secure_cb {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_ns";

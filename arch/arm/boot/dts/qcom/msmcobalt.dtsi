@@ -45,6 +45,7 @@
 			reg = <0x0 0x0>;
 			qcom,limits-info = <&mitigation_profile0>;
 			enable-method = "psci";
+			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			qcom,ea = <&ea0>;
 			L2_0: l2-cache {
@@ -68,6 +69,7 @@
 			reg = <0x0 0x1>;
 			qcom,limits-info = <&mitigation_profile1>;
 			enable-method = "psci";
+			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			qcom,ea = <&ea1>;
 			L1_I_1: l1-icache {
@@ -86,6 +88,7 @@
 			reg = <0x0 0x2>;
 			qcom,limits-info = <&mitigation_profile2>;
 			enable-method = "psci";
+			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			qcom,ea = <&ea2>;
 			L1_I_2: l1-icache {
@@ -104,6 +107,7 @@
 			reg = <0x0 0x3>;
 			qcom,limits-info = <&mitigation_profile3>;
 			enable-method = "psci";
+			efficiency = <1024>;
 			next-level-cache = <&L2_0>;
 			qcom,ea = <&ea3>;
 			L1_I_3: l1-icache {
@@ -122,6 +126,7 @@
 			reg = <0x0 0x100>;
 			qcom,limits-info = <&mitigation_profile4>;
 			enable-method = "psci";
+			efficiency = <1536>;
 			next-level-cache = <&L2_1>;
 			qcom,ea = <&ea4>;
 			L2_1: l2-cache {
@@ -144,6 +149,7 @@
 			reg = <0x0 0x101>;
 			qcom,limits-info = <&mitigation_profile5>;
 			enable-method = "psci";
+			efficiency = <1536>;
 			next-level-cache = <&L2_1>;
 			qcom,ea = <&ea5>;
 			L1_I_101: l1-icache {
@@ -162,6 +168,7 @@
 			reg = <0x0 0x102>;
 			qcom,limits-info = <&mitigation_profile6>;
 			enable-method = "psci";
+			efficiency = <1536>;
 			next-level-cache = <&L2_1>;
 			qcom,ea = <&ea6>;
 			L1_I_102: l1-icache {
@@ -180,6 +187,7 @@
 			reg = <0x0 0x103>;
 			qcom,limits-info = <&mitigation_profile7>;
 			enable-method = "psci";
+			efficiency = <1536>;
 			next-level-cache = <&L2_1>;
 			qcom,ea = <&ea7>;
 			L1_I_103: l1-icache {
@@ -1292,6 +1300,7 @@
 			snps,nominal-elastic-buffer;
 			snps,hird_thresh = <0x10>;
 			maximum-speed = "high-speed";
+			snps,num-gsi-evt-buffs = <0x3>;
 		};
 
 		qcom,usbbam@a904000 {
@@ -2097,6 +2106,25 @@
 		};
 
 	};
+
+	 qcom,icnss@18800000 {
+		compatible = "qcom,icnss";
+		reg = <0x18800000 0x800000>;
+		reg-names = "membase";
+		interrupts = <0 413 0 /* CE0 */ >,
+			     <0 414 0 /* CE1 */ >,
+			     <0 415 0 /* CE2 */ >,
+			     <0 416 0 /* CE3 */ >,
+			     <0 417 0 /* CE4 */ >,
+			     <0 418 0 /* CE5 */ >,
+			     <0 420 0 /* CE6 */ >,
+			     <0 421 0 /* CE7 */ >,
+			     <0 422 0 /* CE8 */ >,
+			     <0 423 0 /* CE9 */ >,
+			     <0 424 0 /* CE10 */ >,
+			     <0 425 0 /* CE11 */ >;
+		qcom,wlan-msa-memory = <0x100000>;
+	};
 };
 
 &gdsc_usb30 {
@@ -2224,3 +2252,4 @@
 #include "msmcobalt-pinctrl.dtsi"
 #include "msm-audio-lpass.dtsi"
 #include "msmcobalt-audio.dtsi"
+#include "msmcobalt-mdss.dtsi"

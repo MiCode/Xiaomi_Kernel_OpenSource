@@ -210,6 +210,25 @@ bool apr_tal_notify_rx_intent_req(void *handle, const void *priv,
 	return false;
 }
 
+static void apr_tal_notify_remote_rx_intent(void *handle, const void *priv,
+					    size_t size)
+{
+	struct apr_svc_ch_dev *apr_ch = (struct apr_svc_ch_dev *)priv;
+
+	if (!apr_ch) {
+		pr_err("%s: Invalid apr_ch\n", __func__);
+		return;
+	}
+	/*
+	 * This is to make sure that the far end has queued at least one intent
+	 * before we attmpt any IPC. A simple bool flag is used here instead of
+	 * a counter, as the far end is required to guarantee intent
+	 * availability for all use cases once the channel is fully opened.
+	 */
+	pr_debug("%s: remote queued an intent\n", __func__);
+	apr_ch->if_remote_intent_ready = true;
+}
+
 void apr_tal_notify_state(void *handle, const void *priv, unsigned event)
 {
 	struct apr_svc_ch_dev *apr_ch = (struct apr_svc_ch_dev *)priv;
@@ -295,6 +314,7 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 	open_cfg.notify_tx_done = apr_tal_notify_tx_done;
 	open_cfg.notify_state = apr_tal_notify_state;
 	open_cfg.notify_rx_intent_req = apr_tal_notify_rx_intent_req;
+	open_cfg.notify_remote_rx_intent = apr_tal_notify_remote_rx_intent;
 	open_cfg.priv = apr_ch;
 	/*
 	 * The transport name "smd_trans" is required if far end is using SMD.
@@ -320,6 +340,15 @@ struct apr_svc_ch_dev *apr_tal_open(uint32_t clnt, uint32_t dest, uint32_t dl,
 		rc = -ETIMEDOUT;
 		goto close_link;
 	}
+
+	/*
+	 * Remote intent is not required for GLINK <--> SMD IPC, so this is
+	 * designed not to fail the open call.
+	 */
+	rc = wait_event_timeout(apr_ch->wait,
+		apr_ch->if_remote_intent_ready, 5 * HZ);
+	if (rc == 0)
+		pr_err("%s: TIMEOUT for remote intent readiness\n", __func__);
 
 	rc = apr_tal_rx_intents_config(apr_ch, APR_DEFAULT_NUM_OF_INTENTS,
 				       APR_MAX_BUF);
@@ -356,6 +385,7 @@ int apr_tal_close(struct apr_svc_ch_dev *apr_ch)
 	apr_ch->handle = NULL;
 	apr_ch->func = NULL;
 	apr_ch->priv = NULL;
+	apr_ch->if_remote_intent_ready = false;
 	mutex_unlock(&apr_ch->m_lock);
 exit:
 	return rc;

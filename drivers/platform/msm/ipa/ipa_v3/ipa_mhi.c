@@ -1671,9 +1671,10 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 			channel->channel_context_addr +
 			offsetof(struct ipa3_mhi_ch_ctx, wp));
 	ch_scratch.mhi.assert_bit40 = ipa3_mhi_ctx->assert_bit40;
-	ch_scratch.mhi.max_outstanding_tre = 0;
+	ch_scratch.mhi.max_outstanding_tre =
+		ep_cfg->ipa_if_tlv * ch_props.re_size;
 	ch_scratch.mhi.outstanding_threshold =
-		4 * GSI_CHAN_RE_SIZE_16B;
+		min(ep_cfg->ipa_if_tlv / 2, 8) * ch_props.re_size;
 	ch_scratch.mhi.oob_mod_threshold = 4;
 	if (channel->ch_ctx_host.brstmode == IPA_MHI_BURST_MODE_DEFAULT ||
 		channel->ch_ctx_host.brstmode == IPA_MHI_BURST_MODE_ENABLE) {

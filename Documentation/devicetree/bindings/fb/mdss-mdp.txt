@@ -621,6 +621,14 @@ Subnode properties:
 			needed by the device.
 - clock-names:		List of clock names needed by the device.
 
+Subnode properties:
+Required properties:
+- compatible:		Must be "qcom,mdss_wb"
+- qcom,mdss_pan_res:	Array containing two elements, width and height which
+			specifies size of writeback buffer.
+- qcom,mdss_pan_bpp:	Specifies bits per pixel for writeback buffer.
+- qcom,mdss-fb-map:	Specifies the handle for frame buffer.
+
 Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";

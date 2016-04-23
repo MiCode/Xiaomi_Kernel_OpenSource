@@ -1053,11 +1053,6 @@ static void gsi_free_trbs(struct usb_ep *ep)
 		dep->trb_pool = NULL;
 		dep->trb_pool_dma = 0;
 		dep->trb_dma_pool = NULL;
-		/*
-		 * Reset the ep_type to NORMAL, for next compostion
-		 * switch which may be non-gsi.
-		 */
-		dep->endpoint.ep_type = EP_TYPE_NORMAL;
 	}
 }
 /*
@@ -1077,9 +1072,6 @@ static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
 	u32			reg;
 
 	memset(&params, 0x00, sizeof(params));
-
-	/* Set the ep_type as GSI */
-	dep->endpoint.ep_type = EP_TYPE_GSI;
 
 	/* Configure GSI EP */
 	params.param0 = DWC3_DEPCFG_EP_TYPE(usb_endpoint_type(desc))
@@ -2692,16 +2684,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
-	ret = dwc3_msm_extcon_register(mdwc);
-	if (ret)
-		goto err;
-
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
 		dev_err(&pdev->dev, "failed to find dwc3 child\n");
 		ret = -ENODEV;
-		goto put_extcon;
+		goto err;
 	}
 
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
@@ -2709,7 +2697,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 				"failed to add create dwc3 core\n");
 		of_node_put(dwc3_node);
-		goto put_extcon;
+		goto err;
 	}
 
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
@@ -2774,7 +2762,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
 		pm_runtime_get_noresume(mdwc->dev);
 
-	device_create_file(&pdev->dev, &dev_attr_mode);
+	ret = dwc3_msm_extcon_register(mdwc);
+	if (ret)
+		goto put_dwc3;
 
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_cable_state_(mdwc->extcon_vbus,
@@ -2783,6 +2773,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (mdwc->extcon_id && extcon_get_cable_state_(mdwc->extcon_id,
 							EXTCON_USB_HOST))
 		dwc3_msm_id_notifier(&mdwc->id_nb, true, NULL);
+
+	device_create_file(&pdev->dev, &dev_attr_mode);
 
 	schedule_delayed_work(&mdwc->sm_work, 0);
 
@@ -2799,13 +2791,6 @@ put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
-put_extcon:
-	if (mdwc->extcon_vbus)
-		extcon_unregister_notifier(mdwc->extcon_vbus, EXTCON_USB,
-				&mdwc->vbus_nb);
-	if (mdwc->extcon_id)
-		extcon_unregister_notifier(mdwc->extcon_id, EXTCON_USB_HOST,
-				&mdwc->id_nb);
 err:
 	return ret;
 }

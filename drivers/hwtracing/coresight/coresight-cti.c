@@ -23,7 +23,6 @@
 #include <linux/cpu_pm.h>
 #include <linux/topology.h>
 #include <linux/of.h>
-#include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <linux/coresight-cti.h>
 
@@ -159,7 +158,7 @@ void coresight_cti_ctx_save(void)
 		if (!drvdata->cti_save)
 			continue;
 
-		for_each_cpu_mask(cpuid, *topology_core_cpumask(cpu)) {
+		for_each_cpu(cpuid, topology_core_cpumask(cpu)) {
 			if (drvdata->cpu == cpuid)
 				goto out;
 		}
@@ -203,7 +202,7 @@ void coresight_cti_ctx_restore(void)
 		if (!drvdata->cti_save)
 			continue;
 
-		for_each_cpu_mask(cpuid, *topology_core_cpumask(cpu)) {
+		for_each_cpu(cpuid, topology_core_cpumask(cpu)) {
 			if (drvdata->cpu == cpuid)
 				goto out;
 		}
@@ -1128,7 +1127,7 @@ static ssize_t cti_store_reset(struct device *dev,
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	if (!val)
@@ -1192,7 +1191,7 @@ static ssize_t cti_store_set_trig(struct device *dev,
 	unsigned long val;
 	int ret;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	ret = coresight_cti_set_trig(&drvdata->cti, val);
@@ -1210,7 +1209,7 @@ static ssize_t cti_store_clear_trig(struct device *dev,
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	coresight_cti_clear_trig(&drvdata->cti, val);
@@ -1227,7 +1226,7 @@ static ssize_t cti_store_pulse_trig(struct device *dev,
 	unsigned long val;
 	int ret;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	ret = coresight_cti_pulse_trig(&drvdata->cti, val);
@@ -1246,7 +1245,7 @@ static ssize_t cti_store_ack_trig(struct device *dev,
 	unsigned long val;
 	int ret;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	ret = coresight_cti_ack_trig(&drvdata->cti, val);
@@ -1310,7 +1309,7 @@ static ssize_t cti_store_enable_gate(struct device *dev,
 	unsigned long val;
 	int ret;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	ret = coresight_cti_enable_gate(&drvdata->cti, val);
@@ -1328,7 +1327,7 @@ static ssize_t cti_store_disable_gate(struct device *dev,
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	coresight_cti_disable_gate(&drvdata->cti, val);

@@ -20,7 +20,6 @@
 #include <linux/clk.h>
 #include <linux/bitmap.h>
 #include <linux/of.h>
-#include <linux/of_coresight.h>
 #include <linux/coresight.h>
 
 #include "coresight-priv.h"
@@ -3072,7 +3071,7 @@ static ssize_t tpdm_store_cmb_patt_val_lsb(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3108,7 +3107,7 @@ static ssize_t tpdm_store_cmb_patt_mask_lsb(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3143,7 +3142,7 @@ static ssize_t tpdm_store_cmb_patt_val_msb(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3179,7 +3178,7 @@ static ssize_t tpdm_store_cmb_patt_mask_msb(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3213,7 +3212,7 @@ static ssize_t tpdm_store_cmb_patt_ts(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3251,7 +3250,7 @@ static ssize_t tpdm_store_cmb_trig_patt_val_lsb(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3287,7 +3286,7 @@ static ssize_t tpdm_store_cmb_trig_patt_mask_lsb(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3323,7 +3322,7 @@ static ssize_t tpdm_store_cmb_trig_patt_val_msb(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3359,7 +3358,7 @@ static ssize_t tpdm_store_cmb_trig_patt_mask_msb(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;
@@ -3394,7 +3393,7 @@ static ssize_t tpdm_store_cmb_trig_ts(struct device *dev,
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
-	if (kstrtoul(buf, 16, &val) != 1)
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
 		return -EPERM;

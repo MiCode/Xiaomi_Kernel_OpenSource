@@ -79,6 +79,22 @@ config CORESIGHT_SOURCE_ETM4X
 	  for instruction level tracing. Depending on the implemented version
 	  data tracing may also be available.
 
+config CORESIGHT_REMOTE_ETM
+	bool "Remote processor ETM trace support"
+	depends on MSM_QMI_INTERFACE
+	help
+	  Enables support for ETM trace collection on remote processor using
+	  CoreSight framework. Enabling this will allow turning on ETM
+	  tracing on remote processor via sysfs by configuring the required
+	  CoreSight components.
+
+config CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
+	int "default enable bits for Remote processor ETM"
+	depends on CORESIGHT_REMOTE_ETM
+	help
+	  Support for enabling separated Remote processor ETM tracing. Depends
+	  on if instance id bit is set.
+
 config CORESIGHT_QCOM_REPLICATOR
 	bool "Qualcomm CoreSight Replicator driver"
 	depends on CORESIGHT_LINKS_AND_SINKS
@@ -94,6 +110,16 @@ config CORESIGHT_STM
 	  This driver provides support for hardware assisted software
 	  instrumentation based tracing. This is primarily useful for
 	  logging useful software events or data.
+
+config CORESIGHT_HWEVENT
+	bool "CoreSight Hardware Event driver"
+	depends on CORESIGHT_STM
+	select CORESIGHT_CSR
+	help
+	  This driver provides support for monitoring and tracing CoreSight
+	  Hardware Event across STM interface. It configures Coresight
+	  Hardware Event mux control registers to select hardware events
+	  based on user input.
 
 config CORESIGHT_CTI
 	bool "CoreSight Cross Trigger Interface driver"
@@ -129,5 +155,13 @@ config CORESIGHT_TPDM_DEFAULT_ENABLE
 
 	  If unsure, say 'N' here to avoid potential power and performance
 	  penalty.
+
+config CORESIGHT_QPDI
+	bool "CoreSight PMIC debug interface support"
+	help
+	  This driver provides support for controlling the PMIC debug interface
+	  feature. When enabled via sysfs it allows disagnostic access to the
+	  PMIC. Similarly this debug feature can be disabled via sysfs which
+	  prevents debug dongle detection.
 
 endif

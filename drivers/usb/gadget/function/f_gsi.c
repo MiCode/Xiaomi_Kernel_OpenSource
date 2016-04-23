@@ -1544,6 +1544,7 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			goto invalid;
 		/* read the request; process it later */
 		value = w_length;
+		req->context = gsi;
 		if (gsi->prot_id == IPA_USB_RNDIS)
 			req->complete = gsi_rndis_command_complete;
 		else
@@ -1663,7 +1664,6 @@ invalid:
 		log_event_dbg("req%02x.%02x v%04x i%04x l%d",
 			ctrl->bRequestType, ctrl->bRequest,
 			w_value, w_index, w_length);
-		req->context = gsi;
 		req->zero = (value < w_length);
 		req->length = value;
 		value = usb_ep_queue(cdev->gadget->ep0, req, GFP_ATOMIC);
@@ -2143,7 +2143,7 @@ skip_string_id_alloc:
 	dev_dbg(&cdev->gadget->dev, "%zu %zu\n", gsi->d_port.in_request.buf_len,
 			gsi->d_port.in_request.num_bufs);
 	gsi->d_port.in_request.buf_base_addr =
-		dma_zalloc_coherent(&cdev->gadget->dev, len,
+		dma_zalloc_coherent(cdev->gadget->dev.parent, len,
 				&gsi->d_port.in_request.dma, GFP_KERNEL);
 	if (!gsi->d_port.in_request.buf_base_addr) {
 		dev_err(&cdev->gadget->dev,
@@ -2162,7 +2162,7 @@ skip_string_id_alloc:
 				gsi->d_port.out_request.buf_len,
 				gsi->d_port.out_request.num_bufs);
 		gsi->d_port.out_request.buf_base_addr =
-			dma_zalloc_coherent(&cdev->gadget->dev, len,
+			dma_zalloc_coherent(cdev->gadget->dev.parent, len,
 				&gsi->d_port.out_request.dma, GFP_KERNEL);
 		if (!gsi->d_port.out_request.buf_base_addr) {
 			dev_err(&cdev->gadget->dev,
@@ -2241,11 +2241,11 @@ fail:
 	if (gsi->d_port.in_ep && gsi->d_port.in_ep->desc)
 		gsi->d_port.in_ep->driver_data = NULL;
 	if (len && gsi->d_port.in_request.buf_base_addr)
-		dma_free_coherent(&cdev->gadget->dev, len,
+		dma_free_coherent(cdev->gadget->dev.parent, len,
 			gsi->d_port.in_request.buf_base_addr,
 			gsi->d_port.in_request.dma);
 	if (len && gsi->d_port.out_request.buf_base_addr)
-		dma_free_coherent(&cdev->gadget->dev, len,
+		dma_free_coherent(cdev->gadget->dev.parent, len,
 			gsi->d_port.out_request.buf_base_addr,
 			gsi->d_port.out_request.dma);
 	log_event_err("%s: bind failed for %s", __func__, f->name);
@@ -2486,6 +2486,8 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	status = gsi_update_function_bind_params(gsi, cdev, &info);
+	if (status)
+		goto dereg_rndis;
 
 	post_event(&gsi->d_port, EVT_INITIALIZED);
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
@@ -2560,6 +2562,11 @@ static void ipa_ready_callback(void *user_data)
 	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
 }
 
+static void gsi_free_func(struct usb_function *f)
+{
+	pr_debug("%s\n", __func__);
+}
+
 int gsi_bind_config(struct f_gsi *gsi)
 {
 	int status = 0;
@@ -2600,6 +2607,7 @@ int gsi_bind_config(struct f_gsi *gsi)
 	gsi->function.get_alt = gsi_get_alt;
 	gsi->function.setup = gsi_setup;
 	gsi->function.disable = gsi_disable;
+	gsi->function.free_func = gsi_free_func;
 	gsi->function.suspend = gsi_suspend;
 	gsi->function.func_suspend = gsi_func_suspend;
 	gsi->function.resume = gsi_resume;

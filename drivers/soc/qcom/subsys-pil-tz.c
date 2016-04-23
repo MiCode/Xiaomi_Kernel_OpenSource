@@ -40,8 +40,8 @@
 #define STOP_ACK_TIMEOUT_MS	1000
 #define CRASH_STOP_ACK_TO_MS	200
 
-#define ERR_READY	1
-#define PBL_DONE	2
+#define ERR_READY	0
+#define PBL_DONE	1
 
 #define desc_to_data(d) container_of(d, struct pil_tz_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_tz_data, subsys_desc)
@@ -929,8 +929,8 @@ static void check_err_ready(struct pil_tz_data *d)
 		pr_debug("Subsystem error services up received from %s!\n",
 							d->subsys_desc.name);
 		__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
-					complete_err_ready(d->subsys);
-	} else {
+		complete_err_ready(d->subsys);
+	} else if (err_value == 0x44554d50) {
 		pr_err("wdog bite received from %s!\n", d->subsys_desc.name);
 		__raw_writel(BIT(d->bits_arr[ERR_READY]), d->irq_clear);
 		subsys_set_crash_status(d->subsys, true);
