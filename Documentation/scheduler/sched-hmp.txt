@@ -1485,6 +1485,22 @@ overcommitted scenario. See notes on sched_spill_nr_run and sched_spill_load for
 how overcommitment threshold is defined and also notes on
 'sched_upmigrate_min_nice' tunable.
 
+*** 7.26 sched_restrict_tasks_spread
+
+Default value: 0
+
+Appears at /proc/sys/kernel/sched_restrict_tasks_spread
+
+When this knob is enabled tasks spreading is contained by applying the
+following two policies.
+
+- The small tasks are packed up to spill thresholds which otherwise are
+packed up to mostly_idle thresholds.
+
+- The current CPU selection algorithm for RT tasks looks for the least loaded
+CPU in the lower power cluster. Restrict the search to first available lower
+power CPU. When sched_boost is ON, this restriction is not applied.
+
 =========================
 8. HMP SCHEDULER TRACE POINTS
 =========================
