@@ -240,12 +240,14 @@ static int audio_ext_lpass_mclk2_prepare(struct clk *clk)
 	audio_lpass_mclk2 = container_of(clk, struct audio_ext_lpass_mclk, c);
 	pnctrl_info = &audio_lpass_mclk2->pnctrl_info;
 
-	ret = pinctrl_select_state(pnctrl_info->pinctrl,
-				   pnctrl_info->active);
-	if (ret) {
-		pr_err("%s: active state select failed with %d\n",
-			__func__, ret);
-		return -EIO;
+	if (pnctrl_info->pinctrl) {
+		ret = pinctrl_select_state(pnctrl_info->pinctrl,
+					   pnctrl_info->active);
+		if (ret) {
+			pr_err("%s: active state select failed with %d\n",
+				__func__, ret);
+			return -EIO;
+		}
 	}
 
 	lpass_default2.enable = 1;
@@ -267,11 +269,13 @@ static void audio_ext_lpass_mclk2_unprepare(struct clk *clk)
 	audio_lpass_mclk2 = container_of(clk, struct audio_ext_lpass_mclk, c);
 	pnctrl_info = &audio_lpass_mclk2->pnctrl_info;
 
-	ret = pinctrl_select_state(pnctrl_info->pinctrl,
-				   pnctrl_info->sleep);
-	if (ret)
-		pr_err("%s: sleep state select failed with %d\n",
-			__func__, ret);
+	if (pnctrl_info->pinctrl) {
+		ret = pinctrl_select_state(pnctrl_info->pinctrl,
+					   pnctrl_info->sleep);
+		if (ret)
+			pr_err("%s: sleep state select failed with %d\n",
+				__func__, ret);
+	}
 
 	lpass_default2.enable = 0;
 	ret = afe_set_lpass_clk_cfg(IDX_RSVD_3, &lpass_default2);
