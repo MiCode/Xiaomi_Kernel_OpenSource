@@ -66,6 +66,10 @@ static int cpu_to_affin;
 module_param(cpu_to_affin, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 
+static bool disable_host_mode;
+module_param(disable_host_mode, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(disable_host_mode, "To stop HOST mode detection");
+
 static int override_phy_init;
 module_param(override_phy_init, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
@@ -2377,6 +2381,12 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		id = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
 		if (mdwc->id_state == id)
 			break;
+
+		if (disable_host_mode && !id) {
+			dev_dbg(mdwc->dev, "%s: Ignoring ID change event :%d\n",
+						__func__, mdwc->id_state);
+			break;
+		}
 
 		/* Let OTG know about ID detection */
 		mdwc->id_state = id;
