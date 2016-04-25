@@ -678,8 +678,10 @@
 		compatible = "qcom,cpu-clock-osm";
 		reg = <0x179C0000 0x4000>,
 		      <0x17916000 0x1000>,
-		      <0x17816000 0x1000>;
-		reg-names = "osm", "pwrcl_pll", "perfcl_pll";
+		      <0x17816000 0x1000>,
+		      <0x179D1000 0x1000>;
+		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
+			    "apcs_common";
 
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
