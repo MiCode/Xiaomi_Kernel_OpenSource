@@ -146,6 +146,14 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	case V4L2_PIX_FMT_SGBRG10:
 	case V4L2_PIX_FMT_SGRBG10:
 	case V4L2_PIX_FMT_SRGGB10:
+	case V4L2_PIX_FMT_SBGGR10DPCM6:
+	case V4L2_PIX_FMT_SGBRG10DPCM6:
+	case V4L2_PIX_FMT_SGRBG10DPCM6:
+	case V4L2_PIX_FMT_SRGGB10DPCM6:
+	case V4L2_PIX_FMT_SBGGR10DPCM8:
+	case V4L2_PIX_FMT_SGBRG10DPCM8:
+	case V4L2_PIX_FMT_SGRBG10DPCM8:
+	case V4L2_PIX_FMT_SRGGB10DPCM8:
 	case V4L2_PIX_FMT_SBGGR12:
 	case V4L2_PIX_FMT_SGBRG12:
 	case V4L2_PIX_FMT_SGRBG12:
@@ -268,6 +276,14 @@ static uint32_t msm_isp_axi_get_plane_size(
 	case V4L2_PIX_FMT_SGBRG10:
 	case V4L2_PIX_FMT_SGRBG10:
 	case V4L2_PIX_FMT_SRGGB10:
+	case V4L2_PIX_FMT_SBGGR10DPCM6:
+	case V4L2_PIX_FMT_SGBRG10DPCM6:
+	case V4L2_PIX_FMT_SGRBG10DPCM6:
+	case V4L2_PIX_FMT_SRGGB10DPCM6:
+	case V4L2_PIX_FMT_SBGGR10DPCM8:
+	case V4L2_PIX_FMT_SGBRG10DPCM8:
+	case V4L2_PIX_FMT_SGRBG10DPCM8:
+	case V4L2_PIX_FMT_SRGGB10DPCM8:
 	case V4L2_PIX_FMT_QBGGR10:
 	case V4L2_PIX_FMT_QGBRG10:
 	case V4L2_PIX_FMT_QGRBG10:
@@ -1705,7 +1721,7 @@ static int msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, struct msm_isp_buffer *buf,
 	struct timeval *time_stamp, uint32_t frame_id)
 {
-	int rc, ret;
+	int rc = 0, ret = 0;
 	unsigned long flags;
 	struct msm_isp_event_data buf_event;
 	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
@@ -2402,7 +2418,7 @@ static int msm_isp_update_dual_HW_ms_info_at_stop(
 static int msm_isp_update_dual_HW_axi(struct vfe_device *vfe_dev,
 			struct msm_vfe_axi_stream *stream_info)
 {
-	int rc, vfe_id;
+	int rc = 0, vfe_id;
 	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
 	struct dual_vfe_resource *dual_vfe_res = NULL;
 

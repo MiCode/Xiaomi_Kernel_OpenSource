@@ -1,0 +1,79 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8940.dtsi"
+#include "msm8937-pmi8950-qrd-sku1.dtsi"
+#include "msm8940-pinctrl.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8940-PMI8950 QRD SKU6";
+	compatible = "qcom,msm8940-qrd-sku6", "qcom,msm8940-qrd",
+		   "qcom,msm8940", "qcom,qrd";
+	qcom,board-id= <0x2000b 0>;
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-qrd-sku1-4v4-2800mah.dtsi"
+	};
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,float-voltage-mv = <4400>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	status = "okay";
+};
+
+&pmi8950_fg {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,cold-bat-decidegc = <(-100)>;
+	qcom,cool-bat-decidegc = <(-100)>;
+	qcom,hot-bat-decidegc = <550>;
+	qcom,warm-bat-decidegc = <550>;
+	qcom,bad-battery-detection-enable;
+	qcom,hold-soc-while-full;
+};
+
+&soc {
+	sound {
+		qcom,model = "msm8940-sku6-snd-card";
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS External", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS External";
+	};
+
+	i2c@78b7000 {
+		synaptics@4b {
+			vdd-supply = <&pm8937_l6>;
+		};
+	};
+};
+
+&i2c_2 {
+	pericom-type-c@1d {
+		status="disabled";
+	};
+};

@@ -22,6 +22,7 @@
 #include "dsi-panel-truly-720p-video.dtsi"
 #include "dsi-panel-truly-wuxga-video.dtsi"
 #include "dsi-panel-truly-720p-cmd.dtsi"
+#include "dsi-panel-lead-fl10802-fwvga-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {

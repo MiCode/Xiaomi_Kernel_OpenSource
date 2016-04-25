@@ -2185,6 +2185,51 @@ static int msm8x16_wcd_boost_option_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm8x16_wcd_spk_boost_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	if (msm8x16_wcd->spk_boost_set == false) {
+		ucontrol->value.integer.value[0] = 0;
+	} else if (msm8x16_wcd->spk_boost_set == true) {
+		ucontrol->value.integer.value[0] = 1;
+	} else  {
+		dev_err(codec->dev, "%s: ERROR: Unsupported Speaker Boost = %d\n",
+				__func__, msm8x16_wcd->spk_boost_set);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n", __func__,
+			msm8x16_wcd->spk_boost_set);
+	return 0;
+}
+
+static int msm8x16_wcd_spk_boost_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+			__func__, ucontrol->value.integer.value[0]);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm8x16_wcd->spk_boost_set = false;
+		break;
+	case 1:
+		msm8x16_wcd->spk_boost_set = true;
+		break;
+	default:
+		return -EINVAL;
+	}
+	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n",
+		__func__, msm8x16_wcd->spk_boost_set);
+	return 0;
+}
+
 static int msm8x16_wcd_ext_spk_boost_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -2547,6 +2592,9 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("EAR PA Gain", msm8x16_wcd_ear_pa_gain_enum[0],
 		msm8x16_wcd_pa_gain_get, msm8x16_wcd_pa_gain_put),
+
+	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
+		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
 
 	SOC_ENUM_EXT("Ext Spk Boost", msm8x16_wcd_ext_spk_boost_ctl_enum[0],
 		msm8x16_wcd_ext_spk_boost_get, msm8x16_wcd_ext_spk_boost_set),
@@ -4747,14 +4795,24 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 		if (msm8x16_wcd->dec_active[i])
 			decimator = i + 1;
 		if (decimator && decimator <= NUM_DECIMATORS) {
-			pr_debug("%s: Mute = %d Decimator = %d", __func__,
-					mute, decimator);
-			tx_vol_ctl_reg = MSM8X16_WCD_A_CDC_TX1_VOL_CTL_CFG +
-				32 * (decimator - 1);
-			snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, mute);
+			/* mute/unmute decimators corresponding to Tx DAI's */
+			if (dai->id == AIF2_VIFEED && decimator > 2) {
+				tx_vol_ctl_reg =
+					MSM8X16_WCD_A_CDC_TX1_VOL_CTL_CFG +
+					32 * (decimator - 1);
+				snd_soc_update_bits(codec, tx_vol_ctl_reg,
+						0x01, mute);
+			} else if (dai->id == AIF1_CAP && decimator < 3) {
+				tx_vol_ctl_reg =
+					MSM8X16_WCD_A_CDC_TX1_VOL_CTL_CFG +
+					32 * (decimator - 1);
+				snd_soc_update_bits(codec, tx_vol_ctl_reg,
+						0x01, mute);
+			}
 		}
 		decimator = 0;
 	}
+
 	return 0;
 }
 

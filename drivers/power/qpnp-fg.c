@@ -2609,6 +2609,10 @@ wait:
 		goto wait;
 	} else if (ret <= 0) {
 		pr_err("transaction timed out ret=%d\n", ret);
+		if (fg_is_batt_id_valid(chip))
+			resched_ms = fg_sram_update_period_ms;
+		else
+			resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
 		goto out;
 	}
 	rc = update_sram_data(chip, &resched_ms);

@@ -3557,6 +3557,7 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &sysmmnoc_clk.c,  0x0001 },
 		{ &pnoc_clk.c, 0x0008 },
 		{ &bimc_clk.c,  0x015A },
+		{ &ipa_clk.c, 0x1B0 },
 		{ &gcc_gp1_clk.c, 0x0010 },
 		{ &gcc_gp2_clk.c, 0x0011 },
 		{ &gcc_gp3_clk.c, 0x0012 },
@@ -3649,6 +3650,7 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &gcc_crypto_axi_clk.c, 0x0139 },
 		{ &gcc_crypto_ahb_clk.c, 0x013a },
 		{ &gcc_bimc_gpu_clk.c, 0x0157 },
+		{ &gcc_ipa_tbu_clk.c, 0x0198 },
 		{ &gcc_vfe1_tbu_clk.c, 0x0199 },
 		{ &gcc_camss_csi_vfe1_clk.c, 0x01a0 },
 		{ &gcc_camss_vfe1_clk.c, 0x01a1 },
@@ -3967,6 +3969,30 @@ static struct clk_lookup msm_clocks_lookup_8917[] = {
 	CLK_LIST(gcc_gtcu_ahb_clk),
 };
 
+static struct clk_lookup msm_clocks_lookup_8940[] = {
+	CLK_LIST(gpll0_clk_src_8937),
+	CLK_LIST(gpll0_ao_clk_src_8937),
+	CLK_LIST(gpll0_sleep_clk_src),
+	CLK_LIST(a53ss_c0_pll),
+	CLK_LIST(esc1_clk_src),
+	CLK_LIST(gcc_mdss_esc1_clk),
+	CLK_LIST(gcc_dcc_clk),
+	CLK_LIST(gcc_oxili_aon_clk),
+	CLK_LIST(gcc_qdss_dap_clk),
+	CLK_LIST(blsp1_qup1_i2c_apps_clk_src),
+	CLK_LIST(blsp1_qup1_spi_apps_clk_src),
+	CLK_LIST(gcc_blsp1_qup1_i2c_apps_clk),
+	CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
+	CLK_LIST(blsp2_qup4_i2c_apps_clk_src),
+	CLK_LIST(blsp2_qup4_spi_apps_clk_src),
+	CLK_LIST(gcc_blsp2_qup4_i2c_apps_clk),
+	CLK_LIST(gcc_blsp2_qup4_spi_apps_clk),
+	CLK_LIST(gcc_oxili_timer_clk),
+	CLK_LIST(ipa_clk),
+	CLK_LIST(ipa_a_clk),
+	CLK_LIST(gcc_ipa_tbu_clk),
+};
+
 /* Please note that the order of reg-names is important */
 static int get_mmio_addr(struct platform_device *pdev, u32 nbases)
 {
@@ -4137,12 +4163,17 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	u32 regval, nbases = N_BASES;
 	bool compat_bin = false;
 	bool compat_bin2 = false;
+	bool compat_bin3 = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-8937");
 
 	compat_bin2 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-8917");
+
+	compat_bin3 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-8940");
+
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
 		return ret;
@@ -4218,7 +4249,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	regval |= BIT(0);
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 
-	if (compat_bin) {
+	if (compat_bin || compat_bin3) {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
 		/* Oxili Ocmem in GX rail: OXILI_GMEM_CLAMP_IO */
@@ -4249,6 +4280,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		ret = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_lookup_8917,
 					ARRAY_SIZE(msm_clocks_lookup_8917));
+	else if (compat_bin3)
+		ret = of_msm_clock_register(pdev->dev.of_node,
+					msm_clocks_lookup_8940,
+					ARRAY_SIZE(msm_clocks_lookup_8940));
 	else
 		ret = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_lookup_8952,
@@ -4271,7 +4306,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 	clk_prepare_enable(&xo_a_clk_src.c);
 
-	if (!compat_bin) {
+	if (!compat_bin && !compat_bin3) {
 		/* Configure Sleep and Wakeup cycles for GMEM clock */
 		regval = readl_relaxed(GCC_REG_BASE(OXILI_GMEM_CBCR));
 		regval ^= 0xFF0;
@@ -4299,7 +4334,8 @@ static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8952" },
 	{ .compatible = "qcom,gcc-8937" },
 	{ .compatible = "qcom,gcc-8917" },
-	{},
+	{ .compatible = "qcom,gcc-8940" },
+	{}
 };
 
 static struct platform_driver msm_clock_gcc_driver = {
@@ -4413,12 +4449,16 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 	int ret;
 	struct resource *res;
 	bool compat_bin = false, compat_bin2 = false;
+	bool compat_bin3 = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 					"qcom,cc-debug-8937");
 
 	compat_bin2 = of_device_is_compatible(pdev->dev.of_node,
 					"qcom,cc-debug-8917");
+
+	compat_bin3 = of_device_is_compatible(pdev->dev.of_node,
+					"qcom,cc-debug-8940");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "meas");
 	if (!res) {
@@ -4438,7 +4478,7 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 	if (compat_bin2)
 		gcc_debug_mux_8937.post_div = 0x3;
 
-	if (!compat_bin && !compat_bin2)
+	if (!compat_bin && !compat_bin2 && !compat_bin3)
 		ret =  of_msm_clock_register(pdev->dev.of_node,
 			msm_clocks_measure, ARRAY_SIZE(msm_clocks_measure));
 	else
@@ -4458,6 +4498,7 @@ static struct of_device_id msm_clock_debug_match_table[] = {
 	{ .compatible = "qcom,cc-debug-8952" },
 	{ .compatible = "qcom,cc-debug-8937" },
 	{ .compatible = "qcom,cc-debug-8917" },
+	{ .compatible = "qcom,cc-debug-8940" },
 	{}
 };
 
@@ -4504,6 +4545,10 @@ static int msm_gcc_mdss_probe(struct platform_device *pdev)
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 				"qcom,gcc-mdss-8937");
+
+	if (!compat_bin)
+		compat_bin = of_device_is_compatible(pdev->dev.of_node,
+				"qcom,gcc-mdss-8940");
 
 	curr_p = ext_pclk0_clk_src.c.parent = devm_clk_get(&pdev->dev,
 								"pixel_src");
@@ -4576,6 +4621,7 @@ static struct of_device_id msm_clock_mdss_match_table[] = {
 	{ .compatible = "qcom,gcc-mdss-8952" },
 	{ .compatible = "qcom,gcc-mdss-8937" },
 	{ .compatible = "qcom,gcc-mdss-8917" },
+	{ .compatible = "qcom,gcc-mdss-8940" },
 	{}
 };
 

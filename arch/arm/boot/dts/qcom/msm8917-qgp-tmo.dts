@@ -14,15 +14,11 @@
 /dts-v1/;
 
 #include "msm8917.dtsi"
-#include "msm8917-pmi8937-qrd-sku5.dtsi"
+#include "msm8917-qgp-tmo.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8917-PMI8937 QRD SKU5";
-	compatible = "qcom,msm8917-qrd-sku5", "qcom,msm8917-qrd",
+	model = "Qualcomm Technologies, Inc. MSM8917-PMI8937 QGP TMO";
+	compatible = "qcom,msm8917-qgp-tmo", "qcom,msm8917-qrd",
 		   "qcom,msm8917", "qcom,qrd";
-	qcom,board-id= <0x1000b 0>;
-};
-
-&int_codec {
-	qcom,model = "msm8917-sku5-snd-card";
+	qcom,board-id= <0x1000b 0x0a>;
 };
