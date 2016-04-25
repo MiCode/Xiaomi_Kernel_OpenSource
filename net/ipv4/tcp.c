@@ -269,7 +269,6 @@
 #include <linux/crypto.h>
 #include <linux/time.h>
 #include <linux/slab.h>
-#include <linux/uid_stat.h>
 
 #include <net/icmp.h>
 #include <net/inet_common.h>
@@ -1284,10 +1283,6 @@ out:
 		tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
 out_nopush:
 	release_sock(sk);
-
-	if (copied + copied_syn)
-		uid_stat_tcp_snd(from_kuid(&init_user_ns, current_uid()),
-				 copied + copied_syn);
 	return copied + copied_syn;
 
 do_fault:
@@ -1562,8 +1557,6 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
 	if (copied > 0) {
 		tcp_recv_skb(sk, seq, &offset);
 		tcp_cleanup_rbuf(sk, copied);
-		uid_stat_tcp_rcv(from_kuid(&init_user_ns, current_uid()),
-				 copied);
 	}
 	return copied;
 }
@@ -1897,10 +1890,6 @@ skip_copy:
 	tcp_cleanup_rbuf(sk, copied);
 
 	release_sock(sk);
-
-	if (copied > 0)
-		uid_stat_tcp_rcv(from_kuid(&init_user_ns, current_uid()),
-				 copied);
 	return copied;
 
 out:
@@ -1909,9 +1898,6 @@ out:
 
 recv_urg:
 	err = tcp_recv_urg(sk, msg, len, flags);
-	if (err > 0)
-		uid_stat_tcp_rcv(from_kuid(&init_user_ns, current_uid()),
-				 err);
 	goto out;
 
 recv_sndq:
