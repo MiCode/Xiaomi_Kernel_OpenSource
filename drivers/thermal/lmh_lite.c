@@ -169,7 +169,7 @@ struct lmh_sensor_data {
 	uint32_t			sensor_hw_node_id;
 	int				sensor_sw_id;
 	struct lmh_sensor_ops		ops;
-	long				last_read_value;
+	int				last_read_value;
 	struct list_head		list_ptr;
 };
 
@@ -198,7 +198,7 @@ static DEFINE_MUTEX(lmh_sensor_read);
 static DEFINE_MUTEX(lmh_odcm_access);
 static LIST_HEAD(lmh_sensor_list);
 
-static int lmh_read(struct lmh_sensor_ops *ops, long *val)
+static int lmh_read(struct lmh_sensor_ops *ops, int *val)
 {
 	struct lmh_sensor_data *lmh_sensor = container_of(ops,
 		       struct lmh_sensor_data, ops);

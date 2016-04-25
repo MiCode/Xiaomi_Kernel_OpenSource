@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,10 +31,10 @@ enum lmh_monitor_state {
 };
 
 struct lmh_sensor_ops {
-	int (*read)(struct lmh_sensor_ops *, long *);
+	int (*read)(struct lmh_sensor_ops *, int *);
 	int (*enable_hw_log)(uint32_t, uint32_t);
 	int (*disable_hw_log)(void);
-	void (*new_value_notify)(struct lmh_sensor_ops *, long);
+	void (*new_value_notify)(struct lmh_sensor_ops *, int);
 };
 
 struct lmh_device_ops {
