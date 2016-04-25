@@ -295,7 +295,7 @@ static const struct rfkill_ops bluetooth_power_rfkill_ops = {
 	.set_block = bluetooth_toggle_radio,
 };
 
-#ifdef CONFIG_CNSS_PCI
+#if defined(CONFIG_CNSS) && defined(CONFIG_CLD_LL_CORE)
 static ssize_t enable_extldo(struct device *dev, struct device_attribute *attr,
 			char *buf)
 {
