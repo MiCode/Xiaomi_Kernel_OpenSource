@@ -30,7 +30,6 @@
 #include <asm/irq_regs.h>
 
 static DEFINE_PER_CPU(u32, from_idle);
-static DEFINE_PER_CPU(u32, hotplug_down);
 
 static int
 armpmu_map_cache_event(const unsigned (*cache_map)
@@ -765,48 +764,6 @@ static void armpmu_update_counters(void *x)
 	}
 }
 
-static void armpmu_hotplug_enable(void *parm_pmu)
-{
-	struct arm_pmu *armpmu = parm_pmu;
-	struct pmu *pmu = &(armpmu->pmu);
-	struct pmu_hw_events *hw_events = armpmu->hw_events;
-	int idx;
-
-	for (idx = 0; idx <= armpmu->num_events; ++idx) {
-		struct perf_event *event = hw_events->events[idx];
-		if (!event)
-			continue;
-
-		event->state = event->hotplug_save_state;
-		pmu->start(event, 0);
-	}
-	per_cpu(hotplug_down, smp_processor_id()) = 0;
-}
-
-static void armpmu_hotplug_disable(void *parm_pmu)
-{
-	struct arm_pmu *armpmu = parm_pmu;
-	struct pmu *pmu = &(armpmu->pmu);
-	struct pmu_hw_events *hw_events = armpmu->hw_events;
-	int idx;
-
-	for (idx = 0; idx <= armpmu->num_events; ++idx) {
-		struct perf_event *event = hw_events->events[idx];
-		if (!event)
-			continue;
-
-		event->hotplug_save_state = event->state;
-		/*
-		 * Prevent timer tick handler perf callback from enabling
-		 * this event and potentially generating an interrupt
-		 * before the CPU goes down.
-		 */
-		event->state = PERF_EVENT_STATE_OFF;
-		pmu->stop(event, 0);
-	}
-	per_cpu(hotplug_down, smp_processor_id()) = 1;
-}
-
 /*
  * PMU hardware loses all context when a CPU goes offline.
  * When a CPU is hotplugged back in, since some hardware registers are
@@ -824,7 +781,6 @@ static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
 	int ret = NOTIFY_DONE;
 
 	if ((masked_action != CPU_DOWN_PREPARE) &&
-	    (masked_action != CPU_DOWN_FAILED) &&
 	    (masked_action != CPU_STARTING))
 		return NOTIFY_DONE;
 
@@ -845,7 +801,7 @@ static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
 		if (cpu_pmu->pmu_state != ARM_PMU_STATE_OFF) {
 			if (cpu_has_active_perf(cpu, cpu_pmu))
 				smp_call_function_single(cpu,
-					armpmu_hotplug_disable, cpu_pmu, 1);
+					armpmu_update_counters, cpu_pmu, 1);
 			/* Disarm the PMU IRQ before disappearing. */
 			if (cpu_pmu->plat_device) {
 				irq = cpu_pmu->percpu_irq;
@@ -856,7 +812,6 @@ static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
 		break;
 
 	case CPU_STARTING:
-	case CPU_DOWN_FAILED:
 		/* Reset PMU to clear counters for ftrace buffer */
 		if (cpu_pmu->reset)
 			cpu_pmu->reset(NULL);
@@ -869,7 +824,7 @@ static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
 				cpu_pmu_enable_percpu_irq(&irq);
 			}
 			if (cpu_has_active_perf(cpu, cpu_pmu)) {
-				armpmu_hotplug_enable(cpu_pmu);
+				get_cpu_var(from_idle) = 1;
 				pmu = &cpu_pmu->pmu;
 				pmu->pmu_enable(pmu);
 			}
@@ -888,10 +843,6 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 	int cpu = (int)lcpu;
 
 	if (!cpu_pmu)
-		return NOTIFY_OK;
-
-	/* If the cpu is going down, don't do anything here */
-	if (per_cpu(hotplug_down, cpu))
 		return NOTIFY_OK;
 
 	switch (cmd) {
