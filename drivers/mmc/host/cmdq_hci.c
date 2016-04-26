@@ -852,8 +852,16 @@ skip_cqterri:
 		 * If CQE halt fails then, disable CQE
 		 * from processing any further requests
 		 */
-		if (ret)
+		if (ret) {
 			cmdq_disable_nosync(mmc, true);
+			/*
+			 * Enable legacy interrupts as CQE halt has failed.
+			 * This is needed to send legacy commands like status
+			 * cmd as part of error handling work.
+			 */
+			if (cq_host->ops->clear_set_irqs)
+				cq_host->ops->clear_set_irqs(mmc, false);
+		}
 
 		/*
 		 * CQE detected a response error from device
