@@ -1113,14 +1113,11 @@
 };
 
 &pm8994_gpios {
-	gpio@c600 { /* GPIO 7 - NFC DWL REQ */
-		qcom,mode = <1>;
-		qcom,output-type = <0>;
-		qcom,pull = <5>;
+	gpio@c600 { /* GPIO 7 - adv7481 INT3 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
-		qcom,out-strength = <3>;
 		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
 		status = "okay";
 	};
 
@@ -1171,7 +1168,15 @@
 		status = "okay";
 	};
 
-	gpio@c300 { /* GPIO 4 */
+	gpio@c300 { /* GPIO 4 - adv7481 RST */
+		qcom,mode = <1>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "okay";
+	};
+
+	gpio@c400 { /* GPIO 5 - adv7481 INT1 */
 		qcom,mode = <0>;
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
@@ -1179,7 +1184,7 @@
 		status = "okay";
 	};
 
-	gpio@c400 { /* GPIO 5 */
+	gpio@c500 { /* GPIO 6 - adv7481 INT2*/
 		qcom,mode = <0>;
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
