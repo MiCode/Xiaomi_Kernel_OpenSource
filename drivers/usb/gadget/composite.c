@@ -1628,6 +1628,12 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		case USB_DT_DEVICE:
 			cdev->desc.bNumConfigurations =
 				count_configs(cdev, USB_DT_DEVICE);
+			if (cdev->desc.bNumConfigurations == 0) {
+				pr_err("%s:config is not active. send stall\n",
+								__func__);
+				break;
+			}
+
 			cdev->desc.bMaxPacketSize0 =
 				cdev->gadget->ep0->maxpacket;
 			if (gadget_is_superspeed(gadget)) {
