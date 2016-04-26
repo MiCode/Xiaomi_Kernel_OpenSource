@@ -19,25 +19,6 @@
 #include "msm_ba_debug.h"
 #include "msm_ba_common.h"
 
-struct msm_ba_input_config msm_ba_inp_cfg[] = {
-	/* type, index, name, adv inp, dev id, sd name, dev node,
-	 * input user type
-	 */
-	{BA_INPUT_CVBS, 0, "CVBS-0", BA_IP_CVBS_0, 0, "adv7180", -1,
-		BA_INPUT_USERTYPE_KERNEL},
-#ifdef CONFIG_MSM_S_PLATFORM
-	{BA_INPUT_CVBS, 1, "CVBS-1", BA_IP_CVBS_0, 0, "adv7180", 0,
-		BA_INPUT_USERTYPE_USER},
-#else
-	{BA_INPUT_CVBS, 1, "CVBS-1", BA_IP_CVBS_0, 1, "adv7180", 0,
-		BA_INPUT_USERTYPE_USER},
-	{BA_INPUT_CVBS, 2, "CVBS-2", BA_IP_CVBS_1, 1, "adv7180", 0,
-		BA_INPUT_USERTYPE_USER},
-#endif
-	{BA_INPUT_HDMI, 1, "HDMI-1", BA_IP_HDMI_1, 2, "adv7481", 2,
-		BA_INPUT_USERTYPE_USER},
-};
-
 static struct msm_ba_ctrl msm_ba_ctrls[] = {
 	{
 		.id = MSM_BA_PRIV_SD_NODE_ADDR,
@@ -201,6 +182,7 @@ void msm_ba_add_inputs(struct v4l2_subdev *sd)
 {
 	struct msm_ba_input *input = NULL;
 	struct msm_ba_dev *dev_ctxt = NULL;
+	struct msm_ba_input_config *msm_ba_inp_cfg = NULL;
 	int i;
 	int str_length = 0;
 	int rc;
@@ -213,8 +195,9 @@ void msm_ba_add_inputs(struct v4l2_subdev *sd)
 	if (!list_empty(&dev_ctxt->inputs))
 		start_index = dev_ctxt->num_inputs;
 
+	msm_ba_inp_cfg = dev_ctxt->msm_ba_inp_cfg;
 	dev_id = msm_ba_inp_cfg[start_index].ba_out;
-	end_index = ARRAY_SIZE(msm_ba_inp_cfg);
+	end_index = dev_ctxt->num_config_inputs;
 	for (i = start_index; i < end_index; i++) {
 		str_length = strlen(msm_ba_inp_cfg[i].sd_name);
 		rc = memcmp(sd->name, msm_ba_inp_cfg[i].sd_name, str_length);
@@ -225,8 +208,7 @@ void msm_ba_add_inputs(struct v4l2_subdev *sd)
 				dprintk(BA_ERR, "Failed to allocate memory");
 				break;
 			}
-			input->inputType = msm_ba_inp_cfg[i].inputType;
-			input->name_index = msm_ba_inp_cfg[i].index;
+			input->input_type = msm_ba_inp_cfg[i].input_type;
 			strlcpy(input->name, msm_ba_inp_cfg[i].name,
 				sizeof(input->name));
 			input->bridge_chip_ip = msm_ba_inp_cfg[i].ba_ip;

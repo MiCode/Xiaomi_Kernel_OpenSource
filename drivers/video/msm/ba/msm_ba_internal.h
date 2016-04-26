@@ -67,11 +67,8 @@ enum instance_state {
 };
 
 struct ba_ctxt {
-
 	struct mutex ba_cs;
-
 	struct msm_ba_dev *dev_ctxt;
-
 	struct dentry *debugfs_root;
 };
 
@@ -119,8 +116,7 @@ enum msm_ba_input_usr_type {
 };
 
 struct msm_ba_input_config {
-	enum msm_ba_ip_type inputType;
-	unsigned int index;
+	enum msm_ba_ip_type input_type;
 	const char *name;
 	int ba_ip;
 	int ba_out;
@@ -136,7 +132,7 @@ struct msm_ba_sd_event {
 
 struct msm_ba_input {
 	struct list_head list;
-	enum msm_ba_ip_type inputType;
+	enum msm_ba_ip_type input_type;
 	unsigned int name_index;
 	char name[32];
 	int bridge_chip_ip;
@@ -154,7 +150,6 @@ struct msm_ba_input {
 struct msm_ba_dev {
 	struct mutex dev_cs;
 
-	struct platform_device *pdev;
 	enum ba_dev_state state;
 
 	struct list_head inputs;
@@ -171,6 +166,10 @@ struct msm_ba_dev {
 	uint32_t num_ba_subdevs;
 	struct list_head sd_events;
 	struct delayed_work sd_events_work;
+
+	/* BA input config list */
+	struct msm_ba_input_config *msm_ba_inp_cfg;
+	uint32_t num_config_inputs;
 
 	struct dentry *debugfs_root;
 };

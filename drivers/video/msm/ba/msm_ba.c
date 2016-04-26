@@ -146,8 +146,8 @@ int msm_ba_enum_input(void *instance, struct v4l2_input *input)
 		input->type = V4L2_INPUT_TYPE_CAMERA;
 		input->std = V4L2_STD_ALL;
 		strlcpy(input->name, ba_input->name, sizeof(input->name));
-		if (ba_input->inputType == BA_INPUT_HDMI ||
-			ba_input->inputType == BA_INPUT_MHL)
+		if (ba_input->input_type == BA_INPUT_HDMI ||
+			ba_input->input_type == BA_INPUT_MHL)
 			input->capabilities = V4L2_IN_CAP_CUSTOM_TIMINGS;
 		else
 			input->capabilities = V4L2_IN_CAP_STD;
@@ -382,7 +382,7 @@ int msm_ba_g_fmt(void *instance, struct v4l2_format *f)
 				inst->sd_input.index);
 		return -EINVAL;
 	}
-	if (ba_input->inputType != BA_INPUT_HDMI) {
+	if (ba_input->input_type != BA_INPUT_HDMI) {
 		rc = v4l2_subdev_call(sd, video, querystd, &new_std);
 		if (rc) {
 			dprintk(BA_ERR, "querystd failed %d for sd: %s",
