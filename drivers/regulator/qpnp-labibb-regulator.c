@@ -1660,7 +1660,8 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 					struct device_node *of_node)
 {
 	int rc = 0;
-	struct regulator_desc *rdesc;
+	struct regulator_init_data *init_data;
+	struct regulator_desc *rdesc = &labibb->lab_vreg.rdesc;
 	struct regulator_config cfg = {};
 	u8 val;
 	const char *current_sense_str;
@@ -1670,6 +1671,12 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 	if (!of_node) {
 		dev_err(labibb->dev, "qpnp lab regulator device tree node is missing\n");
 		return -EINVAL;
+	}
+
+	init_data = of_get_regulator_init_data(labibb->dev, of_node, rdesc);
+	if (!init_data) {
+		pr_err("unable to get regulator init data for qpnp lab regulator\n");
+		return -ENOMEM;
 	}
 
 	rc = of_property_read_u32(of_node, "qcom,qpnp-lab-min-voltage",
@@ -1891,25 +1898,33 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		}
 	}
 
-	rdesc			= &(labibb->lab_vreg.rdesc);
-	rdesc->owner		= THIS_MODULE;
-	rdesc->type		= REGULATOR_VOLTAGE;
-	rdesc->ops		= &qpnp_lab_ops;
-	rdesc->name		= of_node->name;
-	rdesc->of_match		= of_node->name;
+	if (init_data->constraints.name) {
+		rdesc->owner		= THIS_MODULE;
+		rdesc->type		= REGULATOR_VOLTAGE;
+		rdesc->ops		= &qpnp_lab_ops;
+		rdesc->name		= init_data->constraints.name;
 
-	cfg.dev = labibb->dev;
-	cfg.driver_data = labibb;
+		cfg.dev = labibb->dev;
+		cfg.init_data = init_data;
+		cfg.driver_data = labibb;
+		cfg.of_node = of_node;
 
-	labibb->lab_vreg.rdev
-		= devm_regulator_register(labibb->dev, rdesc, &cfg);
-	if (IS_ERR(labibb->lab_vreg.rdev)) {
-		rc = PTR_ERR(labibb->lab_vreg.rdev);
-		labibb->lab_vreg.rdev = NULL;
-		pr_err("unable to get regulator init data for qpnp lab regulator, rc = %d\n",
-			rc);
+		init_data->constraints.valid_ops_mask
+				|= REGULATOR_CHANGE_VOLTAGE |
+					REGULATOR_CHANGE_STATUS;
 
-		return rc;
+		labibb->lab_vreg.rdev = regulator_register(rdesc, &cfg);
+		if (IS_ERR(labibb->lab_vreg.rdev)) {
+			rc = PTR_ERR(labibb->lab_vreg.rdev);
+			labibb->lab_vreg.rdev = NULL;
+			pr_err("unable to get regulator init data for qpnp lab regulator, rc = %d\n",
+				rc);
+
+			return rc;
+		}
+	} else {
+		dev_err(labibb->dev, "qpnp lab regulator name missing\n");
+		return -EINVAL;
 	}
 
 	mutex_init(&(labibb->lab_vreg.lab_mutex));
@@ -2339,7 +2354,8 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 					struct device_node *of_node)
 {
 	int rc = 0;
-	struct regulator_desc *rdesc;
+	struct regulator_init_data *init_data;
+	struct regulator_desc *rdesc = &labibb->ibb_vreg.rdesc;
 	struct regulator_config cfg = {};
 	u8 val, ibb_enable_ctl;
 	u32 tmp;
@@ -2347,6 +2363,12 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	if (!of_node) {
 		dev_err(labibb->dev, "qpnp ibb regulator device tree node is missing\n");
 		return -EINVAL;
+	}
+
+	init_data = of_get_regulator_init_data(labibb->dev, of_node, rdesc);
+	if (!init_data) {
+		pr_err("unable to get regulator init data for qpnp ibb regulator\n");
+		return -ENOMEM;
 	}
 
 	rc = of_property_read_u32(of_node, "qcom,qpnp-ibb-min-voltage",
@@ -2590,25 +2612,33 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		}
 	}
 
-	rdesc			= &(labibb->ibb_vreg.rdesc);
-	rdesc->owner		= THIS_MODULE;
-	rdesc->type		= REGULATOR_VOLTAGE;
-	rdesc->ops		= &qpnp_ibb_ops;
-	rdesc->name		= of_node->name;
-	rdesc->of_match		= of_node->name;
+	if (init_data->constraints.name) {
+		rdesc->owner		= THIS_MODULE;
+		rdesc->type		= REGULATOR_VOLTAGE;
+		rdesc->ops		= &qpnp_ibb_ops;
+		rdesc->name		= init_data->constraints.name;
 
-	cfg.dev = labibb->dev;
-	cfg.driver_data = labibb;
+		cfg.dev = labibb->dev;
+		cfg.init_data = init_data;
+		cfg.driver_data = labibb;
+		cfg.of_node = of_node;
 
-	labibb->ibb_vreg.rdev
-		= devm_regulator_register(labibb->dev, rdesc, &cfg);
-	if (IS_ERR(labibb->ibb_vreg.rdev)) {
-		rc = PTR_ERR(labibb->ibb_vreg.rdev);
-		labibb->ibb_vreg.rdev = NULL;
-		pr_err("unable to get regulator init data for qpnp ibb regulator, rc = %d\n",
-			rc);
+		init_data->constraints.valid_ops_mask
+				|= REGULATOR_CHANGE_VOLTAGE |
+					REGULATOR_CHANGE_STATUS;
 
-		return rc;
+		labibb->ibb_vreg.rdev = regulator_register(rdesc, &cfg);
+		if (IS_ERR(labibb->ibb_vreg.rdev)) {
+			rc = PTR_ERR(labibb->ibb_vreg.rdev);
+			labibb->ibb_vreg.rdev = NULL;
+			pr_err("unable to get regulator init data for qpnp ibb regulator, rc = %d\n",
+				rc);
+
+			return rc;
+		}
+	} else {
+		dev_err(labibb->dev, "qpnp ibb regulator name missing\n");
+		return -EINVAL;
 	}
 
 	mutex_init(&(labibb->ibb_vreg.ibb_mutex));
@@ -2813,7 +2843,25 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 	return 0;
 
 fail_registration:
+	if (labibb->lab_vreg.rdev)
+		regulator_unregister(labibb->lab_vreg.rdev);
+	if (labibb->ibb_vreg.rdev)
+		regulator_unregister(labibb->ibb_vreg.rdev);
+
 	return rc;
+}
+
+static int qpnp_labibb_regulator_remove(struct platform_device *pdev)
+{
+	struct qpnp_labibb *labibb = dev_get_drvdata(&pdev->dev);
+
+	if (labibb) {
+		if (labibb->lab_vreg.rdev)
+			regulator_unregister(labibb->lab_vreg.rdev);
+		if (labibb->ibb_vreg.rdev)
+			regulator_unregister(labibb->ibb_vreg.rdev);
+	}
+	return 0;
 }
 
 static struct of_device_id spmi_match_table[] = {
@@ -2827,6 +2875,7 @@ static struct platform_driver qpnp_labibb_regulator_driver = {
 		.of_match_table	= spmi_match_table,
 	},
 	.probe		= qpnp_labibb_regulator_probe,
+	.remove		= qpnp_labibb_regulator_remove,
 };
 
 static int __init qpnp_labibb_regulator_init(void)
