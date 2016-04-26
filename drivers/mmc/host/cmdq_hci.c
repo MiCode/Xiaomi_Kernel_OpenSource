@@ -408,6 +408,9 @@ static int cmdq_enable(struct mmc_host *mmc)
 	cq_host->enabled = true;
 	mmc_host_clr_cq_disable(mmc);
 
+	if (cq_host->ops->set_transfer_params)
+		cq_host->ops->set_transfer_params(mmc);
+
 	if (cq_host->ops->set_block_size)
 		cq_host->ops->set_block_size(cq_host->mmc);
 
