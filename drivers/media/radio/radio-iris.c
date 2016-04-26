@@ -505,6 +505,7 @@ static void iris_q_event(struct iris_device *radio,
 {
 	struct kfifo *data_b;
 	unsigned char evt = event;
+	FMDBG("radio %pK event %d", radio, event);
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
@@ -519,6 +520,7 @@ static void iris_q_event(struct iris_device *radio,
 static int hci_send_frame(struct sk_buff *skb)
 {
 	struct radio_hci_dev *hdev;
+	FMDBG("skb %pK", skb);
 
 	if (unlikely(skb == NULL)) {
 		FMDERR("%s, socket buffer is null\n", __func__);
@@ -540,6 +542,7 @@ static void radio_hci_cmd_task(unsigned long arg)
 {
 	struct radio_hci_dev *hdev = (struct radio_hci_dev *) arg;
 	struct sk_buff *skb;
+	FMDBG("hdev %pK", hdev);
 
 	if (unlikely(hdev == NULL)) {
 		FMDERR("%s, HCI Device is null\n", __func__);
@@ -571,6 +574,7 @@ static void radio_hci_rx_task(unsigned long arg)
 {
 	struct radio_hci_dev *hdev = (struct radio_hci_dev *) arg;
 	struct sk_buff *skb;
+	FMDBG("hdev %pK", hdev);
 
 	if (unlikely(hdev == NULL)) {
 		FMDERR("%s, HCI Device is null\n", __func__);
@@ -587,6 +591,7 @@ static void radio_hci_rx_task(unsigned long arg)
 int radio_hci_register_dev(struct radio_hci_dev *hdev)
 {
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	FMDBG("radio %pK", radio);
 
 	if (!radio) {
 		FMDERR(":radio is null");
@@ -643,6 +648,7 @@ EXPORT_SYMBOL(radio_hci_unregister_dev);
 int radio_hci_recv_frame(struct sk_buff *skb)
 {
 	struct radio_hci_dev *hdev;
+	FMDBG("hdev %pK", skb);
 
 	if (unlikely(skb == NULL)) {
 		FMDERR("%s, socket buffer is null\n", __func__);
@@ -670,6 +676,7 @@ int radio_hci_send_cmd(struct radio_hci_dev *hdev, __u16 opcode, __u32 plen,
 	struct radio_hci_command_hdr *hdr;
 	struct sk_buff *skb;
 	int ret = 0;
+	FMDBG("hdev %pK opcode %u len %u", hdev, opcode, plen);
 
 	if (unlikely(hdev == NULL)) {
 		FMDERR("%s, hci device is null\n", __func__);
@@ -1770,6 +1777,7 @@ static int hci_cmd_internal(unsigned int cmd, struct radio_hci_dev *hdev,
 	int ret = 0;
 	unsigned long arg = 0;
 	radio_hci_request_func radio_hci_request;
+	FMDBG("hdev %pK cmd 0x%x", hdev, cmd);
 
 	if (!hdev)
 		return -ENODEV;
@@ -1925,6 +1933,7 @@ static void hci_cc_fm_disable_rsp(struct radio_hci_dev *hdev,
 {
 	__u8 status;
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	FMDBG("hdev %pK skb %p", hdev, skb);
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
@@ -2000,6 +2009,7 @@ static void hci_cc_fm_enable_rsp(struct radio_hci_dev *hdev,
 {
 	struct hci_fm_conf_rsp  *rsp;
 	struct iris_device *radio = video_get_drvdata(video_get_dev());
+	FMDBG("hdev %pK skb %p", hdev, skb);
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
@@ -2179,6 +2189,7 @@ static void iris_q_evt_data(struct iris_device *radio,
 				char *data, int len, int event)
 {
 	struct kfifo *data_b;
+	FMDBG("radio %pK data %p len %d event %d", radio, data, len, event);
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
@@ -2407,6 +2418,7 @@ static inline void hci_cmd_complete_event(struct radio_hci_dev *hdev,
 
 	opcode = __le16_to_cpu(cmd_compl_ev->cmd_opcode);
 
+	FMDBG("opcode 0x%x", opcode);
 	switch (opcode) {
 	case hci_recv_ctrl_cmd_op_pack(HCI_OCF_FM_ENABLE_RECV_REQ):
 	case hci_trans_ctrl_cmd_op_pack(HCI_OCF_FM_ENABLE_TRANS_REQ):
@@ -3028,6 +3040,7 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb)
 
 	skb_pull(skb, RADIO_HCI_EVENT_HDR_SIZE);
 
+	FMDBG("event 0x%x", event);
 	switch (event) {
 	case HCI_EV_TUNE_STATUS:
 		hci_ev_tune_status(hdev, skb);
@@ -3154,6 +3167,7 @@ static int set_low_power_mode(struct iris_device *radio, int power_mode)
 		return -EINVAL;
 	}
 
+	FMDBG("power mode old 0x%x new 0x%x", radio->power_mode, power_mode);
 	if (radio->power_mode != power_mode) {
 
 		if (power_mode) {
@@ -3287,6 +3301,7 @@ static int iris_do_calibration(struct iris_device *radio)
 {
 	char cal_mode = 0x00;
 	int retval = 0x00;
+	FMDBG("radio %pK", radio);
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
@@ -3336,6 +3351,8 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 		retval = -EINVAL;
 		goto END;
 	}
+
+	FMDBG("id 0x%x", ctrl->id);
 	switch (ctrl->id) {
 	case V4L2_CID_AUDIO_VOLUME:
 		break;
@@ -3688,6 +3705,8 @@ static int iris_vidioc_g_ext_ctrls(struct file *file, void *priv,
 		retval = -EINVAL;
 		goto END;
 	}
+
+	FMDBG("0x%x", ctrl->controls[0].id);
 	switch ((ctrl->controls[0]).id) {
 	case V4L2_CID_PRIVATE_IRIS_READ_DEFAULT:
 		data = (ctrl->controls[0]).string;
@@ -3739,6 +3758,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 		goto END;
 	}
 
+	FMDBG("0x%x", ctrl->controls[0].id);
 	switch ((ctrl->controls[0]).id) {
 	case V4L2_CID_RDS_TX_PS_NAME:
 		FMDBG("In V4L2_CID_RDS_TX_PS_NAME\n");
@@ -3818,9 +3838,8 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 			retval = -EFAULT;
 			goto END;
 		}
-		FMDBG("%s: XFR Mode\t: 0x%x\n", __func__, default_data.mode);
-		FMDBG("%s: XFR Data Length\t: %d\n", __func__,
-			default_data.length);
+		FMDBG("XFR Mode\t: 0x%x", default_data.mode);
+		FMDBG("XFR Data Length\t: %d\n", default_data.length);
 		/*
 		 * Check if the 'length' of the actual XFR data to be configured
 		 * is valid or not. Length of actual XFR data should be always
@@ -3949,6 +3968,8 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		retval = -EINVAL;
 		goto END;
 	}
+
+	FMDBG("id 0x%x", ctrl->id);
 	switch (ctrl->id) {
 	case V4L2_CID_PRIVATE_IRIS_TX_TONE:
 		if (!is_valid_tone(ctrl->value)) {
@@ -4010,7 +4031,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		switch (ctrl->value) {
 		case FM_RECV:
 			if (radio->mode != FM_OFF) {
-				FMDERR("FM is not in proper state\n");
+				FMDERR("FM mode is not off %d\n", radio->mode);
 				retval = -EINVAL;
 				goto END;
 			}
@@ -4216,7 +4237,7 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 			break;
 		default:
 			retval = -EINVAL;
-			FMDERR("%s, FM is not in proper state\n", __func__);
+			FMDERR("FM mode is unknown %d\n", radio->mode);
 			goto END;
 		}
 		break;
@@ -5185,11 +5206,12 @@ static int iris_fops_release(struct file *file)
 {
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	int retval = 0;
+	FMDBG("radio %pK", radio);
 
-	FMDBG("Enter %s ", __func__);
 	if (radio == NULL)
 		return -EINVAL;
 
+	FMDBG("state %d", radio->mode);
 	if (radio->mode == FM_OFF)
 		goto END;
 
@@ -5212,6 +5234,7 @@ static int iris_fops_release(struct file *file)
 		return retval;
 	}
 END:
+	FMDBG("mode %d", radio->mode);
 	mutex_lock(&fm_smd_enable);
 	if (radio->fm_hdev != NULL)
 		radio->fm_hdev->close_smd();
@@ -5220,6 +5243,7 @@ END:
 	if (retval < 0)
 		FMDERR("Err on disable FM %d\n", retval);
 
+	FMDBG("ret %d", retval);
 	return retval;
 }
 
@@ -5232,6 +5256,7 @@ static int iris_vidioc_dqbuf(struct file *file, void *priv,
 	struct kfifo *data_fifo = NULL;
 	unsigned char *buf = NULL;
 	unsigned int len = 0, retval = -1;
+	FMDBG("buffer %pK", buffer);
 
 	if ((radio == NULL) || (buffer == NULL)) {
 		FMDERR("radio/buffer is NULL\n");
@@ -5295,6 +5320,7 @@ static int iris_vidioc_querycap(struct file *file, void *priv,
 	struct v4l2_capability *capability)
 {
 	struct iris_device *radio;
+	FMDBG("caps %pK", capability);
 
 	radio = video_get_drvdata(video_devdata(file));
 
@@ -5320,6 +5346,7 @@ static int iris_vidioc_querycap(struct file *file, void *priv,
 static int initialise_recv(struct iris_device *radio)
 {
 	int retval;
+	FMDBG("radio %pK", radio);
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
@@ -5445,6 +5472,7 @@ static int iris_probe(struct platform_device *pdev)
 	int retval;
 	int radio_nr = -1;
 	int i;
+	FMDBG("pdev %pK", pdev);
 
 	if (!pdev) {
 		FMDERR(": pdev is null\n");
