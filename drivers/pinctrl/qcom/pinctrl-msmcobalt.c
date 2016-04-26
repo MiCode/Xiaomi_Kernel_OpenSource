@@ -1676,7 +1676,7 @@ static const struct msm_pingroup msmcobalt_groups[] = {
 		 pwr_crypto, NA, NA, NA, NA),
 	PINGROUP(34, EAST, hdmi_hot, edp_hot, blsp_spi2, blsp_uart2_a,
 		 blsp_uim2_a, NA, NA, NA, NA),
-	PINGROUP(35, WEST, pci_e0, jitter_bist, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(35, NORTH, pci_e0, jitter_bist, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(36, WEST, pci_e0, agera_pll, NA, atest_tsens, NA, NA, NA, NA,
 		 NA),
 	PINGROUP(37, WEST, agera_pll, NA, NA, NA, NA, NA, NA, NA, NA),
