@@ -370,8 +370,6 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 		return err;
 	}
 
-	armpmu->pmu_state = ARM_PMU_STATE_RUNNING;
-
 	return 0;
 }
 
@@ -632,14 +630,6 @@ static void cpu_pmu_free_irq(struct arm_pmu *cpu_pmu)
 	struct pmu_hw_events __percpu *hw_events = cpu_pmu->hw_events;
 
 	irqs = min(pmu_device->num_resources, num_possible_cpus());
-	if (!irqs)
-		return;
-
-	/*
-	 * If a cpu comes online during this function, do not enable its irq.
-	 * If a cpu goes offline, it should disable its irq.
-	 */
-	cpu_pmu->pmu_state = ARM_PMU_STATE_GOING_DOWN;
 
 	irq = platform_get_irq(pmu_device, 0);
 	if (irq >= 0 && irq_is_percpu(irq)) {
@@ -659,7 +649,6 @@ static void cpu_pmu_free_irq(struct arm_pmu *cpu_pmu)
 				free_irq(irq, per_cpu_ptr(&hw_events->percpu_pmu, cpu));
 		}
 	}
-	cpu_pmu->pmu_state = ARM_PMU_STATE_OFF;
 }
 
 static int cpu_pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
@@ -777,6 +766,7 @@ static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
 	struct arm_pmu *cpu_pmu = container_of(b, struct arm_pmu, hotplug_nb);
 	int irq;
 	struct pmu *pmu;
+	int perf_running;
 	unsigned long masked_action = action & ~CPU_TASKS_FROZEN;
 	int ret = NOTIFY_DONE;
 
@@ -793,12 +783,13 @@ static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
 	if (!cpumask_test_cpu(cpu, &cpu_pmu->supported_cpus))
 		return NOTIFY_DONE;
 
+	perf_running = atomic_read(&cpu_pmu->active_events);
 	switch (masked_action) {
 	case CPU_DOWN_PREPARE:
 		if (cpu_pmu->save_pm_registers)
 			smp_call_function_single(cpu,
 				cpu_pmu->save_pm_registers, hcpu, 1);
-		if (cpu_pmu->pmu_state != ARM_PMU_STATE_OFF) {
+		if (perf_running) {
 			if (cpu_has_active_perf(cpu, cpu_pmu))
 				smp_call_function_single(cpu,
 					armpmu_update_counters, cpu_pmu, 1);
@@ -817,7 +808,7 @@ static int cpu_pmu_notify(struct notifier_block *b, unsigned long action,
 			cpu_pmu->reset(NULL);
 		if (cpu_pmu->restore_pm_registers)
 			cpu_pmu->restore_pm_registers(hcpu);
-		if (cpu_pmu->pmu_state == ARM_PMU_STATE_RUNNING) {
+		if (perf_running) {
 			/* Arm the PMU IRQ before appearing. */
 			if (cpu_pmu->plat_device) {
 				irq = cpu_pmu->percpu_irq;
