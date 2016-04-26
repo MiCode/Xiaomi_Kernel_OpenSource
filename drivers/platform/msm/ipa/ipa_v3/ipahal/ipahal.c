@@ -1018,6 +1018,223 @@ static void ipahal_debugfs_init(void) {}
 static void ipahal_debugfs_remove(void) {}
 #endif /* CONFIG_DEBUG_FS */
 
+/*
+ * ipahal_cp_hdr_to_hw_buff_v3() - copy header to hardware buffer according to
+ * base address and offset given.
+ * @base: dma base address
+ * @offset: offset from base address where the data will be copied
+ * @hdr: the header to be copied
+ * @hdr_len: the length of the header
+ */
+static void ipahal_cp_hdr_to_hw_buff_v3(void *const base, u32 offset,
+		u8 *const hdr, u32 hdr_len)
+{
+	memcpy(base + offset, hdr, hdr_len);
+}
+
+/*
+ * ipahal_cp_proc_ctx_to_hw_buff_v3() - copy processing context to
+ * base address and offset given.
+ * @type: header processing context type (no processing context,
+ *	IPA_HDR_PROC_ETHII_TO_ETHII etc.)
+ * @base: dma base address
+ * @offset: offset from base address where the data will be copied
+ * @hdr_len: the length of the header
+ * @is_hdr_proc_ctx: header is located in phys_base (true) or hdr_base_addr
+ * @phys_base: memory location in DDR
+ * @hdr_base_addr: base address in table
+ * @hdr_offset_entry: offset from hdr_base_addr in table
+ */
+static void ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
+		void *const base, u32 offset,
+		u32 hdr_len, bool is_hdr_proc_ctx,
+		dma_addr_t phys_base, u32 hdr_base_addr,
+		u32 hdr_offset_entry){
+	if (type == IPA_HDR_PROC_NONE) {
+		struct ipa_hw_hdr_proc_ctx_add_hdr_seq *ctx;
+
+		ctx = (struct ipa_hw_hdr_proc_ctx_add_hdr_seq *)
+			(base + offset);
+		ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
+		ctx->hdr_add.tlv.length = 1;
+		ctx->hdr_add.tlv.value = hdr_len;
+		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
+			hdr_base_addr + hdr_offset_entry;
+		IPAHAL_DBG("header address 0x%x\n",
+			ctx->hdr_add.hdr_addr);
+		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
+		ctx->end.length = 0;
+		ctx->end.value = 0;
+	} else {
+		struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq *ctx;
+
+		ctx = (struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq *)
+			(base + offset);
+		ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
+		ctx->hdr_add.tlv.length = 1;
+		ctx->hdr_add.tlv.value = hdr_len;
+		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
+			hdr_base_addr + hdr_offset_entry;
+		IPAHAL_DBG("header address 0x%x\n",
+			ctx->hdr_add.hdr_addr);
+		ctx->cmd.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
+		ctx->cmd.length = 0;
+		switch (type) {
+		case IPA_HDR_PROC_ETHII_TO_ETHII:
+			ctx->cmd.value = IPA_HDR_UCP_ETHII_TO_ETHII;
+		break;
+		case IPA_HDR_PROC_ETHII_TO_802_3:
+			ctx->cmd.value = IPA_HDR_UCP_ETHII_TO_802_3;
+		break;
+		case IPA_HDR_PROC_802_3_TO_ETHII:
+			ctx->cmd.value = IPA_HDR_UCP_802_3_TO_ETHII;
+		break;
+		case IPA_HDR_PROC_802_3_TO_802_3:
+			ctx->cmd.value = IPA_HDR_UCP_802_3_TO_802_3;
+		break;
+		default:
+			IPAHAL_ERR("unknown ipa_hdr_proc_type %d", type);
+			BUG();
+		}
+		IPAHAL_DBG("command id %d\n", ctx->cmd.value);
+		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
+		ctx->end.length = 0;
+		ctx->end.value = 0;
+	}
+}
+
+/*
+ * ipahal_get_proc_ctx_needed_len_v3() - calculates the needed length for
+ * addition of header processing context according to the type of processing
+ * context.
+ * @type: header processing context type (no processing context,
+ *	IPA_HDR_PROC_ETHII_TO_ETHII etc.)
+ */
+static int ipahal_get_proc_ctx_needed_len_v3(enum ipa_hdr_proc_type type)
+{
+	return (type == IPA_HDR_PROC_NONE) ?
+			sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_seq) :
+			sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq);
+}
+
+/*
+ * struct ipahal_hdr_funcs - headers handling functions for specific IPA
+ * version
+ * @ipahal_cp_hdr_to_hw_buff - copy function for regular headers
+ */
+struct ipahal_hdr_funcs {
+	void (*ipahal_cp_hdr_to_hw_buff)(void *const base, u32 offset,
+			u8 *const hdr, u32 hdr_len);
+
+	void (*ipahal_cp_proc_ctx_to_hw_buff)(enum ipa_hdr_proc_type type,
+			void *const base, u32 offset, u32 hdr_len,
+			bool is_hdr_proc_ctx, dma_addr_t phys_base,
+			u32 hdr_base_addr, u32 hdr_offset_entry);
+
+	int (*ipahal_get_proc_ctx_needed_len)(enum ipa_hdr_proc_type type);
+};
+
+static struct ipahal_hdr_funcs hdr_funcs;
+
+static void ipahal_hdr_init(enum ipa_hw_type ipa_hw_type)
+{
+
+	IPAHAL_DBG("Entry - HW_TYPE=%d\n", ipa_hw_type);
+
+	/*
+	 * once there are changes in HW and need to use different case, insert
+	 * new case for the new h/w. put the default always for the latest HW
+	 * and make sure all previous supported versions have their cases.
+	 */
+	switch (ipa_hw_type) {
+	case IPA_HW_v3_0:
+	default:
+		hdr_funcs.ipahal_cp_hdr_to_hw_buff =
+				ipahal_cp_hdr_to_hw_buff_v3;
+		hdr_funcs.ipahal_cp_proc_ctx_to_hw_buff =
+				ipahal_cp_proc_ctx_to_hw_buff_v3;
+		hdr_funcs.ipahal_get_proc_ctx_needed_len =
+				ipahal_get_proc_ctx_needed_len_v3;
+	}
+	IPAHAL_DBG("Exit\n");
+}
+
+/*
+ * ipahal_cp_hdr_to_hw_buff() - copy header to hardware buffer according to
+ * base address and offset given.
+ * @base: dma base address
+ * @offset: offset from base address where the data will be copied
+ * @hdr: the header to be copied
+ * @hdr_len: the length of the header
+ */
+void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *const hdr,
+		u32 hdr_len)
+{
+	IPAHAL_DBG_LOW("Entry\n");
+	IPAHAL_DBG("base %p, offset %d, hdr %p, hdr_len %d\n", base,
+			offset, hdr, hdr_len);
+	BUG_ON(!base || !hdr_len || !hdr);
+
+	hdr_funcs.ipahal_cp_hdr_to_hw_buff(base, offset, hdr, hdr_len);
+
+	IPAHAL_DBG_LOW("Exit\n");
+}
+
+/*
+ * ipahal_cp_proc_ctx_to_hw_buff() - copy processing context to
+ * base address and offset given.
+ * @type: type of header processing context
+ * @base: dma base address
+ * @offset: offset from base address where the data will be copied
+ * @hdr_len: the length of the header
+ * @is_hdr_proc_ctx: header is located in phys_base (true) or hdr_base_addr
+ * @phys_base: memory location in DDR
+ * @hdr_base_addr: base address in table
+ * @hdr_offset_entry: offset from hdr_base_addr in table
+ */
+void ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
+		void *const base, u32 offset, u32 hdr_len,
+		bool is_hdr_proc_ctx, dma_addr_t phys_base,
+		u32 hdr_base_addr, u32 hdr_offset_entry)
+{
+	IPAHAL_DBG_LOW("entry\n");
+	IPAHAL_DBG(
+		"type %d, base %p, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %d, hdr_offset_entry %d\n"
+			, type, base, offset, hdr_len, is_hdr_proc_ctx,
+			hdr_base_addr, hdr_offset_entry);
+
+	BUG_ON(!base ||
+		!hdr_len ||
+		(!phys_base && !hdr_base_addr) ||
+		!hdr_base_addr);
+
+	hdr_funcs.ipahal_cp_proc_ctx_to_hw_buff(type, base, offset,
+			hdr_len, is_hdr_proc_ctx, phys_base,
+			hdr_base_addr, hdr_offset_entry);
+
+	IPAHAL_DBG_LOW("Exit\n");
+}
+
+/*
+ * ipahal_get_proc_ctx_needed_len() - calculates the needed length for
+ * addition of header processing context according to the type of processing
+ * context
+ * @type: header processing context type (no processing context,
+ *	IPA_HDR_PROC_ETHII_TO_ETHII etc.)
+ */
+int ipahal_get_proc_ctx_needed_len(enum ipa_hdr_proc_type type)
+{
+	int res;
+
+	IPAHAL_DBG("entry\n");
+
+	res = hdr_funcs.ipahal_get_proc_ctx_needed_len(type);
+
+	IPAHAL_DBG("Exit\n");
+
+	return res;
+}
+
 int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 {
 	int result;
@@ -1064,6 +1281,8 @@ int ipahal_init(enum ipa_hw_type ipa_hw_type, void __iomem *base)
 		result = -EFAULT;
 		goto bail_free_ctx;
 	}
+
+	ipahal_hdr_init(ipa_hw_type);
 
 	ipahal_debugfs_init();
 

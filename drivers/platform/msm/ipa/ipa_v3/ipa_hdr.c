@@ -22,12 +22,6 @@ static const u32 ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN_MAX] = { 32, 64};
 #define HDR_PROC_TYPE_IS_VALID(type) \
 	((type) >= 0 && (type) < IPA_HDR_PROC_MAX)
 
-/* uCP command numbers */
-#define IPA_HDR_UCP_802_3_TO_802_3 6
-#define IPA_HDR_UCP_802_3_TO_ETHII 7
-#define IPA_HDR_UCP_ETHII_TO_802_3 8
-#define IPA_HDR_UCP_ETHII_TO_ETHII 9
-
 /**
  * ipa3_generate_hdr_hw_tbl() - generates the headers table
  * @mem:	[out] buffer to put the header table
@@ -60,8 +54,8 @@ static int ipa3_generate_hdr_hw_tbl(struct ipa3_mem_buffer *mem)
 			continue;
 		IPADBG_LOW("hdr of len %d ofst=%d\n", entry->hdr_len,
 				entry->offset_entry->offset);
-		memcpy(mem->base + entry->offset_entry->offset, entry->hdr,
-				entry->hdr_len);
+		ipahal_cp_hdr_to_hw_buff(mem->base, entry->offset_entry->offset,
+				entry->hdr, entry->hdr_len);
 	}
 
 	return 0;
@@ -77,52 +71,13 @@ static void ipa3_hdr_proc_ctx_to_hw_format(struct ipa3_mem_buffer *mem,
 			link) {
 		IPADBG_LOW("processing type %d ofst=%d\n",
 			entry->type, entry->offset_entry->offset);
-		if (entry->type == IPA_HDR_PROC_NONE) {
-			struct ipa3_hdr_proc_ctx_add_hdr_seq *ctx;
-
-			ctx = (struct ipa3_hdr_proc_ctx_add_hdr_seq *)
-				(mem->base + entry->offset_entry->offset);
-			ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
-			ctx->hdr_add.tlv.length = 1;
-			ctx->hdr_add.tlv.value = entry->hdr->hdr_len;
-			ctx->hdr_add.hdr_addr = (entry->hdr->is_hdr_proc_ctx) ?
-				entry->hdr->phys_base :
-				hdr_base_addr +
-				entry->hdr->offset_entry->offset;
-			IPADBG_LOW("header address 0x%x\n",
-				ctx->hdr_add.hdr_addr);
-			ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
-			ctx->end.length = 0;
-			ctx->end.value = 0;
-		} else {
-			struct ipa3_hdr_proc_ctx_add_hdr_cmd_seq *ctx;
-
-			ctx = (struct ipa3_hdr_proc_ctx_add_hdr_cmd_seq *)
-				(mem->base + entry->offset_entry->offset);
-			ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
-			ctx->hdr_add.tlv.length = 1;
-			ctx->hdr_add.tlv.value = entry->hdr->hdr_len;
-			ctx->hdr_add.hdr_addr = (entry->hdr->is_hdr_proc_ctx) ?
-				entry->hdr->phys_base :
-				hdr_base_addr +
-				entry->hdr->offset_entry->offset;
-			IPADBG_LOW("header address 0x%x\n",
-				ctx->hdr_add.hdr_addr);
-			ctx->cmd.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
-			ctx->cmd.length = 0;
-			if (entry->type == IPA_HDR_PROC_ETHII_TO_ETHII)
-				ctx->cmd.value = IPA_HDR_UCP_ETHII_TO_ETHII;
-			else if (entry->type == IPA_HDR_PROC_ETHII_TO_802_3)
-				ctx->cmd.value = IPA_HDR_UCP_ETHII_TO_802_3;
-			else if (entry->type == IPA_HDR_PROC_802_3_TO_ETHII)
-				ctx->cmd.value = IPA_HDR_UCP_802_3_TO_ETHII;
-			else if (entry->type == IPA_HDR_PROC_802_3_TO_802_3)
-				ctx->cmd.value = IPA_HDR_UCP_802_3_TO_802_3;
-			IPADBG_LOW("command id %d\n", ctx->cmd.value);
-			ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
-			ctx->end.length = 0;
-			ctx->end.value = 0;
-		}
+		ipahal_cp_proc_ctx_to_hw_buff(entry->type, mem->base,
+				entry->offset_entry->offset,
+				entry->hdr->hdr_len,
+				entry->hdr->is_hdr_proc_ctx,
+				entry->hdr->phys_base,
+				hdr_base_addr,
+				entry->hdr->offset_entry->offset);
 	}
 }
 
@@ -395,9 +350,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 		hdr_entry->ref_cnt++;
 	entry->cookie = IPA_COOKIE;
 
-	needed_len = (proc_ctx->type == IPA_HDR_PROC_NONE) ?
-			sizeof(struct ipa3_hdr_proc_ctx_add_hdr_seq) :
-			sizeof(struct ipa3_hdr_proc_ctx_add_hdr_cmd_seq);
+	needed_len = ipahal_get_proc_ctx_needed_len(proc_ctx->type);
 
 	if (needed_len <= ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN0]) {
 		bin = IPA_HDR_PROC_CTX_BIN0;
