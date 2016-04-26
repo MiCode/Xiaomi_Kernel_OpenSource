@@ -24,7 +24,6 @@
 static char *descriptions =
 	" 0 arm64: perf: add debug patch logging framework\n"
 	" 1 Perf: arm64: Add L1 counters to tracepoints\n"
-	" 4 Perf: arm64: support hotplug and power collapse\n"
 	" 5 Perf: arm64: add perf user-mode permissions\n"
 	" 6 Perf: arm64: Add debugfs node to clear PMU\n"
 	" 7 Perf: arm64: Update PMU force reset\n"
