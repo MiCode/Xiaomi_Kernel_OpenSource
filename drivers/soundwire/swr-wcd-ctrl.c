@@ -601,6 +601,62 @@ static struct swr_port_info *swrm_get_port(struct swr_master *master,
 	return port;
 }
 
+static void swrm_slvdev_datapath_control(struct swr_master *master,
+					 bool enable)
+{
+	u8 bank;
+	u32 value, n_col;
+	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
+	int mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
+		    SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK |
+		    SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_BMSK);
+	int col_mask = SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK;
+	u8 active_bank;
+
+	bank = get_inactive_bank_num(swrm);
+
+	dev_dbg(swrm->dev, "%s: enable: %d, slvdev_dp_enable_cnt: %d\n",
+		__func__, enable, swrm->slvdev_dp_enable_cnt);
+
+	if (enable) {
+		swrm->slvdev_dp_enable_cnt++;
+		active_bank = bank ? 0 : 1;
+		value = swrm->read(swrm->handle,
+				   SWRM_MCP_FRAME_CTRL_BANK_ADDR(active_bank));
+		if (((value & col_mask) >>
+		    SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT) ==
+		    SWR_MAX_COL)
+			return;
+
+		/* set Row = 48 and col = 16 */
+		n_col = SWR_MAX_COL;
+	} else {
+		/*
+		 * Do not change to 48x2 if number of channels configured
+		 * as stereo and if disable datapath is called for the
+		 * first slave device
+		 */
+		swrm->slvdev_dp_enable_cnt--;
+		if (swrm->slvdev_dp_enable_cnt > 0)
+			return;
+
+		/* set Row = 48 and col = 2 */
+		n_col = SWR_MIN_COL;
+	}
+
+	value = swrm->read(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank));
+	value &= (~mask);
+	value |= ((0 << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
+		  (n_col << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT) |
+		  (0 << SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_SHFT));
+	swrm->write(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
+
+	dev_dbg(swrm->dev, "%s: regaddr: 0x%x, value: 0x%x\n", __func__,
+		SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
+
+	enable_bank_switch(swrm, bank, SWR_MAX_ROW, n_col);
+}
+
 static void swrm_apply_port_config(struct swr_master *master)
 {
 	u32 value;
@@ -615,10 +671,6 @@ static void swrm_apply_port_config(struct swr_master *master)
 	u32 val[SWRM_MAX_PORT_REG];
 	int len = 0;
 
-	int mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
-		    SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK |
-		    SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_BMSK);
-
 	if (!swrm) {
 		pr_err("%s: Invalid handle to swr controller\n",
 			__func__);
@@ -629,15 +681,6 @@ static void swrm_apply_port_config(struct swr_master *master)
 	dev_dbg(swrm->dev, "%s: enter bank: %d master_ports: %d\n",
 		__func__, bank, master->num_port);
 
-	/* set Row = 48 and col = 16 */
-	value = swrm->read(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank));
-	value &= (~mask);
-	value |= ((0 << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
-		  (7 << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT) |
-		  (0 << SWRM_MCP_FRAME_CTRL_BANK_SSP_PERIOD_SHFT));
-	swrm->write(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
-	dev_dbg(swrm->dev, "%s: regaddr: 0x%x, value: 0x%x\n", __func__,
-		SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
 
 	swrm_cmd_fifo_wr_cmd(swrm, 0x01, 0xF, 0x00,
 			SWRS_SCP_HOST_CLK_DIV2_CTL_BANK(bank));
@@ -703,7 +746,6 @@ static void swrm_apply_port_config(struct swr_master *master)
 		}
 	}
 	swrm->bulk_write(swrm->handle, reg, val, len);
-	enable_bank_switch(swrm, bank, SWR_MAX_ROW, SWR_MAX_COL);
 }
 
 static int swrm_connect_port(struct swr_master *master,
@@ -1057,6 +1099,7 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 	u32 value[SWRM_MAX_INIT_REG];
 	int len = 0;
 
+	swrm->slvdev_dp_enable_cnt = 0;
 	/* Clear Rows and Cols */
 	val = ((row_ctrl << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
 		(col_ctrl << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT) |
@@ -1174,6 +1217,7 @@ static int swrm_probe(struct platform_device *pdev)
 	swrm->master.get_logical_dev_num = swrm_get_logical_dev_num;
 	swrm->master.connect_port = swrm_connect_port;
 	swrm->master.disconnect_port = swrm_disconnect_port;
+	swrm->master.slvdev_datapath_control = swrm_slvdev_datapath_control;
 	swrm->master.dev.parent = &pdev->dev;
 	swrm->master.dev.of_node = pdev->dev.of_node;
 	swrm->master.num_port = 0;
