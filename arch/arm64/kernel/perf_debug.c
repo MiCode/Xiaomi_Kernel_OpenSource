@@ -31,7 +31,6 @@ static char *descriptions =
 	"10 Perf: arm64: tracectr: initialize counts after hotplug\n"
 	"11 Perf: arm64: Refine disable/enable in tracecounters\n"
 	"12 Perf: arm64: fix disable of pmu irq during hotplug\n"
-	"13 Perf: arm64: restore registers after reset\n"
 	"15 Perf: arm64: make debug dir handle exportable\n"
 	"16 Perf: arm64: add perf trace user\n"
 	"17 Perf: arm64: add support for kryo pmu\n"

@@ -858,16 +858,15 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 
 	case CPU_PM_ENTER_FAILED:
 	case CPU_PM_EXIT:
-		if (cpu_has_active_perf(cpu, cpu_pmu) && cpu_pmu->reset)
-			cpu_pmu->reset(NULL);
 		if (cpu_pmu->restore_pm_registers)
 			cpu_pmu->restore_pm_registers((void *)lcpu);
-		if (cpu_has_active_perf(cpu, cpu_pmu)) {
+		if (cpu_has_active_perf(cpu, cpu_pmu) && cpu_pmu->reset) {
 			/*
 			 * Flip this bit so armpmu_enable knows it needs
 			 * to re-enable active counters.
 			 */
 			get_cpu_var(from_idle) = 1;
+			cpu_pmu->reset(NULL);
 			pmu = &cpu_pmu->pmu;
 			pmu->pmu_enable(pmu);
 		}
