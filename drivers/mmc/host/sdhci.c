@@ -3226,7 +3226,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 
 	do {
 		if (host->mmc->card && mmc_card_cmdq(host->mmc->card) &&
-		    !mmc_host_halt(host->mmc)) {
+		!mmc_host_halt(host->mmc) && !mmc_host_cq_disable(host->mmc)) {
 			pr_debug("*** %s: cmdq intr: 0x%08x\n",
 					mmc_hostname(host->mmc),
 					intmask);
