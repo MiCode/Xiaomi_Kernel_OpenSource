@@ -340,6 +340,7 @@ enum icl_voters {
 	WEAK_CHARGER_ICL_VOTER,
 	SW_AICL_ICL_VOTER,
 	CHG_SUSPEND_WORKAROUND_ICL_VOTER,
+	SHUTDOWN_WORKAROUND_ICL_VOTER,
 	NUM_ICL_VOTER,
 };
 
@@ -8139,6 +8140,12 @@ static void smbchg_shutdown(struct spmi_device *spmi)
 
 	if (!is_hvdcp_present(chip))
 		return;
+
+	pr_smb(PR_MISC, "Reducing to 500mA\n");
+	rc = vote(chip->usb_icl_votable, SHUTDOWN_WORKAROUND_ICL_VOTER, true,
+			500);
+	if (rc < 0)
+		pr_err("Couldn't vote 500mA ICL\n");
 
 	pr_smb(PR_MISC, "Disable Parallel\n");
 	mutex_lock(&chip->parallel.lock);
