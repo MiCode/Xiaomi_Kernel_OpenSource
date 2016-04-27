@@ -17,5 +17,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM 9640 V2 MTP";
 	compatible = "qcom,mdm9640-mtp", "qcom,mdm9640", "qcom,mtp";
-	qcom,board-id = <8 0>;
+	qcom,board-id = <8 0>, <8 0x100>;
 };
