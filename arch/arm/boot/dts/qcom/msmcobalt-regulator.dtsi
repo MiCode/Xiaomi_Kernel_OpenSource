@@ -611,6 +611,9 @@
 		qcom,voltage-base = <352000>;
 		qcom,cpr-saw-use-unit-mV;
 
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
@@ -696,6 +699,9 @@
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <352000>;
 		qcom,cpr-saw-use-unit-mV;
+
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
