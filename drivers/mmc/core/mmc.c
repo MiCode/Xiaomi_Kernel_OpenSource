@@ -2603,12 +2603,12 @@ static int mmc_partial_init(struct mmc_host *host)
 	mmc_set_clock(host, host->cached_ios.clock);
 	mmc_set_bus_mode(host, host->cached_ios.bus_mode);
 
-	if (mmc_card_hs200(card) || mmc_card_hs400(card)) {
+	if (mmc_card_hs400(card)) {
 		if (card->ext_csd.strobe_support && host->ops->enhanced_strobe)
 			err = host->ops->enhanced_strobe(host);
-		else
-			err = host->ops->execute_tuning(host,
-				MMC_SEND_TUNING_BLOCK_HS200);
+	} else if (mmc_card_hs200(card) && host->ops->execute_tuning) {
+		err = host->ops->execute_tuning(host,
+			MMC_SEND_TUNING_BLOCK_HS200);
 		if (err)
 			pr_warn("%s: %s: tuning execution failed (%d)\n",
 				mmc_hostname(host), __func__, err);
