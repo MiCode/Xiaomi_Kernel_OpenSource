@@ -496,6 +496,9 @@ static void cleanup_irq(struct spmi_pmic_arb *pa, u8 apid, int id)
 	u8 per = ppid & 0xFF;
 	u8 irq_mask = BIT(id);
 
+	dev_err_ratelimited(&pa->spmic->dev,
+		"cleanup_irq apid=%d sid=0x%x per=0x%x irq=%d\n",
+		apid, sid, per, id);
 	writel_relaxed(irq_mask, pa->intr + pa->ver_ops->irq_clear(apid));
 
 	if (pmic_arb_write_cmd(pa->spmic, SPMI_CMD_EXT_WRITEL, sid,
