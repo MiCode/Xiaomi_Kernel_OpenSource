@@ -108,6 +108,7 @@ enum clk_osm_trace_packet_id {
 #define PLL_L_VAL		0x4
 #define PLL_USER_CTRL		0xC
 #define PLL_CONFIG_CTL_LO	0x10
+#define PLL_TEST_CTL_HI		0x1C
 #define PLL_STATUS		0x2C
 #define PLL_LOCK_DET_MASK	BIT(16)
 #define PLL_WAIT_LOCK_TIME_US 5
@@ -1507,6 +1508,16 @@ static void clk_osm_setup_osm_was(struct clk_osm *c)
 		val &= ~IGNORE_PLL_LOCK_MASK;
 		scm_io_write(c->pbases[OSM_BASE] + SEQ_REG(48), val);
 	}
+
+	if (c->cluster_num == 0) {
+		val = readl_relaxed(c->vbases[PLL_BASE] + PLL_TEST_CTL_HI)
+			| BIT(13);
+		writel_relaxed(val, c->vbases[PLL_BASE] +
+			       PLL_TEST_CTL_HI);
+	}
+
+	/* Ensure writes complete before returning */
+	mb();
 }
 
 static void clk_osm_setup_fsms(struct clk_osm *c)
