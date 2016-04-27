@@ -69,6 +69,16 @@ struct msm_vfe_stats_stream;
 
 #define VFE_SD_HW_MAX VFE_SD_COMMON
 
+/* Irq operations to perform on the irq mask register */
+enum msm_isp_irq_operation {
+	/* enable the irq bits in given parameters */
+	MSM_ISP_IRQ_ENABLE = 1,
+	/* disable the irq bits in the given parameters */
+	MSM_ISP_IRQ_DISABLE = 2,
+	/* set the irq bits to the given parameters */
+	MSM_ISP_IRQ_SET = 3,
+};
+
 /* This struct is used to save/track SOF info for some INTF.
  * e.g. used in Master-Slave mode */
 struct msm_vfe_sof_info {
@@ -142,7 +152,6 @@ struct msm_vfe_irq_ops {
 	void (*process_stats_irq)(struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		struct msm_isp_timestamp *ts);
-	void (*enable_camif_err)(struct vfe_device *vfe_dev, int enable);
 };
 
 struct msm_vfe_axi_ops {
@@ -221,7 +230,6 @@ struct msm_vfe_core_ops {
 	void (*get_overflow_mask)(uint32_t *overflow_mask);
 	void (*get_irq_mask)(struct vfe_device *vfe_dev,
 		uint32_t *irq0_mask, uint32_t *irq1_mask);
-	void (*restore_irq_mask)(struct vfe_device *vfe_dev);
 	void (*get_halt_restart_mask)(uint32_t *irq0_mask,
 		uint32_t *irq1_mask);
 	void (*get_rdi_wm_mask)(struct vfe_device *vfe_dev,
@@ -512,8 +520,6 @@ enum msm_vfe_overflow_state {
 
 struct msm_vfe_error_info {
 	atomic_t overflow_state;
-	uint32_t overflow_recover_irq_mask0;
-	uint32_t overflow_recover_irq_mask1;
 	uint32_t error_mask0;
 	uint32_t error_mask1;
 	uint32_t violation_status;
@@ -692,7 +698,6 @@ struct vfe_device {
 	int vfe_clk_idx;
 	uint32_t vfe_open_cnt;
 	uint8_t vt_enable;
-	uint8_t ignore_error;
 	uint32_t vfe_ub_policy;
 	uint8_t reset_pending;
 	uint8_t reg_update_requested;
@@ -713,6 +718,10 @@ struct vfe_device {
 	uint32_t isp_raw1_debug;
 	uint32_t isp_raw2_debug;
 	uint8_t is_camif_raw_crop_supported;
+
+	/* irq info */
+	uint32_t irq0_mask;
+	uint32_t irq1_mask;
 };
 
 struct vfe_parent_device {
