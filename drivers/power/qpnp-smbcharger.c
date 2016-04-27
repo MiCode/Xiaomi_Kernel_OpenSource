@@ -4083,11 +4083,11 @@ static void smbchg_chg_led_blink_set(struct smbchg_chip *chip,
 	} else {
 		power_supply_set_hi_power_state(chip->bms_psy, 1);
 		if (blinking == 1)
-			reg = LED_BLINKING_PATTERN1 << CHG_LED_SHIFT;
-		else if (blinking == 2)
 			reg = LED_BLINKING_PATTERN2 << CHG_LED_SHIFT;
-		else
+		else if (blinking == 2)
 			reg = LED_BLINKING_PATTERN1 << CHG_LED_SHIFT;
+		else
+			reg = LED_BLINKING_PATTERN2 << CHG_LED_SHIFT;
 	}
 
 	rc = smbchg_sec_masked_write(chip,
