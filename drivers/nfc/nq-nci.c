@@ -34,6 +34,7 @@ struct nqx_platform_data {
 	unsigned int en_gpio;
 	unsigned int clkreq_gpio;
 	unsigned int firm_gpio;
+	unsigned int ese_gpio;
 	const char *clk_src_name;
 };
 
@@ -57,6 +58,9 @@ struct nqx_dev {
 	unsigned int		en_gpio;
 	unsigned int		firm_gpio;
 	unsigned int		clkreq_gpio;
+	unsigned int		ese_gpio;
+	/* NFC VEN pin state powered by Nfc */
+	bool			nfc_ven_enabled;
 	/* NFC_IRQ state */
 	bool			irq_enabled;
 	spinlock_t		irq_enabled_lock;
@@ -270,6 +274,62 @@ out:
 	return ret;
 }
 
+/*
+	Power management of the eSE
+	NFC & eSE ON : NFC_EN high and eSE_pwr_req high.
+	NFC OFF & eSE ON : NFC_EN high and eSE_pwr_req high.
+	NFC OFF & eSE OFF : NFC_EN low and eSE_pwr_req low.
+*/
+static int nqx_ese_pwr(struct nqx_dev *nqx_dev, unsigned long int arg)
+{
+	int r = -1;
+
+	/* Let's store the NFC_EN pin state*/
+	if (arg == 0) {
+		/* We want to power on the eSE and to do so we need the
+		 * eSE_pwr_req pin and the NFC_EN pin to be high
+		 */
+		nqx_dev->nfc_ven_enabled = gpio_get_value(nqx_dev->en_gpio);
+		if (!nqx_dev->nfc_ven_enabled) {
+			gpio_set_value(nqx_dev->en_gpio, 1);
+			/* hardware dependent delay */
+			usleep_range(1000, 1100);
+		}
+		if (gpio_is_valid(nqx_dev->ese_gpio)) {
+			if (gpio_get_value(nqx_dev->ese_gpio)) {
+				dev_dbg(&nqx_dev->client->dev, "ese_gpio is already high\n");
+				r = 0;
+			} else {
+				gpio_set_value(nqx_dev->ese_gpio, 1);
+				if (gpio_get_value(nqx_dev->ese_gpio)) {
+					dev_dbg(&nqx_dev->client->dev, "ese_gpio is enabled\n");
+					r = 0;
+				}
+			}
+		}
+	} else if (arg == 1) {
+		if (gpio_is_valid(nqx_dev->ese_gpio)) {
+			gpio_set_value(nqx_dev->ese_gpio, 0);
+			if (!gpio_get_value(nqx_dev->ese_gpio)) {
+				dev_dbg(&nqx_dev->client->dev, "ese_gpio is disabled\n");
+				r = 0;
+			}
+		}
+		if (!nqx_dev->nfc_ven_enabled) {
+			/* hardware dependent delay */
+			usleep_range(1000, 1100);
+			dev_dbg(&nqx_dev->client->dev, "disabling en_gpio\n");
+			gpio_set_value(nqx_dev->en_gpio, 0);
+		}
+	} else if (arg == 3) {
+		if (!nqx_dev->nfc_ven_enabled)
+			r = 0;
+		else
+			r = gpio_get_value(nqx_dev->ese_gpio);
+	}
+	return r;
+}
+
 static int nfc_open(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
@@ -313,10 +373,16 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			__func__, nqx_dev);
 		if (gpio_is_valid(nqx_dev->firm_gpio))
 			gpio_set_value(nqx_dev->firm_gpio, 0);
-		gpio_set_value(nqx_dev->en_gpio, 0);
+		if (!gpio_get_value(nqx_dev->ese_gpio)) {
+			dev_dbg(&nqx_dev->client->dev, "disabling en_gpio\n");
+			gpio_set_value(nqx_dev->en_gpio, 0);
+		} else {
+			dev_dbg(&nqx_dev->client->dev, "keeping en_gpio high\n");
+		}
 		r = nqx_clock_deselect(nqx_dev);
 		if (r < 0)
 			dev_err(&nqx_dev->client->dev, "unable to disable clock\n");
+		nqx_dev->nfc_ven_enabled = false;
 		/* hardware dependent delay */
 		msleep(100);
 	} else if (arg == 1) {
@@ -330,12 +396,16 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		r = nqx_clock_select(nqx_dev);
 		if (r < 0)
 			dev_err(&nqx_dev->client->dev, "unable to enable clock\n");
-
+		nqx_dev->nfc_ven_enabled = true;
 		msleep(20);
 	} else if (arg == 2) {
 		/* We are switching to Dowload Mode, toggle the enable pin
 		 * in order to set the NFCC in the new mode
 		 */
+		if (gpio_get_value(nqx_dev->ese_gpio)) {
+			dev_err(&nqx_dev->client->dev, "FW download forbidden while ese is on\n");
+			return -EBUSY; /* Device or resource busy */
+		}
 		gpio_set_value(nqx_dev->en_gpio, 1);
 		msleep(20);
 		if (gpio_is_valid(nqx_dev->firm_gpio))
@@ -348,6 +418,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 	} else {
 		r = -ENOIOCTLCMD;
 	}
+
 	return r;
 }
 
@@ -361,6 +432,12 @@ static long nfc_compat_ioctl(struct file *pfile, unsigned int cmd,
 	switch (cmd) {
 	case NFC_SET_PWR:
 		nfc_ioctl_power_states(pfile, arg);
+		break;
+	case ESE_SET_PWR:
+		nqx_ese_pwr(pfile->private_data, arg);
+		break;
+	case ESE_GET_PWR:
+		nqx_ese_pwr(pfile->private_data, 3);
 		break;
 	case SET_RX_BLOCK:
 		break;
@@ -398,7 +475,11 @@ static long nfc_ioctl(struct file *pfile, unsigned int cmd,
 	case NFC_SET_PWR:
 		r = nfc_ioctl_power_states(pfile, arg);
 		break;
-	case NFC_CLK_REQ:
+	case ESE_SET_PWR:
+		r = nqx_ese_pwr(pfile->private_data, arg);
+		break;
+	case ESE_GET_PWR:
+		r = nqx_ese_pwr(pfile->private_data, 3);
 		break;
 	case SET_RX_BLOCK:
 		break;
@@ -541,6 +622,13 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 		dev_warn(dev,
 			"FIRM GPIO <OPTIONAL> error getting from OF node\n");
 		pdata->firm_gpio = -EINVAL;
+	}
+
+	pdata->ese_gpio = of_get_named_gpio(np, "qcom,nq-esepwr", 0);
+	if (!gpio_is_valid(pdata->ese_gpio)) {
+		dev_warn(dev,
+			"ese GPIO <OPTIONAL> error getting from OF node\n");
+		pdata->ese_gpio = -EINVAL;
 	}
 
 	r = of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name);
@@ -688,6 +776,29 @@ static int nqx_probe(struct i2c_client *client,
 			"%s: firm gpio not provided\n", __func__);
 		goto err_irq_gpio;
 	}
+	if (gpio_is_valid(platform_data->ese_gpio)) {
+		r = gpio_request(platform_data->ese_gpio,
+				"nfc-ese_pwr");
+		if (r) {
+			dev_err(&client->dev,
+				"%s: unable to request nfc ese gpio [%d]\n",
+					__func__, platform_data->ese_gpio);
+			/* ese gpio optional so we should continue */
+		} else {
+			nqx_dev->ese_gpio = platform_data->ese_gpio;
+		}
+		r = gpio_direction_output(platform_data->ese_gpio, 0);
+		if (r) {
+			dev_err(&client->dev,
+			"%s: cannot set direction for nfc ese gpio [%d]\n",
+			__func__, platform_data->ese_gpio);
+			/* ese gpio optional so we should continue */
+		}
+	} else {
+		dev_err(&client->dev,
+			"%s: ese gpio not provided\n", __func__);
+		/* ese gpio optional so we should continue */
+	}
 	if (gpio_is_valid(platform_data->clkreq_gpio)) {
 		r = gpio_request(platform_data->clkreq_gpio,
 			"nfc_clkreq_gpio");
@@ -695,7 +806,7 @@ static int nqx_probe(struct i2c_client *client,
 			dev_err(&client->dev,
 				"%s: unable to request nfc clkreq gpio [%d]\n",
 				__func__, platform_data->clkreq_gpio);
-			goto err_firm_gpio;
+			goto err_ese_gpio;
 		}
 		r = gpio_direction_input(platform_data->clkreq_gpio);
 		if (r) {
@@ -707,7 +818,7 @@ static int nqx_probe(struct i2c_client *client,
 	} else {
 		dev_err(&client->dev,
 			"%s: clkreq gpio not provided\n", __func__);
-		goto err_firm_gpio;
+		goto err_ese_gpio;
 	}
 
 	nqx_dev->en_gpio = platform_data->en_gpio;
@@ -796,6 +907,10 @@ err_misc_register:
 	mutex_destroy(&nqx_dev->read_mutex);
 err_clkreq_gpio:
 	gpio_free(platform_data->clkreq_gpio);
+err_ese_gpio:
+	/* optional gpio, not sure was configured in probe */
+	if (nqx_dev->ese_gpio)
+		gpio_free(platform_data->ese_gpio);
 err_firm_gpio:
 	gpio_free(platform_data->firm_gpio);
 err_irq_gpio:
@@ -834,6 +949,9 @@ static int nqx_remove(struct i2c_client *client)
 	misc_deregister(&nqx_dev->nqx_device);
 	mutex_destroy(&nqx_dev->read_mutex);
 	gpio_free(nqx_dev->clkreq_gpio);
+	/* optional gpio, not sure was configured in probe */
+	if (nqx_dev->ese_gpio)
+		gpio_free(nqx_dev->ese_gpio);
 	gpio_free(nqx_dev->firm_gpio);
 	gpio_free(nqx_dev->irq_gpio);
 	gpio_free(nqx_dev->en_gpio);
