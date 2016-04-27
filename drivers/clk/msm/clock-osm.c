@@ -80,6 +80,7 @@ enum clk_osm_trace_packet_id {
 #define OSM_TABLE_SIZE 40
 #define MAX_CLUSTER_CNT 2
 #define MAX_CONFIG 4
+#define LLM_SW_OVERRIDE_CNT 3
 
 #define ENABLE_REG 0x1004
 #define INDEX_REG 0x1150
@@ -142,6 +143,7 @@ enum clk_osm_trace_packet_id {
 #define PLL_POST_DIV1 0x1F
 #define PLL_POST_DIV2 0x11F
 
+#define LLM_SW_OVERRIDE_REG 0x1038
 #define VMIN_REDUC_ENABLE_REG 0x103C
 #define VMIN_REDUC_TIMER_REG 0x1040
 #define PDN_FSM_CTRL_REG 0x1070
@@ -300,6 +302,7 @@ struct clk_osm {
 	u32 apcs_pll_user_ctl;
 	u32 apcs_mem_acc_cfg[MAX_MEM_ACC_VAL_PER_LEVEL];
 	u32 apcs_mem_acc_val[MAX_MEM_ACC_VALUES];
+	u32 llm_sw_overr[LLM_SW_OVERRIDE_CNT];
 	u32 apm_mode_ctl;
 	u32 apm_ctrl_status;
 	u32 osm_clk_rate;
@@ -413,8 +416,22 @@ static int clk_osm_set_rate(struct clk *c, unsigned long rate)
 	}
 	pr_debug("rate: %lu --> index %d\n", rate, index);
 
+	if (cpuclk->llm_sw_overr) {
+		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[0],
+				  LLM_SW_OVERRIDE_REG);
+		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[1],
+				  LLM_SW_OVERRIDE_REG);
+		udelay(1);
+	}
+
 	/* Choose index and send request to OSM hardware */
 	clk_osm_write_reg(cpuclk, index, DCVS_PERF_STATE_DESIRED_REG);
+
+	if (cpuclk->llm_sw_overr) {
+		udelay(1);
+		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[2],
+				  LLM_SW_OVERRIDE_REG);
+	}
 
 	/* Make sure the write goes through before proceeding */
 	mb();
@@ -603,7 +620,7 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 {
 	struct device_node *of = pdev->dev.of_node;
 	u32 *array;
-	int rc = 0;
+	int i, rc = 0;
 
 	array = devm_kzalloc(&pdev->dev, MAX_CLUSTER_CNT * sizeof(u32),
 			     GFP_KERNEL);
@@ -686,6 +703,18 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 
 	pwrcl_clk.apm_ctrl_status = array[pwrcl_clk.cluster_num];
 	perfcl_clk.apm_ctrl_status = array[perfcl_clk.cluster_num];
+
+	for (i = 0; i < LLM_SW_OVERRIDE_CNT; i++)
+		of_property_read_u32_index(of, "qcom,llm-sw-overr",
+					   pwrcl_clk.cluster_num *
+					   LLM_SW_OVERRIDE_CNT + i,
+					   &pwrcl_clk.llm_sw_overr[i]);
+
+	for (i = 0; i < LLM_SW_OVERRIDE_CNT; i++)
+		of_property_read_u32_index(of, "qcom,llm-sw-overr",
+					   perfcl_clk.cluster_num *
+					   LLM_SW_OVERRIDE_CNT + i,
+					   &perfcl_clk.llm_sw_overr[i]);
 
 	rc = of_property_read_u32(of, "qcom,xo-clk-rate",
 				  &pwrcl_clk.xo_clk_rate);

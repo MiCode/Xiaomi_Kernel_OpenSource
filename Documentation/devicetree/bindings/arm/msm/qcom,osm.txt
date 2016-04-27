@@ -196,6 +196,13 @@ Properties:
 		    controller status register for each of the two clusters
 		    managed by the OSM controller.
 
+- qcom,llm-sw-overr
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of tuples which defines the three non-zero LLM SW
+		    override values to write to the OSM controller for each
+		    of the two clusters. Each tuple must contain three elements.
+
 - qcom,pwrcl-apcs-mem-acc-cfg
 	Usage:      required if qcom,osm-no-tz is specified
 	Value type: <prop-encoded-array>
