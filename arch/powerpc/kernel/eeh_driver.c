@@ -524,9 +524,6 @@ int eeh_pe_reset_and_recover(struct eeh_pe *pe)
 	/* Save states */
 	eeh_pe_dev_traverse(pe, eeh_dev_save_state, NULL);
 
-	/* Report error */
-	eeh_pe_dev_traverse(pe, eeh_report_error, &result);
-
 	/* Issue reset */
 	eeh_pe_state_mark(pe, EEH_PE_CFG_BLOCKED);
 	ret = eeh_reset_pe(pe);
