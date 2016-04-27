@@ -708,7 +708,7 @@ static int ufs_qcom_crypto_req_setup(struct ufs_hba *hba,
 }
 
 static
-int ufs_qcom_crytpo_engine_cfg(struct ufs_hba *hba, unsigned int task_tag)
+int ufs_qcom_crytpo_engine_cfg_start(struct ufs_hba *hba, unsigned int task_tag)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
@@ -718,7 +718,22 @@ int ufs_qcom_crytpo_engine_cfg(struct ufs_hba *hba, unsigned int task_tag)
 	    !lrbp->cmd || lrbp->command_type != UTP_CMD_TYPE_SCSI)
 		goto out;
 
-	err = ufs_qcom_ice_cfg(host, lrbp->cmd);
+	err = ufs_qcom_ice_cfg_start(host, lrbp->cmd);
+out:
+	return err;
+}
+
+static
+int ufs_qcom_crytpo_engine_cfg_end(struct ufs_hba *hba,
+		struct ufshcd_lrb *lrbp, struct request *req)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int err = 0;
+
+	if (!host->ice.pdev || lrbp->command_type != UTP_CMD_TYPE_SCSI)
+		goto out;
+
+	err = ufs_qcom_ice_cfg_end(host, req);
 out:
 	return err;
 }
@@ -748,7 +763,8 @@ static int ufs_qcom_crypto_engine_get_status(struct ufs_hba *hba, u32 *status)
 }
 #else /* !CONFIG_SCSI_UFS_QCOM_ICE */
 #define ufs_qcom_crypto_req_setup		NULL
-#define ufs_qcom_crytpo_engine_cfg		NULL
+#define ufs_qcom_crytpo_engine_cfg_start	NULL
+#define ufs_qcom_crytpo_engine_cfg_end		NULL
 #define ufs_qcom_crytpo_engine_reset		NULL
 #define ufs_qcom_crypto_engine_get_status	NULL
 #endif /* CONFIG_SCSI_UFS_QCOM_ICE */
@@ -2345,7 +2361,8 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 
 static struct ufs_hba_crypto_variant_ops ufs_hba_crypto_variant_ops = {
 	.crypto_req_setup	= ufs_qcom_crypto_req_setup,
-	.crypto_engine_cfg	  = ufs_qcom_crytpo_engine_cfg,
+	.crypto_engine_cfg_start	= ufs_qcom_crytpo_engine_cfg_start,
+	.crypto_engine_cfg_end	= ufs_qcom_crytpo_engine_cfg_end,
 	.crypto_engine_reset	  = ufs_qcom_crytpo_engine_reset,
 	.crypto_engine_get_status = ufs_qcom_crypto_engine_get_status,
 };

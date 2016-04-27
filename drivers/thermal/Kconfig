@@ -431,6 +431,17 @@ config THERMAL_QPNP_ADC_TM
 	  the sensor. Also able to set threshold temperature for both hot and cold
 	  and update when a threshold is reached.
 
+config QCOM_THERMAL_LIMITS_DCVS
+	bool "QTI LMH DCVS Driver"
+	depends on THERMAL && ARCH_QCOM
+	depends on OF
+	help
+	  This enables the driver for Limits Management Hardware - DCVS block
+	  for the application processors. The h/w block that is available for
+	  each cluster can be used to peform quick thermal mitigations by
+	  tracking temperatures of the CPUs and taking thermal action in the
+	  hardware without s/w intervention.
+
 menu "Texas Instruments thermal drivers"
 depends on ARCH_HAS_BANDGAP || COMPILE_TEST
 source "drivers/thermal/ti-soc-thermal/Kconfig"

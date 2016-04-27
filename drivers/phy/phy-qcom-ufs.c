@@ -18,7 +18,7 @@
 #define VDDA_PHY_MIN_UV            1000000
 #define VDDA_PHY_MAX_UV            1000000
 #define VDDA_PLL_MIN_UV            1200000
-#define VDDA_PLL_MAX_UV            1200000
+#define VDDA_PLL_MAX_UV            1800000
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
 
@@ -220,7 +220,15 @@ ufs_qcom_phy_init_clks(struct phy *generic_phy,
 
 	err = ufs_qcom_phy_clk_get(generic_phy, "ref_clk",
 				   &phy_common->ref_clk);
+	if (err)
+		goto out;
 
+	/*
+	 * "ref_aux_clk" is optional and only supported by certain
+	 * phy versions, don't abort init if it's not found.
+	 */
+	 __ufs_qcom_phy_clk_get(generic_phy, "ref_aux_clk",
+				   &phy_common->ref_aux_clk, false);
 out:
 	return err;
 }
@@ -434,9 +442,26 @@ int ufs_qcom_phy_enable_ref_clk(struct phy *generic_phy)
 		goto out_disable_parent;
 	}
 
+	/*
+	 * "ref_aux_clk" is optional clock and only supported by certain
+	 * phy versions, hence make sure that clk reference is available
+	 * before trying to enable the clock.
+	 */
+	if (phy->ref_aux_clk) {
+		ret = clk_prepare_enable(phy->ref_aux_clk);
+		if (ret) {
+			dev_err(phy->dev, "%s: ref_aux_clk enable failed %d\n",
+					__func__, ret);
+			goto out_disable_ref;
+		}
+	}
+
 	phy->is_ref_clk_enabled = true;
 	goto out;
 
+out_disable_ref:
+	if (phy->ref_clk)
+		clk_disable_unprepare(phy->ref_clk);
 out_disable_parent:
 	if (phy->ref_clk_parent)
 		clk_disable_unprepare(phy->ref_clk_parent);
@@ -477,6 +502,13 @@ void ufs_qcom_phy_disable_ref_clk(struct phy *generic_phy)
 	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
 
 	if (phy->is_ref_clk_enabled) {
+		/*
+		 * "ref_aux_clk" is optional clock and only supported by
+		 * certain phy versions, hence make sure that clk reference
+		 * is available before trying to disable the clock.
+		 */
+		if (phy->ref_aux_clk)
+			clk_disable_unprepare(phy->ref_aux_clk);
 		clk_disable_unprepare(phy->ref_clk);
 		/*
 		 * "ref_clk_parent" is optional clock hence make sure that clk

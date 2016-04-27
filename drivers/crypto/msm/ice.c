@@ -97,19 +97,16 @@ struct ice_device {
 static int qti_ice_setting_config(struct request *req,
 		struct platform_device *pdev,
 		struct ice_crypto_setting *crypto_data,
-		struct ice_data_setting *setting,
-		bool *configured)
+		struct ice_data_setting *setting)
 {
 	struct ice_device *ice_dev = NULL;
 
-	*configured = false;
 	ice_dev = platform_get_drvdata(pdev);
 
 	if (!ice_dev) {
 		pr_debug("%s no ICE device\n", __func__);
 
 		/* make the caller finish peacfully */
-		*configured = true;
 		return 0;
 	}
 
@@ -119,8 +116,6 @@ static int qti_ice_setting_config(struct request *req,
 	}
 
 	if ((short)(crypto_data->key_index) >= 0) {
-
-		*configured = true;
 
 		memcpy(&setting->crypto_data, crypto_data,
 				sizeof(setting->crypto_data));
@@ -140,6 +135,8 @@ static int qti_ice_setting_config(struct request *req,
 }
 
 static int qcom_ice_enable_clocks(struct ice_device *, bool);
+
+#ifdef CONFIG_MSM_BUS_SCALING
 
 static int qcom_ice_set_bus_vote(struct ice_device *ice_dev, int vote)
 {
@@ -223,6 +220,25 @@ static int qcom_ice_bus_register(struct ice_device *ice_dev)
 out:
 	return err;
 }
+
+#else
+
+static int qcom_ice_set_bus_vote(struct ice_device *ice_dev, int vote)
+{
+	return 0;
+}
+
+static int qcom_ice_get_bus_vote(struct ice_device *ice_dev,
+		const char *speed_mode)
+{
+	return 0;
+}
+
+static int qcom_ice_bus_register(struct ice_device *ice_dev)
+{
+	return 0;
+}
+#endif /* CONFIG_MSM_BUS_SCALING */
 
 static int qcom_ice_get_vreg(struct ice_device *ice_dev)
 {
@@ -336,27 +352,42 @@ static void qcom_ice_optimization_enable(struct ice_device *ice_dev)
 	}
 }
 
-static void qcom_ice_enable(struct ice_device *ice_dev)
+static int qcom_ice_wait_bist_status(struct ice_device *ice_dev)
+{
+	int count;
+	u32 reg;
+
+	/* Poll until all BIST bits are reset */
+	for (count = 0; count < QCOM_ICE_MAX_BIST_CHECK_COUNT; count++) {
+		reg = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BIST_STATUS);
+		if (!(reg & ICE_BIST_STATUS_MASK))
+			break;
+		udelay(50);
+	}
+
+	if (reg)
+		return -ETIMEDOUT;
+
+	return 0;
+}
+
+static int qcom_ice_enable(struct ice_device *ice_dev)
 {
 	unsigned int reg;
-	int count;
+	int ret = 0;
 
 	if ((ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) ||
 		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
-		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
-		for (count = 0; count < QCOM_ICE_MAX_BIST_CHECK_COUNT;
-						count++) {
-			reg = qcom_ice_readl(ice_dev,
-						QCOM_ICE_REGS_BIST_STATUS);
-			if ((reg & 0xF0000000) != 0x0)
-				udelay(50);
-		}
-		if ((reg & 0xF0000000) != 0x0) {
-			pr_err("%s: BIST validation failed for ice = %p",
-					__func__, (void *)ice_dev);
-			BUG();
-		}
+		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1)))
+		ret = qcom_ice_wait_bist_status(ice_dev);
+	if (ret) {
+		dev_err(ice_dev->pdev, "BIST status error (%d)\n", ret);
+		return ret;
 	}
+
+	/* Starting ICE v3 enabling is done at storage controller (UFS/SDCC) */
+	if (ICE_REV(ice_dev->ice_hw_version, MAJOR) >= 3)
+		return 0;
 
 	/*
 	 * To enable ICE, perform following
@@ -402,6 +433,7 @@ static void qcom_ice_enable(struct ice_device *ice_dev)
 			BUG();
 		}
 	}
+	return 0;
 }
 
 static int qcom_ice_verify_ice(struct ice_device *ice_dev)
@@ -557,7 +589,8 @@ static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 		struct ice_device *ice_dev)
 {
 	struct device *dev = &pdev->dev;
-	int irq, rc = -1;
+	int rc = -1;
+	int irq;
 
 	ice_dev->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!ice_dev->res) {
@@ -585,23 +618,31 @@ static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 
 	if (ice_dev->is_ice_clk_available) {
 		rc = qcom_ice_parse_clock_info(pdev, ice_dev);
-		if (rc)
-			goto err_dev;
-
-		irq = platform_get_irq(pdev, 0);
-		if (irq < 0) {
-			dev_err(dev, "IRQ resource not available\n");
-			rc = -ENODEV;
+		if (rc) {
+			pr_err("%s: qcom_ice_parse_clock_info failed (%d)\n",
+				__func__, rc);
 			goto err_dev;
 		}
-		rc = devm_request_irq(dev, irq, qcom_ice_isr, 0,
-				dev_name(dev), ice_dev);
-		if (rc)
+	}
+
+	/* ICE interrupts is only relevant for v2.x */
+	irq = platform_get_irq(pdev, 0);
+	if (irq >= 0) {
+		rc = devm_request_irq(dev, irq, qcom_ice_isr, 0, dev_name(dev),
+				ice_dev);
+		if (rc) {
+			pr_err("%s: devm_request_irq irq=%d failed (%d)\n",
+				__func__, irq, rc);
 			goto err_dev;
+		}
 		ice_dev->irq = irq;
 		pr_info("ICE IRQ = %d\n", ice_dev->irq);
-		qcom_ice_parse_ice_instance_type(pdev, ice_dev);
+	} else {
+		dev_dbg(dev, "IRQ resource not available\n");
 	}
+
+	qcom_ice_parse_ice_instance_type(pdev, ice_dev);
+
 	return 0;
 err_dev:
 	if (rc && ice_dev->mmio)
@@ -958,7 +999,7 @@ static int qcom_ice_finish_init(struct ice_device *ice_dev)
 	/*
 	 * It is possible that ICE device is not probed when host is probed
 	 * This would cause host probe to be deferred. When probe for host is
-	 * defered, it can cause power collapse for host and that can wipe
+	 * deferred, it can cause power collapse for host and that can wipe
 	 * configurations of host & ice. It is prudent to restore the config
 	 */
 	err = qcom_ice_update_sec_cfg(ice_dev);
@@ -1322,14 +1363,15 @@ static int qcom_ice_reset(struct  platform_device *pdev)
 	return qcom_ice_finish_power_collapse(ice_dev);
 }
 
-static int qcom_ice_config(struct platform_device *pdev, struct request *req,
-		struct ice_data_setting *setting)
+static int qcom_ice_config_start(struct platform_device *pdev,
+		struct request *req,
+		struct ice_data_setting *setting, bool async)
 {
 	struct ice_crypto_setting *crypto_data;
 	struct ice_crypto_setting pfk_crypto_data = {0};
 	union map_info *info;
 	int ret = 0;
-	bool configured = 0;
+	bool is_pfe = false;
 
 	if (!pdev || !req || !setting) {
 		pr_err("%s: Invalid params passed\n", __func__);
@@ -1351,25 +1393,17 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 		return 0;
 	}
 
-	ret = pfk_load_key(req->bio, &pfk_crypto_data);
-	if (0 == ret) {
-		ret = qti_ice_setting_config(req, pdev, &pfk_crypto_data,
-			setting, &configured);
-
-		if (0 == ret) {
-			/**
-			 * if configuration was complete, we are done, no need
-			 * to go further with FDE
-			 */
-			if (configured)
-				return 0;
-		} else {
-			/**
-			 * there was an error with configuring the setting,
-			 * exit with error
-			 */
+	ret = pfk_load_key_start(req->bio, &pfk_crypto_data, &is_pfe, async);
+	if (is_pfe) {
+		if (ret) {
+			if (ret != -EBUSY && ret != -EAGAIN)
+				pr_err("%s error %d while configuring ice key for PFE\n",
+						__func__, ret);
 			return ret;
 		}
+
+		return qti_ice_setting_config(req, pdev,
+				&pfk_crypto_data, setting);
 	}
 
 	/*
@@ -1392,8 +1426,8 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 			return -EINVAL;
 		}
 
-		return qti_ice_setting_config(req, pdev, crypto_data,
-			setting, &configured);
+		return qti_ice_setting_config(req, pdev,
+				crypto_data, setting);
 	}
 
 	/*
@@ -1403,6 +1437,36 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 	 */
 	return 0;
 }
+EXPORT_SYMBOL(qcom_ice_config_start);
+
+static int qcom_ice_config_end(struct request *req)
+{
+	int ret = 0;
+	bool is_pfe = false;
+
+	if (!req) {
+		pr_err("%s: Invalid params passed\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!req->bio) {
+		/* It is not an error to have a request with no  bio */
+		return 0;
+	}
+
+	ret = pfk_load_key_end(req->bio, &is_pfe);
+	if (is_pfe) {
+		if (ret != 0)
+			pr_err("%s error %d while end configuring ice key for PFE\n",
+								__func__, ret);
+		return ret;
+	}
+
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_ice_config_end);
+
 
 static int qcom_ice_status(struct platform_device *pdev)
 {
@@ -1435,7 +1499,8 @@ struct qcom_ice_variant_ops qcom_ice_ops = {
 	.reset            = qcom_ice_reset,
 	.resume           = qcom_ice_resume,
 	.suspend          = qcom_ice_suspend,
-	.config           = qcom_ice_config,
+	.config_start     = qcom_ice_config_start,
+	.config_end       = qcom_ice_config_end,
 	.status           = qcom_ice_status,
 	.debug            = qcom_ice_debug,
 };
