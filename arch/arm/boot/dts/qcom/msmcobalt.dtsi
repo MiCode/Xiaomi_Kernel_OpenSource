@@ -752,6 +752,10 @@
 			<0x179d0004 0x179d0010>;
 		qcom,apm-ctrl-status =
 			<0x179d000c 0x179d0018>;
+		qcom,llm-sw-overr=
+			<0x8fff0036 0x8fff003a 0x0fff0036>,
+			<0x8fff003d 0x8fff0041 0x0fff003d>;
+
 		qcom,red-fsm-en;
 		qcom,boost-fsm-en;
 		qcom,safe-fsm-en;
