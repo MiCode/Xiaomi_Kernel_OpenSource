@@ -361,7 +361,7 @@
 			&pcie0_wake_default>;
 
 		perst-gpio = <&tlmm_pinmux 60 0>;
-		wake-gpio = <&tlmm_pinmux 65 0>;
+		wake-gpio = <&tlmm_pinmux 61 0>;
 
 		gdsc-vdd-supply = <&gdsc_pcie>;
 		vreg-1.8-supply = <&pmdcalifornium_l5>;
@@ -830,7 +830,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		cell-index = <0>;
-		qcom,not-wakeup; /* Needed until Full-boot-chain enabled */
 	};
 
 	tsens0: tsens@4a9000 {

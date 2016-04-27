@@ -497,7 +497,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 			}
 		} else {
 			tx_pkt->mem.base = desc[i].frag;
-			tx_pkt->mem.size = skb_frag_size(desc[i].frag);
+			tx_pkt->mem.size = desc[i].len;
 
 			if (!desc[i].dma_address_valid) {
 				tx_pkt->mem.phys_base =
@@ -1634,6 +1634,7 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		for (f = 0; f < num_frags; f++) {
 			desc[2+f].frag = &skb_shinfo(skb)->frags[f];
 			desc[2+f].type = IPA_DATA_DESC_SKB_PAGED;
+			desc[2+f].len = skb_frag_size(desc[2+f].frag);
 		}
 
 		/* don't free skb till frag mappings are released */
@@ -1673,6 +1674,7 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			for (f = 0; f < num_frags; f++) {
 				desc[1+f].frag = &skb_shinfo(skb)->frags[f];
 				desc[1+f].type = IPA_DATA_DESC_SKB_PAGED;
+				desc[1+f].len = skb_frag_size(desc[1+f].frag);
 			}
 
 			/* don't free skb till frag mappings are released */

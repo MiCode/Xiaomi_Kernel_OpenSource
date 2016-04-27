@@ -13,44 +13,37 @@
 #ifndef _IPAHAL_I_H_
 #define _IPAHAL_I_H_
 
-#define IPAHAL_DRV_NAME "ipahal"
+#include <linux/ipa.h>
+#include "../../ipa_common_i.h"
 
-#define IPAHAL_IPC_LOG_PAGES 10
-#define IPAHAL_IPC_LOG(buf, fmt, args...) \
-	ipc_log_string((buf), \
-		IPAHAL_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+#define IPAHAL_DRV_NAME "ipahal"
 
 #define IPAHAL_DBG(fmt, args...) \
 	do { \
-		pr_debug(IPAHAL_DRV_NAME " %s:%d " fmt, \
-			__func__, __LINE__, ## args); \
-		if (likely(ipahal_ctx)) { \
-			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf, fmt, ## args); \
-			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf_low, \
-				fmt, ## args); \
-		} \
+		pr_debug(IPAHAL_DRV_NAME " %s:%d " fmt, __func__, __LINE__, \
+			## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPAHAL_DBG_LOW(fmt, args...) \
 	do { \
-		pr_debug(IPAHAL_DRV_NAME " %s:%d " fmt, \
-			__func__, __LINE__, ## args); \
-		if (likely(ipahal_ctx) && \
-			ipahal_ctx->enable_low_prio_ipc) { \
-			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf_low, \
-				fmt, ## args); \
-		} \
+		pr_debug(IPAHAL_DRV_NAME " %s:%d " fmt, __func__, __LINE__, \
+			## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPAHAL_ERR(fmt, args...) \
 	do { \
-		pr_err(IPAHAL_DRV_NAME " %s:%d " fmt, \
-			__func__, __LINE__, ## args); \
-		if (likely(ipahal_ctx)) { \
-			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf, fmt, ## args); \
-			IPAHAL_IPC_LOG(ipahal_ctx->ipc_logbuf_low, \
-				fmt, ## args); \
-		} \
+		pr_err(IPAHAL_DRV_NAME " %s:%d " fmt, __func__, __LINE__, \
+			## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPAHAL_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 /*
@@ -58,21 +51,13 @@
  * @hw_type: IPA H/W type/version.
  * @base: Base address to be used for accessing IPA memory. This is
  *  I/O memory mapped address.
- * @ipc_logbuf: IPC debug logs buffer
- * @ipc_logbuf_low: IPC Low priority debug logs buffer
- * @enable_low_prio_ipc: Flag telling to enable low priority logging
  *  Controlled by debugfs. default is off
  * @dent: Debugfs folder dir entry
- * @dfile_enable_low_prio_ipc: Debugfs file for enable_low_prio_ipc
  */
 struct ipahal_context {
 	enum ipa_hw_type hw_type;
 	void __iomem *base;
-	void *ipc_logbuf;
-	void *ipc_logbuf_low;
-	u32 enable_low_prio_ipc;
 	struct dentry *dent;
-	struct dentry *dfile_enable_low_prio_ipc;
 };
 
 extern struct ipahal_context *ipahal_ctx;
@@ -485,5 +470,76 @@ struct ipa_pkt_status_hw {
 
 /* Size of H/W Packet Status */
 #define IPA3_0_PKT_STATUS_SIZE 32
+
+/* Headers and processing context H/W structures and definitions */
+
+/* uCP command numbers */
+#define IPA_HDR_UCP_802_3_TO_802_3 6
+#define IPA_HDR_UCP_802_3_TO_ETHII 7
+#define IPA_HDR_UCP_ETHII_TO_802_3 8
+#define IPA_HDR_UCP_ETHII_TO_ETHII 9
+
+/* Processing context TLV type */
+#define IPA_PROC_CTX_TLV_TYPE_END 0
+#define IPA_PROC_CTX_TLV_TYPE_HDR_ADD 1
+#define IPA_PROC_CTX_TLV_TYPE_PROC_CMD 3
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_tlv -
+ * HW structure of IPA processing context header - TLV part
+ * @type: 0 - end type
+ *        1 - header addition type
+ *        3 - processing command type
+ * @length: number of bytes after tlv
+ *        for type:
+ *        0 - needs to be 0
+ *        1 - header addition length
+ *        3 - number of 32B including type and length.
+ * @value: specific value for type
+ *        for type:
+ *        0 - needs to be 0
+ *        1 - header length
+ *        3 - command ID (see IPA_HDR_UCP_* definitions)
+ */
+struct ipa_hw_hdr_proc_ctx_tlv {
+	u32 type:8;
+	u32 length:8;
+	u32 value:16;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_hdr_add -
+ * HW structure of IPA processing context - add header tlv
+ * @tlv: IPA processing context TLV
+ * @hdr_addr: processing context header address
+ */
+struct ipa_hw_hdr_proc_ctx_hdr_add {
+	struct ipa_hw_hdr_proc_ctx_tlv tlv;
+	u32 hdr_addr;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_add_hdr_seq -
+ * IPA processing context header - add header sequence
+ * @hdr_add: add header command
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hw_hdr_proc_ctx_add_hdr_seq {
+	struct ipa_hw_hdr_proc_ctx_hdr_add hdr_add;
+	struct ipa_hw_hdr_proc_ctx_tlv end;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq -
+ * IPA processing context header - process command sequence
+ * @hdr_add: add header command
+ * @cmd: tlv processing command (cmd.type must be 3)
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq {
+	struct ipa_hw_hdr_proc_ctx_hdr_add hdr_add;
+	struct ipa_hw_hdr_proc_ctx_tlv cmd;
+	struct ipa_hw_hdr_proc_ctx_tlv end;
+};
 
 #endif /* _IPAHAL_I_H_ */

@@ -88,8 +88,9 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			!dual_vfe_res->stats_data[ISP_VFE0] ||
 			!dual_vfe_res->vfe_base[ISP_VFE1] ||
 			!dual_vfe_res->stats_data[ISP_VFE1]) {
-			pr_err("%s:%d error vfe0 %p %p vfe1 %p %p\n", __func__,
-				__LINE__, dual_vfe_res->vfe_base[ISP_VFE0],
+			pr_err("%s:%d error vfe0 %pK %pK vfe1 %pK %pK\n",
+				__func__, __LINE__,
+				dual_vfe_res->vfe_base[ISP_VFE0],
 				dual_vfe_res->stats_data[ISP_VFE0],
 				dual_vfe_res->vfe_base[ISP_VFE1],
 				dual_vfe_res->stats_data[ISP_VFE1]);
@@ -117,7 +118,7 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 					= buf;
 			}
 		}
-	} else if (!vfe_dev->is_split) {
+	} else {
 		if (buf)
 			vfe_dev->hw_info->vfe_ops.stats_ops.
 				update_ping_pong_addr(
@@ -156,7 +157,7 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	uint32_t stats_idx;
 
 	if (!vfe_dev || !ts || !buf_event || !stream_info) {
-		pr_err("%s:%d failed: invalid params %p %p %p %p\n",
+		pr_err("%s:%d failed: invalid params %pK %pK %pK %pK\n",
 			__func__, __LINE__, vfe_dev, ts, buf_event,
 			stream_info);
 		return -EINVAL;
@@ -285,8 +286,7 @@ static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
 		if (rc < 0) {
 			pr_err("%s:%d failed: stats buf divert rc %d\n",
 				__func__, __LINE__, rc);
-			if (0 == result)
-				result = rc;
+			result = rc;
 		}
 	}
 	if (is_composite && comp_stats_type_mask) {

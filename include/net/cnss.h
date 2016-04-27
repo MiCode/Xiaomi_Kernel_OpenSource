@@ -16,9 +16,7 @@
 #include <linux/skbuff.h>
 #include <linux/pci.h>
 #include <net/cnss_common.h>
-#ifdef CONFIG_CNSS_SDIO
 #include <linux/mmc/sdio_func.h>
-#endif
 
 #ifdef CONFIG_CNSS
 #define CNSS_MAX_FILE_NAME	20
@@ -189,7 +187,6 @@ enum {
 };
 extern int cnss_get_restart_level(void);
 
-#ifdef CONFIG_CNSS_SDIO
 struct cnss_sdio_wlan_driver {
 	const char *name;
 	const struct sdio_device_id *id_table;
@@ -212,5 +209,4 @@ extern int cnss_wlan_query_oob_status(void);
 extern int cnss_wlan_register_oob_irq_handler(oob_irq_handler_t handler,
 	    void *pm_oob);
 extern int cnss_wlan_unregister_oob_irq_handler(void *pm_oob);
-#endif
 #endif /* _NET_CNSS_H_ */

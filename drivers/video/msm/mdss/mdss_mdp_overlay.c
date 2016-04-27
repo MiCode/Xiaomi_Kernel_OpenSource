@@ -3365,18 +3365,20 @@ static ssize_t mdss_mdp_misr_store(struct device *dev,
 		req.frame_count = 1;
 	} else {
 		pr_err("misr not supported fo this fb:%d\n", mfd->index);
+		rc = -ENODEV;
+		return rc;
 	}
 
 	if (enable_misr) {
 		mdss_misr_set(mdata, &req , ctl);
 
-		if (is_panel_split(mfd))
+		if ((ctl->intf_type == MDSS_INTF_DSI) && is_panel_split(mfd))
 			mdss_misr_set(mdata, &sreq , ctl);
 
 	} else {
 		mdss_misr_disable(mdata, &req, ctl);
 
-		if (is_panel_split(mfd))
+		if ((ctl->intf_type == MDSS_INTF_DSI) && is_panel_split(mfd))
 			mdss_misr_disable(mdata, &sreq , ctl);
 	}
 
@@ -4824,6 +4826,7 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 	int rc;
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_ctl *ctl = NULL;
+	struct mdss_data_type *mdata;
 
 	if (!mfd)
 		return -ENODEV;
@@ -4833,6 +4836,10 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 
 	mdp5_data = mfd_to_mdp5_data(mfd);
 	if (!mdp5_data)
+		return -EINVAL;
+
+	mdata = mfd_to_mdata(mfd);
+	if (!mdata)
 		return -EINVAL;
 
 	mdss_mdp_set_lm_flag(mfd);
@@ -4864,9 +4871,16 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 	if (rc)
 		goto panel_on;
 
+	/* Skip the overlay start and kickoff for all displays
+	if handoff is pending. Previously we skipped it for DTV
+	panel and pluggable panels (bridge chip hdmi case). But
+	it does not cover the case where there is a non pluggable
+	tertiary display. Using the flag handoff_pending to skip
+	overlay start and kickoff should cover all cases
+	TODO: In the long run, the overlay start and kickoff
+	should not be skipped, instead, the handoff can be done */
 	if (!mfd->panel_info->cont_splash_enabled &&
-		(mfd->panel_info->type != DTV_PANEL) &&
-			!mfd->panel_info->is_pluggable) {
+		!mdata->handoff_pending) {
 		rc = mdss_mdp_overlay_start(mfd);
 		if (rc)
 			goto end;

@@ -23,49 +23,37 @@
 #include <linux/types.h>
 #include <linux/ipv6.h>
 #include <net/addrconf.h>
-#include <linux/ipc_logging.h>
 #include <linux/ipa.h>
 #include <linux/cdev.h>
 #include <linux/ipa_odu_bridge.h>
+#include "../ipa_common_i.h"
 
 #define ODU_BRIDGE_DRV_NAME "odu_ipa_bridge"
-
-#define ODU_IPC_LOG_PAGES 10
-#define ODU_IPC_LOG(buf, fmt, args...) \
-	ipc_log_string((buf), \
-		ODU_BRIDGE_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
 #define ODU_BRIDGE_DBG(fmt, args...) \
 	do { \
 		pr_debug(ODU_BRIDGE_DRV_NAME " %s:%d " fmt, \
 			__func__, __LINE__, ## args); \
-		if (odu_bridge_ctx) { \
-			ODU_IPC_LOG(odu_bridge_ctx->logbuf, \
-			fmt, ## args); \
-			ODU_IPC_LOG(odu_bridge_ctx->logbuf_low, \
-					fmt, ## args); \
-		} \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			ODU_BRIDGE_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			ODU_BRIDGE_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 #define ODU_BRIDGE_DBG_LOW(fmt, args...) \
 	do { \
 		pr_debug(ODU_BRIDGE_DRV_NAME " %s:%d " fmt, \
 			__func__, __LINE__, ## args); \
-		if (odu_bridge_ctx && \
-			odu_bridge_ctx->enable_low_prio_print) { \
-			ODU_IPC_LOG(odu_bridge_ctx->logbuf_low, \
-			fmt, ## args); \
-		} \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			ODU_BRIDGE_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 #define ODU_BRIDGE_ERR(fmt, args...) \
 	do { \
 		pr_err(ODU_BRIDGE_DRV_NAME " %s:%d " fmt, \
 			__func__, __LINE__, ## args); \
-		if (odu_bridge_ctx) { \
-			ODU_IPC_LOG(odu_bridge_ctx->logbuf, \
-			fmt, ## args); \
-			ODU_IPC_LOG(odu_bridge_ctx->logbuf_low, \
-					fmt, ## args); \
-		} \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			ODU_BRIDGE_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			ODU_BRIDGE_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define ODU_BRIDGE_FUNC_ENTRY() \
@@ -158,7 +146,6 @@ struct odu_bridge_ctx {
 	u32 ipa_sys_desc_size;
 	void *logbuf;
 	void *logbuf_low;
-	u32 enable_low_prio_print;
 };
 static struct odu_bridge_ctx *odu_bridge_ctx;
 
@@ -683,7 +670,6 @@ static long compat_odu_bridge_ioctl(struct file *file,
 static struct dentry *dent;
 static struct dentry *dfile_stats;
 static struct dentry *dfile_mode;
-static struct dentry *dfile_low_prio;
 
 static ssize_t odu_debugfs_stats(struct file *file,
 				  char __user *ubuf,
@@ -806,15 +792,6 @@ static void odu_debugfs_init(void)
 		goto fail;
 	}
 
-	dfile_low_prio = debugfs_create_u32("enable_low_prio_print",
-					read_write_mode,
-		dent, &odu_bridge_ctx->enable_low_prio_print);
-	if (!dfile_low_prio) {
-		ODU_BRIDGE_ERR("could not create enable_low_prio_print file\n");
-		goto fail;
-	}
-
-	return;
 fail:
 	debugfs_remove_recursive(dent);
 }
@@ -1104,34 +1081,6 @@ static void odu_bridge_deregister_properties(void)
 	ODU_BRIDGE_FUNC_EXIT();
 }
 
-static int odu_bridge_ipc_logging_init(void)
-{
-	int result;
-
-	odu_bridge_ctx->logbuf = ipc_log_context_create(ODU_IPC_LOG_PAGES,
-							"ipa_odu_bridge", 0);
-	if (odu_bridge_ctx->logbuf == NULL) {
-		/* we can't use odu_bridge print macros on failures */
-		pr_err("odu_bridge: failed to get logbuf\n");
-		return -ENOMEM;
-	}
-
-	odu_bridge_ctx->logbuf_low =
-			ipc_log_context_create(ODU_IPC_LOG_PAGES,
-						"ipa_odu_bridge_low", 0);
-	if (odu_bridge_ctx->logbuf_low == NULL) {
-		pr_err("odu_bridge: failed to get logbuf_low\n");
-		result = -ENOMEM;
-		goto fail_logbuf_low;
-	}
-
-	return 0;
-
-fail_logbuf_low:
-	ipc_log_context_destroy(odu_bridge_ctx->logbuf);
-	return result;
-}
-
 /**
  * odu_bridge_init() - Initialize the ODU bridge driver
  * @params: initialization parameters
@@ -1183,13 +1132,6 @@ int odu_bridge_init(struct odu_bridge_params *params)
 		return -ENOMEM;
 	}
 
-	res = odu_bridge_ipc_logging_init();
-	if (res) {
-		/* ODU_BRIDGE_ERR will crash on NULL if we use it here*/
-		pr_err("odu_bridge: failed to initialize ipc logging\n");
-		res = -EFAULT;
-		goto fail_ipc_create;
-	}
 	odu_bridge_ctx->class = class_create(THIS_MODULE, ODU_BRIDGE_DRV_NAME);
 	if (!odu_bridge_ctx->class) {
 		ODU_BRIDGE_ERR("Class_create err.\n");
@@ -1264,9 +1206,6 @@ fail_device_create:
 fail_alloc_chrdev_region:
 	class_destroy(odu_bridge_ctx->class);
 fail_class_create:
-	ipc_log_context_destroy(odu_bridge_ctx->logbuf);
-	ipc_log_context_destroy(odu_bridge_ctx->logbuf_low);
-fail_ipc_create:
 	kfree(odu_bridge_ctx);
 	odu_bridge_ctx = NULL;
 	return res;

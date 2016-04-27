@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -377,6 +377,7 @@ static int update_userspace_power(struct sched_params __user *argp)
 	struct cpu_activity_info *node;
 	struct cpu_static_info *sp, *clear_sp;
 	int cpumask, cluster, mpidr;
+	bool pdata_valid[NR_CPUS] = {0};
 
 	get_user(cpumask, &argp->cpumask);
 	get_user(cluster, &argp->cluster);
@@ -448,12 +449,18 @@ static int update_userspace_power(struct sched_params __user *argp)
 			}
 			cpu_stats[cpu].ptable = per_cpu(ptable, cpu);
 			repopulate_stats(cpu);
-
-			blocking_notifier_call_chain(
-				&msm_core_stats_notifier_list, cpu, NULL);
+			pdata_valid[cpu] = true;
 		}
 	}
 	spin_unlock(&update_lock);
+
+	for_each_possible_cpu(cpu) {
+		if (pdata_valid[cpu])
+			continue;
+
+		blocking_notifier_call_chain(
+			&msm_core_stats_notifier_list, cpu, NULL);
+	}
 
 	activate_power_table = true;
 	return 0;

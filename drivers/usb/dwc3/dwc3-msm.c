@@ -66,6 +66,10 @@ static int cpu_to_affin;
 module_param(cpu_to_affin, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 
+static bool disable_host_mode;
+module_param(disable_host_mode, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(disable_host_mode, "To stop HOST mode detection");
+
 static int override_phy_init;
 module_param(override_phy_init, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
@@ -655,11 +659,34 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	int ret = 0, size;
 	bool superspeed;
 
+	/*
+	 * We must obtain the lock of the dwc3 core driver,
+	 * including disabling interrupts, so we will be sure
+	 * that we are the only ones that configure the HW device
+	 * core and ensure that we queuing the request will finish
+	 * as soon as possible so we will release back the lock.
+	 */
+	spin_lock_irqsave(&dwc->lock, flags);
+	if (!dep->endpoint.desc) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue request %p to disabled ep %s\n",
+			__func__, request, ep->name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EPERM;
+	}
+
+	if (!request) {
+		dev_err(mdwc->dev, "%s: request is NULL\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
+	}
+
 	if (!(request->udc_priv & MSM_SPS_MODE)) {
 		/* Not SPS mode, call original queue */
 		dev_vdbg(mdwc->dev, "%s: not sps mode, use regular queue\n",
 					__func__);
 
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return (mdwc->original_ep_ops[dep->number])->queue(ep,
 								request,
 								gfp_flags);
@@ -668,36 +695,29 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	/* HW restriction regarding TRB size (8KB) */
 	if (req->request.length < 0x2000) {
 		dev_err(mdwc->dev, "%s: Min TRB size is 8KB\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EINVAL;
-	}
-
-	spin_lock_irqsave(&dwc->lock, flags);
-	if (!dep->endpoint.desc) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue request %p to disabled ep %s\n",
-			__func__, request, ep->name);
-		return -EPERM;
 	}
 
 	if (dep->number == 0 || dep->number == 1) {
 		dev_err(mdwc->dev,
 			"%s: trying to queue dbm request %p to control ep %s\n",
 			__func__, request, ep->name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EPERM;
 	}
-
 
 	if (dep->busy_slot != dep->free_slot || !list_empty(&dep->request_list)
 					 || !list_empty(&dep->req_queued)) {
 		dev_err(mdwc->dev,
 			"%s: trying to queue dbm request %p tp ep %s\n",
 			__func__, request, ep->name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EPERM;
 	}
 	dep->busy_slot = 0;
 	dep->free_slot = 0;
 
-	spin_unlock_irqrestore(&dwc->lock, flags);
 	/*
 	 * Override req->complete function, but before doing that,
 	 * store it's original pointer in the req_complete_list.
@@ -705,6 +725,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	req_complete = kzalloc(sizeof(*req_complete), gfp_flags);
 	if (!req_complete) {
 		dev_err(mdwc->dev, "%s: not enough memory\n", __func__);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ENOMEM;
 	}
 	req_complete->req = request;
@@ -719,22 +740,6 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
 		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
 		DWC3_GEVNTSIZ_SIZE(size));
-
-	/*
-	 * We must obtain the lock of the dwc3 core driver,
-	 * including disabling interrupts, so we will be sure
-	 * that we are the only ones that configure the HW device
-	 * core and ensure that we queuing the request will finish
-	 * as soon as possible so we will release back the lock.
-	 */
-	spin_lock_irqsave(&dwc->lock, flags);
-	if (!dep->endpoint.desc) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue request %p to disabled ep %s\n",
-			__func__, request, ep->name);
-		ret = -EPERM;
-		goto err;
-	}
 
 	ret = __dwc3_msm_ep_queue(dep, req);
 	if (ret < 0) {
@@ -2377,6 +2382,12 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		id = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
 		if (mdwc->id_state == id)
 			break;
+
+		if (disable_host_mode && !id) {
+			dev_dbg(mdwc->dev, "%s: Ignoring ID change event :%d\n",
+						__func__, mdwc->id_state);
+			break;
+		}
 
 		/* Let OTG know about ID detection */
 		mdwc->id_state = id;

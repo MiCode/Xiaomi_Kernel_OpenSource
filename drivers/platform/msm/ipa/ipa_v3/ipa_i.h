@@ -27,7 +27,6 @@
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
-#include <linux/ipc_logging.h>
 #include <linux/firmware.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
@@ -56,32 +55,35 @@
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 
-#define IPA_IPC_LOGGING(buf, fmt, args...) \
-	ipc_log_string((buf), \
-		DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+#define IPA_IPC_LOG_PAGES 50
 
 #define IPADBG(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
 		if (ipa3_ctx) { \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf, fmt, ## args); \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
 		} \
 	} while (0)
 
 #define IPADBG_LOW(fmt, args...) \
 	do { \
 		pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
-		if (ipa3_ctx && ipa3_ctx->enable_low_prio_print) \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+		if (ipa3_ctx) \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
 #define IPAERR(fmt, args...) \
 	do { \
 		pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
 		if (ipa3_ctx) { \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf, fmt, ## args); \
-			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
 		} \
 	} while (0)
 
@@ -391,30 +393,6 @@ struct ipa3_hdr_proc_ctx_offset_entry {
 	struct list_head link;
 	u32 offset;
 	u32 bin;
-};
-
-/**
- * struct ipa3_hdr_proc_ctx_add_hdr_seq -
- * IPA processing context header - add header sequence
- * @hdr_add: add header command
- * @end: tlv end command (cmd.type must be 0)
- */
-struct ipa3_hdr_proc_ctx_add_hdr_seq {
-	struct ipa3_hdr_proc_ctx_hdr_add hdr_add;
-	struct ipa3_hdr_proc_ctx_tlv end;
-};
-
-/**
- * struct ipa3_hdr_proc_ctx_add_hdr_cmd_seq -
- * IPA processing context header - process command sequence
- * @hdr_add: add header command
- * @cmd: tlv processing command (cmd.type must be 3)
- * @end: tlv end command (cmd.type must be 0)
- */
-struct ipa3_hdr_proc_ctx_add_hdr_cmd_seq {
-	struct ipa3_hdr_proc_ctx_hdr_add hdr_add;
-	struct ipa3_hdr_proc_ctx_tlv cmd;
-	struct ipa3_hdr_proc_ctx_tlv end;
 };
 
 /**
@@ -1432,7 +1410,6 @@ struct ipa3_ready_cb_info {
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
  * @enable_clock_scaling: clock scaling is enabled ?
- * @enable_low_prio_print: enable low priority prints
  * @curr_ipa_clk_rate: ipa3_clk current rate
  * @wcstats: wlan common buffer stats
  * @uc_ctx: uC interface context
@@ -1537,7 +1514,6 @@ struct ipa3_context {
 	struct device *uc_pdev;
 	spinlock_t idr_lock;
 	u32 enable_clock_scaling;
-	u32 enable_low_prio_print;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
 	u32 ipa_num_pipes;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,7 @@ struct msm_thermal_data {
 	int32_t cx_phase_request_key;
 	int32_t vdd_mx_temp_degC;
 	int32_t vdd_mx_temp_hyst_degC;
+	int32_t vdd_mx_sensor_id;
 	int32_t therm_reset_temp_degC;
 };
 
@@ -91,6 +92,7 @@ struct therm_threshold {
 	int32_t                     trip_triggered;
 	void (*notify)(struct therm_threshold *);
 	struct threshold_info       *parent;
+	int32_t                     cur_state;
 };
 
 struct threshold_info {

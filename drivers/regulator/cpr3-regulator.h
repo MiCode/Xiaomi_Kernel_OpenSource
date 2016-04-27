@@ -494,6 +494,35 @@ struct cpr3_aging_sensor_info {
 };
 
 /**
+ * struct cpr3_reg_info - Register information data structure
+ * @name:	Register name
+ * @addr:	Register physical address
+ * @value:	Register content
+ *
+ * This data structure is used to dump some critical register contents
+ * when the device crashes due to a kernel panic.
+ */
+struct cpr3_reg_info {
+	const char	*name;
+	u32		addr;
+	u32		value;
+};
+
+/**
+ * struct cpr3_panic_regs_info - Data structure to dump critical register
+ *		contents.
+ * @reg_count:		Number of elements in the regs array
+ * @regs:		Array of critical registers information
+ *
+ * This data structure is used to dump critical register contents when
+ * the device crashes due to a kernel panic.
+ */
+struct cpr3_panic_regs_info {
+	int			reg_count;
+	struct cpr3_reg_info	*regs;
+};
+
+/**
  * struct cpr3_controller - CPR3 controller data structure
  * @dev:		Device pointer for the CPR3 controller device
  * @name:		Unique name for the CPR3 controller
@@ -662,6 +691,9 @@ struct cpr3_aging_sensor_info {
  *			VDD supply voltage to settle after being increased or
  *			decreased by step_volt microvolts which is used when
  *			SDELTA voltage margin adjustments are applied.
+ * @panic_regs_info:	Array of panic registers information which provides the
+ *			list of registers to dump when the device crashes.
+ * @panic_notifier:	Notifier block registered to global panic notifier list.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
@@ -755,6 +787,8 @@ struct cpr3_controller {
 	u32			temp_sensor_id_start;
 	u32			temp_sensor_id_end;
 	u32			voltage_settling_time;
+	struct cpr3_panic_regs_info *panic_regs_info;
+	struct notifier_block	panic_notifier;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */

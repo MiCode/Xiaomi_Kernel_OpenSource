@@ -1873,6 +1873,7 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	if (err)
 		goto out_free;
 
+	ubi->wl_is_inited = 1;
 	return 0;
 
 out_free:

@@ -3278,6 +3278,26 @@ exit:
 	return;
 }
 
+static void __dump_venus_debug_registers(struct venus_hfi_device *device)
+{
+	u32 reg;
+
+	dprintk(VIDC_ERR, "Dumping Venus registers...\n");
+	reg = __read_register(device, VENUS_VBIF_XIN_HALT_CTRL1);
+	dprintk(VIDC_ERR, "VENUS_VBIF_XIN_HALT_CTRL1: 0x%x\n", reg);
+
+	reg = __read_register(device,
+		VIDC_VENUS_WRAPPER_MMCC_VENUS0_POWER_STATUS);
+	dprintk(VIDC_ERR,
+		"VIDC_VENUS_WRAPPER_MMCC_VENUS0_POWER_STATUS: 0x%x\n", reg);
+
+	reg = __read_register(device, VIDC_WRAPPER_CPU_STATUS);
+	dprintk(VIDC_ERR, "VIDC_WRAPPER_CPU_STATUS: 0x%x\n", reg);
+
+	reg = __read_register(device, VIDC_CPU_CS_SCIACMDARG0);
+	dprintk(VIDC_ERR, "VIDC_CPU_CS_SCIACMDARG0: 0x%x\n", reg);
+}
+
 static void __process_sys_error(struct venus_hfi_device *device)
 {
 	struct hfi_sfr_struct *vsfr = NULL;
@@ -3393,6 +3413,7 @@ static int __response_handler(struct venus_hfi_device *device)
 			dprintk(VIDC_ERR, "SFR Message from FW: %s\n",
 					vsfr->rg_data);
 
+		__dump_venus_debug_registers(device);
 		dprintk(VIDC_ERR, "Received watchdog timeout\n");
 		packets[packet_count++] = info;
 		goto exit;
@@ -3417,6 +3438,7 @@ static int __response_handler(struct venus_hfi_device *device)
 		/* Process the packet types that we're interested in */
 		switch (info->response_type) {
 		case HAL_SYS_ERROR:
+			__dump_venus_debug_registers(device);
 			__process_sys_error(device);
 			break;
 		case HAL_SYS_RELEASE_RESOURCE_DONE:

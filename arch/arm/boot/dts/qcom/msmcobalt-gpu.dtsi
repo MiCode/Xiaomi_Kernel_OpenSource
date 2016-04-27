@@ -77,6 +77,8 @@
 
 		qcom,highest-bank-bit = <15>;
 
+		qcom,snapshot-size = <1048576>; //bytes
+
 		clocks = <&clock_gpu clk_gpucc_gfx3d_clk>,
 			<&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
 			<&clock_gpu clk_gpucc_rbbmtimer_clk>,

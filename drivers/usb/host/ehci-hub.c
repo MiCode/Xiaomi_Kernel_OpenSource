@@ -275,6 +275,14 @@ int ehci_bus_suspend (struct usb_hcd *hcd)
 		if (t1 & PORT_OWNER)
 			set_bit(port, &ehci->owned_ports);
 		else if ((t1 & PORT_PE) && !(t1 & PORT_SUSPEND)) {
+			/* clear RS bit before setting SUSP bit
+			 * and wait for HCH to get set. */
+			if (ehci->susp_sof_bug) {
+				spin_unlock_irq(&ehci->lock);
+				ehci_halt(ehci);
+				spin_lock_irq(&ehci->lock);
+			}
+
 			t2 |= PORT_SUSPEND;
 			set_bit(port, &ehci->bus_suspended);
 		}
@@ -338,8 +346,9 @@ int ehci_bus_suspend (struct usb_hcd *hcd)
 	if (ehci->bus_suspended)
 		udelay(150);
 
-	/* turn off now-idle HC */
-	ehci_halt (ehci);
+	/* if this bit is set, controller is already haled */
+	if (!ehci->susp_sof_bug)
+		ehci_halt(ehci); /* turn off now-idle HC */
 
 	spin_lock_irq(&ehci->lock);
 	if (ehci->enabled_hrtimer_events & BIT(EHCI_HRTIMER_POLL_DEAD))
@@ -1179,7 +1188,11 @@ int ehci_hub_control(
 			 */
 			temp &= ~PORT_WKCONN_E;
 			temp |= PORT_WKDISC_E | PORT_WKOC_E;
-			ehci_writel(ehci, temp | PORT_SUSPEND, status_reg);
+			if (ehci->susp_sof_bug)
+				ehci_writel(ehci, temp, status_reg);
+			else
+				ehci_writel(ehci, temp | PORT_SUSPEND,
+						status_reg);
 			if (ehci->has_tdi_phy_lpm) {
 				spin_unlock_irqrestore(&ehci->lock, flags);
 				msleep(5);/* 5ms for HCD enter low pwr mode */

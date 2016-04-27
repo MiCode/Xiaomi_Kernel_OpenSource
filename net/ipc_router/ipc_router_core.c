@@ -1923,11 +1923,6 @@ static int ipc_router_send_ctl_msg(
 		ret = process_resume_tx_msg(msg, pkt);
 	} else if (xprt_info && (msg->cmd == IPC_ROUTER_CTRL_CMD_HELLO ||
 		   xprt_info->initialized)) {
-		ret = ipc_router_get_xprt_info_ref(xprt_info);
-		if (ret < 0) {
-			IPC_RTR_ERR("%s: Abort invalid xprt\n", __func__);
-			return ret;
-		}
 		mutex_lock(&xprt_info->tx_lock_lhb2);
 		ipc_router_log_msg(xprt_info->log_ctx,
 				IPC_ROUTER_LOG_EVENT_TX, msg, hdr, NULL, NULL);
@@ -1936,14 +1931,11 @@ static int ipc_router_send_ctl_msg(
 			mutex_unlock(&xprt_info->tx_lock_lhb2);
 			IPC_RTR_ERR("%s: Prepend Header failed\n", __func__);
 			release_pkt(pkt);
-			kref_put(&xprt_info->ref,
-				 ipc_router_release_xprt_info_ref);
 			return ret;
 		}
 
 		ret = xprt_info->xprt->write(pkt, pkt->length, xprt_info->xprt);
 		mutex_unlock(&xprt_info->tx_lock_lhb2);
-		kref_put(&xprt_info->ref, ipc_router_release_xprt_info_ref);
 	}
 
 	release_pkt(pkt);
@@ -3254,9 +3246,16 @@ static int msm_ipc_router_send_resume_tx(void *data)
 				__func__, hdr->src_node_id);
 		return -ENODEV;
 	}
+	ret = ipc_router_get_xprt_info_ref(rt_entry->xprt_info);
+	if (ret < 0) {
+		IPC_RTR_ERR("%s: Abort invalid xprt\n", __func__);
+		kref_put(&rt_entry->ref, ipc_router_release_rtentry);
+		return ret;
+	}
 	ret = ipc_router_send_ctl_msg(rt_entry->xprt_info, &msg,
 				      hdr->src_node_id);
 	kref_put(&rt_entry->ref, ipc_router_release_rtentry);
+	kref_put(&rt_entry->xprt_info->ref, ipc_router_release_xprt_info_ref);
 	if (ret < 0)
 		IPC_RTR_ERR(
 		"%s: Send Resume_Tx Failed SRC_NODE: %d SRC_PORT: %d DEST_NODE: %d",

@@ -606,6 +606,7 @@ struct mdss_panel_info {
 	bool ulps_suspend_enabled;
 	bool panel_ack_disabled;
 	bool esd_check_enabled;
+	bool allow_phy_power_off;
 	char dfps_update;
 	/* new requested fps before it is updated in hw */
 	int new_fps;

@@ -244,7 +244,7 @@ EXPORT_SYMBOL(cnss_dump_stack);
 
 enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev)
 {
-	if (!dev && !dev->bus)
+	if (!dev || !dev->bus)
 		return CNSS_BUS_NONE;
 
 	if (memcmp(dev->bus->name, "sdio", 4) == 0)
@@ -255,122 +255,127 @@ enum cnss_dev_bus_type cnss_get_dev_bus_type(struct device *dev)
 		return CNSS_BUS_NONE;
 }
 
-#ifdef CONFIG_CNSS_SDIO
 int cnss_common_request_bus_bandwidth(struct device *dev, int bandwidth)
 {
-	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
-		return cnss_sdio_request_bus_bandwidth(bandwidth);
-	else
-		return 0;
+	int ret;
+
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_SDIO:
+		ret = cnss_sdio_request_bus_bandwidth(bandwidth);
+		break;
+	case CNSS_BUS_PCI:
+		ret = cnss_pci_request_bus_bandwidth(bandwidth);
+		break;
+	default:
+		pr_debug("%s: Invalid device type\n", __func__);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL(cnss_common_request_bus_bandwidth);
 
 void *cnss_common_get_virt_ramdump_mem(struct device *dev, unsigned long *size)
 {
-	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_SDIO:
 		return cnss_sdio_get_virt_ramdump_mem(size);
-	else
-		return NULL;
-}
-EXPORT_SYMBOL(cnss_common_get_virt_ramdump_mem);
-
-void cnss_common_device_self_recovery(struct device *dev)
-{
-	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
-		cnss_sdio_device_self_recovery();
-}
-EXPORT_SYMBOL(cnss_common_device_self_recovery);
-
-void cnss_common_schedule_recovery_work(struct device *dev)
-{
-	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
-		cnss_sdio_schedule_recovery_work();
-}
-EXPORT_SYMBOL(cnss_common_schedule_recovery_work);
-
-void cnss_common_device_crashed(struct device *dev)
-{
-	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
-		cnss_sdio_device_crashed();
-}
-EXPORT_SYMBOL(cnss_common_device_crashed);
-
-u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num)
-{
-	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
-		return cnss_sdio_get_wlan_mac_address(num);
-	else
-		return NULL;
-}
-EXPORT_SYMBOL(cnss_common_get_wlan_mac_address);
-
-int cnss_common_set_wlan_mac_address(
-		struct device *dev, const u8 *in, uint32_t len)
-{
-	if (CNSS_BUS_SDIO == cnss_get_dev_bus_type(dev))
-		return cnss_sdio_set_wlan_mac_address(in, len);
-	else
-		return -EINVAL;
-}
-EXPORT_SYMBOL(cnss_common_set_wlan_mac_address);
-#endif
-
-#ifdef CONFIG_CNSS_PCI
-int cnss_common_request_bus_bandwidth(struct device *dev, int bandwidth)
-{
-	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
-		return cnss_pci_request_bus_bandwidth(bandwidth);
-	else
-		return 0;
-}
-EXPORT_SYMBOL(cnss_common_request_bus_bandwidth);
-
-void *cnss_common_get_virt_ramdump_mem(struct device *dev, unsigned long *size)
-{
-	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+	case CNSS_BUS_PCI:
 		return cnss_pci_get_virt_ramdump_mem(size);
-	else
+	default:
+		pr_debug("%s: Invalid device type\n", __func__);
 		return NULL;
+	}
 }
 EXPORT_SYMBOL(cnss_common_get_virt_ramdump_mem);
 
 void cnss_common_device_self_recovery(struct device *dev)
 {
-	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_SDIO:
+		cnss_sdio_device_self_recovery();
+		break;
+	case CNSS_BUS_PCI:
 		cnss_pci_device_self_recovery();
+		break;
+	default:
+		pr_debug("%s: Invalid device type\n", __func__);
+		break;
+	}
 }
 EXPORT_SYMBOL(cnss_common_device_self_recovery);
 
 void cnss_common_schedule_recovery_work(struct device *dev)
 {
-	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_SDIO:
+		cnss_sdio_schedule_recovery_work();
+		break;
+	case CNSS_BUS_PCI:
 		cnss_pci_schedule_recovery_work();
+		break;
+	default:
+		pr_debug("%s: Invalid device type\n", __func__);
+		break;
+	}
 }
 EXPORT_SYMBOL(cnss_common_schedule_recovery_work);
 
 void cnss_common_device_crashed(struct device *dev)
 {
-	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_SDIO:
+		cnss_sdio_device_crashed();
+		break;
+	case CNSS_BUS_PCI:
 		cnss_pci_device_crashed();
+		break;
+	default:
+		pr_debug("%s: Invalid device type\n", __func__);
+		break;
+	}
 }
 EXPORT_SYMBOL(cnss_common_device_crashed);
 
 u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num)
 {
-	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
-		return cnss_pci_get_wlan_mac_address(num);
-	else
-		return NULL;
+	u8 *ret;
+
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_SDIO:
+		ret = cnss_sdio_get_wlan_mac_address(num);
+		break;
+	case CNSS_BUS_PCI:
+		ret = cnss_pci_get_wlan_mac_address(num);
+		break;
+	default:
+		pr_debug("%s: Invalid device type\n", __func__);
+		ret = NULL;
+		break;
+	}
+	return ret;
 }
 EXPORT_SYMBOL(cnss_common_get_wlan_mac_address);
 
 int cnss_common_set_wlan_mac_address(
 		struct device *dev, const u8 *in, uint32_t len)
 {
-	if (CNSS_BUS_PCI == cnss_get_dev_bus_type(dev))
-		return cnss_pcie_set_wlan_mac_address(in, len);
-	else
-		return -EINVAL;
+	int ret;
+
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_SDIO:
+		ret = cnss_sdio_set_wlan_mac_address(in, len);
+		break;
+	case CNSS_BUS_PCI:
+		ret = cnss_pcie_set_wlan_mac_address(in, len);
+		break;
+	default:
+		pr_debug("%s: Invalid device type\n", __func__);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
 }
 EXPORT_SYMBOL(cnss_common_set_wlan_mac_address);
-#endif

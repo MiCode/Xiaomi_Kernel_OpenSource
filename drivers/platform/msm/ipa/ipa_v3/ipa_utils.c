@@ -4439,6 +4439,21 @@ int ipa3_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 	return res;
 }
 
+static void *ipa3_get_ipc_logbuf(void)
+{
+	if (ipa3_ctx)
+		return ipa3_ctx->logbuf;
+
+	return NULL;
+}
+
+static void *ipa3_get_ipc_logbuf_low(void)
+{
+	if (ipa3_ctx)
+		return ipa3_ctx->logbuf_low;
+
+	return NULL;
+}
 
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
@@ -4576,6 +4591,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_suspend_resource_sync = ipa3_suspend_resource_sync;
 	api_ctrl->ipa_set_required_perf_profile =
 		ipa3_set_required_perf_profile;
+	api_ctrl->ipa_get_ipc_logbuf = ipa3_get_ipc_logbuf;
+	api_ctrl->ipa_get_ipc_logbuf_low = ipa3_get_ipc_logbuf_low;
 
 	return 0;
 }

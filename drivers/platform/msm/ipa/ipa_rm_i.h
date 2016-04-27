@@ -16,15 +16,36 @@
 #include <linux/workqueue.h>
 #include <linux/ipa.h>
 #include "ipa_rm_resource.h"
+#include "ipa_common_i.h"
 
 #define IPA_RM_DRV_NAME "ipa_rm"
 
 #define IPA_RM_DBG_LOW(fmt, args...) \
-	pr_debug(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, \
+			## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_RM_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
 #define IPA_RM_DBG(fmt, args...) \
-	pr_debug(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_debug(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, \
+			## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPA_RM_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_RM_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
 #define IPA_RM_ERR(fmt, args...) \
-	pr_err(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(IPA_RM_DRV_NAME " %s:%d " fmt, __func__, __LINE__, \
+			## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPA_RM_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_RM_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
 
 #define IPA_RM_RESOURCE_CONS_MAX \
 	(IPA_RM_RESOURCE_MAX - IPA_RM_RESOURCE_PROD_MAX)

@@ -32,6 +32,12 @@
 			qcom,secondary-pon-reset;
 			qcom,hard-reset-poweroff-type =
 				<PON_POWER_OFF_SHUTDOWN>;
+
+			pon_perph_reg: qcom,pon_perph_reg {
+				regulator-name = "pon_spare_reg";
+				qcom,pon-spare-reg-addr = <0x8c>;
+				qcom,pon-spare-reg-bit = <1>;
+			};
 		};
 
 		pmi8937_vadc: vadc@3100 {
@@ -419,6 +425,7 @@
 			qcom,en-phase-stag;
 			qcom,led-strings-list = [00 01];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,cons-sync-write-delay-us = <1000>;
 		};
 
 		flash_led: qcom,leds@d300 {
@@ -495,6 +502,9 @@
 				qcom,duration = <1280>;
 				qcom,id = <2>;
 				qcom,current = <625>;
+				reg0 {
+					regulator-name = "pon_spare_reg";
+				};
 			};
 		};
 
@@ -504,6 +514,7 @@
 			interrupts = <0x3 0xc0 0x0>,
 				<0x3 0xc0 0x1>;
 			interrupt-names = "sc-irq", "play-irq";
+			vcc_pon-supply = <&pon_perph_reg>;
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;
 			qcom,actuator-type = "lra";
@@ -521,7 +532,7 @@
 			qcom,wave-samp-rep-cnt = <1>;
 			qcom,lra-auto-res-mode="qwd";
 			qcom,lra-high-z="opt1";
-			qcom,lra-res-cal-period = <0>;
+			qcom,lra-res-cal-period = <4>;
 			qcom,correct-lra-drive-freq;
 			qcom,misc-trim-error-rc19p2-clk-reg-present;
 		};

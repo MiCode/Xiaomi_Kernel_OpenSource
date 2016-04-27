@@ -46,7 +46,7 @@
 #define CSI_3PHASE_HW                               1
 #define MAX_LANES                                   4
 #define CLOCK_OFFSET                              0x700
-#define CSIPHY_SOF_DEBUG_COUNT                      3
+#define CSIPHY_SOF_DEBUG_COUNT                      2
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -497,7 +497,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 			val |= csiphy_params->csid_core;
 		}
 		msm_camera_io_w(val, csiphy_dev->clk_mux_base);
-		CDBG("%s clk mux addr %p val 0x%x\n", __func__,
+		CDBG("%s clk mux addr %pK val 0x%x\n", __func__,
 			csiphy_dev->clk_mux_base, val);
 		/* ensure write is done */
 		mb();
@@ -623,6 +623,47 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	return rc;
 }
 
+void msm_csiphy_disable_irq(
+	struct csiphy_device *csiphy_dev)
+{
+	void __iomem *csiphybase;
+
+	csiphybase = csiphy_dev->base;
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl11.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl12.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl13.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl14.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl15.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl16.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl17.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl18.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl19.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl20.addr);
+	msm_camera_io_w(0,
+		csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+		mipi_csiphy_3ph_cmn_ctrl21.addr);
+}
+
 static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 {
 	uint32_t irq;
@@ -632,8 +673,10 @@ static irqreturn_t msm_csiphy_irq(int irq_num, void *data)
 	if (csiphy_dev->csiphy_sof_debug == SOF_DEBUG_ENABLE) {
 		if (csiphy_dev->csiphy_sof_debug_count < CSIPHY_SOF_DEBUG_COUNT)
 			csiphy_dev->csiphy_sof_debug_count++;
-		else
+		else {
+			msm_csiphy_disable_irq(csiphy_dev);
 			return IRQ_HANDLED;
+		}
 	}
 
 	for (i = 0; i < csiphy_dev->num_irq_registers; i++) {
@@ -881,7 +924,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 			mipi_csiphy_glbl_pwr_cfg_addr);
 	} else {
 		if (!csi_lane_params) {
-			pr_err("%s:%d failed: csi_lane_params %p\n", __func__,
+			pr_err("%s:%d failed: csi_lane_params %pK\n", __func__,
 				__LINE__, csi_lane_params);
 			return -EINVAL;
 		}
@@ -987,7 +1030,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 			mipi_csiphy_glbl_pwr_cfg_addr);
 	} else {
 		if (!csi_lane_params) {
-			pr_err("%s:%d failed: csi_lane_params %p\n", __func__,
+			pr_err("%s:%d failed: csi_lane_params %pK\n", __func__,
 				__LINE__, csi_lane_params);
 			return -EINVAL;
 		}
@@ -1027,7 +1070,6 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 			mipi_csiphy_glbl_pwr_cfg_addr);
 	}
 	if (csiphy_dev->csiphy_sof_debug == SOF_DEBUG_ENABLE) {
-		csiphy_dev->csiphy_sof_debug = SOF_DEBUG_DISABLE;
 		rc = msm_camera_enable_irq(csiphy_dev->irq, false);
 	}
 
