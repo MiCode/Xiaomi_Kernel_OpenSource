@@ -1956,7 +1956,8 @@ static void ul_wakeup(void)
 					&ul_wakeup_ack_completion,
 					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
 		wait_for_ack = 0;
-		if (unlikely(ret == 0) && ssrestart_check()) {
+		if (unlikely(in_global_reset == 1)
+			|| (unlikely(ret == 0) && ssrestart_check())) {
 			mutex_unlock(&wakeup_lock);
 			BAM_DMUX_LOG("%s timeout previous ack\n", __func__);
 			return;
@@ -1967,7 +1968,8 @@ static void ul_wakeup(void)
 	BAM_DMUX_LOG("%s waiting for wakeup ack\n", __func__);
 	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion,
 					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
-	if (unlikely(ret == 0) && ssrestart_check()) {
+	if (unlikely(in_global_reset == 1)
+		|| (unlikely(ret == 0) && ssrestart_check())) {
 		mutex_unlock(&wakeup_lock);
 		BAM_DMUX_LOG("%s timeout wakeup ack\n", __func__);
 		return;
@@ -1975,7 +1977,8 @@ static void ul_wakeup(void)
 	BAM_DMUX_LOG("%s waiting completion\n", __func__);
 	ret = wait_for_completion_timeout(&bam_connection_completion,
 					msecs_to_jiffies(UL_WAKEUP_TIMEOUT_MS));
-	if (unlikely(ret == 0) && ssrestart_check()) {
+	if (unlikely(in_global_reset == 1)
+		|| (unlikely(ret == 0) && ssrestart_check())) {
 		mutex_unlock(&wakeup_lock);
 		BAM_DMUX_LOG("%s timeout power on\n", __func__);
 		return;
@@ -2207,6 +2210,9 @@ static int restart_notifier_cb(struct notifier_block *this,
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
 		BAM_DMUX_LOG("%s: begin\n", __func__);
 		in_global_reset = 1;
+		/* wakeup ul_wakeup() thread*/
+		complete_all(&ul_wakeup_ack_completion);
+		complete_all(&bam_connection_completion);
 		/* sync to ensure the driver sees SSR */
 		synchronize_srcu(&bam_dmux_srcu);
 		BAM_DMUX_LOG("%s: ssr signaling complete\n", __func__);

@@ -178,6 +178,7 @@ struct wcd9xxx_pdata {
 	int irq_base;
 	int num_irqs;
 	int reset_gpio;
+	struct device_node *wcd_rst_np;
 	struct wcd9xxx_amic amic_settings;
 	struct slim_device slimbus_slave_device;
 	struct wcd9xxx_micbias_setting micbias;
