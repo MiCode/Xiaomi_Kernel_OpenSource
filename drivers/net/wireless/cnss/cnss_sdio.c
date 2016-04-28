@@ -27,7 +27,7 @@
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
-#include <net/cnss_common.h>
+#include "cnss_common.h"
 #include <linux/pm_qos.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
@@ -1161,14 +1161,12 @@ int cnss_sdio_set_wlan_mac_address(const u8 *in, uint32_t len)
 {
 	return 0;
 }
-EXPORT_SYMBOL(cnss_sdio_set_wlan_mac_address);
 
 u8 *cnss_sdio_get_wlan_mac_address(uint32_t *num)
 {
 	*num = 0;
 	return NULL;
 }
-EXPORT_SYMBOL(cnss_sdio_get_wlan_mac_address);
 
 static const struct of_device_id cnss_sdio_dt_match[] = {
 	{.compatible = "qcom,cnss_sdio"},
