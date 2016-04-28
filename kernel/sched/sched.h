@@ -398,6 +398,11 @@ extern struct sched_cluster *sched_cluster[NR_CPUS];
 extern int group_will_fit(struct sched_cluster *cluster,
 		 struct related_thread_group *grp, u64 demand);
 
+struct cpu_cycle {
+	u64 cycles;
+	u64 time;
+};
+
 #define for_each_sched_cluster(cluster) \
 	list_for_each_entry_rcu(cluster, &cluster_head, list)
 
@@ -711,6 +716,7 @@ struct rq {
 	u64 irqload_ts;
 	unsigned int static_cpu_pwr_cost;
 	struct task_struct *ed_task;
+	struct cpu_cycle cc;
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	u64 old_busy_time, old_busy_time_group;
