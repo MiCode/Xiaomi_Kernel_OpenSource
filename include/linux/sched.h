@@ -2246,8 +2246,8 @@ static inline void sched_set_cluster_dstate(const cpumask_t *cluster_cpus,
 {
 }
 
-static inline void sched_update_cpu_freq_min_max(const cpumask *cpus, u32 fmin,
-						 u32 fmax) { }
+static inline void
+sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax) { }
 #endif
 
 #ifdef CONFIG_NO_HZ_COMMON
