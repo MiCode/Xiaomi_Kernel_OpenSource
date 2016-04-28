@@ -2716,7 +2716,7 @@ static void update_task_cpu_cycles(struct task_struct *p, int cpu)
 
 static void
 update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
-			  u64 wallclock)
+			  u64 wallclock, u64 irqtime)
 {
 	u64 cur_cycles;
 	int cpu = cpu_of(rq);
@@ -2730,13 +2730,23 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 	}
 
 	cur_cycles = cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu);
-	if (unlikely(cur_cycles < p->cpu_cycles))
-		rq->cc.cycles = cur_cycles + (U64_MAX - p->cpu_cycles);
-	else
-		rq->cc.cycles = cur_cycles - p->cpu_cycles;
-	rq->cc.cycles = rq->cc.cycles * NSEC_PER_MSEC;
-	rq->cc.time = wallclock - p->ravg.mark_start;
-	BUG_ON((s64)rq->cc.time < 0);
+
+	/*
+	 * If current task is idle task and irqtime == 0 CPU was
+	 * indeed idle and probably its cycle counter was not
+	 * increasing.  We still need estimatied CPU frequency
+	 * for IO wait time accounting.  Use the previously
+	 * calculated frequency in such a case.
+	 */
+	if (!is_idle_task(rq->curr) || irqtime) {
+		if (unlikely(cur_cycles < p->cpu_cycles))
+			rq->cc.cycles = cur_cycles + (U64_MAX - p->cpu_cycles);
+		else
+			rq->cc.cycles = cur_cycles - p->cpu_cycles;
+		rq->cc.cycles = rq->cc.cycles * NSEC_PER_MSEC;
+		rq->cc.time = wallclock - p->ravg.mark_start;
+		BUG_ON((s64)rq->cc.time < 0);
+	}
 
 	p->cpu_cycles = cur_cycles;
 
@@ -2955,7 +2965,7 @@ update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 		goto done;
 	}
 
-	update_task_rq_cpu_cycles(p, rq, event, wallclock);
+	update_task_rq_cpu_cycles(p, rq, event, wallclock, irqtime);
 	update_task_demand(p, rq, event, wallclock);
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
