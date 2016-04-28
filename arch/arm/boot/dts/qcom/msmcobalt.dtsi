@@ -713,14 +713,14 @@
 		qcom,set-ret-inactive;
 		qcom,enable-llm-freq-vote;
 		qcom,llm-freq-up-timer =
-			<1000 1000>;
+			<327675 327675>;
 		qcom,llm-freq-down-timer =
-			<1000 1000>;
+			<327675 327675>;
 		qcom,enable-llm-volt-vote;
 		qcom,llm-volt-up-timer =
-			<1000 1000>;
+			<327675 327675>;
 		qcom,llm-volt-down-timer =
-			<1000 1000>;
+			<327675 327675>;
 		qcom,cc-reads = <10>;
 		qcom,cc-delay = <5>;
 		qcom,cc-factor = <100>;
