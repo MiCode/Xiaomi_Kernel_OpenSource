@@ -36,6 +36,7 @@
 #define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
 
 #define KGSL_RBBMTIMER_CLK_FREQ	19200000
+#define KGSL_ISENSE_CLK_FREQ	200000000
 
 /* Symbolic table for the constraint type */
 #define KGSL_CONSTRAINT_TYPES \
@@ -162,6 +163,7 @@ struct kgsl_pwrctrl {
 	struct clk *grp_clks[KGSL_MAX_CLKS];
 	struct clk *dummy_mx_clk;
 	struct clk *gpu_bimc_int_clk;
+	int isense_clk_indx;
 	unsigned long power_flags;
 	unsigned long ctrl_flags;
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];
