@@ -1652,6 +1652,9 @@ static u32 ipa3_get_max_flt_rt_cmds(u32 num_pipes)
 	max_cmds += ((IPA_MEM_PART(v6_modem_rt_index_hi) -
 		     IPA_MEM_PART(v6_modem_rt_index_lo) + 1) * 2);
 
+	/* One cmd for Hash flushing */
+	max_cmds++;
+
 	return max_cmds;
 }
 
@@ -1660,11 +1663,14 @@ static int ipa3_q6_clean_q6_tables(void)
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_dma_shared_mem cmd;
 	struct ipahal_imm_cmd_pyld **cmd_pyld;
+	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
 	int pipe_idx;
 	int num_cmds = 0;
 	int index;
 	int retval;
 	struct ipa3_mem_buffer mem = { 0 };
+	struct ipahal_reg_fltrt_hash_flush flush;
+	struct ipahal_reg_valmask valmask;
 	u64 *entry;
 	u32 max_cmds = ipa3_get_max_flt_rt_cmds(ipa3_ctx->ipa_num_pipes);
 	int flt_idx = 0;
@@ -1694,6 +1700,29 @@ static int ipa3_q6_clean_q6_tables(void)
 		retval = -ENOMEM;
 		goto bail_desc;
 	}
+
+	flush.v4_flt = true;
+	flush.v4_rt = true;
+	flush.v6_flt = true;
+	flush.v6_rt = true;
+	ipahal_get_fltrt_hash_flush_valmask(&flush, &valmask);
+	reg_write_cmd.skip_pipeline_clear = false;
+	reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_FILT_ROUT_HASH_FLUSH);
+	reg_write_cmd.value = valmask.val;
+	reg_write_cmd.value_mask = valmask.mask;
+	cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_REGISTER_WRITE, &reg_write_cmd, false);
+	if (!cmd_pyld[num_cmds]) {
+		IPAERR("fail construct register_write imm cmd\n");
+		goto bail_cmd;
+	}
+	desc[num_cmds].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+	desc[num_cmds].len = cmd_pyld[num_cmds]->len;
+	desc[num_cmds].type = IPA_IMM_CMD_DESC;
+	num_cmds++;
 
 	/*
 	 * Iterating over all the filtering pipes which are
@@ -3452,6 +3481,7 @@ static int ipa3_apps_cons_request_resource(void)
 
 static void ipa3_sps_release_resource(struct work_struct *work)
 {
+	mutex_lock(&ipa3_ctx->transport_pm.transport_pm_mutex);
 	/* check whether still need to decrease client usage */
 	if (atomic_read(&ipa3_ctx->transport_pm.dec_clients)) {
 		if (atomic_read(&ipa3_ctx->transport_pm.eot_activity)) {
@@ -3463,6 +3493,7 @@ static void ipa3_sps_release_resource(struct work_struct *work)
 		}
 	}
 	atomic_set(&ipa3_ctx->transport_pm.eot_activity, 0);
+	mutex_unlock(&ipa3_ctx->transport_pm.transport_pm_mutex);
 }
 
 int ipa3_create_apps_resource(void)
@@ -4123,6 +4154,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_create_transport_wq;
 	}
 
+	/* Initialize the SPS PM lock. */
+	mutex_init(&ipa3_ctx->transport_pm.transport_pm_mutex);
 	spin_lock_init(&ipa3_ctx->transport_pm.lock);
 	ipa3_ctx->transport_pm.res_granted = false;
 	ipa3_ctx->transport_pm.res_rel_in_prog = false;

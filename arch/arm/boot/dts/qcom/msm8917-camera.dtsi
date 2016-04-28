@@ -151,8 +151,8 @@
 		interrupts = <0 55 0>;
 		interrupt-names = "ispif";
 		qcom,num-isps = <0x2>;
-		vfe0-vdd_supply = <&gdsc_vfe>;
-		vfe1-vdd_supply = <&gdsc_vfe1>;
+		vfe0-vdd-supply = <&gdsc_vfe>;
+		vfe1-vdd-supply = <&gdsc_vfe1>;
 		qcom,vdd-names = "vfe0-vdd", "vfe1-vdd";
 		clocks = <&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>,
@@ -364,7 +364,7 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
-			<62 512 666675 666675>;
+			<62 512 800000 800000>;
 		qcom,vbif-reg-settings = <0xc0 0x10101000>,
 			<0xb0 0x10100010>;
 	};

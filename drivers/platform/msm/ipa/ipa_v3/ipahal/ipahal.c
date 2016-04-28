@@ -589,7 +589,7 @@ u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd)
 
 	if (cmd >= IPA_IMM_CMD_MAX) {
 		IPAHAL_ERR("Invalid immediate command imm_cmd=%u\n", cmd);
-		BUG();
+		ipa_assert();
 		return -EFAULT;
 	}
 
@@ -599,7 +599,7 @@ u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd)
 	if (opcode == -1) {
 		IPAHAL_ERR("Try to get opcode of obsolete IMM_CMD=%s\n",
 			ipahal_imm_cmd_name_str(cmd));
-		BUG();
+		ipa_assert();
 		return -EFAULT;
 	}
 
@@ -622,7 +622,7 @@ u16 ipahal_imm_cmd_get_opcode_param(enum ipahal_imm_cmd_name cmd, int param)
 
 	if (cmd >= IPA_IMM_CMD_MAX) {
 		IPAHAL_ERR("Invalid immediate command IMM_CMD=%u\n", cmd);
-		BUG();
+		ipa_assert();
 		return -EFAULT;
 	}
 
@@ -632,7 +632,7 @@ u16 ipahal_imm_cmd_get_opcode_param(enum ipahal_imm_cmd_name cmd, int param)
 	if (!ipahal_imm_cmd_objs[ipahal_ctx->hw_type][cmd].dyn_op) {
 		IPAHAL_ERR("IMM_CMD=%s does not support dynamic opcode\n",
 			ipahal_imm_cmd_name_str(cmd));
-		BUG();
+		ipa_assert();
 		return -EFAULT;
 	}
 
@@ -644,20 +644,20 @@ u16 ipahal_imm_cmd_get_opcode_param(enum ipahal_imm_cmd_name cmd, int param)
 	if (param & ~0xFFFF) {
 		IPAHAL_ERR("IMM_CMD=%s opcode param is invalid\n",
 			ipahal_imm_cmd_name_str(cmd));
-		BUG();
+		ipa_assert();
 		return -EFAULT;
 	}
 	opcode = ipahal_imm_cmd_objs[ipahal_ctx->hw_type][cmd].opcode;
 	if (opcode == -1) {
 		IPAHAL_ERR("Try to get opcode of obsolete IMM_CMD=%s\n",
 			ipahal_imm_cmd_name_str(cmd));
-		BUG();
+		ipa_assert();
 		return -EFAULT;
 	}
 	if (opcode & ~0xFFFF) {
 		IPAHAL_ERR("IMM_CMD=%s opcode will be overridden\n",
 			ipahal_imm_cmd_name_str(cmd));
-		BUG();
+		ipa_assert();
 		return -EFAULT;
 	}
 	return (opcode + (param<<8));
@@ -674,13 +674,13 @@ struct ipahal_imm_cmd_pyld *ipahal_construct_imm_cmd(
 {
 	if (!params) {
 		IPAHAL_ERR("Input error: params=%p\n", params);
-		BUG();
+		ipa_assert();
 		return NULL;
 	}
 
 	if (cmd >= IPA_IMM_CMD_MAX) {
 		IPAHAL_ERR("Invalid immediate command %u\n", cmd);
-		BUG();
+		ipa_assert();
 		return NULL;
 	}
 

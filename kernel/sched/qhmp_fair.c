@@ -2559,6 +2559,15 @@ unsigned int up_down_migrate_scale_factor = 1024;
  */
 unsigned int sysctl_sched_boost;
 
+/*
+ * When sched_restrict_tasks_spread is enabled, small tasks are packed
+ * up to spill thresholds, which otherwise are packed up to mostly_idle
+ * thresholds. The RT tasks are also placed on the fist available lowest
+ * power CPU which otherwise placed on least loaded CPU including idle
+ * CPUs.
+ */
+unsigned int __read_mostly sysctl_sched_restrict_tasks_spread;
+
 static inline int available_cpu_capacity(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -3085,35 +3094,55 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		}
 
 		cpu_load = cpu_load_sync(i, sync);
+
+		if (sysctl_sched_restrict_tasks_spread) {
+			tload = scale_load_to_cpu(task_load(p), i);
+			if (!spill_threshold_crossed(tload, cpu_load, rq)) {
+				if (cpu_load < min_load) {
+					min_load = cpu_load;
+					best_busy_cpu = i;
+				}
+			}
+			continue;
+		}
+
 		if (mostly_idle_cpu_sync(i, cpu_load, sync))
 			return i;
+
 	} while ((i = cpumask_first(&search_cpu)) < nr_cpu_ids);
+
+	if (best_busy_cpu != -1)
+		return best_busy_cpu;
 
 	if (min_cstate_cpu != -1)
 		return min_cstate_cpu;
 
-	cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
-	cpumask_andnot(&search_cpu, &search_cpu, &fb_search_cpu);
-	for_each_cpu(i, &search_cpu) {
-		rq = cpu_rq(i);
-		prev_cpu = (i == task_cpu(p));
+	if (!sysctl_sched_restrict_tasks_spread) {
+		cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
+		cpumask_andnot(&search_cpu, &search_cpu, &fb_search_cpu);
+		for_each_cpu(i, &search_cpu) {
+			rq = cpu_rq(i);
+			prev_cpu = (i == task_cpu(p));
 
-		if (sched_cpu_high_irqload(i))
-			continue;
+			if (sched_cpu_high_irqload(i))
+				continue;
 
-		tload = scale_load_to_cpu(task_load(p), i);
-		cpu_load = cpu_load_sync(i, sync);
-		if (!spill_threshold_crossed(tload, cpu_load, rq)) {
-			if (cpu_load < min_load ||
-			    (prev_cpu && cpu_load == min_load)) {
-				min_load = cpu_load;
-				best_busy_cpu = i;
+			tload = scale_load_to_cpu(task_load(p), i);
+			cpu_load = cpu_load_sync(i, sync);
+			if (!spill_threshold_crossed(tload, cpu_load, rq)) {
+				if (cpu_load < min_load ||
+						(prev_cpu &&
+						 cpu_load == min_load)) {
+					min_load = cpu_load;
+					best_busy_cpu = i;
+				}
 			}
 		}
-	}
 
-	if (best_busy_cpu != -1)
-		return best_busy_cpu;
+		if (best_busy_cpu != -1)
+			return best_busy_cpu;
+
+	}
 
 	for_each_cpu(i, &fb_search_cpu) {
 		rq = cpu_rq(i);

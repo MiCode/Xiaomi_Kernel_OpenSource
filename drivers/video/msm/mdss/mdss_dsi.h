@@ -657,6 +657,8 @@ void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dsc_desc *dsc);
 void mdss_dsi_dfps_config_8996(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_set_burst_mode(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
+	u32 mask, u32 val);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {
