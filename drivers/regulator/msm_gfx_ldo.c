@@ -62,7 +62,7 @@
 #define LDO_READY_BIT			BIT(2)
 #define BHS_EN_REST_ACK_BIT		BIT(1)
 
-#define MIN_LDO_VOLTAGE			345000
+#define MIN_LDO_VOLTAGE			375000
 #define MAX_LDO_VOLTAGE			980000
 #define LDO_STEP_VOLATGE		5000
 
@@ -733,6 +733,46 @@ static struct regulator_ops msm_gfx_ldo_corner_ops = {
 	.get_voltage	= msm_gfx_ldo_get_voltage,
 };
 
+static int msm_gfx_ldo_adjust_init_voltage(struct msm_gfx_ldo *ldo_vreg)
+{
+	int rc, len, size, i;
+	u32 *volt_adjust;
+	struct device_node *of_node = ldo_vreg->dev->of_node;
+	char *prop_name = "qcom,ldo-init-voltage-adjustment";
+
+	if (!of_find_property(of_node, prop_name, &len)) {
+		/* No initial voltage adjustment needed. */
+		return 0;
+	}
+
+	size = len / sizeof(u32);
+	if (size != ldo_vreg->num_ldo_corners) {
+		pr_err("%s length=%d is invalid: required:%d\n",
+				prop_name, size, ldo_vreg->num_ldo_corners);
+		return -EINVAL;
+	}
+
+	volt_adjust = devm_kcalloc(ldo_vreg->dev, size, sizeof(*volt_adjust),
+								GFP_KERNEL);
+	rc = of_property_read_u32_array(of_node, prop_name, volt_adjust, size);
+	if (rc) {
+		pr_err("failed to read %s property rc=%d\n", prop_name, rc);
+		return rc;
+	}
+
+	for (i = 0; i < ldo_vreg->num_corners; i++) {
+		if (volt_adjust[i]) {
+			ldo_vreg->open_loop_volt[i] += volt_adjust[i];
+			pr_info("adjusted the open-loop voltage[%d] %d -> %d\n",
+				i + MIN_CORNER_OFFSET,
+				ldo_vreg->open_loop_volt[i] - volt_adjust[i],
+				ldo_vreg->open_loop_volt[i]);
+		}
+	}
+
+	return 0;
+}
+
 static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 {
 	struct device_node *of_node = ldo_vreg->dev->of_node;
@@ -784,6 +824,12 @@ static int msm_gfx_ldo_voltage_init(struct msm_gfx_ldo *ldo_vreg)
 					GFX_LDO_FUSE_SIZE);
 		pr_info("LDO corner %d: target-volt = %d uV\n",
 			i + MIN_CORNER_OFFSET, ldo_vreg->open_loop_volt[i]);
+	}
+
+	rc = msm_gfx_ldo_adjust_init_voltage(ldo_vreg);
+	if (rc) {
+		pr_err("Unable to adjust init voltages rc=%d\n", rc);
+		return rc;
 	}
 
 	for (i = 0; i < ldo_vreg->num_ldo_corners; i++) {
