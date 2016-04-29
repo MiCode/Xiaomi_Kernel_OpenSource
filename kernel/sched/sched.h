@@ -988,6 +988,9 @@ extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
+extern void sched_account_irqstart(int cpu, struct task_struct *curr,
+				   u64 wallclock);
+
 unsigned int cpu_temp(int cpu);
 int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int nr_eligible_big_tasks(int cpu);
@@ -1229,6 +1232,11 @@ static inline void dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 
 static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock)
+{
+}
+
+static inline void sched_account_irqstart(int cpu, struct task_struct *curr,
+					  u64 wallclock)
 {
 }
 

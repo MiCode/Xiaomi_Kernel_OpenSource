@@ -2744,7 +2744,20 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 		else
 			rq->cc.cycles = cur_cycles - p->cpu_cycles;
 		rq->cc.cycles = rq->cc.cycles * NSEC_PER_MSEC;
-		rq->cc.time = wallclock - p->ravg.mark_start;
+
+		if (event == IRQ_UPDATE && is_idle_task(p))
+			/*
+			 * Time between mark_start of idle task and IRQ handler
+			 * entry time is CPU cycle counter stall period.
+			 * Upon IRQ handler entry sched_account_irqstart()
+			 * replenishes idle task's cpu cycle counter so
+			 * rq->cc.cycles now represents increased cycles during
+			 * IRQ handler rather than time between idle entry and
+			 * IRQ exit.  Thus use irqtime as time delta.
+			 */
+			rq->cc.time = irqtime;
+		else
+			rq->cc.time = wallclock - p->ravg.mark_start;
 		BUG_ON((s64)rq->cc.time < 0);
 	}
 
@@ -3015,6 +3028,17 @@ void sched_account_irqtime(int cpu, struct task_struct *curr,
 	rq->cur_irqload += delta;
 	rq->irqload_ts = cur_jiffies_ts;
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
+}
+
+void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	if (!rq->window_start || sched_disable_window_stats)
+		return;
+
+	if (is_idle_task(curr) && use_cycle_counter)
+		update_task_cpu_cycles(curr, cpu);
 }
 
 static void reset_task_stats(struct task_struct *p)
