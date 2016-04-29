@@ -18,13 +18,13 @@ Required properties
 - qcom,sensor-id: The id of the TSENS sensor polled for temperature.
 			Typically the sensor closest to CPU0.
 - qcom,poll-ms: Sampling interval to read sensor, in ms.
-- qcom,limit-temp: Threshold temperature to start stepping CPU down, in degC.
-- qcom,temp-hysteresis: Degrees C below threshold temperature to step CPU up.
-- qcom,freq-step: Number of frequency steps to take on each CPU mitigation.
 
 Optional properties
 
 - reg:                  Physical address for uio mapping
+- qcom,limit-temp:	Threshold temperature to start stepping CPU down, in degC.
+- qcom,temp-hysteresis: Degrees C below threshold temperature to step CPU up.
+- qcom,freq-step:	Number of frequency steps to take on each CPU mitigation.
 - qcom,core-limit-temp: Threshold temperature to start shutting down cores
 			in degC
 - qcom,core-temp-hysteresis: Degrees C below which the cores will be brought

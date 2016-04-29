@@ -166,6 +166,7 @@ static bool psm_enabled;
 static bool psm_nodes_called;
 static bool psm_probed;
 static bool freq_mitigation_enabled;
+static bool boot_freq_mitig_enabled;
 static bool ocr_enabled;
 static bool ocr_nodes_called;
 static bool ocr_probed;
@@ -3520,6 +3521,8 @@ static void do_freq_control(int temp)
 	uint32_t cpu = 0;
 	uint32_t max_freq = cpus[cpu].limited_max_freq;
 
+	if (!boot_freq_mitig_enabled)
+		return;
 	if (core_ptr)
 		return do_cluster_freq_ctrl(temp);
 	if (!freq_table_get)
@@ -5318,8 +5321,10 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 	if (ret)
 		pr_err("cannot register cpufreq notifier. err:%d\n", ret);
 
-	register_reboot_notifier(&msm_thermal_reboot_notifier);
-	pm_notifier(msm_thermal_suspend_callback, 0);
+	if (!lmh_dcvs_available) {
+		register_reboot_notifier(&msm_thermal_reboot_notifier);
+		pm_notifier(msm_thermal_suspend_callback, 0);
+	}
 	INIT_DELAYED_WORK(&retry_hotplug_work, retry_hotplug);
 
 	if (num_possible_cpus() > 1) {
@@ -6201,6 +6206,18 @@ static int fetch_cpu_mitigaiton_info(struct msm_thermal_data *data,
 
 	int _cpu = 0, err = 0;
 	struct device_node *cpu_node = NULL, *limits = NULL, *tsens = NULL;
+	char *key = NULL;
+	struct device_node *node = pdev->dev.of_node;
+
+	key = "qcom,sensor-id";
+	err = of_property_read_u32(node, key, &data->sensor_id);
+	if (err)
+		goto fetch_mitig_exit;
+
+	key = "qcom,poll-ms";
+	err = of_property_read_u32(node, key, &data->poll_ms);
+	if (err)
+		goto fetch_mitig_exit;
 
 	for_each_possible_cpu(_cpu) {
 		const char *sensor_name = NULL;
@@ -6542,6 +6559,12 @@ static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
 		hotplug_enabled = 1;
 	}
 
+	key = "qcom,online-hotplug-core";
+	if (of_property_read_bool(node, key))
+		online_core = true;
+	else
+		online_core = false;
+
 	key = "qcom,core-limit-temp";
 	ret = of_property_read_u32(node, key, &data->core_limit_temp_degC);
 	if (ret)
@@ -6809,6 +6832,22 @@ static int probe_freq_mitigation(struct device_node *node,
 {
 	char *key = NULL;
 	int ret = 0;
+
+	key = "qcom,limit-temp";
+	ret = of_property_read_u32(node, key, &data->limit_temp_degC);
+	if (ret)
+		goto PROBE_FREQ_EXIT;
+
+	key = "qcom,temp-hysteresis";
+	ret = of_property_read_u32(node, key, &data->temp_hysteresis_degC);
+	if (ret)
+		goto PROBE_FREQ_EXIT;
+
+	key = "qcom,freq-step";
+	ret = of_property_read_u32(node, key, &data->bootup_freq_step);
+	if (ret)
+		goto PROBE_FREQ_EXIT;
+	boot_freq_mitig_enabled = true;
 
 	key = "qcom,freq-mitigation-temp";
 	ret = of_property_read_u32(node, key, &data->freq_mitig_temp_degc);
@@ -7202,7 +7241,6 @@ static int probe_deferrable_properties(struct device_node *node,
 static int msm_thermal_dev_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	char *key = NULL;
 	struct device_node *node = pdev->dev.of_node;
 	struct msm_thermal_data data;
 
@@ -7215,50 +7253,18 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = msm_thermal_pre_init(&pdev->dev);
 	if (ret) {
 		pr_err("thermal pre init failed. err:%d\n", ret);
-		goto fail;
+		goto probe_exit;
 	}
-
-	key = "qcom,sensor-id";
-	ret = of_property_read_u32(node, key, &data.sensor_id);
-	if (ret)
-		goto fail;
-
-	key = "qcom,poll-ms";
-	ret = of_property_read_u32(node, key, &data.poll_ms);
-	if (ret)
-		goto fail;
-
-	key = "qcom,limit-temp";
-	ret = of_property_read_u32(node, key, &data.limit_temp_degC);
-	if (ret)
-		goto fail;
-
-	key = "qcom,temp-hysteresis";
-	ret = of_property_read_u32(node, key, &data.temp_hysteresis_degC);
-	if (ret)
-		goto fail;
-
-	key = "qcom,freq-step";
-	ret = of_property_read_u32(node, key, &data.bootup_freq_step);
-	if (ret)
-		goto fail;
-
-	key = "qcom,online-hotplug-core";
-	if (of_property_read_bool(node, key))
-		online_core = true;
-	else
-		online_core = false;
 	ret = probe_deferrable_properties(node, &data, pdev);
 	if (ret)
 		goto probe_exit;
 
 	probe_sensor_info(node, &data, pdev);
-	ret = probe_cc(node, &data, pdev);
-
-	ret = probe_freq_mitigation(node, &data, pdev);
-	ret = probe_cx_phase_ctrl(node, &data, pdev);
-	ret = probe_gfx_phase_ctrl(node, &data, pdev);
-	ret = probe_therm_reset(node, &data, pdev);
+	probe_cc(node, &data, pdev);
+	probe_freq_mitigation(node, &data, pdev);
+	probe_cx_phase_ctrl(node, &data, pdev);
+	probe_gfx_phase_ctrl(node, &data, pdev);
+	probe_therm_reset(node, &data, pdev);
 	update_cpu_topology(&pdev->dev);
 	ret = fetch_cpu_mitigaiton_info(&data, pdev);
 	if (ret) {
@@ -7272,11 +7278,6 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 		goto probe_exit;
 	msm_thermal_probed = true;
 
-	return ret;
-fail:
-	if (ret)
-		pr_err("Failed reading node=%s, key=%s. err:%d\n",
-			node->full_name, key, ret);
 probe_exit:
 	return ret;
 }
