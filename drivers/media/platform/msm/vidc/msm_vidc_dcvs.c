@@ -619,7 +619,8 @@ static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 		if (!is_codec_supported ||
 			!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
 				res->dcvs_limit[inst->session_type].min_mbpf) ||
-			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit))
+			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit) ||
+			inst->seqchanged_count > 1)
 			return false;
 
 		if (!output_buf_req) {
