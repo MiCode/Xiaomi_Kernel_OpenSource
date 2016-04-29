@@ -783,6 +783,8 @@
 		mem-acc-supply = <&gfx_mem_acc_vreg>;
 		qcom,cpr-aging-ref-voltage = <1032000>;
 
+		qcom,cpr-enable;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
