@@ -19,9 +19,6 @@
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 
-#define FAST_BUS 1
-#define SLOW_BUS -1
-
 /*
  * "SLEEP" is generic counting both NAP & SLUMBER
  * PERIODS generally won't exceed 9 for the relavent 150msec

@@ -27,10 +27,6 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_cmdbatch.h"
 
-#define KGSL_TIMEOUT_NONE           0
-#define KGSL_TIMEOUT_DEFAULT        0xFFFFFFFF
-#define KGSL_TIMEOUT_PART           50 /* 50 msec */
-
 #define KGSL_IOCTL_FUNC(_cmd, _func) \
 	[_IOC_NR((_cmd))] = \
 		{ .cmd = (_cmd), .func = (_func) }
@@ -52,10 +48,6 @@
 #define KGSL_STATE_AWARE	0x00000020
 #define KGSL_STATE_SLUMBER	0x00000080
 #define KGSL_STATE_DEEP_NAP	0x00000100
-
-#define KGSL_GRAPHICS_MEMORY_LOW_WATERMARK  0x1000000
-
-#define KGSL_IS_PAGE_ALIGNED(addr) (!((addr) & (~PAGE_MASK)))
 
 /**
  * enum kgsl_event_results - result codes passed to an event callback when the
@@ -342,14 +334,10 @@ struct kgsl_process_private;
  * @priv: in-kernel context flags, use KGSL_CONTEXT_* values
  * @reset_status: status indication whether a gpu reset occured and whether
  * this context was responsible for causing it
- * @wait_on_invalid_ts: flag indicating if this context has tried to wait on a
- * bad timestamp
  * @timeline: sync timeline used to create fences that can be signaled when a
  * sync_pt timestamp expires
  * @events: A kgsl_event_group for this context - contains the list of GPU
  * events
- * @pagefault_ts: global timestamp of the pagefault, if KGSL_CONTEXT_PAGEFAULT
- * is set.
  * @flags: flags from userspace controlling the behavior of this context
  * @pwr_constraint: power constraint from userspace for this context
  * @fault_count: number of times gpu hanged in last _context_throttle_time ms
@@ -365,10 +353,8 @@ struct kgsl_context {
 	unsigned long priv;
 	struct kgsl_device *device;
 	unsigned int reset_status;
-	bool wait_on_invalid_ts;
 	struct sync_timeline *timeline;
 	struct kgsl_event_group events;
-	unsigned int pagefault_ts;
 	unsigned int flags;
 	struct kgsl_pwr_constraint pwr_constraint;
 	unsigned int fault_count;
