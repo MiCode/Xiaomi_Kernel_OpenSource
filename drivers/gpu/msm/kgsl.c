@@ -1786,12 +1786,8 @@ long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 	long ret;
 
 	entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-	if (entry == NULL) {
-		KGSL_MEM_INFO(dev_priv->device,
-			"Invalid GPU address 0x%016llx\n",
-			(uint64_t) param->gpuaddr);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	ret = gpumem_free_entry(entry);
 	kgsl_mem_entry_put(entry);
@@ -1808,11 +1804,8 @@ long kgsl_ioctl_gpumem_free_id(struct kgsl_device_private *dev_priv,
 	long ret;
 
 	entry = kgsl_sharedmem_find_id(private, param->id);
-	if (entry == NULL) {
-		KGSL_MEM_INFO(dev_priv->device,
-			"Invalid GPU memory object ID %d\n", param->id);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	ret = gpumem_free_entry(entry);
 	kgsl_mem_entry_put(entry);
@@ -1901,11 +1894,8 @@ long kgsl_ioctl_gpuobj_free(struct kgsl_device_private *dev_priv,
 	long ret;
 
 	entry = kgsl_sharedmem_find_id(private, param->id);
-	if (entry == NULL) {
-		KGSL_MEM_ERR(dev_priv->device,
-			"Invalid GPU memory object ID %d\n", param->id);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	/* If no event is specified then free immediately */
 	if (!(param->flags & KGSL_GPUOBJ_FREE_ON_EVENT))
@@ -1940,17 +1930,14 @@ long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
 	entry = kgsl_sharedmem_find(dev_priv->process_priv,
 		(uint64_t) param->gpuaddr);
 	if (entry == NULL) {
-		KGSL_MEM_ERR(dev_priv->device,
-			"Invalid GPU address 0x%016llx\n",
-			(uint64_t) param->gpuaddr);
-		goto out;
+		kgsl_context_put(context);
+		return -EINVAL;
 	}
 
 	ret = gpumem_free_entry_on_timestamp(dev_priv->device, entry,
 		context, param->timestamp);
 
 	kgsl_mem_entry_put(entry);
-out:
 	kgsl_context_put(context);
 
 	return ret;
@@ -2554,7 +2541,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 				private->pagetable, entry, param->fd);
 		break;
 	default:
-		KGSL_CORE_ERR("Invalid memory type: %x\n", memtype);
 		result = -EOPNOTSUPP;
 		break;
 	}
@@ -2564,10 +2550,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	if ((param->flags & KGSL_MEMFLAGS_SECURE) &&
 		(entry->memdesc.size & mmu->secure_align_mask)) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Secure buffer size %lld not aligned to %x alignment",
-				entry->memdesc.size,
-				mmu->secure_align_mask + 1);
 		result = -EINVAL;
 		goto error_attach;
 	}
@@ -2669,24 +2651,13 @@ long kgsl_ioctl_gpumem_sync_cache(struct kgsl_device_private *dev_priv,
 	struct kgsl_mem_entry *entry = NULL;
 	long ret;
 
-	if (param->id != 0) {
+	if (param->id != 0)
 		entry = kgsl_sharedmem_find_id(private, param->id);
-		if (entry == NULL) {
-			KGSL_MEM_INFO(dev_priv->device, "can't find id %d\n",
-					param->id);
-			return -EINVAL;
-		}
-	} else if (param->gpuaddr != 0) {
+	else if (param->gpuaddr != 0)
 		entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-		if (entry == NULL) {
-			KGSL_MEM_INFO(dev_priv->device,
-					"can't find gpuaddr 0x%08lX\n",
-					param->gpuaddr);
-			return -EINVAL;
-		}
-	} else {
+
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	ret = _kgsl_gpumem_sync_cache(entry, (uint64_t) param->offset,
 					(uint64_t) param->length, param->op);
@@ -2814,12 +2785,8 @@ long kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 	long ret;
 
 	entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-	if (entry == NULL) {
-		KGSL_MEM_INFO(dev_priv->device,
-				"can't find gpuaddr 0x%08lX\n",
-				param->gpuaddr);
+	if (entry == NULL)
 		return -EINVAL;
-	}
 
 	ret = _kgsl_gpumem_sync_cache(entry, 0, entry->memdesc.size,
 					KGSL_GPUMEM_CACHE_FLUSH);
@@ -3107,15 +3074,12 @@ long kgsl_ioctl_gpumem_get_info(struct kgsl_device_private *dev_priv,
 	struct kgsl_mem_entry *entry = NULL;
 	int result = 0;
 
-	if (param->id != 0) {
+	if (param->id != 0)
 		entry = kgsl_sharedmem_find_id(private, param->id);
-		if (entry == NULL)
-			return -EINVAL;
-	} else if (param->gpuaddr != 0) {
+	else if (param->gpuaddr != 0)
 		entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-		if (entry == NULL)
-			return -EINVAL;
-	} else
+
+	if (entry == NULL)
 		return -EINVAL;
 
 	/*
