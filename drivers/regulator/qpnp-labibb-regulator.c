@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/init.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -232,6 +233,9 @@
 #define IBB_DIS_DLY_MASK		((1 << IBB_DIS_DLY_BITS) - 1)
 #define IBB_WAIT_MBG_OK			BIT(2)
 
+/* Constants */
+#define SWIRE_DEFAULT_2ND_CMD_DLY_MS	20
+
 enum pmic_subtype {
 	PMI8994		= 10,
 	PMI8950		= 17,
@@ -265,6 +269,7 @@ enum ibb_mode {
 	IBB_SW_CONTROL_EN,
 	IBB_SW_CONTROL_DIS,
 	IBB_HW_CONTROL,
+	IBB_HW_SW_CONTROL,
 };
 
 static const int ibb_discharge_resistor_plan[] = {
@@ -422,6 +427,7 @@ struct lab_regulator {
 	struct regulator_dev		*rdev;
 	struct mutex			lab_mutex;
 
+	int				lab_vreg_ok_irq;
 	int				curr_volt;
 	int				min_volt;
 
@@ -464,6 +470,8 @@ struct qpnp_labibb {
 	bool				ibb_settings_saved;
 	bool				swire_control;
 	bool				ttw_force_lab_on;
+	bool				skip_2nd_swire_cmd;
+	u32				swire_2nd_cmd_delay;
 };
 
 enum ibb_settings_index {
@@ -651,6 +659,8 @@ static int qpnp_ibb_set_mode(struct qpnp_labibb *labibb, enum ibb_mode mode)
 		val = IBB_ENABLE_CTL_MODULE_EN;
 	else if (mode == IBB_HW_CONTROL)
 		val = IBB_ENABLE_CTL_SWIRE_RDY;
+	else if (mode == IBB_HW_SW_CONTROL)
+		val = IBB_ENABLE_CTL_MODULE_EN | IBB_ENABLE_CTL_SWIRE_RDY;
 	else if (mode == IBB_SW_CONTROL_DIS)
 		val = 0;
 	else
@@ -1551,6 +1561,77 @@ static int qpnp_lab_regulator_set_voltage(struct regulator_dev *rdev,
 	return 0;
 }
 
+static int qpnp_skip_swire_command(struct qpnp_labibb *labibb)
+{
+	int rc = 0, retry = 50, dly;
+	u8 reg;
+
+	do {
+		/* poll for ibb vreg_ok */
+		rc = qpnp_labibb_read(labibb, &reg,
+			labibb->ibb_base + REG_IBB_STATUS1, 1);
+		if (rc) {
+			pr_err("Failed to read ibb_status1 reg rc=%d\n", rc);
+			return rc;
+		}
+		if ((reg & IBB_STATUS1_VREG_OK_MASK) == IBB_STATUS1_VREG_OK)
+			break;
+
+		/* poll delay */
+		usleep_range(500, 600);
+
+	} while (--retry);
+
+	if (!retry) {
+		pr_err("ibb vreg_ok failed to turn-on\n");
+		return -EBUSY;
+	}
+
+	/* move to SW control */
+	rc = qpnp_ibb_set_mode(labibb, IBB_SW_CONTROL_EN);
+	if (rc) {
+		pr_err("Failed switch to IBB_SW_CONTROL rc=%d\n", rc);
+		return rc;
+	}
+
+	/* delay to skip the second swire command */
+	dly = labibb->swire_2nd_cmd_delay * 1000;
+	while (dly / 20000) {
+		usleep_range(20000, 20010);
+		dly -= 20000;
+	}
+	if (dly)
+		usleep_range(dly, dly + 10);
+
+	rc = qpnp_ibb_set_mode(labibb, IBB_HW_SW_CONTROL);
+	if (rc) {
+		pr_err("Failed switch to IBB_HW_SW_CONTROL rc=%d\n", rc);
+		return rc;
+	}
+
+	/* delay for SPMI to SWIRE transition */
+	usleep_range(1000, 1100);
+
+	/* Move back to SWIRE control */
+	rc = qpnp_ibb_set_mode(labibb, IBB_HW_CONTROL);
+	if (rc)
+		pr_err("Failed switch to IBB_HW_CONTROL rc=%d\n", rc);
+
+	return rc;
+}
+
+static irqreturn_t lab_vreg_ok_handler(int irq, void *_labibb)
+{
+	struct qpnp_labibb *labibb = _labibb;
+	int rc;
+
+	rc = qpnp_skip_swire_command(labibb);
+	if (rc)
+		pr_err("Failed in 'qpnp_skip_swire_command' rc=%d\n", rc);
+
+	return IRQ_HANDLED;
+}
+
 static int qpnp_lab_regulator_get_voltage(struct regulator_dev *rdev)
 {
 	struct qpnp_labibb *labibb  = rdev_get_drvdata(rdev);
@@ -1705,6 +1786,19 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		if (rc) {
 			pr_err("qpnp_labibb_write register %x failed rc = %d\n",
 				REG_LAB_CURRENT_SENSE, rc);
+			return rc;
+		}
+	}
+
+	if (labibb->skip_2nd_swire_cmd) {
+		rc = devm_request_threaded_irq(labibb->dev,
+				labibb->lab_vreg.lab_vreg_ok_irq, NULL,
+				lab_vreg_ok_handler,
+				IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+				"lab-vreg-ok", labibb);
+		if (rc) {
+			pr_err("Failed to register 'lab-vreg-ok' irq rc=%d\n",
+						rc);
 			return rc;
 		}
 	}
@@ -2512,6 +2606,22 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	return 0;
 }
 
+static int qpnp_lab_register_irq(struct spmi_resource *spmi_resource,
+					struct qpnp_labibb *labibb)
+{
+	if (labibb->skip_2nd_swire_cmd) {
+		labibb->lab_vreg.lab_vreg_ok_irq =
+					spmi_get_irq_byname(labibb->spmi,
+					spmi_resource, "lab-vreg-ok");
+		if (labibb->lab_vreg.lab_vreg_ok_irq < 0) {
+			pr_err("Invalid lab-vreg-ok irq\n");
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static int qpnp_labibb_check_ttw_supported(struct qpnp_labibb *labibb)
 {
 	int rc = 0;
@@ -2617,6 +2727,17 @@ static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
 		pr_err("Invalid mode for SWIRE control\n");
 		return -EINVAL;
 	}
+	if (labibb->swire_control) {
+		labibb->skip_2nd_swire_cmd =
+				of_property_read_bool(labibb->dev->of_node,
+				"qcom,skip-2nd-swire-cmd");
+		rc = of_property_read_u32(labibb->dev->of_node,
+				"qcom,swire-2nd-cmd-delay",
+				&labibb->swire_2nd_cmd_delay);
+		if (rc)
+			labibb->swire_2nd_cmd_delay =
+					SWIRE_DEFAULT_2ND_CMD_DLY_MS;
+	}
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
@@ -2642,6 +2763,12 @@ static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
 		switch (type) {
 		case QPNP_LAB_TYPE:
 			labibb->lab_base = resource->start;
+			rc = qpnp_lab_register_irq(spmi_resource, labibb);
+			if (rc) {
+				pr_err("Failed to register LAB IRQ rc=%d\n",
+							rc);
+				goto fail_registration;
+			}
 			rc = register_qpnp_lab_regulator(labibb,
 				spmi_resource->of_node);
 			if (rc)
