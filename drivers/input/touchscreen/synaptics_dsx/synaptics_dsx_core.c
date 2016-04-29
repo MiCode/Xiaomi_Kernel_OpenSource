@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -3544,6 +3544,12 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->fw_updating = false;
 	rmi4_data->fingers_on_2d = false;
 	rmi4_data->update_coords = true;
+
+	rmi4_data->write_buf = devm_kzalloc(&pdev->dev, I2C_WRITE_BUF_MAX_LEN,
+					GFP_KERNEL);
+	if (!rmi4_data->write_buf)
+		return -ENOMEM;
+	rmi4_data->write_buf_len = I2C_WRITE_BUF_MAX_LEN;
 
 	rmi4_data->irq_enable = synaptics_rmi4_irq_enable;
 	rmi4_data->reset_device = synaptics_rmi4_reset_device;

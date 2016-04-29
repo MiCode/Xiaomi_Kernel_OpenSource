@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -101,6 +101,7 @@
 #define PINCTRL_STATE_RELEASE   "pmx_ts_release"
 
 #define SYNA_FW_NAME_MAX_LEN	50
+#define I2C_WRITE_BUF_MAX_LEN	32
 
 enum exp_fn {
 	RMI_DEV = 0,
@@ -264,6 +265,8 @@ struct synaptics_rmi4_data {
 	unsigned char no_sleep_setting;
 	unsigned char intr_mask[MAX_INTR_REGISTERS];
 	unsigned char *button_txrx_mapping;
+	unsigned char *write_buf;
+	unsigned short write_buf_len;
 	unsigned short num_of_intr_regs;
 	unsigned short f01_query_base_addr;
 	unsigned short f01_cmd_base_addr;
