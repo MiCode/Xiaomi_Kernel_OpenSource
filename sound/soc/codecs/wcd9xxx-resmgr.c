@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2016 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -430,15 +430,22 @@ int wcd9xxx_resmgr_enable_config_mode(struct wcd9xxx_resmgr *resmgr, int enable)
 	if (enable) {
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_FREQ, 0x10, 0);
 		/* bandgap mode to fast */
-		snd_soc_write(codec, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x17);
+		if (resmgr->pdata->mclk_rate == WCD9XXX_MCLK_CLK_12P288MHZ)
+			/* Set current value to 200nA for 12.288MHz clock */
+			snd_soc_write(codec, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x37);
+		else
+			snd_soc_write(codec, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x17);
+
 		usleep_range(5, 10);
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_FREQ, 0x80, 0x80);
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_TEST, 0x80, 0x80);
 		usleep_range(10, 20);
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_TEST, 0x80, 0);
 		usleep_range(10000, 10100);
-		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1,
-				0x08, 0x08);
+
+		if (resmgr->pdata->mclk_rate != WCD9XXX_MCLK_CLK_12P288MHZ)
+			snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1,
+							0x08, 0x08);
 	} else {
 		snd_soc_update_bits(codec, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x1, 0);
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_FREQ, 0x80, 0);
@@ -476,13 +483,24 @@ static void wcd9xxx_enable_clock_block(struct wcd9xxx_resmgr *resmgr,
 		/* 1ms sleep required after BG enabled */
 		usleep_range(1000, 1100);
 
-		snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL, 0x18, 0x10);
-		valr = snd_soc_read(codec, TOMTOM_A_QFUSE_DATA_OUT0) & (0x04);
-		valr1 = snd_soc_read(codec, TOMTOM_A_QFUSE_DATA_OUT1) & (0x08);
-		valr = (valr >> 1) | (valr1 >> 3);
-		snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL, 0x60,
-				    valw[valr] << 5);
-
+		if (resmgr->pdata->mclk_rate == WCD9XXX_MCLK_CLK_12P288MHZ) {
+			/*
+			 * Set RCO clock rate as 12.288MHz rate explicitly
+			 * as the Qfuse values are incorrect for this rate
+			 */
+			snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL,
+					0x50, 0x50);
+		} else {
+			snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL,
+					0x18, 0x10);
+			valr = snd_soc_read(codec,
+					TOMTOM_A_QFUSE_DATA_OUT0) & (0x04);
+			valr1 = snd_soc_read(codec,
+					TOMTOM_A_QFUSE_DATA_OUT1) & (0x08);
+			valr = (valr >> 1) | (valr1 >> 3);
+			snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL, 0x60,
+					valw[valr] << 5);
+		}
 		snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL, 0x80, 0x80);
 
 		do {
@@ -611,9 +629,11 @@ void wcd9xxx_resmgr_get_clk_block(struct wcd9xxx_resmgr *resmgr,
 				wcd9xxx_resmgr_notifier_call(resmgr,
 						WCD9XXX_EVENT_PRE_RCO_ON);
 				/* CLK MUX to RCO */
-				snd_soc_update_bits(codec,
-						    WCD9XXX_A_CLK_BUFF_EN1,
-						    0x08, 0x08);
+				if (resmgr->pdata->mclk_rate !=
+						WCD9XXX_MCLK_CLK_12P288MHZ)
+					snd_soc_update_bits(codec,
+						WCD9XXX_A_CLK_BUFF_EN1,
+						0x08, 0x08);
 				resmgr->clk_type = WCD9XXX_CLK_RCO;
 				wcd9xxx_resmgr_notifier_call(resmgr,
 						WCD9XXX_EVENT_POST_RCO_ON);
