@@ -1288,6 +1288,7 @@ void u_bam_data_stop_rndis_ipa(void)
 	int port_num;
 	struct bam_data_port *port;
 	struct bam_data_ch_info *d;
+	unsigned long flags;
 
 	pr_debug("%s\n", __func__);
 
@@ -1305,6 +1306,15 @@ void u_bam_data_stop_rndis_ipa(void)
 		rndis_ipa_reset_trigger();
 		bam_data_stop_endless_tx(port);
 		bam_data_stop_endless_rx(port);
+		if (gadget_is_dwc3(port->gadget)) {
+			spin_lock_irqsave(&port->port_lock, flags);
+			/* check if USB cable is disconnected or not */
+			if (port->port_usb) {
+				msm_ep_unconfig(port->port_usb->in);
+				msm_ep_unconfig(port->port_usb->out);
+			}
+			spin_unlock_irqrestore(&port->port_lock, flags);
+		}
 		queue_work(bam_data_wq, &port->disconnect_w);
 	}
 }
