@@ -19,6 +19,8 @@ Required properties:
 - clocks : clocks required for the device.
 - qcom,clock-rates: should specify clock rates in Hz to each clocks
     property defined.
+- qcom,max-ds-factor: should specify the max dma downscale factor,
+    supported by HW.
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
 	below optional properties:
 	- qcom,msm-bus,name
@@ -67,5 +69,6 @@ Example:
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
 			<62 512 666675 666675>;
+		qcom,max-ds-factor = <128>;
 		status = "ok";
 	};
