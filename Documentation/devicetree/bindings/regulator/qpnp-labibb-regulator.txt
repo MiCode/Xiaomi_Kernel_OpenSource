@@ -11,14 +11,11 @@ Main node required properties:
 - spmi-dev-container:		Must be present.
 - qpnp,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB
 				regulators when bootloader does not turned on the
-				display panel. Could be "lcd", "amoled" or
-				"stand-alone".
+				display panel. Could be "lcd" or "amoled".
 				"lcd" means using LAB and IBB regulators are
-				configured for LCD mode together.
+				configured for LCD mode.
 				"amoled" means using LAB and IBB regulators are
-				configured for AMOLED mode together.
-				"stand-alone" means using LAB and IBB regulators
-				as stand alone regulators.
+				configured for AMOLED mode.
 - qcom,pmic-revid:		Specifies the phandle of the PMIC revid module.
 				Used to identify the PMIC subtype.
 
@@ -42,6 +39,14 @@ Main node optional properties:
 					SWIRE command. If not specified this value
 					defaults to 20ms. This delay is applied only
 					if 'qpnp,skip-2nd-swire-cmd' is defined.
+- qcom,labibb-standalone:		A boolean property which forces LAB and
+					IBB to operate in standalone mode. If
+					this is not specified, then LAB and IBB
+					are controlled together in dual mode.
+- parent-supply:			Parent supply that is needed for LAB
+					and IBB regulators. This will be mostly
+					needed when LAB and IBB are operating
+					in standalone mode to vote for MBG.
 
 LAB subnode required properties:
 
