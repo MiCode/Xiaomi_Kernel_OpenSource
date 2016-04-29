@@ -65,6 +65,8 @@ Optional Properties:
 - qcom,batt-cool-ma:		Maximum cool battery charge current in milli-amps.
 - qcom,batt-warm-mv:		Maximum warm battery target voltage in milli-volts.
 - qcom,batt-cool-mv:		Maximum cool battery target voltage in milli-volts.
+- qcom,switch-freq:		Switching frequency of charger. Supported values:
+				0 - 750 kHz, 1 - 1 MHz, 2 - 1.5 MHz, 3 - 3 MHz.
 - qcom,parallel-en-pin-polarity Specify the polarity of enable signal controlled
 				via pin in a parallel-charger configuration.
 				0 - Active low and 1  - Active high.

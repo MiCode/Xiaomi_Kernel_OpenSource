@@ -130,6 +130,7 @@
 
 #define OTG_TLIM_CTRL_REG			0xA
 #define SWITCH_FREQ_MASK			SMB1351_MASK(7, 6)
+#define SWITCH_FREQ_SHIFT			6
 #define THERM_LOOP_TEMP_SEL_MASK		SMB1351_MASK(5, 4)
 #define OTG_OC_LIMIT_MASK			SMB1351_MASK(3, 2)
 #define OTG_BATT_UVLO_TH_MASK			SMB1351_MASK(1, 0)
@@ -433,6 +434,7 @@ struct smb1351_charger {
 	bool			iterm_disabled;
 	int			iterm_ma;
 	int			vfloat_mv;
+	int			switch_freq;
 	int			chg_present;
 	int			fake_battery_soc;
 	bool			chg_autonomous_mode;
@@ -1105,6 +1107,10 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		pr_err("Failed to enable HVDCP, rc=%d\n", rc);
 		return rc;
 	}
+
+	/* Update switching frequency based on device tree entry */
+	rc = smb1351_masked_write(chip, OTG_TLIM_CTRL_REG, SWITCH_FREQ_MASK,
+			(chip->switch_freq << SWITCH_FREQ_SHIFT));
 
 	/* enable/disable charging by suspending usb */
 	rc = smb1351_usb_suspend(chip, USER, chip->usb_suspended_status);
@@ -2767,6 +2773,8 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 	chip->recharge_disabled = of_property_read_bool(node,
 					"qcom,recharge-disabled");
 
+	rc = of_property_read_u32(node, "qcom,switch-freq",
+						&chip->switch_freq);
 	/* thermal and jeita support */
 	rc = of_property_read_u32(node, "qcom,batt-cold-decidegc",
 						&chip->batt_cold_decidegc);
