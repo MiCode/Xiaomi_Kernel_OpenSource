@@ -3666,7 +3666,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	rmi4_data = kzalloc(sizeof(*rmi4_data), GFP_KERNEL);
+	rmi4_data = devm_kzalloc(&pdev->dev, sizeof(*rmi4_data), GFP_KERNEL);
 	if (!rmi4_data) {
 		dev_err(&pdev->dev,
 				"%s: Failed to alloc mem for rmi4_data\n",
@@ -3683,6 +3683,12 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->fw_updating = false;
 	rmi4_data->fingers_on_2d = false;
 	rmi4_data->update_coords = true;
+
+	rmi4_data->write_buf = devm_kzalloc(&pdev->dev, I2C_WRITE_BUF_MAX_LEN,
+					GFP_KERNEL);
+	if (!rmi4_data->write_buf)
+		return -ENOMEM;
+	rmi4_data->write_buf_len = I2C_WRITE_BUF_MAX_LEN;
 
 	rmi4_data->irq_enable = synaptics_rmi4_irq_enable;
 	rmi4_data->reset_device = synaptics_rmi4_reset_device;
