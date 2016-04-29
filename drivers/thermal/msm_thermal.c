@@ -5151,7 +5151,7 @@ static void msm_thermal_panic_notifier_init(struct device *dev)
 		&msm_thermal_panic_notifier);
 }
 
-int msm_thermal_pre_init(struct device *dev)
+static int msm_thermal_pre_init(struct device *dev)
 {
 	int ret = 0;
 
@@ -5298,6 +5298,7 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 {
 	int ret = 0;
 
+	msm_thermal_ioctl_init();
 	ret = devmgr_devices_init(pdata->pdev);
 	if (ret)
 		pr_err("cannot initialize devm devices. err:%d\n", ret);
@@ -5322,13 +5323,14 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 	register_reboot_notifier(&msm_thermal_reboot_notifier);
 	pm_notifier(msm_thermal_suspend_callback, 0);
 	INIT_DELAYED_WORK(&retry_hotplug_work, retry_hotplug);
-	INIT_DELAYED_WORK(&check_temp_work, check_temp);
-	schedule_delayed_work(&check_temp_work, 0);
 
 	if (num_possible_cpus() > 1) {
 		cpus_previously_online_update();
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
 	}
+
+	INIT_DELAYED_WORK(&check_temp_work, check_temp);
+	schedule_delayed_work(&check_temp_work, 0);
 	msm_thermal_panic_notifier_init(&pdata->pdev->dev);
 
 	return ret;
@@ -7142,6 +7144,63 @@ static int thermal_config_debugfs_read(struct seq_file *m, void *data)
 	return 0;
 }
 
+static void msm_thermal_late_sysfs_init(void)
+{
+	/*
+	 * In case sysfs add nodes get called before probe function.
+	 * Need to make sure sysfs node is created again
+	 */
+	if (psm_nodes_called) {
+		msm_thermal_add_psm_nodes();
+		psm_nodes_called = false;
+	}
+	if (vdd_rstr_nodes_called) {
+		msm_thermal_add_vdd_rstr_nodes();
+		vdd_rstr_nodes_called = false;
+	}
+	if (sensor_info_nodes_called) {
+		msm_thermal_add_sensor_info_nodes();
+		sensor_info_nodes_called = false;
+	}
+	if (ocr_nodes_called) {
+		msm_thermal_add_ocr_nodes();
+		ocr_nodes_called = false;
+	}
+	if (cluster_info_nodes_called) {
+		create_cpu_topology_sysfs();
+		cluster_info_nodes_called = false;
+	}
+}
+
+static int probe_deferrable_properties(struct device_node *node,
+	struct msm_thermal_data *data, struct platform_device *pdev)
+{
+	int ret = 0;
+
+	/*
+	 * Probe optional properties below. Call probe_psm before
+	 * probe_vdd_rstr because rpm_regulator_get has to be called
+	 * before devm_regulator_get
+	 * probe_ocr should be called after probe_vdd_rstr to reuse the
+	 * regualtor handle. calling devm_regulator_get more than once
+	 * will fail.
+	 */
+	ret = probe_psm(node, data, pdev);
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+	ret = probe_vdd_rstr(node, data, pdev);
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+	probe_ocr(node, data, pdev);
+	ret = probe_vdd_mx(node, data, pdev);
+	if (ret == -EPROBE_DEFER)
+		return ret;
+
+	return 0;
+}
+
 static int msm_thermal_dev_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -7191,6 +7250,9 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 		online_core = true;
 	else
 		online_core = false;
+	ret = probe_deferrable_properties(node, &data, pdev);
+	if (ret)
+		goto probe_exit;
 
 	probe_sensor_info(node, &data, pdev);
 	ret = probe_cc(node, &data, pdev);
@@ -7199,63 +7261,18 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = probe_cx_phase_ctrl(node, &data, pdev);
 	ret = probe_gfx_phase_ctrl(node, &data, pdev);
 	ret = probe_therm_reset(node, &data, pdev);
-
-	ret = probe_vdd_mx(node, &data, pdev);
-	if (ret == -EPROBE_DEFER)
-		goto fail;
-	/*
-	 * Probe optional properties below. Call probe_psm before
-	 * probe_vdd_rstr because rpm_regulator_get has to be called
-	 * before devm_regulator_get
-	 * probe_ocr should be called after probe_vdd_rstr to reuse the
-	 * regualtor handle. calling devm_regulator_get more than once
-	 * will fail.
-	 */
-	ret = probe_psm(node, &data, pdev);
-	if (ret == -EPROBE_DEFER)
-		goto fail;
-
 	update_cpu_topology(&pdev->dev);
-	ret = probe_vdd_rstr(node, &data, pdev);
-	if (ret == -EPROBE_DEFER)
-		goto fail;
-	ret = probe_ocr(node, &data, pdev);
-
 	ret = fetch_cpu_mitigaiton_info(&data, pdev);
 	if (ret) {
 		pr_err("Error fetching CPU mitigation information. err:%d\n",
 				ret);
 		goto probe_exit;
 	}
-
-	/*
-	 * In case sysfs add nodes get called before probe function.
-	 * Need to make sure sysfs node is created again
-	 */
-	if (psm_nodes_called) {
-		msm_thermal_add_psm_nodes();
-		psm_nodes_called = false;
-	}
-	if (vdd_rstr_nodes_called) {
-		msm_thermal_add_vdd_rstr_nodes();
-		vdd_rstr_nodes_called = false;
-	}
-	if (sensor_info_nodes_called) {
-		msm_thermal_add_sensor_info_nodes();
-		sensor_info_nodes_called = false;
-	}
-	if (ocr_nodes_called) {
-		msm_thermal_add_ocr_nodes();
-		ocr_nodes_called = false;
-	}
-	if (cluster_info_nodes_called) {
-		create_cpu_topology_sysfs();
-		cluster_info_nodes_called = false;
-	}
-	msm_thermal_ioctl_init();
+	msm_thermal_late_sysfs_init();
 	ret = msm_thermal_init(&data);
+	if (ret)
+		goto probe_exit;
 	msm_thermal_probed = true;
-
 	if (interrupt_mode_enable) {
 		interrupt_mode_init();
 		interrupt_mode_enable = false;
