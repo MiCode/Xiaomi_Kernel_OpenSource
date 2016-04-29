@@ -779,6 +779,7 @@
 
 		mem-acc-supply = <&gfx_mem_acc>;
 		qcom,mem-acc-corner-map = <1 1 1 2 2 2 2>;
+		qcom,ldo-init-voltage-adjustment = <35000 25000 0>;
 	};
 
 	eldo2_8953: eldo2 {
