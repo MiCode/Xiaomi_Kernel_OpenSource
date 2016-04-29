@@ -539,18 +539,9 @@ static void add_profiling_buffer(struct kgsl_device *device,
 int kgsl_cmdbatch_add_ibdesc(struct kgsl_device *device,
 	struct kgsl_cmdbatch *cmdbatch, struct kgsl_ibdesc *ibdesc)
 {
+	uint64_t gpuaddr = (uint64_t) ibdesc->gpuaddr;
+	uint64_t size = (uint64_t) ibdesc->sizedwords << 2;
 	struct kgsl_memobj_node *mem;
-
-	mem = kmem_cache_alloc(memobjs_cache, GFP_KERNEL);
-	if (mem == NULL)
-		return -ENOMEM;
-
-	mem->gpuaddr = (uint64_t) ibdesc->gpuaddr;
-	mem->size = (uint64_t) ibdesc->sizedwords << 2;
-	mem->priv = 0;
-	mem->id = 0;
-	mem->offset = 0;
-	mem->flags = 0;
 
 	/* sanitize the ibdesc ctrl flags */
 	ibdesc->ctrl &= KGSL_IBDESC_MEMLIST | KGSL_IBDESC_PROFILING_BUFFER;
@@ -558,23 +549,31 @@ int kgsl_cmdbatch_add_ibdesc(struct kgsl_device *device,
 	if (cmdbatch->flags & KGSL_CMDBATCH_MEMLIST &&
 			ibdesc->ctrl & KGSL_IBDESC_MEMLIST) {
 		if (ibdesc->ctrl & KGSL_IBDESC_PROFILING_BUFFER) {
-			add_profiling_buffer(device, cmdbatch, mem->gpuaddr,
-					mem->size, 0, 0);
+			add_profiling_buffer(device, cmdbatch,
+					gpuaddr, size, 0, 0);
 			return 0;
 		}
+	}
 
+	if (cmdbatch->flags & (KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER))
+		return 0;
+
+	mem = kmem_cache_alloc(memobjs_cache, GFP_KERNEL);
+	if (mem == NULL)
+		return -ENOMEM;
+
+	mem->gpuaddr = gpuaddr;
+	mem->size = size;
+	mem->priv = 0;
+	mem->id = 0;
+	mem->offset = 0;
+	mem->flags = 0;
+
+	if (cmdbatch->flags & KGSL_CMDBATCH_MEMLIST &&
+			ibdesc->ctrl & KGSL_IBDESC_MEMLIST) {
 		/* add to the memlist */
 		list_add_tail(&mem->node, &cmdbatch->memlist);
-
-		if (ibdesc->ctrl & KGSL_IBDESC_PROFILING_BUFFER)
-			add_profiling_buffer(device, cmdbatch, mem->gpuaddr,
-				mem->size, 0, 0);
 	} else {
-		/* Ignore if SYNC or MARKER is specified */
-		if (cmdbatch->flags &
-			(KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER))
-			return 0;
-
 		/* set the preamble flag if directed to */
 		if (cmdbatch->context->flags & KGSL_CONTEXT_PREAMBLE &&
 			list_empty(&cmdbatch->cmdlist))
