@@ -67,8 +67,6 @@
 
 #define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
 
-#define IPA_IPC_LOG_PAGES 50
-
 #define IPA3_ACTIVE_CLIENTS_TABLE_BUF_SIZE 2048
 
 #define IPA3_ACTIVE_CLIENT_LOG_TYPE_EP 0
@@ -1654,6 +1652,9 @@ static u32 ipa3_get_max_flt_rt_cmds(u32 num_pipes)
 	max_cmds += ((IPA_MEM_PART(v6_modem_rt_index_hi) -
 		     IPA_MEM_PART(v6_modem_rt_index_lo) + 1) * 2);
 
+	/* One cmd for Hash flushing */
+	max_cmds++;
+
 	return max_cmds;
 }
 
@@ -1662,11 +1663,14 @@ static int ipa3_q6_clean_q6_tables(void)
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_dma_shared_mem cmd;
 	struct ipahal_imm_cmd_pyld **cmd_pyld;
+	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
 	int pipe_idx;
 	int num_cmds = 0;
 	int index;
 	int retval;
 	struct ipa3_mem_buffer mem = { 0 };
+	struct ipahal_reg_fltrt_hash_flush flush;
+	struct ipahal_reg_valmask valmask;
 	u64 *entry;
 	u32 max_cmds = ipa3_get_max_flt_rt_cmds(ipa3_ctx->ipa_num_pipes);
 	int flt_idx = 0;
@@ -1696,6 +1700,29 @@ static int ipa3_q6_clean_q6_tables(void)
 		retval = -ENOMEM;
 		goto bail_desc;
 	}
+
+	flush.v4_flt = true;
+	flush.v4_rt = true;
+	flush.v6_flt = true;
+	flush.v6_rt = true;
+	ipahal_get_fltrt_hash_flush_valmask(&flush, &valmask);
+	reg_write_cmd.skip_pipeline_clear = false;
+	reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_FILT_ROUT_HASH_FLUSH);
+	reg_write_cmd.value = valmask.val;
+	reg_write_cmd.value_mask = valmask.mask;
+	cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_REGISTER_WRITE, &reg_write_cmd, false);
+	if (!cmd_pyld[num_cmds]) {
+		IPAERR("fail construct register_write imm cmd\n");
+		goto bail_cmd;
+	}
+	desc[num_cmds].opcode =
+		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
+	desc[num_cmds].len = cmd_pyld[num_cmds]->len;
+	desc[num_cmds].type = IPA_IMM_CMD_DESC;
+	num_cmds++;
 
 	/*
 	 * Iterating over all the filtering pipes which are
@@ -3958,13 +3985,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		result = -ENOMEM;
 		goto fail_logbuf;
 	}
-	ipa3_ctx->logbuf_low =
-		ipc_log_context_create(IPA_IPC_LOG_PAGES, "ipa_low", 0);
-	if (ipa3_ctx->logbuf_low == NULL) {
-		IPAERR("failed to get logbuf_low\n");
-		result = -ENOMEM;
-		goto fail_logbuf_low;
-	}
 
 	ipa3_ctx->pdev = ipa_dev;
 	ipa3_ctx->uc_pdev = ipa_dev;
@@ -4460,8 +4480,6 @@ fail_bus_reg:
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
 fail_mem_ctrl:
-	ipc_log_context_destroy(ipa3_ctx->logbuf_low);
-fail_logbuf_low:
 	ipc_log_context_destroy(ipa3_ctx->logbuf);
 fail_logbuf:
 	kfree(ipa3_ctx);

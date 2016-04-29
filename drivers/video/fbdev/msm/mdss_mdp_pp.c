@@ -508,6 +508,7 @@ static int pp_mfd_release_all(struct msm_fb_data_type *mfd);
 static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd);
 static int mdss_mdp_ad_ipc_reset(struct msm_fb_data_type *mfd);
 static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
+static int pp_ppb_setup(struct mdss_mdp_mixer *mixer);
 
 static u32 last_sts, last_state;
 
@@ -540,7 +541,6 @@ inline int linear_map(int in, int *out, int in_max, int out_max)
  */
 static inline struct mdss_mdp_pipe *__get_hist_pipe(int pnum)
 {
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	enum mdss_mdp_pipe_type ptype;
 
 	ptype = get_pipe_type_from_num(pnum);
@@ -549,7 +549,7 @@ static inline struct mdss_mdp_pipe *__get_hist_pipe(int pnum)
 	if (ptype != MDSS_MDP_PIPE_TYPE_VIG)
 		return NULL;
 
-	return mdss_mdp_pipe_get(mdata, BIT(pnum));
+	return mdss_mdp_pipe_get(BIT(pnum), MDSS_MDP_PIPE_RECT0);
 }
 
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
@@ -571,7 +571,12 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 	switch (block) {
 	case MDSS_MDP_BLOCK_SSPP:
 		lv_shift = CSC_8BIT_LV_SHIFT;
-		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
+		/*
+		 * CSC is used on VIG pipes and currently VIG pipes do not
+		 * support multirect so always use RECT0.
+		 */
+		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx),
+				MDSS_MDP_PIPE_RECT0);
 		if (!pipe) {
 			pr_err("invalid blk index=%d\n", blk_idx);
 			ret = -EINVAL;
@@ -612,7 +617,10 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 		break;
 	case MDSS_MDP_BLOCK_SSPP_10:
 		lv_shift = CSC_10BIT_LV_SHIFT;
-		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
+
+		/* CSC can be applied only on VIG which RECT0 only */
+		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx),
+				MDSS_MDP_PIPE_RECT0);
 		if (!pipe) {
 			pr_err("invalid blk index=%d\n", blk_idx);
 			ret = -EINVAL;
@@ -1197,15 +1205,8 @@ static int mdss_mdp_qseed2_setup(struct mdss_mdp_pipe *pipe)
 			pipe->scaler.enable);
 	mdata = mdss_mdp_get_mdata();
 
-	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
-
-	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 && pipe->src_fmt->is_yuv)
-		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
-	else
-		filter_mode = MDSS_MDP_SCALE_FILTER_BIL;
-
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA ||
-			pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
+	    pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
 		if (pipe->dst.h != pipe->src.h || pipe->dst.w != pipe->src.w) {
 			pr_err("no scaling supported on dma/cursor pipe, num:%d\n",
 					pipe->num);
@@ -1214,6 +1215,13 @@ static int mdss_mdp_qseed2_setup(struct mdss_mdp_pipe *pipe)
 			return 0;
 		}
 	}
+
+	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
+
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 && pipe->src_fmt->is_yuv)
+		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
+	else
+		filter_mode = MDSS_MDP_SCALE_FILTER_BIL;
 
 	src_w = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
 	src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
@@ -1814,7 +1822,7 @@ void mdss_mdp_pipe_pp_clear(struct mdss_mdp_pipe *pipe)
 
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
-	int ret = 0;
+	int i, ret = 0;
 	unsigned long flags = 0;
 	char __iomem *pipe_base;
 	u32 pipe_num, pipe_cnt;
@@ -1868,9 +1876,10 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		return -EINVAL;
 	}
 
-	for (pipe_num = 0; pipe_num < pipe_cnt; pipe_num++) {
-		if (pipe == (pipe_list + pipe_num))
+	for (i = 0, pipe_num = 0; pipe_num < pipe_cnt; pipe_num++) {
+		if (pipe->num == pipe_list[i].num)
 			break;
+		i += pipe->multirect.max_rects;
 	}
 
 	if (pipe_num == pipe_cnt) {
@@ -2334,7 +2343,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		} else {
 			addr = base + MDSS_MDP_REG_DSPP_DITHER_DEPTH;
 			pp_ops[DITHER].pp_set_config(addr, pp_sts,
-			      &mdss_pp_res->dither_disp_cfg[disp_num], 0);
+			      &mdss_pp_res->dither_disp_cfg[disp_num], DSPP);
 		}
 	}
 	if (flags & PP_FLAGS_DIRTY_GAMUT) {
@@ -2508,10 +2517,12 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	if (ctl->mixer_left) {
 		pp_mixer_setup(ctl->mixer_left);
 		pp_dspp_setup(disp_num, ctl->mixer_left);
+		pp_ppb_setup(ctl->mixer_left);
 	}
 	if (ctl->mixer_right) {
 		pp_mixer_setup(ctl->mixer_right);
 		pp_dspp_setup(disp_num, ctl->mixer_right);
+		pp_ppb_setup(ctl->mixer_right);
 	}
 
 	if (valid_mixers && (mixer_cnt <= mdata->nmax_concurrent_ad_hw) &&
@@ -4274,20 +4285,38 @@ static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 	dither.version = dither_version.version_info;
 
 	switch (panel_bpp) {
-	case 18:
+	case 24:
 		dither.flags = MDP_PP_OPS_ENABLE | MDP_PP_OPS_WRITE;
 		switch (dither.version) {
 		case mdp_dither_v1_7:
-			dither_data.g_y_depth = 2;
-			dither_data.r_cr_depth = 2;
-			dither_data.b_cb_depth = 2;
+			dither_data.g_y_depth = 8;
+			dither_data.r_cr_depth = 8;
+			dither_data.b_cb_depth = 8;
 			dither.cfg_payload = &dither_data;
 			break;
 		case mdp_pp_legacy:
 		default:
-			dither.g_y_depth = 2;
-			dither.r_cr_depth = 2;
-			dither.b_cb_depth = 2;
+			dither.g_y_depth = 8;
+			dither.r_cr_depth = 8;
+			dither.b_cb_depth = 8;
+			dither.cfg_payload = NULL;
+			break;
+		}
+		break;
+	case 18:
+		dither.flags = MDP_PP_OPS_ENABLE | MDP_PP_OPS_WRITE;
+		switch (dither.version) {
+		case mdp_dither_v1_7:
+			dither_data.g_y_depth = 6;
+			dither_data.r_cr_depth = 6;
+			dither_data.b_cb_depth = 6;
+			dither.cfg_payload = &dither_data;
+			break;
+		case mdp_pp_legacy:
+		default:
+			dither.g_y_depth = 6;
+			dither.r_cr_depth = 6;
+			dither.b_cb_depth = 6;
 			dither.cfg_payload = NULL;
 			break;
 		}
@@ -5310,7 +5339,8 @@ static inline struct pp_hist_col_info *get_hist_info_from_isr(u32 *isr)
 			*isr &= ~(MDSS_MDP_HIST_INTR_VIG_3_DONE |
 				MDSS_MDP_HIST_INTR_VIG_3_RESET_DONE);
 		}
-		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
+		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx),
+				MDSS_MDP_PIPE_RECT0);
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_debug("pipe DNE, %d\n", blk_idx);
 			return NULL;
@@ -7339,6 +7369,57 @@ static int pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	default:
 		memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
 		break;
+	}
+	return ret;
+}
+
+static int pp_ppb_setup(struct mdss_mdp_mixer *mixer)
+{
+	struct pp_sts_type *pp_sts;
+	struct mdss_mdp_ctl *ctl;
+	char __iomem *addr;
+	u32 flags, disp_num;
+	int ret = 0;
+
+	if (!mixer || !mixer->ctl || !mixer->ctl->mfd) {
+		pr_err("invalid parameters, mixer %pK ctl %pK mfd %pK\n",
+			mixer, (mixer ? mixer->ctl : NULL),
+		       (mixer ? (mixer->ctl ? mixer->ctl->mfd : NULL) : NULL));
+		return -EINVAL;
+	}
+	ctl = mixer->ctl;
+	disp_num = ctl->mfd->index;
+
+	if (disp_num < MDSS_BLOCK_DISP_NUM)
+		flags = mdss_pp_res->pp_disp_flags[disp_num];
+	else
+		flags = 0;
+	if ((flags & PP_FLAGS_DIRTY_DITHER)) {
+		if (pp_ops[DITHER].pp_set_config) {
+			pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
+			addr = mixer->pingpong_base;
+			/* if dither is supported in PPB function will
+			 * return 0. Failure will indicate that there
+			 * is no DITHER in PPB. In case of error skip the
+			 * programming of CTL flush bits for dither flush.
+			 */
+			ret = pp_ops[DITHER].pp_set_config(addr, pp_sts,
+				&mdss_pp_res->dither_disp_cfg[disp_num], PPB);
+			if (!ret) {
+				switch (mixer->num) {
+				case MDSS_MDP_INTF_LAYERMIXER0:
+				case MDSS_MDP_INTF_LAYERMIXER1:
+				case MDSS_MDP_INTF_LAYERMIXER2:
+					ctl->flush_bits |= BIT(13) <<
+						mixer->num;
+					break;
+				case MDSS_MDP_INTF_LAYERMIXER3:
+					ctl->flush_bits |= BIT(21);
+					break;
+				}
+			}
+			ret = 0;
+		}
 	}
 	return ret;
 }

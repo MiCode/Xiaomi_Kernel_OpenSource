@@ -25,8 +25,6 @@
 #include <linux/perf/arm_pmu.h>
 #include <linux/platform_device.h>
 
-static DEFINE_PER_CPU(u32, armv8_pm_pmuserenr);
-
 /*
  * ARMv8 PMUv3 Performance Events handling code.
  * Common event types.
@@ -368,7 +366,6 @@ static void armv8pmu_enable_event(struct perf_event *event)
 	struct arm_pmu *cpu_pmu = to_arm_pmu(event->pmu);
 	struct pmu_hw_events *events = this_cpu_ptr(cpu_pmu->hw_events);
 	int idx = hwc->idx;
-	u64 prev_count = local64_read(&hwc->prev_count);
 
 	/*
 	 * Enable counter and interrupt, and set the counter to count
@@ -390,11 +387,6 @@ static void armv8pmu_enable_event(struct perf_event *event)
 	 * Enable interrupt for this counter
 	 */
 	armv8pmu_enable_intens(idx);
-
-	/*
-	 * Restore previous value
-	 */
-	armv8pmu_write_counter(event, prev_count & 0xffffffff);
 
 	/*
 	 * Enable counter
@@ -607,27 +599,6 @@ static int armv8_pmuv3_map_event(struct perf_event *event)
 				ARMV8_EVTYPE_EVENT);
 }
 
-static void armv8pmu_save_pm_registers(void *hcpu)
-{
-	u32 val;
-	u64 lcpu = (u64)hcpu;
-	int cpu = (int)lcpu;
-
-	asm volatile("mrs %0, pmuserenr_el0" : "=r" (val));
-	per_cpu(armv8_pm_pmuserenr, cpu) = val;
-}
-
-static void armv8pmu_restore_pm_registers(void *hcpu)
-{
-	u32 val;
-	u64 lcpu = (u64)hcpu;
-	int cpu = (int)lcpu;
-
-	val = per_cpu(armv8_pm_pmuserenr, cpu);
-	if (val != 0)
-		asm volatile("msr pmuserenr_el0, %0" :: "r" (val));
-}
-
 static int armv8_a53_map_event(struct perf_event *event)
 {
 	return armpmu_map_event(event, &armv8_a53_perf_map,
@@ -671,8 +642,6 @@ void armv8_pmu_init(struct arm_pmu *cpu_pmu)
 	cpu_pmu->start			= armv8pmu_start,
 	cpu_pmu->stop			= armv8pmu_stop,
 	cpu_pmu->reset			= armv8pmu_reset,
-	cpu_pmu->save_pm_registers	= armv8pmu_save_pm_registers,
-	cpu_pmu->restore_pm_registers	= armv8pmu_restore_pm_registers,
 	cpu_pmu->max_period		= (1LLU << 32) - 1,
 	cpu_pmu->set_event_filter	= armv8pmu_set_event_filter;
 }
@@ -705,7 +674,7 @@ static const struct of_device_id armv8_pmu_of_device_ids[] = {
 	{.compatible = "arm,armv8-pmuv3",	.data = armv8_pmuv3_init},
 	{.compatible = "arm,cortex-a53-pmu",	.data = armv8_a53_pmu_init},
 	{.compatible = "arm,cortex-a57-pmu",	.data = armv8_a57_pmu_init},
-	{.compatible = "qcom,kryo-pmuv3", 	.data = kryo_pmu_init},
+	{.compatible = "qcom,kryo-pmuv3", .data = kryo_pmu_init},
 	{},
 };
 

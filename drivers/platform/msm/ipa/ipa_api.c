@@ -2503,6 +2503,32 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 }
 EXPORT_SYMBOL(ipa_set_required_perf_profile);
 
+/**
+ * ipa_get_ipc_logbuf() - return a pointer to IPA driver IPC log
+ */
+void *ipa_get_ipc_logbuf(void)
+{
+	void *ret;
+
+	IPA_API_DISPATCH_RETURN_PTR(ipa_get_ipc_logbuf);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_ipc_logbuf);
+
+/**
+ * ipa_get_ipc_logbuf_low() - return a pointer to IPA driver IPC low prio log
+ */
+void *ipa_get_ipc_logbuf_low(void)
+{
+	void *ret;
+
+	IPA_API_DISPATCH_RETURN_PTR(ipa_get_ipc_logbuf_low);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_ipc_logbuf_low);
+
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,

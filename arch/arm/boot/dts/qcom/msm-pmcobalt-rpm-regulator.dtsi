@@ -191,8 +191,8 @@
 
 	rpm-regulator-ldoa4 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "ldoa";
-		qcom,resource-id = <4>;
+		qcom,resource-name = "rwsm";
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <0>;
 		qcom,hpm-min-load = <10000>;
 		status = "disabled";
@@ -559,8 +559,8 @@
 
 	rpm-regulator-ldoa27 {
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "ldoa";
-		qcom,resource-id = <27>;
+		qcom,resource-name = "rwsc";
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <0>;
 		qcom,hpm-min-load = <10000>;
 		status = "disabled";

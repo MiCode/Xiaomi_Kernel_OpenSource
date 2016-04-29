@@ -39,6 +39,7 @@
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-alpha-pll.h>
 
+#include <dt-bindings/clock/msm-clocks-hwio-cobalt.h>
 #include <dt-bindings/clock/msm-clocks-cobalt.h>
 
 #include "clock.h"
@@ -193,6 +194,23 @@ enum clk_osm_trace_packet_id {
 #define PERIODIC_TRACE_MAX_US 20000000
 #define PERIODIC_TRACE_DEFAULT_US 1000
 
+static void __iomem *virt_base;
+
+#define lmh_lite_clk_src_source_val 1
+
+#define FIXDIV(div) (div ? (2 * (div) - 1) : (0))
+
+#define F(f, s, div, m, n) \
+	{ \
+		.freq_hz = (f), \
+		.src_clk = &s.c, \
+		.m_val = (m), \
+		.n_val = ~((n)-(m)) * !!(n), \
+		.d_val = ~(n),\
+		.div_src_val = BVAL(4, 0, (int)FIXDIV(div)) \
+			| BVAL(10, 8, s##_source_val), \
+	}
+
 static u32 seq_instr[] = {
 	0xc2005000, 0x2c9e3b21, 0xc0ab2cdc, 0xc2882525, 0x359dc491,
 	0x700a500b, 0x70005001, 0x390938c8, 0xcb44c833, 0xce56cd54,
@@ -243,6 +261,7 @@ static u32 seq_br_instr[] = {
 
 DEFINE_EXT_CLK(xo_ao, NULL);
 DEFINE_EXT_CLK(sys_apcsaux_clk_gcc, NULL);
+DEFINE_EXT_CLK(lmh_lite_clk_src, NULL);
 
 struct osm_entry {
 	u16 virtual_corner;
@@ -428,6 +447,24 @@ static struct clk_ops clk_ops_cpu_osm = {
 static struct regulator *vdd_pwrcl;
 static struct regulator *vdd_perfcl;
 
+static struct clk_freq_tbl ftbl_osm_clk_src[] = {
+	F(  200000000,    lmh_lite_clk_src,    1.5,    0,     0),
+	F_END
+};
+
+static struct rcg_clk osm_clk_src = {
+	.cmd_rcgr_reg = APCS_COMMON_LMH_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_osm_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "osm_clk_src",
+		.ops = &clk_ops_rcg,
+		CLK_INIT(osm_clk_src.c),
+	},
+};
+
 static struct clk_osm pwrcl_clk = {
 	.cluster_num = 0,
 	.cpu_reg_mask = 0x3,
@@ -455,6 +492,7 @@ static struct clk_lookup cpu_clocks_osm[] = {
 	CLK_LIST(perfcl_clk),
 	CLK_LIST(sys_apcsaux_clk_gcc),
 	CLK_LIST(xo_ao),
+	CLK_LIST(osm_clk_src),
 };
 
 static void clk_osm_print_osm_table(struct clk_osm *c)
@@ -811,6 +849,18 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 			perfcl_clk.pbases[PLL_BASE] = pbase;
 			perfcl_clk.vbases[PLL_BASE] = vbase;
 		}
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_common");
+	if (!res) {
+		dev_err(&pdev->dev, "Failed to get apcs common base\n");
+		return -EINVAL;
+	}
+
+	virt_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!virt_base) {
+		dev_err(&pdev->dev, "Failed to map apcs common registers\n");
+		return -ENOMEM;
 	}
 
 	vdd_pwrcl = devm_regulator_get(&pdev->dev, "vdd-pwrcl");
@@ -2113,6 +2163,7 @@ exit:
 }
 
 static unsigned long init_rate = 300000000;
+static unsigned long osm_clk_init_rate = 200000000;
 
 static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 {
@@ -2283,6 +2334,14 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	rc = clk_set_rate(&perfcl_clk.c, init_rate);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set init rate on perf cluster, rc=%d\n",
+			rc);
+		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
+		return rc;
+	}
+
+	rc = clk_set_rate(&osm_clk_src.c, osm_clk_init_rate);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to set init rate on osm_clk, rc=%d\n",
 			rc);
 		clk_disable_unprepare(&sys_apcsaux_clk_gcc.c);
 		return rc;

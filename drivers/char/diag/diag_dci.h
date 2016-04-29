@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,17 +16,22 @@
 #define DCI_PKT_RSP_CODE	0x93
 #define DCI_DELAYED_RSP_CODE	0x94
 #define DCI_CONTROL_PKT_CODE	0x9A
+#define EXT_HDR_CMD_CODE	0x98
 #define LOG_CMD_CODE		0x10
 #define EVENT_CMD_CODE		0x60
 #define DCI_PKT_RSP_TYPE	0
 #define DCI_LOG_TYPE		-1
 #define DCI_EVENT_TYPE		-2
+#define DCI_EXT_HDR_TYPE	-3
 #define SET_LOG_MASK		1
 #define DISABLE_LOG_MASK	0
 #define MAX_EVENT_SIZE		512
 #define DCI_CLIENT_INDEX_INVALID -1
 #define DCI_LOG_CON_MIN_LEN		14
 #define DCI_EVENT_CON_MIN_LEN		16
+
+#define EXT_HDR_LEN		8
+#define EXT_HDR_VERSION		1
 
 #define DCI_BUF_PRIMARY		1
 #define DCI_BUF_SECONDARY	2
@@ -285,7 +290,8 @@ void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 						uint8_t byte_mask, int token);
 void diag_dci_invalidate_cumulative_log_mask(int token);
 int diag_send_dci_log_mask(int token);
-void extract_dci_log(unsigned char *buf, int len, int data_source, int token);
+void extract_dci_log(unsigned char *buf, int len, int data_source, int token,
+	void *ext_hdr);
 int diag_dci_clear_log_mask(int client_id);
 int diag_dci_query_log_mask(struct diag_dci_client_tbl *entry,
 			    uint16_t log_code);
@@ -294,7 +300,10 @@ void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask, int token);
 void diag_dci_invalidate_cumulative_event_mask(int token);
 int diag_send_dci_event_mask(int token);
 void extract_dci_events(unsigned char *buf, int len, int data_source,
-			int token);
+			int token, void *ext_hdr);
+/* DCI extended header handling functions */
+void extract_dci_ext_pkt(unsigned char *buf, int len, int data_source,
+		int token);
 int diag_dci_clear_event_mask(int client_id);
 int diag_dci_query_event_mask(struct diag_dci_client_tbl *entry,
 			      uint16_t event_id);

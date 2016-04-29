@@ -352,10 +352,10 @@
 	spmi_bus: qcom,spmi@800f000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg =	<0x800f000 0x1000>,
-			<0x8400000 0xffe024>,
-			<0x9400000 0xffe020>,
-			<0xa400000 0x207040>,
-			<0x800a000 0x202c>;
+			<0x8400000 0x1000000>,
+			<0x9400000 0x1000000>,
+			<0xa400000 0x220000>,
+			<0x800a000 0x3000>;
 		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
 		interrupt-names = "periph_irq";
 		interrupts = <GIC_SPI 326 IRQ_TYPE_NONE>;
@@ -678,8 +678,10 @@
 		compatible = "qcom,cpu-clock-osm";
 		reg = <0x179C0000 0x4000>,
 		      <0x17916000 0x1000>,
-		      <0x17816000 0x1000>;
-		reg-names = "osm", "pwrcl_pll", "perfcl_pll";
+		      <0x17816000 0x1000>,
+		      <0x179D1000 0x1000>;
+		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
+			    "apcs_common";
 
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
@@ -2139,8 +2141,9 @@
 
 	 qcom,icnss@18800000 {
 		compatible = "qcom,icnss";
-		reg = <0x18800000 0x800000>;
-		reg-names = "membase";
+		reg = <0x18800000 0x800000>,
+		      <0x10AC000 0x20>;
+		reg-names = "membase", "mpm_config";
 		interrupts = <0 413 0 /* CE0 */ >,
 			     <0 414 0 /* CE1 */ >,
 			     <0 415 0 /* CE2 */ >,
@@ -2294,3 +2297,4 @@
 #include "msmcobalt-audio.dtsi"
 #include "msmcobalt-mdss.dtsi"
 #include "msmcobalt-mdss-pll.dtsi"
+#include "msmcobalt-blsp.dtsi"

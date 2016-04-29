@@ -9,10 +9,14 @@ Required properties:
 				of fingers on the panel.
  - synaptics,irq-gpio	: irq gpio
  - synaptics,reset-gpio	: reset gpio
-
-Optional property:
  - vdd-supply			: digital voltage power supply needed to power device
  - avdd-supply			: analog voltage power supply needed to power device
+ - synaptics,vdd-voltage	: digital voltage range for vdd-supply
+ - synaptics,avdd-voltage	: analog voltage range for avdd-supply
+ - synaptics,vdd-current	: current load for vdd-supply
+ - synaptics,avdd-current	: current load for avdd-supply
+
+Optional property:
  - synaptics,button-map		: virtual key code mappings to be used
  - synaptics,x-flip		: modify orientation of the x axis
  - synaptics,y-flip		: modify orientation of the y axis
@@ -72,12 +76,16 @@ These properties are defined only when synaptics,detect-device property is defin
 Example:
 	i2c@f9927000 {
 		synaptics@20 {
-			compatible = "synaptics,dsx"
+			compatible = "synaptics,dsx";
 			reg = <0x20>;
 			interrupt-parent = <&msmgpio>;
 			interrupts = <17 0x2>;
 			vdd-supply = <&pm8226_l19>;
 			avdd-supply = <&pm8226_lvs1>;
+			synaptics,vdd-voltage = <1808000 1808000>;
+			synaptics,avdd-voltage = <3008000 3008000>;
+			synaptics,vdd-current = <40000>;
+			synaptics,avdd-current = <20000>;
 			synaptics,reset-gpio = <&msmgpio 16 0x00>;
 			synaptics,irq-gpio = <&msmgpio 17 0x00>;
 			synaptics,reset-delay-ms = <100>;

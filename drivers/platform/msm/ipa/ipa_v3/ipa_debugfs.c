@@ -1587,6 +1587,43 @@ static ssize_t ipa3_clear_active_clients_log(struct file *file,
 	return count;
 }
 
+static ssize_t ipa3_enable_ipc_low(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+	s8 option = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtos8(dbg_buff, 0, &option))
+		return -EFAULT;
+
+	if (option) {
+		if (!ipa3_ctx->logbuf_low) {
+			ipa3_ctx->logbuf_low =
+				ipc_log_context_create(IPA_IPC_LOG_PAGES,
+					"ipa_low", 0);
+		}
+
+		if (ipa3_ctx->logbuf_low == NULL) {
+			IPAERR("failed to get logbuf_low\n");
+			return -EFAULT;
+		}
+	} else {
+		if (ipa3_ctx->logbuf_low)
+			ipc_log_context_destroy(ipa3_ctx->logbuf_low);
+		ipa3_ctx->logbuf_low = NULL;
+	}
+
+	return count;
+}
+
 const struct file_operations ipa3_gen_reg_ops = {
 	.read = ipa3_read_gen_reg,
 };
@@ -1669,6 +1706,10 @@ const struct file_operations ipa3_rm_stats = {
 const struct file_operations ipa3_active_clients = {
 	.read = ipa3_print_active_clients_log,
 	.write = ipa3_clear_active_clients_log,
+};
+
+const struct file_operations ipa3_ipc_low_ops = {
+	.write = ipa3_enable_ipc_low,
 };
 
 void ipa3_debugfs_init(void)
@@ -1883,8 +1924,8 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
-	file = debugfs_create_u32("enable_low_prio_print", read_write_mode,
-		dent, &ipa3_ctx->enable_low_prio_print);
+	file = debugfs_create_file("enable_low_prio_print", write_only_mode,
+		dent, 0, &ipa3_ipc_low_ops);
 	if (!file) {
 		IPAERR("could not create enable_low_prio_print file\n");
 		goto fail;

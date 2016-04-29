@@ -114,14 +114,6 @@ enum mdss_mdp_mixer_mux {
 	MDSS_MDP_MIXER_MUX_RIGHT,
 };
 
-enum mdss_mdp_pipe_type {
-	MDSS_MDP_PIPE_TYPE_INVALID,
-	MDSS_MDP_PIPE_TYPE_VIG,
-	MDSS_MDP_PIPE_TYPE_RGB,
-	MDSS_MDP_PIPE_TYPE_DMA,
-	MDSS_MDP_PIPE_TYPE_CURSOR,
-};
-
 static inline enum mdss_mdp_sspp_index get_pipe_num_from_ndx(u32 ndx)
 {
 	u32 id;
@@ -299,6 +291,7 @@ enum perf_calc_vote_mode {
 
 struct mdss_mdp_perf_params {
 	u64 bw_overlap;
+	u64 bw_overlap_nocr;
 	u64 bw_writeback;
 	u64 bw_prefill;
 	u64 max_per_pipe_ib;
@@ -341,6 +334,9 @@ struct mdss_mdp_ctl_intfs_ops {
 			enum dynamic_switch_modes mode, bool pre);
 	/* called before do any register programming  from commit thread */
 	void (*pre_programming)(struct mdss_mdp_ctl *ctl);
+
+	/* to update lineptr, [1..yres] - enable, 0 - disable */
+	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
 };
 
 struct mdss_mdp_ctl {
@@ -647,6 +643,42 @@ struct mdss_mdp_shared_reg_ctrl {
 	u32 bit_off;
 };
 
+enum mdss_mdp_pipe_rect {
+	MDSS_MDP_PIPE_RECT0, /* default */
+	MDSS_MDP_PIPE_RECT1,
+	MDSS_MDP_PIPE_MAX_RECTS,
+};
+
+/**
+ * enum mdss_mdp_pipe_multirect_mode - pipe multirect mode
+ * @MDSS_MDP_PIPE_MULTIRECT_NONE:	pipe is not working in multirect mode
+ * @MDSS_MDP_PIPE_MULTIRECT_PARALLEL:	rectangles are being fetched at the
+ *					same time in time multiplexed fashion
+ * @MDSS_MDP_PIPE_MULTIRECT_SERIAL:	rectangles are fetched serially, where
+ *					one is only fetched after the other one
+ *					is complete
+ */
+enum mdss_mdp_pipe_multirect_mode {
+	MDSS_MDP_PIPE_MULTIRECT_NONE,
+	MDSS_MDP_PIPE_MULTIRECT_PARALLEL,
+	MDSS_MDP_PIPE_MULTIRECT_SERIAL,
+};
+
+/**
+ * struct mdss_mdp_pipe_multirect_params - multirect info for layer or pipe
+ * @num:	rectangle being operated, default is RECT0 if pipe doesn't
+ *		support multirect
+ * @mode:	mode of multirect operation, default is NONE
+ * @next:	pointer to sibling pipe/layer which is also operating in
+ *		multirect mode
+ */
+struct mdss_mdp_pipe_multirect_params {
+	enum mdss_mdp_pipe_rect num; /* RECT0 or RECT1 */
+	int max_rects;
+	enum mdss_mdp_pipe_multirect_mode mode;
+	void *next; /* pointer to next pipe or layer */
+};
+
 struct mdss_mdp_pipe {
 	u32 num;
 	u32 type;
@@ -719,6 +751,8 @@ struct mdss_mdp_pipe {
 	u32 frame_rate;
 	u8 csc_coeff_set;
 	u8 supported_formats[BITS_TO_BYTES(MDP_IMGTYPE_LIMIT1)];
+
+	struct mdss_mdp_pipe_multirect_params multirect;
 };
 
 struct mdss_mdp_writeback_arg {
@@ -1295,7 +1329,7 @@ static inline bool mdss_mdp_is_lineptr_supported(struct mdss_mdp_ctl *ctl)
 
 	pinfo = &ctl->panel_data->panel_info;
 
-	return (((pinfo->type == MIPI_CMD_PANEL)
+	return (ctl->is_video_mode || ((pinfo->type == MIPI_CMD_PANEL)
 			&& (pinfo->te.tear_check_en)) ? true : false);
 }
 
@@ -1357,6 +1391,7 @@ int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);
 int mdss_mdp_set_intr_callback_nosync(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);
+u32 mdss_mdp_get_irq_mask(u32 intr_type, u32 intf_num);
 
 void mdss_mdp_footswitch_ctrl_splash(int on);
 void mdss_mdp_batfet_ctrl(struct mdss_data_type *mdata, int enable);
@@ -1369,7 +1404,7 @@ int mdss_mdp_secure_display_ctrl(unsigned int enable);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_dfps_update_params(struct msm_fb_data_type *mfd,
-	struct mdss_panel_data *pdata, int dfps);
+	struct mdss_panel_data *pdata, struct dynamic_fps_data *data);
 int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *ov_commit);
 int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
@@ -1402,7 +1437,8 @@ int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 	u32 flags);
 int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
-	struct mdss_mdp_mixer *mixer, u32 ndx);
+	struct mdss_mdp_mixer *mixer, u32 ndx,
+	enum mdss_mdp_pipe_rect rect_num);
 struct mdss_mdp_pipe *mdss_mdp_overlay_pipe_reuse(
 	struct msm_fb_data_type *mfd, int pipe_ndx);
 void mdss_mdp_pipe_position_update(struct mdss_mdp_pipe *pipe,
@@ -1448,9 +1484,16 @@ int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **right_plist, int right_cnt);
 int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 		struct mdss_mdp_pipe *pipe);
+int mdss_mdp_get_pipe_overlap_bw(struct mdss_mdp_pipe *pipe,
+	struct mdss_rect *roi, u64 *quota, u64 *quota_nocr, u32 flags);
+int mdss_mdp_get_panel_params(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer, u32 *fps, u32 *v_total,
+	u32 *h_total, u32 *xres);
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_perf_params *perf, struct mdss_rect *roi,
 	u32 flags);
+bool mdss_mdp_is_amortizable_pipe(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer, struct mdss_data_type *mdata);
 u32 mdss_mdp_calc_latency_buf_bytes(bool is_yuv, bool is_bwc,
 	bool is_tile, u32 src_w, u32 bpp, bool use_latency_buf_percentage,
 	u32 smp_bytes, bool is_ubwc, bool is_nv12, bool is_hflip);
@@ -1557,12 +1600,12 @@ int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_smp_handoff(struct mdss_data_type *mdata);
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
 	u32 type, struct mdss_mdp_pipe *left_blend_pipe);
-struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx);
+struct mdss_mdp_pipe *mdss_mdp_pipe_get(u32 ndx,
+	enum mdss_mdp_pipe_rect rect_num);
 struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
-						  u32 ndx);
+	u32 ndx, enum mdss_mdp_pipe_rect rect_num);
 int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe);
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer);
 
 u32 mdss_mdp_smp_calc_num_blocks(struct mdss_mdp_pipe *pipe);
 u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe);
@@ -1572,7 +1615,8 @@ void mdss_mdp_smp_release(struct mdss_mdp_pipe *pipe);
 
 int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 	struct mdss_mdp_pipe *head, u32 *offsets, u32 *ftch_id, u32 *xin_id,
-	u32 type, const int *pnums, u32 len, u8 priority_base);
+	u32 type, const int *pnums, u32 len, u32 rects_per_sspp,
+	u8 priority_base);
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata, u32 *mixer_offsets,
 		u32 *dspp_offsets, u32 *pingpong_offsets, u32 type, u32 len);
 int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
@@ -1674,6 +1718,10 @@ void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
 
 void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_info *pinfo);
+
+void mdss_mdp_video_isr(void *ptr, u32 count);
+void mdss_mdp_enable_hw_irq(struct mdss_data_type *mdata);
+void mdss_mdp_disable_hw_irq(struct mdss_data_type *mdata);
 
 void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata);
 

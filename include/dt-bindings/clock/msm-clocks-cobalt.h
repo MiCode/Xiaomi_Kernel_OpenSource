@@ -13,6 +13,8 @@
 #ifndef __MSM_CLOCKS_COBALT_H
 #define __MSM_CLOCKS_COBALT_H
 
+#include "audio-ext-clk.h"
+
 /* clock_rpm controlled clocks */
 #define clk_ce1_clk				0x42229c55
 #define clk_ce1_a_clk				0x44a833fe
@@ -475,6 +477,7 @@
 #define clk_perfcl_clk				0x58869997
 #define clk_sys_apcsaux_clk_gcc			0xf905e862
 #define clk_xo_ao				0x428c856d
+#define clk_osm_clk_src				0xaabe68c3
 
 /* Audio External Clocks */
 #define clk_audio_ap_clk			0x9b5727cb

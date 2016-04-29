@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/ipc_logging.h>
 #include <linux/init.h>
 #include <linux/ipa.h>
 #include <linux/kernel.h>

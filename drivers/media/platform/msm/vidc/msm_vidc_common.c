@@ -3338,6 +3338,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 				HAL_SESSION_END_DONE);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
+		msm_comm_session_clean(inst);
 	case MSM_VIDC_CORE_UNINIT:
 	case MSM_VIDC_CORE_INVALID:
 		dprintk(VIDC_DBG, "Sending core uninit\n");
@@ -4624,6 +4625,9 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_ROI_QP:
 		ret = HAL_EXTRADATA_ROI_QP;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_OUTPUT_CROP:
+		ret = HAL_EXTRADATA_OUTPUT_CROP;
 		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);

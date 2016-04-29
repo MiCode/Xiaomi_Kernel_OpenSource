@@ -657,7 +657,7 @@ static void ipa_rm_wq_handler(struct work_struct *work)
 			container_of(work,
 					struct ipa_rm_wq_work_type,
 					work);
-	IPA_RM_DBG("%s cmd=%d event=%d notify_registered_only=%d\n",
+	IPA_RM_DBG_LOW("%s cmd=%d event=%d notify_registered_only=%d\n",
 		ipa_rm_resource_str(ipa_rm_work->resource_name),
 		ipa_rm_work->wq_cmd,
 		ipa_rm_work->event,
@@ -714,7 +714,7 @@ static void ipa_rm_wq_resume_handler(struct work_struct *work)
 			container_of(work,
 			struct ipa_rm_wq_suspend_resume_work_type,
 			work);
-	IPA_RM_DBG("resume work handler: %s",
+		IPA_RM_DBG_LOW("resume work handler: %s",
 		ipa_rm_resource_str(ipa_rm_work->resource_name));
 
 	if (!IPA_RM_RESORCE_IS_CONS(ipa_rm_work->resource_name)) {
@@ -750,7 +750,7 @@ static void ipa_rm_wq_suspend_handler(struct work_struct *work)
 			container_of(work,
 			struct ipa_rm_wq_suspend_resume_work_type,
 			work);
-	IPA_RM_DBG("suspend work handler: %s",
+		IPA_RM_DBG_LOW("suspend work handler: %s",
 		ipa_rm_resource_str(ipa_rm_work->resource_name));
 
 	if (!IPA_RM_RESORCE_IS_CONS(ipa_rm_work->resource_name)) {
@@ -947,7 +947,7 @@ static void ipa_rm_perf_profile_notify_to_ipa_work(struct work_struct *work)
 				work);
 	int res;
 
-	IPA_RM_DBG("calling to IPA driver. voltage %d bandwidth %d\n",
+	IPA_RM_DBG_LOW("calling to IPA driver. voltage %d bandwidth %d\n",
 		notify_work->volt, notify_work->bandwidth_mbps);
 
 	res = ipa_set_required_perf_profile(notify_work->volt,
@@ -957,7 +957,7 @@ static void ipa_rm_perf_profile_notify_to_ipa_work(struct work_struct *work)
 		goto bail;
 	}
 
-	IPA_RM_DBG("IPA driver notified\n");
+	IPA_RM_DBG_LOW("IPA driver notified\n");
 bail:
 	kfree(notify_work);
 }
@@ -995,7 +995,7 @@ void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
 	u32 sum_bw_prod = 0;
 	u32 sum_bw_cons = 0;
 
-	IPA_RM_DBG("%s\n", ipa_rm_resource_str(resource_name));
+	IPA_RM_DBG_LOW("%s\n", ipa_rm_resource_str(resource_name));
 
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 					  resource_name,
@@ -1021,7 +1021,7 @@ void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
 	switch (resource->state) {
 	case IPA_RM_GRANTED:
 	case IPA_RM_REQUEST_IN_PROGRESS:
-		IPA_RM_DBG("max_bw = %d, needed_bw = %d\n",
+		IPA_RM_DBG_LOW("max_bw = %d, needed_bw = %d\n",
 			resource->max_bw, resource->needed_bw);
 		*bw_ptr = min(resource->max_bw, resource->needed_bw);
 		ipa_rm_ctx->prof_vote.volt[resource_name] =
@@ -1039,7 +1039,7 @@ void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
 		WARN_ON(1);
 		return;
 	}
-	IPA_RM_DBG("resource bandwidth: %d voltage: %d\n", *bw_ptr,
+	IPA_RM_DBG_LOW("resource bandwidth: %d voltage: %d\n", *bw_ptr,
 					resource->floor_voltage);
 
 	ipa_rm_ctx->prof_vote.curr_volt = IPA_VOLTAGE_UNSPECIFIED;
@@ -1057,17 +1057,17 @@ void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
 	for (i = 0; i < IPA_RM_RESOURCE_CONS_MAX; i++)
 		sum_bw_cons += ipa_rm_ctx->prof_vote.bw_cons[i];
 
-	IPA_RM_DBG("all prod bandwidth: %d all cons bandwidth: %d\n",
+	IPA_RM_DBG_LOW("all prod bandwidth: %d all cons bandwidth: %d\n",
 		sum_bw_prod, sum_bw_cons);
 	ipa_rm_ctx->prof_vote.curr_bw = min(sum_bw_prod, sum_bw_cons);
 
 	if (ipa_rm_ctx->prof_vote.curr_volt == old_volt &&
 		ipa_rm_ctx->prof_vote.curr_bw == old_bw) {
-		IPA_RM_DBG("same voting\n");
+		IPA_RM_DBG_LOW("same voting\n");
 		return;
 	}
 
-	IPA_RM_DBG("new voting: voltage %d bandwidth %d\n",
+	IPA_RM_DBG_LOW("new voting: voltage %d bandwidth %d\n",
 		ipa_rm_ctx->prof_vote.curr_volt,
 		ipa_rm_ctx->prof_vote.curr_bw);
 

@@ -94,7 +94,6 @@ struct ind_req_resp {
  * instance_id - service instance id specific to a subsystem (Root PD)
  * clnt_handle - unique QMI client handle
  * service_connected - indicates if QMI service is up on the subsystem
- * ind_recv - completion variable to record receiving an indication
  * ssr_handle - The SSR handle provided by the SSR driver for the subsystem
  *		on which the remote root PD runs.
  */
@@ -110,7 +109,6 @@ struct qmi_client_info {
 	void *ssr_handle;
 	struct notifier_block ssr_notifier;
 	bool service_connected;
-	struct completion ind_recv;
 	struct list_head list;
 	struct ind_req_resp ind_msg;
 };
@@ -169,12 +167,11 @@ static void root_service_clnt_recv_msg(struct work_struct *work)
 					struct qmi_client_info, svc_rcv_msg);
 
 	do {
-		pr_debug("Notified about a Receive event (instance-id: %d)\n",
+		pr_debug("Polling for QMI recv msg(instance-id: %d)\n",
 							data->instance_id);
 	} while ((ret = qmi_recv_msg(data->clnt_handle)) == 0);
 
-	if (ret != -ENOMSG)
-		pr_err("Error receiving message (instance-id: %d)\n",
+	pr_info("Notified about a Receive event (instance-id: %d)\n",
 							data->instance_id);
 }
 
@@ -220,7 +217,7 @@ static void send_ind_ack(struct work_struct *work)
 	if (rc < 0) {
 		pr_err("%s: Sending Ack failed/server timeout, ret - %d\n",
 						data->ind_msg.service_path, rc);
-		goto exit;
+		return;
 	}
 
 	/* Check the response */
@@ -230,8 +227,6 @@ static void send_ind_ack(struct work_struct *work)
 	pr_debug("Indication ACKed for transid %d, service %s, instance %d!\n",
 		data->ind_msg.transaction_id, data->ind_msg.service_path,
 		data->instance_id);
-exit:
-	complete(&data->ind_recv);
 }
 
 static void root_service_service_ind_cb(struct qmi_handle *handle,
@@ -282,12 +277,6 @@ send_ind_resp:
 		ARRAY_SIZE(data->ind_msg.service_path), "%s",
 		ind_msg.service_name);
 	schedule_work(&data->ind_ack);
-	rc = wait_for_completion_timeout(&data->ind_recv, SERVER_TIMEOUT);
-	if (rc < 0) {
-		pr_err("Timeout waiting for sending indication ACK!");
-		return;
-	}
-
 }
 
 static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
@@ -544,7 +533,6 @@ static void *add_service_notif(const char *service_path, int instance_id,
 	qmi_data->instance_id = instance_id;
 	qmi_data->clnt_handle = NULL;
 	qmi_data->notifier.notifier_call = service_event_notify;
-	init_completion(&qmi_data->ind_recv);
 
 	qmi_data->svc_event_wq = create_singlethread_workqueue(subsys);
 	if (!qmi_data->svc_event_wq) {

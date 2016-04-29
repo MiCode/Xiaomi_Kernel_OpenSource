@@ -1676,7 +1676,7 @@ static const struct msm_pingroup msmcobalt_groups[] = {
 		 pwr_crypto, NA, NA, NA, NA),
 	PINGROUP(34, EAST, hdmi_hot, edp_hot, blsp_spi2, blsp_uart2_a,
 		 blsp_uim2_a, NA, NA, NA, NA),
-	PINGROUP(35, WEST, pci_e0, jitter_bist, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(35, NORTH, pci_e0, jitter_bist, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(36, WEST, pci_e0, agera_pll, NA, atest_tsens, NA, NA, NA, NA,
 		 NA),
 	PINGROUP(37, WEST, agera_pll, NA, NA, NA, NA, NA, NA, NA, NA),
@@ -1853,9 +1853,9 @@ static const struct msm_pingroup msmcobalt_groups[] = {
 	PINGROUP(147, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(148, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(149, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	SDC_QDSD_PINGROUP(sdc2_clk, 0x9d000, 14, 6),
-	SDC_QDSD_PINGROUP(sdc2_cmd, 0x9d000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc2_data, 0x9d000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc2_clk, 0x999000, 14, 6),
+	SDC_QDSD_PINGROUP(sdc2_cmd, 0x999000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc2_data, 0x999000, 9, 0),
 };
 
 static const struct msm_pinctrl_soc_data msmcobalt_pinctrl = {
