@@ -132,6 +132,8 @@ static atomic_t sec_aux_ref_count;
 static atomic_t mi2s_ref_count;
 static atomic_t sec_mi2s_ref_count;
 
+static int clk_users;
+
 static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
 
@@ -144,9 +146,9 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.mclk_cb_fn = mdm_enable_codec_ext_clk,
 	.mclk_rate = MDM_MCLK_CLK_12P288MHZ,
 	.gpio_level_insert = 1,
-	.detect_extn_cable = true,
+	.detect_extn_cable = false,
 	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
-	.insert_detect = false,
+	.insert_detect = true,
 	.swap_gnd_mic = NULL,
 	.cs_enable_flags = (1 << MBHC_CS_ENABLE_POLLING |
 			    1 << MBHC_CS_ENABLE_INSERTION |
@@ -155,8 +157,25 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.do_recalibration = true,
 	.use_vddio_meas = true,
 	.enable_anc_mic_detect = false,
-	.hw_jack_type = SIX_POLE_JACK,
+	.hw_jack_type = FOUR_POLE_JACK,
 };
+
+static void mdm_gpio_set_mux_ctl(struct mdm_machine_data *dt)
+{
+	if (dt->gcc_debug_clk_ctl_virt_addr != NULL)
+		iowrite32(GCC_DEBUG_CLK_CTL_EN_VALUE,
+			dt->gcc_debug_clk_ctl_virt_addr);
+	else
+		pr_err("%s: gcc_debug_clk_ctl_virt_addr is NULL\n",
+				__func__);
+
+	if (dt->gcc_plltest_pad_cfg_virt_addr != NULL)
+		iowrite32(GCC_PLLTEST_PAD_CFG_EN_VALUE,
+			dt->gcc_plltest_pad_cfg_virt_addr);
+	else
+		pr_err("%s:gcc_plltest_pad_cfg_virt_addr is NULL\n",
+				__func__);
+}
 
 static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
 				int rate)
@@ -219,6 +238,7 @@ static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
 
 	kfree(lpass_clk);
 done:
+	clk_users = atomic_read(&pdata->prim_clk_usrs);
 	return ret;
 }
 
@@ -274,20 +294,7 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 				ret = -EINVAL;
 				goto err;
 			}
-
-			if (pdata->gcc_debug_clk_ctl_virt_addr != NULL)
-				iowrite32(GCC_DEBUG_CLK_CTL_EN_VALUE,
-					pdata->gcc_debug_clk_ctl_virt_addr);
-			else
-				pr_err("%s: gcc_debug_clk_ctl_virt_addr is NULL\n",
-				       __func__);
-
-			if (pdata->gcc_plltest_pad_cfg_virt_addr != NULL)
-				iowrite32(GCC_PLLTEST_PAD_CFG_EN_VALUE,
-					pdata->gcc_plltest_pad_cfg_virt_addr);
-			else
-				pr_err("%s:gcc_plltest_pad_cfg_virt_addr is NULL\n",
-				       __func__);
+			mdm_gpio_set_mux_ctl(pdata);
 		} else {
 			pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
 				__func__);
@@ -467,20 +474,7 @@ static int mdm_sec_mi2s_startup(struct snd_pcm_substream *substream)
 				ret = -EINVAL;
 				goto err;
 			}
-
-			if (pdata->gcc_debug_clk_ctl_virt_addr != NULL)
-				iowrite32(GCC_DEBUG_CLK_CTL_EN_VALUE,
-					pdata->gcc_debug_clk_ctl_virt_addr);
-			else
-				pr_err("%s: gcc_debug_clk_ctl_virt_addr is NULL\n",
-				       __func__);
-
-			if (pdata->gcc_plltest_pad_cfg_virt_addr != NULL)
-				iowrite32(GCC_PLLTEST_PAD_CFG_EN_VALUE,
-					pdata->gcc_plltest_pad_cfg_virt_addr);
-			else
-				pr_err("%s:gcc_plltest_pad_cfg_virt_addr is NULL\n",
-				       __func__);
+			mdm_gpio_set_mux_ctl(pdata);
 		} else {
 			pr_err("%s lpaif_sec_muxsel_virt_addr is NULL\n",
 				__func__);
@@ -834,6 +828,7 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 err:
 	mutex_unlock(&cdc_mclk_mutex);
 	kfree(lpass_clk);
+	clk_users = atomic_read(&pdata->prim_clk_usrs);
 	return ret;
 }
 
@@ -1070,12 +1065,19 @@ static const struct snd_kcontrol_new mdm_snd_controls[] = {
 				 mdm_sec_mi2s_rate_put),
 };
 
+static int msm_snd_get_ext_clk_cnt(void)
+{
+	return clk_users;
+}
+
 static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int ret = 0;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_card *card = rtd->card;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 
 	pr_debug("%s dev_name %s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -1138,11 +1140,47 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
+	ret = afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_ON);
+	if (ret < 0) {
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mdm_gpio_set_mux_ctl(pdata);
+
+	ret = afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
+
 	mbhc_cfg.calibration = def_codec_mbhc_cal();
-	if (mbhc_cfg.calibration)
+	if (mbhc_cfg.calibration) {
 		ret = tomtom_hs_detect(codec, &mbhc_cfg);
+		if (ret < 0) {
+			pr_err("%s: Failed to intialise mbhc %d\n",
+				__func__, ret);
+			kfree(mbhc_cfg.calibration);
+		}
+	}
 	else
 		ret = -ENOMEM;
+
+	tomtom_register_ext_clk_cb(mdm_enable_codec_ext_clk,
+				msm_snd_get_ext_clk_cnt,
+				rtd->codec);
+
+	ret = mdm_enable_codec_ext_clk(rtd->codec, 1, false);
+	if (IS_ERR_VALUE(ret)) {
+			pr_err("%s: Failed to enable mclk, err = 0x%x\n",
+				__func__, ret);
+			goto done;
+	}
+
+	tomtom_enable_qfuse_sensing(rtd->codec);
+
+	ret = mdm_enable_codec_ext_clk(rtd->codec, 0, false);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("%s: Failed to disable mclk, err = 0x%x\n",
+				__func__, ret);
+	}
+
 done:
 	return ret;
 }
@@ -1198,21 +1236,21 @@ void *def_codec_mbhc_cal(void)
 	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
 					       MBHC_BTN_DET_V_BTN_HIGH);
 	btn_low[0] = -50;
-	btn_high[0] = 10;
-	btn_low[1] = 11;
-	btn_high[1] = 52;
-	btn_low[2] = 53;
-	btn_high[2] = 94;
-	btn_low[3] = 95;
-	btn_high[3] = 133;
-	btn_low[4] = 134;
-	btn_high[4] = 171;
-	btn_low[5] = 172;
-	btn_high[5] = 208;
-	btn_low[6] = 209;
-	btn_high[6] = 244;
-	btn_low[7] = 245;
-	btn_high[7] = 330;
+	btn_high[0] = 20;
+	btn_low[1] = 21;
+	btn_high[1] = 61;
+	btn_low[2] = 62;
+	btn_high[2] = 104;
+	btn_low[3] = 105;
+	btn_high[3] = 148;
+	btn_low[4] = 149;
+	btn_high[4] = 189;
+	btn_low[5] = 190;
+	btn_high[5] = 228;
+	btn_low[6] = 229;
+	btn_high[6] = 269;
+	btn_low[7] = 270;
+	btn_high[7] = 500;
 	n_ready = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_READY);
 	n_ready[0] = 80;
 	n_ready[1] = 68;
@@ -1960,6 +1998,19 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	int ret;
 	struct snd_soc_card *card = &snd_soc_card_mdm;
 	struct mdm_machine_data *pdata;
+	enum apr_subsys_state q6_state;
+
+	q6_state = apr_get_subsys_state();
+	/*
+	* mclk is needed during init for mbhc calibration,
+	* so wait for modem to get loaded and be ready
+	* to accept mclk request command.
+	*/
+	if (q6_state == APR_SUBSYS_DOWN) {
+		dev_err(&pdev->dev, "Defering %s, q6_state %d\n",
+					__func__, q6_state);
+		return -EPROBE_DEFER;
+	}
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev,
@@ -2025,14 +2076,6 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = snd_soc_register_card(card);
-	if (ret == -EPROBE_DEFER) {
-		goto err;
-	} else if (ret) {
-		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", ret);
-		goto err;
-	}
-
 	pdata->lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
 	if (pdata->lpaif_pri_muxsel_virt_addr == NULL) {
 		pr_err("%s Pri muxsel virt addr is null\n", __func__);
@@ -2079,6 +2122,14 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		pr_err("%s gcc_plltest_pad_cfg_virt_addr is null\n", __func__);
 
 		ret = -EINVAL;
+		goto err7;
+	}
+
+	ret = snd_soc_register_card(card);
+	if (ret == -EPROBE_DEFER) {
+		goto err7;
+	} else if (ret) {
+		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", ret);
 		goto err7;
 	}
 
