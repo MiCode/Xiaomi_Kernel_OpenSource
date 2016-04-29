@@ -783,6 +783,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
 			<62 512 666675 666675>;
+		qcom,max-ds-factor = <128>;
 		status = "disabled";
 	};
 };
