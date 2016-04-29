@@ -120,6 +120,8 @@
 #define ADRENO_QUIRK_TWO_PASS_USE_WFI BIT(0)
 /* Lock/unlock mutex to sync with the IOMMU */
 #define ADRENO_QUIRK_IOMMU_SYNC BIT(1)
+/* Submit critical packets at GPU wake up */
+#define ADRENO_QUIRK_CRITICAL_PACKETS BIT(2)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -690,6 +692,7 @@ struct adreno_gpudev {
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
 	void (*platform_setup)(struct adreno_device *);
 	void (*init)(struct adreno_device *);
+	void (*remove)(struct adreno_device *);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*hw_init)(struct adreno_device *);
 	int (*microcode_read)(struct adreno_device *);

@@ -106,15 +106,20 @@ Optional Properties:
 				Force the GPU to use 32 bit data sizes even if
 				it is capable of doing 64 bit.
 
-- qcom,gpu-quirk-two-pass-use-wfi:
-				Signal the GPU to set Set TWOPASSUSEWFI bit in
-				A5XX_PC_DBG_ECO_CNTL (5XX only)
 - qcom,gpu-speed-bin:      GPU speed bin information in the format
 			   <offset mask shift>
 				offset - offset of the efuse register from the base.
 				mask   - mask for the relevant bits in the efuse register.
 				shift  - number of bits to right shift to get the speed bin
 				value.
+
+GPU Quirks:
+- qcom,gpu-quirk-two-pass-use-wfi:
+				Signal the GPU to set Set TWOPASSUSEWFI bit in
+				A5XX_PC_DBG_ECO_CNTL (5XX only)
+- qcom,gpu-quirk-critical-packets:
+				Submit a set of critical PM4 packets when the GPU wakes up
+
 
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight

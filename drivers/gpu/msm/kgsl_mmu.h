@@ -133,6 +133,8 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable(struct kgsl_mmu *,
 struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *,
 						u64 ptbase);
 
+void kgsl_add_global_secure_entry(struct kgsl_device *device,
+					struct kgsl_memdesc *memdesc);
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 int kgsl_mmu_init(struct kgsl_device *device, char *mmutype);
 int kgsl_mmu_start(struct kgsl_device *device);
