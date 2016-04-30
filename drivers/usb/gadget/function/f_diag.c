@@ -204,8 +204,9 @@ static void diag_context_release(struct kref *kref)
 static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 {
 	struct usb_composite_dev *cdev = ctxt->cdev;
-	struct usb_gadget_strings *table;
+	struct usb_gadget_strings **table;
 	struct usb_string *s;
+	struct usb_gadget_string_container *uc;
 	struct dload_struct local_diag_dload = { 0 };
 
 	/*
@@ -223,30 +224,26 @@ static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 	/* update pid */
 	local_diag_dload.magic_struct.pid = PID_MAGIC_ID;
 	local_diag_dload.pid = cdev->desc.idProduct;
+	local_diag_dload.magic_struct.serial_num = SERIAL_NUM_MAGIC_ID;
 
-	/* pass on product id and serial number to dload */
-	if (!cdev->desc.iSerialNumber) {
-		/*
-		 * Serial number is filled by the composite driver. So
-		 * it is fair enough to assume that it will always be
-		 * found at first table of strings.
-		 */
-		table = *(cdev->driver->strings);
+	list_for_each_entry(uc, &cdev->gstrings, list) {
+		table = (struct usb_gadget_strings **)uc->stash;
 		if (!table) {
 			pr_err("%s: can't update dload cookie\n", __func__);
-			return;
+			break;
 		}
-		for (s = table->strings; s && s->s; s++) {
+
+		for (s = (*table)->strings; s && s->s; s++) {
 			if (s->id == cdev->desc.iSerialNumber) {
-				local_diag_dload.magic_struct.serial_num =
-					SERIAL_NUM_MAGIC_ID;
 				strlcpy(local_diag_dload.serial_number, s->s,
 					SERIAL_NUMBER_LENGTH);
-				break;
+				goto update_dload;
 			}
 		}
+
 	}
 
+update_dload:
 	pr_debug("%s: dload:%p pid:%x serial_num:%s\n",
 				__func__, diag_dload, local_diag_dload.pid,
 				local_diag_dload.serial_number);
