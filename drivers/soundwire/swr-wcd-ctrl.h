@@ -96,7 +96,6 @@ struct swr_mstr_ctrl {
 	struct platform_device *pdev;
 	int num_rx_chs;
 	u8 num_cfg_devs;
-	u8 slvdev_dp_enable_cnt;
 };
 
 #endif /* _SWR_WCD_CTRL_H */
