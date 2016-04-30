@@ -947,6 +947,7 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 	}
 }
 
+/* Must be called with clocks/regulators enabled */
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 					  bool leaf, void *cookie)
 {
@@ -959,9 +960,6 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 
 	BUG_ON(atomic_ctx && !smmu);
 	if (!smmu)
-		return;
-
-	if (arm_smmu_enable_clocks_atomic(smmu))
 		return;
 
 	if (stage1) {
@@ -990,8 +988,6 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 		reg = ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_TLBIVMID;
 		writel_relaxed(ARM_SMMU_CB_VMID(cfg), reg);
 	}
-
-	arm_smmu_disable_clocks_atomic(smmu);
 }
 
 static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
@@ -1014,6 +1010,25 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 		 */
 		dmac_clean_range(addr, addr + size);
 	}
+}
+
+static void arm_smmu_tlbi_domain(struct iommu_domain *domain)
+{
+	arm_smmu_tlb_inv_context(domain->priv);
+}
+
+static int arm_smmu_enable_config_clocks(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+
+	return arm_smmu_enable_clocks(smmu_domain->smmu);
+}
+
+static void arm_smmu_disable_config_clocks(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+
+	arm_smmu_disable_clocks(smmu_domain->smmu);
 }
 
 struct arm_smmu_secure_pool_chunk {
@@ -1562,6 +1577,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	bool is_fast = smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST);
 
 	if (smmu_domain->smmu)
 		goto out;
@@ -1658,6 +1674,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		};
 	}
 
+	if (is_fast)
+		fmt = ARM_V8L_FAST;
+
 	cfg->asid = cfg->cbndx + 1;
 	cfg->vmid = cfg->cbndx + 2;
 	pgtbl_ops = alloc_io_pgtable_ops(fmt, &smmu_domain->pgtbl_cfg,
@@ -1675,9 +1694,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		arm_smmu_assign_table(smmu_domain);
 		arm_smmu_secure_domain_unlock(smmu_domain);
 	}
-
-	/* Update our support page sizes to reflect the page table format */
-	arm_smmu_ops.pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
 
 	/* Initialise the context bank with our page table cfg */
 	arm_smmu_init_context_bank(smmu_domain, &smmu_domain->pgtbl_cfg);
@@ -2876,6 +2892,22 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    & (1 << DOMAIN_ATTR_S1_BYPASS));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_FAST:
+		*((int *)data) = !!(smmu_domain->attributes
+					& (1 << DOMAIN_ATTR_FAST));
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_PGTBL_INFO: {
+		struct iommu_pgtbl_info *info = data;
+
+		if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST))) {
+			ret = -ENODEV;
+			break;
+		}
+		info->pmds = smmu_domain->pgtbl_cfg.av8l_fast_cfg.pmds;
+		ret = 0;
+		break;
+	}
 	default:
 		ret = -ENODEV;
 		break;
@@ -2999,6 +3031,11 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	}
+	case DOMAIN_ATTR_FAST:
+		if (*((int *)data))
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -3030,6 +3067,23 @@ static int arm_smmu_dma_supported(struct iommu_domain *domain,
 	return ret;
 }
 
+static unsigned long arm_smmu_get_pgsize_bitmap(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+
+	/*
+	 * if someone is calling map before attach just return the
+	 * supported page sizes for the hardware itself.
+	 */
+	if (!smmu_domain->pgtbl_cfg.pgsize_bitmap)
+		return arm_smmu_ops.pgsize_bitmap;
+	/*
+	 * otherwise return the page sizes supported by this specific page
+	 * table configuration
+	 */
+	return smmu_domain->pgtbl_cfg.pgsize_bitmap;
+}
+
 static struct iommu_ops arm_smmu_ops = {
 	.capable		= arm_smmu_capable,
 	.domain_init		= arm_smmu_domain_init,
@@ -3046,10 +3100,14 @@ static struct iommu_ops arm_smmu_ops = {
 	.domain_get_attr	= arm_smmu_domain_get_attr,
 	.domain_set_attr	= arm_smmu_domain_set_attr,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+	.get_pgsize_bitmap	= arm_smmu_get_pgsize_bitmap,
 	.dma_supported		= arm_smmu_dma_supported,
 	.trigger_fault		= arm_smmu_trigger_fault,
 	.reg_read		= arm_smmu_reg_read,
 	.reg_write		= arm_smmu_reg_write,
+	.tlbi_domain		= arm_smmu_tlbi_domain,
+	.enable_config_clocks	= arm_smmu_enable_config_clocks,
+	.disable_config_clocks	= arm_smmu_disable_config_clocks,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)

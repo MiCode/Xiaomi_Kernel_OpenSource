@@ -1082,6 +1082,13 @@ phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 	return domain->ops->iova_to_phys_hard(domain, iova);
 }
 
+static unsigned long iommu_get_pgsize_bitmap(struct iommu_domain *domain)
+{
+	if (domain->ops->get_pgsize_bitmap)
+		return domain->ops->get_pgsize_bitmap(domain);
+	return domain->ops->pgsize_bitmap;
+}
+
 size_t iommu_pgsize(unsigned long pgsize_bitmap,
 		    unsigned long addr_merge, size_t size)
 {
@@ -1121,20 +1128,22 @@ size_t iommu_pgsize(unsigned long pgsize_bitmap,
 int iommu_map(struct iommu_domain *domain, unsigned long iova,
 	      phys_addr_t paddr, size_t size, int prot)
 {
-	unsigned long orig_iova = iova;
+	unsigned long orig_iova = iova, pgsize_bitmap;
 	unsigned int min_pagesz;
 	size_t orig_size = size;
 	int ret = 0;
 
 	trace_map_start(iova, paddr, size);
 	if (unlikely(domain->ops->map == NULL ||
-		     domain->ops->pgsize_bitmap == 0UL)) {
+		     (domain->ops->pgsize_bitmap == 0UL &&
+		      !domain->ops->get_pgsize_bitmap))) {
 		trace_map_end(iova, paddr, size);
 		return -ENODEV;
 	}
 
+	pgsize_bitmap = iommu_get_pgsize_bitmap(domain);
 	/* find out the minimum page size supported */
-	min_pagesz = 1 << __ffs(domain->ops->pgsize_bitmap);
+	min_pagesz = 1 << __ffs(pgsize_bitmap);
 
 	/*
 	 * both the virtual address and the physical one, as well as
@@ -1151,8 +1160,7 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 	pr_debug("map: iova 0x%lx pa %pa size 0x%zx\n", iova, &paddr, size);
 
 	while (size) {
-		size_t pgsize = iommu_pgsize(domain->ops->pgsize_bitmap,
-					     iova | paddr, size);
+		size_t pgsize = iommu_pgsize(pgsize_bitmap, iova | paddr, size);
 
 		pr_debug("mapping: iova 0x%lx pa %pa pgsize 0x%zx\n",
 			 iova, &paddr, pgsize);
@@ -1184,12 +1192,13 @@ size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova, size_t size)
 
 	trace_unmap_start(iova, 0, size);
 	if (unlikely(domain->ops->unmap == NULL ||
-		     domain->ops->pgsize_bitmap == 0UL)) {
+		     (domain->ops->pgsize_bitmap == 0UL &&
+		      !domain->ops->get_pgsize_bitmap))) {
 		trace_unmap_end(iova, 0, size);
 		return -ENODEV;
 	}
 	/* find out the minimum page size supported */
-	min_pagesz = 1 << __ffs(domain->ops->pgsize_bitmap);
+	min_pagesz = 1 << __ffs(iommu_get_pgsize_bitmap(domain));
 
 	/*
 	 * The virtual address, as well as the size of the mapping, must be
@@ -1337,7 +1346,7 @@ int iommu_domain_get_attr(struct iommu_domain *domain,
 		break;
 	case DOMAIN_ATTR_PAGING:
 		paging  = data;
-		*paging = (domain->ops->pgsize_bitmap != 0UL);
+		*paging = (iommu_get_pgsize_bitmap(domain) != 0UL);
 		break;
 	case DOMAIN_ATTR_WINDOWS:
 		count = data;
