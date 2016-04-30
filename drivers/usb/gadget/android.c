@@ -3514,7 +3514,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		if (err < 0) {
 			pr_err("%s: android_enable failed\n", __func__);
 			dev->connected = 0;
-			dev->enabled = false;
+			dev->enabled = true;
 			mutex_unlock(&dev->mutex);
 			return size;
 		}
