@@ -601,6 +601,31 @@ static struct swr_port_info *swrm_get_port(struct swr_master *master,
 	return port;
 }
 
+static bool swrm_remove_from_group(struct swr_master *master)
+{
+	struct swr_device *swr_dev;
+	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
+	bool is_removed = false;
+
+	if (!swrm)
+		goto end;
+
+	mutex_lock(&swrm->mlock);
+	if ((swrm->num_rx_chs > 1) &&
+	    (swrm->num_rx_chs == swrm->num_cfg_devs)) {
+		list_for_each_entry(swr_dev, &master->devices,
+				dev_list) {
+			swr_dev->group_id = SWR_GROUP_NONE;
+			master->gr_sid = 0;
+		}
+		is_removed = true;
+	}
+	mutex_unlock(&swrm->mlock);
+
+end:
+	return is_removed;
+}
+
 static void swrm_slvdev_datapath_control(struct swr_master *master,
 					 bool enable)
 {
@@ -805,8 +830,8 @@ static int swrm_connect_port(struct swr_master *master,
 
 	swrm_get_port_config(master);
 	swr_port_response(master, portinfo->tid);
+	swrm->num_cfg_devs += 1;
 	if (swrm->num_rx_chs > 1) {
-		swrm->num_cfg_devs += 1;
 		if (swrm->num_rx_chs == swrm->num_cfg_devs)
 			swrm_apply_port_config(master);
 	} else {
@@ -899,8 +924,7 @@ static int swrm_disconnect_port(struct swr_master *master,
 
 	master->num_port -= portinfo->num_port;
 	swr_port_response(master, portinfo->tid);
-	if (swrm->num_rx_chs > 1)
-		swrm->num_cfg_devs -= 1;
+	swrm->num_cfg_devs -= 1;
 	mutex_unlock(&swrm->mlock);
 
 	dev_dbg(&master->dev, "%s: master active ports: %d\n",
@@ -1218,6 +1242,7 @@ static int swrm_probe(struct platform_device *pdev)
 	swrm->master.connect_port = swrm_connect_port;
 	swrm->master.disconnect_port = swrm_disconnect_port;
 	swrm->master.slvdev_datapath_control = swrm_slvdev_datapath_control;
+	swrm->master.remove_from_group = swrm_remove_from_group;
 	swrm->master.dev.parent = &pdev->dev;
 	swrm->master.dev.of_node = pdev->dev.of_node;
 	swrm->master.num_port = 0;
@@ -1534,7 +1559,7 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 		} else {
 			mutex_lock(&swrm->mlock);
 			swrm->num_rx_chs = *(int *)data;
-			if (swrm->num_rx_chs > 1) {
+			if ((swrm->num_rx_chs > 1) && !swrm->num_cfg_devs) {
 				list_for_each_entry(swr_dev, &mstr->devices,
 						    dev_list) {
 					ret = swr_set_device_group(swr_dev,
