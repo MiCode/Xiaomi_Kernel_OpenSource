@@ -250,12 +250,12 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 			u32	data;
 
 			if (probe_kernel_address(p, data))
-				printk(KERN_DEBUG " ********");
+				pr_cont(" ********");
 			else
-				printk(KERN_DEBUG " %08x", data);
+				pr_cont(" %08x", data);
 			++p;
 		}
-		printk(KERN_DEBUG "\n");
+		pr_cont("\n");
 	}
 }
 
