@@ -474,6 +474,7 @@
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
+			qcom,vrail-comp = <25>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP0>;
 		};
 
@@ -487,6 +488,7 @@
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
+			qcom,vrail-comp = <25>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP1>;
 		};
 
