@@ -623,6 +623,9 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 				tx_ring_full_count[rmnet_mhi_ptr->dev_index]++;
 				netif_stop_queue(dev);
 				rmnet_log(MSG_VERBOSE, "Stopping Queue\n");
+				write_unlock_irqrestore(
+					    &rmnet_mhi_ptr->out_chan_full_lock,
+					    flags);
 				goto rmnet_mhi_xmit_error_cleanup;
 			} else {
 				retry = 1;
@@ -650,7 +653,6 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 
 rmnet_mhi_xmit_error_cleanup:
 	rmnet_log(MSG_VERBOSE, "Ring full\n");
-	write_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	return NETDEV_TX_BUSY;
 }
 
