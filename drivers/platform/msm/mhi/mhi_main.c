@@ -1397,8 +1397,10 @@ static int start_chan_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	u32 chan;
 
 	MHI_TRB_GET_INFO(CMD_TRB_CHID, cmd_pkt, chan);
-	if (!VALID_CHAN_NR(chan))
+	if (!VALID_CHAN_NR(chan)) {
 		mhi_log(MHI_MSG_ERROR, "Bad chan: 0x%x\n", chan);
+		return -EINVAL;
+	}
 	mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan] =
 					MHI_CMD_NOT_PENDING;
 	mhi_log(MHI_MSG_INFO, "Processed START CMD chan %d\n", chan);
