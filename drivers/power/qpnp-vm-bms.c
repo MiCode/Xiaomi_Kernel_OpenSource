@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3793,7 +3793,7 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 		pr_err("revid error rc = %ld\n", PTR_ERR(chip->revid_data));
 		return -EINVAL;
 	}
-	if ((chip->revid_data->pmic_subtype == PM8916_V2P0_SUBTYPE) &&
+	if ((chip->revid_data->pmic_subtype == PM8916_SUBTYPE) &&
 				chip->revid_data->rev4 == PM8916_V2P0_REV4)
 		chip->workaround_flag |= WRKARND_PON_OCV_COMP;
 
