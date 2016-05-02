@@ -109,6 +109,47 @@ static void msm_pcm_loopback_event_handler(uint32_t opcode, uint32_t token,
 	}
 }
 
+static int msm_loopback_session_mute_put(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0, n = 0;
+	int mute = ucontrol->value.integer.value[0];
+	struct msm_pcm_loopback *pcm = NULL;
+
+	if ((mute < 0) || (mute > 1)) {
+		pr_err(" %s Invalid arguments", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	pr_debug("%s: mute=%d\n", __func__, mute);
+
+	for (n = 0; n < LOOPBACK_SESSION_MAX; n++) {
+		if (!strcmp(session_map[n].stream_name, "MultiMedia6"))
+			pcm = session_map[n].loopback_priv;
+	}
+	if (pcm && pcm->audio_client) {
+		ret = q6asm_set_mute(pcm->audio_client, mute);
+		if (ret < 0)
+			pr_err("%s: Send mute command failed rc=%d\n",
+				__func__, ret);
+	}
+done:
+	return ret;
+}
+
+static struct snd_kcontrol_new msm_loopback_controls[] = {
+	SOC_SINGLE_EXT("HFP TX Mute", SND_SOC_NOPM, 0, 1, 0,
+			NULL, msm_loopback_session_mute_put),
+};
+
+static int msm_pcm_loopback_probe(struct snd_soc_platform *platform)
+{
+	snd_soc_add_platform_controls(platform, msm_loopback_controls,
+				      ARRAY_SIZE(msm_loopback_controls));
+
+	return 0;
+}
 static int pcm_loopback_set_volume(struct msm_pcm_loopback *prtd, int volume)
 {
 	int rc = -EINVAL;
@@ -462,6 +503,7 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 static struct snd_soc_platform_driver msm_soc_platform = {
 	.ops            = &msm_pcm_ops,
 	.pcm_new        = msm_asoc_pcm_new,
+	.probe          = msm_pcm_loopback_probe,
 };
 
 static int msm_pcm_probe(struct platform_device *pdev)
