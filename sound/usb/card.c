@@ -657,6 +657,7 @@ static int usb_audio_probe(struct usb_interface *intf,
 	chip = snd_usb_audio_probe(interface_to_usbdev(intf), intf, id);
 	if (chip) {
 		usb_set_intfdata(intf, chip);
+		usb_enable_autosuspend(chip->dev);
 		return 0;
 	} else
 		return -EIO;

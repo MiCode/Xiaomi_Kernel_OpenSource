@@ -323,7 +323,9 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 			if (!ret) {
 				hdmi_edid_parser(udata->edid_data);
 				hdmi_edid_get_audio_blk(udata->edid_data, &blk);
-				udata->ops.set_audio_block(udata->dba_data,
+				if (udata->ops.set_audio_block)
+					udata->ops.set_audio_block(
+							udata->dba_data,
 							sizeof(blk), &blk);
 			} else {
 				pr_err("failed to get edid%d\n", ret);

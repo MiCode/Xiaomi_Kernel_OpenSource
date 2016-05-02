@@ -2106,7 +2106,7 @@
 			/* TURBO */
 			qcom,gpu-pwrlevel@1 {
 				reg = <1>;
-				qcom,gpu-freq = <45000000>;
+				qcom,gpu-freq = <450000000>;
 				qcom,bus-freq = <9>;
 				qcom,bus-min = <9>;
 				qcom,bus-max = <10>;

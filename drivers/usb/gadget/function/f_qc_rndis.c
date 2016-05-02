@@ -823,11 +823,6 @@ static void rndis_qc_suspend(struct usb_function *f)
 		 */
 		rndis_flow_control(rndis->config, true);
 		pr_debug("%s(): Disconnecting\n", __func__);
-		if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
-			gadget_is_dwc3(f->config->cdev->gadget)) {
-			msm_ep_unconfig(rndis->port.out_ep);
-			msm_ep_unconfig(rndis->port.in_ep);
-		}
 	}
 
 	bam_data_suspend(&rndis->bam_port, rndis->port_num, USB_FUNC_RNDIS,

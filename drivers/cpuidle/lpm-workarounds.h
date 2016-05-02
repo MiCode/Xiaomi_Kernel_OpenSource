@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,5 +15,6 @@
 #define __LPM_WA_H
 
 void lpm_wa_cx_unvote_send(void);
+bool lpm_wa_get_skip_l2_spm(void);
 
 #endif  /* __LPM_WA_H */
