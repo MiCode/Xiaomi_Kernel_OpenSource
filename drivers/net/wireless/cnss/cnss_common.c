@@ -21,7 +21,7 @@
 #include <linux/mutex.h>
 #include <linux/rwsem.h>
 #include <net/cnss.h>
-#include <net/cnss_common.h>
+#include "cnss_common.h"
 #include <net/cfg80211.h>
 
 enum cnss_dev_bus_type {
