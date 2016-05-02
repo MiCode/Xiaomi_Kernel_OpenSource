@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,7 +188,8 @@ static int voice_svc_send_req(struct voice_svc_cmd_request *apr_request,
 	int ret = 0;
 	void *apr_handle = NULL;
 	struct apr_data *aprdata = NULL;
-	uint32_t user_payload_size = 0;
+	uint32_t user_payload_size;
+	uint32_t payload_size;
 
 	pr_debug("%s\n", __func__);
 
@@ -200,15 +201,19 @@ static int voice_svc_send_req(struct voice_svc_cmd_request *apr_request,
 	}
 
 	user_payload_size = apr_request->payload_size;
+	payload_size = sizeof(struct apr_data) + user_payload_size;
 
-	aprdata = kmalloc(sizeof(struct apr_data) + user_payload_size,
-			  GFP_KERNEL);
-
-	if (aprdata == NULL) {
-		pr_err("%s: aprdata kmalloc failed.\n", __func__);
-
-		ret = -ENOMEM;
+	if (payload_size <= user_payload_size) {
+		pr_err("%s: invalid payload size ( 0x%x ).\n",
+			__func__, user_payload_size);
+		ret = -EINVAL;
 		goto done;
+	} else {
+		aprdata = kmalloc(payload_size, GFP_KERNEL);
+		if (aprdata == NULL) {
+			ret = -ENOMEM;
+			goto done;
+		}
 	}
 
 	voice_svc_update_hdr(apr_request, aprdata);
@@ -388,18 +393,31 @@ static ssize_t voice_svc_write(struct file *file, const char __user *buf,
 
 	switch (cmd) {
 	case MSG_REGISTER:
-		ret = process_reg_cmd(
+		if (count  >=
+				(sizeof(struct voice_svc_register) +
+				sizeof(*data))) {
+			ret = process_reg_cmd(
 			(struct voice_svc_register *)data->payload, prtd);
-		if (!ret)
-			ret = count;
-
+			if (!ret)
+				ret = count;
+		} else {
+			pr_err("%s: invalid payload size\n", __func__);
+			ret = -EINVAL;
+			goto done;
+		}
 		break;
 	case MSG_REQUEST:
+	if (count >= (sizeof(struct voice_svc_cmd_request) +
+					sizeof(*data))) {
 		ret = voice_svc_send_req(
 			(struct voice_svc_cmd_request *)data->payload, prtd);
 		if (!ret)
 			ret = count;
-
+	} else {
+		pr_err("%s: invalid payload size\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
 		break;
 	default:
 		pr_debug("%s: Invalid command: %u\n", __func__, cmd);
