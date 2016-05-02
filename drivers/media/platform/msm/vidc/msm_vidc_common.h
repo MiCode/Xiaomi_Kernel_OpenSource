@@ -19,6 +19,8 @@ struct vb2_buf_entry {
 	struct vb2_buffer *vb;
 };
 
+extern const char *const mpeg_video_vidc_extradata[];
+
 enum load_calc_quirks {
 	LOAD_CALC_NO_QUIRKS = 0,
 	LOAD_CALC_IGNORE_TURBO_LOAD = 1 << 0,

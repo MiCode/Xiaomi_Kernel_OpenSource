@@ -162,6 +162,20 @@ struct msm_vidc_roi_qp_payload {
 	unsigned int data[1];
 };
 
+struct msm_vidc_mastering_display_colour_sei_payload {
+	unsigned int nDisplayPrimariesX[3];
+	unsigned int nDisplayPrimariesY[3];
+	unsigned int nWhitePointX;
+	unsigned int nWhitePointY;
+	unsigned int nMaxDisplayMasteringLuminance;
+	unsigned int nMinDisplayMasteringLuminance;
+};
+
+struct msm_vidc_content_light_level_sei_payload {
+	unsigned int nMaxContentLight;
+	unsigned int nMaxPicAverageLight;
+};
+
 enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_NONE = 0x00000000,
 	MSM_VIDC_EXTRADATA_MB_QUANTIZATION = 0x00000001,
@@ -179,6 +193,12 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_FRAME_BITS_INFO = 0x00000010,
 	MSM_VIDC_EXTRADATA_VQZIP_SEI = 0x00000011,
 	MSM_VIDC_EXTRADATA_ROI_QP = 0x00000013,
+#define MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI \
+	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI
+	MSM_VIDC_EXTRADATA_MASTERING_DISPLAY_COLOUR_SEI = 0x00000015,
+#define MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI \
+	MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI
+	MSM_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI = 0x00000016,
 	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
 #define MSM_VIDC_EXTRADATA_OUTPUT_CROP \
 	MSM_VIDC_EXTRADATA_OUTPUT_CROP
