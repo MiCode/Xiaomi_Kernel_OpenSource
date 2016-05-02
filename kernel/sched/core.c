@@ -4038,23 +4038,24 @@ static void update_cpu_cluster_capacity(const cpumask_t *cpus)
 	post_big_task_count_change(cpu_possible_mask);
 }
 
+static DEFINE_SPINLOCK(cpu_freq_min_max_lock);
 void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax)
 {
 	struct cpumask cpumask;
 	struct sched_cluster *cluster;
-	unsigned int orig_max_freq;
 	int i, update_capacity = 0;
+	unsigned long flags;
 
+	spin_lock_irqsave(&cpu_freq_min_max_lock, flags);
 	cpumask_copy(&cpumask, cpus);
 	for_each_cpu(i, &cpumask) {
 		cluster = cpu_rq(i)->cluster;
 		cpumask_andnot(&cpumask, &cpumask, &cluster->cpus);
 
-		orig_max_freq = cpu_max_freq(i);
+		update_capacity += (cluster->max_mitigated_freq != fmax);
 		cluster->max_mitigated_freq = fmax;
-
-		update_capacity += (orig_max_freq != cpu_max_freq(i));
 	}
+	spin_unlock_irqrestore(&cpu_freq_min_max_lock, flags);
 
 	if (update_capacity)
 		update_cpu_cluster_capacity(cpus);
@@ -4090,7 +4091,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 		cpumask_andnot(&policy_cluster, &policy_cluster,
 						&cluster->cpus);
 
-		orig_max_freq = cpu_max_freq(i);
+		orig_max_freq = cluster->max_freq;
 		cluster->min_freq = policy->min;
 		cluster->max_freq = policy->max;
 		cluster->cur_freq = policy->cur;
@@ -4111,7 +4112,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 			continue;
 		}
 
-		update_capacity += (orig_max_freq != cpu_max_freq(i));
+		update_capacity += (orig_max_freq != cluster->max_freq);
 	}
 
 	if (update_capacity)
