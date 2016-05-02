@@ -103,7 +103,7 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 
 	time_in_last_mode = data->last_exited_at - data->last_entered_at;
 	time_in_last_mode = get_time_in_msec(time_in_last_mode);
-	time_since_last_mode = arch_counter_get_cntpct() - data->last_exited_at;
+	time_since_last_mode = arch_counter_get_cntvct() - data->last_exited_at;
 	time_since_last_mode = get_time_in_sec(time_since_last_mode);
 	actual_last_sleep = get_time_in_msec(data->accumulated);
 
@@ -263,7 +263,6 @@ static ssize_t msm_rpmstats_file_read(struct file *file, char __user *bufu,
 			prvdata->len = msm_rpmstats_copy_stats_v2(prvdata);
 			*ppos = 0;
 	}
-
 	return simple_read_from_buffer(bufu, count, ppos,
 			prvdata->buf, prvdata->len);
 }
