@@ -316,7 +316,8 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 	struct mdss_mdp_ctl *ctl = data;
 	struct mdss_panel_info *pinfo;
 	u32 line_cnt, min_ln_cnt, active_lns_cnt;
-	u32 clk_rate, clk_period, time_of_line;
+	u64 clk_rate;
+	u32 clk_period, time_of_line;
 	u32 delay;
 
 	if (!data) {
@@ -344,7 +345,7 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 			pinfo->mipi.dsi_pclk_rate :
 			pinfo->clk_rate);
 
-	clk_rate /= 1000;	/* in kHz */
+	clk_rate = DIV_ROUND_UP_ULL(clk_rate, 1000); /* in kHz */
 	if (!clk_rate) {
 		pr_err("Unable to get proper clk_rate\n");
 		return;
@@ -354,7 +355,7 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 	 * accuracy with high pclk rate and this number is in 17 bit
 	 * range.
 	 */
-	clk_period = 1000000000 / clk_rate;
+	clk_period = DIV_ROUND_UP_ULL(1000000000, clk_rate);
 	if (!clk_period) {
 		pr_err("Unable to calculate clock period\n");
 		return;
