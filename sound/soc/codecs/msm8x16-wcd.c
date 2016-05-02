@@ -438,6 +438,8 @@ static bool msm8x16_adj_ref_current(struct snd_soc_codec *codec,
 				impedance_l, impedance_r);
 		compare_imp = (msm8x16_wcd->imped_det_pin == WCD_MBHC_DET_HPHR)
 				? *impedance_r : *impedance_l;
+		if (i >= I_1_UA)
+			break;
 	}
 
 	return true;
