@@ -16,6 +16,7 @@
 #include "msm8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
 #include "msm8909w.dtsi"
+#include "msm8909w-memory.dtsi"
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
@@ -48,18 +49,6 @@
 			ite,avdd-lpm-cur = <3000>;
 		};
 	};
-};
-
-&external_image_mem {
-	reg = <0x0 0x87a00000 0x0 0x0600000>;
-};
-
-&modem_adsp_mem {
-	reg = <0x0 0x88000000 0x0 0x05200000>;
-};
-
-&peripheral_mem {
-	reg = <0x0 0x8d200000 0x0 0x0500000>;
 };
 
 &blsp1_uart1 {
