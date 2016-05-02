@@ -1,0 +1,106 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8909-cdp.dtsi"
+#include "msm8909w-gpu.dtsi"
+#include "msm8909-pm8916-cdp.dtsi"
+#include "msm8909w.dtsi"
+#include "apq8009w-memory.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8009W-PM8916 1GB CDP";
+	compatible = "qcom,apq8009-cdp", "qcom,apq8009", "qcom,cdp";
+	qcom,msm-id = <265 0>,
+		      <301 0>;
+	qcom,board-id= <1 0x3>; /* CX, APC split with PM8916 & 320p display */
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8394d_480_vid>;
+};
+
+&soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+
+		/delete-node/ atmel_mxt_ts@4a;
+
+		synaptics@20 {
+			/delete-property/ synaptics,power-down;
+			/delete-property/ synaptics,disable-gpios;
+			synaptics,is_wake;
+			synaptics,device1 {
+				synaptics,display-coords = <0 0 479 479>;
+			};
+		};
+
+		it7260@46 {
+			compatible = "ite,it7260_ts";
+			reg = <0x46>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2008>;
+			avdd-supply = <&pm8916_l17>;
+			vdd-supply = <&pm8916_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_ite_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_ite_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			ite,reset-gpio = <&msm_gpio 12 0x00>;
+			ite,irq-gpio = <&msm_gpio 13 0x2008>;
+			ite,panel-coords = <0 0 320 320>;
+			ite,display-coords = <0 0 320 320>;
+			ite,reset-delay = <20>;
+			ite,num-fingers = <2>;
+			ite,wakeup;
+			ite,palm-detect-en;
+			ite,palm-detect-keycode = <142>;
+			ite,fw-name = "it7260_fw_050D0014.bin";
+			ite,cfg-name = "it7260_cfg_62011E01.bin";
+			ite,avdd-lpm-cur = <3000>;
+		};
+	};
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
+
+};
+
+&i2c_1 {
+	status = "disabled";
+};
+
+&spi_0 {
+	status = "disabled";
+};
+
+&i2c_3 {
+	status = "disabled";
+};
+
+&blsp1_uart1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&soc {
+	tlmm_pinmux: pinctrl@1000000 {
+		vdd_spkdrv {
+			status = "disabled";
+		};
+	};
+};
