@@ -471,4 +471,75 @@ struct ipa_pkt_status_hw {
 /* Size of H/W Packet Status */
 #define IPA3_0_PKT_STATUS_SIZE 32
 
+/* Headers and processing context H/W structures and definitions */
+
+/* uCP command numbers */
+#define IPA_HDR_UCP_802_3_TO_802_3 6
+#define IPA_HDR_UCP_802_3_TO_ETHII 7
+#define IPA_HDR_UCP_ETHII_TO_802_3 8
+#define IPA_HDR_UCP_ETHII_TO_ETHII 9
+
+/* Processing context TLV type */
+#define IPA_PROC_CTX_TLV_TYPE_END 0
+#define IPA_PROC_CTX_TLV_TYPE_HDR_ADD 1
+#define IPA_PROC_CTX_TLV_TYPE_PROC_CMD 3
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_tlv -
+ * HW structure of IPA processing context header - TLV part
+ * @type: 0 - end type
+ *        1 - header addition type
+ *        3 - processing command type
+ * @length: number of bytes after tlv
+ *        for type:
+ *        0 - needs to be 0
+ *        1 - header addition length
+ *        3 - number of 32B including type and length.
+ * @value: specific value for type
+ *        for type:
+ *        0 - needs to be 0
+ *        1 - header length
+ *        3 - command ID (see IPA_HDR_UCP_* definitions)
+ */
+struct ipa_hw_hdr_proc_ctx_tlv {
+	u32 type:8;
+	u32 length:8;
+	u32 value:16;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_hdr_add -
+ * HW structure of IPA processing context - add header tlv
+ * @tlv: IPA processing context TLV
+ * @hdr_addr: processing context header address
+ */
+struct ipa_hw_hdr_proc_ctx_hdr_add {
+	struct ipa_hw_hdr_proc_ctx_tlv tlv;
+	u32 hdr_addr;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_add_hdr_seq -
+ * IPA processing context header - add header sequence
+ * @hdr_add: add header command
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hw_hdr_proc_ctx_add_hdr_seq {
+	struct ipa_hw_hdr_proc_ctx_hdr_add hdr_add;
+	struct ipa_hw_hdr_proc_ctx_tlv end;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq -
+ * IPA processing context header - process command sequence
+ * @hdr_add: add header command
+ * @cmd: tlv processing command (cmd.type must be 3)
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq {
+	struct ipa_hw_hdr_proc_ctx_hdr_add hdr_add;
+	struct ipa_hw_hdr_proc_ctx_tlv cmd;
+	struct ipa_hw_hdr_proc_ctx_tlv end;
+};
+
 #endif /* _IPAHAL_I_H_ */

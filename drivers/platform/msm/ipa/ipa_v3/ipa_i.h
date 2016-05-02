@@ -396,30 +396,6 @@ struct ipa3_hdr_proc_ctx_offset_entry {
 };
 
 /**
- * struct ipa3_hdr_proc_ctx_add_hdr_seq -
- * IPA processing context header - add header sequence
- * @hdr_add: add header command
- * @end: tlv end command (cmd.type must be 0)
- */
-struct ipa3_hdr_proc_ctx_add_hdr_seq {
-	struct ipa3_hdr_proc_ctx_hdr_add hdr_add;
-	struct ipa3_hdr_proc_ctx_tlv end;
-};
-
-/**
- * struct ipa3_hdr_proc_ctx_add_hdr_cmd_seq -
- * IPA processing context header - process command sequence
- * @hdr_add: add header command
- * @cmd: tlv processing command (cmd.type must be 3)
- * @end: tlv end command (cmd.type must be 0)
- */
-struct ipa3_hdr_proc_ctx_add_hdr_cmd_seq {
-	struct ipa3_hdr_proc_ctx_hdr_add hdr_add;
-	struct ipa3_hdr_proc_ctx_tlv cmd;
-	struct ipa3_hdr_proc_ctx_tlv end;
-};
-
-/**
  struct ipa3_hdr_proc_ctx_entry - IPA processing context header table entry
  * @link: entry's link in global header table entries list
  * @type:

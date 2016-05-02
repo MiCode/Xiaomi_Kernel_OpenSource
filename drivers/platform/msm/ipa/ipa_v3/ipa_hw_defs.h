@@ -16,11 +16,6 @@
 
 /* This header defines various HW related data types */
 
-/* Processing context TLV type */
-#define IPA_PROC_CTX_TLV_TYPE_END 0
-#define IPA_PROC_CTX_TLV_TYPE_HDR_ADD 1
-#define IPA_PROC_CTX_TLV_TYPE_PROC_CMD 3
-
 #define IPA_RULE_ID_INVALID 0x3FF
 
 /**
@@ -92,40 +87,6 @@ struct ipa3_rt_rule_hw_hdr {
 			u64 rsvd2:6;
 		} hdr;
 	} u;
-};
-
-/**
- * struct ipa3_hdr_proc_ctx_tlv -
- * HW structure of IPA processing context header - TLV part
- * @type: 0 - end type
- *        1 - header addition type
- *        3 - processing command type
- * @length: number of bytes after tlv
- *        for type:
- *        0 - needs to be 0
- *        1 - header addition length
- *        3 - number of 32B including type and length.
- * @value: specific value for type
- *        for type:
- *        0 - needs to be 0
- *        1 - header length
- *        3 - command ID (see IPA_HDR_UCP_* definitions)
- */
-struct ipa3_hdr_proc_ctx_tlv {
-	u32 type:8;
-	u32 length:8;
-	u32 value:16;
-};
-
-/**
- * struct ipa3_hdr_proc_ctx_hdr_add -
- * HW structure of IPA processing context - add header tlv
- * @tlv: IPA processing context TLV
- * @hdr_addr: processing context header address
- */
-struct ipa3_hdr_proc_ctx_hdr_add {
-	struct ipa3_hdr_proc_ctx_tlv tlv;
-	u32 hdr_addr;
 };
 
 #define IPA_A5_MUX_HDR_EXCP_FLAG_IP		BIT(7)
