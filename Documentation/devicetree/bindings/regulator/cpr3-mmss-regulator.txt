@@ -27,13 +27,13 @@ MMSS specific properties:
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: should be "qcom,cpr3-msm8996-mmss-regulator"
 	Definition: should be one of the following:
 		    "qcom,cpr3-msm8996-v1-mmss-regulator",
 		    "qcom,cpr3-msm8996-v2-mmss-regulator",
 		    "qcom,cpr3-msm8996-v3-mmss-regulator",
 		    "qcom,cpr3-msm8996-mmss-regulator",
-		    "qcom,cpr3-msm8996pro-mmss-regulator".
+		    "qcom,cpr3-msm8996pro-mmss-regulator",
+		    "qcom,cpr4-msmcobalt-mmss-regulator".
 		    If the SoC revision is not specified, then it is assumed to
 		    be the most recent revision of MSM8996, i.e. v3.
 
@@ -50,7 +50,39 @@ MMSS specific properties:
 	Value type: <stringlist>
 	Definition: Clock names.  This list must match up 1-to-1 with the clocks
 		    specified in the 'clocks' property. "core_clk", "iface_clk",
-		    and "bus_clk" must be specified.
+		    and "bus_clk" must be specified.  Note that "iface_clk" is
+		    not required for devices with compatible =
+		    "qcom,cpr4-msmcobalt-mmss-regulator".
+
+- qcom,cpr-temp-point-map
+	Usage:      Required if qcom,corner-allow-temp-adjustment is specified
+		    for at least one of the CPR3 regulators.
+	Value type: <prop-encoded-array>
+	Definition: The temperature points in decidegrees Celsius which indicate
+		    the range of temperature bands supported. If t1, t2, and t3
+		    are the temperature points, then the temperature bands are:
+		    (-inf, t1], (t1, t2], (t2, t3], and (t3, inf).  1 to 3
+		    temperature points should be specified.
+
+- qcom,cpr-initial-temp-band
+	Usage:      Required if qcom,cpr-temp-point-map is specified.
+	Value type: <u32>
+	Definition: The initial temp band considering 0-based index at which
+		    the baseline target quotients are derived and fused.
+		    Supported values: 0 to number of elements in
+		    qcom,cpr-temp-point-map.
+
+- qcom,cpr-step-quot-fixed
+	Usage:      Optional for controllers with compatible =
+		    "qcom,cpr4-msmcobalt-mmss-regulator"; unsupported for
+		    all others.
+	Value type: <u32>
+	Definition: Fixed step quotient value used by controller for applying
+		    the SDELTA margin adjustments on the programmed target
+		    quotient values. The step quotient is the number of
+		    additional ring oscillator ticks observed for each
+		    qcom,voltage-step increase in vdd-supply output voltage.
+		    Supported values: 0 - 63.
 
 =================================================
 Second Level Nodes - CPR Threads for a Controller
@@ -162,6 +194,48 @@ MMSS specific properties:
 		    based adjustment should be applied to the fuse corner.
 		    Values 1 to qcom,cpr-fuse-corners denote the specific fuse
 		    corner that should be used by a given voltage corner.
+
+- qcom,corner-allow-temp-adjustment
+	Usage:      Optional for controllers with compatible =
+		    "qcom,cpr4-msmcobalt-mmss-regulator"; unsupported for
+		    all others.
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR
+		    temperature adjustment feature enable state for each voltage
+		    corner in order from lowest to highest. Each element in the
+		    tuple should be either 0 (temperature adjustment not
+		    allowed) or 1 (temperature adjustment allowed).
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bin-corners property.  A single tuple may
+		    only be specified if all of the corner counts in
+		    qcom,cpr-corners are the same.
+
+- qcom,cpr-cornerX-temp-core-voltage-adjustment
+	Usage:      Required if qcom,corner-allow-temp-adjustment is specified
+		    for this CPR3 regulator.
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples for cornerX. The possible values
+		    for X are 1 to the max value specified in qcom,cpr-corners.
+		    Each tuple defines the temperature based voltage adjustment
+		    in microvolts for each temperature band from lowest to
+		    highest.  Each tuple must have a number of elements equal to
+		    (the number of elements in qcom,cpr-ctrl-temp-point-map + 1)
+
+		    The tuple list must contain qcom,cpr-fuse-combos number of
+		    tuples in which case the tuples are matched to fuse
+		    combinations 1-to-1 or qcom,cpr-speed-bins number of tuples
+		    in which case the tuples are matched to speed bins 1-to-1 or
+		    exactly 1 list which is used regardless of the fuse
+		    combination and speed bin found on a given chip.
 
 Note that the qcom,cpr-closed-loop-voltage-fuse-adjustment property is not
 meaningful for MMSS CPR3 regulator nodes since target quotients are not defined
