@@ -326,6 +326,8 @@
 &soc {
 	mem_acc_vreg_corner: regulator@01946004 {
 		compatible = "qcom,mem-acc-regulator";
+		reg = <0xa4000 0x1000>;
+		reg-names = "efuse_addr";
 		regulator-name = "mem_acc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
@@ -362,6 +364,103 @@
 			<  4  0x30c3>,
 			/* TURBO/NOM+ => NOM */
 			<  3 0x1041041>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>;
+
+		qcom,override-acc-fuse-sel = <71 17 3 0>;
+		qcom,override-fuse-version-map = <1>,
+						 <2>,
+						 <3>;
+		qcom,override-corner1-addr-val-map =
+			/* 1st fuse version tuple matched */
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>,	<(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x1>,
+			<  4  0x0>,
+
+			/* 2nd fuse version tuple matched */
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>,	<(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x3>,
+			<  4  0x0>,
+
+			/* 3rd fuse version tuple matched */
+			/* SVS+ => SVS+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => NOM */
+			<  3 0x1041043>, <  4  0x1041>,	<(-1) (-1)>,
+			<(-1) (-1)>,
+			/* SVS+ => TURBO/NOM+ */
+			<  3 0x1041041>, <  4  0x1041>, <  3 0x0>,
+			<  4  0x0>;
+
+		qcom,override-corner2-addr-val-map =
+			/* 1st fuse version tuple matched */
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x1>,       <  4  0x0>,
+
+			/* 2nd fuse version tuple matched */
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x3>,       <  4  0x0>,
+
+			/* 3rd fuse version tuple matched */
+			/* NOM => SVS+ */
+			<  3 0x30c30c3>, <  4  0x30c3>,
+			/* NOM => NOM */
+			<(-1) (-1)>,     <(-1) (-1)>,
+			/* NOM => TURBO/NOM+ */
+			<  3 0x0>,       <  4  0x0>;
+
+		qcom,override-corner3-addr-val-map =
+			/* 1st fuse version tuple matched */
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>,	<  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+
+			/* 2nd fuse version tuple matched */
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>,	<  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041041>, <  4  0x1041>, <(-1) (-1)>,
+			<(-1) (-1)>,
+			/* TURBO/NOM+ => TURBO/NOM+ */
+			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
+			<(-1) (-1)>,
+
+			/* 3rd fuse version tuple matched */
+			/* TURBO/NOM+ => SVS+ */
+			<  3 0x1041041>, <  4  0x1041>,	<  3 0x30c30c3>,
+			<  4  0x30c3>,
+			/* TURBO/NOM+ => NOM */
+			<  3 0x1041043>, <  4  0x1041>, <(-1) (-1)>,
 			<(-1) (-1)>,
 			/* TURBO/NOM+ => TURBO/NOM+ */
 			<(-1) (-1)>,     <(-1) (-1)>,   <(-1) (-1)>,
