@@ -152,29 +152,6 @@ static const char *const vp8_profile_level[] = {
 	"2.0",
 	"3.0",
 };
-
-static const char *const mpeg_video_vidc_extradata[] = {
-	"Extradata none",
-	"Extradata MB Quantization",
-	"Extradata Interlace Video",
-	"Extradata VC1 Framedisp",
-	"Extradata VC1 Seqdisp",
-	"Extradata timestamp",
-	"Extradata S3D Frame Packing",
-	"Extradata Frame Rate",
-	"Extradata Panscan Window",
-	"Extradata Recovery point SEI",
-	"Extradata Closed Caption UD",
-	"Extradata AFD UD",
-	"Extradata Multislice info",
-	"Extradata number of concealed MB",
-	"Extradata metadata filler",
-	"Extradata input crop",
-	"Extradata digital zoom",
-	"Extradata aspect ratio",
-	"Extradata macroblock metadata",
-};
-
 static const char *const perf_level[] = {
 	"Nominal",
 	"Performance",

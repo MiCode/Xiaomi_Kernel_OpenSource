@@ -18,6 +18,9 @@ struct vb2_buf_entry {
 	struct list_head list;
 	struct vb2_buffer *vb;
 };
+
+extern const char *const mpeg_video_vidc_extradata[];
+
 struct msm_vidc_core *get_vidc_core(int core_id);
 const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
 	const struct msm_vidc_format fmt[], int size, int index, int fmt_type);

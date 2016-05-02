@@ -50,27 +50,6 @@ static const char *const mpeg_video_output_order[] = {
 	"Decode Order",
 	NULL
 };
-static const char *const mpeg_video_vidc_extradata[] = {
-	"Extradata none",
-	"Extradata MB Quantization",
-	"Extradata Interlace Video",
-	"Extradata VC1 Framedisp",
-	"Extradata VC1 Seqdisp",
-	"Extradata timestamp",
-	"Extradata S3D Frame Packing",
-	"Extradata Frame Rate",
-	"Extradata Panscan Window",
-	"Extradata Recovery point SEI",
-	"Extradata Closed Caption UD",
-	"Extradata AFD UD",
-	"Extradata Multislice info",
-	"Extradata number of concealed MB",
-	"Extradata metadata filler",
-	"Extradata input crop",
-	"Extradata digital zoom",
-	"Extradata aspect ratio",
-	"Extradata mpeg2 seqdisp",
-};
 static const char *const mpeg_vidc_video_alloc_mode_type[] = {
 	"Buffer Allocation Static",
 	"Buffer Allocation Ring Buffer",
@@ -246,7 +225,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -268,7 +247,9 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_STREAM_USERDATA) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_QP) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_DISPLAY_COLOUR_SEI) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 		.step = 0,
