@@ -2403,10 +2403,10 @@ static void msm_chg_enable_dcd(struct msm_otg *motg)
 		 * may be incorrectly interpreted. Also
 		 * BC1.2 compliance testers expect Rdm_down
 		 * to enabled during DCD. Enable Rdm_down
-		 * explicitly after enabling the DCD.
+		 * explicitly before enabling the DCD.
 		 */
-		ulpi_write(phy, 0x10, 0x85);
 		ulpi_write(phy, 0x04, 0x0B);
+		ulpi_write(phy, 0x10, 0x85);
 		break;
 	default:
 		break;
