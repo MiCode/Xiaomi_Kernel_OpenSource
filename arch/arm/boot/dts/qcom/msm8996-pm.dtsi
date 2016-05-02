@@ -516,6 +516,17 @@
 			<69  145>;
 	};
 
+	rpm_msg_ram: memory@0x200000 {
+		compatible = "qcom,rpm-msg-ram";
+		reg = <0x200000 0x1000>,
+			<0x290000 0x1000>;
+	};
+
+	rpm_code_ram: rpm-memory@0x68000 {
+		compatible = "qcom,rpm-code-ram";
+		reg = <0x68000 0x5000>;
+	};
+
 	qcom,rpm-stats@200000 {
 		compatible = "qcom,rpm-stats";
 		reg = <0x200000 0x1000>,
@@ -525,6 +536,13 @@
 			    "offset_addr",
 			    "heap_phys_addrbase";
 		qcom,sleep-stats-version = <2>;
+	};
+
+	qcom,system-stats@68140 {
+		compatible = "qcom,system-stats";
+		qcom,rpm-msg-ram = <&rpm_msg_ram>;
+		qcom,rpm-code-ram = <&rpm_code_ram>;
+		qcom,masters = "APSS", "MPSS", "ADSP", "SLPI";
 	};
 
 	qcom,pm-snoc-client {
