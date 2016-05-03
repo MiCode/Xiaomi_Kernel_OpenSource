@@ -309,31 +309,29 @@ static int a5xx_preemption_init(struct adreno_device *adreno_dev)
  * PM4 commands for preempt token on a5xx. These commands are
  * submitted to ringbuffer to trigger preemption.
  */
-static int a5xx_preemption_token(struct adreno_device *adreno_dev,
-			struct adreno_ringbuffer *rb, unsigned int *cmds,
-			uint64_t gpuaddr)
+static unsigned int a5xx_preemption_token(struct adreno_device *adreno_dev,
+			unsigned int *cmds)
 {
 	unsigned int *cmds_orig = cmds;
 
 	*cmds++ = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
-	cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
+	/* Write NULL to the address to skip the data write */
+	cmds += cp_gpuaddr(adreno_dev, cmds, 0x0);
 	*cmds++ = 1;
 	/* generate interrupt on preemption completion */
 	*cmds++ = 1;
 
-	return cmds - cmds_orig;
-
+	return (unsigned int) (cmds - cmds_orig);
 }
 
 /*
  * a5xx_preemption_pre_ibsubmit() - Below PM4 commands are
  * added at the beginning of every cmdbatch submission.
  */
-static int a5xx_preemption_pre_ibsubmit(
+static unsigned int a5xx_preemption_pre_ibsubmit(
 			struct adreno_device *adreno_dev,
-			struct adreno_ringbuffer *rb, unsigned int *cmds,
-			struct kgsl_context *context, uint64_t cond_addr,
-			struct kgsl_memobj_node *ib)
+			struct adreno_ringbuffer *rb,
+			unsigned int *cmds, struct kgsl_context *context)
 {
 	unsigned int *cmds_orig = cmds;
 	uint64_t gpuaddr = rb->preemption_desc.gpuaddr;
@@ -401,7 +399,7 @@ static int a5xx_preemption_pre_ibsubmit(
 	*cmds++ = cp_type7_packet(CP_YIELD_ENABLE, 1);
 	*cmds++ = 2;
 
-	return cmds - cmds_orig;
+	return (unsigned int) (cmds - cmds_orig);
 }
 
 /*
@@ -434,15 +432,12 @@ static int a5xx_preemption_yield_enable(unsigned int *cmds)
  * a5xx_preemption_post_ibsubmit() - Below PM4 commands are
  * added after every cmdbatch submission.
  */
-static int a5xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
-			struct adreno_ringbuffer *rb, unsigned int *cmds,
-			struct kgsl_context *context)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int ctx_id = context ? context->id : 0;
+static unsigned int a5xx_preemption_post_ibsubmit(
+			struct adreno_device *adreno_dev,
+			unsigned int *cmds)
 
-	return a5xx_preemption_token(adreno_dev, rb, cmds,
-			MEMSTORE_ID_GPU_ADDR(device, ctx_id, preempted));
+{
+	return a5xx_preemption_token(adreno_dev, cmds);
 }
 
 static void a5xx_platform_setup(struct adreno_device *adreno_dev)
@@ -2220,11 +2215,8 @@ static int _preemption_init(
 			struct adreno_ringbuffer *rb, unsigned int *cmds,
 			struct kgsl_context *context)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *cmds_orig = cmds;
 	uint64_t gpuaddr = rb->preemption_desc.gpuaddr;
-	uint64_t gpuaddr_token = MEMSTORE_ID_GPU_ADDR(device,
-			KGSL_MEMSTORE_GLOBAL, preempted);
 
 	/* Turn CP protection OFF */
 	*cmds++ = cp_type7_packet(CP_SET_PROTECTED_MODE, 1);
@@ -2253,8 +2245,8 @@ static int _preemption_init(
 	*cmds++ = 1;
 
 	*cmds++ = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
-	cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr_token);
-	*cmds++ = 1;
+	cmds += cp_gpuaddr(adreno_dev, cmds, 0x0);
+	*cmds++ = 0;
 	/* generate interrupt on preemption completion */
 	*cmds++ = 1;
 
@@ -3867,7 +3859,6 @@ static void a5xx_preempt_clear_state(
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *highest_busy_rb;
 	int switch_low_to_high;
-	int ret;
 
 	/* Device not awake means there is nothing to do */
 	if (!kgsl_state_is_awake(device))
@@ -3896,21 +3887,6 @@ static void a5xx_preempt_clear_state(
 		 * wptr are equal, when the lower rb is not starved
 		 */
 		if (!adreno_rb_empty(adreno_dev->cur_rb))
-			return;
-		/*
-		 * switch to default context because when we switch back
-		 * to higher context then its not known which pt will
-		 * be current, so by making it default here the next
-		 * commands submitted will set the right pt
-		 */
-		ret = adreno_drawctxt_switch(adreno_dev,
-				adreno_dev->cur_rb,
-				NULL, 0);
-		/*
-		 * lower priority RB has to wait until space opens up in
-		 * higher RB
-		 */
-		if (ret)
 			return;
 	}
 
@@ -4105,7 +4081,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 				a5xx_preemption_yield_enable,
 	.preemption_post_ibsubmit =
 			a5xx_preemption_post_ibsubmit,
-	.preemption_token = a5xx_preemption_token,
 	.preemption_init = a5xx_preemption_init,
 	.preemption_schedule = a5xx_preemption_schedule,
 	.enable_64bit = a5xx_enable_64bit,
