@@ -367,6 +367,7 @@ enum {
 	AIF_MIX1_PB,
 	AIF4_MAD_TX,
 	AIF4_VIFEED,
+	AIF5_CPE_TX,
 	NUM_CODEC_DAIS,
 };
 
@@ -475,15 +476,18 @@ static const struct wcd9xxx_ch tasha_tx_chs[TASHA_TX_MAX] = {
 };
 
 static const u32 vport_slim_check_table[NUM_CODEC_DAIS] = {
-	0,							/* AIF1_PB */
-	BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX),	/* AIF1_CAP */
-	0,							/* AIF2_PB */
-	BIT(AIF1_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX),	/* AIF2_CAP */
-	0,							/* AIF3_PB */
-	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF4_MAD_TX),	/* AIF3_CAP */
-	0,						     /* AIF4_PB */
-	0,						     /* AIF_MIX1_PB */
-	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP),	     /* AIF4_MAD_TX */
+	/* Needs to define in the same order of DAI enum definitions */
+	0,
+	BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
+	0,
+	BIT(AIF1_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
+	0,
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
+	0,
+	0,
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF5_CPE_TX),
+	0,
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX),
 };
 
 static const u32 vport_i2s_check_table[NUM_CODEC_DAIS] = {
@@ -2318,6 +2322,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 		}
 		break;
 	case AIF4_MAD_TX:
+	case AIF5_CPE_TX:
 		break;
 	default:
 		pr_err("Unknown AIF %d\n", dai_id);
@@ -6022,6 +6027,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF4_MAD Mixer", "SLIM TX13", "TX13 INP MUX"},
 	{"AIF4 MAD", NULL, "AIF4_MAD Mixer"},
 	{"AIF4 MAD", NULL, "AIF4"},
+
+	{"EC BUF MUX INP", "DEC1", "ADC MUX1"},
+	{"AIF5 CPE", NULL, "EC BUF MUX INP"},
 
 	/* SLIMBUS Connections */
 	{"AIF1 CAP", NULL, "AIF1_CAP Mixer"},
@@ -9783,6 +9791,45 @@ static const struct snd_kcontrol_new anc0_fb_mux =
 static const struct snd_kcontrol_new anc1_fb_mux =
 	SOC_DAPM_ENUM("ANC1 FB MUX Mux", anc1_fb_mux_enum);
 
+static int tasha_codec_ec_buf_mux_enable(struct snd_soc_dapm_widget *w,
+					 struct snd_kcontrol *kcontrol,
+					 int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	dev_dbg(codec->dev, "%s: event = %d name = %s\n",
+		__func__, event, w->name);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		snd_soc_write(codec, WCD9335_CPE_SS_EC_BUF_INT_PERIOD, 0x3B);
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG, 0x68, 0x28);
+		snd_soc_update_bits(codec, WCD9335_CDC_IF_ROUTER_TX_MUX_CFG0,
+				    0x08, 0x08);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, WCD9335_CDC_IF_ROUTER_TX_MUX_CFG0,
+				    0x08, 0x00);
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG, 0x68, 0x40);
+		snd_soc_write(codec, WCD9335_CPE_SS_EC_BUF_INT_PERIOD, 0x00);
+		break;
+	}
+
+	return 0;
+};
+
+static const char * const ec_buf_mux_text[] = {
+	"ZERO", "RXMIXEC", "SB_RX0", "SB_RX1", "SB_RX2", "SB_RX3",
+	"I2S_RX_SD0_L", "I2S_RX_SD0_R", "I2S_RX_SD1_L", "I2S_RX_SD1_R",
+	"DEC1"
+};
+
+static SOC_ENUM_SINGLE_DECL(ec_buf_mux_enum, WCD9335_CPE_SS_US_EC_MUX_CFG,
+			    0, ec_buf_mux_text);
+
+static const struct snd_kcontrol_new ec_buf_mux =
+	SOC_DAPM_ENUM("EC BUF Mux", ec_buf_mux_enum);
+
 static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("EAR"),
 	SND_SOC_DAPM_OUTPUT("ANC EAR"),
@@ -10272,6 +10319,14 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		aif4_mad_mixer, ARRAY_SIZE(aif4_mad_mixer)),
 
 	SND_SOC_DAPM_INPUT("VIINPUT"),
+
+	SND_SOC_DAPM_AIF_OUT("AIF5 CPE", "AIF5 CPE TX", 0, SND_SOC_NOPM,
+			     AIF5_CPE_TX, 0),
+
+	SND_SOC_DAPM_MUX_E("EC BUF MUX INP", SND_SOC_NOPM, 0, 0, &ec_buf_mux,
+		tasha_codec_ec_buf_mux_enable,
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
 	/* Digital Mic Inputs */
 	SND_SOC_DAPM_ADC_E("DMIC0", NULL, SND_SOC_NOPM, 0, 0,
 		tasha_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
@@ -11254,6 +11309,19 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.channels_max = 4,
 		 },
 		.ops = &tasha_dai_ops,
+	},
+	{
+		.name = "tasha_cpe",
+		.id = AIF5_CPE_TX,
+		.capture = {
+			.stream_name = "AIF5 CPE TX",
+			.rates = SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000,
+			.formats = TASHA_FORMATS_S16_S24_S32_LE,
+			.rate_min = 16000,
+			.rate_max = 48000,
+			.channels_min = 1,
+			.channels_max = 1,
+		},
 	},
 };
 
