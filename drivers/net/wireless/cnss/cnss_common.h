@@ -37,4 +37,8 @@ int cnss_sdio_set_wlan_mac_address(const u8 *in, uint32_t len);
 
 u8 *cnss_pci_get_wlan_mac_address(uint32_t *num);
 u8 *cnss_sdio_get_wlan_mac_address(uint32_t *num);
+int cnss_sdio_power_up(struct device *dev);
+int cnss_sdio_power_down(struct device *dev);
+int cnss_pcie_power_up(struct device *dev);
+int cnss_pcie_power_down(struct device *dev);
 #endif /* _NET_CNSS_COMMON_H_ */
