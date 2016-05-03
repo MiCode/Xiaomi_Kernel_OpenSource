@@ -275,6 +275,7 @@ static bool _ctx_switch_use_cpu_path(
 				struct adreno_ringbuffer *rb)
 {
 	struct kgsl_mmu *mmu = KGSL_MMU(adreno_dev);
+
 	/*
 	 * If rb is current, we can use cpu path when GPU is
 	 * idle and we are switching to default pt.
@@ -284,7 +285,7 @@ static bool _ctx_switch_use_cpu_path(
 	if (adreno_dev->cur_rb == rb)
 		return adreno_isidle(KGSL_DEVICE(adreno_dev)) &&
 			(new_pt == mmu->defaultpagetable);
-	else if ((rb->wptr == rb->rptr) &&
+	else if (adreno_rb_empty(rb) &&
 			(new_pt == mmu->defaultpagetable))
 		return true;
 
@@ -651,14 +652,14 @@ static unsigned int __add_curr_ctxt_cmds(struct adreno_ringbuffer *rb,
 	*cmds++ = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, device->memstore.gpuaddr +
-			   KGSL_MEMSTORE_RB_OFFSET(rb, current_context));
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+			MEMSTORE_RB_GPU_ADDR(device, rb, current_context));
 	*cmds++ = (drawctxt ? drawctxt->base.id : 0);
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, device->memstore.gpuaddr +
-			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-			current_context));
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+			MEMSTORE_ID_GPU_ADDR(device,
+				KGSL_MEMSTORE_GLOBAL, current_context));
 	*cmds++ = (drawctxt ? drawctxt->base.id : 0);
 
 	/* Invalidate UCHE for new context */
@@ -706,7 +707,7 @@ static void _set_ctxt_cpu(struct adreno_ringbuffer *rb,
 	}
 	/* Update rb memstore with current context */
 	kgsl_sharedmem_writel(device, &device->memstore,
-		KGSL_MEMSTORE_RB_OFFSET(rb, current_context),
+		MEMSTORE_RB_OFFSET(rb, current_context),
 		drawctxt ? drawctxt->base.id : 0);
 }
 

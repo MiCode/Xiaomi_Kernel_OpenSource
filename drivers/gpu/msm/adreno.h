@@ -458,6 +458,8 @@ enum adreno_regs {
 	ADRENO_REG_CP_WFI_PEND_CTR,
 	ADRENO_REG_CP_RB_BASE,
 	ADRENO_REG_CP_RB_BASE_HI,
+	ADRENO_REG_CP_RB_RPTR_ADDR_LO,
+	ADRENO_REG_CP_RB_RPTR_ADDR_HI,
 	ADRENO_REG_CP_RB_RPTR,
 	ADRENO_REG_CP_RB_WPTR,
 	ADRENO_REG_CP_CNTL,
@@ -1272,24 +1274,6 @@ static inline unsigned int adreno_preempt_state(
 		state;
 }
 
-/**
- * adreno_get_rptr() - Get the current ringbuffer read pointer
- * @rb: Pointer the ringbuffer to query
- *
- * Get the current read pointer from the GPU register.
- */
-static inline unsigned int
-adreno_get_rptr(struct adreno_ringbuffer *rb)
-{
-	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
-	if (adreno_dev->cur_rb == rb &&
-		adreno_preempt_state(adreno_dev,
-			ADRENO_DISPATCHER_PREEMPT_CLEAR))
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &(rb->rptr));
-
-	return rb->rptr;
-}
-
 static inline bool adreno_is_preemption_enabled(
 				struct adreno_device *adreno_dev)
 {
@@ -1370,6 +1354,13 @@ void adreno_readreg64(struct adreno_device *adreno_dev,
 
 void adreno_writereg64(struct adreno_device *adreno_dev,
 		enum adreno_regs lo, enum adreno_regs hi, uint64_t val);
+
+unsigned int adreno_get_rptr(struct adreno_ringbuffer *rb);
+
+static inline bool adreno_rb_empty(struct adreno_ringbuffer *rb)
+{
+	return (adreno_get_rptr(rb) == rb->wptr);
+}
 
 static inline bool adreno_soft_fault_detect(struct adreno_device *adreno_dev)
 {
