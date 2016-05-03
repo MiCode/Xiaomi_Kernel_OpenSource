@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <media/v4l2-subdev.h>
+#include "msm_generic_buf_mgr.h"
 #include "msm_sd.h"
 #include "cam_soc_api.h"
 #include "cam_hw_ops.h"
@@ -271,7 +272,7 @@ struct cpp_device {
 
 	struct msm_cpp_buff_queue_info_t *buff_queue;
 	uint32_t num_buffq;
-	struct v4l2_subdev *buf_mgr_subdev;
+	struct msm_cam_buf_mgr_req_ops buf_mgr_ops;
 
 	uint32_t bus_client;
 	uint32_t bus_idx;
