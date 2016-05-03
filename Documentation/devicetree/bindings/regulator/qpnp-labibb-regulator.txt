@@ -34,11 +34,17 @@ Main node optional properties:
 					always on during TTW mode.
 - qcom,skip-2nd-swire-cmd:		A boolean property which indicates if
 					the second SWIRE command needs to be skipped.
-- qcom,swire-2nd-cmd-delay:		A integer value which specifes the
+- qcom,swire-2nd-cmd-delay:		An integer value which specifes the
 					delay in millisecs between the first and second
 					SWIRE command. If not specified this value
 					defaults to 20ms. This delay is applied only
-					if 'qpnp,skip-2nd-swire-cmd' is defined.
+					if 'qcom,skip-2nd-swire-cmd' is defined.
+- qcom,swire-ibb-ps-enable-delay:	An integer value which specifes the delay
+					in millisecs to enable IBB pulse-skipping
+					after the skip-2nd-swire-cmd workaround is applied.
+					If not specified this value default to 200ms.
+					This property is applicable only if
+					'qcom,skip-2nd-swire-cmd' is specified.
 - qcom,labibb-standalone:		A boolean property which forces LAB and
 					IBB to operate in standalone mode. If
 					this is not specified, then LAB and IBB

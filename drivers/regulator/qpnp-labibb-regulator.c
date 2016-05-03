@@ -247,7 +247,8 @@
 #define IBB_WAIT_MBG_OK			BIT(2)
 
 /* Constants */
-#define SWIRE_DEFAULT_2ND_CMD_DLY_MS	20
+#define SWIRE_DEFAULT_2ND_CMD_DLY_MS		20
+#define SWIRE_DEFAULT_IBB_PS_ENABLE_DLY_MS	200
 
 enum pmic_subtype {
 	PMI8994		= 10,
@@ -483,6 +484,7 @@ struct qpnp_labibb {
 	bool				ttw_force_lab_on;
 	bool				skip_2nd_swire_cmd;
 	u32				swire_2nd_cmd_delay;
+	u32				swire_ibb_ps_enable_delay;
 };
 
 enum ibb_settings_index {
@@ -683,6 +685,29 @@ static int qpnp_ibb_set_mode(struct qpnp_labibb *labibb, enum ibb_mode mode)
 	if (rc)
 		pr_err("Unable to configure IBB_ENABLE_CTL rc=%d\n", rc);
 
+	return rc;
+}
+
+static int qpnp_ibb_ps_config(struct qpnp_labibb *labibb, bool enable)
+{
+	u8 val;
+	int rc;
+
+	val = enable ? IBB_PS_CTL_EN : IBB_PS_CTL_DISABLE;
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_PS_CTL,
+								&val, 1);
+	if (rc) {
+		pr_err("qpnp_ibb_ps_config write register %x failed rc = %d\n",
+						REG_IBB_PS_CTL, rc);
+		return rc;
+	}
+
+	val = enable ? IBB_NLIMIT_DAC_EN : IBB_NLIMIT_DAC_DISABLE;
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_NLIMIT_DAC,
+								&val, 1);
+	if (rc)
+		pr_err("qpnp_ibb_ps_config write register %x failed rc = %d\n",
+						REG_IBB_NLIMIT_DAC, rc);
 	return rc;
 }
 
@@ -1066,21 +1091,9 @@ static int qpnp_labibb_ttw_enter_ibb_pmi8950(struct qpnp_labibb *labibb)
 	int rc;
 	u8 val;
 
-	val = 0;
-	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_NLIMIT_DAC,
-				&val, 1);
+	rc = qpnp_ibb_ps_config(labibb, true);
 	if (rc) {
-		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
-			REG_IBB_NLIMIT_DAC, rc);
-		return rc;
-	}
-
-	val = IBB_PS_CTL_EN;
-	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_PS_CTL,
-				&val, 1);
-	if (rc) {
-		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
-			REG_IBB_PS_CTL, rc);
+		pr_err("Failed to enable ibb_ps_config rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1446,6 +1459,14 @@ static int qpnp_lab_regulator_enable(struct regulator_dev *rdev)
 
 	struct qpnp_labibb *labibb  = rdev_get_drvdata(rdev);
 
+	if (labibb->skip_2nd_swire_cmd) {
+		rc = qpnp_ibb_ps_config(labibb, false);
+		if (rc) {
+			pr_err("Failed to disable IBB PS rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	if (!labibb->lab_vreg.vreg_enabled && !labibb->swire_control) {
 
 		if (!labibb->standalone)
@@ -1619,6 +1640,12 @@ static int qpnp_skip_swire_command(struct qpnp_labibb *labibb)
 	rc = qpnp_ibb_set_mode(labibb, IBB_HW_CONTROL);
 	if (rc)
 		pr_err("Failed switch to IBB_HW_CONTROL rc=%d\n", rc);
+
+	/* delay before enabling the PS mode */
+	msleep(labibb->swire_ibb_ps_enable_delay);
+	rc = qpnp_ibb_ps_config(labibb, true);
+	if (rc)
+		pr_err("Unable to enable IBB PS rc=%d\n", rc);
 
 	return rc;
 }
@@ -2130,47 +2157,16 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 	}
 
 	if (of_property_read_bool(of_node, "qcom,qpnp-ibb-ps-enable")) {
-		val = IBB_PS_CTL_EN;
-		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
-					REG_IBB_PS_CTL,
-					&val,
-					1);
+		rc = qpnp_ibb_ps_config(labibb, true);
 		if (rc) {
-			pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
-				REG_IBB_PS_CTL, rc);
-			return rc;
-		}
-
-		val = IBB_NLIMIT_DAC_EN;
-		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
-					REG_IBB_NLIMIT_DAC,
-					&val,
-					1);
-		if (rc) {
-			pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
-				REG_IBB_NLIMIT_DAC, rc);
+			pr_err("qpnp_ibb_dt_init PS enable failed rc=%d\n", rc);
 			return rc;
 		}
 	} else {
-		val = IBB_PS_CTL_DISABLE;
-		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
-					REG_IBB_PS_CTL,
-					&val,
-					1);
+		rc = qpnp_ibb_ps_config(labibb, false);
 		if (rc) {
-			pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
-				REG_IBB_PS_CTL, rc);
-			return rc;
-		}
-
-		val = IBB_NLIMIT_DAC_DISABLE;
-		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
-					REG_IBB_NLIMIT_DAC,
-					&val,
-					1);
-		if (rc) {
-			pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
-				REG_IBB_NLIMIT_DAC, rc);
+			pr_err("qpnp_ibb_dt_init PS disable failed rc=%d\n",
+									rc);
 			return rc;
 		}
 	}
@@ -2810,6 +2806,13 @@ static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
 		if (rc)
 			labibb->swire_2nd_cmd_delay =
 					SWIRE_DEFAULT_2ND_CMD_DLY_MS;
+
+		rc = of_property_read_u32(labibb->dev->of_node,
+				"qcom,swire-ibb-ps-enable-delay",
+				&labibb->swire_ibb_ps_enable_delay);
+		if (rc)
+			labibb->swire_ibb_ps_enable_delay =
+					SWIRE_DEFAULT_IBB_PS_ENABLE_DLY_MS;
 	}
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
