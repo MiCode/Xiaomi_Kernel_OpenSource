@@ -796,8 +796,6 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 		return 0;
 	}
 
-	kgsl_mmu_enable_clk(KGSL_MMU(adreno_dev));
-
 	cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, new_pt);
 
 	if ((unsigned int) (cmds - link) > (PAGE_SIZE / sizeof(unsigned int))) {
@@ -812,16 +810,6 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 	result = adreno_ringbuffer_issuecmds(rb,
 			KGSL_CMD_FLAGS_PMODE, link,
 			(unsigned int)(cmds - link));
-
-	/*
-	 * On error disable the IOMMU clock right away otherwise turn it off
-	 * after the command has been retired
-	 */
-	if (result)
-		kgsl_mmu_disable_clk(KGSL_MMU(adreno_dev));
-	else
-		adreno_ringbuffer_mmu_disable_clk_on_ts(KGSL_DEVICE(adreno_dev),
-			rb, rb->timestamp);
 
 	kfree(link);
 	return result;

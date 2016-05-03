@@ -1341,6 +1341,9 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					pwr->pwrlevels[pwr->num_pwrlevels - 1].
 					gpu_freq);
 			}
+
+			/* Turn off the IOMMU clocks */
+			kgsl_mmu_disable_clk(&device->mmu);
 		} else if (requested_state == KGSL_STATE_SLEEP) {
 			/* High latency clock maintenance. */
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
@@ -1381,7 +1384,11 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					pwr->gpu_bimc_interface_enabled = 1;
 				}
 			}
+
+			/* Turn on the IOMMU clocks */
+			kgsl_mmu_enable_clk(&device->mmu);
 		}
+
 	}
 }
 
