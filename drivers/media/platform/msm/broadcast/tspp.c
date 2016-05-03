@@ -57,7 +57,7 @@
 #define TSPP_NUM_PRIORITIES            16
 #define TSPP_NUM_KEYS                  8
 #define INVALID_CHANNEL                0xFFFFFFFF
-
+#define TSPP_BAM_DEFAULT_IPC_LOGLVL    2
 /*
  * BAM descriptor FIFO size (in number of descriptors).
  * Max number of descriptors allowed by SPS which is 8K-1.
@@ -2897,6 +2897,8 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	device->bam_props.summing_threshold = 0x10;
 	device->bam_props.irq = device->bam_irq;
 	device->bam_props.manage = SPS_BAM_MGR_LOCAL;
+	/*add SPS BAM log level*/
+	device->bam_props.ipc_loglevel = TSPP_BAM_DEFAULT_IPC_LOGLVL;
 
 	if (tspp_clock_start(device) != 0) {
 		dev_err(&pdev->dev, "Can't start clocks");
