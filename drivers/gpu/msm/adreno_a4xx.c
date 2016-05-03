@@ -226,9 +226,8 @@ static void a4xx_preemption_save(struct adreno_device *adreno_dev,
 	kgsl_regread(device, A4XX_CP_SCRATCH_REG23, &rb->gpr11);
 }
 
-static int a4xx_preemption_token(struct adreno_device *adreno_dev,
-			struct adreno_ringbuffer *rb, unsigned int *cmds,
-			uint64_t gpuaddr)
+static unsigned int a4xx_preemption_token(struct adreno_device *adreno_dev,
+			unsigned int *cmds, uint64_t gpuaddr)
 {
 	unsigned int *cmds_orig = cmds;
 
@@ -240,36 +239,28 @@ static int a4xx_preemption_token(struct adreno_device *adreno_dev,
 	/* generate interrupt on preemption completion */
 	*cmds++ = 1 << CP_PREEMPT_ORDINAL_INTERRUPT;
 
-	return cmds - cmds_orig;
-
+	return (unsigned int) (cmds - cmds_orig);
 }
 
-static int a4xx_preemption_pre_ibsubmit(
+static unsigned int a4xx_preemption_pre_ibsubmit(
 			struct adreno_device *adreno_dev,
-			struct adreno_ringbuffer *rb, unsigned int *cmds,
-			struct kgsl_context *context, uint64_t cond_addr,
-			struct kgsl_memobj_node *ib)
+			struct adreno_ringbuffer *rb,
+			unsigned int *cmds,
+			struct kgsl_context *context)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *cmds_orig = cmds;
-	int exec_ib = 0;
+	unsigned int cond_addr =
+		MEMSTORE_ID_GPU_ADDR(device, context->id, preempted);
 
-	cmds += a4xx_preemption_token(adreno_dev, rb, cmds,
-			MEMSTORE_ID_GPU_ADDR(device, context->id, preempted));
-
-	if (ib)
-		exec_ib = 1;
+	cmds += a4xx_preemption_token(adreno_dev, cmds, cond_addr);
 
 	*cmds++ = cp_type3_packet(CP_COND_EXEC, 4);
 	*cmds++ = cond_addr;
 	*cmds++ = cond_addr;
 	*cmds++ = 1;
-	*cmds++ = 7 + exec_ib * 3;
-	if (exec_ib) {
-		*cmds++ = cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2);
-		*cmds++ = ib->gpuaddr;
-		*cmds++ = (unsigned int) ib->size >> 2;
-	}
+	*cmds++ = 7;
+
 	/* clear preemption flag */
 	*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
 	*cmds++ = cond_addr;
@@ -279,7 +270,7 @@ static int a4xx_preemption_pre_ibsubmit(
 	*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
 	*cmds++ = 0;
 
-	return cmds - cmds_orig;
+	return (unsigned int) (cmds - cmds_orig);
 }
 
 /*
@@ -1848,7 +1839,6 @@ static int a4xx_submit_preempt_token(struct adreno_ringbuffer *rb,
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *ringcmds, *start;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ptname;
 	struct kgsl_pagetable *pt;
 	int pt_switch_sizedwords = 0, total_sizedwords = 20;
@@ -1902,7 +1892,7 @@ static int a4xx_submit_preempt_token(struct adreno_ringbuffer *rb,
 	*ringcmds++ = cp_packet(adreno_dev, CP_SET_PROTECTED_MODE, 1);
 	*ringcmds++ = 1;
 
-	ringcmds += gpudev->preemption_token(adreno_dev, rb, ringcmds,
+	ringcmds += a4xx_preemption_token(adreno_dev, ringcmds,
 				device->memstore.gpuaddr +
 				MEMSTORE_RB_OFFSET(rb, preempted));
 
@@ -2276,6 +2266,5 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.regulator_enable = a4xx_regulator_enable,
 	.regulator_disable = a4xx_regulator_disable,
 	.preemption_pre_ibsubmit = a4xx_preemption_pre_ibsubmit,
-	.preemption_token = a4xx_preemption_token,
 	.preemption_schedule = a4xx_preemption_schedule,
 };

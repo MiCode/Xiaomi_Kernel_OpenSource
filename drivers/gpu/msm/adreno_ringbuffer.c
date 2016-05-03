@@ -451,7 +451,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	struct adreno_context *drawctxt = rb->drawctxt_active;
 	struct kgsl_context *context = NULL;
 	bool secured_ctxt = false;
-	uint64_t cond_addr;
 	static unsigned int _seq_cnt;
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
@@ -564,12 +563,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	*ringcmds++ = KGSL_CMD_IDENTIFIER;
 
 	if (adreno_is_preemption_enabled(adreno_dev) &&
-				gpudev->preemption_pre_ibsubmit) {
-		cond_addr = MEMSTORE_ID_GPU_ADDR(device, context_id, preempted);
+				gpudev->preemption_pre_ibsubmit)
 		ringcmds += gpudev->preemption_pre_ibsubmit(
-					adreno_dev, rb, ringcmds, context,
-					cond_addr, NULL);
-	}
+					adreno_dev, rb, ringcmds, context);
 
 	if (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) {
 		*ringcmds++ = cp_packet(adreno_dev, CP_NOP, 1);
@@ -704,8 +700,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (gpudev->preemption_post_ibsubmit &&
 				adreno_is_preemption_enabled(adreno_dev))
-		ringcmds += gpudev->preemption_post_ibsubmit(adreno_dev, rb,
-					ringcmds, &drawctxt->base);
+		ringcmds += gpudev->preemption_post_ibsubmit(adreno_dev,
+			ringcmds);
 
 	/*
 	 * If we have more ringbuffer commands than space reserved
