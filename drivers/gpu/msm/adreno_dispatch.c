@@ -283,7 +283,8 @@ static void _retire_marker(struct kgsl_cmdbatch *cmdbatch)
 	/* Retire pending GPU events for the object */
 	kgsl_process_event_group(device, &context->events);
 
-	trace_adreno_cmdbatch_retired(cmdbatch, -1, 0, 0, drawctxt->rb);
+	trace_adreno_cmdbatch_retired(cmdbatch, -1, 0, 0, drawctxt->rb,
+			adreno_get_rptr(drawctxt->rb));
 	kgsl_cmdbatch_destroy(cmdbatch);
 }
 
@@ -616,7 +617,8 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	nsecs = do_div(secs, 1000000000);
 
 	trace_adreno_cmdbatch_submitted(cmdbatch, (int) dispatcher->inflight,
-		time.ticks, (unsigned long) secs, nsecs / 1000, drawctxt->rb);
+		time.ticks, (unsigned long) secs, nsecs / 1000, drawctxt->rb,
+		adreno_get_rptr(drawctxt->rb));
 
 	cmdbatch->submit_ticks = time.ticks;
 
@@ -935,16 +937,18 @@ static int get_timestamp(struct adreno_context *drawctxt,
 static void adreno_dispatcher_preempt_timer(unsigned long data)
 {
 	struct adreno_device *adreno_dev = (struct adreno_device *) data;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+	unsigned int cur_rptr = adreno_get_rptr(adreno_dev->cur_rb);
+	unsigned int next_rptr = adreno_get_rptr(adreno_dev->cur_rb);
 
-	KGSL_DRV_ERR(KGSL_DEVICE(adreno_dev),
+	KGSL_DRV_ERR(device,
 	"Preemption timed out. cur_rb rptr/wptr %x/%x id %d, next_rb rptr/wptr %x/%x id %d, disp_state: %d\n",
-	adreno_dev->cur_rb->rptr, adreno_dev->cur_rb->wptr,
-	adreno_dev->cur_rb->id, adreno_dev->next_rb->rptr,
-	adreno_dev->next_rb->wptr, adreno_dev->next_rb->id,
+	cur_rptr, adreno_dev->cur_rb->wptr, adreno_dev->cur_rb->id,
+	next_rptr, adreno_dev->next_rb->wptr, adreno_dev->next_rb->id,
 	atomic_read(&dispatcher->preemption_state));
 	adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
-	adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));
+	adreno_dispatcher_schedule(device);
 }
 
 /**
@@ -957,9 +961,11 @@ struct adreno_ringbuffer *adreno_dispatcher_get_highest_busy_rb(
 {
 	struct adreno_ringbuffer *rb, *highest_busy_rb = NULL;
 	int i;
+	unsigned int rptr;
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		if (rb->rptr != rb->wptr && !highest_busy_rb) {
+		rptr = adreno_get_rptr(rb);
+		if (rptr != rb->wptr && !highest_busy_rb) {
 			highest_busy_rb = rb;
 			goto done;
 		}
@@ -969,7 +975,7 @@ struct adreno_ringbuffer *adreno_dispatcher_get_highest_busy_rb(
 
 		switch (rb->starve_timer_state) {
 		case ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT:
-			if (rb->rptr != rb->wptr &&
+			if (rptr != rb->wptr &&
 				adreno_dev->cur_rb != rb) {
 				rb->starve_timer_state =
 				ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT;
@@ -991,7 +997,7 @@ struct adreno_ringbuffer *adreno_dispatcher_get_highest_busy_rb(
 			 * If the RB has not been running for the minimum
 			 * time slice then allow it to run
 			 */
-			if ((rb->rptr != rb->wptr) && time_before(jiffies,
+			if ((rptr != rb->wptr) && time_before(jiffies,
 				adreno_dev->cur_rb->sched_timer +
 				msecs_to_jiffies(_dispatch_time_slice)))
 				highest_busy_rb = rb;
@@ -1437,7 +1443,7 @@ static void adreno_fault_header(struct kgsl_device *device,
 		if (rb != NULL)
 			pr_fault(device, cmdbatch,
 				"gpu fault rb %d rb sw r/w %4.4x/%4.4x\n",
-				rb->id, rb->rptr, rb->wptr);
+				rb->id, rptr, rb->wptr);
 	} else {
 		int id = (rb != NULL) ? rb->id : -1;
 
@@ -1448,7 +1454,7 @@ static void adreno_fault_header(struct kgsl_device *device,
 		if (rb != NULL)
 			dev_err(device->dev,
 				"RB[%d] gpu fault rb sw r/w %4.4x/%4.4x\n",
-				rb->id, rb->rptr, rb->wptr);
+				rb->id, rptr, rb->wptr);
 	}
 }
 
@@ -1823,8 +1829,6 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		if (base == rb->buffer_desc.gpuaddr) {
 			dispatch_q = &(rb->dispatch_q);
 			hung_rb = rb;
-			adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR,
-				&hung_rb->rptr);
 			if (adreno_dev->cur_rb != hung_rb) {
 				adreno_dev->prev_rb = adreno_dev->cur_rb;
 				adreno_dev->cur_rb = hung_rb;
@@ -1879,12 +1883,12 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 
 	if (hung_rb != NULL) {
 		kgsl_sharedmem_writel(device, &device->memstore,
-			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_MAX + hung_rb->id,
-				soptimestamp), hung_rb->timestamp);
+				MEMSTORE_RB_OFFSET(hung_rb, soptimestamp),
+				hung_rb->timestamp);
 
 		kgsl_sharedmem_writel(device, &device->memstore,
-			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_MAX + hung_rb->id,
-				eoptimestamp), hung_rb->timestamp);
+				MEMSTORE_RB_OFFSET(hung_rb, eoptimestamp),
+				hung_rb->timestamp);
 
 		/* Schedule any pending events to be run */
 		kgsl_process_event_group(device, &hung_rb->events);
@@ -2016,7 +2020,8 @@ int adreno_dispatch_process_cmdqueue(struct adreno_device *adreno_dev,
 
 			trace_adreno_cmdbatch_retired(cmdbatch,
 				(int) dispatcher->inflight, start_ticks,
-				retire_ticks, ADRENO_CMDBATCH_RB(cmdbatch));
+				retire_ticks, ADRENO_CMDBATCH_RB(cmdbatch),
+				adreno_get_rptr(drawctxt->rb));
 
 			/* Record the delta between submit and retire ticks */
 			drawctxt->submit_retire_ticks[drawctxt->ticks_index] =
@@ -2589,7 +2594,9 @@ void adreno_dispatcher_preempt_callback(struct adreno_device *adreno_dev,
 		return;
 
 	trace_adreno_hw_preempt_trig_to_comp_int(adreno_dev->cur_rb,
-			      adreno_dev->next_rb);
+			      adreno_dev->next_rb,
+			      adreno_get_rptr(adreno_dev->cur_rb),
+			      adreno_get_rptr(adreno_dev->next_rb));
 	atomic_set(&dispatcher->preemption_state,
 			ADRENO_DISPATCHER_PREEMPT_COMPLETE);
 	adreno_dispatcher_schedule(KGSL_DEVICE(adreno_dev));

@@ -279,8 +279,9 @@ int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		kgsl_sharedmem_set(device, &(rb->buffer_desc),
 				0, 0xAA, KGSL_RB_SIZE);
+		kgsl_sharedmem_writel(device, &device->scratch,
+				SCRATCH_RPTR_OFFSET(rb->id), 0);
 		rb->wptr = 0;
-		rb->rptr = 0;
 		rb->wptr_preempt_end = 0xFFFFFFFF;
 		rb->starve_timer_state =
 			ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
@@ -446,7 +447,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	unsigned int total_sizedwords = sizedwords;
 	unsigned int i;
 	unsigned int context_id = 0;
-	uint64_t gpuaddr = device->memstore.gpuaddr;
 	bool profile_ready;
 	struct adreno_context *drawctxt = rb->drawctxt_active;
 	struct kgsl_context *context = NULL;
@@ -565,9 +565,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (adreno_is_preemption_enabled(adreno_dev) &&
 				gpudev->preemption_pre_ibsubmit) {
-		cond_addr = device->memstore.gpuaddr +
-					KGSL_MEMSTORE_OFFSET(context_id,
-					 preempted);
+		cond_addr = MEMSTORE_ID_GPU_ADDR(device, context_id, preempted);
 		ringcmds += gpudev->preemption_pre_ibsubmit(
 					adreno_dev, rb, ringcmds, context,
 					cond_addr, NULL);
@@ -605,11 +603,10 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	*ringcmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
 		ringcmds += cp_gpuaddr(adreno_dev, ringcmds,
-			gpuaddr + KGSL_MEMSTORE_OFFSET(context_id,
-			soptimestamp));
+			MEMSTORE_ID_GPU_ADDR(device, context_id, soptimestamp));
 	else
 		ringcmds += cp_gpuaddr(adreno_dev, ringcmds,
-			gpuaddr + KGSL_MEMSTORE_RB_OFFSET(rb, soptimestamp));
+			MEMSTORE_ID_GPU_ADDR(device, context_id, soptimestamp));
 	*ringcmds++ = timestamp;
 
 	if (secured_ctxt)
@@ -660,9 +657,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * off system collapse.
 	 */
 	*ringcmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	ringcmds += cp_gpuaddr(adreno_dev, ringcmds, gpuaddr +
-			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-				ref_wait_ts));
+	ringcmds += cp_gpuaddr(adreno_dev, ringcmds,
+		MEMSTORE_ID_GPU_ADDR(device, KGSL_MEMSTORE_GLOBAL,
+			ref_wait_ts));
 	*ringcmds++ = ++_seq_cnt;
 
 	/*
@@ -677,16 +674,16 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = CACHE_FLUSH_TS;
 
 	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
-		ringcmds += cp_gpuaddr(adreno_dev, ringcmds, gpuaddr +
-				KGSL_MEMSTORE_OFFSET(context_id, eoptimestamp));
+		ringcmds += cp_gpuaddr(adreno_dev, ringcmds,
+			MEMSTORE_ID_GPU_ADDR(device, context_id, eoptimestamp));
 		*ringcmds++ = timestamp;
 		*ringcmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-		ringcmds += cp_gpuaddr(adreno_dev, ringcmds, gpuaddr +
-				KGSL_MEMSTORE_RB_OFFSET(rb, eoptimestamp));
+		ringcmds += cp_gpuaddr(adreno_dev, ringcmds,
+			MEMSTORE_RB_GPU_ADDR(device, rb, eoptimestamp));
 		*ringcmds++ = rb->timestamp;
 	} else {
-		ringcmds += cp_gpuaddr(adreno_dev, ringcmds, gpuaddr +
-				KGSL_MEMSTORE_RB_OFFSET(rb, eoptimestamp));
+		ringcmds += cp_gpuaddr(adreno_dev, ringcmds,
+			MEMSTORE_RB_GPU_ADDR(device, rb, eoptimestamp));
 		*ringcmds++ = timestamp;
 	}
 
