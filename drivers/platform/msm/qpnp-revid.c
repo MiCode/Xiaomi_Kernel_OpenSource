@@ -53,6 +53,7 @@ static const char *const pmic_names[] = {
 	[PM8005_SUBTYPE] = "PM8005",
 	[PM8937_SUBTYPE] = "PM8937",
 	[PMI8937_SUBTYPE] = "PMI8937",
+	[PMI8940_SUBTYPE] = "PMI8940",
 };
 
 struct revid_chip {
@@ -116,6 +117,7 @@ EXPORT_SYMBOL(get_revid_data);
 #define PMD9655_PERIPHERAL_SUBTYPE	0x0F
 #define PMI8950_PERIPHERAL_SUBTYPE	0x11
 #define PMI8937_PERIPHERAL_SUBTYPE	0x37
+#define PMI8940_PERIPHERAL_SUBTYPE	0x40
 static size_t build_pmic_string(char *buf, size_t n, int sid,
 		u8 subtype, u8 rev1, u8 rev2, u8 rev3, u8 rev4)
 {
@@ -179,12 +181,23 @@ static int qpnp_revid_probe(struct spmi_device *spmi)
 	else
 		pmic_status = 0;
 
-	/* special case for PMI8937 */
+	/* special case for PMI8937/PMI8940 */
 	if (pmic_subtype == PMI8950_PERIPHERAL_SUBTYPE) {
 		/* read spare register */
 		spare0 = qpnp_read_byte(spmi, resource->start + REVID_SPARE_0);
-		if (spare0)
+		switch (spare0) {
+		case 0:
+			pmic_subtype = PMI8950_PERIPHERAL_SUBTYPE;
+			break;
+		case PMI8937_PERIPHERAL_SUBTYPE:
 			pmic_subtype = PMI8937_PERIPHERAL_SUBTYPE;
+			break;
+		case PMI8940_PERIPHERAL_SUBTYPE:
+			pmic_subtype = PMI8940_PERIPHERAL_SUBTYPE;
+			break;
+		default:
+			pr_warn("Invalid spare0 value=%x\n", spare0);
+		}
 	}
 
 	revid_chip = devm_kzalloc(&spmi->dev, sizeof(struct revid_chip),
