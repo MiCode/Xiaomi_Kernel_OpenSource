@@ -9324,7 +9324,7 @@ static struct platform_driver msm_routing_pcm_driver = {
 int msm_routing_check_backend_enabled(int fedai_id)
 {
 	int i;
-	if (fedai_id >= MSM_FRONTEND_DAI_MM_MAX_ID) {
+	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
 		pr_err("%s: bad MM ID\n", __func__);
 		return 0;
