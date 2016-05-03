@@ -263,7 +263,7 @@
 		peripheral_mem: peripheral_region@91900000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x91900000 0 0x2b00000>;
+			reg = <0 0x91900000 0 0x2e00000>;
 		};
 
 		modem_mem: modem_region@8ac00000 {
