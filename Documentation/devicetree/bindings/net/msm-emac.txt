@@ -70,6 +70,9 @@ Optional properties:
 - tstamp-eble : Enables the PTP (1588) timestamping feature in ACPI mode.
 - <supply-name>-supply: phandle to the regulator device tree node
 			Required "supply-name" are "emac_vreg*"
+- qcom,vdd-voltage-level: This property must be a list of five integer
+        values (max voltage value for supply 1/2/3/4/5) where each value
+	represents a voltage in microvolts.
 
 Example1:
 	emac0: qcom,emac@feb20000 {
@@ -91,21 +94,49 @@ Example1:
 	};
 
 Example2:
-	emac0: qcom,emac@7c40000 {
-		cell-index = <0>;
-		compatible = "qcom,emac";
-		reg-names = "emac", "emac_csr", "emac_1588", "emac_sgmii";
-		reg = <0x7c40000 0x10000>,
-			<0x7c56000 0x1000>,
-			<0x7c5C000 0x4000>,
-			<0x7c58000 0x400>;
-		interrupts = <0 76 0>, <0 80 0>;
-		interrupt-names = "emac_core0_irq", "emac_sgmii_irq";
-		pinctrl-names = "emac_active", "emac_sleep";
-		pinctrl-0 = <&emac0_active &emac0_irq_active &emac0_rst_active>;
-		pinctrl-1 = <&emac0_sleep &emac0_irq_sleep &emac0_rst_sleep>;
-		qcom,emac-tstamp-en;
-		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
-		phy-mode = "sgmii";
-		phy-addr = <0>;
-	};
+        emac0: qcom,emac@7c40000 {
+                cell-index = <0>;
+                compatible = "qcom,mdm9607-emac";
+                reg-names = "emac", "emac_csr", "emac_1588", "emac_sgmii";
+                reg = <0x7c40000 0x10000>,
+                        <0x7c56000 0x1000>,
+                        <0x7c5C000 0x4000>,
+                        <0x7c58000 0x400>;
+                #address-cells = <0>;
+                interrupt-parent = <&emac0>;
+                #interrupt-cells = <1>;
+                interrupts = <0 1 2>;
+                interrupt-map-mask = <0xffffffff>;
+                interrupt-map = <0 &intc 0 76 0
+                                1 &intc 0 80 0
+                                2 &tlmm_pinmux 30 0x8>;
+                interrupt-names = "emac_core0_irq",
+                                "emac_sgmii_irq",
+                                "emac_wol_irq";
+                emac_vreg1-supply = <&mdm9607_l1>;
+                emac_vreg2-supply = <&mdm9607_l3>;
+                emac_vreg3-supply = <&mdm9607_l5>;
+                emac_vreg4-supply = <&mdm9607_l11>;
+                emac_vreg5-supply = <&emac_lan_vreg>;
+                qcom,vdd-voltage-level = <1250000 1800000 2850000 1800000 0>;
+                clocks = <&clock_gcc clk_gcc_emac_0_axi_clk>,
+                         <&clock_gcc clk_gcc_emac_0_ahb_clk>,
+                         <&clock_gcc clk_gcc_emac_0_125m_clk>,
+                         <&clock_gcc clk_gcc_emac_0_sys_25m_clk>,
+                         <&clock_gcc clk_gcc_emac_0_tx_clk>,
+                         <&clock_gcc clk_gcc_emac_0_rx_clk>,
+                         <&clock_gcc clk_gcc_emac_0_sys_clk>;
+                clock-names = "axi_clk", "cfg_ahb_clk", "125m_clk",
+                        "25m_clk", "tx_clk", "rx_clk", "sys_clk";
+                pinctrl-names = "emac_mdio_active", "emac_mdio_sleep",
+                        "emac_ephy_active", "emac_ephy_sleep";
+                pinctrl-0 = <&emac0_mdio_active>;
+                pinctrl-1 = <&emac0_mdio_sleep>;
+                pinctrl-2 = <&emac0_ephy_active>;
+                pinctrl-3 = <&emac0_ephy_sleep>;
+                qcom,emac-tstamp-en;
+                qcom,emac-ptp-frac-ns-adj = <125000000 1>;
+                phy-mode = "sgmii";
+                phy-addr = <0>;
+                status = "disable";
+        };
