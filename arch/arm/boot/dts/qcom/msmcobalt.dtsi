@@ -1345,7 +1345,7 @@
 
 		qcom,usbbam@a904000 {
 			compatible = "qcom,usb-bam-msm";
-			reg = <0xa904000 0x3000>;
+			reg = <0xa904000 0x17000>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 132 0>;
 
