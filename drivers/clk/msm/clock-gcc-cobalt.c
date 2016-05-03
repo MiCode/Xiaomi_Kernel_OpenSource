@@ -1996,6 +1996,17 @@ static struct branch_clk gcc_ufs_axi_clk = {
 	},
 };
 
+static struct hw_ctl_clk gcc_ufs_axi_hw_ctl_clk = {
+	.cbcr_reg = GCC_UFS_AXI_CBCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_ufs_axi_hw_ctl_clk",
+		.parent = &gcc_ufs_axi_clk.c,
+		.ops = &clk_ops_branch_hw_ctl,
+		CLK_INIT(gcc_ufs_axi_hw_ctl_clk.c),
+	},
+};
+
 static struct branch_clk gcc_ufs_ice_core_clk = {
 	.cbcr_reg = GCC_UFS_ICE_CORE_CBCR,
 	.has_sibling = 0,
@@ -2008,6 +2019,17 @@ static struct branch_clk gcc_ufs_ice_core_clk = {
 	},
 };
 
+static struct hw_ctl_clk gcc_ufs_ice_core_hw_ctl_clk = {
+	.cbcr_reg = GCC_UFS_ICE_CORE_CBCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_ufs_ice_core_hw_ctl_clk",
+		.parent = &gcc_ufs_ice_core_clk.c,
+		.ops = &clk_ops_branch_hw_ctl,
+		CLK_INIT(gcc_ufs_ice_core_hw_ctl_clk.c),
+	},
+};
+
 static struct branch_clk gcc_ufs_phy_aux_clk = {
 	.cbcr_reg = GCC_UFS_PHY_AUX_CBCR,
 	.has_sibling = 0,
@@ -2017,6 +2039,17 @@ static struct branch_clk gcc_ufs_phy_aux_clk = {
 		.parent = &ufs_phy_aux_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_ufs_phy_aux_clk.c),
+	},
+};
+
+static struct hw_ctl_clk gcc_ufs_phy_aux_hw_ctl_clk = {
+	.cbcr_reg = GCC_UFS_PHY_AUX_CBCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_ufs_phy_aux_hw_ctl_clk",
+		.parent = &gcc_ufs_phy_aux_clk.c,
+		.ops = &clk_ops_branch_hw_ctl,
+		CLK_INIT(gcc_ufs_phy_aux_hw_ctl_clk.c),
 	},
 };
 
@@ -2065,6 +2098,17 @@ static struct branch_clk gcc_ufs_unipro_core_clk = {
 		.parent = &ufs_unipro_core_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_ufs_unipro_core_clk.c),
+	},
+};
+
+static struct hw_ctl_clk gcc_ufs_unipro_core_hw_ctl_clk = {
+	.cbcr_reg = GCC_UFS_UNIPRO_CORE_CBCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_ufs_unipro_core_hw_ctl_clk",
+		.parent = &gcc_ufs_unipro_core_clk.c,
+		.ops = &clk_ops_branch_hw_ctl,
+		CLK_INIT(gcc_ufs_unipro_core_hw_ctl_clk.c),
 	},
 };
 
@@ -2642,12 +2686,16 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_tsif_ref_clk),
 	CLK_LIST(gcc_ufs_ahb_clk),
 	CLK_LIST(gcc_ufs_axi_clk),
+	CLK_LIST(gcc_ufs_axi_hw_ctl_clk),
 	CLK_LIST(gcc_ufs_ice_core_clk),
+	CLK_LIST(gcc_ufs_ice_core_hw_ctl_clk),
 	CLK_LIST(gcc_ufs_phy_aux_clk),
+	CLK_LIST(gcc_ufs_phy_aux_hw_ctl_clk),
 	CLK_LIST(gcc_ufs_rx_symbol_0_clk),
 	CLK_LIST(gcc_ufs_rx_symbol_1_clk),
 	CLK_LIST(gcc_ufs_tx_symbol_0_clk),
 	CLK_LIST(gcc_ufs_unipro_core_clk),
+	CLK_LIST(gcc_ufs_unipro_core_hw_ctl_clk),
 	CLK_LIST(gcc_usb30_master_clk),
 	CLK_LIST(gcc_usb30_mock_utmi_clk),
 	CLK_LIST(gcc_usb30_sleep_clk),
