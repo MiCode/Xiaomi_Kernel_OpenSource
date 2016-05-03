@@ -623,6 +623,10 @@
 			interrupts = <125 0x2008>;
 			vdd-supply = <&pm8994_l14>;
 			avdd-supply = <&pm8994_l22>;
+			synaptics,vdd-voltage = <1800000 1800000>;
+			synaptics,avdd-voltage = <3300000 3300000>;
+			synaptics,vdd-current = <40000>;
+			synaptics,avdd-current = <20000>;
 			pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
 			pinctrl-0 = <&ts_active>;
 			pinctrl-1 = <&ts_suspend>;
