@@ -2529,6 +2529,15 @@ void *ipa_get_ipc_logbuf_low(void)
 }
 EXPORT_SYMBOL(ipa_get_ipc_logbuf_low);
 
+/**
+ * ipa_assert() - general function for assertion
+ */
+void ipa_assert(void)
+{
+	pr_err("IPA: unrecoverable error has occurred, asserting\n");
+	BUG();
+}
+
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,

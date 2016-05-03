@@ -97,6 +97,11 @@
 		ipa_dec_client_disable_clks(&log_info); \
 	} while (0)
 
+#define ipa_assert_on(condition)\
+do {\
+	if (unlikely(condition))\
+		ipa_assert();\
+} while (0)
 
 enum ipa_active_client_log_type {
 	EP,
@@ -133,6 +138,7 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	u32 bandwidth_mbps);
 void *ipa_get_ipc_logbuf(void);
 void *ipa_get_ipc_logbuf_low(void);
+void ipa_assert(void);
 
 
 #endif /* _IPA_COMMON_I_H_ */
