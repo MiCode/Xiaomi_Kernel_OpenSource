@@ -5378,15 +5378,6 @@ static int vdd_restriction_reg_init(struct platform_device *pdev)
 	for (i = 0; i < rails_cnt; i++) {
 		if (rails[i].freq_req == 1) {
 			usefreq |= BIT(i);
-			check_freq_table();
-			/*
-			 * Restrict frequency by default until we have made
-			 * our first temp reading
-			 */
-			if (freq_table_get)
-				ret = vdd_restriction_apply_freq(&rails[i], 0);
-			else
-				pr_info("Defer vdd rstr freq init.\n");
 		} else {
 			rails[i].reg = devm_regulator_get(&pdev->dev,
 					rails[i].name);
@@ -5404,11 +5395,6 @@ static int vdd_restriction_reg_init(struct platform_device *pdev)
 					rails[i].name);
 				return ret;
 			}
-			/*
-			 * Restrict votlage by default until we have made
-			 * our first temp reading
-			 */
-			ret = vdd_restriction_apply_voltage(&rails[i], 0);
 		}
 	}
 
