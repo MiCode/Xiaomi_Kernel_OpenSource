@@ -547,7 +547,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	struct drm_device *dev = gpu->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
-	int i, ret;
+	int i;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
@@ -586,11 +586,11 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 			msm_gem_move_to_active(&msm_obj->base, gpu, true, submit->fence);
 	}
 
-	ret = gpu->funcs->submit(gpu, submit);
+	gpu->funcs->submit(gpu, submit);
 
 	hangcheck_timer_reset(gpu);
 
-	return ret;
+	return 0;
 }
 
 struct msm_context_counter {
