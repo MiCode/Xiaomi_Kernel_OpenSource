@@ -91,10 +91,19 @@ int32_t msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl)
 	kfree(s_ctrl->sensordata->power_info.power_down_setting);
 	kfree(s_ctrl->sensordata->csi_lane_params);
 	kfree(s_ctrl->sensordata->sensor_info);
-	msm_camera_put_clk_info(s_ctrl->pdev,
-		&s_ctrl->sensordata->power_info.clk_info,
-		&s_ctrl->sensordata->power_info.clk_ptr,
-		s_ctrl->sensordata->power_info.clk_info_size);
+	if (s_ctrl->sensor_device_type == MSM_CAMERA_I2C_DEVICE) {
+		msm_camera_i2c_dev_put_clk_info(
+			&s_ctrl->sensor_i2c_client->client->dev,
+			&s_ctrl->sensordata->power_info.clk_info,
+			&s_ctrl->sensordata->power_info.clk_ptr,
+			s_ctrl->sensordata->power_info.clk_info_size);
+	} else {
+		msm_camera_put_clk_info(s_ctrl->pdev,
+			&s_ctrl->sensordata->power_info.clk_info,
+			&s_ctrl->sensordata->power_info.clk_ptr,
+			s_ctrl->sensordata->power_info.clk_info_size);
+	}
+
 	kfree(s_ctrl->sensordata);
 	return 0;
 }
