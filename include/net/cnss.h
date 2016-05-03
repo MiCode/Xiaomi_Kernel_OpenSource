@@ -239,4 +239,6 @@ extern void cnss_common_schedule_recovery_work(struct device *dev);
 extern int cnss_common_set_wlan_mac_address(struct device *dev, const u8 *in,
 					    uint32_t len);
 extern u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num);
+extern int cnss_power_up(struct device *dev);
+extern int cnss_power_down(struct device *dev);
 #endif /* _NET_CNSS_H_ */

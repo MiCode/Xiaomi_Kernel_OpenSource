@@ -1168,6 +1168,16 @@ u8 *cnss_sdio_get_wlan_mac_address(uint32_t *num)
 	return NULL;
 }
 
+int cnss_sdio_power_down(struct device *dev)
+{
+	return 0;
+}
+
+int cnss_sdio_power_up(struct device *dev)
+{
+	return 0;
+}
+
 static const struct of_device_id cnss_sdio_dt_match[] = {
 	{.compatible = "qcom,cnss_sdio"},
 	{}

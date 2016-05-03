@@ -382,3 +382,45 @@ int cnss_common_set_wlan_mac_address(
 	return ret;
 }
 EXPORT_SYMBOL(cnss_common_set_wlan_mac_address);
+
+int cnss_power_up(struct device *dev)
+{
+	int ret;
+
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_PCI:
+		ret = cnss_pcie_power_up(dev);
+		break;
+	case CNSS_BUS_SDIO:
+		ret = cnss_sdio_power_up(dev);
+		break;
+	default:
+		pr_err("%s: Invalid Bus Type\n", __func__);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(cnss_power_up);
+
+int cnss_power_down(struct device *dev)
+{
+	int ret;
+
+	switch (cnss_get_dev_bus_type(dev)) {
+	case CNSS_BUS_PCI:
+		ret = cnss_pcie_power_down(dev);
+		break;
+	case CNSS_BUS_SDIO:
+		ret = cnss_sdio_power_down(dev);
+		break;
+	default:
+		pr_err("%s: Invalid Bus Type\n", __func__);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(cnss_power_down);
