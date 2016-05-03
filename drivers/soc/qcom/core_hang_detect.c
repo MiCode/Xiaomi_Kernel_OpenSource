@@ -245,7 +245,9 @@ static int msm_hang_detect_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct hang_detect *hang_det = NULL;
 	int cpu, ret, cpu_count = 0;
-	u32 treg[NR_CPUS], creg[NR_CPUS];
+	const char *name;
+	u32 treg[NR_CPUS] = {0}, creg[NR_CPUS] = {0};
+	u32 num_reg = 0;
 
 	if (!pdev->dev.of_node || !enable)
 		return -ENODEV;
@@ -258,15 +260,28 @@ static int msm_hang_detect_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	name = of_get_property(node, "label", NULL);
+	if (!name) {
+		pr_err("Can't get label property\n");
+		return -EINVAL;
+	}
+
+	num_reg = of_property_count_u32_elems(node,
+			"qcom,threshold-arr");
+	if (num_reg < 0) {
+		pr_err("Can't get threshold-arr property\n");
+		return -EINVAL;
+	}
+
 	ret = of_property_read_u32_array(node, "qcom,threshold-arr",
-				treg, num_possible_cpus());
+				treg, num_reg);
 	if (ret) {
 		pr_err("Can't get threshold-arr property\n");
 		return -EINVAL;
 	}
 
 	ret = of_property_read_u32_array(node, "qcom,config-arr",
-				creg, num_possible_cpus());
+				creg, num_reg);
 	if (ret) {
 		pr_err("Can't get config-arr property\n");
 		return -EINVAL;
@@ -289,7 +304,8 @@ static int msm_hang_detect_probe(struct platform_device *pdev)
 	}
 
 	ret = kobject_init_and_add(&hang_det->kobj, &core_ktype,
-			&cpu_subsys.dev_root->kobj, "%s", "hang_detect");
+			&cpu_subsys.dev_root->kobj, "%s_%s",
+			"hang_detect", name);
 	if (ret) {
 		pr_err("%s:Error in creation kobject_add\n", __func__);
 		goto out_put_kobj;
