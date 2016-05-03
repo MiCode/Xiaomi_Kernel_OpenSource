@@ -66,6 +66,7 @@ struct wiphy;
 #define CFG80211_SCAN_BSSID 1
 #define CFG80211_CONNECT_PREV_BSSID 1
 #define CFG80211_CONNECT_BSS 1
+#define CFG80211_ABORT_SCAN 1
 
 /*
  * wireless hardware capability structures
