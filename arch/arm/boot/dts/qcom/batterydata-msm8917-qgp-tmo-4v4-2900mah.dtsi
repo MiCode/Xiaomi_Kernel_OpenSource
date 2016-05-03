@@ -1,0 +1,60 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,qrd8917_zte_tmo_2900mah_averaged_masterslave_apr29th2016 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fcc-mah = <2900>;
+	qcom,fastchg-current-ma = <2820>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <150000>;
+	qcom,batt-id-kohm = <65>;
+	qcom,battery-type = "msm8917_qgp_tmo";
+	qcom,chg-rslow-comp-c1 = <3173440>;
+	qcom,chg-rslow-comp-c2 = <4627501>;
+	qcom,chg-rs-to-rslow = <1779739>;
+	qcom,chg-rslow-comp-thr = <0xA8>;
+	qcom,checksum = <0xFD23>;
+	qcom,fg-profile-data = [
+		 EF 83 79 7D
+		 BC 81 64 7C
+		 7A 83 BD 7C
+		 AF 8B 79 95
+		 F7 81 37 99
+		 6F B6 4C C1
+		 5E 19 EE 83
+		 EB 7C 38 81
+		 AF 77 81 83
+		 3C 7D D7 90
+		 E2 97 2F 82
+		 1F 99 25 B7
+		 A6 C2 52 16
+		 2C 0B 69 59
+		 14 70 71 FD
+		 1E 35 F3 45
+		 00 00 00 00
+		 7D 47 91 2B
+		 FE 12 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 B1 73 77 72
+		 B2 62 4B 88
+		 0F 74 28 62
+		 DE 51 AA 78
+		 A7 6C 49 4A
+		 FF 6C 26 A8
+		 23 94 69 5B
+		 67 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};
