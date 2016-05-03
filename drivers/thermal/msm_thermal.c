@@ -229,7 +229,6 @@ struct cluster_info {
 	int freq_idx_low;
 	int freq_idx_high;
 	struct cpumask cluster_cores;
-	bool sync_cluster;
 	uint32_t limited_max_freq;
 	uint32_t limited_min_freq;
 };
@@ -391,9 +390,6 @@ static int thermal_config_debugfs_read(struct seq_file *m, void *data);
 static ssize_t thermal_config_debugfs_write(struct file *file,
 					const char __user *buffer,
 					size_t count, loff_t *ppos);
-
-#define SYNC_CORE(_cpu) \
-	(core_ptr && cpus[_cpu].parent_ptr->sync_cluster)
 
 #define VDD_RES_RO_ATTRIB(_rail, ko_attr, j, _name) \
 	ko_attr.attr.name = __stringify(_name); \
@@ -977,17 +973,10 @@ static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 
 	switch (event) {
 	case CPUFREQ_ADJUST:
-		if (SYNC_CORE(policy->cpu)) {
-			max_freq_req =
-				cpus[policy->cpu].parent_ptr->limited_max_freq;
-			min_freq_req =
-				cpus[policy->cpu].parent_ptr->limited_min_freq;
-		} else {
-			max_freq_req = cpus[policy->cpu].limited_max_freq;
-			min_freq_req = cpus[policy->cpu].limited_min_freq;
-		}
+		max_freq_req = cpus[policy->cpu].parent_ptr->limited_max_freq;
+		min_freq_req = cpus[policy->cpu].parent_ptr->limited_min_freq;
 		pr_debug("mitigating CPU%d to freq max: %u min: %u\n",
-		policy->cpu, max_freq_req, min_freq_req);
+			policy->cpu, max_freq_req, min_freq_req);
 
 		cpufreq_verify_within_limits(policy, min_freq_req,
 			max_freq_req);
@@ -1120,60 +1109,6 @@ static void update_cpu_freq(int cpu, enum freq_limits changed)
 	}
 }
 
-static int * __init get_sync_cluster(struct device *dev, int *cnt)
-{
-	int *sync_cluster = NULL, cluster_cnt = 0, ret = 0;
-	char *key = "qcom,synchronous-cluster-id";
-
-	if (!of_get_property(dev->of_node, key, &cluster_cnt)
-		|| cluster_cnt <= 0 || !core_ptr)
-		return NULL;
-
-	cluster_cnt /= sizeof(__be32);
-	if (cluster_cnt > core_ptr->entity_count) {
-		pr_err("Invalid cluster count:%d\n", cluster_cnt);
-		return NULL;
-	}
-	sync_cluster = devm_kzalloc(dev, sizeof(int) * cluster_cnt, GFP_KERNEL);
-	if (!sync_cluster) {
-		pr_err("Memory alloc failed\n");
-		return NULL;
-	}
-
-	ret = of_property_read_u32_array(dev->of_node, key, sync_cluster,
-			cluster_cnt);
-	if (ret) {
-		pr_err("Error in reading property:%s. err:%d\n", key, ret);
-		devm_kfree(dev, sync_cluster);
-		return NULL;
-	}
-	*cnt = cluster_cnt;
-
-	return sync_cluster;
-}
-
-static void update_cpu_datastructure(struct cluster_info *cluster_ptr,
-		int *sync_cluster, int sync_cluster_cnt)
-{
-	int i = 0;
-	bool is_sync_cluster = false;
-
-	for (i = 0; (sync_cluster) && (i < sync_cluster_cnt); i++) {
-		if (cluster_ptr->cluster_id != sync_cluster[i])
-			continue;
-		is_sync_cluster = true;
-		break;
-	}
-
-	cluster_ptr->sync_cluster = is_sync_cluster;
-	pr_debug("Cluster ID:%d Sync cluster:%s Sibling mask:%lu\n",
-		cluster_ptr->cluster_id, is_sync_cluster ? "Yes" : "No",
-		*cluster_ptr->cluster_cores.bits);
-	for_each_cpu(i, &cluster_ptr->cluster_cores) {
-		cpus[i].parent_ptr = cluster_ptr;
-	}
-}
-
 static ssize_t cluster_info_show(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -1185,9 +1120,8 @@ static ssize_t cluster_info_show(
 				&core_ptr->child_entity_ptr[i];
 
 		size = snprintf(&buf[tot_size], PAGE_SIZE - tot_size,
-			"%d:%lu:%d ", cluster_ptr->cluster_id,
-			*cluster_ptr->cluster_cores.bits,
-			cluster_ptr->sync_cluster);
+			"%d:%lu:1 ", cluster_ptr->cluster_id,
+			*cluster_ptr->cluster_cores.bits);
 		if ((tot_size + size) >= PAGE_SIZE) {
 			pr_err("Not enough buffer size");
 			break;
@@ -1451,9 +1385,8 @@ static void update_cpu_topology(struct device *dev)
 	int cluster_id[NR_CPUS] = {[0 ... NR_CPUS-1] = -1};
 	cpumask_t cluster_cpus[NR_CPUS];
 	uint32_t i;
-	int cluster_cnt, sync_cluster_cnt = 0;
+	int cluster_cnt;
 	struct cluster_info *temp_ptr = NULL;
-	int *sync_cluster_id = NULL;
 
 	cluster_info_probed = true;
 	cluster_cnt = get_kernel_cluster_info(cluster_id, cluster_cpus);
@@ -1475,14 +1408,7 @@ static void update_cpu_topology(struct device *dev)
 	core_ptr->parent_ptr = NULL;
 	core_ptr->entity_count = cluster_cnt;
 	core_ptr->cluster_id = -1;
-	core_ptr->sync_cluster = false;
 
-	sync_cluster_id = get_sync_cluster(dev, &sync_cluster_cnt);
-	if (!sync_cluster_id) {
-		devm_kfree(dev, core_ptr);
-		core_ptr = NULL;
-		return;
-	}
 	temp_ptr = devm_kzalloc(dev, sizeof(struct cluster_info) * cluster_cnt,
 					GFP_KERNEL);
 	if (!temp_ptr) {
@@ -1493,6 +1419,8 @@ static void update_cpu_topology(struct device *dev)
 	}
 
 	for (i = 0; i < cluster_cnt; i++) {
+		int idx = 0;
+
 		pr_debug("Cluster_ID:%d CPU's:%lu\n", cluster_id[i],
 				*cpumask_bits(&cluster_cpus[i]));
 		temp_ptr[i].cluster_id = cluster_id[i];
@@ -1505,9 +1433,10 @@ static void update_cpu_topology(struct device *dev)
 		temp_ptr[i].freq_idx_high = 0;
 		temp_ptr[i].freq_table = NULL;
 		temp_ptr[i].entity_count = cpumask_weight(&cluster_cpus[i]);
+		for_each_cpu(idx, &temp_ptr[i].cluster_cores) {
+			cpus[idx].parent_ptr = &temp_ptr[i];
+		}
 		temp_ptr[i].child_entity_ptr = NULL;
-		update_cpu_datastructure(&temp_ptr[i], sync_cluster_id,
-				sync_cluster_cnt);
 	}
 	core_ptr->child_entity_ptr = temp_ptr;
 }
@@ -1639,8 +1568,8 @@ static void update_cluster_freq(void)
 	for (; _cluster < core_ptr->entity_count; _cluster++, _cpu = 0,
 			online_cpu = -1, max = UINT_MAX, min = 0) {
 		/*
-		** If a cluster is synchronous, go over the frequency limits
-		** of each core in that cluster and aggregate the minimum
+		** Go over the frequency limits
+		** of each core in the cluster and aggregate the minimum
 		** and maximum frequencies. After aggregating, request for
 		** frequency update on the first online core in that cluster.
 		** Cpufreq driver takes care of updating the frequency of
@@ -1648,8 +1577,6 @@ static void update_cluster_freq(void)
 		*/
 		cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
 
-		if (!cluster_ptr->sync_cluster)
-			continue;
 		for_each_cpu(_cpu, &cluster_ptr->cluster_cores) {
 			if (online_cpu == -1 && cpu_online(_cpu))
 				online_cpu = _cpu;
@@ -1906,8 +1833,6 @@ static int update_cpu_min_freq_all(struct rail *apss_rail, uint32_t min)
 
 				cpus[cpu].limited_min_freq = min;
 				cpus[cpu].limited_max_freq = max;
-				if (!SYNC_CORE(cpu))
-					update_cpu_freq(cpu, changed);
 			}
 			update_cluster_freq();
 		}
@@ -1927,9 +1852,6 @@ static int update_cpu_min_freq_all(struct rail *apss_rail, uint32_t min)
 
 			cpus[cpu].limited_min_freq = min;
 			cpus[cpu].limited_max_freq = max;
-
-			if (!SYNC_CORE(cpu))
-				update_cpu_freq(cpu, changed);
 		}
 		update_cluster_freq();
 	}
@@ -3560,8 +3482,6 @@ static void do_freq_control(int temp)
 			cpu, max_freq, temp);
 		cpus[cpu].limited_max_freq =
 				min(max_freq, cpus[cpu].vdd_max_freq);
-		if (!SYNC_CORE(cpu))
-			update_cpu_freq(cpu, FREQ_LIMIT_MAX);
 	}
 	update_cluster_freq();
 	put_online_cpus();
@@ -3822,11 +3742,8 @@ static __ref int do_freq_mitigation(void *data)
 
 			cpus[cpu].limited_max_freq = max_freq_req;
 			cpus[cpu].limited_min_freq = min_freq_req;
-			if (!SYNC_CORE(cpu))
-				update_cpu_freq(cpu, changed);
 reset_threshold:
-			if (!SYNC_CORE(cpu) &&
-				devices && devices->cpufreq_dev[cpu]) {
+			if (devices && devices->cpufreq_dev[cpu]) {
 				union device_request req;
 
 				req.freq.max_freq = max_freq_req;
@@ -4106,14 +4023,9 @@ int msm_thermal_set_cluster_freq(uint32_t cluster, uint32_t freq, bool is_max)
 		cluster_ptr = &core_ptr->child_entity_ptr[i];
 		if (cluster_ptr->cluster_id != cluster)
 			continue;
-		if (!cluster_ptr->sync_cluster) {
-			pr_err("Cluster%d is not synchronous\n", cluster);
-			return -EINVAL;
-		} else {
-			pr_debug("Update Cluster%d %s frequency to %d\n",
-				cluster, (is_max) ? "max" : "min", freq);
-			break;
-		}
+		pr_debug("Update Cluster%d %s frequency to %d\n",
+			cluster, (is_max) ? "max" : "min", freq);
+		break;
 	}
 	if (i == core_ptr->entity_count) {
 		pr_err("Invalid cluster ID:%d\n", cluster);
@@ -4851,8 +4763,6 @@ static void __ref disable_msm_thermal(void)
 		cpus[cpu].limited_max_freq = UINT_MAX;
 		cpus[cpu].vdd_max_freq = UINT_MAX;
 		cpus[cpu].limited_min_freq = 0;
-		if (!SYNC_CORE(cpu))
-			update_cpu_freq(cpu, FREQ_LIMIT_ALL);
 	}
 	update_cluster_freq();
 	put_online_cpus();
