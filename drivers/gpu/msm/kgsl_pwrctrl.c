@@ -1685,6 +1685,7 @@ static int _get_clocks(struct kgsl_device *device)
 	const char *name;
 	struct property *prop;
 
+	pwr->isense_clk_indx = 0;
 	of_property_for_each_string(dev->of_node, "clock-names", prop, name) {
 		int i;
 
@@ -1703,6 +1704,8 @@ static int _get_clocks(struct kgsl_device *device)
 				return ret;
 			}
 
+			if (!strcmp(name, "isense_clk"))
+				pwr->isense_clk_indx = i;
 			break;
 		}
 	}
@@ -1784,6 +1787,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	clk_set_rate(pwr->grp_clks[6],
 		clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ));
+
+	if (pwr->isense_clk_indx)
+		clk_set_rate(pwr->grp_clks[pwr->isense_clk_indx],
+			KGSL_ISENSE_CLK_FREQ);
 
 	result = get_regulators(device);
 	if (result)

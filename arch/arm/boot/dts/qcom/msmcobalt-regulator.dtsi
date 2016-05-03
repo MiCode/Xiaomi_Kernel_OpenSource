@@ -571,6 +571,15 @@
 		regulator-min-microvolt = <600000>;
 		regulator-max-microvolt = <600000>;
 	};
+
+	gfx_stub_vreg: regulator-gfx-stub {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "gfx_stub_corner";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <6>;
+		status = "disabled";
+	};
 };
 
 &soc {

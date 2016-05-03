@@ -14,7 +14,7 @@
 #define __MDSS_HDMI_AUDIO_H__
 
 #include <linux/mdss_io_util.h>
-#include <linux/msm_hdmi.h>
+#include <linux/msm_ext_display.h>
 
 #define AUDIO_ACK_SET_ENABLE BIT(5)
 #define AUDIO_ACK_ENABLE BIT(4)
@@ -46,7 +46,7 @@ struct hdmi_audio_status {
  */
 struct hdmi_audio_ops {
 	int (*on)(void *ctx, u32 pclk,
-		struct msm_hdmi_audio_setup_params *params);
+		struct msm_ext_disp_audio_setup_params *params);
 	void (*off)(void *ctx);
 	void (*reset)(void *ctx);
 	void (*status)(void *ctx, struct hdmi_audio_status *status);

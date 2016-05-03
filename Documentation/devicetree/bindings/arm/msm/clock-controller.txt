@@ -64,10 +64,14 @@ Required properties:
 			"qcom,gcc-mdm9607"
 			"qcom,cc-debug-mdm9607"
 			"qcom,gcc-cobalt"
+			"qcom,gcc-hamster"
 			"qcom,cc-debug-cobalt"
 			"qcom,gpucc-cobalt"
 			"qcom,gfxcc-cobalt"
+			"qcom,gpucc-hamster"
+			"qcom,gfxcc-hamster"
 			"qcom,mmsscc-cobalt"
+			"qcom,mmsscc-hamster"
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.

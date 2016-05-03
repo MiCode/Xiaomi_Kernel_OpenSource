@@ -194,7 +194,7 @@ struct hdmi_tx_ctrl {
 	struct cec_ops hdmi_cec_ops;
 	struct cec_cbs hdmi_cec_cbs;
 	struct hdmi_audio_ops audio_ops;
-	struct msm_hdmi_audio_setup_params audio_params;
+	struct msm_ext_disp_audio_setup_params audio_params;
 
 	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 	bool power_data_enable[HDMI_TX_MAX_PM];

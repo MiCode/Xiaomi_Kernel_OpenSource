@@ -300,7 +300,7 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 	bool operands_present = false;
 	u32 no_of_operands, size, i;
 	u32 operands_offset = MAX_CEC_FRAME_SIZE - MAX_OPERAND_SIZE;
-	struct msm_hdmi_audio_edid_blk blk;
+	struct msm_ext_disp_audio_edid_blk blk;
 
 	if (!udata) {
 		pr_err("Invalid data\n");

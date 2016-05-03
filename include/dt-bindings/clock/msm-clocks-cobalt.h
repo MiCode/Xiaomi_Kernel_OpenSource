@@ -230,6 +230,7 @@
 #define clk_gcc_ufs_ice_core_clk		0x310b0710
 #define clk_gcc_ufs_phy_aux_clk			0x17acc8fb
 #define clk_gcc_ufs_rx_symbol_0_clk		0x7f43251c
+#define clk_gcc_ufs_rx_symbol_1_clk		0x03182fde
 #define clk_gcc_ufs_tx_symbol_0_clk		0x6a9f747a
 #define clk_ufs_tx_symbol_0_clk			0xb3fcd0f7
 #define clk_ufs_rx_symbol_0_clk			0x17a0f1cd
