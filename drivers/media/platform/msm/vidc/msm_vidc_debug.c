@@ -12,6 +12,7 @@
  */
 
 #define CREATE_TRACE_POINTS
+#include "msm_vidc_common.h"
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
 
@@ -266,11 +267,18 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		size_t count, loff_t *ppos)
 {
 	struct msm_vidc_inst *inst = file->private_data;
+	struct msm_vidc_core *core = inst ? inst->core : NULL;
 	int i, j;
-	if (!inst) {
-		dprintk(VIDC_ERR, "Invalid params, core: %p\n", inst);
+	if (!inst || !core) {
+		dprintk(VIDC_ERR, "Invalid params, core: %p inst %p\n",
+				core, inst);
 		return 0;
 	}
+	if (!get_inst(core, inst)) {
+		dprintk(VIDC_ERR, "%s inactive session\n", __func__);
+		return 0;
+	}
+
 	INIT_DBG_BUF(dbg_buf);
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "INSTANCE: %p (%s)\n", inst,
@@ -327,7 +335,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	write_str(&dbg_buf, "FBD Count: %d\n", inst->count.fbd);
 
 	publish_unreleased_reference(inst);
-
+	put_inst(inst);
 	return simple_read_from_buffer(buf, count, ppos,
 		dbg_buf.ptr, dbg_buf.filled_size);
 }
