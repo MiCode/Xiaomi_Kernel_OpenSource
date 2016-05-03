@@ -107,6 +107,7 @@ enum pmic_subtype {
 	PMI8950		= 17,
 	PMI8996		= 19,
 	PMI8937		= 55,
+	PMI8940		= 64,
 };
 
 enum wa_flags {
@@ -7530,6 +7531,7 @@ static int fg_hw_init(struct fg_chip *chip)
 		break;
 	case PMI8950:
 	case PMI8937:
+	case PMI8940:
 		rc = fg_8950_hw_init(chip);
 		/* Setup workaround flag based on PMIC type */
 		chip->wa_flag |= BCL_HI_POWER_FOR_CHGLED_WA;
@@ -7867,6 +7869,7 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 	case PMI8950:
 	case PMI8937:
 	case PMI8996:
+	case PMI8940:
 		chip->pmic_subtype = pmic_rev_id->pmic_subtype;
 		chip->pmic_revision[REVID_RESERVED]	= pmic_rev_id->rev1;
 		chip->pmic_revision[REVID_VARIANT]	= pmic_rev_id->rev2;
