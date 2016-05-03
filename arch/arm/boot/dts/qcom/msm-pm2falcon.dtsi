@@ -236,7 +236,7 @@
 			qcom,fdbk-output = "auto";
 			qcom,vref-mv = <350>;
 			qcom,switch-freq-khz = <800>;
-			qcom,ovp-mv = <29500>;
+			qcom,ovp-mv = <29600>;
 			qcom,ilim-ma = <980>;
 			qcom,boost-duty-ns = <26>;
 			qcom,mod-freq-khz = <9600>;
