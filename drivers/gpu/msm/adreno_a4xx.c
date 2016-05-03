@@ -2034,8 +2034,6 @@ static void a4xx_preempt_clear_state(
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_dispatcher_cmdqueue *dispatch_tempq;
-	struct kgsl_cmdbatch *cmdbatch;
 	struct adreno_ringbuffer *highest_busy_rb;
 	int switch_low_to_high;
 	int ret;
@@ -2089,9 +2087,6 @@ static void a4xx_preempt_clear_state(
 	 */
 	a4xx_preemption_start(adreno_dev, highest_busy_rb);
 
-	/* turn on IOMMU as the preemption may trigger pt switch */
-	kgsl_mmu_enable_clk(&device->mmu);
-
 	atomic_set(&dispatcher->preemption_state,
 			ADRENO_DISPATCHER_PREEMPT_TRIGGERED);
 
@@ -2105,22 +2100,7 @@ static void a4xx_preempt_clear_state(
 			adreno_get_rptr(adreno_dev->next_rb));
 	/* issue PREEMPT trigger */
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_PREEMPT, 1);
-	/*
-	 * IOMMU clock can be safely switched off after the timestamp
-	 * of the first command in the new rb
-	 */
-	dispatch_tempq = &adreno_dev->next_rb->dispatch_q;
-	if (dispatch_tempq->head != dispatch_tempq->tail)
-		cmdbatch = dispatch_tempq->cmd_q[dispatch_tempq->head];
-	else
-		cmdbatch = NULL;
-	if (cmdbatch)
-		adreno_ringbuffer_mmu_disable_clk_on_ts(device,
-			adreno_dev->next_rb,
-			cmdbatch->global_ts);
-	else
-		adreno_ringbuffer_mmu_disable_clk_on_ts(device,
-			adreno_dev->next_rb, adreno_dev->next_rb->timestamp);
+
 	/* submit preempt token packet to ensure preemption */
 	if (switch_low_to_high < 0) {
 		ret = a4xx_submit_preempt_token(

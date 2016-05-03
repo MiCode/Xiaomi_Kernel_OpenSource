@@ -1135,44 +1135,6 @@ done:
 }
 
 /**
- * adreno_ringbuffer_mmu_clk_disable_event() - Callback function that
- * disables the MMU clocks.
- * @device: Device pointer
- * @context: The ringbuffer context pointer
- * @data: Pointer containing the adreno_mmu_disable_clk_param structure
- * @type: The event call type (RETIRED or CANCELLED)
- */
-static void adreno_ringbuffer_mmu_clk_disable_event(struct kgsl_device *device,
-			struct kgsl_event_group *group, void *data, int type)
-{
-	kgsl_mmu_disable_clk(&device->mmu);
-}
-
-/*
- * adreno_ringbuffer_mmu_disable_clk_on_ts() - Sets up event to disable MMU
- * clocks
- * @device - The kgsl device pointer
- * @rb: The ringbuffer in whose event list the event is added
- * @timestamp: The timestamp on which the event should trigger
- *
- * Creates an event to disable the MMU clocks on timestamp and if event
- * already exists then updates the timestamp of disabling the MMU clocks
- * with the passed in ts if it is greater than the current value at which
- * the clocks will be disabled
- * Return - void
- */
-void
-adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
-			struct adreno_ringbuffer *rb, unsigned int timestamp)
-{
-	if (kgsl_add_event(device, &(rb->events), timestamp,
-		adreno_ringbuffer_mmu_clk_disable_event, NULL)) {
-		KGSL_DRV_ERR(device,
-			"Failed to add IOMMU disable clk event\n");
-	}
-}
-
-/**
  * adreno_ringbuffer_wait_callback() - Callback function for event registered
  * on a ringbuffer timestamp
  * @device: Device for which the the callback is valid
