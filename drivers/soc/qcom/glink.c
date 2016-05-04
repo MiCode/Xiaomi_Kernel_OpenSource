@@ -2627,6 +2627,13 @@ relock: xprt_ctx = ctx->transport_ptr;
 			"channel Not closed yet local state [%d] remote_state [%d]\n",
 			ctx->local_open_state, ctx->remote_opened);
 		}
+	} else {
+		/*
+		 * This case handles the scenario where glink_core_link_down
+		 * changes the local_state to GLINK_XPRT_DOWN but glink_close
+		 * gets the channel write lock before glink_core_channel_cleanup
+		 */
+		rwref_write_put(&ctx->ch_state_lhb2);
 	}
 	complete_all(&ctx->int_req_ack_complete);
 	complete_all(&ctx->int_req_complete);
