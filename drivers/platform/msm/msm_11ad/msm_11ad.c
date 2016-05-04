@@ -1102,17 +1102,15 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 		break;
 	case WIL_PLATFORM_EVT_PRE_RESET:
 		/*
-		 * Enable rf_clk3 clock before resetting the device to ensure
-		 * stable ref clock during the device reset
+		 * TODO: Enable rf_clk3 clock before resetting the device to
+		 * ensure stable ref clock during the device reset
 		 */
-		rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3);
 		break;
 	case WIL_PLATFORM_EVT_FW_RDY:
 		/*
-		 * Disable rf_clk3 clock after the device is up to allow
+		 * TODO: Disable rf_clk3 clock after the device is up to allow
 		 * the device to control it via its GPIO for power saving
 		 */
-		msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
 		break;
 	default:
 		pr_debug("%s: Unhandled event %d\n", __func__, evt);
