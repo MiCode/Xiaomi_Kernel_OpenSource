@@ -53,6 +53,7 @@
 #define FABIA_TEST_CTL_LO_REG(pll)	(*pll->base + pll->offset + 0x1c)
 #define FABIA_TEST_CTL_HI_REG(pll)	(*pll->base + pll->offset + 0x20)
 #define FABIA_L_REG(pll)		(*pll->base + pll->offset + 0x4)
+#define FABIA_CAL_L_VAL(pll)		(*pll->base + pll->offset + 0x8)
 #define FABIA_FRAC_REG(pll)		(*pll->base + pll->offset + 0x38)
 #define FABIA_PLL_OPMODE(pll)		(*pll->base + pll->offset + 0x2c)
 
@@ -963,6 +964,12 @@ static int fabia_alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	spin_lock_irqsave(&c->lock, flags);
 	/* Set the new L value */
 	writel_relaxed(l_val, FABIA_L_REG(pll));
+	/*
+	 * pll_cal_l_val is set to pll_l_val on MOST targets. Set it
+	 * explicitly here for PLL out-of-reset calibration to work
+	 * without a glitch on all of them.
+	 */
+	writel_relaxed(l_val, FABIA_CAL_L_VAL(pll));
 	writel_relaxed(a_val, FABIA_FRAC_REG(pll));
 
 	alpha_pll_dynamic_update(pll);
