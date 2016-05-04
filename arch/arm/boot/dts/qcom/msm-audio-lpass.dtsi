@@ -266,6 +266,16 @@
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <32770>;
 		};
+
+		usb_audio_rx: qcom,msm-dai-q6-usb-audio-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <28672>;
+		};
+
+		usb_audio_tx: qcom,msm-dai-q6-usb-audio-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <28673>;
+		};
 	};
 
 	hostless: qcom,msm-pcm-hostless {
