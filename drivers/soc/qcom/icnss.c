@@ -1224,6 +1224,7 @@ static int icnss_smmu_init(struct device *dev)
 	struct dma_iommu_mapping *mapping;
 	int disable_htw = 1;
 	int atomic_ctx = 1;
+	int s1_bypass = 1;
 	int ret = 0;
 
 	mapping = arm_iommu_create_mapping(&platform_bus_type,
@@ -1249,6 +1250,15 @@ static int icnss_smmu_init(struct device *dev)
 				    &atomic_ctx);
 	if (ret < 0) {
 		pr_err("%s: set atomic_ctx attribute failed, err = %d\n",
+		       __func__, ret);
+		goto set_attr_fail;
+	}
+
+	ret = iommu_domain_set_attr(mapping->domain,
+				    DOMAIN_ATTR_S1_BYPASS,
+				    &s1_bypass);
+	if (ret < 0) {
+		pr_err("%s: set s1_bypass attribute failed, err = %d\n",
 		       __func__, ret);
 		goto set_attr_fail;
 	}
