@@ -51,6 +51,7 @@
 #include <asm/cacheflush.h>
 #include <linux/msm-bus.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <linux/msm_pcie.h>
 
 #include "io-pgtable.h"
 
@@ -2726,12 +2727,6 @@ static bool arm_smmu_capable(enum iommu_cap cap)
 	}
 }
 
-static int __arm_smmu_get_pci_sid(struct pci_dev *pdev, u16 alias, void *data)
-{
-	*((u16 *)data) = alias;
-	return 0; /* Continue walking */
-}
-
 static void __arm_smmu_release_pci_iommudata(void *data)
 {
 	kfree(data);
@@ -2741,8 +2736,9 @@ static int arm_smmu_init_pci_device(struct pci_dev *pdev,
 				    struct iommu_group *group)
 {
 	struct arm_smmu_master_cfg *cfg;
-	u16 sid;
-	int i;
+	u32 sid;
+	int tmp, ret;
+	struct device *dev = &pdev->dev;
 
 	cfg = iommu_group_get_iommudata(group);
 	if (!cfg) {
@@ -2757,18 +2753,14 @@ static int arm_smmu_init_pci_device(struct pci_dev *pdev,
 	if (cfg->num_streamids >= MAX_MASTER_STREAMIDS)
 		return -ENOSPC;
 
-	/*
-	 * Assume Stream ID == Requester ID for now.
-	 * We need a way to describe the ID mappings in FDT.
-	 */
-	pci_for_each_dma_alias(pdev, __arm_smmu_get_pci_sid, &sid);
-	for (i = 0; i < cfg->num_streamids; ++i)
-		if (cfg->streamids[i] == sid)
-			break;
-
-	/* Avoid duplicate SIDs, as this can lead to SMR conflicts */
-	if (i == cfg->num_streamids)
-		cfg->streamids[cfg->num_streamids++] = sid;
+	ret = msm_pcie_configure_sid(dev, &sid, &tmp);
+	if (ret) {
+		dev_err(dev,
+			"Couldn't configure SID through PCI-e driver: %d\n",
+			ret);
+		return ret;
+	}
+	cfg->streamids[cfg->num_streamids++] = sid;
 
 	return 0;
 }
