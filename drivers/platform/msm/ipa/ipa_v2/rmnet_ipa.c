@@ -2040,6 +2040,10 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 		goto set_perf_err;
 	/* IPA_RM configuration ends */
 
+	/* Enable SG support in netdevice. */
+	if (ipa_rmnet_res.ipa_advertise_sg_support)
+		dev->hw_features |= NETIF_F_SG;
+
 	ret = register_netdev(dev);
 	if (ret) {
 		IPAWANERR("unable to register ipa_netdev %d rc=%d\n",
