@@ -3073,22 +3073,22 @@ int mdss_mdp_pp_default_overlay_config(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
-static bool pp_ad_bl_threshold_check(int al_thresh, int base, int prev_bl,
+static bool pp_ad_bl_threshold_check(int bl_min_delta, int base, int prev_bl,
 					 int curr_bl)
 {
-	int bl_thresh = 0, diff = 0;
+	int bl_delta_factor = 0, diff = 0;
 	bool ret = false;
 
-	pr_debug("al_thresh = %d, base = %d\n", al_thresh, base);
+	pr_debug("bl_min_delta = %d, base = %d\n", bl_min_delta, base);
 	if (base <= 0) {
 		pr_debug("Invalid base for threshold calculation %d\n", base);
 		return ret;
 	}
-	bl_thresh = (curr_bl * al_thresh) / (base * 4);
+	bl_delta_factor = (curr_bl * bl_min_delta) / base;
 	diff = (curr_bl > prev_bl) ? (curr_bl - prev_bl) : (prev_bl - curr_bl);
-	ret = (diff > bl_thresh) ? true : false;
-	pr_debug("prev_bl =%d, curr_bl = %d, bl_thresh = %d, diff = %d, ret = %d\n",
-		prev_bl, curr_bl, bl_thresh, diff, ret);
+	ret = (diff > bl_delta_factor) ? true : false;
+	pr_debug("prev_bl =%d, curr_bl = %d, bl_delta_factor = %d, diff = %d, ret = %d\n",
+		prev_bl, curr_bl, bl_delta_factor, diff, ret);
 
 	return ret;
 }
@@ -3163,7 +3163,10 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		ad_bl_out = temp;
 	}
 
-	if (pp_ad_bl_threshold_check(ad->init.al_thresh, ad->init.alpha_base,
+	/* update AD backlight based on AD BL low limit */
+	ad_bl_out = (ad_bl_out < ad->bl_low_limit ?
+			ad->bl_low_limit : ad_bl_out);
+	if (pp_ad_bl_threshold_check(ad->bl_min_delta, ad->init.alpha_base,
 					ad->last_bl, ad_bl_out)) {
 		mfd->ad_bl_level = ad_bl_out;
 		pr_debug("backlight send to AD block: %d\n", mfd->ad_bl_level);
@@ -5747,6 +5750,29 @@ ad_config_exit:
 	return ret;
 }
 
+int mdss_mdp_ad_bl_config(struct msm_fb_data_type *mfd,
+				struct mdss_ad_bl_cfg *ad_bl_cfg)
+{
+	int ret = 0;
+	struct mdss_ad_info *ad;
+
+	ret = mdss_mdp_get_ad(mfd, &ad);
+	if (ret == -ENODEV || ret == -EPERM) {
+		pr_debug("AD not supported on device, disp num %d\n",
+			mfd->index);
+		return ret;
+	} else if (ret || !ad) {
+		pr_err("Failed to get ad info: ret = %d\n", ret);
+		return ret;
+	}
+
+	mutex_lock(&ad->lock);
+	ad->bl_min_delta = ad_bl_cfg->bl_min_delta;
+	ad->bl_low_limit = ad_bl_cfg->bl_low_limit;
+	mutex_unlock(&ad->lock);
+	return 0;
+}
+
 int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			struct mdss_ad_input *input, int wait) {
 	int ret = 0;
@@ -6293,6 +6319,8 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 			ad->last_calib_valid = false;
 			ad->last_ad_data_valid = false;
 			ad->ipc_frame_count = 0;
+			ad->bl_min_delta = 0;
+			ad->bl_low_limit = 0;
 			ad->calc_itr = 0;
 			ad->calc_hw_num = PP_AD_BAD_HW_NUM;
 			memset(&ad->last_calib, 0, sizeof(ad->last_calib));
@@ -6556,6 +6584,8 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_offsets)
 		mdata->ad_cfgs[i].last_str = 0xFFFFFFFF;
 		mdata->ad_cfgs[i].last_bl = 0;
 		mdata->ad_cfgs[i].last_ad_data = 0;
+		mdata->ad_cfgs[i].bl_low_limit = 0;
+		mdata->ad_cfgs[i].bl_min_delta = 0;
 		memset(mdata->ad_cfgs[i].last_calib, 0,
 			sizeof(mdata->ad_cfgs[i].last_calib));
 		mdata->ad_cfgs[i].last_calib_valid = false;
