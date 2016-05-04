@@ -1036,6 +1036,29 @@ static struct rcg_clk hmss_gpll0_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_qspi_ref_clk_src[] = {
+	F(  75000000,  gpll0_out_main,    8,    0,     0),
+	F( 150000000,  gpll0_out_main,    4,    0,     0),
+	F( 256000000,  gpll4_out_main,  1.5,    0,     0),
+	F( 300000000,  gpll0_out_main,    2,    0,     0),
+	F_END
+};
+
+static struct rcg_clk qspi_ref_clk_src = {
+	.cmd_rcgr_reg = GCC_QSPI_REF_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_qspi_ref_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "qspi_ref_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP3(LOWER, 40000000, LOW, 160400000,
+							NOMINAL, 320800000),
+		CLK_INIT(qspi_ref_clk_src.c),
+	},
+};
+
 static struct branch_clk gcc_hdmi_clkref_clk = {
 	.cbcr_reg = GCC_HDMI_CLKREF_EN,
 	.has_sibling = 1,
@@ -2261,6 +2284,29 @@ static struct branch_clk hlos1_vote_lpass_adsp_smmu_clk = {
 	},
 };
 
+static struct branch_clk gcc_qspi_ahb_clk = {
+	.cbcr_reg = GCC_QSPI_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_qspi_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_qspi_ahb_clk.c),
+	},
+};
+
+static struct branch_clk gcc_qspi_ref_clk = {
+	.cbcr_reg = GCC_QSPI_REF_CBCR,
+	.has_sibling = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_qspi_ref_clk",
+		.parent = &qspi_ref_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_qspi_ref_clk.c),
+	},
+};
+
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;
 
@@ -2374,6 +2420,8 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_gpu_cfg_ahb_clk.c, 0x013b },
 		{ &gcc_gpu_bimc_gfx_src_clk.c, 0x013e },
 		{ &gcc_gpu_bimc_gfx_clk.c, 0x013f },
+		{ &gcc_qspi_ahb_clk.c, 0x0156 },
+		{ &gcc_qspi_ref_clk.c, 0x0157 },
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
@@ -2518,6 +2566,7 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(usb30_mock_utmi_clk_src),
 	CLK_LIST(usb3_phy_aux_clk_src),
 	CLK_LIST(hmss_gpll0_clk_src),
+	CLK_LIST(qspi_ref_clk_src),
 	CLK_LIST(gcc_pcie_0_phy_reset),
 	CLK_LIST(gcc_usb3_phy_reset),
 	CLK_LIST(gcc_usb3phy_phy_reset),
@@ -2623,14 +2672,24 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(gcc_dcc_ahb_clk),
 	CLK_LIST(hlos1_vote_lpass_core_smmu_clk),
 	CLK_LIST(hlos1_vote_lpass_adsp_smmu_clk),
+	CLK_LIST(gcc_qspi_ahb_clk),
+	CLK_LIST(gcc_qspi_ref_clk),
 };
+
+static void msm_gcc_cobalt_v1_fixup(void)
+{
+	gcc_ufs_rx_symbol_1_clk.c.ops = &clk_ops_dummy;
+	qspi_ref_clk_src.c.ops = &clk_ops_dummy;
+	gcc_qspi_ref_clk.c.ops = &clk_ops_dummy;
+	gcc_qspi_ahb_clk.c.ops = &clk_ops_dummy;
+}
 
 static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	u32 regval;
 	int ret;
-	bool is_vq = 0;
+	bool is_v1 = 0;
 
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
@@ -2679,9 +2738,9 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-	is_vq = of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-hamster");
-	if (!is_vq)
-		gcc_ufs_rx_symbol_1_clk.c.ops = &clk_ops_dummy;
+	is_v1 = of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-cobalt");
+	if (is_v1)
+		msm_gcc_cobalt_v1_fixup();
 
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_gcc_cobalt,
 				    ARRAY_SIZE(msm_clocks_gcc_cobalt));
