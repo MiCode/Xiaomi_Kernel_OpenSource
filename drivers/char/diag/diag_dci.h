@@ -146,6 +146,7 @@ struct diag_dci_buf_peripheral_t {
 };
 
 struct diag_dci_client_tbl {
+	int tgid;
 	struct diag_dci_reg_tbl_t client_info;
 	struct task_struct *client;
 	unsigned char *dci_log_mask;
