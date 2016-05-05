@@ -289,6 +289,7 @@ struct msm_vidc_inst {
 	unsigned long instant_bitrate;
 	u32 buffers_held_in_driver;
 	atomic_t in_flush;
+	u32 pic_struct;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

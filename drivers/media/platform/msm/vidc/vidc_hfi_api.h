@@ -1336,6 +1336,7 @@ struct msm_vidc_cb_event {
 	u32 hal_event_type;
 	ion_phys_addr_t packet_buffer;
 	ion_phys_addr_t extra_data_buffer;
+	u32 pic_struct;
 };
 
 struct msm_vidc_cb_data_done {
