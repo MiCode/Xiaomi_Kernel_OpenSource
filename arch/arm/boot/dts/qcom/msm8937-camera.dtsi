@@ -194,6 +194,7 @@
 			200000000 0 0 0
 			0 0 0
 			0 0 0>;
+		qcom,clock-cntl-support;
 		qcom,clock-control = "SET_RATE","NO_SET_RATE", "NO_SET_RATE",
 			"NO_SET_RATE", "SET_RATE", "NO_SET_RATE",
 			"NO_SET_RATE", "NO_SET_RATE", "SET_RATE",
