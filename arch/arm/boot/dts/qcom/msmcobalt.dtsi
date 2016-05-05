@@ -1926,7 +1926,7 @@
 		qcom,therm-reset-temp = <115>;
 		qcom,core-limit-temp = <70>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,hotplug-temp = <70>;
+		qcom,hotplug-temp = <105>;
 		qcom,hotplug-temp-hysteresis = <20>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
