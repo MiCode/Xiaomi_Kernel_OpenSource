@@ -22,11 +22,12 @@
 			<0x1660000 0x60000>,
 			<0x1700000 0x60000>,
 			<0x17900000 0x10000>,
+			<0x1740000 0x10000>,
 			<0x1740000 0x10000>;
 
 		reg-names = "snoc-base", "bimc-base", "cnoc-base",
 			"a1noc-base", "a2noc-base", "gnoc-base",
-			"mnoc-base";
+			"mmnoc-ahb-base", "mnoc-base";
 
 		/*Buses*/
 		fab_a1noc: fab-a1noc {
@@ -130,6 +131,20 @@
 			clocks = <&clock_gcc clk_snoc_clk>,
 				<&clock_gcc clk_snoc_a_clk>;
 		};
+
+		fab_mnoc_ahb: fab-mnoc-ahb {
+			cell-id = <MSM_BUS_FAB_MMSS_AHB>;
+			label = "fab-mnoc-ahb";
+			qcom,fab-dev;
+			qcom,base-name = "mmnoc-ahb-base";
+			qcom,bypass-qos-prg;
+			qcom,setrate-only-clk;
+			qcom,bus-type = <1>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_mmss clk_ahb_clk_src>,
+			     <&clock_mmss clk_ahb_clk_src>;
+		};
+
 
 		/*Masters*/
 
@@ -423,7 +438,7 @@
 				&slv_venus_throttle_cfg &slv_display_cfg
 				&slv_mmss_clk_cfg &slv_vmem_cfg
 				&slv_mmss_clk_xpu_cfg &slv_smmu_cfg>;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,mas-rpm-id = <ICBID_MASTER_CNOC_MNOC_MMSS_CFG>;
 		};
 
@@ -1121,7 +1136,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_CAMERA_CFG>;
 		};
 
@@ -1131,7 +1146,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_CAMERA_THROTTLE_CFG>;
 		};
 
@@ -1141,7 +1156,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_MISC_CFG>;
 		};
 
@@ -1151,7 +1166,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_VENUS_THROTTLE_CFG>;
 		};
 
@@ -1161,7 +1176,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_VENUS_CFG>;
 		};
 
@@ -1171,7 +1186,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_VMEM_CFG>;
 			qcom,enable-only-clk;
 			clock-names = "node_clk";
@@ -1184,7 +1199,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_MMSS_CLK_XPU_CFG>;
 		};
 
@@ -1194,7 +1209,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_MMSS_CLK_CFG>;
 		};
 
@@ -1204,7 +1219,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_DISPLAY_CFG>;
 		};
 
@@ -1214,7 +1229,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_DISPLAY_THROTTLE_CFG>;
 		};
 
@@ -1224,7 +1239,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_MMSS_SMMU_CFG>;
 		};
 
