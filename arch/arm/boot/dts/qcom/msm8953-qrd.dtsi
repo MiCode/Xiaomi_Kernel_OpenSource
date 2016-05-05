@@ -99,7 +99,7 @@
 };
 
 &pm8953_typec {
-	ss-mux-supply = <&pm8953_l13>;
+	ss-mux-supply = <&pm8953_l6>;
 	qcom,ssmux-gpio = <&tlmm 139 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&typec_ssmux_config>;
