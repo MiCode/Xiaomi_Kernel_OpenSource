@@ -303,6 +303,10 @@
 	coresight-child-ports = <2>;
 	qcom,inst-id = <11>;
 };
+&pil_mss {
+	/delete-property/ qcom,qdsp6v56-1-8-inrush-current;
+	qcom,qdsp6v56-1-8;
+};
 
 &soc {
 	cti_modem_cpu1: cti@6128000{
