@@ -42,7 +42,9 @@
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
 
 #define SAMPLING_RATE_8KHZ      8000
+#define SAMPLING_RATE_11P025KHZ 11025
 #define SAMPLING_RATE_16KHZ     16000
+#define SAMPLING_RATE_22P05KHZ  22050
 #define SAMPLING_RATE_32KHZ     32000
 #define SAMPLING_RATE_44P1KHZ   44100
 #define SAMPLING_RATE_48KHZ     48000
@@ -91,6 +93,12 @@ struct slim_ch_config {
 	u32 channels;
 };
 
+struct usb_be_config {
+	u32 sample_rate;
+	u32 bit_format;
+	u32 channels;
+};
+
 struct msm_wsa881x_dev_info {
 	struct device_node *of_node;
 	u32 index;
@@ -133,6 +141,18 @@ static struct slim_ch_config slim_tx_cfg[] = {
 	[SLIM_TX_8] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 };
 
+static struct usb_be_config usb_rx_cfg = {
+	.sample_rate = SAMPLING_RATE_48KHZ,
+	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
+	.channels = 2,
+};
+
+static struct usb_be_config usb_tx_cfg = {
+	.sample_rate = SAMPLING_RATE_48KHZ,
+	.bit_format = SNDRV_PCM_FORMAT_S16_LE,
+	.channels = 1,
+};
+
 static int msm_vi_feed_tx_ch = 2;
 static const char *const slim_rx_ch_text[] = {"One", "Two"};
 static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
@@ -144,19 +164,30 @@ static char const *slim_sample_rate_text[] = {"KHZ_8", "KHZ_16",
 					"KHZ_32", "KHZ_44P1", "KHZ_48",
 					"KHZ_96", "KHZ_192"};
 static char const *bt_sco_sample_rate_text[] = {"KHZ_8", "KHZ_16"};
+static const char *const usb_ch_text[] = {"One", "Two"};
+static char const *usb_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
+					"KHZ_16", "KHZ_22P05",
+					"KHZ_32", "KHZ_44P1", "KHZ_48",
+					"KHZ_96", "KHZ_192"};
 
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_chs, slim_tx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_1_tx_chs, slim_tx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_chs, slim_rx_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_chs, usb_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_chs, usb_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(vi_feed_tx_chs, vi_feed_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_format, bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_format, bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_5_rx_sample_rate, slim_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(bt_sco_sample_rate, bt_sco_sample_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_sample_rate, usb_sample_rate_text);
+static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_sample_rate, usb_sample_rate_text);
 
 static struct platform_device *spdev;
 
@@ -588,6 +619,292 @@ static int msm_bt_sco_sample_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int usb_audio_rx_ch_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: usb_audio_rx_ch  = %d\n", __func__,
+		 usb_rx_cfg.channels);
+	ucontrol->value.integer.value[0] = usb_rx_cfg.channels - 1;
+	return 0;
+}
+
+static int usb_audio_rx_ch_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	usb_rx_cfg.channels = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: usb_audio_rx_ch = %d\n", __func__, usb_rx_cfg.channels);
+	return 1;
+}
+
+static int usb_audio_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int sample_rate_val;
+
+	switch (usb_rx_cfg.sample_rate) {
+	case SAMPLING_RATE_192KHZ:
+		sample_rate_val = 8;
+		break;
+	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 7;
+		break;
+	case SAMPLING_RATE_48KHZ:
+		sample_rate_val = 6;
+		break;
+	case SAMPLING_RATE_44P1KHZ:
+		sample_rate_val = 5;
+		break;
+	case SAMPLING_RATE_32KHZ:
+		sample_rate_val = 4;
+		break;
+	case SAMPLING_RATE_22P05KHZ:
+		sample_rate_val = 3;
+		break;
+	case SAMPLING_RATE_16KHZ:
+		sample_rate_val = 2;
+		break;
+	case SAMPLING_RATE_11P025KHZ:
+		sample_rate_val = 1;
+		break;
+	case SAMPLING_RATE_8KHZ:
+	default:
+		sample_rate_val = 0;
+		break;
+	}
+
+	ucontrol->value.integer.value[0] = sample_rate_val;
+	pr_debug("%s: usb_audio_rx_sample_rate = %d\n", __func__,
+		 usb_rx_cfg.sample_rate);
+	return 0;
+}
+
+static int usb_audio_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 8:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
+		break;
+	case 7:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 6:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	case 5:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_44P1KHZ;
+		break;
+	case 4:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case 3:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_22P05KHZ;
+		break;
+	case 2:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 1:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_11P025KHZ;
+		break;
+	case 0:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_8KHZ;
+		break;
+	default:
+		usb_rx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+
+	pr_debug("%s: control value = %ld, usb_audio_rx_sample_rate = %d\n",
+		__func__, ucontrol->value.integer.value[0],
+		usb_rx_cfg.sample_rate);
+	return 0;
+}
+
+static int usb_audio_rx_format_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	switch (usb_rx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: usb_audio_rx_format = %d, ucontrol value = %ld\n",
+		 __func__, usb_rx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int usb_audio_rx_format_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		usb_rx_cfg.bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: usb_audio_rx_format = %d, ucontrol value = %ld\n",
+		 __func__, usb_rx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+
+	return rc;
+}
+
+static int usb_audio_tx_ch_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: usb_audio_tx_ch  = %d\n", __func__,
+		 usb_tx_cfg.channels);
+	ucontrol->value.integer.value[0] = usb_tx_cfg.channels - 1;
+	return 0;
+}
+
+static int usb_audio_tx_ch_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	usb_tx_cfg.channels = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: usb_audio_tx_ch = %d\n", __func__, usb_tx_cfg.channels);
+	return 1;
+}
+
+static int usb_audio_tx_sample_rate_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int sample_rate_val;
+
+	switch (usb_tx_cfg.sample_rate) {
+	case SAMPLING_RATE_192KHZ:
+		sample_rate_val = 8;
+		break;
+	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 7;
+		break;
+	case SAMPLING_RATE_48KHZ:
+		sample_rate_val = 6;
+		break;
+	case SAMPLING_RATE_44P1KHZ:
+		sample_rate_val = 5;
+		break;
+	case SAMPLING_RATE_32KHZ:
+		sample_rate_val = 4;
+		break;
+	case SAMPLING_RATE_22P05KHZ:
+		sample_rate_val = 3;
+		break;
+	case SAMPLING_RATE_16KHZ:
+		sample_rate_val = 2;
+		break;
+	case SAMPLING_RATE_11P025KHZ:
+		sample_rate_val = 1;
+		break;
+	case SAMPLING_RATE_8KHZ:
+		sample_rate_val = 0;
+		break;
+	default:
+		sample_rate_val = 6;
+		break;
+	}
+
+	ucontrol->value.integer.value[0] = sample_rate_val;
+	pr_debug("%s: usb_audio_tx_sample_rate = %d\n", __func__,
+		 usb_tx_cfg.sample_rate);
+	return 0;
+}
+
+static int usb_audio_tx_sample_rate_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 8:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_192KHZ;
+		break;
+	case 7:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 6:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	case 5:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_44P1KHZ;
+		break;
+	case 4:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case 3:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_22P05KHZ;
+		break;
+	case 2:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 1:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_11P025KHZ;
+		break;
+	case 0:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_8KHZ;
+		break;
+	default:
+		usb_tx_cfg.sample_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+
+	pr_debug("%s: control value = %ld, usb_audio_tx_sample_rate = %d\n",
+		__func__, ucontrol->value.integer.value[0],
+		usb_tx_cfg.sample_rate);
+	return 0;
+}
+
+static int usb_audio_tx_format_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	switch (usb_tx_cfg.bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: usb_audio_tx_format = %d, ucontrol value = %ld\n",
+		 __func__, usb_tx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int usb_audio_tx_format_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	int rc = 0;
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		usb_tx_cfg.bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: usb_audio_tx_format = %d, ucontrol value = %ld\n",
+		 __func__, usb_tx_cfg.bit_format,
+		 ucontrol->value.integer.value[0]);
+
+	return rc;
+}
+
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			msm_slim_rx_ch_get, msm_slim_rx_ch_put),
@@ -599,12 +916,20 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_slim_rx_ch_get, msm_slim_rx_ch_put),
 	SOC_ENUM_EXT("VI_FEED_TX Channels", vi_feed_tx_chs,
 			msm_vi_feed_tx_ch_get, msm_vi_feed_tx_ch_put),
+	SOC_ENUM_EXT("USB_AUDIO_RX Channels", usb_rx_chs,
+			usb_audio_rx_ch_get, usb_audio_rx_ch_put),
+	SOC_ENUM_EXT("USB_AUDIO_TX Channels", usb_tx_chs,
+			usb_audio_tx_ch_get, usb_audio_tx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_RX Format", slim_0_rx_format,
 			slim_rx_bit_format_get, slim_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_5_RX Format", slim_5_rx_format,
 			slim_rx_bit_format_get, slim_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_0_TX Format", slim_0_tx_format,
 			slim_tx_bit_format_get, slim_tx_bit_format_put),
+	SOC_ENUM_EXT("USB_AUDIO_RX Format", usb_rx_format,
+			usb_audio_rx_format_get, usb_audio_rx_format_put),
+	SOC_ENUM_EXT("USB_AUDIO_TX Format", usb_tx_format,
+			usb_audio_tx_format_get, usb_audio_tx_format_put),
 	SOC_ENUM_EXT("SLIM_0_RX SampleRate", slim_0_rx_sample_rate,
 			slim_rx_sample_rate_get, slim_rx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_0_TX SampleRate", slim_0_tx_sample_rate,
@@ -614,6 +939,12 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("BT_SCO SampleRate", bt_sco_sample_rate,
 			msm_bt_sco_sample_rate_get,
 			msm_bt_sco_sample_rate_put),
+	SOC_ENUM_EXT("USB_AUDIO_RX SampleRate", usb_rx_sample_rate,
+			usb_audio_rx_sample_rate_get,
+			usb_audio_rx_sample_rate_put),
+	SOC_ENUM_EXT("USB_AUDIO_TX SampleRate", usb_tx_sample_rate,
+			usb_audio_tx_sample_rate_get,
+			usb_audio_tx_sample_rate_put),
 };
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
@@ -784,6 +1115,20 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		rate->min = rate->max = slim_tx_cfg[SLIM_TX_8].sample_rate;
 		channels->min = channels->max =
 			slim_tx_cfg[SLIM_TX_8].channels;
+		break;
+
+	case MSM_BACKEND_DAI_USB_RX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				usb_rx_cfg.bit_format);
+		rate->min = rate->max = usb_rx_cfg.sample_rate;
+		channels->min = channels->max = usb_rx_cfg.channels;
+		break;
+
+	case MSM_BACKEND_DAI_USB_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				usb_tx_cfg.bit_format);
+		rate->min = rate->max = usb_tx_cfg.sample_rate;
+		channels->min = channels->max = usb_tx_cfg.channels;
 		break;
 
 	default:
@@ -2133,7 +2478,34 @@ static struct snd_soc_dai_link msm_common_be_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_VOICE2_PLAYBACK_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
-	}
+	},
+	{
+		.name = LPASS_BE_USB_AUDIO_RX,
+		.stream_name = "USB Audio Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.28672",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.be_id = MSM_BACKEND_DAI_USB_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_USB_AUDIO_TX,
+		.stream_name = "USB Audio Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.28673",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_USB_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
+	},
 };
 
 static struct snd_soc_dai_link msm_tasha_be_dai_links[] = {
