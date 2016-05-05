@@ -2125,16 +2125,13 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 				flags);
 			/* Stop UL channel */
 			result = ipa3_xdci_disconnect(ul_clnt_hdl,
-				(teth_prot == IPA_USB_RMNET ||
-				teth_prot == IPA_USB_MBIM),
+				true,
 				ipa3_usb_ctx->qmi_req_id);
 			if (result) {
 				IPA_USB_ERR("failed disconnect UL channel\n");
 				goto bad_params;
 			}
-			if (teth_prot == IPA_USB_RMNET ||
-				teth_prot == IPA_USB_MBIM)
-				ipa3_usb_ctx->qmi_req_id++;
+			ipa3_usb_ctx->qmi_req_id++;
 		} else
 			spin_unlock_irqrestore(&ipa3_usb_ctx->state_lock,
 				flags);
@@ -2363,16 +2360,13 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 
 	/* Stop UL channel & suspend DL/DPL EP */
 	result = ipa3_xdci_suspend(ul_clnt_hdl, dl_clnt_hdl,
-		(teth_prot == IPA_USB_RMNET ||
-		teth_prot == IPA_USB_MBIM),
+		true,
 		ipa3_usb_ctx->qmi_req_id, IPA3_USB_IS_TTYPE_DPL(ttype));
 	if (result) {
 		IPA_USB_ERR("failed to suspend\n");
 		goto suspend_fail;
 	}
-	if (teth_prot == IPA_USB_RMNET ||
-		teth_prot == IPA_USB_MBIM)
-		ipa3_usb_ctx->qmi_req_id++;
+	ipa3_usb_ctx->qmi_req_id++;
 
 	result = ipa3_usb_release_prod(ttype);
 	if (result) {

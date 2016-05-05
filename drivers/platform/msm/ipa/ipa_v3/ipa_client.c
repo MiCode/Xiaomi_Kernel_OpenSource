@@ -1404,7 +1404,10 @@ static int ipa3_xdci_stop_gsi_channel(u32 clnt_hdl, bool *stop_in_proc)
 		return -EFAULT;
 	}
 
-	*stop_in_proc = res;
+	if (res)
+		*stop_in_proc = true;
+	else
+		*stop_in_proc = false;
 
 	IPADBG("xDCI channel is %s (result=%d)\n",
 		res ? "STOP_IN_PROC/TimeOut" : "STOP", res);
@@ -1509,7 +1512,7 @@ static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
 	}
 	/* if still stop_in_proc or not empty, activate force clear */
 	if (should_force_clear) {
-		result = ipa3_enable_force_clear(qmi_req_id, true,
+		result = ipa3_enable_force_clear(qmi_req_id, false,
 			source_pipe_bitmask);
 		if (result)
 			goto exit;
@@ -1536,7 +1539,7 @@ static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
 
 disable_force_clear_and_exit:
 	if (should_force_clear)
-		result = ipa3_disable_force_clear(qmi_req_id);
+		ipa3_disable_force_clear(qmi_req_id);
 exit:
 	return result;
 }
