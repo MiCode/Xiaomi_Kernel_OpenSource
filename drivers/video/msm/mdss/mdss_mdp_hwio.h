@@ -818,6 +818,7 @@ enum mdss_mdp_pingpong_index {
 #define MMSS_VBIF_CLKON			0x4
 #define MMSS_VBIF_RD_LIM_CONF			0x0B0
 #define MMSS_VBIF_WR_LIM_CONF			0x0C0
+#define MMSS_VBIF_OUT_RD_LIM_CONF0		0x0D0
 
 #define MMSS_VBIF_XIN_HALT_CTRL0	0x200
 #define MMSS_VBIF_XIN_HALT_CTRL1	0x204
