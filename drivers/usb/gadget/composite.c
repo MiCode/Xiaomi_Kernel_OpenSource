@@ -1912,6 +1912,16 @@ unknown:
 				}
 				break;
 			}
+
+			if (value < 0) {
+				DBG(cdev, "%s: unhandled os desc request\n",
+						__func__);
+				DBG(cdev, "req%02x.%02x v%04x i%04x l%d\n",
+					ctrl->bRequestType, ctrl->bRequest,
+					w_value, w_index, w_length);
+				return value;
+			}
+
 			req->length = value;
 			req->context = cdev;
 			req->zero = value < w_length;
