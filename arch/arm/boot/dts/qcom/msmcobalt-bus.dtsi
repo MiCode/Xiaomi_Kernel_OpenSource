@@ -114,13 +114,9 @@
 		fab_gnoc: fab-gnoc {
 			cell-id = <MSM_BUS_FAB_GNOC>;
 			label = "fab-gnoc";
-			qcom,fab-dev;
 			qcom,virt-dev;
 			qcom,base-name = "gnoc-base";
 			qcom,bypass-qos-prg;
-			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_gcc clk_bimc_msmbus_clk>,
-				<&clock_gcc clk_bimc_msmbus_a_clk>;
 		};
 
 		fab_mnoc: fab-mnoc {
