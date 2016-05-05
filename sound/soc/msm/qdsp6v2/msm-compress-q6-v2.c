@@ -654,6 +654,10 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 			bit_width = 24;
 			sample_word_size = 32;
 			break;
+		case SNDRV_PCM_FORMAT_S24_3LE:
+			bit_width = 24;
+			sample_word_size = 24;
+			break;
 		case SNDRV_PCM_FORMAT_S16_LE:
 		default:
 			bit_width = 16;
