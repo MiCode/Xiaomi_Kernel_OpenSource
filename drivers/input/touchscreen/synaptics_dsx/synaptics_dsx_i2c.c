@@ -134,18 +134,33 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 {
 	int retval;
 	unsigned char retry;
-	unsigned char buf[length + 1];
 	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
 	struct i2c_msg msg[] = {
 		{
 			.addr = i2c->addr,
 			.flags = 0,
 			.len = length + 1,
-			.buf = buf,
 		}
 	};
 
 	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
+	/*
+	 * Reassign memory for write_buf in case length is greater than 32 bytes
+	 */
+	if (rmi4_data->write_buf_len < length + 1) {
+		devm_kfree(rmi4_data->pdev->dev.parent, rmi4_data->write_buf);
+		rmi4_data->write_buf = devm_kzalloc(rmi4_data->pdev->dev.parent,
+					length + 1, GFP_KERNEL);
+		if (!rmi4_data->write_buf) {
+			rmi4_data->write_buf_len = 0;
+			retval = -ENOMEM;
+			goto exit;
+		}
+		rmi4_data->write_buf_len = length + 1;
+	}
+
+	/* Assign the write_buf of driver stucture to i2c_msg buf */
+	msg[0].buf = rmi4_data->write_buf;
 
 	retval = synaptics_rmi4_i2c_set_page(rmi4_data, addr);
 	if (retval != PAGE_SELECT_LEN) {
@@ -153,8 +168,8 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 		goto exit;
 	}
 
-	buf[0] = addr & MASK_8BIT;
-	memcpy(&buf[1], &data[0], length);
+	rmi4_data->write_buf[0] = addr & MASK_8BIT;
+	memcpy(&rmi4_data->write_buf[1], &data[0], length);
 
 	for (retry = 0; retry < SYN_I2C_RETRY_TIMES; retry++) {
 		if (i2c_transfer(i2c->adapter, msg, 1) == 1) {
