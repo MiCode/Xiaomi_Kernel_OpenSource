@@ -3392,6 +3392,26 @@ static int mdss_mdp_cmd_reconfigure(struct mdss_mdp_ctl *ctl,
 			 */
 			mdss_mdp_cmd_dsc_reconfig(ctl);
 
+			/*
+			 * Make explicit cmd_panel_on call, when dynamic
+			 * resolution switch request comes before cont-splash
+			 * handoff, to match the ctl_stop/ctl_start done
+			 * during the reconfiguration.
+			 */
+			if (ctl->switch_with_handoff) {
+				struct mdss_mdp_cmd_ctx *ctx;
+				struct mdss_mdp_ctl *sctl;
+
+				ctx = (struct mdss_mdp_cmd_ctx *)
+					ctl->intf_ctx[MASTER_CTX];
+				if (ctx &&
+				     __mdss_mdp_cmd_is_panel_power_off(ctx)) {
+					sctl = mdss_mdp_get_split_ctl(ctl);
+					mdss_mdp_cmd_panel_on(ctl, sctl);
+				}
+				ctl->switch_with_handoff = false;
+			}
+
 			mdss_mdp_ctl_stop(ctl, MDSS_PANEL_POWER_OFF);
 			mdss_mdp_ctl_intf_event(ctl,
 				MDSS_EVENT_DSI_DYNAMIC_SWITCH,
