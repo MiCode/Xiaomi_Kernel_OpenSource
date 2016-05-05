@@ -1095,7 +1095,7 @@ static void update_cpu_freq(int cpu, enum freq_limits changed)
 		 */
 		if (lmh_dcvs_available) {
 			msm_lmh_dcvs_update(cpu);
-			if (changed | FREQ_LIMIT_MIN)
+			if (changed & FREQ_LIMIT_MIN)
 				cpufreq_update_policy(cpu);
 		} else {
 			cpufreq_update_policy(cpu);
