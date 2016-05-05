@@ -180,7 +180,8 @@ int vote(struct votable *votable, int client_id, bool state, int val)
 		if (effective_result != votable->effective_result) {
 			votable->effective_client_id = client_id;
 			votable->effective_result = effective_result;
-			rc = votable->callback(votable->dev,
+			if (votable->callback)
+				rc = votable->callback(votable->dev,
 						effective_result, client_id,
 						state, client_id);
 		}
@@ -203,7 +204,8 @@ int vote(struct votable *votable, int client_id, bool state, int val)
 		votable->effective_result = effective_result;
 		pr_debug("%s: effective vote is now %d voted by %d\n",
 				votable->name, effective_result, effective_id);
-		rc = votable->callback(votable->dev, effective_result,
+		if (votable->callback)
+			rc = votable->callback(votable->dev, effective_result,
 					effective_id, val, client_id);
 	}
 
@@ -225,11 +227,6 @@ struct votable *create_votable(struct device *dev, const char *name,
 {
 	int i;
 	struct votable *votable;
-
-	if (!callback) {
-		dev_err(dev, "Invalid callback specified for voter\n");
-		return ERR_PTR(-EINVAL);
-	}
 
 	if (votable_type >= NUM_VOTABLE_TYPES) {
 		dev_err(dev, "Invalid votable_type specified for voter\n");
