@@ -5433,6 +5433,7 @@ static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 	int ret = 0;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_panel_data *pdata;
 	struct mdss_mdp_ctl *sctl;
 
@@ -5465,6 +5466,13 @@ static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 		 * destroying current ctrl sturcture.
 		 */
 		mdss_mdp_ctl_reconfig(ctl, pdata);
+
+		/*
+		 * Set flag when dynamic resolution switch happens before
+		 * handoff of cont-splash
+		 */
+		if (mdata->handoff_pending)
+			ctl->switch_with_handoff = true;
 
 		sctl = mdss_mdp_get_split_ctl(ctl);
 		if (sctl) {
