@@ -1703,7 +1703,7 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 	struct mdss_data_type *mdata;
 	char __iomem *offset, *lut_offset;
 	struct mdss_mdp_format_params *fmt;
-	uint32_t op_mode;
+	uint32_t op_mode = 0;
 	uint32_t phase_init, preload, src_y_rgb, src_uv, dst;
 
 	mdata = mdss_mdp_get_mdata();
@@ -1738,8 +1738,6 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 	}
 
 	pr_debug("scaler->enable=%d", scaler->enable);
-	op_mode = readl_relaxed(MDSS_MDP_REG_SCALER_OP_MODE +
-			offset);
 
 	if (scaler->enable) {
 		op_mode |= SCALER_EN;
@@ -1768,7 +1766,7 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 			SCALER_BLEND_CFG;
 
 		op_mode |= (scaler->enable & ENABLE_DIRECTION_DETECTION) ?
-			 (1 << SCALER_DIR_EN) : 0;
+			SCALER_DIR_EN : 0;
 		phase_init =
 			((scaler->init_phase_x[0] & PHASE_BITS)
 			 << Y_PHASE_INIT_H) |
