@@ -742,11 +742,27 @@ static int qpnp_lpg_configure_pattern(struct qpnp_pwm_chip *chip)
 		QPNP_LPG_PATTERN_CONFIG), 1, chip);
 }
 
+static int qpnp_lpg_glitch_removal(struct qpnp_pwm_chip *chip, bool enable)
+{
+	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
+	u8 value, mask;
+
+	qpnp_set_pwm_type_config(&value, enable ? 1 : 0, 0, 0, 0);
+
+	mask = QPNP_EN_GLITCH_REMOVAL_MASK | QPNP_EN_FULL_SCALE_MASK |
+			QPNP_EN_PHASE_STAGGER_MASK | QPNP_PHASE_STAGGER_MASK;
+
+	pr_debug("pwm_type_config: %d\n", value);
+	return qpnp_lpg_save_and_write(value, mask,
+		&chip->qpnp_lpg_registers[QPNP_LPG_PWM_TYPE_CONFIG],
+		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+		QPNP_LPG_PWM_TYPE_CONFIG), 1, chip);
+}
+
 static int qpnp_lpg_configure_pwm(struct qpnp_pwm_chip *chip)
 {
 	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
-	int			rc;
-	u8			value, mask;
+	int rc;
 
 	pr_debug("pwm_size_clk: %d\n",
 		chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]);
@@ -766,16 +782,13 @@ static int qpnp_lpg_configure_pwm(struct qpnp_pwm_chip *chip)
 	if (rc)
 		return rc;
 
-	qpnp_set_pwm_type_config(&value, 1, 0, 0, 0);
-
-	mask = QPNP_EN_GLITCH_REMOVAL_MASK | QPNP_EN_FULL_SCALE_MASK |
-			QPNP_EN_PHASE_STAGGER_MASK | QPNP_PHASE_STAGGER_MASK;
-
-	pr_debug("pwm_type_config: %d\n", value);
-	return qpnp_lpg_save_and_write(value, mask,
-		&chip->qpnp_lpg_registers[QPNP_LPG_PWM_TYPE_CONFIG],
-		SPMI_LPG_REG_ADDR(lpg_config->base_addr,
-		QPNP_LPG_PWM_TYPE_CONFIG), 1, chip);
+	/* Disable glitch removal when LPG/PWM is configured */
+	rc = qpnp_lpg_glitch_removal(chip, false);
+	if (rc) {
+		pr_err("Error in disabling glitch control, rc=%d\n", rc);
+		return rc;
+	}
+	return rc;
 }
 
 static int qpnp_configure_pwm_control(struct qpnp_pwm_chip *chip)
@@ -1202,8 +1215,20 @@ static int _pwm_config(struct qpnp_pwm_chip *chip,
 	if (rc)
 		goto out;
 
-	if (!rc && chip->enabled)
+	if (!rc && chip->enabled) {
 		rc = qpnp_lpg_configure_pwm_state(chip, QPNP_PWM_ENABLE);
+		if (rc) {
+			pr_err("Error in configuring pwm state, rc=%d\n", rc);
+			return rc;
+		}
+
+		/* Enable the glitch removal after PWM is enabled */
+		rc = qpnp_lpg_glitch_removal(chip, true);
+		if (rc) {
+			pr_err("Error in enabling glitch control, rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	pr_debug("duty/period=%u/%u %s: pwm_value=%d (of %d)\n",
 		 (unsigned)duty_value, (unsigned)period_value,
