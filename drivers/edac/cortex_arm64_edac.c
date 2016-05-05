@@ -267,8 +267,10 @@ static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 	if (A53_CPUMERRSR_FATAL(cpumerrsr))
 		ed->err = DBE;
 
-	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A53 CPU%d L1 %s Error detected\n",
-					 smp_processor_id(), err_name[ed->err]);
+	edac_printk(KERN_CRIT, EDAC_CPU,
+			"Kryo2xx Silver CPU%d L1 %s Error detected\n",
+			smp_processor_id(), err_name[ed->err]);
+
 	ca53_ca57_print_error_state_regs();
 	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
@@ -338,8 +340,8 @@ static void ca53_parse_l2merrsr(struct erp_local_data *ed)
 	if (A53_L2MERRSR_FATAL(l2merrsr))
 		ed->err = DBE;
 
-	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA53 L2 %s Error detected\n",
-							err_name[ed->err]);
+	edac_printk(KERN_CRIT, EDAC_CPU, "Kyro2xx Silver L2 %s Error detected\n",
+			err_name[ed->err]);
 	ca53_ca57_print_error_state_regs();
 	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");

@@ -61,6 +61,7 @@
 				 &cam_actuator_vaf_suspend>;
 		pinctrl-1 = <&cam_actuator_vaf_active
 				 &cam_actuator_vaf_suspend>;
+		status = "disabled";
 	};
 
 	eeprom0: qcom,eeprom@0 {
@@ -118,9 +119,9 @@
 		qcom,cam-vreg-op-mode = <0 80000 105000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk2_active
+		pinctrl-0 = <&cam_sensor_mclk1_active
 				 &cam_sensor_front_active>;
-		pinctrl-1 = <&cam_sensor_mclk2_suspend
+		pinctrl-1 = <&cam_sensor_mclk1_suspend
 				 &cam_sensor_front_suspend>;
 		gpios = <&tlmm 14 0>,
 			<&tlmm 28 0>,
@@ -139,8 +140,8 @@
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <1>;
 		status = "ok";
-		clocks = <&clock_mmss clk_mclk2_clk_src>,
-			<&clock_mmss clk_mmss_camss_mclk2_clk>;
+		clocks = <&clock_mmss clk_mclk1_clk_src>,
+			<&clock_mmss clk_mmss_camss_mclk1_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 		qcom,clock-rates = <24000000 0>;
 	};
@@ -207,9 +208,9 @@
 		qcom,cam-vreg-op-mode = <0 0 80000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk1_active
+		pinctrl-0 = <&cam_sensor_mclk2_active
 				 &cam_sensor_rear2_active>;
-		pinctrl-1 = <&cam_sensor_mclk1_suspend
+		pinctrl-1 = <&cam_sensor_mclk2_suspend
 				 &cam_sensor_rear2_suspend>;
 		gpios = <&tlmm 15 0>,
 			<&tlmm 9 0>,
@@ -225,8 +226,8 @@
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
-		clocks = <&clock_mmss clk_mclk1_clk_src>,
-			<&clock_mmss clk_mmss_camss_mclk1_clk>;
+		clocks = <&clock_mmss clk_mclk2_clk_src>,
+			<&clock_mmss clk_mmss_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 		qcom,clock-rates = <24000000 0>;
 	};
@@ -251,9 +252,9 @@
 		qcom,cam-vreg-op-mode = <0 80000 105000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk2_active
+		pinctrl-0 = <&cam_sensor_mclk1_active
 				 &cam_sensor_front_active>;
-		pinctrl-1 = <&cam_sensor_mclk2_suspend
+		pinctrl-1 = <&cam_sensor_mclk1_suspend
 				 &cam_sensor_front_suspend>;
 		gpios = <&tlmm 14 0>,
 			<&tlmm 28 0>,
@@ -272,8 +273,8 @@
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <1>;
 		status = "ok";
-		clocks = <&clock_mmss clk_mclk2_clk_src>,
-			<&clock_mmss clk_mmss_camss_mclk2_clk>;
+		clocks = <&clock_mmss clk_mclk1_clk_src>,
+			<&clock_mmss clk_mmss_camss_mclk1_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 		qcom,clock-rates = <24000000 0>;
 	};

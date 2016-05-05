@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,9 @@
 #define TRACE_INCLUDE_FILE adreno_trace
 
 #include <linux/tracepoint.h>
+#include "adreno_a3xx.h"
+#include "adreno_a4xx.h"
+#include "adreno_a5xx.h"
 
 TRACE_EVENT(adreno_cmdbatch_queued,
 	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, unsigned int queued),
@@ -364,38 +367,7 @@ TRACE_EVENT(kgsl_a3xx_irq_status,
 		"d_name=%s status=%s",
 		__get_str(device_name),
 		__entry->status ? __print_flags(__entry->status, "|",
-			{ 1 << A3XX_INT_RBBM_GPU_IDLE, "RBBM_GPU_IDLE" },
-			{ 1 << A3XX_INT_RBBM_AHB_ERROR, "RBBM_AHB_ERR" },
-			{ 1 << A3XX_INT_RBBM_REG_TIMEOUT, "RBBM_REG_TIMEOUT" },
-			{ 1 << A3XX_INT_RBBM_ME_MS_TIMEOUT,
-				"RBBM_ME_MS_TIMEOUT" },
-			{ 1 << A3XX_INT_RBBM_PFP_MS_TIMEOUT,
-				"RBBM_PFP_MS_TIMEOUT" },
-			{ 1 << A3XX_INT_RBBM_ATB_BUS_OVERFLOW,
-				"RBBM_ATB_BUS_OVERFLOW" },
-			{ 1 << A3XX_INT_VFD_ERROR, "RBBM_VFD_ERROR" },
-			{ 1 << A3XX_INT_CP_SW_INT, "CP_SW" },
-			{ 1 << A3XX_INT_CP_T0_PACKET_IN_IB,
-				"CP_T0_PACKET_IN_IB" },
-			{ 1 << A3XX_INT_CP_OPCODE_ERROR, "CP_OPCODE_ERROR" },
-			{ 1 << A3XX_INT_CP_RESERVED_BIT_ERROR,
-				"CP_RESERVED_BIT_ERROR" },
-			{ 1 << A3XX_INT_CP_HW_FAULT, "CP_HW_FAULT" },
-			{ 1 << A3XX_INT_CP_DMA, "CP_DMA" },
-			{ 1 << A3XX_INT_CP_IB2_INT, "CP_IB2_INT" },
-			{ 1 << A3XX_INT_CP_IB1_INT, "CP_IB1_INT" },
-			{ 1 << A3XX_INT_CP_RB_INT, "CP_RB_INT" },
-			{ 1 << A3XX_INT_CP_REG_PROTECT_FAULT,
-				"CP_REG_PROTECT_FAULT" },
-			{ 1 << A3XX_INT_CP_RB_DONE_TS, "CP_RB_DONE_TS" },
-			{ 1 << A3XX_INT_CP_VS_DONE_TS, "CP_VS_DONE_TS" },
-			{ 1 << A3XX_INT_CP_PS_DONE_TS, "CP_PS_DONE_TS" },
-			{ 1 << A3XX_INT_CACHE_FLUSH_TS, "CACHE_FLUSH_TS" },
-			{ 1 << A3XX_INT_CP_AHB_ERROR_HALT,
-				"CP_AHB_ERROR_HALT" },
-			{ 1 << A3XX_INT_MISC_HANG_DETECT, "MISC_HANG_DETECT" },
-			{ 1 << A3XX_INT_UCHE_OOB_ACCESS, "UCHE_OOB_ACCESS" })
-		: "None"
+			A3XX_IRQ_FLAGS) : "None"
 	)
 );
 
@@ -422,49 +394,34 @@ TRACE_EVENT(kgsl_a4xx_irq_status,
 		"d_name=%s status=%s",
 		__get_str(device_name),
 		__entry->status ? __print_flags(__entry->status, "|",
-			{ 1 << A4XX_INT_RBBM_GPU_IDLE, "RBBM_GPU_IDLE" },
-			{ 1 << A4XX_INT_RBBM_AHB_ERROR, "RBBM_AHB_ERR" },
-			{ 1 << A4XX_INT_RBBM_REG_TIMEOUT, "RBBM_REG_TIMEOUT" },
-			{ 1 << A4XX_INT_RBBM_ME_MS_TIMEOUT,
-				"RBBM_ME_MS_TIMEOUT" },
-			{ 1 << A4XX_INT_RBBM_PFP_MS_TIMEOUT,
-				"RBBM_PFP_MS_TIMEOUT" },
-			{ 1 << A4XX_INT_RBBM_ETS_MS_TIMEOUT,
-				"RBBM_ETS_MS_TIMEOUT" },
-			{ 1 << A4XX_INT_RBBM_ASYNC_OVERFLOW,
-				"RBBM_ASYNC_OVERFLOW" },
-			{ 1 << A4XX_INT_RBBM_GPC_ERR,
-				"RBBM_GPC_ERR" },
-			{ 1 << A4XX_INT_CP_SW, "CP_SW" },
-			{ 1 << A4XX_INT_CP_OPCODE_ERROR, "CP_OPCODE_ERROR" },
-			{ 1 << A4XX_INT_CP_RESERVED_BIT_ERROR,
-				"CP_RESERVED_BIT_ERROR" },
-			{ 1 << A4XX_INT_CP_HW_FAULT, "CP_HW_FAULT" },
-			{ 1 << A4XX_INT_CP_DMA, "CP_DMA" },
-			{ 1 << A4XX_INT_CP_IB2_INT, "CP_IB2_INT" },
-			{ 1 << A4XX_INT_CP_IB1_INT, "CP_IB1_INT" },
-			{ 1 << A4XX_INT_CP_RB_INT, "CP_RB_INT" },
-			{ 1 << A4XX_INT_CP_REG_PROTECT_FAULT,
-				"CP_REG_PROTECT_FAULT" },
-			{ 1 << A4XX_INT_CP_RB_DONE_TS, "CP_RB_DONE_TS" },
-			{ 1 << A4XX_INT_CP_VS_DONE_TS, "CP_VS_DONE_TS" },
-			{ 1 << A4XX_INT_CP_PS_DONE_TS, "CP_PS_DONE_TS" },
-			{ 1 << A4XX_INT_CACHE_FLUSH_TS, "CACHE_FLUSH_TS" },
-			{ 1 << A4XX_INT_CP_AHB_ERROR_HALT,
-				"CP_AHB_ERROR_HALT" },
-			{ 1 << A4XX_INT_RBBM_ATB_BUS_OVERFLOW,
-				"RBBM_ATB_BUS_OVERFLOW" },
-			{ 1 << A4XX_INT_MISC_HANG_DETECT, "MISC_HANG_DETECT" },
-			{ 1 << A4XX_INT_UCHE_OOB_ACCESS, "UCHE_OOB_ACCESS" },
-			{ 1 << A4XX_INT_RBBM_DPM_CALC_ERR,
-				"RBBM_DPM_CALC_ERR" },
-			{ 1 << A4XX_INT_RBBM_DPM_EPOCH_ERR,
-				"RBBM_DPM_CALC_ERR" },
-			{ 1 << A4XX_INT_RBBM_DPM_THERMAL_YELLOW_ERR,
-				"RBBM_DPM_THERMAL_YELLOW_ERR" },
-			{ 1 << A4XX_INT_RBBM_DPM_THERMAL_RED_ERR,
-				"RBBM_DPM_THERMAL_RED_ERR" })
-		: "None"
+			A4XX_IRQ_FLAGS) : "None"
+	)
+);
+
+/*
+ * Tracepoint for a5xx irq. Includes status info
+ */
+TRACE_EVENT(kgsl_a5xx_irq_status,
+
+	TP_PROTO(struct adreno_device *adreno_dev, unsigned int status),
+
+	TP_ARGS(adreno_dev, status),
+
+	TP_STRUCT__entry(
+		__string(device_name, adreno_dev->dev.name)
+		__field(unsigned int, status)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, adreno_dev->dev.name);
+		__entry->status = status;
+	),
+
+	TP_printk(
+		"d_name=%s status=%s",
+		__get_str(device_name),
+		__entry->status ? __print_flags(__entry->status, "|",
+			A5XX_IRQ_FLAGS) : "None"
 	)
 );
 
@@ -598,86 +555,6 @@ TRACE_EVENT(adreno_rb_starve,
 	TP_printk(
 		"rb %d r/w %x/%x starved", __entry->id, __entry->rptr,
 		__entry->wptr
-	)
-);
-
-/*
- * Tracepoint for a5xx irq. Includes status info
- */
-TRACE_EVENT(kgsl_a5xx_irq_status,
-
-	TP_PROTO(struct adreno_device *adreno_dev, unsigned int status),
-
-	TP_ARGS(adreno_dev, status),
-
-	TP_STRUCT__entry(
-		__string(device_name, adreno_dev->dev.name)
-		__field(unsigned int, status)
-	),
-
-	TP_fast_assign(
-		__assign_str(device_name, adreno_dev->dev.name);
-		__entry->status = status;
-	),
-
-	TP_printk(
-		"d_name=%s status=%s",
-		__get_str(device_name),
-		__entry->status ? __print_flags(__entry->status, "|",
-			{ 1 << A5XX_INT_RBBM_GPU_IDLE, "RBBM_GPU_IDLE" },
-			{ 1 << A5XX_INT_RBBM_AHB_ERROR, "RBBM_AHB_ERR" },
-			{ 1 << A5XX_INT_RBBM_TRANSFER_TIMEOUT,
-				"RBBM_TRANSFER_TIMEOUT" },
-			{ 1 << A5XX_INT_RBBM_ME_MS_TIMEOUT,
-				"RBBM_ME_MS_TIMEOUT" },
-			{ 1 << A5XX_INT_RBBM_PFP_MS_TIMEOUT,
-				"RBBM_PFP_MS_TIMEOUT" },
-			{ 1 << A5XX_INT_RBBM_ETS_MS_TIMEOUT,
-				"RBBM_ETS_MS_TIMEOUT" },
-			{ 1 << A5XX_INT_RBBM_ATB_ASYNC_OVERFLOW,
-				"RBBM_ATB_ASYNC_OVERFLOW" },
-			{ 1 << A5XX_INT_RBBM_GPC_ERROR,
-				"RBBM_GPC_ERR" },
-			{ 1 << A5XX_INT_CP_SW, "CP_SW" },
-			{ 1 << A5XX_INT_CP_HW_ERROR, "CP_OPCODE_ERROR" },
-			{ 1 << A5XX_INT_CP_CCU_FLUSH_DEPTH_TS,
-				"CP_CCU_FLUSH_DEPTH_TS" },
-			{ 1 << A5XX_INT_CP_CCU_FLUSH_COLOR_TS,
-				"CP_CCU_FLUSH_COLOR_TS" },
-			{ 1 << A5XX_INT_CP_CCU_RESOLVE_TS,
-				"CP_CCU_RESOLVE_TS" },
-			{ 1 << A5XX_INT_CP_IB2, "CP_IB2_INT" },
-			{ 1 << A5XX_INT_CP_IB1, "CP_IB1_INT" },
-			{ 1 << A5XX_INT_CP_RB, "CP_RB_INT" },
-			{ 1 << A5XX_INT_CP_UNUSED_1, "CP_UNUSED_1" },
-			{ 1 << A5XX_INT_CP_RB_DONE_TS, "CP_RB_DONE_TS" },
-			{ 1 << A5XX_INT_CP_WT_DONE_TS, "CP_WT_DONE_TS" },
-			{ 1 << A5XX_INT_UNKNOWN_1, "UNKNOWN_1" },
-			{ 1 << A5XX_INT_CP_CACHE_FLUSH_TS,
-				"CP_CACHE_FLUSH_TS" },
-			{ 1 << A5XX_INT_UNUSED_2,
-				"UNUSED_2" },
-			{ 1 << A5XX_INT_RBBM_ATB_BUS_OVERFLOW,
-				"RBBM_ATB_BUS_OVERFLOW" },
-			{ 1 << A5XX_INT_MISC_HANG_DETECT,
-				"MISC_HANG_DETECT" },
-			{ 1 << A5XX_INT_UCHE_OOB_ACCESS,
-				"UCHE_OOB_ACCESS" },
-			{ 1 << A5XX_INT_UCHE_TRAP_INTR,
-				"UCHE_TRAP_INTR" },
-			{ 1 << A5XX_INT_DEBBUS_INTR_0,
-				"DEBBUS_INTR_0" },
-			{ 1 << A5XX_INT_DEBBUS_INTR_1,
-				"DEBBUS_INTR_1" },
-			{ 1 << A5XX_INT_GPMU_VOLTAGE_DROOP,
-				"GPMU_VOLTAGE_DROOP" },
-			{ 1 << A5XX_INT_GPMU_FIRMWARE,
-				"GPMU_FIRMWARE" },
-			{ 1 << A5XX_INT_ISDB_CPU_IRQ,
-				"ISDB_CPU_IRQ" },
-			{ 1 << A5XX_INT_ISDB_UNDER_DEBUG,
-				"ISDB_UNDER_DEBUG" })
-		: "None"
 	)
 );
 

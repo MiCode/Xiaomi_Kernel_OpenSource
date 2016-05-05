@@ -105,7 +105,6 @@ struct adreno_ringbuffer_pagetable_info {
 struct adreno_ringbuffer {
 	uint32_t flags;
 	struct kgsl_memdesc buffer_desc;
-	unsigned int sizedwords;
 	unsigned int wptr;
 	unsigned int rptr;
 	unsigned int last_wptr;
@@ -124,16 +123,6 @@ struct adreno_ringbuffer {
 	unsigned long sched_timer;
 	enum adreno_dispatcher_starve_timer_states starve_timer_state;
 };
-
-/* enable timestamp (...scratch0) memory shadowing */
-#define GSL_RB_MEMPTRS_SCRATCH_MASK 0x1
-
-/*
- * protected mode error checking below register address 0x800
- * note: if CP_INTERRUPT packet is used then checking needs
- * to change to below register address 0x7C8
- */
-#define GSL_RB_PROTECTED_MODE_CONTROL		0x200001F2
 
 /* Returns the current ringbuffer */
 #define ADRENO_CURRENT_RINGBUFFER(a)	((a)->cur_rb)

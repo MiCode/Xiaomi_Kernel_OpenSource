@@ -109,7 +109,8 @@ KBSS specific properties:
 	Usage:      optional
 	Value type: <u32>
 		    The time in nanoseconds that the CPR controller must delay
-		    to allow voltage settling after a corner change.
+		    to allow voltage settling per 1 mV of voltage change after a
+		    corner change.
 
 - qcom,cpr-hw-closed-loop
 	Usage:      optional

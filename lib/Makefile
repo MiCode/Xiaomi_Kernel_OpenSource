@@ -22,8 +22,7 @@ lib-$(CONFIG_SMP) += cpumask.o
 lib-y	+= kobject.o klist.o
 obj-y	+= lockref.o
 
-KASAN_SANITIZE_find_next_bit.o := n
-KASAN_SANITIZE_find_last_bit.o := n
+KASAN_SANITIZE_find_bit.o := n
 
 obj-y += bcd.o div64.o sort.o parser.o halfmd4.o debug_locks.o random32.o \
 	 bust_spinlocks.o kasprintf.o bitmap.o scatterlist.o \

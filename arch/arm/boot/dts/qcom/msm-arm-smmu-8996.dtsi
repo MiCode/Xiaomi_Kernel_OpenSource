@@ -251,3 +251,16 @@
 		"gcc_mmss_bimc_gfx_clk", "gcc_bimc_gfx_clk";
 	#clock-cells = <1>;
 };
+
+&soc {
+	iommu_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * 42 shouldn't be used by anyone on the cpp_fd_smmu.  We just
+		 * need _something_ here to get this node recognized by the
+		 * SMMU driver. Our test uses ATOS, which doesn't use SIDs
+		 * anyways, so using a dummy value is ok.
+		 */
+		iommus = <&cpp_fd_smmu 42>;
+	};
+};

@@ -497,7 +497,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 			}
 		} else {
 			tx_pkt->mem.base = desc[i].frag;
-			tx_pkt->mem.size = skb_frag_size(desc[i].frag);
+			tx_pkt->mem.size = desc[i].len;
 
 			if (!desc[i].dma_address_valid) {
 				tx_pkt->mem.phys_base =
@@ -814,6 +814,11 @@ static int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
 static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 {
 	int ret;
+
+	if (!sys->ep || !sys->ep->valid) {
+		IPAERR("EP Not Valid, no need to cleanup.\n");
+		return;
+	}
 
 	if (!atomic_read(&sys->curr_polling_state)) {
 		IPAERR("already in intr mode\n");
@@ -1427,8 +1432,11 @@ int ipa2_teardown_sys_pipe(u32 clnt_hdl)
 		} while (1);
 	}
 
-	if (IPA_CLIENT_IS_CONS(ep->client))
+	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
+		cancel_delayed_work_sync(&ep->sys->switch_to_intr_work);
+	}
+
 	flush_workqueue(ep->sys->wq);
 	sps_disconnect(ep->ep_hdl);
 	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
@@ -1626,6 +1634,7 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		for (f = 0; f < num_frags; f++) {
 			desc[2+f].frag = &skb_shinfo(skb)->frags[f];
 			desc[2+f].type = IPA_DATA_DESC_SKB_PAGED;
+			desc[2+f].len = skb_frag_size(desc[2+f].frag);
 		}
 
 		/* don't free skb till frag mappings are released */
@@ -1665,6 +1674,7 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			for (f = 0; f < num_frags; f++) {
 				desc[1+f].frag = &skb_shinfo(skb)->frags[f];
 				desc[1+f].type = IPA_DATA_DESC_SKB_PAGED;
+				desc[1+f].len = skb_frag_size(desc[1+f].frag);
 			}
 
 			/* don't free skb till frag mappings are released */

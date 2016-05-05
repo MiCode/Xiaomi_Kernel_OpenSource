@@ -55,9 +55,6 @@
 /* ADRENO_GPUREV - Return the GPU ID for the given adreno_device */
 #define ADRENO_GPUREV(_a) ((_a)->gpucore->gpurev)
 
-/* ADRENO_GPUREV - Return the GPU patchid for the given adreno_device */
-#define ADRENO_PATCHID(_a) ((_a)->gpucore->patchid)
-
 /*
  * ADRENO_FEATURE - return true if the specified feature is supported by the GPU
  * core
@@ -132,7 +129,6 @@
 #define KGSL_CMD_FLAGS_WFI              BIT(2)
 #define KGSL_CMD_FLAGS_PROFILE		BIT(3)
 #define KGSL_CMD_FLAGS_PWRON_FIXUP      BIT(4)
-#define KGSL_CMD_FLAGS_MEMLIST          BIT(5)
 
 /* Command identifiers */
 #define KGSL_CONTEXT_TO_MEM_IDENTIFIER	0x2EADBEEF
@@ -140,15 +136,9 @@
 #define KGSL_CMD_INTERNAL_IDENTIFIER	0x2EEDD00D
 #define KGSL_START_OF_IB_IDENTIFIER	0x2EADEABE
 #define KGSL_END_OF_IB_IDENTIFIER	0x2ABEDEAD
-#define KGSL_END_OF_FRAME_IDENTIFIER	0x2E0F2E0F
-#define KGSL_NOP_IB_IDENTIFIER	        0x20F20F20
 #define KGSL_START_OF_PROFILE_IDENTIFIER	0x2DEFADE1
 #define KGSL_END_OF_PROFILE_IDENTIFIER	0x2DEFADE2
 #define KGSL_PWRON_FIXUP_IDENTIFIER	0x2AFAFAFA
-
-#define ADRENO_ISTORE_START 0x5000 /* Istore offset */
-
-#define ADRENO_NUM_CTX_SWITCH_ALLOWED_BEFORE_DRAW	50
 
 /* One cannot wait forever for the core to idle, so set an upper limit to the
  * amount of time to wait for the core to go idle
@@ -734,11 +724,6 @@ struct adreno_gpudev {
 	void (*pre_reset)(struct adreno_device *);
 };
 
-struct log_field {
-	bool show;
-	const char *display;
-};
-
 /**
  * enum kgsl_ft_policy_bits - KGSL fault tolerance policy bits
  * @KGSL_FT_OFF: Disable fault detection (not used)
@@ -982,18 +967,6 @@ static inline int adreno_is_a540v1(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A540) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
-}
-/**
- * adreno_context_timestamp() - Return the last queued timestamp for the context
- * @k_ctxt: Pointer to the KGSL context to query
- *
- * Return the last queued context for the given context. This is used to verify
- * that incoming requests are not using an invalid (unsubmitted) timestamp
- */
-static inline int adreno_context_timestamp(struct kgsl_context *k_ctxt)
-{
-	struct adreno_context *drawctxt = ADRENO_CONTEXT(k_ctxt);
-	return drawctxt->timestamp;
 }
 
 /*

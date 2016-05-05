@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1143,6 +1143,30 @@ static inline int iommu_debug_init_tests(void) { return 0; }
 static inline void iommu_debug_destroy_tests(void) { }
 #endif
 
+/*
+ * This isn't really a "driver", we just need something in the device tree
+ * so that our tests can run without any client drivers, and our tests rely
+ * on parsing the device tree for nodes with the `iommus' property.
+ */
+static int iommu_debug_pass(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static const struct of_device_id iommu_debug_of_match[] = {
+	{ .compatible = "iommu-debug-test" },
+	{ },
+};
+
+static struct platform_driver iommu_debug_driver = {
+	.probe = iommu_debug_pass,
+	.remove = iommu_debug_pass,
+	.driver = {
+		.name = "iommu-debug",
+		.of_match_table = iommu_debug_of_match,
+	},
+};
+
 static int iommu_debug_init(void)
 {
 	if (iommu_debug_init_tracking())
@@ -1151,11 +1175,12 @@ static int iommu_debug_init(void)
 	if (iommu_debug_init_tests())
 		return -ENODEV;
 
-	return 0;
+	return platform_driver_register(&iommu_debug_driver);
 }
 
 static void iommu_debug_exit(void)
 {
+	platform_driver_unregister(&iommu_debug_driver);
 	iommu_debug_destroy_tracking();
 	iommu_debug_destroy_tests();
 }

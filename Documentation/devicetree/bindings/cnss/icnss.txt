@@ -12,6 +12,11 @@ Required properties:
   - reg-names: Names of the memory regions defined in reg entry
   - interrupts: Copy engine interrupt table
   - qcom,wlan-msa-memory: MSA memory size
+  - clocks: List of clock phandles
+  - clock-names: List of clock names corresponding to the "clocks" property
+  - iommus: SMMUs and corresponding Stream IDs needed by WLAN
+  - qcom,wlan-smmu-iova-address: I/O virtual address range as <start length>
+    format to be used for allocations associated between WLAN and SMMU
 
 Optional properties:
   - qcom,skip-qmi: Boolean property to decide whether to use QMI or not
@@ -22,6 +27,11 @@ Example:
         compatible = "qcom,icnss";
         reg = <0x0a000000 0x1000000>;
         reg-names = "membase";
+        clocks = <&clock_gcc clk_aggre2_noc_clk>;
+        clock-names = "smmu_aggre2_noc_clk";
+        iommus = <&anoc2_smmu 0x1900>,
+                 <&anoc2_smmu 0x1901>;
+        qcom,wlan-smmu-iova-address = <0 0x10000000>;
         interrupts =
 		   <0 130 0 /* CE0 */ >,
 		   <0 131 0 /* CE1 */ >,

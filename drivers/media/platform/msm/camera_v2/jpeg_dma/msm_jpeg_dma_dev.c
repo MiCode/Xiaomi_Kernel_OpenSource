@@ -1075,6 +1075,30 @@ static int msm_jpegdma_s_parm(struct file *file, void *fh,
 	return 0;
 }
 
+/*
+ * msm_fd_g_ctrl - V4l2 ioctl get control.
+ * @file: Pointer to file struct.
+ * @fh: V4l2 File handle.
+ * @sub: Pointer to v4l2_control struct need to be filled.
+ */
+static int msm_jpegdma_g_ctrl(struct file *file, void *fh,
+	struct v4l2_control *a)
+{
+	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
+
+	switch (a->id) {
+	case V4L2_CID_JPEG_DMA_MAX_DOWN_SCALE:
+		a->value = msm_jpegdma_hw_get_max_downscale(ctx->jdma_device);
+		if (a->value < 0)
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /* V4l2 ioctl handlers */
 static const struct v4l2_ioctl_ops fd_ioctl_ops = {
 	.vidioc_querycap          = msm_jpegdma_querycap,
@@ -1096,6 +1120,7 @@ static const struct v4l2_ioctl_ops fd_ioctl_ops = {
 	.vidioc_s_crop            = msm_jpegdma_s_crop,
 	.vidioc_g_parm            = msm_jpegdma_g_parm,
 	.vidioc_s_parm            = msm_jpegdma_s_parm,
+	.vidioc_g_ctrl            = msm_jpegdma_g_ctrl,
 };
 
 /*

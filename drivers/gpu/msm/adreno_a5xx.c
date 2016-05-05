@@ -1713,6 +1713,9 @@ static int isense_enable(struct adreno_device *adreno_dev)
 	unsigned int r;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
+	kgsl_regrmw(device, A5XX_GPMU_GPMU_ISENSE_CTRL, 0,
+		ISENSE_CGC_EN_DISABLE);
+
 	kgsl_regwrite(device, A5XX_GPU_CS_ENABLE_REG,
 		adreno_is_a540v1(adreno_dev) ? 7 : 6);
 	udelay(2);

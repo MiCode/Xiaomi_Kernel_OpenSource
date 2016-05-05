@@ -649,15 +649,14 @@ static int qpnpint_get_irqchip_state(struct irq_data *d,
 }
 
 static struct irq_chip pmic_arb_irqchip = {
-	.name			= "pmic_arb",
-	.irq_ack		= qpnpint_irq_ack,
-	.irq_eoi		= qpnpint_irq_ack,
-	.irq_mask		= qpnpint_irq_mask,
-	.irq_unmask		= qpnpint_irq_unmask,
-	.irq_set_type		= qpnpint_irq_set_type,
+	.name		= "pmic_arb",
+	.irq_ack	= qpnpint_irq_ack,
+	.irq_mask	= qpnpint_irq_mask,
+	.irq_unmask	= qpnpint_irq_unmask,
+	.irq_set_type	= qpnpint_irq_set_type,
 	.irq_get_irqchip_state	= qpnpint_get_irqchip_state,
-	.flags			= IRQCHIP_MASK_ON_SUSPEND
-				| IRQCHIP_SKIP_SET_WAKE,
+	.flags		= IRQCHIP_MASK_ON_SUSPEND
+			| IRQCHIP_SKIP_SET_WAKE,
 };
 
 static int qpnpint_irq_domain_dt_translate(struct irq_domain *d,
@@ -716,7 +715,7 @@ static int qpnpint_irq_domain_map(struct irq_domain *d,
 
 	dev_dbg(&pa->spmic->dev, "virq = %u, hwirq = %lu\n", virq, hwirq);
 
-	irq_set_chip_and_handler(virq, &pmic_arb_irqchip, handle_fasteoi_irq);
+	irq_set_chip_and_handler(virq, &pmic_arb_irqchip, handle_level_irq);
 	irq_set_chip_data(virq, d->host_data);
 	irq_set_noprobe(virq);
 	return 0;

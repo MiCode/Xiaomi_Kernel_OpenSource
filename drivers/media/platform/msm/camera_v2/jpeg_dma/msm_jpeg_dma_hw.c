@@ -1366,6 +1366,25 @@ int msm_jpegdma_hw_get_mem_resources(struct platform_device *pdev,
 }
 
 /*
+ * msm_jpegdma_hw_get_max_downscale - Get max downscale factor from dtsi.
+ * @dma: Pointer to dma device.
+ */
+int msm_jpegdma_hw_get_max_downscale(struct msm_jpegdma_device *dma)
+{
+	int ret;
+	int max_ds_factor;
+
+	ret = of_property_read_u32(dma->dev->of_node,
+		"qcom,max-ds-factor", &max_ds_factor);
+	if (ret < 0) {
+		dev_err(dma->dev, "cannot read qcom,max-ds-factor from dtsi\n");
+		return ret;
+	}
+	dev_dbg(dma->dev, "max_ds_factor is %d\n", max_ds_factor);
+	return max_ds_factor;
+}
+
+/*
  * msm_jpegdma_hw_get_qos - Get dma qos settings from device-tree.
  * @dma: Pointer to dma device.
  */

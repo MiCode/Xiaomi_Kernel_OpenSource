@@ -21,15 +21,42 @@
 #include "ipa_qmi_service.h"
 
 #define IPA_MHI_DRV_NAME "ipa_mhi"
+
+
 #define IPA_MHI_DBG(fmt, args...) \
-	pr_debug(IPA_MHI_DRV_NAME " %s:%d " fmt, \
-		 __func__, __LINE__, ## args)
+	do { \
+		pr_debug(IPA_MHI_DRV_NAME " %s:%d " fmt, \
+			__func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+			IPA_MHI_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_MHI_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+#define IPA_MHI_DBG_LOW(fmt, args...) \
+	do { \
+		pr_debug(IPA_MHI_DRV_NAME " %s:%d " fmt, \
+			__func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+			IPA_MHI_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+
 #define IPA_MHI_ERR(fmt, args...) \
-	pr_err(IPA_MHI_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+	do { \
+		pr_err(IPA_MHI_DRV_NAME " %s:%d " fmt, \
+			__func__, __LINE__, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf(), \
+				IPA_MHI_DRV_NAME " %s:%d " fmt, ## args); \
+		IPA_IPC_LOGGING(ipa_get_ipc_logbuf_low(), \
+				IPA_MHI_DRV_NAME " %s:%d " fmt, ## args); \
+	} while (0)
+
+
 #define IPA_MHI_FUNC_ENTRY() \
-	IPA_MHI_DBG("ENTRY\n")
+	IPA_MHI_DBG_LOW("ENTRY\n")
 #define IPA_MHI_FUNC_EXIT() \
-	IPA_MHI_DBG("EXIT\n")
+	IPA_MHI_DBG_LOW("EXIT\n")
 
 #define IPA_MHI_GSI_ER_START 10
 #define IPA_MHI_GSI_ER_END 16
@@ -756,12 +783,12 @@ static void ipa3_mhi_rm_prod_notify(void *user_data, enum ipa_rm_event event,
 
 	switch (event) {
 	case IPA_RM_RESOURCE_GRANTED:
-		IPA_MHI_DBG("IPA_RM_RESOURCE_GRANTED\n");
+		IPA_MHI_DBG_LOW("IPA_RM_RESOURCE_GRANTED\n");
 		complete_all(&ipa3_mhi_ctx->rm_prod_granted_comp);
 		break;
 
 	case IPA_RM_RESOURCE_RELEASED:
-		IPA_MHI_DBG("IPA_RM_RESOURCE_RELEASED\n");
+		IPA_MHI_DBG_LOW("IPA_RM_RESOURCE_RELEASED\n");
 		break;
 
 	default:
@@ -828,7 +855,7 @@ static int ipa3_mhi_rm_cons_request(void)
 	}
 
 	spin_unlock_irqrestore(&ipa3_mhi_ctx->state_lock, flags);
-	IPA_MHI_DBG("EXIT with %d\n", res);
+	IPA_MHI_DBG_LOW("EXIT with %d\n", res);
 	return res;
 }
 
@@ -878,7 +905,7 @@ static int ipa3_mhi_request_prod(void)
 	IPA_MHI_FUNC_ENTRY();
 
 	reinit_completion(&ipa3_mhi_ctx->rm_prod_granted_comp);
-	IPA_MHI_DBG("requesting mhi prod\n");
+	IPA_MHI_DBG_LOW("requesting mhi prod\n");
 	res = ipa_rm_request_resource(IPA_RM_RESOURCE_MHI_PROD);
 	if (res) {
 		if (res != -EINPROGRESS) {
@@ -894,7 +921,7 @@ static int ipa3_mhi_request_prod(void)
 		}
 	}
 
-	IPA_MHI_DBG("mhi prod granted\n");
+	IPA_MHI_DBG_LOW("mhi prod granted\n");
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 
@@ -1071,11 +1098,12 @@ static bool ipa3_mhi_gsi_channel_empty(struct ipa3_mhi_channel_ctx *channel)
 	IPA_MHI_FUNC_ENTRY();
 
 	if (!channel->stop_in_proc) {
-		IPA_MHI_DBG("Channel is not in STOP_IN_PROC\n");
+		IPA_MHI_DBG_LOW("Channel is not in STOP_IN_PROC\n");
 		return true;
 	}
 
-	IPA_MHI_DBG("Stopping GSI channel %ld\n", channel->ep->gsi_chan_hdl);
+	IPA_MHI_DBG_LOW("Stopping GSI channel %ld\n",
+		channel->ep->gsi_chan_hdl);
 	res = gsi_stop_channel(channel->ep->gsi_chan_hdl);
 	if (res != 0 &&
 		res != -GSI_STATUS_AGAIN &&
@@ -1087,7 +1115,7 @@ static bool ipa3_mhi_gsi_channel_empty(struct ipa3_mhi_channel_ctx *channel)
 	}
 
 	if (res == 0) {
-		IPA_MHI_DBG("GSI channel %ld STOP\n",
+		IPA_MHI_DBG_LOW("GSI channel %ld STOP\n",
 			channel->ep->gsi_chan_hdl);
 		channel->stop_in_proc = false;
 		return true;
@@ -1129,7 +1157,7 @@ static bool ipa3_mhi_wait_for_ul_empty_timeout(unsigned int msecs)
 		}
 
 		if (time_after(jiffies, jiffies_start + jiffies_timeout)) {
-			IPA_MHI_DBG("timeout waiting for UL empty\n");
+			IPA_MHI_DBG_LOW("timeout waiting for UL empty\n");
 			break;
 		}
 
@@ -1441,31 +1469,31 @@ static int ipa_mhi_start_uc_channel(struct ipa3_mhi_channel_ctx *channel,
 
 static void ipa_mhi_dump_ch_ctx(struct ipa3_mhi_channel_ctx *channel)
 {
-	IPA_MHI_DBG("ch_id %d\n", channel->id);
-	IPA_MHI_DBG("chstate 0x%x\n", channel->ch_ctx_host.chstate);
-	IPA_MHI_DBG("brstmode 0x%x\n", channel->ch_ctx_host.brstmode);
-	IPA_MHI_DBG("pollcfg 0x%x\n", channel->ch_ctx_host.pollcfg);
-	IPA_MHI_DBG("chtype 0x%x\n", channel->ch_ctx_host.chtype);
-	IPA_MHI_DBG("erindex 0x%x\n", channel->ch_ctx_host.erindex);
-	IPA_MHI_DBG("rbase 0x%llx\n", channel->ch_ctx_host.rbase);
-	IPA_MHI_DBG("rlen 0x%llx\n", channel->ch_ctx_host.rlen);
-	IPA_MHI_DBG("rp 0x%llx\n", channel->ch_ctx_host.rp);
-	IPA_MHI_DBG("wp 0x%llx\n", channel->ch_ctx_host.wp);
+	IPA_MHI_DBG_LOW("ch_id %d\n", channel->id);
+	IPA_MHI_DBG_LOW("chstate 0x%x\n", channel->ch_ctx_host.chstate);
+	IPA_MHI_DBG_LOW("brstmode 0x%x\n", channel->ch_ctx_host.brstmode);
+	IPA_MHI_DBG_LOW("pollcfg 0x%x\n", channel->ch_ctx_host.pollcfg);
+	IPA_MHI_DBG_LOW("chtype 0x%x\n", channel->ch_ctx_host.chtype);
+	IPA_MHI_DBG_LOW("erindex 0x%x\n", channel->ch_ctx_host.erindex);
+	IPA_MHI_DBG_LOW("rbase 0x%llx\n", channel->ch_ctx_host.rbase);
+	IPA_MHI_DBG_LOW("rlen 0x%llx\n", channel->ch_ctx_host.rlen);
+	IPA_MHI_DBG_LOW("rp 0x%llx\n", channel->ch_ctx_host.rp);
+	IPA_MHI_DBG_LOW("wp 0x%llx\n", channel->ch_ctx_host.wp);
 }
 
 static void ipa_mhi_dump_ev_ctx(struct ipa3_mhi_channel_ctx *channel)
 {
-	IPA_MHI_DBG("ch_id %d event id %d\n", channel->id,
+	IPA_MHI_DBG_LOW("ch_id %d event id %d\n", channel->id,
 		channel->ch_ctx_host.erindex);
 
-	IPA_MHI_DBG("intmodc 0x%x\n", channel->ev_ctx_host.intmodc);
-	IPA_MHI_DBG("intmodt 0x%x\n", channel->ev_ctx_host.intmodt);
-	IPA_MHI_DBG("ertype 0x%x\n", channel->ev_ctx_host.ertype);
-	IPA_MHI_DBG("msivec 0x%x\n", channel->ev_ctx_host.msivec);
-	IPA_MHI_DBG("rbase 0x%llx\n", channel->ev_ctx_host.rbase);
-	IPA_MHI_DBG("rlen 0x%llx\n", channel->ev_ctx_host.rlen);
-	IPA_MHI_DBG("rp 0x%llx\n", channel->ev_ctx_host.rp);
-	IPA_MHI_DBG("wp 0x%llx\n", channel->ev_ctx_host.wp);
+	IPA_MHI_DBG_LOW("intmodc 0x%x\n", channel->ev_ctx_host.intmodc);
+	IPA_MHI_DBG_LOW("intmodt 0x%x\n", channel->ev_ctx_host.intmodt);
+	IPA_MHI_DBG_LOW("ertype 0x%x\n", channel->ev_ctx_host.ertype);
+	IPA_MHI_DBG_LOW("msivec 0x%x\n", channel->ev_ctx_host.msivec);
+	IPA_MHI_DBG_LOW("rbase 0x%llx\n", channel->ev_ctx_host.rbase);
+	IPA_MHI_DBG_LOW("rlen 0x%llx\n", channel->ev_ctx_host.rlen);
+	IPA_MHI_DBG_LOW("rp 0x%llx\n", channel->ev_ctx_host.rp);
+	IPA_MHI_DBG_LOW("wp 0x%llx\n", channel->ev_ctx_host.wp);
 }
 
 static int ipa_mhi_read_ch_ctx(struct ipa3_mhi_channel_ctx *channel)
@@ -2235,7 +2263,7 @@ static int ipa3_mhi_suspend_ul_channels(void)
 		if (ipa3_mhi_ctx->ul_channels[i].state !=
 		    IPA_HW_MHI_CHANNEL_STATE_RUN)
 			continue;
-		IPA_MHI_DBG("suspending channel %d\n",
+		IPA_MHI_DBG_LOW("suspending channel %d\n",
 			ipa3_mhi_ctx->ul_channels[i].id);
 
 		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
@@ -2271,7 +2299,7 @@ static int ipa3_mhi_resume_ul_channels(bool LPTransitionRejected)
 		    IPA_HW_MHI_CHANNEL_STATE_SUSPEND)
 			continue;
 		channel = &ipa3_mhi_ctx->ul_channels[i];
-		IPA_MHI_DBG("resuming channel %d\n", channel->id);
+		IPA_MHI_DBG_LOW("resuming channel %d\n", channel->id);
 
 		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 			if (channel->brstmode_enabled &&
@@ -2324,7 +2352,7 @@ static int ipa3_mhi_stop_event_update_ul_channels(void)
 		if (ipa3_mhi_ctx->ul_channels[i].state !=
 		    IPA_HW_MHI_CHANNEL_STATE_SUSPEND)
 			continue;
-		IPA_MHI_DBG("stop update event channel %d\n",
+		IPA_MHI_DBG_LOW("stop update event channel %d\n",
 			ipa3_mhi_ctx->ul_channels[i].id);
 		res = ipa3_uc_mhi_stop_event_update_channel(
 			ipa3_mhi_ctx->ul_channels[i].index);
@@ -2351,7 +2379,7 @@ static int ipa3_mhi_suspend_dl_channels(void)
 		if (ipa3_mhi_ctx->dl_channels[i].state !=
 		    IPA_HW_MHI_CHANNEL_STATE_RUN)
 			continue;
-		IPA_MHI_DBG("suspending channel %d\n",
+		IPA_MHI_DBG_LOW("suspending channel %d\n",
 			ipa3_mhi_ctx->dl_channels[i].id);
 		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
 			res = ipa3_mhi_suspend_gsi_channel(
@@ -2386,7 +2414,7 @@ static int ipa3_mhi_resume_dl_channels(bool LPTransitionRejected)
 		    IPA_HW_MHI_CHANNEL_STATE_SUSPEND)
 			continue;
 		channel = &ipa3_mhi_ctx->dl_channels[i];
-		IPA_MHI_DBG("resuming channel %d\n", channel->id);
+		IPA_MHI_DBG_LOW("resuming channel %d\n", channel->id);
 
 		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 			if (channel->brstmode_enabled &&
@@ -2437,7 +2465,7 @@ static int ipa3_mhi_stop_event_update_dl_channels(void)
 		if (ipa3_mhi_ctx->dl_channels[i].state !=
 		    IPA_HW_MHI_CHANNEL_STATE_SUSPEND)
 			continue;
-		IPA_MHI_DBG("stop update event channel %d\n",
+		IPA_MHI_DBG_LOW("stop update event channel %d\n",
 			ipa3_mhi_ctx->dl_channels[i].id);
 		res = ipa3_uc_mhi_stop_event_update_channel(
 			ipa3_mhi_ctx->dl_channels[i].index);
@@ -2577,7 +2605,7 @@ static bool ipa3_mhi_has_open_aggr_frame(void)
 	int ipa_ep_idx;
 
 	aggr_state_active = ipahal_read_reg(IPA_STATE_AGGR_ACTIVE);
-	IPA_MHI_DBG("IPA_STATE_AGGR_ACTIVE_OFST 0x%x\n", aggr_state_active);
+	IPA_MHI_DBG_LOW("IPA_STATE_AGGR_ACTIVE_OFST 0x%x\n", aggr_state_active);
 
 	for (i = 0; i < IPA_MHI_MAX_DL_CHANNELS; i++) {
 		channel = &ipa3_mhi_ctx->dl_channels[i];
@@ -2647,7 +2675,7 @@ int ipa3_mhi_suspend(bool force)
 				return res;
 			}
 			force_clear = true;
-			IPA_MHI_DBG("force clear datapath enabled\n");
+			IPA_MHI_DBG_LOW("force clear datapath enabled\n");
 
 			empty = ipa3_mhi_wait_for_ul_empty_timeout(
 				IPA_MHI_CH_EMPTY_TIMEOUT_MSEC);
@@ -2676,7 +2704,7 @@ int ipa3_mhi_suspend(bool force)
 			BUG();
 			return res;
 		}
-		IPA_MHI_DBG("force clear datapath disabled\n");
+		IPA_MHI_DBG_LOW("force clear datapath disabled\n");
 		ipa3_mhi_ctx->qmi_req_id++;
 	}
 
@@ -2701,14 +2729,14 @@ int ipa3_mhi_suspend(bool force)
 	 */
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-	IPA_MHI_DBG("release prod\n");
+	IPA_MHI_DBG_LOW("release prod\n");
 	res = ipa3_mhi_release_prod();
 	if (res) {
 		IPA_MHI_ERR("ipa3_mhi_release_prod failed %d\n", res);
 		goto fail_release_prod;
 	}
 
-	IPA_MHI_DBG("wait for cons release\n");
+	IPA_MHI_DBG_LOW("wait for cons release\n");
 	res = ipa3_mhi_wait_for_cons_release();
 	if (res) {
 		IPA_MHI_ERR("ipa3_mhi_wait_for_cons_release failed %d\n", res);
@@ -2772,7 +2800,7 @@ fail_suspend_ul_channel:
 			IPA_MHI_ERR("failed to disable force clear\n");
 			BUG();
 		}
-		IPA_MHI_DBG("force clear datapath disabled\n");
+		IPA_MHI_DBG_LOW("force clear datapath disabled\n");
 		ipa3_mhi_ctx->qmi_req_id++;
 	}
 	return res;

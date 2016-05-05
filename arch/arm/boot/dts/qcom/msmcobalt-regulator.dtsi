@@ -599,11 +599,11 @@
 		qcom,cpr-up-down-delay-time = <3000>;
 		qcom,cpr-step-quot-init-min = <11>;
 		qcom,cpr-step-quot-init-max = <13>;
-		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-count-mode = <0>;		/* All at once */
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
-		qcom,cpr-corner-switch-delay-time = <1600>;
-		qcom,cpr-voltage-settling-time = <1600>;
+		qcom,cpr-corner-switch-delay-time = <209>;
+		qcom,cpr-voltage-settling-time = <1760>;
 
 		qcom,apm-threshold-voltage = <832000>;
 		qcom,apm-hysteresis-voltage = <32000>;
@@ -611,11 +611,14 @@
 		qcom,voltage-base = <352000>;
 		qcom,cpr-saw-use-unit-mV;
 
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <2>;
-			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-consecutive-down = <0>;
+			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <2>;
 
 			apc0_pwrcl_vreg: regulator-pwrcl {
@@ -685,11 +688,11 @@
 		qcom,cpr-up-down-delay-time = <3000>;
 		qcom,cpr-step-quot-init-min = <11>;
 		qcom,cpr-step-quot-init-max = <13>;
-		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-count-mode = <0>;		/* All at once */
 		qcom,cpr-down-error-step-limit = <1>;
 		qcom,cpr-up-error-step-limit = <1>;
-		qcom,cpr-corner-switch-delay-time = <1600>;
-		qcom,cpr-voltage-settling-time = <1600>;
+		qcom,cpr-corner-switch-delay-time = <209>;
+		qcom,cpr-voltage-settling-time = <1760>;
 
 		qcom,apm-threshold-voltage = <832000>;
 		qcom,apm-hysteresis-voltage = <32000>;
@@ -697,11 +700,14 @@
 		qcom,voltage-base = <352000>;
 		qcom,cpr-saw-use-unit-mV;
 
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
-			qcom,cpr-consecutive-down = <2>;
-			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-consecutive-down = <0>;
+			qcom,cpr-up-threshold = <2>;
 			qcom,cpr-down-threshold = <2>;
 
 			apc1_perfcl_vreg: regulator-pwrcl {
@@ -776,12 +782,14 @@
 		qcom,cpr-idle-cycles = <15>;
 		qcom,cpr-step-quot-init-min = <10>;
 		qcom,cpr-step-quot-init-max = <13>;
-		qcom,cpr-count-mode = <2>;		/* Staggered */
+		qcom,cpr-count-mode = <0>;		/* All-at-once min */
 
 		vdd-supply = <&pm8005_s1>;
 		qcom,voltage-step = <4000>;
 		mem-acc-supply = <&gfx_mem_acc_vreg>;
 		qcom,cpr-aging-ref-voltage = <1032000>;
+
+		qcom,cpr-enable;
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
@@ -842,11 +850,39 @@
 				      <2389 2287 2985 3112 2873 2904 2159 2399
 				       1580 1602 2158 3042 2780 2069    0    0>;
 
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<       0        0        0        0>,
+					<       0        0        0        0>,
+					<       0        0        0        0>,
+					<       0        0        0        0>,
+					<       0        0        0        0>,
+					<       0        0        0        0>,
+					<       0        0        0        0>,
+					<       0        0        0        0>;
+
+				qcom,cpr-closed-loop-voltage-adjustment =
+					<  150000   150000   150000   150000
+					   150000   150000>,
+					<  150000   150000   150000   150000
+					   150000   150000>,
+					<  150000   150000   150000   150000
+					   150000   150000>,
+					<  150000   150000   150000   150000
+					   150000   150000>,
+					<  150000   150000   150000   150000
+					   150000   150000>,
+					<  150000   150000   150000   150000
+					   150000   150000>,
+					<  150000   150000   150000   150000
+					   150000   150000>,
+					<  150000   150000   150000   150000
+					   150000   150000>;
+
 				qcom,cpr-floor-to-ceiling-max-range =
 				       <50000 50000 50000 50000 50000 50000>;
 
 			     qcom,cpr-fused-closed-loop-voltage-adjustment-map =
-					<1 2 2 3 3 4>;
+					<0 0 1 2 3 4>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;

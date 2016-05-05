@@ -7,7 +7,8 @@
 #include <linux/page_owner.h>
 #include "internal.h"
 
-static bool page_owner_disabled = true;
+static bool page_owner_disabled =
+	!IS_ENABLED(CONFIG_PAGE_OWNER_ENABLE_DEFAULT);
 bool page_owner_inited __read_mostly;
 
 static void init_early_allocated_pages(void);
@@ -19,6 +20,9 @@ static int early_page_owner_param(char *buf)
 
 	if (strcmp(buf, "on") == 0)
 		page_owner_disabled = false;
+
+	if (strcmp(buf, "off") == 0)
+		page_owner_disabled = true;
 
 	return 0;
 }

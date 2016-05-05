@@ -595,29 +595,13 @@ int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in,
 		break;
 	}
 
-	if (vic < 0) {
-		for (i = 0; i < HDMI_VFRMT_MAX; i++) {
-			ret = hdmi_get_supported_mode(&supported_timing,
-				ds_data, i);
-			if (ret || !supported_timing.supported)
-				continue;
-			if (timing_in->active_h != supported_timing.active_h)
-				continue;
-			if (timing_in->active_v != supported_timing.active_v)
-				continue;
-			vic = (int)supported_timing.video_format;
-			break;
-		}
-	}
-
-	if (vic < 0) {
+	if (vic < 0)
 		pr_err("timing is not supported h=%d v=%d\n",
 			timing_in->active_h, timing_in->active_v);
-	}
-
+	else
+		pr_debug("vic = %d timing = %s\n", vic,
+			msm_hdmi_mode_2string((u32)vic));
 exit:
-	pr_debug("vic = %d timing = %s\n", vic,
-		msm_hdmi_mode_2string((u32)vic));
 
 	return vic;
 } /* hdmi_get_video_id_code */
