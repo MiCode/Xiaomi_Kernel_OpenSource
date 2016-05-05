@@ -74,6 +74,7 @@
 #include "mdm9640-smp2p.dtsi"
 #include "mdm9640-ipcrouter.dtsi"
 
+#include "mdm9640-coresight.dtsi"
 #include "msm-gdsc.dtsi"
 #include "mdm9640-bus.dtsi"
 #include "mdm9640-ion.dtsi"
