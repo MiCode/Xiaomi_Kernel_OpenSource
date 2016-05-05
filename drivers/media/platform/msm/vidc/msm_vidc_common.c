@@ -1184,6 +1184,8 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 			inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
 
+	inst->seqchanged_count++;
+
 	if (inst->session_type == MSM_VIDC_DECODER)
 		msm_dcvs_init_load(inst);
 

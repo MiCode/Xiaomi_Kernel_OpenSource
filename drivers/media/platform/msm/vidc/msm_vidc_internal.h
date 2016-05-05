@@ -272,6 +272,7 @@ struct msm_vidc_inst {
 	bool in_reconfig;
 	u32 reconfig_width;
 	u32 reconfig_height;
+	u32 seqchanged_count;
 	struct dentry *debugfs_root;
 	void *priv;
 	struct msm_vidc_debug debug;
