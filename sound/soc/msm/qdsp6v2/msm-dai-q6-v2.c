@@ -1151,6 +1151,7 @@ static int msm_dai_q6_spdif_hw_params(struct snd_pcm_substream *substream,
 		dai_data->spdif_port.cfg.bit_width = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->spdif_port.cfg.bit_width = 24;
 		break;
 	default:
@@ -1368,6 +1369,7 @@ static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 		dai_data->port_config.i2s.bit_width = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->port_config.i2s.bit_width = 24;
 		break;
 	default:
@@ -1447,6 +1449,7 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 		dai_data->port_config.slim_sch.bit_width = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->port_config.slim_sch.bit_width = 24;
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
@@ -2602,7 +2605,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
 			SNDRV_PCM_RATE_192000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				   SNDRV_PCM_FMTBIT_S24_LE,
+				   SNDRV_PCM_FMTBIT_S24_LE |
+				   SNDRV_PCM_FMTBIT_S24_3LE,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
@@ -2621,7 +2625,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
 			SNDRV_PCM_RATE_192000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				   SNDRV_PCM_FMTBIT_S24_LE,
+				   SNDRV_PCM_FMTBIT_S24_LE |
+				   SNDRV_PCM_FMTBIT_S24_3LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
@@ -3086,6 +3091,7 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_substream *substream,
 		dai_data->bitwidth = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->port_config.i2s.bit_width = 24;
 		dai_data->bitwidth = 24;
 		break;
@@ -3238,7 +3244,8 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 			SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
 			SNDRV_PCM_RATE_192000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE,
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
 			.rate_min =     8000,
 			.rate_max =     192000,
 		},
@@ -5306,6 +5313,7 @@ static int msm_dai_q6_tdm_hw_params(struct snd_pcm_substream *substream,
 		dai_data->bitwidth = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 		dai_data->bitwidth = 24;
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:

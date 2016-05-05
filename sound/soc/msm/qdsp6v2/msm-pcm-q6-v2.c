@@ -65,7 +65,8 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 				SNDRV_PCM_INFO_INTERLEAVED |
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE),
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE),
 	.rates =                SNDRV_PCM_RATE_8000_48000,
 	.rate_min =             8000,
 	.rate_max =             48000,
@@ -87,7 +88,8 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 				SNDRV_PCM_INFO_INTERLEAVED |
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
 	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE),
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE),
 	.rates =                SNDRV_PCM_RATE_8000_192000,
 	.rate_min =             8000,
 	.rate_max =             192000,
@@ -310,6 +312,10 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		bits_per_sample = 24;
 		sample_word_size = 32;
 		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		bits_per_sample = 24;
+		sample_word_size = 24;
+		break;
 	case SNDRV_PCM_FORMAT_S16_LE:
 	default:
 		bits_per_sample = 16;
@@ -388,7 +394,8 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		pr_debug("%s:perf_mode=%d periods=%d\n", __func__,
 			pdata->perf_mode, runtime->periods);
 		params = &soc_prtd->dpcm[substream->stream].hw_params;
-		if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
+		if ((params_format(params) == SNDRV_PCM_FORMAT_S24_LE) ||
+			(params_format(params) == SNDRV_PCM_FORMAT_S24_3LE))
 			bits_per_sample = 24;
 
 		/* ULL mode is not supported in capture path */
@@ -450,6 +457,10 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	case SNDRV_PCM_FORMAT_S24_LE:
 		bits_per_sample = 24;
 		sample_word_size = 32;
+		break;
+	case SNDRV_PCM_FORMAT_S24_3LE:
+		bits_per_sample = 24;
+		sample_word_size = 24;
 		break;
 	case SNDRV_PCM_FORMAT_S16_LE:
 	default:
