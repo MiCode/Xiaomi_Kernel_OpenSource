@@ -2252,6 +2252,16 @@ fail:
 	return -ENOMEM;
 }
 
+static void ipa_ready_callback(void *user_data)
+{
+	struct f_gsi *gsi = user_data;
+
+	log_event_info("%s: ipa is ready\n", __func__);
+
+	gsi->d_port.ipa_ready = true;
+	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
+}
+
 static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
@@ -2489,6 +2499,29 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 	if (status)
 		goto dereg_rndis;
 
+	status = ipa_register_ipa_ready_cb(ipa_ready_callback, gsi);
+	if (!status) {
+		log_event_info("%s: ipa is not ready", __func__);
+		status = wait_event_interruptible_timeout(
+			gsi->d_port.wait_for_ipa_ready, gsi->d_port.ipa_ready,
+			msecs_to_jiffies(GSI_IPA_READY_TIMEOUT));
+		if (!status) {
+			log_event_err("%s: ipa ready timeout", __func__);
+			status = -ETIMEDOUT;
+			goto dereg_rndis;
+		}
+	}
+
+	gsi->d_port.ipa_usb_notify_cb = ipa_usb_notify_cb;
+	status = ipa_usb_init_teth_prot(gsi->prot_id,
+		&gsi->d_port.ipa_init_params, gsi->d_port.ipa_usb_notify_cb,
+		gsi);
+	if (status) {
+		log_event_err("%s: failed to init teth prot %d",
+						__func__, gsi->prot_id);
+		goto dereg_rndis;
+	}
+
 	post_event(&gsi->d_port, EVT_INITIALIZED);
 	queue_work(gsi->d_port.ipa_usb_wq, &gsi->d_port.usb_ipa_w);
 
@@ -2552,15 +2585,6 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 		gsi->d_port.in_request.dma);
 }
 
-static void ipa_ready_callback(void *user_data)
-{
-	struct f_gsi *gsi = user_data;
-
-	log_event_info("%s: ipa is ready\n", __func__);
-
-	gsi->d_port.ipa_ready = true;
-	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
-}
 
 static void gsi_free_func(struct usb_function *f)
 {
@@ -2613,28 +2637,6 @@ int gsi_bind_config(struct f_gsi *gsi)
 	gsi->function.resume = gsi_resume;
 
 	INIT_WORK(&gsi->d_port.usb_ipa_w, ipa_work_handler);
-
-	status = ipa_register_ipa_ready_cb(ipa_ready_callback, gsi);
-	if (!status) {
-		log_event_info("%s: ipa is not ready", __func__);
-		status = wait_event_interruptible_timeout(
-			gsi->d_port.wait_for_ipa_ready, gsi->d_port.ipa_ready,
-			msecs_to_jiffies(GSI_IPA_READY_TIMEOUT));
-		if (!status) {
-			log_event_err("%s: ipa ready timeout", __func__);
-			return -ETIMEDOUT;
-		}
-	}
-
-	gsi->d_port.ipa_usb_notify_cb = ipa_usb_notify_cb;
-	status = ipa_usb_init_teth_prot(prot_id,
-		&gsi->d_port.ipa_init_params, gsi->d_port.ipa_usb_notify_cb,
-		gsi);
-	if (status) {
-		log_event_err("%s: failed to init teth prot %d",
-						__func__, prot_id);
-		return status;
-	}
 
 	return status;
 }
