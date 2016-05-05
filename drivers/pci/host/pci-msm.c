@@ -4309,6 +4309,12 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	dev->suspending = false;
 	dev->link_turned_on_counter++;
 
+	if (dev->bridge_found && dev->ep_latency) {
+		PCIE_DBG(dev, "PCIe RC%d add ref clk propagation latency.\n",
+			dev->rc_idx);
+		usleep_range(dev->ep_latency * 1000, dev->ep_latency * 1000);
+	}
+
 	goto out;
 
 link_fail:
@@ -4690,6 +4696,14 @@ int msm_pcie_enumerate(u32 rc_idx)
 					dev->rc_idx, ret);
 
 				return ret;
+			}
+
+			if (dev->ep_latency) {
+				PCIE_DBG(dev,
+					"PCIe RC%d add ref clk propagation latency.\n",
+					dev->rc_idx);
+				usleep_range(dev->ep_latency * 1000,
+					dev->ep_latency * 1000);
 			}
 
 			bus = pci_create_root_bus(&dev->pdev->dev, 0,
