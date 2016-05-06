@@ -186,6 +186,9 @@
 /* PMI8937 */
 #define PMI8937_SUBTYPE		0x37
 
+/* PMI8940 */
+#define PMI8940_SUBTYPE		0x40
+
 struct pmic_revid_data {
 	u8		rev1;
 	u8		rev2;
