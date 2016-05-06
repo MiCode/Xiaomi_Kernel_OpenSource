@@ -4444,7 +4444,8 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 	struct mdss_mdp_set_ot_params *params)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	u32 res;
+	u32 res, read_vbif_ot;
+	u32 rot_ot = 4;
 
 	if (false == test_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map))
 		return;
@@ -4461,12 +4462,19 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_114:
+		/*
+		 * MDP rev is same for msm8937 and msm8940, but rotator OT
+		 * recommendations are different. Setting it based on AXI OT.
+		 */
+		read_vbif_ot = MDSS_VBIF_READ(mdata, MMSS_VBIF_OUT_RD_LIM_CONF0,
+					false);
+		rot_ot  = (read_vbif_ot == 0x10) ? 4 : 8;
 	case MDSS_MDP_HW_REV_115:
 	case MDSS_MDP_HW_REV_116:
 		if ((res <= RES_1080p) && (params->frame_rate <= 30))
 			*ot_lim = 2;
 		else if (params->is_rot && params->is_yuv)
-			*ot_lim = 4;
+			*ot_lim = rot_ot;
 		else
 			*ot_lim = 6;
 		break;

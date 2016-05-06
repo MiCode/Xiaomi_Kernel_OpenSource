@@ -115,7 +115,12 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-nand-cdp.dtb \
 	mdmcalifornium-emmc-mtp.dtb \
 	mdmcalifornium-nand-mtp.dtb \
-	mdmcalifornium-nand-dualwifi-mtp.dtb
+	mdmcalifornium-nand-dualwifi-mtp.dtb \
+	mdmcalifornium-v1.1-emmc-cdp.dtb \
+	mdmcalifornium-v1.1-nand-cdp.dtb \
+	mdmcalifornium-v1.1-emmc-mtp.dtb \
+	mdmcalifornium-v1.1-nand-mtp.dtb \
+	mdmcalifornium-v1.1-nand-dualwifi-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
@@ -156,7 +161,10 @@ dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \
 	msm8940-pmi8937-rcm.dtb \
 	msm8940-pmi8950-rcm.dtb \
 	msm8940-pmi8950-qrd-sku6.dtb \
-	msm8940-pmi8950-ext-codec-cdp.dtb
+	msm8940-pmi8950-ext-codec-cdp.dtb \
+	msm8940-pmi8940-mtp.dtb \
+	msm8940-pmi8940-cdp.dtb \
+	msm8940-pmi8940-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	msm8953-rumi.dtb \
@@ -190,7 +198,12 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009w-swoctp.dtb \
 	msm8909-pm8916-cdp.dtb \
 	msm8909w-cdp.dtb \
-	msm8909w-1gb-wtp.dtb
+	msm8909w-1gb-wtp.dtb \
+	apq8009w-1gb-wtp.dtb \
+	msm8909w-1gb-cdp.dtb \
+	apq8009w-1gb-cdp.dtb \
+	msm8909w-1gb-swoctp.dtb \
+	apq8009w-1gb-swoctp.dtb
 
 
 ifeq ($(CONFIG_ARM64),y)
