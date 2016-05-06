@@ -854,11 +854,6 @@ static int ipa_q6_clnt_svc_event_notify(struct notifier_block *this,
 			queue_delayed_work(ipa_clnt_req_workqueue,
 					   &work_svc_arrive, 0);
 		break;
-	case QMI_SERVER_EXIT:
-		if (!atomic_read(&workqueues_stopped))
-			queue_delayed_work(ipa_clnt_req_workqueue,
-					   &work_svc_exit, 0);
-		break;
 	default:
 		break;
 	}
