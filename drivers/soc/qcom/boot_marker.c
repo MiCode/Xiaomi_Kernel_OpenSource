@@ -27,8 +27,8 @@
 #include <linux/mutex.h>
 #include <soc/qcom/boot_stats.h>
 
-#define MAX_STRING_LEN 100
-#define BOOT_MARKER_MAX_LEN 20
+#define MAX_STRING_LEN 256
+#define BOOT_MARKER_MAX_LEN 21
 static struct dentry *dent_bkpi, *dent_bkpi_status;
 static struct boot_marker boot_marker_list;
 
@@ -110,13 +110,18 @@ static ssize_t bootkpi_reader(struct file *fp, char __user *user_buffer,
 static ssize_t bootkpi_writer(struct file *fp, const char __user *user_buffer,
 			size_t count, loff_t *position)
 {
+	int rc = 0;
 	char buf[MAX_STRING_LEN];
 
 	if (count > MAX_STRING_LEN)
 		return -EINVAL;
-	place_marker((char *) user_buffer);
-	return simple_write_to_buffer(buf,
-		MAX_STRING_LEN, position, user_buffer, count);
+	rc = simple_write_to_buffer(buf,
+		sizeof(buf) - 1, position, user_buffer, count);
+	if (rc < 0)
+		return rc;
+	buf[rc] = '\0';
+	place_marker(buf);
+	return rc;
 }
 
 static int bootkpi_open(struct inode *inode, struct file *file)
