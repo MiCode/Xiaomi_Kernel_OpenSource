@@ -1013,5 +1013,16 @@
 				output-low;
 			};
 		};
+		pinctrl_pps: ppsgrp {
+			mux {
+				pins = "gpio53";
+				function = "nav_tsync_out_a";
+			};
+
+			config {
+				pins = "gpio53";
+				bias-pull-down;
+			};
+		};
 	};
 };
