@@ -7709,6 +7709,11 @@ static int qseecom_probe(struct platform_device *pdev)
 		pr_debug("qseecom.appsbl_qseecom_support = 0x%x",
 				qseecom.appsbl_qseecom_support);
 
+		qseecom.commonlib64_loaded =
+				of_property_read_bool((&pdev->dev)->of_node,
+						"qcom,commonlib64-loaded-by-uefi");
+		pr_debug("qseecom.commonlib64-loaded-by-uefi = 0x%x",
+				qseecom.commonlib64_loaded);
 		qseecom.no_clock_support =
 				of_property_read_bool((&pdev->dev)->of_node,
 						"qcom,no-clock-support");
