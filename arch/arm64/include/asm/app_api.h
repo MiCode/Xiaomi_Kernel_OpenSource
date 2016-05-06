@@ -14,6 +14,8 @@
 #define __ASM_APP_API_H
 
 #include <linux/types.h>
+#include <linux/sched.h>
+#include <linux/fs.h>
 
 #define APP_SETTING_BIT		30
 #define MAX_ENTRIES		10
@@ -31,12 +33,10 @@ static inline void clear_app_setting_bit(uint32_t bit) {}
 #endif
 
 #ifdef CONFIG_MSM_APP_SETTINGS
-extern void get_lib_names(char *names[], unsigned int *cnt);
-#else
-static inline void get_lib_names(char *names[], unsigned int *cnt)
-{
-	*cnt = 0;
-}
+extern void switch_app_setting_bit(struct task_struct *prev,
+				   struct task_struct *next);
+extern void apply_app_setting_bit(struct file *file);
+extern bool use_app_setting;
 #endif
 
 #endif
