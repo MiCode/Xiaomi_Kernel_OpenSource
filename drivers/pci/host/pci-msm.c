@@ -617,6 +617,7 @@ struct msm_pcie_dev_t {
 	bool				 aux_clk_sync;
 	bool				aer_enable;
 	bool				smmu_exist;
+	uint32_t			smmu_sid_base;
 	uint32_t			   n_fts;
 	bool				 ext_ref_clk;
 	bool				common_phy;
@@ -1920,6 +1921,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->current_short_bdf);
 	PCIE_DBG_FS(dev, "smmu does %s exist\n",
 		dev->smmu_exist ? "" : "not");
+	PCIE_DBG_FS(dev, "smmu_sid_base: 0x%x\n",
+		dev->smmu_sid_base);
 	PCIE_DBG_FS(dev, "n_fts: %d\n",
 		dev->n_fts);
 	PCIE_DBG_FS(dev, "common_phy: %d\n",
@@ -4816,8 +4819,9 @@ int msm_pcie_configure_sid(struct device *dev, u32 *sid, int *domain)
 
 	for (i = 0; i < MAX_DEVICE_NUM; i++) {
 		if (pcie_dev->pcidev_table[i].bdf == bdf) {
-			*sid = (pcie_dev->rc_idx << 4) |
-				pcie_dev->current_short_bdf;
+			*sid = pcie_dev->smmu_sid_base +
+				((pcie_dev->rc_idx << 4) |
+				pcie_dev->current_short_bdf);
 
 			msm_pcie_write_reg(pcie_dev->parf,
 				PCIE20_PARF_BDF_TRANSLATE_N +
@@ -5918,6 +5922,19 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG(&msm_pcie_dev[rc_idx],
 		"SMMU does %s exist.\n",
 		msm_pcie_dev[rc_idx].smmu_exist ? "" : "not");
+
+	msm_pcie_dev[rc_idx].smmu_sid_base = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node, "qcom,smmu-sid-base",
+				&msm_pcie_dev[rc_idx].smmu_sid_base);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d SMMU sid base not found\n",
+			msm_pcie_dev[rc_idx].rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: qcom,smmu-sid-base: 0x%x.\n",
+			msm_pcie_dev[rc_idx].rc_idx,
+			msm_pcie_dev[rc_idx].smmu_sid_base);
 
 	msm_pcie_dev[rc_idx].ep_wakeirq =
 		of_property_read_bool((&pdev->dev)->of_node,

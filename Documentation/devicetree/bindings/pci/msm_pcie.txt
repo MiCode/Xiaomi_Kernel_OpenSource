@@ -89,6 +89,8 @@ Optional Properties:
     complex nodes, and is the only property needed in that case.
   - qcom,common-phy: There is a common phy for all the Root Complexes.
   - qcom,smmu-exist: PCIe uses a SMMU.
+  - qcom,smmu-sid-base: The base SMMU SID that PCIe bus driver will use to calculate
+    and assign for each endpoint.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
   - qcom,wr-halt-size: With base 2, this exponent determines the size of the
@@ -256,6 +258,7 @@ Example:
 		qcom,tlp-rd-size = <0x5>;
 		qcom,common-phy;
 		qcom,smmu-exist;
+		qcom,smmu-sid-base = <0x1480>;
 		qcom,ep-latency = <100>;
 		qcom,wr-halt-size = <0xa>; /* 1KB */
 		qcom,cpl-timeout = <0x2>;
