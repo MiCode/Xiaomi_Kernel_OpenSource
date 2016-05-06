@@ -4877,6 +4877,39 @@ static void mdss_mdp_set_lm_flag(struct msm_fb_data_type *mfd)
 	}
 }
 
+static void mdss_mdp_handle_invalid_switch_state(struct msm_fb_data_type *mfd)
+{
+	int rc = 0;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+	struct mdss_mdp_data *buf, *tmpbuf;
+
+	mfd->switch_state = MDSS_MDP_NO_UPDATE_REQUESTED;
+
+	/*
+	 * Handle only for cmd mode panels as for video mode, buffers
+	 * cannot be freed at this point. Needs revisting to handle the
+	 * use case for video mode panels.
+	 */
+	if (mfd->panel_info->type == MIPI_CMD_PANEL) {
+		if (ctl->ops.wait_pingpong)
+			rc = ctl->ops.wait_pingpong(ctl, NULL);
+		if (!rc && sctl && sctl->ops.wait_pingpong)
+			rc = sctl->ops.wait_pingpong(sctl, NULL);
+		if (rc) {
+			pr_err("wait for pp failed\n");
+			return;
+		}
+
+		mutex_lock(&mdp5_data->list_lock);
+		list_for_each_entry_safe(buf, tmpbuf,
+				&mdp5_data->bufs_used, buf_list)
+			list_move(&buf->buf_list, &mdp5_data->bufs_freelist);
+		mutex_unlock(&mdp5_data->list_lock);
+	}
+}
+
 static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 {
 	int rc;
@@ -5073,7 +5106,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		need_cleanup = false;
 		pr_warn("fb%d blank while mode switch (%d) in progress\n",
 				mfd->index, mfd->switch_state);
-		mfd->switch_state = MDSS_MDP_NO_UPDATE_REQUESTED;
+		mdss_mdp_handle_invalid_switch_state(mfd);
 	}
 	mutex_unlock(&mfd->switch_lock);
 
