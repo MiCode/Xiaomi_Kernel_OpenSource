@@ -771,24 +771,6 @@ out:
 	f2fs_trace_pid(page);
 }
 
-void add_dirty_dir_inode(struct inode *inode)
-{
-	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-	struct inode_entry *new =
-			f2fs_kmem_cache_alloc(inode_entry_slab, GFP_NOFS);
-	int ret = 0;
-
-	new->inode = inode;
-	INIT_LIST_HEAD(&new->list);
-
-	spin_lock(&sbi->dir_inode_lock);
-	ret = __add_dirty_inode(inode, new);
-	spin_unlock(&sbi->dir_inode_lock);
-
-	if (ret)
-		kmem_cache_free(inode_entry_slab, new);
-}
-
 void remove_dirty_dir_inode(struct inode *inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
@@ -811,12 +793,6 @@ void remove_dirty_dir_inode(struct inode *inode)
 	stat_dec_dirty_dir(sbi);
 	spin_unlock(&sbi->dir_inode_lock);
 	kmem_cache_free(inode_entry_slab, entry);
-
-	/* Only from the recovery routine */
-	if (is_inode_flag_set(F2FS_I(inode), FI_DELAY_IPUT)) {
-		clear_inode_flag(F2FS_I(inode), FI_DELAY_IPUT);
-		iput(inode);
-	}
 }
 
 void sync_dirty_dir_inodes(struct f2fs_sb_info *sbi)
