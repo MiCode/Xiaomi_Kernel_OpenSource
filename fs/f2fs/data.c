@@ -583,8 +583,8 @@ ssize_t f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 	struct f2fs_map_blocks map;
 	ssize_t ret = 0;
 
-	map.m_lblk = F2FS_BYTES_TO_BLK(pos);
-	map.m_len = F2FS_BLK_ALIGN(count);
+	map.m_lblk = F2FS_BLK_ALIGN(pos);
+	map.m_len = F2FS_BYTES_TO_BLK(count);
 	map.m_next_pgofs = NULL;
 
 	if (f2fs_encrypted_inode(inode))
