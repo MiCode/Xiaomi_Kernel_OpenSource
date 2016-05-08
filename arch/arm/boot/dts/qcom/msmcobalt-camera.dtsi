@@ -378,7 +378,7 @@
 			<0x24 0x10000000>,
 			<0x28 0x10000000>,
 			<0x2C 0x10000000>;
-		status = "disabled";
+		status = "ok";
 		qcom,msm-bus,name = "msm_camera_cpp";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -516,7 +516,7 @@
 		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 384000000 0
 					0 0 0 0 0 0 0 0 0 0 0 576000000 0
 					0 0 0 0 0 0 0 0 0 0 0 600000000 0>;
-		status = "disabled";
+		status = "ok";
 		qos-entries = <8>;
 		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
 			0x41c 0x420>;
@@ -596,7 +596,7 @@
 		qcom,clock-rates = <0 0 0 0 0 0 0 0 0 0 0 384000000 0
 					0 0 0 0 0 0 0 0 0 0 0 576000000 0
 					0 0 0 0 0 0 0 0 0 0 0 600000000 0>;
-		status = "disabled";
+		status = "ok";
 		qos-entries = <8>;
 		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
 			0x41c 0x420>;
@@ -717,7 +717,7 @@
 			"mmss_bimc_smmu_axi_clk",
 			"mmss_camss_ahb_clk",
 			"mmss_camss_top_ahb_clk",
-			"mmss_camss_jpeg0_clk",
+			"core_clk",
 			"mmss_camss_jpeg_ahb_clk",
 			"mmss_camss_jpeg_axi_clk";
 		clocks = <&clock_mmss clk_mmss_mnoc_maxi_clk>,
@@ -741,7 +741,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
 			<62 512 666675 666675>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	qcom,jpeg@caa0000 {
@@ -784,7 +784,7 @@
 		qcom,msm-bus,vectors-KBps = <62 512 0 0>,
 			<62 512 666675 666675>;
 		qcom,max-ds-factor = <128>;
-		status = "disabled";
+		status = "ok";
 	};
 };
 
