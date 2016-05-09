@@ -79,7 +79,7 @@ static atomic_t zcache_stored_zero_pages = ATOMIC_INIT(0);
 
 #define GFP_ZCACHE \
 	(__GFP_FS | __GFP_NORETRY | __GFP_NOWARN | \
-		__GFP_NOMEMALLOC | __GFP_NO_KSWAPD | __GFP_ZERO)
+		__GFP_NOMEMALLOC | __GFP_ZERO)
 
 /*
  * Make sure this is different from radix tree
