@@ -897,6 +897,10 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA))
 		host->flags |= SDHCI_REQ_USE_DMA;
 
+	if ((host->quirks2 & SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING) &&
+		cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200)
+		host->flags &= ~SDHCI_REQ_USE_DMA;
+
 	/*
 	 * FIXME: This doesn't account for merging when mapping the
 	 * scatterlist.
@@ -2927,8 +2931,9 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 
 	/* CMD19 generates _only_ Buffer Read Ready interrupt */
 	if (intmask & SDHCI_INT_DATA_AVAIL) {
-		if (command == MMC_SEND_TUNING_BLOCK ||
-		    command == MMC_SEND_TUNING_BLOCK_HS200) {
+		if (!(host->quirks2 & SDHCI_QUIRK2_NON_STANDARD_TUNING) &&
+			(command == MMC_SEND_TUNING_BLOCK ||
+			command == MMC_SEND_TUNING_BLOCK_HS200)) {
 			host->tuning_done = 1;
 			wake_up(&host->buf_ready_int);
 			return;
@@ -3539,6 +3544,24 @@ static int sdhci_is_adma2_64bit(struct sdhci_host *host)
 #endif
 
 #ifdef CONFIG_MMC_CQ_HCI
+static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	u8 ctrl;
+
+	if (host->version >= SDHCI_SPEC_200) {
+		ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+		ctrl &= ~SDHCI_CTRL_DMA_MASK;
+		if (host->flags & SDHCI_USE_ADMA_64BIT)
+			ctrl |= SDHCI_CTRL_ADMA64;
+		else
+			ctrl |= SDHCI_CTRL_ADMA32;
+		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
+	}
+	if (host->ops->toggle_cdr)
+		host->ops->toggle_cdr(host, false);
+}
+
 static void sdhci_cmdq_clear_set_irqs(struct mmc_host *mmc, bool clear)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -3635,6 +3658,10 @@ static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 	sdhci_writel(host, SDHCI_INT_RESPONSE, SDHCI_INT_STATUS);
 }
 #else
+static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
+{
+
+}
 static void sdhci_cmdq_clear_set_irqs(struct mmc_host *mmc, bool clear)
 {
 
@@ -3695,6 +3722,7 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.crypto_cfg	= sdhci_cmdq_crypto_cfg,
 	.crypto_cfg_reset	= sdhci_cmdq_crypto_cfg_reset,
 	.post_cqe_halt = sdhci_cmdq_post_cqe_halt,
+	.set_transfer_params = sdhci_cmdq_set_transfer_params,
 };
 
 int sdhci_add_host(struct sdhci_host *host)

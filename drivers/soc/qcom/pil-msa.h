@@ -32,6 +32,7 @@ struct modem_data {
 	struct clk *xo;
 	struct pil_desc desc;
 	struct device mba_mem_dev;
+	struct device *mba_mem_dev_fixed;
 	struct dma_attrs attrs_dma;
 };
 

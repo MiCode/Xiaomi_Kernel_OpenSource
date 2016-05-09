@@ -316,6 +316,7 @@ int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path)
 	struct modem_data *drv = dev_get_drvdata(pil->dev);
 	struct q6v5_data *q6_drv = container_of(pil, struct q6v5_data, desc);
 	int ret = 0;
+	struct device *dma_dev = drv->mba_mem_dev_fixed ?: &drv->mba_mem_dev;
 	s32 status;
 
 	if (err_path) {
@@ -342,7 +343,7 @@ int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path)
 		if (pil->subsys_vmid > 0)
 			pil_assign_mem_to_linux(pil, drv->q6->mba_dp_phys,
 						drv->q6->mba_dp_size);
-		dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_dp_size,
+		dma_free_attrs(dma_dev, drv->q6->mba_dp_size,
 				drv->q6->mba_dp_virt, drv->q6->mba_dp_phys,
 				&drv->attrs_dma);
 		drv->q6->mba_dp_virt = NULL;
@@ -533,6 +534,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	dma_addr_t mba_dp_phys, mba_dp_phys_end;
 	int ret, count;
 	const u8 *data;
+	struct device *dma_dev = md->mba_mem_dev_fixed ?: &md->mba_mem_dev;
 
 	fw_name_p = drv->non_elf_image ? fw_name_legacy : fw_name;
 	ret = request_firmware(&fw, fw_name_p, pil->dev);
@@ -550,9 +552,9 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	}
 
 	drv->mba_dp_size = SZ_1M;
-	md->mba_mem_dev.coherent_dma_mask =
-		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+	dma_dev->coherent_dma_mask = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 	init_dma_attrs(&md->attrs_dma);
+	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &md->attrs_dma);
 	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &md->attrs_dma);
 
 	ret = request_firmware(&dp_fw, dp_name, pil->dev);
@@ -569,8 +571,8 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 		drv->mba_dp_size += drv->dp_size;
 	}
 
-	mba_dp_virt = dma_alloc_attrs(&md->mba_mem_dev, drv->mba_dp_size,
-			&mba_dp_phys, GFP_KERNEL, &md->attrs_dma);
+	mba_dp_virt = dma_alloc_attrs(dma_dev, drv->mba_dp_size, &mba_dp_phys,
+				   GFP_KERNEL, &md->attrs_dma);
 	if (!mba_dp_virt) {
 		dev_err(pil->dev, "%s MBA metadata buffer allocation %zx bytes failed\n",
 				 __func__, drv->mba_dp_size);
@@ -628,7 +630,7 @@ err_mss_reset:
 		pil_assign_mem_to_linux(pil, drv->mba_dp_phys,
 							drv->mba_dp_size);
 err_mba_data:
-	dma_free_attrs(&md->mba_mem_dev, drv->mba_dp_size, drv->mba_dp_virt,
+	dma_free_attrs(dma_dev, drv->mba_dp_size, drv->mba_dp_virt,
 				drv->mba_dp_phys, &md->attrs_dma);
 err_invalid_fw:
 	if (dp_fw)
@@ -646,14 +648,16 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	dma_addr_t mdata_phys;
 	s32 status;
 	int ret;
+	struct device *dma_dev = drv->mba_mem_dev_fixed ?: &drv->mba_mem_dev;
 	DEFINE_DMA_ATTRS(attrs);
 
-	drv->mba_mem_dev.coherent_dma_mask =
-		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+
+	dma_dev->coherent_dma_mask = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
 	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &attrs);
 	/* Make metadata physically contiguous and 4K aligned. */
-	mdata_virt = dma_alloc_attrs(&drv->mba_mem_dev, size, &mdata_phys,
-					GFP_KERNEL, &attrs);
+	mdata_virt = dma_alloc_attrs(dma_dev, size, &mdata_phys, GFP_KERNEL,
+				     &attrs);
 	if (!mdata_virt) {
 		dev_err(pil->dev, "%s MBA metadata buffer allocation %zx bytes failed\n",
 			 __func__, size);
@@ -669,7 +673,7 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 							ALIGN(size, SZ_4K));
 		if (ret) {
 			pr_err("scm_call to unprotect modem metadata mem failed\n");
-			dma_free_attrs(&drv->mba_mem_dev, size, mdata_virt,
+			dma_free_attrs(dma_dev, size, mdata_virt,
 							mdata_phys, &attrs);
 			goto fail;
 		}
@@ -695,7 +699,7 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	if (pil->subsys_vmid > 0)
 		pil_assign_mem_to_linux(pil, mdata_phys, ALIGN(size, SZ_4K));
 
-	dma_free_attrs(&drv->mba_mem_dev, size, mdata_virt, mdata_phys, &attrs);
+	dma_free_attrs(dma_dev, size, mdata_virt, mdata_phys, &attrs);
 
 	if (!ret)
 		return ret;
@@ -707,7 +711,7 @@ fail:
 		if (pil->subsys_vmid > 0)
 			pil_assign_mem_to_linux(pil, drv->q6->mba_dp_phys,
 						drv->q6->mba_dp_size);
-		dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_dp_size,
+		dma_free_attrs(dma_dev, drv->q6->mba_dp_size,
 				drv->q6->mba_dp_virt, drv->q6->mba_dp_phys,
 				&drv->attrs_dma);
 		drv->q6->mba_dp_virt = NULL;
@@ -759,6 +763,7 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 	struct modem_data *drv = dev_get_drvdata(pil->dev);
 	struct q6v5_data *q6_drv = container_of(pil, struct q6v5_data, desc);
 	int ret;
+	struct device *dma_dev = drv->mba_mem_dev_fixed ?: &drv->mba_mem_dev;
 	s32 status;
 
 	/* Wait for all segments to be authenticated or an error to occur */
@@ -779,9 +784,9 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 				pil_assign_mem_to_linux(pil,
 					drv->q6->mba_dp_phys,
 					drv->q6->mba_dp_size);
-			dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_dp_size,
-					drv->q6->mba_dp_virt,
-					drv->q6->mba_dp_phys, &drv->attrs_dma);
+			dma_free_attrs(dma_dev, drv->q6->mba_dp_size,
+				drv->q6->mba_dp_virt, drv->q6->mba_dp_phys,
+				&drv->attrs_dma);
 
 			drv->q6->mba_dp_virt = NULL;
 		}
