@@ -242,7 +242,7 @@ static struct rcg_clk usb30_master_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_pcie_aux_clk_src[] = {
-	F(   1010526,    cxo_clk_src,    1,    1,    19),
+	F(  19200000,    cxo_clk_src,    1,    0,     0),
 	F_END
 };
 
