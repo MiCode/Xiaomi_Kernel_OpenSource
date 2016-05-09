@@ -1,0 +1,36 @@
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mdm9640-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 9640 MTP";
+	compatible = "qcom,mdm9640-mtp", "qcom,mdm9640", "qcom,mtp";
+	qcom,board-id = <8 0>;
+};
+
+&sdhc_1 {
+	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+};
+
+&qusb_phy {
+	reg = <0x00079000 0x180>,
+	      <0x08af8800 0x400>,
+	      <0x000580d4 0x4>;
+	reg-names = "qusb_phy_base",
+		    "qscratch_base",
+		    "tune2_efuse_addr";
+	qcom,tune2-efuse-bit-pos = <20>;
+	qcom,tune2-efuse-num-bits = <4>;
+};
