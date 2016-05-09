@@ -14,6 +14,8 @@
 #include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi-wqxga-cmd.dtsi"
+#include "dsi-panel-nt35597-dsc-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-dsc-wqxga-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -76,4 +78,16 @@
 	qcom,mdss-dsi-panel-timings = [00 1a 04 06 0a 0a 05 06 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+};
+
+&dsi_nt35597_dsc_video {
+	qcom,mdss-dsi-panel-timings = [00 12 03 04 07 07 04 04 03 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0b>;
+	qcom,mdss-dsi-t-clk-pre = <0x24>;
+};
+
+&dsi_nt35597_dsc_cmd {
+	qcom,mdss-dsi-panel-timings = [00 12 03 04 07 07 04 04 03 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0b>;
+	qcom,mdss-dsi-t-clk-pre = <0x24>;
 };
