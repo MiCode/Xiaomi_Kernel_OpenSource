@@ -1112,7 +1112,7 @@ extern unsigned int  __read_mostly sched_upmigrate;
 extern unsigned int  __read_mostly sched_downmigrate;
 extern unsigned int  __read_mostly sysctl_sched_spill_nr_run;
 
-extern void init_new_task_load(struct task_struct *p);
+extern void init_new_task_load(struct task_struct *p, bool idle_task);
 extern u64 sched_ktime_clock(void);
 extern int got_boost_kick(void);
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
@@ -1545,7 +1545,9 @@ static inline struct sched_cluster *rq_cluster(struct rq *rq)
 	return NULL;
 }
 
-static inline void init_new_task_load(struct task_struct *p) { }
+static inline void init_new_task_load(struct task_struct *p, bool idle_task)
+{
+}
 
 static inline u64 scale_load_to_cpu(u64 load, int cpu)
 {

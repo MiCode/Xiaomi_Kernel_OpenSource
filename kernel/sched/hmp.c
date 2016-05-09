@@ -1586,7 +1586,7 @@ unsigned int cpu_temp(int cpu)
 		return 0;
 }
 
-void init_new_task_load(struct task_struct *p)
+void init_new_task_load(struct task_struct *p, bool idle_task)
 {
 	int i;
 	u32 init_load_windows = sched_init_task_load_windows;
@@ -1597,6 +1597,15 @@ void init_new_task_load(struct task_struct *p)
 	INIT_LIST_HEAD(&p->grp_list);
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
+
+	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_ATOMIC);
+	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_ATOMIC);
+
+	/* Don't have much choice. CPU frequency would be bogus */
+	BUG_ON(!p->ravg.curr_window_cpu || !p->ravg.prev_window_cpu);
+
+	if (idle_task)
+		return;
 
 	if (init_load_pct)
 		init_load_windows = div64_u64((u64)init_load_pct *
@@ -2133,6 +2142,32 @@ void update_task_pred_demand(struct rq *rq, struct task_struct *p, int event)
 	p->ravg.pred_demand = new;
 }
 
+static u32 empty_windows[NR_CPUS];
+
+static void rollover_task_window(struct task_struct *p, bool full_window)
+{
+	u32 *curr_cpu_windows = empty_windows;
+	u32 curr_window;
+	int i;
+
+	/* Rollover the sum */
+	curr_window = 0;
+
+	if (!full_window) {
+		curr_window = p->ravg.curr_window;
+		curr_cpu_windows = p->ravg.curr_window_cpu;
+	}
+
+	p->ravg.prev_window = curr_window;
+	p->ravg.curr_window = 0;
+
+	/* Roll over individual CPU contributions */
+	for (i = 0; i < nr_cpu_ids; i++) {
+		p->ravg.prev_window_cpu[i] = curr_cpu_windows[i];
+		p->ravg.curr_window_cpu[i] = 0;
+	}
+}
+
 /*
  * Account cpu activity in its busy time counters (rq->curr/prev_runnable_sum)
  */
@@ -2153,6 +2188,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	int prev_sum_reset = 0;
 	bool new_task;
 	struct related_thread_group *grp;
+	int cpu = rq->cpu;
 
 	new_window = mark_start < window_start;
 	if (new_window) {
@@ -2212,15 +2248,9 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	 * Handle per-task window rollover. We don't care about the idle
 	 * task or exiting tasks.
 	 */
-	if (new_window && !is_idle_task(p) && !exiting_task(p)) {
-		u32 curr_window = 0;
+	if (new_window && !is_idle_task(p) && !exiting_task(p))
+		rollover_task_window(p, full_window);
 
-		if (!full_window)
-			curr_window = p->ravg.curr_window;
-
-		p->ravg.prev_window = curr_window;
-		p->ravg.curr_window = 0;
-	}
 
 	if (flip_counters) {
 		u64 curr_sum = *curr_runnable_sum;
@@ -2282,8 +2312,10 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		if (new_task)
 			*nt_curr_runnable_sum += delta;
 
-		if (!is_idle_task(p) && !exiting_task(p))
+		if (!is_idle_task(p) && !exiting_task(p)) {
 			p->ravg.curr_window += delta;
+			p->ravg.curr_window_cpu[cpu] += delta;
+		}
 
 		return;
 	}
@@ -2308,8 +2340,10 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			 * contribution to previous completed window.
 			 */
 			delta = scale_exec_time(window_start - mark_start, rq);
-			if (!exiting_task(p))
+			if (!exiting_task(p)) {
 				p->ravg.prev_window += delta;
+				p->ravg.prev_window_cpu[cpu] += delta;
+			}
 		} else {
 			/*
 			 * Since at least one full window has elapsed,
@@ -2317,8 +2351,10 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			 * full window (window_size).
 			 */
 			delta = scale_exec_time(window_size, rq);
-			if (!exiting_task(p))
+			if (!exiting_task(p)) {
 				p->ravg.prev_window = delta;
+				p->ravg.prev_window_cpu[cpu] = delta;
+			}
 		}
 
 		*prev_runnable_sum += delta;
@@ -2331,8 +2367,10 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		if (new_task)
 			*nt_curr_runnable_sum += delta;
 
-		if (!exiting_task(p))
+		if (!exiting_task(p)) {
 			p->ravg.curr_window = delta;
+			p->ravg.curr_window_cpu[cpu] = delta;
+		}
 
 		return;
 	}
@@ -2358,8 +2396,10 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			 * contribution to previous completed window.
 			 */
 			delta = scale_exec_time(window_start - mark_start, rq);
-			if (!is_idle_task(p) && !exiting_task(p))
+			if (!is_idle_task(p) && !exiting_task(p)) {
 				p->ravg.prev_window += delta;
+				p->ravg.prev_window_cpu[cpu] += delta;
+			}
 		} else {
 			/*
 			 * Since at least one full window has elapsed,
@@ -2367,8 +2407,10 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			 * full window (window_size).
 			 */
 			delta = scale_exec_time(window_size, rq);
-			if (!is_idle_task(p) && !exiting_task(p))
+			if (!is_idle_task(p) && !exiting_task(p)) {
 				p->ravg.prev_window = delta;
+				p->ravg.prev_window_cpu[cpu] = delta;
+			}
 		}
 
 		/*
@@ -2385,8 +2427,10 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		if (new_task)
 			*nt_curr_runnable_sum += delta;
 
-		if (!is_idle_task(p) && !exiting_task(p))
+		if (!is_idle_task(p) && !exiting_task(p)) {
 			p->ravg.curr_window = delta;
+			p->ravg.curr_window_cpu[cpu] = delta;
+		}
 
 		return;
 	}
@@ -2801,11 +2845,23 @@ void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
 void reset_task_stats(struct task_struct *p)
 {
 	u32 sum = 0;
+	u32 *curr_window_ptr = NULL;
+	u32 *prev_window_ptr = NULL;
 
-	if (exiting_task(p))
+	if (exiting_task(p)) {
 		sum = EXITING_TASK_MARKER;
+	} else {
+		curr_window_ptr =  p->ravg.curr_window_cpu;
+		prev_window_ptr = p->ravg.prev_window_cpu;
+		memset(curr_window_ptr, 0, sizeof(u32) * nr_cpu_ids);
+		memset(prev_window_ptr, 0, sizeof(u32) * nr_cpu_ids);
+	}
 
 	memset(&p->ravg, 0, sizeof(struct ravg));
+
+	p->ravg.curr_window_cpu = curr_window_ptr;
+	p->ravg.prev_window_cpu = prev_window_ptr;
+
 	/* Retain EXITING_TASK marker */
 	p->ravg.sum_history[0] = sum;
 }
@@ -2861,7 +2917,9 @@ static void reset_all_task_stats(void)
 
 	read_lock(&tasklist_lock);
 	do_each_thread(g, p) {
+		raw_spin_lock(&p->pi_lock);
 		reset_task_stats(p);
+		raw_spin_unlock(&p->pi_lock);
 	}  while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
 }
