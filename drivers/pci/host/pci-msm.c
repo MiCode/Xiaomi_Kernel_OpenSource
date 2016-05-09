@@ -57,6 +57,13 @@
 #define RX_BASE 0x400
 #define PCS_BASE 0x800
 #define PCS_MISC_BASE 0x600
+
+#elif defined(CONFIG_ARCH_MSMCOBALT)
+#define TX_BASE 0
+#define RX_BASE 0
+#define PCS_BASE 0x800
+#define PCS_MISC_BASE 0
+
 #else
 #define PCIE_VENDOR_ID_RCP		0x17cb
 #define PCIE_DEVICE_ID_RCP		0x0104
@@ -1022,6 +1029,12 @@ static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
 	int i, size;
 	u32 write_val;
 
+	if (dev->phy_ver >= 0x20) {
+		PCIE_DUMP(dev, "PCIe: RC%d PHY dump is not supported\n",
+			dev->rc_idx);
+		return;
+	}
+
 	PCIE_DUMP(dev, "PCIe: RC%d PHY testbus\n", dev->rc_idx);
 
 	pcie_phy_dump_test_cntrl(dev, 0x18, 0x19, 0x1A, 0x1B);
@@ -1502,6 +1515,9 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 {
 	u8 common_phy;
 
+	if (dev->phy_ver >= 0x20)
+		return;
+
 	PCIE_DBG(dev, "RC%d: Initializing PCIe PHY Port\n", dev->rc_idx);
 
 	if (dev->common_phy)
@@ -1597,6 +1613,15 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
+	if (dev->phy_ver >= 0x20) {
+		if (readl_relaxed(dev->phy +
+			PCIE_N_PCS_STATUS(dev->rc_idx, dev->common_phy)) &
+					BIT(6))
+			return false;
+		else
+			return true;
+	}
+
 	if (!(readl_relaxed(dev->phy + PCIE_COM_PCS_READY_STATUS) & 0x1))
 		return false;
 	else
