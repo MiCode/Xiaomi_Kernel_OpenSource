@@ -953,6 +953,9 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_8_RX      0x4010
 /* SLIMbus Tx port on channel 8. */
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_8_TX      0x4011
+/*USB AFE port */
+#define AFE_PORT_ID_USB_RX                       0x7000
+#define AFE_PORT_ID_USB_TX                       0x7001
 
 /* Generic pseudoport 1. */
 #define AFE_PORT_ID_PSEUDOPORT_01      0x8001
@@ -2228,6 +2231,81 @@ struct afe_param_id_slimbus_cfg {
  */
 } __packed;
 
+
+/* ID of the parameter used by AFE_PARAM_ID_USB_AUDIO_DEV_PARAMS to configure
+ * USB audio device parameter. It should be used with
+ * AFE_MODULE_AUDIO_DEV_INTERFACE
+ */
+#define AFE_PARAM_ID_USB_AUDIO_DEV_PARAMS    0x000102A5
+
+/* Minor version used for tracking USB audio  configuration */
+#define AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG 0x1
+
+/* Payload of the AFE_PARAM_ID_USB_AUDIO_DEV_PARAMS parameter used by
+ * AFE_MODULE_AUDIO_DEV_INTERFACE.
+ */
+struct afe_param_id_usb_audio_dev_params {
+/* Minor version used for tracking USB audio device parameter.
+ * Supported values: AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG
+ */
+	u32                  cfg_minor_version;
+/* Token of actual end USB aduio device */
+	u32                  dev_token;
+} __packed;
+
+/* ID of the parameter used by AFE_PARAM_ID_USB_AUDIO_CONFIG to configure
+ * USB audio interface. It should be used with AFE_MODULE_AUDIO_DEV_INTERFACE
+*/
+#define AFE_PARAM_ID_USB_AUDIO_CONFIG    0x000102A4
+
+/* Payload of the AFE_PARAM_ID_USB_AUDIO_CONFIG parameter used by
+ * AFE_MODULE_AUDIO_DEV_INTERFACE.
+ */
+struct afe_param_id_usb_audio_cfg {
+/* Minor version used for tracking USB audio device configuration.
+ * Supported values: AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG
+ */
+	u32                  cfg_minor_version;
+/* Sampling rate of the port.
+ * Supported values:
+ * - AFE_PORT_SAMPLE_RATE_8K
+ * - AFE_PORT_SAMPLE_RATE_11025
+ * - AFE_PORT_SAMPLE_RATE_12K
+ * - AFE_PORT_SAMPLE_RATE_16K
+ * - AFE_PORT_SAMPLE_RATE_22050
+ * - AFE_PORT_SAMPLE_RATE_24K
+ * - AFE_PORT_SAMPLE_RATE_32K
+ * - AFE_PORT_SAMPLE_RATE_44P1K
+ * - AFE_PORT_SAMPLE_RATE_48K
+ * - AFE_PORT_SAMPLE_RATE_96K
+ * - AFE_PORT_SAMPLE_RATE_192K
+ */
+	u32                  sample_rate;
+/* Bit width of the sample.
+ * Supported values: 16, 24
+ */
+	u16                  bit_width;
+/* Number of channels.
+ * Supported values: 1 and 2
+ */
+	u16                  num_channels;
+/* Data format supported by the USB. The supported value is
+ * 0 (#AFE_USB_AUDIO_DATA_FORMAT_LINEAR_PCM).
+ */
+	u16                  data_format;
+/* this field must be 0 */
+	u16                  reserved;
+/* device token of actual end USB aduio device */
+	u32                  dev_token;
+} __packed;
+
+struct afe_usb_audio_dev_param_command {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2    pdata;
+	struct afe_param_id_usb_audio_dev_params usb_dev;
+} __packed;
+
 /*
 * This param id is used to configure Real Time Proxy interface.
 */
@@ -2672,6 +2750,7 @@ union afe_port_config {
 	struct afe_param_id_spdif_cfg             spdif;
 	struct afe_param_id_set_topology_cfg      topology;
 	struct afe_param_id_tdm_cfg               tdm;
+	struct afe_param_id_usb_audio_cfg         usb_audio;
 } __packed;
 
 struct afe_audioif_config_command_no_payload {

@@ -135,6 +135,8 @@
 #define LPASS_BE_SLIMBUS_8_RX "SLIMBUS_8_RX"
 #define LPASS_BE_SLIMBUS_8_TX "SLIMBUS_8_TX"
 
+#define LPASS_BE_USB_AUDIO_RX "USB_AUDIO_RX"
+#define LPASS_BE_USB_AUDIO_TX "USB_AUDIO_TX"
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
  * Due to this reason, additional multimedia front-end must be placed before
@@ -305,6 +307,8 @@ enum {
 	MSM_BACKEND_DAI_SLIMBUS_7_TX,
 	MSM_BACKEND_DAI_SLIMBUS_8_RX,
 	MSM_BACKEND_DAI_SLIMBUS_8_TX,
+	MSM_BACKEND_DAI_USB_RX,
+	MSM_BACKEND_DAI_USB_TX,
 	MSM_BACKEND_DAI_MAX,
 };
 
