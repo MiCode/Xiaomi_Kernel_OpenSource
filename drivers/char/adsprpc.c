@@ -48,6 +48,9 @@
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <soc/qcom/ramdump.h>
+#include <linux/workqueue.h>
+#include <linux/wait.h>
+
 
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
@@ -62,6 +65,10 @@
 #define NUM_SESSIONS	8		/*8 compute*/
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
+
+static void file_free_work_handler(struct work_struct *w);
+
+static DECLARE_WAIT_QUEUE_HEAD(wait_queue);
 
 static inline uint64_t buf_page_start(uint64_t buf)
 {
@@ -102,6 +109,11 @@ static inline uint64_t ptr_to_uint64(void *ptr)
 }
 
 struct fastrpc_file;
+
+struct fastrpc_fl {
+	struct fastrpc_file *fl;
+	struct hlist_node hn;
+};
 
 struct fastrpc_buf {
 	struct hlist_node hn;
@@ -189,6 +201,11 @@ struct fastrpc_apps {
 	struct mutex smd_mutex;
 	struct smq_phy_page range;
 	struct hlist_head maps;
+	struct hlist_head fls;
+	struct workqueue_struct *wq;
+	int pending_free;
+	struct work_struct free_work;
+	struct mutex flfree_mutex;
 	dev_t dev_no;
 	int compat;
 	struct hlist_head drivers;
@@ -1245,6 +1262,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 {
 	int i;
 	INIT_HLIST_HEAD(&me->drivers);
+	INIT_HLIST_HEAD(&me->fls);
 	spin_lock_init(&me->hlock);
 	mutex_init(&me->smd_mutex);
 	me->channel = &gcinfo[0];
@@ -1779,18 +1797,76 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
+	struct fastrpc_fl *pfl = 0;
 	int session, cid;
+	int err = 0;
 
+	VERIFY(err, pfl = kzalloc(sizeof(*pfl), GFP_KERNEL));
+	if (err)
+		goto bail;
+	INIT_HLIST_NODE(&pfl->hn);
 	if (fl) {
 		cid = fl->cid;
 		if (fl->sctx) {
 			session = fl->sctx - &me->channel[cid].session[0];
 			fastrpc_session_free(&me->channel[cid], session);
 		}
-		fastrpc_file_free(fl);
+		mutex_lock(&me->flfree_mutex);
+		pfl->fl = fl;
+		hlist_add_head(&pfl->hn, &me->fls);
+		VERIFY(err, me->wq);
+		if (err) {
+			hlist_del_init(&pfl->hn);
+			mutex_unlock(&me->flfree_mutex);
+			goto bail;
+		}
+		if (!work_busy(&me->free_work)) {
+			INIT_WORK(&me->free_work, file_free_work_handler);
+			VERIFY(err, queue_work(me->wq, &me->free_work));
+			if (err) {
+				hlist_del_init(&pfl->hn);
+				mutex_unlock(&me->flfree_mutex);
+				goto bail;
+			}
+		}
+		me->pending_free++;
+		mutex_unlock(&me->flfree_mutex);
 		file->private_data = 0;
 	}
-	return 0;
+bail:
+	if (err)
+		kfree(pfl);
+	return err;
+}
+
+
+static void file_free_work_handler(struct work_struct *w)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_fl *fl = 0, *freefl = 0;
+	struct hlist_node *n = 0;
+
+	while (1) {
+		mutex_lock(&me->flfree_mutex);
+		hlist_for_each_entry_safe(fl, n, &me->fls, hn) {
+			hlist_del_init(&fl->hn);
+			freefl = fl;
+			break;
+		}
+		mutex_unlock(&me->flfree_mutex);
+		fastrpc_file_free(freefl->fl);
+		mutex_lock(&me->flfree_mutex);
+
+		if (hlist_empty(&me->fls)) {
+			me->pending_free = 0;
+			wake_up_interruptible_all(&wait_queue);
+			mutex_unlock(&me->flfree_mutex);
+			break;
+		}
+		mutex_unlock(&me->flfree_mutex);
+		kfree(freefl);
+	}
+	return;
 }
 
 static void fastrpc_glink_register_cb(struct glink_link_state_cb_info *cb_info,
@@ -1846,8 +1922,16 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 {
 	int cid = MINOR(inode->i_rdev);
 	int err = 0, session;
+	int event;
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_file *fl = 0;
+
+	if (me->pending_free) {
+		event = wait_event_interruptible_timeout(wait_queue,
+						me->pending_free, RPC_TIMEOUT);
+		if (event == 0)
+			pr_err("timed out..list is still not empty\n");
+	}
 
 	VERIFY(err, fl = kzalloc(sizeof(*fl), GFP_KERNEL));
 	if (err)
@@ -2282,6 +2366,10 @@ static int __init fastrpc_device_init(void)
 	memset(me, 0, sizeof(*me));
 
 	fastrpc_init(me);
+	mutex_init(&me->flfree_mutex);
+	me->wq = create_singlethread_workqueue("FILE_FREE");
+	INIT_WORK(&me->free_work, file_free_work_handler);
+
 	me->dev = NULL;
 	VERIFY(err, 0 == platform_driver_register(&fastrpc_driver));
 	if (err)
@@ -2351,6 +2439,10 @@ static void __exit fastrpc_device_exit(void)
 
 	fastrpc_file_list_dtor(me);
 	fastrpc_deinit();
+	if (me->wq) {
+		flush_workqueue(me->wq);
+		destroy_workqueue(me->wq);
+	}
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		if (!gcinfo[i].name)
 			continue;
