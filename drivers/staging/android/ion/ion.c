@@ -3,7 +3,7 @@
  * drivers/gpu/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -910,6 +910,7 @@ void ion_client_destroy(struct ion_client *client)
 	struct rb_node *n;
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
+	mutex_lock(&client->lock);
 	while ((n = rb_first(&client->handles))) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
@@ -917,6 +918,7 @@ void ion_client_destroy(struct ion_client *client)
 	}
 
 	idr_destroy(&client->idr);
+	mutex_unlock(&client->lock);
 
 	down_write(&dev->lock);
 	if (client->task)
