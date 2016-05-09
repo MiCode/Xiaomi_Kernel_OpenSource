@@ -14,6 +14,7 @@
 #define WCD9306_REGISTERS_H
 
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
+#include <linux/types.h>
 
 #define TAPAN_A_CHIP_CTL			(0x000)
 #define TAPAN_A_CHIP_CTL__POR				(0x00)
@@ -1018,3 +1019,11 @@
 		((val) = ((packed) & (0xff))); \
 	} while (0)
 #endif
+
+#define TAPAN_SB_PGD_PORT_RX_BASE   0x40
+#define TAPAN_SB_PGD_PORT_TX_BASE   0x50
+#define TAPAN_REGISTER_START_OFFSET 0x800
+#define TAPAN_NUM_REGISTERS         0x400
+#define TAPAN_MAX_REGISTER         (TAPAN_NUM_REGISTERS-1)
+#define TAPAN_CACHE_SIZE            TAPAN_NUM_REGISTERS
+extern const u8 tapan_reg_readable[TAPAN_CACHE_SIZE];

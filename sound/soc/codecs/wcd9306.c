@@ -52,10 +52,6 @@
 /* RX_HPH_CNP_WG_TIME increases by 0.24ms */
 #define TAPAN_WG_TIME_FACTOR_US  240
 
-#define TAPAN_SB_PGD_PORT_RX_BASE   0x40
-#define TAPAN_SB_PGD_PORT_TX_BASE   0x50
-#define TAPAN_REGISTER_START_OFFSET 0x800
-
 #define CODEC_REG_CFG_MINOR_VER 1
 
 #define BUS_DOWN 1
@@ -3538,139 +3534,9 @@ static const struct snd_soc_dapm_route wcd9302_map[] = {
 	{"RDAC5 MUX", "DEM3_INV", "RDAC4 MUX"},
 };
 
-static int tapan_readable(struct snd_soc_codec *ssc, unsigned int reg)
-{
-	return tapan_reg_readable[reg];
-}
-
-static bool tapan_is_digital_gain_register(unsigned int reg)
-{
-	bool rtn = false;
-
-	switch (reg) {
-	case TAPAN_A_CDC_RX1_VOL_CTL_B2_CTL:
-	case TAPAN_A_CDC_RX2_VOL_CTL_B2_CTL:
-	case TAPAN_A_CDC_RX3_VOL_CTL_B2_CTL:
-	case TAPAN_A_CDC_RX4_VOL_CTL_B2_CTL:
-	case TAPAN_A_CDC_TX1_VOL_CTL_GAIN:
-	case TAPAN_A_CDC_TX2_VOL_CTL_GAIN:
-	case TAPAN_A_CDC_TX3_VOL_CTL_GAIN:
-	case TAPAN_A_CDC_TX4_VOL_CTL_GAIN:
-		rtn = true;
-		break;
-	default:
-		break;
-	}
-	return rtn;
-}
-
-static int tapan_volatile(struct snd_soc_codec *ssc, unsigned int reg)
-{
-
-	int i = 0;
-
-	/* Registers lower than 0x100 are top level registers which can be
-	 * written by the Tapan core driver.
-	 */
-
-	if ((reg >= TAPAN_A_CDC_MBHC_EN_CTL) || (reg < 0x100))
-		return 1;
-
-	/* IIR Coeff registers are not cacheable */
-	if ((reg >= TAPAN_A_CDC_IIR1_COEF_B1_CTL) &&
-		(reg <= TAPAN_A_CDC_IIR2_COEF_B2_CTL))
-		return 1;
-
-	/* ANC filter registers are not cacheable */
-	if ((reg >= TAPAN_A_CDC_ANC1_IIR_B1_CTL) &&
-		(reg <= TAPAN_A_CDC_ANC1_LPF_B2_CTL))
-		return 1;
-	if ((reg >= TAPAN_A_CDC_ANC2_IIR_B1_CTL) &&
-		(reg <= TAPAN_A_CDC_ANC2_LPF_B2_CTL))
-		return 1;
-
-	/* Digital gain register is not cacheable so we have to write
-	 * the setting even it is the same
-	 */
-	if (tapan_is_digital_gain_register(reg))
-		return 1;
-
-	/* HPH status registers */
-	if (reg == TAPAN_A_RX_HPH_L_STATUS || reg == TAPAN_A_RX_HPH_R_STATUS)
-		return 1;
-
-	if (reg == TAPAN_A_MBHC_INSERT_DET_STATUS)
-		return 1;
-
-	for (i = 0; i < ARRAY_SIZE(audio_reg_cfg); i++)
-		if (audio_reg_cfg[i].reg_logical_addr -
-			TAPAN_REGISTER_START_OFFSET == reg)
-			return 1;
-
-	return 0;
-}
-
 #define TAPAN_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
 #define TAPAN_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
 				  SNDRV_PCM_FORMAT_S24_LE)
-static int tapan_write(struct snd_soc_codec *codec, unsigned int reg,
-	unsigned int value)
-{
-	int ret;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-	struct tapan_priv *tapan_p = snd_soc_codec_get_drvdata(codec);
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TAPAN_MAX_REGISTER);
-
-	if (!tapan_volatile(codec, reg)) {
-		ret = snd_soc_cache_write(codec, reg, value);
-		if (ret != 0)
-			dev_err(codec->dev, "Cache write to %x failed: %d\n",
-				reg, ret);
-	}
-
-	if (unlikely(test_bit(BUS_DOWN, &tapan_p->status_mask))) {
-		printk_ratelimited("write 0x%02x while offline\n", reg);
-		return -ENODEV;
-	} else {
-		return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
-	}
-}
-
-static unsigned int tapan_read(struct snd_soc_codec *codec,
-				unsigned int reg)
-{
-	unsigned int val;
-	int ret;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-	struct tapan_priv *tapan_p = snd_soc_codec_get_drvdata(codec);
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TAPAN_MAX_REGISTER);
-
-	if (!tapan_volatile(codec, reg) && tapan_readable(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
-		ret = snd_soc_cache_read(codec, reg, &val);
-		if (ret >= 0)
-			return val;
-
-		dev_err(codec->dev, "Cache read from %x failed: %d\n",
-				reg, ret);
-	}
-
-	if (unlikely(test_bit(BUS_DOWN, &tapan_p->status_mask))) {
-		printk_ratelimited("write 0x%02x while offline\n", reg);
-		return -ENODEV;
-	}
-
-	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
-	return val;
-}
 
 static int tapan_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -6638,19 +6504,16 @@ static int tapan_codec_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static struct regmap *tapan_get_regmap(struct device *dev)
+{
+	struct wcd9xxx *control = dev_get_drvdata(dev->parent);
+
+	return control->regmap;
+}
+
 static struct snd_soc_codec_driver soc_codec_dev_tapan = {
 	.probe	= tapan_codec_probe,
 	.remove	= tapan_codec_remove,
-
-	.read = tapan_read,
-	.write = tapan_write,
-
-	.readable_register = tapan_readable,
-	.volatile_register = tapan_volatile,
-
-	.reg_cache_size = TAPAN_CACHE_SIZE,
-	.reg_cache_default = tapan_reset_reg_defaults,
-	.reg_word_size = 1,
 
 	.controls = tapan_common_snd_controls,
 	.num_controls = ARRAY_SIZE(tapan_common_snd_controls),
@@ -6658,6 +6521,7 @@ static struct snd_soc_codec_driver soc_codec_dev_tapan = {
 	.num_dapm_widgets = ARRAY_SIZE(tapan_common_dapm_widgets),
 	.dapm_routes = audio_map,
 	.num_dapm_routes = ARRAY_SIZE(audio_map),
+	.get_regmap = tapan_get_regmap,
 };
 
 #ifdef CONFIG_PM
