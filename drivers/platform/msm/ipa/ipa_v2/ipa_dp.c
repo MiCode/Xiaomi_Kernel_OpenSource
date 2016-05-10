@@ -1587,14 +1587,14 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n",
 				IPA_CLIENT_APPS_LAN_WAN_PROD);
-			return -EFAULT;
+			goto fail_gen;
 		}
 		dst_ep_idx = ipa2_get_ep_mapping(dst);
 	} else {
 		src_ep_idx = ipa2_get_ep_mapping(dst);
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n", dst);
-			return -EFAULT;
+			goto fail_gen;
 		}
 		if (meta && meta->pkt_init_dst_ep_valid)
 			dst_ep_idx = meta->pkt_init_dst_ep;
