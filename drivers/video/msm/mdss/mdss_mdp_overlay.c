@@ -2962,10 +2962,14 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		break;
 
 	case MSMFB_OVERLAY_SET:
+// added
 		req = kmalloc(sizeof(struct mdp_overlay), GFP_KERNEL);
 		if (!req)
 			return -ENOMEM;
 		ret = copy_from_user(req, argp, sizeof(*req));
+          	case 0xc1b06d87:
+
+// >>>>>>> 8d34e70... drivers/video: hax for stock hwcomposer
 		if (!ret) {
 			ret = mdss_mdp_overlay_set(mfd, req);
 

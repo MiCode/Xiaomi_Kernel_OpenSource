@@ -49,7 +49,7 @@ config SND_SOC_MSM_QDSP6_INTF
 
 config SND_SOC_MSM_QDSP6V2_INTF
 	bool "SoC Q6 audio driver for MSM8974"
-	depends on MSM_QDSP6_APRV2
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
 	help
 	 To add support for SoC audio on MSM8974.
 	 This will enable all the platform specific
