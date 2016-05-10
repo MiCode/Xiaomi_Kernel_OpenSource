@@ -522,14 +522,11 @@ static int gen_ndis_set_resp(struct rndis_params *params, u32 OID,
 		 */
 		retval = 0;
 		if (*params->filter) {
-			params->state = RNDIS_DATA_INITIALIZED;
-			netif_carrier_on(params->dev);
-			if (netif_running(params->dev))
-				netif_wake_queue(params->dev);
+			pr_debug("%s(): disable flow control\n", __func__);
+			rndis_flow_control(params, false);
 		} else {
-			params->state = RNDIS_INITIALIZED;
-			netif_carrier_off(params->dev);
-			netif_stop_queue(params->dev);
+			pr_err("%s(): enable flow control\n", __func__);
+			rndis_flow_control(params, true);
 		}
 		break;
 
