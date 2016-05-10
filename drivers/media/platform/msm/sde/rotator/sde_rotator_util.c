@@ -192,7 +192,7 @@ static int sde_mdp_get_ubwc_plane_size(struct sde_mdp_format_params *fmt,
 					4096);
 
 		/* CbCr bitstream stride and plane size */
-		ps->ystride[1] = ALIGN(width, 64);
+		ps->ystride[1] = ALIGN(width, 128);
 		ps->plane_size[1] = ALIGN(ps->ystride[1] *
 			ALIGN(height / 2, 32), 4096);
 
