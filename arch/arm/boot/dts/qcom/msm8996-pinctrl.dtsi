@@ -20,6 +20,20 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 
+		/* pin governing mux between QSPI and modem on auto boards */
+		modem_mux: mdm_mux {
+			mux {
+				pins = "gpio121";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio121";
+				drive-strength = <2>;
+				bias-pull-up;
+				output-high;
+			};
+		};
 		/* add pingrp for adv7533 */
 		pmx_adv7533: pmx_adv7533 {
 			adv7533_0_int_active: adv7533_0_int_active {
