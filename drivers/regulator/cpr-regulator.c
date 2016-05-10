@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -5092,10 +5092,16 @@ static void tsens_threshold_notify(struct therm_threshold *tsens_cb_data)
 		break;
 	}
 
-	rc = sensor_mgr_set_threshold(tsens_cb_data->sensor_id,
-					tsens_cb_data->threshold);
-	if (rc < 0)
-		cpr_err(cpr_vreg, "Failed to set temp. threshold, rc=%d\n", rc);
+	if (tsens_cb_data->cur_state != tsens_cb_data->trip_triggered) {
+		rc = sensor_mgr_set_threshold(tsens_cb_data->sensor_id,
+						tsens_cb_data->threshold);
+		if (rc < 0)
+			cpr_err(cpr_vreg,
+			"Failed to set temp. threshold, rc=%d\n", rc);
+		else
+			tsens_cb_data->cur_state =
+				tsens_cb_data->trip_triggered;
+	}
 }
 
 static int cpr_check_tsens(struct cpr_regulator *cpr_vreg)
