@@ -357,6 +357,11 @@ static void gps_ctrl_response_available(struct f_gps *dev)
 
 	ret = usb_ep_queue(dev->notify, dev->notify_req, GFP_ATOMIC);
 	if (ret) {
+		if (ret == -EBUSY) {
+			pr_err("%s: notify_count:%u\n",
+				__func__, atomic_read(&dev->notify_count));
+			WARN_ON(1);
+		}
 		spin_lock_irqsave(&dev->lock, flags);
 		if (!list_empty(&dev->cpkt_resp_q)) {
 			atomic_dec(&dev->notify_count);
@@ -387,8 +392,6 @@ static void gps_connect(struct grmnet *gr)
 static void gps_disconnect(struct grmnet *gr)
 {
 	struct f_gps			*dev;
-	struct usb_cdc_notification	*event;
-	int				status;
 
 	if (!gr) {
 		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
@@ -404,24 +407,8 @@ static void gps_disconnect(struct grmnet *gr)
 		return;
 	}
 
-	usb_ep_fifo_flush(dev->notify);
-
-	event = dev->notify_req->buf;
-	event->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS
-			| USB_RECIP_INTERFACE;
-	event->bNotificationType = USB_CDC_NOTIFY_NETWORK_CONNECTION;
-	event->wValue = cpu_to_le16(0);
-	event->wIndex = cpu_to_le16(dev->ifc_id);
-	event->wLength = cpu_to_le16(0);
-
-	status = usb_ep_queue(dev->notify, dev->notify_req, GFP_ATOMIC);
-	if (status < 0) {
-		if (!atomic_read(&dev->online))
-			return;
-		pr_err("%s: gps notify ep enqueue error %d\n",
-				__func__, status);
-	}
-
+	/* dequeue any pending notify_req */
+	usb_ep_dequeue(dev->notify, dev->notify_req);
 	gps_purge_responses(dev);
 }
 
@@ -509,6 +496,13 @@ static void gps_notify_complete(struct usb_ep *ep, struct usb_request *req)
 
 		status = usb_ep_queue(dev->notify, req, GFP_ATOMIC);
 		if (status) {
+			if (status == -EBUSY) {
+				pr_err("%s: notify_count:%u\n",
+					__func__,
+					atomic_read(&dev->notify_count));
+				WARN_ON(1);
+			}
+
 			spin_lock_irqsave(&dev->lock, flags);
 			if (!list_empty(&dev->cpkt_resp_q)) {
 				atomic_dec(&dev->notify_count);
