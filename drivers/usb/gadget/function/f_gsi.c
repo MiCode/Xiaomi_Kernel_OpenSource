@@ -432,10 +432,10 @@ static void ipa_disconnect_handler(struct gsi_data_port *d_port)
 	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
 				GSI_EP_OP_SET_CLR_BLOCK_DBL);
 
-	usb_ep_disable(gsi->d_port.in_ep);
+	usb_gsi_ep_op(gsi->d_port.in_ep, NULL, GSI_EP_OP_DISABLE);
 
 	if (gsi->d_port.out_ep)
-		usb_ep_disable(gsi->d_port.out_ep);
+		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_DISABLE);
 	gsi->d_port.net_ready_trigger = false;
 }
 
