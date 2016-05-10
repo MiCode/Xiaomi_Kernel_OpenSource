@@ -862,6 +862,9 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 		}
 		schedule_delayed_work(&wsa881x->ocp_ctl_work,
 			msecs_to_jiffies(WSA881X_OCP_CTL_TIMER_SEC * 1000));
+		/* Force remove group */
+		swr_remove_from_group(wsa881x->swr_slave,
+				      wsa881x->swr_slave->dev_num);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (wsa881x->visense_enable) {
