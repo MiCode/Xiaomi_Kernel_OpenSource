@@ -82,7 +82,7 @@
 / {
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "batterydata-qrd-sku1-4v4-2800mah.dtsi"
+		#include "batterydata-msm8917-qgp-tmo-4v4-2900mah.dtsi"
 	};
 };
 
