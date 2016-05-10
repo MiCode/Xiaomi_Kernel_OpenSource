@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -560,8 +560,9 @@ gps_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 			spin_lock(&dev->lock);
 			if (list_empty(&dev->cpkt_resp_q)) {
-				pr_err("%s: ctrl resp queue empty", __func__);
 				spin_unlock(&dev->lock);
+				pr_debug("%s: ctrl resp queue empty", __func__);
+				ret = 0;
 				goto invalid;
 			}
 
