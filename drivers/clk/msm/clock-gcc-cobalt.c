@@ -1070,16 +1070,6 @@ static struct branch_clk gcc_hdmi_clkref_clk = {
 	},
 };
 
-static struct reset_clk gcc_pcie_0_phy_reset = {
-	.reset_reg = GCC_PCIE_0_PHY_BCR,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_pcie_0_phy_reset",
-		.ops = &clk_ops_rst,
-		CLK_INIT(gcc_pcie_0_phy_reset.c),
-	},
-};
-
 static struct branch_clk gcc_pcie_clkref_clk = {
 	.cbcr_reg = GCC_PCIE_CLKREF_EN,
 	.has_sibling = 1,
@@ -1802,14 +1792,15 @@ static struct branch_clk gcc_pcie_0_mstr_axi_clk = {
 	},
 };
 
-static struct gate_clk gcc_pcie_0_pipe_clk = {
-	.en_reg = GCC_PCIE_0_PIPE_CBCR,
-	.en_mask = BIT(0),
-	.delay_us = 500,
+static struct branch_clk gcc_pcie_0_pipe_clk = {
+	.cbcr_reg = GCC_PCIE_0_PIPE_CBCR,
+	.bcr_reg = GCC_PCIE_0_PHY_BCR,
+	.has_sibling = 1,
+	.halt_check = DELAY,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "gcc_pcie_0_pipe_clk",
-		.ops = &clk_ops_gate,
+		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_pcie_0_pipe_clk.c),
 	},
 };
@@ -2611,7 +2602,6 @@ static struct clk_lookup msm_clocks_gcc_cobalt[] = {
 	CLK_LIST(usb3_phy_aux_clk_src),
 	CLK_LIST(hmss_gpll0_clk_src),
 	CLK_LIST(qspi_ref_clk_src),
-	CLK_LIST(gcc_pcie_0_phy_reset),
 	CLK_LIST(gcc_usb3_phy_reset),
 	CLK_LIST(gcc_usb3phy_phy_reset),
 	CLK_LIST(gcc_qusb2phy_prim_reset),
