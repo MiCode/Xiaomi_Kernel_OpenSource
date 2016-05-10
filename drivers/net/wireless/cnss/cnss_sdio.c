@@ -49,8 +49,6 @@
 #define CNSS_DUMP_NAME		"CNSS_WLAN"
 #define CNSS_PINCTRL_SLEEP_STATE	"sleep"
 #define CNSS_PINCTRL_ACTIVE_STATE	"active"
-#define PINCTRL_SLEEP	0
-#define PINCTRL_ACTIVE	1
 
 struct cnss_sdio_regulator {
 	struct regulator *wlan_io;
@@ -672,6 +670,15 @@ static int cnss_set_pinctrl_state(struct cnss_sdio_data *pdata, bool state)
 	return state ? pinctrl_select_state(info->pinctrl, info->active) :
 		pinctrl_select_state(info->pinctrl, info->sleep);
 }
+
+int cnss_sdio_configure_spdt(bool state)
+{
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	return cnss_set_pinctrl_state(cnss_pdata, state);
+}
+EXPORT_SYMBOL(cnss_sdio_configure_spdt);
 
 /**
  * cnss_sdio_wlan_register_driver() - cnss wlan register API
