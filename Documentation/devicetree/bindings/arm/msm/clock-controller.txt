@@ -72,6 +72,7 @@ Required properties:
 			"qcom,gpucc-hamster"
 			"qcom,gfxcc-hamster"
 			"qcom,mmsscc-cobalt"
+			"qcom,mmsscc-cobalt-v2"
 			"qcom,mmsscc-hamster"
 
 - reg:			Pairs of physical base addresses and region sizes of

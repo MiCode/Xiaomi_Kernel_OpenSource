@@ -576,6 +576,14 @@ static struct clk_freq_tbl ftbl_fd_core_clk_src[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_fd_core_clk_src_v2[] = {
+	F_MM( 100000000,    mmsscc_gpll0,    6,    0,     0),
+	F_MM( 404000000,  mmpll0_pll_out,    2,    0,     0),
+	F_MM( 480000000,  mmpll7_pll_out,    2,    0,     0),
+	F_MM( 576000000, mmpll10_pll_out,    1,    0,     0),
+	F_END
+};
+
 static struct clk_freq_tbl ftbl_fd_core_clk_src_vq[] = {
 	F_MM( 100000000,    mmsscc_gpll0,    6,    0,     0),
 	F_MM( 200000000,    mmsscc_gpll0,    3,    0,     0),
@@ -2544,6 +2552,13 @@ static void msm_mmsscc_hamster_fixup(void)
 	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
 };
 
+static void msm_mmsscc_v2_fixup(void)
+{
+	fd_core_clk_src.freq_tbl = ftbl_fd_core_clk_src_v2;
+	fd_core_clk_src.c.fmax[VDD_DIG_LOW] = 404000000;
+	fd_core_clk_src.c.fmax[VDD_DIG_LOW_L1] = 480000000;
+}
+
 int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -2551,7 +2566,7 @@ int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
 	struct clk *tmp;
 	struct regulator *reg;
 	u32 regval;
-	bool is_vq = 0;
+	bool is_v2 = 0, is_vq = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -2617,6 +2632,13 @@ int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
 	if (is_vq)
 		msm_mmsscc_hamster_fixup();
 
+	is_v2 = of_device_is_compatible(pdev->dev.of_node,
+					"qcom,mmsscc-cobalt-v2");
+	if (is_v2) {
+		msm_mmsscc_hamster_fixup();
+		msm_mmsscc_v2_fixup();
+	}
+
 	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mmss_cobalt,
 				   ARRAY_SIZE(msm_clocks_mmss_cobalt));
 	if (rc)
@@ -2628,6 +2650,7 @@ int msm_mmsscc_cobalt_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_mmss_match_table[] = {
 	{ .compatible = "qcom,mmsscc-cobalt" },
+	{ .compatible = "qcom,mmsscc-cobalt-v2" },
 	{ .compatible = "qcom,mmsscc-hamster" },
 	{},
 };
