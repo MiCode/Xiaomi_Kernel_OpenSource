@@ -846,13 +846,12 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 		goto ERROR;
 	}
 
-	if (read_cfg->addr_type == MSM_CAMERA_I2C_BYTE_ADDR)
-		val = CCI_I2C_WRITE_DISABLE_P_CMD | (read_cfg->addr_type << 4) |
-			((read_cfg->addr & 0xFF) << 8);
-	if (read_cfg->addr_type == MSM_CAMERA_I2C_WORD_ADDR)
-		val = CCI_I2C_WRITE_DISABLE_P_CMD | (read_cfg->addr_type << 4) |
-			(((read_cfg->addr & 0xFF00) >> 8) << 8) |
-			((read_cfg->addr & 0xFF) << 16);
+	val = CCI_I2C_WRITE_DISABLE_P_CMD | (read_cfg->addr_type << 4);
+	for (i = 0; i < read_cfg->addr_type; i++) {
+		val |= ((read_cfg->addr >> (i << 3)) & 0xFF)  <<
+		((read_cfg->addr_type - i) << 3);
+	}
+
 	rc = msm_cci_write_i2c_queue(cci_dev, val, master, queue);
 	if (rc < 0) {
 		CDBG("%s failed line %d\n", __func__, __LINE__);
