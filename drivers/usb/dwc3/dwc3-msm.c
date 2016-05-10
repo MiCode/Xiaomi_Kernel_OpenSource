@@ -1291,6 +1291,10 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		f_suspend = *((bool *)op_data);
 		ret = gsi_check_ready_to_suspend(ep, f_suspend);
 		break;
+	case GSI_EP_OP_DISABLE:
+		dev_dbg(mdwc->dev, "EP_OP_DISABLE\n");
+		ret = ep->ops->disable(ep);
+		break;
 	default:
 		dev_err(mdwc->dev, "%s: Invalid opcode GSI EP\n", __func__);
 	}
