@@ -41,6 +41,11 @@
 	};
 };
 
+&pil_modem {
+	pinctrl-names = "default";
+	pinctrl-0 = <&modem_mux>;
+};
+
 &slim_msm {
 	status = "disabled";
 };

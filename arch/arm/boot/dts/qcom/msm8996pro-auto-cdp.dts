@@ -34,6 +34,11 @@
 	};
 };
 
+&pil_modem {
+	pinctrl-names = "default";
+	pinctrl-0 = <&modem_mux>;
+};
+
 &gfx_vreg {
 	qcom,cpr-voltage-ceiling =
 		/* Speed bin 0 */

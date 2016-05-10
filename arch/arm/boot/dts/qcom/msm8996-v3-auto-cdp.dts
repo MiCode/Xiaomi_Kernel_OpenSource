@@ -23,6 +23,11 @@
 	qcom,board-id = <0x03010001 0>;
 };
 
+&pil_modem {
+	pinctrl-names = "default";
+	pinctrl-0 = <&modem_mux>;
+};
+
 &spi_9 {
 	status = "ok";
 	can-controller@0 {
