@@ -220,9 +220,6 @@ static int _attach_pt(struct kgsl_iommu_pt *iommu_pt,
 
 	if (ret == 0)
 		iommu_pt->attached = true;
-	else
-		KGSL_CORE_ERR("iommu_attach_device(%s) failed: %d\n",
-				ctx->name, ret);
 
 	return ret;
 }
