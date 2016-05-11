@@ -62,7 +62,7 @@ struct smb_charger {
 	int			*debug_mask;
 
 	/* locks */
-	spinlock_t		write_lock;
+	struct mutex		write_lock;
 	struct mutex		ps_change_lock;
 
 	/* power supplies */
