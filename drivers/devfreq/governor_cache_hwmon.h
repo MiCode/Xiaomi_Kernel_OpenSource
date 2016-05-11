@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,7 +53,7 @@ struct cache_hwmon {
 	struct devfreq *df;
 };
 
-#ifdef CONFIG_DEVFREQ_GOV_MSM_CACHE_HWMON
+#ifdef CONFIG_DEVFREQ_GOV_QCOM_CACHE_HWMON
 int register_cache_hwmon(struct device *dev, struct cache_hwmon *hwmon);
 int update_cache_hwmon(struct cache_hwmon *hwmon);
 #else

@@ -80,8 +80,8 @@ config DEVFREQ_GOV_CPUFREQ
 	  CPU frequency to device frequency mapping table(s). This governor
 	  can be useful for controlling devices such as DDR, cache, CCI, etc.
 
-config MSM_BIMC_BWMON
-	tristate "MSM BIMC Bandwidth monitor hardware"
+config QCOM_BIMC_BWMON
+	tristate "QCOM BIMC Bandwidth monitor hardware"
 	depends on ARCH_QCOM
 	help
 	  The BIMC Bandwidth monitor hardware allows for monitoring the
@@ -116,35 +116,35 @@ config ARM_MEMLAT_MON
 	  This driver uses these counters to implement the APIs needed by
 	  the mem_latency devfreq governor.
 
-config MSMCCI_HWMON
-	tristate "MSM CCI Cache monitor hardware"
+config QCOMCCI_HWMON
+	tristate "QCOM CCI Cache monitor hardware"
 	depends on ARCH_QCOM
 	help
-	  MSM CCI has additional PMU counters that can be used to monitor
-	  cache requests. MSM CCI hardware monitor device configures these
+	  QCOM CCI has additional PMU counters that can be used to monitor
+	  cache requests. QCOM CCI hardware monitor device configures these
 	  registers to monitor cache and inform governor. It can also set an
 	  IRQ when count exceeds a programmable limit.
 
-config MSM_M4M_HWMON
-	tristate "MSM M4M cache monitor hardware"
+config QCOM_M4M_HWMON
+	tristate "QCOM M4M cache monitor hardware"
 	depends on ARCH_QCOM
 	help
-	  MSM M4M has counters that can be used to monitor requests coming to
-	  M4M. MSM M4M hardware monitor device programs corresponding registers
+	  QCOM M4M has counters that can be used to monitor requests coming to
+	  M4M. QCOM M4M hardware monitor device programs corresponding registers
 	  to monitor cache and inform governor. It can also set an IRQ when
 	  count exceeds a programmable limit.
 
-config DEVFREQ_GOV_MSM_BW_HWMON
+config DEVFREQ_GOV_QCOM_BW_HWMON
 	tristate "HW monitor based governor for device BW"
-	depends on MSM_BIMC_BWMON
+	depends on QCOM_BIMC_BWMON
 	help
 	  HW monitor based governor for device to DDR bandwidth voting.
 	  This governor sets the CPU BW vote by using BIMC counters to monitor
 	  the CPU's use of DDR. Since this uses target specific counters it
 	  can conflict with existing profiling tools.  This governor is unlikely
-	  to be useful for non-MSM devices.
+	  to be useful for non-QCOM devices.
 
-config DEVFREQ_GOV_MSM_CACHE_HWMON
+config DEVFREQ_GOV_QCOM_CACHE_HWMON
 	tristate "HW monitor based governor for cache frequency"
 	help
 	  HW monitor based governor for cache frequency scaling. This
@@ -154,11 +154,11 @@ config DEVFREQ_GOV_MSM_CACHE_HWMON
 	  unlikely to be useful for other devices.
 
 config DEVFREQ_GOV_SPDM_HYP
-	bool "MSM SPDM Hypervisor Governor"
+	bool "QCOM SPDM Hypervisor Governor"
 	depends on ARCH_QCOM
 	help
 	  Hypervisor based governor for CPU bandwidth voting
-	  for MSM chipsets.
+	  for QCOM chipsets.
 	  Sets the frequency using a "on-demand" algorithm.
 	  This governor is unlikely to be useful for other devices.
 
@@ -216,8 +216,8 @@ config DEVFREQ_SIMPLE_DEV
 	  Device driver for simple devices that control their frequency using
 	  clock APIs and don't have any form of status reporting.
 
-config MSM_DEVFREQ_DEVBW
-	bool "MSM DEVFREQ device for device master <-> slave IB/AB BW voting"
+config QCOM_DEVFREQ_DEVBW
+	bool "QCOM DEVFREQ device for device master <-> slave IB/AB BW voting"
 	depends on ARCH_QCOM
 	select DEVFREQ_GOV_PERFORMANCE
 	select DEVFREQ_GOV_POWERSAVE
@@ -231,7 +231,7 @@ config MSM_DEVFREQ_DEVBW
 	  shared across SoCs.
 
 config SPDM_SCM
-	bool "MSM SPDM SCM based call support"
+	bool "QCOM SPDM SCM based call support"
 	depends on DEVFREQ_SPDM
 	help
 	  SPDM driver support the dcvs algorithm logic being accessed via
@@ -240,13 +240,13 @@ config SPDM_SCM
           will be activated.
 
 config DEVFREQ_SPDM
-	bool "MSM SPDM based bandwidth voting"
+	bool "QCOM SPDM based bandwidth voting"
 	depends on ARCH_QCOM
 	select DEVFREQ_GOV_SPDM_HYP
 	help
-	  This adds the support for SPDM based bandwidth voting on MSM chipsets.
+	  This adds the support for SPDM based bandwidth voting on QCOM chipsets.
 	  This driver allows any SPDM based client to vote for bandwidth.
-	  Used with the MSM SPDM Hypervisor Governor.
+	  Used with the QCOM SPDM Hypervisor Governor.
 
 source "drivers/devfreq/event/Kconfig"
 
