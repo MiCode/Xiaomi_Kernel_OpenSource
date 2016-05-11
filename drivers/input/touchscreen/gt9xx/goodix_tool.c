@@ -1,7 +1,7 @@
 /* drivers/input/touchscreen/goodix_tool.c
  *
  * 2010 - 2012 Goodix Technology.
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,10 +68,6 @@ static void tool_set_proc_name(char *procname)
 	char date[20] = {0};
 	char month[4] = {0};
 	int i = 0, n_month = 1, n_day = 0, n_year = 0, ret;
-
-	snprintf(date, 20, "%s", __DATE__);
-
-	/* pr_debug("compile date: %s", date); */
 
 	ret = sscanf(date, "%s %d %d", month, &n_day, &n_year);
 	if (!ret)

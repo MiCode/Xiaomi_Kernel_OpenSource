@@ -1644,6 +1644,38 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 	return ret;
 }
 
+static void __mdss_dsi_mask_dfps_errors(struct mdss_dsi_ctrl_pdata *ctrl,
+		bool mask)
+{
+	u32 data = 0;
+
+	/*
+	 * Assumption is that the DSI clocks will be enabled
+	 * when this API is called from dfps thread
+	 */
+	if (mask) {
+		/* mask FIFO underflow and PLL unlock bits */
+		mdss_dsi_set_reg(ctrl, 0x10c, 0x7c000000, 0x7c000000);
+	} else {
+		data = MIPI_INP((ctrl->ctrl_base) + 0x0120);
+		if (data & BIT(16)) {
+			pr_debug("pll unlocked: 0x%x\n", data);
+			/* clear PLL unlock bit */
+			MIPI_OUTP((ctrl->ctrl_base) + 0x120, BIT(16));
+		}
+
+		data = MIPI_INP((ctrl->ctrl_base) + 0x00c);
+		if (data & 0x88880000) {
+			pr_debug("dsi fifo underflow: 0x%x\n", data);
+			/* clear DSI FIFO underflow and empty */
+			MIPI_OUTP((ctrl->ctrl_base) + 0x00c, 0x99990000);
+		}
+
+		/* restore FIFO underflow and PLL unlock bits */
+		mdss_dsi_set_reg(ctrl, 0x10c, 0x7c000000, 0x0);
+	}
+}
+
 static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 		int new_fps)
 {
@@ -1853,7 +1885,6 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 	struct mdss_dsi_ctrl_pdata *sctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo, *spinfo;
 	int rc = 0;
-	u32 data;
 
 	if (pdata == NULL) {
 		pr_err("%s Invalid pdata\n", __func__);
@@ -1973,12 +2004,9 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 		MIPI_OUTP((sctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_CTRL,
 				0x00);
 
-	data = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0120);
-	if (data & BIT(16)) {
-		pr_debug("pll unlocked: 0x%x\n", data);
-		/* clear PLL unlock bit */
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x120, BIT(16));
-	}
+	__mdss_dsi_mask_dfps_errors(ctrl_pdata, false);
+	if (sctrl_pdata)
+		__mdss_dsi_mask_dfps_errors(sctrl_pdata, false);
 
 	/* Move the mux clocks to main byte and pixel clocks */
 	rc = clk_set_parent(ctrl_pdata->mux_byte_clk,
@@ -2106,6 +2134,9 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 		__mdss_dsi_update_video_mode_total(pdata, new_fps);
 	} else if (pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
 		/* Clock update method */
+
+		__mdss_dsi_mask_dfps_errors(ctrl_pdata, true);
+
 		if (phy_rev == DSI_PHY_REV_20) {
 			rc = mdss_dsi_phy_calc_timing_param(pinfo, phy_rev,
 					new_fps);
