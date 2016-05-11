@@ -1699,6 +1699,27 @@ replay:
 	kfree(replay);
 }
 
+static void do_header_and_snapshot(struct kgsl_device *device,
+		struct adreno_ringbuffer *rb, struct kgsl_cmdbatch *cmdbatch)
+{
+	/* Always dump the snapshot on a non-cmdbatch failure */
+	if (cmdbatch == NULL) {
+		adreno_fault_header(device, rb, NULL);
+		kgsl_device_snapshot(device, NULL);
+		return;
+	}
+
+	/* Skip everything if the PMDUMP flag is set */
+	if (test_bit(KGSL_FT_SKIP_PMDUMP, &cmdbatch->fault_policy))
+		return;
+
+	/* Print the fault header */
+	adreno_fault_header(device, rb, cmdbatch);
+
+	if (!(cmdbatch->context->flags & KGSL_CONTEXT_NO_SNAPSHOT))
+		kgsl_device_snapshot(device, cmdbatch->context);
+}
+
 static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1788,17 +1809,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 		ADRENO_REG_CP_IB1_BASE_HI, &base);
 
-	/*
-	 * Dump the snapshot information if this is the first
-	 * detected fault for the oldest active command batch
-	 */
-
-	if (cmdbatch == NULL ||
-		!test_bit(KGSL_FT_SKIP_PMDUMP, &cmdbatch->fault_policy)) {
-		adreno_fault_header(device, hung_rb, cmdbatch);
-		kgsl_device_snapshot(device,
-			cmdbatch ? cmdbatch->context : NULL);
-	}
+	do_header_and_snapshot(device, hung_rb, cmdbatch);
 
 	/* Terminate the stalled transaction and resume the IOMMU */
 	if (fault & ADRENO_IOMMU_PAGE_FAULT)
