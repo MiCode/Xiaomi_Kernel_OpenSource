@@ -1557,6 +1557,22 @@ static int adreno_vbif_clear_pending_transactions(struct kgsl_device *device)
 	return ret;
 }
 
+static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
+{
+	int i;
+	struct adreno_ringbuffer *rb;
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->drawctxt_active)
+			kgsl_context_put(&(rb->drawctxt_active->base));
+		rb->drawctxt_active = NULL;
+
+		kgsl_sharedmem_writel(KGSL_DEVICE(adreno_dev),
+			&rb->pagetable_desc, PT_INFO_OFFSET(current_rb_ptname),
+			0);
+	}
+}
+
 static int adreno_stop(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1671,10 +1687,7 @@ int adreno_reset(struct kgsl_device *device, int fault)
 
 	/* Set the page table back to the default page table */
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
-	kgsl_sharedmem_writel(device,
-		&adreno_dev->ringbuffers[0].pagetable_desc,
-		offsetof(struct adreno_ringbuffer_pagetable_info,
-			current_global_ptname), 0);
+	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	return ret;
 }
@@ -2298,10 +2311,8 @@ static int adreno_suspend_context(struct kgsl_device *device)
 		return status;
 	/* set the device to default pagetable */
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
-	kgsl_sharedmem_writel(device,
-		&adreno_dev->ringbuffers[0].pagetable_desc,
-		offsetof(struct adreno_ringbuffer_pagetable_info,
-			current_global_ptname), 0);
+	adreno_ringbuffer_set_global(adreno_dev, 0);
+
 	/* set ringbuffers to NULL ctxt */
 	adreno_set_active_ctxs_null(adreno_dev);
 

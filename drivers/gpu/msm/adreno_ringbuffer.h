@@ -73,12 +73,16 @@ struct adreno_ringbuffer_pagetable_info {
 	unsigned int contextidr;
 };
 
+#define PT_INFO_OFFSET(_field) \
+	offsetof(struct adreno_ringbuffer_pagetable_info, _field)
+
 /**
  * struct adreno_ringbuffer - Definition for an adreno ringbuffer object
  * @flags: Internal control flags for the ringbuffer
- * @buffer_desc: Pointer to the ringbuffer memory descriptor
- * @wptr: Local copy of the wptr offset
- * @last_wptr: offset of the last H/W committed wptr
+ * @buffer_desc: Pointer to the ringbuffer memory descripto
+ * @_wptr: The next value of wptr to be written to the hardware on submit
+ * @wptr: Local copy of the wptr offset last written to hardware
+ * @last_wptr: offset of the last wptr that was written to CFF
  * @rb_ctx: The context that represents a ringbuffer
  * @id: Priority level of the ringbuffer, also used as an ID
  * @fault_detect_ts: The last retired global timestamp read during fault detect
@@ -100,10 +104,12 @@ struct adreno_ringbuffer_pagetable_info {
  * @sched_timer: Timer that tracks how long RB has been waiting to be scheduled
  * or how long it has been scheduled for after preempting in
  * @starve_timer_state: Indicates the state of the wait.
+ * @preempt_lock: Lock to protect the wptr pointer while it is being updated
  */
 struct adreno_ringbuffer {
 	uint32_t flags;
 	struct kgsl_memdesc buffer_desc;
+	unsigned int _wptr;
 	unsigned int wptr;
 	unsigned int last_wptr;
 	int id;
@@ -120,6 +126,7 @@ struct adreno_ringbuffer {
 	int preempted_midway;
 	unsigned long sched_timer;
 	enum adreno_dispatcher_starve_timer_states starve_timer_state;
+	spinlock_t preempt_lock;
 };
 
 /* Returns the current ringbuffer */

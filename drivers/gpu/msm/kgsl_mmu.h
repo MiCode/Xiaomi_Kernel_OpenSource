@@ -21,6 +21,12 @@
 #define KGSL_MMU_GLOBAL_PT 0
 #define KGSL_MMU_SECURE_PT 1
 
+#define MMU_DEFAULT_TTBR0(_d) \
+	(kgsl_mmu_pagetable_get_ttbr0((_d)->mmu.defaultpagetable))
+
+#define MMU_DEFAULT_CONTEXTIDR(_d) \
+	(kgsl_mmu_pagetable_get_contextidr((_d)->mmu.defaultpagetable))
+
 struct kgsl_device;
 
 enum kgsl_mmutype {

@@ -112,6 +112,8 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev);
 
 void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 
+#define A5XX_CP_RB_CNTL_DEFAULT (((ilog2(4) << 8) & 0x1F00) | \
+		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
 /* GPMU interrupt multiplexor */
 #define FW_INTR_INFO			(0)
 #define LLM_ACK_ERR_INTR		(1)
@@ -232,4 +234,22 @@ static inline bool lm_on(struct adreno_device *adreno_dev)
 	return ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
 		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 }
+
+/* Preemption functions */
+void a5xx_preemption_trigger(struct adreno_device *adreno_dev);
+void a5xx_preemption_schedule(struct adreno_device *adreno_dev);
+void a5xx_preemption_start(struct adreno_device *adreno_dev);
+int a5xx_preemption_init(struct adreno_device *adreno_dev);
+int a5xx_preemption_yield_enable(unsigned int *cmds);
+
+unsigned int a5xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
+		unsigned int *cmds);
+unsigned int a5xx_preemption_pre_ibsubmit(
+			struct adreno_device *adreno_dev,
+			struct adreno_ringbuffer *rb,
+			unsigned int *cmds, struct kgsl_context *context);
+
+
+void a5xx_preempt_callback(struct adreno_device *adreno_dev, int bit);
+
 #endif
