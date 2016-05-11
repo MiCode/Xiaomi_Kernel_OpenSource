@@ -1378,6 +1378,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
+	adreno_ringbuffer_set_global(adreno_dev, 0);
+
 	status = kgsl_mmu_start(device);
 	if (status)
 		goto error_pwr_off;
@@ -1691,10 +1693,6 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
 	else
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_NAP);
-
-	/* Set the page table back to the default page table */
-	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
-	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	return ret;
 }
@@ -2138,6 +2136,10 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	/* Reset the GPU */
 	_soft_reset(adreno_dev);
 
+	/* Set the page table back to the default page table */
+	adreno_ringbuffer_set_global(adreno_dev, 0);
+	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
+
 	/* start of new CFF after reset */
 	kgsl_cffdump_open(device);
 
@@ -2309,23 +2311,11 @@ static int adreno_drain(struct kgsl_device *device)
 /* Caller must hold the device mutex. */
 static int adreno_suspend_context(struct kgsl_device *device)
 {
-	int status = 0;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
 	/* process any profiling results that are available */
-	adreno_profile_process_results(adreno_dev);
+	adreno_profile_process_results(ADRENO_DEVICE(device));
 
-	status = adreno_idle(device);
-	if (status)
-		return status;
-	/* set the device to default pagetable */
-	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
-	adreno_ringbuffer_set_global(adreno_dev, 0);
-
-	/* set ringbuffers to NULL ctxt */
-	adreno_set_active_ctxs_null(adreno_dev);
-
-	return status;
+	/* Wait for the device to go idle */
+	return adreno_idle(device);
 }
 
 /**
