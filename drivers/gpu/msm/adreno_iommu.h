@@ -17,7 +17,8 @@
 #ifdef CONFIG_QCOM_KGSL_IOMMU
 int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt,
-			struct adreno_context *drawctxt);
+			struct adreno_context *drawctxt,
+			unsigned long flags);
 
 int adreno_iommu_init(struct adreno_device *adreno_dev);
 
@@ -33,7 +34,8 @@ static inline int adreno_iommu_init(struct adreno_device *adreno_dev)
 
 static inline int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt,
-			struct adreno_context *drawctxt)
+			struct adreno_context *drawctxt,
+			unsigned long flags)
 {
 	return 0;
 }

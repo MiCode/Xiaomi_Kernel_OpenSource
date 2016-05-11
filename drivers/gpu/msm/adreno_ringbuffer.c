@@ -986,7 +986,9 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	*cmds++ = cp_packet(adreno_dev, CP_NOP, 1);
 	*cmds++ = KGSL_END_OF_IB_IDENTIFIER;
 
-	ret = adreno_drawctxt_switch(adreno_dev, rb, drawctxt, cmdbatch->flags);
+	/* Context switches commands should *always* be on the GPU */
+	ret = adreno_drawctxt_switch(adreno_dev, rb, drawctxt,
+		ADRENO_CONTEXT_SWITCH_FORCE_GPU);
 
 	/*
 	 * In the unlikely event of an error in the drawctxt switch,

@@ -267,9 +267,8 @@ TRACE_EVENT(adreno_drawctxt_wait_done,
 
 TRACE_EVENT(adreno_drawctxt_switch,
 	TP_PROTO(struct adreno_ringbuffer *rb,
-		struct adreno_context *newctx,
-		unsigned int flags),
-	TP_ARGS(rb, newctx, flags),
+		struct adreno_context *newctx),
+	TP_ARGS(rb, newctx),
 	TP_STRUCT__entry(
 		__field(int, rb_level)
 		__field(unsigned int, oldctx)
@@ -283,8 +282,8 @@ TRACE_EVENT(adreno_drawctxt_switch,
 		__entry->newctx = newctx ? newctx->base.id : 0;
 	),
 	TP_printk(
-		"rb level=%d oldctx=%u newctx=%u flags=%X",
-		__entry->rb_level, __entry->oldctx, __entry->newctx, flags
+		"rb level=%d oldctx=%u newctx=%u",
+		__entry->rb_level, __entry->oldctx, __entry->newctx
 	)
 );
 
