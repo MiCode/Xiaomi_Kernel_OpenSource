@@ -37,4 +37,14 @@ config QPNP_SMB2
 	  VBUS and VCONN regulators are registered for supporting OTG,
 	  and powered Type-C cables respectively.
 
+config QPNP_QNOVO
+	bool "QPNP QNOVO driver"
+	depends on SPMI
+	select POWER_SUPPLY
+	help
+	  Say Y here to enable the Qnovo pulse charging engine. Qnovo driver
+	  accepts pulse parameters via sysfs entries and programs the hardware
+	  module. It also allows userspace code to read diagnostics of voltage
+	  and current measured during certain phases of the pulses.
+
 endmenu
