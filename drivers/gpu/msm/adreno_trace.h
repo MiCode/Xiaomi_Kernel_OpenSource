@@ -547,6 +547,37 @@ TRACE_EVENT(adreno_hw_preempt_token_submit,
 	)
 );
 
+TRACE_EVENT(adreno_preempt_trigger,
+	TP_PROTO(struct adreno_ringbuffer *cur, struct adreno_ringbuffer *next),
+	TP_ARGS(cur, next),
+	TP_STRUCT__entry(
+		__field(struct adreno_ringbuffer *, cur)
+		__field(struct adreno_ringbuffer *, next)
+	),
+	TP_fast_assign(
+		__entry->cur = cur;
+		__entry->next = next;
+	),
+	TP_printk("trigger from id=%d to id=%d",
+		__entry->cur->id, __entry->next->id
+	)
+);
+
+TRACE_EVENT(adreno_preempt_done,
+	TP_PROTO(struct adreno_ringbuffer *cur, struct adreno_ringbuffer *next),
+	TP_ARGS(cur, next),
+	TP_STRUCT__entry(
+		__field(struct adreno_ringbuffer *, cur)
+		__field(struct adreno_ringbuffer *, next)
+	),
+	TP_fast_assign(
+		__entry->cur = cur;
+		__entry->next = next;
+	),
+	TP_printk("done switch to id=%d from id=%d",
+		__entry->next->id, __entry->cur->id
+	)
+);
 #endif /* _ADRENO_TRACE_H */
 
 /* This part must be outside protection */

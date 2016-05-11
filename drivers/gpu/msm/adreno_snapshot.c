@@ -741,8 +741,7 @@ static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
 
 	header->size = memdesc->size >> 2;
 	header->gpuaddr = memdesc->gpuaddr;
-	header->ptbase =
-		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
+	header->ptbase = MMU_DEFAULT_TTBR0(device);
 	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
 
 	memcpy(ptr, memdesc->hostptr, memdesc->size);
