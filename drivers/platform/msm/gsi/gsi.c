@@ -456,7 +456,7 @@ check_again:
 		}
 	}
 
-	gsi_writel(ch, gsi_ctx->base +
+	gsi_writel(ch & msk, gsi_ctx->base +
 			GSI_EE_n_CNTXT_SRC_IEOB_IRQ_CLR_OFFS(ee));
 }
 
