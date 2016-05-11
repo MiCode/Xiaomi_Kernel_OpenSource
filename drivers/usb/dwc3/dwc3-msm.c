@@ -726,6 +726,14 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		return -EPERM;
 	}
 
+	if (!mdwc->original_ep_ops[dep->number]) {
+		dev_err(mdwc->dev,
+			"ep [%s,%d] was unconfigured as msm endpoint\n",
+			ep->name, dep->number);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EINVAL;
+	}
+
 	if (!request) {
 		dev_err(mdwc->dev, "%s: request is NULL\n", __func__);
 		spin_unlock_irqrestore(&dwc->lock, flags);
@@ -733,14 +741,10 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	}
 
 	if (!(request->udc_priv & MSM_SPS_MODE)) {
-		/* Not SPS mode, call original queue */
-		dev_vdbg(mdwc->dev, "%s: not sps mode, use regular queue\n",
+		dev_err(mdwc->dev, "%s: sps mode is not set\n",
 					__func__);
-
 		spin_unlock_irqrestore(&dwc->lock, flags);
-		return (mdwc->original_ep_ops[dep->number])->queue(ep,
-								request,
-								gfp_flags);
+		return -EINVAL;
 	}
 
 	/* HW restriction regarding TRB size (8KB) */
@@ -1470,8 +1474,7 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
  *
  * @return int - 0 on success, negetive on error.
  */
-int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
-							gfp_t gfp_flags)
+int msm_ep_config(struct usb_ep *ep, struct usb_request *request)
 {
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3 *dwc = dep->dwc;
@@ -1483,29 +1486,36 @@ int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 	bool disable_wb;
 	bool internal_mem;
 	bool ioc;
+	unsigned long flags;
 
 
+	spin_lock_irqsave(&dwc->lock, flags);
 	/* Save original ep ops for future restore*/
 	if (mdwc->original_ep_ops[dep->number]) {
 		dev_err(mdwc->dev,
 			"ep [%s,%d] already configured as msm endpoint\n",
 			ep->name, dep->number);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EPERM;
 	}
 	mdwc->original_ep_ops[dep->number] = ep->ops;
 
 	/* Set new usb ops as we like */
-	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), gfp_flags);
-	if (!new_ep_ops)
+	new_ep_ops = kzalloc(sizeof(struct usb_ep_ops), GFP_ATOMIC);
+	if (!new_ep_ops) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -ENOMEM;
+	}
 
 	(*new_ep_ops) = (*ep->ops);
 	new_ep_ops->queue = dwc3_msm_ep_queue;
 	new_ep_ops->gsi_ep_op = dwc3_msm_gsi_ep_op;
 	ep->ops = new_ep_ops;
 
-	if (!mdwc->dbm || !request || (dep->endpoint.ep_type == EP_TYPE_GSI))
+	if (!mdwc->dbm || !request || (dep->endpoint.ep_type == EP_TYPE_GSI)) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return 0;
+	}
 
 	/*
 	 * Configure the DBM endpoint if required.
@@ -1521,8 +1531,11 @@ int msm_ep_config(struct usb_ep *ep, struct usb_request *request,
 	if (ret < 0) {
 		dev_err(mdwc->dev,
 			"error %d after calling dbm_ep_config\n", ret);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return ret;
 	}
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return 0;
 }
@@ -1543,12 +1556,15 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	struct dwc3 *dwc = dep->dwc;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct usb_ep_ops *old_ep_ops;
+	unsigned long flags;
 
+	spin_lock_irqsave(&dwc->lock, flags);
 	/* Restore original ep ops */
 	if (!mdwc->original_ep_ops[dep->number]) {
 		dev_err(mdwc->dev,
 			"ep [%s,%d] was not configured as msm endpoint\n",
 			ep->name, dep->number);
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return -EINVAL;
 	}
 	old_ep_ops = (struct usb_ep_ops	*)ep->ops;
@@ -1560,8 +1576,10 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	 * Do HERE more usb endpoint un-configurations
 	 * which are specific to MSM.
 	 */
-	if (!mdwc->dbm || (dep->endpoint.ep_type == EP_TYPE_GSI))
+	if (!mdwc->dbm || (dep->endpoint.ep_type == EP_TYPE_GSI)) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		return 0;
+	}
 
 	if (dep->trb_dequeue == dep->trb_enqueue
 					&& list_empty(&dep->pending_list)
@@ -1582,6 +1600,8 @@ int msm_ep_unconfig(struct usb_ep *ep)
 				!dbm_reset_ep_after_lpm(mdwc->dbm))
 			dbm_event_buffer_config(mdwc->dbm, 0, 0, 0);
 	}
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return 0;
 }
