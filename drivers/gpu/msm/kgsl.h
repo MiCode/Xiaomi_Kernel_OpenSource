@@ -473,21 +473,6 @@ kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 		kref_put(&entry->refcount, kgsl_mem_entry_destroy);
 }
 
-/**
- * kgsl_mem_entry_put_deferred() - Schedule a task to put the memory entry
- * @entry: Mem entry to put
- *
- * This function is for atomic contexts where a normal kgsl_mem_entry_put()
- * would result in the memory entry getting destroyed and possibly taking
- * mutexes along the way.  Schedule the work to happen outside of the atomic
- * context.
- */
-static inline void kgsl_mem_entry_put_deferred(struct kgsl_mem_entry *entry)
-{
-	if (entry != NULL)
-		queue_work(kgsl_driver.mem_workqueue, &entry->work);
-}
-
 /*
  * kgsl_addr_range_overlap() - Checks if 2 ranges overlap
  * @gpuaddr1: Start of first address range
