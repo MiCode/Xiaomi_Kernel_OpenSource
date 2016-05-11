@@ -31,6 +31,12 @@
 	status = "disabled";
 };
 
+&soc {
+	qcom,lmh {
+		status = "disabled";
+	};
+};
+
 &gfx_stub_vreg {
 	regulator-max-microvolt = <8>;
 	status = "okay";
