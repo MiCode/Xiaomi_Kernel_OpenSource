@@ -452,7 +452,7 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	struct adreno_device *adreno_dev;
 	struct adreno_context *drawctxt;
 	struct adreno_ringbuffer *rb;
-	int ret = 0, count, i;
+	int ret, count, i;
 	struct kgsl_cmdbatch *list[ADRENO_CONTEXT_CMDQUEUE_SIZE];
 
 	if (context == NULL)
@@ -466,33 +466,6 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	spin_lock(&adreno_dev->active_list_lock);
 	list_del_init(&drawctxt->active_node);
 	spin_unlock(&adreno_dev->active_list_lock);
-
-	/* deactivate context */
-	mutex_lock(&device->mutex);
-	if (rb->drawctxt_active == drawctxt) {
-		if (adreno_dev->cur_rb == rb) {
-			if (!kgsl_active_count_get(device)) {
-				ret = adreno_drawctxt_switch(adreno_dev, rb,
-					NULL, 0);
-				kgsl_active_count_put(device);
-			} else
-				BUG();
-		} else
-			ret = adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
-
-		if (ret != 0) {
-			KGSL_DRV_ERR(device,
-				"Unable to switch the context to NULL: %d\n",
-				ret);
-		}
-
-		/*
-		 * Keep going ahead if we can't switch the context - failure
-		 * isn't always fatal, but sometimes it is. I like those
-		 * chances!
-		 */
-	}
-	mutex_unlock(&device->mutex);
 
 	spin_lock(&drawctxt->lock);
 	count = drawctxt_detach_cmdbatches(drawctxt, list);
@@ -562,6 +535,15 @@ void adreno_drawctxt_destroy(struct kgsl_context *context)
 	kfree(drawctxt);
 }
 
+static void _drawctxt_switch_wait_callback(struct kgsl_device *device,
+		struct kgsl_event_group *group,
+		void *priv, int result)
+{
+	struct adreno_context *drawctxt = (struct adreno_context *) priv;
+
+	kgsl_context_put(&drawctxt->base);
+}
+
 /**
  * adreno_drawctxt_switch - switch the current draw context in a given RB
  * @adreno_dev - The 3D device that owns the context
@@ -613,9 +595,14 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	/* Put the old instance of the active drawctxt */
-	if (rb->drawctxt_active)
-		kgsl_context_put(&rb->drawctxt_active->base);
+	if (rb->drawctxt_active) {
+		/* Wait for the timestamp to expire */
+		if (kgsl_add_event(device, &rb->events, rb->timestamp,
+			_drawctxt_switch_wait_callback,
+			rb->drawctxt_active)) {
+			kgsl_context_put(&rb->drawctxt_active->base);
+		}
+	}
 
 	rb->drawctxt_active = drawctxt;
 	return 0;
