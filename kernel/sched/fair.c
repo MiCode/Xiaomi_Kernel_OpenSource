@@ -3148,7 +3148,7 @@ next_best_cluster(struct sched_cluster *cluster, struct cpu_select_env *env,
 	return next;
 }
 
-#ifdef SCHED_HMP_CSTATE_AWARE
+#ifdef CONFIG_SCHED_HMP_CSTATE_AWARE
 static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 				   struct cpu_select_env *env, int cpu_cost)
 {
@@ -3211,7 +3211,7 @@ static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 		stats->best_cpu = cpu;
 	}
 }
-#else /* SCHED_HMP_CSTATE_AWARE */
+#else /* CONFIG_SCHED_HMP_CSTATE_AWARE */
 static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 				   struct cpu_select_env *env, int cpu_cost)
 {
