@@ -252,6 +252,10 @@
 			< 1056000 >,
 			< 1171200 >;
 	};
+
+	qcom,lmh {
+		status = "disabled";
+	};
 };
 
 &gdsc_ufs {
