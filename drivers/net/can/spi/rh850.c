@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,7 +33,7 @@
 #define MAX_TX_BUFFERS		1
 #define XFER_BUFFER_SIZE	64
 #define RX_ASSEMBLY_BUFFER_SIZE	128
-#define RH850_CLOCK	80000000
+#define RH850_CLOCK	16000000
 #define RH850_MAX_CHANNELS	4
 
 struct rh850_can {
@@ -84,6 +84,7 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_CAN_ADD_FILTER	0x83
 #define CMD_CAN_REMOVE_FILTER	0x84
 #define CMD_CAN_RECEIVE_FRAME	0x85
+#define CMD_CAN_CONFIG_BIT_TIMING	0x86
 
 struct can_fw_resp {
 	u8 maj;
@@ -126,15 +127,23 @@ struct can_receive_frame {
 	u8 data[];
 } __packed;
 
+struct can_config_bit_timing {
+	u8 can_if;
+	u32 brp;
+	u32 tseg1;
+	u32 tseg2;
+	u32 sjw;
+} __packed;
+
 static struct can_bittiming_const rh850_bittiming_const = {
 	.name = "rh850",
-	.tseg1_min = 4,
+	.tseg1_min = 1,
 	.tseg1_max = 16,
-	.tseg2_min = 2,
-	.tseg2_max = 8,
+	.tseg2_min = 1,
+	.tseg2_max = 16,
 	.sjw_max = 4,
-	.brp_min = 4,
-	.brp_max = 1023,
+	.brp_min = 1,
+	.brp_max = 70,
 	.brp_inc = 1,
 };
 
@@ -347,6 +356,52 @@ static int rh850_query_firmware_version(struct rh850_can *priv_data)
 	return ret;
 }
 
+static int rh850_set_bitrate(struct net_device *netdev)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct can_config_bit_timing *req_d;
+	struct rh850_can *priv_data;
+	struct can_priv *priv = netdev_priv(netdev);
+	struct rh850_netdev_privdata *rh850_priv;
+
+	rh850_priv = netdev_priv(netdev);
+	priv_data = rh850_priv->rh850_can;
+
+	netdev_info(netdev, "ch%i,  bitrate setting>%i",
+		    rh850_priv->netdev_index, priv->bittiming.bitrate);
+	LOGNI("sjw>%i brp>%i ph_sg1>%i ph_sg2>%i smpl_pt>%i tq>%i pr_seg>%i",
+	      priv->bittiming.sjw, priv->bittiming.brp,
+	      priv->bittiming.phase_seg1,
+	      priv->bittiming.phase_seg2,
+	      priv->bittiming.sample_point,
+	      priv->bittiming.tq, priv->bittiming.prop_seg);
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = CMD_CAN_CONFIG_BIT_TIMING;
+	req->len = sizeof(struct can_config_bit_timing);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+	req_d = (struct can_config_bit_timing *)req->data;
+	req_d->can_if = rh850_priv->netdev_index;
+	req_d->brp = priv->bittiming.brp;
+	req_d->tseg1 = priv->bittiming.phase_seg1 + priv->bittiming.prop_seg;
+	req_d->tseg2 = priv->bittiming.phase_seg2;
+	req_d->sjw = priv->bittiming.sjw;
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
 static int rh850_can_write(struct rh850_can *priv_data,
 			   int can_channel, struct can_frame *cf)
 {
@@ -493,6 +548,7 @@ static int rh850_create_netdev(struct spi_device *spi,
 						   CAN_CTRLMODE_LISTENONLY;
 	netdev_priv_data->can.bittiming_const = &rh850_bittiming_const;
 	netdev_priv_data->can.clock.freq = RH850_CLOCK;
+	netdev_priv_data->can.do_set_bittiming = rh850_set_bitrate;
 
 	return 0;
 }
