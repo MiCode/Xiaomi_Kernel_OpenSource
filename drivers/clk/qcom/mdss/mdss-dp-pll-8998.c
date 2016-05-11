@@ -231,6 +231,7 @@ int dp_pll_clock_register_8998(struct platform_device *pdev,
 	 */
 	clk_ops_vco_divided_clk_src_c = clk_ops_slave_div;
 	clk_ops_vco_divided_clk_src_c.prepare = mdss_pll_div_prepare;
+	clk_ops_vco_divided_clk_src_c.handoff = vco_divided_clk_handoff;
 
 	/* We can select different clock ops for future versions */
 	dp_vco_clk.c.ops = &dp_8998_vco_clk_ops;

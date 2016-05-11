@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -159,7 +159,7 @@ int hsclk_divsel_get_div(struct div_clk *clk)
 
 	pr_debug("%s: hsclk_div:%d, div=%d\n", __func__, hsclk_div, div);
 
-	return hsclk_div;
+	return div;
 }
 
 int vco_divided_clk_set_div(struct div_clk *clk, int div)
@@ -178,8 +178,10 @@ int vco_divided_clk_set_div(struct div_clk *clk, int div)
 	auxclk_div &= ~0x03;	/* bits 0 to 1 */
 	if (div == 4)
 		auxclk_div |= 2;
-	else
+	else if (div == 2)
 		auxclk_div |= 1;
+	else
+		auxclk_div |= 2; /* Default divider */
 
 	MDSS_PLL_REG_W(dp_res->pll_base,
 			DP_PHY_VCO_DIV, auxclk_div);
@@ -189,6 +191,16 @@ int vco_divided_clk_set_div(struct div_clk *clk, int div)
 	mdss_pll_resource_enable(dp_res, false);
 
 	return rc;
+}
+
+
+enum handoff vco_divided_clk_handoff(struct clk *c)
+{
+	/*
+	 * Since cont-splash is not enabled, disable handoff
+	 * for vco_divider_clk.
+	 */
+	return HANDOFF_DISABLED_CLK;
 }
 
 int vco_divided_clk_get_div(struct div_clk *clk)
@@ -208,8 +220,11 @@ int vco_divided_clk_get_div(struct div_clk *clk)
 
 	if (auxclk_div == 2)
 		div = 4;
-	else
+	else if (auxclk_div == 1)
 		div = 2;
+	else
+		div = 0;
+
 	mdss_pll_resource_enable(dp_res, false);
 
 	pr_debug("%s: auxclk_div=%d, div=%d\n", __func__, auxclk_div, div);
@@ -223,13 +238,15 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 	struct mdss_pll_resources *dp_res = vco->priv;
 
 	MDSS_PLL_REG_W(dp_res->phy_base,
-			DP_PHY_PD_CTL, 0x39);
+			DP_PHY_PD_CTL, 0x3d);
+	MDSS_PLL_REG_W(dp_res->pll_base,
+			QSERDES_COM_PLL_IVCO, 0x0f);
 	MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_SVS_MODE_CLK_SEL, 0x01);
 	MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_SYSCLK_EN_SEL, 0x37);
 	MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_SYS_CLK_CTRL, 0x02);
+			QSERDES_COM_SYS_CLK_CTRL, 0x06);
 
 	MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_CLK_ENABLE1, 0x0e);
@@ -239,41 +256,41 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 			QSERDES_COM_CLK_SEL, 0x30);
 
 	MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_LOCK_CMP_EN, 0x08);
+			QSERDES_COM_LOCK_CMP_EN, 0x00);
 	MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_PLL_CCTRL_MODE0, 0x34);
 	MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_PLL_RCTRL_MODE0, 0x16);
 	MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_CP_CTRL_MODE0, 0x08);
-	/* Different for 2700 & 5400 Mhz clock rates */
+	/* Different for each clock rates */
 	if (rate == DP_VCO_RATE_8100MHz) {
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_DEC_START_MODE0, 0x69);
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_DIV_FRAC_START1_MODE0, 0x9a);
+			QSERDES_COM_DIV_FRAC_START1_MODE0, 0x00);
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_DIV_FRAC_START2_MODE0, 0x29);
+			QSERDES_COM_DIV_FRAC_START2_MODE0, 0x80);
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_DIV_FRAC_START3_MODE0, 0x07);
 	} else if (rate == DP_VCO_RATE_9720MHz) {
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_DEC_START_MODE0, 0x7e);
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_DIV_FRAC_START1_MODE0, 0x52);
+			QSERDES_COM_DIV_FRAC_START1_MODE0, 0x00);
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_DIV_FRAC_START2_MODE0, 0x98);
+			QSERDES_COM_DIV_FRAC_START2_MODE0, 0x00);
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_DIV_FRAC_START3_MODE0, 0x08);
+			QSERDES_COM_DIV_FRAC_START3_MODE0, 0x09);
 	} else if (rate == DP_VCO_RATE_10800MHz) {
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_DEC_START_MODE0, 0x8c);
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_DIV_FRAC_START1_MODE0, 0xcd);
+			QSERDES_COM_DIV_FRAC_START1_MODE0, 0x00);
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_DIV_FRAC_START2_MODE0, 0x8c);
+			QSERDES_COM_DIV_FRAC_START2_MODE0, 0x00);
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_DIV_FRAC_START3_MODE0, 0x09);
+			QSERDES_COM_DIV_FRAC_START3_MODE0, 0x0a);
 	} else {
 		pr_err("%s: unsupported rate: %ld\n", __func__, rate);
 		return -EINVAL;
@@ -322,91 +339,96 @@ int dp_config_vco_rate(struct dp_pll_vco_clk *vco, unsigned long rate)
 	MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_CORE_CLK_EN, 0x0f);
 
-	/* Different for 2700 Mhz clock rate */
+	/* Different for each clock rate */
 	if (rate == DP_VCO_RATE_8100MHz) {
 		MDSS_PLL_REG_W(dp_res->pll_base,
 			QSERDES_COM_CMN_CONFIG, 0x02);
 	} else if (rate == DP_VCO_RATE_9720MHz) {
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_CMN_CONFIG, 0x42);
+			QSERDES_COM_CMN_CONFIG, 0x02);
 	} else {
 		MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_COM_CMN_CONFIG, 0x12);
+			QSERDES_COM_CMN_CONFIG, 0x02);
 	}
 
-	/* Configuration for 1620Mhz VCO frequency */
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_TRANSCEIVER_BIAS_EN,
 			0x1a);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_TRANSCEIVER_BIAS_EN,
 			0x1a);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_HIGHZ_DRVR_EN,
 			0x00);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_HIGHZ_DRVR_EN,
 			0x00);
 
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
+			QSERDES_TX0_OFFSET + TXn_TX_DRV_LVL,
+			0x38);
+	MDSS_PLL_REG_W(dp_res->phy_base,
+			QSERDES_TX1_OFFSET + TXn_TX_DRV_LVL,
+			0x38);
+	MDSS_PLL_REG_W(dp_res->phy_base,
+			QSERDES_TX0_OFFSET + TXn_TX_EMP_POST1_LVL,
+			0x2c);
+	MDSS_PLL_REG_W(dp_res->phy_base,
+			QSERDES_TX1_OFFSET + TXn_TX_EMP_POST1_LVL,
+			0x2c);
+
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			DP_PHY_TX0_TX1_LANE_CTL, 0x05);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			DP_PHY_TX2_TX3_LANE_CTL, 0x05);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_VMODE_CTRL1,
 			0x40);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_VMODE_CTRL1,
 			0x40);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_PRE_STALL_LDO_BOOST_EN,
 			0x30);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_PRE_STALL_LDO_BOOST_EN,
 			0x30);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_INTERFACE_SELECT,
 			0x3d);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_INTERFACE_SELECT,
 			0x3d);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_CLKBUF_ENABLE,
 			0x0f);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_CLKBUF_ENABLE,
 			0x0f);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_RESET_TSYNC_EN,
 			0x03);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_RESET_TSYNC_EN,
 			0x03);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_TRAN_DRVR_EMP_EN,
 			0x03);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_TRAN_DRVR_EMP_EN,
 			0x03);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_PARRATE_REC_DETECT_IDLE_EN,
 			0x00);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_PARRATE_REC_DETECT_IDLE_EN,
 			0x00);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_TX_INTERFACE_MODE,
 			0x00);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_TX_INTERFACE_MODE,
 			0x00);
-	MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_TX0_OFFSET + TXn_TX_EMP_POST1_LVL,
-			0x23);
-	MDSS_PLL_REG_W(dp_res->pll_base,
-			QSERDES_TX1_OFFSET + TXn_TX_EMP_POST1_LVL,
-			0x23);
-
 	return res;
 }
 
@@ -491,22 +513,22 @@ static int dp_pll_enable(struct clk *c)
 
 	pr_debug("%s: PLL is locked\n", __func__);
 
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_TRANSCEIVER_BIAS_EN,
 			0x3f);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_TRANSCEIVER_BIAS_EN,
 			0x3f);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_HIGHZ_DRVR_EN,
 			0x10);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_HIGHZ_DRVR_EN,
 			0x10);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX0_OFFSET + TXn_TX_POL_INV,
 			0x0a);
-	MDSS_PLL_REG_W(dp_res->pll_base,
+	MDSS_PLL_REG_W(dp_res->phy_base,
 			QSERDES_TX1_OFFSET + TXn_TX_POL_INV,
 			0x0a);
 	MDSS_PLL_REG_W(dp_res->phy_base,
