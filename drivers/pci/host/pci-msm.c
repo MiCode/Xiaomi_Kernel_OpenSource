@@ -59,6 +59,9 @@
 #define PCS_MISC_BASE 0x600
 
 #elif defined(CONFIG_ARCH_MSMCOBALT)
+#define PCIE_VENDOR_ID_RCP		0x17cb
+#define PCIE_DEVICE_ID_RCP		0x0105
+
 #define TX_BASE 0
 #define RX_BASE 0
 #define PCS_BASE 0x800
