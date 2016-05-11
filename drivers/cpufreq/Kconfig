@@ -122,6 +122,7 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 
 config CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
 	bool "schedutil"
+	depends on SMP
 	select CPU_FREQ_GOV_SCHEDUTIL
 	select CPU_FREQ_GOV_PERFORMANCE
 	help
