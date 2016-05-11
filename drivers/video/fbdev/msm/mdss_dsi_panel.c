@@ -354,14 +354,22 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		}
 
 		if (gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
+			bool out;
+
 			if ((pinfo->mode_sel_state == MODE_SEL_SINGLE_PORT) ||
 				(pinfo->mode_sel_state == MODE_GPIO_HIGH))
-				gpio_set_value(
-					ctrl_pdata->lcd_mode_sel_gpio, 1);
+				out = true;
 			else if ((pinfo->mode_sel_state == MODE_SEL_DUAL_PORT)
 				|| (pinfo->mode_sel_state == MODE_GPIO_LOW))
-				gpio_set_value(
-					ctrl_pdata->lcd_mode_sel_gpio, 0);
+				out = false;
+
+			rc = gpio_direction_output(
+					ctrl_pdata->lcd_mode_sel_gpio, out);
+			if (rc) {
+				pr_err("%s: unable to set dir for mode gpio\n",
+					__func__);
+				goto exit;
+			}
 		}
 
 		if (ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT) {
