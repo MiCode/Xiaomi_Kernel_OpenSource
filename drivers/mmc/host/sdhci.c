@@ -1656,7 +1656,7 @@ static void sdhci_notify_halt(struct mmc_host *mmc, bool halt)
 
 	pr_debug("%s: halt notification was sent, halt=%d\n",
 		mmc_hostname(mmc), halt);
-	if (host->flags & SDHCI_USE_ADMA_64BIT) {
+	if (host->flags & SDHCI_USE_64_BIT_DMA) {
 		if (halt)
 			host->adma_desc_line_sz = 16;
 		else
@@ -4323,7 +4323,7 @@ int __sdhci_add_host(struct sdhci_host *host)
 	}
 
 	if (mmc->caps2 &  MMC_CAP2_CMD_QUEUE) {
-		bool dma64 = (host->flags & SDHCI_USE_ADMA_64BIT) ?
+		bool dma64 = (host->flags & SDHCI_USE_64_BIT_DMA) ?
 			true : false;
 		ret = sdhci_cmdq_init(host, mmc, dma64);
 		if (ret)
@@ -4336,7 +4336,7 @@ int __sdhci_add_host(struct sdhci_host *host)
 	pr_info("%s: SDHCI controller on %s [%s] using %s in %s mode\n",
 	mmc_hostname(mmc), host->hw_name, dev_name(mmc_dev(mmc)),
 		(host->flags & SDHCI_USE_ADMA) ?
-		((host->flags & SDHCI_USE_ADMA_64BIT) ?
+		((host->flags & SDHCI_USE_64_BIT_DMA) ?
 		"64-bit ADMA" : "32-bit ADMA") :
 		((host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO"),
 		((mmc->caps2 &  MMC_CAP2_CMD_QUEUE) && !ret) ?
