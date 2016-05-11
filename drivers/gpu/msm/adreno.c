@@ -1314,6 +1314,28 @@ static void _update_threshold_count(struct adreno_device *adreno_dev,
 		adreno_dev->lm_threshold_cross = adj;
 }
 
+static void _set_secvid(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	/* Program GPU contect protection init values */
+	if (device->mmu.secured) {
+		if (adreno_is_a4xx(adreno_dev))
+			adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TRUST_CONFIG, 0x2);
+		adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
+
+		adreno_writereg64(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
+			KGSL_IOMMU_SECURE_BASE);
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
+			KGSL_IOMMU_SECURE_SIZE);
+	}
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1360,22 +1382,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_pwr_off;
 
-	/* Program GPU contect protection init values */
-	if (device->mmu.secured) {
-		if (adreno_is_a4xx(adreno_dev))
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TRUST_CONFIG, 0x2);
-		adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
-
-		adreno_writereg64(adreno_dev,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-			KGSL_IOMMU_SECURE_BASE);
-		adreno_writereg(adreno_dev,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
-			KGSL_IOMMU_SECURE_SIZE);
-	}
+	_set_secvid(device);
 
 	status = adreno_ocmem_malloc(adreno_dev);
 	if (status) {
@@ -2133,6 +2140,8 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 	/* start of new CFF after reset */
 	kgsl_cffdump_open(device);
+
+	_set_secvid(device);
 
 	/* Enable 64 bit gpu addr if feature is set */
 	if (gpudev->enable_64bit &&
