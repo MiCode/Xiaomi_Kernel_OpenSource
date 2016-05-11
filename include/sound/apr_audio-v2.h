@@ -792,7 +792,11 @@ struct adm_cmd_connect_afe_port_v5 {
 #define SLIMBUS_5_TX		0x400b
 #define SLIMBUS_6_RX		0x400c
 #define SLIMBUS_6_TX		0x400d
-#define SLIMBUS_PORT_LAST	SLIMBUS_6_TX
+#define SLIMBUS_7_RX		0x400e
+#define SLIMBUS_7_TX		0x400f
+#define SLIMBUS_8_RX		0x4010
+#define SLIMBUS_8_TX		0x4011
+#define SLIMBUS_PORT_LAST	SLIMBUS_8_TX
 #define INT_BT_SCO_RX 0x3000
 #define INT_BT_SCO_TX 0x3001
 #define INT_BT_A2DP_RX 0x3002
@@ -941,6 +945,14 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_6_RX      0x400c
 /* SLIMbus Tx port on channel 6. */
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_6_TX      0x400d
+/* SLIMbus Rx port on channel 7. */
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_7_RX      0x400e
+/* SLIMbus Tx port on channel 7. */
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_7_TX      0x400f
+/* SLIMbus Rx port on channel 8. */
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_8_RX      0x4010
+/* SLIMbus Tx port on channel 8. */
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_8_TX      0x4011
 
 /* Generic pseudoport 1. */
 #define AFE_PORT_ID_PSEUDOPORT_01      0x8001

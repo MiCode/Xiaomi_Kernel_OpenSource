@@ -229,7 +229,7 @@ static void cam_smmu_print_list(int idx)
 	pr_err("index = %d ", idx);
 	list_for_each_entry(mapping,
 		&iommu_cb_set.cb_info[idx].smmu_buf_list, list) {
-		pr_err("ion_fd = %d, paddr= 0x%p, len = %u\n",
+		pr_err("ion_fd = %d, paddr= 0x%pK, len = %u\n",
 			 mapping->ion_fd, (void *)mapping->paddr,
 			 (unsigned int)mapping->len);
 	}
@@ -240,10 +240,10 @@ static void cam_smmu_print_table(void)
 	int i;
 
 	for (i = 0; i < iommu_cb_set.cb_num; i++) {
-		pr_err("i= %d, handle= %d, name_addr=%p\n", i,
+		pr_err("i= %d, handle= %d, name_addr=%pK\n", i,
 			   (int)iommu_cb_set.cb_info[i].handle,
 			   (void *)iommu_cb_set.cb_info[i].name);
-		pr_err("dev = %p ", iommu_cb_set.cb_info[i].dev);
+		pr_err("dev = %pK ", iommu_cb_set.cb_info[i].dev);
 	}
 }
 
@@ -306,18 +306,18 @@ static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 		end_addr = (unsigned long)mapping->paddr + mapping->len;
 
 		if (start_addr <= current_addr && current_addr < end_addr) {
-			pr_err("Error: va %p is valid: range:%p-%p, fd = %d cb: %s\n",
+			pr_err("Error: va %pK is valid: range:%pK-%pK, fd = %d cb: %s\n",
 				vaddr, (void *)start_addr, (void *)end_addr,
 				mapping->ion_fd,
 				iommu_cb_set.cb_info[idx].name);
 			return;
 		} else {
-			CDBG("va %p is not in this range: %p-%p, fd = %d\n",
+			CDBG("va %pK is not in this range: %pK-%pK, fd = %d\n",
 				vaddr, (void *)start_addr, (void *)end_addr,
 				mapping->ion_fd);
 		}
 	}
-	pr_err("Cannot find vaddr:%p in SMMU. %s uses invalid virtual address\n",
+	pr_err("Cannot find vaddr:%pK in SMMU. %s uses invalid virtual address\n",
 		vaddr, iommu_cb_set.cb_info[idx].name);
 	return;
 }
@@ -393,7 +393,7 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 
 	if (!token) {
 		pr_err("Error: token is NULL\n");
-		pr_err("Error: domain = %p, device = %p\n", domain, dev);
+		pr_err("Error: domain = %pK, device = %pK\n", domain, dev);
 		pr_err("iova = %lX, flags = %d\n", iova, flags);
 		return 0;
 	}
@@ -705,7 +705,7 @@ static void cam_smmu_clean_buffer_list(int idx)
 
 	list_for_each_entry_safe(mapping_info, temp,
 			&iommu_cb_set.cb_info[idx].smmu_buf_list, list) {
-		CDBG("Free mapping address %p, i = %d, fd = %d\n",
+		CDBG("Free mapping address %pK, i = %d, fd = %d\n",
 			 (void *)mapping_info->paddr, idx,
 			mapping_info->ion_fd);
 
@@ -794,11 +794,11 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 	}
 
 	if (table->sgl) {
-		CDBG("DMA buf: %p, device: %p, attach: %p, table: %p\n",
+		CDBG("DMA buf: %pK, device: %pK, attach: %pK, table: %pK\n",
 				(void *)buf,
 				(void *)iommu_cb_set.cb_info[idx].dev,
 				(void *)attach, (void *)table);
-		CDBG("table sgl: %p, rc: %d, dma_address: 0x%x\n",
+		CDBG("table sgl: %pK, rc: %d, dma_address: 0x%x\n",
 				(void *)table->sgl, rc,
 				(unsigned int)table->sgl->dma_address);
 	} else {
@@ -832,7 +832,7 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 		rc = -ENOSPC;
 		goto err_unmap_sg;
 	}
-	CDBG("ion_fd = %d, dev = %p, paddr= %p, len = %u\n", ion_fd,
+	CDBG("ion_fd = %d, dev = %pK, paddr= %pK, len = %u\n", ion_fd,
 			(void *)iommu_cb_set.cb_info[idx].dev,
 			(void *)*paddr_ptr, (unsigned int)*len_ptr);
 
@@ -856,10 +856,10 @@ static int cam_smmu_unmap_buf_and_remove_from_list(
 {
 	if ((!mapping_info->buf) || (!mapping_info->table) ||
 		(!mapping_info->attach)) {
-		pr_err("Error: Invalid params dev = %p, table = %p",
+		pr_err("Error: Invalid params dev = %pK, table = %pK",
 			(void *)iommu_cb_set.cb_info[idx].dev,
 			(void *)mapping_info->table);
-		pr_err("Error:dma_buf = %p, attach = %p\n",
+		pr_err("Error:dma_buf = %pK, attach = %pK\n",
 			(void *)mapping_info->buf,
 			(void *)mapping_info->attach);
 		return -EINVAL;
@@ -983,7 +983,7 @@ static int cam_smmu_alloc_scratch_buffer_add_to_list(int idx,
 
 	CDBG("%s: nents = %lu, idx = %d, virt_len  = %zx\n",
 		__func__, nents, idx, virt_len);
-	CDBG("%s: phys_len = %zx, iommu_dir = %d, virt_addr = %p\n",
+	CDBG("%s: phys_len = %zx, iommu_dir = %d, virt_addr = %pK\n",
 		__func__, phys_len, iommu_dir, virt_addr);
 
 	/* This table will go inside the 'mapping' structure
@@ -1049,7 +1049,7 @@ static int cam_smmu_alloc_scratch_buffer_add_to_list(int idx,
 	mapping_info->ref_count = 1;
 	mapping_info->phys_len = phys_len;
 
-	CDBG("%s: paddr = %p, len = %zx, phys_len = %zx",
+	CDBG("%s: paddr = %pK, len = %zx, phys_len = %zx",
 		__func__, (void *)mapping_info->paddr,
 		mapping_info->len, mapping_info->phys_len);
 
@@ -1087,7 +1087,7 @@ static int cam_smmu_free_scratch_buffer_remove_from_list(
 		&iommu_cb_set.cb_info[idx].scratch_map;
 
 	if (!mapping_info->table) {
-		pr_err("Error: Invalid params: dev = %p, table = %p, ",
+		pr_err("Error: Invalid params: dev = %pK, table = %pK, ",
 				(void *)iommu_cb_set.cb_info[idx].dev,
 				(void *)mapping_info->table);
 		return -EINVAL;

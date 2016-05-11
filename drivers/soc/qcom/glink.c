@@ -2631,6 +2631,13 @@ relock: xprt_ctx = ctx->transport_ptr;
 			"channel Not closed yet local state [%d] remote_state [%d]\n",
 			ctx->local_open_state, ctx->remote_opened);
 		}
+	} else {
+		/*
+		 * This case handles the scenario where glink_core_link_down
+		 * changes the local_state to GLINK_XPRT_DOWN but glink_close
+		 * gets the channel write lock before glink_core_channel_cleanup
+		 */
+		rwref_write_put(&ctx->ch_state_lhb2);
 	}
 	complete_all(&ctx->int_req_ack_complete);
 	complete_all(&ctx->int_req_complete);
@@ -4305,6 +4312,10 @@ static bool will_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	if (l_ctx->local_xprt_req > r_ctx->transport_ptr->id)
 		l_ctx->local_xprt_req = r_ctx->transport_ptr->id;
 
+	if (ch_is_fully_opened(l_ctx) &&
+		(l_ctx->transport_ptr->id == l_ctx->local_xprt_req))
+		goto exit;
+
 	new_xprt = max(l_ctx->local_xprt_req, r_ctx->remote_xprt_req);
 
 	if (new_xprt == l_ctx->transport_ptr->id)
@@ -4352,6 +4363,12 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	else
 		rwref_get(&l_ctx->ch_state_lhb2);
 	if (!l_ctx) {
+		rwref_put(&r_ctx->ch_state_lhb2);
+		return migrated;
+	}
+	if (ch_is_fully_opened(l_ctx) &&
+		(l_ctx->transport_ptr->id == l_ctx->local_xprt_req)) {
+		rwref_put(&l_ctx->ch_state_lhb2);
 		rwref_put(&r_ctx->ch_state_lhb2);
 		return migrated;
 	}

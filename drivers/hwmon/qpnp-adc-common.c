@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -746,19 +746,23 @@ int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *vadc,
 
 	if (!chan_properties || !chan_properties->offset_gain_numerator ||
 		!chan_properties->offset_gain_denominator || !adc_properties
-		|| !adc_chan_result
-		|| !chan_properties->adc_graph[CALIB_ABSOLUTE].dy)
+		|| !adc_chan_result)
 		return -EINVAL;
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
-		pmic_voltage = (adc_code * adc_properties->adc_vdd_reference
-								* 1000);
+		pmic_voltage = (int64_t) adc_code;
+		pmic_voltage *= (int64_t) (adc_properties->adc_vdd_reference
+							* 1000);
 		pmic_voltage = div64_s64(pmic_voltage,
-					(QPNP_VADC_HC_VREF_CODE * 1000));
-	} else
+					QPNP_VADC_HC_VREF_CODE);
+	} else {
+		if (!chan_properties->adc_graph[CALIB_ABSOLUTE].dy)
+			return -EINVAL;
 		qpnp_adc_scale_with_calib_param(adc_code, adc_properties,
 					chan_properties, &pmic_voltage);
+	}
+
 	if (pmic_voltage > 0) {
 		/* 2mV/K */
 		adc_chan_result->measurement = pmic_voltage*
@@ -771,7 +775,7 @@ int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *vadc,
 
 	/* Change to .001 deg C */
 	adc_chan_result->measurement -= KELVINMIL_DEGMIL;
-	adc_chan_result->physical = (int32_t)adc_chan_result->measurement;
+	adc_chan_result->physical = (int32_t) adc_chan_result->measurement;
 
 	return 0;
 }
@@ -847,11 +851,11 @@ int32_t qpnp_adc_tdkntcg_therm(struct qpnp_vadc_chip *chip,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V) * 1000) / (0x4000 * 1000) */
-		xo_thm_voltage = (adc_code * adc_properties->adc_vdd_reference
+		xo_thm_voltage = (int64_t) adc_code;
+		xo_thm_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
 		xo_thm_voltage = div64_s64(xo_thm_voltage,
-					(QPNP_VADC_HC_VREF_CODE * 1000));
-
+					QPNP_VADC_HC_VREF_CODE * 1000);
 		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb_1875_vref,
 			ARRAY_SIZE(adcmap_100k_104ef_104fb_1875_vref),
 			xo_thm_voltage, &adc_chan_result->physical);
@@ -1044,7 +1048,8 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *chip,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V) * 1000) / (0x4000 * 1000) */
-		therm_voltage = (adc_code * adc_properties->adc_vdd_reference
+		therm_voltage = (int64_t) adc_code;
+		therm_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
 		therm_voltage = div64_s64(therm_voltage,
 					(QPNP_VADC_HC_VREF_CODE * 1000));
@@ -1069,6 +1074,7 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *chip,
 EXPORT_SYMBOL(qpnp_adc_scale_therm_pu2);
 
 int32_t qpnp_adc_tm_scale_voltage_therm_pu2(struct qpnp_vadc_chip *chip,
+		const struct qpnp_adc_properties *adc_properties,
 					uint32_t reg, int64_t *result)
 {
 	int64_t adc_voltage = 0;
@@ -1085,9 +1091,15 @@ int32_t qpnp_adc_tm_scale_voltage_therm_pu2(struct qpnp_vadc_chip *chip,
 
 	do_div(adc_voltage, param1.dy);
 
-	qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb,
-		ARRAY_SIZE(adcmap_100k_104ef_104fb),
-		adc_voltage, result);
+	if (adc_properties->adc_hc)
+		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb_1875_vref,
+			ARRAY_SIZE(adcmap_100k_104ef_104fb_1875_vref),
+			adc_voltage, result);
+	else
+		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb,
+			ARRAY_SIZE(adcmap_100k_104ef_104fb),
+			adc_voltage, result);
+
 	if (negative_offset)
 		adc_voltage = -adc_voltage;
 
@@ -1096,6 +1108,7 @@ int32_t qpnp_adc_tm_scale_voltage_therm_pu2(struct qpnp_vadc_chip *chip,
 EXPORT_SYMBOL(qpnp_adc_tm_scale_voltage_therm_pu2);
 
 int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_vadc_chip *chip,
+			const struct qpnp_adc_properties *adc_properties,
 				struct qpnp_adc_tm_config *param)
 {
 	struct qpnp_vadc_linear_graph param1;
@@ -1103,11 +1116,20 @@ int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_vadc_chip *chip,
 
 	qpnp_get_vadc_gain_and_offset(chip, &param1, CALIB_RATIOMETRIC);
 
-	rc = qpnp_adc_map_temp_voltage(adcmap_100k_104ef_104fb,
-		ARRAY_SIZE(adcmap_100k_104ef_104fb),
-		param->low_thr_temp, &param->low_thr_voltage);
-	if (rc)
-		return rc;
+	if (adc_properties->adc_hc) {
+		rc = qpnp_adc_map_temp_voltage(
+			adcmap_100k_104ef_104fb_1875_vref,
+			ARRAY_SIZE(adcmap_100k_104ef_104fb_1875_vref),
+			param->low_thr_temp, &param->low_thr_voltage);
+		if (rc)
+			return rc;
+	} else {
+		rc = qpnp_adc_map_temp_voltage(adcmap_100k_104ef_104fb,
+			ARRAY_SIZE(adcmap_100k_104ef_104fb),
+			param->low_thr_temp, &param->low_thr_voltage);
+		if (rc)
+			return rc;
+	}
 
 	param->low_thr_voltage *= param1.dy;
 	do_div(param->low_thr_voltage, param1.adc_vref);
@@ -1179,8 +1201,8 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
-		scale_voltage = (adc_code * adc_properties->adc_vdd_reference
-								* 1000);
+		scale_voltage = (int64_t) adc_code;
+		scale_voltage *= (adc_properties->adc_vdd_reference * 1000);
 		scale_voltage = div64_s64(scale_voltage,
 						QPNP_VADC_HC_VREF_CODE);
 	} else {
@@ -1189,6 +1211,7 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 		if (!chan_properties->calib_type == CALIB_ABSOLUTE)
 			scale_voltage *= 1000;
 	}
+
 
 	scale_voltage *= chan_properties->offset_gain_denominator;
 	scale_voltage = div64_s64(scale_voltage,
@@ -1766,6 +1789,7 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 	struct qpnp_adc_properties *adc_prop;
 	struct qpnp_adc_amux_properties *amux_prop;
 	int count_adc_channel_list = 0, decimation, rc = 0, i = 0;
+	int decimation_tm_hc = 0, fast_avg_setup_tm_hc = 0;
 	bool adc_hc;
 
 	if (!node)
@@ -1806,6 +1830,27 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 	adc_hc = adc_qpnp->adc_hc;
 	adc_prop->adc_hc = adc_hc;
 
+	if (of_device_is_compatible(node, "qcom,qpnp-adc-tm-hc")) {
+		rc = of_property_read_u32(node, "qcom,decimation",
+						&decimation_tm_hc);
+		if (rc) {
+			pr_err("Invalid decimation property\n");
+			return -EINVAL;
+		}
+
+		rc = of_property_read_u32(node,
+			"qcom,fast-avg-setup", &fast_avg_setup_tm_hc);
+		if (rc) {
+			pr_err("Invalid fast average setup with %d\n", rc);
+			return -EINVAL;
+		}
+
+		if ((fast_avg_setup_tm_hc) > ADC_FAST_AVG_SAMPLE_16) {
+			pr_err("Max average support is 2^16\n");
+			return -EINVAL;
+		}
+	}
+
 	for_each_child_of_node(node, child) {
 		int channel_num, scaling, post_scaling, hw_settle_time;
 		int fast_avg_setup, calib_type = 0, rc;
@@ -1823,12 +1868,7 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 			pr_err("Invalid channel num\n");
 			return -EINVAL;
 		}
-		rc = of_property_read_u32(child, "qcom,decimation",
-								&decimation);
-		if (rc) {
-			pr_err("Invalid channel decimation property\n");
-			return -EINVAL;
-		}
+
 		if (!of_device_is_compatible(node, "qcom,qpnp-iadc")) {
 			rc = of_property_read_u32(child,
 				"qcom,hw-settle-time", &hw_settle_time);
@@ -1854,6 +1894,23 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 				pr_err("Invalid calibration type\n");
 				return -EINVAL;
 			}
+
+			/*
+			 * ADC_TM_HC decimation setting is common across
+			 * channels.
+			 */
+			if (!of_device_is_compatible(node,
+						"qcom,qpnp-adc-tm-hc")) {
+				rc = of_property_read_u32(child,
+					"qcom,decimation", &decimation);
+				if (rc) {
+					pr_err("Invalid decimation\n");
+					return -EINVAL;
+				}
+			} else {
+				decimation = decimation_tm_hc;
+			}
+
 			if (!strcmp(calibration_param, "absolute")) {
 				if (adc_hc)
 					calib_type = ADC_HC_ABS_CAL;
@@ -1878,12 +1935,19 @@ int32_t qpnp_adc_get_devicetree_data(struct platform_device *pdev,
 				return -EINVAL;
 			}
 		}
-		rc = of_property_read_u32(child,
+
+		/* ADC_TM_HC fast avg setting is common across channels */
+		if (!of_device_is_compatible(node, "qcom,qpnp-adc-tm-hc")) {
+			rc = of_property_read_u32(child,
 				"qcom,fast-avg-setup", &fast_avg_setup);
-		if (rc) {
-			pr_err("Invalid channel fast average setup\n");
-			return -EINVAL;
+			if (rc) {
+				pr_err("Invalid channel fast average setup\n");
+				return -EINVAL;
+			}
+		} else {
+			fast_avg_setup = fast_avg_setup_tm_hc;
 		}
+
 		/* Individual channel properties */
 		adc_channel_list[i].name = (char *)channel_name;
 		adc_channel_list[i].channel_num = channel_num;

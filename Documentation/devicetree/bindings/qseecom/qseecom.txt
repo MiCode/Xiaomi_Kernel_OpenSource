@@ -25,6 +25,7 @@ Optional properties:
   - qcom,appsbl-qseecom-support : indicates if there is qseecom support in appsbootloader
   - vdd-hba-supply   : handle for fixed power regulator
   - qcom,qsee-reentrancy-support: indicates the qsee reentrancy phase supported by the target
+  - qcom,commonlib64-loaded-by-uefi: indicates commonlib64 is loaded by uefi already
 
 Example:
 	qcom,qseecom@fe806000 {

@@ -129,6 +129,23 @@ static inline struct branch_clk *to_branch_clk(struct clk *clk)
 }
 
 /**
+ * struct hw_ctl_clk - Clock structure to enable/disable dynamic clock gating
+ * @c: clk
+ * @cbcr_reg: branch control register
+ * @base: pointer to base address of ioremapped registers.
+ */
+struct hw_ctl_clk {
+	struct clk c;
+	u32 cbcr_reg;
+	void __iomem *const *base;
+};
+
+static inline struct hw_ctl_clk *to_hw_ctl_clk(struct clk *clk)
+{
+	return container_of(clk, struct hw_ctl_clk, c);
+}
+
+/**
  * struct local_vote_clk - Voteable branch clock
  * @c: clk
  * @cbcr_reg: branch control register
@@ -234,6 +251,7 @@ extern struct clk_ops clk_ops_empty;
 extern struct clk_ops clk_ops_rcg;
 extern struct clk_ops clk_ops_rcg_mnd;
 extern struct clk_ops clk_ops_branch;
+extern struct clk_ops clk_ops_branch_hw_ctl;
 extern struct clk_ops clk_ops_vote;
 extern struct clk_ops clk_ops_rcg_hdmi;
 extern struct clk_ops clk_ops_rcg_edp;

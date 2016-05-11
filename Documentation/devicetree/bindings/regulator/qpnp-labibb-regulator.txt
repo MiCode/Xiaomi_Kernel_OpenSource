@@ -10,14 +10,11 @@ Main node required properties:
 - compatible:			Must be "qcom,qpnp-labibb-regulator"
 - qpnp,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB
 				regulators when bootloader does not turned on the
-				display panel. Could be "lcd", "amoled" or
-				"stand-alone".
+				display panel. Could be "lcd" or "amoled".
 				"lcd" means using LAB and IBB regulators are
-				configured for LCD mode together.
+				configured for LCD mode.
 				"amoled" means using LAB and IBB regulators are
-				configured for AMOLED mode together.
-				"stand-alone" means using LAB and IBB regulators
-				as stand alone regulators.
+				configured for AMOLED mode.
 - qcom,pmic-revid:		Specifies the phandle of the PMIC revid module.
 				Used to identify the PMIC subtype.
 
@@ -34,6 +31,21 @@ Main node optional properties:
 					if qpnp,qpnp-labibb-mode = "amoled".
 - qcom,labibb-ttw-force-lab-on:		A boolean property which forces LAB to be
 					always on during TTW mode.
+- qcom,skip-2nd-swire-cmd:		A boolean property which indicates if
+					the second SWIRE command needs to be skipped.
+- qcom,swire-2nd-cmd-delay:		A integer value which specifes the
+					delay in millisecs between the first and second
+					SWIRE command. If not specified this value
+					defaults to 20ms. This delay is applied only
+					if 'qpnp,skip-2nd-swire-cmd' is defined.
+- qcom,labibb-standalone:		A boolean property which forces LAB and
+					IBB to operate in standalone mode. If
+					this is not specified, then LAB and IBB
+					are controlled together in dual mode.
+- parent-supply:			Parent supply that is needed for LAB
+					and IBB regulators. This will be mostly
+					needed when LAB and IBB are operating
+					in standalone mode to vote for MBG.
 
 LAB subnode required properties:
 
@@ -203,12 +215,16 @@ Example:
 			#size-cells = <1>;
 			qpnp,qpnp-labibb-mode = "lcd";
 			qcom,pmic-revid = <&pmi8994_revid>;
+			qcom,skip-2nd-swire-cmd;
 
 			lab_regulator: qcom,lab@de00 {
 				reg = <0xde00 0x100>;
 				reg-names = "lab";
-				regulator-name = "lab_reg";
 
+				interrupts = <0x3 0xde 0x0>;
+                                interrupt-names = "lab-vreg-ok";
+
+				regulator-name = "lab_reg";
 				regulator-min-microvolt = <4600000>;
 				regulator-max-microvolt = <6000000>;
 

@@ -716,12 +716,6 @@ static int gladiator_erp_v2_probe(struct platform_device *pdev)
 		goto bail;
 	}
 
-	ret = parse_dt_node(pdev, msm_gld_data);
-	if (ret)
-		goto bail;
-	msm_gld_data->pm_notifier_block.notifier_call =
-		gladiator_erp_pm_callback;
-
 	if (of_property_match_string(pdev->dev.of_node,
 				"clock-names", "atb_clk") >= 0) {
 		msm_gld_data->qdss_clk = devm_clk_get(&pdev->dev, "atb_clk");
@@ -737,6 +731,12 @@ static int gladiator_erp_v2_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(msm_gld_data->qdss_clk);
 	if (ret)
 		goto err_atb_clk;
+
+	ret = parse_dt_node(pdev, msm_gld_data);
+	if (ret)
+		goto bail;
+	msm_gld_data->pm_notifier_block.notifier_call =
+		gladiator_erp_pm_callback;
 
 	gladiator_irq_init(msm_gld_data->gladiator_virt_base);
 	platform_set_drvdata(pdev, msm_gld_data);

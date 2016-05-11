@@ -718,6 +718,8 @@ static int icnss_qmi_event_fw_ready_ind(void *data)
 
 	penv->state |= ICNSS_FW_READY;
 
+	pr_info("%s: WLAN FW is ready\n", __func__);
+
 	if (!penv->pdev) {
 		pr_err("%s: Device is not ready\n", __func__);
 		ret = -ENODEV;
@@ -726,11 +728,8 @@ static int icnss_qmi_event_fw_ready_ind(void *data)
 
 	icnss_adrastea_power_off();
 
-	if (!penv->ops || !penv->ops->probe) {
-		pr_err("%s: WLAN driver is not registed yet\n", __func__);
-		ret = -ENOENT;
+	if (!penv->ops || !penv->ops->probe)
 		goto out;
-	}
 
 	ret = penv->ops->probe(&penv->pdev->dev);
 	if (ret < 0)
@@ -1422,7 +1421,7 @@ static int icnss_probe(struct platform_device *pdev)
 		goto err_qmi;
 	}
 
-	pr_debug("icnss: Platform driver probed successfully\n");
+	pr_info("icnss: Platform driver probed successfully\n");
 
 	return ret;
 

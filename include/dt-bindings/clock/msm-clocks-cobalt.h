@@ -153,6 +153,7 @@
 #define clk_ufs_unipro_core_clk_src		0x179e80a9
 #define clk_usb30_mock_utmi_clk_src		0xa024a976
 #define clk_usb3_phy_aux_clk_src		0x15eec63c
+#define clk_qspi_ref_clk_src			0xfe6b8e11
 #define clk_gcc_pcie_phy_0_reset		0x6bb4df33
 #define clk_gcc_usb3_phy_reset			0x03d559f1
 #define clk_gcc_usb3phy_phy_reset		0xb1a4f885
@@ -227,14 +228,18 @@
 #define clk_gcc_tsif_ref_clk			0x8f1ed2c2
 #define clk_gcc_ufs_ahb_clk			0x1914bb84
 #define clk_gcc_ufs_axi_clk			0x47c743a7
+#define clk_gcc_ufs_axi_hw_ctl_clk		0x69385b45
 #define clk_gcc_ufs_ice_core_clk		0x310b0710
+#define clk_gcc_ufs_ice_core_hw_ctl_clk		0x84e15a5b
 #define clk_gcc_ufs_phy_aux_clk			0x17acc8fb
+#define clk_gcc_ufs_phy_aux_hw_ctl_clk		0x7dbdb2e2
 #define clk_gcc_ufs_rx_symbol_0_clk		0x7f43251c
 #define clk_gcc_ufs_rx_symbol_1_clk		0x03182fde
 #define clk_gcc_ufs_tx_symbol_0_clk		0x6a9f747a
 #define clk_ufs_tx_symbol_0_clk			0xb3fcd0f7
 #define clk_ufs_rx_symbol_0_clk			0x17a0f1cd
 #define clk_gcc_ufs_unipro_core_clk		0x2daf7fd2
+#define clk_gcc_ufs_unipro_core_hw_ctl_clk	0x4a4e0f3d
 #define clk_gcc_usb30_master_clk		0xb3b4e2cb
 #define clk_gcc_usb30_mock_utmi_clk		0xa800b65a
 #define clk_gcc_usb30_sleep_clk			0xd0b65c92
@@ -267,6 +272,8 @@
 #define clk_gcc_mss_mnoc_bimc_axi_clk		0xf665d03f
 #define clk_gpll0_out_msscc			0x7d794829
 #define clk_gcc_mss_snoc_axi_clk		0x0e71de85
+#define clk_gcc_qspi_ref_clk			0x766a0f7c
+#define clk_gcc_qspi_ahb_clk			0x96969dc8
 #define clk_gcc_debug_mux			0x8121ac15
 
 /* clock_mmss controlled clocks */
@@ -447,6 +454,13 @@
 #define clk_dsi1pll_post_vco_div		0x623e04de
 #define clk_dsi1pll_bitclk_src			0x13ab045b
 #define clk_dsi1pll_vco_clk			0x99797b50
+
+#define clk_dp_vco_clk				0xfcaaeec7
+#define clk_hsclk_divsel_clk_src		0x0a325543
+#define clk_dp_link_2x_clk_divsel_five		0xcfe3f5dd
+#define clk_dp_link_2x_clk_divsel_ten		0xfeb9924d
+#define clk_dp_link_2x_clk_mux			0xce4c4fc6
+#define clk_vco_divided_clk_src			0x3da6cb51
 
 /* clock_gpu controlled clocks*/
 #define clk_gpucc_xo				0xc4e1a890

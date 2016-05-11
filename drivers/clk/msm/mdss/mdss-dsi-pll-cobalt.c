@@ -901,19 +901,9 @@ static struct clk_ops clk_ops_vco_cobalt = {
 	.unprepare = vco_cobalt_unprepare,
 };
 
-static int set_mdss_mux_sel(struct mux_clk *clk, int sel)
-{
-	return 0;
-}
-
-static int get_mdss_mux_sel(struct mux_clk *clk)
-{
-	return 0;
-}
-
 static struct clk_mux_ops mdss_mux_ops = {
-	.set_mux_sel = set_mdss_mux_sel,
-	.get_mux_sel = get_mdss_mux_sel,
+	.set_mux_sel = mdss_set_mux_sel,
+	.get_mux_sel = mdss_get_mux_sel,
 };
 
 /*
@@ -1290,7 +1280,7 @@ int dsi_pll_clock_register_cobalt(struct platform_device *pdev,
 	clk_ops_gen_mux_dsi.set_rate = parent_set_rate;
 
 	clk_ops_bitclk_src_c = clk_ops_div;
-	clk_ops_bitclk_src_c.prepare = dsi_pll_div_prepare;
+	clk_ops_bitclk_src_c.prepare = mdss_pll_div_prepare;
 
 	/*
 	 * Set the ops for the two dividers in the pixel clock tree to the
@@ -1299,13 +1289,13 @@ int dsi_pll_clock_register_cobalt(struct platform_device *pdev,
 	 * the rate for pixel clock, the vco is not reconfigured
 	 */
 	clk_ops_post_vco_div_c = clk_ops_slave_div;
-	clk_ops_post_vco_div_c.prepare = dsi_pll_div_prepare;
+	clk_ops_post_vco_div_c.prepare = mdss_pll_div_prepare;
 
 	clk_ops_post_bit_div_c = clk_ops_slave_div;
-	clk_ops_post_bit_div_c.prepare = dsi_pll_div_prepare;
+	clk_ops_post_bit_div_c.prepare = mdss_pll_div_prepare;
 
 	clk_ops_pclk_src_c = clk_ops_div;
-	clk_ops_pclk_src_c.prepare = dsi_pll_div_prepare;
+	clk_ops_pclk_src_c.prepare = mdss_pll_div_prepare;
 
 	pll_res->vco_delay = VCO_DELAY_USEC;
 	if (ndx == 0) {

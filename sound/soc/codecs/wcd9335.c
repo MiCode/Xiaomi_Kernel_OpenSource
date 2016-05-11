@@ -1389,7 +1389,8 @@ static int tasha_micbias_control(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
 		break;
 	case MICB_PULLUP_DISABLE:
-		tasha->pullup_ref[micb_index]--;
+		if (tasha->pullup_ref[micb_index] > 0)
+			tasha->pullup_ref[micb_index]--;
 		if ((tasha->pullup_ref[micb_index] == 0) &&
 		    (tasha->micb_ref[micb_index] == 0))
 			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
@@ -1407,7 +1408,8 @@ static int tasha_micbias_control(struct snd_soc_codec *codec,
 					post_dapm_on, &tasha->mbhc);
 		break;
 	case MICB_DISABLE:
-		tasha->micb_ref[micb_index]--;
+		if (tasha->micb_ref[micb_index] > 0)
+			tasha->micb_ref[micb_index]--;
 		if ((tasha->micb_ref[micb_index] == 0) &&
 		    (tasha->pullup_ref[micb_index] > 0))
 			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
@@ -13244,8 +13246,8 @@ static int tasha_probe(struct platform_device *pdev)
 	struct wcd9xxx_power_region *cdc_pwr;
 
 	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
-		if (apr_get_modem_state() == APR_SUBSYS_DOWN) {
-			dev_err(&pdev->dev, "%s: modem down\n", __func__);
+		if (apr_get_subsys_state() == APR_SUBSYS_DOWN) {
+			dev_err(&pdev->dev, "%s: dsp down\n", __func__);
 			return -EPROBE_DEFER;
 		}
 	}

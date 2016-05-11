@@ -169,7 +169,7 @@ struct lmh_sensor_data {
 	uint32_t			sensor_hw_node_id;
 	int				sensor_sw_id;
 	struct lmh_sensor_ops		ops;
-	long				last_read_value;
+	int				last_read_value;
 	struct list_head		list_ptr;
 };
 
@@ -198,7 +198,7 @@ static DEFINE_MUTEX(lmh_sensor_read);
 static DEFINE_MUTEX(lmh_odcm_access);
 static LIST_HEAD(lmh_sensor_list);
 
-static int lmh_read(struct lmh_sensor_ops *ops, long *val)
+static int lmh_read(struct lmh_sensor_ops *ops, int *val)
 {
 	struct lmh_sensor_data *lmh_sensor = container_of(ops,
 		       struct lmh_sensor_data, ops);
@@ -648,29 +648,22 @@ static int lmh_get_sensor_list(void)
 		uint32_t addr;
 		uint32_t size;
 	} cmd_buf;
-	dma_addr_t payload_phys;
-	DEFINE_DMA_ATTRS(attrs);
-	struct device dev = {0};
 
-	dev.coherent_dma_mask = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
-	dma_set_attr(DMA_ATTR_WRITE_BARRIER, &attrs);
-	payload = dma_alloc_attrs(&dev,
-			 PAGE_ALIGN(sizeof(struct lmh_sensor_packet)),
-			 &payload_phys, GFP_KERNEL, &attrs);
-	if (!payload) {
-		pr_err("No payload\n");
+	payload = kzalloc(sizeof(*payload), GFP_KERNEL);
+	if (!payload)
 		return -ENOMEM;
-	}
 
 	do {
+		memset(payload, 0, sizeof(*payload));
 		payload->count = next;
-		cmd_buf.addr = payload_phys;
+		cmd_buf.addr = SCM_BUFFER_PHYS(payload);
 		/* payload_phys may be a physical address > 4 GB */
-		desc_arg.args[0] = payload_phys;
+		desc_arg.args[0] = SCM_BUFFER_PHYS(payload);
 		desc_arg.args[1] = cmd_buf.size = SCM_BUFFER_SIZE(struct
 				lmh_sensor_packet);
 		desc_arg.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 		trace_lmh_event_call("GET_SENSORS enter");
+		dmac_flush_range(payload, payload + sizeof(*payload));
 		if (!is_scm_armv8())
 			ret = scm_call(SCM_SVC_LMH, LMH_GET_SENSORS,
 				(void *) &cmd_buf,
@@ -704,8 +697,7 @@ static int lmh_get_sensor_list(void)
 	} while (next < size);
 
 get_exit:
-	dma_free_attrs(&dev, PAGE_ALIGN(sizeof(struct lmh_sensor_packet)),
-		payload, payload_phys, &attrs);
+	kfree(payload);
 	return ret;
 }
 

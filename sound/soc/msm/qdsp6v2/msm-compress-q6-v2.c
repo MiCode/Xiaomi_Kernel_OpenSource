@@ -624,7 +624,8 @@ static int msm_compr_get_partial_drain_delay(int frame_sz, int sample_rate)
 	delay_time_ms = delay_time_ms > PARTIAL_DRAIN_ACK_EARLY_BY_MSEC ?
 			delay_time_ms - PARTIAL_DRAIN_ACK_EARLY_BY_MSEC : 0;
 
-	pr_debug("%s: partial drain delay %d\n", __func__, delay_time_ms);
+	pr_debug("%s: frame_sz %d, sample_rate %d, partial drain delay %d\n",
+		__func__, frame_sz, sample_rate, delay_time_ms);
 	return delay_time_ms;
 }
 
@@ -1078,20 +1079,6 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 		kfree(prtd);
 		return -ENOMEM;
 	}
-	prtd->audio_client = q6asm_audio_client_alloc(
-				(app_cb)compr_event_handler, prtd);
-	if (!prtd->audio_client) {
-		pr_err("%s: Could not allocate memory for client\n", __func__);
-		kfree(pdata->audio_effects[rtd->dai_link->be_id]);
-		kfree(pdata->dec_params[rtd->dai_link->be_id]);
-		pdata->cstream[rtd->dai_link->be_id] = NULL;
-		kfree(prtd);
-		return -ENOMEM;
-	}
-
-	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
-	prtd->audio_client->perf_mode = false;
-	prtd->session_id = prtd->audio_client->session;
 	prtd->codec = FORMAT_MP3;
 	prtd->bytes_received = 0;
 	prtd->bytes_sent = 0;
@@ -1130,6 +1117,21 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 
 	runtime->private_data = prtd;
 	populate_codec_list(prtd);
+	prtd->audio_client = q6asm_audio_client_alloc(
+				(app_cb)compr_event_handler, prtd);
+	if (!prtd->audio_client) {
+		pr_err("%s: Could not allocate memory for client\n", __func__);
+		kfree(pdata->audio_effects[rtd->dai_link->be_id]);
+		kfree(pdata->dec_params[rtd->dai_link->be_id]);
+		pdata->cstream[rtd->dai_link->be_id] = NULL;
+		runtime->private_data = NULL;
+		kfree(prtd);
+		return -ENOMEM;
+	}
+
+	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
+	prtd->audio_client->perf_mode = false;
+	prtd->session_id = prtd->audio_client->session;
 
 	return 0;
 }
@@ -1259,6 +1261,12 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	if (i == num_rates)
 		return -EINVAL;
 
+	memcpy(&prtd->codec_param, params, sizeof(struct snd_compr_params));
+	/* ToDo: remove duplicates */
+	prtd->num_channels = prtd->codec_param.codec.ch_in;
+	prtd->sample_rate = prtd->codec_param.codec.sample_rate;
+	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
+
 	if (prtd->codec_param.codec.compr_passthr >= 0 &&
 		prtd->codec_param.codec.compr_passthr <= 2)
 		prtd->compr_passthr = prtd->codec_param.codec.compr_passthr;
@@ -1376,12 +1384,6 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	prtd->partial_drain_delay =
 		msm_compr_get_partial_drain_delay(frame_sz, prtd->sample_rate);
 
-	memcpy(&prtd->codec_param, params, sizeof(struct snd_compr_params));
-
-	/* ToDo: remove duplicates */
-	prtd->num_channels = prtd->codec_param.codec.ch_in;
-	prtd->sample_rate = prtd->codec_param.codec.sample_rate;
-	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
 	ret = msm_compr_configure_dsp(cstream);
 
 	return ret;
@@ -1491,16 +1493,27 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		pr_debug("%s: SNDRV_PCM_TRIGGER_START\n", __func__);
 		atomic_set(&prtd->start, 1);
 
-		/* set volume for the stream before RUN */
-		rc = msm_compr_set_volume(cstream, volume[0], volume[1]);
-		if (rc)
-			pr_err("%s : Set Volume failed : %d\n",
-				__func__, rc);
+		/*
+		* compr_set_volume and compr_init_pp_params
+		* are used to configure ASM volume hence not
+		* needed for compress passthrough playback.
+		*
+		* compress passthrough volume is controlled in
+		* ADM by adm_send_compressed_device_mute()
+		*/
+		if (prtd->compr_passthr == LEGACY_PCM) {
+			/* set volume for the stream before RUN */
+			rc = msm_compr_set_volume(cstream,
+				volume[0], volume[1]);
+			if (rc)
+				pr_err("%s : Set Volume failed : %d\n",
+					__func__, rc);
 
-		rc = msm_compr_init_pp_params(cstream, ac);
-		if (rc)
-			pr_err("%s : init PP params failed : %d\n",
-				__func__, rc);
+			rc = msm_compr_init_pp_params(cstream, ac);
+			if (rc)
+				pr_err("%s : init PP params failed : %d\n",
+					__func__, rc);
+		}
 
 		/* issue RUN command for the stream */
 		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
@@ -2844,7 +2857,7 @@ static int msm_compr_audio_effects_config_info(struct snd_kcontrol *kcontrol,
 					       struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
-	uinfo->count = 128;
+	uinfo->count = MAX_PP_PARAMS_SZ;
 	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = 0xFFFFFFFF;
 	return 0;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,7 @@
 #define LMH_POLLING_MSEC		30
 
 struct lmh_mon_threshold {
-	long				value;
+	int				value;
 	bool				active;
 };
 
@@ -320,7 +320,7 @@ static struct lmh_mon_sensor_data *lmh_match_sensor_name(char *sensor_name)
 }
 
 static void lmh_evaluate_and_notify(struct lmh_mon_sensor_data *lmh_sensor,
-	       long val)
+	       int val)
 {
 	int idx = 0, trip = 0;
 	bool cond = false;
@@ -342,7 +342,7 @@ static void lmh_evaluate_and_notify(struct lmh_mon_sensor_data *lmh_sensor,
 	}
 }
 
-void lmh_update_reading(struct lmh_sensor_ops *ops, long trip_val)
+void lmh_update_reading(struct lmh_sensor_ops *ops, int trip_val)
 {
 	struct lmh_mon_sensor_data *lmh_sensor = NULL;
 
@@ -358,7 +358,7 @@ void lmh_update_reading(struct lmh_sensor_ops *ops, long trip_val)
 		goto interrupt_exit;
 	}
 	down_write(&lmh_sensor->lock);
-	pr_debug("Sensor:[%s] intensity:%ld\n", lmh_sensor->sensor_name,
+	pr_debug("Sensor:[%s] intensity:%d\n", lmh_sensor->sensor_name,
 		trip_val);
 	lmh_evaluate_and_notify(lmh_sensor, trip_val);
 interrupt_exit:
@@ -380,7 +380,7 @@ static int lmh_sensor_read(struct thermal_zone_device *dev, int *val)
 	lmh_sensor = dev->devdata;
 	down_read(&lmh_mon_access_lock);
 	down_read(&lmh_sensor->lock);
-	ret = lmh_sensor->sensor_ops->read(lmh_sensor->sensor_ops, (long *)val);
+	ret = lmh_sensor->sensor_ops->read(lmh_sensor->sensor_ops, val);
 	if (ret) {
 		pr_err("Error reading sensor:%s. err:%d\n",
 				lmh_sensor->sensor_name, ret);
@@ -972,7 +972,7 @@ static int lmh_dbgfs_data_read(struct seq_file *seq_fp, void *data)
 {
 	static uint32_t *read_buf;
 	static int read_buf_size;
-	int idx = 0, ret = 0, print_ret = 0;
+	int idx = 0, ret = 0;
 
 	if (!read_buf_size) {
 		ret = lmh_mon_data->debug_ops->debug_read(
@@ -988,17 +988,16 @@ static int lmh_dbgfs_data_read(struct seq_file *seq_fp, void *data)
 	}
 
 	do {
-		print_ret = seq_printf(seq_fp, "0x%x ", read_buf[idx]);
-		if (print_ret) {
-			pr_err("Seq print error. idx:%d err:%d\n",
-				idx, print_ret);
+		seq_printf(seq_fp, "0x%x ", read_buf[idx]);
+		if (seq_has_overflowed(seq_fp)) {
+			pr_err("Seq overflow. idx:%d\n", idx);
 			goto dfs_read_exit;
 		}
 		idx++;
 		if ((idx % LMH_READ_LINE_LENGTH) == 0) {
-			print_ret = seq_puts(seq_fp, "\n");
-			if (print_ret) {
-				pr_err("Seq print error. err:%d\n", print_ret);
+			seq_puts(seq_fp, "\n");
+			if (seq_has_overflowed(seq_fp)) {
+				pr_err("Seq overflow. idx:%d\n", idx);
 				goto dfs_read_exit;
 			}
 		}

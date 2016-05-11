@@ -123,6 +123,147 @@
 				status = "disabled";
 			};
 		};
+
+		pmicobalt_charger: qcom,qpnp-smb2 {
+			compatible = "qcom,qpnp-smb2";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,pmic-revid = <&pmicobalt_revid>;
+
+			/* do not draw current from USB or DC */
+			qcom,suspend-input;
+			dpdm-supply = <&qusb_phy0>;
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts = <0x2 0x10 0x0 IRQ_TYPE_NONE>,
+					     <0x2 0x10 0x1 IRQ_TYPE_NONE>,
+					     <0x2 0x10 0x2 IRQ_TYPE_NONE>,
+					     <0x2 0x10 0x3 IRQ_TYPE_NONE>,
+					     <0x2 0x10 0x4 IRQ_TYPE_NONE>;
+
+				interrupt-names = "chg-error",
+						  "chg-state-change",
+						  "step-chg-state-change",
+						  "step-chg-soc-update-fail",
+						  "step-chg-soc-update-request";
+			};
+
+			qcom,otg@1100 {
+				reg = <0x1100 0x100>;
+				interrupts = <0x2 0x11 0x0 IRQ_TYPE_NONE>,
+					     <0x2 0x11 0x1 IRQ_TYPE_NONE>,
+					     <0x2 0x11 0x2 IRQ_TYPE_NONE>,
+					     <0x2 0x11 0x3 IRQ_TYPE_NONE>;
+
+				interrupt-names = "otg-fail",
+						  "otg-overcurrent",
+						  "otg-oc-dis-sw-sts",
+						  "testmode-change-detect";
+			};
+
+			qcom,bat-if@1200 {
+				reg = <0x1200 0x100>;
+				interrupts = <0x2 0x12 0x0 IRQ_TYPE_NONE>,
+					     <0x2 0x12 0x1 IRQ_TYPE_NONE>,
+					     <0x2 0x12 0x2 IRQ_TYPE_NONE>,
+					     <0x2 0x12 0x3 IRQ_TYPE_NONE>,
+					     <0x2 0x12 0x4 IRQ_TYPE_NONE>,
+					     <0x2 0x12 0x5 IRQ_TYPE_NONE>;
+
+				interrupt-names = "bat-temp",
+						  "bat-ocp",
+						  "bat-ov",
+						  "bat-low",
+						  "bat-therm-or-id-missing",
+						  "bat-terminal-missing";
+			};
+
+			qcom,usb-chgpth@1300 {
+				reg = <0x1300 0x100>;
+				interrupts = <0x2 0x13 0x0 IRQ_TYPE_NONE>,
+					     <0x2 0x13 0x1 IRQ_TYPE_NONE>,
+					     <0x2 0x13 0x2 IRQ_TYPE_NONE>,
+					     <0x2 0x13 0x3 IRQ_TYPE_NONE>,
+					     <0x2 0x13 0x4 IRQ_TYPE_NONE>,
+					     <0x2 0x13 0x5 IRQ_TYPE_NONE>,
+					     <0x2 0x13 0x6 IRQ_TYPE_NONE>,
+					     <0x2 0x13 0x7 IRQ_TYPE_NONE>;
+
+				interrupt-names = "usbin-collapse",
+						  "usbin-lt-3p6v",
+						  "usbin-uv",
+						  "usbin-ov",
+						  "usbin-plugin",
+						  "usbin-src-change",
+						  "usbin-icl-change",
+						  "type-c-change";
+			};
+
+			qcom,dc-chgpth@1400 {
+				reg = <0x1400 0x100>;
+				interrupts = <0x2 0x14 0x0 IRQ_TYPE_NONE>,
+					     <0x2 0x14 0x1 IRQ_TYPE_NONE>,
+					     <0x2 0x14 0x2 IRQ_TYPE_NONE>,
+					     <0x2 0x14 0x3 IRQ_TYPE_NONE>,
+					     <0x2 0x14 0x4 IRQ_TYPE_NONE>,
+					     <0x2 0x14 0x5 IRQ_TYPE_NONE>,
+					     <0x2 0x14 0x6 IRQ_TYPE_NONE>;
+
+				interrupt-names = "dcin-collapse",
+						  "dcin-lt-3p6v",
+						  "dcin-uv",
+						  "dcin-ov",
+						  "dcin-plugin",
+						  "div2-en-dg",
+						  "dcin-icl-change";
+			};
+
+			qcom,chgr-misc@1600 {
+				reg = <0x1600 0x100>;
+				interrupts = <0x2 0x16 0x0 IRQ_TYPE_NONE>,
+					     <0x2 0x16 0x1 IRQ_TYPE_NONE>,
+					     <0x2 0x16 0x2 IRQ_TYPE_NONE>,
+					     <0x2 0x16 0x3 IRQ_TYPE_NONE>,
+					     <0x2 0x16 0x4 IRQ_TYPE_NONE>,
+					     <0x2 0x16 0x5 IRQ_TYPE_NONE>,
+					     <0x2 0x16 0x6 IRQ_TYPE_NONE>,
+					     <0x2 0x16 0x7 IRQ_TYPE_NONE>;
+
+				interrupt-names = "wdog-snarl",
+						  "wdog-bark",
+						  "aicl-fail",
+						  "aicl-done",
+						  "high-duty-cycle",
+						  "input-current-limiting",
+						  "temperature-change",
+						  "switcher-power-ok";
+			};
+		};
+
+		pmicobalt_pdphy: qcom,usb-pdphy@1700 {
+			compatible = "qcom,qpnp-pdphy";
+			reg = <0x1700 0x100>;
+			vdd-pdphy-supply = <&pmcobalt_l24>;
+			vbus-supply = <&smb2_vbus>;
+			vcon-supply = <&smb2_vconn>;
+			interrupts = <0x2 0x17 0x0 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x2 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x3 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x4 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x5 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x6 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-names = "sig-tx",
+					  "sig-rx",
+					  "msg-tx",
+					  "msg-rx",
+					  "msg-tx-failed",
+					  "msg-tx-discarded",
+					  "msg-rx-discarded";
+		};
 	};
 
 	qcom,pmicobalt@3 {

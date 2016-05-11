@@ -79,13 +79,13 @@ Properties:
 - qcom,up-timer
 	Usage:      optional
 	Value type: <prop-encoded-array>
-	Definition: Array which defines the DCVS up timer value in microseconds
+	Definition: Array which defines the DCVS up timer value in nanoseconds
 		    for each of the two clusters managed by the OSM controller.
 
 - qcom,down-timer
 	Usage:      optional
 	Value type: <prop-encoded-array>
-	Definition: Array which defines the DCVS down timer value in microseconds
+	Definition: Array which defines the DCVS down timer value in nanoseconds
 		    for each of the two clusters managed by the OSM controller.
 
 - qcom,pc-override-index
@@ -109,15 +109,15 @@ Properties:
 - qcom,llm-freq-up-timer
 	Usage:      optional
 	Value type: <prop-encoded-array>
-	Definition: Array which devines the LLM frequency up timer value in
-		    microseconds for each of the two clusters managed by the
+	Definition: Array which defines the LLM frequency up timer value in
+		    nanoseconds for each of the two clusters managed by the
 		    OSM controller.
 
 - qcom,llm-freq-down-timer
 	Usage:      optional
 	Value type: <prop-encoded-array>
-	Definition: Array which devines the LLM frequency down timer value in
-		    microseconds for each of the two clusters managed by the
+	Definition: Array which defines the LLM frequency down timer value in
+		    nanoseconds for each of the two clusters managed by the
 		    OSM controller.
 
 - qcom,enable-llm-volt-vote
@@ -129,15 +129,15 @@ Properties:
 - qcom,llm-volt-up-timer
 	Usage:      optional
 	Value type: <prop-encoded-array>
-	Definition: Array which devines the LLM voltage up timer value in
-		    microseconds for each of the two clusters managed by the
+	Definition: Array which defines the LLM voltage up timer value in
+		    nanoseconds for each of the two clusters managed by the
 		    OSM controller.
 
 - qcom,llm-volt-down-timer
 	Usage:      optional
 	Value type: <prop-encoded-array>
-	Definition: Array which devines the LLM voltage down timer value in
-		    microseconds for each of the two clusters managed by the
+	Definition: Array which defines the LLM voltage down timer value in
+		    nanoseconds for each of the two clusters managed by the
 		    OSM controller.
 
 - qcom,cc-reads
@@ -195,6 +195,13 @@ Properties:
 	Definition: Array which defines the register addresses of the APM
 		    controller status register for each of the two clusters
 		    managed by the OSM controller.
+
+- qcom,llm-sw-overr
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of tuples which defines the three non-zero LLM SW
+		    override values to write to the OSM controller for each
+		    of the two clusters. Each tuple must contain three elements.
 
 - qcom,pwrcl-apcs-mem-acc-cfg
 	Usage:      required if qcom,osm-no-tz is specified
@@ -352,22 +359,22 @@ Example:
 		qcom,osm-pll-setup;
 
 		qcom,up-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,down-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,pc-override-index =
 			<0 0>;
 		qcom,set-ret-inactive;
 		qcom,enable-llm-freq-vote;
 		qcom,llm-freq-up-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,llm-freq-down-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,enable-llm-volt-vote;
 		qcom,llm-volt-up-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,llm-volt-down-timer =
-			<1 1>;
+			<1000 1000>;
 		qcom,cc-reads = <10>;
 
 		qcom,l-val-base =

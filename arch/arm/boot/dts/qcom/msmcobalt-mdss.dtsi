@@ -40,6 +40,7 @@
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
+		qcom,vbif-settings = <0x00ac 0x00000040>;
 
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-per-pipe-panic-luts = <0x000f>,
@@ -111,6 +112,26 @@
 			 <&clock_mmss clk_mmss_mdss_vsync_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
+
+		qcom,mdp-settings = <0x01190 0x00000000>,
+				    <0x012ac 0xc0000ccc>,
+				    <0x012b4 0xc0000ccc>,
+				    <0x012bc 0x00cccccc>,
+				    <0x012c4 0x000000cc>,
+				    <0x013a8 0x0cccc0c0>,
+				    <0x013b0 0xccccc0c0>,
+				    <0x013b8 0xcccc0000>,
+				    <0x013d0 0x00cc0000>,
+				    <0x0506c 0x00000000>,
+				    <0x0706c 0x00000000>,
+				    <0x0906c 0x00000000>,
+				    <0x0b06c 0x00000000>,
+				    <0x1506c 0x00000000>,
+				    <0x1706c 0x00000000>,
+				    <0x1906c 0x00000000>,
+				    <0x1b06c 0x00000000>,
+				    <0x2506c 0x00000000>,
+				    <0x2706c 0x00000000>;
 
 		qcom,regs-dump-mdp = <0x01000 0x01454>,
 				     <0x02000 0x02064>,
@@ -198,18 +219,28 @@
 			compatible = "qcom,smmu_mdp_unsec";
 			iommus = <&mmss_smmu 0>;
 			gdsc-mmagic-mdss-supply = <&gdsc_bimc_smmu>;
-			clocks = <&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
+				<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+				<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 				<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
-			clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
+			clock-names = "mmss_noc_axi_clk",
+					"mmss_noc_ahb_clk",
+					"mmss_smmu_ahb_clk",
+					"mmss_smmu_axi_clk";
 		};
 
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
 			compatible = "qcom,smmu_mdp_sec";
 			iommus = <&mmss_smmu 1>;
 			gdsc-mmagic-mdss-supply = <&gdsc_bimc_smmu>;
-			clocks = <&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
+			clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
+				<&clock_mmss clk_mmss_mnoc_ahb_clk>,
+				<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 				<&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
-			clock-names = "mmss_smmu_ahb_clk", "mmss_smmu_axi_clk";
+			clock-names = "mmss_noc_axi_clk",
+					"mmss_noc_ahb_clk",
+					"mmss_smmu_ahb_clk",
+					"mmss_smmu_axi_clk";
 		};
 
 		mdss_fb0: qcom,mdss_fb_primary {
@@ -445,3 +476,5 @@
 		};
 	};
 };
+
+#include "msmcobalt-mdss-panels.dtsi"

@@ -496,6 +496,9 @@ static void cleanup_irq(struct spmi_pmic_arb *pa, u8 apid, int id)
 	u8 per = ppid & 0xFF;
 	u8 irq_mask = BIT(id);
 
+	dev_err_ratelimited(&pa->spmic->dev,
+		"cleanup_irq apid=%d sid=0x%x per=0x%x irq=%d\n",
+		apid, sid, per, id);
 	writel_relaxed(irq_mask, pa->intr + pa->ver_ops->irq_clear(apid));
 
 	if (pmic_arb_write_cmd(pa->spmic, SPMI_CMD_EXT_WRITEL, sid,
@@ -540,8 +543,8 @@ static void pmic_arb_chained_irq(struct irq_desc *desc)
 	void __iomem *intr = pa->intr;
 	int first = pa->min_apid >> 5;
 	int last = pa->max_apid >> 5;
-	u32 status;
-	int i, id;
+	u32 status, enable;
+	int i, id, apid;
 
 	chained_irq_enter(chip, desc);
 
@@ -551,7 +554,11 @@ static void pmic_arb_chained_irq(struct irq_desc *desc)
 		while (status) {
 			id = ffs(status) - 1;
 			status &= ~BIT(id);
-			periph_interrupt(pa, id + i * 32);
+			apid = id + i * 32;
+			enable = readl_relaxed(intr +
+					pa->ver_ops->acc_enable(apid));
+			if (enable & SPMI_PIC_ACC_ENABLE_BIT)
+				periph_interrupt(pa, apid);
 		}
 	}
 
@@ -629,6 +636,12 @@ static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 	}
 
 	qpnpint_spmi_write(d, QPNPINT_REG_SET_TYPE, &type, sizeof(type));
+
+	if (flow_type & IRQ_TYPE_EDGE_BOTH)
+		irq_set_handler_locked(d, handle_edge_irq);
+	else
+		irq_set_handler_locked(d, handle_level_irq);
+
 	return 0;
 }
 

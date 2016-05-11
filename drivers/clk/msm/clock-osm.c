@@ -80,6 +80,7 @@ enum clk_osm_trace_packet_id {
 #define OSM_TABLE_SIZE 40
 #define MAX_CLUSTER_CNT 2
 #define MAX_CONFIG 4
+#define LLM_SW_OVERRIDE_CNT 3
 
 #define ENABLE_REG 0x1004
 #define INDEX_REG 0x1150
@@ -110,6 +111,7 @@ enum clk_osm_trace_packet_id {
 #define PLL_STATUS		0x2C
 #define PLL_LOCK_DET_MASK	BIT(16)
 #define PLL_WAIT_LOCK_TIME_US 5
+#define PLL_WAIT_LOCK_TIME_NS	(PLL_WAIT_LOCK_TIME_US * 1000)
 #define PLL_MIN_LVAL 32
 
 #define CC_ZERO_BEHAV_CTRL 0x100C
@@ -141,6 +143,7 @@ enum clk_osm_trace_packet_id {
 #define PLL_POST_DIV1 0x1F
 #define PLL_POST_DIV2 0x11F
 
+#define LLM_SW_OVERRIDE_REG 0x1038
 #define VMIN_REDUC_ENABLE_REG 0x103C
 #define VMIN_REDUC_TIMER_REG 0x1040
 #define PDN_FSM_CTRL_REG 0x1070
@@ -155,7 +158,7 @@ enum clk_osm_trace_packet_id {
 #define DCVS_DROOP_EN_MASK BIT(5)
 #define LMH_PS_EN_MASK BIT(6)
 #define IGNORE_PLL_LOCK_MASK BIT(15)
-#define SAFE_FREQ_WAIT_US 1
+#define SAFE_FREQ_WAIT_NS 1000
 #define DCVS_BOOST_TIMER_REG0 0x1084
 #define DCVS_BOOST_TIMER_REG1 0x1088
 #define DCVS_BOOST_TIMER_REG2 0x108C
@@ -190,9 +193,9 @@ enum clk_osm_trace_packet_id {
 #define TRACE_CTRL_PERIODIC_TRACE_EN_MASK BIT(3)
 #define TRACE_CTRL_PERIODIC_TRACE_ENABLE BIT(3)
 #define PERIODIC_TRACE_TIMER_CTRL 0x1F3C
-#define PERIODIC_TRACE_MIN_US 1
-#define PERIODIC_TRACE_MAX_US 20000000
-#define PERIODIC_TRACE_DEFAULT_US 1000
+#define PERIODIC_TRACE_MIN_NS 1000
+#define PERIODIC_TRACE_MAX_NS 21474836475
+#define PERIODIC_TRACE_DEFAULT_NS 1000000
 
 static void __iomem *virt_base;
 
@@ -299,6 +302,7 @@ struct clk_osm {
 	u32 apcs_pll_user_ctl;
 	u32 apcs_mem_acc_cfg[MAX_MEM_ACC_VAL_PER_LEVEL];
 	u32 apcs_mem_acc_val[MAX_MEM_ACC_VALUES];
+	u32 llm_sw_overr[LLM_SW_OVERRIDE_CNT];
 	u32 apm_mode_ctl;
 	u32 apm_ctrl_status;
 	u32 osm_clk_rate;
@@ -341,12 +345,14 @@ static inline int clk_osm_read_reg(struct clk_osm *c, u32 offset)
 	return readl_relaxed((char *)c->vbases[OSM_BASE] + offset);
 }
 
-static inline int clk_osm_count_us(struct clk_osm *c, u32 usec)
+static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
 {
-	u64 temp = c->osm_clk_rate;
+	u64 temp;
 
-	do_div(temp, 1000000);
-	return temp * usec;
+	temp = (u64)c->osm_clk_rate * nsec;
+	do_div(temp, 1000000000);
+
+	return temp;
 }
 
 static inline struct clk_osm *to_clk_osm(struct clk *c)
@@ -410,8 +416,22 @@ static int clk_osm_set_rate(struct clk *c, unsigned long rate)
 	}
 	pr_debug("rate: %lu --> index %d\n", rate, index);
 
+	if (cpuclk->llm_sw_overr) {
+		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[0],
+				  LLM_SW_OVERRIDE_REG);
+		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[1],
+				  LLM_SW_OVERRIDE_REG);
+		udelay(1);
+	}
+
 	/* Choose index and send request to OSM hardware */
 	clk_osm_write_reg(cpuclk, index, DCVS_PERF_STATE_DESIRED_REG);
+
+	if (cpuclk->llm_sw_overr) {
+		udelay(1);
+		clk_osm_write_reg(cpuclk, cpuclk->llm_sw_overr[2],
+				  LLM_SW_OVERRIDE_REG);
+	}
 
 	/* Make sure the write goes through before proceeding */
 	mb();
@@ -600,7 +620,7 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 {
 	struct device_node *of = pdev->dev.of_node;
 	u32 *array;
-	int rc = 0;
+	int i, rc = 0;
 
 	array = devm_kzalloc(&pdev->dev, MAX_CLUSTER_CNT * sizeof(u32),
 			     GFP_KERNEL);
@@ -683,6 +703,18 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 
 	pwrcl_clk.apm_ctrl_status = array[pwrcl_clk.cluster_num];
 	perfcl_clk.apm_ctrl_status = array[perfcl_clk.cluster_num];
+
+	for (i = 0; i < LLM_SW_OVERRIDE_CNT; i++)
+		of_property_read_u32_index(of, "qcom,llm-sw-overr",
+					   pwrcl_clk.cluster_num *
+					   LLM_SW_OVERRIDE_CNT + i,
+					   &pwrcl_clk.llm_sw_overr[i]);
+
+	for (i = 0; i < LLM_SW_OVERRIDE_CNT; i++)
+		of_property_read_u32_index(of, "qcom,llm-sw-overr",
+					   perfcl_clk.cluster_num *
+					   LLM_SW_OVERRIDE_CNT + i,
+					   &perfcl_clk.llm_sw_overr[i]);
 
 	rc = of_property_read_u32(of, "qcom,xo-clk-rate",
 				  &pwrcl_clk.xo_clk_rate);
@@ -1116,11 +1148,11 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 			 rc);
 	} else {
 		val = clk_osm_read_reg(&pwrcl_clk, SPM_CC_HYSTERESIS)
-			| BVAL(31, 16, clk_osm_count_us(&pwrcl_clk,
+			| BVAL(31, 16, clk_osm_count_ns(&pwrcl_clk,
 					array[pwrcl_clk.cluster_num]));
 		clk_osm_write_reg(&pwrcl_clk, val, SPM_CC_HYSTERESIS);
 		val = clk_osm_read_reg(&perfcl_clk, SPM_CC_HYSTERESIS)
-			| BVAL(31, 16, clk_osm_count_us(&perfcl_clk,
+			| BVAL(31, 16, clk_osm_count_ns(&perfcl_clk,
 					array[perfcl_clk.cluster_num]));
 		clk_osm_write_reg(&perfcl_clk, val, SPM_CC_HYSTERESIS);
 	}
@@ -1131,11 +1163,11 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "No down timer value, rc=%d\n", rc);
 	} else {
 		val = clk_osm_read_reg(&pwrcl_clk, SPM_CC_HYSTERESIS)
-			| BVAL(15, 0, clk_osm_count_us(&pwrcl_clk,
+			| BVAL(15, 0, clk_osm_count_ns(&pwrcl_clk,
 				       array[pwrcl_clk.cluster_num]));
 		clk_osm_write_reg(&pwrcl_clk, val, SPM_CC_HYSTERESIS);
 		val = clk_osm_read_reg(&perfcl_clk, SPM_CC_HYSTERESIS)
-			| BVAL(15, 0, clk_osm_count_us(&perfcl_clk,
+			| BVAL(15, 0, clk_osm_count_ns(&perfcl_clk,
 				       array[perfcl_clk.cluster_num]));
 		clk_osm_write_reg(&perfcl_clk, val, SPM_CC_HYSTERESIS);
 	}
@@ -1232,11 +1264,11 @@ static int clk_osm_set_llm_freq_policy(struct platform_device *pdev)
 			rc);
 	} else {
 		val = clk_osm_read_reg(&pwrcl_clk, LLM_FREQ_VOTE_HYSTERESIS)
-			| BVAL(31, 16, clk_osm_count_us(&pwrcl_clk,
+			| BVAL(31, 16, clk_osm_count_ns(&pwrcl_clk,
 						array[pwrcl_clk.cluster_num]));
 		clk_osm_write_reg(&pwrcl_clk, val, LLM_FREQ_VOTE_HYSTERESIS);
 		val = clk_osm_read_reg(&perfcl_clk, LLM_FREQ_VOTE_HYSTERESIS)
-			| BVAL(31, 16, clk_osm_count_us(&perfcl_clk,
+			| BVAL(31, 16, clk_osm_count_ns(&perfcl_clk,
 						array[perfcl_clk.cluster_num]));
 		clk_osm_write_reg(&perfcl_clk, val, LLM_FREQ_VOTE_HYSTERESIS);
 	}
@@ -1253,11 +1285,11 @@ static int clk_osm_set_llm_freq_policy(struct platform_device *pdev)
 			rc);
 	} else {
 		val = clk_osm_read_reg(&pwrcl_clk, LLM_FREQ_VOTE_HYSTERESIS)
-			| BVAL(15, 0, clk_osm_count_us(&pwrcl_clk,
+			| BVAL(15, 0, clk_osm_count_ns(&pwrcl_clk,
 					       array[pwrcl_clk.cluster_num]));
 		clk_osm_write_reg(&pwrcl_clk, val, LLM_FREQ_VOTE_HYSTERESIS);
 		val = clk_osm_read_reg(&perfcl_clk, LLM_FREQ_VOTE_HYSTERESIS)
-			| BVAL(15, 0, clk_osm_count_us(&perfcl_clk,
+			| BVAL(15, 0, clk_osm_count_ns(&perfcl_clk,
 					       array[perfcl_clk.cluster_num]));
 		clk_osm_write_reg(&perfcl_clk, val, LLM_FREQ_VOTE_HYSTERESIS);
 	}
@@ -1307,11 +1339,11 @@ static int clk_osm_set_llm_volt_policy(struct platform_device *pdev)
 			rc);
 	} else {
 		val = clk_osm_read_reg(&pwrcl_clk, LLM_VOLT_VOTE_HYSTERESIS)
-			| BVAL(31, 16, clk_osm_count_us(&pwrcl_clk,
+			| BVAL(31, 16, clk_osm_count_ns(&pwrcl_clk,
 						array[pwrcl_clk.cluster_num]));
 		clk_osm_write_reg(&pwrcl_clk, val, LLM_VOLT_VOTE_HYSTERESIS);
 		val = clk_osm_read_reg(&perfcl_clk, LLM_VOLT_VOTE_HYSTERESIS)
-			| BVAL(31, 16, clk_osm_count_us(&perfcl_clk,
+			| BVAL(31, 16, clk_osm_count_ns(&perfcl_clk,
 						array[perfcl_clk.cluster_num]));
 		clk_osm_write_reg(&perfcl_clk, val, LLM_VOLT_VOTE_HYSTERESIS);
 	}
@@ -1328,11 +1360,11 @@ static int clk_osm_set_llm_volt_policy(struct platform_device *pdev)
 									rc);
 	} else {
 		val = clk_osm_read_reg(&pwrcl_clk, LLM_VOLT_VOTE_HYSTERESIS)
-			| BVAL(15, 0, clk_osm_count_us(&pwrcl_clk,
+			| BVAL(15, 0, clk_osm_count_ns(&pwrcl_clk,
 					       array[pwrcl_clk.cluster_num]));
 		clk_osm_write_reg(&pwrcl_clk, val, LLM_VOLT_VOTE_HYSTERESIS);
 		val = clk_osm_read_reg(&perfcl_clk, LLM_VOLT_VOTE_HYSTERESIS)
-			| BVAL(15, 0, clk_osm_count_us(&perfcl_clk,
+			| BVAL(15, 0, clk_osm_count_ns(&perfcl_clk,
 					       array[perfcl_clk.cluster_num]));
 		clk_osm_write_reg(&perfcl_clk, val, LLM_VOLT_VOTE_HYSTERESIS);
 	}
@@ -1485,7 +1517,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 	if (c->red_fsm_en) {
 		val = clk_osm_read_reg(c, VMIN_REDUC_ENABLE_REG) | BIT(0);
 		clk_osm_write_reg(c, val, VMIN_REDUC_ENABLE_REG);
-		clk_osm_write_reg(c, BVAL(15, 0, clk_osm_count_us(c, 10)),
+		clk_osm_write_reg(c, BVAL(15, 0, clk_osm_count_ns(c, 10000)),
 				  VMIN_REDUC_TIMER_REG);
 	}
 
@@ -1494,18 +1526,18 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 		val = clk_osm_read_reg(c, PDN_FSM_CTRL_REG);
 		clk_osm_write_reg(c, val | CC_BOOST_EN_MASK, PDN_FSM_CTRL_REG);
 		val = clk_osm_read_reg(c, CC_BOOST_TIMER_REG0);
-		val |= BVAL(15, 0, clk_osm_count_us(c, PLL_WAIT_LOCK_TIME_US));
-		val |= BVAL(31, 16, clk_osm_count_us(c,
-						     SAFE_FREQ_WAIT_US));
+		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
+		val |= BVAL(31, 16, clk_osm_count_ns(c,
+						     SAFE_FREQ_WAIT_NS));
 		clk_osm_write_reg(c, val, CC_BOOST_TIMER_REG0);
 
 		val = clk_osm_read_reg(c, CC_BOOST_TIMER_REG1);
-		val |= BVAL(15, 0, clk_osm_count_us(c, PLL_WAIT_LOCK_TIME_US));
-		val |= BVAL(31, 16, clk_osm_count_us(c, SAFE_FREQ_WAIT_US));
+		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
+		val |= BVAL(31, 16, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
 		clk_osm_write_reg(c, val, CC_BOOST_TIMER_REG1);
 
 		val = clk_osm_read_reg(c, CC_BOOST_TIMER_REG2);
-		val |= BVAL(15, 0, clk_osm_count_us(c, PLL_WAIT_LOCK_TIME_US));
+		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
 		clk_osm_write_reg(c, val, CC_BOOST_TIMER_REG2);
 	}
 
@@ -1516,11 +1548,11 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 				  PDN_FSM_CTRL_REG);
 
 		val = clk_osm_read_reg(c, DCVS_BOOST_TIMER_REG0);
-		val |= BVAL(31, 16, clk_osm_count_us(c, SAFE_FREQ_WAIT_US));
+		val |= BVAL(31, 16, clk_osm_count_ns(c, SAFE_FREQ_WAIT_NS));
 		clk_osm_write_reg(c, val, DCVS_BOOST_TIMER_REG0);
 
 		val = clk_osm_read_reg(c, DCVS_BOOST_TIMER_REG1);
-		val |= BVAL(15, 0, clk_osm_count_us(c, PLL_WAIT_LOCK_TIME_US));
+		val |= BVAL(15, 0, clk_osm_count_ns(c, PLL_WAIT_LOCK_TIME_NS));
 		clk_osm_write_reg(c, val, DCVS_BOOST_TIMER_REG1);
 	}
 
@@ -1530,11 +1562,11 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 		clk_osm_write_reg(c, val | PS_BOOST_EN_MASK, PDN_FSM_CTRL_REG);
 
 		val = clk_osm_read_reg(c, PS_BOOST_TIMER_REG0) |
-			BVAL(31, 16, clk_osm_count_us(c, 1));
+			BVAL(31, 16, clk_osm_count_ns(c, 1000));
 		clk_osm_write_reg(c, val, PS_BOOST_TIMER_REG0);
 
 		val = clk_osm_read_reg(c, PS_BOOST_TIMER_REG1) |
-			clk_osm_count_us(c, 1);
+			clk_osm_count_ns(c, 1000);
 		clk_osm_write_reg(c, val, PS_BOOST_TIMER_REG1);
 	}
 
@@ -1549,12 +1581,12 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 		clk_osm_write_reg(c, val | WFX_DROOP_EN_MASK, PDN_FSM_CTRL_REG);
 
 		val = clk_osm_read_reg(c, DROOP_UNSTALL_TIMER_CTRL_REG) |
-			BVAL(31, 16, clk_osm_count_us(c, 1));
+			BVAL(31, 16, clk_osm_count_ns(c, 1000));
 		clk_osm_write_reg(c, val, DROOP_UNSTALL_TIMER_CTRL_REG);
 
 		val = clk_osm_read_reg(c,
 			       DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG) |
-			BVAL(31, 16, clk_osm_count_us(c, 1));
+			BVAL(31, 16, clk_osm_count_ns(c, 1000));
 		clk_osm_write_reg(c, val,
 				  DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
 	}
@@ -1566,7 +1598,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 				  PDN_FSM_CTRL_REG);
 
 		val = clk_osm_read_reg(c, DROOP_UNSTALL_TIMER_CTRL_REG) |
-			BVAL(15, 0, clk_osm_count_us(c, 1));
+			BVAL(15, 0, clk_osm_count_ns(c, 1000));
 		clk_osm_write_reg(c, val, DROOP_UNSTALL_TIMER_CTRL_REG);
 	}
 
@@ -1580,7 +1612,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 	if (c->wfx_fsm_en || c->ps_fsm_en || c->droop_fsm_en) {
 		val = clk_osm_read_reg(c,
 			       DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG) |
-			BVAL(15, 0, clk_osm_count_us(c, 1));
+			BVAL(15, 0, clk_osm_count_ns(c, 1000));
 		clk_osm_write_reg(c, val,
 			  DROOP_WAIT_TO_RELEASE_TIMER_CTRL0_REG);
 		clk_osm_write_reg(c, 0x1, DROOP_PROG_SYNC_DELAY_REG);
@@ -1884,14 +1916,14 @@ static ssize_t debugfs_trace_method_set(struct file *file,
 
 		/* check that user entered a supported packet type */
 		if (strcmp(debug_buf, "periodic\n") == 0) {
-			clk_osm_write_reg(c, clk_osm_count_us(c,
-					      PERIODIC_TRACE_DEFAULT_US),
+			clk_osm_write_reg(c, clk_osm_count_ns(c,
+					      PERIODIC_TRACE_DEFAULT_NS),
 					  PERIODIC_TRACE_TIMER_CTRL);
 			clk_osm_masked_write_reg(c,
 				 TRACE_CTRL_PERIODIC_TRACE_ENABLE,
 				 TRACE_CTRL, TRACE_CTRL_PERIODIC_TRACE_EN_MASK);
 			c->trace_method = PERIODIC_PACKET;
-			c->trace_periodic_timer = PERIODIC_TRACE_DEFAULT_US;
+			c->trace_periodic_timer = PERIODIC_TRACE_DEFAULT_NS;
 			return count;
 		} else if (strcmp(debug_buf, "xor\n") == 0) {
 			val = clk_osm_read_reg(c, TRACE_CTRL);
@@ -1994,13 +2026,13 @@ static int debugfs_set_trace_periodic_timer(void *data, u64 val)
 {
 	struct clk_osm *c = data;
 
-	if (val < PERIODIC_TRACE_MIN_US || val > PERIODIC_TRACE_MAX_US) {
-		pr_err("supported periodic trace periods=%d-%d\n",
-		       PERIODIC_TRACE_MIN_US, PERIODIC_TRACE_MAX_US);
+	if (val < PERIODIC_TRACE_MIN_NS || val > PERIODIC_TRACE_MAX_NS) {
+		pr_err("supported periodic trace periods=%d-%ld ns\n",
+		       PERIODIC_TRACE_MIN_NS, PERIODIC_TRACE_MAX_NS);
 		return 0;
 	}
 
-	clk_osm_write_reg(c, clk_osm_count_us(c, val),
+	clk_osm_write_reg(c, clk_osm_count_ns(c, val),
 			  PERIODIC_TRACE_TIMER_CTRL);
 	c->trace_periodic_timer = val;
 	return 0;
@@ -2169,7 +2201,7 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 {
 	char perfclspeedbinstr[] = "qcom,perfcl-speedbin0-v0";
 	char pwrclspeedbinstr[] = "qcom,pwrcl-speedbin0-v0";
-	int rc;
+	int rc, cpu;
 
 	rc = clk_osm_resources_init(pdev);
 	if (rc) {
@@ -2347,11 +2379,13 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	get_online_cpus();
+
 	/* Enable OSM */
-	WARN(clk_prepare_enable(&pwrcl_clk.c),
-	     "Failed to enable power cluster clock\n");
-	WARN(clk_prepare_enable(&perfcl_clk.c),
-	     "Failed to enable perf cluster clock\n");
+	for_each_online_cpu(cpu) {
+		WARN(clk_prepare_enable(logical_cpu_to_clk(cpu)),
+		     "Failed to enable clock for cpu %d\n", cpu);
+	}
 
 	populate_opp_table(pdev);
 	populate_debugfs_dir(&pwrcl_clk);
@@ -2360,6 +2394,8 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 
 	pr_info("OSM driver inited\n");
+	put_online_cpus();
+
 	return 0;
 
 exit:

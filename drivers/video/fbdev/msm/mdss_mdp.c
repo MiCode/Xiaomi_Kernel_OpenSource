@@ -1166,6 +1166,7 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
 				mdss_bus_scale_set_quota(MDSS_HW_RT,
 					SZ_1M, SZ_1M);
+		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, 1);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
@@ -1173,6 +1174,7 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
+		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, 0);
 		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
 			mdss_bus_scale_set_quota(MDSS_HW_RT, 0, 0);
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
@@ -1460,6 +1462,7 @@ void mdss_mdp_clk_ctrl(int enable)
 		mdata->clk_ena = enable;
 		spin_unlock_irqrestore(&mdp_lock, flags);
 
+		mdss_mdp_clk_update(MDSS_CLK_MNOC_AHB, enable);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, enable);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, enable);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, enable);
@@ -1616,6 +1619,9 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 
 	/* vsync_clk is optional for non-smart panels */
 	mdss_mdp_irq_clk_register(mdata, "vsync_clk", MDSS_CLK_MDP_VSYNC);
+
+	/* this clk is not present on all MDSS revisions */
+	mdss_mdp_irq_clk_register(mdata, "mnoc_clk", MDSS_CLK_MNOC_AHB);
 
 	/* Setting the default clock rate to the max supported.*/
 	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate);

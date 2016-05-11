@@ -130,6 +130,11 @@
 #define LPASS_BE_QUAT_TDM_RX_7 "QUAT_TDM_RX_7"
 #define LPASS_BE_QUAT_TDM_TX_7 "QUAT_TDM_TX_7"
 
+#define LPASS_BE_SLIMBUS_7_RX "SLIMBUS_7_RX"
+#define LPASS_BE_SLIMBUS_7_TX "SLIMBUS_7_TX"
+#define LPASS_BE_SLIMBUS_8_RX "SLIMBUS_8_RX"
+#define LPASS_BE_SLIMBUS_8_TX "SLIMBUS_8_TX"
+
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
  * Due to this reason, additional multimedia front-end must be placed before
@@ -296,6 +301,10 @@ enum {
 	MSM_BACKEND_DAI_QUAT_TDM_RX_7,
 	MSM_BACKEND_DAI_QUAT_TDM_TX_7,
 	MSM_BACKEND_DAI_INT_BT_A2DP_RX,
+	MSM_BACKEND_DAI_SLIMBUS_7_RX,
+	MSM_BACKEND_DAI_SLIMBUS_7_TX,
+	MSM_BACKEND_DAI_SLIMBUS_8_RX,
+	MSM_BACKEND_DAI_SLIMBUS_8_TX,
 	MSM_BACKEND_DAI_MAX,
 };
 
@@ -303,6 +312,16 @@ enum msm_pcm_routing_event {
 	MSM_PCM_RT_EVT_BUF_RECFG,
 	MSM_PCM_RT_EVT_DEVSWITCH,
 	MSM_PCM_RT_EVT_MAX,
+};
+
+enum {
+	EXT_EC_REF_NONE = 0,
+	EXT_EC_REF_PRI_MI2S_TX,
+	EXT_EC_REF_SEC_MI2S_TX,
+	EXT_EC_REF_TERT_MI2S_TX,
+	EXT_EC_REF_QUAT_MI2S_TX,
+	EXT_EC_REF_QUIN_MI2S_TX,
+	EXT_EC_REF_SLIM_1_TX,
 };
 
 #define INVALID_SESSION -1
