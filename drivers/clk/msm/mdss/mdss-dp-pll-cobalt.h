@@ -51,6 +51,8 @@
 #define TXn_CLKBUF_ENABLE			0x0008
 #define TXn_TX_EMP_POST1_LVL			0x000C
 
+#define TXn_TX_DRV_LVL				0x001C
+
 #define TXn_RESET_TSYNC_EN			0x0024
 #define TXn_PRE_STALL_LDO_BOOST_EN		0x0028
 #define TXn_TX_BAND				0x002C
@@ -154,6 +156,7 @@ int dp_vco_set_rate(struct clk *c, unsigned long rate);
 unsigned long dp_vco_get_rate(struct clk *c);
 long dp_vco_round_rate(struct clk *c, unsigned long rate);
 enum handoff dp_vco_handoff(struct clk *c);
+enum handoff vco_divided_clk_handoff(struct clk *c);
 int dp_vco_prepare(struct clk *c);
 void dp_vco_unprepare(struct clk *c);
 int hsclk_divsel_set_div(struct div_clk *clk, int div);
