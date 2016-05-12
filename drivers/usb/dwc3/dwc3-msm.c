@@ -122,6 +122,13 @@ enum dwc3_id_state {
 	DWC3_ID_FLOAT,
 };
 
+/* for type c cable */
+enum plug_orientation {
+	ORIENTATION_NONE,
+	ORIENTATION_CC1,
+	ORIENTATION_CC2,
+};
+
 /* Input bits to state machine (mdwc->inputs) */
 
 #define ID			0
@@ -196,6 +203,7 @@ struct dwc3_msm {
 	atomic_t                in_p3;
 	unsigned int		lpm_to_suspend_delay;
 	bool			init;
+	enum plug_orientation	typec_orientation;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1998,6 +2006,11 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	/* Resume SS PHY */
 	if (mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
+		mdwc->ss_phy->flags &= ~(PHY_LANE_A | PHY_LANE_B);
+		if (mdwc->typec_orientation == ORIENTATION_CC1)
+			mdwc->ss_phy->flags |= PHY_LANE_A;
+		if (mdwc->typec_orientation == ORIENTATION_CC2)
+			mdwc->ss_phy->flags |= PHY_LANE_B;
 		usb_phy_set_suspend(mdwc->ss_phy, 0);
 		mdwc->ss_phy->flags &= ~DEVICE_IN_SS_MODE;
 		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
@@ -2333,11 +2346,28 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	unsigned long event, void *ptr)
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, id_nb);
+	struct extcon_dev *edev = ptr;
 	enum dwc3_id_state id;
+	int cc_state;
+
+	if (!edev) {
+		dev_err(mdwc->dev, "%s: edev null\n", __func__);
+		goto done;
+	}
 
 	id = event ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
 
 	dev_dbg(mdwc->dev, "host:%ld (id:%d) event received\n", event, id);
+
+	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
+	if (cc_state < 0) {
+		dev_err(mdwc->dev, "%s: failed to get cc state\n", __func__);
+		goto done;
+	}
+
+	mdwc->typec_orientation = cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
+
+	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
@@ -2345,6 +2375,7 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 	}
 
+done:
 	return NOTIFY_DONE;
 }
 
@@ -2353,18 +2384,35 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, vbus_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct extcon_dev *edev = ptr;
+	int cc_state;
+
+	if (!edev) {
+		dev_err(mdwc->dev, "%s: edev null\n", __func__);
+		goto done;
+	}
 
 	dev_dbg(mdwc->dev, "vbus:%ld event received\n", event);
 
 	if (mdwc->vbus_active == event)
 		return NOTIFY_DONE;
 
+	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
+	if (cc_state < 0) {
+		dev_err(mdwc->dev, "%s: failed to get cc state\n", __func__);
+		goto done;
+	}
+
+	mdwc->typec_orientation = cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
+
+	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
+
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart) {
 		dbg_event(0xFF, "Q RW (vbus)", mdwc->vbus_active);
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 	}
-
+done:
 	return NOTIFY_DONE;
 }
 
@@ -2767,10 +2815,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	/* Update initial VBUS/ID state from extcon */
 	if (mdwc->extcon_vbus && extcon_get_cable_state_(mdwc->extcon_vbus,
 							EXTCON_USB))
-		dwc3_msm_vbus_notifier(&mdwc->vbus_nb, true, NULL);
+		dwc3_msm_vbus_notifier(&mdwc->vbus_nb, true, mdwc->extcon_vbus);
 	if (mdwc->extcon_id && extcon_get_cable_state_(mdwc->extcon_id,
 							EXTCON_USB_HOST))
-		dwc3_msm_id_notifier(&mdwc->id_nb, true, NULL);
+		dwc3_msm_id_notifier(&mdwc->id_nb, true, mdwc->extcon_id);
 
 	device_create_file(&pdev->dev, &dev_attr_mode);
 
