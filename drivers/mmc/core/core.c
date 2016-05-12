@@ -1251,11 +1251,11 @@ int mmc_set_auto_bkops(struct mmc_card *card, bool enable)
 	if (enable) {
 		if (mmc_card_doing_auto_bkops(card))
 			goto out;
-		bkops_en = card->ext_csd.man_bkops_en | EXT_CSD_BKOPS_AUTO_EN;
+		bkops_en = card->ext_csd.bkops_en | EXT_CSD_BKOPS_AUTO_EN;
 	} else {
 		if (!mmc_card_doing_auto_bkops(card))
 			goto out;
-		bkops_en = card->ext_csd.man_bkops_en & ~EXT_CSD_BKOPS_AUTO_EN;
+		bkops_en = card->ext_csd.bkops_en & ~EXT_CSD_BKOPS_AUTO_EN;
 	}
 
 	ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_BKOPS_EN,
@@ -1271,7 +1271,7 @@ int mmc_set_auto_bkops(struct mmc_card *card, bool enable)
 			mmc_card_clr_auto_bkops(card);
 			mmc_update_bkops_auto_off(&card->bkops.stats);
 		}
-		card->ext_csd.man_bkops_en = bkops_en;
+		card->ext_csd.bkops_en = bkops_en;
 		pr_debug("%s: %s: bkops state %x\n",
 				mmc_hostname(card->host), __func__, bkops_en);
 	}

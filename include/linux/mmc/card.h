@@ -88,7 +88,7 @@ struct mmc_ext_csd {
 	bool			hpi;			/* HPI support bit */
 	unsigned int		hpi_cmd;		/* cmd used as HPI */
 	bool			bkops;		/* background support bit */
-	u8			man_bkops_en;	/* manual bkops enable */
+	u8			bkops_en;	/* bkops enable */
 	unsigned int            data_sector_size;       /* 512 bytes or 4KB */
 	unsigned int            data_tag_unit_size;     /* DATA TAG UNIT size */
 	unsigned int		boot_ro_lock;		/* ro lock support */
@@ -688,12 +688,12 @@ static inline bool mmc_card_support_auto_bkops(const struct mmc_card *c)
 
 static inline bool mmc_card_configured_manual_bkops(const struct mmc_card *c)
 {
-	return c->ext_csd.man_bkops_en & EXT_CSD_BKOPS_MANUAL_EN;
+	return c->ext_csd.bkops_en & EXT_CSD_BKOPS_MANUAL_EN;
 }
 
 static inline bool mmc_card_configured_auto_bkops(const struct mmc_card *c)
 {
-	return c->ext_csd.man_bkops_en & EXT_CSD_BKOPS_AUTO_EN;
+	return c->ext_csd.bkops_en & EXT_CSD_BKOPS_AUTO_EN;
 }
 
 static inline bool mmc_enable_qca6574_settings(const struct mmc_card *c)
