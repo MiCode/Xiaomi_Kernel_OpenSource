@@ -386,9 +386,9 @@ struct mmc_card {
 #define MMC_QUIRK_INAND_DATA_TIMEOUT  (1<<13)   /* For incorrect data timeout */
 #define MMC_QUIRK_BROKEN_HPI (1 << 14)		/* For devices which gets */
 						/* broken due to HPI feature */
-#define MMC_QUIRK_CACHE_DISABLE (1 << 14)	/* prevent cache enable */
-#define MMC_QUIRK_QCA6574_SETTINGS (1 << 15)	/* QCA6574 card settings*/
-#define MMC_QUIRK_QCA9377_SETTINGS (1 << 16)	/* QCA9377 card settings*/
+#define MMC_QUIRK_CACHE_DISABLE (1 << 15)	/* prevent cache enable */
+#define MMC_QUIRK_QCA6574_SETTINGS (1 << 16)	/* QCA6574 card settings*/
+#define MMC_QUIRK_QCA9377_SETTINGS (1 << 17)	/* QCA9377 card settings*/
 
 
 /* Make sure CMDQ is empty before queuing DCMD */
