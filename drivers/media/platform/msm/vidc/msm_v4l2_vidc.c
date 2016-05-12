@@ -682,6 +682,7 @@ static int msm_vidc_remove(struct platform_device *pdev)
 	msm_vidc_free_platform_resources(&core->resources);
 	sysfs_remove_group(&pdev->dev.kobj, &msm_vidc_core_attr_group);
 	dev_set_drvdata(&pdev->dev, NULL);
+	mutex_destroy(&core->lock);
 	kfree(core);
 	return rc;
 }
@@ -773,6 +774,7 @@ static void __exit msm_vidc_exit(void)
 {
 	platform_driver_unregister(&msm_vidc_driver);
 	debugfs_remove_recursive(vidc_driver->debugfs_root);
+	mutex_destroy(&vidc_driver->lock);
 	kfree(vidc_driver);
 	vidc_driver = NULL;
 }

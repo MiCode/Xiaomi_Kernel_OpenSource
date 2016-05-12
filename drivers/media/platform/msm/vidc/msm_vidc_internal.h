@@ -120,6 +120,11 @@ static inline void INIT_MSM_VIDC_LIST(struct msm_vidc_list *mlist)
 	INIT_LIST_HEAD(&mlist->list);
 }
 
+static inline void DEINIT_MSM_VIDC_LIST(struct msm_vidc_list *mlist)
+{
+	mutex_destroy(&mlist->lock);
+}
+
 enum buffer_owner {
 	DRIVER,
 	FIRMWARE,

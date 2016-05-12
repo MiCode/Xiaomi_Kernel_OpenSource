@@ -4556,6 +4556,7 @@ void venus_hfi_delete_device(void *device)
 		if (close->hal_data->irq == dev->hal_data->irq) {
 			hal_ctxt.dev_count--;
 			list_del(&close->list);
+			mutex_destroy(&close->lock);
 			destroy_workqueue(close->vidc_workq);
 			destroy_workqueue(close->venus_pm_workq);
 			free_irq(dev->hal_data->irq, close);
