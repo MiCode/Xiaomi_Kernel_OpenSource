@@ -24,7 +24,6 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/pm_runtime.h>
-#include <linux/mmc/sdhci.h>
 #include <linux/workqueue.h>
 
 #include "cmdq_hci.h"
