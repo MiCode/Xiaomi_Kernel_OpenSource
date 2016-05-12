@@ -78,15 +78,15 @@
 		};
 	};
 
-	mdss_dp_pll: qcom,mdss_dp_pll@ca20000 {
+	mdss_dp_pll: qcom,mdss_dp_pll@c011000 {
 		compatible = "qcom,mdss_dp_pll_cobalt";
 		status = "ok";
 		label = "MDSS DP PLL";
 		cell-index = <0>;
 		#clock-cells = <1>;
 
-		reg = <0xca20c00 0x190>,
-		      <0xca20000 0x910>,
+		reg = <0xc011c00 0x190>,
+		      <0xc011000 0x910>,
 		      <0x0c8c2300 0x8>;
 		reg-names = "pll_base", "phy_base", "gdsc_base";
 
