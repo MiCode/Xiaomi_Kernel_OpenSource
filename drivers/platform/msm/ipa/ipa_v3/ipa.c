@@ -2013,13 +2013,13 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 }
 
 /**
-* ipa3_q6_cleanup() - A cleanup for all Q6 related configuration
+* ipa3_q6_pre_shutdown_cleanup() - A cleanup for all Q6 related configuration
 *                    in IPA HW. This is performed in case of SSR.
 *
 * This is a mandatory procedure, in case one of the steps fails, the
 * AP needs to restart.
 */
-void ipa3_q6_cleanup(void)
+void ipa3_q6_pre_shutdown_cleanup(void)
 {
 	IPADBG_LOW("ENTER\n");
 
@@ -2045,13 +2045,13 @@ void ipa3_q6_cleanup(void)
 }
 
 /*
- * ipa3_validate_q6_gsi_channel_empty() - Check if GSI channel related to Q6
- *  producer client is empty. This is used in case of SSR.
+ * ipa3_q6_post_shutdown_cleanup() - As part of this cleanup
+ * check if GSI channel related to Q6 producer client is empty.
  *
  * Q6 GSI channel emptiness is needed to garantee no descriptors with invalid
  *  info are injected into IPA RX from IPA_IF, while modem is restarting.
  */
-void ipa3_validate_q6_gsi_channel_empty(void)
+void ipa3_q6_post_shutdown_cleanup(void)
 {
 	int client_idx;
 
