@@ -854,12 +854,11 @@ static void ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 {
 	int ret;
 
-	if (!atomic_read(&sys->curr_polling_state)) {
-		IPAERR("already in intr mode\n");
-		goto fail;
-	}
-
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		if (!atomic_read(&sys->curr_polling_state)) {
+			IPAERR("already in intr mode\n");
+			goto fail;
+		}
 		atomic_set(&sys->curr_polling_state, 0);
 		ipa3_dec_release_wakelock();
 		ret = gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
@@ -872,6 +871,15 @@ static void ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 		ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
 		if (ret) {
 			IPAERR("sps_get_config() failed %d\n", ret);
+			goto fail;
+		}
+		if (!atomic_read(&sys->curr_polling_state) &&
+			((sys->ep->connect.options & SPS_O_EOT) == SPS_O_EOT)) {
+			IPADBG("already in intr mode\n");
+			return;
+		}
+		if (!atomic_read(&sys->curr_polling_state)) {
+			IPAERR("already in intr mode\n");
 			goto fail;
 		}
 		sys->event.options = SPS_O_EOT;
