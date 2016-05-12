@@ -1380,11 +1380,20 @@ void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 			continue;
 		if (entry->client_info.notification_list & peripheral_mask) {
 			info.si_signo = entry->client_info.signal_type;
-			stat = send_sig_info(entry->client_info.signal_type,
-					     &info, entry->client);
-			if (stat)
-				pr_err("diag: Err sending dci signal to client, signal data: 0x%x, stat: %d\n",
+			if (entry->client &&
+				entry->tgid == entry->client->tgid) {
+				DIAG_LOG(DIAG_DEBUG_DCI,
+					"entry tgid = %d, dci client tgid = %d\n",
+					entry->tgid, entry->client->tgid);
+				stat = send_sig_info(
+					entry->client_info.signal_type,
+					&info, entry->client);
+				if (stat)
+					pr_err("diag: Err sending dci signal to client, signal data: 0x%x, stat: %d\n",
 							info.si_int, stat);
+			} else
+				pr_err("diag: client data is corrupted, signal data: 0x%x, stat: %d\n",
+						info.si_int, stat);
 		}
 	}
 	mutex_unlock(&driver->dci_mutex);
@@ -2698,6 +2707,7 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 	mutex_lock(&driver->dci_mutex);
 
 	new_entry->client = current;
+	new_entry->tgid = current->tgid;
 	new_entry->client_info.notification_list =
 				reg_entry->notification_list;
 	new_entry->client_info.signal_type =
