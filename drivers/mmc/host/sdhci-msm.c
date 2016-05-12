@@ -2001,9 +2001,11 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, u32 enable)
 		 * after SDHCI_MSM_MMC_CLK_GATE_DELAY and thus no
 		 * additional delay is required to remove the bus vote.
 		 */
+#ifdef CONFIG_MMC_CLKGATE
 		if (host->mmc->clkgate_delay)
 			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 		else
+#endif
 			sdhci_msm_bus_queue_work(host);
 	}
 }
@@ -2057,13 +2059,13 @@ static int sdhci_msm_vreg_set_optimum_mode(struct sdhci_msm_reg_data
 	 * do not support regulator_set_optimum_mode
 	 */
 	if (vreg->set_voltage_sup) {
-		ret = regulator_set_optimum_mode(vreg->reg, uA_load);
+		ret = regulator_set_load(vreg->reg, uA_load);
 		if (ret < 0)
-			pr_err("%s: regulator_set_optimum_mode(reg=%s,uA_load=%d) failed. ret=%d\n",
+			pr_err("%s: regulator_set_load(reg=%s,uA_load=%d) failed. ret=%d\n",
 			       __func__, vreg->name, uA_load, ret);
 		else
 			/*
-			 * regulator_set_optimum_mode() can return non zero
+			 * regulator_set_load() can return non zero
 			 * value even for success case.
 			 */
 			ret = 0;
@@ -4200,8 +4202,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	/* Enable pwr irq interrupts */
 	writel_relaxed(INT_MASK, (msm_host->core_mem + CORE_PWRCTL_MASK));
 
+#ifdef CONFIG_MMC_CLKGATE
 	/* Set clock gating delay to be used when CONFIG_MMC_CLKGATE is set */
 	msm_host->mmc->clkgate_delay = SDHCI_MSM_MMC_CLK_GATE_DELAY;
+#endif
 
 	/* Set host capabilities */
 	msm_host->mmc->caps |= msm_host->pdata->mmc_bus_width;
@@ -4292,7 +4296,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 				__func__, msm_host->pdata->sdiowakeup_irq, ret);
 			msm_host->pdata->sdiowakeup_irq = -1;
 			msm_host->is_sdiowakeup_enabled = false;
-			goto free_cd_gpio;
+			goto vreg_deinit;
 		} else {
 			spin_lock_irqsave(&host->lock, flags);
 			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
@@ -4305,7 +4309,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(&pdev->dev, "Add host failed (%d)\n", ret);
-		goto free_cd_gpio;
+		goto vreg_deinit;
 	}
 
 	pm_runtime_set_active(&pdev->dev);
@@ -4354,9 +4358,6 @@ remove_host:
 	dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
 	pm_runtime_disable(&pdev->dev);
 	sdhci_remove_host(host, dead);
-free_cd_gpio:
-	if (gpio_is_valid(msm_host->pdata->status_gpio))
-		mmc_gpio_free_cd(msm_host->mmc);
 vreg_deinit:
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 bus_unregister:
@@ -4403,9 +4404,6 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	sdhci_remove_host(host, dead);
 	sdhci_pltfm_free(pdev);
-
-	if (gpio_is_valid(msm_host->pdata->status_gpio))
-		mmc_gpio_free_cd(msm_host->mmc);
 
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 
