@@ -165,6 +165,14 @@
 				};
 			};
 			port@1 {
+				reg = <0>;
+				funnel_in0_in_rpm_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+						<&rpm_etm0_out_funnel_in0>;
+				};
+			};
+			port@2 {
 				reg = <3>;
 				funnel_in0_in_funnel_spss: endpoint {
 					slave-mode;
@@ -172,7 +180,7 @@
 						<&funnel_spss_out_funnel_in0>;
 				};
 			};
-			port@2 {
+			port@3 {
 				reg = <6>;
 				funnel_in0_in_funnel_qatb: endpoint {
 					slave-mode;
@@ -180,7 +188,7 @@
 						<&funnel_qatb_out_funnel_in0>;
 				};
 			};
-			port@3 {
+			port@4 {
 				reg = <7>;
 				funnel_in0_in_stm: endpoint {
 					slave-mode;
@@ -231,6 +239,22 @@
 				};
 			};
 			port@3 {
+				reg = <4>;
+				funnel_in1_in_audio_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+					    <&audio_etm0_out_funnel_in1>;
+				};
+			};
+			port@4 {
+				reg = <5>;
+				funnel_in1_in_modem_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+					    <&modem_etm0_out_funnel_in1>;
+				};
+			};
+			port@5 {
 				reg = <6>;
 				funnel_in1_in_funnel_apss_merg: endpoint {
 					slave-mode;
@@ -1405,5 +1429,44 @@
 		coresight-name = "coresight-csr";
 
 		qcom,blk-size = <1>;
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-modem-etm0";
+		qcom,inst-id = <2>;
+
+		port{
+			modem_etm0_out_funnel_in1: endpoint {
+				remote-endpoint = <&funnel_in1_in_modem_etm0>;
+			};
+		};
+	};
+
+	audio_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-audio-etm0";
+		qcom,inst-id = <5>;
+
+		port{
+			audio_etm0_out_funnel_in1: endpoint {
+				remote-endpoint = <&funnel_in1_in_audio_etm0>;
+			};
+		};
+	};
+
+	rpm_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-rpm-etm0";
+		qcom,inst-id = <4>;
+
+		port{
+			rpm_etm0_out_funnel_in0: endpoint {
+				remote-endpoint = <&funnel_in0_in_rpm_etm0>;
+			};
+		};
 	};
 };
