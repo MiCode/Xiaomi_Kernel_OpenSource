@@ -1658,9 +1658,9 @@ static void sdhci_notify_halt(struct mmc_host *mmc, bool halt)
 		mmc_hostname(mmc), halt);
 	if (host->flags & SDHCI_USE_64_BIT_DMA) {
 		if (halt)
-			host->adma_desc_line_sz = 16;
+			host->desc_sz = 16;
 		else
-			host->adma_desc_line_sz = 12;
+			host->desc_sz = SDHCI_ADMA2_64_DESC_SZ;
 	}
 }
 
