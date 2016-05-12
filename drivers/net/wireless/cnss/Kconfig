@@ -97,3 +97,10 @@ config BUS_AUTO_SUSPEND
 	  during system pm.
 	  This config flag controls the feature per target based. The feature
 	  requires CNSS driver support.
+
+config WLAN_FEATURE_RX_WAKELOCK
+	bool "Enable RX wake lock feature"
+	default n
+	help
+	Enable WLAN_FEATURE_HOLD_RX_WAKELOCK which is required to take rx
+	wakelock when driver receives packets from fw.
