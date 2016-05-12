@@ -47,6 +47,13 @@ enum core_ldo_levels {
 #define ALFPS_DTCT_EN		BIT(1)
 #define ARCVR_DTCT_EVENT_SEL	BIT(4)
 
+/* PCIE_USB3_PHY_PCS_MISC_TYPEC_CTRL bits */
+
+/* 0 - selects Lane A. 1 - selects Lane B */
+#define SW_PORTSELECT		BIT(0)
+/* port select mux: 1 - sw control. 0 - HW control*/
+#define SW_PORTSELECT_MX	BIT(1)
+
 enum qmp_phy_rev_reg {
 	USB3_PHY_PCS_STATUS,
 	USB3_PHY_AUTONOMOUS_MODE_CTRL,
@@ -54,6 +61,7 @@ enum qmp_phy_rev_reg {
 	USB3_PHY_POWER_DOWN_CONTROL,
 	USB3_PHY_SW_RESET,
 	USB3_PHY_START,
+	USB3_PHY_PCS_MISC_TYPEC_CTRL,
 	USB3_PHY_REG_MAX,
 };
 
@@ -246,7 +254,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 {
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
-	int ret;
+	int ret, val;
 	unsigned init_timeout_usec = INIT_MAX_TIME_USEC;
 	const struct qmp_reg_val *reg = NULL;
 
@@ -285,6 +293,18 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		dev_err(uphy->dev, "Failed the main PHY configuration\n");
 		return ret;
 	}
+
+	/* perform lane selection */
+	val = -EINVAL;
+	if (phy->phy.flags & PHY_LANE_A)
+		val = SW_PORTSELECT_MX;
+
+	if (phy->phy.flags & PHY_LANE_B)
+		val = SW_PORTSELECT | SW_PORTSELECT_MX;
+
+	if (val > 0)
+		writel_relaxed(val,
+			phy->base + phy->phy_reg[USB3_PHY_PCS_MISC_TYPEC_CTRL]);
 
 	writel_relaxed(0x03, phy->base + phy->phy_reg[USB3_PHY_START]);
 	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);

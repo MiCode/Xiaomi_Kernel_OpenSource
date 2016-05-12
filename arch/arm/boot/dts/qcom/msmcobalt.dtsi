@@ -1767,7 +1767,8 @@
 				 0xcdc /* USB3_PHY_LFPS_RXTERM_IRQ_CLEAR */
 				 0xc04 /* USB3_PHY_POWER_DOWN_CONTROL */
 				 0xc00 /* USB3_PHY_SW_RESET */
-				 0xc08>; /* USB3_PHY_START */
+				 0xc08 /* USB3_PHY_START */
+				 0xa00>; /* USB3PHY_PCS_MISC_TYPEC_CTRL */
 
 		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
 			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
