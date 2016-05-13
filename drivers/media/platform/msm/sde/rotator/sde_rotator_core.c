@@ -2423,13 +2423,15 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 error_init_queue:
 	mgr->ops_hw_destroy(mgr);
 error_hw_init:
+error_map_hw_ops:
+	sde_rotator_clk_ctrl(mgr, false);
+	sde_rotator_resource_ctrl(mgr, false);
 	pm_runtime_disable(mgr->device);
 	sde_rotator_res_destroy(mgr);
 error_res_init:
 error_parse_dt:
 	sysfs_remove_group(&mgr->device->kobj, &sde_rotator_fs_attr_group);
 error_create_sysfs:
-error_map_hw_ops:
 	devm_kfree(&pdev->dev, mgr);
 	*pmgr = NULL;
 	return ret;
