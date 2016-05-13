@@ -22,3 +22,8 @@
 	compatible = "qcom,msmcobalt-sim", "qcom,msmcobalt", "qcom,sim";
 	qcom,board-id = <16 0>;
 };
+
+&gfx_stub_vreg {
+	regulator-max-microvolt = <8>;
+	status = "okay";
+};
