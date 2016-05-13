@@ -41,7 +41,7 @@ static inline void hardlockup_detector_disable(void) {}
 #ifdef arch_trigger_all_cpu_backtrace
 static inline bool trigger_all_cpu_backtrace(void)
 {
-	#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	#if defined(CONFIG_ARM64)
 	arch_trigger_all_cpu_backtrace();
 	#else
 	arch_trigger_all_cpu_backtrace(true);
@@ -51,7 +51,7 @@ static inline bool trigger_all_cpu_backtrace(void)
 }
 static inline bool trigger_allbutself_cpu_backtrace(void)
 {
-	#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+	#if defined(CONFIG_ARM64)
 	arch_trigger_all_cpu_backtrace();
 	#else
 	arch_trigger_all_cpu_backtrace(false);
