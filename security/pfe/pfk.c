@@ -324,7 +324,7 @@ static int pfk_key_size_to_key_type(size_t key_size,
 	 */
 
 	if (key_size != PFK_SUPPORTED_KEY_SIZE) {
-		pr_err("not supported key size %lu\n", key_size);
+		pr_err("not supported key size %zu\n", key_size);
 		return -EINVAL;
 	}
 
