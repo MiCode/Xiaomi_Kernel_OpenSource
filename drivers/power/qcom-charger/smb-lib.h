@@ -96,7 +96,15 @@ int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
 int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val);
 int smblib_write(struct smb_charger *chg, u16 addr, u8 val);
 
+int smblib_get_charge_param(struct smb_charger *chg,
+			    struct smb_chg_param *param, int *val_u);
+int smblib_get_usb_suspend(struct smb_charger *chg, int *suspend);
+
 int smblib_enable_charging(struct smb_charger *chg, bool enable);
+int smblib_set_charge_param(struct smb_charger *chg,
+			    struct smb_chg_param *param, int val_u);
+int smblib_set_usb_suspend(struct smb_charger *chg, bool suspend);
+int smblib_set_dc_suspend(struct smb_charger *chg, bool suspend);
 
 int smblib_vbus_regulator_enable(struct regulator_dev *rdev);
 int smblib_vbus_regulator_disable(struct regulator_dev *rdev);
