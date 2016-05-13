@@ -1668,7 +1668,7 @@ int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags)
 	return cpu;
 }
 
-static void update_avg(u64 *avg, u64 sample)
+void update_avg(u64 *avg, u64 sample)
 {
 	s64 diff = sample - *avg;
 	*avg += diff >> 3;
@@ -3604,6 +3604,8 @@ static void __sched notrace __schedule(bool preempt)
 	if (likely(prev != next)) {
 		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+		if (!is_idle_task(prev) && !prev->on_rq)
+			update_avg_burst(prev);
 
 		rq->nr_switches++;
 		rq->curr = next;

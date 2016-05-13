@@ -1163,6 +1163,8 @@ extern int update_preferred_cluster(struct related_thread_group *grp,
 extern void set_preferred_cluster(struct related_thread_group *grp);
 extern void add_new_task_to_grp(struct task_struct *new);
 extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
+extern void update_avg_burst(struct task_struct *p);
+extern void update_avg(u64 *avg, u64 sample);
 
 enum sched_boost_policy {
 	SCHED_BOOST_NONE,
@@ -1687,6 +1689,8 @@ static inline int alloc_related_thread_groups(void) { return 0; }
 #define trace_sched_cpu_load_lb(...)
 #define trace_sched_cpu_load_cgroup(...)
 #define trace_sched_cpu_load_wakeup(...)
+
+static inline void update_avg_burst(struct task_struct *p) {}
 
 #endif	/* CONFIG_SCHED_HMP */
 

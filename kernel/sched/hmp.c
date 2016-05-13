@@ -1533,6 +1533,8 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	INIT_LIST_HEAD(&p->grp_list);
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
+	p->ravg.curr_burst = 0;
+	p->ravg.avg_burst = 0;
 
 	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
 	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
@@ -2716,12 +2718,14 @@ done:
 	trace_sched_update_history(rq, p, runtime, samples, event);
 }
 
-static void add_to_task_demand(struct rq *rq, struct task_struct *p, u64 delta)
+static u64 add_to_task_demand(struct rq *rq, struct task_struct *p, u64 delta)
 {
 	delta = scale_exec_time(delta, rq);
 	p->ravg.sum += delta;
 	if (unlikely(p->ravg.sum > sched_ravg_window))
 		p->ravg.sum = sched_ravg_window;
+
+	return delta;
 }
 
 /*
@@ -2774,13 +2778,14 @@ static void add_to_task_demand(struct rq *rq, struct task_struct *p, u64 delta)
  * IMPORTANT : Leave p->ravg.mark_start unchanged, as update_cpu_busy_time()
  * depends on it!
  */
-static void update_task_demand(struct task_struct *p, struct rq *rq,
+static u64 update_task_demand(struct task_struct *p, struct rq *rq,
 			       int event, u64 wallclock)
 {
 	u64 mark_start = p->ravg.mark_start;
 	u64 delta, window_start = rq->window_start;
 	int new_window, nr_full_windows;
 	u32 window_size = sched_ravg_window;
+	u64 runtime;
 
 	new_window = mark_start < window_start;
 	if (!account_busy_for_task_demand(p, event)) {
@@ -2794,7 +2799,7 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 			 * it is not necessary to account those.
 			 */
 			update_history(rq, p, p->ravg.sum, 1, event);
-		return;
+		return 0;
 	}
 
 	if (!new_window) {
@@ -2802,8 +2807,7 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 		 * The simple case - busy time contained within the existing
 		 * window.
 		 */
-		add_to_task_demand(rq, p, wallclock - mark_start);
-		return;
+		return add_to_task_demand(rq, p, wallclock - mark_start);
 	}
 
 	/*
@@ -2815,13 +2819,16 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 	window_start -= (u64)nr_full_windows * (u64)window_size;
 
 	/* Process (window_start - mark_start) first */
-	add_to_task_demand(rq, p, window_start - mark_start);
+	runtime = add_to_task_demand(rq, p, window_start - mark_start);
 
 	/* Push new sample(s) into task's demand history */
 	update_history(rq, p, p->ravg.sum, 1, event);
-	if (nr_full_windows)
-		update_history(rq, p, scale_exec_time(window_size, rq),
-			       nr_full_windows, event);
+	if (nr_full_windows) {
+		u64 scaled_window = scale_exec_time(window_size, rq);
+
+		update_history(rq, p, scaled_window, nr_full_windows, event);
+		runtime += nr_full_windows * scaled_window;
+	}
 
 	/*
 	 * Roll window_start back to current to process any remainder
@@ -2831,13 +2838,31 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 
 	/* Process (wallclock - window_start) next */
 	mark_start = window_start;
-	add_to_task_demand(rq, p, wallclock - mark_start);
+	runtime += add_to_task_demand(rq, p, wallclock - mark_start);
+
+	return runtime;
+}
+
+static inline void
+update_task_burst(struct task_struct *p, struct rq *rq, int event, int runtime)
+{
+	/*
+	 * update_task_demand() has checks for idle task and
+	 * exit task. The runtime may include the wait time,
+	 * so update the burst only for the cases where the
+	 * task is running.
+	 */
+	if (event == PUT_PREV_TASK || (event == TASK_UPDATE &&
+				rq->curr == p))
+		p->ravg.curr_burst += runtime;
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
 void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
 {
+	u64 runtime;
+
 	if (!rq->window_start || sched_disable_window_stats ||
 	    p->ravg.mark_start == wallclock)
 		return;
@@ -2852,7 +2877,9 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	}
 
 	update_task_rq_cpu_cycles(p, rq, event, wallclock, irqtime);
-	update_task_demand(p, rq, event, wallclock);
+	runtime = update_task_demand(p, rq, event, wallclock);
+	if (runtime)
+		update_task_burst(p, rq, event, runtime);
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
 done:
@@ -4438,6 +4465,12 @@ bool early_detection_notify(struct rq *rq, u64 wallclock)
 	}
 
 	return 0;
+}
+
+void update_avg_burst(struct task_struct *p)
+{
+	update_avg(&p->ravg.avg_burst, p->ravg.curr_burst);
+	p->ravg.curr_burst = 0;
 }
 
 #ifdef CONFIG_CGROUP_SCHED
