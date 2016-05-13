@@ -26,3 +26,7 @@
 &clock_gcc {
 	compatible = "qcom,gcc-cobalt-v2";
 };
+
+&clock_mmss {
+	compatible = "qcom,mmsscc-cobalt-v2";
+};
