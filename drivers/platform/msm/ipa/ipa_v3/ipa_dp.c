@@ -449,6 +449,8 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	int fail_dma_wrap = 0;
 	uint size;
 	u32 mem_flag = GFP_ATOMIC;
+	int ipa_ep_idx;
+	struct ipa_gsi_ep_config *gsi_ep_cfg;
 
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
@@ -456,6 +458,25 @@ int ipa3_send(struct ipa3_sys_context *sys,
 	size = num_desc * sizeof(struct sps_iovec);
 
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		ipa_ep_idx = ipa3_get_ep_mapping(sys->ep->client);
+		if (unlikely(ipa_ep_idx < 0)) {
+			IPAERR("invalid ep_index of client = %d\n",
+				sys->ep->client);
+			return -EFAULT;
+		}
+		gsi_ep_cfg = ipa3_get_gsi_ep_info(ipa_ep_idx);
+		if (unlikely(!gsi_ep_cfg)) {
+			IPAERR("failed to get gsi EP config of ep_idx=%d\n",
+				ipa_ep_idx);
+			return -EFAULT;
+		}
+		if (unlikely(num_desc > gsi_ep_cfg->ipa_if_tlv)) {
+			IPAERR("Too many chained descriptors need=%d max=%d\n",
+				num_desc, gsi_ep_cfg->ipa_if_tlv);
+			WARN_ON(1);
+			return -EPERM;
+		}
+
 		gsi_xfer_elem_array =
 			kzalloc(num_desc * sizeof(struct gsi_xfer_elem),
 			mem_flag);
@@ -861,12 +882,11 @@ static void ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 {
 	int ret;
 
-	if (!atomic_read(&sys->curr_polling_state)) {
-		IPAERR("already in intr mode\n");
-		goto fail;
-	}
-
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		if (!atomic_read(&sys->curr_polling_state)) {
+			IPAERR("already in intr mode\n");
+			goto fail;
+		}
 		atomic_set(&sys->curr_polling_state, 0);
 		ipa3_dec_release_wakelock();
 		ret = gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
@@ -879,6 +899,15 @@ static void ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 		ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
 		if (ret) {
 			IPAERR("sps_get_config() failed %d\n", ret);
+			goto fail;
+		}
+		if (!atomic_read(&sys->curr_polling_state) &&
+			((sys->ep->connect.options & SPS_O_EOT) == SPS_O_EOT)) {
+			IPADBG("already in intr mode\n");
+			return;
+		}
+		if (!atomic_read(&sys->curr_polling_state)) {
+			IPAERR("already in intr mode\n");
 			goto fail;
 		}
 		sys->event.options = SPS_O_EOT;
