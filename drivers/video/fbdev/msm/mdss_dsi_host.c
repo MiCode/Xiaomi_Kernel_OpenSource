@@ -567,10 +567,13 @@ int mdss_dsi_wait_for_lane_idle(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	pr_debug("%s: polling for lanes to be in stop state, mask=0x%08x\n",
 		__func__, stop_state_mask);
-	rc = readl_poll_timeout(ctrl->ctrl_base + LANE_STATUS, val,
-		(val & stop_state_mask), sleep_us, timeout_us);
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+		rc = mdss_dsi_phy_v3_wait_for_lanes_stop_state(ctrl, &val);
+	else
+		rc = readl_poll_timeout(ctrl->ctrl_base + LANE_STATUS, val,
+			(val & stop_state_mask), sleep_us, timeout_us);
 	if (rc) {
-		pr_err("%s: lanes not in stop state, LANE_STATUS=0x%08x\n",
+		pr_debug("%s: lanes not in stop state, LANE_STATUS=0x%08x\n",
 			__func__, val);
 		goto error;
 	}

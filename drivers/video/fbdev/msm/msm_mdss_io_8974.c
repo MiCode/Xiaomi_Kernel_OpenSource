@@ -1739,18 +1739,19 @@ static bool mdss_dsi_is_ulps_req_valid(struct mdss_dsi_ctrl_pdata *ctrl,
 }
 
 /**
- * mdss_dsi_ulps_config() - Program DSI lanes to enter/exit ULPS mode
+ * mdss_dsi_ulps_config_default() - Program DSI lanes to enter/exit ULPS mode
  * @ctrl: pointer to DSI controller structure
- * @enable: 1 to enter ULPS, 0 to exit ULPS
+ * @enable: true to enter ULPS, false to exit ULPS
  *
- * This function executes the necessary programming sequence to enter/exit
- * DSI Ultra-Low Power State (ULPS). This function assumes that the link and
- * core clocks are already on.
+ * Executes the default hardware programming sequence to enter/exit DSI
+ * Ultra-Low Power State (ULPS). This function would be called whenever there
+ * are no hardware version sepcific functions for configuring ULPS mode. This
+ * function assumes that the link and core clocks are already on.
  */
-static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
-	int enable)
+static int mdss_dsi_ulps_config_default(struct mdss_dsi_ctrl_pdata *ctrl,
+	bool enable)
 {
-	int ret = 0;
+	int rc = 0;
 	struct mdss_panel_data *pdata = NULL;
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
@@ -1770,12 +1771,6 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	pinfo = &pdata->panel_info;
 	mipi = &pinfo->mipi;
 
-	if (!mdss_dsi_is_ulps_req_valid(ctrl, enable)) {
-		pr_debug("%s: skiping ULPS config for ctrl%d, enable=%d\n",
-			__func__, ctrl->ndx, enable);
-		return 0;
-	}
-
 	/* clock lane will always be programmed for ulps */
 	active_lanes = BIT(4);
 	/*
@@ -1791,9 +1786,83 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (mipi->data_lane3)
 		active_lanes |= BIT(3);
 
-	pr_debug("%s: configuring ulps (%s) for ctrl%d, active lanes=0x%08x,clamps=%s\n",
+	pr_debug("%s: configuring ulps (%s) for ctrl%d, active lanes=0x%08x\n",
+		__func__, (enable ? "on" : "off"), ctrl->ndx, active_lanes);
+
+	if (enable) {
+		/*
+		 * ULPS Entry Request.
+		 * Wait for a short duration to ensure that the lanes
+		 * enter ULP state.
+		 */
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes);
+		usleep_range(100, 110);
+
+		/* Check to make sure that all active data lanes are in ULPS */
+		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
+		if (lane_status & (active_lanes << 8)) {
+			pr_err("%s: ULPS entry req failed for ctrl%d. Lane status=0x%08x\n",
+				__func__, ctrl->ndx, lane_status);
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		/*
+		 * ULPS Exit Request
+		 * Hardware requirement is to wait for at least 1ms
+		 */
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 8);
+		usleep_range(1000, 1010);
+
+		/*
+		 * Sometimes when exiting ULPS, it is possible that some DSI
+		 * lanes are not in the stop state which could lead to DSI
+		 * commands not going through. To avoid this, force the lanes
+		 * to be in stop state.
+		 */
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
+
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
+
+		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
+	}
+
+	pr_debug("%s: DSI lane status = 0x%08x. Ulps %s\n", __func__,
+		lane_status, enable ? "enabled" : "disabled");
+
+error:
+	return rc;
+}
+
+/**
+ * mdss_dsi_ulps_config() - Program DSI lanes to enter/exit ULPS mode
+ * @ctrl: pointer to DSI controller structure
+ * @enable: 1 to enter ULPS, 0 to exit ULPS
+ *
+ * Execute the necessary programming sequence to enter/exit DSI Ultra-Low Power
+ * State (ULPS). This function the validity of the ULPS config request and
+ * executes and pre/post steps before/after the necessary hardware programming.
+ * This function assumes that the link and core clocks are already on.
+ */
+static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
+	int enable)
+{
+	int ret = 0;
+
+	if (!ctrl) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!mdss_dsi_is_ulps_req_valid(ctrl, enable)) {
+		pr_debug("%s: skiping ULPS config for ctrl%d, enable=%d\n",
+			__func__, ctrl->ndx, enable);
+		return 0;
+	}
+
+	pr_debug("%s: configuring ulps (%s) for ctrl%d, clamps=%s\n",
 		__func__, (enable ? "on" : "off"), ctrl->ndx,
-		active_lanes, ctrl->mmss_clamp ? "enabled" : "disabled");
+		ctrl->mmss_clamp ? "enabled" : "disabled");
 
 	if (enable && !ctrl->ulps) {
 		/*
@@ -1809,29 +1878,19 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		if (!ctrl->mmss_clamp) {
 			ret = mdss_dsi_wait_for_lane_idle(ctrl);
 			if (ret) {
-				pr_warn("%s: lanes not idle, skip ulps\n",
+				pr_warn_ratelimited("%s: lanes not idle, skip ulps\n",
 					__func__);
 				ret = 0;
 				goto error;
 			}
 		}
 
-		/*
-		 * ULPS Entry Request.
-		 * Wait for a short duration to ensure that the lanes
-		 * enter ULP state.
-		 */
-		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes);
-		usleep_range(100, 100);
-
-		/* Check to make sure that all active data lanes are in ULPS */
-		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
-		if (lane_status & (active_lanes << 8)) {
-			pr_err("%s: ULPS entry req failed for ctrl%d. Lane status=0x%08x\n",
-				__func__, ctrl->ndx, lane_status);
-			ret = -EINVAL;
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+			ret = mdss_dsi_phy_v3_ulps_config(ctrl, true);
+		else
+			ret = mdss_dsi_ulps_config_default(ctrl, true);
+		if (ret)
 			goto error;
-		}
 
 		ctrl->ulps = true;
 	} else if (!enable && ctrl->ulps) {
@@ -1842,22 +1901,12 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		mdss_dsi_dln0_phy_err(ctrl, false);
 
-		/*
-		 * ULPS Exit Request
-		 * Hardware requirement is to wait for at least 1ms
-		 */
-		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 8);
-		usleep_range(1000, 1000);
-
-		/*
-		 * Sometimes when exiting ULPS, it is possible that some DSI
-		 * lanes are not in the stop state which could lead to DSI
-		 * commands not going through. To avoid this, force the lanes
-		 * to be in stop state.
-		 */
-		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
-
-		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+			ret = mdss_dsi_phy_v3_ulps_config(ctrl, false);
+		else
+			ret = mdss_dsi_ulps_config_default(ctrl, false);
+		if (ret)
+			goto error;
 
 		/*
 		 * Wait for a short duration before enabling
@@ -1865,16 +1914,12 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		usleep_range(100, 100);
 
-		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
 		ctrl->ulps = false;
 	} else {
 		pr_debug("%s: No change requested: %s -> %s\n", __func__,
 			ctrl->ulps ? "enabled" : "disabled",
 			enable ? "enabled" : "disabled");
 	}
-
-	pr_debug("%s: DSI lane status = 0x%08x. Ulps %s\n", __func__,
-		lane_status, enable ? "enabled" : "disabled");
 
 error:
 	return ret;
@@ -2204,7 +2249,7 @@ int mdss_dsi_post_clkon_cb(void *priv,
 		if (mmss_clamp)
 			mdss_dsi_ctrl_setup(ctrl);
 
-		if (ctrl->ulps) {
+		if (ctrl->ulps && mmss_clamp) {
 			/*
 			 * ULPS Entry Request. This is needed if the lanes were
 			 * in ULPS prior to power collapse, since after
