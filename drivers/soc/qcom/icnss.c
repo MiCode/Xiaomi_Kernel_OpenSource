@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <asm/dma-iommu.h>
 #include <linux/clk.h>
 #include <linux/iommu.h>
@@ -24,6 +25,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/qmi_encdec.h>
 #include <soc/qcom/memory_dump.h>
@@ -32,32 +34,35 @@
 
 #include "wlan_firmware_service_v01.h"
 
-enum icnss_qmi_event_type {
-	ICNSS_QMI_EVENT_SERVER_ARRIVE,
-	ICNSS_QMI_EVENT_SERVER_EXIT,
-	ICNSS_QMI_EVENT_FW_READY_IND,
+enum icnss_driver_event_type {
+	ICNSS_DRIVER_EVENT_SERVER_ARRIVE,
+	ICNSS_DRIVER_EVENT_SERVER_EXIT,
+	ICNSS_DRIVER_EVENT_FW_READY_IND,
+	ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
+	ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 };
 
-struct icnss_qmi_event {
+struct icnss_driver_event {
 	struct list_head list;
-	enum icnss_qmi_event_type type;
+	enum icnss_driver_event_type type;
 	void *data;
 };
 
 #define ICNSS_PANIC			1
 #define WLFW_TIMEOUT_MS			3000
 #define WLFW_SERVICE_INS_ID_V01		0
-#define ICNSS_WLFW_QMI_CONNECTED	BIT(0)
-#define ICNSS_FW_READY			BIT(1)
 #define SMMU_CLOCK_NAME			"smmu_aggre2_noc_clk"
 #define MAX_PROP_SIZE			32
 #define MAX_VOLTAGE_LEVEL		2
 #define VREG_ON				1
 #define VREG_OFF			0
 
-#define ICNSS_IS_WLFW_QMI_CONNECTED(_state) \
-		((_state) & ICNSS_WLFW_QMI_CONNECTED)
-#define ICNSS_IS_FW_READY(_state) ((_state) & ICNSS_FW_READY)
+enum cnss_driver_state {
+	ICNSS_WLFW_QMI_CONNECTED,
+	ICNSS_FW_READY,
+	ICNSS_DRIVER_PROBED
+};
+
 #ifdef ICNSS_PANIC
 #define ICNSS_ASSERT(_condition) do {			\
 		if (!(_condition)) {				\
@@ -106,15 +111,15 @@ static struct icnss_data {
 	size_t smmu_iova_len;
 	struct clk *smmu_clk;
 	struct qmi_handle *wlfw_clnt;
-	struct list_head qmi_event_list;
-	spinlock_t qmi_event_lock;
-	struct work_struct qmi_event_work;
+	struct list_head event_list;
+	spinlock_t event_lock;
+	struct work_struct event_work;
 	struct work_struct qmi_recv_msg_work;
-	struct workqueue_struct *qmi_event_wq;
+	struct workqueue_struct *event_wq;
 	phys_addr_t msa_pa;
 	uint32_t msa_mem_size;
 	void *msa_va;
-	uint32_t state;
+	unsigned long state;
 	struct wlfw_rf_chip_info_s_v01 chip_info;
 	struct wlfw_rf_board_info_s_v01 board_info;
 	struct wlfw_soc_info_s_v01 soc_info;
@@ -125,13 +130,36 @@ static struct icnss_data {
 	struct icnss_mem_region_info
 		icnss_mem_region[QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01];
 	bool skip_qmi;
+	struct completion driver_unregister;
 } *penv;
 
-static int icnss_qmi_event_post(enum icnss_qmi_event_type type, void *data)
+static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 {
-	struct icnss_qmi_event *event = NULL;
+	switch (type) {
+	case ICNSS_DRIVER_EVENT_SERVER_ARRIVE:
+		return "SERVER_ARRIVE";
+	case ICNSS_DRIVER_EVENT_SERVER_EXIT:
+		return "SERVER_EXIT";
+	case ICNSS_DRIVER_EVENT_FW_READY_IND:
+		return "FW_READY";
+	case ICNSS_DRIVER_EVENT_REGISTER_DRIVER:
+		return "REGISTER_DRIVER";
+	case ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER:
+		return "UNREGISTER_DRIVER";
+	}
+
+	return "UNKNOWN";
+};
+
+static int icnss_driver_event_post(enum icnss_driver_event_type type,
+				   void *data)
+{
+	struct icnss_driver_event *event = NULL;
 	unsigned long flags;
 	int gfp = GFP_KERNEL;
+
+	pr_debug("Posting event: %s(%d)\n", icnss_driver_event_to_str(type),
+		 type);
 
 	if (in_interrupt() || irqs_disabled())
 		gfp = GFP_ATOMIC;
@@ -142,11 +170,11 @@ static int icnss_qmi_event_post(enum icnss_qmi_event_type type, void *data)
 
 	event->type = type;
 	event->data = data;
-	spin_lock_irqsave(&penv->qmi_event_lock, flags);
-	list_add_tail(&event->list, &penv->qmi_event_list);
-	spin_unlock_irqrestore(&penv->qmi_event_lock, flags);
+	spin_lock_irqsave(&penv->event_lock, flags);
+	list_add_tail(&event->list, &penv->event_list);
+	spin_unlock_irqrestore(&penv->event_lock, flags);
 
-	queue_work(penv->qmi_event_wq, &penv->qmi_event_work);
+	queue_work(penv->event_wq, &penv->event_work);
 
 	return 0;
 }
@@ -728,7 +756,7 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 
 	switch (msg_id) {
 	case QMI_WLFW_FW_READY_IND_V01:
-		icnss_qmi_event_post(ICNSS_QMI_EVENT_FW_READY_IND, NULL);
+		icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_READY_IND, NULL);
 		break;
 	case QMI_WLFW_MSA_READY_IND_V01:
 		pr_debug("%s: Received MSA Ready Indication msg_id 0x%x\n",
@@ -745,7 +773,7 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 	}
 }
 
-static int icnss_qmi_event_server_arrive(void *data)
+static int icnss_driver_event_server_arrive(void *data)
 {
 	int ret = 0;
 
@@ -776,7 +804,7 @@ static int icnss_qmi_event_server_arrive(void *data)
 		goto fail;
 	}
 
-	penv->state |= ICNSS_WLFW_QMI_CONNECTED;
+	set_bit(ICNSS_WLFW_QMI_CONNECTED, &penv->state);
 
 	pr_info("%s: QMI Server Connected\n", __func__);
 
@@ -828,7 +856,7 @@ out:
 	return ret;
 }
 
-static int icnss_qmi_event_server_exit(void *data)
+static int icnss_driver_event_server_exit(void *data)
 {
 	if (!penv || !penv->wlfw_clnt)
 		return -ENODEV;
@@ -843,14 +871,14 @@ static int icnss_qmi_event_server_exit(void *data)
 	return 0;
 }
 
-static int icnss_qmi_event_fw_ready_ind(void *data)
+static int icnss_driver_event_fw_ready_ind(void *data)
 {
 	int ret = 0;
 
 	if (!penv)
 		return -ENODEV;
 
-	penv->state |= ICNSS_FW_READY;
+	set_bit(ICNSS_FW_READY, &penv->state);
 
 	pr_info("%s: WLAN FW is ready\n", __func__);
 
@@ -860,18 +888,128 @@ static int icnss_qmi_event_fw_ready_ind(void *data)
 		goto out;
 	}
 
-	ret = icnss_hw_power_off(penv);
-	if (ret < 0)
-		goto out;
+	/*
+	 * WAR required after FW ready without which CCPM init fails in firmware
+	 * when WLAN enable is sent to firmware
+	 */
+	icnss_hw_reset(penv);
+	usleep_range(100, 102);
+	icnss_hw_release_reset(penv);
 
 	if (!penv->ops || !penv->ops->probe)
 		goto out;
 
 	ret = penv->ops->probe(&penv->pdev->dev);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("%s: Driver probe failed: %d\n", __func__, ret);
+		goto out;
+	}
+
+	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
+
+	return 0;
+out:
+	icnss_hw_power_off(penv);
+	return ret;
+}
+
+static int icnss_driver_event_register_driver(void *data)
+{
+	int ret = 0;
+
+	if (penv->skip_qmi)
+		set_bit(ICNSS_FW_READY, &penv->state);
+
+	if (!test_bit(ICNSS_FW_READY, &penv->state)) {
+		pr_debug("FW is not ready yet state: 0x%lx!\n", penv->state);
+		goto out;
+	}
+
+	ret = icnss_hw_power_on(penv);
+	if (ret < 0)
+		goto out;
+
+	ret = penv->ops->probe(&penv->pdev->dev);
+
+	if (ret) {
+		pr_err("Driver probe failed: %d, state: 0x%lx\n", ret,
+		       penv->state);
+		goto power_off;
+	}
+
+	set_bit(ICNSS_DRIVER_PROBED, &penv->state);
+
+	return 0;
+
+power_off:
+	icnss_hw_power_off(penv);
 out:
 	return ret;
+}
+
+static int icnss_driver_event_unregister_driver(void *data)
+{
+	if (!test_bit(ICNSS_DRIVER_PROBED, &penv->state)) {
+		penv->ops = NULL;
+		goto out;
+	}
+
+	if (penv->ops->remove)
+		penv->ops->remove(&penv->pdev->dev);
+
+	clear_bit(ICNSS_DRIVER_PROBED, &penv->state);
+
+	penv->ops = NULL;
+
+	icnss_hw_power_off(penv);
+
+out:
+	complete(&penv->driver_unregister);
+	return 0;
+}
+
+static void icnss_driver_event_work(struct work_struct *work)
+{
+	struct icnss_driver_event *event;
+	unsigned long flags;
+
+	spin_lock_irqsave(&penv->event_lock, flags);
+
+	while (!list_empty(&penv->event_list)) {
+		event = list_first_entry(&penv->event_list,
+					 struct icnss_driver_event, list);
+		list_del(&event->list);
+		spin_unlock_irqrestore(&penv->event_lock, flags);
+
+		pr_debug("Processing event: %s(%d), state: 0x%lx\n",
+			 icnss_driver_event_to_str(event->type), event->type,
+			 penv->state);
+
+		switch (event->type) {
+		case ICNSS_DRIVER_EVENT_SERVER_ARRIVE:
+			icnss_driver_event_server_arrive(event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_SERVER_EXIT:
+			icnss_driver_event_server_exit(event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_FW_READY_IND:
+			icnss_driver_event_fw_ready_ind(event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_REGISTER_DRIVER:
+			icnss_driver_event_register_driver(event->data);
+			break;
+		case ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER:
+			icnss_driver_event_unregister_driver(event->data);
+			break;
+		default:
+			pr_debug("%s: Invalid Event type: %d",
+				 __func__, event->type);
+			break;
+		}
+		kfree(event);
+		spin_lock_irqsave(&penv->event_lock, flags);
+	}
+	spin_unlock_irqrestore(&penv->event_lock, flags);
 }
 
 static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
@@ -887,11 +1025,13 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 
 	switch (code) {
 	case QMI_SERVER_ARRIVE:
-		ret = icnss_qmi_event_post(ICNSS_QMI_EVENT_SERVER_ARRIVE, NULL);
+		ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_ARRIVE,
+					      NULL);
 		break;
 
 	case QMI_SERVER_EXIT:
-		ret = icnss_qmi_event_post(ICNSS_QMI_EVENT_SERVER_EXIT, NULL);
+		ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_EXIT,
+					      NULL);
 		break;
 	default:
 		pr_debug("%s: Invalid code: %ld", __func__, code);
@@ -900,47 +1040,12 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 	return ret;
 }
 
-static void icnss_qmi_wlfw_event_work(struct work_struct *work)
-{
-	struct icnss_qmi_event *event;
-	unsigned long flags;
-
-	spin_lock_irqsave(&penv->qmi_event_lock, flags);
-
-	while (!list_empty(&penv->qmi_event_list)) {
-		event = list_first_entry(&penv->qmi_event_list,
-					 struct icnss_qmi_event, list);
-		list_del(&event->list);
-		spin_unlock_irqrestore(&penv->qmi_event_lock, flags);
-
-		switch (event->type) {
-		case ICNSS_QMI_EVENT_SERVER_ARRIVE:
-			icnss_qmi_event_server_arrive(event->data);
-			break;
-		case ICNSS_QMI_EVENT_SERVER_EXIT:
-			icnss_qmi_event_server_exit(event->data);
-			break;
-		case ICNSS_QMI_EVENT_FW_READY_IND:
-			icnss_qmi_event_fw_ready_ind(event->data);
-			break;
-		default:
-			pr_debug("%s: Invalid Event type: %d",
-				 __func__, event->type);
-			break;
-		}
-		kfree(event);
-		spin_lock_irqsave(&penv->qmi_event_lock, flags);
-	}
-	spin_unlock_irqrestore(&penv->qmi_event_lock, flags);
-}
-
 static struct notifier_block wlfw_clnt_nb = {
 	.notifier_call = icnss_qmi_wlfw_clnt_svc_event_notify,
 };
 
 int icnss_register_driver(struct icnss_driver_ops *ops)
 {
-	struct platform_device *pdev;
 	int ret = 0;
 
 	if (!penv || !penv->pdev) {
@@ -948,35 +1053,23 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 		goto out;
 	}
 
-	pdev = penv->pdev;
-	if (!pdev) {
-		ret = -ENODEV;
-		goto out;
-	}
+	pr_debug("Registering driver, state: 0x%lx\n", penv->state);
 
 	if (penv->ops) {
 		pr_err("icnss: driver already registered\n");
 		ret = -EEXIST;
 		goto out;
 	}
+
+	if (!ops->probe || !ops->remove) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 	penv->ops = ops;
 
-	if (penv->skip_qmi)
-		penv->state |= ICNSS_FW_READY;
+	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_REGISTER_DRIVER, NULL);
 
-	/* check for all conditions before invoking probe */
-	if (ICNSS_IS_FW_READY(penv->state) && penv->ops->probe) {
-		ret = icnss_hw_power_on(penv);
-		if (ret < 0) {
-			pr_err("%s: Failed to turn on voltagre regulator: %d\n",
-				__func__, ret);
-			goto out;
-		}
-		ret = penv->ops->probe(&pdev->dev);
-	} else {
-		pr_err("icnss: FW is not ready\n");
-		ret = -ENOENT;
-	}
 out:
 	return ret;
 }
@@ -984,30 +1077,29 @@ EXPORT_SYMBOL(icnss_register_driver);
 
 int icnss_unregister_driver(struct icnss_driver_ops *ops)
 {
-	int ret = 0;
-	struct platform_device *pdev;
+	int ret;
 
 	if (!penv || !penv->pdev) {
 		ret = -ENODEV;
 		goto out;
 	}
 
-	pdev = penv->pdev;
-	if (!pdev) {
-		ret = -ENODEV;
-		goto out;
-	}
+	pr_debug("Unregistering driver, state: 0x%lx\n", penv->state);
+
 	if (!penv->ops) {
 		pr_err("icnss: driver not registered\n");
 		ret = -ENOENT;
 		goto out;
 	}
-	if (penv->ops->remove)
-		penv->ops->remove(&pdev->dev);
 
-	penv->ops = NULL;
+	init_completion(&penv->driver_unregister);
+	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
+				      NULL);
+	if (ret)
+		goto out;
 
-	ret = icnss_hw_power_off(penv);
+	wait_for_completion(&penv->driver_unregister);
+
 out:
 	return ret;
 }
@@ -1628,18 +1720,18 @@ static int icnss_probe(struct platform_device *pdev)
 		goto err_wlan_mode;
 	}
 
-	spin_lock_init(&penv->qmi_event_lock);
+	spin_lock_init(&penv->event_lock);
 
-	penv->qmi_event_wq = alloc_workqueue("icnss_qmi_event", 0, 0);
-	if (!penv->qmi_event_wq) {
+	penv->event_wq = alloc_workqueue("icnss_driver_event", 0, 0);
+	if (!penv->event_wq) {
 		pr_err("%s: workqueue creation failed\n", __func__);
 		ret = -EFAULT;
 		goto err_workqueue;
 	}
 
-	INIT_WORK(&penv->qmi_event_work, icnss_qmi_wlfw_event_work);
+	INIT_WORK(&penv->event_work, icnss_driver_event_work);
 	INIT_WORK(&penv->qmi_recv_msg_work, icnss_qmi_wlfw_clnt_notify_work);
-	INIT_LIST_HEAD(&penv->qmi_event_list);
+	INIT_LIST_HEAD(&penv->event_list);
 
 	ret = qmi_svc_event_notifier_register(WLFW_SERVICE_ID_V01,
 					      WLFW_SERVICE_VERS_V01,
@@ -1655,8 +1747,8 @@ static int icnss_probe(struct platform_device *pdev)
 	return ret;
 
 err_qmi:
-	if (penv->qmi_event_wq)
-		destroy_workqueue(penv->qmi_event_wq);
+	if (penv->event_wq)
+		destroy_workqueue(penv->event_wq);
 err_workqueue:
 	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
 err_wlan_mode:
@@ -1694,8 +1786,8 @@ static int icnss_remove(struct platform_device *pdev)
 					  WLFW_SERVICE_VERS_V01,
 					  WLFW_SERVICE_INS_ID_V01,
 					  &wlfw_clnt_nb);
-	if (penv->qmi_event_wq)
-		destroy_workqueue(penv->qmi_event_wq);
+	if (penv->event_wq)
+		destroy_workqueue(penv->event_wq);
 	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
 
 	if (penv->smmu_mapping) {
