@@ -276,6 +276,8 @@
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
 			<79 379>,   /* qusb2phy_dmse_hv_prim */
 			<80 384>,   /* qusb2phy_dmse_hv_sec */
+			<81 379>,   /* qusb2phy_dpse_hv_prim */
+			<82 384>,   /* qusb2phy_dpse_hv_sec */
 			<52 275>,   /* qmp_usb3_lfps_rxterm_irq */
 			<87 358>,   /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 16>,  /* APCj_qgicdrCpu0HwFaultIrptReq */
@@ -337,6 +339,8 @@
 			<0xff 165>, /* usb30_hs_phy_irq */
 			<0xff 166>, /* sdc1_pwr_cmd_irq */
 			<0xff 170>, /* sdcc_pwr_cmd_irq */
+			<0xff 171>, /* usb20_hs_phy_irq */
+			<0xff 172>, /* usb20_power_event_irq */
 			<0xff 173>, /* sdc1_irq[0] */
 			<0xff 174>, /* o_wcss_apss_smd_med */
 			<0xff 175>, /* o_wcss_apss_smd_low */
@@ -368,7 +372,7 @@
 			<0xff 208>,
 			<0xff 210>,
 			<0xff 211>, /* usb_dwc3_otg */
-			<0xff 212>, /* usb_dwc3_otg */
+			<0xff 212>, /* usb30_power_event_irq */
 			<0xff 215>, /* o_bimc_intr(0) */
 			<0xff 224>, /* spdm_realtime_irq[1] */
 			<0xff 238>, /* crypto_bam_irq[0] */
