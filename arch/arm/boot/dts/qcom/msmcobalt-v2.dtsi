@@ -23,3 +23,6 @@
 	qcom,msm-id = <292 0x20000>;
 };
 
+&clock_gcc {
+	compatible = "qcom,gcc-cobalt-v2";
+};
