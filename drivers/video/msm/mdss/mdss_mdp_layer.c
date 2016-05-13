@@ -1606,7 +1606,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_mixer *mixer = NULL;
 	struct mdp_input_layer *layer, *prev_layer, *layer_list;
 	struct mdss_mdp_validate_info_t *validate_info_list = NULL;
-	bool is_single_layer = false;
+	bool is_single_layer = false, force_validate;
 	enum layer_pipe_q pipe_q_type;
 	enum layer_zorder_used zorder_used[MDSS_MDP_MAX_STAGE] = {0};
 	enum mdss_mdp_pipe_rect rect_num;
@@ -1664,6 +1664,15 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 
 		rec_ndx[rect_num] |= layer_list[i].pipe_ndx;
 	}
+
+	/*
+	 * Force all layers to go through full validation after
+	 * dynamic resolution switch, immaterial of the configs in
+	 * the layer.
+	 */
+	mutex_lock(&mfd->switch_lock);
+	force_validate = (mfd->switch_state != MDSS_MDP_NO_UPDATE_REQUESTED);
+	mutex_unlock(&mfd->switch_lock);
 
 	for (i = 0; i < layer_count; i++) {
 		enum layer_zorder_used z = LAYER_ZORDER_NONE;
@@ -1750,8 +1759,9 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 		 * are same. validation can be skipped if only buffer handle
 		 * is changed.
 		 */
-		pipe = __find_layer_in_validate_q(&validate_info_list[i],
-						  mdp5_data);
+		pipe = (force_validate) ? NULL :
+				__find_layer_in_validate_q(
+					&validate_info_list[i], mdp5_data);
 		if (pipe) {
 			if (mixer_mux == MDSS_MDP_MIXER_MUX_RIGHT)
 				right_plist[right_cnt++] = pipe;
