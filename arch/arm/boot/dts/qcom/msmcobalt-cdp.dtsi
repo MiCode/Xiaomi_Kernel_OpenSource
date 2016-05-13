@@ -125,8 +125,8 @@
 		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
 		pinctrl-0 = <&ts_active>;
 		pinctrl-1 = <&ts_suspend>;
-		synaptics,display-coords = <0 0 1599 2559>;
-		synaptics,panel-coords = <0 0 1599 2703>;
+		synaptics,display-coords = <0 0 1439 2559>;
+		synaptics,panel-coords = <0 0 1439 2559>;
 		synaptics,reset-gpio = <&tlmm 89 0x00>;
 		synaptics,irq-gpio = <&tlmm 125 0x2008>;
 		synaptics,disable-gpios;
@@ -171,7 +171,7 @@
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,mdss-dsi-panel-mode-gpio-state = "dual_port";
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 

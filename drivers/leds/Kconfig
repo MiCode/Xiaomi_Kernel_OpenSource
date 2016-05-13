@@ -602,6 +602,16 @@ config LEDS_QPNP_FLASH
 	  To compile this driver as a module, choose M here: the module will
 	  be called leds-qpnp-flash.
 
+config LEDS_QPNP_FLASH_V2
+        tristate "Support for QPNP V2 Flash LEDs"
+        depends on LEDS_CLASS && MFD_SPMI_PMIC
+        help
+          This driver supports the leds functionality of Qualcomm Technologies
+          PNP PMIC.  It includes Flash Led.
+
+          To compile this driver as a module, choose M here: the module will
+          be called leds-qpnp-flash-v2.
+
 config LEDS_QPNP_WLED
 	tristate "Support for QPNP WLED"
 	depends on LEDS_CLASS && SPMI

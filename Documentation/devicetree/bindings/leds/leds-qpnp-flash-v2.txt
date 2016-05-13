@@ -1,0 +1,153 @@
+Qualcomm Technologies Inc. PNP v2 Flash LED
+
+QPNP (Qualcomm Technologies Inc. Plug N Play) Flash LED (Light
+Emitting Diode) driver v2 is used to provide illumination to
+camera sensor when background light is dim to capture good
+picture. It can also be used for flashlight/torch application.
+It is part of PMIC on Qualcomm Technologies Inc. reference platforms.
+
+Required properties:
+- compatible		: Should be "qcom,qpnp-flash-led-v2"
+- reg			: Base address and size for flash LED modules
+
+Optional properties:
+- qcom,hdrm-auto-mode	: Boolean type to select headroom auto mode enabled or not
+- qcom,isc-delay	: Integer type to specify short circuit delay. Valid values are 32, 64,
+			  128, 192. Unit is us.
+
+Required properties inside child node. Child node contains settings for each individual LED.
+Each LED channel needs a flash node and torch node for itself, and an individual switch node to
+serve as an overall switch.
+- label			: Type of led that will be used, either "flash", "torch", or "switch.
+- qcom,led-name		: Name of the LED.
+- qcom,default-led-trigger	: Trigger for the camera flash and torch. Accepted values are
+			  "flash0_trigger", "flash1_trigger", "flash2_trigger, "torch0_trigger",
+			  "torch1_trigger", "torch2_trigger", and "switch_trigger".
+- qcom,id		: ID for each physical LED equipped. In order to handle situation when
+			  only 1 or 2 LEDs are installed, flash and torch nodes on LED channel 0
+			  should be specified with ID 0; nodes on channel 1 be ID 1, etc. This is
+			  not required for switch node.
+- qcom,max-current	: Maximum current allowed on this LED. Valid values should be
+			  integer from 0 to 1500 inclusive. Flash 2 should have maximum current of
+			  750 per hardware requirement. Unit is mA. This is not required for switch
+			  node.
+- qcom,duration-ms	: Required property for flash nodes but not needed for torch. Integer
+			  type specifying flash duration. Values are from 10ms to 1280ms with
+			  10ms resolution. This is not required for switch node.
+
+Optional properties inside child node:
+- qcom,ires-ua		: Integer type to specify current resolution. Accepted values should be
+			  12500, 10000, 7500, and 5000. Unit is uA.
+- qcom,hdrm-voltage-mv	: Integer type specifying headroom voltage. Values are from 125mV to 500mV
+			  with 25mV resolution. Default setting is 325mV
+- qcom,hdrm-vol-hi-lo-win-mv	: Integer type to specify headroom voltage swing range. Values are
+				  from 0mV to 375mV with 25mV resolution. Default setting is 100mV.
+- pinctrl-names		: This should be defined if a target uses pinctrl framework and there is GPIO
+			requirement for flash LEDs. See "pinctrl" in
+			Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt. It should specify
+			the names of the configs that pinctrl can install in driver.
+                        Following are the pinctrl configs that can be installed:
+                        "led_enable" : Enablement configuration of pins. This should specify active
+                        config defined in each pin or pin group.
+                        "led_disable" : Disablement configuration of pins. This should specify inactive
+                        config defined in each pin or pin groups.
+
+Example:
+	qcom,leds@d300 {
+		compatible = "qcom,qpnp-flash-led-v2";
+		status = "okay";
+		reg = <0xd300 0x100>;
+		label = "flash";
+
+		qcom,hdrm-auto-mode;
+		qcom,isc-delay = <192>;
+
+		pmi8998_flash0: qcom,flash_0 {
+			label = "flash";
+			qcom,led-name = "led:flash_0";
+			qcom,max-current = <1500>;
+			qcom,default-led-trigger =
+						"flash0_trigger";
+			qcom,id = <0>;
+			qcom,duration-ms = <1280>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		};
+
+		pmi8998_flash1: qcom,flash_1 {
+			label = "flash";
+			qcom,led-name = "led:flash_1";
+			qcom,max-current = <1500>;
+			qcom,default-led-trigger =
+						"flash1_trigger";
+			qcom,id = <1>;
+			qcom,duration-ms = <1280>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		};
+
+		pmi8998_flash2: qcom,flash_2 {
+			label = "flash";
+			qcom,led-name = "led:flash_2";
+			qcom,max-current = <750>;
+			qcom,default-led-trigger =
+						"flash2_trigger";
+			qcom,id = <2>;
+			qcom,duration-ms = <1280>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			pinctrl-names = "led_enable","led_disable";
+			pinctrl-0 = <&led_enable>;
+			pinctrl-1 = <&led_disable>;
+		};
+
+		pmi8998_torch0: qcom,torch_0 {
+			label = "torch";
+			qcom,led-name = "led:torch_0";
+			qcom,max-current = <200>;
+			qcom,default-led-trigger =
+						"torch0_trigger";
+			qcom,id = <0>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		};
+
+		pmi8998_torch1: qcom,torch_1 {
+			label = "torch";
+			qcom,led-name = "led:torch_1";
+			qcom,max-current = <200>;
+			qcom,default-led-trigger =
+						"torch1_trigger";
+			qcom,id = <1>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+		};
+
+		pmi8998_torch2: qcom,torch_2 {
+			label = "torch";
+			qcom,led-name = "led:torch_2";
+			qcom,max-current = <200>;
+			qcom,default-led-trigger =
+						"torch2_trigger";
+			qcom,id = <2>;
+			qcom,ires-ua = <12500>;
+			qcom,hdrm-voltage-mv = <325>;
+			qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			pinctrl-names = "led_enable","led_disable";
+			pinctrl-0 = <&led_enable>;
+			pinctrl-1 = <&led_disable>;
+		};
+
+		pmi8998_switch: qcom,led_switch {
+			label = "switch";
+			qcom,led-name = "led:switch";
+			qcom,default-led-trigger =
+						"switch_trigger";
+		};
+	};
+

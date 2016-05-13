@@ -664,9 +664,12 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 	dep->type = 0;
 	dep->flags = 0;
 
-	snprintf(dep->name, sizeof(dep->name), "ep%d%s",
+	/* Keep GSI ep names with "-gsi" suffix */
+	if (!strnstr(dep->name, "gsi", 10)) {
+		snprintf(dep->name, sizeof(dep->name), "ep%d%s",
 			dep->number >> 1,
 			(dep->number & 1) ? "in" : "out");
+	}
 
 	/*
 	 * Clean up ep ring of non-control endpoint to avoid getting xferInProgress
@@ -752,13 +755,6 @@ static int dwc3_gadget_ep_disable(struct usb_ep *ep)
 		dev_WARN_ONCE(dwc->dev, true, "%s is already disabled\n",
 				dep->name);
 		return 0;
-	}
-
-	/* Keep GSI ep names with "-gsi" suffix */
-	if (!strnstr(dep->name, "gsi", 10)) {
-		snprintf(dep->name, sizeof(dep->name), "ep%d%s",
-			dep->number >> 1,
-			(dep->number & 1) ? "in" : "out");
 	}
 
 	spin_lock_irqsave(&dwc->lock, flags);

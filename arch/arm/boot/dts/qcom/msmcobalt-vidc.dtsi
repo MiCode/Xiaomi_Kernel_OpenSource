@@ -37,16 +37,16 @@
 		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
 		qcom,load-freq-tbl =
 			/* Encoders */
-			<972000 490000000 0x55555555>, /* 4k UHD @ 30 */
-			<489600 320000000 0x55555555>, /* 1080p @ 60 */
-			<244800 150000000 0x55555555>, /* 1080p @ 30 */
-			<108000  75000000 0x55555555>, /* 720p @ 30 */
+			<972000 465000000 0x55555555>, /* 4k UHD @ 30 */
+			<489600 360000000 0x55555555>, /* 1080p @ 60 */
+			<244800 186000000 0x55555555>, /* 1080p @ 30 */
+			<108000 100000000 0x55555555>, /* 720p @ 30 */
 
 			/* Decoders */
-			<1944000 490000000 0xffffffff>, /* 4k UHD @ 60 */
-			< 972000 320000000 0xffffffff>, /* 4k UHD @ 30 */
-			< 489600 150000000 0xffffffff>, /* 1080p @ 60 */
-			< 244800  75000000 0xffffffff>; /* 1080p @ 30 */
+			<1944000 465000000 0xffffffff>, /* 4k UHD @ 60 */
+			< 972000 360000000 0xffffffff>, /* 4k UHD @ 30 */
+			< 489600 186000000 0xffffffff>, /* 1080p @ 60 */
+			< 244800 100000000 0xffffffff>; /* 1080p @ 30 */
 
 		qcom,dcvs-tbl =
 			<972000 972000 19944000 0x3f00000c>, /* UHD 30 */
@@ -63,26 +63,29 @@
 		* corresponding video core frequency.
 		*/
 		qcom,imem-ab-tbl =
-			<75000000  1500000>, /* imem @ svs2 freq 75 Mhz */
-			<150000000 1500000>, /* imem @ svs2 freq 75 Mhz */
-			<320000000 2500000>, /* imem @ svs freq 171 Mhz */
-			<490000000 6000000>; /* imem @ noimal freq 320 Mhz */
+			<100000000  1500000>, /* imem @ svs2 freq 75 Mhz */
+			<186000000 1500000>, /* imem @ svs2 freq 75 Mhz */
+			<360000000 2500000>, /* imem @ svs freq 171 Mhz */
+			<465000000 6000000>; /* imem @ noimal freq 320 Mhz */
 
 		/* Regulators */
+		smmu-vdd-supply = <&gdsc_bimc_smmu>;
 		venus-supply = <&gdsc_venus>;
 		venus-core0-supply = <&gdsc_venus_core0>;
 		venus-core1-supply = <&gdsc_venus_core1>;
 
 		/* Clocks */
 		clock-names = "clk_gcc_mmss_sys_noc_axi_clk",
+			"noc_axi", "mnoc_ahb_clk",
 			"smmu_ahb_clk", "smmu_axi_clk",
-			"mnoc_ahb_clk", "mmss_maxi_clk",
+			"mmss_maxi_clk",
 			"core_clk", "iface_clk", "bus_clk",
 			"maxi_clk", "core0_clk", "core1_clk";
 		clocks = <&clock_gcc clk_gcc_mmss_sys_noc_axi_clk>,
+			<&clock_gcc clk_mmssnoc_axi_clk>,
+			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_ahb_clk>,
 			<&clock_mmss clk_mmss_bimc_smmu_axi_clk>,
-			<&clock_mmss clk_mmss_mnoc_ahb_clk>,
 			<&clock_mmss clk_mmss_mnoc_maxi_clk>,
 			<&clock_mmss clk_mmss_video_core_clk>,
 			<&clock_mmss clk_mmss_video_ahb_clk>,
@@ -90,7 +93,7 @@
 			<&clock_mmss clk_mmss_video_maxi_clk>,
 			<&clock_mmss clk_mmss_video_subcore0_clk>,
 			<&clock_mmss clk_mmss_video_subcore1_clk>;
-		qcom,clock-configs = <0x0 0x0 0x0 0x0 0x0
+		qcom,clock-configs = <0x0 0x0 0x0 0x0 0x0 0x0
 				0x1 0x0 0x0 0x0 0x1 0x1>;
 
 		/* Buses */
@@ -166,7 +169,51 @@
 			iommus = <&mmss_smmu 0x580>,
 				<&mmss_smmu 0x586>;
 		};
+		secure_bitstream_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_bitstream";
+			iommus = <&mmss_smmu 0x500>,
+				<&mmss_smmu 0x502>,
+				<&mmss_smmu 0x509>,
+				<&mmss_smmu 0x50a>,
+				<&mmss_smmu 0x50b>,
+				<&mmss_smmu 0x50e>,
+				<&mmss_smmu 0x526>,
+				<&mmss_smmu 0x529>,
+				<&mmss_smmu 0x52b>;
+			buffer-types = <0x241>;
+			virtual-addr-pool = <0x4b000000 0x25800000>;
+			qcom,secure-context-bank;
+		};
 
+		venus_secure_pixel_cb: secure_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_pixel";
+			iommus = <&mmss_smmu 0x504>,
+				<&mmss_smmu 0x50c>,
+				<&mmss_smmu 0x510>,
+				<&mmss_smmu 0x52c>;
+			buffer-types = <0x106>;
+			virtual-addr-pool = <0x25800000 0x25800000>;
+			qcom,secure-context-bank;
+		};
+
+		venus_secure_non_pixel_cb: secure_non_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_non_pixel";
+			iommus = <&mmss_smmu 0x505>,
+				<&mmss_smmu 0x507>,
+				<&mmss_smmu 0x508>,
+				<&mmss_smmu 0x50d>,
+				<&mmss_smmu 0x50f>,
+				<&mmss_smmu 0x525>,
+				<&mmss_smmu 0x528>,
+				<&mmss_smmu 0x52d>,
+				<&mmss_smmu 0x540>;
+			buffer-types = <0x480>;
+			virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-context-bank;
+		};
 	};
 
 	qcom,vmem@c880000 {

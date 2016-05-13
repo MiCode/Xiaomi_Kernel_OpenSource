@@ -1162,14 +1162,14 @@
 		};
 
 		cam_sensor_front_active: cam_sensor_front_active {
-			/* RESET, STANDBY */
+			/* RESET */
 			mux {
-				pins = "gpio28","gpio27";
+				pins = "gpio28";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio28","gpio27";
+				pins = "gpio28";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -1228,14 +1228,14 @@
 		};
 
 		cam_sensor_front_suspend: cam_sensor_front_suspend {
-			/* RESET, STANDBY */
+			/* RESET */
 			mux {
-				pins = "gpio28","gpio27";
+				pins = "gpio28";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio28","gpio27";
+				pins = "gpio28";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};

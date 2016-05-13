@@ -62,6 +62,14 @@ static const struct slim_device_id *slim_match(const struct slim_device_id *id,
 	return NULL;
 }
 
+const struct slim_device_id *slim_get_device_id(const struct slim_device *sdev)
+{
+	const struct slim_driver *sdrv = to_slim_driver(sdev->dev.driver);
+
+	return slim_match(sdrv->id_table, sdev);
+}
+EXPORT_SYMBOL(slim_get_device_id);
+
 static int slim_device_match(struct device *dev, struct device_driver *driver)
 {
 	struct slim_device *slim_dev;

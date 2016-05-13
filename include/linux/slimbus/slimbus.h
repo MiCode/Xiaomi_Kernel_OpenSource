@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1172,6 +1172,9 @@ extern struct slim_controller *slim_busnum_to_ctrl(u32 busnum);
  * this will make sure that they get probed when controller is up
  */
 extern void slim_ctrl_add_boarddevs(struct slim_controller *ctrl);
+
+extern const
+struct slim_device_id *slim_get_device_id(const struct slim_device *sdev);
 
 /*
  * slim_register_board_info: Board-initialization routine.

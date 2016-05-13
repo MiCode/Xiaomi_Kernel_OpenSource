@@ -973,7 +973,8 @@ static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 
 	switch (event) {
 	case CPUFREQ_ADJUST:
-		max_freq_req = cpus[policy->cpu].parent_ptr->limited_max_freq;
+		max_freq_req = (lmh_dcvs_available) ? UINT_MAX :
+			cpus[policy->cpu].parent_ptr->limited_max_freq;
 		min_freq_req = cpus[policy->cpu].parent_ptr->limited_min_freq;
 		pr_debug("mitigating CPU%d to freq max: %u min: %u\n",
 			policy->cpu, max_freq_req, min_freq_req);
@@ -1094,7 +1095,7 @@ static void update_cpu_freq(int cpu, enum freq_limits changed)
 		 */
 		if (lmh_dcvs_available) {
 			msm_lmh_dcvs_update(cpu);
-			if (changed | FREQ_LIMIT_MIN)
+			if (changed & FREQ_LIMIT_MIN)
 				cpufreq_update_policy(cpu);
 		} else {
 			cpufreq_update_policy(cpu);

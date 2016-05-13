@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/dma-mapping.h>
@@ -49,11 +50,14 @@ struct icnss_qmi_event {
 #define ICNSS_WLFW_QMI_CONNECTED	BIT(0)
 #define ICNSS_FW_READY			BIT(1)
 #define SMMU_CLOCK_NAME			"smmu_aggre2_noc_clk"
+#define MAX_PROP_SIZE			32
+#define MAX_VOLTAGE_LEVEL		2
+#define VREG_ON				1
+#define VREG_OFF			0
 
 #define ICNSS_IS_WLFW_QMI_CONNECTED(_state) \
 		((_state) & ICNSS_WLFW_QMI_CONNECTED)
 #define ICNSS_IS_FW_READY(_state) ((_state) & ICNSS_FW_READY)
-
 #ifdef ICNSS_PANIC
 #define ICNSS_ASSERT(_condition) do {			\
 		if (!(_condition)) {				\
@@ -79,10 +83,19 @@ struct ce_irq_list {
 	irqreturn_t (*handler)(int, void *);
 };
 
-static struct {
+struct icnss_vreg_info {
+	struct regulator *reg;
+	const char *name;
+	u32 nominal_min;
+	u32 max_voltage;
+	bool state;
+};
+
+static struct icnss_data {
 	struct platform_device *pdev;
 	struct icnss_driver_ops *ops;
 	struct ce_irq_list ce_irq_list[ICNSS_MAX_IRQ_REGISTRATIONS];
+	struct icnss_vreg_info vreg_info;
 	u32 ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
 	phys_addr_t mem_base_pa;
 	void __iomem *mem_base_va;
@@ -174,10 +187,98 @@ out:
 	return ret;
 }
 
+static int icnss_vreg_on(struct icnss_vreg_info *vreg_info)
+{
+	int ret = 0;
 
-static void icnss_adrastea_reset(void)
+	if (!vreg_info->reg) {
+		pr_err("%s: regulator is not initialized\n", __func__);
+		return -ENOENT;
+	}
+
+	if (!vreg_info->max_voltage || !vreg_info->nominal_min) {
+		pr_err("%s: %s invalid constraints specified\n",
+			__func__, vreg_info->name);
+		return -EINVAL;
+	}
+
+	ret = regulator_set_voltage(vreg_info->reg,
+			vreg_info->nominal_min, vreg_info->max_voltage);
+	if (ret < 0) {
+		pr_err("%s: regulator_set_voltage failed for (%s). min_uV=%d,max_uV=%d,ret=%d\n",
+			__func__, vreg_info->name,
+			vreg_info->nominal_min,
+			vreg_info->max_voltage, ret);
+		return ret;
+	}
+
+	ret = regulator_enable(vreg_info->reg);
+	if (ret < 0) {
+		pr_err("%s: Fail to enable regulator (%s) ret=%d\n",
+			__func__, vreg_info->name, ret);
+	}
+	return ret;
+}
+
+static int icnss_vreg_off(struct icnss_vreg_info *vreg_info)
+{
+	int ret = 0;
+	int min_uV = 0;
+
+	if (!vreg_info->reg) {
+		pr_err("%s: regulator is not initialized\n", __func__);
+		return -ENOENT;
+	}
+
+	ret = regulator_disable(vreg_info->reg);
+	if (ret < 0) {
+		pr_err("%s: Fail to disable regulator (%s) ret=%d\n",
+			__func__, vreg_info->name, ret);
+		return ret;
+	}
+
+	ret = regulator_set_voltage(vreg_info->reg,
+				    min_uV, vreg_info->max_voltage);
+	if (ret < 0) {
+		pr_err("%s: regulator_set_voltage failed for (%s). min_uV=%d,max_uV=%d,ret=%d\n",
+			__func__, vreg_info->name, min_uV,
+			vreg_info->max_voltage, ret);
+	}
+	return ret;
+}
+
+static int icnss_vreg_set(bool state)
+{
+	int ret = 0;
+	struct icnss_vreg_info *vreg_info = &penv->vreg_info;
+
+	if (vreg_info->state == state) {
+		pr_debug("Already %s state is %s\n", vreg_info->name,
+			state ? "enabled" : "disabled");
+		return ret;
+	}
+
+	if (state)
+		ret = icnss_vreg_on(vreg_info);
+	else
+		ret = icnss_vreg_off(vreg_info);
+
+	if (ret < 0)
+		goto out;
+
+	pr_debug("%s: %s is now %s\n", __func__, vreg_info->name,
+			state ? "enabled" : "disabled");
+
+	vreg_info->state = state;
+out:
+	return ret;
+}
+
+static void icnss_hw_release_reset(struct icnss_data *pdata)
 {
 	uint32_t rdata = 0;
+
+	pr_debug("%s\n", __func__);
 
 	if (penv->mpm_config_va) {
 		writel_relaxed(0x1,
@@ -189,19 +290,52 @@ static void icnss_adrastea_reset(void)
 	}
 }
 
-static int icnss_adrastea_power_on(void)
+static void icnss_hw_reset(struct icnss_data *pdata)
+{
+	uint32_t rdata = 0;
+
+	pr_debug("%s\n", __func__);
+
+	if (penv->mpm_config_va) {
+		writel_relaxed(0x0,
+			       penv->mpm_config_va +
+			       MPM2_MPM_WCSSAON_CONFIG_OFFSET);
+		while (rdata != 0x0)
+			rdata = readl_relaxed(penv->mpm_config_va +
+					      MPM2_MPM_WCSSAON_CONFIG_OFFSET);
+	}
+}
+
+static int icnss_hw_power_on(struct icnss_data *pdata)
 {
 	int ret = 0;
 
-	/* Top level adrastea reset */
-	icnss_adrastea_reset();
+	ret = icnss_vreg_set(VREG_ON);
+	if (ret < 0) {
+		pr_err("%s: Failed to turn on voltagre regulator: %d\n",
+		       __func__, ret);
+		goto out;
+	}
 
+	icnss_hw_release_reset(pdata);
+out:
 	return ret;
 }
 
-void icnss_adrastea_power_off(void)
+static int icnss_hw_power_off(struct icnss_data *pdata)
 {
-	/* TZ API of power off adrastea */
+	int ret = 0;
+
+	icnss_hw_reset(pdata);
+
+	ret = icnss_vreg_set(VREG_OFF);
+	if (ret < 0) {
+		pr_err("%s: Failed to turn off voltagre regulator: %d\n",
+		       __func__, ret);
+		goto out;
+	}
+out:
+	return ret;
 }
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
@@ -646,18 +780,15 @@ static int icnss_qmi_event_server_arrive(void *data)
 
 	pr_info("%s: QMI Server Connected\n", __func__);
 
-	ret = icnss_adrastea_power_on();
-	if (ret < 0) {
-		pr_err("%s: Failed to power on hardware: %d\n",
-		       __func__, ret);
+	ret = icnss_hw_power_on(penv);
+	if (ret < 0)
 		goto fail;
-	}
 
 	ret = wlfw_ind_register_send_sync_msg();
 	if (ret < 0) {
 		pr_err("%s: Failed to send indication message: %d\n",
 		       __func__, ret);
-		goto fail;
+		goto err_power_on;
 	}
 
 	if (penv->msa_va) {
@@ -665,27 +796,30 @@ static int icnss_qmi_event_server_arrive(void *data)
 		if (ret < 0) {
 			pr_err("%s: Failed to send MSA info: %d\n",
 			       __func__, ret);
-			goto fail;
+			goto err_power_on;
 		}
 		ret = wlfw_msa_ready_send_sync_msg();
 		if (ret < 0) {
 			pr_err("%s: Failed to send MSA ready : %d\n",
 			       __func__, ret);
-			goto fail;
+			goto err_power_on;
 		}
 	} else {
 		pr_err("%s: Invalid MSA address\n", __func__);
 		ret = -EINVAL;
-		goto fail;
+		goto err_power_on;
 	}
 
 	ret = wlfw_cap_send_sync_msg();
 	if (ret < 0) {
 		pr_err("%s: Failed to get capability: %d\n",
 		       __func__, ret);
-		goto fail;
+		goto err_power_on;
 	}
 	return ret;
+
+err_power_on:
+	ret = icnss_hw_power_off(penv);
 fail:
 	qmi_handle_destroy(penv->wlfw_clnt);
 	penv->wlfw_clnt = NULL;
@@ -726,7 +860,9 @@ static int icnss_qmi_event_fw_ready_ind(void *data)
 		goto out;
 	}
 
-	icnss_adrastea_power_off();
+	ret = icnss_hw_power_off(penv);
+	if (ret < 0)
+		goto out;
 
 	if (!penv->ops || !penv->ops->probe)
 		goto out;
@@ -830,12 +966,17 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 
 	/* check for all conditions before invoking probe */
 	if (ICNSS_IS_FW_READY(penv->state) && penv->ops->probe) {
+		ret = icnss_hw_power_on(penv);
+		if (ret < 0) {
+			pr_err("%s: Failed to turn on voltagre regulator: %d\n",
+				__func__, ret);
+			goto out;
+		}
 		ret = penv->ops->probe(&pdev->dev);
 	} else {
 		pr_err("icnss: FW is not ready\n");
 		ret = -ENOENT;
 	}
-
 out:
 	return ret;
 }
@@ -865,6 +1006,8 @@ int icnss_unregister_driver(struct icnss_driver_ops *ops)
 		penv->ops->remove(&pdev->dev);
 
 	penv->ops = NULL;
+
+	ret = icnss_hw_power_off(penv);
 out:
 	return ret;
 }
@@ -1209,7 +1352,6 @@ static int icnss_clock_enable(struct clk *c)
 
 	if (ret < 0)
 		pr_err("%s: couldn't enable clock!\n", __func__);
-
 	return ret;
 }
 
@@ -1287,6 +1429,79 @@ static void icnss_smmu_remove(struct device *dev)
 	penv->smmu_mapping = NULL;
 }
 
+static int icnss_dt_parse_vreg_info(struct device *dev,
+				struct icnss_vreg_info *vreg_info,
+				const char *vreg_name)
+{
+	int ret = 0;
+	u32 voltage_levels[MAX_VOLTAGE_LEVEL];
+	char prop_name[MAX_PROP_SIZE];
+	struct device_node *np = dev->of_node;
+
+	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", vreg_name);
+	if (!of_parse_phandle(np, prop_name, 0)) {
+		pr_err("%s: No vreg data found for %s\n", __func__, vreg_name);
+		ret = -EINVAL;
+		return ret;
+	}
+
+	vreg_info->name = vreg_name;
+
+	snprintf(prop_name, MAX_PROP_SIZE,
+		"qcom,%s-voltage-level", vreg_name);
+	ret = of_property_read_u32_array(np, prop_name, voltage_levels,
+					ARRAY_SIZE(voltage_levels));
+	if (ret) {
+		pr_err("%s: error reading %s property\n", __func__, prop_name);
+		return ret;
+	}
+
+	vreg_info->nominal_min = voltage_levels[0];
+	vreg_info->max_voltage = voltage_levels[1];
+
+	return ret;
+}
+
+static int icnss_get_resources(struct device *dev)
+{
+	int ret = 0;
+	struct icnss_vreg_info *vreg_info;
+
+	vreg_info = &penv->vreg_info;
+	if (vreg_info->reg) {
+		pr_err("%s: %s regulator is already initialized\n", __func__,
+			vreg_info->name);
+		return ret;
+	}
+
+	vreg_info->reg = devm_regulator_get(dev, vreg_info->name);
+	if (IS_ERR(vreg_info->reg)) {
+		ret = PTR_ERR(vreg_info->reg);
+		if (ret == -EPROBE_DEFER) {
+			pr_err("%s: %s probe deferred!\n", __func__,
+				vreg_info->name);
+		} else {
+			pr_err("%s: Get %s failed!\n", __func__,
+				vreg_info->name);
+		}
+	}
+	return ret;
+}
+
+static int icnss_release_resources(void)
+{
+	int ret = 0;
+	struct icnss_vreg_info *vreg_info = &penv->vreg_info;
+
+	if (!vreg_info->reg) {
+		pr_err("%s: regulator is not initialized\n", __func__);
+		return -ENOENT;
+	}
+
+	devm_regulator_put(vreg_info->reg);
+	return ret;
+}
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1295,8 +1510,10 @@ static int icnss_probe(struct platform_device *pdev)
 	int i;
 	struct device *dev = &pdev->dev;
 
-	if (penv)
+	if (penv) {
+		pr_err("%s: penv is already initialized\n", __func__);
 		return -EEXIST;
+	}
 
 	penv = devm_kzalloc(&pdev->dev, sizeof(*penv), GFP_KERNEL);
 	if (!penv)
@@ -1304,18 +1521,30 @@ static int icnss_probe(struct platform_device *pdev)
 
 	penv->pdev = pdev;
 
+	ret = icnss_dt_parse_vreg_info(dev, &penv->vreg_info, "vdd-io");
+	if (ret < 0) {
+		pr_err("%s: failed parsing vdd io data\n", __func__);
+		goto out;
+	}
+
+	ret = icnss_get_resources(dev);
+	if (ret < 0) {
+		pr_err("%s: Regulator setup failed (%d)\n", __func__, ret);
+		goto out;
+	}
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "membase");
 	if (!res) {
-		pr_err("icnss: Memory base not found\n");
+		pr_err("%s: Memory base not found\n", __func__);
 		ret = -EINVAL;
-		goto out;
+		goto release_regulator;
 	}
 	penv->mem_base_pa = res->start;
 	penv->mem_base_va = ioremap(penv->mem_base_pa, resource_size(res));
 	if (!penv->mem_base_va) {
 		pr_err("%s: mem_base ioremap failed\n", __func__);
 		ret = -EINVAL;
-		goto out;
+		goto release_regulator;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -1336,7 +1565,7 @@ static int icnss_probe(struct platform_device *pdev)
 	for (i = 0; i < ICNSS_MAX_IRQ_REGISTRATIONS; i++) {
 		res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
 		if (!res) {
-			pr_err("icnss: Fail to get IRQ-%d\n", i);
+			pr_err("%s: Fail to get IRQ-%d\n", __func__, i);
 			ret = -ENODEV;
 			goto unmap_mpm_config;
 		} else {
@@ -1446,12 +1675,21 @@ unmap_mpm_config:
 unmap_mem_base:
 	if (penv->mem_base_va)
 		iounmap(penv->mem_base_va);
+release_regulator:
+	ret = icnss_release_resources();
+	if (ret < 0)
+		pr_err("%s: fail to release the platform resource\n",
+			 __func__);
 out:
+	devm_kfree(&pdev->dev, penv);
+	penv = NULL;
 	return ret;
 }
 
 static int icnss_remove(struct platform_device *pdev)
 {
+	int ret = 0;
+
 	qmi_svc_event_notifier_unregister(WLFW_SERVICE_ID_V01,
 					  WLFW_SERVICE_VERS_V01,
 					  WLFW_SERVICE_INS_ID_V01,
@@ -1474,7 +1712,16 @@ static int icnss_remove(struct platform_device *pdev)
 	if (penv->mem_base_va)
 		iounmap(penv->mem_base_va);
 
-	return 0;
+	ret = icnss_hw_power_off(penv);
+	if (ret < 0)
+		pr_err("%s: Failed to turn off voltagre regulator: %d\n",
+		       __func__, ret);
+
+	ret = icnss_release_resources();
+	if (ret < 0)
+		pr_err("%s: fail to release the platform resource\n",
+			 __func__);
+	return ret;
 }
 
 

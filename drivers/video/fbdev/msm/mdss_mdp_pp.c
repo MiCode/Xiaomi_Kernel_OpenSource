@@ -1597,7 +1597,7 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 	struct mdss_data_type *mdata;
 	char __iomem *offset, *lut_offset;
 	struct mdss_mdp_format_params *fmt;
-	uint32_t op_mode;
+	uint32_t op_mode = 0;
 	uint32_t phase_init, preload, src_y_rgb, src_uv, dst;
 
 	mdata = mdss_mdp_get_mdata();
@@ -1632,8 +1632,6 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 	}
 
 	pr_debug("scaler->enable=%d", scaler->enable);
-	op_mode = readl_relaxed(MDSS_MDP_REG_SCALER_OP_MODE +
-			offset);
 
 	if (scaler->enable) {
 		op_mode |= SCALER_EN;
@@ -1661,7 +1659,7 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 			SCALER_BLEND_CFG;
 
 		op_mode |= (scaler->enable & ENABLE_DIRECTION_DETECTION) ?
-			 (1 << SCALER_DIR_EN) : 0;
+			SCALER_DIR_EN : 0;
 		phase_init =
 			((scaler->init_phase_x[0] & PHASE_BITS)
 			 << Y_PHASE_INIT_H) |
@@ -7170,6 +7168,8 @@ int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
 			pr_err("Failed to copy IGC payload, ret = %d\n", ret);
 			goto exit_pp_info;
 		}
+	} else {
+		pp_info->igc_cfg.cfg_payload = NULL;
 	}
 	if (ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
 		ret = pp_copy_layer_hist_lut_payload(pp_info);
@@ -7178,6 +7178,8 @@ int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
 				ret);
 			goto exit_igc;
 		}
+	} else {
+		pp_info->hist_lut_cfg.cfg_payload = NULL;
 	}
 	if (ops & MDP_OVERLAY_PP_PA_V2_CFG) {
 		ret = pp_copy_layer_pa_payload(pp_info);
@@ -7185,6 +7187,8 @@ int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
 			pr_err("Failed to copy PA payload, ret = %d\n", ret);
 			goto exit_hist_lut;
 		}
+	} else {
+		pp_info->pa_v2_cfg_data.cfg_payload = NULL;
 	}
 	if (ops & MDP_OVERLAY_PP_PCC_CFG) {
 		ret = pp_copy_layer_pcc_payload(pp_info);
@@ -7192,6 +7196,8 @@ int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
 			pr_err("Failed to copy PCC payload, ret = %d\n", ret);
 			goto exit_pa;
 		}
+	} else {
+		pp_info->pcc_cfg_data.cfg_payload = NULL;
 	}
 
 	layer->pp_info = pp_info;

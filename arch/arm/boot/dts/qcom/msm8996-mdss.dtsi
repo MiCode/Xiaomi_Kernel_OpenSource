@@ -100,7 +100,8 @@
 		qcom,mdss-pingpong-off = <0x00071000 0x00071800
 					  0x00072000 0x00072800>;
 		qcom,mdss-slave-pingpong-off = <0x00073000>;
-		qcom,mdss-ppb-off = <0x00000330 0x00000338>;
+		qcom,mdss-ppb-ctl-off = <0x00000330 0x00000338>;
+		qcom,mdss-ppb-cfg-off = <0x00000334 0x0000033C>;
 		qcom,mdss-has-pingpong-split;
 
 		qcom,mdss-ad-off = <0x0079000 0x00079800 0x0007a000>;

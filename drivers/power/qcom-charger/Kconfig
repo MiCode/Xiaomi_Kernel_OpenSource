@@ -61,6 +61,15 @@ config MSM_BCL_PERIPHERAL_CTL
 	  provides routines to configure and monitor the BCL
 	  PMIC peripheral.
 
+config BATTERY_BCL
+	tristate "Battery Current Limit driver"
+	depends on THERMAL_MONITOR
+	help
+	  Say Y here to enable support for battery current limit
+	  device. The BCL driver will poll BMS if
+	  thermal daemon enables BCL.
+	  It will notify thermal daemon if IBat crosses Imax threshold.
+
 config QPNP_SMB2
 	tristate "SMB2 Battery Charger"
 	depends on MFD_SPMI_PMIC

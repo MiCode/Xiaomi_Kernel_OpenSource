@@ -208,6 +208,7 @@ msmcobalt_rev0_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
 #define MSM8996_MMSS_FUSE_STEP_VOLT		10000
 #define MSM8996_MMSS_OFFSET_FUSE_STEP_VOLT	10000
 #define MSM8996_MMSS_VOLTAGE_FUSE_SIZE		5
+#define MSM8996_MMSS_MIN_VOLTAGE_FUSE_VAL	0x1F
 #define MSM8996_MMSS_AGING_INIT_QUOT_DIFF_SCALE	2
 #define MSM8996_MMSS_AGING_INIT_QUOT_DIFF_SIZE	6
 
@@ -229,6 +230,18 @@ msmcobalt_rev0_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
 #define MSMCOBALT_MMSS_MAX_TEMP_POINTS			3
 #define MSMCOBALT_MMSS_TEMP_SENSOR_ID_START		12
 #define MSMCOBALT_MMSS_TEMP_SENSOR_ID_END		13
+
+/*
+ * Some initial msmcobalt parts cannot be operated at low voltages.  The
+ * open-loop voltage fuses are reused to identify these parts so that software
+ * can properly handle the limitation.  0xF means that the next higher fuse
+ * corner should be used.  0xE means that the next higher fuse corner which
+ * does not have a voltage limitation should be used.
+ */
+enum msmcobalt_cpr_partial_binning {
+	MSMCOBALT_CPR_PARTIAL_BINNING_NEXT_CORNER = 0xF,
+	MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER = 0xE,
+};
 
 /**
  * cpr3_msm8996_mmss_read_fuse_data() - load MMSS specific fuse parameter values
@@ -685,9 +698,11 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 {
 	struct device_node *node = vreg->of_node;
 	struct cpr3_msm8996_mmss_fuses *fuse = vreg->platform_fuses;
+	bool is_msmcobalt
+		= (vreg->thread->ctrl->soc_revision == MSMCOBALT_SOC_ID);
 	int rc = 0;
 	bool allow_interpolation;
-	u64 freq_low, volt_low, freq_high, volt_high;
+	u64 freq_low, volt_low, freq_high, volt_high, volt_init;
 	int i, j;
 	const int *ref_volt;
 	int *fuse_volt;
@@ -713,8 +728,21 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 		ref_volt = msm8996_mmss_fuse_ref_volt;
 
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
+		volt_init = fuse->init_voltage[i];
+		/*
+		 * Handle partial binning on MSMCOBALT where the initial voltage
+		 * fuse is reused as a flag for partial binning needs.  Set the
+		 * open-loop voltage to the minimum possible value so that it
+		 * does not result in higher fuse corners getting forced to
+		 * higher open-loop voltages after monotonicity enforcement.
+		 */
+		if (is_msmcobalt &&
+		    (volt_init == MSMCOBALT_CPR_PARTIAL_BINNING_NEXT_CORNER ||
+		     volt_init == MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER))
+			volt_init = MSM8996_MMSS_MIN_VOLTAGE_FUSE_VAL;
+
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(ref_volt[i],
-			MSM8996_MMSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
+			MSM8996_MMSS_FUSE_STEP_VOLT, volt_init,
 			MSM8996_MMSS_VOLTAGE_FUSE_SIZE);
 		cpr3_info(vreg, "fuse_corner[%d] open-loop=%7d uV\n",
 			i, fuse_volt[i]);
@@ -800,6 +828,75 @@ done:
 	kfree(fuse_volt);
 	kfree(fmax_corner);
 	return rc;
+}
+
+/**
+ * cpr3_msmcobalt_partial_binning_override() - override the voltage and quotient
+ *		settings for low corners based upon the special partial binning
+ *		open-loop voltage fuse values
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * Some parts are not able to operate at low voltages.  The partial binning
+ * open-loop voltage fuse values specify if a given part has such limitations.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_msmcobalt_partial_binning_override(struct cpr3_regulator *vreg)
+{
+	struct cpr3_msm8996_mmss_fuses *fuse = vreg->platform_fuses;
+	u64 next = MSMCOBALT_CPR_PARTIAL_BINNING_NEXT_CORNER;
+	u64 safe = MSMCOBALT_CPR_PARTIAL_BINNING_SAFE_CORNER;
+	u32 proc_freq;
+	struct cpr3_corner *corner;
+	struct cpr3_corner *safe_corner;
+	int i, j, low, high, safe_fuse_corner;
+
+	if (vreg->thread->ctrl->soc_revision != MSMCOBALT_SOC_ID)
+		return 0;
+
+	/* Loop over all fuse corners except for the highest one. */
+	for (i = 0; i < vreg->fuse_corner_count - 1; i++) {
+		/* Determine which higher corners to override with (if any). */
+		if (fuse->init_voltage[i] != next
+		    && fuse->init_voltage[i] != safe)
+			continue;
+
+		for (j = i + 1; j < vreg->fuse_corner_count - 1; j++)
+			if (fuse->init_voltage[j] != next
+			    && fuse->init_voltage[j] != safe)
+				break;
+		safe_fuse_corner = j;
+
+		j = fuse->init_voltage[i] == next ? i + 1 : safe_fuse_corner;
+
+		low = i > 0 ? vreg->fuse_corner_map[i] : 0;
+		high = vreg->fuse_corner_map[i + 1] - 1;
+
+		cpr3_info(vreg, "overriding CPR parameters for corners %d to %d with quotients of corner %d and voltages of corner %d\n",
+			low, high, vreg->fuse_corner_map[j],
+			vreg->fuse_corner_map[safe_fuse_corner]);
+
+		corner = &vreg->corner[vreg->fuse_corner_map[j]];
+		safe_corner
+		       = &vreg->corner[vreg->fuse_corner_map[safe_fuse_corner]];
+
+		for (j = low; j <= high; j++) {
+			proc_freq = vreg->corner[j].proc_freq;
+			vreg->corner[j] = *corner;
+			vreg->corner[j].proc_freq = proc_freq;
+
+			vreg->corner[j].floor_volt
+				= safe_corner->floor_volt;
+			vreg->corner[j].ceiling_volt
+				= safe_corner->ceiling_volt;
+			vreg->corner[j].open_loop_volt
+				= safe_corner->open_loop_volt;
+			vreg->corner[j].abs_ceiling_volt
+				= safe_corner->abs_ceiling_volt;
+		}
+	}
+
+	return 0;
 }
 
 /**
@@ -971,6 +1068,13 @@ static int cpr3_mmss_init_thread(struct cpr3_thread *thread)
 				 rc);
 			return rc;
 		}
+	}
+
+	rc = cpr3_msmcobalt_partial_binning_override(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to override CPR parameters based on partial binning fuse values, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	cpr3_mmss_print_settings(vreg);

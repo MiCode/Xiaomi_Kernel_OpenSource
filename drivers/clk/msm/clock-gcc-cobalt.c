@@ -1031,7 +1031,7 @@ static struct rcg_clk hmss_gpll0_clk_src = {
 	.c = {
 		.dbg_name = "hmss_gpll0_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOWER, 150000000, NOMINAL, 600000000),
+		VDD_DIG_FMAX_MAP1(LOWER, 600000000),
 		CLK_INIT(hmss_gpll0_clk_src.c),
 	},
 };
