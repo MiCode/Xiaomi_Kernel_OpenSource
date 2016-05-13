@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,18 +388,21 @@ void wcd9xxx_free_irq(struct wcd9xxx_core_resource *wcd9xxx_res,
 
 void wcd9xxx_enable_irq(struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
 {
-	enable_irq(phyirq_to_virq(wcd9xxx_res, irq));
+	if (wcd9xxx_res->irq)
+		enable_irq(phyirq_to_virq(wcd9xxx_res, irq));
 }
 
 void wcd9xxx_disable_irq(struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
 {
-	disable_irq_nosync(phyirq_to_virq(wcd9xxx_res, irq));
+	if (wcd9xxx_res->irq)
+		disable_irq_nosync(phyirq_to_virq(wcd9xxx_res, irq));
 }
 
 void wcd9xxx_disable_irq_sync(
 			struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
 {
-	disable_irq(phyirq_to_virq(wcd9xxx_res, irq));
+	if (wcd9xxx_res->irq)
+		disable_irq(phyirq_to_virq(wcd9xxx_res, irq));
 }
 
 static int wcd9xxx_irq_setup_downstream_irq(
@@ -559,6 +562,7 @@ void wcd9xxx_irq_exit(struct wcd9xxx_core_resource *wcd9xxx_res)
 		disable_irq_wake(wcd9xxx_res->irq);
 		free_irq(wcd9xxx_res->irq, wcd9xxx_res);
 		/* Release parent's of node */
+		wcd9xxx_res->irq = 0;
 		wcd9xxx_irq_put_upstream_irq(wcd9xxx_res);
 	}
 	mutex_destroy(&wcd9xxx_res->irq_lock);
