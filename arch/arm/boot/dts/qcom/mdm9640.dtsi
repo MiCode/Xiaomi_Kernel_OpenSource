@@ -1169,6 +1169,14 @@
 		memory-region = <&peripheral1_mem>;
 	};
 
+	pps{
+		compatible = "pps-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pps>;
+		gpios = <&tlmm_pinmux 38 0>;
+		status = "okay";
+	};
+
 };
 
 &gdsc_usb30 {
