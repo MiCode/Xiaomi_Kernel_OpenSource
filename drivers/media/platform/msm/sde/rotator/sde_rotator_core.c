@@ -2396,6 +2396,7 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	} else if ((mdata->mdss_version & 0xFFFF0000) == 0x30000000) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
 	} else {
+		ret = -ENODEV;
 		SDEROT_ERR("unsupported sde version %x\n",
 				mdata->mdss_version);
 		goto error_map_hw_ops;
