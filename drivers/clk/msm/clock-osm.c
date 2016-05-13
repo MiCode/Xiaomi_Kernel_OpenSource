@@ -1196,10 +1196,10 @@ static int clk_osm_set_cc_policy(struct platform_device *pdev)
 	rc = of_property_read_bool(pdev->dev.of_node, "qcom,set-ret-inactive");
 	if (rc) {
 		dev_dbg(&pdev->dev, "Treat cores in retention as active\n");
-		val = 1;
+		val = 0;
 	} else {
 		dev_dbg(&pdev->dev, "Treat cores in retention as inactive\n");
-		val = 0;
+		val = 1;
 	}
 
 	clk_osm_write_reg(&pwrcl_clk, val, SPM_CORE_RET_MAPPING);
