@@ -1044,6 +1044,63 @@ int msm_vfe47_start_fetch_engine(struct vfe_device *vfe_dev,
 	return 0;
 }
 
+int msm_vfe47_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	int rc = 0;
+	uint32_t bufq_handle = 0;
+	struct msm_isp_buffer *buf = NULL;
+	struct msm_vfe_fetch_eng_multi_pass_start *fe_cfg = arg;
+	struct msm_isp_buffer_mapped_info mapped_info;
+
+	if (vfe_dev->fetch_engine_info.is_busy == 1) {
+		pr_err("%s: fetch engine busy\n", __func__);
+		return -EINVAL;
+	}
+
+	memset(&mapped_info, 0, sizeof(struct msm_isp_buffer_mapped_info));
+
+	vfe_dev->fetch_engine_info.session_id = fe_cfg->session_id;
+	vfe_dev->fetch_engine_info.stream_id = fe_cfg->stream_id;
+	vfe_dev->fetch_engine_info.offline_mode = fe_cfg->offline_mode;
+	vfe_dev->fetch_engine_info.fd = fe_cfg->fd;
+
+	if (!fe_cfg->offline_mode) {
+		bufq_handle = vfe_dev->buf_mgr->ops->get_bufq_handle(
+			vfe_dev->buf_mgr, fe_cfg->session_id,
+			fe_cfg->stream_id);
+		vfe_dev->fetch_engine_info.bufq_handle = bufq_handle;
+
+		rc = vfe_dev->buf_mgr->ops->get_buf_by_index(
+			vfe_dev->buf_mgr, bufq_handle, fe_cfg->buf_idx, &buf);
+		if (rc < 0 || !buf) {
+			pr_err("%s: No fetch buffer rc= %d buf= %pK\n",
+				__func__, rc, buf);
+			return -EINVAL;
+		}
+		mapped_info = buf->mapped_info[0];
+		buf->state = MSM_ISP_BUFFER_STATE_DISPATCHED;
+	} else {
+		rc = vfe_dev->buf_mgr->ops->map_buf(vfe_dev->buf_mgr,
+			&mapped_info, fe_cfg->fd);
+		if (rc < 0) {
+			pr_err("%s: can not map buffer\n", __func__);
+			return -EINVAL;
+		}
+	}
+
+	vfe_dev->fetch_engine_info.buf_idx = fe_cfg->buf_idx;
+	vfe_dev->fetch_engine_info.is_busy = 1;
+
+	msm_camera_io_w(mapped_info.paddr + fe_cfg->input_buf_offset,
+		vfe_dev->vfe_base + 0x2F4);
+	msm_camera_io_w_mb(0x100000, vfe_dev->vfe_base + 0x80);
+	msm_camera_io_w_mb(0x200000, vfe_dev->vfe_base + 0x80);
+
+	ISP_DBG("%s:VFE%d Fetch Engine ready\n", __func__, vfe_dev->pdev->id);
+
+	return 0;
+}
 void msm_vfe47_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
@@ -1075,10 +1132,13 @@ void msm_vfe47_cfg_fetch_engine(struct vfe_device *vfe_dev,
 
 		x_size_word = msm_isp_cal_word_per_line(
 			vfe_dev->axi_data.src_info[VFE_PIX_0].input_format,
-			fe_cfg->fetch_width);
+			fe_cfg->buf_width);
 		msm_camera_io_w((x_size_word - 1) << 16,
 			vfe_dev->vfe_base + 0x30c);
 
+		x_size_word = msm_isp_cal_word_per_line(
+			vfe_dev->axi_data.src_info[VFE_PIX_0].input_format,
+			fe_cfg->fetch_width);
 		msm_camera_io_w(x_size_word << 16 |
 			(temp & 0x3FFF) << 2 | VFE47_FETCH_BURST_LEN,
 			vfe_dev->vfe_base + 0x310);
@@ -2677,6 +2737,8 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.ahb_clk_cfg = msm_isp47_ahb_clk_cfg,
 			.set_halt_restart_mask =
 				msm_vfe47_set_halt_restart_mask,
+			.start_fetch_eng_multi_pass =
+				msm_vfe47_start_fetch_engine_multi_pass,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,

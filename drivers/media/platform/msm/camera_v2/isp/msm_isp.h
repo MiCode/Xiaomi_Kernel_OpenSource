@@ -244,6 +244,8 @@ struct msm_vfe_core_ops {
 	int (*ahb_clk_cfg)(struct vfe_device *vfe_dev,
 			struct msm_isp_ahb_clk_cfg *ahb_cfg);
 	void (*set_halt_restart_mask)(struct vfe_device *vfe_dev);
+	int (*start_fetch_eng_multi_pass)(struct vfe_device *vfe_dev,
+		void *arg);
 };
 struct msm_vfe_stats_ops {
 	int (*get_stats_idx)(enum msm_isp_stats_type stats_type);

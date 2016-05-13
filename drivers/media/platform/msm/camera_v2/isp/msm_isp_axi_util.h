@@ -117,4 +117,7 @@ static inline void msm_isp_cfg_stream_scratch(struct vfe_device *vfe_dev,
 	stream_info->buf[pingpong_bit] = NULL;
 }
 
+int msm_isp_cfg_offline_ping_pong_address(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info, uint32_t pingpong_status,
+	uint32_t buf_idx);
 #endif /* __MSM_ISP_AXI_UTIL_H__ */
