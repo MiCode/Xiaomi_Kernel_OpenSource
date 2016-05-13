@@ -134,6 +134,7 @@ TRACE_EVENT(sched_task_load,
 		__field(	int,	best_cpu		)
 		__field(	u64,	latency			)
 		__field(	int,	grp_id			)
+		__field(	u64,	avg_burst		)
 	),
 
 	TP_fast_assign(
@@ -150,13 +151,14 @@ TRACE_EVENT(sched_task_load,
 						      sched_ktime_clock() -
 						      p->ravg.mark_start : 0;
 		__entry->grp_id		= p->grp ? p->grp->id : 0;
+		__entry->avg_burst	= p->ravg.avg_burst;
 	),
 
-	TP_printk("%d (%s): demand=%u boost=%d reason=%d sync=%d need_idle=%d flags=%x grp=%d best_cpu=%d latency=%llu",
+	TP_printk("%d (%s): demand=%u boost=%d reason=%d sync=%d need_idle=%d flags=%x grp=%d best_cpu=%d latency=%llu avg_burst=%llu",
 		__entry->pid, __entry->comm, __entry->demand,
 		__entry->boost, __entry->reason, __entry->sync,
 		__entry->need_idle, __entry->flags, __entry->grp_id,
-		__entry->best_cpu, __entry->latency)
+		__entry->best_cpu, __entry->latency, __entry->avg_burst)
 );
 
 TRACE_EVENT(sched_set_preferred_cluster,
