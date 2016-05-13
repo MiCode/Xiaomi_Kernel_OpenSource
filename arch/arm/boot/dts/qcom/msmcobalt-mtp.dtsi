@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/interrupt-controller/irq.h>
 #include "msmcobalt-pinctrl.dtsi"
 #include "msmcobalt-camera-sensor-mtp.dtsi"
 / {
@@ -142,6 +143,16 @@
 	gpio@d400 {
 		qcom,mode = <0>;
 		qcom,vin-sel = <1>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+
+	/* GPIO 18 SMB138X */
+	gpio@d100 {
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <0>;
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
 		status = "okay";
@@ -287,6 +298,27 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&i2c_7 {
+	status = "okay";
+	qcom,smb138x@8 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x8>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xd1 0x0 IRQ_TYPE_LEVEL_LOW>;
+		interrupt_names = "smb138x";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
+
+		smb138x_parallel_slave: qcom,smb138x-parallel-slave@1000 {
+			compatible = "qcom,smb138x-parallel-slave";
+			reg = <0x1000 0x700>;
+		};
+	};
 };
 
 &pmicobalt_haptics {
