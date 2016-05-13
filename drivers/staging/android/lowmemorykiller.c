@@ -323,8 +323,7 @@ static void adjust_gfp_mask(gfp_t *gfp_mask)
 		if (high_zoneidx == ZONE_NORMAL) {
 			if (zone_watermark_ok_safe(
 					preferred_zone, 0,
-					high_wmark_pages(preferred_zone), 0,
-					0))
+					high_wmark_pages(preferred_zone), 0))
 				*gfp_mask |= __GFP_HIGHMEM;
 		} else if (high_zoneidx == ZONE_HIGHMEM) {
 			*gfp_mask |= __GFP_HIGHMEM;
