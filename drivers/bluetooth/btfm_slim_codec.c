@@ -102,7 +102,7 @@ int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 		ch = btfmslim->tx_chs;
 		rxport = 0;
 		break;
-	case BTFM_BT_SCO_SLIM_RX:
+	case BTFM_BT_SCO_A2DP_SLIM_RX:
 	case BTFM_BT_SPLIT_A2DP_SLIM_RX:
 		ch = btfmslim->rx_chs;
 		rxport = 1;
@@ -150,7 +150,7 @@ int btfm_slim_dai_hw_free(struct snd_pcm_substream *substream,
 		ch = btfmslim->tx_chs;
 		rxport = 0;
 		break;
-	case BTFM_BT_SCO_SLIM_RX:
+	case BTFM_BT_SCO_A2DP_SLIM_RX:
 	case BTFM_BT_SPLIT_A2DP_SLIM_RX:
 		ch = btfmslim->rx_chs;
 		rxport = 1;
@@ -267,7 +267,7 @@ static int btfm_slim_dai_get_channel_map(struct snd_soc_dai *dai,
 		*tx_num = num;
 		*rx_num = 0;
 		break;
-	case BTFM_BT_SCO_SLIM_RX:
+	case BTFM_BT_SCO_A2DP_SLIM_RX:
 	case BTFM_BT_SPLIT_A2DP_SLIM_RX:
 		if (!rx_slot || !rx_num) {
 			BTFMSLIM_ERR("Invalid rx_slot %p or rx_num %p",
@@ -335,7 +335,7 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 		},
 		.ops = &btfmslim_dai_ops,
 	},
-	{	/* Bluetooth SCO NBS voice uplink: bt -> modem */
+	{	/* Bluetooth SCO voice uplink: bt -> modem */
 		.name = "btfm_bt_sco_slim_tx",
 		.id = BTFM_BT_SCO_SLIM_TX,
 		.capture = {
@@ -350,15 +350,15 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 		},
 		.ops = &btfmslim_dai_ops,
 	},
-	{	/* Bluetooth SCO NBS voice downlink: modem -> bt */
-		.name = "btfm_bt_sco_slim_rx",
-		.id = BTFM_BT_SCO_SLIM_RX,
+	{	/* Bluetooth SCO voice downlink: modem -> bt or A2DP Playback */
+		.name = "btfm_bt_sco_a2dp_slim_rx",
+		.id = BTFM_BT_SCO_A2DP_SLIM_RX,
 		.playback = {
-			.stream_name = "SCO RX Playback",
-			/* 8 KHz or 16 KHz */
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.stream_name = "SCO A2DP RX Playback",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000
+				| SNDRV_PCM_RATE_48000, /* 8 or 16 or 48 Khz*/
 			.formats = SNDRV_PCM_FMTBIT_S16_LE, /* 16 bits */
-			.rate_max = 16000,
+			.rate_max = 48000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 1,
