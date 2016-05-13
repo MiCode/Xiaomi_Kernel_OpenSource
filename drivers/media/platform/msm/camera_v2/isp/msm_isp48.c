@@ -309,6 +309,8 @@ struct msm_vfe_hardware_info vfe48_hw_info = {
 			.is_module_cfg_lock_needed =
 				msm_vfe47_is_module_cfg_lock_needed,
 			.ahb_clk_cfg = msm_isp47_ahb_clk_cfg,
+			.start_fetch_eng_multi_pass =
+				msm_vfe47_start_fetch_engine_multi_pass,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,

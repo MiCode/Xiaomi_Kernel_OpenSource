@@ -65,6 +65,8 @@ int32_t msm_vfe47_cfg_io_format(struct vfe_device *vfe_dev,
 	enum msm_vfe_axi_stream_src stream_src, uint32_t io_format);
 int msm_vfe47_start_fetch_engine(struct vfe_device *vfe_dev,
 	void *arg);
+int msm_vfe47_start_fetch_engine_multi_pass(struct vfe_device *vfe_dev,
+	void *arg);
 void msm_vfe47_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg);
 void msm_vfe47_cfg_testgen(struct vfe_device *vfe_dev,
