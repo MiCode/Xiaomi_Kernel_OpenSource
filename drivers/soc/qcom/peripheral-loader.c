@@ -65,6 +65,7 @@ static void __iomem *pil_info_base;
 static int proxy_timeout_ms = -1;
 module_param(proxy_timeout_ms, int, S_IRUGO | S_IWUSR);
 
+static bool disable_timeouts;
 /**
  * struct pil_mdt - Representation of <name>.mdt file in memory
  * @hdr: ELF32 header
@@ -939,6 +940,10 @@ EXPORT_SYMBOL(pil_free_memory);
 
 static DEFINE_IDA(pil_ida);
 
+bool is_timeout_disabled(void)
+{
+	return disable_timeouts;
+}
 /**
  * pil_desc_init() - Initialize a pil descriptor
  * @desc: descriptor to intialize
@@ -1077,6 +1082,10 @@ static int __init msm_pil_init(void)
 	if (!pil_info_base) {
 		pr_warn("pil: could not map imem region\n");
 		goto out;
+	}
+	if (__raw_readl(pil_info_base) == 0x53444247) {
+		pr_info("pil: pil-imem set to disable pil timeouts\n");
+		disable_timeouts = true;
 	}
 	for (i = 0; i < resource_size(&res)/sizeof(u32); i++)
 		writel_relaxed(0, pil_info_base + (i * sizeof(u32)));
