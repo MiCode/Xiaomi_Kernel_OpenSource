@@ -96,7 +96,7 @@ extern int icnss_ce_request_irq(unsigned int ce_id,
 	irqreturn_t (*handler)(int, void *),
 	unsigned long flags, const char *name, void *ctx);
 extern int icnss_get_ce_id(int irq);
-extern int icnss_set_fw_debug_mode(bool enablefwlog);
+extern int icnss_set_fw_debug_mode(bool enable_fw_log);
 extern int icnss_get_irq(int ce_id);
 
 #endif /* _ICNSS_WLAN_H_ */
