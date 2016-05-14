@@ -11,6 +11,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/ipc_logging.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/module.h>
@@ -123,6 +124,33 @@ enum plug_orientation {
 	ORIENTATION_CC1,
 	ORIENTATION_CC2,
 };
+
+static void *usbpd_ipc_log;
+#define usbpd_dbg(dev, fmt, ...) do { \
+	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
+			##__VA_ARGS__); \
+	dev_dbg(dev, fmt, ##__VA_ARGS__); \
+	} while (0)
+
+#define usbpd_info(dev, fmt, ...) do { \
+	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
+			##__VA_ARGS__); \
+	dev_info(dev, fmt, ##__VA_ARGS__); \
+	} while (0)
+
+#define usbpd_warn(dev, fmt, ...) do { \
+	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
+			##__VA_ARGS__); \
+	dev_warn(dev, fmt, ##__VA_ARGS__); \
+	} while (0)
+
+#define usbpd_err(dev, fmt, ...) do { \
+	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
+			##__VA_ARGS__); \
+	dev_err(dev, fmt, ##__VA_ARGS__); \
+	} while (0)
+
+#define NUM_LOG_PAGES		10
 
 /* Timeouts (in ms) */
 #define ERROR_RECOVERY_TIME	25
@@ -329,7 +357,7 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos)
 
 	/* TODO: handle variable/battery types */
 	if (PD_SRC_PDO_TYPE(pdo) != PD_SRC_PDO_TYPE_FIXED) {
-		dev_err(&pd->dev, "Non-fixed PDOs currently unsupported\n");
+		usbpd_err(&pd->dev, "Non-fixed PDOs currently unsupported\n");
 		return -ENOTSUPP;
 	}
 
@@ -361,7 +389,7 @@ static int pd_eval_src_caps(struct usbpd *pd, const u32 *src_caps)
 	pd->src_cap_id++;
 
 	if (PD_SRC_PDO_TYPE(first_pdo) != PD_SRC_PDO_TYPE_FIXED) {
-		dev_err(&pd->dev, "First src_cap invalid! %08x\n", first_pdo);
+		usbpd_err(&pd->dev, "First src_cap invalid! %08x\n", first_pdo);
 		return -EINVAL;
 	}
 
@@ -379,7 +407,7 @@ static void pd_send_hard_reset(struct usbpd *pd)
 {
 	int ret;
 
-	dev_dbg(&pd->dev, "%s\n", __func__);
+	usbpd_dbg(&pd->dev, "send hard reset");
 
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
@@ -392,11 +420,11 @@ static void pd_send_hard_reset(struct usbpd *pd)
 static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 {
 	if (type != HARD_RESET_SIG) {
-		dev_err(&pd->dev, "invalid signal (%d) received\n", type);
+		usbpd_err(&pd->dev, "invalid signal (%d) received\n", type);
 		return;
 	}
 
-	dev_dbg(&pd->dev, "hard reset received\n");
+	usbpd_dbg(&pd->dev, "hard reset received\n");
 
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
@@ -410,13 +438,13 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 	u16 header;
 
 	if (type != SOP_MSG) {
-		dev_err(&pd->dev, "invalid msg type (%d) received; only SOP supported\n",
+		usbpd_err(&pd->dev, "invalid msg type (%d) received; only SOP supported\n",
 				type);
 		return;
 	}
 
 	if (len < 2) {
-		dev_err(&pd->dev, "invalid message received, len=%ld\n", len);
+		usbpd_err(&pd->dev, "invalid message received, len=%ld\n", len);
 		return;
 	}
 
@@ -425,14 +453,14 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 	len -= sizeof(u16);
 
 	if (len % 4 != 0) {
-		dev_err(&pd->dev, "payload not multiple of 4, len=%ld\n", len);
+		usbpd_err(&pd->dev, "len=%ld not multiple of 4\n", len);
 		return;
 	}
 
 	/* if MSGID already seen, discard */
 	if (PD_MSG_HDR_ID(header) == pd->rx_msgid &&
 			PD_MSG_HDR_TYPE(header) != MSG_SOFT_RESET) {
-		dev_dbg(&pd->dev, "MessageID already seen, discarding\n");
+		usbpd_dbg(&pd->dev, "MessageID already seen, discarding\n");
 		return;
 	}
 
@@ -440,7 +468,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 
 	/* check header's count field to see if it matches len */
 	if (PD_MSG_HDR_COUNT(header) != (len / 4)) {
-		dev_err(&pd->dev, "header count (%d) mismatch, len=%ld\n",
+		usbpd_err(&pd->dev, "header count (%d) mismatch, len=%ld\n",
 				PD_MSG_HDR_COUNT(header), len);
 		return;
 	}
@@ -454,7 +482,7 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 
 static void phy_shutdown(struct usbpd *pd)
 {
-	dev_dbg(&pd->dev, "%s\n", __func__);
+	usbpd_dbg(&pd->dev, "shutdown");
 }
 
 /* Enters new state and executes actions on entry */
@@ -470,7 +498,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	union power_supply_propval val = {0};
 	int ret;
 
-	dev_dbg(&pd->dev, "%s: %s -> %s\n", __func__,
+	usbpd_dbg(&pd->dev, "%s -> %s\n",
 			usbpd_state_strings[pd->current_state],
 			usbpd_state_strings[next_state]);
 
@@ -507,7 +535,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
 				WARN_ON_ONCE(1);
-				dev_err(&pd->dev, "error opening PD PHY %d\n",
+				usbpd_err(&pd->dev, "error opening PD PHY %d\n",
 						ret);
 				pd->current_state = PE_UNKNOWN;
 				return;
@@ -522,7 +550,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		pd->in_pr_swap = false;
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
-		dev_dbg(&pd->dev, "Enter %s\n",
+		usbpd_dbg(&pd->dev, "Enter %s\n",
 				usbpd_state_strings[pd->current_state]);
 		/* fall-through */
 
@@ -535,12 +563,12 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			/* send Reject */
 			ret = pd_send_msg(pd, MSG_REJECT, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending Reject\n");
+				usbpd_err(&pd->dev, "Error sending Reject\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 				break;
 			}
 
-			dev_err(&pd->dev, "Invalid request: %08x\n", pd->rdo);
+			usbpd_err(&pd->dev, "Invalid request: %08x\n", pd->rdo);
 
 			if (pd->in_explicit_contract)
 				usbpd_set_state(pd, PE_SRC_READY);
@@ -559,14 +587,14 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		 * nothing more to prepare from the power supply
 		 */
 		pd->current_state = PE_SRC_TRANSITION_SUPPLY;
-		dev_dbg(&pd->dev, "Enter %s\n",
+		usbpd_dbg(&pd->dev, "Enter %s\n",
 				usbpd_state_strings[pd->current_state]);
 		/* fall-through */
 
 	case PE_SRC_TRANSITION_SUPPLY:
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
-			dev_err(&pd->dev, "Error sending Accept\n");
+			usbpd_err(&pd->dev, "Error sending Accept\n");
 			usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 			break;
 		}
@@ -597,12 +625,12 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		ret = regulator_enable(pd->vbus);
 		if (ret)
-			dev_err(&pd->dev, "Unable to enable vbus\n");
+			usbpd_err(&pd->dev, "Unable to enable vbus\n");
 
 		if (pd->vconn_enabled) {
 			ret = regulator_enable(pd->vconn);
 			if (ret) {
-				dev_err(&pd->dev, "Unable to enable vconn\n");
+				usbpd_err(&pd->dev, "Unable to enable vconn\n");
 				pd->vconn_enabled = false;
 			}
 		}
@@ -624,7 +652,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 		ret = pd_send_msg(pd, MSG_SOFT_RESET, NULL, 0, SOP_MSG);
 		if (ret) {
-			dev_err(&pd->dev, "Error sending Soft Reset, do Hard Reset\n");
+			usbpd_err(&pd->dev, "Error sending Soft Reset, do Hard Reset\n");
 			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_HARD_RESET : PE_SNK_HARD_RESET);
 			break;
@@ -665,7 +693,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
 				WARN_ON_ONCE(1);
-				dev_err(&pd->dev, "error opening PD PHY %d\n",
+				usbpd_err(&pd->dev, "error opening PD PHY %d\n",
 						ret);
 				pd->current_state = PE_UNKNOWN;
 				return;
@@ -707,7 +735,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		/* evaluate PDOs and select one */
 		ret = pd_eval_src_caps(pd, pd->rx_payload);
 		if (ret < 0) {
-			dev_err(&pd->dev, "Invalid src_caps received. Skipping request\n");
+			usbpd_err(&pd->dev, "Invalid src_caps received. Skipping request\n");
 			break;
 		}
 		pd->current_state = PE_SNK_SELECT_CAPABILITY;
@@ -716,7 +744,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SNK_SELECT_CAPABILITY:
 		ret = pd_send_msg(pd, MSG_REQUEST, &pd->rdo, 1, SOP_MSG);
 		if (ret)
-			dev_err(&pd->dev, "Error sending Request\n");
+			usbpd_err(&pd->dev, "Error sending Request\n");
 
 		/* wait for ACCEPT */
 		queue_delayed_work(pd->wq, &pd->sm_work,
@@ -765,7 +793,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	default:
-		dev_dbg(&pd->dev, "%s: No action for state %s\n", __func__,
+		usbpd_dbg(&pd->dev, "No action for state %s\n",
 				usbpd_state_strings[pd->current_state]);
 		break;
 	}
@@ -799,7 +827,7 @@ static void usbpd_sm(struct work_struct *w)
 	enum usbpd_control_msg_type ctrl_recvd = 0;
 	enum usbpd_data_msg_type data_recvd = 0;
 
-	dev_dbg(&pd->dev, "%s: state %s\n", __func__,
+	usbpd_dbg(&pd->dev, "handle state %s\n",
 			usbpd_state_strings[pd->current_state]);
 
 	if (pd->rx_msg_len)
@@ -812,7 +840,7 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_state == PE_UNKNOWN)
 			return;
 
-		dev_info(&pd->dev, "USB PD disconnect\n");
+		usbpd_info(&pd->dev, "USB PD disconnect\n");
 
 		if (pd->pd_phy_opened) {
 			pd_phy_close();
@@ -865,7 +893,7 @@ static void usbpd_sm(struct work_struct *w)
 
 	/* Soft reset? */
 	if (ctrl_recvd == MSG_SOFT_RESET) {
-		dev_dbg(&pd->dev, "Handle soft reset\n");
+		usbpd_dbg(&pd->dev, "Handle soft reset\n");
 
 		if (pd->current_pr == PR_SRC)
 			pd->current_state = PE_SRC_SOFT_RESET;
@@ -880,14 +908,14 @@ static void usbpd_sm(struct work_struct *w)
 		} else if (pd->current_pr == PR_SRC) {
 			ret = regulator_enable(pd->vbus);
 			if (ret)
-				dev_err(&pd->dev, "Unable to enable vbus\n");
+				usbpd_err(&pd->dev, "Unable to enable vbus\n");
 
 			if (!pd->vconn_enabled &&
 					pd->typec_mode ==
 					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
 				ret = regulator_enable(pd->vconn);
 				if (ret)
-					dev_err(&pd->dev, "Unable to enable vconn\n");
+					usbpd_err(&pd->dev, "Unable to enable vconn\n");
 				else
 					pd->vconn_enabled = true;
 			}
@@ -909,7 +937,7 @@ static void usbpd_sm(struct work_struct *w)
 				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB_HOST, 1);
 			} else if (pd->caps_count >= PD_CAPS_COUNT) {
-				dev_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
+				usbpd_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
 				usbpd_set_state(pd, PE_SRC_DISABLED);
 
 				val.intval = 0;
@@ -951,7 +979,7 @@ static void usbpd_sm(struct work_struct *w)
 	case PE_SRC_TRANSITION_SUPPLY:
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
-			dev_err(&pd->dev, "Error sending PS_RDY\n");
+			usbpd_err(&pd->dev, "Error sending PS_RDY\n");
 			usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 			break;
 		}
@@ -965,7 +993,7 @@ static void usbpd_sm(struct work_struct *w)
 					default_src_caps,
 					ARRAY_SIZE(default_src_caps), SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending SRC CAPs\n");
+				usbpd_err(&pd->dev, "Error sending SRC CAPs\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 				break;
 			}
@@ -975,7 +1003,7 @@ static void usbpd_sm(struct work_struct *w)
 		} else if (ctrl_recvd == MSG_DR_SWAP) {
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending Accept\n");
+				usbpd_err(&pd->dev, "Error sending Accept\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 				break;
 			}
@@ -986,7 +1014,7 @@ static void usbpd_sm(struct work_struct *w)
 			/* we'll happily accept Src->Sink requests anytime */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending Accept\n");
+				usbpd_err(&pd->dev, "Error sending Accept\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 				break;
 			}
@@ -1034,10 +1062,10 @@ static void usbpd_sm(struct work_struct *w)
 		} else if (pd->hard_reset_count < 3) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
 		} else if (pd->pd_connected) {
-			dev_info(&pd->dev, "Sink hard reset count exceeded, forcing reconnect\n");
+			usbpd_info(&pd->dev, "Sink hard reset count exceeded, forcing reconnect\n");
 			usbpd_set_state(pd, PE_ERROR_RECOVERY);
 		} else {
-			dev_dbg(&pd->dev, "Sink hard reset count exceeded, disabling PD\n");
+			usbpd_dbg(&pd->dev, "Sink hard reset count exceeded, disabling PD\n");
 			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
@@ -1101,13 +1129,13 @@ static void usbpd_sm(struct work_struct *w)
 					default_snk_caps,
 					ARRAY_SIZE(default_snk_caps), SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending Sink Caps\n");
+				usbpd_err(&pd->dev, "Error sending Sink Caps\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 			}
 		} else if (ctrl_recvd == MSG_DR_SWAP) {
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending Accept\n");
+				usbpd_err(&pd->dev, "Error sending Accept\n");
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 				break;
 			}
@@ -1118,7 +1146,7 @@ static void usbpd_sm(struct work_struct *w)
 			/* TODO: should we Reject in certain circumstances? */
 			ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 			if (ret) {
-				dev_err(&pd->dev, "Error sending Accept\n");
+				usbpd_err(&pd->dev, "Error sending Accept\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 				break;
 			}
@@ -1149,7 +1177,7 @@ static void usbpd_sm(struct work_struct *w)
 
 		ret = pd_send_msg(pd, MSG_ACCEPT, NULL, 0, SOP_MSG);
 		if (ret) {
-			dev_err(&pd->dev, "%s: Error sending Accept, do Hard Reset\n",
+			usbpd_err(&pd->dev, "%s: Error sending Accept, do Hard Reset\n",
 					usbpd_state_strings[pd->current_state]);
 			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_HARD_RESET : PE_SNK_HARD_RESET);
@@ -1168,7 +1196,7 @@ static void usbpd_sm(struct work_struct *w)
 					PE_SRC_SEND_CAPABILITIES :
 					PE_SNK_WAIT_FOR_CAPABILITIES);
 		} else {
-			dev_err(&pd->dev, "%s: Did not see Accept, do Hard Reset\n",
+			usbpd_err(&pd->dev, "%s: Did not see Accept, do Hard Reset\n",
 					usbpd_state_strings[pd->current_state]);
 			usbpd_set_state(pd, pd->current_pr == PR_SRC ?
 					PE_SRC_HARD_RESET : PE_SNK_HARD_RESET);
@@ -1220,7 +1248,7 @@ static void usbpd_sm(struct work_struct *w)
 
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
-			dev_err(&pd->dev, "Error sending PS_RDY\n");
+			usbpd_err(&pd->dev, "Error sending PS_RDY\n");
 			usbpd_set_state(pd, PE_ERROR_RECOVERY);
 			break;
 		}
@@ -1271,11 +1299,11 @@ static void usbpd_sm(struct work_struct *w)
 		set_power_role(pd, PR_SRC);
 		ret = regulator_enable(pd->vbus);
 		if (ret)
-			dev_err(&pd->dev, "Unable to enable vbus\n");
+			usbpd_err(&pd->dev, "Unable to enable vbus\n");
 
 		ret = pd_send_msg(pd, MSG_PS_RDY, NULL, 0, SOP_MSG);
 		if (ret) {
-			dev_err(&pd->dev, "Error sending PS_RDY\n");
+			usbpd_err(&pd->dev, "Error sending PS_RDY\n");
 			usbpd_set_state(pd, PE_ERROR_RECOVERY);
 			break;
 		}
@@ -1284,7 +1312,7 @@ static void usbpd_sm(struct work_struct *w)
 		break;
 
 	default:
-		dev_err(&pd->dev, "%s: Unhandled state %s\n", __func__,
+		usbpd_err(&pd->dev, "Unhandled state %s\n",
 				usbpd_state_strings[pd->current_state]);
 		break;
 	}
@@ -1308,7 +1336,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	ret = power_supply_get_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_ALLOWED, &val);
 	if (ret) {
-		dev_err(&pd->dev, "Unable to read USB PROP_PD_ALLOWED: %d\n",
+		usbpd_err(&pd->dev, "Unable to read USB PROP_PD_ALLOWED: %d\n",
 				ret);
 		return ret;
 	}
@@ -1318,7 +1346,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	ret = power_supply_get_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PRESENT, &val);
 	if (ret) {
-		dev_err(&pd->dev, "Unable to read USB PRESENT: %d\n", ret);
+		usbpd_err(&pd->dev, "Unable to read USB PRESENT: %d\n", ret);
 		return ret;
 	}
 
@@ -1327,7 +1355,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	ret = power_supply_get_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_TYPEC_MODE, &val);
 	if (ret) {
-		dev_err(&pd->dev, "Unable to read USB TYPEC_MODE: %d\n", ret);
+		usbpd_err(&pd->dev, "Unable to read USB TYPEC_MODE: %d\n", ret);
 		return ret;
 	}
 
@@ -1343,7 +1371,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 	if ((pd->hard_reset || pd->in_pr_swap) &&
 			typec_mode == POWER_SUPPLY_TYPEC_NONE) {
-		dev_dbg(&pd->dev, "Ignoring disconnect due to %s\n",
+		usbpd_dbg(&pd->dev, "Ignoring disconnect due to %s\n",
 				pd->hard_reset ? "hard reset" : "PR swap");
 		return 0;
 	}
@@ -1351,13 +1379,13 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	ret = power_supply_get_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_TYPE, &val);
 	if (ret) {
-		dev_err(&pd->dev, "Unable to read USB TYPE: %d\n", ret);
+		usbpd_err(&pd->dev, "Unable to read USB TYPE: %d\n", ret);
 		return ret;
 	}
 
 	psy_type = val.intval;
 
-	dev_dbg(&pd->dev, "typec mode:%d present:%d type:%d\n", typec_mode,
+	usbpd_dbg(&pd->dev, "typec mode:%d present:%d type:%d\n", typec_mode,
 			pd->vbus_present, psy_type);
 
 	/* any change? */
@@ -1377,7 +1405,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
 	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
 	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
-		dev_info(&pd->dev, "Type-C Source connected\n");
+		usbpd_info(&pd->dev, "Type-C Source connected\n");
 		if (pd->current_pr != PR_SINK) {
 			pd->current_pr = PR_SINK;
 			queue_delayed_work(pd->wq, &pd->sm_work, 0);
@@ -1387,7 +1415,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	/* Source states */
 	case POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE:
 	case POWER_SUPPLY_TYPEC_SINK:
-		dev_info(&pd->dev, "Type-C Sink connected\n");
+		usbpd_info(&pd->dev, "Type-C Sink connected\n");
 		if (pd->current_pr != PR_SRC) {
 			pd->current_pr = PR_SRC;
 			queue_delayed_work(pd->wq, &pd->sm_work, 0);
@@ -1395,13 +1423,13 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		break;
 
 	case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
-		dev_info(&pd->dev, "Type-C Debug Accessory connected\n");
+		usbpd_info(&pd->dev, "Type-C Debug Accessory connected\n");
 		break;
 	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
-		dev_info(&pd->dev, "Type-C Analog Audio Adapter connected\n");
+		usbpd_info(&pd->dev, "Type-C Analog Audio Adapter connected\n");
 		break;
 	default:
-		dev_warn(&pd->dev, "Unsupported typec mode: %d\n", typec_mode);
+		usbpd_warn(&pd->dev, "Unsupported typec mode:%d\n", typec_mode);
 		break;
 	}
 
@@ -1613,7 +1641,7 @@ static ssize_t pdo_n_show(struct device *dev, struct device_attribute *attr,
 			return snprintf(buf, PAGE_SIZE, "%08x\n",
 					pd->received_pdos[i]);
 
-	dev_err(&pd->dev, "Invalid PDO index\n");
+	usbpd_err(&pd->dev, "Invalid PDO index\n");
 	return -EINVAL;
 }
 
@@ -1627,23 +1655,23 @@ static ssize_t select_pdo_store(struct device *dev,
 
 	/* Only allowed if we are already in explicit sink contract */
 	if (pd->current_state != PE_SNK_READY) {
-		dev_err(&pd->dev, "select_pdo: Cannot select new PDO yet\n");
+		usbpd_err(&pd->dev, "select_pdo: Cannot select new PDO yet\n");
 		return -EBUSY;
 	}
 
 	if (sscanf(buf, "%d %d\n", &src_cap_id, &pdo) != 2) {
-		dev_err(&pd->dev, "select_pdo: Must specify <src cap id> <PDO>\n");
+		usbpd_err(&pd->dev, "select_pdo: Must specify <src cap id> <PDO>\n");
 		return -EINVAL;
 	}
 
 	if (src_cap_id != pd->src_cap_id) {
-		dev_err(&pd->dev, "select_pdo: src_cap_id mismatch.  Requested:%d, current:%d\n",
+		usbpd_err(&pd->dev, "select_pdo: src_cap_id mismatch.  Requested:%d, current:%d\n",
 				src_cap_id, pd->src_cap_id);
 		return -EINVAL;
 	}
 
 	if (pdo < 1 || pdo > 7) {
-		dev_err(&pd->dev, "select_pdo: invalid PDO:%d\n", pdo);
+		usbpd_err(&pd->dev, "select_pdo: invalid PDO:%d\n", pdo);
 		return -EINVAL;
 	}
 
@@ -1781,7 +1809,7 @@ struct usbpd *usbpd_create(struct device *parent)
 
 	pd->usb_psy = power_supply_get_by_name("usb");
 	if (!pd->usb_psy) {
-		dev_dbg(&pd->dev, "Could not get USB power_supply, deferring probe\n");
+		usbpd_dbg(&pd->dev, "Could not get USB power_supply, deferring probe\n");
 		ret = -EPROBE_DEFER;
 		goto destroy_wq;
 	}
@@ -1797,7 +1825,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	 */
 	pd->extcon = devm_extcon_dev_allocate(parent, usbpd_extcon_cable);
 	if (IS_ERR(pd->extcon)) {
-		dev_err(&pd->dev, "failed to allocate extcon device\n");
+		usbpd_err(&pd->dev, "failed to allocate extcon device\n");
 		ret = PTR_ERR(pd->extcon);
 		goto unreg_psy;
 	}
@@ -1805,7 +1833,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	pd->extcon->mutually_exclusive = usbpd_extcon_exclusive;
 	ret = devm_extcon_dev_register(parent, pd->extcon);
 	if (ret) {
-		dev_err(&pd->dev, "failed to register extcon device\n");
+		usbpd_err(&pd->dev, "failed to register extcon device\n");
 		goto unreg_psy;
 	}
 
@@ -1865,6 +1893,7 @@ EXPORT_SYMBOL(usbpd_destroy);
 
 static int __init usbpd_init(void)
 {
+	usbpd_ipc_log = ipc_log_context_create(NUM_LOG_PAGES, "usb_pd", 0);
 	return class_register(&usbpd_class);
 }
 module_init(usbpd_init);
