@@ -1987,6 +1987,17 @@ bail:
 	return err;
 }
 
+static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
+{
+	int err = 0;
+
+	VERIFY(err, fl && fl->sctx);
+	if (err)
+		goto bail;
+	*info = (fl->sctx->smmu.enabled ? 1 : 0);
+bail:
+	return err;
+}
 
 static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 				 unsigned long ioctl_param)
@@ -2000,6 +2011,8 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	void *param = (char *)ioctl_param;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 	int size = 0, err = 0;
+	uint32_t info;
+
 	p.inv.fds = 0;
 	p.inv.attrs = 0;
 
@@ -2053,6 +2066,14 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			err = -ENOTTY;
 			break;
 		}
+		break;
+	case FASTRPC_IOCTL_GETINFO:
+		VERIFY(err, 0 == (err = fastrpc_get_info(fl, &info)));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == copy_to_user(param, &info, sizeof(info)));
+		if (err)
+			goto bail;
 		break;
 	case FASTRPC_IOCTL_INIT:
 		VERIFY(err, 0 == copy_from_user(&p.init, param,

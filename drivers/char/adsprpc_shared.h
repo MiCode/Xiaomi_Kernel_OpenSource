@@ -24,6 +24,8 @@
 #define FASTRPC_IOCTL_INIT	_IOWR('R', 6, struct fastrpc_ioctl_init)
 #define FASTRPC_IOCTL_INVOKE_ATTRS \
 				_IOWR('R', 7, struct fastrpc_ioctl_invoke_attrs)
+#define FASTRPC_IOCTL_GETINFO	_IOWR('R', 8, uint32_t)
+
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
 #define DEVICE_NAME      "adsprpc-smd"
