@@ -259,6 +259,7 @@ struct cpp_device {
 	uint32_t bus_client;
 	uint32_t bus_idx;
 	uint32_t bus_master_flag;
+	uint32_t micro_reset;
 	struct msm_cpp_payload_params payload_params;
 };
 
