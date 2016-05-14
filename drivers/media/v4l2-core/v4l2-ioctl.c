@@ -1229,6 +1229,10 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	case V4L2_SDR_FMT_CS8:		descr = "Complex S8"; break;
 	case V4L2_SDR_FMT_CS14LE:	descr = "Complex S14LE"; break;
 	case V4L2_SDR_FMT_RU12LE:	descr = "Real U12LE"; break;
+	case V4L2_PIX_FMT_NV12_UBWC:
+		descr = "NV12 UBWC"; break;
+	case V4L2_PIX_FMT_RGBA8888_UBWC:
+		descr = "RGBA8888 UBWC"; break;
 
 	default:
 		/* Compressed formats */
@@ -1268,6 +1272,16 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_JPGL:		descr = "JPEG Lite"; break;
 		case V4L2_PIX_FMT_SE401:	descr = "GSPCA SE401"; break;
 		case V4L2_PIX_FMT_S5C_UYVY_JPG:	descr = "S5C73MX interleaved UYVY/JPEG"; break;
+		case V4L2_PIX_FMT_HEVC:
+			descr = "HEVC"; break;
+		case V4L2_PIX_FMT_HEVC_HYBRID:
+			descr = "HEVC Hybrid"; break;
+		case V4L2_PIX_FMT_VP9:
+			descr = "VP9"; break;
+		case V4L2_PIX_FMT_DIVX_311:
+			descr = "DIVX311"; break;
+		case V4L2_PIX_FMT_DIVX:
+			descr = "DIVX"; break;
 		default:
 			WARN(1, "Unknown pixelformat 0x%08x\n", fmt->pixelformat);
 			if (fmt->description[0])
