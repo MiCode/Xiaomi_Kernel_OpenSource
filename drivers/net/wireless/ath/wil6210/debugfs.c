@@ -165,6 +165,8 @@ static void wil_print_ring(struct seq_file *s, const char *prefix,
 	int rsize;
 	uint i;
 
+	wil_halp_vote(wil);
+
 	wil_memcpy_fromio_32(&r, off, sizeof(r));
 	wil_mbox_ring_le2cpus(&r);
 	/*
@@ -241,6 +243,7 @@ static void wil_print_ring(struct seq_file *s, const char *prefix,
 	}
  out:
 	seq_puts(s, "}\n");
+	wil_halp_unvote(wil);
 }
 
 static int wil_mbox_debugfs_show(struct seq_file *s, void *data)
@@ -505,9 +508,9 @@ static ssize_t wil_read_file_ioblob(struct file *file, char __user *user_buf,
 				    size_t count, loff_t *ppos)
 {
 	enum { max_count = 4096 };
-	struct debugfs_blob_wrapper *blob = file->private_data;
+	struct wil_blob_wrapper *wil_blob = file->private_data;
 	loff_t pos = *ppos;
-	size_t available = blob->size;
+	size_t available = wil_blob->blob.size;
 	void *buf;
 	size_t ret;
 
@@ -526,8 +529,9 @@ static ssize_t wil_read_file_ioblob(struct file *file, char __user *user_buf,
 	if (!buf)
 		return -ENOMEM;
 
-	wil_memcpy_fromio_32(buf, (const volatile void __iomem *)blob->data +
-			     pos, count);
+	wil_memcpy_fromio_halp_vote(wil_blob->wil, buf,
+				    (const volatile void __iomem *)
+				    wil_blob->blob.data + pos, count);
 
 	ret = copy_to_user(user_buf, buf, count);
 	kfree(buf);
@@ -550,9 +554,9 @@ static
 struct dentry *wil_debugfs_create_ioblob(const char *name,
 					 umode_t mode,
 					 struct dentry *parent,
-					 struct debugfs_blob_wrapper *blob)
+					 struct wil_blob_wrapper *wil_blob)
 {
-	return debugfs_create_file(name, mode, parent, blob, &fops_ioblob);
+	return debugfs_create_file(name, mode, parent, wil_blob, &fops_ioblob);
 }
 
 /*---reset---*/
@@ -1472,16 +1476,18 @@ static void wil6210_debugfs_init_blobs(struct wil6210_priv *wil,
 	char name[32];
 
 	for (i = 0; i < ARRAY_SIZE(fw_mapping); i++) {
-		struct debugfs_blob_wrapper *blob = &wil->blobs[i];
+		struct wil_blob_wrapper *wil_blob = &wil->blobs[i];
+		struct debugfs_blob_wrapper *blob = &wil_blob->blob;
 		const struct fw_map *map = &fw_mapping[i];
 
 		if (!map->name)
 			continue;
 
+		wil_blob->wil = wil;
 		blob->data = (void * __force)wil->csr + HOSTADDR(map->host);
 		blob->size = map->to - map->from;
 		snprintf(name, sizeof(name), "blob_%s", map->name);
-		wil_debugfs_create_ioblob(name, S_IRUGO, dbg, blob);
+		wil_debugfs_create_ioblob(name, S_IRUGO, dbg, wil_blob);
 	}
 }
 
