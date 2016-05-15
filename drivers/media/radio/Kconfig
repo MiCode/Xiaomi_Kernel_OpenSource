@@ -518,6 +518,13 @@ config RADIO_IRIS_TRANSPORT
           To compile this driver as a module, choose M here: the
           module will be called radio-iris-transport.
 
+config RADIO_IRIS_TRANSPORT_NO_FIRMWARE
+        bool "Disable IRIS Transport firmware loading support"
+        depends on RADIO_IRIS_TRANSPORT
+        default n
+        ---help---
+          Say Y here if you want to disable firmware loading support
+
 config RADIO_SILABS
         tristate "SILABS FM"
         depends on I2C && VIDEO_V4L2
