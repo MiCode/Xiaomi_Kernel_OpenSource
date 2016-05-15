@@ -633,9 +633,9 @@ struct wil6210_priv {
 #define ndev_to_wil(n) (wdev_to_wil(n->ieee80211_ptr))
 
 void wil_dbg_trace(struct wil6210_priv *wil, const char *fmt, ...);
-void wil_err(struct wil6210_priv *wil, const char *fmt, ...);
-void wil_err_ratelimited(struct wil6210_priv *wil, const char *fmt, ...);
-void wil_info(struct wil6210_priv *wil, const char *fmt, ...);
+void __wil_err(struct wil6210_priv *wil, const char *fmt, ...);
+void __wil_err_ratelimited(struct wil6210_priv *wil, const char *fmt, ...);
+void __wil_info(struct wil6210_priv *wil, const char *fmt, ...);
 #define wil_dbg(wil, fmt, arg...) do { \
 	netdev_dbg(wil_to_ndev(wil), fmt, ##arg); \
 	wil_dbg_trace(wil, fmt, ##arg); \
@@ -646,6 +646,10 @@ void wil_info(struct wil6210_priv *wil, const char *fmt, ...);
 #define wil_dbg_wmi(wil, fmt, arg...) wil_dbg(wil, "DBG[ WMI]" fmt, ##arg)
 #define wil_dbg_misc(wil, fmt, arg...) wil_dbg(wil, "DBG[MISC]" fmt, ##arg)
 #define wil_dbg_pm(wil, fmt, arg...) wil_dbg(wil, "DBG[ PM ]" fmt, ##arg)
+#define wil_err(wil, fmt, arg...) __wil_err(wil, "%s: " fmt, __func__, ##arg)
+#define wil_info(wil, fmt, arg...) __wil_info(wil, "%s: " fmt, __func__, ##arg)
+#define wil_err_ratelimited(wil, fmt, arg...) \
+	__wil_err_ratelimited(wil, "%s: " fmt, __func__, ##arg)
 
 /* target operations */
 /* register read */
