@@ -333,3 +333,8 @@
 &bam_dmux {
 	status = "disabled";
 };
+
+&pil_mss {
+	/delete-property/ qcom,qdsp6v56-1-8-inrush-current;
+	qcom,qdsp6v56-1-8;
+};
