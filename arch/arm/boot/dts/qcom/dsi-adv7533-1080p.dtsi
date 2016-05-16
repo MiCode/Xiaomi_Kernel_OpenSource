@@ -64,7 +64,7 @@
 		qcom,mdss-pan-physical-height-dimension = <90>;
 		qcom,mdss-dsi-force-clock-lane-hs;
 		qcom,mdss-dsi-always-on;
-		qcom,mdss-dsi-panel-timings-8996 = [1d 1a 03 05 01 03 04 a0
+		qcom,mdss-dsi-panel-timings-phy-v2 = [1d 1a 03 05 01 03 04 a0
 			1d 1a 03 05 01 03 04 a0
 			1d 1a 03 05 01 03 04 a0
 			1d 1a 03 05 01 03 04 a0
