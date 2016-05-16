@@ -2,6 +2,7 @@
  * RTC subsystem, sysfs interface
  *
  * Copyright (C) 2005 Tower Technologies
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Alessandro Zummo <a.zummo@towertech.it>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -11,6 +12,7 @@
 
 #include <linux/module.h>
 #include <linux/rtc.h>
+#include <linux/alarmtimer.h>
 
 #include "rtc-core.h"
 
@@ -191,12 +193,13 @@ rtc_sysfs_set_wakealarm(struct device *dev, struct device_attribute *attr,
 		 * entirely prevent that here, without even the minimal
 		 * locking from the /dev/rtcN api.
 		 */
+		#ifndef WT_A9_RTC_WAKEUP
 		retval = rtc_read_alarm(rtc, &alm);
 		if (retval < 0)
 			return retval;
 		if (alm.enabled)
 			return -EBUSY;
-
+		#endif
 		alm.enabled = 1;
 	} else {
 		alm.enabled = 0;
@@ -206,9 +209,10 @@ rtc_sysfs_set_wakealarm(struct device *dev, struct device_attribute *attr,
 		 */
 		alarm = now + 300;
 	}
-	rtc_time_to_tm(alarm, &alm.time);
 
-	retval = rtc_set_alarm(rtc, &alm);
+	if (1 == alm.enabled) {
+		set_power_on_alarm(alarm, 1);
+	}
 	return (retval < 0) ? retval : n;
 }
 static DEVICE_ATTR(wakealarm, S_IRUGO | S_IWUSR,

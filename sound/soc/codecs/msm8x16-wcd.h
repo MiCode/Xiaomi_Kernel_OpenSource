@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,16 @@
 #define MSM8X16_TOMBAK_LPASS_DIGCODEC_D				0x0181C0AC
 #define MSM8X16_TOMBAK_LPASS_DIGCODEC_CBCR			0x0181C0B0
 #define MSM8X16_TOMBAK_LPASS_DIGCODEC_AHB_CBCR			0x0181C0B4
+
+#ifdef WT_88047_L_AUDIO_PA_GPIO
+#define EXT_SPK_AMP_GPIO	(902+117)
+
+#define EXT_SPK_AMP_HEADSET_GPIO	(902+8)
+#else
+#define EXT_SPK_AMP_GPIO	(902+121)
+
+#define EXT_SPK_AMP_HEADSET_GPIO	(902+8)
+#endif
 
 #define MSM8X16_CODEC_NAME "msm8x16_wcd_codec"
 
@@ -256,8 +267,8 @@ extern int msm8x16_register_notifier(struct snd_soc_codec *codec,
 				     struct notifier_block *nblock);
 
 extern int msm8x16_unregister_notifier(struct snd_soc_codec *codec,
-				     struct notifier_block *nblock);
-
+					 struct notifier_block *nblock);
+extern int msm8x16_wcd_restart_mbhc(struct snd_soc_codec *codec);
 extern void msm8x16_wcd_spk_ext_pa_cb(
 		int (*codec_spk_ext_pa)(struct snd_soc_codec *codec,
 		int enable), struct snd_soc_codec *codec);

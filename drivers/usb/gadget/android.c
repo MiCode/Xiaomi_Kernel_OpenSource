@@ -2,6 +2,7 @@
  * Gadget Driver for Android
  *
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *.Copyright (c) 2014, The Linux Foundation. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
@@ -239,6 +240,9 @@ static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum);
 static char manufacturer_string[256];
 static char product_string[256];
 static char serial_string[256];
+
+static char uinque_serial_string[256];
+
 
 /* String Table */
 static struct usb_string strings_dev[] = {
@@ -2397,6 +2401,10 @@ struct mass_storage_function_config {
 };
 
 #define MAX_LUN_NAME 8
+
+int uicc_luns_count = 0;
+int luns_count = 0;
+
 static int mass_storage_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
@@ -2408,6 +2416,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	char name[FSG_MAX_LUNS][MAX_LUN_NAME];
 	u8 uicc_nluns = dev->pdata ? dev->pdata->uicc_nluns : 0;
 
+	uicc_luns_count = uicc_nluns;
 	config = kzalloc(sizeof(struct mass_storage_function_config),
 							GFP_KERNEL);
 	if (!config) {
@@ -2415,17 +2424,17 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		return -ENOMEM;
 	}
 
-	config->fsg.nluns = 1;
-	snprintf(name[0], MAX_LUN_NAME, "lun");
-	config->fsg.luns[0].removable = 1;
 
+	config->fsg.nluns = 1;
 	if (dev->pdata && dev->pdata->cdrom) {
-		config->fsg.luns[config->fsg.nluns].cdrom = 1;
-		config->fsg.luns[config->fsg.nluns].ro = 1;
-		config->fsg.luns[config->fsg.nluns].removable = 0;
-		snprintf(name[config->fsg.nluns], MAX_LUN_NAME, "rom");
-		config->fsg.nluns++;
+		config->fsg.luns[0].cdrom = 1;
+		config->fsg.luns[0].ro = 1;
+		config->fsg.luns[0].removable = 0;
+		snprintf(name[0], MAX_LUN_NAME, "rom");
 	}
+	snprintf(name[config->fsg.nluns], MAX_LUN_NAME, "lun");
+	config->fsg.luns[config->fsg.nluns].removable = 1;
+	config->fsg.nluns++;
 
 	if (uicc_nluns > FSG_MAX_LUNS - config->fsg.nluns) {
 		uicc_nluns = FSG_MAX_LUNS - config->fsg.nluns;
@@ -2439,6 +2448,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		config->fsg.nluns++;
 	}
 
+	luns_count = config->fsg.nluns;
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
 		kfree(config);
@@ -2473,6 +2483,10 @@ static int mass_storage_lun_init(struct android_usb_function *f,
 	int i = config->fsg.nluns, index, length;
 	static int number_of_luns;
 
+	int j, n;
+	char name[FSG_MAX_LUNS][MAX_LUN_NAME];
+
+
 	length = strlen(lun_info);
 	if (!length) {
 		pr_err("LUN_INFO is null.\n");
@@ -2491,6 +2505,40 @@ static int mass_storage_lun_init(struct android_usb_function *f,
 		config->fsg.luns[index].cdrom = 1;
 		config->fsg.luns[index].removable = 0;
 		config->fsg.luns[index].ro = 1;
+
+	} else if (!strcmp(lun_info, "default")) {
+		config->fsg.nluns = 1;
+		config->fsg.luns[0].cdrom = 1;
+		config->fsg.luns[0].ro = 1;
+		config->fsg.luns[0].removable = 0;
+		snprintf(name[0], MAX_LUN_NAME, "rom");
+		snprintf(name[config->fsg.nluns], MAX_LUN_NAME, "lun");
+		config->fsg.luns[config->fsg.nluns].removable = 1;
+		config->fsg.nluns++;
+		for (j = 0; j < uicc_luns_count; j++) {
+			n = config->fsg.nluns;
+			snprintf(name[n], MAX_LUN_NAME, "uicc%d", i);
+			config->fsg.luns[n].removable = 1;
+			config->fsg.nluns++;
+		}
+		luns_count = config->fsg.nluns;
+
+		return -EINVAL;
+	} else if (!strcmp(lun_info, "lenovomtp")) {
+		config->fsg.nluns = 1;
+		config->fsg.luns[0].cdrom = 1;
+		config->fsg.luns[0].ro = 1;
+		config->fsg.luns[0].removable = 0;
+		snprintf(name[0], MAX_LUN_NAME, "rom");
+		for (j = 0; j < uicc_luns_count; j++) {
+			n = config->fsg.nluns;
+			snprintf(name[n], MAX_LUN_NAME, "uicc%d", i);
+			config->fsg.luns[n].removable = 1;
+			config->fsg.nluns++;
+		}
+		luns_count = config->fsg.nluns;
+
+		return -EINVAL;
 	} else {
 		pr_err("Invalid LUN info.\n");
 		inc_lun = false;
@@ -3044,6 +3092,31 @@ static ssize_t remote_wakeup_store(struct device *pdev,
 	return size;
 }
 
+
+static ssize_t
+iSerial_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s", serial_string);
+}
+static ssize_t
+iSerial_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	if (size >= sizeof(serial_string))
+		return -EINVAL;
+	strlcpy(serial_string, buf, sizeof(serial_string));
+	strim(serial_string);
+	if (0 != strncmp(buf, "0123456789", sizeof("0123456789" - 1))) {
+		strlcpy(uinque_serial_string, buf, sizeof(uinque_serial_string));
+		strim(uinque_serial_string);
+	}
+	printk("%s: serial number is %s, uinque_serial_string is %s\n", __func__, serial_string, uinque_serial_string);
+	return size;
+}
+static DEVICE_ATTR(iSerial, S_IRUGO | S_IWUSR, iSerial_show, iSerial_store);
+
+
 static ssize_t
 functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
@@ -3092,6 +3165,11 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 		mutex_unlock(&dev->mutex);
 		return -EBUSY;
 	}
+
+
+	if (0 != strcmp(buff, "diag, serial, rmnet, adb"))
+		strlcpy(serial_string, uinque_serial_string, sizeof(serial_string));
+
 
 	/* Clear previous enabled list */
 	list_for_each_entry(conf, &dev->configs, list_item) {
@@ -3379,7 +3457,7 @@ DESCRIPTOR_ATTR(bDeviceSubClass, "%d\n")
 DESCRIPTOR_ATTR(bDeviceProtocol, "%d\n")
 DESCRIPTOR_STRING_ATTR(iManufacturer, manufacturer_string)
 DESCRIPTOR_STRING_ATTR(iProduct, product_string)
-DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
+
 
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						 functions_store);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +21,7 @@
 #include <linux/spmi.h>
 #include <linux/spinlock.h>
 #include <linux/spmi.h>
+#include <linux/alarmtimer.h>
 
 /* RTC/ALARM Register offsets */
 #define REG_OFFSET_ALARM_RW	0x40
@@ -44,6 +46,7 @@
 
 #define TO_SECS(arr)		(arr[0] | (arr[1] << 8) | (arr[2] << 16) | \
 							(arr[3] << 24))
+unsigned long secs_backup;
 
 /* Module parameter to control power-on-alarm */
 static bool poweron_alarm;
@@ -78,6 +81,25 @@ static int qpnp_read_wrapper(struct qpnp_rtc *rtc_dd, u8 *rtc_val,
 		return rc;
 	}
 	return 0;
+}
+
+unsigned long backup_rtc_reg_data(struct qpnp_rtc *rtc_dd)
+{
+	int rc;
+	u8 value[4];
+	unsigned long secs = 0;
+
+	rc = qpnp_read_wrapper(rtc_dd, value,
+				rtc_dd->alarm_base + REG_OFFSET_ALARM_RW,
+				NUM_8_BIT_RTC_REGS);
+	if (rc) {
+		dev_err(rtc_dd->rtc_dev, "Read from ALARM reg failed\n");
+		return rc;
+	}
+
+	secs = TO_SECS(value);
+
+	return secs + ALARM_DELTA;
 }
 
 static int qpnp_write_wrapper(struct qpnp_rtc *rtc_dd, u8 *rtc_val,
@@ -369,12 +391,10 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		dev_err(dev, "Invalid time read from RTC\n");
 		return rc;
 	}
-
 	dev_dbg(dev, "Alarm set for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
-		alarm->time.tm_hour, alarm->time.tm_min,
-				alarm->time.tm_sec, alarm->time.tm_mday,
-				alarm->time.tm_mon, alarm->time.tm_year);
-
+			alarm->time.tm_hour, alarm->time.tm_min,
+			alarm->time.tm_sec, alarm->time.tm_mday,
+			alarm->time.tm_mon, alarm->time.tm_year);
 	return 0;
 }
 
@@ -499,7 +519,7 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 
 	rtc_dd->rtc_dev = &(spmi->dev);
 	rtc_dd->spmi = spmi;
-
+	rtc_dd->rtc_dev->power.can_wakeup = 1;
 	/* Get RTC/ALARM resources */
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
@@ -605,7 +625,8 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 
 	device_init_wakeup(&spmi->dev, 1);
 	enable_irq_wake(rtc_dd->rtc_alarm_irq);
-
+	if (strstr(saved_command_line, "androidboot.mode=charger"))
+		secs_backup = backup_rtc_reg_data(rtc_dd);
 	dev_dbg(&spmi->dev, "Probe success !!\n");
 
 	return 0;

@@ -60,7 +60,7 @@
 	eeprom0: qcom,eeprom@0{
 		cell-index = <0>;
 		reg = <0x00>;
-		qcom,eeprom-name = "sunny_q13v06k";
+		qcom,eeprom-name = "ov13850";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0x20>;
 		qcom,cci-master = <0>;
@@ -83,7 +83,7 @@
 		qcom,mem4 = <0 0x0 2 0 1 0>;
 		qcom,page5 = <1 0x3d81 2 0x01 1 15>;
 		qcom,poll5 = <0 0x0 2 0 1 1>;
-		qcom,mem5 = <411 0x7220 2 0 1 0>;
+		qcom,mem5 = <408 0x7220 2 0 1 0>;
 		qcom,page6 = <1 0x5002 2 0x7 1 1>;
 		qcom,poll6 = <0 0x0 2 0 1 1>;
 		qcom,mem6 = <0 0x0 2 0 1 0>;

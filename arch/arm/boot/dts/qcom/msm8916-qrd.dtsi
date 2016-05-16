@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,8 +94,15 @@
 	};
 
 	gpio@c200 { /* GPIO 3 */
-		/* External regulator control for WTR */
-		status = "disabled";
+		/*battery ID detect pin */
+		qcom,mode = <1>; /* QPNP_PIN_MODE_DIG_OUT */
+		qcom,output-type = <1>; /* QPNP_PIN_OUT_BUF_NMOS */
+		qcom,invert = <0>; /* QPNP_PIN_INVERT_DISABLE */
+		qcom,pull = <5>; /* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <0>; /* QPNP_PIN_VIN2 = S3 = 1.8V */
+		qcom,out-strength = <3>; /* QPNP_PIN_OUT_STRENGTH_MED */
+		qcom,src-sel = <0>; /* QPNP_PIN_SEL_FUNC_CONSTANT */
+		qcom,master-en = <1>; /* enable this gpio */
 	};
 
 	gpio@c300 { /* GPIO 4 */
@@ -145,7 +153,7 @@
 			1 &intc 0 221 0
 			2 &msm_gpio 38 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&msm_gpio 38 0x0>;
+	cd-gpios = <&msm_gpio 38 0x1>;
 
 	status = "ok";
 };
@@ -155,7 +163,7 @@
 		qcom,vibrator@c000 {
 			status = "okay";
 			qcom,vib-timeout-ms = <15000>;
-			qcom,vib-vtg-level-mV = <3100>;
+			qcom,vib-vtg-level-mV = <3000>;
 		};
 	};
 };

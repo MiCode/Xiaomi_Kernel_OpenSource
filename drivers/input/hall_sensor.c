@@ -1,6 +1,7 @@
 /*
  *
  * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,9 +26,16 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
+#include <linux/miscdevice.h>
+#include <linux/uaccess.h>
+#include <linux/hardware_info.h>
+
 
 #define	LID_DEV_NAME	"hall_sensor"
 #define HALL_INPUT	"/dev/input/hall_dev"
+
+#define HALL_SENSOR_GET_STATUS	_IOW('c', 9, int *)
+static struct class *hall_class;
 
 struct hall_data {
 	int gpio;	/* device use gpio number */
@@ -40,6 +48,8 @@ struct hall_data {
 	u32 max_uv;	/* device allow max voltage */
 };
 
+struct hall_data *hall_pdata = NULL;
+
 static irqreturn_t hall_interrupt_handler(int irq, void *dev)
 {
 	int value;
@@ -48,16 +58,63 @@ static irqreturn_t hall_interrupt_handler(int irq, void *dev)
 	value = (gpio_get_value_cansleep(data->gpio) ? 1 : 0) ^
 		data->active_low;
 	if (value) {
-		input_report_switch(data->hall_dev, SW_LID, 0);
+		input_report_key(data->hall_dev, KEY_HALL_SENSOR, 0);
 		dev_dbg(&data->hall_dev->dev, "far\n");
 	} else {
-		input_report_switch(data->hall_dev, SW_LID, 1);
+		input_report_key(data->hall_dev, KEY_HALL_SENSOR, 1);
 		dev_dbg(&data->hall_dev->dev, "near\n");
 	}
 	input_sync(data->hall_dev);
 
 	return IRQ_HANDLED;
 }
+
+static int hall_open(struct inode *inode, struct file *file)
+{
+
+	return 0;
+}
+
+static int hall_release(struct inode *inode, struct file *file)
+{
+
+	return 0;
+}
+
+static long hall_ioctl(struct file *file, unsigned int cmd,
+			  unsigned long arg)
+{
+	int value;
+	void __user *argp = (void __user *)arg;
+
+	switch (cmd) {
+	case HALL_SENSOR_GET_STATUS:
+		value = (gpio_get_value_cansleep(hall_pdata->gpio) ? 1 : 0) ^ hall_pdata->active_low;
+		printk("%s: value=%d\n", __func__, value);
+		if (copy_to_user(argp, &value, sizeof(value)))
+			return -EFAULT;
+		break;
+
+	default:
+		dev_err(&hall_pdata->hall_dev->dev, "invalid cmd %d\n", _IOC_NR(cmd));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static const struct file_operations hall_fops = {
+	.owner = THIS_MODULE,
+	.open = hall_open,
+	.release = hall_release,
+	.unlocked_ioctl = hall_ioctl
+};
+
+static struct miscdevice hall_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "hall-sensor",
+	.fops = &hall_fops
+};
 
 static int hall_input_init(struct platform_device *pdev,
 		struct hall_data *data)
@@ -72,14 +129,19 @@ static int hall_input_init(struct platform_device *pdev,
 	}
 	data->hall_dev->name = LID_DEV_NAME;
 	data->hall_dev->phys = HALL_INPUT;
-	__set_bit(EV_SW, data->hall_dev->evbit);
-	__set_bit(SW_LID, data->hall_dev->swbit);
+	__set_bit(EV_KEY, data->hall_dev->evbit);
+	input_set_capability(data->hall_dev, EV_KEY, KEY_HALL_SENSOR);
 
 	err = input_register_device(data->hall_dev);
 	if (err < 0) {
 		dev_err(&data->hall_dev->dev,
 				"unable to register input device %s\n",
 				LID_DEV_NAME);
+		return err;
+	}
+	err = misc_register(&hall_device);
+	if (err < 0) {
+		dev_err(&data->hall_dev->dev, "could not register ps misc device\n");
 		return err;
 	}
 
@@ -230,7 +292,7 @@ static int hall_driver_probe(struct platform_device *dev)
 		dev_err(&dev->dev, "input init failed\n");
 		goto exit;
 	}
-
+	hall_pdata = data;
 	if (!gpio_is_valid(data->gpio)) {
 		dev_err(&dev->dev, "gpio is not valid\n");
 		err = -EINVAL;
@@ -268,6 +330,7 @@ static int hall_driver_probe(struct platform_device *dev)
 		dev_err(&dev->dev, "power on failed: %d\n", err);
 		goto err_regulator_init;
 	}
+		device_create(hall_class, NULL, 0, data, "%s", "hall_dev");
 
 	return 0;
 
@@ -319,9 +382,29 @@ static struct platform_driver hall_driver = {
 	.remove = hall_driver_remove,
 	.id_table = hall_id,
 };
+static ssize_t hall_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int value;
+
+	value = (gpio_get_value_cansleep(hall_pdata->gpio) ? 1 : 0) ^ hall_pdata->active_low;
+	printk("%s: value=%d\n", __func__, value);
+
+	return sprintf(buf, "%d\n", value);
+}
+
+static struct device_attribute hall_class_attrs[] = {
+	__ATTR(hall, 0644, hall_show, NULL),
+	__ATTR_NULL,
+};
 
 static int __init hall_init(void)
 {
+	hall_class = class_create(THIS_MODULE, "hall");
+	if (IS_ERR(hall_class))
+		return PTR_ERR(hall_class);
+
+
+	hall_class->dev_attrs = hall_class_attrs;
 	return platform_driver_register(&hall_driver);
 }
 

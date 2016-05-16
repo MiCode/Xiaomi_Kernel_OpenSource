@@ -1,10 +1,11 @@
 /*!
  * @section LICENSE
  * (C) Copyright 2013 Bosch Sensortec GmbH All Rights Reserved
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software program is licensed subject to the GNU General
  * Public License (GPL).Version 2,June 1991,
- * available at http://www.fsf.org/copyleft/gpl.html
+ * available at http:
  *
  * @filename bma2x2.c
  * @date    2014/02/13 15:50
@@ -14,6 +15,10 @@
  * @brief
  * This file contains all function implementations for the BMA2X2 in linux
 */
+
+#include <linux/platform_device.h>
+#include <linux/uaccess.h>
+#include <asm/uaccess.h>
 
 #ifdef CONFIG_SIG_MOTION
 #undef CONFIG_HAS_EARLYSUSPEND
@@ -32,6 +37,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/sensors.h>
+#include <linux/hardware_info.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -48,6 +54,7 @@
 #include <sys/types.h>
 #include <string.h>
 #endif
+#include <linux/miscdevice.h>
 
 #include "bstclass.h"
 
@@ -61,6 +68,8 @@
 #endif
 
 #define BMA2X2_SENSOR_IDENTIFICATION_ENABLE
+#define GS_GET_RAW_DATA_FOR_CALI	_IOW('c', 9, int *)
+#define GS_REC_DATA_FOR_PER	_IOW('c', 10, int *)
 
 #define SENSOR_NAME                 "bma2x2-accel"
 #define ABSMIN                      -512
@@ -1399,6 +1408,13 @@ static const struct interrupt_map_t int_map[] = {
 #define MAX_RANGE_MAP	4
 
 #define BMA_CAL_BUF_SIZE	99
+#define DEBUG
+#ifdef DEBUG
+#define wing_info(fmt, ...) \
+	printk("[wingtech] %s: "pr_fmt(fmt), __FUNCTION__, ##__VA_ARGS__)
+#else
+#define wing_info(fmt, ...)
+#endif
 
 struct bma2x2_type_map_t {
 
@@ -1462,6 +1478,12 @@ struct bma2x2acc {
 	s16 y;
 	s16 z;
 };
+struct cali_data{
+		int x ;
+		int y ;
+		int z ;
+		int offset;
+};
 
 struct bma2x2_platform_data {
 	int poll_interval;
@@ -1503,6 +1525,7 @@ struct bma2x2_data {
 	struct bst_dev *bst_acc;
 
 	struct bma2x2acc value;
+	struct bma2x2acc cali_value;
 	struct mutex value_mutex;
 	struct mutex enable_mutex;
 	struct mutex mode_mutex;
@@ -1566,6 +1589,7 @@ static int bma2x2_eeprom_prog(struct i2c_client *client);
 static int bma2x2_get_sensitivity(struct bma2x2_data *bma2x2, int range);
 static void bma2x2_pinctrl_state(struct bma2x2_data *data, bool active);
 
+static struct bma2x2_data *bma_global_data;
 static struct sensors_classdev sensors_cdev = {
 		.name = "bma2x2-accel",
 		.vendor = "bosch",
@@ -5022,6 +5046,9 @@ static void bma2x2_report_axis_data(struct bma2x2_data *bma2x2,
 			"read accel data failed! err = %d\n", err);
 		return;
 	}
+	value->x = value->x-bma_global_data->cali_value.x;
+	value->y = value->y-bma_global_data->cali_value.y;
+	value->z = value->z-bma_global_data->cali_value.z;
 	input_report_abs(bma2x2->input, ABS_X,
 			(int)value->x << bma2x2->sensitivity);
 	input_report_abs(bma2x2->input, ABS_Y,
@@ -7558,6 +7585,84 @@ static void bma2x2_pinctrl_state(struct bma2x2_data *data,
 	}
 	dev_dbg(&dev, "Select pinctrl state=%d\n", active);
 }
+/* GS open fops */
+static int gs_open(struct inode *inode, struct file *file)
+{
+	return nonseekable_open(inode, file);
+}
+
+/* GS release fops */
+static int gs_release(struct inode *inode, struct file *file)
+{
+
+
+	return 0;
+}
+
+/* GS IOCTL */
+static long gs_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+
+	int rc = 0;
+	int err = 0;
+	void __user *argp = (void __user *)arg;
+
+	struct cali_data rawdata;
+	struct cali_data calidata;
+	struct 	bma2x2acc value;
+
+	switch (cmd) {
+
+	case GS_REC_DATA_FOR_PER:
+			if (copy_from_user(&calidata, argp, sizeof(calidata)))
+			return -EFAULT;
+			bma_global_data->cali_value.x = calidata.x;
+			bma_global_data->cali_value.y = calidata.y;
+			bma_global_data->cali_value.z = calidata.z;
+			printk("xmm gsensor nv cali x=%d, y=%d, z=%d\n", calidata.x, calidata.y, calidata.z);
+			break;
+	case GS_GET_RAW_DATA_FOR_CALI:
+			err = bma2x2_read_accel_xyz(bma_global_data->bma2x2_client,
+			bma_global_data->sensor_type, &value);
+		if (err < 0) {
+			dev_err(&bma_global_data->bma2x2_client->dev,
+				"read accel data failed! err = %d\n", err);
+			return -EINVAL;
+			}
+		mutex_lock(&bma_global_data->value_mutex);
+			rawdata.x = (int)value.x;
+			rawdata.y = (int)value.y;
+			rawdata.z = (int)value.z;
+		mutex_unlock(&bma_global_data->value_mutex);
+			rawdata.offset = 16384;
+			printk("xmm gsensor fastmmi read x=%d, y=%d, z=%d\n", rawdata.x, rawdata.y, rawdata.z);
+			if (copy_to_user(argp, &rawdata, sizeof(rawdata))) {
+				printk("xmm, cali err\n");
+				return -EFAULT;
+			}
+			break;
+
+	default:
+			pr_err("%s: INVALID COMMAND %d\n",
+				__func__, _IOC_NR(cmd));
+			rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+static const struct file_operations gs_fops = {
+	.owner = THIS_MODULE,
+	.open = gs_open,
+	.release = gs_release,
+	.unlocked_ioctl = gs_ioctl
+};
+
+static struct miscdevice gs_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "gsensor",
+	.fops = &gs_fops
+};
 
 static int bma2x2_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
@@ -7570,6 +7675,8 @@ static int bma2x2_probe(struct i2c_client *client,
 
 	struct input_dev *dev_interrupt;
 
+	wing_info("start...\n");
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "i2c_check_functionality error\n");
 		err = -EPERM;
@@ -7580,6 +7687,7 @@ static int bma2x2_probe(struct i2c_client *client,
 		err = -ENOMEM;
 		goto exit;
 	}
+	bma_global_data = data;
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
 			sizeof(*pdata), GFP_KERNEL);
@@ -7917,6 +8025,12 @@ static int bma2x2_probe(struct i2c_client *client,
 
 	bma2x2_pinctrl_state(data, false);
 	bma2x2_power_ctl(data, false);
+	err = misc_register(&gs_misc);
+	if (err < 0) {
+		return err;
+	}
+
+	wing_info("success.\n");
 	return 0;
 
 remove_bst_acc_sysfs_exit:
@@ -7977,6 +8091,7 @@ pdata_free_exit:
 kfree_exit:
 	kfree(data);
 exit:
+	wing_info("failed.\n");
 	return err;
 }
 

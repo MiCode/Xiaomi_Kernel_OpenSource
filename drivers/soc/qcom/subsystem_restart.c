@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1476,6 +1477,15 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->dev.release = subsys_device_release;
 	subsys->notif_state = -1;
 	subsys->desc->sysmon_pid = -1;
+	if (0 == strncmp(WT_SUBSYSTEM_REASTART_LEVEL, "SYSTEM", 6)) {
+		printk("XXX::restartlevel system\r\n");
+		subsys->restart_level = RESET_SOC;
+	}
+
+	if (0 == strncmp(WT_SUBSYSTEM_REASTART_LEVEL, "RELATED", 7)) {
+		printk("XXX::restartlevel related\r\n");
+		subsys->restart_level = RESET_SUBSYS_COUPLED;
+	}
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 

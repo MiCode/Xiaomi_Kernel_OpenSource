@@ -1,0 +1,523 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8939-qrd.dtsi"
+#include "msm8939-camera-sensor-qrd-88509.dtsi"
+
+&soc {
+	i2c@78b9000 {/* BLSP1 QUP5 */
+		ftech@3E {
+			compatible = "focaltech,5336";
+			reg = <0x3E>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2008>;
+			vdd-supply = <&pm8916_l17>;
+			vcc_i2c-supply = <&pm8916_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			ftech,name = "ft5336";
+			ftech,family-id = <0x36>;
+			ftech,reset-gpio = <&msm_gpio 12 0x0>;
+			ftech,irq-gpio = <&msm_gpio 13 0x2008>;
+			ftech,display-coords = <0 0 720 1280>;
+			ftech,panel-coords = <0 0 720 1280>;
+			/*ftech,button-map= <139 102 158>;*/
+			ftech,virtual-key1 = <139 180 2000>;/*menu*/
+			ftech,virtual-key2 = <172 540 2000>;/*home*/
+			ftech,virtual-key3 = <158 900 2000>;/*back*/
+			ftech,no-force-update;
+			ftech,i2c-pull-up;
+			ftech,group-id = <1>;
+			ftech,hard-reset-delay-ms = <20>;
+			ftech,soft-reset-delay-ms = <200>;
+			ftech,num-max-touches = <10>;
+			ftech,fw-delay-aa-ms = <30>;
+			ftech,fw-delay-55-ms = <30>;
+			ftech,fw-upgrade-id1 = <0x79>;
+			ftech,fw-upgrade-id2 = <0x18>;
+			ftech,fw-delay-readid-ms = <10>;
+			ftech,fw-delay-era-flsh-ms = <2000>;
+			ftech,fw-auto-cal;
+			ftech,ignore-id-check;
+		};
+
+		focaltech@38 {
+			compatible = "focaltech,5x06";
+			reg = <0x38>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2008>;
+			vdd-supply = <&pm8916_l17>;
+			vcc_i2c-supply = <&pm8916_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			focaltech,name = "ft6436";
+			focaltech,family-id = <0x36>;
+			focaltech,reset-gpio = <&msm_gpio 12 0x0>;
+			focaltech,irq-gpio = <&msm_gpio 13 0x2008>;
+			focaltech,display-coords = <0 0 1080 1920>;
+			focaltech,panel-coords = <0 0 1080 1920>;
+			focaltech,button-map= <139 102 158>;
+			focaltech,no-force-update;
+			focaltech,i2c-pull-up;
+			focaltech,group-id = <1>;
+			focaltech,hard-reset-delay-ms = <20>;
+			focaltech,soft-reset-delay-ms = <200>;
+			focaltech,num-max-touches = <10>;
+			focaltech,fw-delay-aa-ms = <30>;
+			focaltech,fw-delay-55-ms = <30>;
+			focaltech,fw-upgrade-id1 = <0x79>;
+			focaltech,fw-upgrade-id2 = <0x18>;
+			focaltech,fw-delay-readid-ms = <10>;
+			focaltech,fw-delay-era-flsh-ms = <2000>;
+			focaltech,fw-auto-cal;
+			focaltech,ignore-id-check;
+		};
+
+
+		ist30xx@50 {
+			compatible = "imagis,ist30xx-ts";
+			reg = <0x50>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2008>;
+			vdd-supply = <&pm8916_l17>;
+			vcc_i2c-supply = <&pm8916_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			ist30xx,name = "ist30xx";
+			ist30xx,family-id = <0x36>;
+			ist30xx,reset-gpio = <&msm_gpio 12 0x0>;
+			ist30xx,irq-gpio = <&msm_gpio 13 0x2008>;
+			};
+
+	};
+
+	i2c@78ba000 {/* i2c 6 */
+		aw2013@45 {/*blink */
+			compatible = "awinc,aw2013";
+			reg = <0x45>;
+			rgb_led-supply = <&pm8916_l16>;
+
+			red {
+				label = "red";
+				linux,default-trigger = "battery-red";
+				default-state = "off";
+				retain-state-suspended;
+			};
+
+			green {
+				label = "green";
+				linux,default-trigger = "battery-green";
+				default-state = "off";
+				retain-state-suspended;
+			};
+
+			blue {
+				label = "blue";
+				linux,default-trigger = "battery-blue";
+				default-state = "off";
+				retain-state-suspended;
+			};
+			white {
+				label = "white";
+				linux,default-trigger = "none";
+				default-state = "off";
+				retain-state-suspended;
+			};
+
+			yellow {
+				label = "yellow";
+				linux,default-trigger = "none";
+				default-state = "off";
+				retain-state-suspended;
+			};
+
+			cyan {
+				label = "cyan";
+				linux,default-trigger = "none";
+				default-state = "off";
+				retain-state-suspended;
+			};
+			purple {
+				label = "purple";
+				linux,default-trigger = "none";
+				default-state = "off";
+				retain-state-suspended;
+			};
+
+		};
+	};
+
+
+	fpc1020 {
+		status = "ok";
+		compatible = "fpc,fpc1020";
+		input-device-name = "fpc1020";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <49 0x0>;
+		fpc,gpio_rst	= <&msm_gpio 52 0>;
+		fpc,gpio_irq	= <&msm_gpio 49 0>;
+		fpc,use_fpc2050 = <1>;
+		fpc,enable-on-boot;
+		fpc,enable-wakeup;
+		/* EV_MSC,MSC_SCAN */
+		fpc,event-type = <4>;
+		fpc,event-code = <4>;
+
+		spi-max-frequency = <4800000>;
+		spi-qup-id = <1>;
+		clock-names = "iface_clk","core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+		<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+
+		pinctrl-names = "fpc1020_reset_reset",
+				"fpc1020_reset_active",
+				"fpc1020_irq_active";
+
+		pinctrl-0 = <&fpc_reset_reset>;
+		pinctrl-1 = <&fpc_reset_active>;
+		pinctrl-2 = <&fpc_irq_active>;
+	};
+
+	goodix_fp {
+		status = "ok";
+		compatible = "goodix,fingerprint";
+		spi-max-frequency = <8000000>;
+		input-device-name = "gf3208";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <49 0x0>;
+		spi-qup-id = <1>;
+
+		goodix,gpio_reset = <&msm_gpio 52 0>;
+		goodix,gpio_irq = <&msm_gpio 49 0>;
+
+		clock-names = "iface_clk","core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+
+		pinctrl-names = "goodix_irq_active";
+		pinctrl-0 = <&goodix_irq_active>;
+
+	};
+
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "ft5x06_ts";
+		qcom,disp-maxx = <1080>;
+		qcom,disp-maxy = <1920>;
+		qcom,panel-maxx = <1080>;
+		qcom,panel-maxy = <2098>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
+	};
+
+	gen-vkey1 {
+		compatible = "qcom,gen-vkeys1";
+		label = "ft5x06_720p";
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <720>;
+		qcom,panel-maxy = <1458>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
+	};
+
+	gen-vkeys_ist {
+		compatible = "qcom,gen-vkeys_ist";
+		label = "ist30xx_ts_input";
+		qcom,disp-maxx = <1080>;
+		qcom,disp-maxy = <1920>;
+		qcom,panel-maxx = <1080>;
+		qcom,panel-maxy = <2098>;
+		qcom,key-codes = <139 172 158>;
+		qcom,y-offset = <0>;
+	};
+
+	gpio-leds {
+		compatible = "gpio-leds";
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_led_off>;
+
+		infred {
+			gpios = <&msm_gpio 9 0>;
+			label = "infrared";
+			linux,default-trigger = "infra-red";
+			default-state = "off";
+			retain-state-suspended;
+		};
+
+	};
+	sound {
+		compatible = "qcom,msm8x16-audio-codec";
+		qcom,model = "msm8939-snd-card-skuk";
+		qcom,msm-snd-card-id = <0>;
+		qcom,msm-codec-type = "internal";
+		qcom,msm-ext-pa = "primary";
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-micbias1-ext-cap;
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,audio-routing =
+			"RX_BIAS","MCLK",
+			"SPK_RX_BIAS","MCLK",
+			"INT_LDO_H","MCLK",
+			"MIC BIAS External","Handset Mic",
+			"MIC BIAS Internal2","Headset Mic",
+			"MIC BIAS External","Secondary Mic",
+			"AMIC1","MIC BIAS External",
+			"AMIC2","MIC BIAS Internal2",
+			"AMIC3","MIC BIAS External";
+		pinctrl-names = "cdc_lines_act",
+				"cdc_lines_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus>;
+		asoc-platform = <&pcm0>,<&pcm1>,<&voip>,<&voice>,
+				<&loopback>,<&compress>,<&hostless>,
+				<&afe>,<&lsm>,<&routing>,<&lpa>;
+		asoc-platform-names = "msm-pcm-dsp.0","msm-pcm-dsp.1",
+				"msm-voip-dsp","msm-pcm-voice","msm-pcm-loopback",
+				"msm-compress-dsp","msm-pcm-hostless","msm-pcm-afe",
+				"msm-lsm-client","msm-pcm-routing","msm-pcm-lpa";
+		asoc-cpu = <&dai_pri_auxpcm>,<&dai_hdmi>,<&dai_mi2s0>,<&dai_mi2s1>,
+				<&dai_mi2s2>,<&dai_mi2s3>,<&sb_0_rx>,<&sb_0_tx>,
+				<&sb_1_rx>,<&sb_1_tx>,<&sb_3_rx>,<&sb_3_tx>,
+				<&sb_4_rx>,<&sb_4_tx>,<&sb_5_tx>,<&bt_sco_rx>,
+				<&bt_sco_tx>,<&int_fm_rx>,<&int_fm_tx>,<&afe_pcm_rx>,
+				<&afe_pcm_tx>,<&afe_proxy_rx>,<&afe_proxy_tx>,
+				<&incall_record_rx>,<&incall_record_tx>,<&incall_music_rx>,
+				<&incall_music_2_rx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1","msm-dai-q6-hdmi.8","msm-dai-q6-mi2s.0",
+				"msm-dai-q6-mi2s.1","msm-dai-q6-mi2s.2",
+				"msm-dai-q6-mi2s.3","msm-dai-q6-dev.16384",
+				"msm-dai-q6-dev.16385","msm-dai-q6-dev.16386",
+				"msm-dai-q6-dev.16387","msm-dai-q6-dev.16390",
+				"msm-dai-q6-dev.16391","msm-dai-q6-dev.16392",
+				"msm-dai-q6-dev.16393","msm-dai-q6-dev.16395",
+				"msm-dai-q6-dev.12288","msm-dai-q6-dev.12289",
+				"msm-dai-q6-dev.12292","msm-dai-q6-dev.12293",
+				"msm-dai-q6-dev.224","msm-dai-q6-dev.225",
+				"msm-dai-q6-dev.241","msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.32771","msm-dai-q6-dev.32772",
+				"msm-dai-q6-dev.32773","msm-dai-q6-dev.32770";
+		asoc-codec = <&stub_codec>,<&pm8916_tombak_dig>;
+		asoc-codec-names = "msm-stub-codec.1","tombak_codec";
+	};
+};
+
+
+&tlmm_pinmux {
+	bma2x2_int1_pin {
+		qcom,pins = <&gp 112>;
+		qcom,num-grp-pins = <1>;
+		label = "bma2x2_int1_pin";
+		bma2x2_int1_default: int1_default {
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+		bma2x2_int1_sleep: int1_sleep {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+
+	bma2x2_int2_pin {
+		qcom,pins = <&gp 114>;
+		qcom,num-grp-pins = <1>;
+		label = "bma2x2_int2_pin";
+		bma2x2_int2_default: int2_default {
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+		bma2x2_int2_sleep: int2_sleep {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+
+	ltr559_int_pin {
+		qcom,pins = <&gp 113>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "alsps-irq";
+		alsps_default: alsps_default {
+		drive-strength = <6>;
+		bias-pull-up;
+		};
+		alsps_sleep: alsps_sleep {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+
+	kxtj9_int1_pin {
+		qcom,pins = <&gp 112>;
+		qcom,num-grp-pins = <1>;
+		label = "kxtj9_int1_pin";
+		kxtj9_int1_default: int1_default {
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+	};
+
+	kxtj9_int2_pin {
+		qcom,pins = <&gp 114>;
+		qcom,num-grp-pins = <1>;
+		label = "kxtj9_int2_pin";
+		kxtj9_int2_default: int2_default {
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+	};
+
+};
+
+&i2c_0 {/* BLSP1 QUP2 */
+
+
+	bosch@18 {
+		compatible = "bosch,bma2x2";
+		reg = <0x18>;
+		pinctrl-names = "bma_default","bma_sleep";
+		pinctrl-0 = <&bma2x2_int1_default &bma2x2_int2_default>;
+		pinctrl-1 = <&bma2x2_int1_sleep &bma2x2_int2_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <112 0x2002>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		bosch,init-interval = <200>;
+		bosch,place = <6>;
+		bosch,gpio-int1 = <&msm_gpio 112 0x2002>;
+		bosch,gpio-int2 = <&msm_gpio 114 0x2002>;
+	};
+
+	kionix@f {
+		compatible = "kionix,kxtj9";
+		reg = <0x0e>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&kxtj9_int1_default &kxtj9_int2_default>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <81 0x2>;
+		vdd-supply = <&pm8916_l6>;
+		vio-supply = <&pm8916_l6>;
+		kionix,min-interval = <5>;
+		kionix,init-interval = <200>;
+		kionix,axis-map-x = <0>;
+		kionix,axis-map-y = <1>;
+		kionix,axis-map-z = <2>;
+		kionix,g-range = <2>;
+
+		kionix,negate-y;
+		kionix,negate-z;
+		kionix,res-12bit;
+	};
+
+
+	liteon@23 {
+	  	compatible = "ltr,ltr559";
+		reg = <0x23>;
+		pinctrl-names = "default","sleep";
+		pinctrl-0 = <&alsps_default>;
+		pinctrl-1 = <&alsps_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <113 0x2>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		ltr,irq-gpio = <&msm_gpio 113 0x2>;
+		ltr,ps-threshold = <45>;
+		ltr,ps-hysteresis-threshold = <30>;
+		ltr,als-polling-time = <200>;
+	};
+	stk@48 {
+		compatible = "stk,stk3x1x";
+		reg = <0x48>;
+		pinctrl-names = "default","sleep";
+		pinctrl-0 = <&alsps_default>;
+		pinctrl-1 = <&alsps_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <113 0x2>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		stk,irq-gpio = <&msm_gpio 113 0x02>;
+		stk,state-reg = <0x0>;
+		stk,psctrl-reg = <0x31>;
+		stk,alsctrl-reg = <0x39>;
+		stk,ledctrl-reg = <0xFF>;
+		stk,wait-reg = <0x0F>;
+		stk,ps-thd-h = <1700>;
+		stk,ps-thd-l = <1500>;
+		stk,transmittance = <500>;
+		stk,use-fir;
+	};
+
+
+	akm@c {
+		compatible = "ak,ak09911";
+		reg = <0x0c>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		akm,auto-report;
+		akm,use-hrtimer;
+		akm,layout = <0x3>;
+	};
+
+	yamaha@2e {/* Magnetic field sensor */
+		compatible = "yamaha,yas537";
+		reg = <0x2e>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		yas,position = <0>;
+	};
+
+	mpu6050@68 { /* Gyroscope and accelerometer sensor combo  */
+		compatible = "invn,mpu6050";
+		reg = <0x68>;
+		pinctrl-names = "mpu_default","mpu_sleep";
+		pinctrl-0 = <&mpu6050_default>;
+		pinctrl-1 = <&mpu6050_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <115 0x2002>;
+		vdd-supply = <&pm8916_l17>;
+		vlogic-supply = <&pm8916_l16>;
+		vi2c-supply = <&pm8916_l6>;
+		invn,gpio-int = <&msm_gpio 115 0x2002>;
+		invn,place = "Landscape Left Back Side";
+	};
+
+};
+
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 25>;
+};
+
+&mdss_dsi0 {
+	pinctrl-names = "mdss_default","mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+
+};
+

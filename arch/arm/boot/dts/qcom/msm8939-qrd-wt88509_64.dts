@@ -1,0 +1,310 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8939-v3.0.dtsi"
+#include "msm8939-qrd-wt88509_64.dtsi"
+#include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
+#include "dsi-panel-r63350-tianma-1080p-video.dtsi"
+#include "dsi-panel-nt35596-1080p-video.dtsi"
+#include "dsi-panel-hx8394f-boe-720p-video.dtsi"
+#include "dsi-panel-nt35521s-ebbg-720p-video.dtsi"
+#include "dsi-panel-otm1285a-tianma-720p-video.dtsi"
+#include "dsi-panel-ili9881c-tianma-720p-video.dtsi"
+
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8939v3.0 QRD SKUK";
+	compatible = "qcom,msm8939-qrd-wt88509_64", "qcom,msm8939-qrd", "qcom,msm8939", "qcom,qrd";
+	qcom,board-id = <0x1000b 11>, <0x2000b 11>;
+};
+
+&tlmm_pinmux {
+	tps65132-en-pin {
+		qcom,pins = <&gp 97>, <&gp 98>;
+		qcom,num-grp-pins = <2>;
+		label = "tps65132_en_pins";
+		qcom,pin-func = <0>;
+
+		tps65132_en_default: en-default {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};
+
+&i2c_0 {/* BLSP1 QUP2 */
+	tps65132@3e {
+		compatible = "ti,tps65132";
+		reg = <0x3e>;
+		i2c-pwr-supply = <&pm8916_l6>;
+		ti,en-gpio-lpm;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tps65132_en_default>;
+
+		regulators {
+			tps65132_pos: pos-boost {
+				regulator-name = "tps65132-pos";
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <5000000>;
+				ti,discharge-enable;
+				ti,enable-time = <800>;
+				ti,current-limit = <200000>;
+				ti,en-gpio = <&msm_gpio 97 0>;
+			};
+
+			tps65132_neg: neg-boost {
+				regulator-name = "tps65132-neg";
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <5000000>;
+				ti,discharge-enable;
+				ti,enable-time = <800>;
+				ti,current-limit = <40000>;
+				ti,en-gpio = <&msm_gpio 98 0>;
+			};
+		};
+	};
+};
+
+
+/*
+&i2c_4 {
+	smb1360_otg_supply: smb1360-chg-fg@14 {
+		compatible = "qcom,smb1360-chg-fg";
+		reg = <0x14>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <62 2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,stat-pulsed-irq;
+		qcom,chg-inhibit-disabled;
+		qcom,float-voltage-mv = <4350>;
+		qcom,iterm-ma = <200>;
+		qcom,charging-timeout = <384>;
+		qcom,otg-batt-curr-limit = <950>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,thermal-mitigation = <1500 1000 800 800>;
+		qcom,fg-auto-recharge-soc = <99>;
+		qcom,empty-soc-disabled;
+		regulator-name = "smb1360_otg_vreg";
+		qcom,awake-min-soc;
+		qcom,batt-profile-select;
+		qcom,smb1360-vadc = <&pm8916_vadc>;
+		qcom,batt-id-vref-uv = <1800000>;
+		qcom,batt-id-rpullup-kohm = <100>;
+		qcom,profile-a-rid-kohm = <33>;
+		qcom,profile-b-rid-kohm = <91>;
+		qcom,config-hard-thresholds;
+		qcom,hot-bat-decidegc = <550>;
+		qcom,cold-bat-decidegc = <(-150)>;
+	};
+};
+*/
+
+
+
+&i2c_4 {
+	smb358_otg_vreg: smb358-charger@57 {
+	compatible = "qcom,smb358-charger";
+	reg = <0x57>;
+	interrupt-parent = <&msm_gpio>;
+	interrupts = <62 0x0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&smb_int_default>;
+	qcom,irq-gpio = <&msm_gpio 62 0x0>;
+	qcom,float-voltage-mv = <4400>;
+	qcom,recharge-mv = <50>;
+	regulator-name = "smb358_otg_vreg";
+	qcom,thermal-mitigation = <2000 1000 800 800>;
+	qcom,fastchg-current-max-ma = <2000>;
+	qcom,bms-psy-name = "bms";
+	qcom,iterm-disabled;
+	qcom,bms-controlled-charging;
+	qcom,chg-inhibit-disabled;
+	qcom,chg-vadc = <&pm8916_vadc>;
+	qcom,chg-adc_tm = <&pm8916_adc_tm>;
+	qcom,using-pmic-therm;
+	qcom,bat-present-decidegc = <(300)>;
+	qcom,disable-apsd;
+/*
+ * Below properties are used for enable JEITA
+ */
+	qcom,hot-bat-decidegc = <600>;
+	qcom,warm-bat-decidegc = <450>;
+	qcom,cool-bat-decidegc = <100>;
+	qcom,cold-bat-decidegc = <0>;
+	qcom,warm-bat-ma = <1500>;
+	qcom,cool-bat-ma = <1000>;
+	qcom,warm-bat-mv = <4100>;
+	qcom,cool-bat-mv = <4350>;
+	qcom,battery-fcc = <4000>;
+	status = "ok";
+	};
+	cw2015: cw2015@62 {
+	compatible = "cellwise, cw2015";
+	reg = <0x62>;
+	vdd-supply = <&pm8916_l17>;
+	vcc_i2c-supply = <&pm8916_l6>;
+	interrupt-parent = <&msm_gpio>;
+	interrupts = <120 8>;
+	cw2015,irq-gpio=<120>;
+	};
+};
+
+
+
+&pm8916_bms {
+
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,r-conn-mohm = <0>;
+	qcom,shutdown-soc-valid-limit = <100>;
+	qcom,low-soc-calculate-soc-threshold = <15>;
+	qcom,low-voltage-calculate-soc-ms = <1000>;
+	qcom,low-soc-calculate-soc-ms = <5000>;
+	qcom,calculate-soc-ms = <20000>;
+	qcom,volatge-soc-timeout-ms = <60000>;
+	qcom,low-voltage-threshold = <3450000>;
+	qcom,s3-ocv-tolerence-uv = <1200>;
+	qcom,s2-fifo-length = <5>;
+	qcom,low-soc-fifo-length = <2>;
+	qcom,resume-soc = <99>;
+
+
+	qcom,warm-bat-temperature = <450>;
+	qcom,cool-bat-temperature = <100>;
+	qcom,warm-chg-full-term-current = <(-150000)> ;
+	qcom,cool-chg-full-term-current = <(-150000)> ;
+	qcom,normal-chg-full-term-current = <(-180000)>;
+
+	qcom,warm-chg-full-term_vbat = <4000000>;
+	qcom,cool-chg-full-term_vbat = <4250000>;
+	qcom,normal-chg-full-term_vbat = <4350000>;
+
+	qcom,warm-chg-full-term-ocv = <4000000> ;
+	qcom,cool-chg-full-term-ocv = <4200000> ;
+	qcom,normal-chg-full-term-ocv = <4330000>;
+
+	qcom,cool-chg-full-term-soc = <85>;
+	qcom,cool-chg-recharge-soc = <84>;
+	qcom,warm-chg-full-term-soc = <70>;
+	qcom,warm-chg-recharge-soc = <68>;
+	qcom,current-report-eoc;
+	qcom,use-reported-soc;
+	qcom,report-charger-eoc;
+	status = "ok";
+
+};
+
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_r63350_1080p_video>;
+	qcom,dsi-pref-sub-pan = <&dsi_nt35596_1080_vid>;
+	qcom,dsi-pref-sub1-pan = <&dsi_hx8394f_boe_720_vid>;
+	qcom,dsi-pref-sub2-pan = <&dsi_nt35521s_ebbg_720_video>;
+	qcom,dsi-pref-sub3-pan = <&dsi_otm1285a_tianma_720p_video>;
+	qcom,dsi-pref-sub4-pan = <&dsi_ili9881c_tianma_720p_video>;
+	vsp-supply = <&tps65132_pos>;
+	vsn-supply = <&tps65132_neg>;
+
+	qcom,ctrl-supply-entries {
+		/delete-node/ qcom,ctrl-supply-entry@0;
+	};
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "vsp";
+			qcom,supply-min-voltage = <5000000>;
+			qcom,supply-max-voltage = <5000000>;
+			qcom,supply-enable-load = <200>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,panel-supply-entry@3 {
+			reg = <3>;
+			qcom,supply-name = "vsn";
+			qcom,supply-min-voltage = <5000000>;
+			qcom,supply-max-voltage = <5000000>;
+			qcom,supply-enable-load = <40>;
+			qcom,supply-disable-load = <0>;
+			qcom,supply-post-off-sleep = <3>;
+		};
+	};
+};
+
+&dsi_r63350_1080p_video {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_nt35596_1080_vid {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_hx8394f_boe_720_vid {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_nt35521s_ebbg_720_video {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_otm1285a_tianma_720p_video {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_ili9881c_tianma_720p_video {
+	qcom,cont-splash-enabled;
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <68>;
+		qcom,vref-batt-therm = <1800000>;
+
+		#include "batterydata-wingtech-desai_SAMSUNG-4v4-4000mah.dtsi"
+		#include "batterydata-wingtech-feimaotui_SONY-4v4-4000mah.dtsi"
+		#include "batterydata-wingtech-xingwangda_ATL-4v4-4000mah.dtsi"
+		#include "batterydata-wingtech-guangyu_Coslight-4v4-4000mah.dtsi"
+	};
+};
+
+&pm8916_chg {
+	status = "ok";
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&usb_otg {
+	   qcom,hsusb-otg-mode = <3>;
+	   qcom,usbid-gpio = <&msm_gpio 110 0>;
+	   pinctrl-names = "default";
+	   pinctrl-0 = <&usbid_default>;
+	   vbus_otg-supply = <&smb358_otg_vreg>;
+};
+
+&pm8916_vadc {
+	chan@32 {
+		qcom,vadc-thermal-node;
+	};
+};
+

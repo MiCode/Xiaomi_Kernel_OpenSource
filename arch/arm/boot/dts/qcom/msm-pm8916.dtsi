@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,7 +41,7 @@
 				qcom,pull-up = <1>;
 				qcom,s1-timer = <10256>;
 				qcom,s2-timer = <2000>;
-				qcom,s2-type = <1>;
+				qcom,s2-type = <7>;
 				linux,code = <116>;
 			};
 
@@ -207,24 +208,25 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,vddmax-mv = <4200>;
-			qcom,vddsafe-mv = <4200>;
-			qcom,vinmin-mv = <4308>;
+			qcom,vddmax-mv = <4350>;
+			qcom,vddsafe-mv = <4350>;
+			qcom,vinmin-mv = <4470>;
 			qcom,ibatsafe-ma = <1440>;
-			qcom,thermal-mitigation = <1440 720 630 0>;
-			qcom,cool-bat-decidegc = <100>;
+			qcom,thermal-mitigation = <1440 1150 460 0>;
+			qcom,cool-bat-decidegc = <150>;
 			qcom,warm-bat-decidegc = <450>;
-			qcom,cool-bat-mv = <4100>;
-			qcom,warm-bat-mv = <4100>;
-			qcom,ibatmax-warm-ma = <360>;
-			qcom,ibatmax-cool-ma = <360>;
-			qcom,batt-hot-percentage = <25>;
-			qcom,batt-cold-percentage = <80>;
-			qcom,tchg-mins = <232>;
+			qcom,cool-bat-mv = <4350>;
+			qcom,warm-bat-mv = <4350>;
+			qcom,ibatmax-warm-ma = <1150>;
+			qcom,ibatmax-cool-ma = <460>;
+			qcom,batt-hot-percentage = <35>;
+			qcom,batt-cold-percentage = <70>;
+			qcom,tchg-mins = <512>;
+			qcom,resume-soc = <99>;
 			qcom,chg-vadc = <&pm8916_vadc>;
 			qcom,chg-adc_tm = <&pm8916_adc_tm>;
 
-			status = "disabled";
+			status = "ok";
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -266,12 +268,12 @@
 			compatible = "qcom,qpnp-vm-bms";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			status = "disabled";
+			status = "ok";
 
-			qcom,v-cutoff-uv = <3400000>;
-			qcom,max-voltage-uv = <4200000>;
+			qcom,v-cutoff-uv = <3300000>;
+			qcom,max-voltage-uv = <4350000>;
 			qcom,r-conn-mohm = <0>;
-			qcom,shutdown-soc-valid-limit = <100>;
+			qcom,shutdown-soc-valid-limit = <10>;
 			qcom,low-soc-calculate-soc-threshold = <15>;
 			qcom,low-voltage-calculate-soc-ms = <1000>;
 			qcom,low-soc-calculate-soc-ms = <5000>;
@@ -541,6 +543,7 @@
 			reg-names = "qpnp-lpg-channel-base";
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <9>;
+			qcom,force-pwm-size = <9>;
 			#pwm-cells = <2>;
 		};
 
@@ -548,7 +551,7 @@
 			compatible = "qcom,qpnp-vibrator";
 			reg = <0xc000 0x100>;
 			label = "vibrator";
-			status = "disabled";
+			status = "okay";
 		};
 
 		pm8916_tombak_dig: msm8x16_wcd_codec@f000{

@@ -78,6 +78,7 @@ obj-$(CONFIG_SENSORS_BMA2X2)	+= bstclass.o
 
 obj-$(CONFIG_SENSORS_BMA2X2)	+= bma2x2.o
 obj-$(CONFIG_SENSORS_LTR553)	+= ltr553.o
+obj-$(CONFIG_INPUT_LTR559)	  += ltr559.o
 
 ifeq ($(CONFIG_SENSORS_BMA2X2_ENABLE_INT1),y)
 	EXTRA_CFLAGS += -DBMA2X2_ENABLE_INT1
@@ -86,3 +87,10 @@ endif
 ifeq ($(CONFIG_BOSCH_BMA2X2_ENABLE_INT2),y)
 	EXTRA_CFLAGS += -DBMA2X2_ENABLE_INT2
 endif
+obj-$(CONFIG_INPUT_LTR553)	  += ltr553.o
+obj-$(CONFIG_SENSORS_YAS537)  += yas_mag_drv-yas532.o
+obj-$(CONFIG_SENSORS_YAS537)  += yas_mag_drv-yas537.o
+obj-$(CONFIG_SENSORS_YAS537) += yas_mag_kernel.o
+obj-$(CONFIG_SENSORS_ELAN_EPL2182)	  += elan_epl2182.o
+obj-$(CONFIG_SENSORS_ELAN_EPL259x)	  += epl259x.o
+obj-$(CONFIG_SENSORS_ST480)  += st480.o

@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +20,7 @@
 #include <linux/types.h>
 #include <linux/batterydata-lib.h>
 #include <linux/power_supply.h>
+#include <linux/hardware_info.h>
 
 static int of_batterydata_read_lut(const struct device_node *np,
 			int max_cols, int max_rows, int *ncols, int *nrows,
@@ -394,6 +396,8 @@ struct device_node *of_batterydata_get_best_profile(
 	return best_node;
 }
 
+int battery_type_id = 0 ;
+
 int of_batterydata_read_data(struct device_node *batterydata_container_node,
 				struct bms_battery_data *batt_data,
 				int batt_id_uv)
@@ -441,10 +445,22 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 	}
 	rc = of_property_read_string(best_node, "qcom,battery-type",
 							&battery_type);
-	if (!rc)
+	if (!rc) {
 		pr_info("%s loaded\n", battery_type);
-	else
+
+		if (strcmp(battery_type, "wingtech-desai-4v4-4000mah") == 0)
+			 battery_type_id = 0 ;
+		else if (strcmp(battery_type, "wingtech-feimaotui-4v4-4000mah") == 0)
+			 battery_type_id = 1;
+		else if (strcmp(battery_type, "wingtech-guangyu-4v4-4000mah") == 0)
+			 battery_type_id = 2;
+		else if (strcmp(battery_type, "wingtech-xingwangda-4v4-4000mah") == 0)
+			 battery_type_id = 3;
+
+
+	} else {
 		pr_info("%s loaded\n", best_node->name);
+	}
 
 	return of_batterydata_load_battery_data(best_node,
 					best_id_kohm, batt_data);

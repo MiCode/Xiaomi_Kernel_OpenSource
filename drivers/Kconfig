@@ -188,4 +188,6 @@ source "drivers/soc/Kconfig"
 
 source "drivers/firmware/Kconfig"
 
+source "drivers/fingerprint/Kconfig"
+
 endmenu

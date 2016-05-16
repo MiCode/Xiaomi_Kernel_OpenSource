@@ -20,7 +20,7 @@
 #include <media/rc-core.h>
 #include "rc-core-priv.h"
 
-#define LIRCBUF_SIZE 256
+#define LIRCBUF_SIZE 1024
 
 /**
  * ir_lirc_decode() - Send raw IR data to lirc_dev to be relayed to the

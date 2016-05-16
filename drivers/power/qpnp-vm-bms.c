@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,6 +182,36 @@ struct bms_dt_cfg {
 	int				cfg_ibat_avg_samples;
 	int				cfg_battery_aging_comp;
 	bool				cfg_use_reported_soc;
+
+	bool			cfg_current_report_eoc;
+
+
+	int			 cfg_warm_bat_temperature;
+	int			cfg_cool_bat_temperature;
+
+	int			 cfg_warm_chg_full_term_soc;
+	int			 cfg_cool_chg_full_term_soc;
+
+
+	int			 cfg_warm_chg_recharge_soc;
+	int			 cfg_cool_chg_recharge_soc;
+
+	int			cfg_warm_chg_full_term_current;
+	int			cfg_cool_chg_full_term_current;
+	int			cfg_normal_chg_full_term_current;
+
+
+	int				cfg_warm_chg_full_term_vbat;
+	int				cfg_cool_chg_full_term_vbat;
+	int				cfg_normal_chg_full_term_vbat;
+
+
+
+	int				cfg_warm_chg_full_term_ocv;
+	int				cfg_cool_chg_full_term_ocv;
+	int				cfg_normal_chg_full_term_ocv;
+
+
 };
 
 struct qpnp_bms_chip {
@@ -244,8 +275,8 @@ struct qpnp_bms_chip {
 	u16				charge_cycles;
 	unsigned int			start_soc;
 	unsigned int			end_soc;
-	unsigned int			chg_start_soc;
 
+	unsigned int			chg_start_soc;
 	struct bms_battery_data		*batt_data;
 	struct bms_dt_cfg		dt;
 
@@ -283,12 +314,36 @@ struct qpnp_bms_chip {
 };
 
 static struct qpnp_bms_chip *the_chip;
+static int get_chg_recharge_soc(struct qpnp_bms_chip *chip);
+
+
+#if defined (WT_USE_FAN54015)
+extern int fan_54015_batt_current, fan_54015_batt_ocv;
+#endif
+
 
 static struct temp_curr_comp_map temp_curr_comp_lut[] = {
 			{-300, 15},
 			{250, 17},
 			{850, 28},
 };
+
+
+static struct power_supply *cw2015_psy;
+static int get_prop_batt_capacity_from_cw2015(void);
+static int get_prop_batt_capacity_from_cw2015(void)
+{
+	union power_supply_propval ret = {0,};
+	if (!cw2015_psy)
+		cw2015_psy = power_supply_get_by_name("rk-bat");
+	if (cw2015_psy) {
+		cw2015_psy->get_property(cw2015_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		pr_debug("CW2015_BATTERY_CAPACITY IS:%d\n", ret.intval);
+		return ret.intval;
+	}
+	return -123;
+}
 
 static void disable_bms_irq(struct bms_irq *irq)
 {
@@ -1439,9 +1494,26 @@ static void check_recharge_condition(struct qpnp_bms_chip *chip)
 	int rc;
 	union power_supply_propval ret = {0,};
 	int status = get_battery_status(chip);
+	int recharge_soc = get_chg_recharge_soc(chip);
 
-	if (chip->last_soc > chip->dt.cfg_soc_resume_limit)
-		return;
+	if ((chip->dt.cfg_current_report_eoc)) {
+
+		if (get_prop_batt_capacity_from_cw2015() >= 0) {
+			if (get_prop_batt_capacity_from_cw2015() > recharge_soc)
+				return;
+		} else {
+			if (chip->last_soc > recharge_soc)
+				return;
+		}
+	} else {
+		if (get_prop_batt_capacity_from_cw2015() >= 0) {
+				if (get_prop_batt_capacity_from_cw2015() > chip->dt.cfg_soc_resume_limit)
+				return;
+		} else {
+			if (chip->last_soc > chip->dt.cfg_soc_resume_limit)
+				return;
+		}
+	}
 
 	if (status == POWER_SUPPLY_STATUS_UNKNOWN) {
 		pr_debug("Unable to read battery status\n");
@@ -1464,17 +1536,193 @@ static void check_recharge_condition(struct qpnp_bms_chip *chip)
 	}
 }
 
+
+
+static int get_chg_full_term_soc(struct qpnp_bms_chip *chip)
+{
+	int rc;
+	int batt_temp;
+	int soc_terminate;
+
+	rc = get_batt_therm(chip, &batt_temp);
+	if (rc)
+		batt_temp = BMS_DEFAULT_TEMP;
+	if (batt_temp < chip->dt.cfg_cool_bat_temperature)
+		soc_terminate = chip->dt.cfg_cool_chg_full_term_soc;
+	else if (batt_temp > chip->dt.cfg_warm_bat_temperature)
+		soc_terminate = chip->dt.cfg_warm_chg_full_term_soc;
+	else
+		soc_terminate = 100;
+
+	pr_debug(" soc_terminate %d, batt_temp is %d\n", soc_terminate, batt_temp);
+	return soc_terminate;
+}
+
+static int get_chg_recharge_soc(struct qpnp_bms_chip *chip)
+{
+	int rc;
+	int batt_temp;
+	int recharge_soc;
+
+	rc = get_batt_therm(chip, &batt_temp);
+	if (rc)
+		batt_temp = BMS_DEFAULT_TEMP;
+	if (batt_temp < chip->dt.cfg_cool_bat_temperature)
+		recharge_soc = chip->dt.cfg_cool_chg_recharge_soc;
+	else if (batt_temp > chip->dt.cfg_warm_bat_temperature)
+		recharge_soc = chip->dt.cfg_warm_chg_recharge_soc;
+	else
+		recharge_soc = chip->dt.cfg_soc_resume_limit;
+
+	pr_debug(" recharge_soc %d, batt_temp is %d\n", recharge_soc, batt_temp);
+	return recharge_soc;
+}
+
+static int get_chg_full_terminate_current(struct qpnp_bms_chip *chip)
+{
+	int rc;
+	int batt_temp;
+	int chg_terminate_current;
+
+	rc = get_batt_therm(chip, &batt_temp);
+	if (rc)
+		batt_temp = BMS_DEFAULT_TEMP;
+	if (batt_temp < chip->dt.cfg_cool_bat_temperature)
+		chg_terminate_current = chip->dt.cfg_cool_chg_full_term_current;
+	else if (batt_temp > chip->dt.cfg_warm_bat_temperature)
+		chg_terminate_current = chip->dt.cfg_warm_chg_full_term_current;
+	else
+		chg_terminate_current = chip->dt.cfg_normal_chg_full_term_current;
+
+	pr_debug(" chg_terminate_current %d, batt_temp is %d\n", chg_terminate_current, batt_temp);
+
+	return chg_terminate_current;
+}
+
+static int get_chg_full_terminate_vbat(struct qpnp_bms_chip *chip)
+{
+	int rc;
+	int batt_temp;
+	int chg_terminate_vbat;
+
+	rc = get_batt_therm(chip, &batt_temp);
+	if (rc)
+		batt_temp = BMS_DEFAULT_TEMP;
+	if (batt_temp < chip->dt.cfg_cool_bat_temperature)
+		chg_terminate_vbat = chip->dt.cfg_cool_chg_full_term_vbat;
+	else if (batt_temp > chip->dt.cfg_warm_bat_temperature)
+		chg_terminate_vbat = chip->dt.cfg_warm_chg_full_term_vbat;
+	else
+		chg_terminate_vbat = chip->dt.cfg_normal_chg_full_term_vbat;
+
+
+	pr_debug(" chg_terminate_vbat %d, batt_temp is %d\n", chg_terminate_vbat, batt_temp);
+	return chg_terminate_vbat;
+}
+
+static int get_chg_full_terminate_ocv(struct qpnp_bms_chip *chip)
+{
+	int rc;
+	int batt_temp;
+	int chg_terminate_ocv;
+
+	rc = get_batt_therm(chip, &batt_temp);
+	if (rc)
+		batt_temp = BMS_DEFAULT_TEMP;
+	if (batt_temp <
+		chip->dt.cfg_cool_bat_temperature)
+		chg_terminate_ocv = chip->dt.cfg_cool_chg_full_term_ocv;
+	else if (batt_temp > chip->dt.cfg_warm_bat_temperature)
+		chg_terminate_ocv = chip->dt.cfg_warm_chg_full_term_ocv;
+	else
+		chg_terminate_ocv = chip->dt.cfg_normal_chg_full_term_ocv;
+
+	pr_debug(" chg_terminate_ocv %d, batt_temp is %d\n", chg_terminate_ocv, batt_temp);
+	return chg_terminate_ocv;
+}
+
+static bool check_eoc_current_full_term(struct qpnp_bms_chip *chip)
+{
+	int vbat ;
+	int rc;
+	bool status =  false;
+	bool charging = is_battery_charging(chip);
+	static int full_check_count;
+	int full_term_soc = get_chg_full_term_soc(chip);
+	int full_term_current = get_chg_full_terminate_current(chip);
+	int full_term_vbat = get_chg_full_terminate_vbat(chip);
+	int full_term_ocv = get_chg_full_terminate_ocv(chip);
+	int batt_temp;
+
+	rc = get_battery_voltage(chip, &vbat);
+	if (rc) {
+		pr_err("error reading vbat_sns adc channel=%d, rc=%d\n",
+							VBAT_SNS, rc);
+		vbat = 4400000;
+	}
+	rc = get_batt_therm(chip, &batt_temp);
+	if (rc)
+		batt_temp = BMS_DEFAULT_TEMP;
+
+	if ((get_prop_batt_capacity_from_cw2015() >= 0) && (full_term_soc == 100)) {
+		if ((charging) && (get_prop_batt_capacity_from_cw2015() >= full_term_soc) && (chip->current_now >= full_term_current) && (vbat >= full_term_vbat)) {
+				if (6 == full_check_count) {
+					full_check_count = 0;
+					status = true;
+					chip->dt.cfg_use_reported_soc = 1;
+					printk(" cw2015 full_check_count ok, battery full \n");
+				}
+				printk(" cw2015 full_check_count is %d\n", full_check_count);
+			} else
+				full_check_count = 0;
+	} else {
+		if ((charging) && (chip->last_soc >= full_term_soc)) {
+			if ((chip->current_now >= full_term_current) && (vbat >= full_term_vbat) && (chip->last_ocv_uv >= full_term_ocv)) {
+				full_check_count++ ;
+				if (6 == full_check_count) {
+					full_check_count = 0;
+					status = true ;
+					if (batt_temp < (chip->dt.cfg_cool_bat_temperature))
+						chip->dt.cfg_use_reported_soc = 0;
+					else if (batt_temp > (chip->dt.cfg_warm_bat_temperature))
+						chip->dt.cfg_use_reported_soc = 0;
+					else
+						chip->dt.cfg_use_reported_soc = 1;
+					printk(" full_check_count ok, battery full , chip->dt.cfg_use_reported_soc is %d\n", chip->dt.cfg_use_reported_soc);
+				}
+
+				pr_debug(" full_check_count is %d\n", full_check_count);
+			} else
+				full_check_count = 0;
+		}
+	}
+	return status;
+
+}
+
 static void check_eoc_condition(struct qpnp_bms_chip *chip)
 {
 	int rc;
 	int status = get_battery_status(chip);
 	union power_supply_propval ret = {0,};
+	int chg_full_term_soc = get_chg_full_term_soc(chip);
+	int batt_temp;
+
+	rc = get_batt_therm(chip, &batt_temp);
+	if (rc)
+		batt_temp = BMS_DEFAULT_TEMP;
 
 	if (status == POWER_SUPPLY_STATUS_UNKNOWN) {
 		pr_err("Unable to read battery status\n");
 		return;
 	}
 
+	if ((chip->dt.cfg_current_report_eoc)) {
+		if ((chip->last_soc >= chg_full_term_soc) &&
+			(status == POWER_SUPPLY_STATUS_CHARGING))
+		chip->ocv_at_100 = -EINVAL;
+
+	} else {
 	/*
 	 * Check battery status:
 	 * if last_soc is 100 and battery status is still charging
@@ -1483,6 +1731,7 @@ static void check_eoc_condition(struct qpnp_bms_chip *chip)
 	if ((chip->last_soc == 100) &&
 			(status == POWER_SUPPLY_STATUS_CHARGING))
 		chip->ocv_at_100 = -EINVAL;
+	}
 
 	/*
 	 * Store the OCV value at 100. If the new ocv is greater than
@@ -1490,7 +1739,9 @@ static void check_eoc_condition(struct qpnp_bms_chip *chip)
 	 * if the SOC drops, reset ocv_at_100.
 	 */
 	if (chip->ocv_at_100 == -EINVAL) {
-		if (chip->last_soc == 100) {
+
+		if (((chip->last_soc == 100) && (!(chip->dt.cfg_current_report_eoc))) ||
+						((chip->dt.cfg_current_report_eoc) && (true == check_eoc_current_full_term(chip)))) {
 			if (chip->dt.cfg_report_charger_eoc) {
 				rc = report_eoc(chip);
 				if (!rc) {
@@ -1519,9 +1770,19 @@ static void check_eoc_condition(struct qpnp_bms_chip *chip)
 		if (chip->last_ocv_uv >= chip->ocv_at_100) {
 			pr_debug("new_ocv(%d) > ocv_at_100(%d) maintaining SOC to 100\n",
 					chip->last_ocv_uv, chip->ocv_at_100);
-			chip->ocv_at_100 = chip->last_ocv_uv;
-			chip->last_soc = 100;
-		} else if (chip->last_soc != 100) {
+
+			if (chip->dt.cfg_current_report_eoc) {
+				if ((batt_temp >= chip->dt.cfg_cool_bat_temperature) && (batt_temp <= chip->dt.cfg_warm_bat_temperature)) {
+					chip->ocv_at_100 = chip->last_ocv_uv;
+					chip->last_soc = chg_full_term_soc;
+				}
+
+			} else {
+				chip->ocv_at_100 = chip->last_ocv_uv;
+				chip->last_soc = 100;
+			}
+		} else if (((chip->last_soc != 100) && (!(chip->dt.cfg_current_report_eoc))) ||
+				   ((chip->last_soc < chg_full_term_soc) && (chip->dt.cfg_current_report_eoc))) {
 			/*
 			 * Report that the battery is discharging.
 			 * This gets called once when the SOC falls
@@ -1699,7 +1960,7 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	 * during bootup if soc is 100:
 	 */
 	soc = bound_soc(soc);
-	if ((soc != chip->last_soc) || (soc == 100)) {
+	if ((soc != chip->last_soc) || (soc == 100) || (soc >= get_chg_full_term_soc(chip))) {
 		chip->last_soc = soc;
 		check_eoc_condition(chip);
 		if ((chip->dt.cfg_soc_resume_limit > 0) && !charging)
@@ -1718,6 +1979,8 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	 * We do not want the algorithm to be based of a wrong
 	 * initial OCV.
 	 */
+	if (soc != chip->last_soc)
+		chip->last_soc = soc;
 
 	backup_ocv_soc(chip, chip->last_ocv_uv, chip->last_soc);
 
@@ -1726,6 +1989,8 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 
 	pr_debug("Reported SOC=%d\n", chip->last_soc);
 
+	if (chip->last_soc < 0)
+		chip->last_soc = soc;
 	return chip->last_soc;
 }
 
@@ -2065,7 +2330,7 @@ static void monitor_soc_work(struct work_struct *work)
 		/* if battery is not preset report 100% SOC */
 		pr_debug("battery gone, reporting 100\n");
 		chip->last_soc_invalid = true;
-		chip->last_soc = -EINVAL;
+
 		new_soc = 100;
 	} else {
 		battery_voltage_check(chip);
@@ -2082,7 +2347,7 @@ static void monitor_soc_work(struct work_struct *work)
 
 			if (chip->last_soc_invalid) {
 				chip->last_soc_invalid = false;
-				chip->last_soc = -EINVAL;
+
 			}
 			new_soc = lookup_soc_ocv(chip, chip->last_ocv_uv,
 								batt_temp);
@@ -2105,9 +2370,22 @@ static void monitor_soc_work(struct work_struct *work)
 
 				pr_debug("update bms_psy\n");
 				power_supply_changed(&chip->bms_psy);
+#if  defined(WT_A9_3RGB_LED)
+				msleep(50);
+				chip->batt_psy = power_supply_get_by_name("battery");
+				if (chip->batt_psy)
+					power_supply_changed(chip->batt_psy);
+#endif
+
 			} else if (chip->last_soc != chip->calculated_soc) {
 				pr_debug("update bms_psy\n");
 				power_supply_changed(&chip->bms_psy);
+#if  defined(WT_A9_3RGB_LED)
+				msleep(50);
+				chip->batt_psy = power_supply_get_by_name("battery");
+				if (chip->batt_psy)
+					power_supply_changed(chip->batt_psy);
+#endif
 			} else {
 				report_vm_bms_soc(chip);
 			}
@@ -2295,6 +2573,11 @@ static int qpnp_vm_bms_power_get_property(struct power_supply *psy,
 	return 0;
 }
 
+#if defined (WT_USE_FAN54015)
+extern int fan_54015_batt_current, fan_54015_batt_ocv;
+#endif
+
+
 static int qpnp_vm_bms_power_set_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					const union power_supply_propval *val)
@@ -2306,11 +2589,21 @@ static int qpnp_vm_bms_power_set_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		chip->current_now = val->intval;
+
+#if defined (WT_USE_FAN54015)
+		fan_54015_batt_current = val->intval;
+#endif
+
 		pr_debug("IBATT = %d\n", val->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
 		cancel_delayed_work_sync(&chip->monitor_soc_work);
 		chip->last_ocv_uv = val->intval;
+
+#if defined (WT_USE_FAN54015)
+		fan_54015_batt_ocv = val->intval;
+#endif
+
 		pr_debug("OCV = %d\n", val->intval);
 		schedule_delayed_work(&chip->monitor_soc_work, 0);
 		break;
@@ -2427,10 +2720,11 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 	}
 }
 
-#define HIGH_CURRENT_TH 2
+#define HIGH_CURRENT_TH  100
 static void reported_soc_check_status(struct qpnp_bms_chip *chip)
 {
 	u8 present;
+	int recharge_soc = get_chg_recharge_soc(chip);
 
 	present = is_charger_present(chip);
 	pr_debug("usb_present=%d\n", present);
@@ -2444,14 +2738,27 @@ static void reported_soc_check_status(struct qpnp_bms_chip *chip)
 		pr_debug("reported_soc in high current mode, return\n");
 		return;
 	}
-	if ((chip->reported_soc - chip->last_soc) >
-			(100 - chip->dt.cfg_soc_resume_limit
+	if (chip->dt.cfg_current_report_eoc) {
+		if ((chip->reported_soc - chip->last_soc) >
+			(100 - recharge_soc + HIGH_CURRENT_TH)) {
+			chip->reported_soc_high_current = true;
+			chip->charger_removed_since_full = true;
+			chip->charger_reinserted = false;
+			pr_debug("reported_soc enters high current mode\n");
+			return;
+		}
+
+	} else {
+
+		if ((chip->reported_soc - chip->last_soc) >
+				(100 - chip->dt.cfg_soc_resume_limit
 						+ HIGH_CURRENT_TH)) {
-		chip->reported_soc_high_current = true;
-		chip->charger_removed_since_full = true;
-		chip->charger_reinserted = false;
-		pr_debug("reported_soc enters high current mode\n");
-		return;
+			chip->reported_soc_high_current = true;
+			chip->charger_removed_since_full = true;
+			chip->charger_reinserted = false;
+			pr_debug("reported_soc enters high current mode\n");
+			return;
+		}
 	}
 	if (present && chip->charger_removed_since_full) {
 		chip->charger_reinserted = true;
@@ -2470,7 +2777,7 @@ static void qpnp_vm_bms_ext_power_changed(struct power_supply *psy)
 
 	pr_debug("Triggered!\n");
 	battery_status_check(chip);
-	battery_insertion_check(chip);
+
 
 	mutex_lock(&chip->last_soc_mutex);
 	battery_voltage_check(chip);
@@ -3287,7 +3594,28 @@ static int show_bms_config(struct seq_file *m, void *data)
 	get_fifo_length(chip, S1_STATE, &s1_fifo_length);
 	get_fifo_length(chip, S2_STATE, &s2_fifo_length);
 
-	seq_printf(m, "r_conn_mohm\t=\t%d\n"
+	seq_printf(m, "cfg_current_report_eoc\t=\t%d\n"
+			"warm_bat_temperature\t=\t%d\n"
+			"cool_bat_temperature\t=\t%d\n"
+			"warm_chg_full_term_soc\t=\t%d\n"
+			"cool_chg_full_term_soc\t=\t%d\n"
+			"warm_chg_recharge_soc\t=\t%d\n"
+			"cool_chg_recharge_soc\t=\t%d\n"
+			"resume_soc\t=\t%d\n"
+
+			"warm_chg_full_term_current\t=\t%d\n"
+			"cool_chg_full_term_current\t=\t%d\n"
+			"normal_chg_full_term_current\t=\t%d\n"
+
+			"warm_chg_full_term_vbat\t=\t%d\n"
+			"cool_chg_full_term_vbat\t=\t%d\n"
+			"normal_chg_full_term_vbat\t=\t%d\n"
+
+			"warm_chg_full_term_ocv\t=\t%d\n"
+			"cool_chg_full_term_ocv\t=\t%d\n"
+			"normal_chg_full_term_ocv\t=\t%d\n"
+
+			"r_conn_mohm\t=\t%d\n"
 			"v_cutoff_uv\t=\t%d\n"
 			"max_voltage_uv\t=\t%d\n"
 			"use_voltage_soc\t=\t%d\n"
@@ -3309,6 +3637,28 @@ static int show_bms_config(struct seq_file *m, void *data)
 			"s2_sample_count\t=\t%d\n"
 			"s1_fifo_length\t=\t%d\n"
 			"s2_fifo_length\t=\t%d\n",
+			chip->dt.cfg_current_report_eoc,
+			chip->dt.cfg_warm_bat_temperature,
+			chip->dt.cfg_cool_bat_temperature,
+			chip->dt.cfg_warm_chg_full_term_soc,
+			chip->dt.cfg_cool_chg_full_term_soc,
+
+			chip->dt.cfg_warm_chg_recharge_soc,
+			chip->dt.cfg_cool_chg_recharge_soc,
+			chip->dt.cfg_soc_resume_limit,
+
+			chip->dt.cfg_warm_chg_full_term_current,
+			chip->dt.cfg_cool_chg_full_term_current,
+			chip->dt.cfg_normal_chg_full_term_current,
+
+			chip->dt.cfg_warm_chg_full_term_vbat,
+			chip->dt.cfg_cool_chg_full_term_vbat,
+			chip->dt.cfg_normal_chg_full_term_vbat,
+
+			chip->dt.cfg_warm_chg_full_term_ocv,
+			chip->dt.cfg_cool_chg_full_term_ocv,
+			chip->dt.cfg_normal_chg_full_term_ocv,
+
 			chip->dt.cfg_r_conn_mohm,
 			chip->dt.cfg_v_cutoff_uv,
 			chip->dt.cfg_max_voltage_uv,
@@ -3631,6 +3981,47 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 		return rc;
 	}
 
+	SPMI_PROP_READ_OPTIONAL(cfg_warm_bat_temperature,
+			"warm-bat-temperature", rc);
+	SPMI_PROP_READ_OPTIONAL(cfg_cool_bat_temperature,
+			"cool-bat-temperature", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_cool_chg_full_term_soc,
+			"cool-chg-full-term-soc", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_warm_chg_full_term_soc,
+			"warm-chg-full-term-soc", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_warm_chg_recharge_soc,
+			"warm-chg-recharge-soc", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_cool_chg_recharge_soc,
+			"cool-chg-recharge-soc", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_warm_chg_full_term_current,
+			"warm-chg-full-term-current", rc);
+	SPMI_PROP_READ_OPTIONAL(cfg_cool_chg_full_term_current,
+			"cool-chg-full-term-current", rc);
+	SPMI_PROP_READ_OPTIONAL(cfg_normal_chg_full_term_current,
+			"normal-chg-full-term-current", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_warm_chg_full_term_vbat,
+			"warm-chg-full-term_vbat", rc);
+	SPMI_PROP_READ_OPTIONAL(cfg_cool_chg_full_term_vbat,
+			"cool-chg-full-term_vbat", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_normal_chg_full_term_vbat,
+			"normal-chg-full-term_vbat", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_warm_chg_full_term_ocv,
+			"warm-chg-full-term-ocv", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_cool_chg_full_term_ocv,
+			"cool-chg-full-term-ocv", rc);
+
+	SPMI_PROP_READ_OPTIONAL(cfg_normal_chg_full_term_ocv,
+			"normal-chg-full-term-ocv", rc);
+
 	SPMI_PROP_READ_OPTIONAL(cfg_s1_sample_interval_ms,
 				"s1-sample-interval-ms", rc);
 	SPMI_PROP_READ_OPTIONAL(cfg_s2_sample_interval_ms,
@@ -3671,6 +4062,8 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 			chip->spmi->dev.of_node, "qcom,batt-aging-comp");
 	chip->dt.cfg_use_reported_soc = of_property_read_bool(
 			chip->spmi->dev.of_node, "qcom,use-reported-soc");
+	chip->dt.cfg_current_report_eoc = of_property_read_bool(
+			chip->spmi->dev.of_node, "qcom, current-report-eoc");
 	pr_debug("v_cutoff_uv=%d, max_v=%d\n", chip->dt.cfg_v_cutoff_uv,
 					chip->dt.cfg_max_voltage_uv);
 	pr_debug("r_conn=%d shutdown_soc_valid_limit=%d low_temp_threshold=%d ibat_avg_samples=%d\n",
@@ -3959,13 +4352,19 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 	 * has registered. Fall-back to voltage-based-soc reporting
 	 * if it has not.
 	 */
-	schedule_delayed_work(&chip->voltage_soc_timeout_work,
-		msecs_to_jiffies(chip->dt.cfg_voltage_soc_timeout_ms));
 
 	pr_info("probe success: soc=%d vbatt=%d ocv=%d warm_reset=%d\n",
 					get_prop_bms_capacity(chip), vbatt,
 					chip->last_ocv_uv, chip->warm_reset);
 
+#if  defined(WT_A9_3RGB_LED)
+	chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		chip->batt_psy->bms_psy_ok = 1;
+		power_supply_changed(chip->batt_psy);
+	}
+	chip->bms_psy.bms_psy_ok = 1;
+#endif
 	return rc;
 
 fail_get_vtg:

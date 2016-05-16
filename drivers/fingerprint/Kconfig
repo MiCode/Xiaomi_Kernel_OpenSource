@@ -1,0 +1,8 @@
+config FINGERPRINT
+	tristate "Fingerprint drvier support"
+	help
+	  Say Y here to enable goodix fingerprint driver support!
+
+source "drivers/fingerprint/fpc/Kconfig"
+source "drivers/fingerprint/goodix/Kconfig"
+

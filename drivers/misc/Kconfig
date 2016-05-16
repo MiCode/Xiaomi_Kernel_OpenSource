@@ -617,6 +617,11 @@ config QCOM_LIQUID_DOCK
 	depends on OF_GPIO
 	help
 	  This option enables support for the USB and Ethernet ports found on
+
+config HARDWARE_INFO
+	tristate "Wingtech Hardware Information support"
+	help
+	  This option enables device driver to initial the hardware info module.
 	  the docking station of various models of Qualcomm Technology's
 	  LiQUID Mobile Development Platforms.
 

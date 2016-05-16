@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +95,7 @@ struct wcd9xxx_spmi_map {
 };
 
 struct wcd9xxx_spmi_map map;
-
+static int late_resume;
 void wcd9xxx_spmi_enable_irq(int irq)
 {
 	pr_debug("%s: irqno =%d\n", __func__, irq);
@@ -329,6 +330,10 @@ int wcd9xxx_spmi_resume()
 				map.pm_state,
 				map.wlock_holders);
 		map.pm_state = WCD9XXX_PM_SLEEPABLE;
+		if (late_resume) {
+			msm8x16_wcd_restart_mbhc(map.codec);
+			late_resume = 0;
+		}
 	} else {
 		pr_warn("%s: system is already awake, state %d wlock %d\n",
 				__func__, map.pm_state,
@@ -362,7 +367,7 @@ bool wcd9xxx_spmi_lock_sleep()
 	pr_debug("%s: wake lock counter %d\n", __func__,
 			map.wlock_holders);
 	pr_debug("%s: map.pm_state = %d\n", __func__, map.pm_state);
-
+	late_resume = 0;
 	if (!wait_event_timeout(map.pm_wq,
 				((wcd9xxx_spmi_pm_cmpxchg(
 					WCD9XXX_PM_SLEEPABLE,
@@ -379,6 +384,7 @@ bool wcd9xxx_spmi_lock_sleep()
 			WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS, map.pm_state,
 			map.wlock_holders);
 		wcd9xxx_spmi_unlock_sleep();
+		late_resume = 1;
 		return false;
 	}
 	wake_up_all(&map.pm_wq);

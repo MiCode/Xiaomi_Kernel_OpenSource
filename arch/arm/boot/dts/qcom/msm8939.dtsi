@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -382,6 +383,17 @@
 		reg-names = "fuse-base";
 	};
 
+	sn_fuse: snfuse@0x5c008 {
+		compatible = "qcom,sn-fuse";
+		reg = <0x5c008 0x4>;
+		reg-names = "sn-base";
+	};
+
+	sec_boot_fuse: secbootfuse@0x5c098 {
+		compatible = "qcom,sec-boot-fuse";
+		reg = <0x5c098 0x4>;
+		reg-names = "sec-boot-base";
+	};
 	jtag_mm0: jtagmm@8fc000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x8fc000 0x1000>,

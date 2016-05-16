@@ -3,6 +3,7 @@
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
  * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -103,8 +104,16 @@ enum msm_usb_phy_type {
 	SNPS_PICO_PHY,
 	SNPS_FEMTO_PHY,
 };
+#if defined(WT_USE_86519_CHARGE_1200)
+#define IDEV_CHG_MAX	1200
+#elif defined(WT_USE_S86001_CHARGE_1000)
+#define IDEV_CHG_MAX	1000
+#elif defined(CONFIG_WT_USE_XIAOMI_CHARGE_1050)
+#define IDEV_CHG_MAX	1050
+#else
+#define IDEV_CHG_MAX	2000
+#endif
 
-#define IDEV_CHG_MAX	1500
 #define IDEV_CHG_MIN	500
 #define IUNIT		100
 

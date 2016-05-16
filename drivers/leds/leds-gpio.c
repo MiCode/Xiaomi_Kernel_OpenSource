@@ -4,6 +4,7 @@
  * Copyright (C) 2007 8D Technologies inc.
  * Raphael Assenat <raph@8d.com>
  * Copyright (C) 2008 Freescale Semiconductor, Inc.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,6 +23,20 @@
 #include <linux/module.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/err.h>
+#include <linux/delay.h>
+
+#define DUTY_CLCLE 50
+
+struct gpio_ir_tx_packet {
+	unsigned int	  gpio_nr;
+	bool			  high_active;
+	u32			   pulse;
+	u32			   space;
+	unsigned int	 *buffer;
+	unsigned int	  length;
+	unsigned int	  next;
+	bool			  on;
+};
 
 struct gpio_led_data {
 	struct led_classdev cdev;
@@ -34,6 +49,13 @@ struct gpio_led_data {
 	int (*platform_gpio_blink_set)(unsigned gpio, int state,
 			unsigned long *delay_on, unsigned long *delay_off);
 };
+
+struct mutex ir_lock;
+
+
+#if defined (WT_USE_FAN54015)
+extern int fan54015_getcharge_stat(void);
+#endif
 
 static void gpio_led_work(struct work_struct *work)
 {
@@ -92,11 +114,121 @@ static int gpio_blink_set(struct led_classdev *led_cdev,
 						delay_on, delay_off);
 }
 
+static void gpio_ir_tx_set(struct gpio_ir_tx_packet *gpkt, bool on)
+{
+	if (gpkt->high_active)
+		gpio_set_value(gpkt->gpio_nr, on);
+	else
+		gpio_set_value(gpkt->gpio_nr, !on);
+}
+
+static long pwm_ir_tx_work(void *arg)
+{
+	struct gpio_ir_tx_packet *gpkt = arg;
+	unsigned long flags;
+
+	/* disable irq for acurracy timing */
+	local_irq_save(flags);
+
+	for (; gpkt->next < gpkt->length; gpkt->next++) {
+
+
+		if (gpkt->next & 0x01) {/* space */
+			gpio_ir_tx_set(gpkt, false);
+			udelay(gpkt->buffer[gpkt->next]);
+		} else if (!gpkt->pulse || !gpkt->space) {
+			gpio_ir_tx_set(gpkt, true);
+			udelay(gpkt->buffer[gpkt->next]);
+		} else {/* pulse with soft carrier */
+			while (gpkt->buffer[gpkt->next]) {
+				unsigned int usecs;
+
+				usecs = gpkt->on ? gpkt->pulse : gpkt->space;
+				usecs = min(usecs, gpkt->buffer[gpkt->next]);
+
+				gpio_ir_tx_set(gpkt, gpkt->on);
+				udelay(usecs);
+
+				gpkt->buffer[gpkt->next] -= usecs;
+				gpkt->on = !gpkt->on;
+			}
+		}
+	}
+
+	gpio_ir_tx_set(gpkt, false);
+	local_irq_restore(flags);
+
+	return gpkt->next ? : -ERESTARTSYS;
+}
+
+static int gpio_ir_tx_transmit_with_delay(struct gpio_ir_tx_packet *gpkt)
+{
+
+
+	int cpu, rc = -ENODEV;
+
+	for_each_online_cpu(cpu)
+	{
+		if (cpu != 0)
+			rc = work_on_cpu(cpu, pwm_ir_tx_work, gpkt);
+	}
+
+	if (rc == -ENODEV)
+		pr_warn("pwm-ir: can't ron on the auxilliary cpu\n");
+
+	return rc;
+}
+
+static ssize_t transmit_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", led_cdev->brightness);
+}
+
+static ssize_t transmit_store(struct device *dev,
+	struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	int *temp_buf = (int *)buf;
+	int rc = 0;
+	u32 carrier, period;
+
+	struct gpio_ir_tx_packet gpkt = {};
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct gpio_led_data *led_dat =
+		container_of(led_cdev, struct gpio_led_data, cdev);
+
+	mutex_lock(&ir_lock);
+
+	carrier = temp_buf[0];
+	period = NSEC_PER_MSEC / carrier;
+
+	gpkt.pulse = period * DUTY_CLCLE / 100;
+	gpkt.space = period - gpkt.pulse;
+
+	gpkt.gpio_nr	 = led_dat->gpio;
+	gpkt.high_active = 1/*gdata->tx_high_active*/;
+	gpkt.buffer 	 = (unsigned int *)&temp_buf[1];
+	gpkt.length 	 = ((int)count/4 - 1);
+
+	rc = gpio_ir_tx_transmit_with_delay(&gpkt);
+
+	mutex_unlock(&ir_lock);
+
+	return rc;
+}
+static DEVICE_ATTR(transmit, 0664, transmit_show, transmit_store);
+
 static int create_gpio_led(const struct gpio_led *template,
 	struct gpio_led_data *led_dat, struct device *parent,
 	int (*blink_set)(unsigned, int, unsigned long *, unsigned long *))
 {
 	int ret, state;
+#if defined (WT_USE_FAN54015)
+	int chg_status;
+#endif
 
 	led_dat->gpio = -1;
 
@@ -106,7 +238,6 @@ static int create_gpio_led(const struct gpio_led *template,
 				template->gpio, template->name);
 		return 0;
 	}
-
 	ret = devm_gpio_request(parent, template->gpio, template->name);
 	if (ret < 0)
 		return ret;
@@ -130,15 +261,28 @@ static int create_gpio_led(const struct gpio_led *template,
 	if (!template->retain_state_suspended)
 		led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
 
+#if defined (WT_USE_FAN54015)
+	chg_status = fan54015_getcharge_stat();
+	if (!strcmp(template->name, "red")) {
+		if ((chg_status & 0x1) != 0x1) {
+			ret = gpio_direction_output(led_dat->gpio, led_dat->active_low ^ state);
+			if (ret < 0)
+				return ret;
+		}
+	}
+#else
 	ret = gpio_direction_output(led_dat->gpio, led_dat->active_low ^ state);
 	if (ret < 0)
 		return ret;
-
+#endif
 	INIT_WORK(&led_dat->work, gpio_led_work);
 
 	ret = led_classdev_register(parent, &led_dat->cdev);
 	if (ret < 0)
 		return ret;
+
+	if (strcmp(led_dat->cdev.name, "infrared") == 0)
+		device_create_file(led_dat->cdev.dev, &dev_attr_transmit);
 
 	return 0;
 }
@@ -274,6 +418,7 @@ static int gpio_led_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, priv);
+	mutex_init(&ir_lock);
 
 	return 0;
 }

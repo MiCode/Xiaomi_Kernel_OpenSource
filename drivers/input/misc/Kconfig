@@ -850,5 +850,42 @@ config SENSORS_BMI058
 	 If you say yes here, you get support for Bosch Sensortec's
 	 sensor driver of BMI058.
 
-endif
+config SENSORS_ELAN_EPL2182
+	tristate "ELAN EPL2182 proximity and ambient light sensor"
+	depends on I2C=y
+	help
+	  If you say yes here you get support for ELAN's light/proximity sensors epl2182.
 
+config SENSORS_ELAN_EPL259x
+	tristate "ELAN EPL259x proximity and ambient light sensor"
+	depends on I2C=y
+	help
+	  If you say yes here you get support for ELAN's light/proximity sensors epl259x.
+config INPUT_LTR559
+	   tristate "LTR559 light/proximity sensor support"
+	   depends on I2C
+	   default n
+	   help
+		 Driver for LTR559 light/proximity sensor.
+
+config SENSORS_YAS537
+	tristate "YAS Geomagnetic Sensor"
+	depends on I2C
+	help
+	  Say Y here if you want to enable the YAS537 magnetic sensor
+	  driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called yas537.
+
+config SENSORS_ST480
+	tristate "AKM09911 3-axis electronic compass sensor driver"
+	depends on I2C
+	help
+	  Say Y here if you want to enable the akm09911 ecompass sensor
+	  driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called akm09911.
+
+endif

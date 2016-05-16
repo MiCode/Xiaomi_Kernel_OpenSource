@@ -1,0 +1,20 @@
+#
+# Goodix GT9xx Touchscreen driver
+#
+
+config MSG28XX_TOUCHPANEL_DRIVER
+	tristate "Msg2838 touchpanel driver"
+	depends on TOUCHSCREEN_MSG28XX
+	default y
+	help
+	  This is the main file for touchpanel driver for Goodix GT9xx
+	  touchscreens.
+
+	  Say Y here if you have a Goodix GT9xx touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gt9xx_update.
+

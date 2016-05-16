@@ -1,0 +1,68 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8916-qrd-skul.dtsi"
+#include "msm8916-memory.dtsi"
+
+/ {
+	model = "Qualcomm Technologies,Inc. MSM 8916 QRD SKUL";
+	compatible = "qcom,msm8916-qrd-skul","qcom,msm8916-qrd","qcom,msm8916","qcom,qrd";
+	qcom,board-id = <0x1010b 8>;
+
+
+};
+
+&soc {
+
+	sound {
+		qcom,msm-hs-micbias-type = "internel";
+		qcom,audio-routing =
+				"RX_BIAS","MCLK",
+				"SPK_RX_BIAS","MCLK",
+				"INT_LDO_H","MCLK",
+				"MIC BIAS External","Handset Mic",
+				"MIC BIAS Internal2","Headset Mic",
+				"MIC BIAS External","Secondary Mic",
+				"AMIC1","MIC BIAS External",
+				"AMIC2","MIC BIAS Internal2",
+				"AMIC3","MIC BIAS External";
+
+
+	};
+};
+&pm8916_chg {
+	qcom,vddmax-mv = <4350>;
+	qcom,vddsafe-mv = <4380>;
+	qcom,vinmin-mv = <4470>;
+	qcom,batt-hot-percentage = <35>;
+	qcom,batt-cold-percentage = <70>;
+	qcom,tchg-mins = <360>;
+	status = "okay";
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <68>;
+		qcom,vref-batt-therm = <1800000>;
+
+		#include "batterydata-wingtech-guangyu-4v35-2300mah.dtsi"
+	};
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,battery-data = <&qrd_batterydata>;
+};
+

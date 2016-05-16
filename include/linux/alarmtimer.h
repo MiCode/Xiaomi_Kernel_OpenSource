@@ -21,6 +21,7 @@ enum alarmtimer_restart {
 
 #define ALARMTIMER_STATE_INACTIVE	0x00
 #define ALARMTIMER_STATE_ENQUEUED	0x01
+#define ALARM_DELTA (120)
 
 /**
  * struct alarm - Alarm timer structure

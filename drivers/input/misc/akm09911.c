@@ -2,6 +2,7 @@
  *
  * Copyright (c) 2014-2015, Linux Foundation. All rights reserved.
  * Copyright (C) 2007-2008 HTC Corporation.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Author: Hou-Kun Chen <houkun.chen@gmail.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -35,9 +36,10 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/sensors.h>
+#include <linux/hardware_info.h>
 
 #define AKM_DEBUG_IF			0
-#define AKM_HAS_RESET			1
+#define AKM_HAS_RESET			0
 #define AKM_INPUT_DEVICE_NAME	"compass"
 #define AKM_DRDY_TIMEOUT_MS		100
 #define AKM_BASE_NUM			10
@@ -111,6 +113,9 @@ struct akm_compass_data {
 	int	last_x;
 	int	last_y;
 	int	last_z;
+
+	/* dummy value to avoid sensor event get eaten */
+	int	rep_cnt;
 
 	struct regulator	*vdd;
 	struct regulator	*vio;
@@ -465,7 +470,36 @@ static int AKECS_GetData_Poll(
 
 	return 0;
 }
+static long AKECS_GetData_Poll_self(struct akm_compass_data *akm, uint8_t *rbuf, int size)
+{
+	uint8_t buffer[AKM_SENSOR_DATA_SIZE];
+	int err;
 
+	/* Read status */
+	buffer[0] = AKM_REG_STATUS;
+	err = akm_i2c_rxdata(akm->i2c, buffer, 1);
+	if (err < 0) {
+		dev_err(&akm->i2c->dev, "%s failed.", __func__);
+
+		return err;
+	}
+
+	/* Read rest data */
+	buffer[1] = AKM_REG_STATUS + 1;
+	err = akm_i2c_rxdata(akm->i2c, &(buffer[1]), AKM_SENSOR_DATA_SIZE-1);
+	if (err < 0) {
+		dev_err(&akm->i2c->dev, "%s failed.x", __func__);
+		printk("xmm--------103x\n");
+		return err;
+	}
+
+	memcpy(rbuf, buffer, size);
+
+	atomic_set(&akm->drdy, 0);
+
+
+	return 0;
+}
 static int AKECS_GetOpenStatus(
 	struct akm_compass_data *akm)
 {
@@ -1503,10 +1537,6 @@ static int akm_compass_suspend(struct device *dev)
 	if (akm->state.power_on)
 		akm_compass_power_set(akm, false);
 
-	ret = pinctrl_select_state(akm->pinctrl, akm->pin_sleep);
-	if (ret)
-		dev_err(dev, "Can't select pinctrl state\n");
-
 	dev_dbg(&akm->i2c->dev, "suspended\n");
 
 	return ret;
@@ -1517,10 +1547,6 @@ static int akm_compass_resume(struct device *dev)
 	struct akm_compass_data *akm = dev_get_drvdata(dev);
 	int ret = 0;
 	uint8_t mode;
-
-	ret = pinctrl_select_state(akm->pinctrl, akm->pin_default);
-	if (ret)
-		dev_err(dev, "Can't select pinctrl state\n");
 
 	if (akm->state.power_on) {
 		ret = akm_compass_power_set(akm, true);
@@ -1740,12 +1766,13 @@ static int akm_compass_parse_dt(struct device *dev,
 	akm->use_hrtimer = of_property_read_bool(np, "akm,use-hrtimer");
 	akm->gpio_rstn = of_get_named_gpio_flags(dev->of_node,
 			"akm,gpio_rstn", 0, NULL);
-
+#if AKM_HAS_RESET
 	if (!gpio_is_valid(akm->gpio_rstn)) {
 		dev_err(dev, "gpio reset pin %d is invalid.\n",
 			akm->gpio_rstn);
 		return -EINVAL;
 	}
+#endif
 
 	return 0;
 }
@@ -1755,32 +1782,7 @@ static int akm_compass_parse_dt(struct device *dev,
 {
 	return -EINVAL;
 }
-#endif /* !CONFIG_OF */
-
-static int akm_pinctrl_init(struct akm_compass_data *akm)
-{
-	struct i2c_client *client = akm->i2c;
-
-	akm->pinctrl = devm_pinctrl_get(&client->dev);
-	if (IS_ERR_OR_NULL(akm->pinctrl)) {
-		dev_err(&client->dev, "Failed to get pinctrl\n");
-		return PTR_ERR(akm->pinctrl);
-	}
-
-	akm->pin_default = pinctrl_lookup_state(akm->pinctrl, "default");
-	if (IS_ERR_OR_NULL(akm->pin_default)) {
-		dev_err(&client->dev, "Failed to look up default state\n");
-		return PTR_ERR(akm->pin_default);
-	}
-
-	akm->pin_sleep = pinctrl_lookup_state(akm->pinctrl, "sleep");
-	if (IS_ERR_OR_NULL(akm->pin_sleep)) {
-		dev_err(&client->dev, "Failed to look up sleep state\n");
-		return PTR_ERR(akm->pin_sleep);
-	}
-
-	return 0;
-}
+#endif/* !CONFIG_OF */
 
 static int akm_report_data(struct akm_compass_data *akm)
 {
@@ -1798,7 +1800,7 @@ static int akm_report_data(struct akm_compass_data *akm)
 
 	if (STATUS_ERROR(dat_buf[8])) {
 		dev_warn(&akm->i2c->dev, "Status error. Reset...\n");
-		AKECS_Reset(akm, 0);
+
 		return -EIO;
 	}
 
@@ -1930,7 +1932,6 @@ static int case_test(struct akm_compass_data *akm, const char test_name[],
 		dev_dbg(&akm->i2c->dev, "Test Name    Fail    Test Data    [      Low         High]\n");
 		dev_dbg(&akm->i2c->dev, "----------------------------------------------------------\n");
 	} else if (strcmp(test_name, "END") == 0) {
-		dev_dbg(&akm->i2c->dev, "----------------------------------------------------------\n");
 		if (*fail_total == 0)
 			dev_dbg(&akm->i2c->dev, "Factory shipment test passed.\n\n");
 		else
@@ -2184,15 +2185,6 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/* set client data */
 	i2c_set_clientdata(client, s_akm);
 
-	/* initialize pinctrl */
-	if (!akm_pinctrl_init(s_akm)) {
-		err = pinctrl_select_state(s_akm->pinctrl, s_akm->pin_default);
-		if (err) {
-			dev_err(&client->dev, "Can't select pinctrl state\n");
-			goto exit2;
-		}
-	}
-
 	/* Pull up the reset pin */
 	AKECS_Reset(s_akm, 1);
 
@@ -2274,7 +2266,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	s_akm->delay[MAG_DATA_FLAG] = sensors_cdev.delay_msec * 1000000;
 
-	err = sensors_classdev_register(&s_akm->input->dev, &s_akm->cdev);
+	err = sensors_classdev_register(&client->dev, &s_akm->cdev);
 
 	if (err) {
 		dev_err(&client->dev, "class device create failed: %d\n", err);

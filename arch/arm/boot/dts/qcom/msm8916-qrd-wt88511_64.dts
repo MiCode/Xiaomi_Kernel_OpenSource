@@ -1,0 +1,152 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8916-qrd-wt88511_64.dtsi"
+#include "msm8916-memory.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUI";
+	compatible = "qcom,msm8916-qrd-wt88511_64", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
+	qcom,board-id = <0x1000b 13> , <0x1010b 13> , <0x3010b 13>;
+};
+
+
+&i2c_4 {
+	smb358_otg_vreg: smb358-charger@57 {
+		compatible = "qcom,smb358-charger";
+		reg = <0x57>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <62 0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,irq-gpio = <&msm_gpio 62 0x0>;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <50>;
+		regulator-name = "smb358_otg_vreg";
+		qcom,thermal-mitigation = <2000 1000 600 600>;
+		qcom,fastchg-current-max-ma = <2000>;
+		qcom,bms-psy-name = "bms";
+		qcom,iterm-disabled;
+		qcom,bms-controlled-charging;
+		qcom,chg-inhibit-disabled;
+		qcom,chg-vadc = <&pm8916_vadc>;
+		qcom,chg-adc_tm = <&pm8916_adc_tm>;
+		qcom,using-pmic-therm;
+		qcom,bat-present-decidegc = <(300)>;
+	qcom,disable-apsd;
+		/*
+		* Below properties are used for enable JEITA
+		*/
+		qcom,hot-bat-decidegc = <600>;
+		qcom,warm-bat-decidegc = <450>;
+	qcom,cool-bat-decidegc = <100>;
+		qcom,cold-bat-decidegc = <0>;
+		qcom,warm-bat-ma = <1500>;
+		qcom,cool-bat-ma = <800>;
+		qcom,warm-bat-mv = <4100>;
+	qcom,cool-bat-mv = <4350>;
+	qcom,battery-fcc = <4000>;
+		status = "ok";
+	};
+	cw2015: cw2015@62 {
+	compatible = "cellwise, cw2015";
+	reg = <0x62>;
+	vdd-supply = <&pm8916_l17>;
+	vcc_i2c-supply = <&pm8916_l6>;
+	interrupt-parent = <&msm_gpio>;
+	interrupts = <120 8>;
+	cw2015,irq-gpio=<120>;
+	};
+};
+
+
+&pm8916_bms {
+
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,r-conn-mohm = <0>;
+	qcom,shutdown-soc-valid-limit = <100>;
+	qcom,low-soc-calculate-soc-threshold = <15>;
+	qcom,low-voltage-calculate-soc-ms = <1000>;
+	qcom,low-soc-calculate-soc-ms = <5000>;
+	qcom,calculate-soc-ms = <20000>;
+	qcom,volatge-soc-timeout-ms = <60000>;
+	qcom,low-voltage-threshold = <3450000>;
+	qcom,s3-ocv-tolerence-uv = <1200>;
+	qcom,s2-fifo-length = <5>;
+	qcom,low-soc-fifo-length = <2>;
+	qcom,resume-soc = <98>;
+
+
+		qcom,warm-bat-temperature = <450>;
+		qcom,cool-bat-temperature = <100>;
+		qcom,warm-chg-full-term-current = <(-150000)> ;
+		qcom,cool-chg-full-term-current = <(-150000)> ;
+		qcom,normal-chg-full-term-current = <(-180000)>;
+
+		qcom,warm-chg-full-term_vbat = <4000000>;
+		qcom,cool-chg-full-term_vbat = <4250000>;
+		qcom,normal-chg-full-term_vbat = <4350000>;
+
+		qcom,warm-chg-full-term-ocv = <4000000> ;
+		qcom,cool-chg-full-term-ocv = <4200000> ;
+		qcom,normal-chg-full-term-ocv = <4330000>;
+
+		qcom,cool-chg-full-term-soc = <85>;
+				qcom,cool-chg-recharge-soc = <84>;
+				qcom,warm-chg-full-term-soc = <70>;
+				qcom,warm-chg-recharge-soc = <68>;
+		qcom,current-report-eoc;
+	qcom,use-reported-soc;
+		qcom,report-charger-eoc;
+	status = "ok";
+
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <68>;
+		qcom,vref-batt-therm = <1800000>;
+
+		#include "batterydata-wingtech-desai_SAMSUNG-4v4-4000mah.dtsi"
+		#include "batterydata-wingtech-feimaotui_SONY-4v4-4000mah.dtsi"
+		#include "batterydata-wingtech-xingwangda_ATL-4v4-4000mah.dtsi"
+	#include "batterydata-wingtech-guangyu_Coslight-4v4-4000mah.dtsi"
+	};
+};
+
+&pm8916_chg {
+	status = "ok";
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&usb_otg {
+	qcom,hsusb-otg-mode = <3>;
+	qcom,usbid-gpio = <&msm_gpio 110 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usbid_default>;
+	vbus_otg-supply = <&smb358_otg_vreg>;
+};
+
+&pm8916_vadc {
+chan@32 {
+	qcom,vadc-thermal-node;
+	};
+};

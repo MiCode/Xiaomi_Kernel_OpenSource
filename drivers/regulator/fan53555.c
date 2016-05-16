@@ -5,6 +5,7 @@
  * FAN53555UC00X/01X/03X/04X/05X
  *
  * Copyright (c) 2012 Marvell Technology Ltd.
+ * Copyright (C) 2016 XiaoMi, Inc.
  * Yunfan Zhang <yfzhang@marvell.com>
  *
  * This package is free software; you can redistribute it and/or modify
@@ -79,6 +80,7 @@ enum {
 	FAN53555_CHIP_ID_03,
 	FAN53555_CHIP_ID_04,
 	FAN53555_CHIP_ID_05,
+	FAN53555_CHIP_ID_12 = 12,
 };
 
 static const int slew_rate_plan[] = {
@@ -331,6 +333,10 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
 	case FAN53555_CHIP_ID_04:
 		di->vsel_min = 603000;
 		di->vsel_step = 12826;
+		break;
+	case FAN53555_CHIP_ID_12:
+		di->vsel_min = 600000;
+		di->vsel_step = 12500;
 		break;
 	default:
 		dev_err(di->dev,

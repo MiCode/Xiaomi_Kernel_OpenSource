@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,7 @@ struct cpu_hp {
 	cpumask_var_t offlined_cpus;
 };
 static struct cpu_hp **managed_clusters;
+static bool clusters_inited;
 
 /* Work to evaluate the onlining/offlining CPUs */
 struct delayed_work evaluate_hotplug_work;
@@ -83,7 +85,7 @@ static int set_max_cpus(const char *buf, const struct kernel_param *kp)
 	const char *cp = buf;
 	int val;
 
-	if (!num_clusters)
+	if (!clusters_inited)
 		return -EINVAL;
 
 	while ((cp = strpbrk(cp + 1, ":")))
@@ -117,7 +119,7 @@ static int get_max_cpus(char *buf, const struct kernel_param *kp)
 {
 	int i, cnt = 0;
 
-	if (!num_clusters)
+	if (!clusters_inited)
 		return cnt;
 
 	for (i = 0; i < num_clusters; i++)
@@ -142,7 +144,7 @@ static int set_managed_cpus(const char *buf, const struct kernel_param *kp)
 	int i, ret;
 	struct cpumask tmp_mask;
 
-	if (!num_clusters)
+	if (!clusters_inited)
 		return -EINVAL;
 
 	ret = cpulist_parse(buf, &tmp_mask);
@@ -167,7 +169,7 @@ static int get_managed_cpus(char *buf, const struct kernel_param *kp)
 {
 	int i, cnt = 0;
 
-	if (!num_clusters)
+	if (!clusters_inited)
 		return cnt;
 
 	for (i = 0; i < num_clusters; i++) {
@@ -194,7 +196,7 @@ static int get_managed_online_cpus(char *buf, const struct kernel_param *kp)
 	struct cpumask tmp_mask;
 	struct cpu_hp *i_cpu_hp;
 
-	if (!num_clusters)
+	if (!clusters_inited)
 		return cnt;
 
 	for (i = 0; i < num_clusters; i++) {
@@ -428,6 +430,9 @@ static void __ref try_hotplug(struct cpu_hp *data)
 {
 	unsigned int i;
 
+	if (!clusters_inited)
+		return;
+
 	pr_debug("msm_perf: Trying hotplug...%d:%d\n",
 			num_online_managed(data->cpus),	num_online_cpus());
 
@@ -510,6 +515,9 @@ static int __ref msm_performance_cpu_callback(struct notifier_block *nfb,
 	unsigned int i;
 	struct cpu_hp *i_hp = NULL;
 
+	if (!clusters_inited)
+		return NOTIFY_OK;
+
 	for (i = 0; i < num_clusters; i++) {
 		if (cpumask_test_cpu(cpu, managed_clusters[i]->cpus)) {
 			i_hp = managed_clusters[i];
@@ -582,6 +590,7 @@ static int init_cluster_control(void)
 	INIT_DELAYED_WORK(&evaluate_hotplug_work, check_cluster_status);
 	mutex_init(&managed_cpus_lock);
 
+	clusters_inited = true;
 	return 0;
 }
 

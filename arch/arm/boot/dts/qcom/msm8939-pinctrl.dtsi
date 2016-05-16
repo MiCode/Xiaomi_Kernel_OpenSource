@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,13 +134,93 @@
 			};
 		};
 
+		fpc_reset {
+			qcom,pins = <&gp 52>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "fpc_reset";
+			fpc_reset_reset: reset {
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+			fpc_reset_active: active {
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+
+		fpc_irq_active {
+			qcom,pins = <&gp 49>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "fpc_irq_active";
+			fpc_irq_active: active {
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+
+		spi1_active_fpc {
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <1>;
+			label = "spi1_active";
+			spi1_active_fpc: default {
+				drive-strength = <12>;
+				bias-disable;
+			};
+		};
+
+		spi1_sleep_fpc {
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <0>;
+			label = "spi1_sleep";
+			spi1_sleep_fpc: sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		goodix_reset {
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 52>;
+			qcom,pin-func = <0>;
+			label = "goodix_reset";
+			goodix_reset_active: active {
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+			goodix_reset_reset: reset {
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		goodix_irq {
+			qcom,pins = <&gp 49>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "goodix_irq";
+			goodix_irq_active: active {
+				drive-strength = <2>;
+				bias-pull-down;
+				input-enable;
+			};
+		};
+
 		sdhc2_cd_pin {
 			qcom,pins = <&gp 38>;
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <0>;
 			label = "cd-gpio";
 			sdc2_cd_on: cd_on {
-				drive-strength = <2>;
+				drive-strength = <16>;
 				bias-pull-up;
 			};
 			sdc2_cd_off: cd_off {
@@ -297,9 +378,9 @@
 			qcom,pins = <&gp 62>;
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <0>;
-			label = "smb1360_int_gpio";
+			label = "smb_int_gpio";
 			smb_int_default: smb_int_default {
-				drive-strength = <2>;	/* 2 MA */
+				drive-strength = <2>;	/*8 MA */
 				bias-pull-up;		/* PULL UP*/
 			};
 		};
@@ -461,6 +542,16 @@
 			gpio_key_suspend: gpio_key_suspend {
 				drive-strength = <2>;
 				bias-pull-up;
+			};
+		};
+			gpio_led_pins {
+			qcom,pins = <&gp 9>;
+			qcom,num-grp-pins = <1>;
+			label = "gpio-led-pins";
+			gpio_led_off: led_off {
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
 			};
 		};
 
