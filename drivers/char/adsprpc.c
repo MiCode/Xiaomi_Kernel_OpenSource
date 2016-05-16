@@ -233,6 +233,7 @@ struct fastrpc_file {
 	int tgid;
 	int cid;
 	int ssrcount;
+	int pd;
 	struct fastrpc_apps *apps;
 };
 
@@ -1241,7 +1242,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	msg->tid = current->pid;
 	if (kernel)
 		msg->pid = 0;
-	msg->invoke.header.ctx = ptr_to_uint64(ctx);
+	msg->invoke.header.ctx = ptr_to_uint64(ctx) | fl->pd;
 	msg->invoke.header.handle = handle;
 	msg->invoke.header.sc = ctx->sc;
 	msg->invoke.page.addr = ctx->buf ? ctx->buf->phys : 0;
@@ -1274,6 +1275,7 @@ static void fastrpc_smd_read_handler(int cid)
 					sizeof(rsp));
 		if (ret != sizeof(rsp))
 			break;
+		rsp.ctx = rsp.ctx & ~1;
 		context_notify_user(uint64_to_ptr(rsp.ctx), rsp.retval);
 	} while (ret == sizeof(rsp));
 }
@@ -1394,6 +1396,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		ioctl.inv.pra = ra;
 		ioctl.fds = 0;
 		ioctl.attrs = 0;
+		fl->pd = 0;
 		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
 			FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 		if (err)
@@ -1411,10 +1414,13 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		inbuf.pgid = current->tgid;
 		inbuf.namelen = strlen(current->comm) + 1;
 		inbuf.filelen = init->filelen;
-		VERIFY(err, !fastrpc_mmap_create(fl, init->filefd, 0,
+		fl->pd = 1;
+		if (init->filelen) {
+			VERIFY(err, !fastrpc_mmap_create(fl, init->filefd, 0,
 				init->file, init->filelen, mflags, &file));
-		if (err)
-			goto bail;
+			if (err)
+				goto bail;
+		}
 		inbuf.pageslen = 1;
 		VERIFY(err, !fastrpc_mmap_create(fl, init->memfd, 0,
 				init->mem, init->memlen, mflags, &mem));
@@ -1777,6 +1783,7 @@ void fastrpc_glink_notify_rx(void *handle, const void *priv,
 	int len = size;
 
 	while (len >= sizeof(*rsp) && rsp) {
+		rsp->ctx = rsp->ctx & ~1;
 		context_notify_user(uint64_to_ptr(rsp->ctx), rsp->retval);
 		rsp++;
 		len = len - sizeof(*rsp);
