@@ -19,6 +19,8 @@ IPA node:
                    "bam-irq" - string to identify the IPA BAM interrupt.
                    "a2-bam-irq" - string to identify the A2 BAM interrupt.
 - qcom,ipa-hw-ver: Specifies the IPA hardware version.
+- qcom,ipa-ram-mmap: An array of unsigned integers representing addresses and
+                     sizes which are used by the driver to access IPA RAM.
 
 Optional:
 

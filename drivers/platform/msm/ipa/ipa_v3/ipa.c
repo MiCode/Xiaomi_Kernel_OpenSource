@@ -2128,7 +2128,7 @@ int _ipa_init_sram_v3_0(void)
 		return -ENOMEM;
 	}
 
-	/* Consult with ipa_ram_mmap.h on the location of the CANARY values */
+	/* Consult with ipa_i.h on the location of the CANARY values */
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_hash_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_hash_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio,
@@ -4040,6 +4040,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_bind;
 	}
 
+	result = ipa3_init_mem_partition(ipa_dev->of_node);
+	if (result) {
+		IPAERR(":ipa3_init_mem_partition failed!\n");
+		result = -ENODEV;
+		goto fail_init_mem_partition;
+	}
+
 	if (ipa3_bus_scale_table) {
 		IPADBG("Use bus scaling info from device tree\n");
 		ipa3_ctx->ctrl->msm_bus_data_ptr = ipa3_bus_scale_table;
@@ -4490,6 +4497,7 @@ fail_ipahal:
 	ipa3_bus_scale_table = NULL;
 fail_bus_reg:
 	ipahal_destroy();
+fail_init_mem_partition:
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
 fail_mem_ctrl:
