@@ -100,6 +100,9 @@
  * sigs_updated: flag to check signal update.
  * open_time_wait: wait time for channel to fully open.
  * in_reset:	flag to check SSR state.
+ * link_info:	structure to hold link information.
+ * link_state_handle: handle to get link state events.
+ * link_up:	flag to check link is up or not.
  */
 struct glink_pkt_dev {
 	struct list_head dev_list;
@@ -129,6 +132,10 @@ struct glink_pkt_dev {
 	int sigs_updated;
 	int open_time_wait;
 	int in_reset;
+
+	struct glink_link_info link_info;
+	void *link_state_handle;
+	bool link_up;
 };
 
 /**
@@ -215,7 +222,7 @@ do { \
 
 #define GLINK_PKT_ERR(x...) \
 do { \
-	pr_err("<GLINK_PKT> err: "x); \
+	pr_err_ratelimited("<GLINK_PKT> err: "x); \
 	GLINK_PKT_LOG_STRING(x); \
 } while (0)
 
@@ -301,6 +308,33 @@ static void packet_arrival_worker(struct work_struct *work)
 	}
 	spin_unlock_irqrestore(&devp->pa_spinlock, flags);
 	mutex_unlock(&devp->ch_lock);
+}
+
+/**
+ * glink_pkt_link_state_cb() - Callback to receive link state updates
+ * @cb_info: Information containing link & its state.
+ * @priv: Private data passed during the link state registration.
+ *
+ * This function is called by the GLINK core to notify the Glink Pkt drivers
+ * regarding the link state updates. This function is registered with the
+ * GLINK core by Glink pkt drivers with glink_register_link_state_cb().
+ */
+static void glink_pkt_link_state_cb(struct glink_link_state_cb_info *cb_info,
+				      void *priv)
+{
+	struct glink_pkt_dev *devp = (struct glink_pkt_dev *)priv;
+
+	if (!cb_info)
+		return;
+	if (!devp)
+		return;
+
+	if (cb_info->link_state == GLINK_LINK_STATE_UP) {
+		devp->link_up = true;
+		wake_up_interruptible(&devp->ch_opened_wait_queue);
+	} else if (cb_info->link_state == GLINK_LINK_STATE_DOWN) {
+		devp->link_up = false;
+	}
 }
 
 /**
@@ -885,7 +919,7 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
 	struct glink_pkt_dev *devp = NULL;
-	int wait_time;
+	int wait_time_msecs;
 
 	devp = container_of(inode->i_cdev, struct glink_pkt_dev, cdev);
 	if (!devp) {
@@ -895,13 +929,13 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 	GLINK_PKT_INFO("Begin %s() on dev id:%d open_time_wait[%d] by [%s]\n",
 		__func__, devp->i, devp->open_time_wait, current->comm);
 	file->private_data = devp;
-	wait_time = devp->open_time_wait;
+	wait_time_msecs = devp->open_time_wait * 1000;
 
 	mutex_lock(&devp->ch_lock);
 	/* waiting for previous close to complete */
 	if (devp->handle && devp->ref_cnt == 0) {
 		mutex_unlock(&devp->ch_lock);
-		if (wait_time < 0) {
+		if (wait_time_msecs < 0) {
 			ret = wait_event_interruptible(
 				devp->ch_opened_wait_queue,
 				devp->ch_state == GLINK_LOCAL_DISCONNECTED);
@@ -909,10 +943,11 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 			ret = wait_event_interruptible_timeout(
 				devp->ch_opened_wait_queue,
 				devp->ch_state == GLINK_LOCAL_DISCONNECTED,
-				msecs_to_jiffies(wait_time * 1000));
+				msecs_to_jiffies(wait_time_msecs));
+			if (ret >= 0)
+				wait_time_msecs = jiffies_to_msecs(ret);
 			if (ret == 0)
 				ret = -ETIMEDOUT;
-			wait_time = ret;
 		}
 		if (ret < 0) {
 			GLINK_PKT_ERR(
@@ -924,6 +959,35 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 	}
 
 	if (!devp->handle) {
+		mutex_unlock(&devp->ch_lock);
+		/*
+		 * Wait for the link to be complete up so we know
+		 * the remote is ready enough.
+		 */
+		if (wait_time_msecs < 0) {
+			ret = wait_event_interruptible(
+				devp->ch_opened_wait_queue,
+				devp->link_up == true);
+		} else {
+			ret = wait_event_interruptible_timeout(
+				devp->ch_opened_wait_queue,
+				devp->link_up == true,
+				msecs_to_jiffies(wait_time_msecs));
+			if (ret >= 0)
+				wait_time_msecs = jiffies_to_msecs(ret);
+			if (ret == 0)
+				ret = -ETIMEDOUT;
+		}
+		mutex_lock(&devp->ch_lock);
+		if (ret < 0) {
+			GLINK_PKT_ERR(
+				"%s: Link not up edge[%s] name[%s] rc:%d\n",
+				__func__, devp->open_cfg.edge,
+				devp->open_cfg.name, ret);
+			devp->handle = NULL;
+			goto error;
+		}
+
 		devp->handle = glink_open(&devp->open_cfg);
 		if (IS_ERR_OR_NULL(devp->handle)) {
 			GLINK_PKT_ERR(
@@ -938,9 +1002,9 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 		mutex_unlock(&devp->ch_lock);
 		/*
 		 * Wait for the channel to be complete open state so we know
-		 * the remote is ready enough.
+		 * the remote client is ready enough.
 		 */
-		if (wait_time < 0) {
+		if (wait_time_msecs < 0) {
 			ret = wait_event_interruptible(
 				devp->ch_opened_wait_queue,
 				devp->ch_state == GLINK_CONNECTED);
@@ -948,7 +1012,7 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 			ret = wait_event_interruptible_timeout(
 				devp->ch_opened_wait_queue,
 				devp->ch_state == GLINK_CONNECTED,
-				msecs_to_jiffies(wait_time * 1000));
+				msecs_to_jiffies(wait_time_msecs));
 			if (ret == 0)
 				ret = -ETIMEDOUT;
 		}
@@ -1052,6 +1116,10 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	devp->open_cfg.notify_rx_sigs = glink_pkt_notify_rx_sigs;
 	devp->open_cfg.priv = devp;
 
+	devp->link_up = false;
+	devp->link_info.edge = devp->open_cfg.edge;
+	devp->link_info.glink_link_state_notif_cb =
+				glink_pkt_link_state_cb;
 	devp->i = i;
 	devp->poll_mode = 0;
 	devp->ws_locked = 0;
@@ -1068,6 +1136,15 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	wakeup_source_init(&devp->pa_ws, devp->dev_name);
 	INIT_WORK(&devp->packet_arrival_work, packet_arrival_worker);
 
+	devp->link_state_handle =
+		glink_register_link_state_cb(&devp->link_info, devp);
+	if (IS_ERR_OR_NULL(devp->link_state_handle)) {
+		GLINK_PKT_ERR(
+			"%s: link state cb reg. failed edge[%s] name[%s]\n",
+			__func__, devp->open_cfg.edge, devp->open_cfg.name);
+		ret = PTR_ERR(devp->link_state_handle);
+		return ret;
+	}
 	cdev_init(&devp->cdev, &glink_pkt_fops);
 	devp->cdev.owner = THIS_MODULE;
 
@@ -1119,6 +1196,9 @@ static void glink_pkt_core_deinit(void)
 	mutex_lock(&glink_pkt_dev_lock_lha1);
 	list_for_each_entry_safe(glink_pkt_devp, index, &glink_pkt_dev_list,
 							dev_list) {
+		if (glink_pkt_devp->link_state_handle)
+			glink_unregister_link_state_cb(
+				glink_pkt_devp->link_state_handle);
 		cdev_del(&glink_pkt_devp->cdev);
 		list_del(&glink_pkt_devp->dev_list);
 		device_destroy(glink_pkt_classp,
