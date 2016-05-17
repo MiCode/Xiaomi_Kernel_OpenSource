@@ -37,6 +37,10 @@
 	};
 };
 
+&pcie0 {
+	status = "disabled";
+};
+
 &qusb_phy0 {
 	reg = <0x0a928000 0x8000>,
 	    <0x0a8f8800 0x400>,

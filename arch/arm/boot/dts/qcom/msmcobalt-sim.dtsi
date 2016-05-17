@@ -45,6 +45,10 @@
 	status = "ok";
 };
 
+&pcie0 {
+	status = "disabled";
+};
+
 &sdhc_2 {
 	vdd-supply = <&pmcobalt_l21>;
 	qcom,vdd-voltage-level = <2950000 2960000>;
