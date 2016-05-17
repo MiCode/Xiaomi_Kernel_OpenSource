@@ -85,9 +85,6 @@ void dsi_ctrl_hw_14_host_setup(struct dsi_ctrl_hw *ctrl,
 
 	DSI_W32(ctrl, DSI_CTRL, reg_value);
 
-	/* Enable Timing double buffering */
-	DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x1);
-
 	pr_debug("[DSI_%d]Host configuration complete\n", ctrl->index);
 }
 
@@ -198,6 +195,35 @@ void dsi_ctrl_hw_14_set_video_timing(struct dsi_ctrl_hw *ctrl,
 }
 
 /**
+ * setup_cmd_stream() - set up parameters for command pixel streams
+ * @ctrl:          Pointer to controller host hardware.
+ * @width_in_pixels:   Width of the stream in pixels.
+ * @h_stride:          Horizontal stride in bytes.
+ * @height_inLines:    Number of lines in the stream.
+ * @vc_id:             stream_id
+ *
+ * Setup parameters for command mode pixel stream size.
+ */
+void dsi_ctrl_hw_14_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
+				     u32 width_in_pixels,
+				     u32 h_stride,
+				     u32 height_in_lines,
+				     u32 vc_id)
+{
+	u32 reg = 0;
+
+	reg = (h_stride + 1) << 16;
+	reg |= (vc_id & 0x3) << 8;
+	reg |= 0x39; /* packet data type */
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_CTRL, reg);
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_CTRL, reg);
+
+	reg = (height_in_lines << 16) | width_in_pixels;
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_TOTAL, reg);
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_TOTAL, reg);
+}
+
+/**
  * video_engine_setup() - Setup dsi host controller for video mode
  * @ctrl:          Pointer to controller host hardware.
  * @common_cfg:    Common configuration parameters.
@@ -229,6 +255,9 @@ void dsi_ctrl_hw_14_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 	reg |= (common_cfg->bit_swap_green ? BIT(4) : 0);
 	reg |= (common_cfg->bit_swap_blue ? BIT(8) : 0);
 	DSI_W32(ctrl, DSI_VIDEO_MODE_DATA_CTRL, reg);
+	/* Enable Timing double buffering */
+	DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x1);
+
 
 	pr_debug("[DSI_%d] Video engine setup done\n", ctrl->index);
 }
@@ -254,6 +283,10 @@ void dsi_ctrl_hw_14_cmd_engine_setup(struct dsi_ctrl_hw *ctrl,
 	reg |= (common_cfg->bit_swap_blue ? BIT(12) : 0);
 	reg |= cmd_mode_format_map[common_cfg->dst_format];
 	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_CTRL, reg);
+
+	reg = DSI_R32(ctrl, DSI_COMMAND_MODE_MDP_CTRL2);
+	reg |= BIT(16);
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_CTRL2, reg);
 
 	reg = cfg->wr_mem_start & 0xFF;
 	reg |= (cfg->wr_mem_continue & 0xFF) << 8;

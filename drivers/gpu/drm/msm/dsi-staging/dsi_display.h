@@ -101,10 +101,6 @@ struct dsi_display_ctrl {
 	u32 dsi_ctrl_idx;
 
 	enum dsi_power_state power_state;
-	bool cmd_engine_enabled;
-	bool video_engine_enabled;
-	bool ulps_enabled;
-	bool clamps_enabled;
 
 	/* phy info */
 	struct msm_dsi_phy *phy;
@@ -182,6 +178,7 @@ struct dsi_display {
 	struct mipi_dsi_host host;
 	struct dsi_connector *connector;
 	struct dsi_bridge    *bridge;
+	u32 cmd_engine_refcount;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);
