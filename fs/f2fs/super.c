@@ -649,7 +649,7 @@ static void f2fs_put_super(struct super_block *sb)
 	mutex_unlock(&sbi->umount_mutex);
 
 	/* our cp_error case, we can wait for any writeback page */
-	if (get_pages(sbi, F2FS_WRITEBACK))
+	if (atomic_read(&sbi->nr_wb_bios))
 		f2fs_flush_merged_bios(sbi);
 
 	iput(sbi->node_inode);
