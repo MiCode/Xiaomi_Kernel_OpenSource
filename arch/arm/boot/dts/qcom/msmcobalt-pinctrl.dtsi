@@ -1479,5 +1479,18 @@
 				output-low;
 			};
 		};
+
+		trigout_a: trigout_a {
+			mux {
+				pins = "gpio58";
+				function = "qdss_cti1_a";
+			};
+
+			config {
+				pins = "gpio58";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 	};
 };
