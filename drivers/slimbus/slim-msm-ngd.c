@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1677,6 +1677,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	pm_runtime_set_suspended(dev->dev);
 	pm_runtime_enable(dev->dev);
 
+	dev->dsp.nb.priority = 4;
 	dev->dsp.nb.notifier_call = dsp_ssr_notify_cb;
 	dev->dsp.ssr = subsys_notif_register_notifier("adsp",
 						&dev->dsp.nb);
