@@ -1485,23 +1485,30 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 		goto error;
 	}
 
-	dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
-					  &dsi_ctrl->host_config.video_timing);
-
 	dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.lane_map);
 
 	dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
 				    &dsi_ctrl->host_config.common_config);
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE)
+	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
 		dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.cmd_engine);
-	else
+
+		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
+				dsi_ctrl->host_config.video_timing.h_active,
+				dsi_ctrl->host_config.video_timing.h_active * 3,
+				dsi_ctrl->host_config.video_timing.v_active,
+				0x0);
+	} else {
 		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.video_engine);
+		dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
+					  &dsi_ctrl->host_config.video_timing);
+	}
+
 
 
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
