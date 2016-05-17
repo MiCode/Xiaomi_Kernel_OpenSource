@@ -364,6 +364,11 @@ static int dsi_display_cmd_engine_enable(struct dsi_display *display)
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
 
+	if (display->cmd_engine_refcount > 0) {
+		display->cmd_engine_refcount++;
+		return 0;
+	}
+
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 
 	rc = dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_ON);
@@ -387,6 +392,7 @@ static int dsi_display_cmd_engine_enable(struct dsi_display *display)
 		}
 	}
 
+	display->cmd_engine_refcount++;
 	return rc;
 error_disable_master:
 	(void)dsi_ctrl_set_cmd_engine_state(m_ctrl->ctrl, DSI_CTRL_ENGINE_OFF);
@@ -399,6 +405,14 @@ static int dsi_display_cmd_engine_disable(struct dsi_display *display)
 	int rc = 0;
 	int i;
 	struct dsi_display_ctrl *m_ctrl, *ctrl;
+
+	if (display->cmd_engine_refcount == 0) {
+		pr_err("[%s] Invalid refcount\n", display->name);
+		return 0;
+	} else if (display->cmd_engine_refcount > 1) {
+		display->cmd_engine_refcount--;
+		return 0;
+	}
 
 	m_ctrl = &display->ctrl[display->cmd_master_idx];
 	for (i = 0; i < display->ctrl_count; i++) {
@@ -421,6 +435,7 @@ static int dsi_display_cmd_engine_disable(struct dsi_display *display)
 	}
 
 error:
+	display->cmd_engine_refcount = 0;
 	return rc;
 }
 
@@ -1834,20 +1849,33 @@ int dsi_display_enable(struct dsi_display *display)
 	if (rc) {
 		pr_err("[%s] failed to enable DSI panel, rc=%d\n",
 		       display->name, rc);
-		goto error_disable_vid_engine;
+		goto error;
 	}
 
-	rc = dsi_display_vid_engine_enable(display);
-	if (rc) {
-		pr_err("[%s] failed to enable DSI video engine, rc=%d\n",
-		       display->name, rc);
-		goto error;
+	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
+		rc = dsi_display_vid_engine_enable(display);
+		if (rc) {
+			pr_err("[%s]failed to enable DSI video engine, rc=%d\n",
+			       display->name, rc);
+			goto error_disable_panel;
+		}
+	} else if (display->config.panel_mode == DSI_OP_CMD_MODE) {
+		rc = dsi_display_cmd_engine_enable(display);
+		if (rc) {
+			pr_err("[%s]failed to enable DSI cmd engine, rc=%d\n",
+			       display->name, rc);
+			goto error_disable_panel;
+		}
+	} else {
+		pr_err("[%s] Invalid configuration\n", display->name);
+		rc = -EINVAL;
+		goto error_disable_panel;
 	}
 
 	goto error;
 
-error_disable_vid_engine:
-	(void)dsi_display_vid_engine_disable(display);
+error_disable_panel:
+	(void)dsi_panel_disable(display->panel);
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -1914,10 +1942,20 @@ int dsi_display_disable(struct dsi_display *display)
 		pr_err("[%s] failed to disable DSI panel, rc=%d\n",
 		       display->name, rc);
 
-	rc = dsi_display_vid_engine_disable(display);
-	if (rc)
-		pr_err("[%s] failed to disable video engine, rc=%d\n",
-		       display->name, rc);
+	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
+		rc = dsi_display_vid_engine_disable(display);
+		if (rc)
+			pr_err("[%s]failed to disable DSI vid engine, rc=%d\n",
+			       display->name, rc);
+	} else if (display->config.panel_mode == DSI_OP_CMD_MODE) {
+		rc = dsi_display_cmd_engine_disable(display);
+		if (rc)
+			pr_err("[%s]failed to disable DSI cmd engine, rc=%d\n",
+			       display->name, rc);
+	} else {
+		pr_err("[%s] Invalid configuration\n", display->name);
+		rc = -EINVAL;
+	}
 
 	mutex_unlock(&display->display_lock);
 	return rc;
