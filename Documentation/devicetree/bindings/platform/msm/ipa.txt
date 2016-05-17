@@ -65,7 +65,9 @@ memory allocation over a PCIe bridge
 - qcom,use-rg10-limitation-mitigation:	Boolean context flag to activate
 					the mitigation to register group 10
 					AP access limitation
-
+- qcom,do-not-use-ch-gsi-20:	Boolean context flag to activate
+				software workaround for IPA limitation
+				to not use GSI physical channel 20
 - qcom,tethered-flow-control:   Boolean context flag to indicate whether
                                 apps based flow control is needed for tethered
                                 call.
