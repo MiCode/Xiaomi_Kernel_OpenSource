@@ -55,6 +55,10 @@
 #define IPA_GSI_MAX_CH_LOW_WEIGHT 15
 #define IPA_GSI_EVT_RING_INT_MODT 3200 /* 0.1s under 32KHz clock */
 
+#define IPA_GSI_CH_20_WA_NUM_CH_TO_ALLOC 10
+/* The below virtual channel cannot be used by any entity */
+#define IPA_GSI_CH_20_WA_VIRT_CHAN 29
+
 static struct sk_buff *ipa3_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys);
@@ -3597,7 +3601,6 @@ static void ipa_dma_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 	}
 }
 
-
 static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	struct ipa3_ep_context *ep)
 {
@@ -3890,4 +3893,76 @@ static uint64_t pointer_to_tag_wa(struct ipa3_tx_pkt_wrapper *tx_pkt)
 		}
 	}
 	return (unsigned long)tx_pkt & 0x0000FFFFFFFFFFFF;
+}
+
+/**
+ * ipa_gsi_ch20_wa() - software workaround for IPA GSI channel 20
+ *
+ * A hardware limitation requires to avoid using GSI physical channel 20.
+ * This function allocates GSI physical channel 20 and holds it to prevent
+ * others to use it.
+ *
+ * Return codes: 0 on success, negative on failure
+ */
+int ipa_gsi_ch20_wa(void)
+{
+	struct gsi_chan_props gsi_channel_props;
+	dma_addr_t dma_addr;
+	int result;
+	int i;
+	unsigned long chan_hdl[IPA_GSI_CH_20_WA_NUM_CH_TO_ALLOC];
+	unsigned long chan_hdl_to_keep;
+
+
+	memset(&gsi_channel_props, 0, sizeof(gsi_channel_props));
+	gsi_channel_props.prot = GSI_CHAN_PROT_GPI;
+	gsi_channel_props.dir = GSI_CHAN_DIR_TO_GSI;
+	gsi_channel_props.evt_ring_hdl = ~0;
+	gsi_channel_props.re_size = GSI_CHAN_RE_SIZE_16B;
+	gsi_channel_props.ring_len = 4 * gsi_channel_props.re_size;
+	gsi_channel_props.ring_base_vaddr =
+		dma_alloc_coherent(ipa3_ctx->pdev, gsi_channel_props.ring_len,
+		&dma_addr, 0);
+	gsi_channel_props.ring_base_addr = dma_addr;
+	gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
+	gsi_channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
+	gsi_channel_props.low_weight = 1;
+	gsi_channel_props.err_cb = ipa_gsi_chan_err_cb;
+	gsi_channel_props.xfer_cb = ipa_gsi_irq_tx_notify_cb;
+
+	/* first allocate channels up to channel 20 */
+	for (i = 0; i < IPA_GSI_CH_20_WA_NUM_CH_TO_ALLOC; i++) {
+		gsi_channel_props.ch_id = i;
+		result = gsi_alloc_channel(&gsi_channel_props,
+			ipa3_ctx->gsi_dev_hdl,
+			&chan_hdl[i]);
+		if (result != GSI_STATUS_SUCCESS) {
+			IPAERR("failed to alloc channel %d err %d\n",
+				i, result);
+			return result;
+		}
+	}
+
+	/* allocate channel 20 */
+	gsi_channel_props.ch_id = IPA_GSI_CH_20_WA_VIRT_CHAN;
+	result = gsi_alloc_channel(&gsi_channel_props, ipa3_ctx->gsi_dev_hdl,
+		&chan_hdl_to_keep);
+	if (result != GSI_STATUS_SUCCESS) {
+		IPAERR("failed to alloc channel %d err %d\n",
+			i, result);
+		return result;
+	}
+
+	/* release all other channels */
+	for (i = 0; i < IPA_GSI_CH_20_WA_NUM_CH_TO_ALLOC; i++) {
+		result = gsi_dealloc_channel(chan_hdl[i]);
+		if (result != GSI_STATUS_SUCCESS) {
+			IPAERR("failed to dealloc channel %d err %d\n",
+				i, result);
+			return result;
+		}
+	}
+
+	/* DMA memory shall not be freed as it is used by channel 20 */
+	return 0;
 }
