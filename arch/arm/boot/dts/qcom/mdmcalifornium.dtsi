@@ -1249,7 +1249,7 @@
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
 
-		qcom,devfreq,freq-table = <20000000 50000000>;
+		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <8>;
