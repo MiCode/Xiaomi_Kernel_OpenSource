@@ -140,6 +140,10 @@
 		qcom,ipa-advertise-sg-support;
 	};
 
+	qcom,rmtfs_sharedmem@00000000 {
+		reg = <0x00000000 0x00180000>;
+	};
+
 	/* remove 8937 MEM ACC node */
 	/delete-node/ regulator@01946004;
 
