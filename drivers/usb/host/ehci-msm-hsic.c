@@ -2389,7 +2389,7 @@ static int msm_hsic_pm_suspend(struct device *dev)
 		return -EBUSY;
 	}
 
-	if (device_may_wakeup(dev) && !mehci->async_irq)
+	if (device_may_wakeup(dev))
 		enable_irq_wake(hcd->irq);
 
 	return 0;
@@ -2417,7 +2417,7 @@ static int msm_hsic_pm_resume(struct device *dev)
 	dev_dbg(dev, "ehci-msm-hsic PM resume\n");
 	dbg_log_event(NULL, "PM Resume", 0);
 
-	if (device_may_wakeup(dev) && !mehci->async_irq)
+	if (device_may_wakeup(dev))
 		disable_irq_wake(hcd->irq);
 
 	/*
