@@ -211,10 +211,15 @@ static struct clk *smmu_clk;
 struct ipa3_context *ipa3_ctx;
 static struct device *master_dev;
 struct platform_device *ipa3_pdev;
-static bool smmu_present;
-static bool arm_smmu;
-static bool smmu_disable_htw;
-static bool smmu_s1_bypass;
+static struct {
+	bool present;
+	bool arm_smmu;
+	bool disable_htw;
+	bool fast_map;
+	bool s1_bypass;
+	u32 ipa_base;
+	u32 ipa_size;
+} smmu_info;
 
 static char *active_clients_table_buf;
 
@@ -396,19 +401,38 @@ struct iommu_domain *ipa3_get_smmu_domain(void)
 
 struct iommu_domain *ipa3_get_uc_smmu_domain(void)
 {
-	struct iommu_domain *domain = NULL;
-
 	if (smmu_cb[IPA_SMMU_CB_UC].valid)
-		domain = smmu_cb[IPA_SMMU_CB_UC].mapping->domain;
-	else
-		IPAERR("CB not valid\n");
+		return smmu_cb[IPA_SMMU_CB_UC].mapping->domain;
 
-	return domain;
+	IPAERR("CB not valid\n");
+
+	return NULL;
 }
+
+struct iommu_domain *ipa3_get_wlan_smmu_domain(void)
+{
+	if (smmu_cb[IPA_SMMU_CB_WLAN].valid)
+		return smmu_cb[IPA_SMMU_CB_WLAN].iommu;
+
+	IPAERR("CB not valid\n");
+
+	return NULL;
+}
+
 
 struct device *ipa3_get_dma_dev(void)
 {
 	return ipa3_ctx->pdev;
+}
+
+/**
+ * ipa3_get_smmu_ctx()- Return the wlan smmu context
+ *
+ * Return value: pointer to smmu context address
+ */
+struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void)
+{
+	return &smmu_cb[IPA_SMMU_CB_AP];
 }
 
 /**
@@ -2918,7 +2942,7 @@ static int ipa3_get_clks(struct device *dev)
 		return PTR_ERR(ipa3_clk);
 	}
 
-	if (smmu_present && arm_smmu) {
+	if (smmu_info.present && smmu_info.arm_smmu) {
 		smmu_clk = clk_get(dev, "smmu_clk");
 		if (IS_ERR(smmu_clk)) {
 			if (smmu_clk != ERR_PTR(-EPROBE_DEFER))
@@ -3968,12 +3992,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	ipa3_ctx->pdev = ipa_dev;
 	ipa3_ctx->uc_pdev = ipa_dev;
-	ipa3_ctx->smmu_present = smmu_present;
+	ipa3_ctx->smmu_present = smmu_info.present;
 	if (!ipa3_ctx->smmu_present)
 		ipa3_ctx->smmu_s1_bypass = true;
 	else
-		ipa3_ctx->smmu_s1_bypass = smmu_s1_bypass;
+		ipa3_ctx->smmu_s1_bypass = smmu_info.s1_bypass;
 	ipa3_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
+	ipa3_ctx->ipa_wrapper_size = resource_p->ipa_mem_size;
 	ipa3_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa3_ctx->ipa3_hw_mode = resource_p->ipa3_hw_mode;
 	ipa3_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
@@ -4487,7 +4512,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->apply_rg10_wa = false;
 
-	smmu_disable_htw = of_property_read_bool(pdev->dev.of_node,
+	smmu_info.disable_htw = of_property_read_bool(pdev->dev.of_node,
 			"qcom,smmu-disable-htw");
 
 	/* Get IPA HW Version */
@@ -4588,6 +4613,9 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			ipa_drv_res->ipa_mem_base,
 			ipa_drv_res->ipa_mem_size);
 
+	smmu_info.ipa_base = ipa_drv_res->ipa_mem_base;
+	smmu_info.ipa_size = ipa_drv_res->ipa_mem_size;
+
 	if (ipa_drv_res->transport_prototype == IPA_TRANSPORT_TYPE_SPS) {
 		/* Get IPA BAM address */
 		resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -4676,9 +4704,10 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {
-	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_WLAN];
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
 	int disable_htw = 1;
 	int atomic_ctx = 1;
+	int fast = 1;
 	int bypass = 1;
 	int ret;
 
@@ -4691,18 +4720,20 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 		/* assume this failure is because iommu driver is not ready */
 		return -EPROBE_DEFER;
 	}
+	cb->valid = true;
 
-	if (smmu_disable_htw) {
+	if (smmu_info.disable_htw) {
 		ret = iommu_domain_set_attr(cb->iommu,
 			DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 			&disable_htw);
 		if (ret) {
 			IPAERR("couldn't disable coherent HTW\n");
+			cb->valid = false;
 			return -EIO;
 		}
 	}
 
-	if (smmu_s1_bypass) {
+	if (smmu_info.s1_bypass) {
 		if (iommu_domain_set_attr(cb->iommu,
 					DOMAIN_ATTR_S1_BYPASS,
 					&bypass)) {
@@ -4716,9 +4747,21 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 					DOMAIN_ATTR_ATOMIC,
 					&atomic_ctx)) {
 			IPAERR("couldn't disable coherent HTW\n");
+			cb->valid = false;
 			return -EIO;
 		}
 		IPADBG("SMMU ATTR ATOMIC\n");
+
+		if (smmu_info.fast_map) {
+			if (iommu_domain_set_attr(cb->iommu,
+						DOMAIN_ATTR_FAST,
+						&fast)) {
+				IPAERR("couldn't set fast map\n");
+				cb->valid = false;
+				return -EIO;
+			}
+			IPADBG("SMMU fast map set\n");
+		}
 	}
 
 	ret = iommu_attach_device(cb->iommu, dev);
@@ -4728,19 +4771,31 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 		return ret;
 	}
 
-	cb->valid = true;
-
 	return 0;
 }
 
 static int ipa_smmu_uc_cb_probe(struct device *dev)
 {
-	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_UC];
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
 	int disable_htw = 1;
+	int atomic_ctx = 1;
 	int bypass = 1;
+	int fast = 1;
 	int ret;
+	u32 iova_ap_mapping[2];
 
-	IPADBG("sub pdev=%p\n", dev);
+	IPADBG("UC CB PROBE sub pdev=%p\n", dev);
+
+	ret = of_property_read_u32_array(dev->of_node, "qcom,iova-mapping",
+			iova_ap_mapping, 2);
+	if (ret) {
+		IPAERR("Fail to read UC start/size iova addresses\n");
+		return ret;
+	}
+	cb->va_start = iova_ap_mapping[0];
+	cb->va_size = iova_ap_mapping[1];
+	cb->va_end = cb->va_start + cb->va_size;
+	IPADBG("UC va_start=0x%x va_sise=0x%x\n", cb->va_start, cb->va_size);
 
 	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
 		    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
@@ -4748,89 +4803,33 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		return -EOPNOTSUPP;
 	}
 
+	IPADBG("UC CB PROBE=%p create IOMMU mapping\n", dev);
+
 	cb->dev = dev;
 	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
-			IPA_SMMU_UC_VA_START, IPA_SMMU_UC_VA_SIZE);
+			cb->va_start, cb->va_size);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */
 		return -EPROBE_DEFER;
 	}
+	IPADBG("SMMU mapping created\n");
+	cb->valid = true;
 
-	if (smmu_disable_htw) {
+	IPADBG("UC CB PROBE sub pdev=%p disable htw\n", dev);
+	if (smmu_info.disable_htw) {
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 				 &disable_htw)) {
 			IPAERR("couldn't disable coherent HTW\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
 			return -EIO;
 		}
 	}
 
 	IPADBG("UC CB PROBE sub pdev=%p set attribute\n", dev);
-	if (smmu_s1_bypass) {
-		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_S1_BYPASS,
-				&bypass)) {
-			IPAERR("couldn't set bypass\n");
-			arm_iommu_release_mapping(cb->mapping);
-			cb->valid = false;
-			return -EIO;
-		}
-		IPADBG("SMMU S1 BYPASS\n");
-	}
-	IPADBG("UC CB PROBE sub pdev=%p attaching IOMMU device\n", dev);
-
-
-	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
-	if (ret) {
-		IPAERR("could not attach device ret=%d\n", ret);
-		arm_iommu_release_mapping(cb->mapping);
-		cb->valid = false;
-		return ret;
-	}
-
-	cb->valid = true;
-	cb->next_addr = IPA_SMMU_UC_VA_END;
-	ipa3_ctx->uc_pdev = dev;
-
-	return 0;
-}
-
-static int ipa_smmu_ap_cb_probe(struct device *dev)
-{
-	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_AP];
-	int result;
-	int disable_htw = 1;
-	int atomic_ctx = 1;
-	int bypass = 1;
-
-	IPADBG("sub pdev=%p\n", dev);
-
-	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
-		    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
-		IPAERR("DMA set mask failed\n");
-		return -EOPNOTSUPP;
-	}
-
-	cb->dev = dev;
-	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
-			IPA_SMMU_AP_VA_START, IPA_SMMU_AP_VA_SIZE);
-	if (IS_ERR(cb->mapping)) {
-		IPADBG("Fail to create mapping\n");
-		/* assume this failure is because iommu driver is not ready */
-		return -EPROBE_DEFER;
-	}
-
-	if (smmu_disable_htw) {
-		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				 &disable_htw)) {
-			IPAERR("couldn't disable coherent HTW\n");
-			arm_iommu_detach_device(cb->dev);
-			return -EIO;
-		}
-	}
-	if (smmu_s1_bypass) {
+	if (smmu_info.s1_bypass) {
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_S1_BYPASS,
 				&bypass)) {
@@ -4849,16 +4848,127 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 			cb->valid = false;
 			return -EIO;
 		}
+		IPADBG("SMMU atomic set\n");
+
+		if (smmu_info.fast_map) {
+			if (iommu_domain_set_attr(cb->mapping->domain,
+					DOMAIN_ATTR_FAST,
+					&fast)) {
+				IPAERR("couldn't set fast map\n");
+				arm_iommu_release_mapping(cb->mapping);
+				cb->valid = false;
+				return -EIO;
+			}
+			IPADBG("SMMU fast map set\n");
+		}
+	}
+
+	IPADBG("UC CB PROBE sub pdev=%p attaching IOMMU device\n", dev);
+	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
+	if (ret) {
+		IPAERR("could not attach device ret=%d\n", ret);
+		arm_iommu_release_mapping(cb->mapping);
+		cb->valid = false;
+		return ret;
+	}
+
+	cb->next_addr = cb->va_end;
+	ipa3_ctx->uc_pdev = dev;
+
+	return 0;
+}
+
+static int ipa_smmu_ap_cb_probe(struct device *dev)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx();
+	int result;
+	int disable_htw = 1;
+	int atomic_ctx = 1;
+	int fast = 1;
+	int bypass = 1;
+	u32 iova_ap_mapping[2];
+
+	IPADBG("AP CB probe: sub pdev=%p\n", dev);
+
+	result = of_property_read_u32_array(dev->of_node, "qcom,iova-mapping",
+		iova_ap_mapping, 2);
+	if (result) {
+		IPAERR("Fail to read AP start/size iova addresses\n");
+		return result;
+	}
+	cb->va_start = iova_ap_mapping[0];
+	cb->va_size = iova_ap_mapping[1];
+	cb->va_end = cb->va_start + cb->va_size;
+	IPADBG("AP va_start=0x%x va_sise=0x%x\n", cb->va_start, cb->va_size);
+
+	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
+		    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
+		IPAERR("DMA set mask failed\n");
+		return -EOPNOTSUPP;
+	}
+
+	cb->dev = dev;
+	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
+					cb->va_start, cb->va_size);
+	if (IS_ERR(cb->mapping)) {
+		IPADBG("Fail to create mapping\n");
+		/* assume this failure is because iommu driver is not ready */
+		return -EPROBE_DEFER;
+	}
+	IPADBG("SMMU mapping created\n");
+	cb->valid = true;
+
+	if (smmu_info.disable_htw) {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+				 &disable_htw)) {
+			IPAERR("couldn't disable coherent HTW\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU disable HTW\n");
+	}
+	if (smmu_info.s1_bypass) {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_S1_BYPASS,
+				&bypass)) {
+			IPAERR("couldn't set bypass\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU S1 BYPASS\n");
+	} else {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_ATOMIC,
+				&atomic_ctx)) {
+			IPAERR("couldn't set domain as atomic\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU atomic set\n");
+
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_FAST,
+				&fast)) {
+			IPAERR("couldn't set fast map\n");
+			arm_iommu_release_mapping(cb->mapping);
+			cb->valid = false;
+			return -EIO;
+		}
+		IPADBG("SMMU fast map set\n");
 	}
 
 	result = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (result) {
 		IPAERR("couldn't attach to IOMMU ret=%d\n", result);
+		cb->valid = false;
 		return result;
 	}
 
-	cb->valid = true;
-	smmu_present = true;
+	smmu_info.present = true;
 
 	if (!ipa3_bus_scale_table)
 		ipa3_bus_scale_table = msm_bus_cl_get_pdata(ipa3_pdev);
@@ -4869,6 +4979,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		IPAERR("ipa_init failed\n");
 		arm_iommu_detach_device(cb->dev);
 		arm_iommu_release_mapping(cb->mapping);
+		cb->valid = false;
 		return result;
 	}
 
@@ -4987,8 +5098,13 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		if (of_property_read_bool(pdev_p->dev.of_node,
 		    "qcom,smmu-s1-bypass"))
-			smmu_s1_bypass = true;
-		arm_smmu = true;
+			smmu_info.s1_bypass = true;
+		if (of_property_read_bool(pdev_p->dev.of_node,
+			"qcom,smmu-fast-map"))
+			smmu_info.fast_map = true;
+		smmu_info.arm_smmu = true;
+		pr_info("IPA smmu_info.s1_bypass=%d smmu_info.fast_map=%d\n",
+			smmu_info.s1_bypass, smmu_info.fast_map);
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
 		IPAERR("Legacy IOMMU not supported\n");
@@ -5217,6 +5333,39 @@ int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data)
 	mutex_unlock(&ipa3_ctx->lock);
 
 	return 0;
+}
+
+int ipa3_iommu_map(struct iommu_domain *domain,
+	unsigned long iova, phys_addr_t paddr, size_t size, int prot)
+{
+	struct ipa_smmu_cb_ctx *ap_cb = ipa3_get_smmu_ctx();
+	struct ipa_smmu_cb_ctx *uc_cb = ipa3_get_uc_smmu_ctx();
+
+	IPADBG("domain =0x%p iova 0x%lx\n", domain, iova);
+	IPADBG("paddr =0x%pa size 0x%x\n", &paddr, (u32)size);
+
+	/* make sure no overlapping */
+	if (domain == ipa3_get_smmu_domain()) {
+		if (iova >= ap_cb->va_start && iova < ap_cb->va_end) {
+			IPAERR("iommu AP overlap addr 0x%lx\n", iova);
+			BUG();
+			return -EFAULT;
+		}
+	} else if (domain == ipa3_get_wlan_smmu_domain()) {
+		/* wlan is one time map */
+	} else if (domain == ipa3_get_uc_smmu_domain()) {
+		if (iova >= uc_cb->va_start && iova < uc_cb->va_end) {
+			IPAERR("iommu uC overlap addr 0x%lx\n", iova);
+			BUG();
+			return -EFAULT;
+		}
+	} else {
+		IPAERR("Unexpected domain 0x%p\n", domain);
+		BUG();
+		return -EFAULT;
+	}
+
+	return iommu_map(domain, iova, paddr, size, prot);
 }
 
 MODULE_LICENSE("GPL v2");

@@ -123,6 +123,7 @@ static int ipa3_smmu_map_peer_bam(unsigned long dev)
 	phys_addr_t base;
 	u32 size;
 	struct iommu_domain *smmu_domain;
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx();
 
 	if (!ipa3_ctx->smmu_s1_bypass) {
 		if (ipa3_ctx->peer_bam_map_cnt == 0) {
@@ -132,19 +133,19 @@ static int ipa3_smmu_map_peer_bam(unsigned long dev)
 			}
 			smmu_domain = ipa3_get_smmu_domain();
 			if (smmu_domain != NULL) {
-				if (iommu_map(smmu_domain,
-					IPA_SMMU_AP_VA_END,
+				if (ipa3_iommu_map(smmu_domain,
+					cb->va_end,
 					rounddown(base, PAGE_SIZE),
 					roundup(size + base -
 					rounddown(base, PAGE_SIZE), PAGE_SIZE),
 					IOMMU_READ | IOMMU_WRITE |
 					IOMMU_DEVICE)) {
-					IPAERR("Fail to iommu_map\n");
+					IPAERR("Fail to ipa3_iommu_map\n");
 					return -EINVAL;
 				}
 			}
 
-			ipa3_ctx->peer_bam_iova = IPA_SMMU_AP_VA_END;
+			ipa3_ctx->peer_bam_iova = cb->va_end;
 			ipa3_ctx->peer_bam_pa = base;
 			ipa3_ctx->peer_bam_map_size = size;
 			ipa3_ctx->peer_bam_dev = dev;
@@ -393,26 +394,26 @@ int ipa3_connect(const struct ipa_connect_params *in,
 		base = ep->connect.data.iova;
 		smmu_domain = ipa_get_smmu_domain();
 		if (smmu_domain != NULL) {
-			if (iommu_map(smmu_domain,
+			if (ipa3_iommu_map(smmu_domain,
 				rounddown(base, PAGE_SIZE),
 				rounddown(base, PAGE_SIZE),
 				roundup(ep->connect.data.size + base -
 					rounddown(base, PAGE_SIZE), PAGE_SIZE),
 				IOMMU_READ | IOMMU_WRITE)) {
-				IPAERR("Fail to iommu_map data FIFO\n");
+				IPAERR("Fail to ipa3_iommu_map data FIFO\n");
 				goto iommu_map_data_fail;
 			}
 		}
 		ep->connect.desc.iova = ep->connect.desc.phys_base;
 		base = ep->connect.desc.iova;
 		if (smmu_domain != NULL) {
-			if (iommu_map(smmu_domain,
+			if (ipa3_iommu_map(smmu_domain,
 				rounddown(base, PAGE_SIZE),
 				rounddown(base, PAGE_SIZE),
 				roundup(ep->connect.desc.size + base -
 					rounddown(base, PAGE_SIZE), PAGE_SIZE),
 				IOMMU_READ | IOMMU_WRITE)) {
-				IPAERR("Fail to iommu_map desc FIFO\n");
+				IPAERR("Fail to ipa3_iommu_map desc FIFO\n");
 				goto iommu_map_desc_fail;
 			}
 		}
@@ -504,6 +505,7 @@ static int ipa3_smmu_unmap_peer_bam(unsigned long dev)
 {
 	size_t len;
 	struct iommu_domain *smmu_domain;
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx();
 
 	if (!ipa3_ctx->smmu_s1_bypass) {
 		WARN_ON(dev != ipa3_ctx->peer_bam_dev);
@@ -516,7 +518,7 @@ static int ipa3_smmu_unmap_peer_bam(unsigned long dev)
 			smmu_domain = ipa3_get_smmu_domain();
 			if (smmu_domain != NULL) {
 				if (iommu_unmap(smmu_domain,
-					IPA_SMMU_AP_VA_END, len) != len) {
+					cb->va_end, len) != len) {
 					IPAERR("Fail to iommu_unmap\n");
 					return -EINVAL;
 				}

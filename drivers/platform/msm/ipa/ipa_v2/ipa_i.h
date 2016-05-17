@@ -144,13 +144,6 @@
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
 #define IPA_MEM_PART(x_) (ipa_ctx->ctrl->mem_partition.x_)
 
-#define IPA_SMMU_AP_VA_START 0x1000
-#define IPA_SMMU_AP_VA_SIZE 0x40000000
-#define IPA_SMMU_AP_VA_END (IPA_SMMU_AP_VA_START +  IPA_SMMU_AP_VA_SIZE)
-#define IPA_SMMU_UC_VA_START 0x40000000
-#define IPA_SMMU_UC_VA_SIZE 0x20000000
-#define IPA_SMMU_UC_VA_END (IPA_SMMU_UC_VA_START +  IPA_SMMU_UC_VA_SIZE)
-
 #define IPA2_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES 120
 #define IPA2_ACTIVE_CLIENTS_LOG_LINE_LEN 96
 #define IPA2_ACTIVE_CLIENTS_LOG_HASHTABLE_SIZE 50
@@ -183,6 +176,9 @@ struct ipa_smmu_cb_ctx {
 	struct dma_iommu_mapping *mapping;
 	struct iommu_domain *iommu;
 	unsigned long next_addr;
+	u32 va_start;
+	u32 va_size;
+	u32 va_end;
 };
 
 /**
@@ -1221,6 +1217,7 @@ struct ipa_context {
 	struct ipa_flt_tbl flt_tbl[IPA_MAX_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
+	u32 ipa_wrapper_size;
 	struct ipa_flt_tbl glob_flt_tbl[IPA_IP_MAX];
 	struct ipa_hdr_tbl hdr_tbl;
 	struct ipa_hdr_proc_ctx_tbl hdr_proc_ctx_tbl;
@@ -1981,9 +1978,11 @@ int ipa_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 u32 ipa_get_num_pipes(void);
 u32 ipa_get_sys_yellow_wm(void);
+struct ipa_smmu_cb_ctx *ipa2_get_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa2_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa2_get_uc_smmu_ctx(void);
 struct iommu_domain *ipa_get_uc_smmu_domain(void);
+struct iommu_domain *ipa2_get_wlan_smmu_domain(void);
 int ipa2_ap_suspend(struct device *dev);
 int ipa2_ap_resume(struct device *dev);
 struct iommu_domain *ipa2_get_smmu_domain(void);
@@ -1998,4 +1997,6 @@ int ipa2_restore_suspend_handler(void);
 void ipa_sps_irq_control_all(bool enable);
 void ipa_inc_acquire_wakelock(enum ipa_wakelock_ref_client ref_client);
 void ipa_dec_release_wakelock(enum ipa_wakelock_ref_client ref_client);
+int ipa_iommu_map(struct iommu_domain *domain, unsigned long iova,
+	phys_addr_t paddr, size_t size, int prot);
 #endif /* _IPA_I_H_ */
