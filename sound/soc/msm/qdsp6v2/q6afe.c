@@ -477,6 +477,7 @@ int afe_get_port_type(u16 port_id)
 	case AFE_PORT_ID_QUATERNARY_TDM_RX_5:
 	case AFE_PORT_ID_QUATERNARY_TDM_RX_6:
 	case AFE_PORT_ID_QUATERNARY_TDM_RX_7:
+	case AFE_PORT_ID_USB_RX:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -538,6 +539,7 @@ int afe_get_port_type(u16 port_id)
 	case AFE_PORT_ID_QUATERNARY_TDM_TX_5:
 	case AFE_PORT_ID_QUATERNARY_TDM_TX_6:
 	case AFE_PORT_ID_QUATERNARY_TDM_TX_7:
+	case AFE_PORT_ID_USB_TX:
 		ret = MSM_AFE_PORT_TYPE_TX;
 		break;
 
@@ -602,6 +604,10 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_rt_proxy_port_cfg);
+		break;
+	case AFE_PORT_ID_USB_RX:
+	case AFE_PORT_ID_USB_TX:
+		ret_size = SIZEOF_CFG_CMD(afe_param_id_usb_audio_cfg);
 		break;
 	case AFE_PORT_ID_PRIMARY_PCM_RX:
 	case AFE_PORT_ID_PRIMARY_PCM_TX:
@@ -2577,6 +2583,55 @@ void afe_set_cal_mode(u16 port_id, enum afe_cal_mode afe_cal_mode)
 	this_afe.afe_cal_mode[port_index] = afe_cal_mode;
 }
 
+int afe_port_send_usb_dev_param(u16 port_id, union afe_port_config *afe_config)
+{
+	struct afe_usb_audio_dev_param_command config;
+	int ret = 0, index = 0;
+
+	if (!afe_config) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+	index = q6audio_get_port_index(port_id);
+	if (index < 0 || index > AFE_MAX_PORTS) {
+		pr_err("%s: AFE port index[%d] invalid! for port ID 0x%x\n",
+				__func__, index, port_id);
+		ret = -EINVAL;
+		goto exit;
+	}
+	memset(&config, 0, sizeof(config));
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	config.param.port_id = q6audio_get_port_id(port_id);
+	config.param.payload_size = sizeof(config) - sizeof(struct apr_hdr) -
+				    sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	config.pdata.param_id = AFE_PARAM_ID_USB_AUDIO_DEV_PARAMS;
+	config.pdata.param_size = sizeof(config.usb_dev);
+	config.usb_dev.cfg_minor_version =
+				AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG;
+	config.usb_dev.dev_token = afe_config->usb_audio.dev_token;
+
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[index]);
+	if (ret) {
+		pr_err("%s: AFE device param cmd failed %d\n",
+			__func__, ret);
+		ret = -EINVAL;
+		goto exit;
+	}
+exit:
+	return ret;
+}
+
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	u32 rate) /* This function is no blocking */
 {
@@ -2688,6 +2743,18 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 				this_afe.aanc_info.aanc_rx_port);
 		pr_debug("%s: afe_aanc_start ret %d\n", __func__, ret);
 	}
+
+	if ((port_id == AFE_PORT_ID_USB_RX) ||
+	    (port_id == AFE_PORT_ID_USB_TX)) {
+		ret = afe_port_send_usb_dev_param(port_id, afe_config);
+		if (ret) {
+			pr_err("%s: AFE device param for port 0x%x failed %d\n",
+				   __func__, port_id, ret);
+			ret = -EINVAL;
+			goto fail_cmd;
+		}
+	}
+
 	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	config.hdr.pkt_size = sizeof(config);
@@ -2750,6 +2817,10 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case SLIMBUS_8_RX:
 	case SLIMBUS_8_TX:
 		cfg_type = AFE_PARAM_ID_SLIMBUS_CONFIG;
+		break;
+	case AFE_PORT_ID_USB_RX:
+	case AFE_PORT_ID_USB_TX:
+		cfg_type = AFE_PARAM_ID_USB_AUDIO_CONFIG;
 		break;
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
@@ -2870,6 +2941,8 @@ int afe_get_port_index(u16 port_id)
 	case SLIMBUS_7_TX: return IDX_SLIMBUS_7_TX;
 	case SLIMBUS_8_RX: return IDX_SLIMBUS_8_RX;
 	case SLIMBUS_8_TX: return IDX_SLIMBUS_8_TX;
+	case AFE_PORT_ID_USB_RX: return IDX_AFE_PORT_ID_USB_RX;
+	case AFE_PORT_ID_USB_TX: return IDX_AFE_PORT_ID_USB_TX;
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_PRIMARY_MI2S_RX;
 	case AFE_PORT_ID_PRIMARY_MI2S_TX:
@@ -3134,6 +3207,10 @@ int afe_open(u16 port_id,
 	case SLIMBUS_8_RX:
 	case SLIMBUS_8_TX:
 		cfg_type = AFE_PARAM_ID_SLIMBUS_CONFIG;
+		break;
+	case AFE_PORT_ID_USB_RX:
+	case AFE_PORT_ID_USB_TX:
+		cfg_type = AFE_PARAM_ID_USB_AUDIO_CONFIG;
 		break;
 	default:
 		pr_err("%s: Invalid port id 0x%x\n",
@@ -4598,6 +4675,8 @@ int afe_validate_port(u16 port_id)
 	case SLIMBUS_7_TX:
 	case SLIMBUS_8_RX:
 	case SLIMBUS_8_TX:
+	case AFE_PORT_ID_USB_RX:
+	case AFE_PORT_ID_USB_TX:
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_PRIMARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:

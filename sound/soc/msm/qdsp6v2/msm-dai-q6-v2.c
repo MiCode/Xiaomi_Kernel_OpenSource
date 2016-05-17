@@ -1493,6 +1493,43 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 	return 0;
 }
 
+static int msm_dai_q6_usb_audio_hw_params(struct snd_pcm_hw_params *params,
+					  struct snd_soc_dai *dai, int stream)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+
+	dai_data->channels = params_channels(params);
+	dai_data->rate = params_rate(params);
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+	case SNDRV_PCM_FORMAT_SPECIAL:
+		dai_data->port_config.usb_audio.bit_width = 16;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		dai_data->port_config.usb_audio.bit_width = 24;
+		break;
+	default:
+		dev_err(dai->dev, "%s: invalid format %d\n",
+			__func__, params_format(params));
+		return -EINVAL;
+	}
+	dai_data->port_config.usb_audio.cfg_minor_version =
+					AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG;
+	dai_data->port_config.usb_audio.num_channels = dai_data->channels;
+	dai_data->port_config.usb_audio.sample_rate = dai_data->rate;
+
+	dev_dbg(dai->dev, "%s: dev_id[0x%x] bit_wd[%hu] format[%hu]\n"
+		"num_channel %hu  sample_rate %d\n", __func__,
+		dai_data->port_config.usb_audio.dev_token,
+		dai_data->port_config.usb_audio.bit_width,
+		dai_data->port_config.usb_audio.data_format,
+		dai_data->port_config.usb_audio.num_channels,
+		dai_data->port_config.usb_audio.sample_rate);
+
+	return 0;
+}
+
 static int msm_dai_q6_bt_fm_hw_params(struct snd_pcm_hw_params *params,
 				struct snd_soc_dai *dai, int stream)
 {
@@ -1618,6 +1655,11 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case INT_FM_RX:
 	case INT_FM_TX:
 		rc = msm_dai_q6_bt_fm_hw_params(params, dai, substream->stream);
+		break;
+	case AFE_PORT_ID_USB_RX:
+	case AFE_PORT_ID_USB_TX:
+		rc = msm_dai_q6_usb_audio_hw_params(params, dai,
+						    substream->stream);
 		break;
 	case RT_PROXY_DAI_001_TX:
 	case RT_PROXY_DAI_001_RX:
@@ -1862,6 +1904,40 @@ static int msm_dai_q6_sb_format_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_dai_q6_usb_audio_cfg_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+	u32 val = ucontrol->value.integer.value[0];
+
+	if (dai_data) {
+		dai_data->port_config.usb_audio.dev_token = val;
+		pr_debug("%s: dev_token = 0x%x\n",  __func__,
+				 dai_data->port_config.usb_audio.dev_token);
+	} else {
+		pr_err("%s: dai_data is NULL\n", __func__);
+	}
+
+	return 0;
+}
+
+static int msm_dai_q6_usb_audio_cfg_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data) {
+		ucontrol->value.integer.value[0] =
+			 dai_data->port_config.usb_audio.dev_token;
+		pr_debug("%s: dev_token = 0x%x\n",  __func__,
+				 dai_data->port_config.usb_audio.dev_token);
+	} else {
+		pr_err("%s: dai_data is NULL\n", __func__);
+	}
+
+	return 0;
+}
+
 static const char * const afe_cal_mode_text[] = {
 	"CAL_MODE_DEFAULT", "CAL_MODE_NONE"
 };
@@ -1894,6 +1970,15 @@ static const struct snd_kcontrol_new rt_proxy_config_controls[] = {
 	SOC_ENUM_EXT("RT_PROXY_1_TX SetCalMode", rt_proxy_1_tx_enum,
 		     msm_dai_q6_cal_info_get,
 		     msm_dai_q6_cal_info_put),
+};
+
+static const struct snd_kcontrol_new usb_audio_cfg_controls[] = {
+	SOC_SINGLE_EXT("USB_AUDIO_RX dev_token", 0, 0, UINT_MAX, 0,
+			msm_dai_q6_usb_audio_cfg_get,
+			msm_dai_q6_usb_audio_cfg_put),
+	SOC_SINGLE_EXT("USB_AUDIO_TX dev_token", 0, 0, UINT_MAX, 0,
+			msm_dai_q6_usb_audio_cfg_get,
+			msm_dai_q6_usb_audio_cfg_put),
 };
 
 static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
@@ -1940,6 +2025,16 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 	case RT_PROXY_DAI_001_TX:
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&rt_proxy_config_controls[1],
+				 dai_data));
+		break;
+	case AFE_PORT_ID_USB_RX:
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(&usb_audio_cfg_controls[0],
+				 dai_data));
+		break;
+	case AFE_PORT_ID_USB_TX:
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				 snd_ctl_new1(&usb_audio_cfg_controls[1],
 				 dai_data));
 		break;
 	}
@@ -2203,6 +2298,48 @@ static struct snd_soc_dai_driver msm_dai_q6_incall_record_dai[] = {
 		.probe = msm_dai_q6_dai_probe,
 		.remove = msm_dai_q6_dai_remove,
 	},
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_usb_rx_dai = {
+	.playback = {
+		.stream_name = "USB Audio Playback",
+		.aif_name = "USB_AUDIO_RX",
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+			 SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+			 SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+			 SNDRV_PCM_RATE_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_max = 192000,
+		.rate_min = 8000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.id = AFE_PORT_ID_USB_RX,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_usb_tx_dai = {
+	.capture = {
+		.stream_name = "USB Audio Capture",
+		.aif_name = "USB_AUDIO_TX",
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+			 SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+			 SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+			 SNDRV_PCM_RATE_192000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_max = 192000,
+		.rate_min = 8000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.id = AFE_PORT_ID_USB_TX,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
 };
 
 static int msm_auxpcm_dev_probe(struct platform_device *pdev)
@@ -3854,8 +3991,18 @@ register_slim_capture:
 		&msm_dai_q6_fm_rx_dai, 1);
 		break;
 	case INT_FM_TX:
-		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
-										&msm_dai_q6_fm_tx_dai, 1);
+		rc = snd_soc_register_component(&pdev->dev,
+		&msm_dai_q6_component, &msm_dai_q6_fm_tx_dai, 1);
+		break;
+	case AFE_PORT_ID_USB_RX:
+		rc = snd_soc_register_component(&pdev->dev,
+		&msm_dai_q6_component,
+		&msm_dai_q6_usb_rx_dai, 1);
+		break;
+	case AFE_PORT_ID_USB_TX:
+		rc = snd_soc_register_component(&pdev->dev,
+		&msm_dai_q6_component,
+		&msm_dai_q6_usb_tx_dai, 1);
 		break;
 	case RT_PROXY_DAI_001_RX:
 		strlcpy(stream_name, "AFE Playback", 80);

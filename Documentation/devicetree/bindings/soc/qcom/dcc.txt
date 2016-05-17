@@ -1,0 +1,42 @@
+* Data Capture and Compare (DCC)
+
+DCC (Data Capture and Compare) is a DMA engine, which is used to save
+configuration data or system memory contents during catastrophic failure or
+SW trigger.
+It can also perform CRC over the same configuration or memory space.
+
+Required properties:
+
+- compatible : name of the component used for driver matching, should be
+	       "qcom,dcc"
+
+- reg : physical base address and length of the register set(s), SRAM and XPU
+	of the component.
+
+- reg-names : names corresponding to each reg property value.
+
+Optional properties:
+
+- qcom,save-reg: boolean, To save dcc registers state in memory after dcc
+		 enable and disable
+
+- qcom,data-sink: string, To specify default data sink for dcc, should be one
+		  of the following:
+		  "atb"	  : To send captured data over ATB to a trace sink
+		  "sram"  : To save captured data in dcc internal SRAM.
+
+Example:
+
+	dcc: dcc@4b3000 {
+		compatible = "qcom,dcc";
+		reg = <0x4b3000 0x1000>,
+		      <0x4b4000 0x2000>,
+		      <0x4b0000 0x1>;
+		reg-names = "dcc-base", "dcc-ram-base", "dcc-xpu-base";
+
+		clocks = <&clock_gcc clk_gcc_dcc_ahb_clk>;
+		clock-names = "dcc_clk";
+
+		qcom,save-reg;
+	};
+

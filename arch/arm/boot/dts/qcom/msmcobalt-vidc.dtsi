@@ -218,7 +218,7 @@
 
 	qcom,vmem@c880000 {
 		compatible = "qcom,msm-vmem";
-		status = "disabled";
+		status = "ok";
 		interrupts = <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>;
 
 		reg = <0xc880000 0x6b>,
@@ -236,6 +236,6 @@
 		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG   0   0>,
 		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG 500 800>;
 
-		qcom,bank-size = <524288>; /* 512 kB */
+		qcom,bank-size = <131072>; /* 128 kB */
 	};
 };

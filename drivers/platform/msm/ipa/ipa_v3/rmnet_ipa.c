@@ -2297,7 +2297,7 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 	case SUBSYS_BEFORE_SHUTDOWN:
 		IPAWANINFO("IPA received MPSS BEFORE_SHUTDOWN\n");
 		atomic_set(&rmnet_ipa3_ctx->is_ssr, 1);
-		ipa3_q6_cleanup();
+		ipa3_q6_pre_shutdown_cleanup();
 		if (IPA_NETDEV())
 			netif_stop_queue(IPA_NETDEV());
 		ipa3_qmi_stop_workqueues();
@@ -2310,7 +2310,7 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 	case SUBSYS_AFTER_SHUTDOWN:
 		IPAWANINFO("IPA Received MPSS AFTER_SHUTDOWN\n");
 		if (atomic_read(&rmnet_ipa3_ctx->is_ssr))
-			ipa3_validate_q6_gsi_channel_empty();
+			ipa3_q6_post_shutdown_cleanup();
 		IPAWANINFO("IPA AFTER_SHUTDOWN handling is complete\n");
 		break;
 	case SUBSYS_BEFORE_POWERUP:

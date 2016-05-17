@@ -178,16 +178,17 @@ static int pil_mss_enable_clks(struct q6v5_data *drv)
 		goto err_mnoc_axi_clk;
 	return 0;
 err_mnoc_axi_clk:
-	clk_disable_unprepare(drv->snoc_axi_clk);
+	clk_disable_unprepare(drv->mnoc_axi_clk);
 err_snoc_axi_clk:
-	clk_disable_unprepare(drv->gpll0_mss_clk);
+	clk_disable_unprepare(drv->snoc_axi_clk);
 err_gpll0_mss_clk:
-	clk_disable_unprepare(drv->rom_clk);
+	clk_disable_unprepare(drv->gpll0_mss_clk);
 err_rom_clk:
-	clk_disable_unprepare(drv->axi_clk);
+	clk_disable_unprepare(drv->rom_clk);
 err_axi_clk:
-	clk_disable_unprepare(drv->ahb_clk);
+	clk_disable_unprepare(drv->axi_clk);
 err_ahb_clk:
+	clk_disable_unprepare(drv->ahb_clk);
 	return ret;
 }
 

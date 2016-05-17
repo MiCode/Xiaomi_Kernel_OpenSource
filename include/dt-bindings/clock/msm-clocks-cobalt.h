@@ -256,7 +256,6 @@
 #define clk_gcc_pcie_clkref_clk			0xa2e247fa
 #define clk_gcc_rx2_qlink_clkref_clk		0xd0ba986d
 #define clk_gcc_rx1_usb2_clkref_clk		0x53351d25
-#define clk_gcc_pcie_0_phy_reset		0xdc3201c1
 #define clk_gcc_pcie_phy_reset			0x9bc3c959
 #define clk_gcc_pcie_phy_com_reset		0x8bf513e6
 #define clk_gcc_pcie_phy_nocsr_com_phy_reset	0x0c16a2da

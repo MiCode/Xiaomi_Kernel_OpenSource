@@ -19,6 +19,14 @@ config MSM_PFE_WA
 
 	  If unsure, say N.
 
+config QCOM_COMMON_LOG
+	bool "QCOM Common Log Support"
+	help
+	  Use this to export symbols of some log address and variables
+	  that need to parse crash dump files to a memory dump table. This
+	  table can be used by post analysis tools to extract information
+	  from memory when device crashes.
+
 config MSM_SMEM
 	depends on ARCH_QCOM
 	depends on REMOTE_SPINLOCK_MSM
@@ -210,6 +218,13 @@ config MSM_HVC
 	  the hypervisor. It is primarily intended to be used for Silicon
 	  Partner/Manufacturer function identifier subrange but supports other
 	  service call subranges as well.
+
+config QCOM_DCC
+	bool "QCOM Data Capture and Compare enigne support"
+	help
+	  This option enables driver for Data Capture and Compare engine. DCC
+	  driver provides interface to configure DCC block and read back
+	  captured data from DCC's internal SRAM.
 
 config MSM_IPC_ROUTER_SMD_XPRT
 	depends on MSM_SMD
@@ -459,6 +474,15 @@ config MSM_BOOT_STATS
 	 display init, total boot time.
 	 This figures are reported in mpm sleep clock cycles and have a
 	 resolution of 31 bits as 1 bit is used as an overflow check.
+
+config QCOM_CPUSS_DUMP
+    bool "CPU Subsystem Dumping support"
+    help
+	  Add support to dump various hardware entities such as the instruction
+	  and data tlb's as well as the unified tlb, which are a part of the
+	  cpu subsystem to an allocated buffer. This allows for analysis of the
+	  the entities if corruption is suspected.
+	  If unsure, say N
 
 config MSM_QDSP6_APRV2
         bool "Audio QDSP6 APRv2 support"
