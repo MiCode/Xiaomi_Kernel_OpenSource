@@ -57,6 +57,9 @@ Bus Scaling Data:
 Optional properties:
 - label:                  String to describe controller.
 - qcom,platform-te-gpio:  Specifies the gpio used for TE.
+- qcom,dsi-display-active: Current active display
+- qcom,dsi-ctrl: handle to dsi controller device
+- qcom,dsi-phy: handle to dsi phy device
 - qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
 					a particular "type" of DSI module. The module "types"
 					can be "core", "ctrl", and "phy". Within the same type,
