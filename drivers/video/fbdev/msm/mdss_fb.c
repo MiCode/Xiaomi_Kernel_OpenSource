@@ -3305,6 +3305,11 @@ static int mdss_fb_pan_display_sub(struct fb_var_screeninfo *var,
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
+	if (!mfd || !var) {
+		pr_err("Invalid parameters mfd:%p var:%p\n", mfd, var);
+		return -EINVAL;
+	}
+
 	if (!mfd->op_enable)
 		return -EPERM;
 

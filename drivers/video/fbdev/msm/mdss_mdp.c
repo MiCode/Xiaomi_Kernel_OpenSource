@@ -291,6 +291,26 @@ static void mdss_irq_mask(struct irq_data *data)
 		spin_lock_irqsave(&mdp_lock, irq_flags);
 		mdata->mdss_util->disable_irq(&mdss_misc_hw);
 		spin_unlock_irqrestore(&mdp_lock, irq_flags);
+	} else if (data->hwirq < 64) {
+		/* MDP_INTR is mapped as logical interrupt 32-63. */
+		u32 irq = BIT(data->hwirq - 32);
+
+		spin_lock_irqsave(&mdp_lock, irq_flags);
+		if (!(mdata->mdp_irq_mask[0] & irq)) {
+			pr_debug("%pS: MDP IRQ-%x is NOT set, mask=%x\n",
+					__builtin_return_address(0),
+					irq, mdata->mdp_irq_mask[0]);
+		} else {
+			pr_debug("%pS: MDP IRQ mask old=%x new=%x\n",
+					__builtin_return_address(0),
+					mdata->mdp_irq_mask[0], irq);
+			mdata->mdp_irq_mask[0] &= ~irq;
+			writel_relaxed(mdata->mdp_irq_mask[0], mdata->mdp_base +
+				MDSS_MDP_REG_INTR_EN);
+			if (!is_mdp_irq_enabled())
+				mdata->mdss_util->disable_irq(&mdss_mdp_hw);
+		}
+		spin_unlock_irqrestore(&mdp_lock, irq_flags);
 	}
 }
 
@@ -308,6 +328,25 @@ static void mdss_irq_unmask(struct irq_data *data)
 		spin_lock_irqsave(&mdp_lock, irq_flags);
 		mdata->mdss_util->enable_irq(&mdss_misc_hw);
 		spin_unlock_irqrestore(&mdp_lock, irq_flags);
+	} else if (data->hwirq < 64) {
+		/* MDP_INTR is mapped as logical interrupt 32-63. */
+		u32 irq = BIT(data->hwirq - 32);
+
+		spin_lock_irqsave(&mdp_lock, irq_flags);
+		if (mdata->mdp_irq_mask[0] & irq) {
+			pr_debug("%pS: MDP IRQ-0x%x is already set, mask=%x\n",
+					__builtin_return_address(0),
+					irq, mdata->mdp_irq_mask[0]);
+		} else {
+			pr_debug("%pS: MDP IRQ mask old=%x new=%x\n",
+					__builtin_return_address(0),
+					mdata->mdp_irq_mask[0], irq);
+			mdata->mdp_irq_mask[0] |= irq;
+			writel_relaxed(mdata->mdp_irq_mask[0], mdata->mdp_base +
+				MDSS_MDP_REG_INTR_EN);
+			mdata->mdss_util->enable_irq(&mdss_mdp_hw);
+		}
+		spin_unlock_irqrestore(&mdp_lock, irq_flags);
 	}
 }
 
@@ -315,6 +354,8 @@ static struct irq_chip mdss_irq_chip = {
 	.name		= "mdss",
 	.irq_mask	= mdss_irq_mask,
 	.irq_unmask	= mdss_irq_unmask,
+	/* avoid lazy disable by defining irq_disable explicitly */
+	.irq_disable	= mdss_irq_mask,
 };
 
 static int mdss_irq_domain_map(struct irq_domain *d,
@@ -347,10 +388,23 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 	mdss_mdp_hw.irq_info->irq_buzy = true;
 
 	if (intr & MDSS_INTR_MDP) {
+		u32 mdp_irq_export;
+
 		spin_lock(&mdp_lock);
 		mdata->mdss_util->irq_dispatch(MDSS_HW_MDP, irq, ptr);
 		spin_unlock(&mdp_lock);
 		intr &= ~MDSS_INTR_MDP;
+
+		/* export MDP_INTR as logical interrupts 32-63 */
+		mdp_irq_export = mdata->mdp_irq_raw[0] &
+					mdata->mdp_irq_export[0];
+		while (mdp_irq_export) {
+			irq_hw_number_t hwirq = fls(mdp_irq_export) - 1;
+
+			generic_handle_irq(irq_find_mapping(
+					mdata->irq_domain, hwirq + 32));
+			mdp_irq_export &= ~(1 << hwirq);
+		}
 	}
 
 	if (intr & MDSS_INTR_DSI0) {
@@ -999,7 +1053,9 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	u32 isr, mask, hist_isr, hist_mask;
 	int i, j;
 
-	if (!mdata->clk_ena)
+	/* Bypass if clock is not enabled and no export irq is requested. */
+	if (!mdata->clk_ena &&
+		!(mdata->mdp_irq_mask[0] & mdata->mdp_irq_export[0]))
 		return IRQ_HANDLED;
 
 	for (i = 0; i < ARRAY_SIZE(mdp_intr_reg); i++) {
@@ -1010,6 +1066,11 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 			continue;
 
 		mask = readl_relaxed(mdata->mdp_base + reg.en_off);
+
+		/* Process only non-export irq */
+		mdata->mdp_irq_raw[i] = isr;
+		isr = isr & ~mdata->mdp_irq_export[i];
+
 		writel_relaxed(isr, mdata->mdp_base + reg.clr_off);
 
 		pr_debug("%s: reg:%d isr=%x mask=%x\n",
@@ -2591,7 +2652,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_mdp_hw.ptr = mdata;
 
 	/* export misc. interrupts to external driver */
-	mdata->irq_domain = irq_domain_add_linear(pdev->dev.of_node, 32,
+	mdata->irq_domain = irq_domain_add_linear(pdev->dev.of_node, 64,
 			&mdss_irq_domain_ops, mdata);
 	if (!mdata->irq_domain) {
 		pr_err("unable to add linear domain\n");
@@ -2713,6 +2774,36 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 			sizeof(u32), GFP_KERNEL);
 	if (mdss_res->mdp_irq_mask == NULL)
 		return -ENOMEM;
+
+	mdss_res->mdp_irq_raw = kcalloc(ARRAY_SIZE(mdp_intr_reg),
+			sizeof(u32), GFP_KERNEL);
+	if (mdss_res->mdp_irq_raw == NULL) {
+		kfree(mdss_res->mdp_irq_mask);
+		mdss_res->mdp_irq_mask = NULL;
+		return -ENOMEM;
+	}
+
+	mdss_res->mdp_irq_export = kcalloc(ARRAY_SIZE(mdp_intr_reg),
+			sizeof(u32), GFP_KERNEL);
+	if (mdss_res->mdp_irq_export == NULL) {
+		kfree(mdss_res->mdp_irq_mask);
+		kfree(mdss_res->mdp_irq_raw);
+		mdss_res->mdp_irq_mask = NULL;
+		mdss_res->mdp_irq_raw = NULL;
+		return -ENOMEM;
+	}
+
+	/*
+	 * If rotator is indicated as separate prior to 2.0, it means
+	 * rotator block in WB0 & WB1 are serviced by external driver.
+	 * In that case, specify WB0 & WB1 irq as export in mdp_irq_export;
+	 * otherwise, set mdp_irq_export to zero will disable mdp irq
+	 * export.
+	 */
+	if (mdss_res->has_separate_rotator &&
+			(mdata->mdp_rev < MDSS_MDP_HW_REV_200))
+		mdss_res->mdp_irq_export[0] = MDSS_MDP_INTR_WB_0_DONE |
+						MDSS_MDP_INTR_WB_1_DONE;
 
 	pr_info("mdss version = 0x%x, bootloader display is %s\n",
 		mdata->mdp_rev, display_on ? "on" : "off");

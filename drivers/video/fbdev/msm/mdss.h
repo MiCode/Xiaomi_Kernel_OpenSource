@@ -335,6 +335,8 @@ struct mdss_data_type {
 	u32 default_ot_wr_limit;
 
 	struct irq_domain *irq_domain;
+	u32 *mdp_irq_raw;
+	u32 *mdp_irq_export;
 	u32 *mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 	u32 mdp_intf_irq_mask;
