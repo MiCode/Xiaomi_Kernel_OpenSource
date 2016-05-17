@@ -349,8 +349,6 @@ static int adv7481_set_irq(struct adv7481_state *state)
 	if (ret)
 		pr_err("%s: Failed %d to setup interrupt regs\n",
 				__func__, ret);
-	else
-		enable_irq(state->irq);
 
 	return ret;
 }
@@ -2186,14 +2184,20 @@ static int adv7481_probe(struct platform_device *pdev)
 
 	/* Set hdmi settings */
 	ret = adv7481_set_hdmi_mode(state);
-
-	/* BA registration */
-	ret |= msm_ba_register_subdev_node(sd);
 	if (ret) {
 		ret = -EIO;
-		pr_err("BA INIT FAILED\n");
+		pr_err("%s: failed to set hdmi mode\n", __func__);
 		goto err_media_entity;
 	}
+
+	/* BA registration */
+	ret = msm_ba_register_subdev_node(sd);
+	if (ret) {
+		ret = -EIO;
+		pr_err("%s: BA init failed\n", __func__);
+		goto err_media_entity;
+	}
+	enable_irq(state->irq);
 	pr_debug("Probe successful!\n");
 
 	return ret;
