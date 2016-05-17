@@ -202,6 +202,9 @@ static int alloc_prefetch_info(
 	if (!is_secure_vmid_valid(get_secure_vmid(vmid)))
 		return -EINVAL;
 
+	if (nr_sizes > 0x10)
+		return -EINVAL;
+
 	for (i = 0; i < nr_sizes; i++) {
 		info = kzalloc(sizeof(*info), GFP_KERNEL);
 		if (!info)
@@ -233,6 +236,9 @@ int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
 	LIST_HEAD(items);
 
 	if ((int)heap->type != ION_HEAP_TYPE_SYSTEM_SECURE)
+		return -EINVAL;
+
+	if (data->nr_regions > 0x10)
 		return -EINVAL;
 
 	for (i = 0; i < data->nr_regions; i++) {
