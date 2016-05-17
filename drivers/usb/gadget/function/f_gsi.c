@@ -771,6 +771,11 @@ static void ipa_work_handler(struct work_struct *w)
 			d_port->sm_state = STATE_CONNECTED;
 			log_event_dbg("%s: ST_INIT_EVT_HOST_READY",
 					__func__);
+		} else if (event == EVT_DISCONNECTED) {
+			usb_gadget_autopm_put_async(d_port->gadget);
+			log_event_dbg("%s: ST_INIT_EVT_DISC", __func__);
+			log_event_dbg("%s: put_async1 = %d", __func__,
+				atomic_read(&gad_dev->power.usage_count));
 		}
 		break;
 	case STATE_CONNECT_IN_PROGRESS:
