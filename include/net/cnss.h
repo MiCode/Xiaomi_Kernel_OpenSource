@@ -120,9 +120,12 @@ extern int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 					u32 target_type, u32 target_version);
 
 extern int cnss_request_bus_bandwidth(int bandwidth);
+
+#ifdef CONFIG_CNSS_SECURE_FW
 extern int cnss_get_sha_hash(const u8 *data, u32 data_len,
 					u8 *hash_idx, u8 *out);
 extern void *cnss_get_fw_ptr(void);
+#endif
 
 extern int cnss_get_codeswap_struct(struct codeswap_codeseg_info *swap_seg);
 extern int cnss_get_bmi_setup(void);
