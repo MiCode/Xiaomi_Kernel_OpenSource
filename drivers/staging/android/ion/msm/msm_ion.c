@@ -768,6 +768,14 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 
 		if (ret)
 			return ret;
+
+		ret = ion_walk_heaps(client, data.prefetch_data.heap_id,
+				     ION_HEAP_TYPE_SYSTEM_SECURE,
+				     (void *)&data.prefetch_data,
+				     ion_system_secure_heap_drain);
+
+		if (ret)
+			return ret;
 		break;
 	}
 

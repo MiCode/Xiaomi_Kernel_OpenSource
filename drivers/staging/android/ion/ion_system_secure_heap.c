@@ -36,6 +36,7 @@ struct prefetch_info {
 	struct list_head list;
 	int vmid;
 	size_t size;
+	bool shrink;
 };
 
 static bool is_cp_flag_present(unsigned long flags)
@@ -161,6 +162,31 @@ out:
 	sys_heap->ops->free(&buffer);
 }
 
+static void process_one_shrink(struct ion_heap *sys_heap,
+			       struct prefetch_info *info)
+{
+	struct ion_buffer buffer;
+	size_t pool_size, size;
+	int ret;
+
+	buffer.heap = sys_heap;
+	buffer.flags = info->vmid;
+
+	pool_size = ion_system_heap_secure_page_pool_total(sys_heap,
+							   info->vmid);
+	size = min(pool_size, info->size);
+	ret = sys_heap->ops->allocate(sys_heap, &buffer, size, PAGE_SIZE,
+				      buffer.flags);
+	if (ret) {
+		pr_debug("%s: Failed to shrink 0x%zx, ret = %d\n",
+			 __func__, info->size, ret);
+		return;
+	}
+
+	buffer.private_flags = ION_PRIV_FLAG_SHRINKER_FREE;
+	sys_heap->ops->free(&buffer);
+}
+
 static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 {
 	struct ion_system_secure_heap *secure_heap = container_of(work,
@@ -176,7 +202,10 @@ static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 		list_del(&info->list);
 		spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 
-		process_one_prefetch(sys_heap, info);
+		if (info->shrink)
+			process_one_shrink(sys_heap, info);
+		else
+			process_one_prefetch(sys_heap, info);
 
 		kfree(info);
 		spin_lock_irqsave(&secure_heap->work_lock, flags);
@@ -186,7 +215,7 @@ static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 
 static int alloc_prefetch_info(
 			struct ion_prefetch_regions __user *user_regions,
-			struct list_head *items)
+			bool shrink, struct list_head *items)
 {
 	struct prefetch_info *info;
 	size_t __user *user_sizes;
@@ -215,6 +244,7 @@ static int alloc_prefetch_info(
 			goto out_free;
 
 		info->vmid = vmid;
+		info->shrink = shrink;
 		INIT_LIST_HEAD(&info->list);
 		list_add_tail(&info->list, items);
 	}
@@ -224,7 +254,8 @@ out_free:
 	return err;
 }
 
-int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
+static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
+					   bool shrink)
 {
 	struct ion_system_secure_heap *secure_heap = container_of(heap,
 						struct ion_system_secure_heap,
@@ -242,7 +273,7 @@ int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
 		return -EINVAL;
 
 	for (i = 0; i < data->nr_regions; i++) {
-		ret = alloc_prefetch_info(&data->regions[i], &items);
+		ret = alloc_prefetch_info(&data->regions[i], shrink, &items);
 		if (ret)
 			goto out_free;
 	}
@@ -264,6 +295,16 @@ out_free:
 		kfree(info);
 	}
 	return ret;
+}
+
+int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
+{
+	return __ion_system_secure_heap_resize(heap, ptr, false);
+}
+
+int ion_system_secure_heap_drain(struct ion_heap *heap, void *ptr)
+{
+	return __ion_system_secure_heap_resize(heap, ptr, true);
 }
 
 static struct sg_table *ion_system_secure_heap_map_dma(struct ion_heap *heap,
