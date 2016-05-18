@@ -26,6 +26,7 @@
 #include "pmic-voter.h"
 
 #define SMB2_DEFAULT_FCC_UA 1000000
+#define SMB2_DEFAULT_FV_UV 4350000
 #define SMB2_DEFAULT_ICL_UA 1500000
 
 static struct smb_params v1_params = {
@@ -96,6 +97,11 @@ static int smb2_parse_dt(struct smb2 *chip)
 				"qcom,fcc-max-ua", &chip->dt.fcc_ua);
 	if (rc < 0)
 		chip->dt.fcc_ua = SMB2_DEFAULT_FCC_UA;
+
+	rc = of_property_read_u32(node,
+				"qcom,fv-max-uv", &chip->dt.fv_uv);
+	if (rc < 0)
+		chip->dt.fv_uv = SMB2_DEFAULT_FV_UV;
 
 	rc = of_property_read_u32(node,
 				"qcom,usb-icl-ua", &chip->dt.usb_icl_ua);
@@ -477,6 +483,8 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, chip->dt.suspend_input, 0);
 	vote(chg->fcc_votable,
 		DEFAULT_VOTER, true, chip->dt.fcc_ua);
+	vote(chg->fv_votable,
+		DEFAULT_VOTER, true, chip->dt.fv_uv);
 	vote(chg->usb_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.usb_icl_ua);
 	vote(chg->dc_icl_votable,

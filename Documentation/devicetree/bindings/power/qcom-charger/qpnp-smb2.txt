@@ -31,11 +31,19 @@ Charger specific properties:
   Usage:      optional
   Value type: <u32>
   Definition: Specifies the maximum fast charge current in micro-amps.
+		If the value is not present, 1Amp is used as default.
+
+- qcom,fv-max-uv
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum float voltage in micro-volts.
+		If the value is not present, 4.35V is used as default.
 
 - qcom,usb-icl-ua
   Usage:      optional
   Value type: <u32>
   Definition: Specifies the USB input current limit in micro-amps.
+		 If the value is not present, 1.5Amps is used as default.
 
 - qcom,dc-icl-ua
   Usage:      optional
