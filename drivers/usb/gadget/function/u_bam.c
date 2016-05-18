@@ -1423,7 +1423,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		/* Configure for TX */
 		sps_params = (MSM_SPS_MODE | d->dst_pipe_idx |
 				MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
-		d->tx_req->length = 32*1024;
 		d->tx_req->udc_priv = sps_params;
 
 	}
