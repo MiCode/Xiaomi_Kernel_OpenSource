@@ -25,6 +25,7 @@
 
 #include "ipa_qmi_service.h"
 #include "ipa_ram_mmap.h"
+#include "../ipa_common_i.h"
 
 #define IPA_Q6_SVC_VERS 1
 #define IPA_A5_SVC_VERS 1

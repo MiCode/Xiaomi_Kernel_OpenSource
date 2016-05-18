@@ -28,7 +28,7 @@ static const u32 ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN_MAX] = { 32, 64};
  *
  * Returns:	0 on success, negative on failure
  */
-static int ipa3_generate_hdr_hw_tbl(struct ipa3_mem_buffer *mem)
+static int ipa3_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 {
 	struct ipa3_hdr_entry *entry;
 
@@ -61,7 +61,7 @@ static int ipa3_generate_hdr_hw_tbl(struct ipa3_mem_buffer *mem)
 	return 0;
 }
 
-static void ipa3_hdr_proc_ctx_to_hw_format(struct ipa3_mem_buffer *mem,
+static void ipa3_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 	u32 hdr_base_addr)
 {
 	struct ipa3_hdr_proc_ctx_entry *entry;
@@ -91,7 +91,7 @@ static void ipa3_hdr_proc_ctx_to_hw_format(struct ipa3_mem_buffer *mem,
  * Returns:	0 on success, negative on failure
  */
 static int ipa3_generate_hdr_proc_ctx_hw_tbl(u32 hdr_sys_addr,
-	struct ipa3_mem_buffer *mem, struct ipa3_mem_buffer *aligned_mem)
+	struct ipa_mem_buffer *mem, struct ipa_mem_buffer *aligned_mem)
 {
 	u32 hdr_base_addr;
 
@@ -130,9 +130,9 @@ static int ipa3_generate_hdr_proc_ctx_hw_tbl(u32 hdr_sys_addr,
 int __ipa_commit_hdr_v3_0(void)
 {
 	struct ipa3_desc desc[2];
-	struct ipa3_mem_buffer hdr_mem;
-	struct ipa3_mem_buffer ctx_mem;
-	struct ipa3_mem_buffer aligned_ctx_mem;
+	struct ipa_mem_buffer hdr_mem;
+	struct ipa_mem_buffer ctx_mem;
+	struct ipa_mem_buffer aligned_ctx_mem;
 	struct ipahal_imm_cmd_dma_shared_mem dma_cmd_hdr = {0};
 	struct ipahal_imm_cmd_dma_shared_mem dma_cmd_ctx = {0};
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};

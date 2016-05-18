@@ -26,7 +26,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 #include <linux/msm_ep_pcie.h>
-#include <linux/ipa.h>
+#include <linux/ipa_mhi.h>
 #include <linux/vmalloc.h>
 
 #include "mhi.h"

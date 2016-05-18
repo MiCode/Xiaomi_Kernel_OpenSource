@@ -771,7 +771,7 @@ static void ipa_xfer_cb(struct gsi_chan_xfer_notify *notify)
 
 static int ipa3_reconfigure_channel_to_gpi(struct ipa3_ep_context *ep,
 	struct gsi_chan_props *orig_chan_props,
-	struct ipa3_mem_buffer *chan_dma)
+	struct ipa_mem_buffer *chan_dma)
 {
 	struct gsi_chan_props chan_props;
 	enum gsi_status gsi_res;
@@ -839,7 +839,7 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 	enum gsi_status gsi_res;
 	struct gsi_chan_props orig_chan_props;
 	union gsi_channel_scratch orig_chan_scratch;
-	struct ipa3_mem_buffer chan_dma;
+	struct ipa_mem_buffer chan_dma;
 	void *buff;
 	dma_addr_t dma_addr;
 	struct gsi_xfer_elem xfer_elem;
@@ -865,7 +865,7 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 		IPAERR("Error getting channel properties: %d\n", gsi_res);
 		return -EFAULT;
 	}
-	memset(&chan_dma, 0, sizeof(struct ipa3_mem_buffer));
+	memset(&chan_dma, 0, sizeof(struct ipa_mem_buffer));
 	result = ipa3_reconfigure_channel_to_gpi(ep, &orig_chan_props,
 		&chan_dma);
 	if (result)

@@ -735,7 +735,7 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	int ipa_ep_idx;
 	int result = -EFAULT;
 	struct ipa3_ep_context *ep;
-	struct ipa3_mem_buffer cmd;
+	struct ipa_mem_buffer cmd;
 	struct IpaHwWdiTxSetUpCmdData_t *tx;
 	struct IpaHwWdiRxSetUpCmdData_t *rx;
 	struct IpaHwWdi2TxSetUpCmdData_t *tx_2;

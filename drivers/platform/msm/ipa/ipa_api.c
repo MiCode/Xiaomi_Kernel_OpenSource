@@ -73,6 +73,24 @@
 		} \
 	} while (0)
 
+#define IPA_API_DISPATCH_RETURN_BOOL(api, p...) \
+	do { \
+		if (!ipa_api_ctrl) { \
+			pr_err("IPA HW is not supported on this target\n"); \
+			ret = false; \
+		} \
+		else { \
+			if (ipa_api_ctrl->api) { \
+				ret = ipa_api_ctrl->api(p); \
+			} else { \
+				pr_err("%s not implemented for IPA ver %d\n", \
+						__func__, ipa_api_hw_type); \
+				WARN_ON(1); \
+				ret = false; \
+			} \
+		} \
+	} while (0)
+
 static enum ipa_hw_type ipa_api_hw_type;
 static struct ipa_api_controller *ipa_api_ctrl;
 
@@ -1778,63 +1796,23 @@ void ipa_dma_destroy(void)
 }
 EXPORT_SYMBOL(ipa_dma_destroy);
 
-/**
- * ipa_mhi_init() - Initialize IPA MHI driver
- * @params: initialization params
- *
- * This function is called by MHI client driver on boot to initialize IPA MHI
- * Driver. When this function returns device can move to READY state.
- * This function is doing the following:
- *	- Initialize MHI IPA internal data structures
- *	- Create IPA RM resources
- *	- Initialize debugfs
- *
- * Return codes: 0	  : success
- *		 negative : error
- */
-int ipa_mhi_init(struct ipa_mhi_init_params *params)
+int ipa_mhi_init_engine(struct ipa_mhi_init_engine *params)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_init, params);
+	IPA_API_DISPATCH_RETURN(ipa_mhi_init_engine, params);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_init);
+EXPORT_SYMBOL(ipa_mhi_init_engine);
 
 /**
- * ipa_mhi_start() - Start IPA MHI engine
- * @params: pcie addresses for MHI
- *
- * This function is called by MHI client driver on MHI engine start for
- * handling MHI accelerated channels. This function is called after
- * ipa_mhi_init() was called and can be called after MHI reset to restart MHI
- * engine. When this function returns device can move to M0 state.
- * This function is doing the following:
- *	- Send command to uC for initialization of MHI engine
- *	- Add dependencies to IPA RM
- *	- Request MHI_PROD in IPA RM
- *
- * Return codes: 0	  : success
- *		 negative : error
- */
-int ipa_mhi_start(struct ipa_mhi_start_params *params)
-{
-	int ret;
-
-	IPA_API_DISPATCH_RETURN(ipa_mhi_start, params);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_mhi_start);
-
-/**
- * ipa_mhi_connect_pipe() - Connect pipe to IPA and start corresponding
+ * ipa_connect_mhi_pipe() - Connect pipe to IPA and start corresponding
  * MHI channel
  * @in: connect parameters
  * @clnt_hdl: [out] client handle for this pipe
  *
- * This function is called by MHI client driver on MHI channel start.
+ * This function is called by IPA MHI client driver on MHI channel start.
  * This function is called after MHI engine was started.
  * This function is doing the following:
  *	- Send command to uC to start corresponding MHI channel
@@ -1843,23 +1821,24 @@ EXPORT_SYMBOL(ipa_mhi_start);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
+int ipa_connect_mhi_pipe(struct ipa_mhi_connect_params_internal *in,
+		u32 *clnt_hdl)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_connect_pipe, in, clnt_hdl);
+	IPA_API_DISPATCH_RETURN(ipa_connect_mhi_pipe, in, clnt_hdl);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_connect_pipe);
+EXPORT_SYMBOL(ipa_connect_mhi_pipe);
 
 /**
- * ipa_mhi_disconnect_pipe() - Disconnect pipe from IPA and reset corresponding
+ * ipa_disconnect_mhi_pipe() - Disconnect pipe from IPA and reset corresponding
  * MHI channel
  * @in: connect parameters
  * @clnt_hdl: [out] client handle for this pipe
  *
- * This function is called by MHI client driver on MHI channel reset.
+ * This function is called by IPA MHI client driver on MHI channel reset.
  * This function is called after MHI channel was started.
  * This function is doing the following:
  *	- Send command to uC to reset corresponding MHI channel
@@ -1868,81 +1847,218 @@ EXPORT_SYMBOL(ipa_mhi_connect_pipe);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_disconnect_pipe(u32 clnt_hdl)
+int ipa_disconnect_mhi_pipe(u32 clnt_hdl)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_disconnect_pipe, clnt_hdl);
+	IPA_API_DISPATCH_RETURN(ipa_disconnect_mhi_pipe, clnt_hdl);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_disconnect_pipe);
+EXPORT_SYMBOL(ipa_disconnect_mhi_pipe);
 
-/**
- * ipa_mhi_suspend() - Suspend MHI accelerated channels
- * @force:
- *	false: in case of data pending in IPA, MHI channels will not be
- *		suspended and function will fail.
- *	true:  in case of data pending in IPA, make sure no further access from
- *		IPA to PCIe is possible. In this case suspend cannot fail.
- *
- * This function is called by MHI client driver on MHI suspend.
- * This function is called after MHI channel was started.
- * When this function returns device can move to M1/M2/M3/D3cold state.
- * This function is doing the following:
- *	- Send command to uC to suspend corresponding MHI channel
- *	- Make sure no further access is possible from IPA to PCIe
- *	- Release MHI_PROD in IPA RM
- *
- * Return codes: 0	  : success
- *		 negative : error
- */
-int ipa_mhi_suspend(bool force)
+bool ipa_mhi_stop_gsi_channel(enum ipa_client_type client)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN_BOOL(ipa_mhi_stop_gsi_channel, client);
+
+	return ret;
+}
+
+int ipa_uc_mhi_reset_channel(int channelHandle)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_suspend, force);
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_reset_channel, channelHandle);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_suspend);
 
-/**
- * ipa_mhi_resume() - Resume MHI accelerated channels
- *
- * This function is called by MHI client driver on MHI resume.
- * This function is called after MHI channel was suspended.
- * When this function returns device can move to M0 state.
- * This function is doing the following:
- *	- Send command to uC to resume corresponding MHI channel
- *	- Request MHI_PROD in IPA RM
- *	- Resume data to IPA
- *
- * Return codes: 0	  : success
- *		 negative : error
- */
-int ipa_mhi_resume(void)
+bool ipa_mhi_sps_channel_empty(enum ipa_client_type client)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN_BOOL(ipa_mhi_sps_channel_empty, client);
+
+	return ret;
+}
+
+int ipa_qmi_enable_force_clear_datapath_send(
+	struct ipa_enable_force_clear_datapath_req_msg_v01 *req)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_resume);
+	IPA_API_DISPATCH_RETURN(ipa_qmi_enable_force_clear_datapath_send, req);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_resume);
+
+int ipa_qmi_disable_force_clear_datapath_send(
+	struct ipa_disable_force_clear_datapath_req_msg_v01 *req)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_qmi_disable_force_clear_datapath_send, req);
+
+	return ret;
+}
+
+int ipa_generate_tag_process(void)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_generate_tag_process);
+
+	return ret;
+}
+
+int ipa_disable_sps_pipe(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_disable_sps_pipe, client);
+
+	return ret;
+}
+
+int ipa_mhi_reset_channel_internal(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_reset_channel_internal, client);
+
+	return ret;
+}
+
+int ipa_mhi_start_channel_internal(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_start_channel_internal, client);
+
+	return ret;
+}
+
+void ipa_get_holb(int ep_idx, struct ipa_ep_cfg_holb *holb)
+{
+	IPA_API_DISPATCH(ipa_get_holb, ep_idx, holb);
+}
+
+void ipa_set_tag_process_before_gating(bool val)
+{
+	IPA_API_DISPATCH(ipa_set_tag_process_before_gating, val);
+}
+
+int ipa_mhi_query_ch_info(enum ipa_client_type client,
+		struct gsi_chan_info *ch_info)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_query_ch_info, client, ch_info);
+
+	return ret;
+}
+
+int ipa_uc_mhi_suspend_channel(int channelHandle)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_suspend_channel, channelHandle);
+
+	return ret;
+}
+
+int ipa_uc_mhi_stop_event_update_channel(int channelHandle)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_stop_event_update_channel,
+			channelHandle);
+
+	return ret;
+}
+
+bool ipa_has_open_aggr_frame(enum ipa_client_type client)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN_BOOL(ipa_has_open_aggr_frame, client);
+
+	return ret;
+}
+
+int ipa_mhi_resume_channels_internal(enum ipa_client_type client,
+		bool LPTransitionRejected, bool brstmode_enabled,
+		union __packed gsi_channel_scratch ch_scratch, u8 index)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_resume_channels_internal, client,
+			LPTransitionRejected, brstmode_enabled, ch_scratch,
+			index);
+
+	return ret;
+}
+
+int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t *cmd)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_send_dl_ul_sync_info,
+			cmd);
+
+	return ret;
+}
+
+int ipa_mhi_destroy_channel(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_mhi_destroy_channel, client);
+
+	return ret;
+}
+
+int ipa_uc_mhi_init(void (*ready_cb)(void),
+		void (*wakeup_request_cb)(void))
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_init, ready_cb, wakeup_request_cb);
+
+	return ret;
+}
+
+void ipa_uc_mhi_cleanup(void)
+{
+	IPA_API_DISPATCH(ipa_uc_mhi_cleanup);
+}
+
+int ipa_uc_mhi_print_stats(char *dbg_buff, int size)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_mhi_print_stats, dbg_buff, size);
+
+	return ret;
+}
 
 /**
- * ipa_mhi_destroy() - Destroy MHI IPA
+ * ipa_uc_state_check() - Check the status of the uC interface
  *
- * This function is called by MHI client driver on MHI reset to destroy all IPA
- * MHI resources.
+ * Return value: 0 if the uC is loaded, interface is initialized
+ *               and there was no recent failure in one of the commands.
+ *               A negative value is returned otherwise.
  */
-void ipa_mhi_destroy(void)
+int ipa_uc_state_check(void)
 {
-	IPA_API_DISPATCH(ipa_mhi_destroy);
+	int ret;
 
+	IPA_API_DISPATCH_RETURN(ipa_uc_state_check);
+
+	return ret;
 }
-EXPORT_SYMBOL(ipa_mhi_destroy);
 
 int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 {

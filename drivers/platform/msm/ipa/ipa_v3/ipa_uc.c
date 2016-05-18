@@ -960,7 +960,7 @@ void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val)
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 {
 	int res;
-	struct ipa3_mem_buffer mem;
+	struct ipa_mem_buffer mem;
 	struct IpaHwMemCopyData_t *cmd;
 
 	IPADBG("dest 0x%pa src 0x%pa len %d\n", &dest, &src, len);
