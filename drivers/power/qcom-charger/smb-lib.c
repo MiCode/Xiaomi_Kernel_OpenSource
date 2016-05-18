@@ -325,6 +325,16 @@ int smblib_fcc_vote_callback(struct device *dev,
 	return rc;
 }
 
+int smblib_fv_vote_callback(struct device *dev,
+		int fv_uv, int client, int last_fv_uv, int last_client)
+{
+	struct smb_charger *chg = dev_get_drvdata(dev);
+	int rc = 0;
+
+	rc = smblib_set_charge_param(chg, &chg->param.fv, fv_uv);
+	return rc;
+}
+
 #define USBIN_25MA 25000
 #define USBIN_100MA 100000
 int smblib_usb_icl_vote_callback(struct device *dev,
@@ -1272,8 +1282,9 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
  * INIT *
  * ******/
 
-#define SMB_DEFAULT_FCC_UA 1000000
-#define SMB_DEFAULT_ICL_UA 1500000
+#define SMB_DEFAULT_FCC_UA	1000000
+#define SMB_DEFAULT_FV_UV	4350000
+#define SMB_DEFAULT_ICL_UA	1500000
 
 int smblib_init(struct smb_charger *chg)
 {
@@ -1301,11 +1312,20 @@ int smblib_init(struct smb_charger *chg)
 	}
 
 	chg->fcc_votable = create_votable(chg->dev,
-					"FCC", VOTE_MIN,
+					"FCC", VOTE_MAX,
 					NUM_VOTERS, SMB_DEFAULT_FCC_UA,
 					smblib_fcc_vote_callback);
 	if (IS_ERR(chg->fcc_votable)) {
 		rc = PTR_ERR(chg->fcc_votable);
+		return rc;
+	}
+
+	chg->fv_votable = create_votable(chg->dev,
+					"FV", VOTE_MAX,
+					NUM_VOTERS, SMB_DEFAULT_FV_UV,
+					smblib_fv_vote_callback);
+	if (IS_ERR(chg->fv_votable)) {
+		rc = PTR_ERR(chg->fv_votable);
 		return rc;
 	}
 
