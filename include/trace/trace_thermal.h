@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,37 @@ TRACE_EVENT(lmh_debug_data,
 	)
 );
 
+#elif defined(LMH_DCVS_TRACE)
+DECLARE_EVENT_CLASS(msm_lmh_dcvs_print,
+
+	TP_PROTO(int cpu, long max_freq),
+
+	TP_ARGS(
+		cpu, max_freq
+	),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(long, max_freq)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->max_freq = max_freq;
+	),
+
+	TP_printk(
+		"cpu:%d max frequency:%ld",
+		__entry->cpu, __entry->max_freq
+	)
+);
+
+DEFINE_EVENT(msm_lmh_dcvs_print, lmh_dcvs_freq,
+
+	TP_PROTO(int cpu, long max_freq),
+
+	TP_ARGS(cpu, max_freq)
+);
 
 #elif defined(TRACE_MSM_THERMAL)
 
