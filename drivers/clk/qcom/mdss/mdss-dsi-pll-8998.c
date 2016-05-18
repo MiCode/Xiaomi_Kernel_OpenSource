@@ -106,7 +106,6 @@ struct dsi_pll_8998 {
 	struct mdss_pll_resources *rsc;
 	struct dsi_pll_config pll_configuration;
 	struct dsi_pll_regs reg_setup;
-	int bitclk_src_div;
 };
 
 static struct mdss_pll_resources *pll_rsc_db[DSI_PLL_MAX];
@@ -178,7 +177,7 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_8998 *pll,
 	u32 frac;
 	u64 multiplier;
 
-	target_freq = rsc->vco_current_rate / pll->bitclk_src_div;
+	target_freq = rsc->vco_current_rate;
 	pr_debug("target_freq = %llu\n", target_freq);
 
 	if (config->div_override) {
@@ -275,19 +274,16 @@ static void dsi_pll_commit(struct dsi_pll_8998 *pll,
 	wmb();
 }
 
-static int vco_8998_set_rate_sub(struct mdss_pll_resources *rsc)
+static int vco_8998_set_rate(struct clk *c, unsigned long rate)
 {
 	int rc;
+	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct mdss_pll_resources *rsc = vco->priv;
 	struct dsi_pll_8998 *pll;
 
 	if (!rsc) {
 		pr_err("pll resource not found\n");
 		return -EINVAL;
-	}
-
-	if (!rsc->vco_current_rate) {
-		pr_debug("vco rate not configured yet\n");
-		return 0;
 	}
 
 	if (rsc->pll_on)
@@ -298,6 +294,11 @@ static int vco_8998_set_rate_sub(struct mdss_pll_resources *rsc)
 		pr_err("pll configuration not found\n");
 		return -EINVAL;
 	}
+
+	pr_debug("ndx=%d, rate=%lu\n", rsc->index, rate);
+
+	rsc->vco_current_rate = rate;
+	rsc->vco_ref_clk_rate = vco->ref_clk_rate;
 
 	rc = mdss_pll_resource_enable(rsc, true);
 	if (rc) {
@@ -318,25 +319,7 @@ static int vco_8998_set_rate_sub(struct mdss_pll_resources *rsc)
 
 	mdss_pll_resource_enable(rsc, false);
 
-	return rc;
-}
-
-static int vco_8998_set_rate(struct clk *c, unsigned long rate)
-{
-	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
-	struct mdss_pll_resources *rsc = vco->priv;
-
-	if (!rsc) {
-		pr_err("pll resource not found\n");
-		return -EINVAL;
-	}
-
-	pr_debug("ndx=%d, rate=%lu\n", rsc->index, rate);
-
-	rsc->vco_current_rate = rate;
-	rsc->vco_ref_clk_rate = vco->ref_clk_rate;
-
-	return vco_8998_set_rate_sub(rsc);
+	return 0;
 }
 
 static int dsi_pll_8998_lock_status(struct mdss_pll_resources *pll)
@@ -662,7 +645,7 @@ static void bit_clk_set_div_sub(struct mdss_pll_resources *rsc, int div)
 
 	reg_val = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CLK_CFG0);
 	reg_val &= ~0x0F;
-	reg_val |= (div - 1);
+	reg_val |= div;
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CLK_CFG0, reg_val);
 }
 
@@ -689,25 +672,13 @@ static int bit_clk_set_div(struct div_clk *clk, int div)
 		return rc;
 	}
 
-	/*
-	 * Once the bit clock source divider is setup, we may need to
-	 * re-configure the rest of the VCO registers if this divider value
-	 * has changed.
-	 */
-	if (pll->bitclk_src_div != div) {
-		pll->bitclk_src_div = div;
-		rc = vco_8998_set_rate_sub(rsc);
-		if (rc)
-			goto error;
-	}
-
 	bit_clk_set_div_sub(rsc, div);
+	/* For slave PLL, this divider always should be set to 1 */
 	if (rsc->slave)
-		bit_clk_set_div_sub(rsc->slave, div);
+		bit_clk_set_div_sub(rsc->slave, 1);
 
 	(void)mdss_pll_resource_enable(rsc, false);
 
-error:
 	return rc;
 }
 
