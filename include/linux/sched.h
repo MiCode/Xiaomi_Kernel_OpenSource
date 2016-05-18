@@ -3230,7 +3230,6 @@ static inline unsigned long rlimit_max(unsigned int limit)
 
 struct cpu_cycle_counter_cb {
 	u64 (*get_cpu_cycle_counter)(int cpu);
-	u32 (*get_cpu_cycles_max_per_us)(int cpu);
 };
 int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
 
