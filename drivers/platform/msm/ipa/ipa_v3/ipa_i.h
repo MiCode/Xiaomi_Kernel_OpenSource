@@ -2159,8 +2159,8 @@ int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 		    unsigned long timeout);
 
-void ipa3_q6_cleanup(void);
-void ipa3_validate_q6_gsi_channel_empty(void);
+void ipa3_q6_pre_shutdown_cleanup(void);
+void ipa3_q6_post_shutdown_cleanup(void);
 int ipa3_init_q6_smem(void);
 
 int ipa3_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,

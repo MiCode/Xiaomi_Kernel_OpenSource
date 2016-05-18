@@ -1544,6 +1544,8 @@ static int adreno_stop(struct kgsl_device *device)
 
 	adreno_ringbuffer_stop(adreno_dev);
 
+	kgsl_pwrscale_update_stats(device);
+
 	adreno_irqctrl(adreno_dev, 0);
 
 	adreno_ocmem_free(adreno_dev);

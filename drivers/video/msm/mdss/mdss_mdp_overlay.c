@@ -1710,6 +1710,7 @@ int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 {
 	struct mdss_rect l_roi, r_roi;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *sctl;
 	int rc;
 
@@ -1724,9 +1725,42 @@ int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 	/* No need for mode validation. It has been done in ioctl call */
 	if (mode == SWITCH_RESOLUTION) {
 		if (ctl->ops.reconfigure) {
-			rc = ctl->ops.reconfigure(ctl, mode, 1);
-			if (rc)
+			/* wait for previous frame to complete before switch */
+			if (ctl->ops.wait_pingpong)
+				rc = ctl->ops.wait_pingpong(ctl, NULL);
+			if (!rc && sctl && sctl->ops.wait_pingpong)
+				rc = sctl->ops.wait_pingpong(sctl, NULL);
+			if (rc) {
+				pr_err("wait for pp failed before resolution switch\n");
 				return rc;
+			}
+
+			/*
+			* Configure the mixer parameters before the switch as
+			* the DSC parameter calculation is based on the mixer
+			* ROI. And set it to full ROI as driver expects the
+			* first frame after the resolution switch to be a
+			* full frame update.
+			*/
+			if (ctl->mixer_left) {
+				l_roi = (struct mdss_rect) {0, 0,
+					ctl->mixer_left->width,
+					ctl->mixer_left->height};
+				ctl->mixer_left->roi_changed = true;
+				ctl->mixer_left->valid_roi = true;
+			}
+			if (ctl->mixer_right) {
+				r_roi = (struct mdss_rect) {0, 0,
+					ctl->mixer_right->width,
+					ctl->mixer_right->height};
+				ctl->mixer_right->roi_changed = true;
+				ctl->mixer_right->valid_roi = true;
+			}
+			mdss_mdp_set_roi(ctl, &l_roi, &r_roi);
+
+			mutex_lock(&mdp5_data->ov_lock);
+			ctl->ops.reconfigure(ctl, mode, 1);
+			mutex_unlock(&mdp5_data->ov_lock);
 		/*
 		 * For Video mode panels, reconfigure is not defined.
 		 * So doing an explicit ctrl stop during resolution switch
@@ -1849,7 +1883,13 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 		l_roi.x, l_roi.y, l_roi.w, l_roi.h,
 		r_roi.x, r_roi.y, r_roi.w, r_roi.h);
 
-	if (!ctl->panel_data->panel_info.partial_update_enabled)
+	/*
+	 * Configure full ROI
+	 * - If partial update is disabled
+	 * - If it is the first frame update after dynamic resolution switch
+	 */
+	if (!ctl->panel_data->panel_info.partial_update_enabled
+			|| (ctl->pending_mode_switch == SWITCH_RESOLUTION))
 		goto set_roi;
 
 	skip_partial_update = false;
@@ -4291,6 +4331,22 @@ static int mdss_mdp_overlay_precommit(struct msm_fb_data_type *mfd)
 				mfd->index, ret);
 		ret = -EPIPE;
 	}
+
+	/*
+	 * If we are in process of mode switch we may have an invalid state.
+	 * We can allow commit to happen if there are no pipes attached as only
+	 * border color will be seen regardless of resolution or mode.
+	 */
+	if ((mfd->switch_state != MDSS_MDP_NO_UPDATE_REQUESTED) &&
+			(mfd->switch_state != MDSS_MDP_WAIT_FOR_COMMIT)) {
+		if (list_empty(&mdp5_data->pipes_used)) {
+			mfd->switch_state = MDSS_MDP_WAIT_FOR_COMMIT;
+		} else {
+			pr_warn("Invalid commit on fb%d with state=%d\n",
+					mfd->index, mfd->switch_state);
+			ret = -EINVAL;
+		}
+	}
 	mutex_unlock(&mdp5_data->ov_lock);
 
 	return ret;
@@ -4952,6 +5008,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	struct mdss_mdp_mixer *mixer;
 	int need_cleanup;
 	int retire_cnt;
+	bool destroy_ctl = false;
 
 	if (!mfd)
 		return -ENODEV;
@@ -5008,6 +5065,18 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	mutex_unlock(&mdp5_data->list_lock);
 	mutex_unlock(&mdp5_data->ov_lock);
 
+	destroy_ctl = !mfd->ref_cnt || mfd->panel_reconfig;
+
+	mutex_lock(&mfd->switch_lock);
+	if (mfd->switch_state != MDSS_MDP_NO_UPDATE_REQUESTED) {
+		destroy_ctl = true;
+		need_cleanup = false;
+		pr_warn("fb%d blank while mode switch (%d) in progress\n",
+				mfd->index, mfd->switch_state);
+		mfd->switch_state = MDSS_MDP_NO_UPDATE_REQUESTED;
+	}
+	mutex_unlock(&mfd->switch_lock);
+
 	if (need_cleanup) {
 		pr_debug("cleaning up pipes on fb%d\n", mfd->index);
 		mdss_mdp_overlay_kickoff(mfd, NULL);
@@ -5061,7 +5130,7 @@ ctl_stop:
 			mdss_mdp_ctl_notifier_unregister(mdp5_data->ctl,
 					&mfd->mdp_sync_pt_data.notifier);
 
-			if (!mfd->ref_cnt || mfd->panel_reconfig) {
+			if (destroy_ctl) {
 				mdp5_data->borderfill_enable = false;
 				mdss_mdp_ctl_destroy(mdp5_data->ctl);
 				mdp5_data->ctl = NULL;

@@ -517,6 +517,7 @@
 			clock-names = "iface_clk", "core_clk";
 			clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
 				 <&clock_gcc clk_gcc_blsp2_qup6_i2c_apps_clk>;
+			status = "disabled";
 		};
 	};
 
@@ -695,17 +696,26 @@
 		pinctrl-0 = <&quat_tdm_dout_active>;
 		pinctrl-1 = <&quat_tdm_dout_sleep>;
 	};
+
+	qcom,adv7481@70 {
+		compatible = "qcom,adv7481";
+		qcom,cci-master = <0>;
+		qcom,slave-addr = <0x70>;
+		gpios = <&tlmm 17 0>,          /* I2C SDA */
+			<&tlmm 18 0>,          /* I2C SCL */
+			<&pm8994_gpios 4 0>,   /* RST     */
+			<&pm8994_gpios 5 0>,   /* INT1    */
+			<&pm8994_gpios 6 0>,   /* INT2    */
+			<&pm8994_gpios 7 0>;   /* INT3    */
+	};
 };
 
 &pm8994_gpios {
-	gpio@c600 { /* GPIO 7 - NFC DWL REQ */
-		qcom,mode = <1>;
-		qcom,output-type = <0>;
-		qcom,pull = <5>;
+	gpio@c600 { /* GPIO 7 - adv7481 INT3 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
-		qcom,out-strength = <3>;
 		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
 		status = "okay";
 	};
 
@@ -756,7 +766,15 @@
 		status = "okay";
 	};
 
-	gpio@c300 { /* GPIO 4 */
+	gpio@c300 { /* GPIO 4 - adv7481 RST */
+		qcom,mode = <1>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "okay";
+	};
+
+	gpio@c400 { /* GPIO 5 - adv7481 INT1 */
 		qcom,mode = <0>;
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
@@ -764,7 +782,7 @@
 		status = "okay";
 	};
 
-	gpio@c400 { /* GPIO 5 */
+	gpio@c500 { /* GPIO 6 - adv7481 INT2*/
 		qcom,mode = <0>;
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
@@ -914,6 +932,7 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
 		clocks = <&clock_gcc clk_bb_clk2_pin>;
 		clock-names = "ref_clk";
+		status = "disabled";
 	};
 };
 

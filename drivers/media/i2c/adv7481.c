@@ -77,22 +77,12 @@ enum adv7481_gpio_t {
 };
 
 struct adv7481_state {
-	/* Platform Data */
-	struct adv7481_platform_data pdata;
 	struct device *dev;
-
-	/* VREG */
-	struct camera_vreg_t *cci_vreg;
-	struct regulator *cci_reg_ptr[MAX_REGULATOR];
-	int32_t regulator_count;
 
 	/* I2C */
 	struct msm_camera_i2c_client i2c_client;
 	u32 cci_master;
 	u32 i2c_slave_addr;
-	u32 i2c_csi_slave_addr;
-	u32 i2c_vpp_slave_addr;
-	u32 register_page;
 
 	/* V4L2 Data */
 	struct v4l2_subdev sd;
@@ -359,8 +349,6 @@ static int adv7481_set_irq(struct adv7481_state *state)
 	if (ret)
 		pr_err("%s: Failed %d to setup interrupt regs\n",
 				__func__, ret);
-	else
-		enable_irq(state->irq);
 
 	return ret;
 }
@@ -589,7 +577,7 @@ static int adv7481_dev_init(struct adv7481_state *state)
 	ret = adv7481_wr_byte(&state->i2c_client, state->i2c_io_addr,
 		IO_REG_MAIN_RST_ADDR, IO_REG_MAIN_RST_VALUE);
 	/* Delay required following I2C reset and I2C transactions */
-	usleep_range(I2C_SW_RST_DELAY, I2C_SW_RST_DELAY + 1000);
+	udelay(I2C_SW_RST_DELAY);
 
 	chip_rev_id = adv7481_rd_word(&state->i2c_client, state->i2c_io_addr,
 			IO_REG_CHIP_REV_ID_1_ADDR);
@@ -678,12 +666,10 @@ static int adv7481_hw_init(struct adv7481_state *state)
 	if (gpio_is_valid(state->gpio_array[ADV7481_GPIO_RST].gpio)) {
 		ret |= gpio_direction_output(
 			state->gpio_array[ADV7481_GPIO_RST].gpio, 0);
-		usleep_range(GPIO_HW_RST_DELAY_LOW, GPIO_HW_RST_DELAY_LOW +
-			1000);
+		udelay(GPIO_HW_RST_DELAY_LOW);
 		ret |= gpio_direction_output(
 			state->gpio_array[ADV7481_GPIO_RST].gpio, 1);
-		usleep_range(GPIO_HW_RST_DELAY_HI, GPIO_HW_RST_DELAY_HI +
-			1000);
+		udelay(GPIO_HW_RST_DELAY_HI);
 		if (ret) {
 			pr_err("%s: Set GPIO Fail %d\n", __func__, ret);
 			goto err_exit;
@@ -2036,6 +2022,10 @@ static int adv7481_cci_init(struct adv7481_state *state)
 	}
 	cci_client->cci_subdev = msm_cci_get_subdev();
 	pr_debug("%s cci_subdev: %p\n", __func__, cci_client->cci_subdev);
+	if (!cci_client->cci_subdev) {
+		ret = -EPROBE_DEFER;
+		goto err_cci_init;
+	}
 	cci_client->cci_i2c_master = state->cci_master;
 	cci_client->sid = state->i2c_slave_addr;
 	cci_client->retries = 3;
@@ -2056,77 +2046,47 @@ err_cci_init:
 static int adv7481_parse_dt(struct adv7481_state *state)
 {
 	struct device_node *np = state->dev->of_node;
-	unsigned int i;
+	uint32_t i = 0;
 	int gpio_count = 0;
-	int flag_count = 0;
-	int label_count = 0;
 	int ret = 0;
 
 	/* config CCI */
 	ret = of_property_read_u32(np, "qcom,cci-master",
 			&state->cci_master);
 	if (ret < 0 || state->cci_master >= MASTER_MAX) {
-		pr_err("%s: failed ret %d\n", __func__, ret);
+		pr_err("%s: failed to read cci master . ret %d\n",
+			__func__, ret);
 		goto exit;
 	}
 	pr_debug("%s: cci_master: 0x%x\n", __func__, state->cci_master);
 	ret = of_property_read_u32(np, "qcom,slave-addr",
 			&state->i2c_slave_addr);
 	if (ret < 0) {
-		pr_err("%s: failed ret %d\n", __func__, ret);
+		pr_err("%s: failed to read slave-addr. ret %d\n",
+			__func__, ret);
 		goto exit;
 	}
 	pr_debug("%s: i2c_slave_addr: 0x%x\n", __func__, state->i2c_slave_addr);
 	state->i2c_io_addr = (uint8_t)state->i2c_slave_addr;
 
-	ret = of_property_read_u32(np, "qcom,csi-slave-addr",
-			&state->i2c_csi_slave_addr);
-	if (ret < 0) {
-		pr_err("%s: failed ret %d\n", __func__, ret);
-		goto exit;
-	}
-	pr_debug("%s: i2c_csi_slave_addr: 0x%x\n", __func__,
-			state->i2c_csi_slave_addr);
-	ret = of_property_read_u32(np, "qcom,vpp-slave-addr",
-			&state->i2c_vpp_slave_addr);
-	if (ret < 0) {
-		pr_err("%s: failed ret %d\n", __func__, ret);
-		goto exit;
-	}
-	pr_debug("%s: i2c_vpp_slave_addr: 0x%x\n", __func__,
-			state->i2c_vpp_slave_addr);
-
-	ret = adv7481_cci_init(state);
-	if (ret < 0) {
-		pr_err("%s: failed adv7481_cci_init ret %d\n", __func__, ret);
-		goto exit;
-	}
-	/* Configure GPIOs */
 	gpio_count = of_gpio_count(np);
-	pr_debug("%s: of_gpio_count: 0x%x\n", __func__, gpio_count);
-	flag_count = of_property_count_u32_elems(np, "qcom,gpio-tbl-flags");
-	pr_debug("%s: gpio-tbl-flags: 0x%x\n", __func__, flag_count);
-	label_count = of_property_count_strings(np, "qcom,gpio-tbl-label");
-	pr_debug("%s: gpio-tbl-label: 0x%x\n", __func__, label_count);
-	if (gpio_count != ADV7481_GPIO_MAX ||
-		flag_count != ADV7481_GPIO_MAX ||
-		label_count != ADV7481_GPIO_MAX) {
+	if (gpio_count != ADV7481_GPIO_MAX) {
 		ret = -EFAULT;
-		pr_err("%s: failed to configure GPIO ret -EFAULT\n", __func__);
+		pr_err("%s: dt gpio count %d doesn't match required. ret %d\n",
+			__func__, gpio_count, ret);
 		goto exit;
 	}
 	for (i = 0; i < ADV7481_GPIO_MAX; i++) {
-		u32 tmp;
-
-		state->gpio_array[i].gpio = of_get_gpio(np, i);
-		of_property_read_u32_index(np, "qcom,gpio-tbl-flags", i, &tmp);
-		state->gpio_array[i].flags = tmp;
-		of_property_read_string_index(np, "qcom,gpio-tbl-label", i,
-			&state->gpio_array[i].label);
-		pr_debug("%s: gpio_array[%d] = %d\n", __func__, i,
-			state->gpio_array[i].gpio);
+		state->gpio_array[i].gpio = of_get_gpio_flags(np, i,
+			(enum of_gpio_flags *)&state->gpio_array[i].flags);
+		if (!gpio_is_valid(state->gpio_array[i].gpio)) {
+			pr_err("invalid gpio setting for index %d\n", i);
+			ret = -EFAULT;
+			goto exit;
+		}
+		pr_debug("%s: gpio_array[%d] = %d flag = %ld\n", __func__, i,
+			state->gpio_array[i].gpio, state->gpio_array[i].flags);
 	}
-	pr_debug("%s: End read back gpio from dt...", __func__);
 
 exit:
 	return ret;
@@ -2142,7 +2102,6 @@ static int adv7481_probe(struct platform_device *pdev)
 {
 	struct adv7481_state *state;
 	const struct of_device_id *device_id;
-	struct adv7481_platform_data *pdata = NULL;
 	struct v4l2_subdev *sd;
 	int ret;
 
@@ -2160,44 +2119,19 @@ static int adv7481_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err;
 	}
+	platform_set_drvdata(pdev, state);
 	state->dev = &pdev->dev;
 
 	mutex_init(&state->mutex);
-
-	/* config VREG */
-	ret = msm_camera_get_dt_vreg_data(pdev->dev.of_node,
-			&(state->cci_vreg), &(state->regulator_count));
-	if (ret < 0) {
-		pr_err("%s:cci get_dt_vreg failed\n", __func__);
-		goto err_mem_free;
-	}
-
-	ret = msm_camera_config_vreg(&pdev->dev, state->cci_vreg,
-			state->regulator_count, NULL, 0,
-			&state->cci_reg_ptr[0], 1);
-	if (ret < 0) {
-		pr_err("%s:cci config_vreg failed\n", __func__);
-		goto err_mem_free;
-	}
-
-	ret = msm_camera_enable_vreg(&pdev->dev, state->cci_vreg,
-			state->regulator_count, NULL, 0,
-			&state->cci_reg_ptr[0], 1);
-	if (ret < 0) {
-		pr_err("%s:cci enable_vreg failed\n", __func__);
-		goto err_mem_free;
-	}
-	pr_debug("%s - VREG Initialized...\n", __func__);
-
 	ret = adv7481_parse_dt(state);
-	pr_debug("%s - Done parsing dt...\n", __func__);
+	if (ret < 0) {
+		pr_err("Error parsing dt tree\n");
+		goto err_mem_free;
+	}
 
-	/* Get and Check Platform Data */
-	pdata = (struct adv7481_platform_data *) pdev->dev.platform_data;
-	if (!pdata) {
-		ret = -ENOMEM;
-		pr_err("%s(%d): Getting Platform data failed\n",
-			__func__, __LINE__);
+	ret = adv7481_cci_init(state);
+	if (ret < 0) {
+		pr_err("%s: failed adv7481_cci_init ret %d\n", __func__, ret);
 		goto err_mem_free;
 	}
 
@@ -2250,33 +2184,38 @@ static int adv7481_probe(struct platform_device *pdev)
 
 	/* Set hdmi settings */
 	ret = adv7481_set_hdmi_mode(state);
-
-	/* BA registration */
-	ret |= msm_ba_register_subdev_node(sd);
 	if (ret) {
 		ret = -EIO;
-		pr_err("BA INIT FAILED\n");
+		pr_err("%s: failed to set hdmi mode\n", __func__);
 		goto err_media_entity;
 	}
+
+	/* BA registration */
+	ret = msm_ba_register_subdev_node(sd);
+	if (ret) {
+		ret = -EIO;
+		pr_err("%s: BA init failed\n", __func__);
+		goto err_media_entity;
+	}
+	enable_irq(state->irq);
 	pr_debug("Probe successful!\n");
 
 	return ret;
 
 err_media_entity:
 	media_entity_cleanup(&sd->entity);
+
 err_mem_free:
-	kfree(state);
+	devm_kfree(&pdev->dev, state);
+
 err:
-	if (!ret)
-		ret = 1;
 	return ret;
 }
 
 static int adv7481_remove(struct platform_device *pdev)
 {
-	struct adv7481_state *state;
+	struct adv7481_state *state = platform_get_drvdata(pdev);
 
-	state = pdev->dev.platform_data;
 	msm_ba_unregister_subdev_node(&state->sd);
 	v4l2_device_unregister_subdev(&state->sd);
 	media_entity_cleanup(&state->sd.entity);
@@ -2289,7 +2228,7 @@ static int adv7481_remove(struct platform_device *pdev)
 
 	cancel_delayed_work(&state->irq_delayed_work);
 	mutex_destroy(&state->mutex);
-	kfree(state);
+	devm_kfree(&pdev->dev, state);
 
 	return 0;
 }
