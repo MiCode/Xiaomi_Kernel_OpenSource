@@ -187,25 +187,25 @@
 		qcom,cam-vreg-op-mode = <105000 0 80000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk0_active &cam_sensor_rear_active>;
-		pinctrl-1 = <&cam_sensor_mclk0_suspend
+		pinctrl-0 = <&cam_sensor_mclk1_active &cam_sensor_rear_active>;
+		pinctrl-1 = <&cam_sensor_mclk1_suspend
 			&cam_sensor_rear_suspend>;
-		gpios = <&tlmm 13 0>,
-			<&tlmm 30 0>,
-			<&tlmm 29 0>;
+		gpios = <&tlmm 14 0>,
+			<&tlmm 63 0>,
+			<&tlmm 62 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-req-tbl-num = <0 1 2>;
 		qcom,gpio-req-tbl-flags = <1 0 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
-					  "CAM_RESET0",
-					  "CAM_STANDBY0";
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK1",
+					  "CAM_RESET1",
+					  "CAM_STANDBY1";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <1>;
 		status = "ok";
-		clocks = <&clock_mmss clk_mclk0_clk_src>,
-			<&clock_mmss clk_camss_mclk0_clk>;
+		clocks = <&clock_mmss clk_mclk1_clk_src>,
+			<&clock_mmss clk_camss_mclk1_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 	};
 
