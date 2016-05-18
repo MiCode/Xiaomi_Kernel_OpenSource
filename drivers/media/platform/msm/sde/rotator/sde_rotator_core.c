@@ -2393,7 +2393,7 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 
 	if ((mdata->mdss_version & 0xFFFF0000) == 0x10070000) {
 		mgr->ops_hw_init = sde_rotator_r1_init;
-	} else if ((mdata->mdss_version & 0xFFFF0000) == 0x30000000) {
+	} else if ((mdata->mdss_version & 0xF0000000) == 0x30000000) {
 		mgr->ops_hw_init = sde_rotator_r3_init;
 	} else {
 		ret = -ENODEV;
