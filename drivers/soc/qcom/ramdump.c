@@ -154,9 +154,8 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 
 	init_dma_attrs(&rd_dev->attrs);
 	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &rd_dev->attrs);
-	device_mem = vaddr;
-	//device_mem = vaddr ?: dma_remap(rd_dev->device.parent, NULL, addr,
-	//					copy_size, &rd_dev->attrs);
+	device_mem = vaddr ?: dma_remap(rd_dev->device.parent, NULL, addr,
+						copy_size, &rd_dev->attrs);
 	origdevice_mem = device_mem;
 
 	if (device_mem == NULL) {
@@ -206,8 +205,8 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	}
 
 	kfree(finalbuf);
-	//if (!vaddr && origdevice_mem)
-		//dma_unremap(rd_dev->device.parent, origdevice_mem, copy_size);
+	if (!vaddr && origdevice_mem)
+		dma_unremap(rd_dev->device.parent, origdevice_mem, copy_size);
 
 	*pos += copy_size;
 
@@ -217,8 +216,8 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	return *pos - orig_pos;
 
 ramdump_done:
-	//if (!vaddr && origdevice_mem)
-		//dma_unremap(rd_dev->device.parent, origdevice_mem, copy_size);
+	if (!vaddr && origdevice_mem)
+		dma_unremap(rd_dev->device.parent, origdevice_mem, copy_size);
 
 	kfree(finalbuf);
 	rd_dev->data_ready = 0;
