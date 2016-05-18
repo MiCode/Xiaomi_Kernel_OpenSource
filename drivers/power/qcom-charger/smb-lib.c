@@ -1031,6 +1031,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 	vote(chg->pd_allowed_votable, PD_VOTER, val->intval, 0);
 
 	chg->pd_active = (bool)val->intval;
+	smblib_update_usb_type(chg);
 	return rc;
 }
 
