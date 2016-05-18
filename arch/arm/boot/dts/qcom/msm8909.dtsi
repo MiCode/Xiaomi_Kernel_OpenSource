@@ -951,7 +951,9 @@
 
 		qcom,bus-width = <8>;
 
-		qcom,cpu-dma-latency-us = <2 241 501>;
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 250>;
+
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
@@ -971,6 +973,7 @@
 			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 		qcom,clk-rates = <400000 25000000 50000000 100000000 177770000>;
+		qcom,devfreq,freq-table = <50000000 177770000>;
 
 		status = "disabled";
 	};
@@ -985,7 +988,9 @@
 
 		qcom,bus-width = <4>;
 
-		qcom,cpu-dma-latency-us = <2 241 501>;
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <2 250>;
+
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1005,6 +1010,7 @@
 		clock-names = "iface_clk", "core_clk";
 
 		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,devfreq,freq-table = <50000000 200000000>;
 
 		status = "disabled";
 	};
