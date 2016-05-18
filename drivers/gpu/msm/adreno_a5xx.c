@@ -1853,6 +1853,9 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 		<< AGC_GPU_VERSION_SHIFT);
 	unsigned int r, i;
 
+	if (!test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag))
+		agc_lm_config |= AGC_THROTTLE_DISABLE;
+
 	if (lm_on(adreno_dev)) {
 		agc_lm_config |=
 			AGC_LM_CONFIG_ENABLE_GPMU_ADAPTIVE |
