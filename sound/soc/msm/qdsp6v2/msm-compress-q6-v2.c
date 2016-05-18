@@ -930,6 +930,12 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	};
 
 	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
+	stream_index = STREAM_ARRAY_INDEX(ac->stream_id);
+	if (stream_index >= MAX_NUMBER_OF_STREAMS || stream_index < 0) {
+		pr_err("%s: Invalid stream index:%d", __func__, stream_index);
+		return -EINVAL;
+	}
+
 	if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE)
 		bits_per_sample = 24;
 	else if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S32_LE)
@@ -943,6 +949,8 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 				__func__, ret, prtd->compr_passthr);
 			return ret;
 		}
+		prtd->gapless_state.stream_opened[stream_index] = 1;
+
 		ret = msm_pcm_routing_reg_phy_compr_stream(
 				soc_prtd->dai_link->be_id,
 				ac->perf_mode,
@@ -966,6 +974,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 				__func__, ret, prtd->compr_passthr);
 			 return -ENOMEM;
 		}
+		prtd->gapless_state.stream_opened[stream_index] = 1;
 
 		pr_debug("%s: be_id %d\n", __func__, soc_prtd->dai_link->be_id);
 		ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
@@ -1000,13 +1009,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		pr_err("%s: Set IO mode failed\n", __func__);
 		return -EINVAL;
 	}
-	stream_index = STREAM_ARRAY_INDEX(ac->stream_id);
-	if (stream_index >= MAX_NUMBER_OF_STREAMS || stream_index < 0) {
-		pr_err("%s: Invalid stream index:%d", __func__, stream_index);
-		return -EINVAL;
-	}
 
-	prtd->gapless_state.stream_opened[stream_index] = 1;
 	runtime->fragments = prtd->codec_param.buffer.fragments;
 	runtime->fragment_size = prtd->codec_param.buffer.fragment_size;
 	pr_debug("allocate %d buffers each of size %d\n",
