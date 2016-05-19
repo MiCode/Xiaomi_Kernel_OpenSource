@@ -1449,25 +1449,25 @@ done:
 	return ret;
 }
 
+static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
+
 static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 {
 	int status;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 
 	status = _setup_user_context(mmu);
 	if (status)
 		return status;
 
 	status = _setup_secure_context(mmu);
-	if (status)
+	if (status) {
 		_detach_context(&iommu->ctx[KGSL_IOMMU_CONTEXT_USER]);
-	else {
-		kgsl_iommu_enable_clk(mmu);
-		KGSL_IOMMU_SET_CTX_REG(ctx, TLBIALL, 1);
-		kgsl_iommu_disable_clk(mmu);
+		return status;
 	}
-	return status;
+
+	/* Make sure the hardware is programmed to the default pagetable */
+	return kgsl_iommu_set_pt(mmu, mmu->defaultpagetable);
 }
 
 static int
@@ -1704,37 +1704,21 @@ kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
  *
  * Return - void
  */
-static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
-				struct kgsl_pagetable *pt)
+static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
-	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	int ret = 0;
 	uint64_t ttbr0, temp;
 	unsigned int contextidr;
 	unsigned long wait_for_flush;
 
-	/*
-	 * If using a global pagetable, we can skip all this
-	 * because the pagetable will be set up by the iommu
-	 * driver and never changed at runtime.
-	 */
-	if (!kgsl_mmu_is_perprocess(mmu))
+	if ((pt != mmu->defaultpagetable) && !kgsl_mmu_is_perprocess(mmu))
 		return 0;
 
 	kgsl_iommu_enable_clk(mmu);
 
 	ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pt);
 	contextidr = kgsl_mmu_pagetable_get_contextidr(pt);
-
-	/*
-	 * Taking the liberty to spin idle since this codepath
-	 * is invoked when we can spin safely for it to be idle
-	 */
-	ret = adreno_spin_idle(ADRENO_DEVICE(device), ADRENO_IDLE_TIMEOUT);
-	if (ret)
-		return ret;
 
 	KGSL_IOMMU_SET_CTX_REG_Q(ctx, TTBR0, ttbr0);
 	KGSL_IOMMU_SET_CTX_REG(ctx, CONTEXTIDR, contextidr);
@@ -1764,10 +1748,8 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 		cpu_relax();
 	}
 
-	/* Disable smmu clock */
 	kgsl_iommu_disable_clk(mmu);
-
-	return ret;
+	return 0;
 }
 
 /*
