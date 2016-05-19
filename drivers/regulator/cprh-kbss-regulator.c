@@ -1298,6 +1298,14 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 	ctrl->saw_use_unit_mV = of_property_read_bool(ctrl->dev->of_node,
 					"qcom,cpr-saw-use-unit-mV");
 
+	/*
+	 * Use fixed step quotient if specified otherwise use dynamically
+	 * calculated per RO step quotient
+	 */
+	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-step-quot-fixed",
+			&ctrl->step_quot_fixed);
+	ctrl->use_dynamic_step_quot = !ctrl->step_quot_fixed;
+
 	of_property_read_u32(ctrl->dev->of_node,
 			"qcom,cpr-voltage-settling-time",
 			&ctrl->voltage_settling_time);

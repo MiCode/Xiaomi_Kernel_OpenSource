@@ -1297,6 +1297,16 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 				(ctrl->up_error_step_limit
 				<< CPR4_SAW_ERROR_STEP_LIMIT_UP_SHIFT));
 
+	cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+			CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_STEP_QUOT_MASK,
+			ctrl->step_quot_fixed
+			<< CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_STEP_QUOT_SHIFT);
+
+	cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+			CPR4_MARGIN_ADJ_CTL_PER_RO_KV_MARGIN_EN,
+			(ctrl->use_dynamic_step_quot
+			? CPR4_MARGIN_ADJ_CTL_PER_RO_KV_MARGIN_EN : 0));
+
 	if (ctrl->voltage_settling_time) {
 		/*
 		 * Configure the settling timer used to account for

@@ -97,6 +97,16 @@ KBSS specific properties:
                     voltage may be increased as the result of a single
 		    CPR measurement.
 
+- qcom,cpr-step-quot-fixed
+	Usage:      optional
+	Value type: <u32>
+	Definition: Fixed step quotient value used by controller for applying
+		    the SDELTA margin adjustments on the programmed target
+		    quotient values. The step quotient is the number of
+		    additional ring oscillator ticks observed for each
+		    qcom,voltage-step increase in vdd-supply output voltage.
+		    Supported values: 0 - 63.
+
 - qcom,cpr-voltage-settling-time
 	Usage:      optional
 	Value type: <u32>
