@@ -1204,6 +1204,14 @@ static void cprh_controller_program_sdelta(
 		corner_band = &vreg->corner_band[i];
 		sdelta = corner_band->sdelta;
 
+		if (!sdelta->allow_core_count_adj && !sdelta->allow_temp_adj) {
+			/*
+			 * Per-online-core and per-temperature margin
+			 * adjustments are disabled for this corner band.
+			 */
+			continue;
+		}
+
 		if (vreg->allow_core_count_adj)
 			cpr3_write_temp_core_margin(ctrl,
 				    CPRH_MARGIN_TEMP_CORE_VBAND(0, i),
