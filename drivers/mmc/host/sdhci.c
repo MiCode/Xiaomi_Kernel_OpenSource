@@ -2929,10 +2929,13 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		 * If the card did not receive the command or returned an
 		 * error which prevented it sending data, the data phase
 		 * will time out.
+		 *
+		 * Even in case of cmd INDEX OR ENDBIT error we
+		 * handle it the same way.
 		 */
 		if (host->cmd->data &&
-		    (intmask & (SDHCI_INT_CRC | SDHCI_INT_TIMEOUT)) ==
-		     SDHCI_INT_CRC) {
+		    (((intmask & (SDHCI_INT_CRC | SDHCI_INT_TIMEOUT)) ==
+		     SDHCI_INT_CRC) || (host->cmd->error == -EILSEQ))) {
 			host->cmd = NULL;
 			return;
 		}
