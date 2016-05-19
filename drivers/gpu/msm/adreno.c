@@ -171,6 +171,30 @@ void adreno_writereg64(struct adreno_device *adreno_dev,
 }
 
 /**
+ * adreno_get_rptr() - Get the current ringbuffer read pointer
+ * @rb: Pointer the ringbuffer to query
+ *
+ * Get the latest rptr
+ */
+unsigned int adreno_get_rptr(struct adreno_ringbuffer *rb)
+{
+	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
+	unsigned int rptr = 0;
+
+	if (adreno_is_a3xx(adreno_dev))
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR,
+				&rptr);
+	else {
+		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+		kgsl_sharedmem_readl(&device->scratch, &rptr,
+				SCRATCH_RPTR_OFFSET(rb->id));
+	}
+
+	return rptr;
+}
+
+/**
  * adreno_of_read_property() - Adreno read property
  * @node: Device node
  *
@@ -1288,6 +1312,28 @@ static void _update_threshold_count(struct adreno_device *adreno_dev,
 		adreno_dev->lm_threshold_cross = adj;
 }
 
+static void _set_secvid(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	/* Program GPU contect protection init values */
+	if (device->mmu.secured) {
+		if (adreno_is_a4xx(adreno_dev))
+			adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TRUST_CONFIG, 0x2);
+		adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
+
+		adreno_writereg64(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
+			KGSL_IOMMU_SECURE_BASE);
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
+			KGSL_IOMMU_SECURE_SIZE);
+	}
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1334,22 +1380,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_pwr_off;
 
-	/* Program GPU contect protection init values */
-	if (device->mmu.secured) {
-		if (adreno_is_a4xx(adreno_dev))
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TRUST_CONFIG, 0x2);
-		adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
-
-		adreno_writereg64(adreno_dev,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-			KGSL_IOMMU_SECURE_BASE);
-		adreno_writereg(adreno_dev,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
-			KGSL_IOMMU_SECURE_SIZE);
-	}
+	_set_secvid(device);
 
 	status = adreno_ocmem_malloc(adreno_dev);
 	if (status) {
@@ -1531,6 +1562,22 @@ static int adreno_vbif_clear_pending_transactions(struct kgsl_device *device)
 	return ret;
 }
 
+static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
+{
+	int i;
+	struct adreno_ringbuffer *rb;
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->drawctxt_active)
+			kgsl_context_put(&(rb->drawctxt_active->base));
+		rb->drawctxt_active = NULL;
+
+		kgsl_sharedmem_writel(KGSL_DEVICE(adreno_dev),
+			&rb->pagetable_desc, PT_INFO_OFFSET(current_rb_ptname),
+			0);
+	}
+}
+
 static int adreno_stop(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1647,10 +1694,7 @@ int adreno_reset(struct kgsl_device *device, int fault)
 
 	/* Set the page table back to the default page table */
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
-	kgsl_sharedmem_writel(device,
-		&adreno_dev->ringbuffers[0].pagetable_desc,
-		offsetof(struct adreno_ringbuffer_pagetable_info,
-			current_global_ptname), 0);
+	adreno_ringbuffer_set_global(adreno_dev, 0);
 
 	return ret;
 }
@@ -2097,6 +2141,8 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	/* start of new CFF after reset */
 	kgsl_cffdump_open(device);
 
+	_set_secvid(device);
+
 	/* Enable 64 bit gpu addr if feature is set */
 	if (gpudev->enable_64bit &&
 			adreno_support_64bit(adreno_dev))
@@ -2149,8 +2195,6 @@ bool adreno_isidle(struct kgsl_device *device)
 	if (!kgsl_state_is_awake(device))
 		return true;
 
-	adreno_get_rptr(ADRENO_CURRENT_RINGBUFFER(adreno_dev));
-
 	/*
 	 * wptr is updated when we add commands to ringbuffer, add a barrier
 	 * to make sure updated wptr is compared to rptr
@@ -2161,15 +2205,13 @@ bool adreno_isidle(struct kgsl_device *device)
 	 * ringbuffer is truly idle when all ringbuffers read and write
 	 * pointers are equal
 	 */
+
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		if (rb->rptr != rb->wptr)
-			break;
+		if (!adreno_rb_empty(rb))
+			return false;
 	}
 
-	if (i == adreno_dev->num_ringbuffers)
-		return adreno_hw_isidle(adreno_dev);
-
-	return false;
+	return adreno_hw_isidle(adreno_dev);
 }
 
 /**
@@ -2278,10 +2320,8 @@ static int adreno_suspend_context(struct kgsl_device *device)
 		return status;
 	/* set the device to default pagetable */
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
-	kgsl_sharedmem_writel(device,
-		&adreno_dev->ringbuffers[0].pagetable_desc,
-		offsetof(struct adreno_ringbuffer_pagetable_info,
-			current_global_ptname), 0);
+	adreno_ringbuffer_set_global(adreno_dev, 0);
+
 	/* set ringbuffers to NULL ctxt */
 	adreno_set_active_ctxs_null(adreno_dev);
 

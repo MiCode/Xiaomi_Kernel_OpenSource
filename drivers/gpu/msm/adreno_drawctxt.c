@@ -471,12 +471,25 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	if (rb->drawctxt_active == drawctxt) {
 		if (adreno_dev->cur_rb == rb) {
 			if (!kgsl_active_count_get(device)) {
-				adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+				ret = adreno_drawctxt_switch(adreno_dev, rb,
+					NULL, 0);
 				kgsl_active_count_put(device);
 			} else
 				BUG();
 		} else
-			adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+			ret = adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+
+		if (ret != 0) {
+			KGSL_DRV_ERR(device,
+				"Unable to switch the context to NULL: %d\n",
+				ret);
+		}
+
+		/*
+		 * Keep going ahead if we can't switch the context - failure
+		 * isn't always fatal, but sometimes it is. I like those
+		 * chances!
+		 */
 	}
 	mutex_unlock(&device->mutex);
 
@@ -597,11 +610,8 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 		new_pt = device->mmu.defaultpagetable;
 	}
 	ret = adreno_ringbuffer_set_pt_ctx(rb, new_pt, drawctxt);
-	if (ret) {
-		KGSL_DRV_ERR(device,
-			"Failed to set pagetable on rb %d\n", rb->id);
+	if (ret)
 		return ret;
-	}
 
 	/* Put the old instance of the active drawctxt */
 	if (rb->drawctxt_active)

@@ -388,6 +388,17 @@ kgsl_mem_entry_untrack_gpuaddr(struct kgsl_process_private *process,
 		kgsl_mmu_put_gpuaddr(pagetable, &entry->memdesc);
 }
 
+/* Commit the entry to the process so it can be accessed by other operations */
+static void kgsl_mem_entry_commit_process(struct kgsl_mem_entry *entry)
+{
+	if (!entry)
+		return;
+
+	spin_lock(&entry->priv->mem_lock);
+	idr_replace(&entry->priv->mem_idr, entry, entry->id);
+	spin_unlock(&entry->priv->mem_lock);
+}
+
 /**
  * kgsl_mem_entry_attach_process - Attach a mem_entry to its owner process
  * @entry: the memory entry
@@ -418,7 +429,8 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 
 	idr_preload(GFP_KERNEL);
 	spin_lock(&process->mem_lock);
-	id = idr_alloc(&process->mem_idr, entry, 1, 0, GFP_NOWAIT);
+	/* Allocate the ID but don't attach the pointer just yet */
+	id = idr_alloc(&process->mem_idr, NULL, 1, 0, GFP_NOWAIT);
 	spin_unlock(&process->mem_lock);
 	idr_preload_end();
 
@@ -1138,6 +1150,8 @@ static int kgsl_open_device(struct kgsl_device *device)
 		atomic_inc(&device->active_cnt);
 		kgsl_sharedmem_set(device, &device->memstore, 0, 0,
 				device->memstore.size);
+		kgsl_sharedmem_set(device, &device->scratch, 0, 0,
+				device->scratch.size);
 
 		result = device->ftbl->init(device);
 		if (result)
@@ -2317,6 +2331,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 
 	trace_kgsl_mem_map(entry, fd);
 
+	kgsl_mem_entry_commit_process(entry);
 	return 0;
 
 unmap:
@@ -2580,6 +2595,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	trace_kgsl_mem_map(entry, param->fd);
 
+	kgsl_mem_entry_commit_process(entry);
 	return result;
 
 error_attach:
@@ -2971,6 +2987,7 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 			entry->memdesc.size);
 	trace_kgsl_mem_alloc(entry);
 
+	kgsl_mem_entry_commit_process(entry);
 	return entry;
 err:
 	kfree(entry);
@@ -3895,11 +3912,13 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	status = kgsl_allocate_global(device, &device->memstore,
 		KGSL_MEMSTORE_SIZE, 0, 0);
 
-	if (status != 0) {
-		KGSL_DRV_ERR(device, "kgsl_allocate_global failed %d\n",
-				status);
+	if (status != 0)
 		goto error_close_mmu;
-	}
+
+	status = kgsl_allocate_global(device, &device->scratch,
+		PAGE_SIZE, 0, 0);
+	if (status != 0)
+		goto error_free_memstore;
 
 	/*
 	 * The default request type PM_QOS_REQ_ALL_CORES is
@@ -3949,6 +3968,8 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	return 0;
 
+error_free_memstore:
+	kgsl_free_global(device, &device->memstore);
 error_close_mmu:
 	kgsl_mmu_close(device);
 error_pwrctrl_close:
@@ -3974,6 +3995,8 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 		pm_qos_remove_request(&device->pwrctrl.l2pc_cpus_qos);
 
 	idr_destroy(&device->context_idr);
+
+	kgsl_free_global(device, &device->scratch);
 
 	kgsl_free_global(device, &device->memstore);
 
