@@ -70,38 +70,38 @@ static int vkey_parse_dt(struct device *dev,
 		return -EINVAL;
 	}
 
-	rc = of_property_read_u32(np, "qcom, disp-maxx", &pdata->disp_maxx);
+	rc = of_property_read_u32(np, "qcom,disp-maxx", &pdata->disp_maxx);
 	if (rc) {
 		dev_err(dev, "Failed to read display max x\n");
 		return -EINVAL;
 	}
 
-	rc = of_property_read_u32(np, "qcom, disp-maxy", &pdata->disp_maxy);
+	rc = of_property_read_u32(np, "qcom,disp-maxy", &pdata->disp_maxy);
 	if (rc) {
 		dev_err(dev, "Failed to read display max y\n");
 		return -EINVAL;
 	}
 
-	rc = of_property_read_u32(np, "qcom, panel-maxx", &pdata->panel_maxx);
+	rc = of_property_read_u32(np, "qcom,panel-maxx", &pdata->panel_maxx);
 	if (rc) {
 		dev_err(dev, "Failed to read panel max x\n");
 		return -EINVAL;
 	}
 
-	rc = of_property_read_u32(np, "qcom, panel-maxy", &pdata->panel_maxy);
+	rc = of_property_read_u32(np, "qcom,panel-maxy", &pdata->panel_maxy);
 	if (rc) {
 		dev_err(dev, "Failed to read panel max y\n");
 		return -EINVAL;
 	}
 
-	prop = of_find_property(np, "qcom, key-codes", NULL);
+	prop = of_find_property(np, "qcom,key-codes", NULL);
 	if (prop) {
 		pdata->num_keys = prop->length / sizeof(u32);
 		pdata->keycodes = devm_kzalloc(dev,
 			sizeof(u32) * pdata->num_keys, GFP_KERNEL);
 		if (!pdata->keycodes)
 			return -ENOMEM;
-		rc = of_property_read_u32_array(np, "qcom, key-codes",
+		rc = of_property_read_u32_array(np, "qcom,key-codes",
 				pdata->keycodes, pdata->num_keys);
 		if (rc) {
 			dev_err(dev, "Failed to read key codes\n");
@@ -110,7 +110,7 @@ static int vkey_parse_dt(struct device *dev,
 	}
 
 	pdata->y_offset = VKEY_Y_OFFSET_DEFAULT;
-	rc = of_property_read_u32(np, "qcom, y-offset", &val);
+	rc = of_property_read_u32(np, "qcom,y-offset", &val);
 	if (!rc)
 		pdata->y_offset = val;
 	else if (rc != -EINVAL) {
@@ -210,7 +210,7 @@ static int vkeys_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id vkey_match_table[] = {
-	{.compatible = "qcom, gen-vkeys1",},
+	{.compatible = "qcom,gen-vkeys1",},
 	{},
 };
 

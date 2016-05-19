@@ -407,8 +407,8 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 				break;
 			default:
 				break;
+			}
 		}
-}
 
 		input_mt_slot(ip_dev, id);
 		if (status == FT_TOUCH_DOWN || status == FT_TOUCH_CONTACT) {
@@ -609,7 +609,6 @@ static int ft5x06_ts_suspend(struct device *dev)
 		msleep(data->pdata->hard_rst_dly);
 	}
 
-
 	if (data->pdata->power_on) {
 		err = data->pdata->power_on(false);
 		if (err) {
@@ -782,7 +781,6 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 	u8 is_5336_new_bootloader = false;
 	u8 is_5336_fwsize_30 = false;
 	u8 fw_ecc;
-
 
 #if 1
 	reg_addr = FT_REG_ID;
@@ -2005,12 +2003,12 @@ static int ft5x06_get_dt_coords(struct device *dev, char *name,
 		return rc;
 	}
 
-	if (!strcmp(name, "ftech, panel-coords")) {
+	if (!strcmp(name, "ftech,panel-coords")) {
 		pdata->panel_minx = coords[0];
 		pdata->panel_miny = coords[1];
 		pdata->panel_maxx = coords[2];
 		pdata->panel_maxy = coords[3];
-	} else if (!strcmp(name, "ftech, display-coords")) {
+	} else if (!strcmp(name, "ftech,display-coords")) {
 		pdata->x_min = coords[0];
 		pdata->y_min = coords[1];
 		pdata->x_max = coords[2];
@@ -2033,99 +2031,99 @@ static int ft5x06_parse_dt(struct device *dev,
 	u32 button_map[MAX_BUTTONS];
 
 	pdata->name = "ftech";
-	rc = of_property_read_string(np, "ftech, name", &pdata->name);
+	rc = of_property_read_string(np, "ftech,name", &pdata->name);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read name\n");
 		return rc;
 	}
 
-	rc = ft5x06_get_dt_coords(dev, "ftech, panel-coords", pdata);
+	rc = ft5x06_get_dt_coords(dev, "ftech,panel-coords", pdata);
 	if (rc && (rc != -EINVAL))
 		return rc;
 
-	rc = ft5x06_get_dt_coords(dev, "ftech, display-coords", pdata);
+	rc = ft5x06_get_dt_coords(dev, "ftech,display-coords", pdata);
 	if (rc)
 		return rc;
 
 
 	pdata->i2c_pull_up = of_property_read_bool(np,
-						 "ftech, i2c-pull-up");
+						 "ftech,i2c-pull-up");
 
 	pdata->no_force_update = of_property_read_bool(np,
-							 "ftech, no-force-update");
+							 "ftech,no-force-update");
 	/* reset, irq gpio info */
-	pdata->reset_gpio = of_get_named_gpio_flags(np, "ftech, reset-gpio",
+	pdata->reset_gpio = of_get_named_gpio_flags(np, "ftech,reset-gpio",
 						0, &pdata->reset_gpio_flags);
 	if (pdata->reset_gpio < 0)
 		return pdata->reset_gpio;
 
-	pdata->irq_gpio = of_get_named_gpio_flags(np, "ftech, irq-gpio",
+	pdata->irq_gpio = of_get_named_gpio_flags(np, "ftech,irq-gpio",
 					  0, &pdata->irq_gpio_flags);
 	if (pdata->irq_gpio < 0)
 		return pdata->irq_gpio;
 
 	pdata->fw_name = "ft_fw.bin";
-	rc = of_property_read_string(np, "ftech, fw-name", &pdata->fw_name);
+	rc = of_property_read_string(np, "ftech,fw-name", &pdata->fw_name);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw name\n");
 		return rc;
 	}
 
-	rc = of_property_read_u32(np, "ftech, group-id", &temp_val);
+	rc = of_property_read_u32(np, "ftech,group-id", &temp_val);
 	if (!rc)
 		pdata->group_id = temp_val;
 	else
 		return rc;
 
-	rc = of_property_read_u32(np, "ftech, hard-reset-delay-ms",
+	rc = of_property_read_u32(np, "ftech,hard-reset-delay-ms",
 							  &temp_val);
 	if (!rc)
 		pdata->hard_rst_dly = temp_val;
 	else
 		return rc;
 
-	rc = of_property_read_u32(np, "ftech, soft-reset-delay-ms",
+	rc = of_property_read_u32(np, "ftech,soft-reset-delay-ms",
 							  &temp_val);
 	if (!rc)
 		pdata->soft_rst_dly = temp_val;
 	else
 		return rc;
 
-	rc = of_property_read_u32(np, "ftech, num-max-touches", &temp_val);
+	rc = of_property_read_u32(np, "ftech,num-max-touches", &temp_val);
 	if (!rc)
 	pdata->num_max_touches = temp_val;
 	else
 		return rc;
 
-	rc = of_property_read_u32(np, "ftech, fw-delay-aa-ms", &temp_val);
+	rc = of_property_read_u32(np, "ftech,fw-delay-aa-ms", &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw delay aa\n");
 		return rc;
 	} else if (rc != -EINVAL)
 		pdata->info.delay_aa =  temp_val;
 
-	rc = of_property_read_u32(np, "ftech, fw-delay-55-ms", &temp_val);
+	rc = of_property_read_u32(np, "ftech,fw-delay-55-ms", &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw delay 55\n");
 		return rc;
 	} else if (rc != -EINVAL)
 		pdata->info.delay_55 =  temp_val;
 
-	rc = of_property_read_u32(np, "ftech, fw-upgrade-id1", &temp_val);
+	rc = of_property_read_u32(np, "ftech,fw-upgrade-id1", &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw upgrade id1\n");
 		return rc;
 	} else if (rc != -EINVAL)
 		pdata->info.upgrade_id_1 =  temp_val;
 
-	rc = of_property_read_u32(np, "ftech, fw-upgrade-id2", &temp_val);
+	rc = of_property_read_u32(np, "ftech,fw-upgrade-id2", &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw upgrade id2\n");
 		return rc;
 	} else if (rc != -EINVAL)
 		pdata->info.upgrade_id_2 =  temp_val;
 
-	rc = of_property_read_u32(np, "ftech, fw-delay-readid-ms",
+	rc = of_property_read_u32(np, "ftech,fw-delay-readid-ms",
 							  &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw delay read id\n");
@@ -2133,7 +2131,7 @@ static int ft5x06_parse_dt(struct device *dev,
 	} else if (rc != -EINVAL)
 		pdata->info.delay_readid =  temp_val;
 
-	rc = of_property_read_u32(np, "ftech, fw-delay-era-flsh-ms",
+	rc = of_property_read_u32(np, "ftech,fw-delay-era-flsh-ms",
 							  &temp_val);
 	if (rc && (rc != -EINVAL)) {
 		dev_err(dev, "Unable to read fw delay erase flash\n");
@@ -2142,28 +2140,28 @@ static int ft5x06_parse_dt(struct device *dev,
 		pdata->info.delay_erase_flash =  temp_val;
 
 	pdata->info.auto_cal = of_property_read_bool(np,
-						   "ftech, fw-auto-cal");
+						   "ftech,fw-auto-cal");
 
 	pdata->fw_vkey_support = of_property_read_bool(np,
-							 "ftech, fw-vkey-support");
+							 "ftech,fw-vkey-support");
 
 	pdata->ignore_id_check = of_property_read_bool(np,
-							 "ftech, ignore-id-check");
+							 "ftech,ignore-id-check");
 
-	rc = of_property_read_u32(np, "ftech, family-id", &temp_val);
+	rc = of_property_read_u32(np, "ftech,family-id", &temp_val);
 	if (!rc)
 		pdata->family_id = temp_val;
 	else
 		return rc;
 
-	prop = of_find_property(np, "ftech, button-map", NULL);
+	prop = of_find_property(np, "ftech,button-map", NULL);
 	if (prop) {
 		num_buttons = prop->length / sizeof(temp_val);
 		if (num_buttons > MAX_BUTTONS)
 			return -EINVAL;
 
 		rc = of_property_read_u32_array(np,
-										"ftech, button-map", button_map,
+										"ftech,button-map", button_map,
 										num_buttons);
 		if (rc) {
 			dev_err(dev, "Unable to read key codes\n");
@@ -3019,7 +3017,7 @@ MODULE_DEVICE_TABLE(i2c, ft5x06_ts_id);
 
 #ifdef CONFIG_OF
 static struct of_device_id ft5x06_match_table[] = {
-	{.compatible = "focaltech, 5336",},
+	{.compatible = "focaltech,5336",},
 	{},
 };
 #else
