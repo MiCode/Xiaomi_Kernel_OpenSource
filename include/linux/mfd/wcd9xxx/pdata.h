@@ -189,6 +189,7 @@ struct wcd9xxx_pdata {
 	u32 mclk_rate;
 	u32 dmic_sample_rate;
 	u32 mad_dmic_sample_rate;
+	u32 ecpp_dmic_sample_rate;
 	u32 dmic_clk_drv;
 	u16 use_pinctrl;
 };
