@@ -1014,6 +1014,8 @@
 			"SpkrRight IN", "SPK2 OUT";
 
 		qcom,tasha-mclk-clk-freq = <12288000>;
+		qcom,mi2s-interface-mode = "pri_mi2s_slave", "sec_mi2s_slave";
+		qcom,auxpcm-interface-mode = "pri_pcm_slave", "sec_pcm_slave";
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>;
@@ -1022,14 +1024,16 @@
 				"msm-pcm-loopback", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-pcm-routing",
 				"msm-pcm-dtmf", "msm-voice-host-pcm";
-		asoc-cpu = <&dai_pri_auxpcm>, <&mi2s_prim>, <&dtmf_tx>,
+		asoc-cpu = <&dai_pri_auxpcm>, <&mi2s_prim>, <&mi2s_sec>,
+				<&dtmf_tx>,
 				<&rx_capture_tx>, <&rx_playback_rx>,
 				<&tx_capture_tx>, <&tx_playback_rx>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
 				<&afe_proxy_tx>, <&incall_record_rx>,
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&dai_sec_auxpcm>;
-		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-mi2s.0",
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-stub-dev.4", "msm-dai-stub-dev.5",
 				"msm-dai-stub-dev.6", "msm-dai-stub-dev.7",
 				"msm-dai-stub-dev.8", "msm-dai-q6-dev.224",
@@ -1227,6 +1231,14 @@
 				     &pri_mi2s_dout_sleep>,
 				    <&pri_mi2s_din_sleep>;
 		};
+
+		mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <1>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+		};
+
 	};
 
 	sdhc_1: sdhci@7824000 {
