@@ -847,7 +847,8 @@ int adreno_iommu_init(struct adreno_device *adreno_dev)
  */
 int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt,
-			struct adreno_context *drawctxt)
+			struct adreno_context *drawctxt,
+			unsigned long flags)
 {
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -858,7 +859,8 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 	if (rb->drawctxt_active)
 		cur_pt = rb->drawctxt_active->base.proc_priv->pagetable;
 
-	cpu_path = _ctx_switch_use_cpu_path(adreno_dev, new_pt, rb);
+	cpu_path = !(flags & ADRENO_CONTEXT_SWITCH_FORCE_GPU) &&
+		_ctx_switch_use_cpu_path(adreno_dev, new_pt, rb);
 
 	/* Pagetable switch */
 	if (new_pt != cur_pt) {

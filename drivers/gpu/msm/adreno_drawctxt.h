@@ -104,6 +104,9 @@ enum adreno_context_priv {
 	ADRENO_CONTEXT_SKIP_CMD,
 };
 
+/* Flags for adreno_drawctxt_switch() */
+#define ADRENO_CONTEXT_SWITCH_FORCE_GPU BIT(0)
+
 struct kgsl_context *adreno_drawctxt_create(struct kgsl_device_private *,
 			uint32_t *flags);
 
