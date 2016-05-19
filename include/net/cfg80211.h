@@ -65,6 +65,7 @@ struct wiphy;
 #define SUPPORT_WDEV_CFG80211_VENDOR_EVENT_ALLOC 1
 #define CFG80211_DEL_STA_V2 1
 #define CFG80211_CONNECT_BSS 1
+#define CFG80211_DISCONNECTED_V2 1
 
 /*
  * wireless hardware capability structures
