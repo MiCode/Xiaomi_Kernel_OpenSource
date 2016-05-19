@@ -1788,8 +1788,6 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int ret = 0;
-	unsigned int sctlr_val;
 
 	if ((adreno_dev->ft_pf_policy &
 		BIT(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)) ==
@@ -1798,10 +1796,7 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 
 	/* If not attached, policy will be updated during the next attach */
 	if (ctx->default_pt != NULL) {
-		/* Need to idle device before changing options */
-		ret = device->ftbl->idle(device);
-		if (ret)
-			return ret;
+		unsigned int sctlr_val;
 
 		kgsl_iommu_enable_clk(mmu);
 
@@ -1820,7 +1815,7 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 		kgsl_iommu_disable_clk(mmu);
 	}
 
-	return ret;
+	return 0;
 }
 
 static struct kgsl_protected_registers *
