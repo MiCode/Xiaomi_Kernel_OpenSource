@@ -3418,13 +3418,13 @@ static int netif_rx_internal(struct sk_buff *skb)
 {
 	int ret;
 
-	WARN_ONCE(skb_cloned(skb), "Cloned packet from dev %s\n",
-		  skb->dev->name);
-
 	net_timestamp_check(netdev_tstamp_prequeue, skb);
 
 	trace_netif_rx(skb);
 #ifdef CONFIG_RPS
+	WARN_ONCE(skb_cloned(skb), "Cloned packet from dev %s\n",
+		  skb->dev->name);
+
 	if (static_key_false(&rps_needed)) {
 		struct rps_dev_flow voidflow, *rflow = &voidflow;
 		int cpu;
