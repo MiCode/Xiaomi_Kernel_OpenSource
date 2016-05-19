@@ -85,6 +85,7 @@ struct glink_qos_priority_bin {
  * @tx_task:		handle to the running kthread
  * @channels:			list of all existing channels on this transport
  * @dummy_in_use:		True when channels are being migrated to dummy.
+ * @notified:			list holds channels during dummy xprt cleanup.
  * @mtu:			MTU supported by this transport.
  * @token_count:		Number of tokens to be assigned per assignment.
  * @curr_qos_rate_kBps:		Aggregate of currently supported QoS requests.
@@ -120,6 +121,7 @@ struct glink_core_xprt_ctx {
 	struct list_head channels;
 	uint32_t next_lcid;
 	struct list_head free_lcid_list;
+	struct list_head notified;
 	bool dummy_in_use;
 
 	uint32_t max_cid;
@@ -2537,7 +2539,8 @@ static bool glink_delete_ch_from_list(struct channel_ctx *ctx, bool add_flcid)
 				flags);
 	if (!list_empty(&ctx->port_list_node))
 		list_del_init(&ctx->port_list_node);
-	if (list_empty(&ctx->transport_ptr->channels))
+	if (list_empty(&ctx->transport_ptr->channels) &&
+			list_empty(&ctx->transport_ptr->notified))
 		ret = true;
 	spin_unlock_irqrestore(
 			&ctx->transport_ptr->xprt_ctx_lock_lhb1,
@@ -3735,6 +3738,7 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 	xprt_ptr->local_state = GLINK_XPRT_DOWN;
 	xprt_ptr->remote_neg_completed = false;
 	INIT_LIST_HEAD(&xprt_ptr->channels);
+	INIT_LIST_HEAD(&xprt_ptr->notified);
 
 	spin_lock_init(&xprt_ptr->tx_ready_lock_lhb3);
 	mutex_init(&xprt_ptr->xprt_dbgfs_lock_lhb4);
@@ -3905,6 +3909,7 @@ static struct glink_core_xprt_ctx *glink_create_dummy_xprt_ctx(
 	xprt_ptr->remote_neg_completed = false;
 	INIT_LIST_HEAD(&xprt_ptr->channels);
 	xprt_ptr->dummy_in_use = true;
+	INIT_LIST_HEAD(&xprt_ptr->notified);
 	spin_lock_init(&xprt_ptr->tx_ready_lock_lhb3);
 	mutex_init(&xprt_ptr->xprt_dbgfs_lock_lhb4);
 	return xprt_ptr;
@@ -3975,8 +3980,12 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr)
 	rwref_read_put(&xprt_ptr->xprt_state_lhb0);
 
 	spin_lock_irqsave(&dummy_xprt_ctx->xprt_ctx_lock_lhb1, d_flags);
-	list_for_each_entry_safe(ctx, tmp_ctx, &dummy_xprt_ctx->channels,
-						port_list_node) {
+	while (!list_empty(&dummy_xprt_ctx->channels)) {
+		ctx = list_first_entry(&dummy_xprt_ctx->channels,
+					struct channel_ctx, port_list_node);
+		list_move_tail(&ctx->port_list_node,
+					&dummy_xprt_ctx->notified);
+
 		rwref_get(&ctx->ch_state_lhb2);
 		spin_unlock_irqrestore(&dummy_xprt_ctx->xprt_ctx_lock_lhb1,
 				d_flags);
