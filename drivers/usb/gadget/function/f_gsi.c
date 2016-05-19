@@ -2801,11 +2801,14 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	u32 len;
 
 	/*
-	 * call flush_workqueue to make sure that any pending
-	 * disconnect_work() is being flushed before calling
-	 * ipa_usb_deinit_teth_prot ipa
+	 * Use drain_workqueue to accomplish below conditions:
+	 * 1. Make sure that any running work completed
+	 * 2. Make sure to wait until all pending work completed i.e. workqueue
+	 * is not having any pending work.
+	 * Above conditions are making sure that ipa_usb_deinit_teth_prot()
+	 * with ipa driver shall not fail due to unexpected state.
 	 */
-	flush_workqueue(gsi->d_port.ipa_usb_wq);
+	drain_workqueue(gsi->d_port.ipa_usb_wq);
 	ipa_usb_deinit_teth_prot(gsi->prot_id);
 
 	if (gsi->prot_id == IPA_USB_RNDIS) {
