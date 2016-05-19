@@ -185,9 +185,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	if (!(cdev && cdev->config) || !dwc->needs_fifo_resize)
 		return 0;
 
-	/* gadget.num_eps never be greater than dwc->num_in_eps */
-	num_eps = min_t(int, dwc->num_in_eps,
-			cdev->config->num_ineps_used + 1);
+	num_eps = dwc->num_in_eps;
 	ram1_depth = DWC3_RAM1_DEPTH(dwc->hwparams.hwparams7);
 	mdwidth = DWC3_MDWIDTH(dwc->hwparams.hwparams0);
 
@@ -205,7 +203,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		int		tmp;
 
 		if (!(dep->flags & DWC3_EP_ENABLED)) {
-			dev_warn(dwc->dev, "ep%dIn not enabled", num);
+			dev_dbg(dwc->dev, "ep%dIn not enabled", num);
 			tmp = max_packet + mdwidth;
 			goto resize_fifo;
 		}
