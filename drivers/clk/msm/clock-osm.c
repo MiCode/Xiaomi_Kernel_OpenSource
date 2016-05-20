@@ -1615,7 +1615,7 @@ static void clk_osm_setup_fsms(struct clk_osm *c)
 				  PDN_FSM_CTRL_REG);
 
 		val = clk_osm_read_reg(c, DROOP_UNSTALL_TIMER_CTRL_REG) |
-			BVAL(15, 0, clk_osm_count_ns(c, 1000));
+			BVAL(15, 0, clk_osm_count_ns(c, 5000));
 		clk_osm_write_reg(c, val, DROOP_UNSTALL_TIMER_CTRL_REG);
 	}
 
