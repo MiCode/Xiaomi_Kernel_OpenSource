@@ -8015,6 +8015,9 @@ void __init sched_init(void)
 		rq->old_estimated_time = 0;
 		rq->old_busy_time_group = 0;
 		rq->hmp_stats.pred_demands_sum = 0;
+		for (j = 0; j < NUM_SUBTRACTION_WINDOWS; j++)
+			memset(&rq->load_subs[j], 0,
+					sizeof(struct load_subtractions));
 #endif
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 
