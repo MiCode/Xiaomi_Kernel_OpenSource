@@ -121,10 +121,9 @@ static irqreturn_t nqx_dev_irq_handler(int irq, void *dev_id)
 	unsigned long flags;
 	int ret;
 
-	if (device_may_wakeup(&nqx_dev->client->dev) &&
-		(nqx_dev->client->dev.power.is_suspended == true)) {
+	if (device_may_wakeup(&nqx_dev->client->dev))
 		pm_wakeup_event(&nqx_dev->client->dev, WAKEUP_SRC_TIMEOUT);
-	}
+
 	ret = gpio_get_value(nqx_dev->irq_gpio);
 	if (!ret) {
 #ifdef NFC_KERNEL_BU
@@ -134,6 +133,7 @@ static irqreturn_t nqx_dev_irq_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
+	nqx_disable_irq(nqx_dev);
 	spin_lock_irqsave(&nqx_dev->irq_enabled_lock, flags);
 	nqx_dev->count_irq++;
 	spin_unlock_irqrestore(&nqx_dev->irq_enabled_lock, flags);
@@ -158,7 +158,7 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 
 	mutex_lock(&nqx_dev->read_mutex);
 
-	irq_gpio_val = gpio_get_value_cansleep(nqx_dev->irq_gpio);
+	irq_gpio_val = gpio_get_value(nqx_dev->irq_gpio);
 	if (irq_gpio_val == 0) {
 		if (filp->f_flags & O_NONBLOCK) {
 			dev_err(&nqx_dev->client->dev,
@@ -166,17 +166,15 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 			ret = -EAGAIN;
 			goto err;
 		}
-		nqx_dev->irq_enabled = true;
-		enable_irq(nqx_dev->client->irq);
-		if (gpio_get_value_cansleep(nqx_dev->irq_gpio)) {
-			nqx_disable_irq(nqx_dev);
-		} else {
-			ret = wait_event_interruptible(nqx_dev->read_wq,
-					gpio_get_value(nqx_dev->irq_gpio));
-			nqx_disable_irq(nqx_dev);
-			if (ret)
-				goto err;
+		if (!nqx_dev->irq_enabled) {
+			enable_irq(nqx_dev->client->irq);
+			nqx_dev->irq_enabled = true;
 		}
+		ret = wait_event_interruptible(nqx_dev->read_wq,
+				gpio_get_value(nqx_dev->irq_gpio));
+		if (ret)
+			goto err;
+		nqx_disable_irq(nqx_dev);
 	}
 
 	tmp = nqx_dev->kbuf;
@@ -257,8 +255,6 @@ static int nfc_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = nqx_dev;
 	nqx_init_stat(nqx_dev);
-	/* Enable interrupts from NFCC NFC_INT new NCI data available */
-	nqx_enable_irq(nqx_dev);
 
 	dev_dbg(&nqx_dev->client->dev,
 			"%s: %d,%d\n", __func__, imajor(inode), iminor(inode));
@@ -301,6 +297,7 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		/* hardware dependent delay */
 		msleep(100);
 	} else if (arg == 1) {
+		nqx_enable_irq(nqx_dev);
 		dev_dbg(&nqx_dev->client->dev,
 			"gpio_set_value enable: %s: info: %p\n",
 			__func__, nqx_dev);
@@ -711,7 +708,7 @@ static int nqx_probe(struct i2c_client *client,
 	/* NFC_INT IRQ */
 	nqx_dev->irq_enabled = true;
 	r = request_irq(client->irq, nqx_dev_irq_handler,
-			  IRQF_TRIGGER_RISING, client->name, nqx_dev);
+			  IRQF_TRIGGER_HIGH, client->name, nqx_dev);
 	if (r) {
 		dev_err(&client->dev, "%s: request_irq failed\n", __func__);
 		goto err_request_irq_failed;
