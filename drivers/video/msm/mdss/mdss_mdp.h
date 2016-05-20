@@ -443,6 +443,9 @@ struct mdss_mdp_ctl {
 	u64 last_input_time;
 	int pending_mode_switch;
 	u16 frame_rate;
+
+	/* dynamic resolution switch during cont-splash handoff */
+	bool switch_with_handoff;
 };
 
 struct mdss_mdp_mixer {

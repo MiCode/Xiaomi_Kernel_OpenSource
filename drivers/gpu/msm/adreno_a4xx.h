@@ -47,6 +47,15 @@
 		"RBBM_DPM_THERMAL_YELLOW_ERR" }, \
 	{ BIT(A4XX_INT_RBBM_DPM_THERMAL_RED_ERR), "RBBM_DPM_THERMAL_RED_ERR" }
 
+unsigned int a4xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
+			struct adreno_ringbuffer *rb,
+			unsigned int *cmds,
+			struct kgsl_context *context);
+
+void a4xx_preemption_schedule(struct adreno_device *adreno_dev);
+
+int a4xx_preemption_init(struct adreno_device *adreno_dev);
+
 void a4xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 

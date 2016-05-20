@@ -439,13 +439,6 @@ static irqreturn_t lmh_isr_thread(int irq, void *data)
 			goto decide_next_action;
 		}
 	}
-	lmh_read_and_update(lmh_dat);
-	if (!lmh_dat->intr_status_val) {
-		pr_debug("LMH not throttling. Enabling interrupt\n");
-		lmh_dat->intr_state = LMH_ISR_MONITOR;
-		trace_lmh_event_call("Lmh Zero throttle Interrupt Clear");
-		goto decide_next_action;
-	}
 
 decide_next_action:
 	if (lmh_dat->intr_state == LMH_ISR_POLLING)

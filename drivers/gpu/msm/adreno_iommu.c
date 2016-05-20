@@ -275,6 +275,7 @@ static bool _ctx_switch_use_cpu_path(
 				struct adreno_ringbuffer *rb)
 {
 	struct kgsl_mmu *mmu = KGSL_MMU(adreno_dev);
+
 	/*
 	 * If rb is current, we can use cpu path when GPU is
 	 * idle and we are switching to default pt.
@@ -284,7 +285,7 @@ static bool _ctx_switch_use_cpu_path(
 	if (adreno_dev->cur_rb == rb)
 		return adreno_isidle(KGSL_DEVICE(adreno_dev)) &&
 			(new_pt == mmu->defaultpagetable);
-	else if ((rb->wptr == rb->rptr) &&
+	else if (adreno_rb_empty(rb) &&
 			(new_pt == mmu->defaultpagetable))
 		return true;
 
@@ -360,8 +361,7 @@ static unsigned int _adreno_mmu_set_pt_update_condition(
 	 */
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
-		offsetof(struct adreno_ringbuffer_pagetable_info,
-		switch_pt_enable)));
+		PT_INFO_OFFSET(switch_pt_enable)));
 	*cmds++ = 1;
 	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
 	*cmds++ = 0;
@@ -375,14 +375,11 @@ static unsigned int _adreno_mmu_set_pt_update_condition(
 	*cmds++ = (1 << 8) | (1 << 4) | 3;
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 	   (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
-		   offsetof(struct adreno_ringbuffer_pagetable_info,
-		   current_global_ptname)));
+		PT_INFO_OFFSET(current_global_ptname)));
 	*cmds++ = ptname;
 	*cmds++ = 0xFFFFFFFF;
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-		   (rb->pagetable_desc.gpuaddr +
-		   offsetof(struct adreno_ringbuffer_pagetable_info,
-		   switch_pt_enable)));
+	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
+		PT_INFO_OFFSET(switch_pt_enable)));
 	*cmds++ = 0;
 	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
 	*cmds++ = 0;
@@ -406,23 +403,18 @@ static unsigned int _adreno_iommu_pt_update_pid_to_mem(
 	unsigned int *cmds_orig = cmds;
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-		  (rb->pagetable_desc.gpuaddr +
-		  offsetof(struct adreno_ringbuffer_pagetable_info,
-		  current_rb_ptname)));
+	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
+		PT_INFO_OFFSET(current_rb_ptname)));
 	*cmds++ = ptname;
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds,
-		  (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
-		  offsetof(struct adreno_ringbuffer_pagetable_info,
-		  current_global_ptname)));
+		(adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
+		PT_INFO_OFFSET(current_global_ptname)));
 	*cmds++ = ptname;
 	/* pagetable switch done, Housekeeping: set the switch_pt_enable to 0 */
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-			(rb->pagetable_desc.gpuaddr +
-			offsetof(struct adreno_ringbuffer_pagetable_info,
-			switch_pt_enable)));
+	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
+		PT_INFO_OFFSET(switch_pt_enable)));
 	*cmds++ = 0;
 	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
 	*cmds++ = 0;
@@ -444,14 +436,10 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 	/* set flag that indicates whether pt switch is required*/
 	cmds += _adreno_mmu_set_pt_update_condition(rb, cmds, ptname);
 	*cmds++ = cp_mem_packet(adreno_dev, CP_COND_EXEC, 4, 2);
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-			(rb->pagetable_desc.gpuaddr +
-			offsetof(struct adreno_ringbuffer_pagetable_info,
-			switch_pt_enable)));
-	cmds += cp_gpuaddr(adreno_dev, cmds,
-			(rb->pagetable_desc.gpuaddr +
-			offsetof(struct adreno_ringbuffer_pagetable_info,
-			switch_pt_enable)));
+	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
+		PT_INFO_OFFSET(switch_pt_enable)));
+	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
+		PT_INFO_OFFSET(switch_pt_enable)));
 	*cmds++ = 1;
 	/* Exec count to be filled later */
 	cond_exec_ptr = cmds;
@@ -566,7 +554,7 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 4, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
-		offsetof(struct adreno_ringbuffer_pagetable_info, ttbr0)));
+		PT_INFO_OFFSET(ttbr0)));
 	*cmds++ = lower_32_bits(ttbr0);
 	*cmds++ = upper_32_bits(ttbr0);
 	*cmds++ = contextidr;
@@ -651,14 +639,14 @@ static unsigned int __add_curr_ctxt_cmds(struct adreno_ringbuffer *rb,
 	*cmds++ = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, device->memstore.gpuaddr +
-			   KGSL_MEMSTORE_RB_OFFSET(rb, current_context));
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+			MEMSTORE_RB_GPU_ADDR(device, rb, current_context));
 	*cmds++ = (drawctxt ? drawctxt->base.id : 0);
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, device->memstore.gpuaddr +
-			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-			current_context));
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+			MEMSTORE_ID_GPU_ADDR(device,
+				KGSL_MEMSTORE_GLOBAL, current_context));
 	*cmds++ = (drawctxt ? drawctxt->base.id : 0);
 
 	/* Invalidate UCHE for new context */
@@ -706,7 +694,7 @@ static void _set_ctxt_cpu(struct adreno_ringbuffer *rb,
 	}
 	/* Update rb memstore with current context */
 	kgsl_sharedmem_writel(device, &device->memstore,
-		KGSL_MEMSTORE_RB_OFFSET(rb, current_context),
+		MEMSTORE_RB_OFFSET(rb, current_context),
 		drawctxt ? drawctxt->base.id : 0);
 }
 
@@ -746,26 +734,11 @@ static int _set_pagetable_cpu(struct adreno_ringbuffer *rb,
 		if (result)
 			return result;
 		/* write the new pt set to memory var */
-		kgsl_sharedmem_writel(device,
-			&adreno_dev->ringbuffers[0].pagetable_desc,
-			offsetof(
-			struct adreno_ringbuffer_pagetable_info,
-			current_global_ptname), new_pt->name);
+		adreno_ringbuffer_set_global(adreno_dev, new_pt->name);
 	}
 
 	/* Update the RB pagetable info here */
-	kgsl_sharedmem_writel(device, &rb->pagetable_desc,
-		offsetof(
-		struct adreno_ringbuffer_pagetable_info,
-		current_rb_ptname), new_pt->name);
-	kgsl_sharedmem_writeq(device, &rb->pagetable_desc,
-		offsetof(
-		struct adreno_ringbuffer_pagetable_info,
-		ttbr0), kgsl_mmu_pagetable_get_ttbr0(new_pt));
-	kgsl_sharedmem_writel(device, &rb->pagetable_desc,
-		offsetof(
-		struct adreno_ringbuffer_pagetable_info,
-		contextidr), kgsl_mmu_pagetable_get_contextidr(new_pt));
+	adreno_ringbuffer_set_pagetable(rb, new_pt);
 
 	return 0;
 }
@@ -795,8 +768,6 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 		return 0;
 	}
 
-	kgsl_mmu_enable_clk(KGSL_MMU(adreno_dev));
-
 	cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, new_pt);
 
 	if ((unsigned int) (cmds - link) > (PAGE_SIZE / sizeof(unsigned int))) {
@@ -811,16 +782,6 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 	result = adreno_ringbuffer_issuecmds(rb,
 			KGSL_CMD_FLAGS_PMODE, link,
 			(unsigned int)(cmds - link));
-
-	/*
-	 * On error disable the IOMMU clock right away otherwise turn it off
-	 * after the command has been retired
-	 */
-	if (result)
-		kgsl_mmu_disable_clk(KGSL_MMU(adreno_dev));
-	else
-		adreno_ringbuffer_mmu_disable_clk_on_ts(KGSL_DEVICE(adreno_dev),
-			rb, rb->timestamp);
 
 	kfree(link);
 	return result;
@@ -886,7 +847,8 @@ int adreno_iommu_init(struct adreno_device *adreno_dev)
  */
 int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt,
-			struct adreno_context *drawctxt)
+			struct adreno_context *drawctxt,
+			unsigned long flags)
 {
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -897,7 +859,8 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 	if (rb->drawctxt_active)
 		cur_pt = rb->drawctxt_active->base.proc_priv->pagetable;
 
-	cpu_path = _ctx_switch_use_cpu_path(adreno_dev, new_pt, rb);
+	cpu_path = !(flags & ADRENO_CONTEXT_SWITCH_FORCE_GPU) &&
+		_ctx_switch_use_cpu_path(adreno_dev, new_pt, rb);
 
 	/* Pagetable switch */
 	if (new_pt != cur_pt) {
@@ -907,19 +870,14 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			result = _set_pagetable_gpu(rb, new_pt);
 	}
 
-	if (result) {
-		KGSL_DRV_ERR(device, "Error switching pagetable %d\n", result);
+	if (result)
 		return result;
-	}
 
 	/* Context switch */
 	if (cpu_path)
 		_set_ctxt_cpu(rb, drawctxt);
 	else
 		result = _set_ctxt_gpu(rb, drawctxt);
-
-	if (result)
-		KGSL_DRV_ERR(device, "Error switching context %d\n", result);
 
 	return result;
 }

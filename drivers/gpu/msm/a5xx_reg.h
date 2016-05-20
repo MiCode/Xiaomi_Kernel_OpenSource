@@ -60,6 +60,8 @@
 #define A5XX_CP_RB_BASE                  0x800
 #define A5XX_CP_RB_BASE_HI               0x801
 #define A5XX_CP_RB_CNTL                  0x802
+#define A5XX_CP_RB_RPTR_ADDR_LO          0x804
+#define A5XX_CP_RB_RPTR_ADDR_HI          0x805
 #define A5XX_CP_RB_RPTR                  0x806
 #define A5XX_CP_RB_WPTR                  0x807
 #define A5XX_CP_PFP_STAT_ADDR            0x808

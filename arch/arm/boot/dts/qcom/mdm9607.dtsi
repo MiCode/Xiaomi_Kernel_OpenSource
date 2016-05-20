@@ -1416,6 +1416,13 @@
 		phy-addr = <0>;
 		status = "disable";
 	};
+	pps {
+		compatible = "pps-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pps>;
+		gpios = <&tlmm_pinmux 53 0>;
+		status = "okay";
+	};
 };
 
 #include "mdm9607-rpm-regulator.dtsi"

@@ -1756,9 +1756,9 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_device *adreno_dev,
 		*cmds++ = cp_type3_packet(CP_INTERRUPT, 1);
 		*cmds++ = 0;
 
-		rb->wptr = rb->wptr - 2;
+		rb->_wptr = rb->_wptr - 2;
 		adreno_ringbuffer_submit(rb, NULL);
-		rb->wptr = rb->wptr + 2;
+		rb->_wptr = rb->_wptr + 2;
 	} else {
 		for (i = pfp_idx; i < adreno_dev->pfp_fw_size; i++)
 			*cmds++ = adreno_dev->pfp_fw[i];
