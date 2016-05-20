@@ -336,7 +336,7 @@ static void ftrace_syscall_enter(void *data, struct pt_regs *regs, long id)
 	syscall_get_arguments(current, regs, 0, sys_data->nb_args, entry->args);
 
 	event_trigger_unlock_commit(trace_file, buffer, event, entry,
-				    irq_flags, pc);
+				    irq_flags, pc, 0);
 }
 
 static void ftrace_syscall_exit(void *data, struct pt_regs *regs, long ret)
@@ -382,7 +382,7 @@ static void ftrace_syscall_exit(void *data, struct pt_regs *regs, long ret)
 	entry->ret = syscall_get_return_value(current, regs);
 
 	event_trigger_unlock_commit(trace_file, buffer, event, entry,
-				    irq_flags, pc);
+				    irq_flags, pc, 0);
 }
 
 static int reg_event_syscall_enter(struct trace_event_file *file,
