@@ -153,7 +153,7 @@ static int f2fs_xattr_advise_set(struct dentry *dentry, const char *name,
 		return -EINVAL;
 
 	F2FS_I(inode)->i_advise |= *(char *)value;
-	mark_inode_dirty(inode);
+	mark_inode_dirty_sync(inode);
 	return 0;
 }
 
@@ -593,6 +593,7 @@ static int __f2fs_setxattr(struct inode *inode, int index,
 		update_inode(inode, ipage);
 	else
 		update_inode_page(inode);
+	mark_inode_dirty_sync(inode);
 exit:
 	kzfree(base_addr);
 	return error;
