@@ -192,6 +192,10 @@
 		qcom,ipa-loaduC;
 		qcom,ipa-advertise-sg-support;
 	};
+
+	qcom,rmtfs_sharedmem@00000000 {
+		reg = <0x00000000 0x00180000>;
+	};
 };
 
 &apc_vreg_corner {
