@@ -24,6 +24,10 @@ Optional properties:
 - qcom,use-ext-supply: Boolean flag to indicate if 11ad SIP uses external power supply
 - vdd-supply: phandle to 11ad VDD regulator node
 - vddio-supply: phandle to 11ad VDDIO regulator node
+- qcom,use-ext-clocks: Boolean flag to indicate if 11ad SIP uses external clocks
+- clocks	    : List of phandle and clock specifier pairs
+- clock-names       : List of clock input name strings sorted in the same
+		      order as the clocks property.
 
 Example:
 	wil6210: qcom,wil6210 {
@@ -40,5 +44,9 @@ Example:
 		qcom,use-ext-supply;
 		vdd-supply= <&pm8998_s7>;
 		vddio-supply= <&pm8998_s5>;
+		qcom,use-ext-clocks;
+		clocks = <&clock_gcc clk_rf_clk3>,
+			 <&clock_gcc clk_rf_clk3_pin>;
+		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
 	};
 

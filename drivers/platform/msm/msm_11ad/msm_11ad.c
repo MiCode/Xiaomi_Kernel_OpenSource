@@ -64,6 +64,12 @@ struct msm11ad_vreg {
 	bool enabled;
 };
 
+struct msm11ad_clk {
+	const char *name;
+	struct clk *clk;
+	bool enabled;
+};
+
 struct msm11ad_ctx {
 	struct list_head list;
 	struct device *dev; /* for platform device */
@@ -95,8 +101,12 @@ struct msm11ad_ctx {
 	void *ramdump_addr;
 	struct msm_dump_data dump_data;
 	struct ramdump_device *ramdump_dev;
+
+	/* external vregs and clocks */
 	struct msm11ad_vreg vdd;
 	struct msm11ad_vreg vddio;
+	struct msm11ad_clk rf_clk3;
+	struct msm11ad_clk rf_clk3_pin;
 };
 
 static LIST_HEAD(dev_list);
@@ -150,6 +160,48 @@ static int msm_11ad_release_vreg(struct device *dev, struct msm11ad_vreg *vreg)
 	devm_regulator_put(vreg->reg);
 	vreg->reg = NULL;
 	kfree(vreg->name);
+
+	return 0;
+}
+
+static int msm_11ad_init_clk(struct device *dev, struct msm11ad_clk *clk,
+			     const char *name)
+{
+	int rc = 0;
+
+	clk->name = kstrdup(name, GFP_KERNEL);
+	if (!clk->name)
+		return -ENOMEM;
+
+	clk->clk = devm_clk_get(dev, name);
+	if (IS_ERR(clk->clk)) {
+		rc = PTR_ERR(clk->clk);
+		if (rc == -ENOENT)
+			rc = -EPROBE_DEFER;
+		dev_err(dev, "%s: failed to get %s rc %d",
+				__func__, name, rc);
+		kfree(clk->name);
+		clk->clk = NULL;
+		goto out;
+	}
+
+	dev_info(dev, "%s: %s initialized successfully\n", __func__, name);
+
+out:
+	return rc;
+}
+
+static int msm_11ad_release_clk(struct device *dev, struct msm11ad_clk *clk)
+{
+	if (!clk || !clk->clk)
+		return 0;
+
+	dev_info(dev, "%s: %s released\n", __func__, clk->name);
+
+	devm_clk_put(dev, clk->clk);
+	clk->clk = NULL;
+
+	kfree(clk->name);
 
 	return 0;
 }
@@ -324,6 +376,92 @@ out:
 	return 0;
 }
 
+static int msm_11ad_enable_clk(struct msm11ad_ctx *ctx,
+				struct msm11ad_clk *clk)
+{
+	struct device *dev = ctx->dev;
+	int rc = 0;
+
+	if (!clk || !clk->clk || clk->enabled)
+		goto out;
+
+	rc = clk_prepare_enable(clk->clk);
+	if (rc) {
+		dev_err(dev, "%s: failed to enable %s, rc(%d)\n",
+			__func__, clk->name, rc);
+		goto out;
+	}
+	clk->enabled = true;
+
+	dev_dbg(dev, "%s: %s enabled\n", __func__, clk->name);
+
+out:
+	return rc;
+}
+
+static void msm_11ad_disable_clk(struct msm11ad_ctx *ctx,
+				struct msm11ad_clk *clk)
+{
+	struct device *dev = ctx->dev;
+
+	if (!clk || !clk->clk || !clk->enabled)
+		goto out;
+
+	clk_disable_unprepare(clk->clk);
+	clk->enabled = false;
+
+	dev_dbg(dev, "%s: %s disabled\n", __func__, clk->name);
+
+out:
+	return;
+}
+
+static int msm_11ad_enable_clocks(struct msm11ad_ctx *ctx)
+{
+	int rc;
+
+	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3);
+	if (rc)
+		return rc;
+
+	rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3_pin);
+	if (rc)
+		msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+
+	return rc;
+}
+
+static int msm_11ad_init_clocks(struct msm11ad_ctx *ctx)
+{
+	int rc;
+	struct device *dev = ctx->dev;
+
+	if (!of_property_read_bool(dev->of_node, "qcom,use-ext-clocks"))
+		return 0;
+
+	rc = msm_11ad_init_clk(dev, &ctx->rf_clk3, "rf_clk3_clk");
+	if (rc)
+		return rc;
+
+	rc = msm_11ad_init_clk(dev, &ctx->rf_clk3_pin, "rf_clk3_pin_clk");
+	if (rc)
+		msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+
+	return rc;
+}
+
+static void msm_11ad_release_clocks(struct msm11ad_ctx *ctx)
+{
+	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3_pin);
+	msm_11ad_release_clk(ctx->dev, &ctx->rf_clk3);
+}
+
+static void msm_11ad_disable_clocks(struct msm11ad_ctx *ctx)
+{
+	msm_11ad_disable_clk(ctx, &ctx->rf_clk3_pin);
+	msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
+}
+
 static int ops_suspend(void *handle)
 {
 	int rc;
@@ -354,6 +492,8 @@ static int ops_suspend(void *handle)
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
 
+	msm_11ad_disable_clocks(ctx);
+
 	msm_11ad_disable_vregs(ctx);
 
 	return rc;
@@ -376,6 +516,12 @@ static int ops_resume(void *handle)
 		dev_err(ctx->dev, "msm_11ad_enable_vregs failed :%d\n",
 			rc);
 		return rc;
+	}
+
+	rc = msm_11ad_enable_clocks(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_enable_clocks failed :%d\n", rc);
+		goto err_disable_vregs;
 	}
 
 	if (ctx->sleep_clk_en >= 0)
@@ -413,6 +559,8 @@ err_disable_power:
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
 
+	msm_11ad_disable_clocks(ctx);
+err_disable_vregs:
 	msm_11ad_disable_vregs(ctx);
 
 	return rc;
@@ -702,15 +850,25 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	/* turn device on */
 	rc = msm_11ad_init_vregs(ctx);
 	if (rc) {
-		dev_err(ctx->dev, "msm_11ad_init_vregs failed :%d\n",
-			rc);
+		dev_err(ctx->dev, "msm_11ad_init_vregs failed: %d\n", rc);
 		return rc;
 	}
 	rc = msm_11ad_enable_vregs(ctx);
 	if (rc) {
-		dev_err(ctx->dev, "msm_11ad_enable_vregs failed :%d\n",
-			rc);
-		goto out_vreg;
+		dev_err(ctx->dev, "msm_11ad_enable_vregs failed: %d\n", rc);
+		goto out_vreg_clk;
+	}
+
+	rc = msm_11ad_init_clocks(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_init_clocks failed: %d\n", rc);
+		goto out_vreg_clk;
+	}
+
+	rc = msm_11ad_enable_clocks(ctx);
+	if (rc) {
+		dev_err(ctx->dev, "msm_11ad_enable_clocks failed: %d\n", rc);
+		goto out_vreg_clk;
 	}
 
 	if (ctx->gpio_en >= 0) {
@@ -802,8 +960,10 @@ out_set:
 		gpio_free(ctx->gpio_en);
 out_req:
 	ctx->gpio_en = -EINVAL;
+out_vreg_clk:
+	msm_11ad_disable_clocks(ctx);
+	msm_11ad_release_clocks(ctx);
 	msm_11ad_disable_vregs(ctx);
-out_vreg:
 	msm_11ad_release_vregs(ctx);
 
 	return rc;
@@ -828,6 +988,8 @@ static int msm_11ad_remove(struct platform_device *pdev)
 	if (ctx->sleep_clk_en >= 0)
 		gpio_free(ctx->sleep_clk_en);
 
+	msm_11ad_disable_clocks(ctx);
+	msm_11ad_release_clocks(ctx);
 	msm_11ad_disable_vregs(ctx);
 	msm_11ad_release_vregs(ctx);
 
@@ -927,6 +1089,20 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 	switch (evt) {
 	case WIL_PLATFORM_EVT_FW_CRASH:
 		rc = msm_11ad_notify_crash(ctx);
+		break;
+	case WIL_PLATFORM_EVT_PRE_RESET:
+		/*
+		 * Enable rf_clk3 clock before resetting the device to ensure
+		 * stable ref clock during the device reset
+		 */
+		rc = msm_11ad_enable_clk(ctx, &ctx->rf_clk3);
+		break;
+	case WIL_PLATFORM_EVT_FW_RDY:
+		/*
+		 * Disable rf_clk3 clock after the device is up to allow
+		 * the device to control it via its GPIO for power saving
+		 */
+		msm_11ad_disable_clk(ctx, &ctx->rf_clk3);
 		break;
 	default:
 		pr_debug("%s: Unhandled event %d\n", __func__, evt);
