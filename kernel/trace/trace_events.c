@@ -3384,9 +3384,13 @@ function_test_events_call(unsigned long ip, unsigned long parent_ip,
 	entry	= ring_buffer_event_data(event);
 	entry->ip			= ip;
 	entry->parent_ip		= parent_ip;
-
+#ifdef CONFIG_CORESIGHT_QGKI
+	event_trigger_unlock_commit(&event_trace_file, buffer, event,
+				    entry, flags, pc, 0);
+#else
 	event_trigger_unlock_commit(&event_trace_file, buffer, event,
 				    entry, flags, pc);
+#endif
  out:
 	atomic_dec(&per_cpu(ftrace_test_event_disable, cpu));
 	preempt_enable_notrace();
