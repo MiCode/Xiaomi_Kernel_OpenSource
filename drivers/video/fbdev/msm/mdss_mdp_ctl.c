@@ -3314,6 +3314,100 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 	return 0;
 }
 
+int mdss_mdp_cwb_setup(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_cwb *cwb = NULL;
+	struct mdss_mdp_writeback *wb = NULL;
+	struct mdss_overlay_private *mdp5_data = NULL;
+	struct mdss_mdp_wb_data *cwb_data;
+	struct mdss_mdp_writeback_arg wb_args;
+	struct mdss_mdp_ctl *sctl = NULL;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	u32 opmode, data_point;
+	int rc = 0;
+
+	if (!ctl->mfd)
+		return -ENODEV;
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	cwb = &mdp5_data->cwb;
+
+	if (!cwb->valid)
+		return rc;
+
+	/* Wait for previous CWB job to complete */
+	if (mdss_mdp_acquire_wb(ctl))
+		return -EBUSY;
+
+	wb = mdata->wb + cwb->wb_idx;
+	wb->base = mdata->mdss_io.base + mdata->wb_offsets[cwb->wb_idx];
+	ctl->wb = wb;
+
+	/* Get new instance of writeback interface context */
+	cwb->priv_data = mdss_mdp_writeback_get_ctx_for_cwb(ctl);
+	if (cwb->priv_data == NULL) {
+		pr_err("fail to get writeback context\n");
+		rc = -ENOMEM;
+		goto cwb_setup_done;
+	}
+
+	mutex_lock(&cwb->queue_lock);
+	cwb_data = list_first_entry_or_null(&cwb->data_queue,
+			struct mdss_mdp_wb_data, next);
+	mutex_unlock(&cwb->queue_lock);
+	if (cwb_data == NULL) {
+		pr_err("no output buffer for cwb\n");
+		rc = -ENOMEM;
+		goto cwb_setup_done;
+	}
+
+	rc = mdss_mdp_data_map(&cwb_data->data, true, DMA_FROM_DEVICE);
+	if (rc) {
+		pr_err("fail to acquire CWB output buffer\n");
+		goto cwb_setup_done;
+	}
+
+	memset(&wb_args, 0, sizeof(wb_args));
+	wb_args.data = &cwb_data->data;
+
+	rc =  mdss_mdp_writeback_prepare_cwb(ctl, &wb_args);
+	if (rc) {
+		pr_err("failed to writeback prepare cwb\n");
+		goto cwb_setup_done;
+	}
+
+	/* Select MEM_SEL to WB */
+	ctl->opmode |= MDSS_MDP_CTL_OP_WFD_MODE;
+	sctl = mdss_mdp_get_split_ctl(ctl);
+	if (sctl)
+		sctl->opmode |= MDSS_MDP_CTL_OP_WFD_MODE;
+
+	/* Select CWB data point */
+	data_point = (cwb->layer->flags & MDP_COMMIT_CWB_DSPP) ? 0x4 : 0;
+	writel_relaxed(data_point, mdata->mdp_base + mdata->ppb_ctl[2]);
+	if (sctl)
+		writel_relaxed(data_point + 1,
+				mdata->mdp_base + mdata->ppb_ctl[3]);
+
+	/* Flush WB */
+	ctl->flush_bits |= BIT(16);
+
+	opmode = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_TOP) | ctl->opmode;
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_TOP, opmode);
+	if (sctl) {
+		opmode = mdss_mdp_ctl_read(sctl, MDSS_MDP_REG_CTL_TOP) |
+			sctl->opmode;
+		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP, opmode);
+	}
+
+cwb_setup_done:
+	cwb->valid = 0;
+	atomic_add_unless(&mdp5_data->wb_busy, -1, 0);
+
+	return 0;
+}
+
 int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_ctl *split_ctl;
@@ -3341,10 +3435,10 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	max_mixer_width = ctl->mdata->max_mixer_width;
 
 	split_fb = ((is_dual_lm_single_display(ctl->mfd)) &&
-		    (ctl->mfd->split_fb_left <= max_mixer_width) &&
-		    (ctl->mfd->split_fb_right <= max_mixer_width)) ? 1 : 0;
+		(ctl->mfd->split_fb_left <= max_mixer_width) &&
+		(ctl->mfd->split_fb_right <= max_mixer_width)) ? 1 : 0;
 	pr_debug("max=%d xres=%d left=%d right=%d\n", max_mixer_width,
-		 width, ctl->mfd->split_fb_left, ctl->mfd->split_fb_right);
+		width, ctl->mfd->split_fb_left, ctl->mfd->split_fb_right);
 
 	if ((split_ctl && (width > max_mixer_width)) ||
 			(width > (2 * max_mixer_width))) {
@@ -3359,7 +3453,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	if (!ctl->mixer_left) {
 		ctl->mixer_left =
 			mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF,
-			 ((width > max_mixer_width) || split_fb), 0);
+			((width > max_mixer_width) || split_fb), 0);
 		if (!ctl->mixer_left) {
 			pr_err("unable to allocate layer mixer\n");
 			return -ENOMEM;
@@ -5545,6 +5639,12 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	if (mdss_has_quirk(mdata, MDSS_QUIRK_BWCPANIC) &&
 	    !bitmap_empty(mdata->bwc_enable_map, MAX_DRV_SUP_PIPES))
 		mdss_mdp_bwcpanic_ctrl(mdata, true);
+
+	ret = mdss_mdp_cwb_setup(ctl);
+	if (ret)
+		pr_warn("concurrent setup failed ctl=%d\n", ctl->num);
+
+	ctl_flush_bits |= ctl->flush_bits;
 
 	ATRACE_BEGIN("flush_kickoff");
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush_bits);

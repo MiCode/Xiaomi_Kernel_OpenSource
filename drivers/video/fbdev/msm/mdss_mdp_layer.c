@@ -41,6 +41,7 @@
 enum {
 	MDSS_MDP_RELEASE_FENCE = 0,
 	MDSS_MDP_RETIRE_FENCE,
+	MDSS_MDP_CWB_RETIRE_FENCE,
 };
 
 enum layer_pipe_q {
@@ -724,9 +725,13 @@ static struct sync_fence *__create_fence(struct msm_fb_data_type *mfd,
 	if (fence_type == MDSS_MDP_RETIRE_FENCE)
 		snprintf(fence_name, sizeof(fence_name), "fb%d_retire",
 			mfd->index);
-	else
+	else if (fence_type == MDSS_MDP_RELEASE_FENCE)
 		snprintf(fence_name, sizeof(fence_name), "fb%d_release",
 			mfd->index);
+	else if (fence_type == MDSS_MDP_CWB_RETIRE_FENCE)
+		snprintf(fence_name, sizeof(fence_name), "cwb%d_retire",
+			mfd->index);
+
 
 	if ((fence_type == MDSS_MDP_RETIRE_FENCE) &&
 		(mfd->panel.type == MIPI_CMD_PANEL)) {
@@ -738,9 +743,12 @@ static struct sync_fence *__create_fence(struct msm_fb_data_type *mfd,
 		} else {
 			return ERR_PTR(-EPERM);
 		}
+	} else if (fence_type == MDSS_MDP_CWB_RETIRE_FENCE) {
+		sync_fence = mdss_fb_sync_get_fence(sync_pt_data->timeline,
+				fence_name, sync_pt_data->timeline_value + 1);
 	} else {
 		sync_fence = mdss_fb_sync_get_fence(sync_pt_data->timeline,
-			fence_name, value);
+				fence_name, value);
 	}
 
 	if (IS_ERR_OR_NULL(sync_fence)) {
@@ -1914,6 +1922,19 @@ end:
 	return ret;
 }
 
+int __is_cwb_requested(uint32_t output_layer_flags)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int req = 0;
+
+	req = output_layer_flags & MDP_COMMIT_CWB_EN;
+	if (req && !test_bit(MDSS_CAPS_CWB_SUPPORTED, mdata->mdss_caps_map)) {
+		pr_err("CWB not supported");
+		return -ENODEV;
+	}
+	return req;
+}
+
 /*
  * mdss_mdp_layer_pre_commit() - pre commit validation for input layers
  * @mfd:	Framebuffer data structure for display
@@ -1943,6 +1964,20 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 
 	if (!mdp5_data || !mdp5_data->ctl)
 		return -EINVAL;
+
+
+	if (commit->output_layer) {
+		ret = __is_cwb_requested(commit->output_layer->flags);
+		if (IS_ERR_VALUE(ret)) {
+			return ret;
+		} else if (ret) {
+			ret = mdss_mdp_layer_pre_commit_cwb(mfd, commit);
+			if (ret) {
+				pr_err("pre commit failed for CWB\n");
+				return ret;
+			}
+		}
+	}
 
 	layer_list = commit->input_layers;
 
@@ -2018,6 +2053,22 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 	}
 
 	ret = __handle_buffer_fences(mfd, commit, layer_list);
+	if (ret) {
+		pr_err("failed to handle fences for fb: %d", mfd->index);
+		goto map_err;
+	}
+
+	if (mdp5_data->cwb.valid) {
+		struct sync_fence *retire_fence = NULL;
+
+		retire_fence = __create_fence(mfd,
+				&mdp5_data->cwb.cwb_sync_pt_data,
+				MDSS_MDP_CWB_RETIRE_FENCE,
+				&commit->output_layer->buffer.fence, 0);
+		if (IS_ERR_OR_NULL(retire_fence)) {
+			pr_err("failed to handle cwb fence");
+		}
+	}
 
 map_err:
 	if (ret) {
@@ -2046,6 +2097,7 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
 	struct mdss_overlay_private *mdp5_data;
+	int rc = 0;
 
 	if (!mfd || !commit) {
 		pr_err("invalid input params\n");
@@ -2065,7 +2117,61 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 		return -EPERM;
 	}
 
+	if (commit->output_layer) {
+		rc = __is_cwb_requested(commit->output_layer->flags);
+		if (IS_ERR_VALUE(rc)) {
+			return rc;
+		} else if (rc) {
+			rc = mdss_mdp_cwb_validate(mfd, commit->output_layer);
+			if (rc) {
+				pr_err("failed to validate CWB config!!!\n");
+				return rc;
+			}
+		}
+	}
+
 	return __validate_layers(mfd, file, commit);
+}
+
+int mdss_mdp_layer_pre_commit_cwb(struct msm_fb_data_type *mfd,
+		struct mdp_layer_commit_v1 *commit)
+{
+	struct mdss_overlay_private *mdp5_data;
+	struct mdss_mdp_wb_data *cwb_data = NULL;
+	int rc = 0;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
+
+	rc = mdss_mdp_cwb_check_resource(mfd_to_ctl(mfd),
+			commit->output_layer->writeback_ndx);
+	if (rc) {
+		pr_err("CWB resource not available\n");
+		return rc;
+	}
+
+	/* Add data to the cwb queue */
+	cwb_data = kzalloc(sizeof(struct mdss_mdp_wb_data), GFP_KERNEL);
+	if (!cwb_data)
+		return -ENOMEM;
+
+	cwb_data->layer = *commit->output_layer;
+	rc = mdss_mdp_wb_import_data(&mfd->pdev->dev, cwb_data);
+	if (rc) {
+		pr_err("failed to import data for cwb\n");
+		kfree(cwb_data);
+		return rc;
+	}
+
+	mdp5_data->cwb.layer = commit->output_layer;
+	mdp5_data->cwb.wb_idx = commit->output_layer->writeback_ndx;
+
+	mutex_lock(&mdp5_data->cwb.queue_lock);
+	list_add_tail(&cwb_data->next, &mdp5_data->cwb.data_queue);
+	mutex_unlock(&mdp5_data->cwb.queue_lock);
+
+	mdp5_data->cwb.valid = 1;
+
+	return 0;
 }
 
 int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
@@ -2075,7 +2181,7 @@ int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_wfd *wfd = NULL;
 	struct mdp_output_layer *output_layer = NULL;
-	struct mdss_mdp_wfd_data *data = NULL;
+	struct mdss_mdp_wb_data *data = NULL;
 	struct sync_fence *fence = NULL;
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 

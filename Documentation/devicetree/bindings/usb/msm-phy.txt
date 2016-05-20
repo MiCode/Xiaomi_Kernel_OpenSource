@@ -116,7 +116,9 @@ Required properties:
    USB3_PHY_START
 
 Optional properties:
- - reg: Additional register set of address and length to control QMP PHY
+ - reg: Additional register set of address and length to control QMP PHY are:
+   "tcsr_usb3_dp_phymode" : top-level CSR register to be written to select
+   super speed usb qmp phy.
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.

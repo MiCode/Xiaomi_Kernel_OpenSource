@@ -222,7 +222,7 @@ static struct mdss_mdp_irq mdp_irq_map[] =  {
 	{ MDSS_MDP_IRQ_TYPE_PING_PONG_AUTO_REF, 2, MDSS_MDP_INTR_PING_PONG_2_AUTOREFRESH_DONE, 0},
 	{ MDSS_MDP_IRQ_TYPE_PING_PONG_AUTO_REF, 3, MDSS_MDP_INTR_PING_PONG_3_AUTOREFRESH_DONE, 0},
 	{ MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, 2, MDSS_MDP_INTR2_PING_PONG_2_CWB_OVERFLOW, 1},
-	{ MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, 3, MDSS_MDP_INTR2_PING_PONG_2_CWB_OVERFLOW, 1}
+	{ MDSS_MDP_IRQ_TYPE_CWB_OVERFLOW, 3, MDSS_MDP_INTR2_PING_PONG_3_CWB_OVERFLOW, 1}
 };
 
 static struct intr_callback *mdp_intr_cb;
@@ -1838,6 +1838,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 			mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_CWB_SUPPORTED, mdata->mdss_caps_map);
 		mdss_mdp_init_default_prefill_factors(mdata);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT);
@@ -2346,6 +2347,8 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" dest_scaler");
 	if (mdata->has_separate_rotator)
 		SPRINT(" separate_rotator");
+	if (test_bit(MDSS_CAPS_CWB_SUPPORTED, mdata->mdss_caps_map))
+		SPRINT(" concurrent_writeback");
 	SPRINT("\n");
 #undef SPRINT
 

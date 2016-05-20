@@ -339,6 +339,17 @@ struct mdss_mdp_ctl_intfs_ops {
 	int (*update_lineptr)(struct mdss_mdp_ctl *ctl, bool enable);
 };
 
+struct mdss_mdp_cwb {
+	struct mutex queue_lock;
+	struct list_head data_queue;
+	int valid;
+	u32 wb_idx;
+	struct mdp_output_layer *layer;
+	void *priv_data;
+	struct msm_sync_pt_data cwb_sync_pt_data;
+	struct blocking_notifier_head notifier_head;
+};
+
 struct mdss_mdp_ctl {
 	u32 num;
 	char __iomem *base;
@@ -552,6 +563,13 @@ struct mdss_mdp_data {
 	u64 last_alloc;
 	u64 last_freed;
 	struct mdss_mdp_pipe *last_pipe;
+};
+
+struct mdss_mdp_wb_data {
+	struct mdp_output_layer layer;
+	struct mdss_mdp_data data;
+	bool signal_required;
+	struct list_head next;
 };
 
 struct pp_hist_col_info {
@@ -814,6 +832,10 @@ struct mdss_overlay_private {
 	u32 bl_events;
 	u32 ad_events;
 	u32 ad_bl_events;
+
+	struct mdss_mdp_cwb cwb;
+	wait_queue_head_t wb_waitq;
+	atomic_t wb_busy;
 };
 
 struct mdss_mdp_set_ot_params {
@@ -1453,6 +1475,14 @@ void *mdss_mdp_get_intf_base_addr(struct mdss_data_type *mdata,
 		u32 interface_id);
 int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
+void *mdss_mdp_writeback_get_ctx_for_cwb(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_writeback_prepare_cwb(struct mdss_mdp_ctl *ctl,
+		struct mdss_mdp_writeback_arg *wb_arg);
+int mdss_mdp_acquire_wb(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_cwb_validate(struct msm_fb_data_type *mfd,
+		struct mdp_output_layer *layer);
+int mdss_mdp_cwb_check_resource(struct mdss_mdp_ctl *ctl, u32 wb_idx);
+
 int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		struct mdp_display_commit *data);
 struct mdss_mdp_data *mdss_mdp_overlay_buf_alloc(struct msm_fb_data_type *mfd,
@@ -1689,6 +1719,8 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	struct mdss_rect *l_roi, struct mdss_rect *r_roi);
 void mdss_mdp_mixer_update_pipe_map(struct mdss_mdp_ctl *master_ctl,
 		int mixer_mux);
+int mdss_mdp_wb_import_data(struct device *device,
+		struct mdss_mdp_wb_data *wb_data);
 
 void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_calc_qseed3_cfg(struct mdss_mdp_pipe *pipe);
@@ -1701,6 +1733,8 @@ int mdss_mdp_cmd_get_autorefresh_mode(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_cmd_set_autorefresh(struct mdss_mdp_ctl *ctl, int frame_cnt);
 int mdss_mdp_ctl_cmd_get_autorefresh(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version);
+int mdss_mdp_layer_pre_commit_cwb(struct msm_fb_data_type *mfd,
+		struct mdp_layer_commit_v1 *commit);
 
 struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 					       u32 off);

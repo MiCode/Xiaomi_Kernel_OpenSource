@@ -68,6 +68,7 @@ struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	void __iomem		*vls_clamp_reg;
+	void __iomem		*tcsr_usb3_dp_phymode;
 
 	struct regulator	*vdd;
 	int			vdd_levels[3]; /* none, low, high */
@@ -268,6 +269,10 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	writel_relaxed(0x01,
 		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+
+	/* select usb3 phy mode */
+	if (phy->tcsr_usb3_dp_phymode)
+		writel_relaxed(0x0, phy->tcsr_usb3_dp_phymode);
 
 	/* Make sure that above write completed to get PHY into POWER DOWN */
 	mb();
@@ -610,6 +615,16 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->vls_clamp_reg)) {
 		dev_err(dev, "couldn't find vls_clamp_reg address.\n");
 		return PTR_ERR(phy->vls_clamp_reg);
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"tcsr_usb3_dp_phymode");
+	if (res) {
+		phy->tcsr_usb3_dp_phymode = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->tcsr_usb3_dp_phymode)) {
+			dev_err(dev, "err getting tcsr_usb3_dp_phymode addr\n");
+			return PTR_ERR(phy->tcsr_usb3_dp_phymode);
+		}
 	}
 
 	phy->emulation = of_property_read_bool(dev->of_node,

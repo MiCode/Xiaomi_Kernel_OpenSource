@@ -1020,23 +1020,13 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 		goto FREE_SENSOR_DATA;
 	}
 
-	/*Get clocks information*/
-	rc = msm_camera_get_clk_info(s_ctrl->pdev,
-		&s_ctrl->sensordata->power_info.clk_info,
-		&s_ctrl->sensordata->power_info.clk_ptr,
-		&s_ctrl->sensordata->power_info.clk_info_size);
-	if (rc < 0) {
-		pr_err("failed: msm_camera_get_clk_info rc %d", rc);
-		goto FREE_SUB_MODULE_DATA;
-	}
-
 	/* Read vreg information */
 	rc = msm_camera_get_dt_vreg_data(of_node,
 		&sensordata->power_info.cam_vreg,
 		&sensordata->power_info.num_vreg);
 	if (rc < 0) {
 		pr_err("failed: msm_camera_get_dt_vreg_data rc %d", rc);
-		goto FREE_CLK_DATA;
+		goto FREE_SUB_MODULE_DATA;
 	}
 
 	/* Read gpio information */
@@ -1095,12 +1085,6 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 
 FREE_VREG_DATA:
 	kfree(sensordata->power_info.cam_vreg);
-FREE_CLK_DATA:
-	msm_camera_put_clk_info(s_ctrl->pdev,
-		&s_ctrl->sensordata->power_info.clk_info,
-		&s_ctrl->sensordata->power_info.clk_ptr,
-		s_ctrl->sensordata->power_info.clk_info_size);
-
 FREE_SUB_MODULE_DATA:
 	kfree(sensordata->sensor_info);
 FREE_SENSOR_DATA:
@@ -1200,6 +1184,16 @@ static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev)
 		goto FREE_S_CTRL;
 	}
 
+	/* Get clocks information */
+	rc = msm_camera_get_clk_info(s_ctrl->pdev,
+		&s_ctrl->sensordata->power_info.clk_info,
+		&s_ctrl->sensordata->power_info.clk_ptr,
+		&s_ctrl->sensordata->power_info.clk_info_size);
+	if (rc < 0) {
+		pr_err("failed: msm_camera_get_clk_info rc %d", rc);
+		goto FREE_S_CTRL;
+	}
+
 	/* Fill platform device id*/
 	pdev->id = s_ctrl->id;
 
@@ -1245,9 +1239,17 @@ static int32_t msm_sensor_driver_i2c_probe(struct i2c_client *client,
 	if (s_ctrl->sensor_i2c_client != NULL) {
 		s_ctrl->sensor_i2c_client->client = client;
 		s_ctrl->sensordata->power_info.dev = &client->dev;
-
 	}
-
+	/* Get clocks information */
+	rc = msm_camera_i2c_dev_get_clk_info(
+		&s_ctrl->sensor_i2c_client->client->dev,
+		&s_ctrl->sensordata->power_info.clk_info,
+		&s_ctrl->sensordata->power_info.clk_ptr,
+		&s_ctrl->sensordata->power_info.clk_info_size);
+	if (rc < 0) {
+		pr_err("failed: msm_camera_i2c_dev_get_clk_info rc %d", rc);
+		goto FREE_S_CTRL;
+	}
 	return rc;
 FREE_S_CTRL:
 	kfree(s_ctrl);

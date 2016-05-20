@@ -953,10 +953,21 @@
 		};
 	};
 
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-adsp";
 		qcom,fastrpc-glink;
 
+		qcom,msm_fastrpc_cpz_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 2>;
+			qcom,secure-context-bank;
+		};
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
@@ -1610,9 +1621,11 @@
 	ssphy: ssphy@c010000 {
 		compatible = "qcom,usb-ssphy-qmp-v2";
 		reg = <0x0c010000 0xe0c>,
-		      <0x01fcb244 0x4>;
+		      <0x01fcb244 0x4>,
+		      <0x01fcb248 0x4>;
 		reg-names = "qmp_phy_base",
-			    "vls_clamp_reg";
+			    "vls_clamp_reg",
+			    "tcsr_usb3_dp_phymode";
 		vdd-supply = <&pmcobalt_l1>;
 		core-supply = <&pmcobalt_l2>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
@@ -2469,6 +2482,27 @@
 		qcom,wlan-msa-memory = <0x100000>;
 		vdd-io-supply = <&pmcobalt_l5>;
 		qcom,vdd-io-voltage-level = <800000 800000>;
+	};
+
+	wil6210: qcom,wil6210 {
+		compatible = "qcom,wil6210";
+		qcom,pcie-parent = <&pcie0>;
+		qcom,wigig-en = <&tlmm 80 0>;
+		qcom,msm-bus,name = "wil6210";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<45 512 0 0>,
+			<45 512 600000 800000>; /* ~4.6Gbps (MCS12) */
+		qcom,use-ext-supply;
+		vdd-supply= <&pmcobalt_s7>;
+		vddio-supply= <&pmcobalt_s5>;
+		qcom,use-ext-clocks;
+		clocks = <&clock_gcc clk_rf_clk3>,
+			 <&clock_gcc clk_rf_clk3_pin>;
+		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
+		qcom,smmu-support;
+		status = "disabled";
 	};
 };
 

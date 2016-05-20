@@ -1364,4 +1364,36 @@
 			};
 		};
 	};
+
+	hwevent: hwevent@158000 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0x158000 0x80>,
+		      <0x17091000 0x80>,
+		      <0x1730200c 0x4>,
+		      <0xc90137c 0x4>,
+		      <0xc828018 0x80>,
+		      <0x1c00058 0x80>,
+		      <0x5e02038 0x4>,
+		      <0x5e02028 0x10>,
+		      <0x1fcb360 0x80>,
+		      <0x1fcb760 0x80>,
+		      <0x1fcbf60 0x80>,
+		      <0xa8f8860 0x4>,
+		      <0x500c260 0x4>,
+		      <0x500d040 0x4>,
+		      <0x1da6400 0x80>;
+		reg-names = "gcc-ctrl", "lpass-stm", "lpass-qdsp", "mdss-mdp",
+			    "mdss-misc", "pcie0-hwev", "ssc-en", "ssc-hwev",
+			    "tcsr-qdss", "tcsr-mss0", "tcsr-mss1", "usb-ctrl",
+			    "vbif-stm", "vbif-stm-en", "ufs-mux";
+
+		coresight-name = "coresight-hwevent";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>,
+			 <&clock_mmss clk_mmss_misc_ahb_clk>;
+		clock-names = "core_clk", "core_a_clk", "core_mmss_clk";
+
+		qcom,hwevent-clks = "core_mmss_clk";
+	};
 };

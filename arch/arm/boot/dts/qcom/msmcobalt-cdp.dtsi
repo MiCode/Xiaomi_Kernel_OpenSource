@@ -280,3 +280,7 @@
 		qcom,thermal-node;
 	};
 };
+
+&wil6210 {
+	status = "ok";
+};

@@ -887,6 +887,16 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
 
+	/* perform any hw_params fixups */
+	if ((rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST) &&
+				rtd->dai_link->be_hw_params_fixup) {
+		ret = rtd->dai_link->be_hw_params_fixup(rtd,
+				params);
+		if (ret < 0)
+			dev_err(rtd->card->dev, "ASoC: fixup failed for %s\n",
+			rtd->dai_link->name);
+	}
+
 	ret = soc_pcm_params_symmetry(substream, params);
 	if (ret)
 		goto out;
@@ -1318,7 +1328,11 @@ static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
 			if (!be->dai_link->no_pcm)
 				continue;
 
-			if (be->cpu_dai->playback_widget == widget)
+			if ((be->cpu_dai->playback_widget == widget &&
+				(be->dai_link->stream_name &&
+				!strcmp(be->dai_link->stream_name,
+				    be->cpu_dai->playback_widget->sname))) ||
+				be->codec_dai->playback_widget == widget)
 				return be;
 
 			for (j = 0; j < be->num_codecs; j++) {
@@ -1335,7 +1349,11 @@ static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
 			if (!be->dai_link->no_pcm)
 				continue;
 
-			if (be->cpu_dai->capture_widget == widget)
+			if ((be->cpu_dai->capture_widget == widget &&
+				(be->dai_link->stream_name &&
+				!strcmp(be->dai_link->stream_name,
+				    be->cpu_dai->capture_widget->sname))) ||
+				be->codec_dai->capture_widget == widget)
 				return be;
 
 			for (j = 0; j < be->num_codecs; j++) {

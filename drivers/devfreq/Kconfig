@@ -89,6 +89,15 @@ config MSM_BIMC_BWMON
 	  has the capability to raise an IRQ when the count exceeds a
 	  programmable limit.
 
+config DEVFREQ_GOV_QCOM_GPUBW_MON
+	tristate "GPU BW voting governor"
+	depends on DEVFREQ_GOV_QCOM_ADRENO_TZ
+	help
+	 QTI GPU governor for GPU bus bandwidth voting.
+	 This governor works together with QTI Adreno Trustzone governor,
+	 and select bus frequency votes using an "on-demand" alorithm.
+	 This governor is unlikely to be useful for non-QTI devices.
+
 config ARMBW_HWMON
 	tristate "ARM PMU Bandwidth monitor hardware"
 	depends on ARCH_QCOM
