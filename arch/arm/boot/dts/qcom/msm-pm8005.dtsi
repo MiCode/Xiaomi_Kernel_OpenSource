@@ -25,6 +25,13 @@
 			reg = <0x100 0x100>;
 		};
 
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x4 0x24 0x0 IRQ_TYPE_EDGE_RISING>;
+			label = "pm8005_tz";
+		};
+
 		pm8005_gpios: gpios {
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
