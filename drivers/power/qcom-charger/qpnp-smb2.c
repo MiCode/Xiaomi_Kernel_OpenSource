@@ -530,6 +530,15 @@ static int smb2_init_hw(struct smb2 *chip)
 		return rc;
 	}
 
+	/* disable Type-C factory mode */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
+				 FACTORY_MODE_DETECTION_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't disable Type-C factory mode rc=%d\n", rc);
+		return rc;
+	}
+
 	return rc;
 }
 
