@@ -19,6 +19,7 @@
 #ifdef CONFIG_MSM_CDC_PINCTRL
 extern int msm_cdc_pinctrl_select_sleep_state(struct device_node *);
 extern int msm_cdc_pinctrl_select_active_state(struct device_node *);
+extern bool msm_cdc_pinctrl_get_state(struct device_node *);
 
 #else
 int msm_cdc_pinctrl_select_sleep_state(struct device_node *np)

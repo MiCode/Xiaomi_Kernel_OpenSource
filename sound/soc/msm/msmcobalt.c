@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/switch.h>
 #include <linux/input.h>
+#include <linux/mfd/msm-cdc-pinctrl.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -107,9 +108,10 @@ struct msm_wsa881x_dev_info {
 
 struct msm_asoc_mach_data {
 	u32 mclk_freq;
-	int us_euro_gpio;
 	int hph_en1_gpio;
 	int hph_en0_gpio;
+	int us_euro_gpio; /* used by gpio driver API */
+	struct device_node *us_euro_gpio_p; /* used by pinctrl API */
 	struct snd_info_entry *codec_root;
 };
 
@@ -1155,10 +1157,21 @@ static bool msm_swap_gnd_mic(struct snd_soc_codec *codec)
 	struct snd_soc_card *card = codec->component.card;
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(card);
-	int value = gpio_get_value_cansleep(pdata->us_euro_gpio);
+	int value;
 
+	if (pdata->us_euro_gpio_p) {
+		value = msm_cdc_pinctrl_get_state(pdata->us_euro_gpio_p);
+		if (value)
+			msm_cdc_pinctrl_select_sleep_state(
+							pdata->us_euro_gpio_p);
+		else
+			msm_cdc_pinctrl_select_active_state(
+							pdata->us_euro_gpio_p);
+	} else if (pdata->us_euro_gpio >= 0) {
+		value = gpio_get_value_cansleep(pdata->us_euro_gpio);
+		gpio_set_value_cansleep(pdata->us_euro_gpio, !value);
+	}
 	pr_debug("%s: swap select switch %d to %d\n", __func__, value, !value);
-	gpio_set_value_cansleep(pdata->us_euro_gpio, !value);
 	return true;
 }
 
@@ -3517,13 +3530,15 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	 */
 	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,us-euro-gpios", 0);
-	if (pdata->us_euro_gpio < 0) {
+	if (pdata->us_euro_gpio < 0)
+		pdata->us_euro_gpio_p = of_parse_phandle(pdev->dev.of_node,
+					"qcom,us-euro-gpios", 0);
+	if ((pdata->us_euro_gpio < 0) && (!pdata->us_euro_gpio_p)) {
 		dev_info(&pdev->dev, "property %s not detected in node %s",
-			"qcom,us-euro-gpios",
-			pdev->dev.of_node->full_name);
+			"qcom,us-euro-gpios", pdev->dev.of_node->full_name);
 	} else {
-		dev_dbg(&pdev->dev, "%s detected %d",
-			"qcom,us-euro-gpios", pdata->us_euro_gpio);
+		dev_dbg(&pdev->dev, "%s detected",
+			"qcom,us-euro-gpios");
 		wcd_mbhc_cfg.swap_gnd_mic = msm_swap_gnd_mic;
 	}
 

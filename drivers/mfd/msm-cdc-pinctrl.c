@@ -25,6 +25,7 @@ struct msm_cdc_pinctrl_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pinctrl_active;
 	struct pinctrl_state *pinctrl_sleep;
+	bool state;
 };
 
 static struct msm_cdc_pinctrl_info *msm_cdc_pinctrl_get_gpiodata(
@@ -70,6 +71,7 @@ int msm_cdc_pinctrl_select_sleep_state(struct device_node *np)
 		pr_err("%s: pinctrl sleep state is null\n", __func__);
 		return -EINVAL;
 	}
+	gpio_data->state = false;
 
 	return pinctrl_select_state(gpio_data->pinctrl,
 				    gpio_data->pinctrl_sleep);
@@ -94,11 +96,30 @@ int msm_cdc_pinctrl_select_active_state(struct device_node *np)
 		pr_err("%s: pinctrl active state is null\n", __func__);
 		return -EINVAL;
 	}
+	gpio_data->state = true;
 
 	return pinctrl_select_state(gpio_data->pinctrl,
 				    gpio_data->pinctrl_active);
 }
 EXPORT_SYMBOL(msm_cdc_pinctrl_select_active_state);
+
+/*
+ * msm_cdc_pinctrl_get_state: get curren pinctrl state
+ * @np: pointer to struct device_node
+ *
+ * Returns 0 for sleep state, 1 for active state
+ */
+bool msm_cdc_pinctrl_get_state(struct device_node *np)
+{
+	struct msm_cdc_pinctrl_info *gpio_data;
+
+	gpio_data = msm_cdc_pinctrl_get_gpiodata(np);
+	if (!gpio_data)
+		return -EINVAL;
+
+	return gpio_data->state;
+}
+EXPORT_SYMBOL(msm_cdc_pinctrl_get_state);
 
 static int msm_cdc_pinctrl_probe(struct platform_device *pdev)
 {
