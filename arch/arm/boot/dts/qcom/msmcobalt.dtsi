@@ -2313,7 +2313,7 @@
 
 	qcom,lmh {
 		compatible = "qcom,lmh_v1";
-		interrupts = <0 6 4>;
+		interrupts = <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	qcom,msm-thermal {
