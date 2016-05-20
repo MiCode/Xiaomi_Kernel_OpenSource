@@ -187,7 +187,6 @@ static int f2fs_do_sync_file(struct file *file, loff_t start, loff_t end,
 						int datasync, bool atomic)
 {
 	struct inode *inode = file->f_mapping->host;
-	struct f2fs_inode_info *fi = F2FS_I(inode);
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	nid_t ino = inode->i_ino;
 	int ret = 0;
@@ -205,9 +204,9 @@ static int f2fs_do_sync_file(struct file *file, loff_t start, loff_t end,
 
 	/* if fdatasync is triggered, let's do in-place-update */
 	if (datasync || get_dirty_pages(inode) <= SM_I(sbi)->min_fsync_blocks)
-		set_inode_flag(fi, FI_NEED_IPU);
+		set_inode_flag(inode, FI_NEED_IPU);
 	ret = filemap_write_and_wait_range(inode->i_mapping, start, end);
-	clear_inode_flag(fi, FI_NEED_IPU);
+	clear_inode_flag(inode, FI_NEED_IPU);
 
 	if (ret) {
 		trace_f2fs_sync_file_exit(inode, need_cp, datasync, ret);
@@ -223,14 +222,14 @@ static int f2fs_do_sync_file(struct file *file, loff_t start, loff_t end,
 	/*
 	 * if there is no written data, don't waste time to write recovery info.
 	 */
-	if (!is_inode_flag_set(fi, FI_APPEND_WRITE) &&
+	if (!is_inode_flag_set(inode, FI_APPEND_WRITE) &&
 			!exist_written_data(sbi, ino, APPEND_INO)) {
 
 		/* it may call write_inode just prior to fsync */
 		if (need_inode_page_update(sbi, ino))
 			goto go_write;
 
-		if (is_inode_flag_set(fi, FI_UPDATE_WRITE) ||
+		if (is_inode_flag_set(inode, FI_UPDATE_WRITE) ||
 				exist_written_data(sbi, ino, UPDATE_INO))
 			goto flush_out;
 		goto out;
@@ -240,9 +239,9 @@ go_write:
 	 * Both of fdatasync() and fsync() are able to be recovered from
 	 * sudden-power-off.
 	 */
-	down_read(&fi->i_sem);
+	down_read(&F2FS_I(inode)->i_sem);
 	need_cp = need_do_checkpoint(inode);
-	up_read(&fi->i_sem);
+	up_read(&F2FS_I(inode)->i_sem);
 
 	if (need_cp) {
 		/* all the dirty node pages should be flushed for POR */
@@ -253,8 +252,8 @@ go_write:
 		 * will be used only for fsynced inodes after checkpoint.
 		 */
 		try_to_fix_pino(inode);
-		clear_inode_flag(fi, FI_APPEND_WRITE);
-		clear_inode_flag(fi, FI_UPDATE_WRITE);
+		clear_inode_flag(inode, FI_APPEND_WRITE);
+		clear_inode_flag(inode, FI_UPDATE_WRITE);
 		goto out;
 	}
 sync_nodes:
@@ -280,10 +279,10 @@ sync_nodes:
 
 	/* once recovery info is written, don't need to tack this */
 	remove_ino_entry(sbi, ino, APPEND_INO);
-	clear_inode_flag(fi, FI_APPEND_WRITE);
+	clear_inode_flag(inode, FI_APPEND_WRITE);
 flush_out:
 	remove_ino_entry(sbi, ino, UPDATE_INO);
-	clear_inode_flag(fi, FI_UPDATE_WRITE);
+	clear_inode_flag(inode, FI_UPDATE_WRITE);
 	ret = f2fs_issue_flush(sbi);
 	f2fs_update_time(sbi, REQ_TIME);
 out:
@@ -488,8 +487,7 @@ int truncate_data_blocks_range(struct dnode_of_data *dn, int count)
 		set_data_blkaddr(dn);
 		invalidate_blocks(sbi, blkaddr);
 		if (dn->ofs_in_node == 0 && IS_INODE(dn->node_page))
-			clear_inode_flag(F2FS_I(dn->inode),
-						FI_FIRST_BLOCK_WRITTEN);
+			clear_inode_flag(dn->inode, FI_FIRST_BLOCK_WRITTEN);
 		nr_free++;
 	}
 
@@ -655,7 +653,6 @@ int f2fs_getattr(struct vfsmount *mnt,
 #ifdef CONFIG_F2FS_FS_POSIX_ACL
 static void __setattr_copy(struct inode *inode, const struct iattr *attr)
 {
-	struct f2fs_inode_info *fi = F2FS_I(inode);
 	unsigned int ia_valid = attr->ia_valid;
 
 	if (ia_valid & ATTR_UID)
@@ -676,7 +673,7 @@ static void __setattr_copy(struct inode *inode, const struct iattr *attr)
 
 		if (!in_group_p(inode->i_gid) && !capable(CAP_FSETID))
 			mode &= ~S_ISGID;
-		set_acl_inode(fi, mode);
+		set_acl_inode(inode, mode);
 	}
 }
 #else
@@ -686,7 +683,6 @@ static void __setattr_copy(struct inode *inode, const struct iattr *attr)
 int f2fs_setattr(struct dentry *dentry, struct iattr *attr)
 {
 	struct inode *inode = dentry->d_inode;
-	struct f2fs_inode_info *fi = F2FS_I(inode);
 	int err;
 
 	err = inode_change_ok(inode, attr);
@@ -725,9 +721,9 @@ int f2fs_setattr(struct dentry *dentry, struct iattr *attr)
 
 	if (attr->ia_valid & ATTR_MODE) {
 		err = posix_acl_chmod(inode, get_inode_mode(inode));
-		if (err || is_inode_flag_set(fi, FI_ACL_MODE)) {
-			inode->i_mode = fi->i_acl_mode;
-			clear_inode_flag(fi, FI_ACL_MODE);
+		if (err || is_inode_flag_set(inode, FI_ACL_MODE)) {
+			inode->i_mode = F2FS_I(inode)->i_acl_mode;
+			clear_inode_flag(inode, FI_ACL_MODE);
 		}
 	}
 
@@ -1313,10 +1309,10 @@ static int f2fs_release_file(struct inode *inode, struct file *filp)
 	if (f2fs_is_atomic_file(inode))
 		drop_inmem_pages(inode);
 	if (f2fs_is_volatile_file(inode)) {
-		clear_inode_flag(F2FS_I(inode), FI_VOLATILE_FILE);
-		set_inode_flag(F2FS_I(inode), FI_DROP_CACHE);
+		clear_inode_flag(inode, FI_VOLATILE_FILE);
+		set_inode_flag(inode, FI_DROP_CACHE);
 		filemap_fdatawrite(inode->i_mapping);
-		clear_inode_flag(F2FS_I(inode), FI_DROP_CACHE);
+		clear_inode_flag(inode, FI_DROP_CACHE);
 	}
 	return 0;
 }
@@ -1415,7 +1411,7 @@ static int f2fs_ioc_start_atomic_write(struct file *filp)
 	if (ret)
 		goto out;
 
-	set_inode_flag(F2FS_I(inode), FI_ATOMIC_FILE);
+	set_inode_flag(inode, FI_ATOMIC_FILE);
 	f2fs_update_time(F2FS_I_SB(inode), REQ_TIME);
 
 	if (!get_dirty_pages(inode))
@@ -1426,7 +1422,7 @@ static int f2fs_ioc_start_atomic_write(struct file *filp)
 					inode->i_ino, get_dirty_pages(inode));
 	ret = filemap_write_and_wait_range(inode->i_mapping, 0, LLONG_MAX);
 	if (ret)
-		clear_inode_flag(F2FS_I(inode), FI_ATOMIC_FILE);
+		clear_inode_flag(inode, FI_ATOMIC_FILE);
 out:
 	inode_unlock(inode);
 	mnt_drop_write_file(filp);
@@ -1451,10 +1447,10 @@ static int f2fs_ioc_commit_atomic_write(struct file *filp)
 		goto err_out;
 
 	if (f2fs_is_atomic_file(inode)) {
-		clear_inode_flag(F2FS_I(inode), FI_ATOMIC_FILE);
+		clear_inode_flag(inode, FI_ATOMIC_FILE);
 		ret = commit_inmem_pages(inode);
 		if (ret) {
-			set_inode_flag(F2FS_I(inode), FI_ATOMIC_FILE);
+			set_inode_flag(inode, FI_ATOMIC_FILE);
 			goto err_out;
 		}
 	}
@@ -1487,7 +1483,7 @@ static int f2fs_ioc_start_volatile_write(struct file *filp)
 	if (ret)
 		goto out;
 
-	set_inode_flag(F2FS_I(inode), FI_VOLATILE_FILE);
+	set_inode_flag(inode, FI_VOLATILE_FILE);
 	f2fs_update_time(F2FS_I_SB(inode), REQ_TIME);
 out:
 	inode_unlock(inode);
@@ -1541,7 +1537,7 @@ static int f2fs_ioc_abort_volatile_write(struct file *filp)
 	if (f2fs_is_atomic_file(inode))
 		drop_inmem_pages(inode);
 	if (f2fs_is_volatile_file(inode)) {
-		clear_inode_flag(F2FS_I(inode), FI_VOLATILE_FILE);
+		clear_inode_flag(inode, FI_VOLATILE_FILE);
 		ret = f2fs_do_sync_file(filp, 0, LLONG_MAX, 0, true);
 	}
 
@@ -1874,7 +1870,7 @@ do_map:
 			continue;
 		}
 
-		set_inode_flag(F2FS_I(inode), FI_DO_DEFRAG);
+		set_inode_flag(inode, FI_DO_DEFRAG);
 
 		idx = map.m_lblk;
 		while (idx < map.m_lblk + map.m_len && cnt < blk_per_seg) {
@@ -1899,14 +1895,14 @@ do_map:
 		if (idx < pg_end && cnt < blk_per_seg)
 			goto do_map;
 
-		clear_inode_flag(F2FS_I(inode), FI_DO_DEFRAG);
+		clear_inode_flag(inode, FI_DO_DEFRAG);
 
 		err = filemap_fdatawrite(inode->i_mapping);
 		if (err)
 			goto out;
 	}
 clear_out:
-	clear_inode_flag(F2FS_I(inode), FI_DO_DEFRAG);
+	clear_inode_flag(inode, FI_DO_DEFRAG);
 out:
 	inode_unlock(inode);
 	if (!err)
