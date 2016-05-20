@@ -379,13 +379,22 @@ struct cfs_bandwidth { };
 
 #ifdef CONFIG_SCHED_HMP
 
+#define NUM_SUBTRACTION_WINDOWS 2
+
 struct hmp_sched_stats {
 	int nr_big_tasks;
 	u64 cumulative_runnable_avg;
 	u64 pred_demands_sum;
 };
 
+struct load_subtractions {
+	u64 window_start;
+	u64 subs;
+	u64 new_subs;
+};
+
 struct sched_cluster {
+	raw_spinlock_t load_lock;
 	struct list_head list;
 	struct cpumask cpus;
 	int id;
@@ -773,6 +782,7 @@ struct rq {
 	u64 prev_runnable_sum;
 	u64 nt_curr_runnable_sum;
 	u64 nt_prev_runnable_sum;
+	struct load_subtractions load_subs[NUM_SUBTRACTION_WINDOWS];
 #endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -1613,8 +1623,6 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 
 static inline void add_new_task_to_grp(struct task_struct *new) {}
 
-#define sched_freq_legacy_mode 1
-#define sched_migration_fixup	0
 #define PRED_DEMAND_DELTA (0)
 
 static inline void

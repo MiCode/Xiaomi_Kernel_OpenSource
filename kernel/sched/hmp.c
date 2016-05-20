@@ -587,6 +587,7 @@ static struct sched_cluster *alloc_new_cluster(const struct cpumask *cpus)
 	cluster->dstate_wakeup_latency	=	0;
 	cluster->freq_init_done		=	false;
 
+	raw_spin_lock_init(&cluster->load_lock);
 	cluster->cpus = *cpus;
 	cluster->efficiency = arch_get_cpu_efficiency(cpumask_first(cpus));
 
@@ -644,6 +645,7 @@ void init_clusters(void)
 {
 	bitmap_clear(all_cluster_ids, 0, NR_CPUS);
 	init_cluster.cpus = *cpu_possible_mask;
+	raw_spin_lock_init(&init_cluster.load_lock);
 	INIT_LIST_HEAD(&cluster_head);
 }
 
@@ -1483,7 +1485,7 @@ static inline int invalid_value(unsigned int *data)
 
 /*
  * Handle "atomic" update of sysctl_sched_window_stats_policy,
- * sysctl_sched_ravg_hist_size and sched_freq_legacy_mode variables.
+ * sysctl_sched_ravg_hist_size variables.
  */
 int sched_window_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
@@ -2964,7 +2966,7 @@ const char *sched_window_reset_reasons[] = {
 /* Called with IRQs enabled */
 void reset_all_window_stats(u64 window_start, unsigned int window_size)
 {
-	int cpu;
+	int cpu, i;
 	unsigned long flags;
 	u64 start_ts = sched_ktime_clock();
 	int reason = WINDOW_CHANGE;
@@ -3009,6 +3011,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 			rq->window_start = window_start;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
+		for (i = 0; i < NUM_SUBTRACTION_WINDOWS; i++)
+			memset(&rq->load_subs[i], 0,
+					sizeof(struct load_subtractions));
 		reset_cpu_hmp_stats(cpu, 1);
 	}
 
@@ -3041,6 +3046,39 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		sched_ktime_clock() - start_ts, reason, old, new);
 }
 
+/*
+ * In this function we match the accumulated subtractions with the current
+ * and previous windows we are operating with. Ignore any entries where
+ * the window start in the load_subtraction struct does not match either
+ * the curent or the previous window. This could happen whenever CPUs
+ * become idle or busy with interrupts disabled for an extended period.
+ */
+static inline void account_load_subtractions(struct rq *rq)
+{
+	u64 ws = rq->window_start;
+	u64 prev_ws = ws - sched_ravg_window;
+	struct load_subtractions *ls = rq->load_subs;
+	int i;
+
+	for (i = 0; i < NUM_SUBTRACTION_WINDOWS; i++) {
+		if (ls[i].window_start == ws) {
+			rq->curr_runnable_sum -= ls[i].subs;
+			rq->nt_curr_runnable_sum -= ls[i].new_subs;
+		} else if (ls[i].window_start == prev_ws) {
+			rq->prev_runnable_sum -= ls[i].subs;
+			rq->nt_prev_runnable_sum -= ls[i].new_subs;
+		}
+
+		ls[i].subs = 0;
+		ls[i].new_subs = 0;
+	}
+
+	BUG_ON((s64)rq->prev_runnable_sum < 0);
+	BUG_ON((s64)rq->curr_runnable_sum < 0);
+	BUG_ON((s64)rq->nt_prev_runnable_sum < 0);
+	BUG_ON((s64)rq->nt_curr_runnable_sum < 0);
+}
+
 static inline void
 sync_window_start(struct rq *rq, struct group_cpu_time *cpu_time);
 
@@ -3063,6 +3101,7 @@ void sched_get_cpus_busy(struct sched_load *busy,
 	struct related_thread_group *grp;
 	u64 total_group_load = 0, total_ngload = 0;
 	bool aggregate_load = false;
+	struct sched_cluster *cluster = cpu_cluster(cpumask_first(query_cpus));
 
 	if (unlikely(cpus == 0))
 		return;
@@ -3080,6 +3119,13 @@ void sched_get_cpus_busy(struct sched_load *busy,
 
 	window_size = sched_ravg_window;
 
+	/*
+	 * We don't really need the cluster lock for this entire for loop
+	 * block. However, there is no advantage in optimizing this as rq
+	 * locks are held regardless and would prevent migration anyways
+	 */
+	raw_spin_lock(&cluster->load_lock);
+
 	for_each_cpu(cpu, query_cpus) {
 		rq = cpu_rq(cpu);
 
@@ -3087,6 +3133,7 @@ void sched_get_cpus_busy(struct sched_load *busy,
 				 0);
 		cur_freq[i] = cpu_cycles_to_freq(rq->cc.cycles, rq->cc.time);
 
+		account_load_subtractions(rq);
 		load[i] = rq->old_busy_time = rq->prev_runnable_sum;
 		nload[i] = rq->nt_prev_runnable_sum;
 		pload[i] = rq->hmp_stats.pred_demands_sum;
@@ -3112,6 +3159,8 @@ void sched_get_cpus_busy(struct sched_load *busy,
 		max_freq[i] = cpu_max_freq(cpu);
 		i++;
 	}
+
+	raw_spin_unlock(&cluster->load_lock);
 
 	for_each_related_thread_group(grp) {
 		for_each_cpu(cpu, query_cpus) {
@@ -3267,6 +3316,116 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 	return 0;
 }
 
+static inline void create_subtraction_entry(struct rq *rq, u64 ws, int index)
+{
+	rq->load_subs[index].window_start = ws;
+	rq->load_subs[index].subs = 0;
+	rq->load_subs[index].new_subs = 0;
+}
+
+static bool get_subtraction_index(struct rq *rq, u64 ws)
+{
+	int i;
+	u64 oldest = ULLONG_MAX;
+	int oldest_index = 0;
+
+	for (i = 0; i < NUM_SUBTRACTION_WINDOWS; i++) {
+		u64 entry_ws = rq->load_subs[i].window_start;
+
+		if (ws == entry_ws)
+			return i;
+
+		if (entry_ws < oldest) {
+			oldest = entry_ws;
+			oldest_index = i;
+		}
+	}
+
+	create_subtraction_entry(rq, ws, oldest_index);
+	return oldest_index;
+}
+
+static void update_rq_load_subtractions(int index, struct rq *rq,
+					u32 sub_load, bool new_task)
+{
+	rq->load_subs[index].subs +=  sub_load;
+	if (new_task)
+		rq->load_subs[index].new_subs += sub_load;
+}
+
+static void update_cluster_load_subtractions(struct task_struct *p,
+					int cpu, u64 ws, bool new_task)
+{
+	struct sched_cluster *cluster = cpu_cluster(cpu);
+	struct cpumask cluster_cpus = cluster->cpus;
+	u64 prev_ws = ws - sched_ravg_window;
+	int i;
+
+	cpumask_clear_cpu(cpu, &cluster_cpus);
+	raw_spin_lock(&cluster->load_lock);
+
+	for_each_cpu(i, &cluster_cpus) {
+		struct rq *rq = cpu_rq(i);
+		int index;
+
+		if (p->ravg.curr_window_cpu[i]) {
+			index = get_subtraction_index(rq, ws);
+			update_rq_load_subtractions(index, rq,
+				p->ravg.curr_window_cpu[i], new_task);
+			p->ravg.curr_window_cpu[i] = 0;
+		}
+
+		if (p->ravg.prev_window_cpu[i]) {
+			index = get_subtraction_index(rq, prev_ws);
+			update_rq_load_subtractions(index, rq,
+				p->ravg.prev_window_cpu[i], new_task);
+			p->ravg.prev_window_cpu[i] = 0;
+		}
+	}
+
+	raw_spin_unlock(&cluster->load_lock);
+}
+
+static inline void inter_cluster_migration_fixup
+	(struct task_struct *p, int new_cpu, int task_cpu, bool new_task)
+{
+	struct rq *dest_rq = cpu_rq(new_cpu);
+	struct rq *src_rq = cpu_rq(task_cpu);
+
+	if (same_freq_domain(new_cpu, task_cpu))
+		return;
+
+	p->ravg.curr_window_cpu[new_cpu] = p->ravg.curr_window;
+	p->ravg.prev_window_cpu[new_cpu] = p->ravg.prev_window;
+
+	dest_rq->curr_runnable_sum += p->ravg.curr_window;
+	dest_rq->prev_runnable_sum += p->ravg.prev_window;
+
+	src_rq->curr_runnable_sum -=  p->ravg.curr_window_cpu[task_cpu];
+	src_rq->prev_runnable_sum -=  p->ravg.prev_window_cpu[task_cpu];
+
+	if (new_task) {
+		dest_rq->nt_curr_runnable_sum += p->ravg.curr_window;
+		dest_rq->nt_prev_runnable_sum += p->ravg.prev_window;
+
+		src_rq->nt_curr_runnable_sum -=
+				p->ravg.curr_window_cpu[task_cpu];
+		src_rq->nt_prev_runnable_sum -=
+				p->ravg.prev_window_cpu[task_cpu];
+	}
+
+	p->ravg.curr_window_cpu[task_cpu] = 0;
+	p->ravg.prev_window_cpu[task_cpu] = 0;
+
+	update_cluster_load_subtractions(p, task_cpu,
+			src_rq->window_start, new_task);
+
+	BUG_ON((s64)src_rq->prev_runnable_sum < 0);
+	BUG_ON((s64)src_rq->curr_runnable_sum < 0);
+	BUG_ON((s64)src_rq->nt_prev_runnable_sum < 0);
+	BUG_ON((s64)src_rq->nt_curr_runnable_sum < 0);
+}
+
 void fixup_busy_time(struct task_struct *p, int new_cpu)
 {
 	struct rq *src_rq = task_rq(p);
@@ -3276,8 +3435,6 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	u64 *src_prev_runnable_sum, *dst_prev_runnable_sum;
 	u64 *src_nt_curr_runnable_sum, *dst_nt_curr_runnable_sum;
 	u64 *src_nt_prev_runnable_sum, *dst_nt_prev_runnable_sum;
-	int migrate_type;
-	struct migration_sum_data d;
 	bool new_task;
 	struct related_thread_group *grp;
 
@@ -3311,74 +3468,60 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	new_task = is_new_task(p);
 	/* Protected by rq_lock */
 	grp = p->grp;
+
+	/*
+	 * For frequency aggregation, we continue to do migration fixups
+	 * even for intra cluster migrations. This is because, the aggregated
+	 * load has to reported on a single CPU regardless.
+	 */
 	if (grp && sched_freq_aggregate) {
 		struct group_cpu_time *cpu_time;
 
-		migrate_type = GROUP_TO_GROUP;
-		/* Protected by rq_lock */
 		cpu_time = _group_cpu_time(grp, cpu_of(src_rq));
-		d.src_rq = NULL;
-		d.src_cpu_time = cpu_time;
 		src_curr_runnable_sum = &cpu_time->curr_runnable_sum;
 		src_prev_runnable_sum = &cpu_time->prev_runnable_sum;
 		src_nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
 		src_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
 
-		/* Protected by rq_lock */
 		cpu_time = _group_cpu_time(grp, cpu_of(dest_rq));
-		d.dst_rq = NULL;
-		d.dst_cpu_time = cpu_time;
 		dst_curr_runnable_sum = &cpu_time->curr_runnable_sum;
 		dst_prev_runnable_sum = &cpu_time->prev_runnable_sum;
 		dst_nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
 		dst_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
 		sync_window_start(dest_rq, cpu_time);
+
+		if (p->ravg.curr_window) {
+			*src_curr_runnable_sum -= p->ravg.curr_window;
+			*dst_curr_runnable_sum += p->ravg.curr_window;
+			if (new_task) {
+				*src_nt_curr_runnable_sum -=
+							p->ravg.curr_window;
+				*dst_nt_curr_runnable_sum +=
+							p->ravg.curr_window;
+			}
+		}
+
+		if (p->ravg.prev_window) {
+			*src_prev_runnable_sum -= p->ravg.prev_window;
+			*dst_prev_runnable_sum += p->ravg.prev_window;
+			if (new_task) {
+				*src_nt_prev_runnable_sum -=
+							p->ravg.prev_window;
+				*dst_nt_prev_runnable_sum +=
+							p->ravg.prev_window;
+			}
+		}
 	} else {
-		migrate_type = RQ_TO_RQ;
-		d.src_rq = src_rq;
-		d.src_cpu_time = NULL;
-		d.dst_rq = dest_rq;
-		d.dst_cpu_time = NULL;
-		src_curr_runnable_sum = &src_rq->curr_runnable_sum;
-		src_prev_runnable_sum = &src_rq->prev_runnable_sum;
-		src_nt_curr_runnable_sum = &src_rq->nt_curr_runnable_sum;
-		src_nt_prev_runnable_sum = &src_rq->nt_prev_runnable_sum;
-
-		dst_curr_runnable_sum = &dest_rq->curr_runnable_sum;
-		dst_prev_runnable_sum = &dest_rq->prev_runnable_sum;
-		dst_nt_curr_runnable_sum = &dest_rq->nt_curr_runnable_sum;
-		dst_nt_prev_runnable_sum = &dest_rq->nt_prev_runnable_sum;
+		inter_cluster_migration_fixup(p, new_cpu,
+						task_cpu(p), new_task);
 	}
 
-	if (p->ravg.curr_window) {
-		*src_curr_runnable_sum -= p->ravg.curr_window;
-		*dst_curr_runnable_sum += p->ravg.curr_window;
-		if (new_task) {
-			*src_nt_curr_runnable_sum -= p->ravg.curr_window;
-			*dst_nt_curr_runnable_sum += p->ravg.curr_window;
-		}
-	}
-
-	if (p->ravg.prev_window) {
-		*src_prev_runnable_sum -= p->ravg.prev_window;
-		*dst_prev_runnable_sum += p->ravg.prev_window;
-		if (new_task) {
-			*src_nt_prev_runnable_sum -= p->ravg.prev_window;
-			*dst_nt_prev_runnable_sum += p->ravg.prev_window;
-		}
-	}
 
 	if (p == src_rq->ed_task) {
 		src_rq->ed_task = NULL;
 		if (!dest_rq->ed_task)
 			dest_rq->ed_task = p;
 	}
-
-	trace_sched_migration_update_sum(p, migrate_type, &d);
-	BUG_ON((s64)*src_prev_runnable_sum < 0);
-	BUG_ON((s64)*src_curr_runnable_sum < 0);
-	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
-	BUG_ON((s64)*src_nt_curr_runnable_sum < 0);
 
 done:
 	if (p->state == TASK_WAKING)
@@ -3531,6 +3674,9 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	u64 *src_nt_prev_runnable_sum, *dst_nt_prev_runnable_sum;
 	struct migration_sum_data d;
 	int migrate_type;
+	int cpu = cpu_of(rq);
+	bool new_task = is_new_task(p);
+	int i;
 
 	if (!sched_freq_aggregate)
 		return;
@@ -3541,7 +3687,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
 
 	/* cpu_time protected by related_thread_group_lock, grp->lock rq_lock */
-	cpu_time = _group_cpu_time(grp, cpu_of(rq));
+	cpu_time = _group_cpu_time(grp, cpu);
 	if (event == ADD_TASK) {
 		sync_window_start(rq, cpu_time);
 		migrate_type = RQ_TO_GROUP;
@@ -3558,6 +3704,19 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 		dst_nt_curr_runnable_sum = &cpu_time->nt_curr_runnable_sum;
 		src_nt_prev_runnable_sum = &rq->nt_prev_runnable_sum;
 		dst_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
+
+		*src_curr_runnable_sum -= p->ravg.curr_window_cpu[cpu];
+		*src_prev_runnable_sum -= p->ravg.prev_window_cpu[cpu];
+		if (new_task) {
+			*src_nt_curr_runnable_sum -=
+					p->ravg.curr_window_cpu[cpu];
+			*src_nt_prev_runnable_sum -=
+					p->ravg.prev_window_cpu[cpu];
+		}
+
+		update_cluster_load_subtractions(p, cpu,
+				rq->window_start, new_task);
+
 	} else {
 		migrate_type = GROUP_TO_RQ;
 		d.src_rq = NULL;
@@ -3580,20 +3739,41 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 		dst_nt_curr_runnable_sum = &rq->nt_curr_runnable_sum;
 		src_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
 		dst_nt_prev_runnable_sum = &rq->nt_prev_runnable_sum;
+
+		*src_curr_runnable_sum -= p->ravg.curr_window;
+		*src_prev_runnable_sum -= p->ravg.prev_window;
+		if (new_task) {
+			*src_nt_curr_runnable_sum -= p->ravg.curr_window;
+			*src_nt_prev_runnable_sum -= p->ravg.prev_window;
+		}
+
+		/*
+		 * Need to reset curr/prev windows for all CPUs, not just the
+		 * ones in the same cluster. Since inter cluster migrations
+		 * did not result in the appropriate book keeping, the values
+		 * per CPU would be inaccurate.
+		 */
+		for_each_possible_cpu(i) {
+			p->ravg.curr_window_cpu[i] = 0;
+			p->ravg.prev_window_cpu[i] = 0;
+		}
 	}
 
-	*src_curr_runnable_sum -= p->ravg.curr_window;
 	*dst_curr_runnable_sum += p->ravg.curr_window;
-
-	*src_prev_runnable_sum -= p->ravg.prev_window;
 	*dst_prev_runnable_sum += p->ravg.prev_window;
-
-	if (is_new_task(p)) {
-		*src_nt_curr_runnable_sum -= p->ravg.curr_window;
+	if (new_task) {
 		*dst_nt_curr_runnable_sum += p->ravg.curr_window;
-		*src_nt_prev_runnable_sum -= p->ravg.prev_window;
 		*dst_nt_prev_runnable_sum += p->ravg.prev_window;
 	}
+
+	/*
+	 * When a task enter or exits a group, it's curr and prev windows are
+	 * moved to a single CPU. This behavior might be sub-optimal in the
+	 * exit case, however, it saves us the overhead of handling inter
+	 * cluster migration fixups while the task is part of a related group.
+	 */
+	p->ravg.curr_window_cpu[cpu] = p->ravg.curr_window;
+	p->ravg.prev_window_cpu[cpu] = p->ravg.prev_window;
 
 	trace_sched_migration_update_sum(p, migrate_type, &d);
 
