@@ -3864,6 +3864,57 @@ exit:
 }
 EXPORT_SYMBOL(synaptics_rmi4_new_function);
 
+static int synaptics_dsx_pinctrl_init(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval;
+
+	/* Get pinctrl if target uses pinctrl */
+	rmi4_data->ts_pinctrl = devm_pinctrl_get((rmi4_data->pdev->dev.parent));
+	if (IS_ERR_OR_NULL(rmi4_data->ts_pinctrl)) {
+		retval = PTR_ERR(rmi4_data->ts_pinctrl);
+		dev_err(rmi4_data->pdev->dev.parent,
+			"Target does not use pinctrl %d\n", retval);
+		goto err_pinctrl_get;
+	}
+
+	rmi4_data->pinctrl_state_active
+		= pinctrl_lookup_state(rmi4_data->ts_pinctrl, "pmx_ts_active");
+	if (IS_ERR_OR_NULL(rmi4_data->pinctrl_state_active)) {
+		retval = PTR_ERR(rmi4_data->pinctrl_state_active);
+		dev_err(rmi4_data->pdev->dev.parent,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_ACTIVE, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	rmi4_data->pinctrl_state_suspend
+		= pinctrl_lookup_state(rmi4_data->ts_pinctrl, "pmx_ts_suspend");
+	if (IS_ERR_OR_NULL(rmi4_data->pinctrl_state_suspend)) {
+		retval = PTR_ERR(rmi4_data->pinctrl_state_suspend);
+		dev_dbg(rmi4_data->pdev->dev.parent,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_SUSPEND, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	rmi4_data->pinctrl_state_release
+		= pinctrl_lookup_state(rmi4_data->ts_pinctrl, "pmx_ts_release");
+	if (IS_ERR_OR_NULL(rmi4_data->pinctrl_state_release)) {
+		retval = PTR_ERR(rmi4_data->pinctrl_state_release);
+		dev_dbg(rmi4_data->pdev->dev.parent,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_RELEASE, retval);
+	}
+
+	return 0;
+
+err_pinctrl_lookup:
+	devm_pinctrl_put(rmi4_data->ts_pinctrl);
+err_pinctrl_get:
+	rmi4_data->ts_pinctrl = NULL;
+	return retval;
+}
+
 static int synaptics_rmi4_probe(struct platform_device *pdev)
 {
 	int retval;
@@ -3933,6 +3984,21 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 		goto err_enable_reg;
 	}
 
+	retval = synaptics_dsx_pinctrl_init(rmi4_data);
+	if (!retval && rmi4_data->ts_pinctrl) {
+		/*
+		* Pinctrl handle is optional. If pinctrl handle is found
+		* let pins to be configured in active state. If not
+		* found continue further without error.
+		*/
+		retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
+		rmi4_data->pinctrl_state_active);
+		if (retval < 0) {
+			dev_err(&pdev->dev,
+				"%s: Failed to select %s pinstate %d\n",
+				__func__, PINCTRL_STATE_ACTIVE, retval);
+		}
+	}
 	retval = synaptics_rmi4_set_gpio(rmi4_data);
 	if (retval < 0) {
 		dev_err(&pdev->dev,
@@ -4118,6 +4184,21 @@ err_ui_hw_init:
 err_set_gpio:
 	synaptics_rmi4_enable_reg(rmi4_data, false);
 
+	if (rmi4_data->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(rmi4_data->pinctrl_state_release)) {
+			devm_pinctrl_put(rmi4_data->ts_pinctrl);
+			rmi4_data->ts_pinctrl = NULL;
+		} else {
+			retval = pinctrl_select_state(
+			rmi4_data->ts_pinctrl,
+			rmi4_data->pinctrl_state_release);
+			if (retval)
+				dev_err(&pdev->dev,
+					"%s: Failed to create sysfs attributes\n",
+					__func__);
+		}
+	}
+
 err_enable_reg:
 	synaptics_rmi4_get_reg(rmi4_data, false);
 
@@ -4130,6 +4211,7 @@ err_get_reg:
 static int synaptics_rmi4_remove(struct platform_device *pdev)
 {
 	unsigned char attr_count;
+	int err;
 	struct synaptics_rmi4_data *rmi4_data = platform_get_drvdata(pdev);
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
@@ -4184,6 +4266,22 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 
 	if (bdata->power_gpio >= 0)
 		synaptics_rmi4_gpio_setup(bdata->power_gpio, false, 0, 0);
+
+
+	if (rmi4_data->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(rmi4_data->pinctrl_state_release)) {
+			devm_pinctrl_put(rmi4_data->ts_pinctrl);
+			rmi4_data->ts_pinctrl = NULL;
+		} else {
+			err = pinctrl_select_state(
+			rmi4_data->ts_pinctrl,
+			rmi4_data->pinctrl_state_release);
+			if (err)
+				dev_err(&pdev->dev,
+					"Failed to select release pinctrl state %d\n",
+					err);
+		}
+	}
 
 	synaptics_rmi4_enable_reg(rmi4_data, false);
 	synaptics_rmi4_get_reg(rmi4_data, false);
@@ -4457,6 +4555,7 @@ static int synaptics_rmi4_suspend(struct device *dev)
 {
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	int retval;
 
 	if (rmi4_data->stay_awake)
 		return 0;
@@ -4475,6 +4574,13 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		synaptics_rmi4_free_fingers(rmi4_data);
 	}
 
+	if (rmi4_data->ts_pinctrl) {
+		retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
+		rmi4_data->pinctrl_state_suspend);
+		if (retval < 0)
+			dev_err(dev, "Cannot get idle pinctrl state\n");
+			goto err_pinctrl;
+	}
 exit:
 	mutex_lock(&exp_data.mutex);
 	if (!list_empty(&exp_data.list)) {
@@ -4491,6 +4597,12 @@ exit:
 	rmi4_data->suspend = true;
 
 	return 0;
+
+err_pinctrl:
+	synaptics_rmi4_sleep_enable(rmi4_data, false);
+	synaptics_rmi4_irq_enable(rmi4_data, true, false);
+	return retval;
+
 }
 
 static int synaptics_rmi4_resume(struct device *dev)
@@ -4521,6 +4633,12 @@ static int synaptics_rmi4_resume(struct device *dev)
 
 	synaptics_rmi4_sleep_enable(rmi4_data, false);
 	synaptics_rmi4_irq_enable(rmi4_data, true, false);
+	if (rmi4_data->ts_pinctrl) {
+		retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
+		rmi4_data->pinctrl_state_active);
+		if (retval < 0)
+			dev_err(dev, "Cannot get default pinctrl state\n");
+	}
 
 exit:
 #ifdef FB_READY_RESET
