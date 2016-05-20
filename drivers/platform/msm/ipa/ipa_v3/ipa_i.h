@@ -1418,6 +1418,7 @@ struct ipa3_ready_cb_info {
  * @uc_wdi_ctx: WDI specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
+ * @ipa_client_apps_wan_cons_agg_gro: RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA
  * @apply_rg10_wa: Indicates whether to use register group 10 workaround
  * @gsi_ch20_wa: Indicates whether to apply GSI physical channel 20 workaround
  * @w_lock: Indicates the wakeup source.
