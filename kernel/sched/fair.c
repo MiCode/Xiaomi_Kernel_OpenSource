@@ -2911,9 +2911,11 @@ struct cpu_select_env {
 };
 
 struct cluster_cpu_stats {
-	int best_idle_cpu, best_capacity_cpu, best_cpu, best_sibling_cpu;
+	int best_idle_cpu, least_loaded_cpu;
+	int best_capacity_cpu, best_cpu, best_sibling_cpu;
 	int min_cost, best_sibling_cpu_cost;
-	u64 min_load, best_sibling_cpu_load;
+	int best_cpu_cstate;
+	u64 min_load, best_load, best_sibling_cpu_load;
 	s64 highest_spare_capacity;
 };
 
@@ -3146,22 +3148,79 @@ next_best_cluster(struct sched_cluster *cluster, struct cpu_select_env *env,
 	return next;
 }
 
-static void update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
-					 struct cpu_select_env *env)
+#ifdef CONFIG_SCHED_HMP_CSTATE_AWARE
+static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
+				   struct cpu_select_env *env, int cpu_cost)
 {
-	int cpu_cost;
+	int cpu_cstate;
 	int prev_cpu = env->prev_cpu;
 
-	cpu_cost = power_cost(cpu, task_load(env->p) +
-				cpu_cravg_sync(cpu, env->sync));
-	if (cpu_cost > stats->min_cost)
+	cpu_cstate = cpu_rq(cpu)->cstate;
+
+	if (env->need_idle) {
+		stats->min_cost = cpu_cost;
+		if (idle_cpu(cpu)) {
+			if (cpu_cstate < stats->best_cpu_cstate ||
+				(cpu_cstate == stats->best_cpu_cstate &&
+							cpu == prev_cpu)) {
+				stats->best_idle_cpu = cpu;
+				stats->best_cpu_cstate = cpu_cstate;
+			}
+		} else {
+			if (env->cpu_load < stats->min_load ||
+				(env->cpu_load == stats->min_load &&
+							cpu == prev_cpu)) {
+				stats->least_loaded_cpu = cpu;
+				stats->min_load = env->cpu_load;
+			}
+		}
+
 		return;
+	}
+
+	if (cpu_cost < stats->min_cost)  {
+		stats->min_cost = cpu_cost;
+		stats->best_cpu_cstate = cpu_cstate;
+		stats->best_load = env->cpu_load;
+		stats->best_cpu = cpu;
+		return;
+	}
+
+	/* CPU cost is the same. Start breaking the tie by C-state */
+
+	if (cpu_cstate > stats->best_cpu_cstate)
+		return;
+
+	if (cpu_cstate < stats->best_cpu_cstate) {
+		stats->best_cpu_cstate = cpu_cstate;
+		stats->best_load = env->cpu_load;
+		stats->best_cpu = cpu;
+		return;
+	}
+
+	/* C-state is the same. Use prev CPU to break the tie */
+	if (cpu == prev_cpu) {
+		stats->best_cpu = cpu;
+		return;
+	}
+
+	if (stats->best_cpu != prev_cpu &&
+	    ((cpu_cstate == 0 && env->cpu_load < stats->best_load) ||
+	    (cpu_cstate > 0 && env->cpu_load > stats->best_load))) {
+		stats->best_load = env->cpu_load;
+		stats->best_cpu = cpu;
+	}
+}
+#else /* CONFIG_SCHED_HMP_CSTATE_AWARE */
+static void __update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
+				   struct cpu_select_env *env, int cpu_cost)
+{
+	int prev_cpu = env->prev_cpu;
 
 	if (cpu != prev_cpu && cpus_share_cache(prev_cpu, cpu)) {
 		if (stats->best_sibling_cpu_cost > cpu_cost ||
 		    (stats->best_sibling_cpu_cost == cpu_cost &&
 		     stats->best_sibling_cpu_load > env->cpu_load)) {
-
 			stats->best_sibling_cpu_cost = cpu_cost;
 			stats->best_sibling_cpu_load = env->cpu_load;
 			stats->best_sibling_cpu = cpu;
@@ -3169,8 +3228,8 @@ static void update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 	}
 
 	if ((cpu_cost < stats->min_cost) ||
-	    ((stats->best_cpu != prev_cpu && stats->min_load > env->cpu_load) ||
-	     cpu == prev_cpu)) {
+	    ((stats->best_cpu != prev_cpu &&
+	      stats->min_load > env->cpu_load) || cpu == prev_cpu)) {
 		if (env->need_idle) {
 			if (idle_cpu(cpu)) {
 				stats->min_cost = cpu_cost;
@@ -3182,6 +3241,18 @@ static void update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
 			stats->best_cpu = cpu;
 		}
 	}
+}
+#endif
+
+static void update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
+					 struct cpu_select_env *env)
+{
+	int cpu_cost;
+
+	cpu_cost = power_cost(cpu, task_load(env->p) +
+				cpu_cravg_sync(cpu, env->sync));
+	if (cpu_cost <= stats->min_cost)
+		__update_cluster_stats(cpu, stats, env, cpu_cost);
 }
 
 static void find_best_cpu_in_cluster(struct sched_cluster *c,
@@ -3224,6 +3295,9 @@ static inline void init_cluster_cpu_stats(struct cluster_cpu_stats *stats)
 	stats->min_cost = stats->best_sibling_cpu_cost = INT_MAX;
 	stats->min_load	= stats->best_sibling_cpu_load = ULLONG_MAX;
 	stats->highest_spare_capacity = 0;
+	stats->least_loaded_cpu = -1;
+	stats->best_cpu_cstate = INT_MAX;
+	/* No need to initialize stats->best_load */
 }
 
 /*
@@ -3390,8 +3464,11 @@ retry:
 
 	} while ((cluster = next_best_cluster(cluster, &env, &stats)));
 
-	if (stats.best_idle_cpu >= 0) {
-		target = stats.best_idle_cpu;
+	if (env.need_idle) {
+		if (stats.best_idle_cpu >= 0)
+			target = stats.best_idle_cpu;
+		else if (stats.least_loaded_cpu >= 0)
+			target = stats.least_loaded_cpu;
 	} else if (stats.best_cpu >= 0) {
 		if (stats.best_cpu != task_cpu(p) &&
 				stats.min_cost == stats.best_sibling_cpu_cost)
@@ -4076,6 +4153,7 @@ void init_new_task_load(struct task_struct *p)
 
 	p->init_load_pct = 0;
 	memset(&p->ravg, 0, sizeof(struct ravg));
+	p->cpu_cycles = 0;
 	p->se.avg.decay_count	= 0;
 	rcu_assign_pointer(p->grp, NULL);
 	INIT_LIST_HEAD(&p->grp_list);

@@ -1164,6 +1164,14 @@ config SCHED_HMP
 	  in their instructions per-cycle capability or the maximum
 	  frequency they can attain.
 
+config SCHED_HMP_CSTATE_AWARE
+	bool "CPU C-state aware scheduler"
+	depends on SCHED_HMP
+	help
+	  This feature will let the HMP scheduler optimize task placement
+	  with CPUs C-state. If this is enabled, scheduler places tasks
+	  onto the shallowest C-state CPU among the most power efficient CPUs.
+
 config SCHED_QHMP
 	bool "QHMP scheduler extensions"
 	depends on SCHED_HMP
