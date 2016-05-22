@@ -520,9 +520,9 @@ static inline int mhi_queue_tre(struct mhi_device_ctxt
 		}
 	} else {
 		mhi_log(MHI_MSG_VERBOSE,
-			"Wakeup, pending data state %d chan state %d\n",
-						 mhi_dev_ctxt->mhi_state,
-						 chan_ctxt->mhi_chan_state);
+			"Wakeup, pending data state %s chan state %d\n",
+			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
+			chan_ctxt->mhi_chan_state);
 			ret_val = 0;
 	}
 	return ret_val;
@@ -766,10 +766,9 @@ int mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	}
 
 	mhi_log(MHI_MSG_INFO,
-		"Entered, MHI state %d dev_exec_env %d chan %d cmd %d\n",
-			mhi_dev_ctxt->mhi_state,
-			mhi_dev_ctxt->dev_exec_env,
-			chan, cmd);
+		"Entered, MHI state %s dev_exec_env %d chan %d cmd %d\n",
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
+		mhi_dev_ctxt->dev_exec_env, chan, cmd);
 	mhi_log(MHI_MSG_INFO, "Getting Reference %d", chan);
 	pm_runtime_get(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	/*
