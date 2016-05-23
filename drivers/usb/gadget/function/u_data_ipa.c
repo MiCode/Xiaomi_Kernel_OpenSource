@@ -371,6 +371,10 @@ static void ipa_data_connect_work(struct work_struct *w)
 				goto free_rx_tx_req;
 			}
 		} else {
+			get_bam2bam_connection_info(port->usb_bam_type,
+					port->src_connection_idx,
+					&port->src_pipe_idx,
+					NULL, NULL, NULL);
 			sps_params = (MSM_SPS_MODE | port->src_pipe_idx |
 				       MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
 			port->rx_req->udc_priv = sps_params;
@@ -394,6 +398,10 @@ static void ipa_data_connect_work(struct work_struct *w)
 				goto unconfig_msm_ep_out;
 			}
 		} else {
+			get_bam2bam_connection_info(port->usb_bam_type,
+					port->dst_connection_idx,
+					&port->dst_pipe_idx,
+					NULL, NULL, NULL);
 			sps_params = (MSM_SPS_MODE | port->dst_pipe_idx |
 				       MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
 			port->tx_req->udc_priv = sps_params;
