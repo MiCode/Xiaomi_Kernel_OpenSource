@@ -285,6 +285,54 @@
 			qcom,ibat-polling-delay-ms = <100>;
 		};
 
+		pmicobalt_rradc: rradc@4500 {
+			compatible = "qcom,rradc";
+			reg = <0x4500 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+
+			/* Channel node */
+			batt_id {
+				channel = <3>;
+			};
+
+			batt_therm {
+				channel = <4>;
+			};
+
+			skin_temp {
+				channel = <5>;
+			};
+
+			usbin_v {
+				channel = <6>;
+			};
+
+			usbin_i {
+				channel = <7>;
+			};
+
+			dcin_v {
+				channel = <8>;
+			};
+
+			dcin_i {
+				channel = <9>;
+			};
+
+			die_temp {
+				channel = <0xa>;
+			};
+
+			chg_temp {
+				channel = <0xb>;
+			};
+
+			gpio {
+				channel = <0xc>;
+			};
+		};
 	};
 
 	qcom,pmicobalt@3 {
