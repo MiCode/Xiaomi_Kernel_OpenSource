@@ -623,7 +623,9 @@ struct msm_pcie_dev_t {
 	u32				num_ep;
 	bool				pending_ep_reg;
 	u32				phy_len;
+	u32				port_phy_len;
 	struct msm_pcie_phy_info_t	*phy_sequence;
+	struct msm_pcie_phy_info_t	*port_phy_sequence;
 	u32		ep_shadow[MAX_DEVICE_NUM][PCIE_CONF_SPACE_DW];
 	u32				  rc_shadow[PCIE_CONF_SPACE_DW];
 	bool				 shadow_en;
@@ -1502,6 +1504,8 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 
 static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 {
+	int i;
+	struct msm_pcie_phy_info_t *phy_seq;
 	u8 common_phy;
 
 	PCIE_DBG(dev, "RC%d: Initializing PCIe PHY Port\n", dev->rc_idx);
@@ -1510,6 +1514,21 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 		common_phy = 1;
 	else
 		common_phy = 0;
+
+	if (dev->port_phy_sequence) {
+		i =  dev->port_phy_len;
+		phy_seq = dev->port_phy_sequence;
+		while (i--) {
+			msm_pcie_write_reg(dev->phy,
+				phy_seq->offset,
+				phy_seq->val);
+			if (phy_seq->delay)
+				usleep_range(phy_seq->delay,
+					phy_seq->delay + 1);
+			phy_seq++;
+		}
+		return;
+	}
 
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_TX_N_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN(dev->rc_idx,
@@ -1801,6 +1820,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->pending_ep_reg ? "true" : "false");
 	PCIE_DBG_FS(dev, "phy_len is %d",
 		dev->phy_len);
+	PCIE_DBG_FS(dev, "port_phy_len is %d",
+		dev->port_phy_len);
 	PCIE_DBG_FS(dev, "disable_pc is %d",
 		dev->disable_pc);
 	PCIE_DBG_FS(dev, "l0s_supported is %s supported\n",
@@ -3998,6 +4019,31 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 			dev->rc_idx);
 	}
 
+	of_get_property(pdev->dev.of_node, "qcom,port-phy-sequence", &size);
+	if (size) {
+		dev->port_phy_sequence = (struct msm_pcie_phy_info_t *)
+			devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+
+		if (dev->port_phy_sequence) {
+			dev->port_phy_len =
+				size / sizeof(*dev->port_phy_sequence);
+
+			of_property_read_u32_array(pdev->dev.of_node,
+				"qcom,port-phy-sequence",
+				(unsigned int *)dev->port_phy_sequence,
+				size / sizeof(dev->port_phy_sequence->offset));
+		} else {
+			PCIE_ERR(dev,
+				"RC%d: Could not allocate memory for port phy init sequence.\n",
+				dev->rc_idx);
+			ret = -ENOMEM;
+			goto out;
+		}
+	} else {
+		PCIE_DBG(dev, "RC%d: port phy sequence is not present in DT\n",
+			dev->rc_idx);
+	}
+
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
 		clk_info = &dev->clk[i];
 
@@ -5933,7 +5979,9 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].num_ep = 0;
 	msm_pcie_dev[rc_idx].pending_ep_reg = false;
 	msm_pcie_dev[rc_idx].phy_len = 0;
+	msm_pcie_dev[rc_idx].port_phy_len = 0;
 	msm_pcie_dev[rc_idx].phy_sequence = NULL;
+	msm_pcie_dev[rc_idx].port_phy_sequence = NULL;
 	msm_pcie_dev[rc_idx].event_reg = NULL;
 	msm_pcie_dev[rc_idx].linkdown_counter = 0;
 	msm_pcie_dev[rc_idx].link_turned_on_counter = 0;
