@@ -52,7 +52,7 @@
 
 #define A5XX_CP_CTXRECORD_MAGIC_REF     0x27C4BAFCUL
 /* Size of each CP preemption record */
-#define A5XX_CP_CTXRECORD_SIZE_IN_BYTES     0x100000
+#define A5XX_CP_CTXRECORD_SIZE_IN_BYTES     0x10000
 /* Size of the preemption counter block (in bytes) */
 #define A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE   (16 * 4)
 
