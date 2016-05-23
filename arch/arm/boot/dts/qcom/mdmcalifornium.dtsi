@@ -1014,8 +1014,8 @@
 			"SpkrRight IN", "SPK2 OUT";
 
 		qcom,tasha-mclk-clk-freq = <12288000>;
-		qcom,mi2s-interface-mode = "pri_mi2s_slave", "sec_mi2s_slave";
-		qcom,auxpcm-interface-mode = "pri_pcm_slave", "sec_pcm_slave";
+		qcom,mi2s-interface-mode = "pri_mi2s_master", "sec_mi2s_master";
+		qcom,auxpcm-interface-mode = "pri_pcm_master", "sec_pcm_master";
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>;
