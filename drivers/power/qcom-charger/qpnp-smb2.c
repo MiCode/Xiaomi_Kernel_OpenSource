@@ -209,6 +209,14 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_prop_usb_current_max(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		if (chg->pd_active && val->intval == POWER_SUPPLY_TYPE_USB_PD) {
+			chg->usb_psy_desc.type = val->intval;
+		} else {
+			pr_err("set type %d not allowed\n", val->intval);
+			rc = -EINVAL;
+		}
+		break;
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		rc = smblib_set_prop_typec_power_role(chg, val);
 		break;

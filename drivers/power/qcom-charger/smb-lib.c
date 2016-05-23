@@ -256,10 +256,9 @@ static int smblib_update_usb_type(struct smb_charger *chg)
 	int rc = 0;
 	const struct apsd_result *apsd_result;
 
-	if (chg->pd_active) {
-		chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_USB_PD;
+	/* if PD is active, APSD is disabled so won't have a valid result */
+	if (chg->pd_active)
 		return rc;
-	}
 
 	apsd_result = smblib_get_apsd_result(chg);
 	chg->usb_psy_desc.type = apsd_result->pst;
@@ -271,12 +270,7 @@ static int smblib_detach_usb(struct smb_charger *chg)
 	int rc;
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
-
-	rc = smblib_update_usb_type(chg);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't update usb type rc=%d\n", rc);
-		return rc;
-	}
+	chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 
 	/* reconfigure allowed voltage for HVDCP */
 	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG,
