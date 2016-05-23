@@ -725,7 +725,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			queue_delayed_work(pd->wq, &pd->sm_work, 0);
 		else
 			queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(SINK_WAIT_CAP_TIME * 3));
+				msecs_to_jiffies(SINK_WAIT_CAP_TIME));
 		break;
 
 	case PE_SNK_EVALUATE_CAPABILITY:
@@ -1369,8 +1369,24 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	if (!pd_allowed && typec_mode != POWER_SUPPLY_TYPEC_NONE)
 		return 0;
 
+	/*
+	 * Workaround for PMIC HW bug.
+	 *
+	 * During hard reset or PR swap (sink to source) when VBUS goes to 0
+	 * the CC logic will report this as a disconnection. In those cases it
+	 * can be ignored, however the downside is that pd->hard_reset can be
+	 * momentarily true even when a non-PD capable source is attached, and
+	 * can't be distinguished from a physical disconnect. In that case,
+	 * allow for the common case of disconnecting from an SDP.
+	 *
+	 * The less common case is a PD-capable SDP which will result in a
+	 * hard reset getting treated like a disconnect. We can live with this
+	 * until the HW bug is fixed: in which disconnection won't be reported
+	 * on VBUS loss alone unless pullup is also removed from CC.
+	 */
 	if ((pd->hard_reset || pd->in_pr_swap) &&
-			typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+			typec_mode == POWER_SUPPLY_TYPEC_NONE &&
+			pd->psy_type != POWER_SUPPLY_TYPE_USB) {
 		usbpd_dbg(&pd->dev, "Ignoring disconnect due to %s\n",
 				pd->hard_reset ? "hard reset" : "PR swap");
 		return 0;
