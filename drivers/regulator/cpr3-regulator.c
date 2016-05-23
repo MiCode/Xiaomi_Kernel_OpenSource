@@ -3523,7 +3523,7 @@ cleanup:
 
 	if (ctrl->ctrl_type == CPR_CTRL_TYPE_CPR4) {
 		rc2 = cpr3_ctrl_clear_cpr4_config(ctrl);
-		if (rc) {
+		if (rc2) {
 			cpr3_err(ctrl, "failed to clear CPR4 configuration,rc=%d\n",
 				rc2);
 			rc = rc2;
@@ -3798,7 +3798,7 @@ static int cpr3_regulator_aging_adjust(struct cpr3_controller *ctrl)
 			max_aging_volt = max(max_aging_volt, aging_volt);
 		} else {
 			cpr3_err(ctrl, "CPR aging measurement failed after %d tries, rc=%d\n",
-				rc, CPR3_AGING_RETRY_COUNT);
+				j, rc);
 			ctrl->aging_failed = true;
 			ctrl->aging_required = false;
 			goto cleanup;
