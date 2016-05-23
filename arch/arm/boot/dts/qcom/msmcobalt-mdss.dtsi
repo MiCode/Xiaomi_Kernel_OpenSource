@@ -13,6 +13,7 @@
 &soc {
 	mdss_mdp: qcom,mdss_mdp@c900000 {
 		compatible = "qcom,mdss_mdp";
+		status = "ok";
 		reg = <0x0c900000 0x90000>,
 		      <0x0c9b0000 0x1040>;
 		reg-names = "mdp_phys", "vbif_phys";
