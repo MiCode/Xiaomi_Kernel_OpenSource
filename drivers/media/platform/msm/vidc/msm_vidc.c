@@ -914,7 +914,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 	if (rc)
 		return rc;
 
-	for (i = 0; i < b->length; i++) {
+	for (i = b->length - 1; i >= 0 ; i--) {
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
 			!b->m.planes[i].m.userptr) {
