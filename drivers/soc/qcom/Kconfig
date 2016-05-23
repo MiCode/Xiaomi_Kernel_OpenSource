@@ -469,6 +469,7 @@ config MSM_RUN_QUEUE_STATS
 
 config MSM_JTAGV8
 	bool "Debug and ETM trace support across power collapse for ARMv8"
+	default y if CORESIGHT_SOURCE_ETM4X
 	help
 	  Enables support for debugging (specifically breakpoints) and ETM
 	  processor tracing across power collapse both for JTag and OS hosted
