@@ -933,9 +933,8 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 				val);
 
 	if (rc) {
-		pr_err("qpnp_lab_regulator_set_voltage write register %x failed rc = %d\n",
-			REG_LAB_VOLTAGE, rc);
-
+		pr_err("write to register %x failed rc = %d\n", REG_LAB_VOLTAGE,
+			rc);
 		return rc;
 	}
 
@@ -1549,8 +1548,9 @@ static int qpnp_lab_regulator_set_voltage(struct regulator_dev *rdev,
 		return 0;
 
 	if (min_uV < labibb->lab_vreg.min_volt) {
-		pr_err("qpnp_lab_regulator_set_voltage failed, min_uV %d is less than min_volt %d",
-			min_uV, labibb->lab_vreg.min_volt);
+		pr_err("min_uV %d is less than min_volt %d", min_uV,
+			labibb->lab_vreg.min_volt);
+		return -EINVAL;
 	}
 
 	val = DIV_ROUND_UP(min_uV - labibb->lab_vreg.min_volt,
@@ -1558,7 +1558,7 @@ static int qpnp_lab_regulator_set_voltage(struct regulator_dev *rdev,
 	new_uV = val * labibb->lab_vreg.step_size + labibb->lab_vreg.min_volt;
 
 	if (new_uV > max_uV) {
-		pr_err("qpnp_lab_regulator_set_voltage unable to set voltage (%d %d)\n",
+		pr_err("unable to set voltage %d (min:%d max:%d)\n", new_uV,
 			min_uV, max_uV);
 		return -EINVAL;
 	}
@@ -1570,14 +1570,16 @@ static int qpnp_lab_regulator_set_voltage(struct regulator_dev *rdev,
 				val | LAB_VOLTAGE_OVERRIDE_EN);
 
 	if (rc) {
-		pr_err("qpnp_lab_regulator_set_voltage write register %x failed rc = %d\n",
-			REG_LAB_VOLTAGE, rc);
-
+		pr_err("write to register %x failed rc = %d\n", REG_LAB_VOLTAGE,
+			rc);
 		return rc;
 	}
 
-	if (new_uV > labibb->lab_vreg.curr_volt)
+	if (new_uV > labibb->lab_vreg.curr_volt) {
+		val = DIV_ROUND_UP(new_uV - labibb->lab_vreg.curr_volt,
+				labibb->lab_vreg.step_size);
 		udelay(val * labibb->lab_vreg.slew_rate);
+	}
 	labibb->lab_vreg.curr_volt = new_uV;
 
 	return 0;
@@ -2305,8 +2307,8 @@ static int qpnp_ibb_regulator_set_voltage(struct regulator_dev *rdev,
 		return 0;
 
 	if (min_uV < labibb->ibb_vreg.min_volt) {
-		pr_err("qpnp_ibb_regulator_set_voltage failed, min_uV %d is less than min_volt %d",
-			min_uV, labibb->ibb_vreg.min_volt);
+		pr_err("min_uV %d is less than min_volt %d", min_uV,
+			labibb->ibb_vreg.min_volt);
 		return -EINVAL;
 	}
 
@@ -2315,7 +2317,7 @@ static int qpnp_ibb_regulator_set_voltage(struct regulator_dev *rdev,
 	new_uV = val * labibb->ibb_vreg.step_size + labibb->ibb_vreg.min_volt;
 
 	if (new_uV > max_uV) {
-		pr_err("qpnp_ibb_regulator_set_voltage unable to set voltage (%d %d)\n",
+		pr_err("unable to set voltage %d (min:%d max:%d)\n", new_uV,
 			min_uV, max_uV);
 		return -EINVAL;
 	}
@@ -2327,14 +2329,16 @@ static int qpnp_ibb_regulator_set_voltage(struct regulator_dev *rdev,
 				val | IBB_VOLTAGE_OVERRIDE_EN);
 
 	if (rc) {
-		pr_err("qpnp_ibb_regulator_set_voltage write register %x failed rc = %d\n",
-			REG_IBB_VOLTAGE, rc);
-
+		pr_err("write to register %x failed rc = %d\n", REG_IBB_VOLTAGE,
+			rc);
 		return rc;
 	}
 
-	if (new_uV > labibb->ibb_vreg.curr_volt)
+	if (new_uV > labibb->ibb_vreg.curr_volt) {
+		val = DIV_ROUND_UP(new_uV - labibb->ibb_vreg.curr_volt,
+				labibb->ibb_vreg.step_size);
 		udelay(val * labibb->ibb_vreg.slew_rate);
+	}
 	labibb->ibb_vreg.curr_volt = new_uV;
 
 	return 0;
