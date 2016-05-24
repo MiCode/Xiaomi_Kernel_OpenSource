@@ -1975,6 +1975,7 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 	size_t len;
 	size_t actual_len, ret_len;
 	int is_euclean = 0;
+	int is_ebadmsg = 0;
 
 	actual_len = ops->len;
 	ret_len = 0;
@@ -2012,8 +2013,13 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 			err = 0;
 		}
 
+		if (err == -EBADMSG) {
+			is_ebadmsg = 1;
+			err = 0;
+		}
+
 		if (err < 0) {
-			/* Clear previously set EUCLEAN */
+			/* Clear previously set EUCLEAN / EBADMSG */
 			is_euclean = 0;
 			ret_len = ops->retlen;
 			break;
@@ -2038,6 +2044,10 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 out:
 	if (is_euclean == 1)
 		err = -EUCLEAN;
+
+	/* Snub EUCLEAN if we also have EBADMSG */
+	if (is_ebadmsg == 1)
+		err = -EBADMSG;
 	return err;
 }
 
