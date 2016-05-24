@@ -16,7 +16,7 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/debugfs.h>
-#include <linux/ipa.h>
+#include <linux/ipa_mhi.h>
 #include "mhi_hwio.h"
 #include "mhi_sm.h"
 
