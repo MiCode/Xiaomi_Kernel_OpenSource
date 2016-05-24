@@ -1843,6 +1843,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	u8 *buf;
 	int rule_idx;
 	u8 rule_size;
+	void *ipa_sram_mmio;
 
 	IPADBG("tbl_idx=%d ip_type=%d hashable=%d\n",
 		tbl_idx, ip_type, hashable);
@@ -1855,6 +1856,18 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	if (ip_type == IPA_IP_v6 && tbl_idx >= IPA_MEM_PART(v6_rt_num_index)) {
 		IPAERR("Invalid params\n");
 		return -EFAULT;
+	}
+
+	/* map IPA SRAM */
+	ipa_sram_mmio = ioremap(ipa3_ctx->ipa_wrapper_base +
+				ipa3_ctx->ctrl->ipa_reg_base_ofst +
+				ipahal_get_reg_n_ofst(
+					IPA_SRAM_DIRECT_ACCESS_n,
+					0),
+				ipa3_ctx->smem_sz);
+	if (!ipa_sram_mmio) {
+		IPAERR("fail to ioremap IPA SRAM\n");
+		return -ENOMEM;
 	}
 
 	memset(entry, 0, sizeof(*entry) * (*num_entry));
@@ -1884,9 +1897,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 
 	IPADBG("tbl_entry_in_hdr_ofst=0x%llx\n", tbl_entry_in_hdr_ofst);
 
-	tbl_entry_in_hdr = ipa3_ctx->mmio +
-		ipahal_get_reg_n_ofst(IPA_SRAM_DIRECT_ACCESS_n, 0) +
-		tbl_entry_in_hdr_ofst;
+	tbl_entry_in_hdr = ipa_sram_mmio + tbl_entry_in_hdr_ofst;
 
 	/* for tables which reside in DDR access it from the virtual memory */
 	if (!(*tbl_entry_in_hdr & 0x1)) {
@@ -1907,9 +1918,9 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 			hdr = ipa3_ctx->empty_rt_tbl_mem.base;
 	} else {
 		/* local */
-		hdr = (void *)(tbl_entry_in_hdr -
+		hdr = (void *)((u8 *)tbl_entry_in_hdr -
 			tbl_idx * IPA_HW_TBL_HDR_WIDTH +
-			(*tbl_entry_in_hdr - 1) * 16);
+			(*tbl_entry_in_hdr - 1) / 16);
 	}
 	IPADBG("*tbl_entry_in_hdr=0x%llx\n", *tbl_entry_in_hdr);
 	IPADBG("hdr=0x%p\n", hdr);
@@ -1941,6 +1952,7 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	}
 
 	*num_entry = rule_idx;
+	iounmap(ipa_sram_mmio);
 
 	return 0;
 }
