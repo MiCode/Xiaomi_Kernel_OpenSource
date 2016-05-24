@@ -58,7 +58,8 @@ msm-y := \
 	msm_smmu.o \
 	msm_perf.o \
 	msm_rd.o \
-	msm_ringbuffer.o
+	msm_ringbuffer.o \
+	msm_evtlog.o \
 
 msm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
 msm-$(CONFIG_SYNC) += sde/sde_fence.o
