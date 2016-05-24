@@ -195,13 +195,6 @@
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
 #define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition.x_)
 
-#define IPA_SMMU_AP_VA_START 0x1000
-#define IPA_SMMU_AP_VA_SIZE 0x40000000
-#define IPA_SMMU_AP_VA_END (IPA_SMMU_AP_VA_START +  IPA_SMMU_AP_VA_SIZE)
-#define IPA_SMMU_UC_VA_START 0x40000000
-#define IPA_SMMU_UC_VA_SIZE 0x20000000
-#define IPA_SMMU_UC_VA_END (IPA_SMMU_UC_VA_START +  IPA_SMMU_UC_VA_SIZE)
-
 #define IPA_GSI_CHANNEL_STOP_MAX_RETRY 10
 #define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
@@ -244,6 +237,9 @@ struct ipa_smmu_cb_ctx {
 	struct dma_iommu_mapping *mapping;
 	struct iommu_domain *iommu;
 	unsigned long next_addr;
+	u32 va_start;
+	u32 va_size;
+	u32 va_end;
 };
 
 /**
@@ -1447,6 +1443,7 @@ struct ipa3_context {
 	struct ipa3_flt_tbl flt_tbl[IPA3_MAX_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
+	u32 ipa_wrapper_size;
 	struct ipa3_hdr_tbl hdr_tbl;
 	struct ipa3_hdr_proc_ctx_tbl hdr_proc_ctx_tbl;
 	struct ipa3_rt_tbl_set rt_tbl_set[IPA_IP_MAX];
@@ -2211,9 +2208,14 @@ struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx);
 void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val);
 
 u32 ipa3_get_num_pipes(void);
+struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void);
-struct iommu_domain *ipa_get_uc_smmu_domain(void);
+struct iommu_domain *ipa3_get_smmu_domain(void);
+struct iommu_domain *ipa3_get_uc_smmu_domain(void);
+struct iommu_domain *ipa3_get_wlan_smmu_domain(void);
+int ipa3_iommu_map(struct iommu_domain *domain, unsigned long iova,
+	phys_addr_t paddr, size_t size, int prot);
 int ipa3_ap_suspend(struct device *dev);
 int ipa3_ap_resume(struct device *dev);
 int ipa3_init_interrupts(void);
