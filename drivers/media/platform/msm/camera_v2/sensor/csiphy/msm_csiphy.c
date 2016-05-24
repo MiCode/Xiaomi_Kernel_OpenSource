@@ -1160,6 +1160,11 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		msm_camera_io_w(0x0,
 			csiphy_dev->base + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_cmn_ctrl6.addr);
+		if (csiphy_dev->hw_dts_version == CSIPHY_VERSION_V50)
+			msm_camera_io_w(0x0,
+				csiphy_dev->base +
+				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+				mipi_csiphy_3ph_cmn_ctrl7.addr);
 	} else if (csiphy_dev->hw_version < CSIPHY_VERSION_V30) {
 		csiphy_dev->lane_mask[csiphy_dev->pdev->id] = 0;
 		for (i = 0; i < 4; i++)
@@ -1266,6 +1271,11 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		msm_camera_io_w(0x0,
 			csiphy_dev->base + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_cmn_ctrl6.addr);
+		if (csiphy_dev->hw_dts_version == CSIPHY_VERSION_V50)
+			msm_camera_io_w(0x0,
+				csiphy_dev->base +
+				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+				mipi_csiphy_3ph_cmn_ctrl7.addr);
 	} else	if (csiphy_dev->hw_version < CSIPHY_VERSION_V30) {
 		csiphy_dev->lane_mask[csiphy_dev->pdev->id] = 0;
 		for (i = 0; i < 4; i++)
