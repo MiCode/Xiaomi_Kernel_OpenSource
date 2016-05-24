@@ -2634,6 +2634,15 @@ static int ipa3_setup_apps_pipes(void)
 	struct ipa_sys_connect_params sys_in;
 	int result = 0;
 
+	if (ipa3_ctx->gsi_ch20_wa) {
+		IPADBG("Allocating GSI physical channel 20\n");
+		result = ipa_gsi_ch20_wa();
+		if (result) {
+			IPAERR("ipa_gsi_ch20_wa failed %d\n", result);
+			goto fail_cmd;
+		}
+	}
+
 	/* CMD OUT (AP->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_CMD_PROD;
@@ -3986,6 +3995,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->transport_prototype = resource_p->transport_prototype;
 	ipa3_ctx->ee = resource_p->ee;
 	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
+	ipa3_ctx->gsi_ch20_wa = resource_p->gsi_ch20_wa;
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = false;
 
 	/* default aggregation parameters */
@@ -4486,6 +4496,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_wdi2 = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->apply_rg10_wa = false;
+	ipa_drv_res->gsi_ch20_wa = false;
 
 	smmu_disable_htw = of_property_read_bool(pdev->dev.of_node,
 			"qcom,smmu-disable-htw");
@@ -4670,6 +4681,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": Use Register Group 10 limitation mitigation = %s\n",
 		ipa_drv_res->apply_rg10_wa
 		? "True" : "False");
+
+	ipa_drv_res->gsi_ch20_wa =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,do-not-use-ch-gsi-20");
+	IPADBG(": GSI CH 20 WA is = %s\n",
+		ipa_drv_res->apply_rg10_wa
+		? "Needed" : "Not needed");
 
 	return 0;
 }
