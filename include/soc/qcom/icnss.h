@@ -84,10 +84,6 @@ struct icnss_soc_info {
 
 extern int icnss_register_driver(struct icnss_driver_ops *driver);
 extern int icnss_unregister_driver(struct icnss_driver_ops *driver);
-extern int icnss_register_ce_irq(unsigned int ce_id,
-	irqreturn_t (*handler)(int, void *),
-		unsigned long flags, const char *name);
-extern int icnss_unregister_ce_irq(unsigned int ce_id);
 extern int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
 			     enum icnss_driver_mode mode,
 			     const char *host_version);
