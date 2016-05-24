@@ -228,7 +228,6 @@
 /* MSS_SCL */
 &modem_etm0 {
 	coresight-child-ports = <2>;
-	qcom,inst-id = <11>;
 };
 &pil_mss {
 	/delete-property/ qcom,qdsp6v56-1-8-inrush-current;
@@ -261,6 +260,6 @@
 		coresight-child-list = <&funnel_right>;
 		coresight-child-ports = <1>;
 
-		qcom,inst-id = <2>;
+		qcom,inst-id = <11>;
 	};
 };
