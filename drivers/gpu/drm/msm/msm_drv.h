@@ -48,6 +48,8 @@
 #include <drm/msm_drm.h>
 #include <drm/drm_gem.h>
 
+#include "msm_evtlog.h"
+
 struct msm_kms;
 struct msm_gpu;
 struct msm_mmu;
@@ -178,6 +180,8 @@ struct msm_drm_private {
 	} vram;
 
 	struct msm_vblank_ctrl vblank_ctrl;
+
+	struct msm_evtlog evtlog;
 };
 
 struct msm_format {
