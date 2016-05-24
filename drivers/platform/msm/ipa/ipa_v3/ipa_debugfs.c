@@ -694,6 +694,7 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 	if (!entry)
 		return -ENOMEM;
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	mutex_lock(&ipa3_ctx->lock);
 	for (j = 0; j < num_tbls; j++) {
 		pr_err("== NON HASHABLE TABLE tbl:%d ==\n", j);
@@ -742,6 +743,7 @@ static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
 	}
 	mutex_unlock(&ipa3_ctx->lock);
 	kfree(entry);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
@@ -866,6 +868,7 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 	if (!entry)
 		return -ENOMEM;
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	mutex_lock(&ipa3_ctx->lock);
 	for (j = 0; j < ipa3_ctx->ipa_num_pipes; j++) {
 		if (!ipa_is_ep_support_flt(j))
@@ -903,6 +906,7 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 	}
 	mutex_unlock(&ipa3_ctx->lock);
 	kfree(entry);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
 }
