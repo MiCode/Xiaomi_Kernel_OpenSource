@@ -776,6 +776,9 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION		UFS_BIT(5)
 
+	/* Auto hibern8 support is broken */
+	#define UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8		UFS_BIT(6)
+
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
 	/* Device deviations from standard UFS device spec. */
@@ -936,7 +939,8 @@ static inline bool ufshcd_is_intr_aggr_allowed(struct ufs_hba *hba)
 
 static inline bool ufshcd_is_auto_hibern8_supported(struct ufs_hba *hba)
 {
-	return !!(hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT);
+	return !!((hba->capabilities & MASK_AUTO_HIBERN8_SUPPORT) &&
+		!(hba->quirks & UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8));
 }
 
 static inline bool ufshcd_is_crypto_supported(struct ufs_hba *hba)
