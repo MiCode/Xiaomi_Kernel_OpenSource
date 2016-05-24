@@ -780,10 +780,12 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		goto reg_enable_failed;
 	}
 
-	rc = msm_cpp_set_micro_clk(cpp_dev);
-	if (rc < 0) {
-		pr_err("%s: set micro clk failed\n", __func__);
-		goto clk_failed;
+	if (cpp_dev->micro_reset) {
+		rc = msm_cpp_set_micro_clk(cpp_dev);
+		if (rc < 0) {
+			pr_err("%s: reset micro clk failed\n", __func__);
+			goto clk_failed;
+		}
 	}
 
 	rc = msm_camera_clk_enable(&cpp_dev->pdev->dev, cpp_dev->clk_info,

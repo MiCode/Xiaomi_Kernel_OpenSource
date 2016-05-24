@@ -1461,6 +1461,23 @@
 				bias-pull-up;           /* pull up */
 				drive-strength = <2>;   /* 2 MA */
 			};
+
+		};
+
+		led_enable: led_enable {
+			mux {
+				pins = "gpio21";
+				drive_strength = <16>;
+				output-high;
+			};
+		};
+
+		led_disable: led_disable {
+			mux {
+				pins = "gpio21";
+				drive_strength = <2>;
+				output-low;
+			};
 		};
 	};
 };

@@ -265,3 +265,11 @@
 &gdsc_ufs {
 	compatible = "regulator-fixed";
 };
+
+&spmi_bus {
+	qcom,pmicobalt@3 {
+		flash_led: qcom,leds@d300 {
+			status = "disabled";
+		};
+	};
+};

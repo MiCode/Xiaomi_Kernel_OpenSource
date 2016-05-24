@@ -720,6 +720,9 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 			wsa881x_boost_ctrl(codec, ENABLE);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		swr_slvdev_datapath_control(wsa881x->swr_slave,
+					    wsa881x->swr_slave->dev_num,
+					    false);
 		if (wsa881x->boost_enable)
 			wsa881x_boost_ctrl(codec, DISABLE);
 		wsa881x_resource_acquire(codec, DISABLE);
@@ -780,6 +783,9 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 		regmap_multi_reg_write(wsa881x->regmap,
 				wsa881x_pre_pmu_pa_2_0,
 				ARRAY_SIZE(wsa881x_pre_pmu_pa_2_0));
+		swr_slvdev_datapath_control(wsa881x->swr_slave,
+					    wsa881x->swr_slave->dev_num,
+					    true);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		if (!wsa881x->comp_enable) {
@@ -799,6 +805,9 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 		}
 		schedule_delayed_work(&wsa881x->ocp_ctl_work,
 			msecs_to_jiffies(WSA881X_OCP_CTL_TIMER_SEC * 1000));
+		/* Force remove group */
+		swr_remove_from_group(wsa881x->swr_slave,
+				      wsa881x->swr_slave->dev_num);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (wsa881x->visense_enable) {

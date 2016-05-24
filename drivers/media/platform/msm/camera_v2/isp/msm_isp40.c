@@ -21,6 +21,7 @@
 #include "msm.h"
 #include "msm_camera_io_util.h"
 #include "msm_isp47.h"
+#include "linux/iopoll.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -1407,6 +1408,10 @@ static void msm_vfe40_update_camif_state(struct vfe_device *vfe_dev,
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 1;
 	} else if (update_state == DISABLE_CAMIF ||
 		DISABLE_CAMIF_IMMEDIATELY == update_state) {
+		uint32_t poll_val;
+
+		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
+			update_state = DISABLE_CAMIF;
 		msm_vfe40_config_irq(vfe_dev, 0, 0,
 				MSM_ISP_IRQ_SET);
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x464);
@@ -1414,6 +1419,10 @@ static void msm_vfe40_update_camif_state(struct vfe_device *vfe_dev,
 		msm_camera_io_w_mb(val & ~(1 << 8), vfe_dev->vfe_base + 0x464);
 		msm_camera_io_w_mb((update_state == DISABLE_CAMIF ? 0x0 : 0x6),
 				vfe_dev->vfe_base + 0x2F4);
+		if (readl_poll_timeout_atomic(vfe_dev->vfe_base + 0x31C,
+				poll_val, poll_val & 0x80000000, 1000, 2000000))
+			pr_err("%s: camif disable failed %x\n",
+				__func__, poll_val);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
 		/* testgen OFF*/
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)

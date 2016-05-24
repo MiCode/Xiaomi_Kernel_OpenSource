@@ -925,11 +925,6 @@ static void __fabia_alpha_pll_disable(struct alpha_pll_clk *pll)
 	mode &= ~FABIA_PLL_OUT_MAIN;
 	writel_relaxed(mode, FABIA_USER_CTL_LO_REG(pll));
 
-	/* Place PLL is the OFF state */
-	mode  = readl_relaxed(MODE_REG(pll));
-	mode &= ~PLL_RESET_N;
-	writel_relaxed(mode, MODE_REG(pll));
-
 	/* Place the PLL mode in STANDBY */
 	writel_relaxed(FABIA_PLL_STANDBY, FABIA_PLL_OPMODE(pll));
 }
@@ -1036,6 +1031,10 @@ static enum handoff fabia_alpha_pll_handoff(struct clk *c)
 	/* Set the PLL_HW_UPDATE_LOGIC_BYPASS bit before continuing */
 	regval = readl_relaxed(MODE_REG(pll));
 	regval |= ALPHA_PLL_HW_UPDATE_LOGIC_BYPASS;
+	writel_relaxed(regval, MODE_REG(pll));
+
+	/* Set the PLL_RESET_N bit to place the PLL in STANDBY from OFF */
+	regval |= PLL_RESET_N;
 	writel_relaxed(regval, MODE_REG(pll));
 
 	if (!is_locked(pll)) {
