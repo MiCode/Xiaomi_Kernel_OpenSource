@@ -1395,6 +1395,7 @@
 		emac_vreg3-supply = <&mdm9607_l5>;
 		emac_vreg4-supply = <&mdm9607_l11>;
 		emac_vreg5-supply = <&emac_lan_vreg>;
+		qcom,vdd-voltage-level = <1250000 1800000 2850000 1800000 0>;
 		clocks = <&clock_gcc clk_gcc_emac_0_axi_clk>,
 			 <&clock_gcc clk_gcc_emac_0_ahb_clk>,
 			 <&clock_gcc clk_gcc_emac_0_125m_clk>,
