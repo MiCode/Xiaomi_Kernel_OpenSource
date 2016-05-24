@@ -951,11 +951,19 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 
 	} else {
 		/* Configure RX */
+		get_bam2bam_connection_info(d->usb_bam_type,
+				d->src_connection_idx,
+				&d->src_pipe_idx,
+				NULL, NULL, NULL);
 		sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
 			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
 		d->rx_req->udc_priv = sps_params;
 
 		/* Configure TX */
+		get_bam2bam_connection_info(d->usb_bam_type,
+				d->dst_connection_idx,
+				&d->dst_pipe_idx,
+				NULL, NULL, NULL);
 		sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
 			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
 		d->tx_req->udc_priv = sps_params;
