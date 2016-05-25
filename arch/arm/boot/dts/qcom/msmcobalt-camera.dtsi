@@ -356,7 +356,7 @@
 			<0x2c 0x10000000 0x30000000>;
 		qcom,fd-misc-reg-settings = <0x20 0x2 0x3>,
 			<0x24 0x2 0x3>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	qcom,cpp@ca04000 {
