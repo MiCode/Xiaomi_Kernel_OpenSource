@@ -424,4 +424,14 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_TOP      (1 << 9)
 #define SDE_DBG_MASK_VBIF     (1 << 10)
 
+/**
+ * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.
+ * @payload: Feature specific payload.
+ * @len: Length of the payload.
+ */
+struct sde_hw_cp_cfg {
+	void *payload;
+	u32 len;
+};
+
 #endif  /* _SDE_HW_MDSS_H */

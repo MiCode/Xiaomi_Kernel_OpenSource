@@ -151,7 +151,7 @@ static void sde_hw_lm_setup_color3(struct sde_hw_mixer *ctx,
 	SDE_REG_WRITE(c, LM_OP_MODE, op_mode);
 }
 
-static void sde_hw_lm_gammacorrection(struct sde_hw_mixer *mixer,
+static void sde_hw_lm_gc(struct sde_hw_mixer *mixer,
 			void *cfg)
 {
 }
@@ -167,7 +167,7 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 		ops->setup_blend_config = sde_hw_lm_setup_blend_config;
 	ops->setup_alpha_out = sde_hw_lm_setup_color3;
 	ops->setup_border_color = sde_hw_lm_setup_border_color;
-	ops->setup_gammcorrection = sde_hw_lm_gammacorrection;
+	ops->setup_gc = sde_hw_lm_gc;
 };
 
 struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,

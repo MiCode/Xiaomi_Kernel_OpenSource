@@ -60,8 +60,10 @@ struct sde_hw_lm_ops {
 	void (*setup_border_color)(struct sde_hw_mixer *ctx,
 		struct sde_mdss_color *color,
 		u8 border_en);
-
-	void (*setup_gammcorrection)(struct sde_hw_mixer *mixer,
+	/**
+	 * setup_gc : enable/disable gamma correction feature
+	 */
+	void (*setup_gc)(struct sde_hw_mixer *mixer,
 			void *cfg);
 
 };
