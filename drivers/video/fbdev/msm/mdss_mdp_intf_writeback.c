@@ -57,6 +57,7 @@ struct mdss_mdp_writeback_ctx {
 	u16 width;
 	u16 height;
 	u16 frame_rate;
+	enum mdss_mdp_csc_type csc_type;
 	struct mdss_rect dst_rect;
 
 	u32 dnsc_factor_w;
@@ -211,11 +212,6 @@ static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
 	else
 		setup.csc_type = MDSS_MDP_CSC_RGB2RGB;
 
-	if (fmt->is_yuv)
-		setup.csc_type = MDSS_MDP_CSC_RGB2YUV_601L;
-	else
-		setup.csc_type = MDSS_MDP_CSC_RGB2RGB;
-
 	switch (fmt->chroma_sample) {
 	case MDSS_MDP_CHROMA_RGB:
 		setup.horz_downsampling_type = MDP_CDM_CDWN_DISABLE;
@@ -239,6 +235,7 @@ static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
 	setup.mdp_csc_bit_depth = MDP_CDM_CSC_8BIT;
 	setup.output_width = ctx->width;
 	setup.output_height = ctx->height;
+	setup.csc_type = ctx->csc_type;
 	return mdss_mdp_cdm_setup(cdm, &setup);
 }
 
@@ -541,6 +538,7 @@ static int mdss_mdp_writeback_prepare_wfd(struct mdss_mdp_ctl *ctl, void *arg)
 	ctx->width = ctl->width;
 	ctx->height = ctl->height;
 	ctx->frame_rate = ctl->frame_rate;
+	ctx->csc_type = ctl->csc_type;
 	ctx->dst_rect.x = 0;
 	ctx->dst_rect.y = 0;
 	ctx->dst_rect.w = ctx->width;
