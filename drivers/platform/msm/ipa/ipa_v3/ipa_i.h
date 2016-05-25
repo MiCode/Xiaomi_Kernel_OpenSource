@@ -195,13 +195,6 @@
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
 #define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition.x_)
 
-#define IPA_SMMU_AP_VA_START 0x1000
-#define IPA_SMMU_AP_VA_SIZE 0x40000000
-#define IPA_SMMU_AP_VA_END (IPA_SMMU_AP_VA_START +  IPA_SMMU_AP_VA_SIZE)
-#define IPA_SMMU_UC_VA_START 0x40000000
-#define IPA_SMMU_UC_VA_SIZE 0x20000000
-#define IPA_SMMU_UC_VA_END (IPA_SMMU_UC_VA_START +  IPA_SMMU_UC_VA_SIZE)
-
 #define IPA_GSI_CHANNEL_STOP_MAX_RETRY 10
 #define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
@@ -244,6 +237,9 @@ struct ipa_smmu_cb_ctx {
 	struct dma_iommu_mapping *mapping;
 	struct iommu_domain *iommu;
 	unsigned long next_addr;
+	u32 va_start;
+	u32 va_size;
+	u32 va_end;
 };
 
 /**
@@ -720,7 +716,8 @@ struct ipa3_sys_context {
 enum ipa3_desc_type {
 	IPA_DATA_DESC,
 	IPA_DATA_DESC_SKB,
-	IPA_IMM_CMD_DESC
+	IPA_DATA_DESC_SKB_PAGED,
+	IPA_IMM_CMD_DESC,
 };
 
 /**
@@ -784,6 +781,7 @@ struct ipa3_dma_xfer_wrapper {
  * struct ipa3_desc - IPA descriptor
  * @type: skb or immediate command or plain old data
  * @pyld: points to skb
+ * @frag: points to paged fragment
  * or kmalloc'ed immediate command parameters/plain old data
  * @dma_address: dma mapped address of pyld
  * @dma_address_valid: valid field for dma_address
@@ -797,6 +795,7 @@ struct ipa3_dma_xfer_wrapper {
 struct ipa3_desc {
 	enum ipa3_desc_type type;
 	void *pyld;
+	skb_frag_t *frag;
 	dma_addr_t dma_address;
 	bool dma_address_valid;
 	u16 len;
@@ -906,6 +905,7 @@ struct ipa3_stats {
 	u32 lan_repl_rx_empty;
 	u32 flow_enable;
 	u32 flow_disable;
+	u32 tx_non_linear;
 };
 
 struct ipa3_active_clients {
@@ -1419,6 +1419,7 @@ struct ipa3_ready_cb_info {
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
  * @apply_rg10_wa: Indicates whether to use register group 10 workaround
+ * @gsi_ch20_wa: Indicates whether to apply GSI physical channel 20 workaround
  * @w_lock: Indicates the wakeup source.
  * @wakelock_ref_cnt: Indicates the number of times wakelock is acquired
  * @ipa_initialization_complete: Indicates that IPA is fully initialized
@@ -1442,6 +1443,7 @@ struct ipa3_context {
 	struct ipa3_flt_tbl flt_tbl[IPA3_MAX_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
+	u32 ipa_wrapper_size;
 	struct ipa3_hdr_tbl hdr_tbl;
 	struct ipa3_hdr_proc_ctx_tbl hdr_proc_ctx_tbl;
 	struct ipa3_rt_tbl_set rt_tbl_set[IPA_IP_MAX];
@@ -1531,6 +1533,7 @@ struct ipa3_context {
 	unsigned long gsi_dev_hdl;
 	u32 ee;
 	bool apply_rg10_wa;
+	bool gsi_ch20_wa;
 	bool smmu_present;
 	bool smmu_s1_bypass;
 	unsigned long peer_bam_iova;
@@ -1584,6 +1587,7 @@ struct ipa3_plat_drv_res {
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
 	bool apply_rg10_wa;
+	bool gsi_ch20_wa;
 	bool tethered_flow_control;
 };
 
@@ -2204,9 +2208,14 @@ struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx);
 void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val);
 
 u32 ipa3_get_num_pipes(void);
+struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void);
-struct iommu_domain *ipa_get_uc_smmu_domain(void);
+struct iommu_domain *ipa3_get_smmu_domain(void);
+struct iommu_domain *ipa3_get_uc_smmu_domain(void);
+struct iommu_domain *ipa3_get_wlan_smmu_domain(void);
+int ipa3_iommu_map(struct iommu_domain *domain, unsigned long iova,
+	phys_addr_t paddr, size_t size, int prot);
 int ipa3_ap_suspend(struct device *dev);
 int ipa3_ap_resume(struct device *dev);
 int ipa3_init_interrupts(void);
@@ -2241,4 +2250,5 @@ void ipa3_dec_release_wakelock(void);
 int ipa3_load_fws(const struct firmware *firmware);
 int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
+int ipa_gsi_ch20_wa(void);
 #endif /* _IPA3_I_H_ */

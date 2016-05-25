@@ -509,7 +509,7 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 		return -EINVAL;
 	}
 
-	ret = iommu_map(cb->mapping->domain, va, rounddown(pa, PAGE_SIZE),
+	ret = ipa3_iommu_map(cb->mapping->domain, va, rounddown(pa, PAGE_SIZE),
 			true_len,
 			device ? (prot | IOMMU_DEVICE) : prot);
 	if (ret) {
@@ -550,7 +550,7 @@ static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 		phys = page_to_phys(sg_page(sg));
 		len = PAGE_ALIGN(sg->offset + sg->length);
 
-		ret = iommu_map(cb->mapping->domain, va, phys, len, prot);
+		ret = ipa3_iommu_map(cb->mapping->domain, va, phys, len, prot);
 		if (ret) {
 			IPAERR("iommu map failed for pa=%pa len=%zu\n",
 					&phys, len);
@@ -605,7 +605,7 @@ static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
 	}
 
 	if (ipa3_ctx->wdi_map_cnt == 0)
-		cb->next_addr = IPA_SMMU_UC_VA_END;
+		cb->next_addr = cb->va_end;
 
 }
 
@@ -1763,7 +1763,7 @@ int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 	for (i = 0; i < num_buffers; i++) {
 		IPADBG("i=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", i,
 			&info[i].pa, info[i].iova, info[i].size);
-		info[i].result = iommu_map(cb->iommu,
+		info[i].result = ipa3_iommu_map(cb->iommu,
 			rounddown(info[i].iova, PAGE_SIZE),
 			rounddown(info[i].pa, PAGE_SIZE),
 			roundup(info[i].size + info[i].pa -

@@ -1099,7 +1099,7 @@ int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 	driver->buffering_mode[peripheral].mode = params->mode;
 	driver->buffering_mode[peripheral].low_wm_val = params->low_wm_val;
 	driver->buffering_mode[peripheral].high_wm_val = params->high_wm_val;
-	if (mode == DIAG_BUFFERING_MODE_STREAMING)
+	if (params->mode == DIAG_BUFFERING_MODE_STREAMING)
 		driver->buffering_flag[peripheral] = 0;
 fail:
 	mutex_unlock(&driver->mode_lock);

@@ -817,7 +817,8 @@ static int msm_eeprom_i2c_probe(struct i2c_client *client,
 			e_ctrl->eboard_info->i2c_slaveaddr;
 
 	/*Get clocks information*/
-	rc = msm_camera_get_clk_info(e_ctrl->pdev,
+	rc = msm_camera_i2c_dev_get_clk_info(
+		&e_ctrl->i2c_client.client->dev,
 		&e_ctrl->eboard_info->power_info.clk_info,
 		&e_ctrl->eboard_info->power_info.clk_ptr,
 		&e_ctrl->eboard_info->power_info.clk_info_size);
@@ -868,7 +869,7 @@ static int msm_eeprom_i2c_remove(struct i2c_client *client)
 		return 0;
 	}
 
-	msm_camera_put_clk_info(e_ctrl->pdev,
+	msm_camera_i2c_dev_put_clk_info(&e_ctrl->i2c_client.client->dev,
 		&e_ctrl->eboard_info->power_info.clk_info,
 		&e_ctrl->eboard_info->power_info.clk_ptr,
 		e_ctrl->eboard_info->power_info.clk_info_size);
@@ -1123,7 +1124,8 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 	power_info->dev = &spi->dev;
 
 	/*Get clocks information*/
-	rc = msm_camera_get_clk_info(e_ctrl->pdev,
+	rc = msm_camera_i2c_dev_get_clk_info(
+		&spi->dev,
 		&power_info->clk_info,
 		&power_info->clk_ptr,
 		&power_info->clk_info_size);
@@ -1209,6 +1211,11 @@ power_down:
 	msm_camera_power_down(power_info, e_ctrl->eeprom_device_type,
 		&e_ctrl->i2c_client);
 caldata_free:
+	msm_camera_i2c_dev_put_clk_info(
+		&e_ctrl->i2c_client.spi_client->spi_master->dev,
+		&e_ctrl->eboard_info->power_info.clk_info,
+		&e_ctrl->eboard_info->power_info.clk_ptr,
+		e_ctrl->eboard_info->power_info.clk_info_size);
 	kfree(e_ctrl->cal_data.mapdata);
 	kfree(e_ctrl->cal_data.map);
 board_free:
@@ -1259,7 +1266,8 @@ static int msm_eeprom_spi_remove(struct spi_device *sdev)
 		pr_err("%s: eboard_info is NULL\n", __func__);
 		return 0;
 	}
-	msm_camera_put_clk_info(e_ctrl->pdev,
+	msm_camera_i2c_dev_put_clk_info(
+		&e_ctrl->i2c_client.spi_client->spi_master->dev,
 		&e_ctrl->eboard_info->power_info.clk_info,
 		&e_ctrl->eboard_info->power_info.clk_ptr,
 		e_ctrl->eboard_info->power_info.clk_info_size);

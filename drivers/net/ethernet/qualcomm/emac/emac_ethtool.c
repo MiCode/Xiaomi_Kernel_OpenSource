@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
  */
 
 #include <linux/ethtool.h>
+#include <linux/pm_runtime.h>
 
 #include "emac.h"
 #include "emac_hw.h"
@@ -186,6 +187,8 @@ static int emac_set_settings(struct net_device *netdev,
 	    (phy->autoneg_advertised == advertised))
 		goto done;
 
+	pm_runtime_get_sync(netdev->dev.parent);
+
 	/* If there is no EPHY, the EMAC internal PHY may get reset in
 	 * emac_phy_setup_link_speed. Reset the MAC to avoid the memory
 	 * corruption.
@@ -205,6 +208,8 @@ static int emac_set_settings(struct net_device *netdev,
 		if (!phy->external)
 			emac_up(adpt);
 	}
+	pm_runtime_mark_last_busy(netdev->dev.parent);
+	pm_runtime_put_autosuspend(netdev->dev.parent);
 
 done:
 	CLR_FLAG(adpt, ADPT_STATE_RESETTING);
@@ -264,6 +269,7 @@ static int emac_set_pauseparam(struct net_device *netdev,
 		CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 		return -EINVAL;
 	}
+	pm_runtime_get_sync(netdev->dev.parent);
 
 	if ((phy->req_fc_mode != req_fc_mode) ||
 	    (phy->disable_fc_autoneg != disable_fc_autoneg)) {
@@ -277,6 +283,8 @@ static int emac_set_pauseparam(struct net_device *netdev,
 		if (!retval)
 			emac_phy_config_fc(adpt);
 	}
+	pm_runtime_mark_last_busy(netdev->dev.parent);
+	pm_runtime_put_autosuspend(netdev->dev.parent);
 
 	CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 	return retval;
@@ -318,8 +326,11 @@ static void emac_get_regs(struct net_device *netdev,
 	regs->len = EMAC_MAX_REG_SIZE * sizeof(u32);
 
 	memset(val, 0, EMAC_MAX_REG_SIZE * sizeof(u32));
+	pm_runtime_get_sync(netdev->dev.parent);
 	for (i = 0; i < ARRAY_SIZE(reg); i++)
 		val[i] = emac_reg_r32(hw, EMAC, reg[i]);
+	pm_runtime_mark_last_busy(netdev->dev.parent);
+	pm_runtime_put_autosuspend(netdev->dev.parent);
 }
 
 static void emac_get_drvinfo(struct net_device *netdev,
@@ -409,7 +420,10 @@ static int emac_set_intr_coalesce(struct net_device *netdev,
 	val |= ((ec->tx_coalesce_usecs / 2) << IRQ_MODERATOR_INIT_SHFT) &
 		IRQ_MODERATOR_INIT_BMSK;
 
+	pm_runtime_get_sync(netdev->dev.parent);
 	emac_reg_w32(hw, EMAC, EMAC_IRQ_MOD_TIM_INIT, val);
+	pm_runtime_mark_last_busy(netdev->dev.parent);
+	pm_runtime_put_autosuspend(netdev->dev.parent);
 	hw->irq_mod = val;
 
 	return 0;

@@ -48,17 +48,18 @@ int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count)
 	struct cnss_unsafe_channel_list *unsafe_list;
 
 	mutex_lock(&unsafe_channel_list_lock);
-	if ((!unsafe_ch_list) || (!ch_count) || (ch_count > CNSS_MAX_CH_NUM)) {
+	if ((!unsafe_ch_list) || (ch_count > CNSS_MAX_CH_NUM)) {
 		mutex_unlock(&unsafe_channel_list_lock);
 		return -EINVAL;
 	}
 
-	unsafe_list = &unsafe_channel_list;
 	unsafe_channel_list.unsafe_ch_count = ch_count;
 
-	memcpy(
-		(char *)unsafe_list->unsafe_ch_list,
-		(char *)unsafe_ch_list, ch_count * sizeof(u16));
+	if (ch_count != 0) {
+		memcpy(
+			(char *)unsafe_list->unsafe_ch_list,
+			(char *)unsafe_ch_list, ch_count * sizeof(u16));
+	}
 	mutex_unlock(&unsafe_channel_list_lock);
 
 	return 0;
