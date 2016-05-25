@@ -731,6 +731,8 @@ struct emac_adapter {
 	int	(*gpio_off)(struct emac_adapter *adpt, bool mdio, bool ephy);
 	struct wakeup_source link_wlock;
 	bool		runtime_enable;
+	bool		is_wol_enabled;
+	spinlock_t	wol_irq_lock; /* lock for wol irq gpio enablement */
 };
 
 static inline struct emac_adapter *emac_hw_get_adap(struct emac_hw *hw)
