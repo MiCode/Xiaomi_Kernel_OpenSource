@@ -44,7 +44,6 @@ extern unsigned int sysctl_sched_wakeup_load_threshold;
 extern unsigned int sysctl_sched_window_stats_policy;
 extern unsigned int sysctl_sched_ravg_hist_size;
 extern unsigned int sysctl_sched_cpu_high_irqload;
-extern unsigned int sysctl_sched_migration_fixup;
 extern unsigned int sysctl_sched_heavy_task_pct;
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
@@ -75,6 +74,7 @@ extern unsigned int sysctl_sched_restrict_tasks_spread;
 extern unsigned int sysctl_sched_account_wait_time;
 extern unsigned int sysctl_sched_freq_account_wait_time;
 extern unsigned int sysctl_sched_enable_power_aware;
+extern unsigned int sysctl_sched_migration_fixup;
 #else
 extern unsigned int sysctl_sched_select_prev_cpu_us;
 extern unsigned int sysctl_sched_enable_colocation;

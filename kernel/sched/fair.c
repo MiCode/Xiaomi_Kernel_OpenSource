@@ -3807,9 +3807,6 @@ DEFINE_MUTEX(policy_mutex);
 #ifdef CONFIG_SCHED_FREQ_INPUT
 static inline int invalid_value_freq_input(unsigned int *data)
 {
-	if (data == &sysctl_sched_migration_fixup)
-		return !(*data == 0 || *data == 1);
-
 	if (data == &sysctl_sched_freq_aggregate)
 		return !(*data == 0 || *data == 1);
 
