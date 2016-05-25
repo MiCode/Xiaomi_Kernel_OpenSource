@@ -281,6 +281,9 @@ struct msm_drm_private {
 	struct drm_property *crtc_property[CRTC_PROP_COUNT];
 	struct drm_property *conn_property[CONNECTOR_PROP_COUNT];
 
+	/* Color processing properties for the crtc */
+	struct drm_property **cp_property;
+
 	/* VRAM carveout, used when no IOMMU: */
 	struct {
 		unsigned long size;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,12 +83,41 @@ struct sde_hw_dspp_ops {
 	 * @cfg: Pointer to configuration
 	 */
 	void (*setup_danger_safe)(struct sde_hw_dspp *ctx, void *cfg);
+
 	/**
 	 * setup_dither - setup dspp dither
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration
 	 */
 	void (*setup_dither)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_hue - setup dspp PA hue
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_hue)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_sat - setup dspp PA saturation
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_sat)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_val - setup dspp PA value
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_val)(struct sde_hw_dspp *ctx, void *cfg);
+
+	/**
+	 * setup_cont - setup dspp PA contrast
+	 * @ctx: Pointer to dspp context
+	 * @cfg: Pointer to configuration
+	 */
+	void (*setup_cont)(struct sde_hw_dspp *ctx, void *cfg);
 };
 
 /**

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
  * struct sde_crtc_mixer: stores the map for each virtual pipeline in the CRTC
  * @hw_lm:	LM HW Driver context
  * @hw_ctl:	CTL Path HW driver context
+ * @hw_dspp:	DSPP HW driver context
  * @encoder:	Encoder attached to this lm & ctl
  * @mixer_op_mode: mixer blending operation mode
  * @flush_mask:	mixer flush mask for ctl, mixer and pipe
@@ -35,6 +36,7 @@
 struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
 	struct sde_hw_ctl *hw_ctl;
+	struct sde_hw_dspp  *hw_dspp;
 	struct drm_encoder *encoder;
 	u32 mixer_op_mode;
 	u32 flush_mask;
@@ -58,6 +60,9 @@ struct sde_crtc_mixer {
  * @property_defaults : Array of default values for generic property support
  * @stage_cfg     : H/w mixer stage configuration
  * @debugfs_root  : Parent of debugfs node
+ * @feature_list  : list of color processing features supported on a crtc
+ * @active_list   : list of color processing features are active
+ * @dirty_list    : list of color processing features are dirty
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -84,6 +89,10 @@ struct sde_crtc {
 
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;
+
+	struct list_head feature_list;
+	struct list_head active_list;
+	struct list_head dirty_list;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
