@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,12 +142,12 @@ struct avcs_cmd_deregister_topologies {
 	/* Size in bytes of the valid data in the topology buffer. */
 
 	uint32_t                  mode;
-	/* 0: Deregister selected topologies
-	 * 1: Deregister all topologies
+	/* 1: Deregister selected topologies
+	 * 2: Deregister all topologies
 	 */
 } __packed;
 
-#define AVCS_MODE_DEREGISTER_ALL_CUSTOM_TOPOLOGIES	1
+#define AVCS_MODE_DEREGISTER_ALL_CUSTOM_TOPOLOGIES	2
 
 
 int32_t core_set_license(uint32_t key, uint32_t module_id);
