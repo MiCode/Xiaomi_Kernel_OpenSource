@@ -1573,19 +1573,6 @@ static int __init set_sched_enable_hmp(char *str)
 
 early_param("sched_enable_hmp", set_sched_enable_hmp);
 
-static int __init set_sched_enable_power_aware(char *str)
-{
-	int enable_power_aware = 0;
-
-	get_option(&str, &enable_power_aware);
-
-	sysctl_sched_enable_power_aware = !!enable_power_aware;
-
-	return 0;
-}
-
-early_param("sched_enable_power_aware", set_sched_enable_power_aware);
-
 static inline int got_boost_kick(void)
 {
 	int cpu = smp_processor_id();
@@ -2659,7 +2646,7 @@ int sched_update_freq_max_load(const cpumask_t *cpumask)
 	u32 hfreq;
 	int hpct;
 
-	if (!per_cpu_info || !sysctl_sched_enable_power_aware)
+	if (!per_cpu_info)
 		return 0;
 
 	spin_lock_irqsave(&freq_max_load_lock, flags);
