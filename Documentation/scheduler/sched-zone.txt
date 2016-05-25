@@ -1049,21 +1049,7 @@ high-performance CPU).
 
 See also notes on 'cpu.upmigrate_discourage' tunable.
 
-*** 7.6 sched_enable_power_aware
-
-Appears at: /proc/sys/kernel/sched_enable_power_aware
-
-Default value: 0
-
-Controls whether or not per-CPU power values are used in determining
-task placement. If this is disabled, tasks are simply placed on the
-least capacity CPU that will adequately meet the task's needs as
-determined by the task load tracking mechanism. If this is enabled,
-after a set of CPUs are determined which will meet the task's
-performance needs, a CPU is selected which is reported to have the
-lowest power consumption at that time.
-
-*** 7.7 sched_ravg_hist_size
+*** 7.6 sched_ravg_hist_size
 
 Appears at: /proc/sys/kernel/sched_ravg_hist_size
 
@@ -1072,7 +1058,7 @@ Default value: 5
 This tunable controls the number of samples used from task's sum_history[]
 array for determination of its demand.
 
-*** 7.8 sched_window_stats_policy
+*** 7.7 sched_window_stats_policy
 
 Appears at: /proc/sys/kernel/sched_window_stats_policy
 
@@ -1091,7 +1077,7 @@ Possible values for this tunable are:
    samples), where M = sysctl_sched_ravg_hist_size
 3. Use average of first M samples, where M = sysctl_sched_ravg_hist_size
 
-*** 7.9 sched_ravg_window
+*** 7.8 sched_ravg_window
 
 Appears at: kernel command line argument
 
@@ -1102,7 +1088,7 @@ tracking. By default each window is 10ms long. This quantity must
 currently be set at boot time on the kernel command line (or the
 default value of 10ms can be used).
 
-*** 7.10 RAVG_HIST_SIZE
+*** 7.9 RAVG_HIST_SIZE
 
 Appears at: compile time only (see RAVG_HIST_SIZE in include/linux/sched.h)
 
@@ -1113,7 +1099,7 @@ tracking mechanism maintains per task. If default values are used for
 both this and sched_ravg_window then a total of 50ms of task history
 would be maintained in 5 10ms windows.
 
-*** 7.11 sched_migration_fixup
+*** 7.10 sched_migration_fixup
 
 Appears at: /proc/sys/kernel/sched_migration_fixup
 
@@ -1122,7 +1108,7 @@ Default value: 1
 This controls whether a cpu's busy time counters are adjusted during task
 migration.
 
-*** 7.12 sched_freq_inc_notify
+*** 7.11 sched_freq_inc_notify
 
 Appears at: /proc/sys/kernel/sched_freq_inc_notify
 
@@ -1134,7 +1120,7 @@ exceeds sched_freq_inc_notify, where freq_required is the frequency calculated
 by scheduler to meet current task demand. Note that sched_freq_inc_notify is
 specified in kHz units.
 
-*** 7.13 sched_freq_dec_notify
+*** 7.12 sched_freq_dec_notify
 
 Appears at: /proc/sys/kernel/sched_freq_dec_notify
 
@@ -1147,7 +1133,7 @@ exceeds sched_freq_dec_notify, where freq_required is the frequency calculated
 by scheduler to meet current task demand. Note that sched_freq_dec_notify is
 specified in kHz units.
 
-*** 7.14 sched_heavy_task
+*** 7.13 sched_heavy_task
 
 Appears at: /proc/sys/kernel/sched_heavy_task
 
@@ -1159,7 +1145,7 @@ comparison. Scheduler will request a raise in cpu frequency when heavy tasks
 wakeup after at least one window of sleep, where window size is defined by
 sched_ravg_window. Value 0 will disable this feature.
 
-*** 7.15 sched_cpu_high_irqload
+*** 7.14 sched_cpu_high_irqload
 
 Appears at: /proc/sys/kernel/sched_cpu_high_irqload
 
@@ -1177,7 +1163,7 @@ longer eligible for placement. This will affect the task placement logic
 described above, causing the scheduler to try and steer tasks away from
 the CPU.
 
-*** 7.16 cpu.upmigrate_discourage
+*** 7.15 cpu.upmigrate_discourage
 
 Default value : 0
 
@@ -1193,7 +1179,7 @@ overcommitted scenario. See notes on sched_spill_nr_run and sched_spill_load for
 how overcommitment threshold is defined and also notes on
 'sched_upmigrate_min_nice' tunable.
 
-*** 7.17 sched_static_cpu_pwr_cost
+*** 7.16 sched_static_cpu_pwr_cost
 
 Default value: 0
 
@@ -1208,7 +1194,7 @@ within a cluster and possibly have differing value between clusters as
 needed.
 
 
-*** 7.18 sched_static_cluster_pwr_cost
+*** 7.17 sched_static_cluster_pwr_cost
 
 Default value: 0
 
@@ -1219,7 +1205,7 @@ power mode. It ignores the actual D-state that a cluster may be in and assumes
 the worst case power cost of the highest D-state. It is means of biasing task
 placement away from idle clusters when necessary.
 
-*** 7.19 sched_early_detection_duration
+*** 7.18 sched_early_detection_duration
 
 Default value: 9500000
 
@@ -1230,7 +1216,7 @@ tick for it to be eligible for the scheduler's early detection feature
 under scheduler boost. For more information on the feature itself please
 refer to section 5.2.1.
 
-*** 7.20 sched_restrict_cluster_spill
+*** 7.19 sched_restrict_cluster_spill
 
 Default value: 0
 
@@ -1249,7 +1235,7 @@ CPU across all clusters. When this tunable is enabled, the RT tasks are
 restricted to the lowest possible power cluster.
 
 
-*** 7.21 sched_downmigrate
+*** 7.20 sched_downmigrate
 
 Appears at: /proc/sys/kernel/sched_downmigrate
 
@@ -1262,7 +1248,7 @@ its demand *in reference to the power-efficient cpu* drops less than 60%
 (sched_downmigrate).
 
 
-*** 7.22 sched_small_wakee_task_load
+*** 7.21 sched_small_wakee_task_load
 
 Appears at: /proc/sys/kernel/sched_small_wakee_task_load
 
@@ -1274,7 +1260,7 @@ categorized as small wakee tasks.  Scheduler places small wakee tasks on the
 waker's cluster.
 
 
-*** 7.23 sched_big_waker_task_load
+*** 7.22 sched_big_waker_task_load
 
 Appears at: /proc/sys/kernel/sched_big_waker_task_load
 

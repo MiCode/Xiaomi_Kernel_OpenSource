@@ -2706,13 +2706,6 @@ unsigned int __read_mostly sched_enable_hmp = 0;
 unsigned int __read_mostly sysctl_sched_spill_nr_run = 10;
 
 /*
- * Control whether or not individual CPU power consumption is used to
- * guide task placement.
- * This sysctl can be set to a default value using boot command line arguments.
- */
-unsigned int __read_mostly sysctl_sched_enable_power_aware = 0;
-
-/*
  * Place sync wakee tasks those have less than configured demand to the waker's
  * cluster.
  */
@@ -3081,8 +3074,7 @@ unsigned int power_cost(int cpu, u64 demand)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned int pc;
 
-	if (!per_cpu_info || !per_cpu_info[cpu].ptable ||
-	    !sysctl_sched_enable_power_aware)
+	if (!per_cpu_info || !per_cpu_info[cpu].ptable)
 		/* When power aware scheduling is not in use, or CPU
 		 * power data is not available, just use the CPU
 		 * capacity as a rough stand-in for real CPU power
@@ -4316,8 +4308,6 @@ unsigned int cpu_temp(int cpu)
 }
 
 #else	/* CONFIG_SCHED_HMP */
-
-#define sysctl_sched_enable_power_aware 0
 
 struct cpu_select_env;
 struct sched_cluster;
