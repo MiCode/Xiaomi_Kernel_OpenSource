@@ -20,7 +20,7 @@
 struct sde_hw_wb;
 
 struct sde_hw_wb_cfg {
-	struct sde_hw_source_info dest;
+	struct sde_hw_fmt_layout dest;
 };
 
 /**

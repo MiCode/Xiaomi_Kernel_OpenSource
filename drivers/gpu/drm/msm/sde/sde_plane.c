@@ -43,7 +43,7 @@ struct sde_plane {
 	enum sde_sspp pipe;
 	uint32_t features;      /* capabilities from catalog */
 	uint32_t nformats;
-	uint32_t formats[32];
+	uint32_t formats[64];
 
 	struct sde_hw_pipe *pipe_hw;
 	struct sde_hw_pipe_cfg pipe_cfg;
@@ -135,39 +135,30 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 
 static void _sde_plane_set_scanout(struct drm_plane *plane,
 		struct sde_plane_state *pstate,
-		struct sde_hw_pipe_cfg *pipe_cfg, struct drm_framebuffer *fb)
+		struct sde_hw_pipe_cfg *pipe_cfg,
+		struct drm_framebuffer *fb)
 {
 	struct sde_plane *psde;
-	unsigned int shift;
-	int i;
+	int ret, i;
 
 	if (!plane || !pstate || !pipe_cfg || !fb)
 		return;
 
 	psde = to_sde_plane(plane);
 
-	if (psde->pipe_hw && psde->pipe_hw->ops.setup_sourceaddress) {
-		/* stride */
-		if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
-				BIT(SDE_DRM_DEINTERLACE))
-			shift = 1;
-		else
-			shift = 0;
-
-		i = min_t(int, ARRAY_SIZE(fb->pitches), SDE_MAX_PLANES);
-		while (i) {
-			--i;
-			pipe_cfg->src.ystride[i] = fb->pitches[i] << shift;
-		}
-
-		/* address */
-		for (i = 0; i < ARRAY_SIZE(pipe_cfg->addr.plane); ++i)
-			pipe_cfg->addr.plane[i] = msm_framebuffer_iova(fb,
-					psde->mmu_id, i);
-
-		/* hw driver */
-		psde->pipe_hw->ops.setup_sourceaddress(psde->pipe_hw, pipe_cfg);
+	ret = sde_format_populate_layout(psde->mmu_id, fb, &pipe_cfg->layout);
+	if (ret) {
+		DRM_ERROR("failed to get format layout, error: %d\n", ret);
+		return;
 	}
+
+	if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
+			BIT(SDE_DRM_DEINTERLACE))
+		for (i = 0; i < SDE_MAX_PLANES; ++i)
+			pipe_cfg->layout.plane_pitch[i] <<= 1;
+
+	if (psde->pipe_hw && psde->pipe_hw->ops.setup_sourceaddress)
+		psde->pipe_hw->ops.setup_sourceaddress(psde->pipe_hw, pipe_cfg);
 }
 
 static void _sde_plane_setup_scaler3(struct sde_plane *psde,
@@ -712,9 +703,9 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 
 	psde = to_sde_plane(plane);
 	pstate = to_sde_plane_state(plane->state);
-	nplanes = drm_format_num_planes(fb->pixel_format);
 
 	fmt = to_sde_format(msm_framebuffer_format(fb));
+	nplanes = fmt->num_planes;
 
 	/* src values are in Q16 fixed point, convert to integer */
 	src_x = src_x >> 16;
@@ -722,18 +713,16 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	src_w = src_w >> 16;
 	src_h = src_h >> 16;
 
-	DBG("%s: FB[%u] %u,%u,%u,%u -> CRTC[%u] %d,%d,%u,%u", psde->pipe_name,
+	DBG("%s: FB[%u] %u,%u,%u,%u -> CRTC[%u] %d,%d,%u,%u, %s ubwc %d",
+			psde->pipe_name,
 			fb->base.id, src_x, src_y, src_w, src_h,
-			crtc->base.id, crtc_x, crtc_y, crtc_w, crtc_h);
+			crtc->base.id, crtc_x, crtc_y, crtc_w, crtc_h,
+			drm_get_format_name(fmt->base.pixel_format),
+			SDE_FORMAT_IS_UBWC(fmt));
 
 	/* update format configuration */
 	memset(&(psde->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
 	src_flags = 0;
-
-	psde->pipe_cfg.src.format = fmt;
-	psde->pipe_cfg.src.width = fb->width;
-	psde->pipe_cfg.src.height = fb->height;
-	psde->pipe_cfg.src.num_planes = nplanes;
 
 	/* flags */
 	DBG("Flags 0x%llX, rotation 0x%llX",
@@ -761,9 +750,6 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	psde->pipe_cfg.dst_rect.y = crtc_y;
 	psde->pipe_cfg.dst_rect.w = crtc_w;
 	psde->pipe_cfg.dst_rect.h = crtc_h;
-
-	/* get sde pixel format definition */
-	fmt = psde->pipe_cfg.src.format;
 
 	/* check for color fill */
 	psde->color_fill = (uint32_t)sde_plane_get_property(pstate,
@@ -833,6 +819,42 @@ static int _sde_plane_atomic_check_fb(struct sde_plane *psde,
 		struct drm_framebuffer *fb)
 {
 	return 0;
+}
+
+static void _sde_plane_atomic_check_mode_changed(struct sde_plane *psde,
+		struct drm_plane_state *state,
+		struct drm_plane_state *old_state)
+{
+	struct sde_plane_state *pstate = to_sde_plane_state(state);
+
+	if (!(sde_plane_enabled(state) && sde_plane_enabled(old_state))) {
+		DBG("%s: pipe enabling/disabling full modeset required",
+			psde->pipe_name);
+		pstate->mode_changed = true;
+	} else if (to_sde_plane_state(old_state)->pending) {
+		DBG("%s: still pending", psde->pipe_name);
+		pstate->mode_changed = true;
+	} else if (state->src_w != old_state->src_w ||
+			state->src_h != old_state->src_h) {
+		DBG("%s: src_w change", psde->pipe_name);
+		pstate->mode_changed = true;
+	} else if (state->fb->pixel_format != old_state->fb->pixel_format) {
+		DBG("%s: format change!", psde->pipe_name);
+		pstate->mode_changed = true;
+	} else {
+		uint64_t *new_mods = state->fb->modifier;
+		uint64_t *old_mods = old_state->fb->modifier;
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(state->fb->modifier); i++) {
+			if (new_mods[i] != old_mods[i]) {
+				DBG("%s: format modifiers change",
+					psde->pipe_name);
+				pstate->mode_changed = true;
+				break;
+			}
+		}
+	}
 }
 
 static int sde_plane_atomic_check(struct drm_plane *plane,
@@ -994,32 +1016,8 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 		}
 	}
 
-	if (!ret) {
-		if (sde_plane_enabled(state) &&
-			sde_plane_enabled(old_state)) {
-			bool full_modeset = false;
-
-			if (state->fb->pixel_format !=
-				old_state->fb->pixel_format) {
-				DBG("%s: format change!", psde->pipe_name);
-				full_modeset = true;
-			}
-			if (state->src_w != old_state->src_w ||
-				state->src_h != old_state->src_h) {
-				DBG("%s: src_w change!", psde->pipe_name);
-				full_modeset = true;
-			}
-			if (to_sde_plane_state(old_state)->pending) {
-				DBG("%s: still pending!", psde->pipe_name);
-				full_modeset = true;
-			}
-			if (full_modeset)
-				to_sde_plane_state(state)->mode_changed = true;
-
-		} else {
-			to_sde_plane_state(state)->mode_changed = true;
-		}
-	}
+	if (!ret)
+		_sde_plane_atomic_check_mode_changed(psde, state, old_state);
 
 exit:
 	return ret;
