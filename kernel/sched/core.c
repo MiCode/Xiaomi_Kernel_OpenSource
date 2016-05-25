@@ -1750,8 +1750,7 @@ struct cpu_cycle {
 #if defined(CONFIG_SCHED_HMP)
 
 /*
- * sched_window_stats_policy, sched_ravg_hist_size,
- * sched_migration_fixup have a 'sysctl' copy
+ * sched_window_stats_policy and sched_ravg_hist_size have a 'sysctl' copy
  * associated with them. This is required for atomic update of those variables
  * when being modifed via sysctl interface.
  *
@@ -1782,9 +1781,6 @@ unsigned int __read_mostly sysctl_sched_enable_colocation = 1;
 #ifdef CONFIG_SCHED_FREQ_INPUT
 
 __read_mostly unsigned int sysctl_sched_new_task_windows = 5;
-
-static __read_mostly unsigned int sched_migration_fixup = 1;
-__read_mostly unsigned int sysctl_sched_migration_fixup = 1;
 
 #define SCHED_FREQ_ACCOUNT_WAIT_TIME 0
 
@@ -3171,7 +3167,6 @@ enum reset_reason_code {
 	WINDOW_CHANGE,
 	POLICY_CHANGE,
 	HIST_SIZE_CHANGE,
-	MIGRATION_FIXUP_CHANGE,
 	FREQ_AGGREGATE_CHANGE,
 };
 
@@ -3179,7 +3174,6 @@ const char *sched_window_reset_reasons[] = {
 	"WINDOW_CHANGE",
 	"POLICY_CHANGE",
 	"HIST_SIZE_CHANGE",
-	"MIGRATION_FIXUP_CHANGE",
 };
 
 /* Called with IRQs enabled */
@@ -3249,12 +3243,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		sched_ravg_hist_size = sysctl_sched_ravg_hist_size;
 	}
 #ifdef CONFIG_SCHED_FREQ_INPUT
-	else if (sched_migration_fixup != sysctl_sched_migration_fixup) {
-		reason = MIGRATION_FIXUP_CHANGE;
-		old = sched_migration_fixup;
-		new = sysctl_sched_migration_fixup;
-		sched_migration_fixup = sysctl_sched_migration_fixup;
-	} else if (sched_freq_aggregate !=
+	else if (sched_freq_aggregate !=
 					sysctl_sched_freq_aggregate) {
 		reason = FREQ_AGGREGATE_CHANGE;
 		old = sched_freq_aggregate;
@@ -3496,9 +3485,8 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 	bool new_task;
 	struct related_thread_group *grp;
 
-	if (!sched_enable_hmp || !sched_migration_fixup ||
-		 (!p->on_rq && p->state != TASK_WAKING))
-			return;
+	if (!sched_enable_hmp || (!p->on_rq && p->state != TASK_WAKING))
+		return;
 
 	if (exiting_task(p)) {
 		clear_ed_task(p, src_rq);

@@ -317,13 +317,6 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &zero,
 	},
 	{
-		.procname       = "sched_migration_fixup",
-		.data           = &sysctl_sched_migration_fixup,
-		.maxlen         = sizeof(unsigned int),
-		.mode           = 0644,
-		.proc_handler   = sched_window_update_handler,
-	},
-	{
 		.procname       = "sched_heavy_task",
 		.data           = &sysctl_sched_heavy_task_pct,
 		.maxlen         = sizeof(unsigned int),
