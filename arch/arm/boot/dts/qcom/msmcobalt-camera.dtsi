@@ -50,6 +50,7 @@
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
 		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 269333333 0
 			0 256000000 0>;
+		status = "ok";
 	};
 
 	qcom,csiphy@ca35000 {
@@ -81,6 +82,7 @@
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
 		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 269333333 0
 			0 256000000 0>;
+		status = "ok";
 	};
 
 	qcom,csiphy@ca36000 {
@@ -112,6 +114,7 @@
 			"camss_ispif_ahb_clk", "csiphy_clk_src", "csiphy_clk";
 		qcom,clock-rates = <0 0 0 0 0 0 256000000 0 0 269333333 0
 			0 256000000 0>;
+		status = "ok";
 	};
 
 	qcom,csid@ca30000  {
@@ -187,6 +190,7 @@
 			"csi_pix_clk", "cphy_csid_clk", "cphy_clk_src";
 		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 0 0 0 0 0 0
 			256000000>;
+		status = "ok";
 	};
 
 	qcom,csid@ca30800 {
@@ -224,6 +228,7 @@
 			"csi_pix_clk", "cphy_csid_clk", "cphy_clk_src";
 		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 0 0 0 0 0 0
 			256000000>;
+		status = "ok";
 	};
 
 	qcom,csid@ca30c00 {
@@ -260,7 +265,9 @@
 			"csi_pix_clk", "cphy_csid_clk", "cphy_clk_src";
 		qcom,clock-rates = <0 0 0 0 0 0 0 256000000 0 0 0 0 0
 			256000000>;
+		status = "ok";
 	};
+
 	qcom,cam_smmu {
 		compatible = "qcom,msm-cam-smmu";
 		status = "ok";
