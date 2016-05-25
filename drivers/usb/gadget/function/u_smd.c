@@ -1061,6 +1061,7 @@ void gsmd_resume(struct gserial *gser, u8 portno)
 	port->is_suspended = false;
 	spin_unlock(&port->port_lock);
 	queue_work(gsmd_wq, &port->pull);
+	queue_work(gsmd_wq, &port->push);
 }
 
 void gsmd_cleanup(struct usb_gadget *g, unsigned count)
