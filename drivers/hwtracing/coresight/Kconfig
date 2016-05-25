@@ -164,4 +164,11 @@ config CORESIGHT_QPDI
 	  PMIC. Similarly this debug feature can be disabled via sysfs which
 	  prevents debug dongle detection.
 
+config CORESIGHT_SOURCE_DUMMY
+	bool "Dummy source support"
+	help
+	  Enables support for dummy source devices. Dummy source driver can be
+	  used for CoreSight sources that are owned and configured by some other
+	  subsystem and use Linux drivers to configure rest of trace path.
+
 endif
