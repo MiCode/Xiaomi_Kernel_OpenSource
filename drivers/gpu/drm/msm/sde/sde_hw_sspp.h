@@ -125,7 +125,7 @@ struct sde_hw_scaler3_cfg {
 
 /**
  * struct sde_hw_pipe_cfg : Pipe description
- * @src:       source surface information
+ * @layout:    format layout information for programming buffer to hardware
  * @src_rect:  src ROI, caller takes into account the different operations
  *             such as decimation, flip etc to program this field
  * @dest_rect: destination ROI.
@@ -135,15 +135,13 @@ struct sde_hw_scaler3_cfg {
  *              4: Read 1 line/pixel drop 3  lines/pixels
  *              8: Read 1 line/pixel drop 7 lines/pixels
  *              16: Read 1 line/pixel drop 15 line/pixels
- * @addr:      source surface address
  */
 struct sde_hw_pipe_cfg {
-	struct sde_hw_source_info src;
+	struct sde_hw_fmt_layout layout;
 	struct sde_rect src_rect;
 	struct sde_rect dst_rect;
 	u8 horz_decimation;
 	u8 vert_decimation;
-	struct addr_info addr;
 };
 
 /**

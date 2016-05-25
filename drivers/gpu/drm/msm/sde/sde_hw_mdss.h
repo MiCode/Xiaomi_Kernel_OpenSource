@@ -38,6 +38,13 @@
 
 #define PIPES_PER_STAGE			2
 
+#define SDE_FORMAT_FLAG_YUV		(1 << 0)
+#define SDE_FORMAT_FLAG_ROTATOR		(1 << 1)
+
+#define SDE_FORMAT_IS_YUV(X)		((X)->flag & SDE_FORMAT_FLAG_YUV)
+#define SDE_FORMAT_IS_ROTATOR(X)	((X)->flag & SDE_FORMAT_FLAG_ROTATOR)
+#define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
+
 enum sde_mdp {
 	MDP_TOP = 0x1,
 	MDP_MAX,
@@ -223,11 +230,10 @@ enum sde_chroma_samp_type {
 };
 
 /**
- * enum sde_fetch_type - format id, used by drm-driver only to map drm forcc
- * Defines How HW fetches data
- * @SDE_FETCH_LINEAR   : Fetch is line by line
- * @SDE_FETCH_TILE     : Fetches data in Z order from a tile
- * @SDE_FETCH_UBWC     : Fetch and decompress data
+ * sde_fetch_type - Defines How SDE HW fetches data
+ * @SDE_FETCH_LINEAR   : fetch is line by line
+ * @SDE_FETCH_TILE     : fetches data in Z order from a tile
+ * @SDE_FETCH_UBWC     : fetch and decompress data
  */
 enum sde_fetch_type {
 	SDE_FETCH_LINEAR,
@@ -240,10 +246,12 @@ enum sde_fetch_type {
  * expected by the HW programming.
  */
 enum {
-	COLOR_1BIT = 0,
-	COLOR_5BIT = 1,
-	COLOR_6BIT = 2,
-	COLOR_8BIT = 3,
+	COLOR_ALPHA_1BIT = 0,
+	COLOR_ALPHA_4BIT = 1,
+	COLOR_4BIT = 0,
+	COLOR_5BIT = 1, /* No 5-bit Alpha */
+	COLOR_6BIT = 2, /* 6-Bit Alpha also = 2 */
+	COLOR_8BIT = 3, /* 8-Bit Alpha also = 3 */
 };
 
 enum sde_alpha_blend_type {
@@ -253,7 +261,6 @@ enum sde_alpha_blend_type {
 	ALPHA_BG_PIXEL,
 	ALPHA_MAX
 };
-
 
 /**
  * enum sde_3d_blend_mode
@@ -274,26 +281,24 @@ enum sde_3d_blend_mode {
 	BLEND_3D_MAX
 };
 
-struct addr_info {
-	u32 plane[SDE_MAX_PLANES];
-};
-
-/**
- * struct sde_format - defines the format configuration which
+/** struct sde_format - defines the format configuration which
  * allows SDE HW to correctly fetch and decode the format
- * @base             : Base msm_format structure containing fourcc code
- * @fetch_planes
- * @element
- * @bits
- * @chroma_sample
- * @unpack_align_msb
- * @unpack_tight
- * @unpack_count
- * @bpp
- * @alpha_enable
- * @fetch_mode
- * @is_yuv
- * @flag
+ * @base: base msm_format struture containing fourcc code
+ * @fetch_planes: how the color components are packed in pixel format
+ * @element: element color ordering
+ * @bits: element bit widths
+ * @chroma_sample: chroma sub-samplng type
+ * @unpack_align_msb: unpack aligned, 0 to LSB, 1 to MSB
+ * @unpack_tight: 0 for loose, 1 for tight
+ * @unpack_count: 0 = 1 component, 1 = 2 component
+ * @bpp: bytes per pixel
+ * @alpha_enable: whether the format has an alpha channel
+ * @num_planes: number of planes (including meta data planes)
+ * @fetch_mode: linear, tiled, or ubwc hw fetch behavior
+ * @is_yuv: is format a yuv variant
+ * @flag: usage bit flags
+ * @tile_width: format tile width
+ * @tile_height: format tile height
  */
 struct sde_format {
 	struct msm_format base;
@@ -301,30 +306,39 @@ struct sde_format {
 	u8 element[SDE_MAX_PLANES];
 	u8 bits[SDE_MAX_PLANES];
 	enum sde_chroma_samp_type chroma_sample;
-	u8 unpack_align_msb;	/* 0 to LSB, 1 to MSB */
-	u8 unpack_tight;	/* 0 for loose, 1 for tight */
-	u8 unpack_count;	/* 0 = 1 component, 1 = 2 component ... */
-	u8 bpp;                 /* Bytes per pixel */
-	u8 alpha_enable;	/*  source has alpha */
+	u8 unpack_align_msb;
+	u8 unpack_tight;
+	u8 unpack_count;
+	u8 bpp;
+	u8 alpha_enable;
+	u8 num_planes;
 	enum sde_fetch_type fetch_mode;
-	u8 is_yuv;
 	u32 flag;
+	u16 tile_width;
+	u16 tile_height;
 };
 #define to_sde_format(x) container_of(x, struct sde_format, base)
 
 /**
- * struct sde_hw_source_info - format information of the source pixel data
- * @format : pixel format parameters
- * @width : image width @height: image height
- * @num_planes : number of planes including the meta data planes for the
- * compressed formats @plane: per plane information
+ * struct sde_hw_fmt_layout - format information of the source pixel data
+ * @format: pixel format parameters
+ * @num_planes: number of planes (including meta data planes)
+ * @width: image width
+ * @height: image height
+ * @total_size: total size in bytes
+ * @plane_addr: address of each plane
+ * @plane_size: length of each plane
+ * @plane_pitch: pitch of each plane
  */
-struct sde_hw_source_info {
+struct sde_hw_fmt_layout {
 	const struct sde_format *format;
-	u32 width;
-	u32 height;
-	u32 num_planes;
-	u32 ystride[SDE_MAX_PLANES];
+	uint32_t num_planes;
+	uint32_t width;
+	uint32_t height;
+	uint32_t total_size;
+	uint32_t plane_addr[SDE_MAX_PLANES];
+	uint32_t plane_size[SDE_MAX_PLANES];
+	uint32_t plane_pitch[SDE_MAX_PLANES];
 };
 
 struct sde_rect {
