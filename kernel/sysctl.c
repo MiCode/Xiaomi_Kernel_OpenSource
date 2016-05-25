@@ -376,13 +376,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= sched_hmp_proc_update_handler,
 	},
 	{
-		.procname       = "sched_early_detection_duration",
-		.data           = &sysctl_early_detection_duration,
-		.maxlen         = sizeof(unsigned int),
-		.mode           = 0644,
-		.proc_handler   = proc_dointvec,
-	},
-	{
 		.procname	= "sched_select_prev_cpu_us",
 		.data		= &sysctl_sched_select_prev_cpu_us,
 		.maxlen		= sizeof(unsigned int),
