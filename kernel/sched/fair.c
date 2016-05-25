@@ -30,7 +30,6 @@
 #include <linux/mempolicy.h>
 #include <linux/migrate.h>
 #include <linux/task_work.h>
-#include <linux/ratelimit.h>
 
 #include "sched.h"
 #include <trace/events/sched.h>
@@ -121,11 +120,6 @@ unsigned int __read_mostly sysctl_sched_shares_window = 10000000UL;
   */
 unsigned int sysctl_sched_cfs_bandwidth_slice = 5000UL;
 #endif
-
-#ifdef CONFIG_SCHEDSTATS
-unsigned int sysctl_sched_latency_panic_threshold;
-unsigned int sysctl_sched_latency_warn_threshold;
-#endif /* CONFIG_SCHEDSTATS */
 
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
@@ -755,25 +749,6 @@ static void update_curr_fair(struct rq *rq)
 }
 
 #ifdef CONFIG_SCHEDSTATS
-static inline void check_for_high_latency(struct task_struct *p, u64 latency_us)
-{
-	int do_warn, do_panic;
-	const char *fmt = "excessive latency comm=%s pid=%d latency=%llu(us)\n";
-	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
-				      DEFAULT_RATELIMIT_BURST);
-
-	do_warn = (sysctl_sched_latency_warn_threshold &&
-		   latency_us > sysctl_sched_latency_warn_threshold);
-	do_panic = (sysctl_sched_latency_panic_threshold &&
-		    latency_us > sysctl_sched_latency_panic_threshold);
-	if (unlikely(do_panic || (do_warn && __ratelimit(&rs)))) {
-		if (do_panic)
-			panic(fmt, p->comm, p->pid, latency_us);
-		else
-			printk_deferred(fmt, p->comm, p->pid, latency_us);
-	}
-}
-
 static inline void
 update_stats_wait_start(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
@@ -804,7 +779,6 @@ update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se)
 			return;
 		}
 		trace_sched_stat_wait(p, delta);
-		check_for_high_latency(p, delta >> 10);
 	}
 
 	se->statistics.wait_max = max(se->statistics.wait_max, delta);
