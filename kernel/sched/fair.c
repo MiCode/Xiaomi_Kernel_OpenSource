@@ -2488,18 +2488,6 @@ unsigned int __read_mostly sched_spill_load;
 unsigned int __read_mostly sysctl_sched_spill_load_pct = 100;
 
 /*
- * Tasks with demand >= sched_heavy_task will have their
- * window-based demand added to the previous window's CPU
- * time when they wake up, if they have slept for at least
- * one full window. This feature is disabled when the tunable
- * is set to 0 (the default).
- */
-#ifdef CONFIG_SCHED_FREQ_INPUT
-unsigned int __read_mostly sysctl_sched_heavy_task_pct;
-unsigned int __read_mostly sched_heavy_task;
-#endif
-
-/*
  * Tasks whose bandwidth consumption on a cpu is more than
  * sched_upmigrate are considered "big" tasks. Big tasks will be
  * considered for "up" migration, i.e migrating to a cpu with better
@@ -2589,8 +2577,6 @@ void set_hmp_defaults(void)
 	update_up_down_migrate();
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
-	sched_heavy_task =
-		pct_to_real(sysctl_sched_heavy_task_pct);
 	sched_major_task_runtime =
 		mult_frac(sched_ravg_window, MAJOR_TASK_PCT, 100);
 #endif

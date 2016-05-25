@@ -2082,22 +2082,6 @@ static int account_busy_for_cpu_time(struct rq *rq, struct task_struct *p,
 	return SCHED_FREQ_ACCOUNT_WAIT_TIME;
 }
 
-static inline int
-heavy_task_wakeup(struct task_struct *p, struct rq *rq, int event)
-{
-	u32 task_demand = p->ravg.demand;
-
-	if (!sched_heavy_task || event != TASK_WAKE ||
-	    task_demand < sched_heavy_task || exiting_task(p))
-		return 0;
-
-	if (p->ravg.mark_start > rq->window_start)
-		return 0;
-
-	/* has a full window elapsed since task slept? */
-	return (rq->window_start - p->ravg.mark_start > sched_ravg_window);
-}
-
 static inline bool is_new_task(struct task_struct *p)
 {
 	return p->ravg.active_windows < sysctl_sched_new_task_windows;
@@ -2451,18 +2435,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		if (p_is_curr_task) {
 			/* p is idle task */
 			BUG_ON(p != rq->idle);
-		} else if (heavy_task_wakeup(p, rq, event)) {
-			/* A new window has started. If p is a waking
-			 * heavy task its prev_window contribution is faked
-			 * to be its window-based demand. Note that this can
-			 * introduce phantom load into the system depending
-			 * on the window policy and task behavior. This feature
-			 * can be controlled via the sched_heavy_task
-			 * tunable. */
-			p->ravg.prev_window = p->ravg.demand;
-			*prev_runnable_sum += p->ravg.demand;
-			if (new_task)
-				*nt_prev_runnable_sum += p->ravg.demand;
 		}
 
 		return;
@@ -3611,12 +3583,6 @@ done:
 
 static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
 
-static inline int
-heavy_task_wakeup(struct task_struct *p, struct rq *rq, int event)
-{
-	return 0;
-}
-
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
 
 #define sched_up_down_migrate_auto_update 1
@@ -4307,12 +4273,6 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 
 static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
 
-static inline int
-heavy_task_wakeup(struct task_struct *p, struct rq *rq, int event)
-{
-	return 0;
-}
-
 static struct cpu_cycle
 update_task_ravg(struct task_struct *p, struct rq *rq,
 			 int event, u64 wallclock, u64 irqtime)
@@ -4992,7 +4952,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	int cpu, src_cpu, success = 0;
 	int notify = 0;
 	struct migration_notify_data mnd;
-	int heavy_task = 0;
 #ifdef CONFIG_SMP
 	unsigned int old_load;
 	struct rq *rq;
@@ -5040,7 +4999,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	old_load = task_load(p);
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
-	heavy_task = heavy_task_wakeup(p, rq, TASK_WAKE);
 	update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 	raw_spin_unlock(&rq->lock);
 
@@ -5102,8 +5060,6 @@ out:
 						false, check_group);
 			check_for_freq_change(cpu_rq(src_cpu),
 						false, check_group);
-		} else if (heavy_task) {
-			check_for_freq_change(cpu_rq(cpu), false, false);
 		} else if (success) {
 			check_for_freq_change(cpu_rq(cpu), true, false);
 		}
