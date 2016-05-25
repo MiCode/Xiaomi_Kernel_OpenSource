@@ -3843,16 +3843,12 @@ static inline int invalid_value(unsigned int *data)
 	if (data == &sysctl_sched_window_stats_policy)
 		return val >= WINDOW_STATS_INVALID_POLICY;
 
-	if (data == &sysctl_sched_account_wait_time)
-		return !(val == 0 || val == 1);
-
 	return invalid_value_freq_input(data);
 }
 
 /*
  * Handle "atomic" update of sysctl_sched_window_stats_policy,
- * sysctl_sched_ravg_hist_size, sysctl_sched_account_wait_time and
- * sched_freq_legacy_mode variables.
+ * sysctl_sched_ravg_hist_size and sched_freq_legacy_mode variables.
  */
 int sched_window_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,

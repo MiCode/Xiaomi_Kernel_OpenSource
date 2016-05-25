@@ -1684,7 +1684,7 @@ struct cpu_cycle {
 #if defined(CONFIG_SCHED_HMP)
 
 /*
- * sched_window_stats_policy, sched_account_wait_time, sched_ravg_hist_size,
+ * sched_window_stats_policy, sched_ravg_hist_size,
  * sched_migration_fixup, sched_freq_account_wait_time have a 'sysctl' copy
  * associated with them. This is required for atomic update of those variables
  * when being modifed via sysctl interface.
@@ -1707,8 +1707,7 @@ static __read_mostly unsigned int sched_window_stats_policy =
 __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
 
-static __read_mostly unsigned int sched_account_wait_time = 1;
-__read_mostly unsigned int sysctl_sched_account_wait_time = 1;
+#define SCHED_ACCOUNT_WAIT_TIME 1
 
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
@@ -2811,7 +2810,7 @@ static int account_busy_for_task_demand(struct task_struct *p, int event)
 	 * time. Likewise, if wait time is not treated as busy time, then
 	 * when a task begins to run or is migrated, it is not running and
 	 * is completing a segment of non-busy time. */
-	if (event == TASK_WAKE || (!sched_account_wait_time &&
+	if (event == TASK_WAKE || (!SCHED_ACCOUNT_WAIT_TIME &&
 			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
 		return 0;
 
@@ -3203,7 +3202,6 @@ static void enable_window_stats(void)
 enum reset_reason_code {
 	WINDOW_CHANGE,
 	POLICY_CHANGE,
-	ACCOUNT_WAIT_TIME_CHANGE,
 	HIST_SIZE_CHANGE,
 	MIGRATION_FIXUP_CHANGE,
 	FREQ_ACCOUNT_WAIT_TIME_CHANGE,
@@ -3213,7 +3211,6 @@ enum reset_reason_code {
 const char *sched_window_reset_reasons[] = {
 	"WINDOW_CHANGE",
 	"POLICY_CHANGE",
-	"ACCOUNT_WAIT_TIME_CHANGE",
 	"HIST_SIZE_CHANGE",
 	"MIGRATION_FIXUP_CHANGE",
 	"FREQ_ACCOUNT_WAIT_TIME_CHANGE"};
@@ -3278,11 +3275,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		old = sched_window_stats_policy;
 		new = sysctl_sched_window_stats_policy;
 		sched_window_stats_policy = sysctl_sched_window_stats_policy;
-	} else if (sched_account_wait_time != sysctl_sched_account_wait_time) {
-		reason = ACCOUNT_WAIT_TIME_CHANGE;
-		old = sched_account_wait_time;
-		new = sysctl_sched_account_wait_time;
-		sched_account_wait_time = sysctl_sched_account_wait_time;
 	} else if (sched_ravg_hist_size != sysctl_sched_ravg_hist_size) {
 		reason = HIST_SIZE_CHANGE;
 		old = sched_ravg_hist_size;

@@ -42,7 +42,6 @@ extern unsigned int sysctl_sched_child_runs_first;
 extern unsigned int sysctl_sched_wake_to_idle;
 extern unsigned int sysctl_sched_wakeup_load_threshold;
 extern unsigned int sysctl_sched_window_stats_policy;
-extern unsigned int sysctl_sched_account_wait_time;
 extern unsigned int sysctl_sched_ravg_hist_size;
 extern unsigned int sysctl_sched_cpu_high_irqload;
 extern unsigned int sysctl_sched_freq_account_wait_time;
@@ -75,6 +74,7 @@ extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
 extern unsigned int sysctl_sched_min_runtime;
 extern unsigned int sysctl_sched_small_task_pct;
 extern unsigned int sysctl_sched_restrict_tasks_spread;
+extern unsigned int sysctl_sched_account_wait_time;
 #else
 extern unsigned int sysctl_sched_select_prev_cpu_us;
 extern unsigned int sysctl_sched_enable_colocation;
