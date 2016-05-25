@@ -220,7 +220,6 @@ static int odu_bridge_connect_router(void)
 	odu_prod_params.desc_fifo_sz = odu_bridge_ctx->ipa_sys_desc_size;
 	odu_prod_params.priv = odu_bridge_ctx->priv;
 	odu_prod_params.notify = odu_bridge_ctx->tx_dp_notify;
-	odu_prod_params.keep_ipa_awake = true;
 	res = ipa_setup_sys_pipe(&odu_prod_params,
 		&odu_bridge_ctx->odu_prod_hdl);
 	if (res) {
@@ -235,7 +234,6 @@ static int odu_bridge_connect_router(void)
 	odu_emb_cons_params.desc_fifo_sz = odu_bridge_ctx->ipa_sys_desc_size;
 	odu_emb_cons_params.priv = odu_bridge_ctx->priv;
 	odu_emb_cons_params.notify = odu_bridge_emb_cons_cb;
-	odu_emb_cons_params.keep_ipa_awake = true;
 	res = ipa_setup_sys_pipe(&odu_emb_cons_params,
 		&odu_bridge_ctx->odu_emb_cons_hdl);
 	if (res) {
@@ -290,7 +288,6 @@ static int odu_bridge_connect_bridge(void)
 	odu_prod_params.desc_fifo_sz = IPA_ODU_SYS_DESC_FIFO_SZ;
 	odu_prod_params.priv = odu_bridge_ctx->priv;
 	odu_prod_params.notify = odu_bridge_ctx->tx_dp_notify;
-	odu_prod_params.keep_ipa_awake = true;
 	odu_prod_params.skip_ep_cfg = true;
 	res = ipa_setup_sys_pipe(&odu_prod_params,
 		&odu_bridge_ctx->odu_prod_hdl);
@@ -304,7 +301,6 @@ static int odu_bridge_connect_bridge(void)
 	odu_teth_cons_params.desc_fifo_sz = IPA_ODU_SYS_DESC_FIFO_SZ;
 	odu_teth_cons_params.priv = odu_bridge_ctx->priv;
 	odu_teth_cons_params.notify = odu_bridge_teth_cons_cb;
-	odu_teth_cons_params.keep_ipa_awake = true;
 	odu_teth_cons_params.skip_ep_cfg = true;
 	res = ipa_setup_sys_pipe(&odu_teth_cons_params,
 		&odu_bridge_ctx->odu_teth_cons_hdl);
@@ -321,7 +317,6 @@ static int odu_bridge_connect_bridge(void)
 	odu_emb_cons_params.desc_fifo_sz = IPA_ODU_SYS_DESC_FIFO_SZ;
 	odu_emb_cons_params.priv = odu_bridge_ctx->priv;
 	odu_emb_cons_params.notify = odu_bridge_emb_cons_cb;
-	odu_emb_cons_params.keep_ipa_awake = true;
 	res = ipa_setup_sys_pipe(&odu_emb_cons_params,
 		&odu_bridge_ctx->odu_emb_cons_hdl);
 	if (res) {
