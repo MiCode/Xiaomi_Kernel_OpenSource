@@ -57,7 +57,7 @@ struct msm_rd_state;
 struct msm_perf_state;
 struct msm_gem_submit;
 
-#define NUM_DOMAINS    2    /* one for KMS, then one per gpu core (?) */
+#define NUM_DOMAINS    4    /* one for KMS, then one per gpu core (?) */
 #define MAX_CRTCS      8
 #define MAX_PLANES     12
 #define MAX_ENCODERS   8

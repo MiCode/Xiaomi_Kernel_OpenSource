@@ -449,7 +449,22 @@ struct sde_kms *sde_hw_setup(struct platform_device *pdev)
 	/* optional clocks: */
 	get_clk(pdev, &sde_kms->lut_clk, "lut_clk", false);
 	get_clk(pdev, &sde_kms->mmagic_clk, "mmagic_clk", false);
-	get_clk(pdev, &sde_kms->iommu_clk, "iommu_clk", false);
+	get_clk(pdev, &sde_kms->iommu_ahb_clk[MSM_SMMU_DOMAIN_UNSECURE],
+			"iommu_mdp_ahb_clk", false);
+	get_clk(pdev, &sde_kms->iommu_axi_clk[MSM_SMMU_DOMAIN_UNSECURE],
+			"iommu_mdp_axi_clk", false);
+	get_clk(pdev, &sde_kms->iommu_ahb_clk[MSM_SMMU_DOMAIN_SECURE],
+			"iommu_mdp_ahb_clk", false);
+	get_clk(pdev, &sde_kms->iommu_axi_clk[MSM_SMMU_DOMAIN_SECURE],
+			"iommu_mdp_axi_clk", false);
+	get_clk(pdev, &sde_kms->iommu_ahb_clk[MSM_SMMU_DOMAIN_NRT_UNSECURE],
+			"iommu_rot_ahb_clk", false);
+	get_clk(pdev, &sde_kms->iommu_axi_clk[MSM_SMMU_DOMAIN_NRT_UNSECURE],
+			"iommu_rot_axi_clk", false);
+	get_clk(pdev, &sde_kms->iommu_ahb_clk[MSM_SMMU_DOMAIN_NRT_SECURE],
+			"iommu_rot_ahb_clk", false);
+	get_clk(pdev, &sde_kms->iommu_axi_clk[MSM_SMMU_DOMAIN_NRT_SECURE],
+			"iommu_rot_axi_clk", false);
 
 	if (sde_kms->mmagic) {
 		ret = regulator_enable(sde_kms->mmagic);
@@ -478,21 +493,36 @@ fail:
 	return ERR_PTR(ret);
 }
 
-static int sde_translation_ctrl_pwr(struct sde_kms *sde_kms, bool on)
+static int sde_translation_ctrl_pwr(struct sde_kms *sde_kms,
+		enum msm_mmu_domain_type domain, bool on)
 {
 	int ret;
 
 	if (on) {
-		if (sde_kms->iommu_clk) {
-			ret = clk_prepare_enable(sde_kms->iommu_clk);
+		if (sde_kms->iommu_ahb_clk[domain]) {
+			ret = clk_prepare_enable(
+					sde_kms->iommu_ahb_clk[domain]);
 			if (ret) {
-				DRM_ERROR("failed to enable iommu_clk\n");
+				DRM_ERROR("failed to enable iommu_ahb_clk\n");
+				goto undo_mmagic_clk;
+			}
+		}
+		if (sde_kms->iommu_axi_clk[domain]) {
+			ret = clk_prepare_enable(
+					sde_kms->iommu_axi_clk[domain]);
+			if (ret) {
+				DRM_ERROR("failed to enable iommu_axi_clk\n");
+				if (sde_kms->iommu_ahb_clk[domain])
+					clk_disable_unprepare(
+						sde_kms->iommu_ahb_clk[domain]);
 				goto undo_mmagic_clk;
 			}
 		}
 	} else {
-		if (sde_kms->iommu_clk)
-			clk_disable_unprepare(sde_kms->iommu_clk);
+		if (sde_kms->iommu_ahb_clk[domain])
+			clk_disable_unprepare(sde_kms->iommu_ahb_clk[domain]);
+		if (sde_kms->iommu_axi_clk[domain])
+			clk_disable_unprepare(sde_kms->iommu_axi_clk[domain]);
 		if (sde_kms->mmagic_clk)
 			clk_disable_unprepare(sde_kms->mmagic_clk);
 		if (sde_kms->mmagic)
@@ -511,7 +541,6 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 {
 	struct sde_mdss_cfg *catalog = sde_kms->catalog;
 	struct sde_hw_intf *intf = NULL;
-	struct iommu_domain *iommu;
 	struct msm_mmu *mmu;
 	int i, ret;
 
@@ -533,18 +562,15 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 	sde_disable(sde_kms);
 	msleep(20);
 
-	iommu = iommu_domain_alloc(&platform_bus_type);
-
-	if (!IS_ERR_OR_NULL(iommu)) {
-		mmu = msm_smmu_new(sde_kms->dev->dev, MSM_SMMU_DOMAIN_UNSECURE);
+	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
+		mmu = msm_smmu_new(sde_kms->dev->dev, i);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
 			DRM_ERROR("failed to init iommu: %d\n", ret);
-			iommu_domain_free(iommu);
 			goto fail;
 		}
 
-		ret = sde_translation_ctrl_pwr(sde_kms, true);
+		ret = sde_translation_ctrl_pwr(sde_kms, i, true);
 		if (ret) {
 			DRM_ERROR("failed to power iommu: %d\n", ret);
 			mmu->funcs->destroy(mmu);
@@ -555,21 +581,22 @@ int sde_mmu_init(struct sde_kms *sde_kms)
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
 			DRM_ERROR("failed to attach iommu: %d\n", ret);
+			sde_translation_ctrl_pwr(sde_kms, i, false);
 			mmu->funcs->destroy(mmu);
 			goto fail;
 		}
-	} else {
-		dev_info(sde_kms->dev->dev,
-			"no iommu, fallback to phys contig buffers for scanout\n");
-		mmu = NULL;
-	}
-	sde_kms->mmu = mmu;
 
-	sde_kms->mmu_id = msm_register_mmu(sde_kms->dev, mmu);
-	if (sde_kms->mmu_id < 0) {
-		ret = sde_kms->mmu_id;
-		DRM_ERROR("failed to register sde iommu: %d\n", ret);
-		goto fail;
+		sde_kms->mmu_id[i] = msm_register_mmu(sde_kms->dev, mmu);
+		if (sde_kms->mmu_id[i] < 0) {
+			ret = sde_kms->mmu_id[i];
+			DRM_ERROR("failed to register sde iommu: %d\n", ret);
+			mmu->funcs->detach(mmu, (const char **)iommu_ports,
+					ARRAY_SIZE(iommu_ports));
+			sde_translation_ctrl_pwr(sde_kms, i, false);
+			goto fail;
+		}
+
+		sde_kms->mmu[i] = mmu;
 	}
 
 	return 0;

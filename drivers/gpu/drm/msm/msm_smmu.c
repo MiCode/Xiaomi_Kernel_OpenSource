@@ -21,6 +21,10 @@
 #include "msm_drv.h"
 #include "msm_mmu.h"
 
+#ifndef SZ_4G
+#define SZ_4G	(((size_t) SZ_1G) * 4)
+#endif
+
 struct msm_smmu_client {
 	struct device *dev;
 	struct dma_iommu_mapping *mmu_mapping;
@@ -30,7 +34,7 @@ struct msm_smmu_client {
 struct msm_smmu {
 	struct msm_mmu base;
 	struct device *client_dev;
-	struct msm_smmu_client client;
+	struct msm_smmu_client *client;
 };
 
 struct msm_smmu_domain {
@@ -41,7 +45,7 @@ struct msm_smmu_domain {
 };
 
 #define to_msm_smmu(x) container_of(x, struct msm_smmu, base)
-#define msm_smmu_to_client(smmu) (&smmu->client)
+#define msm_smmu_to_client(smmu) (smmu->client)
 
 static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	const struct msm_smmu_domain *domain);
@@ -51,6 +55,11 @@ static int msm_smmu_attach(struct msm_mmu *mmu, const char **names, int cnt)
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
 	int rc = 0;
+
+	if (!client) {
+		pr_err("undefined smmu client\n");
+		return -EINVAL;
+	}
 
 	/* domain attach only once */
 	if (client->domain_attached)
@@ -230,14 +239,39 @@ static const struct msm_mmu_funcs funcs = {
 static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 	[MSM_SMMU_DOMAIN_UNSECURE] = {
 		.label = "mdp_ns",
-		.va_start = SZ_1M,
-		.va_size = SZ_2G,
+		.va_start = SZ_128K,
+		.va_size = SZ_4G - SZ_128K,
+		.secure = false,
+	},
+	[MSM_SMMU_DOMAIN_SECURE] = {
+		.label = "mdp_s",
+		.va_start = 0,
+		.va_size = SZ_4G,
+		.secure = true,
+	},
+	[MSM_SMMU_DOMAIN_NRT_UNSECURE] = {
+		.label = "rot_ns",
+		.va_start = SZ_128K,
+		.va_size = SZ_4G - SZ_128K,
+		.secure = false,
+	},
+	[MSM_SMMU_DOMAIN_NRT_SECURE] = {
+		.label = "rot_s",
+		.va_start = 0,
+		.va_size = SZ_4G,
+		.secure = true,
 	},
 };
 
 static const struct of_device_id msm_smmu_dt_match[] = {
 	{ .compatible = "qcom,smmu_mdp_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_UNSECURE] },
+	{ .compatible = "qcom,smmu_mdp_sec",
+		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_SECURE] },
+	{ .compatible = "qcom,smmu_rot_unsec",
+		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_UNSECURE] },
+	{ .compatible = "qcom,smmu_rot_sec",
+		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_SECURE] },
 	{}
 };
 MODULE_DEVICE_TABLE(of, msm_smmu_dt_match);
@@ -267,11 +301,20 @@ static struct device *msm_smmu_device_create(struct device *dev,
 	if (domain == MSM_SMMU_DOMAIN_UNSECURE) {
 		int rc;
 
-		smmu->client.dev = dev;
+		smmu->client = devm_kzalloc(dev,
+				sizeof(struct msm_smmu_client), GFP_KERNEL);
+		if (!smmu->client)
+			return ERR_PTR(-ENOMEM);
+
+		smmu->client->dev = dev;
+
 		rc = _msm_smmu_create_mapping(msm_smmu_to_client(smmu),
 			msm_smmu_dt_match[i].data);
-		if (rc)
+		if (rc) {
+			devm_kfree(dev, smmu->client);
+			smmu->client = NULL;
 			return ERR_PTR(rc);
+		}
 
 		return NULL;
 	}
@@ -289,6 +332,8 @@ static struct device *msm_smmu_device_create(struct device *dev,
 		return ERR_PTR(-ENODEV);
 	}
 
+	smmu->client = platform_get_drvdata(pdev);
+
 	return &pdev->dev;
 }
 
@@ -303,8 +348,10 @@ struct msm_mmu *msm_smmu_new(struct device *dev,
 		return ERR_PTR(-ENOMEM);
 
 	client_dev = msm_smmu_device_create(dev, domain, smmu);
-	if (IS_ERR(client_dev))
+	if (IS_ERR(client_dev)) {
+		kfree(smmu);
 		return (void *)client_dev ? : ERR_PTR(-ENODEV);
+	}
 
 	smmu->client_dev = client_dev;
 	msm_mmu_init(&smmu->base, dev, &funcs);
@@ -344,6 +391,10 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 			goto error;
 		}
 	}
+
+	DRM_INFO("Created domain %s [%zx,%zx] secure=%d\n",
+			domain->label, domain->va_start, domain->va_size,
+			domain->secure);
 
 	return 0;
 
