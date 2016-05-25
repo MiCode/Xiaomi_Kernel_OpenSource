@@ -2753,12 +2753,7 @@ unsigned int __read_mostly sysctl_sched_upmigrate_pct = 80;
 unsigned int __read_mostly sched_downmigrate;
 unsigned int __read_mostly sysctl_sched_downmigrate_pct = 60;
 
-/*
- * Tasks whose nice value is > sysctl_sched_upmigrate_min_nice are never
- * considered as "big" tasks.
- */
-static int __read_mostly sched_upmigrate_min_nice = 15;
-int __read_mostly sysctl_sched_upmigrate_min_nice = 15;
+#define SCHED_UPMIGRATE_MIN_NICE 15
 
 /*
  * The load scale factor of a CPU gets boosted when its max frequency
@@ -2837,8 +2832,6 @@ void set_hmp_defaults(void)
 		div64_u64((u64)sysctl_sched_init_task_load_pct *
 			  (u64)sched_ravg_window, 100);
 
-	sched_upmigrate_min_nice = sysctl_sched_upmigrate_min_nice;
-
 	sched_short_sleep_task_threshold = sysctl_sched_select_prev_cpu_us *
 					   NSEC_PER_USEC;
 
@@ -2887,7 +2880,7 @@ static inline int __is_big_task(struct task_struct *p, u64 scaled_load)
 {
 	int nice = task_nice(p);
 
-	if (nice > sched_upmigrate_min_nice || upmigrate_discouraged(p))
+	if (nice > SCHED_UPMIGRATE_MIN_NICE || upmigrate_discouraged(p))
 		return 0;
 
 	return scaled_load > sched_upmigrate;
@@ -3002,7 +2995,7 @@ static int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu,
 		return 1;
 
 	if (boost_type != SCHED_BOOST_ON_BIG) {
-		if (task_nice(p) > sched_upmigrate_min_nice ||
+		if (task_nice(p) > SCHED_UPMIGRATE_MIN_NICE ||
 		    upmigrate_discouraged(p))
 			return 1;
 
@@ -4134,16 +4127,9 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	if (write && (old_val == *data))
 		goto done;
 
-	if (data == (unsigned int *)&sysctl_sched_upmigrate_min_nice) {
-		if ((*(int *)data) < -20 || (*(int *)data) > 19) {
-			*data = old_val;
-			ret = -EINVAL;
-			goto done;
-		}
-		update_min_nice = 1;
-	} else if (data != &sysctl_sched_select_prev_cpu_us) {
+	if (data != &sysctl_sched_select_prev_cpu_us) {
 		/*
-		 * all tunables other than min_nice and prev_cpu_us are
+		 * all tunables other than sched_select_prev_cpu_us are
 		 * in percentage.
 		 */
 		if (sysctl_sched_downmigrate_pct >
@@ -4226,7 +4212,7 @@ static inline int migration_needed(struct task_struct *p, int cpu)
 	nice = task_nice(p);
 	rcu_read_lock();
 	grp = task_related_thread_group(p);
-	if (!grp && (nice > sched_upmigrate_min_nice ||
+	if (!grp && (nice > SCHED_UPMIGRATE_MIN_NICE ||
 	       upmigrate_discouraged(p)) && cpu_capacity(cpu) > min_capacity) {
 		rcu_read_unlock();
 		return DOWN_MIGRATION;
