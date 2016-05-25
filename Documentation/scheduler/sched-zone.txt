@@ -641,7 +641,7 @@ While boost is in effect the scheduler checks for the precence of tasks that
 have been runnable for over some period of time within the tick. For such
 tasks the scheduler informs the governor of imminent need for high frequency.
 If there exists a task on the runqueue at the tick that has been runnable
-for greater than sched_early_detection_duration amount of time, it notifies
+for greater than SCHED_EARLY_DETECTION_DURATION amount of time, it notifies
 the governor with a fabricated load of the full window at the highest
 frequency. The fabricated load is maintained until the task is no longer
 runnable or until the next tick.
@@ -1184,18 +1184,8 @@ power mode. It ignores the actual D-state that a cluster may be in and assumes
 the worst case power cost of the highest D-state. It is means of biasing task
 placement away from idle clusters when necessary.
 
-*** 7.16 sched_early_detection_duration
 
-Default value: 9500000
-
-Appears at /proc/sys/kernel/sched_early_detection_duration
-
-This governs the time in microseconds that a task has to runnable within one
-tick for it to be eligible for the scheduler's early detection feature
-under scheduler boost. For more information on the feature itself please
-refer to section 5.2.1.
-
-*** 7.17 sched_restrict_cluster_spill
+*** 7.16 sched_restrict_cluster_spill
 
 Default value: 0
 
@@ -1214,7 +1204,7 @@ CPU across all clusters. When this tunable is enabled, the RT tasks are
 restricted to the lowest possible power cluster.
 
 
-*** 7.18 sched_downmigrate
+*** 7.17 sched_downmigrate
 
 Appears at: /proc/sys/kernel/sched_downmigrate
 
@@ -1227,7 +1217,7 @@ its demand *in reference to the power-efficient cpu* drops less than 60%
 (sched_downmigrate).
 
 
-*** 7.19 sched_small_wakee_task_load
+*** 7.18 sched_small_wakee_task_load
 
 Appears at: /proc/sys/kernel/sched_small_wakee_task_load
 
@@ -1239,7 +1229,7 @@ categorized as small wakee tasks.  Scheduler places small wakee tasks on the
 waker's cluster.
 
 
-*** 7.20 sched_big_waker_task_load
+*** 7.19 sched_big_waker_task_load
 
 Appears at: /proc/sys/kernel/sched_big_waker_task_load
 

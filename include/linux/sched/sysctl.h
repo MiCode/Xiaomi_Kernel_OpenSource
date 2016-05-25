@@ -61,7 +61,6 @@ extern unsigned int sysctl_sched_upmigrate_pct;
 extern unsigned int sysctl_sched_downmigrate_pct;
 extern int sysctl_sched_upmigrate_min_nice;
 extern unsigned int sysctl_sched_boost;
-extern unsigned int sysctl_early_detection_duration;
 extern unsigned int sysctl_sched_small_wakee_task_load_pct;
 extern unsigned int sysctl_sched_big_waker_task_load_pct;
 extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
