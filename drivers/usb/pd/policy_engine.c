@@ -516,6 +516,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->pd_phy_opened = true;
 		}
 
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
 		pd->in_pr_swap = false;
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		dev_dbg(&pd->dev, "Enter %s\n",
@@ -524,16 +528,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SRC_SEND_CAPABILITIES:
 		queue_delayed_work(pd->wq, &pd->sm_work, 0);
-		break;
-
-		/* reset counters */
-		pd->hard_reset_count = 0;
-		pd->caps_count = 0;
-		pd->pd_connected = true; /* we know peer is PD capable */
-
-		/* wait for REQUEST */
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(SENDER_RESPONSE_TIME * 3));
 		break;
 
 	case PE_SRC_NEGOTIATE_CAPABILITY:
@@ -917,6 +911,11 @@ static void usbpd_sm(struct work_struct *w)
 			} else if (pd->caps_count >= PD_CAPS_COUNT) {
 				dev_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
 				usbpd_set_state(pd, PE_SRC_DISABLED);
+
+				val.intval = 0;
+				power_supply_set_property(pd->usb_psy,
+						POWER_SUPPLY_PROP_PD_ACTIVE,
+						&val);
 				break;
 			}
 
@@ -928,6 +927,11 @@ static void usbpd_sm(struct work_struct *w)
 		/* transmit was successful if GoodCRC was received */
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
+		pd->pd_connected = true; /* we know peer is PD capable */
+
+		val.intval = POWER_SUPPLY_TYPE_USB_PD;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &val);
 
 		/* wait for REQUEST */
 		pd->current_state = PE_SRC_SEND_CAPABILITIES_WAIT;
@@ -1021,6 +1025,11 @@ static void usbpd_sm(struct work_struct *w)
 			val.intval = 1;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
+			val.intval = POWER_SUPPLY_TYPE_USB_PD;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_TYPE, &val);
+
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
 		} else if (pd->hard_reset_count < 3) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
