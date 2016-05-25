@@ -6,9 +6,6 @@ hardware to measure the traffic status of configured master ports on the bus.
 
 Required properties:
 -compatible:			Must be "qcom,devfreq_spdm"
--clock-names:			Clocks used to measure current bus frequency.
-				Expected names are "cci_clk"
--clocks:			References to named clocks
 -qcom,spdm-client:		Client id of the port being monitored
 -qcom,bw-upstep:		Initial up vote size in MB/s
 -qcom,bw-dwnstep:		Initial down vote size in MB/s
@@ -30,6 +27,11 @@ Required properties:
 				is used
 -qcom,up-step-multp:		used to increase rate of growth on up votes
 -qcom,spdm-interval:		down-vote polling interval
+
+Optional properties:
+-clock-names:			Clocks used to measure current bus frequency.
+				Expected names are "cci_clk"
+-clocks:			References to named clocks
 
 Example:
 devfreq_spdm_cpu {

@@ -361,7 +361,7 @@ static int probe(struct platform_device *pdev)
 
 	*irq = platform_get_irq_byname(pdev, "spdm-irq");
 	ret = request_threaded_irq(*irq, isr, threaded_isr,
-				   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+				   IRQF_ONESHOT,
 				   spdm_hyp_gov.name, pdev);
 	if (ret)
 		goto no_irq;
