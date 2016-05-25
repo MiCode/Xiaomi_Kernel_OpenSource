@@ -223,7 +223,7 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 	u32 cdm_enable = 0;
 	u32 csc = 0;
 
-	if (!fmt->is_yuv)
+	if (!SDE_FORMAT_IS_YUV(fmt))
 		return 0;
 
 	if (cdm->output_type == CDM_CDWN_OUTPUT_HDMI) {

@@ -194,8 +194,7 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	if (flags & SDE_SSPP_ROT_90)
 		src_format |= BIT(11); /* ROT90 */
 
-	if (fmt->alpha_enable &&
-			fmt->fetch_planes != SDE_PLANE_INTERLEAVED)
+	if (fmt->alpha_enable && fmt->fetch_planes == SDE_PLANE_INTERLEAVED)
 		src_format |= BIT(8); /* SRCC3_EN */
 
 	if (flags & SDE_SSPP_SOLID_FILL)
@@ -220,12 +219,12 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	opmode |= MDSS_MDP_OP_PE_OVERRIDE;
 
 	/* if this is YUV pixel format, enable CSC */
-	if (fmt->is_yuv)
+	if (SDE_FORMAT_IS_YUV(fmt))
 		src_format |= BIT(15);
 
 	/* update scaler opmode, if appropriate */
 	_sspp_setup_opmode(ctx,
-		VIG_OP_CSC_EN | VIG_OP_CSC_SRC_DATAFMT, fmt->is_yuv);
+		VIG_OP_CSC_EN | VIG_OP_CSC_SRC_DATAFMT, SDE_FORMAT_IS_YUV(fmt));
 
 	SDE_REG_WRITE(c, SSPP_SRC_FORMAT + idx, src_format);
 	SDE_REG_WRITE(c, SSPP_SRC_UNPACK_PATTERN + idx, unpack);
@@ -375,10 +374,10 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 	dst_xy = (cfg->dst_rect.y << 16) | (cfg->dst_rect.x);
 	dst_size = (cfg->dst_rect.h << 16) | (cfg->dst_rect.w);
 
-	ystride0 =  (cfg->src.ystride[0]) |
-		(cfg->src.ystride[1] << 16);
-	ystride1 =  (cfg->src.ystride[2]) |
-		(cfg->src.ystride[3] << 16);
+	ystride0 = (cfg->layout.plane_pitch[0]) |
+			(cfg->layout.plane_pitch[1] << 16);
+	ystride1 = (cfg->layout.plane_pitch[2]) |
+			(cfg->layout.plane_pitch[3] << 16);
 
 	/* program scaler, phase registers, if pipes supporting scaling */
 	if (ctx->cap->features & SDE_SSPP_SCALER) {
@@ -409,9 +408,9 @@ static void sde_hw_sspp_setup_sourceaddress(struct sde_hw_pipe *ctx,
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
 		return;
 
-	for (i = 0; i < cfg->src.num_planes; i++)
-		SDE_REG_WRITE(&ctx->hw, SSPP_SRC0_ADDR  + idx + i*0x4,
-			cfg->addr.plane[i]);
+	for (i = 0; i < ARRAY_SIZE(cfg->layout.plane_addr); i++)
+		SDE_REG_WRITE(&ctx->hw, SSPP_SRC0_ADDR + idx + i * 0x4,
+			cfg->layout.plane_addr[i]);
 }
 
 static void sde_hw_sspp_setup_csc(struct sde_hw_pipe *ctx,
