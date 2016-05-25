@@ -220,7 +220,6 @@
 /* MSS_SCL */
 &modem_etm0 {
 	coresight-child-ports = <2>;
-	qcom,inst-id = <11>;
 };
 
 &soc {
@@ -249,7 +248,7 @@
 		coresight-child-list = <&funnel_right>;
 		coresight-child-ports = <1>;
 
-		qcom,inst-id = <2>;
+		qcom,inst-id = <11>;
 	};
 };
 
