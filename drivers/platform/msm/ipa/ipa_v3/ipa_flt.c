@@ -317,7 +317,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip, enum ipa_rule_type rlt)
  * Return: 0 on success, negative on failure
  */
 static int ipa_alloc_init_flt_tbl_hdr(enum ipa_ip_type ip,
-	struct ipa3_mem_buffer *hash_hdr, struct ipa3_mem_buffer *nhash_hdr)
+	struct ipa_mem_buffer *hash_hdr, struct ipa_mem_buffer *nhash_hdr)
 {
 	int num_hdrs;
 	u64 *hash_entr;
@@ -489,7 +489,7 @@ static int ipa_translate_flt_tbl_to_hw_fmt(enum ipa_ip_type ip,
 	int res;
 	struct ipa3_flt_entry *entry;
 	u8 *tbl_mem_buf;
-	struct ipa3_mem_buffer tbl_mem;
+	struct ipa_mem_buffer tbl_mem;
 	struct ipa3_flt_tbl *tbl;
 	int i;
 	int hdr_idx = 0;
@@ -612,8 +612,8 @@ err:
  * Return: 0 on success, negative on failure
  */
 static int ipa_generate_flt_hw_tbl_img(enum ipa_ip_type ip,
-	struct ipa3_mem_buffer *hash_hdr, struct ipa3_mem_buffer *nhash_hdr,
-	struct ipa3_mem_buffer *hash_bdy, struct ipa3_mem_buffer *nhash_bdy)
+	struct ipa_mem_buffer *hash_hdr, struct ipa_mem_buffer *nhash_hdr,
+	struct ipa_mem_buffer *hash_bdy, struct ipa_mem_buffer *nhash_bdy)
 {
 	u32 hash_bdy_start_ofst, nhash_bdy_start_ofst;
 	u32 hash_bdy_sz;
@@ -724,7 +724,7 @@ no_flt_tbls:
  * Return: true if enough space available or false in other cases
  */
 static bool ipa_flt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
-	enum ipa_rule_type rlt, struct ipa3_mem_buffer *bdy)
+	enum ipa_rule_type rlt, struct ipa_mem_buffer *bdy)
 {
 	u16 avail;
 
@@ -827,8 +827,8 @@ static bool ipa_flt_skip_pipe_config(int pipe)
  */
 int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 {
-	struct ipa3_mem_buffer hash_bdy, nhash_bdy;
-	struct ipa3_mem_buffer hash_hdr, nhash_hdr;
+	struct ipa_mem_buffer hash_bdy, nhash_bdy;
+	struct ipa_mem_buffer hash_hdr, nhash_hdr;
 	int rc = 0;
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};

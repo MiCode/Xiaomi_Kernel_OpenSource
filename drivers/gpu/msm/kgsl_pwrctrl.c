@@ -32,6 +32,7 @@
 #define KGSL_PWRFLAGS_AXI_ON   2
 #define KGSL_PWRFLAGS_IRQ_ON   3
 #define KGSL_PWRFLAGS_RETENTION_ON  4
+#define KGSL_PWRFLAGS_NAP_OFF  5
 
 #define UPDATE_BUSY_VAL		1000000
 
@@ -1053,6 +1054,21 @@ static ssize_t kgsl_pwrctrl_force_non_retention_on_store(struct device *dev,
 					KGSL_PWRFLAGS_RETENTION_ON);
 }
 
+static ssize_t kgsl_pwrctrl_force_no_nap_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	return __force_on_show(dev, attr, buf, KGSL_PWRFLAGS_NAP_OFF);
+}
+
+static ssize_t kgsl_pwrctrl_force_no_nap_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	return __force_on_store(dev, attr, buf, count,
+					KGSL_PWRFLAGS_NAP_OFF);
+}
+
 static ssize_t kgsl_pwrctrl_bus_split_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
@@ -1217,6 +1233,9 @@ static DEVICE_ATTR(popp, 0644, kgsl_popp_show, kgsl_popp_store);
 static DEVICE_ATTR(force_non_retention_on, 0644,
 	kgsl_pwrctrl_force_non_retention_on_show,
 	kgsl_pwrctrl_force_non_retention_on_store);
+static DEVICE_ATTR(force_no_nap, 0644,
+	kgsl_pwrctrl_force_no_nap_show,
+	kgsl_pwrctrl_force_no_nap_store);
 
 static const struct device_attribute *pwrctrl_attr_list[] = {
 	&dev_attr_gpuclk,
@@ -1235,6 +1254,7 @@ static const struct device_attribute *pwrctrl_attr_list[] = {
 	&dev_attr_force_bus_on,
 	&dev_attr_force_rail_on,
 	&dev_attr_force_non_retention_on,
+	&dev_attr_force_no_nap,
 	&dev_attr_bus_split,
 	&dev_attr_default_pwrlevel,
 	&dev_attr_popp,
@@ -2549,7 +2569,9 @@ void kgsl_active_count_put(struct kgsl_device *device)
 	BUG_ON(atomic_read(&device->active_cnt) == 0);
 
 	if (atomic_dec_and_test(&device->active_cnt)) {
-		if (device->state == KGSL_STATE_ACTIVE &&
+		bool nap_on = !(device->pwrctrl.ctrl_flags &
+			BIT(KGSL_PWRFLAGS_NAP_OFF));
+		if (nap_on && device->state == KGSL_STATE_ACTIVE &&
 			device->requested_state == KGSL_STATE_NONE) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
 			kgsl_schedule_work(&device->idle_check_ws);

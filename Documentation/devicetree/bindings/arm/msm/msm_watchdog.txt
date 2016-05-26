@@ -22,6 +22,12 @@ Required properties:
 - interrupts : should contain bark and bite irq numbers
 - qcom,pet-time : Non zero time interval at which watchdog should be pet in ms.
 - qcom,bark-time : Non zero timeout value for a watchdog bark in ms.
+- qcom,userspace-watchdog :
+	(boolean) Allow enabling the userspace-watchdog feature. This feature
+	requires userspace to pet the watchdog every qcom,pet-time interval
+	in addition to the existing kernel-level checks.
+	This feature is supported through device sysfs files.
+
 
 Optional properties:
 

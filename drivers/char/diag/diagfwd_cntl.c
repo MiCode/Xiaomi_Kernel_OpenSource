@@ -117,19 +117,31 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 	if (driver->logging_mode != DIAG_MEMORY_DEVICE_MODE)
 		return;
 
+	mutex_lock(&driver->md_session_lock);
 	memset(&info, 0, sizeof(struct siginfo));
 	info.si_code = SI_QUEUE;
 	info.si_int = (PERIPHERAL_MASK(peripheral) | data);
 	info.si_signo = SIGCONT;
 	if (driver->md_session_map[peripheral] &&
-	    driver->md_session_map[peripheral]->task) {
-		stat = send_sig_info(info.si_signo, &info,
-				     driver->md_session_map[peripheral]->task);
-		if (stat)
-			pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
-			       info.si_int, stat);
+		driver->md_session_map[peripheral]->task) {
+		if (driver->md_session_map[peripheral]->pid ==
+			driver->md_session_map[peripheral]->task->tgid) {
+			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+				"md_session %d pid = %d, md_session %d task tgid = %d\n",
+				peripheral,
+				driver->md_session_map[peripheral]->pid,
+				peripheral,
+				driver->md_session_map[peripheral]->task->tgid);
+			stat = send_sig_info(info.si_signo, &info,
+				driver->md_session_map[peripheral]->task);
+			if (stat)
+				pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
+					info.si_int, stat);
+		} else
+			pr_err("diag: md_session_map[%d] data is corrupted, signal data: 0x%x, stat: %d\n",
+				peripheral, info.si_int, stat);
 	}
-
+	mutex_unlock(&driver->md_session_lock);
 }
 
 static void process_pd_status(uint8_t *buf, uint32_t len,
@@ -1087,7 +1099,7 @@ int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 	driver->buffering_mode[peripheral].mode = params->mode;
 	driver->buffering_mode[peripheral].low_wm_val = params->low_wm_val;
 	driver->buffering_mode[peripheral].high_wm_val = params->high_wm_val;
-	if (mode == DIAG_BUFFERING_MODE_STREAMING)
+	if (params->mode == DIAG_BUFFERING_MODE_STREAMING)
 		driver->buffering_flag[peripheral] = 0;
 fail:
 	mutex_unlock(&driver->mode_lock);

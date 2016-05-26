@@ -307,8 +307,8 @@ static struct clk_freq_tbl ftbl_blsp_qup_spi_apps_clk_src[] = {
 	F(    960000,    cxo_clk_src,   10,    1,     2),
 	F(   4800000,    cxo_clk_src,    4,    0,     0),
 	F(   9600000,    cxo_clk_src,    2,    0,     0),
-	F(  19200000,    cxo_clk_src,    1,    0,     0),
 	F(  15000000, gpll0_out_main,   10,    1,     4),
+	F(  19200000,    cxo_clk_src,    1,    0,     0),
 	F(  25000000, gpll0_out_main,   12,    1,     2),
 	F(  50000000, gpll0_out_main,   12,    0,     0),
 	F_END
@@ -2722,12 +2722,19 @@ static void msm_gcc_cobalt_v1_fixup(void)
 	gcc_qspi_ahb_clk.c.ops = &clk_ops_dummy;
 }
 
+static void msm_gcc_cobalt_v2_fixup(void)
+{
+	qspi_ref_clk_src.c.ops = &clk_ops_dummy;
+	gcc_qspi_ref_clk.c.ops = &clk_ops_dummy;
+	gcc_qspi_ahb_clk.c.ops = &clk_ops_dummy;
+}
+
 static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	u32 regval;
 	int ret;
-	bool is_v1 = 0;
+	bool is_v1 = 0, is_v2 = 0;
 
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
@@ -2780,6 +2787,11 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 	if (is_v1)
 		msm_gcc_cobalt_v1_fixup();
 
+	is_v2 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-cobalt-v2");
+	if (is_v2)
+		msm_gcc_cobalt_v2_fixup();
+
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_gcc_cobalt,
 				    ARRAY_SIZE(msm_clocks_gcc_cobalt));
 	if (ret)
@@ -2808,6 +2820,7 @@ static int msm_gcc_cobalt_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-cobalt" },
+	{ .compatible = "qcom,gcc-cobalt-v2" },
 	{ .compatible = "qcom,gcc-hamster" },
 	{}
 };

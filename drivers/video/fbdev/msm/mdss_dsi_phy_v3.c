@@ -45,6 +45,8 @@
 #define CMN_TIMING_CTRL_10                   0x0D4
 #define CMN_TIMING_CTRL_11                   0x0D8
 #define CMN_PHY_STATUS                       0x0EC
+#define CMN_LANE_STATUS0                     0x0F4
+#define CMN_LANE_STATUS1                     0x0F8
 
 #define LNX_CFG0(n)                         ((0x200 + (0x80 * (n))) + 0x00)
 #define LNX_CFG1(n)                         ((0x200 + (0x80 * (n))) + 0x04)
@@ -61,6 +63,29 @@
 
 #define DSI_PHY_W32(b, off, val) MIPI_OUTP((b) + (off), (val))
 #define DSI_PHY_R32(b, off) MIPI_INP((b) + (off))
+
+static u32 __get_active_lanes_mask(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mipi_panel_info *mipi;
+	u32 mask = 0;
+
+	mipi = &ctrl->panel_data.panel_info.mipi;
+
+	/* clock lane will always be programmed for ulps */
+	mask = BIT(4);
+
+	/* Mark all active data lanes */
+	if (mipi->data_lane0)
+		mask |= BIT(0);
+	if (mipi->data_lane1)
+		mask |= BIT(1);
+	if (mipi->data_lane2)
+		mask |= BIT(2);
+	if (mipi->data_lane3)
+		mask |= BIT(3);
+
+	return mask;
+}
 
 static bool mdss_dsi_phy_v3_is_pll_on(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -178,6 +203,92 @@ void mdss_dsi_phy_v3_toggle_resync_fifo(struct mdss_dsi_ctrl_pdata *ctrl)
 	/* make sure resync fifo is reset */
 	wmb();
 }
+
+int mdss_dsi_phy_v3_wait_for_lanes_stop_state(struct mdss_dsi_ctrl_pdata *ctrl,
+	u32 *lane_status)
+{
+	u32 stop_state_mask = 0;
+	u32 const sleep_us = 10;
+	u32 const timeout_us = 100;
+
+	if (!ctrl || !lane_status) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	stop_state_mask = __get_active_lanes_mask(ctrl);
+
+	return readl_poll_timeout(ctrl->phy_io.base + CMN_LANE_STATUS1,
+		*lane_status, (*lane_status == stop_state_mask), sleep_us,
+		timeout_us);
+}
+
+int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
+{
+	int rc = 0;
+	u32 active_lanes = 0;
+	u32 lane_status = 0;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	active_lanes = __get_active_lanes_mask(ctrl);
+
+	pr_debug("configuring ulps (%s) for ctrl%d, active lanes=0x%08x\n",
+		(enable ? "on" : "off"), ctrl->ndx, active_lanes);
+
+	if (enable) {
+		/*
+		 * ULPS Entry Request.
+		 * Wait for a short duration to ensure that the lanes
+		 * enter ULP state.
+		 */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL1,
+			active_lanes);
+		usleep_range(100, 110);
+
+		/* Check to make sure that all active data lanes are in ULPS */
+		lane_status = DSI_PHY_R32(ctrl->phy_io.base, CMN_LANE_STATUS0);
+		if (lane_status & active_lanes) {
+			pr_err("ULPS entry req failed for ctrl%d. Lane status=0x%08x\n",
+				ctrl->ndx, lane_status);
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		/*
+		 * ULPS Exit Request
+		 * Hardware requirement is to wait for at least 1ms
+		 */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL2,
+			active_lanes);
+		usleep_range(1000, 1010);
+
+		/*
+		 * Sometimes when exiting ULPS, it is possible that some DSI
+		 * lanes are not in the stop state which could lead to DSI
+		 * commands not going through. To avoid this, force the lanes
+		 * to be in stop state.
+		 */
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL3,
+			active_lanes);
+
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL3, 0);
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL2, 0);
+		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL1, 0);
+
+		lane_status = DSI_PHY_R32(ctrl->phy_io.base, CMN_LANE_STATUS0);
+	}
+
+	pr_debug("DSI lane status = 0x%08x. Ulps %s\n", lane_status,
+		enable ? "enabled" : "disabled");
+
+error:
+	return rc;
+}
+
 
 int mdss_dsi_phy_v3_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 {

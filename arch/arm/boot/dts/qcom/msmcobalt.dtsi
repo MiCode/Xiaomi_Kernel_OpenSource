@@ -2091,6 +2091,63 @@
 		hyplog-size-offset = <0x414>;    /* 0x066BFB34 */
 	};
 
+	qcom_crypto: qcrypto@1DE0000 {
+		compatible = "qcom,qcrypto";
+		reg = <0x1DE0000 0x20000>,
+		      <0x1DC4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 206 0>;
+		qcom,bam-pipe-pair = <2>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,bam-ee = <0>;
+		qcom,ce-hw-shared;
+		qcom,clk-mgmt-sus-res;
+		qcom,msm-bus,name = "qcrypto-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 3936000 393600>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		clocks = <&clock_gcc clk_qcrypto_ce1_clk>,
+			 <&clock_gcc clk_qcrypto_ce1_clk>,
+			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
+			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,use-sw-aes-cbc-ecb-ctr-algo;
+		qcom,use-sw-aes-xts-algo;
+		qcom,use-sw-aes-ccm-algo;
+		qcom,use-sw-ahash-algo;
+	};
+
+	qcom_cedev: qcedev@1DE0000{
+		compatible = "qcom,qcedev";
+		reg = <0x1DE0000 0x20000>,
+		      <0x1DC4000 0x24000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 206 0>;
+		qcom,bam-pipe-pair = <1>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		qcom,ce-hw-shared;
+		qcom,bam-ee = <0>;
+		qcom,msm-bus,name = "qcedev-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 3936000 393600>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		clocks = <&clock_gcc clk_qcedev_ce1_clk>,
+			 <&clock_gcc clk_qcedev_ce1_clk>,
+			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
+			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
+		qcom,ce-opp-freq = <171430000>;
+	};
+
 	mitigation_profile0: qcom,limit_info-0 {
 		qcom,temperature-sensor = <&sensor_information1>;
 		qcom,hotplug-mitigation-enable;

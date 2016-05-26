@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -463,7 +463,7 @@ static int _sendcache_pre(struct audio_client *ac)
 		err = -EINVAL;
 	if ((_depc_size == 0) || !_depc || (size == 0) ||
 		cmd == 0 || ((offset + size) > _depc_size) || (err != 0)) {
-		eagle_precache_err("%s: primary device %i cache index %i general error - cache size = %u, cache ptr = %p, offset = %u, size = %u, cmd = %i",
+		eagle_precache_err("%s: primary device %i cache index %i general error - cache size = %u, cache ptr = %pK, offset = %u, size = %u, cmd = %i",
 			__func__, _device_primary, cidx, _depc_size, _depc,
 			offset, size, cmd);
 		return -EINVAL;
@@ -547,7 +547,7 @@ NT_MODE_GOTO:
 		err = -EINVAL;
 	if ((_depc_size == 0) || !_depc || (err != 0) || (size == 0) ||
 		(cmd == 0) || (offset + size) > _depc_size) {
-		eagle_postcache_err("%s: primary device %i cache index %i port_id 0x%X general error - cache size = %u, cache ptr = %p, offset = %u, size = %u, cmd = %i",
+		eagle_postcache_err("%s: primary device %i cache index %i port_id 0x%X general error - cache size = %u, cache ptr = %pK, offset = %u, size = %u, cmd = %i",
 			__func__, _device_primary, cidx, port_id,
 			_depc_size, _depc, offset, size, cmd);
 		return -EINVAL;
@@ -1012,7 +1012,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 		eagle_ioctl_info("%s: called with control 0x%X (allocate param cache)",
 			__func__, cmd);
 		if (copy_from_user((void *)&size, (void *)arg, sizeof(size))) {
-			eagle_ioctl_err("%s: error copying size (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error copying size (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, &size, sizeof(size));
 			return -EFAULT;
 		} else if (size > DEPC_MAX_SIZE) {
@@ -1052,7 +1052,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 		eagle_ioctl_info("%s: control 0x%X (get param)",
 			__func__, cmd);
 		if (copy_from_user((void *)&depd, (void *)arg, sizeof(depd))) {
-			eagle_ioctl_err("%s: error copying dts_eagle_param_desc (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error copying dts_eagle_param_desc (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, &depd, sizeof(depd));
 			return -EFAULT;
 		}
@@ -1123,7 +1123,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 		eagle_ioctl_info("%s: control 0x%X (set param)",
 			__func__, cmd);
 		if (copy_from_user((void *)&depd, (void *)arg, sizeof(depd))) {
-			eagle_ioctl_err("%s: error copying dts_eagle_param_desc (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error copying dts_eagle_param_desc (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, &depd, sizeof(depd));
 			return -EFAULT;
 		}
@@ -1156,7 +1156,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 		if (copy_from_user((void *)&_depc[offset],
 				   (void *)(((char *)arg)+sizeof(depd)),
 					depd.size)) {
-			eagle_ioctl_err("%s: error copying param to cache (src:%p, tgt:%p, size:%u)",
+			eagle_ioctl_err("%s: error copying param to cache (src:%pK, tgt:%pK, size:%u)",
 				__func__, ((char *)arg)+sizeof(depd),
 				&_depc[offset], depd.size);
 			return -EFAULT;
@@ -1175,7 +1175,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 		eagle_ioctl_info("%s: with control 0x%X (set param cache block)",
 			 __func__, cmd);
 		if (copy_from_user((void *)b_, (void *)arg, sizeof(b_))) {
-			eagle_ioctl_err("%s: error copying cache block data (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error copying cache block data (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, b_, sizeof(b_));
 			return -EFAULT;
 		}
@@ -1206,7 +1206,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 		eagle_ioctl_dbg("%s: with control 0x%X (set active device)",
 			 __func__, cmd);
 		if (copy_from_user((void *)data, (void *)arg, sizeof(data))) {
-			eagle_ioctl_err("%s: error copying active device data (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error copying active device data (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, data, sizeof(data));
 			return -EFAULT;
 		}
@@ -1228,7 +1228,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 			 __func__, cmd);
 		if (copy_from_user((void *)&target, (void *)arg,
 				   sizeof(target))) {
-			eagle_ioctl_err("%s: error reading license index. (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error reading license index. (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, &target, sizeof(target));
 			return -EFAULT;
 		}
@@ -1275,7 +1275,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 				cmd);
 		if (copy_from_user((void *)target, (void *)arg,
 				   sizeof(target))) {
-			eagle_ioctl_err("%s: error reading license index (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error reading license index (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, target, sizeof(target));
 			return -EFAULT;
 		}
@@ -1318,7 +1318,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 				(void *)&(((u32 *)_sec_blob[target[0]])[1]),
 				(void *)(((char *)arg)+sizeof(target)),
 				target[1])) {
-			eagle_ioctl_err("%s: error copying license to index %u, size %u (src:%p, tgt:%p, size:%u)",
+			eagle_ioctl_err("%s: error copying license to index %u, size %u (src:%pK, tgt:%pK, size:%u)",
 					__func__, target[0], target[1],
 					((char *)arg)+sizeof(target),
 					&(((u32 *)_sec_blob[target[0]])[1]),
@@ -1335,7 +1335,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 				cmd);
 		if (copy_from_user((void *)&target, (void *)arg,
 				   sizeof(target))) {
-			eagle_ioctl_err("%s: error reading license index (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error reading license index (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, &target, sizeof(target));
 			return -EFAULT;
 		}
@@ -1365,7 +1365,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 				__func__, cmd);
 		if (copy_from_user((void *)&spec, (void *)arg,
 					sizeof(spec))) {
-			eagle_ioctl_err("%s: error reading volume command specifier (src:%p, tgt:%p, size:%zu)",
+			eagle_ioctl_err("%s: error reading volume command specifier (src:%pK, tgt:%pK, size:%zu)",
 				__func__, (void *)arg, &spec, sizeof(spec));
 			return -EFAULT;
 		}
@@ -1387,7 +1387,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 			if (copy_from_user((void *)&_vol_cmds_d[idx],
 					(void *)(((char *)arg) + sizeof(int)),
 					sizeof(struct vol_cmds_d))) {
-				eagle_ioctl_err("%s: error reading volume command descriptor (src:%p, tgt:%p, size:%zu)",
+				eagle_ioctl_err("%s: error reading volume command descriptor (src:%pK, tgt:%pK, size:%zu)",
 					__func__, ((char *)arg) + sizeof(int),
 					&_vol_cmds_d[idx],
 					sizeof(struct vol_cmds_d));
@@ -1400,7 +1400,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 			if (copy_from_user((void *)_vol_cmds[idx],
 					(void *)(((char *)arg) + (sizeof(int) +
 					sizeof(struct vol_cmds_d))), size)) {
-				eagle_ioctl_err("%s: error reading volume command string (src:%p, tgt:%p, size:%i)",
+				eagle_ioctl_err("%s: error reading volume command string (src:%pK, tgt:%pK, size:%i)",
 					__func__, ((char *)arg) + (sizeof(int) +
 					sizeof(struct vol_cmds_d)),
 					_vol_cmds[idx], size);

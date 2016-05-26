@@ -92,4 +92,27 @@ int mdss_dsi_phy_v3_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl);
  */
 void mdss_dsi_phy_v3_toggle_resync_fifo(struct mdss_dsi_ctrl_pdata *ctrl);
 
+/**
+ * mdss_dsi_phy_v3_wait_for_lanes_stop_state() - Wait for DSI lanes to be in
+ *						 stop state
+ * @ctrl: pointer to DSI controller structure
+ * @lane_status: value of lane status register at the end of the poll
+ *
+ * This function waits for all the active DSI lanes to be in stop state by
+ * polling the lane status register. This function assumes that the bus clocks
+ * required to access the registers are already turned on.
+ */
+int mdss_dsi_phy_v3_wait_for_lanes_stop_state(struct mdss_dsi_ctrl_pdata *ctrl,
+	u32 *lane_status);
+
+/**
+ * mdss_dsi_phy_v3_ulps_config() - Program DSI lanes to enter/exit ULPS mode
+ * @ctrl: pointer to DSI controller structure
+ * @enable: true to enter ULPS, false to exit ULPS
+ *
+ * This function executes the necessary hardware programming sequence to
+ * enter/exit DSI Ultra-Low Power State (ULPS) for DSI PHY v3. This function
+ * assumes that the link and core clocks are already on.
+ */
+int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable);
 #endif /* MDSS_DSI_PHY_H */

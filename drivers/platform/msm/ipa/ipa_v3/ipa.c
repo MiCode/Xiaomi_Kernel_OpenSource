@@ -1468,7 +1468,7 @@ static int ipa3_init_smem_region(int memory_region_size,
 	struct ipahal_imm_cmd_dma_shared_mem cmd;
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipa3_desc desc;
-	struct ipa3_mem_buffer mem;
+	struct ipa_mem_buffer mem;
 	int rc;
 
 	if (memory_region_size == 0)
@@ -1636,7 +1636,7 @@ static void ipa3_q6_avoid_holb(void)
 }
 
 static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
-	enum ipa_rule_type rlt, const struct ipa3_mem_buffer *mem)
+	enum ipa_rule_type rlt, const struct ipa_mem_buffer *mem)
 {
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_dma_shared_mem cmd;
@@ -1739,7 +1739,7 @@ free_desc:
 }
 
 static int ipa3_q6_clean_q6_rt_tbls(enum ipa_ip_type ip,
-	enum ipa_rule_type rlt, const struct ipa3_mem_buffer *mem)
+	enum ipa_rule_type rlt, const struct ipa_mem_buffer *mem)
 {
 	struct ipa3_desc *desc;
 	struct ipahal_imm_cmd_dma_shared_mem cmd;
@@ -1837,7 +1837,7 @@ static int ipa3_q6_clean_q6_tables(void)
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipahal_imm_cmd_register_write reg_write_cmd = {0};
 	int retval;
-	struct ipa3_mem_buffer mem = { 0 };
+	struct ipa_mem_buffer mem = { 0 };
 	struct ipahal_reg_fltrt_hash_flush flush;
 	struct ipahal_reg_valmask valmask;
 	u64 *entry;
@@ -2146,7 +2146,7 @@ int _ipa_init_sram_v3_0(void)
 int _ipa_init_hdr_v3_0(void)
 {
 	struct ipa3_desc desc = { 0 };
-	struct ipa3_mem_buffer mem;
+	struct ipa_mem_buffer mem;
 	struct ipahal_imm_cmd_hdr_init_local cmd = {0};
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipahal_imm_cmd_dma_shared_mem dma_cmd = { 0 };
@@ -2250,7 +2250,7 @@ int _ipa_init_hdr_v3_0(void)
 int _ipa_init_rt4_v3(void)
 {
 	struct ipa3_desc desc = { 0 };
-	struct ipa3_mem_buffer mem;
+	struct ipa_mem_buffer mem;
 	struct ipahal_imm_cmd_ip_v4_routing_init v4_cmd;
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	u64 *entry;
@@ -2324,7 +2324,7 @@ free_mem:
 int _ipa_init_rt6_v3(void)
 {
 	struct ipa3_desc desc = { 0 };
-	struct ipa3_mem_buffer mem;
+	struct ipa_mem_buffer mem;
 	struct ipahal_imm_cmd_ip_v6_routing_init v6_cmd;
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	u64 *entry;
@@ -2398,7 +2398,7 @@ free_mem:
 int _ipa_init_flt4_v3(void)
 {
 	struct ipa3_desc desc = { 0 };
-	struct ipa3_mem_buffer mem;
+	struct ipa_mem_buffer mem;
 	struct ipahal_imm_cmd_ip_v4_filter_init v4_cmd;
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	u64 *entry;
@@ -2491,7 +2491,7 @@ free_mem:
 int _ipa_init_flt6_v3(void)
 {
 	struct ipa3_desc desc = { 0 };
-	struct ipa3_mem_buffer mem;
+	struct ipa_mem_buffer mem;
 	struct ipahal_imm_cmd_ip_v6_filter_init v6_cmd;
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
 	u64 *entry;

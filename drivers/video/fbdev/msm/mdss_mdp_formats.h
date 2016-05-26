@@ -388,7 +388,7 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.unpack_count = 3,
 		.bpp = 3,
 		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
-		.element = { C2_R_Cr, C1_B_Cb, C0_G_Y },
+		.element = { C0_G_Y, C1_B_Cb, C2_R_Cr },
 	},
 	{
 		FMT_YUV_COMMON(MDP_YCRCB_H1V1),
@@ -397,7 +397,7 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.unpack_count = 3,
 		.bpp = 3,
 		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
-		.element = { C1_B_Cb, C2_R_Cr, C0_G_Y },
+		.element = { C0_G_Y, C2_R_Cr, C1_B_Cb },
 	},
 	{
 		FMT_YUV_COMMON(MDP_YCRYCB_H2V1),
@@ -406,7 +406,7 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.unpack_count = 4,
 		.bpp = 2,
 		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
-		.element = { C1_B_Cb, C0_G_Y, C2_R_Cr, C0_G_Y },
+		.element = { C0_G_Y, C2_R_Cr, C0_G_Y, C1_B_Cb },
 	},
 	{
 		FMT_YUV_COMMON(MDP_YCBYCR_H2V1),
@@ -416,7 +416,7 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.unpack_count = 4,
 		.bpp = 2,
 		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
-		.element = { C2_R_Cr, C0_G_Y, C1_B_Cb, C0_G_Y },
+		.element = { C0_G_Y, C1_B_Cb, C0_G_Y, C2_R_Cr },
 	},
 	{
 		FMT_YUV_COMMON(MDP_CRYCBY_H2V1),
@@ -425,7 +425,16 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.unpack_count = 4,
 		.bpp = 2,
 		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
-		.element = { C0_G_Y, C1_B_Cb, C0_G_Y, C2_R_Cr },
+		.element = { C2_R_Cr, C0_G_Y, C1_B_Cb, C0_G_Y },
+	},
+	{
+		FMT_YUV_COMMON(MDP_CBYCRY_H2V1),
+		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,
+		.chroma_sample = MDSS_MDP_CHROMA_H2V1,
+		.unpack_count = 4,
+		.bpp = 2,
+		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
+		.element = { C1_B_Cb, C0_G_Y, C2_R_Cr, C0_G_Y},
 	},
 	FMT_RGB_1555(MDP_RGBA_5551, 1, VALID_ROT_WB_FORMAT |
 		VALID_MDP_CURSOR_FORMAT | VALID_MDP_WB_INTF_FORMAT,

@@ -1392,6 +1392,7 @@ void diag_dci_channel_open_work(struct work_struct *work)
 	 * which log entries in the cumulative logs that need
 	 * to be updated on the peripheral.
 	 */
+	mutex_lock(&driver->dci_mutex);
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
 		if (entry->client_info.token != DCI_LOCAL_PROC)
@@ -1403,6 +1404,7 @@ void diag_dci_channel_open_work(struct work_struct *work)
 			client_log_mask_ptr += 514;
 		}
 	}
+	mutex_unlock(&driver->dci_mutex);
 
 	mutex_lock(&dci_log_mask_mutex);
 	/* Update the appropriate dirty bits in the cumulative mask */
@@ -1448,11 +1450,20 @@ void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 			continue;
 		if (entry->client_info.notification_list & peripheral_mask) {
 			info.si_signo = entry->client_info.signal_type;
-			stat = send_sig_info(entry->client_info.signal_type,
-					     &info, entry->client);
-			if (stat)
-				pr_err("diag: Err sending dci signal to client, signal data: 0x%x, stat: %d\n",
+			if (entry->client &&
+				entry->tgid == entry->client->tgid) {
+				DIAG_LOG(DIAG_DEBUG_DCI,
+					"entry tgid = %d, dci client tgid = %d\n",
+					entry->tgid, entry->client->tgid);
+				stat = send_sig_info(
+					entry->client_info.signal_type,
+					&info, entry->client);
+				if (stat)
+					pr_err("diag: Err sending dci signal to client, signal data: 0x%x, stat: %d\n",
 							info.si_int, stat);
+			} else
+				pr_err("diag: client data is corrupted, signal data: 0x%x, stat: %d\n",
+						info.si_int, stat);
 		}
 	}
 }
@@ -2763,6 +2774,7 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 	mutex_lock(&driver->dci_mutex);
 
 	new_entry->client = current;
+	new_entry->tgid = current->tgid;
 	new_entry->client_info.notification_list =
 				reg_entry->notification_list;
 	new_entry->client_info.signal_type =
@@ -2888,8 +2900,6 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	if (!entry)
 		return DIAG_DCI_NOT_SUPPORTED;
 
-	mutex_lock(&driver->dci_mutex);
-
 	token = entry->client_info.token;
 	/*
 	 * Remove the entry from the list before freeing the buffers
@@ -2999,8 +3009,6 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 		diag_update_real_time_vote(DIAG_PROC_DCI, real_time, token);
 	}
 	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
-
-	mutex_unlock(&driver->dci_mutex);
 
 	return DIAG_DCI_NO_ERROR;
 }

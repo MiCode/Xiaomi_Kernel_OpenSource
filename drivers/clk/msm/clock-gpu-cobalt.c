@@ -448,6 +448,71 @@ static struct mux_clk gpucc_gcc_dbg_clk = {
 	},
 };
 
+static void enable_gfx_crc(void)
+{
+	u32 regval;
+
+	/* Set graphics clock at a safe frequency */
+	clk_set_rate(&gpucc_gfx3d_clk.c, gfx3d_clk_src.c.fmax[2]);
+	/* Turn on the GPU_CX GDSC */
+	regval = readl_relaxed(virt_base_gfx + GPU_CX_GDSCR_OFFSET);
+	regval &= ~SW_COLLAPSE_MASK;
+	writel_relaxed(regval, virt_base_gfx + GPU_CX_GDSCR_OFFSET);
+	/* Wait for 10usecs to let the GDSC turn ON */
+	mb();
+	udelay(10);
+	/* Turn on the Graphics rail */
+	if (regulator_enable(vdd_gpucc.regulator[0]))
+		pr_warn("Enabling the graphics rail during CRC sequence failed!\n");
+	/* Turn on the GPU_GX GDSC */
+	writel_relaxed(0x1, virt_base_gfx + GPU_GX_BCR);
+	/*
+	 * BLK_ARES should be kept asserted for 1us before being de-asserted.
+	 */
+	wmb();
+	udelay(1);
+	writel_relaxed(0x0, virt_base_gfx + GPU_GX_BCR);
+	regval = readl_relaxed(virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
+	regval |= BIT(4);
+	writel_relaxed(regval, virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
+	/* Keep reset asserted for at-least 1us before continuing. */
+	wmb();
+	udelay(1);
+	regval &= ~BIT(4);
+	writel_relaxed(regval, virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
+	/* Make sure GMEM_RESET is de-asserted before continuing. */
+	wmb();
+	regval &= ~BIT(0);
+	writel_relaxed(regval, virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
+	/* All previous writes should be done at this point */
+	wmb();
+	regval = readl_relaxed(virt_base_gfx + GPU_GX_GDSCR_OFFSET);
+	regval &= ~SW_COLLAPSE_MASK;
+	writel_relaxed(regval, virt_base_gfx + GPU_GX_GDSCR_OFFSET);
+	/* Wait for 10usecs to let the GDSC turn ON */
+	mb();
+	udelay(10);
+	/* Enable the graphics clock */
+	clk_prepare_enable(&gpucc_gfx3d_clk.c);
+	/* Enabling MND RC in Bypass mode */
+	writel_relaxed(0x00015010, virt_base_gfx + CRC_MND_CFG_OFFSET);
+	writel_relaxed(0x00800000, virt_base_gfx + CRC_SID_FSM_OFFSET);
+	/* Wait for 16 cycles before continuing */
+	udelay(1);
+	clk_set_rate(&gpucc_gfx3d_clk.c,
+			gfx3d_clk_src.c.fmax[gfx3d_clk_src.c.num_fmax - 1]);
+	/* Disable the graphics clock */
+	clk_disable_unprepare(&gpucc_gfx3d_clk.c);
+	/* Turn off the gpu_cx and gpu_gx GDSCs */
+	regval = readl_relaxed(virt_base_gfx + GPU_GX_GDSCR_OFFSET);
+	regval |= SW_COLLAPSE_MASK;
+	writel_relaxed(regval, virt_base_gfx + GPU_GX_GDSCR_OFFSET);
+	regulator_disable(vdd_gpucc.regulator[0]);
+	regval = readl_relaxed(virt_base_gfx + GPU_CX_GDSCR_OFFSET);
+	regval |= SW_COLLAPSE_MASK;
+	writel_relaxed(regval, virt_base_gfx + GPU_CX_GDSCR_OFFSET);
+}
+
 static struct mux_clk gfxcc_dbg_clk = {
 	.ops = &mux_reg_ops,
 	.en_mask = BIT(16),
@@ -595,7 +660,6 @@ int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 	struct device_node *of_node = pdev->dev.of_node;
 	int rc;
 	struct regulator *reg;
-	u32 regval;
 	bool is_vq = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
@@ -659,58 +723,7 @@ int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	/* CRC ENABLE SEQUENCE */
-	clk_set_rate(&gpucc_gfx3d_clk.c, gfx3d_clk_src.c.fmax[2]);
-	/* Turn on the GPU_CX GDSC */
-	regval = readl_relaxed(virt_base_gfx + GPU_CX_GDSCR_OFFSET);
-	regval &= ~SW_COLLAPSE_MASK;
-	writel_relaxed(regval, virt_base_gfx + GPU_CX_GDSCR_OFFSET);
-	/* Wait for 10usecs to let the GDSC turn ON */
-	mb();
-	udelay(10);
-	/* Turn on the GPU_GX GDSC */
-	writel_relaxed(0x1, virt_base_gfx + GPU_GX_BCR);
-	/*
-	 * BLK_ARES should be kept asserted for 1us before being de-asserted.
-	 */
-	wmb();
-	udelay(1);
-	writel_relaxed(0x0, virt_base_gfx + GPU_GX_BCR);
-	regval = readl_relaxed(virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
-	regval |= BIT(4);
-	writel_relaxed(regval, virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
-	/* Keep reset asserted for at-least 1us before continuing. */
-	wmb();
-	udelay(1);
-	regval &= ~BIT(4);
-	writel_relaxed(regval, virt_base_gfx + GPUCC_GX_DOMAIN_MISC);
-	/* Make sure GMEM_RESET is de-asserted before continuing. */
-	wmb();
-	regval = readl_relaxed(virt_base_gfx + GPU_GX_GDSCR_OFFSET);
-	regval &= ~SW_COLLAPSE_MASK;
-	writel_relaxed(regval, virt_base_gfx + GPU_GX_GDSCR_OFFSET);
-	/* Wait for 10usecs to let the GDSC turn ON */
-	mb();
-	udelay(10);
-	/* Enable the graphics clock */
-	clk_prepare_enable(&gpucc_gfx3d_clk.c);
-	/* Enabling MND RC in Bypass mode */
-	writel_relaxed(0x00015010, virt_base_gfx + CRC_MND_CFG_OFFSET);
-	writel_relaxed(0x00800000, virt_base_gfx + CRC_SID_FSM_OFFSET);
-	/* Wait for 16 cycles before continuing */
-	udelay(1);
-	clk_set_rate(&gpucc_gfx3d_clk.c,
-			gfx3d_clk_src.c.fmax[gfx3d_clk_src.c.num_fmax - 1]);
-	/* Disable the graphics clock */
-	clk_disable_unprepare(&gpucc_gfx3d_clk.c);
-	/* Turn off the gpu_cx and gpu_gx GDSCs */
-	regval = readl_relaxed(virt_base_gfx + GPU_GX_GDSCR_OFFSET);
-	regval |= SW_COLLAPSE_MASK;
-	writel_relaxed(regval, virt_base_gfx + GPU_GX_GDSCR_OFFSET);
-	regval = readl_relaxed(virt_base_gfx + GPU_CX_GDSCR_OFFSET);
-	regval |= SW_COLLAPSE_MASK;
-	writel_relaxed(regval, virt_base_gfx + GPU_CX_GDSCR_OFFSET);
-	/* END OF CRC ENABLE SEQUENCE */
+	enable_gfx_crc();
 
 	/*
 	 * Force periph logic to be ON since after NAP, the value of the perf

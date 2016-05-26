@@ -66,6 +66,9 @@ static const char *extcon_name[] =  {
 	/* connector orientation 0 - CC1, 1 - CC2 */
 	[EXTCON_USB_CC]			= "USB-CC",
 
+	/* connector speed 0 - High Speed, 1 - Super Speed */
+	[EXTCON_USB_SPEED]		= "USB-SPEED",
+
 	/* Display external connector */
 	[EXTCON_DISP_HDMI]		= "HDMI",
 	[EXTCON_DISP_MHL]		= "MHL",

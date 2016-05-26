@@ -284,13 +284,13 @@ bad_uc_top_ofst:
 }
 
 /**
- * ipa_uc_state_check() - Check the status of the uC interface
+ * ipa2_uc_state_check() - Check the status of the uC interface
  *
  * Return value: 0 if the uC is loaded, interface is initialized
  *               and there was no recent failure in one of the commands.
  *               A negative value is returned otherwise.
  */
-int ipa_uc_state_check(void)
+int ipa2_uc_state_check(void)
 {
 	if (!ipa_ctx->uc_ctx.uc_inited) {
 		IPAERR("uC interface not initialized\n");
@@ -309,7 +309,7 @@ int ipa_uc_state_check(void)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_uc_state_check);
+EXPORT_SYMBOL(ipa2_uc_state_check);
 
 /**
  * ipa_uc_loaded_check() - Check the uC has been loaded
@@ -384,7 +384,7 @@ static int ipa_uc_panic_notifier(struct notifier_block *this,
 
 	IPADBG("this=%p evt=%lu ptr=%p\n", this, event, ptr);
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		goto fail;
 	IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info);
@@ -593,7 +593,7 @@ int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 
 	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
 
-	if (ipa_uc_state_check()) {
+	if (ipa2_uc_state_check()) {
 		IPADBG("uC send command aborted\n");
 		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		return -EBADF;
@@ -727,7 +727,7 @@ int ipa_uc_reset_pipe(enum ipa_client_type ipa_client)
 	 * continue with the sequence without resetting the
 	 * pipe.
 	 */
-	if (ipa_uc_state_check()) {
+	if (ipa2_uc_state_check()) {
 		IPADBG("uC interface will not be used to reset %s pipe %d\n",
 		       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD",
 		       ep_idx);
@@ -785,7 +785,7 @@ int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable)
 	 * continue with the sequence without resetting the
 	 * pipe.
 	 */
-	if (ipa_uc_state_check()) {
+	if (ipa2_uc_state_check()) {
 		IPADBG("uC interface will not be used to reset %s pipe %d\n",
 		       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD",
 		       ep_idx);
@@ -849,7 +849,7 @@ int ipa_uc_notify_clk_state(bool enabled)
 	 * If the uC interface has not been initialized yet,
 	 * don't notify the uC on the enable/disable
 	 */
-	if (ipa_uc_state_check()) {
+	if (ipa2_uc_state_check()) {
 		IPADBG("uC interface will not notify the UC on clock state\n");
 		return 0;
 	}

@@ -738,7 +738,7 @@ int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		}
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1005,7 +1005,7 @@ int ipa2_disconnect_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1071,7 +1071,7 @@ int ipa2_enable_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1139,7 +1139,7 @@ int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1239,7 +1239,7 @@ int ipa2_resume_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1306,7 +1306,7 @@ int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1388,7 +1388,7 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result)
 		return result;
 
@@ -1447,7 +1447,7 @@ int ipa2_uc_reg_rdyCB(
 		return -EINVAL;
 	}
 
-	result = ipa_uc_state_check();
+	result = ipa2_uc_state_check();
 	if (result) {
 		inout->is_uC_ready = false;
 		ipa_ctx->uc_wdi_ctx.uc_ready_cb = inout->notify;

@@ -20,6 +20,8 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
@@ -60,7 +62,8 @@ struct icnss_driver_event {
 enum cnss_driver_state {
 	ICNSS_WLFW_QMI_CONNECTED,
 	ICNSS_FW_READY,
-	ICNSS_DRIVER_PROBED
+	ICNSS_DRIVER_PROBED,
+	ICNSS_FW_TEST_MODE,
 };
 
 #ifdef ICNSS_PANIC
@@ -131,6 +134,7 @@ static struct icnss_data {
 		icnss_mem_region[QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01];
 	bool skip_qmi;
 	struct completion driver_unregister;
+	struct dentry *root_dentry;
 } *penv;
 
 static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
@@ -1105,72 +1109,6 @@ out:
 }
 EXPORT_SYMBOL(icnss_unregister_driver);
 
-int icnss_register_ce_irq(unsigned int ce_id,
-	irqreturn_t (*handler)(int, void *),
-		unsigned long flags, const char *name)
-{
-	int ret = 0;
-	unsigned int irq;
-	struct ce_irq_list *irq_entry;
-
-	if (!penv || !penv->pdev) {
-		ret = -ENODEV;
-		goto out;
-	}
-	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS) {
-		pr_err("icnss: Invalid CE ID %d\n", ce_id);
-		ret = -EINVAL;
-		goto out;
-	}
-	irq = penv->ce_irqs[ce_id];
-	irq_entry = &penv->ce_irq_list[ce_id];
-
-	if (irq_entry->handler || irq_entry->irq) {
-		pr_err("icnss: handler already registered %d\n", irq);
-		ret = -EEXIST;
-		goto out;
-	}
-
-	ret = request_irq(irq, handler, IRQF_SHARED, name, &penv->pdev->dev);
-	if (ret) {
-		pr_err("icnss: IRQ not registered %d\n", irq);
-		ret = -EINVAL;
-		goto out;
-	}
-	irq_entry->irq = irq;
-	irq_entry->handler = handler;
-	pr_debug("icnss: IRQ registered %d\n", irq);
-out:
-	return ret;
-
-}
-EXPORT_SYMBOL(icnss_register_ce_irq);
-
-int icnss_unregister_ce_irq(unsigned int ce_id)
-{
-	int ret = 0;
-	unsigned int irq;
-	struct ce_irq_list *irq_entry;
-
-	if (!penv || !penv->pdev) {
-		ret = -ENODEV;
-		goto out;
-	}
-	irq = penv->ce_irqs[ce_id];
-	irq_entry = &penv->ce_irq_list[ce_id];
-	if (!irq_entry->handler || !irq_entry->irq) {
-		pr_err("icnss: handler not registered %d\n", irq);
-		ret = -EEXIST;
-		goto out;
-	}
-	free_irq(irq, &penv->pdev->dev);
-	irq_entry->irq = 0;
-	irq_entry->handler = NULL;
-out:
-	return ret;
-}
-EXPORT_SYMBOL(icnss_unregister_ce_irq);
-
 int icnss_ce_request_irq(unsigned int ce_id,
 	irqreturn_t (*handler)(int, void *),
 		unsigned long flags, const char *name, void *ctx)
@@ -1380,38 +1318,6 @@ int icnss_get_ce_id(int irq)
 }
 EXPORT_SYMBOL(icnss_get_ce_id);
 
-static ssize_t icnss_wlan_mode_store(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf,
-				     size_t count)
-{
-	int val;
-	int ret;
-
-	if (!penv)
-		return -ENODEV;
-
-	ret = kstrtoint(buf, 0, &val);
-	if (ret)
-		return ret;
-
-	if (val == ICNSS_WALTEST || val == ICNSS_CCPM) {
-		pr_debug("%s: WLAN Test Mode -> %d\n", __func__, val);
-		ret = icnss_wlan_enable(NULL, val, NULL);
-		if (ret)
-			pr_err("%s: WLAN Test Mode %d failed with %d\n",
-			       __func__, val, ret);
-	} else {
-		pr_err("%s: Mode %d is not supported from command line\n",
-		       __func__, val);
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
-static DEVICE_ATTR(icnss_wlan_mode, S_IWUSR, NULL, icnss_wlan_mode_store);
-
 static struct clk *icnss_clock_init(struct device *dev, const char *cname)
 {
 	struct clk *c;
@@ -1594,6 +1500,191 @@ static int icnss_release_resources(void)
 	return ret;
 }
 
+static int icnss_test_mode_show(struct seq_file *s, void *data)
+{
+	struct icnss_data *priv = s->private;
+
+	seq_puts(s, "0 : Test mode disable\n");
+	seq_puts(s, "1 : WLAN Firmware test\n");
+	seq_puts(s, "2 : CCPM test\n");
+
+	seq_puts(s, "\n");
+
+	if (!test_bit(ICNSS_FW_READY, &priv->state)) {
+		seq_puts(s, "Firmware is not ready yet!, wait for FW READY\n");
+		goto out;
+	}
+
+	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state)) {
+		seq_puts(s, "Machine mode is running, can't run test mode!\n");
+		goto out;
+	}
+
+	if (test_bit(ICNSS_FW_TEST_MODE, &priv->state)) {
+		seq_puts(s, "Test mode is running!\n");
+		goto out;
+	}
+
+	seq_puts(s, "Test can be run, Have fun!\n");
+
+out:
+	seq_puts(s, "\n");
+	return 0;
+}
+
+static int icnss_test_mode_fw_test_off(struct icnss_data *priv)
+{
+	int ret;
+
+	if (!test_bit(ICNSS_FW_READY, &priv->state)) {
+		pr_err("Firmware is not ready yet!, wait for FW READY: state: 0x%lx\n",
+		       priv->state);
+		ret = -ENODEV;
+		goto out;
+	}
+
+	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state)) {
+		pr_err("Machine mode is running, can't run test mode: state: 0x%lx\n",
+		       priv->state);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!test_bit(ICNSS_FW_TEST_MODE, &priv->state)) {
+		pr_err("Test mode not started, state: 0x%lx\n", priv->state);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	icnss_wlan_disable(ICNSS_OFF);
+
+	ret = icnss_hw_power_off(priv);
+
+	clear_bit(ICNSS_FW_TEST_MODE, &priv->state);
+
+out:
+	return ret;
+}
+static int icnss_test_mode_fw_test(struct icnss_data *priv,
+				   enum icnss_driver_mode mode)
+{
+	int ret;
+
+	if (!test_bit(ICNSS_FW_READY, &priv->state)) {
+		pr_err("Firmware is not ready yet!, wait for FW READY, state: 0x%lx\n",
+		       priv->state);
+		ret = -ENODEV;
+		goto out;
+	}
+
+	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state)) {
+		pr_err("Machine mode is running, can't run test mode, state: 0x%lx\n",
+		       priv->state);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (test_bit(ICNSS_FW_TEST_MODE, &priv->state)) {
+		pr_err("Test mode already started, state: 0x%lx\n",
+		       priv->state);
+		ret = -EBUSY;
+		goto out;
+	}
+
+	ret = icnss_hw_power_on(priv);
+	if (ret < 0)
+		goto out;
+
+	set_bit(ICNSS_FW_TEST_MODE, &priv->state);
+
+	ret = icnss_wlan_enable(NULL, mode, NULL);
+	if (ret)
+		goto power_off;
+
+	return 0;
+
+power_off:
+	icnss_hw_power_off(priv);
+	clear_bit(ICNSS_FW_TEST_MODE, &priv->state);
+
+out:
+	return ret;
+}
+
+static ssize_t icnss_test_mode_write(struct file *fp, const char __user *buf,
+				    size_t count, loff_t *off)
+{
+	struct icnss_data *priv =
+		((struct seq_file *)fp->private_data)->private;
+	int ret;
+	u32 val;
+
+	ret = kstrtou32_from_user(buf, count, 0, &val);
+	if (ret)
+		return ret;
+
+	switch (val) {
+	case 0:
+		ret = icnss_test_mode_fw_test_off(priv);
+		break;
+	case 1:
+		ret = icnss_test_mode_fw_test(priv, ICNSS_WALTEST);
+		break;
+	case 2:
+		ret = icnss_test_mode_fw_test(priv, ICNSS_CCPM);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static int icnss_test_mode_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, icnss_test_mode_show, inode->i_private);
+}
+
+static const struct file_operations icnss_test_mode_fops = {
+	.read		= seq_read,
+	.write		= icnss_test_mode_write,
+	.release	= single_release,
+	.open		= icnss_test_mode_open,
+	.owner		= THIS_MODULE,
+	.llseek		= seq_lseek,
+};
+
+static int icnss_debugfs_create(struct icnss_data *priv)
+{
+	int ret = 0;
+	struct dentry *root_dentry;
+
+	root_dentry = debugfs_create_dir("icnss", 0);
+
+	if (IS_ERR(root_dentry)) {
+		ret = PTR_ERR(root_dentry);
+		pr_err("Unable to create debugfs %d\n", ret);
+		goto out;
+	}
+
+	priv->root_dentry = root_dentry;
+
+	debugfs_create_file("test_mode", S_IRUSR | S_IWUSR,
+			    root_dentry, priv, &icnss_test_mode_fops);
+
+out:
+	return ret;
+}
+
+static void icnss_debugfs_destroy(struct icnss_data *priv)
+{
+	debugfs_remove_recursive(priv->root_dentry);
+}
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1713,20 +1804,13 @@ static int icnss_probe(struct platform_device *pdev)
 	penv->skip_qmi = of_property_read_bool(dev->of_node,
 					       "qcom,skip-qmi");
 
-	ret = device_create_file(dev, &dev_attr_icnss_wlan_mode);
-	if (ret) {
-		pr_err("%s: wlan_mode sys file creation failed\n",
-		       __func__);
-		goto err_wlan_mode;
-	}
-
 	spin_lock_init(&penv->event_lock);
 
 	penv->event_wq = alloc_workqueue("icnss_driver_event", 0, 0);
 	if (!penv->event_wq) {
 		pr_err("%s: workqueue creation failed\n", __func__);
 		ret = -EFAULT;
-		goto err_workqueue;
+		goto err_smmu_clock_enable;
 	}
 
 	INIT_WORK(&penv->event_work, icnss_driver_event_work);
@@ -1742,6 +1826,8 @@ static int icnss_probe(struct platform_device *pdev)
 		goto err_qmi;
 	}
 
+	icnss_debugfs_create(penv);
+
 	pr_info("icnss: Platform driver probed successfully\n");
 
 	return ret;
@@ -1749,11 +1835,6 @@ static int icnss_probe(struct platform_device *pdev)
 err_qmi:
 	if (penv->event_wq)
 		destroy_workqueue(penv->event_wq);
-err_workqueue:
-	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
-err_wlan_mode:
-	if (penv->smmu_clk)
-		icnss_clock_disable(penv->smmu_clk);
 err_smmu_clock_enable:
 	if (penv->smmu_mapping)
 		icnss_smmu_remove(&pdev->dev);
@@ -1782,13 +1863,14 @@ static int icnss_remove(struct platform_device *pdev)
 {
 	int ret = 0;
 
+	icnss_debugfs_destroy(penv);
+
 	qmi_svc_event_notifier_unregister(WLFW_SERVICE_ID_V01,
 					  WLFW_SERVICE_VERS_V01,
 					  WLFW_SERVICE_INS_ID_V01,
 					  &wlfw_clnt_nb);
 	if (penv->event_wq)
 		destroy_workqueue(penv->event_wq);
-	device_remove_file(&pdev->dev, &dev_attr_icnss_wlan_mode);
 
 	if (penv->smmu_mapping) {
 		if (penv->smmu_clk)
