@@ -281,6 +281,16 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg)
 }
 EXPORT_SYMBOL_GPL(mbox_send_message);
 
+
+bool mbox_controller_is_idle(struct mbox_chan *chan)
+{
+	if (!chan || !chan->cl || !chan->mbox->is_idle)
+		return false;
+
+	return chan->mbox->is_idle(chan->mbox);
+}
+EXPORT_SYMBOL(mbox_controller_is_idle);
+
 /**
  * mbox_request_channel - Request a mailbox channel.
  * @cl: Identity of the client requesting the channel.
