@@ -106,5 +106,8 @@ extern int icnss_set_fw_debug_mode(bool enable_fw_log);
 extern int icnss_get_irq(int ce_id);
 extern int icnss_power_on(struct device *dev);
 extern int icnss_power_off(struct device *dev);
+extern struct dma_iommu_mapping *icnss_smmu_get_mapping(struct device *dev);
+extern int icnss_smmu_map(struct device *dev, phys_addr_t paddr,
+			  uint32_t *iova_addr, size_t size);
 
 #endif /* _ICNSS_WLAN_H_ */
