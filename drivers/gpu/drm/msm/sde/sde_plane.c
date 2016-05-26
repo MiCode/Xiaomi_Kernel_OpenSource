@@ -434,12 +434,6 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 
 	_sde_plane_set_scanout(plane, pstate, &psde->pipe_cfg, fb);
 
-	/* decimation */
-	psde->pipe_cfg.horz_decimation =
-		sde_plane_get_property(pstate, PLANE_PROP_H_DECIMATE);
-	psde->pipe_cfg.vert_decimation =
-		sde_plane_get_property(pstate, PLANE_PROP_V_DECIMATE);
-
 	/* flags */
 	DBG("Flags 0x%llX, rotation 0x%llX",
 			sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG),
@@ -470,12 +464,6 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	/* get sde pixel format definition */
 	fmt = psde->pipe_cfg.src.format;
 
-	/* don't chroma subsample if decimating */
-	chroma_subsmpl_h = psde->pipe_cfg.horz_decimation ? 1 :
-		drm_format_horz_chroma_subsampling(pix_format);
-	chroma_subsmpl_v = psde->pipe_cfg.vert_decimation ? 1 :
-		drm_format_vert_chroma_subsampling(pix_format);
-
 	pe = &(psde->pixel_ext);
 	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
 
@@ -495,6 +483,18 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 			break;
 		}
 	}
+
+	/* decimation */
+	if (sc_u1 && (sc_u1->enable & SDE_DRM_SCALER_DECIMATE)) {
+		psde->pipe_cfg.horz_decimation = sc_u1->horz_decimate;
+		psde->pipe_cfg.vert_decimation = sc_u1->vert_decimate;
+	}
+
+	/* don't chroma subsample if decimating */
+	chroma_subsmpl_h = psde->pipe_cfg.horz_decimation ? 1 :
+		drm_format_horz_chroma_subsampling(pix_format);
+	chroma_subsmpl_v = psde->pipe_cfg.vert_decimation ? 1 :
+		drm_format_vert_chroma_subsampling(pix_format);
 
 	/* update scaler */
 	if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
@@ -900,16 +900,6 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	_sde_plane_install_range_property(plane, dev, "alpha", 0, 255, 255,
 			&(dev_priv->plane_property[PLANE_PROP_ALPHA]));
 
-	/* max range of first pipe will be used */
-	_sde_plane_install_range_property(plane, dev, "h_decimate",
-			0, psde->pipe_sblk->maxhdeciexp, 0,
-			&(dev_priv->plane_property[PLANE_PROP_H_DECIMATE]));
-
-	/* max range of first pipe will be used */
-	_sde_plane_install_range_property(plane, dev, "v_decimate",
-			0, psde->pipe_sblk->maxvdeciexp, 0,
-			&(dev_priv->plane_property[PLANE_PROP_V_DECIMATE]));
-
 	_sde_plane_install_range_property(plane, dev, "sync_fence", 0, ~0, 0,
 			&(dev_priv->plane_property[PLANE_PROP_SYNC_FENCE]));
 
@@ -917,7 +907,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	_sde_plane_install_rotation_property(plane, dev,
 			&(dev_priv->plane_property[PLANE_PROP_ROTATION]));
 
-		/* enum/bitmask properties */
+	/* enum/bitmask properties */
 	_sde_plane_install_enum_property(plane, dev, "blend_op", 0,
 			e_blend_op, ARRAY_SIZE(e_blend_op),
 			&(dev_priv->plane_property[PLANE_PROP_BLEND_OP]));
