@@ -34,51 +34,52 @@ u32 *sde_hw_util_get_log_mask_ptr(void)
 	return &sde_hw_util_log_mask;
 }
 
-void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
+void sde_hw_csc_setup(struct sde_hw_blk_reg_map *c,
 		u32 csc_reg_off,
 		struct sde_csc_cfg *data)
 {
+	static const u32 matrix_shift = 7;
 	u32 val;
 
-	/* Matrix coeff */
-	val = (data->csc_mv[0] & 0x1FFF) |
-		((data->csc_mv[1] & 0x1FFF) << 16);
-	SDE_REG_WRITE(c, csc_reg_off,  val);
-	val = (data->csc_mv[2] & 0x1FFF) |
-		((data->csc_mv[3] & 0x1FFF) << 16);
+	/* matrix coeff - convert S15.16 to S4.9 */
+	val = ((data->csc_mv[0] >> matrix_shift) & 0x1FFF) |
+		(((data->csc_mv[1] >> matrix_shift) & 0x1FFF) << 16);
+	SDE_REG_WRITE(c, csc_reg_off, val);
+	val = ((data->csc_mv[2] >> matrix_shift) & 0x1FFF) |
+		(((data->csc_mv[3] >> matrix_shift) & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0x4, val);
-	val = (data->csc_mv[4] & 0x1FFF) |
-		((data->csc_mv[5] & 0x1FFF) >> 16);
+	val = ((data->csc_mv[4] >> matrix_shift) & 0x1FFF) |
+		(((data->csc_mv[5] >> matrix_shift) & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0x8, val);
-	val = (data->csc_mv[6] & 0x1FFF) |
-		((data->csc_mv[7] & 0x1FFF) << 16);
+	val = ((data->csc_mv[6] >> matrix_shift) & 0x1FFF) |
+		(((data->csc_mv[7] >> matrix_shift) & 0x1FFF) << 16);
 	SDE_REG_WRITE(c, csc_reg_off + 0xc, val);
-	val = data->csc_mv[8] & 0x1FFF;
+	val = (data->csc_mv[8] >> matrix_shift) & 0x1FFF;
 	SDE_REG_WRITE(c, csc_reg_off + 0x10, val);
 
 	/* Pre clamp */
 	val = (data->csc_pre_lv[0] << 8) | data->csc_pre_lv[1];
-	SDE_REG_WRITE(c, csc_reg_off + 0x14,  val);
+	SDE_REG_WRITE(c, csc_reg_off + 0x14, val);
 	val = (data->csc_pre_lv[2] << 8) | data->csc_pre_lv[3];
-	SDE_REG_WRITE(c, csc_reg_off  + 0x18, val);
+	SDE_REG_WRITE(c, csc_reg_off + 0x18, val);
 	val = (data->csc_pre_lv[4] << 8) | data->csc_pre_lv[5];
-	SDE_REG_WRITE(c, csc_reg_off  + 0x1c, val);
+	SDE_REG_WRITE(c, csc_reg_off + 0x1c, val);
 
 	/* Post clamp */
 	val = (data->csc_post_lv[0] << 8) | data->csc_post_lv[1];
-	SDE_REG_WRITE(c, csc_reg_off + 0x20,  val);
+	SDE_REG_WRITE(c, csc_reg_off + 0x20, val);
 	val = (data->csc_post_lv[2] << 8) | data->csc_post_lv[3];
-	SDE_REG_WRITE(c, csc_reg_off  + 0x24, val);
+	SDE_REG_WRITE(c, csc_reg_off + 0x24, val);
 	val = (data->csc_post_lv[4] << 8) | data->csc_post_lv[5];
-	SDE_REG_WRITE(c, csc_reg_off  + 0x28, val);
+	SDE_REG_WRITE(c, csc_reg_off + 0x28, val);
 
 	/* Pre-Bias */
-	SDE_REG_WRITE(c, csc_reg_off + 0x2c,  data->csc_pre_bv[0]);
+	SDE_REG_WRITE(c, csc_reg_off + 0x2c, data->csc_pre_bv[0]);
 	SDE_REG_WRITE(c, csc_reg_off + 0x30, data->csc_pre_bv[1]);
 	SDE_REG_WRITE(c, csc_reg_off + 0x34, data->csc_pre_bv[2]);
 
 	/* Post-Bias */
-	SDE_REG_WRITE(c, csc_reg_off + 0x38,  data->csc_post_bv[0]);
+	SDE_REG_WRITE(c, csc_reg_off + 0x38, data->csc_post_bv[0]);
 	SDE_REG_WRITE(c, csc_reg_off + 0x3c, data->csc_post_bv[1]);
 	SDE_REG_WRITE(c, csc_reg_off + 0x40, data->csc_post_bv[2]);
 }
