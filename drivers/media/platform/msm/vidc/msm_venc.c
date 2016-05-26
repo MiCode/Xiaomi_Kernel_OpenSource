@@ -1186,6 +1186,23 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_DISABLE,
 		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_ENABLE,
 		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_DISABLE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH,
+		.name = "Set Blur width",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 2048,
+		.default_value = 0,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT,
+		.name = "Set Blur height",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 2048,
+		.default_value = 0,
 		.step = 1,
 	},
 };
@@ -3108,6 +3125,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	struct hal_initial_quantization quant;
 	struct hal_aspect_ratio sar;
 	struct hal_bitrate bitrate;
+	struct hal_frame_size blur_res;
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -3236,6 +3254,19 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 			}
 			break;
 		}
+		case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH:
+			property_id = HAL_CONFIG_VENC_BLUR_RESOLUTION;
+			blur_res.width = control[i].value;
+			blur_res.buffer_type = HAL_BUFFER_INPUT;
+			property_id = HAL_CONFIG_VENC_BLUR_RESOLUTION;
+			pdata = &blur_res;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT:
+			blur_res.height = control[i].value;
+			blur_res.buffer_type = HAL_BUFFER_INPUT;
+			property_id = HAL_CONFIG_VENC_BLUR_RESOLUTION;
+			pdata = &blur_res;
+			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid id set: %d\n",
 				control[i].id);
