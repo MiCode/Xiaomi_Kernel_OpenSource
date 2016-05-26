@@ -1142,21 +1142,22 @@ repeat:
 
 	lock_page(page);
 
-	if (unlikely(!PageUptodate(page))) {
-		f2fs_put_page(page, 1);
-		return ERR_PTR(-EIO);
-	}
 	if (unlikely(page->mapping != NODE_MAPPING(sbi))) {
 		f2fs_put_page(page, 1);
 		goto repeat;
 	}
+
+	if (unlikely(!PageUptodate(page)))
+		goto out_err;
 page_hit:
-	if (unlikely(!PageUptodate(page))) {
+	if(unlikely(nid != nid_of_node(page))) {
+		f2fs_bug_on(sbi, 1);
+		ClearPageUptodate(page);
+out_err:
 		f2fs_put_page(page, 1);
 		return ERR_PTR(-EIO);
 	}
 	mark_page_accessed(page);
-	f2fs_bug_on(sbi, nid != nid_of_node(page));
 	return page;
 }
 
