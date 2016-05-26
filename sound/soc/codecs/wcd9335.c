@@ -1460,10 +1460,11 @@ static bool tasha_mbhc_lock_sleep(struct wcd_mbhc *mbhc, bool lock)
 	}
 }
 
-static int tasha_mbhc_register_notifier(struct snd_soc_codec *codec,
+static int tasha_mbhc_register_notifier(struct wcd_mbhc *mbhc,
 					struct notifier_block *nblock,
 					bool enable)
 {
+	struct snd_soc_codec *codec = mbhc->codec;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 
 	if (enable)
@@ -1514,9 +1515,10 @@ static void tasha_mbhc_hph_l_pull_up_control(struct snd_soc_codec *codec,
 			    0xC0, 0x40);
 }
 
-static int tasha_enable_ext_mb_source(struct snd_soc_codec *codec,
+static int tasha_enable_ext_mb_source(struct wcd_mbhc *mbhc,
 		bool turn_on)
 {
+	struct snd_soc_codec *codec = mbhc->codec;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 	struct on_demand_supply *supply;
@@ -1701,11 +1703,12 @@ static void tasha_mbhc_micb_ramp_control(struct snd_soc_codec *codec,
 	}
 }
 
-static struct firmware_cal *tasha_get_hwdep_fw_cal(struct snd_soc_codec *codec,
+static struct firmware_cal *tasha_get_hwdep_fw_cal(struct wcd_mbhc *mbhc,
 						   enum wcd_cal_type type)
 {
 	struct tasha_priv *tasha;
 	struct firmware_cal *hwdep_cal;
+	struct snd_soc_codec *codec = mbhc->codec;
 
 	if (!codec) {
 		pr_err("%s: NULL codec pointer\n", __func__);
