@@ -702,6 +702,13 @@ struct cpr3_panic_regs_info {
  * @aging_possible_val:	Optional value that the masked aging_possible_reg
  *			register must have in order for a CPR aging measurement
  *			to be possible.
+ * @aging_gcnt_scaling_factor: The scaling factor used to derive the gate count
+ *			used for aging measurements. This value is divided by
+ *			1000 when used as shown in the below equation:
+ *			      Aging_GCNT = GCNT_REF * scaling_factor / 1000.
+ *			For example, a value of 1500 specifies that the gate
+ *			count (GCNT) used for aging measurement should be 1.5
+ *			times of reference gate count (GCNT_REF).
  * @step_quot_fixed:	Fixed step quotient value used for target quotient
  *			adjustment if use_dynamic_step_quot is not set.
  *			This parameter is only relevant for CPR4 controllers
@@ -827,6 +834,7 @@ struct cpr3_controller {
 	int			aging_sensor_count;
 	u32			aging_possible_mask;
 	u32			aging_possible_val;
+	u32			aging_gcnt_scaling_factor;
 
 	u32			step_quot_fixed;
 	u32			initial_temp_band;
