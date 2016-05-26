@@ -1266,6 +1266,8 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 		devm_clk_put(dev, sdata->axi_clk);
 	if (sdata->ahb_clk)
 		devm_clk_put(dev, sdata->ahb_clk);
+	if (sdata->mnoc_clk)
+		devm_clk_put(dev, sdata->mnoc_clk);
 	if (sdata->mdp_core_clk)
 		devm_clk_put(dev, sdata->mdp_core_clk);
 }
@@ -1414,6 +1416,12 @@ int mdss_dsi_core_clk_init(struct platform_device *pdev,
 		sdata->mmss_misc_ahb_clk = NULL;
 		pr_debug("%s: Unable to get mmss misc ahb clk\n",
 			__func__);
+	}
+
+	sdata->mnoc_clk = devm_clk_get(dev, "mnoc_clk");
+	if (IS_ERR(sdata->mnoc_clk)) {
+		pr_debug("%s: Unable to get mnoc clk\n", __func__);
+		sdata->mnoc_clk = NULL;
 	}
 
 error:

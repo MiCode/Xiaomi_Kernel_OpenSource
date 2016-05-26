@@ -97,6 +97,7 @@ typedef int (*pre_clockon_cb)(void *priv,
 
 struct mdss_dsi_core_clk_info {
 	struct clk *mdp_core_clk;
+	struct clk *mnoc_clk;
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
 	struct clk *mmss_misc_ahb_clk;

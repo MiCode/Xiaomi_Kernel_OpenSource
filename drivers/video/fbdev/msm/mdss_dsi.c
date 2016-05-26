@@ -2780,6 +2780,7 @@ static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
 	memset(&info, 0x0, sizeof(info));
 
 	info.core_clks.mdp_core_clk = ctrl_pdata->shared_data->mdp_core_clk;
+	info.core_clks.mnoc_clk = ctrl_pdata->shared_data->mnoc_clk;
 	info.core_clks.ahb_clk = ctrl_pdata->shared_data->ahb_clk;
 	info.core_clks.axi_clk = ctrl_pdata->shared_data->axi_clk;
 	info.core_clks.mmss_misc_ahb_clk =
