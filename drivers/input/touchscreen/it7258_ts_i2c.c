@@ -748,15 +748,27 @@ static int it7260_ts_chip_low_power_mode(struct it7260_ts_data *ts_data,
 	u8 dummy;
 	int ret;
 
-	if (sleep_type)
+	if (sleep_type) {
 		ret = it7260_i2c_write_no_ready_check(ts_data, BUF_COMMAND,
 					cmd_sleep, sizeof(cmd_sleep));
-	else
+		if (ret != IT_I2C_WRITE_RET)
+			dev_err(&ts_data->client->dev,
+				"Can't go to sleep or low power mode(%d) %d\n",
+				sleep_type, ret);
+		else
+			ret = 0;
+	} else {
 		ret = it7260_i2c_read_no_ready_check(ts_data, BUF_QUERY, &dummy,
 						sizeof(dummy));
+		if (ret != IT_I2C_READ_RET)
+			dev_err(&ts_data->client->dev,
+				"Can't go to active mode %d\n", ret);
+		else
+			ret = 0;
+	}
 
 	msleep(WAIT_CHANGE_MODE);
-	return (ret == IT_I2C_WRITE_RET ? 0 : ret);
+	return ret;
 }
 
 static ssize_t sysfs_fw_upgrade_store(struct device *dev,
