@@ -43,6 +43,9 @@ struct sde_plane {
 	struct sde_hw_sharp_cfg sharp_cfg;
 	struct sde_hw_scaler3_cfg scaler3_cfg;
 
+	struct sde_csc_cfg csc_cfg;
+	struct sde_csc_cfg *csc_ptr;
+
 	const struct sde_sspp_sub_blks *pipe_sblk;
 
 	char pipe_name[SDE_NAME_SIZE];
@@ -283,24 +286,29 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 {
 	static const struct sde_csc_cfg sde_csc_YUV2RGB_601L = {
 		{
-			0x0254, 0x0000, 0x0331,
-			0x0254, 0xff37, 0xfe60,
-			0x0254, 0x0409, 0x0000,
+			/* S15.16 format */
+			0x00012A00, 0x00000000, 0x00019880,
+			0x00012A00, 0xFFFF9B80, 0xFFFF3000,
+			0x00012A00, 0x00020480, 0x00000000,
 		},
+		/* signed bias */
 		{ 0xfff0, 0xff80, 0xff80,},
 		{ 0x0, 0x0, 0x0,},
+		/* unsigned clamp */
 		{ 0x10, 0xeb, 0x10, 0xf0, 0x10, 0xf0,},
-		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+		{ 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,},
 	};
-
 	static const struct sde_csc_cfg sde_csc_NOP = {
 		{
-			0x0200, 0x0000, 0x0000,
-			0x0000, 0x0200, 0x0000,
-			0x0000, 0x0000, 0x0200,
+			/* identity matrix, S15.16 format */
+			0x10000, 0x00000, 0x00000,
+			0x00000, 0x10000, 0x00000,
+			0x00000, 0x00000, 0x10000,
 		},
+		/* signed bias */
 		{ 0x0, 0x0, 0x0,},
 		{ 0x0, 0x0, 0x0,},
+		/* unsigned clamp */
 		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 		{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 	};
@@ -327,7 +335,7 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 					sizeof(struct sde_drm_csc_v1))) {
 				for (i = 0; i < SDE_CSC_MATRIX_COEFF_SIZE; ++i)
 					cfg.csc_mv[i] =
-						csc->v1.ctm_coeff[i] >> 23;
+						csc->v1.ctm_coeff[i] >> 16;
 				for (i = 0; i < SDE_CSC_BIAS_SIZE; ++i) {
 					cfg.csc_pre_bv[i] =
 						csc->v1.pre_bias[i];
@@ -356,14 +364,15 @@ static void _sde_plane_setup_csc(struct sde_plane *psde,
 
 	if (user_blob) {
 		DBG("User blobs override for CSC");
+		psde->csc_ptr = &psde->csc_cfg;
 	/* revert to kernel default */
 	} else if (fmt->is_yuv) {
-		psde->pipe_hw->ops.setup_csc(psde->pipe_hw,
-			(struct sde_csc_cfg *)&sde_csc_YUV2RGB_601L);
+		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_YUV2RGB_601L;
 	} else {
-		psde->pipe_hw->ops.setup_csc(psde->pipe_hw,
-			(struct sde_csc_cfg *)&sde_csc_NOP);
+		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_NOP;
 	}
+
+	psde->pipe_hw->ops.setup_csc(psde->pipe_hw, psde->csc_ptr);
 }
 
 static int _sde_plane_mode_set(struct drm_plane *plane,

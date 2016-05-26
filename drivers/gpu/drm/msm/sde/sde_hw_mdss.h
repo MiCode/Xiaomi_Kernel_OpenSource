@@ -346,6 +346,7 @@ struct sde_hw_blend_cfg {
 };
 
 struct sde_csc_cfg {
+	/* matrix coefficients in S15.16 format */
 	uint32_t csc_mv[SDE_CSC_MATRIX_COEFF_SIZE];
 	uint32_t csc_pre_bv[SDE_CSC_BIAS_SIZE];
 	uint32_t csc_post_bv[SDE_CSC_BIAS_SIZE];
