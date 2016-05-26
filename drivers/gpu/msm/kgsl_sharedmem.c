@@ -313,10 +313,6 @@ kgsl_sharedmem_init_sysfs(void)
 		drv_attr_list);
 }
 
-static int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
-				struct kgsl_pagetable *pagetable,
-				uint64_t size);
-
 static int kgsl_cma_alloc_secure(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, uint64_t size);
 
@@ -640,7 +636,7 @@ static inline int get_page_size(size_t size, unsigned int align)
 }
 #endif
 
-static int
+int
 kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable,
 			uint64_t size)
