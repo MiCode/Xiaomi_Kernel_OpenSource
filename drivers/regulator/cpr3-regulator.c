@@ -317,6 +317,12 @@
  */
 #define CPRH_DELTA_QUOT_STEP_FACTOR 4
 
+/*
+ * The multiplier applied to scaling factor value used to derive GCNT
+ * for aging measurements.
+ */
+#define CPR3_AGING_GCNT_SCALING_UNITY	1000
+
 static DEFINE_MUTEX(cpr3_controller_list_mutex);
 static LIST_HEAD(cpr3_controller_list);
 static struct dentry *cpr3_debugfs_base;
@@ -3563,7 +3569,12 @@ static int cpr3_regulator_measure_aging(struct cpr3_controller *ctrl,
 	gcnt0_restore = cpr3_read(ctrl, CPR3_REG_GCNT(0));
 	gcnt1_restore = cpr3_read(ctrl, CPR3_REG_GCNT(1));
 	gcnt_ref = cpr3_regulator_get_gcnt(ctrl);
-	gcnt = gcnt_ref * 3 / 2;
+
+	gcnt = gcnt_ref;
+	if (ctrl->aging_gcnt_scaling_factor)
+		gcnt = gcnt_ref * ctrl->aging_gcnt_scaling_factor
+				/ CPR3_AGING_GCNT_SCALING_UNITY;
+
 	cpr3_write(ctrl, CPR3_REG_GCNT(0), gcnt);
 	cpr3_write(ctrl, CPR3_REG_GCNT(1), gcnt);
 
