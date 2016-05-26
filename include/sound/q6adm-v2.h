@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,12 @@ int adm_matrix_map(int path, struct route_payload payload_map,
 int adm_connect_afe_port(int mode, int session_id, int port_id);
 
 void adm_ec_ref_rx_id(int  port_id);
+
+void adm_num_ec_ref_rx_chans(int num_chans);
+
+void adm_ec_ref_rx_bit_width(int bit_width);
+
+void adm_ec_ref_rx_sampling_rate(int sampling_rate);
 
 int adm_get_lowlatency_copp_id(int port_id);
 
