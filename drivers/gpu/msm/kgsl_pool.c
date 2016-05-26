@@ -197,7 +197,7 @@ _kgsl_pool_shrink(struct kgsl_page_pool *pool, int num_pages)
  * starting from higher order pool.
  */
 static unsigned long
-kgsl_pool_reduce(unsigned int target_pages)
+kgsl_pool_reduce(unsigned int target_pages, bool exit)
 {
 	int total_pages = 0;
 	int i;
@@ -209,6 +209,14 @@ kgsl_pool_reduce(unsigned int target_pages)
 
 	for (i = (KGSL_NUM_POOLS - 1); i >= 0; i--) {
 		pool = &kgsl_pools[i];
+
+		/*
+		 * Only reduce the pool sizes for pools which are allowed to
+		 * allocate memory unless we are at close, in which case the
+		 * reserved memory for all pools needs to be freed
+		 */
+		if (!pool->allocation_allowed && !exit)
+			continue;
 
 		total_pages -= pcount;
 
@@ -417,7 +425,7 @@ kgsl_pool_shrink_scan_objects(struct shrinker *shrinker,
 	int target_pages = (nr > total_pages) ? 0 : (total_pages - nr);
 
 	/* Reduce pool size to target_pages */
-	return kgsl_pool_reduce(target_pages);
+	return kgsl_pool_reduce(target_pages, false);
 }
 
 static unsigned long
@@ -448,7 +456,7 @@ void kgsl_init_page_pools(void)
 void kgsl_exit_page_pools(void)
 {
 	/* Release all pages in pools, if any.*/
-	kgsl_pool_reduce(0);
+	kgsl_pool_reduce(0, true);
 
 	/* Unregister shrinker */
 	unregister_shrinker(&kgsl_pool_shrinker);
