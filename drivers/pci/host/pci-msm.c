@@ -53,16 +53,33 @@
 #define PCIE20_PARF_DBI_BASE_ADDR	0x350
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x358
 
+#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x174)
+
 #define TX_BASE 0x200
 #define RX_BASE 0x400
 #define PCS_BASE 0x800
 #define PCS_MISC_BASE 0x600
+#elif defined(CONFIG_ARCH_MDM9640)
+#define PCIE_VENDOR_ID_RCP		0x17cb
+#define PCIE_DEVICE_ID_RCP		0x0301
+
+#define PCIE20_PARF_DBI_BASE_ADDR	0x168
+#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
+
+#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x128)
+
+#define TX_BASE 0x200
+#define RX_BASE 0x400
+#define PCS_BASE 0x600
+#define PCS_MISC_BASE 0
 #else
 #define PCIE_VENDOR_ID_RCP		0x17cb
 #define PCIE_DEVICE_ID_RCP		0x0104
 
 #define PCIE20_PARF_DBI_BASE_ADDR	0x168
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
+
+#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x174)
 
 #define TX_BASE 0x1000
 #define RX_BASE 0x1200
@@ -169,7 +186,6 @@
 #define PCIE_N_TEST_CONTROL5(n, m)		(PCS_PORT(n, m) + 0x120)
 #define PCIE_N_TEST_CONTROL6(n, m)		(PCS_PORT(n, m) + 0x124)
 #define PCIE_N_TEST_CONTROL7(n, m)		(PCS_PORT(n, m) + 0x128)
-#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x174)
 #define PCIE_N_DEBUG_BUS_0_STATUS(n, m)		(PCS_PORT(n, m) + 0x198)
 #define PCIE_N_DEBUG_BUS_1_STATUS(n, m)		(PCS_PORT(n, m) + 0x19C)
 #define PCIE_N_DEBUG_BUS_2_STATUS(n, m)		(PCS_PORT(n, m) + 0x1A0)
@@ -1508,6 +1524,9 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 	struct msm_pcie_phy_info_t *phy_seq;
 	u8 common_phy;
 
+	if (dev->phy_ver == 0x90)
+		return;
+
 	PCIE_DBG(dev, "RC%d: Initializing PCIe PHY Port\n", dev->rc_idx);
 
 	if (dev->common_phy)
@@ -1618,6 +1637,15 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
+	if (dev->phy_ver == 0x90) {
+		if (readl_relaxed(dev->phy +
+			PCIE_N_PCS_STATUS(dev->rc_idx, dev->common_phy)) &
+			BIT(6))
+			return false;
+		else
+			return true;
+	}
+
 	if (!(readl_relaxed(dev->phy + PCIE_COM_PCS_READY_STATUS) & 0x1))
 		return false;
 	else
