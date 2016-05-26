@@ -47,5 +47,6 @@ int mbox_send_message(struct mbox_chan *chan, void *mssg);
 void mbox_client_txdone(struct mbox_chan *chan, int r); /* atomic */
 bool mbox_client_peek_data(struct mbox_chan *chan); /* atomic */
 void mbox_free_channel(struct mbox_chan *chan); /* may sleep */
+bool mbox_controller_is_idle(struct mbox_chan *chan); /* atomic */
 
 #endif /* __MAILBOX_CLIENT_H */
