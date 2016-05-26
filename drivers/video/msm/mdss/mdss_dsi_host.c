@@ -444,6 +444,9 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	/* enable contention detection for receiving */
 	mdss_dsi_lp_cd_rx(ctrl_pdata);
 
+	/* set DMA FIFO read watermark to 15/16 full */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x50, 0x30);
+
 	wmb();
 }
 
