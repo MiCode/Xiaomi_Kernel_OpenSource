@@ -1359,7 +1359,7 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		if (rc) {
 			pr_debug("empty kickoff on fb%d during cont splash\n",
 					mfd->index);
-			return 0;
+			return -EPERM;
 		}
 	} else if (mdata->handoff_pending) {
 		pr_warn("fb%d: commit while splash handoff pending\n",
@@ -2468,7 +2468,7 @@ done:
 static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_data *buf_l = NULL, *buf_r = NULL;
-	struct mdss_mdp_pipe *l_pipe, *r_pipe;
+	struct mdss_mdp_pipe *l_pipe, *r_pipe, *pipe, *tmp;
 	struct fb_info *fbi;
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_data_type *mdata;
@@ -2497,6 +2497,19 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 
 	if (IS_ERR_OR_NULL(mfd->fbmem_buf) || fbi->fix.smem_len == 0 ||
 		mdp5_data->borderfill_enable) {
+		if (mdata->handoff_pending) {
+			/*
+			 * Move pipes to cleanup queue and avoid kickoff if
+			 * pan display is called before handoff is completed.
+			 */
+			mutex_lock(&mdp5_data->list_lock);
+			list_for_each_entry_safe(pipe, tmp,
+			    &mdp5_data->pipes_used, list) {
+				list_move(&pipe->list,
+					&mdp5_data->pipes_cleanup);
+			}
+			mutex_unlock(&mdp5_data->list_lock);
+		}
 		mfd->mdp.kickoff_fnc(mfd, NULL);
 		return;
 	}
