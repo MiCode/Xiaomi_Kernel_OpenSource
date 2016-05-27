@@ -22,7 +22,7 @@
 		qcom,name = "system-cbf"; /* CBF SAW */
 		qcom,saw2-ver-reg = <0xFD0>;
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
-		qcom,vctl-timeout-us = <50>;
+		qcom,vctl-timeout-us = <500>;
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,saw2-avs-ctl = <0x1100>;
