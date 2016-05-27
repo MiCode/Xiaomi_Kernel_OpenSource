@@ -522,12 +522,18 @@ int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 	if (empty == -1)
 		return -EBUSY;
 
-	/* enable the new counter */
-	ret = adreno_perfcounter_enable(adreno_dev, groupid, empty, countable);
-	if (ret)
-		return ret;
 	/* initialize the new counter */
 	group->regs[empty].countable = countable;
+
+	/* enable the new counter */
+	ret = adreno_perfcounter_enable(adreno_dev, groupid, empty, countable);
+	if (ret) {
+		/* Put back the perfcounter */
+		if (!(group->flags & ADRENO_PERFCOUNTER_GROUP_FIXED))
+			group->regs[empty].countable =
+				KGSL_PERFCOUNTER_NOT_USED;
+		return ret;
+	}
 
 	/* set initial kernel and user count */
 	if (flags & PERFCOUNTER_FLAG_KERNEL) {
@@ -746,10 +752,22 @@ static int _perfcounter_enable_default(struct adreno_device *adreno_dev,
 		/* wait for the above commands submitted to complete */
 		ret = adreno_ringbuffer_waittimestamp(rb, rb->timestamp,
 				ADRENO_IDLE_TIMEOUT);
-		if (ret)
-			KGSL_DRV_ERR(device,
-			"Perfcounter %u/%u/%u start via commands failed %d\n",
-			group, counter, countable, ret);
+		if (ret) {
+			/*
+			 * If we were woken up because of cancelling rb events
+			 * either due to soft reset or adreno_stop, ignore the
+			 * error and return 0 here. The perfcounter is already
+			 * set up in software and it will be programmed in
+			 * hardware when we wake up or come up after soft reset,
+			 * by adreno_perfcounter_restore.
+			 */
+			if (ret == -EAGAIN)
+				ret = 0;
+			else
+				KGSL_DRV_ERR(device,
+				"Perfcounter %u/%u/%u start via commands failed %d\n",
+				group, counter, countable, ret);
+		}
 	} else {
 		/* Select the desired perfcounter */
 		kgsl_regwrite(device, reg->select, countable);
