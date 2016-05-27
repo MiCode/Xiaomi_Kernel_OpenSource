@@ -75,10 +75,10 @@
 		venus-core1-supply = <&gdsc_venus_core1>;
 
 		/* Clocks */
-		clock-names = "clk_gcc_mmss_sys_noc_axi_clk",
-			"noc_axi", "mnoc_ahb_clk",
+		clock-names = "sys_noc_axi_clk",
+			"noc_axi_clk", "mnoc_ahb_clk",
 			"smmu_ahb_clk", "smmu_axi_clk",
-			"mmss_maxi_clk",
+			"mnoc_maxi_clk",
 			"core_clk", "iface_clk", "bus_clk",
 			"maxi_clk", "core0_clk", "core1_clk";
 		clocks = <&clock_gcc clk_gcc_mmss_sys_noc_axi_clk>,
@@ -225,9 +225,12 @@
 		    <0x14800000 0x80000>;
 		reg-names = "reg-base", "mem-base";
 
-		clocks = <&clock_mmss clk_mmss_vmem_ahb_clk>,
-		       <&clock_mmss clk_mmss_vmem_maxi_clk>;
-		clock-names = "ahb", "maxi";
+		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
+			<&clock_mmss clk_mmss_mnoc_maxi_clk>,
+			<&clock_mmss clk_mmss_vmem_ahb_clk>,
+			<&clock_mmss clk_mmss_vmem_maxi_clk>;
+		clock-names = "mnoc_ahb","mnoc_maxi",
+			"ahb", "maxi";
 
 		qcom,msm-bus,name = "vmem";
 		qcom,msm-bus,num-cases = <2>;
