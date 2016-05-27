@@ -35,7 +35,8 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 		return NULL;
 
 	if (pool->gfp_mask & __GFP_ZERO)
-		if (msm_ion_heap_high_order_page_zero(page, pool->order))
+		if (msm_ion_heap_high_order_page_zero(pool->dev, page,
+						      pool->order))
 			goto error_free_pages;
 
 	ion_page_pool_alloc_set_cache_policy(pool, page);
@@ -222,12 +223,14 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 	return ion_page_pool_total(pool, high);
 }
 
-struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)
+struct ion_page_pool *ion_page_pool_create(struct device *dev, gfp_t gfp_mask,
+					   unsigned int order)
 {
 	struct ion_page_pool *pool = kmalloc(sizeof(struct ion_page_pool),
 					     GFP_KERNEL);
 	if (!pool)
 		return NULL;
+	pool->dev = dev;
 	pool->high_count = 0;
 	pool->low_count = 0;
 	pool->nr_unreserved = 0;

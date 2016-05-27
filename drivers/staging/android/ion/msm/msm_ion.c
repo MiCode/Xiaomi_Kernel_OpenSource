@@ -859,7 +859,8 @@ void msm_ion_heap_free_pages_mem(struct pages_mem *pages_mem)
 	pages_mem->free_fn(pages_mem->pages);
 }
 
-int msm_ion_heap_high_order_page_zero(struct page *page, int order)
+int msm_ion_heap_high_order_page_zero(struct device *dev, struct page *page,
+				      int order)
 {
 	int i, ret;
 	struct pages_mem pages_mem;
@@ -873,13 +874,14 @@ int msm_ion_heap_high_order_page_zero(struct page *page, int order)
 		pages_mem.pages[i] = page + i;
 
 	ret = msm_ion_heap_pages_zero(pages_mem.pages, npages);
-	dma_sync_single_for_device(NULL, page_to_phys(page), pages_mem.size,
+	dma_sync_single_for_device(dev, page_to_phys(page), pages_mem.size,
 				   DMA_BIDIRECTIONAL);
 	msm_ion_heap_free_pages_mem(&pages_mem);
 	return ret;
 }
 
-int msm_ion_heap_sg_table_zero(struct sg_table *table, size_t size)
+int msm_ion_heap_sg_table_zero(struct device *dev, struct sg_table *table,
+			       size_t size)
 {
 	struct scatterlist *sg;
 	int i, j, ret = 0, npages = 0;
@@ -901,7 +903,7 @@ int msm_ion_heap_sg_table_zero(struct sg_table *table, size_t size)
 	}
 
 	ret = msm_ion_heap_pages_zero(pages_mem.pages, npages);
-	dma_sync_sg_for_device(NULL, table->sgl, table->nents,
+	dma_sync_sg_for_device(dev, table->sgl, table->nents,
 			       DMA_BIDIRECTIONAL);
 	msm_ion_heap_free_pages_mem(&pages_mem);
 	return ret;
