@@ -571,6 +571,9 @@ static void ipa_work_handler(struct work_struct *w)
 		break;
 	case STATE_INITIALIZED:
 		if (event == EVT_CONNECT_IN_PROGRESS) {
+			usb_gadget_autopm_get(d_port->gadget);
+			log_event_dbg("%s: get = %d", __func__,
+				atomic_read(&gad_dev->power.usage_count));
 			ipa_connect_channels(d_port);
 			d_port->sm_state = STATE_CONNECT_IN_PROGRESS;
 			log_event_dbg("%s: ST_INIT_EVT_CONN_IN_PROG",
@@ -586,6 +589,9 @@ static void ipa_work_handler(struct work_struct *w)
 			 * EVT_HOST_READY is posted to the state machine
 			 * in the handler for this msg.
 			 */
+			usb_gadget_autopm_get(d_port->gadget);
+			log_event_dbg("%s: get = %d", __func__,
+				atomic_read(&gad_dev->power.usage_count));
 			ipa_connect_channels(d_port);
 			ipa_data_path_enable(d_port);
 			d_port->sm_state = STATE_CONNECTED;
@@ -648,6 +654,7 @@ static void ipa_work_handler(struct work_struct *w)
 						&gad_dev->power.usage_count));
 		} else if (event == EVT_SUSPEND) {
 			if (peek_event(d_port) == EVT_DISCONNECTED) {
+				read_event(d_port);
 				ipa_disconnect_work_handler(d_port);
 				d_port->sm_state = STATE_INITIALIZED;
 				usb_gadget_autopm_put_async(d_port->gadget);
@@ -718,19 +725,12 @@ static void ipa_work_handler(struct work_struct *w)
 
 	case STATE_SUSPENDED:
 		if (event == EVT_RESUMED) {
+			usb_gadget_autopm_get(d_port->gadget);
+			log_event_dbg("%s: ST_SUS_EVT_RES", __func__);
+			log_event_dbg("%s: get = %d", __func__,
+				atomic_read(&gad_dev->power.usage_count));
 			ipa_resume_work_handler(d_port);
 			d_port->sm_state = STATE_CONNECTED;
-			/*
-			 * Increment usage count here to disallow gadget
-			 * parent suspend. This counter will decrement
-			 * after IPA handshake is done in disconnect work
-			 * (due to cable disconnect) or in suspended state.
-			 */
-			usb_gadget_autopm_get_noresume(d_port->gadget);
-			log_event_dbg("%s: ST_SUS_EVT_RES", __func__);
-			log_event_dbg("%s: get_nores2 = %d", __func__,
-					atomic_read(
-						&gad_dev->power.usage_count));
 		} else if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
@@ -1826,15 +1826,14 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 			if (gsi->prot_id == IPA_USB_ECM)
 				gsi->d_port.cdc_filter = DEFAULT_FILTER;
-
 			/*
-			 * Increment usage count upon cable connect. Decrement
-			 * after IPA disconnect is done in disconnect work
-			 * (due to cable disconnect) or in suspend work.
+			 * For RNDIS the event is posted from the flow control
+			 * handler which is invoked when the host sends the
+			 * GEN_CURRENT_PACKET_FILTER message.
 			 */
-			usb_gadget_autopm_get_noresume(gsi->d_port.gadget);
-
-			post_event(&gsi->d_port, EVT_CONNECT_IN_PROGRESS);
+			if (gsi->prot_id != IPA_USB_RNDIS)
+				post_event(&gsi->d_port,
+						EVT_CONNECT_IN_PROGRESS);
 			queue_work(gsi->d_port.ipa_usb_wq,
 					&gsi->d_port.usb_ipa_w);
 		}
