@@ -318,6 +318,18 @@ config QCOM_RRADC
 	  To compile this driver as a module, choose M here: the module will
 	  be called qcom-rradc.
 
+config QCOM_TADC
+	tristate "Qualcomm Technologies Inc. TADC driver"
+	depends on MFD_I2C_PMIC
+	help
+	  Say yes here to support the Qualcomm Technologies Inc. telemetry ADC.
+	  The TADC provides battery temperature, skin temperature,
+	  die temperature, battery voltage, battery current, input voltage,
+	  input current, and OTG current.
+
+	  The driver can also be built as a module. If so, the module will be
+	  called qcom-tadc.
+
 config ROCKCHIP_SARADC
 	tristate "Rockchip SARADC driver"
 	depends on ARCH_ROCKCHIP || (ARM && COMPILE_TEST)
