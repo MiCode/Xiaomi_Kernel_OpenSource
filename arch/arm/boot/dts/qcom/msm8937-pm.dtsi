@@ -25,7 +25,7 @@
 		qcom,saw2-spm-ctl = <0xe>;
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3
 				&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,vctl-timeout-us = <50>;
+		qcom,vctl-timeout-us = <500>;
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,pfm-port = <0x2>;
