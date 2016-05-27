@@ -110,6 +110,9 @@ enum icnss_driver_event_type {
 struct icnss_driver_event {
 	struct list_head list;
 	enum icnss_driver_event_type type;
+	bool sync;
+	struct completion complete;
+	int ret;
 	void *data;
 };
 
@@ -167,7 +170,6 @@ static struct icnss_data {
 	struct icnss_mem_region_info
 		icnss_mem_region[QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01];
 	bool skip_qmi;
-	struct completion driver_unregister;
 	struct dentry *root_dentry;
 } *penv;
 
@@ -190,14 +192,16 @@ static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 };
 
 static int icnss_driver_event_post(enum icnss_driver_event_type type,
-				   void *data)
+				   bool sync, void *data)
 {
 	struct icnss_driver_event *event = NULL;
 	unsigned long flags;
 	int gfp = GFP_KERNEL;
+	int ret = 0;
 
-	icnss_pr_dbg("Posting event: %s(%d)\n",
-		     icnss_driver_event_to_str(type), type);
+	icnss_pr_dbg("Posting event: %s(%d)%s, state: 0x%lx\n",
+		     icnss_driver_event_to_str(type), type,
+		     sync ? "-sync" : "", penv->state);
 
 	if (in_interrupt() || irqs_disabled())
 		gfp = GFP_ATOMIC;
@@ -208,13 +212,22 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 
 	event->type = type;
 	event->data = data;
+	init_completion(&event->complete);
+	event->sync = sync;
+
 	spin_lock_irqsave(&penv->event_lock, flags);
 	list_add_tail(&event->list, &penv->event_list);
 	spin_unlock_irqrestore(&penv->event_lock, flags);
 
 	queue_work(penv->event_wq, &penv->event_work);
+	if (sync) {
+		ret = wait_for_completion_interruptible(&event->complete);
+		if (ret == 0)
+			ret = event->ret;
+		kfree(event);
+	}
 
-	return 0;
+	return ret;
 }
 
 static int icnss_qmi_pin_connect_result_ind(void *msg, unsigned int msg_len)
@@ -811,7 +824,8 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 
 	switch (msg_id) {
 	case QMI_WLFW_FW_READY_IND_V01:
-		icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_READY_IND, NULL);
+		icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_READY_IND,
+					false, NULL);
 		break;
 	case QMI_WLFW_MSA_READY_IND_V01:
 		icnss_pr_dbg("Received MSA Ready Indication msg_id 0x%x\n",
@@ -968,11 +982,18 @@ static int icnss_driver_event_register_driver(void *data)
 {
 	int ret = 0;
 
+	if (penv->ops) {
+		ret = -EEXIST;
+		goto out;
+	}
+
+	penv->ops = data;
+
 	if (penv->skip_qmi)
 		set_bit(ICNSS_FW_READY, &penv->state);
 
 	if (!test_bit(ICNSS_FW_READY, &penv->state)) {
-		icnss_pr_dbg("FW is not ready yet state: 0x%lx!\n",
+		icnss_pr_dbg("FW is not ready yet, state: 0x%lx!\n",
 			     penv->state);
 		goto out;
 	}
@@ -1006,7 +1027,7 @@ static int icnss_driver_event_unregister_driver(void *data)
 		goto out;
 	}
 
-	if (penv->ops->remove)
+	if (penv->ops)
 		penv->ops->remove(&penv->pdev->dev);
 
 	clear_bit(ICNSS_DRIVER_PROBED, &penv->state);
@@ -1016,7 +1037,6 @@ static int icnss_driver_event_unregister_driver(void *data)
 	icnss_hw_power_off(penv);
 
 out:
-	complete(&penv->driver_unregister);
 	return 0;
 }
 
@@ -1024,6 +1044,7 @@ static void icnss_driver_event_work(struct work_struct *work)
 {
 	struct icnss_driver_event *event;
 	unsigned long flags;
+	int ret;
 
 	spin_lock_irqsave(&penv->event_lock, flags);
 
@@ -1033,31 +1054,36 @@ static void icnss_driver_event_work(struct work_struct *work)
 		list_del(&event->list);
 		spin_unlock_irqrestore(&penv->event_lock, flags);
 
-		icnss_pr_dbg("Processing event: %s(%d), state: 0x%lx\n",
+		icnss_pr_dbg("Processing event: %s%s(%d), state: 0x%lx\n",
 			     icnss_driver_event_to_str(event->type),
-			     event->type, penv->state);
+			     event->sync ? "-sync" : "", event->type,
+			     penv->state);
 
 		switch (event->type) {
 		case ICNSS_DRIVER_EVENT_SERVER_ARRIVE:
-			icnss_driver_event_server_arrive(event->data);
+			ret = icnss_driver_event_server_arrive(event->data);
 			break;
 		case ICNSS_DRIVER_EVENT_SERVER_EXIT:
-			icnss_driver_event_server_exit(event->data);
+			ret = icnss_driver_event_server_exit(event->data);
 			break;
 		case ICNSS_DRIVER_EVENT_FW_READY_IND:
-			icnss_driver_event_fw_ready_ind(event->data);
+			ret = icnss_driver_event_fw_ready_ind(event->data);
 			break;
 		case ICNSS_DRIVER_EVENT_REGISTER_DRIVER:
-			icnss_driver_event_register_driver(event->data);
+			ret = icnss_driver_event_register_driver(event->data);
 			break;
 		case ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER:
-			icnss_driver_event_unregister_driver(event->data);
+			ret = icnss_driver_event_unregister_driver(event->data);
 			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
 			break;
 		}
-		kfree(event);
+		if (event->sync) {
+			event->ret = ret;
+			complete(&event->complete);
+		} else
+			kfree(event);
 		spin_lock_irqsave(&penv->event_lock, flags);
 	}
 	spin_unlock_irqrestore(&penv->event_lock, flags);
@@ -1077,12 +1103,12 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 	switch (code) {
 	case QMI_SERVER_ARRIVE:
 		ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_ARRIVE,
-					      NULL);
+					      false, NULL);
 		break;
 
 	case QMI_SERVER_EXIT:
 		ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_SERVER_EXIT,
-					      NULL);
+					      false, NULL);
 		break;
 	default:
 		icnss_pr_dbg("Invalid code: %ld", code);
@@ -1117,9 +1143,8 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 		goto out;
 	}
 
-	penv->ops = ops;
-
-	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_REGISTER_DRIVER, NULL);
+	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
+				      true, ops);
 
 out:
 	return ret;
@@ -1143,14 +1168,8 @@ int icnss_unregister_driver(struct icnss_driver_ops *ops)
 		goto out;
 	}
 
-	init_completion(&penv->driver_unregister);
 	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
-				      NULL);
-	if (ret)
-		goto out;
-
-	wait_for_completion(&penv->driver_unregister);
-
+				      true, NULL);
 out:
 	return ret;
 }
