@@ -1471,3 +1471,20 @@ fail_probe:
 
 	return ret;
 }
+static void frmnet_deinit_port(void)
+{
+	int i;
+
+	for (i = 0; i < nr_rmnet_ports; i++)
+		kfree(rmnet_ports[i].port);
+
+	nr_rmnet_ports = 0;
+	no_ctrl_smd_ports = 0;
+	no_ctrl_qti_ports = 0;
+	no_data_bam_ports = 0;
+	no_data_bam2bam_ports = 0;
+	no_ctrl_hsic_ports = 0;
+	no_data_hsic_ports = 0;
+	no_ctrl_hsuart_ports = 0;
+	no_data_hsuart_ports = 0;
+}
