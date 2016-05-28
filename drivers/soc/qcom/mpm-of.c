@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,8 +69,8 @@ struct mpm_irqs {
 	char domain_name[MAX_DOMAIN_NAME];
 };
 
+#define MAX_MPM_PIN_PER_IRQ 2
 static struct mpm_irqs unlisted_irqs[MSM_MPM_NR_IRQ_DOMAINS];
-
 static int num_mpm_irqs = MSM_MPM_NR_MPM_IRQS;
 static struct hlist_head *irq_hash;
 static unsigned int *msm_mpm_irqs_m2a;
@@ -244,9 +244,10 @@ static inline unsigned int msm_mpm_get_irq_m2a(unsigned int pin)
 	return msm_mpm_irqs_m2a[pin];
 }
 
-static inline uint16_t msm_mpm_get_irq_a2m(struct irq_data *d)
+static inline void msm_mpm_get_irq_a2m(struct irq_data *d, uint16_t *mpm_pins)
 {
 	struct mpm_irqs_a2m *node = NULL;
+	int count = 0;
 
 	hlist_for_each_entry(node, &irq_hash[hashfn(d->hwirq)], node) {
 		if ((node->hwirq == d->hwirq)
@@ -257,58 +258,68 @@ static inline uint16_t msm_mpm_get_irq_a2m(struct irq_data *d)
 			 */
 			if (node->pin != 0xff)
 				msm_mpm_irqs_m2a[node->pin] = d->irq;
-			break;
+			BUG_ON(count >= MAX_MPM_PIN_PER_IRQ);
+			mpm_pins[count] = node->pin;
+			count++;
 		}
 	}
-	return node ? node->pin : 0;
 }
 
 static int msm_mpm_enable_irq_exclusive(
 	struct irq_data *d, bool enable, bool wakeset)
 {
-	uint16_t mpm_pin;
+	uint16_t num = 0;
+	uint16_t mpm_pins[MAX_MPM_PIN_PER_IRQ] = {0};
 
 	WARN_ON(!d);
+
 	if (!d)
 		return 0;
 
-	mpm_pin = msm_mpm_get_irq_a2m(d);
+	msm_mpm_get_irq_a2m(d, mpm_pins);
 
-	if (mpm_pin == 0xff)
-		return 0;
+	for (num = 0; num < MAX_MPM_PIN_PER_IRQ; num++) {
 
-	if (mpm_pin) {
-		uint32_t *mpm_irq_masks = wakeset ?
+		if (mpm_pins[num] == 0xff)
+			break;
+
+		if (num && mpm_pins[num] == 0)
+			break;
+
+		if (mpm_pins[num]) {
+			uint32_t *mpm_irq_masks = wakeset ?
 				msm_mpm_wake_irq : msm_mpm_enabled_irq;
-		uint32_t index = MSM_MPM_IRQ_INDEX(mpm_pin);
-		uint32_t mask = MSM_MPM_IRQ_MASK(mpm_pin);
+			uint32_t index = MSM_MPM_IRQ_INDEX(mpm_pins[num]);
+			uint32_t mask = MSM_MPM_IRQ_MASK(mpm_pins[num]);
 
-		if (enable)
-			mpm_irq_masks[index] |= mask;
-		else
-			mpm_irq_masks[index] &= ~mask;
-	} else {
-		int i;
-		unsigned long *irq_apps;
+			if (enable)
+				mpm_irq_masks[index] |= mask;
+			else
+				mpm_irq_masks[index] &= ~mask;
+		} else {
+			int i;
+			unsigned long *irq_apps;
 
-		for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
-			if (d->domain == unlisted_irqs[i].domain)
-				break;
-		}
+			for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
+				if (d->domain == unlisted_irqs[i].domain)
+					break;
+			}
 
-		if (i == MSM_MPM_NR_IRQ_DOMAINS)
-			return 0;
-		irq_apps = wakeset ? unlisted_irqs[i].wakeup_irqs :
+			if (i == MSM_MPM_NR_IRQ_DOMAINS)
+				return 0;
+
+			irq_apps = wakeset ? unlisted_irqs[i].wakeup_irqs :
 					unlisted_irqs[i].enabled_irqs;
 
-		if (enable)
-			__set_bit(d->hwirq, irq_apps);
-		else
-			__clear_bit(d->hwirq, irq_apps);
+			if (enable)
+				__set_bit(d->hwirq, irq_apps);
+			else
+				__clear_bit(d->hwirq, irq_apps);
 
-		if ((msm_mpm_initialized & MSM_MPM_DEVICE_PROBED)
+			if ((msm_mpm_initialized & MSM_MPM_DEVICE_PROBED)
 				&& !wakeset && !msm_mpm_in_suspend)
-			complete(&wake_wq);
+				complete(&wake_wq);
+		}
 	}
 
 	return 0;
@@ -337,27 +348,32 @@ static void msm_mpm_set_edge_ctl(int pin, unsigned int flow_type)
 static int msm_mpm_set_irq_type_exclusive(
 	struct irq_data *d, unsigned int flow_type)
 {
-	uint32_t mpm_irq;
+	uint16_t num = 0;
+	uint16_t mpm_pins[MAX_MPM_PIN_PER_IRQ] = {0};
 
-	mpm_irq = msm_mpm_get_irq_a2m(d);
+	msm_mpm_get_irq_a2m(d, mpm_pins);
 
-	if (mpm_irq == 0xff)
-		return 0;
+	for (num = 0; num < MAX_MPM_PIN_PER_IRQ; num++) {
 
-	if (mpm_irq) {
-		uint32_t index = MSM_MPM_IRQ_INDEX(mpm_irq);
-		uint32_t mask = MSM_MPM_IRQ_MASK(mpm_irq);
+		if (mpm_pins[num] == 0xff)
+			break;
 
-		if (index >= MSM_MPM_REG_WIDTH)
-			return -EFAULT;
+		if (mpm_pins[num]) {
+			uint32_t index = MSM_MPM_IRQ_INDEX(mpm_pins[num]);
+			uint32_t mask = MSM_MPM_IRQ_MASK(mpm_pins[num]);
 
-		msm_mpm_set_edge_ctl(mpm_irq, flow_type);
+			if (index >= MSM_MPM_REG_WIDTH)
+				return -EFAULT;
 
-		if (flow_type &  IRQ_TYPE_LEVEL_HIGH)
-			msm_mpm_polarity[index] |= mask;
-		else
-			msm_mpm_polarity[index] &= ~mask;
+			msm_mpm_set_edge_ctl(mpm_pins[num], flow_type);
+
+			if (flow_type &  IRQ_TYPE_LEVEL_HIGH)
+				msm_mpm_polarity[index] |= mask;
+			else
+				msm_mpm_polarity[index] &= ~mask;
+		}
 	}
+
 	return 0;
 }
 
