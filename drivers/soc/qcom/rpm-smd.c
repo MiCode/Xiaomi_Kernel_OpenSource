@@ -523,7 +523,6 @@ static int msm_rpm_read_sleep_ack(void)
 {
 	int ret;
 	char buf[MAX_ERR_BUFFER_SIZE] = {0};
-	uint32_t msg_id;
 
 	if (glink_enabled)
 		ret = msm_rpm_glink_rx_poll(glink_data->glink_handle);
@@ -554,28 +553,10 @@ static int msm_rpm_read_sleep_ack(void)
 			return -EAGAIN;
 
 		ret = msm_rpm_read_smd_data(buf);
-		if (!ret) {
-			/* Mimic Glink behavior to ensure that the
-			 * data is read and the msg is removed from
-			 * the wait list. We should have gotten here
-			 * only when there are no drivers waiting on
-			 * ACKs. msm_rpm_get_entry_from_msg_id()
-			 * return non-NULL only then.
-			 */
-			msg_id = msm_rpm_get_msg_id_from_ack(buf);
-			msm_rpm_process_ack(msg_id, 0);
+		if (!ret)
 			ret = smd_is_pkt_avail(msm_rpm_data.ch_info);
-		}
 	}
 	return ret;
-}
-
-static void msm_rpm_flush_noack_messages(void)
-{
-	while (!list_empty(&msm_rpm_wait_list)) {
-		if (!msm_rpm_read_sleep_ack())
-			break;
-	}
 }
 
 static int msm_rpm_flush_requests(bool print)
@@ -583,8 +564,6 @@ static int msm_rpm_flush_requests(bool print)
 	struct rb_node *t;
 	int ret;
 	int count = 0;
-
-	msm_rpm_flush_noack_messages();
 
 	for (t = rb_first(&tr_root); t; t = rb_next(t)) {
 
@@ -844,18 +823,14 @@ static void msm_rpm_notify(void *data, unsigned event)
 
 bool msm_rpm_waiting_for_ack(void)
 {
-	bool ret = false;
+	bool ret;
 	unsigned long flags;
-	struct msm_rpm_wait_data *elem = NULL;
 
 	spin_lock_irqsave(&msm_rpm_list_lock, flags);
-	elem = list_first_entry_or_null(&msm_rpm_wait_list,
-				struct msm_rpm_wait_data, list);
-	if (elem)
-		ret = !elem->delete_on_ack;
+	ret = list_empty(&msm_rpm_wait_list);
 	spin_unlock_irqrestore(&msm_rpm_list_lock, flags);
 
-	return ret;
+	return !ret;
 }
 
 static struct msm_rpm_wait_data *msm_rpm_get_entry_from_msg_id(uint32_t msg_id)
