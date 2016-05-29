@@ -1477,6 +1477,8 @@ int xhci_endpoint_init(struct xhci_hcd *xhci,
 		}
 		break;
 	case USB_SPEED_FULL:
+		if (usb_endpoint_xfer_bulk(&ep->desc) && max_packet < 8)
+			max_packet = 8;
 	case USB_SPEED_LOW:
 		break;
 	default:

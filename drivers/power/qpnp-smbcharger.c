@@ -139,6 +139,7 @@ struct smbchg_chip {
 	bool				vbat_above_headroom;
 	bool				force_aicl_rerun;
 	bool				hvdcp3_supported;
+	bool				allow_hvdcp3_detection;
 	bool				restricted_charging;
 	bool				skip_usb_suspend_for_fake_battery;
 	bool				hvdcp_not_supported;
@@ -294,6 +295,7 @@ enum pmic_subtype {
 	PMI8950		= 17,
 	PMI8996		= 19,
 	PMI8937		= 55,
+	PMI8940		= 64,
 };
 
 enum smbchg_wa {
@@ -4638,6 +4640,8 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	/* Clear typec current status */
 	if (chip->typec_psy)
 		chip->typec_current_ma = 0;
+	/* cancel/wait for hvdcp pending work if any */
+	cancel_delayed_work_sync(&chip->hvdcp_det_work);
 	smbchg_change_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
 	if (!chip->skip_usb_notification) {
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
@@ -5058,6 +5062,30 @@ static int fake_insertion_removal(struct smbchg_chip *chip, bool insertion)
 	return 0;
 }
 
+static void smbchg_handle_hvdcp3_disable(struct smbchg_chip *chip)
+{
+	enum power_supply_type usb_supply_type;
+	char *usb_type_name = "NULL";
+
+	if (chip->allow_hvdcp3_detection)
+		return;
+
+	chip->pulse_cnt = 0;
+
+	if (is_hvdcp_present(chip)) {
+		smbchg_change_usb_supply_type(chip,
+			POWER_SUPPLY_TYPE_USB_HVDCP);
+	} else if (is_usb_present(chip)) {
+		read_usb_type(chip, &usb_type_name, &usb_supply_type);
+		smbchg_change_usb_supply_type(chip, usb_supply_type);
+		if (usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP)
+			schedule_delayed_work(&chip->hvdcp_det_work,
+				msecs_to_jiffies(HVDCP_NOTIFY_MS));
+	} else {
+		smbchg_change_usb_supply_type(chip, POWER_SUPPLY_TYPE_UNKNOWN);
+	}
+}
+
 static int smbchg_prepare_for_pulsing(struct smbchg_chip *chip)
 {
 	int rc = 0;
@@ -5273,6 +5301,9 @@ out:
 		pr_smb(PR_MISC, "HVDCP removed\n");
 		update_usb_status(chip, 0, 0);
 	}
+
+	smbchg_handle_hvdcp3_disable(chip);
+
 	return rc;
 }
 
@@ -5438,6 +5469,10 @@ static int smbchg_prepare_for_pulsing_lite(struct smbchg_chip *chip)
 out:
 	chip->hvdcp_3_det_ignore_uv = false;
 	restore_from_hvdcp_detection(chip);
+	if (!is_src_detect_high(chip)) {
+		pr_smb(PR_MISC, "HVDCP removed - force removal\n");
+		update_usb_status(chip, 0, true);
+	}
 	return rc;
 }
 
@@ -5456,6 +5491,12 @@ static int smbchg_unprepare_for_pulsing_lite(struct smbchg_chip *chip)
 	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, false, 0);
 	if (rc < 0)
 		pr_err("Couldn't retract HVDCP ICL vote rc=%d\n", rc);
+
+	if (!is_src_detect_high(chip)) {
+		pr_smb(PR_MISC, "HVDCP removed\n");
+		update_usb_status(chip, 0, 0);
+	}
+	smbchg_handle_hvdcp3_disable(chip);
 
 	return rc;
 }
@@ -5671,6 +5712,7 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_RERUN_AICL,
 	POWER_SUPPLY_PROP_RESTRICTED_CHARGING,
+	POWER_SUPPLY_PROP_ALLOW_HVDCP3,
 };
 
 static int smbchg_battery_set_property(struct power_supply *psy,
@@ -5748,6 +5790,12 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 		if (chip->typec_psy)
 			update_typec_otg_status(chip, val->intval, false);
 		break;
+	case POWER_SUPPLY_PROP_ALLOW_HVDCP3:
+		if (chip->allow_hvdcp3_detection != val->intval) {
+			chip->allow_hvdcp3_detection = !!val->intval;
+			power_supply_changed(&chip->batt_psy);
+		}
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -5771,6 +5819,7 @@ static int smbchg_battery_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_DP_DM:
 	case POWER_SUPPLY_PROP_RERUN_AICL:
 	case POWER_SUPPLY_PROP_RESTRICTED_CHARGING:
+	case POWER_SUPPLY_PROP_ALLOW_HVDCP3:
 		rc = 1;
 		break;
 	default:
@@ -5867,6 +5916,9 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
 		val->intval = smbchg_get_iusb(chip);
+		break;
+	case POWER_SUPPLY_PROP_ALLOW_HVDCP3:
+		val->intval = chip->allow_hvdcp3_detection;
 		break;
 	default:
 		return -EINVAL;
@@ -7775,6 +7827,8 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 	case PMI8950:
 		chip->wa_flags |= SMBCHG_RESTART_WA;
 	case PMI8937:
+		/* fall through */
+	case PMI8940:
 		chip->wa_flags |= SMBCHG_BATT_OV_WA;
 		if (pmic_rev_id->rev4 < 2) /* PMI8950 1.0 */ {
 			chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA;
@@ -7789,7 +7843,9 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 			ARRAY_SIZE(aicl_rerun_period_schg_lite);
 
 		chip->schg_version = QPNP_SCHG_LITE;
-		if (pmic_rev_id->pmic_subtype == PMI8937)
+		/* PMI8937/PMI8940 doesn't support HVDCP */
+		if ((pmic_rev_id->pmic_subtype == PMI8937)
+			|| (pmic_rev_id->pmic_subtype == PMI8940))
 			chip->hvdcp_not_supported = true;
 		break;
 	case PMI8996:
@@ -8081,6 +8137,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 		}
 	}
 	chip->psy_registered = true;
+	chip->allow_hvdcp3_detection = true;
 
 	if (chip->cfg_chg_led_support &&
 			chip->schg_version == QPNP_SCHG_LITE) {

@@ -1404,7 +1404,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 								d->src_pipe_idx;
 		d->rx_req->length = 32*1024;
 		d->rx_req->udc_priv = sps_params;
-		msm_ep_config(port->port_usb->out, d->rx_req, GFP_ATOMIC);
+		msm_ep_config(port->port_usb->out, d->rx_req);
 
 		/* Configure for TX */
 		configure_data_fifo(d->usb_bam_type, d->dst_connection_idx,
@@ -1412,18 +1412,25 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB | d->dst_pipe_idx;
 		d->tx_req->length = 32*1024;
 		d->tx_req->udc_priv = sps_params;
-		msm_ep_config(port->port_usb->in, d->tx_req, GFP_ATOMIC);
+		msm_ep_config(port->port_usb->in, d->tx_req);
 
 	} else {
 		/* Configure for RX */
+		get_bam2bam_connection_info(d->usb_bam_type,
+				d->src_connection_idx,
+				&d->src_pipe_idx,
+				NULL, NULL, NULL);
 		sps_params = (MSM_SPS_MODE | d->src_pipe_idx |
 				MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
 		d->rx_req->udc_priv = sps_params;
 
 		/* Configure for TX */
+		get_bam2bam_connection_info(d->usb_bam_type,
+				d->dst_connection_idx,
+				&d->dst_pipe_idx,
+				NULL, NULL, NULL);
 		sps_params = (MSM_SPS_MODE | d->dst_pipe_idx |
 				MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
-		d->tx_req->length = 32*1024;
 		d->tx_req->udc_priv = sps_params;
 
 	}

@@ -820,16 +820,23 @@ static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 		return;
 	}
 
-	if (!atomic_read(&sys->curr_polling_state)) {
-		IPAERR("already in intr mode\n");
-		goto fail;
-	}
-
 	ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
 	if (ret) {
 		IPAERR("sps_get_config() failed %d\n", ret);
 		goto fail;
 	}
+
+	if (!atomic_read(&sys->curr_polling_state) &&
+		((sys->ep->connect.options & SPS_O_EOT) == SPS_O_EOT)) {
+		IPADBG("already in intr mode\n");
+		return;
+	}
+
+	if (!atomic_read(&sys->curr_polling_state)) {
+		IPAERR("already in intr mode\n");
+		goto fail;
+	}
+
 	sys->event.options = SPS_O_EOT;
 	ret = sps_register_event(sys->ep->ep_hdl, &sys->event);
 	if (ret) {
@@ -1580,14 +1587,14 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n",
 				IPA_CLIENT_APPS_LAN_WAN_PROD);
-			return -EFAULT;
+			goto fail_gen;
 		}
 		dst_ep_idx = ipa2_get_ep_mapping(dst);
 	} else {
 		src_ep_idx = ipa2_get_ep_mapping(dst);
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n", dst);
-			return -EFAULT;
+			goto fail_gen;
 		}
 		if (meta && meta->pkt_init_dst_ep_valid)
 			dst_ep_idx = meta->pkt_init_dst_ep;

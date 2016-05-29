@@ -121,7 +121,7 @@ static int init_data(struct usb_ep *ep)
 	pr_debug("init_data\n");
 
 	if (gadget_is_dwc3(gadget)) {
-		res = msm_ep_config(ep, qdss->endless_req, GFP_ATOMIC);
+		res = msm_ep_config(ep, qdss->endless_req);
 		if (res)
 			pr_err("msm_ep_config failed\n");
 	} else {
