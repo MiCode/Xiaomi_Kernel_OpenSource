@@ -38,6 +38,12 @@
 			qcom,ion-heap-type = "DMA";
 		};
 
+		qcom,ion-heap@13 { /* SPSS HEAP */
+			reg = <13>;
+			memory-region = <&sp_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+
 		qcom,ion-heap@10 { /* SECURE DISPLAY HEAP */
 			reg = <10>;
 			memory-region = <&secure_display_memory>;

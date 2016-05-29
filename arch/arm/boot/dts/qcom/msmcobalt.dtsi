@@ -273,7 +273,7 @@
 			reg = <0 0x8ac00000 0 0x6d00000>;
 		};
 
-		spss_mem: spss_region@8ab00000 {
+		spss_mem: spss_region@8ab00000 { /* for SPSS-PIL */
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x8ab00000 0 0x100000>;
@@ -293,6 +293,14 @@
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x1400000>;
+		};
+
+		sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>; /* 32-bit */
+			reusable;
+			alignment = <0 0x100000>;
+			size = <0 0x800000>;
 		};
 
 		secure_display_memory: secure_region {
