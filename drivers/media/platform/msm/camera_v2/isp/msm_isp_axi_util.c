@@ -177,6 +177,8 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	case V4L2_PIX_FMT_JPEG:
 	case V4L2_PIX_FMT_META:
 	case V4L2_PIX_FMT_GREY:
+	case V4L2_PIX_FMT_Y10:
+	case V4L2_PIX_FMT_Y12:
 		stream_info->num_planes = 1;
 		stream_info->format_factor = ISP_Q2;
 		break;
@@ -261,6 +263,8 @@ static uint32_t msm_isp_axi_get_plane_size(
 	case V4L2_PIX_FMT_JPEG:
 	case V4L2_PIX_FMT_META:
 	case V4L2_PIX_FMT_GREY:
+	case V4L2_PIX_FMT_Y10:
+	case V4L2_PIX_FMT_Y12:
 		size = plane_cfg[plane_idx].output_height *
 		plane_cfg[plane_idx].output_width;
 		break;
@@ -1618,6 +1622,7 @@ static struct msm_isp_buffer *msm_isp_get_stream_buffer(
 				bufq_handle, buf->buf_idx);
 		buf = NULL;
 	}
+
 	return buf;
 }
 
@@ -1640,7 +1645,6 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 		pr_err("%s: Invalid stream_idx", __func__);
 		return -EINVAL;
 	}
-
 	/* make sure that streams are in right state */
 	if ((stream_info->stream_src < RDI_INTF_0) &&
 		vfe_dev->is_split) {
