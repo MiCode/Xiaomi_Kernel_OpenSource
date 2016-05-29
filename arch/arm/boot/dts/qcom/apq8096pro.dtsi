@@ -22,3 +22,13 @@
 	model = "Qualcomm Technologies, Inc. APQ 8096 pro";
 	qcom,msm-id = <312 0x20000>;
 };
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
+
+&ipa_hw {
+	status = "disabled";
+};
