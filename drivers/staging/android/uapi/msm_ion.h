@@ -29,6 +29,7 @@ enum ion_heap_ids {
 	ION_SECURE_HEAP_ID = 9,
 	ION_SECURE_DISPLAY_HEAP_ID = 10,
 	ION_CP_MFC_HEAP_ID = 12,
+	ION_SPSS_HEAP_ID = 13, /* Secure Processor ION heap */
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
 	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
 	ION_SYSTEM_CONTIG_HEAP_ID = 21,
@@ -51,6 +52,8 @@ enum ion_heap_ids {
  */
 #define ION_IOMMU_HEAP_ID ION_SYSTEM_HEAP_ID
 #define ION_HEAP_TYPE_IOMMU ION_HEAP_TYPE_SYSTEM
+
+#define ION_SPSS_HEAP_ID ION_SPSS_HEAP_ID
 
 enum ion_fixed_position {
 	NOT_FIXED,
@@ -130,6 +133,7 @@ enum cp_mem_usage {
 #define ION_CAMERA_HEAP_NAME	"camera_preview"
 #define ION_IOMMU_HEAP_NAME	"iommu"
 #define ION_MFC_HEAP_NAME	"mfc"
+#define ION_SPSS_HEAP_NAME	"spss"
 #define ION_WB_HEAP_NAME	"wb"
 #define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
 #define ION_PIL1_HEAP_NAME  "pil_1"
