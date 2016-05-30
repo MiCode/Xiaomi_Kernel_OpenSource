@@ -434,8 +434,7 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 		if (MDP_FORMAT_IS_YUV(format) &&
 			(!(psde->features & SDE_SSPP_SCALER) ||
 			 !(psde->features & BIT(SDE_SSPP_CSC)))) {
-			dev_err(plane->dev->dev,
-				"Pipe doesn't support YUV\n");
+			DRM_ERROR("Pipe doesn't support YUV\n");
 
 			return -EINVAL;
 		}
@@ -443,8 +442,8 @@ static int sde_plane_atomic_check(struct drm_plane *plane,
 		if (!(psde->features & SDE_SSPP_SCALER) &&
 			(((state->src_w >> 16) != state->crtc_w) ||
 			((state->src_h >> 16) != state->crtc_h))) {
-			dev_err(plane->dev->dev,
-				"Pipe doesn't support scaling (%dx%d -> %dx%d)\n",
+			DRM_ERROR(
+				"Unsupported Pipe scaling (%dx%d -> %dx%d)\n",
 				state->src_w >> 16, state->src_h >> 16,
 				state->crtc_w, state->crtc_h);
 
@@ -576,7 +575,7 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				blob = drm_property_lookup_blob(dev,
 					(uint32_t)val);
 				if (!blob) {
-					dev_err(dev->dev, "Blob not found\n");
+					DRM_ERROR("Blob not found\n");
 					val = 0;
 				} else {
 					val = blob->base.id;
@@ -598,7 +597,7 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 	}
 
 	if (ret == -EINVAL)
-		dev_err(dev->dev, "Invalid property set\n");
+		DRM_ERROR("Invalid property set\n");
 
 	return ret;
 }
@@ -637,7 +636,7 @@ static int sde_plane_atomic_get_property(struct drm_plane *plane,
 	}
 
 	if (ret == -EINVAL)
-		dev_err(dev->dev, "Invalid property get\n");
+		DRM_ERROR("Invalid property get\n");
 
 	return ret;
 }
@@ -894,7 +893,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	return plane;
 
 fail:
-	pr_err("%s: Plane creation failed\n", __func__);
+	DRM_ERROR("Plane creation failed\n");
 	if (plane)
 		sde_plane_destroy(plane);
 exit:
