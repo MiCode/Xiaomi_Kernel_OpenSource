@@ -16,15 +16,18 @@
 /* using a file static variables for debugfs access */
 static u32 sde_hw_util_log_mask = SDE_DBG_MASK_NONE;
 
-void SDE_REG_WRITE(struct sde_hw_blk_reg_map *c, u32 reg_off, u32 val)
+void sde_reg_write(struct sde_hw_blk_reg_map *c,
+		u32 reg_off,
+		u32 val,
+		const char *name)
 {
 	/* don't need to mutex protect this */
 	if (c->log_mask & sde_hw_util_log_mask)
-		DBG("[0x%X] <= 0x%X", c->blk_off + reg_off, val);
+		DBG("[%s:0x%X] <= 0x%X", name, c->blk_off + reg_off, val);
 	writel_relaxed(val, c->base_off + c->blk_off + reg_off);
 }
 
-int SDE_REG_READ(struct sde_hw_blk_reg_map *c, u32 reg_off)
+int sde_reg_read(struct sde_hw_blk_reg_map *c, u32 reg_off)
 {
 	return readl_relaxed(c->base_off + c->blk_off + reg_off);
 }
