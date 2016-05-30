@@ -17,6 +17,7 @@
 
 #include "sde_kms.h"
 #include "sde_hw_intf.h"
+#include "sde_hw_pingpong.h"
 #include "sde_hw_ctl.h"
 #include "sde_hw_top.h"
 
@@ -155,6 +156,35 @@ struct sde_encoder_phys_vid {
 };
 
 /**
+ * struct sde_encoder_phys_cmd - sub-class of sde_encoder_phys to handle command
+ *	mode specific operations
+ * @base:	Baseclass physical encoder structure
+ * @intf_idx:	Intf Block index used by this phys encoder
+ * @stream_sel:	Stream selection for multi-stream interfaces
+ * @hw_pp:	Hardware interface to the ping pong registers
+ * @pp_rd_ptr_irq_idx:	IRQ signifying panel's frame read pointer
+ *			For CMD encoders, VBLANK is driven by the PP RD Done IRQ
+ * @pp_tx_done_irq_idx:	IRQ signifying frame transmission to panel complete
+ * @pp_tx_done_wq:	Wait queue that tracks when a commit is flushed
+ *			to hardware after the reception of pp_done
+ *			Used to prevent back to back commits
+ * @pending_cnt:	Atomic counter tracking the number of kickoffs vs.
+ *			the number of pp_done irqs. Should hover between 0-2
+ *			Incremented when a new kickoff is scheduled
+ *			Decremented in pp_done irq
+ */
+struct sde_encoder_phys_cmd {
+	struct sde_encoder_phys base;
+	int intf_idx;
+	int stream_sel;
+	struct sde_hw_pingpong *hw_pp;
+	int pp_rd_ptr_irq_idx;
+	int pp_tx_done_irq_idx;
+	wait_queue_head_t pp_tx_done_wq;
+	atomic_t pending_cnt;
+};
+
+/**
  * sde_encoder_phys_vid_init - Construct a new video mode physical encoder
  * @sde_kms:		Pointer to the sde_kms top level
  * @intf_idx:		Interface index this phys_enc will control
@@ -162,7 +192,6 @@ struct sde_encoder_phys_vid {
  * @split_role:		Role to play in a split-panel configuration
  * @parent:		Pointer to the containing virtual encoder
  * @parent_ops:		Callbacks exposed by the parent to the phys_enc
- *
  * Return: Error code or newly allocated encoder
  */
 struct sde_encoder_phys *sde_encoder_phys_vid_init(
@@ -172,5 +201,27 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 		enum sde_enc_split_role split_role,
 		struct drm_encoder *parent,
 		struct sde_encoder_virt_ops parent_ops);
+
+/**
+ * sde_encoder_phys_cmd_init - Construct a new command mode physical encoder
+ * @sde_kms:		Pointer to the sde_kms top level
+ * @intf_idx:		Interface index this phys_enc will control
+ * @pp_idx:		PingPong index this phys_enc will control
+ * @ctl_idx:		Control index this phys_enc requires
+ * @split_role:		Role to play in a split-panel configuration
+ * @parent:		Pointer to the containing virtual encoder
+ * @parent_ops:		Callbacks exposed by the parent to the phys_enc
+ * Return: Error code or newly allocated encoder
+ */
+struct sde_encoder_phys *sde_encoder_phys_cmd_init(
+		struct sde_kms *sde_kms,
+		enum sde_intf intf_idx,
+		enum sde_pingpong pp_idx,
+		enum sde_ctl ctl_idx,
+		enum sde_enc_split_role split_role,
+		struct drm_encoder *parent,
+		struct sde_encoder_virt_ops parent_ops);
+
+
 
 #endif /* __sde_encoder_phys_H__ */
