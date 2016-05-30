@@ -419,6 +419,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,platform-reset-gpio = <&tlmm 8 0>;
 };
 
 &dsi_dual_nt35597_cmd {
@@ -429,6 +430,7 @@
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
 	qcom,panel-allow-phy-poweroff;
+	qcom,platform-reset-gpio = <&tlmm 8 0>;
 };
 
 &dsi_nt35950_4k_dsc_cmd {
