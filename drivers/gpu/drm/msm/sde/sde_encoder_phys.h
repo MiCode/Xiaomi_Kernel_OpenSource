@@ -18,6 +18,7 @@
 #include "sde_kms.h"
 #include "sde_hw_intf.h"
 #include "sde_hw_ctl.h"
+#include "sde_hw_top.h"
 
 /**
  * enum sde_enc_split_role - Role this physical encoder will play in a
@@ -40,9 +41,13 @@ struct sde_encoder_phys;
  *	provides for the physical encoders to use to callback.
  * @handle_vblank_virt:	Notify virtual encoder of vblank IRQ reception
  *			Note: This is called from IRQ handler context.
+ * @handle_ready_for_kickoff:	Notify virtual encoder that this phys encoder
+ *				is now ready for the next kickoff.
  */
 struct sde_encoder_virt_ops {
 	void (*handle_vblank_virt)(struct drm_encoder *);
+	void (*handle_ready_for_kickoff)(struct drm_encoder *,
+			struct sde_encoder_phys *phys);
 };
 
 /**
@@ -60,10 +65,16 @@ struct sde_encoder_virt_ops {
  * @get_hw_resources:		Populate the structure with the hardware
  *				resources that this phys_enc is using.
  *				Expect no overlap between phys_encs.
- * @get_vblank_status:		Query hardware for the vblank info
- *				appropriate for this phys_enc (vsync/pprdptr).
- *				Only appropriate for master phys_enc.
+ * @control_vblank_irq		Register/Deregister for VBLANK IRQ
+ * @wait_for_commit_done:	Wait for hardware to have flushed the
+ *				current pending frames to hardware
+ * @prepare_for_kickoff:	Do any work necessary prior to a kickoff
+ *				and report whether need to wait before
+ *				triggering the next kickoff
+ *				(ie for previous tx to complete)
+ * @handle_post_kickoff:	Do any work necessary post-kickoff work
  */
+
 struct sde_encoder_phys_ops {
 	bool (*is_master)(struct sde_encoder_phys *encoder);
 	bool (*mode_fixup)(struct sde_encoder_phys *encoder,
@@ -77,9 +88,24 @@ struct sde_encoder_phys_ops {
 	void (*destroy)(struct sde_encoder_phys *encoder);
 	void (*get_hw_resources)(struct sde_encoder_phys *encoder,
 			struct sde_encoder_hw_resources *hw_res);
-	void (*get_vblank_status)(struct sde_encoder_phys *enc,
-			struct vsync_info *vsync);
-	void (*flush_intf)(struct sde_encoder_phys *phys_enc);
+	int (*control_vblank_irq)(struct sde_encoder_phys *enc, bool enable);
+	int (*wait_for_commit_done)(struct sde_encoder_phys *phys_enc);
+	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
+			bool *wait_until_ready);
+	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
+};
+
+/**
+ * enum sde_enc_enable_state - current enabled state of the physical encoder
+ * @SDE_ENC_DISABLED:	Encoder is disabled
+ * @SDE_ENC_ENABLING:	Encoder transitioning to enabled
+ *			Events bounding transition are encoder type specific
+ * @SDE_ENC_ENABLED:	Encoder is enabled
+ */
+enum sde_enc_enable_state {
+	SDE_ENC_DISABLED,
+	SDE_ENC_ENABLING,
+	SDE_ENC_ENABLED
 };
 
 /**
@@ -90,39 +116,42 @@ struct sde_encoder_phys_ops {
  * @ops:		Operations exposed to the virtual encoder
  * @parent_ops:		Callbacks exposed by the parent to the phys_enc
  * @hw_mdptop:		Hardware interface to the top registers
- * @hw_intf:		Hardware interface to the intf registers
  * @hw_ctl:		Hardware interface to the ctl registers
  * @sde_kms:		Pointer to the sde_kms top level
  * @cached_mode:	DRM mode cached at mode_set time, acted on in enable
  * @enabled:		Whether the encoder has enabled and running a mode
  * @split_role:		Role to play in a split-panel configuration
  * @spin_lock:		Lock for IRQ purposes
+ * @mode_3d:		3D mux configuration
+ * @enable_state:	Enable state tracking
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
 	struct sde_encoder_phys_ops ops;
 	struct sde_encoder_virt_ops parent_ops;
 	struct sde_hw_mdp *hw_mdptop;
-	struct sde_hw_intf *hw_intf;
 	struct sde_hw_ctl *hw_ctl;
 	struct sde_kms *sde_kms;
 	struct drm_display_mode cached_mode;
-	bool enabled;
 	enum sde_enc_split_role split_role;
 	spinlock_t spin_lock;
+	enum sde_3d_blend_mode mode_3d;
+	enum sde_enc_enable_state enable_state;
 };
 
 /**
  * struct sde_encoder_phys_vid - sub-class of sde_encoder_phys to handle video
  *	mode specific operations
- * @base:		Baseclass physical encoder structure
- * @irq_idx:		IRQ interface lookup index
- * @vblank_complete:	for vblank irq synchronization
+ * @base:	Baseclass physical encoder structure
+ * @irq_idx:	IRQ interface lookup index
+ * @hw_intf:	Hardware interface to the intf registers
+ * @vblank_completion:	Completion event signaled on reception of the vsync irq
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
 	int irq_idx;
-	struct completion vblank_complete;
+	struct sde_hw_intf *hw_intf;
+	struct completion vblank_completion;
 };
 
 /**

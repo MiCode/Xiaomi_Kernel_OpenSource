@@ -60,6 +60,7 @@ int sde_disable(struct sde_kms *sde_kms)
 	clk_disable_unprepare(sde_kms->ahb_clk);
 	clk_disable_unprepare(sde_kms->axi_clk);
 	clk_disable_unprepare(sde_kms->core_clk);
+	clk_disable_unprepare(sde_kms->vsync_clk);
 	if (sde_kms->lut_clk)
 		clk_disable_unprepare(sde_kms->lut_clk);
 
@@ -73,6 +74,7 @@ int sde_enable(struct sde_kms *sde_kms)
 	clk_prepare_enable(sde_kms->ahb_clk);
 	clk_prepare_enable(sde_kms->axi_clk);
 	clk_prepare_enable(sde_kms->core_clk);
+	clk_prepare_enable(sde_kms->vsync_clk);
 	if (sde_kms->lut_clk)
 		clk_prepare_enable(sde_kms->lut_clk);
 
@@ -170,6 +172,17 @@ static void sde_prepare_commit(struct msm_kms *kms,
 	sde_enable(sde_kms);
 }
 
+static void sde_commit(struct msm_kms *kms, struct drm_atomic_state *old_state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state;
+	int i;
+
+	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
+		if (crtc->state->active)
+			sde_crtc_commit_kickoff(crtc);
+}
+
 static void sde_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
@@ -182,6 +195,7 @@ static void sde_wait_for_crtc_commit_done(struct msm_kms *kms,
 {
 	sde_crtc_wait_for_commit_done(crtc);
 }
+
 static int modeset_init(struct sde_kms *sde_kms)
 {
 	struct msm_drm_private *priv = sde_kms->dev->dev_private;
@@ -293,6 +307,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.irq_uninstall   = sde_irq_uninstall,
 	.irq             = sde_irq,
 	.prepare_commit  = sde_prepare_commit,
+	.commit          = sde_commit,
 	.complete_commit = sde_complete_commit,
 	.wait_for_crtc_commit_done = sde_wait_for_crtc_commit_done,
 	.enable_vblank   = sde_enable_vblank,

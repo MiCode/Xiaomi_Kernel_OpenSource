@@ -428,6 +428,7 @@ int sde_plane_color_fill(struct drm_plane *plane,
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en);
 void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
+void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
 struct drm_crtc *sde_crtc_init(struct drm_device *dev,
 		struct drm_encoder *encoder,
 		struct drm_plane *plane, int id);
@@ -442,13 +443,56 @@ struct sde_encoder_hw_resources {
 	bool pingpongsplit;
 };
 
+/**
+ * sde_encoder_get_hw_resources - Populate table of required hardware resources
+ * @encoder:	encoder pointer
+ * @hw_res:	resource table to populate with encoder required resources
+ */
 void sde_encoder_get_hw_resources(struct drm_encoder *encoder,
 		struct sde_encoder_hw_resources *hw_res);
-void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
-		void (*cb)(void *), void *data);
-void sde_encoder_get_vblank_status(struct drm_encoder *encoder,
-		struct vsync_info *vsync);
-void sde_encoders_init(struct drm_device *dev);
 
+/**
+ * sde_encoder_register_vblank_callback - provide callback to encoder that
+ *	will be called on the next vblank.
+ * @encoder:	encoder pointer
+ * @cb:		callback pointer, provide NULL to deregister and disable IRQs
+ * @data:	user data provided to callback
+ */
+void sde_encoder_register_vblank_callback(struct drm_encoder *encoder,
+		void (*cb)(void *), void *data);
+
+/**
+ * sde_encoder_schedule_kickoff - Register a callback with the encoder to
+ *	trigger a double buffer flip of the ctl path (i.e. ctl flush and start)
+ *	at the appropriate time.
+ *	Immediately: if no previous commit is outstanding.
+ *	Delayed: Save the callback, and return. Does not block. Callback will
+ *	be triggered later. E.g. cmd encoder will trigger at pp_done irq
+ *	irq if it outstanding.
+ *	Callback registered is expected to flush _all_ ctl paths of the crtc
+ * @encoder:	encoder pointer
+ * @cb:		callback pointer, provide NULL to deregister
+ * @data:	user data provided to callback
+ */
+void sde_encoder_schedule_kickoff(struct drm_encoder *encoder,
+		void (*cb)(void *), void *data);
+
+/**
+ * sde_encoder_wait_nxt_committed - Wait for hardware to have flushed the
+ *	current pending frames to hardware at a vblank or ctl_start
+ *	Encoders will map this differently depending on irqs
+ *	vid mode -> vsync_irq
+ * @encoder:	encoder pointer
+ *
+ * Return: 0 on success, -EWOULDBLOCK if already signaled, error otherwise
+ */
+int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
+
+/**
+ * sde_encoders_init - query platform, create all encoders and bridges,
+ *	and register them with the drm_device
+ * @dev:	drm device pointer
+ */
+void sde_encoders_init(struct drm_device *dev);
 
 #endif /* __sde_kms_H__ */

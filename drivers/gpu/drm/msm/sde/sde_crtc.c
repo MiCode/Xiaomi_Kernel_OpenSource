@@ -80,8 +80,8 @@ static int sde_crtc_reserve_hw_resources(struct drm_crtc *crtc,
 				&sde_crtc->mixer[sde_crtc->num_ctls];
 			mixer->hw_ctl = sde_rm_get_ctl_path(sde_kms, i);
 			if (IS_ERR_OR_NULL(mixer->hw_ctl)) {
-				DBG("[%s], Invalid ctl_path", __func__);
-				return -EACCES;
+				DRM_ERROR("Invalid ctl_path\n");
+				return PTR_ERR(mixer->hw_ctl);
 			}
 			sde_crtc->num_ctls++;
 		}
@@ -145,25 +145,11 @@ static void sde_crtc_destroy(struct drm_crtc *crtc)
 	kfree(sde_crtc);
 }
 
-static void update_crtc_vsync_count(struct sde_crtc *sde_crtc)
-{
-	struct vsync_info vsync;
-
-	/* request vsync info, cache the current frame count */
-	sde_encoder_get_vblank_status(sde_crtc->encoder, &vsync);
-	sde_crtc->vsync_count = vsync.frame_count;
-}
-
 static bool sde_crtc_mode_fixup(struct drm_crtc *crtc,
 		const struct drm_display_mode *mode,
 		struct drm_display_mode *adjusted_mode)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-
 	DBG("");
-
-	/* Update vsync counter incase wait for vsync needed before mode_set */
-	update_crtc_vsync_count(sde_crtc);
 
 	if (msm_is_mode_seamless(adjusted_mode)) {
 		DBG("Seamless mode set requested");
@@ -376,8 +362,11 @@ static void sde_crtc_vblank_cb(void *data)
 
 	pending = atomic_xchg(&sde_crtc->pending, 0);
 
-	if (pending & PENDING_FLIP)
+	if (pending & PENDING_FLIP) {
 		complete_flip(crtc, NULL);
+		/* free ref count paired with the atomic_flush */
+		drm_crtc_vblank_put(crtc);
+	}
 
 	if (sde_crtc->drm_requested_vblank) {
 		drm_handle_vblank(dev, sde_crtc->id);
@@ -386,73 +375,98 @@ static void sde_crtc_vblank_cb(void *data)
 	}
 }
 
-static bool frame_flushed(struct sde_crtc *sde_crtc)
+static u32 _sde_crtc_update_ctl_flush_mask(struct drm_crtc *crtc)
 {
-	struct vsync_info vsync;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct sde_hw_ctl *ctl;
+	struct sde_crtc_mixer *mixer;
+	int i;
 
-	/*
-	 * encoder get vsync_info
-	 * if frame_count does not match
-	 * frame is flushed
-	 */
-	sde_encoder_get_vblank_status(sde_crtc->encoder, &vsync);
+	if (!crtc) {
+		DRM_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
 
-	return (vsync.frame_count != sde_crtc->vsync_count) ? true : false;
+	MSM_EVT(crtc->dev, sde_crtc->id, 0);
+
+	DBG("");
+
+	for (i = 0; i < sde_crtc->num_ctls; i++) {
+		mixer = &sde_crtc->mixer[i];
+		ctl = mixer->hw_ctl;
+		ctl->ops.get_bitmask_intf(ctl, &mixer->flush_mask,
+				mixer->intf_idx);
+		ctl->ops.update_pending_flush(ctl, mixer->flush_mask);
+		DBG("added CTL_ID %d mask 0x%x to pending flush", ctl->idx,
+						mixer->flush_mask);
+	}
+
+	return 0;
+}
+/**
+ * _sde_crtc_trigger_kickoff - Iterate through the control paths and trigger
+ *	the hw_ctl object to flush any pending flush mask, and trigger
+ *	control start if the interface types require it.
+ *
+ *	This is currently designed to be called only once per crtc, per flush.
+ *	It should be called from the encoder, through the
+ *	sde_encoder_schedule_kickoff callflow, after all the encoders are ready
+ *	to have CTL_START triggered.
+ *
+ *	It is called from the commit thread context.
+ * @data: crtc pointer
+ */
+static void _sde_crtc_trigger_kickoff(void *data)
+{
+	struct drm_crtc *crtc = (struct drm_crtc *)data;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct sde_hw_ctl *ctl;
+	u32 i;
+
+	if (!data) {
+		DRM_ERROR("invalid argument\n");
+		return;
+	}
+
+	MSM_EVT(crtc->dev, sde_crtc->id, 0);
+
+	/* Commit all pending flush masks to hardware */
+	for (i = 0; i < sde_crtc->num_ctls; i++) {
+		ctl = sde_crtc->mixer[i].hw_ctl;
+		ctl->ops.trigger_flush(ctl);
+	}
+
+	/* Signal start to any interface types that require it */
+	for (i = 0; i < sde_crtc->num_ctls; i++) {
+		ctl = sde_crtc->mixer[i].hw_ctl;
+		if (sde_crtc->mixer[i].mode != INTF_MODE_VIDEO) {
+			ctl->ops.trigger_start(ctl);
+			DBG("trigger start on ctl %d", ctl->idx);
+		}
+	}
 }
 
 void sde_crtc_wait_for_commit_done(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct drm_device *dev = crtc->dev;
-	int i, ret, wait_ret_val;
+	int ret;
 
-	if (!sde_crtc->num_ctls)
+	/* ref count the vblank event and interrupts while we wait for it */
+	if (drm_crtc_vblank_get(crtc))
 		return;
 
-	/* ref count the vblank event */
-	ret = drm_crtc_vblank_get(crtc);
+	/*
+	 * Wait post-flush if necessary to delay before plane_cleanup
+	 * For example, wait for vsync in case of video mode panels
+	 * This should be a no-op for command mode panels
+	 */
+	MSM_EVT(crtc->dev, sde_crtc->id, 0);
+	ret = sde_encoder_wait_for_commit_done(sde_crtc->encoder);
 	if (ret)
-		return;
+		DBG("sde_encoder_wait_post_flush returned %d", ret);
 
-	/* wait */
-	wait_ret_val = wait_event_timeout(
-			dev->vblank[drm_crtc_index(crtc)].queue,
-			frame_flushed(sde_crtc),
-			msecs_to_jiffies(50));
-	if (wait_ret_val <= 1)
-		dev_warn(dev->dev, "vblank time out, crtc=%d, ret %u\n",
-				sde_crtc->id, ret);
-
-	for (i = 0; i < sde_crtc->num_ctls; i++)
-		sde_crtc->mixer[i].flush_mask = 0;
-
-	/* release */
+	/* release vblank event ref count */
 	drm_crtc_vblank_put(crtc);
-}
-
-/**
- * Flush the CTL PATH
- */
-u32 crtc_flush_all(struct drm_crtc *crtc)
-{
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_hw_ctl *ctl;
-	int i;
-
-	DBG("");
-
-	for (i = 0; i < sde_crtc->num_ctls; i++) {
-		ctl = sde_crtc->mixer[i].hw_ctl;
-		ctl->ops.get_bitmask_intf(ctl,
-				&(sde_crtc->mixer[i].flush_mask),
-				sde_crtc->mixer[i].intf_idx);
-		DBG("Flushing CTL_ID %d, flush_mask %x", ctl->idx,
-				sde_crtc->mixer[i].flush_mask);
-		ctl->ops.setup_flush(ctl,
-				sde_crtc->mixer[i].flush_mask);
-	}
-
-	return 0;
 }
 
 /**
@@ -520,6 +534,7 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct drm_device *dev;
 	unsigned long flags;
+	u32 i;
 
 	DBG("");
 
@@ -537,6 +552,14 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		spin_lock_irqsave(&dev->event_lock, flags);
 		sde_crtc->event = crtc->state->event;
 		spin_unlock_irqrestore(&dev->event_lock, flags);
+	}
+
+	/* Reset flush mask from previous commit */
+	for (i = 0; i < sde_crtc->num_ctls; i++) {
+		struct sde_hw_ctl *ctl = sde_crtc->mixer[i].hw_ctl;
+
+		sde_crtc->mixer[i].flush_mask = 0;
+		ctl->ops.clear_pending_flush(ctl);
 	}
 
 	/*
@@ -562,8 +585,11 @@ static void request_pending(struct drm_crtc *crtc, u32 pending)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
-	update_crtc_vsync_count(sde_crtc);
 	atomic_or(pending, &sde_crtc->pending);
+
+	/* ref count the vblank event and interrupts over the atomic commit */
+	if (drm_crtc_vblank_get(crtc))
+		return;
 }
 
 static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
@@ -588,7 +614,6 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (sde_crtc->event) {
 		DBG("already received sde_crtc->event");
 	} else {
-		DBG("%s: event: %pK", sde_crtc->name, crtc->state->event);
 		spin_lock_irqsave(&dev->event_lock, flags);
 		sde_crtc->event = crtc->state->event;
 		spin_unlock_irqrestore(&dev->event_lock, flags);
@@ -613,9 +638,13 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	drm_atomic_crtc_for_each_plane(plane, crtc)
 		sde_plane_flush(plane);
 
-	crtc_flush_all(crtc);
+	/* Add pending blocks to the flush mask  */
+	if (_sde_crtc_update_ctl_flush_mask(crtc))
+		return;
 
 	request_pending(crtc, PENDING_FLIP);
+
+	/* Kickoff will be scheduled by outer layer */
 }
 
 /**
@@ -644,6 +673,23 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 	/* destroy value helper */
 	msm_property_destroy_state(&sde_crtc->property_info, cstate,
 			cstate->property_values, cstate->property_blobs);
+}
+
+void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+
+	if (!crtc) {
+		DRM_ERROR("invalid argument\n");
+		return;
+	}
+
+	/*
+	 * Encoder will flush/start now, unless it has a tx pending
+	 * in which case it may delay and flush at an irq event (e.g. ppdone)
+	 */
+	sde_encoder_schedule_kickoff(sde_crtc->encoder,
+			_sde_crtc_trigger_kickoff, crtc);
 }
 
 /**
@@ -882,6 +928,8 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 
 	DBG("%d", en);
 
+	MSM_EVT(crtc->dev, en, 0);
+
 	/*
 	 * Mark that framework requested vblank,
 	 * as opposed to enabling vblank only for our internal purposes
@@ -1090,9 +1138,6 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 				sde_debugfs_get_root(sde_kms));
 		if (sde_crtc->debugfs_root) {
 			/* don't error check these */
-			debugfs_create_u32("vsync_count", S_IRUGO,
-					sde_crtc->debugfs_root,
-					&sde_crtc->vsync_count);
 			debugfs_create_file("mixers", S_IRUGO,
 					sde_crtc->debugfs_root,
 					sde_crtc, &debugfs_mixer_fops);
