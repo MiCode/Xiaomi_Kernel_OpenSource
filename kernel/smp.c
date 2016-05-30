@@ -770,7 +770,8 @@ void wake_up_all_idle_cpus(void)
 		if (cpu == smp_processor_id())
 			continue;
 
-		wake_up_if_idle(cpu);
+		if (!cpu_isolated(cpu))
+			wake_up_if_idle(cpu);
 	}
 	preempt_enable();
 }
