@@ -36,9 +36,14 @@ struct sde_hw_blk_reg_map {
 
 u32 *sde_hw_util_get_log_mask_ptr(void);
 
-void SDE_REG_WRITE(struct sde_hw_blk_reg_map *c, u32 reg_off, u32 val);
+void sde_reg_write(struct sde_hw_blk_reg_map *c,
+		u32 reg_off,
+		u32 val,
+		const char *name);
+int sde_reg_read(struct sde_hw_blk_reg_map *c, u32 reg_off);
 
-int SDE_REG_READ(struct sde_hw_blk_reg_map *c, u32 reg_off);
+#define SDE_REG_WRITE(c, off, val) sde_reg_write(c, off, val, #off)
+#define SDE_REG_READ(c, off) sde_reg_read(c, off)
 
 void *sde_hw_util_get_dir(void);
 
