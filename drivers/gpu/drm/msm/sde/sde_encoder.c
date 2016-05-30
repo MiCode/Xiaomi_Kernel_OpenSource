@@ -512,6 +512,7 @@ static int sde_encoder_virt_add_phys_encs(
 		struct sde_encoder_virt *sde_enc,
 		struct sde_kms *sde_kms,
 		enum sde_intf intf_idx,
+		enum sde_pingpong pp_idx,
 		enum sde_ctl ctl_idx,
 		enum sde_enc_split_role split_role)
 {
@@ -540,6 +541,21 @@ static int sde_encoder_virt_add_phys_encs(
 
 		if (IS_ERR_OR_NULL(enc)) {
 			DRM_ERROR("Failed to initialize phys vid enc: %ld\n",
+				PTR_ERR(enc));
+			return enc == 0 ? -EINVAL : PTR_ERR(enc);
+		}
+
+		sde_enc->phys_encs[sde_enc->num_phys_encs] = enc;
+		++sde_enc->num_phys_encs;
+	}
+
+	if (intf_mode & DISPLAY_INTF_MODE_CMD) {
+		enc = sde_encoder_phys_cmd_init(sde_kms, intf_idx, pp_idx,
+				ctl_idx, split_role, &sde_enc->base,
+				parent_ops);
+
+		if (IS_ERR_OR_NULL(enc)) {
+			DRM_ERROR("Failed to initialize phys cmd enc: %ld\n",
 				PTR_ERR(enc));
 			return enc == 0 ? -EINVAL : PTR_ERR(enc);
 		}
@@ -585,6 +601,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		 */
 		const struct sde_hw_res_map *hw_res_map = NULL;
 		enum sde_intf intf_idx = INTF_MAX;
+		enum sde_pingpong pp_idx = PINGPONG_MAX;
 		enum sde_ctl ctl_idx = CTL_MAX;
 		u32 controller_id = disp_info->h_tile_instance[i];
 		enum sde_enc_split_role split_role = ENC_ROLE_SOLO;
@@ -610,13 +627,14 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 		if (IS_ERR_OR_NULL(hw_res_map)) {
 			ret = -EINVAL;
 		} else {
+			pp_idx = hw_res_map->pp;
 			ctl_idx = hw_res_map->ctl;
 		}
 
 		if (!ret) {
 			ret = sde_encoder_virt_add_phys_encs(
 					disp_info->intf_mode,
-					sde_enc, sde_kms, intf_idx,
+					sde_enc, sde_kms, intf_idx, pp_idx,
 					ctl_idx, split_role);
 			if (ret)
 				DRM_ERROR("Failed to add phys encs\n");

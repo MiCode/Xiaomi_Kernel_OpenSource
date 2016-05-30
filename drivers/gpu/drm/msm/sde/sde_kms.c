@@ -174,9 +174,12 @@ static void sde_prepare_commit(struct msm_kms *kms,
 
 static void sde_commit(struct msm_kms *kms, struct drm_atomic_state *old_state)
 {
+	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 	int i;
+
+	MSM_EVT(sde_kms->dev, 0, 0);
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		if (crtc->state->active)
@@ -187,7 +190,10 @@ static void sde_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
+
 	sde_disable(sde_kms);
+
+	MSM_EVT(sde_kms->dev, 0, 0);
 }
 
 static void sde_wait_for_crtc_commit_done(struct msm_kms *kms,
