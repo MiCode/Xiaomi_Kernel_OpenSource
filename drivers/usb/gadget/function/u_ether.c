@@ -543,7 +543,7 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 					spin_lock(&dev->req_lock);
 					dev->no_tx_req_used++;
 					spin_unlock(&dev->req_lock);
-					net->trans_start = jiffies;
+					netif_trans_update(net);
 				}
 			} else {
 				spin_lock(&dev->req_lock);
