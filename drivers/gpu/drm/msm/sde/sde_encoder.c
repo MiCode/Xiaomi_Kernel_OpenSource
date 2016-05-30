@@ -223,6 +223,9 @@ static bool sde_encoder_virt_mode_fixup(struct drm_encoder *drm_enc,
 		}
 	}
 
+	/* Call to populate mode->crtc* information required by framework */
+	drm_mode_set_crtcinfo(adj_mode, 0);
+
 	return ret;
 }
 
