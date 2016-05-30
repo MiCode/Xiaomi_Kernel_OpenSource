@@ -307,13 +307,16 @@ void msm_atomic_helper_commit_modeset_disables(struct drm_device *dev,
  * and do the plane commits at the end. This is useful for drivers doing runtime
  * PM since planes updates then only happen when the CRTC is actually enabled.
  */
-void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
+static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		struct drm_atomic_state *old_state)
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 	struct drm_connector *connector;
 	struct drm_connector_state *old_conn_state;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_kms *kms = priv->kms;
+	int bridge_enable_count = 0;
 	int i;
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
@@ -369,11 +372,38 @@ void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 		 * it away), so we won't call enable hooks twice.
 		 */
 		drm_bridge_pre_enable(encoder->bridge);
+		++bridge_enable_count;
 
 		if (funcs->enable)
 			funcs->enable(encoder);
 		else
 			funcs->commit(encoder);
+	}
+
+	if (kms->funcs->commit) {
+		DRM_DEBUG_ATOMIC("triggering commit\n");
+		kms->funcs->commit(kms, old_state);
+	}
+
+	/* If no bridges were pre_enabled, skip iterating over them again */
+	if (bridge_enable_count == 0)
+		return;
+
+	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
+		struct drm_encoder *encoder;
+
+		if (!connector->state->best_encoder)
+			continue;
+
+		if (!connector->state->crtc->state->active ||
+		    !drm_atomic_crtc_needs_modeset(
+				    connector->state->crtc->state))
+			continue;
+
+		encoder = connector->state->best_encoder;
+
+		DRM_DEBUG_ATOMIC("bridge enable enabling [ENCODER:%d:%s]\n",
+				 encoder->base.id, encoder->name);
 
 		drm_bridge_enable(encoder->bridge);
 	}
