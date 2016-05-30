@@ -102,14 +102,22 @@ struct sde_hw_pingpong {
 };
 
 /**
- * sde_hw_pingpong_init(): Initializes the pingpong driver for the passed
- *        pingpong idx.
- * @idx:  pingpong index for which driver object is required
- * @addr: mapped register io address of MDP
- * @m :   pointer to mdss catalog data
+ * sde_hw_pingpong_init - initializes the pingpong driver for the passed
+ *	pingpong idx.
+ * @idx:  Pingpong index for which driver object is required
+ * @addr: Mapped register io address of MDP
+ * @m:    Pointer to mdss catalog data
+ * Returns: Error code or allocated sde_hw_pingpong context
  */
 struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m);
+
+/**
+ * sde_hw_pingpong_destroy - destroys pingpong driver context
+ *	should be called to free the context
+ * @pp:   Pointer to PP driver context returned by sde_hw_pingpong_init
+ */
+void sde_hw_pingpong_destroy(struct sde_hw_pingpong *pp);
 
 #endif /*_SDE_HW_PINGPONG_H */

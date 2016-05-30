@@ -116,10 +116,14 @@ int sde_hw_pp_get_vsync_info(struct sde_hw_pingpong *pp,
 		struct sde_hw_pp_vsync_info *info)
 {
 	struct sde_hw_blk_reg_map *c = &pp->hw;
+	u32 val;
 
-	info->init_val = SDE_REG_READ(c, PP_VSYNC_INIT_VAL) & 0xffff;
-	info->vsync_count = SDE_REG_READ(c, PP_SYNC_CONFIG_HEIGHT) & 0xffff;
-	info->line_count = SDE_REG_READ(c, PP_INT_COUNT_VAL) & 0xffff;
+	val = SDE_REG_READ(c, PP_VSYNC_INIT_VAL);
+	info->init_val = val & 0xffff;
+
+	val = SDE_REG_READ(c, PP_INT_COUNT_VAL);
+	info->vsync_count = (val & 0xffff0000) >> 16;
+	info->line_count = val & 0xffff;
 
 	return 0;
 }
@@ -158,3 +162,7 @@ struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,
 	return c;
 }
 
+void sde_hw_pingpong_destroy(struct sde_hw_pingpong *pp)
+{
+	kfree(pp);
+}
