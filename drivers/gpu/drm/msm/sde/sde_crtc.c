@@ -453,11 +453,13 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	DBG("");
 
-	WARN_ON(sde_crtc->event);
-
-	spin_lock_irqsave(&dev->event_lock, flags);
-	sde_crtc->event = crtc->state->event;
-	spin_unlock_irqrestore(&dev->event_lock, flags);
+	if (sde_crtc->event) {
+		WARN_ON(sde_crtc->event);
+	} else {
+		spin_lock_irqsave(&dev->event_lock, flags);
+		sde_crtc->event = crtc->state->event;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+	}
 
 	/*
 	 * If no CTL has been allocated in sde_crtc_atomic_check(),
@@ -491,15 +493,17 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
+	struct drm_plane *plane;
 	unsigned long flags;
 
-	DBG("%s: event: %pK", sde_crtc->name, crtc->state->event);
-
-	WARN_ON(sde_crtc->event);
-
-	spin_lock_irqsave(&dev->event_lock, flags);
-	sde_crtc->event = crtc->state->event;
-	spin_unlock_irqrestore(&dev->event_lock, flags);
+	if (sde_crtc->event) {
+		DBG("already received sde_crtc->event");
+	} else {
+		DBG("%s: event: %pK", sde_crtc->name, crtc->state->event);
+		spin_lock_irqsave(&dev->event_lock, flags);
+		sde_crtc->event = crtc->state->event;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+	}
 
 	/*
 	 * If no CTL has been allocated in sde_crtc_atomic_check(),
@@ -512,6 +516,10 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	crtc_flush_all(crtc);
 
 	request_pending(crtc, PENDING_FLIP);
+
+	drm_atomic_crtc_for_each_plane(plane, crtc) {
+		sde_plane_complete_flip(plane);
+	}
 }
 
 static int sde_crtc_set_property(struct drm_crtc *crtc,
