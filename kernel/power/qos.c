@@ -45,6 +45,7 @@
 #include <linux/seq_file.h>
 #include <linux/irq.h>
 #include <linux/irqdesc.h>
+#include <linux/cpumask.h>
 
 #include <linux/uaccess.h>
 #include <linux/export.h>
@@ -447,6 +448,9 @@ EXPORT_SYMBOL_GPL(pm_qos_request);
 
 int pm_qos_request_for_cpu(int pm_qos_class, int cpu)
 {
+	if (cpu_isolated(cpu))
+		return INT_MAX;
+
 	return pm_qos_array[pm_qos_class]->constraints->target_per_cpu[cpu];
 }
 EXPORT_SYMBOL(pm_qos_request_for_cpu);
@@ -469,6 +473,9 @@ int pm_qos_request_for_cpumask(int pm_qos_class, struct cpumask *mask)
 	val = c->default_value;
 
 	for_each_cpu(cpu, mask) {
+		if (cpu_isolated(cpu))
+			continue;
+
 		switch (c->type) {
 		case PM_QOS_MIN:
 			if (c->target_per_cpu[cpu] < val)
