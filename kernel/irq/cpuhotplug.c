@@ -11,6 +11,7 @@
 #include <linux/interrupt.h>
 #include <linux/ratelimit.h>
 #include <linux/irq.h>
+#include <linux/cpumask.h>
 
 #include "internals.h"
 
@@ -20,6 +21,7 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	const struct cpumask *affinity = d->common->affinity;
 	struct irq_chip *c;
 	bool ret = false;
+	struct cpumask available_cpus;
 
 	/*
 	 * If this is a per-CPU interrupt, or the affinity does not
@@ -29,8 +31,15 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	    !cpumask_test_cpu(smp_processor_id(), affinity))
 		return false;
 
+	cpumask_copy(&available_cpus, affinity);
+	cpumask_andnot(&available_cpus, &available_cpus, cpu_isolated_mask);
+	affinity = &available_cpus;
+
 	if (cpumask_any_and(affinity, cpu_online_mask) >= nr_cpu_ids) {
-		affinity = cpu_online_mask;
+		cpumask_andnot(&available_cpus, cpu_online_mask,
+							cpu_isolated_mask);
+		if (cpumask_empty(affinity))
+			affinity = cpu_online_mask;
 		ret = true;
 	}
 
