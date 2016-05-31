@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -110,6 +110,7 @@ extern int pil_assign_mem_to_subsys_and_linux(struct pil_desc *desc,
 						phys_addr_t addr, size_t size);
 extern int pil_reclaim_mem(struct pil_desc *desc, phys_addr_t addr, size_t size,
 						int VMid);
+extern bool is_timeout_disabled(void);
 #else
 static inline int pil_desc_init(struct pil_desc *desc) { return 0; }
 static inline int pil_boot(struct pil_desc *desc) { return 0; }
@@ -144,6 +145,7 @@ static inline int pil_reclaim_mem(struct pil_desc *desc, phys_addr_t addr,
 {
 	return 0;
 }
+extern bool is_timeout_disabled(void) { return false; }
 #endif
 
 #endif
