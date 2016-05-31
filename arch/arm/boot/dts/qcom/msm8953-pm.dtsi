@@ -203,8 +203,8 @@
 					label = "perf-l2-retention";
 					qcom,psci-mode = <3>;
 					qcom,latency-us = <186>;
-					qcom,ss-power = <362>;
-					qcom,energy-overhead = <124342>;
+					qcom,ss-power = <361>;
+					qcom,energy-overhead = <125982>;
 					qcom,time-overhead = <306>;
 					qcom,min-child-idx = <1>;
 					qcom,reset-level =
