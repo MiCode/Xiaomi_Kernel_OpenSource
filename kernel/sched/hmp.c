@@ -809,14 +809,14 @@ unsigned int max_possible_capacity = 1024; /* max(rq->max_possible_capacity) */
 unsigned int
 min_max_possible_capacity = 1024; /* min(rq->max_possible_capacity) */
 
-/* Window size (in ns) */
-__read_mostly unsigned int sched_ravg_window = 10000000;
-
 /* Min window size (in ns) = 10ms */
 #define MIN_SCHED_RAVG_WINDOW 10000000
 
 /* Max window size (in ns) = 1s */
 #define MAX_SCHED_RAVG_WINDOW 1000000000
+
+/* Window size (in ns) */
+__read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 
 /* Temporarily disable window-stats activity on all cpus */
 unsigned int __read_mostly sched_disable_window_stats;
@@ -835,6 +835,17 @@ static DEFINE_RWLOCK(related_thread_group_lock);
 
 #define for_each_related_thread_group(grp) \
 	list_for_each_entry(grp, &related_thread_groups, list)
+
+/*
+ * Task load is categorized into buckets for the purpose of top task tracking.
+ * The entire range of load from 0 to sched_ravg_window needs to be covered
+ * in NUM_LOAD_INDICES number of buckets. Therefore the size of each bucket
+ * is given by sched_ravg_window / NUM_LOAD_INDICES. Since the default value
+ * of sched_ravg_window is MIN_SCHED_RAVG_WINDOW, use that to compute
+ * sched_load_granule.
+ */
+__read_mostly unsigned int sched_load_granule =
+			MIN_SCHED_RAVG_WINDOW / NUM_LOAD_INDICES;
 
 /*
  * Demand aggregation for frequency purpose:
@@ -2144,6 +2155,113 @@ void update_task_pred_demand(struct rq *rq, struct task_struct *p, int event)
 	p->ravg.pred_demand = new;
 }
 
+/*
+ * Special case the last index and provide a fast path for index = 0.
+ * Note that sched_load_granule can change underneath us if we are not
+ * holding any runqueue locks while calling the two functions below.
+ */
+static u32  __maybe_unused top_task_load(struct rq *rq)
+{
+	int index = rq->prev_top;
+
+	if (!index) {
+		if (!rq->prev_runnable_sum)
+			return 0;
+		else
+			return sched_load_granule;
+	} else if (index == NUM_LOAD_INDICES - 1) {
+		return sched_ravg_window;
+	} else {
+		return (index + 1) * sched_load_granule;
+	}
+}
+
+static int load_to_index(u32 load)
+{
+	if (load < sched_load_granule)
+		return 0;
+	else if (load >= sched_ravg_window)
+		return NUM_LOAD_INDICES - 1;
+	else
+		return load / sched_load_granule;
+}
+
+static void update_top_tasks(struct task_struct *p, struct rq *rq,
+		u32 old_curr_window, int new_window, bool full_window)
+{
+	u8 *curr_table = rq->top_tasks[rq->curr_table];
+	u8 *prev_table = rq->top_tasks[1 - rq->curr_table];
+	int old_index, new_index, update_index;
+	u32 curr_window = p->ravg.curr_window;
+	u32 prev_window = p->ravg.prev_window;
+	bool zero_index_update;
+
+	if (old_curr_window == curr_window && !new_window)
+		return;
+
+	old_index = load_to_index(old_curr_window);
+	new_index = load_to_index(curr_window);
+
+	if (!new_window) {
+		zero_index_update = !old_curr_window && curr_window;
+		if (old_index != new_index || zero_index_update) {
+			if (old_curr_window)
+				curr_table[old_index] -= 1;
+			if (curr_window)
+				curr_table[new_index] += 1;
+			if (new_index > rq->curr_top)
+				rq->curr_top = new_index;
+		}
+
+		return;
+	}
+
+	/*
+	 * The window has rolled over for this task. By the time we get
+	 * here, curr/prev swaps would has already occurred. So we need
+	 * to use prev_window for the new index.
+	 */
+	update_index = load_to_index(prev_window);
+
+	if (full_window) {
+		/*
+		 * Two cases here. Either 'p' ran for the entire window or
+		 * it didn't run at all. In either case there is no entry
+		 * in the prev table. If 'p' ran the entire window, we just
+		 * need to create a new entry in the prev table. In this case
+		 * update_index will be correspond to sched_ravg_window
+		 * so we can unconditionally update the top index.
+		 */
+		if (prev_window) {
+			prev_table[update_index] += 1;
+			rq->prev_top = update_index;
+		}
+	} else {
+		zero_index_update = !old_curr_window && prev_window;
+		if (old_index != update_index || zero_index_update) {
+			if (old_curr_window)
+				prev_table[old_index] -= 1;
+
+			prev_table[update_index] += 1;
+
+			if (update_index > rq->prev_top)
+				rq->prev_top = update_index;
+		}
+	}
+
+	if (curr_window) {
+		curr_table[new_index] += 1;
+
+		if (new_index > rq->curr_top)
+			rq->curr_top = new_index;
+	}
+}
+
+static inline void clear_top_tasks_table(u8 *table)
+{
+	memset(table, 0, NUM_LOAD_INDICES * sizeof(u8));
+}
+
 static u32 empty_windows[NR_CPUS];
 
 static void rollover_task_window(struct task_struct *p, bool full_window)
@@ -2191,6 +2309,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	bool new_task;
 	struct related_thread_group *grp;
 	int cpu = rq->cpu;
+	u32 old_curr_window;
 
 	new_window = mark_start < window_start;
 	if (new_window) {
@@ -2250,51 +2369,40 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	 * Handle per-task window rollover. We don't care about the idle
 	 * task or exiting tasks.
 	 */
-	if (new_window && !is_idle_task(p) && !exiting_task(p))
-		rollover_task_window(p, full_window);
+	if (!is_idle_task(p) && !exiting_task(p)) {
+		old_curr_window = p->ravg.curr_window;
 
+		if (new_window)
+			rollover_task_window(p, full_window);
+	}
 
 	if (flip_counters) {
 		u64 curr_sum = *curr_runnable_sum;
 		u64 nt_curr_sum = *nt_curr_runnable_sum;
+		u8 curr_table = rq->curr_table;
+		u8 prev_table = 1 - curr_table;
+		int curr_top = rq->curr_top;
 
-		if (prev_sum_reset)
+		clear_top_tasks_table(rq->top_tasks[prev_table]);
+
+		if (prev_sum_reset) {
 			curr_sum = nt_curr_sum = 0;
+			curr_top = 0;
+			clear_top_tasks_table(rq->top_tasks[curr_table]);
+		}
 
 		*prev_runnable_sum = curr_sum;
 		*nt_prev_runnable_sum = nt_curr_sum;
 
 		*curr_runnable_sum = 0;
 		*nt_curr_runnable_sum = 0;
+		rq->curr_table = prev_table;
+		rq->prev_top = curr_top;
+		rq->curr_top = 0;
 	}
 
-	if (!account_busy_for_cpu_time(rq, p, irqtime, event)) {
-		/*
-		 * account_busy_for_cpu_time() = 0, so no update to the
-		 * task's current window needs to be made. This could be
-		 * for example
-		 *
-		 *   - a wakeup event on a task within the current
-		 *     window (!new_window below, no action required),
-		 *   - switching to a new task from idle (PICK_NEXT_TASK)
-		 *     in a new window where irqtime is 0 and we aren't
-		 *     waiting on IO
-		 */
-
-		if (!new_window)
-			return;
-
-		/*
-		 * A new window has started. The RQ demand must be rolled
-		 * over if p is the current task.
-		 */
-		if (p_is_curr_task) {
-			/* p is idle task */
-			BUG_ON(p != rq->idle);
-		}
-
-		return;
-	}
+	if (!account_busy_for_cpu_time(rq, p, irqtime, event))
+		goto done;
 
 	if (!new_window) {
 		/*
@@ -2319,7 +2427,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			p->ravg.curr_window_cpu[cpu] += delta;
 		}
 
-		return;
+		goto done;
 	}
 
 	if (!p_is_curr_task) {
@@ -2374,7 +2482,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			p->ravg.curr_window_cpu[cpu] = delta;
 		}
 
-		return;
+		goto done;
 	}
 
 	if (!irqtime || !is_idle_task(p) || cpu_is_waiting_on_io(rq)) {
@@ -2434,7 +2542,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			p->ravg.curr_window_cpu[cpu] = delta;
 		}
 
-		return;
+		goto done;
 	}
 
 	if (irqtime) {
@@ -2479,7 +2587,10 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		return;
 	}
 
-	BUG();
+done:
+	if (!is_idle_task(p) && !exiting_task(p))
+		update_top_tasks(p, rq, old_curr_window,
+					new_window, full_window);
 }
 
 static inline u32 predict_and_update_buckets(struct rq *rq,
@@ -3000,6 +3111,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 	if (window_size) {
 		sched_ravg_window = window_size * TICK_NSEC;
 		set_hmp_defaults();
+		sched_load_granule = sched_ravg_window / NUM_LOAD_INDICES;
 	}
 
 	enable_window_stats();
@@ -3011,9 +3123,15 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 			rq->window_start = window_start;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
-		for (i = 0; i < NUM_SUBTRACTION_WINDOWS; i++)
+		for (i = 0; i < NUM_TRACKED_WINDOWS; i++) {
 			memset(&rq->load_subs[i], 0,
 					sizeof(struct load_subtractions));
+			clear_top_tasks_table(rq->top_tasks[i]);
+		}
+
+		rq->curr_table = 0;
+		rq->curr_top = 0;
+		rq->prev_top = 0;
 		reset_cpu_hmp_stats(cpu, 1);
 	}
 
@@ -3060,7 +3178,7 @@ static inline void account_load_subtractions(struct rq *rq)
 	struct load_subtractions *ls = rq->load_subs;
 	int i;
 
-	for (i = 0; i < NUM_SUBTRACTION_WINDOWS; i++) {
+	for (i = 0; i < NUM_TRACKED_WINDOWS; i++) {
 		if (ls[i].window_start == ws) {
 			rq->curr_runnable_sum -= ls[i].subs;
 			rq->nt_curr_runnable_sum -= ls[i].new_subs;
@@ -3329,7 +3447,7 @@ static bool get_subtraction_index(struct rq *rq, u64 ws)
 	u64 oldest = ULLONG_MAX;
 	int oldest_index = 0;
 
-	for (i = 0; i < NUM_SUBTRACTION_WINDOWS; i++) {
+	for (i = 0; i < NUM_TRACKED_WINDOWS; i++) {
 		u64 entry_ws = rq->load_subs[i].window_start;
 
 		if (ws == entry_ws)
@@ -3426,6 +3544,68 @@ static inline void inter_cluster_migration_fixup
 	BUG_ON((s64)src_rq->nt_curr_runnable_sum < 0);
 }
 
+static int find_next_top_index(u8 *tasks, int end)
+{
+	int i;
+
+	if (end <= 1)
+		return 0;
+
+	for (i = end - 1; i >= 0; i--) {
+		if (tasks[i])
+			return i;
+	}
+
+	return 0;
+}
+
+static void
+migrate_top_tasks(struct task_struct *p, struct rq *src_rq, struct rq *dst_rq)
+{
+	int index;
+	int top_index;
+	u32 curr_window = p->ravg.curr_window;
+	u32 prev_window = p->ravg.prev_window;
+	u8 src = src_rq->curr_table;
+	u8 dst = dst_rq->curr_table;
+	u8 *src_table;
+	u8 *dst_table;
+
+	if (curr_window) {
+		src_table = src_rq->top_tasks[src];
+		dst_table = dst_rq->top_tasks[dst];
+		index = load_to_index(curr_window);
+		src_table[index] -= 1;
+		dst_table[index] += 1;
+
+		if (index > dst_rq->curr_top)
+			dst_rq->curr_top = index;
+
+		top_index = src_rq->curr_top;
+		if (index == top_index && !src_table[index])
+			src_rq->curr_top =
+				find_next_top_index(src_table, top_index);
+	}
+
+	if (prev_window) {
+		src = 1 - src;
+		dst = 1 - dst;
+		src_table = src_rq->top_tasks[src];
+		dst_table = dst_rq->top_tasks[dst];
+		index = load_to_index(prev_window);
+		src_table[index] -= 1;
+		dst_table[index] += 1;
+
+		if (index > dst_rq->prev_top)
+			dst_rq->prev_top = index;
+
+		top_index = src_rq->prev_top;
+		if (index == top_index && !src_table[index])
+			src_rq->prev_top =
+				find_next_top_index(src_table, top_index);
+	}
+}
+
 void fixup_busy_time(struct task_struct *p, int new_cpu)
 {
 	struct rq *src_rq = task_rq(p);
@@ -3516,6 +3696,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 						task_cpu(p), new_task);
 	}
 
+	migrate_top_tasks(p, src_rq, dest_rq);
 
 	if (p == src_rq->ed_task) {
 		src_rq->ed_task = NULL;

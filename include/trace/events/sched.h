@@ -321,6 +321,8 @@ TRACE_EVENT(sched_update_task_ravg,
 		__field(	u64,	nt_cs			)
 		__field(	u64,	nt_ps			)
 		__field(	u32,	active_windows		)
+		__field(	u8,	curr_top		)
+		__field(	u8,	prev_top		)
 	),
 
 	TP_fast_assign(
@@ -352,10 +354,12 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->nt_cs		= rq->nt_curr_runnable_sum;
 		__entry->nt_ps		= rq->nt_prev_runnable_sum;
 		__entry->active_windows	= p->ravg.active_windows;
+		__entry->curr_top	= rq->curr_top;
+		__entry->prev_top	= rq->prev_top;
 	),
 
-	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u sum %u irqtime %llu pred_demand %u rq_cs %llu rq_ps %llu cur_window %u (%s) prev_window %u (%s) nt_cs %llu nt_ps %llu active_wins %u grp_cs %lld grp_ps %lld, grp_nt_cs %llu, grp_nt_ps: %llu"
-		, __entry->wallclock, __entry->win_start, __entry->delta,
+	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u sum %u irqtime %llu pred_demand %u rq_cs %llu rq_ps %llu cur_window %u (%s) prev_window %u (%s) nt_cs %llu nt_ps %llu active_wins %u grp_cs %lld grp_ps %lld, grp_nt_cs %llu, grp_nt_ps: %llu curr_top %u prev_top %u",
+		__entry->wallclock, __entry->win_start, __entry->delta,
 		task_event_names[__entry->evt], __entry->cpu,
 		__entry->cur_freq, __entry->cur_pid,
 		__entry->pid, __entry->comm, __entry->mark_start,
@@ -367,7 +371,8 @@ TRACE_EVENT(sched_update_task_ravg,
 		__window_print(p, __get_dynamic_array(prev_sum), nr_cpu_ids),
 		__entry->nt_cs, __entry->nt_ps,
 		__entry->active_windows, __entry->grp_cs,
-		__entry->grp_ps, __entry->grp_nt_cs, __entry->grp_nt_ps)
+		__entry->grp_ps, __entry->grp_nt_cs, __entry->grp_nt_ps,
+		__entry->curr_top, __entry->prev_top)
 );
 
 TRACE_EVENT(sched_get_task_cpu_cycles,

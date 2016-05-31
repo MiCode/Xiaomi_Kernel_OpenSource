@@ -379,7 +379,8 @@ struct cfs_bandwidth { };
 
 #ifdef CONFIG_SCHED_HMP
 
-#define NUM_SUBTRACTION_WINDOWS 2
+#define NUM_TRACKED_WINDOWS 2
+#define NUM_LOAD_INDICES 1000
 
 struct hmp_sched_stats {
 	int nr_big_tasks;
@@ -782,7 +783,11 @@ struct rq {
 	u64 prev_runnable_sum;
 	u64 nt_curr_runnable_sum;
 	u64 nt_prev_runnable_sum;
-	struct load_subtractions load_subs[NUM_SUBTRACTION_WINDOWS];
+	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
+	u8 *top_tasks[NUM_TRACKED_WINDOWS];
+	u8 curr_table;
+	int prev_top;
+	int curr_top;
 #endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -1121,6 +1126,7 @@ extern unsigned int  __read_mostly sched_spill_load;
 extern unsigned int  __read_mostly sched_upmigrate;
 extern unsigned int  __read_mostly sched_downmigrate;
 extern unsigned int  __read_mostly sysctl_sched_spill_nr_run;
+extern unsigned int  __read_mostly sched_load_granule;
 
 extern void init_new_task_load(struct task_struct *p, bool idle_task);
 extern u64 sched_ktime_clock(void);
