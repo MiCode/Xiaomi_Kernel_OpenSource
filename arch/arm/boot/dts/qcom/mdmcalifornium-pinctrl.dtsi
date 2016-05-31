@@ -173,12 +173,12 @@
 
 			cnss_sdio_active: cnss_sdio_active {
 				mux {
-					pins = "gpio38";
+					pins = "gpio37";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio38";
+					pins = "gpio37";
 					drive-strength = <16>;
 					output-high;
 					bias-pull-up;
@@ -187,12 +187,12 @@
 
 			cnss_sdio_sleep: cnss_sdio_sleep {
 				mux {
-					pins = "gpio38";
+					pins = "gpio37";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio38";
+					pins = "gpio37";
 					drive-strength = <2>;
 					output-low;
 					bias-pull-down;
