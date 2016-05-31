@@ -3746,6 +3746,12 @@
 
 		qcom,save-reg;
 	};
+
+	qcom,msm-power {
+		compatible = "qcom,msm-power";
+		clock-names = "gpu_clk";
+		clocks = <&clock_gpu clk_gpu_gx_gfx3d_clk>;
+	};
 };
 
 &gdsc_venus {
