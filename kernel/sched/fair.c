@@ -30,7 +30,6 @@
 #include <linux/mempolicy.h>
 #include <linux/migrate.h>
 #include <linux/task_work.h>
-#include <linux/ratelimit.h>
 
 #include "sched.h"
 #include <trace/events/sched.h>
@@ -121,11 +120,6 @@ unsigned int __read_mostly sysctl_sched_shares_window = 10000000UL;
   */
 unsigned int sysctl_sched_cfs_bandwidth_slice = 5000UL;
 #endif
-
-#ifdef CONFIG_SCHEDSTATS
-unsigned int sysctl_sched_latency_panic_threshold;
-unsigned int sysctl_sched_latency_warn_threshold;
-#endif /* CONFIG_SCHEDSTATS */
 
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
@@ -772,31 +766,6 @@ static void update_stats_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se,
 		update_stats_wait_start(cfs_rq, se, migrating);
 }
 
-#ifdef CONFIG_SCHEDSTATS
-static inline void check_for_high_latency(struct task_struct *p, u64 latency_us)
-{
-	int do_warn, do_panic;
-	const char *fmt = "excessive latency comm=%s pid=%d latency=%llu(us)\n";
-	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
-				      DEFAULT_RATELIMIT_BURST);
-
-	do_warn = (sysctl_sched_latency_warn_threshold &&
-		   latency_us > sysctl_sched_latency_warn_threshold);
-	do_panic = (sysctl_sched_latency_panic_threshold &&
-		    latency_us > sysctl_sched_latency_panic_threshold);
-	if (unlikely(do_panic || (do_warn && __ratelimit(&rs)))) {
-		if (do_panic)
-			panic(fmt, p->comm, p->pid, latency_us);
-		else
-			printk_deferred(fmt, p->comm, p->pid, latency_us);
-	}
-}
-#else
-static inline void check_for_high_latency(struct task_struct *p, u64 latency)
-{
-}
-#endif
-
 static void
 update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se,
 		      bool migrating)
@@ -815,13 +784,8 @@ update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se,
 			rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start);
 #ifdef CONFIG_SCHEDSTATS
 	if (entity_is_task(se)) {
-		u64 delta;
-
-		delta = rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start;
-		trace_sched_stat_wait(task_of(se), delta);
-
-		delta = delta >> 10;
-		check_for_high_latency(task_of(se), delta);
+		trace_sched_stat_wait(task_of(se),
+			rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start);
 	}
 #endif
 	schedstat_set(se->statistics.wait_start, 0);
