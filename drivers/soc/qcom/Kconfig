@@ -741,6 +741,14 @@ config MSM_PERFORMANCE_HOTPLUG_ON
 	  compile out the nodes needed for core-control functionality through
 	  msm_performance.
 
+config MSM_POWER
+	tristate "Power driver to manage system resources"
+	help
+	  This driver monitors and manages system resources for better
+	  power efficiency. It keeps track of the current frequency of
+	  several resources (e.g. CPU and GPU) to manage other system
+	  resources (e.g. DDR frequency) more efficiently.
+
 config MSM_SERVICE_LOCATOR
 	bool "Service Locator"
 	depends on MSM_QMI_INTERFACE

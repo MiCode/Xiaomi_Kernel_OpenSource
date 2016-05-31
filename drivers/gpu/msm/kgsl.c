@@ -3663,19 +3663,14 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	if (cache == KGSL_CACHEMODE_WRITEBACK
 		|| cache == KGSL_CACHEMODE_WRITETHROUGH) {
-		struct scatterlist *s;
 		int i;
 		unsigned long addr = vma->vm_start;
+		struct kgsl_memdesc *m = &entry->memdesc;
 
-		for_each_sg(entry->memdesc.sgt->sgl, s,
-				entry->memdesc.sgt->nents, i) {
-			int j;
-			for (j = 0; j < (s->length >> PAGE_SHIFT); j++) {
-				struct page *page = sg_page(s);
-				page = nth_page(page, j);
+		for (i = 0; i < m->page_count; i++) {
+				struct page *page = m->pages[i];
 				vm_insert_page(vma, addr, page);
 				addr += PAGE_SIZE;
-			}
 		}
 	}
 

@@ -119,7 +119,12 @@ dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-rumi.dtb \
 	mdm9640-emmc-cdp.dtb \
 	mdm9640-nand-cdp.dtb \
-	mdm9640-mtp.dtb
+	mdm9640-mtp.dtb \
+	mdm9640-v1-mtp.dtb \
+	mdm9640-v1-pmk8001-mtp.dtb \
+	mdm9640-v2-mtp.dtb \
+	mdm9640-v2-pmk8001-mtp.dtb \
+
 
 dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-rumi.dtb \

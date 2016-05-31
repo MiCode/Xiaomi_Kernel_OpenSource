@@ -82,6 +82,7 @@ enum ipa3_wwan_device_status {
 struct ipa3_rmnet_plat_drv_res {
 	bool ipa_rmnet_ssr;
 	bool ipa_loaduC;
+	bool ipa_advertise_sg_support;
 };
 
 /**
@@ -1219,6 +1220,8 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	dev->stats.rx_bytes += packet_len;
 }
 
+static struct ipa3_rmnet_plat_drv_res ipa3_rmnet_res = {0, };
+
 /**
  * ipa3_wwan_ioctl() - I/O control for wwan network driver.
  *
@@ -1344,6 +1347,15 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		/*  Get MRU  */
 		case RMNET_IOCTL_GET_MRU:
 			extend_ioctl_data.u.data = mru;
+			if (copy_to_user((u8 *)ifr->ifr_ifru.ifru_data,
+				&extend_ioctl_data,
+				sizeof(struct rmnet_ioctl_extended_s)))
+				rc = -EFAULT;
+			break;
+		/* GET SG support */
+		case RMNET_IOCTL_GET_SG_SUPPORT:
+			extend_ioctl_data.u.data =
+				ipa3_rmnet_res.ipa_advertise_sg_support;
 			if (copy_to_user((u8 *)ifr->ifr_ifru.ifru_data,
 				&extend_ioctl_data,
 				sizeof(struct rmnet_ioctl_extended_s)))
@@ -1531,6 +1543,29 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
 					ipa_ep_cfg.cfg.cs_offload_en =
 					IPA_ENABLE_CS_OFFLOAD_DL;
+
+			if ((extend_ioctl_data.u.data) &
+					RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {
+				IPAWANERR("get AGG size %d count %d\n",
+					extend_ioctl_data.u.
+					ingress_format.agg_size,
+					extend_ioctl_data.u.
+					ingress_format.agg_count);
+				if (!ipa_disable_apps_wan_cons_deaggr(
+					extend_ioctl_data.u.
+					ingress_format.agg_size,
+					extend_ioctl_data.
+					u.ingress_format.agg_count)) {
+					rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
+					ipa_ep_cfg.aggr.aggr_byte_limit =
+					extend_ioctl_data.u.ingress_format.
+					agg_size;
+					rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
+					ipa_ep_cfg.aggr.aggr_pkt_limit =
+					extend_ioctl_data.u.ingress_format.
+					agg_count;
+				}
+			}
 
 			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.
 				hdr_len = 4;
@@ -1892,8 +1927,6 @@ static struct notifier_block ipa3_ssr_notifier = {
 	.notifier_call = ipa3_ssr_notifier_cb,
 };
 
-static struct ipa3_rmnet_plat_drv_res ipa3_rmnet_res = {0, };
-
 static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 		struct ipa3_rmnet_plat_drv_res *ipa_rmnet_drv_res)
 {
@@ -1907,6 +1940,12 @@ static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-loaduC");
 	pr_info("IPA ipa-loaduC = %s\n",
 		ipa_rmnet_drv_res->ipa_loaduC ? "True" : "False");
+
+	ipa_rmnet_drv_res->ipa_advertise_sg_support =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,ipa-advertise-sg-support");
+	pr_info("IPA SG support = %s\n",
+		ipa_rmnet_drv_res->ipa_advertise_sg_support ? "True" : "False");
 	return 0;
 }
 
@@ -2082,6 +2121,10 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 	if (ret)
 		goto set_perf_err;
 	/* IPA_RM configuration ends */
+
+	/* Enable SG support in netdevice. */
+	if (ipa3_rmnet_res.ipa_advertise_sg_support)
+		dev->hw_features |= NETIF_F_SG;
 
 	ret = register_netdev(dev);
 	if (ret) {

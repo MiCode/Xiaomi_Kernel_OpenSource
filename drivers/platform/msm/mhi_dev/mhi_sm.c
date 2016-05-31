@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/debugfs.h>
-#include <linux/ipa.h>
+#include <linux/ipa_mhi.h>
 #include "mhi_hwio.h"
 #include "mhi_sm.h"
 

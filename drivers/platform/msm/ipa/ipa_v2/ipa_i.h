@@ -126,8 +126,6 @@
 #define IPA_LAN_RX_HDR_NAME "ipa_lan_hdr"
 #define IPA_INVALID_L4_PROTOCOL 0xFF
 
-#define IPA_CLIENT_IS_PROD(x) (x >= IPA_CLIENT_PROD && x < IPA_CLIENT_CONS)
-#define IPA_CLIENT_IS_CONS(x) (x >= IPA_CLIENT_CONS && x < IPA_CLIENT_MAX)
 #define IPA_SETFIELD(val, shift, mask) (((val) << (shift)) & (mask))
 #define IPA_SETFIELD_IN_REG(reg, val, shift, mask) \
 			(reg |= ((val) << (shift)) & (mask))
@@ -179,18 +177,6 @@ struct ipa_smmu_cb_ctx {
 	u32 va_start;
 	u32 va_size;
 	u32 va_end;
-};
-
-/**
- * struct ipa_mem_buffer - IPA memory buffer
- * @base: base
- * @phys_base: physical base address
- * @size: size of memory buffer
- */
-struct ipa_mem_buffer {
-	void *base;
-	dma_addr_t phys_base;
-	u32 size;
 };
 
 /**
@@ -1008,58 +994,6 @@ enum ipa_hw_flags {
 };
 
 /**
- * enum ipa_hw_mhi_channel_states - MHI channel state machine
- *
- * Values are according to MHI specification
- * @IPA_HW_MHI_CHANNEL_STATE_DISABLE: Channel is disabled and not processed by
- *	the host or device.
- * @IPA_HW_MHI_CHANNEL_STATE_ENABLE: A channel is enabled after being
- *	initialized and configured by host, including its channel context and
- *	associated transfer ring. While this state, the channel is not active
- *	and the device does not process transfer.
- * @IPA_HW_MHI_CHANNEL_STATE_RUN: The device processes transfers and doorbell
- *	for channels.
- * @IPA_HW_MHI_CHANNEL_STATE_SUSPEND: Used to halt operations on the channel.
- *	The device does not process transfers for the channel in this state.
- *	This state is typically used to synchronize the transition to low power
- *	modes.
- * @IPA_HW_MHI_CHANNEL_STATE_STOP: Used to halt operations on the channel.
- *	The device does not process transfers for the channel in this state.
- * @IPA_HW_MHI_CHANNEL_STATE_ERROR: The device detected an error in an element
- *	from the transfer ring associated with the channel.
- * @IPA_HW_MHI_CHANNEL_STATE_INVALID: Invalid state. Shall not be in use in
- *	operational scenario.
- */
-enum ipa_hw_mhi_channel_states {
-	IPA_HW_MHI_CHANNEL_STATE_DISABLE	= 0,
-	IPA_HW_MHI_CHANNEL_STATE_ENABLE		= 1,
-	IPA_HW_MHI_CHANNEL_STATE_RUN		= 2,
-	IPA_HW_MHI_CHANNEL_STATE_SUSPEND	= 3,
-	IPA_HW_MHI_CHANNEL_STATE_STOP		= 4,
-	IPA_HW_MHI_CHANNEL_STATE_ERROR		= 5,
-	IPA_HW_MHI_CHANNEL_STATE_INVALID	= 0xFF
-};
-
-/**
- * Structure holding the parameters for IPA_CPU_2_HW_CMD_MHI_DL_UL_SYNC_INFO
- * command. Parameters are sent as 32b immediate parameters.
- * @isDlUlSyncEnabled: Flag to indicate if DL UL Syncronization is enabled
- * @UlAccmVal: UL Timer Accumulation value (Period after which device will poll
- *	for UL data)
- * @ulMsiEventThreshold: Threshold at which HW fires MSI to host for UL events
- * @dlMsiEventThreshold: Threshold at which HW fires MSI to host for DL events
- */
-union IpaHwMhiDlUlSyncCmdData_t {
-	struct IpaHwMhiDlUlSyncCmdParams_t {
-		u32 isDlUlSyncEnabled:8;
-		u32 UlAccmVal:8;
-		u32 ulMsiEventThreshold:8;
-		u32 dlMsiEventThreshold:8;
-	} params;
-	u32 raw32b;
-};
-
-/**
  * struct ipa_uc_ctx - IPA uC context
  * @uc_inited: Indicates if uC interface has been initialized
  * @uc_loaded: Indicates if uC has loaded
@@ -1717,21 +1651,30 @@ int ipa2_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 void ipa2_dma_destroy(void);
 
 /*
- * MHI
+ * MHI APIs for IPA MHI client driver
  */
-int ipa2_mhi_init(struct ipa_mhi_init_params *params);
+int ipa2_init_mhi(struct ipa_mhi_init_params *params);
 
-int ipa2_mhi_start(struct ipa_mhi_start_params *params);
+int ipa2_mhi_init_engine(struct ipa_mhi_init_engine *params);
 
-int ipa2_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl);
+int ipa2_connect_mhi_pipe(struct ipa_mhi_connect_params_internal *in,
+		u32 *clnt_hdl);
 
-int ipa2_mhi_disconnect_pipe(u32 clnt_hdl);
+int ipa2_disconnect_mhi_pipe(u32 clnt_hdl);
 
-int ipa2_mhi_suspend(bool force);
+bool ipa2_mhi_sps_channel_empty(enum ipa_client_type client);
 
-int ipa2_mhi_resume(void);
+int ipa2_disable_sps_pipe(enum ipa_client_type client);
 
-void ipa2_mhi_destroy(void);
+int ipa2_mhi_reset_channel_internal(enum ipa_client_type client);
+
+int ipa2_mhi_start_channel_internal(enum ipa_client_type client);
+
+int ipa2_mhi_suspend_ul_channels(void);
+
+int ipa2_mhi_resume_channels_internal(enum ipa_client_type client,
+		bool LPTransitionRejected, bool brstmode_enabled,
+		union __packed gsi_channel_scratch ch_scratch, u8 index);
 
 /*
  * mux id
@@ -1944,12 +1887,10 @@ int ipa_q6_monitor_holb_mitigation(bool enable);
 int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
 			 enum ipa_client_type ipa_client);
 
-int ipa_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
-
 int ipa_uc_interface_init(void);
 int ipa_uc_reset_pipe(enum ipa_client_type ipa_client);
 int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable);
-int ipa_uc_state_check(void);
+int ipa2_uc_state_check(void);
 int ipa_uc_loaded_check(void);
 int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
@@ -1963,18 +1904,19 @@ void ipa_dma_async_memcpy_notify_cb(void *priv,
 
 int ipa_uc_update_hw_flags(u32 flags);
 
-int ipa_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void));
-int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd);
+int ipa2_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void));
+void ipa2_uc_mhi_cleanup(void);
+int ipa2_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t *cmd);
 int ipa_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 	u32 host_ctrl_addr, u32 host_data_addr, u32 first_ch_idx,
 	u32 first_evt_idx);
 int ipa_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
 	int contexArrayIndex, int channelDirection);
-int ipa_uc_mhi_reset_channel(int channelHandle);
-int ipa_uc_mhi_suspend_channel(int channelHandle);
+int ipa2_uc_mhi_reset_channel(int channelHandle);
+int ipa2_uc_mhi_suspend_channel(int channelHandle);
 int ipa_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected);
-int ipa_uc_mhi_stop_event_update_channel(int channelHandle);
-int ipa_uc_mhi_print_stats(char *dbg_buff, int size);
+int ipa2_uc_mhi_stop_event_update_channel(int channelHandle);
+int ipa2_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 u32 ipa_get_num_pipes(void);
 u32 ipa_get_sys_yellow_wm(void);

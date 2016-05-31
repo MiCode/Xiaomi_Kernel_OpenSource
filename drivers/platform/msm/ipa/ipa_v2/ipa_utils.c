@@ -4948,6 +4948,26 @@ static void *ipa2_get_ipc_logbuf_low(void)
 	return NULL;
 }
 
+static void ipa2_get_holb(int ep_idx, struct ipa_ep_cfg_holb *holb)
+{
+	*holb = ipa_ctx->ep[ep_idx].holb;
+}
+
+static int ipa2_generate_tag_process(void)
+{
+	int res;
+
+	res = ipa_tag_process(NULL, 0, HZ);
+	if (res)
+		IPAERR("TAG process failed\n");
+
+	return res;
+}
+
+static void ipa2_set_tag_process_before_gating(bool val)
+{
+	ipa_ctx->tag_process_before_gating = val;
+}
 
 int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
@@ -4971,6 +4991,9 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_cfg_ep_deaggr = ipa2_cfg_ep_deaggr;
 	api_ctrl->ipa_cfg_ep_route = ipa2_cfg_ep_route;
 	api_ctrl->ipa_cfg_ep_holb = ipa2_cfg_ep_holb;
+	api_ctrl->ipa_get_holb = ipa2_get_holb;
+	api_ctrl->ipa_set_tag_process_before_gating =
+			ipa2_set_tag_process_before_gating;
 	api_ctrl->ipa_cfg_ep_cfg = ipa2_cfg_ep_cfg;
 	api_ctrl->ipa_cfg_ep_metadata_mask = ipa2_cfg_ep_metadata_mask;
 	api_ctrl->ipa_cfg_ep_holb_by_client = ipa2_cfg_ep_holb_by_client;
@@ -5044,13 +5067,32 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_dma_async_memcpy = ipa2_dma_async_memcpy;
 	api_ctrl->ipa_dma_uc_memcpy = ipa2_dma_uc_memcpy;
 	api_ctrl->ipa_dma_destroy = ipa2_dma_destroy;
-	api_ctrl->ipa_mhi_init = ipa2_mhi_init;
-	api_ctrl->ipa_mhi_start = ipa2_mhi_start;
-	api_ctrl->ipa_mhi_connect_pipe = ipa2_mhi_connect_pipe;
-	api_ctrl->ipa_mhi_disconnect_pipe = ipa2_mhi_disconnect_pipe;
-	api_ctrl->ipa_mhi_suspend = ipa2_mhi_suspend;
-	api_ctrl->ipa_mhi_resume = ipa2_mhi_resume;
-	api_ctrl->ipa_mhi_destroy = ipa2_mhi_destroy;
+	api_ctrl->ipa_mhi_init_engine = ipa2_mhi_init_engine;
+	api_ctrl->ipa_connect_mhi_pipe = ipa2_connect_mhi_pipe;
+	api_ctrl->ipa_disconnect_mhi_pipe = ipa2_disconnect_mhi_pipe;
+	api_ctrl->ipa_uc_mhi_reset_channel = ipa2_uc_mhi_reset_channel;
+	api_ctrl->ipa_mhi_sps_channel_empty = ipa2_mhi_sps_channel_empty;
+	api_ctrl->ipa_generate_tag_process = ipa2_generate_tag_process;
+	api_ctrl->ipa_disable_sps_pipe = ipa2_disable_sps_pipe;
+	api_ctrl->ipa_qmi_enable_force_clear_datapath_send =
+			qmi_enable_force_clear_datapath_send;
+	api_ctrl->ipa_qmi_disable_force_clear_datapath_send =
+			qmi_disable_force_clear_datapath_send;
+	api_ctrl->ipa_mhi_reset_channel_internal =
+			ipa2_mhi_reset_channel_internal;
+	api_ctrl->ipa_mhi_start_channel_internal =
+			ipa2_mhi_start_channel_internal;
+	api_ctrl->ipa_mhi_resume_channels_internal =
+			ipa2_mhi_resume_channels_internal;
+	api_ctrl->ipa_uc_mhi_send_dl_ul_sync_info =
+			ipa2_uc_mhi_send_dl_ul_sync_info;
+	api_ctrl->ipa_uc_mhi_init = ipa2_uc_mhi_init;
+	api_ctrl->ipa_uc_mhi_suspend_channel = ipa2_uc_mhi_suspend_channel;
+	api_ctrl->ipa_uc_mhi_stop_event_update_channel =
+			ipa2_uc_mhi_stop_event_update_channel;
+	api_ctrl->ipa_uc_mhi_cleanup = ipa2_uc_mhi_cleanup;
+	api_ctrl->ipa_uc_mhi_print_stats = ipa2_uc_mhi_print_stats;
+	api_ctrl->ipa_uc_state_check = ipa2_uc_state_check;
 	api_ctrl->ipa_write_qmap_id = ipa2_write_qmap_id;
 	api_ctrl->ipa_add_interrupt_handler = ipa2_add_interrupt_handler;
 	api_ctrl->ipa_remove_interrupt_handler = ipa2_remove_interrupt_handler;

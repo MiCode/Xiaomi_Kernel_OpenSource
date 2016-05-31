@@ -4292,6 +4292,10 @@ static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 			dither_data.g_y_depth = 8;
 			dither_data.r_cr_depth = 8;
 			dither_data.b_cb_depth = 8;
+			/*
+			 * Use default dither table by setting len to 0
+			 */
+			dither_data.len = 0;
 			dither.cfg_payload = &dither_data;
 			break;
 		case mdp_pp_legacy:
@@ -4310,6 +4314,10 @@ static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 			dither_data.g_y_depth = 6;
 			dither_data.r_cr_depth = 6;
 			dither_data.b_cb_depth = 6;
+			/*
+			 * Use default dither table by setting len to 0
+			 */
+			dither_data.len = 0;
 			dither.cfg_payload = &dither_data;
 			break;
 		case mdp_pp_legacy:

@@ -281,6 +281,16 @@ enum task_event {
 	IRQ_UPDATE	= 5,
 };
 
+/* Note: this need to be in sync with migrate_type_names array */
+enum migrate_types {
+	GROUP_TO_RQ,
+	RQ_TO_GROUP,
+	RQ_TO_RQ,
+	GROUP_TO_GROUP,
+};
+
+extern const char *migrate_type_names[];
+
 #include <linux/spinlock.h>
 
 /*
@@ -3230,7 +3240,6 @@ static inline unsigned long rlimit_max(unsigned int limit)
 
 struct cpu_cycle_counter_cb {
 	u64 (*get_cpu_cycle_counter)(int cpu);
-	u32 (*get_cpu_cycles_max_per_us)(int cpu);
 };
 int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
 
