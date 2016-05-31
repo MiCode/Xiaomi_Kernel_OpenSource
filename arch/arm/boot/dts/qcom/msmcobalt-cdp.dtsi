@@ -353,3 +353,9 @@
 &wil6210 {
 	status = "ok";
 };
+
+&soc {
+	sound-9335 {
+		qcom,wcn-btfm;
+	};
+};
