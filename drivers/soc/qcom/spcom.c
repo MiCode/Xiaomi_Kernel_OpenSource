@@ -1520,12 +1520,6 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 		return -ENODEV;
 	}
 
-	/* Check if this FD is already locked */
-	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++)
-		if (ch->ion_fd_table[i] == fd) {
-			pr_debug("fd [%d] is already locked.\n", fd);
-			return -EINVAL;
-	       }
 
 	/* Get ION handle from fd - this increments the ref count */
 	ion_handle = ion_import_dma_buf(spcom_dev->ion_client, fd);
@@ -1535,6 +1529,17 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	}
 	pr_debug("ion handle ok.\n");
 
+	/* Check if this ION buffer is already locked */
+	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+		if (ch->ion_handle_table[i] == ion_handle) {
+			pr_debug("fd [%d] ion buf is already locked.\n", fd);
+			/* decrement back the ref count */
+			ion_free(spcom_dev->ion_client, ion_handle);
+			return -EINVAL;
+		}
+	}
+
+       /* Store the ION handle */
 	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
 		if (ch->ion_handle_table[i] == NULL) {
 			ch->ion_handle_table[i] = ion_handle;
