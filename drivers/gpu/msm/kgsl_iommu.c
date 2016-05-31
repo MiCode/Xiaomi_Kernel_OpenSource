@@ -1579,15 +1579,33 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	uint64_t addr = memdesc->gpuaddr;
 	uint64_t size = memdesc->size;
 	unsigned int flags = _get_protection_flags(memdesc);
+	struct sg_table *sgt = NULL;
 
-	ret = _iommu_map_sg_sync_pc(pt, addr, memdesc, memdesc->sgt->sgl,
-			memdesc->sgt->nents, flags);
+	/*
+	 * For paged memory allocated through kgsl, memdesc->pages is not NULL.
+	 * Allocate sgt here just for its map operation. Contiguous memory
+	 * already has its sgt, so no need to allocate it here.
+	 */
+	if (memdesc->pages != NULL)
+		sgt = kgsl_alloc_sgt_from_pages(memdesc);
+	else
+		sgt = memdesc->sgt;
+
+	if (IS_ERR(sgt))
+		return PTR_ERR(sgt);
+
+	ret = _iommu_map_sg_sync_pc(pt, addr, memdesc, sgt->sgl,
+				sgt->nents, flags);
 	if (ret)
-		return ret;
+		goto done;
 
 	ret = _iommu_map_guard_page(pt, memdesc, addr + size, flags);
 	if (ret)
 		_iommu_unmap_sync_pc(pt, memdesc, addr, size);
+
+done:
+	if (memdesc->pages != NULL)
+		kgsl_free_sgt(sgt);
 
 	return ret;
 }
@@ -1599,6 +1617,8 @@ static int kgsl_iommu_map_offset(struct kgsl_pagetable *pt,
 {
 	int pg_sz;
 	unsigned int protflags = _get_protection_flags(memdesc);
+	int ret;
+	struct sg_table *sgt = NULL;
 
 	pg_sz = (1 << kgsl_memdesc_get_align(memdesc));
 	if (!IS_ALIGNED(virtaddr | virtoffset | physoffset | size, pg_sz))
@@ -1607,9 +1627,27 @@ static int kgsl_iommu_map_offset(struct kgsl_pagetable *pt,
 	if (size == 0)
 		return -EINVAL;
 
-	return _iommu_map_sg_offset_sync_pc(pt, virtaddr + virtoffset,
-			memdesc, memdesc->sgt->sgl, memdesc->sgt->nents,
-			physoffset, size, protflags);
+	/*
+	 * For paged memory allocated through kgsl, memdesc->pages is not NULL.
+	 * Allocate sgt here just for its map operation. Contiguous memory
+	 * already has its sgt, so no need to allocate it here.
+	 */
+	if (memdesc->pages != NULL)
+		sgt = kgsl_alloc_sgt_from_pages(memdesc);
+	else
+		sgt = memdesc->sgt;
+
+	if (IS_ERR(sgt))
+		return PTR_ERR(sgt);
+
+	ret = _iommu_map_sg_offset_sync_pc(pt, virtaddr + virtoffset,
+		memdesc, sgt->sgl, sgt->nents,
+		physoffset, size, protflags);
+
+	if (memdesc->pages != NULL)
+		kgsl_free_sgt(sgt);
+
+	return ret;
 }
 
 /* This function must be called with context bank attached */
