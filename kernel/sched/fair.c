@@ -125,14 +125,6 @@ unsigned int sysctl_sched_cfs_bandwidth_slice = 5000UL;
 #ifdef CONFIG_SCHEDSTATS
 unsigned int sysctl_sched_latency_panic_threshold;
 unsigned int sysctl_sched_latency_warn_threshold;
-
-struct sched_max_latency {
-	unsigned int latency_us;
-	char comm[TASK_COMM_LEN];
-	pid_t pid;
-};
-
-static DEFINE_PER_CPU(struct sched_max_latency, sched_max_latency);
 #endif /* CONFIG_SCHEDSTATS */
 
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
@@ -781,54 +773,6 @@ static void update_stats_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se,
 }
 
 #ifdef CONFIG_SCHEDSTATS
-int sched_max_latency_sysctl(struct ctl_table *table, int write,
-			     void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	int ret = 0;
-	int i, cpu = nr_cpu_ids;
-	char msg[256];
-	unsigned long flags;
-	struct rq *rq;
-	struct sched_max_latency max, *lat;
-
-	if (!write) {
-		max.latency_us = 0;
-		for_each_possible_cpu(i) {
-			rq = cpu_rq(i);
-			raw_spin_lock_irqsave(&rq->lock, flags);
-
-			lat = &per_cpu(sched_max_latency, i);
-			if (max.latency_us < lat->latency_us) {
-				max = *lat;
-				cpu = i;
-			}
-
-			raw_spin_unlock_irqrestore(&rq->lock, flags);
-		}
-
-		if (cpu != nr_cpu_ids) {
-			table->maxlen =
-			    snprintf(msg, sizeof(msg),
-				     "cpu%d comm=%s pid=%u latency=%u(us)",
-				     cpu, max.comm, max.pid, max.latency_us);
-			table->data = msg;
-			ret = proc_dostring(table, write, buffer, lenp, ppos);
-		}
-	} else {
-		for_each_possible_cpu(i) {
-			rq = cpu_rq(i);
-			raw_spin_lock_irqsave(&rq->lock, flags);
-
-			memset(&per_cpu(sched_max_latency, i), 0,
-			       sizeof(struct sched_max_latency));
-
-			raw_spin_unlock_irqrestore(&rq->lock, flags);
-		}
-	}
-
-	return ret;
-}
-
 static inline void check_for_high_latency(struct task_struct *p, u64 latency_us)
 {
 	int do_warn, do_panic;
@@ -872,19 +816,11 @@ update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se,
 #ifdef CONFIG_SCHEDSTATS
 	if (entity_is_task(se)) {
 		u64 delta;
-		struct sched_max_latency *max;
 
 		delta = rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start;
 		trace_sched_stat_wait(task_of(se), delta);
 
 		delta = delta >> 10;
-		max = this_cpu_ptr(&sched_max_latency);
-		if (max->latency_us < delta) {
-			max->latency_us = delta;
-			max->pid = task_of(se)->pid;
-			memcpy(max->comm, task_of(se)->comm, TASK_COMM_LEN);
-		}
-
 		check_for_high_latency(task_of(se), delta);
 	}
 #endif
