@@ -53,17 +53,23 @@ void mdss_mdp_format_flag_removal(u32 *table, u32 num, u32 remove_bits)
 	}
 }
 
-void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
-{
 #define SET_BIT(value, bit_num) \
 	{ \
 		value[bit_num >> 3] |= (1 << (bit_num & 7)); \
-	} \
+	}
+static inline void __set_pipes_supported_fmt(struct mdss_mdp_pipe *pipe_list,
+		int count, struct mdss_mdp_format_params *fmt)
+{
+	struct mdss_mdp_pipe *pipe = pipe_list;
+	int i, j;
 
-	struct mdss_mdp_pipe *vig_pipes = mdata->vig_pipes;
-	struct mdss_mdp_pipe *rgb_pipes = mdata->rgb_pipes;
-	struct mdss_mdp_pipe *dma_pipes = mdata->dma_pipes;
-	struct mdss_mdp_pipe *cur_pipes = mdata->cursor_pipes;
+	for (i = 0; i < count; i++, pipe += j)
+		for (j = 0; j < pipe->multirect.max_rects; j++)
+			SET_BIT(pipe[j].supported_formats, fmt->format);
+}
+
+void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
+{
 	struct mdss_mdp_writeback *wb = mdata->wb;
 	bool has_tile = mdata->highest_bank_bit && !mdata->has_ubwc;
 	bool has_ubwc = mdata->has_ubwc;
@@ -80,9 +86,8 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 				mdata->mdss_caps_map))
 				continue;
 
-			for (j = 0; j < mdata->nvig_pipes; j++)
-				SET_BIT(vig_pipes[j].supported_formats,
-						fmt->format);
+			__set_pipes_supported_fmt(mdata->vig_pipes,
+					mdata->nvig_pipes, fmt);
 
 			if (fmt->flag & VALID_ROT_WB_FORMAT) {
 				for (j = 0; j < mdata->nwb; j++)
@@ -96,19 +101,15 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 			}
 			if (fmt->flag & VALID_MDP_CURSOR_FORMAT &&
 					mdata->ncursor_pipes) {
-				for (j = 0; j < mdata->ncursor_pipes; j++)
-					SET_BIT(cur_pipes[j].supported_formats,
-							fmt->format);
+				__set_pipes_supported_fmt(mdata->cursor_pipes,
+						mdata->ncursor_pipes, fmt);
 			}
 
 			if (!fmt->is_yuv) {
-				for (j = 0; j < mdata->nrgb_pipes; j++)
-					SET_BIT(rgb_pipes[j].supported_formats,
-							fmt->format);
-
-				for (j = 0; j < mdata->ndma_pipes; j++)
-					SET_BIT(dma_pipes[j].supported_formats,
-							fmt->format);
+				__set_pipes_supported_fmt(mdata->rgb_pipes,
+						mdata->nrgb_pipes, fmt);
+				__set_pipes_supported_fmt(mdata->dma_pipes,
+						mdata->ndma_pipes, fmt);
 			}
 		}
 	}
@@ -122,8 +123,8 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 			mdata->mdss_caps_map))
 			continue;
 
-		for (j = 0; j < mdata->nvig_pipes; j++)
-			SET_BIT(vig_pipes[j].supported_formats, fmt->format);
+		__set_pipes_supported_fmt(mdata->vig_pipes,
+				mdata->nvig_pipes, fmt);
 
 		if (fmt->flag & VALID_ROT_WB_FORMAT) {
 			for (j = 0; j < mdata->nwb; j++)
@@ -137,19 +138,15 @@ void mdss_mdp_set_supported_formats(struct mdss_data_type *mdata)
 		}
 		if (fmt->flag & VALID_MDP_CURSOR_FORMAT &&
 				mdata->ncursor_pipes) {
-			for (j = 0; j < mdata->ncursor_pipes; j++)
-				SET_BIT(cur_pipes[j].supported_formats,
-						fmt->format);
+			__set_pipes_supported_fmt(mdata->cursor_pipes,
+					mdata->ncursor_pipes, fmt);
 		}
 
 		if (!fmt->is_yuv) {
-			for (j = 0; j < mdata->nrgb_pipes; j++)
-				SET_BIT(rgb_pipes[j].supported_formats,
-						fmt->format);
-
-			for (j = 0; j < mdata->ndma_pipes; j++)
-				SET_BIT(dma_pipes[j].supported_formats,
-						fmt->format);
+			__set_pipes_supported_fmt(mdata->rgb_pipes,
+					mdata->nrgb_pipes, fmt);
+			__set_pipes_supported_fmt(mdata->dma_pipes,
+					mdata->ndma_pipes, fmt);
 		}
 	}
 }
