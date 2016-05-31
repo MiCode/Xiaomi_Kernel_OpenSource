@@ -711,6 +711,7 @@ long msm_vfe47_reset_hardware(struct vfe_device *vfe_dev,
 	uint32_t first_start, uint32_t blocking_call)
 {
 	long rc = 0;
+	uint32_t reset;
 
 	init_completion(&vfe_dev->reset_complete);
 
@@ -718,9 +719,17 @@ long msm_vfe47_reset_hardware(struct vfe_device *vfe_dev,
 		vfe_dev->reset_pending = 1;
 
 	if (first_start) {
-		msm_camera_io_w_mb(0x3FF, vfe_dev->vfe_base + 0x18);
+		if (msm_vfe_is_vfe48(vfe_dev))
+			reset = 0x3F7;
+		else
+			reset = 0x3FF;
+		msm_camera_io_w_mb(reset, vfe_dev->vfe_base + 0x18);
 	} else {
-		msm_camera_io_w_mb(0x3EF, vfe_dev->vfe_base + 0x18);
+		if (msm_vfe_is_vfe48(vfe_dev))
+			reset = 0x3E7;
+		else
+			reset = 0x3EF;
+		msm_camera_io_w_mb(reset, vfe_dev->vfe_base + 0x18);
 		msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x64);
 		msm_camera_io_w(0xFFFFFEFF, vfe_dev->vfe_base + 0x68);
 		msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
