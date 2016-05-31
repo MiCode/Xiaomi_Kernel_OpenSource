@@ -42,6 +42,32 @@
 			goodix,have-touch-key;
 			goodix,driver-send-cfg;
 		};
+
+		synaptics@22{
+			compatible = "synaptics,dsx-i2c";
+			reg = <0x22>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <65 0x2008>;
+			vdd_ana-supply = <&pm8917_l17>;
+			vcc_i2c-supply = <&pm8917_l6>;
+			  /* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			synaptics,pwr-reg-name = "vdd_ana";
+			synaptics,bus-reg-name = "vcc_i2c";
+			synaptics,irq-gpio = <&tlmm 65 0x2008>;
+			synaptics,irq-on-state = <0>;
+			synaptics,irq-flags = <0x2008>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,max-y-for-2d = <1919>;
+			synaptics,cap-button-codes = <139 158 172>;
+			synaptics,vir-button-codes = <139 180 2000 320 160
+						      158 540 2000 320 160
+						      172 900 2000 320 160>;
+		};
 	};
 
 	gpio_keys {
