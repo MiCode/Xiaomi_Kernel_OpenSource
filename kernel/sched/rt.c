@@ -265,8 +265,12 @@ static void pull_rt_task(struct rq *this_rq);
 
 static inline bool need_pull_rt_task(struct rq *rq, struct task_struct *prev)
 {
-	/* Try to pull RT tasks here if we lower this rq's prio */
-	return rq->rt.highest_prio.curr > prev->prio;
+	/*
+	 * Try to pull RT tasks here if we lower this rq's prio and cpu is not
+	 * isolated
+	 */
+	return rq->rt.highest_prio.curr > prev->prio &&
+	       !cpu_isolated(cpu_of(rq));
 }
 
 static inline int rt_overloaded(struct rq *rq)
@@ -2193,7 +2197,8 @@ static void switched_from_rt(struct rq *rq, struct task_struct *p)
 	 * we may need to handle the pulling of RT tasks
 	 * now.
 	 */
-	if (!task_on_rq_queued(p) || rq->rt.rt_nr_running)
+	if (!task_on_rq_queued(p) || rq->rt.rt_nr_running ||
+		cpu_isolated(cpu_of(rq)))
 		return;
 
 	queue_pull_task(rq);
