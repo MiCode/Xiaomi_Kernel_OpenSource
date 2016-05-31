@@ -360,11 +360,6 @@ struct sched_cluster {
 	 */
 	unsigned int cur_freq, max_freq, max_mitigated_freq, min_freq;
 	unsigned int max_possible_freq;
-	/*
-	 * cpu_cycle_max_scale_factor represents number of cycles per NSEC at
-	 * CPU's fmax.
-	 */
-	u32 cpu_cycle_max_scale_factor;
 	bool freq_init_done;
 	int dstate, dstate_wakeup_latency, dstate_wakeup_energy;
 	unsigned int static_cluster_pwr_cost;
@@ -385,6 +380,16 @@ struct related_thread_group {
 	struct sched_cluster *preferred_cluster;
 	struct rcu_head rcu;
 	u64 last_update;
+#ifdef CONFIG_SCHED_FREQ_INPUT
+	struct group_cpu_time __percpu *cpu_time;	/* one per cluster */
+#endif
+};
+
+struct migration_sum_data {
+	struct rq *src_rq, *dst_rq;
+#ifdef CONFIG_SCHED_FREQ_INPUT
+	struct group_cpu_time *src_cpu_time, *dst_cpu_time;
+#endif
 };
 
 extern struct list_head cluster_head;
@@ -708,7 +713,7 @@ struct rq {
 	struct task_struct *ed_task;
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
-	unsigned int old_busy_time;
+	u64 old_busy_time, old_busy_time_group;
 	int notifier_sent;
 	u64 old_estimated_time;
 #endif
@@ -1047,14 +1052,9 @@ static inline int cpu_max_power_cost(int cpu)
 	return cpu_rq(cpu)->cluster->max_power_cost;
 }
 
-static inline int cpu_cycle_max_scale_factor(int cpu)
-{
-	return cpu_rq(cpu)->cluster->cpu_cycle_max_scale_factor;
-}
-
 static inline u32 cpu_cycles_to_freq(int cpu, u64 cycles, u32 period)
 {
-	return div64_u64(cycles * cpu_cycle_max_scale_factor(cpu), period);
+	return div64_u64(cycles, period);
 }
 
 static inline bool hmp_capable(void)
@@ -1258,7 +1258,16 @@ add_new_task_to_grp(struct task_struct *new) {}
 #ifdef CONFIG_SCHED_FREQ_INPUT
 #define PRED_DEMAND_DELTA ((s64)new_pred_demand - p->ravg.pred_demand)
 
-extern void check_for_freq_change(struct rq *rq, bool check_cra);
+extern void
+check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
+
+struct group_cpu_time {
+	u64 curr_runnable_sum;
+	u64 prev_runnable_sum;
+	u64 nt_curr_runnable_sum;
+	u64 nt_prev_runnable_sum;
+	u64 window_start;
+};
 
 /* Is frequency of two cpus synchronized with each other? */
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
@@ -1276,7 +1285,8 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 #define sched_migration_fixup	0
 #define PRED_DEMAND_DELTA (0)
 
-static inline void check_for_freq_change(struct rq *rq, bool check_cra) { }
+static inline void
+check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups) { }
 
 static inline int same_freq_domain(int src_cpu, int dst_cpu)
 {
