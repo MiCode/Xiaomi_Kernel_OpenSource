@@ -2123,18 +2123,17 @@ static void adreno_dispatcher_work(struct work_struct *work)
 			break;
 	}
 
+	kgsl_process_event_groups(device);
+
 	/*
 	 * dispatcher_do_fault() returns 0 if no faults occurred. If that is the
 	 * case, then clean up preemption and try to schedule more work
 	 */
 	if (dispatcher_do_fault(adreno_dev) == 0) {
+
 		/* Clean up after preemption */
 		if (gpudev->preemption_schedule)
 			gpudev->preemption_schedule(adreno_dev);
-
-		/* Re-kick the event engine to catch stragglers */
-		if (dispatcher->inflight == 0 && count != 0)
-			kgsl_schedule_work(&device->event_work);
 
 		/* Run the scheduler for to dispatch new commands */
 		_adreno_dispatcher_issuecmds(adreno_dev);
