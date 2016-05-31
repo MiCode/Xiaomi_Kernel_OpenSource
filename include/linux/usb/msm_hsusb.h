@@ -174,6 +174,8 @@ struct msm_usb_cable {
 #define PHY_CHARGER_CONNECTED		BIT(3)
 #define PHY_VBUS_VALID_OVERRIDE		BIT(4)
 #define DEVICE_IN_SS_MODE		BIT(5)
+#define PHY_LANE_A			BIT(6)
+#define PHY_LANE_B			BIT(7)
 
 #define USB_NUM_BUS_CLOCKS      3
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,7 +87,7 @@ struct qpnp_tm_chip {
 	struct thermal_zone_device	*tz_dev;
 	const char			*tm_name;
 	enum qpnp_tm_adc_type		adc_type;
-	unsigned long			temperature;
+	int				temperature;
 	enum thermal_device_mode	mode;
 	unsigned int			thresh;
 	unsigned int			stage;
@@ -236,7 +236,7 @@ static int qpnp_tm_update_temp_no_adc(struct qpnp_tm_chip *chip)
 }
 
 static int qpnp_tz_get_temp_no_adc(struct thermal_zone_device *thermal,
-				     unsigned long *temperature)
+				     int *temperature)
 {
 	struct qpnp_tm_chip *chip = thermal->devdata;
 	int rc;
@@ -254,7 +254,7 @@ static int qpnp_tz_get_temp_no_adc(struct thermal_zone_device *thermal,
 }
 
 static int qpnp_tz_get_temp_qpnp_adc(struct thermal_zone_device *thermal,
-				      unsigned long *temperature)
+				      int *temperature)
 {
 	struct qpnp_tm_chip *chip = thermal->devdata;
 	int rc;
@@ -332,7 +332,7 @@ static int qpnp_tz_get_trip_type(struct thermal_zone_device *thermal,
 }
 
 static int qpnp_tz_get_trip_temp(struct thermal_zone_device *thermal,
-				   int trip, unsigned long *temperature)
+				   int trip, int *temperature)
 {
 	struct qpnp_tm_chip *chip = thermal->devdata;
 	int thresh_temperature;
@@ -361,7 +361,7 @@ static int qpnp_tz_get_trip_temp(struct thermal_zone_device *thermal,
 }
 
 static int qpnp_tz_get_crit_temp(struct thermal_zone_device *thermal,
-				   unsigned long *temperature)
+				   int *temperature)
 {
 	struct qpnp_tm_chip *chip = thermal->devdata;
 
@@ -420,7 +420,7 @@ static void qpnp_tm_work(struct work_struct *work)
 	if (chip->stage != chip->prev_stage) {
 		chip->prev_stage = chip->stage;
 
-		pr_crit("%s: PMIC Temp Alarm - stage=%u, threshold=%u, temperature=%lu mC\n",
+		pr_crit("%s: PMIC Temp Alarm - stage=%u, threshold=%u, temperature=%d mC\n",
 			chip->tm_name, chip->stage, chip->thresh,
 			chip->temperature);
 

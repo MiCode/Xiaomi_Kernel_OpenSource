@@ -118,6 +118,12 @@ enum usbpd_data_msg_type {
 	MSG_VDM = 0xF,
 };
 
+enum plug_orientation {
+	ORIENTATION_NONE,
+	ORIENTATION_CC1,
+	ORIENTATION_CC2,
+};
+
 /* Timeouts (in ms) */
 #define ERROR_RECOVERY_TIME	25
 #define SENDER_RESPONSE_TIME	30
@@ -239,10 +245,41 @@ static LIST_HEAD(_usbpd);	/* useful for debugging */
 static const unsigned int usbpd_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_USB_HOST,
+	EXTCON_USB_CC,
 	EXTCON_NONE,
 };
 
-static const u32 usbpd_extcon_exclusive[] = {0xffffffff, 0};
+/* EXTCON_USB and EXTCON_USB_HOST are mutually exclusive */
+static const u32 usbpd_extcon_exclusive[] = {0x3, 0};
+
+static enum plug_orientation usbpd_get_plug_orientation(struct usbpd *pd)
+{
+	int ret;
+	union power_supply_propval val;
+
+	ret = power_supply_get_property(pd->usb_psy,
+		POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION, &val);
+	if (ret)
+		return ORIENTATION_NONE;
+
+	return val.intval;
+}
+
+static bool is_cable_flipped(struct usbpd *pd)
+{
+	enum plug_orientation cc;
+
+	cc = usbpd_get_plug_orientation(pd);
+	if (cc == ORIENTATION_CC2)
+		return true;
+
+	/*
+	 * ORIENTATION_CC1 or ORIENTATION_NONE.
+	 * Return value for ORIENTATION_NONE is
+	 * "dont care" as disconnect handles it.
+	 */
+	return false;
+}
 
 static int set_power_role(struct usbpd *pd, enum power_role pr)
 {
@@ -479,6 +516,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->pd_phy_opened = true;
 		}
 
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
 		pd->in_pr_swap = false;
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		dev_dbg(&pd->dev, "Enter %s\n",
@@ -487,16 +528,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SRC_SEND_CAPABILITIES:
 		queue_delayed_work(pd->wq, &pd->sm_work, 0);
-		break;
-
-		/* reset counters */
-		pd->hard_reset_count = 0;
-		pd->caps_count = 0;
-		pd->pd_connected = true; /* we know peer is PD capable */
-
-		/* wait for REQUEST */
-		queue_delayed_work(pd->wq, &pd->sm_work,
-				msecs_to_jiffies(SENDER_RESPONSE_TIME * 3));
 		break;
 
 	case PE_SRC_NEGOTIATE_CAPABILITY:
@@ -612,6 +643,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			if (pd->psy_type == POWER_SUPPLY_TYPE_USB ||
 				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP)
 				extcon_set_cable_state_(pd->extcon,
+						EXTCON_USB_CC,
+						is_cable_flipped(pd));
+				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB, 1);
 		}
 
@@ -705,6 +739,8 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 0);
 
 			pd->current_dr = DR_UFP;
+			extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
+					is_cable_flipped(pd));
 			extcon_set_cable_state_(pd->extcon, EXTCON_USB, 1);
 			pd_phy_update_roles(pd->current_dr, pd->current_pr);
 		}
@@ -739,10 +775,14 @@ static void dr_swap(struct usbpd *pd)
 {
 	if (pd->current_dr == DR_DFP) {
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 0);
+		extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
+				is_cable_flipped(pd));
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB, 1);
 		pd->current_dr = DR_UFP;
 	} else if (pd->current_dr == DR_UFP) {
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB, 0);
+		extcon_set_cable_state_(pd->extcon, EXTCON_USB_CC,
+				is_cable_flipped(pd));
 		extcon_set_cable_state_(pd->extcon, EXTCON_USB_HOST, 1);
 		pd->current_dr = DR_DFP;
 	}
@@ -865,10 +905,17 @@ static void usbpd_sm(struct work_struct *w)
 			if (pd->caps_count == 5 && pd->current_dr == DR_DFP) {
 				/* Likely not PD-capable, start host now */
 				extcon_set_cable_state_(pd->extcon,
+					EXTCON_USB_CC, is_cable_flipped(pd));
+				extcon_set_cable_state_(pd->extcon,
 						EXTCON_USB_HOST, 1);
 			} else if (pd->caps_count >= PD_CAPS_COUNT) {
 				dev_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
 				usbpd_set_state(pd, PE_SRC_DISABLED);
+
+				val.intval = 0;
+				power_supply_set_property(pd->usb_psy,
+						POWER_SUPPLY_PROP_PD_ACTIVE,
+						&val);
 				break;
 			}
 
@@ -880,6 +927,11 @@ static void usbpd_sm(struct work_struct *w)
 		/* transmit was successful if GoodCRC was received */
 		pd->caps_count = 0;
 		pd->hard_reset_count = 0;
+		pd->pd_connected = true; /* we know peer is PD capable */
+
+		val.intval = POWER_SUPPLY_TYPE_USB_PD;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_TYPE, &val);
 
 		/* wait for REQUEST */
 		pd->current_state = PE_SRC_SEND_CAPABILITIES_WAIT;
@@ -973,6 +1025,11 @@ static void usbpd_sm(struct work_struct *w)
 			val.intval = 1;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
+			val.intval = POWER_SUPPLY_TYPE_USB_PD;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_TYPE, &val);
+
 			usbpd_set_state(pd, PE_SNK_EVALUATE_CAPABILITY);
 		} else if (pd->hard_reset_count < 3) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);

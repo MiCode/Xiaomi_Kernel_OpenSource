@@ -13,6 +13,7 @@
 &soc {
 	mdss_mdp: qcom,mdss_mdp@c900000 {
 		compatible = "qcom,mdss_mdp";
+		status = "ok";
 		reg = <0x0c900000 0x90000>,
 		      <0x0c9b0000 0x1040>;
 		reg-names = "mdp_phys", "vbif_phys";
@@ -37,6 +38,9 @@
 
 		qcom,max-mixer-width = <2560>;
 		qcom,max-pipe-width = <2560>;
+
+		qcom,max-dest-scaler-input-width = <2048>;
+		qcom,max-dest-scaler-output-width = <2560>;
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
@@ -136,20 +140,20 @@
 				    <0x2506c 0x00000000>,
 				    <0x2706c 0x00000000>;
 
-		qcom,regs-dump-mdp = <0x01000 0x01454>,
-				     <0x02000 0x02064>,
-				     <0x02200 0x02264>,
-				     <0x02400 0x02464>,
-				     <0x02600 0x02664>,
-				     <0x02800 0x02864>,
-				     <0x05000 0x05150>,
-				     <0x05200 0x05230>,
-				     <0x07000 0x07150>,
-				     <0x07200 0x07230>,
-				     <0x09000 0x09150>,
-				     <0x09200 0x09230>,
-				     <0x0b000 0x0b150>,
-				     <0x0b200 0x0b230>,
+		qcom,regs-dump-mdp = <0x01000 0x01458>,
+				     <0x02000 0x02094>,
+				     <0x02200 0x02294>,
+				     <0x02400 0x02494>,
+				     <0x02600 0x02694>,
+				     <0x02800 0x02894>,
+				     <0x05000 0x05154>,
+				     <0x05a00 0x05b00>,
+				     <0x07000 0x07154>,
+				     <0x07a00 0x07b00>,
+				     <0x09000 0x09154>,
+				     <0x09a00 0x09b00>,
+				     <0x0b000 0x0b154>,
+				     <0x0ba00 0x0bb00>,
 				     <0x25000 0x25184>,
 				     <0x27000 0x27184>,
 				     <0x29000 0x29184>,

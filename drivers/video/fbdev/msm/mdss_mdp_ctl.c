@@ -556,12 +556,12 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	struct mdss_rect src, struct mdss_rect dst, u32 src_h,
 	u32 fps, u32 v_total)
 {
-	u32 active_line_cycle, backfill_cycle, total_cycle;
-	u32 ver_dwnscale;
-	u32 active_line;
-	u32 backfill_line;
+	u64 active_line_cycle, backfill_cycle, total_cycle;
+	u64 ver_dwnscale;
+	u64 active_line;
+	u64 backfill_line;
 
-	ver_dwnscale = (src_h << PHASE_STEP_SHIFT) / dst.h;
+	ver_dwnscale = ((u64)src_h << PHASE_STEP_SHIFT) / dst.h;
 
 	if (ver_dwnscale > (MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM
 			<< PHASE_STEP_SHIFT)) {
@@ -584,12 +584,12 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 
 	total_cycle = active_line_cycle + backfill_cycle;
 
-	pr_debug("line: active=%d backfill=%d vds=%d\n",
+	pr_debug("line: active=%lld backfill=%lld vds=%lld\n",
 		active_line, backfill_line, ver_dwnscale);
-	pr_debug("cycle: total=%d active=%d backfill=%d\n",
+	pr_debug("cycle: total=%lld active=%lld backfill=%lld\n",
 		total_cycle, active_line_cycle, backfill_cycle);
 
-	return total_cycle * (fps * v_total);
+	return (u32)total_cycle * (fps * v_total);
 }
 
 static inline bool __is_vert_downscaling(u32 src_h,
@@ -1205,6 +1205,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	struct mdss_panel_info *pinfo = NULL;
 	int fps = DEFAULT_FRAME_RATE;
 	u32 v_total = 0, bpp = MDSS_MDP_WB_OUTPUT_BPP;
+	u32 h_total = 0;
 	int i;
 	u32 max_clk_rate = 0;
 	u64 bw_overlap_max = 0;
@@ -1235,6 +1236,10 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 				fps = mdss_panel_get_framerate(pinfo);
 				v_total = mdss_panel_get_vtotal(pinfo);
 			}
+			if (is_dest_scaling_enable(mixer))
+				h_total = get_ds_output_width(mixer);
+			else
+				h_total = mixer->width;
 		} else {
 			v_total = mixer->height;
 		}
@@ -1248,7 +1253,11 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 			pinfo = NULL;
 		}
 
-		perf->mdp_clk_rate = mixer->width * v_total * fps;
+		/*
+		 * with destination scaling, the increase of clock
+		 * calculation should depends on output of size of DS setting.
+		 */
+		perf->mdp_clk_rate = h_total * v_total * fps;
 		perf->mdp_clk_rate =
 			mdss_mdp_clk_fudge_factor(mixer, perf->mdp_clk_rate);
 
@@ -3429,8 +3438,15 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	split_ctl = mdss_mdp_get_split_ctl(ctl);
 
-	width = get_panel_width(ctl);
-	height = get_panel_yres(pinfo);
+	if (is_dest_scaling_enable(ctl->mixer_left)) {
+		width = get_ds_input_width(ctl->mixer_left);
+		height = get_ds_input_height(ctl->mixer_left);
+		if (ctl->panel_data->next && is_pingpong_split(ctl->mfd))
+			width *= 2;
+	} else {
+		width = get_panel_width(ctl);
+		height = get_panel_yres(pinfo);
+	}
 
 	max_mixer_width = ctl->mdata->max_mixer_width;
 
@@ -3593,8 +3609,13 @@ int mdss_mdp_ctl_reconfig(struct mdss_mdp_ctl *ctl,
 	ctl->opmode |= (ctl->intf_num << 4);
 
 skip_intf_reconfig:
-	ctl->width = get_panel_xres(&pdata->panel_info);
-	ctl->height = get_panel_yres(&pdata->panel_info);
+	if (is_dest_scaling_enable(ctl->mixer_left)) {
+		ctl->width  = get_ds_input_width(ctl->mixer_left);
+		ctl->height = get_ds_input_height(ctl->mixer_left);
+	} else {
+		ctl->width  = get_panel_xres(&pdata->panel_info);
+		ctl->height = get_panel_yres(&pdata->panel_info);
+	}
 	if (ctl->mixer_left) {
 		ctl->mixer_left->width = ctl->width;
 		ctl->mixer_left->height = ctl->height;
@@ -3741,11 +3762,6 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 		return -ENODEV;
 	}
 
-	sctl->width = get_panel_xres(&pdata->panel_info);
-	sctl->height = get_panel_yres(&pdata->panel_info);
-
-	sctl->roi = (struct mdss_rect){0, 0, sctl->width, sctl->height};
-
 	if (!ctl->mixer_left) {
 		ctl->mixer_left = mdss_mdp_mixer_alloc(ctl,
 				MDSS_MDP_MIXER_TYPE_INTF,
@@ -3763,6 +3779,16 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 		mdss_mdp_ctl_destroy(sctl);
 		return -ENOMEM;
 	}
+
+	if (is_dest_scaling_enable(mixer)) {
+		sctl->width  = get_ds_input_width(mixer);
+		sctl->height = get_ds_input_height(mixer);
+	} else {
+		sctl->width  = get_panel_xres(&pdata->panel_info);
+		sctl->height = get_panel_yres(&pdata->panel_info);
+	}
+
+	sctl->roi = (struct mdss_rect){0, 0, sctl->width, sctl->height};
 
 	mixer->is_right_mixer = true;
 	mixer->width = sctl->width;
@@ -4938,6 +4964,43 @@ int mdss_mdp_wb_addr_setup(struct mdss_data_type *mdata,
 	mdata->wb = wb;
 	mdata->nwb = total;
 	mutex_init(&mdata->wb_lock);
+
+	return 0;
+}
+
+int mdss_mdp_ds_addr_setup(struct mdss_data_type *mdata)
+{
+	struct mdss_mdp_destination_scaler *ds;
+	struct mdss_mdp_mixer *mixer = mdata->mixer_intf;
+	u32 num_ds_block;
+	int i;
+
+	num_ds_block = mdata->scaler_off->ndest_scalers;
+	ds = devm_kcalloc(&mdata->pdev->dev, num_ds_block,
+			sizeof(struct mdss_mdp_destination_scaler),
+			GFP_KERNEL);
+	if (!ds) {
+		pr_err("unable to setup ds: kzalloc failed\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < num_ds_block; i++) {
+		ds[i].num = i;
+		ds[i].ds_base = mdata->scaler_off->dest_base;
+		ds[i].scaler_base = mdata->scaler_off->dest_base +
+			mdata->scaler_off->dest_scaler_off[i];
+		ds[i].lut_base = mdata->scaler_off->dest_base +
+			mdata->scaler_off->dest_scaler_lut_off[i];
+
+		/*
+		 * Assigning destination scaler to each LM. There is no dynamic
+		 * assignment because destination scaler and LM are hard wired.
+		 */
+		if (i < mdata->nmixers_intf)
+			mixer[i].ds = &ds[i];
+	}
+
+	mdata->ds = ds;
 
 	return 0;
 }

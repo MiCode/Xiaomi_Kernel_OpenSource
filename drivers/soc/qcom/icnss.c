@@ -1309,6 +1309,9 @@ int icnss_get_ce_id(int irq)
 {
 	int i;
 
+	if (!penv || !penv->pdev)
+		return -ENODEV;
+
 	for (i = 0; i < ICNSS_MAX_IRQ_REGISTRATIONS; i++) {
 		if (penv->ce_irqs[i] == irq)
 			return i;
@@ -1317,6 +1320,22 @@ int icnss_get_ce_id(int irq)
 	return -EINVAL;
 }
 EXPORT_SYMBOL(icnss_get_ce_id);
+
+int icnss_get_irq(int ce_id)
+{
+	int irq;
+
+	if (!penv || !penv->pdev)
+		return -ENODEV;
+
+	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS)
+		return -EINVAL;
+
+	irq = penv->ce_irqs[ce_id];
+
+	return irq;
+}
+EXPORT_SYMBOL(icnss_get_irq);
 
 static struct clk *icnss_clock_init(struct device *dev, const char *cname)
 {

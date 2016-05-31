@@ -703,7 +703,8 @@ struct ipa3_sys_context {
 enum ipa3_desc_type {
 	IPA_DATA_DESC,
 	IPA_DATA_DESC_SKB,
-	IPA_IMM_CMD_DESC
+	IPA_DATA_DESC_SKB_PAGED,
+	IPA_IMM_CMD_DESC,
 };
 
 /**
@@ -767,6 +768,7 @@ struct ipa3_dma_xfer_wrapper {
  * struct ipa3_desc - IPA descriptor
  * @type: skb or immediate command or plain old data
  * @pyld: points to skb
+ * @frag: points to paged fragment
  * or kmalloc'ed immediate command parameters/plain old data
  * @dma_address: dma mapped address of pyld
  * @dma_address_valid: valid field for dma_address
@@ -780,6 +782,7 @@ struct ipa3_dma_xfer_wrapper {
 struct ipa3_desc {
 	enum ipa3_desc_type type;
 	void *pyld;
+	skb_frag_t *frag;
 	dma_addr_t dma_address;
 	bool dma_address_valid;
 	u16 len;
@@ -889,6 +892,7 @@ struct ipa3_stats {
 	u32 lan_repl_rx_empty;
 	u32 flow_enable;
 	u32 flow_disable;
+	u32 tx_non_linear;
 };
 
 struct ipa3_active_clients {
@@ -1348,6 +1352,7 @@ struct ipa3_ready_cb_info {
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
  * @apply_rg10_wa: Indicates whether to use register group 10 workaround
+ * @gsi_ch20_wa: Indicates whether to apply GSI physical channel 20 workaround
  * @w_lock: Indicates the wakeup source.
  * @wakelock_ref_cnt: Indicates the number of times wakelock is acquired
  * @ipa_initialization_complete: Indicates that IPA is fully initialized
@@ -1460,6 +1465,7 @@ struct ipa3_context {
 	unsigned long gsi_dev_hdl;
 	u32 ee;
 	bool apply_rg10_wa;
+	bool gsi_ch20_wa;
 	bool smmu_present;
 	bool smmu_s1_bypass;
 	unsigned long peer_bam_iova;
@@ -1513,6 +1519,7 @@ struct ipa3_plat_drv_res {
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
 	bool apply_rg10_wa;
+	bool gsi_ch20_wa;
 	bool tethered_flow_control;
 };
 
@@ -2181,4 +2188,5 @@ void ipa3_dec_release_wakelock(void);
 int ipa3_load_fws(const struct firmware *firmware);
 int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 const char *ipa_hw_error_str(enum ipa3_hw_errors err_type);
+int ipa_gsi_ch20_wa(void);
 #endif /* _IPA3_I_H_ */

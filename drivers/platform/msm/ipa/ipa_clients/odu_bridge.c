@@ -792,6 +792,7 @@ static void odu_debugfs_init(void)
 		goto fail;
 	}
 
+	return;
 fail:
 	debugfs_remove_recursive(dent);
 }

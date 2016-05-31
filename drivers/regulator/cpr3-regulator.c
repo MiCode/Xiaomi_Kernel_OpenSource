@@ -1204,6 +1204,14 @@ static void cprh_controller_program_sdelta(
 		corner_band = &vreg->corner_band[i];
 		sdelta = corner_band->sdelta;
 
+		if (!sdelta->allow_core_count_adj && !sdelta->allow_temp_adj) {
+			/*
+			 * Per-online-core and per-temperature margin
+			 * adjustments are disabled for this corner band.
+			 */
+			continue;
+		}
+
 		if (vreg->allow_core_count_adj)
 			cpr3_write_temp_core_margin(ctrl,
 				    CPRH_MARGIN_TEMP_CORE_VBAND(0, i),
@@ -1296,6 +1304,16 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 				CPR4_SAW_ERROR_STEP_LIMIT_UP_MASK,
 				(ctrl->up_error_step_limit
 				<< CPR4_SAW_ERROR_STEP_LIMIT_UP_SHIFT));
+
+	cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+			CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_STEP_QUOT_MASK,
+			ctrl->step_quot_fixed
+			<< CPR4_MARGIN_ADJ_CTL_KV_MARGIN_ADJ_STEP_QUOT_SHIFT);
+
+	cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
+			CPR4_MARGIN_ADJ_CTL_PER_RO_KV_MARGIN_EN,
+			(ctrl->use_dynamic_step_quot
+			? CPR4_MARGIN_ADJ_CTL_PER_RO_KV_MARGIN_EN : 0));
 
 	if (ctrl->voltage_settling_time) {
 		/*

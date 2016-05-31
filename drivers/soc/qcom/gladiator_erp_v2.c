@@ -40,6 +40,7 @@
 #define GLADIATOR_ERRLOG7	0x1038
 #define GLADIATOR_ERRLOG8	0x103C
 #define OBSERVER_0_ID_COREID	0x8000
+#define OBSERVER_0_ID_REVISIONID	0x8004
 #define OBSERVER_0_FAULTEN	0x8008
 #define OBSERVER_0_ERRVLD	0x800C
 #define OBSERVER_0_ERRCLR	0x8010
@@ -53,7 +54,6 @@
 #define OBSERVER_0_ERRLOG7	0x8030
 #define OBSERVER_0_ERRLOG8	0x8034
 #define OBSERVER_0_STALLEN	0x8038
-#define OBSERVER_0_REVISIONID	0x8004
 
 #define GLD_TRANS_OPCODE_MASK			0xE
 #define GLD_TRANS_OPCODE_SHIFT			1
@@ -128,6 +128,11 @@ enum obs_err_code {
 };
 
 enum err_log {
+	ID_COREID,
+	ID_REVISIONID,
+	FAULTEN,
+	ERRVLD,
+	ERRCLR,
 	ERR_LOG0,
 	ERR_LOG1,
 	ERR_LOG2,
@@ -138,6 +143,7 @@ enum err_log {
 	ERR_LOG7,
 	ERR_LOG8,
 	STALLEN,
+	MAX_NUM,
 };
 
 enum type_logger_error {
@@ -475,6 +481,15 @@ static u32 get_gld_offset(unsigned int err_log)
 	u32 offset = 0;
 
 	switch (err_log) {
+	case FAULTEN:
+		offset = GLADIATOR_FAULTEN;
+		break;
+	case ERRVLD:
+		offset = GLADIATOR_ERRVLD;
+		break;
+	case ERRCLR:
+		offset = GLADIATOR_ERRCLR;
+		break;
 	case ERR_LOG0:
 		offset = GLADIATOR_ERRLOG0;
 		break;
@@ -514,6 +529,21 @@ static u32 get_obs_offset(unsigned int err_log)
 	u32 offset = 0;
 
 	switch (err_log) {
+	case ID_COREID:
+		offset = OBSERVER_0_ID_COREID;
+		break;
+	case ID_REVISIONID:
+		offset = OBSERVER_0_ID_REVISIONID;
+		break;
+	case FAULTEN:
+		offset = OBSERVER_0_FAULTEN;
+		break;
+	case ERRVLD:
+		offset = OBSERVER_0_ERRVLD;
+		break;
+	case ERRCLR:
+		offset = OBSERVER_0_ERRCLR;
+		break;
 	case ERR_LOG0:
 		offset = OBSERVER_0_ERRLOG0;
 		break;
@@ -573,7 +603,7 @@ static void decode_gld_errlog5(struct msm_gladiator_data *msm_gld_data)
 static irqreturn_t msm_gladiator_isr(int irq, void *dev_id)
 {
 	u32 err_reg;
-	unsigned int err_log;
+	unsigned int err_log, err_buf[MAX_NUM];
 
 	struct msm_gladiator_data *msm_gld_data = dev_id;
 
@@ -591,9 +621,31 @@ static irqreturn_t msm_gladiator_isr(int irq, void *dev_id)
 		clear_gladiator_error(msm_gld_data->gladiator_virt_base);
 		return IRQ_HANDLED;
 	}
-	pr_alert("GLADIATOR ERROR DETECTED\n");
+	pr_alert("Gladiator Error Detected:\n");
 	if (gld_err_valid) {
-		pr_alert("GLADIATOR error log register data:\n");
+		for (err_log = FAULTEN; err_log <= ERR_LOG8; err_log++) {
+			err_buf[err_log] = readl_relaxed(
+					msm_gld_data->gladiator_virt_base +
+					get_gld_offset(err_log));
+		}
+		pr_alert("Main log register data:\n%08x %08x %08x %08x\n%08x %08x %08x %08x\n%08x %08x %08x\n",
+			err_buf[0], err_buf[1], err_buf[2], err_buf[3], err_buf[4], err_buf[5], err_buf[6],
+			err_buf[7], err_buf[8], err_buf[9], err_buf[10]);
+	}
+
+	if (obsrv_err_valid) {
+		for (err_log = ID_COREID; err_log <= STALLEN; err_log++) {
+			err_buf[err_log] = readl_relaxed(
+					msm_gld_data->gladiator_virt_base +
+					get_obs_offset(err_log));
+		}
+		pr_alert("Observer log register data:\n%08x %08x %08x %08x\n%08x %08x %08x %08x\n%08x %08x %08x %08x\n%08x\n",
+			err_buf[0], err_buf[1], err_buf[2], err_buf[3], err_buf[4], err_buf[5], err_buf[6], err_buf[7],
+			err_buf[8], err_buf[9], err_buf[10], err_buf[11], err_buf[12]);
+	}
+
+	if (gld_err_valid) {
+		pr_alert("Main error log register data:\n");
 		for (err_log = ERR_LOG0; err_log <= ERR_LOG8; err_log++) {
 			/* skip log register 7 as its reserved */
 			if (err_log == ERR_LOG7)

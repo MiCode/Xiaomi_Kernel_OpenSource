@@ -346,6 +346,10 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_SCALER_MISR_SIGNATURE_0		0x74
 #define MDSS_MDP_REG_SCALER_MISR_SIGNATURE_1		0x78
 
+/* Destination scaler TOP registers */
+#define MDSS_MDP_REG_DEST_SCALER_OP_MODE		0x00
+#define MDSS_MDP_REG_DEST_SCALER_HW_VERSION		0x10
+
 #define SCALER_EN			BIT(0)
 #define SCALER_DIR_EN			BIT(4)
 #define SCALER_DE_EN			BIT(8)

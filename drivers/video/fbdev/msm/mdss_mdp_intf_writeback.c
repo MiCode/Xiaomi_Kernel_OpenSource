@@ -784,7 +784,7 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 		NULL, NULL);
 
 	if (rc == 0) {
-		mask = BIT(ctx->intr_type + ctx->intf_num);
+		mask = mdss_mdp_get_irq_mask(ctx->intr_type, ctx->intf_num);
 
 		isr = readl_relaxed(ctl->mdata->mdp_base +
 					MDSS_MDP_REG_INTR_STATUS);

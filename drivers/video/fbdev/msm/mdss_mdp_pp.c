@@ -221,6 +221,26 @@ struct mdp_csc_cfg mdp_csc_10bit_convert[MDSS_MDP_MAX_CSC] = {
 	},
 };
 
+static struct mdss_mdp_format_params dest_scaler_fmt = {
+	.format = MDP_XBGR_2101010,
+	.flag = 0,
+	.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,
+	.unpack_tight = 1,
+	.unpack_align_msb = 0,
+	.alpha_enable = 0,
+	.unpack_count = 4,
+	.bpp = 4,
+	.fetch_mode = MDSS_MDP_FETCH_LINEAR,
+	.element = { C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr },
+	.bits = {
+		[C3_ALPHA] = 3,
+		[C2_R_Cr]  = 3,
+		[C0_G_Y]   = 3,
+		[C1_B_Cb]  = 3,
+	},
+	.unpack_dx_format = 1,
+};
+
 #define CSC_MV_OFF	0x0
 #define CSC_BV_OFF	0x2C
 #define CSC_LV_OFF	0x14
@@ -1589,47 +1609,14 @@ static void  mdss_mdp_scaler_detail_enhance_cfg(
 	}
 }
 
-int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
-					int location, int id)
+int mdss_mdp_qseed3_setup(struct mdp_scale_data_v2 *scaler,
+		char __iomem *offset,
+		char __iomem *lut_offset,
+		struct mdss_mdp_format_params *fmt)
 {
 	int rc = 0;
-	struct mdp_scale_data_v2 *scaler;
-	struct mdss_data_type *mdata;
-	char __iomem *offset, *lut_offset;
-	struct mdss_mdp_format_params *fmt;
 	uint32_t op_mode = 0;
 	uint32_t phase_init, preload, src_y_rgb, src_uv, dst;
-
-	mdata = mdss_mdp_get_mdata();
-	/* SRC pipe QSEED3 Configuration */
-	if (location == SSPP_VIG) {
-		scaler = &pipe->scaler;
-		offset = pipe->base + mdata->scaler_off->vig_scaler_off;
-		lut_offset = pipe->base + mdata->scaler_off->vig_scaler_lut_off;
-		fmt = pipe->src_fmt;
-	}  else if (location == DSPP) {
-		/* Destination scaler QSEED3 Configuration */
-		if ((mdata->scaler_off->has_dest_scaler) &&
-				(id < mdata->scaler_off->ndest_scalers)) {
-			/* TODO :point to the destination params */
-			scaler = NULL;
-			offset = mdata->scaler_off->dest_base +
-				mdata->scaler_off->dest_scaler_off[id];
-			lut_offset = mdata->scaler_off->dest_base +
-				mdata->scaler_off->dest_scaler_lut_off[id];
-			/*TODO : set pixel fmt to RGB101010 */
-			return -ENOSYS;
-		} else {
-			return -EINVAL;
-		}
-	} else {
-		return -EINVAL;
-	}
-
-	if (!scaler) {
-		pr_debug("scaler pointer is NULL\n");
-		return 0;
-	}
 
 	pr_debug("scaler->enable=%d", scaler->enable);
 
@@ -1650,8 +1637,6 @@ int mdss_mdp_qseed3_setup(struct mdss_mdp_pipe *pipe,
 				ALPHA_FILTER_CFG;
 		}
 
-		/* TODO:if src_fmt is 10 bits program the bitwidth
-		 * accordingly */
 		if (!fmt->unpack_dx_format)
 			op_mode |= 0x1 << SCALER_BIT_WIDTH;
 
@@ -1750,12 +1735,24 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe,
 {
 	struct mdss_data_type *mdata;
 	int rc = 0;
+	char __iomem *offset, *lut_offset;
 
 	mdata = mdss_mdp_get_mdata();
-	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map))
-		rc = mdss_mdp_qseed3_setup(pipe, pp_blk, 0);
-	else
+
+	if (test_bit(MDSS_CAPS_QSEED3, mdata->mdss_caps_map)) {
+		if (pp_blk == SSPP_VIG) {
+			offset = pipe->base + mdata->scaler_off->vig_scaler_off;
+			lut_offset = pipe->base +
+				mdata->scaler_off->vig_scaler_lut_off;
+
+			rc = mdss_mdp_qseed3_setup(&pipe->scaler, offset,
+					lut_offset, pipe->src_fmt);
+		} else {
+			rc = -EINVAL;
+		}
+	} else {
 		rc = mdss_mdp_qseed2_setup(pipe);
+	}
 
 	if (rc)
 		pr_err("scale setup on pipe %d type %d failed ret %d\n",
@@ -2432,6 +2429,71 @@ dspp_exit:
 	return ret;
 }
 
+static int pp_dest_scaler_setup(struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_data_type *mdata;
+	struct mdss_mdp_destination_scaler *ds;
+	int ret = 0;
+	u32 op_mode;
+	u32 mask;
+	char *ds_offset;
+
+	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
+		return -EINVAL;
+
+	ctl   = mixer->ctl;
+	mdata = ctl->mdata;
+	ds    = mixer->ds;
+
+	if (!test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) || !ds)
+		return 0;
+
+	ds_offset = ds->ds_base;
+	op_mode = readl_relaxed(MDSS_MDP_REG_DEST_SCALER_OP_MODE +
+			ds_offset);
+
+	mask = BIT(ds->num);
+	if (ds->flags & DS_ENABLE)
+		op_mode |= mask;
+	else
+		op_mode &= ~mask;
+
+	if (ds->flags & DS_DUAL_MODE)
+		op_mode |= BIT(16);
+	else
+		op_mode &= ~BIT(16);
+
+	writel_relaxed(op_mode, MDSS_MDP_REG_DEST_SCALER_OP_MODE + ds_offset);
+
+	if (ds->flags & DS_SCALE_UPDATE) {
+		ret = mdss_mdp_qseed3_setup(&ds->scaler,
+				ds->scaler_base, ds->lut_base,
+				&dest_scaler_fmt);
+		if (ret) {
+			pr_err("Failed setup destination scaler\n");
+			return ret;
+		}
+		/*
+		 * Clearing the flag because we don't need to program the block
+		 * for each commit if there is no change.
+		 */
+		ds->flags &= ~DS_SCALE_UPDATE;
+	}
+
+	if (ds->flags & DS_ENHANCER_UPDATE) {
+		mdss_mdp_scaler_detail_enhance_cfg(&ds->scaler.detail_enhance,
+						ds->scaler_base);
+		ds->flags &= ~DS_ENHANCER_UPDATE;
+	}
+
+	/* Destinations scaler shared the flush with DSPP in control */
+	if (ds->flags & DS_ENABLE)
+		ctl->flush_bits |= BIT(13 + ds->num);
+
+	return 0;
+}
+
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl)
 {
 	int ret = 0;
@@ -2521,11 +2583,13 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	}
 
 	if (ctl->mixer_left) {
+		pp_dest_scaler_setup(ctl->mixer_left);
 		pp_mixer_setup(ctl->mixer_left);
 		pp_dspp_setup(disp_num, ctl->mixer_left);
 		pp_ppb_setup(ctl->mixer_left);
 	}
 	if (ctl->mixer_right) {
+		pp_dest_scaler_setup(ctl->mixer_right);
 		pp_mixer_setup(ctl->mixer_right);
 		pp_dspp_setup(disp_num, ctl->mixer_right);
 		pp_ppb_setup(ctl->mixer_right);

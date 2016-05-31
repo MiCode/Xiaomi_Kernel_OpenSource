@@ -396,6 +396,10 @@ Optional properties:
 				to mdp block. Xin id property is not valid for mdp
 				internal blocks like ctl, lm, dspp. It should set
 				to 0xff for such blocks.
+- qcom,max-dest-scaler-input-width: This 32 bit value provides
+				maximum width to the input of destination scaler.
+- qcom,max-dest-scaler-output-width: This 32 bit value provides
+				maximum width to the output of destination scaler.
 
 Fudge Factors:			Fudge factors are used to boost demand for
 				resources like bus bandswidth, clk rate etc. to
@@ -691,6 +695,8 @@ Example:
 
 		qcom,max-mixer-width = <2048>;
 		qcom,max-pipe-width = <2048>;
+		qcom,max-dest-scaler-input-width = <2048>;
+		qcom,max-dest-scaler-output-width = <2560>;
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
 				     <0x00D8 0x00000707>;
