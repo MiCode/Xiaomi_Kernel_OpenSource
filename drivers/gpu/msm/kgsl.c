@@ -380,24 +380,6 @@ kgsl_mem_entry_track_gpuaddr(struct kgsl_process_private *process,
 	return kgsl_mmu_get_gpuaddr(pagetable, &entry->memdesc);
 }
 
-/**
- * kgsl_mem_entry_untrack_gpuaddr() - Untrack memory that is previously tracked
- * process - Pointer to process private to which memory belongs
- * entry - Memory entry to untrack
- *
- * Function just does the opposite of kgsl_mem_entry_track_gpuaddr. Needs to be
- * called with processes spin lock held
- */
-static void
-kgsl_mem_entry_untrack_gpuaddr(struct kgsl_process_private *process,
-				struct kgsl_mem_entry *entry)
-{
-	struct kgsl_pagetable *pagetable = entry->memdesc.pagetable;
-
-	if (entry->memdesc.gpuaddr)
-		kgsl_mmu_put_gpuaddr(pagetable, &entry->memdesc);
-}
-
 /* Commit the entry to the process so it can be accessed by other operations */
 static void kgsl_mem_entry_commit_process(struct kgsl_mem_entry *entry)
 {
@@ -446,7 +428,7 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 
 	if (id < 0) {
 		ret = id;
-		kgsl_mem_entry_untrack_gpuaddr(process, entry);
+		kgsl_mmu_put_gpuaddr(&entry->memdesc);
 		goto err_put_proc_priv;
 	}
 
@@ -485,7 +467,7 @@ err_put_proc_priv:
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 {
 	unsigned int type;
-	int ret;
+
 	if (entry == NULL)
 		return;
 
@@ -502,14 +484,7 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 	entry->priv->stats[type].cur -= entry->memdesc.size;
 	spin_unlock(&entry->priv->mem_lock);
 
-	ret = kgsl_mmu_unmap(entry->memdesc.pagetable, &entry->memdesc);
-	/*
-	 * Do not free the gpuaddr/size if unmap fails. Because if we try
-	 * to map this range in future, the iommu driver will throw
-	 * a BUG_ON() because it feels we are overwriting a mapping.
-	 */
-	if (ret == 0)
-		kgsl_mem_entry_untrack_gpuaddr(entry->priv, entry);
+	kgsl_mmu_put_gpuaddr(&entry->memdesc);
 
 	kgsl_process_private_put(entry->priv);
 
@@ -3048,7 +3023,7 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
-				private->pagetable, size, flags);
+		size, flags);
 	if (ret != 0)
 		goto err;
 
@@ -3251,7 +3226,7 @@ long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
 	kgsl_memdesc_set_align(&entry->memdesc, ilog2(param->pagesize));
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
-			process->pagetable, param->size, entry->memdesc.flags);
+			param->size, entry->memdesc.flags);
 	if (ret)
 		goto err_remove_idr;
 
@@ -4016,11 +3991,11 @@ static unsigned long _gpu_set_svm_region(struct kgsl_process_private *private,
 		return ret;
 
 	entry->memdesc.gpuaddr = (uint64_t) addr;
+	entry->memdesc.pagetable = private->pagetable;
 
 	ret = kgsl_mmu_map(private->pagetable, &entry->memdesc);
 	if (ret) {
-		kgsl_mmu_put_gpuaddr(private->pagetable,
-				&entry->memdesc);
+		kgsl_mmu_put_gpuaddr(&entry->memdesc);
 		return ret;
 	}
 
