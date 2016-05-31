@@ -1124,7 +1124,7 @@ extern void clear_boost_kick(int cpu);
 extern void clear_hmp_request(int cpu);
 extern void mark_task_starting(struct task_struct *p);
 extern void set_window_start(struct rq *rq);
-extern void migrate_sync_cpu(int cpu);
+extern void migrate_sync_cpu(int cpu, int new_cpu);
 extern void update_cluster_topology(void);
 extern void set_task_last_wake(struct task_struct *p, u64 wallclock);
 extern void set_task_last_switch_out(struct task_struct *p, u64 wallclock);
@@ -1478,7 +1478,7 @@ static inline void clear_boost_kick(int cpu) { }
 static inline void clear_hmp_request(int cpu) { }
 static inline void mark_task_starting(struct task_struct *p) { }
 static inline void set_window_start(struct rq *rq) { }
-static inline void migrate_sync_cpu(int cpu) { }
+static inline void migrate_sync_cpu(int cpu, int new_cpu) {}
 static inline void update_cluster_topology(void) { }
 static inline void set_task_last_wake(struct task_struct *p, u64 wallclock) { }
 static inline void set_task_last_switch_out(struct task_struct *p,
@@ -1991,6 +1991,7 @@ extern const struct sched_class idle_sched_class;
 extern void update_group_capacity(struct sched_domain *sd, int cpu);
 
 extern void trigger_load_balance(struct rq *rq);
+extern void nohz_balance_clear_nohz_mask(int cpu);
 
 extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask);
 

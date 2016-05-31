@@ -2785,10 +2785,10 @@ void set_window_start(struct rq *rq)
 	rq->curr->ravg.mark_start = rq->window_start;
 }
 
-void migrate_sync_cpu(int cpu)
+void migrate_sync_cpu(int cpu, int new_cpu)
 {
 	if (cpu == sync_cpu)
-		sync_cpu = smp_processor_id();
+		sync_cpu = new_cpu;
 }
 
 static void reset_all_task_stats(void)
