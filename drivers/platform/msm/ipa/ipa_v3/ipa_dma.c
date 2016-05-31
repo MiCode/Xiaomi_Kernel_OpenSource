@@ -838,7 +838,7 @@ void ipa3_dma_destroy(void)
  *
  * @priv -not in use.
  * @evt - event name - IPA_RECIVE.
- * @data -the ipa3_mem_buffer.
+ * @data -the ipa_mem_buffer.
  */
 void ipa3_dma_async_memcpy_notify_cb(void *priv
 			, enum ipa_dp_evt_type evt, unsigned long data)
@@ -847,11 +847,11 @@ void ipa3_dma_async_memcpy_notify_cb(void *priv
 	struct ipa3_dma_xfer_wrapper *xfer_descr_expected;
 	struct ipa3_sys_context *sys;
 	unsigned long flags;
-	struct ipa3_mem_buffer *mem_info;
+	struct ipa_mem_buffer *mem_info;
 
 	IPADMA_FUNC_ENTRY();
 
-	mem_info = (struct ipa3_mem_buffer *)data;
+	mem_info = (struct ipa_mem_buffer *)data;
 	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
 	sys = ipa3_ctx->ep[ep_idx].sys;
 

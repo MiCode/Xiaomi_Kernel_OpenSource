@@ -149,7 +149,7 @@ static int ipa_translate_rt_tbl_to_hw_fmt(enum ipa_ip_type ip,
 {
 	struct ipa3_rt_tbl_set *set;
 	struct ipa3_rt_tbl *tbl;
-	struct ipa3_mem_buffer tbl_mem;
+	struct ipa_mem_buffer tbl_mem;
 	u8 *tbl_mem_buf;
 	struct ipa3_rt_entry *entry;
 	int res;
@@ -314,7 +314,7 @@ static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
  * Return: 0 on success, negative on failure
  */
 static int ipa_alloc_init_rt_tbl_hdr(enum ipa_ip_type ip,
-	struct ipa3_mem_buffer *hash_hdr, struct ipa3_mem_buffer *nhash_hdr)
+	struct ipa_mem_buffer *hash_hdr, struct ipa_mem_buffer *nhash_hdr)
 {
 	int num_index;
 	u64 *hash_entr;
@@ -483,8 +483,8 @@ static void ipa_get_rt_tbl_lcl_bdy_size(enum ipa_ip_type ip,
  * Return: 0 on success, negative on failure
  */
 static int ipa_generate_rt_hw_tbl_img(enum ipa_ip_type ip,
-	struct ipa3_mem_buffer *hash_hdr, struct ipa3_mem_buffer *nhash_hdr,
-	struct ipa3_mem_buffer *hash_bdy, struct ipa3_mem_buffer *nhash_bdy)
+	struct ipa_mem_buffer *hash_hdr, struct ipa_mem_buffer *nhash_hdr,
+	struct ipa_mem_buffer *hash_bdy, struct ipa_mem_buffer *nhash_bdy)
 {
 	u32 hash_bdy_start_ofst, nhash_bdy_start_ofst;
 	u32 apps_start_idx;
@@ -604,7 +604,7 @@ no_rt_tbls:
  * Return: true if enough space available or false in other cases
  */
 static bool ipa_rt_valid_lcl_tbl_size(enum ipa_ip_type ipt,
-	enum ipa_rule_type rlt, struct ipa3_mem_buffer *bdy)
+	enum ipa_rule_type rlt, struct ipa_mem_buffer *bdy)
 {
 	u16 avail;
 
@@ -639,8 +639,8 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	struct ipahal_imm_cmd_dma_shared_mem  mem_cmd = {0};
 	struct ipahal_imm_cmd_pyld *cmd_pyld[5];
 	int num_cmd = 0;
-	struct ipa3_mem_buffer hash_bdy, nhash_bdy;
-	struct ipa3_mem_buffer hash_hdr, nhash_hdr;
+	struct ipa_mem_buffer hash_bdy, nhash_bdy;
+	struct ipa_mem_buffer hash_hdr, nhash_hdr;
 	u32 num_modem_rt_index;
 	int rc = 0;
 	u32 lcl_hash_hdr, lcl_nhash_hdr;

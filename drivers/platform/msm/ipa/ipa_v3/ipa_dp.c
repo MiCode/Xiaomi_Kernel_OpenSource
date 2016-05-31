@@ -85,7 +85,7 @@ static void ipa3_alloc_wlan_rx_common_cache(u32 size);
 static void ipa3_cleanup_wlan_rx_common_cache(void);
 static void ipa3_wq_repl_rx(struct work_struct *work);
 static void ipa3_dma_memcpy_notify(struct ipa3_sys_context *sys,
-		struct ipa3_mem_buffer *mem_info);
+		struct ipa_mem_buffer *mem_info);
 static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	struct ipa3_ep_context *ep);
 static int ipa_populate_tag_field(struct ipa3_desc *desc,
@@ -2972,7 +2972,7 @@ static void ipa3_wlan_wq_rx_common(struct ipa3_sys_context *sys, u32 size)
 }
 
 static void ipa3_dma_memcpy_notify(struct ipa3_sys_context *sys,
-	struct ipa3_mem_buffer *mem_info)
+	struct ipa_mem_buffer *mem_info)
 {
 	IPADBG_LOW("ENTER.\n");
 	if (unlikely(list_empty(&sys->head_desc_list))) {
@@ -3949,7 +3949,7 @@ static int ipa_handle_rx_core_gsi(struct ipa3_sys_context *sys,
 	struct ipa3_sys_context *sys_ptr;
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
 	struct gsi_chan_xfer_notify xfer_notify;
-	struct ipa3_mem_buffer mem_info = {0};
+	struct ipa_mem_buffer mem_info = {0};
 	enum ipa_client_type client;
 
 	if (sys->ep->bytes_xfered_valid) {
@@ -4005,7 +4005,7 @@ static int ipa_handle_rx_core_sps(struct ipa3_sys_context *sys,
 	struct sps_iovec iov;
 	int ret;
 	int cnt = 0;
-	struct ipa3_mem_buffer mem_info = {0};
+	struct ipa_mem_buffer mem_info = {0};
 
 	while ((in_poll_state ? atomic_read(&sys->curr_polling_state) :
 			!atomic_read(&sys->curr_polling_state))) {
