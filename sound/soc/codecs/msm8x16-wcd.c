@@ -48,7 +48,8 @@
 #define MSM8X16_WCD_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000)
 #define MSM8X16_WCD_FORMATS (SNDRV_PCM_FMTBIT_S16_LE |\
-		SNDRV_PCM_FMTBIT_S24_LE)
+		SNDRV_PCM_FMTBIT_S24_LE |\
+		SNDRV_PCM_FMTBIT_S24_3LE)
 
 #define NUM_INTERPOLATORS	3
 #define BITS_PER_REG		8
@@ -4747,6 +4748,7 @@ static int msm8x16_wcd_hw_params(struct snd_pcm_substream *substream,
 				MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL, 0x20, 0x20);
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+	case SNDRV_PCM_FORMAT_S24_3LE:
 		snd_soc_update_bits(dai->codec,
 				MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL, 0x20, 0x00);
 		break;
