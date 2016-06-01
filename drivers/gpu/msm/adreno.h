@@ -85,6 +85,8 @@
 #define ADRENO_DRAWOBJ_RB(c)			\
 	((ADRENO_CONTEXT(c->context))->rb)
 
+#define ADRENO_FW(a, f)		(&(a->fw[f]))
+
 /* Adreno core features */
 /* The core uses OCMEM for GMEM/binning memory */
 #define ADRENO_USES_OCMEM     BIT(0)
@@ -154,6 +156,10 @@
 
 #define ADRENO_UCHE_GMEM_BASE	0x100000
 
+#define ADRENO_FW_PFP 0
+#define ADRENO_FW_SQE 0
+#define ADRENO_FW_PM4 1
+
 enum adreno_gpurev {
 	ADRENO_REV_UNKNOWN = 0,
 	ADRENO_REV_A304 = 304,
@@ -175,6 +181,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A512 = 512,
 	ADRENO_REV_A530 = 530,
 	ADRENO_REV_A540 = 540,
+	ADRENO_REV_A630 = 630,
 };
 
 #define ADRENO_START_WARM 0
@@ -253,6 +260,20 @@ struct adreno_busy_data {
 };
 
 /**
+ * struct adreno_firmware - Struct holding fw details
+ * @fwvirt: Buffer which holds the ucode
+ * @size: Size of ucode buffer
+ * @version: Version of ucode
+ * @memdesc: Memory descriptor which holds ucode buffer info
+ */
+struct adreno_firmware {
+	unsigned int *fwvirt;
+	size_t size;
+	unsigned int version;
+	struct kgsl_memdesc memdesc;
+};
+
+/**
  * struct adreno_gpu_core - A specific GPU core definition
  * @gpurev: Unique GPU revision identifier
  * @core: Match for the core version of the GPU
@@ -292,6 +313,7 @@ struct adreno_gpu_core {
 	unsigned long features;
 	const char *pm4fw_name;
 	const char *pfpfw_name;
+	const char *sqefw_name;
 	const char *zap_name;
 	struct adreno_gpudev *gpudev;
 	size_t gmem_size;
@@ -380,14 +402,7 @@ struct adreno_device {
 	unsigned long gmem_base;
 	unsigned long gmem_size;
 	const struct adreno_gpu_core *gpucore;
-	unsigned int *pfp_fw;
-	size_t pfp_fw_size;
-	unsigned int pfp_fw_version;
-	struct kgsl_memdesc pfp;
-	unsigned int *pm4_fw;
-	size_t pm4_fw_size;
-	unsigned int pm4_fw_version;
-	struct kgsl_memdesc pm4;
+	struct adreno_firmware fw[2];
 	size_t gpmu_cmds_size;
 	unsigned int *gpmu_cmds;
 	struct adreno_ringbuffer ringbuffers[KGSL_PRIORITY_MAX_RB_LEVELS];
@@ -874,6 +889,7 @@ extern unsigned int *adreno_ft_regs_val;
 extern struct adreno_gpudev adreno_a3xx_gpudev;
 extern struct adreno_gpudev adreno_a4xx_gpudev;
 extern struct adreno_gpudev adreno_a5xx_gpudev;
+extern struct adreno_gpudev adreno_a6xx_gpudev;
 
 extern int adreno_wake_nice;
 extern unsigned int adreno_wake_timeout;
@@ -1044,6 +1060,14 @@ static inline int adreno_is_a540v2(struct adreno_device *adreno_dev)
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A540) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
 }
+
+static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
+{
+	return ADRENO_GPUREV(adreno_dev) >= 600 &&
+			ADRENO_GPUREV(adreno_dev) < 700;
+}
+
+ADRENO_TARGET(a630, ADRENO_REV_A630)
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
@@ -1331,10 +1355,10 @@ static inline void adreno_context_debugfs_init(struct adreno_device *device,
 static inline int adreno_compare_pm4_version(struct adreno_device *adreno_dev,
 	unsigned int version)
 {
-	if (adreno_dev->pm4_fw_version == version)
+	if (adreno_dev->fw[ADRENO_FW_PM4].version == version)
 		return 0;
 
-	return (adreno_dev->pm4_fw_version > version) ? 1 : -1;
+	return (adreno_dev->fw[ADRENO_FW_PM4].version > version) ? 1 : -1;
 }
 
 /**
@@ -1348,10 +1372,10 @@ static inline int adreno_compare_pm4_version(struct adreno_device *adreno_dev,
 static inline int adreno_compare_pfp_version(struct adreno_device *adreno_dev,
 	unsigned int version)
 {
-	if (adreno_dev->pfp_fw_version == version)
+	if (adreno_dev->fw[ADRENO_FW_PFP].version == version)
 		return 0;
 
-	return (adreno_dev->pfp_fw_version > version) ? 1 : -1;
+	return (adreno_dev->fw[ADRENO_FW_PFP].version > version) ? 1 : -1;
 }
 
 /*

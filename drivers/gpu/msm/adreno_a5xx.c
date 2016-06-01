@@ -2202,15 +2202,17 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 {
 	void *ptr;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
+	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
 	uint64_t gpuaddr;
 
-	gpuaddr = adreno_dev->pm4.gpuaddr;
+	gpuaddr = pm4_fw->memdesc.gpuaddr;
 	kgsl_regwrite(device, A5XX_CP_PM4_INSTR_BASE_LO,
 				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_PM4_INSTR_BASE_HI,
 				upper_32_bits(gpuaddr));
 
-	gpuaddr = adreno_dev->pfp.gpuaddr;
+	gpuaddr = pfp_fw->memdesc.gpuaddr;
 	kgsl_regwrite(device, A5XX_CP_PFP_INSTR_BASE_LO,
 				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_PFP_INSTR_BASE_HI,
@@ -2486,8 +2488,7 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev,
 }
 
 static int _load_firmware(struct kgsl_device *device, const char *fwfile,
-			  struct kgsl_memdesc *ucode, size_t *ucode_size,
-			  unsigned int *ucode_version)
+			struct adreno_firmware *firmware)
 {
 	const struct firmware *fw = NULL;
 	int ret;
@@ -2500,15 +2501,15 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 		return ret;
 	}
 
-	ret = kgsl_allocate_global(device, ucode, fw->size - 4,
+	ret = kgsl_allocate_global(device, &firmware->memdesc, fw->size - 4,
 				KGSL_MEMFLAGS_GPUREADONLY, 0, "ucode");
 
 	if (ret)
 		goto done;
 
-	memcpy(ucode->hostptr, &fw->data[4], fw->size - 4);
-	*ucode_size = (fw->size - 4) / sizeof(uint32_t);
-	*ucode_version = *(unsigned int *)&fw->data[4];
+	memcpy(firmware->memdesc.hostptr, &fw->data[4], fw->size - 4);
+	firmware->size = (fw->size - 4) / sizeof(uint32_t);
+	firmware->version = *(unsigned int *)&fw->data[4];
 
 done:
 	release_firmware(fw);
@@ -2523,23 +2524,19 @@ done:
 static int a5xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
+	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
+	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
 
-	if (adreno_dev->pm4.hostptr == NULL) {
+	if (pm4_fw->memdesc.hostptr == NULL) {
 		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-				 adreno_dev->gpucore->pm4fw_name,
-				 &adreno_dev->pm4,
-				 &adreno_dev->pm4_fw_size,
-				 &adreno_dev->pm4_fw_version);
+				 adreno_dev->gpucore->pm4fw_name, pm4_fw);
 		if (ret)
 			return ret;
 	}
 
-	if (adreno_dev->pfp.hostptr == NULL) {
+	if (pfp_fw->memdesc.hostptr == NULL) {
 		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-				 adreno_dev->gpucore->pfpfw_name,
-				 &adreno_dev->pfp,
-				 &adreno_dev->pfp_fw_size,
-				 &adreno_dev->pfp_fw_version);
+				 adreno_dev->gpucore->pfpfw_name, pfp_fw);
 		if (ret)
 			return ret;
 	}

@@ -1036,7 +1036,8 @@ size_t adreno_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int i;
-	size_t size = adreno_dev->pm4_fw_size - 1;
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
+	size_t size = fw->size - 1;
 
 	if (remain < DEBUG_SECTION_SZ(size)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP PM4 RAM DEBUG");
@@ -1073,7 +1074,9 @@ size_t adreno_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i, size = adreno_dev->pfp_fw_size - 1;
+	int i;
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
+	int size = fw->size - 1;
 
 	if (remain < DEBUG_SECTION_SZ(size)) {
 		SNAPSHOT_ERR_NOMEM(device, "CP PFP RAM DEBUG");

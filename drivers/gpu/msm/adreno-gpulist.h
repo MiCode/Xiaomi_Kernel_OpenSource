@@ -304,4 +304,16 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
 	},
+	{
+		.gpurev = ADRENO_REV_A630,
+		.core = 6,
+		.major = 3,
+		.minor = 0,
+		.patchid = ANY_ID,
+		.features = ADRENO_64BIT,
+		.sqefw_name = "a630_sqe.fw",
+		.gpudev = &adreno_a6xx_gpudev,
+		.gmem_size = SZ_1M,
+		.num_protected_regs = 0x20,
+	},
 };

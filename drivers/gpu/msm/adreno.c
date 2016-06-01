@@ -91,9 +91,13 @@ static struct adreno_device device_3d0 = {
 		.mem_log = KGSL_LOG_LEVEL_DEFAULT,
 		.pwr_log = KGSL_LOG_LEVEL_DEFAULT,
 	},
+	.fw[0] = {
+		.fwvirt = NULL
+	},
+	.fw[1] = {
+		.fwvirt = NULL
+	},
 	.gmem_size = SZ_256K,
-	.pfp_fw = NULL,
-	.pm4_fw = NULL,
 	.ft_policy = KGSL_FT_DEFAULT_POLICY,
 	.ft_pf_policy = KGSL_FT_PAGEFAULT_DEFAULT_POLICY,
 	.long_ib_detect = 1,
@@ -1035,22 +1039,24 @@ out:
 static void _adreno_free_memories(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
+	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
 
 	if (test_bit(ADRENO_DEVICE_DRAWOBJ_PROFILE, &adreno_dev->priv))
 		kgsl_free_global(device, &adreno_dev->profile_buffer);
 
 	/* Free local copies of firmware and other command streams */
-	kfree(adreno_dev->pfp_fw);
-	adreno_dev->pfp_fw = NULL;
+	kfree(pfp_fw->fwvirt);
+	pfp_fw->fwvirt = NULL;
 
-	kfree(adreno_dev->pm4_fw);
-	adreno_dev->pm4_fw = NULL;
+	kfree(pm4_fw->fwvirt);
+	pm4_fw->fwvirt = NULL;
 
 	kfree(adreno_dev->gpmu_cmds);
 	adreno_dev->gpmu_cmds = NULL;
 
-	kgsl_free_global(device, &adreno_dev->pm4);
-	kgsl_free_global(device, &adreno_dev->pfp);
+	kgsl_free_global(device, &pfp_fw->memdesc);
+	kgsl_free_global(device, &pm4_fw->memdesc);
 }
 
 static int adreno_remove(struct platform_device *pdev)
@@ -1753,7 +1759,8 @@ static int adreno_getproperty(struct kgsl_device *device,
 		{
 			uint64_t gmem_vaddr = 0;
 
-			if (adreno_is_a5xx(adreno_dev))
+			if (adreno_is_a5xx(adreno_dev) ||
+					adreno_is_a6xx(adreno_dev))
 				gmem_vaddr = ADRENO_UCHE_GMEM_BASE;
 			if (sizebytes != sizeof(uint64_t)) {
 				status = -EINVAL;
@@ -1797,8 +1804,8 @@ static int adreno_getproperty(struct kgsl_device *device,
 			}
 			memset(&ucode, 0, sizeof(ucode));
 
-			ucode.pfp = adreno_dev->pfp_fw_version;
-			ucode.pm4 = adreno_dev->pm4_fw_version;
+			ucode.pfp = adreno_dev->fw[ADRENO_FW_PFP].version;
+			ucode.pm4 = adreno_dev->fw[ADRENO_FW_PM4].version;
 
 			if (copy_to_user(value, &ucode, sizeof(ucode))) {
 				status = -EFAULT;
