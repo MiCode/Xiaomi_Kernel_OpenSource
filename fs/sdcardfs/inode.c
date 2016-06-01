@@ -513,11 +513,11 @@ static int sdcardfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	}
 	/* At this point, not all dentry information has been moved, so
 	 * we pass along new_dentry for the name.*/
-	mutex_lock(&d_inode(old_dentry)->i_mutex);
+	inode_lock(d_inode(old_dentry));
 	get_derived_permission_new(new_dentry->d_parent, old_dentry, new_dentry);
 	fix_derived_permission(d_inode(old_dentry));
 	get_derive_permissions_recursive(old_dentry);
-	mutex_unlock(&d_inode(old_dentry)->i_mutex);
+	inode_unlock(d_inode(old_dentry));
 out:
 	unlock_rename(lower_old_dir_dentry, lower_new_dir_dentry);
 	dput(lower_old_dir_dentry);
@@ -703,10 +703,10 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	 * unlinked (no inode->i_sb and i_ino==0.  This happens if someone
 	 * tries to open(), unlink(), then ftruncate() a file.
 	 */
-	mutex_lock(&d_inode(lower_dentry)->i_mutex);
+	inode_lock(d_inode(lower_dentry));
 	err = notify_change(lower_dentry, &lower_ia, /* note: lower_ia */
 			NULL);
-	mutex_unlock(&d_inode(lower_dentry)->i_mutex);
+	inode_unlock(d_inode(lower_dentry));
 	if (current->mm)
 		up_write(&current->mm->mmap_sem);
 	if (err)
