@@ -315,6 +315,8 @@ void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 							vfe_dev, 0);
 	vfe_dev->hw_info->vfe_ops.platform_ops.enable_regulators(vfe_dev, 0);
 
+	msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id, 0, 0);
+
 	if (vfe_dev->pdev->id == 0)
 		id = CAM_AHB_CLIENT_VFE0;
 	else
