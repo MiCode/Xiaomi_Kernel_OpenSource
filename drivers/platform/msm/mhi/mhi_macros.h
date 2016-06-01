@@ -244,6 +244,10 @@
 #define MHI_CHAN_TYPE__MASK (3)
 #define MHI_CHAN_TYPE__SHIFT (6)
 
+#define PRESERVE_DB_STATE
+#define MHI_PRESERVE_DB_STATE__MASK (1)
+#define MHI_PRESERVE_DB_STATE__SHIFT (8)
+
 #define GET_CHAN_PROPS(_FIELD, _VAL) \
 	(((_VAL) >> MHI_##_FIELD ## __SHIFT) & MHI_##_FIELD ## __MASK)
 
