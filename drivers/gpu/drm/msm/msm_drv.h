@@ -184,6 +184,19 @@ struct msm_drm_private {
 	struct msm_evtlog evtlog;
 };
 
+/* Helper macro for accessing msm_drm_private's event log */
+#define MSM_EVTMSG(dev, msg, x, y)  do {                                       \
+		if ((dev) && ((struct drm_device *)(dev))->dev_private)        \
+			msm_evtlog_sample(&((struct msm_drm_private *)         \
+					((struct drm_device *)                 \
+					(dev))->dev_private)->evtlog, __func__,\
+					(msg), (uint64_t)(x), (uint64_t)(y),   \
+					__LINE__);                             \
+	} while (0)
+
+/* Helper macro for accessing msm_drm_private's event log */
+#define MSM_EVT(dev, x, y) MSM_EVTMSG((dev), 0, (x), (y))
+
 struct msm_format {
 	uint32_t pixel_format;
 };

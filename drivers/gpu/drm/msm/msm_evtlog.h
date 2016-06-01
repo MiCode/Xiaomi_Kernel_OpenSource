@@ -91,12 +91,4 @@ void msm_evtlog_sample(
 		uint64_t val2,
 		uint32_t line);
 
-/**
- * Helper macros
- */
-#define MSM_EVT_MSG(log, msg, x, y) ( \
-		msm_evtlog_sample((log), __func__, (msg), \
-			((uint64_t) x), (uint64_t)(y), __LINE__))
-#define MSM_EVT(log, x, y) MSM_EVT_MSG((log), 0, (x), (y))
-
 #endif /* MSM_MSM_EVTLOG_H_ */
