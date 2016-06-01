@@ -115,7 +115,7 @@ enum clk_osm_trace_packet_id {
 #define PLL_LOCK_DET_MASK	BIT(16)
 #define PLL_WAIT_LOCK_TIME_US 5
 #define PLL_WAIT_LOCK_TIME_NS	(PLL_WAIT_LOCK_TIME_US * 1000)
-#define PLL_MIN_LVAL 32
+#define PLL_MIN_LVAL 43
 
 #define CC_ZERO_BEHAV_CTRL 0x100C
 #define SPM_CC_DCVS_DISABLE 0x1020
