@@ -90,11 +90,13 @@ static void ring_all_chan_dbs(struct mhi_device_ctxt *mhi_dev_ctxt,
 	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
 		if (VALID_CHAN_NR(i)) {
 			local_ctxt = &mhi_dev_ctxt->mhi_local_chan_ctxt[i];
-			if (IS_HARDWARE_CHANNEL(i) && reset_db_mode)
-				mhi_dev_ctxt->flags.db_mode[i] = 1;
-			if ((local_ctxt->wp != local_ctxt->rp) ||
-			   ((local_ctxt->wp != local_ctxt->rp) &&
-			    (local_ctxt->dir == MHI_IN)))
+
+			/* Reset the DB Mode state to DB Mode */
+			if (local_ctxt->db_mode.preserve_db_state == 0
+			    && reset_db_mode)
+				local_ctxt->db_mode.db_mode = 1;
+
+			if (local_ctxt->wp != local_ctxt->rp)
 				conditional_chan_db_write(mhi_dev_ctxt, i);
 		}
 }
