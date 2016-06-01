@@ -581,7 +581,7 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	sde_debugfs_init(sde_kms);
 	msm_evtlog_init(&priv->evtlog, SDE_EVTLOG_SIZE,
 			sde_debugfs_get_root(sde_kms));
-	MSM_EVT(&priv->evtlog, 0, 0);
+	MSM_EVT(dev, 0, 0);
 
 	/*
 	 * modeset_init should create the DRM related objects i.e. CRTCs,
