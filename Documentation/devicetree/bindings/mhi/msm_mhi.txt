@@ -18,6 +18,11 @@ Required properties:
 	- qcom,msm-bus,num-paths
 	- qcom,msm-bus,vectors-KBps
   - mhi-chan-cfg-#: mhi channel configuration parameters for platform
+    defined as below <A B C D>:
+	    A = chan number
+	    B = maximum descriptors
+	    C = event ring associated with channel
+	    D = flags defined by mhi_macros.h GET_CHAN_PROPS
   - mhi-event-cfg-#: mhi event ring configuration parameters for platform
   - mhi-event-rings: number of event rings supported by platform
   - mhi-dev-address-win-size: size of the MHI device addressing window
