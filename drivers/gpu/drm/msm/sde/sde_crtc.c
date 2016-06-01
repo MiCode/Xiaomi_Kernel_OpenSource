@@ -362,7 +362,6 @@ static void sde_crtc_vblank_cb(void *data)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_kms *sde_kms = get_kms(crtc);
 	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
 	unsigned pending;
 
 	pending = atomic_xchg(&sde_crtc->pending, 0);
@@ -373,7 +372,7 @@ static void sde_crtc_vblank_cb(void *data)
 	if (sde_crtc->drm_requested_vblank) {
 		drm_handle_vblank(dev, sde_crtc->id);
 		DBG_IRQ("");
-		MSM_EVT(&priv->evtlog, sde_crtc->id, 0);
+		MSM_EVT(crtc->dev, sde_crtc->id, 0);
 	}
 }
 
