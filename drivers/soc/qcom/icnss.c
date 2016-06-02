@@ -118,6 +118,7 @@ struct icnss_driver_event {
 
 enum cnss_driver_state {
 	ICNSS_WLFW_QMI_CONNECTED,
+	ICNSS_POWER_ON,
 	ICNSS_FW_READY,
 	ICNSS_DRIVER_PROBED,
 	ICNSS_FW_TEST_MODE,
@@ -171,6 +172,7 @@ static struct icnss_data {
 		icnss_mem_region[QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01];
 	bool skip_qmi;
 	struct dentry *root_dentry;
+	spinlock_t on_off_lock;
 } *penv;
 
 static char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
@@ -391,32 +393,84 @@ static void icnss_hw_reset(struct icnss_data *pdata)
 static int icnss_hw_power_on(struct icnss_data *pdata)
 {
 	int ret = 0;
+	unsigned long flags;
 
 	icnss_pr_dbg("Power on: state: 0x%lx\n", pdata->state);
+
+	spin_lock_irqsave(&pdata->on_off_lock, flags);
+	if (test_bit(ICNSS_POWER_ON, &pdata->state)) {
+		spin_unlock_irqrestore(&pdata->on_off_lock, flags);
+		return ret;
+	}
+	set_bit(ICNSS_POWER_ON, &pdata->state);
+	spin_unlock_irqrestore(&pdata->on_off_lock, flags);
 
 	ret = icnss_vreg_set(VREG_ON);
 	if (ret)
 		goto out;
 
 	icnss_hw_release_reset(pdata);
+
+	return ret;
 out:
+	clear_bit(ICNSS_POWER_ON, &pdata->state);
 	return ret;
 }
 
 static int icnss_hw_power_off(struct icnss_data *pdata)
 {
 	int ret = 0;
+	unsigned long flags;
 
 	icnss_pr_dbg("Power off: 0x%lx\n", pdata->state);
+
+	spin_lock_irqsave(&pdata->on_off_lock, flags);
+	if (!test_bit(ICNSS_POWER_ON, &pdata->state)) {
+		spin_unlock_irqrestore(&pdata->on_off_lock, flags);
+		return ret;
+	}
+	clear_bit(ICNSS_POWER_ON, &pdata->state);
+	spin_unlock_irqrestore(&pdata->on_off_lock, flags);
 
 	icnss_hw_reset(pdata);
 
 	ret = icnss_vreg_set(VREG_OFF);
 	if (ret)
 		goto out;
+
+	return ret;
 out:
+	set_bit(ICNSS_POWER_ON, &pdata->state);
 	return ret;
 }
+
+int icnss_power_on(struct device *dev)
+{
+	struct icnss_data *priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Invalid drvdata: dev %p, data %p\n",
+			     dev, priv);
+		return -EINVAL;
+	}
+
+	return icnss_hw_power_on(priv);
+}
+EXPORT_SYMBOL(icnss_power_on);
+
+int icnss_power_off(struct device *dev)
+{
+	struct icnss_data *priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Invalid drvdata: dev %p, data %p\n",
+			     dev, priv);
+		return -EINVAL;
+	}
+
+	return icnss_hw_power_off(priv);
+}
+EXPORT_SYMBOL(icnss_power_off);
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
 {
@@ -1813,6 +1867,8 @@ static int icnss_probe(struct platform_device *pdev)
 	if (!penv)
 		return -ENOMEM;
 
+	dev_set_drvdata(dev, penv);
+
 	penv->pdev = pdev;
 
 	ret = icnss_dt_parse_vreg_info(dev, &penv->vreg_info, "vdd-io");
@@ -1918,6 +1974,7 @@ static int icnss_probe(struct platform_device *pdev)
 					       "qcom,skip-qmi");
 
 	spin_lock_init(&penv->event_lock);
+	spin_lock_init(&penv->on_off_lock);
 
 	penv->event_wq = alloc_workqueue("icnss_driver_event", 0, 0);
 	if (!penv->event_wq) {
@@ -1964,6 +2021,7 @@ unmap_mem_base:
 release_regulator:
 	icnss_release_resources();
 out:
+	dev_set_drvdata(dev, NULL);
 	devm_kfree(&pdev->dev, penv);
 	penv = NULL;
 	return ret;
@@ -1999,6 +2057,8 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_hw_power_off(penv);
 
 	icnss_release_resources();
+
+	dev_set_drvdata(&pdev->dev, NULL);
 
 	return 0;
 }

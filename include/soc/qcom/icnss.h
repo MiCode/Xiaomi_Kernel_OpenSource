@@ -98,5 +98,7 @@ extern int icnss_ce_request_irq(unsigned int ce_id,
 extern int icnss_get_ce_id(int irq);
 extern int icnss_set_fw_debug_mode(bool enable_fw_log);
 extern int icnss_get_irq(int ce_id);
+extern int icnss_power_on(struct device *dev);
+extern int icnss_power_off(struct device *dev);
 
 #endif /* _ICNSS_WLAN_H_ */
