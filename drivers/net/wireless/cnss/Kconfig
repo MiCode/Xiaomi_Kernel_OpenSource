@@ -76,3 +76,9 @@ config BUS_AUTO_SUSPEND
 	  requires CNSS driver support.
 
 source "drivers/net/wireless/cnss/logger/Kconfig"
+
+config WLAN_FEATURE_RX_WAKELOCK
+	bool "Enable RX wake lock feature"
+	help
+	Enable WLAN_FEATURE_HOLD_RX_WAKELOCK which is required to take rx
+	wakelock when driver receives packets from fw.
