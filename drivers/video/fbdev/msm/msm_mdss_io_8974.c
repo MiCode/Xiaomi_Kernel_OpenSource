@@ -1266,6 +1266,8 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 		devm_clk_put(dev, sdata->axi_clk);
 	if (sdata->ahb_clk)
 		devm_clk_put(dev, sdata->ahb_clk);
+	if (sdata->mnoc_clk)
+		devm_clk_put(dev, sdata->mnoc_clk);
 	if (sdata->mdp_core_clk)
 		devm_clk_put(dev, sdata->mdp_core_clk);
 }
@@ -1414,6 +1416,12 @@ int mdss_dsi_core_clk_init(struct platform_device *pdev,
 		sdata->mmss_misc_ahb_clk = NULL;
 		pr_debug("%s: Unable to get mmss misc ahb clk\n",
 			__func__);
+	}
+
+	sdata->mnoc_clk = devm_clk_get(dev, "mnoc_clk");
+	if (IS_ERR(sdata->mnoc_clk)) {
+		pr_debug("%s: Unable to get mnoc clk\n", __func__);
+		sdata->mnoc_clk = NULL;
 	}
 
 error:
@@ -1926,22 +1934,21 @@ error:
 }
 
 /**
- * mdss_dsi_clamp_ctrl() - Program DSI clamps for supporting power collapse
+ * mdss_dsi_clamp_ctrl_default() - Program DSI clamps
  * @ctrl: pointer to DSI controller structure
- * @enable: 1 to enable clamps, 0 to disable clamps
+ * @enable: true to enable clamps, false to disable clamps
  *
- * For idle-screen usecases with command mode panels, MDSS can be power
- * collapsed. However, DSI phy needs to remain on. To avoid any mismatch
- * between the DSI controller state, DSI phy needs to be clamped before
- * power collapsing. This function executes the required programming
- * sequence to configure these DSI clamps. This function should only be called
- * when the DSI link clocks are disabled.
+ * Execute the required programming sequence to configure DSI clamps.  This
+ * function would be called whenever there are no hardware version sepcific
+ * functions for programming the DSI clamps.  This function assumes that the
+ * core clocks are already on.
  */
-static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
+static int mdss_dsi_clamp_ctrl_default(struct mdss_dsi_ctrl_pdata *ctrl,
+	bool enable)
 {
 	struct mipi_panel_info *mipi = NULL;
 	u32 clamp_reg, regval = 0;
-	u32 clamp_reg_off, phyrst_reg_off;
+	u32 clamp_reg_off;
 
 	if (!ctrl) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1954,7 +1961,6 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 	}
 
 	clamp_reg_off = ctrl->shared_data->ulps_clamp_ctrl_off;
-	phyrst_reg_off = ctrl->shared_data->ulps_phyrst_ctrl_off;
 	mipi = &ctrl->panel_data.panel_info.mipi;
 
 	/* clock lane will always be clamped */
@@ -1984,7 +1990,8 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 	}
 	pr_debug("%s: called for ctrl%d, enable=%d, clamp_reg=0x%08x\n",
 		__func__, ctrl->ndx, enable, clamp_reg);
-	if (enable && !ctrl->mmss_clamp) {
+
+	if (enable) {
 		regval = MIPI_INP(ctrl->mmss_misc_io.base + clamp_reg_off);
 		/* Enable MMSS DSI Clamps */
 		if (ctrl->ndx == DSI_CTRL_0) {
@@ -1998,47 +2005,7 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval | ((clamp_reg << 16) | BIT(31)));
 		}
-		/* update clamp ctrl before setting phy reset disable */
-		wmb();
-
-		/*
-		 * This register write ensures that DSI PHY will not be
-		 * reset when mdss ahb clock reset is asserted while coming
-		 * out of power collapse
-		 */
-		if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-			MDSS_DSI_HW_REV_104) &&
-			(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-			MDSS_DSI_HW_REV_STEP_2)) {
-
-			regval = MIPI_INP(ctrl->mmss_misc_io.base +
-				clamp_reg_off);
-			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
-				regval | BIT(30));
-		} else {
-			MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off,
-				0x1);
-		}
-		/* make sure that clamp ctrl is updated before disable call */
-		wmb();
-		ctrl->mmss_clamp = true;
-	} else if (!enable && ctrl->mmss_clamp) {
-		if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-			MDSS_DSI_HW_REV_104) &&
-			(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-			MDSS_DSI_HW_REV_STEP_2)) {
-
-			regval = MIPI_INP(ctrl->mmss_misc_io.base +
-				clamp_reg_off);
-			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
-				regval & ~BIT(30));
-		} else {
-			MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off,
-				0x0);
-		}
-		/* update clamp ctrl before unsetting phy reset disable */
-		wmb();
-
+	} else {
 		regval = MIPI_INP(ctrl->mmss_misc_io.base + clamp_reg_off);
 		/* Disable MMSS DSI Clamps */
 		if (ctrl->ndx == DSI_CTRL_0)
@@ -2047,8 +2014,51 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		else if (ctrl->ndx == DSI_CTRL_1)
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval & ~((clamp_reg << 16) | BIT(31)));
-		/* make sure that clamp ctrl is updated before enable call */
-		wmb();
+	}
+
+	/* make sure clamps are configured */
+	wmb();
+
+	return 0;
+}
+
+/**
+ * mdss_dsi_clamp_ctrl() - Program DSI clamps for supporting power collapse
+ * @ctrl: pointer to DSI controller structure
+ * @enable: 1 to enable clamps, 0 to disable clamps
+ *
+ * For idle-screen usecases with command mode panels, MDSS can be power
+ * collapsed. However, DSI phy needs to remain on. To avoid any mismatch
+ * between the DSI controller state, DSI phy needs to be clamped before
+ * power collapsing. This function executes the required programming
+ * sequence to configure these DSI clamps. This function should only be called
+ * when the DSI link clocks are disabled.
+ */
+static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
+{
+	int rc = 0;
+
+	if (!ctrl) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: called for ctrl%d, enable=%d\n", __func__, ctrl->ndx,
+		enable);
+
+	if (enable && !ctrl->mmss_clamp) {
+		if (ctrl->shared_data->phy_rev < DSI_PHY_REV_30) {
+			rc = mdss_dsi_clamp_ctrl_default(ctrl, true);
+			if (rc)
+				goto error;
+		}
+		ctrl->mmss_clamp = true;
+	} else if (!enable && ctrl->mmss_clamp) {
+		if (ctrl->shared_data->phy_rev < DSI_PHY_REV_30) {
+			rc = mdss_dsi_clamp_ctrl_default(ctrl, false);
+			if (rc)
+				goto error;
+		}
 		ctrl->mmss_clamp = false;
 	} else {
 		pr_debug("%s: No change requested: %s -> %s\n", __func__,
@@ -2056,7 +2066,12 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 			enable ? "enabled" : "disabled");
 	}
 
-	return 0;
+error:
+	if (rc)
+		pr_err("%s: failed to %s clamps for ctrl%d\n", __func__,
+			enable ? "enable" : "disable", ctrl->ndx);
+
+	return rc;
 }
 
 DEFINE_MUTEX(dsi_clk_mutex);

@@ -29,6 +29,14 @@ Optional properties:
 			 1 = {110 C, 130 C, 150 C}
 			 2 = {115 C, 135 C, 155 C}
 			 3 = {120 C, 140 C, 160 C}
+- qcom,clock-rate:     Integer value which specifies the temperature monitoring
+			clock rate.  This property is only supported on GEN2
+			temperature alarm peripherals.
+			Supported values:
+			 0 = 100 Hz
+			 1 = 50 Hz
+			 2 = 25 Hz
+			 3 = 12.5 Hz
 - qcom,allow-override: Boolean which controls the ability of software to
 			override shutdowns.  If present, then software is
 			allowed to override automatic PMIC hardware stage 2 and

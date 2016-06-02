@@ -68,6 +68,7 @@ static u64 zcache_dup_entry;
 static u64 zcache_zbud_alloc_fail;
 static u64 zcache_evict_zpages;
 static u64 zcache_evict_filepages;
+static u64 zcache_inactive_pages_refused;
 static u64 zcache_reclaim_fail;
 static u64 zcache_pool_shrink;
 static u64 zcache_pool_shrink_fail;
@@ -78,7 +79,7 @@ static atomic_t zcache_stored_zero_pages = ATOMIC_INIT(0);
 
 #define GFP_ZCACHE \
 	(__GFP_FS | __GFP_NORETRY | __GFP_NOWARN | \
-		__GFP_NOMEMALLOC | __GFP_NO_KSWAPD | __GFP_ZERO)
+		__GFP_NOMEMALLOC | __GFP_ZERO)
 
 /*
  * Make sure this is different from radix tree
@@ -648,6 +649,17 @@ static void zcache_store_page(int pool_id, struct cleancache_filekey key,
 
 	struct zcache_pool *zpool = zcache.pools[pool_id];
 
+	/*
+	 * Zcache will be ineffective if the compressed memory pool is full with
+	 * compressed inactive file pages and most of them will never be used
+	 * again.
+	 * So we refuse to compress pages that are not from active file list.
+	 */
+	if (!PageWasActive(page)) {
+		zcache_inactive_pages_refused++;
+		return;
+	}
+
 	if (zcache_is_full()) {
 		zcache_pool_limit_hit++;
 		if (zbud_reclaim_page(zpool->pool, 8)) {
@@ -762,6 +774,7 @@ map:
 	/* update stats */
 	atomic_dec(&zcache_stored_pages);
 	zpool->size = zbud_get_pool_size(zpool->pool);
+	SetPageWasActive(page);
 	return ret;
 }
 

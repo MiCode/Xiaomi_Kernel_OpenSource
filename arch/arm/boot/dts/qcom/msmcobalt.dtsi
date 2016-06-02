@@ -273,7 +273,7 @@
 			reg = <0 0x8ac00000 0 0x6d00000>;
 		};
 
-		spss_mem: spss_region@8ab00000 {
+		spss_mem: spss_region@8ab00000 { /* for SPSS-PIL */
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x8ab00000 0 0x100000>;
@@ -293,6 +293,14 @@
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x1400000>;
+		};
+
+		sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>; /* 32-bit */
+			reusable;
+			alignment = <0 0x100000>;
+			size = <0 0x800000>;
 		};
 
 		secure_display_memory: secure_region {
@@ -872,6 +880,80 @@
 		<90 512 206000 960000>, <90 585 206000 960000>,    /* NOMINAL */
 		<90 512 206000 3600000>, <90 585 206000 3600000>;    /* TURBO */
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+
+		/* IPA RAM mmap */
+		qcom,ipa-ram-mmap = <
+				0x280	/* ofst_start; */
+				0x0	/* nat_ofst; */
+				0x0	/* nat_size; */
+				0x288	/* v4_flt_hash_ofst; */
+				0x78	/* v4_flt_hash_size; */
+				0x4000	/* v4_flt_hash_size_ddr; */
+				0x308	/* v4_flt_nhash_ofst; */
+				0x78	/* v4_flt_nhash_size; */
+				0x4000	/* v4_flt_nhash_size_ddr; */
+				0x388	/* v6_flt_hash_ofst; */
+				0x78	/* v6_flt_hash_size; */
+				0x4000	/* v6_flt_hash_size_ddr; */
+				0x408	/* v6_flt_nhash_ofst; */
+				0x78	/* v6_flt_nhash_size; */
+				0x4000	/* v6_flt_nhash_size_ddr; */
+				0xf	/* v4_rt_num_index; */
+				0x0	/* v4_modem_rt_index_lo; */
+				0x7	/* v4_modem_rt_index_hi; */
+				0x8	/* v4_apps_rt_index_lo; */
+				0xe	/* v4_apps_rt_index_hi; */
+				0x488	/* v4_rt_hash_ofst; */
+				0x78	/* v4_rt_hash_size; */
+				0x4000	/* v4_rt_hash_size_ddr; */
+				0x508	/* v4_rt_nhash_ofst; */
+				0x78	/* v4_rt_nhash_size; */
+				0x4000	/* v4_rt_nhash_size_ddr; */
+				0xf	/* v6_rt_num_index; */
+				0x0	/* v6_modem_rt_index_lo; */
+				0x7	/* v6_modem_rt_index_hi; */
+				0x8	/* v6_apps_rt_index_lo; */
+				0xe	/* v6_apps_rt_index_hi; */
+				0x588	/* v6_rt_hash_ofst; */
+				0x78	/* v6_rt_hash_size; */
+				0x4000	/* v6_rt_hash_size_ddr; */
+				0x608	/* v6_rt_nhash_ofst; */
+				0x78	/* v6_rt_nhash_size; */
+				0x4000	/* v6_rt_nhash_size_ddr; */
+				0x688	/* modem_hdr_ofst; */
+				0x140	/* modem_hdr_size; */
+				0x7c8	/* apps_hdr_ofst; */
+				0x0	/* apps_hdr_size; */
+				0x800	/* apps_hdr_size_ddr; */
+				0x7d0	/* modem_hdr_proc_ctx_ofst; */
+				0x200	/* modem_hdr_proc_ctx_size; */
+				0x9d0	/* apps_hdr_proc_ctx_ofst; */
+				0x200	/* apps_hdr_proc_ctx_size; */
+				0x0	/* apps_hdr_proc_ctx_size_ddr; */
+				0x0	/* modem_comp_decomp_ofst; diff */
+				0x0	/* modem_comp_decomp_size; diff */
+				0xbd8	/* modem_ofst; */
+				0x1424	/* modem_size; */
+				0x1ffc	/* apps_v4_flt_hash_ofst; */
+				0x0	/* apps_v4_flt_hash_size; */
+				0x1ffc	/* apps_v4_flt_nhash_ofst; */
+				0x0	/* apps_v4_flt_nhash_size; */
+				0x1ffc	/* apps_v6_flt_hash_ofst; */
+				0x0	/* apps_v6_flt_hash_size; */
+				0x1ffc	/* apps_v6_flt_nhash_ofst; */
+				0x0	/* apps_v6_flt_nhash_size; */
+				0x80	/* uc_info_ofst; */
+				0x200	/* uc_info_size; */
+				0x2000	/* end_ofst; */
+				0x1ffc	/* apps_v4_rt_hash_ofst; */
+				0x0	/* apps_v4_rt_hash_size; */
+				0x1ffc	/* apps_v4_rt_nhash_ofst; */
+				0x0	/* apps_v4_rt_nhash_size; */
+				0x1ffc	/* apps_v6_rt_hash_ofst; */
+				0x0	/* apps_v6_rt_hash_size; */
+				0x1ffc	/* apps_v6_rt_nhash_ofst; */
+				0x0	/* apps_v6_rt_nhash_size; */
+				>;
 
 		/* smp2p gpio information */
 		qcom,smp2pgpio_map_ipa_1_out {

@@ -1532,6 +1532,29 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 					ipa_ep_cfg.cfg.cs_offload_en =
 					IPA_ENABLE_CS_OFFLOAD_DL;
 
+			if ((extend_ioctl_data.u.data) &
+					RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {
+				IPAWANERR("get AGG size %d count %d\n",
+					extend_ioctl_data.u.
+					ingress_format.agg_size,
+					extend_ioctl_data.u.
+					ingress_format.agg_count);
+				if (!ipa_disable_apps_wan_cons_deaggr(
+					extend_ioctl_data.u.
+					ingress_format.agg_size,
+					extend_ioctl_data.
+					u.ingress_format.agg_count)) {
+					rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
+					ipa_ep_cfg.aggr.aggr_byte_limit =
+					extend_ioctl_data.u.ingress_format.
+					agg_size;
+					rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
+					ipa_ep_cfg.aggr.aggr_pkt_limit =
+					extend_ioctl_data.u.ingress_format.
+					agg_count;
+				}
+			}
+
 			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.
 				hdr_len = 4;
 			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.

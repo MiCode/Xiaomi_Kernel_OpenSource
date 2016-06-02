@@ -29,7 +29,6 @@
 #include <linux/platform_device.h>
 #include <linux/firmware.h>
 #include "ipa_hw_defs.h"
-#include "ipa_ram_mmap.h"
 #include "ipa_qmi_service.h"
 #include "../ipa_api.h"
 #include "ipahal/ipahal_reg.h"
@@ -93,6 +92,10 @@
 #define WLAN2_CONS_RX_EP  16
 #define WLAN3_CONS_RX_EP  17
 #define WLAN4_CONS_RX_EP  18
+
+#define IPA_RAM_NAT_OFST    0
+#define IPA_RAM_NAT_SIZE    0
+#define IPA_MEM_CANARY_VAL 0xdeadbeef
 
 #define IPA_STATS
 
@@ -192,13 +195,6 @@
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
 #define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition.x_)
 
-#define IPA_SMMU_AP_VA_START 0x1000
-#define IPA_SMMU_AP_VA_SIZE 0x40000000
-#define IPA_SMMU_AP_VA_END (IPA_SMMU_AP_VA_START +  IPA_SMMU_AP_VA_SIZE)
-#define IPA_SMMU_UC_VA_START 0x40000000
-#define IPA_SMMU_UC_VA_SIZE 0x20000000
-#define IPA_SMMU_UC_VA_END (IPA_SMMU_UC_VA_START +  IPA_SMMU_UC_VA_SIZE)
-
 #define IPA_GSI_CHANNEL_STOP_MAX_RETRY 10
 #define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
 
@@ -239,6 +235,9 @@ struct ipa_smmu_cb_ctx {
 	struct dma_iommu_mapping *mapping;
 	struct iommu_domain *iommu;
 	unsigned long next_addr;
+	u32 va_start;
+	u32 va_size;
+	u32 va_end;
 };
 
 /**
@@ -1351,6 +1350,7 @@ struct ipa3_ready_cb_info {
  * @uc_wdi_ctx: WDI specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
+ * @ipa_client_apps_wan_cons_agg_gro: RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA
  * @apply_rg10_wa: Indicates whether to use register group 10 workaround
  * @gsi_ch20_wa: Indicates whether to apply GSI physical channel 20 workaround
  * @w_lock: Indicates the wakeup source.
@@ -1376,6 +1376,7 @@ struct ipa3_context {
 	struct ipa3_flt_tbl flt_tbl[IPA3_MAX_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
+	u32 ipa_wrapper_size;
 	struct ipa3_hdr_tbl hdr_tbl;
 	struct ipa3_hdr_proc_ctx_tbl hdr_proc_ctx_tbl;
 	struct ipa3_rt_tbl_set rt_tbl_set[IPA_IP_MAX];
@@ -1523,77 +1524,155 @@ struct ipa3_plat_drv_res {
 	bool tethered_flow_control;
 };
 
+/**
+ * struct ipa3_mem_partition - represents IPA RAM Map as read from DTS
+ * Order and type of members should not be changed without a suitable change
+ * to DTS file or the code that reads it.
+ *
+ * IPA v3.0 SRAM memory layout:
+ * +-------------------------+
+ * |    UC INFO              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 FLT HDR HASHABLE     |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 FLT HDR NON-HASHABLE |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 FLT HDR HASHABLE     |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 FLT HDR NON-HASHABLE |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 RT HDR HASHABLE      |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 RT HDR NON-HASHABLE  |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 RT HDR HASHABLE      |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 RT HDR NON-HASHABLE  |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |  MODEM HDR              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | MODEM PROC CTX          |
+ * +-------------------------+
+ * | APPS PROC CTX           |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |  MODEM MEM              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ */
 struct ipa3_mem_partition {
-	u16 ofst_start;
-	u16 nat_ofst;
-	u16 nat_size;
-	u16 v4_flt_hash_ofst;
-	u16 v4_flt_hash_size;
-	u16 v4_flt_hash_size_ddr;
-	u16 v4_flt_nhash_ofst;
-	u16 v4_flt_nhash_size;
-	u16 v4_flt_nhash_size_ddr;
-	u16 v6_flt_hash_ofst;
-	u16 v6_flt_hash_size;
-	u16 v6_flt_hash_size_ddr;
-	u16 v6_flt_nhash_ofst;
-	u16 v6_flt_nhash_size;
-	u16 v6_flt_nhash_size_ddr;
-	u16 v4_rt_num_index;
-	u16 v4_modem_rt_index_lo;
-	u16 v4_modem_rt_index_hi;
-	u16 v4_apps_rt_index_lo;
-	u16 v4_apps_rt_index_hi;
-	u16 v4_rt_hash_ofst;
-	u16 v4_rt_hash_size;
-	u16 v4_rt_hash_size_ddr;
-	u16 v4_rt_nhash_ofst;
-	u16 v4_rt_nhash_size;
-	u16 v4_rt_nhash_size_ddr;
-	u16 v6_rt_num_index;
-	u16 v6_modem_rt_index_lo;
-	u16 v6_modem_rt_index_hi;
-	u16 v6_apps_rt_index_lo;
-	u16 v6_apps_rt_index_hi;
-	u16 v6_rt_hash_ofst;
-	u16 v6_rt_hash_size;
-	u16 v6_rt_hash_size_ddr;
-	u16 v6_rt_nhash_ofst;
-	u16 v6_rt_nhash_size;
-	u16 v6_rt_nhash_size_ddr;
-	u16 modem_hdr_ofst;
-	u16 modem_hdr_size;
-	u16 apps_hdr_ofst;
-	u16 apps_hdr_size;
-	u16 apps_hdr_size_ddr;
-	u16 modem_hdr_proc_ctx_ofst;
-	u16 modem_hdr_proc_ctx_size;
-	u16 apps_hdr_proc_ctx_ofst;
-	u16 apps_hdr_proc_ctx_size;
-	u16 apps_hdr_proc_ctx_size_ddr;
-	u16 modem_comp_decomp_ofst;
-	u16 modem_comp_decomp_size;
-	u16 modem_ofst;
-	u16 modem_size;
-	u16 apps_v4_flt_hash_ofst;
-	u16 apps_v4_flt_hash_size;
-	u16 apps_v4_flt_nhash_ofst;
-	u16 apps_v4_flt_nhash_size;
-	u16 apps_v6_flt_hash_ofst;
-	u16 apps_v6_flt_hash_size;
-	u16 apps_v6_flt_nhash_ofst;
-	u16 apps_v6_flt_nhash_size;
-	u16 uc_info_ofst;
-	u16 uc_info_size;
-	u16 end_ofst;
-	u16 apps_v4_rt_hash_ofst;
-	u16 apps_v4_rt_hash_size;
-	u16 apps_v4_rt_nhash_ofst;
-	u16 apps_v4_rt_nhash_size;
-	u16 apps_v6_rt_hash_ofst;
-	u16 apps_v6_rt_hash_size;
-	u16 apps_v6_rt_nhash_ofst;
-	u16 apps_v6_rt_nhash_size;
+	u32 ofst_start;
+	u32 nat_ofst;
+	u32 nat_size;
+	u32 v4_flt_hash_ofst;
+	u32 v4_flt_hash_size;
+	u32 v4_flt_hash_size_ddr;
+	u32 v4_flt_nhash_ofst;
+	u32 v4_flt_nhash_size;
+	u32 v4_flt_nhash_size_ddr;
+	u32 v6_flt_hash_ofst;
+	u32 v6_flt_hash_size;
+	u32 v6_flt_hash_size_ddr;
+	u32 v6_flt_nhash_ofst;
+	u32 v6_flt_nhash_size;
+	u32 v6_flt_nhash_size_ddr;
+	u32 v4_rt_num_index;
+	u32 v4_modem_rt_index_lo;
+	u32 v4_modem_rt_index_hi;
+	u32 v4_apps_rt_index_lo;
+	u32 v4_apps_rt_index_hi;
+	u32 v4_rt_hash_ofst;
+	u32 v4_rt_hash_size;
+	u32 v4_rt_hash_size_ddr;
+	u32 v4_rt_nhash_ofst;
+	u32 v4_rt_nhash_size;
+	u32 v4_rt_nhash_size_ddr;
+	u32 v6_rt_num_index;
+	u32 v6_modem_rt_index_lo;
+	u32 v6_modem_rt_index_hi;
+	u32 v6_apps_rt_index_lo;
+	u32 v6_apps_rt_index_hi;
+	u32 v6_rt_hash_ofst;
+	u32 v6_rt_hash_size;
+	u32 v6_rt_hash_size_ddr;
+	u32 v6_rt_nhash_ofst;
+	u32 v6_rt_nhash_size;
+	u32 v6_rt_nhash_size_ddr;
+	u32 modem_hdr_ofst;
+	u32 modem_hdr_size;
+	u32 apps_hdr_ofst;
+	u32 apps_hdr_size;
+	u32 apps_hdr_size_ddr;
+	u32 modem_hdr_proc_ctx_ofst;
+	u32 modem_hdr_proc_ctx_size;
+	u32 apps_hdr_proc_ctx_ofst;
+	u32 apps_hdr_proc_ctx_size;
+	u32 apps_hdr_proc_ctx_size_ddr;
+	u32 modem_comp_decomp_ofst;
+	u32 modem_comp_decomp_size;
+	u32 modem_ofst;
+	u32 modem_size;
+	u32 apps_v4_flt_hash_ofst;
+	u32 apps_v4_flt_hash_size;
+	u32 apps_v4_flt_nhash_ofst;
+	u32 apps_v4_flt_nhash_size;
+	u32 apps_v6_flt_hash_ofst;
+	u32 apps_v6_flt_hash_size;
+	u32 apps_v6_flt_nhash_ofst;
+	u32 apps_v6_flt_nhash_size;
+	u32 uc_info_ofst;
+	u32 uc_info_size;
+	u32 end_ofst;
+	u32 apps_v4_rt_hash_ofst;
+	u32 apps_v4_rt_hash_size;
+	u32 apps_v4_rt_nhash_ofst;
+	u32 apps_v4_rt_nhash_size;
+	u32 apps_v6_rt_hash_ofst;
+	u32 apps_v6_rt_hash_size;
+	u32 apps_v6_rt_nhash_ofst;
+	u32 apps_v6_rt_nhash_size;
 };
 
 struct ipa3_controller {
@@ -2002,6 +2081,7 @@ void ipa3_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size);
 #else
 #define IPA_DUMP_BUFF(base, phy_base, size)
 #endif
+int ipa3_init_mem_partition(struct device_node *dev_node);
 int ipa3_controller_static_bind(struct ipa3_controller *controller,
 		enum ipa_hw_type ipa_hw_type);
 int ipa3_cfg_route(struct ipahal_reg_route *route);
@@ -2151,9 +2231,14 @@ struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx);
 void ipa3_uc_rg10_write_reg(enum ipahal_reg_name reg, u32 n, u32 val);
 
 u32 ipa3_get_num_pipes(void);
+struct ipa_smmu_cb_ctx *ipa3_get_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void);
-struct iommu_domain *ipa_get_uc_smmu_domain(void);
+struct iommu_domain *ipa3_get_smmu_domain(void);
+struct iommu_domain *ipa3_get_uc_smmu_domain(void);
+struct iommu_domain *ipa3_get_wlan_smmu_domain(void);
+int ipa3_iommu_map(struct iommu_domain *domain, unsigned long iova,
+	phys_addr_t paddr, size_t size, int prot);
 int ipa3_ap_suspend(struct device *dev);
 int ipa3_ap_resume(struct device *dev);
 int ipa3_init_interrupts(void);

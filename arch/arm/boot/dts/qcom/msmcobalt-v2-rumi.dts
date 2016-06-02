@@ -22,3 +22,8 @@
 	compatible = "qcom,msmcobalt-rumi", "qcom,msmcobalt", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };
+
+&gfx_stub_vreg {
+	regulator-max-microvolt = <8>;
+	status = "okay";
+};

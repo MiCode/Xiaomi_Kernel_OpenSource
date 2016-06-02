@@ -27,6 +27,11 @@ bool debug_fw; /* = false; */
 module_param(debug_fw, bool, S_IRUGO);
 MODULE_PARM_DESC(debug_fw, " do not perform card reset. For FW debug");
 
+static bool oob_mode;
+module_param(oob_mode, bool, S_IRUGO);
+MODULE_PARM_DESC(oob_mode,
+		 " enable out of the box (OOB) mode in FW, for diagnostics and certification");
+
 bool no_fw_recovery;
 module_param(no_fw_recovery, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(no_fw_recovery, " disable automatic FW error recovery");
@@ -305,6 +310,11 @@ void wil_set_recovery_state(struct wil6210_priv *wil, int state)
 	wake_up_interruptible(&wil->wq);
 }
 
+bool wil_is_recovery_blocked(struct wil6210_priv *wil)
+{
+	return no_fw_recovery && (wil->recovery_state == fw_recovery_pending);
+}
+
 static void wil_fw_error_worker(struct work_struct *work)
 {
 	struct wil6210_priv *wil = container_of(work, struct wil6210_priv,
@@ -446,6 +456,7 @@ int wil_priv_init(struct wil6210_priv *wil)
 	mutex_init(&wil->mutex);
 	mutex_init(&wil->wmi_mutex);
 	mutex_init(&wil->probe_client_mutex);
+	mutex_init(&wil->p2p_wdev_mutex);
 
 	init_completion(&wil->wmi_ready);
 	init_completion(&wil->wmi_call);
@@ -453,6 +464,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 	wil->bcast_vring = -1;
 	setup_timer(&wil->connect_timer, wil_connect_timer_fn, (ulong)wil);
 	setup_timer(&wil->scan_timer, wil_scan_timer_fn, (ulong)wil);
+	setup_timer(&wil->p2p.discovery_timer, wil_p2p_discovery_timer_fn,
+		    (ulong)wil);
 
 	INIT_WORK(&wil->disconnect_worker, wil_disconnect_worker);
 	INIT_WORK(&wil->wmi_event_worker, wmi_event_worker);
@@ -513,8 +526,10 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 
 	wil_set_recovery_state(wil, fw_recovery_idle);
 	del_timer_sync(&wil->scan_timer);
+	del_timer_sync(&wil->p2p.discovery_timer);
 	cancel_work_sync(&wil->disconnect_worker);
 	cancel_work_sync(&wil->fw_error_worker);
+	cancel_work_sync(&wil->p2p.discovery_expired_work);
 	mutex_lock(&wil->mutex);
 	wil6210_disconnect(wil, NULL, WLAN_REASON_DEAUTH_LEAVING, false);
 	mutex_unlock(&wil->mutex);
@@ -535,6 +550,16 @@ static inline void wil_release_cpu(struct wil6210_priv *wil)
 {
 	/* Start CPU */
 	wil_w(wil, RGF_USER_USER_CPU_0, 1);
+}
+
+static void wil_set_oob_mode(struct wil6210_priv *wil, bool enable)
+{
+	wil_info(wil, "%s: enable=%d\n", __func__, enable);
+	if (enable) {
+		wil_s(wil, RGF_USER_USAGE_6, BIT_USER_OOB_MODE);
+	} else {
+		wil_c(wil, RGF_USER_USAGE_6, BIT_USER_OOB_MODE);
+	}
 }
 
 static int wil_target_reset(struct wil6210_priv *wil)
@@ -816,6 +841,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	if (rc)
 		return rc;
 
+	wil_set_oob_mode(wil, oob_mode);
 	if (load_fw) {
 		wil_info(wil, "Use firmware <%s> + board <%s>\n", WIL_FW_NAME,
 			 WIL_FW2_NAME);
@@ -981,6 +1007,8 @@ int __wil_down(struct wil6210_priv *wil)
 		wil_dbg_misc(wil, "NAPI disable\n");
 	}
 	wil_enable_irq(wil);
+
+	(void)wil_p2p_stop_discovery(wil);
 
 	if (wil->scan_request) {
 		wil_dbg_misc(wil, "Abort scan_request 0x%p\n",

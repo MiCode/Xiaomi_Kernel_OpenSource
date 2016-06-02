@@ -1372,11 +1372,12 @@ static int modify_ion_addr(void *buf,
 	size_t len;
 	int fd;
 	uint32_t buf_offset;
-	uint64_t *addr;
+	char *ptr = (char *)buf;
 	int ret;
 
 	fd = ion_info.fd;
 	buf_offset = ion_info.buf_offset;
+	ptr += buf_offset;
 
 	if (fd < 0) {
 		pr_err("invalid fd [%d].\n", fd);
@@ -1403,13 +1404,14 @@ static int modify_ion_addr(void *buf,
 		ion_free(spcom_dev->ion_client, handle);
 		return -EINVAL;
 	}
-	pr_debug("buf_offset [%d].\n", buf_offset);
-	addr = (uint64_t *) ((char *) buf + buf_offset);
+	if (buf_offset % sizeof(uint64_t))
+		pr_debug("offset [%d] is NOT 64-bit aligned.\n", buf_offset);
+	else
+		pr_debug("offset [%d] is 64-bit aligned.\n", buf_offset);
 
-	/* Replace the user ION Virtual Address with the Physical Address */
-	pr_debug("ion user vaddr = [0x%lx].\n", (long int) *addr);
-	*addr = (uint64_t) ion_phys_addr;
-	pr_debug("ion phys addr = [0x%lx].\n", (long int) *addr);
+	/* Set the ION Physical Address at the buffer offset */
+	pr_debug("ion phys addr = [0x%lx].\n", (long int) ion_phys_addr);
+	memcpy(ptr, &ion_phys_addr, sizeof(uint64_t));
 
 	/* Release the ION handle */
 	ion_free(spcom_dev->ion_client, handle);
@@ -1520,12 +1522,6 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 		return -ENODEV;
 	}
 
-	/* Check if this FD is already locked */
-	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++)
-		if (ch->ion_fd_table[i] == fd) {
-			pr_debug("fd [%d] is already locked.\n", fd);
-			return -EINVAL;
-	       }
 
 	/* Get ION handle from fd - this increments the ref count */
 	ion_handle = ion_import_dma_buf(spcom_dev->ion_client, fd);
@@ -1535,6 +1531,17 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 	}
 	pr_debug("ion handle ok.\n");
 
+	/* Check if this ION buffer is already locked */
+	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
+		if (ch->ion_handle_table[i] == ion_handle) {
+			pr_debug("fd [%d] ion buf is already locked.\n", fd);
+			/* decrement back the ref count */
+			ion_free(spcom_dev->ion_client, ion_handle);
+			return -EINVAL;
+		}
+	}
+
+       /* Store the ION handle */
 	for (i = 0 ; i < SPCOM_MAX_ION_BUF ; i++) {
 		if (ch->ion_handle_table[i] == NULL) {
 			ch->ion_handle_table[i] = ion_handle;

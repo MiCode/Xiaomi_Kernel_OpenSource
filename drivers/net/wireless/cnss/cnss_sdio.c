@@ -29,6 +29,8 @@
 #include <net/cnss.h>
 #include <net/cnss_common.h>
 #include <linux/pm_qos.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_DSRC_NAME	"vdd-wlan-dsrc"
@@ -83,6 +85,12 @@ struct cnss_wlan_pinctrl_info {
 	struct pinctrl_state *active;
 };
 
+struct cnss_sdio_bus_bandwidth {
+	struct msm_bus_scale_pdata *bus_scale_table;
+	u32 bus_client;
+	int current_bandwidth_vote;
+};
+
 static struct cnss_sdio_data {
 	struct cnss_sdio_regulator regulator;
 	struct platform_device *pdev;
@@ -90,6 +98,7 @@ static struct cnss_sdio_data {
 	struct cnss_ssr_info ssr_info;
 	struct pm_qos_request qos_request;
 	struct cnss_wlan_pinctrl_info pinctrl_info;
+	struct cnss_sdio_bus_bandwidth bus_bandwidth;
 } *cnss_pdata;
 
 #define WLAN_RECOVERY_DELAY 1
@@ -150,7 +159,37 @@ EXPORT_SYMBOL(cnss_sdio_request_pm_qos_type);
 
 int cnss_sdio_request_bus_bandwidth(int bandwidth)
 {
-	return 0;
+	int ret;
+	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	bus_bandwidth = &cnss_pdata->bus_bandwidth;
+	if (!bus_bandwidth->bus_client)
+		return -ENODEV;
+
+	switch (bandwidth) {
+	case CNSS_BUS_WIDTH_NONE:
+	case CNSS_BUS_WIDTH_LOW:
+	case CNSS_BUS_WIDTH_MEDIUM:
+	case CNSS_BUS_WIDTH_HIGH:
+		ret = msm_bus_scale_client_update_request(
+			bus_bandwidth->bus_client, bandwidth);
+		if (!ret) {
+			bus_bandwidth->current_bandwidth_vote = bandwidth;
+		} else {
+			pr_debug(
+			"%s: could not set bus bandwidth %d, ret = %d\n",
+			__func__, bandwidth, ret);
+		}
+		break;
+	default:
+		pr_debug("%s: Invalid request %d", __func__, bandwidth);
+		ret = -EINVAL;
+	}
+
+	return ret;
 }
 
 void cnss_sdio_request_pm_qos(u32 qos_val)
@@ -174,44 +213,6 @@ void cnss_sdio_remove_pm_qos(void)
 	pr_debug("%s: PM QoS removed\n", __func__);
 }
 EXPORT_SYMBOL(cnss_sdio_remove_pm_qos);
-
-int cnss_request_bus_bandwidth(int bandwidth)
-{
-	return 0;
-}
-EXPORT_SYMBOL(cnss_request_bus_bandwidth);
-
-void cnss_request_pm_qos_type(int latency_type, u32 qos_val)
-{
-	if (!cnss_pdata)
-		return;
-
-	pr_debug("%s: PM QoS value: %d\n", __func__, qos_val);
-	pm_qos_add_request(&cnss_pdata->qos_request, latency_type, qos_val);
-}
-EXPORT_SYMBOL(cnss_request_pm_qos_type);
-
-void cnss_request_pm_qos(u32 qos_val)
-{
-	if (!cnss_pdata)
-		return;
-
-	pr_debug("%s: PM QoS value: %d\n", __func__, qos_val);
-	pm_qos_add_request(
-		&cnss_pdata->qos_request,
-		PM_QOS_CPU_DMA_LATENCY, qos_val);
-}
-EXPORT_SYMBOL(cnss_request_pm_qos);
-
-void cnss_remove_pm_qos(void)
-{
-	if (!cnss_pdata)
-		return;
-
-	pm_qos_remove_request(&cnss_pdata->qos_request);
-	pr_debug("%s: PM QoS removed\n", __func__);
-}
-EXPORT_SYMBOL(cnss_remove_pm_qos);
 
 static int cnss_sdio_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
@@ -509,56 +510,17 @@ void cnss_sdio_device_crashed(void)
 	}
 }
 
-void *cnss_get_virt_ramdump_mem(unsigned long *size)
-{
-	if (!cnss_pdata || !cnss_pdata->pdev)
-		return NULL;
-
-	*size = cnss_pdata->ssr_info.ramdump_size;
-
-	return cnss_pdata->ssr_info.ramdump_addr;
-}
-EXPORT_SYMBOL(cnss_get_virt_ramdump_mem);
-
-void cnss_device_self_recovery(void)
-{
-	cnss_sdio_shutdown(NULL, false);
-	msleep(WLAN_RECOVERY_DELAY);
-	cnss_sdio_powerup(NULL);
-}
-EXPORT_SYMBOL(cnss_device_self_recovery);
-
 static void cnss_sdio_recovery_work_handler(struct work_struct *recovery)
 {
 	cnss_sdio_device_self_recovery();
 }
 
-DECLARE_WORK(recovery_work, cnss_sdio_recovery_work_handler);
+DECLARE_WORK(cnss_sdio_recovery_work, cnss_sdio_recovery_work_handler);
 
 void cnss_sdio_schedule_recovery_work(void)
 {
-	schedule_work(&recovery_work);
+	schedule_work(&cnss_sdio_recovery_work);
 }
-
-void cnss_schedule_recovery_work(void)
-{
-	schedule_work(&recovery_work);
-}
-EXPORT_SYMBOL(cnss_schedule_recovery_work);
-
-void cnss_device_crashed(void)
-{
-	struct cnss_ssr_info *ssr_info;
-
-	if (!cnss_pdata)
-		return;
-	ssr_info = &cnss_pdata->ssr_info;
-	if (ssr_info->subsys) {
-		subsys_set_crash_status(ssr_info->subsys, true);
-		subsystem_restart_dev(ssr_info->subsys);
-	}
-}
-EXPORT_SYMBOL(cnss_device_crashed);
 
 /**
  * cnss_get_restart_level() - cnss get restart level API
@@ -616,10 +578,17 @@ static void cnss_sdio_wlan_removed(struct sdio_func *func)
 static int cnss_sdio_wlan_suspend(struct device *dev)
 {
 	struct cnss_sdio_wlan_driver *wdrv;
+	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
 	int error = 0;
 
 	if (!cnss_pdata)
 		return -ENODEV;
+
+	bus_bandwidth = &cnss_pdata->bus_bandwidth;
+	if (bus_bandwidth->bus_client) {
+		msm_bus_scale_client_update_request(
+			bus_bandwidth->bus_client, CNSS_BUS_WIDTH_NONE);
+	}
 
 	wdrv = cnss_pdata->cnss_sdio_info.wdrv;
 	if (!wdrv) {
@@ -641,10 +610,18 @@ static int cnss_sdio_wlan_suspend(struct device *dev)
 static int cnss_sdio_wlan_resume(struct device *dev)
 {
 	struct cnss_sdio_wlan_driver *wdrv;
+	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
 	int error = 0;
 
 	if (!cnss_pdata)
 		return -ENODEV;
+
+	bus_bandwidth = &cnss_pdata->bus_bandwidth;
+	if (bus_bandwidth->bus_client) {
+		msm_bus_scale_client_update_request(
+			bus_bandwidth->bus_client,
+			bus_bandwidth->current_bandwidth_vote);
+	}
 
 	wdrv = cnss_pdata->cnss_sdio_info.wdrv;
 	if (!wdrv) {
@@ -746,9 +723,16 @@ void
 cnss_sdio_wlan_unregister_driver(struct cnss_sdio_wlan_driver *driver)
 {
 	struct cnss_sdio_info *cnss_info;
+	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
 
 	if (!cnss_pdata)
 		return;
+
+	bus_bandwidth = &cnss_pdata->bus_bandwidth;
+	if (bus_bandwidth->bus_client) {
+		msm_bus_scale_client_update_request(
+			bus_bandwidth->bus_client, CNSS_BUS_WIDTH_NONE);
+	}
 
 	cnss_info = &cnss_pdata->cnss_sdio_info;
 	if (!cnss_info->wdrv) {
@@ -825,6 +809,18 @@ static void cnss_sdio_wlan_exit(void)
 		return;
 
 	sdio_unregister_driver(&cnss_ar6k_driver);
+}
+
+static void cnss_sdio_deinit_bus_bandwidth(void)
+{
+	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
+
+	bus_bandwidth = &cnss_pdata->bus_bandwidth;
+	if (bus_bandwidth->bus_client) {
+		msm_bus_scale_client_update_request(
+			bus_bandwidth->bus_client, CNSS_BUS_WIDTH_NONE);
+		msm_bus_scale_unregister_client(bus_bandwidth->bus_client);
+	}
 }
 
 static int cnss_sdio_configure_wlan_enable_regulator(void)
@@ -1022,6 +1018,29 @@ release_pinctrl:
 	return ret;
 }
 
+static int cnss_sdio_init_bus_bandwidth(void)
+{
+	int ret = 0;
+	struct cnss_sdio_bus_bandwidth *bus_bandwidth;
+	struct device *dev = &cnss_pdata->pdev->dev;
+
+	bus_bandwidth = &cnss_pdata->bus_bandwidth;
+	bus_bandwidth->bus_scale_table = msm_bus_cl_get_pdata(cnss_pdata->pdev);
+	if (!bus_bandwidth->bus_scale_table) {
+		dev_err(dev, "Failed to get the bus scale platform data\n");
+		ret = -EINVAL;
+	}
+
+	bus_bandwidth->bus_client = msm_bus_scale_register_client(
+			bus_bandwidth->bus_scale_table);
+	if (!bus_bandwidth->bus_client) {
+		dev_err(dev, "Failed to register with bus_scale client\n");
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 static int cnss_sdio_probe(struct platform_device *pdev)
 {
 	int error;
@@ -1097,8 +1116,20 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 		goto err_subsys_init;
 	}
 
+	if (of_property_read_bool(
+		pdev->dev.of_node, "qcom,cnss-enable-bus-bandwidth")) {
+		error = cnss_sdio_init_bus_bandwidth();
+		if (error) {
+			dev_err(&pdev->dev, "Failed to init bus bandwidth\n");
+			goto err_bus_bandwidth_init;
+		}
+	}
+
 	dev_info(&pdev->dev, "CNSS SDIO Driver registered");
 	return 0;
+
+err_bus_bandwidth_init:
+	cnss_subsys_exit();
 err_subsys_init:
 	cnss_ramdump_cleanup();
 err_ramdump_create:
@@ -1117,11 +1148,12 @@ static int cnss_sdio_remove(struct platform_device *pdev)
 	if (!cnss_pdata)
 		return -ENODEV;
 
+	cnss_sdio_deinit_bus_bandwidth();
 	cnss_sdio_wlan_exit();
-
 	cnss_subsys_exit();
 	cnss_ramdump_cleanup();
 	cnss_sdio_release_resource();
+
 	return 0;
 }
 
@@ -1137,13 +1169,6 @@ u8 *cnss_sdio_get_wlan_mac_address(uint32_t *num)
 	return NULL;
 }
 EXPORT_SYMBOL(cnss_sdio_get_wlan_mac_address);
-
-u8 *cnss_get_wlan_mac_address(struct device *dev, uint32_t *num)
-{
-	*num = 0;
-	return NULL;
-}
-EXPORT_SYMBOL(cnss_get_wlan_mac_address);
 
 static const struct of_device_id cnss_sdio_dt_match[] = {
 	{.compatible = "qcom,cnss_sdio"},

@@ -2706,13 +2706,6 @@ unsigned int __read_mostly sched_enable_hmp = 0;
 unsigned int __read_mostly sysctl_sched_spill_nr_run = 10;
 
 /*
- * Control whether or not individual CPU power consumption is used to
- * guide task placement.
- * This sysctl can be set to a default value using boot command line arguments.
- */
-unsigned int __read_mostly sysctl_sched_enable_power_aware = 0;
-
-/*
  * Place sync wakee tasks those have less than configured demand to the waker's
  * cluster.
  */
@@ -3081,8 +3074,7 @@ unsigned int power_cost(int cpu, u64 demand)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned int pc;
 
-	if (!per_cpu_info || !per_cpu_info[cpu].ptable ||
-	    !sysctl_sched_enable_power_aware)
+	if (!per_cpu_info || !per_cpu_info[cpu].ptable)
 		/* When power aware scheduling is not in use, or CPU
 		 * power data is not available, just use the CPU
 		 * capacity as a rough stand-in for real CPU power
@@ -4055,9 +4047,6 @@ static inline int invalid_value_freq_input(unsigned int *data)
 	if (data == &sysctl_sched_migration_fixup)
 		return !(*data == 0 || *data == 1);
 
-	if (data == &sysctl_sched_freq_account_wait_time)
-		return !(*data == 0 || *data == 1);
-
 	if (data == &sysctl_sched_freq_aggregate)
 		return !(*data == 0 || *data == 1);
 
@@ -4080,16 +4069,12 @@ static inline int invalid_value(unsigned int *data)
 	if (data == &sysctl_sched_window_stats_policy)
 		return val >= WINDOW_STATS_INVALID_POLICY;
 
-	if (data == &sysctl_sched_account_wait_time)
-		return !(val == 0 || val == 1);
-
 	return invalid_value_freq_input(data);
 }
 
 /*
  * Handle "atomic" update of sysctl_sched_window_stats_policy,
- * sysctl_sched_ravg_hist_size, sysctl_sched_account_wait_time and
- * sched_freq_legacy_mode variables.
+ * sysctl_sched_ravg_hist_size and sched_freq_legacy_mode variables.
  */
 int sched_window_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
@@ -4323,8 +4308,6 @@ unsigned int cpu_temp(int cpu)
 }
 
 #else	/* CONFIG_SCHED_HMP */
-
-#define sysctl_sched_enable_power_aware 0
 
 struct cpu_select_env;
 struct sched_cluster;

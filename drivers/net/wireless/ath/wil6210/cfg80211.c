@@ -18,6 +18,8 @@
 #include "wil6210.h"
 #include "wmi.h"
 
+#define WIL_MAX_ROC_DURATION_MS 5000
+
 #define CHAN60G(_channel, _flags) {				\
 	.band			= IEEE80211_BAND_60GHZ,		\
 	.center_freq		= 56160 + (2160 * (_channel)),	\
@@ -71,6 +73,12 @@ wil_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 		BIT(IEEE80211_STYPE_PROBE_REQ >> 4)
 	},
 	[NL80211_IFTYPE_P2P_GO] = {
+		.tx = BIT(IEEE80211_STYPE_ACTION >> 4) |
+		BIT(IEEE80211_STYPE_PROBE_RESP >> 4),
+		.rx = BIT(IEEE80211_STYPE_ACTION >> 4) |
+		BIT(IEEE80211_STYPE_PROBE_REQ >> 4)
+	},
+	[NL80211_IFTYPE_P2P_DEVICE] = {
 		.tx = BIT(IEEE80211_STYPE_ACTION >> 4) |
 		BIT(IEEE80211_STYPE_PROBE_RESP >> 4),
 		.rx = BIT(IEEE80211_STYPE_ACTION >> 4) |
@@ -232,13 +240,82 @@ static int wil_cfg80211_dump_station(struct wiphy *wiphy,
 	return rc;
 }
 
+static struct wireless_dev *
+wil_cfg80211_add_iface(struct wiphy *wiphy, const char *name,
+		       unsigned char name_assign_type,
+		       enum nl80211_iftype type,
+		       u32 *flags, struct vif_params *params)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	struct net_device *ndev = wil_to_ndev(wil);
+	struct wireless_dev *p2p_wdev;
+
+	wil_dbg_misc(wil, "%s()\n", __func__);
+
+	if (type != NL80211_IFTYPE_P2P_DEVICE) {
+		wil_err(wil, "%s: unsupported iftype %d\n", __func__, type);
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (wil->p2p_wdev) {
+		wil_err(wil, "%s: P2P_DEVICE interface already created\n",
+			__func__);
+		return ERR_PTR(-EINVAL);
+	}
+
+	p2p_wdev = kzalloc(sizeof(*p2p_wdev), GFP_KERNEL);
+	if (!p2p_wdev)
+		return ERR_PTR(-ENOMEM);
+
+	p2p_wdev->iftype = type;
+	p2p_wdev->wiphy = wiphy;
+	/* use our primary ethernet address */
+	ether_addr_copy(p2p_wdev->address, ndev->perm_addr);
+
+	wil->p2p_wdev = p2p_wdev;
+
+	return p2p_wdev;
+}
+
+static int wil_cfg80211_del_iface(struct wiphy *wiphy,
+				  struct wireless_dev *wdev)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+
+	wil_dbg_misc(wil, "%s()\n", __func__);
+
+	if (wdev != wil->p2p_wdev) {
+		wil_err(wil, "%s: delete of incorrect interface 0x%p\n",
+			__func__, wdev);
+		return -EINVAL;
+	}
+
+	wil_p2p_wdev_free(wil);
+
+	return 0;
+}
+
 static int wil_cfg80211_change_iface(struct wiphy *wiphy,
 				     struct net_device *ndev,
 				     enum nl80211_iftype type, u32 *flags,
 				     struct vif_params *params)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
-	struct wireless_dev *wdev = wil->wdev;
+	struct wireless_dev *wdev = wil_to_wdev(wil);
+	int rc;
+
+	wil_dbg_misc(wil, "%s() type=%d\n", __func__, type);
+
+	if (netif_running(wil_to_ndev(wil)) && !wil_is_recovery_blocked(wil)) {
+		wil_dbg_misc(wil, "interface is up. resetting...\n");
+		mutex_lock(&wil->mutex);
+		__wil_down(wil);
+		rc = __wil_up(wil);
+		mutex_unlock(&wil->mutex);
+
+		if (rc)
+			return rc;
+	}
 
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
@@ -266,13 +343,16 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 			     struct cfg80211_scan_request *request)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
-	struct wireless_dev *wdev = wil->wdev;
+	struct wireless_dev *wdev = request->wdev;
 	struct {
 		struct wmi_start_scan_cmd cmd;
 		u16 chnl[4];
 	} __packed cmd;
 	uint i, n;
 	int rc;
+
+	wil_dbg_misc(wil, "%s(), wdev=0x%p iftype=%d\n",
+		     __func__, wdev, wdev->iftype);
 
 	if (wil->scan_request) {
 		wil_err(wil, "Already scanning\n");
@@ -283,6 +363,7 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_P2P_CLIENT:
+	case NL80211_IFTYPE_P2P_DEVICE:
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -293,6 +374,20 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 		wil_err(wil, "Can't scan now\n");
 		return -EBUSY;
 	}
+
+	/* scan on P2P_DEVICE is handled as p2p search */
+	if (wdev->iftype == NL80211_IFTYPE_P2P_DEVICE) {
+		wil->scan_request = request;
+		wil->radio_wdev = wdev;
+		rc = wil_p2p_search(wil, request);
+		if (rc) {
+			wil->radio_wdev = wil_to_wdev(wil);
+			wil->scan_request = NULL;
+		}
+		return rc;
+	}
+
+	(void)wil_p2p_stop_discovery(wil);
 
 	wil_dbg_misc(wil, "Start scan_request 0x%p\n", request);
 	wil_dbg_misc(wil, "SSID count: %d", request->n_ssids);
@@ -352,12 +447,14 @@ static int wil_cfg80211_scan(struct wiphy *wiphy,
 		wil_dbg_misc(wil, "active scan with discovery_mode=1\n");
 	}
 
+	wil->radio_wdev = wdev;
 	rc = wmi_send(wil, WMI_START_SCAN_CMDID, &cmd, sizeof(cmd.cmd) +
 			cmd.cmd.num_channels * sizeof(cmd.cmd.channel_list[0]));
 
 out:
 	if (rc) {
 		del_timer_sync(&wil->scan_timer);
+		wil->radio_wdev = wil_to_wdev(wil);
 		wil->scan_request = NULL;
 	}
 
@@ -419,6 +516,7 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	int rc = 0;
 	enum ieee80211_bss_type bss_type = IEEE80211_BSS_TYPE_ESS;
 
+	wil_dbg_misc(wil, "%s()\n", __func__);
 	wil_print_connect_params(wil, sme);
 
 	if (test_bit(wil_status_fwconnecting, wil->status) ||
@@ -584,6 +682,16 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 		struct wmi_sw_tx_complete_event evt;
 	} __packed evt;
 
+	/* Note, currently we do not support the "wait" parameter, user-space
+	 * must call remain_on_channel before mgmt_tx or listen on a channel
+	 * another way (AP/PCP or connected station)
+	 * in addition we need to check if specified "chan" argument is
+	 * different from currently "listened" channel and fail if it is.
+	 */
+
+	wil_dbg_misc(wil, "%s()\n", __func__);
+	print_hex_dump_bytes("mgmt tx frame ", DUMP_PREFIX_OFFSET, buf, len);
+
 	cmd = kmalloc(sizeof(*cmd) + len, GFP_KERNEL);
 	if (!cmd) {
 		rc = -ENOMEM;
@@ -610,7 +718,7 @@ static int wil_cfg80211_set_channel(struct wiphy *wiphy,
 				    struct cfg80211_chan_def *chandef)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
-	struct wireless_dev *wdev = wil->wdev;
+	struct wireless_dev *wdev = wil_to_wdev(wil);
 
 	wdev->preset_chandef = *chandef;
 
@@ -620,7 +728,7 @@ static int wil_cfg80211_set_channel(struct wiphy *wiphy,
 static enum wmi_key_usage wil_detect_key_usage(struct wil6210_priv *wil,
 					       bool pairwise)
 {
-	struct wireless_dev *wdev = wil->wdev;
+	struct wireless_dev *wdev = wil_to_wdev(wil);
 	enum wmi_key_usage rc;
 
 	if (pairwise) {
@@ -628,9 +736,11 @@ static enum wmi_key_usage wil_detect_key_usage(struct wil6210_priv *wil,
 	} else {
 		switch (wdev->iftype) {
 		case NL80211_IFTYPE_STATION:
+		case NL80211_IFTYPE_P2P_CLIENT:
 			rc = WMI_KEY_USE_RX_GROUP;
 			break;
 		case NL80211_IFTYPE_AP:
+		case NL80211_IFTYPE_P2P_GO:
 			rc = WMI_KEY_USE_TX_GROUP;
 			break;
 		default:
@@ -758,6 +868,9 @@ static int wil_cfg80211_set_default_key(struct wiphy *wiphy,
 					u8 key_index, bool unicast,
 					bool multicast)
 {
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+
+	wil_dbg_misc(wil, "%s: entered\n", __func__);
 	return 0;
 }
 
@@ -770,16 +883,19 @@ static int wil_remain_on_channel(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 	int rc;
 
-	/* TODO: handle duration */
-	wil_info(wil, "%s(%d, %d ms)\n", __func__, chan->center_freq, duration);
+	wil_dbg_misc(wil, "%s() center_freq=%d, duration=%d iftype=%d\n",
+		     __func__, chan->center_freq, duration, wdev->iftype);
 
-	rc = wmi_set_channel(wil, chan->hw_value);
+	rc = wil_p2p_listen(wil, duration, chan, cookie);
 	if (rc)
 		return rc;
 
-	rc = wmi_rxon(wil, true);
+	wil->radio_wdev = wdev;
 
-	return rc;
+	cfg80211_ready_on_channel(wdev, *cookie, chan, duration,
+				  GFP_KERNEL);
+
+	return 0;
 }
 
 static int wil_cancel_remain_on_channel(struct wiphy *wiphy,
@@ -787,13 +903,10 @@ static int wil_cancel_remain_on_channel(struct wiphy *wiphy,
 					u64 cookie)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
-	int rc;
 
-	wil_info(wil, "%s()\n", __func__);
+	wil_dbg_misc(wil, "%s()\n", __func__);
 
-	rc = wmi_rxon(wil, false);
-
-	return rc;
+	return wil_p2p_cancel_listen(wil, cookie);
 }
 
 /**
@@ -942,9 +1055,16 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	int rc;
 	struct wireless_dev *wdev = ndev->ieee80211_ptr;
 	u8 wmi_nettype = wil_iftype_nl2wmi(wdev->iftype);
+	u8 is_go = (wdev->iftype == NL80211_IFTYPE_P2P_GO);
 
 	if (pbss)
 		wmi_nettype = WMI_NETTYPE_P2P;
+
+	wil_dbg_misc(wil, "%s: is_go=%d\n", __func__, is_go);
+	if (is_go && !pbss) {
+		wil_err(wil, "%s: P2P GO must be in PBSS\n", __func__);
+		return -ENOTSUPP;
+	}
 
 	wil_set_recovery_state(wil, fw_recovery_idle);
 
@@ -970,7 +1090,7 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 
 	netif_carrier_on(ndev);
 
-	rc = wmi_pcp_start(wil, bi, wmi_nettype, chan, hidden_ssid);
+	rc = wmi_pcp_start(wil, bi, wmi_nettype, chan, hidden_ssid, is_go);
 	if (rc)
 		goto err_pcp_start;
 
@@ -1224,7 +1344,26 @@ static int wil_cfg80211_change_bss(struct wiphy *wiphy,
 	return 0;
 }
 
+static int wil_cfg80211_start_p2p_device(struct wiphy *wiphy,
+					 struct wireless_dev *wdev)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+
+	wil_dbg_misc(wil, "%s: entered\n", __func__);
+	return 0;
+}
+
+static void wil_cfg80211_stop_p2p_device(struct wiphy *wiphy,
+					 struct wireless_dev *wdev)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+
+	wil_dbg_misc(wil, "%s: entered\n", __func__);
+}
+
 static struct cfg80211_ops wil_cfg80211_ops = {
+	.add_virtual_intf = wil_cfg80211_add_iface,
+	.del_virtual_intf = wil_cfg80211_del_iface,
 	.scan = wil_cfg80211_scan,
 	.connect = wil_cfg80211_connect,
 	.disconnect = wil_cfg80211_disconnect,
@@ -1245,20 +1384,25 @@ static struct cfg80211_ops wil_cfg80211_ops = {
 	.del_station = wil_cfg80211_del_station,
 	.probe_client = wil_cfg80211_probe_client,
 	.change_bss = wil_cfg80211_change_bss,
+	/* P2P device */
+	.start_p2p_device = wil_cfg80211_start_p2p_device,
+	.stop_p2p_device = wil_cfg80211_stop_p2p_device,
 };
 
 static void wil_wiphy_init(struct wiphy *wiphy)
 {
 	wiphy->max_scan_ssids = 1;
 	wiphy->max_scan_ie_len = WMI_MAX_IE_LEN;
+	wiphy->max_remain_on_channel_duration = WIL_MAX_ROC_DURATION_MS;
 	wiphy->max_num_pmkids = 0 /* TODO: */;
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION) |
 				 BIT(NL80211_IFTYPE_AP) |
+				 BIT(NL80211_IFTYPE_P2P_CLIENT) |
+				 BIT(NL80211_IFTYPE_P2P_GO) |
+				 BIT(NL80211_IFTYPE_P2P_DEVICE) |
 				 BIT(NL80211_IFTYPE_MONITOR);
-	/* TODO: enable P2P when integrated with supplicant:
-	 * BIT(NL80211_IFTYPE_P2P_CLIENT) | BIT(NL80211_IFTYPE_P2P_GO)
-	 */
 	wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME |
+			WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL |
 			WIPHY_FLAG_AP_PROBE_RESP_OFFLOAD;
 	dev_dbg(wiphy_dev(wiphy), "%s : flags = 0x%08x\n",
 		__func__, wiphy->flags);
@@ -1325,4 +1469,19 @@ void wil_wdev_free(struct wil6210_priv *wil)
 	wiphy_unregister(wdev->wiphy);
 	wiphy_free(wdev->wiphy);
 	kfree(wdev);
+}
+
+void wil_p2p_wdev_free(struct wil6210_priv *wil)
+{
+	struct wireless_dev *p2p_wdev;
+
+	mutex_lock(&wil->p2p_wdev_mutex);
+	p2p_wdev = wil->p2p_wdev;
+	if (p2p_wdev) {
+		wil->p2p_wdev = NULL;
+		wil->radio_wdev = wil_to_wdev(wil);
+		cfg80211_unregister_wdev(p2p_wdev);
+		kfree(p2p_wdev);
+	}
+	mutex_unlock(&wil->p2p_wdev_mutex);
 }

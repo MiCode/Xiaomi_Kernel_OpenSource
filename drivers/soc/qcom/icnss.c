@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "icnss: " fmt
+
 #include <asm/dma-iommu.h>
 #include <linux/clk.h>
 #include <linux/iommu.h>
@@ -30,11 +32,72 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/qmi_encdec.h>
+#include <linux/ipc_logging.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 #include <soc/qcom/msm_qmi_interface.h>
 
 #include "wlan_firmware_service_v01.h"
+
+#define ICNSS_PANIC			1
+#define WLFW_TIMEOUT_MS			3000
+#define WLFW_SERVICE_INS_ID_V01		0
+#define SMMU_CLOCK_NAME			"smmu_aggre2_noc_clk"
+#define MAX_PROP_SIZE			32
+#define MAX_VOLTAGE_LEVEL		2
+#define VREG_ON				1
+#define VREG_OFF			0
+#define MPM2_MPM_WCSSAON_CONFIG_OFFSET	0x18
+#define NUM_LOG_PAGES			4
+
+#define icnss_ipc_log_string(_x...) do {				\
+	if (icnss_ipc_log_context)					\
+		ipc_log_string(icnss_ipc_log_context, _x);		\
+	} while (0)
+
+#define icnss_pr_err(_fmt, ...) do {					\
+		pr_err(_fmt, ##__VA_ARGS__);				\
+		icnss_ipc_log_string("ERR: " pr_fmt(_fmt),		\
+				     ##__VA_ARGS__);			\
+	} while (0)
+
+#define icnss_pr_warn(_fmt, ...) do {					\
+		pr_warn(_fmt, ##__VA_ARGS__);				\
+		icnss_ipc_log_string("WRN: " pr_fmt(_fmt),		\
+				     ##__VA_ARGS__);			\
+	} while (0)
+
+#define icnss_pr_info(_fmt, ...) do {					\
+		pr_info(_fmt, ##__VA_ARGS__);				\
+		icnss_ipc_log_string("INF: " pr_fmt(_fmt),		\
+				     ##__VA_ARGS__);			\
+	} while (0)
+
+#define icnss_pr_dbg(_fmt, ...) do {					\
+		pr_debug(_fmt, ##__VA_ARGS__);				\
+		icnss_ipc_log_string("DBG: " pr_fmt(_fmt),		\
+				     ##__VA_ARGS__);			\
+	} while (0)
+
+#ifdef ICNSS_PANIC
+#define ICNSS_ASSERT(_condition) do {					\
+		if (!(_condition)) {					\
+			icnss_pr_err("ASSERT at line %d\n",		\
+				     __LINE__);				\
+			BUG_ON(1);					\
+		}							\
+	} while (0)
+#else
+#define ICNSS_ASSERT(_condition) do {					\
+		if (!(_condition)) {					\
+			icnss_pr_err("ASSERT at line %d\n",		\
+				     __LINE__);				\
+			WARN_ON(1);					\
+		}							\
+	} while (0)
+#endif
+
+void *icnss_ipc_log_context;
 
 enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_SERVER_ARRIVE,
@@ -50,41 +113,12 @@ struct icnss_driver_event {
 	void *data;
 };
 
-#define ICNSS_PANIC			1
-#define WLFW_TIMEOUT_MS			3000
-#define WLFW_SERVICE_INS_ID_V01		0
-#define SMMU_CLOCK_NAME			"smmu_aggre2_noc_clk"
-#define MAX_PROP_SIZE			32
-#define MAX_VOLTAGE_LEVEL		2
-#define VREG_ON				1
-#define VREG_OFF			0
-
 enum cnss_driver_state {
 	ICNSS_WLFW_QMI_CONNECTED,
 	ICNSS_FW_READY,
 	ICNSS_DRIVER_PROBED,
 	ICNSS_FW_TEST_MODE,
 };
-
-#ifdef ICNSS_PANIC
-#define ICNSS_ASSERT(_condition) do {			\
-		if (!(_condition)) {				\
-			pr_err("ICNSS ASSERT in %s Line %d\n",	\
-				__func__, __LINE__);		\
-			BUG_ON(1);				\
-		}						\
-	} while (0)
-#else
-#define ICNSS_ASSERT(_condition) do {			\
-		if (!(_condition)) {				\
-			pr_err("ICNSS ASSERT in %s Line %d\n",	\
-				__func__, __LINE__);		\
-			WARN_ON(1);				\
-		}						\
-	} while (0)
-#endif
-
-#define MPM2_MPM_WCSSAON_CONFIG_OFFSET 0x18
 
 struct ce_irq_list {
 	int irq;
@@ -162,8 +196,8 @@ static int icnss_driver_event_post(enum icnss_driver_event_type type,
 	unsigned long flags;
 	int gfp = GFP_KERNEL;
 
-	pr_debug("Posting event: %s(%d)\n", icnss_driver_event_to_str(type),
-		 type);
+	icnss_pr_dbg("Posting event: %s(%d)\n",
+		     icnss_driver_event_to_str(type), type);
 
 	if (in_interrupt() || irqs_disabled())
 		gfp = GFP_ATOMIC;
@@ -200,7 +234,8 @@ static int icnss_qmi_pin_connect_result_ind(void *msg, unsigned int msg_len)
 
 	ret = qmi_kernel_decode(&ind_desc, &ind_msg, msg, msg_len);
 	if (ret < 0) {
-		pr_err("%s: Failed to decode message!\n", __func__);
+		icnss_pr_err("Failed to decode message: %d, msg_len: %u!\n",
+			     ret, msg_len);
 		goto out;
 	}
 
@@ -212,9 +247,9 @@ static int icnss_qmi_pin_connect_result_ind(void *msg, unsigned int msg_len)
 	if (ind_msg.rf_pin_result_valid)
 		penv->rf_pin_result = ind_msg.rf_pin_result;
 
-	pr_debug("%s: Pin connect Result: pwr_pin: 0x%x phy_io_pin: 0x%x rf_io_pin: 0x%x\n",
-		__func__, ind_msg.pwr_pin_result, ind_msg.phy_io_pin_result,
-		ind_msg.rf_pin_result);
+	icnss_pr_dbg("Pin connect Result: pwr_pin: 0x%x phy_io_pin: 0x%x rf_io_pin: 0x%x\n",
+		     ind_msg.pwr_pin_result, ind_msg.phy_io_pin_result,
+		     ind_msg.rf_pin_result);
 out:
 	return ret;
 }
@@ -224,31 +259,31 @@ static int icnss_vreg_on(struct icnss_vreg_info *vreg_info)
 	int ret = 0;
 
 	if (!vreg_info->reg) {
-		pr_err("%s: regulator is not initialized\n", __func__);
+		icnss_pr_err("regulator is not initialized\n");
 		return -ENOENT;
 	}
 
 	if (!vreg_info->max_voltage || !vreg_info->nominal_min) {
-		pr_err("%s: %s invalid constraints specified\n",
-			__func__, vreg_info->name);
+		icnss_pr_err("%s invalid constraints specified\n",
+			     vreg_info->name);
 		return -EINVAL;
 	}
 
 	ret = regulator_set_voltage(vreg_info->reg,
 			vreg_info->nominal_min, vreg_info->max_voltage);
 	if (ret < 0) {
-		pr_err("%s: regulator_set_voltage failed for (%s). min_uV=%d,max_uV=%d,ret=%d\n",
-			__func__, vreg_info->name,
-			vreg_info->nominal_min,
-			vreg_info->max_voltage, ret);
+		icnss_pr_err("regulator_set_voltage failed for (%s). min_uV=%d,max_uV=%d,ret=%d\n",
+			     vreg_info->name, vreg_info->nominal_min,
+			     vreg_info->max_voltage, ret);
 		return ret;
 	}
 
 	ret = regulator_enable(vreg_info->reg);
 	if (ret < 0) {
-		pr_err("%s: Fail to enable regulator (%s) ret=%d\n",
-			__func__, vreg_info->name, ret);
+		icnss_pr_err("Fail to enable regulator (%s) ret=%d\n",
+			     vreg_info->name, ret);
 	}
+
 	return ret;
 }
 
@@ -258,22 +293,22 @@ static int icnss_vreg_off(struct icnss_vreg_info *vreg_info)
 	int min_uV = 0;
 
 	if (!vreg_info->reg) {
-		pr_err("%s: regulator is not initialized\n", __func__);
+		icnss_pr_err("Regulator is not initialized\n");
 		return -ENOENT;
 	}
 
 	ret = regulator_disable(vreg_info->reg);
 	if (ret < 0) {
-		pr_err("%s: Fail to disable regulator (%s) ret=%d\n",
-			__func__, vreg_info->name, ret);
+		icnss_pr_err("Fail to disable regulator (%s) ret=%d\n",
+			vreg_info->name, ret);
 		return ret;
 	}
 
 	ret = regulator_set_voltage(vreg_info->reg,
 				    min_uV, vreg_info->max_voltage);
 	if (ret < 0) {
-		pr_err("%s: regulator_set_voltage failed for (%s). min_uV=%d,max_uV=%d,ret=%d\n",
-			__func__, vreg_info->name, min_uV,
+		icnss_pr_err("regulator_set_voltage failed for (%s). min_uV=%d,max_uV=%d,ret=%d\n",
+			vreg_info->name, min_uV,
 			vreg_info->max_voltage, ret);
 	}
 	return ret;
@@ -285,7 +320,7 @@ static int icnss_vreg_set(bool state)
 	struct icnss_vreg_info *vreg_info = &penv->vreg_info;
 
 	if (vreg_info->state == state) {
-		pr_debug("Already %s state is %s\n", vreg_info->name,
+		icnss_pr_dbg("Already %s state is %s\n", vreg_info->name,
 			state ? "enabled" : "disabled");
 		return ret;
 	}
@@ -297,8 +332,10 @@ static int icnss_vreg_set(bool state)
 
 	if (ret < 0)
 		goto out;
+	else
+		ret = 0;
 
-	pr_debug("%s: %s is now %s\n", __func__, vreg_info->name,
+	icnss_pr_dbg("Regulator %s is now %s\n", vreg_info->name,
 			state ? "enabled" : "disabled");
 
 	vreg_info->state = state;
@@ -310,7 +347,7 @@ static void icnss_hw_release_reset(struct icnss_data *pdata)
 {
 	uint32_t rdata = 0;
 
-	pr_debug("%s\n", __func__);
+	icnss_pr_dbg("HW Release reset: state: 0x%lx\n", pdata->state);
 
 	if (penv->mpm_config_va) {
 		writel_relaxed(0x1,
@@ -326,7 +363,7 @@ static void icnss_hw_reset(struct icnss_data *pdata)
 {
 	uint32_t rdata = 0;
 
-	pr_debug("%s\n", __func__);
+	icnss_pr_dbg("HW reset: state: 0x%lx\n", pdata->state);
 
 	if (penv->mpm_config_va) {
 		writel_relaxed(0x0,
@@ -342,12 +379,11 @@ static int icnss_hw_power_on(struct icnss_data *pdata)
 {
 	int ret = 0;
 
+	icnss_pr_dbg("Power on: state: 0x%lx\n", pdata->state);
+
 	ret = icnss_vreg_set(VREG_ON);
-	if (ret < 0) {
-		pr_err("%s: Failed to turn on voltagre regulator: %d\n",
-		       __func__, ret);
+	if (ret)
 		goto out;
-	}
 
 	icnss_hw_release_reset(pdata);
 out:
@@ -358,14 +394,13 @@ static int icnss_hw_power_off(struct icnss_data *pdata)
 {
 	int ret = 0;
 
+	icnss_pr_dbg("Power off: 0x%lx\n", pdata->state);
+
 	icnss_hw_reset(pdata);
 
 	ret = icnss_vreg_set(VREG_OFF);
-	if (ret < 0) {
-		pr_err("%s: Failed to turn off voltagre regulator: %d\n",
-		       __func__, ret);
+	if (ret)
 		goto out;
-	}
 out:
 	return ret;
 }
@@ -382,6 +417,8 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 		ret = -ENODEV;
 		goto out;
 	}
+
+	icnss_pr_dbg("Sending MSA info, state: 0x%lx\n", penv->state);
 
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
@@ -400,23 +437,23 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("%s: send req failed %d\n", __func__, ret);
+		icnss_pr_err("Send req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("%s: QMI request failed %d %d\n",
-			__func__, resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI request failed %d %d\n",
+			resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
 	}
 
-	pr_debug("%s: Receive mem_region_info_len: %d\n",
-			__func__, resp.mem_region_info_len);
+	icnss_pr_dbg("Receive mem_region_info_len: %d\n",
+		     resp.mem_region_info_len);
 
 	if (resp.mem_region_info_len > 2) {
-		pr_err("%s : Invalid memory region length received\n",
-		       __func__);
+		icnss_pr_err("Invalid memory region length received%d\n",
+			     resp.mem_region_info_len);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -428,10 +465,8 @@ static int wlfw_msa_mem_info_send_sync_msg(void)
 			resp.mem_region_info[i].size;
 		penv->icnss_mem_region[i].secure_flag =
 			resp.mem_region_info[i].secure_flag;
-		pr_debug("%s : Memory Region: %d  Addr:0x%x Size : %d Flag: %d\n",
-			 __func__,
-			 i,
-			 (unsigned int)penv->icnss_mem_region[i].reg_addr,
+		icnss_pr_dbg("Memory Region: %d Addr: 0x%x Size: %d Flag: %d\n",
+			 i, (unsigned int)penv->icnss_mem_region[i].reg_addr,
 			 penv->icnss_mem_region[i].size,
 			 penv->icnss_mem_region[i].secure_flag);
 	}
@@ -452,6 +487,8 @@ static int wlfw_msa_ready_send_sync_msg(void)
 		goto out;
 	}
 
+	icnss_pr_dbg("Sending MSA sync message, state: 0x%lx\n", penv->state);
+
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
@@ -466,13 +503,13 @@ static int wlfw_msa_ready_send_sync_msg(void)
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("%s: send req failed %d\n", __func__, ret);
+		icnss_pr_err("Send req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("%s: QMI request failed %d %d\n",
-			__func__, resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI request failed %d %d\n",
+			resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
 	}
@@ -491,6 +528,8 @@ static int wlfw_ind_register_send_sync_msg(void)
 		ret = -ENODEV;
 		goto out;
 	}
+
+	icnss_pr_dbg("Sending Sync message, state: 0x%lx\n", penv->state);
 
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
@@ -514,13 +553,13 @@ static int wlfw_ind_register_send_sync_msg(void)
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("%s: send req failed %d\n", __func__, ret);
+		icnss_pr_err("Send req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("%s: QMI request failed %d %d\n",
-		       __func__, resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI request failed %d %d\n",
+		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
 	}
@@ -540,6 +579,8 @@ static int wlfw_cap_send_sync_msg(void)
 		goto out;
 	}
 
+	icnss_pr_dbg("Sending capability message, state: 0x%lx\n", penv->state);
+
 	memset(&resp, 0, sizeof(resp));
 
 	req_desc.max_msg_len = WLFW_CAP_REQ_MSG_V01_MAX_MSG_LEN;
@@ -554,13 +595,13 @@ static int wlfw_cap_send_sync_msg(void)
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("%s: send req failed %d\n", __func__, ret);
+		icnss_pr_err("Send req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("%s: QMI request failed %d %d\n",
-		       __func__, resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI request failed %d %d\n",
+		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
 	}
@@ -577,12 +618,9 @@ static int wlfw_cap_send_sync_msg(void)
 	if (resp.fw_version_info_valid)
 		penv->fw_version_info = resp.fw_version_info;
 
-	pr_debug("%s: chip_id: 0x%0x, chip_family: 0x%0x, board_id: 0x%0x, soc_id: 0x%0x, fw_version: 0x%0x, fw_build_timestamp: %s",
-		__func__,
-		penv->chip_info.chip_id,
-		penv->chip_info.chip_family,
-		penv->board_info.board_id,
-		penv->soc_info.soc_id,
+	icnss_pr_dbg("Capability, chip_id: 0x%0x, chip_family: 0x%0x, board_id: 0x%0x, soc_id: 0x%0x, fw_version: 0x%0x, fw_build_timestamp: %s",
+		penv->chip_info.chip_id, penv->chip_info.chip_family,
+		penv->board_info.board_id, penv->soc_info.soc_id,
 		penv->fw_version_info.fw_version,
 		penv->fw_version_info.fw_build_timestamp);
 out:
@@ -601,6 +639,9 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 		goto out;
 	}
 
+	icnss_pr_dbg("Sending Mode request, state: 0x%lx, mode: %d\n",
+		     penv->state, mode);
+
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
@@ -618,13 +659,13 @@ static int wlfw_wlan_mode_send_sync_msg(enum wlfw_driver_mode_enum_v01 mode)
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("%s: send req failed %d\n", __func__, ret);
+		icnss_pr_err("Send req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("%s: QMI request failed %d %d\n",
-		       __func__, resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI request failed %d %d\n",
+		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
 	}
@@ -644,6 +685,8 @@ static int wlfw_wlan_cfg_send_sync_msg(struct wlfw_wlan_cfg_req_msg_v01 *data)
 		goto out;
 	}
 
+	icnss_pr_dbg("Sending config request, state: 0x%lx\n", penv->state);
+
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
@@ -661,13 +704,13 @@ static int wlfw_wlan_cfg_send_sync_msg(struct wlfw_wlan_cfg_req_msg_v01 *data)
 				&resp_desc, &resp, sizeof(resp),
 				WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("%s: send req failed %d\n", __func__, ret);
+		icnss_pr_err("Send req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("%s: QMI request failed %d %d\n",
-		       __func__, resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI request failed %d %d\n",
+		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
 	}
@@ -675,7 +718,7 @@ out:
 	return ret;
 }
 
-static int wlfw_ini_send_sync_msg(bool enablefwlog)
+static int wlfw_ini_send_sync_msg(bool enable_fw_log)
 {
 	int ret;
 	struct wlfw_ini_req_msg_v01 req;
@@ -687,11 +730,14 @@ static int wlfw_ini_send_sync_msg(bool enablefwlog)
 		goto out;
 	}
 
+	icnss_pr_dbg("Sending ini sync request, state: 0x%lx, fw_log: %d\n",
+		     penv->state, enable_fw_log);
+
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
 	req.enablefwlog_valid = 1;
-	req.enablefwlog = enablefwlog;
+	req.enablefwlog = enable_fw_log;
 
 	req_desc.max_msg_len = WLFW_INI_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_INI_REQ_V01;
@@ -704,13 +750,13 @@ static int wlfw_ini_send_sync_msg(bool enablefwlog)
 	ret = qmi_send_req_wait(penv->wlfw_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp), WLFW_TIMEOUT_MS);
 	if (ret < 0) {
-		pr_err("%s: send req failed %d\n", __func__, ret);
+		icnss_pr_err("send req failed %d\n", ret);
 		goto out;
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		pr_err("%s: QMI request failed %d %d\n",
-		       __func__, resp.resp.result, resp.resp.error);
+		icnss_pr_err("QMI request failed %d %d\n",
+		       resp.resp.result, resp.resp.error);
 		ret = resp.resp.result;
 		goto out;
 	}
@@ -725,17 +771,22 @@ static void icnss_qmi_wlfw_clnt_notify_work(struct work_struct *work)
 	if (!penv || !penv->wlfw_clnt)
 		return;
 
+	icnss_pr_dbg("Receiving Event in work queue context\n");
+
 	do {
-		pr_debug("%s: Received Event\n", __func__);
 	} while ((ret = qmi_recv_msg(penv->wlfw_clnt)) == 0);
 
 	if (ret != -ENOMSG)
-		pr_err("%s: Error receiving message\n", __func__);
+		icnss_pr_err("Error receiving message: %d\n", ret);
+
+	icnss_pr_dbg("Receiving Event completed\n");
 }
 
 static void icnss_qmi_wlfw_clnt_notify(struct qmi_handle *handle,
 			     enum qmi_event_type event, void *notify_priv)
 {
+	icnss_pr_dbg("QMI client notify: %d\n", event);
+
 	if (!penv || !penv->wlfw_clnt)
 		return;
 
@@ -744,7 +795,7 @@ static void icnss_qmi_wlfw_clnt_notify(struct qmi_handle *handle,
 		schedule_work(&penv->qmi_recv_msg_work);
 		break;
 	default:
-		pr_debug("%s: Received Event:  %d\n", __func__, event);
+		icnss_pr_dbg("Unknown Event:  %d\n", event);
 		break;
 	}
 }
@@ -756,23 +807,23 @@ static void icnss_qmi_wlfw_clnt_ind(struct qmi_handle *handle,
 	if (!penv)
 		return;
 
-	pr_debug("%s: Received Ind 0x%x\n", __func__, msg_id);
+	icnss_pr_dbg("Received Ind 0x%x, msg_len: %d\n", msg_id, msg_len);
 
 	switch (msg_id) {
 	case QMI_WLFW_FW_READY_IND_V01:
 		icnss_driver_event_post(ICNSS_DRIVER_EVENT_FW_READY_IND, NULL);
 		break;
 	case QMI_WLFW_MSA_READY_IND_V01:
-		pr_debug("%s: Received MSA Ready Indication msg_id 0x%x\n",
-			 __func__, msg_id);
+		icnss_pr_dbg("Received MSA Ready Indication msg_id 0x%x\n",
+			     msg_id);
 		break;
 	case QMI_WLFW_PIN_CONNECT_RESULT_IND_V01:
-		pr_debug("%s: Received Pin Connect Test Result msg_id 0x%x\n",
-			 __func__, msg_id);
+		icnss_pr_dbg("Received Pin Connect Test Result msg_id 0x%x\n",
+			     msg_id);
 		icnss_qmi_pin_connect_result_ind(msg, msg_len);
 		break;
 	default:
-		pr_err("%s: Invalid msg_id 0x%x\n", __func__, msg_id);
+		icnss_pr_err("Invalid msg_id 0x%x\n", msg_id);
 		break;
 	}
 }
@@ -786,7 +837,7 @@ static int icnss_driver_event_server_arrive(void *data)
 
 	penv->wlfw_clnt = qmi_handle_create(icnss_qmi_wlfw_clnt_notify, penv);
 	if (!penv->wlfw_clnt) {
-		pr_err("%s: QMI client handle alloc failed\n", __func__);
+		icnss_pr_err("QMI client handle create failed\n");
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -796,62 +847,58 @@ static int icnss_driver_event_server_arrive(void *data)
 					WLFW_SERVICE_VERS_V01,
 					WLFW_SERVICE_INS_ID_V01);
 	if (ret < 0) {
-		pr_err("%s: Server not found : %d\n", __func__, ret);
+		icnss_pr_err("Server not found : %d\n", ret);
 		goto fail;
 	}
 
 	ret = qmi_register_ind_cb(penv->wlfw_clnt,
 				  icnss_qmi_wlfw_clnt_ind, penv);
 	if (ret < 0) {
-		pr_err("%s: Failed to register indication callback: %d\n",
-		       __func__, ret);
+		icnss_pr_err("Failed to register indication callback: %d\n",
+			     ret);
 		goto fail;
 	}
 
 	set_bit(ICNSS_WLFW_QMI_CONNECTED, &penv->state);
 
-	pr_info("%s: QMI Server Connected\n", __func__);
+	icnss_pr_info("QMI Server Connected: state: 0x%lx\n", penv->state);
 
 	ret = icnss_hw_power_on(penv);
-	if (ret < 0)
+	if (ret)
 		goto fail;
 
 	ret = wlfw_ind_register_send_sync_msg();
 	if (ret < 0) {
-		pr_err("%s: Failed to send indication message: %d\n",
-		       __func__, ret);
+		icnss_pr_err("Failed to send indication message: %d\n", ret);
 		goto err_power_on;
 	}
 
-	if (penv->msa_va) {
-		ret = wlfw_msa_mem_info_send_sync_msg();
-		if (ret < 0) {
-			pr_err("%s: Failed to send MSA info: %d\n",
-			       __func__, ret);
-			goto err_power_on;
-		}
-		ret = wlfw_msa_ready_send_sync_msg();
-		if (ret < 0) {
-			pr_err("%s: Failed to send MSA ready : %d\n",
-			       __func__, ret);
-			goto err_power_on;
-		}
-	} else {
-		pr_err("%s: Invalid MSA address\n", __func__);
+	if (!penv->msa_va) {
+		icnss_pr_err("Invalid MSA address\n");
 		ret = -EINVAL;
+		goto err_power_on;
+	}
+
+	ret = wlfw_msa_mem_info_send_sync_msg();
+	if (ret < 0) {
+		icnss_pr_err("Failed to send MSA info: %d\n", ret);
+		goto err_power_on;
+	}
+	ret = wlfw_msa_ready_send_sync_msg();
+	if (ret < 0) {
+		icnss_pr_err("Failed to send MSA ready : %d\n", ret);
 		goto err_power_on;
 	}
 
 	ret = wlfw_cap_send_sync_msg();
 	if (ret < 0) {
-		pr_err("%s: Failed to get capability: %d\n",
-		       __func__, ret);
+		icnss_pr_err("Failed to get capability: %d\n", ret);
 		goto err_power_on;
 	}
 	return ret;
 
 err_power_on:
-	ret = icnss_hw_power_off(penv);
+	icnss_hw_power_off(penv);
 fail:
 	qmi_handle_destroy(penv->wlfw_clnt);
 	penv->wlfw_clnt = NULL;
@@ -865,7 +912,7 @@ static int icnss_driver_event_server_exit(void *data)
 	if (!penv || !penv->wlfw_clnt)
 		return -ENODEV;
 
-	pr_info("%s: QMI Service Disconnected\n", __func__);
+	icnss_pr_info("QMI Service Disconnected: 0x%lx\n", penv->state);
 
 	qmi_handle_destroy(penv->wlfw_clnt);
 
@@ -884,10 +931,10 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 
 	set_bit(ICNSS_FW_READY, &penv->state);
 
-	pr_info("%s: WLAN FW is ready\n", __func__);
+	icnss_pr_info("WLAN FW is ready: 0x%lx\n", penv->state);
 
 	if (!penv->pdev) {
-		pr_err("%s: Device is not ready\n", __func__);
+		icnss_pr_err("Device is not ready\n");
 		ret = -ENODEV;
 		goto out;
 	}
@@ -905,7 +952,7 @@ static int icnss_driver_event_fw_ready_ind(void *data)
 
 	ret = penv->ops->probe(&penv->pdev->dev);
 	if (ret < 0) {
-		pr_err("%s: Driver probe failed: %d\n", __func__, ret);
+		icnss_pr_err("Driver probe failed: %d\n", ret);
 		goto out;
 	}
 
@@ -925,19 +972,20 @@ static int icnss_driver_event_register_driver(void *data)
 		set_bit(ICNSS_FW_READY, &penv->state);
 
 	if (!test_bit(ICNSS_FW_READY, &penv->state)) {
-		pr_debug("FW is not ready yet state: 0x%lx!\n", penv->state);
+		icnss_pr_dbg("FW is not ready yet state: 0x%lx!\n",
+			     penv->state);
 		goto out;
 	}
 
 	ret = icnss_hw_power_on(penv);
-	if (ret < 0)
+	if (ret)
 		goto out;
 
 	ret = penv->ops->probe(&penv->pdev->dev);
 
 	if (ret) {
-		pr_err("Driver probe failed: %d, state: 0x%lx\n", ret,
-		       penv->state);
+		icnss_pr_err("Driver probe failed: %d, state: 0x%lx\n",
+			     ret, penv->state);
 		goto power_off;
 	}
 
@@ -985,9 +1033,9 @@ static void icnss_driver_event_work(struct work_struct *work)
 		list_del(&event->list);
 		spin_unlock_irqrestore(&penv->event_lock, flags);
 
-		pr_debug("Processing event: %s(%d), state: 0x%lx\n",
-			 icnss_driver_event_to_str(event->type), event->type,
-			 penv->state);
+		icnss_pr_dbg("Processing event: %s(%d), state: 0x%lx\n",
+			     icnss_driver_event_to_str(event->type),
+			     event->type, penv->state);
 
 		switch (event->type) {
 		case ICNSS_DRIVER_EVENT_SERVER_ARRIVE:
@@ -1006,8 +1054,7 @@ static void icnss_driver_event_work(struct work_struct *work)
 			icnss_driver_event_unregister_driver(event->data);
 			break;
 		default:
-			pr_debug("%s: Invalid Event type: %d",
-				 __func__, event->type);
+			icnss_pr_err("Invalid Event type: %d", event->type);
 			break;
 		}
 		kfree(event);
@@ -1025,7 +1072,7 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 	if (!penv)
 		return -ENODEV;
 
-	pr_debug("%s: Event Notify: code: %ld", __func__, code);
+	icnss_pr_dbg("Event Notify: code: %ld", code);
 
 	switch (code) {
 	case QMI_SERVER_ARRIVE:
@@ -1038,7 +1085,7 @@ static int icnss_qmi_wlfw_clnt_svc_event_notify(struct notifier_block *this,
 					      NULL);
 		break;
 	default:
-		pr_debug("%s: Invalid code: %ld", __func__, code);
+		icnss_pr_dbg("Invalid code: %ld", code);
 		break;
 	}
 	return ret;
@@ -1057,10 +1104,10 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 		goto out;
 	}
 
-	pr_debug("Registering driver, state: 0x%lx\n", penv->state);
+	icnss_pr_dbg("Registering driver, state: 0x%lx\n", penv->state);
 
 	if (penv->ops) {
-		pr_err("icnss: driver already registered\n");
+		icnss_pr_err("Driver already registered\n");
 		ret = -EEXIST;
 		goto out;
 	}
@@ -1088,10 +1135,10 @@ int icnss_unregister_driver(struct icnss_driver_ops *ops)
 		goto out;
 	}
 
-	pr_debug("Unregistering driver, state: 0x%lx\n", penv->state);
+	icnss_pr_dbg("Unregistering driver, state: 0x%lx\n", penv->state);
 
 	if (!penv->ops) {
-		pr_err("icnss: driver not registered\n");
+		icnss_pr_err("Driver not registered\n");
 		ret = -ENOENT;
 		goto out;
 	}
@@ -1121,8 +1168,11 @@ int icnss_ce_request_irq(unsigned int ce_id,
 		ret = -ENODEV;
 		goto out;
 	}
+
+	icnss_pr_dbg("CE request IRQ: %d, state: 0x%lx\n", ce_id, penv->state);
+
 	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS) {
-		pr_err("icnss: Invalid CE ID %d\n", ce_id);
+		icnss_pr_err("Invalid CE ID %d\n", ce_id);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1130,20 +1180,21 @@ int icnss_ce_request_irq(unsigned int ce_id,
 	irq_entry = &penv->ce_irq_list[ce_id];
 
 	if (irq_entry->handler || irq_entry->irq) {
-		pr_err("icnss: handler already registered %d\n", irq);
+		icnss_pr_err("IRQ already requested: %d, ce_id: %d\n",
+			     irq, ce_id);
 		ret = -EEXIST;
 		goto out;
 	}
 
 	ret = request_irq(irq, handler, flags, name, ctx);
 	if (ret) {
-		pr_err("icnss: IRQ not registered %d\n", irq);
-		ret = -EINVAL;
+		icnss_pr_err("IRQ request failed: %d, ce_id: %d, ret: %d\n",
+			     irq, ce_id, ret);
 		goto out;
 	}
 	irq_entry->irq = irq;
 	irq_entry->handler = handler;
-	pr_debug("icnss: IRQ registered %d\n", irq);
+	icnss_pr_dbg("IRQ requested: %d, ce_id: %d\n", irq, ce_id);
 out:
 	return ret;
 }
@@ -1159,10 +1210,13 @@ int icnss_ce_free_irq(unsigned int ce_id, void *ctx)
 		ret = -ENODEV;
 		goto out;
 	}
+
+	icnss_pr_dbg("CE free IRQ: %d, state: 0x%lx\n", ce_id, penv->state);
+
 	irq = penv->ce_irqs[ce_id];
 	irq_entry = &penv->ce_irq_list[ce_id];
 	if (!irq_entry->handler || !irq_entry->irq) {
-		pr_err("icnss: handler not registered %d\n", irq);
+		icnss_pr_err("IRQ not requested: %d, ce_id: %d\n", irq, ce_id);
 		ret = -EEXIST;
 		goto out;
 	}
@@ -1179,9 +1233,13 @@ void icnss_enable_irq(unsigned int ce_id)
 	unsigned int irq;
 
 	if (!penv || !penv->pdev) {
-		pr_err("icnss: platform driver not initialized\n");
+		icnss_pr_err("Platform driver not initialized\n");
 		return;
 	}
+
+	icnss_pr_dbg("Enable IRQ: ce_id: %d, state: 0x%lx\n", ce_id,
+		     penv->state);
+
 	irq = penv->ce_irqs[ce_id];
 	enable_irq(irq);
 }
@@ -1192,9 +1250,13 @@ void icnss_disable_irq(unsigned int ce_id)
 	unsigned int irq;
 
 	if (!penv || !penv->pdev) {
-		pr_err("icnss: platform driver not initialized\n");
+		icnss_pr_err("Platform driver not initialized\n");
 		return;
 	}
+
+	icnss_pr_dbg("Disable IRQ: ce_id: %d, state: 0x%lx\n", ce_id,
+		     penv->state);
+
 	irq = penv->ce_irqs[ce_id];
 	disable_irq(irq);
 }
@@ -1203,7 +1265,7 @@ EXPORT_SYMBOL(icnss_disable_irq);
 int icnss_get_soc_info(struct icnss_soc_info *info)
 {
 	if (!penv) {
-		pr_err("icnss: platform driver not initialized\n");
+		icnss_pr_err("Platform driver not initialized\n");
 		return -EINVAL;
 	}
 
@@ -1214,13 +1276,17 @@ int icnss_get_soc_info(struct icnss_soc_info *info)
 }
 EXPORT_SYMBOL(icnss_get_soc_info);
 
-int icnss_set_fw_debug_mode(bool enablefwlog)
+int icnss_set_fw_debug_mode(bool enable_fw_log)
 {
 	int ret;
 
-	ret = wlfw_ini_send_sync_msg(enablefwlog);
+	icnss_pr_dbg("%s FW debug mode",
+		     enable_fw_log ? "Enalbing" : "Disabling");
+
+	ret = wlfw_ini_send_sync_msg(enable_fw_log);
 	if (ret)
-		pr_err("icnss: Fail to send ini, ret = %d\n", ret);
+		icnss_pr_err("Fail to send ini, ret = %d, fw_log: %d\n", ret,
+		       enable_fw_log);
 
 	return ret;
 }
@@ -1234,12 +1300,17 @@ int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
 	u32 i;
 	int ret;
 
+	icnss_pr_dbg("Mode: %d, config: %p, host_version: %s\n",
+		     mode, config, host_version);
+
 	memset(&req, 0, sizeof(req));
 
 	if (mode == ICNSS_WALTEST || mode == ICNSS_CCPM)
 		goto skip;
-	else if (!config || !host_version) {
-		pr_err("%s: Invalid cfg pointer\n", __func__);
+
+	if (!config || !host_version) {
+		icnss_pr_err("Invalid cfg pointer, config: %p, host_version: %p\n",
+			     config, host_version);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1284,13 +1355,13 @@ int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
 
 	ret = wlfw_wlan_cfg_send_sync_msg(&req);
 	if (ret) {
-		pr_err("%s: Failed to send cfg, ret = %d\n", __func__, ret);
+		icnss_pr_err("Failed to send cfg, ret = %d\n", ret);
 		goto out;
 	}
 skip:
 	ret = wlfw_wlan_mode_send_sync_msg(mode);
 	if (ret)
-		pr_err("%s: Failed to send mode, ret = %d\n", __func__, ret);
+		icnss_pr_err("Failed to send mode, ret = %d\n", ret);
 out:
 	if (penv->skip_qmi)
 		ret = 0;
@@ -1316,7 +1387,9 @@ int icnss_get_ce_id(int irq)
 		if (penv->ce_irqs[i] == irq)
 			return i;
 	}
-	pr_err("icnss: No matching CE id for irq %d\n", irq);
+
+	icnss_pr_err("No matching CE id for irq %d\n", irq);
+
 	return -EINVAL;
 }
 EXPORT_SYMBOL(icnss_get_ce_id);
@@ -1343,13 +1416,13 @@ static struct clk *icnss_clock_init(struct device *dev, const char *cname)
 	long rate;
 
 	if (of_property_match_string(dev->of_node, "clock-names", cname) < 0) {
-		pr_err("%s: clock %s is not found!", __func__, cname);
+		icnss_pr_err("Clock %s not found!", cname);
 		return NULL;
 	}
 
 	c = devm_clk_get(dev, cname);
 	if (IS_ERR(c)) {
-		pr_err("%s: couldn't get clock %s!", __func__, cname);
+		icnss_pr_err("Couldn't get clock %s!", cname);
 		return NULL;
 	}
 
@@ -1368,7 +1441,7 @@ static int icnss_clock_enable(struct clk *c)
 	ret = clk_prepare_enable(c);
 
 	if (ret < 0)
-		pr_err("%s: couldn't enable clock!\n", __func__);
+		icnss_pr_err("Couldn't enable clock: %d!\n", ret);
 	return ret;
 }
 
@@ -1385,11 +1458,13 @@ static int icnss_smmu_init(struct device *dev)
 	int s1_bypass = 1;
 	int ret = 0;
 
+	icnss_pr_dbg("Initializing SMMU\n");
+
 	mapping = arm_iommu_create_mapping(&platform_bus_type,
 					   penv->smmu_iova_start,
 					   penv->smmu_iova_len);
 	if (IS_ERR(mapping)) {
-		pr_err("%s: create mapping failed, err = %d\n", __func__, ret);
+		icnss_pr_err("Create mapping failed, err = %d\n", ret);
 		ret = PTR_ERR(mapping);
 		goto map_fail;
 	}
@@ -1398,8 +1473,8 @@ static int icnss_smmu_init(struct device *dev)
 				    DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 				    &disable_htw);
 	if (ret < 0) {
-		pr_err("%s: set disable_htw attribute failed, err = %d\n",
-		       __func__, ret);
+		icnss_pr_err("Set disable_htw attribute failed, err = %d\n",
+			     ret);
 		goto set_attr_fail;
 	}
 
@@ -1407,8 +1482,8 @@ static int icnss_smmu_init(struct device *dev)
 				    DOMAIN_ATTR_ATOMIC,
 				    &atomic_ctx);
 	if (ret < 0) {
-		pr_err("%s: set atomic_ctx attribute failed, err = %d\n",
-		       __func__, ret);
+		icnss_pr_err("Set atomic_ctx attribute failed, err = %d\n",
+			     ret);
 		goto set_attr_fail;
 	}
 
@@ -1416,14 +1491,13 @@ static int icnss_smmu_init(struct device *dev)
 				    DOMAIN_ATTR_S1_BYPASS,
 				    &s1_bypass);
 	if (ret < 0) {
-		pr_err("%s: set s1_bypass attribute failed, err = %d\n",
-		       __func__, ret);
+		icnss_pr_err("Set s1_bypass attribute failed, err = %d\n", ret);
 		goto set_attr_fail;
 	}
 
 	ret = arm_iommu_attach_device(dev, mapping);
 	if (ret < 0) {
-		pr_err("%s: attach device failed, err = %d\n", __func__, ret);
+		icnss_pr_err("Attach device failed, err = %d\n", ret);
 		goto attach_fail;
 	}
 
@@ -1457,7 +1531,7 @@ static int icnss_dt_parse_vreg_info(struct device *dev,
 
 	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", vreg_name);
 	if (!of_parse_phandle(np, prop_name, 0)) {
-		pr_err("%s: No vreg data found for %s\n", __func__, vreg_name);
+		icnss_pr_err("No vreg data found for %s\n", vreg_name);
 		ret = -EINVAL;
 		return ret;
 	}
@@ -1469,7 +1543,7 @@ static int icnss_dt_parse_vreg_info(struct device *dev,
 	ret = of_property_read_u32_array(np, prop_name, voltage_levels,
 					ARRAY_SIZE(voltage_levels));
 	if (ret) {
-		pr_err("%s: error reading %s property\n", __func__, prop_name);
+		icnss_pr_err("Error reading %s property\n", prop_name);
 		return ret;
 	}
 
@@ -1486,8 +1560,8 @@ static int icnss_get_resources(struct device *dev)
 
 	vreg_info = &penv->vreg_info;
 	if (vreg_info->reg) {
-		pr_err("%s: %s regulator is already initialized\n", __func__,
-			vreg_info->name);
+		icnss_pr_err("%s regulator is already initialized\n",
+		       vreg_info->name);
 		return ret;
 	}
 
@@ -1495,11 +1569,9 @@ static int icnss_get_resources(struct device *dev)
 	if (IS_ERR(vreg_info->reg)) {
 		ret = PTR_ERR(vreg_info->reg);
 		if (ret == -EPROBE_DEFER) {
-			pr_err("%s: %s probe deferred!\n", __func__,
-				vreg_info->name);
+			icnss_pr_err("%s probe deferred!\n", vreg_info->name);
 		} else {
-			pr_err("%s: Get %s failed!\n", __func__,
-				vreg_info->name);
+			icnss_pr_err("Get %s failed!\n", vreg_info->name);
 		}
 	}
 	return ret;
@@ -1511,7 +1583,7 @@ static int icnss_release_resources(void)
 	struct icnss_vreg_info *vreg_info = &penv->vreg_info;
 
 	if (!vreg_info->reg) {
-		pr_err("%s: regulator is not initialized\n", __func__);
+		icnss_pr_err("Regulator is not initialized\n");
 		return -ENOENT;
 	}
 
@@ -1556,21 +1628,22 @@ static int icnss_test_mode_fw_test_off(struct icnss_data *priv)
 	int ret;
 
 	if (!test_bit(ICNSS_FW_READY, &priv->state)) {
-		pr_err("Firmware is not ready yet!, wait for FW READY: state: 0x%lx\n",
-		       priv->state);
+		icnss_pr_err("Firmware is not ready yet!, wait for FW READY: state: 0x%lx\n",
+			     priv->state);
 		ret = -ENODEV;
 		goto out;
 	}
 
 	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state)) {
-		pr_err("Machine mode is running, can't run test mode: state: 0x%lx\n",
-		       priv->state);
+		icnss_pr_err("Machine mode is running, can't run test mode: state: 0x%lx\n",
+			     priv->state);
 		ret = -EINVAL;
 		goto out;
 	}
 
 	if (!test_bit(ICNSS_FW_TEST_MODE, &priv->state)) {
-		pr_err("Test mode not started, state: 0x%lx\n", priv->state);
+		icnss_pr_err("Test mode not started, state: 0x%lx\n",
+			     priv->state);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1590,28 +1663,28 @@ static int icnss_test_mode_fw_test(struct icnss_data *priv,
 	int ret;
 
 	if (!test_bit(ICNSS_FW_READY, &priv->state)) {
-		pr_err("Firmware is not ready yet!, wait for FW READY, state: 0x%lx\n",
-		       priv->state);
+		icnss_pr_err("Firmware is not ready yet!, wait for FW READY, state: 0x%lx\n",
+			     priv->state);
 		ret = -ENODEV;
 		goto out;
 	}
 
 	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state)) {
-		pr_err("Machine mode is running, can't run test mode, state: 0x%lx\n",
-		       priv->state);
+		icnss_pr_err("Machine mode is running, can't run test mode, state: 0x%lx\n",
+			     priv->state);
 		ret = -EINVAL;
 		goto out;
 	}
 
 	if (test_bit(ICNSS_FW_TEST_MODE, &priv->state)) {
-		pr_err("Test mode already started, state: 0x%lx\n",
-		       priv->state);
+		icnss_pr_err("Test mode already started, state: 0x%lx\n",
+			     priv->state);
 		ret = -EBUSY;
 		goto out;
 	}
 
 	ret = icnss_hw_power_on(priv);
-	if (ret < 0)
+	if (ret)
 		goto out;
 
 	set_bit(ICNSS_FW_TEST_MODE, &priv->state);
@@ -1686,7 +1759,7 @@ static int icnss_debugfs_create(struct icnss_data *priv)
 
 	if (IS_ERR(root_dentry)) {
 		ret = PTR_ERR(root_dentry);
-		pr_err("Unable to create debugfs %d\n", ret);
+		icnss_pr_err("Unable to create debugfs %d\n", ret);
 		goto out;
 	}
 
@@ -1713,7 +1786,7 @@ static int icnss_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	if (penv) {
-		pr_err("%s: penv is already initialized\n", __func__);
+		icnss_pr_err("penv is already initialized\n");
 		return -EEXIST;
 	}
 
@@ -1725,26 +1798,26 @@ static int icnss_probe(struct platform_device *pdev)
 
 	ret = icnss_dt_parse_vreg_info(dev, &penv->vreg_info, "vdd-io");
 	if (ret < 0) {
-		pr_err("%s: failed parsing vdd io data\n", __func__);
+		icnss_pr_err("Failed to parse vdd io data: %d\n", ret);
 		goto out;
 	}
 
 	ret = icnss_get_resources(dev);
 	if (ret < 0) {
-		pr_err("%s: Regulator setup failed (%d)\n", __func__, ret);
+		icnss_pr_err("Regulator setup failed (%d)\n", ret);
 		goto out;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "membase");
 	if (!res) {
-		pr_err("%s: Memory base not found\n", __func__);
+		icnss_pr_err("Memory base not found\n");
 		ret = -EINVAL;
 		goto release_regulator;
 	}
 	penv->mem_base_pa = res->start;
 	penv->mem_base_va = ioremap(penv->mem_base_pa, resource_size(res));
 	if (!penv->mem_base_va) {
-		pr_err("%s: mem_base ioremap failed\n", __func__);
+		icnss_pr_err("mem_base ioremap failed\n");
 		ret = -EINVAL;
 		goto release_regulator;
 	}
@@ -1752,22 +1825,25 @@ static int icnss_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "mpm_config");
 	if (!res) {
-		pr_err("%s: mpm_config not found\n", __func__);
+		icnss_pr_err("mpm_config not found\n");
 		ret = -EINVAL;
 		goto unmap_mem_base;
 	}
 	penv->mpm_config_pa = res->start;
 	penv->mpm_config_va = ioremap(penv->mpm_config_pa, resource_size(res));
 	if (!penv->mpm_config_va) {
-		pr_err("%s: mpm_config ioremap failed\n", __func__);
+		icnss_pr_err("mpm_config ioremap failed, phy addr: %pa\n",
+			     &penv->mpm_config_pa);
 		ret = -EINVAL;
 		goto unmap_mem_base;
 	}
+	icnss_pr_dbg("mpm_config_pa: %pa, mpm_config_va: %p\n",
+		     &penv->mpm_config_pa, penv->mpm_config_va);
 
 	for (i = 0; i < ICNSS_MAX_IRQ_REGISTRATIONS; i++) {
 		res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
 		if (!res) {
-			pr_err("%s: Fail to get IRQ-%d\n", __func__, i);
+			icnss_pr_err("Fail to get IRQ-%d\n", i);
 			ret = -ENODEV;
 			goto unmap_mpm_config;
 		} else {
@@ -1783,15 +1859,16 @@ static int icnss_probe(struct platform_device *pdev)
 							  &penv->msa_pa,
 							  GFP_KERNEL);
 			if (!penv->msa_va) {
-				pr_err("%s: DMA alloc failed\n", __func__);
+				icnss_pr_err("DMA alloc failed for MSA\n");
 				ret = -EINVAL;
 				goto unmap_mpm_config;
 			}
-			pr_debug("%s: MAS va: %p, MSA pa: %pa\n",
-				 __func__, penv->msa_va, &penv->msa_pa);
+
+			icnss_pr_dbg("MSA va: %p, MSA pa: %pa\n", penv->msa_va,
+				     &penv->msa_pa);
 		}
 	} else {
-		pr_err("%s: Fail to get MSA Memory Size\n", __func__);
+		icnss_pr_err("Fail to get MSA Memory Size\n");
 		ret = -ENODEV;
 		goto unmap_mpm_config;
 	}
@@ -1804,19 +1881,17 @@ static int icnss_probe(struct platform_device *pdev)
 
 		ret = icnss_smmu_init(&pdev->dev);
 		if (ret < 0) {
-			pr_err("%s: SMMU init failed, err = %d\n",
-			       __func__, ret);
+			icnss_pr_err("SMMU init failed, err = %d, start: %pad, len: %zx\n",
+				     ret, &penv->smmu_iova_start,
+				     penv->smmu_iova_len);
 			goto err_smmu_init;
 		}
 
 		penv->smmu_clk = icnss_clock_init(&pdev->dev, SMMU_CLOCK_NAME);
 		if (penv->smmu_clk) {
 			ret = icnss_clock_enable(penv->smmu_clk);
-			if (ret < 0) {
-				pr_err("%s: SMMU clock enable failed!\n",
-				       __func__);
+			if (ret < 0)
 				goto err_smmu_clock_enable;
-			}
 		}
 	}
 
@@ -1827,7 +1902,7 @@ static int icnss_probe(struct platform_device *pdev)
 
 	penv->event_wq = alloc_workqueue("icnss_driver_event", 0, 0);
 	if (!penv->event_wq) {
-		pr_err("%s: workqueue creation failed\n", __func__);
+		icnss_pr_err("Workqueue creation failed\n");
 		ret = -EFAULT;
 		goto err_smmu_clock_enable;
 	}
@@ -1841,13 +1916,13 @@ static int icnss_probe(struct platform_device *pdev)
 					      WLFW_SERVICE_INS_ID_V01,
 					      &wlfw_clnt_nb);
 	if (ret < 0) {
-		pr_err("%s: notifier register failed\n", __func__);
+		icnss_pr_err("Notifier register failed: %d\n", ret);
 		goto err_qmi;
 	}
 
 	icnss_debugfs_create(penv);
 
-	pr_info("icnss: Platform driver probed successfully\n");
+	icnss_pr_info("Platform driver probed successfully\n");
 
 	return ret;
 
@@ -1868,10 +1943,7 @@ unmap_mem_base:
 	if (penv->mem_base_va)
 		iounmap(penv->mem_base_va);
 release_regulator:
-	ret = icnss_release_resources();
-	if (ret < 0)
-		pr_err("%s: fail to release the platform resource\n",
-			 __func__);
+	icnss_release_resources();
 out:
 	devm_kfree(&pdev->dev, penv);
 	penv = NULL;
@@ -1880,7 +1952,7 @@ out:
 
 static int icnss_remove(struct platform_device *pdev)
 {
-	int ret = 0;
+	icnss_pr_info("Removing driver: state: 0x%lx\n", penv->state);
 
 	icnss_debugfs_destroy(penv);
 
@@ -1905,16 +1977,11 @@ static int icnss_remove(struct platform_device *pdev)
 	if (penv->mem_base_va)
 		iounmap(penv->mem_base_va);
 
-	ret = icnss_hw_power_off(penv);
-	if (ret < 0)
-		pr_err("%s: Failed to turn off voltagre regulator: %d\n",
-		       __func__, ret);
+	icnss_hw_power_off(penv);
 
-	ret = icnss_release_resources();
-	if (ret < 0)
-		pr_err("%s: fail to release the platform resource\n",
-			 __func__);
-	return ret;
+	icnss_release_resources();
+
+	return 0;
 }
 
 
@@ -1937,12 +2004,19 @@ static struct platform_driver icnss_driver = {
 
 static int __init icnss_initialize(void)
 {
+	icnss_ipc_log_context = ipc_log_context_create(NUM_LOG_PAGES,
+						       "icnss", 0);
+	if (!icnss_ipc_log_context)
+		icnss_pr_err("Unable to create log context\n");
+
 	return platform_driver_register(&icnss_driver);
 }
 
 static void __exit icnss_exit(void)
 {
 	platform_driver_unregister(&icnss_driver);
+	ipc_log_context_destroy(icnss_ipc_log_context);
+	icnss_ipc_log_context = NULL;
 }
 
 

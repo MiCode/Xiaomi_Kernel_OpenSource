@@ -254,6 +254,7 @@ struct dsi_shared_data {
 
 	/* DSI bus clocks */
 	struct clk *mdp_core_clk;
+	struct clk *mnoc_clk;
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
 	struct clk *mmss_misc_ahb_clk;

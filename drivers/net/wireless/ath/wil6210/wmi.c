@@ -368,6 +368,8 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 		wil_hex_dump_wmi("IE ", DUMP_PREFIX_OFFSET, 16, 1, ie_buf,
 				 ie_len, true);
 
+		wil_dbg_wmi(wil, "Capability info : 0x%04x\n", cap);
+
 		bss = cfg80211_inform_bss_frame(wiphy, channel, rx_mgmt_frame,
 						d_len, signal, GFP_KERNEL);
 		if (bss) {
@@ -378,8 +380,10 @@ static void wmi_evt_rx_mgmt(struct wil6210_priv *wil, int id, void *d, int len)
 			wil_err(wil, "cfg80211_inform_bss_frame() failed\n");
 		}
 	} else {
-		cfg80211_rx_mgmt(wil->wdev, freq, signal,
+		mutex_lock(&wil->p2p_wdev_mutex);
+		cfg80211_rx_mgmt(wil->radio_wdev, freq, signal,
 				 (void *)rx_mgmt_frame, d_len, 0);
+		mutex_unlock(&wil->p2p_wdev_mutex);
 	}
 }
 
@@ -406,7 +410,10 @@ static void wmi_evt_scan_complete(struct wil6210_priv *wil, int id,
 			     wil->scan_request, aborted);
 
 		del_timer_sync(&wil->scan_timer);
+		mutex_lock(&wil->p2p_wdev_mutex);
 		cfg80211_scan_done(wil->scan_request, aborted);
+		wil->radio_wdev = wil->wdev;
+		mutex_unlock(&wil->p2p_wdev_mutex);
 		wil->scan_request = NULL;
 	} else {
 		wil_err(wil, "SCAN_COMPLETE while not scanning\n");
@@ -955,7 +962,7 @@ int wmi_set_mac_address(struct wil6210_priv *wil, void *addr)
 }
 
 int wmi_pcp_start(struct wil6210_priv *wil, int bi, u8 wmi_nettype,
-		  u8 chan, u8 hidden_ssid)
+		  u8 chan, u8 hidden_ssid, u8 is_go)
 {
 	int rc;
 
@@ -966,6 +973,7 @@ int wmi_pcp_start(struct wil6210_priv *wil, int bi, u8 wmi_nettype,
 		.channel = chan - 1,
 		.pcp_max_assoc_sta = max_assoc_sta,
 		.hidden_ssid = hidden_ssid,
+		.is_go = is_go,
 	};
 	struct {
 		struct wmi_cmd_hdr wmi;
@@ -1072,14 +1080,86 @@ int wmi_get_channel(struct wil6210_priv *wil, int *channel)
 	return 0;
 }
 
-int wmi_p2p_cfg(struct wil6210_priv *wil, int channel)
+int wmi_p2p_cfg(struct wil6210_priv *wil, int channel, int bi)
 {
+	int rc;
 	struct wmi_p2p_cfg_cmd cmd = {
-		.discovery_mode = WMI_DISCOVERY_MODE_NON_OFFLOAD,
+		.discovery_mode = WMI_DISCOVERY_MODE_PEER2PEER,
+		.bcon_interval = cpu_to_le16(bi),
 		.channel = channel - 1,
 	};
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_p2p_cfg_done_event evt;
+	} __packed reply;
 
-	return wmi_send(wil, WMI_P2P_CFG_CMDID, &cmd, sizeof(cmd));
+	wil_dbg_wmi(wil, "sending WMI_P2P_CFG_CMDID\n");
+
+	rc = wmi_call(wil, WMI_P2P_CFG_CMDID, &cmd, sizeof(cmd),
+		      WMI_P2P_CFG_DONE_EVENTID, &reply, sizeof(reply), 300);
+	if (!rc && reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "P2P_CFG failed. status %d\n", reply.evt.status);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+int wmi_start_listen(struct wil6210_priv *wil)
+{
+	int rc;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_listen_started_event evt;
+	} __packed reply;
+
+	wil_dbg_wmi(wil, "sending WMI_START_LISTEN_CMDID\n");
+
+	rc = wmi_call(wil, WMI_START_LISTEN_CMDID, NULL, 0,
+		      WMI_LISTEN_STARTED_EVENTID, &reply, sizeof(reply), 300);
+	if (!rc && reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "device failed to start listen. status %d\n",
+			reply.evt.status);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+int wmi_start_search(struct wil6210_priv *wil)
+{
+	int rc;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_search_started_event evt;
+	} __packed reply;
+
+	wil_dbg_wmi(wil, "sending WMI_START_SEARCH_CMDID\n");
+
+	rc = wmi_call(wil, WMI_START_SEARCH_CMDID, NULL, 0,
+		      WMI_SEARCH_STARTED_EVENTID, &reply, sizeof(reply), 300);
+	if (!rc && reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "device failed to start search. status %d\n",
+			reply.evt.status);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+int wmi_stop_discovery(struct wil6210_priv *wil)
+{
+	int rc;
+
+	wil_dbg_wmi(wil, "sending WMI_DISCOVERY_STOP_CMDID\n");
+
+	rc = wmi_call(wil, WMI_DISCOVERY_STOP_CMDID, NULL, 0,
+		      WMI_DISCOVERY_STOPPED_EVENTID, NULL, 0, 100);
+
+	if (rc)
+		wil_err(wil, "Failed to stop discovery\n");
+
+	return rc;
 }
 
 int wmi_del_cipher_key(struct wil6210_priv *wil, u8 key_index,

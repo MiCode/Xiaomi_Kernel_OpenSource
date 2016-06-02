@@ -78,10 +78,18 @@ static int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 		goto error;
 	}
 
+	if (c_clks->clks.mnoc_clk) {
+		rc = clk_prepare_enable(c_clks->clks.mnoc_clk);
+		if (rc) {
+			pr_err("failed to enable mnoc clock. rc=%d\n", rc);
+			goto disable_core_clk;
+		}
+	}
+
 	rc = clk_prepare_enable(c_clks->clks.ahb_clk);
 	if (rc) {
 		pr_err("%s: failed to enable ahb clock. rc=%d\n", __func__, rc);
-		goto disable_core_clk;
+		goto disable_mnoc_clk;
 	}
 
 	rc = clk_prepare_enable(c_clks->clks.axi_clk);
@@ -115,6 +123,9 @@ disable_axi_clk:
 	clk_disable_unprepare(c_clks->clks.axi_clk);
 disable_ahb_clk:
 	clk_disable_unprepare(c_clks->clks.ahb_clk);
+disable_mnoc_clk:
+	if (c_clks->clks.mnoc_clk)
+		clk_disable_unprepare(c_clks->clks.mnoc_clk);
 disable_core_clk:
 	clk_disable_unprepare(c_clks->clks.mdp_core_clk);
 error:
@@ -134,6 +145,8 @@ static int dsi_core_clk_stop(struct dsi_core_clks *c_clks)
 		clk_disable_unprepare(c_clks->clks.mmss_misc_ahb_clk);
 	clk_disable_unprepare(c_clks->clks.axi_clk);
 	clk_disable_unprepare(c_clks->clks.ahb_clk);
+	if (c_clks->clks.mnoc_clk)
+		clk_disable_unprepare(c_clks->clks.mnoc_clk);
 	clk_disable_unprepare(c_clks->clks.mdp_core_clk);
 
 	pr_debug("%s: CORE CLOCK IS OFF\n", mngr->name);

@@ -1082,6 +1082,58 @@ static void mdss_dsi_validate_debugfs_info(
 	}
 }
 
+/**
+ * mdss_dsi_clamp_phy_reset_config() - configure DSI phy reset mask
+ * @ctrl: pointer to DSI controller structure
+ * @enable: true to mask the reset signal, false to unmask
+ *
+ * Configure the register to mask/unmask the propagation of the mdss ahb
+ * clock reset signal to the DSI PHY. This would be necessary when the MDSS
+ * core is idle power collapsed with the DSI panel on. This function assumes
+ * that the mmss_misc_ahb clock is already on.
+ */
+static int mdss_dsi_clamp_phy_reset_config(struct mdss_dsi_ctrl_pdata *ctrl,
+	bool enable)
+{
+	u32 regval;
+
+	if (!ctrl) {
+		pr_warn_ratelimited("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!ctrl->mmss_misc_io.base) {
+		pr_warn_ratelimited("%s: mmss_misc_io not mapped\n", __func__);
+		return -EINVAL;
+	}
+
+	if ((ctrl->shared_data->hw_rev >= MDSS_DSI_HW_REV_104) &&
+		(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
+		MDSS_DSI_HW_REV_STEP_2)) {
+		u32 clamp_reg_off = ctrl->shared_data->ulps_clamp_ctrl_off;
+
+		regval = MIPI_INP(ctrl->mmss_misc_io.base + clamp_reg_off);
+		if (enable)
+			regval = regval | BIT(30);
+		else
+			regval = regval & ~BIT(30);
+		MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off, regval);
+	} else {
+		u32 phyrst_reg_off = ctrl->shared_data->ulps_phyrst_ctrl_off;
+
+		if (enable)
+			regval = BIT(0);
+		else
+			regval = 0;
+		MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off, regval);
+	}
+
+	/* make sure that clamp ctrl is updated */
+	wmb();
+
+	return 0;
+}
+
 static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 {
 	int ret = 0;
@@ -1134,7 +1186,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 		mdss_dsi_phy_disable(ctrl_pdata);
 	}
 	ctrl_pdata->ctrl_state &= ~CTRL_STATE_DSI_ACTIVE;
-
+	mdss_dsi_clamp_phy_reset_config(ctrl_pdata, false);
 	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
 			  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_OFF);
 
@@ -1337,6 +1389,8 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		mdss_dsi_ctrl_setup(ctrl_pdata);
 	}
 	ctrl_pdata->ctrl_state |= CTRL_STATE_DSI_ACTIVE;
+
+	mdss_dsi_clamp_phy_reset_config(ctrl_pdata, true);
 
 	/* DSI link clocks need to be on prior to ctrl sw reset */
 	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
@@ -2780,6 +2834,7 @@ static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
 	memset(&info, 0x0, sizeof(info));
 
 	info.core_clks.mdp_core_clk = ctrl_pdata->shared_data->mdp_core_clk;
+	info.core_clks.mnoc_clk = ctrl_pdata->shared_data->mnoc_clk;
 	info.core_clks.ahb_clk = ctrl_pdata->shared_data->ahb_clk;
 	info.core_clks.axi_clk = ctrl_pdata->shared_data->axi_clk;
 	info.core_clks.mmss_misc_ahb_clk =
@@ -2907,6 +2962,7 @@ static int mdss_dsi_cont_splash_config(struct mdss_panel_info *pinfo,
 		ctrl_pdata->is_phyreg_enabled = 1;
 		if (pinfo->type == MIPI_CMD_PANEL)
 			mdss_dsi_set_burst_mode(ctrl_pdata);
+		mdss_dsi_clamp_phy_reset_config(ctrl_pdata, true);
 	} else {
 		/* Turn on the clocks to read the DSI and PHY revision */
 		mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,

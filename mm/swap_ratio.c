@@ -88,6 +88,12 @@ static int swap_ratio_slow(struct swap_info_struct **si)
 	n = plist_next_entry(&(*si)->avail_list,
 			struct swap_info_struct,
 			avail_list);
+	if (n == *si) {
+		/* No other swap device */
+		ret = -ENODEV;
+		goto skip;
+	}
+
 	spin_unlock(&swap_avail_lock);
 	spin_lock(&n->lock);
 	spin_lock(&swap_avail_lock);
@@ -182,6 +188,9 @@ void setup_swap_ratio(struct swap_info_struct *p, int prio)
 
 int swap_ratio(struct swap_info_struct **si)
 {
+	if (!sysctl_swap_ratio_enable)
+		return -ENODEV;
+
 	if (is_swap_ratio_group((*si)->prio))
 		return swap_ratio_slow(si);
 	else

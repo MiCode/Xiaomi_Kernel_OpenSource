@@ -226,6 +226,18 @@ static struct clk_freq_tbl ftbl_gfx3d_clk_src[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_gfx3d_clk_src_v2[] = {
+	F_SLEW( 189000000,  378000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 264000000,  528000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 342000000,  684000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 414000000,  828000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 520000000, 1040000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 596000000, 1192000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 670000000, 1340000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_SLEW( 710000000, 1420000000, gpu_pll0_pll_out_even,    1, 0, 0),
+	F_END
+};
+
 static struct clk_freq_tbl ftbl_gfx3d_clk_src_vq[] = {
 	F_SLEW( 185000000,  370000000, gpu_pll0_pll_out_even,    1, 0, 0),
 	F_SLEW( 285000000,  570000000, gpu_pll0_pll_out_even,    1, 0, 0),
@@ -621,6 +633,7 @@ int msm_gpucc_cobalt_probe(struct platform_device *pdev)
 
 static const struct of_device_id msm_clock_gpucc_match_table[] = {
 	{ .compatible = "qcom,gpucc-cobalt" },
+	{ .compatible = "qcom,gpucc-cobalt-v2" },
 	{ .compatible = "qcom,gpucc-hamster" },
 	{},
 };
@@ -654,13 +667,20 @@ static void msm_gfxcc_hamster_fixup(void)
 	gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_vq;
 }
 
+static void msm_gfxcc_cobalt_v2_fixup(void)
+{
+	gpu_pll0_pll.c.fmax[VDD_DIG_NOMINAL] = 1420000500;
+	gpu_pll1_pll.c.fmax[VDD_DIG_NOMINAL] = 1420000500;
+	gfx3d_clk_src.freq_tbl = ftbl_gfx3d_clk_src_v2;
+}
+
 int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device_node *of_node = pdev->dev.of_node;
 	int rc;
 	struct regulator *reg;
-	bool is_vq = 0;
+	bool is_v2 = 0, is_vq = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -712,11 +732,15 @@ int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	is_v2 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gfxcc-cobalt-v2");
+	if (is_v2)
+		msm_gfxcc_cobalt_v2_fixup();
+
 	is_vq = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gfxcc-hamster");
 	if (is_vq)
 		msm_gfxcc_hamster_fixup();
-
 
 	rc = of_msm_clock_register(of_node, msm_clocks_gfxcc_cobalt,
 					ARRAY_SIZE(msm_clocks_gfxcc_cobalt));
@@ -738,6 +762,7 @@ int msm_gfxcc_cobalt_probe(struct platform_device *pdev)
 
 static const struct of_device_id msm_clock_gfxcc_match_table[] = {
 	{ .compatible = "qcom,gfxcc-cobalt" },
+	{ .compatible = "qcom,gfxcc-cobalt-v2" },
 	{ .compatible = "qcom,gfxcc-hamster" },
 	{},
 };
