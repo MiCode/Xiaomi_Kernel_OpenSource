@@ -76,6 +76,8 @@ its hardware characteristcs.
 
 	* arm,default-sink: represents the default compile time CoreSight sink
 
+	* coresight-ctis: represents flush and reset CTIs for TMC buffer
+
 * Required property for TPDAs:
 
 	* qcom,tpda-atid: must be present. Specifies the ATID for TPDA.

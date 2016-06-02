@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/amba/bus.h>
 #include <linux/coresight.h>
+#include <linux/coresight-cti.h>
 #include <linux/cpumask.h>
 #include <asm/smp_plat.h>
 
@@ -194,3 +195,45 @@ struct coresight_platform_data *of_get_coresight_platform_data(
 	return pdata;
 }
 EXPORT_SYMBOL_GPL(of_get_coresight_platform_data);
+
+struct coresight_cti_data *of_get_coresight_cti_data(
+				struct device *dev, struct device_node *node)
+{
+	int i, ret;
+	uint32_t ctis_len;
+	struct device_node *child_node;
+	struct coresight_cti_data *ctidata;
+
+	ctidata = devm_kzalloc(dev, sizeof(*ctidata), GFP_KERNEL);
+	if (!ctidata)
+		return ERR_PTR(-ENOMEM);
+
+	if (of_get_property(node, "coresight-ctis", &ctis_len))
+		ctidata->nr_ctis = ctis_len/sizeof(uint32_t);
+	else
+		return ERR_PTR(-EINVAL);
+
+	if (ctidata->nr_ctis) {
+		ctidata->names = devm_kzalloc(dev, ctidata->nr_ctis *
+					      sizeof(*ctidata->names),
+					      GFP_KERNEL);
+		if (!ctidata->names)
+			return ERR_PTR(-ENOMEM);
+
+		for (i = 0; i < ctidata->nr_ctis; i++) {
+			child_node = of_parse_phandle(node, "coresight-ctis",
+						      i);
+			if (!child_node)
+				return ERR_PTR(-EINVAL);
+
+			ret = of_property_read_string(child_node,
+						      "coresight-name",
+						      &ctidata->names[i]);
+			of_node_put(child_node);
+			if (ret)
+				return ERR_PTR(ret);
+		}
+	}
+	return ctidata;
+}
+EXPORT_SYMBOL(of_get_coresight_cti_data);
