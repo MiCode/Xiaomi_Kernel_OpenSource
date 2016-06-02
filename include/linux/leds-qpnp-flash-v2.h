@@ -19,6 +19,12 @@
 #define ENABLE_REGULATOR	BIT(0)
 #define QUERY_MAX_CURRENT	BIT(1)
 
+struct flash_regulator_data {
+	struct regulator	*vreg;
+	const char		*reg_name;
+	u32			max_volt_uv;
+};
+
 /*
  * Configurations for each individual LED
  */
@@ -47,6 +53,9 @@ struct flash_node_data {
 struct flash_switch_data {
 	struct platform_device		*pdev;
 	struct led_classdev		cdev;
+	struct flash_regulator_data	*reg_data;
+	u8				num_regulators;
+	bool				regulator_on;
 };
 
 int qpnp_flash_led_prepare(struct led_classdev *led_cdev, int options);

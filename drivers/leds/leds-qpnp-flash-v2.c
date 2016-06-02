@@ -20,6 +20,7 @@
 #include <linux/gpio.h>
 #include <linux/regmap.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/leds-qpnp-flash-v2.h>
 
 #define	FLASH_LED_REG_SAFETY_TMR(base)		(base + 0x40)
@@ -196,7 +197,34 @@ static int qpnp_flash_led_hw_strobe_enable(struct flash_node_data *fnode,
 static int qpnp_flash_led_regulator_enable(struct qpnp_flash_led *led,
 				struct flash_switch_data *snode, bool on)
 {
-	return 0;
+	int i, rc = 0;
+
+	if (snode->regulator_on == on)
+		return 0;
+
+	if (on == false) {
+		i = snode->num_regulators;
+		goto out;
+	}
+
+	for (i = 0; i < snode->num_regulators; i++) {
+		rc = regulator_enable(snode->reg_data[i].vreg);
+		if (rc < 0) {
+			dev_err(&led->pdev->dev,
+				"regulator enable failed, rc=%d\n", rc);
+			goto out;
+		}
+	}
+	snode->regulator_on = true;
+
+	return rc;
+
+out:
+	while (i--)
+		regulator_disable(snode->reg_data[i].vreg);
+
+	snode->regulator_on = false;
+	return rc;
 }
 
 static int qpnp_flash_led_get_max_avail_current(struct flash_switch_data *snode,
@@ -229,6 +257,10 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 
 	if (!on)
 		goto leds_turn_off;
+
+	rc = qpnp_flash_led_regulator_enable(led, snode, true);
+	if (rc)
+		return rc;
 
 	val = 0;
 	for (i = 0; i < led->num_led_nodes; i++)
@@ -351,6 +383,8 @@ leds_turn_off:
 		}
 	}
 
+	qpnp_flash_led_regulator_enable(led, snode, false);
+
 	return 0;
 }
 
@@ -417,6 +451,104 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 
 exit:
 	spin_unlock(&led->lock);
+}
+
+static int qpnp_flash_led_regulator_setup(struct qpnp_flash_led *led,
+				struct flash_switch_data *snode, bool on)
+{
+	int i, rc = 0;
+
+	if (on == false) {
+		i = snode->num_regulators;
+		goto out;
+	}
+
+	for (i = 0; i < snode->num_regulators; i++) {
+		snode->reg_data[i].vreg = regulator_get(snode->cdev.dev,
+						snode->reg_data[i].reg_name);
+		if (IS_ERR(snode->reg_data[i].vreg)) {
+			rc = PTR_ERR(snode->reg_data[i].vreg);
+			dev_err(&led->pdev->dev,
+					"Failed to get regulator, rc=%d\n", rc);
+			goto out;
+		}
+
+		if (regulator_count_voltages(snode->reg_data[i].vreg) > 0) {
+			rc = regulator_set_voltage(snode->reg_data[i].vreg,
+					snode->reg_data[i].max_volt_uv,
+					snode->reg_data[i].max_volt_uv);
+			if (rc < 0) {
+				dev_err(&led->pdev->dev,
+					"regulator set voltage failed, rc=%d\n",
+					rc);
+				regulator_put(snode->reg_data[i].vreg);
+				goto out;
+			}
+		}
+	}
+
+	return rc;
+
+out:
+	while (i--) {
+		if (regulator_count_voltages(snode->reg_data[i].vreg) > 0)
+			regulator_set_voltage(snode->reg_data[i].vreg, 0,
+					snode->reg_data[i].max_volt_uv);
+
+		regulator_put(snode->reg_data[i].vreg);
+	}
+
+	return rc;
+}
+
+static int qpnp_flash_led_regulator_parse_dt(struct qpnp_flash_led *led,
+					struct flash_switch_data *snode,
+					struct device_node *node) {
+
+	int i = 0, rc = 0, num_regs = 0;
+	struct device_node *temp = NULL;
+	const char *temp_string;
+	u32 val;
+
+	while ((temp = of_get_next_available_child(node, temp))) {
+		if (of_find_property(temp, "regulator-name", NULL))
+			num_regs++;
+	}
+	snode->num_regulators = num_regs;
+
+	if (snode->num_regulators == 0)
+		return 0;
+
+	snode->reg_data = devm_kcalloc(&led->pdev->dev, snode->num_regulators,
+					sizeof(*snode->reg_data),
+					GFP_KERNEL);
+	if (!snode->reg_data)
+		return -ENOMEM;
+
+	for_each_available_child_of_node(node, temp) {
+		rc = of_property_read_string(temp, "regulator-name",
+							&temp_string);
+		if (!rc)
+			snode->reg_data[i].reg_name = temp_string;
+		else {
+			dev_err(&led->pdev->dev,
+				"Unable to read regulator name, rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = of_property_read_u32(temp, "max-voltage-uv", &val);
+		if (!rc) {
+			snode->reg_data[i].max_volt_uv = val;
+		} else if (rc != -EINVAL) {
+			dev_err(&led->pdev->dev,
+				"Unable to read max voltage, rc=%d\n", rc);
+			return rc;
+		}
+
+		i++;
+	}
+
+	return 0;
 }
 
 static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
@@ -636,7 +768,7 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 						struct device_node *node)
 {
-	int rc;
+	int rc = 0;
 
 	rc = of_property_read_string(node, "qcom,led-name",
 							&led->snode->cdev.name);
@@ -650,6 +782,21 @@ static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 	if (rc) {
 		dev_err(&led->pdev->dev, "Unable to read trigger name\n");
 		return rc;
+	}
+
+	rc = qpnp_flash_led_regulator_parse_dt(led, led->snode, node);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev,
+			"Unable to parse regulator data, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (led->snode->num_regulators) {
+		rc = qpnp_flash_led_regulator_setup(led, led->snode, true);
+		if (rc) {
+			dev_err(&led->pdev->dev, "Unable to setup regulator\n");
+			return rc;
+		}
 	}
 
 	led->snode->pdev = led->pdev;
@@ -806,6 +953,12 @@ static int qpnp_flash_led_remove(struct platform_device *pdev)
 {
 	struct qpnp_flash_led *led = dev_get_drvdata(&pdev->dev);
 	int i = led->num_led_nodes;
+
+	if (led->snode->num_regulators) {
+		if (led->snode->regulator_on)
+			qpnp_flash_led_regulator_enable(led, led->snode, false);
+		qpnp_flash_led_regulator_setup(led, led->snode, false);
+	}
 
 	led_classdev_unregister(&led->snode->cdev);
 	while (i > 0)

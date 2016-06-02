@@ -74,6 +74,14 @@ Optional properties:
 				  be edge triggered. Otherwise, it is level triggered.
 - qcom,hw-strobe-active-low	: Boolean property to select strobe signal polarity. If defined, hw-strobe
 				  signal polarity is set to active-low, else it is active-high.
+- reg<n>		: reg<n> (<n> represents number. e.g. 0,1,2,..) subnode is to add support for
+			  multiple power sources. This subnode should only be specified for switch nodes.
+			  Required property inside regulator node:
+			  - regulator-name	: Name of the regulator which has to be used for this
+						  switch node.
+			  Optional property inside regulator node:
+			  - max-voltage-uv	: This specifies max voltage of regulator. Some switch
+						  or boost regulator does not need this property.
 
 Example:
 	qcom,leds@d300 {
@@ -177,6 +185,10 @@ Example:
 			qcom,led-name = "led:switch";
 			qcom,default-led-trigger =
 						"switch_trigger";
+			reg0 {
+				regulator-name = "pmicobalt_bob";
+				max-voltage-uv = <3600000>;
+			};
 		};
 	};
 
