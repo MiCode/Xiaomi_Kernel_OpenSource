@@ -103,7 +103,7 @@
 		qcom,mdss-has-pingpong-split;
 		qcom,mdss-has-separate-rotator;
 
-		qcom,mdss-ad-off = <0x0079000 0x00079800 0x0007a000>;
+		qcom,mdss-ad-off = <0x0079000 0x00079800>;
 		qcom,mdss-cdm-off = <0x0007a200>;
 		qcom,mdss-dsc-off = <0x00081000 0x00081400>;
 		qcom,mdss-wfd-mode = "intf";
