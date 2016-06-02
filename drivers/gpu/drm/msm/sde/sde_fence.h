@@ -15,6 +15,7 @@
 
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/mutex.h>
 
 #ifdef CONFIG_SYNC
 /**
@@ -63,55 +64,93 @@ static inline int sde_sync_wait(void *fence, long timeout_ms)
 }
 #endif
 
-#if defined(CONFIG_SYNC) && IS_ENABLED(CONFIG_SW_SYNC)
 /**
- * sde_sync_timeline_create - Create timeline object
- *
- * @name: Name for timeline
- *
- * Return: Pointer to newly created timeline, or NULL on error
+ * struct sde_fence - output fence container structure
+ * @timeline: Pointer to fence timeline
+ * @dev: Pointer to drm device structure
+ * @commit_count: Number of detected commits since bootup
+ * @done_count: Number of completed commits since bootup
+ * @offset: Timeline offset for sync point creation
+ * @fence_lock: Mutex object to protect local fence variables
  */
-void *sde_sync_timeline_create(const char *name);
+struct sde_fence {
+	void *timeline;
+	void *dev;
+	int32_t commit_count;
+	int32_t done_count;
+	int32_t offset;
+	struct mutex fence_lock;
+};
+
+#if IS_ENABLED(CONFIG_SW_SYNC)
+/**
+ * sde_fence_init - initialize fence object
+ * @dev: Pointer to drm device structure
+ * @fence: Pointer to crtc fence object
+ * @name: Timeline name
+ * @offset: Fence signal commit offset, e.g., +1 to signal on next commit
+ * Returns: Zero on success
+ */
+int sde_fence_init(void *dev,
+		struct sde_fence *fence,
+		const char *name,
+		int offset);
 
 /**
- * sde_sync_fence_create - Create fence object
- *
- * This function is NOT thread-safe.
- *
- * @timeline: Timeline to associate with fence
- * @name: Name for fence
- * @val: Timeline value at which to signal the fence, must be >= 0
- *
- * Return: File descriptor on success, or error code on error
+ * sde_fence_deinit - deinit fence container
+ * @fence: Pointer fence container
  */
-int sde_sync_fence_create(void *timeline, const char *name, int val);
+void sde_fence_deinit(struct sde_fence *fence);
 
 /**
- * sde_sync_timeline_inc - Increment timeline object
- *
- * This function is NOT thread-safe.
- *
- * @timeline: Timeline to increment
- * @val: Amount by which to increase the timeline
- *
- * Return: File descriptor on success, or error code on error
+ * sde_fence_prepare - prepare to return fences for current commit
+ * @fence: Pointer fence container
+ * Returns: Zero on success
  */
-void sde_sync_timeline_inc(void *timeline, int val);
+int sde_fence_prepare(struct sde_fence *fence);
+
+/**
+ * sde_fence_create - create output fence object
+ * @fence: Pointer fence container
+ * @val: Pointer to output value variable, fence fd will be placed here
+ * Returns: Zero on success
+ */
+int sde_fence_create(struct sde_fence *fence, uint64_t *val);
+
+/**
+ * sde_fence_signal - advance fence timeline to signal outstanding fences
+ * @fence: Pointer fence container
+ * @is_error: Set to non-zero if the commit didn't complete successfully
+ */
+void sde_fence_signal(struct sde_fence *fence, bool is_error);
 #else
-static inline void *sde_sync_timeline_create(const char *name)
+static inline int sde_fence_init(void *dev,
+		struct sde_fence *fence,
+		const char *name,
+		int offset)
 {
-	return NULL;
+	/* do nothing */
 }
 
-static inline int sde_sync_fence_create(void *timeline,
-		const char *name, int val)
+static inline void sde_fence_deinit(struct sde_fence *fence)
+{
+	/* do nothing */
+}
+
+static inline void sde_fence_prepare(struct sde_fence *fence)
+{
+	/* do nothing */
+}
+
+static inline int sde_fence_get(struct sde_fence *fence, uint64_t *val)
 {
 	return -EINVAL;
 }
 
-static inline void sde_sync_timeline_inc(void *timeline, int val)
+static inline void sde_fence_signal(struct sde_fence *fence, bool is_error)
 {
+	/* do nothing */
 }
-#endif /* defined(CONFIG_SYNC) && IS_ENABLED(CONFIG_SW_SYNC) */
+#endif /* IS_ENABLED(CONFIG_SW_SYNC) */
 
 #endif /* _SDE_FENCE_H_ */
