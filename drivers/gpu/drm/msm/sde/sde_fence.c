@@ -12,6 +12,7 @@
 
 #include <sync.h>
 #include <sw_sync.h>
+#include "msm_drv.h"
 #include "sde_kms.h"
 #include "sde_fence.h"
 
@@ -35,67 +36,189 @@ int sde_sync_wait(void *fence, long timeout_ms)
 }
 
 #if IS_ENABLED(CONFIG_SW_SYNC)
-void *sde_sync_timeline_create(const char *name)
-{
-	if (!name)
-		name = "";
-	return sw_sync_timeline_create(name);
-}
-
-int sde_sync_fence_create(void *timeline, const char *name, int val)
+/**
+ * _sde_fence_create_fd - create fence object and return an fd for it
+ * This function is NOT thread-safe.
+ * @timeline: Timeline to associate with fence
+ * @name: Name for fence
+ * @val: Timeline value at which to signal the fence
+ * Return: File descriptor on success, or error code on error
+ */
+static int _sde_fence_create_fd(void *timeline, const char *name, uint32_t val)
 {
 	struct sync_pt *sync_pt;
 	struct sync_fence *fence;
 	signed int fd = -EINVAL;
 
 	if (!timeline) {
-		DRM_ERROR("Invalid timeline\n");
-		return fd;
-	}
-
-	if (val < 0) {
-		DRM_ERROR("Invalid fence value %d\n", val);
-		return fd;
+		SDE_ERROR("invalid timeline\n");
+		goto exit;
 	}
 
 	if (!name)
-		name = "";
+		name = "sde_fence";
 
 	/* create sync point */
 	sync_pt = sw_sync_pt_create(timeline, val);
 	if (sync_pt == NULL) {
-		DRM_ERROR("Failed to create sync point, %s\n", name);
-		return fd;
+		SDE_ERROR("failed to create sync point, %s\n", name);
+		goto exit;
 	}
 
 	/* create fence */
 	fence = sync_fence_create(name, sync_pt);
 	if (fence == NULL) {
 		sync_pt_free(sync_pt);
-		DRM_ERROR("Couldn't create fence, %s\n", name);
-		return fd;
+		SDE_ERROR("couldn't create fence, %s\n", name);
+		goto exit;
 	}
 
 	/* create fd */
 	fd = get_unused_fd_flags(0);
 	if (fd < 0) {
-		DRM_ERROR("Failed to get_unused_fd_flags(), %s\n", name);
+		SDE_ERROR("failed to get_unused_fd_flags(), %s\n", name);
 		sync_fence_put(fence);
-		return fd;
+		goto exit;
 	}
 
 	sync_fence_install(fence, fd);
-
+exit:
 	return fd;
 }
 
-void sde_sync_timeline_inc(void *timeline, int val)
+/**
+ * SDE_FENCE_TIMELINE_NAME - macro for accessing s/w timeline's name
+ * @fence: Pointer to sde fence structure
+ * Returns: Pointer to timeline name string
+ */
+#define SDE_FENCE_TIMELINE_NAME(fence) \
+	(((struct sw_sync_timeline *)fence->timeline)->obj.name)
+
+int sde_fence_init(void *dev,
+		struct sde_fence *fence,
+		const char *name,
+		int offset)
 {
-	if (!timeline)
-		DRM_ERROR("Invalid timeline\n");
-	else if (val <= 0)
-		DRM_ERROR("Invalid increment, %d\n", val);
+	if (!fence) {
+		SDE_ERROR("invalid argument(s)\n");
+		return -EINVAL;
+	}
+
+	fence->timeline = sw_sync_timeline_create(name ? name : "sde");
+	if (!fence->timeline) {
+		SDE_ERROR("failed to create timeline\n");
+		return -ENOMEM;
+	}
+
+	fence->dev = dev;
+
+	/*
+	 * Allow created fences to have a constant offset with respect
+	 * to the timeline. This allows us to delay the fence signalling
+	 * w.r.t. the commit completion (e.g., an offset of +1 would
+	 * cause fences returned during a particular commit to signal
+	 * after an additional delay of one commit, rather than at the
+	 * end of the current one.
+	 */
+	fence->offset = (int32_t)offset;
+	fence->commit_count = 0;
+	fence->done_count = 0;
+
+	mutex_init(&fence->fence_lock);
+	return 0;
+
+}
+
+void sde_fence_deinit(struct sde_fence *fence)
+{
+	if (!fence) {
+		SDE_ERROR("invalid fence\n");
+		return;
+	}
+
+	mutex_destroy(&fence->fence_lock);
+	if (fence->timeline)
+		sync_timeline_destroy(fence->timeline);
+}
+
+int sde_fence_prepare(struct sde_fence *fence)
+{
+	if (!fence) {
+		SDE_ERROR("invalid fence\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&fence->fence_lock);
+	++fence->commit_count;
+	MSM_EVTMSG(fence->dev,
+			SDE_FENCE_TIMELINE_NAME(fence),
+			fence->commit_count,
+			fence->done_count);
+	mutex_unlock(&fence->fence_lock);
+	return 0;
+}
+
+int sde_fence_create(struct sde_fence *fence, uint64_t *val)
+{
+	uint32_t trigger_value;
+	int fd, rc = -EINVAL;
+
+	if (!fence || !fence->timeline || !val) {
+		SDE_ERROR("invalid argument(s), fence %pK, pval %pK\n",
+				fence, val);
+	} else  {
+		mutex_lock(&fence->fence_lock);
+		trigger_value = fence->commit_count + fence->offset;
+		fd = _sde_fence_create_fd(fence->timeline,
+				SDE_FENCE_TIMELINE_NAME(fence),
+				trigger_value);
+		*val = fd;
+
+		MSM_EVTMSG(fence->dev,
+				SDE_FENCE_TIMELINE_NAME(fence),
+				trigger_value,
+				fd);
+		mutex_unlock(&fence->fence_lock);
+
+		if (fd >= 0)
+			rc = 0;
+	}
+
+	return rc;
+}
+
+void sde_fence_signal(struct sde_fence *fence, bool is_error)
+{
+	if (!fence || !fence->timeline) {
+		SDE_ERROR("invalid fence, %pK\n", fence);
+		return;
+	}
+
+	mutex_lock(&fence->fence_lock);
+	if ((fence->done_count - fence->commit_count) < 0)
+		++fence->done_count;
 	else
-		sw_sync_timeline_inc(timeline, val);
+		SDE_ERROR("detected extra signal attempt!\n");
+
+	MSM_EVTMSG(fence->dev,
+			SDE_FENCE_TIMELINE_NAME(fence),
+			fence->done_count,
+			is_error);
+	/*
+	 * Always advance 'done' counter,
+	 * but only advance timeline if !error
+	 */
+	if (!is_error) {
+		int32_t val;
+
+		val = fence->done_count;
+		val -= ((struct sw_sync_timeline *)
+				fence->timeline)->value;
+		if (val < 0)
+			SDE_ERROR("invalid value\n");
+		else
+			sw_sync_timeline_inc(fence->timeline, (int)val);
+	}
+	mutex_unlock(&fence->fence_lock);
 }
 #endif
