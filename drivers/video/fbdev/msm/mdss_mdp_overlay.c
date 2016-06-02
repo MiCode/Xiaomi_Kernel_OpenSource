@@ -1226,7 +1226,7 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 		 * fetch halt will be skipped for the 1st rect.
 		 */
 		list_for_each_entry_from(tmp, destroy_pipes, list) {
-			if (tmp->num == pipe->num) {
+			if ((tmp != pipe) && (tmp->num == pipe->num)) {
 				pair_found = true;
 				break;
 			}
