@@ -762,7 +762,7 @@ static int it7260_ts_chip_low_power_mode(struct it7260_ts_data *ts_data,
 						sizeof(dummy));
 		if (ret != IT_I2C_READ_RET)
 			dev_err(&ts_data->client->dev,
-				"Can't go to active mode %d\n", retval);
+				"Can't go to active mode %d\n", ret);
 		else
 			ret = 0;
 	}

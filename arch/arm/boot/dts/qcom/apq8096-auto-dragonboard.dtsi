@@ -12,7 +12,6 @@
 
 #include "msm8996-pinctrl.dtsi"
 #include "apq8096-camera-sensor-dragonboard.dtsi"
-#include "apq8096-ba.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -681,6 +680,19 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&quat_tdm_dout_active>;
 		pinctrl-1 = <&quat_tdm_dout_sleep>;
+	};
+
+	qcom,msm-ba {
+		compatible = "qcom,msm-ba";
+		qcom,ba-input-profile-0 {
+			qcom,type = <4>;          /* input type   */
+			qcom,name = "HDMI-1";     /* input name   */
+			qcom,ba-input = <13>;     /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "adv7481"; /* sd name      */
+			qcom,ba-node = <0>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
 	};
 };
 

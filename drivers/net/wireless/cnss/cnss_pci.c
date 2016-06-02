@@ -2365,8 +2365,10 @@ again:
 
 		ret = wdrv->probe(pdev, penv->id);
 		if (ret) {
-			wcnss_prealloc_check_memory_leak();
-			wcnss_pre_alloc_reset();
+			if (!penv->dual_wifi_info.is_dual_wifi_enabled) {
+				wcnss_prealloc_check_memory_leak();
+				wcnss_pre_alloc_reset();
+			}
 
 			if (probe_again > 3) {
 				pr_err("Failed to probe WLAN\n");
@@ -2456,8 +2458,10 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 	if (wdrv->remove)
 		wdrv->remove(pdev);
 
-	wcnss_prealloc_check_memory_leak();
-	wcnss_pre_alloc_reset();
+	if (!penv->dual_wifi_info.is_dual_wifi_enabled) {
+		wcnss_prealloc_check_memory_leak();
+		wcnss_pre_alloc_reset();
+	}
 
 	cnss_msm_pcie_deregister_event(&penv->event_reg);
 

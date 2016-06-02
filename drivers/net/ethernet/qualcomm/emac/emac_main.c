@@ -1326,28 +1326,40 @@ static int emac_start_xmit(struct sk_buff *skb,
 	return emac_start_xmit_frame(adpt, txque, skb);
 }
 
+/* This funciton aquire spin-lock so should not call from sleeping context */
+static void emac_wol_gpio_irq(struct emac_adapter *adpt, bool enable)
+{
+	struct emac_irq_per_dev *wol_irq = &adpt->irq[EMAC_WOL_IRQ];
+	unsigned long flags;
+
+	spin_lock_irqsave(&adpt->wol_irq_lock, flags);
+	if (enable && !adpt->is_wol_enabled)
+		enable_irq(wol_irq->irq);
+	else if (!enable && adpt->is_wol_enabled)
+		disable_irq_nosync(wol_irq->irq);
+	adpt->is_wol_enabled = enable;
+	spin_unlock_irqrestore(&adpt->wol_irq_lock, flags);
+}
+
 /* ISR */
 static irqreturn_t emac_wol_isr(int irq, void *data)
 {
 	struct emac_adapter *adpt = emac_irq_get_adpt(data);
 	struct emac_phy *phy = &adpt->phy;
 	struct net_device *netdev = adpt->netdev;
-	struct emac_irq_per_dev *wol_irq = &adpt->irq[4];
 	int ret = 0;
 	u16 val = 0;
 
 	pm_runtime_get_sync(netdev->dev.parent);
-
 	ret = emac_phy_read(adpt, phy->addr, MII_INT_STATUS, &val);
+	pm_runtime_mark_last_busy(netdev->dev.parent);
+	pm_runtime_put_autosuspend(netdev->dev.parent);
 
 	if (!pm_runtime_status_suspended(adpt->netdev->dev.parent)) {
 		if (!ret &&
 		    ((val & LINK_SUCCESS_INTERRUPT) || (val & LINK_SUCCESS_BX)))
-			disable_irq_nosync(wol_irq->irq);
+			emac_wol_gpio_irq(adpt, false);
 	}
-
-	pm_runtime_mark_last_busy(netdev->dev.parent);
-	pm_runtime_put_autosuspend(netdev->dev.parent);
 	return IRQ_HANDLED;
 }
 
@@ -2149,7 +2161,7 @@ static int emac_open(struct net_device *netdev)
 			 retval, irq->irq, irq_cmn->name, irq_cmn->irqflags);
 		goto err_up;
 	} else {
-		disable_irq_nosync(irq->irq);
+		emac_wol_gpio_irq(adpt, false);
 	}
 	return retval;
 
@@ -3108,14 +3120,13 @@ static int msm_emac_ldo_init(struct platform_device *pdev,
 	return 0;
 }
 
-static int emac_pm_suspend(struct device *device)
+static int emac_pm_suspend(struct device *device, bool wol_enable)
 {
 	struct platform_device *pdev = to_platform_device(device);
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
 	struct emac_phy *phy = &adpt->phy;
-	struct emac_irq_per_dev *wol_irq = &adpt->irq[EMAC_WOL_IRQ];
 	u32 wufc = adpt->wol;
 	int retval = 0;
 
@@ -3147,7 +3158,9 @@ static int emac_pm_suspend(struct device *device)
 					LINK_SUCCESS_BX);
 		if (retval)
 			return retval;
-		enable_irq(wol_irq->irq);
+
+		if (wol_enable)
+			emac_wol_gpio_irq(adpt, true);
 	}
 
 	adpt->gpio_off(adpt, true, false);
@@ -3191,7 +3204,7 @@ error:
 #ifdef CONFIG_PM_RUNTIME
 static int emac_pm_runtime_suspend(struct device *device)
 {
-	return emac_pm_suspend(device);
+	return emac_pm_suspend(device, true);
 }
 
 static int emac_pm_runtime_resume(struct device *device)
@@ -3216,7 +3229,6 @@ static int emac_pm_sys_suspend(struct device *device)
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_phy *phy = &adpt->phy;
-	struct emac_irq_per_dev *wol_irq = &adpt->irq[EMAC_WOL_IRQ];
 	bool link_up = false;
 
 	/* Check link state. Don't suspend if link is up */
@@ -3226,8 +3238,11 @@ static int emac_pm_sys_suspend(struct device *device)
 	phy->link_speed = EMAC_LINK_SPEED_10_HALF;
 	phy->link_up = link_up;
 
+	/* Disable EPHY WOL interrupt*/
+	emac_wol_gpio_irq(adpt, false);
+
 	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
-		emac_pm_suspend(device);
+		emac_pm_suspend(device, false);
 		/* Synchronize runtime-pm and system-pm states:
 		 * at this point we are already suspended. However, the
 		 * runtime-PM framework still thinks that we are active.
@@ -3239,8 +3254,6 @@ static int emac_pm_sys_suspend(struct device *device)
 		pm_runtime_enable(netdev->dev.parent);
 	}
 
-	/* Disable EPHY WOL interrupt*/
-	disable_irq_nosync(wol_irq->irq);
 	netif_device_detach(netdev);
 	return 0;
 }
@@ -3250,7 +3263,6 @@ static int emac_pm_sys_resume(struct device *device)
 	struct platform_device *pdev = to_platform_device(device);
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
-	struct emac_irq_per_dev *wol_irq = &adpt->irq[EMAC_WOL_IRQ];
 
 	netif_device_attach(netdev);
 
@@ -3263,7 +3275,7 @@ static int emac_pm_sys_resume(struct device *device)
 		pm_request_autosuspend(netdev->dev.parent);
 	}
 	/* Enable EPHY WOL interrupt*/
-	enable_irq(wol_irq->irq);
+	emac_wol_gpio_irq(adpt, true);
 	return 0;
 }
 #endif
@@ -3409,6 +3421,7 @@ static int emac_probe(struct platform_device *pdev)
 			       emac_napi_rtx, 64);
 
 	spin_lock_init(&adpt->hwtxtstamp_lock);
+	spin_lock_init(&adpt->wol_irq_lock);
 	skb_queue_head_init(&adpt->hwtxtstamp_pending_queue);
 	skb_queue_head_init(&adpt->hwtxtstamp_ready_queue);
 	INIT_WORK(&adpt->hwtxtstamp_task, emac_hwtxtstamp_task_routine);
@@ -3476,12 +3489,11 @@ static int emac_remove(struct platform_device *pdev)
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
-	struct emac_irq_per_dev *wol_irq = &adpt->irq[EMAC_WOL_IRQ];
 
 	pr_info("exiting %s\n", emac_drv_name);
 
 	/* Disable EPHY WOL interrupt in suspend */
-	disable_irq_nosync(wol_irq->irq);
+	emac_wol_gpio_irq(adpt, false);
 	unregister_netdev(netdev);
 	wakeup_source_trash(&adpt->link_wlock);
 	if (TEST_FLAG(hw, HW_PTP_CAP))
