@@ -350,6 +350,11 @@ static inline int clk_osm_read_reg(struct clk_osm *c, u32 offset)
 	return readl_relaxed((char *)c->vbases[OSM_BASE] + offset);
 }
 
+static inline int clk_osm_read_reg_no_log(struct clk_osm *c, u32 offset)
+{
+	return readl_relaxed_no_log((char *)c->vbases[OSM_BASE] + offset);
+}
+
 static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
 {
 	u64 temp;
@@ -1876,7 +1881,7 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 	}
 
 	spin_lock_irqsave(&c->lock, flags);
-	val = clk_osm_read_reg(c, OSM_CYCLE_COUNTER_STATUS_REG);
+	val = clk_osm_read_reg_no_log(c, OSM_CYCLE_COUNTER_STATUS_REG);
 
 	if (val < c->prev_cycle_counter) {
 		/* Handle counter overflow */
