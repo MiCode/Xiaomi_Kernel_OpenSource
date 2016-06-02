@@ -664,8 +664,7 @@ static void f2fs_put_super(struct super_block *sb)
 	mutex_unlock(&sbi->umount_mutex);
 
 	/* our cp_error case, we can wait for any writeback page */
-	if (atomic_read(&sbi->nr_wb_bios))
-		f2fs_flush_merged_bios(sbi);
+	f2fs_flush_merged_bios(sbi);
 
 	iput(sbi->node_inode);
 	iput(sbi->meta_inode);
@@ -1254,10 +1253,10 @@ static int sanity_check_raw_super(struct f2fs_sb_info *sbi,
 	}
 
 	/* Currently, support only 4KB page cache size */
-	if (F2FS_BLKSIZE != PAGE_CACHE_SIZE) {
+	if (F2FS_BLKSIZE != PAGE_SIZE) {
 		f2fs_msg(sb, KERN_INFO,
 			"Invalid page_cache_size (%lu), supports only 4KB\n",
-			PAGE_CACHE_SIZE);
+			PAGE_SIZE);
 		return 1;
 	}
 
