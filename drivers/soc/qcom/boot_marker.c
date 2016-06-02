@@ -156,7 +156,7 @@ static int __init init_bootkpi(void)
 	set_bootloader_stats();
 	return 0;
 }
-module_init(init_bootkpi);
+subsys_initcall(init_bootkpi);
 
 static void __exit exit_bootkpi(void)
 {
