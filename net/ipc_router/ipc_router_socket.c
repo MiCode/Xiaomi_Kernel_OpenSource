@@ -210,7 +210,7 @@ static int msm_ipc_router_create(struct net *net,
 	sock->ops = &msm_ipc_proto_ops;
 	sock_init_data(sock, sk);
 	sk->sk_data_ready = NULL;
-	sk->sk_write_space = NULL;
+	sk->sk_write_space = ipc_router_dummy_write_space;
 	sk->sk_rcvtimeo = DEFAULT_RCV_TIMEO;
 	sk->sk_sndtimeo = DEFAULT_SND_TIMEO;
 
