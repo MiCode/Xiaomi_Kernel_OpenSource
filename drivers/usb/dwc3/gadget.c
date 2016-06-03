@@ -1418,6 +1418,17 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 		return -ESHUTDOWN;
 	}
 
+	/*
+	 * Queuing endless request to USB endpoint through generic ep queue
+	 * API should not be allowed.
+	 */
+	if (dep->endpoint.endless) {
+		dev_dbg(dwc->dev, "trying to queue endless request %p to %s\n",
+				request, ep->name);
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		return -EPERM;
+	}
+
 	if (dwc3_gadget_is_suspended(dwc)) {
 		if (dwc->gadget.remote_wakeup)
 			dwc3_gadget_wakeup(&dwc->gadget);
