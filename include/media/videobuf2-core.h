@@ -18,7 +18,7 @@
 #include <linux/videodev2.h>
 #include <linux/dma-buf.h>
 
-#define VB2_MAX_FRAME  64
+#define VB2_MAX_FRAME  32
 
 struct vb2_alloc_ctx;
 struct vb2_fileio_data;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 #define msm_jpeg_core_buf msm_jpeg_hw_buf
 
 irqreturn_t msm_jpeg_core_irq(int irq_num, void *context);
-irqreturn_t msm_jpegdma_core_irq(int irq_num, void *context);
+
 void msm_jpeg_core_irq_install(int (*irq_handler) (int, void *, void *));
 void msm_jpeg_core_irq_remove(void);
 

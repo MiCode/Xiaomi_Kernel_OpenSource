@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,11 @@
 #ifndef MSM_JPEG_COMMON_H
 #define MSM_JPEG_COMMON_H
 
-#define JPEG_DBG(fmt, args...) pr_debug(fmt, ##args)
+#ifdef MSM_JPEG_DEBUG
+#define JPEG_DBG(fmt, args...) pr_info(fmt, ##args)
+#else
+#define JPEG_DBG(fmt, args...) do { } while (0)
+#endif
 
 #define JPEG_PR_ERR   pr_err
 #define JPEG_DBG_HIGH   pr_debug

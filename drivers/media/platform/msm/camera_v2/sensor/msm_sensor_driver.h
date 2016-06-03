@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,6 @@
 
 #include "msm_sensor.h"
 
-int32_t msm_sensor_driver_probe(void *setting,
-	struct msm_sensor_info_t *probed_info, char *entity_name);
+int32_t msm_sensor_driver_probe(void *setting);
 
 #endif

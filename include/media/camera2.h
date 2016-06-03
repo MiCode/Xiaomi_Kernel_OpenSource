@@ -93,7 +93,6 @@ struct msm_camera_sensor_board_info {
 	const char *sensor_name;
 	const char *eeprom_name;
 	const char *actuator_name;
-	const char *ois_name;
 	const char *special_support_sensors[MAX_SPECIAL_SUPPORT_SIZE];
 	int32_t special_support_size ;
 	struct msm_camera_slave_info *slave_info;

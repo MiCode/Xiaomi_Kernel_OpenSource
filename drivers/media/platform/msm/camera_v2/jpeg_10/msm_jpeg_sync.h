@@ -21,12 +21,11 @@
 #include <linux/platform_device.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
-#include "msm_camera_io_util.h"
 #include "msm_jpeg_hw.h"
 
 #define JPEG_8974_V1 0x10000000
 #define JPEG_8974_V2 0x10010000
-#define JPEG_CLK_MAX 16
+#define JPEG_8939    0x30020000
 
 enum msm_jpeg_state {
 	MSM_JPEG_INIT,
@@ -34,11 +33,6 @@ enum msm_jpeg_state {
 	MSM_JPEG_EXECUTING,
 	MSM_JPEG_STOPPED,
 	MSM_JPEG_IDLE
-};
-
-enum msm_jpeg_core_type {
-	MSM_JPEG_CORE_CODEC,
-	MSM_JPEG_CORE_DMA
 };
 
 struct msm_jpeg_q {
@@ -59,9 +53,7 @@ struct msm_jpeg_device {
 	struct resource        *mem;
 	int                     irq;
 	void                   *base;
-	struct clk *jpeg_clk[JPEG_CLK_MAX];
-	struct msm_cam_clk_info jpeg_clk_info[JPEG_CLK_MAX];
-
+	struct clk *jpeg_clk[5];
 	struct regulator *jpeg_fs;
 	uint32_t hw_version;
 
@@ -117,7 +109,6 @@ struct msm_jpeg_device {
 	uint32_t jpeg_bus_client;
 	uint32_t num_clk;
 	enum msm_jpeg_state state;
-	enum msm_jpeg_core_type core_type;
 };
 
 int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev);

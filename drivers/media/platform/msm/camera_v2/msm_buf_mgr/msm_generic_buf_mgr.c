@@ -100,27 +100,20 @@ static int32_t msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	return ret;
 }
 
-static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *buf_mngr_dev,
-				     struct msm_sd_close_ioctl *session)
+static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *buf_mngr_dev)
 {
 	unsigned long flags;
 	struct msm_get_bufs *bufs, *save;
-
-	BUG_ON(!buf_mngr_dev);
-	BUG_ON(!session);
 
 	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
 	if (!list_empty(&buf_mngr_dev->buf_qhead)) {
 		list_for_each_entry_safe(bufs,
 			save, &buf_mngr_dev->buf_qhead, entry) {
-			pr_info("%s: Delete invalid bufs =%lx, session_id=%u, bufs->ses_id=%d, str_id=%d, idx=%d\n",
-				__func__, (unsigned long)bufs, session->session,
-				bufs->session_id, bufs->stream_id,
-				bufs->vb2_buf->v4l2_buf.index);
-			if (session->session == bufs->session_id) {
-				list_del_init(&bufs->entry);
-				kfree(bufs);
-			}
+			pr_err("%s: Error delete invalid bufs =%x, ses_id=%d, str_id=%d, idx=%d\n",
+				__func__, (unsigned int)bufs, bufs->session_id,
+				bufs->stream_id, bufs->vb2_buf->v4l2_buf.index);
+			list_del_init(&bufs->entry);
+			kfree(bufs);
 		}
 	}
 	spin_unlock_irqrestore(&buf_mngr_dev->buf_q_spinlock, flags);
@@ -181,10 +174,8 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_BUF_MNGR_DEINIT:
 		rc = msm_generic_buf_mngr_close(sd, NULL);
 		break;
-	case MSM_SD_NOTIFY_FREEZE:
-		break;
 	case MSM_SD_SHUTDOWN:
-		msm_buf_mngr_sd_shutdown(buf_mngr_dev, argp);
+		msm_buf_mngr_sd_shutdown(buf_mngr_dev);
 		break;
 	default:
 		return -ENOIOCTLCMD;
@@ -200,21 +191,21 @@ static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
 	int32_t rc = 0;
 
-	void __user *up = (void __user *)arg;
+	void __user *up = compat_ptr(arg);
 
-	struct msm_buf_mngr_info32_t buf_info32;
-	struct msm_buf_mngr_info buf_info;
+	struct msm_buf_mngr_info32_t *buf_info32 = NULL;
+	struct msm_buf_mngr_info *buf_info;
 
-	if (copy_from_user(&buf_info32, (void __user *)up,
+	if (copy_from_user(buf_info32, (void __user *)up,
 				sizeof(struct msm_buf_mngr_info32_t)))
 		return -EFAULT;
 
-	buf_info.session_id = buf_info32.session_id;
-	buf_info.stream_id = buf_info32.stream_id;
-	buf_info.frame_id = buf_info32.frame_id;
-	buf_info.index = buf_info32.index;
-	buf_info.timestamp.tv_sec = (long) buf_info32.timestamp.tv_sec;
-	buf_info.timestamp.tv_usec = (long) buf_info32.timestamp.tv_usec;
+	buf_info->session_id = buf_info32->session_id;
+	buf_info->stream_id = buf_info32->stream_id;
+	buf_info->frame_id = buf_info32->frame_id;
+	buf_info->index = buf_info32->index;
+	buf_info->timestamp.tv_sec = (long) buf_info32->timestamp.tv_sec;
+	buf_info->timestamp.tv_usec = (long) buf_info32->timestamp.tv_usec;
 
 	/* Convert 32 bit IOCTL ID's to 64 bit IOCTL ID's
 	 * except VIDIOC_MSM_CPP_CFG32, which needs special
@@ -232,32 +223,27 @@ static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
 		break;
 	default:
 		pr_debug("%s : unsupported compat type", __func__);
-		return -ENOIOCTLCMD;
+		break;
 	}
 
 	switch (cmd) {
 	case VIDIOC_MSM_BUF_MNGR_GET_BUF:
 	case VIDIOC_MSM_BUF_MNGR_BUF_DONE:
 	case VIDIOC_MSM_BUF_MNGR_PUT_BUF:
-		rc = v4l2_subdev_call(sd, core, ioctl, cmd, &buf_info);
-		if (rc < 0) {
-			pr_debug("%s : Subdev cmd %d fail", __func__, cmd);
-			return rc;
-		}
+		rc = v4l2_subdev_call(sd, core, ioctl, cmd, buf_info);
 		break;
 	default:
 		pr_debug("%s : unsupported compat type", __func__);
-		return -ENOIOCTLCMD;
 		break;
 	}
 
-	buf_info32.session_id = buf_info.session_id;
-	buf_info32.stream_id = buf_info.stream_id;
-	buf_info32.index = buf_info.index;
-	buf_info32.timestamp.tv_sec = (int32_t) buf_info.timestamp.tv_sec;
-	buf_info32.timestamp.tv_usec = (int32_t) buf_info.timestamp.tv_usec;
+	buf_info32->session_id = buf_info->session_id;
+	buf_info32->stream_id = buf_info->stream_id;
+	buf_info32->index = buf_info->index;
+	buf_info32->timestamp.tv_sec = (int32_t) buf_info->timestamp.tv_sec;
+	buf_info32->timestamp.tv_usec = (int32_t) buf_info->timestamp.tv_usec;
 
-	if (copy_to_user((void __user *)up, &buf_info32,
+	if (copy_to_user((void __user *)up, buf_info32,
 			sizeof(struct msm_buf_mngr_info32_t)))
 		return -EFAULT;
 

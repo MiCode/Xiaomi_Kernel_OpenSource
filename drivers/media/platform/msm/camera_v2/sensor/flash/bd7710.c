@@ -14,7 +14,7 @@
 #include <linux/export.h>
 #include "msm_led_flash.h"
 
-#define FLASH_NAME "qcom,led-flash1"
+#define FLASH_NAME "rohm-flash,bd7710"
 
 /*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
@@ -58,14 +58,14 @@ static void __exit msm_flash_bd7710_i2c_remove(void)
 }
 
 static const struct of_device_id bd7710_trigger_dt_match[] = {
-	{.compatible = "qcom,led-flash1", .data = &fctrl},
+	{.compatible = "rohm-flash,bd7710", .data = &fctrl},
 	{}
 };
 
 MODULE_DEVICE_TABLE(of, bd7710_trigger_dt_match);
 
 static const struct i2c_device_id flash_i2c_id[] = {
-	{"qcom,led-flash1", (kernel_ulong_t)&fctrl},
+	{"rohm-flash,bd7710", (kernel_ulong_t)&fctrl},
 	{ }
 };
 
@@ -109,7 +109,7 @@ static int msm_flash_bd7710_platform_probe(struct platform_device *pdev)
 static struct platform_driver bd7710_platform_driver = {
 	.probe = msm_flash_bd7710_platform_probe,
 	.driver = {
-		.name = "qcom,led-flash1",
+		.name = "rohm-flash,bd7710",
 		.owner = THIS_MODULE,
 		.of_match_table = bd7710_trigger_dt_match,
 	},

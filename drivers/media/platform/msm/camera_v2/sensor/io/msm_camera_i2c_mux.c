@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundatation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundatation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,8 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <mach/board.h>
+#include <mach/camera.h>
 #include "msm_camera_i2c_mux.h"
 
 /* TODO move this somewhere else */

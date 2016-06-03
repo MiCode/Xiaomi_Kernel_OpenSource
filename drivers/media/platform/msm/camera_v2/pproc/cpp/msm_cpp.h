@@ -31,9 +31,6 @@
 #define CPP_HW_VERSION_2_0_0  0x20000000
 #define CPP_HW_VERSION_4_0_0  0x40000000
 #define CPP_HW_VERSION_4_1_0  0x40010000
-#define CPP_HW_VERSION_5_0_0  0x50000000
-
-#define VBIF_VERSION_2_3_0  0x20030000
 
 #define MAX_ACTIVE_CPP_INSTANCE 8
 #define MAX_CPP_PROCESSING_FRAME 2
@@ -84,7 +81,7 @@
 #define MSM_CPP_START_ADDRESS		0x0
 #define MSM_CPP_END_ADDRESS			0x3F00
 
-#define MSM_CPP_POLL_RETRIES		200
+#define MSM_CPP_POLL_RETRIES		20
 #define MSM_CPP_TASKLETQ_SIZE		16
 #define MSM_CPP_TX_FIFO_LEVEL		16
 #define MSM_CPP_RX_FIFO_LEVEL		512
@@ -170,6 +167,11 @@ struct msm_cpp_buff_queue_info_t {
 struct msm_cpp_work_t {
 	struct work_struct my_work;
 	struct cpp_device *cpp_dev;
+};
+struct msm_cpp_clock_settings_t {
+	long clock_rate;
+	uint64_t avg;
+	uint64_t inst;
 };
 
 struct cpp_device {

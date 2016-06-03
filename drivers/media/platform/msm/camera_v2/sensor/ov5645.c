@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,8 +17,14 @@
 #define PLATFORM_DRIVER_NAME "msm_camera_ov5645"
 #define ov5645_obj ov5645_##obj
 
+/*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#ifdef CONFIG_MSMB_CAMERA_DEBUG
+#define CDBG(fmt, args...) pr_err(fmt, ##args)
+#else
+#define CDBG(fmt, args...) do { } while (0)
+#endif
+
 
 DEFINE_MSM_MUTEX(ov5645_mut);
 static struct msm_sensor_ctrl_t ov5645_s_ctrl;
@@ -533,12 +539,7 @@ static int32_t ov5645_platform_probe(struct platform_device *pdev)
 	int32_t rc;
 	const struct of_device_id *match;
 	match = of_match_device(ov5645_dt_match, &pdev->dev);
-	if (match)
-		rc = msm_sensor_platform_probe(pdev, match->data);
-	else {
-		pr_err("%s:%d match is null\n", __func__, __LINE__);
-		rc = -EINVAL;
-	}
+	rc = msm_sensor_platform_probe(pdev, match->data);
 	return rc;
 }
 
@@ -589,12 +590,9 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			sizeof(cdata->cfg.sensor_info.sensor_name));
 		cdata->cfg.sensor_info.session_id =
 			s_ctrl->sensordata->sensor_info->session_id;
-		for (i = 0; i < SUB_MODULE_MAX; i++) {
+		for (i = 0; i < SUB_MODULE_MAX; i++)
 			cdata->cfg.sensor_info.subdev_id[i] =
 				s_ctrl->sensordata->sensor_info->subdev_id[i];
-			cdata->cfg.sensor_info.subdev_intf[i] =
-				s_ctrl->sensordata->sensor_info->subdev_intf[i];
-		}
 		cdata->cfg.sensor_info.is_mount_angle_valid =
 			s_ctrl->sensordata->sensor_info->is_mount_angle_valid;
 		cdata->cfg.sensor_info.sensor_mount_angle =
@@ -676,21 +674,18 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		if (s_ctrl->camera_stream_type != MSM_CAMERA_STREAM_SNAPSHOT) {
 			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 				i2c_write_conf_tbl(
-				s_ctrl->sensor_i2c_client,
-				ov5645_enable_aec_settings,
+				s_ctrl->sensor_i2c_client, ov5645_enable_aec_settings,
 				ARRAY_SIZE(ov5645_enable_aec_settings),
 				MSM_CAMERA_I2C_BYTE_DATA);
 		} else {
 			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 				i2c_write_conf_tbl(
-				s_ctrl->sensor_i2c_client,
-				ov5645_disable_aec_settings,
+				s_ctrl->sensor_i2c_client, ov5645_disable_aec_settings,
 				ARRAY_SIZE(ov5645_disable_aec_settings),
 				MSM_CAMERA_I2C_BYTE_DATA);
 		}
 		if (rc) {
-			pr_err("%s:%d failed rc = %ld\n", __func__, __LINE__,
-				rc);
+			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;
 		}
@@ -714,6 +709,69 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			cdata->cfg.sensor_init_params.position,
 			cdata->cfg.sensor_init_params.sensor_mount_angle);
 		break;
+	case CFG_SET_SLAVE_INFO: {
+		struct msm_camera_sensor_slave_info sensor_slave_info;
+		struct msm_camera_power_ctrl_t *p_ctrl;
+		uint16_t size;
+		int slave_index = 0;
+		if (copy_from_user(&sensor_slave_info,
+			(void *)cdata->cfg.setting,
+			sizeof(struct msm_camera_sensor_slave_info))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		/* Update sensor slave address */
+		if (sensor_slave_info.slave_addr)
+			s_ctrl->sensor_i2c_client->cci_client->sid =
+				sensor_slave_info.slave_addr >> 1;
+
+		/* Update sensor address type */
+		s_ctrl->sensor_i2c_client->addr_type =
+			sensor_slave_info.addr_type;
+
+		/* Update power up / down sequence */
+		p_ctrl = &s_ctrl->sensordata->power_info;
+		size = sensor_slave_info.power_setting_array.size;
+		if (p_ctrl->power_setting_size < size) {
+			struct msm_sensor_power_setting *tmp;
+			tmp = kmalloc(sizeof(struct msm_sensor_power_setting)
+				      * size, GFP_KERNEL);
+			if (!tmp) {
+				pr_err("%s: failed to alloc mem\n", __func__);
+				rc = -ENOMEM;
+				break;
+			}
+			kfree(p_ctrl->power_setting);
+			p_ctrl->power_setting = tmp;
+		}
+		p_ctrl->power_setting_size = size;
+
+		rc = copy_from_user(p_ctrl->power_setting, (void *)
+			sensor_slave_info.power_setting_array.power_setting,
+			size * sizeof(struct msm_sensor_power_setting));
+		if (rc) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		CDBG("%s sensor id %x sensor addr type %d sensor reg %x\n"
+			"sensor id %x\n", __func__,
+			sensor_slave_info.slave_addr,
+			sensor_slave_info.addr_type,
+			sensor_slave_info.sensor_id_info.sensor_id_reg_addr,
+			sensor_slave_info.sensor_id_info.sensor_id);
+		for (slave_index = 0; slave_index <
+			p_ctrl->power_setting_size; slave_index++) {
+			CDBG("%s i %d power setting %d %d %ld %d\n", __func__,
+				slave_index,
+				p_ctrl->power_setting[slave_index].seq_type,
+				p_ctrl->power_setting[slave_index].seq_val,
+				p_ctrl->power_setting[slave_index].config_val,
+				p_ctrl->power_setting[slave_index].delay);
+		}
+		break;
+	}
 	case CFG_WRITE_I2C_ARRAY: {
 		struct msm_camera_i2c_reg_setting conf_array;
 		struct msm_camera_i2c_reg_array *reg_setting = NULL;
@@ -721,14 +779,6 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		if (copy_from_user(&conf_array,
 			(void *)cdata->cfg.setting,
 			sizeof(struct msm_camera_i2c_reg_setting))) {
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			rc = -EFAULT;
-			break;
-		}
-
-		if (!conf_array.size ||
-			conf_array.size > I2C_REG_DATA_MAX) {
-
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;
@@ -756,6 +806,43 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		kfree(reg_setting);
 		break;
 	}
+	case CFG_WRITE_I2C_SEQ_ARRAY: {
+		struct msm_camera_i2c_seq_reg_setting conf_array;
+		struct msm_camera_i2c_seq_reg_array *reg_setting = NULL;
+
+		if (copy_from_user(&conf_array,
+			(void *)cdata->cfg.setting,
+			sizeof(struct msm_camera_i2c_seq_reg_setting))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		reg_setting = kzalloc(conf_array.size *
+			(sizeof(struct msm_camera_i2c_seq_reg_array)),
+			GFP_KERNEL);
+		if (!reg_setting) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(reg_setting, (void *)conf_array.reg_setting,
+			conf_array.size *
+			sizeof(struct msm_camera_i2c_seq_reg_array))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			kfree(reg_setting);
+			rc = -EFAULT;
+			break;
+		}
+
+		conf_array.reg_setting = reg_setting;
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+			i2c_write_seq_table(s_ctrl->sensor_i2c_client,
+			&conf_array);
+		kfree(reg_setting);
+		break;
+	}
+
 	case CFG_POWER_UP:
 		if (s_ctrl->func_tbl->sensor_power_up)
 			rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
@@ -802,8 +889,7 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		break;
 		}
 	case CFG_SET_STREAM_TYPE: {
-		enum msm_camera_stream_type_t stream_type =
-					MSM_CAMERA_STREAM_INVALID;
+		enum msm_camera_stream_type_t stream_type = MSM_CAMERA_STREAM_INVALID;
 		if (copy_from_user(&stream_type, (void *)cdata->cfg.setting,
 			sizeof(enum msm_camera_stream_type_t))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -849,272 +935,8 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 	return rc;
 }
 
-#ifdef CONFIG_COMPAT
-int32_t ov5645_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
-	void __user *argp)
-{
-	struct sensorb_cfg_data32 *cdata = (struct sensorb_cfg_data32 *)argp;
-	long rc = 0;
-	int32_t i = 0;
-	mutex_lock(s_ctrl->msm_sensor_mutex);
-	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
-		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
-	switch (cdata->cfgtype) {
-	case CFG_GET_SENSOR_INFO:
-		memcpy(cdata->cfg.sensor_info.sensor_name,
-			s_ctrl->sensordata->sensor_name,
-			sizeof(cdata->cfg.sensor_info.sensor_name));
-		cdata->cfg.sensor_info.session_id =
-			s_ctrl->sensordata->sensor_info->session_id;
-		for (i = 0; i < SUB_MODULE_MAX; i++) {
-			cdata->cfg.sensor_info.subdev_id[i] =
-				s_ctrl->sensordata->sensor_info->subdev_id[i];
-			cdata->cfg.sensor_info.subdev_intf[i] =
-				s_ctrl->sensordata->sensor_info->subdev_intf[i];
-		}
-		cdata->cfg.sensor_info.is_mount_angle_valid =
-			s_ctrl->sensordata->sensor_info->is_mount_angle_valid;
-		cdata->cfg.sensor_info.sensor_mount_angle =
-			s_ctrl->sensordata->sensor_info->sensor_mount_angle;
-		cdata->cfg.sensor_info.position =
-			s_ctrl->sensordata->sensor_info->position;
-		cdata->cfg.sensor_info.modes_supported =
-			s_ctrl->sensordata->sensor_info->modes_supported;
-		CDBG("%s:%d sensor name %s\n", __func__, __LINE__,
-			cdata->cfg.sensor_info.sensor_name);
-		CDBG("%s:%d session id %d\n", __func__, __LINE__,
-			cdata->cfg.sensor_info.session_id);
-		for (i = 0; i < SUB_MODULE_MAX; i++)
-			CDBG("%s:%d subdev_id[%d] %d\n", __func__, __LINE__, i,
-				cdata->cfg.sensor_info.subdev_id[i]);
-		CDBG("%s:%d mount angle valid %d value %d\n", __func__,
-			__LINE__, cdata->cfg.sensor_info.is_mount_angle_valid,
-			cdata->cfg.sensor_info.sensor_mount_angle);
-
-		break;
-	case CFG_SET_INIT_SETTING:
-		/* 1. Write Recommend settings */
-		/* 2. Write change settings */
-		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-			i2c_write_conf_tbl(
-			s_ctrl->sensor_i2c_client, ov5645_recommend_settings,
-			ARRAY_SIZE(ov5645_recommend_settings),
-			MSM_CAMERA_I2C_BYTE_DATA);
-		break;
-
-	case CFG_SET_RESOLUTION: {
-	/*copy from user the desired resoltuion*/
-		enum msm_sensor_resolution_t res = MSM_SENSOR_INVALID_RES;
-		if (copy_from_user(&res,
-			(void *)compat_ptr(cdata->cfg.setting),
-			sizeof(enum msm_sensor_resolution_t))) {
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			rc = -EFAULT;
-			break;
-		}
-
-		pr_err("%s:%d  res =%d\n", __func__, __LINE__, res);
-
-		if (res == MSM_SENSOR_RES_FULL) {
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-				i2c_write_conf_tbl(
-				s_ctrl->sensor_i2c_client, ov5645_full_settings,
-				ARRAY_SIZE(ov5645_full_settings),
-				MSM_CAMERA_I2C_BYTE_DATA);
-				pr_err("%s:%d res =%d\n ov5645_full_settings ",
-				__func__, __LINE__, res);
-		} else if (res == MSM_SENSOR_RES_QTR) {
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-				i2c_write_conf_tbl(
-				s_ctrl->sensor_i2c_client, ov5645_sxga_settings,
-				ARRAY_SIZE(ov5645_sxga_settings),
-				MSM_CAMERA_I2C_BYTE_DATA);
-			pr_err("%s:%d res =%d ov5645_sxga_settings\n",
-				 __func__, __LINE__, res);
-		} else if (res == MSM_SENSOR_RES_2) {
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-				i2c_write_conf_tbl(
-				s_ctrl->sensor_i2c_client,
-				ov5645_1080P_settings,
-				ARRAY_SIZE(ov5645_1080P_settings),
-				MSM_CAMERA_I2C_BYTE_DATA);
-			pr_err("%s:%d res =%d ov5645_1080P_settings\n",
-				 __func__, __LINE__, res);
-		} else {
-			pr_err("%s:%d failed resoultion set\n", __func__,
-				__LINE__);
-			rc = -EFAULT;
-		}
-	}
-		break;
-	case CFG_SET_STOP_STREAM:
-		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-			i2c_write_conf_tbl(
-			s_ctrl->sensor_i2c_client, ov5645_stop_settings,
-			ARRAY_SIZE(ov5645_stop_settings),
-			MSM_CAMERA_I2C_BYTE_DATA);
-		break;
-	case CFG_SET_START_STREAM:
-		if (s_ctrl->camera_stream_type != MSM_CAMERA_STREAM_SNAPSHOT) {
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-				i2c_write_conf_tbl(
-				s_ctrl->sensor_i2c_client,
-				ov5645_enable_aec_settings,
-				ARRAY_SIZE(ov5645_enable_aec_settings),
-				MSM_CAMERA_I2C_BYTE_DATA);
-		} else {
-			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-				i2c_write_conf_tbl(
-				s_ctrl->sensor_i2c_client,
-				ov5645_disable_aec_settings,
-				ARRAY_SIZE(ov5645_disable_aec_settings),
-				MSM_CAMERA_I2C_BYTE_DATA);
-		}
-		if (rc) {
-			pr_err("%s:%d failed rc = %ld\n", __func__, __LINE__,
-				rc);
-			rc = -EFAULT;
-			break;
-		}
-		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-			i2c_write_conf_tbl(
-			s_ctrl->sensor_i2c_client, ov5645_start_settings,
-			ARRAY_SIZE(ov5645_start_settings),
-			MSM_CAMERA_I2C_BYTE_DATA);
-		break;
-	case CFG_GET_SENSOR_INIT_PARAMS:
-		cdata->cfg.sensor_init_params.modes_supported =
-			s_ctrl->sensordata->sensor_info->modes_supported;
-		cdata->cfg.sensor_init_params.position =
-			s_ctrl->sensordata->sensor_info->position;
-		cdata->cfg.sensor_init_params.sensor_mount_angle =
-			s_ctrl->sensordata->sensor_info->sensor_mount_angle;
-		CDBG("%s:%d init params mode %d pos %d mount %d\n", __func__,
-			__LINE__,
-			cdata->cfg.sensor_init_params.modes_supported,
-			cdata->cfg.sensor_init_params.position,
-			cdata->cfg.sensor_init_params.sensor_mount_angle);
-		break;
-	case CFG_WRITE_I2C_ARRAY: {
-		struct msm_camera_i2c_reg_setting32 conf_array32;
-		struct msm_camera_i2c_reg_setting conf_array;
-		struct msm_camera_i2c_reg_array *reg_setting = NULL;
-
-		if (copy_from_user(&conf_array32,
-			(void *)compat_ptr(cdata->cfg.setting),
-			sizeof(struct msm_camera_i2c_reg_setting32))) {
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			rc = -EFAULT;
-			break;
-		}
-
-		conf_array.addr_type = conf_array32.addr_type;
-		conf_array.data_type = conf_array32.data_type;
-		conf_array.delay = conf_array32.delay;
-		conf_array.size = conf_array32.size;
-		conf_array.reg_setting = compat_ptr(conf_array32.reg_setting);
-		conf_array.qup_i2c_batch = conf_array32.qup_i2c_batch;
-
-		if (!conf_array.size ||
-			conf_array.size > I2C_REG_DATA_MAX) {
-
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			rc = -EFAULT;
-			break;
-		}
-
-		reg_setting = kzalloc(conf_array.size *
-			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
-		if (!reg_setting) {
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			rc = -ENOMEM;
-			break;
-		}
-		if (copy_from_user(reg_setting, (void *)conf_array.reg_setting,
-			conf_array.size *
-			sizeof(struct msm_camera_i2c_reg_array))) {
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			kfree(reg_setting);
-			rc = -EFAULT;
-			break;
-		}
-
-		conf_array.reg_setting = reg_setting;
-		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(
-			s_ctrl->sensor_i2c_client, &conf_array);
-		kfree(reg_setting);
-		break;
-	}
-	case CFG_POWER_UP:
-		if (s_ctrl->func_tbl->sensor_power_up)
-			rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
-		else
-			rc = -EFAULT;
-		break;
-
-	case CFG_POWER_DOWN:
-		if (s_ctrl->func_tbl->sensor_power_down)
-			rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
-		else
-			rc = -EFAULT;
-		break;
-	case CFG_SET_STREAM_TYPE: {
-		enum msm_camera_stream_type_t stream_type =
-			MSM_CAMERA_STREAM_INVALID;
-		if (copy_from_user(&stream_type,
-			(void *)compat_ptr(cdata->cfg.setting),
-			sizeof(enum msm_camera_stream_type_t))) {
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			rc = -EFAULT;
-			break;
-		}
-		s_ctrl->camera_stream_type = stream_type;
-		break;
-	}
-	case CFG_SET_SATURATION:
-		break;
-	case CFG_SET_CONTRAST:
-		break;
-	case CFG_SET_SHARPNESS:
-		break;
-	case CFG_SET_AUTOFOCUS:
-		/* TO-DO: set the Auto Focus */
-		pr_debug("%s: Setting Auto Focus", __func__);
-		break;
-	case CFG_CANCEL_AUTOFOCUS:
-		/* TO-DO: Cancel the Auto Focus */
-		pr_debug("%s: Cancelling Auto Focus", __func__);
-		break;
-	case CFG_SET_ISO:
-		break;
-	case CFG_SET_EXPOSURE_COMPENSATION:
-		break;
-	case CFG_SET_EFFECT:
-		break;
-	case CFG_SET_ANTIBANDING:
-		break;
-	case CFG_SET_BESTSHOT_MODE:
-		break;
-	case CFG_SET_WHITE_BALANCE:
-		break;
-	default:
-		pr_err("Invalid cfgtype func %s line %d cfgtype = %d\n",
-			__func__, __LINE__, (int32_t)cdata->cfgtype);
-		rc = -EFAULT;
-		break;
-	}
-
-	mutex_unlock(s_ctrl->msm_sensor_mutex);
-
-	return rc;
-}
-#endif
-
 static struct msm_sensor_fn_t ov5645_sensor_func_tbl = {
 	.sensor_config = ov5645_sensor_config,
-#ifdef CONFIG_COMPAT
-	.sensor_config32 = ov5645_sensor_config32,
-#endif
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_match_id = msm_sensor_match_id,

@@ -26,8 +26,8 @@
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 64
 #define CCI_I2C_QUEUE_1_SIZE 16
-#define CYCLES_PER_MICRO_SEC_DEFAULT 4915
-#define CCI_MAX_DELAY 1000000
+#define CYCLES_PER_MICRO_SEC 4915
+#define CCI_MAX_DELAY 10000
 
 #define CCI_TIMEOUT msecs_to_jiffies(100)
 
@@ -35,7 +35,11 @@
 #define MSM_CCI_DRV_NAME "msm_cci"
 
 #undef CDBG
+#ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#else
+#define CDBG(fmt, args...) do {} while (0)
+#endif
 
 /* Max bytes that can be read per CCI read transaction */
 #define CCI_READ_MAX 12
@@ -44,6 +48,11 @@
 #define CCI_I2C_MAX_WRITE 8192
 
 static struct v4l2_subdev *g_cci_subdev;
+
+#ifdef CONFIG_MACH_WT88047
+/*hufeng 2014-11-05 add to aviod ref_count chaos if cci_init and cci_release concurrency happened*/
+static struct mutex ref_count_lock;
+#endif
 
 static struct msm_cam_clk_info cci_clk_info[CCI_NUM_CLK_MAX];
 
@@ -158,7 +167,7 @@ static int32_t msm_cci_validate_queue(struct cci_device *cci_dev,
 		CDBG("%s:%d CCI_QUEUE_START_ADDR\n", __func__, __LINE__);
 		msm_camera_io_w_mb(reg_val, cci_dev->base +
 			CCI_QUEUE_START_ADDR);
-		CDBG("%s line %d wait_for_completion_timeout\n",
+		CDBG("%s line %d wait_for_completion_interruptible\n",
 			__func__, __LINE__);
 		rc = wait_for_completion_timeout(&cci_dev->
 			cci_master_info[master].reset_complete, CCI_TIMEOUT);
@@ -263,7 +272,7 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 				master * 0x200 + queue * 0x100);
 		}
 		if ((delay > 0) && (delay < CCI_MAX_DELAY)) {
-			cmd = (uint32_t)((delay * cci_dev->cycles_per_us) /
+			cmd = (uint32_t)((delay * CYCLES_PER_MICRO_SEC) /
 				0x100);
 			cmd <<= 4;
 			cmd |= CCI_I2C_WAIT_CMD;
@@ -486,6 +495,13 @@ static int32_t msm_cci_i2c_read_bytes(struct v4l2_subdev *sd,
 		pr_err("%s:%d Invalid I2C master addr\n", __func__, __LINE__);
 		return -EINVAL;
 	}
+#ifdef CONFIG_MACH_WT88047
+/*hufeng 2014-11-05 add to avoid cci read or write if cci_dev is already released*/
+	if (cci_dev->cci_state == CCI_STATE_DISABLED){
+		pr_err("%s:%d cci state is DISABLED!\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+#endif
 
 	master = c_ctrl->cci_info->cci_i2c_master;
 	read_cfg = &c_ctrl->cfg.cci_i2c_read_cfg;
@@ -532,6 +548,14 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 		pr_err("%s:%d Invalid I2C master addr\n", __func__, __LINE__);
 		return -EINVAL;
 	}
+#ifdef CONFIG_MACH_WT88047
+/*hufeng 2014-11-05 add to avoid cci read or write if cci_dev is already released*/
+	if (cci_dev->cci_state == CCI_STATE_DISABLED){
+		pr_err("%s:%d cci state is DISABLED!\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+#endif
+
 	master = c_ctrl->cci_info->cci_i2c_master;
 	CDBG("%s master %d, queue %d\n", __func__, master, queue);
 	CDBG("%s set param sid 0x%x retries %d id_map %d\n", __func__,
@@ -608,7 +632,7 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	CDBG("%s:%d CCI_QUEUE_START_ADDR\n", __func__, __LINE__);
 	msm_camera_io_w_mb(val, cci_dev->base + CCI_QUEUE_START_ADDR);
 
-	CDBG("%s:%d E wait_for_completion_timeout\n",
+	CDBG("%s:%d E wait_for_completion_interruptible\n",
 		__func__, __LINE__);
 	rc = wait_for_completion_timeout(&cci_dev->
 		cci_master_info[master].reset_complete, CCI_TIMEOUT);
@@ -622,7 +646,7 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	} else {
 		rc = cci_dev->cci_master_info[master].status;
 	}
-	CDBG("%s:%d X wait_for_completion_timeout\n", __func__,
+	CDBG("%s:%d X wait_for_completion_interruptible\n", __func__,
 		__LINE__);
 
 ERROR:
@@ -692,7 +716,6 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
 		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
-		msm_cci_set_clk_param(cci_dev, c_ctrl);
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
 			/* Set reset pending flag to TRUE */
@@ -716,6 +739,12 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		}
 		return 0;
 	}
+
+/*Added by Jinshui.Liu@Camera 20140221 start for cci error*/
+#ifdef CONFIG_MACH_WT88047
+	wake_lock(&cci_dev->cci_wakelock);
+#endif
+/*Added by Jinshui.Liu@Camera 20140221 end*/
 	ret = msm_cci_pinctrl_init(cci_dev);
 	if (ret < 0) {
 		pr_err("%s:%d Initialization of pinctrl failed\n",
@@ -734,25 +763,14 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 				__func__, __LINE__);
 	}
 	if (rc < 0) {
+		cci_dev->ref_count--;
 		CDBG("%s: request gpio failed\n", __func__);
 		goto request_gpio_failed;
-	}
-	cci_dev->reg_ptr = regulator_get(&(cci_dev->pdev->dev),
-					 "qcom,gdscr-vdd");
-	if (IS_ERR_OR_NULL(cci_dev->reg_ptr)) {
-		pr_err(" %s: Failed in getting TOP gdscr regulator handle",
-			__func__);
-	} else {
-		rc = regulator_enable(cci_dev->reg_ptr);
-		if (rc) {
-			pr_err(" %s: regulator enable failed for TOP GDSCR\n",
-				__func__);
-			goto clk_enable_failed;
-		}
 	}
 	rc = msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
 		cci_dev->cci_clk, cci_dev->num_clk, 1);
 	if (rc < 0) {
+		cci_dev->ref_count--;
 		CDBG("%s: clk enable failed\n", __func__);
 		goto clk_enable_failed;
 	}
@@ -801,12 +819,6 @@ clk_enable_failed:
 	}
 	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 0);
-
-	if (!IS_ERR_OR_NULL(cci_dev->reg_ptr)) {
-		regulator_disable(cci_dev->reg_ptr);
-		regulator_put(cci_dev->reg_ptr);
-		cci_dev->reg_ptr = NULL;
-	}
 request_gpio_failed:
 	cci_dev->ref_count--;
 	return rc;
@@ -830,11 +842,6 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	disable_irq(cci_dev->irq->start);
 	msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
 		cci_dev->cci_clk, cci_dev->num_clk, 0);
-	if (!IS_ERR_OR_NULL(cci_dev->reg_ptr)) {
-		regulator_disable(cci_dev->reg_ptr);
-		regulator_put(cci_dev->reg_ptr);
-		cci_dev->reg_ptr = NULL;
-	}
 	if (cci_dev->cci_pinctrl_status) {
 		rc = pinctrl_select_state(cci_dev->cci_pinctrl.pinctrl,
 				cci_dev->cci_pinctrl.gpio_state_suspend);
@@ -847,6 +854,12 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 		cci_dev->cci_gpio_tbl_size, 0);
 	for (i = 0; i < MASTER_MAX; i++)
 		cci_dev->master_clk_init[i] = 0;
+
+/*Added by Jinshui.Liu@Camera 20140221 start for cci error*/
+#ifdef CONFIG_MACH_WT88047
+	wake_unlock(&cci_dev->cci_wakelock);
+#endif
+/*Added by Jinshui.Liu@Camera 20140221 end*/
 	cci_dev->cci_state = CCI_STATE_DISABLED;
 
 	return 0;
@@ -860,16 +873,44 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		cci_ctrl->cmd);
 	switch (cci_ctrl->cmd) {
 	case MSM_CCI_INIT:
+#ifdef CONFIG_MACH_WT88047
+/*hufeng 2014-11-05 add to aviod ref_count chaos if cci_init and cci_release concurrency happened*/
+		mutex_lock(&ref_count_lock);
 		rc = msm_cci_init(sd, cci_ctrl);
+		mutex_unlock(&ref_count_lock);
+#else
+		rc = msm_cci_init(sd, cci_ctrl);
+#endif
 		break;
 	case MSM_CCI_RELEASE:
+#ifdef CONFIG_MACH_WT88047
+/*hufeng 2014-11-05 add to aviod ref_count chaos if cci_init and cci_release concurrency happened*/
+		mutex_lock(&ref_count_lock);
 		rc = msm_cci_release(sd);
+		mutex_unlock(&ref_count_lock);
+#else
+		rc = msm_cci_release(sd);
+#endif
 		break;
 	case MSM_CCI_I2C_READ:
+#ifdef CONFIG_MACH_WT88047
+/*hufeng 2014-11-05 add to aviod ref_count chaos if cci_init and cci_release concurrency happened*/
+		mutex_lock(&ref_count_lock);
 		rc = msm_cci_i2c_read_bytes(sd, cci_ctrl);
+		mutex_unlock(&ref_count_lock);
+#else
+		rc = msm_cci_i2c_read_bytes(sd, cci_ctrl);
+#endif
 		break;
 	case MSM_CCI_I2C_WRITE:
+#ifdef CONFIG_MACH_WT88047
+/*hufeng 2014-11-05 add to aviod ref_count chaos if cci_init and cci_release concurrency happened*/
+		mutex_lock(&ref_count_lock);
 		rc = msm_cci_i2c_write(sd, cci_ctrl);
+		mutex_unlock(&ref_count_lock);
+#else
+		rc = msm_cci_i2c_write(sd, cci_ctrl);
+#endif
 		break;
 	case MSM_CCI_GPIO_WRITE:
 		break;
@@ -962,13 +1003,8 @@ static long msm_cci_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_CCI_CFG:
 		rc = msm_cci_config(sd, arg);
 		break;
-	case MSM_SD_NOTIFY_FREEZE:
-		break;
 	case MSM_SD_SHUTDOWN: {
-		struct msm_camera_cci_ctrl ctrl_cmd;
-		ctrl_cmd.cmd = MSM_CCI_RELEASE;
-		rc = msm_cci_config(sd, &ctrl_cmd);
-		break;
+		return rc;
 	}
 	default:
 		rc = -ENOIOCTLCMD;
@@ -1235,34 +1271,18 @@ static int msm_cci_get_clk_info(struct cci_device *cci_dev,
 		return rc;
 	}
 	for (i = 0; i < count; i++) {
-		cci_clk_info[i].clk_rate = (rates[i] == 0) ?
-			(long)-1 : rates[i];
+		cci_clk_info[i].clk_rate = (rates[i] == 0) ? -1 : rates[i];
 		CDBG("%s: clk_rate[%d] = %ld\n", __func__, i,
 			cci_clk_info[i].clk_rate);
 	}
 	return 0;
 }
 
-static uint32_t msm_get_cycles_per_ms(void)
-{
-	int i = 0;
-	for (i = 0; i < CCI_NUM_CLK_MAX; i++) {
-		if (!strcmp(cci_clk_info[i].clk_name, "cci_src_clk")) {
-			CDBG("%s:%d i %d cci_src_clk\n",
-				__func__, __LINE__, i);
-			return ((cci_clk_info[i].clk_rate/1000)*256)/1000;
-		}
-	}
-	pr_err("%s:%d, failed: Can use default: %d",
-		__func__, __LINE__, CYCLES_PER_MICRO_SEC_DEFAULT);
-	return CYCLES_PER_MICRO_SEC_DEFAULT;
-}
-
 static int msm_cci_probe(struct platform_device *pdev)
 {
 	struct cci_device *new_cci_dev;
 	int rc = 0;
-	CDBG("%s: pdev %p device id = %d\n", __func__, pdev, pdev->id);
+	pr_err("%s: pdev %p device id = %d\n", __func__, pdev, pdev->id);
 	new_cci_dev = kzalloc(sizeof(struct cci_device), GFP_KERNEL);
 	if (!new_cci_dev) {
 		CDBG("%s: no enough memory\n", __func__);
@@ -1279,14 +1299,12 @@ static int msm_cci_probe(struct platform_device *pdev)
 		of_property_read_u32((&pdev->dev)->of_node,
 			"cell-index", &pdev->id);
 
-	new_cci_dev->reg_ptr = NULL;
 	rc = msm_cci_get_clk_info(new_cci_dev, pdev);
 	if (rc < 0) {
 		pr_err("%s: msm_cci_get_clk_info() failed", __func__);
 		return -EFAULT;
 	}
 
-	new_cci_dev->cycles_per_us = msm_get_cycles_per_ms();
 	new_cci_dev->ref_count = 0;
 	new_cci_dev->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "cci");
@@ -1341,6 +1359,15 @@ static int msm_cci_probe(struct platform_device *pdev)
 	g_cci_subdev = &new_cci_dev->msm_sd.sd;
 	CDBG("%s cci subdev %p\n", __func__, &new_cci_dev->msm_sd.sd);
 	CDBG("%s line %d\n", __func__, __LINE__);
+/*Added by Jinshui.Liu@Camera 20140221 start for cci error*/
+#ifdef CONFIG_MACH_WT88047
+	wake_lock_init(&new_cci_dev->cci_wakelock,WAKE_LOCK_SUSPEND,"msm_cci_wakelock");
+#endif
+/*Added by Jinshui.Liu@Camera 20140221 end*/
+#ifdef CONFIG_MACH_WT88047
+/*hufeng 2014-11-05 add to aviod ref_count chaos if cci_init and cci_release concurrency happened*/
+	mutex_init(&ref_count_lock);
+#endif
 	return 0;
 
 cci_release_mem:
@@ -1351,7 +1378,7 @@ cci_no_resource:
 	return 0;
 }
 
-static int msm_cci_exit(struct platform_device *pdev)
+static int __exit msm_cci_exit(struct platform_device *pdev)
 {
 	struct v4l2_subdev *subdev = platform_get_drvdata(pdev);
 	struct cci_device *cci_dev =

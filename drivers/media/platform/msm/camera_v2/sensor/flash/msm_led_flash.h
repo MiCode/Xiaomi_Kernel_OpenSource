@@ -49,24 +49,19 @@ struct msm_led_flash_ctrl_t {
 	struct msm_flash_fn_t *func_tbl;
 	struct msm_camera_sensor_board_info *flashdata;
 	struct msm_led_flash_reg_t *reg_setting;
-	/* Flash */
 	const char *flash_trigger_name[MAX_LED_TRIGGERS];
 	struct led_trigger *flash_trigger[MAX_LED_TRIGGERS];
-	uint32_t flash_num_sources;
 	uint32_t flash_op_current[MAX_LED_TRIGGERS];
 	uint32_t flash_max_current[MAX_LED_TRIGGERS];
-	uint32_t flash_max_duration[MAX_LED_TRIGGERS];
-	/* Torch */
-	const char *torch_trigger_name[MAX_LED_TRIGGERS];
-	struct led_trigger *torch_trigger[MAX_LED_TRIGGERS];
-	uint32_t torch_num_sources;
-	uint32_t torch_op_current[MAX_LED_TRIGGERS];
-	uint32_t torch_max_current[MAX_LED_TRIGGERS];
-
+	const char *torch_trigger_name;
+	struct led_trigger *torch_trigger;
+	uint32_t torch_op_current;
+	uint32_t torch_max_current;
 	void *data;
+	uint32_t num_sources;
 	enum msm_camera_device_type_t flash_device_type;
 	enum cci_i2c_master_t cci_i2c_master;
-	enum msm_camera_led_config_t led_state;
+        enum msm_camera_led_config_t led_state;
 	uint32_t subdev_id;
 	struct msm_pinctrl_info pinctrl_info;
 };

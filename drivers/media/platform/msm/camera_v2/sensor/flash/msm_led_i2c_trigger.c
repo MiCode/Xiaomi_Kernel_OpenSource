@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 
 #define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
 
+#include <mach/gpiomux.h>
 #include <linux/module.h>
 #include "msm_led_flash.h"
 #include "msm_camera_io_util.h"
@@ -26,9 +27,12 @@
 #define CAM_FLASH_PINCTRL_STATE_DEFAULT "cam_flash_default"
 /*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#ifdef CONFIG_MSMB_CAMERA_DEBUG
+#define CDBG(fmt, args...) pr_err(fmt, ##args)
+#else
+#define CDBG(fmt, args...) do { } while (0)
+#endif
 
-static void *g_fctrl;
 int32_t msm_led_i2c_trigger_get_subdev_id(struct msm_led_flash_ctrl_t *fctrl,
 	void *arg)
 {
@@ -47,7 +51,6 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 	void *data)
 {
 	int rc = 0;
-	int i = 0;
 	struct msm_camera_led_cfg_t *cfg = (struct msm_camera_led_cfg_t *)data;
 	CDBG("called led_state %d\n", cfg->cfgtype);
 
@@ -60,14 +63,6 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 	case MSM_CAMERA_LED_INIT:
 		if (fctrl->func_tbl->flash_led_init)
 			rc = fctrl->func_tbl->flash_led_init(fctrl);
-		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
-			cfg->flash_current[i] =
-				fctrl->flash_max_current[i];
-			cfg->flash_duration[i] =
-				fctrl->flash_max_duration[i];
-			cfg->torch_current[i] =
-				fctrl->torch_max_current[i];
-		}
 		break;
 
 	case MSM_CAMERA_LED_RELEASE:
@@ -82,29 +77,11 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		break;
 
 	case MSM_CAMERA_LED_LOW:
-		for (i = 0; i < fctrl->torch_num_sources; i++) {
-			if (fctrl->torch_max_current[i] > 0) {
-				fctrl->torch_op_current[i] =
-					(cfg->torch_current[i] < fctrl->torch_max_current[i]) ?
-					cfg->torch_current[i] : fctrl->torch_max_current[i];
-				CDBG("torch source%d: op_current %d max_current %d\n",
-					i, fctrl->torch_op_current[i], fctrl->torch_max_current[i]);
-			}
-		}
 		if (fctrl->func_tbl->flash_led_low)
 			rc = fctrl->func_tbl->flash_led_low(fctrl);
 		break;
 
 	case MSM_CAMERA_LED_HIGH:
-		for (i = 0; i < fctrl->flash_num_sources; i++) {
-			if (fctrl->flash_max_current[i] > 0) {
-				fctrl->flash_op_current[i] =
-					(cfg->flash_current[i] < fctrl->flash_max_current[i]) ?
-					cfg->flash_current[i] : fctrl->flash_max_current[i];
-				CDBG("flash source%d: op_current %d max_current %d\n",
-					i, fctrl->flash_op_current[i], fctrl->flash_max_current[i]);
-			}
-		}
 		if (fctrl->func_tbl->flash_led_high)
 			rc = fctrl->func_tbl->flash_led_high(fctrl);
 		break;
@@ -118,15 +95,14 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 static int msm_flash_pinctrl_init(struct msm_led_flash_ctrl_t *ctrl)
 {
 	struct msm_pinctrl_info *flash_pctrl = NULL;
-
 	flash_pctrl = &ctrl->pinctrl_info;
+	if (flash_pctrl->use_pinctrl != true) {
+		pr_err("%s: %d PINCTRL is not enables in Flash driver node\n",
+			__func__, __LINE__);
+		return 0;
+	}
+	flash_pctrl->pinctrl = devm_pinctrl_get(&ctrl->pdev->dev);
 
-	if (ctrl->pdev != NULL)
-		flash_pctrl->pinctrl = devm_pinctrl_get(&ctrl->pdev->dev);
-	else
-		flash_pctrl->pinctrl = devm_pinctrl_get(&ctrl->
-					flash_i2c_client->
-					client->dev);
 	if (IS_ERR_OR_NULL(flash_pctrl->pinctrl)) {
 		pr_err("%s:%d Getting pinctrl handle failed\n",
 			__func__, __LINE__);
@@ -163,9 +139,13 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
-	fctrl->led_state = MSM_CAMERA_LED_RELEASE;
+        fctrl->led_state = MSM_CAMERA_LED_RELEASE;
 	if (power_info->gpio_conf->cam_gpiomux_conf_tbl != NULL) {
 		pr_err("%s:%d mux install\n", __func__, __LINE__);
+		msm_gpiomux_install(
+			(struct msm_gpiomux_config *)
+			power_info->gpio_conf->cam_gpiomux_conf_tbl,
+			power_info->gpio_conf->cam_gpiomux_conf_tbl_size);
 	}
 
 	/* CCI Init */
@@ -190,11 +170,9 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 				__func__, __LINE__);
 		rc = pinctrl_select_state(fctrl->pinctrl_info.pinctrl,
 				fctrl->pinctrl_info.gpio_state_active);
-		if (rc < 0) {
-			devm_pinctrl_put(fctrl->pinctrl_info.pinctrl);
+		if (rc)
 			pr_err("%s:%d cannot set pin to active state",
 					__func__, __LINE__);
-		}
 	}
 	msleep(20);
 
@@ -223,7 +201,7 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 		if (rc < 0)
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 	}
-	fctrl->led_state = MSM_CAMERA_LED_INIT;
+        fctrl->led_state = MSM_CAMERA_LED_INIT;
 	return rc;
 }
 
@@ -233,13 +211,13 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 	struct msm_camera_sensor_board_info *flashdata = NULL;
 	struct msm_camera_power_ctrl_t *power_info = NULL;
 
+	flashdata = fctrl->flashdata;
+	power_info = &flashdata->power_info;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (!fctrl) {
 		pr_err("%s:%d fctrl NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-	flashdata = fctrl->flashdata;
-	power_info = &flashdata->power_info;
 
 	if (fctrl->led_state != MSM_CAMERA_LED_INIT) {
 		pr_err("%s:%d invalid led state\n", __func__, __LINE__);
@@ -263,11 +241,9 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 	if (fctrl->pinctrl_info.use_pinctrl == true) {
 		ret = pinctrl_select_state(fctrl->pinctrl_info.pinctrl,
 				fctrl->pinctrl_info.gpio_state_suspend);
-		if (ret < 0) {
-			devm_pinctrl_put(fctrl->pinctrl_info.pinctrl);
+		if (ret)
 			pr_err("%s:%d cannot set pin to suspend state",
 				__func__, __LINE__);
-		}
 	}
 	rc = msm_camera_request_gpio_table(
 		power_info->gpio_conf->cam_gpio_req_tbl,
@@ -277,7 +253,7 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 		return rc;
 	}
 
-	fctrl->led_state = MSM_CAMERA_LED_RELEASE;
+        fctrl->led_state = MSM_CAMERA_LED_RELEASE;
 	/* CCI deInit */
 	if (fctrl->flash_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_util(
@@ -295,19 +271,13 @@ int msm_flash_led_off(struct msm_led_flash_ctrl_t *fctrl)
 	struct msm_camera_sensor_board_info *flashdata = NULL;
 	struct msm_camera_power_ctrl_t *power_info = NULL;
 
+	flashdata = fctrl->flashdata;
+	power_info = &flashdata->power_info;
+	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (!fctrl) {
 		pr_err("%s:%d fctrl NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-
-	if (fctrl->led_state != MSM_CAMERA_LED_INIT) {
-		pr_err("%s:%d invalid led state\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
-	flashdata = fctrl->flashdata;
-	power_info = &flashdata->power_info;
-	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
 			fctrl->flash_i2c_client,
@@ -329,11 +299,6 @@ int msm_flash_led_low(struct msm_led_flash_ctrl_t *fctrl)
 	struct msm_camera_sensor_board_info *flashdata = NULL;
 	struct msm_camera_power_ctrl_t *power_info = NULL;
 	CDBG("%s:%d called\n", __func__, __LINE__);
-
-	if (fctrl->led_state != MSM_CAMERA_LED_INIT) {
-		pr_err("%s:%d invalid led state\n", __func__, __LINE__);
-		return -EINVAL;
-	}
 
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
@@ -365,11 +330,6 @@ int msm_flash_led_high(struct msm_led_flash_ctrl_t *fctrl)
 	struct msm_camera_sensor_board_info *flashdata = NULL;
 	struct msm_camera_power_ctrl_t *power_info = NULL;
 	CDBG("%s:%d called\n", __func__, __LINE__);
-
-	if (fctrl->led_state != MSM_CAMERA_LED_INIT) {
-		pr_err("%s:%d invalid led state\n", __func__, __LINE__);
-		return -EINVAL;
-	}
 
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
@@ -551,57 +511,6 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 			}
 		}
 
-		/* Read the max current for an LED if present */
-		if (of_get_property(of_node, "qcom,max-current", &count)) {
-			count /= sizeof(uint32_t);
-
-			if (count > MAX_LED_TRIGGERS) {
-				pr_err("failed\n");
-				rc = -EINVAL;
-				goto ERROR8;
-			}
-
-			fctrl->flash_num_sources = count;
-			fctrl->torch_num_sources = count;
-
-			rc = of_property_read_u32_array(of_node,
-				"qcom,max-current",
-				fctrl->flash_max_current, count);
-			if (rc < 0) {
-				pr_err("%s failed %d\n", __func__, __LINE__);
-				goto ERROR8;
-			}
-
-			for (; count < MAX_LED_TRIGGERS; count++)
-				fctrl->flash_max_current[count] = 0;
-
-			for (count = 0; count < MAX_LED_TRIGGERS; count++)
-				fctrl->torch_max_current[count] =
-					fctrl->flash_max_current[count] >> 1;
-		}
-
-		/* Read the max duration for an LED if present */
-		if (of_get_property(of_node, "qcom,max-duration", &count)) {
-			count /= sizeof(uint32_t);
-
-			if (count > MAX_LED_TRIGGERS) {
-				pr_err("failed\n");
-				rc = -EINVAL;
-				goto ERROR8;
-			}
-
-			rc = of_property_read_u32_array(of_node,
-				"qcom,max-duration",
-				fctrl->flash_max_duration, count);
-			if (rc < 0) {
-				pr_err("%s failed %d\n", __func__, __LINE__);
-				goto ERROR8;
-			}
-
-			for (; count < MAX_LED_TRIGGERS; count++)
-				fctrl->flash_max_duration[count] = 0;
-		}
-
 		flashdata->slave_info =
 			kzalloc(sizeof(struct msm_camera_slave_info),
 				GFP_KERNEL);
@@ -680,27 +589,9 @@ static int set_led_status(void *data, u64 val)
 	if (val == 0) {
 		pr_debug("set_led_status: val is disable");
 		rc = msm_flash_led_off(fctrl);
-		if (rc < 0) {
-			pr_err("%s led_off failed line %d\n", __func__, __LINE__);
-			return rc;
-		}
-		rc = msm_flash_led_release(fctrl);
-		if (rc < 0) {
-			pr_err("%s led_release failed line %d\n", __func__, __LINE__);
-			return rc;
-		}
 	} else {
 		pr_debug("set_led_status: val is enable");
-		rc = msm_flash_led_init(fctrl);
-		if (rc < 0) {
-			pr_err("%s led_init failed line %d\n", __func__, __LINE__);
-			return rc;
-		}
 		rc = msm_flash_led_low(fctrl);
-		if (rc < 0) {
-			pr_err("%s led_low failed line %d\n", __func__, __LINE__);
-			return rc;
-		}
 	}
 
 	return rc;
@@ -709,49 +600,6 @@ static int set_led_status(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(ledflashdbg_fops,
 	NULL, set_led_status, "%llu\n");
 #endif
-
-static void msm_led_i2c_torch_brightness_set(struct led_classdev *led_cdev,
-				enum led_brightness value)
-{
-	struct msm_led_flash_ctrl_t *fctrl = NULL;
-
-	if (g_fctrl == NULL)
-		return;
-
-	fctrl = (struct msm_led_flash_ctrl_t *) g_fctrl;
-
-	if (value > LED_OFF) {
-		if (fctrl->func_tbl->flash_led_init)
-			fctrl->func_tbl->flash_led_init(fctrl);
-		if (fctrl->func_tbl->flash_led_low)
-			fctrl->func_tbl->flash_led_low(fctrl);
-	} else {
-		if (fctrl->func_tbl->flash_led_off)
-			fctrl->func_tbl->flash_led_off(fctrl);
-		if (fctrl->func_tbl->flash_led_release)
-			fctrl->func_tbl->flash_led_release(fctrl);
-	}
-};
-
-static struct led_classdev msm_torch_i2c_led = {
-	.name			= "torch-light0",
-	.brightness_set	= msm_led_i2c_torch_brightness_set,
-	.brightness		= LED_OFF,
-};
-
-static int32_t msm_i2c_torch_create_classdev(struct device *dev ,
-				void *data)
-{
-	int rc;
-	msm_led_i2c_torch_brightness_set(&msm_torch_i2c_led, LED_OFF);
-	rc = led_classdev_register(dev, &msm_torch_i2c_led);
-	if (rc) {
-		pr_err("Failed to register led dev. rc = %d\n", rc);
-		return rc;
-	}
-
-	return 0;
-};
 
 int msm_flash_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
@@ -782,9 +630,7 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 		return rc;
 	}
 
-	if (fctrl->pinctrl_info.use_pinctrl == true)
-		msm_flash_pinctrl_init(fctrl);
-
+        msm_flash_pinctrl_init(fctrl);
 	if (fctrl->flash_i2c_client != NULL) {
 		fctrl->flash_i2c_client->client = client;
 		if (fctrl->flashdata->slave_info->sensor_slave_addr)
@@ -809,13 +655,6 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 	if (!dentry)
 		pr_err("Failed to create the debugfs ledflash file");
 #endif
-	/* Assign Global flash control sturcture for local usage */
-	g_fctrl = (void *) fctrl;
-	rc = msm_i2c_torch_create_classdev(&(client->dev), NULL);
-	if (rc) {
-		pr_err("%s failed to create classdev %d\n", __func__, __LINE__);
-		return rc;
-	}
 	CDBG("%s:%d probe success\n", __func__, __LINE__);
 	return 0;
 
@@ -845,9 +684,7 @@ int msm_flash_probe(struct platform_device *pdev,
 		return rc;
 	}
 
-	if (fctrl->pinctrl_info.use_pinctrl == true)
-		msm_flash_pinctrl_init(fctrl);
-
+        msm_flash_pinctrl_init(fctrl);
 	/* Assign name for sub device */
 	snprintf(fctrl->msm_sd.sd.name, sizeof(fctrl->msm_sd.sd.name),
 			"%s", fctrl->flashdata->sensor_name);
@@ -858,7 +695,6 @@ int msm_flash_probe(struct platform_device *pdev,
 		pr_err("%s flash_i2c_client NULL\n",
 			__func__);
 		rc = -EFAULT;
-		goto probe_failure;
 	}
 
 	fctrl->flash_i2c_client->cci_client = kzalloc(sizeof(
@@ -883,14 +719,6 @@ int msm_flash_probe(struct platform_device *pdev,
 			&msm_sensor_cci_func_tbl;
 
 	rc = msm_led_flash_create_v4lsubdev(pdev, fctrl);
-
-	/* Assign Global flash control sturcture for local usage */
-	g_fctrl = (void *)fctrl;
-	rc = msm_i2c_torch_create_classdev(&(pdev->dev), NULL);
-	if (rc) {
-		pr_err("%s failed to create classdev %d\n", __func__, __LINE__);
-		return rc;
-	}
 
 	CDBG("%s: probe success\n", __func__);
 	return 0;
