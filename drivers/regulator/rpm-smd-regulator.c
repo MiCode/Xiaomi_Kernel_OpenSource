@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -182,7 +182,6 @@ struct rpm_vreg {
 	u32			resource_id;
 	bool			allow_atomic;
 	int			regulator_type;
-	int			hpm_min_load;
 	int			enable_time;
 	spinlock_t		slock;
 	struct mutex		mlock;
@@ -334,22 +333,6 @@ static void rpm_vreg_check_param_max(struct rpm_regulator *regulator, int index,
 	    && (rpm_vreg->aggr_req_sleep.valid & BIT(index))
 	    && rpm_vreg->aggr_req_sleep.param[index] > new_max)
 		rpm_vreg->wait_for_ack_sleep = true;
-}
-
-/*
- * This is used when voting for LPM or HPM by subtracting or adding to the
- * hpm_min_load of a regulator.  It has units of uA.
- */
-#define LOAD_THRESHOLD_STEP	1000
-
-static inline int rpm_vreg_hpm_min_uA(struct rpm_vreg *rpm_vreg)
-{
-	return rpm_vreg->hpm_min_load;
-}
-
-static inline int rpm_vreg_lpm_max_uA(struct rpm_vreg *rpm_vreg)
-{
-	return rpm_vreg->hpm_min_load - LOAD_THRESHOLD_STEP;
 }
 
 #define MICRO_TO_MILLI(uV)	((uV) / 1000)
@@ -864,33 +847,102 @@ static int rpm_vreg_get_voltage(struct regulator_dev *rdev)
 	return uV;
 }
 
+static const struct rpm_regulator_mode_map vreg_mode_mapping[] = {
+	[REGULATOR_MODE_NORMAL]	= {
+		RPM_REGULATOR_LDO_MODE_HPM,
+		RPM_REGULATOR_SMPS_MODE_PWM,
+	},
+	[REGULATOR_MODE_IDLE]	= {
+		RPM_REGULATOR_LDO_MODE_IPEAK,
+		RPM_REGULATOR_SMPS_MODE_AUTO,
+	},
+};
+
 static int rpm_vreg_set_mode(struct regulator_dev *rdev, unsigned int mode)
 {
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-	int rc = 0;
-	u32 prev_current;
-	int prev_uA;
+	int index = 0;
+	u32 rpm_mode, prev_mode;
+	int rc;
+
+	switch (reg->rpm_vreg->regulator_type) {
+	case RPM_REGULATOR_TYPE_SMPS:
+		index = RPM_REGULATOR_PARAM_MODE_SMPS;
+		rpm_mode = vreg_mode_mapping[mode].smps_mode;
+		break;
+	case RPM_REGULATOR_TYPE_LDO:
+		index = RPM_REGULATOR_PARAM_MODE_LDO;
+		rpm_mode = vreg_mode_mapping[mode].ldo_mode;
+		break;
+	default:
+		vreg_err(reg, "unsupported regulator type: %d\n",
+			reg->rpm_vreg->regulator_type);
+		return -EINVAL;
+	}
 
 	rpm_vreg_lock(reg->rpm_vreg);
 
-	prev_current = reg->req.param[RPM_REGULATOR_PARAM_CURRENT];
-	prev_uA = MILLI_TO_MICRO(prev_current);
+	prev_mode = reg->req.param[index];
+	reg->req.param[index] = rpm_mode;
+	reg->req.modified |= BIT(index);
 
-	if (mode == REGULATOR_MODE_NORMAL) {
-		/* Make sure that request current is in HPM range. */
-		if (prev_uA < rpm_vreg_hpm_min_uA(reg->rpm_vreg))
-			RPM_VREG_SET_PARAM(reg, CURRENT,
-			    MICRO_TO_MILLI(rpm_vreg_hpm_min_uA(reg->rpm_vreg)));
-	} else if (REGULATOR_MODE_IDLE) {
-		/* Make sure that request current is in LPM range. */
-		if (prev_uA > rpm_vreg_lpm_max_uA(reg->rpm_vreg))
-			RPM_VREG_SET_PARAM(reg, CURRENT,
-			    MICRO_TO_MILLI(rpm_vreg_lpm_max_uA(reg->rpm_vreg)));
-	} else {
-		vreg_err(reg, "invalid mode: %u\n", mode);
-		rpm_vreg_unlock(reg->rpm_vreg);
-		return -EINVAL;
+	rc = rpm_vreg_aggregate_requests(reg);
+	if (rc) {
+		vreg_err(reg, "set mode failed, rc=%d", rc);
+		reg->req.param[index] = prev_mode;
 	}
+
+	rpm_vreg_unlock(reg->rpm_vreg);
+
+	return rc;
+}
+
+static unsigned int rpm_vreg_get_mode(struct regulator_dev *rdev)
+{
+	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
+	unsigned int rpm_mode;
+
+	switch (reg->rpm_vreg->regulator_type) {
+	case RPM_REGULATOR_TYPE_SMPS:
+		rpm_mode = reg->req.param[RPM_REGULATOR_PARAM_MODE_SMPS];
+		if (rpm_mode ==
+			     vreg_mode_mapping[REGULATOR_MODE_IDLE].smps_mode)
+			return REGULATOR_MODE_IDLE;
+		else
+			return REGULATOR_MODE_NORMAL;
+		break;
+	case RPM_REGULATOR_TYPE_LDO:
+		rpm_mode = reg->req.param[RPM_REGULATOR_PARAM_MODE_LDO];
+		if (rpm_mode ==
+			      vreg_mode_mapping[REGULATOR_MODE_IDLE].ldo_mode)
+			return REGULATOR_MODE_IDLE;
+		else
+			return REGULATOR_MODE_NORMAL;
+		break;
+	default:
+		vreg_err(reg, "unsupported regulator type %d\n",
+			 reg->rpm_vreg->regulator_type);
+		break;
+	}
+
+	return REGULATOR_MODE_NORMAL;
+}
+
+static int rpm_vreg_set_load(struct regulator_dev *rdev, int load_uA)
+{
+	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
+	int rc = 0;
+	u32 load_mA;
+	u32 prev_load_mA;
+
+	rpm_vreg_lock(reg->rpm_vreg);
+
+	load_mA = MICRO_TO_MILLI(load_uA + reg->system_load);
+	if (load_mA > params[RPM_REGULATOR_PARAM_CURRENT].max)
+		load_mA = params[RPM_REGULATOR_PARAM_CURRENT].max;
+
+	prev_load_mA = reg->req.param[RPM_REGULATOR_PARAM_CURRENT];
+	RPM_VREG_SET_PARAM(reg, CURRENT, load_mA);
 
 	/*
 	 * Only send a new load current value if the regulator is currently
@@ -904,41 +956,12 @@ static int rpm_vreg_set_mode(struct regulator_dev *rdev, unsigned int mode)
 
 	if (rc) {
 		vreg_err(reg, "set mode failed, rc=%d\n", rc);
-		RPM_VREG_SET_PARAM(reg, CURRENT, prev_current);
+		RPM_VREG_SET_PARAM(reg, CURRENT, prev_load_mA);
 	}
 
 	rpm_vreg_unlock(reg->rpm_vreg);
 
 	return rc;
-}
-
-static unsigned int rpm_vreg_get_mode(struct regulator_dev *rdev)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-
-	return (reg->req.param[RPM_REGULATOR_PARAM_CURRENT]
-			>= MICRO_TO_MILLI(reg->rpm_vreg->hpm_min_load))
-		? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
-}
-
-static unsigned int rpm_vreg_get_optimum_mode(struct regulator_dev *rdev,
-			int input_uV, int output_uV, int load_uA)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-	u32 load_mA;
-
-	load_uA += reg->system_load;
-
-	load_mA = MICRO_TO_MILLI(load_uA);
-	if (load_mA > params[RPM_REGULATOR_PARAM_CURRENT].max)
-		load_mA = params[RPM_REGULATOR_PARAM_CURRENT].max;
-
-	rpm_vreg_lock(reg->rpm_vreg);
-	RPM_VREG_SET_PARAM(reg, CURRENT, load_mA);
-	rpm_vreg_unlock(reg->rpm_vreg);
-
-	return (load_uA >= reg->rpm_vreg->hpm_min_load)
-		? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
 }
 
 static int rpm_vreg_set_bob_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -1363,7 +1386,7 @@ static struct regulator_ops ldo_ops = {
 	.get_voltage		= rpm_vreg_get_voltage,
 	.set_mode		= rpm_vreg_set_mode,
 	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
+	.set_load		= rpm_vreg_set_load,
 	.enable_time		= rpm_vreg_enable_time,
 };
 
@@ -1375,7 +1398,7 @@ static struct regulator_ops smps_ops = {
 	.get_voltage		= rpm_vreg_get_voltage,
 	.set_mode		= rpm_vreg_set_mode,
 	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
+	.set_load		= rpm_vreg_set_load,
 	.enable_time		= rpm_vreg_enable_time,
 };
 
@@ -1812,8 +1835,6 @@ static int rpm_vreg_resource_probe(struct platform_device *pdev)
 	of_property_read_u32(node, "qcom,allow-atomic", &val);
 	rpm_vreg->allow_atomic = !!val;
 	of_property_read_u32(node, "qcom,enable-time", &rpm_vreg->enable_time);
-	of_property_read_u32(node, "qcom,hpm-min-load",
-		&rpm_vreg->hpm_min_load);
 	rpm_vreg->apps_only = of_property_read_bool(node, "qcom,apps-only");
 	rpm_vreg->always_wait_for_ack
 		= of_property_read_bool(node, "qcom,always-wait-for-ack");

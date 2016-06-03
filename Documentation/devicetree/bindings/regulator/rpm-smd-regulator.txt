@@ -31,8 +31,6 @@ Optional properties:
 				0 or not present = mutex locks used
 				1 = spinlocks used
 - qcom,enable-time:    Time in us to delay after enabling the regulator
-- qcom,hpm-min-load:   Load current in uA which corresponds to the minimum load
-			which requires the regulator to be in high power mode.
 - qcom,apps-only:      Flag which indicates that the regulator only has
 			consumers on the application processor. If this flag
 			is specified, then voltage and current updates are
@@ -271,7 +269,6 @@ rpm-regulator-smpb1 {
 	qcom,resource-name = "smpb";
 	qcom,resource-id = <1>;
 	qcom,regulator-type = <1>;
-	qcom,hpm-min-load = <100000>;
 	compatible = "qcom,rpm-smd-regulator-resource";
 	status = "disabled";
 
@@ -305,7 +302,6 @@ rpm-regulator-ldoa2 {
 	qcom,resource-name = "ldoa";
 	qcom,resource-id = <2>;
 	qcom,regulator-type = <0>;
-	qcom,hpm-min-load = <10000>;
 	compatible = "qcom,rpm-smd-regulator-resource";
 
 	regulator-l2 {
