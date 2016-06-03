@@ -207,7 +207,7 @@ static const struct errors_edac errors[] = {
 	asm("msr s3_1_c15_c2_2, %0" : : "r" (val));			\
 })
 
-static void ca53_ca57_print_error_state_regs(void)
+static void kryo2xx_print_error_state_regs(void)
 {
 	u64 l2merrsr;
 	u64 cpumerrsr;
@@ -266,7 +266,7 @@ static void kryo2xx_gold_print_error_state_regs(void)
 			"Double bit error on dirty L2 cacheline\n");
 }
 
-static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
+static void kryo2xx_silver_parse_cpumerrsr(struct erp_local_data *ed)
 {
 	u64 cpumerrsr;
 	int cpuid;
@@ -283,7 +283,7 @@ static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 			"Kryo2xx Silver CPU%d L1 %s Error detected\n",
 			smp_processor_id(), err_name[ed->err]);
 
-	ca53_ca57_print_error_state_regs();
+	kryo2xx_print_error_state_regs();
 	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
 
@@ -337,7 +337,7 @@ static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 	write_cpumerrsr_el1(0);
 }
 
-static void ca53_parse_l2merrsr(struct erp_local_data *ed)
+static void kryo2xx_silver_parse_l2merrsr(struct erp_local_data *ed)
 {
 	u64 l2merrsr;
 	u32 l2ectlr;
@@ -354,7 +354,7 @@ static void ca53_parse_l2merrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "Kyro2xx Silver L2 %s Error detected\n",
 			err_name[ed->err]);
-	ca53_ca57_print_error_state_regs();
+	kryo2xx_print_error_state_regs();
 	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
 
@@ -411,7 +411,7 @@ static void ca57_parse_cpumerrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A57 CPU%d L1 %s Error detected\n",
 					 smp_processor_id(), err_name[ed->err]);
-	ca53_ca57_print_error_state_regs();
+	kryo2xx_print_error_state_regs();
 	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
 
@@ -476,7 +476,7 @@ static void ca57_parse_l2merrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA57 L2 %s Error detected\n",
 							err_name[ed->err]);
-	ca53_ca57_print_error_state_regs();
+	kryo2xx_print_error_state_regs();
 	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
 
@@ -590,8 +590,8 @@ static void arm64_erp_local_handler(void *info)
 	switch (partnum) {
 	case ARM_CPU_PART_CORTEX_A53:
 	case ARM_CPU_PART_KRYO2XX_SILVER:
-		ca53_parse_cpumerrsr(errdata);
-		ca53_parse_l2merrsr(errdata);
+		kryo2xx_silver_parse_cpumerrsr(errdata);
+		kryo2xx_silver_parse_l2merrsr(errdata);
 	break;
 
 	case ARM_CPU_PART_CORTEX_A72:
@@ -762,8 +762,8 @@ static void check_sbe_event(struct erp_drvdata *drv)
 	switch (partnum) {
 	case ARM_CPU_PART_CORTEX_A53:
 	case ARM_CPU_PART_KRYO2XX_SILVER:
-		ca53_parse_cpumerrsr(&errdata);
-		ca53_parse_l2merrsr(&errdata);
+		kryo2xx_silver_parse_cpumerrsr(&errdata);
+		kryo2xx_silver_parse_l2merrsr(&errdata);
 	break;
 
 	case ARM_CPU_PART_CORTEX_A72:
