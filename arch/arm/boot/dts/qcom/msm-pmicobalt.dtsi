@@ -285,6 +285,54 @@
 			qcom,ibat-polling-delay-ms = <100>;
 		};
 
+		pmicobalt_rradc: rradc@4500 {
+			compatible = "qcom,rradc";
+			reg = <0x4500 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+
+			/* Channel node */
+			batt_id {
+				channel = <3>;
+			};
+
+			batt_therm {
+				channel = <4>;
+			};
+
+			skin_temp {
+				channel = <5>;
+			};
+
+			usbin_v {
+				channel = <6>;
+			};
+
+			usbin_i {
+				channel = <7>;
+			};
+
+			dcin_v {
+				channel = <8>;
+			};
+
+			dcin_i {
+				channel = <9>;
+			};
+
+			die_temp {
+				channel = <0xa>;
+			};
+
+			chg_temp {
+				channel = <0xb>;
+			};
+
+			gpio {
+				channel = <0xc>;
+			};
+		};
 	};
 
 	qcom,pmicobalt@3 {
@@ -443,7 +491,7 @@
 			};
 		};
 
-		pmi8998_wled: qcom,leds@d800 {
+		pmicobalt_wled: qcom,leds@d800 {
 			compatible = "qcom,qpnp-wled";
 			reg = <0xd800 0x100>,
 				<0xd900 0x100>,
@@ -507,7 +555,7 @@
 			qcom,hdrm-auto-mode;
 			qcom,isc-delay = <192>;
 
-			pmi8998_flash0: qcom,flash_0 {
+			pmicobalt_flash0: qcom,flash_0 {
 				label = "flash";
 				qcom,led-name = "led:flash_0";
 				qcom,max-current = <1500>;
@@ -520,7 +568,7 @@
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 
-			pmi8998_flash1: qcom,flash_1 {
+			pmicobalt_flash1: qcom,flash_1 {
 				label = "flash";
 				qcom,led-name = "led:flash_1";
 				qcom,max-current = <1500>;
@@ -533,7 +581,7 @@
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
 			};
 
-			pmi8998_flash2: qcom,flash_2 {
+			pmicobalt_flash2: qcom,flash_2 {
 				label = "flash";
 				qcom,led-name = "led:flash_2";
 				qcom,max-current = <750>;
@@ -549,7 +597,7 @@
 				pinctrl-1 = <&led_disable>;
 			};
 
-			pmi8998_switch: qcom,led_switch {
+			pmicobalt_switch: qcom,led_switch {
 				label = "switch";
 				qcom,led-name = "led:switch";
 				qcom,default-led-trigger =

@@ -30,9 +30,9 @@
 
 #define CXO_CLK_SRC_ID						0x0
 #define QDSS_CLK_ID						0x1
-#define PNOC_CLK_ID						0x0
 #define SNOC_CLK_ID						0x1
 #define CNOC_CLK_ID						0x2
+#define CNOC_PERIPH_CLK_ID					0x0
 #define BIMC_CLK_ID						0x0
 #define IPA_CLK_ID						0x0
 #define CE1_CLK_ID						0x0

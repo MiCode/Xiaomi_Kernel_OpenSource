@@ -47,10 +47,9 @@ int smblib_read(struct smb_charger *chg, u16 addr, u8 *val)
 
 int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val)
 {
-	unsigned long flags;
 	int rc = 0;
 
-	spin_lock_irqsave(&chg->write_lock, flags);
+	mutex_lock(&chg->write_lock);
 	if (is_secure(chg, addr)) {
 		rc = regmap_write(chg->regmap, (addr & 0xFF00) | 0xD0, 0xA5);
 		if (rc < 0)
@@ -60,16 +59,15 @@ int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val)
 	rc = regmap_update_bits(chg->regmap, addr, mask, val);
 
 unlock:
-	spin_unlock_irqrestore(&chg->write_lock, flags);
+	mutex_unlock(&chg->write_lock);
 	return rc;
 }
 
 int smblib_write(struct smb_charger *chg, u16 addr, u8 val)
 {
-	unsigned long flags;
 	int rc = 0;
 
-	spin_lock_irqsave(&chg->write_lock, flags);
+	mutex_lock(&chg->write_lock);
 
 	if (is_secure(chg, addr)) {
 		rc = regmap_write(chg->regmap, (addr & ~(0xFF)) | 0xD0, 0xA5);
@@ -80,7 +78,7 @@ int smblib_write(struct smb_charger *chg, u16 addr, u8 val)
 	rc = regmap_write(chg->regmap, addr, val);
 
 unlock:
-	spin_unlock_irqrestore(&chg->write_lock, flags);
+	mutex_unlock(&chg->write_lock);
 	return rc;
 }
 
@@ -1281,7 +1279,7 @@ int smblib_init(struct smb_charger *chg)
 {
 	int rc = 0;
 
-	spin_lock_init(&chg->write_lock);
+	mutex_init(&chg->write_lock);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 
 	chg->usb_suspend_votable = create_votable(chg->dev,
