@@ -565,8 +565,7 @@
 				label = "flash";
 				qcom,led-name = "led:flash_0";
 				qcom,max-current = <1500>;
-				qcom,default-led-trigger =
-							"flash0_trigger";
+				qcom,default-led-trigger = "flash0_trigger";
 				qcom,id = <0>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
@@ -578,8 +577,7 @@
 				label = "flash";
 				qcom,led-name = "led:flash_1";
 				qcom,max-current = <1500>;
-				qcom,default-led-trigger =
-							"flash1_trigger";
+				qcom,default-led-trigger = "flash1_trigger";
 				qcom,id = <1>;
 				qcom,duration-ms = <1280>;
 				qcom,ires-ua = <12500>;
@@ -591,10 +589,45 @@
 				label = "flash";
 				qcom,led-name = "led:flash_2";
 				qcom,max-current = <750>;
-				qcom,default-led-trigger =
-							"flash2_trigger";
+				qcom,default-led-trigger = "flash2_trigger";
 				qcom,id = <2>;
 				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+				pinctrl-names = "led_enable","led_disable";
+				pinctrl-0 = <&led_enable>;
+				pinctrl-1 = <&led_disable>;
+			};
+
+			pmicobalt_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch0_trigger";
+				qcom,id = <0>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmicobalt_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch1_trigger";
+				qcom,id = <1>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+
+			pmicobalt_torch2: qcom,torch_2 {
+				label = "torch";
+				qcom,led-name = "led:torch_2";
+				qcom,max-current = <500>;
+				qcom,default-led-trigger = "torch2_trigger";
+				qcom,id = <2>;
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
