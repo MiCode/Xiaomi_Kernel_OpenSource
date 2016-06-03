@@ -454,7 +454,13 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	in_params->xfer_ring_len = gsi_channel_info.xfer_ring_len;
 	in_params->xfer_ring_base_addr = gsi_channel_info.xfer_ring_base_addr;
 	in_params->xfer_scratch.last_trb_addr_iova =
-		d_port->in_last_trb_addr = gsi_channel_info.last_trb_addr;
+					gsi_channel_info.last_trb_addr;
+	in_params->xfer_ring_base_addr = in_params->xfer_ring_base_addr_iova =
+					gsi_channel_info.xfer_ring_base_addr;
+	in_params->data_buff_base_len = d_port->in_request.buf_len *
+					d_port->in_request.num_bufs;
+	in_params->data_buff_base_addr = in_params->data_buff_base_addr_iova =
+					d_port->in_request.dma;
 	in_params->xfer_scratch.const_buffer_size =
 		gsi_channel_info.const_buffer_size;
 	in_params->xfer_scratch.depcmd_low_addr =
@@ -486,7 +492,13 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		out_params->xfer_ring_len =
 			gsi_channel_info.xfer_ring_len;
 		out_params->xfer_ring_base_addr =
+			out_params->xfer_ring_base_addr_iova =
 			gsi_channel_info.xfer_ring_base_addr;
+		out_params->data_buff_base_len = d_port->out_request.buf_len *
+			d_port->out_request.num_bufs;
+		out_params->data_buff_base_addr =
+			out_params->data_buff_base_addr_iova =
+			d_port->out_request.dma;
 		out_params->xfer_scratch.last_trb_addr_iova =
 			gsi_channel_info.last_trb_addr;
 		out_params->xfer_scratch.const_buffer_size =
