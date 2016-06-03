@@ -59,6 +59,8 @@ void __reset_page_owner(struct page *page, unsigned int order)
 
 	for (i = 0; i < (1 << order); i++) {
 		page_ext = lookup_page_ext(page + i);
+		if (unlikely(!page_ext))
+			continue;
 		__clear_bit(PAGE_EXT_OWNER, &page_ext->flags);
 	}
 }
@@ -66,12 +68,16 @@ void __reset_page_owner(struct page *page, unsigned int order)
 void __set_page_owner(struct page *page, unsigned int order, gfp_t gfp_mask)
 {
 	struct page_ext *page_ext = lookup_page_ext(page);
+
 	struct stack_trace trace = {
 		.nr_entries = 0,
 		.max_entries = ARRAY_SIZE(page_ext->trace_entries),
 		.entries = &page_ext->trace_entries[0],
 		.skip = 3,
 	};
+
+	if (unlikely(!page_ext))
+		return;
 
 	save_stack_trace(&trace);
 
@@ -86,6 +92,8 @@ void __set_page_owner(struct page *page, unsigned int order, gfp_t gfp_mask)
 void __set_page_owner_migrate_reason(struct page *page, int reason)
 {
 	struct page_ext *page_ext = lookup_page_ext(page);
+	if (unlikely(!page_ext))
+		return;
 
 	page_ext->last_migrate_reason = reason;
 }
@@ -94,6 +102,12 @@ void __split_page_owner(struct page *page, unsigned int order)
 {
 	int i;
 	struct page_ext *page_ext = lookup_page_ext(page);
+	if (unlikely(!page_ext))
+		/*
+		 * The caller just returns if no valid gfp
+		 * So return here too.
+		 */
+		return;
 
 	page_ext->order = 0;
 	for (i = 1; i < (1 << order); i++)
@@ -105,6 +119,9 @@ void __copy_page_owner(struct page *oldpage, struct page *newpage)
 	struct page_ext *old_ext = lookup_page_ext(oldpage);
 	struct page_ext *new_ext = lookup_page_ext(newpage);
 	int i;
+
+	if (unlikely(!old_ext || !new_ext))
+		return;
 
 	new_ext->order = old_ext->order;
 	new_ext->gfp_mask = old_ext->gfp_mask;
@@ -201,6 +218,11 @@ void __dump_page_owner(struct page *page)
 	gfp_t gfp_mask = page_ext->gfp_mask;
 	int mt = gfpflags_to_migratetype(gfp_mask);
 
+	if (unlikely(!page_ext)) {
+		pr_alert("There is not page extension available.\n");
+		return;
+	}
+
 	if (!test_bit(PAGE_EXT_OWNER, &page_ext->flags)) {
 		pr_alert("page_owner info is not active (free page?)\n");
 		return;
@@ -260,6 +282,8 @@ read_page_owner(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 		}
 
 		page_ext = lookup_page_ext(page);
+		if (unlikely(!page_ext))
+			continue;
 
 		/*
 		 * Some pages could be missed by concurrent allocation or free,
@@ -326,6 +350,8 @@ static void init_pages_in_zone(pg_data_t *pgdat, struct zone *zone)
 				continue;
 
 			page_ext = lookup_page_ext(page);
+			if (unlikely(!page_ext))
+				continue;
 
 			/* Maybe overraping zone */
 			if (test_bit(PAGE_EXT_OWNER, &page_ext->flags))
