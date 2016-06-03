@@ -132,6 +132,16 @@ static void mmc_bus_shutdown(struct device *dev)
 	struct mmc_host *host = card->host;
 	int ret;
 
+	if (!drv) {
+		pr_debug("%s: %s: drv is NULL\n", dev_name(dev), __func__);
+		return;
+	}
+
+	if (!card) {
+		pr_debug("%s: %s: card is NULL\n", dev_name(dev), __func__);
+		return;
+	}
+
 	if (dev->driver && drv->shutdown)
 		drv->shutdown(card);
 
@@ -190,6 +200,7 @@ static int mmc_runtime_resume(struct device *dev)
 
 	return host->bus_ops->runtime_resume(host);
 }
+
 #endif /* !CONFIG_PM */
 
 static const struct dev_pm_ops mmc_bus_pm_ops = {
@@ -273,6 +284,9 @@ struct mmc_card *mmc_alloc_card(struct mmc_host *host, struct device_type *type)
 	card->dev.release = mmc_release_card;
 	card->dev.type = type;
 
+	spin_lock_init(&card->wr_pack_stats.lock);
+	spin_lock_init(&card->bkops.stats.lock);
+
 	return card;
 }
 
@@ -349,6 +363,12 @@ int mmc_add_card(struct mmc_card *card)
 
 	card->dev.of_node = mmc_of_find_child_device(card->host, 0);
 
+	if (mmc_card_sdio(card)) {
+		ret = device_init_wakeup(&card->dev, true);
+		if (ret)
+			pr_err("%s: %s: failed to init wakeup: %d\n",
+			       mmc_hostname(card->host), __func__, ret);
+	}
 	ret = device_add(&card->dev);
 	if (ret)
 		return ret;
@@ -379,6 +399,9 @@ void mmc_remove_card(struct mmc_card *card)
 		device_del(&card->dev);
 		of_node_put(card->dev.of_node);
 	}
+
+	kfree(card->wr_pack_stats.packing_events);
+	kfree(card->cached_ext_csd);
 
 	put_device(&card->dev);
 }
