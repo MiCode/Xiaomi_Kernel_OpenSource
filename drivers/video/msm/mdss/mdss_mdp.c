@@ -2521,7 +2521,9 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	struct resource *res;
 	int rc;
 	struct mdss_data_type *mdata;
-	bool display_on = false;
+	uint32_t intf_sel = 0;
+	int num_of_display_on = 0;
+	int i = 0;
 
 	if (!pdev->dev.of_node) {
 		pr_err("MDP driver only supports device tree probe\n");
@@ -2642,7 +2644,6 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	 */
 	mdss_mdp_footswitch_ctrl_splash(true);
 	mdss_hw_rev_init(mdata);
-	display_on = true;
 
 	/*populate hw iomem base info from device tree*/
 	rc = mdss_mdp_parse_dt(pdev);
@@ -2711,10 +2712,23 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	 * clk/regulator votes else turn off clk/regulators because purpose
 	 * here is to get mdp_rev.
 	 */
-	display_on = (bool)readl_relaxed(mdata->mdp_base +
+	intf_sel = readl_relaxed(mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
-	if (!display_on)
+	if (intf_sel != 0) {
+		for (i = 0; i < 4; i++)
+			num_of_display_on += ((intf_sel >> i*8) & 0x000000FF);
+	}
+	if (!num_of_display_on)
 		mdss_mdp_footswitch_ctrl_splash(false);
+	else {
+		mdata->handoff_pending = true;
+		/*
+		 * If multiple displays are enabled in LK, ctrl_splash off will
+		 * be called multiple times during splash_cleanup. Need to
+		 * enable it symmetrically*/
+		for (i = 1; i < num_of_display_on; i++)
+			mdss_mdp_footswitch_ctrl_splash(true);
+	}
 
 	mdp_intr_cb  = kcalloc(ARRAY_SIZE(mdp_irq_map),
 			sizeof(struct intr_callback), GFP_KERNEL);
@@ -2726,12 +2740,13 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	if (mdss_res->mdp_irq_mask == NULL)
 		return -ENOMEM;
 
-	pr_info("mdss version = 0x%x, bootloader display is %s\n",
-		mdata->mdp_rev, display_on ? "on" : "off");
+	pr_info("mdss version = 0x%x, bootloader display is %s, num %d, intf_sel=0x%08x\n",
+		mdata->mdp_rev, num_of_display_on ? "on" : "off",
+		num_of_display_on, intf_sel);
 
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
-		if (display_on)
+		if (!num_of_display_on)
 			mdss_mdp_footswitch_ctrl_splash(false);
 
 		if (mdata->regulator_notif_register)
