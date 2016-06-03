@@ -2285,6 +2285,7 @@ int ipa3_generate_flt_eq_ip4(enum ipa_ip_type ip,
 	return 0;
 }
 
+/* This is called only before sending ipa_install_fltr_rule_req_msg to Q6 */
 int ipa3_generate_flt_eq_ip6(enum ipa_ip_type ip,
 		const struct ipa_rule_attrib *attrib,
 		struct ipa_ipfltri_rule_eq *eq_atrb)
@@ -2315,22 +2316,23 @@ int ipa3_generate_flt_eq_ip6(enum ipa_ip_type ip,
 		}
 		*en_rule |= ipa_ofst_meq128[ofst_meq128];
 		eq_atrb->offset_meq_128[ofst_meq128].offset = 8;
+		/* use the same word order as in ipa v2 */
 		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 0)
-			= attrib->u.v6.src_addr_mask[3];
-		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 4)
-			= attrib->u.v6.src_addr_mask[2];
-		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 8)
-			= attrib->u.v6.src_addr_mask[1];
-		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 12)
 			= attrib->u.v6.src_addr_mask[0];
+		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 4)
+			= attrib->u.v6.src_addr_mask[1];
+		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 8)
+			= attrib->u.v6.src_addr_mask[2];
+		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 12)
+			= attrib->u.v6.src_addr_mask[3];
 		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 0)
-			= attrib->u.v6.src_addr[3];
+			= attrib->u.v6.src_addr[0];
 		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 4)
-			= attrib->u.v6.src_addr[2];
-		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 8)
 			= attrib->u.v6.src_addr[1];
+		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 8)
+			= attrib->u.v6.src_addr[2];
 		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value +
-				12) = attrib->u.v6.src_addr[0];
+				12) = attrib->u.v6.src_addr[3];
 		ofst_meq128++;
 	}
 
@@ -2341,22 +2343,23 @@ int ipa3_generate_flt_eq_ip6(enum ipa_ip_type ip,
 		}
 		*en_rule |= ipa_ofst_meq128[ofst_meq128];
 		eq_atrb->offset_meq_128[ofst_meq128].offset = 24;
+		/* use the same word order as in ipa v2 */
 		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 0)
-			= attrib->u.v6.dst_addr_mask[3];
-		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 4)
-			= attrib->u.v6.dst_addr_mask[2];
-		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 8)
-			= attrib->u.v6.dst_addr_mask[1];
-		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 12)
 			= attrib->u.v6.dst_addr_mask[0];
+		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 4)
+			= attrib->u.v6.dst_addr_mask[1];
+		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 8)
+			= attrib->u.v6.dst_addr_mask[2];
+		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].mask + 12)
+			= attrib->u.v6.dst_addr_mask[3];
 		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 0)
-			= attrib->u.v6.dst_addr[3];
+			= attrib->u.v6.dst_addr[0];
 		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 4)
-			= attrib->u.v6.dst_addr[2];
-		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 8)
 			= attrib->u.v6.dst_addr[1];
+		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value + 8)
+			= attrib->u.v6.dst_addr[2];
 		*(u32 *)(eq_atrb->offset_meq_128[ofst_meq128].value +
-				12) = attrib->u.v6.dst_addr[0];
+				12) = attrib->u.v6.dst_addr[3];
 		ofst_meq128++;
 	}
 
