@@ -1192,15 +1192,9 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		vfe_dev->vt_enable = stream_cfg_cmd->vt_enable;
 		msm_isp_start_avtimer();
 	}
-	if (stream_info->num_planes > 1) {
+	if (stream_info->num_planes > 1)
 		msm_isp_axi_reserve_comp_mask(
 			&vfe_dev->axi_data, stream_info);
-		vfe_dev->hw_info->vfe_ops.axi_ops.
-		cfg_comp_mask(vfe_dev, stream_info);
-	} else {
-		vfe_dev->hw_info->vfe_ops.axi_ops.
-			cfg_wm_irq_mask(vfe_dev, stream_info);
-	}
 
 	for (i = 0; i < stream_info->num_planes; i++) {
 		vfe_dev->hw_info->vfe_ops.axi_ops.
@@ -1256,14 +1250,8 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		clear_wm_xbar_reg(vfe_dev, stream_info, i);
 	}
 
-	if (stream_info->num_planes > 1) {
-		vfe_dev->hw_info->vfe_ops.axi_ops.
-			clear_comp_mask(vfe_dev, stream_info);
+	if (stream_info->num_planes > 1)
 		msm_isp_axi_free_comp_mask(&vfe_dev->axi_data, stream_info);
-	} else {
-		vfe_dev->hw_info->vfe_ops.axi_ops.
-		clear_wm_irq_mask(vfe_dev, stream_info);
-	}
 
 	vfe_dev->hw_info->vfe_ops.axi_ops.clear_framedrop(vfe_dev, stream_info);
 	msm_isp_axi_free_wm(axi_data, stream_info);
@@ -2656,6 +2644,13 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			return rc;
 		}
 		spin_unlock_irqrestore(&stream_info->lock, flags);
+		if (stream_info->num_planes > 1) {
+			vfe_dev->hw_info->vfe_ops.axi_ops.
+				cfg_comp_mask(vfe_dev, stream_info);
+		} else {
+			vfe_dev->hw_info->vfe_ops.axi_ops.
+				cfg_wm_irq_mask(vfe_dev, stream_info);
+		}
 
 		stream_info->state = START_PENDING;
 
@@ -2771,6 +2766,13 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		msm_isp_cfg_stream_scratch(vfe_dev, stream_info, VFE_PONG_FLAG);
 		spin_unlock_irqrestore(&stream_info->lock, flags);
 		wait_for_complete_for_this_stream = 0;
+
+		if (stream_info->num_planes > 1)
+			vfe_dev->hw_info->vfe_ops.axi_ops.
+				clear_comp_mask(vfe_dev, stream_info);
+		else
+			vfe_dev->hw_info->vfe_ops.axi_ops.
+				clear_wm_irq_mask(vfe_dev, stream_info);
 
 		stream_info->state = STOP_PENDING;
 
