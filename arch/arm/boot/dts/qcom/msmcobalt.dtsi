@@ -261,10 +261,22 @@
 			reg = <0 0x85800000 0 0x3700000>;
 		};
 
-		peripheral_mem: peripheral_region@91900000 {
+		pil_slpi_mem: pil_slpi_region@93800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x91900000 0 0x2e00000>;
+			reg = <0 0x93800000 0 0xf00000>;
+		};
+
+		pil_video_mem: pil_video_region@93300000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93300000 0 0x500000>;
+		};
+
+		pil_adsp_mem: pil_adsp_region@91900000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x91900000 0 0x1a00000>;
 		};
 
 		modem_mem: modem_region@8ac00000 {
@@ -1946,7 +1958,7 @@
 		status = "ok";
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
-		memory-region = <&peripheral_mem>;
+		memory-region = <&pil_adsp_mem>;
 
 		/* GPIO inputs from lpass */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
@@ -2426,7 +2438,7 @@
 		qcom,ssctl-instance-id = <0x16>;
 		qcom,firmware-name = "slpi";
 		status = "ok";
-		memory-region = <&peripheral_mem>;
+		memory-region = <&pil_slpi_mem>;
 
 		/* GPIO inputs from ssc */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_3_in 0 0>;
@@ -2459,7 +2471,7 @@
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,firmware-name = "venus";
-		memory-region = <&peripheral_mem>;
+		memory-region = <&pil_video_mem>;
 		status = "ok";
 	};
 
