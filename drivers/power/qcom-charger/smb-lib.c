@@ -1355,16 +1355,9 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
 	}
 }
 
-/********
- * INIT *
- * ******/
-
-int smblib_init(struct smb_charger *chg)
+int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
-
-	mutex_init(&chg->write_lock);
-	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 
 	chg->usb_suspend_votable = create_votable("INPUT_SUSPEND", VOTE_SET_ANY,
 					smblib_usb_suspend_vote_callback,
@@ -1421,7 +1414,32 @@ int smblib_init(struct smb_charger *chg)
 		return rc;
 	}
 
-	return 0;
+	return rc;
+}
+
+int smblib_init(struct smb_charger *chg)
+{
+	int rc = 0;
+
+	mutex_init(&chg->write_lock);
+	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
+
+	switch (chg->mode) {
+	case PARALLEL_MASTER:
+		rc = smblib_create_votables(chg);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't create votables rc=%d\n",
+				rc);
+		}
+		break;
+	case PARALLEL_SLAVE:
+		break;
+	default:
+		dev_err(chg->dev, "Unsupported mode %d\n", chg->mode);
+		return -EINVAL;
+	}
+
+	return rc;
 }
 
 int smblib_deinit(struct smb_charger *chg)

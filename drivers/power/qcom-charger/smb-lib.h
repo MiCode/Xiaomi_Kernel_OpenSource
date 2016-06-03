@@ -27,6 +27,12 @@ enum print_reason {
 #define USER_VOTER	"USER_VOTER"
 #define PD_VOTER	"PD_VOTER"
 
+enum smb_mode {
+	PARALLEL_MASTER = 0,
+	PARALLEL_SLAVE,
+	NUM_MODES,
+};
+
 struct smb_regulator {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
@@ -57,6 +63,7 @@ struct smb_charger {
 	struct regmap		*regmap;
 	struct smb_params	param;
 	int			*debug_mask;
+	enum smb_mode		mode;
 
 	/* locks */
 	struct mutex		write_lock;
