@@ -90,7 +90,7 @@ static int msm_vidc_table_get_target_freq(struct devfreq *dev,
 	int i = 0;
 
 	if (!dev || !frequency || !flag) {
-		dprintk(VIDC_ERR, "%s: Invalid params %p, %p, %p\n",
+		dprintk(VIDC_ERR, "%s: Invalid params %pK, %pK, %pK\n",
 			__func__, dev, frequency, flag);
 		return -EINVAL;
 	}
@@ -173,7 +173,7 @@ static int msm_vidc_free_bus_table(struct platform_device *pdev,
 	int rc = 0, i = 0;
 
 	if (!pdev || !data) {
-		dprintk(VIDC_ERR, "%s: invalid args %p %p\n",
+		dprintk(VIDC_ERR, "%s: invalid args %pK %pK\n",
 			__func__, pdev, data);
 		return -EINVAL;
 	}
@@ -197,7 +197,7 @@ static int msm_vidc_load_bus_table(struct platform_device *pdev,
 	struct device_node *child_node = NULL;
 
 	if (!pdev || !data) {
-		dprintk(VIDC_ERR, "%s: invalid args %p %p\n",
+		dprintk(VIDC_ERR, "%s: invalid args %pK %pK\n",
 			__func__, pdev, data);
 		return -EINVAL;
 	}
