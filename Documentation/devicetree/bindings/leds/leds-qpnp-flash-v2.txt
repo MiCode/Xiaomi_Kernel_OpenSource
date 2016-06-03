@@ -13,6 +13,8 @@ Required properties:
 - reg			: Base address and size for flash LED modules
 
 Optional properties:
+- interrupts		: Specifies the interrupts associated with flash-led.
+- interrupt-names	: Specify the interrupt names associated with interrupts.
 - qcom,hdrm-auto-mode	: Boolean type to select headroom auto mode enabled or not
 - qcom,isc-delay	: Integer type to specify short circuit delay. Valid values are 32, 64,
 			  128, 192. Unit is us.
@@ -93,6 +95,22 @@ Example:
 		status = "okay";
 		reg = <0xd300 0x100>;
 		label = "flash";
+		interrupts = <0x3 0xd3 0x0 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x1 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x2 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x3 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x4 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x5 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x6 IRQ_TYPE_EDGE_BOTH>,
+			     <0x3 0xd3 0x7 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "led-fault-irq",
+				"mitigation-irq",
+				"flash-timer-exp-irq",
+				"all-ramp-down-done-irq",
+				"all-ramp-up-done-irq",
+				"led3-ramp-up-done-irq",
+				"led2-ramp-up-done-irq",
+				"led1-ramp-up-done-irq";
 
 		qcom,hdrm-auto-mode;
 		qcom,isc-delay = <192>;

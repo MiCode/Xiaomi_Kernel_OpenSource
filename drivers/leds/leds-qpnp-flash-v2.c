@@ -16,13 +16,16 @@
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
 #include <linux/regmap.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
 #include <linux/regulator/consumer.h>
 #include <linux/leds-qpnp-flash-v2.h>
 
+#define	FLASH_LED_REG_INT_RT_STS(base)		(base + 0x10)
 #define	FLASH_LED_REG_SAFETY_TMR(base)		(base + 0x40)
 #define	FLASH_LED_REG_TGR_CURRENT(base)		(base + 0x43)
 #define	FLASH_LED_REG_MOD_CTRL(base)		(base + 0x46)
@@ -40,6 +43,7 @@
 #define	FLASH_LED_ENABLE_MASK			GENMASK(2, 0)
 #define	FLASH_LED_SAFETY_TMR_MASK		GENMASK(7, 0)
 #define	FLASH_LED_ISC_DELAY_MASK		GENMASK(1, 0)
+#define	FLASH_LED_INT_RT_STS_MASK		GENMASK(7, 0)
 #define	FLASH_LED_MOD_CTRL_MASK			BIT(7)
 #define	FLASH_LED_HW_SW_STROBE_SEL_MASK		BIT(2)
 
@@ -125,9 +129,11 @@ struct flash_switch_data {
  * Flash LED configuration read from device tree
  */
 struct flash_led_platform_data {
-	u8				isc_delay_us;
-	u8				hw_strobe_option;
-	bool				hdrm_auto_mode_en;
+	int	all_ramp_up_done_irq;
+	int	all_ramp_down_done_irq;
+	u8	isc_delay_us;
+	u8	hw_strobe_option;
+	bool	hdrm_auto_mode_en;
 };
 
 /*
@@ -147,19 +153,36 @@ struct qpnp_flash_led {
 };
 
 static int
+qpnp_flash_led_read(struct qpnp_flash_led *led, u16 addr, u8 *data)
+{
+	int rc;
+	uint val;
+
+	rc = regmap_read(led->regmap, addr, &val);
+	if (rc < 0)
+		dev_err(&led->pdev->dev, "Unable to read from 0x%04X rc = %d\n",
+			addr, rc);
+	else
+		dev_dbg(&led->pdev->dev, "Read 0x%02X from addr 0x%04X\n",
+			val, addr);
+
+	*data = (u8)val;
+	return rc;
+}
+
+static int
 qpnp_flash_led_masked_write(struct qpnp_flash_led *led, u16 addr, u8 mask,
-									u8 val)
+								u8 val)
 {
 	int rc;
 
 	rc = regmap_update_bits(led->regmap, addr, mask, val);
 	if (rc < 0)
-		dev_err(&led->pdev->dev,
-			"Unable to update bits from 0x%02X, rc = %d\n",
-								addr, rc);
+		dev_err(&led->pdev->dev, "Unable to update bits from 0x%04X, rc = %d\n",
+			addr, rc);
 	else
-		dev_dbg(&led->pdev->dev, "Wrote 0x%02X to addr 0x%02X\n",
-								val, addr);
+		dev_dbg(&led->pdev->dev, "Wrote 0x%02X to addr 0x%04X\n",
+			val, addr);
 
 	return rc;
 }
@@ -519,6 +542,34 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	}
 
 	spin_unlock(&led->lock);
+}
+
+/* irq handler */
+static irqreturn_t qpnp_flash_led_irq_handler(int irq, void *_led)
+{
+	struct qpnp_flash_led *led = _led;
+	enum flash_led_irq_type irq_type = INVALID_IRQ;
+	int rc;
+	u8 status;
+
+	dev_dbg(&led->pdev->dev, "irq received, irq=%d\n", irq);
+
+	rc = qpnp_flash_led_read(led,
+			FLASH_LED_REG_INT_RT_STS(led->base), &status);
+	if (rc < 0) {
+		dev_err(&led->pdev->dev, "Failed to read interrupt status reg, rc=%d\n",
+				rc);
+		return IRQ_HANDLED;
+	}
+
+	if (irq == led->pdata->all_ramp_up_done_irq)
+		irq_type = ALL_RAMP_UP_DONE_IRQ;
+	else if (irq == led->pdata->all_ramp_down_done_irq)
+		irq_type = ALL_RAMP_DOWN_DONE_IRQ;
+
+	dev_dbg(&led->pdev->dev, "irq handled, irq_type=%x, irq_status=%x\n",
+		irq_type, status);
+	return IRQ_HANDLED;
 }
 
 static int qpnp_flash_led_regulator_setup(struct qpnp_flash_led *led,
@@ -923,6 +974,16 @@ static int qpnp_flash_led_parse_common_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
+	led->pdata->all_ramp_up_done_irq =
+		of_irq_get_byname(node, "all-ramp-up-done-irq");
+	if (led->pdata->all_ramp_up_done_irq < 0)
+		dev_dbg(&led->pdev->dev, "all-ramp-up-done-irq not used\n");
+
+	led->pdata->all_ramp_down_done_irq =
+		of_irq_get_byname(node, "all-ramp-down-done-irq");
+	if (led->pdata->all_ramp_down_done_irq < 0)
+		dev_dbg(&led->pdev->dev, "all-ramp-down-done-irq not used\n");
+
 	return 0;
 }
 
@@ -1030,6 +1091,35 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 				"Unable to parse and register switch node, rc=%d\n",
 				rc);
 			goto error_switch_register;
+		}
+	}
+
+	/* setup irqs */
+	if (led->pdata->all_ramp_up_done_irq >= 0) {
+		rc = devm_request_threaded_irq(&led->pdev->dev,
+			led->pdata->all_ramp_up_done_irq,
+			NULL, qpnp_flash_led_irq_handler,
+			IRQF_ONESHOT,
+			"qpnp_flash_led_all_ramp_up_done_irq", led);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Unable to request all_ramp_up_done(%d) IRQ(err:%d)\n",
+				led->pdata->all_ramp_up_done_irq, rc);
+			return rc;
+		}
+	}
+
+	if (led->pdata->all_ramp_down_done_irq >= 0) {
+		rc = devm_request_threaded_irq(&led->pdev->dev,
+			led->pdata->all_ramp_down_done_irq,
+			NULL, qpnp_flash_led_irq_handler,
+			IRQF_ONESHOT,
+			"qpnp_flash_led_all_ramp_down_done_irq", led);
+		if (rc < 0) {
+			dev_err(&pdev->dev,
+				"Unable to request all_ramp_down_done(%d) IRQ(err:%d)\n",
+				led->pdata->all_ramp_down_done_irq, rc);
+			return rc;
 		}
 	}
 
