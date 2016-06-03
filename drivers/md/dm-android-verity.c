@@ -646,6 +646,8 @@ static int add_as_linear_device(struct dm_target *ti, char *dev)
         android_verity_target.direct_access = dm_linear_direct_access,
 	android_verity_target.io_hints = NULL;
 
+	set_disk_ro(dm_disk(dm_table_get_md(ti->table)), 0);
+
 	err = dm_linear_ctr(ti, DM_LINEAR_ARGS, linear_table_args);
 
 	if (!err) {
