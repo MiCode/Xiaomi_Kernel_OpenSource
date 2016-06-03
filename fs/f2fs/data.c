@@ -1244,7 +1244,7 @@ write:
 
 	/* we should bypass data pages to proceed the kworkder jobs */
 	if (unlikely(f2fs_cp_error(sbi))) {
-		SetPageError(page);
+		mapping_set_error(page->mapping, -EIO);
 		goto out;
 	}
 
