@@ -1711,6 +1711,8 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
 
 	if (f2fs_encrypted_inode(inode) && S_ISREG(inode->i_mode))
 		return 0;
+	if (test_opt(F2FS_I_SB(inode), LFS))
+		return 0;
 
 	trace_f2fs_direct_IO_enter(inode, offset, count, rw);
 
