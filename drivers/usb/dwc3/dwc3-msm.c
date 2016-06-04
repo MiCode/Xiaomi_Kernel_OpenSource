@@ -2360,12 +2360,11 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	dev_dbg(mdwc->dev, "host:%ld (id:%d) event received\n", event, id);
 
 	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
-	if (cc_state < 0) {
-		dev_err(mdwc->dev, "%s: failed to get cc state\n", __func__);
-		goto done;
-	}
-
-	mdwc->typec_orientation = cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
+	if (cc_state < 0)
+		mdwc->typec_orientation = ORIENTATION_NONE;
+	else
+		mdwc->typec_orientation =
+			cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
 
 	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
@@ -2398,12 +2397,11 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
-	if (cc_state < 0) {
-		dev_err(mdwc->dev, "%s: failed to get cc state\n", __func__);
-		goto done;
-	}
-
-	mdwc->typec_orientation = cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
+	if (cc_state < 0)
+		mdwc->typec_orientation = ORIENTATION_NONE;
+	else
+		mdwc->typec_orientation =
+			cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
 
 	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
 
