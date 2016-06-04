@@ -270,6 +270,7 @@ static void diag_write_complete(struct usb_ep *ep,
 			/* Queue zero length packet */
 			if (!usb_ep_queue(ctxt->in, req, GFP_ATOMIC))
 				return;
+			ctxt->dpkts_tolaptop_pending--;
 		} else {
 			ctxt->dpkts_tolaptop++;
 		}
