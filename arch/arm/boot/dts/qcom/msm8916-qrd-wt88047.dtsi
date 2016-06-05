@@ -240,7 +240,7 @@ i2c@78ba000 {/* i2c 6 */
 		};
 	};
 
-
+/*
 	ltr559_int_pin {
 		qcom,pins = <&gp 113>;
 		qcom,pin-func = <0>;
@@ -251,6 +251,22 @@ i2c@78ba000 {/* i2c 6 */
 			bias-pull-up;
 		};
 		ltr559_sleep: ltr559_sleep {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+*/
+
+	ltr553_int_pin {
+		qcom,pins = <&gp 113>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "ltr553-irq";
+		ltr553_default: ltr553_default {
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+		ltr553_sleep: ltr553_sleep {
 			drive-strength = <2>;
 			bias-pull-down;
 		};
@@ -337,7 +353,7 @@ i2c@78ba000 {/* i2c 6 */
 	};
 
 	akm@c {
-		compatible = "ak, ak09911";
+		compatible = "ak,ak09911";
 		reg = <0x0c>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&akm_default>;
@@ -357,6 +373,7 @@ i2c@78ba000 {/* i2c 6 */
 		yas,position = <5>;
 	};
 
+/*
 	liteon@23 {
 	  	compatible = "ltr,ltr559";
 		reg = <0x23>;
@@ -372,7 +389,30 @@ i2c@78ba000 {/* i2c 6 */
 		ltr,ps-hysteresis-threshold = <30>;
 		ltr,als-polling-time = <200>;
 	};
+*/
 
+	liteon@23 {
+		compatible = "liteon,ltr553";
+		reg = <0x23>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <113 0x2002>;
+		pinctrl-names = "default","sleep";
+		pinctrl-0 = <&ltr553_default>;
+		pinctrl-1 = <&ltr553_sleep>;
+		liteon,irq-gpio = <&msm_gpio 113 0x2002>;
+		liteon,als-ps-persist = <0>;
+		liteon,ps-led = <0x7f>;
+		liteon,ps-pulses = <15>;
+		liteon,ps-distance-table = <1700 1200 900 500 320 200 150>;
+		liteon,wakeup-threshold = <4>;
+		liteon,als-integration-time = <0>;
+		liteon,als-equation-0 = <1 1 7743 1059 600 1>;
+		liteon,als-equation-1 = <4 1 2785 696 240 (-1)>;
+		liteon,als-equation-2 = <0 0 5926 1300 44 1>;
+		liteon,als-equation-3 = <0 0 0 0 1 1>;
+	};
 };
 
 &sdc2_cd_on {

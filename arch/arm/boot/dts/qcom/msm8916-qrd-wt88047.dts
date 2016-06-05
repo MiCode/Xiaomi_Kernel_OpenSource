@@ -19,7 +19,7 @@
 / {
 	model = "Qualcomm Technologies,Inc. MSM 8916 QRD SKUI";
 	compatible = "qcom,msm8916-qrd-wt88047","qcom,msm8916-qrd","qcom,msm8916","qcom,qrd";
-	qcom,board-id = <0x1000b 12> ,<0x1010b 12> ,<0x3010b 12>;
+	qcom,board-id = <0x1010b 7 0x1000b 12 0x1010b 12 0x3010b 12>;
 };
 
 &soc {
