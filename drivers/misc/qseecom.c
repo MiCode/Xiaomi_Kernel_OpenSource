@@ -46,6 +46,7 @@
 #include "qseecom_legacy.h"
 #include "qseecom_kernel.h"
 #include <crypto/ice.h>
+#include <linux/delay.h>
 
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
@@ -5298,6 +5299,11 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 			ret = __qseecom_set_clear_ce_key(data,
 					create_key_req.usage,
 					&set_key_ireq);
+			/* wait a little before calling scm again to let other
+			   processes run */
+			if (ret == QSEOS_RESULT_FAIL_PENDING_OPERATION)
+				msleep(50);
+
 		} while (ret == QSEOS_RESULT_FAIL_PENDING_OPERATION);
 
 		qseecom_disable_ice_setup(create_key_req.usage);
@@ -5469,6 +5475,11 @@ static int qseecom_update_key_user_info(struct qseecom_dev_handle *data,
 		ret = __qseecom_update_current_key_user_info(data,
 						update_key_req.usage,
 						&ireq);
+		/* wait a little before calling scm again to let other
+		   processes run */
+		if (ret == QSEOS_RESULT_FAIL_PENDING_OPERATION)
+			msleep(50);
+
 	} while (ret == QSEOS_RESULT_FAIL_PENDING_OPERATION);
 	if (ret) {
 		pr_err("Failed to update key info: %d\n", ret);
