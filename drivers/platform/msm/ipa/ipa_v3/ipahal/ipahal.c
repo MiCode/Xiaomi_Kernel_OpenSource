@@ -1043,13 +1043,13 @@ static void ipahal_cp_hdr_to_hw_buff_v3(void *const base, u32 offset,
  * @is_hdr_proc_ctx: header is located in phys_base (true) or hdr_base_addr
  * @phys_base: memory location in DDR
  * @hdr_base_addr: base address in table
- * @hdr_offset_entry: offset from hdr_base_addr in table
+ * @offset_entry: offset from hdr_base_addr in table
  */
 static void ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		void *const base, u32 offset,
 		u32 hdr_len, bool is_hdr_proc_ctx,
 		dma_addr_t phys_base, u32 hdr_base_addr,
-		u32 hdr_offset_entry){
+		struct ipa_hdr_offset_entry *offset_entry){
 	if (type == IPA_HDR_PROC_NONE) {
 		struct ipa_hw_hdr_proc_ctx_add_hdr_seq *ctx;
 
@@ -1059,7 +1059,7 @@ static void ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.length = 1;
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
-			hdr_base_addr + hdr_offset_entry;
+			hdr_base_addr + offset_entry->offset;
 		IPAHAL_DBG("header address 0x%x\n",
 			ctx->hdr_add.hdr_addr);
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
@@ -1074,7 +1074,7 @@ static void ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->hdr_add.tlv.length = 1;
 		ctx->hdr_add.tlv.value = hdr_len;
 		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
-			hdr_base_addr + hdr_offset_entry;
+			hdr_base_addr + offset_entry->offset;
 		IPAHAL_DBG("header address 0x%x\n",
 			ctx->hdr_add.hdr_addr);
 		ctx->cmd.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
@@ -1129,7 +1129,8 @@ struct ipahal_hdr_funcs {
 	void (*ipahal_cp_proc_ctx_to_hw_buff)(enum ipa_hdr_proc_type type,
 			void *const base, u32 offset, u32 hdr_len,
 			bool is_hdr_proc_ctx, dma_addr_t phys_base,
-			u32 hdr_base_addr, u32 hdr_offset_entry);
+			u32 hdr_base_addr,
+			struct ipa_hdr_offset_entry *offset_entry);
 
 	int (*ipahal_get_proc_ctx_needed_len)(enum ipa_hdr_proc_type type);
 };
@@ -1190,27 +1191,27 @@ void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *const hdr,
  * @is_hdr_proc_ctx: header is located in phys_base (true) or hdr_base_addr
  * @phys_base: memory location in DDR
  * @hdr_base_addr: base address in table
- * @hdr_offset_entry: offset from hdr_base_addr in table
+ * @offset_entry: offset from hdr_base_addr in table
  */
 void ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		void *const base, u32 offset, u32 hdr_len,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
-		u32 hdr_base_addr, u32 hdr_offset_entry)
+		u32 hdr_base_addr, struct ipa_hdr_offset_entry *offset_entry)
 {
 	IPAHAL_DBG_LOW("entry\n");
 	IPAHAL_DBG(
-		"type %d, base %p, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %d, hdr_offset_entry %d\n"
+		"type %d, base %p, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %d, offset_entry %p\n"
 			, type, base, offset, hdr_len, is_hdr_proc_ctx,
-			hdr_base_addr, hdr_offset_entry);
+			hdr_base_addr, offset_entry);
 
 	BUG_ON(!base ||
 		!hdr_len ||
 		(!phys_base && !hdr_base_addr) ||
-		!hdr_base_addr);
+		!hdr_base_addr || offset_entry);
 
 	hdr_funcs.ipahal_cp_proc_ctx_to_hw_buff(type, base, offset,
 			hdr_len, is_hdr_proc_ctx, phys_base,
-			hdr_base_addr, hdr_offset_entry);
+			hdr_base_addr, offset_entry);
 
 	IPAHAL_DBG_LOW("Exit\n");
 }

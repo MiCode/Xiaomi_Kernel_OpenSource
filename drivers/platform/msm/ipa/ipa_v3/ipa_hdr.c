@@ -77,7 +77,7 @@ static void ipa3_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 				entry->hdr->is_hdr_proc_ctx,
 				entry->hdr->phys_base,
 				hdr_base_addr,
-				entry->hdr->offset_entry->offset);
+				entry->hdr->offset_entry);
 	}
 }
 
@@ -416,7 +416,7 @@ bad_len:
 static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 {
 	struct ipa3_hdr_entry *entry;
-	struct ipa3_hdr_offset_entry *offset;
+	struct ipa_hdr_offset_entry *offset;
 	u32 bin;
 	struct ipa3_hdr_tbl *htbl = &ipa3_ctx->hdr_tbl;
 	int id;
@@ -497,7 +497,7 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 			/* get the first free slot */
 			offset =
 			list_first_entry(&htbl->head_free_offset_list[bin],
-					struct ipa3_hdr_offset_entry, link);
+					struct ipa_hdr_offset_entry, link);
 			list_move(&offset->link, &htbl->head_offset_list[bin]);
 		}
 
@@ -860,8 +860,8 @@ int ipa3_reset_hdr(void)
 	struct ipa3_hdr_entry *next;
 	struct ipa3_hdr_proc_ctx_entry *ctx_entry;
 	struct ipa3_hdr_proc_ctx_entry *ctx_next;
-	struct ipa3_hdr_offset_entry *off_entry;
-	struct ipa3_hdr_offset_entry *off_next;
+	struct ipa_hdr_offset_entry *off_entry;
+	struct ipa_hdr_offset_entry *off_next;
 	struct ipa3_hdr_proc_ctx_offset_entry *ctx_off_entry;
 	struct ipa3_hdr_proc_ctx_offset_entry *ctx_off_next;
 	int i;

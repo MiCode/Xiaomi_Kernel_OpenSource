@@ -326,24 +326,12 @@ struct ipa3_hdr_entry {
 	bool is_hdr_proc_ctx;
 	dma_addr_t phys_base;
 	struct ipa3_hdr_proc_ctx_entry *proc_ctx;
-	struct ipa3_hdr_offset_entry *offset_entry;
+	struct ipa_hdr_offset_entry *offset_entry;
 	u32 cookie;
 	u32 ref_cnt;
 	int id;
 	u8 is_eth2_ofst_valid;
 	u16 eth2_ofst;
-};
-
-/**
- * struct ipa3_hdr_offset_entry - IPA header offset entry
- * @link: entry's link in global header offset entries list
- * @offset: the offset
- * @bin: bin
- */
-struct ipa3_hdr_offset_entry {
-	struct list_head link;
-	u32 offset;
-	u32 bin;
 };
 
 /**
