@@ -15,6 +15,7 @@
 #define _WCNSS_WLAN_H_
 
 #include <linux/device.h>
+#include <linux/sched.h>
 
 enum wcnss_opcode {
 	WCNSS_WLAN_SWITCH_OFF = 0,
@@ -31,6 +32,7 @@ struct wcnss_wlan_config {
 	int	is_pronto_vt;
 	int	is_pronto_v3;
 	void __iomem	*msm_wcnss_base;
+	int	iris_id;
 	int	vbatt;
 };
 
@@ -106,6 +108,7 @@ int wcnss_hardware_type(void);
 void *wcnss_prealloc_get(unsigned int size);
 int wcnss_prealloc_put(void *ptr);
 void wcnss_reset_intr(void);
+void wcnss_reset_fiq(bool clk_chk_en);
 void wcnss_suspend_notify(void);
 void wcnss_resume_notify(void);
 void wcnss_riva_log_debug_regs(void);
@@ -118,7 +121,12 @@ void wcnss_riva_dump_pmic_regs(void);
 int wcnss_xo_auto_detect_enabled(void);
 u32 wcnss_get_wlan_rx_buff_count(void);
 int wcnss_wlan_iris_xo_mode(void);
+void wcnss_flush_work(struct work_struct *work);
+void wcnss_flush_delayed_work(struct delayed_work *dwork);
+int wcnss_get_iris_name(char *iris_version);
 void wcnss_en_wlan_led_trigger(void);
+void wcnss_dump_stack(struct task_struct *task);
+
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
 void wcnss_log_debug_regs_on_bite(void);
 #else

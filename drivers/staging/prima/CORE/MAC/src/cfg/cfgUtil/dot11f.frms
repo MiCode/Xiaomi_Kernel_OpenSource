@@ -1,0 +1,4269 @@
+/*
+ * Copyright (c) 2006-2007 The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This file was originally distributed by Qualcomm Atheros, Inc.
+ * under proprietary terms before Copyright ownership was assigned
+ * to the Linux Foundation.
+ */
+
+/**
+ * \file dot11f.frms
+ *
+ * \brief Primary 'frames' file for the MAC parser
+ *
+ *
+ * This  file defines  several  802.11 frames  (along  with their  associated
+ * constituents) in a little language  called "frames".  When run through the
+ * 'framesc' program, it will generate  C code for working with these frames:
+ * C  structs  representing the  802.11  frame  together  with functions  for
+ * packing & unpacking them.
+ *
+ * For more information on the "frames" language, run 'framesc --help'...
+ *
+ *
+ */
+
+
+// Tell framesc what types to use for...
+%8-bit-type   tANI_U8  // 8,
+%16-bit-type  tANI_U16 // 16,
+%32-bit-type  tANI_U32 // & 32-bit unsigned integral types.  These can also
+                       // be specified on the command line.
+
+// Define some mnemonic constants; these are just for our use with the frames
+// files we're compiling.  IOW, they won't result in any C code being
+// emitted.
+
+const EID_SSID                       =   0;
+const EID_SUPP_RATES                 =   1;
+const EID_FH_PARAM_SET               =   2;
+const EID_DS_PARAM_SET               =   3;
+const EID_CF_PARAM_SET               =   4;
+const EID_TIM                        =   5;
+const EID_IBSS_PARAM_SET             =   6;
+const EID_COUNTRY                    =   7;
+const EID_FH_PATTERN                 =   8;
+const EID_FH_PATT_TABLE              =   9;
+const EID_REQUEST                    =  10;
+const EID_QBSS_LOAD                  =  11;
+const EID_EDCA_PARAM_SET             =  12;
+const EID_TSPEC                      =  13;
+const EID_TCLAS                      =  14;
+const EID_SCHEDULE                   =  15;
+const EID_CHALLENGE_TEXT             =  16;
+const EID_POWER_CONSTRAINTS          =  32;
+const EID_POWER_CAPABILITY           =  33;
+const EID_TPC_REQUEST                =  34;
+const EID_TPC_REPORT                 =  35;
+const EID_SUPPORTED_CHANNELS         =  36;
+const EID_CHANNEL_SWITCH_ANN         =  37;
+const EID_MEAS_REQUEST               =  38;
+const EID_MEAS_REPORT                =  39;
+const EID_QUIET                      =  40;
+const EID_ERP_INFO                   =  42;
+const EID_TS_DELAY                   =  43;
+const EID_TCLASS_PROC                =  44;
+const EID_HT_CAPABILITIES            =  45;
+const EID_QOS_CAPABILITY             =  46;
+const EID_RSN                        =  48;
+const EID_EXT_SUPP_RATES             =  50;
+const EID_AP_CHAN_REPORT             =  51;
+const EID_NEIGHBOR_REPORT            =  52;
+const EID_RCPI                       =  53;
+const EID_FT_MOBILITY_DOMAIN         =  54;
+const EID_FT_INFO                    =  55;
+const EID_TIMEOUT_INTERVAL           =  56;
+const EID_FT_RIC_DATA                =  57;
+const EID_SUPPORTED_OPER_CLASSES     =  59;
+const EID_HT_INFO                    =  61;
+const EID_EXT_CHANNEL_SWITCH_ANN     =  62;
+const EID_RSNI                       =  65;
+const EID_RRM_MEAS_PILOT_TX_INFO     =  66;
+const EID_WAPI                       =  68;
+const EID_RRM_ENABLED_CAPS           =  70;
+const EID_MULTIPLE_BSSID             =  71;
+const EID_20_40_BSS_COEXISTENCE      =  72;
+const EID_20_40_BSS_INTOLERANT_REPORT=  73;
+const EID_OBSS_SCAN_PARAMETERS       =  74;
+const EID_FT_RIC_DESCRIPTOR          =  75;
+const EID_LINK_IDENTIFIER            = 101;
+const EID_PTI_CONTROL                = 105;
+const EID_PU_BUFFER_STATUS           = 106;
+const EID_QOS_MAP_SET                = 110;
+const EID_ESE_SPECIFIC               = 150;
+const EID_ESE_CCKM_SPECIFIC          = 156;
+const EID_VHT_CAPABILITIES           =  191;
+const EID_VHT_OPERATION_ELEMENT      =  192;
+const EID_VHT_EXT_BSS_LOAD           =  193;
+const EID_AID                        =  197;
+const EID_EXT_CAP           	     =  127;
+const EID_OPERATING_MODE             =  199;
+const EID_WIDER_BW_CHANNEL_SWITCH_ANN=  194;
+const EID_VENDOR_SPECIFIC            = 221;
+
+const SIR_MAC_PROP_EXT_RATES_TYPE    =   0;
+const SIR_MAC_PROP_AP_NAME_TYPE      =   1;
+const SIR_MAC_PROP_HCF_TYPE          =   2;
+const SIR_MAC_PROP_WDS_TYPE          =   3;
+const SIR_MAC_PROP_BP_IND_TYPE       =   4;
+const SIR_MAC_PROP_NEIGHBOR_BSS_TYPE =   5;
+const SIR_MAC_PROP_LOAD_INFO_TYPE    =   6;
+const SIR_MAC_PROP_ASSOC_TYPE        =   7;
+const SIR_MAC_PROP_LOAD_BALANCE_TYPE =   8;
+const SIR_MAC_PROP_LL_ATTR_TYPE      =   9;
+const SIR_MAC_PROP_CAPABILITY        =  10;
+const SIR_MAC_PROP_VERSION           =  11;
+const SIR_MAC_PROP_EDCAPARAMS        =  12;
+const SIR_MAC_PROP_TITAN             =  14;
+const SIR_MAC_PROP_CHANNEL_SWITCH    =  15;
+const SIR_MAC_PROP_QUIET_BSS         =  16;
+const SIR_MAC_PROP_TRIG_STA_BK_SCAN	 =  17;
+const SIR_MAC_PROP_TAURUS            =  18;
+
+const ANI_WDS_INFO_MAX_LENGTH        =  64;
+const SIR_MAC_MAX_NUMBER_OF_RATES    =  12;
+const HT_MAX_SUPPORTED_MCS_SET       =  16;
+
+/////////////////////////////////////////////////////////////////////////////
+//                  Wi-Fi Protected Setup TLV Identifiers                  //
+//                  WSC Version 2.0.0 Table 28                             //
+/////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+//                  Wi-Fi Simple Configuration TLV Identifiers             //
+// WFA Vendor Extension Subelements                                        //
+/////////////////////////////////////////////////////////////////////////////
+const TLV_VERSION2                          = 0;
+const TLV_AUTHORIZED_MAC                    = 1;
+const TLV_NETWORK_KEY_SHAREABLE             = 2;
+const TLV_REQUEST_TO_ENROLL                 = 3;
+const TLV_SETTINGS_DELAY_TIME               = 4;
+
+const TLV_VERSION                           = 0x104A;
+const TLV_WI_FI_SIMPLE_CONFIG_STATE         = 0x1044;
+const TLV_AP_SETUP_LOCKED                   = 0x1057;
+const TLV_SELECTED_REGISTRAR_CONFIG_METHODS = 0x1053;
+const TLV_DEVICE_PASSWORD_ID                = 0x1012;
+const TLV_UUID_E                            = 0x1047;
+const TLV_UUID_R                            = 0x1048;
+const TLV_RF_BANDS                          = 0x103C;
+const TLV_REQUEST_TYPE                      = 0x103A;
+const TLV_RESPONSE_TYPE                     = 0x103B;
+const TLV_CONFIG_METHODS                    = 0x1008;
+const TLV_PRIMARY_DEVICE_TYPE               = 0x1054;
+const TLV_ASSOCIATION_STATE                 = 0x1002;
+const TLV_CONFIGURATION_ERROR               = 0x1009;
+const TLV_MANUFACTURER                      = 0x1021;
+const TLV_MODEL_NAME                        = 0x1023;
+const TLV_MODEL_NUMBER                      = 0x1024;
+const TLV_SERIAL_NUMBER                     = 0x1042;
+const TLV_DEVICE_NAME                       = 0x1011;
+const TLV_SELECTED_REGISTRAR                = 0x1041;
+const TLV_VENDOR_EXTENSION                  = 0x1049;
+const TLV_REQUESTED_DEVICE_TYPE             = 0x106A;
+
+/////////////////////////////////////////////////////////////////////////////
+//                  Wi-Fi Direct/P2P TLV Identifiers                       //
+/////////////////////////////////////////////////////////////////////////////
+const TLV_P2P_STATUS                         =   0;
+const TLV_MINOR_REASON_CODE                  =   1;
+const TLV_P2P_CAPABILITY                     =   2;
+const TLV_P2P_DEVICE_ID                      =   3;
+const TLV_P2P_GROUP_OWNER_INTENT             =   4;
+const TLV_CONFIGURATION_TIMEOUT              =   5;
+const TLV_LISTEN_CHANNEL                     =   6;
+const TLV_P2P_GROUP_BSSID                    =   7;
+const TLV_EXTENDED_LISTEN_TIMING             =   8;
+const TLV_INTENDED_P2P_INTERFACE_ADDRESS     =   9;
+const TLV_P2P_MANAGEABILITY                  =  10;
+const TLV_CHANNEL_LIST                       =  11;
+const TLV_NOTICE_OF_ABSENCE                  =  12;
+const TLV_P2P_DEVICE_INFO                    =  13;
+const TLV_P2P_GROUP_INFO                     =  14;
+const TLV_P2P_GROUP_ID                       =  15;
+const TLV_P2P_INTERFACE                      =  16;
+const TLV_OPERATING_CHANNEL                  =  17;
+const TLV_INVITATION_FLAGS                   =  18;
+const TLV_P2P_VENDOR_SPECIFIC                = 221;
+
+/////////////////////////////////////////////////////////////////////////////
+// Fixed Fields
+
+FF AuthAlgo (2)                           // C.f. Sec. 7.3.1.1
+{
+    algo, 2;
+}
+
+FF AuthSeqNo (2)                          // 7.3.1.2
+{
+    no, 2;
+}
+
+FF BeaconInterval (2)                     // 7.3.1.3
+{
+    interval, 2;
+}
+
+FF Capabilities (2)                       // 7.3.1.4
+{
+    {
+        ess:            1;
+        ibss:           1;
+        cfPollable:     1;
+        cfPollReq:      1;
+        privacy:        1;
+        shortPreamble:  1;
+        pbcc:           1;
+        channelAgility: 1;
+        spectrumMgt:    1;
+        qos:            1;
+        shortSlotTime:  1;
+        apsd:           1;
+        rrm:            1;
+        dsssOfdm:       1;
+        delayedBA:      1;
+        immediateBA:    1;
+    }
+}
+
+FF CurrentAPAddress(6)                    // 7.3.1.5
+{
+    mac[6];
+}
+
+FF ListenInterval (2)                     // 7.3.1.6
+{
+    interval, 2;
+}
+
+FF Reason (2)                             // 7.3.1.7
+{
+    code, 2;
+}
+
+FF AID (2)                                // 7.3.1.8
+{
+    associd, 2;
+}
+
+FF Status (2)                             // 7.3.1.9
+{
+    status, 2;
+}
+
+FF TimeStamp (8)                          // 7.3.1.10
+{
+    timestamp, 8;
+}
+
+FF Category (1)                           // 7.3.1.11
+{
+    category, 1;
+}
+
+FF Action (1)                             // 7.3.1.11
+{
+    action, 1;
+}
+
+FF TransactionId (2)                      // 7.3.1.11
+{
+    transId[2];
+}
+
+FF DialogToken (1)                        // 7.3.1.12
+{
+    token, 1;
+}
+
+FF StatusCode (1)                         // WMM Spec 2.2.10
+{
+    statusCode, 1;
+}
+
+FF OperatingMode (1)
+{
+   {
+    //Operating Mode field
+    chanWidth:    2;
+    reserved:     2;
+    rxNSS:        3;
+    rxNSSType:    1;
+    }
+}
+FF AddBAParameterSet (2)                     // 7.3.1.14
+{
+    {
+        amsduSupported:    1;
+        policy:      1;
+        tid:         4;
+        bufferSize: 10;
+    }
+}
+
+FF BATimeout (2)                          // 7.3.1.15
+{
+    timeout, 2;
+}
+
+FF BAStartingSequenceControl (2)                  // 7.2.1.7
+{
+    {
+        fragNumber: 4;
+        ssn:       12;
+    }
+}
+
+FF DelBAParameterSet (2)                     // 7.3.1.16
+{
+    {
+        reserved:   11;
+        initiator:   1;
+        tid:         4;
+    }
+}
+
+FF SMPowerModeSet (1)				//7.3.1.25
+{
+    {
+        PowerSave_En: 1;
+        Mode: 1;
+        reserved: 6;
+     }
+}
+
+FF TSInfo (3)                             // 7.3.2.30
+{
+    {
+        traffic_type:    1;
+        tsid:            4;
+        direction:       2;
+        access_policy:   2;
+        aggregation:     1;
+        psb:             1;
+        user_priority:   3;
+        tsinfo_ack_pol:  2;
+        schedule:        1;
+        unused:         15;
+    }
+}
+
+FF NumOfRepetitions (2)
+{
+     repetitions, 2;
+}
+
+FF TxPower (1)
+{
+     txPower, 1;
+}
+
+FF MaxTxPower (1)
+{
+     maxTxPower, 1;
+}
+FF TPCEleID (1)
+{
+     TPCId, 1;
+}
+FF TPCEleLen (1)
+{
+     TPCLen, 1;
+}
+FF LinkMargin (1)
+{
+     linkMargin, 1;
+}
+FF RxAntennaId (1)
+{
+     antennaId, 1;
+}
+FF TxAntennaId (1)
+{
+     antennaId, 1;
+}
+FF RCPI (1)
+{
+     rcpi, 1;
+}
+FF RSNI (1)
+{
+     rsni, 1;
+}
+
+FF P2POUI (4)
+{
+     oui, 4;
+}
+
+FF P2POUISubType (1)
+{
+    ouiSubtype, 1;
+}
+
+FF VhtMembershipStatusArray(8)                    // 8.4.1.51
+{
+    membershipStatusArray[8];
+}
+
+FF VhtUserPositionArray(16)                    // 8.4.1.52
+{
+    userPositionArray[16];
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+//                                  TLVs                                   //
+/////////////////////////////////////////////////////////////////////////////
+
+/**
+ * \brief Version
+ *
+ * WPS 1.0h
+ * Version specifies  the Easy  Setup version. The  one-byte field  is broken
+ * into a  four-bit major  part using  the top MSBs  and four-bit  minor part
+ * using the LSBs. As an example, version 3.2 would be 0x32.
+ *
+ * WSC 2.0.0
+ * Deprecated Version mechanism. This attribute is always set to value 0x10
+ * (version 1.0) for backwards compatibility. Version 1.0h of the specification
+ * did not fully describe the version negotiation mechanism and version 2.0
+ * introduced a new subelement (Version2) for indicating the version number
+ * to avoid potential interoperability issues with deployed 1.0h-based devices.
+ *
+ */
+
+TLV Version( TLV_VERSION ) ( 2 : 2 ) MSB
+{
+  {
+      minor: 4;
+      major: 4;
+  }
+}
+
+/// Wi-Fi Protected Setup State
+TLV WPSState( TLV_WI_FI_SIMPLE_CONFIG_STATE ) ( 2 : 2 ) MSB
+{
+  state, 1;
+}
+
+/**
+ * \brief AP Setup Locked
+ *
+ *
+ * This variable indicates that the AP has entered a state in which it will
+ * refuse to allow an external Registrar to attempt to run the Registration
+ * Protocol using the AP?s PIN (with the AP acting as Enrollee). The AP
+ * should enter this state if it believes a brute force attack is underway
+ * against the AP?s PIN.
+ *
+ * When the AP is in this state, it MUST continue to allow other Enrollees to
+ * connect and run the Registration  Protocol with any external Registrars or
+ * the AP's built-in  Registrar (if any). It  is only the use of  the AP' PIN
+ * for adding external Registrars that is disabled in this state.
+ *
+ * The AP Setup Locked state can be reset to FALSE through an authenticated
+ * call to SetAPSettings. APs may provide other implementation-specific
+ * methods of resetting the AP Setup Locked state as well.
+ *
+ *
+ */
+
+TLV APSetupLocked( TLV_AP_SETUP_LOCKED ) ( 2 : 2 ) MSB
+{
+    fLocked, 1;
+}
+
+/**
+ * \brief Selected Registrar Config Methods
+ *
+ *
+ * This attribute has the same values that Config Methods have. It is used in
+ * Probe Response messages to convey the Config Methods of the selected
+ * Registrar.
+ *
+ *
+ */
+
+TLV SelectedRegistrarConfigMethods ( TLV_SELECTED_REGISTRAR_CONFIG_METHODS ) ( 2 : 2 ) MSB
+{
+    methods, 2;
+}
+
+/**
+ * \brief UUID-E
+ *
+ *
+ * The  universally  unique  identifier  (UUID)  element  is  a  unique  GUID
+ * generated by  the Enrollee. It  uniquely identifies an  operational device
+ * and  should survive reboots  and resets.  The UUID  is provided  in binary
+ * format. If the device also supports UPnP, then the UUID corresponds to the
+ * UPnP UUID.
+ *
+ *
+ */
+
+TLV UUID_E ( TLV_UUID_E ) ( 2 : 2 ) MSB
+{
+    uuid[ 16 ];
+}
+
+/**
+ * \brief UUID-R
+ *
+ *
+ * The  universally  unique  identifier  (UUID)  element  is  a  unique  GUID
+ * generated by  the Registrar. It uniquely identifies  an operational device
+ * and  should survive reboots  and resets.  The UUID  is provided  in binary
+ * format. If the device also supports UPnP, then the UUID corresponds to the
+ * UPnP UUID.
+ *
+ *
+ */
+
+TLV UUID_R ( TLV_UUID_R ) ( 2 : 2 ) MSB
+{
+    uuid[ 16 ];
+}
+
+/**
+ * \brief RF Bands
+ *
+ *
+ \code
+
+  0x01 2.4GHz
+  0x02 5.0GHz
+
+ \endcode
+ *
+ *
+ */
+
+TLV RFBands ( TLV_RF_BANDS ) ( 2 : 2 ) MSB
+{
+    bands, 1;
+}
+
+
+/**
+ * \brief Selected Registrar
+ *
+ *
+ * This field indicates that a Registrar has been selected by a user and that
+ * an Enrollee  should proceed  with setting up  an 802.1X  uncontrolled data
+ * port with the Registrar.
+ *
+ *
+ */
+
+TLV SelectedRegistrar ( TLV_SELECTED_REGISTRAR ) ( 2 : 2 ) MSB
+{
+    selected, 1;
+}
+
+/**
+ * \brief Config Methods
+ *
+ *
+ * The  Config Methods  Data component  lists the  configuration  methods the
+ * Enrollee or Registrar  supports.  The list is a bitwise  OR of values from
+ * the table below. In addition to  Config Methods, APs and STAs that support
+ * the UPnP  Management Interface must  support the Permitted  Config Methods
+ * attribute, which is used to control the Config Methods that are enabled on
+ * that AP.
+ *
+ \code
+
+   Value   Hardware Interface
+   0x0001  USBA (Flash Drive)
+   0x0002  Ethernet
+   0x0004  Label
+   0x0008  Display
+   0x0010  External NFC Token
+   0x0020  Integrated NFC Token
+   0x0040  NFC Interface
+   0x0080  PushButton
+   0x0100  Keypad
+
+ \endcode
+ *
+ *
+ */
+
+TLV ConfigMethods ( TLV_CONFIG_METHODS ) ( 2 : 2 ) MSB
+{
+    methods, 2;
+}
+
+/**
+ * \brief Association State
+ *
+ *
+ * The  Association  State component  shows  the  configuration and  previous
+ * association  state  of  the  wireless  station when  sending  a  Discovery
+ * request.
+ *
+ \code
+
+  Association State    Description
+  0                    Not Associated
+  1                    Connection Success
+  2                    Configuration Failure
+  3                    Association Failure
+  4                    IP Failure
+
+ \endcode
+ *
+ *
+ */
+
+TLV AssociationState ( TLV_ASSOCIATION_STATE ) ( 2 : 2 ) MSB
+{
+    state, 2;
+}
+
+/**
+ * \brief Configuration Error
+ *
+ *
+ * The  Configuration  Error  component   shows  the  result  of  the  device
+ * attempting to configure itself and to associate with the WLAN.
+ *
+ \code
+
+   Configuration Error  Description
+    0                   No Error
+    1                   OOB Interface Read Error
+    2                   Decryption CRC Failure
+    3                   2.4 channel not supported
+    4                   5.0 channel not supported
+    5                   Signal too weak
+    6                   Network auth failure
+    7                   Network association failure
+    8                   No DHCP response
+    9                   Failed DHCP config
+   10                   IP address conflict
+   11                   Couldn't connect to Registrar
+   12                   Multiple PBC sessions detected
+   13                   Rogue activity suspected
+   14                   Device busy
+   15                   Setup locked
+   16                   Message Timeout
+   17                   Registration Session Timeout
+   18                   Device Password Auth Failure
+
+ \endcode
+ *
+ * The  Device busy  error is  returned if  the sending  device is  unable to
+ * respond  to  the  request  due  to  some  internal  conflict  or  resource
+ * contention issue. For example, if a device is only capable of performing a
+ * single instance of the Registration Protocol at a time, it may return this
+ * error in response  to attempts to start another instance  in the middle of
+ * an active session.
+ *
+ *
+ */
+
+TLV ConfigurationError ( TLV_CONFIGURATION_ERROR ) ( 2 : 2 ) MSB
+{
+    error, 2;
+}
+
+TLV Manufacturer ( TLV_MANUFACTURER ) ( 2 : 2 ) MSB
+{
+    name[ 0..64 ];
+}
+
+TLV ModelName ( TLV_MODEL_NAME ) ( 2 : 2 ) MSB
+{
+    text[ 0..32 ];
+}
+
+TLV ModelNumber ( TLV_MODEL_NUMBER ) ( 2 : 2 ) MSB
+{
+    text[ 0..32 ];
+}
+
+TLV SerialNumber ( TLV_SERIAL_NUMBER ) ( 2 : 2 ) MSB
+{
+    text[ 0..32 ];
+}
+
+TLV DeviceName ( TLV_DEVICE_NAME ) ( 2 : 2 ) MSB
+{
+    text[ 0..32 ];
+}
+
+/**
+ * \brief Device Password ID
+ *
+ *
+ * This  attribute is  used  to identify  a  device password.  There are  six
+ * predefined values  and ten reserved values.  If the Device  Password ID is
+ * Default,  the Enrollee  should use  its PIN  password (from  the  label or
+ * display).  This  password may  correspond  to  the  label, display,  or  a
+ * user-defined  password that has  been configured  to replace  the original
+ * device password.
+ *
+ * User-specified indicates that the user  has overridden the password with a
+ * manually  selected value.  Machine-specified  indicates that  the original
+ * PIN  password has  been overridden  by a  strong,  machinegenerated device
+ * password  value.  The Rekey  value  indicates  that  the device's  256-bit
+ * rekeying password  will be used.  The PushButton value indicates  that the
+ * PIN  is  the all-zero  value  reserved  for  the PushButton  Configuration
+ * method.
+ *
+ * The Registrar-specified value indicates a  PIN that has been obtained from
+ * the Registrar (via a display  or other out-of-band method). This value may
+ * be further  augmented with the  optional 'Identity' attribute in  M1. This
+ * augmentation is useful when multiple predefined UserID/PIN pairs have been
+ * established  by a  Registrar such  as  an authenticator  used for  Hotspot
+ * access. If the  Device Password ID in  M1 is not one of  the predefined or
+ * reserved values, it corresponds to a password given to the Registrar as an
+ * OOB Device Password.
+ *
+ \code
+
+   Value            Description
+
+   0x0000           Default (PIN)
+   0x0001           User-specified
+   0x0002           Machine-specified
+   0x0003           Rekey
+   0x0004           PushButton
+   0x0005           Registrar-specified
+   0x0006 - 0x000F  Reserved
+
+ \endcode
+ *
+ *
+ */
+
+TLV DevicePasswordID ( TLV_DEVICE_PASSWORD_ID ) ( 2 : 2 ) MSB
+{
+    id, 2;
+}
+
+
+/**
+ * \brief Primary Device Type
+ *
+ *
+ * This attribute contains the primary type of the device. Its format
+ * follows:
+ *
+ \code
+
+   0 1 2 3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Attribute ID                   | Length                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Category ID                    | OUI (1-2)                    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | OUI (3-4)                      | Sub Category ID              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+ \endcode
+ *
+ * Vendor-specific sub-categories  are designated by  setting the OUI  to the
+ * value associated with  that vendor.  Note that a  four-byte subdivided OUI
+ * is used. For the predefined values, the  Wi-Fi Alliance OUI of 00 50 F2 04
+ * is used.  The predefined values  for Category ID  and Sub Category  ID are
+ * provided in the next table. There  is no way to indicate a vendor-specific
+ * main device  category. The OUI applies  only to the  interpretation of the
+ * Sub Category. If  a vendor does not use sub categories  for their OUI, the
+ * three-byte OUI  occupies the first  three bytes of  the OUI field  and the
+ * fourth byte is set to zero.
+ *
+ *
+ \code
+
+   Category              ID Value  Sub Category             ID Value
+   Computer              1         PC                       1
+                                   Server                   2
+                                   Media Center             3
+   Input Device          2
+   Printers, Scanners,             Printer                  1
+   Faxes and Copiers     3         Scanner                  2
+   Camera                4         Digital Still Camera     1
+   Storage               5         NAS                      1
+   Network                         AP                       1
+   Infrastructure        6         Router                   2
+                                   Switch                   3
+   Displays              7         Television               1
+                                   Electronic Picture Frame 2
+                                   Projector                3
+   Multimedia Devices    8         DAR                      1
+                                   PVR                      2
+                                   MCX                      3
+   Gaming Devices        9         Xbox                     1
+                                   Xbox360                  2
+                                   Playstation              3
+   Telephone             10        Windows Mobile           1
+
+ \endcode
+ *
+ *
+ */
+
+TLV PrimaryDeviceType ( TLV_PRIMARY_DEVICE_TYPE ) ( 2 : 2 ) MSB
+{
+    primary_category, 2;
+    oui[ 4 ];
+    sub_category, 2;
+}
+
+
+/**
+ * \brief Request Type
+ *
+ *
+ * The Request  Type component  specifies the mode  in which the  device will
+ * operate in for  this setup exchange. If the device is  an Enrollee, it may
+ * send only  discovery messages  or it may  also request that  the Registrar
+ * proceed with opening a data  connection. This protocol allows Enrollees to
+ * more efficiently discover devices on the network.
+
+ * If  the device  indicates that  it  intends to  engage setup  either as  a
+ * Registrar or an  Enrollee, the Access Point continues  to indicate that it
+ * will  operate as  an AP  in the  response. The  Request Type  attribute is
+ * carried  throughout the  802.1X data  channel setup  process in  the Wi-Fi
+ * Protected Setup IE.   There are two sub-types of  Registrars: WLAN Manager
+ * Registrar indicates  that this Registrar intends  to manage the  AP or STA
+ * settings using UPnP.  It will derive a UPnP AP or  STA Management key. The
+ * ordinary Registrar type  indicates that this Registrar does  not intend to
+ * subsequently  manage  the Enrollee's  settings.  APs  must  not derive  AP
+ * Management Keys for an ordinary  Registrar. If a Registrar does not intend
+ * to  be  a WLAN  Manager  Registrar,  it should  set  the  Request Type  to
+ * Registrar. Doing so avoids needlessly consuming resources on the AP.
+
+ \code
+
+ Request Type Value        Description
+ 0x00                      Enrollee, Info only
+ 0x01                      Enrollee, open 802.1X
+ 0x02                      Registrar
+ 0x03                      WLAN Manager Registrar
+
+ \endcode
+ *
+ *
+ */
+
+TLV RequestType ( TLV_REQUEST_TYPE ) ( 2 : 2 ) MSB
+{
+    reqType, 1;
+}
+
+/**
+ * \brief Response Type
+ *
+ *
+ * The Response Type component specifies the operational mode of the
+ * device for this setup exchange. The Response Type IE is carried
+ * throughout the 802.1X data channel setup process.
+
+ \code
+
+ Response Type Value       Description
+ 0x00                      Enrollee, Info only
+ 0x01                      Enrollee, open 802.1X
+ 0x02                      Registrar
+ 0x03                      AP
+
+\endcode
+ *
+ *
+ */
+
+TLV ResponseType ( TLV_RESPONSE_TYPE  ) ( 2 : 2 ) MSB
+{
+    resType, 1;
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+//                       WiFi Direct/P2P TLVs                            //
+///////////////////////////////////////////////////////////////////////////
+
+/**
+ * \brief P2P Status Attribute
+ */
+
+TLV P2PStatus ( TLV_P2P_STATUS ) ( 1 : 2 ) LSB
+{
+    status, 1;
+}
+
+
+/**
+ * \brief Minor Reason Code Attribute
+ */
+
+TLV MinorReasonCode ( TLV_MINOR_REASON_CODE ) ( 1 : 2 ) LSB
+{
+    minorReasonCode, 1;
+}
+
+
+/**
+ * \brief P2P Capability Attribute
+ */
+
+TLV P2PCapability ( TLV_P2P_CAPABILITY ) ( 1 : 2 ) LSB
+{
+    deviceCapability, 1;
+    groupCapability, 1;
+}
+
+
+/**
+ * \brief P2P Device Id Attribute
+ */
+
+TLV P2PDeviceId ( TLV_P2P_DEVICE_ID ) ( 1 : 2 ) LSB
+{
+    P2PDeviceAddress[6];
+}
+
+
+/**
+ * \brief Group Owner Intent Attribute
+ */
+
+TLV GOIntent ( TLV_P2P_GROUP_OWNER_INTENT ) ( 1 : 2 ) LSB
+{
+    GOIntent, 1;
+}
+
+
+/**
+ * \brief Configuration Timeout Attribute
+ */
+
+TLV ConfigurationTimeout ( TLV_CONFIGURATION_TIMEOUT ) ( 1 : 2 ) LSB
+{
+    GOConfigTimeout, 1;
+    CLConfigTimeout, 1;
+}
+
+
+/**
+ * \brief Listen Channel Attribute
+ */
+
+TLV ListenChannel ( TLV_LISTEN_CHANNEL ) ( 1 : 2 ) LSB
+{
+    countryString[3];
+    regulatoryClass, 1;
+    channel,         1;
+}
+
+
+/**
+ * \brief P2P Group BSSID Attribute
+ */
+
+TLV P2PGroupBssid ( TLV_P2P_GROUP_BSSID ) ( 1 : 2 ) LSB
+{
+    P2PGroupBssid[6];
+}
+
+
+/**
+ * \brief Extended Listen Attribute
+ */
+
+TLV ExtendedListenTiming ( TLV_EXTENDED_LISTEN_TIMING ) ( 1 : 2 ) LSB
+{
+    availibilityPeriod, 2;
+    availibilityInterval, 2;
+}
+
+
+/**
+ * \brief Intended P2P Interface Address Attribute
+ */
+
+TLV IntendedP2PInterfaceAddress ( TLV_INTENDED_P2P_INTERFACE_ADDRESS ) ( 1 : 2 ) LSB
+{
+    P2PInterfaceAddress[6];
+}
+
+
+/**
+ * \brief P2P Manageability Attribute
+ */
+
+TLV P2PManageability ( TLV_P2P_MANAGEABILITY ) ( 1 : 2 ) LSB
+{
+    manageability, 1;
+}
+
+
+/**
+ * \brief ChannelList Attribute
+ */
+
+TLV ChannelList ( TLV_CHANNEL_LIST ) ( 1 : 2 ) LSB
+{
+    countryString[3];
+    channelList[0..251];
+}
+
+
+/**
+ * \brief Notice of Absence
+ */
+
+TLV NoticeOfAbsence ( TLV_NOTICE_OF_ABSENCE ) ( 1 : 2 ) LSB
+{
+    index, 1;
+    CTSWindowOppPS, 1;
+    NoADesc[0..36];
+}
+
+/**
+ * \brief P2P Device Info Attribute
+ */
+
+TLV P2PDeviceInfo ( TLV_P2P_DEVICE_INFO ) ( 1 : 2 ) LSB
+{
+    P2PDeviceAddress[6];
+    configMethod, 2 , FLIPBYTEORDER;
+    primaryDeviceType[8];
+    MANDATORYTLV DeviceName;
+}
+
+
+/**
+ * \brief P2P Group Info Attribute
+ */
+
+TLV P2PGroupInfo ( TLV_P2P_GROUP_INFO ) ( 1 : 2 ) LSB
+{
+    P2PClientInfoDesc[0..1024];
+}
+
+
+/**
+ * \brief P2P Group Id Attribute
+ */
+
+TLV P2PGroupId ( TLV_P2P_GROUP_ID ) ( 1 : 2 ) LSB
+{
+    deviceAddress[6];
+    ssid[0..32];
+}
+
+
+/**
+ * \brief P2P Interface Attribute
+ */
+
+TLV P2PInterface ( TLV_P2P_INTERFACE ) ( 1 : 2 ) LSB
+{
+    P2PDeviceAddress[6];
+}
+
+
+/**
+ * \brief Operating Channel Attribute
+ */
+
+TLV OperatingChannel ( TLV_OPERATING_CHANNEL ) ( 1 : 2 ) LSB
+{
+    countryString[3];
+    regulatoryClass, 1;
+    channel,         1;
+}
+
+
+/**
+ * \brief Invitation Flags Attribute
+ */
+
+TLV InvitationFlags ( TLV_INVITATION_FLAGS ) ( 1 : 2 ) LSB
+{
+    invitationFlags, 1;
+}
+
+/**
+ * \brief Vendor Extension
+ *
+ * This variable permits vendor extensions in the Wi-Fi Simple
+ * Configuration TLV framework. The Vendor Extension figure
+ * illustrates the implementation of vendor extensions. Vendor
+ * ID is the SMI network management private enterprise code
+ *
+ * +-----------+----------------------+
+ * | Vendor ID |   Vendor Data        |
+ * +-----------+----------------------+
+ * |<--- 3 --->|<----- 1 - 1021 ----->|
+ *
+ */
+
+TLV VendorExtension ( TLV_VENDOR_EXTENSION ) ( 2 : 2 ) MSB
+{
+    /*
+     * vendorId is the SMI network management private enterprise code.
+     * WFA Vendor ID 0x00372A
+     *
+     */
+    vendorId[ 3 ];
+
+    /**
+     * \breif Version2
+     *
+     * The Version2 field specifies the version Wi-Fi Simple
+     * Configuration implemented by the device sending this attribute.
+     * The one-byte field is broken into a four-bit major part using
+     * the top MSBs and four-bit minor part using the LSBs. As an example,
+     * version 3.2 would be 0x32. This subelement was added in the
+     * specification version 2.0 and if the subelement is not included
+     * in a message, the transmitter of the message is assumed to
+     * use version 1.0.
+     *
+     */
+    OPTIONALTLV TLV Version2 ( TLV_VERSION2 )  ( 1 : 1 ) MSB
+    {
+      {
+          minor: 4;
+          major: 4;
+      }
+    }
+    /**
+     * \brief AuthorizedMACs
+     *
+     * This subelement contains a list of Enrollee MAC addresses (each
+     * being six bytes in length) that have been registered to start WSC.
+     * The AP includes this field in Beacon and Probe Response frames so
+     * Enrollees can tell if they have been registered to start WSC. There
+     * may be multiple Enrollees active on the network, but not all of them have
+     * been registered to start WSC. This element allows an Enrollee to detect
+     * if they should start WSC with the AP. The AuthorizedMACs field augments
+     * the use of the Selected Registrar.
+    *
+     */
+    OPTIONALTLV TLV AuthorizedMACs ( TLV_AUTHORIZED_MAC ) ( 1 : 1 ) MSB
+    {
+        mac[6];
+    }
+
+    /**
+     * \brief Request to Enroll
+     *
+     * This optional subelement in the WSC IE in Probe Request or M1 indicates
+     * the desire to enroll in the network by setting its value to TRUE. If the
+     * Registrar gets this subelement it can use this as a trigger that a device
+     * wants to enroll (maybe an indication can be shown to the user). The device
+     * must set it to FALSE after the registration protocol completion.
+     *
+     */
+    OPTIONALTLV TLV RequestToEnroll( TLV_REQUEST_TO_ENROLL ) ( 1 : 1 ) MSB
+    {
+        req, 1;
+    }
+}
+
+/**
+ * \brief Requested Device Type
+ *
+ * This attribute contains the requested device type of a Wi-Fi
+ * Direct device.
+ *
+ * This attribute allows a device to specify the Primary Device Type
+ * or the Secondary Device Type of other devices it is interested in.
+ * Only a device that receives a Probe Request containing a WSC IE with
+ * this attribute and with a Primary Device Type or Secondary Device Type
+ * that matches the Requested Device Type will respond with a Probe Response.
+ *
+ * Its format and contents is identical to the 'Primary Device Type'.
+ *
+ * Both the Category ID and Sub Category ID can be used as a filter. If only
+ * looking for devices with a certain Category ID, the OUI and Sub Category ID
+ * fields will have to be set to zero.
+ *
+ */
+TLV RequestDeviceType ( TLV_REQUESTED_DEVICE_TYPE ) ( 2 : 2 ) MSB
+{
+    primary_category, 2;
+    oui[ 4 ];
+    sub_category, 2;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Information Elements
+
+IE SSID (EID_SSID)                        // C.f. Sec. 7.3.2.1
+{
+    ssid[0..32];
+}
+
+IE SuppRates (EID_SUPP_RATES)             // 7.3.2.2
+{
+    rates[0..SIR_MAC_MAX_NUMBER_OF_RATES];
+}
+
+IE FHParamSet (EID_FH_PARAM_SET)          // 7.3.2.3
+{
+    dwell_time,  2;
+    hop_set,     1;
+    hop_pattern, 1;
+    hop_index,   1;
+}
+
+IE DSParams (EID_DS_PARAM_SET)            // 7.3.2.4
+{
+    curr_channel, 1;
+}
+
+IE CFParams (EID_CF_PARAM_SET)            // 7.3.2.5
+{
+    cfp_count,        1;
+    cfp_period,       1;
+    cfp_maxduration,  2;
+    cfp_durremaining, 2;
+}
+
+IE TIM (EID_TIM)                          // 7.3.2.6
+{
+    dtim_count,    1;
+    dtim_period,   1;
+    bmpctl,        1;
+    vbmp[1..251];
+}
+
+IE IBSSParams (EID_IBSS_PARAM_SET)        // 7.3.2.7
+{
+    atim, 2;
+}
+
+IE ChallengeText (EID_CHALLENGE_TEXT)     // 7.3.2.8
+{
+    text[1..253];
+}
+
+IE RequestedInfo (EID_REQUEST)            // 7.3.2.12
+{
+    requested_eids[0..255];
+}
+
+IE Country (EID_COUNTRY)                  // 7.3.2.9
+{
+    country[3];
+    OPTIONAL triplets[3][0..84];
+}
+
+IE FHParams (EID_FH_PATTERN)              // 7.3.2.10
+{
+    radix, 1;
+    nchannels, 1;
+}
+
+IE FHPattTable (EID_FH_PATT_TABLE)        // 7.3.2.11
+{
+    flag,    1;
+    nsets,   1;
+    modulus, 1;
+    offset,  1;
+    randtable[0..251];
+}
+
+IE ERPInfo (EID_ERP_INFO)                 // 7.3.2.13
+{
+    {
+        non_erp_present : 1;
+        use_prot:         1;
+        barker_preamble:  1;
+        unused:           5;
+    }
+}
+
+IE ExtSuppRates (EID_EXT_SUPP_RATES)      // 7.3.2.14
+{
+    rates[1..SIR_MAC_MAX_NUMBER_OF_RATES];
+}
+
+IE PowerConstraints (EID_POWER_CONSTRAINTS) // 7.3.2.15
+{
+    localPowerConstraints, 1;
+}
+
+IE PowerCaps (EID_POWER_CAPABILITY)       // 7.3.2.16
+{
+    minTxPower, 1;
+    maxTxPower, 1;
+}
+
+IE TPCRequest (EID_TPC_REQUEST)           // 7.3.2.17
+{ }
+
+IE TPCReport (EID_TPC_REPORT)             // 7.3.2.18
+{
+    tx_power,    1;
+    link_margin, 1;
+}
+
+IE SuppChannels (EID_SUPPORTED_CHANNELS)  // 7.2.3.19
+{
+    bands[2][1..48];
+}
+
+IE SuppOperatingClasses (EID_SUPPORTED_OPER_CLASSES)
+{
+    classes[1..32];
+}
+
+IE ChanSwitchAnn (EID_CHANNEL_SWITCH_ANN) // 7.3.2.20
+{
+    switchMode,  1;
+    newChannel,  1;
+    switchCount, 1;
+}
+
+IE ExtChanSwitchAnn (EID_EXT_CHANNEL_SWITCH_ANN) // 7.3.2.20a
+{
+	secondaryChannelOffset, 1;
+}
+
+IE Quiet (EID_QUIET)                      // 7.3.2.23
+{
+    count,    1;
+    period,   1;
+    duration, 2;
+    offset,   2;
+}
+
+IE RSN (EID_RSN)                          // 7.3.2.25
+{
+    // The version is 2 octets, and we only support version 1.
+    version, 2 MUSTBE 1;
+    // The next four octets will be the Group Cipher Suite
+    gp_cipher_suite[4];
+    // The IE *may* stop here; if there's any more, we should see two more
+    // octets giving the number of Pairwise Cipher Suites
+    OPTIONAL pwise_cipher_suite_count, 2;
+    // I don't see anything in the Standard limiting the number of Pairwise
+    // Cypher Suites, other than the maximum length of an IE, which limits us
+    // to 61.  However, that seems needlessly wasteful of space.
+    pwise_cipher_suites[4][0..4] COUNTIS pwise_cipher_suite_count;
+    // Optional count of AKM suite selectors
+    OPTIONAL akm_suite_count, 2;
+    // Again, I see nothing in the Standard explicitly limiting the number of
+    // AKM suite selectors other than the maximum size of an IE.
+    akm_suites[4][0..4] COUNTIS akm_suite_count;
+    OPTIONAL RSN_Cap[2];
+    // Finally, the IE may contain zero or more PMKIDs:
+    OPTIONAL pmkid_count, 2;
+    pmkid[16][0..4] COUNTIS pmkid_count;
+    OPTIONAL gp_mgmt_cipher_suite[4];
+}
+
+IE RSNOpaque (EID_RSN)                    // 7.3.2.25
+{
+    data[ 6..253 ];
+}
+
+IE WAPI (EID_WAPI)                          // 7.3.2.25
+{
+    // The version is 2 octets, and we only support version 1.
+    version, 2 MUSTBE 1;
+    // count of AKM suite selectors
+    akm_suite_count, 2;
+    // Again, I see nothing in the Standard explicitly limiting the number of
+    // AKM suite selectors other than the maximum size of an IE.
+    akm_suites[4][0..4] COUNTIS akm_suite_count;
+    // we should see two more
+    // octets giving the number of Unicast Cipher Suites
+    unicast_cipher_suite_count, 2;
+    // I don't see anything in the Standard limiting the number of Pairwise
+    // Cypher Suites, other than the maximum length of an IE, which limits us
+    // to 61.  However, that seems needlessly wasteful of space.
+    unicast_cipher_suites[4][0..4] COUNTIS unicast_cipher_suite_count;
+    // The next four octets will be the Multicast Cipher Suite
+    multicast_cipher_suite[4];
+    // WAPI capabilities
+    {
+        preauth:               1;
+        reserved:             15;
+    }
+    // Finally, the IE may contain zero or more BKIDs:
+    OPTIONAL bkid_count, 2;
+    bkid[16][0..4] COUNTIS bkid_count;
+}
+
+IE WAPIOpaque (EID_WAPI)                    // 7.3.2.25
+{
+    data[ 6..253 ];
+}
+
+IE QBSSLoad (EID_QBSS_LOAD)               // 7.3.2.28
+{
+    stacount, 2;
+    chautil,  1;
+    avail,    2;
+}
+
+IE EDCAParamSet (EID_EDCA_PARAM_SET)      // 7.3.2.29
+{
+    qos, 1;                     // ToDo: This is a bitfield whose format
+                                // depends on whether this is from an AP
+                                // or a STA, information which I'm not
+                                // sure we have at parse time...
+    reserved, 1;
+    {
+        acbe_aifsn: 4;
+        acbe_acm:   1;
+        acbe_aci:   2;
+        unused1:    1;
+    }
+    {
+        acbe_acwmin: 4;
+        acbe_acwmax: 4;
+    }
+    acbe_txoplimit, 2;
+    {
+        acbk_aifsn: 4;
+        acbk_acm:   1;
+        acbk_aci:   2;
+        unused2:    1;
+    }
+    {
+        acbk_acwmin: 4;
+        acbk_acwmax: 4;
+    }
+    acbk_txoplimit, 2;
+    {
+        acvi_aifsn: 4;
+        acvi_acm:   1;
+        acvi_aci:   2;
+        unused3:    1;
+    }
+    {
+        acvi_acwmin: 4;
+        acvi_acwmax: 4;
+    }
+    acvi_txoplimit, 2;
+    {
+        acvo_aifsn: 4;
+        acvo_acm:   1;
+        acvo_aci:   2;
+        unused4:    1;
+    }
+    {
+        acvo_acwmin: 4;
+        acvo_acwmax: 4;
+    }
+    acvo_txoplimit, 2;
+}
+
+IE TSPEC (EID_TSPEC)                             // 7.3.2.30
+{
+
+    // TS Info
+    {
+        traffic_type:    1;
+        tsid:            4;
+        direction:       2;
+        access_policy:   2;
+        aggregation:     1;
+        psb:             1;
+        user_priority:   3;
+        tsinfo_ack_pol:  2;
+    }
+    {
+        schedule:        1;
+        unused:          7;
+    }
+
+    // Nominal MSDU Size
+    {
+        size:  15;
+        fixed: 1;
+    }
+
+    max_msdu_size,        2;
+    min_service_int,      4;
+    max_service_int,      4;
+    inactivity_int,       4;
+    suspension_int,       4;
+    service_start_time,   4;
+    min_data_rate,        4;
+    mean_data_rate,       4;
+    peak_data_rate,       4;
+    burst_size,           4;
+    delay_bound,          4;
+    min_phy_rate,         4;
+    surplus_bw_allowance, 2;
+    medium_time,          2;
+
+} // End IE TSPEC.
+
+IE TCLAS (EID_TCLAS)                             // 7.3.2.31
+{
+    user_priority, 1;
+    classifier_type, 1;
+    classifier_mask, 1;
+    UNION info (DISCRIMINATOR classifier_type)
+    {
+        EthParams (classifier_type IS 0)
+        {
+            source[6];
+            dest[6];
+            type, 2;
+        }
+        IpParams (classifier_type IS 1)
+        {
+            version, 1;
+            UNION params (DISCRIMINATOR version)
+            {
+                IpV4Params (version IS 4)
+                {
+                    source[4];
+                    dest[4];
+                    src_port, 2;
+                    dest_port, 2;
+                    DSCP, 1;
+                    proto, 1;
+                    reserved, 1;
+                }
+                IpV6Params (version IS 6)
+                {
+                    source[16];
+                    dest[16];
+                    src_port, 2;
+                    dest_port, 2;
+                    flow_label[3];
+                }
+            };
+        }
+        Params8021dq (classifier_type IS 2)
+        {
+            tag_type, 2;
+        }
+    };
+} // End IE TCLASS
+
+const EID_RRM_BEACON_REPORTING     = 1;
+const EID_RRM_BCN_REPORTING_DETAIL = 2;
+
+IE BeaconReporting (EID_RRM_BEACON_REPORTING)
+{
+     reportingCondition, 1;
+     threshold,          1;
+}
+
+IE BcnReportingDetail (EID_RRM_BCN_REPORTING_DETAIL)
+{
+     reportingDetail, 1;
+}
+
+IE APChannelReport (EID_AP_CHAN_REPORT)
+{
+     regulatoryClass, 1;
+     channelList[0..50];
+}
+
+IE MeasurementRequest (EID_MEAS_REQUEST)  // 7.3.2.21
+{
+    measurement_token, 1;
+
+    // Measurement Request Mode
+    {
+        parallel:          1;
+        enable:            1;
+        request:           1;
+        report:            1;
+        durationMandatory: 1;
+        unused:            3;
+    }
+
+    measurement_type, 1;
+    UNION measurement_request (DISCRIMINATOR measurement_type)
+    {
+       Basic (measurement_type IS 0)
+       {
+           channel_no,       1;
+           meas_start_time[8];
+           meas_duration,    2;
+       }
+       CCA (measurement_type IS 1)
+       {
+           channel_no,       1;
+           meas_start_time[8];
+           meas_duration,    2;
+       }
+       RPIHistogram (measurement_type IS 2)
+       {
+           channel_no,       1;
+           meas_start_time[8];
+           meas_duration,    2;
+       }
+       Beacon (measurement_type IS 5)
+       {
+          regClass,          1;
+          channel,           1;
+          randomization,     2;
+          meas_duration,     2;
+          meas_mode,         1;
+          BSSID[6];
+          OPTIE SSID;
+          OPTIE BeaconReporting;
+          OPTIE BcnReportingDetail;
+          OPTIE RequestedInfo;
+          OPTIE APChannelReport[0..2];
+          //OPTIONAL vendor_specific[1..239];
+       }
+
+    };
+}
+
+const EID_BCN_REPORT_FRAME_BODY    = 1;
+IE BeaconReportFrmBody (EID_BCN_REPORT_FRAME_BODY)
+{
+     reportedFields[0..224];
+}
+
+IE MeasurementReport (EID_MEAS_REPORT)    // 7.3.2.22
+{
+    token, 1;
+    // Measurement Report Mode
+    {
+        late:      1;
+        incapable: 1;
+        refused:   1;
+        unused:    5;
+    }
+    type, 1;
+    OPTIONAL UNION report (DISCRIMINATOR type)
+    {
+        Basic (type IS 0)                 // 7.3.2.22.1
+        {
+            channel,         1;
+            meas_start_time, 8;
+            meas_duration,   2;
+            // Map
+            {
+                bss:           1;
+                ofdm_preamble: 1;
+                unid_signal:   1;
+                rader:         1;
+                unmeasured:    1;
+                unused:        3;
+            }
+        }
+        CCA (type IS 1)
+        {
+            channel,           1;
+            meas_start_time,   8;
+            meas_duration,     2;
+            cca_busy_fraction, 1;
+        }
+        RPIHistogram (type IS 2)
+        {
+            channel,         1;
+            meas_start_time, 8;
+            meas_duration,   2;
+            rpi0_density,    1;
+            rpi1_density,    1;
+            rpi2_density,    1;
+            rpi3_density,    1;
+            rpi4_density,    1;
+            rpi5_density,    1;
+            rpi6_density,    1;
+            rpi7_density,    1;
+        }
+       Beacon (type IS 5)
+       {
+           regClass,               1;
+           channel,                1;
+           meas_start_time,        8;
+           meas_duration,          2;
+           // reported_frame_info,
+           {
+              condensed_PHY:        7;
+              reported_frame_type: 1;
+           }
+           RCPI,                   1;
+           RSNI,                   1;
+           BSSID[6];
+           antenna_id,               1;
+           parent_TSF,              4;
+           OPTIE BeaconReportFrmBody;
+           //IE vendor_specific
+     }
+    };
+}
+
+IE TSDelay (EID_TS_DELAY)                 // 7.3.2.32
+{
+    delay, 4;
+}
+
+IE TCLASSPROC (EID_TCLASS_PROC)           // 7.3.2.33
+{
+    processing, 1;
+}
+
+IE Schedule (EID_SCHEDULE)                // 7.3.2.34
+{
+    {
+        aggregation: 1;
+        tsid:        4;
+        direction:   2;
+        reserved:    9;
+    }
+    service_start_time, 4;
+    service_interval,   4;
+    max_service_dur,    2;
+    spec_interval,      2;
+}
+
+IE QOSCapsAp (EID_QOS_CAPABILITY)           // 7.3.2.35
+{
+    {
+        count:   4;
+        qack:    1;
+        qreq:    1;
+        txopreq: 1;
+        reserved: 1;
+    }
+}
+
+IE QOSCapsStation (EID_QOS_CAPABILITY)           // 7.3.2.35
+{
+    {
+        acvo_uapsd:    1;
+        acvi_uapsd:    1;
+        acbk_uapsd:    1;
+        acbe_uapsd:    1;
+        qack:          1;
+        max_sp_length: 2;
+        more_data_ack: 1;
+    }
+}
+
+IE LinkIdentifier (EID_LINK_IDENTIFIER)          // 7.3.2.62
+{
+    bssid[6];
+    InitStaAddr[6];
+    RespStaAddr[6];
+}
+
+IE WPA (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xF2, 0x01)
+{
+    // This IE's first two octets should be interpreted as a version number;
+    // we only support version 1.
+    version, 2 MUSTBE 1;
+    // A four-octet Multicast Cipher may or may not appear next (hence the
+    // OPTIONAL keyword)
+    OPTIONAL multicast_cipher[4];
+    // Optional Unicast Cipher count
+    OPTIONAL unicast_cipher_count, 2;
+    // Next comes an array of four-octet Cipher Suite selectors; the COUNTIS
+    // clause indicates that the actual number of selectors seen is in the
+    // member 'unicast_cipher_count'.
+    unicast_ciphers[4][0..4] COUNTIS unicast_cipher_count;
+    // (Optional) Authentication suites:
+    OPTIONAL auth_suite_count, 2;
+    auth_suites[4][0..4] COUNTIS auth_suite_count;
+    // This field is declared optional as per bugs 15234, 14755, & 14991.
+    OPTIONAL caps, 2;
+}
+
+IE WPAOpaque (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xF2, 0x01)
+{
+    data[ 2..249 ];
+}
+
+IE WMMInfoStation (EID_VENDOR_SPECIFIC) OUI(0x00, 0x50, 0xF2, 0x02, 0x00)
+{
+    // This IE contains the QoS Info field when sent from WMM Station
+    version, 1;
+    {
+        acvo_uapsd:    1;
+        acvi_uapsd:    1;
+        acbk_uapsd:    1;
+        acbe_uapsd:    1;
+        reserved1:     1;
+        max_sp_length: 2;
+        reserved2:     1;
+    }
+}
+
+IE WMMInfoAp (EID_VENDOR_SPECIFIC) OUI(0x00, 0x50, 0xF2, 0x02, 0x00)
+{
+    // This IE contains the QoS Info field when sent from WMM AP
+    version, 1;
+    {
+        param_set_count: 4;
+        reserved:        3;
+        uapsd:           1;
+    }
+}
+
+
+IE WMMParams (EID_VENDOR_SPECIFIC) OUI(0x00, 0x50, 0xF2, 0x02, 0x01)
+{
+    version, 1 MUSTBE 1;
+    qosInfo, 1;                           // ToDo: This is actually a
+                                          // bitfield, but it's format
+                                          // varies depending on whether
+                                          // the sender is a STA or AP...
+    reserved2, 1;
+    {
+        acbe_aifsn: 4;
+        acbe_acm: 1;
+        acbe_aci: 2;
+        unused1: 1;
+    }
+    {
+        acbe_acwmin: 4;
+        acbe_acwmax: 4;
+    }
+    acbe_txoplimit, 2;
+    {
+        acbk_aifsn: 4;
+        acbk_acm: 1;
+        acbk_aci: 2;
+        unused2: 1;
+    }
+    {
+        acbk_acwmin: 4;
+        acbk_acwmax: 4;
+    }
+    acbk_txoplimit, 2;
+    {
+        acvi_aifsn: 4;
+        acvi_acm: 1;
+        acvi_aci: 2;
+        unused3: 1;
+    }
+    {
+        acvi_acwmin: 4;
+        acvi_acwmax: 4;
+    }
+    acvi_txoplimit, 2;
+    {
+        acvo_aifsn: 4;
+        acvo_acm: 1;
+        acvo_aci: 2;
+        unused4: 1;
+    }
+    {
+        acvo_acwmin: 4;
+        acvo_acwmax: 4;
+    }
+    acvo_txoplimit, 2;
+}
+
+IE WMMTSPEC (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xf2, 0x02, 0x02)
+{
+    version, 1 MUSTBE 1;
+
+    // TS Info
+    {
+        traffic_type:    1;
+        tsid:            4;
+        direction:       2;
+        access_policy:   2;
+        aggregation:     1;
+        psb:             1;
+        user_priority:   3;
+        tsinfo_ack_pol:  2;
+    }
+    {
+       tsinfo_rsvd:      7;
+       burst_size_defn:  1;
+    }
+
+    // Nominal MSDU Size
+    {
+        size:  15;
+        fixed: 1;
+    }
+
+    max_msdu_size,        2;
+    min_service_int,      4;
+    max_service_int,      4;
+    inactivity_int,       4;
+    suspension_int,       4;
+    service_start_time,   4;
+    min_data_rate,        4;
+    mean_data_rate,       4;
+    peak_data_rate,       4;
+    burst_size,           4;
+    delay_bound,          4;
+    min_phy_rate,         4;
+    surplus_bw_allowance, 2;
+    medium_time,          2;
+
+} // End IE WMMTSpec.
+
+IE WMMCaps (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xF2, 0x02, 0x05)
+{
+    version, 1 MUSTBE 1;
+    {
+        reserved:      4;
+        qack:          1;
+        queue_request: 1;
+        txop_request:  1;
+        more_ack:      1;
+    }
+}
+
+IE WMMTCLAS (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xF2, 0x02, 0x06)
+{
+    version, 1 MUSTBE 1;
+
+    user_priority, 1;
+    classifier_type, 1;
+    classifier_mask, 1;
+    UNION info (DISCRIMINATOR classifier_type)
+    {
+        EthParams (classifier_type IS 0)
+        {
+            source[6];
+            dest[6];
+            type, 2;
+        }
+        IpParams (classifier_type IS 1)
+        {
+            version, 1;
+            UNION params (DISCRIMINATOR version)
+            {
+                IpV4Params (version IS 4)
+                {
+                    source[4];
+                    dest[4];
+                    src_port, 2;
+                    dest_port, 2;
+                    DSCP, 1;
+                    proto, 1;
+                    reserved, 1;
+                }
+                IpV6Params (version IS 6)
+                {
+                    source[16];
+                    dest[16];
+                    src_port, 2;
+                    dest_port, 2;
+                    flow_label[3];
+                }
+            };
+        }
+        Params8021dq (classifier_type IS 2)
+        {
+            tag_type, 2;
+        }
+    };
+
+}
+
+IE WMMTCLASPROC (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xF2, 0x02, 0x07)
+{
+    version, 1 MUSTBE 1;
+    processing, 1;
+}
+
+IE WMMTSDelay (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xF2, 0x02, 0x08)
+{
+    version, 1 MUSTBE 1;
+    delay, 4;
+}
+
+IE WMMSchedule (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xF2, 0x02, 0x09)
+{
+    version, 1 MUSTBE 1;
+
+    {
+        aggregation: 1;
+        tsid:        4;
+        direction:   2;
+        reserved:    9;
+    }
+
+    service_start_time, 4;
+    service_interval,   4;
+    max_service_dur,    2;
+    spec_interval,      2;
+}
+
+IE ESERadMgmtCap (EID_VENDOR_SPECIFIC) OUI (0x00, 0x40, 0x96, 0x01)
+{
+
+    mgmt_state,  1;
+
+    {
+        mbssid_mask:    3;
+        reserved:       5;
+    }
+
+}
+
+IE ESETrafStrmMet (EID_VENDOR_SPECIFIC) OUI (0x00, 0x40, 0x96, 0x07)
+{
+    tsid,           1;
+    state,          1;
+    msmt_interval,  2;
+}
+
+IE ESETrafStrmRateSet (EID_VENDOR_SPECIFIC) OUI (0x00, 0x40, 0x96, 0x08)
+{
+    tsid,         1;
+    tsrates[0..8];
+}
+
+IE ESEVersion (EID_VENDOR_SPECIFIC) OUI (0x00, 0x40, 0x96, 0x03)
+{
+    version,           1;
+}
+
+IE ESETxmitPower (EID_ESE_SPECIFIC) OUI (0x00, 0x40, 0x96, 0x00)
+{
+    power_limit,    1;
+    reserved,       1;
+}
+
+IE ESECckmOpaque (EID_ESE_CCKM_SPECIFIC) OUI (0x00, 0x40, 0x96, 0x00)
+{
+    data[ 6..20 ];
+}
+
+IE RRMEnabledCap (EID_RRM_ENABLED_CAPS)
+{
+     //Capability bitmap
+     {
+          LinkMeasurement:         1;
+          NeighborRpt:             1;
+          parallel:                1;
+          repeated:                1;
+          BeaconPassive:           1;
+          BeaconActive:            1;
+          BeaconTable:             1;
+          BeaconRepCond:           1;
+     }
+     {
+          FrameMeasurement:        1;
+          ChannelLoad:             1;
+          NoiseHistogram:          1;
+          statistics:              1;
+          LCIMeasurement:          1;
+          LCIAzimuth:              1;
+          TCMCapability:           1;
+          triggeredTCM:            1;
+     }
+     {
+          APChanReport:            1;
+          RRMMIBEnabled:           1;
+          operatingChanMax:        3;
+          nonOperatinChanMax:      3;
+     }
+     {
+          MeasurementPilot:        3;
+          MeasurementPilotEnabled: 1;
+          NeighborTSFOffset:       1;
+          RCPIMeasurement:         1;
+          RSNIMeasurement:         1;
+          BssAvgAccessDelay:       1;
+     }
+     {
+          BSSAvailAdmission:       1;
+          AntennaInformation:      1;
+          reserved:                6;
+     }
+}
+
+IE MeasurementPilot (EID_RRM_MEAS_PILOT_TX_INFO)
+{
+     measurementPilot, 1;
+     vendorSpecific[0..255]; //Should be an IE. But currently only one level of nesting allowed. Can ignore for now.
+}
+
+IE MultiBssid (EID_MULTIPLE_BSSID)
+{
+     maxBSSIDIndicator, 1;
+     vendorSpecific[0..255];
+}
+
+IE OBSSScanParameters (EID_OBSS_SCAN_PARAMETERS)
+{
+    obssScanPassiveDwell, 2;
+	obssScanActiveDwell, 2;
+	bssChannelWidthTriggerScanInterval, 2;
+	obssScanPassiveTotalPerChannel, 2;
+	obssScanActiveTotalPerChannel, 2;
+	bssWidthChannelTransitionDelayFactor, 2;
+    obssScanActivityThreshold, 2;
+}
+
+IE HT2040BSSCoexistence (EID_20_40_BSS_COEXISTENCE)
+{
+     // 20/40 BSS Coexistence Information
+    {
+        infoRequest:             1;
+        fortyMHzIntolerant:      1;
+        twentyMHzBssWidthReq:    1;
+        obssScanExemptionReq:    1;
+        obssScanExemptionGrant:  1;
+        unused:                  3;
+    }
+}
+
+IE HT2040BSSIntolerantReport (EID_20_40_BSS_INTOLERANT_REPORT)
+{
+     operatingClass, 1;
+     channelList[0..50];
+}
+
+const EID_RRM_NBR_RPT_TSF              =    1;
+const EID_RRM_NBR_CD_COUNTRY           =    2;
+const EID_RRM_NBR_MSMT_PILOT_TX_INFO   =   66;
+
+IE NeighborReport (EID_NEIGHBOR_REPORT)
+{
+     bssid[6];
+     //Bssid Info
+     {
+          APReachability: 2;
+          Security:       1;
+          KeyScope:       1;
+          //Capabilities
+          SpecMgmtCap:    1;
+          QosCap:         1;
+          apsd:           1;
+          rrm:            1;
+     }
+     //Capabilities contd.
+     {
+          DelayedBA:      1;
+          ImmBA:          1;
+     //Capabilities end.
+          MobilityDomain: 1;
+          reserved:       5;
+     }
+
+          reserved1,      2; //part of BSSID Info.
+
+     regulatoryClass, 1;
+     channel,         1;
+     PhyType,         1;
+     OPTIE IE TSFInfo (EID_RRM_NBR_RPT_TSF)
+     {
+          TsfOffset, 2;
+          BeaconIntvl, 2;
+     }
+     OPTIE IE CondensedCountryStr (EID_RRM_NBR_CD_COUNTRY)
+     {
+          countryStr[2];
+     }
+     OPTIE IE MeasurementPilot; // (EID_RRM_NBR_MSMT_PILOT_TX_INFO)
+//     {
+//          measurementPilot, 1;
+//          vendorSpecific[0..255]; //Should be an IE. But currently only one level of nesting allowed. Can ignore for now.
+//     }
+     OPTIE IE RRMEnabledCap;
+     OPTIE IE MultiBssid;
+     //Ignoring vendor specific.
+}
+
+IE RCPIIE (EID_RCPI)
+{
+     rcpi, 1;
+}
+
+IE RSNIIE (EID_RSNI)
+{
+     rsni, 1;
+}
+
+IE WFATPC (EID_VENDOR_SPECIFIC) OUI (0x00, 0x50, 0xF2, 0x08, 0x00)
+{
+     txPower, 1;
+     linkMargin, 1;
+}
+
+IE MobilityDomain (EID_FT_MOBILITY_DOMAIN)
+{
+   MDID, 2;
+   //FT Capability and policy
+   {
+      overDSCap:         1;
+      resourceReqCap:    1;
+      reserved:          6;
+   }
+}
+const SUB_EID_FT_R1KH_ID = 1;
+const SUB_EID_FT_GTK     = 2;
+const SUB_EID_FT_R0KH_ID = 3;
+const SUB_EID_FT_IGTK    = 4;
+IE FTInfo (EID_FT_INFO)
+{
+   // MicControl, 2;
+   {
+      reserved: 8;
+      IECount:  8;
+   }
+   MIC[16];
+   Anonce[32];
+   Snonce[32];
+
+   OPTIE IE R1KH_ID (SUB_EID_FT_R1KH_ID)
+   {
+      PMK_R1_ID[6];
+   }
+
+   OPTIE IE GTK (SUB_EID_FT_GTK)
+   {
+      //Key Info
+      {
+         keyId: 2;
+         reserved: 14;
+      }
+      keyLength, 1;
+      RSC[8];
+      key[5..32];
+   }
+
+   OPTIE IE R0KH_ID (SUB_EID_FT_R0KH_ID)
+   {
+      PMK_R0_ID[1..48];
+   }
+
+   OPTIE IE IGTK (SUB_EID_FT_IGTK)
+   {
+      //Key Info
+      keyID[2];
+      IPN[6];
+      keyLength, 1;
+      key[24];
+   }
+}
+
+IE TimeoutInterval (EID_TIMEOUT_INTERVAL)
+{
+   timeoutType, 1;
+   timeoutValue, 4;
+}
+
+//TODO: need to define this properly.
+IE RICData (EID_FT_RIC_DATA)
+{
+   Identifier, 1;
+   resourceDescCount, 1;
+   statusCode, 2;
+}
+
+IE RICDescriptor (EID_FT_RIC_DESCRIPTOR)
+{
+   resourceType, 1;
+   variableData[0..255]; //Block ack param set...TODO:
+}
+
+IE WscIEOpaque (EID_VENDOR_SPECIFIC) OUI ( 0x00, 0x50, 0xF2, 0x04 )
+{
+    data[ 2..249 ];
+}
+
+IE P2PIEOpaque (EID_VENDOR_SPECIFIC) OUI ( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    data[ 2..249 ];
+}
+
+IE WFDIEOpaque (EID_VENDOR_SPECIFIC) OUI ( 0x50, 0x6F, 0x9A, 0x0A )
+{
+    data[ 2..249 ];
+}
+
+IE PTIControl (EID_PTI_CONTROL)                 // 7.3.2.65
+{
+    tid,                  1;
+    sequence_control,     2;
+}
+
+IE PUBufferStatus (EID_PU_BUFFER_STATUS)        // 7.3.2.66
+{
+    {
+        ac_bk_traffic_aval:          1;
+        ac_be_traffic_aval:          1;
+        ac_vi_traffic_aval:          1;
+        ac_vo_traffic_aval:          1;
+        reserved:    4;
+    }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Airgo Information Elements
+
+
+IE Airgo (EID_VENDOR_SPECIFIC) OUI (0x00, 0x0A, 0xF5)
+{
+    // N.B. The fact that these IEs are defined inside the Airgo IE indicates
+    // that they can *only* occur inside the Airgo IE.
+
+    OPTIE IE PropSuppRates (SIR_MAC_PROP_EXT_RATES_TYPE)
+    {
+        rates[1..12];
+    }
+
+    OPTIE IE APName (SIR_MAC_PROP_AP_NAME_TYPE)
+    {
+        name[1..32];
+    }
+
+    OPTIE IE HCF (SIR_MAC_PROP_HCF_TYPE)
+    {
+        enabled, 1;
+    }
+
+    OPTIE IE WDS (SIR_MAC_PROP_WDS_TYPE)
+    {
+        wdsData[0..ANI_WDS_INFO_MAX_LENGTH];
+    }
+
+    OPTIE IE BPIndicator (SIR_MAC_PROP_BP_IND_TYPE)
+    {
+        indicator, 1;
+        type, 1;
+    }
+
+
+    // In Progress: I think SIR_MAC_PROP_NEIGHBOR_BSS_TYPE is going to need a
+    // custom parser...
+
+
+    OPTIE IE LoadInfo (SIR_MAC_PROP_LOAD_INFO_TYPE) MSB
+    {
+        num_stas, 2;
+        channel_util, 2;
+    }
+
+    OPTIE IE LoadBalance (SIR_MAC_PROP_LOAD_BALANCE_TYPE)
+    {
+        bssid[6];
+        channel, 1;
+    }
+
+    OPTIE IE PropAssocType (SIR_MAC_PROP_ASSOC_TYPE)
+    {
+        type, 1;
+    }
+
+    OPTIE IE LLAttr (SIR_MAC_PROP_LL_ATTR_TYPE) MSB
+    {
+        defer_threshold, 4;
+    }
+
+    OPTIE IE PropCapability (SIR_MAC_PROP_CAPABILITY)
+    {
+        capability, 2;
+    }
+
+    OPTIE IE Version (SIR_MAC_PROP_VERSION)
+    {
+        chip_rev, 4;
+        card_type, 1;
+        build_version[0..20];
+    }
+
+    OPTIE IE PropEDCAParams (SIR_MAC_PROP_EDCAPARAMS)
+    {
+        qos, 1;                 // ToDo: This is a bitfield whose format
+                                // depends on whether this is from an AP
+                                // or a STA, information which I'm not
+                                // sure we have at parse time...
+        reserved, 1;
+
+        // Best Effort
+        {
+            acbe_aifsn: 4;
+            acbe_acm:   1;
+            acbe_aci:   2;
+            unused1:    1;
+        }
+        {
+            acbe_min: 4;
+            acbe_max: 4;
+        }
+        acbe_txoplimit, 2;
+
+        // Background
+        {
+            acbk_aifsn: 4;
+            acbk_acm:   1;
+            acbk_aci:   2;
+            unused2:    1;
+        }
+        {
+            acbk_min: 4;
+            acbk_max: 4;
+        }
+        acbk_txoplimit, 2;
+
+        // Video
+        {
+            acvi_aifsn: 4;
+            acvi_acm: 1;
+            acvi_aci: 2;
+            unused3:    1;
+        }
+        {
+            acvi_min: 4;
+            acvi_max: 4;
+        }
+        acvi_txoplimit, 2;
+
+        // Voice
+        {
+            acvo_aifsn: 4;
+            acvo_acm: 1;
+            acvo_aci: 2;
+            unused4:    1;
+        }
+        {
+            acvo_min: 4;
+            acvo_max: 4;
+        }
+        acvo_txoplimit, 2;
+
+    } // End IE PropEDCAParams.
+
+    /**
+     * \ie Titan
+     *
+     * \brief Proprietary Next Generation (TITAN) IE structure
+     *
+     *
+     * Based on the setting of the "Titan" proprietary bit in the
+     * tSirPropIEStruct.capability field (bit #6), this IE will be sent
+     * appropriately to all the ANIpeers in the following management frames -
+     *
+     * - Beacons
+     * - Assoc Req/Rsp
+     * - Reassoc Req/Rsp
+     * - Probe Req/Rsp
+     *
+     */
+
+    OPTIE IE Titan (SIR_MAC_PROP_TITAN)
+    {
+        concat_tcid_bitmap, 1;
+        compression_tcid_bitmap, 1;
+
+        // Identifies the OPERATIONAL state of Channel Bonding
+        // This info is encoded as a bitmap as follows:
+        //
+        //     b7    b6   b5  b4  b3  b2  b1  b0
+        // --------------------------------------
+        // |CCA_CB |CCA |ICE | AU|CS|U/D| O | A |
+        // --------------------------------------
+        // where,
+        // A   - Admin state of CB - [enabled(1)/disabled(0)]
+        // O   - Oper state of CB - [on(1)/off(0)]
+        // U/D - Indicates where the secondary CB channel is
+        //       parked - Up(1)/Down(0) from the primary
+        // CS  - Channel Switch announcement in progress with
+        //       respect to the secondary CB channel
+        //       CS_on(1)/CS_off(0)
+        //       This applies to an AP only
+        // AU  - Autonomous updates. This indicates to an STA
+        //       that it can send an unsolicited CB Report
+        //       regarding its neighbor BSS during an Assoc/
+        //       ReAssoc REQ.
+        //       AU_on(1)/AU_off(0)
+        //       This applies to an AP only
+        // ICE - Intelligent Channel Expansion mode enable/disable
+        //       ICE_on(1)/ICE_off(0)
+        // CCA - CCA mode to be used
+        //       CCA_20MHz(0)/CCA_40MHz(1)
+        // CCA_CB  - channel bonding enable/disable based on cca monitoring
+        //           enable(1)/disable(0)
+
+        cb_state, 1;
+
+        // Identifies Reverse FCS pattern and state
+        // This info is encoded as a bitmap as follows:
+        //
+        //  b7  b6  b5  b4  b3  b2  b1  b0
+        // ---------------------------------
+        // | X | X | X | X | P | P | P | O |
+        // ---------------------------------
+        // where,
+        // O   - Oper state of Reverse FCS - [on(1)/off(0)]
+        // P   - Identifies the pattern ID to be used
+        // NOTE - These bits are used only during Assoc Req/Rsp
+        // management frames. Thus, the pattern ID needs to be
+        // looked up only during Assoc Req/Rsp. In other words,
+        // the pattern ID between an AP/STA is negotiated via
+        // the revFcsState during Assoc Req/Rsp
+
+        rev_fcs_state, 1;
+    }
+
+    OPTIE IE PropChannSwitchAnn (SIR_MAC_PROP_CHANNEL_SWITCH)
+    {
+        mode,                 1;
+        primary_channel,      1;
+        sub_band,             1;
+        channel_switch_count, 1;
+    }
+
+    /**
+     * \ie PropQuietBSS
+     *
+     * \brief Proprietary Quite BSS IE structure
+     *
+     *
+     * Based on the setting of the "Titan" proprietary bit in the
+     * tSirPropIEStruct.capability field (bit #6), this IE will be sent
+     * appropriately to all the ANI peers in the following management
+     * frames
+     *
+     * - Beacons
+     * - Probe Rsp
+     *
+     */
+
+    OPTIE IE PropQuietBSS (SIR_MAC_PROP_QUIET_BSS)
+    {
+        // Indicates the number of TBTT's until the next beacon
+        // interval during which the next quiet interval will
+        // start
+        // 1 - Quiet Interval will start during the beacon
+        // interval starting at the next TBTT
+        // 0 - Reserved
+        quiet_count, 1;
+
+        // Shall be set to the number of beacon intervals between
+        // the start of regularly scheduled quiet intervals
+        // defined by this Quiet Element
+        // 0 - No periodic quiet interval is defined
+        quiet_period, 1;
+
+        // Duration of the quiet interval, expressed in TUs
+        // 1 TU = 1024 microseconds??
+        quiet_duration, 2;
+
+        // Set to the offset of the start of the quiet interval
+        // from the TBTT specified by the quietCount field,
+        // expressed in TUs. The value of this offset field will
+        // be less than one beacon interval
+        // 1 TU = 1024 microseconds??
+        quiet_offset, 2;
+
+    }
+
+    OPTIE IE TriggerStaBgScan (SIR_MAC_PROP_TRIG_STA_BK_SCAN)
+    {
+        enable, 1;
+    }
+
+    OPTIE IE Taurus (SIR_MAC_PROP_TAURUS)
+    {
+        // TID bitmap indicating the TIDs for which BA is setup.
+        // bit0 for TID0, bit1 for TID1 and so on.
+        baTIDBitmap, 2;
+
+        // Block Ack Policy: 0-Delayed BA 1-Immediate BA.
+        // One bit for each TID
+        baPolicy, 2;
+
+        // Buffer size for each AC, in exponential notation.
+        // 3 bits reserved for each AC.
+        // bit0-2 for AC0[TID 0 and 3], bit3-5 for AC1[TID 1 and 2]
+        // and so on.
+
+        // TID 8 & 11 will use AC0, TID 9 & 10 will use AC1, so use of AC is
+        // overloaded.  This is done to reduce the size of IE in the beacons.
+        {
+            baBufferSize: 12;
+            rsvd:          4;
+        }
+    }
+
+} // End IE Airgo.
+
+IE VHTCaps (EID_VHT_CAPABILITIES)
+{
+    //VHT Capability Info
+    {
+        maxMPDULen:               2;
+        supportedChannelWidthSet: 2;
+        ldpcCodingCap:            1;
+        shortGI80MHz:             1;
+        shortGI160and80plus80MHz: 1;
+        txSTBC:                   1;
+        rxSTBC:                   3;
+        suBeamFormerCap:          1;
+        suBeamformeeCap:          1;
+        csnofBeamformerAntSup:    3;
+        numSoundingDim:           3;
+        muBeamformerCap:          1;
+        muBeamformeeCap:          1;
+        vhtTXOPPS:                1;
+        htcVHTCap:                1;
+        maxAMPDULenExp:           3;
+        vhtLinkAdaptCap:          2;
+        rxAntPattern:             1;
+        txAntPattern:             1;
+        reserved1:                2;
+    }
+    rxMCSMap,                     2;
+    {
+         rxHighSupDataRate:       13;
+         reserved2:               3;
+    }
+    txMCSMap,                     2;
+    {
+        txSupDataRate:            13;
+        reserved3:                3;
+    }
+}
+
+IE VHTOperation (EID_VHT_OPERATION_ELEMENT)
+{
+    chanWidth,           1;
+    chanCenterFreqSeg1,  1;
+    chanCenterFreqSeg2,  1;
+    basicMCSSet,         2;
+}
+
+IE VHTExtBssLoad (EID_VHT_EXT_BSS_LOAD)
+{
+    muMIMOCapStaCount,    1;
+    ssUnderUtil,          1;
+    FortyMHzUtil,         1;
+    EightyMHzUtil,        1;
+    OneSixtyMHzUtil,      1;
+}
+
+IE AID (EID_AID)
+{
+    assocId,              2;
+}
+
+IE WiderBWChanSwitchAnn (EID_WIDER_BW_CHANNEL_SWITCH_ANN)
+{
+   newChanWidth,          1;
+   newCenterChanFreq0,    1;
+   newCenterChanFreq1,    1;
+}
+
+IE ExtCap (EID_EXT_CAP)
+{
+    {
+        bssCoexistMgmtSupport:          1;
+        reserved1:                      1;
+        extChanSwitch:                  1;
+        reserved2:                      1;
+        psmpCap:                        1;
+        reserved3:                      1;
+        spsmpCap:                       1;
+        event:                          1;
+        diagnostics:                    1;
+        multiDiagnostics:               1;
+        locTracking:                    1;
+        FMS:                            1;
+        proxyARPService:                1;
+        coLocIntfReporting:             1;
+        civicLoc:                       1;
+        geospatialLoc:                  1;
+        TFS:                            1;
+        wnmSleepMode:                   1;
+        timBroadcast:                   1;
+        bssTransition:                  1;
+        qosTrafficCap:                  1;
+        acStaCnt:                       1;
+        multiBSSID:                     1;
+        timingMeas:                     1;
+        chanUsage:                      1;
+        ssidList:                       1;
+        DMS:                            1;
+        UTCTSFOffset:                   1;
+        TDLSPeerUAPSDBufferSTA:         1;
+        TDLSPeerPSMSupp:                1;
+        TDLSChannelSwitching:           1;
+        interworkingService:            1;
+    }
+    {
+        qosMap:                         1;
+        EBR:                            1;
+        sspnInterface:                  1;
+        reserved4:                      1;
+        msgCFCap:                       1;
+        TDLSSupport:                    1;
+        TDLSProhibited:                 1;
+        TDLSChanSwitProhibited:         1;
+        rejectUnadmittedTraffic:        1;
+        serviceIntervalGranularity:     3;
+        identifierLoc:                  1;
+        uapsdCoexistence:               1;
+        wnmNotification:                1;
+        reserved5:                      1;
+    }
+    {
+        UTF8SSID:                       1;
+        reserved6:                      12;
+        TDLSWiderBW:                    1;
+        operModeNotification:           1;
+        reserved7:                      1;
+    }
+}
+
+IE HTCaps (EID_HT_CAPABILITIES)
+{
+    // HT Capability Info
+    {
+        advCodingCap:             1;
+        supportedChannelWidthSet: 1;
+        mimoPowerSave:            2;
+        greenField:               1;
+        shortGI20MHz:             1;
+        shortGI40MHz:             1;
+        txSTBC:                   1;
+        rxSTBC:                   2;
+        delayedBA:                1;
+        maximalAMSDUsize:         1;
+        dsssCckMode40MHz:         1;
+        psmp:                     1;
+        stbcControlFrame:         1;
+        lsigTXOPProtection:       1;
+    }
+    // HT Parameters Info;
+    {
+        maxRxAMPDUFactor: 2;
+        mpduDensity:      3;
+        reserved1:        3;
+    }
+
+    supportedMCSSet[ HT_MAX_SUPPORTED_MCS_SET ];
+
+    // Extended HT Capability Info
+    {
+        pco:            1;
+        transitionTime: 2;
+        reserved2:      5;
+        mcsFeedback:    2;
+        reserved3:      6;
+    }
+    // TXBF Capability Info
+    {
+        txBF:                                       1;
+        rxStaggeredSounding:                        1;
+        txStaggeredSounding:                        1;
+        rxZLF:                                      1;
+        txZLF:                                      1;
+        implicitTxBF:                               1;
+        calibration:                                2;
+        explicitCSITxBF:                            1;
+        explicitUncompressedSteeringMatrix:         1;
+        explicitBFCSIFeedback:                      3;
+        explicitUncompressedSteeringMatrixFeedback: 3;
+        explicitCompressedSteeringMatrixFeedback:   3;
+        csiNumBFAntennae:                           2;
+        uncompressedSteeringMatrixBFAntennae:       2;
+        compressedSteeringMatrixBFAntennae:         2;
+        reserved4:           7;
+    }
+    // AS Capability Info
+    {
+        antennaSelection:         1;
+        explicitCSIFeedbackTx:    1;
+        antennaIndicesFeedbackTx: 1;
+        explicitCSIFeedback:      1;
+        antennaIndicesFeedback:   1;
+        rxAS:                     1;
+        txSoundingPPDUs:          1;
+        reserved5:                1;
+    }
+    //TODO: take it out when generic fix to remove extra bytes in IE is available.
+    //This is required to interop with Dlink AP which is sending 2 bytes extra in HTInfo IE.
+    rsvd[0..32];
+
+} // End IE HTCaps.
+
+IE HTInfo (EID_HT_INFO)
+{
+    primaryChannel, 1;
+
+    // ahtInfoField1
+    {
+        secondaryChannelOffset:     2;
+        recommendedTxWidthSet:      1;
+        rifsMode:                   1;
+        controlledAccessOnly:       1;
+        serviceIntervalGranularity: 3;
+    }
+
+    // ahtInfoField2
+
+
+    // ahtInfoField2
+    {
+        opMode:              2;
+        nonGFDevicesPresent: 1;
+        transmitBurstLimit: 1;
+        obssNonHTStaPresent:1;
+        reserved:           11;
+    }
+
+
+    // ahtInfoField3
+    {
+        basicSTBCMCS:                  7;
+        dualCTSProtection:             1;
+        secondaryBeacon:               1;
+        lsigTXOPProtectionFullSupport: 1;
+        pcoActive:                     1;
+        pcoPhase:                      1;
+        reserved2:                     4;
+    }
+
+    basicMCSSet[ HT_MAX_SUPPORTED_MCS_SET ];
+
+    //TODO: take it out when generic fix to remove extra bytes in IE is available.
+    //This is required to interop with Dlink AP which is sending 2 bytes extra in HTInfo IE.
+    rsvd[0..32];
+
+} // End IE HTInfo.
+
+
+IE OperatingMode (EID_OPERATING_MODE)
+{
+    { //Operating Mode field
+        chanWidth:    2;
+        reserved:     2;
+        rxNSS:        3;
+        rxNSSType:    1;
+    }
+}
+
+IE QosMapSet (EID_QOS_MAP_SET)
+{
+    dscp_exceptions[0..60];
+}
+
+CONTAINERIE RICDataDesc
+{
+  MANDIE RICData;
+  OPTIE  RICDescriptor;
+  OPTIE  TSPEC;
+  OPTIE  TCLAS[0..2];
+  OPTIE  TCLASSPROC;
+  OPTIE  TSDelay;
+  OPTIE  Schedule;
+  OPTIE  WMMTSPEC;
+  OPTIE  WMMTCLAS[0..2];
+  OPTIE  WMMTCLASPROC;
+  OPTIE  WMMTSDelay;
+  OPTIE  WMMSchedule;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+//                                MULTIIEs                                 //
+/////////////////////////////////////////////////////////////////////////////
+
+MULTIIE WSC ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    MANDATORYTLV Version;                               // Must be 0x10
+    OPTIONALTLV  WPSState;
+    OPTIONALTLV  APSetupLocked;
+    OPTIONALTLV  SelectedRegistrarConfigMethods;
+    OPTIONALTLV  UUID_E;
+    OPTIONALTLV  UUID_R;
+    OPTIONALTLV  RFBands;
+    OPTIONALTLV  SelectedRegistrar;
+    OPTIONALTLV  ConfigMethods;
+    OPTIONALTLV  AssociationState;
+    OPTIONALTLV  ConfigurationError;
+    OPTIONALTLV  Manufacturer;
+    OPTIONALTLV  ModelName;
+    OPTIONALTLV  ModelNumber;
+    OPTIONALTLV  SerialNumber;
+    OPTIONALTLV  DeviceName;
+    OPTIONALTLV  DevicePasswordID;
+    OPTIONALTLV  PrimaryDeviceType;
+    OPTIONALTLV  RequestType;
+    OPTIONALTLV  ResponseType;
+    OPTIONALTLV  VendorExtension;
+    OPTIONALTLV  RequestDeviceType;
+}
+
+MULTIIE WscBeacon ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    MANDATORYTLV Version;                        // 0x10 = version 1.0, 0x11
+                                                 // = version 1.1, etc.
+    MANDATORYTLV WPSState;                       // 1 = unconfigured, 2 =
+                                                 // configured
+    OPTIONALTLV  APSetupLocked;                  // Must be included if value
+                                                 // is TRUE
+    OPTIONALTLV  SelectedRegistrar;              // BOOL: indicates if the
+                                                 // user has recently
+                                                 // activated a Registrar to
+                                                 // add an Enrollee.
+    OPTIONALTLV  DevicePasswordID;               // Device Password ID
+                                                 // indicates the method or
+                                                 // identifies the specific
+                                                 // password that the
+                                                 // selected Registrar
+                                                 // intends to use.
+    OPTIONALTLV  SelectedRegistrarConfigMethods; // This attribute contains
+                                                 // the config methods active
+                                                 // on the selected
+                                                 // Registrar.
+    OPTIONALTLV  UUID_E;                         // The AP's UUID is provided
+                                                 // only when the AP is a
+                                                 // dual-band AP in push
+                                                 // button mode and
+                                                 // indicating push button
+                                                 // mode on both radios
+    OPTIONALTLV  RFBands;                        // Indicates all RF bands
+                                                 // available on the AP. A
+                                                 // dual-band AP must provide
+                                                 // this attribute.
+    // WSC 2.0
+    OPTIONALTLV  VendorExtension;                // Version2 and AuthorizedMACs
+
+} // End Multi-IE WscBeacon.
+
+MULTIIE WscAssocReq ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    MANDATORYTLV Version;                        // 0x10 = version 1.0, 0x11
+                                                 // = version 1.1, etc.
+    MANDATORYTLV RequestType;                    //
+                                                 //
+    // WSC 2.0
+    OPTIONALTLV  VendorExtension;                // Version2
+
+} // End Multi-IE WscAssocReq.
+
+
+MULTIIE WscAssocRes ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    MANDATORYTLV Version;                        // 0x10 = version 1.0, 0x11
+                                                 // = version 1.1, etc.
+    MANDATORYTLV ResponseType;                   //
+                                                 //
+    // WSC 2.0
+    OPTIONALTLV  VendorExtension;                // Version2
+
+} // End Multi-IE WscAssocRes.
+
+MULTIIE WscReassocRes ( 221 ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    MANDATORYTLV Version;                        // 0x10 = version 1.0, 0x11
+                                                 // = version 1.1, etc.
+    MANDATORYTLV ResponseType;                   //
+                                                 //
+    // WSC 2.0
+    OPTIONALTLV  VendorExtension;                // Version2
+
+} // End Multi-IE WscReassocRes
+
+MULTIIE WscProbeReq ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    MANDATORYTLV Version;                        // 0x10 = version 1.0, 0x11
+                                                 // = version 1.1, etc.
+    MANDATORYTLV RequestType;                    //
+                                                 //
+    MANDATORYTLV ConfigMethods;                  // Configuration methods the
+                                                 // Enrollee or Registrar
+                                                 // supports
+    MANDATORYTLV UUID_E;                         // unique GUID generated by
+                                                 // the Enrollee.
+    MANDATORYTLV PrimaryDeviceType;
+    MANDATORYTLV RFBands;                        // Specific RF bands used
+                                                 // for this message
+    MANDATORYTLV AssociationState;               // Configuration and previous
+                                                 // association state
+    MANDATORYTLV ConfigurationError;
+    MANDATORYTLV DevicePasswordID;
+
+    // WSC 2.0
+    OPTIONALTLV  Manufacturer;                   // Must be included in ver 2.0
+                                                 // or higher.
+    OPTIONALTLV  ModelName;                      // Must be included in ver 2.0
+                                                 // or higher.
+    OPTIONALTLV  ModelNumber;                    // Must be included in ver 2.0
+                                                 // or higher.
+    OPTIONALTLV  DeviceName;                     // Must be included in ver 2.0
+                                                 // or higher.
+    OPTIONALTLV  VendorExtension;                // Version2 and RequestToEntroll
+
+    OPTIONALTLV  RequestDeviceType;              // When a device receives a Probe
+                                                 // Request containing this type,
+                                                 // It will only reponse if Primary
+                                                 // or Secondary Device Type matches.
+
+} // End Multi-IE WscProbeReq.
+
+MULTIIE WscProbeRes ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    MANDATORYTLV Version;                        // 0x10 = version 1.0, 0x11
+                                                 // = version 1.1, etc.
+    MANDATORYTLV WPSState;                       // 1 = unconfigured, 2 =
+                                                 // configured
+    OPTIONALTLV  APSetupLocked;                  // Must be included if value
+                                                 // is TRUE
+    OPTIONALTLV  SelectedRegistrar;              // BOOL: indicates if the
+                                                 // user has recently
+                                                 // activated a Registrar to
+                                                 // add an Enrollee.
+    OPTIONALTLV  DevicePasswordID;               // Device Password ID
+                                                 // indicates the method or
+                                                 // identifies the specific
+                                                 // password that the
+                                                 // selected Registrar
+                                                 // intends to use.
+    OPTIONALTLV  SelectedRegistrarConfigMethods; // This attribute contains
+                                                 // the config methods active
+                                                 // on the selected
+                                                 // Registrar.
+    MANDATORYTLV ResponseType;
+    MANDATORYTLV UUID_E;                         // unique identifier of AP
+    MANDATORYTLV Manufacturer;
+    MANDATORYTLV ModelName;
+    MANDATORYTLV ModelNumber;
+    MANDATORYTLV SerialNumber;
+    MANDATORYTLV PrimaryDeviceType;
+    MANDATORYTLV DeviceName;                     // User-friendly description
+                                                 // of device
+    MANDATORYTLV ConfigMethods;                  // Config Methods corresponds
+                                                 // to the methods the AP
+                                                 // supports as an Enrollee
+                                                 // for adding external
+                                                 // Registrars.
+    OPTIONALTLV RFBands;                         // Indicates all RF bands
+                                                 // available on the AP. A
+                                                 // dual-band AP must provide
+                                                 // this attribute.
+    // WSC 2.0
+    OPTIONALTLV  VendorExtension;                // Version2 and AuthorizedMACs
+
+} // WscProbeRes.
+
+// This MULTIIE combines the fields from the WSC IEs as they appear in
+// Beacons *and* in Probe Responses, with the difference that they're all
+// optional.  In our device drivers, we combine Probe Responses and Beacons
+// into one list, and parse their IEs later (c.f. frame BeaconIEs).  Because
+// the WSC IE differs in those two frames, we'd often see warning messages
+// about either unexpected fields showing up (if we thought we were parsing a
+// Beacon, and we in fact had data from a Probe Response) or mandatory fields
+// missing (if we thought we were parsing a Probe Response, and in fact had
+// data from a Beacon).
+
+// I created this MULTIIE to stuff into the BeaconIEs frames to avoid this.
+// It's intended to be used on unpack only, and to do so in a very forgiving
+// way.
+
+MULTIIE WscBeaconProbeRes ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    OPTIONALTLV Version;                        // 0x10 = version 1.0, 0x11
+                                                 // = version 1.1, etc.
+    OPTIONALTLV WPSState;                       // 1 = unconfigured, 2 =
+                                                 // configured
+    OPTIONALTLV  APSetupLocked;                  // Must be included if value
+                                                 // is TRUE
+    OPTIONALTLV  SelectedRegistrar;              // BOOL: indicates if the
+                                                 // user has recently
+                                                 // activated a Registrar to
+                                                 // add an Enrollee.
+    OPTIONALTLV  DevicePasswordID;               // Device Password ID
+                                                 // indicates the method or
+                                                 // identifies the specific
+                                                 // password that the
+                                                 // selected Registrar
+                                                 // intends to use.
+    OPTIONALTLV  SelectedRegistrarConfigMethods; // This attribute contains
+                                                 // the config methods active
+                                                 // on the selected
+                                                 // Registrar.
+    OPTIONALTLV ResponseType;
+    OPTIONALTLV UUID_E;                         // unique identifier of AP
+    OPTIONALTLV Manufacturer;
+    OPTIONALTLV ModelName;
+    OPTIONALTLV ModelNumber;
+    OPTIONALTLV SerialNumber;
+    OPTIONALTLV PrimaryDeviceType;
+    OPTIONALTLV DeviceName;                     // User-friendly description
+                                                 // of device
+    OPTIONALTLV ConfigMethods;                  // Config Methods corresponds
+                                                 // to the methods the AP
+                                                 // supports as an Enrollee
+                                                 // for adding external
+                                                 // Registrars.
+    OPTIONALTLV RFBands;                         // Indicates all RF bands
+                                                 // available on the AP. A
+                                                 // dual-band AP must provide
+                                                 // this attribute.
+    // WSC 2.0
+    OPTIONALTLV  VendorExtension;                // Version2 and AuthorizedMACs
+
+} // WscProbeRes.
+/////////////////////////////////////////////////////////////////////////////
+//                                MULTIIEs                                 //
+/////////////////////////////////////////////////////////////////////////////
+
+MULTIIE P2PBeacon ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    MANDATORYTLV P2PCapability;                  // Contains P2P Device
+                                                 // and P2P Group Capability
+    MANDATORYTLV P2PDeviceId;                    // Contains P2P Device
+                                                 // Address
+    OPTIONALTLV  NoticeOfAbsence;                // Indicates Notice of
+                                                 // Absence schedule and
+                                                 // CT Window
+
+} // End P2PBeacon
+
+
+MULTIIE P2PAssocReq ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    MANDATORYTLV P2PCapability;                  // Contains P2P Device
+                                                 // and P2P Group Capability
+    OPTIONALTLV  ExtendedListenTiming;
+    MANDATORYTLV P2PDeviceInfo;
+
+} // End P2PAssocReq
+
+
+MULTIIE P2PAssocRes ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    MANDATORYTLV P2PStatus;
+    OPTIONALTLV  ExtendedListenTiming;
+
+} // End P2PAssocRes
+
+
+MULTIIE P2PProbeReq ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    MANDATORYTLV P2PCapability;
+    OPTIONALTLV  P2PDeviceId;
+    MANDATORYTLV ListenChannel;
+    OPTIONALTLV  ExtendedListenTiming;
+    OPTIONALTLV  OperatingChannel;
+} // End P2PProbeReq
+
+
+MULTIIE P2PProbeRes ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    MANDATORYTLV P2PCapability;
+    OPTIONALTLV  ExtendedListenTiming;
+    OPTIONALTLV  NoticeOfAbsence;
+    MANDATORYTLV P2PDeviceInfo;
+    OPTIONALTLV  P2PGroupInfo;
+
+} // End P2PProbeRes
+
+
+MULTIIE P2PBeaconProbeRes ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    OPTIONALTLV P2PCapability;
+    OPTIONALTLV P2PDeviceId;
+    OPTIONALTLV ExtendedListenTiming;
+    OPTIONALTLV NoticeOfAbsence;
+    OPTIONALTLV P2PDeviceInfo;
+    OPTIONALTLV P2PGroupInfo;
+
+} // End P2PBeaconProbeRes
+
+
+MULTIIE P2PGONegReq ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    MANDATORYTLV P2PCapability;
+    MANDATORYTLV GOIntent;
+    MANDATORYTLV ConfigurationTimeout;
+    MANDATORYTLV ListenChannel;
+    OPTIONALTLV  ExtendedListenTiming;
+    MANDATORYTLV IntendedP2PInterfaceAddress;
+    MANDATORYTLV ChannelList;
+    MANDATORYTLV P2PDeviceInfo;
+    MANDATORYTLV OperatingChannel;
+
+} // End P2PGONegReq
+
+
+MULTIIE P2PGONegRes ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    MANDATORYTLV P2PStatus;
+    MANDATORYTLV P2PCapability;
+    MANDATORYTLV GOIntent;
+    MANDATORYTLV ConfigurationTimeout;
+    MANDATORYTLV OperatingChannel;
+    MANDATORYTLV IntendedP2PInterfaceAddress;
+    MANDATORYTLV ChannelList;
+    MANDATORYTLV P2PDeviceInfo;
+    OPTIONALTLV P2PGroupId;
+
+} // End P2PGONegRes
+
+
+MULTIIE P2PGONegCnf ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+    MANDATORYTLV P2PStatus;
+    MANDATORYTLV P2PCapability;
+    MANDATORYTLV OperatingChannel;
+    MANDATORYTLV ChannelList;
+    OPTIONALTLV P2PGroupId;
+
+} // End P2PGONegCnf
+
+
+MULTIIE P2PGONegWPS ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+    MANDATORYTLV Version;
+    MANDATORYTLV DevicePasswordID;
+
+} // End P2PGONegWPS
+
+
+MULTIIE P2PDeAuth ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV MinorReasonCode;
+}
+
+
+MULTIIE P2PDisAssoc ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV MinorReasonCode;
+}
+
+
+MULTIIE P2PInvitationReq ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV ConfigurationTimeout;
+   MANDATORYTLV InvitationFlags;
+   MANDATORYTLV OperatingChannel;
+   MANDATORYTLV P2PGroupBssid;
+   MANDATORYTLV ChannelList;
+   MANDATORYTLV P2PGroupId;
+   MANDATORYTLV P2PDeviceInfo;
+}
+
+
+MULTIIE P2PInvitationRes ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV P2PStatus;
+   MANDATORYTLV ConfigurationTimeout;
+   MANDATORYTLV OperatingChannel;
+   MANDATORYTLV P2PGroupBssid;
+   MANDATORYTLV ChannelList;
+}
+
+
+MULTIIE P2PDeviceDiscoverabilityReq ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV P2PDeviceId;
+   MANDATORYTLV P2PGroupId;
+}
+
+
+MULTIIE P2PDeviceDiscoverabilityRes ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV P2PStatus;
+}
+
+
+MULTIIE P2PProvisionDiscoveryReq ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV P2PCapability;
+   MANDATORYTLV P2PDeviceInfo;
+   MANDATORYTLV P2PGroupId;
+}
+
+MULTIIE P2PWSCProvisionDiscoveryRes ( EID_VENDOR_SPECIFIC ) OUI( 0x00, 0x50, 0xF2, 0x04 )
+{
+   MANDATORYTLV ConfigMethods;
+}
+
+
+MULTIIE P2PNoticeOfAbsence ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV NoticeOfAbsence;
+}
+
+
+MULTIIE P2PPresenceResponse ( EID_VENDOR_SPECIFIC ) OUI( 0x50, 0x6F, 0x9A, 0x09 )
+{
+   MANDATORYTLV P2PStatus;
+   MANDATORYTLV NoticeOfAbsence;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Frames
+
+FRAME Beacon                              // C.f. Sec. 7.2.3.1
+{
+    FF     TimeStamp;
+    FF     BeaconInterval;
+    FF     Capabilities;
+    MANDIE SSID;
+    MANDIE SuppRates;
+    OPTIE  FHParamSet;
+    OPTIE  DSParams;
+    OPTIE  CFParams;
+    OPTIE  IBSSParams;
+    OPTIE  TIM;
+    OPTIE  Country;
+    OPTIE  FHParams;
+    OPTIE  FHPattTable;
+    OPTIE  PowerConstraints;
+    OPTIE  ChanSwitchAnn;
+    OPTIE  Quiet;
+    OPTIE  TPCReport;
+    OPTIE  ERPInfo;
+    OPTIE  ExtSuppRates;
+    OPTIE  RSN;
+    OPTIE  QBSSLoad;
+    OPTIE  EDCAParamSet;
+    OPTIE  QOSCapsAp;
+    OPTIE  APChannelReport;
+    OPTIE  RRMEnabledCap;
+    OPTIE  MobilityDomain;
+    OPTIE  WPA;
+    OPTIE  HTCaps;
+    OPTIE  HTInfo;
+    OPTIE  ExtChanSwitchAnn;
+    OPTIE  WMMInfoAp;
+    OPTIE  WMMParams;
+    OPTIE  WMMCaps;
+    OPTIE  WAPI;
+    OPTIE  ESERadMgmtCap;
+    OPTIE  ESETrafStrmMet;
+    OPTIE  ESETxmitPower;
+
+    OPTIE  Airgo;
+    OPTIE  WscBeacon;
+    OPTIE  P2PBeacon;
+    OPTIE  VHTCaps;
+    OPTIE  VHTOperation;
+    OPTIE  VHTExtBssLoad;
+    OPTIE  ExtCap;
+    OPTIE  OperatingMode;
+    OPTIE  WiderBWChanSwitchAnn;
+    OPTIE  OBSSScanParameters;
+} // End frame Beacon.
+
+// Ok, here's  the story on  Beacon1 & Beacon2.   We presumably beacon  a lot
+// more than we  change configuration.  So it makes sense  to keep the beacon
+// we plan to send next in  serialized format.  We do this in struct schMisc.
+// Whenever our  config changes in  a way that  would affect our  beacons, we
+// just  update  our internal  datastructures  &  re-generate the  serialized
+// beacon.
+
+// The problem  is that there  are *some* fields  that need to be  updated at
+// send time,  specifically the CF Param  Set & the  TIM.  So, what we  do is
+// this: whenever  our config changes,  call schSetFixedBeaconFields.  There,
+// we serialize the following  Beacon fields into gSchBeaconFrameBegin (after
+// the power template & MAC header): TimeStamp, BeaconInterval, Capabilities,
+// SSID, SuppRates, DSParams, & IBSSParams.  It sets gSchBeaconOffsetBegin to
+// the length of this buffer (incl. power template & MAC header).
+
+// Next, it serializes the following fields into gSchBeaconFrameEnd: Country,
+// EDCAParamSet,   PowerConstraints,   TPCReport,  ChannelSwitchAnn,   Quiet,
+// ERPInfo,      HTCaps,      HTInfo,      ExtSuppRates,      Airgo      (via
+// sirFillPropIEsInBeaconPR),  WPA, RSN,  WMMInfo,  WMMParams, WMMCaps.   The
+// length of *this* buffer is kept in gSchBeaconOffsetEnd.
+
+// Then, in 'schBeaconInterruptHandler',  we write CFParams & TIM  at the end
+// of gSchBeaconFrameBegin, keeping track of the (new) size of this buffer in
+// the local 'beaconSize'.
+
+// After  that,  we  call  'specialBeaconProcessing'.   Note  that  this  may
+// actually call  schSetFixedBeaconFields repeatedly!  The  comments say they
+// try to avoid this, but...
+
+// Finally, we call writeBeaconToTFP, where the first thing we do is copy the
+// gSchBeaconFrameEnd buffer after the end of gSchBeaconFrameBegin.
+
+FRAME Beacon1
+{
+    FF     TimeStamp;
+    FF     BeaconInterval;
+    FF     Capabilities;
+    MANDIE SSID;
+    MANDIE SuppRates;
+    OPTIE  DSParams;
+    OPTIE  IBSSParams;
+}
+
+FRAME Beacon2
+{
+    OPTIE  Country;
+    OPTIE  PowerConstraints;
+    OPTIE  ChanSwitchAnn;
+    OPTIE  Quiet;
+    OPTIE  TPCReport;
+    OPTIE  ERPInfo;
+    OPTIE  ExtSuppRates;
+    OPTIE  RSNOpaque;
+    OPTIE  EDCAParamSet;
+    OPTIE  APChannelReport;
+    OPTIE  RRMEnabledCap;
+    OPTIE  MobilityDomain;
+    OPTIE  WPA;
+    OPTIE  HTCaps;
+    OPTIE  HTInfo;
+    OPTIE  ExtChanSwitchAnn;
+    OPTIE  WMMInfoAp;
+    OPTIE  WMMParams;
+    OPTIE  WMMCaps;
+    OPTIE  Airgo;
+    OPTIE  WscBeacon;
+    OPTIE  WAPI;
+    OPTIE  ESERadMgmtCap;
+    OPTIE  ESETrafStrmMet;
+    OPTIE  ESETxmitPower;
+    OPTIE  P2PBeacon;
+    OPTIE  VHTCaps;
+    OPTIE  VHTOperation;
+    OPTIE  VHTExtBssLoad;
+    OPTIE  ExtCap;
+    OPTIE  OperatingMode;
+    OPTIE  WiderBWChanSwitchAnn;
+    OPTIE  OBSSScanParameters;
+}
+
+// This frame is just Beacon with its Fixed Fields stripped out.  It's handy
+// for use with struct 'tSirBssDescription', which has members corresponding
+// to some fixed fields, but keeps its IEs in un-parsed format.
+
+// Note that it also includes the IE 'WscBeaconProbeRes'.
+
+FRAME BeaconIEs
+{
+
+    MANDIE SSID;
+    MANDIE SuppRates;
+    OPTIE  FHParamSet;
+    OPTIE  DSParams;
+    OPTIE  CFParams;
+    OPTIE  IBSSParams;
+    OPTIE  TIM;
+    OPTIE  Country;
+    OPTIE  FHParams;
+    OPTIE  FHPattTable;
+    OPTIE  PowerConstraints;
+    OPTIE  ChanSwitchAnn;
+    OPTIE  Quiet;
+    OPTIE  TPCReport;
+    OPTIE  ERPInfo;
+    OPTIE  ExtSuppRates;
+    OPTIE  RSN;
+    OPTIE  QBSSLoad;
+    OPTIE  EDCAParamSet;
+    OPTIE  QOSCapsAp;
+    OPTIE  APChannelReport;
+    OPTIE  RRMEnabledCap;
+    OPTIE  MobilityDomain;
+    OPTIE  WPA;
+    OPTIE  HTCaps;
+    OPTIE  HTInfo;
+    OPTIE  ExtChanSwitchAnn;
+    OPTIE  WMMInfoAp;
+    OPTIE  WMMParams;
+    OPTIE  WMMCaps;
+    OPTIE  WAPI;
+    OPTIE  ESEVersion;
+    OPTIE  ESERadMgmtCap;
+    OPTIE  ESETrafStrmMet;
+    OPTIE  ESETxmitPower;
+
+    OPTIE  Airgo;
+    OPTIE  WscBeaconProbeRes;
+    OPTIE  P2PBeaconProbeRes;
+    OPTIE  VHTCaps;
+    OPTIE  VHTOperation;
+    OPTIE  VHTExtBssLoad;
+    OPTIE  ExtCap;
+    OPTIE  OperatingMode;
+    OPTIE  WiderBWChanSwitchAnn;
+    OPTIE  OBSSScanParameters;
+
+} // End frame BeaconIEs.
+
+FRAME Disassociation                      // 7.3.3.3
+{
+    FF    Reason;
+    OPTIE P2PDisAssoc;
+}
+
+FRAME AssocRequest                        // 7.2.3.4
+{
+    FF     Capabilities;
+    FF     ListenInterval;
+    MANDIE SSID;
+    MANDIE SuppRates;
+    OPTIE  ExtSuppRates;
+    OPTIE  PowerCaps;
+    OPTIE  SuppChannels;
+    OPTIE  RSNOpaque;
+    OPTIE  QOSCapsStation;
+    OPTIE  RRMEnabledCap;
+    OPTIE  MobilityDomain;
+    OPTIE  WPAOpaque;
+    OPTIE  HTCaps;
+    OPTIE  WMMCaps;
+    OPTIE  WMMInfoStation;
+    OPTIE  Airgo;
+    OPTIE  WscIEOpaque;
+    OPTIE  WAPIOpaque;
+    OPTIE  ESERadMgmtCap;
+    OPTIE  ESEVersion;
+    OPTIE  P2PIEOpaque;
+    OPTIE  WFDIEOpaque;
+    OPTIE  VHTCaps;
+    OPTIE  ExtCap;
+    OPTIE  OperatingMode;
+    OPTIE  QosMapSet;
+} // End frame AssocRequest.
+
+FRAME AssocResponse                       // 7.2.3.5
+{
+    FF     Capabilities;
+    FF     Status;
+    FF     AID;
+    MANDIE SuppRates;
+    OPTIE  ExtSuppRates;
+    OPTIE  EDCAParamSet;
+    OPTIE  RCPIIE;
+    OPTIE  RSNIIE;
+    OPTIE  RRMEnabledCap;
+    OPTIE  MobilityDomain;
+    OPTIE  FTInfo;
+    OPTIE  RICDataDesc[2];
+    OPTIE  WPA;
+    OPTIE  TimeoutInterval;
+    OPTIE  HTCaps;
+    OPTIE  HTInfo;
+    OPTIE  WMMParams;
+    OPTIE  WMMCaps;
+    OPTIE  ESERadMgmtCap;
+    OPTIE  ESETrafStrmMet;
+    OPTIE  ESETxmitPower;
+    OPTIE  WMMTSPEC[0..4];
+    OPTIE  Airgo;
+    OPTIE  WscAssocRes;
+    OPTIE  P2PAssocRes;
+    OPTIE  VHTCaps;
+    OPTIE  VHTOperation;
+    OPTIE  ExtCap;
+    OPTIE  OBSSScanParameters;
+    OPTIE  QosMapSet;
+} // End frame AssocResponse.
+
+FRAME ReAssocRequest                      // 7.2.3.6
+{
+    FF     Capabilities;
+    FF     ListenInterval;
+    FF     CurrentAPAddress;
+    MANDIE SSID;
+    MANDIE SuppRates;
+    OPTIE  ExtSuppRates;
+    OPTIE  PowerCaps;
+    OPTIE  SuppChannels;
+    OPTIE  RSNOpaque;
+    OPTIE  QOSCapsStation;
+    OPTIE  RRMEnabledCap;
+    OPTIE  MobilityDomain;
+    OPTIE  FTInfo;
+    OPTIE  RICDataDesc[2];
+    OPTIE  WPAOpaque;
+    OPTIE  HTCaps;
+    OPTIE  WMMCaps;
+    OPTIE  WMMInfoStation;
+    OPTIE  Airgo;
+    OPTIE  WscIEOpaque;
+    OPTIE  WAPIOpaque;
+    OPTIE  ESERadMgmtCap;
+    OPTIE  ESEVersion;
+    OPTIE  ESECckmOpaque;
+    OPTIE  WMMTSPEC[0..4];
+    OPTIE  ESETrafStrmRateSet;
+    OPTIE  P2PIEOpaque;
+    OPTIE  WFDIEOpaque;
+    OPTIE  VHTCaps;
+    OPTIE  ExtCap;
+    OPTIE  OperatingMode;
+    OPTIE  QosMapSet;
+} // End frame ReAssocRequest.
+
+FRAME ReAssocResponse                     // 7.2.3.7
+{
+    FF     Capabilities;
+    FF     Status;
+    FF     AID;
+    MANDIE SuppRates;
+    OPTIE  ExtSuppRates;
+    OPTIE  EDCAParamSet;
+    OPTIE  RCPIIE;
+    OPTIE  RSNIIE;
+    OPTIE  RRMEnabledCap;
+    OPTIE  RSNOpaque;
+    OPTIE  MobilityDomain;
+    OPTIE  FTInfo;
+    OPTIE  RICDataDesc[2];
+    OPTIE  WPA;
+    OPTIE  TimeoutInterval;
+    OPTIE  HTCaps;
+    OPTIE  HTInfo;
+    OPTIE  WMMParams;
+    OPTIE  ESERadMgmtCap;
+    OPTIE  ESETrafStrmMet;
+    OPTIE  ESETxmitPower;
+    OPTIE  WMMTSPEC[0..4];
+    OPTIE  ESETrafStrmRateSet;
+    OPTIE  Airgo;
+    OPTIE  WscReassocRes;
+    OPTIE  P2PAssocRes;
+    OPTIE  VHTCaps;
+    OPTIE  VHTOperation;
+    OPTIE  ExtCap;
+    OPTIE  OBSSScanParameters;
+    OPTIE  QosMapSet;
+} // End frame ReAssocResponse.
+
+FRAME ProbeRequest                        // 7.2.3.8
+{
+    MANDIE SSID;
+    MANDIE SuppRates;
+    OPTIE  RequestedInfo;
+    OPTIE  ExtSuppRates;
+    OPTIE  DSParams;
+    OPTIE  HTCaps;
+    OPTIE  WscProbeReq;
+    OPTIE  WFATPC;
+    OPTIE  P2PProbeReq;
+    OPTIE  VHTCaps;
+} // End frame ProbeRequest.
+
+FRAME ProbeResponse                       // 7.2.3.9
+{
+    FF     TimeStamp;
+    FF     BeaconInterval;
+    FF     Capabilities;
+    MANDIE SSID;
+    MANDIE SuppRates;
+    OPTIE  FHParamSet;
+    OPTIE  DSParams;
+    OPTIE  CFParams;
+    OPTIE  IBSSParams;
+    OPTIE  Country;
+    OPTIE  FHParams;
+    OPTIE  FHPattTable;
+    OPTIE  PowerConstraints;
+    OPTIE  ChanSwitchAnn;
+    OPTIE  Quiet;
+    OPTIE  TPCReport;
+    OPTIE  ERPInfo;
+    OPTIE  ExtSuppRates;
+    OPTIE  RSNOpaque;
+    OPTIE  QBSSLoad;
+    OPTIE  EDCAParamSet;
+    OPTIE  RRMEnabledCap;
+    OPTIE  APChannelReport;
+    OPTIE  MobilityDomain;
+    OPTIE  WPA;
+    OPTIE  HTCaps;
+    OPTIE  HTInfo;
+    OPTIE  ExtChanSwitchAnn;
+    OPTIE  WMMInfoAp;
+    OPTIE  WMMParams;
+    OPTIE  WMMCaps;
+    OPTIE  WAPI;
+    OPTIE  ESERadMgmtCap;
+    OPTIE  ESETrafStrmMet;
+    OPTIE  ESETxmitPower;
+
+    OPTIE  Airgo;
+    OPTIE  WscProbeRes;
+    OPTIE  P2PProbeRes;
+
+    OPTIE  VHTCaps;
+    OPTIE  VHTOperation;
+    OPTIE  VHTExtBssLoad;
+    OPTIE  ExtCap;
+    OPTIE  OBSSScanParameters;
+} // End frame ProbeResponse.
+
+FRAME Authentication                      // 7.2.3.10
+{
+    FF    AuthAlgo;
+    FF    AuthSeqNo;
+    FF    Status;
+    OPTIE ChallengeText;
+    OPTIE  RSNOpaque;
+    OPTIE  MobilityDomain;
+    OPTIE  FTInfo;
+    OPTIE  TimeoutInterval;
+    OPTIE  RICDataDesc[2];
+} // End frame Auth.
+
+FRAME DeAuth                              // 7.2.3.11
+{
+    FF    Reason;
+    OPTIE P2PDeAuth;
+}
+
+FRAME AddTSRequest                        // 7.4.2.1
+{
+
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    MANDIE TSPEC;
+    OPTIE  TCLAS[0..2];
+    OPTIE  TCLASSPROC;
+
+    // These IEs aren't in the spec, but our extant code *will* parse them if
+    // they're present.  I included them to preserve that capability
+
+    OPTIE  WMMTSPEC;
+    OPTIE  WMMTCLAS[0..2];
+    OPTIE  WMMTCLASPROC;
+    OPTIE  ESETrafStrmRateSet;
+
+} // End frame AddTSRequest.
+
+FRAME WMMAddTSRequest
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    FF     StatusCode;
+    MANDIE WMMTSPEC;
+    OPTIE  ESETrafStrmRateSet;
+} // End Frame WMMAddTSRequest
+
+FRAME AddTSResponse                       // 7.4.2.2
+{
+
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    FF     Status;
+    MANDIE TSDelay;
+    MANDIE TSPEC;
+    OPTIE  TCLAS[0..2];
+    OPTIE  TCLASSPROC;
+    OPTIE  Schedule;
+
+    // These IEs aren't in the spec, but our extant code *will* parse them if
+    // they're present.  I included them to preserve that capability
+    OPTIE  WMMTSDelay;
+    OPTIE  WMMSchedule;
+    OPTIE  WMMTSPEC;
+    OPTIE  WMMTCLAS[0..2];
+    OPTIE  WMMTCLASPROC;
+    OPTIE  ESETrafStrmMet;
+
+} // End frame AddTSResponse.
+
+FRAME WMMAddTSResponse
+{
+
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    FF     StatusCode;
+    OPTIE  WMMTSPEC;
+    OPTIE  ESETrafStrmMet;
+
+} // End frame WMMAddTSResponse.
+
+FRAME DelTS                               // 7.4.2.3
+{
+    FF     Category;
+    FF     Action;
+    FF     TSInfo;
+    FF     Reason;
+}
+
+FRAME WMMDelTS
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    FF     StatusCode;
+    MANDIE WMMTSPEC;
+}
+
+FRAME TPCRequest
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    MANDIE TPCRequest;
+}
+
+FRAME TPCReport
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    MANDIE TPCReport;
+}
+
+FRAME ChannelSwitch
+{
+    FF     Category;
+    FF     Action;
+    MANDIE ChanSwitchAnn;
+    OPTIE  ExtChanSwitchAnn;
+    OPTIE  WiderBWChanSwitchAnn;
+}
+
+FRAME MeasurementRequest
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    MANDIE MeasurementRequest[1..4];
+}
+
+FRAME MeasurementReport
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    MANDIE MeasurementReport;
+}
+
+FRAME AddBAReq
+{
+    FF    Category;
+    FF    Action;
+    FF    DialogToken;
+    FF    AddBAParameterSet;
+    FF    BATimeout;
+    FF    BAStartingSequenceControl;
+}
+
+FRAME AddBARsp
+{
+    FF    Category;
+    FF    Action;
+    FF    DialogToken;
+    FF    Status;
+    FF    AddBAParameterSet;
+    FF    BATimeout;
+}
+
+FRAME DelBAInd
+{
+    FF    Category;
+    FF    Action;
+    FF    DelBAParameterSet;
+    FF    Reason;
+}
+
+FRAME SMPowerSave
+{
+    FF    Category;
+    FF    Action;
+    FF    SMPowerModeSet;
+}
+
+FRAME RadioMeasurementRequest
+{
+   FF    Category;
+   FF    Action;
+   FF    DialogToken;
+   FF    NumOfRepetitions;
+   //Measurement Request IE.
+   MANDIE MeasurementRequest[1..2];
+}
+
+FRAME RadioMeasurementReport
+{
+   FF   Category;
+   FF   Action;
+   FF   DialogToken;
+   //Measurement Report elements.
+   MANDIE MeasurementReport[1..4];
+}
+
+FRAME LinkMeasurementRequest
+{
+   FF   Category;
+   FF   Action;
+   FF   DialogToken;
+   FF   TxPower;
+   FF   MaxTxPower;
+   //Optional Sub Ies
+}
+
+FRAME LinkMeasurementReport
+{
+   FF   Category;
+   FF   Action;
+   FF   DialogToken;
+   FF   TPCEleID;
+   FF   TPCEleLen;
+   FF   TxPower;
+   FF   LinkMargin;
+   FF   RxAntennaId;
+   FF   TxAntennaId;
+   FF   RCPI;
+   FF   RSNI;
+   //Optional Vendor specific IEs ... ignoring
+}
+
+FRAME NeighborReportRequest
+{
+   FF     Category;
+   FF     Action;
+   FF     DialogToken;
+   OPTIE  SSID;
+   //Optional vendor specific IE...ignoring.
+}
+
+FRAME NeighborReportResponse
+{
+   FF     Category;
+   FF     Action;
+   FF     DialogToken;
+   OPTIE  NeighborReport[1..4];
+}
+
+FRAME GONegReq
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PGONegWPS;
+   MANDIE  P2PGONegReq;
+}
+
+FRAME GONegRes
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PGONegWPS;
+   MANDIE  P2PGONegRes;
+}
+
+
+FRAME GONegCnf
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PGONegCnf;
+}
+
+
+FRAME InvitationReq
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PInvitationReq;
+}
+
+
+FRAME InvitationRes
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PInvitationRes;
+}
+
+
+FRAME DeviceDiscoverabilityReq
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PDeviceDiscoverabilityReq;
+}
+
+
+FRAME DeviceDiscoverabilityRes
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PDeviceDiscoverabilityRes;
+}
+
+
+
+FRAME ProvisionDiscoveryReq
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PProvisionDiscoveryReq;
+}
+
+
+FRAME ProvisionDiscoveryRes
+{
+   FF      Category;
+   FF      Action;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PWSCProvisionDiscoveryRes;
+}
+
+
+FRAME NoticeOfAbs
+{
+   FF      Category;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PNoticeOfAbsence;
+}
+
+
+FRAME PresenceReq
+{
+   FF      Category;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PNoticeOfAbsence;
+}
+
+
+FRAME PresenceRes
+{
+   FF      Category;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+   MANDIE  P2PPresenceResponse;
+}
+
+
+FRAME GODiscoverabilityReq
+{
+   FF      Category;
+   FF      P2POUI;
+   FF      P2POUISubType;
+   FF      DialogToken;
+}
+
+FRAME OperatingMode
+{
+    FF        Category;
+    FF        Action;
+    //Operating Mode field
+    FF        OperatingMode;
+}
+
+FRAME TDLSDisReq
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    MANDIE LinkIdentifier;
+}
+
+FRAME TDLSDisRsp
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    FF     Capabilities;
+    MANDIE SuppRates;
+    OPTIE  ExtSuppRates;
+    OPTIE  SuppChannels;
+    OPTIE  SuppOperatingClasses;
+    OPTIE  RSN;
+    OPTIE  ExtCap;
+    OPTIE  FTInfo;
+    OPTIE  TimeoutInterval;
+    OPTIE  RICData;
+    OPTIE  HTCaps;
+    OPTIE  HT2040BSSCoexistence;
+    MANDIE LinkIdentifier;
+    OPTIE  VHTCaps;
+}
+
+FRAME TDLSSetupReq
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    FF     Capabilities;
+    MANDIE SuppRates;
+    OPTIE  Country;
+    OPTIE  ExtSuppRates;
+    OPTIE  SuppChannels;
+    OPTIE  RSN;
+    OPTIE  ExtCap;
+    OPTIE  SuppOperatingClasses;
+    OPTIE  QOSCapsStation;
+    OPTIE  FTInfo;
+    OPTIE  TimeoutInterval;
+    OPTIE  RICData;
+    OPTIE  HTCaps;
+    OPTIE  HT2040BSSCoexistence;
+    MANDIE LinkIdentifier;
+    OPTIE  WMMInfoStation;
+    OPTIE  AID;
+    OPTIE  VHTCaps;
+}
+
+FRAME TDLSSetupRsp
+{
+    FF     Category;
+    FF     Action;
+    FF     Status;
+    FF     DialogToken;
+    FF     Capabilities ;
+    OPTIE  SuppRates;
+    OPTIE  Country;
+    OPTIE  ExtSuppRates;
+    OPTIE  SuppChannels;
+    OPTIE  RSN;
+    OPTIE  ExtCap;
+    OPTIE  SuppOperatingClasses;
+    OPTIE  QOSCapsStation;
+    OPTIE  FTInfo;
+    OPTIE  TimeoutInterval;
+    OPTIE  RICData;
+    OPTIE  HTCaps;
+    OPTIE  HT2040BSSCoexistence;
+    OPTIE  LinkIdentifier;
+    OPTIE  WMMInfoStation;
+    OPTIE  AID;
+    OPTIE  VHTCaps;
+    OPTIE  OperatingMode;
+}
+
+FRAME TDLSSetupCnf
+{
+    FF     Category;
+    FF     Action;
+    FF     Status;
+    FF     DialogToken;
+    OPTIE  RSN;
+    OPTIE  EDCAParamSet;
+    OPTIE  FTInfo;
+    OPTIE  TimeoutInterval;
+    OPTIE  HTInfo;
+    OPTIE  HT2040BSSCoexistence;
+    OPTIE  LinkIdentifier;
+    OPTIE  WMMParams;
+    OPTIE  VHTOperation;
+    OPTIE  OperatingMode;
+}
+FRAME TDLSTeardown
+{
+    FF     Category;
+    FF     Action;
+    FF     Reason;
+    OPTIE  FTInfo;
+    MANDIE LinkIdentifier;
+}
+
+FRAME TDLSPeerTrafficInd
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    MANDIE LinkIdentifier;
+    OPTIE  PTIControl;
+    MANDIE PUBufferStatus;
+}
+
+FRAME TDLSPeerTrafficRsp
+{
+    FF     Category;
+    FF     Action;
+    FF     DialogToken;
+    MANDIE LinkIdentifier;
+}
+
+FRAME SaQueryReq
+{
+    FF     Category;
+    FF     Action;
+    FF     TransactionId;
+}
+
+FRAME SaQueryRsp
+{
+    FF     Category;
+    FF     Action;
+    FF     TransactionId;
+}
+
+FRAME QosMapConfigure
+{
+    FF     Category;
+    FF     Action;
+    MANDIE  QosMapSet;
+}
+
+FRAME VHTGidManagementActionFrame
+{
+    FF     Category;
+    FF     Action;
+    FF     VhtMembershipStatusArray;
+    FF     VhtUserPositionArray;
+}
+
+FRAME HT2040BSSCoexistenceManagementActionFrame
+{
+    FF     Category;
+    FF     Action;
+    MANDIE HT2040BSSCoexistence;
+    MANDIE HT2040BSSIntolerantReport;
+}
+
+// Local Variables:
+// mode: c++
+// fill-column: 77
+// comment-column: 42
+// indent-tabs-mode: nil
+// show-trailing-whitespace: t
+// End:
+
+// parser.frms ends here.
