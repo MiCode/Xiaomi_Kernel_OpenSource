@@ -35,6 +35,8 @@
 #define MSM8X16_TOMBAK_LPASS_DIGCODEC_CBCR			0x0181C0B0
 #define MSM8X16_TOMBAK_LPASS_DIGCODEC_AHB_CBCR			0x0181C0B4
 
+// Prema Chand Alugu (premaca@gmail.com) Define this here
+#define WT_88047_L_AUDIO_PA_GPIO
 #ifdef WT_88047_L_AUDIO_PA_GPIO
 #define EXT_SPK_AMP_GPIO	(902+117)
 
