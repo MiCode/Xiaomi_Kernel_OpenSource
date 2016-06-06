@@ -46,11 +46,27 @@ struct clk_branch {
 	struct clk_regmap clkr;
 };
 
+/**
+ * struct clk_gate2 - gating clock with status bit and dynamic hardware gating
+ * @udelay: halt delay in microseconds on clock branch enable/disable
+ * @clkr: handle between common and hardware-specific interfaces
+ *
+ * Clock which can gate its output.
+ */
+struct clk_gate2 {
+	u32	udelay;
+	struct	clk_regmap clkr;
+};
+
 extern const struct clk_ops clk_branch_ops;
 extern const struct clk_ops clk_branch2_ops;
+extern const struct clk_ops clk_gate2_ops;
 extern const struct clk_ops clk_branch_simple_ops;
 
 #define to_clk_branch(_hw) \
 	container_of(to_clk_regmap(_hw), struct clk_branch, clkr)
+
+#define to_clk_gate2(_hw) \
+	container_of(to_clk_regmap(_hw), struct clk_gate2, clkr)
 
 #endif
