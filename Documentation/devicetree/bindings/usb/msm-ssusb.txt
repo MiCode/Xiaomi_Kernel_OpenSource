@@ -15,6 +15,10 @@ Required properties :
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
    property. Required clocks are "xo", "iface_clk", "core_clk", "sleep_clk"
    and "utmi_clk".
+- resets: reset specifier pair consists of phandle for the reset provider
+  and reset lines used by this controller.
+- reset-names: reset signal name strings sorted in the same order as the resets
+  property.
 
 Optional properties :
 - reg: Additional registers
@@ -97,6 +101,9 @@ Example MSM USB3.0 controller device node :
 
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
 				"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
+
+		resets = <&clock_gcc GCC_USB_30_BCR>;
+		reset-names = "core_reset";
 
 		dwc3@f9200000 {
 			compatible = "synopsys,dwc3";
