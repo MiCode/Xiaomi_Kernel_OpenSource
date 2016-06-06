@@ -11,16 +11,26 @@
  */
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/seq_file.h>
 #include <linux/err.h>
 #include <linux/stacktrace.h>
 #include <linux/wcnss_wlan.h>
 #include <linux/spinlock.h>
+#include <linux/debugfs.h>
+#ifdef	CONFIG_WCNSS_SKB_PRE_ALLOC
+#include <linux/skbuff.h>
+#endif
 
 static DEFINE_SPINLOCK(alloc_lock);
 
 #ifdef CONFIG_SLUB_DEBUG
 #define WCNSS_MAX_STACK_TRACE			64
 #endif
+
+#define PRE_ALLOC_DEBUGFS_DIR		"cnss-prealloc"
+#define PRE_ALLOC_DEBUGFS_FILE_OBJ	"status"
+
+static struct dentry *debug_base;
 
 struct wcnss_prealloc {
 	int occupied;
@@ -233,14 +243,89 @@ int wcnss_pre_alloc_reset(void)
 	return n;
 }
 
+int prealloc_memory_stats_show(struct seq_file *fp, void *data)
+{
+	int i = 0;
+	int used_slots = 0, free_slots = 0;
+	unsigned int tsize = 0, tused = 0, size = 0;
+
+	seq_puts(fp, "\nSlot_Size(Kb)\t\t[Used : Free]\n");
+	for (i = 0; i < ARRAY_SIZE(wcnss_allocs); i++) {
+		tsize += wcnss_allocs[i].size;
+		if (size != wcnss_allocs[i].size) {
+			if (size) {
+				seq_printf(
+					fp, "[%d : %d]\n",
+					used_slots, free_slots);
+			}
+
+			size = wcnss_allocs[i].size;
+			used_slots = 0;
+			free_slots = 0;
+			seq_printf(fp, "%d Kb\t\t\t", size / 1024);
+		}
+
+		if (wcnss_allocs[i].occupied) {
+			tused += wcnss_allocs[i].size;
+			++used_slots;
+		} else {
+			++free_slots;
+		}
+	}
+	seq_printf(fp, "[%d : %d]\n", used_slots, free_slots);
+
+	/* Convert byte to Kb */
+	if (tsize)
+		tsize = tsize / 1024;
+	if (tused)
+		tused = tused / 1024;
+	seq_printf(fp, "\nMemory Status:\nTotal Memory: %dKb\n", tsize);
+	seq_printf(fp, "Used: %dKb\nFree: %dKb\n", tused, tsize - tused);
+
+	return 0;
+}
+
+int prealloc_memory_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, prealloc_memory_stats_show, NULL);
+}
+
+static const struct file_operations prealloc_memory_stats_fops = {
+	.owner = THIS_MODULE,
+	.open = prealloc_memory_stats_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int __init wcnss_pre_alloc_init(void)
 {
-	return wcnss_prealloc_init();
+	int ret;
+
+	ret = wcnss_prealloc_init();
+	if (ret) {
+		pr_err("%s: Failed to init the prealloc pool\n", __func__);
+		return ret;
+	}
+
+	debug_base = debugfs_create_dir(PRE_ALLOC_DEBUGFS_DIR, NULL);
+	if (IS_ERR_OR_NULL(debug_base)) {
+		pr_err("%s: Failed to create debugfs dir\n", __func__);
+	} else if (IS_ERR_OR_NULL(debugfs_create_file(
+			PRE_ALLOC_DEBUGFS_FILE_OBJ,
+			0644, debug_base, NULL,
+			&prealloc_memory_stats_fops))) {
+		pr_err("%s: Failed to create debugfs file\n", __func__);
+		debugfs_remove_recursive(debug_base);
+	}
+
+	return ret;
 }
 
 static void __exit wcnss_pre_alloc_exit(void)
 {
 	wcnss_prealloc_deinit();
+	debugfs_remove_recursive(debug_base);
 }
 
 module_init(wcnss_pre_alloc_init);
