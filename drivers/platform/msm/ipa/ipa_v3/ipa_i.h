@@ -33,6 +33,7 @@
 #include "../ipa_api.h"
 #include "ipahal/ipahal_reg.h"
 #include "ipahal/ipahal.h"
+#include "ipahal/ipahal_fltrt.h"
 #include "../ipa_common_i.h"
 
 #define DRV_NAME "ipa"
@@ -115,23 +116,6 @@
 #define IPA_STATS_EXCP_CNT(__excp, __base) do { } while (0)
 #endif
 
-#define IPA_TOS_EQ			BIT(0)
-#define IPA_PROTOCOL_EQ			BIT(1)
-#define IPA_TC_EQ			BIT(2)
-#define IPA_OFFSET_MEQ128_0		BIT(3)
-#define IPA_OFFSET_MEQ128_1		BIT(4)
-#define IPA_OFFSET_MEQ32_0		BIT(5)
-#define IPA_OFFSET_MEQ32_1		BIT(6)
-#define IPA_IHL_OFFSET_MEQ32_0		BIT(7)
-#define IPA_IHL_OFFSET_MEQ32_1		BIT(8)
-#define IPA_METADATA_COMPARE		BIT(9)
-#define IPA_IHL_OFFSET_RANGE16_0	BIT(10)
-#define IPA_IHL_OFFSET_RANGE16_1	BIT(11)
-#define IPA_IHL_OFFSET_EQ_32		BIT(12)
-#define IPA_IHL_OFFSET_EQ_16		BIT(13)
-#define IPA_FL_EQ			BIT(14)
-#define IPA_IS_FRAG			BIT(15)
-
 #define IPA_HDR_BIN0 0
 #define IPA_HDR_BIN1 1
 #define IPA_HDR_BIN2 2
@@ -159,35 +143,11 @@
 #define IPA_LAN_RX_HDR_NAME "ipa_lan_hdr"
 #define IPA_INVALID_L4_PROTOCOL 0xFF
 
-#define IPA_HW_TABLE_ALIGNMENT(start_ofst) \
+#define IPA_CLIENT_IS_PROD(x) (x >= IPA_CLIENT_PROD && x < IPA_CLIENT_CONS)
+#define IPA_CLIENT_IS_CONS(x) (x >= IPA_CLIENT_CONS && x < IPA_CLIENT_MAX)
+
+#define IPA_PIPE_MEM_START_OFST_ALIGNMENT(start_ofst) \
 	(((start_ofst) + 127) & ~127)
-#define IPA_RT_FLT_HW_RULE_BUF_SIZE	(256)
-
-#define IPA_HW_TBL_WIDTH (8)
-#define IPA_HW_TBL_SYSADDR_ALIGNMENT (127)
-#define IPA_HW_TBL_LCLADDR_ALIGNMENT (7)
-#define IPA_HW_TBL_ADDR_MASK (127)
-#define IPA_HW_TBL_BLK_SIZE_ALIGNMENT (127)
-#define IPA_HW_TBL_HDR_WIDTH (8)
-#define IPA_HW_RULE_START_ALIGNMENT (7)
-
-/*
- * for local tables (at sram) offsets is used as tables addresses
- * offset need to be in 8B units (local address aligned) and
- * left shifted to its place. Local bit need to be enabled.
- */
-#define IPA_HW_TBL_OFSET_TO_LCLADDR(__ofst) \
-	( \
-	(((__ofst)/(IPA_HW_TBL_LCLADDR_ALIGNMENT+1)) * \
-	(IPA_HW_TBL_ADDR_MASK + 1)) + 1 \
-	)
-
-#define IPA_RULE_MAX_PRIORITY (0)
-#define IPA_RULE_MIN_PRIORITY (1023)
-
-#define IPA_RULE_ID_MIN_VAL (0x01)
-#define IPA_RULE_ID_MAX_VAL (0x1FF)
-#define IPA_RULE_ID_RULE_MISS (0x3FF)
 
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE 8
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT(start_ofst) \
@@ -906,28 +866,6 @@ struct ipa3_tag_completion {
 	atomic_t cnt;
 };
 
-/**
- * struct ipa3_debugfs_rt_entry - IPA routing table entry for debugfs
- * @eq_attrib: equation attributes for the rule
- * @retain_hdr: retain header when hit this rule
- * @prio: rule 10bit priority which defines the order of the rule
- * @rule_id: rule 10bit ID to be returned in packet status
- * @dst: destination endpoint
- * @hdr_ofset: header offset to be added
- * @system: rule resides in system memory
- * @is_proc_ctx: indicates whether the rules points to proc_ctx or header
- */
-struct ipa3_debugfs_rt_entry {
-	struct ipa_ipfltri_rule_eq eq_attrib;
-	uint8_t retain_hdr;
-	u16 prio;
-	u16 rule_id;
-	u8 dst;
-	u8 hdr_ofset;
-	u8 system;
-	u8 is_proc_ctx;
-};
-
 struct ipa3_controller;
 
 /**
@@ -1317,7 +1255,6 @@ struct ipa3_ready_cb_info {
  * @ip6_rt_tbl_lcl: where ip6 rt tables reside 1-local; 0-system
  * @ip4_flt_tbl_lcl: where ip4 flt tables reside 1-local; 0-system
  * @ip6_flt_tbl_lcl: where ip6 flt tables reside 1-local; 0-system
- * @empty_rt_tbl_mem: empty routing tables memory
  * @power_mgmt_wq: workqueue for power management
  * @transport_power_mgmt_wq: workqueue transport related power management
  * @tag_process_before_gating: indicates whether to start tag process before
@@ -1409,7 +1346,6 @@ struct ipa3_context {
 	bool ip4_flt_tbl_nhash_lcl;
 	bool ip6_flt_tbl_hash_lcl;
 	bool ip6_flt_tbl_nhash_lcl;
-	struct ipa_mem_buffer empty_rt_tbl_mem;
 	struct gen_pool *pipe_mem_pool;
 	struct dma_pool *dma_pool;
 	struct ipa3_active_clients ipa3_active_clients;
@@ -1689,8 +1625,6 @@ struct ipa3_controller {
 	int (*ipa3_read_ep_reg)(char *buff, int max_len, int pipe);
 	int (*ipa3_commit_flt)(enum ipa_ip_type ip);
 	int (*ipa3_commit_rt)(enum ipa_ip_type ip);
-	int (*ipa_generate_rt_hw_rule)(enum ipa_ip_type ip,
-		struct ipa3_rt_entry *entry, u8 *buf);
 	int (*ipa3_commit_hdr)(void);
 	void (*ipa3_enable_clks)(void);
 	void (*ipa3_disable_clks)(void);
@@ -2057,12 +1991,6 @@ int ipa3_generate_hw_rule(enum ipa_ip_type ip,
 			 const struct ipa_rule_attrib *attrib,
 			 u8 **buf,
 			 u16 *en_rule);
-u8 *ipa3_write_64(u64 w, u8 *dest);
-u8 *ipa3_write_32(u32 w, u8 *dest);
-u8 *ipa3_write_16(u16 hw, u8 *dest);
-u8 *ipa3_write_8(u8 b, u8 *dest);
-u8 *ipa3_pad_to_32(u8 *dest);
-u8 *ipa3_pad_to_64(u8 *dest);
 int ipa3_init_hw(void);
 struct ipa3_rt_tbl *__ipa3_find_rt_tbl(enum ipa_ip_type ip, const char *name);
 int ipa3_set_single_ndp_per_mbim(bool);
@@ -2140,13 +2068,8 @@ int _ipa_init_flt6_v3(void);
 
 int __ipa_commit_flt_v3(enum ipa_ip_type ip);
 int __ipa_commit_rt_v3(enum ipa_ip_type ip);
-int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
-	struct ipa3_rt_entry *entry, u8 *buf);
 
 int __ipa_commit_hdr_v3_0(void);
-int ipa3_generate_flt_eq(enum ipa_ip_type ip,
-		const struct ipa_rule_attrib *attrib,
-		struct ipa_ipfltri_rule_eq *eq_attrib);
 void ipa3_skb_recycle(struct sk_buff *skb);
 void ipa3_install_dflt_flt_rules(u32 ipa_ep_idx);
 void ipa3_delete_dflt_flt_rules(u32 ipa_ep_idx);
@@ -2246,19 +2169,16 @@ void ipa3_set_resorce_groups_min_max_limits(void);
 void ipa3_suspend_apps_pipes(bool suspend);
 void ipa3_flow_control(enum ipa_client_type ipa_client, bool enable,
 			uint32_t qmap_id);
-int ipa3_generate_eq_from_hw_rule(
-	struct ipa_ipfltri_rule_eq *attrib, u8 *buf, u8 *rule_size);
 int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
 	enum ipa_ip_type ip_type,
 	bool hashable,
-	struct ipa3_flt_entry entry[],
+	struct ipahal_flt_rule_entry entry[],
 	int *num_entry);
 int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	enum ipa_ip_type ip_type,
 	bool hashable,
-	struct ipa3_debugfs_rt_entry entry[],
+	struct ipahal_rt_rule_entry entry[],
 	int *num_entry);
-int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
 int ipa3_restore_suspend_handler(void);
 int ipa3_inject_dma_task_for_gsi(void);
 int ipa3_uc_panic_notifier(struct notifier_block *this,
