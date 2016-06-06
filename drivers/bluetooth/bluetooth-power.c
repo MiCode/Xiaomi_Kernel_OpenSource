@@ -27,6 +27,8 @@
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
 #include <net/cnss.h>
+#include "btfm_slim.h"
+#include <linux/fs.h>
 
 #define BT_PWR_DBG(fmt, arg...)  pr_debug("%s: " fmt "\n", __func__, ## arg)
 #define BT_PWR_INFO(fmt, arg...) pr_info("%s: " fmt "\n", __func__, ## arg)
@@ -43,6 +45,8 @@ static const struct of_device_id bt_power_match_table[] = {
 static struct bluetooth_power_platform_data *bt_power_pdata;
 static struct platform_device *btpdev;
 static bool previous;
+struct class *bt_class;
+static int bt_major;
 
 static int bt_vreg_init(struct bt_power_vreg_data *vreg)
 {
@@ -548,6 +552,37 @@ static int bt_power_remove(struct platform_device *pdev)
 	return 0;
 }
 
+int bt_register_slimdev(struct device *dev)
+{
+	BT_PWR_DBG("");
+	if (!bt_power_pdata || (dev == NULL)) {
+		BT_PWR_ERR("Failed to allocate memory");
+		return -EINVAL;
+	}
+	bt_power_pdata->slim_dev = dev;
+	return 0;
+}
+
+static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	int ret;
+
+	switch (cmd) {
+	case BT_CMD_SLIM_TEST:
+		if (!bt_power_pdata->slim_dev) {
+			BT_PWR_ERR("slim_dev is null\n");
+			return -EINVAL;
+		}
+		ret = btfm_slim_hw_init(
+			bt_power_pdata->slim_dev->platform_data
+		);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return ret;
+}
+
 static struct platform_driver bt_power_driver = {
 	.probe = bt_power_probe,
 	.remove = bt_power_remove,
@@ -558,11 +593,40 @@ static struct platform_driver bt_power_driver = {
 	},
 };
 
+static const struct file_operations bt_dev_fops = {
+	.owner		= THIS_MODULE,
+	.unlocked_ioctl = bt_ioctl,
+};
+
 static int __init bluetooth_power_init(void)
 {
 	int ret;
 
 	ret = platform_driver_register(&bt_power_driver);
+
+	bt_major = register_chrdev(0, "bt", &bt_dev_fops);
+	if (bt_major < 0) {
+		BTFMSLIM_ERR("failed to allocate char dev\n");
+		goto chrdev_unreg;
+	}
+
+	bt_class = class_create(THIS_MODULE, "bt-dev");
+	if (IS_ERR(bt_class)) {
+		BTFMSLIM_ERR("coudn't create class");
+		goto chrdev_unreg;
+	}
+
+
+	if (device_create(bt_class, NULL, MKDEV(bt_major, 0),
+		NULL, "pintest") == NULL) {
+		BTFMSLIM_ERR("failed to allocate char dev\n");
+		goto chrdev_unreg;
+	}
+	return 0;
+
+chrdev_unreg:
+	unregister_chrdev(bt_major, "bt");
+	class_destroy(bt_class);
 	return ret;
 }
 
