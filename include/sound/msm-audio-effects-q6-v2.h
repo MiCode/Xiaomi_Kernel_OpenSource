@@ -26,6 +26,11 @@ int msm_audio_effects_reverb_handler(struct audio_client *ac,
 int msm_audio_effects_bass_boost_handler(struct audio_client *ac,
 					struct bass_boost_params *bass_boost,
 					long *values);
+
+int msm_audio_effects_pbe_handler(struct audio_client *ac,
+					struct pbe_params *pbe,
+					long *values);
+
 int msm_audio_effects_virtualizer_handler(struct audio_client *ac,
 				struct virtualizer_params *virtualizer,
 				long *values);
