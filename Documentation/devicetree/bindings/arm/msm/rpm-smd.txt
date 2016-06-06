@@ -26,11 +26,14 @@ Required properties
 Optional properties
 - rpm-standalone: Allow RPM driver to run in standalone mode irrespective of RPM
 			channel presence.
+- reg: Contains the memory address at which rpm messaging format version is
+  stored. If this field is not present, the target only supports v0 format.
 
 Example:
 
-	qcom,rpm-smd {
+	qcom,rpm-smd@68150 {
 		compatible = "qcom,rpm-smd", "qcom,rpm-glink";
+		reg = <0x68150 0x3200>;
 		qcom,rpm-channel-name = "rpm_requests";
 		qcom,rpm-channel-type = 15; /* SMD_APPS_RPM */
 		qcom,glink-edge = "rpm";
