@@ -18,5 +18,5 @@ SECTIONS {
 	__kcrctab_gpl_future	: { *(SORT(___kcrctab_gpl_future+*)) }
 
 	. = ALIGN(8);
-	.init_array		: { *(SORT(.init_array.*)) *(.init_array) }
+	.init_array		0 : { *(SORT(.init_array.*)) *(.init_array) }
 }
