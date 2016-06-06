@@ -199,6 +199,7 @@
 #define clk_gcc_gpu_bimc_gfx_src_clk		0x377cb748
 #define clk_gcc_bimc_hmss_axi_clk		0x84653931
 #define clk_gcc_gpu_cfg_ahb_clk			0x72f20a57
+#define clk_gcc_gpu_iref_clk			0xfd82abad
 #define clk_gcc_hmss_ahb_clk			0x62818713
 #define clk_gcc_hmss_dvm_bus_clk		0x17cc8b53
 #define clk_gcc_hmss_rbcpr_clk			0x699183be
