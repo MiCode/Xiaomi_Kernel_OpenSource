@@ -2047,7 +2047,7 @@ static int ft5x06_parse_dt(struct device *dev,
 	pdata->ignore_id_check = of_property_read_bool(np,
 						"focaltech,ignore-id-check");
 
-	rc = of_property_read_u32(np, "focaltech, family-id", &temp_val);
+	rc = of_property_read_u32(np, "focaltech,family-id", &temp_val);
 	if (!rc)
 		pdata->family_id = temp_val;
 	else
