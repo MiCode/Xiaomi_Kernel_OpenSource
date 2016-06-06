@@ -33,13 +33,14 @@ const char *get_effective_client_locked(struct votable *votable);
 int vote(struct votable *votable, const char *client_str, bool state, int val);
 int rerun_election(struct votable *votable);
 struct votable *find_votable(const char *name);
-struct votable *create_votable(struct device *dev, const char *name,
+struct votable *create_votable(const char *name,
 				int votable_type,
-				int (*callback)(struct device *dev,
+				int (*callback)(struct votable *votable,
+						void *data,
 						int effective_result,
-						const char *effective_client)
-					);
-void destroy_votable(struct device *dev, struct votable *votable);
+						const char *effective_client),
+				void *data);
+void destroy_votable(struct votable *votable);
 void lock_votable(struct votable *votable);
 void unlock_votable(struct votable *votable);
 

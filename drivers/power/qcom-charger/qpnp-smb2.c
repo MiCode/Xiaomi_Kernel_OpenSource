@@ -798,6 +798,7 @@ static int smb2_probe(struct platform_device *pdev)
 	return rc;
 
 cleanup:
+	smblib_deinit(chg);
 	if (chg->usb_psy)
 		power_supply_unregister(chg->usb_psy);
 	if (chg->batt_psy)

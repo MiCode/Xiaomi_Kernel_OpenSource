@@ -299,18 +299,18 @@ static int smblib_detach_usb(struct smb_charger *chg)
  * VOTABLE CALLBACKS *
  *********************/
 
-static int smblib_usb_suspend_vote_callback(struct device *dev,
+static int smblib_usb_suspend_vote_callback(struct votable *votable, void *data,
 			int suspend, const char *client)
 {
-	struct smb_charger *chg = dev_get_drvdata(dev);
+	struct smb_charger *chg = data;
 
 	return smblib_set_usb_suspend(chg, suspend);
 }
 
-static int smblib_dc_suspend_vote_callback(struct device *dev,
+static int smblib_dc_suspend_vote_callback(struct votable *votable, void *data,
 			int suspend, const char *client)
 {
-	struct smb_charger *chg = dev_get_drvdata(dev);
+	struct smb_charger *chg = data;
 
 	if (suspend < 0)
 		suspend = false;
@@ -318,10 +318,10 @@ static int smblib_dc_suspend_vote_callback(struct device *dev,
 	return smblib_set_dc_suspend(chg, suspend);
 }
 
-static int smblib_fcc_vote_callback(struct device *dev,
+static int smblib_fcc_vote_callback(struct votable *votable, void *data,
 			int fcc_ua, const char *client)
 {
-	struct smb_charger *chg = dev_get_drvdata(dev);
+	struct smb_charger *chg = data;
 	int rc = 0;
 
 	if (fcc_ua < 0) {
@@ -333,10 +333,10 @@ static int smblib_fcc_vote_callback(struct device *dev,
 	return rc;
 }
 
-static int smblib_fv_vote_callback(struct device *dev,
+static int smblib_fv_vote_callback(struct votable *votable, void *data,
 			int fv_uv, const char *client)
 {
-	struct smb_charger *chg = dev_get_drvdata(dev);
+	struct smb_charger *chg = data;
 	int rc = 0;
 
 	if (fv_uv < 0) {
@@ -350,10 +350,10 @@ static int smblib_fv_vote_callback(struct device *dev,
 
 #define USBIN_25MA 25000
 #define USBIN_100MA 100000
-static int smblib_usb_icl_vote_callback(struct device *dev,
+static int smblib_usb_icl_vote_callback(struct votable *votable, void *data,
 			int icl_ua, const char *client)
 {
-	struct smb_charger *chg = dev_get_drvdata(dev);
+	struct smb_charger *chg = data;
 	int rc = 0;
 	bool suspend;
 
@@ -390,10 +390,10 @@ suspend:
 	return rc;
 }
 
-static int smblib_dc_icl_vote_callback(struct device *dev,
+static int smblib_dc_icl_vote_callback(struct votable *votable, void *data,
 			int icl_ua, const char *client)
 {
-	struct smb_charger *chg = dev_get_drvdata(dev);
+	struct smb_charger *chg = data;
 	int rc = 0;
 	bool suspend;
 
@@ -1330,61 +1330,73 @@ int smblib_init(struct smb_charger *chg)
 	mutex_init(&chg->write_lock);
 	INIT_DELAYED_WORK(&chg->hvdcp_detect_work, smblib_hvdcp_detect_work);
 
-	chg->usb_suspend_votable = create_votable(chg->dev,
-					"INPUT_SUSPEND", VOTE_SET_ANY,
-					smblib_usb_suspend_vote_callback);
+	chg->usb_suspend_votable = create_votable("INPUT_SUSPEND", VOTE_SET_ANY,
+					smblib_usb_suspend_vote_callback,
+					chg);
 	if (IS_ERR(chg->usb_suspend_votable)) {
 		rc = PTR_ERR(chg->usb_suspend_votable);
 		return rc;
 	}
 
-	chg->dc_suspend_votable = create_votable(chg->dev,
-					"DC_SUSPEND", VOTE_SET_ANY,
-					smblib_dc_suspend_vote_callback);
+	chg->dc_suspend_votable = create_votable("DC_SUSPEND", VOTE_SET_ANY,
+					smblib_dc_suspend_vote_callback,
+					chg);
 	if (IS_ERR(chg->dc_suspend_votable)) {
 		rc = PTR_ERR(chg->dc_suspend_votable);
 		return rc;
 	}
 
-	chg->fcc_votable = create_votable(chg->dev,
-					"FCC", VOTE_MAX,
-					smblib_fcc_vote_callback);
+	chg->fcc_votable = create_votable("FCC", VOTE_MAX,
+					smblib_fcc_vote_callback,
+					chg);
 	if (IS_ERR(chg->fcc_votable)) {
 		rc = PTR_ERR(chg->fcc_votable);
 		return rc;
 	}
 
-	chg->fv_votable = create_votable(chg->dev,
-					"FV", VOTE_MAX,
-					smblib_fv_vote_callback);
+	chg->fv_votable = create_votable("FV", VOTE_MAX,
+					smblib_fv_vote_callback,
+					chg);
 	if (IS_ERR(chg->fv_votable)) {
 		rc = PTR_ERR(chg->fv_votable);
 		return rc;
 	}
 
-	chg->usb_icl_votable = create_votable(chg->dev,
-					"USB_ICL", VOTE_MIN,
-					smblib_usb_icl_vote_callback);
+	chg->usb_icl_votable = create_votable("USB_ICL", VOTE_MIN,
+					smblib_usb_icl_vote_callback,
+					chg);
 	if (IS_ERR(chg->usb_icl_votable)) {
 		rc = PTR_ERR(chg->usb_icl_votable);
 		return rc;
 	}
 
-	chg->dc_icl_votable = create_votable(chg->dev,
-					"DC_ICL", VOTE_MIN,
-					smblib_dc_icl_vote_callback);
+	chg->dc_icl_votable = create_votable("DC_ICL", VOTE_MIN,
+					smblib_dc_icl_vote_callback,
+					chg);
 	if (IS_ERR(chg->dc_icl_votable)) {
 		rc = PTR_ERR(chg->dc_icl_votable);
 		return rc;
 	}
 
-	chg->pd_allowed_votable = create_votable(chg->dev,
-					"PD_ALLOWED", VOTE_SET_ANY,
-					NULL);
+	chg->pd_allowed_votable = create_votable("PD_ALLOWED", VOTE_SET_ANY,
+					NULL, NULL);
 	if (IS_ERR(chg->pd_allowed_votable)) {
 		rc = PTR_ERR(chg->pd_allowed_votable);
 		return rc;
 	}
+
+	return 0;
+}
+
+int smblib_deinit(struct smb_charger *chg)
+{
+	destroy_votable(chg->usb_suspend_votable);
+	destroy_votable(chg->dc_suspend_votable);
+	destroy_votable(chg->fcc_votable);
+	destroy_votable(chg->fv_votable);
+	destroy_votable(chg->usb_icl_votable);
+	destroy_votable(chg->dc_icl_votable);
+	destroy_votable(chg->pd_allowed_votable);
 
 	return 0;
 }

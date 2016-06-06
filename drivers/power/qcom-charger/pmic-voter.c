@@ -15,7 +15,8 @@
 #include <linux/errno.h>
 #include <linux/bitops.h>
 #include <linux/printk.h>
-#include <linux/device.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 
 #include "pmic-voter.h"
 
@@ -35,13 +36,14 @@ struct votable {
 	const char		*name;
 	struct list_head	list;
 	struct client_vote	votes[NUM_MAX_CLIENTS];
-	struct device		*dev;
 	int			num_clients;
 	int			type;
 	int			effective_client_id;
 	int			effective_result;
 	struct mutex		vote_lock;
-	int			(*callback)(struct device *dev,
+	void			*data;
+	int			(*callback)(struct votable *votable,
+						void *data,
 						int effective_result,
 						const char *effective_client);
 	char			*client_strs[NUM_MAX_CLIENTS];
@@ -152,8 +154,7 @@ static int get_client_id(struct votable *votable, const char *client_str)
 	for (i = 0; i < votable->num_clients; i++) {
 		if (!votable->client_strs[i]) {
 			votable->client_strs[i]
-				= devm_kstrdup(votable->dev,
-						client_str, GFP_KERNEL);
+				= kstrdup(client_str, GFP_KERNEL);
 			if (!votable->client_strs[i])
 				return -ENOMEM;
 			return i;
@@ -361,7 +362,8 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 			get_client_str(votable, effective_id),
 			effective_id);
 		if (votable->callback)
-			rc = votable->callback(votable->dev, effective_result,
+			rc = votable->callback(votable, votable->data,
+					effective_result,
 					get_client_str(votable, effective_id));
 	}
 
@@ -377,7 +379,8 @@ int rerun_election(struct votable *votable)
 
 	lock_votable(votable);
 	if (votable->callback)
-		rc = votable->callback(votable->dev,
+		rc = votable->callback(votable,
+				votable->data,
 			votable->effective_result,
 			get_client_str(votable, votable->effective_client_id));
 	unlock_votable(votable);
@@ -466,12 +469,13 @@ static const struct file_operations votable_debugfs_ops = {
 	.release	= single_release,
 };
 
-struct votable *create_votable(struct device *dev, const char *name,
-					int votable_type,
-					int (*callback)(struct device *dev,
-						int effective_result,
-						const char *effective_client)
-					)
+struct votable *create_votable(const char *name,
+				int votable_type,
+				int (*callback)(struct votable *votable,
+					void *data,
+					int effective_result,
+					const char *effective_client),
+				void *data)
 {
 	struct votable *votable;
 	unsigned long flags;
@@ -483,25 +487,30 @@ struct votable *create_votable(struct device *dev, const char *name,
 	if (debug_root == NULL) {
 		debug_root = debugfs_create_dir("pmic-votable", NULL);
 		if (!debug_root) {
-			dev_err(dev, "Couldn't create debug dir\n");
+			pr_err("Couldn't create debug dir\n");
 			return ERR_PTR(-ENOMEM);
 		}
 	}
 
 	if (votable_type >= NUM_VOTABLE_TYPES) {
-		dev_err(dev, "Invalid votable_type specified for voter\n");
+		pr_err("Invalid votable_type specified for voter\n");
 		return ERR_PTR(-EINVAL);
 	}
 
-	votable = devm_kzalloc(dev, sizeof(struct votable), GFP_KERNEL);
+	votable = kzalloc(sizeof(struct votable), GFP_KERNEL);
 	if (!votable)
 		return ERR_PTR(-ENOMEM);
 
-	votable->dev = dev;
-	votable->name = name;
+	votable->name = kstrdup(name, GFP_KERNEL);
+	if (!votable->name) {
+		kfree(votable);
+		return ERR_PTR(-ENOMEM);
+	}
+
 	votable->num_clients = NUM_MAX_CLIENTS;
 	votable->callback = callback;
 	votable->type = votable_type;
+	votable->data = data;
 	mutex_init(&votable->vote_lock);
 
 	/*
@@ -521,22 +530,28 @@ struct votable *create_votable(struct device *dev, const char *name,
 				  debug_root, votable,
 				  &votable_debugfs_ops);
 	if (!votable->ent) {
-		dev_err(dev, "Couldn't create %s debug file\n", name);
-		devm_kfree(dev, votable);
+		pr_err("Couldn't create %s debug file\n", name);
+		kfree(votable->name);
+		kfree(votable);
 		return ERR_PTR(-EEXIST);
 	}
 
 	return votable;
 }
 
-void destroy_votable(struct device *dev, struct votable *votable)
+void destroy_votable(struct votable *votable)
 {
 	unsigned long flags;
+	int i;
 
-	/* only disengage from list, mem will be freed with dev release */
 	spin_lock_irqsave(&votable_list_slock, flags);
 	list_del(&votable->list);
 	spin_unlock_irqrestore(&votable_list_slock, flags);
 
 	debugfs_remove(votable->ent);
+	for (i = 0; i < votable->num_clients && votable->client_strs[i]; i++)
+		kfree(votable->client_strs[i]);
+
+	kfree(votable->name);
+	kfree(votable);
 }
