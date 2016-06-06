@@ -1403,14 +1403,6 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		mdss_iommu_ctrl(0);
 	}
 
-	/* Restore any previously configured PP features by resetting the dirty
-	 * bits for enabled features. The dirty bits will be consumed during the
-	 * first display commit when the PP hardware blocks are updated
-	 */
-	rc = mdss_mdp_pp_resume(mfd);
-	if (rc && (rc != -EPERM) && (rc != -ENODEV))
-		pr_err("PP resume err %d\n", rc);
-
 	/*
 	 * Increment the overlay active count prior to calling ctl_start.
 	 * This is needed to ensure that if idle power collapse kicks in
@@ -1425,6 +1417,14 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		pr_err("mdp ctl start failed.\n");
 		goto ctl_error;
 	}
+
+	/* Restore any previously configured PP features by resetting the dirty
+	 * bits for enabled features. The dirty bits will be consumed during the
+	 * first display commit when the PP hardware blocks are updated
+	 */
+	rc = mdss_mdp_pp_resume(mfd);
+	if (rc && (rc != -EPERM) && (rc != -ENODEV))
+		pr_err("PP resume err %d\n", rc);
 
 	rc = mdss_mdp_splash_cleanup(mfd, true);
 	if (!rc)
@@ -5730,8 +5730,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	/* Adding event timer only for primary panel */
 	if ((mfd->index == 0) && (mfd->panel_info->type != WRITEBACK_PANEL)) {
-		mdp5_data->cpu_pm_hdl = add_event_timer(mdss_irq->irq, NULL,
-							(void *)mdp5_data);
+		mdp5_data->cpu_pm_hdl = add_event_timer(mdss_irq->irq,
+				mdss_mdp_ctl_event_timer, (void *)mdp5_data);
 		if (!mdp5_data->cpu_pm_hdl)
 			pr_warn("%s: unable to add event timer\n", __func__);
 	}

@@ -383,6 +383,7 @@
 			<1190400000 RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
 		cpu-vdd-supply = <&pmd9635_s5_level_ao>;
+		qcom,a7ssmux-opp-store-vcorner = <&CPU0>;
 		#clock-cells = <1>;
 	};
 

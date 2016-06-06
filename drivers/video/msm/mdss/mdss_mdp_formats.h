@@ -427,6 +427,15 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
 		.element = { C0_G_Y, C1_B_Cb, C0_G_Y, C2_R_Cr },
 	},
+	{
+		FMT_YUV_COMMON(MDP_CBYCRY_H2V1),
+		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,
+		.chroma_sample = MDSS_MDP_CHROMA_H2V1,
+		.unpack_count = 4,
+		.bpp = 2,
+		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
+		.element = { C1_B_Cb, C0_G_Y, C2_R_Cr, C0_G_Y},
+	},
 	FMT_RGB_1555(MDP_RGBA_5551, 1, VALID_ROT_WB_FORMAT |
 		VALID_MDP_CURSOR_FORMAT | VALID_MDP_WB_INTF_FORMAT,
 		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),

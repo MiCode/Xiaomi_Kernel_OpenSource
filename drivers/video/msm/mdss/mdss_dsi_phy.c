@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,6 +156,10 @@ static int mdss_dsi_phy_calc_param_phy_rev_2(struct dsi_phy_t_clk_param *t_clk,
 	s64 actual_intermediate;
 	s32 actual_frac;
 	s64 rec_temp1, rec_temp2, rec_temp3;
+	int tclk_prepare_program, dsiphy_halfbyteclk_en, tclk_zero_program;
+	int ths_request_clk_prepare, hstx_prepare_delay, temp_rec_min;
+	s64 tclk_prepare_theoretical, tclk_zero_theoretical;
+	s64 ths_request_theoretical;
 
 	/* clk_prepare calculations */
 	dividend = ((t_param->clk_prepare.rec_max
@@ -426,6 +430,85 @@ static int mdss_dsi_phy_calc_param_phy_rev_2(struct dsi_phy_t_clk_param *t_clk,
 			t_param->hs_rqst_clk.rec_min,
 			t_param->hs_rqst_clk.rec_max,
 			t_param->hs_rqst_clk.rec);
+
+	/* clk post and pre value calculation */
+	tmp = ((60 * (int)t_clk->bitclk_mbps) + (52 * 1000) - (43 * 1000));
+
+	/* clk_post minimum value can be a negetive number */
+	if (tmp % (8 * 1000) != 0) {
+		if (tmp < 0)
+			tmp = (tmp / (8 * 1000))  - 1;
+		else
+			tmp = (tmp / (8 * 1000)) + 1;
+	} else {
+		tmp = tmp / (8 * 1000);
+	}
+	tmp = tmp - 1;
+
+	t_param->clk_post.program_value =
+		DIV_ROUND_UP((63 - tmp) * hs_exit_min_frac, 100);
+	t_param->clk_post.program_value += tmp;
+
+	if (t_param->clk_post.program_value & 0xffffff00) {
+		pr_err("Invalid clk post calculations - %d\n",
+			   t_param->clk_post.program_value);
+		goto error;
+	}
+
+	t_param->clk_post.rec_min = tmp;
+
+	if (t_param->hs_rqst_clk.rec < 0)
+		ths_request_clk_prepare = 0;
+	else
+		ths_request_clk_prepare = t_param->hs_rqst_clk.program_value;
+
+	ths_request_theoretical = (ths_request_clk_prepare + 1);
+
+	tclk_prepare_program = t_param->clk_prepare.program_value;
+
+	dsiphy_halfbyteclk_en = 0;
+
+	if (t_clk->bitclk_mbps > 100)
+		hstx_prepare_delay = 0;
+	else
+		hstx_prepare_delay = 3;
+
+	tclk_prepare_theoretical = ((tclk_prepare_program * 8)
+					+ (dsiphy_halfbyteclk_en * 4)
+					+ (hstx_prepare_delay * 2));
+
+	tclk_zero_program = t_param->clk_zero.program_value;
+
+	tclk_zero_theoretical = ((tclk_zero_program + 3) * 8) + 11
+						- (hstx_prepare_delay * 2);
+
+	temp_rec_min = (8 * 1000) + (tclk_prepare_theoretical * 1000)
+			+ (tclk_zero_theoretical * 1000)
+			+ (ths_request_theoretical * 8 * 1000);
+
+	t_param->clk_pre.rec_min = DIV_ROUND_UP(temp_rec_min, 8 * 1000) - 1;
+
+	if (t_param->clk_pre.rec_min > 63) {
+		t_param->clk_pre.program_value =
+			DIV_ROUND_UP((2 * 63 - t_param->clk_pre.rec_min)
+						* hs_exit_min_frac, 100);
+		t_param->clk_pre.program_value += t_param->clk_pre.rec_min;
+	} else {
+		t_param->clk_pre.program_value =
+			DIV_ROUND_UP((63 - t_param->clk_pre.rec_min)
+						* hs_exit_min_frac, 100);
+		t_param->clk_pre.program_value += t_param->clk_pre.rec_min;
+	}
+
+	if (t_param->clk_pre.program_value & 0xffffff00) {
+		pr_err("Invalid clk pre calculations - %d\n",
+				t_param->clk_pre.program_value);
+		goto error;
+	}
+	pr_debug("t_clk_post: %d t_clk_pre: %d\n",
+			t_param->clk_post.program_value,
+			t_param->clk_pre.program_value);
+
 	pr_debug("teot_clk=%d, data=%d\n", teot_clk_lane, teot_data_lane);
 	return 0;
 
@@ -441,7 +524,8 @@ static int mdss_dsi_phy_calc_hs_param_phy_rev_1(
 	int percent_allowable_phy = 0;
 	int percent_min_ths;
 	int tmp, rc = 0;
-	int b6, h10, h11, h17;
+	int tclk_prepare_theoretical, tclk_zero_theoretical;
+	int tlpx, ths_exit_theoretical;
 
 	if (t_clk->bitclk_mbps > 1200)
 		percent_min_ths = 15;
@@ -507,9 +591,9 @@ static int mdss_dsi_phy_calc_hs_param_phy_rev_1(
 		goto error;
 
 	/* clk post and pre value calculation */
-	h17 = (t_param->hs_exit.program_value / 2) + 1;
+	ths_exit_theoretical = (t_param->hs_exit.program_value / 2) + 1;
 	tmp = ((60 * (int)t_clk->bitclk_mbps) + (52 * 1000)
-			- (24 * 1000) - (h17 * 2 * 1000));
+			- (24 * 1000) - (ths_exit_theoretical * 2 * 1000));
 	/* clk_post minimum value can be a negetive number */
 	if (tmp % (8 * 1000) != 0) {
 		if (tmp < 0)
@@ -533,13 +617,14 @@ static int mdss_dsi_phy_calc_hs_param_phy_rev_1(
 
 	t_param->clk_post.rec_min = tmp;
 
-	h10 = (t_param->clk_prepare.program_value / 2) + 1;
-	h11 = (t_param->clk_zero.program_value / 2) + 1;
-	b6 = 10000/t_clk->escclk_numer;
+	tclk_prepare_theoretical = (t_param->clk_prepare.program_value / 2) + 1;
+	tclk_zero_theoretical = (t_param->clk_zero.program_value / 2) + 1;
+	tlpx = 10000/t_clk->escclk_numer;
 
 	t_param->clk_pre.rec_min =
-		DIV_ROUND_UP((b6 * t_clk->bitclk_mbps) + (8 * 1000)
-			+ (h10 * 2 * 1000) + (h11 * 2 * 1000), 8 * 1000) - 1;
+		DIV_ROUND_UP((tlpx * t_clk->bitclk_mbps) + (8 * 1000)
+			+ (tclk_prepare_theoretical * 2 * 1000)
+			+ (tclk_zero_theoretical * 2 * 1000), 8 * 1000) - 1;
 	if (t_param->clk_pre.rec_min > 63) {
 		t_param->clk_pre.program_value =
 			DIV_ROUND_UP((2 * 63 - t_param->clk_pre.rec_min)
@@ -712,6 +797,9 @@ static void mdss_dsi_phy_update_timing_param_rev_2(
 	int i = 0;
 
 	reg = &(pinfo->mipi.dsi_phy_db);
+
+	pinfo->mipi.t_clk_post = t_param->clk_post.program_value;
+	pinfo->mipi.t_clk_pre = t_param->clk_pre.program_value;
 
 	for (i = 0; i < TIMING_PARAM_DLANE_COUNT; i += 8) {
 		reg->timing_8996[i] = t_param->hs_exit.program_value;

@@ -132,6 +132,8 @@ static int mdm_sec_mi2s_tx_rate = SAMPLE_RATE_48KHZ;
 
 static int mdm_spk_control = 1;
 static int mdm_hifi_control;
+static atomic_t mi2s_ref_count;
+static atomic_t sec_mi2s_ref_count;
 
 static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
@@ -244,9 +246,11 @@ static void mdm_mi2s_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int ret;
 
-	ret = mdm_mi2s_clk_ctl(rtd, false);
-	if (ret < 0)
-		pr_err("%s Clock disable failed\n", __func__);
+	if (atomic_dec_return(&mi2s_ref_count) == 0) {
+		ret = mdm_mi2s_clk_ctl(rtd, false);
+		if (ret < 0)
+			pr_err("%s Clock disable failed\n", __func__);
+	}
 }
 
 static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
@@ -258,100 +262,103 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
-
-	if (lpaif_pri_muxsel_virt_addr != NULL) {
-		ret = afe_enable_lpass_core_shared_clock(MI2S_RX,
-							 CLOCK_ON);
-		if (ret < 0) {
-			ret = -EINVAL;
-			goto done;
-		}
-		iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
-			  lpaif_pri_muxsel_virt_addr);
-		if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL) {
-			if (pdata->prim_mi2s_mode == 1) {
-				iowrite32(PRI_TLMM_CLKS_EN_MASTER,
-				  lpass_gpio_mux_spkr_ctl_virt_addr);
-			} else if (pdata->prim_mi2s_mode == 0) {
-				iowrite32(PRI_TLMM_CLKS_EN_SLAVE,
-				  lpass_gpio_mux_spkr_ctl_virt_addr);
+	if (atomic_inc_return(&mi2s_ref_count) == 1) {
+		if (lpaif_pri_muxsel_virt_addr != NULL) {
+			ret = afe_enable_lpass_core_shared_clock(MI2S_RX,
+								 CLOCK_ON);
+			if (ret < 0) {
+				ret = -EINVAL;
+				goto done;
+			}
+			iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
+				  lpaif_pri_muxsel_virt_addr);
+			if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL) {
+				if (pdata->prim_mi2s_mode == 1) {
+					iowrite32(PRI_TLMM_CLKS_EN_MASTER,
+					  lpass_gpio_mux_spkr_ctl_virt_addr);
+				} else if (pdata->prim_mi2s_mode == 0) {
+					iowrite32(PRI_TLMM_CLKS_EN_SLAVE,
+					  lpass_gpio_mux_spkr_ctl_virt_addr);
+				} else {
+					dev_err(card->dev, "%s Invalid primary mi2s mode\n",
+						__func__);
+					ret = -EINVAL;
+					goto err;
+				}
 			} else {
-				dev_err(card->dev, "%s Invalid primary mi2s mode\n",
-					__func__);
+				dev_err(card->dev, "%s: mux spkr ctl virt addr is NULL\n",
+					   __func__);
+
 				ret = -EINVAL;
 				goto err;
 			}
 		} else {
-			dev_err(card->dev, "%s: mux spkr ctl virt addr is NULL\n",
-			       __func__);
+			dev_err(card->dev, "%s lpaif_pri_muxsel_virt_addr is NULL\n",
+				__func__);
 
 			ret = -EINVAL;
-			goto err;
+			goto done;
 		}
-	} else {
-		dev_err(card->dev, "%s lpaif_pri_muxsel_virt_addr is NULL\n",
-			__func__);
-
-		ret = -EINVAL;
-		goto done;
-	}
-	/*
-	 * This sets the CONFIG PARAMETER WS_SRC.
-	 * 1 means internal clock master mode.
-	 * 0 means external clock slave mode.
-	 */
-	if (pdata->prim_mi2s_mode == 1) {
-		ret = mdm_mi2s_clk_ctl(rtd, true);
-		if (ret < 0) {
-			dev_err(card->dev, "%s clock enable failed\n",
-					__func__);
-			goto err;
-		}
-		ret = snd_soc_dai_set_fmt(cpu_dai,
-				SND_SOC_DAIFMT_CBS_CFS);
-		if (ret < 0) {
-			mdm_mi2s_clk_ctl(rtd, false);
-			dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
-				__func__);
-			goto err;
-		}
-		ret = snd_soc_dai_set_fmt(codec_dai,
-				SND_SOC_DAIFMT_CBS_CFS);
-		if (ret < 0) {
-			mdm_mi2s_clk_ctl(rtd, false);
-			dev_err(card->dev, "%s Set fmt for codec dai failed\n",
-				__func__);
-		}
-	} else if (pdata->prim_mi2s_mode == 0) {
 		/*
-		 * Disable bit clk in slave mode for QC codec.
-		 * Enable only mclk.
+		 * This sets the CONFIG PARAMETER WS_SRC.
+		 * 1 means internal clock master mode.
+		 * 0 means external clock slave mode.
 		 */
-		ret = mdm_mi2s_clk_ctl(rtd, false);
-		if (ret < 0) {
-			dev_err(card->dev,
-				"%s clock enable failed\n", __func__);
-			goto err;
+		if (pdata->prim_mi2s_mode == 1) {
+			ret = mdm_mi2s_clk_ctl(rtd, true);
+			if (ret < 0) {
+				dev_err(card->dev, "%s clock enable failed\n",
+						__func__);
+				goto err;
+			}
+			ret = snd_soc_dai_set_fmt(cpu_dai,
+					SND_SOC_DAIFMT_CBS_CFS);
+			if (ret < 0) {
+				mdm_mi2s_clk_ctl(rtd, false);
+				dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
+					__func__);
+				goto err;
+			}
+			ret = snd_soc_dai_set_fmt(codec_dai,
+					SND_SOC_DAIFMT_CBS_CFS);
+			if (ret < 0) {
+				mdm_mi2s_clk_ctl(rtd, false);
+				dev_err(card->dev, "%s Set fmt for codec dai failed\n",
+					__func__);
+			}
+		} else if (pdata->prim_mi2s_mode == 0) {
+			/*
+			 * Disable bit clk in slave mode for QC codec.
+			 * Enable only mclk.
+			 */
+			ret = mdm_mi2s_clk_ctl(rtd, false);
+			if (ret < 0) {
+				dev_err(card->dev,
+					"%s clock enable failed\n", __func__);
+				goto err;
+			}
+			ret = snd_soc_dai_set_fmt(cpu_dai,
+					SND_SOC_DAIFMT_CBM_CFM);
+			if (ret < 0) {
+				dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
+					__func__);
+				goto err;
+			}
+			ret = snd_soc_dai_set_fmt(codec_dai,
+					SND_SOC_DAIFMT_CBM_CFM);
+			if (ret < 0)
+				dev_err(card->dev, "%s Set fmt for codec dai failed\n",
+					__func__);
+		} else {
+			dev_err(card->dev, "%s Invalid primary mi2s mode\n",
+					__func__);
+			ret = -EINVAL;
 		}
-		ret = snd_soc_dai_set_fmt(cpu_dai,
-				SND_SOC_DAIFMT_CBM_CFM);
-		if (ret < 0) {
-			dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
-				__func__);
-			goto err;
-		}
-		ret = snd_soc_dai_set_fmt(codec_dai,
-				SND_SOC_DAIFMT_CBM_CFM);
-		if (ret < 0)
-			dev_err(card->dev, "%s Set fmt for codec dai failed\n",
-				__func__);
-	} else {
-		dev_err(card->dev, "%s Invalid primary mi2s mode\n", __func__);
-		ret = -EINVAL;
-	}
-
 err:
-	afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
+		if (ret)
+			atomic_dec_return(&mi2s_ref_count);
+		afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
+	}
 done:
 	return ret;
 }
@@ -405,10 +412,11 @@ static void mdm_sec_mi2s_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int ret;
-
-	ret = mdm_sec_mi2s_clk_ctl(rtd, false);
-	if (ret < 0)
-		pr_err("%s Clock disable failed\n", __func__);
+	if (atomic_dec_return(&sec_mi2s_ref_count) == 0) {
+		ret = mdm_sec_mi2s_clk_ctl(rtd, false);
+		if (ret < 0)
+			pr_err("%s Clock disable failed\n", __func__);
+	}
 }
 
 static int mdm_sec_mi2s_startup(struct snd_pcm_substream *substream)
@@ -419,81 +427,86 @@ static int mdm_sec_mi2s_startup(struct snd_pcm_substream *substream)
 	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
-	if (lpaif_sec_muxsel_virt_addr != NULL) {
-		ret = afe_enable_lpass_core_shared_clock(
-				SECONDARY_I2S_RX, CLOCK_ON);
-		if (ret < 0) {
-			ret = -EINVAL;
-			goto done;
-		}
-		iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
-			  lpaif_sec_muxsel_virt_addr);
+	if (atomic_inc_return(&sec_mi2s_ref_count) == 1) {
+		if (lpaif_sec_muxsel_virt_addr != NULL) {
+			ret = afe_enable_lpass_core_shared_clock(
+					SECONDARY_I2S_RX, CLOCK_ON);
+			if (ret < 0) {
+				ret = -EINVAL;
+				goto done;
+			}
+			iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
+				  lpaif_sec_muxsel_virt_addr);
 
-		if (lpass_gpio_mux_mic_ctl_virt_addr != NULL) {
-			if (pdata->sec_mi2s_mode == 1) {
-				iowrite32(SEC_TLMM_CLKS_EN_MASTER,
-				      lpass_gpio_mux_mic_ctl_virt_addr);
-			} else if (pdata->sec_mi2s_mode == 0) {
-				iowrite32(SEC_TLMM_CLKS_EN_SLAVE,
-				      lpass_gpio_mux_mic_ctl_virt_addr);
+			if (lpass_gpio_mux_mic_ctl_virt_addr != NULL) {
+				if (pdata->sec_mi2s_mode == 1) {
+					iowrite32(SEC_TLMM_CLKS_EN_MASTER,
+					lpass_gpio_mux_mic_ctl_virt_addr);
+				} else if (pdata->sec_mi2s_mode == 0) {
+					iowrite32(SEC_TLMM_CLKS_EN_SLAVE,
+					lpass_gpio_mux_mic_ctl_virt_addr);
+				} else {
+					dev_err(card->dev, "%s Invalid secondary mi2s mode\n",
+						__func__);
+					ret = -EINVAL;
+					goto err;
+				}
 			} else {
-				dev_err(card->dev, "%s Invalid secondary mi2s mode\n",
-					__func__);
+				dev_err(card->dev, "%s: mux spkr ctl virt addr is NULL\n",
+					   __func__);
 				ret = -EINVAL;
 				goto err;
 			}
+
 		} else {
-			dev_err(card->dev, "%s: mux spkr ctl virt addr is NULL\n",
-			       __func__);
+			dev_err(card->dev, "%s lpaif_sec_muxsel_virt_addr is NULL\n",
+				__func__);
 			ret = -EINVAL;
-			goto err;
+			goto done;
 		}
-
-	} else {
-		dev_err(card->dev, "%s lpaif_sec_muxsel_virt_addr is NULL\n",
-			__func__);
-		ret = -EINVAL;
-		goto done;
-	}
-	/*
-	 * This sets the CONFIG PARAMETER WS_SRC.
-	 * 1 means internal clock master mode.
-	 * 0 means external clock slave mode.
-	 */
-	if (pdata->sec_mi2s_mode == 1) {
-		ret = mdm_sec_mi2s_clk_ctl(rtd, true);
-		if (ret < 0) {
-			dev_err(card->dev, "%s clock enable failed\n",
-				__func__);
-			goto err;
-		}
-		ret = snd_soc_dai_set_fmt(cpu_dai,
-			SND_SOC_DAIFMT_CBS_CFS);
-		if (ret < 0) {
-			ret = mdm_sec_mi2s_clk_ctl(rtd, false);
-			dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
-				__func__);
-		}
-	} else if (pdata->sec_mi2s_mode == 0) {
 		/*
-		 * Enable mclk here, if needed for external codecs.
-		 * Optional. Refer primary mi2s slave interface.
+		 * This sets the CONFIG PARAMETER WS_SRC.
+		 * 1 means internal clock master mode.
+		 * 0 means external clock slave mode.
 		 */
-		ret = snd_soc_dai_set_fmt(cpu_dai,
-		SND_SOC_DAIFMT_CBM_CFM);
-		if (ret < 0)
+		if (pdata->sec_mi2s_mode == 1) {
+			ret = mdm_sec_mi2s_clk_ctl(rtd, true);
+			if (ret < 0) {
+				dev_err(card->dev, "%s clock enable failed\n",
+					__func__);
+				goto err;
+			}
+			ret = snd_soc_dai_set_fmt(cpu_dai,
+				SND_SOC_DAIFMT_CBS_CFS);
+			if (ret < 0) {
+				ret = mdm_sec_mi2s_clk_ctl(rtd, false);
+				dev_err(card->dev, "%s Set fmt for cpu dai failed\n",
+					__func__);
+			}
+		} else if (pdata->sec_mi2s_mode == 0) {
+			/*
+			 * Enable mclk here, if needed for external codecs.
+			 * Optional. Refer primary mi2s slave interface.
+			 */
+			ret = snd_soc_dai_set_fmt(cpu_dai,
+			SND_SOC_DAIFMT_CBM_CFM);
+			if (ret < 0)
+				dev_err(card->dev,
+					"%s Set fmt for cpu dai failed\n",
+					__func__);
+		} else {
 			dev_err(card->dev,
-				"%s Set fmt for cpu dai failed\n",
+				"%s Invalid secondary mi2s mode\n",
 				__func__);
-	} else {
-		dev_err(card->dev,
-			"%s Invalid secondary mi2s mode\n",
-			__func__);
-		ret = -EINVAL;
-	}
-
+			ret = -EINVAL;
+		}
 err:
-	afe_enable_lpass_core_shared_clock(SECONDARY_I2S_RX, CLOCK_OFF);
+			if (ret)
+				atomic_dec_return(&sec_mi2s_ref_count);
+			afe_enable_lpass_core_shared_clock(
+							SECONDARY_I2S_RX,
+							CLOCK_OFF);
+	}
 done:
 	return ret;
 }
@@ -2185,6 +2198,8 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&cdc_mclk_mutex);
+	atomic_set(&mi2s_ref_count, 0);
+	atomic_set(&sec_mi2s_ref_count, 0);
 	pdata->prim_clk_usrs = 0;
 
 	card->dev = &pdev->dev;

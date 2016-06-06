@@ -78,6 +78,7 @@
 #define POLARITY_100_500_BIT		BIT(2)
 #define USB_CTRL_BY_PIN_BIT		BIT(1)
 #define HVDCP_5_9_BIT			BIT(4)
+#define HVDCP_EN_BIT			BIT(3)
 
 #define CFG_11_REG			0x11
 #define PRIORITY_BIT			BIT(7)
@@ -646,14 +647,6 @@ static char *usb_type_str[] = {
 	"NONE",		/* bit 8  error case */
 };
 
-/* helper to return the string of USB type */
-static char *get_usb_type_name(u8 stat_5)
-{
-	unsigned long stat = stat_5;
-
-	return usb_type_str[find_first_bit(&stat, SMB135X_BITS_PER_REG)];
-}
-
 static enum power_supply_type usb_type_enum[] = {
 	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 0 */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 1 */
@@ -666,12 +659,29 @@ static enum power_supply_type usb_type_enum[] = {
 	POWER_SUPPLY_TYPE_UNKNOWN,	/* bit 8 error case, report UNKNWON */
 };
 
-/* helper to return enum power_supply_type of USB type */
-static enum power_supply_type get_usb_supply_type(u8 stat_5)
+static int get_usb_type_index(struct smb135x_chg *chip, u8 stat_5,
+					int *type_index)
 {
+	u8 cfg_e;
+	int rc;
 	unsigned long stat = stat_5;
+	*type_index = find_first_bit(&stat, SMB135X_BITS_PER_REG);
 
-	return usb_type_enum[find_first_bit(&stat, SMB135X_BITS_PER_REG)];
+	rc = smb135x_read(chip, CFG_E_REG, &cfg_e);
+	if (rc < 0) {
+		pr_err("Couldn't read cfg_e_reg rc = %d\n", rc);
+		return rc;
+	}
+
+	/* To handle the case where SDP is detected as DCP if
+	 * battery is missing, change usb_type to SDP if
+	 * HVDCP is disabled
+	 */
+	if (usb_type_enum[*type_index] == POWER_SUPPLY_TYPE_USB_DCP &&
+	    !chip->batt_present && !(cfg_e & HVDCP_EN_BIT))
+		*type_index = POWER_SUPPLY_TYPE_USB;
+
+	return 0;
 }
 
 static enum power_supply_property smb135x_battery_properties[] = {
@@ -2741,6 +2751,7 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 {
 	u8 reg;
 	int rc;
+	int usb_type_index;
 	char *usb_type_name = "null";
 	enum power_supply_type usb_supply_type;
 
@@ -2758,8 +2769,14 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 	if (chip->workaround_flags & WRKARND_APSD_FAIL)
 		reg = 0;
 
-	usb_type_name = get_usb_type_name(reg);
-	usb_supply_type = get_usb_supply_type(reg);
+	rc = get_usb_type_index(chip, reg, &usb_type_index);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Error getting usb_type_index rc = %d\n", rc);
+		return rc;
+	}
+	usb_type_name = usb_type_str[usb_type_index];
+	usb_supply_type =  usb_type_enum[usb_type_index];
 	pr_debug("inserted %s, usb psy type = %d stat_5 = 0x%02x apsd_rerun = %d\n",
 			usb_type_name, usb_supply_type, reg, chip->apsd_rerun);
 
@@ -2772,10 +2789,6 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 			rerun_apsd(chip);
 			/* rising edge of src detect will happen in few mS */
 			return 0;
-		} else {
-			pr_debug("Set usb psy dp=f dm=f DCP and no rerun\n");
-			power_supply_set_dp_dm(chip->usb_psy,
-					POWER_SUPPLY_DP_DM_DPF_DMF);
 		}
 	}
 
@@ -2814,6 +2827,12 @@ static int usbin_uv_handler(struct smb135x_chg *chip, u8 rt_stat)
 	 * rt_stat indicates if usb is undervolted
 	 */
 	bool usb_present = !rt_stat;
+
+	if (usb_present) {
+		pr_debug("Set usb psy dp=f dm=f\n");
+		power_supply_set_dp_dm(chip->usb_psy,
+				POWER_SUPPLY_DP_DM_DPF_DMF);
+	}
 
 	pr_debug("chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);

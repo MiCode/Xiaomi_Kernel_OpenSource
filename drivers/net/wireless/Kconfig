@@ -303,6 +303,20 @@ config WCNSS_MEM_PRE_ALLOC
 	  for it's internal usage and release it to back to pre allocated pool.
 	  This memory is allocated at the cold boot time.
 
+config WCNSS_SKB_PRE_ALLOC
+	tristate "CNSS pre-alloc memory support for skb"
+	depends on WCNSS_MEM_PRE_ALLOC
+	---help---
+	 The cnss wlan module which has interfaced with high latency
+	 bus(e.g. SDIO) needs physical contiguous memory more than one
+	 page for its socket buffer initialization. If the system memory
+	 has high fragmented it’s not possible to get this much huge
+	 physically contiguous memory through dynamic memory allocation.
+
+	 This feature enable socket buffer to use pre allocated memory
+	 for socket buffer initialization and release it to back to
+	 pre-allocated pool.
+
 config CNSS_CRYPTO
 	tristate "Enable CNSS crypto support"
 	---help---
