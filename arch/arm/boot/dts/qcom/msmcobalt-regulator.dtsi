@@ -533,45 +533,6 @@
 /* Stub regulators */
 
 / {
-
-	/* PMCOBALT S10 = APC_0 supply */
-	pmcobalt_s10: regulator-pmcobalt-s10 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_s10";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <352000>;
-		regulator-max-microvolt = <952000>;
-	};
-
-	/*
-	 * PMCOBALT S11 + S12 + S13 = 3 phase APC_1 supply
-	 * S13 is the gang leader
-	 */
-	pmcobalt_s13: regulator-pmcobalt-s13 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_s13";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <352000>;
-		regulator-max-microvolt = <952000>;
-	};
-
-	/* PM8005 S2 = VDD_MODEM supply */
-	pm8005_s2: regulator-pm8005-s2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8005_s2";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <352000>;
-		regulator-max-microvolt = <952000>;
-	};
-
-	pm8005_s3: regulator-pm8005-s3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8005_s3";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <600000>;
-		regulator-max-microvolt = <600000>;
-	};
-
 	gfx_stub_vreg: regulator-gfx-stub {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "gfx_stub_corner";
