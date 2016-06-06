@@ -29,6 +29,15 @@ config MSM_DLOAD_MODE
 		make the kernel reboot on a kernel panic - that must be
 		enabled via another mechanism.
 
+config MSM_PRESERVE_MEM
+	bool "Always preserve memory on restart"
+	depends on POWER_RESET_MSM
+	help
+	  If crash to download mode is disabled and restart reason is null
+	  the system will always perform a hard reset, which wipes out
+	  persistent memory contents. Select this option to always perform
+	  a soft reset that preserves memory contents.
+
 config POWER_RESET_QNAP
 	bool "QNAP power-off driver"
 	depends on OF_GPIO && POWER_RESET && PLAT_ORION
