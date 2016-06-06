@@ -14,6 +14,7 @@
 #define _IPAHAL_H_
 
 #include <linux/msm_ipa.h>
+#include "../../ipa_common_i.h"
 
 /*
  * Immediate command names
@@ -617,12 +618,13 @@ void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *hdr, u32 hdr_len);
  * @is_hdr_proc_ctx: header is located in phys_base (true) or hdr_base_addr
  * @phys_base: memory location in DDR
  * @hdr_base_addr: base address in table
- * @hdr_offset_entry: offset from hdr_base_addr in table
+ * @offset_entry: offset from hdr_base_addr in table
  */
 void ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		void *base, u32 offset, u32 hdr_len,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
-		u32 hdr_base_addr, u32 hdr_offset_entry);
+		u32 hdr_base_addr,
+		struct ipa_hdr_offset_entry *offset_entry);
 
 /*
  * ipahal_get_proc_ctx_needed_len() - calculates the needed length for addition

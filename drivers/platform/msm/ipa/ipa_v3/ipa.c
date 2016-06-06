@@ -4197,7 +4197,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 	ipa3_ctx->hdr_offset_cache =
 	   kmem_cache_create("IPA_HDR_OFFSET",
-			   sizeof(struct ipa3_hdr_offset_entry), 0, 0, NULL);
+			   sizeof(struct ipa_hdr_offset_entry), 0, 0, NULL);
 	if (!ipa3_ctx->hdr_offset_cache) {
 		IPAERR(":ipa hdr off cache create failed\n");
 		result = -ENOMEM;
