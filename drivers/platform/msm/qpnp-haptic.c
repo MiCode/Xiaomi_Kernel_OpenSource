@@ -140,8 +140,6 @@
 #define QPNP_TEST_TIMER_MS		5
 
 #define QPNP_HAP_TIME_REQ_FOR_BACK_EMF_GEN 20000
-#define AUTO_RES_ERR_CAPTURE_RES	5
-#define AUTO_RES_ERR_MAX		15
 
 #define MISC_TRIM_ERROR_RC19P2_CLK	0x09F5
 #define MISC_SEC_ACCESS			0x09D0
@@ -150,8 +148,22 @@
 
 #define POLL_TIME_AUTO_RES_ERR_NS	(5 * NSEC_PER_MSEC)
 
-#define LRA_POS_FREQ_COUNT		6
-int lra_play_rate_code[LRA_POS_FREQ_COUNT];
+#define MAX_POSITIVE_VARIATION_LRA_FREQ 30
+#define MAX_NEGATIVE_VARIATION_LRA_FREQ -30
+#define FREQ_VARIATION_STEP		5
+#define AUTO_RES_ERROR_CAPTURE_RES	5
+#define AUTO_RES_ERROR_MAX		30
+#define ADJUSTED_LRA_PLAY_RATE_CODE_ARRSIZE \
+	((MAX_POSITIVE_VARIATION_LRA_FREQ - MAX_NEGATIVE_VARIATION_LRA_FREQ) \
+	 / FREQ_VARIATION_STEP)
+#define LRA_DRIVE_PERIOD_POS_ERR(hap, rc_clk_err_percent) \
+		(hap->init_drive_period_code = (hap->init_drive_period_code * \
+					(1000 + rc_clk_err_percent_x10)) / 1000)
+#define LRA_DRIVE_PERIOD_NEG_ERR(hap, rc_clk_err_percent) \
+		(hap->init_drive_period_code = (hap->init_drive_period_code * \
+					(1000 - rc_clk_err_percent_x10)) / 1000)
+
+u32 adjusted_lra_play_rate_code[ADJUSTED_LRA_PLAY_RATE_CODE_ARRSIZE];
 
 /* haptic debug register set */
 static u8 qpnp_hap_dbg_regs[] = {
@@ -244,6 +256,15 @@ struct qpnp_pwm_info {
  *  @ pwm_info - pwm info
  *  @ lock - mutex lock
  *  @ wf_lock - mutex lock for waveform
+ *  @ init_drive_period_code - the initial lra drive period code
+ *  @ drive_period_code_max_limit_percent_variation - maximum limit of
+      percentage variation of drive period code
+ *  @ drive_period_code_min_limit_percent_variation - minimum limit og
+      percentage variation of drive period code
+ *  @ drive_period_code_max_limit - calculated drive period code with
+      percentage variation on the higher side.
+ *  @ drive_period_code_min_limit - calculated drive period code with
+      percentage variation on the lower side
  *  @ play_mode - play mode
  *  @ auto_res_mode - auto resonace mode
  *  @ lra_high_z - high z option line
@@ -280,6 +301,8 @@ struct qpnp_pwm_info {
  *  @ sup_brake_pat - support custom brake pattern
  *  @ correct_lra_drive_freq - correct LRA Drive Frequency
  *  @ misc_trim_error_rc19p2_clk_reg_present - if MISC Trim Error reg is present
+ *  @ perform_lra_auto_resonance_search - whether lra auto resonance search
+ *    algorithm should be performed or not.
  */
 struct qpnp_hap {
 	struct spmi_device *spmi;
@@ -299,6 +322,11 @@ struct qpnp_hap {
 	enum qpnp_hap_mode play_mode;
 	enum qpnp_hap_auto_res_mode auto_res_mode;
 	enum qpnp_hap_high_z lra_high_z;
+	u32 init_drive_period_code;
+	u8 drive_period_code_max_limit_percent_variation;
+	u8 drive_period_code_min_limit_percent_variation;
+	u16 drive_period_code_max_limit;
+	u16 drive_period_code_min_limit;
 	u32 timeout_ms;
 	u32 time_required_to_generate_back_emf_us;
 	u32 vmax_mv;
@@ -333,6 +361,7 @@ struct qpnp_hap {
 	bool sup_brake_pat;
 	bool correct_lra_drive_freq;
 	bool misc_trim_error_rc19p2_clk_reg_present;
+	bool perform_lra_auto_resonance_search;
 };
 
 static struct qpnp_hap *ghap;
@@ -1341,29 +1370,62 @@ static struct device_attribute qpnp_hap_attrs[] = {
 			qpnp_hap_min_max_test_data_store),
 };
 
-static void calculate_lra_code(struct qpnp_hap *hap)
+static int calculate_lra_code(struct qpnp_hap *hap)
 {
-	u8 play_rate_code_lo, play_rate_code_hi;
-	int play_rate_code, neg_idx = 0, pos_idx = LRA_POS_FREQ_COUNT-1;
-	int lra_init_freq, freq_variation, start_variation = AUTO_RES_ERR_MAX;
+	u8 lra_drive_period_code_lo = 0, lra_drive_period_code_hi = 0;
+	u32 lra_drive_period_code, lra_drive_frequency_hz, freq_variation;
+	u8 start_variation = AUTO_RES_ERROR_MAX, i;
+	u8 neg_idx = 0, pos_idx = ADJUSTED_LRA_PLAY_RATE_CODE_ARRSIZE - 1;
+	int rc = 0;
 
-	qpnp_hap_read_reg(hap, &play_rate_code_lo,
-				QPNP_HAP_RATE_CFG1_REG(hap->base));
-	qpnp_hap_read_reg(hap, &play_rate_code_hi,
-				QPNP_HAP_RATE_CFG2_REG(hap->base));
-
-	play_rate_code = (play_rate_code_hi << 8) | (play_rate_code_lo & 0xff);
-
-	lra_init_freq = 200000 / play_rate_code;
-
-	while (start_variation >= AUTO_RES_ERR_CAPTURE_RES) {
-		freq_variation = (lra_init_freq * start_variation) / 100;
-		lra_play_rate_code[neg_idx++] = 200000 / (lra_init_freq -
-					freq_variation);
-		lra_play_rate_code[pos_idx--] = 200000 / (lra_init_freq +
-					freq_variation);
-		start_variation -= AUTO_RES_ERR_CAPTURE_RES;
+	rc = qpnp_hap_read_reg(hap, &lra_drive_period_code_lo,
+			QPNP_HAP_RATE_CFG1_REG(hap->base));
+	if (rc) {
+		dev_err(&hap->spmi->dev,
+				"Error while reading RATE_CFG1 register\n");
+		return rc;
 	}
+
+	rc = qpnp_hap_read_reg(hap, &lra_drive_period_code_hi,
+			QPNP_HAP_RATE_CFG2_REG(hap->base));
+	if (rc) {
+		dev_err(&hap->spmi->dev,
+				"Error while reading RATE_CFG2 register\n");
+		return rc;
+	}
+
+	if (!lra_drive_period_code_lo && !lra_drive_period_code_hi) {
+		dev_err(&hap->spmi->dev,
+			"Unexpected Error: both RATE_CFG1 and RATE_CFG2 read 0\n");
+		return -EINVAL;
+	}
+
+	lra_drive_period_code =
+	 (lra_drive_period_code_hi << 8) | (lra_drive_period_code_lo & 0xff);
+	lra_drive_frequency_hz = 200000 / lra_drive_period_code;
+
+	while (start_variation >= AUTO_RES_ERROR_CAPTURE_RES) {
+		freq_variation =
+			 (lra_drive_frequency_hz * start_variation) / 100;
+		adjusted_lra_play_rate_code[neg_idx++] =
+			200000 / (lra_drive_frequency_hz - freq_variation);
+		adjusted_lra_play_rate_code[pos_idx--] =
+			200000 / (lra_drive_frequency_hz + freq_variation);
+		start_variation -= AUTO_RES_ERROR_CAPTURE_RES;
+	}
+
+	dev_dbg(&hap->spmi->dev,
+		"lra_drive_period_code_lo = 0x%x lra_drive_period_code_hi = 0x%x\n"
+		"lra_drive_period_code = 0x%x, lra_drive_frequency_hz = 0x%x\n"
+		"Calculated play rate code values are :\n",
+		lra_drive_period_code_lo, lra_drive_period_code_hi,
+		lra_drive_period_code, lra_drive_frequency_hz);
+
+	for (i = 0; i < ADJUSTED_LRA_PLAY_RATE_CODE_ARRSIZE; ++i)
+		dev_dbg(&hap->spmi->dev,
+			 " 0x%x", adjusted_lra_play_rate_code[i]);
+
+	return 0;
 }
 
 static int qpnp_hap_auto_res_enable(struct qpnp_hap *hap, int enable)
@@ -1396,20 +1458,37 @@ static int qpnp_hap_auto_res_enable(struct qpnp_hap *hap, int enable)
 static void update_lra_frequency(struct qpnp_hap *hap)
 {
 	u8 lra_auto_res_lo = 0, lra_auto_res_hi = 0;
+	u32 play_rate_code;
 
 	qpnp_hap_read_reg(hap, &lra_auto_res_lo,
 				QPNP_HAP_LRA_AUTO_RES_LO(hap->base));
 	qpnp_hap_read_reg(hap, &lra_auto_res_hi,
 				QPNP_HAP_LRA_AUTO_RES_HI(hap->base));
 
-	if (lra_auto_res_lo && lra_auto_res_hi) {
-		qpnp_hap_write_reg(hap, &lra_auto_res_lo,
-				QPNP_HAP_RATE_CFG1_REG(hap->base));
+	play_rate_code =
+		 (lra_auto_res_hi & 0xF0) << 4 | (lra_auto_res_lo & 0xFF);
 
-		lra_auto_res_hi = lra_auto_res_hi >> 4;
-		qpnp_hap_write_reg(hap, &lra_auto_res_hi,
-				QPNP_HAP_RATE_CFG2_REG(hap->base));
-	}
+	dev_dbg(&hap->spmi->dev,
+		"lra_auto_res_lo = 0x%x lra_auto_res_hi = 0x%x play_rate_code = 0x%x\n",
+		lra_auto_res_lo, lra_auto_res_hi, play_rate_code);
+
+	/*
+	 * If the drive period code read from AUTO RES_LO and AUTO_RES_HI
+	 * registers is more than the max limit percent variation read from
+	 * DT or less than the min limit percent variation read from DT, then
+	 * RATE_CFG registers are not uptdated.
+	 */
+
+	if ((play_rate_code <= hap->drive_period_code_min_limit) ||
+		(play_rate_code >= hap->drive_period_code_max_limit))
+		return;
+
+	qpnp_hap_write_reg(hap, &lra_auto_res_lo,
+					QPNP_HAP_RATE_CFG1_REG(hap->base));
+
+	lra_auto_res_hi = lra_auto_res_hi >> 4;
+	qpnp_hap_write_reg(hap, &lra_auto_res_hi,
+					QPNP_HAP_RATE_CFG2_REG(hap->base));
 }
 
 static enum hrtimer_restart detect_auto_res_error(struct hrtimer *timer)
@@ -1439,36 +1518,38 @@ static void correct_auto_res_error(struct work_struct *auto_res_err_work)
 				struct qpnp_hap, auto_res_err_work);
 
 	u8 lra_code_lo, lra_code_hi, disable_hap = 0x00;
-	static int lra_freq_index;
-	ktime_t currtime, remaining_time;
-	int temp, rem = 0, index = lra_freq_index % LRA_POS_FREQ_COUNT;
+	static u8 lra_freq_index;
+	ktime_t currtime = ktime_set(0, 0), remaining_time = ktime_set(0, 0);
 
-	if (hrtimer_active(&hap->hap_timer)) {
+	if (hrtimer_active(&hap->hap_timer))
 		remaining_time  = hrtimer_get_remaining(&hap->hap_timer);
-		rem = (int)ktime_to_us(remaining_time);
-	}
 
 	qpnp_hap_play(hap, 0);
 	qpnp_hap_write_reg(hap, &disable_hap,
 				QPNP_HAP_EN_CTL_REG(hap->base));
 
-	lra_code_lo = lra_play_rate_code[index] & QPNP_HAP_RATE_CFG1_MASK;
-	qpnp_hap_write_reg(hap, &lra_code_lo,
-				QPNP_HAP_RATE_CFG1_REG(hap->base));
+	if (hap->perform_lra_auto_resonance_search) {
+		lra_code_lo =
+			adjusted_lra_play_rate_code[lra_freq_index]
+						& QPNP_HAP_RATE_CFG1_MASK;
 
-	qpnp_hap_read_reg(hap, &lra_code_hi,
-				QPNP_HAP_RATE_CFG2_REG(hap->base));
+		qpnp_hap_write_reg(hap, &lra_code_lo,
+					QPNP_HAP_RATE_CFG1_REG(hap->base));
 
-	lra_code_hi &= QPNP_HAP_RATE_CFG2_MASK;
-	temp = lra_play_rate_code[index] >> QPNP_HAP_RATE_CFG2_SHFT;
-	lra_code_hi |= temp;
+		lra_code_hi = adjusted_lra_play_rate_code[lra_freq_index]
+						>> QPNP_HAP_RATE_CFG2_SHFT;
 
-	qpnp_hap_write_reg(hap, &lra_code_hi,
+		qpnp_hap_write_reg(hap, &lra_code_hi,
 					QPNP_HAP_RATE_CFG2_REG(hap->base));
 
-	lra_freq_index++;
+		lra_freq_index = (lra_freq_index+1) %
+					ADJUSTED_LRA_PLAY_RATE_CODE_ARRSIZE;
+	}
 
-	if (rem > 0) {
+	dev_dbg(&hap->spmi->dev, "Remaining time is %lld\n",
+						ktime_to_us(remaining_time));
+
+	if ((ktime_to_us(remaining_time)) > 0) {
 		currtime = ktime_get();
 		hap->state = 1;
 		hrtimer_forward(&hap->hap_timer, currtime, remaining_time);
@@ -1504,8 +1585,9 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 			 * and enable it after the sleep of
 			 * 'time_required_to_generate_back_emf_us' is completed.
 			 */
-			if (hap->correct_lra_drive_freq ||
-				hap->auto_res_mode == QPNP_HAP_AUTO_RES_QWD)
+			if ((hap->act_type == QPNP_HAP_LRA) &&
+				(hap->correct_lra_drive_freq ||
+				hap->auto_res_mode == QPNP_HAP_AUTO_RES_QWD))
 				qpnp_hap_auto_res_enable(hap, 0);
 
 			rc = qpnp_hap_mod_enable(hap, on);
@@ -1514,7 +1596,7 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 
 			rc = qpnp_hap_play(hap, on);
 
-			if (hap->act_type == QPNP_HAP_LRA &&
+			if ((hap->act_type == QPNP_HAP_LRA) &&
 				(hap->correct_lra_drive_freq ||
 				hap->auto_res_mode == QPNP_HAP_AUTO_RES_QWD)) {
 				usleep_range(back_emf_delay_us,
@@ -1540,7 +1622,8 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 			if (rc < 0)
 				return rc;
 
-			if (hap->correct_lra_drive_freq) {
+			if (hap->act_type == QPNP_HAP_LRA &&
+						hap->correct_lra_drive_freq) {
 				rc = qpnp_hap_read_reg(hap, &val,
 						QPNP_HAP_STATUS(hap->base));
 				if (!(val & AUTO_RES_ERR_BIT))
@@ -1551,7 +1634,6 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 			if (hap->act_type == QPNP_HAP_LRA &&
 					hap->correct_lra_drive_freq) {
 				hrtimer_cancel(&hap->auto_res_err_poll_timer);
-				calculate_lra_code(hap);
 			}
 		}
 	}
@@ -1739,9 +1821,14 @@ static SIMPLE_DEV_PM_OPS(qpnp_haptic_pm_ops, qpnp_haptic_suspend, NULL);
 /* Configuration api for haptics registers */
 static int qpnp_hap_config(struct qpnp_hap *hap)
 {
-	u8 reg = 0, error_code = 0, unlock_val, rc_clk_err_percent_x10;
+	u8 reg = 0, error_code = 0, unlock_val;
 	u32 temp;
 	int rc, i;
+
+	/*
+	 * This denotes the percentage error in rc clock multiplied by 10
+	 */
+	u8 rc_clk_err_percent_x10;
 
 	/* Configure the ACTUATOR TYPE register */
 	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_ACT_TYPE_REG(hap->base));
@@ -1869,17 +1956,22 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	else if (hap->wave_play_rate_us > QPNP_HAP_WAV_PLAY_RATE_US_MAX)
 		hap->wave_play_rate_us = QPNP_HAP_WAV_PLAY_RATE_US_MAX;
 
-	temp = hap->wave_play_rate_us / QPNP_HAP_RATE_CFG_STEP_US;
+	hap->init_drive_period_code =
+			 hap->wave_play_rate_us / QPNP_HAP_RATE_CFG_STEP_US;
 
 	/*
 	 * The frequency of 19.2Mzhz RC clock is subject to variation. Currently
-	 * PMI8950 and PMI8937 modules have MISC_TRIM_ERROR_RC19P2_CLK register
-	 * present in the MISC  block. This register holds the frequency error
+	 * a few PMI modules have MISC_TRIM_ERROR_RC19P2_CLK register
+	 * present in their MISC  block. This register holds the frequency error
 	 * in 19.2Mhz RC clock.
 	 */
 	if (hap->act_type == QPNP_HAP_LRA
 			&& hap->misc_trim_error_rc19p2_clk_reg_present) {
 		unlock_val = MISC_SEC_UNLOCK;
+		/*
+		 * This SID value may change depending on the PMI chip where
+		 * the MISC block is present.
+		 */
 		rc = spmi_ext_register_writel(hap->spmi->ctrl,
 				PMI8950_MISC_SID, MISC_SEC_ACCESS,
 				&unlock_val, 1);
@@ -1889,7 +1981,12 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 
 		spmi_ext_register_readl(hap->spmi->ctrl, PMI8950_MISC_SID,
 			 MISC_TRIM_ERROR_RC19P2_CLK, &error_code, 1);
+		dev_dbg(&hap->spmi->dev, "TRIM register = 0x%x\n", error_code);
 
+		/*
+		 * Extract the 4 LSBs and multiply by 7 to get
+		 * the %error in RC clock multiplied by 10
+		 */
 		rc_clk_err_percent_x10 = (error_code & 0x0F) * 7;
 
 		/*
@@ -1897,39 +1994,55 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 		 * then there is a positive error in the RC clock.
 		 * If the TRIM register holds value greater than or equal to
 		 * 0x80, then there is a negative error in the RC clock.
+		 *
 		 * The adjusted play rate code is calculated as follows:
-		 * LRA_drive_period_code = (200Khz * (1+%error/100)) / LRA_freq
+		 * LRA drive period code (RATE_CFG) =
+		 *	 200KHz * 1 / LRA drive frequency * ( 1 + %error/ 100)
+		 *
+		 * This can be rewritten as:
+		 * LRA drive period code (RATE_CFG) =
+		 *	200KHz * 1/LRA drive frequency *( 1 + %error * 10/1000)
+		 *
+		 * Since 200KHz * 1/LRA drive frequency is already calculated
+		 * above we only do rest of the scaling here.
 		 */
 		if (error_code >= 128)
-			temp = (temp * (1000 - rc_clk_err_percent_x10)) / 1000;
+			LRA_DRIVE_PERIOD_NEG_ERR(hap, rc_clk_err_percent_x10);
 		else
-			temp = (temp * (1000 + rc_clk_err_percent_x10)) / 1000;
-
-		dev_dbg(&hap->spmi->dev,
-			"TRIM register = 0x%x Play rate code after RC clock correction 0x%x\n",
-					error_code, temp);
+			LRA_DRIVE_PERIOD_POS_ERR(hap, rc_clk_err_percent_x10);
 	}
 
-	reg = temp & QPNP_HAP_RATE_CFG1_MASK;
+	dev_dbg(&hap->spmi->dev,
+		 "Play rate code 0x%x\n", hap->init_drive_period_code);
+
+	reg = hap->init_drive_period_code & QPNP_HAP_RATE_CFG1_MASK;
 	rc = qpnp_hap_write_reg(hap, &reg,
 			QPNP_HAP_RATE_CFG1_REG(hap->base));
 	if (rc)
 		return rc;
 
-	rc = qpnp_hap_read_reg(hap, &reg,
-			QPNP_HAP_RATE_CFG2_REG(hap->base));
-	if (rc < 0)
-		return rc;
-	reg &= QPNP_HAP_RATE_CFG2_MASK;
-	temp = temp >> QPNP_HAP_RATE_CFG2_SHFT;
-	reg |= temp;
+	reg = (hap->init_drive_period_code & 0xF00) >> QPNP_HAP_RATE_CFG2_SHFT;
 	rc = qpnp_hap_write_reg(hap, &reg,
 			QPNP_HAP_RATE_CFG2_REG(hap->base));
 	if (rc)
 		return rc;
 
-	if ((hap->act_type == QPNP_HAP_LRA) && hap->correct_lra_drive_freq)
+	if (hap->act_type == QPNP_HAP_LRA &&
+				hap->perform_lra_auto_resonance_search)
 		calculate_lra_code(hap);
+
+	if (hap->act_type == QPNP_HAP_LRA && hap->correct_lra_drive_freq) {
+		hap->drive_period_code_max_limit =
+			(hap->init_drive_period_code * 100) /
+		(100 - hap->drive_period_code_max_limit_percent_variation);
+		hap->drive_period_code_min_limit =
+			(hap->init_drive_period_code * 100) /
+		(100 + hap->drive_period_code_min_limit_percent_variation);
+		dev_dbg(&hap->spmi->dev, "Drive period code max limit %x\n"
+			"Drive period code min limit %x\n",
+				hap->drive_period_code_max_limit,
+				hap->drive_period_code_min_limit);
+	}
 
 	/* Configure BRAKE register */
 	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_EN_CTL2_REG(hap->base));
@@ -2077,9 +2190,27 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 			return rc;
 		}
 
+		hap->perform_lra_auto_resonance_search =
+				of_property_read_bool(spmi->dev.of_node,
+				"qcom,perform-lra-auto-resonance-search");
+
 		hap->correct_lra_drive_freq =
 				of_property_read_bool(spmi->dev.of_node,
 						"qcom,correct-lra-drive-freq");
+
+		hap->drive_period_code_max_limit_percent_variation = 25;
+		rc = of_property_read_u32(spmi->dev.of_node,
+		"qcom,drive-period-code-max-limit-percent-variation", &temp);
+		if (!rc)
+			hap->drive_period_code_max_limit_percent_variation =
+								(u8) temp;
+
+		hap->drive_period_code_min_limit_percent_variation = 25;
+		rc = of_property_read_u32(spmi->dev.of_node,
+		"qcom,drive-period-code-min-limit-percent-variation", &temp);
+		if (!rc)
+			hap->drive_period_code_min_limit_percent_variation =
+								(u8) temp;
 
 		hap->misc_trim_error_rc19p2_clk_reg_present =
 				of_property_read_bool(spmi->dev.of_node,
