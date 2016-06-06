@@ -34,7 +34,7 @@ int vote(struct votable *votable, const char *client_str, bool state, int val);
 int rerun_election(struct votable *votable);
 struct votable *find_votable(const char *name);
 struct votable *create_votable(struct device *dev, const char *name,
-				int votable_type, int default_result,
+				int votable_type,
 				int (*callback)(struct device *dev,
 						int effective_result,
 						const char *effective_client)

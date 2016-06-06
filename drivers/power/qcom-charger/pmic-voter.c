@@ -40,19 +40,35 @@ struct votable {
 	int			type;
 	int			effective_client_id;
 	int			effective_result;
-	int			default_result;
 	struct mutex		vote_lock;
 	int			(*callback)(struct device *dev,
 						int effective_result,
 						const char *effective_client);
 	char			*client_strs[NUM_MAX_CLIENTS];
+	bool			voted_on;
 	struct dentry		*ent;
 };
 
+/**
+ * vote_set_any()
+ * @votable:	votable object
+ * @client_id:	client number of the latest voter
+ * @eff_res:	sets 0 or 1 based on the voting
+ * @eff_id:	Always returns the client_id argument
+ *
+ * Note that for SET_ANY voter, the value is always same as enabled. There is
+ * no idea of a voter abstaining from the election. Hence there is never a
+ * situation when the effective_id will be invalid, during election.
+ *
+ * Context:
+ *	Must be called with the votable->lock held
+ */
 static void vote_set_any(struct votable *votable, int client_id,
 				int *eff_res, int *eff_id)
 {
 	int i;
+
+	*eff_res = 0;
 
 	for (i = 0; i < votable->num_clients && votable->client_strs[i]; i++)
 		*eff_res |= votable->votes[i].enabled;
@@ -60,6 +76,19 @@ static void vote_set_any(struct votable *votable, int client_id,
 	*eff_id = client_id;
 }
 
+/**
+ * vote_min() -
+ * @votable:	votable object
+ * @client_id:	client number of the latest voter
+ * @eff_res:	sets this to the min. of all the values amongst enabled voters.
+ *		If there is no enabled client, this is set to INT_MAX
+ * @eff_id:	sets this to the client id that has the min value amongst all
+ *		the enabled clients. If there is no enabled client, sets this
+ *		to -EINVAL
+ *
+ * Context:
+ *	Must be called with the votable->lock held
+ */
 static void vote_min(struct votable *votable, int client_id,
 				int *eff_res, int *eff_id)
 {
@@ -74,8 +103,23 @@ static void vote_min(struct votable *votable, int client_id,
 			*eff_id = i;
 		}
 	}
+	if (*eff_id == -EINVAL)
+		*eff_res = -EINVAL;
 }
 
+/**
+ * vote_max() -
+ * @votable:	votable object
+ * @client_id:	client number of the latest voter
+ * @eff_res:	sets this to the max. of all the values amongst enabled voters.
+ *		If there is no enabled client, this is set to -EINVAL
+ * @eff_id:	sets this to the client id that has the max value amongst all
+ *		the enabled clients. If there is no enabled client, sets this to
+ *		-EINVAL
+ *
+ * Context:
+ *	Must be called with the votable->lock held
+ */
 static void vote_max(struct votable *votable, int client_id,
 				int *eff_res, int *eff_id)
 {
@@ -90,6 +134,8 @@ static void vote_max(struct votable *votable, int client_id,
 			*eff_id = i;
 		}
 	}
+	if (*eff_id == -EINVAL)
+		*eff_res = -EINVAL;
 }
 
 static int get_client_id(struct votable *votable, const char *client_str)
@@ -134,16 +180,28 @@ void unlock_votable(struct votable *votable)
 	mutex_unlock(&votable->vote_lock);
 }
 
+/**
+ * get_client_vote() -
+ * get_client_vote_locked() -
+ *		The unlocked and locked variants of getting a client's voted
+ *		value.
+ * @votable:	the votable object
+ * @client_str: client of interest
+ *
+ * Returns:
+ *	The value the client voted for. -EINVAL is returned if the client
+ *	is not enabled or the client is not found.
+ */
 int get_client_vote_locked(struct votable *votable, const char *client_str)
 {
 	int client_id = get_client_id(votable, client_str);
 
 	if (client_id < 0)
-		return votable->default_result;
+		return -EINVAL;
 
 	if ((votable->type != VOTE_SET_ANY)
 		&& !votable->votes[client_id].enabled)
-		return votable->default_result;
+		return -EINVAL;
 
 	return votable->votes[client_id].value;
 }
@@ -158,11 +216,25 @@ int get_client_vote(struct votable *votable, const char *client_str)
 	return value;
 }
 
+/**
+ * get_effective_result() -
+ * get_effective_result_locked() -
+ *		The unlocked and locked variants of getting the effective value
+ *		amongst all the enabled voters.
+ *
+ * @votable:	the votable object
+ *
+ * Returns:
+ *	The effective result.
+ *	For MIN and MAX votable, returns -EINVAL when the votable
+ *	object has been created but no clients have casted their votes or
+ *	the last enabled client disables its vote.
+ *	For SET_ANY votable it returns 0 when no clients have casted their votes
+ *	because for SET_ANY there is no concept of abstaining from election. The
+ *	votes for all the clients of SET_ANY votable is defaulted to false.
+ */
 int get_effective_result_locked(struct votable *votable)
 {
-	if (votable->effective_result < 0)
-		return votable->default_result;
-
 	return votable->effective_result;
 }
 
@@ -191,12 +263,36 @@ const char *get_effective_client(struct votable *votable)
 	return client_str;
 }
 
+/**
+ * vote() -
+ *
+ * @votable:	the votable object
+ * @client_str: the voting client
+ * @enabled:	This provides a means for the client to exclude himself from
+ *		election. This clients val (the next argument) will be
+ *		considered only when he has enabled his participation.
+ *		Note that this takes a differnt meaning for SET_ANY type, as
+ *		there is no concept of abstaining from participation.
+ *		Enabled is treated as the boolean value the client is voting.
+ * @val:	The vote value. This is ignored for SET_ANY votable types.
+ *		For MIN, MAX votable types this value is used as the
+ *		clients vote value when the enabled is true, this value is
+ *		ignored if enabled is false.
+ *
+ * The callback is called only when there is a change in the election results or
+ * if it is the first time someone is voting.
+ *
+ * Returns:
+ *	The return from the callback when present and needs to be called
+ *	or zero.
+ */
 int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 {
 	int effective_id = -EINVAL;
 	int effective_result;
 	int client_id;
 	int rc = 0;
+	bool similar_vote = false;
 
 	lock_votable(votable);
 
@@ -206,18 +302,33 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 		goto out;
 	}
 
-	if (votable->votes[client_id].enabled == enabled &&
-				votable->votes[client_id].value == val) {
+	/*
+	 * for SET_ANY the val is to be ignored, set it
+	 * to enabled so that the election still works based on
+	 * value regardless of the type
+	 */
+	if (votable->type == VOTE_SET_ANY)
+		val = enabled;
+
+	if ((votable->votes[client_id].enabled == enabled) &&
+		(votable->votes[client_id].value == val)) {
 		pr_debug("%s: %s,%d same vote %s of %d\n",
 				votable->name,
 				client_str, client_id,
 				enabled ? "on" : "off",
 				val);
-		goto out;
+		similar_vote = true;
 	}
 
 	votable->votes[client_id].enabled = enabled;
 	votable->votes[client_id].value = val;
+
+	if (similar_vote && votable->voted_on) {
+		pr_debug("%s: %s,%d Similar vote %s of %d\n",
+			votable->name,
+			client_str, client_id, enabled ? "on" : "off", val);
+		goto out;
+	}
 
 	pr_debug("%s: %s,%d voting %s of %d\n",
 		votable->name,
@@ -233,18 +344,16 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 		vote_set_any(votable, client_id,
 				&effective_result, &effective_id);
 		break;
+	default:
+		return -EINVAL;
 	}
 
 	/*
-	 * If the votable does not have any votes it will maintain the last
-	 * known effective_result and effective_client_id
+	 * Note that the callback is called with a NULL string and -EINVAL
+	 * result when there are no enabled votes
 	 */
-	if (effective_id < 0) {
-		pr_debug("%s: no votes; skipping callback\n", votable->name);
-		goto out;
-	}
-
-	if (effective_result != votable->effective_result) {
+	if (!votable->voted_on
+			|| (effective_result != votable->effective_result)) {
 		votable->effective_client_id = effective_id;
 		votable->effective_result = effective_result;
 		pr_debug("%s: effective vote is now %d voted by %s,%d\n",
@@ -256,6 +365,7 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 					get_client_str(votable, effective_id));
 	}
 
+	votable->voted_on = true;
 out:
 	unlock_votable(votable);
 	return rc;
@@ -304,6 +414,7 @@ static int show_votable_clients(struct seq_file *m, void *data)
 	struct votable *votable = m->private;
 	int i;
 	char *type_str = "Unkonwn";
+	const char *effective_client_str;
 
 	lock_votable(votable);
 
@@ -331,8 +442,9 @@ static int show_votable_clients(struct seq_file *m, void *data)
 
 	seq_printf(m, "Type: %s\n", type_str);
 	seq_puts(m, "Effective:\n");
+	effective_client_str = get_effective_client_locked(votable);
 	seq_printf(m, "%-15s:\t\tv=%d\n",
-			get_effective_client_locked(votable),
+			effective_client_str ? effective_client_str : "none",
 			get_effective_result_locked(votable));
 	unlock_votable(votable);
 
@@ -356,7 +468,6 @@ static const struct file_operations votable_debugfs_ops = {
 
 struct votable *create_votable(struct device *dev, const char *name,
 					int votable_type,
-					int default_result,
 					int (*callback)(struct device *dev,
 						int effective_result,
 						const char *effective_client)
@@ -391,7 +502,6 @@ struct votable *create_votable(struct device *dev, const char *name,
 	votable->num_clients = NUM_MAX_CLIENTS;
 	votable->callback = callback;
 	votable->type = votable_type;
-	votable->default_result = default_result;
 	mutex_init(&votable->vote_lock);
 
 	/*
@@ -399,6 +509,8 @@ struct votable *create_votable(struct device *dev, const char *name,
 	 * before the first vote, initialize them to -EINVAL
 	 */
 	votable->effective_result = -EINVAL;
+	if (votable->type == VOTE_SET_ANY)
+		votable->effective_result = 0;
 	votable->effective_client_id = -EINVAL;
 
 	spin_lock_irqsave(&votable_list_slock, flags);

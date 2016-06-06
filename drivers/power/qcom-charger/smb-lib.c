@@ -312,6 +312,9 @@ static int smblib_dc_suspend_vote_callback(struct device *dev,
 {
 	struct smb_charger *chg = dev_get_drvdata(dev);
 
+	if (suspend < 0)
+		suspend = false;
+
 	return smblib_set_dc_suspend(chg, suspend);
 }
 
@@ -320,6 +323,11 @@ static int smblib_fcc_vote_callback(struct device *dev,
 {
 	struct smb_charger *chg = dev_get_drvdata(dev);
 	int rc = 0;
+
+	if (fcc_ua < 0) {
+		smblib_dbg(chg, PR_MISC, "No Voter\n");
+		return 0;
+	}
 
 	rc = smblib_set_charge_param(chg, &chg->param.fcc, fcc_ua);
 	return rc;
@@ -330,6 +338,11 @@ static int smblib_fv_vote_callback(struct device *dev,
 {
 	struct smb_charger *chg = dev_get_drvdata(dev);
 	int rc = 0;
+
+	if (fv_uv < 0) {
+		smblib_dbg(chg, PR_MISC, "No Voter\n");
+		return 0;
+	}
 
 	rc = smblib_set_charge_param(chg, &chg->param.fv, fv_uv);
 	return rc;
@@ -344,6 +357,11 @@ static int smblib_usb_icl_vote_callback(struct device *dev,
 	int rc = 0;
 	bool suspend;
 
+	if (icl_ua < 0) {
+		smblib_dbg(chg, PR_MISC, "No Voter hence suspending\n");
+		icl_ua = 0;
+	}
+
 	suspend = (icl_ua < USBIN_25MA);
 	if (suspend)
 		goto suspend;
@@ -356,8 +374,8 @@ static int smblib_usb_icl_vote_callback(struct device *dev,
 		rc = smblib_set_charge_param(chg, &chg->param.usb_icl, icl_ua);
 
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't set USB input current limit rc=%d\n",
-			rc);
+		dev_err(chg->dev,
+			"Couldn't set USB input current limit rc=%d\n", rc);
 		return rc;
 	}
 
@@ -377,8 +395,31 @@ static int smblib_dc_icl_vote_callback(struct device *dev,
 {
 	struct smb_charger *chg = dev_get_drvdata(dev);
 	int rc = 0;
+	bool suspend;
+
+	if (icl_ua < 0) {
+		smblib_dbg(chg, PR_MISC, "No Voter hence suspending\n");
+		icl_ua = 0;
+	}
+
+	suspend = (icl_ua < USBIN_25MA);
+	if (suspend)
+		goto suspend;
 
 	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, icl_ua);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't set DC input current limit rc=%d\n",
+			rc);
+		return rc;
+	}
+
+suspend:
+	rc = vote(chg->dc_suspend_votable, USER_VOTER, suspend, 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't vote to %s DC rc=%d\n",
+			suspend ? "suspend" : "resume", rc);
+		return rc;
+	}
 	return rc;
 }
 
@@ -1282,10 +1323,6 @@ static void smblib_hvdcp_detect_work(struct work_struct *work)
  * INIT *
  * ******/
 
-#define SMB_DEFAULT_FCC_UA	1000000
-#define SMB_DEFAULT_FV_UV	4350000
-#define SMB_DEFAULT_ICL_UA	1500000
-
 int smblib_init(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -1295,7 +1332,6 @@ int smblib_init(struct smb_charger *chg)
 
 	chg->usb_suspend_votable = create_votable(chg->dev,
 					"INPUT_SUSPEND", VOTE_SET_ANY,
-					0,
 					smblib_usb_suspend_vote_callback);
 	if (IS_ERR(chg->usb_suspend_votable)) {
 		rc = PTR_ERR(chg->usb_suspend_votable);
@@ -1304,7 +1340,6 @@ int smblib_init(struct smb_charger *chg)
 
 	chg->dc_suspend_votable = create_votable(chg->dev,
 					"DC_SUSPEND", VOTE_SET_ANY,
-					0,
 					smblib_dc_suspend_vote_callback);
 	if (IS_ERR(chg->dc_suspend_votable)) {
 		rc = PTR_ERR(chg->dc_suspend_votable);
@@ -1313,7 +1348,6 @@ int smblib_init(struct smb_charger *chg)
 
 	chg->fcc_votable = create_votable(chg->dev,
 					"FCC", VOTE_MAX,
-					SMB_DEFAULT_FCC_UA,
 					smblib_fcc_vote_callback);
 	if (IS_ERR(chg->fcc_votable)) {
 		rc = PTR_ERR(chg->fcc_votable);
@@ -1322,7 +1356,6 @@ int smblib_init(struct smb_charger *chg)
 
 	chg->fv_votable = create_votable(chg->dev,
 					"FV", VOTE_MAX,
-					SMB_DEFAULT_FV_UV,
 					smblib_fv_vote_callback);
 	if (IS_ERR(chg->fv_votable)) {
 		rc = PTR_ERR(chg->fv_votable);
@@ -1331,7 +1364,6 @@ int smblib_init(struct smb_charger *chg)
 
 	chg->usb_icl_votable = create_votable(chg->dev,
 					"USB_ICL", VOTE_MIN,
-					SMB_DEFAULT_ICL_UA,
 					smblib_usb_icl_vote_callback);
 	if (IS_ERR(chg->usb_icl_votable)) {
 		rc = PTR_ERR(chg->usb_icl_votable);
@@ -1340,7 +1372,6 @@ int smblib_init(struct smb_charger *chg)
 
 	chg->dc_icl_votable = create_votable(chg->dev,
 					"DC_ICL", VOTE_MIN,
-					SMB_DEFAULT_ICL_UA,
 					smblib_dc_icl_vote_callback);
 	if (IS_ERR(chg->dc_icl_votable)) {
 		rc = PTR_ERR(chg->dc_icl_votable);
@@ -1349,7 +1380,7 @@ int smblib_init(struct smb_charger *chg)
 
 	chg->pd_allowed_votable = create_votable(chg->dev,
 					"PD_ALLOWED", VOTE_SET_ANY,
-					0, NULL);
+					NULL);
 	if (IS_ERR(chg->pd_allowed_votable)) {
 		rc = PTR_ERR(chg->pd_allowed_votable);
 		return rc;
