@@ -2335,11 +2335,12 @@ static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
 	schedule_delayed_work(&chip->parallel_en_work, 0);
 }
 
-static int charging_suspend_vote_cb(struct device *dev, int suspend,
+static int charging_suspend_vote_cb(struct votable *votable, void *data,
+						int suspend,
 						const char *client)
 {
 	int rc;
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 
 	if (suspend < 0) {
 		pr_err("No voters\n");
@@ -2356,11 +2357,13 @@ static int charging_suspend_vote_cb(struct device *dev, int suspend,
 	return rc;
 }
 
-static int usb_suspend_vote_cb(struct device *dev, int suspend,
-					const char *client)
+static int usb_suspend_vote_cb(struct votable *votable,
+						void *data,
+						int suspend,
+						const char *client)
 {
 	int rc;
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 
 	if (suspend < 0) {
 		pr_err("No voters\n");
@@ -2380,11 +2383,13 @@ static int usb_suspend_vote_cb(struct device *dev, int suspend,
 	return rc;
 }
 
-static int dc_suspend_vote_cb(struct device *dev, int suspend,
+static int dc_suspend_vote_cb(struct votable *votable,
+						void *data,
+						int suspend,
 						const char *client)
 {
 	int rc;
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 
 	if (suspend < 0) {
 		pr_err("No voters\n");
@@ -2401,11 +2406,12 @@ static int dc_suspend_vote_cb(struct device *dev, int suspend,
 	return rc;
 }
 
-static int set_fastchg_current_vote_cb(struct device *dev,
+static int set_fastchg_current_vote_cb(struct votable *votable,
+						void *data,
 						int fcc_ma,
 						const char *client)
 {
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 	int rc;
 
 	if (fcc_ma < 0) {
@@ -2692,11 +2698,12 @@ DEFINE_SIMPLE_ATTRIBUTE(force_dcin_icl_ops, NULL,
  * set the dc charge path's maximum allowed current draw
  * that may be limited by the system's thermal level
  */
-static int set_dc_current_limit_vote_cb(struct device *dev,
+static int set_dc_current_limit_vote_cb(struct votable *votable,
+						void *data,
 						int icl_ma,
 						const char *client)
 {
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 
 	if (icl_ma < 0) {
 		pr_err("No voters\n");
@@ -2710,11 +2717,12 @@ static int set_dc_current_limit_vote_cb(struct device *dev,
  * set the usb charge path's maximum allowed current draw
  * that may be limited by the system's thermal level
  */
-static int set_usb_current_limit_vote_cb(struct device *dev,
+static int set_usb_current_limit_vote_cb(struct votable *votable,
+						void *data,
 						int icl_ma,
 						const char *client)
 {
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 	int rc, aicl_ma;
 	const char *effective_id;
 
@@ -3302,12 +3310,13 @@ static void smbchg_soc_changed(struct smbchg_chip *chip)
 #define AICL_RERUN_ON			(BIT(5) | BIT(4))
 #define AICL_RERUN_OFF			0
 
-static int smbchg_hw_aicl_rerun_enable_indirect_cb(struct device *dev,
+static int smbchg_hw_aicl_rerun_enable_indirect_cb(struct votable *votable,
+						void *data,
 						int enable,
 						const char *client)
 {
 	int rc = 0;
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 
 	if (enable < 0) {
 		pr_err("No voters\n");
@@ -3327,11 +3336,12 @@ static int smbchg_hw_aicl_rerun_enable_indirect_cb(struct device *dev,
 	return rc;
 }
 
-static int smbchg_hw_aicl_rerun_disable_cb(struct device *dev, int disable,
+static int smbchg_hw_aicl_rerun_disable_cb(struct votable *votable, void *data,
+						int disable,
 						const char *client)
 {
 	int rc = 0;
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 
 	if (disable < 0) {
 		pr_err("No voters\n");
@@ -3347,11 +3357,12 @@ static int smbchg_hw_aicl_rerun_disable_cb(struct device *dev, int disable,
 	return rc;
 }
 
-static int smbchg_aicl_deglitch_config_cb(struct device *dev, int shorter,
+static int smbchg_aicl_deglitch_config_cb(struct votable *votable, void *data,
+						int shorter,
 						const char *client)
 {
 	int rc = 0;
-	struct smbchg_chip *chip = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = data;
 
 	if (shorter < 0) {
 		pr_err("No voters\n");
@@ -7997,68 +8008,79 @@ static int smbchg_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	chip->fcc_votable = create_votable(&pdev->dev,
-			"BATT_FCC",
+	chip->fcc_votable = create_votable("BATT_FCC",
 			VOTE_MIN,
-			set_fastchg_current_vote_cb);
-	if (IS_ERR(chip->fcc_votable))
-		return PTR_ERR(chip->fcc_votable);
+			set_fastchg_current_vote_cb, chip);
+	if (IS_ERR(chip->fcc_votable)) {
+		rc = PTR_ERR(chip->fcc_votable);
+		goto votables_cleanup;
+	}
 
-	chip->usb_icl_votable = create_votable(&pdev->dev,
-			"USB_ICL",
+	chip->usb_icl_votable = create_votable("USB_ICL",
 			VOTE_MIN,
-			set_usb_current_limit_vote_cb);
-	if (IS_ERR(chip->usb_icl_votable))
-		return PTR_ERR(chip->usb_icl_votable);
+			set_usb_current_limit_vote_cb, chip);
+	if (IS_ERR(chip->usb_icl_votable)) {
+		rc = PTR_ERR(chip->usb_icl_votable);
+		goto votables_cleanup;
+	}
 
-	chip->dc_icl_votable = create_votable(&pdev->dev,
-			"DCIN_ICL",
+	chip->dc_icl_votable = create_votable("DCIN_ICL",
 			VOTE_MIN,
-			set_dc_current_limit_vote_cb);
-	if (IS_ERR(chip->dc_icl_votable))
-		return PTR_ERR(chip->dc_icl_votable);
+			set_dc_current_limit_vote_cb, chip);
+	if (IS_ERR(chip->dc_icl_votable)) {
+		rc = PTR_ERR(chip->dc_icl_votable);
+		goto votables_cleanup;
+	}
 
-	chip->usb_suspend_votable = create_votable(&pdev->dev,
-			"USB_SUSPEND",
+	chip->usb_suspend_votable = create_votable("USB_SUSPEND",
 			VOTE_SET_ANY,
-			usb_suspend_vote_cb);
-	if (IS_ERR(chip->usb_suspend_votable))
-		return PTR_ERR(chip->usb_suspend_votable);
+			usb_suspend_vote_cb, chip);
+	if (IS_ERR(chip->usb_suspend_votable)) {
+		rc = PTR_ERR(chip->usb_suspend_votable);
+		goto votables_cleanup;
+	}
 
-	chip->dc_suspend_votable = create_votable(&pdev->dev,
-			"DC_SUSPEND",
+	chip->dc_suspend_votable = create_votable("DC_SUSPEND",
 			VOTE_SET_ANY,
-			dc_suspend_vote_cb);
-	if (IS_ERR(chip->dc_suspend_votable))
-		return PTR_ERR(chip->dc_suspend_votable);
+			dc_suspend_vote_cb, chip);
+	if (IS_ERR(chip->dc_suspend_votable)) {
+		rc = PTR_ERR(chip->dc_suspend_votable);
+		goto votables_cleanup;
+	}
 
-	chip->battchg_suspend_votable = create_votable(&pdev->dev,
-			"BATTCHG_SUSPEND",
+	chip->battchg_suspend_votable = create_votable("BATTCHG_SUSPEND",
 			VOTE_SET_ANY,
-			charging_suspend_vote_cb);
-	if (IS_ERR(chip->battchg_suspend_votable))
-		return PTR_ERR(chip->battchg_suspend_votable);
+			charging_suspend_vote_cb, chip);
+	if (IS_ERR(chip->battchg_suspend_votable)) {
+		rc = PTR_ERR(chip->battchg_suspend_votable);
+		goto votables_cleanup;
+	}
 
-	chip->hw_aicl_rerun_disable_votable = create_votable(&pdev->dev,
-			"HWAICL_DISABLE",
+	chip->hw_aicl_rerun_disable_votable = create_votable("HWAICL_DISABLE",
 			VOTE_SET_ANY,
-			smbchg_hw_aicl_rerun_disable_cb);
-	if (IS_ERR(chip->hw_aicl_rerun_disable_votable))
-		return PTR_ERR(chip->hw_aicl_rerun_disable_votable);
+			smbchg_hw_aicl_rerun_disable_cb, chip);
+	if (IS_ERR(chip->hw_aicl_rerun_disable_votable)) {
+		rc = PTR_ERR(chip->hw_aicl_rerun_disable_votable);
+		goto votables_cleanup;
+	}
 
-	chip->hw_aicl_rerun_enable_indirect_votable = create_votable(&pdev->dev,
+	chip->hw_aicl_rerun_enable_indirect_votable = create_votable(
 			"HWAICL_ENABLE_INDIRECT",
 			VOTE_SET_ANY,
-			smbchg_hw_aicl_rerun_enable_indirect_cb);
-	if (IS_ERR(chip->hw_aicl_rerun_enable_indirect_votable))
-		return PTR_ERR(chip->hw_aicl_rerun_enable_indirect_votable);
+			smbchg_hw_aicl_rerun_enable_indirect_cb, chip);
+	if (IS_ERR(chip->hw_aicl_rerun_enable_indirect_votable)) {
+		rc = PTR_ERR(chip->hw_aicl_rerun_enable_indirect_votable);
+		goto votables_cleanup;
+	}
 
-	chip->aicl_deglitch_short_votable = create_votable(&pdev->dev,
+	chip->aicl_deglitch_short_votable = create_votable(
 			"HWAICL_SHORT_DEGLITCH",
 			VOTE_SET_ANY,
-			smbchg_aicl_deglitch_config_cb);
-	if (IS_ERR(chip->aicl_deglitch_short_votable))
-		return PTR_ERR(chip->aicl_deglitch_short_votable);
+			smbchg_aicl_deglitch_config_cb, chip);
+	if (IS_ERR(chip->aicl_deglitch_short_votable)) {
+		rc = PTR_ERR(chip->aicl_deglitch_short_votable);
+		goto votables_cleanup;
+	}
 
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
@@ -8092,38 +8114,39 @@ static int smbchg_probe(struct platform_device *pdev)
 	rc = smbchg_parse_peripherals(chip);
 	if (rc) {
 		dev_err(chip->dev, "Error parsing DT peripherals: %d\n", rc);
-		return rc;
+		goto votables_cleanup;
 	}
 
 	rc = smbchg_check_chg_version(chip);
 	if (rc) {
 		pr_err("Unable to check schg version rc=%d\n", rc);
-		return rc;
+		goto votables_cleanup;
 	}
 
 	rc = smb_parse_dt(chip);
 	if (rc < 0) {
 		dev_err(&pdev->dev, "Unable to parse DT nodes: %d\n", rc);
-		return rc;
+		goto votables_cleanup;
 	}
 
 	rc = smbchg_regulator_init(chip);
 	if (rc) {
 		dev_err(&pdev->dev,
 			"Couldn't initialize regulator rc=%d\n", rc);
-		return rc;
+		goto votables_cleanup;
 	}
 
 	chip->extcon = devm_extcon_dev_allocate(chip->dev, smbchg_extcon_cable);
 	if (IS_ERR(chip->extcon)) {
 		dev_err(chip->dev, "failed to allocate extcon device\n");
-		return PTR_ERR(chip->extcon);
+		rc = PTR_ERR(chip->extcon);
+		goto votables_cleanup;
 	}
 
 	rc = devm_extcon_dev_register(chip->dev, chip->extcon);
 	if (rc) {
 		dev_err(chip->dev, "failed to register extcon device\n");
-		return rc;
+		goto votables_cleanup;
 	}
 
 	chip->usb_psy_d.name = "usb";
@@ -8143,13 +8166,16 @@ static int smbchg_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->usb_psy)) {
 		dev_err(&pdev->dev, "Unable to register usb_psy rc = %ld\n",
 			PTR_ERR(chip->usb_psy));
-		return PTR_ERR(chip->usb_psy);
+		rc = PTR_ERR(chip->usb_psy);
+		goto votables_cleanup;
 	}
 
 	if (of_find_property(chip->dev->of_node, "dpdm-supply", NULL)) {
 		chip->dpdm_reg = devm_regulator_get(chip->dev, "dpdm");
-		if (IS_ERR(chip->dpdm_reg))
-			return PTR_ERR(chip->dpdm_reg);
+		if (IS_ERR(chip->dpdm_reg)) {
+			rc = PTR_ERR(chip->dpdm_reg);
+			goto votables_cleanup;
+		}
 	}
 
 	rc = smbchg_hw_init(chip);
@@ -8257,6 +8283,25 @@ unregister_led_class:
 		led_classdev_unregister(&chip->led_cdev);
 out:
 	handle_usb_removal(chip);
+votables_cleanup:
+	if (chip->aicl_deglitch_short_votable)
+		destroy_votable(chip->aicl_deglitch_short_votable);
+	if (chip->hw_aicl_rerun_enable_indirect_votable)
+		destroy_votable(chip->hw_aicl_rerun_enable_indirect_votable);
+	if (chip->hw_aicl_rerun_disable_votable)
+		destroy_votable(chip->hw_aicl_rerun_disable_votable);
+	if (chip->battchg_suspend_votable)
+		destroy_votable(chip->battchg_suspend_votable);
+	if (chip->dc_suspend_votable)
+		destroy_votable(chip->dc_suspend_votable);
+	if (chip->usb_suspend_votable)
+		destroy_votable(chip->usb_suspend_votable);
+	if (chip->dc_icl_votable)
+		destroy_votable(chip->dc_icl_votable);
+	if (chip->usb_icl_votable)
+		destroy_votable(chip->usb_icl_votable);
+	if (chip->fcc_votable)
+		destroy_votable(chip->fcc_votable);
 	return rc;
 }
 
@@ -8265,6 +8310,16 @@ static int smbchg_remove(struct platform_device *pdev)
 	struct smbchg_chip *chip = dev_get_drvdata(&pdev->dev);
 
 	debugfs_remove_recursive(chip->debug_root);
+
+	destroy_votable(chip->aicl_deglitch_short_votable);
+	destroy_votable(chip->hw_aicl_rerun_enable_indirect_votable);
+	destroy_votable(chip->hw_aicl_rerun_disable_votable);
+	destroy_votable(chip->battchg_suspend_votable);
+	destroy_votable(chip->dc_suspend_votable);
+	destroy_votable(chip->usb_suspend_votable);
+	destroy_votable(chip->dc_icl_votable);
+	destroy_votable(chip->usb_icl_votable);
+	destroy_votable(chip->fcc_votable);
 
 	return 0;
 }
