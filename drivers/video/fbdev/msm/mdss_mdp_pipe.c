@@ -2287,6 +2287,24 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 	return 0;
 }
 
+static void  __set_pipe_multirect_opmode(struct mdss_mdp_pipe *pipe)
+{
+	u32 multirect_opmode = 0;
+	/*
+	 * enable multirect only when both RECT0 and RECT1 are enabled,
+	 * othwerise expect to work in non-multirect only in RECT0
+	 */
+	if (pipe->multirect.mode != MDSS_MDP_PIPE_MULTIRECT_NONE) {
+		multirect_opmode = BIT(0) | BIT(1);
+
+		if (pipe->multirect.mode == MDSS_MDP_PIPE_MULTIRECT_SERIAL)
+			multirect_opmode |= BIT(2);
+	}
+
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_MULTI_REC_OP_MODE,
+			multirect_opmode);
+}
+
 static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 {
 	int ret;
@@ -2335,6 +2353,8 @@ static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 		mdss_mdp_pipe_write(pipe,
 			MDSS_MDP_REG_SSPP_SRC_OP_MODE_REC1, opmode);
 	}
+
+	__set_pipe_multirect_opmode(pipe);
 
 	if (pipe->type != MDSS_MDP_PIPE_TYPE_DMA) {
 		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SCALE_CONFIG, 0);
@@ -2603,7 +2623,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	int ret = 0;
 	struct mdss_mdp_ctl *ctl;
 	u32 params_changed;
-	u32 opmode = 0, multirect_opmode = 0;
+	u32 opmode = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool roi_changed = false;
 	bool delayed_programming;
@@ -2729,19 +2749,8 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		}
 	}
 
-	/*
-	 * enable multirect only when both RECT0 and RECT1 are enabled,
-	 * othwerise expect to work in non-multirect only in RECT0
-	 */
-	if (pipe->multirect.mode != MDSS_MDP_PIPE_MULTIRECT_NONE) {
-		multirect_opmode = BIT(0) | BIT(1);
+	__set_pipe_multirect_opmode(pipe);
 
-		if (pipe->multirect.mode == MDSS_MDP_PIPE_MULTIRECT_SERIAL)
-			multirect_opmode |= BIT(2);
-	}
-
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_MULTI_REC_OP_MODE,
-			    multirect_opmode);
 	if (src_data == NULL) {
 		pr_debug("src_data=%p pipe num=%dx\n",
 				src_data, pipe->num);
