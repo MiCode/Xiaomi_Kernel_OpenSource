@@ -136,6 +136,8 @@ int adm_set_volume(int port_id, int copp_idx, int volume);
 int adm_set_softvolume(int port_id, int copp_idx,
 		       struct audproc_softvolume_params *softvol_param);
 
+int adm_set_mic_gain(int port_id, int copp_idx, int volume);
+
 int adm_param_enable(int port_id, int copp_idx, int module_id,  int enable);
 
 int adm_send_calibration(int port_id, int copp_idx, int path, int perf_mode,
