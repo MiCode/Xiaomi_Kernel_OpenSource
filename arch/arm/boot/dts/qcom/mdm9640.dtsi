@@ -365,6 +365,7 @@
 
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
 	};
 
 	clock_cpu: qcom,clock-a7@0b010008 {
