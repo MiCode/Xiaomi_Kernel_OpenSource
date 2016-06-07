@@ -1427,7 +1427,6 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 	struct device *dev)
 {
 	int rc = 0;
-	int disable_htw = 1;
 
 	if (!cb || !dev) {
 		pr_err("Error: invalid input params\n");
@@ -1465,21 +1464,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 		goto end;
 	}
 
-	/*
-	 * Set the domain attributes
-	 * disable L2 redirect since it decreases
-	 * performance
-	 */
-	if (iommu_domain_set_attr(cb->mapping->domain,
-		DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-		&disable_htw)) {
-		pr_err("Error: couldn't disable coherent HTW\n");
-		rc = -ENODEV;
-		goto err_set_attr;
-	}
 	return 0;
-err_set_attr:
-	arm_iommu_release_mapping(cb->mapping);
 end:
 	return rc;
 }
