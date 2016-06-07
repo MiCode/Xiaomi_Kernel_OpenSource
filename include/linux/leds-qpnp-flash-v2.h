@@ -14,6 +14,7 @@
 #define __LEDS_QPNP_FLASH_V2_H
 
 #include <linux/leds.h>
+#include <linux/notifier.h>
 #include "leds.h"
 
 #define ENABLE_REGULATOR	BIT(0)
@@ -32,5 +33,8 @@ enum flash_led_irq_type {
 };
 
 int qpnp_flash_led_prepare(struct led_classdev *led_cdev, int options);
+
+int qpnp_flash_led_register_irq_notifier(struct notifier_block *nb);
+int qpnp_flash_led_unregister_irq_notifier(struct notifier_block *nb);
 
 #endif

@@ -73,6 +73,9 @@
 #define	FLASH_LED_SAFETY_TMR_DISABLED		0x13
 #define	FLASH_LED_MIN_CURRENT_MA		25
 
+/* notifier call chain for flash-led irqs */
+static ATOMIC_NOTIFIER_HEAD(irq_notifier_list);
+
 enum flash_led_type {
 	FLASH_LED_TYPE_FLASH,
 	FLASH_LED_TYPE_TORCH,
@@ -567,9 +570,24 @@ static irqreturn_t qpnp_flash_led_irq_handler(int irq, void *_led)
 	else if (irq == led->pdata->all_ramp_down_done_irq)
 		irq_type = ALL_RAMP_DOWN_DONE_IRQ;
 
+	if (irq_type == ALL_RAMP_UP_DONE_IRQ)
+		atomic_notifier_call_chain(&irq_notifier_list,
+						irq_type, NULL);
+
 	dev_dbg(&led->pdev->dev, "irq handled, irq_type=%x, irq_status=%x\n",
 		irq_type, status);
+
 	return IRQ_HANDLED;
+}
+
+int qpnp_flash_led_register_irq_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&irq_notifier_list, nb);
+}
+
+int qpnp_flash_led_unregister_irq_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&irq_notifier_list, nb);
 }
 
 static int qpnp_flash_led_regulator_setup(struct qpnp_flash_led *led,
