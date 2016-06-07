@@ -981,8 +981,9 @@ static int32_t get_tsens_sensor_for_client_id(struct tsens_tm_device *tmdev,
 	}
 
 	if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
+		(!strcmp(id->compatible, "qcom,mdm9640-tsens") ||
 		(!strcmp(id->compatible, "qcom,mdm9640v2-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmcobalt-tsens")))) {
+		(!strcmp(id->compatible, "qcom,msmcobalt-tsens"))))) {
 		while (i < tmdev->tsens_num_sensor && !id_found) {
 			if (tmdev->sensor[i].sensor_client_id ==
 							sensor_client_id) {
