@@ -3450,6 +3450,84 @@ fail_cmd:
 	return rc;
 }
 
+int adm_set_mic_gain(int port_id, int copp_idx, int volume)
+{
+	struct adm_set_mic_gain_params	mic_gain_params;
+	int rc = 0;
+	int sz, port_idx;
+
+	pr_debug("%s:\n", __func__);
+	port_id = afe_convert_virtual_to_portid(port_id);
+	port_idx = adm_validate_and_get_port_index(port_id);
+	if (port_idx < 0) {
+		pr_err("%s: Invalid port_id 0x%x\n", __func__, port_id);
+		return -EINVAL;
+	}
+
+	sz = sizeof(struct adm_set_mic_gain_params);
+
+	mic_gain_params.params.hdr.hdr_field =
+				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	mic_gain_params.params.hdr.pkt_size = sz;
+	mic_gain_params.params.hdr.src_svc = APR_SVC_ADM;
+	mic_gain_params.params.hdr.src_domain = APR_DOMAIN_APPS;
+	mic_gain_params.params.hdr.src_port = port_id;
+	mic_gain_params.params.hdr.dest_svc = APR_SVC_ADM;
+	mic_gain_params.params.hdr.dest_domain = APR_DOMAIN_ADSP;
+	mic_gain_params.params.hdr.dest_port =
+			atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
+	mic_gain_params.params.hdr.token = port_idx << 16 | copp_idx;
+	mic_gain_params.params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+	mic_gain_params.params.payload_addr_lsw = 0;
+	mic_gain_params.params.payload_addr_msw = 0;
+	mic_gain_params.params.mem_map_handle = 0;
+	mic_gain_params.params.payload_size =
+		sizeof(struct adm_param_data_v5) +
+		sizeof(struct admx_mic_gain);
+	mic_gain_params.data.module_id = ADM_MODULE_IDX_MIC_GAIN_CTRL;
+	mic_gain_params.data.param_id = ADM_PARAM_IDX_MIC_GAIN;
+	mic_gain_params.data.param_size =
+		sizeof(struct admx_mic_gain);
+	mic_gain_params.data.reserved = 0;
+	mic_gain_params.mic_gain_data.tx_mic_gain = volume;
+	mic_gain_params.mic_gain_data.reserved = 0;
+	pr_debug("%s: Mic Gain set to %d at port_id 0x%x\n",
+		__func__, volume, port_id);
+
+	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], -1);
+	rc = apr_send_pkt(this_adm.apr, (uint32_t *)&mic_gain_params);
+	if (rc < 0) {
+		pr_err("%s: Set params failed port = %#x\n",
+			__func__, port_id);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	/* Wait for the callback */
+	rc = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
+		atomic_read(&this_adm.copp.stat[port_idx][copp_idx]) >= 0,
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!rc) {
+		pr_err("%s: Mic Gain Set params timed out port = %#x\n",
+			 __func__, port_id);
+		rc = -EINVAL;
+		goto fail_cmd;
+	} else if (atomic_read(&this_adm.copp.stat
+				[port_idx][copp_idx]) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&this_adm.copp.stat
+				[port_idx][copp_idx])));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&this_adm.copp.stat
+					[port_idx][copp_idx]));
+		goto fail_cmd;
+	}
+	rc = 0;
+fail_cmd:
+	return rc;
+}
+
 int adm_param_enable(int port_id, int copp_idx, int module_id,  int enable)
 {
 	struct audproc_enable_param_t adm_mod_enable;
