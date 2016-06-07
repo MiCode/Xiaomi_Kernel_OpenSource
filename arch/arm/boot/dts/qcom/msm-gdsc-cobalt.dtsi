@@ -39,6 +39,7 @@
 		regulator-name = "gdsc_hlos1_vote_lpass_adsp";
 		reg = <0x17d034 0x4>;
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
@@ -47,6 +48,7 @@
 		regulator-name = "gdsc_hlos1_vote_lpass_core";
 		reg = <0x17d038 0x4>;
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
@@ -125,6 +127,7 @@
 		      <0x5066008 0x4>;
 		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
