@@ -226,7 +226,6 @@ struct platform_device *ipa3_pdev;
 static struct {
 	bool present;
 	bool arm_smmu;
-	bool disable_htw;
 	bool fast_map;
 	bool s1_bypass;
 	bool use_64_bit_dma_mask;
@@ -4596,9 +4595,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->apply_rg10_wa = false;
 	ipa_drv_res->gsi_ch20_wa = false;
 
-	smmu_info.disable_htw = of_property_read_bool(pdev->dev.of_node,
-			"qcom,smmu-disable-htw");
-
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
 					&ipa_drv_res->ipa_hw_type);
@@ -4814,7 +4810,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
-	int disable_htw = 1;
 	int atomic_ctx = 1;
 	int fast = 1;
 	int bypass = 1;
@@ -4833,17 +4828,6 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 		return -EPROBE_DEFER;
 	}
 	cb->valid = true;
-
-	if (smmu_info.disable_htw) {
-		ret = iommu_domain_set_attr(cb->iommu,
-			DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-			&disable_htw);
-		if (ret) {
-			IPAERR("couldn't disable coherent HTW\n");
-			cb->valid = false;
-			return -EIO;
-		}
-	}
 
 	if (smmu_info.s1_bypass) {
 		if (iommu_domain_set_attr(cb->iommu,
@@ -4917,7 +4901,6 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 static int ipa_smmu_uc_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
-	int disable_htw = 1;
 	int atomic_ctx = 1;
 	int bypass = 1;
 	int fast = 1;
@@ -4962,18 +4945,6 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	}
 	IPADBG("SMMU mapping created\n");
 	cb->valid = true;
-
-	IPADBG("UC CB PROBE sub pdev=%p disable htw\n", dev);
-	if (smmu_info.disable_htw) {
-		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				 &disable_htw)) {
-			IPAERR("couldn't disable coherent HTW\n");
-			arm_iommu_release_mapping(cb->mapping);
-			cb->valid = false;
-			return -EIO;
-		}
-	}
 
 	IPADBG("UC CB PROBE sub pdev=%p set attribute\n", dev);
 	if (smmu_info.s1_bypass) {
@@ -5029,7 +5000,6 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx();
 	int result;
-	int disable_htw = 1;
 	int atomic_ctx = 1;
 	int fast = 1;
 	int bypass = 1;
@@ -5077,17 +5047,6 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	IPADBG("SMMU mapping created\n");
 	cb->valid = true;
 
-	if (smmu_info.disable_htw) {
-		if (iommu_domain_set_attr(cb->mapping->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				 &disable_htw)) {
-			IPAERR("couldn't disable coherent HTW\n");
-			arm_iommu_release_mapping(cb->mapping);
-			cb->valid = false;
-			return -EIO;
-		}
-		IPADBG("SMMU disable HTW\n");
-	}
 	if (smmu_info.s1_bypass) {
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_S1_BYPASS,
