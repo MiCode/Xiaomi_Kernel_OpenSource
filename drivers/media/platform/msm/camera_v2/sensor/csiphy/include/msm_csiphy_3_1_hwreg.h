@@ -13,7 +13,7 @@
 #ifndef MSM_CSIPHY_3_1_HWREG_H
 #define MSM_CSIPHY_3_1_HWREG_H
 
-#include "msm_csiphy.h"
+#include "sensor/csiphy/msm_csiphy.h"
 
 #define MIPI_CSIPHY_GLBL_PWG_CFG0_OFFSET    0x1FC
 
