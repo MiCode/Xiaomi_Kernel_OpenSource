@@ -1118,7 +1118,6 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
 	int ret = 0;
 	struct kgsl_iommu_pt *iommu_pt = NULL;
-	int disable_htw = !MMU_FEATURE(mmu, KGSL_MMU_COHERENT_HTW);
 	unsigned int cb_num;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
@@ -1127,9 +1126,6 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	if (IS_ERR(iommu_pt))
 		return PTR_ERR(iommu_pt);
-
-	iommu_domain_set_attr(iommu_pt->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
 
 	if (kgsl_mmu_is_perprocess(mmu)) {
 		ret = iommu_domain_set_attr(iommu_pt->domain,
@@ -1189,7 +1185,6 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	int ret = 0;
 	struct kgsl_iommu_pt *iommu_pt = NULL;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	int disable_htw = !MMU_FEATURE(mmu, KGSL_MMU_COHERENT_HTW);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
 	int secure_vmid = VMID_CP_PIXEL;
 	unsigned int cb_num;
@@ -1206,9 +1201,6 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	if (IS_ERR(iommu_pt))
 		return PTR_ERR(iommu_pt);
-
-	iommu_domain_set_attr(iommu_pt->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
 
 	ret = iommu_domain_set_attr(iommu_pt->domain,
 				    DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
@@ -1251,7 +1243,6 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	int dynamic = 1;
 	unsigned int cb_num = ctx->cb_num;
-	int disable_htw = !MMU_FEATURE(mmu, KGSL_MMU_COHERENT_HTW);
 
 	iommu_pt = _alloc_pt(ctx->dev, mmu, pt);
 
@@ -1277,9 +1268,6 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		KGSL_CORE_ERR("set DOMAIN_ATTR_PROCID failed: %d\n", ret);
 		goto done;
 	}
-
-	iommu_domain_set_attr(iommu_pt->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
 
 	ret = _attach_pt(iommu_pt, ctx);
 	if (ret)
@@ -2492,7 +2480,6 @@ static const struct {
 	{ "qcom,global_pt", KGSL_MMU_GLOBAL_PAGETABLE },
 	{ "qcom,hyp_secure_alloc", KGSL_MMU_HYP_SECURE_ALLOC },
 	{ "qcom,force-32bit", KGSL_MMU_FORCE_32BIT },
-	{ "qcom,coherent-htw", KGSL_MMU_COHERENT_HTW },
 };
 
 static int _kgsl_iommu_probe(struct kgsl_device *device,
