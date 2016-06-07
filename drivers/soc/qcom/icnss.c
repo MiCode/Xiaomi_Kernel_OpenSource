@@ -3343,7 +3343,6 @@ static void icnss_bw_deinit(struct icnss_priv *priv)
 static int icnss_smmu_init(struct icnss_priv *priv)
 {
 	struct dma_iommu_mapping *mapping;
-	int disable_htw = 1;
 	int atomic_ctx = 1;
 	int s1_bypass = 1;
 	int ret = 0;
@@ -3357,15 +3356,6 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 		icnss_pr_err("Create mapping failed, err = %d\n", ret);
 		ret = PTR_ERR(mapping);
 		goto map_fail;
-	}
-
-	ret = iommu_domain_set_attr(mapping->domain,
-				    DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				    &disable_htw);
-	if (ret < 0) {
-		icnss_pr_err("Set disable_htw attribute failed, err = %d\n",
-			     ret);
-		goto set_attr_fail;
 	}
 
 	ret = iommu_domain_set_attr(mapping->domain,
