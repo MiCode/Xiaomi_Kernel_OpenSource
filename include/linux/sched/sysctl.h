@@ -23,6 +23,7 @@ extern unsigned int sysctl_sched_wake_to_idle;
 #ifdef CONFIG_SCHED_HMP
 extern int sysctl_sched_freq_inc_notify;
 extern int sysctl_sched_freq_dec_notify;
+extern unsigned int sysctl_sched_freq_reporting_policy;
 extern unsigned int sysctl_sched_window_stats_policy;
 extern unsigned int sysctl_sched_ravg_hist_size;
 extern unsigned int sysctl_sched_cpu_high_irqload;

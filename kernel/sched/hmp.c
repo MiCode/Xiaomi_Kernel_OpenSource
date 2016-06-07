@@ -774,6 +774,12 @@ __read_mostly unsigned int sysctl_sched_new_task_windows = 5;
 #define SCHED_FREQ_ACCOUNT_WAIT_TIME 0
 
 /*
+ * This governs what load needs to be used when reporting CPU busy time
+ * to the cpufreq governor.
+ */
+__read_mostly unsigned int sysctl_sched_freq_reporting_policy;
+
+/*
  * For increase, send notification if
  *      freq_required - cur_freq > sysctl_sched_freq_inc_notify
  */
@@ -2170,7 +2176,7 @@ void clear_top_tasks_bitmap(unsigned long *bitmap)
  * Note that sched_load_granule can change underneath us if we are not
  * holding any runqueue locks while calling the two functions below.
  */
-static u32  __maybe_unused top_task_load(struct rq *rq)
+static u32  top_task_load(struct rq *rq)
 {
 	int index = rq->prev_top;
 	u8 prev = 1 - rq->curr_table;
@@ -3240,6 +3246,26 @@ static inline void account_load_subtractions(struct rq *rq)
 	BUG_ON((s64)rq->nt_curr_runnable_sum < 0);
 }
 
+static inline u64 freq_policy_load(struct rq *rq, u64 load)
+{
+	unsigned int reporting_policy = sysctl_sched_freq_reporting_policy;
+
+	switch (reporting_policy) {
+	case FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK:
+		load = max_t(u64, load, top_task_load(rq));
+		break;
+	case FREQ_REPORT_TOP_TASK:
+		load = top_task_load(rq);
+		break;
+	case FREQ_REPORT_CPU_LOAD:
+		break;
+	default:
+		WARN_ON_ONCE(1);
+	}
+
+	return load;
+}
+
 static inline void
 sync_window_start(struct rq *rq, struct group_cpu_time *cpu_time);
 
@@ -3357,6 +3383,8 @@ void sched_get_cpus_busy(struct sched_load *busy,
 
 		load[i] += group_load[i];
 		nload[i] += ngload[i];
+
+		load[i] = freq_policy_load(rq, load[i]);
 		/*
 		 * Scale load in reference to cluster max_possible_freq.
 		 *
