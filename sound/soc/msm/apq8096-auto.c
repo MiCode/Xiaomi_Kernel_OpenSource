@@ -2538,10 +2538,10 @@ static struct snd_soc_dai_link apq8096_common_dai_links[] = {
 		.be_id = MSM_FRONTEND_DAI_LSM8,
 	},
 	{
-		.name = "MSM8996 Media9",
+		.name = "MSM8996 LowLatency Loopback",
 		.stream_name = "MultiMedia9",
 		.cpu_dai_name = "MultiMedia9",
-		.platform_name = "msm-pcm-dsp.0",
+		.platform_name = "msm-pcm-loopback.1",
 		.dynamic = 1,
 		.dpcm_playback = 1,
 		.dpcm_capture = 1,
@@ -2550,6 +2550,7 @@ static struct snd_soc_dai_link apq8096_common_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA9,
