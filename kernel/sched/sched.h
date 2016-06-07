@@ -784,6 +784,8 @@ struct rq {
 	u64 nt_curr_runnable_sum;
 	u64 nt_prev_runnable_sum;
 	struct load_subtractions load_subs[NUM_TRACKED_WINDOWS];
+	DECLARE_BITMAP_ARRAY(top_tasks_bitmap,
+			NUM_TRACKED_WINDOWS, NUM_LOAD_INDICES);
 	u8 *top_tasks[NUM_TRACKED_WINDOWS];
 	u8 curr_table;
 	int prev_top;
@@ -1471,6 +1473,7 @@ extern int cpu_upmigrate_discourage_write_u64(struct cgroup_subsys_state *css,
 				struct cftype *cft, u64 upmigrate_discourage);
 extern void sched_hmp_parse_dt(void);
 extern void init_sched_hmp_boost_policy(void);
+extern void clear_top_tasks_bitmap(unsigned long *bitmap);
 
 #else	/* CONFIG_SCHED_HMP */
 

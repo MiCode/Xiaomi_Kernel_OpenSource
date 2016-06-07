@@ -8171,6 +8171,8 @@ void __init sched_init(void)
 
 			/* No other choice */
 			BUG_ON(!rq->top_tasks[j]);
+
+			clear_top_tasks_bitmap(rq->top_tasks_bitmap[j]);
 		}
 #endif
 		INIT_LIST_HEAD(&rq->cfs_tasks);

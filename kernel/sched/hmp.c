@@ -847,6 +847,10 @@ static DEFINE_RWLOCK(related_thread_group_lock);
 __read_mostly unsigned int sched_load_granule =
 			MIN_SCHED_RAVG_WINDOW / NUM_LOAD_INDICES;
 
+/* Size of bitmaps maintained to track top tasks */
+static const unsigned int top_tasks_bitmap_size =
+		BITS_TO_LONGS(NUM_LOAD_INDICES + 1) * sizeof(unsigned long);
+
 /*
  * Demand aggregation for frequency purpose:
  *
@@ -2155,6 +2159,12 @@ void update_task_pred_demand(struct rq *rq, struct task_struct *p, int event)
 	p->ravg.pred_demand = new;
 }
 
+void clear_top_tasks_bitmap(unsigned long *bitmap)
+{
+	memset(bitmap, 0, top_tasks_bitmap_size);
+	__set_bit(NUM_LOAD_INDICES, bitmap);
+}
+
 /*
  * Special case the last index and provide a fast path for index = 0.
  * Note that sched_load_granule can change underneath us if we are not
@@ -2163,9 +2173,12 @@ void update_task_pred_demand(struct rq *rq, struct task_struct *p, int event)
 static u32  __maybe_unused top_task_load(struct rq *rq)
 {
 	int index = rq->prev_top;
+	u8 prev = 1 - rq->curr_table;
 
 	if (!index) {
-		if (!rq->prev_runnable_sum)
+		int msb = NUM_LOAD_INDICES - 1;
+
+		if (!test_bit(msb, rq->top_tasks_bitmap[prev]))
 			return 0;
 		else
 			return sched_load_granule;
@@ -2189,8 +2202,10 @@ static int load_to_index(u32 load)
 static void update_top_tasks(struct task_struct *p, struct rq *rq,
 		u32 old_curr_window, int new_window, bool full_window)
 {
-	u8 *curr_table = rq->top_tasks[rq->curr_table];
-	u8 *prev_table = rq->top_tasks[1 - rq->curr_table];
+	u8 curr = rq->curr_table;
+	u8 prev = 1 - curr;
+	u8 *curr_table = rq->top_tasks[curr];
+	u8 *prev_table = rq->top_tasks[prev];
 	int old_index, new_index, update_index;
 	u32 curr_window = p->ravg.curr_window;
 	u32 prev_window = p->ravg.prev_window;
@@ -2212,6 +2227,14 @@ static void update_top_tasks(struct task_struct *p, struct rq *rq,
 			if (new_index > rq->curr_top)
 				rq->curr_top = new_index;
 		}
+
+		if (!curr_table[old_index])
+			__clear_bit(NUM_LOAD_INDICES - old_index - 1,
+				rq->top_tasks_bitmap[curr]);
+
+		if (curr_table[new_index] == 1)
+			__set_bit(NUM_LOAD_INDICES - new_index - 1,
+				rq->top_tasks_bitmap[curr]);
 
 		return;
 	}
@@ -2236,6 +2259,10 @@ static void update_top_tasks(struct task_struct *p, struct rq *rq,
 			prev_table[update_index] += 1;
 			rq->prev_top = update_index;
 		}
+
+		if (prev_table[update_index] == 1)
+			__set_bit(NUM_LOAD_INDICES - update_index - 1,
+				rq->top_tasks_bitmap[prev]);
 	} else {
 		zero_index_update = !old_curr_window && prev_window;
 		if (old_index != update_index || zero_index_update) {
@@ -2246,6 +2273,14 @@ static void update_top_tasks(struct task_struct *p, struct rq *rq,
 
 			if (update_index > rq->prev_top)
 				rq->prev_top = update_index;
+
+			if (!prev_table[old_index])
+				__clear_bit(NUM_LOAD_INDICES - old_index - 1,
+						rq->top_tasks_bitmap[prev]);
+
+			if (prev_table[update_index] == 1)
+				__set_bit(NUM_LOAD_INDICES - update_index - 1,
+						rq->top_tasks_bitmap[prev]);
 		}
 	}
 
@@ -2254,6 +2289,10 @@ static void update_top_tasks(struct task_struct *p, struct rq *rq,
 
 		if (new_index > rq->curr_top)
 			rq->curr_top = new_index;
+
+		if (curr_table[new_index] == 1)
+			__set_bit(NUM_LOAD_INDICES - new_index - 1,
+				rq->top_tasks_bitmap[curr]);
 	}
 }
 
@@ -2384,11 +2423,14 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		int curr_top = rq->curr_top;
 
 		clear_top_tasks_table(rq->top_tasks[prev_table]);
+		clear_top_tasks_bitmap(rq->top_tasks_bitmap[prev_table]);
 
 		if (prev_sum_reset) {
 			curr_sum = nt_curr_sum = 0;
 			curr_top = 0;
 			clear_top_tasks_table(rq->top_tasks[curr_table]);
+			clear_top_tasks_bitmap(
+					rq->top_tasks_bitmap[curr_table]);
 		}
 
 		*prev_runnable_sum = curr_sum;
@@ -3127,6 +3169,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 			memset(&rq->load_subs[i], 0,
 					sizeof(struct load_subtractions));
 			clear_top_tasks_table(rq->top_tasks[i]);
+			clear_top_tasks_bitmap(rq->top_tasks_bitmap[i]);
 		}
 
 		rq->curr_table = 0;
@@ -3544,19 +3587,14 @@ static inline void inter_cluster_migration_fixup
 	BUG_ON((s64)src_rq->nt_curr_runnable_sum < 0);
 }
 
-static int find_next_top_index(u8 *tasks, int end)
+static int get_top_index(unsigned long *bitmap, unsigned long old_top)
 {
-	int i;
+	int index = find_next_bit(bitmap, NUM_LOAD_INDICES, old_top);
 
-	if (end <= 1)
+	if (index == NUM_LOAD_INDICES)
 		return 0;
 
-	for (i = end - 1; i >= 0; i--) {
-		if (tasks[i])
-			return i;
-	}
-
-	return 0;
+	return NUM_LOAD_INDICES - 1 - index;
 }
 
 static void
@@ -3578,13 +3616,21 @@ migrate_top_tasks(struct task_struct *p, struct rq *src_rq, struct rq *dst_rq)
 		src_table[index] -= 1;
 		dst_table[index] += 1;
 
+		if (!src_table[index])
+			__clear_bit(NUM_LOAD_INDICES - index - 1,
+				src_rq->top_tasks_bitmap[src]);
+
+		if (dst_table[index] == 1)
+			__set_bit(NUM_LOAD_INDICES - index - 1,
+				dst_rq->top_tasks_bitmap[dst]);
+
 		if (index > dst_rq->curr_top)
 			dst_rq->curr_top = index;
 
 		top_index = src_rq->curr_top;
 		if (index == top_index && !src_table[index])
-			src_rq->curr_top =
-				find_next_top_index(src_table, top_index);
+			src_rq->curr_top = get_top_index(
+				src_rq->top_tasks_bitmap[src], top_index);
 	}
 
 	if (prev_window) {
@@ -3596,13 +3642,21 @@ migrate_top_tasks(struct task_struct *p, struct rq *src_rq, struct rq *dst_rq)
 		src_table[index] -= 1;
 		dst_table[index] += 1;
 
+		if (!src_table[index])
+			__clear_bit(NUM_LOAD_INDICES - index - 1,
+				src_rq->top_tasks_bitmap[src]);
+
+		if (dst_table[index] == 1)
+			__set_bit(NUM_LOAD_INDICES - index - 1,
+				dst_rq->top_tasks_bitmap[dst]);
+
 		if (index > dst_rq->prev_top)
 			dst_rq->prev_top = index;
 
 		top_index = src_rq->prev_top;
 		if (index == top_index && !src_table[index])
-			src_rq->prev_top =
-				find_next_top_index(src_table, top_index);
+			src_rq->prev_top = get_top_index(
+				src_rq->top_tasks_bitmap[src], top_index);
 	}
 }
 
