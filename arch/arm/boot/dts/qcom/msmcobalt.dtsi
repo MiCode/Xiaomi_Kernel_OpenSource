@@ -1982,8 +1982,6 @@
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&pmcobalt_s9_level>;
 		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		vdd_pll-supply = <&pm8005_s3>;
-		qcom,vdd_pll = <600000>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,sysmon-id = <0>;
