@@ -5212,6 +5212,8 @@ static int iris_fops_release(struct file *file)
 		return -EINVAL;
 
 	FMDBG("state %d", radio->mode);
+	mutex_lock(&radio->lock);
+
 	if (radio->mode == FM_OFF)
 		goto END;
 
@@ -5231,6 +5233,7 @@ static int iris_fops_release(struct file *file)
 		radio->is_fm_closing = false;
 	} else if (radio->mode == FM_CALIB) {
 		radio->mode = FM_OFF;
+		mutex_unlock(&radio->lock);
 		return retval;
 	}
 END:
@@ -5239,6 +5242,8 @@ END:
 	if (radio->fm_hdev != NULL)
 		radio->fm_hdev->close_smd();
 	mutex_unlock(&fm_smd_enable);
+
+	mutex_unlock(&radio->lock);
 
 	if (retval < 0)
 		FMDERR("Err on disable FM %d\n", retval);
