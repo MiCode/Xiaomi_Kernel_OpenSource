@@ -8009,7 +8009,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_3_RX", NULL, "SLIMBUS3_DL_HL"},
 	{"SLIMBUS4_DL_HL", "Switch", "SLIM4_DL_HL"},
 	{"SLIMBUS_4_RX", NULL, "SLIMBUS4_DL_HL"},
-	{"SLIMBUS6_DL_HL", "Switch", "SLIM6_DL_HL"},
+	{"SLIMBUS6_DL_HL", "Switch", "SLIM0_DL_HL"},
 	{"SLIMBUS_6_RX", NULL, "SLIMBUS6_DL_HL"},
 	{"SLIM0_UL_HL", NULL, "SLIMBUS_0_TX"},
 	{"SLIM1_UL_HL", NULL, "SLIMBUS_1_TX"},
