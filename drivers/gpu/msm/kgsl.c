@@ -2139,8 +2139,8 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 	}
 	up_read(&current->mm->mmap_sem);
 
-	if (dmabuf == NULL)
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(dmabuf))
+		return dmabuf ? PTR_ERR(dmabuf) : -ENODEV;
 
 	ret = kgsl_setup_dma_buf(device, pagetable, entry, dmabuf);
 	if (ret) {
