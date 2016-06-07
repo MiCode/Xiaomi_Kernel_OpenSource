@@ -84,10 +84,12 @@
 			<&clock_gcc clk_gcc_bimc_gfx_clk>,
 			<&clock_gcc clk_gcc_gpu_bimc_gfx_clk>,
 			<&clock_gpu clk_gpucc_gfx3d_isense_clk>,
-			<&clock_gpu clk_gpucc_rbcpr_clk>;
+			<&clock_gpu clk_gpucc_rbcpr_clk>,
+			<&clock_gcc clk_gcc_gpu_iref_clk>;
 
 		clock-names = "core_clk", "iface_clk", "rbbmtimer_clk",
-			"mem_clk", "mem_iface_clk", "isense_clk", "rbcpr_clk";
+			"mem_clk", "mem_iface_clk", "isense_clk", "rbcpr_clk",
+			"iref_clk";
 
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
