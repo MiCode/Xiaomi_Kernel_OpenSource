@@ -8028,6 +8028,8 @@ void __init sched_init(void)
 
 			/* No other choice */
 			BUG_ON(!rq->top_tasks[j]);
+
+			clear_top_tasks_bitmap(rq->top_tasks_bitmap[j]);
 		}
 #endif
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
