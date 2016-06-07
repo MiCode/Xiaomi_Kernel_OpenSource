@@ -347,8 +347,13 @@ int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
 	if (!pon->store_hard_reset_reason)
 		return 0;
 
-	rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon),
-					PON_MASK(7, 1), (reason << 1));
+	if (is_pon_gen2(pon))
+		rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon),
+					   PON_MASK(7, 1), (reason << 1));
+	else
+		rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon),
+					   PON_MASK(7, 2), (reason << 2));
+
 	if (rc)
 		dev_err(&pon->pdev->dev,
 				"Unable to write to addr=%x, rc(%d)\n",
