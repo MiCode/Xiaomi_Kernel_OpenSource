@@ -569,7 +569,6 @@ err_disable_vregs:
 
 static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 {
-	int disable_htw = 1;
 	int atomic_ctx = 1;
 	int rc;
 	int bypass_enable = 1;
@@ -585,17 +584,6 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 		return rc;
 	}
 	dev_info(ctx->dev, "IOMMU mapping created: %p\n", ctx->mapping);
-
-	rc = iommu_domain_set_attr(ctx->mapping->domain,
-				   DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				   &disable_htw);
-	if (rc) {
-		/* This error can be ignored and not considered fatal,
-		 * but let the users know this happened
-		 */
-		dev_err(ctx->dev, "Warning: disable coherent HTW failed (%d)\n",
-			rc);
-	}
 
 	rc = iommu_domain_set_attr(ctx->mapping->domain,
 				   DOMAIN_ATTR_ATOMIC,
