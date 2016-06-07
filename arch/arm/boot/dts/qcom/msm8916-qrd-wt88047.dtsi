@@ -366,7 +366,7 @@ i2c@78ba000 {/* i2c 6 */
 	};
 
 	yamaha@2e {/* Magnetic field sensor */
-		compatible = "yamaha, yas537";
+		compatible = "yamaha,yas537";
 		reg = <0x2e>;
 		vdd-supply = <&pm8916_l17>;
 		vio-supply = <&pm8916_l6>;
