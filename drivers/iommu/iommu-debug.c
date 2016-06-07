@@ -48,8 +48,6 @@ static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
 		return "DOMAIN_ATTR_FSL_PAMUV1";
 	case DOMAIN_ATTR_NESTING:
 		return "DOMAIN_ATTR_NESTING";
-	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
-		return "DOMAIN_ATTR_COHERENT_HTW_DISABLE";
 	case DOMAIN_ATTR_PT_BASE_ADDR:
 		return "DOMAIN_ATTR_PT_BASE_ADDR";
 	case DOMAIN_ATTR_SECURE_VMID:
@@ -96,7 +94,6 @@ static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_attachment *attach = s->private;
 	phys_addr_t pt_phys;
-	int coherent_htw_disable;
 	int secure_vmid;
 
 	seq_printf(s, "Domain: 0x%p\n", attach->domain);
@@ -109,14 +106,6 @@ static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 		seq_printf(s, "PT_BASE_ADDR: virt=0x%p phys=%pa\n",
 			   pt_virt, &pt_phys);
 	}
-
-	seq_puts(s, "COHERENT_HTW_DISABLE: ");
-	if (iommu_domain_get_attr(attach->domain,
-				  DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				  &coherent_htw_disable))
-		seq_puts(s, "(Unknown)\n");
-	else
-		seq_printf(s, "%d\n", coherent_htw_disable);
 
 	seq_puts(s, "SECURE_VMID: ");
 	if (iommu_domain_get_attr(attach->domain,
@@ -733,7 +722,6 @@ static int iommu_debug_profiling_show(struct seq_file *s, void *ignored)
 	const size_t sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
 					SZ_1M * 20, 0 };
 	enum iommu_attr attrs[] = {
-		DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 		DOMAIN_ATTR_ATOMIC,
 	};
 	int htw_disable = 1, atomic = 1;
@@ -764,7 +752,6 @@ static int iommu_debug_secure_profiling_show(struct seq_file *s, void *ignored)
 					SZ_1M * 20, 0 };
 
 	enum iommu_attr attrs[] = {
-		DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 		DOMAIN_ATTR_ATOMIC,
 		DOMAIN_ATTR_SECURE_VMID,
 	};
@@ -797,7 +784,6 @@ static int iommu_debug_profiling_fast_show(struct seq_file *s, void *ignored)
 	size_t sizes[] = {SZ_4K, SZ_8K, SZ_16K, SZ_64K, 0};
 	enum iommu_attr attrs[] = {
 		DOMAIN_ATTR_FAST,
-		DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 		DOMAIN_ATTR_ATOMIC,
 	};
 	int one = 1;
@@ -1507,7 +1493,6 @@ static const struct file_operations iommu_debug_functional_arm_dma_api_fops = {
 static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 					int val, bool is_secure)
 {
-	int htw_disable = 1;
 	struct bus_type *bus;
 
 	bus = msm_iommu_get_bus(ddev->dev);
@@ -1518,13 +1503,6 @@ static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 	if (!ddev->domain) {
 		pr_err("Couldn't allocate domain\n");
 		return -ENOMEM;
-	}
-
-	if (iommu_domain_set_attr(ddev->domain,
-				  DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				  &htw_disable)) {
-		pr_err("Couldn't disable coherent htw\n");
-		goto out_domain_free;
 	}
 
 	if (is_secure && iommu_domain_set_attr(ddev->domain,
