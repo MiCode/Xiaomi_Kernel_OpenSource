@@ -649,16 +649,12 @@ err:
 int fast_smmu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
-	int htw_disable = 1, atomic_domain = 1;
+	int atomic_domain = 1;
 	struct iommu_domain *domain = mapping->domain;
 	struct iommu_pgtbl_info info;
 	size_t size = mapping->bits << PAGE_SHIFT;
 
 	if (mapping->base + size > (SZ_1G * 4ULL))
-		return -EINVAL;
-
-	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				  &htw_disable))
 		return -EINVAL;
 
 	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC,
