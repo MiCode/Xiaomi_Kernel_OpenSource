@@ -2275,7 +2275,6 @@ static int fastrpc_cb_probe(struct device *dev)
 	const char *name;
 	unsigned int start = 0x80000000;
 	int err = 0, i;
-	int disable_htw = 1;
 	int secure_vmid = VMID_CP_PIXEL;
 
 	VERIFY(err, 0 != (name = of_get_property(dev->of_node, "label", NULL)));
@@ -2311,9 +2310,6 @@ static int fastrpc_cb_probe(struct device *dev)
 						start, 0x7fffffff)));
 	if (err)
 		goto bail;
-	iommu_domain_set_attr(sess->smmu.mapping->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				&disable_htw);
 	iommu_set_fault_handler(sess->smmu.mapping->domain,
 				fastrpc_smmu_fault_handler, sess);
 	if (sess->smmu.secure)
@@ -2341,7 +2337,6 @@ static int fastrpc_cb_legacy_probe(struct device *dev)
 	unsigned int *range = 0, range_size = 0;
 	unsigned int *sids = 0, sids_size = 0;
 	int err = 0, ret = 0, i;
-	int disable_htw = 1;
 
 	VERIFY(err, 0 != (domains_child_node = of_get_child_by_name(
 			dev->of_node,
@@ -2395,9 +2390,6 @@ static int fastrpc_cb_legacy_probe(struct device *dev)
 				range[0], range[1])));
 	if (err)
 		goto bail;
-	iommu_domain_set_attr(first_sess->smmu.mapping->domain,
-			DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-			&disable_htw);
 	VERIFY(err, !arm_iommu_attach_device(first_sess->dev,
 					first_sess->smmu.mapping));
 	if (err)
