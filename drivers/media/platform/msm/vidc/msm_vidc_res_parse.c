@@ -1166,7 +1166,6 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 		struct device *dev)
 {
 	int rc = 0;
-	int disable_htw = 1;
 	int secure_vmid = VMID_INVAL;
 	struct bus_type *bus;
 
@@ -1190,14 +1189,6 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 		dprintk(VIDC_ERR, "%s - failed to create mapping\n", __func__);
 		rc = PTR_ERR(cb->mapping) ?: -ENODEV;
 		goto remove_cb;
-	}
-
-	rc = iommu_domain_set_attr(cb->mapping->domain,
-			DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s - disable coherent HTW failed: %s %d\n",
-				__func__, dev_name(dev), rc);
-		goto release_mapping;
 	}
 
 	if (cb->is_secure) {
