@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -428,7 +428,7 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
 			"id: %d\n"
 			"name: %s\n"
-			"hdl: %p\n"
+			"hdl: %pK\n"
 			"connected: %d\n"
 			"diag state: %d\n"
 			"enabled: %d\n"
@@ -527,7 +527,7 @@ static ssize_t diag_dbgfs_read_smdinfo(struct file *file, char __user *ubuf,
 			bytes_written = scnprintf(buf+bytes_in_buffer,
 				bytes_remaining,
 				"name\t\t:\t%s\n"
-				"hdl\t\t:\t%p\n"
+				"hdl\t\t:\t%pK\n"
 				"inited\t\t:\t%d\n"
 				"opened\t\t:\t%d\n"
 				"diag_state\t:\t%d\n"
@@ -633,7 +633,7 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 			bytes_written = scnprintf(buf+bytes_in_buffer,
 				bytes_remaining,
 				"name\t\t:\t%s\n"
-				"hdl\t\t:\t%p\n"
+				"hdl\t\t:\t%pK\n"
 				"inited\t\t:\t%d\n"
 				"opened\t\t:\t%d\n"
 				"diag_state\t:\t%d\n"
@@ -823,9 +823,9 @@ static ssize_t diag_dbgfs_read_mhiinfo(struct file *file, char __user *ubuf,
 			"bridge index: %s\n"
 			"mempool: %s\n"
 			"read ch opened: %d\n"
-			"read ch hdl: %p\n"
+			"read ch hdl: %pK\n"
 			"write ch opened: %d\n"
-			"write ch hdl: %p\n"
+			"write ch hdl: %pK\n"
 			"read work pending: %d\n"
 			"read done work pending: %d\n"
 			"open work pending: %d\n"
@@ -900,9 +900,9 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 			"type: %d\n"
 			"inited: %d\n"
 			"ctxt: %d\n"
-			"dev_ops: %p\n"
-			"dci_read_buf: %p\n"
-			"dci_read_ptr: %p\n"
+			"dev_ops: %pK\n"
+			"dci_read_buf: %pK\n"
+			"dci_read_ptr: %pK\n"
 			"dci_read_len: %d\n\n",
 			info->id,
 			info->name,
