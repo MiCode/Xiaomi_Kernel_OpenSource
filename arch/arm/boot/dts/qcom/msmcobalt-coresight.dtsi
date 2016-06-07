@@ -888,6 +888,42 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	cti_apss: cti@7b80000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7b80000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-apss";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_apss_dl: cti@7bc1000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7bc1000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-apss-dl";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_olc: cti@7b91000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x7b91000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-olc";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 	funnel_qatb: funnel@6005000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b908>;
