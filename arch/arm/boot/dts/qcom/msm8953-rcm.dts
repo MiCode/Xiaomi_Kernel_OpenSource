@@ -22,3 +22,31 @@
 	compatible = "qcom,msm8953-cdp", "qcom,msm8953", "qcom,cdp";
 	qcom,board-id= <21 0>;
 };
+
+&soc {
+	gpio_keys {
+		/delete-node/ home;
+	};
+};
+
+&gpio_key_active {
+	mux {
+		pins = "gpio85", "gpio86", "gpio87";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio85", "gpio86", "gpio87";
+	};
+};
+
+&gpio_key_suspend {
+	mux {
+		pins = "gpio85", "gpio86", "gpio87";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio85", "gpio86", "gpio87";
+	};
+};
