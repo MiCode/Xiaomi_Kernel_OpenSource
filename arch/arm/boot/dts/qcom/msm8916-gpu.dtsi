@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-15, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,12 @@
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		reg = <0x01c00000 0x10000
 		       0x01c10000 0x10000
-		       0x0005c00c 0x8>;
-		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory" , "efuse_memory";
+		       0x0005c000 0x204>;
+		/* stock uses "efuse_memory" , for now use what we have been
+		 * using "qfprom_memory"
+		 * the concerned C file is drivers/gpu/adreno.c
+		 */
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory" , "efuse_memory" , "qfprom_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;

@@ -49,6 +49,9 @@
 
 #define KGSL_LOG_LEVEL_DEFAULT 3
 
+/* QFPROM_CORR_PTE2 register offset*/
+#define QFPROM_CORR_PTE2_OFFSET 0xC
+
 static void adreno_input_work(struct work_struct *work);
 
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
@@ -801,13 +804,13 @@ static struct device_node *get_gpu_speed_config_data(struct platform_device
 	int speed_bin, speed_config;
 	char prop_name[32];
 
-	/* Load defualt configuration, if speed config is not required */
+	/* Load default configuration, if speed config is not required */
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,gpu-speed-config", &speed_config))
 		return pdev->dev.of_node;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"efuse_memory");
+			"qfprom_memory");
 	if (!res)
 		return NULL;
 
@@ -816,7 +819,7 @@ static struct device_node *get_gpu_speed_config_data(struct platform_device
 	if (!base)
 		return NULL;
 
-	pte_reg_val = __raw_readl(base);
+	pte_reg_val = __raw_readl(base + QFPROM_CORR_PTE2_OFFSET);
 
 	iounmap(base);
 
@@ -2635,9 +2638,9 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		return -ENOTTY;
 	}
 
-	/* Return -EINVAL if the context has been detached */
+	/* Return -ENOENT if the context has been detached */
 	if (kgsl_context_detached(context))
-		return -EINVAL;
+		return -ENOENT;
 
 	ret = adreno_drawctxt_wait(ADRENO_DEVICE(device), context,
 		timestamp, msecs);
