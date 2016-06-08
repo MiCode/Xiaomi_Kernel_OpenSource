@@ -680,7 +680,8 @@
 		clock-names = "xo", "gpll0", "gpll0_div",
 				"pclk0_src", "pclk1_src",
 				"byte0_src", "byte1_src",
-				"dp_link_src", "dp_vco_div";
+				"dp_link_src", "dp_vco_div",
+				"extpclk_src";
 		clocks = <&clock_gcc clk_cxo_clk_src>,
 			 <&clock_gcc clk_gpll0_out_main>,
 			 <&clock_gcc clk_gcc_mmss_gpll0_div_clk>,
@@ -689,7 +690,8 @@
 			 <&mdss_dsi0_pll clk_dsi0pll_byteclk_mux>,
 			 <&mdss_dsi1_pll clk_dsi1pll_byteclk_mux>,
 			 <&mdss_dp_pll clk_dp_link_2x_clk_mux>,
-			 <&mdss_dp_pll clk_vco_divided_clk_src>;
+			 <&mdss_dp_pll clk_vco_divided_clk_src>,
+			 <&mdss_hdmi_pll clk_hdmi_vco_clk>;
 		#clock-cells = <1>;
 	};
 
