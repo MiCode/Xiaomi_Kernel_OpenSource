@@ -12,6 +12,8 @@
 
 #include "mdmcalifornium.dtsi"
 #include "mdmcalifornium-pinctrl.dtsi"
+#include "mdmcalifornium-display.dtsi"
+#include "qpic-panel-ili-hvga.dtsi"
 
 &blsp1_uart3 {
 	status = "ok";
@@ -178,4 +180,14 @@
 		qcom,fast-avg-setup = <0>;
 		qcom,vadc-thermal-node;
 	};
+};
+
+/* Display */
+&mdss_qpic {
+	pinctrl-names= "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_cs_active &mdss_te_active &mdss_rs_active
+		&mdss_ad_active &mdss_bl_active>;
+	pinctrl-1 = <&mdss_cs_sleep &mdss_te_sleep
+		&mdss_rs_sleep &mdss_ad_sleep &mdss_bl_sleep>;
+	status = "ok";
 };
