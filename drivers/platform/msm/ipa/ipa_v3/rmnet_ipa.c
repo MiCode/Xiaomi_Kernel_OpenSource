@@ -57,6 +57,7 @@
 #define IPA_QUOTA_REACH_ALERT_MAX_SIZE 64
 #define IPA_QUOTA_REACH_IF_NAME_MAX_SIZE 64
 #define IPA_UEVENT_NUM_EVNP 4 /* number of event pointers */
+#define NAPI_WEIGHT 60
 
 #define IPA_NETDEV() \
 	((rmnet_ipa3_ctx && rmnet_ipa3_ctx->wwan_priv) ? \
@@ -66,6 +67,8 @@
 static int ipa3_wwan_add_ul_flt_rule_to_ipa(void);
 static int ipa3_wwan_del_ul_flt_rule_to_ipa(void);
 static void ipa3_wwan_msg_free_cb(void*, u32, u32);
+static void ipa3_rmnet_rx_cb(void *priv);
+static int ipa3_rmnet_poll(struct napi_struct *napi, int budget);
 
 static void ipa3_wake_tx_queue(struct work_struct *work);
 static DECLARE_WORK(ipa3_tx_wakequeue_work, ipa3_wake_tx_queue);
@@ -83,6 +86,7 @@ struct ipa3_rmnet_plat_drv_res {
 	bool ipa_rmnet_ssr;
 	bool ipa_loaduC;
 	bool ipa_advertise_sg_support;
+	bool ipa_napi_enable;
 };
 
 /**
@@ -109,6 +113,7 @@ struct ipa3_wwan_private {
 	spinlock_t lock;
 	struct completion resource_granted_completion;
 	enum ipa3_wwan_device_status device_status;
+	struct napi_struct napi;
 };
 
 struct rmnet_ipa3_context {
@@ -134,6 +139,7 @@ struct rmnet_ipa3_context {
 };
 
 static struct rmnet_ipa3_context *rmnet_ipa3_ctx;
+static struct ipa3_rmnet_plat_drv_res ipa3_rmnet_res;
 
 /**
 * ipa3_setup_a7_qmap_hdr() - Setup default a7 qmap hdr
@@ -957,6 +963,9 @@ static int __ipa_wwan_open(struct net_device *dev)
 	if (wwan_ptr->device_status != WWAN_DEVICE_ACTIVE)
 		reinit_completion(&wwan_ptr->resource_granted_completion);
 	wwan_ptr->device_status = WWAN_DEVICE_ACTIVE;
+
+	if (ipa3_rmnet_res.ipa_napi_enable)
+		napi_enable(&(wwan_ptr->napi));
 	return 0;
 }
 
@@ -1189,38 +1198,46 @@ static void apps_ipa_packet_receive_notify(void *priv,
 		enum ipa_dp_evt_type evt,
 		unsigned long data)
 {
-	struct sk_buff *skb = (struct sk_buff *)data;
 	struct net_device *dev = (struct net_device *)priv;
-	int result;
-	unsigned int packet_len = skb->len;
 
-	IPAWANDBG_LOW("Rx packet was received");
-	if (evt != IPA_RECEIVE) {
-		IPAWANERR("A none IPA_RECEIVE event in wan_ipa_receive\n");
-		return;
-	}
+	if (evt == IPA_RECEIVE) {
+		struct sk_buff *skb = (struct sk_buff *)data;
+		int result;
+		unsigned int packet_len = skb->len;
 
-	skb->dev = IPA_NETDEV();
-	skb->protocol = htons(ETH_P_MAP);
+		IPAWANDBG_LOW("Rx packet was received");
+		skb->dev = IPA_NETDEV();
+		skb->protocol = htons(ETH_P_MAP);
 
-	if (dev->stats.rx_packets % IPA_WWAN_RX_SOFTIRQ_THRESH == 0) {
-		trace_rmnet_ipa_netifni3(dev->stats.rx_packets);
-		result = netif_rx_ni(skb);
-	} else {
-		trace_rmnet_ipa_netifrx3(dev->stats.rx_packets);
-		result = netif_rx(skb);
-	}
+		if (ipa3_rmnet_res.ipa_napi_enable) {
+			trace_rmnet_ipa_netif_rcv_skb3(dev->stats.rx_packets);
+			result = netif_receive_skb(skb);
+		} else {
+			if (dev->stats.rx_packets % IPA_WWAN_RX_SOFTIRQ_THRESH
+					== 0) {
+				trace_rmnet_ipa_netifni3(dev->stats.rx_packets);
+				result = netif_rx_ni(skb);
+			} else {
+				trace_rmnet_ipa_netifrx3(dev->stats.rx_packets);
+				result = netif_rx(skb);
+			}
+		}
 
-	if (result)	{
-		pr_err_ratelimited(DEV_NAME " %s:%d fail on netif_rx\n",
-				__func__, __LINE__);
-		dev->stats.rx_dropped++;
-	}
-	dev->stats.rx_packets++;
-	dev->stats.rx_bytes += packet_len;
+		if (result)	{
+			pr_err_ratelimited(DEV_NAME " %s:%d fail on netif_receive_skb\n",
+							   __func__, __LINE__);
+			dev->stats.rx_dropped++;
+		}
+		dev->stats.rx_packets++;
+		dev->stats.rx_bytes += packet_len;
+	} else if (evt == IPA_CLIENT_START_POLL)
+		ipa3_rmnet_rx_cb(priv);
+	else if (evt == IPA_CLIENT_COMP_NAPI) {
+		if (ipa3_rmnet_res.ipa_napi_enable)
+			napi_complete(&(rmnet_ipa3_ctx->wwan_priv->napi));
+	} else
+		IPAWANERR("Invalid evt %d received in wan_ipa_receive\n", evt);
 }
-
-static struct ipa3_rmnet_plat_drv_res ipa3_rmnet_res = {0, };
 
 /**
  * ipa3_wwan_ioctl() - I/O control for wwan network driver.
@@ -1595,9 +1612,16 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				IPA_CLIENT_APPS_WAN_CONS;
 			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.notify =
 				apps_ipa_packet_receive_notify;
-			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.desc_fifo_sz =
-				IPA_SYS_DESC_FIFO_SZ;
 			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.priv = dev;
+
+			rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.napi_enabled =
+				ipa3_rmnet_res.ipa_napi_enable;
+			if (rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.napi_enabled)
+				rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
+				desc_fifo_sz = IPA_WAN_CONS_DESC_FIFO_SZ;
+			else
+				rmnet_ipa3_ctx->ipa_to_apps_ep_cfg.
+				desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
 
 			mutex_lock(
 				&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
@@ -2126,6 +2150,9 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 	if (ipa3_rmnet_res.ipa_advertise_sg_support)
 		dev->hw_features |= NETIF_F_SG;
 
+	if (ipa3_rmnet_res.ipa_napi_enable)
+		netif_napi_add(dev, &(rmnet_ipa3_ctx->wwan_priv->napi),
+		       ipa3_rmnet_poll, NAPI_WEIGHT);
 	ret = register_netdev(dev);
 	if (ret) {
 		IPAWANERR("unable to register ipa_netdev %d rc=%d\n",
@@ -2149,6 +2176,8 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 	pr_info("rmnet_ipa completed initialization\n");
 	return 0;
 config_err:
+	if (ipa3_rmnet_res.ipa_napi_enable)
+		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
 	unregister_netdev(dev);
 set_perf_err:
 	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
@@ -2196,6 +2225,8 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 		IPAWANERR("Failed to teardown IPA->APPS pipe\n");
 	else
 		rmnet_ipa3_ctx->ipa3_to_apps_hdl = -1;
+	if (ipa3_rmnet_res.ipa_napi_enable)
+		netif_napi_del(&(rmnet_ipa3_ctx->wwan_priv->napi));
 	mutex_unlock(&rmnet_ipa3_ctx->ipa_to_apps_pipe_handle_guard);
 	unregister_netdev(IPA_NETDEV());
 	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
@@ -2901,6 +2932,22 @@ static void ipa3_wwan_msg_free_cb(void *buff, u32 len, u32 type)
 	if (!buff)
 		IPAWANERR("Null buffer.\n");
 	kfree(buff);
+}
+
+static void ipa3_rmnet_rx_cb(void *priv)
+{
+	IPAWANDBG_LOW("\n");
+	napi_schedule(&(rmnet_ipa3_ctx->wwan_priv->napi));
+}
+
+static int ipa3_rmnet_poll(struct napi_struct *napi, int budget)
+{
+	int rcvd_pkts = 0;
+
+	rcvd_pkts = ipa_rx_poll(rmnet_ipa3_ctx->ipa3_to_apps_hdl,
+					NAPI_WEIGHT);
+	IPAWANDBG_LOW("rcvd packets: %d\n", rcvd_pkts);
+	return rcvd_pkts;
 }
 
 late_initcall(ipa3_wwan_init);

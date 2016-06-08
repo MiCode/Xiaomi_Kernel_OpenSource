@@ -2654,6 +2654,37 @@ void ipa_assert(void)
 	BUG();
 }
 
+/**
+ * ipa_rx_poll() - Poll the rx packets from IPA HW in the
+ * softirq context
+ *
+ * @budget: number of packets to be polled in single iteration
+ *
+ * Return codes: >= 0  : Actual number of packets polled
+ *
+ */
+int ipa_rx_poll(u32 clnt_hdl, int budget)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_rx_poll, clnt_hdl, budget);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_rx_poll);
+
+/**
+ * ipa_recycle_wan_skb() - Recycle the Wan skb
+ *
+ * @skb: skb that needs to recycle
+ *
+ */
+void ipa_recycle_wan_skb(struct sk_buff *skb)
+{
+	IPA_API_DISPATCH(ipa_recycle_wan_skb, skb);
+}
+EXPORT_SYMBOL(ipa_recycle_wan_skb);
+
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,

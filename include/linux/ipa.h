@@ -93,6 +93,8 @@ enum ipa_aggr_mode {
 enum ipa_dp_evt_type {
 	IPA_RECEIVE,
 	IPA_WRITE_DONE,
+	IPA_CLIENT_START_POLL,
+	IPA_CLIENT_COMP_NAPI,
 };
 
 /**
@@ -538,6 +540,7 @@ struct ipa_ext_intf {
  * @skip_ep_cfg: boolean field that determines if EP should be configured
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
+ * @napi_enabled: when true, IPA call client callback to start polling
  */
 struct ipa_sys_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -547,6 +550,7 @@ struct ipa_sys_connect_params {
 	ipa_notify_cb notify;
 	bool skip_ep_cfg;
 	bool keep_ipa_awake;
+	bool napi_enabled;
 };
 
 /**
@@ -1233,6 +1237,8 @@ int ipa_tx_dp_mul(enum ipa_client_type dst,
 			struct ipa_tx_data_desc *data_desc);
 
 void ipa_free_skb(struct ipa_rx_data *);
+int ipa_rx_poll(u32 clnt_hdl, int budget);
+void ipa_recycle_wan_skb(struct sk_buff *skb);
 
 /*
  * System pipes
@@ -1761,6 +1767,15 @@ static inline int ipa_tx_dp_mul(
 static inline void ipa_free_skb(struct ipa_rx_data *rx_in)
 {
 	return;
+}
+
+static inline int ipa_rx_poll(u32 clnt_hdl, int budget)
+{
+	return -EPERM;
+}
+
+static inline void ipa_recycle_wan_skb(struct sk_buff *skb)
+{
 }
 
 /*

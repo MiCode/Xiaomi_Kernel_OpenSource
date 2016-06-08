@@ -5128,7 +5128,8 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa2_set_required_perf_profile;
 	api_ctrl->ipa_get_ipc_logbuf = ipa2_get_ipc_logbuf;
 	api_ctrl->ipa_get_ipc_logbuf_low = ipa2_get_ipc_logbuf_low;
-
+	api_ctrl->ipa_rx_poll = ipa2_rx_poll;
+	api_ctrl->ipa_recycle_wan_skb = ipa2_recycle_wan_skb;
 
 	return 0;
 }
