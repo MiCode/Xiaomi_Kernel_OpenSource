@@ -110,7 +110,9 @@ dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-v2-sim.dtb \
 	msmcobalt-v2-rumi.dtb \
 	msmcobalt-v2-mtp.dtb \
-	msmcobalt-v2-cdp.dtb
+	msmcobalt-v2-cdp.dtb \
+	apqcobalt-mtp.dtb \
+	apqcobalt-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MSMHAMSTER) += msmhamster-rumi.dtb
 
