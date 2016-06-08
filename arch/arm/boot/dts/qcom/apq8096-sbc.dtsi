@@ -411,6 +411,10 @@
 	status = "disabled";
 };
 
+&pcie2 {
+	/delete-property/ qcom,ep-wakeirq;
+};
+
 &pm8994_mpps {
 	mpp@a100 { /* MPP 2 */
 		qcom,mode = <0>;		/* DIGITAL INPUT */
