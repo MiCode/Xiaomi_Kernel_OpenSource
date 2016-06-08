@@ -30,7 +30,6 @@
 #include <linux/mempolicy.h>
 #include <linux/migrate.h>
 #include <linux/task_work.h>
-#include <linux/ratelimit.h>
 
 #include "sched.h"
 #include <trace/events/sched.h>
@@ -121,19 +120,6 @@ unsigned int __read_mostly sysctl_sched_shares_window = 10000000UL;
   */
 unsigned int sysctl_sched_cfs_bandwidth_slice = 5000UL;
 #endif
-
-#ifdef CONFIG_SCHEDSTATS
-unsigned int sysctl_sched_latency_panic_threshold;
-unsigned int sysctl_sched_latency_warn_threshold;
-
-struct sched_max_latency {
-	unsigned int latency_us;
-	char comm[TASK_COMM_LEN];
-	pid_t pid;
-};
-
-static DEFINE_PER_CPU(struct sched_max_latency, sched_max_latency);
-#endif /* CONFIG_SCHEDSTATS */
 
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
@@ -780,79 +766,6 @@ static void update_stats_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se,
 		update_stats_wait_start(cfs_rq, se, migrating);
 }
 
-#ifdef CONFIG_SCHEDSTATS
-int sched_max_latency_sysctl(struct ctl_table *table, int write,
-			     void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	int ret = 0;
-	int i, cpu = nr_cpu_ids;
-	char msg[256];
-	unsigned long flags;
-	struct rq *rq;
-	struct sched_max_latency max, *lat;
-
-	if (!write) {
-		max.latency_us = 0;
-		for_each_possible_cpu(i) {
-			rq = cpu_rq(i);
-			raw_spin_lock_irqsave(&rq->lock, flags);
-
-			lat = &per_cpu(sched_max_latency, i);
-			if (max.latency_us < lat->latency_us) {
-				max = *lat;
-				cpu = i;
-			}
-
-			raw_spin_unlock_irqrestore(&rq->lock, flags);
-		}
-
-		if (cpu != nr_cpu_ids) {
-			table->maxlen =
-			    snprintf(msg, sizeof(msg),
-				     "cpu%d comm=%s pid=%u latency=%u(us)",
-				     cpu, max.comm, max.pid, max.latency_us);
-			table->data = msg;
-			ret = proc_dostring(table, write, buffer, lenp, ppos);
-		}
-	} else {
-		for_each_possible_cpu(i) {
-			rq = cpu_rq(i);
-			raw_spin_lock_irqsave(&rq->lock, flags);
-
-			memset(&per_cpu(sched_max_latency, i), 0,
-			       sizeof(struct sched_max_latency));
-
-			raw_spin_unlock_irqrestore(&rq->lock, flags);
-		}
-	}
-
-	return ret;
-}
-
-static inline void check_for_high_latency(struct task_struct *p, u64 latency_us)
-{
-	int do_warn, do_panic;
-	const char *fmt = "excessive latency comm=%s pid=%d latency=%llu(us)\n";
-	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
-				      DEFAULT_RATELIMIT_BURST);
-
-	do_warn = (sysctl_sched_latency_warn_threshold &&
-		   latency_us > sysctl_sched_latency_warn_threshold);
-	do_panic = (sysctl_sched_latency_panic_threshold &&
-		    latency_us > sysctl_sched_latency_panic_threshold);
-	if (unlikely(do_panic || (do_warn && __ratelimit(&rs)))) {
-		if (do_panic)
-			panic(fmt, p->comm, p->pid, latency_us);
-		else
-			printk_deferred(fmt, p->comm, p->pid, latency_us);
-	}
-}
-#else
-static inline void check_for_high_latency(struct task_struct *p, u64 latency)
-{
-}
-#endif
-
 static void
 update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se,
 		      bool migrating)
@@ -871,21 +784,8 @@ update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se,
 			rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start);
 #ifdef CONFIG_SCHEDSTATS
 	if (entity_is_task(se)) {
-		u64 delta;
-		struct sched_max_latency *max;
-
-		delta = rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start;
-		trace_sched_stat_wait(task_of(se), delta);
-
-		delta = delta >> 10;
-		max = this_cpu_ptr(&sched_max_latency);
-		if (max->latency_us < delta) {
-			max->latency_us = delta;
-			max->pid = task_of(se)->pid;
-			memcpy(max->comm, task_of(se)->comm, TASK_COMM_LEN);
-		}
-
-		check_for_high_latency(task_of(se), delta);
+		trace_sched_stat_wait(task_of(se),
+			rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start);
 	}
 #endif
 	schedstat_set(se->statistics.wait_start, 0);
@@ -2462,13 +2362,6 @@ unsigned int __read_mostly sched_enable_hmp = 0;
 unsigned int __read_mostly sysctl_sched_spill_nr_run = 10;
 
 /*
- * Control whether or not individual CPU power consumption is used to
- * guide task placement.
- * This sysctl can be set to a default value using boot command line arguments.
- */
-unsigned int __read_mostly sysctl_sched_enable_power_aware = 0;
-
-/*
  * Place sync wakee tasks those have less than configured demand to the waker's
  * cluster.
  */
@@ -2493,18 +2386,6 @@ unsigned int __read_mostly sysctl_sched_prefer_sync_wakee_to_waker;
  */
 unsigned int __read_mostly sched_spill_load;
 unsigned int __read_mostly sysctl_sched_spill_load_pct = 100;
-
-/*
- * Tasks with demand >= sched_heavy_task will have their
- * window-based demand added to the previous window's CPU
- * time when they wake up, if they have slept for at least
- * one full window. This feature is disabled when the tunable
- * is set to 0 (the default).
- */
-#ifdef CONFIG_SCHED_FREQ_INPUT
-unsigned int __read_mostly sysctl_sched_heavy_task_pct;
-unsigned int __read_mostly sched_heavy_task;
-#endif
 
 /*
  * Tasks whose bandwidth consumption on a cpu is more than
@@ -2596,8 +2477,6 @@ void set_hmp_defaults(void)
 	update_up_down_migrate();
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
-	sched_heavy_task =
-		pct_to_real(sysctl_sched_heavy_task_pct);
 	sched_major_task_runtime =
 		mult_frac(sched_ravg_window, MAJOR_TASK_PCT, 100);
 #endif
@@ -2837,8 +2716,7 @@ unsigned int power_cost(int cpu, u64 demand)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned int pc;
 
-	if (!per_cpu_info || !per_cpu_info[cpu].ptable ||
-	    !sysctl_sched_enable_power_aware)
+	if (!per_cpu_info || !per_cpu_info[cpu].ptable)
 		/* When power aware scheduling is not in use, or CPU
 		 * power data is not available, just use the CPU
 		 * capacity as a rough stand-in for real CPU power
@@ -3815,12 +3693,6 @@ DEFINE_MUTEX(policy_mutex);
 #ifdef CONFIG_SCHED_FREQ_INPUT
 static inline int invalid_value_freq_input(unsigned int *data)
 {
-	if (data == &sysctl_sched_migration_fixup)
-		return !(*data == 0 || *data == 1);
-
-	if (data == &sysctl_sched_freq_account_wait_time)
-		return !(*data == 0 || *data == 1);
-
 	if (data == &sysctl_sched_freq_aggregate)
 		return !(*data == 0 || *data == 1);
 
@@ -3843,16 +3715,12 @@ static inline int invalid_value(unsigned int *data)
 	if (data == &sysctl_sched_window_stats_policy)
 		return val >= WINDOW_STATS_INVALID_POLICY;
 
-	if (data == &sysctl_sched_account_wait_time)
-		return !(val == 0 || val == 1);
-
 	return invalid_value_freq_input(data);
 }
 
 /*
  * Handle "atomic" update of sysctl_sched_window_stats_policy,
- * sysctl_sched_ravg_hist_size, sysctl_sched_account_wait_time and
- * sched_freq_legacy_mode variables.
+ * sysctl_sched_ravg_hist_size and sched_freq_legacy_mode variables.
  */
 int sched_window_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
@@ -4080,8 +3948,6 @@ unsigned int cpu_temp(int cpu)
 }
 
 #else	/* CONFIG_SCHED_HMP */
-
-#define sysctl_sched_enable_power_aware 0
 
 static inline int task_will_fit(struct task_struct *p, int cpu)
 {
@@ -7925,9 +7791,7 @@ bail_inter_cluster_balance(struct lb_env *env, struct sd_lb_stats *sds)
 	local_pwr_cost = cpu_max_power_cost(local_cpu);
 	busiest_pwr_cost = cpu_max_power_cost(busiest_cpu);
 
-	if (local_capacity < busiest_capacity ||
-			(local_capacity == busiest_capacity &&
-			local_pwr_cost <= busiest_pwr_cost))
+	if (local_pwr_cost <= busiest_pwr_cost)
 		return 0;
 
 	if (local_capacity > busiest_capacity &&
@@ -9603,9 +9467,6 @@ static inline int find_new_hmp_ilb(int type)
 		for_each_cpu_and(ilb, nohz.idle_cpus_mask,
 						sched_domain_span(sd)) {
 			if (idle_cpu(ilb) && (type != NOHZ_KICK_RESTRICT ||
-					(hmp_capable() &&
-					 cpu_max_possible_capacity(ilb) <=
-					cpu_max_possible_capacity(call_cpu)) ||
 					cpu_max_power_cost(ilb) <=
 					cpu_max_power_cost(call_cpu))) {
 				rcu_read_unlock();
@@ -9922,8 +9783,7 @@ static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
 	if (!sysctl_sched_restrict_cluster_spill || sched_boost())
 		return 1;
 
-	if (hmp_capable() && cpu_max_possible_capacity(cpu) ==
-			max_possible_capacity)
+	if (cpu_max_power_cost(cpu) == max_power_cost)
 		return 1;
 
 	rcu_read_lock();
