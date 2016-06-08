@@ -958,6 +958,8 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 	vsync_time = ktime_get();
 	ctl->vsync_cnt++;
 
+	mdss_debug_frc_add_vsync_sample(ctl, vsync_time);
+
 	MDSS_XLOG(ctl->num, ctl->vsync_cnt, ctl->vsync_cnt);
 
 	pr_debug("intr ctl=%d vsync cnt=%u vsync_time=%d\n",
