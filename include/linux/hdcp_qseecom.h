@@ -108,9 +108,15 @@ struct hdcp_client_ops {
 	int (*wakeup)(struct hdmi_hdcp_wakeup_data *data);
 };
 
+enum hdcp_device_type {
+	HDCP_TXMTR_HDMI = 0x8001,
+	HDCP_TXMTR_DP = 0x8002
+};
+
 struct hdcp_register_data {
 	struct hdcp_client_ops *client_ops;
 	struct hdcp_txmtr_ops *txmtr_ops;
+	enum hdcp_device_type device_type;
 	void *client_ctx;
 	void **hdcp_ctx;
 	bool tethered;

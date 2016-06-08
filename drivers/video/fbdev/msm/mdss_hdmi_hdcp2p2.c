@@ -1041,6 +1041,7 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 	register_data.hdcp_ctx = &ctrl->lib_ctx;
 	register_data.client_ops = &client_ops;
 	register_data.txmtr_ops = &txmtr_ops;
+	register_data.device_type = HDCP_TXMTR_HDMI;
 	register_data.client_ctx = ctrl;
 	register_data.tethered = ctrl->tethered;
 
