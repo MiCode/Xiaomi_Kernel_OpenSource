@@ -31,7 +31,7 @@
 	gpio@c100 {
 		qcom,mode = <0>;
 		qcom,vin-sel = <3>;
-		qcom,dtest-sel = <2>;
+		qcom,dtest-sel = <1>;
 		status = "okay";
 	};
 
