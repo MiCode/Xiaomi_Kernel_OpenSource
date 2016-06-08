@@ -1554,5 +1554,110 @@
 				bias-disable;
 			};
 		};
+
+		mdss_hdmi_5v_active: mdss_hdmi_5v_active {
+			mux {
+				pins = "gpio133";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio133";
+				bias-pull-up;
+				drive-strength = <16>;
+			};
+		};
+
+		mdss_hdmi_5v_suspend: mdss_hdmi_5v_suspend {
+			mux {
+				pins = "gpio133";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio133";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+
+		mdss_hdmi_hpd_active: mdss_hdmi_hpd_active {
+			mux {
+				pins = "gpio34";
+				function = "hdmi_hot";
+			};
+
+			config {
+				pins = "gpio34";
+				bias-pull-down;
+				drive-strength = <16>;
+			};
+		};
+
+		mdss_hdmi_hpd_suspend: mdss_hdmi_hpd_suspend {
+			mux {
+				pins = "gpio34";
+				function = "hdmi_hot";
+			};
+
+			config {
+				pins = "gpio34";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		mdss_hdmi_ddc_active: mdss_hdmi_ddc_active {
+			mux {
+				pins = "gpio32", "gpio33";
+				function = "hdmi_ddc";
+			};
+
+			config {
+				pins = "gpio32", "gpio33";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_ddc_suspend: mdss_hdmi_ddc_suspend {
+			mux {
+				pins = "gpio32", "gpio33";
+				function = "hdmi_ddc";
+			};
+
+			config {
+				pins = "gpio32", "gpio33";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_cec_active: mdss_hdmi_cec_active {
+			mux {
+				pins = "gpio31";
+				function = "hdmi_cec";
+			};
+
+			config {
+				pins = "gpio31";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		mdss_hdmi_cec_suspend: mdss_hdmi_cec_suspend {
+			mux {
+				pins = "gpio31";
+				function = "hdmi_cec";
+			};
+
+			config {
+				pins = "gpio31";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
 	};
 };
