@@ -2252,6 +2252,15 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	}
 
 	if (of_property_read_bool(spmi->dev.of_node,
+					"qcom,pon-reset-off")) {
+		rc = qpnp_pon_trigger_config(PON_CBLPWR_N, false);
+		if (rc) {
+			dev_err(&spmi->dev, "failed update the PON_CBLPWR %d\n",
+				rc);
+		}
+	}
+
+	if (of_property_read_bool(spmi->dev.of_node,
 					"qcom,secondary-pon-reset")) {
 		if (sys_reset) {
 			dev_err(&spmi->dev, "qcom,system-reset property shouldn't be used along with qcom,secondary-pon-reset property\n");
