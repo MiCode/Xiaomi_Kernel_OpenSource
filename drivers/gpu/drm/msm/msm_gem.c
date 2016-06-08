@@ -649,6 +649,7 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 				dma_unmap_sg(mmu->dev, msm_obj->sgt->sgl,
 					msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
 			}
+			msm_obj->domain[id].iova = 0;
 		}
 	}
 
@@ -659,12 +660,15 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 		/* Don't drop the pages for imported dmabuf, as they are not
 		 * ours, just free the array we allocated:
 		 */
-		if (msm_obj->pages)
+		if (msm_obj->pages) {
 			drm_free_large(msm_obj->pages);
+			msm_obj->pages = NULL;
+		}
 
 		drm_prime_gem_destroy(obj, msm_obj->sgt);
 	} else {
-		vunmap(msm_obj->vaddr);
+		if (msm_obj->vaddr)
+			vunmap(msm_obj->vaddr);
 		put_pages(obj);
 	}
 
