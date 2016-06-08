@@ -2117,7 +2117,7 @@ static int msm_compr_get_caps(struct snd_compr_stream *cstream,
 		memcpy(arg, &prtd->compr_cap, sizeof(struct snd_compr_caps));
 	} else {
 		ret = -EINVAL;
-		pr_err("%s: arg (0x%p), prtd (0x%p)\n", __func__, arg, prtd);
+		pr_err("%s: arg (0x%pK), prtd (0x%pK)\n", __func__, arg, prtd);
 	}
 
 	return ret;
@@ -2712,10 +2712,10 @@ static int msm_compr_app_type_cfg_put(struct snd_kcontrol *kcontrol,
 	acdb_dev_id = ucontrol->value.integer.value[1];
 	if (0 != ucontrol->value.integer.value[2])
 		sample_rate = ucontrol->value.integer.value[2];
-	pr_debug("%s: app_type- %d acdb_dev_id- %d sample_rate- %d\n",
-		__func__, app_type, acdb_dev_id, sample_rate);
+	pr_debug("%s: app_type- %d acdb_dev_id- %d sample_rate- %d session_type- %d\n",
+		__func__, app_type, acdb_dev_id, sample_rate, SESSION_TYPE_RX);
 	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type,
-						acdb_dev_id, sample_rate);
+			acdb_dev_id, sample_rate, SESSION_TYPE_RX);
 
 	return 0;
 }
@@ -2737,8 +2737,8 @@ static int msm_compr_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 		goto done;
 	}
 
-	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, &app_type,
-		&acdb_dev_id, &sample_rate);
+	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, SESSION_TYPE_RX,
+		&app_type, &acdb_dev_id, &sample_rate);
 	if (ret < 0) {
 		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
 			__func__, ret);
@@ -2748,8 +2748,9 @@ static int msm_compr_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] = app_type;
 	ucontrol->value.integer.value[1] = acdb_dev_id;
 	ucontrol->value.integer.value[2] = sample_rate;
-	pr_debug("%s: fedai_id %llu, app_type %d, acdb_dev_id %d, sample_rate %d\n",
-		__func__, fe_id, app_type, acdb_dev_id, sample_rate);
+	pr_debug("%s: fedai_id %llu, session_type %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
+		__func__, fe_id, SESSION_TYPE_RX,
+		app_type, acdb_dev_id, sample_rate);
 done:
 	return ret;
 }

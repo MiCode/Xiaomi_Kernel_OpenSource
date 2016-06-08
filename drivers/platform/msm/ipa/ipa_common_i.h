@@ -16,6 +16,7 @@
 #ifndef _IPA_COMMON_I_H_
 #define _IPA_COMMON_I_H_
 #include <linux/ipc_logging.h>
+#include <linux/ipa.h>
 
 #define __FILENAME__ \
 	(strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -265,6 +266,18 @@ struct ipa_mhi_connect_params_internal {
 	struct ipa_sys_connect_params *sys;
 	u8 channel_id;
 	struct start_mhi_channel start;
+};
+
+/**
+ * struct ipa_hdr_offset_entry - IPA header offset entry
+ * @link: entry's link in global header offset entries list
+ * @offset: the offset
+ * @bin: bin
+ */
+struct ipa_hdr_offset_entry {
+	struct list_head link;
+	u32 offset;
+	u32 bin;
 };
 
 extern const char *ipa_clients_strings[];

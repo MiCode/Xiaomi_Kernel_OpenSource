@@ -1601,6 +1601,7 @@ module_param(rcu_idle_lazy_gp_delay, int, 0644);
 
 extern int tick_nohz_active;
 
+#ifndef CONFIG_RCU_NOCB_CPU_ALL
 /*
  * Does the specified flavor of RCU have non-lazy callbacks pending on
  * the specified CPU?  Both RCU flavor and CPU are specified by the
@@ -1642,7 +1643,7 @@ static bool rcu_cpu_has_nonlazy_callbacks(int cpu)
 	       __rcu_cpu_has_nonlazy_callbacks(&per_cpu(rcu_bh_data, cpu)) ||
 	       rcu_preempt_cpu_has_nonlazy_callbacks(cpu);
 }
-
+#endif
 /*
  * Allow the CPU to enter dyntick-idle mode if either: (1) There are no
  * callbacks on this CPU, (2) this CPU has not yet attempted to enter

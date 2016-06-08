@@ -79,6 +79,11 @@ enum adv7481_gpio_t {
 struct adv7481_state {
 	struct device *dev;
 
+	/* VREG */
+	struct camera_vreg_t *cci_vreg;
+	struct regulator *cci_reg_ptr[MAX_REGULATOR];
+	int32_t regulator_count;
+
 	/* I2C */
 	struct msm_camera_i2c_client i2c_client;
 	u32 cci_master;
@@ -2043,11 +2048,13 @@ err_cci_init:
 	return ret;
 }
 
-static int adv7481_parse_dt(struct adv7481_state *state)
+static int adv7481_parse_dt(struct platform_device *pdev,
+			struct adv7481_state *state)
 {
 	struct device_node *np = state->dev->of_node;
 	uint32_t i = 0;
 	int gpio_count = 0;
+	struct resource *adv_addr_res = NULL;
 	int ret = 0;
 
 	/* config CCI */
@@ -2059,13 +2066,12 @@ static int adv7481_parse_dt(struct adv7481_state *state)
 		goto exit;
 	}
 	pr_debug("%s: cci_master: 0x%x\n", __func__, state->cci_master);
-	ret = of_property_read_u32(np, "qcom,slave-addr",
-			&state->i2c_slave_addr);
-	if (ret < 0) {
-		pr_err("%s: failed to read slave-addr. ret %d\n",
-			__func__, ret);
+	adv_addr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!adv_addr_res) {
+		pr_err("%s: failed to read adv7481 resource.\n", __func__);
 		goto exit;
 	}
+	state->i2c_slave_addr = adv_addr_res->start;
 	pr_debug("%s: i2c_slave_addr: 0x%x\n", __func__, state->i2c_slave_addr);
 	state->i2c_io_addr = (uint8_t)state->i2c_slave_addr;
 
@@ -2123,7 +2129,7 @@ static int adv7481_probe(struct platform_device *pdev)
 	state->dev = &pdev->dev;
 
 	mutex_init(&state->mutex);
-	ret = adv7481_parse_dt(state);
+	ret = adv7481_parse_dt(pdev, state);
 	if (ret < 0) {
 		pr_err("Error parsing dt tree\n");
 		goto err_mem_free;
@@ -2134,6 +2140,31 @@ static int adv7481_probe(struct platform_device *pdev)
 		pr_err("%s: failed adv7481_cci_init ret %d\n", __func__, ret);
 		goto err_mem_free;
 	}
+
+	/* config VREG */
+	ret = msm_camera_get_dt_vreg_data(pdev->dev.of_node,
+			&(state->cci_vreg), &(state->regulator_count));
+	if (ret < 0) {
+		pr_err("%s:cci get_dt_vreg failed\n", __func__);
+		goto err_mem_free;
+	}
+
+	ret = msm_camera_config_vreg(&pdev->dev, state->cci_vreg,
+			state->regulator_count, NULL, 0,
+			&state->cci_reg_ptr[0], 1);
+	if (ret < 0) {
+		pr_err("%s:cci config_vreg failed\n", __func__);
+		goto err_mem_free;
+	}
+
+	ret = msm_camera_enable_vreg(&pdev->dev, state->cci_vreg,
+			state->regulator_count, NULL, 0,
+			&state->cci_reg_ptr[0], 1);
+	if (ret < 0) {
+		pr_err("%s:cci enable_vreg failed\n", __func__);
+		goto err_mem_free;
+	}
+	pr_debug("%s - VREG Initialized...\n", __func__);
 
 	/* Configure and Register V4L2 Sub-device */
 	sd = &state->sd;
