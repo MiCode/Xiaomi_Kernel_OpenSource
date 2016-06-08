@@ -467,6 +467,8 @@
 		qcom,vin-sel = <0>;		/* VPH_PWR */
 		qcom,master-en = <1>;		/* Enable GPIO */
 		status = "okay";
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,invert = <0>;
 	};
 };
 
@@ -582,20 +584,31 @@
 	};
 };
 
-&spmi_bus {
-	qcom,pmi8994@0 {
-		compatible = "qcom,leds-qpnp";
+&green_led {
+	linux,name = "UserLED0";
+};
 
+&blue_led {
+	linux,name = "UserLED1";
+};
+
+&red_led {
+	linux,name = "UserLED2";
+};
+
+&spmi_bus {
+	qcom,pmi8994@2 {
 		qcom,leds@a100 { /* user3 LED */
+			compatible = "qcom,leds-qpnp";
 			reg = <0xa100 0x100>;
 			status = "okay";
 			qcom,led_pmi_mpp_2 {
 				label = "mpp";
-				linux,name = "user3";
+				linux,name = "UserLED3";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
 				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
+				qcom,mode-ctrl = <0x60>;
 				qcom,mode = "manual";
 				linux,default-trigger =
 					"none";
@@ -607,15 +620,16 @@
 		compatible = "qcom,leds-qpnp";
 
 		qcom,leds@a100 { /* wifi LED */
+			compatible = "qcom,leds-qpnp";
 			reg = <0xa100 0x100>;
 			status = "okay";
 			qcom,led_mpp_2 {
 				label = "mpp";
-				linux,name = "wifi";
+				linux,name = "WiFi_LED";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
 				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
+				qcom,mode-ctrl = <0x60>;
 				qcom,mode = "manual";
 				linux,default-trigger =
 					"wifi-indication-led";
@@ -623,15 +637,16 @@
 		};
 
 		qcom,leds@a300 { /* BT LED */
+		    compatible = "qcom,leds-qpnp";
 			reg = <0xa300 0x100>;
 			status = "okay";
 			qcom,led_mpp_4 {
 				label = "mpp";
-				linux,name = "bt";
+				linux,name = "BT_LED";
 				qcom,max-current = <40>;
 				qcom,id = <6>;
 				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x10>;
+				qcom,mode-ctrl = <0x60>;
 				qcom,mode = "manual";
 				linux,default-trigger =
 					"bt-indication-led";
